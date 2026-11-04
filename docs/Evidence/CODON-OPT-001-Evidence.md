@@ -123,10 +123,10 @@
 - Implementation uses RNA notation (U not T)
 - Automatically converts T → U
 - Trims to complete codons
-- GC content balancing in BalancedOptimization strategy (40-60% target)
+- GC content balancing in BalancedOptimization strategy (40-60% target); global by default, per sliding window with `gcWindow` / MCP `gc_window` (review 2026-09 F43)
 - BalancedOptimization rebuilds Changes list after GC balancing to reflect all modifications
 - CAI via the canonical CodonUsageAnalyzer core: Met/Trp and stops not scored, w < 0.0001 → 0.01 (CodonW `cai_out`) — review 2026-09, CODON-CAI-001 F12/F13
-- MinimizeSecondary strategy delegates to BalancedOptimization in codon selection; dedicated `ReduceSecondaryStructure` method handles secondary structure reduction separately
+- MinimizeSecondary strategy uses the BalancedOptimization codon selection and GC pass and then runs the `ReduceSecondaryStructure` structure pass (review 2026-09 F42; it previously stopped after the GC pass)
 
 ## Review 2026-09 (campaign review-2026-09, batch B02)
 
@@ -148,6 +148,32 @@
 | reference set `ATGAAAGCGTTCAAGCGTACTGCGATGCCCAAAGGGTTTTAA` → relative adaptiveness | Biopython `CodonAdaptationIndex` | AAA 1.0, AAG 0.5, GCG 1.0, GCT 0.25, TTT 1.0, TTC 1.0, CGT 1.0, AGA 0.5, TAA 1.0, TAG 0.5 | identical (w = f / max f from the built table) |
 | 43-nt window MFE cost (why the structure pass stays a heuristic) | `RnaSecondaryStructure.CalculateMinimumFreeEnergy` | ≈6.0 ms/window (Release) | — |
 
+### Numeric cross-checks (2026-10-14, F41/F42 — Turner 2004 window scoring)
+
+Reference implementation: ViennaRNA 2.7.2 (Python `RNA`), `md = RNA.md(); md.dangles = 2` (the RNAfold default), `RNA.fold_compound(window, md).mfe()`. Energy model: NNDB Turner 2004, evaluated here by the canonical engine `RnaSecondaryStructure.CalculateMinimumFreeEnergy` (owned by B12, locked against NNDB).
+
+| 45-nt window | ViennaRNA 2.7.2 (dangles=2) | Seqeron | Δ |
+|---|---|---|---|
+| gene A [0..45) `AUGGGCGGC…GGC` | −25.80 | −25.82 | 0.02 |
+| gene A [3..48) `GGCGGCGGC…GGC` | −29.00 | −29.34 | 0.34 |
+| gene A [6..51) `GGCGGC…GGCAAG` | −26.50 | −25.82 | 0.68 |
+| gene B [0..45) `AUGAAACUGGCA…CUG` | −9.20 | −9.22 | 0.02 |
+| gene B [3..48) `AAACUGGCA…CGU` | −14.00 | −13.44 | 0.56 |
+| gene B [6..51) `CUGGCAGAU…CAG` | −14.00 | −13.82 | 0.18 |
+
+Over 40 random windows (20–60 nt, seed 42): mean |Δ| 0.50 kcal/mol, max 2.24, identical MFE dot-bracket in 30/40. The residual is the engine's documented open deviation (RNA-STRUCT-001 Evidence D3/D4: NNDB int21/int22 lookup tables not inlined), not a model difference; the tests lock our values exactly and assert agreement with ViennaRNA within 1.0 kcal/mol on the six windows above.
+
+| Case | Reference | Reference value | Seqeron |
+|---|---|---|---|
+| DNA Chisel free-energy objective | dnachisel 3.2.16 (installed) | none — `AvoidHairpins` is the IDT reverse-complement stem rule; no module references ViennaRNA, `RNA.fold` or a free energy | energy model sourced from ViennaRNA RNAfold / NNDB instead |
+| Single fold, 43-nt window | `RnaSecondaryStructure.CalculateMinimumFreeEnergy` (Release) | 4.42 ms | — |
+| `ReduceSecondaryStructure` on a 999-nt CDS, `PairCount` | this implementation (Release) | 0.06 s | — |
+| `ReduceSecondaryStructure` on a 999-nt CDS, `Turner2004Mfe` | this implementation (Release, memoised windows) | 9.02 s, 193 codons changed, summed 45-nt window MFE −2559.46 → −984.27 kcal/mol, worst window −22.79 → −11.56 | — |
+| Turner pass, gene A (111 nt) | this implementation | summed window MFE −477.92 → −144.26, worst −37.34 → −16.04 kcal/mol, protein unchanged | — |
+| Turner pass, gene B (99 nt) | this implementation | summed window MFE −252.88 → −96.45, worst −17.00 → −7.18 kcal/mol, protein unchanged | — |
+
+Default: `PairCount` stays the default of `ReduceSecondaryStructure` and of the MinimizeSecondary strategy — it is ~150× cheaper (0.06 s vs 9.02 s per kilobase) and is the historical behaviour; `Turner2004Mfe` is the sourced energy model and is selected per call (`scoring` / `secondaryScoring`, MCP `scoring` / `secondary_scoring`).
+
 ### Behaviour changes locked by tests
 
 - `MaximizeCAI` ties broken by NCBI codon order (deterministic; Biopython only warns on ties).
@@ -156,7 +182,347 @@
 - GC pass: no neutral swaps, no overshoot-without-alternative, stops on entering the window, frequency floor = `rareCodonThreshold`.
 - `RemoveRestrictionSites`: one codon per occurrence, highest-frequency substitution, IUPAC sites, both strands.
 - `ReduceSecondaryStructure`: canonical `RnaSecondaryStructure.CanPair` (G·U wobble), re-evaluated baseline, normalised RNA output.
+- `ReduceSecondaryStructure`: opt-in `Turner2004Mfe` scoring (Turner 2004 window MFE, maximised), memoised window folds, `maxFoldEvaluations` budget; default `PairCount` behaviour unchanged (F41).
+- `MinimizeSecondary`: runs the structure pass after the GC pass; output differs from BalancedOptimization on structured sequences (F42).
+- Windowed GC constraint (F43): `EvaluateGcContent` equals dnachisel's `EnforceGCContent(...).evaluate(problem)` (score, breaching window starts, grouped breach segments) and `OptimizeSequence(..., gcWindow: w)` repairs every window where that is achievable; default (`gcWindow = null`) global behaviour unchanged.
 - `CreateCodonTableFromSequence`: Sharp & Li / Biopython 0.5 pseudo-count, all 64 codons, Standard-code `CodonToAminoAcid`.
 
+### Review 2026-09 — F43: windowed GC constraint (audit A1-7)
+
+#### Sources actually opened
+
+| Source | What was opened | What it establishes |
+|---|---|---|
+| DNA Chisel 3.2.16 (installed, executed) | `dnachisel/builtin_specifications/EnforceGCContent.py` | `evaluate` = "sum of breaches extent for all windowed breaches": per window `max(0, mini-gc) + max(0, gc-maxi)`, `score = -breaches.sum()`, breach starts = `(breaches > 0).nonzero()`, one breach → `[start, start+window]`, several → `group_nearby_segments(segments, max_start_spread=max(1, locations_span=50))` → `(group[0][0], group[-1][-1])`; windowless mode reports the whole location |
+| DNA Chisel 3.2.16 | `dnachisel/biotools/gc_content.py` | Sliding GC via cumulative sums: window `i` = `sequence[i : i+window_size]`, `len(sequence) - window_size + 1` values, fraction = GC/window (so both bounds are inclusive; a window longer than the sequence yields no values) |
+| DNA Chisel 3.2.16 | `dnachisel/biotools/indices_operations.py` (`group_nearby_segments`) | Grouping rule used for the breach locations (`seg[0] - current_group[0][0] < max_start_spread`) |
+| DNA Chisel 3.2.16 (executed) | `DnaOptimizationProblem(constraints=[EnforceTranslation, EnforceGCContent(window=20)]).resolve_constraints()` | Feasibility reference: solvable for the mixed gene only by also mutating the stop codon (TAA→TAG); `NoSolutionError` for the AT-rich, GC-rich and two-segment genes |
+
+#### Numeric cross-checks (2026-10-14) — bounds 0.40/0.60
+
+| Sequence (DNA) | window | dnachisel score | Seqeron `EvaluateGcContent` | breach segments (both) |
+|---|---|---|---|---|
+| `ATGAAAGAAAAAATTCTTAAAGGCGGCGGCGCGGCGGCCATGAAAAAATTTTAA` (mixed, 54 nt) | 20 | −4.25 | −4.25 | 0-54 (starts 0–7, 13–27, 33, 34) |
+| same | none | −0.0 | 0 | — ("Passed !") |
+| same | 9 (bounds 0.30/0.70) | −7.655555555556 | identical | 0-54 |
+| `ATGGCCGCCGCCGCGGCGGCCCTGCTGCTGCGCCGCGGCGGCGCCGCCTGA` (GC-rich, 51 nt) | 20 | −9.45 | −9.45 | 0-51 |
+| same | none | −0.262745098039 | identical | 0-51 |
+| `ATGAAATTTAAA…TTTTAA` (AT-rich, 54 nt) | 20 | −13.85 | −13.85 | 0-54 |
+| same | none | −0.381481481481 | identical | 0-54 |
+| AT-rich flanks + balanced middle (two-segment, 177 nt) | 20 | −20.1 | −20.1 | 0-51, 125-177 (two groups) |
+| `ATG(AAAGAA)×7TAA` (M-(KE)₇-*, 48 nt) | 20 / 30 | −6.7 / −4.366667 | identical | 0-48 |
+| `ATG(GGCAGC)×7TAA` (M-(GS)₇-*, 48 nt) | 20 / 30 | −6.4 / −4.166667 | identical | 0-48 |
+
+#### Repair results (dnachisel `EnforceGCContent(0.40, 0.60, window=w).evaluate` applied to **our** output)
+
+| Input | mode | output | dnachisel score of output |
+|---|---|---|---|
+| M-(KE)₇-* | `gcWindow: 20` | `AUGAAAGAGAAGGAGAAGGAGAAAGAGAAGGAGAAGGAGAAAGAGUAA` (11 codons changed) | **0** (input −6.7) |
+| M-(KE)₇-* | `gcWindow: 30` | `AUGAAAGAAAAGGAGAAGGAGAAGGAGAAGGAGAAAGAGAAAGAGUAA` | **0** at w=30 (input −4.366667) |
+| M-(GS)₇-* | `gcWindow: 20` | `AUGGGCUCUGGUUCUGGUUCUGGCUCUGGUUCUGGUUCUGGCAGCUAA` (10 codons changed) | **0** (input −6.4) |
+| M-(GS)₇-* | default (global) | `AUGGGUUCUGGUUCUGGUUCUGGUUCUGGCAGCGGCAGCGGCAGCUAA` | −1.5 at w=20 (global GC pass satisfies the global bounds only) |
+| AT-rich (Lys/Phe only) | `gcWindow: 20` | `AUGAAGUUCAAG…UUCUAA` | −2.4 (input −13.85); unreachable — dnachisel's own solver: `NoSolutionError` |
+| GC-rich | `gcWindow: 20` | `AUGGCAGCAGCA…GCAUGA` | −2.0 (input −9.45); unreachable (`NoSolutionError`) |
+| two-segment (177 nt) | `gcWindow: 20` | see tests | −2.6 (input −20.1; global-only default: −32.45); unreachable (`NoSolutionError`) |
+| mixed | `gcWindow: 20` | `AUGAAGGAGAAGAUCCUGAAAGGUGGUGGUGCAGCAGCGAUGAAGAAGUUCUAA` | −0.2 (input −4.25); dnachisel reaches 0 only by mutating the stop codon TAA→TAG and using codons below our `rareCodonThreshold` floor, both of which `OptimizeSequence` never does |
+
+Protein preserved in every row (`MKEKEKEKEKEKEKE*`, `MGSGSGSGSGSGSGS*`, `MKFKFKFKFKFKFKFKF*`, `MAAAAAALLLRRGGAA*`, `MKEKILKGGGAAAMKKF*`), sequence length unchanged, outputs deterministic (repeated calls identical).
+
+#### Search
+
+Deterministic greedy, not DNA Chisel's randomised constraint solver: rounds of a left-to-right pass (at most 8, each round only runs while the total breach strictly decreased) in which the left-most breaching window is repaired by the synonymous replacement — frequency ≥ `rareCodonThreshold` — of an overlapping codon that minimises, lexicographically, (breach of that window, total breach of the sequence, −codon frequency, codon position, NCBI codon order). A window that no synonymous replacement improves is left alone and the scan continues after it, so an unreachable band cannot loop or throw. The pass returns the lowest-total-breach sequence it reached (review 2026-09 F62): a round that fixes the left-most window first can raise the total breach, and DNA Chisel's solver keeps a mutated sequence only when the constraint score improves (`ConstraintsSolverMixin.resolve_constraints_by_random_mutations`: `if new_score > score: score = new_score else: self.sequence = previous_sequence`), so the repaired output never breaches more than the codon selection it starts from (pre-fix repro `CTGGGTTGGCATTCCAATTGGGATATTGTATCAGCGTCGGTTGGCCGG`, E. coli K-12, window 12, [0.45, 0.55]: selection −3.48333, old output −3.63333; now −3.483333333333332 = dnachisel 3.2.16 `evaluate` of our output). Only the *evaluation* is claimed to equal DNA Chisel; the repaired sequences may differ from that library's (equally valid) random-search output.
+
+## F63 — the `MinimizeSecondary` structure pass keeps the GC constraint (review 2026-09, WP27a re-verification)
+
+### Defect
+
+`OptimizeSequence` ran the GC pass and then `ReduceSecondaryStructure` (F42) without passing the GC
+constraint on, so the structure pass could undo the very GC band / windows the same call had just
+enforced. Reproductions (E. coli K-12, `[0.40, 0.60]`):
+
+| Call | GC breach after the GC pass | after the structure pass (pre-F63) |
+|---|---|---|
+| `OptimizeSequence("GAAGAAGAAGAAGAAGAAGAAGAAUUUUUUUUUUUUUUUUUUUUUUUU", MinimizeSecondary)` (global band, F42 locked case) | 0 (`GAGGAGGAGGAGGAGGAGGAGGAGUUCUUCUUCUUCUUUUUUUUUUUU`, GC 0.4167) | **−0.0666667** (`GAGGAAGAAGAAGAAGAAGAAGAAUUCUUCUUCUUCUUCUUCUUCUUU`, GC 0.3333; dnachisel `EnforceGCContent(0.40, 0.60).evaluate` = −0.06666666666666671) |
+| `OptimizeSequence(<150-nt gene below>, MinimizeSecondary, secondaryScoring: Turner2004Mfe, gcWindow: 20)` | 0 | **−12.6** |
+| 50 random 31–50-codon genes × windows 20/30, `Turner2004Mfe` | 0 (GC pass reaches 0) | worse in **49 / 50** cases, worst −12.6 |
+
+150-nt gene: `ATGCCGGGTATTTTTCATCGTAAAGATTTTTTTTTTAAACCGGGTTACGATCTGAACCTGTCTCAAGAAGGTCGTGCTGAATACTTTGGTCCGCTGCTGCCGAAAATTAACCAAGATCAAATTCCGCAATACTGTCTGCCGGTTACTTAA`.
+
+### Source
+
+dnachisel 3.2.16 `DnaOptimizationProblem`: `EnforceGCContent` is a **constraint**, resolved by
+`resolve_constraints()`, and the objective optimisation that follows
+(`mixins/ObjectivesMaximizationMixin.optimize*`) evaluates candidate mutations with the constraints
+in place and keeps only mutations under which the constraints remain satisfied — the same rule the
+site pass already carries (F60, `ConstraintsSolverMixin`). A pass that lowers folding propensity is
+an objective and may not break the GC constraint of the same problem.
+
+### Fix
+
+The structure pass of `MinimizeSecondary` now carries the GC constraint
+(`gcTargetMin`/`gcTargetMax`, every sliding window when `gcWindow` is set, `EvaluateGcContent`
+semantics): a synonymous rewrite is accepted only when the whole sequence's GC breach does not
+increase over the breach of the sequence entering the pass (an already-breaching input can only be
+asked not to get worse — the F60 tolerance rule). The public
+`ReduceSecondaryStructure(...)` declares no GC target and is unchanged bit-for-bit.
+
+### Reference numbers after the fix (dnachisel 3.2.16 `evaluate` of our outputs)
+
+| Output | dnachisel score |
+|---|---|
+| `GAGGAGGAGGAGGAGGAGGAGGAGUUCUUCUUCUUCUUCUUCUUCUUU` (F42 case, global `[0.40, 0.60]`) | −0.0 (GC 0.479167) |
+| `AUGAAACUUGCCGACUUAGCUCAAUUAGCAUUUCGUGAAGAUUUGCGUCAAGCACUCGAUCGUUUUAUGGCACAAUUGGACAAGGCUCUGGCAGAAUAA` (gene B, Turner-scored `MinimizeSecondary`) | −0.0 (GC 0.424242) |
+| `AUGCCAGGAAUUUUCCAUCGCAAGGACUUCUUCUUCAAACCUGGCUAUGACUUGAACCUCUCACAAGAAGGUCGUGCGGAAUACUUCGGACCACUUCUGCCAAAAAUCAACCAGGACCAGAUUCCCCAGUAUUGUCUCCCCGUCACCUAA` (150-nt gene, `gcWindow: 20`) | −0.0 (was −12.6) |
+
+100 random cases (25 genes × windows 20/30 × both scorings) after the fix: GC breach never worse
+than the GC pass's, protein preserved in all 100.
+
+## F64 — `ReduceSecondaryStructure` window width: ceil(windowSize / 3) codons (review 2026-09, WP27b re-verification)
+
+### Defect
+
+The structure pass used `windowCodons = windowSize / 3 + 1`, i.e. floor(windowSize / 3) + 1, which
+equals ceil(windowSize / 3) only when `windowSize` is **not** a multiple of 3. For a multiple of 3
+the window was one codon (3 nt) wider than requested, contradicting the method's own contract
+("windows of `windowSize` nucleotides, rounded up to whole codons"; MCP `window_size`
+"sliding-window size in nt") — no external reference prescribes this arithmetic (DNA Chisel has no
+folding-propensity pass), so the documented contract is the source.
+
+Repro (gene A of `CodonOptimizer_SecondaryStructureScoring_Tests`, E. coli K-12, `Turner2004Mfe`):
+pre-fix `windowSize` 42 produced the same output as 43 and 44 (15-codon = 45-nt window) and a
+different output from 41 (14 codons):
+
+| windowSize | pre-fix codons | post-fix codons | post-fix output equals |
+|---|---|---|---|
+| 40 (default) | 14 | 14 | unchanged |
+| 41 | 14 | 14 | 40 |
+| 42 | 15 | **14** | 40, 41 |
+| 43 | 15 | 15 | 44, 45 |
+| 45 | 16 | **15** | 43, 44 |
+
+### Fix
+
+`windowCodons = (windowSize + 2) / 3` (integer ceiling). Defaults are bit-identical (40 → 14 codons
+= 42 nt); only an explicit `windowSize` that is a multiple of 3 changes, and only to the width the
+contract specifies. Public API unchanged. XML docs, MCP tool doc + schema, TestSpec updated.
+
+### Decision — the short-input early return is deliberate, not a defect
+
+`ReduceSecondaryStructure` returns `rna` unchanged (not trimmed to whole codons) when
+`rna.Length < windowSize`, while the normal path returns the codon-trimmed sequence. Both the XML
+doc ("a sequence shorter than `windowSize` is returned normalised but otherwise unchanged") and the
+MCP tool doc state this, no source prescribes trimming a sequence the pass does not touch, and
+changing it would alter the output of short inputs with a dangling partial codon for no sourced
+reason. Kept, with the MCP doc wording tightened to say the trailing partial codon is kept.
+
+## F48 — genetic-code-aware `CodonOptimizer` API (review 2026-09, audit A2-1)
+
+### Sources opened
+
+- dnachisel 3.2.16: `builtin_specifications/EnforceTranslation.py` (`genetic_table="default"` →
+  `"Standard"`; `self.backtranslation_table = get_backtranslation_table(genetic_table)`),
+  `biotools/biotables.py::get_backtranslation_table` (Biopython
+  `CodonTable.unambiguous_dna_by_name[name].forward_table` grouped by amino acid, with
+  `table.stop_codons` as the `*` family and `X`/`B`/`J`/`Z` unions), `biotools/sequences_operations.py::translate`
+  (`table` is an NCBI table name/number resolved through Biopython), and
+  `builtin_specifications/codon_optimization/BaseCodonOptimizationClass.py::get_codons_synonyms`
+  (families are the entries of the codon-usage table, which `CodonOptimize` takes per species or
+  verbatim — so a non-standard table is expressed through `EnforceTranslation(genetic_table=…)`
+  plus a usage table built for that code).
+- Biopython 1.88 `Bio.Data.CodonTable.unambiguous_dna_by_id` for tables 2, 4, 11, 27, 28, 31.
+
+### Reference family sets (dnachisel `get_backtranslation_table`, verified by running it)
+
+| Table | R | M | W | * | Q |
+|-------|---|---|---|---|---|
+| 2 Vertebrate Mitochondrial | CGT CGC CGA CGG | ATA ATG | TGA TGG | TAA TAG AGA AGG | CAA CAG |
+| 11 Bacterial | CGT CGC CGA CGG AGA AGG | ATG | TGG | TAA TAG TGA | CAA CAG |
+| 27 Karyorelict Nuclear (dual-coding) | CGT CGC CGA CGG AGA AGG | ATG | TGA TGG | TGA | TAA TAG CAA CAG |
+
+Biopython table 11 has the same `forward_table` and `stop_codons` as table 1 (only `start_codons`
+differ), so every optimizer output under table 11 equals the Standard one — asserted as a test.
+
+### Fix
+
+One `CodeFamilies` instance per NCBI table, built from the canonical `GeneticCode.CodonTable`
+(codon → amino acid, and the amino-acid grouping in NCBI codon order) — the same grouping the
+canonical `CodonUsageAnalyzer` core uses for RSCU/CAI/ENC, and the same one DNA Chisel builds from
+Biopython. Every code-dependent public method gained an additive optional
+`GeneticCode? geneticCode = null` (`null` = Standard): `OptimizeSequence`, `CalculateCAI`,
+`RemoveRestrictionSites`, `ReduceSecondaryStructure`, `FindRareCodons` ×2,
+`CalculateMinMaxProfile` ×2, `CreateCodonUsageTable`, `CreateCodonTableFromSequence`. No private
+codon table remains in the class (the former `StandardCodonToAminoAcid` / `SynonymousCodons` static
+copies are now views of the table-1 `CodeFamilies`).
+
+### Reference numbers / locked outputs
+
+| Input | Code | Output | Note |
+|-------|------|--------|------|
+| `AUGCGUAGACGCAGGUGAAUAUAA`, `MaximizeCAI`, E. coli K12 | 1 | `AUGCGCCGCCGCCGCUGAAUUUAA` | protein `MRRRR*I*` |
+| same | 2 | `AUGCGCAGACGCAGGUGGAUGUAA` | protein `MR*R*WM*`: AGA/AGG kept (stops), UGA → UGG (Trp), AUA → AUG (Met) |
+| `AUGCGUCGUCGUCGUUAA`, AGA-dominant table | 1 | `AUGAGAAGAAGAAGAUAA` | AGA is the best Arg codon of that table |
+| same | 2 | `AUGCGCCGCCGCCGCUAA` | AGA/AGG are stops → best Arg codon is CGC |
+| `CGU`×10, `HarmonizeExpression`, E. coli K12 | 2 | `CGUCGUCGUCGUCGCCGCCGCCGCCGACGG` | dnachisel `match_codon_usage` score −0.6 = its own optimizer's score (input −11.8) |
+| `AUGCAACAGUGA`, `MaximizeCAI` | 27 | `AUGUAAUAAUGG` | protein `MQQW`: UAA/UAG are Gln codons of table 27 (Biopython / DNA Chisel family) |
+
+DNA Chisel cross-check command (table 2): `DnaOptimizationProblem(sequence=…,
+constraints=[EnforceTranslation(genetic_table="Vertebrate Mitochondrial")],
+objectives=[CodonOptimize(codon_usage_table={'R': {'CGT':0.38,'CGC':0.40,'CGA':0.06,'CGG':0.10}},
+method="match_codon_usage")])` — `objective_scores_sum()` −11.8 for `CGT`×10, −0.6 for both our
+allocation and the sequence its own `optimize()` returns (`CGTCGTCGGCGCCGCCGCCGTCGCCGACGT`).
+
+### Decisions
+
+- **Dual-coding tables 27/28/31** are accepted, not rejected: following Biopython's `forward_table`
+  and DNA Chisel's back-translation table, a context-dependent stop belongs to the family of the
+  amino acid it encodes (table 27: `UAA`/`UAG` ∈ Gln, `UGA` ∈ Trp). Consequence, documented in the
+  algorithm doc and the XML docs: no codon unambiguously terminates under those tables, so a
+  terminator must be excluded by the caller (the same reason `Translator.FindOrfs` rejects them).
+  Also note that the built-in presets' fractions are Standard-code fractions and are not meaningful
+  under another code — `CreateCodonTableFromSequence(reference, name, code)` builds a table for it.
+- **Code-independent methods** keep their signatures: `FindRareCodonClusters`,
+  `FindConservedRareCodonClusters`, `CalculateCodonUsage`, `CompareCodonUsage` perform per-codon
+  usage lookups / codon counting only.
+
+## F54 — restriction-site avoidance chained in `OptimizeSequence` (review 2026-09, audit A2-13)
+
+### Sources opened
+
+- dnachisel 3.2.16 (installed): `builtin_specifications/AvoidPattern.py`, `biotools/enzymes_operations.py`
+  (`EnzymeSitePattern`), `builtin_specifications/codon_optimization/*`, `DnaOptimizationProblem`
+  (`resolve_constraints()` runs the **hard constraints**, `optimize()` then maximises the objectives
+  without breaking them) — i.e. site avoidance is a constraint composed with the `CodonOptimize`
+  objective in ONE problem, resolved last.
+- Our existing `RemoveRestrictionSites` (F22: both strands, IUPAC matching, table-aware, one codon
+  per removed occurrence) and `OptimizeSequence` (F42/F43 pass order).
+
+### Defect
+
+`OptimizeSequence` had no way to express the site constraint: the caller had to run
+`RemoveRestrictionSites` afterwards by hand, and then the reported CAI/GC/`Changes` no longer
+described the sequence actually used. Worse, codon selection itself **creates** sites: with the
+E. coli K12 table, Leu `CUG` + Gln `CAG` = `CTGCAG` (PstI), His `CAU` + Met `AUG` = `CATATG` (NdeI),
+Thr `ACC` + Met `AUG` = `CCATGG` (NcoI).
+
+### Fix
+
+Additive optional `IReadOnlyList<string>? avoidSites = null` (MCP: `avoid_sites`), applied after
+selection → GC pass → structure pass, i.e. the hard constraint last, so no later pass can
+re-introduce a site; the metrics and `Changes` are then rebuilt from the final sequence (as F42).
+
+### Verification genes and reference numbers (dnachisel 3.2.16)
+
+Problem per gene: `DnaOptimizationProblem(sequence, constraints=[AvoidPattern("CTGCAG"),
+AvoidPattern("CATATG"), AvoidPattern("CCATGG"), EnforceTranslation()],
+objectives=[CodonOptimize(species='e_coli', method='use_best_codon')])`.
+
+| Gene | Input (len) | Our `MaximizeCAI` + `avoidSites` output (RNA) | our CAI | dnachisel `AvoidPattern.evaluate` | `CodonOptimize` score |
+|------|-------------|-----------------------------------------------|---------|-----------------------------------|-----------------------|
+| A `MKLQALHMTMAEF*` | `ATGAAGCTACAAGCATTACACATGACAATGGCTGAGTTTTAA` (42) | `AUGAAACUGCAAGCGCUGCACAUGACGAUGGCGGAAUUUUAA` | 0.870294 (plain 1.0) | 0 / 0 / 0, all pass; `EnforceTranslation` passes | −1.3892 |
+| B GFP N-term + `LQHMTMA` | 150 nt | `AUGAGCAAAGGCGAAGAAUUUCUGUUUACCGGCGUGGUGCCGAUUCUGGUGGAACUGGAUGGCGAUGUGAACGGCCAUAAAUUUAGCGUGAGCGGCGAAGGCGAAGGCGAUGCGACCUAUGGCAAACUGCAACACAUGACGAUGGCGUAA` | 0.970251 (plain 1.0) | 0 / 0 / 0, all pass | −1.3892 |
+| C `MLQHMTMAK*` | `ATGCTACAACACATGACAATGGCAAAGTAA` (30) | `AUGCUGCAACACAUGACGAUGGCGAAAUAA` | 0.793311 (plain 1.0) | 0 / 0 / 0, all pass | −1.3892 |
+
+Without `avoidSites` the same three outputs score **−1 (fail) on each of the three
+`AvoidPattern`s** (sites present), while `EnforceTranslation` passes — the defect reproduced
+through the reference library.
+
+For all three genes dnachisel's own `resolve_constraints() + optimize()` returns the
+**byte-identical** sequence to ours (`ATGAAACTGCAAGCGCTGCACATGACGATGGCGGAATTTTAA`,
+`…AAACTGCAACACATGACGATGGCGTAA`, `ATGCTGCAACACATGACGATGGCGAAATAA`) with the same objective score
+−1.3892; exact equality with its stochastic solver is not required, but here the deterministic
+greedy repair reaches the same optimum. Protein identical in all cases (`MKLQALHMTMAEF*`,
+`MSKGEEFLFTGVVPILVELDGDVNGHKFSVSGEGEGDATYGKLQHMTMA*`, `MLQHMTMAK*`).
+
+Property (F22) re-checked through the new path: every occurrence removable by one synonymous change
+is gone on **both strands**, for `MaximizeCAI`, `BalancedOptimization`, `MinimizeSecondary` and
+`HarmonizeExpression`, and the pass is idempotent (re-running `OptimizeSequence(..., avoidSites)` on
+its own output changes nothing). GC note: on these genes the replacements are GC-neutral
+(0.452381 / 0.526667 / 0.433333 before and after). On other genes the one codon changed per
+occurrence can move GC across a bound the GC pass had satisfied; since F60 the pass carries the GC
+constraint and prefers GC-feasible candidates (see below).
+
+## F55 — `AvoidRareCodons` spelling (review 2026-09, audit A2-14)
+
+`OptimizationStrategy.AvoidRareCodeons` was misspelled. A correctly spelled member
+`AvoidRareCodons = AvoidRareCodeons` (same underlying value 4) was added; the old name stays, kept
+**un-attributed** by **policy: additive alias only — the misspelt member stays supported, no
+deprecation (campaign backward-compatibility rule)**. `ToString()` still returns `AvoidRareCodeons`
+(the field declared first), so no serialized value changes meaning. MCP parsing accepts both
+spellings case-insensitively — `System.Text.Json`'s `JsonStringEnumConverter` (the converter the
+MCP SDK uses for enum parameters) resolves `"AvoidRareCodons"`, `"avoidrarecodons"`,
+`"AVOIDRARECODONS"`, `"AvoidRareCodeons"` and `"avoidrarecodeons"` all to that value (asserted in
+the tests). `Enum.GetValues<OptimizationStrategy>()` now returns 6 entries with 5 distinct values;
+the two consumers that iterate it (`Properties/CodonProperties`,
+`Metamorphic/CodonMetamorphicTests`) run the rare-codon strategy twice and are unaffected — no
+counting or indexing of strategies anywhere in the tests.
+
+## F60 — GC-constraint-aware `avoidSites` pass (review 2026-09, audit A3-6)
+
+**Defect.** `OptimizeSequence(..., avoidSites)` runs the site-removal pass *after* the GC pass, and
+the pass ranked site-removing synonymous candidates by codon-usage frequency alone
+(`if (frequency > bestFrequency)`), so the best-frequency candidate could move the GC fraction of a
+window (or the global GC fraction) back outside the `gcTargetMin`/`gcTargetMax` bounds that the GC
+pass had just satisfied. DNA Chisel 3.2.16 composes `AvoidPattern` **and** `EnforceGCContent` as
+hard constraints of ONE `DnaOptimizationProblem` and resolves both, so breaking the GC constraint to
+clear a site is not reference behaviour.
+
+**Reference runs (dnachisel 3.2.16).** Four constructed E. coli genes. For each, "balanced" is our
+`BalancedOptimization` output *without* `avoidSites` (GC constraint satisfied, one site present),
+"old" the historical GC-blind chain (`RemoveRestrictionSites` on that sequence), "new" the
+GC-constraint-aware output. Problem:
+`DnaOptimizationProblem(sequence=<seq>, constraints=[AvoidPattern("CTGCAG"), AvoidPattern("CATATG"),
+AvoidPattern("CCATGG"), EnforceGCContent(mini, maxi, window=w), EnforceTranslation()])`.
+
+| Gene (protein) | bounds / window | old chain | new (ours) |
+|---|---|---|---|
+| `ATGATTAGACTTTGCACGCCAGCCTATGGACGAAGACGCTAA` (`MIRLCTPAYGRRR*`) | 0.40–0.60, w=24 | `AvoidPattern` ×3 pass, `EnforceGCContent` **−0.225 FAIL** ("Out of bound on segments 5-40") | all constraints **pass** |
+| `ATGCGTATGGCCCTCCGTTCGGCTGTGGGCTGGCTAGTGTAA` (`MRMALRSAVGWLV*`) | 0.40–0.60, w=24 | `EnforceGCContent` **−0.225 FAIL** (segments 1-39) | all **pass** |
+| `ATGGGTTCCGAAACGTCTGCTTACGGTGCAGCGTTGTGGTAA` (`MGSETSAYGAALW*`) | 0.40–0.60, w=24 | `EnforceGCContent` **−0.150 FAIL** (segments 2-40) | all **pass** |
+| `ATGGTAACTGCGGTACCCATGAGGGGGATGGGCAGACGCTAA` (`MVTAVPMRGMGRR*`) | 0.40–0.60, global | `EnforceGCContent` **−0.019048 FAIL** (GC 0.619048) | all **pass** |
+
+For all four genes our GC-aware output is **byte-identical** to the sequence dnachisel's own
+`resolve_constraints() + optimize()` (objective `CodonOptimize(species='e_coli',
+method='use_best_codon')`) returns from the same GC-balanced start:
+`ATGATTCGCCTGTGCACTCCAGCTTATGGTCGTCGTCGCTAA` (objective −3.14),
+`ATGCGTATGGCACTGCGTTCTGCTGTTGGTTGGCTGGTGTAA` (−2.62),
+`ATGGGCAGCGAAACCTCTGCTTATGGTGCAGCGCTGTGGTAA` (−2.16),
+`ATGGTTACTGCTGTTCCAATGCGCGGCATGGGCCGCCGCTAA`. Proteins unchanged in every case. Our
+`EvaluateGcContent` breach numbers equal dnachisel's `EnforceGCContent` scores exactly
+(0.225 / 0.225 / 0.150 / 0.019048, and 0.483333 / 1.066667 below).
+
+**Fallback (decided, documented).** With unreachable bounds — gene 3 under
+`EnforceGCContent(0.30, 0.45, window=24)` — dnachisel's `resolve_constraints()` raises
+`NoSolutionError`. Our pass never throws: `AvoidPattern` stays the hard constraint, the site is
+removed, and the least-breach candidate is chosen, i.e. the pre-existing breach is not increased
+(dnachisel scores: GC-balanced start −0.483333, GC-blind chain −1.066667, ours −0.483333).
+
+**Fix.** An internal constraint descriptor (`GcConstraint(mini, maxi, window)`, the
+`EvaluateGcContent` semantics) is threaded `OptimizeSequence` → internal `RemoveRestrictionSites`
+overload → `TryRemoveOccurrence`, for the strategies that declare a GC target
+(`BalancedOptimization`, `MinimizeSecondary`) only. Candidate ranking is lexicographic:
+(a) GC-constraint-satisfying candidates — or, when the input already breaches, candidates that do
+not increase the breach score — then (b) codon frequency, then (c) the left-most codon, then
+(d) NCBI codon order. The public `RemoveRestrictionSites` overloads are unchanged (GC-blind), and
+`MaximizeCAI`/`AvoidRareCodons`/`HarmonizeExpression` thread no constraint, so the F54 locked
+outputs are byte-identical. The structure pass (`MinimizeSecondary`) runs *before* the site pass and
+is not re-run: the site pass is GC-aware only, documented as such.
+
+## R14 — linear site removal, 64-character site limit, eager validation (review 2026-09, B08 audit A9-4 / O9-1..O9-3; 2026-11-02)
+
+### Sources
+
+- The behaviour being preserved is the one validated in F22/F54/F60 above (DNA Chisel 3.2.16 `AvoidPattern` / `EnzymeSitePattern`, IUPAC matching on both strands, one synonymous codon per occurrence). R14 changes the cost, not the result, so the oracle is the previous implementation itself.
+- The length bound is `RestrictionAnalyzer.MaxRecognitionLength` = 64 (B08 A8-7: the scan costs sequence length x pattern length), shared with `find_pattern_occurrences` and the custom-enzyme tools.
+
+### Defect
+
+`RemoveRestrictionSites` rescanned and rebuilt the whole sequence after each replaced codon: quadratic. Reproduced by the B08 auditor on MCP (site `N`: 6k / 12k / 24k / 48k nt = 218 / 630 / 1 797 / 8 222 ms) and here in Release (96 000 nt: `N` 10 218 ms, 16 000 tandem `GAATTC` 20 377 ms, a 64 x `N` site 10.3 s). Also: an over-long site raised the shared scan's `recognitionPattern` ParamName, and an empty or sub-codon sequence skipped site validation.
+
+### Fix and verification
+
+- Sites are parsed once (`ParseSitePatterns`: IUPAC check, length bound, reverse complement, de-duplication) before any return; the scan keeps a mutable `char[]` of the matchable DNA and restarts at `max(from, 3 x changedCodon - m + 1)` after a replacement; a candidate is judged on the buffer (`StillMatchesAt`); the candidate string is built only for the GC-constraint score.
+- Oracle: 464 stored cases of the old code and 3 x 3 105 random cases (seeds 11, 22, 33), identical byte for byte, including `OptimizeSequence` with `BalancedOptimization` / `MinimizeSecondary` / `MaximizeCAI`, GC bounds and windows, genetic codes 1 / 2 / 11 and the refusals.
+- Release timings after the fix (96 000 nt): `N` 22 ms, tandem `GAATTC` 26 ms, 64 x `N` 199 ms.
+
 ## Date
-2026-03-10 (reviewed 2026-09-28)
+2026-03-10 (reviewed 2026-09-28; F43 windowed GC, F54 avoidSites, F55 AvoidRareCodons, F60 GC-aware avoidSites 2026-10-14; R14 2026-11-02)

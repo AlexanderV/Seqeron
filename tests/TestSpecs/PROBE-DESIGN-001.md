@@ -34,6 +34,8 @@
 | Cantor, Warshaw & Shapiro 1970; Warshaw & Tinoco 1966 | Research | Nearest-neighbour ε260 tables |
 | Tyagi & Kramer 1996 / Marras et al. | Research | Molecular beacon: stem 5–7 bp; probe and stem Tm 7–10 °C above the detection temperature |
 | Applied Biosystems Primer Express guidelines | Manufacturer | TaqMan probe Tm 68–70 °C, G+C 30–80 % (qPCR preset) |
+| Rouillard, Zuker & Gulari 2003 (OligoArray 2.0, NAR 31:3057; WebSearch extracts, journal/PMC blocked) | Research / tool | Microarray probe Tm = nearest-neighbour Tm at [Na⁺] 1 M and 1 µM oligo; design Tm window 82–90 °C (Microarray preset, audit round 3 A3-10) |
+| primer3 `oligotm.c` `seqtm` (raw.githubusercontent.com) + primer3-py 2.3.1 `calc_tm(max_nn_length)` | Reference implementation | `len > nn_max_len` → `long_seq_tm`, else nearest-neighbour `oligotm` (`ProbeParameters.MaxNearestNeighborLength`) |
 
 ---
 
@@ -41,7 +43,7 @@
 
 1. **Score Range**: 0.0 ≤ score ≤ 1.0 (Source: Implementation)
 2. **GC Range**: 0.0 ≤ GC content ≤ 1.0 (Source: Mathematical definition)
-3. **Tm**: Tm = Primer3 seqtm at the ProbeParameters conditions (primer3-py calc_tm); > 0 for the tested ≥ 20-nt probes
+3. **Tm**: Tm = Primer3 seqtm at the ProbeParameters conditions (primer3-py calc_tm with max_nn_length = ProbeParameters.MaxNearestNeighborLength, default 36 — not calc_tm's own default 60); > 0 for the tested ≥ 20-nt probes
 4. **Coordinate Validity**: 0 ≤ Start < End < sequence.Length (Source: Implementation)
 5. **Probe Substring**: probe.Sequence == input.Substring(probe.Start, probe.End - probe.Start + 1) (Source: Implementation)
 
@@ -61,13 +63,20 @@
 | M6 | All probes have Tm > 0 | Invariant #3 | Physical law |
 | M7 | Probe coordinates are valid (Start ≥ 0, End < seq.Length) | Invariant #4 | Implementation |
 | M8 | Probe sequence matches substring at coordinates | Invariant #5 | Implementation |
-| M9 | Tiling probes cover expected positions | Coverage guarantee | Algorithm spec |
+| M9 | Tiling probes cover expected positions: grid starts 0, step, … ≤ L − P plus a window anchored at L − P when (L − P) mod step ≠ 0 (208 nt, 50/10 → 0, 40, 80, 120, 158; Coverage 208 — before A7-2: 4 probes, Coverage 170) | Coverage guarantee | CATCH `make_candidate_probes_from_sequence` (Metsky 2019) |
 | M10 | Tiling probes all have Type = Tiling | Type consistency | Implementation |
 | M11 | Microarray defaults: length 50-60 bp | Application param | Wikipedia (DNA microarray) |
 | M12 | FISH defaults: length 200-500 bp | Application param | Standard molecular biology practice |
 | M13 | High GC content (100%) results in GcContent ≈ 1.0 | Edge case | Mathematical |
 | M14 | Low GC content (all A/T) results in low GcContent | Edge case | Mathematical |
 | M15 | maxProbes parameter limits returned count | API contract | Implementation |
+| M17 | Each preset's Tm window is reachable on its own scale for its length × G+C window: witness probe per preset (primer3-py calc_tm at the preset conditions: Microarray 86.25468810488348 at 1 M / 1 µM, NN ≤ 60; qPCR 68.58490905493761; FISH 77.4029020719779; Northern 74.4029020719779; Southern 73.30290207197791); long-probe presets' exact long_seq_tm range (FISH 71.25–85.35, Northern 70.30–82.50, Southern 70.32–85.35) overlaps the window; the former Microarray window 75–85 °C at 50 mM had maximum 74.5029020719779 (unreachable) | Preset contract | OligoArray 2.0; primer3 oligotm.c |
+| M16 | GC of a window with N = G+C over the non-N bases (Primer3 `gc_and_n_content`; primer3-py PRIMER_INTERNAL_0_GC_PERCENT 50.0 for `GACNTGAAGCNCTTAGCAAC`), `DesignProbes` prefix sums = tiling (eager) path | Invariant #2 | primer3 libprimer3.cc |
+| M18 | `DesignProbes` ranking option (A3-11): default `ProbeRanking.AdditiveScore` = the library-heuristic additive score (unsourced penalty values, unchanged); `ProbeRanking.Primer3Penalty` ranks the same candidates by Primer3 internal-oligo `p_obj_fn` (|Tm − OptTm| + |len − OptLength|, default weights, `CalculatePrimer3Penalty`) in `primer_rec_comp` order (penalty ↑, start ↓, length ↑; non-computable Tm last, `Primer3Penalty` null): on 4 random 70-nt templates every primer3-py 2.3.1 pick_hyb_probe_only probe (48, PRIMER_NUM_RETURN 12, size 18–27, Tm 57–63, optima (60,20)/(61.5,22)/(59,19)/(60,24)) has the same PRIMER_INTERNAL_n_PENALTY and Tm (1e-9) and the same relative order (incl. two start-descending ties); `= DesignProbesPrimer3` penalty; OptTm / OptLength outside the window, NaN or an undefined ranking → `ArgumentOutOfRangeException` (Primer3 `_pr_data_control`) | Ranking contract | primer3 libprimer3.cc p_obj_fn, primer_rec_comp |
+| M19 | Genome-index overload `DesignProbes(target, ISuffixTree, …)` (A4-1): **all** candidates are walked in the ranking order (no `maxProbes * 5` shortlist) and `maxProbes <= 0` returns none — repro genome X + T10 + X + T10 + Y, target X + Y (`System.Random(7)` ACGT, |X| = 400, |Y| = 80), Microarray, `maxProbes = 2`, `requireUnique` → the unique 50-mers at 402 and 417 (score 0.85; previously 0 probes); for every `maxProbes` ∈ {1, 3, 100000} the output equals the brute force over the exhaustive candidate list (`DesignProbes(target, param, int.MaxValue)`) with an independent overlapping-occurrence count (naive `IndexOf` scan, cross-checked with Python `str.find`); with `requireUnique = false` the Score is scaled by the specificity (X windows × 0.5, junction × 0, Y × 1) **and re-ranked** — score descending, ties keeping the documented `(length, start)` order; `Primer3Penalty` ranking keeps its penalty order | Contract: "maximum probes to return" / "only unique probes" | Implementation contract; `CheckSpecificity` INV-03 |
+| M20 | Genome-index overload opt-in `bothStrands` (A4-2): `CheckSpecificity(…, bothStrands)` per candidate — index X + T10 + Y + T10 + rc(X), target X + Y: default (indexed strand) `requireUnique`, `maxProbes = 2` returns X probes (each binding rc(X)); `bothStrands` returns the X|Y-crossing 50-mer at 351 (score 0.98; 0 sites on the indexed strand, 1 on the other — its reverse complement lies in T10 + rc(X)) and the Y 50-mer at 402 (0.85); for `requireUnique` ∈ {true, false} × `maxProbes` ∈ {3, 100000} the output equals the brute force with a naive both-strand site count (union of probe / reverse-complement `IndexOf` positions); per-window (indexed, both-strand) site tally over all 4686 windows = Python `str.find` + Biopython reverse complement: 3806 × (1, 2), 297 × (1, 1), 561 × (0, 0), 22 × (0, 1) | blastn `-strand both`; contract | blastn 2.12.0+ `-help`; Python oracle |
+| M21 | `DesignTilingProbes` contract (A7-2, F67): target shorter than `probeLength` → `ArgumentOutOfRangeException` (param `probeLength`; 30 nt with default 60 was `InvalidOperationException`), null → `ArgumentNullException`; `probeLength ≤ 0` / `overlap ≥ probeLength` → `ArgumentOutOfRangeException` (was an infinite loop); 110 nt, 60/20 → starts 0, 40, 50 (was 0, 40 with positions 100–109 untiled); starts / sequences / ends and Coverage = independently counted union of windows for L/P/overlap ∈ {100/60/20 → 0, 40 (CATCH would duplicate 40); 120/60/20 → 0, 40, 60 (CATCH misses 100–119); 60/60/20; 61/60/20; 25/10/9; 22/10/4; 30/10/4; 45/10/−5 (gaps, Coverage 35); 55/10/−5}, Coverage = L whenever overlap ≥ 0; MCP `design_tiling_probes` rejects a 30-nt target (`ArgumentException`, `probe_length`) | Coverage contract | CATCH v1.5.2 `candidate_probes.py` |
+| M22 | Argument contract (A7-3/A7-4, F68): `DesignMolecularBeacon` null → `ArgumentNullException`; `probeLength` / `stemLength` ≤ 0 → `ArgumentOutOfRangeException` naming the parameter (was a stem-only / arm-less beacon or a raw `length`/`count` AOORE); positive values outside the Tyagi & Kramer 15–30 nt / 5–7 bp recommendations are still designed (length = loop + 2·stem); `AnalyzeOligo(null)` → `ArgumentNullException`; `CalculateExtinctionCoefficient(null / "")` → 0 (as the NN ε and molecular-weight siblings); `DesignTilingProbes` overlap = int.MinValue → no step overflow (windows 0 and the end anchor) | Library argument contract | Tyagi & Kramer (1996) |
 | TM1 | TaqMan probe with 5' G is flagged (`NoGuanineAt5Prime == false`) and `PassesAll == false` | 5' G quenches reporter even after cleavage | ABI / ScienceDirect |
 | TM2 | Run of ≥4 consecutive Gs flagged (`NoRunOfFourOrMoreG == false`) | No ≥4-G runs | PREMIER Biosoft |
 | TM3 | More G than C flagged (`MoreCytosineThanGuanine == false`; C=1, G=9) | More Cs than Gs | PREMIER Biosoft |
@@ -88,7 +97,7 @@
 | P7 | Beacon: loop Tm, ntthal stem-loop Tm, 7 °C rules for a detection temperature | Beacon design | Tyagi & Kramer |
 | P8 | NN ε260 = Cantor/Warshaw tables (ACGT 40300, ACGU RNA 41300) | Oligo property | Cantor 1970 |
 | P9 | MW = Biopython molecular_weight (DNA/RNA, U = UMP) | Oligo property | Biopython |
-| TM11 | TaqMan Tm at stated conditions = primer3-py calc_tm; non-ACGT → gate fails | Probe Tm | primer3 |
+| TM11 | TaqMan Tm at stated conditions = primer3-py calc_tm(max_nn_length=36) (equal to the calc_tm default for 18–22-nt probes); non-ACGT → gate fails | Probe Tm | primer3 |
 | P10 | `DesignProbesPrimer3` with PRIMER_INTERNAL_MISHYB_LIBRARY: probe positions, penalties (incl. PRIMER_INTERNAL_WT_LIBRARY_MISHYB term) and PRIMER_INTERNAL_n_LIBRARY_MISHYB score + entry (dpal unanchored LOCAL, IUPAC per PRIMER_LIB_AMBIGUITY_CODES_CONSENSUS, short entries score their length) = primer3-py `mishyb_lib`, both alignment modes; `CalculateLibraryMishyb` = check_primers; weight without library / limit > 32767 in alignment mode throw (`ProbeDesigner_MishybLibrary_Tests`) | Mishyb library | primer3 libprimer3.c |
 | P11 | `DesignProbesPrimer3` / MCP `design_probes_primer3` reject numReturn < 1 (Primer3 "PRIMER_NUM_RETURN < 1") | Data control | primer3 _pr_data_control |
 | P12 | `DesignProbesPrimer3` with PRIMER_ANNEALING_TEMP: PRIMER_INTERNAL_n_BOUND, rejection outside PRIMER_INTERNAL_MIN/MAX_BOUND, PRIMER_INTERNAL_WT_BOUND_GT/LT terms (ungated: bound −999999.9999 without an annealing temperature) and the opt-bound / annealing-temperature data control = primer3-py pick_hyb_probe_only (`PrimerDesigner_BoundAndPosition_Tests.DesignProbesPrimer3_*`; MCP `design_probes_primer3` annealing_temp / bound arguments: `DesignProbesPrimer3_AnnealingTempAndBound_MatchPrimer3`, A3-24) | Fraction bound | primer3 libprimer3.c, oligotm.c |
@@ -104,7 +113,7 @@
 | S3 | DesignAntisenseProbes returns Antisense type | Type correctness | Implementation |
 | S4 | MolecularBeacon has stem sequences | Structure check | Implementation |
 | S5 | Tiling probes calculate mean Tm correctly | Statistics | Implementation |
-| S6 | Probes are sorted by score descending | Ranking | Implementation |
+| S6 | Probes are sorted by score descending (default `AdditiveScore` ranking, library heuristic; see M18 for the sourced Primer3 ranking) | Ranking | Implementation |
 
 ### Could (Optional)
 
@@ -119,6 +128,7 @@
 ## Coverage Classification
 
 Canonical file (generic designer): `ProbeDesigner_ProbeDesign_Tests.cs` (29 tests).
+Canonical file (ranking options): `ProbeDesigner_Primer3Ranking_Tests.cs` (M18); genome-index overload: `ProbeDesigner_GenomeIndexRanking_Tests.cs` (M19).
 Canonical file (TaqMan opt-in rules): `ProbeDesigner_TaqMan_Tests.cs`.
 Canonical file (Primer3 picker, probe Tm/structure, beacon, oligo properties): `ProbeDesigner_Primer3Probe_Tests.cs` (P1–P8); MW/AnalyzeOligo Tm reference values: `Mutation/ProbeDesignerMutationTests.cs` (P9).
 Supplementary file: `ProbeDesignerTests.cs` (6 tests — smoke/utility, no PROBE-DESIGN-001 scope).
@@ -140,6 +150,13 @@ Supplementary file: `ProbeDesignerTests.cs` (6 tests — smoke/utility, no PROBE
 | M13 | DesignProbes_AllGC_ReturnsProbesWithHighGcContent | ✅ Covered |
 | M14 | DesignProbes_AllAT_ReturnsProbesWithLowGcContent | ✅ Covered |
 | M15 | DesignProbes_MaxProbesParameter_LimitsResultCount | ✅ Covered |
+| M16 | DesignProbes_WindowWithN_GcIsFractionOfNonNBases_MatchesPrimer3 | ✅ Covered |
+| M17 | ProbeDesigner_Primer3Probe_Tests.Defaults_Microarray_UsesOligoArrayConditionsAndTmWindow, Defaults_OldMicroarrayWindow_WasUnreachableAtPrimer3Conditions, Defaults_TmWindow_IsReachableForLengthAndGcWindow (5), Defaults_LongProbePresets_AttainableTmRangeOverlapsWindow (3), CalculateMeltingTemperaturePrimer3_MaxNearestNeighborLength_MatchesPrimer3SeqTm, DefaultConditions_OfValidateAnalyzeBeacon_StayPrimer3ProbeConditions | ✅ Covered |
+| M18 | ProbeDesigner_Primer3Ranking_Tests (DesignProbes_Primer3Ranking_PenaltiesAndOrderMatchPrimer3PickHybProbeOnly ×4, _PenaltyEqualsDesignProbesPrimer3AndCanonicalPenalty, _ReordersTheSameCandidatesAsTheAdditiveScore, DesignProbes_DefaultRanking_IsTheAdditiveScore, _NonComputableTmRanksLastWithoutPenalty, _OptimaOutsideTheWindow_ThrowLikePrimer3, _MicroarrayWithOptima_RanksByPenalty) | ✅ Covered |
+| M19 | ProbeDesigner_GenomeIndexRanking_Tests (Repro_SequencesMatchTheIndependentOccurrenceCounts, RequireUnique_MicroarrayPreset_FindsTheUniqueProbesBeyondTheOldShortlist, RequireUnique_EqualsBruteForceOverAllCandidates ×3, NotRequireUnique_ReRanksByTheSpecificityScaledScore ×2, NotRequireUnique_TiesKeepTheDocumentedLengthThenStartOrder, Primer3Ranking_WalksAllCandidatesInPenaltyOrder ×2, NoUniqueCandidate_ReturnsEmpty_AndNonPositiveMaxProbesReturnsEmpty) | ✅ Covered |
+| M20 | ProbeDesigner_GenomeIndexRanking_Tests (BothStrands_RequireUnique_DropsProbesWhoseReverseComplementOccurs, BothStrands_EqualsBruteForceOverAllCandidates ×4, BothStrands_CandidateSiteCounts_MatchThePythonCrossCheck) | ✅ Covered |
+| M21 | ProbeDesigner_ProbeDesign_Tests (DesignTilingProbes_TargetShorterThanProbe_ThrowsArgumentOutOfRange, _NonAdvancingStep_ThrowsInsteadOfLooping ×4, _110nt_60_20_TilesThe3PrimeTail, _StartsAndCoverage_MatchIndependentTiling ×9); Seqeron.Mcp.MolTools.Tests DesignTilingProbesTests | ✅ Covered |
+| M22 | ProbeDesigner_ProbeDesign_Tests (DesignMolecularBeacon_NonPositiveLoopOrStem_ThrowsArgumentOutOfRange ×6, _PositiveOutsideRecommendedRanges_StillDesigned ×3, _Null_ThrowsArgumentNull, AnalyzeOligo_Null_ThrowsArgumentNull, CalculateExtinctionCoefficient_NullOrEmpty_ReturnsZero ×2, _NonDegenerate_Unchanged, DesignTilingProbes_HugeNegativeOverlap_NoStepOverflow) | ✅ Covered |
 | S1 | DesignProbes_HomopolymerSequence_GeneratesWarnings | ✅ Covered |
 | S2 | DesignProbes_CaseInsensitiveInput_ProducesConsistentResults | ✅ Covered |
 | S3 | DesignAntisenseProbes_ReturnsAntisenseType | ✅ Covered |
@@ -177,6 +194,9 @@ Supplementary file: `ProbeDesignerTests.cs` (6 tests — smoke/utility, no PROBE
 | P8 | ExtinctionCoefficientNearestNeighbor_MatchesCantorTable | ✅ Covered |
 | P9 | CalculateMolecularWeight_MatchesBiopython, AnalyzeOligo_Tm_MatchesPrimer3CalcTmAtProbeDefaults | ✅ Covered |
 | TM11 | EvaluateTaqManProbe_TmAtStatedConditions_MatchesPrimer3CalcTm | ✅ Covered |
+| LA1 | `ProbeParameters.ThermodynamicScreenMaxLength` (opt-in THAL_MAX_ALIGN, default 60 = unchanged): an 82-nt stem-loop gets the ntthal hairpin warning "Hairpin Tm 68.1°C exceeds 47°C (ntthal)" (thal.c compiled with `-DTHAL_MAX_ALIGN=10000`: 68.102992186803021; self-dimer 45.92 / 43.01 ≤ 47 not flagged); default → fallback; outside 60–10 000 → `ArgumentOutOfRangeException` (audit round 3, A3-9, F55) — `PrimerDesigner_NtthalMaxAlign_Tests.DesignProbes_ThermodynamicScreenMaxLength_ScreensLongProbeWithNtthal` | ✅ Covered |
+| LA2 | `DesignMolecularBeacon(maxAlignLength)` (opt-in THAL_MAX_ALIGN for the stem-loop Tm, default 60 = unchanged; A3-27, F56): 74-nt beacon (loop 60, stem 7, Random120) → no Tm warning by default, "Stem-loop (hairpin) Tm 45.4°C (ntthal)" with 100 (thal.c `-DTHAL_MAX_ALIGN=10000`: 45.449128344157543); 59 / 10001 → `ArgumentOutOfRangeException` (`PrimerDesigner_NtthalMaxAlign_Tests.DesignMolecularBeacon_MaxAlignOptIn_ReportsStemLoopTmOfLongBeacon`) | ✅ Covered |
+| HS1 | Fallback hairpin screen (> THAL_MAX_ALIGN, non-ACGT, `Heuristic`) = canonical `PrimerDesigner.HasHairpinPotential` (exact stem ≥ 4 bp, loop ≥ 3 nt; audit round 5, A5-2): `DesignProbes` warning "Potential secondary structure" ⇔ HasHairpinPotential — `ProbeDesigner_ProbeValidation_Tests.FallbackHairpinScreen_EqualsHasHairpinPotential_ForLongNonAcgtAndHeuristicProbes`; non-ACGT symbols never pair on either scan path — `PrimerDesigner_PrimerStructure_Tests.HasHairpinPotential_NonAcgtBlocks_NeverPair_OnBothPaths`. In `DesignProbes` / `DesignTilingProbes` the flag only lowers the additive library score (−0.15 with `AvoidSecondaryStructure`; no candidate is rejected on it); in `ValidateProbe` it is a `Warnings` entry that does not decide `IsValid` (audit round 5, A5-5; PROBE-VALID-001 HP5) | ✅ Covered |
 
 ---
 

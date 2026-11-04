@@ -330,4 +330,117 @@ public class SequenceStatistics_CalculateCodonFrequencies_Tests
     }
 
     #endregion
+    #region Normalisation options (FIN-B03 WP10, audit row A18, F36)
+
+    // EMBOSS 6.6.0 cusp executed 2026-10-14 on CuspSequence (26 codons, standard code):
+    // codon, cusp Fraction, cusp Frequency (/1000), Number.
+    private const string CuspSequence =
+        "ATGGCTGCCGCAGCGGCTAAAAAGAAACTGCTTCTCTTATTGCTGCGTCGCAGAAGGTGGTGTTGCTAATAGTGAATG";
+
+    private static readonly (string Codon, double Fraction, double PerThousand, int Number)[] CuspRows =
+    {
+        ("GCA", 0.200, 38.462, 1), ("GCC", 0.200, 38.462, 1), ("GCG", 0.200, 38.462, 1), ("GCT", 0.400, 76.923, 2),
+        ("TGC", 0.500, 38.462, 1), ("TGT", 0.500, 38.462, 1), ("AAA", 0.667, 76.923, 2), ("AAG", 0.333, 38.462, 1),
+        ("CTC", 0.167, 38.462, 1), ("CTG", 0.333, 76.923, 2), ("CTT", 0.167, 38.462, 1), ("TTA", 0.167, 38.462, 1),
+        ("TTG", 0.167, 38.462, 1), ("ATG", 1.000, 76.923, 2), ("AGA", 0.250, 38.462, 1), ("AGG", 0.250, 38.462, 1),
+        ("CGC", 0.250, 38.462, 1), ("CGT", 0.250, 38.462, 1), ("TGG", 1.000, 38.462, 1), ("TAA", 0.333, 38.462, 1),
+        ("TAG", 0.333, 38.462, 1), ("TGA", 0.333, 38.462, 1),
+    };
+
+    [Test]
+    public void CalculateCodonFrequencies_PerAminoAcid_MatchesEmbossCuspFraction()
+    {
+        var fraction = SequenceStatistics.CalculateCodonFrequencies(
+            CuspSequence, 0, SequenceStatistics.CodonFrequencyNormalization.PerAminoAcid);
+        var lower = SequenceStatistics.CalculateCodonFrequencies(
+            CuspSequence.ToLowerInvariant().Replace('t', 'u'), 0, SequenceStatistics.CodonFrequencyNormalization.PerAminoAcid);
+
+        Assert.That(fraction, Has.Count.EqualTo(CuspRows.Length));
+        Assert.Multiple(() =>
+        {
+            foreach (var row in CuspRows)
+            {
+                Assert.That(Math.Round(fraction[row.Codon], 3), Is.EqualTo(row.Fraction), row.Codon);
+                Assert.That(lower[row.Codon], Is.EqualTo(fraction[row.Codon]), row.Codon);
+            }
+
+            // Exact rationals behind the 3-dp cusp column.
+            Assert.That(fraction["AAA"], Is.EqualTo(2.0 / 3).Within(Tolerance));
+            Assert.That(fraction["CTC"], Is.EqualTo(1.0 / 6).Within(Tolerance));
+            Assert.That(fraction["TGA"], Is.EqualTo(1.0 / 3).Within(Tolerance), "stops form one '*' family");
+        });
+    }
+
+    [Test]
+    public void CalculateCodonFrequencies_PerThousand_MatchesEmbossCuspFrequency()
+    {
+        var perThousand = SequenceStatistics.CalculateCodonFrequencies(
+            CuspSequence, 0, SequenceStatistics.CodonFrequencyNormalization.PerThousand);
+
+        Assert.Multiple(() =>
+        {
+            foreach (var row in CuspRows)
+            {
+                Assert.That(Math.Round(perThousand[row.Codon], 3), Is.EqualTo(row.PerThousand), row.Codon);
+                Assert.That(perThousand[row.Codon], Is.EqualTo(row.Number * 1000.0 / 26).Within(1e-9), row.Codon);
+            }
+        });
+    }
+
+    // Hand-derived: NCBI table 2 (vertebrate mitochondrial) re-groups AGA/AGG with the stops and TGA with W.
+    [Test]
+    public void CalculateCodonFrequencies_PerAminoAcid_VertebrateMitochondrialCode_RegroupsFamilies()
+    {
+        var fraction = SequenceStatistics.CalculateCodonFrequencies(
+            CuspSequence, 0, SequenceStatistics.CodonFrequencyNormalization.PerAminoAcid,
+            GeneticCode.VertebrateMitochondrial);
+
+        Assert.Multiple(() =>
+        {
+            foreach (var stop in new[] { "TAA", "TAG", "AGA", "AGG" })
+                Assert.That(fraction[stop], Is.EqualTo(0.25).Within(Tolerance), stop);
+            Assert.That(fraction["TGA"], Is.EqualTo(0.5).Within(Tolerance));
+            Assert.That(fraction["TGG"], Is.EqualTo(0.5).Within(Tolerance));
+            Assert.That(fraction["CGC"], Is.EqualTo(0.5).Within(Tolerance));
+            Assert.That(fraction["CGT"], Is.EqualTo(0.5).Within(Tolerance));
+        });
+    }
+
+    [Test]
+    public void CalculateCodonFrequencies_TotalNormalisation_EqualsDefault_AndGuards()
+    {
+        var rng = new Random(20261014);
+        const string alphabet = "ACGTUacgtuN-";
+        for (int iteration = 0; iteration < 300; iteration++)
+        {
+            var chars = new char[rng.Next(0, 60)];
+            for (int i = 0; i < chars.Length; i++) chars[i] = alphabet[rng.Next(alphabet.Length)];
+            string seq = new(chars);
+            int frame = rng.Next(0, 3);
+
+            var total = SequenceStatistics.CalculateCodonFrequencies(seq, frame);
+            Assert.That(SequenceStatistics.CalculateCodonFrequencies(seq, frame, SequenceStatistics.CodonFrequencyNormalization.Total),
+                Is.EquivalentTo(total), seq);
+            var perThousand = SequenceStatistics.CalculateCodonFrequencies(seq, frame, SequenceStatistics.CodonFrequencyNormalization.PerThousand);
+            Assert.That(perThousand.Keys, Is.EquivalentTo(total.Keys), seq);
+            foreach (var (codon, f) in total)
+                Assert.That(perThousand[codon], Is.EqualTo(f * 1000).Within(1e-9), seq);
+            var perAa = SequenceStatistics.CalculateCodonFrequencies(seq, frame, SequenceStatistics.CodonFrequencyNormalization.PerAminoAcid);
+            Assert.That(perAa.Keys, Is.EquivalentTo(total.Keys), seq);
+            foreach (var family in perAa.GroupBy(kv => GeneticCode.Standard.Translate(kv.Key)))
+                Assert.That(family.Sum(kv => kv.Value), Is.EqualTo(1.0).Within(1e-12), seq);
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(() => SequenceStatistics.CalculateCodonFrequencies(
+                "ATG", 0, (SequenceStatistics.CodonFrequencyNormalization)9));
+            Assert.Throws<ArgumentOutOfRangeException>(() => SequenceStatistics.CalculateCodonFrequencies(
+                "ATG", -1, SequenceStatistics.CodonFrequencyNormalization.PerAminoAcid));
+            Assert.That(SequenceStatistics.CalculateCodonFrequencies(
+                "AT", 0, SequenceStatistics.CodonFrequencyNormalization.PerThousand), Is.Empty);
+        });
+    }
+
+    #endregion
 }

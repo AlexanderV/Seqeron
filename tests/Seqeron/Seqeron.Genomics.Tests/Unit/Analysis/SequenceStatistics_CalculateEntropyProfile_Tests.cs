@@ -330,4 +330,113 @@ public class SequenceStatistics_CalculateEntropyProfile_Tests
     }
 
     #endregion
+
+    #region Trailing partial windows and k-mer entropy profile (FIN-B03 WP11, audit rows A20/A21, F38)
+
+    // Oracle (executed 2026-10-14, scipy 1.x): scipy.stats.entropy(counts, base=2) over Biopython-style
+    // windows s[i:i+W] for i in range(0, len(s), step) (partial) or range(0, len(s)-W+1, step) (complete).
+    // Letter profile: counts of the window's letters (upper-cased); k-mer profile: Counter of the window's
+    // overlapping k-mers (empty window -> 0 by the canonical kernel's convention; scipy gives nan).
+    private static IEnumerable<TestCaseData> PartialLetterCases()
+    {
+        yield return new TestCaseData("ACGTACGTAAAACCCGGT", 8, 3, new[]
+            { 2.0, 1.75, 1.75, 1.561278124459133, 1.4591479170272446, 0.9182958340544894 });
+        yield return new TestCaseData("AAAAAAAAACGT", 5, 4, new[] { 0.0, 0.0, 2.0 });
+        yield return new TestCaseData("GATTACA", 5, 5, new[] { 1.5219280948873626, 1.0 });
+        yield return new TestCaseData("AC-GTnn", 3, 2, new[] { 1.0, 1.0, 0.9182958340544894, 0.0 });
+        yield return new TestCaseData("ACG", 10, 1, new[] { 1.584962500721156, 1.0, 0.0 });
+    }
+
+    [TestCaseSource(nameof(PartialLetterCases))]
+    public void CalculateEntropyProfile_IncludePartialWindow_MatchesScipyOverBiopythonSlicing(
+        string seq, int w, int step, double[] expected)
+    {
+        var actual = SequenceStatistics.CalculateEntropyProfile(seq, w, step, includePartialWindow: true).ToArray();
+        Assert.That(actual, Is.EqualTo(expected).Within(Tolerance));
+    }
+
+    private static IEnumerable<TestCaseData> KmerCases()
+    {
+        yield return new TestCaseData("ACGTACGTAAAACCCGGT", 8, 3, 2,
+            new[] { 1.950212064914747, 2.2359263506290326, 2.128085278891394, 2.2359263506290326 },
+            new[] { 1.9219280948873625, 1.0 });
+        yield return new TestCaseData("ACGTACGTAAAACCCGGT", 8, 3, 3,
+            new[] { 1.9182958340544893, 2.584962500721156, 2.2516291673878226, 2.584962500721156 },
+            new[] { 2.0, 0.0 });
+        yield return new TestCaseData("AAAAAAAAACGT", 6, 2, 1,
+            new[] { 0.0, 0.0, 0.6500224216483541, 1.7924812503605778 },
+            new[] { 2.0, 1.0 });
+        yield return new TestCaseData("acgtnACGTN", 4, 3, 2,
+            new[] { 1.584962500721156, 1.584962500721156, 1.584962500721156 },
+            new[] { 0.0 });
+        yield return new TestCaseData("GATTACA", 5, 2, 2,
+            new[] { 2.0, 2.0 },
+            new[] { 1.0, 0.0 });
+    }
+
+    [TestCaseSource(nameof(KmerCases))]
+    public void CalculateEntropyProfile_Kmer_MatchesScipyEntropyOfKmerCounts(
+        string seq, int w, int step, int k, double[] complete, double[] partialTail)
+    {
+        var full = SequenceStatistics.CalculateEntropyProfile(seq, w, step, k).ToArray();
+        var withPartial = SequenceStatistics.CalculateEntropyProfile(seq, w, step, k, includePartialWindow: true).ToArray();
+        Assert.Multiple(() =>
+        {
+            Assert.That(full, Is.EqualTo(complete).Within(Tolerance));
+            Assert.That(withPartial, Is.EqualTo(complete.Concat(partialTail).ToArray()).Within(Tolerance));
+        });
+    }
+
+    [Test]
+    public void CalculateEntropyProfile_Kmer_EqualsCanonicalKmerEntropyPerWindow_Random()
+    {
+        var rng = new Random(20261014);
+        const string alphabet = "ACGTacgtN-";
+        for (int iteration = 0; iteration < 300; iteration++)
+        {
+            var chars = new char[rng.Next(0, 50)];
+            for (int i = 0; i < chars.Length; i++) chars[i] = alphabet[rng.Next(alphabet.Length)];
+            string seq = new(chars);
+            int w = rng.Next(1, 15), step = rng.Next(1, 6), k = rng.Next(1, 5);
+            bool partial = rng.Next(2) == 0;
+
+            var expected = new List<double>();
+            for (int i = 0; i < seq.Length; i += step)
+            {
+                if (!partial && i + w > seq.Length) break;
+                expected.Add(SequenceComplexity.CalculateKmerEntropy(seq.Substring(i, Math.Min(w, seq.Length - i)), k));
+            }
+
+            Assert.That(SequenceStatistics.CalculateEntropyProfile(seq, w, step, k, partial).ToArray(),
+                Is.EqualTo(expected.ToArray()), $"{seq} w{w} s{step} k{k} p{partial}");
+
+            var letterPartial = SequenceStatistics.CalculateEntropyProfile(seq, w, step, includePartialWindow: partial).ToArray();
+            var letterExpected = new List<double>();
+            for (int i = 0; i < seq.Length; i += step)
+            {
+                if (!partial && i + w > seq.Length) break;
+                letterExpected.Add(SequenceStatistics.CalculateShannonEntropy(seq.Substring(i, Math.Min(w, seq.Length - i))));
+            }
+
+            Assert.That(letterPartial, Is.EqualTo(letterExpected.ToArray()), $"{seq} w{w} s{step} p{partial}");
+        }
+    }
+
+    [Test]
+    public void CalculateEntropyProfile_NewOverloads_GuardsAreEager()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(() => SequenceStatistics.CalculateEntropyProfile("ACGT", 0, 1, true));
+            Assert.Throws<ArgumentOutOfRangeException>(() => SequenceStatistics.CalculateEntropyProfile("ACGT", 2, 0, true));
+            Assert.Throws<ArgumentOutOfRangeException>(() => SequenceStatistics.CalculateEntropyProfile("ACGT", 2, 1, 0));
+            Assert.Throws<ArgumentOutOfRangeException>(() => SequenceStatistics.CalculateEntropyProfile("ACGT", 0, 1, 2));
+            Assert.That(SequenceStatistics.CalculateEntropyProfile("", 2, 1, true), Is.Empty);
+            Assert.That(SequenceStatistics.CalculateEntropyProfile(null!, 2, 1, 2, true), Is.Empty);
+            Assert.That(SequenceStatistics.CalculateEntropyProfile("ACGTAC", 4, 1, false),
+                Is.EqualTo(SequenceStatistics.CalculateEntropyProfile("ACGTAC", 4, 1)));
+        });
+    }
+
+    #endregion
 }

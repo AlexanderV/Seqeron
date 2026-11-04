@@ -163,6 +163,12 @@ Total in-scope cases: 12; ✅ = 12.
 
 ---
 
+### 2026-10 options (FIN-B03 F29–F31)
+
+`SequenceStatistics_HydrophobicityProfileOptions_Tests` (Biopython 1.88 `protein_scale` executed oracle, ≤ 1e-12): Biopython window convention (even W = 2/4/6, edge 0.5, off-centre/centre unknowns, gaps/B, lower case, W = 1 rejected, odd-window equality with the standard convention, defaults = legacy overload); strict mode (X, '-', B, 'ſ' throw in both conventions); ProtScale 0..1 normalisation (kd W=9 / W=5 e0.4, unknown centre, hw; constant/empty scale throws); caller-supplied scales hw/em/ja/Flex at W=9 and W=5 e0.4; null scale throws.
+
+---
+
 ## 6. Assumption Register
 
 **Total assumptions:** 1
@@ -176,3 +182,13 @@ Total in-scope cases: 12; ✅ = 12.
 ## 7. Open Questions / Decisions
 
 1. None. All GRAVY/profile values over the 20 standard residues are source-conformant; the only undefined-input behavior (non-standard residues) is documented as a deviation and does not affect canonical values.
+
+## 8. Addendum 2026-10-14 (FIN-B03 R2-WP5): shipped scales (F52), MCP options (F41)
+
+- F52: `ProteinScales.HoppWoods/Emini/Janin/Flexibility` = Biopython 1.88 `ProtParamData` (literal oracle copy in `ProteinScales_EqualBiopythonProtParamData`); KD forwards to PPC; F31 profile tests use the shipped tables (hw W9 −0.06666666666666662, em W9 1.0731111111111111, ja W9 −0.31222222222222223, Flex W5 e0.4 1.003).
+- F41/F52 MCP `hydrophobicity_profile(edgeWeight, convention, strict, normalizeScale, scale)`: ubiquitin W5 e0.4 2.015625, 1.853125 …; FLIVAG W5 e0.4 3.7312499999999997, 3.1156249999999996; unknown scale (incl. "Eisenberg") rejected. Tests: `Seqeron.Mcp.Analysis.Tests/B03SequenceStatisticsMcpOptionsTests`.
+
+## 9. Addendum 2026-10-14 (SRC RO2 for B03): ProtScale exponential weight-variation model
+
+- Oracle: the ExPASy ProtScale web tool (`web.expasy.org/cgi-bin/protscale/protscale.pl`), executed 2026-10-14; 3-decimal output, so tolerance 0.0005. Data: `docs/Evidence/SEQ-HYDRO-001-Evidence.md` "SRC RO2".
+- Tests (`SequenceStatistics_HydrophobicityProfileOptions_Tests`, region "ProtScale exponential weight variation model"): KD profiles W7 e10 %, W9 e25 %, W21 e0 %, W5 e50 % exponential and W9 e25 % linear on one 60-aa sequence; weight tables via a poly-G/W spike (W7 e10, W21 e1, W21 e50, W9 e90, W11 e10, W5 e50); edge 1 = unweighted mean; Biopython convention + exponential, undefined model, even window throw. MCP: `HydrophobicityProfile_ExponentialWeightModel_MatchesProtScaleWebTool`.

@@ -5,39 +5,147 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "SequenceStatistics.CalculateDinucleotideRatios",
-  "docRef": "Seqeron.Genomics.Analysis/SequenceStatistics.cs#L641",
-  "description": "Dinucleotide relative abundance (odds ratio) rho_XY = f_XY / (f_X * f_Y). rho > 1 over-represented, < 1 under-represented; 0 if a base is absent.",
+  "docRef": "Seqeron.Genomics.Analysis/SequenceStatistics.cs#L1614",
+  "description": "Dinucleotide relative abundance (Karlin odds ratio) rho_XY = f_XY / (f_X * f_Y): single-strand rho (default; = seqinr rho / EMBOSS compseq Obs/Exp) or Karlin's strand-symmetrized rho* (sequence + reverse complement). rho > 1 over-, < 1 under-represented; only occurring dinucleotides are keys unless includeAbsent adds rho = 0 for unobserved dinucleotides whose bases occur (seqinr rho; class UnderRepresented); undefined ratios (absent base, seqinr NaN) are omitted. Optional Karlin classes (rho <= 0.78 under, >= 1.23 over). Not the Gardiner-Garden & Frommer CpG O/E used for CpG-island calling.",
   "inputSchema": {
     "type": "object",
     "properties": {
-      "sequence": { "type": "string", "description": "Nucleotide sequence", "minLength": 1 }
+      "sequence": {
+        "type": "string",
+        "description": "Nucleotide sequence",
+        "minLength": 1
+      },
+      "strandSymmetric": {
+        "type": "boolean",
+        "description": "true: Karlin strand-symmetrized rho* over the sequence and its reverse complement (alphabet A/C/G/T); false: single-strand rho over A/C/G/T/U",
+        "default": false
+      },
+      "includeRepresentation": {
+        "type": "boolean",
+        "description": "true: also return Karlin's representation class per returned dinucleotide",
+        "default": false
+      },
+      "includeAbsent": {
+        "type": "boolean",
+        "description": "true: also return rho = 0 for every unobserved dinucleotide whose two bases occur (seqinr rho)",
+        "default": false
+      }
     },
-    "required": ["sequence"]
+    "required": [
+      "sequence"
+    ]
   },
   "outputSchema": {
     "type": "object",
     "properties": {
       "ratios": {
         "type": "object",
-        "description": "Map of dinucleotide -> observed/expected ratio",
-        "additionalProperties": { "type": "number" }
+        "description": "Map of dinucleotide -> odds ratio rho (or rho*)",
+        "additionalProperties": {
+          "type": "number"
+        }
+      },
+      "representation": {
+        "type": "object",
+        "description": "Only with includeRepresentation: dinucleotide -> UnderRepresented (rho <= 0.78) / Normal / OverRepresented (rho >= 1.23)",
+        "additionalProperties": {
+          "type": "string",
+          "enum": [
+            "UnderRepresented",
+            "Normal",
+            "OverRepresented"
+          ]
+        }
       }
     },
-    "required": ["ratios"]
+    "required": [
+      "ratios"
+    ]
   },
   "errors": [
-    { "code": 1001, "message": "Sequence cannot be null or empty" }
+    {
+      "code": 1001,
+      "message": "Sequence cannot be null or empty"
+    }
   ],
   "examples": [
     {
       "name": "Alternating AT",
-      "input": { "sequence": "ATAT" },
-      "output": { "ratios": { "AT": 2.6667, "TA": 1.3333 } }
+      "input": {
+        "sequence": "ATAT"
+      },
+      "output": {
+        "ratios": {
+          "AT": 2.6667,
+          "TA": 1.3333
+        }
+      }
     },
     {
       "name": "Homopolymer",
-      "input": { "sequence": "AAAA" },
-      "output": { "ratios": { "AA": 1.0 } }
+      "input": {
+        "sequence": "AAAA"
+      },
+      "output": {
+        "ratios": {
+          "AA": 1.0
+        }
+      }
+    },
+    {
+      "name": "Karlin rho* with classes",
+      "input": {
+        "sequence": "ATGCGCGT",
+        "strandSymmetric": true,
+        "includeRepresentation": true
+      },
+      "output": {
+        "ratios": {
+          "AC": 1.219,
+          "AT": 4.0635,
+          "CA": 1.219,
+          "CG": 2.9257,
+          "GC": 2.9257,
+          "GT": 1.219,
+          "TG": 1.219
+        },
+        "representation": {
+          "AC": "Normal",
+          "AT": "OverRepresented",
+          "CA": "Normal",
+          "CG": "OverRepresented",
+          "GC": "OverRepresented",
+          "GT": "Normal",
+          "TG": "Normal"
+        }
+      }
+    },
+    {
+      "name": "CpG-free sequence with absent dinucleotides",
+      "input": {
+        "sequence": "AACCTTGGAACCTTGG",
+        "includeAbsent": true
+      },
+      "output": {
+        "ratios": {
+          "AA": 2.1333333333333333,
+          "AC": 2.1333333333333333,
+          "CC": 2.1333333333333333,
+          "CT": 2.1333333333333333,
+          "GG": 2.1333333333333333,
+          "TG": 2.1333333333333333,
+          "TT": 2.1333333333333333,
+          "GA": 1.0666666666666667,
+          "AG": 0,
+          "AT": 0,
+          "CA": 0,
+          "CG": 0,
+          "GC": 0,
+          "GT": 0,
+          "TA": 0,
+          "TC": 0
+        }
+      }
     }
   ]
 }

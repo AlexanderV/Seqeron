@@ -21,7 +21,8 @@ public class DiversityStatisticsTests
     {
         // Wikipedia Tajima's D example: 5 sequences, length 20.
         // Source: https://en.wikipedia.org/wiki/Tajima%27s_D#Example
-        //   π = 2.0/20 = 0.1 ; S = 4 ; θ_W = 4/(a₁·20), a₁ = 25/12 ≈ 0.096 ; D ≈ 0.273
+        //   π = 2.0/20 = 0.1 ; S = 4 ; θ_W = 4/(a₁·20) ≈ 0.096 with a₁ = 25/12 ;
+        //   D ≈ 0.273 computed via Tajima (1989) Genetics 123:585 eq. 38 (the Wikipedia page stops at d = 0.08)
         var wiki = PopulationTools.DiversityStatistics(new[]
         {
             "00000000000000000000",

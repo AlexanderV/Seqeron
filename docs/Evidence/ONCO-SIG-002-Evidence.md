@@ -105,7 +105,7 @@
 ### Non-negative matrix factorization — Wikipedia (citing the Lee & Seung primary)
 
 **URL:** https://en.wikipedia.org/wiki/Non-negative_matrix_factorization
-**Accessed:** 2026-06-23 (retrieved via WebFetch)
+**Accessed:** 2026-06-23 (retrieved via WebFetch) · re-fetched 2026-10-14 (SRC citation audit: supports the claims above)
 **Authority rank:** 4 (encyclopedic, citing the Lee & Seung primary)
 
 **Key Extracted Points:**

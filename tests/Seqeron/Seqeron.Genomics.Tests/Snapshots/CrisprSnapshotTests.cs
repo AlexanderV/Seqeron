@@ -18,7 +18,7 @@ public class CrisprSnapshotTests
     {
         var dna = new DnaSequence(TargetSequence);
         var sites = CrisprDesigner.FindPamSites(dna, CrisprSystemType.SpCas9)
-            .Select(s => new { s.Position, s.PamSequence, s.TargetSequence, s.IsForwardStrand })
+            .Select(s => new { s.Position, s.PamSequence, s.TargetSequence, s.TargetStart, s.IsForwardStrand })
             .ToList();
 
         return Verify(new { Sites = sites });
@@ -28,12 +28,12 @@ public class CrisprSnapshotTests
     public Task DesignGuideRnas_Snapshot()
     {
         var longSeq = new DnaSequence(string.Concat(Enumerable.Repeat("ACGTACGTACGTACGTACGT", 5)) + "GGG");
+        // The whole result is pinned (count included): a truncating Take(n) would hide guides a regression adds or drops.
         var guides = CrisprDesigner.DesignGuideRnas(longSeq, 0, longSeq.Length - 1)
-            .Take(3)
-            .Select(g => new { g.Sequence, g.Position, g.GcContent, g.Score, g.HasPolyT })
+            .Select(g => new { g.Sequence, g.Position, g.IsForwardStrand, g.GcContent, g.Score, g.HasPolyT })
             .ToList();
 
-        return Verify(new { Guides = guides });
+        return Verify(new { Count = guides.Count, Guides = guides });
     }
 
     [Test]

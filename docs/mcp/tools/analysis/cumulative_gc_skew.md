@@ -23,7 +23,7 @@ the terminus (Grigoriev 1998; Lobry 1996).
 
 ## Core Documentation Reference
 
-- Source: [GcSkewCalculator.cs#L115](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GcSkewCalculator.cs#L115)
+- Source: [GcSkewCalculator.cs#L305](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GcSkewCalculator.cs#L305)
 
 ## Input Schema
 
@@ -31,6 +31,7 @@ the terminus (Grigoriev 1998; Lobry 1996).
 |-----------|------|----------|-------------|
 | `sequence` | string | Yes | DNA sequence (min length 1) |
 | `windowSize` | integer | No | Window size (default 1000, ≥ 1) |
+| `includePartialWindow` | boolean | No | Also include the trailing partial window in the running sum (default false). True matches Biopython `GC_skew` + accumulate (e.g. `"GGGCACGTGGCCCCATG"`, 4 → cumulative [0.5, 0.5, 0.5, −0.5, 0.5]) |
 
 ## Output Schema
 

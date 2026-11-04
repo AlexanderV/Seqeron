@@ -14,11 +14,11 @@ Calculate nucleotide composition of a DNA/RNA sequence.
 
 ## Description
 
-Calculates the nucleotide composition of a DNA or RNA sequence, including counts of each nucleotide (A, T, G, C, U) and the GC content ratio. Works with both DNA (containing T) and RNA (containing U) sequences.
+Calculates the nucleotide composition of a DNA or RNA sequence, including counts of each nucleotide (A, T, G, C, U), of N (any base) and of all other characters, and the GC content ratio. Works with both DNA (containing T) and RNA (containing U) sequences.
 
 ## Core Documentation Reference
 
-- Source: [SequenceStatistics.cs#L48](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L48)
+- Source: [SequenceStatistics.cs#L62](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L62)
 
 ## Input Schema
 
@@ -28,15 +28,18 @@ Calculates the nucleotide composition of a DNA or RNA sequence, including counts
 
 ## Output Schema
 
+Wire names are the MCP serializer's camelCase forms of the result record (`A` → `a`, `GcContent` → `gcContent`, …), as locked by `B03McpDocExamplesTests.NucleotideComposition_WireNames_AreCamelCase`.
+
 | Field | Type | Description |
 |-------|------|-------------|
 | `length` | integer | Total sequence length |
-| `A` | integer | Count of adenine |
-| `T` | integer | Count of thymine |
-| `G` | integer | Count of guanine |
-| `C` | integer | Count of cytosine |
-| `U` | integer | Count of uracil (RNA) |
-| `other` | integer | Count of other characters |
+| `a` | integer | Count of adenine |
+| `t` | integer | Count of thymine |
+| `g` | integer | Count of guanine |
+| `c` | integer | Count of cytosine |
+| `u` | integer | Count of uracil (RNA) |
+| `other` | integer | Count of other characters (not A/C/G/T/U/N) |
+| `n` | integer | Count of N (any base; added FIN-B03 A22) |
 | `gcContent` | number | GC content ratio (0-1) |
 
 ## Errors
@@ -66,13 +69,14 @@ Calculates the nucleotide composition of a DNA or RNA sequence, including counts
 ```json
 {
   "length": 8,
-  "A": 2,
-  "T": 2,
-  "G": 2,
-  "C": 2,
-  "U": 0,
+  "a": 2,
+  "t": 2,
+  "g": 2,
+  "c": 2,
+  "u": 0,
   "other": 0,
-  "gcContent": 0.5
+  "gcContent": 0.5,
+  "n": 0
 }
 ```
 
@@ -95,13 +99,14 @@ Calculates the nucleotide composition of a DNA or RNA sequence, including counts
 ```json
 {
   "length": 8,
-  "A": 2,
-  "T": 0,
-  "G": 2,
-  "C": 2,
-  "U": 2,
+  "a": 2,
+  "t": 0,
+  "g": 2,
+  "c": 2,
+  "u": 2,
   "other": 0,
-  "gcContent": 0.5
+  "gcContent": 0.5,
+  "n": 0
 }
 ```
 

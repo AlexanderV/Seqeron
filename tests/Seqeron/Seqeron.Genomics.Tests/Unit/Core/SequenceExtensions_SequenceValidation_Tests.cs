@@ -389,6 +389,24 @@ public class SequenceExtensions_SequenceValidation_Tests
         });
     }
 
+    // IndexOfInvalidIupacDna/Rna: first position outside Biopython ambiguous_dna_letters /
+    // ambiguous_rna_letters (ASCII case-insensitive); -1 when all valid (incl. ""). Backs MCP *_validate iupac=true.
+    [TestCase("", -1, -1)]
+    [TestCase("ACGTNRYSWKMBDHV", -1, 3)]
+    [TestCase("acgunryswkmbdhv", 3, -1)]
+    [TestCase("ACNX", 3, 3)]
+    [TestCase("AC-G", 2, 2)]
+    public void IndexOfInvalidIupac_ReturnsFirstOffendingPosition(string sequence, int expectedDna, int expectedRna)
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(sequence.AsSpan().IndexOfInvalidIupacDna(), Is.EqualTo(expectedDna), "DNA");
+            Assert.That(sequence.AsSpan().IndexOfInvalidIupacRna(), Is.EqualTo(expectedRna), "RNA");
+            Assert.That(sequence.AsSpan().IsValidIupacDna(), Is.EqualTo(expectedDna < 0));
+            Assert.That(sequence.AsSpan().IsValidIupacRna(), Is.EqualTo(expectedRna < 0));
+        });
+    }
+
     [Test]
     [Description("IupacHelper.IsNucleotideCode accepts exactly the 15 codes of Biopython ambiguous_dna_letters")]
     public void IupacHelper_IsNucleotideCode_ExactlyFifteenCodes()

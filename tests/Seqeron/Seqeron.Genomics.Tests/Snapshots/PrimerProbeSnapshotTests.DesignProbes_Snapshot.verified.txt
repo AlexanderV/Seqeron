@@ -2,25 +2,25 @@
   Probes: [
     {
       Sequence: TACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTA,
-      Tm: 67.58290207197791,
+      Tm: 86.54135157831934,
       GcContent: 0.48,
-      Score: 0.35,
+      Score: 0.65,
       Start: 3,
       End: 52
     },
     {
       Sequence: TACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTA,
-      Tm: 67.58290207197791,
+      Tm: 86.54135157831934,
       GcContent: 0.48,
-      Score: 0.35,
+      Score: 0.65,
       Start: 7,
       End: 56
     },
     {
       Sequence: TACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTA,
-      Tm: 67.58290207197791,
+      Tm: 86.54135157831934,
       GcContent: 0.48,
-      Score: 0.35,
+      Score: 0.65,
       Start: 11,
       End: 60
     }

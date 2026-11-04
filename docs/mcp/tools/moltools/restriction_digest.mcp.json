@@ -5,15 +5,44 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "RestrictionAnalyzer.Digest",
-  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L259",
-  "description": "Simulate a linear restriction digest and return the ordered fragments.",
+  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1170",
+  "description": "Simulate a restriction digest of a linear or circular molecule with named enzymes (any of the 754 REBASE enzymes with a defined cut) and return the ordered fragments with their end overhangs.",
   "inputSchema": {
     "type": "object",
     "properties": {
-      "sequence": { "type": "string", "description": "DNA sequence to digest.", "minLength": 1 },
-      "enzyme_names": { "type": "array", "items": { "type": "string" }, "minItems": 1 }
+      "sequence": {
+        "description": "DNA sequence to digest. IUPAC ambiguity codes are accepted anywhere in the sequence (N, R, Y, ...), so an N-containing contig or a soft-masked assembly can be digested as it is: a site N matches any of the 15 IUPAC codes, every other site code matches only a concrete A/C/G/T base it expands to, and a character outside the 15 codes (U, a space, a FASTA header line) matches nothing — Biopython's own rule; such text is not rejected, but it still occupies coordinates and cannot be part of a site. Lower case is accepted; the returned fragment and site sequences are upper-case (the soft mask is not carried over; positions and lengths are unaffected).",
+        "type": "string"
+      },
+      "enzyme_names": {
+        "description": "Names of restriction enzymes to use (must be non-empty).",
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "topology": {
+        "description": "Linear (default) or Circular: whether the molecule is a linear fragment or a closed circle (plasmid).",
+        "type": "string",
+        "enum": [
+          "Linear",
+          "Circular"
+        ],
+        "default": "Linear"
+      },
+      "methylation": {
+        "description": "Optional methylation-aware recognition (EMBOSS restrict -methylation semantics): \"none\" (default), \"dam\" (GmATC), \"dcm\" (mCmCAGG, mCmCTGG), \"dam+dcm\" or \"emboss\" (all five Emethylsites.dat entries incl. EcoKI). Case-insensitive. A recognition window containing a methylated base is NOT a site (a window rule, not an enzyme-specific sensitivity table; BamHI is blocked by Dam).",
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      }
     },
-    "required": ["sequence", "enzyme_names"]
+    "required": [
+      "sequence",
+      "enzyme_names"
+    ]
   },
   "outputSchema": {
     "type": "object",
@@ -23,33 +52,271 @@
         "items": {
           "type": "object",
           "properties": {
-            "sequence": { "type": "string" },
-            "startPosition": { "type": "integer" },
-            "length": { "type": "integer" },
-            "leftEnzyme": { "type": ["string", "null"] },
-            "rightEnzyme": { "type": ["string", "null"] },
-            "fragmentNumber": { "type": "integer" }
+            "sequence": {
+              "type": "string"
+            },
+            "startPosition": {
+              "type": "integer"
+            },
+            "length": {
+              "type": "integer"
+            },
+            "leftEnzyme": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "description": "First name of leftEnzymes (ordinal order), or null when the left end is not a cut."
+            },
+            "rightEnzyme": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "description": "First name of rightEnzymes (ordinal order), or null when the right end is not a cut."
+            },
+            "fragmentNumber": {
+              "type": "integer"
+            },
+            "leftOverhangType": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "Blunt",
+                "FivePrime",
+                "ThreePrime",
+                null
+              ],
+              "description": "End chemistry of the left end, or null when that end was not created by a cut."
+            },
+            "leftOverhang": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "description": "Left end's single-stranded extension, 5'-3' on the strand carrying it; empty for a blunt end, null for an uncut end."
+            },
+            "rightOverhangType": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "Blunt",
+                "FivePrime",
+                "ThreePrime",
+                null
+              ],
+              "description": "End chemistry of the right end, or null when that end was not created by a cut."
+            },
+            "rightOverhang": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "description": "Right end's single-stranded extension, 5'-3' on the strand carrying it; empty for a blunt end, null for an uncut end."
+            },
+            "leftEnzymes": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Every enzyme whose top-strand cut made the left end (isoschizomers / nested sites cutting at the same position), once each, ordinal order of the table names; empty for an uncut end."
+            },
+            "rightEnzymes": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Every enzyme whose top-strand cut made the right end, as leftEnzymes."
+            }
           },
-          "required": ["sequence", "startPosition", "length", "fragmentNumber"]
+          "required": [
+            "sequence",
+            "startPosition",
+            "length",
+            "fragmentNumber"
+          ]
         }
       }
     },
-    "required": ["fragments"]
+    "required": [
+      "fragments"
+    ]
   },
   "errors": [
-    { "code": 1001, "message": "Sequence cannot be null or empty" },
-    { "code": 1002, "message": "At least one enzyme name is required" }
+    {
+      "code": 1001,
+      "message": "Sequence cannot be null or empty"
+    },
+    {
+      "code": 1002,
+      "message": "At least one enzyme name is required"
+    },
+    {
+      "code": 1003,
+      "message": "Unknown enzyme: {name}"
+    },
+    {
+      "code": 1004,
+      "message": "Unknown methylation set '{name}'; expected none, dam, dcm, dam+dcm or emboss."
+    },
+    {
+      "code": 1005,
+      "message": "The topology must be MoleculeTopology.Linear or MoleculeTopology.Circular."
+    }
   ],
   "examples": [
     {
-      "name": "EcoRI single cut",
-      "input": { "sequence": "AAAGAATTCAAA", "enzyme_names": ["EcoRI"] },
-      "output": { "fragments": [ { "sequence": "AAAG", "startPosition": 0, "length": 4, "rightEnzyme": "EcoRI" }, { "sequence": "AATTCAAA", "startPosition": 4, "length": 8, "leftEnzyme": "EcoRI" } ] }
+      "name": "EcoRI single cut (linear)",
+      "input": {
+        "sequence": "AAAGAATTCAAA",
+        "enzyme_names": [
+          "EcoRI"
+        ]
+      },
+      "output": {
+        "fragments": [
+          {
+            "sequence": "AAAG",
+            "startPosition": 0,
+            "length": 4,
+            "rightEnzyme": "EcoRI",
+            "rightOverhangType": "FivePrime",
+            "rightOverhang": "AATT",
+            "leftEnzymes": [],
+            "rightEnzymes": [
+              "EcoRI"
+            ]
+          },
+          {
+            "sequence": "AATTCAAA",
+            "startPosition": 4,
+            "length": 8,
+            "leftEnzyme": "EcoRI",
+            "leftOverhangType": "FivePrime",
+            "leftOverhang": "AATT",
+            "leftEnzymes": [
+              "EcoRI"
+            ],
+            "rightEnzymes": []
+          }
+        ]
+      }
+    },
+    {
+      "name": "EcoRI on a circular molecule with an origin-spanning site",
+      "input": {
+        "sequence": "TTCAAAAAAAGAA",
+        "enzyme_names": [
+          "EcoRI"
+        ],
+        "topology": "Circular"
+      },
+      "output": {
+        "fragments": [
+          {
+            "sequence": "AATTCAAAAAAAG",
+            "startPosition": 11,
+            "length": 13,
+            "leftEnzyme": "EcoRI",
+            "rightEnzyme": "EcoRI",
+            "fragmentNumber": 1,
+            "leftOverhangType": "FivePrime",
+            "leftOverhang": "AATT",
+            "rightOverhangType": "FivePrime",
+            "rightOverhang": "AATT",
+            "leftEnzymes": [
+              "EcoRI"
+            ],
+            "rightEnzymes": [
+              "EcoRI"
+            ]
+          }
+        ]
+      }
     },
     {
       "name": "No cut site",
-      "input": { "sequence": "AAAAAAAA", "enzyme_names": ["EcoRI"] },
-      "output": { "fragments": [ { "sequence": "AAAAAAAA", "startPosition": 0, "length": 8 } ] }
+      "input": {
+        "sequence": "AAAAAAAA",
+        "enzyme_names": [
+          "EcoRI"
+        ]
+      },
+      "output": {
+        "fragments": [
+          {
+            "sequence": "AAAAAAAA",
+            "startPosition": 0,
+            "length": 8
+          }
+        ]
+      }
+    },
+    {
+      "name": "Isoschizomers cutting at the same position (MspI + HpaII)",
+      "input": {
+        "sequence": "CCGGAAACCGG",
+        "enzyme_names": [
+          "MspI",
+          "HpaII"
+        ]
+      },
+      "output": {
+        "fragments": [
+          {
+            "sequence": "C",
+            "startPosition": 0,
+            "length": 1,
+            "rightEnzyme": "HpaII",
+            "fragmentNumber": 1,
+            "rightOverhangType": "FivePrime",
+            "rightOverhang": "CG",
+            "leftEnzymes": [],
+            "rightEnzymes": [
+              "HpaII",
+              "MspI"
+            ]
+          },
+          {
+            "sequence": "CGGAAAC",
+            "startPosition": 1,
+            "length": 7,
+            "leftEnzyme": "HpaII",
+            "rightEnzyme": "HpaII",
+            "fragmentNumber": 2,
+            "leftOverhangType": "FivePrime",
+            "leftOverhang": "CG",
+            "rightOverhangType": "FivePrime",
+            "rightOverhang": "CG",
+            "leftEnzymes": [
+              "HpaII",
+              "MspI"
+            ],
+            "rightEnzymes": [
+              "HpaII",
+              "MspI"
+            ]
+          },
+          {
+            "sequence": "CGG",
+            "startPosition": 8,
+            "length": 3,
+            "leftEnzyme": "HpaII",
+            "fragmentNumber": 3,
+            "leftOverhangType": "FivePrime",
+            "leftOverhang": "CG",
+            "leftEnzymes": [
+              "HpaII",
+              "MspI"
+            ],
+            "rightEnzymes": []
+          }
+        ]
+      }
     }
   ]
 }

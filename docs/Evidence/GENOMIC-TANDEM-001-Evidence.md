@@ -24,7 +24,7 @@
 ### Wikipedia — "Tandem repeat" (using its cited primaries)
 
 **URL:** https://en.wikipedia.org/wiki/Tandem_repeat
-**Accessed:** 2026-06-14 (fetched the page, and re-confirmed via web search in this session)
+**Accessed:** 2026-06-14 (fetched the page, and re-confirmed via web search in this session) · re-fetched 2026-10-14 (SRC citation audit: supports the claims above)
 **Authority rank:** 4 (Wikipedia; the definition and example below are quoted verbatim from the article)
 
 **Key Extracted Points:**

@@ -158,3 +158,14 @@
 
 1. **DECISION — duplicate Registry entry.** The Processing Registry contains two entries for the identical pair of melting-temperature methods on the same class: **SEQ-THERMO-001** ("Thermodynamic Properties", ☑ Complete) and **SEQ-TM-001** ("Melting Temperature"). Both list `SequenceStatistics.CalculateThermodynamics(...)` as canonical and add `CalculateMeltingTemperature(...)`. SEQ-THERMO-001 already ships the implementation, the canonical test fixture, Evidence, and an algorithm doc. Per the prompt's duplicate-elimination rule ("one canonical test file per unit; no duplicate tests remain") and the workflow-control rule ("note the conflict in the TestSpec and update the checklist entry"), SEQ-TM-001 is **resolved by consolidation**: no new production code and no duplicate test file are created; this unit reuses the existing implementation and canonical fixture. Evidence was independently re-retrieved this session (Biopython `Tm_Wallace`/`Tm_GC`/`Tm_NN`, SantaLucia 1998, Allawi & SantaLucia 1997) to confirm the behavior is correct and source-backed. This mirrors the prior SEQ-COMPOSITION-001 ↔ SEQ-STATS-001 consolidation.
 2. **Review 2026-09-28 (B03 F12):** threshold on A+C+G+T count; tests `CalculateMeltingTemperature_ThresholdUsesAcgtCount` (3) and `CalculateMeltingTemperature_Wallace_EqualsCanonicalPrimerDesigner` (2000 random inputs) in the SEQ-THERMO-001 fixture; Tm/summary fuzz oracles updated.
+
+## 8. Addendum 2026-10-14 (FIN-B03 R2-WP5): canonical basic Tm (F25), GC formula < 14 nt (F32), IUPAC weighting (F33, F48)
+
+| ID | Case | Oracle |
+|----|------|--------|
+| TM1 | `ATGCATGC` Wallace 24.0; GC formula `ATGCATGC`/`ACGUACGU` 1.3500000000000085, `ACGTACGTACGTACGTAC` 48.04444444444445; 2000 random ≡ `ThermoConstants.CalculateBasicTm` | Biopython 1.88 `Tm_Wallace` / `Tm_GC(userset=(64.9,0.41,672.4,0), saltcorr=0)` |
+| TM2 | `useWallaceRule:false` below 14 nt: `AAAA` −103.19999999999999, `GC` −230.29999999999998, `A` −607.5, `ACGTACGTACGTA` 32.1 | Biopython `Tm_GC` (no clamp) |
+| TM3 | `weightAmbiguousBases: true`: `acgtNNSWacgt-ry` 42.0, `ACGTRYKMBDHVN` 39.0, `acguSWnn` 24.0, `NNNN` 12.0; `ACGTACGTACGTACGTRYKMBDHV` 57.38333333333334, `ACGTACGTACGTACNNSW` 48.04444444444445; false ≡ default (500) | Biopython `strict=False` |
+| TM4 | MCP `melting_temperature(weightAmbiguousBases)` = `summarize_sequence(weightAmbiguousBasesInTm)` | F48 |
+
+Tests: `CalculateMeltingTemperature_MatchesBiopythonBasicTm`, `..._EqualsCanonicalThermoConstants_Random`, `..._GcFormulaBelow14_MatchesBiopythonTmGc`, `..._WeightAmbiguousBases_MatchesBiopythonNonStrict`, `..._WeightAmbiguousBasesFalse_EqualsDefault_AndEmptyIsZero`; MCP `B03SequenceStatisticsMcpOptionsTests` (+5).

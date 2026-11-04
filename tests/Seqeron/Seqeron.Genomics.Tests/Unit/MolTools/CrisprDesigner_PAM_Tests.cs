@@ -15,6 +15,10 @@ namespace Seqeron.Genomics.Tests.Unit.MolTools;
 /// - Ran et al. (2015), Nature 520:186 — SaCas9 NNGRRT PAM, 21 nt guide
 /// - Hsu et al. (2013), Nat Biotechnol 31:827 — NAG as secondary SpCas9 PAM
 /// - Liu et al. (2019), Nature 566:218 — CasX (Cas12e) TTCN PAM, 20 nt guide
+/// - Kleinstiver et al. (2015), Nature 523:481 — VQR SpCas9 variant, NGAN PAM
+/// - CRISPOR crispor.py (maximilianh/crisporWebsite, master) — pamDesc ('NGA', 20 bp), offtargetPams
+///   ('NNGRRT' -> 'NNGRRN'), findAllPams/flankSeqIter coordinate convention; NGA / NNGRRN expected values
+///   from an independent two-strand brute-force scan cross-checked against CRISPOR's functions (B08 round 3 G8)
 /// </summary>
 [TestFixture]
 public class CrisprDesigner_PAM_Tests
@@ -22,10 +26,12 @@ public class CrisprDesigner_PAM_Tests
     #region GetSystem Tests - CRISPR System Configuration
 
     [Test]
-    [Description("M1-M3: GetSystem returns correct Name and PAM for all 7 systems")]
+    [Description("M1-M3: GetSystem returns correct Name and PAM for all 9 systems")]
     [TestCase(CrisprSystemType.SpCas9, "SpCas9", "NGG")]            // Jinek 2012
     [TestCase(CrisprSystemType.SpCas9_NAG, "SpCas9-NAG", "NAG")]    // Hsu 2013
+    [TestCase(CrisprSystemType.SpCas9_NGA, "SpCas9-NGA", "NGA")]    // Kleinstiver 2015 (VQR); CRISPOR pamDesc 'NGA'
     [TestCase(CrisprSystemType.SaCas9, "SaCas9", "NNGRRT")]         // Ran 2015
+    [TestCase(CrisprSystemType.SaCas9_NNGRRN, "SaCas9-NNGRRN", "NNGRRN")] // CRISPOR offtargetPams "NNGRRT" -> "NNGRRN"
     [TestCase(CrisprSystemType.Cas12a, "Cas12a/Cpf1", "TTTV")]      // Zetsche 2015
     [TestCase(CrisprSystemType.AsCas12a, "AsCas12a", "TTTV")]       // Zetsche 2015
     [TestCase(CrisprSystemType.LbCas12a, "LbCas12a", "TTTV")]       // Zetsche 2015
@@ -45,10 +51,12 @@ public class CrisprDesigner_PAM_Tests
     [Description("M4: Each system has correct guide length per literature")]
     [TestCase(CrisprSystemType.SpCas9, 20)]      // Jinek 2012: 20 nt spacer
     [TestCase(CrisprSystemType.SpCas9_NAG, 20)]   // Same enzyme as SpCas9 (Hsu 2013)
+    [TestCase(CrisprSystemType.SpCas9_NGA, 20)]   // CRISPOR setupPamInfo: any non-special PAM -> GUIDELEN = 20
     [TestCase(CrisprSystemType.SaCas9, 21)]        // Ran et al. 2015: 21 nt typical
+    [TestCase(CrisprSystemType.SaCas9_NNGRRN, 21)] // alternative PAM of NNGRRT keeps the SaCas9 21-nt guide
     [TestCase(CrisprSystemType.Cas12a, 23)]        // Zetsche 2015: ~23 nt crRNA spacer
     [TestCase(CrisprSystemType.AsCas12a, 23)]      // Acidaminococcus sp. Cas12a (Zetsche 2015)
-    [TestCase(CrisprSystemType.LbCas12a, 24)]      // Lachnospiraceae Cas12a (Zetsche 2015: 23-25 nt)
+    [TestCase(CrisprSystemType.LbCas12a, 23)]      // Lachnospiraceae Cas12a: CRISPOR GUIDELEN = 23 for every Cpf1 PAM (H11)
     [TestCase(CrisprSystemType.CasX, 20)]          // Liu et al. 2019: 20 nt guide
     public void GetSystem_ReturnsCorrectGuideLength(CrisprSystemType systemType, int expectedLength)
     {
@@ -60,7 +68,9 @@ public class CrisprDesigner_PAM_Tests
     [Description("M5: Cas9 variants have PAM after target (3'), Cas12a/CasX have PAM before target (5')")]
     [TestCase(CrisprSystemType.SpCas9, true)]      // Wikipedia PAM: 3'-end PAM
     [TestCase(CrisprSystemType.SpCas9_NAG, true)]   // Same as SpCas9
+    [TestCase(CrisprSystemType.SpCas9_NGA, true)]   // Kleinstiver 2015: NGA PAM 3' of the protospacer
     [TestCase(CrisprSystemType.SaCas9, true)]       // Ran 2015: 3' PAM
+    [TestCase(CrisprSystemType.SaCas9_NNGRRN, true)] // same enzyme/side as SaCas9
     [TestCase(CrisprSystemType.Cas12a, false)]      // Zetsche 2015: 5' T-rich PAM
     [TestCase(CrisprSystemType.AsCas12a, false)]    // Cas12a family
     [TestCase(CrisprSystemType.LbCas12a, false)]    // Cas12a family
@@ -210,7 +220,9 @@ public class CrisprDesigner_PAM_Tests
     [Description("INV: for every site (either strand) TargetSequence is the forward window " +
                  "[TargetStart, TargetStart+GuideLength) read on the protospacer strand, and PamSequence matches the motif")]
     [TestCase(CrisprSystemType.SpCas9)]
+    [TestCase(CrisprSystemType.SpCas9_NGA)]
     [TestCase(CrisprSystemType.SaCas9)]
+    [TestCase(CrisprSystemType.SaCas9_NNGRRN)]
     [TestCase(CrisprSystemType.Cas12a)]
     [TestCase(CrisprSystemType.CasX)]
     public void FindPamSites_AllSites_AreConsistentInForwardCoordinates(CrisprSystemType systemType)
@@ -420,11 +432,11 @@ public class CrisprDesigner_PAM_Tests
     }
 
     [Test]
-    [Description("S7: LbCas12a FindPamSites produces 24bp target (Zetsche 2015: 23-25 nt)")]
-    public void FindPamSites_LbCas12a_DetectsTTTV_With24bpTarget()
+    [Description("S7: LbCas12a FindPamSites produces a 23bp target, the same as the other Cas12a aliases (CRISPOR GUIDELEN = 23)")]
+    public void FindPamSites_LbCas12a_DetectsTTTV_With23bpTarget()
     {
-        // TTTA(4bp) + 24bp target = 28bp total
-        var sequence = new DnaSequence("TTTAACGTACGTACGTACGTACGTACGT");
+        // TTTA(4bp) + 23bp target = 27bp total
+        var sequence = new DnaSequence("TTTAACGTACGTACGTACGTACGTACG");
         var sites = CrisprDesigner.FindPamSites(sequence, CrisprSystemType.LbCas12a).ToList();
 
         var site = sites.FirstOrDefault(s => s.IsForwardStrand && s.PamSequence == "TTTA");
@@ -433,10 +445,32 @@ public class CrisprDesigner_PAM_Tests
         {
             Assert.That(site!.Position, Is.EqualTo(0));
             Assert.That(site.TargetStart, Is.EqualTo(4));
-            Assert.That(site.TargetSequence.Length, Is.EqualTo(24),
-                "LbCas12a guide is 24 nt (Zetsche 2015)");
-            Assert.That(site.TargetSequence, Is.EqualTo("ACGTACGTACGTACGTACGTACGT"));
+            Assert.That(site.TargetSequence.Length, Is.EqualTo(23),
+                "LbCas12a guide is 23 nt, as for every Cpf1 PAM in CRISPOR");
+            Assert.That(site.TargetSequence, Is.EqualTo("ACGTACGTACGTACGTACGTACG"));
         });
+    }
+
+    /// <summary>
+    /// H11: the three Cas12a aliases are one PAM with one spacer length, so the same genomic site must give the same
+    /// protospacer, target start and cut site whichever alias the caller picks (LbCas12a used to be 24 nt: different
+    /// <c>TargetSequence</c> and <c>TargetStart</c> on the reverse strand for the same site).
+    /// </summary>
+    [Test]
+    public void FindPamSites_AllCas12aAliases_ReportTheSameSites()
+    {
+        var sequence = new DnaSequence("GGTTTAACGTACGTACGTACGTACGTACGAACGTTTCACGTACGTACGTACGTACGTACCGATC");
+
+        var reference = CrisprDesigner.FindPamSites(sequence, CrisprSystemType.Cas12a)
+            .Select(s => (s.Position, s.PamSequence, s.TargetSequence, s.TargetStart, s.IsForwardStrand)).ToList();
+
+        Assert.That(reference, Is.Not.Empty);
+        foreach (var alias in new[] { CrisprSystemType.AsCas12a, CrisprSystemType.LbCas12a })
+        {
+            var sites = CrisprDesigner.FindPamSites(sequence, alias)
+                .Select(s => (s.Position, s.PamSequence, s.TargetSequence, s.TargetStart, s.IsForwardStrand)).ToList();
+            Assert.That(sites, Is.EqualTo(reference), alias.ToString());
+        }
     }
 
     #endregion
@@ -614,6 +648,222 @@ public class CrisprDesigner_PAM_Tests
 
     #endregion
 
+    #region FindPamSites - SpCas9_NGA (VQR PAM) and SaCas9_NNGRRN (B08 round 3 G8)
+
+    // Oracle (B08 round 3 G8): an independent Python brute-force two-strand scan of each constructed sequence
+    // (reverse strand = scan of the reverse complement, mapped back to forward coordinates), cross-checked
+    // against CRISPOR's own patMatch/findAllPams/flankSeqIter exec'd from the fetched crispor.py
+    // (pamIsFirst = False, GUIDELEN = 20 for NGA / 21 for NNGRRN): 0 differences on every sequence below.
+    // Tuple: (IsForwardStrand, Position = CRISPOR pamStart, TargetStart = guideStart, PAM, Target).
+    private static void AssertSites(
+        IReadOnlyList<PamSite> actual, (bool Fwd, int Pos, int TStart, string Pam, string Target)[] expected)
+    {
+        var ordered = actual.OrderByDescending(s => s.IsForwardStrand).ThenBy(s => s.Position).ToList();
+        Assert.That(ordered, Has.Count.EqualTo(expected.Length), "site count (independent scan + CRISPOR)");
+        Assert.Multiple(() =>
+        {
+            for (int i = 0; i < expected.Length; i++)
+            {
+                Assert.That(ordered[i].IsForwardStrand, Is.EqualTo(expected[i].Fwd), $"site {i} strand");
+                Assert.That(ordered[i].Position, Is.EqualTo(expected[i].Pos), $"site {i} Position (pamStart)");
+                Assert.That(ordered[i].TargetStart, Is.EqualTo(expected[i].TStart), $"site {i} TargetStart (guideStart)");
+                Assert.That(ordered[i].PamSequence, Is.EqualTo(expected[i].Pam), $"site {i} PAM on the protospacer strand");
+                Assert.That(ordered[i].TargetSequence, Is.EqualTo(expected[i].Target), $"site {i} protospacer");
+            }
+        });
+    }
+
+    private const string Guide20 = "ACGTACGTACGTACGTACGT";
+    private const string Guide21 = "ACGTACGTACGTACGTACGTA";
+
+    [Test]
+    [Description("G8-1: SpCas9-NGA finds every NGA site on both strands with 20-nt targets, PAM text and " +
+                 "CRISPOR forward-strand coordinates (3 forward + 6 reverse sites)")]
+    public void FindPamSites_SpCas9NGA_BothStrands_MatchesIndependentScanAndCrispor()
+    {
+        const string seq = "GATCCTAGCATGCATTCGATTGACCATTCGCTCAGCTAACGGTTCAAGCTTCATGCTAGCGATCGTACCTGAAT";
+        var sites = CrisprDesigner.FindPamSites(new DnaSequence(seq), CrisprSystemType.SpCas9_NGA).ToList();
+
+        Assert.That(sites.All(s => s.System.PamSequence == "NGA" && s.TargetSequence.Length == 20), Is.True,
+            "every site carries the NGA system and a 20-nt target");
+        AssertSites(sites,
+        [
+            (true, 20, 0, "TGA", "GATCCTAGCATGCATTCGAT"),
+            (true, 59, 39, "CGA", "CGGTTCAAGCTTCATGCTAG"),
+            (true, 69, 49, "TGA", "TTCATGCTAGCGATCGTACC"),
+            (false, 2, 5, "GGA", "GGTCAATCGAATGCATGCTA"),
+            (false, 15, 18, "CGA", "TAGCTGAGCGAATGGTCAAT"),
+            (false, 27, 30, "CGA", "AGCTTGAACCGTTAGCTGAG"),
+            (false, 31, 34, "TGA", "ATGAAGCTTGAACCGTTAGC"),
+            (false, 43, 46, "TGA", "ACGATCGCTAGCATGAAGCT"),
+            (false, 50, 53, "TGA", "TTCAGGTACGATCGCTAGCA"),
+        ]);
+    }
+
+    [Test]
+    [Description("G8-2: NGA is not NGG - a TGG downstream of a 20-mer is not a SpCas9-NGA site (and the string overload agrees)")]
+    public void FindPamSites_SpCas9NGA_DoesNotMatchNGG()
+    {
+        string seq = Guide20 + "TGG";
+        Assert.Multiple(() =>
+        {
+            Assert.That(CrisprDesigner.FindPamSites(seq, CrisprSystemType.SpCas9_NGA), Is.Empty);
+            Assert.That(CrisprDesigner.FindPamSites(new DnaSequence(seq), CrisprSystemType.SpCas9_NGA), Is.Empty);
+            Assert.That(CrisprDesigner.FindPamSites(Guide20 + "TGA", CrisprSystemType.SpCas9_NGA).Count(), Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    [Description("G8-3: SpCas9-NGA sequence edge - a PAM whose 20-nt target would run off either end is excluded; " +
+                 "the exact-fit case is kept (CRISPOR findPams minPosPlus / maxPosMinus)")]
+    public void FindPamSites_SpCas9NGA_SequenceEdge_ExcludesOverrunAndKeepsExactFit()
+    {
+        Assert.Multiple(() =>
+        {
+            // forward: PAM at index 19 -> target would start at -1
+            Assert.That(CrisprDesigner.FindPamSites(Guide20[..19] + "TGA", CrisprSystemType.SpCas9_NGA), Is.Empty);
+            // forward: PAM at index 20 -> target [0,20) fits exactly
+            AssertSites(CrisprDesigner.FindPamSites(Guide20 + "TGA", CrisprSystemType.SpCas9_NGA).ToList(),
+                [(true, 20, 0, "TGA", Guide20)]);
+            // reverse (forward-strand TCA, protospacer strand TGA): only 19 nt follow -> excluded
+            Assert.That(CrisprDesigner.FindPamSites("TCA" + Guide20[..19], CrisprSystemType.SpCas9_NGA), Is.Empty);
+            // reverse: 20 nt follow -> exact fit, Position 0, TargetStart 3, target = revcomp of seq[3,23)
+            AssertSites(CrisprDesigner.FindPamSites("TCA" + Guide20, CrisprSystemType.SpCas9_NGA).ToList(),
+                [(false, 0, 3, "TGA", Guide20)]);
+        });
+    }
+
+    [Test]
+    [Description("G8-4 (revised in B08 round 4, H12): SpCas9-NGA with N in the genome - an N inside the target means the " +
+                 "guide is never offered (CRISPOR flankSeqIter with doFilterNs=True, the design path); an N at the PAM's N " +
+                 "position matches (patMatch); an N at a concrete PAM position (G or A) is not a PAM")]
+    public void FindPamSites_SpCas9NGA_AmbiguityN_InTargetDropped_AtPamNMatches_AtConcretePamPositionRejected()
+    {
+        const string nTarget = "ACGTNCGTACGTACGTACGT";
+        Assert.Multiple(() =>
+        {
+            Assert.That(CrisprDesigner.FindPamSites(nTarget + "TGA", CrisprSystemType.SpCas9_NGA), Is.Empty);
+            Assert.That(CrisprDesigner.FindPamSites("TCA" + nTarget, CrisprSystemType.SpCas9_NGA), Is.Empty);
+
+            // a sequence N at the PAM's N position is a match, on both strands (patMatch: pattern N matches anything)
+            AssertSites(CrisprDesigner.FindPamSites(Guide20 + "NGA", CrisprSystemType.SpCas9_NGA).ToList(),
+                [(true, 20, 0, "NGA", Guide20)]);
+            AssertSites(CrisprDesigner.FindPamSites("TCN" + Guide20, CrisprSystemType.SpCas9_NGA).ToList(),
+                [(false, 0, 3, "NGA", Guide20)]); // Guide20 is its own reverse complement
+
+            Assert.That(CrisprDesigner.FindPamSites(Guide20 + "TNA", CrisprSystemType.SpCas9_NGA), Is.Empty, "N at the G position");
+            Assert.That(CrisprDesigner.FindPamSites(Guide20 + "TGN", CrisprSystemType.SpCas9_NGA), Is.Empty, "N at the A position");
+            Assert.That(CrisprDesigner.FindPamSites("TNA" + Guide20, CrisprSystemType.SpCas9_NGA), Is.Empty, "reverse: N at the G position");
+            Assert.That(CrisprDesigner.FindPamSites("NCA" + Guide20, CrisprSystemType.SpCas9_NGA), Is.Empty, "reverse: N at the leading T position");
+        });
+    }
+
+    [Test]
+    [Description("G8-5: SaCas9-NNGRRN finds every NNGRRN site on both strands with 21-nt targets, 6-nt PAM text and " +
+                 "CRISPOR forward-strand coordinates (4 forward + 6 reverse sites)")]
+    public void FindPamSites_SaCas9NNGRRN_BothStrands_MatchesIndependentScanAndCrispor()
+    {
+        const string seq = "GATCCTAGCATGCATTCGATCTTGAATACCATTCGCTCAGCTAACGGTTCAAGCTTCATGCTAGCGATCGTACCTGAATGACGGAGC";
+        var sites = CrisprDesigner.FindPamSites(new DnaSequence(seq), CrisprSystemType.SaCas9_NNGRRN).ToList();
+
+        Assert.That(sites.All(s => s.System.PamSequence == "NNGRRN" && s.TargetSequence.Length == 21), Is.True,
+            "every site carries the NNGRRN system and a 21-nt target");
+        AssertSites(sites,
+        [
+            (true, 21, 0, "TTGAAT", "GATCCTAGCATGCATTCGATC"),
+            (true, 73, 52, "CTGAAT", "GCTTCATGCTAGCGATCGTAC"),
+            (true, 80, 59, "ACGGAG", "GCTAGCGATCGTACCTGAATG"),
+            (true, 81, 60, "CGGAGC", "CTAGCGATCGTACCTGAATGA"),
+            (false, 1, 7, "TAGGAT", "TATTCAAGATCGAATGCATGC"),
+            (false, 13, 19, "TCGAAT", "CTGAGCGAATGGTATTCAAGA"),
+            (false, 30, 36, "GCGAAT", "GAAGCTTGAACCGTTAGCTGA"),
+            (false, 34, 40, "CTGAGC", "GCATGAAGCTTGAACCGTTAG"),
+            (false, 46, 52, "TTGAAC", "GTACGATCGCTAGCATGAAGC"),
+            (false, 53, 59, "ATGAAG", "CATTCAGGTACGATCGCTAGC"),
+        ]);
+    }
+
+    [Test]
+    [Description("G8-6: NNGRRN accepts every R/R combination (A or G) and any final base - 16 forward PAMs - and rejects " +
+                 "a non-R at either R position, a non-G at the third position, and a C at the first R")]
+    public void FindPamSites_SaCas9NNGRRN_AcceptsAllRrCombinationsAndAnyLastBase_RejectsNonR()
+    {
+        int accepted = 0;
+        foreach (char r1 in "AG")
+            foreach (char r2 in "AG")
+                foreach (char last in "ACGT")
+                {
+                    string pam = "CCG" + r1 + r2 + last;
+                    var sites = CrisprDesigner.FindPamSites(Guide21 + pam, CrisprSystemType.SaCas9_NNGRRN).ToList();
+                    Assert.That(sites, Has.Count.EqualTo(1), $"PAM {pam}");
+                    Assert.That(sites[0].IsForwardStrand && sites[0].Position == 21 && sites[0].TargetStart == 0
+                                && sites[0].PamSequence == pam && sites[0].TargetSequence == Guide21, Is.True, $"PAM {pam} fields");
+                    accepted++;
+                }
+        Assert.That(accepted, Is.EqualTo(16));
+
+        foreach (string bad in new[] { "CCGCAT", "CCGACT", "CCGTAT", "CCATAT", "CCAAAT", "CCCAAT" })
+            Assert.That(CrisprDesigner.FindPamSites(Guide21 + bad, CrisprSystemType.SaCas9_NNGRRN), Is.Empty, $"PAM {bad}");
+    }
+
+    [Test]
+    [Description("G8-7: every NNGRRT site is also an NNGRRN site, but NNGRRN additionally reports the non-T ones (NNGAAC) " +
+                 "that the SaCas9 main PAM does not")]
+    public void FindPamSites_SaCas9NNGRRN_IsSupersetOfNNGRRT()
+    {
+        string seq = Guide21 + "CCGAAC";   // NNGRRN yes, NNGRRT no
+        string seqT = Guide21 + "CCGAAT";  // both
+        Assert.Multiple(() =>
+        {
+            Assert.That(CrisprDesigner.FindPamSites(seq, CrisprSystemType.SaCas9), Is.Empty);
+            Assert.That(CrisprDesigner.FindPamSites(seq, CrisprSystemType.SaCas9_NNGRRN).Count(), Is.EqualTo(1));
+            Assert.That(CrisprDesigner.FindPamSites(seqT, CrisprSystemType.SaCas9).Count(), Is.EqualTo(1));
+            Assert.That(CrisprDesigner.FindPamSites(seqT, CrisprSystemType.SaCas9_NNGRRN).Count(), Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    [Description("G8-8: SaCas9-NNGRRN sequence edge - a PAM whose 21-nt target would run off either end is excluded; " +
+                 "the exact-fit case is kept")]
+    public void FindPamSites_SaCas9NNGRRN_SequenceEdge_ExcludesOverrunAndKeepsExactFit()
+    {
+        Assert.Multiple(() =>
+        {
+            // forward: PAM at index 20 -> target would start at -1
+            Assert.That(CrisprDesigner.FindPamSites(Guide21[..20] + "CCGAAC", CrisprSystemType.SaCas9_NNGRRN), Is.Empty);
+            // forward: PAM at index 21 -> target [0,21) fits exactly
+            AssertSites(CrisprDesigner.FindPamSites(Guide21 + "CCGAAC", CrisprSystemType.SaCas9_NNGRRN).ToList(),
+                [(true, 21, 0, "CCGAAC", Guide21)]);
+            // reverse (forward-strand GTTCGG, protospacer strand CCGAAC): only 20 nt follow -> excluded
+            Assert.That(CrisprDesigner.FindPamSites("GTTCGG" + Guide21[..20], CrisprSystemType.SaCas9_NNGRRN), Is.Empty);
+            // reverse: 21 nt follow -> exact fit, Position 0, TargetStart 6
+            AssertSites(CrisprDesigner.FindPamSites("GTTCGG" + Guide21, CrisprSystemType.SaCas9_NNGRRN).ToList(),
+                [(false, 0, 6, "CCGAAC", "TACGTACGTACGTACGTACGT")]);
+        });
+    }
+
+    [Test]
+    [Description("G8-9 (revised in B08 round 4, H12): SaCas9-NNGRRN with N in the genome - an N inside the target means the " +
+                 "guide is never offered; an N at one of the PAM's two leading N positions matches; an N at the G or an R " +
+                 "position of the PAM is not a PAM")]
+    public void FindPamSites_SaCas9NNGRRN_AmbiguityN_InTargetDropped_AtPamNMatches_AtConcretePamPositionRejected()
+    {
+        const string nTarget = "ACGTNCGTACGTACGTACGTA";
+        Assert.Multiple(() =>
+        {
+            Assert.That(CrisprDesigner.FindPamSites(nTarget + "CCGAAC", CrisprSystemType.SaCas9_NNGRRN), Is.Empty);
+            Assert.That(CrisprDesigner.FindPamSites("GTTCGG" + nTarget, CrisprSystemType.SaCas9_NNGRRN), Is.Empty);
+
+            AssertSites(CrisprDesigner.FindPamSites(Guide21 + "NNGAAC", CrisprSystemType.SaCas9_NNGRRN).ToList(),
+                [(true, 21, 0, "NNGAAC", Guide21)]);
+
+            Assert.That(CrisprDesigner.FindPamSites(Guide21 + "CCNAAC", CrisprSystemType.SaCas9_NNGRRN), Is.Empty, "N at the G position");
+            Assert.That(CrisprDesigner.FindPamSites(Guide21 + "CCGNAC", CrisprSystemType.SaCas9_NNGRRN), Is.Empty, "N at the first R position");
+        });
+    }
+
+    #endregion
+
     #region String Overload Tests
 
     [Test]
@@ -640,6 +890,64 @@ public class CrisprDesigner_PAM_Tests
                 Assert.That(stringResults[i].IsForwardStrand, Is.EqualTo(dnaResults[i].IsForwardStrand),
                     $"Site {i} strand should match between overloads");
             }
+        });
+    }
+
+    #endregion
+    #region Round 4 H12 - ambiguity codes in the scanned string (CRISPOR patMatch / flankSeqIter)
+
+    // Oracle: CRISPOR's own findAllPams + flankSeqIter(doFilterNs=True), executed (functions loaded by AST from
+    // crispor.py, sha256 16c3a54b...). Rules: a pattern N matches any character, a sequence N included
+    // (patMatch "if patChar=='N': continue"); a pattern base or code needs a concrete base from its set; a protospacer
+    // containing N is never offered (flankSeqIter L1624). Differential on 10 x 500 random strings with N, seven
+    // systems: 0 sites on either side only (the pre-fix scan had 774-824 extra and 43-48 missing per 400 cases).
+
+    private static string ReverseComplementWithN(string s) =>
+        new string(s.Reverse().Select(c => c switch { 'A' => 'T', 'C' => 'G', 'G' => 'C', 'T' => 'A', _ => c }).ToArray());
+
+    [Test]
+    public void FindPamSites_SequenceNAtAPamAnyBasePosition_IsAMatch_AsInCrispor()
+    {
+        string forward = new string('A', 20) + "NGG";
+        var fwd = CrisprDesigner.FindPamSites(forward, CrisprSystemType.SpCas9).ToList();
+        var rev = CrisprDesigner.FindPamSites(ReverseComplementWithN(forward), CrisprSystemType.SpCas9).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(fwd.Select(s => (s.Position, s.PamSequence, s.TargetSequence, s.TargetStart, s.IsForwardStrand)),
+                Is.EqualTo(new[] { (20, "NGG", new string('A', 20), 0, true) }));
+            Assert.That(rev.Select(s => (s.Position, s.PamSequence, s.TargetSequence, s.TargetStart, s.IsForwardStrand)),
+                Is.EqualTo(new[] { (0, "NGG", new string('A', 20), 3, false) }));
+            // CasX TTCN and SaCas9 NNGRRT: the N positions accept a sequence N
+            Assert.That(CrisprDesigner.FindPamSites("TTCN" + new string('A', 20), CrisprSystemType.CasX).Select(s => (s.Position, s.TargetStart)),
+                Is.EqualTo(new[] { (0, 4) }));
+            Assert.That(CrisprDesigner.FindPamSites(new string('A', 21) + "NNGAAT", CrisprSystemType.SaCas9).Select(s => (s.Position, s.TargetStart)),
+                Is.EqualTo(new[] { (21, 0) }));
+        });
+    }
+
+    [Test]
+    public void FindPamSites_SequenceNDoesNotSatisfyAConcretePamBaseOrCode()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(CrisprDesigner.FindPamSites(new string('A', 20) + "AGN", CrisprSystemType.SpCas9), Is.Empty, "G vs N");
+            Assert.That(CrisprDesigner.FindPamSites("TTTN" + new string('A', 23), CrisprSystemType.Cas12a), Is.Empty, "V vs N");
+            Assert.That(CrisprDesigner.FindPamSites(new string('A', 21) + "CCGNAT", CrisprSystemType.SaCas9), Is.Empty, "R vs N");
+        });
+    }
+
+    [Test]
+    public void FindPamSites_ProtospacerContainingN_IsNeverOffered_OnEitherStrandAndEitherPamSide()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(CrisprDesigner.FindPamSites(new string('A', 10) + "N" + new string('A', 9) + "AGG", CrisprSystemType.SpCas9), Is.Empty);
+            Assert.That(CrisprDesigner.FindPamSites("NAAAAAAAAAAAAAAAAAAAAGG", CrisprSystemType.SpCas9), Is.Empty, "N at the window edge");
+            Assert.That(CrisprDesigner.FindPamSites(
+                ReverseComplementWithN(new string('A', 10) + "N" + new string('A', 9) + "AGG"), CrisprSystemType.SpCas9), Is.Empty);
+            Assert.That(CrisprDesigner.FindPamSites("TTCA" + new string('A', 19) + "N", CrisprSystemType.CasX), Is.Empty);
+            Assert.That(CrisprDesigner.FindPamSites("TTTA" + new string('A', 11) + "N" + new string('A', 11), CrisprSystemType.Cas12a), Is.Empty);
         });
     }
 

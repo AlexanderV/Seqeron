@@ -5,41 +5,194 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "SequenceStatistics.CalculateHydrophobicityProfile",
-  "docRef": "Seqeron.Genomics.Analysis/SequenceStatistics.cs#L404",
-  "description": "Sliding-window Kyte-Doolittle hydropathy profile of a protein: the unweighted mean hydropathy over each window. Positive = hydrophobic, negative = hydrophilic.",
+  "docRef": "Seqeron.Genomics.Analysis/SequenceStatistics.cs#L973",
+  "description": "Sliding-window amino-acid scale profile for a protein sequence (ExPASy ProtScale / Biopython protein_scale), Kyte-Doolittle hydropathy by default. Optional scale selects a Biopython 1.88 ProtParamData table: KyteDoolittle (kd, default), HoppWoods (hw, hydrophilicity), Emini (em, surface fractional probability), Janin (ja, transfer energy) or Flexibility (Flex, Vihinen B-values). Optional edgeWeight (linear weight of the window edges, ProtScale 'relative weight of the window edges'), convention (Standard | Biopython line-for-line protein_scale), strict (reject symbols without a scale value) and normalizeScale (ProtScale 0..1 scale normalisation). Defaults reproduce the unweighted Kyte-Doolittle mean.",
   "inputSchema": {
     "type": "object",
     "properties": {
-      "proteinSequence": { "type": "string", "description": "Protein sequence", "minLength": 1 },
-      "windowSize": { "type": "integer", "description": "Sliding window size (default 9)", "minimum": 1, "default": 9 }
+      "proteinSequence": {
+        "type": "string",
+        "description": "Protein sequence",
+        "minLength": 1
+      },
+      "windowSize": {
+        "type": "integer",
+        "description": "Sliding window size (default 9)",
+        "minimum": 1,
+        "default": 9
+      },
+      "edgeWeight": {
+        "type": "number",
+        "description": "Relative weight of the window edges (linear to 1 at the centre)",
+        "minimum": 0,
+        "maximum": 1,
+        "default": 1.0
+      },
+      "convention": {
+        "type": "string",
+        "description": "Window convention (case-insensitive)",
+        "enum": [
+          "Standard",
+          "Biopython"
+        ],
+        "default": "Standard"
+      },
+      "strict": {
+        "type": "boolean",
+        "description": "Reject symbols without a scale value",
+        "default": false
+      },
+      "normalizeScale": {
+        "type": "boolean",
+        "description": "Min-max normalise the Kyte-Doolittle scale to 0..1 first",
+        "default": false
+      },
+      "scale": {
+        "type": "string",
+        "description": "Residue scale: KyteDoolittle (kd), HoppWoods (hw), Emini (em), Janin (ja), Flexibility (flex); case-insensitive",
+        "default": "KyteDoolittle",
+        "enum": [
+          "KyteDoolittle",
+          "HoppWoods",
+          "Emini",
+          "Janin",
+          "Flexibility",
+          "kd",
+          "hw",
+          "em",
+          "ja",
+          "flex"
+        ]
+      }
     },
-    "required": ["proteinSequence"]
+    "required": [
+      "proteinSequence"
+    ]
   },
   "outputSchema": {
     "type": "object",
     "properties": {
       "values": {
         "type": "array",
-        "description": "Mean Kyte-Doolittle hydropathy per window; length = N - windowSize + 1",
-        "items": { "type": "number" }
+        "description": "Weighted mean Kyte-Doolittle hydropathy per window; length = N - windowSize + 1",
+        "items": {
+          "type": "number"
+        }
       }
     },
-    "required": ["values"]
+    "required": [
+      "values"
+    ]
   },
   "errors": [
-    { "code": 1001, "message": "Sequence cannot be null or empty" },
-    { "code": 1002, "message": "Window size must be at least 1" }
+    {
+      "code": 1001,
+      "message": "Sequence cannot be null or empty"
+    },
+    {
+      "code": 1002,
+      "message": "Window size must be at least 1"
+    },
+    {
+      "code": 1002,
+      "message": "Edge weight must be in [0, 1]."
+    },
+    {
+      "code": 1003,
+      "message": "An edge-weighted window must have an odd size (a central residue)."
+    },
+    {
+      "code": 1003,
+      "message": "Unknown window convention. Expected one of: Standard, Biopython."
+    },
+    {
+      "code": 1003,
+      "message": "Symbol has no value in the scale (strict mode)."
+    },
+    {
+      "code": 1001,
+      "message": "Unknown scale"
+    }
   ],
   "examples": [
     {
       "name": "Hydrophobic poly-isoleucine (window 3)",
-      "input": { "proteinSequence": "IIIII", "windowSize": 3 },
-      "output": { "values": [4.5, 4.5, 4.5] }
+      "input": {
+        "proteinSequence": "IIIII",
+        "windowSize": 3
+      },
+      "output": {
+        "values": [
+          4.5,
+          4.5,
+          4.5
+        ]
+      }
     },
     {
       "name": "Mixed residues AV (window 2)",
-      "input": { "proteinSequence": "AV", "windowSize": 2 },
-      "output": { "values": [3.0] }
+      "input": {
+        "proteinSequence": "AV",
+        "windowSize": 2
+      },
+      "output": {
+        "values": [
+          3.0
+        ]
+      }
+    },
+    {
+      "name": "Edge-weighted window FLIVAG (w5, edge 0.4)",
+      "input": {
+        "proteinSequence": "FLIVAG",
+        "windowSize": 5,
+        "edgeWeight": 0.4
+      },
+      "output": {
+        "values": [
+          3.73125,
+          3.1156250000000005
+        ]
+      }
+    },
+    {
+      "name": "Biopython convention with unknown residue",
+      "input": {
+        "proteinSequence": "AXCDE",
+        "windowSize": 5,
+        "convention": "Biopython"
+      },
+      "output": {
+        "values": [
+          0.16
+        ]
+      }
+    },
+    {
+      "name": "Hopp-Woods hydrophilicity",
+      "input": {
+        "proteinSequence": "MKTAYIAKQRQISFVKSHFSRQ",
+        "windowSize": 9,
+        "scale": "HoppWoods"
+      },
+      "output": {
+        "values": [
+          -0.06666666666666665,
+          0.41111111111111115,
+          0.10000000000000002,
+          -0.05555555555555553,
+          0.033333333333333354,
+          0.01111111111111117,
+          0.04444444444444448,
+          0.43333333333333335,
+          0.1333333333333334,
+          0.05555555555555558,
+          -0.5555555555555556,
+          -0.5444444444444445,
+          -0.01111111111111117,
+          -0.02222222222222226
+        ]
+      }
     }
   ]
 }

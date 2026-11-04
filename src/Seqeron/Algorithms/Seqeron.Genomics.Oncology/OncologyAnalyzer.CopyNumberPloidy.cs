@@ -86,20 +86,46 @@ public static partial class OncologyAnalyzer
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="ploidy"/> is not a finite positive number.</exception>
     public static double Log2RatioToCopyNumber(double log2Ratio, double ploidy = DiploidReferencePloidy)
     {
-        ValidatePloidy(ploidy);
-        return ploidy * Math.Pow(2.0, log2Ratio);
+        CopyNumberMath.ValidatePloidy(ploidy);
+        return CopyNumberMath.Log2RatioToAbsolute(log2Ratio, ploidy);
     }
 
     /// <summary>
-    /// Validates the reference ploidy: it must be a finite positive number, because
-    /// <c>n = ploidy · 2^log2</c> (CNVkit <c>_log2_ratio_to_absolute_pure</c>) is meaningless otherwise.
+    /// Converts a log2 copy ratio to a continuous absolute tumour copy number corrected for tumour purity
+    /// (normal-cell contamination). For <c>purity &lt; 1</c>:
+    /// <c>n = max(0, (ploidy · 2^log2 − ploidy · (1 − purity)) / purity)</c>; for <c>purity = 1</c> this is exactly
+    /// <see cref="Log2RatioToCopyNumber(double, double)"/>. Autosomal form (reference = expected copies = ploidy).
+    /// Source: CNVkit <c>cnvlib/call.py</c> <c>_log2_ratio_to_absolute</c> (via
+    /// <see cref="CopyNumberMath.Log2RatioToAbsolute(double, double, double, double)"/>).
     /// </summary>
-    private static void ValidatePloidy(double ploidy)
+    /// <param name="log2Ratio">Observed log2 copy ratio; NaN propagates to NaN.</param>
+    /// <param name="ploidy">Reference (germline) ploidy; finite positive.</param>
+    /// <param name="purity">Tumour purity ∈ (0, 1] (CNVkit <c>call --purity</c> range).</param>
+    /// <returns>Purity-corrected continuous absolute copy number (≥ 0 unless NaN).</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="ploidy"/> is not finite positive, or <paramref name="purity"/> ∉ (0, 1].</exception>
+    public static double Log2RatioToCopyNumber(double log2Ratio, double ploidy, double purity)
     {
-        if (!double.IsFinite(ploidy) || ploidy <= 0.0)
+        CopyNumberMath.ValidatePloidy(ploidy);
+        return CopyNumberMath.Log2RatioToAbsolute(log2Ratio, ploidy, ploidy, purity);
+    }
+
+    /// <summary>
+    /// Rescales an observed log2 ratio for tumour purity as CNVkit <c>do_call</c> does before thresholding:
+    /// absolute = <c>_log2_ratio_to_absolute(v, ploidy, ploidy, purity)</c>, then
+    /// <c>log2 = log2(max(absolute / ploidy, 1e-3))</c> (<c>log2_ratios</c>, autosomal). Purity 1 (CNVkit skips
+    /// rescaling when <c>purity &lt; 1.0</c> is false) and NaN (CNVkit 0.9.14 propagates NaN to the threshold
+    /// no-call) return the input unchanged.
+    /// </summary>
+    private static double RescaleLog2ForPurity(double log2Ratio, double ploidy, double purity)
+    {
+        CopyNumberMath.ValidatePurity(purity);
+        if (purity >= 1.0 || double.IsNaN(log2Ratio))
         {
-            throw new ArgumentOutOfRangeException(nameof(ploidy), ploidy, "Ploidy must be a finite positive number.");
+            return log2Ratio;
         }
+
+        double absolute = CopyNumberMath.Log2RatioToAbsolute(log2Ratio, ploidy, ploidy, purity);
+        return CopyNumberMath.AbsoluteToLog2Ratio(absolute, ploidy);
     }
 
     /// <summary>
@@ -141,6 +167,34 @@ public static partial class OncologyAnalyzer
     }
 
     /// <summary>
+    /// Purity-aware CNVkit threshold call (<c>do_call(method="threshold", purity=…)</c>): when
+    /// <paramref name="purity"/> &lt; 1 the log2 ratio is first rescaled for normal-cell contamination
+    /// (<c>absolute_clonal</c> → <c>log2_ratios</c>: <c>log2(max(n/ploidy, 1e-3))</c> with
+    /// <c>n = max(0, (ploidy·2^v − ploidy·(1−p))/p)</c>), then the hard thresholds of
+    /// <see cref="CallCopyNumber(double, IReadOnlyList{double}?, double)"/> are applied to the rescaled value.
+    /// <paramref name="purity"/> = 1 is identical to the purity-less overload. Autosomal form.
+    /// Source: CNVkit <c>cnvlib/call.py</c> <c>do_call</c>, <c>absolute_dataframe</c>, <c>_log2_ratio_to_absolute</c>,
+    /// <c>log2_ratios</c>, <c>absolute_threshold</c>.
+    /// </summary>
+    /// <param name="log2Ratio">Observed log2 copy ratio; NaN is a no-call (neutral).</param>
+    /// <param name="thresholds">Four strictly ascending cutoffs; null uses <see cref="DefaultCopyNumberThresholds"/>.</param>
+    /// <param name="ploidy">Reference ploidy (default diploid in the purity-less overload).</param>
+    /// <param name="purity">Tumour purity ∈ (0, 1].</param>
+    /// <returns>The integer copy number (≥ 0), saturated at <see cref="int.MaxValue"/>.</returns>
+    /// <exception cref="ArgumentException"><paramref name="thresholds"/> is not four strictly ascending values.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="ploidy"/> is not finite positive, or <paramref name="purity"/> ∉ (0, 1].</exception>
+    public static int CallCopyNumber(
+        double log2Ratio,
+        IReadOnlyList<double>? thresholds,
+        double ploidy,
+        double purity)
+    {
+        var cutoffs = ValidateThresholds(thresholds);
+        CopyNumberMath.ValidatePloidy(ploidy);
+        return CallCopyNumber(RescaleLog2ForPurity(log2Ratio, ploidy, purity), cutoffs, ploidy);
+    }
+
+    /// <summary>
     /// Single implementation of the CNVkit <c>absolute_threshold</c> hard-threshold call, returning the integer
     /// copy number as an integral <see cref="double"/> WITHOUT the Int32 range check (a value above the last
     /// cutoff is <c>ceil(ploidy·2^log2)</c>, which may be arbitrarily large or +∞). Shared by
@@ -155,7 +209,7 @@ public static partial class OncologyAnalyzer
     /// <returns>The integer copy number (≥ 0) as a double; may exceed Int32 or be +∞.</returns>
     private static double CallCopyNumberUnbounded(double log2Ratio, IReadOnlyList<double> cutoffs, double ploidy)
     {
-        ValidatePloidy(ploidy);
+        CopyNumberMath.ValidatePloidy(ploidy);
 
         if (double.IsNaN(log2Ratio))
         {
@@ -200,6 +254,64 @@ public static partial class OncologyAnalyzer
         CopyNumberState state = StateFromCopyNumber(integerCopyNumber);
 
         return new CopyNumberCall(log2Ratio, absolute, integerCopyNumber, state);
+    }
+
+    /// <summary>
+    /// Purity-aware <see cref="ClassifyCopyNumber(double, IReadOnlyList{double}?, double)"/>: the integer copy number
+    /// is <see cref="CallCopyNumber(double, IReadOnlyList{double}?, double, double)"/> (thresholds applied to the
+    /// purity-rescaled log2, CNVkit <c>do_call</c>) and <see cref="CopyNumberCall.AbsoluteCopyNumber"/> is the
+    /// purity-corrected absolute copy number (<see cref="Log2RatioToCopyNumber(double, double, double)"/>; ploidy for a
+    /// NaN no-call). <see cref="CopyNumberCall.Log2Ratio"/> keeps the observed (input) value.
+    /// <paramref name="purity"/> = 1 is identical to the purity-less overload.
+    /// </summary>
+    /// <param name="log2Ratio">Observed log2 copy ratio; NaN is a no-call.</param>
+    /// <param name="thresholds">Four ascending cutoffs; null uses <see cref="DefaultCopyNumberThresholds"/>.</param>
+    /// <param name="ploidy">Reference ploidy.</param>
+    /// <param name="purity">Tumour purity ∈ (0, 1].</param>
+    /// <returns>The copy-number call.</returns>
+    /// <exception cref="ArgumentException"><paramref name="thresholds"/> is not four strictly ascending values.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="ploidy"/> is not finite positive, or <paramref name="purity"/> ∉ (0, 1].</exception>
+    public static CopyNumberCall ClassifyCopyNumber(
+        double log2Ratio,
+        IReadOnlyList<double>? thresholds,
+        double ploidy,
+        double purity)
+    {
+        int integerCopyNumber = CallCopyNumber(log2Ratio, thresholds, ploidy, purity);
+        double absolute = double.IsNaN(log2Ratio) ? ploidy : Log2RatioToCopyNumber(log2Ratio, ploidy, purity);
+        return new CopyNumberCall(log2Ratio, absolute, integerCopyNumber, StateFromCopyNumber(integerCopyNumber));
+    }
+
+    /// <summary>
+    /// Purity-aware <see cref="ClassifyCopyNumbers(IEnumerable{double}, IReadOnlyList{double}?, double)"/>: one
+    /// <see cref="ClassifyCopyNumber(double, IReadOnlyList{double}?, double, double)"/> call per input, in input order.
+    /// </summary>
+    /// <param name="log2Ratios">Per-region observed log2 copy ratios.</param>
+    /// <param name="thresholds">Four ascending cutoffs; null uses <see cref="DefaultCopyNumberThresholds"/>.</param>
+    /// <param name="ploidy">Reference ploidy.</param>
+    /// <param name="purity">Tumour purity ∈ (0, 1].</param>
+    /// <returns>One call per input log2 ratio, in input order.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="log2Ratios"/> is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="thresholds"/> is not four strictly ascending values.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="ploidy"/> is not finite positive, or <paramref name="purity"/> ∉ (0, 1].</exception>
+    public static IReadOnlyList<CopyNumberCall> ClassifyCopyNumbers(
+        IEnumerable<double> log2Ratios,
+        IReadOnlyList<double>? thresholds,
+        double ploidy,
+        double purity)
+    {
+        ArgumentNullException.ThrowIfNull(log2Ratios);
+        var cutoffs = ValidateThresholds(thresholds);
+        CopyNumberMath.ValidatePloidy(ploidy);
+        CopyNumberMath.ValidatePurity(purity);
+
+        var calls = new List<CopyNumberCall>();
+        foreach (double log2Ratio in log2Ratios)
+        {
+            calls.Add(ClassifyCopyNumber(log2Ratio, cutoffs, ploidy, purity));
+        }
+
+        return calls;
     }
 
     /// <summary>
@@ -342,8 +454,28 @@ public static partial class OncologyAnalyzer
         /// <summary>Segment length in base pairs (End − Start).</summary>
         public long Length => End - Start;
 
-        /// <summary>Segment length as a fraction of the chromosome arm (Length ÷ ArmLength).</summary>
-        public double ArmFraction => (double)Length / ArmLength;
+        /// <summary>
+        /// Optional number of markers (probes / SNPs) in the segment. Supply it together with
+        /// <see cref="ArmMarkerCount"/> to measure the arm fraction in marker units, as GISTIC2 does by default.
+        /// <c>null</c> (default) = absent; the arm fraction is then measured in bp.
+        /// </summary>
+        public int? MarkerCount { get; init; }
+
+        /// <summary>
+        /// Optional total number of markers on the segment's chromosome arm (GISTIC2 <c>band.snp_length</c>: markers
+        /// whose position lies in the arm's cytoband span). Supply it together with <see cref="MarkerCount"/>.
+        /// </summary>
+        public int? ArmMarkerCount { get; init; }
+
+        /// <summary>
+        /// Segment length as a fraction of the chromosome arm. In marker units
+        /// (<see cref="MarkerCount"/> ÷ <see cref="ArmMarkerCount"/>) when both marker counts are supplied — the GISTIC2
+        /// default (<c>make_sample_B.m</c> → <c>normalize_by_arm_length(D,B,cyto,1,…)</c>, <c>norm_type = 1</c> "by number
+        /// of snps": <c>(en − st + 1) ./ armlengths_by_snp</c>); otherwise in bp (Length ÷ ArmLength).
+        /// </summary>
+        public double ArmFraction => MarkerCount is int markers && ArmMarkerCount is int armMarkers
+            ? (double)markers / armMarkers
+            : (double)Length / ArmLength;
     }
 
     /// <summary>
@@ -381,14 +513,20 @@ public static partial class OncologyAnalyzer
     /// <c>broad_len_cutoff</c> AND amplitude vs <c>t_amp</c>). The amplitude test is strict (&gt; <c>t_amp</c>), following
     /// the GISTIC2 documentation ("gain above this positive value") and GISTIC2 <c>gene_calls.m</c>;
     /// <c>reconstruct_genomes.m</c> uses &gt;=, which differs only at exact equality.
-    /// <para><b>Not implemented — ziggurat deconstruction.</b> GISTIC2 applies this filter to SCNA <i>events</i>
-    /// produced by its ziggurat deconstruction (amplitude measured relative to the underlying level; broad levels
-    /// estimated from the whole cohort). Here each input segment is treated as one event with amplitude = its
-    /// <see cref="CopyNumberArmSegment.Log2Ratio"/>. Consequence: when raw segments are supplied, an arm-level gain
-    /// interrupted by a focal peak (e.g. 0.5 | 1.5 | 0.5) yields flank segments that are individually &lt; 98% of the arm
-    /// and are reported as focal, whereas GISTIC2 would call one broad event (0.5) plus one focal event (+1.0).
-    /// Supply deconstructed events (or whole-arm-merged segments) to match GISTIC2.</para>
-    /// Segment coordinates are half-open (<c>Length = End − Start</c>).
+    /// <para><b>Per-segment events.</b> GISTIC2 applies this filter to SCNA <i>events</i> produced by its ziggurat
+    /// deconstruction (amplitude measured relative to the underlying level; broad levels learned from the cohort). This
+    /// overload treats each input segment as one event with amplitude = its <see cref="CopyNumberArmSegment.Log2Ratio"/>,
+    /// so raw segments of an arm-level gain interrupted by a focal peak (e.g. 0.5 | 1.5 | 0.5) report the flanks as focal.
+    /// For GISTIC2 events (one broad 0.5 + one focal +1.0) use <see cref="DeconstructZiggurat"/> followed by
+    /// <see cref="DetectFocalAmplificationEvents"/> (B24 F50–F52).</para>
+    /// Segment coordinates are half-open (<c>Length = End − Start</c>). <para><b>Arm-fraction units.</b> GISTIC2 measures
+    /// the arm fraction in markers by default (<c>make_sample_B.m</c> → <c>normalize_by_arm_length(D,B,cyto,1,2)</c>,
+    /// <c>norm_type = 1</c>: segment markers ÷ markers in the arm's cytoband span). When a segment carries
+    /// <see cref="CopyNumberArmSegment.MarkerCount"/> and <see cref="CopyNumberArmSegment.ArmMarkerCount"/>, its
+    /// <see cref="CopyNumberArmSegment.ArmFraction"/> is in marker units (e.g. 39/40 = 0.975 &lt; 0.98 is focal even if the
+    /// segment covers 99% of the arm in bp); without marker counts it is in bp (Length ÷ ArmLength). Centromere-spanning
+    /// events (GISTIC2 <c>ref_length = 2</c>: p-fraction + q-fraction) are outside the arm-anchored model; they are handled
+    /// by <see cref="DeconstructZiggurat"/>.</para>
     /// </remarks>
     /// <param name="segments">Arm-anchored copy-number segments. Must not be null.</param>
     /// <param name="thresholds">Amplitude and length cutoffs; null uses <see cref="FocalAmplificationThresholds.Default"/> (GISTIC2 defaults).</param>
@@ -418,6 +556,7 @@ public static partial class OncologyAnalyzer
     }
 
     /// <summary>
+    /// Arm-level mapping (see the <see cref="CopyNumberRegion"/> overload for GISTIC2 locus-overlap mapping).
     /// Maps focal-amplification segments to the recurrently amplified oncogenes resident on their
     /// chromosome arms. Each oncogene is reported once if any focal amplification falls on its arm. The
     /// panel and arms are: ERBB2 (17q), MYC (8q), EGFR (7p), CCND1 (11q), MDM2 (12q), CDK4 (12q). Source:
@@ -435,8 +574,8 @@ public static partial class OncologyAnalyzer
     }
 
     /// <summary>
-    /// Shared arm → gene-panel mapping of <see cref="IdentifyAmplifiedOncogenes"/> (ONCO-CNA-002) and
-    /// <see cref="IdentifyDeletedTumorSuppressors"/> (ONCO-CNA-003): collects the distinct (case-insensitive,
+    /// Shared arm → gene-panel mapping of <see cref="IdentifyAmplifiedOncogenes(IEnumerable{CopyNumberArmSegment})"/> (ONCO-CNA-002) and
+    /// <see cref="IdentifyDeletedTumorSuppressors(IEnumerable{CopyNumberArmSegment})"/> (ONCO-CNA-003): collects the distinct (case-insensitive,
     /// non-empty) arm labels of the affected segments and returns, in panel order, every panel gene resident on one
     /// of them (each gene at most once).
     /// </summary>
@@ -481,6 +620,137 @@ public static partial class OncologyAnalyzer
     };
 
     /// <summary>
+    /// A copy-number region (e.g. an amplified or deleted segment, or a GISTIC2 peak) in chromosome coordinates,
+    /// 1-based and closed (<c>Start..End</c> inclusive, as in GISTIC2 seg files and <c>genes_at</c>).
+    /// </summary>
+    /// <param name="Chromosome">Chromosome name ("17", "chr17", "X"); a leading "chr" and letter case are ignored.</param>
+    /// <param name="Start">First base of the region (1-based, inclusive).</param>
+    /// <param name="End">Last base of the region (inclusive); must satisfy <see cref="End"/> ≥ <see cref="Start"/>.</param>
+    public readonly record struct CopyNumberRegion(string Chromosome, long Start, long End);
+
+    /// <summary>
+    /// A gene locus in chromosome coordinates, 1-based and closed (<c>Start..End</c> inclusive), as in a GISTIC2
+    /// reference-gene table (<c>rg.symb</c>, <c>rg.chrn</c>, <c>rg.start</c>, <c>rg.end</c>).
+    /// </summary>
+    /// <param name="Symbol">Gene symbol (non-empty).</param>
+    /// <param name="Chromosome">Chromosome name ("17", "chr17", "X"); a leading "chr" and letter case are ignored.</param>
+    /// <param name="Start">First base of the gene (1-based, inclusive).</param>
+    /// <param name="End">Last base of the gene (inclusive); must satisfy <see cref="End"/> ≥ <see cref="Start"/>.</param>
+    public readonly record struct GeneLocus(string Symbol, string Chromosome, long Start, long End);
+
+    /// <summary>
+    /// GRCh38 loci of the default oncogene panel (same genes and order as the arm-level panel of
+    /// <see cref="IdentifyAmplifiedOncogenes(IEnumerable{CopyNumberArmSegment})"/>). Source: the GISTIC2 hg38 reference
+    /// gene table (broadinstitute/gistic2 <c>refgenes/Gencode.v22.170324/gencode_genes.tsv</c>, GENCODE v22 gene records,
+    /// 1-based closed): ERBB2 chr17:39,687,914–39,730,426; MYC chr8:127,735,434–127,741,434; EGFR
+    /// chr7:55,019,021–55,256,620; CCND1 chr11:69,641,087–69,654,474; MDM2 chr12:68,808,172–68,850,686; CDK4
+    /// chr12:57,747,727–57,756,013.
+    /// </summary>
+    public static IReadOnlyList<GeneLocus> DefaultOncogeneLoci { get; } = new GeneLocus[]
+    {
+        new("ERBB2", "17", 39_687_914, 39_730_426),
+        new("MYC", "8", 127_735_434, 127_741_434),
+        new("EGFR", "7", 55_019_021, 55_256_620),
+        new("CCND1", "11", 69_641_087, 69_654_474),
+        new("MDM2", "12", 68_808_172, 68_850_686),
+        new("CDK4", "12", 57_747_727, 57_756_013),
+    };
+
+    /// <summary>
+    /// Locus-overlap gene mapping (GISTIC2 rule): reports, in panel order and each at most once, every panel gene whose
+    /// locus overlaps an amplified region. Overlap is GISTIC2 <c>genes_at.m</c> with <c>partial_hits = 1</c> (the
+    /// <c>genetables.m</c> default): same chromosome AND <c>gene.start ≤ region.end</c> AND <c>gene.end ≥ region.start</c>
+    /// (closed intervals — touching at one base is an overlap). Unlike the arm-level
+    /// <see cref="IdentifyAmplifiedOncogenes(IEnumerable{CopyNumberArmSegment})"/>, a focal amplification elsewhere on
+    /// 17q does NOT report ERBB2. GISTIC2's "[closest gene]" fallback for gene-less peaks and its widening of peak
+    /// boundaries to the flanking markers (<c>genomic_location(…,1)</c>) are not applied: regions are used as given.
+    /// </summary>
+    /// <param name="amplifiedRegions">Amplified regions (1-based closed coordinates). Must not be null.</param>
+    /// <param name="genePanel">Gene loci to test; null uses <see cref="DefaultOncogeneLoci"/> (GRCh38).</param>
+    /// <returns>Distinct symbols of panel genes overlapping any region, in panel order.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="amplifiedRegions"/> is null.</exception>
+    /// <exception cref="ArgumentException">A region or locus has an empty chromosome / symbol or End &lt; Start.</exception>
+    public static IReadOnlyList<string> IdentifyAmplifiedOncogenes(
+        IEnumerable<CopyNumberRegion> amplifiedRegions,
+        IReadOnlyList<GeneLocus>? genePanel = null)
+    {
+        ArgumentNullException.ThrowIfNull(amplifiedRegions);
+        return GenesOverlappingRegions(amplifiedRegions, genePanel ?? DefaultOncogeneLoci);
+    }
+
+    /// <summary>
+    /// Shared locus-overlap mapping of the <see cref="CopyNumberRegion"/> overloads of
+    /// <see cref="IdentifyAmplifiedOncogenes(IEnumerable{CopyNumberRegion}, IReadOnlyList{GeneLocus}?)"/> and
+    /// <see cref="IdentifyDeletedTumorSuppressors(IEnumerable{CopyNumberRegion}, IReadOnlyList{GeneLocus}?)"/>: GISTIC2
+    /// <c>genes_at.m</c> (<c>partial_hits = 1</c>) closed-interval overlap, panel order, each gene at most once.
+    /// </summary>
+    private static List<string> GenesOverlappingRegions(
+        IEnumerable<CopyNumberRegion> regions,
+        IReadOnlyList<GeneLocus> panel)
+    {
+        foreach (GeneLocus locus in panel)
+        {
+            if (string.IsNullOrEmpty(locus.Symbol))
+            {
+                throw new ArgumentException("Gene locus symbols must be non-empty.", nameof(panel));
+            }
+
+            ValidateClosedInterval(locus.Chromosome, locus.Start, locus.End, nameof(panel));
+        }
+
+        var regionList = new List<(string Chromosome, long Start, long End)>();
+        foreach (CopyNumberRegion region in regions)
+        {
+            ValidateClosedInterval(region.Chromosome, region.Start, region.End, nameof(regions));
+            regionList.Add((NormalizeChromosomeName(region.Chromosome), region.Start, region.End));
+        }
+
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var genes = new List<string>();
+        foreach (GeneLocus locus in panel)
+        {
+            string chromosome = NormalizeChromosomeName(locus.Chromosome);
+            foreach ((string regionChromosome, long start, long end) in regionList)
+            {
+                if (string.Equals(chromosome, regionChromosome, StringComparison.OrdinalIgnoreCase)
+                    && locus.Start <= end && locus.End >= start)
+                {
+                    if (seen.Add(locus.Symbol))
+                    {
+                        genes.Add(locus.Symbol);
+                    }
+
+                    break;
+                }
+            }
+        }
+
+        return genes;
+    }
+
+    /// <summary>Validates a 1-based closed interval: non-empty chromosome and End ≥ Start (GISTIC2 <c>genes_at</c> errors on End &lt; Start).</summary>
+    private static void ValidateClosedInterval(string chromosome, long start, long end, string paramName)
+    {
+        if (string.IsNullOrWhiteSpace(chromosome))
+        {
+            throw new ArgumentException("Chromosome names must be non-empty.", paramName);
+        }
+
+        if (end < start)
+        {
+            throw new ArgumentException(
+                $"Interval on '{chromosome}' must have End ≥ Start (got Start={start}, End={end}).", paramName);
+        }
+    }
+
+    /// <summary>Chromosome key for matching: trims whitespace and a leading "chr" (any case), so "chr17" ≡ "17".</summary>
+    private static string NormalizeChromosomeName(string chromosome)
+    {
+        string name = chromosome.Trim();
+        return name.StartsWith("chr", StringComparison.OrdinalIgnoreCase) ? name[3..] : name;
+    }
+
+    /// <summary>
     /// Validates focal-amplification thresholds against the ranges enforced by the GISTIC2 reference
     /// implementation (<c>gp_gistic2_from_seg.m</c>: <c>-ta</c> ∈ [0, Inf], <c>-brlen</c> ∈ [0, 2], non-numeric
     /// values rejected). A NaN threshold would otherwise make every comparison false and silently report nothing;
@@ -521,6 +791,1436 @@ public static partial class OncologyAnalyzer
                 $"Segment on '{segment.Arm}' must have End > Start (got Start={segment.Start}, End={segment.End}).",
                 nameof(segment));
         }
+
+        // Marker-unit arm fraction (GISTIC2 norm_type = 1): both counts or neither; a GISTIC2 segment spans ≥ 1 marker
+        // and an arm-anchored segment cannot hold more markers than its arm.
+        if (segment.MarkerCount.HasValue != segment.ArmMarkerCount.HasValue)
+        {
+            throw new ArgumentException(
+                $"Segment on '{segment.Arm}' must supply both MarkerCount and ArmMarkerCount, or neither.",
+                nameof(segment));
+        }
+
+        if (segment.MarkerCount is int markers && segment.ArmMarkerCount is int armMarkers
+            && (markers < 1 || armMarkers < markers))
+        {
+            throw new ArgumentException(
+                $"Segment on '{segment.Arm}' must have 1 ≤ MarkerCount ≤ ArmMarkerCount " +
+                $"(got MarkerCount={markers}, ArmMarkerCount={armMarkers}).",
+                nameof(segment));
+        }
+    }
+
+    #endregion
+
+    #region GISTIC2 ziggurat deconstruction (ONCO-CNA-002, B24 F50–F52)
+
+    /// <summary>
+    /// Marker layout of one chromosome for the GISTIC2 ziggurat deconstruction. The chromosome's markers are numbered
+    /// 1..(<see cref="PArmMarkerCount"/> + <see cref="QArmMarkerCount"/>) in genomic order; the first
+    /// <see cref="PArmMarkerCount"/> lie on the p arm and the rest on the q arm (GISTIC2 <c>normalize_by_arm_length</c>:
+    /// <c>band.snp_length</c> = markers in the arm's cytoband span, a marker is on q when its position is ≥ the q-arm start).
+    /// An arm without markers (e.g. the p arm of an acrocentric chromosome) has count 0.
+    /// </summary>
+    /// <param name="Chromosome">Chromosome label (e.g. "1", "17", "X"); unique within a layout.</param>
+    /// <param name="PArmMarkerCount">Number of markers on the p arm (≥ 0).</param>
+    /// <param name="QArmMarkerCount">Number of markers on the q arm (≥ 0); P + Q ≥ 1.</param>
+    public readonly record struct ZigguratChromosome(string Chromosome, int PArmMarkerCount, int QArmMarkerCount);
+
+    /// <summary>
+    /// A copy-number segment of one sample in marker coordinates (1-based, closed, within its chromosome; see
+    /// <see cref="ZigguratChromosome"/>). A sample's segments must tile every chromosome of the layout exactly
+    /// (GISTIC2 <c>D.dat</c> is a full marker × sample matrix).
+    /// </summary>
+    /// <param name="Chromosome">Chromosome label matching a <see cref="ZigguratChromosome.Chromosome"/>.</param>
+    /// <param name="StartMarker">First marker (1-based within the chromosome).</param>
+    /// <param name="EndMarker">Last marker (inclusive), ≥ <paramref name="StartMarker"/>.</param>
+    /// <param name="Value">Segment value: log2 ratio (GISTIC2 default input) or copy number − 2.</param>
+    public readonly record struct ZigguratSegment(string Chromosome, int StartMarker, int EndMarker, double Value);
+
+    /// <summary>One row of a GISTIC2 B / Z / Q array (columns 1–10 of <c>Qs.m</c>; B uses 1–5 and fraction).</summary>
+    internal struct GisticZiggRow
+    {
+        /// <summary>Column 1 — chromosome index (1-based position in the layout).</summary>
+        public int Chromosome;
+        /// <summary>Column 2 — start marker (global, 1-based).</summary>
+        public int Start;
+        /// <summary>Column 3 — end marker (global, 1-based, inclusive).</summary>
+        public int End;
+        /// <summary>Column 4 — amplitude (B: segment value; Z/Q: event amplitude).</summary>
+        public double Amplitude;
+        /// <summary>Column 5 — sample index (1-based, column of <c>D.dat</c>).</summary>
+        public int Sample;
+        /// <summary>Column 6 — starting copy-number level.</summary>
+        public double StartLevel;
+        /// <summary>Column 7 — ending copy-number level.</summary>
+        public double EndLevel;
+        /// <summary>Column 8 (B column 6) — length as chromosome-arm fraction (marker units, p + q when spanning).</summary>
+        public double Fraction;
+        /// <summary>Column 9 — deconstruction (table) score.</summary>
+        public double Score;
+        /// <summary>Column 10 — broad level of the arm.</summary>
+        public double ArmLevel;
+    }
+
+    /// <summary>
+    /// GISTIC2 marker layout: chromosomes in layout order are GISTIC2 chromosome numbers 1..C, markers are numbered
+    /// globally 1..M (chromosome-major), as in <c>D.chrn</c> / <c>D.pos</c>.
+    /// </summary>
+    internal sealed class GisticMarkerLayout
+    {
+        private readonly int[] _offset;
+        private readonly int[] _p;
+        private readonly int[] _q;
+        private readonly string[] _names;
+        private readonly Dictionary<string, int> _index;
+
+        internal GisticMarkerLayout(IReadOnlyList<ZigguratChromosome> chromosomes)
+        {
+            ArgumentNullException.ThrowIfNull(chromosomes);
+            if (chromosomes.Count == 0)
+            {
+                throw new ArgumentException("The marker layout must contain at least one chromosome.", nameof(chromosomes));
+            }
+
+            int n = chromosomes.Count;
+            _offset = new int[n];
+            _p = new int[n];
+            _q = new int[n];
+            _names = new string[n];
+            _index = new Dictionary<string, int>(StringComparer.Ordinal);
+            long total = 0;
+            for (int i = 0; i < n; i++)
+            {
+                ZigguratChromosome c = chromosomes[i];
+                if (string.IsNullOrWhiteSpace(c.Chromosome))
+                {
+                    throw new ArgumentException("Chromosome labels must be non-empty.", nameof(chromosomes));
+                }
+
+                if (c.PArmMarkerCount < 0 || c.QArmMarkerCount < 0 || (long)c.PArmMarkerCount + c.QArmMarkerCount < 1)
+                {
+                    throw new ArgumentException(
+                        $"Chromosome '{c.Chromosome}' must have non-negative arm marker counts with at least one marker " +
+                        $"(got p={c.PArmMarkerCount}, q={c.QArmMarkerCount}).", nameof(chromosomes));
+                }
+
+                if (!_index.TryAdd(c.Chromosome, i + 1))
+                {
+                    throw new ArgumentException($"Chromosome '{c.Chromosome}' appears more than once in the layout.", nameof(chromosomes));
+                }
+
+                _offset[i] = (int)total;
+                _p[i] = c.PArmMarkerCount;
+                _q[i] = c.QArmMarkerCount;
+                _names[i] = c.Chromosome;
+                total += (long)c.PArmMarkerCount + c.QArmMarkerCount;
+                if (total > int.MaxValue)
+                {
+                    throw new ArgumentException("The layout holds more than Int32.MaxValue markers.", nameof(chromosomes));
+                }
+            }
+
+            MarkerCount = (int)total;
+        }
+
+        /// <summary>Number of chromosomes C.</summary>
+        internal int ChromosomeCount => _names.Length;
+
+        /// <summary>Total number of markers M.</summary>
+        internal int MarkerCount { get; }
+
+        /// <summary>Label of chromosome <paramref name="chr"/> (1-based).</summary>
+        internal string Name(int chr) => _names[chr - 1];
+
+        /// <summary>Global index of the marker before the chromosome's first marker.</summary>
+        internal int Offset(int chr) => _offset[chr - 1];
+
+        /// <summary>p-arm marker count (<c>armlengths_by_snp(2·chr − 1)</c>).</summary>
+        internal int PCount(int chr) => _p[chr - 1];
+
+        /// <summary>q-arm marker count (<c>armlengths_by_snp(2·chr)</c>).</summary>
+        internal int QCount(int chr) => _q[chr - 1];
+
+        /// <summary>Global index of the chromosome's last marker (<c>chrnEnd</c>).</summary>
+        internal int ChromosomeEnd(int chr) => _offset[chr - 1] + _p[chr - 1] + _q[chr - 1];
+
+        /// <summary>Global index of the first q-arm marker (<c>armstart_by_snp(2·chr)</c>).</summary>
+        internal int QStart(int chr) => _offset[chr - 1] + _p[chr - 1] + 1;
+
+        /// <summary>1-based chromosome number of a label, or 0 when absent.</summary>
+        internal int IndexOf(string label) => label is not null && _index.TryGetValue(label, out int i) ? i : 0;
+    }
+
+    /// <summary>
+    /// GISTIC2 <c>normalize_by_arm_length(D,Q,cyto,1,2)</c> (norm_type 1 = marker units, ref_length 2 = p + q sum) for one
+    /// segment: a segment starting on q is divided by the q-arm marker count, one ending on p by the p-arm count, and a
+    /// centromere-spanning segment is the sum of its p part ÷ p markers and its q part ÷ q markers.
+    /// </summary>
+    internal static double GisticArmFraction(GisticMarkerLayout layout, int chr, int start, int end)
+    {
+        int qStart = layout.QStart(chr);
+        if (start >= qStart)
+        {
+            return (double)(end - start + 1) / layout.QCount(chr);
+        }
+
+        if (end >= qStart)
+        {
+            // spans_cent, ref_length 2: Q(:,3) = armstart_by_snp − 1 on p; QQ(:,2) = armstart_by_snp on q; summed.
+            double fract = (double)((qStart - 1) - start + 1) / layout.PCount(chr);
+            return fract + (double)(end - qStart + 1) / layout.QCount(chr);
+        }
+
+        return (double)(end - start + 1) / layout.PCount(chr);
+    }
+
+    /// <summary>
+    /// GISTIC2 <c>make_sample_B.m</c>: converts one sample's segments into the B array
+    /// <c>[chrn st en amp sample fract]</c> — breakpoints where the (transformed) value changes
+    /// (<c>find(diff(D.dat(:,idx)) ~= 0)</c>) plus chromosome ends, value = <c>D.dat(bpt)</c>, arm fraction from
+    /// <see cref="GisticArmFraction"/>. Validates that the segments tile every layout chromosome exactly.
+    /// </summary>
+    /// <param name="layout">Marker layout.</param>
+    /// <param name="segments">The sample's segments.</param>
+    /// <param name="sample">1-based sample index (B column 5).</param>
+    /// <param name="transform">Value transform applied per segment before breakpoint detection (cap / log→CN); null = identity.</param>
+    internal static List<GisticZiggRow> GisticMakeSampleB(
+        GisticMarkerLayout layout,
+        IReadOnlyList<ZigguratSegment> segments,
+        int sample,
+        Func<double, double>? transform = null)
+    {
+        ArgumentNullException.ThrowIfNull(segments);
+        int c = layout.ChromosomeCount;
+        var byChromosome = new List<ZigguratSegment>[c];
+        for (int i = 0; i < c; i++)
+        {
+            byChromosome[i] = new List<ZigguratSegment>();
+        }
+
+        foreach (ZigguratSegment s in segments)
+        {
+            int chr = layout.IndexOf(s.Chromosome);
+            if (chr == 0)
+            {
+                throw new ArgumentException(
+                    $"Sample {sample - 1}: chromosome '{s.Chromosome}' is not in the marker layout.", nameof(segments));
+            }
+
+            if (double.IsNaN(s.Value))
+            {
+                throw new ArgumentException(
+                    $"Sample {sample - 1}: segment {s.Chromosome}:{s.StartMarker}-{s.EndMarker} has a NaN value.", nameof(segments));
+            }
+
+            byChromosome[chr - 1].Add(s);
+        }
+
+        var b = new List<GisticZiggRow>();
+        for (int chr = 1; chr <= c; chr++)
+        {
+            List<ZigguratSegment> list = byChromosome[chr - 1];
+            list.Sort((x, y) => x.StartMarker.CompareTo(y.StartMarker));
+            int markers = layout.PCount(chr) + layout.QCount(chr);
+            int expectedStart = 1;
+            int offset = layout.Offset(chr);
+            int runStart = 0;
+            double runValue = 0;
+            bool open = false;
+            foreach (ZigguratSegment s in list)
+            {
+                if (s.StartMarker != expectedStart || s.EndMarker < s.StartMarker || s.EndMarker > markers)
+                {
+                    throw new ArgumentException(
+                        $"Sample {sample - 1}: segments on chromosome '{layout.Name(chr)}' must tile markers 1..{markers} " +
+                        $"without gaps or overlaps (segment {s.StartMarker}-{s.EndMarker}, expected start {expectedStart}).",
+                        nameof(segments));
+                }
+
+                double value = transform is null ? s.Value : transform(s.Value);
+                if (!double.IsFinite(value))
+                {
+                    throw new ArgumentException(
+                        $"Sample {sample - 1}: segment {s.Chromosome}:{s.StartMarker}-{s.EndMarker} has a non-finite " +
+                        "copy-number value (set ZigguratOptions.Cap to bound infinite input).", nameof(segments));
+                }
+
+                if (open && value != runValue)
+                {
+                    AddBRow(b, layout, chr, offset + runStart, offset + s.StartMarker - 1, runValue, sample);
+                    runStart = s.StartMarker;
+                }
+                else if (!open)
+                {
+                    runStart = s.StartMarker;
+                    open = true;
+                }
+
+                runValue = value;
+                expectedStart = s.EndMarker + 1;
+            }
+
+            if (expectedStart != markers + 1)
+            {
+                throw new ArgumentException(
+                    $"Sample {sample - 1}: segments on chromosome '{layout.Name(chr)}' must tile markers 1..{markers} " +
+                    $"(covered up to {expectedStart - 1}).", nameof(segments));
+            }
+
+            AddBRow(b, layout, chr, offset + runStart, offset + markers, runValue, sample);
+        }
+
+        return b;
+    }
+
+    private static void AddBRow(List<GisticZiggRow> b, GisticMarkerLayout layout, int chr, int start, int end, double value, int sample) =>
+        b.Add(new GisticZiggRow
+        {
+            Chromosome = chr,
+            Start = start,
+            End = end,
+            Amplitude = value,
+            Sample = sample,
+            Fraction = GisticArmFraction(layout, chr, start, end),
+        });
+
+    /// <summary>
+    /// GISTIC2 <c>merge_adj_segs.m</c>: merges adjacent rows with equal amplitude (end extended, fractions added).
+    /// </summary>
+    private static void GisticMergeAdjacentSegments(List<GisticZiggRow> m)
+    {
+        int i = 0;
+        while (i < m.Count - 1)
+        {
+            if (m[i].Amplitude == m[i + 1].Amplitude)
+            {
+                GisticZiggRow row = m[i];
+                row.End = m[i + 1].End;
+                row.Fraction = row.Fraction + m[i + 1].Fraction;
+                m[i] = row;
+                m.RemoveAt(i + 1);
+            }
+            else
+            {
+                i++;
+            }
+        }
+    }
+
+    /// <summary>
+    /// GISTIC2 <c>atomic_zigg_deconstruction.m</c>: repeatedly takes the (first) highest segment, records the step from
+    /// its higher neighbour (left on ties) as an event <c>[chrn st en amp sample cn_st cn_en fract]</c>, lowers it to that
+    /// neighbour and merges equal neighbours; a non-zero residual level is recorded as a final event from 0.
+    /// </summary>
+    internal static List<GisticZiggRow> GisticAtomicZigguratDeconstruction(List<GisticZiggRow> source)
+    {
+        var z = new List<GisticZiggRow>();
+        if (source.Count == 0)
+        {
+            return z;
+        }
+
+        var bt = new List<GisticZiggRow>(source);
+        int sample = bt[0].Sample;
+        while (bt.Count > 1 && MaxAmplitude(bt, out int mi) > 0)
+        {
+            int adj;
+            if (mi == 0)
+            {
+                adj = 1;
+            }
+            else if (mi == bt.Count - 1)
+            {
+                adj = mi - 1;
+            }
+            else
+            {
+                adj = bt[mi - 1].Amplitude >= bt[mi + 1].Amplitude ? mi - 1 : mi + 1;
+            }
+
+            double diff = bt[mi].Amplitude - bt[adj].Amplitude;
+            if (diff > 0)
+            {
+                z.Add(new GisticZiggRow
+                {
+                    Chromosome = bt[mi].Chromosome,
+                    Start = bt[mi].Start,
+                    End = bt[mi].End,
+                    Fraction = bt[mi].Fraction,
+                    StartLevel = bt[adj].Amplitude,
+                    EndLevel = bt[mi].Amplitude,
+                });
+            }
+
+            int kk = Math.Min(adj, mi);
+            GisticZiggRow lowered = bt[mi];
+            lowered.Amplitude = bt[adj].Amplitude;
+            bt[mi] = lowered;
+            while (kk < bt.Count - 1 && bt[kk].Amplitude == bt[kk + 1].Amplitude)
+            {
+                GisticZiggRow row = bt[kk];
+                row.End = bt[kk + 1].End;
+                row.Fraction = row.Fraction + bt[kk + 1].Fraction;
+                bt[kk] = row;
+                bt.RemoveAt(kk + 1);
+            }
+        }
+
+        if (bt[0].Amplitude != 0)
+        {
+            z.Add(new GisticZiggRow
+            {
+                Chromosome = bt[0].Chromosome,
+                Start = bt[0].Start,
+                End = bt[0].End,
+                Fraction = bt[0].Fraction,
+                StartLevel = 0,
+                EndLevel = bt[0].Amplitude,
+            });
+        }
+
+        for (int i = 0; i < z.Count; i++)
+        {
+            GisticZiggRow row = z[i];
+            row.Amplitude = row.EndLevel - row.StartLevel;
+            row.Sample = sample;
+            z[i] = row;
+        }
+
+        return z;
+    }
+
+    /// <summary>MATLAB <c>[m, i] = max(x)</c> over amplitudes: first index of the maximum (no NaN reaches here).</summary>
+    private static double MaxAmplitude(List<GisticZiggRow> rows, out int index)
+    {
+        index = 0;
+        double max = rows[0].Amplitude;
+        for (int i = 1; i < rows.Count; i++)
+        {
+            if (rows[i].Amplitude > max)
+            {
+                max = rows[i].Amplitude;
+                index = i;
+            }
+        }
+
+        return max;
+    }
+
+    /// <summary>GISTIC2 <c>prepare_B.m</c>: positive part (Ba) and negated negative part (Bd), each merged.</summary>
+    private static (List<GisticZiggRow> Amp, List<GisticZiggRow> Del) GisticPrepareB(List<GisticZiggRow> b)
+    {
+        var ba = new List<GisticZiggRow>(b.Count);
+        var bd = new List<GisticZiggRow>(b.Count);
+        foreach (GisticZiggRow row in b)
+        {
+            GisticZiggRow a = row;
+            a.Amplitude = row.Amplitude * (row.Amplitude > 0 ? 1.0 : 0.0); // B.*(B>0): keeps −0 for negatives
+            ba.Add(a);
+            GisticZiggRow d = row;
+            d.Amplitude = -1 * (row.Amplitude * (row.Amplitude < 0 ? 1.0 : 0.0));
+            bd.Add(d);
+        }
+
+        GisticMergeAdjacentSegments(ba);
+        GisticMergeAdjacentSegments(bd);
+        return (ba, bd);
+    }
+
+    /// <summary>GISTIC2 <c>add_broad_levels_to_zigg.m</c>: shifts cn_st / cn_en by the arm's broad level.</summary>
+    private static List<GisticZiggRow> GisticAddBroadLevel(List<GisticZiggRow> z, double broadLevel)
+    {
+        for (int i = 0; i < z.Count; i++)
+        {
+            GisticZiggRow row = z[i];
+            row.StartLevel += broadLevel;
+            row.EndLevel += broadLevel;
+            z[i] = row;
+        }
+
+        return z;
+    }
+
+    /// <summary>
+    /// GISTIC2 <c>deconstruct_chr.m</c>: splits a chromosome's B rows at the breakpoint row (<c>en == chr_bpt</c>),
+    /// subtracts the p / q broad levels, and deconstructs the positive and negative parts of each arm. Note the
+    /// reference quirk kept as is: a breakpoint on the first row (with more rows following) treats all rows as q.
+    /// </summary>
+    internal static (List<GisticZiggRow> Amp, List<GisticZiggRow> Del) GisticDeconstructChromosome(
+        List<GisticZiggRow> b, int chrBreakpoint, double pLevel, double qLevel)
+    {
+        int bptRow = b.FindIndex(r => r.End == chrBreakpoint);
+        if (bptRow < 0)
+        {
+            throw new InvalidOperationException("Chromosome breakpoint must correspond to segment breakpoint!");
+        }
+
+        List<GisticZiggRow> bp = new();
+        List<GisticZiggRow> bq = new();
+        if (bptRow == b.Count - 1)
+        {
+            bp = Shift(b, 0, b.Count, pLevel);
+        }
+        else if (bptRow == 0)
+        {
+            bq = Shift(b, 0, b.Count, qLevel);
+        }
+        else
+        {
+            bp = Shift(b, 0, bptRow + 1, pLevel);
+            bq = Shift(b, bptRow + 1, b.Count, qLevel);
+        }
+
+        (List<GisticZiggRow> bpa, List<GisticZiggRow> bpd) = GisticPrepareB(bp);
+        (List<GisticZiggRow> bqa, List<GisticZiggRow> bqd) = GisticPrepareB(bq);
+        List<GisticZiggRow> zap = GisticAddBroadLevel(GisticAtomicZigguratDeconstruction(bpa), pLevel);
+        List<GisticZiggRow> zdp = GisticAddBroadLevel(GisticAtomicZigguratDeconstruction(bpd), pLevel);
+        List<GisticZiggRow> zaq = GisticAddBroadLevel(GisticAtomicZigguratDeconstruction(bqa), qLevel);
+        List<GisticZiggRow> zdq = GisticAddBroadLevel(GisticAtomicZigguratDeconstruction(bqd), qLevel);
+        zap.AddRange(zaq);
+        zdp.AddRange(zdq);
+        return (zap, zdp);
+
+        static List<GisticZiggRow> Shift(List<GisticZiggRow> rows, int from, int to, double level)
+        {
+            var result = new List<GisticZiggRow>(to - from);
+            for (int i = from; i < to; i++)
+            {
+                GisticZiggRow row = rows[i];
+                row.Amplitude -= level;
+                result.Add(row);
+            }
+
+            return result;
+        }
+    }
+
+    /// <summary>
+    /// GISTIC2 <c>deconstruct_sample.m</c>: ziggurat deconstruction of one sample's B array against given broad levels
+    /// (<paramref name="broadLevels"/>[2·ch − 2] = p level, [2·ch − 1] = q level) and per-chromosome breakpoints
+    /// (global end marker of the last p segment). Returns the amplification events (ZA) and the deletion events (ZD,
+    /// amplitudes positive as returned by the reference; <c>perform_deconstruction</c> negates them).
+    /// </summary>
+    internal static (List<GisticZiggRow> Amp, List<GisticZiggRow> Del) GisticDeconstructSample(
+        List<GisticZiggRow> b, IReadOnlyList<double> broadLevels, IReadOnlyList<int> chromosomeBreakpoints)
+    {
+        var za = new List<GisticZiggRow>();
+        var zd = new List<GisticZiggRow>();
+        int maxChr = 0;
+        foreach (GisticZiggRow row in b)
+        {
+            maxChr = Math.Max(maxChr, row.Chromosome);
+        }
+
+        for (int ch = 1; ch <= maxChr; ch++)
+        {
+            List<GisticZiggRow> bt = b.FindAll(r => r.Chromosome == ch);
+            (List<GisticZiggRow> a, List<GisticZiggRow> d) = GisticDeconstructChromosome(
+                bt, chromosomeBreakpoints[ch - 1], broadLevels[2 * ch - 2], broadLevels[2 * ch - 1]);
+            za.AddRange(a);
+            zd.AddRange(d);
+        }
+
+        return (za, zd);
+    }
+
+    /// <summary>
+    /// GISTIC2 event length × amplitude log-likelihood table (<c>generate_2d_hists.m</c> output): amplitude bin edges
+    /// <c>xamp = −2:0.08:2</c>, length bin edges <c>ylen = 0:0.04:2</c> (arm fractions) and <c>log_hd</c> (51 × 51).
+    /// </summary>
+    internal sealed class GisticLengthAmplitudeTable
+    {
+        internal GisticLengthAmplitudeTable(double[] amplitudeEdges, double[] lengthEdges, double[,] logDensity)
+        {
+            AmplitudeEdges = amplitudeEdges;
+            LengthEdges = lengthEdges;
+            LogDensity = logDensity;
+        }
+
+        /// <summary><c>xamp</c> — amplitude bin edges.</summary>
+        internal double[] AmplitudeEdges { get; }
+
+        /// <summary><c>ylen</c> — length (arm fraction) bin edges.</summary>
+        internal double[] LengthEdges { get; }
+
+        /// <summary><c>log_hd(xidx, yidx)</c> (0-based here).</summary>
+        internal double[,] LogDensity { get; }
+    }
+
+    /// <summary>GISTIC2 <c>generate_2d_hists</c> pseudocount argument used by <c>perform_deconstruction.m</c> (<c>.01</c>).</summary>
+    private const double GisticHistogramPseudocount = 0.01;
+
+    /// <summary>
+    /// GNU Octave colon range <c>start:step:limit</c> for the GISTIC2 bin edges: element i = start + i·step (verified
+    /// equal to Octave's <c>-2:.08:2</c> and <c>0:.04:2</c> for all 51 elements).
+    /// </summary>
+    private static double[] GisticRange(double start, double step, int count)
+    {
+        var r = new double[count];
+        for (int i = 0; i < count; i++)
+        {
+            r[i] = start + i * step;
+        }
+
+        return r;
+    }
+
+    /// <summary>
+    /// GISTIC2 <c>hist2d.m</c> bin index (1-based) of <paramref name="x"/> over edges <paramref name="r"/>: 1 when
+    /// x ≤ r(1), length(r) when x ≥ r(end), otherwise i with r(i) ≤ x &lt; r(i+1).
+    /// </summary>
+    private static int GisticHistBin(double x, double[] r)
+    {
+        int bin = 0;
+        if (x <= r[0])
+        {
+            bin = 1;
+        }
+
+        if (x >= r[^1])
+        {
+            bin = r.Length;
+        }
+
+        for (int i = 0; i < r.Length - 1; i++)
+        {
+            if (x >= r[i] && x < r[i + 1])
+            {
+                bin = i + 1;
+            }
+        }
+
+        return bin;
+    }
+
+    /// <summary>
+    /// GISTIC2 <c>generate_2d_hists(QA,QD,[],[],.01,1)</c>: 2-D histogram (<c>hist2d</c> / <c>crosstab_full</c>) of event
+    /// amplitude (column 4) × arm fraction (column 8) over QA ∪ QD, plus <c>pseudocount/100·sum(sum(hd))</c> per bin,
+    /// normalised by <c>sum(sum(hd1))</c> (column sums first, as MATLAB/Octave <c>sum</c>), then <c>log</c>. The
+    /// plotting branch (<c>do_plot</c>) has no effect on the table.
+    /// </summary>
+    internal static GisticLengthAmplitudeTable GisticGenerate2dHistogram(
+        IReadOnlyList<GisticZiggRow> amplifications, IReadOnlyList<GisticZiggRow> deletions)
+    {
+        double[] xamp = GisticRange(-2, 0.08, 51);
+        double[] ylen = GisticRange(0, 0.04, 51);
+        int nx = xamp.Length;
+        int ny = ylen.Length;
+        var hd = new double[nx, ny];
+        foreach (GisticZiggRow row in amplifications.Concat(deletions))
+        {
+            int xi = GisticHistBin(row.Amplitude, xamp);
+            int yi = GisticHistBin(row.Fraction, ylen);
+            hd[xi - 1, yi - 1] += 1;
+        }
+
+        double total = SumColumnsThenTotal(hd);
+        double pseudo = GisticHistogramPseudocount / 100 * total;
+        var hd1 = new double[nx, ny];
+        for (int i = 0; i < nx; i++)
+        {
+            for (int j = 0; j < ny; j++)
+            {
+                hd1[i, j] = hd[i, j] + pseudo;
+            }
+        }
+
+        double total1 = SumColumnsThenTotal(hd1);
+        var logHd = new double[nx, ny];
+        for (int i = 0; i < nx; i++)
+        {
+            for (int j = 0; j < ny; j++)
+            {
+                logHd[i, j] = Math.Log(hd1[i, j] / total1);
+            }
+        }
+
+        return new GisticLengthAmplitudeTable(xamp, ylen, logHd);
+
+        static double SumColumnsThenTotal(double[,] m)
+        {
+            double total = 0;
+            for (int j = 0; j < m.GetLength(1); j++)
+            {
+                double column = 0;
+                for (int i = 0; i < m.GetLength(0); i++)
+                {
+                    column += m[i, j];
+                }
+
+                total += column;
+            }
+
+            return total;
+        }
+    }
+
+    /// <summary>
+    /// GISTIC2 <c>score_ziggs_by_table.m</c>: <c>log_hd(xidx, yidx)</c> with xidx = last amplitude edge strictly below
+    /// the event amplitude (else 1) and yidx = last length edge strictly below the arm fraction (else 1).
+    /// </summary>
+    internal static double GisticScoreByTable(in GisticZiggRow row, GisticLengthAmplitudeTable table)
+    {
+        return table.LogDensity[LastBelow(table.AmplitudeEdges, row.Amplitude), LastBelow(table.LengthEdges, row.Fraction)];
+
+        static int LastBelow(double[] edges, double value)
+        {
+            for (int i = edges.Length - 1; i >= 0; i--)
+            {
+                if (edges[i] < value)
+                {
+                    return i;
+                }
+            }
+
+            return 0;
+        }
+    }
+
+    /// <summary>
+    /// GISTIC2 <c>ziggurat_on_extremes.m</c>: deconstructs the segments above the minimum level (QAS, levels shifted
+    /// back by +min) and below the maximum level (QDS, inverted back: levels −(l − max), amplitude negated), each scored.
+    /// </summary>
+    private static (List<GisticZiggRow> Amp, List<GisticZiggRow> Del) GisticZigguratOnExtremes(
+        List<GisticZiggRow> b, double minLevel, double maxLevel, GisticLengthAmplitudeTable table)
+    {
+        var ba = new List<GisticZiggRow>(b.Count);
+        var bd = new List<GisticZiggRow>(b.Count);
+        foreach (GisticZiggRow row in b)
+        {
+            GisticZiggRow a = row;
+            a.Amplitude = row.Amplitude - minLevel;
+            ba.Add(a);
+            GisticZiggRow d = row;
+            d.Amplitude = -1 * (row.Amplitude - maxLevel);
+            bd.Add(d);
+        }
+
+        GisticMergeAdjacentSegments(ba);
+        GisticMergeAdjacentSegments(bd);
+        List<GisticZiggRow> qas = GisticAtomicZigguratDeconstruction(ba);
+        List<GisticZiggRow> qds = GisticAtomicZigguratDeconstruction(bd);
+        for (int i = 0; i < qas.Count; i++)
+        {
+            GisticZiggRow row = qas[i];
+            row.StartLevel += minLevel;
+            row.EndLevel += minLevel;
+            row.Score = GisticScoreByTable(row, table);
+            qas[i] = row;
+        }
+
+        for (int i = 0; i < qds.Count; i++)
+        {
+            GisticZiggRow row = qds[i];
+            row.StartLevel = -1 * (row.StartLevel - maxLevel);
+            row.EndLevel = -1 * (row.EndLevel - maxLevel);
+            row.Amplitude = -1 * row.Amplitude;
+            row.Score = GisticScoreByTable(row, table);
+            qds[i] = row;
+        }
+
+        return (qas, qds);
+    }
+
+    /// <summary>
+    /// GISTIC2 <c>iterative_ziggurat.m</c>: amplifications must start at least at <paramref name="level"/>, deletions at
+    /// most at it; amplitudes recomputed (<c>cn_en − cn_st</c>), events with the wrong sign dropped, changed events rescored.
+    /// </summary>
+    private static List<GisticZiggRow> GisticIterativeZiggurat(
+        List<GisticZiggRow> qas, List<GisticZiggRow> qds, double level, GisticLengthAmplitudeTable table)
+    {
+        var q = new List<GisticZiggRow>(qas.Count + qds.Count);
+        foreach (GisticZiggRow source in qas)
+        {
+            GisticZiggRow row = source;
+            row.StartLevel = source.StartLevel >= level ? source.StartLevel : level; // Octave max(x, y): x >= y ? x : y
+            bool changed = source.StartLevel - row.StartLevel != 0;
+            row.Amplitude = row.EndLevel - row.StartLevel;
+            if (row.Amplitude > 0)
+            {
+                if (changed)
+                {
+                    row.Score = GisticScoreByTable(row, table);
+                }
+
+                q.Add(row);
+            }
+        }
+
+        foreach (GisticZiggRow source in qds)
+        {
+            GisticZiggRow row = source;
+            row.StartLevel = source.StartLevel <= level ? source.StartLevel : level; // Octave min(x, y): x <= y ? x : y
+            bool changed = source.StartLevel - row.StartLevel != 0;
+            row.Amplitude = row.EndLevel - row.StartLevel;
+            if (row.Amplitude < 0)
+            {
+                if (changed)
+                {
+                    row.Score = GisticScoreByTable(row, table);
+                }
+
+                q.Add(row);
+            }
+        }
+
+        return q;
+    }
+
+    /// <summary>Result of <see cref="GisticFindMaxBroadLevel"/> (<c>[broad_level max_Q max_score num_levels]</c>).</summary>
+    internal readonly record struct GisticBroadLevelChoice(
+        double BroadLevel, List<GisticZiggRow> Events, double Score, int LevelCount);
+
+    /// <summary>
+    /// GISTIC2 <c>find_max_broad_level_by_table.m</c>: for each distinct segment value of an arm (ascending), deconstruct
+    /// the arm against it (<c>ziggurat_on_extremes</c> + <c>iterative_ziggurat</c>), score the events plus the broad event
+    /// (<c>[chrn min(st) max(en) level sample 0 level arm_fract]</c>), and keep the level with the highest total score
+    /// (first on ties). One distinct value: that level, a single broad row (score column 0) scored by table. Empty: level
+    /// 0, no events, score 0.
+    /// </summary>
+    internal static GisticBroadLevelChoice GisticFindMaxBroadLevel(
+        List<GisticZiggRow> b, GisticLengthAmplitudeTable table, double armFraction)
+    {
+        // unique(B(:,4)) as in GNU Octave unique.m: stable sort, then the LAST element of each run of equal values is
+        // kept (only observable for −0 vs +0).
+        var unique = new List<double>(b.Count);
+        foreach (double v in b.Select(r => r.Amplitude).OrderBy(v => v))
+        {
+            if (unique.Count > 0 && unique[^1] == v)
+            {
+                unique[^1] = v;
+            }
+            else
+            {
+                unique.Add(v);
+            }
+        }
+
+        if (unique.Count > 1)
+        {
+            (List<GisticZiggRow> qas, List<GisticZiggRow> qds) = GisticZigguratOnExtremes(b, unique[0], unique[^1], table);
+            int start = int.MaxValue;
+            int end = int.MinValue;
+            foreach (GisticZiggRow row in b)
+            {
+                start = Math.Min(start, row.Start);
+                end = Math.Max(end, row.End);
+            }
+
+            List<GisticZiggRow>? best = null;
+            double bestScore = double.NaN;
+            int bestIndex = -1;
+            for (int k = 0; k < unique.Count; k++)
+            {
+                List<GisticZiggRow> q = GisticIterativeZiggurat(qas, qds, unique[k], table);
+                var broad = new GisticZiggRow
+                {
+                    Chromosome = b[0].Chromosome,
+                    Start = start,
+                    End = end,
+                    Amplitude = unique[k],
+                    Sample = b[0].Sample,
+                    StartLevel = 0,
+                    EndLevel = unique[k],
+                    Fraction = armFraction,
+                };
+                broad.Score = GisticScoreByTable(broad, table);
+                double sum = 0;
+                foreach (GisticZiggRow row in q)
+                {
+                    sum += row.Score;
+                }
+
+                double score = sum + broad.Score;
+                if (broad.Amplitude != 0)
+                {
+                    q.Add(broad);
+                }
+
+                // MATLAB [m, i] = max(score): first maximum, NaN ignored (index 1 when all NaN).
+                if (bestIndex < 0 || (!double.IsNaN(score) && (double.IsNaN(bestScore) || score > bestScore)))
+                {
+                    best = q;
+                    bestScore = score;
+                    bestIndex = k;
+                }
+            }
+
+            return new GisticBroadLevelChoice(unique[bestIndex], best!, bestScore, unique.Count);
+        }
+
+        if (unique.Count == 1)
+        {
+            var single = new GisticZiggRow
+            {
+                Chromosome = b[0].Chromosome,
+                Start = b[0].Start,
+                End = b[0].End,
+                Amplitude = unique[0],
+                Sample = b[0].Sample,
+                StartLevel = 0,
+                EndLevel = unique[0],
+                Fraction = armFraction,
+            };
+            double score = GisticScoreByTable(single, table);
+            return new GisticBroadLevelChoice(unique[0], new List<GisticZiggRow> { single }, score, 1);
+        }
+
+        return new GisticBroadLevelChoice(0, new List<GisticZiggRow>(), 0, 0);
+    }
+
+    /// <summary>Kind of a GISTIC2 ziggurat event (the four <c>Qs</c> fields of <c>perform_ziggurat_deconstruction.m</c>).</summary>
+    public enum ZigguratEventType
+    {
+        /// <summary><c>Qs.amp</c> — amplification starting at or above copy-number level 0.</summary>
+        Amplification,
+
+        /// <summary><c>Qs.del</c> — deletion starting at or below level 0.</summary>
+        Deletion,
+
+        /// <summary><c>Qs.aod</c> — amplification ending at or below level 0 (gain over a deletion).</summary>
+        AmplificationOverDeletion,
+
+        /// <summary><c>Qs.doa</c> — deletion ending at or above level 0 (loss over an amplification).</summary>
+        DeletionOverAmplification,
+    }
+
+    /// <summary>
+    /// One GISTIC2 SCNA event from the ziggurat deconstruction (a row of <c>Qs.amp/del/aod/doa</c>; <c>Qs.m</c> columns).
+    /// </summary>
+    /// <param name="Type">Event kind (which <c>Qs</c> field).</param>
+    /// <param name="Sample">0-based index into the input sample list (GISTIC2 column 5 − 1, mapped through <c>Qs.sdesc</c> when the noise filter removed samples).</param>
+    /// <param name="Chromosome">Chromosome label (column 1).</param>
+    /// <param name="StartMarker">First marker, 1-based within the chromosome (column 2).</param>
+    /// <param name="EndMarker">Last marker, inclusive (column 3).</param>
+    /// <param name="Amplitude">Event amplitude, positive for all four kinds (column 12, in copy number − 2 units).</param>
+    /// <param name="StartLevel">Starting copy-number level (column 6).</param>
+    /// <param name="EndLevel">Ending copy-number level (column 7).</param>
+    /// <param name="ArmFraction">Length as chromosome-arm fraction in markers; p + q for centromere-spanning events (column 8).</param>
+    /// <param name="Score">Deconstruction (table log-likelihood) score (column 9; 0 for single-segment chromosomes and single-level arms).</param>
+    /// <param name="ArmLevel">Broad level of the arm the event lies on (column 10).</param>
+    public readonly record struct ZigguratEvent(
+        ZigguratEventType Type,
+        int Sample,
+        string Chromosome,
+        int StartMarker,
+        int EndMarker,
+        double Amplitude,
+        double StartLevel,
+        double EndLevel,
+        double ArmFraction,
+        double Score,
+        double ArmLevel)
+    {
+        /// <summary>
+        /// GISTIC2 <c>reconstruct_genomes.m</c> length test: focal when <see cref="ArmFraction"/> &lt;
+        /// <paramref name="broadLengthCutoff"/> (default 0.98), broad otherwise.
+        /// </summary>
+        public bool IsFocal(double broadLengthCutoff = DefaultBroadLengthCutoff) => ArmFraction < broadLengthCutoff;
+    }
+
+    /// <summary>
+    /// Options of <see cref="DeconstructZiggurat"/>, with the GISTIC2 defaults (<c>gistic2_param_defaults.m</c>,
+    /// <c>run_focal_gistic.m</c> → <c>perform_ziggurat_deconstruction(D,cyto,ziggs,cap)</c> → <c>perform_deconstruction(…,1)</c>).
+    /// </summary>
+    public sealed record ZigguratOptions
+    {
+        /// <summary>GISTIC2 defaults: log2 input, cap 1.5, one iteration.</summary>
+        public static ZigguratOptions Default { get; } = new();
+
+        /// <summary>
+        /// Segment values are log2 ratios (GISTIC2 <c>D.islog</c>, default true) and are converted to copy number − 2 by
+        /// <c>2^(x+1) − 2</c>; false = values already in copy number − 2 units.
+        /// </summary>
+        public bool InputIsLog2 { get; init; } = true;
+
+        /// <summary>
+        /// Symmetric cap (GISTIC2 <c>cap</c>, default 1.5) applied before conversion: log2 values are clipped to
+        /// [−cap, cap]; copy-number input to [2^(1−cap) − 2, 2^(1+cap) − 2]. null = no cap. Must be &gt; 0.
+        /// </summary>
+        public double? Cap { get; init; } = 1.5;
+
+        /// <summary>Number of broad-level re-estimation iterations (<c>niters</c>, GISTIC2 uses 1); ≥ 1.</summary>
+        public int Iterations { get; init; } = 1;
+
+        /// <summary>
+        /// GISTIC2 noise filter (<c>remove_noisy_samples.m</c>, called from <c>perform_ziggurat_deconstruction.m</c>
+        /// l.102): samples with more than this many segments are removed before deconstruction (kept when
+        /// <c>count ≤ max</c>). Default <see cref="DefaultMaxSegmentsPerSample"/> = 2500, the GISTIC2 pipeline default
+        /// (<c>gistic2_param_defaults.m</c> l.136, <c>gp_gistic2_from_seg.m</c> <c>-maxseg</c> l.224; the 500 fallback in
+        /// <c>perform_ziggurat_deconstruction.m</c> l.60 applies only when <c>ziggs</c> lacks the field, which the
+        /// pipeline always sets). null = no filtering. Must be ≥ 0.
+        /// </summary>
+        public int? MaxSegmentsPerSample { get; init; } = DefaultMaxSegmentsPerSample;
+    }
+
+    /// <summary>GISTIC2 default <c>max_segs_per_sample</c> (<c>gistic2_param_defaults.m</c> l.136): 2500.</summary>
+    public const int DefaultMaxSegmentsPerSample = 2500;
+
+    /// <summary>
+    /// Result of <see cref="DeconstructZiggurat"/>: the GISTIC2 SCNA events of all samples, in <c>Qs</c> order
+    /// (all <c>amp</c>, then <c>del</c>, <c>aod</c>, <c>doa</c>; within a field chromosome-major, then sample, then p before q).
+    /// </summary>
+    /// <param name="Events">The deconstructed events.</param>
+    public sealed record ZigguratDeconstruction(IReadOnlyList<ZigguratEvent> Events)
+    {
+        /// <summary>
+        /// Per input sample, the GISTIC2 segment count used by the noise filter (<c>remove_noisy_samples.m</c>
+        /// <c>segment_count</c>): maximal runs of equal capped value along the genome-ordered marker column
+        /// (chromosomes in layout order, equal values across a chromosome boundary forming one run) — the
+        /// <c>getbpt_counts</c> of the annealed SegArray after <c>cap_vals</c>. Empty when the filter is disabled.
+        /// </summary>
+        public IReadOnlyList<int> SegmentCounts { get; init; } = Array.Empty<int>();
+
+        /// <summary>
+        /// 0-based indices (into the input sample list) of the samples removed by the noise filter
+        /// (<see cref="ZigguratOptions.MaxSegmentsPerSample"/>), ascending; empty when none was removed.
+        /// </summary>
+        public IReadOnlyList<int> RemovedSamples { get; init; } = Array.Empty<int>();
+
+        /// <summary>Events of one sample (0-based index), in <see cref="Events"/> order.</summary>
+        public IReadOnlyList<ZigguratEvent> ForSample(int sample) => Events.Where(e => e.Sample == sample).ToList();
+    }
+
+    /// <summary>
+    /// GISTIC2 ziggurat deconstruction of segmented copy-number data into broad and focal SCNA events, each measured
+    /// relative to the level it sits on. Port of <c>perform_ziggurat_deconstruction.m</c> (cap, log2 → copy number − 2)
+    /// and <c>perform_deconstruction.m</c>: initial deconstruction against level 0 (<c>make_sample_B</c>,
+    /// <c>deconstruct_sample</c>), cohort length × amplitude log-likelihood table (<c>generate_2d_hists</c>), then per
+    /// sample and chromosome the p/q breakpoint maximising the table score of the arm deconstructions
+    /// (<c>find_max_broad_level_by_table</c>) minus a BIC-style penalty, final event split around level 0
+    /// (<c>make_final_Qs</c>), repeated <see cref="ZigguratOptions.Iterations"/> times with the table rebuilt.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Penalty as coded in GISTIC2.</b> The comment reads "(2k − 1)·ln n where k = #broad levels"; the code uses
+    /// n = number of segments on the chromosome and gives 3·ln n when both arm parts are non-empty, but ln(1) = 0 when the
+    /// breakpoint is the chromosome's last segment (q part empty: <c>len_bpts = 1</c>). This port follows the code.</para>
+    /// <para><b>Cohort model.</b> The table is learned from all supplied samples, so a sample's events depend on the
+    /// cohort; n = 1 is allowed (<c>perform_deconstruction</c> runs on any sample set; only the outer GISTIC2 wrapper
+    /// requires ≥ 2 samples after noise filtering; here one remaining sample is accepted, consistently with n = 1 input).</para>
+    /// <para><b>Noise filter.</b> <c>remove_noisy_samples.m</c> runs after the cap: samples whose segment count
+    /// (<see cref="ZigguratDeconstruction.SegmentCounts"/>) exceeds <see cref="ZigguratOptions.MaxSegmentsPerSample"/>
+    /// (default 2500) are dropped and listed in <see cref="ZigguratDeconstruction.RemovedSamples"/>; the cohort table is
+    /// learned from the kept samples only. The count follows the default SegArray branch (<c>use_segarray = 1</c>:
+    /// <c>getbpt_counts</c> = number of segments); GISTIC2's uncompressed branch counts <c>diff ~= 0</c> breakpoints
+    /// (one less) — Octave-checked, not followed. All samples removed ⇒ <see cref="ArgumentException"/>
+    /// (GISTIC2 <c>all_data_removed</c>). <see cref="ZigguratEvent.Sample"/> always indexes the input list (GISTIC2 maps
+    /// <c>Qs</c> column 5 through the filtered <c>Qs.sdesc</c>).</para>
+    /// <para>When no sample has any non-zero segment the result is empty (every chromosome is one zero segment; GISTIC2 returns
+    /// empty event arrays too — Octave-checked).</para>
+    /// <para><b>Units.</b> Amplitudes and levels are in copy number − 2 units (GISTIC2 <c>Qs</c> columns 4/6/7/12); the
+    /// arm fraction is in markers (<c>norm_type = 1</c>), p + q for centromere-spanning events.</para>
+    /// </remarks>
+    /// <param name="chromosomes">Marker layout (GISTIC2 chromosome order = list order; every chromosome present in every sample).</param>
+    /// <param name="samples">Per-sample segments tiling every layout chromosome (<see cref="ZigguratSegment"/>).</param>
+    /// <param name="options">Options; null = <see cref="ZigguratOptions.Default"/>.</param>
+    /// <returns>The events of all samples.</returns>
+    /// <exception cref="ArgumentNullException">A required argument or a sample list is null.</exception>
+    /// <exception cref="ArgumentException">Invalid layout, no samples, segments that do not tile a chromosome, NaN values,
+    /// a non-finite converted value (e.g. +∞ log2 with no cap), or every sample removed by the noise filter.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Cap ≤ 0 or NaN, Iterations &lt; 1, or MaxSegmentsPerSample &lt; 0.</exception>
+    public static ZigguratDeconstruction DeconstructZiggurat(
+        IReadOnlyList<ZigguratChromosome> chromosomes,
+        IReadOnlyList<IReadOnlyList<ZigguratSegment>> samples,
+        ZigguratOptions? options = null)
+    {
+        ArgumentNullException.ThrowIfNull(chromosomes);
+        ArgumentNullException.ThrowIfNull(samples);
+        ZigguratOptions opts = options ?? ZigguratOptions.Default;
+        if (opts.Cap is double capValue && (double.IsNaN(capValue) || capValue <= 0))
+        {
+            throw new ArgumentOutOfRangeException(nameof(options), capValue, "ZigguratOptions.Cap must be a positive number (or null).");
+        }
+
+        if (opts.Iterations < 1)
+        {
+            throw new ArgumentOutOfRangeException(nameof(options), opts.Iterations, "ZigguratOptions.Iterations must be at least 1.");
+        }
+
+        if (opts.MaxSegmentsPerSample is int maxSegs && maxSegs < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(options), maxSegs, "ZigguratOptions.MaxSegmentsPerSample must be non-negative (or null).");
+        }
+
+        var layout = new GisticMarkerLayout(chromosomes);
+        if (samples.Count == 0)
+        {
+            throw new ArgumentException("At least one sample is required.", nameof(samples));
+        }
+
+        Func<double, double> transform = GisticInputTransform(opts);
+        var all = new List<GisticZiggRow>[samples.Count];
+        for (int j = 0; j < samples.Count; j++)
+        {
+            IReadOnlyList<ZigguratSegment> segments = samples[j]
+                ?? throw new ArgumentNullException(nameof(samples), $"Sample {j} is null.");
+            all[j] = GisticMakeSampleB(layout, segments, j + 1, transform);
+        }
+
+        // remove_noisy_samples.m: keepers = num_bpts <= max_segs_per_sample (after the cap, perform_ziggurat_deconstruction l.102).
+        int[] segmentCounts = Array.Empty<int>();
+        var kept = new List<int>(samples.Count);
+        var removed = new List<int>();
+        if (opts.MaxSegmentsPerSample is int maxSegments)
+        {
+            Func<double, double> cap = GisticCap(opts);
+            segmentCounts = new int[samples.Count];
+            for (int j = 0; j < samples.Count; j++)
+            {
+                segmentCounts[j] = GisticSegmentCount(layout, samples[j], cap);
+                (segmentCounts[j] <= maxSegments ? kept : removed).Add(j);
+            }
+
+            if (kept.Count == 0)
+            {
+                throw new ArgumentException(
+                    $"All samples were removed by noise filtering (more than {maxSegments} segments each; GISTIC2 all_data_removed).",
+                    nameof(samples));
+            }
+        }
+        else
+        {
+            kept.AddRange(Enumerable.Range(0, samples.Count));
+        }
+
+        var b = new List<GisticZiggRow>[kept.Count];
+        for (int k = 0; k < kept.Count; k++)
+        {
+            b[k] = all[kept[k]];
+            if (removed.Count > 0)
+            {
+                for (int r = 0; r < b[k].Count; r++)
+                {
+                    GisticZiggRow row = b[k][r];
+                    row.Sample = k + 1;
+                    b[k][r] = row;
+                }
+            }
+        }
+
+        List<GisticZiggRow> q = GisticPerformDeconstruction(layout, b, opts.Iterations, out bool any);
+        if (!any)
+        {
+            return new ZigguratDeconstruction(Array.Empty<ZigguratEvent>())
+            {
+                SegmentCounts = segmentCounts,
+                RemovedSamples = removed,
+            };
+        }
+
+        var (qa, qd, qaod, qdoa) = GisticMakeFinalQs(q);
+        var events = new List<ZigguratEvent>(qa.Count + qd.Count + qaod.Count + qdoa.Count);
+        AddEvents(qa, ZigguratEventType.Amplification, 1);
+        AddEvents(qd, ZigguratEventType.Deletion, -1);
+        AddEvents(qaod, ZigguratEventType.AmplificationOverDeletion, 1);
+        AddEvents(qdoa, ZigguratEventType.DeletionOverAmplification, -1);
+        return new ZigguratDeconstruction(events) { SegmentCounts = segmentCounts, RemovedSamples = removed };
+
+        void AddEvents(List<GisticZiggRow> rows, ZigguratEventType type, int sign)
+        {
+            foreach (GisticZiggRow r in rows)
+            {
+                int offset = layout.Offset(r.Chromosome);
+                events.Add(new ZigguratEvent(
+                    type, kept[r.Sample - 1], layout.Name(r.Chromosome), r.Start - offset, r.End - offset,
+                    sign * r.Amplitude, r.StartLevel, r.EndLevel, r.Fraction, r.Score, r.ArmLevel));
+            }
+        }
+    }
+
+    /// <summary>
+    /// Focal amplifications among deconstructed GISTIC2 events — <c>reconstruct_genomes.m</c> with
+    /// <c>broad_or_focal = 'focal'</c> on the <c>amp</c> and <c>aod</c> fields: <c>Q(:,8) &lt; broad_len_cutoff</c> and
+    /// <c>Q(:,12) ≥ t_amp</c> (≥, as in <c>reconstruct_genomes.m</c>; the amplitude is in the deconstruction's copy
+    /// number − 2 units, as GISTIC2 compares it). For 1p 0.5 | 1.5 | 0.5 this yields the +1.0 step only; the 0.5
+    /// underlying level is one broad event (whole-arm fraction ≥ 0.98).
+    /// </summary>
+    /// <param name="deconstruction">Result of <see cref="DeconstructZiggurat"/>.</param>
+    /// <param name="thresholds">Amplitude and length cutoffs; null = GISTIC2 defaults (t_amp 0.1, broad_len_cutoff 0.98).</param>
+    /// <returns>Focal amplification events (<c>amp</c> events first, then <c>aod</c>), in event order.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="deconstruction"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="thresholds"/> is NaN or outside the GISTIC2 ranges.</exception>
+    public static IReadOnlyList<ZigguratEvent> DetectFocalAmplificationEvents(
+        ZigguratDeconstruction deconstruction,
+        FocalAmplificationThresholds? thresholds = null)
+    {
+        ArgumentNullException.ThrowIfNull(deconstruction);
+        FocalAmplificationThresholds cutoffs = thresholds ?? FocalAmplificationThresholds.Default;
+        ValidateFocalThresholds(cutoffs);
+        return deconstruction.Events
+            .Where(e => e.Type is ZigguratEventType.Amplification or ZigguratEventType.AmplificationOverDeletion
+                        && e.ArmFraction < cutoffs.BroadLengthCutoff
+                        && e.Amplitude >= cutoffs.AmplificationLog2Threshold)
+            .ToList();
+    }
+
+    /// <summary>
+    /// <c>perform_ziggurat_deconstruction.m</c> value preparation: cap (<c>D.dat(D.dat &gt; maxcap) = maxcap</c>, then the
+    /// minimum), then log2 → copy number − 2 (<c>2.^(D.dat+1)−2</c>); for copy-number input the cap is
+    /// <c>2^(1±cap) − 2</c>.
+    /// </summary>
+    private static Func<double, double> GisticInputTransform(ZigguratOptions options)
+    {
+        Func<double, double> cap = GisticCap(options);
+        bool log = options.InputIsLog2;
+        return value =>
+        {
+            value = cap(value);
+            return log ? Math.Pow(2, value + 1) - 2 : value;
+        };
+    }
+
+    /// <summary>
+    /// <c>perform_ziggurat_deconstruction.m</c> cap only (input units): <c>D.dat(D.dat &gt; maxcap) = maxcap</c>, then
+    /// the minimum; identity when <see cref="ZigguratOptions.Cap"/> is null.
+    /// </summary>
+    private static Func<double, double> GisticCap(ZigguratOptions options)
+    {
+        double maxCap = double.PositiveInfinity;
+        double minCap = double.NegativeInfinity;
+        if (options.Cap is double cap)
+        {
+            maxCap = cap;
+            minCap = -cap;
+            if (!options.InputIsLog2)
+            {
+                maxCap = Math.Pow(2, 1 + maxCap) - 2;
+                minCap = Math.Pow(2, 1 + minCap) - 2;
+            }
+        }
+
+        return value =>
+        {
+            if (value > maxCap)
+            {
+                value = maxCap;
+            }
+
+            if (value < minCap)
+            {
+                value = minCap;
+            }
+
+            return value;
+        };
+    }
+
+    /// <summary>
+    /// GISTIC2 <c>remove_noisy_samples.m</c> segment count of one (already validated) sample: <c>cap_vals</c> anneals the
+    /// SegArray column (<c>anneal.m</c>: adjacent equal values joined, <c>diff(vals) ~= 0</c>), then
+    /// <c>getbpt_counts</c> = number of stored segments — i.e. 1 + the number of value changes between consecutive
+    /// segments of the genome-ordered column (layout chromosome order, chromosome boundaries not kept).
+    /// </summary>
+    private static int GisticSegmentCount(GisticMarkerLayout layout, IReadOnlyList<ZigguratSegment> segments, Func<double, double> cap)
+    {
+        var ordered = segments
+            .OrderBy(s => layout.IndexOf(s.Chromosome))
+            .ThenBy(s => s.StartMarker)
+            .ToList();
+        int count = 1;
+        for (int i = 1; i < ordered.Count; i++)
+        {
+            if (cap(ordered[i].Value) != cap(ordered[i - 1].Value))
+            {
+                count++;
+            }
+        }
+
+        return count;
+    }
+
+    /// <summary>
+    /// GISTIC2 <c>perform_deconstruction.m</c> (after <c>make_sample_B</c>): returns the final Q array (before
+    /// <c>make_final_Qs</c>); <paramref name="anyEvent"/> is false when the initial deconstruction has no events.
+    /// </summary>
+    internal static List<GisticZiggRow> GisticPerformDeconstruction(
+        GisticMarkerLayout layout, IReadOnlyList<List<GisticZiggRow>> b, int iterations, out bool anyEvent)
+    {
+        int nChr = layout.ChromosomeCount;
+        var chrnEnd = new int[nChr];
+        for (int ch = 1; ch <= nChr; ch++)
+        {
+            chrnEnd[ch - 1] = layout.ChromosomeEnd(ch);
+        }
+
+        var zeroLevels = new double[2 * nChr];
+        var qa = new List<GisticZiggRow>();
+        var qd = new List<GisticZiggRow>();
+        foreach (List<GisticZiggRow> sample in b)
+        {
+            (List<GisticZiggRow> za, List<GisticZiggRow> zd) = GisticDeconstructSample(sample, zeroLevels, chrnEnd);
+            qa.AddRange(za);
+            foreach (GisticZiggRow row in zd)
+            {
+                GisticZiggRow negated = row;
+                negated.Amplitude = -1 * row.Amplitude;
+                qd.Add(negated);
+            }
+        }
+
+        anyEvent = qa.Count + qd.Count > 0;
+        var q = new List<GisticZiggRow>();
+        if (!anyEvent)
+        {
+            return q;
+        }
+
+        GisticLengthAmplitudeTable table = GisticGenerate2dHistogram(qa, qd);
+        for (int iteration = 0; iteration < iterations; iteration++)
+        {
+            var perChromosome = new List<GisticZiggRow>[nChr, b.Count];
+            for (int j = 0; j < b.Count; j++)
+            {
+                for (int ch = 1; ch <= nChr; ch++)
+                {
+                    perChromosome[ch - 1, j] = GisticDeconstructChromosomeByTable(b[j].FindAll(r => r.Chromosome == ch), table);
+                }
+            }
+
+            q = new List<GisticZiggRow>();
+            for (int ch = 0; ch < nChr; ch++)
+            {
+                for (int j = 0; j < b.Count; j++)
+                {
+                    q.AddRange(perChromosome[ch, j]);
+                }
+            }
+
+            if (iteration < iterations - 1)
+            {
+                var (finalA, finalD, _, _) = GisticMakeFinalQs(q);
+                table = GisticGenerate2dHistogram(finalA, finalD);
+            }
+        }
+
+        return q;
+    }
+
+    /// <summary>
+    /// The per-chromosome body of the <c>perform_deconstruction.m</c> iteration: a single segment is one broad event
+    /// (<c>[Bt(1:5) 0 amp sum(fract) 0 amp]</c>); otherwise every segment end i is tried as the p/q breakpoint, each arm
+    /// part gets its table-optimal broad level, and the breakpoint with the highest
+    /// <c>p_score + q_score − penalty</c> wins (first on ties), penalty = <c>ln(len_bpts)</c> when an arm part has no
+    /// levels, else <c>3·ln(len_bpts)</c>, with <c>len_bpts = 1</c> when the q part is empty and the segment count otherwise.
+    /// </summary>
+    private static List<GisticZiggRow> GisticDeconstructChromosomeByTable(List<GisticZiggRow> bt, GisticLengthAmplitudeTable table)
+    {
+        int n = bt.Count;
+        if (n == 1)
+        {
+            GisticZiggRow only = bt[0];
+            return new List<GisticZiggRow>
+            {
+                new()
+                {
+                    Chromosome = only.Chromosome,
+                    Start = only.Start,
+                    End = only.End,
+                    Amplitude = only.Amplitude,
+                    Sample = only.Sample,
+                    StartLevel = 0,
+                    EndLevel = only.Amplitude,
+                    Fraction = 0 + only.Fraction,
+                    Score = 0,
+                    ArmLevel = only.Amplitude,
+                },
+            };
+        }
+
+        List<GisticZiggRow>? best = null;
+        double bestScore = double.NaN;
+        for (int i = 1; i <= n; i++)
+        {
+            double pFract = 0;
+            for (int k = 0; k < i; k++)
+            {
+                pFract += bt[k].Fraction;
+            }
+
+            double qFract = 0;
+            for (int k = i; k < n; k++)
+            {
+                qFract += bt[k].Fraction;
+            }
+
+            GisticBroadLevelChoice p = GisticFindMaxBroadLevel(bt.GetRange(0, i), table, pFract);
+            GisticBroadLevelChoice qChoice = GisticFindMaxBroadLevel(bt.GetRange(i, n - i), table, qFract);
+            double ziggScore = p.Score + qChoice.Score;
+            int lenBpts = qChoice.LevelCount == 0 ? 1 : n;
+            double penalty = p.LevelCount == 0 || qChoice.LevelCount == 0
+                ? Math.Log(lenBpts)
+                : 3 * Math.Log(lenBpts);
+            double score = ziggScore - penalty;
+
+            if (best is null || (!double.IsNaN(score) && (double.IsNaN(bestScore) || score > bestScore)))
+            {
+                best = WithArmLevel(p.Events, p.BroadLevel);
+                best.AddRange(WithArmLevel(qChoice.Events, qChoice.BroadLevel));
+                bestScore = score;
+            }
+        }
+
+        return best!;
+
+        static List<GisticZiggRow> WithArmLevel(List<GisticZiggRow> rows, double level)
+        {
+            var result = new List<GisticZiggRow>(rows.Count);
+            foreach (GisticZiggRow row in rows)
+            {
+                GisticZiggRow r = row;
+                r.ArmLevel = level;
+                result.Add(r);
+            }
+
+            return result;
+        }
+    }
+
+    /// <summary>
+    /// GISTIC2 <c>make_final_Qs.m</c>: QA = amp &gt; 0 ∧ cn_st ≥ 0; QD = amp &lt; 0 ∧ cn_st ≤ 0; QAOD = amp &gt; 0 ∧
+    /// cn_en ≤ 0; QDOA = amp &lt; 0 ∧ cn_en ≥ 0; events crossing level 0 (cn_st·cn_en &lt; 0) are split at 0 and the
+    /// parts appended (to QA/QAOD resp. QD/QDOA).
+    /// </summary>
+    internal static (List<GisticZiggRow> Amp, List<GisticZiggRow> Del, List<GisticZiggRow> AmpOverDel, List<GisticZiggRow> DelOverAmp)
+        GisticMakeFinalQs(List<GisticZiggRow> q)
+    {
+        var qa = q.FindAll(r => r.Amplitude > 0 && r.StartLevel >= 0);
+        var qd = q.FindAll(r => r.Amplitude < 0 && r.StartLevel <= 0);
+        var qaod = q.FindAll(r => r.Amplitude > 0 && r.EndLevel <= 0);
+        var qdoa = q.FindAll(r => r.Amplitude < 0 && r.EndLevel >= 0);
+        var newA = new List<GisticZiggRow>();
+        var newAod = new List<GisticZiggRow>();
+        var newD = new List<GisticZiggRow>();
+        var newDoa = new List<GisticZiggRow>();
+        foreach (GisticZiggRow cur in q)
+        {
+            if (cur.StartLevel * cur.EndLevel < 0 && (cur.Amplitude > 0 || cur.Amplitude < 0))
+            {
+                GisticZiggRow over = cur;   // [cur(1:6) 0 cur(8:10)]
+                over.EndLevel = 0;
+                over.Amplitude = over.EndLevel - over.StartLevel;
+                GisticZiggRow pure = cur;   // [cur(1:5) 0 cur(7:10)]
+                pure.StartLevel = 0;
+                pure.Amplitude = pure.EndLevel - pure.StartLevel;
+                if (cur.Amplitude > 0)
+                {
+                    newA.Add(pure);
+                    newAod.Add(over);
+                }
+                else
+                {
+                    newD.Add(pure);
+                    newDoa.Add(over);
+                }
+            }
+        }
+
+        qa.AddRange(newA);
+        qd.AddRange(newD);
+        qaod.AddRange(newAod);
+        qdoa.AddRange(newDoa);
+        return (qa, qd, qaod, qdoa);
     }
 
     #endregion
@@ -572,6 +2272,34 @@ public static partial class OncologyAnalyzer
     }
 
     /// <summary>
+    /// Purity-aware <see cref="IsHomozygousDeletion(in CopyNumberArmSegment, IReadOnlyList{double}?, double)"/>: the
+    /// segment's log2 ratio is rescaled for tumour purity exactly as CNVkit <c>do_call</c> does
+    /// (<c>_log2_ratio_to_absolute</c> → <c>log2_ratios</c>) before the hard-threshold call; the segment is a
+    /// homozygous deletion when that integer copy number is 0. With normal contamination an observed log2 of −1.0
+    /// (CN 1 when pure) is CN 0 at purity 0.7 (absolute 0.571 → rescaled log2 −1.807 ≤ −1.1).
+    /// <paramref name="purity"/> = 1 is identical to the purity-less overload.
+    /// </summary>
+    /// <param name="segment">The arm-anchored copy-number segment.</param>
+    /// <param name="thresholds">Four strictly ascending log2 cutoffs; null uses CNVkit defaults.</param>
+    /// <param name="ploidy">Reference (germline) ploidy.</param>
+    /// <param name="purity">Tumour purity ∈ (0, 1].</param>
+    /// <returns><c>true</c> when the purity-corrected integer copy number is 0.</returns>
+    /// <exception cref="ArgumentException"><paramref name="segment"/> has non-positive arm length or End ≤ Start; or invalid thresholds.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="ploidy"/> is not finite positive, or <paramref name="purity"/> ∉ (0, 1].</exception>
+    public static bool IsHomozygousDeletion(
+        in CopyNumberArmSegment segment,
+        IReadOnlyList<double>? thresholds,
+        double ploidy,
+        double purity)
+    {
+        ValidateArmSegment(segment);
+        var cutoffs = ValidateThresholds(thresholds);
+        CopyNumberMath.ValidatePloidy(ploidy);
+        return CallCopyNumberUnbounded(RescaleLog2ForPurity(segment.Log2Ratio, ploidy, purity), cutoffs, ploidy)
+            == HomozygousDeletionCopyNumber;
+    }
+
+    /// <summary>
     /// Detects homozygous (deep) deletions among arm-anchored copy-number segments. A segment is reported when
     /// its hard-threshold integer copy number is 0 — total copy number 0, i.e. both alleles lost — which is the
     /// cBioPortal "−2" Deep Deletion / DeepDeletion state. Single-copy (heterozygous) losses, neutral, gain and
@@ -596,7 +2324,7 @@ public static partial class OncologyAnalyzer
         // Validate the calling parameters eagerly (once), so malformed thresholds / ploidy are rejected even for
         // an empty segment list — consistent with DetectFocalAmplifications and ClassifyCopyNumbers.
         var cutoffs = ValidateThresholds(thresholds);
-        ValidatePloidy(ploidy);
+        CopyNumberMath.ValidatePloidy(ploidy);
 
         var result = new List<CopyNumberArmSegment>();
         foreach (CopyNumberArmSegment segment in segments)
@@ -611,6 +2339,45 @@ public static partial class OncologyAnalyzer
     }
 
     /// <summary>
+    /// Purity-aware <see cref="DetectHomozygousDeletions(IEnumerable{CopyNumberArmSegment}, IReadOnlyList{double}?, double)"/>:
+    /// reports, in input order, the segments for which
+    /// <see cref="IsHomozygousDeletion(in CopyNumberArmSegment, IReadOnlyList{double}?, double, double)"/> holds
+    /// (CNVkit <c>do_call</c> purity rescaling, then threshold CN 0). <paramref name="purity"/> = 1 is identical to
+    /// the purity-less overload.
+    /// </summary>
+    /// <param name="segments">Arm-anchored copy-number segments. Must not be null.</param>
+    /// <param name="thresholds">Four strictly ascending log2 cutoffs; null uses CNVkit defaults.</param>
+    /// <param name="ploidy">Reference (germline) ploidy.</param>
+    /// <param name="purity">Tumour purity ∈ (0, 1].</param>
+    /// <returns>The homozygous-deletion segments, in input order.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="segments"/> is null.</exception>
+    /// <exception cref="ArgumentException">A segment is malformed; or invalid thresholds (checked even for empty input).</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="ploidy"/> or <paramref name="purity"/> is invalid (checked even for empty input).</exception>
+    public static IReadOnlyList<CopyNumberArmSegment> DetectHomozygousDeletions(
+        IEnumerable<CopyNumberArmSegment> segments,
+        IReadOnlyList<double>? thresholds,
+        double ploidy,
+        double purity)
+    {
+        ArgumentNullException.ThrowIfNull(segments);
+        var cutoffs = ValidateThresholds(thresholds);
+        CopyNumberMath.ValidatePloidy(ploidy);
+        CopyNumberMath.ValidatePurity(purity);
+
+        var result = new List<CopyNumberArmSegment>();
+        foreach (CopyNumberArmSegment segment in segments)
+        {
+            if (IsHomozygousDeletion(segment, cutoffs, ploidy, purity))
+            {
+                result.Add(segment);
+            }
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Arm-level mapping (see the <see cref="CopyNumberRegion"/> overload for GISTIC2 locus-overlap mapping).
     /// Maps homozygous-deletion segments to the recurrently deleted tumour suppressors resident on their
     /// chromosome arms. Each gene is reported once if any homozygous deletion falls on its arm. The panel and
     /// arms are: TP53 (17p), RB1 (13q), CDKN2A (9p), PTEN (10q), BRCA1 (17q), BRCA2 (13q). Source: NCBI Gene
@@ -643,6 +2410,43 @@ public static partial class OncologyAnalyzer
         ("BRCA2", "13q"),
     };
 
+    /// <summary>
+    /// GRCh38 loci of the default tumour-suppressor panel (same genes and order as the arm-level panel of
+    /// <see cref="IdentifyDeletedTumorSuppressors(IEnumerable{CopyNumberArmSegment})"/>). Source: the GISTIC2 hg38
+    /// reference gene table (broadinstitute/gistic2 <c>refgenes/Gencode.v22.170324/gencode_genes.tsv</c>, GENCODE v22,
+    /// 1-based closed): TP53 chr17:7,661,779–7,687,550; RB1 chr13:48,303,751–48,481,986; CDKN2A chr9:21,967,753–21,995,301;
+    /// PTEN chr10:87,863,113–87,971,930; BRCA1 chr17:43,044,295–43,125,483; BRCA2 chr13:32,315,474–32,400,266.
+    /// </summary>
+    public static IReadOnlyList<GeneLocus> DefaultTumorSuppressorLoci { get; } = new GeneLocus[]
+    {
+        new("TP53", "17", 7_661_779, 7_687_550),
+        new("RB1", "13", 48_303_751, 48_481_986),
+        new("CDKN2A", "9", 21_967_753, 21_995_301),
+        new("PTEN", "10", 87_863_113, 87_971_930),
+        new("BRCA1", "17", 43_044_295, 43_125_483),
+        new("BRCA2", "13", 32_315_474, 32_400_266),
+    };
+
+    /// <summary>
+    /// Locus-overlap tumour-suppressor mapping (GISTIC2 rule): reports, in panel order and each at most once, every
+    /// panel gene whose locus overlaps a deleted region — GISTIC2 <c>genes_at.m</c> with <c>partial_hits = 1</c>: same
+    /// chromosome AND <c>gene.start ≤ region.end</c> AND <c>gene.end ≥ region.start</c> (closed intervals). Unlike the
+    /// arm-level <see cref="IdentifyDeletedTumorSuppressors(IEnumerable{CopyNumberArmSegment})"/>, a deletion elsewhere on
+    /// 17p does NOT report TP53. Regions are used as given (no closest-gene fallback, no marker widening).
+    /// </summary>
+    /// <param name="deletedRegions">Deleted regions (1-based closed coordinates). Must not be null.</param>
+    /// <param name="genePanel">Gene loci to test; null uses <see cref="DefaultTumorSuppressorLoci"/> (GRCh38).</param>
+    /// <returns>Distinct symbols of panel genes overlapping any region, in panel order.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="deletedRegions"/> is null.</exception>
+    /// <exception cref="ArgumentException">A region or locus has an empty chromosome / symbol or End &lt; Start.</exception>
+    public static IReadOnlyList<string> IdentifyDeletedTumorSuppressors(
+        IEnumerable<CopyNumberRegion> deletedRegions,
+        IReadOnlyList<GeneLocus>? genePanel = null)
+    {
+        ArgumentNullException.ThrowIfNull(deletedRegions);
+        return GenesOverlappingRegions(deletedRegions, genePanel ?? DefaultTumorSuppressorLoci);
+    }
+
     #endregion
 
 
@@ -664,11 +2468,11 @@ public static partial class OncologyAnalyzer
 
     /// <summary>
     /// Reference human genome assembly (coordinate system of the input segments). Its autosomal chromosome-size
-    /// table is the denominator of the reference-genome WGD fraction
+    /// table is the denominator of the explicit reference-assembly WGD fraction
     /// (<see cref="DetectWholeGenomeDoubling(IEnumerable{AlleleSpecificSegment}, ReferenceGenome)"/>). Note: in
     /// facets-suite the <c>genome</c> build (<c>'hg19' | 'hg18' | 'hg38'</c>) supplies centromere positions only;
-    /// its WGD denominator comes from <c>get_sample_genome</c> (interrogated span), see
-    /// <see cref="DetectWholeGenomeDoublingFromSuppliedLength"/>.
+    /// its WGD denominator comes from <c>get_sample_genome</c> (interrogated span) — the default
+    /// <see cref="DetectWholeGenomeDoubling(IEnumerable{AlleleSpecificSegment})"/>.
     /// </summary>
     public enum ReferenceGenome
     {
@@ -788,6 +2592,112 @@ public static partial class OncologyAnalyzer
     }
 
     /// <summary>
+    /// Chromosome arm geometry of a reference assembly from the UCSC cytoBand table, split as GISTIC2 splits arms
+    /// (<c>normalize_by_arm_length.m</c> l.40-53: an arm is every band whose name starts with chromosome + <c>p</c> /
+    /// <c>q</c>, so the p-arm acen band (<c>p11.1</c>/<c>p11</c>) belongs to p and the q-arm acen band to q). Half-open,
+    /// 0-based UCSC coordinates: p-arm = [0, <see cref="PArmEnd"/>), q-arm = [<see cref="PArmEnd"/>, <see cref="Length"/>);
+    /// GISTIC2 arm length = <c>band.end − band.start + 1</c> with <c>band.start = cyto.start + 1</c>, i.e. the same values.
+    /// </summary>
+    /// <param name="Chromosome">Chromosome label without "chr" ("1"–"22", "X", "Y").</param>
+    /// <param name="CentromereStart">Start of the p-arm acen band (centromere start).</param>
+    /// <param name="PArmEnd">End of the p-arm acen band = start of the q-arm acen band (GISTIC2 p/q boundary).</param>
+    /// <param name="CentromereEnd">End of the q-arm acen band (centromere end).</param>
+    /// <param name="Length">Chromosome length (end of the last band; equals UCSC <c>chrom.sizes</c>).</param>
+    public readonly record struct ChromosomeArms(string Chromosome, long CentromereStart, long PArmEnd, long CentromereEnd, long Length)
+    {
+        /// <summary>GISTIC2 p-arm length in bp (= <see cref="PArmEnd"/>).</summary>
+        public long PArmLength => PArmEnd;
+
+        /// <summary>GISTIC2 q-arm length in bp (<see cref="Length"/> − <see cref="PArmEnd"/>).</summary>
+        public long QArmLength => Length - PArmEnd;
+    }
+
+    /// <summary>
+    /// GRCh38 / hg38 arm geometry (chr1–22, X, Y) from UCSC <c>hg38/database/cytoBand.txt</c> as shipped in GISTIC2
+    /// (broadinstitute/gistic2 26c590bd <c>refgenes/hg38.UCSC.add_mir.160920/cytoBand.txt</c>, identical to
+    /// <c>refgenes/Gencode.v22.170324/cytoBand.txt</c> and to the <c>cyto</c> struct of
+    /// <c>support/refgenefiles/hg38.UCSC.add_miR.160920.refgene.mat</c>); acen rows, e.g. chr1 l.34-35
+    /// (<c>121700000 123400000 p11.1</c> / <c>123400000 125100000 q11</c>).
+    /// </summary>
+    private static readonly ChromosomeArms[] GRCh38Arms =
+    {
+        new("1", 121_700_000L, 123_400_000L, 125_100_000L, 248_956_422L),
+        new("2", 91_800_000L, 93_900_000L, 96_000_000L, 242_193_529L),
+        new("3", 87_800_000L, 90_900_000L, 94_000_000L, 198_295_559L),
+        new("4", 48_200_000L, 50_000_000L, 51_800_000L, 190_214_555L),
+        new("5", 46_100_000L, 48_800_000L, 51_400_000L, 181_538_259L),
+        new("6", 58_500_000L, 59_800_000L, 62_600_000L, 170_805_979L),
+        new("7", 58_100_000L, 60_100_000L, 62_100_000L, 159_345_973L),
+        new("8", 43_200_000L, 45_200_000L, 47_200_000L, 145_138_636L),
+        new("9", 42_200_000L, 43_000_000L, 45_500_000L, 138_394_717L),
+        new("10", 38_000_000L, 39_800_000L, 41_600_000L, 133_797_422L),
+        new("11", 51_000_000L, 53_400_000L, 55_800_000L, 135_086_622L),
+        new("12", 33_200_000L, 35_500_000L, 37_800_000L, 133_275_309L),
+        new("13", 16_500_000L, 17_700_000L, 18_900_000L, 114_364_328L),
+        new("14", 16_100_000L, 17_200_000L, 18_200_000L, 107_043_718L),
+        new("15", 17_500_000L, 19_000_000L, 20_500_000L, 101_991_189L),
+        new("16", 35_300_000L, 36_800_000L, 38_400_000L, 90_338_345L),
+        new("17", 22_700_000L, 25_100_000L, 27_400_000L, 83_257_441L),
+        new("18", 15_400_000L, 18_500_000L, 21_500_000L, 80_373_285L),
+        new("19", 24_200_000L, 26_200_000L, 28_100_000L, 58_617_616L),
+        new("20", 25_700_000L, 28_100_000L, 30_400_000L, 64_444_167L),
+        new("21", 10_900_000L, 12_000_000L, 13_000_000L, 46_709_983L),
+        new("22", 13_700_000L, 15_000_000L, 17_400_000L, 50_818_468L),
+        new("X", 58_100_000L, 61_000_000L, 63_800_000L, 156_040_895L),
+        new("Y", 10_300_000L, 10_400_000L, 10_600_000L, 57_227_415L),
+    };
+
+    /// <summary>
+    /// GRCh37 / hg19 arm geometry (chr1–22, X, Y) from the UCSC hg19 cytoBand table (862 bands) bundled in GISTIC2 as
+    /// the <c>cyto</c> struct of <c>support/refgenefiles/hg19.UCSC.add_miR.140312.refgene.mat</c> (gistic2 26c590bd;
+    /// read with GNU Octave 8.4 <c>load</c>), e.g. chr1 acen <c>121500000 125000000 1p11.1</c> /
+    /// <c>125000000 128900000 1q11</c>.
+    /// </summary>
+    private static readonly ChromosomeArms[] GRCh37Arms =
+    {
+        new("1", 121_500_000L, 125_000_000L, 128_900_000L, 249_250_621L),
+        new("2", 90_500_000L, 93_300_000L, 96_800_000L, 243_199_373L),
+        new("3", 87_900_000L, 91_000_000L, 93_900_000L, 198_022_430L),
+        new("4", 48_200_000L, 50_400_000L, 52_700_000L, 191_154_276L),
+        new("5", 46_100_000L, 48_400_000L, 50_700_000L, 180_915_260L),
+        new("6", 58_700_000L, 61_000_000L, 63_300_000L, 171_115_067L),
+        new("7", 58_000_000L, 59_900_000L, 61_700_000L, 159_138_663L),
+        new("8", 43_100_000L, 45_600_000L, 48_100_000L, 146_364_022L),
+        new("9", 47_300_000L, 49_000_000L, 50_700_000L, 141_213_431L),
+        new("10", 38_000_000L, 40_200_000L, 42_300_000L, 135_534_747L),
+        new("11", 51_600_000L, 53_700_000L, 55_700_000L, 135_006_516L),
+        new("12", 33_300_000L, 35_800_000L, 38_200_000L, 133_851_895L),
+        new("13", 16_300_000L, 17_900_000L, 19_500_000L, 115_169_878L),
+        new("14", 16_100_000L, 17_600_000L, 19_100_000L, 107_349_540L),
+        new("15", 15_800_000L, 19_000_000L, 20_700_000L, 102_531_392L),
+        new("16", 34_600_000L, 36_600_000L, 38_600_000L, 90_354_753L),
+        new("17", 22_200_000L, 24_000_000L, 25_800_000L, 81_195_210L),
+        new("18", 15_400_000L, 17_200_000L, 19_000_000L, 78_077_248L),
+        new("19", 24_400_000L, 26_500_000L, 28_600_000L, 59_128_983L),
+        new("20", 25_600_000L, 27_500_000L, 29_400_000L, 63_025_520L),
+        new("21", 10_900_000L, 13_200_000L, 14_300_000L, 48_129_895L),
+        new("22", 12_200_000L, 14_700_000L, 17_900_000L, 51_304_566L),
+        new("X", 58_100_000L, 60_600_000L, 63_000_000L, 155_270_560L),
+        new("Y", 11_600_000L, 12_500_000L, 13_400_000L, 59_373_566L),
+    };
+
+    /// <summary>
+    /// Chromosome arm lengths of a reference assembly (24 entries: chr1–22, X, Y in that order), split at the p/q
+    /// acen band boundary as GISTIC2 does (<see cref="ChromosomeArms"/>). GRCh38: Σ p 1,030,800,000 bp, Σ q
+    /// 2,057,469,832 bp; GRCh37: Σ p 1,040,600,000 bp, Σ q 2,055,077,412 bp. Chromosome lengths 1–22 equal
+    /// <see cref="GetAutosomeLengths"/>.
+    /// </summary>
+    /// <param name="genome">The reference assembly.</param>
+    /// <returns>The arm table of the assembly.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="genome"/> is not a defined value.</exception>
+    public static IReadOnlyList<ChromosomeArms> GetChromosomeArmLengths(ReferenceGenome genome) => genome switch
+    {
+        ReferenceGenome.GRCh38 => GRCh38Arms,
+        ReferenceGenome.GRCh37 => GRCh37Arms,
+        _ => throw new ArgumentOutOfRangeException(nameof(genome), genome, "Unknown reference genome."),
+    };
+
+    /// <summary>
     /// Parses a chromosome identifier to its autosome number (1–22), accepting both bare ("7") and "chr"-prefixed
     /// ("chr7") forms. Returns <c>false</c> for sex chromosomes, mitochondria, contigs, or anything outside 1–22,
     /// which the WGD fraction excludes (facets-suite <c>chrom %in% 1:22</c>).
@@ -862,39 +2772,58 @@ public static partial class OncologyAnalyzer
     }
 
     /// <summary>
-    /// Determines whether a tumour genome has undergone whole-genome doubling (WGD) by the Bielski et al. rule —
-    /// more than half of the <i>autosomal genome</i> (chromosomes 1–22) has major-allele copy number ≥ 2
-    /// (Bielski et al. 2018, Nat Genet 50:1189–1195, PMID 30013179) — taking "autosomal genome" to be the
-    /// <b>reference assembly's</b> autosomal length (Σ chr1–22 of the UCSC <c>*.chrom.sizes</c> table).
-    /// Numerator, threshold and major-CN rule follow facets-suite <c>is_genome_doubled</c>:
-    /// <c>frac_elevated_mcn = sum(length where mcn ≥ 2 &amp; chrom %in% 1:22) / autosomal_genome</c>;
-    /// <c>wgd = frac_elevated_mcn &gt; 0.5</c>, <c>mcn = tcn − lcn</c> = max(Major, Minor).
-    /// <para><b>Denominator deviation from the facets-suite code:</b> facets-suite passes
-    /// <c>get_sample_genome(segs, genome)</c> as <c>chrom_info</c>, whose per-chromosome <c>size</c> is the
-    /// interrogated span <c>max(end) − min(start)</c> of the sample's own segments — not the reference chromosome
-    /// length. That exact rule is <see cref="DetectWholeGenomeDoublingFromSuppliedLength"/>. This overload instead
-    /// divides by the fixed reference autosomal length, so partial-genome inputs (a few chromosomes, or segments
-    /// that do not reach the telomeres) are judged against the whole autosomal genome; for a segmentation spanning
-    /// every autosome end-to-end the two agree.</para>
+    /// Determines whether a tumour genome has undergone whole-genome doubling (WGD) exactly as the facets-suite
+    /// reference implementation of the Bielski et al. rule does (Bielski et al. 2018, Nat Genet 50:1189–1195,
+    /// PMID 30013179): more than half of the <i>interrogated</i> autosomal genome has major-allele copy number ≥ 2.
+    /// Source: facets-suite <c>R/copy-number-scores.R</c> (master) — <c>calculate_fraction_cna</c> calls
+    /// <c>is_genome_doubled(segs, get_sample_genome(segs, genome), treshold = 0.5)</c>; the denominator is
+    /// <c>autosomal_genome = sum(chrom_info$size[chr %in% 1:22])</c> with <c>size = max(end) − min(start)</c> of each
+    /// chromosome's own segments; <c>frac_elevated_mcn = sum(length[mcn ≥ 2 &amp; chrom %in% 1:22]) / autosomal_genome</c>;
+    /// <c>wgd = frac_elevated_mcn &gt; 0.5</c>; <c>mcn = tcn − lcn</c> = max(Major, Minor).
+    /// <para>This is the default (review 2026-09, F32: the reference's denominator); it is the same computation as
+    /// <see cref="DetectWholeGenomeDoublingFromSuppliedLength"/>. The reference-assembly denominator (UCSC
+    /// <c>*.chrom.sizes</c>, robust to partial-genome inputs but not the facets-suite call) is the explicit overload
+    /// <see cref="DetectWholeGenomeDoubling(IEnumerable{AlleleSpecificSegment}, ReferenceGenome)"/>.</para>
     /// The test uses the major (not total) copy number, so a balanced diploid genome (all 1:1, total CN 2,
     /// major CN 1) is NOT doubled, whereas a 2:0 LOH or 2:2 genome IS.
+    /// </summary>
+    /// <param name="segments">
+    /// Allele-specific copy-number segments. Must not be null, must contain at least one autosomal (chr1–22,
+    /// bare or "chr"-prefixed) segment, and every segment must have End &gt; Start and non-negative copy numbers.
+    /// </param>
+    /// <returns><c>true</c> when more than half of the interrogated autosomal genome has major copy number ≥ 2.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="segments"/> is null.</exception>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="segments"/> contains no autosomal segment (facets-suite 0/0 → <c>NA</c>), or a segment has
+    /// End ≤ Start or a negative copy number.
+    /// </exception>
+    public static bool DetectWholeGenomeDoubling(IEnumerable<AlleleSpecificSegment> segments)
+        => DetectWholeGenomeDoublingFromSuppliedLength(segments);
+
+    /// <summary>
+    /// Whole-genome-doubling call by the Bielski et al. major-CN ≥ 2 / &gt; 50 % rule, with the <b>reference
+    /// assembly's</b> autosomal length (Σ chr1–22 of the UCSC <c>*.chrom.sizes</c> table) as the denominator
+    /// instead of the sample's interrogated span. Numerator, threshold and major-CN rule follow facets-suite
+    /// <c>is_genome_doubled</c>: <c>frac_elevated_mcn = sum(length where mcn ≥ 2 &amp; chrom %in% 1:22) / G</c>;
+    /// <c>wgd = frac_elevated_mcn &gt; 0.5</c>, <c>mcn = tcn − lcn</c> = max(Major, Minor).
+    /// <para><b>Not the facets-suite call:</b> facets-suite divides by <c>get_sample_genome</c> spans (the default
+    /// <see cref="DetectWholeGenomeDoubling(IEnumerable{AlleleSpecificSegment})"/>). This explicit option judges
+    /// partial-genome inputs (a few chromosomes, or segments that do not reach the telomeres) against the whole
+    /// autosomal genome; for a segmentation spanning every autosome end-to-end the two agree.</para>
     /// </summary>
     /// <param name="segments">
     /// Allele-specific copy-number segments (<see cref="AlleleSpecificSegment"/>). Only segments on autosomes
     /// (chromosomes 1–22, "chr"-prefixed or bare) contribute to the elevated-major-CN numerator. Must not be
     /// null, and every segment must have End &gt; Start and non-negative copy numbers.
     /// </param>
-    /// <param name="genome">
-    /// Reference assembly whose autosomal chromosome-size table is the fraction denominator
-    /// (default <see cref="ReferenceGenome.GRCh38"/>).
-    /// </param>
+    /// <param name="genome">Reference assembly whose autosomal chromosome-size table is the fraction denominator.</param>
     /// <returns><c>true</c> when more than half the reference autosomal genome has major copy number ≥ 2.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="segments"/> is null.</exception>
     /// <exception cref="ArgumentException">A segment has End ≤ Start or a negative copy number.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="genome"/> is not a defined value.</exception>
     public static bool DetectWholeGenomeDoubling(
         IEnumerable<AlleleSpecificSegment> segments,
-        ReferenceGenome genome = ReferenceGenome.GRCh38)
+        ReferenceGenome genome)
     {
         ArgumentNullException.ThrowIfNull(segments);
 
@@ -925,7 +2854,8 @@ public static partial class OncologyAnalyzer
     }
 
     /// <summary>
-    /// Determines whole-genome doubling exactly as the facets-suite reference implementation does, with the
+    /// Determines whole-genome doubling exactly as the facets-suite reference implementation does (the same call as
+    /// the default <see cref="DetectWholeGenomeDoubling(IEnumerable{AlleleSpecificSegment})"/>), with the
     /// genome-fraction denominator taken from the <b>supplied (interrogated) segments</b> rather than a reference
     /// chromosome-size table. Source: facets-suite <c>R/copy-number-scores.R</c> (master; PMID 30013179, Bielski
     /// et al. 2018): <c>calculate_fraction_cna</c> passes <c>sample_chrom_info = get_sample_genome(segs, genome)</c>
@@ -1017,6 +2947,255 @@ public static partial class OncologyAnalyzer
     private static bool IsElevatedMajorCopyNumber(in AlleleSpecificSegment segment)
         => Math.Max(segment.MajorCopyNumber, segment.MinorCopyNumber) >= WholeGenomeDoublingMajorCopyNumber;
 
+    /// <summary>
+    /// Estimates the tumour ploidy as ASCAT reports it: the <b>probe-count</b>-weighted mean of per-segment total copy
+    /// number, ψ = Σ(CN_i · n_i) / Σ n_i, with CN_i = Major + Minor and n_i the number of probes (SNPs / loci) in
+    /// segment i. Source: ASCAT <c>R/ascat.runAscat.R</c> (VanLoo-lab/ascat, master): the search-time ploidy
+    /// <c>ploidy = sum((nA+nB) * s[, "length"]) / sum(s[, "length"])</c> (runASCAT, l. 283), where
+    /// <c>s[, "length"]</c> is the probe count of each <c>make_segments</c> segment, and the reported
+    /// <c>ploidy = mean(nA+nB, na.rm=TRUE)</c> over per-probe copy numbers (ascat.runAscat, l. 98) — a per-probe mean
+    /// is exactly the probe-count-weighted mean of the segment values. This differs from
+    /// <see cref="EstimatePloidy(IEnumerable{AlleleSpecificSegment})"/> (Patchwork, bp-weighted) unless probe density
+    /// is uniform. The caller chooses which probes the counts represent (ASCAT's reported ploidy counts every non-NA
+    /// logR probe on every chromosome; the search-time value counts autosomal heterozygous probes).
+    /// </summary>
+    /// <param name="segments">Allele-specific integer copy-number segments; every segment must have End &gt; Start and
+    /// non-negative copy numbers.</param>
+    /// <param name="probeCounts">Number of probes in each segment, aligned by position with
+    /// <paramref name="segments"/>; every count must be ≥ 1 (an ASCAT segment contains at least one probe).</param>
+    /// <returns>The probe-count-weighted mean total copy number.</returns>
+    /// <exception cref="ArgumentNullException">An argument is null.</exception>
+    /// <exception cref="ArgumentException">The inputs are empty or of different lengths, a segment is invalid, or a
+    /// probe count is &lt; 1.</exception>
+    public static double EstimatePloidy(IEnumerable<AlleleSpecificSegment> segments, IEnumerable<int> probeCounts)
+    {
+        ArgumentNullException.ThrowIfNull(segments);
+        ArgumentNullException.ThrowIfNull(probeCounts);
+
+        double weightedCopyNumberSum = 0.0;
+        double totalProbes = 0.0;
+        int segmentCount = 0;
+        using IEnumerator<int> counts = probeCounts.GetEnumerator();
+        foreach (AlleleSpecificSegment segment in segments)
+        {
+            ValidateSegment(segment);
+            if (!counts.MoveNext())
+            {
+                throw new ArgumentException("Each segment needs exactly one probe count (fewer counts than segments).",
+                    nameof(probeCounts));
+            }
+
+            int probes = counts.Current;
+            if (probes < 1)
+            {
+                throw new ArgumentException(
+                    $"Every segment must contain at least one probe (got {probes}).", nameof(probeCounts));
+            }
+
+            // ASCAT: sum((nA+nB) * length) / sum(length), length = probe count.
+            weightedCopyNumberSum += ((double)segment.MajorCopyNumber + segment.MinorCopyNumber) * probes;
+            totalProbes += probes;
+            segmentCount++;
+        }
+
+        if (counts.MoveNext())
+        {
+            throw new ArgumentException("Each segment needs exactly one probe count (more counts than segments).",
+                nameof(probeCounts));
+        }
+
+        if (segmentCount == 0)
+        {
+            throw new ArgumentException(
+                "Cannot estimate ploidy from an empty segment set (the probe-weighted mean is undefined).",
+                nameof(segments));
+        }
+
+        return weightedCopyNumberSum / totalProbes;
+    }
+
+    /// <summary>
+    /// Whole-genome-doubling status as defined by ASCAT <c>ascat.metrics</c> (column <c>WGD</c>), derived from the
+    /// size-weighted mode of the autosomal major-allele copy number.
+    /// </summary>
+    public enum AscatWgdStatus
+    {
+        /// <summary>ASCAT <c>NA</c>: the mode of the major allele is 0 (or outside 1–5), so WGD is undefined.</summary>
+        NotAvailable,
+
+        /// <summary>ASCAT <c>0</c>: mode of the major allele = 1 (no WGD).</summary>
+        NoWgd,
+
+        /// <summary>ASCAT <c>1</c>: mode of the major allele = 2 (one WGD).</summary>
+        Wgd,
+
+        /// <summary>ASCAT <c>"1+"</c>: mode of the major allele ∈ {3, 4, 5} (at least one WGD).</summary>
+        WgdPlus,
+    }
+
+    /// <summary>
+    /// The WGD-related genome metrics of ASCAT <c>ascat.metrics</c>, computed on autosomes only.
+    /// </summary>
+    /// <param name="ModeMinorAllele">ASCAT <c>mode_minA</c>: size-weighted mode of the minor allele copy number (capped at 5).</param>
+    /// <param name="ModeMajorAllele">ASCAT <c>mode_majA</c>: size-weighted mode of the major allele copy number (capped at 5).</param>
+    /// <param name="WgdStatus">ASCAT <c>WGD</c>: NA / 0 / 1 / "1+" from <paramref name="ModeMajorAllele"/>.</param>
+    /// <param name="GenomicInstability">ASCAT <c>GI</c>: fraction of the autosomal genome not at the baseline
+    /// state (1:1 without WGD, 2:2 with WGD or "1+"), rounded to 4 decimals; <c>null</c> when WGD is NA.</param>
+    /// <param name="LossOfHeterozygosity">ASCAT <c>LOH</c>: fraction of the autosomal genome with minor allele 0,
+    /// rounded to 4 decimals.</param>
+    public readonly record struct AscatGenomeMetrics(
+        int ModeMinorAllele,
+        int ModeMajorAllele,
+        AscatWgdStatus WgdStatus,
+        double? GenomicInstability,
+        double LossOfHeterozygosity)
+    {
+        /// <summary>The ASCAT <c>WGD</c> label: "NA", "0", "1" or "1+".</summary>
+        public string WgdLabel => WgdStatus switch
+        {
+            AscatWgdStatus.NoWgd => "0",
+            AscatWgdStatus.Wgd => "1",
+            AscatWgdStatus.WgdPlus => "1+",
+            _ => "NA",
+        };
+    }
+
+    /// <summary>Cap applied to allele copy numbers before taking the mode (ascat.metrics <c>modeAllele</c>: <c>y[y&gt;5]=5</c>).</summary>
+    private const int AscatModeAlleleCap = 5;
+
+    /// <summary>Decimal places of the rounded ASCAT GI / LOH metrics (<c>round(…, 4)</c>).</summary>
+    private const int AscatMetricDecimals = 4;
+
+    /// <summary>
+    /// Computes ASCAT's whole-genome-doubling status and genomic-instability (GI) score — the
+    /// <c>mode_minA</c>, <c>mode_majA</c>, <c>WGD</c>, <c>GI</c> and <c>LOH</c> columns of <c>ascat.metrics</c>.
+    /// Source: ASCAT <c>R/ascat.metrics.R</c> (VanLoo-lab/ascat, master), ported verbatim:
+    /// <list type="bullet">
+    /// <item>Only autosomes: <c>profile[chr %in% setdiff(chrs, sexchromosomes)]</c> with ASCAT's default
+    /// <c>sexchromosomes = c("X","Y")</c> (an optional "chr" prefix is ignored).</item>
+    /// <item><c>modeAllele</c>: per-segment weight <c>(endpos − startpos)/1e6</c> (no +1); allele copy number
+    /// <c>round</c>ed and capped at 5; weights summed per value (<c>tapply</c>, groups in ascending value order);
+    /// the mode is the first maximum after the stable decreasing <c>order</c>, so an exact tie resolves to the
+    /// <b>smaller</b> copy number.</item>
+    /// <item>WGD: <c>mode_majA</c> = 0 → NA; 1 → "0"; 2 → "1"; 3–5 → "1+".</item>
+    /// <item><c>computeGIscore</c>: <c>round(1 − Σ size[nMajor = b ∧ nMinor = b] / Σ size, 4)</c>, size =
+    /// <c>endpos − startpos + 1</c>, baseline b = 1 for WGD "0" and b = 2 for WGD "1" and "1+"; NA when WGD is NA.</item>
+    /// <item>LOH: <c>round(Σ size[nMinor = 0] / Σ size, 4)</c> over the same autosomal profile.</item>
+    /// </list>
+    /// Major/minor are taken as max/min of the two allele copy numbers (ASCAT's nMajor ≥ nMinor), so the result does
+    /// not depend on the allele labelling. Per-value weights are summed in input order in double precision (R's
+    /// <c>sum</c> accumulates in extended precision; this can matter only for ties broken by the last ulp).
+    /// </summary>
+    /// <param name="segments">Allele-specific integer copy-number segments (ASCAT <c>segments</c>). Must contain at
+    /// least one autosomal segment; every segment must have End &gt; Start and non-negative copy numbers.</param>
+    /// <returns>The ASCAT WGD / GI genome metrics.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="segments"/> is null.</exception>
+    /// <exception cref="ArgumentException">A segment is invalid, or there is no autosomal segment (ASCAT's mode is
+    /// then empty and the metrics undefined).</exception>
+    public static AscatGenomeMetrics ComputeAscatGenomeMetrics(IEnumerable<AlleleSpecificSegment> segments)
+    {
+        ArgumentNullException.ThrowIfNull(segments);
+
+        // tapply groups: index = capped allele copy number 0..5.
+        var majorWeight = new double[AscatModeAlleleCap + 1];
+        var minorWeight = new double[AscatModeAlleleCap + 1];
+        var majorSeen = new bool[AscatModeAlleleCap + 1];
+        var minorSeen = new bool[AscatModeAlleleCap + 1];
+        var profile = new List<(int Major, int Minor, double Size)>();
+        foreach (AlleleSpecificSegment segment in segments)
+        {
+            ValidateSegment(segment);
+            if (segment.Chromosome is null)
+            {
+                throw new ArgumentException("A segment has a null chromosome label.", nameof(segments));
+            }
+
+            if (IsAscatSexChromosome(segment.Chromosome))
+            {
+                continue; // setdiff(chrs, sexchromosomes)
+            }
+
+            int major = Math.Max(segment.MajorCopyNumber, segment.MinorCopyNumber);
+            int minor = Math.Min(segment.MajorCopyNumber, segment.MinorCopyNumber);
+            double modeWeight = ((double)segment.End - segment.Start) / 1e6; // (endpos − startpos)/1e6
+            int majorKey = Math.Min(major, AscatModeAlleleCap);
+            int minorKey = Math.Min(minor, AscatModeAlleleCap);
+            majorWeight[majorKey] += modeWeight;
+            majorSeen[majorKey] = true;
+            minorWeight[minorKey] += modeWeight;
+            minorSeen[minorKey] = true;
+            profile.Add((major, minor, (double)segment.End - segment.Start + 1.0)); // size = endpos − startpos + 1
+        }
+
+        if (profile.Count == 0)
+        {
+            throw new ArgumentException(
+                "ASCAT genome metrics are computed on autosomes only (X/Y excluded); no autosomal segment was supplied.",
+                nameof(segments));
+        }
+
+        int modeMajor = AscatModeAllele(majorWeight, majorSeen);
+        int modeMinor = AscatModeAllele(minorWeight, minorSeen);
+
+        double totalSize = 0.0, lohSize = 0.0;
+        foreach ((int _, int minor, double size) in profile)
+        {
+            totalSize += size;
+            if (minor == 0)
+            {
+                lohSize += size;
+            }
+        }
+
+        double loh = Math.Round(lohSize / totalSize, AscatMetricDecimals, MidpointRounding.ToEven);
+
+        AscatWgdStatus status = modeMajor switch
+        {
+            1 => AscatWgdStatus.NoWgd,
+            2 => AscatWgdStatus.Wgd,
+            >= 3 and <= AscatModeAlleleCap => AscatWgdStatus.WgdPlus,
+            _ => AscatWgdStatus.NotAvailable, // mode_majA == 0
+        };
+
+        double? gi = null;
+        if (status != AscatWgdStatus.NotAvailable)
+        {
+            // computeGIscore: baseline 1 (WGD 0) or 2 (WGD 1; "1+" is scored with WGD = 1).
+            int baseline = status == AscatWgdStatus.NoWgd ? 1 : 2;
+            double baselineSize = 0.0;
+            foreach ((int major, int minor, double size) in profile)
+            {
+                if (major == baseline && minor == baseline)
+                {
+                    baselineSize += size;
+                }
+            }
+
+            gi = Math.Round(1.0 - baselineSize / totalSize, AscatMetricDecimals, MidpointRounding.ToEven);
+        }
+
+        return new AscatGenomeMetrics(modeMinor, modeMajor, status, gi, loh);
+    }
+
+    /// <summary>
+    /// ascat.metrics <c>modeAllele</c> selection: the copy-number value with the largest summed weight; groups are
+    /// visited in ascending value order (tapply) and only a strictly larger weight replaces the current best
+    /// (stable <c>order(decreasing = TRUE)</c> + <c>which.max</c>), so ties go to the smaller value.
+    /// </summary>
+    private static int AscatModeAllele(double[] weights, bool[] seen)
+    {
+        int best = -1;
+        for (int value = 0; value < weights.Length; value++)
+        {
+            if (seen[value] && (best < 0 || weights[value] > weights[best]))
+            {
+                best = value;
+            }
+        }
+
+        return best;
+    }
+
     #endregion
 
 
@@ -1088,7 +3267,9 @@ public static partial class OncologyAnalyzer
     /// <param name="Purity">Recovered tumour purity ρ (aberrant cell fraction) ∈ (0, 1] (ASCAT <c>purity</c>).</param>
     /// <param name="Ploidy">ASCAT output <c>ploidy</c>: the mean integer total copy number (major + minor) over the
     /// heterozygous probes, i.e. the <see cref="AlleleSpecificSegmentSummary.LocusCount"/>-weighted mean of the emitted
-    /// segments' total copy number. It equals ψ for an exact integer-copy-number genome.</param>
+    /// segments' total copy number. It equals ψ for an exact integer-copy-number genome. From the germline-aware path
+    /// (<see cref="FitPurityPloidyFromAspcf"/>, B24 F37) it is ASCAT's <c>mean(nA + nB)</c> over <b>all</b> probes,
+    /// heterozygous and homozygous.</param>
     /// <param name="GoodnessOfFit">Percentage goodness of fit (1 − distance/TheoretMaxdist)·100, in (−∞, 100].</param>
     /// <param name="Segments">The allele-specific integer copy-number segments (major/minor CN) implied by (ρ, ψ).</param>
     public readonly record struct PurityPloidyFit(
@@ -1105,31 +3286,322 @@ public static partial class OncologyAnalyzer
         public bool IsNonAberrant { get; init; }
     }
 
+    /// <summary>ASCAT sample sex (<c>gender</c> argument of <c>ascat.loadData</c> / <c>runASCAT</c>).</summary>
+    public enum AscatGender
+    {
+        /// <summary><c>"XX"</c> (ASCAT default when <c>gender = NULL</c>): X and Y are emitted with the diploid model.</summary>
+        XX,
+
+        /// <summary><c>"XY"</c>: X (non-PAR) and Y are haploid — <c>nA = (ρ − 1 + (2(1 − ρ) + ρψ)·2^(r/γ))/ρ</c>, <c>nB = 0</c>.</summary>
+        XY,
+    }
+
+    /// <summary>
+    /// Sex-chromosome model of the ASCAT copy-number output (runASCAT, ascat.runAscat.R, VanLoo-lab/ascat). It does
+    /// <b>not</b> change the purity/ploidy fit — ASCAT always fits on autosomes only
+    /// (<c>autoprobes = !(SNPposhet[,1] %in% sexchromosomes)</c>) — only the integer segments emitted on X and Y and
+    /// hence the reported ploidy:
+    /// <list type="bullet">
+    /// <item><see cref="AscatGender.XX"/> (<see cref="Female"/>, the default): <c>haploidchrs</c> is empty, so X and Y
+    /// use the diploid equations (Y is not special-cased: the <c>nullprobes</c> branch is reached only for non-diploid
+    /// probes). <see cref="XNonPar"/> is ignored, as in ASCAT (<c>!is.null(X_nonPAR) &amp;&amp; gender == "XY"</c>).</item>
+    /// <item><see cref="AscatGender.XY"/>: <c>haploidchrs = c("X", "Y")</c>; a haploid segment gets
+    /// <c>nAraw = (rho − 1 + ((1 − rho)·2 + rho·psi)·2^(logR/gamma))/rho</c>, <c>nBraw = 0</c> (normal cells carry one
+    /// copy), followed by the usual negative-value correction and R rounding. Without <see cref="XNonPar"/>
+    /// (ASCAT <c>genomeVersion = NULL</c>) the whole of X is haploid. With it, ASCAT's
+    /// <c>diploidprobes_fixnonPAR</c> applies: an X segment is haploid only when its overlap with the closed interval
+    /// [Start, End] exceeds 50 % of the segment's closed span [first probe position, last probe position]
+    /// (IRanges widths), otherwise it is diploid (pseudo-autosomal). Y is always haploid.</item>
+    /// </list>
+    /// Chromosome labels are matched case-insensitively with an optional "chr" prefix (as for the autosomal filter).
+    /// The interval is compared with the segment coordinates exactly as given (ASCAT compares it with <c>SNPpos</c>,
+    /// which is 1-based; the presets are ASCAT's 1-based constants).
+    /// </summary>
+    public sealed record AscatSexModel
+    {
+        /// <summary>ASCAT <c>X_nonPAR</c> for <c>genomeVersion = "hg19"</c> (GRCh37): <c>c(2699521, 154931043)</c>.</summary>
+        public static (long Start, long End) XNonParHg19 { get; } = (2_699_521, 154_931_043);
+
+        /// <summary>ASCAT <c>X_nonPAR</c> for <c>genomeVersion = "hg38"</c> (GRCh38): <c>c(2781480, 155701382)</c>.</summary>
+        public static (long Start, long End) XNonParHg38 { get; } = (2_781_480, 155_701_382);
+
+        /// <summary>ASCAT <c>X_nonPAR</c> for <c>genomeVersion = "CHM13"</c> (T2T-CHM13): <c>c(2394411, 153925834)</c>.</summary>
+        public static (long Start, long End) XNonParChm13 { get; } = (2_394_411, 153_925_834);
+
+        /// <summary>ASCAT default (<c>gender = "XX"</c>): X and Y diploid. Bit-identical to the gender-less entry points.</summary>
+        public static AscatSexModel Female { get; } = new(AscatGender.XX, null);
+
+        /// <summary><c>gender = "XY"</c>, <c>X_nonPAR = NULL</c> (ASCAT <c>genomeVersion = NULL</c>): all of X and Y haploid.</summary>
+        public static AscatSexModel Male { get; } = new(AscatGender.XY, null);
+
+        /// <summary>The sample sex.</summary>
+        public AscatGender Gender { get; }
+
+        /// <summary>Closed X non-PAR interval (ASCAT <c>X_nonPAR</c>); <c>null</c> = whole X haploid in a male.</summary>
+        public (long Start, long End)? XNonPar { get; }
+
+        /// <summary>Creates a sex model.</summary>
+        /// <param name="gender">The sample sex.</param>
+        /// <param name="xNonPar">Optional closed X non-PAR interval (Start ≤ End); used only for <see cref="AscatGender.XY"/>.</param>
+        /// <exception cref="ArgumentOutOfRangeException"><paramref name="gender"/> is undefined or the interval has Start &gt; End.</exception>
+        public AscatSexModel(AscatGender gender, (long Start, long End)? xNonPar = null)
+        {
+            if (gender is not (AscatGender.XX or AscatGender.XY))
+            {
+                throw new ArgumentOutOfRangeException(nameof(gender), gender, "Gender must be XX or XY.");
+            }
+
+            if (xNonPar is { } interval && interval.Start > interval.End)
+            {
+                throw new ArgumentOutOfRangeException(nameof(xNonPar), xNonPar, "The X non-PAR interval needs Start ≤ End.");
+            }
+
+            Gender = gender;
+            XNonPar = xNonPar;
+        }
+
+        /// <summary>A male (<c>"XY"</c>) model with ASCAT's X non-PAR interval of <paramref name="genome"/>
+        /// (<c>ascat.loadData(genomeVersion = "hg19" | "hg38")</c>).</summary>
+        /// <exception cref="ArgumentOutOfRangeException"><paramref name="genome"/> is undefined.</exception>
+        public static AscatSexModel MaleWithXNonPar(ReferenceGenome genome) => genome switch
+        {
+            ReferenceGenome.GRCh37 => new AscatSexModel(AscatGender.XY, XNonParHg19),
+            ReferenceGenome.GRCh38 => new AscatSexModel(AscatGender.XY, XNonParHg38),
+            _ => throw new ArgumentOutOfRangeException(nameof(genome), genome, "Unknown reference genome."),
+        };
+
+        /// <summary>
+        /// True when a segment is haploid under this model (runASCAT <c>!diploidprobes</c> at the segment start; ASCAT's
+        /// <c>nullprobes</c> branch is unreachable with the default <c>sexchromosomes = c("X", "Y")</c>).
+        /// </summary>
+        internal bool IsHaploid(string chromosome, long start, long end)
+        {
+            if (Gender != AscatGender.XY)
+            {
+                return false;
+            }
+
+            ReadOnlySpan<char> name = StripChrPrefix(chromosome.AsSpan().Trim());
+            if (name.Equals("Y", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            if (!name.Equals("X", StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            if (XNonPar is not { } nonPar)
+            {
+                return true;
+            }
+
+            // diploidprobes_fixnonPAR: findOverlaps(nonPAR, SEGMENTS) and width(pintersect)/width(segment) > 0.5.
+            double overlap = (double)Math.Min(end, nonPar.End) - Math.Max(start, nonPar.Start) + 1.0;
+            return overlap > 0.0 && overlap / ((double)end - start + 1.0) > 0.5;
+        }
+    }
+
+    /// <summary>
+    /// Male X non-PAR germline re-genotyping of <c>ascat.aspcf</c> / <c>ascat.asmultipcf</c> (VanLoo-lab/ascat
+    /// ascat.aspcf.R, ascat.asmultipcf.R, B24 F58). It applies only when <see cref="SexModel"/> is
+    /// <see cref="AscatGender.XY"/> with an <see cref="AscatSexModel.XNonPar"/> interval
+    /// (<c>!is.null(X_nonPAR) &amp;&amp; gender == "XY"</c>); otherwise the caller's genotypes are used unchanged. ASCAT then
+    /// takes the X probes (label "X", optional "chr" prefix, case-insensitive as in <see cref="AscatSexModel"/>) whose
+    /// position lies in the closed non-PAR interval and whose genotype is known; if there are more than 5, it marks all of
+    /// them homozygous and re-marks k = <c>round(m · h_auto)</c> of the m probes heterozygous, h_auto = the heterozygous
+    /// fraction of the autosomal probes (every label other than X and Y; R <c>table(gg[autosomes])</c>), R half-even
+    /// rounding:
+    /// <list type="bullet">
+    /// <item>with <see cref="GermlineBaf"/> (ASCAT <c>Germline_BAF</c>): the k probes of smallest
+    /// <c>DIST = 1 − max(b, 1 − b)</c> (distance of the germline BAF to 0/1), ties broken at random —
+    /// <c>rank(DIST, ties.method = "random") ≤ k</c>, which R computes as <c>sort.list(order(DIST, runif(m)))</c>;</item>
+    /// <item>without it (ASCAT <c>Germline_BAF = NULL</c>, genotypes from <c>ascat.gg</c>): <c>sample(nonPAR_index, k)</c>.</item>
+    /// </list>
+    /// Draws come from R's default generator seeded by <c>set.seed(<see cref="Seed"/>)</c> (Mersenne-Twister, R ≥ 3.6
+    /// "Rejection" sampling — the same port as the Battenberg bootstrap). ASCAT's default seed is
+    /// <c>as.integer(Sys.time())</c> (the Unix time in whole seconds), so an R run is reproducible only with an explicit
+    /// seed; a null seed here mirrors that default. One call consumes the stream of one ASCAT call on one male sample;
+    /// <c>ascat.aspcf</c> over several samples (one <c>set.seed</c>, the stream continuing from male sample to male
+    /// sample) is <see cref="SegmentAlleleSpecificAspcfSamples"/> (B24 F65).
+    /// </summary>
+    public sealed record AscatMaleXGenotyping
+    {
+        /// <summary>Creates the re-genotyping settings.</summary>
+        /// <param name="sexModel">Sex model; re-genotyping runs only for <see cref="AscatGender.XY"/> with an X non-PAR interval.</param>
+        /// <param name="seed">R <c>set.seed</c> value (ASCAT <c>seed</c>); null = <see cref="DefaultSeed"/> (ASCAT's
+        /// <c>as.integer(Sys.time())</c>).</param>
+        /// <param name="germlineBaf">Optional germline BAF per locus (ASCAT <c>Germline_BAF</c>, first column), each in
+        /// [0, 1] or NaN (NaN = genotype unknown, as ASCAT's <c>gg = Germline_BAF &lt; 0.3 | Germline_BAF &gt; 0.7</c> is NA
+        /// there: the locus is left out of the non-PAR selection and of the autosomal fraction). Null selects ASCAT's
+        /// <c>sample()</c> branch.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="sexModel"/> is null.</exception>
+        /// <exception cref="ArgumentException">A germline BAF is outside [0, 1] (and not NaN).</exception>
+        public AscatMaleXGenotyping(AscatSexModel sexModel, int? seed = null, IReadOnlyList<double>? germlineBaf = null)
+        {
+            ArgumentNullException.ThrowIfNull(sexModel);
+            if (germlineBaf is not null)
+            {
+                foreach (double b in germlineBaf)
+                {
+                    if (!double.IsNaN(b) && b is not (>= 0.0 and <= 1.0))
+                    {
+                        throw new ArgumentException("Every germline BAF must be in [0, 1] or NaN.", nameof(germlineBaf));
+                    }
+                }
+            }
+
+            SexModel = sexModel;
+            Seed = seed ?? DefaultSeed();
+            GermlineBaf = germlineBaf;
+        }
+
+        /// <summary>The sex model (gender and X non-PAR interval).</summary>
+        public AscatSexModel SexModel { get; }
+
+        /// <summary>The R <c>set.seed</c> value.</summary>
+        public int Seed { get; }
+
+        /// <summary>The germline BAF per locus, or null (ASCAT's <c>sample()</c> branch).</summary>
+        public IReadOnlyList<double>? GermlineBaf { get; }
+
+        /// <summary>ASCAT's default <c>seed = as.integer(Sys.time())</c>: the current Unix time in whole seconds.</summary>
+        public static int DefaultSeed() => unchecked((int)DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+
+        /// <summary>True when ASCAT re-genotypes (<c>!is.null(X_nonPAR) &amp;&amp; gender == "XY"</c>).</summary>
+        internal bool IsActive => SexModel.Gender == AscatGender.XY && SexModel.XNonPar is not null;
+    }
+
+    /// <summary>
+    /// Applies <see cref="AscatMaleXGenotyping"/> to <paramref name="het"/> in place (ascat.aspcf.R ll. 51–70,
+    /// ascat.asmultipcf.R ll. 44–63, verbatim order of random draws). No-op when <paramref name="spec"/> is null or inactive.
+    /// Draws from <paramref name="rng"/> when given (a stream shared across samples), else from a fresh
+    /// <c>set.seed(spec.Seed)</c> stream.
+    /// </summary>
+    private static void RegenotypeMaleXNonPar(
+        AlleleSpecificLocus[] loci, bool[] het, AscatMaleXGenotyping? spec, string paramName, RMersenneTwister? rng = null)
+    {
+        if (spec is null || !spec.IsActive)
+        {
+            return;
+        }
+
+        IReadOnlyList<double>? gbaf = spec.GermlineBaf;
+        if (gbaf is not null && gbaf.Count != loci.Length)
+        {
+            throw new ArgumentException("Exactly one germline BAF is required per locus.", paramName);
+        }
+
+        (long start, long end) = spec.SexModel.XNonPar!.Value;
+        var nonPar = new List<int>();
+        int autosomal = 0;
+        int autosomalHet = 0;
+        for (int i = 0; i < loci.Length; i++)
+        {
+            bool known = gbaf is null || !double.IsNaN(gbaf[i]);
+            ReadOnlySpan<char> name = StripChrPrefix(loci[i].Chromosome.AsSpan().Trim());
+            bool isX = name.Equals("X", StringComparison.OrdinalIgnoreCase);
+            if (isX)
+            {
+                if (known && loci[i].Position >= start && loci[i].Position <= end)
+                {
+                    nonPar.Add(i);
+                }
+            }
+            else if (known && !name.Equals("Y", StringComparison.OrdinalIgnoreCase))
+            {
+                autosomal++;
+                if (het[i])
+                {
+                    autosomalHet++;
+                }
+            }
+        }
+
+        int m = nonPar.Count;
+        if (m <= 5)
+        {
+            return;
+        }
+
+        foreach (int i in nonPar)
+        {
+            het[i] = false;
+        }
+
+        rng ??= new RMersenneTwister(spec.Seed);
+        if (gbaf is not null)
+        {
+            // DIST = 1 - max(x, 1 - x); rank(DIST, ties.method = "random") = sort.list(order(DIST, runif(m))).
+            var dist = new double[m];
+            var tieBreak = new double[m];
+            for (int t = 0; t < m; t++)
+            {
+                double x = gbaf[nonPar[t]];
+                dist[t] = 1.0 - MirrorBaf(x);
+            }
+
+            for (int t = 0; t < m; t++)
+            {
+                tieBreak[t] = rng.UnifRand();
+            }
+
+            if (autosomalHet == 0)
+            {
+                return; // autosomes_info["FALSE"] is NA: rank(...) <= NA selects nothing.
+            }
+
+            int k = (int)Math.Round(m * ((double)autosomalHet / autosomal), MidpointRounding.ToEven);
+            int[] order = Enumerable.Range(0, m)
+                .OrderBy(t => dist[t]).ThenBy(t => tieBreak[t]).ThenBy(t => t)
+                .ToArray();
+            for (int r = 0; r < k; r++)
+            {
+                het[nonPar[order[r]]] = true;
+            }
+        }
+        else
+        {
+            if (autosomalHet == 0)
+            {
+                throw new ArgumentException(
+                    "No heterozygous autosomal locus: ASCAT's sample(nonPAR_index, NA) fails (invalid 'size' argument).", paramName);
+            }
+
+            int k = (int)Math.Round(m * ((double)autosomalHet / autosomal), MidpointRounding.ToEven);
+            foreach (int t in rng.SampleWithoutReplacement(m, k))
+            {
+                het[nonPar[t]] = true;
+            }
+        }
+    }
+
     /// <summary>
     /// Segments per-locus allele-specific signal (logR, BAF) into contiguous regions, producing one
-    /// (mean logR, mean BAF) summary per segment, with a deterministic <b>greedy joint mean-shift heuristic</b> on the
-    /// logR and the (mirrored) BAF tracks. <b>This is not ASPCF or CBS</b> and has no published reference
-    /// implementation: it is a single left-to-right pass with caller-chosen absolute thresholds, no noise
-    /// standardisation and no global (penalised least-squares) optimisation, so its breakpoints differ from ASCAT's.
-    /// For the published allele-specific segmentation (ASCAT <c>ascat.aspcf</c>; Nilsen et al. 2012, <i>BMC Genomics</i>
-    /// 13:591; Ross et al. 2021) use <see cref="SegmentAlleleSpecificAspcf"/>. Rule: a new
-    /// segment starts when the next locus's logR deviates from the running segment mean by more than
-    /// <paramref name="logRChangeThreshold"/>, OR its mirrored BAF deviates by more than
-    /// <paramref name="bafChangeThreshold"/>, or when the chromosome changes. Segmenting on BAF as well as logR is
-    /// essential: a copy-neutral LOH region (e.g. 2:0) has the same logR as a balanced 1:1 region but a very
-    /// different BAF, so a logR-only scan would wrongly merge them. The BAF is "folded" to its distance from 0.5
-    /// and re-centred (b' = 0.5 + |b − 0.5|) before averaging so that the two symmetric heterozygous BAF clusters
-    /// (b and 1 − b) do not cancel — the standard mirrored-BAF summary used by allele-specific callers.
-    /// Unlike <see cref="SegmentAlleleSpecificAspcf"/>, locus values are not validated (a BAF outside [0, 1] yields a
-    /// folded mean above 1, which <see cref="FitPurityPloidy"/> then rejects).
+    /// (mean logR, mirrored BAF) summary per segment, by running the published ASCAT allele-specific segmentation
+    /// (<c>ascat.aspcf</c>, VanLoo-lab/ascat ascat.aspcf.R; Nilsen et al. 2012, <i>BMC Genomics</i> 13:591; Ross et al.
+    /// 2021, <i>Bioinformatics</i> 37:1909) with ASCAT's default penalty
+    /// (<see cref="AspcfDefaultPenalty"/> = 70). It is exactly
+    /// <c><see cref="SegmentAlleleSpecificAspcf"/>(loci, <see cref="AspcfDefaultPenalty"/>)</c>.
+    /// <para>
+    /// Compatibility (B24 F35): this name formerly ran an unsourced greedy left-to-right mean-shift heuristic with
+    /// caller-chosen absolute thresholds. That heuristic has no published reference and was replaced; the threshold
+    /// parameters below have no ASPCF meaning (ASPCF's cost is MAD-standardised and penalised, with the fixed minimum
+    /// segment length kmin = 6) and are <b>ignored</b> — they are kept, and still range-checked, only so existing call
+    /// sites keep compiling and keep their argument-validation behaviour. Pass a penalty to
+    /// <see cref="SegmentAlleleSpecificAspcf"/> to tune the segmentation.
+    /// </para>
     /// </summary>
-    /// <param name="loci">Per-locus measurements; processed in input order within each chromosome.</param>
-    /// <param name="logRChangeThreshold">logR mean-shift threshold that starts a new segment. Must be &gt; 0.</param>
-    /// <param name="bafChangeThreshold">Mirrored-BAF mean-shift threshold that starts a new segment. Must be &gt; 0.</param>
-    /// <param name="minLociPerSegment">Minimum loci a running segment must have before a change can split it. Must be ≥ 1.</param>
-    /// <returns>The segment summaries in input order.</returns>
+    /// <param name="loci">Per-locus measurements; processed in input order within each chromosome. LogR must be
+    /// finite and BAF in [0, 1] (as <see cref="SegmentAlleleSpecificAspcf"/>).</param>
+    /// <param name="logRChangeThreshold">Ignored (former greedy-heuristic logR threshold; no ASPCF equivalent). Must be &gt; 0.</param>
+    /// <param name="bafChangeThreshold">Ignored (former greedy-heuristic BAF threshold; no ASPCF equivalent). Must be &gt; 0.</param>
+    /// <param name="minLociPerSegment">Ignored (ASPCF uses ASCAT's fixed kmin = 6). Must be ≥ 1.</param>
+    /// <returns>The ASPCF segment summaries (mean raw logR, ASPCF mirrored BAF) in input order.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="loci"/> is null.</exception>
-    /// <exception cref="ArgumentOutOfRangeException">a threshold ≤ 0 or minLociPerSegment &lt; 1.</exception>
+    /// <exception cref="ArgumentException">a locus has a null chromosome label, a non-finite logR or a BAF outside [0, 1].</exception>
+    /// <exception cref="ArgumentOutOfRangeException">a threshold ≤ 0 or NaN, or minLociPerSegment &lt; 1.</exception>
     public static IReadOnlyList<AlleleSpecificSegmentSummary> SegmentAlleleSpecific(
         IEnumerable<AlleleSpecificLocus> loci,
         double logRChangeThreshold,
@@ -1156,69 +3628,7 @@ public static partial class OncologyAnalyzer
                 nameof(minLociPerSegment), minLociPerSegment, "At least one locus per segment is required.");
         }
 
-        var result = new List<AlleleSpecificSegmentSummary>();
-        var current = new List<AlleleSpecificLocus>();
-        double runningLogRSum = 0.0;
-        double runningFoldedBafSum = 0.0;
-
-        foreach (AlleleSpecificLocus locus in loci)
-        {
-            if (locus.Chromosome is null)
-            {
-                throw new ArgumentException("A locus has a null chromosome label.", nameof(loci));
-            }
-
-            double foldedBaf = FoldBafAboutHalf(locus.BAF);
-            bool chromosomeChanged = current.Count > 0 && current[^1].Chromosome != locus.Chromosome;
-            bool meanShift = false;
-            if (!chromosomeChanged && current.Count >= minLociPerSegment)
-            {
-                double currentLogRMean = runningLogRSum / current.Count;
-                double currentBafMean = runningFoldedBafSum / current.Count;
-                // ASPCF/CBS joint mean-shift: split on a logR change OR a (mirrored) BAF change.
-                meanShift = Math.Abs(locus.LogR - currentLogRMean) > logRChangeThreshold
-                            || Math.Abs(foldedBaf - currentBafMean) > bafChangeThreshold;
-            }
-
-            if ((chromosomeChanged || meanShift) && current.Count > 0)
-            {
-                result.Add(BuildSegmentSummary(current, runningLogRSum, runningFoldedBafSum));
-                current = new List<AlleleSpecificLocus>();
-                runningLogRSum = 0.0;
-                runningFoldedBafSum = 0.0;
-            }
-
-            current.Add(locus);
-            runningLogRSum += locus.LogR;
-            runningFoldedBafSum += foldedBaf;
-        }
-
-        if (current.Count > 0)
-        {
-            result.Add(BuildSegmentSummary(current, runningLogRSum, runningFoldedBafSum));
-        }
-
-        return result;
-    }
-
-    /// <summary>Greedy-segmenter BAF fold: b' = 0.5 + |b − 0.5|, so the two symmetric het clusters (b, 1−b) reinforce
-    /// instead of cancel when averaged.</summary>
-    private static double FoldBafAboutHalf(double baf) => BalancedBaf + Math.Abs(baf - BalancedBaf);
-
-    /// <summary>
-    /// Builds a (mean logR, mirrored-mean BAF) summary from a non-empty run of same-chromosome loci, given the run's
-    /// logR sum and folded-BAF sum (accumulated in locus order by the caller).
-    /// </summary>
-    private static AlleleSpecificSegmentSummary BuildSegmentSummary(
-        List<AlleleSpecificLocus> loci, double logRSum, double foldedBafSum)
-    {
-        return new AlleleSpecificSegmentSummary(
-            Chromosome: loci[0].Chromosome,
-            Start: loci[0].Position,
-            End: loci[^1].Position,
-            MeanLogR: logRSum / loci.Count,
-            MeanBAF: foldedBafSum / loci.Count,
-            LocusCount: loci.Count);
+        return SegmentAlleleSpecificAspcf(loci, AspcfDefaultPenalty);
     }
 
     /// <summary>
@@ -1240,6 +3650,13 @@ public static partial class OncologyAnalyzer
     }
 
     /// <summary>
+    /// Raw ASCAT copy number of a haploid (male X non-PAR / Y) segment, ascat.runAscat.R <c>seg_raw</c>, verbatim:
+    /// <c>nAraw = (rho-1 + ((1-rho)*2+rho*psi)*2^(logR/gamma))/rho</c> (the normal cells contribute one copy).
+    /// </summary>
+    private static double AscatRawHaploidCopyNumber(double r, double rho, double psi, double gamma) =>
+        (rho - 1.0 + Math.Pow(2.0, r / gamma) * MixtureCopiesPerCell(rho, psi)) / rho;
+
+    /// <summary>
     /// Average number of copies of a locus per cell in a tumour sample of purity ρ whose tumour cells carry
     /// <paramref name="tumorCopies"/> copies and whose normal cells are diploid: <c>2(1 − ρ) + ρ·n</c>. This mixture
     /// denominator is shared by the ASCAT logR model (<c>(1 − rho)·2 + rho·psi</c>, ascat.runAscat.R), Battenberg
@@ -1249,6 +3666,14 @@ public static partial class OncologyAnalyzer
     /// </summary>
     private static double MixtureCopiesPerCell(double purity, double tumorCopies) =>
         NormalDiploidCopyNumber * (1.0 - purity) + purity * tumorCopies;
+
+    /// <summary>
+    /// CNAqc <c>expected_vaf_fun(m, purity, ploidy)</c> = <c>m·ρ / (2(1 − ρ) + ρ·n)</c>: the clonal VAF peak of a mutation
+    /// on <paramref name="multiplicity"/> of the <paramref name="tumorCopies"/> tumour copies (shared by
+    /// <see cref="AnalyzePurityPeaks"/> and <see cref="AnalyzeComplexKaryotypePeaks"/>; R operation order).
+    /// </summary>
+    private static double CnaqcExpectedVaf(int multiplicity, double purity, double tumorCopies) =>
+        multiplicity * purity / MixtureCopiesPerCell(purity, tumorCopies);
 
     // ---- ASCAT runASCAT solution-selection constants (ascat.runAscat.R, verbatim) ----
 
@@ -1312,8 +3737,19 @@ public static partial class OncologyAnalyzer
     private static bool IsValidAlleleSignal(double logR, double baf) =>
         double.IsFinite(logR) && !double.IsNaN(baf) && baf >= 0.0 && baf <= 1.0;
 
+    /// <summary>ascat.aspcf / ascat.asmultipcf input contract for one BAF: in [0, 1] or NaN = R <c>NA</c> (B24 F59).</summary>
+    private static bool IsAscatBafOrMissing(double baf) => double.IsNaN(baf) || (baf >= 0.0 && baf <= 1.0);
+
     /// <summary>Mirrored BAF max(b, 1 − b) ∈ [0.5, 1] (ascat.aspcf <c>ifelse(b &gt; 0.5, b, 1 − b)</c>; Battenberg <c>l</c>).</summary>
-    private static double MirrorBaf(double baf) => baf > BalancedBaf ? baf : 1.0 - baf;
+    private static double MirrorBaf(double baf) => OrientBaf(baf, baf);
+
+    /// <summary>
+    /// <paramref name="value"/> when <paramref name="reference"/> &gt; 0.5, otherwise 1 − value (R
+    /// <c>ifelse(reference &gt; 0.5, value, 1 − value)</c>): mirrors a BAF onto the upper half
+    /// (<see cref="MirrorBaf"/> = <c>OrientBaf(b, b)</c>) or restores the orientation of a mirrored value from the original
+    /// BAF (ascat.aspcf / ascat.asmultipcf <c>bafwins</c>, Battenberg <c>BAFphased</c>). NaN reference ⇒ 1 − value.
+    /// </summary>
+    private static double OrientBaf(double reference, double value) => reference > BalancedBaf ? value : 1.0 - value;
 
     /// <summary>ASCAT segmented-BAF orientation: <c>Tumor_BAF_segmented = 1 − mirroredBAF</c> ∈ [0, 0.5].</summary>
     private static double ToAscatBaf(double baf) => baf > BalancedBaf ? 1.0 - baf : baf;
@@ -1436,9 +3872,19 @@ public static partial class OncologyAnalyzer
     /// balanced-segment odd-total rule (<c>limitround = 0.5</c>: for BAF = 0.5, if nA+nB exceeds the rounded total by
     /// more than 0.5 nA is raised by one; if it falls short by more than 0.5 nB is lowered by one).
     /// </summary>
-    private static (double Major, double Minor) AscatRoundSegment(double r, double bAscat, double rho, double psi, double gamma)
+    /// <param name="r">Segmented logR.</param>
+    /// <param name="bAscat">Segmented BAF in ASCAT's ≤ 0.5 orientation (0 when the segment has no heterozygous probe).</param>
+    /// <param name="rho">Purity ρ.</param>
+    /// <param name="psi">Ploidy parameter ψ.</param>
+    /// <param name="gamma">Platform parameter γ.</param>
+    /// <param name="haploid">Male X (non-PAR) / Y segment (<see cref="AscatSexModel"/>): runASCAT's non-diploid branch
+    /// <c>nAraw = (rho − 1 + ((1 − rho)·2 + rho·psi)·2^(logR/gamma))/rho</c>, <c>nBraw = 0</c>.</param>
+    private static (double Major, double Minor) AscatRoundSegment(
+        double r, double bAscat, double rho, double psi, double gamma, bool haploid = false)
     {
-        (double nAraw, double nBraw) = AscatRawCopyNumbers(r, bAscat, rho, psi, gamma);
+        (double nAraw, double nBraw) = haploid
+            ? (AscatRawHaploidCopyNumber(r, rho, psi, gamma), 0.0)
+            : AscatRawCopyNumbers(r, bAscat, rho, psi, gamma);
         if (nAraw + nBraw < 0.0)
         {
             nAraw = 0.0;
@@ -1490,23 +3936,25 @@ public static partial class OncologyAnalyzer
     /// </summary>
     private static PurityPloidyFit BuildAscatFit(
         IReadOnlyList<AlleleSpecificSegmentSummary> segments, double rho, double psi, double gamma, double goodnessOfFit,
-        bool nonAberrant)
+        bool nonAberrant, AscatSexModel sexModel)
     {
         var result = new List<AlleleSpecificSegment>(segments.Count);
-        double cnSum = 0.0, probeSum = 0.0;
-        foreach (AlleleSpecificSegmentSummary s in segments)
+        var probeCounts = new int[segments.Count];
+        for (int i = 0; i < segments.Count; i++)
         {
-            (double major, double minor) = AscatRoundSegment(s.MeanLogR, ToAscatBaf(s.MeanBAF), rho, psi, gamma);
+            AlleleSpecificSegmentSummary s = segments[i];
+            (double major, double minor) = AscatRoundSegment(s.MeanLogR, ToAscatBaf(s.MeanBAF), rho, psi, gamma,
+                sexModel.IsHaploid(s.Chromosome, s.Start, s.End));
             int majorInt = AscatCopyNumberToInt(major);
             int minorInt = AscatCopyNumberToInt(minor);
             // Segments with End == Start (single-position) get a 1 bp span so AlleleSpecificSegment.Length > 0.
             long end = s.End > s.Start ? s.End : s.Start + 1;
             result.Add(new AlleleSpecificSegment(s.Chromosome, s.Start, end, majorInt, minorInt));
-            cnSum += ((double)majorInt + minorInt) * s.LocusCount;
-            probeSum += s.LocusCount;
+            probeCounts[i] = s.LocusCount;
         }
 
-        return new PurityPloidyFit(rho, cnSum / probeSum, goodnessOfFit, result)
+        // ASCAT ploidy = mean(nA + nB) over probes = probe-count-weighted mean (canonical overload).
+        return new PurityPloidyFit(rho, EstimatePloidy(result, probeCounts), goodnessOfFit, result)
         {
             Psi = psi,
             IsNonAberrant = nonAberrant,
@@ -1578,7 +4026,8 @@ public static partial class OncologyAnalyzer
     /// <item><b>Integer segments</b> (ASCAT <c>seg_raw</c>): negative-value correction, R half-to-even rounding and the
     /// balanced odd-total rule, see <see cref="AscatRoundSegment"/>.</item>
     /// </list>
-    /// Sex-chromosome (X/Y) segments are excluded from the fit and emitted with the diploid model (ASCAT gender "XX").
+    /// Sex-chromosome (X/Y) segments are excluded from the fit (as in ASCAT, for either sex) and emitted with the diploid
+    /// model (ASCAT gender "XX"); pass an <see cref="AscatSexModel"/> (overload, B24 F38) for a male sample.
     /// </summary>
     /// <param name="segments">Segment summaries (from <see cref="SegmentAlleleSpecificAspcf"/> or a caller's segmenter). Non-empty;
     /// each needs a finite mean logR, a mean BAF in [0, 1] and LocusCount ≥ 1; at least one autosomal segment.</param>
@@ -1606,8 +4055,40 @@ public static partial class OncologyAnalyzer
         double ploidyMax = 5.5,
         double ploidyStep = 0.05,
         double gamma = AscatSequencingGamma)
+        => FitPurityPloidy(segments, AscatSexModel.Female, purityMin, purityMax, purityStep, ploidyMin, ploidyMax, ploidyStep, gamma);
+
+    /// <summary>
+    /// ASCAT purity/ploidy fit (see <see cref="FitPurityPloidy(IReadOnlyList{AlleleSpecificSegmentSummary}, double, double, double, double, double, double, double)"/>)
+    /// with an explicit sex-chromosome model (runASCAT <c>gender</c> / <c>X_nonPAR</c>, B24 F38). The fit (ρ, ψ, GoF,
+    /// non-aberrant flag) is unchanged — sex chromosomes never enter it; only the X/Y integer segments and therefore the
+    /// reported ploidy depend on <paramref name="sexModel"/> (see <see cref="AscatSexModel"/>). Each summary is one
+    /// runASCAT segment; its [Start, End] is the span tested against the X non-PAR interval.
+    /// </summary>
+    /// <param name="segments">Segment summaries (as the gender-less overload).</param>
+    /// <param name="sexModel">Sex-chromosome model; <see cref="AscatSexModel.Female"/> reproduces the gender-less overload.</param>
+    /// <param name="purityMin">See the gender-less overload.</param>
+    /// <param name="purityMax">See the gender-less overload.</param>
+    /// <param name="purityStep">See the gender-less overload.</param>
+    /// <param name="ploidyMin">See the gender-less overload.</param>
+    /// <param name="ploidyMax">See the gender-less overload.</param>
+    /// <param name="ploidyStep">See the gender-less overload.</param>
+    /// <param name="gamma">See the gender-less overload.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="segments"/> or <paramref name="sexModel"/> is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="segments"/> is empty, malformed, or has no autosomal segment.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">a grid bound or step is out of range.</exception>
+    /// <exception cref="InvalidOperationException">ASCAT finds no acceptable optimum.</exception>
+    public static PurityPloidyFit FitPurityPloidy(
+        IReadOnlyList<AlleleSpecificSegmentSummary> segments,
+        AscatSexModel sexModel,
+        double purityMin = 0.1,
+        double purityMax = 1.05,
+        double purityStep = 0.01,
+        double ploidyMin = 1.5,
+        double ploidyMax = 5.5,
+        double ploidyStep = 0.05,
+        double gamma = AscatSequencingGamma)
     {
-        if (!TryFitPurityPloidy(segments, out PurityPloidyFit fit, purityMin, purityMax, purityStep,
+        if (!TryFitPurityPloidy(segments, sexModel, out PurityPloidyFit fit, purityMin, purityMax, purityStep,
                 ploidyMin, ploidyMax, ploidyStep, gamma))
         {
             throw new InvalidOperationException(
@@ -1633,10 +4114,48 @@ public static partial class OncologyAnalyzer
         double ploidyMax = 5.5,
         double ploidyStep = 0.05,
         double gamma = AscatSequencingGamma)
+        => TryFitPurityPloidy(segments, AscatSexModel.Female, out fit, purityMin, purityMax, purityStep, ploidyMin, ploidyMax, ploidyStep, gamma);
+
+    /// <summary>
+    /// <see cref="FitPurityPloidy(IReadOnlyList{AlleleSpecificSegmentSummary}, AscatSexModel, double, double, double, double, double, double, double)"/>
+    /// reporting ASCAT's <c>rho = NA</c> outcome as <c>false</c> instead of throwing (B24 F38).
+    /// </summary>
+    public static bool TryFitPurityPloidy(
+        IReadOnlyList<AlleleSpecificSegmentSummary> segments,
+        AscatSexModel sexModel,
+        out PurityPloidyFit fit,
+        double purityMin = 0.1,
+        double purityMax = 1.05,
+        double purityStep = 0.01,
+        double ploidyMin = 1.5,
+        double ploidyMax = 5.5,
+        double ploidyStep = 0.05,
+        double gamma = AscatSequencingGamma)
     {
         AscatFitSegment[] s = PrepareAscatSegments(segments);
+        ArgumentNullException.ThrowIfNull(sexModel);
         ValidateGrid(purityMin, purityMax, purityStep, ploidyMin, ploidyMax, ploidyStep, gamma);
+        if (!TryFindAscatOptimum(s, purityMin, purityMax, purityStep, ploidyMin, ploidyMax, ploidyStep, gamma,
+                out double rhoOpt, out double psiOpt, out double goodnessOfFit, out bool nonAberrant))
+        {
+            fit = default;
+            return false;
+        }
 
+        fit = BuildAscatFit(segments, rhoOpt, psiOpt, gamma, goodnessOfFit, nonAberrant, sexModel);
+        return true;
+    }
+
+    /// <summary>
+    /// The runASCAT grid search (ascat.runAscat.R) on validated autosomal fitting segments: distance matrix, strict
+    /// 7 × 7 local minima, the four-pass filter cascade and the optimum selection (see <see cref="FitPurityPloidy"/>).
+    /// Returns <c>false</c> when no candidate passes (ASCAT <c>rho = NA</c>); ρ &gt; 1 is reported as 1.
+    /// </summary>
+    private static bool TryFindAscatOptimum(
+        AscatFitSegment[] s, double purityMin, double purityMax, double purityStep,
+        double ploidyMin, double ploidyMax, double ploidyStep, double gamma,
+        out double rhoOpt, out double psiOpt, out double goodnessOfFitOpt, out bool nonAberrant)
+    {
         double[] psiPos = RSeq(ploidyMin - 0.5, ploidyMax + 0.5, ploidyStep);
         double[] rhoPos = RSeq(purityMin, purityMax, purityStep);
         int rows = psiPos.Length, cols = rhoPos.Length;
@@ -1649,14 +4168,15 @@ public static partial class OncologyAnalyzer
             }
         }
 
-        (double theoreticalMaxDistance, bool nonAberrant) = AscatSampleSummary(s);
+        (double theoreticalMaxDistance, nonAberrant) = AscatSampleSummary(s);
+        bool sampleNonAberrant = nonAberrant;
 
         var candidates = new List<(double M, int I, int J, double GoodnessOfFit)>();
         bool strictPloidyWindowReachable = ploidyMin < AscatMaxPloidyStrict && ploidyMax > AscatMinPloidyStrict;
 
         // Pass 1: all filters.
         CollectAscatOptima(d, psiPos, rhoPos, s, gamma, theoreticalMaxDistance, candidates, st =>
-            !nonAberrant && st.Ploidy > ploidyMin && st.Ploidy < ploidyMax && st.Rho >= AscatMinRho
+            !sampleNonAberrant && st.Ploidy > ploidyMin && st.Ploidy < ploidyMax && st.Rho >= AscatMinRho
             && st.GoodnessOfFit > AscatMinGoodnessOfFit && st.PercentZero > AscatMinPercentZero);
 
         // Pass 2: drop percentzero (allow non-aberrant solutions) with strict ploidy borders.
@@ -1682,7 +4202,7 @@ public static partial class OncologyAnalyzer
             }
 
             CollectAscatOptima(d, psiPos, rhoPos, s, gamma, theoreticalMaxDistance, candidates, st =>
-                !nonAberrant && st.Ploidy > ploidyMin && st.Ploidy < ploidyMax && st.Rho >= AscatMinRho
+                !sampleNonAberrant && st.Ploidy > ploidyMin && st.Ploidy < ploidyMax && st.Rho >= AscatMinRho
                 && st.GoodnessOfFit > AscatMinGoodnessOfFit
                 && (st.PercentZeroAberrant > AscatMinPercentZeroAberrant || st.PercentZero > AscatMinPercentZero
                     || st.PercentOddEven > AscatMinPercentOddEven));
@@ -1698,7 +4218,7 @@ public static partial class OncologyAnalyzer
 
         if (candidates.Count == 0)
         {
-            fit = default;
+            rhoOpt = psiOpt = goodnessOfFitOpt = double.NaN;
             return false;
         }
 
@@ -1718,9 +4238,9 @@ public static partial class OncologyAnalyzer
             }
         }
 
-        double psiOpt = RDimnameValue(psiPos[best.I]);
-        double rhoOpt = Math.Min(1.0, RDimnameValue(rhoPos[best.J])); // if (rho_opt1 > 1) rho_opt1 = 1
-        fit = BuildAscatFit(segments, rhoOpt, psiOpt, gamma, best.GoodnessOfFit, nonAberrant);
+        psiOpt = RDimnameValue(psiPos[best.I]);
+        rhoOpt = Math.Min(1.0, RDimnameValue(rhoPos[best.J])); // if (rho_opt1 > 1) rho_opt1 = 1
+        goodnessOfFitOpt = best.GoodnessOfFit;
         return true;
     }
 
@@ -1829,14 +4349,320 @@ public static partial class OncologyAnalyzer
         double purity,
         double ploidy,
         double gamma = AscatSequencingGamma)
+        => EvaluatePurityPloidy(segments, AscatSexModel.Female, purity, ploidy, gamma);
+
+    /// <summary>
+    /// ASCAT with a user-supplied purity and ploidy (as the gender-less overload) and an explicit sex-chromosome model
+    /// for the emitted X/Y segments (<see cref="AscatSexModel"/>, B24 F38).
+    /// </summary>
+    /// <param name="segments">Segment summaries.</param>
+    /// <param name="sexModel">Sex-chromosome model.</param>
+    /// <param name="purity">Purity ρ ∈ (0, 1].</param>
+    /// <param name="ploidy">Ploidy parameter ψ (&gt; 0).</param>
+    /// <param name="gamma">Platform parameter γ (&gt; 0).</param>
+    /// <exception cref="ArgumentNullException"><paramref name="segments"/> or <paramref name="sexModel"/> is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="segments"/> is empty, malformed, or has no autosomal segment.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">ρ ∉ (0, 1], ψ ≤ 0 or γ ≤ 0 (or any is non-finite).</exception>
+    public static PurityPloidyFit EvaluatePurityPloidy(
+        IReadOnlyList<AlleleSpecificSegmentSummary> segments,
+        AscatSexModel sexModel,
+        double purity,
+        double ploidy,
+        double gamma = AscatSequencingGamma)
     {
         AscatFitSegment[] s = PrepareAscatSegments(segments);
+        ArgumentNullException.ThrowIfNull(sexModel);
         ValidateAscatModelParameters(purity, ploidy, gamma);
 
         (double theoreticalMaxDistance, bool nonAberrant) = AscatSampleSummary(s);
         double m = AscatDistance(s, purity, ploidy, gamma);
         double goodnessOfFit = (1.0 - m / theoreticalMaxDistance) * 100.0;
-        return BuildAscatFit(segments, purity, ploidy, gamma, goodnessOfFit, nonAberrant);
+        return BuildAscatFit(segments, purity, ploidy, gamma, goodnessOfFit, nonAberrant, sexModel);
+    }
+
+    /// <summary>
+    /// ASCAT purity/ploidy fit (runASCAT, ascat.runAscat.R) on a germline-aware ASPCF segmentation
+    /// (<see cref="SegmentAlleleSpecificAspcf(IEnumerable{AlleleSpecificLocus}, IReadOnlyList{bool}, double)"/>), i.e.
+    /// with germline-homozygous probes, exactly as runASCAT treats them:
+    /// <list type="bullet">
+    /// <item><b>Fit</b>: the distance matrix, filters, goodness of fit and non-aberrant flag use the heterozygous
+    /// autosomal probes only (<c>r = lrrsegmented[names(bafsegmented)]</c>), grouped by <c>make_segments</c> into runs of
+    /// identical (segmented logR, segmented BAF) with length = number of heterozygous probes. Homozygous probes enter
+    /// only through the logR levels; the grid search is the one of <see cref="FitPurityPloidy"/>.</item>
+    /// <item><b>Segments</b> (<c>seg_raw</c>): one per <see cref="AspcfSegmentation.Segments"/> entry (runs of equal
+    /// segmented logR within a chromosome), using the BAF of the run's first heterozygous probe; a run without
+    /// heterozygous probes (BAF NA) uses ASCAT's <c>bafke = 0</c>, which after the negative-value correction puts the
+    /// whole total copy number on the major allele (only nA + nB is meaningful there).</item>
+    /// <item><b>Ploidy</b>: ASCAT's reported <c>ploidy = mean(nA + nB)</c> over <b>all</b> probes (heterozygous and
+    /// homozygous, sex chromosomes included), i.e. the <see cref="AspcfSegment.LocusCount"/>-weighted mean total copy
+    /// number of the segments.</item>
+    /// </list>
+    /// Parameters and the no-optimum behaviour are those of <see cref="FitPurityPloidy"/>.
+    /// </summary>
+    /// <param name="segmentation">The germline-aware ASPCF segmentation.</param>
+    /// <param name="purityMin">See <see cref="FitPurityPloidy"/>.</param>
+    /// <param name="purityMax">See <see cref="FitPurityPloidy"/>.</param>
+    /// <param name="purityStep">See <see cref="FitPurityPloidy"/>.</param>
+    /// <param name="ploidyMin">See <see cref="FitPurityPloidy"/>.</param>
+    /// <param name="ploidyMax">See <see cref="FitPurityPloidy"/>.</param>
+    /// <param name="ploidyStep">See <see cref="FitPurityPloidy"/>.</param>
+    /// <param name="gamma">See <see cref="FitPurityPloidy"/>.</param>
+    /// <returns>ρ, the all-probe ASCAT ploidy, GoF, the <c>seg_raw</c> integer segments and ψ.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="segmentation"/> is null.</exception>
+    /// <exception cref="ArgumentException">The segmentation has no heterozygous autosomal probe.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">A grid bound or step is out of range.</exception>
+    /// <exception cref="InvalidOperationException">ASCAT finds no acceptable optimum (use
+    /// <see cref="TryFitPurityPloidyFromAspcf"/>).</exception>
+    public static PurityPloidyFit FitPurityPloidyFromAspcf(
+        AspcfSegmentation segmentation,
+        double purityMin = 0.1,
+        double purityMax = 1.05,
+        double purityStep = 0.01,
+        double ploidyMin = 1.5,
+        double ploidyMax = 5.5,
+        double ploidyStep = 0.05,
+        double gamma = AscatSequencingGamma)
+        => FitPurityPloidyFromAspcf(segmentation, AscatSexModel.Female, purityMin, purityMax, purityStep, ploidyMin, ploidyMax, ploidyStep, gamma);
+
+    /// <summary>
+    /// <see cref="FitPurityPloidyFromAspcf(AspcfSegmentation, double, double, double, double, double, double, double)"/>
+    /// with an explicit sex-chromosome model (runASCAT <c>gender</c> / <c>X_nonPAR</c>, B24 F38): the fit is unchanged
+    /// (sex chromosomes never enter it); the X/Y <c>seg_raw</c> segments — and so the all-probe ploidy — follow
+    /// <paramref name="sexModel"/> (see <see cref="AscatSexModel"/>). For the X non-PAR rule a segment's span is its
+    /// first/last probe position (<see cref="AspcfSegment.Start"/>/<see cref="AspcfSegment.End"/>, i.e. the run of
+    /// equal segmented logR that <c>diploidprobes_fixnonPAR</c> builds with <c>rle</c>).
+    /// <para>For a male with <c>X_nonPAR</c>, <c>ascat.aspcf</c> additionally re-labels the germline genotypes of non-PAR X
+    /// probes (all homozygous, then a random autosome-matched fraction heterozygous); that step belongs to the
+    /// segmentation — run <see cref="SegmentAlleleSpecificAspcf(IEnumerable{AlleleSpecificLocus}, IReadOnlyList{bool}, AscatMaleXGenotyping, double)"/>
+    /// (B24 F58). The fit uses <see cref="AspcfSegmentation.GermlineHeterozygous"/> as given.</para>
+    /// </summary>
+    /// <param name="segmentation">The germline-aware ASPCF segmentation.</param>
+    /// <param name="sexModel">Sex-chromosome model; <see cref="AscatSexModel.Female"/> reproduces the gender-less overload.</param>
+    /// <param name="purityMin">See the gender-less overload.</param>
+    /// <param name="purityMax">See the gender-less overload.</param>
+    /// <param name="purityStep">See the gender-less overload.</param>
+    /// <param name="ploidyMin">See the gender-less overload.</param>
+    /// <param name="ploidyMax">See the gender-less overload.</param>
+    /// <param name="ploidyStep">See the gender-less overload.</param>
+    /// <param name="gamma">See the gender-less overload.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="segmentation"/> or <paramref name="sexModel"/> is null.</exception>
+    /// <exception cref="ArgumentException">The segmentation has no heterozygous autosomal probe.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">A grid bound or step is out of range.</exception>
+    /// <exception cref="InvalidOperationException">ASCAT finds no acceptable optimum.</exception>
+    public static PurityPloidyFit FitPurityPloidyFromAspcf(
+        AspcfSegmentation segmentation,
+        AscatSexModel sexModel,
+        double purityMin = 0.1,
+        double purityMax = 1.05,
+        double purityStep = 0.01,
+        double ploidyMin = 1.5,
+        double ploidyMax = 5.5,
+        double ploidyStep = 0.05,
+        double gamma = AscatSequencingGamma)
+    {
+        if (!TryFitPurityPloidyFromAspcf(segmentation, sexModel, out PurityPloidyFit fit, purityMin, purityMax, purityStep,
+                ploidyMin, ploidyMax, ploidyStep, gamma))
+        {
+            throw new InvalidOperationException(
+                "ASCAT could not find an optimal ploidy and purity value: no local minimum of the distance matrix passes " +
+                "the ASCAT solution filters (ascat.runAscat.R).");
+        }
+
+        return fit;
+    }
+
+    /// <summary>
+    /// <see cref="FitPurityPloidyFromAspcf"/> reporting ASCAT's <c>rho = NA</c> outcome as <c>false</c> instead of throwing.
+    /// </summary>
+    public static bool TryFitPurityPloidyFromAspcf(
+        AspcfSegmentation segmentation,
+        out PurityPloidyFit fit,
+        double purityMin = 0.1,
+        double purityMax = 1.05,
+        double purityStep = 0.01,
+        double ploidyMin = 1.5,
+        double ploidyMax = 5.5,
+        double ploidyStep = 0.05,
+        double gamma = AscatSequencingGamma)
+        => TryFitPurityPloidyFromAspcf(segmentation, AscatSexModel.Female, out fit, purityMin, purityMax, purityStep, ploidyMin, ploidyMax, ploidyStep, gamma);
+
+    /// <summary>
+    /// <see cref="FitPurityPloidyFromAspcf(AspcfSegmentation, AscatSexModel, double, double, double, double, double, double, double)"/>
+    /// reporting ASCAT's <c>rho = NA</c> outcome as <c>false</c> instead of throwing (B24 F38).
+    /// </summary>
+    public static bool TryFitPurityPloidyFromAspcf(
+        AspcfSegmentation segmentation,
+        AscatSexModel sexModel,
+        out PurityPloidyFit fit,
+        double purityMin = 0.1,
+        double purityMax = 1.05,
+        double purityStep = 0.01,
+        double ploidyMin = 1.5,
+        double ploidyMax = 5.5,
+        double ploidyStep = 0.05,
+        double gamma = AscatSequencingGamma)
+    {
+        AscatFitSegment[] s = AscatMakeSegments(segmentation);
+        ArgumentNullException.ThrowIfNull(sexModel);
+        ValidateGrid(purityMin, purityMax, purityStep, ploidyMin, ploidyMax, ploidyStep, gamma);
+        if (!TryFindAscatOptimum(s, purityMin, purityMax, purityStep, ploidyMin, ploidyMax, ploidyStep, gamma,
+                out double rhoOpt, out double psiOpt, out double goodnessOfFit, out bool nonAberrant))
+        {
+            fit = default;
+            return false;
+        }
+
+        fit = BuildAscatFitFromAspcf(segmentation, rhoOpt, psiOpt, gamma, goodnessOfFit, nonAberrant, sexModel);
+        return true;
+    }
+
+    /// <summary>
+    /// ASCAT with a user-supplied purity and ploidy (<c>rho_manual</c>/<c>psi_manual</c>) on a germline-aware ASPCF
+    /// segmentation: GoF over the heterozygous autosomal <c>make_segments</c> runs, <c>seg_raw</c> segments and the
+    /// all-probe ploidy as in <see cref="FitPurityPloidyFromAspcf"/>.
+    /// </summary>
+    /// <param name="segmentation">The germline-aware ASPCF segmentation.</param>
+    /// <param name="purity">Purity ρ ∈ (0, 1].</param>
+    /// <param name="ploidy">Ploidy parameter ψ (&gt; 0).</param>
+    /// <param name="gamma">Platform parameter γ (&gt; 0).</param>
+    /// <exception cref="ArgumentNullException"><paramref name="segmentation"/> is null.</exception>
+    /// <exception cref="ArgumentException">The segmentation has no heterozygous autosomal probe.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">ρ ∉ (0, 1], ψ ≤ 0 or γ ≤ 0 (or any is non-finite).</exception>
+    public static PurityPloidyFit EvaluatePurityPloidyFromAspcf(
+        AspcfSegmentation segmentation,
+        double purity,
+        double ploidy,
+        double gamma = AscatSequencingGamma)
+        => EvaluatePurityPloidyFromAspcf(segmentation, AscatSexModel.Female, purity, ploidy, gamma);
+
+    /// <summary>
+    /// ASCAT with a user-supplied purity and ploidy on a germline-aware ASPCF segmentation (as the gender-less overload)
+    /// with an explicit sex-chromosome model for the X/Y <c>seg_raw</c> segments (<see cref="AscatSexModel"/>, B24 F38).
+    /// </summary>
+    /// <param name="segmentation">The germline-aware ASPCF segmentation.</param>
+    /// <param name="sexModel">Sex-chromosome model.</param>
+    /// <param name="purity">Purity ρ ∈ (0, 1].</param>
+    /// <param name="ploidy">Ploidy parameter ψ (&gt; 0).</param>
+    /// <param name="gamma">Platform parameter γ (&gt; 0).</param>
+    /// <exception cref="ArgumentNullException"><paramref name="segmentation"/> or <paramref name="sexModel"/> is null.</exception>
+    /// <exception cref="ArgumentException">The segmentation has no heterozygous autosomal probe.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">ρ ∉ (0, 1], ψ ≤ 0 or γ ≤ 0 (or any is non-finite).</exception>
+    public static PurityPloidyFit EvaluatePurityPloidyFromAspcf(
+        AspcfSegmentation segmentation,
+        AscatSexModel sexModel,
+        double purity,
+        double ploidy,
+        double gamma = AscatSequencingGamma)
+    {
+        AscatFitSegment[] s = AscatMakeSegments(segmentation);
+        ArgumentNullException.ThrowIfNull(sexModel);
+        ValidateAscatModelParameters(purity, ploidy, gamma);
+
+        (double theoreticalMaxDistance, bool nonAberrant) = AscatSampleSummary(s);
+        double m = AscatDistance(s, purity, ploidy, gamma);
+        double goodnessOfFit = (1.0 - m / theoreticalMaxDistance) * 100.0;
+        return BuildAscatFitFromAspcf(segmentation, purity, ploidy, gamma, goodnessOfFit, nonAberrant, sexModel);
+    }
+
+    /// <summary>
+    /// runASCAT fitting segments from a germline-aware segmentation: the heterozygous autosomal probes' (segmented logR,
+    /// 1 − mirrored segmented BAF) pairs, grouped by ASCAT <c>make_segments</c> into runs of identical pairs (the runs
+    /// ignore chromosome boundaries, as in R); length = number of probes in the run.
+    /// </summary>
+    private static AscatFitSegment[] AscatMakeSegments(AspcfSegmentation segmentation)
+    {
+        ArgumentNullException.ThrowIfNull(segmentation);
+        var result = new List<AscatFitSegment>();
+        double previousR = 1e10, previousB = -1.0;
+        int count = 0;
+        for (int i = 0; i < segmentation.Loci.Count; i++)
+        {
+            // SNPposhet = SNPpos[names(bafsegmented), ]: heterozygous probes WITH a segmented BAF (a missing tumour
+            // BAF/logR drops a heterozygous probe from Tumor_BAF_segmented, B24 F59).
+            if (!segmentation.GermlineHeterozygous[i] || double.IsNaN(segmentation.SegmentedBaf[i])
+                || IsAscatSexChromosome(segmentation.Loci[i].Chromosome))
+            {
+                continue;
+            }
+
+            double r = segmentation.SegmentedLogR[i];
+            double b = 1.0 - segmentation.SegmentedBaf[i]; // Tumor_BAF_segmented = 1 - bafPCFed
+            if (b != previousB || r != previousR)
+            {
+                if (count > 0)
+                {
+                    result.Add(new AscatFitSegment(previousR, previousB, count));
+                }
+
+                count = 0;
+            }
+
+            count++;
+            previousR = r;
+            previousB = b;
+        }
+
+        if (count == 0)
+        {
+            throw new ArgumentException(
+                "ASCAT fits purity and ploidy on heterozygous autosomal probes; the segmentation has none.",
+                nameof(segmentation));
+        }
+
+        result.Add(new AscatFitSegment(previousR, previousB, count));
+        return result.ToArray();
+    }
+
+    /// <summary>
+    /// runASCAT output at the selected (ρ, ψ) for a germline-aware segmentation: <c>seg_raw</c> integer segments (one per
+    /// logR segment; <c>bafke</c> = first heterozygous BAF, 0 when none) and <c>ploidy = mean(nA + nB, na.rm = TRUE)</c> over
+    /// all probes, i.e. without those whose raw logR is missing or that have a segmented BAF but a missing raw BAF.
+    /// </summary>
+    private static PurityPloidyFit BuildAscatFitFromAspcf(
+        AspcfSegmentation segmentation, double rho, double psi, double gamma, double goodnessOfFit, bool nonAberrant,
+        AscatSexModel sexModel)
+    {
+        var result = new List<AlleleSpecificSegment>(segmentation.Segments.Count);
+        var counted = new List<AlleleSpecificSegment>(segmentation.Segments.Count);
+        var probeCounts = new List<int>(segmentation.Segments.Count);
+        int locus = 0;
+        for (int i = 0; i < segmentation.Segments.Count; i++)
+        {
+            AspcfSegment s = segmentation.Segments[i];
+
+            // ploidy = mean(nA + nB, na.rm = TRUE) over the probes (B24 F59): n1all/n2all are NA where the raw logR is NA, and
+            // at a probe with a segmented BAF whose raw BAF is NA (ifelse(baf <= 0.5, …) on NA — ascat.asmultipcf gives
+            // such a probe a BAF from the other samples).
+            int observed = 0;
+            for (int k = 0; k < s.LocusCount; k++, locus++)
+            {
+                AlleleSpecificLocus l = segmentation.Loci[locus];
+                bool bafless = !double.IsNaN(segmentation.SegmentedBaf[locus]) && double.IsNaN(l.BAF);
+                if (!double.IsNaN(l.LogR) && !bafless)
+                {
+                    observed++;
+                }
+            }
+
+            double bafke = s.HasBaf ? 1.0 - s.MeanBAF : 0.0; // "if (is.na(bafke)) bafke = 0"
+            (double major, double minor) = AscatRoundSegment(s.MeanLogR, bafke, rho, psi, gamma,
+                sexModel.IsHaploid(s.Chromosome, s.Start, s.End));
+            long end = s.End > s.Start ? s.End : s.Start + 1;
+            var segment = new AlleleSpecificSegment(
+                s.Chromosome, s.Start, end, AscatCopyNumberToInt(major), AscatCopyNumberToInt(minor));
+            result.Add(segment);
+            if (observed > 0)
+            {
+                counted.Add(segment);
+                probeCounts.Add(observed);
+            }
+        }
+
+        return new PurityPloidyFit(rho, EstimatePloidy(counted, probeCounts), goodnessOfFit, result)
+        {
+            Psi = psi,
+            IsNonAberrant = nonAberrant,
+        };
     }
 
     /// <summary>
@@ -1920,8 +4746,11 @@ public static partial class OncologyAnalyzer
     /// mutated copies for a clonal mutation is n_mut = VAF·(1/ρ)·[ρ·N_T + 2(1−ρ)] (McGranahan et al. 2016,
     /// <i>Science</i> 351:1463; equivalently the inversion of the PICTograph model VAF = m·CCF·ρ /
     /// (N_T·ρ + 2(1−ρ)) at CCF = 1, Zheng et al. 2022, <i>Bioinformatics</i> 38:3677). The result is rounded to
-    /// the nearest integer and clamped to [1, majorCopyNumber] (a variant present on at least one copy cannot
-    /// exceed the major-allele copy number).
+    /// the nearest integer with ties to even and floored at 1, exactly as facets-suite
+    /// <c>expected_mutant_copies</c> (mskcc/facets-suite <c>R/ccf-annotate-maf.R</c>, "Based on PMID 28270531":
+    /// <c>mu &lt; 1 → 1</c>, then R <c>round</c> = IEC 60559 half-to-even, so n_mut = 2.5 → 2 and 1.5 → 2). In
+    /// addition (not in facets-suite) the result is capped at majorCopyNumber (a variant present on at least one
+    /// copy cannot exceed the major-allele copy number).
     /// </summary>
     /// <param name="vaf">Observed variant allele fraction ∈ [0, 1].</param>
     /// <param name="purity">Tumour purity ρ ∈ (0, 1].</param>
@@ -1955,8 +4784,10 @@ public static partial class OncologyAnalyzer
         // n_mut = VAF·(1/ρ)·[ρ·N_T + 2(1−ρ)] — McGranahan 2016 observed mutation copy number (CCF=1 ⇒ m = n_mut).
         // This is exactly the canonical CNAqc purity/copy-number VAF correction (AdjustVAFForPurity, ONCO-VAF-001).
         double rawMultiplicity = AdjustVAFForPurity(vaf, purity, totalCopyNumber);
-        int rounded = (int)Math.Round(rawMultiplicity, MidpointRounding.AwayFromZero);
-        // Clamp to [1, major CN]: an observed variant sits on ≥ 1 copy and ≤ the major-allele copy number.
+        // facets-suite expected_mutant_copies: R round() is IEC 60559 half-to-even (2.5 → 2), and mu < 1 → 1.
+        int rounded = (int)Math.Round(rawMultiplicity, MidpointRounding.ToEven);
+        // Clamp to [1, major CN]: the floor at 1 is facets-suite's mu < 1 → 1 (round(mu) ≤ 1 there); the cap at the
+        // major-allele copy number is a documented extra (facets-suite leaves expected_alt_copies uncapped).
         return Math.Clamp(rounded, 1, majorCopyNumber);
     }
 
@@ -2008,8 +4839,9 @@ public static partial class OncologyAnalyzer
     /// of the ASCAT ladder (35, 50, 70, 100, 140).</item>
     /// </list>
     /// Breakpoints never cross a contig boundary (loci are grouped into contiguous same-chromosome runs, input order).
-    /// Not ported (no inputs for them): germline-homozygous-stretch resegmentation and the averaging of homozygous
-    /// probes' logR (every supplied locus is treated as a germline-heterozygous SNP).
+    /// Every supplied locus is treated as a germline-heterozygous SNP; for mixed heterozygous / homozygous input (logR
+    /// averaging over homozygous probes, homozygous-stretch resegmentation) use the germline-aware overload
+    /// <see cref="SegmentAlleleSpecificAspcf(IEnumerable{AlleleSpecificLocus}, IReadOnlyList{bool}, double)"/> (B24 F36).
     /// </summary>
     /// <param name="loci">Per-locus measurements; processed in input order within each chromosome. LogR must be
     /// finite and BAF in [0, 1].</param>
@@ -2118,7 +4950,7 @@ public static partial class OncologyAnalyzer
         var bafWins = new double[n];
         for (int i = 0; i < n; i++)
         {
-            bafWins[i] = baf[i] > BalancedBaf ? bafWinsMirrored[i] : 1.0 - bafWinsMirrored[i];
+            bafWins[i] = OrientBaf(baf[i], bafWinsMirrored[i]);
         }
 
         if (n < AspcfMinSegmentLength)
@@ -2147,17 +4979,18 @@ public static partial class OncologyAnalyzer
             MeanBAF: segmentBaf,
             LocusCount: to - from);
 
-    /// <summary>Arithmetic mean of x[from..to) (R <c>mean</c>).</summary>
-    private static double Mean(double[] x, int from, int to)
-    {
-        double sum = 0.0;
-        for (int i = from; i < to; i++)
-        {
-            sum += x[i];
-        }
+    /// <summary>R <c>mean(x[from..to))</c>, bit-identical to R's long-double two-pass <c>real_mean</c>
+    /// (<see cref="StatisticsHelper.ExtendedPrecisionMean"/>, B24 F66). Call sites: ascat.aspcf <c>mean(logRaveraged)</c>,
+    /// <c>mean(bafselwinsmirrored)</c>, fastAspcf <c>yhat1 = mean(logR[frst:last])</c>, exactPcf <c>mean(y)</c>.</summary>
+    private static double Mean(double[] x, int from, int to) =>
+        StatisticsHelper.ExtendedPrecisionMean(x.AsSpan(from, to - from));
 
-        return sum / (to - from);
-    }
+    /// <summary>R <c>mean(x[from..to), na.rm = TRUE)</c>: NaN entries (R NA) are dropped first, NaN when none remains;
+    /// bit-identical to R (<see cref="StatisticsHelper.ExtendedPrecisionMean"/> with skipNaN, B24 F66). Call sites:
+    /// ascat.aspcf / ascat.asmultipcf <c>mean(lr[startprobe:endprobe], na.rm=TRUE)</c>, <c>mean(lr, na.rm=TRUE)</c>,
+    /// <c>logRaveraged[i] = mean(lrwins[start:end], na.rm=TRUE)</c>, asmultipcf <c>mean(x, na.rm=TRUE)</c>.</summary>
+    private static double MeanNaRm(double[] x, int from, int to) =>
+        StatisticsHelper.ExtendedPrecisionMean(x.AsSpan(from, to - from), skipNaN: true);
 
     /// <summary>
     /// ASCAT <c>fastAspcf(logR, allB, kmin, gamma)</c>: windowed exact bivariate PCF. Returns the segment boundaries
@@ -2235,23 +5068,26 @@ public static partial class OncologyAnalyzer
         for (int s = 0; s + 1 < unique.Count; s++)
         {
             int first = unique[s], lastExclusive = unique[s + 1];
-            double mu = 0.0;
+            // mu = mean(abs(yi2 - 0.5)) (0 for an empty segment), R's long-double mean (B24 F66).
+            var deviation = new double[lastExclusive - first];
             for (int i = first; i < lastExclusive; i++)
             {
-                mu += Math.Abs(allB[i] - BalancedBaf);
+                deviation[i - first] = Math.Abs(allB[i] - BalancedBaf);
             }
 
-            mu = lastExclusive > first ? mu / (lastExclusive - first) : 0.0;
-            if (Math.Sqrt(sd2Pooled * sd2Pooled + mu * mu) < 2.0 * sd2Pooled)
-            {
-                mu = 0.0;
-            }
-
-            segmentBaf[s] = mu + BalancedBaf;
+            double mu = deviation.Length > 0 ? StatisticsHelper.ExtendedPrecisionMean(deviation) : 0.0;
+            segmentBaf[s] = AscatShrunkBafLevel(mu, sd2Pooled);
         }
 
         return (unique.ToArray(), segmentBaf);
     }
+
+    /// <summary>
+    /// ASCAT segment BAF level <c>0.5 + μ</c> with μ = mean |b − 0.5|, shrunk to 0 when <c>sqrt(sd² + μ²) &lt; 2·sd</c>
+    /// (ascat.aspcf <c>fastAspcf</c> and ascat.asmultipcf BAF correction, verbatim).
+    /// </summary>
+    private static double AscatShrunkBafLevel(double mu, double sd) =>
+        (Math.Sqrt(sd * sd + mu * mu) < 2.0 * sd ? 0.0 : mu) + BalancedBaf;
 
     /// <summary>
     /// ASCAT/copynumber <c>aspcfpart</c>: exact bivariate PCF (minimum segment length <paramref name="kmin"/>) on one
@@ -2442,6 +5278,46 @@ public static partial class OncologyAnalyzer
     }
 
     /// <summary>
+    /// ASCAT's NA-aware winsorisation (ascat.aspcf <c>lrwins[!is.na(lr)] = madWins(lr[!is.na(lr)], 2.5, 25)$ywin</c>;
+    /// ascat.asmultipcf <c>madWinsMatrixWithNA</c> per column): <see cref="MadWinsorize"/> of the non-NaN values in order,
+    /// NaN kept at the missing positions. Equals <see cref="MadWinsorize"/> on complete data.
+    /// </summary>
+    private static double[] MadWinsorizeWithNa(double[] x, double tau, int k)
+    {
+        int present = 0;
+        foreach (double v in x)
+        {
+            if (!double.IsNaN(v))
+            {
+                present++;
+            }
+        }
+
+        if (present == x.Length)
+        {
+            return MadWinsorize(x, tau, k);
+        }
+
+        var values = new double[present];
+        for (int i = 0, j = 0; i < x.Length; i++)
+        {
+            if (!double.IsNaN(x[i]))
+            {
+                values[j++] = x[i];
+            }
+        }
+
+        double[] wins = MadWinsorize(values, tau, k);
+        var result = new double[x.Length];
+        for (int i = 0, j = 0; i < x.Length; i++)
+        {
+            result[i] = double.IsNaN(x[i]) ? double.NaN : wins[j++];
+        }
+
+        return result;
+    }
+
+    /// <summary>
     /// R <c>mad(x)</c> = 1.4826 · median(|x − median(x)|) (constant <see cref="MadConsistencyConstant"/>, raw MAD from
     /// <see cref="RawMedianAbsoluteDeviation"/>, both shared with the MATH score).
     /// </summary>
@@ -2451,7 +5327,7 @@ public static partial class OncologyAnalyzer
     /// <summary>
     /// Unscaled median absolute deviation about <paramref name="center"/>: median(|xᵢ − center|) (canonical
     /// <see cref="StatisticsHelper.Median"/>). Shared by R <c>mad</c> (<see cref="RMad"/>, ASCAT ASPCF) and the maftools
-    /// MATH score (<see cref="CalculateITH"/>), which apply the 1.4826 factor in different operation orders.
+    /// MATH score (<see cref="CalculateITH(IReadOnlyList{double})"/>), which apply the 1.4826 factor in different operation orders.
     /// </summary>
     private static double RawMedianAbsoluteDeviation(double[] x, double center)
     {
@@ -2570,6 +5446,1821 @@ public static partial class OncologyAnalyzer
         return m;
     }
 
+    // ---- ASCAT ascat.aspcf with germline-homozygous probes (B24 F36) ----
+
+    /// <summary>ASCAT <c>predictGermlineHomozygousStretches</c>: hard-coded p-value 0.001 of a homozygous run.</summary>
+    private const double AscatHomozygousStretchPValue = 0.001;
+
+    /// <summary>ascat.aspcf homozygous-stretch resegmentation: PCF context of ±100 probes around the stretch.</summary>
+    private const int AscatHomStretchContext = 100;
+
+    /// <summary>ascat.aspcf homozygous-stretch resegmentation: replacement margin of ±5 probes around the stretch.</summary>
+    private const int AscatHomStretchMargin = 5;
+
+    /// <summary>ascat.aspcf homozygous-stretch resegmentation: a probe is replaced when |Δ level| &gt; 0.3 …</summary>
+    private const double AscatHomStretchLevelDifference = 0.3;
+
+    /// <summary>… and only when more than 5 probes of the stretch differ (<c>sum(dif &gt; 0.3) &gt; 5</c>).</summary>
+    private const int AscatHomStretchMinDifferingProbes = 5;
+
+    /// <summary>
+    /// One ASCAT logR segment of a germline-aware ASPCF segmentation (<see cref="AspcfSegmentation"/>): a maximal run of
+    /// loci with the same segmented logR inside one chromosome — exactly the segments runASCAT builds from
+    /// <c>rle(lrrsegmented)</c> ∪ chromosome ends (ascat.runAscat.R, <c>tlrstart</c>/<c>tlrend</c>).
+    /// </summary>
+    /// <param name="Chromosome">Contig label.</param>
+    /// <param name="Start">Position of the first locus of the segment.</param>
+    /// <param name="End">Position of the last locus of the segment.</param>
+    /// <param name="MeanLogR">Segmented logR level (mean raw logR of the segment's loci, heterozygous and homozygous).</param>
+    /// <param name="MeanBAF">Mirrored (≥ 0.5) segmented BAF of the segment's <b>first</b> germline-heterozygous locus
+    /// (runASCAT <c>bafke = bafsegmented[bafpos][1]</c>); <see cref="double.NaN"/> when the segment has no heterozygous
+    /// locus (a germline-homozygous stretch: ASCAT then sets <c>bafke = 0</c> and only nA + nB is meaningful).</param>
+    /// <param name="LocusCount">Number of loci (all germline genotypes) in the segment.</param>
+    /// <param name="HeterozygousLocusCount">Number of germline-heterozygous loci in the segment.</param>
+    public readonly record struct AspcfSegment(
+        string Chromosome,
+        long Start,
+        long End,
+        double MeanLogR,
+        double MeanBAF,
+        int LocusCount,
+        int HeterozygousLocusCount)
+    {
+        /// <summary>True when the segment has a segmented BAF (at least one germline-heterozygous locus).</summary>
+        public bool HasBaf => !double.IsNaN(MeanBAF);
+    }
+
+    /// <summary>
+    /// Result of ASCAT allele-specific segmentation with germline genotypes
+    /// (<see cref="SegmentAlleleSpecificAspcf(IEnumerable{AlleleSpecificLocus}, IReadOnlyList{bool}, double)"/>): the
+    /// per-locus ASCAT <c>Tumor_LogR_segmented</c> (every locus) and <c>Tumor_BAF_segmented</c> (heterozygous loci only),
+    /// plus the logR segments runASCAT builds from them. Consumed by <see cref="FitPurityPloidyFromAspcf"/>.
+    /// </summary>
+    public sealed class AspcfSegmentation
+    {
+        internal AspcfSegmentation(
+            AlleleSpecificLocus[] loci, bool[] heterozygous, double[] segmentedLogR, double[] segmentedBaf,
+            AspcfSegment[] segments)
+        {
+            Loci = Array.AsReadOnly(loci);
+            GermlineHeterozygous = Array.AsReadOnly(heterozygous);
+            SegmentedLogR = Array.AsReadOnly(segmentedLogR);
+            SegmentedBaf = Array.AsReadOnly(segmentedBaf);
+            Segments = Array.AsReadOnly(segments);
+        }
+
+        /// <summary>The input loci, in input order.</summary>
+        public IReadOnlyList<AlleleSpecificLocus> Loci { get; }
+
+        /// <summary>The germline genotype of each locus (true = heterozygous), in input order.</summary>
+        public IReadOnlyList<bool> GermlineHeterozygous { get; }
+
+        /// <summary>ASCAT <c>Tumor_LogR_segmented</c>: the segmented logR level of every locus.</summary>
+        public IReadOnlyList<double> SegmentedLogR { get; }
+
+        /// <summary>Mirrored (≥ 0.5) segmented BAF of each heterozygous locus (ASCAT <c>Tumor_BAF_segmented = 1 − value</c>);
+        /// <see cref="double.NaN"/> at germline-homozygous loci (ASCAT segments BAF on heterozygous probes only) and at
+        /// heterozygous loci that ASCAT leaves out of <c>Tumor_BAF_segmented</c> because of missing data (B24 F59).</summary>
+        public IReadOnlyList<double> SegmentedBaf { get; }
+
+        /// <summary>The logR segments (runs of equal segmented logR within a chromosome), in input order.</summary>
+        public IReadOnlyList<AspcfSegment> Segments { get; }
+    }
+
+    /// <summary>
+    /// ASCAT allele-specific segmentation with germline genotypes — a port of the complete <c>ascat.aspcf</c>
+    /// (VanLoo-lab/ascat ascat.aspcf.R; Ross et al. 2021, <i>Bioinformatics</i> 37:1909) for mixed heterozygous /
+    /// homozygous input, as ASCAT runs it with <c>ascat.gg$germlinegenotypes</c> (TRUE = homozygous):
+    /// <list type="number">
+    /// <item>Germline-homozygous stretches (<c>predictGermlineHomozygousStretches</c>): with h = the fraction of homozygous
+    /// loci, a run of ≥ <c>ceiling(log(0.001, h))</c> consecutive homozygous loci is a stretch.</item>
+    /// <item>Per chromosome: logR of <b>all</b> loci is MAD-winsorised; BAF of the heterozygous loci only. Each
+    /// heterozygous locus gets the mean winsorised logR of the loci between the midpoints to its heterozygous
+    /// neighbours; ASPCF (<c>fastAspcf</c>, kmin 6; &lt; 6 heterozygous loci ⇒ one segment) runs on these averages and
+    /// the heterozygous BAF. Between consecutive heterozygous loci of different levels the logR breakpoint is placed
+    /// in the homozygous gap at the minimum absolute deviation (ascat.aspcf "find best breakpoint", verbatim
+    /// including its <c>1:0</c> indexing at bp = 0); levels are re-estimated as the mean raw logR. A chromosome without
+    /// heterozygous loci becomes one logR segment (mean raw logR) with no BAF.</item>
+    /// <item>Each homozygous stretch is re-segmented: exact PCF (<c>exactPcf</c>, kmin 6, penalty floor(γ/4)) of the
+    /// winsorised raw logR over the stretch ± 100 loci; the stretch ± 5 loci takes the PCF level where it differs by
+    /// more than 0.3, if more than 5 loci differ.</item>
+    /// <item>Genome-wide: zero levels are filled from their neighbours (<c>fillNA(zeroIsNA = TRUE)</c>) and every run of
+    /// equal levels is re-estimated as its mean raw logR; the penalty ladder (35, 50, 70, 100, 140) is climbed while
+    /// ≥ 800 distinct levels remain.</item>
+    /// </list>
+    /// With every locus heterozygous the logR levels and BAF are those of
+    /// <see cref="SegmentAlleleSpecificAspcf(IEnumerable{AlleleSpecificLocus}, double)"/> (which is unchanged), apart from
+    /// two R genome-wide steps that overload omits — a level exactly 0 is replaced by <c>fillNA</c>, and equal adjacent
+    /// levels on consecutive chromosomes are re-averaged together.
+    /// Loci of one chromosome must be contiguous in the input (each contiguous same-label run is one ASCAT <c>chr</c>
+    /// part); positions are not re-sorted.
+    /// </summary>
+    /// <param name="loci">Per-locus measurements in genome order. LogR must be finite or NaN; BAF must be in [0, 1] or NaN
+    /// at heterozygous loci and is ignored at homozygous loci (it may be NaN there, e.g. a copy-number-only probe). NaN is
+    /// R's <c>NA</c> and follows ascat.aspcf's NA path (B24 F59): a heterozygous locus with a missing BAF or logR is left
+    /// out of the ASPCF (<c>Select_het</c>) and gets no segmented BAF; missing logR is skipped in winsorisation, averages,
+    /// the gap breakpoint and level means; all-missing levels are filled by <c>fillNA</c> / the previous level.</param>
+    /// <param name="germlineHeterozygous">Germline genotype per locus: true = heterozygous (ASCAT
+    /// <c>germlinegenotypes == FALSE</c>), false = homozygous. Same length as <paramref name="loci"/>.</param>
+    /// <param name="penalty">ASPCF penalty (ASCAT <c>penalty</c>, default <see cref="AspcfDefaultPenalty"/> = 70).</param>
+    /// <returns>The per-locus segmented logR/BAF and the runASCAT logR segments.</returns>
+    /// <exception cref="ArgumentNullException">An argument is null.</exception>
+    /// <exception cref="ArgumentException">Lengths differ, a chromosome label is null, a logR is infinite, or a
+    /// heterozygous locus has a BAF outside [0, 1] (and not NaN).</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="penalty"/> ≤ 0, NaN or infinite.</exception>
+    public static AspcfSegmentation SegmentAlleleSpecificAspcf(
+        IEnumerable<AlleleSpecificLocus> loci,
+        IReadOnlyList<bool> germlineHeterozygous,
+        double penalty = AspcfDefaultPenalty)
+        => SegmentAlleleSpecificAspcfCore(loci, germlineHeterozygous, null, penalty);
+
+    /// <summary>
+    /// <see cref="SegmentAlleleSpecificAspcf(IEnumerable{AlleleSpecificLocus}, IReadOnlyList{bool}, double)"/> with ASCAT's
+    /// male X non-PAR germline re-genotyping (<c>ascat.aspcf(…, seed)</c> with <c>gender = "XY"</c> and <c>X_nonPAR</c>,
+    /// B24 F58; see <see cref="AscatMaleXGenotyping"/>). As in ascat.aspcf, the germline-homozygous stretches are predicted
+    /// from the caller's genotypes <i>before</i> the re-genotyping, and the segmentation then uses the re-genotyped flags
+    /// (returned in <see cref="AspcfSegmentation.GermlineHeterozygous"/>; a re-genotyped heterozygous locus needs a BAF in
+    /// [0, 1]). With an inactive <paramref name="maleX"/> (female, or no X non-PAR interval) the result equals the
+    /// three-argument overload.
+    /// </summary>
+    /// <param name="loci">See the three-argument overload.</param>
+    /// <param name="germlineHeterozygous">The caller's germline genotypes (true = heterozygous), before re-genotyping.</param>
+    /// <param name="maleX">Sex model, seed and optional germline BAF.</param>
+    /// <param name="penalty">ASPCF penalty (default <see cref="AspcfDefaultPenalty"/> = 70).</param>
+    /// <returns>The per-locus segmented logR/BAF (with the re-genotyped genotypes) and the runASCAT logR segments.</returns>
+    /// <exception cref="ArgumentNullException">An argument is null.</exception>
+    /// <exception cref="ArgumentException">As the three-argument overload; also a germline-BAF count other than one per
+    /// locus, or (without germline BAF) no heterozygous autosomal locus while re-genotyping (R's <c>sample()</c> fails).</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="penalty"/> ≤ 0, NaN or infinite.</exception>
+    public static AspcfSegmentation SegmentAlleleSpecificAspcf(
+        IEnumerable<AlleleSpecificLocus> loci,
+        IReadOnlyList<bool> germlineHeterozygous,
+        AscatMaleXGenotyping maleX,
+        double penalty = AspcfDefaultPenalty)
+    {
+        ArgumentNullException.ThrowIfNull(maleX);
+        return SegmentAlleleSpecificAspcfCore(loci, germlineHeterozygous, maleX, penalty);
+    }
+
+    /// <summary>One sample of a multi-sample <c>ascat.aspcf</c> run (<see cref="SegmentAlleleSpecificAspcfSamples"/>).</summary>
+    /// <param name="Loci">The sample's per-locus logR/BAF in genome order (as the single-sample overloads).</param>
+    /// <param name="GermlineHeterozygous">The caller's germline genotypes (true = heterozygous), before re-genotyping.</param>
+    public sealed record AspcfSampleInput(IReadOnlyList<AlleleSpecificLocus> Loci, IReadOnlyList<bool> GermlineHeterozygous)
+    {
+        /// <summary>
+        /// The sample's sex model (ASCAT <c>gender[sample]</c> and <c>X_nonPAR</c>); null = no re-genotyping (as a female
+        /// sample or a run without <c>X_nonPAR</c>).
+        /// </summary>
+        public AscatSexModel? SexModel { get; init; }
+
+        /// <summary>The sample's germline BAF per locus (ASCAT <c>Germline_BAF[, sample]</c>), or null (<c>sample()</c> branch).</summary>
+        public IReadOnlyList<double>? GermlineBaf { get; init; }
+    }
+
+    /// <summary>
+    /// <c>ascat.aspcf</c> over several samples in one call (VanLoo-lab/ascat ascat.aspcf.R: <c>set.seed(seed)</c> once,
+    /// then <c>for (sample in selectsamples)</c>; B24 F65). Each sample is segmented exactly as
+    /// <see cref="SegmentAlleleSpecificAspcf(IEnumerable{AlleleSpecificLocus}, IReadOnlyList{bool}, AscatMaleXGenotyping, double)"/>,
+    /// but the male X non-PAR re-genotyping (<see cref="AscatMaleXGenotyping"/>) of all samples draws from ONE R random
+    /// stream, in sample order: a later male sample continues where the previous one stopped (samples without active
+    /// re-genotyping — female, no X non-PAR interval, or ≤ 5 known non-PAR probes — draw nothing). The first male sample
+    /// therefore equals the single-sample call with the same seed; later ones generally differ from it.
+    /// </summary>
+    /// <param name="samples">The samples, in ASCAT's <c>selectsamples</c> order.</param>
+    /// <param name="seed">R <c>set.seed</c> value (ASCAT <c>seed</c>); null = <see cref="AscatMaleXGenotyping.DefaultSeed"/>.</param>
+    /// <param name="penalty">ASPCF penalty (default <see cref="AspcfDefaultPenalty"/> = 70), shared by all samples.</param>
+    /// <returns>One segmentation per sample, in input order.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="samples"/> is null.</exception>
+    /// <exception cref="ArgumentException">A sample is null, or a sample fails the single-sample contract.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="penalty"/> ≤ 0, NaN or infinite.</exception>
+    public static IReadOnlyList<AspcfSegmentation> SegmentAlleleSpecificAspcfSamples(
+        IReadOnlyList<AspcfSampleInput> samples,
+        int? seed = null,
+        double penalty = AspcfDefaultPenalty)
+    {
+        ArgumentNullException.ThrowIfNull(samples);
+        if (!double.IsFinite(penalty) || penalty <= 0.0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(penalty), penalty, "The ASPCF penalty γ must be positive and finite.");
+        }
+
+        int rSeed = seed ?? AscatMaleXGenotyping.DefaultSeed();
+        var rng = new RMersenneTwister(rSeed); // ascat.aspcf: set.seed(seed) before the sample loop.
+        var results = new AspcfSegmentation[samples.Count];
+        for (int s = 0; s < samples.Count; s++)
+        {
+            AspcfSampleInput sample = samples[s]
+                ?? throw new ArgumentException($"Sample {s} is null.", nameof(samples));
+            AscatMaleXGenotyping? maleX = sample.SexModel is null
+                ? null
+                : new AscatMaleXGenotyping(sample.SexModel, rSeed, sample.GermlineBaf);
+            results[s] = SegmentAlleleSpecificAspcfCore(sample.Loci, sample.GermlineHeterozygous, maleX, penalty, rng);
+        }
+
+        return results;
+    }
+
+    private static AspcfSegmentation SegmentAlleleSpecificAspcfCore(
+        IEnumerable<AlleleSpecificLocus> loci,
+        IReadOnlyList<bool> germlineHeterozygous,
+        AscatMaleXGenotyping? maleX,
+        double penalty,
+        RMersenneTwister? rng = null)
+    {
+        ArgumentNullException.ThrowIfNull(loci);
+        ArgumentNullException.ThrowIfNull(germlineHeterozygous);
+        if (!double.IsFinite(penalty) || penalty <= 0.0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(penalty), penalty, "The ASPCF penalty γ must be positive and finite.");
+        }
+
+        AlleleSpecificLocus[] probes = loci.ToArray();
+        if (probes.Length != germlineHeterozygous.Count)
+        {
+            throw new ArgumentException(
+                "Exactly one germline genotype is required per locus.", nameof(germlineHeterozygous));
+        }
+
+        var het = new bool[probes.Length];
+        for (int i = 0; i < probes.Length; i++)
+        {
+            het[i] = germlineHeterozygous[i];
+            if (probes[i].Chromosome is null)
+            {
+                throw new ArgumentException("A locus has a null chromosome label.", nameof(loci));
+            }
+
+            if (double.IsInfinity(probes[i].LogR))
+            {
+                throw new ArgumentException("A logR must be finite or NaN (missing).", nameof(loci));
+            }
+        }
+
+        int n = probes.Length;
+        var logR = new double[n];
+        for (int i = 0; i < n; i++)
+        {
+            logR[i] = probes[i].LogR;
+        }
+
+        List<(int Lo, int Hi)> runs = ContiguousChromosomeRuns(probes);
+
+        // ascat.aspcf: ghs = predictGermlineHomozygousStretches(chr, gg) precedes the male X non-PAR re-genotyping.
+        List<(int Run, int Start, int End)> stretches = PredictGermlineHomozygousStretches(runs, het);
+        RegenotypeMaleXNonPar(probes, het, maleX, nameof(maleX), rng);
+        for (int i = 0; i < n; i++)
+        {
+            if (het[i] && !IsAscatBafOrMissing(probes[i].BAF))
+            {
+                throw new ArgumentException("Every heterozygous locus needs a BAF in [0, 1] or NaN (missing).", nameof(loci));
+            }
+        }
+
+        var ladder = new List<double> { penalty };
+        foreach (double p in AspcfPenaltyLadder)
+        {
+            if (p > penalty)
+            {
+                ladder.Add(p);
+            }
+        }
+
+        double[] logRPcfed = Array.Empty<double>();
+        double[] bafPcfed = new double[n];
+        foreach (double segmentPenalty in ladder)
+        {
+            logRPcfed = new double[n];
+            Array.Fill(bafPcfed, double.NaN);
+            for (int r = 0; r < runs.Count; r++)
+            {
+                SegmentChromosomeAspcfGermline(logR, probes, het, runs[r].Lo, runs[r].Hi, segmentPenalty, logRPcfed, bafPcfed);
+                ResegmentHomozygousStretches(logR, runs[r].Lo, runs[r].Hi, stretches, r, segmentPenalty, logRPcfed);
+            }
+
+            AscatFillNa(logRPcfed);
+            ReadaptLevels(logRPcfed, logR, 0, n);
+
+            if (logRPcfed.Distinct().Count() < AspcfMaxSegmentLevels)
+            {
+                break;
+            }
+        }
+
+        return new AspcfSegmentation(probes, het, logRPcfed, bafPcfed, BuildAspcfSegments(probes, het, runs, logRPcfed, bafPcfed));
+    }
+
+    /// <summary>Contiguous same-chromosome runs of the loci (ASCAT <c>chr</c> parts), in input order.</summary>
+    private static List<(int Lo, int Hi)> ContiguousChromosomeRuns(AlleleSpecificLocus[] loci)
+    {
+        var runs = new List<(int Lo, int Hi)>();
+        int start = 0;
+        while (start < loci.Length)
+        {
+            int end = start;
+            while (end + 1 < loci.Length && loci[end + 1].Chromosome == loci[start].Chromosome)
+            {
+                end++;
+            }
+
+            runs.Add((start, end));
+            start = end + 1;
+        }
+
+        return runs;
+    }
+
+    /// <summary>
+    /// ASCAT <c>predictGermlineHomozygousStretches</c>: runs of ≥ <c>ceiling(log(0.001, h))</c> consecutive homozygous loci
+    /// per chromosome, h = genome-wide homozygous fraction (R <c>log(x, base) = log(x)/log(base)</c>). Returns 0-based
+    /// global (first, last) indices.
+    /// </summary>
+    private static List<(int Run, int Start, int End)> PredictGermlineHomozygousStretches(
+        List<(int Lo, int Hi)> runs, bool[] het)
+    {
+        var stretches = new List<(int Run, int Start, int End)>();
+        if (het.Length == 0)
+        {
+            return stretches;
+        }
+
+        int homCount = 0;
+        foreach (bool h in het)
+        {
+            if (!h)
+            {
+                homCount++;
+            }
+        }
+
+        double fractionHom = (double)homCount / het.Length;
+        double threshold = Math.Ceiling(Math.Log(AscatHomozygousStretchPValue) / Math.Log(fractionHom));
+        for (int r = 0; r < runs.Count; r++)
+        {
+            int count = 0, first = -1;
+            for (int i = runs[r].Lo; i <= runs[r].Hi; i++)
+            {
+                if (!het[i])
+                {
+                    if (count == 0)
+                    {
+                        first = i;
+                    }
+
+                    count++;
+                }
+                else
+                {
+                    // An empty run gives R an NA row (min of an empty vector), which ascat.aspcf skips.
+                    if (count > 0 && count >= threshold)
+                    {
+                        stretches.Add((r, first, i - 1));
+                    }
+
+                    count = 0;
+                }
+            }
+
+            if (count > 0 && count >= threshold)
+            {
+                stretches.Add((r, first, runs[r].Hi));
+            }
+        }
+
+        return stretches;
+    }
+
+    /// <summary>
+    /// The per-chromosome body of <c>ascat.aspcf</c> with germline genotypes, on loci [lo, hi]: writes the segmented logR
+    /// of every locus to <paramref name="logRPcfed"/> and the mirrored segmented BAF of each heterozygous locus to
+    /// <paramref name="bafPcfed"/>.
+    /// </summary>
+    private static void SegmentChromosomeAspcfGermline(
+        double[] logR, AlleleSpecificLocus[] loci, bool[] het, int lo, int hi, double penalty,
+        double[] logRPcfed, double[] bafPcfed)
+    {
+        int len = hi - lo + 1;
+        var lr = new double[len];
+        Array.Copy(logR, lo, lr, 0, len);
+        double[] lrWins = MadWinsorizeWithNa(lr, AspcfWinsorTau, AspcfMedianHalfWindow);
+
+        // R "indices" = which(Select_het), Select_het = !homo & !is.na(baf) & !is.na(lr) (1-based local indices).
+        var indices = new List<int>();
+        for (int i = 0; i < len; i++)
+        {
+            if (het[lo + i] && !double.IsNaN(loci[lo + i].BAF) && !double.IsNaN(lr[i]))
+            {
+                indices.Add(i + 1);
+            }
+        }
+
+        int h = indices.Count;
+        if (h == 0)
+        {
+            // No usable heterozygous probe: a single logR segment (mean(lr, na.rm = TRUE)), no BAF.
+            double level = MeanNaRm(lr, 0, len);
+            Array.Fill(logRPcfed, level, lo, len);
+            return;
+        }
+
+        var bafSel = new double[h];
+        var mirrored = new double[h];
+        for (int k = 0; k < h; k++)
+        {
+            bafSel[k] = loci[lo + indices[k] - 1].BAF;
+            mirrored[k] = MirrorBaf(bafSel[k]);
+        }
+
+        double[] bafWinsMirrored = MadWinsorize(mirrored, AspcfWinsorTau, AspcfMedianHalfWindow);
+        var bafWins = new double[h];
+        for (int k = 0; k < h; k++)
+        {
+            bafWins[k] = OrientBaf(bafSel[k], bafWinsMirrored[k]);
+        }
+
+        // averageIndices = c(1, (indices[-h] + indices[-1])/2, length(lr) + 0.01); start = ceiling, end = floor(· − 0.01).
+        var localIndices = indices.ConvertAll(i => i - 1);
+        var logRAveraged = new double[h];
+        for (int k = 0; k < h; k++)
+        {
+            (int startIndex, int endIndex) = AscatAveragingWindow(localIndices, k, len);
+            logRAveraged[k] = RColonMeanNaRm(lrWins, startIndex, endIndex);
+        }
+
+        var levelPerHet = new double[h];
+        var bafPerHet = new double[h];
+        if (h < AspcfMinSegmentLength)
+        {
+            Array.Fill(levelPerHet, Mean(logRAveraged, 0, h));
+            Array.Fill(bafPerHet, Mean(bafWinsMirrored, 0, h));
+        }
+        else
+        {
+            (int[] breakpoints, double[] segmentBaf) = FastAspcf(logRAveraged, bafWins, AspcfMinSegmentLength, penalty);
+            for (int s = 0; s + 1 < breakpoints.Length; s++)
+            {
+                double level = Mean(logRAveraged, breakpoints[s], breakpoints[s + 1]); // fastAspcf yhat1
+                for (int k = breakpoints[s]; k < breakpoints[s + 1]; k++)
+                {
+                    levelPerHet[k] = level;
+                    bafPerHet[k] = segmentBaf[s];
+                }
+            }
+        }
+
+        // logRc: extend the heterozygous levels over the homozygous gaps ("find best breakpoint").
+        var logRc = new double[len];
+        for (int p = 0; p < h; p++)
+        {
+            int at = indices[p]; // 1-based
+            if (p == 0)
+            {
+                Array.Fill(logRc, levelPerHet[0], 0, at);
+            }
+
+            if (p == h - 1)
+            {
+                Array.Fill(logRc, levelPerHet[p], at, len - at);
+            }
+            else if (levelPerHet[p] == levelPerHet[p + 1])
+            {
+                Array.Fill(logRc, levelPerHet[p], at, indices[p + 1] - at);
+            }
+            else
+            {
+                int total = indices[p + 1] - at;
+                int breakpoint = AscatBestGapBreakpoint(lr, at, total, levelPerHet[p], levelPerHet[p + 1]);
+                Array.Fill(logRc, levelPerHet[p], at, breakpoint);
+                Array.Fill(logRc, levelPerHet[p + 1], at + breakpoint, total - breakpoint);
+            }
+        }
+
+        // 2nd step: adapt levels (rle(logRc) runs → mean raw logR).
+        int runStart = 0;
+        for (int i = 1; i <= len; i++)
+        {
+            if (i == len || logRc[i] != logRc[runStart])
+            {
+                double level = MeanNaRm(lr, runStart, i);
+                Array.Fill(logRPcfed, level, lo + runStart, i - runStart);
+                runStart = i;
+            }
+        }
+
+        for (int k = 0; k < h; k++)
+        {
+            bafPcfed[lo + indices[k] - 1] = bafPerHet[k];
+        }
+    }
+
+    /// <summary>
+    /// R <c>mean(x[start:end])</c> for 1-based <paramref name="start"/>, <paramref name="end"/>. When end &lt; start, R's
+    /// <c>:</c> counts down (<c>x[n:(n-1)]</c> = two elements) — this happens in ascat.aspcf / ascat.asmultipcf for the last
+    /// averaging window, because <c>floor(n + 0.01 − 0.01)</c> is n − 1 in IEEE doubles for n = 2, 32, 128, 16384, 65536, ….
+    /// Missing (NaN) values are skipped (<c>na.rm = TRUE</c>, as both R functions average <c>logRaveraged</c>).
+    /// </summary>
+    private static double RColonMeanNaRm(double[] x, int start, int end) =>
+        end >= start ? MeanNaRm(x, start - 1, end) : MeanNaRm(x, end - 1, start);
+
+    /// <summary>
+    /// ascat.aspcf "find best breakpoint" between heterozygous loci at 1-based local positions <paramref name="at"/> and
+    /// at + <paramref name="total"/>: for bp ∈ 0..total−1, d(bp) = Σ|lr[(1:bp) + at] − left| + Σ|lr[((bp+1):total) + at] −
+    /// right|; returns <c>which.min(d) − 1</c>. R's <c>1:0 = c(1, 0)</c> makes bp = 0 compare lr[at + 1] and lr[at] with
+    /// the left level — kept verbatim.
+    /// </summary>
+    private static int AscatBestGapBreakpoint(double[] lr, int at, int total, double left, double right)
+    {
+        // sum(abs(lr[...] − level), na.rm = TRUE): a missing logR contributes nothing.
+        static double AbsDeviationNaRm(double x, double level) => double.IsNaN(x) ? 0.0 : Math.Abs(x - level);
+
+        int best = 0;
+        double bestDistance = double.NaN;
+        for (int bp = 0; bp < total; bp++)
+        {
+            double leftSum = 0.0;
+            if (bp == 0)
+            {
+                leftSum += AbsDeviationNaRm(lr[at], left);     // lr[1 + at] (R 1-based) = C# lr[at]
+                leftSum += AbsDeviationNaRm(lr[at - 1], left); // lr[0 + at]
+            }
+            else
+            {
+                for (int q = 1; q <= bp; q++)
+                {
+                    leftSum += AbsDeviationNaRm(lr[q + at - 1], left);
+                }
+            }
+
+            double rightSum = 0.0;
+            for (int q = bp + 1; q <= total; q++)
+            {
+                rightSum += AbsDeviationNaRm(lr[q + at - 1], right);
+            }
+
+            double distance = leftSum + rightSum;
+            if (bp == 0 || distance < bestDistance)
+            {
+                bestDistance = distance;
+                best = bp;
+            }
+        }
+
+        return best;
+    }
+
+    /// <summary>
+    /// ascat.aspcf "correct wrong segments in germline homozygous stretches" for the stretches of chromosome run
+    /// <paramref name="run"/> [lo, hi]: exact PCF (kmin 6, penalty floor(γ/4)) of the winsorised raw logR over the stretch
+    /// ± 100 loci; the stretch ± 5 loci takes the PCF level where it differs by &gt; 0.3, if &gt; 5 loci differ.
+    /// </summary>
+    private static void ResegmentHomozygousStretches(
+        double[] logR, int lo, int hi, List<(int Run, int Start, int End)> stretches, int run, double penalty,
+        double[] logRPcfed)
+    {
+        double pcfPenalty = Math.Floor(penalty / 4.0);
+        foreach ((int stretchRun, int start, int end) in stretches)
+        {
+            if (stretchRun != run)
+            {
+                continue;
+            }
+
+            int start2 = Math.Max(start - AscatHomStretchContext, lo);
+            int end2 = Math.Min(end + AscatHomStretchContext, hi);
+            int start3 = Math.Max(start - AscatHomStretchMargin, lo);
+            int end3 = Math.Min(end + AscatHomStretchMargin, hi);
+
+            // towins; winsed = madWins(towins[!is.na(towins)]); pcfed[!is.na(towins)] = exactPcf(winsed), 0 elsewhere.
+            var window = new double[end2 - start2 + 1];
+            Array.Copy(logR, start2, window, 0, window.Length);
+            var present = new List<int>(window.Length);
+            for (int i = 0; i < window.Length; i++)
+            {
+                if (!double.IsNaN(window[i]))
+                {
+                    present.Add(i);
+                }
+            }
+
+            double[] pcfed;
+            if (present.Count == window.Length)
+            {
+                pcfed = ExactPcf(MadWinsorize(window, AspcfWinsorTau, AspcfMedianHalfWindow), AspcfMinSegmentLength, pcfPenalty);
+            }
+            else
+            {
+                var towins = new double[present.Count];
+                for (int j = 0; j < towins.Length; j++)
+                {
+                    towins[j] = window[present[j]];
+                }
+
+                double[] fitted = ExactPcf(MadWinsorize(towins, AspcfWinsorTau, AspcfMedianHalfWindow), AspcfMinSegmentLength, pcfPenalty);
+                pcfed = new double[window.Length];
+                for (int j = 0; j < towins.Length; j++)
+                {
+                    pcfed[present[j]] = fitted[j];
+                }
+            }
+
+            int count = end3 - start3 + 1;
+            var dif = new double[count];
+            int differing = 0;
+            bool anyMissing = false;
+            for (int i = 0; i < count; i++)
+            {
+                dif[i] = Math.Abs(pcfed[start3 - start2 + i] - logRPcfed[start3 + i]);
+                anyMissing |= double.IsNaN(dif[i]);
+                if (dif[i] > AscatHomStretchLevelDifference)
+                {
+                    differing++;
+                }
+            }
+
+            if (!anyMissing && differing > AscatHomStretchMinDifferingProbes) // !anyNA(dif) && sum(dif > 0.3) > 5
+            {
+                for (int i = 0; i < count; i++)
+                {
+                    if (dif[i] > AscatHomStretchLevelDifference)
+                    {
+                        logRPcfed[start3 + i] = pcfed[start3 - start2 + i];
+                    }
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// ASCAT <c>exactPcf(y, kmin, gamma)</c> (ascat.aspcf.R): exact univariate piecewise-constant fit by Potts filtering,
+    /// minimum segment length kmin, penalty γ per discontinuity on the raw (unstandardised) squared error.
+    /// </summary>
+    private static double[] ExactPcf(double[] y, int kmin, double gamma)
+    {
+        int n = y.Length;
+        var yhat = new double[n];
+        if (n < 2 * kmin)
+        {
+            Array.Fill(yhat, Mean(y, 0, n));
+            return yhat;
+        }
+
+        // 1-based arrays (index 0 unused), mirroring the R code.
+        double initSum = 0.0, initKvad = 0.0;
+        for (int i = 1; i <= kmin; i++)
+        {
+            initSum += y[i - 1];
+            initKvad += y[i - 1] * y[i - 1];
+        }
+
+        double initAve = initSum / kmin;
+        var bestCost = new double[n + 1];
+        var bestSplit = new int[n + 1];
+        var bestAver = new double[n + 1];
+        var sum = new double[n + 1];
+        var kvad = new double[n + 1];
+        var aver = new double[n + 1];
+        var cost = new double[n + 1];
+        bestCost[kmin] = initKvad - initSum * initAve;
+        bestAver[kmin] = initAve;
+        int kminP1 = kmin + 1;
+        for (int k = kminP1; k <= 2 * kmin - 1; k++)
+        {
+            double yk = y[k - 1];
+            for (int t = kminP1; t <= k; t++)
+            {
+                sum[t] += yk;
+                aver[t] = sum[t] / (k - t + 1);
+                kvad[t] += yk * yk;
+            }
+
+            bestAver[k] = (initSum + sum[kminP1]) / k;
+            bestCost[k] = (initKvad + kvad[kminP1]) - k * (bestAver[k] * bestAver[k]);
+        }
+
+        for (int m = 2 * kmin; m <= n; m++)
+        {
+            double yn = y[m - 1];
+            double yn2 = yn * yn;
+            for (int t = kminP1; t <= m; t++)
+            {
+                sum[t] += yn;
+                aver[t] = sum[t] / (m - t + 1);
+                kvad[t] += yn2;
+            }
+
+            int nMkminP1 = m - kmin + 1;
+            int pos = -1;
+            for (int t = kminP1; t <= nMkminP1; t++)
+            {
+                cost[t] = bestCost[t - 1] + kvad[t] - sum[t] * aver[t] + gamma;
+                if (pos < 0 || cost[t] < cost[pos])
+                {
+                    pos = t; // which.min: first minimum
+                }
+            }
+
+            double best = cost[pos];
+            double bestLevel = aver[pos];
+            double totAver = (sum[kminP1] + initSum) / m;
+            double totCost = (kvad[kminP1] + initKvad) - m * totAver * totAver;
+            if (totCost < best)
+            {
+                pos = 1;
+                best = totCost;
+                bestLevel = totAver;
+            }
+
+            bestCost[m] = best;
+            bestAver[m] = bestLevel;
+            bestSplit[m] = pos - 1;
+        }
+
+        int cursor = n;
+        while (cursor > 0)
+        {
+            for (int i = bestSplit[cursor]; i < cursor; i++)
+            {
+                yhat[i] = bestAver[cursor];
+            }
+
+            cursor = bestSplit[cursor];
+        }
+
+        return yhat;
+    }
+
+    /// <summary>
+    /// ASCAT <c>fillNA(vec, zeroIsNA = TRUE)</c> (ascat.aspcf.R), verbatim: levels exactly 0 become missing; a missing run
+    /// at the start/end takes the next/previous value; an interior run takes the previous value up to
+    /// <c>start + ceiling(N/2)</c> and the next value after it (for N = 2, 3 R's descending <c>(end+1):end</c> sets only
+    /// the last element to the next value).
+    /// </summary>
+    private static void AscatFillNa(double[] vec)
+    {
+        int n = vec.Length;
+        var missing = new List<int>();
+        for (int i = 0; i < n; i++)
+        {
+            if (vec[i] == 0.0 || double.IsNaN(vec[i]))
+            {
+                vec[i] = double.NaN;
+                missing.Add(i);
+            }
+        }
+
+        if (missing.Count == 0)
+        {
+            return;
+        }
+
+        var starts = new List<int> { missing[0] };
+        var ends = new List<int>();
+        for (int k = 1; k < missing.Count; k++)
+        {
+            if (missing[k] - missing[k - 1] > 1)
+            {
+                ends.Add(missing[k - 1]);
+                starts.Add(missing[k]);
+            }
+        }
+
+        ends.Add(missing[^1]);
+        double At(int index) => index < n ? vec[index] : double.NaN; // R: out-of-range index → NA
+
+        int startAt = 0;
+        if (starts[0] == 0)
+        {
+            double fill = At(ends[0] + 1);
+            Array.Fill(vec, fill, 0, ends[0] + 1);
+            startAt = 1;
+        }
+
+        if (startAt >= starts.Count)
+        {
+            return;
+        }
+
+        int endAt = starts.Count - 1;
+        if (double.IsNaN(vec[n - 1]))
+        {
+            Array.Fill(vec, vec[starts[endAt] - 1], starts[endAt], ends[endAt] - starts[endAt] + 1);
+            endAt--;
+        }
+
+        for (int k = startAt; k <= endAt; k++)
+        {
+            int start = starts[k], end = ends[k];
+            int count = 1 + end - start;
+            if (count == 1)
+            {
+                vec[start] = vec[start - 1];
+                continue;
+            }
+
+            int midpoint = start + (count + 1) / 2; // start + ceiling(N/2)
+            double previous = vec[start - 1], next = vec[end + 1];
+            Array.Fill(vec, previous, start, midpoint - start + 1);
+            if (midpoint < end)
+            {
+                Array.Fill(vec, next, midpoint + 1, end - midpoint);
+            }
+            else
+            {
+                vec[end] = next; // vec[(end+1):end] = vec[end+1]
+            }
+        }
+    }
+
+    /// <summary>
+    /// ascat.aspcf / ascat.asmultipcf "adapt levels again": every run of equal values of <paramref name="levels"/> in
+    /// [from, to) — across chromosome boundaries, as R's genome-wide <c>rle</c> — is set to the mean raw logR of the run
+    /// (<c>na.rm = TRUE</c>); a run without any non-missing raw logR takes the previous run's level ("making sure no NA's
+    /// get filled in", <c>prevlevel</c> starting at 0). R's <c>rle</c> splits every NaN into its own run where this merges
+    /// adjacent NaN levels; both give each such probe the mean of its (all-missing) raw logR, i.e. <c>prevlevel</c>.
+    /// </summary>
+    private static void ReadaptLevels(double[] levels, double[] rawLogR, int from, int to)
+    {
+        int runStart = from;
+        double previousLevel = 0.0;
+        for (int i = from + 1; i <= to; i++)
+        {
+            if (i == to || !levels[i].Equals(levels[runStart]))
+            {
+                double level = MeanNaRm(rawLogR, runStart, i);
+                if (double.IsNaN(level))
+                {
+                    level = previousLevel;
+                }
+                else
+                {
+                    previousLevel = level;
+                }
+
+                Array.Fill(levels, level, runStart, i - runStart);
+                runStart = i;
+            }
+        }
+    }
+
+    /// <summary>
+    /// runASCAT segments: runs of equal segmented logR split at chromosome ends (<c>union(tlrend, tlrend.chr)</c>),
+    /// each carrying the mirrored BAF of its first heterozygous locus with a segmented BAF (NaN if none).
+    /// </summary>
+    private static AspcfSegment[] BuildAspcfSegments(
+        AlleleSpecificLocus[] loci, bool[] het, List<(int Lo, int Hi)> runs, double[] logRPcfed, double[] bafPcfed)
+    {
+        var segments = new List<AspcfSegment>();
+        foreach ((int lo, int hi) in runs)
+        {
+            int start = lo;
+            for (int i = lo + 1; i <= hi + 1; i++)
+            {
+                if (i == hi + 1 || !logRPcfed[i].Equals(logRPcfed[start]))
+                {
+                    double baf = double.NaN;
+                    int hetCount = 0;
+                    for (int k = start; k < i; k++)
+                    {
+                        if (het[k])
+                        {
+                            // runASCAT bafke = bafsegmented[bafpos][1]: the first locus that HAS a segmented BAF (a missing
+                            // tumour BAF/logR leaves a heterozygous locus out of Tumor_BAF_segmented, B24 F59).
+                            if (double.IsNaN(baf))
+                            {
+                                baf = bafPcfed[k];
+                            }
+
+                            hetCount++;
+                        }
+                    }
+
+                    segments.Add(new AspcfSegment(
+                        loci[start].Chromosome, loci[start].Position, loci[i - 1].Position, logRPcfed[start], baf,
+                        i - start, hetCount));
+                    start = i;
+                }
+            }
+        }
+
+        return segments.ToArray();
+    }
+
+    // ---- ASCAT ascat.asmultipcf: joint multi-sample allele-specific PCF (B24 F53) ----
+
+    /// <summary>ascat.asmultipcf penalty ladder <c>unique(c(penalty, 25, 50, 100, 200, 400, 800))</c>, kept where ≥ penalty.</summary>
+    private static readonly double[] AsMultiPcfPenaltyLadder = { 25.0, 50.0, 100.0, 200.0, 400.0, 800.0 };
+
+    /// <summary>ascat.asmultipcf with <c>nrow(logRaveraged) &lt; 6</c>: one segment per chromosome part (no PCF).</summary>
+    private const int AsMultiPcfMinProbes = 6;
+
+    /// <summary><c>runFastASMultiPCF</c> window size <c>subsize = 5000</c> (windows hold subsize + 1 probes).</summary>
+    private const int AsMultiPcfFastSubsize = 5000;
+
+    /// <summary><c>runFastASMultiPCF</c> window step <c>4·subsize/5</c>.</summary>
+    private const int AsMultiPcfFastStep = 4 * AsMultiPcfFastSubsize / 5;
+
+    /// <summary>ascat.asmultipcf <c>selectAlg</c>: the joint segmentation algorithm.</summary>
+    public enum AsMultiPcfAlgorithm
+    {
+        /// <summary><c>"exact"</c> (ASCAT default): <c>ASmultiPCFcompact</c> on every probe of the chromosome part.</summary>
+        Exact,
+
+        /// <summary><c>"fast"</c>: <c>runFastASMultiPCF</c> — exact segmentation of overlapping 5001-probe windows (step 4000)
+        /// collects candidate breakpoints, then the exact algorithm runs on the compacted data. Identical to
+        /// <see cref="Exact"/> on parts of ≤ 5001 probes only in the absence of sample weights.</summary>
+        Fast,
+    }
+
+    /// <summary>Expert options of <see cref="SegmentAlleleSpecificAsMultiPcf"/> (ascat.asmultipcf arguments).</summary>
+    public sealed record AsMultiPcfOptions
+    {
+        /// <summary>The ASCAT defaults: no sample weights, exact algorithm, per-sample refinement on.</summary>
+        public static AsMultiPcfOptions Default { get; } = new();
+
+        /// <summary>ASCAT <c>wsample</c>: positive finite weights, either one per sample (applied to its logR and BAF
+        /// tracks) or one per track (2·S values: the S logR tracks, then the S BAF tracks). Null = all 1 (default).</summary>
+        public IReadOnlyList<double>? SampleWeights { get; init; }
+
+        /// <summary>ASCAT <c>selectAlg</c> (default <see cref="AsMultiPcfAlgorithm.Exact"/>).</summary>
+        public AsMultiPcfAlgorithm Algorithm { get; init; } = AsMultiPcfAlgorithm.Exact;
+
+        /// <summary>ASCAT <c>refine</c> (default true): re-segment each sample on the joint breakpoints with penalty γ/S, so a
+        /// breakpoint not supported by that sample is removed from it.</summary>
+        public bool Refine { get; init; } = true;
+
+        /// <summary>ASCAT's male X non-PAR germline re-genotyping (<c>gender[1] == "XY"</c> with <c>X_nonPAR</c>, <c>seed</c>,
+        /// <c>Germline_BAF[, 1]</c>; B24 F58, see <see cref="AscatMaleXGenotyping"/>), applied to the one germline before
+        /// segmentation. Null (default) = the caller's genotypes are used as given.</summary>
+        public AscatMaleXGenotyping? MaleXGenotyping { get; init; }
+    }
+
+    /// <summary>
+    /// ASCAT joint multi-sample allele-specific segmentation — a port of <c>ascat.asmultipcf</c> (VanLoo-lab/ascat
+    /// ASCAT/R/ascat.asmultipcf.R; Ross et al. 2021, <i>Bioinformatics</i> 37:1909), for samples that share part of their
+    /// breakpoints (common ancestry, e.g. multi-region sequencing of one tumour), on one probe set and one germline:
+    /// <list type="number">
+    /// <item>Per chromosome part and sample: logR of every probe is MAD-winsorised (<c>madWins(x, 2.5, 25)</c>); the BAF of
+    /// the germline-heterozygous probes is mirrored to ≥ 0.5, winsorised and mirrored again; homozygous probes have no BAF
+    /// (weight 0). Each probe keeps its own winsorised logR (the last probe averages <c>lr[n:floor(n + 0.01 − 0.01)]</c>,
+    /// i.e. probes n and n − 1 for n = 2, 32, 128, …, as R does).</item>
+    /// <item>Parts with fewer than 6 probes form one segment per sample (logR = mean, BAF = mean mirrored BAF).</item>
+    /// <item>Otherwise the 2·S tracks (S logR, S mirrored BAF) are segmented jointly by <c>ASmultiPCFcompact</c>: exact
+    /// dynamic programming minimising <c>Σ_segments Σ_tracks −(Σ w·y)²/Σ w + γ·(#segments − 1)</c> on the raw
+    /// (unstandardised) values, track weights = 0 for missing BAF times <see cref="AsMultiPcfOptions.SampleWeights"/>;
+    /// <see cref="AsMultiPcfAlgorithm.Fast"/> runs <c>runFastASMultiPCF</c> instead.</item>
+    /// <item>Refinement (<see cref="AsMultiPcfOptions.Refine"/>): each sample's two tracks are compacted on the joint
+    /// breakpoints and re-segmented exactly with penalty γ/S; if that removes segments, the sample takes the refined
+    /// segmentation.</item>
+    /// <item>BAF per segment (runs of equal value over the heterozygous probes): 0.5 + |b − 0.5|, shrunk to 0.5 when
+    /// <c>sqrt(sd² + μ²) &lt; 2·sd</c>, sd = <c>getMadwithNA</c> of the sample's winsorised heterozygous BAF.</item>
+    /// <item>LogR levels exactly 0 are replaced by the closest non-zero level of the part; then, genome-wide per sample,
+    /// every run of equal levels takes the mean raw logR; the ladder (penalty, 25, 50, 100, 200, 400, 800 — values ≥
+    /// penalty) is climbed while any sample has ≥ 800 distinct levels.</item>
+    /// </list>
+    /// Unlike <c>ascat.aspcf</c>, homozygous stretches are not re-segmented (they take part in the joint logR segmentation
+    /// from the start). The male-only <c>X_nonPAR</c> random re-genotyping runs when
+    /// <see cref="AsMultiPcfOptions.MaleXGenotyping"/> is set (B24 F58; otherwise the caller's genotypes are used as given).
+    /// Missing values (NaN = R <c>NA</c>, B24 F59) follow R's NA path: only probes with a heterozygous BAF or a logR in at
+    /// least one sample enter the segmentation (<c>Select_sites</c>), each missing value with weight 0; winsorisation and
+    /// the logR averages skip NA; probes with both in at least one sample get a segmented BAF (<c>Select_sites2</c>); a part
+    /// without such probes gets <c>mean(logR, na.rm = TRUE)</c>, and an all-missing level run takes the previous level.
+    /// <para>R fails (<c>bafna[homo, ] &lt;- NA</c>: "incorrect number of subscripts on matrix") with a single sample or a
+    /// single-probe chromosome part, because <c>Tumor_LogR[chr[[k]], ]</c> drops to a vector; both are rejected here.
+    /// For one sample use <see cref="SegmentAlleleSpecificAspcf(IEnumerable{AlleleSpecificLocus}, IReadOnlyList{bool}, double)"/>.</para>
+    /// </summary>
+    /// <param name="samples">Per sample, the loci of the common probe set in genome order (same chromosome and position at
+    /// each index in every sample). LogR must be finite or NaN (missing); BAF must be in [0, 1] or NaN at heterozygous
+    /// probes and is ignored at homozygous probes. At least two samples; each contiguous same-chromosome run needs ≥ 2
+    /// probes.</param>
+    /// <param name="germlineHeterozygous">Germline genotype per probe (true = heterozygous, ASCAT
+    /// <c>germlinegenotypes == FALSE</c>); one germline for all samples, as ascat.asmultipcf uses. Null = every probe
+    /// heterozygous.</param>
+    /// <param name="penalty">ascat.asmultipcf <c>penalty</c> (default 70 = <see cref="AspcfDefaultPenalty"/>), applied to the
+    /// raw joint cost.</param>
+    /// <param name="options">Sample weights, algorithm and refinement (null = <see cref="AsMultiPcfOptions.Default"/>).</param>
+    /// <returns>One <see cref="AspcfSegmentation"/> per sample (input order): ASCAT <c>Tumor_LogR_segmented[, s]</c>,
+    /// mirrored <c>Tumor_BAF_segmented[[s]]</c> (NaN at homozygous probes and where no BAF is segmented) and the runASCAT
+    /// logR segments — ready for
+    /// <see cref="FitPurityPloidyFromAspcf(AspcfSegmentation, double)"/>.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="samples"/> or one of its entries is null.</exception>
+    /// <exception cref="ArgumentException">Fewer than two samples, no probes, differing probe sets, a wrong genotype or
+    /// weight count, a null chromosome label, an infinite logR, a heterozygous BAF outside [0, 1] (and not NaN), or a
+    /// single-probe chromosome part.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="penalty"/> ≤ 0, NaN or infinite, or a weight that is
+    /// not positive and finite.</exception>
+    public static IReadOnlyList<AspcfSegmentation> SegmentAlleleSpecificAsMultiPcf(
+        IReadOnlyList<IReadOnlyList<AlleleSpecificLocus>> samples,
+        IReadOnlyList<bool>? germlineHeterozygous = null,
+        double penalty = AspcfDefaultPenalty,
+        AsMultiPcfOptions? options = null)
+    {
+        ArgumentNullException.ThrowIfNull(samples);
+        options ??= AsMultiPcfOptions.Default;
+        if (!double.IsFinite(penalty) || penalty <= 0.0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(penalty), penalty, "The ASPCF penalty γ must be positive and finite.");
+        }
+
+        int sampleCount = samples.Count;
+        if (sampleCount < 2)
+        {
+            throw new ArgumentException(
+                "ascat.asmultipcf needs at least two samples (R fails on one); use SegmentAlleleSpecificAspcf for a single sample.",
+                nameof(samples));
+        }
+
+        AlleleSpecificLocus[][] probes = new AlleleSpecificLocus[sampleCount][];
+        for (int s = 0; s < sampleCount; s++)
+        {
+            if (samples[s] is null)
+            {
+                throw new ArgumentNullException(nameof(samples), "A sample is null.");
+            }
+
+            probes[s] = samples[s].ToArray();
+        }
+
+        int n = probes[0].Length;
+        if (n == 0)
+        {
+            throw new ArgumentException("At least one probe is required.", nameof(samples));
+        }
+
+        var het = new bool[n];
+        if (germlineHeterozygous is null)
+        {
+            Array.Fill(het, true);
+        }
+        else if (germlineHeterozygous.Count != n)
+        {
+            throw new ArgumentException("Exactly one germline genotype is required per probe.", nameof(germlineHeterozygous));
+        }
+        else
+        {
+            for (int i = 0; i < n; i++)
+            {
+                het[i] = germlineHeterozygous[i];
+            }
+        }
+
+        if (options.MaleXGenotyping is not null)
+        {
+            foreach (AlleleSpecificLocus locus in probes[0])
+            {
+                if (locus.Chromosome is null)
+                {
+                    throw new ArgumentException("A locus has a null chromosome label.", nameof(samples));
+                }
+            }
+
+            RegenotypeMaleXNonPar(probes[0], het, options.MaleXGenotyping, nameof(options));
+        }
+
+        ValidateAsMultiPcfProbes(probes, het);
+        double[] trackWeights = AsMultiPcfTrackWeights(options.SampleWeights, sampleCount);
+
+        List<(int Lo, int Hi)> runs = ContiguousChromosomeRuns(probes[0]);
+        foreach ((int lo, int hi) in runs)
+        {
+            if (hi == lo)
+            {
+                throw new ArgumentException(
+                    "Every chromosome part needs at least two probes (R's Tumor_LogR[chr[[k]], ] drops to a vector and ascat.asmultipcf fails).",
+                    nameof(samples));
+            }
+        }
+
+        var rawLogR = new double[sampleCount][];
+        for (int s = 0; s < sampleCount; s++)
+        {
+            rawLogR[s] = new double[n];
+            for (int i = 0; i < n; i++)
+            {
+                rawLogR[s][i] = probes[s][i].LogR;
+            }
+        }
+
+        var ladder = new List<double> { penalty };
+        foreach (double p in AsMultiPcfPenaltyLadder)
+        {
+            if (p > penalty)
+            {
+                ladder.Add(p);
+            }
+        }
+
+        double[][] logRPcfed = Array.Empty<double[]>();
+        double[][] bafPcfed = Array.Empty<double[]>();
+        foreach (double segmentLength in ladder)
+        {
+            logRPcfed = new double[sampleCount][];
+            bafPcfed = new double[sampleCount][];
+            for (int s = 0; s < sampleCount; s++)
+            {
+                logRPcfed[s] = new double[n];
+                bafPcfed[s] = new double[n];
+                Array.Fill(bafPcfed[s], double.NaN);
+            }
+
+            foreach ((int lo, int hi) in runs)
+            {
+                SegmentPartAsMultiPcf(probes, rawLogR, het, lo, hi, segmentLength, trackWeights, options, logRPcfed, bafPcfed);
+            }
+
+            bool fewLevels = true;
+            for (int s = 0; s < sampleCount; s++)
+            {
+                ReadaptLevels(logRPcfed[s], rawLogR[s], 0, n);
+                if (logRPcfed[s].Distinct().Count() >= AspcfMaxSegmentLevels)
+                {
+                    fewLevels = false;
+                }
+            }
+
+            if (fewLevels)
+            {
+                break;
+            }
+        }
+
+        var result = new AspcfSegmentation[sampleCount];
+        for (int s = 0; s < sampleCount; s++)
+        {
+            result[s] = new AspcfSegmentation(
+                probes[s], (bool[])het.Clone(), logRPcfed[s], bafPcfed[s],
+                BuildAspcfSegments(probes[s], het, runs, logRPcfed[s], bafPcfed[s]));
+        }
+
+        return result;
+    }
+
+    /// <summary>Same probe set in every sample; logR finite or NaN (R NA); heterozygous BAF in [0, 1] or NaN (B24 F59).</summary>
+    private static void ValidateAsMultiPcfProbes(AlleleSpecificLocus[][] samples, bool[] het)
+    {
+        int n = samples[0].Length;
+        foreach (AlleleSpecificLocus[] sample in samples)
+        {
+            if (sample.Length != n)
+            {
+                throw new ArgumentException("Every sample must have the same probes.", nameof(samples));
+            }
+
+            for (int i = 0; i < n; i++)
+            {
+                if (sample[i].Chromosome is null)
+                {
+                    throw new ArgumentException("A locus has a null chromosome label.", nameof(samples));
+                }
+
+                if (!string.Equals(sample[i].Chromosome, samples[0][i].Chromosome, StringComparison.Ordinal)
+                    || sample[i].Position != samples[0][i].Position)
+                {
+                    throw new ArgumentException("Every sample must have the same probes (chromosome and position) in the same order.", nameof(samples));
+                }
+
+                if (double.IsInfinity(sample[i].LogR))
+                {
+                    throw new ArgumentException("A logR must be finite or NaN (missing).", nameof(samples));
+                }
+
+                if (het[i] && !IsAscatBafOrMissing(sample[i].BAF))
+                {
+                    throw new ArgumentException("Every heterozygous locus needs a BAF in [0, 1] or NaN (missing).", nameof(samples));
+                }
+            }
+        }
+    }
+
+    /// <summary>ascat.asmultipcf <c>w * wsample</c>: per-track weights (S logR tracks, then S BAF tracks).</summary>
+    private static double[] AsMultiPcfTrackWeights(IReadOnlyList<double>? sampleWeights, int sampleCount)
+    {
+        var weights = new double[2 * sampleCount];
+        if (sampleWeights is null)
+        {
+            Array.Fill(weights, 1.0);
+            return weights;
+        }
+
+        if (sampleWeights.Count == sampleCount)
+        {
+            for (int s = 0; s < sampleCount; s++)
+            {
+                weights[s] = sampleWeights[s];
+                weights[s + sampleCount] = sampleWeights[s]; // wsample <- c(wsample, wsample)
+            }
+        }
+        else if (sampleWeights.Count == 2 * sampleCount)
+        {
+            for (int t = 0; t < weights.Length; t++)
+            {
+                weights[t] = sampleWeights[t];
+            }
+        }
+        else
+        {
+            throw new ArgumentException(
+                $"Length of the sample weights is {sampleWeights.Count} but should be {sampleCount} or {2 * sampleCount}.",
+                nameof(sampleWeights));
+        }
+
+        foreach (double w in weights)
+        {
+            if (!double.IsFinite(w) || w <= 0.0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(sampleWeights), w, "Sample weights must be positive and finite.");
+            }
+        }
+
+        return weights;
+    }
+
+    /// <summary>
+    /// The per-chromosome-part body of <c>ascat.asmultipcf</c> on probes [lo, hi], including R's NA path (B24 F59; NaN =
+    /// R <c>NA</c>): <c>Select_sites</c> = probes with a BAF (heterozygous, non-missing) or a logR in at least one sample;
+    /// <c>Select_sites2</c> = probes with both in at least one sample (they get a segmented BAF). The joint segmentation runs
+    /// on the selected sites with weight 0 at every missing value; missing logR is skipped in the winsorisation and the
+    /// per-site logR averages (<c>na.rm = TRUE</c>). With complete data every probe is selected and the heterozygous ones
+    /// get a BAF.
+    /// </summary>
+    private static void SegmentPartAsMultiPcf(
+        AlleleSpecificLocus[][] probes, double[][] rawLogR, bool[] het, int lo, int hi, double segmentLength,
+        double[] trackWeights, AsMultiPcfOptions options, double[][] logRPcfed, double[][] bafPcfed)
+    {
+        int sampleCount = probes.Length;
+        int tracks = 2 * sampleCount;
+        int len = hi - lo + 1;
+
+        // bafna (NA at homozygous probes), Select_sites ("indices", 0-based local) and Select_sites2.
+        var indices = new List<int>();
+        var outputBaf = new List<bool>(); // Select_sites2 per selected site
+        for (int i = 0; i < len; i++)
+        {
+            bool anyBaf = false, anyLogR = false;
+            for (int s = 0; s < sampleCount; s++)
+            {
+                anyBaf |= het[lo + i] && !double.IsNaN(probes[s][lo + i].BAF);
+                anyLogR |= !double.IsNaN(rawLogR[s][lo + i]);
+            }
+
+            if (anyBaf || anyLogR)
+            {
+                indices.Add(i);
+                outputBaf.Add(anyBaf && anyLogR);
+            }
+        }
+
+        int m = indices.Count;
+        if (m == 0)
+        {
+            // "if there are no probes in the segment, don't do anything, except add a LogR segment" (mean, na.rm = TRUE).
+            for (int s = 0; s < sampleCount; s++)
+            {
+                Array.Fill(logRPcfed[s], MeanNaRm(rawLogR[s], lo, hi + 1), lo, len);
+            }
+
+            return;
+        }
+
+        // bafwins = mirror(madWinsMatrixWithNA(mirror(bafsel))): per sample over its non-missing values; with a single
+        // selected site R's madWinsMatrixWithNA winsorises that row ACROSS the samples (nrow(x) == 1 branch).
+        var bafWins = new double[sampleCount][];
+        for (int s = 0; s < sampleCount; s++)
+        {
+            bafWins[s] = new double[m];
+            for (int k = 0; k < m; k++)
+            {
+                int i = lo + indices[k];
+                bafWins[s][k] = het[i] ? MirrorBaf(probes[s][i].BAF) : double.NaN; // MirrorBaf(NaN) = NaN
+            }
+        }
+
+        if (m == 1)
+        {
+            var row = new double[sampleCount];
+            for (int s = 0; s < sampleCount; s++)
+            {
+                row[s] = bafWins[s][0];
+            }
+
+            double[] rowWins = MadWinsorizeWithNa(row, AspcfWinsorTau, AspcfMedianHalfWindow);
+            for (int s = 0; s < sampleCount; s++)
+            {
+                bafWins[s][0] = MirrorBaf(rowWins[s]);
+            }
+        }
+        else
+        {
+            for (int s = 0; s < sampleCount; s++)
+            {
+                double[] wins = MadWinsorizeWithNa(bafWins[s], AspcfWinsorTau, AspcfMedianHalfWindow);
+                for (int k = 0; k < m; k++)
+                {
+                    bafWins[s][k] = MirrorBaf(wins[k]);
+                }
+            }
+        }
+
+        // lrwins (all probes of the part) and logRaveraged: mean(lrwins[start:end], na.rm = TRUE) around each selected site.
+        var logRAveraged = new double[sampleCount][];
+        for (int s = 0; s < sampleCount; s++)
+        {
+            var lr = new double[len];
+            Array.Copy(rawLogR[s], lo, lr, 0, len);
+            double[] lrWins = MadWinsorizeWithNa(lr, AspcfWinsorTau, AspcfMedianHalfWindow);
+            logRAveraged[s] = new double[m];
+            for (int k = 0; k < m; k++)
+            {
+                (int start, int end) = AscatAveragingWindow(indices, k, len);
+                logRAveraged[s][k] = RColonMeanNaRm(lrWins, start, end);
+            }
+        }
+
+        // logRASPCF / bafASPCF: per sample, per selected site.
+        var logRAspcf = new double[sampleCount][];
+        var bafAspcf = new double[sampleCount][];
+        if (m < AsMultiPcfMinProbes)
+        {
+            // (nrow == 1 keeps the site's own values, which the means below reproduce.)
+            for (int s = 0; s < sampleCount; s++)
+            {
+                double bafMean = MeanNaRm(bafWins[s], 0, m);
+                logRAspcf[s] = Filled(m, MeanNaRm(logRAveraged[s], 0, m));
+                bafAspcf[s] = Filled(m, MirrorBaf(bafMean)); // R bafMean >= 0.5 ? … : 1 − …: equal at 0.5; NaN stays NaN
+            }
+        }
+        else
+        {
+            // lrANDbaf with NA → 0 and the weight matrix w (0 at NA, times wsample), tracks in rows.
+            var value = new double[tracks, m];
+            var weight = new double[tracks, m];
+            for (int s = 0; s < sampleCount; s++)
+            {
+                for (int k = 0; k < m; k++)
+                {
+                    double r = logRAveraged[s][k];
+                    value[s, k] = double.IsNaN(r) ? 0.0 : r;
+                    weight[s, k] = double.IsNaN(r) ? 0.0 : trackWeights[s];
+                    double b = bafWins[s][k];
+                    value[s + sampleCount, k] = double.IsNaN(b) ? 0.0 : b;
+                    weight[s + sampleCount, k] = double.IsNaN(b) ? 0.0 : trackWeights[s + sampleCount];
+                }
+            }
+
+            AsMultiPcfFit joint = options.Algorithm == AsMultiPcfAlgorithm.Exact
+                ? AsMultiPcfCompact(weight, WeightedValues(value, weight), segmentLength, Ones(m))
+                : RunFastAsMultiPcf(value, weight, segmentLength);
+            double[,] yhat = ExpandMulti(m, tracks, joint.Lengths, joint.Means);
+            for (int s = 0; s < sampleCount; s++)
+            {
+                logRAspcf[s] = new double[m];
+                bafAspcf[s] = new double[m];
+                for (int k = 0; k < m; k++)
+                {
+                    logRAspcf[s][k] = yhat[s, k];
+                    bafAspcf[s][k] = yhat[s + sampleCount, k];
+                }
+            }
+
+            if (options.Refine && joint.Starts.Length > 1)
+            {
+                RefineAsMultiPcf(value, weight, joint, segmentLength, logRAspcf, bafAspcf);
+            }
+        }
+
+        // BAF output rows (Select_sites2) and the getMadwithNA input bafwins[het selected sites, s].
+        var outRows = new List<int>();
+        var hetRows = new List<int>();
+        for (int k = 0; k < m; k++)
+        {
+            if (outputBaf[k])
+            {
+                outRows.Add(k);
+            }
+
+            if (het[lo + indices[k]])
+            {
+                hetRows.Add(k);
+            }
+        }
+
+        var logRC = new double[len];
+        for (int s = 0; s < sampleCount; s++)
+        {
+            var sdInput = new double[hetRows.Count];
+            for (int q = 0; q < sdInput.Length; q++)
+            {
+                sdInput[q] = bafWins[s][hetRows[q]];
+            }
+
+            CorrectAsMultiPcfBaf(outRows, indices, bafAspcf[s], GetMadWithNa(sdInput, AspcfMedianHalfWindow), lo, bafPcfed[s]);
+
+            // Expand to every probe: site k covers (indices[k−1], indices[k]]; the first from the part start, the last to
+            // its end.
+            int from = 0;
+            for (int k = 0; k < m; k++)
+            {
+                int to = k == m - 1 ? len - 1 : indices[k];
+                for (int i = from; i <= to; i++)
+                {
+                    logRC[i] = logRAspcf[s][k];
+                }
+
+                from = to + 1;
+            }
+
+            FillZeroLevelsFromClosest(logRC);
+            Array.Copy(logRC, 0, logRPcfed[s], lo, len);
+        }
+    }
+
+    /// <summary>
+    /// ascat.aspcf / ascat.asmultipcf logR averaging window of selected site <paramref name="k"/> (1-based [start, end]
+    /// into the part of <paramref name="len"/> probes): <c>averageIndices = c(1, (indices[-n] + indices[-1])/2, len + 0.01)</c>,
+    /// start = ceiling, end = floor(· − 0.01); one site ⇒ the whole part. <paramref name="indices"/> are 0-based local.
+    /// </summary>
+    private static (int Start, int End) AscatAveragingWindow(List<int> indices, int k, int len)
+    {
+        int h = indices.Count;
+        if (h == 1)
+        {
+            return (1, len);
+        }
+
+        double lower = k == 0 ? 1.0 : ((indices[k - 1] + 1) + (indices[k] + 1)) / 2.0;
+        double upper = k == h - 1 ? len + 0.01 : ((indices[k] + 1) + (indices[k + 1] + 1)) / 2.0;
+        return ((int)Math.Ceiling(lower), (int)Math.Floor(upper - 0.01));
+    }
+
+    /// <summary>ASCAT <c>getMadwithNA(x, k)</c>: <see cref="GetMad"/> after dropping missing (NaN) values.</summary>
+    private static double GetMadWithNa(double[] x, int k) =>
+        GetMad(Array.FindAll(x, v => !double.IsNaN(v)), k);
+
+    /// <summary>
+    /// ascat.asmultipcf refinement: per sample, its logR and BAF tracks are compacted on the joint breakpoints
+    /// (<c>compactASMulti</c>) and re-segmented by <c>ASmultiPCFcompact</c> with γ/S; fewer segments ⇒ the sample takes them.
+    /// </summary>
+    private static void RefineAsMultiPcf(
+        double[,] value, double[,] weight, AsMultiPcfFit joint, double segmentLength, double[][] logRAspcf, double[][] bafAspcf)
+    {
+        int sampleCount = logRAspcf.Length;
+        int len = value.GetLength(1);
+        var mark = new bool[len];
+        for (int k = 1; k < joint.Starts.Length; k++)
+        {
+            mark[joint.Starts[k] - 2] = true; // start0[-1] - 1 (1-based) = last probe of the previous segment
+        }
+
+        mark[len - 1] = true;
+        for (int s = 0; s < sampleCount; s++)
+        {
+            int[] rows = { s, s + sampleCount };
+            var y = new double[2, len];
+            var w = new double[2, len];
+            for (int r = 0; r < 2; r++)
+            {
+                for (int i = 0; i < len; i++)
+                {
+                    y[r, i] = value[rows[r], i];
+                    w[r, i] = weight[rows[r], i];
+                }
+            }
+
+            (double[,] wSum, double[,] compWeight, int[] probesPerSeg) = CompactAsMulti(y, mark, w);
+            AsMultiPcfFit refined = AsMultiPcfCompact(compWeight, wSum, segmentLength / sampleCount, probesPerSeg);
+            if (refined.Starts.Length < joint.Starts.Length)
+            {
+                double[,] potts = ExpandMulti(len, 2, refined.Lengths, refined.Means);
+                for (int i = 0; i < len; i++)
+                {
+                    logRAspcf[s][i] = potts[0, i];
+                    bafAspcf[s][i] = potts[1, i];
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// ascat.asmultipcf BAF correction of one sample on the BAF output sites of a part (<c>Select_sites2</c>,
+    /// <paramref name="outRows"/> = positions among the selected sites): each <c>rle</c> run of equal segmented BAF gets
+    /// 0.5 + μ, μ = |b − 0.5| (the mean of a constant run), shrunk to 0 when <c>sqrt(sd² + μ²) &lt; 2·sd</c>; a missing run
+    /// stays missing. <paramref name="sd"/> = <c>getMadwithNA</c> of the sample's winsorised mirrored heterozygous BAF.
+    /// </summary>
+    private static void CorrectAsMultiPcfBaf(
+        List<int> outRows, List<int> indices, double[] bafAspcf, double sd, int lo, double[] bafPcfed)
+    {
+        int h = outRows.Count;
+        int runStart = 0;
+        for (int k = 1; k <= h; k++)
+        {
+            if (k < h && bafAspcf[outRows[k]].Equals(bafAspcf[outRows[runStart]]))
+            {
+                continue;
+            }
+
+            double yi = bafAspcf[outRows[runStart]];
+            double level = double.NaN;
+            if (!double.IsNaN(yi))
+            {
+                level = AscatShrunkBafLevel(Math.Abs(yi - BalancedBaf), sd);
+            }
+
+            for (int q = runStart; q < k; q++)
+            {
+                bafPcfed[lo + indices[outRows[q]]] = level;
+            }
+
+            runStart = k;
+        }
+    }
+
+    /// <summary>
+    /// ascat.asmultipcf "fill in NAs in logR data": levels that are NaN or exactly 0 take the level of the closest other
+    /// probe of the part (<c>which.min</c>: the lower index on a tie); all 0 when none remains.
+    /// </summary>
+    private static void FillZeroLevelsFromClosest(double[] levels)
+    {
+        var keep = new List<int>();
+        for (int i = 0; i < levels.Length; i++)
+        {
+            if (!double.IsNaN(levels[i]) && levels[i] != 0.0)
+            {
+                keep.Add(i);
+            }
+        }
+
+        if (keep.Count == levels.Length)
+        {
+            return;
+        }
+
+        var original = (double[])levels.Clone();
+        for (int i = 0; i < levels.Length; i++)
+        {
+            if (!double.IsNaN(original[i]) && original[i] != 0.0)
+            {
+                continue;
+            }
+
+            if (keep.Count == 0)
+            {
+                levels[i] = 0.0;
+                continue;
+            }
+
+            int best = keep[0];
+            foreach (int k in keep)
+            {
+                if (Math.Abs(k - i) < Math.Abs(best - i))
+                {
+                    best = k;
+                }
+            }
+
+            levels[i] = original[best];
+        }
+    }
+
+    /// <summary>Result of <c>ASmultiPCFcompact</c>: segment lengths in probes (<c>Lengde</c>), 1-based starts (<c>sta</c>),
+    /// per-track segment means [track, segment] and the number of segments.</summary>
+    private sealed record AsMultiPcfFit(int[] Lengths, int[] Starts, double[,] Means);
+
+    /// <summary>
+    /// ASCAT <c>ASmultiPCFcompact(nr, wSum, gamma, wsample, nProbesPerSeg)</c>, verbatim: exact multi-track Potts DP on
+    /// (compacted) columns with weights <paramref name="nr"/> and weighted sums <paramref name="wSum"/> [track, column].
+    /// Cost[j] = Σ_tracks −Sum²/Nevner (Nevner 0 ⇒ 1) + bestCost[j − 1] + γ; <c>which.min</c> skips NaN (bestCost[1] is NaN
+    /// when the first column has a zero weight, exactly as in R). <c>wsample</c> is unused by R and not taken.
+    /// </summary>
+    private static AsMultiPcfFit AsMultiPcfCompact(double[,] nr, double[,] wSum, double gamma, int[] nProbesPerSeg)
+    {
+        int tracks = wSum.GetLength(0);
+        int bigN = nr.GetLength(1);
+        var bestCost = new double[bigN + 1];   // 1-based
+        var bestSplit = new int[bigN + 2];     // 1-based
+        var bestAver = new double[tracks, bigN + 1];
+        var sum = new double[tracks, bigN + 1];
+        var nevner = new double[tracks, bigN + 1];
+        var cost = new double[bigN + 1];
+
+        double first = 0.0;
+        for (int t = 0; t < tracks; t++)
+        {
+            sum[t, 1] = wSum[t, 0];
+            nevner[t, 1] = nr[t, 0];
+            bestAver[t, 1] = wSum[t, 0] / nr[t, 0];
+            first += -sum[t, 1] * bestAver[t, 1]; // helper %*% (-Sum[, 1] * bestAver[, 1])
+        }
+
+        bestCost[1] = first;
+        for (int m = 2; m <= bigN; m++)
+        {
+            for (int j = 1; j <= m; j++)
+            {
+                double c = 0.0;
+                for (int t = 0; t < tracks; t++)
+                {
+                    sum[t, j] += wSum[t, m - 1];
+                    nevner[t, j] += nr[t, m - 1];
+                    double denominator = nevner[t, j] == 0.0 ? 1.0 : nevner[t, j];
+                    c += -(sum[t, j] * sum[t, j]) / denominator;
+                }
+
+                cost[j] = j >= 2 ? c + bestCost[j - 1] + gamma : c;
+            }
+
+            int pos = -1;
+            for (int j = 1; j <= m; j++)
+            {
+                if (!double.IsNaN(cost[j]) && (pos < 0 || cost[j] < cost[pos]))
+                {
+                    pos = j; // which.min: first minimum, NA/NaN skipped
+                }
+            }
+
+            bestCost[m] = cost[pos];
+            for (int t = 0; t < tracks; t++)
+            {
+                bestAver[t, m] = sum[t, pos] / nevner[t, pos];
+            }
+
+            bestSplit[m] = pos - 1;
+        }
+
+        var lengths = new List<int>();
+        var means = new List<double[]>();
+        int cursor = bigN;
+        while (cursor > 0)
+        {
+            int probesInSegment = 0;
+            for (int k = bestSplit[cursor] + 1; k <= cursor; k++)
+            {
+                probesInSegment += nProbesPerSeg[k - 1];
+            }
+
+            lengths.Add(probesInSegment);
+            var mean = new double[tracks];
+            for (int t = 0; t < tracks; t++)
+            {
+                mean[t] = bestAver[t, cursor];
+            }
+
+            means.Add(mean);
+            cursor = bestSplit[cursor];
+        }
+
+        lengths.Reverse();
+        means.Reverse();
+        var starts = new int[lengths.Count];
+        starts[0] = 1;
+        for (int k = 1; k < starts.Length; k++)
+        {
+            starts[k] = starts[k - 1] + lengths[k - 1];
+        }
+
+        var meanMatrix = new double[tracks, lengths.Count];
+        for (int k = 0; k < lengths.Count; k++)
+        {
+            for (int t = 0; t < tracks; t++)
+            {
+                meanMatrix[t, k] = means[k][t];
+            }
+        }
+
+        return new AsMultiPcfFit(lengths.ToArray(), starts, meanMatrix);
+    }
+
+    /// <summary>
+    /// ASCAT <c>compactASMulti(y, mark, w)</c>: weighted sums, weights and probe counts of the blocks ending at each marked
+    /// column (the last column must be marked).
+    /// </summary>
+    private static (double[,] WSum, double[,] Weight, int[] ProbesPerSeg) CompactAsMulti(double[,] y, bool[] mark, double[,] w)
+    {
+        int tracks = y.GetLength(0);
+        int len = y.GetLength(1);
+        int blocks = mark.Count(m => m);
+        var wSum = new double[tracks, blocks];
+        var weight = new double[tracks, blocks];
+        var probesPerSeg = new int[blocks];
+        var delSum = new double[tracks];
+        var delWeight = new double[tracks];
+        int count = 0, oldPos = -1;
+        for (int pos = 0; pos < len; pos++)
+        {
+            for (int t = 0; t < tracks; t++)
+            {
+                double contribution = y[t, pos] * w[t, pos];
+                if (mark[pos])
+                {
+                    wSum[t, count] = delSum[t] + contribution;
+                    weight[t, count] = delWeight[t] + w[t, pos];
+                    delSum[t] = 0.0;
+                    delWeight[t] = 0.0;
+                }
+                else
+                {
+                    delSum[t] += contribution;
+                    delWeight[t] += w[t, pos];
+                }
+            }
+
+            if (mark[pos])
+            {
+                probesPerSeg[count] = pos - oldPos;
+                oldPos = pos;
+                count++;
+            }
+        }
+
+        return (wSum, weight, probesPerSeg);
+    }
+
+    /// <summary>
+    /// ASCAT <c>runFastASMultiPCF(x, w, gamma, yest = TRUE, subsize = 5000)</c>, verbatim: <c>ASmultiPCFcompact</c> on
+    /// windows of subsize + 1 probes (step 4·subsize/5) with the <b>unweighted</b> values as <c>wSum</c> (as R passes
+    /// <c>t(x[…])</c>), marking each segment start; all probes from the last window start on are marked; the exact
+    /// algorithm then runs on the compacted data.
+    /// </summary>
+    private static AsMultiPcfFit RunFastAsMultiPcf(double[,] value, double[,] weight, double gamma)
+    {
+        int tracks = value.GetLength(0);
+        int antGen = value.GetLength(1);
+        var mark = new bool[antGen];
+        int start0 = 1;
+        while (start0 + AsMultiPcfFastSubsize < antGen)
+        {
+            int width = AsMultiPcfFastSubsize + 1;
+            var nr = new double[tracks, width];
+            var x = new double[tracks, width];
+            for (int t = 0; t < tracks; t++)
+            {
+                for (int i = 0; i < width; i++)
+                {
+                    nr[t, i] = weight[t, start0 - 1 + i];
+                    x[t, i] = value[t, start0 - 1 + i];
+                }
+            }
+
+            AsMultiPcfFit res = AsMultiPcfCompact(nr, x, gamma, Ones(width));
+            foreach (int sta in res.Starts)
+            {
+                mark[start0 + sta - 2] = true; // mark[start0 + res$sta - 1] (1-based)
+            }
+
+            start0 += AsMultiPcfFastStep;
+        }
+
+        for (int i = start0 - 1; i < antGen; i++)
+        {
+            mark[i] = true;
+        }
+
+        (double[,] wSum, double[,] compWeight, int[] probesPerSeg) = CompactAsMulti(value, mark, weight);
+        return AsMultiPcfCompact(compWeight, wSum, gamma, probesPerSeg);
+    }
+
+    /// <summary>ASCAT <c>expandMulti(nProbes, nSamples, lengthInt, mean)</c>: [track, probe] piecewise-constant expansion.</summary>
+    private static double[,] ExpandMulti(int nProbes, int tracks, int[] lengths, double[,] means)
+    {
+        var potts = new double[tracks, nProbes];
+        int k = 0;
+        for (int seg = 0; seg < lengths.Length; seg++)
+        {
+            for (int j = 0; j < lengths[seg]; j++)
+            {
+                for (int t = 0; t < tracks; t++)
+                {
+                    potts[t, k] = means[t, seg];
+                }
+
+                k++;
+            }
+        }
+
+        return potts;
+    }
+
+    /// <summary><c>t(lrANDbaf) * w</c>.</summary>
+    private static double[,] WeightedValues(double[,] value, double[,] weight)
+    {
+        int tracks = value.GetLength(0), len = value.GetLength(1);
+        var result = new double[tracks, len];
+        for (int t = 0; t < tracks; t++)
+        {
+            for (int i = 0; i < len; i++)
+            {
+                result[t, i] = value[t, i] * weight[t, i];
+            }
+        }
+
+        return result;
+    }
+
+    /// <summary><c>rep(1, n)</c> as probe counts.</summary>
+    private static int[] Ones(int n)
+    {
+        var ones = new int[n];
+        Array.Fill(ones, 1);
+        return ones;
+    }
+
     /// <summary>
     /// One integer allele-specific copy-number state of a (possibly sub-clonal) segment, present in a given
     /// fraction of tumour cells. Mirrors the Battenberg output (Nik-Zainal et al. 2012, <i>Cell</i> 149:994:
@@ -2609,6 +7300,7 @@ public static partial class OncologyAnalyzer
     /// implementation called a segment clonal. <b>No longer used</b> by <see cref="FitSubclonalCopyNumber"/>, which now
     /// applies Battenberg's own BAF-space tolerance <see cref="BattenbergMaxBafDistance"/>; retained for API compatibility.
     /// </summary>
+    [Obsolete("Unused since FIN-B24/F14: Battenberg determine_copynumber uses maxdist; kept for binary compatibility.")]
     public const double SubclonalIntegerTolerance = 0.05;
 
     /// <summary>
@@ -2641,8 +7333,9 @@ public static partial class OncologyAnalyzer
     /// </list>
     /// A segment summary carries a single BAF value, i.e. its SNP BAFs have zero spread; Battenberg's per-SNP
     /// t-test then returns <c>pval = 0</c> (<c>if (is.na(sd(BAFke)) || sd(BAFke) == 0) pval = 0</c>), so only the
-    /// maxdist rule can make a segment clonal — exactly the path ported here. The bootstrap confidence intervals and the
-    /// alternative solutions B–F of Battenberg's output are not produced.
+    /// maxdist rule can make a segment clonal — exactly the path ported here (with per-SNP BAFs, Battenberg's t-test is
+    /// run by <see cref="FitSubclonalCopyNumberWithSnpTest"/>; the alternative solutions B–F, SDfrac and the seeded
+    /// bootstrap confidence intervals by <see cref="FitSubclonalCopyNumberWithBootstrap"/>).
     /// </summary>
     /// <param name="segments">Segment summaries (e.g. from <see cref="SegmentAlleleSpecificAspcf"/>). Non-null; finite logR,
     /// BAF in [0, 1].</param>
@@ -2662,64 +7355,219 @@ public static partial class OncologyAnalyzer
         ArgumentNullException.ThrowIfNull(segments);
         ValidateAscatModelParameters(purity, ploidy, gamma);
 
-        double rho = purity;
-        double psiAll = MixtureCopiesPerCell(rho, ploidy); // psi = rho*psit + 2*(1-rho)
+        double psiAll = MixtureCopiesPerCell(purity, ploidy); // psi = rho*psit + 2*(1-rho)
         var fits = new List<SubclonalSegmentFit>(segments.Count);
         foreach (AlleleSpecificSegmentSummary s in segments)
         {
-            if (!IsValidAlleleSignal(s.MeanLogR, s.MeanBAF))
-            {
-                throw new ArgumentException("Every segment needs a finite mean logR and a mean BAF in [0, 1].", nameof(segments));
-            }
-
-            double l = MirrorBaf(s.MeanBAF); // max(BAF, 1 − BAF)
-            double scaled = psiAll * Math.Pow(2.0, s.MeanLogR / gamma);
-            double nMajor = (rho - 1.0 + l * scaled) / rho;
-            double nMinor = (rho - 1.0 + (1.0 - l) * scaled) / rho;
-
-            // Increase nMajor and nMinor together, to avoid impossible combinations (negative sub-clonal fractions).
-            if (nMinor < 0.0)
-            {
-                nMajor = l == 1.0
-                    ? BattenbergCopyNumberUpperLimit
-                    : nMajor + l * (BattenbergMinimumMinorCopyNumber - nMinor) / (1.0 - l);
-                nMinor = BattenbergMinimumMinorCopyNumber;
-            }
-
-            double x = Math.Floor(nMinor), y = Math.Floor(nMajor);
-            double ntot = nMajor + nMinor;
-            // Corners, sorted in the order of ascending BAF: (⌊M⌋,⌈m⌉), (⌈M⌉,⌈m⌉), (⌊M⌋,⌊m⌋), (⌈M⌉,⌊m⌋).
-            double level2 = BattenbergCornerLevel(Math.Ceiling(nMajor), Math.Ceiling(nMinor), rho, zeroCornerIsBalanced: true);
-            double level3 = BattenbergCornerLevel(Math.Floor(nMajor), Math.Floor(nMinor), rho, zeroCornerIsBalanced: true);
-            (double maj1, double min1, double maj2, double min2) = BattenbergNearestEdge(level2, level3, l, ntot, x, y);
-
-            // Clonality test on the corners of the nearest edge (test.levels carry no 0/0 correction in Battenberg).
-            double testLevel1 = BattenbergCornerLevel(maj1, min1, rho, zeroCornerIsBalanced: false);
-            double testLevel2 = BattenbergCornerLevel(maj2, min2, rho, zeroCornerIsBalanced: false);
-            double dist1 = double.IsNaN(testLevel1) ? double.PositiveInfinity : Math.Abs(testLevel1 - l);
-            double dist2 = double.IsNaN(testLevel2) ? double.PositiveInfinity : Math.Abs(testLevel2 - l);
-            bool firstClosest = dist1 <= dist2; // which.min: first index on a tie
-            double closestDistance = firstClosest ? dist1 : dist2;
-
-            if (closestDistance < BattenbergMaxBafDistance)
-            {
-                var clonal = firstClosest
-                    ? new SubclonalCopyNumberState(AscatCopyNumberToInt(maj1), AscatCopyNumberToInt(min1), 1.0)
-                    : new SubclonalCopyNumberState(AscatCopyNumberToInt(maj2), AscatCopyNumberToInt(min2), 1.0);
-                fits.Add(new SubclonalSegmentFit(s, clonal, SecondaryState: null, IsSubclonal: false));
-                continue;
-            }
-
-            double tau = (1.0 - rho + rho * maj2 - 2.0 * l * (1.0 - rho) - l * rho * (min2 + maj2))
-                         / (l * rho * (min1 + maj1) - l * rho * (min2 + maj2) - rho * maj1 + rho * maj2);
-            fits.Add(new SubclonalSegmentFit(
-                s,
-                new SubclonalCopyNumberState(AscatCopyNumberToInt(maj1), AscatCopyNumberToInt(min1), tau),
-                new SubclonalCopyNumberState(AscatCopyNumberToInt(maj2), AscatCopyNumberToInt(min2), 1.0 - tau),
-                IsSubclonal: true));
+            BattenbergSegmentGeometry g = BattenbergSegmentEdge(s, purity, psiAll, gamma, nameof(segments));
+            // Constant (summary) BAF ⇒ Battenberg pval = 0; only maxdist can make the segment clonal.
+            fits.Add(BattenbergSegmentFit(s, g, purity, g.ClosestDistance < BattenbergMaxBafDistance));
         }
 
         return fits;
+    }
+
+    /// <summary>
+    /// Battenberg's significance level <c>siglevel = 0.05</c> (<c>callSubclones</c> default): a segment is sub-clonal when
+    /// its SNP-BAF t-test p-value is ≤ siglevel (<c>if (pval[i] &lt;= siglevel)</c>).
+    /// </summary>
+    public const double BattenbergSignificanceLevel = 0.05;
+
+    /// <summary>
+    /// A segment summary together with the phased BAFs of its heterozygous SNPs (Battenberg <c>BAFphased</c> — the raw
+    /// SNP BAF flipped to the segment's side, <c>ifelse(BAFsegm &gt; 0.5, BAF, 1 − BAF)</c>; used as given, not mirrored
+    /// again), the input of Battenberg's per-segment clonality t-test.
+    /// </summary>
+    /// <param name="Segment">The segment (its <see cref="AlleleSpecificSegmentSummary.MeanBAF"/> is Battenberg's
+    /// segment level <c>BAFseg</c>, its <see cref="AlleleSpecificSegmentSummary.MeanLogR"/> the segment logR).</param>
+    /// <param name="PhasedSnpBafs">The segment's phased SNP BAFs (Battenberg <c>BAFke</c>), each in [0, 1]; may be empty.</param>
+    public readonly record struct SubclonalSegmentSnpBafs(
+        AlleleSpecificSegmentSummary Segment,
+        IReadOnlyList<double> PhasedSnpBafs);
+
+    /// <summary>
+    /// A Battenberg segment fit with the clonality-test p-value Battenberg reports (<c>subcloneres$pval</c>).
+    /// </summary>
+    /// <param name="Fit">The clonal / sub-clonal copy-number fit.</param>
+    /// <param name="PValue">Battenberg <c>pval</c>: 1 when the segment BAF is within maxdist of the closest corner level,
+    /// 0 when the SNP BAFs have no spread (fewer than two SNPs, or constant), else the two-sided one-sample t-test p-value
+    /// of the SNP BAFs against that corner level.</param>
+    public readonly record struct SubclonalSegmentTestedFit(SubclonalSegmentFit Fit, double PValue);
+
+    /// <summary>
+    /// <see cref="FitSubclonalCopyNumber"/> with Battenberg's per-SNP clonality test (Wedge-lab/battenberg
+    /// R/fitcopynumber.R, <c>determine_copynumber</c>; B24 F39). After the nearest edge and its closest corner level
+    /// <c>test.level</c> are found exactly as in <see cref="FitSubclonalCopyNumber"/>:
+    /// <code>
+    /// if (is.na(sd(BAFke)) || sd(BAFke) == 0) pval = 0
+    /// else pval = t.test(BAFke, alternative = "two.sided", mu = test.level)$p.value
+    /// if (abs(l − test.level) &lt; maxdist) pval = 1
+    /// sub-clonal ⇔ pval ≤ siglevel
+    /// </code>
+    /// so a segment whose BAF is beyond maxdist but whose SNP BAFs are too noisy to reject the clonal level is called
+    /// clonal (and a segment with ≥ 2 distinct SNP BAFs that rejects it is sub-clonal). The t-test is
+    /// <see cref="StatisticsHelper.OneSampleTTestPValue"/>; where R's <c>t.test</c> would stop ("data are essentially
+    /// constant", Battenberg would abort) the p-value is taken as 0, as for exactly constant BAFs. With every
+    /// segment's SNP BAFs constant this reproduces <see cref="FitSubclonalCopyNumber"/> exactly.
+    /// </summary>
+    /// <param name="segments">Segments with their phased SNP BAFs. Non-null; finite logR, BAF in [0, 1], SNP BAFs in [0, 1].</param>
+    /// <param name="purity">Fitted tumour purity ρ ∈ (0, 1].</param>
+    /// <param name="ploidy">Fitted tumour ploidy ψ (&gt; 0).</param>
+    /// <param name="gamma">Platform parameter γ (&gt; 0).</param>
+    /// <param name="significanceLevel">Battenberg <c>siglevel</c> ∈ [0, 1] (default <see cref="BattenbergSignificanceLevel"/>).</param>
+    /// <param name="maxBafDistance">Battenberg <c>maxdist</c> ≥ 0 (default <see cref="BattenbergMaxBafDistance"/>).</param>
+    /// <returns>Per-segment fits with Battenberg's p-value, in input order.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="segments"/> or a SNP-BAF list is null.</exception>
+    /// <exception cref="ArgumentException">a segment has a non-finite logR, a BAF outside [0, 1], or a SNP BAF outside [0, 1].</exception>
+    /// <exception cref="ArgumentOutOfRangeException">ρ ∉ (0,1], ψ ≤ 0, γ ≤ 0, siglevel ∉ [0, 1] or maxdist &lt; 0 / not finite.</exception>
+    public static IReadOnlyList<SubclonalSegmentTestedFit> FitSubclonalCopyNumberWithSnpTest(
+        IReadOnlyList<SubclonalSegmentSnpBafs> segments,
+        double purity,
+        double ploidy,
+        double gamma = AscatSequencingGamma,
+        double significanceLevel = BattenbergSignificanceLevel,
+        double maxBafDistance = BattenbergMaxBafDistance)
+    {
+        ArgumentNullException.ThrowIfNull(segments);
+        ValidateAscatModelParameters(purity, ploidy, gamma);
+        if (!(significanceLevel >= 0.0 && significanceLevel <= 1.0))
+        {
+            throw new ArgumentOutOfRangeException(nameof(significanceLevel), significanceLevel, "siglevel must lie in [0, 1].");
+        }
+
+        if (!(maxBafDistance >= 0.0) || double.IsPositiveInfinity(maxBafDistance))
+        {
+            throw new ArgumentOutOfRangeException(nameof(maxBafDistance), maxBafDistance, "maxdist must be finite and ≥ 0.");
+        }
+
+        double psiAll = MixtureCopiesPerCell(purity, ploidy);
+        var fits = new List<SubclonalSegmentTestedFit>(segments.Count);
+        foreach (SubclonalSegmentSnpBafs item in segments)
+        {
+            if (item.PhasedSnpBafs is null)
+            {
+                throw new ArgumentNullException(nameof(segments), "Every segment needs a (possibly empty) phased SNP-BAF list.");
+            }
+
+            foreach (double b in item.PhasedSnpBafs)
+            {
+                if (!(b >= 0.0 && b <= 1.0))
+                {
+                    throw new ArgumentException("Every phased SNP BAF must lie in [0, 1].", nameof(segments));
+                }
+            }
+
+            BattenbergSegmentGeometry g = BattenbergSegmentEdge(item.Segment, purity, psiAll, gamma, nameof(segments));
+            double pValue = StatisticsHelper.OneSampleTTestPValue(item.PhasedSnpBafs, g.ClosestTestLevel);
+            if (double.IsNaN(pValue))
+            {
+                pValue = 0.0; // sd NA (< 2 SNPs) or 0 (constant BAF): Battenberg pval = 0
+            }
+
+            if (g.ClosestDistance < maxBafDistance)
+            {
+                pValue = 1.0;
+            }
+
+            fits.Add(new SubclonalSegmentTestedFit(
+                BattenbergSegmentFit(item.Segment, g, purity, isClonal: !(pValue <= significanceLevel)),
+                pValue));
+        }
+
+        return fits;
+    }
+
+    /// <summary>Battenberg per-segment geometry: mirrored BAF l, nearest edge, and the closest corner of that edge.</summary>
+    private readonly record struct BattenbergSegmentGeometry(
+        double L, double Maj1, double Min1, double Maj2, double Min2, bool FirstClosest, double ClosestDistance)
+    {
+        public double ClosestTestLevel => FirstClosest ? Level1 : Level2;
+
+        public double Level1 { get; init; }
+
+        public double Level2 { get; init; }
+
+        /// <summary>Battenberg <c>levels[2]</c>/<c>levels[3]</c> (corner BAFs of the square, 0/0 ⇒ 0.5), x, y and ntot.</summary>
+        public double SquareLevel2 { get; init; }
+
+        public double SquareLevel3 { get; init; }
+
+        public double X { get; init; }
+
+        public double Y { get; init; }
+
+        public double Ntot { get; init; }
+    }
+
+    /// <summary>The <c>determine_copynumber</c> body up to <c>whichclosestlevel.test</c> (shared by both clonality rules).</summary>
+    private static BattenbergSegmentGeometry BattenbergSegmentEdge(
+        AlleleSpecificSegmentSummary s, double rho, double psiAll, double gamma, string paramName)
+    {
+        if (!IsValidAlleleSignal(s.MeanLogR, s.MeanBAF))
+        {
+            throw new ArgumentException("Every segment needs a finite mean logR and a mean BAF in [0, 1].", paramName);
+        }
+
+        double l = MirrorBaf(s.MeanBAF); // max(BAF, 1 − BAF)
+        double scaled = psiAll * Math.Pow(2.0, s.MeanLogR / gamma);
+        double nMajor = (rho - 1.0 + l * scaled) / rho;
+        double nMinor = (rho - 1.0 + (1.0 - l) * scaled) / rho;
+
+        // Increase nMajor and nMinor together, to avoid impossible combinations (negative sub-clonal fractions).
+        if (nMinor < 0.0)
+        {
+            nMajor = l == 1.0
+                ? BattenbergCopyNumberUpperLimit
+                : nMajor + l * (BattenbergMinimumMinorCopyNumber - nMinor) / (1.0 - l);
+            nMinor = BattenbergMinimumMinorCopyNumber;
+        }
+
+        double x = Math.Floor(nMinor), y = Math.Floor(nMajor);
+        double ntot = nMajor + nMinor;
+        // Corners, sorted in the order of ascending BAF: (⌊M⌋,⌈m⌉), (⌈M⌉,⌈m⌉), (⌊M⌋,⌊m⌋), (⌈M⌉,⌊m⌋).
+        double level2 = BattenbergCornerLevel(Math.Ceiling(nMajor), Math.Ceiling(nMinor), rho, zeroCornerIsBalanced: true);
+        double level3 = BattenbergCornerLevel(Math.Floor(nMajor), Math.Floor(nMinor), rho, zeroCornerIsBalanced: true);
+        (double maj1, double min1, double maj2, double min2) = BattenbergNearestEdge(level2, level3, l, ntot, x, y);
+
+        // Clonality test on the corners of the nearest edge (test.levels carry no 0/0 correction in Battenberg).
+        double testLevel1 = BattenbergCornerLevel(maj1, min1, rho, zeroCornerIsBalanced: false);
+        double testLevel2 = BattenbergCornerLevel(maj2, min2, rho, zeroCornerIsBalanced: false);
+        double dist1 = double.IsNaN(testLevel1) ? double.PositiveInfinity : Math.Abs(testLevel1 - l);
+        double dist2 = double.IsNaN(testLevel2) ? double.PositiveInfinity : Math.Abs(testLevel2 - l);
+        bool firstClosest = dist1 <= dist2; // which.min: first index on a tie
+        return new BattenbergSegmentGeometry(l, maj1, min1, maj2, min2, firstClosest, firstClosest ? dist1 : dist2)
+        {
+            Level1 = testLevel1,
+            Level2 = testLevel2,
+            SquareLevel2 = level2,
+            SquareLevel3 = level3,
+            X = x,
+            Y = y,
+            Ntot = ntot,
+        };
+    }
+
+    /// <summary>
+    /// Battenberg output row: the closest corner with fraction 1 when clonal, else state 1 at τ and state 2 at 1 − τ.
+    /// </summary>
+    private static SubclonalSegmentFit BattenbergSegmentFit(
+        AlleleSpecificSegmentSummary s, BattenbergSegmentGeometry g, double rho, bool isClonal)
+    {
+        double l = g.L, maj1 = g.Maj1, min1 = g.Min1, maj2 = g.Maj2, min2 = g.Min2;
+        if (isClonal)
+        {
+            var clonal = g.FirstClosest
+                ? new SubclonalCopyNumberState(AscatCopyNumberToInt(maj1), AscatCopyNumberToInt(min1), 1.0)
+                : new SubclonalCopyNumberState(AscatCopyNumberToInt(maj2), AscatCopyNumberToInt(min2), 1.0);
+            return new SubclonalSegmentFit(s, clonal, SecondaryState: null, IsSubclonal: false);
+        }
+
+        double tau = BattenbergTau(l, rho, maj1, min1, maj2, min2);
+        return new SubclonalSegmentFit(
+            s,
+            new SubclonalCopyNumberState(AscatCopyNumberToInt(maj1), AscatCopyNumberToInt(min1), tau),
+            new SubclonalCopyNumberState(AscatCopyNumberToInt(maj2), AscatCopyNumberToInt(min2), 1.0 - tau),
+            IsSubclonal: true);
     }
 
     /// <summary>
@@ -2759,6 +7607,3973 @@ public static partial class OncologyAnalyzer
 
         // case 2b
         return lowerTotal ? (y, x, y, x + 1.0) : (y, x + 1.0, y + 1.0, x + 1.0);
+    }
+
+    /// <summary>
+    /// One of Battenberg's six candidate sub-clonal solutions A–F of a segment (<c>callSubclones</c> extended output
+    /// columns <c>nMaj1_X, nMin1_X, frac1_X, nMaj2_X, nMin2_X, frac2_X, SDfrac_X, SDfrac_X_BS, frac1_X_0.025, frac1_X_0.975</c>).
+    /// A solution whose edge would need a negative copy number is <c>NA</c> in Battenberg: its copy numbers are
+    /// <c>null</c> and its numbers NaN (such solutions are listed last).
+    /// </summary>
+    /// <param name="MajorCopyNumber1">nMaj1 (state 1 major), or null (NA).</param>
+    /// <param name="MinorCopyNumber1">nMin1, or null.</param>
+    /// <param name="Fraction1">frac1 = τ (unclamped), NaN when NA.</param>
+    /// <param name="MajorCopyNumber2">nMaj2 (state 2 major), or null.</param>
+    /// <param name="MinorCopyNumber2">nMin2, or null.</param>
+    /// <param name="Fraction2">frac2 = 1 − τ.</param>
+    /// <param name="FractionSd">SDfrac: |τ(l + s) − τ|/2 + |τ(l − s) − τ|/2 with s = sd(BAFke)/√n (NaN for &lt; 2 SNPs).</param>
+    /// <param name="FractionBootstrapSd">SDfrac_BS: sd of the bootstrap τ values (NaN when any is NaN).</param>
+    /// <param name="Fraction1Lower">frac1_0.025: the 25th smallest bootstrap τ (NaN when fewer than 25 non-NaN values).</param>
+    /// <param name="Fraction1Upper">frac1_0.975: the 975th smallest bootstrap τ (NaN when fewer than 975).</param>
+    public readonly record struct BattenbergSubclonalSolution(
+        int? MajorCopyNumber1,
+        int? MinorCopyNumber1,
+        double Fraction1,
+        int? MajorCopyNumber2,
+        int? MinorCopyNumber2,
+        double Fraction2,
+        double FractionSd,
+        double FractionBootstrapSd,
+        double Fraction1Lower,
+        double Fraction1Upper);
+
+    /// <summary>
+    /// A Battenberg <c>determine_copynumber</c> output row with its alternative solutions and confidence intervals.
+    /// </summary>
+    /// <param name="Fit">Solution A as a clonal / sub-clonal fit (identical to <see cref="FitSubclonalCopyNumberWithSnpTest"/>).</param>
+    /// <param name="PValue">Battenberg <c>pval</c>.</param>
+    /// <param name="Baf">Battenberg <c>BAF</c> column: the mirrored segment level l = max(BAFseg, 1 − BAFseg).</param>
+    /// <param name="TotalCopyNumber">Battenberg <c>ntot</c> = nMajor + nMinor (raw, after the negative-minor correction).</param>
+    /// <param name="Solutions">Solutions A–F (six entries) for a sub-clonal segment; empty for a clonal one (Battenberg NA).</param>
+    public sealed record BattenbergSegmentCall(
+        SubclonalSegmentFit Fit,
+        double PValue,
+        double Baf,
+        double TotalCopyNumber,
+        IReadOnlyList<BattenbergSubclonalSolution> Solutions)
+    {
+        /// <summary>
+        /// True when Battenberg <c>mask_high_cn_segments</c> masked this row (B24 F60): its <c>nMaj1_A</c>, <c>nMin1_A</c>,
+        /// <c>nMaj2_A</c>, <c>nMin2_A</c> are <c>NA</c> in Battenberg's output (solution A's copy numbers are then null here;
+        /// <see cref="Fit"/> keeps the pre-mask states, the fractions and solutions B–F are unchanged, as in R).
+        /// </summary>
+        public bool IsMasked { get; init; }
+    }
+
+    /// <summary>Battenberg <c>noperms = 1000</c> (<c>callSubclones</c> default).</summary>
+    public const int BattenbergDefaultPermutations = 1000;
+
+    /// <summary>
+    /// <see cref="FitSubclonalCopyNumberWithSnpTest"/> plus the rest of Battenberg's <c>determine_copynumber</c> row
+    /// (Wedge-lab/battenberg R/fitcopynumber.R; B24 F41): for a sub-clonal segment all six <c>orderEdges</c> solutions
+    /// A–F (rows with a negative copy number become NA and move to the end), each with τ, the delta-method
+    /// <c>SDfrac</c> and the bootstrap <c>SDfrac_BS</c> / <c>frac1_0.025</c> / <c>frac1_0.975</c>:
+    /// <code>
+    /// for (option in 1:6) for (j in 1:noperms) {
+    ///   permBAFs = sample(BAFke, length(BAFke), replace = T); permMeanBAF = mean(permBAFs)
+    ///   permFraction[j] = τ(permMeanBAF; option) }
+    /// SDfrac_BS = sd(permFraction); frac1_0.025 = sort(permFraction)[25]; frac1_0.975 = sort(permFraction)[975]
+    /// </code>
+    /// Note the bounds are fixed order statistics, not <c>quantile()</c>: they are the 2.5 %/97.5 % points only for
+    /// noperms = 1000 and NA for fewer resamples. Resampling uses a port of R's default generator — Mersenne-Twister
+    /// seeded by <c>set.seed(seed)</c> (initial scrambling + LCG fill) with R ≥ 3.6 "Rejection" <c>sample</c>
+    /// (<c>R_unif_index</c>/<c>rbits</c>) — consuming draws in Battenberg's order (segments in input order, options
+    /// A–F, NA options included), so the resamples are R's: <c>set.seed(seed); determine_copynumber(…)</c> is reproduced
+    /// (the bootstrap columns agree to ~1e−15; R's long-double <c>mean</c>/<c>sd</c> differ only in the last bits).
+    /// <c>callSubclones</c> calls <c>set.seed</c> once and then <c>determine_copynumber</c> twice (before/after
+    /// <c>merge_segments</c>), so its final table matches this method only for the RNG state at the second call —
+    /// <see cref="CallBattenbergSubclones"/> runs the whole sequence on one stream (B24 F61).
+    /// </summary>
+    /// <param name="segments">Segments with their phased SNP BAFs (e.g. from <see cref="BuildBattenbergSegments"/>).</param>
+    /// <param name="purity">Fitted tumour purity ρ ∈ (0, 1].</param>
+    /// <param name="ploidy">Fitted tumour ploidy ψ (&gt; 0).</param>
+    /// <param name="seed">R <c>set.seed</c> value (Battenberg <c>seed</c>; any 32-bit integer).</param>
+    /// <param name="gamma">Platform parameter γ (&gt; 0).</param>
+    /// <param name="significanceLevel">Battenberg <c>siglevel</c> ∈ [0, 1].</param>
+    /// <param name="maxBafDistance">Battenberg <c>maxdist</c> ≥ 0.</param>
+    /// <param name="permutations">Battenberg <c>noperms</c> ≥ 1 (default 1000).</param>
+    /// <returns>One call per segment, in input order.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="segments"/> or a SNP-BAF list is null.</exception>
+    /// <exception cref="ArgumentException">invalid segment or SNP BAF (as <see cref="FitSubclonalCopyNumberWithSnpTest"/>).</exception>
+    /// <exception cref="ArgumentOutOfRangeException">invalid ρ, ψ, γ, siglevel, maxdist, or permutations &lt; 1.</exception>
+    public static IReadOnlyList<BattenbergSegmentCall> FitSubclonalCopyNumberWithBootstrap(
+        IReadOnlyList<SubclonalSegmentSnpBafs> segments,
+        double purity,
+        double ploidy,
+        int seed,
+        double gamma = AscatSequencingGamma,
+        double significanceLevel = BattenbergSignificanceLevel,
+        double maxBafDistance = BattenbergMaxBafDistance,
+        int permutations = BattenbergDefaultPermutations)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(permutations, 1);
+        return BattenbergDetermineCopyNumber(
+            segments, purity, ploidy, new RMersenneTwister(seed), gamma, significanceLevel, maxBafDistance, permutations);
+    }
+
+    /// <summary>
+    /// <c>determine_copynumber</c> drawing its bootstrap resamples from <paramref name="rng"/> — shared by
+    /// <see cref="FitSubclonalCopyNumberWithBootstrap"/> (fresh <c>set.seed</c>) and <see cref="CallBattenbergSubclones"/>
+    /// (one stream across both calls, as <c>callSubclones</c>).
+    /// </summary>
+    private static List<BattenbergSegmentCall> BattenbergDetermineCopyNumber(
+        IReadOnlyList<SubclonalSegmentSnpBafs> segments,
+        double purity,
+        double ploidy,
+        RMersenneTwister rng,
+        double gamma,
+        double significanceLevel,
+        double maxBafDistance,
+        int permutations)
+    {
+        IReadOnlyList<SubclonalSegmentTestedFit> tested = FitSubclonalCopyNumberWithSnpTest(
+            segments, purity, ploidy, gamma, significanceLevel, maxBafDistance);
+        double psiAll = MixtureCopiesPerCell(purity, ploidy);
+        var calls = new List<BattenbergSegmentCall>(tested.Count);
+        for (int i = 0; i < tested.Count; i++)
+        {
+            SubclonalSegmentTestedFit t = tested[i];
+            BattenbergSegmentGeometry g = BattenbergSegmentEdge(segments[i].Segment, purity, psiAll, gamma, nameof(segments));
+            IReadOnlyList<BattenbergSubclonalSolution> solutions = t.Fit.IsSubclonal
+                ? BattenbergSolutions(g, purity, segments[i].PhasedSnpBafs, permutations, rng)
+                : Array.Empty<BattenbergSubclonalSolution>();
+            calls.Add(new BattenbergSegmentCall(t.Fit, t.PValue, g.L, g.Ntot, solutions));
+        }
+
+        return calls;
+    }
+
+    /// <summary>The sub-clonal branch of <c>determine_copynumber</c>: six solutions with SDfrac and bootstrap columns.</summary>
+    private static BattenbergSubclonalSolution[] BattenbergSolutions(
+        BattenbergSegmentGeometry g, double rho, IReadOnlyList<double> bafke, int noperms, RMersenneTwister rng)
+    {
+        (double Maj1, double Min1, double Maj2, double Min2)[] edges = BattenbergAllEdges(g.SquareLevel2, g.SquareLevel3, g.L, g.Ntot, g.X, g.Y);
+        double l = g.L;
+        int n = bafke.Count;
+        double sdl = n < 2 ? double.NaN : Math.Sqrt(StatisticsHelper.RSampleVariance(bafke)) / Math.Sqrt(n);
+        var result = new BattenbergSubclonalSolution[edges.Length];
+        var perm = new double[n];
+        var permFraction = new double[noperms];
+        for (int o = 0; o < edges.Length; o++)
+        {
+            (double maj1, double min1, double maj2, double min2) = edges[o];
+            double tau = BattenbergTau(l, rho, maj1, min1, maj2, min2);
+            double sdtau = Math.Abs(BattenbergTau(l + sdl, rho, maj1, min1, maj2, min2) - tau) / 2
+                           + Math.Abs(BattenbergTau(l - sdl, rho, maj1, min1, maj2, min2) - tau) / 2;
+            for (int j = 0; j < noperms; j++)
+            {
+                for (int k = 0; k < n; k++)
+                {
+                    perm[k] = bafke[rng.UnifIndex(n)];
+                }
+
+                double permMean = n == 0 ? double.NaN : StatisticsHelper.RMean(perm);
+                permFraction[j] = BattenbergTau(permMean, rho, maj1, min1, maj2, min2);
+            }
+
+            double sdBoot = Math.Sqrt(StatisticsHelper.RSampleVariance(permFraction));
+            var ordered = permFraction.Where(v => !double.IsNaN(v)).ToArray(); // sort() drops NA/NaN
+            Array.Sort(ordered);
+            bool na = double.IsNaN(maj1);
+            result[o] = new BattenbergSubclonalSolution(
+                na ? null : AscatCopyNumberToInt(maj1),
+                na ? null : AscatCopyNumberToInt(min1),
+                tau,
+                na ? null : AscatCopyNumberToInt(maj2),
+                na ? null : AscatCopyNumberToInt(min2),
+                1.0 - tau,
+                sdtau,
+                sdBoot,
+                ordered.Length >= 25 ? ordered[24] : double.NaN,
+                ordered.Length >= 975 ? ordered[974] : double.NaN);
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Battenberg sub-clonal fraction of state 1 at BAF <paramref name="l"/>:
+    /// τ = (1 − ρ + ρM₂ − 2l(1 − ρ) − lρ(m₂ + M₂)) / (lρ(m₁ + M₁) − lρ(m₂ + M₂) − ρM₁ + ρM₂) (R operation order).
+    /// </summary>
+    private static double BattenbergTau(double l, double rho, double maj1, double min1, double maj2, double min2) =>
+        (1.0 - rho + rho * maj2 - 2.0 * l * (1.0 - rho) - l * rho * (min2 + maj2))
+        / (l * rho * (min1 + maj1) - l * rho * (min2 + maj2) - rho * maj1 + rho * maj2);
+
+    /// <summary>
+    /// Battenberg <c>orderEdges(levels, l, ntot, x, y)</c>, all six options (R/orderEdges.R), negative-copy-number rows
+    /// set to NaN and moved to the end (<c>determine_copynumber</c>: <c>rbind(all.edges[-na.indices,], all.edges[na.indices,])</c>).
+    /// </summary>
+    private static (double Maj1, double Min1, double Maj2, double Min2)[] BattenbergAllEdges(
+        double level2, double level3, double l, double ntot, double x, double y)
+    {
+        double[] maj1, min1, maj2, min2;
+        bool lower = ntot < x + y + 1.0;
+        if (l > level3)
+        {
+            // case 1 or 2a
+            if (lower)
+            {
+                maj1 = new[] { y, y - 1, y, y + 1, y + 1, y + 1 };
+                min1 = new[] { x, x, x, x, x - 1, x };
+                maj2 = new[] { y + 1, y + 1, y + 2, y + 1, y + 1, y + 1 };
+                min2 = new[] { x, x, x, x + 1, x + 1, x + 2 };
+            }
+            else
+            {
+                maj1 = new[] { y + 1, y + 1, y + 1, y, y - 1, y };
+                min1 = new[] { x, x - 1, x, x, x, x };
+                maj2 = new[] { y + 1, y + 1, y + 1, y + 1, y + 1, y + 2 };
+                min2 = new[] { x + 1, x + 1, x + 2, x, x, x };
+            }
+        }
+        else if (l > level2)
+        {
+            // case 2c
+            if (lower)
+            {
+                maj1 = new[] { y, y, y, y + 1, y + 1, y + 1 };
+                min1 = new[] { x, x - 1, x, x, x - 1, x };
+                maj2 = new[] { y, y, y, y + 1, y + 1, y + 1 };
+                min2 = new[] { x + 1, x + 1, x + 2, x + 1, x + 1, x + 2 };
+            }
+            else
+            {
+                maj1 = new[] { y + 1, y + 1, y + 1, y, y, y };
+                min1 = new[] { x, x - 1, x, x, x - 1, x };
+                maj2 = new[] { y + 1, y + 1, y + 1, y, y, y };
+                min2 = new[] { x + 1, x + 1, x + 2, x + 1, x + 1, x + 2 };
+            }
+        }
+        else
+        {
+            // case 2b
+            if (lower)
+            {
+                maj1 = new[] { y, y, y, y, y - 1, y };
+                min1 = new[] { x, x - 1, x, x + 1, x + 1, x + 1 };
+                maj2 = new[] { y, y, y, y + 1, y + 1, y + 2 };
+                min2 = new[] { x + 1, x + 1, x + 2, x + 1, x + 1, x + 1 };
+            }
+            else
+            {
+                maj1 = new[] { y, y - 1, y, y, y, y };
+                min1 = new[] { x + 1, x + 1, x + 1, x, x - 1, x };
+                maj2 = new[] { y + 1, y + 1, y + 2, y, y, y };
+                min2 = new[] { x + 1, x + 1, x + 1, x + 1, x + 1, x + 2 };
+            }
+        }
+
+        var valid = new List<(double, double, double, double)>(6);
+        var invalid = new List<(double, double, double, double)>(6);
+        for (int i = 0; i < 6; i++)
+        {
+            if (maj1[i] < 0 || min1[i] < 0 || maj2[i] < 0 || min2[i] < 0)
+            {
+                invalid.Add((double.NaN, double.NaN, double.NaN, double.NaN));
+            }
+            else
+            {
+                valid.Add((maj1[i], min1[i], maj2[i], min2[i]));
+            }
+        }
+
+        valid.AddRange(invalid);
+        return valid.ToArray();
+    }
+
+    /// <summary>
+    /// R's default RNG (RNG.c): Mersenne-Twister (<c>MT_genrand</c>, unsigned 32-bit state, output ·2.3283064365386963e−10,
+    /// <c>fixup</c> into (0, 1)), seeded as <c>set.seed(seed)</c> does (<c>Randomize</c>: 50 LCG scrambles
+    /// <c>seed = 69069·seed + 1</c>, then 625 LCG values fill <c>dummy[0..624]</c>, <c>dummy[0] = mti = 624</c>), with R ≥ 3.6
+    /// <c>sample.kind = "Rejection"</c> integer draws (<c>R_unif_index</c>: <c>rbits(ceil(log2(n)))</c> until &lt; n).
+    /// E.g. <c>set.seed(42); sample(5, 10, TRUE)</c> = 1 5 1 1 2 4 2 2 1 4.
+    /// </summary>
+    private sealed class RMersenneTwister
+    {
+        private const int N = 624;
+        private const int M = 397;
+        private const uint MatrixA = 0x9908b0df;
+        private const uint UpperMask = 0x80000000;
+        private const uint LowerMask = 0x7fffffff;
+        private const double TwoTo32Inverse = 2.3283064365386963e-10;
+        private const double I2To32M1 = 2.328306437080797e-10;
+        private readonly uint[] _mt = new uint[N];
+        private int _mti;
+
+        public RMersenneTwister(int seed)
+        {
+            uint s = unchecked((uint)seed);
+            for (int j = 0; j < 50; j++)
+            {
+                s = unchecked((69069u * s) + 1u);
+            }
+
+            s = unchecked((69069u * s) + 1u); // dummy[0] (mti), overwritten by FixupSeeds
+            for (int j = 0; j < N; j++)
+            {
+                s = unchecked((69069u * s) + 1u);
+                _mt[j] = s;
+            }
+
+            _mti = N;
+        }
+
+        /// <summary>R <c>unif_rand()</c>.</summary>
+        public double UnifRand()
+        {
+            double v = Genrand();
+            if (v <= 0.0)
+            {
+                return 0.5 * I2To32M1;
+            }
+
+            return 1.0 - v <= 0.0 ? 1.0 - (0.5 * I2To32M1) : v;
+        }
+
+        /// <summary>R <c>R_unif_index(n)</c> (rejection sampling); 0-based index in [0, n).</summary>
+        public int UnifIndex(int n)
+        {
+            if (n <= 0)
+            {
+                return 0;
+            }
+
+            int bits = (int)Math.Ceiling(Math.Log2(n));
+            double dv;
+            do
+            {
+                long v = 0;
+                for (int k = 0; k <= bits; k += 16)
+                {
+                    int v1 = (int)Math.Floor(UnifRand() * 65536);
+                    v = (65536 * v) + v1;
+                }
+
+                dv = v & ((1L << bits) - 1);
+            }
+            while (n <= dv);
+
+            return (int)dv;
+        }
+
+        /// <summary>R <c>sample.int(n, k)</c> without replacement (random.c <c>do_sample</c>, equal probabilities,
+        /// n ≤ 1e7): <c>x = 0..n−1</c>; k times <c>j = R_unif_index(n); y[i] = x[j]; x[j] = x[--n]</c>. 0-based indices in
+        /// draw order.</summary>
+        public int[] SampleWithoutReplacement(int n, int k)
+        {
+            var x = new int[n];
+            for (int i = 0; i < n; i++)
+            {
+                x[i] = i;
+            }
+
+            var y = new int[k];
+            for (int i = 0; i < k; i++)
+            {
+                int j = UnifIndex(n);
+                y[i] = x[j];
+                x[j] = x[--n];
+            }
+
+            return y;
+        }
+
+        private double Genrand()
+        {
+            uint y;
+            if (_mti >= N)
+            {
+                int kk;
+                for (kk = 0; kk < N - M; kk++)
+                {
+                    y = (_mt[kk] & UpperMask) | (_mt[kk + 1] & LowerMask);
+                    _mt[kk] = _mt[kk + M] ^ (y >> 1) ^ ((y & 1u) != 0 ? MatrixA : 0u);
+                }
+
+                for (; kk < N - 1; kk++)
+                {
+                    y = (_mt[kk] & UpperMask) | (_mt[kk + 1] & LowerMask);
+                    _mt[kk] = _mt[kk + (M - N)] ^ (y >> 1) ^ ((y & 1u) != 0 ? MatrixA : 0u);
+                }
+
+                y = (_mt[N - 1] & UpperMask) | (_mt[0] & LowerMask);
+                _mt[N - 1] = _mt[M - 1] ^ (y >> 1) ^ ((y & 1u) != 0 ? MatrixA : 0u);
+                _mti = 0;
+            }
+
+            y = _mt[_mti++];
+            y ^= y >> 11;
+            y ^= (y << 7) & 0x9d2c5680u;
+            y ^= (y << 15) & 0xefc60000u;
+            y ^= y >> 18;
+            return y * TwoTo32Inverse;
+        }
+    }
+
+    #endregion
+
+    #region Battenberg phased-BAF segmentation (ONCO-ASCAT-001, B24 F40)
+
+    /// <summary>
+    /// One germline-heterozygous SNP with its tumour BAF, expressed on a <b>caller-supplied</b> haplotype phase (Battenberg
+    /// <c>combine.baf.files</c> output, columns <c>Chromosome, Position, BAF</c>; the BAF is that of haplotype 1 after
+    /// IMPUTE2/Beagle5 phasing). <see cref="double.NaN"/> marks a missing BAF (dropped, as Battenberg drops <c>NA</c>).
+    /// </summary>
+    /// <param name="Chromosome">Contig label.</param>
+    /// <param name="Position">SNP position (the SNPs of a chromosome are taken in input order, as in Battenberg).</param>
+    /// <param name="Baf">Haplotype-phased BAF in [0, 1], or NaN.</param>
+    public readonly record struct PhasedBafSnp(string Chromosome, long Position, double Baf);
+
+    /// <summary>A prior breakpoint (e.g. a structural-variant junction): Battenberg <c>prior_breakpoints_file</c> row.</summary>
+    /// <param name="Chromosome">Contig label.</param>
+    /// <param name="Position">Breakpoint position.</param>
+    public readonly record struct BattenbergPriorBreakpoint(string Chromosome, long Position);
+
+    /// <summary>Battenberg <c>calc_seg_baf_option</c>: how the BAF of a segment is recalculated after segmentation.</summary>
+    public enum BattenbergSegmentBafOption
+    {
+        /// <summary>1 — median of the segment's phased BAFs (<c>adjustSegmValues</c>).</summary>
+        Median = 1,
+
+        /// <summary>2 — the PCF segment mean, unchanged.</summary>
+        Mean = 2,
+
+        /// <summary>3 (Battenberg default) — the median, unless it is exactly 0 or 1, then the mean.</summary>
+        MedianUnlessExtreme = 3,
+    }
+
+    /// <summary>
+    /// Parameters of Battenberg <c>segment.baf.phased</c> (Wedge-lab/battenberg R/segmentation.R); defaults are
+    /// Battenberg's (<c>gamma = 10, phasegamma = 3, kmin = 3, phasekmin = 3, no_segmentation = F,
+    /// calc_seg_baf_option = 3</c>, no prior breakpoints).
+    /// </summary>
+    public sealed record BattenbergPhasedSegmentationOptions
+    {
+        /// <summary>Battenberg defaults.</summary>
+        public static BattenbergPhasedSegmentationOptions Default { get; } = new();
+
+        /// <summary><c>gamma</c>: PCF penalty factor of the second (copy-number) segmentation (multiplied by the MAD sd).</summary>
+        public double Gamma { get; init; } = 10.0;
+
+        /// <summary><c>phasegamma</c>: PCF penalty factor of the first (phase-correcting) segmentation.</summary>
+        public double PhaseGamma { get; init; } = 3.0;
+
+        /// <summary><c>kmin</c>: minimum SNPs per segment of the second segmentation, in [1, <see cref="BattenbergMaxKmin"/>].</summary>
+        public int Kmin { get; init; } = 3;
+
+        /// <summary><c>phasekmin</c>: minimum SNPs per segment of the first segmentation, in [1, <see cref="BattenbergMaxKmin"/>].</summary>
+        public int PhaseKmin { get; init; } = 3;
+
+        /// <summary><c>no_segmentation</c>: switch the haplotype blocks but take the mean phased BAF as the segment BAF.</summary>
+        public bool NoSegmentation { get; init; }
+
+        /// <summary><c>calc_seg_baf_option</c> (default <see cref="BattenbergSegmentBafOption.MedianUnlessExtreme"/>).</summary>
+        public BattenbergSegmentBafOption SegmentBafOption { get; init; } = BattenbergSegmentBafOption.MedianUnlessExtreme;
+
+        /// <summary>Prior breakpoints (<c>prior_breakpoints_file</c>), in file order; empty = none.</summary>
+        public IReadOnlyList<BattenbergPriorBreakpoint> PriorBreakpoints { get; init; } = Array.Empty<BattenbergPriorBreakpoint>();
+    }
+
+    /// <summary>
+    /// Largest <c>kmin</c>/<c>phasekmin</c> accepted: Battenberg's <c>filterMarkS4</c> indexes <c>3·kmin + 6</c> SNPs,
+    /// so larger values leave R's index ranges for the minimum PCF input of 50 SNPs (R then misbehaves or stops).
+    /// </summary>
+    public const int BattenbergMaxKmin = 14;
+
+    /// <summary>
+    /// One output row of Battenberg <c>segment.baf.phased</c> (<c>Chromosome, Position, BAF, BAFphased, BAFseg</c>).
+    /// </summary>
+    /// <param name="Chromosome">Contig label.</param>
+    /// <param name="Position">SNP position.</param>
+    /// <param name="Baf">The input phased BAF.</param>
+    /// <param name="BafPhased">Haplotype-block-corrected BAF <c>ifelse(BAFsegm &gt; 0.5, BAF, 1 − BAF)</c>.</param>
+    /// <param name="BafSegment">The segment BAF <c>BAFseg</c> (per <see cref="BattenbergSegmentBafOption"/>).</param>
+    public readonly record struct PhasedBafSegmentedSnp(
+        string Chromosome, long Position, double Baf, double BafPhased, double BafSegment);
+
+    /// <summary>A raw logR probe (Battenberg <c>LogRvals</c>: chromosome, position, logR). NaN/±∞ logR are ignored.</summary>
+    /// <param name="Chromosome">Contig label.</param>
+    /// <param name="Position">Probe position.</param>
+    /// <param name="LogR">Raw logR.</param>
+    public readonly record struct LogRProbe(string Chromosome, long Position, double LogR);
+
+    /// <summary>Battenberg <c>bkps_to_presegment_breakpoints</c>: <c>maxsnpdist = 3000000</c> (a gap ≥ this splits).</summary>
+    private const long BattenbergMaxSnpDistance = 3_000_000;
+
+    /// <summary>Battenberg <c>run_pcf</c>: presegments with fewer SNPs are not segmented (their mean BAF is used).</summary>
+    private const int BattenbergMinPcfSnps = 50;
+
+    /// <summary>Battenberg <c>run_pcf</c>: MAD sd floor 0.09 ("binomial around 0.5 at depth 30").</summary>
+    private const double BattenbergMinBafSd = 0.09;
+
+    /// <summary>
+    /// Segments caller-phased SNP BAFs exactly as Battenberg <c>segment.baf.phased</c> (Wedge-lab/battenberg
+    /// R/segmentation.R, default path; B24 F40), the step between haplotype phasing and <c>callSubclones</c>:
+    /// <list type="number">
+    /// <item>Per chromosome (first-appearance order), SNPs with a missing BAF are dropped and the chromosome is
+    /// pre-segmented at prior breakpoints and at every gap ≥ 3 Mb between consecutive SNPs
+    /// (<c>bkps_to_presegment_breakpoints</c>/<c>addin_bigholes</c>, including R's index quirks).</item>
+    /// <item>Per presegment (<c>run_pcf</c>): sd = <c>getMad(min(BAF, 1 − BAF), k = 25)</c> (NA → 0, floored at 0.09);
+    /// a first PCF <c>selectFastPcf(BAF, phasekmin, phasegamma·sd)</c> finds the switched haplotype blocks,
+    /// <c>BAFphased = ifelse(BAFsegm &gt; 0.5, BAF, 1 − BAF)</c>; a second PCF <c>selectFastPcf(BAFphased, kmin,
+    /// gamma·sd)</c> gives <c>BAFseg</c> (presegments of &lt; 50 SNPs, or <c>no_segmentation</c>, use the mean); the
+    /// segment BAF is then recalculated per <c>calc_seg_baf_option</c>.</item>
+    /// </list>
+    /// <c>selectFastPcf</c> is the copynumber-package fast PCF that Battenberg ships in R/fastPCF.R (<c>filterMarkS4</c>
+    /// candidate breakpoints + <c>PottsCompact</c>, and the 5000-SNP windowed <c>runPcfSubset</c> above 15 000 SNPs) —
+    /// a different routine from ASCAT's <c>exactPcf</c>/<c>fastAspcf</c>, ported here once; <c>getMad</c>/<c>runmed</c>
+    /// are the shared ASCAT helpers (identical code). Haplotype phasing itself (IMPUTE2/Beagle5 against the 1000 Genomes
+    /// reference panel) is <b>not</b> run: the caller supplies phased BAFs. Agreement with Battenberg (R 4.3.3) is to
+    /// ≲ 1e−12; R accumulates <c>cumsum</c>/<c>mean</c> in 80-bit long double, which can only matter at exact cost ties.
+    /// </summary>
+    /// <param name="snps">Phased SNP BAFs. Non-null; non-null chromosome; BAF in [0, 1] or NaN.</param>
+    /// <param name="options">Battenberg parameters (default <see cref="BattenbergPhasedSegmentationOptions.Default"/>).</param>
+    /// <returns>Battenberg's per-SNP rows (chromosomes in first-appearance order, presegments in order).</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="snps"/>, a chromosome, or the breakpoint list is null.</exception>
+    /// <exception cref="ArgumentException">a BAF outside [0, 1] (and not NaN).</exception>
+    /// <exception cref="ArgumentOutOfRangeException">gamma/phasegamma not finite or &lt; 0; kmin/phasekmin outside [1, 14];
+    /// an undefined <see cref="BattenbergSegmentBafOption"/>.</exception>
+    public static IReadOnlyList<PhasedBafSegmentedSnp> SegmentPhasedBaf(
+        IReadOnlyList<PhasedBafSnp> snps,
+        BattenbergPhasedSegmentationOptions? options = null)
+    {
+        ArgumentNullException.ThrowIfNull(snps);
+        options ??= BattenbergPhasedSegmentationOptions.Default;
+        ValidateBattenbergSegmentationOptions(options);
+
+        var chromosomes = new List<string>();
+        var byChromosome = new Dictionary<string, (List<long> Pos, List<double> Baf)>(StringComparer.Ordinal);
+        foreach (PhasedBafSnp snp in snps)
+        {
+            if (snp.Chromosome is null)
+            {
+                throw new ArgumentNullException(nameof(snps), "Every SNP needs a chromosome.");
+            }
+
+            if (!(double.IsNaN(snp.Baf) || (snp.Baf >= 0.0 && snp.Baf <= 1.0)))
+            {
+                throw new ArgumentException("Every phased BAF must lie in [0, 1] (or be NaN = missing).", nameof(snps));
+            }
+
+            if (!byChromosome.TryGetValue(snp.Chromosome, out var lists))
+            {
+                lists = (new List<long>(), new List<double>());
+                byChromosome.Add(snp.Chromosome, lists);
+                chromosomes.Add(snp.Chromosome);
+            }
+
+            if (!double.IsNaN(snp.Baf))
+            {
+                lists.Pos.Add(snp.Position);
+                lists.Baf.Add(snp.Baf);
+            }
+        }
+
+        var output = new List<PhasedBafSegmentedSnp>(snps.Count);
+        foreach (string chr in chromosomes)
+        {
+            (List<long> posList, List<double> bafList) = byChromosome[chr];
+            long[] pos = posList.ToArray();
+            double[] baf = bafList.ToArray();
+            var bkps = new List<long>();
+            foreach (BattenbergPriorBreakpoint b in options.PriorBreakpoints)
+            {
+                if (b.Chromosome == chr)
+                {
+                    bkps.Add(b.Position);
+                }
+            }
+
+            foreach ((long? start, long? end) in BattenbergPresegments(pos, bkps))
+            {
+                BattenbergRunPcf(chr, pos, baf, start, end, options, output);
+            }
+        }
+
+        return output;
+    }
+
+    /// <summary>
+    /// Groups <see cref="SegmentPhasedBaf"/> rows into the segments Battenberg <c>determine_copynumber</c> fits — a new
+    /// segment starts wherever <c>BAFseg</c> or the chromosome changes (<c>switchpoints</c>) — with each segment's logR
+    /// = mean of the finite logR probes of the same chromosome within [first SNP position, last SNP position]
+    /// (<c>mean(LogRvals[LogRpos &gt;= startpos &amp; LogRpos &lt;= endpos &amp; !is.infinite(.), 3], na.rm = T)</c>, 0 when
+    /// none). The result feeds <see cref="FitSubclonalCopyNumberWithSnpTest"/>: segment BAF = <c>BAFseg</c> (the level
+    /// <c>l</c> is mirrored there), SNP BAFs = <c>BAFphased</c> (<c>BAFke</c>), Start/End = min/max SNP position.
+    /// </summary>
+    /// <param name="segmentedSnps">Rows of <see cref="SegmentPhasedBaf"/> (BAFs in [0, 1]). Non-null.</param>
+    /// <param name="logR">Raw logR probes. Non-null (may be empty; NaN/±∞ ignored).</param>
+    /// <returns>One entry per Battenberg segment, in row order.</returns>
+    /// <exception cref="ArgumentNullException">an argument or a chromosome is null.</exception>
+    /// <exception cref="ArgumentException">a BAF or phased BAF outside [0, 1].</exception>
+    public static IReadOnlyList<SubclonalSegmentSnpBafs> BuildBattenbergSegments(
+        IReadOnlyList<PhasedBafSegmentedSnp> segmentedSnps,
+        IReadOnlyList<LogRProbe> logR)
+    {
+        ArgumentNullException.ThrowIfNull(segmentedSnps);
+        ArgumentNullException.ThrowIfNull(logR);
+        var probes = new Dictionary<string, List<(long Pos, double LogR)>>(StringComparer.Ordinal);
+        foreach (LogRProbe p in logR)
+        {
+            if (p.Chromosome is null)
+            {
+                throw new ArgumentNullException(nameof(logR), "Every logR probe needs a chromosome.");
+            }
+
+            if (!double.IsFinite(p.LogR))
+            {
+                continue; // !is.infinite(.) and na.rm = T
+            }
+
+            if (!probes.TryGetValue(p.Chromosome, out var list))
+            {
+                list = new List<(long, double)>();
+                probes.Add(p.Chromosome, list);
+            }
+
+            list.Add((p.Position, p.LogR));
+        }
+
+        var result = new List<SubclonalSegmentSnpBafs>();
+        int n = segmentedSnps.Count;
+        int from = 0;
+        for (int i = 0; i < n; i++)
+        {
+            PhasedBafSegmentedSnp row = segmentedSnps[i];
+            if (row.Chromosome is null)
+            {
+                throw new ArgumentNullException(nameof(segmentedSnps), "Every row needs a chromosome.");
+            }
+
+            if (!(row.BafSegment >= 0.0 && row.BafSegment <= 1.0) || !(row.BafPhased >= 0.0 && row.BafPhased <= 1.0))
+            {
+                throw new ArgumentException("Every BAFseg and BAFphased must lie in [0, 1].", nameof(segmentedSnps));
+            }
+
+            bool last = i == n - 1
+                        || segmentedSnps[i + 1].BafSegment != row.BafSegment
+                        || segmentedSnps[i + 1].Chromosome != row.Chromosome;
+            if (!last)
+            {
+                continue;
+            }
+
+            long start = long.MaxValue, end = long.MinValue;
+            var phased = new double[i - from + 1];
+            for (int j = from; j <= i; j++)
+            {
+                start = Math.Min(start, segmentedSnps[j].Position);
+                end = Math.Max(end, segmentedSnps[j].Position);
+                phased[j - from] = segmentedSnps[j].BafPhased;
+            }
+
+            var inRange = new List<double>();
+            if (probes.TryGetValue(row.Chromosome, out var chrProbes))
+            {
+                foreach ((long pos, double value) in chrProbes)
+                {
+                    if (pos >= start && pos <= end)
+                    {
+                        inRange.Add(value);
+                    }
+                }
+            }
+
+            double segLogR = inRange.Count == 0 ? 0.0 : StatisticsHelper.RMean(inRange); // is.na(LogR) ⇒ 0
+            result.Add(new SubclonalSegmentSnpBafs(
+                new AlleleSpecificSegmentSummary(row.Chromosome, start, end, segLogR, row.BafSegment, phased.Length),
+                phased));
+            from = i + 1;
+        }
+
+        return result;
+    }
+
+    private static void ValidateBattenbergSegmentationOptions(BattenbergPhasedSegmentationOptions options)
+    {
+        BattenbergPhasedSegmentationOptions o = options;
+        if (!(o.Gamma >= 0.0) || double.IsPositiveInfinity(o.Gamma))
+        {
+            throw new ArgumentOutOfRangeException(nameof(options), o.Gamma, "gamma must be finite and ≥ 0.");
+        }
+
+        if (!(o.PhaseGamma >= 0.0) || double.IsPositiveInfinity(o.PhaseGamma))
+        {
+            throw new ArgumentOutOfRangeException(nameof(options), o.PhaseGamma, "phasegamma must be finite and ≥ 0.");
+        }
+
+        if (o.Kmin < 1 || o.Kmin > BattenbergMaxKmin)
+        {
+            throw new ArgumentOutOfRangeException(nameof(options), o.Kmin, "kmin must lie in [1, 14].");
+        }
+
+        if (o.PhaseKmin < 1 || o.PhaseKmin > BattenbergMaxKmin)
+        {
+            throw new ArgumentOutOfRangeException(nameof(options), o.PhaseKmin, "phasekmin must lie in [1, 14].");
+        }
+
+        if (!Enum.IsDefined(o.SegmentBafOption))
+        {
+            throw new ArgumentOutOfRangeException(nameof(options), o.SegmentBafOption, "Unknown calc_seg_baf_option.");
+        }
+
+        ArgumentNullException.ThrowIfNull(o.PriorBreakpoints);
+        foreach (BattenbergPriorBreakpoint b in o.PriorBreakpoints)
+        {
+            if (b.Chromosome is null)
+            {
+                throw new ArgumentNullException(nameof(options), "Every prior breakpoint needs a chromosome.");
+            }
+        }
+    }
+
+    /// <summary>
+    /// Battenberg <c>bkps_to_presegment_breakpoints(…, addin_bigholes = T)</c> on one chromosome; R <c>NA</c> = null
+    /// (a presegment with an <c>NA</c> bound selects no SNP).
+    /// </summary>
+    private static List<(long? Start, long? End)> BattenbergPresegments(long[] pos, List<long> bkps)
+    {
+        int n = pos.Length;
+        long? At(int oneBased) => oneBased >= 1 && oneBased <= n ? pos[oneBased - 1] : null; // R x[i], NA beyond
+        var result = new List<(long?, long?)>();
+
+        // addin_bigholes over SNP positions sel (1-based indices into pos)
+        long? AddBigHoles(List<int> sel, long? startpos)
+        {
+            for (int k = 0; k + 1 < sel.Count; k++)
+            {
+                if (pos[sel[k + 1] - 1] - pos[sel[k] - 1] >= BattenbergMaxSnpDistance)
+                {
+                    result.Add((startpos, pos[sel[k] - 1]));
+                    startpos = pos[sel[k + 1] - 1];
+                }
+            }
+
+            return startpos;
+        }
+
+        if (bkps.Count > 0)
+        {
+            long? startpos;
+            int startFromSv;
+            long? first = At(1);
+            if (first.HasValue && first.Value < bkps[0])
+            {
+                startpos = first;
+                startFromSv = 1;
+            }
+            else
+            {
+                // R: NA < bkp is NA ⇒ if() would stop; an empty chromosome never reaches here with data.
+                startpos = bkps[0];
+                startFromSv = 2;
+            }
+
+            foreach (int idx in RColonRange(startFromSv, bkps.Count))
+            {
+                long? sv = idx >= 1 && idx <= bkps.Count ? bkps[idx - 1] : null;
+                var selected = new List<int>();
+                if (startpos.HasValue && sv.HasValue)
+                {
+                    for (int j = 1; j <= n; j++)
+                    {
+                        if (pos[j - 1] >= startpos.Value && pos[j - 1] <= sv.Value)
+                        {
+                            selected.Add(j);
+                        }
+                    }
+                }
+
+                if (selected.Count > 0)
+                {
+                    startpos = AddBigHoles(selected, startpos);
+                    int endIndex = selected[^1];
+                    result.Add((startpos, pos[endIndex - 1]));
+                    startpos = At(endIndex + 1);
+                }
+            }
+
+            if (n > 0 && pos[n - 1] > bkps[^1])
+            {
+                result.Add((startpos, pos[n - 1]));
+            }
+        }
+        else
+        {
+            long? startpos = At(1);
+            var all = new List<int>(n);
+            for (int j = 1; j <= n; j++)
+            {
+                all.Add(j);
+            }
+
+            startpos = AddBigHoles(all, startpos);
+            result.Add((startpos, At(n)));
+        }
+
+        return result;
+    }
+
+    /// <summary>R <c>a:b</c> for integers (descending when a &gt; b).</summary>
+    private static IEnumerable<int> RColonRange(int a, int b)
+    {
+        int step = a <= b ? 1 : -1;
+        int count = Math.Abs(b - a) + 1;
+        for (int k = 0; k < count; k++)
+        {
+            yield return a + k * step;
+        }
+    }
+
+    /// <summary>Battenberg <c>run_pcf</c> on one presegment; appends its rows to <paramref name="output"/>.</summary>
+    private static void BattenbergRunPcf(
+        string chr, long[] pos, double[] bafAll, long? start, long? end,
+        BattenbergPhasedSegmentationOptions o, List<PhasedBafSegmentedSnp> output)
+    {
+        var idx = new List<int>();
+        if (start.HasValue && end.HasValue)
+        {
+            for (int j = 0; j < pos.Length; j++)
+            {
+                if (pos[j] >= start.Value && pos[j] <= end.Value)
+                {
+                    idx.Add(j);
+                }
+            }
+        }
+
+        int n = idx.Count;
+        if (n == 0)
+        {
+            return;
+        }
+
+        var baf = new double[n];
+        var folded = new double[n];
+        for (int k = 0; k < n; k++)
+        {
+            baf[k] = bafAll[idx[k]];
+            folded[k] = ToAscatBaf(baf[k]); // min(b, 1 − b); equal at 0.5
+        }
+
+        double sdev = GetMad(folded, 25);
+        if (double.IsNaN(sdev))
+        {
+            sdev = 0.0;
+        }
+
+        if (sdev < BattenbergMinBafSd)
+        {
+            sdev = BattenbergMinBafSd;
+        }
+
+        double[] bafSegm = n < BattenbergMinPcfSnps
+            ? Filled(n, StatisticsHelper.RMean(baf))
+            : BattenbergSelectFastPcf(baf, o.PhaseKmin, o.PhaseGamma * sdev);
+
+        var phased = new double[n];
+        for (int k = 0; k < n; k++)
+        {
+            phased[k] = OrientBaf(bafSegm[k], baf[k]);
+        }
+
+        double[] phSeg = n < BattenbergMinPcfSnps || o.NoSegmentation
+            ? Filled(n, StatisticsHelper.RMean(phased))
+            : BattenbergSelectFastPcf(phased, o.Kmin, o.Gamma * sdev);
+
+        if (o.SegmentBafOption != BattenbergSegmentBafOption.Mean)
+        {
+            double[] median = BattenbergAdjustSegmValues(phased, phSeg);
+            for (int k = 0; k < n; k++)
+            {
+                bool keepMean = o.SegmentBafOption == BattenbergSegmentBafOption.MedianUnlessExtreme
+                                && (median[k] == 0.0 || median[k] == 1.0);
+                phSeg[k] = keepMean ? phSeg[k] : median[k];
+            }
+        }
+
+        for (int k = 0; k < n; k++)
+        {
+            output.Add(new PhasedBafSegmentedSnp(chr, pos[idx[k]], baf[k], phased[k], phSeg[k]));
+        }
+    }
+
+    /// <summary>Battenberg <c>adjustSegmValues</c>: each run of equal <c>BAFseg</c> (R <c>rle</c>) → median of its BAFphased.</summary>
+    private static double[] BattenbergAdjustSegmValues(double[] phased, double[] seg)
+    {
+        int n = seg.Length;
+        var result = new double[n];
+        int from = 0;
+        for (int i = 0; i < n; i++)
+        {
+            if (i < n - 1 && seg[i + 1] == seg[i])
+            {
+                continue;
+            }
+
+            double median = StatisticsHelper.Median(new ArraySegment<double>(phased, from, i - from + 1));
+            for (int k = from; k <= i; k++)
+            {
+                result[k] = median;
+            }
+
+            from = i + 1;
+        }
+
+        return result;
+    }
+
+    private static double[] Filled(int n, double value)
+    {
+        var a = new double[n];
+        Array.Fill(a, value);
+        return a;
+    }
+
+
+    /// <summary>
+    /// Battenberg/copynumber <c>selectFastPcf(x, kmin, gamma, yest = T)$yhat</c> (R/fastPCF.R): <c>runFastPcf</c> with
+    /// filter fractions (0.15, 0.15) below 1000 values, (0.12, 0.05) below 15 000, else <c>runPcfSubset</c>.
+    /// </summary>
+    private static double[] BattenbergSelectFastPcf(double[] x, int kmin, double gamma)
+    {
+        int n = x.Length;
+        if (n < 1000)
+        {
+            return BattenbergRunFastPcf(x, kmin, gamma, 0.15, 0.15);
+        }
+
+        return n < 15000
+            ? BattenbergRunFastPcf(x, kmin, gamma, 0.12, 0.05)
+            : BattenbergRunPcfSubset(x, kmin, gamma, 0.12, 0.05);
+    }
+
+    private static double[] BattenbergRunFastPcf(double[] x, int kmin, double gamma, double frac1, double frac2)
+    {
+        bool[] mark = BattenbergFilterMarkS4(x, kmin, 8, 1, frac1, frac2, 0.02, 0.9);
+        mark[^1] = true;
+        (int[] nr, double[] sum, double[] sq) = BattenbergCompact(x, x.Length, mark);
+        return BattenbergPottsCompact(kmin, gamma, nr, sum, sq);
+    }
+
+    /// <summary>copynumber <c>runPcfSubset</c>: Potts marks refined over 5000-value windows advancing by 4000.</summary>
+    private static double[] BattenbergRunPcfSubset(double[] x, int kmin, double gamma, double frac1, double frac2)
+    {
+        const int subSize = 5000;
+        int antGen = x.Length;
+        bool[] mark = BattenbergFilterMarkS4(x, kmin, 8, 1, frac1, frac2, 0.02, 0.9);
+        var markInit = new bool[subSize];
+        Array.Copy(mark, markInit, subSize - 1);
+        markInit[subSize - 1] = true;
+        (int[] nr, double[] sum, double[] sq) = BattenbergCompact(x, subSize, markInit);
+        var mark2 = new bool[antGen];
+        Array.Copy(BattenbergMarkWithPotts(kmin, gamma, nr, sum, sq, subSize), mark2, subSize);
+        mark2[(4 * subSize / 5) - 1] = true;
+        int start = (4 * subSize / 5) + 1; // 1-based
+        while (start + subSize < antGen)
+        {
+            int slutt = start + subSize - 1;
+            var markSub = new bool[slutt];
+            Array.Copy(mark2, markSub, start - 1);
+            Array.Copy(mark, start - 1, markSub, start - 1, slutt - start + 1);
+            markSub[slutt - 1] = true;
+            (nr, sum, sq) = BattenbergCompact(x, slutt, markSub);
+            Array.Copy(BattenbergMarkWithPotts(kmin, gamma, nr, sum, sq, slutt), mark2, slutt);
+            start += 4 * subSize / 5;
+            mark2[start - 2] = true;
+        }
+
+        var finalMark = new bool[antGen];
+        Array.Copy(mark2, finalMark, start - 1);
+        Array.Copy(mark, start - 1, finalMark, start - 1, antGen - start + 1);
+        (nr, sum, sq) = BattenbergCompact(x, antGen, finalMark);
+        return BattenbergPottsCompact(kmin, gamma, nr, sum, sq);
+    }
+
+    /// <summary>
+    /// copynumber <c>compact(y[1:length], mark)</c>: counts, sums and sums of squares between marked positions, from the
+    /// running <c>cumsum</c>s (differences of the cumulative sums at the marks, as R does).
+    /// </summary>
+    private static (int[] Nr, double[] Sum, double[] Sq) BattenbergCompact(double[] y, int length, bool[] mark)
+    {
+        var nr = new List<int>();
+        var sum = new List<double>();
+        var sq = new List<double>();
+        double cy = 0.0, cy2 = 0.0, lowCy = 0.0, lowCy2 = 0.0;
+        int low = 0;
+        for (int i = 0; i < length; i++)
+        {
+            cy += y[i];
+            cy2 += y[i] * y[i];
+            if (mark[i])
+            {
+                nr.Add(i + 1 - low);
+                sum.Add(cy - lowCy);
+                sq.Add(cy2 - lowCy2);
+                low = i + 1;
+                lowCy = cy;
+                lowCy2 = cy2;
+            }
+        }
+
+        return (nr.ToArray(), sum.ToArray(), sq.ToArray());
+    }
+
+    /// <summary>
+    /// copynumber <c>PottsCompact(kmin, gamma, nr, res, sq, yest = T)$yhat</c>: exact Potts filtering on the compacted
+    /// array (1-based arrays below mirror the R code line by line), then <c>findEst</c>.
+    /// </summary>
+    private static double[] BattenbergPottsCompact(int kmin, double gamma, int[] nr, double[] res, double[] sq)
+    {
+        int bigN = nr.Length;
+        long total = 0;
+        double totalSum = 0.0;
+        for (int i = 0; i < bigN; i++)
+        {
+            total += nr[i];
+            totalSum += res[i];
+        }
+
+        if (total < 2 * kmin)
+        {
+            return Filled((int)total, totalSum / total); // R returns the scalar estimate
+        }
+
+        int[] bestSplit = BattenbergPottsSplits(kmin, gamma, nr, res, sq, markSub: null);
+        return BattenbergFindEst(bestSplit, bigN, nr, res);
+    }
+
+    /// <summary>
+    /// The Potts recursion shared by copynumber <c>PottsCompact</c> and <c>markWithPotts</c>; returns 1-based
+    /// <c>bestSplit</c> and, when <paramref name="markSub"/> is given, sets <c>markSub[Pos − 1]</c> as markWithPotts does.
+    /// </summary>
+    private static int[] BattenbergPottsSplits(int kmin, double gamma, int[] nr, double[] res, double[] sq, bool[]? markSub)
+    {
+        int bigN = nr.Length;
+        var ant = new double[bigN + 1];
+        var sum = new double[bigN + 1];
+        var kvad = new double[bigN + 1];
+        var cost = new double[bigN + 1];
+        var bestCost = new double[bigN + 1];
+        var bestSplit = new int[bigN + 1];
+        double initAnt = nr[0], initSum = res[0], initKvad = sq[0];
+        double initAve = initSum / initAnt;
+        bestCost[1] = initKvad - initSum * initAve;
+        int k = 2;
+        double cum = bigN > 1 ? nr[0] + nr[1] : nr[0];
+        while (cum < 2 * kmin && k < bigN)
+        {
+            for (int j = 2; j <= k; j++)
+            {
+                ant[j] += nr[k - 1];
+                sum[j] += res[k - 1];
+                kvad[j] += sq[k - 1];
+            }
+
+            double s2 = initSum + sum[2];
+            bestCost[k] = (initKvad + kvad[2]) - s2 * s2 / (initAnt + ant[2]);
+            k++;
+            cum += nr[k - 1];
+        }
+
+        for (int n = k; n <= bigN; n++)
+        {
+            for (int j = 2; j <= n; j++)
+            {
+                ant[j] += nr[n - 1];
+                sum[j] += res[n - 1];
+                kvad[j] += sq[n - 1];
+            }
+
+            int limit = n;
+            while (limit > 2 && ant[limit] < kmin)
+            {
+                limit--;
+            }
+
+            int pos = -1;
+            double best = double.NaN;
+            for (int j = 2; j <= limit; j++)
+            {
+                cost[j] = bestCost[j - 1] + kvad[j] - sum[j] * sum[j] / ant[j];
+                if (!double.IsNaN(cost[j]) && (pos < 0 || cost[j] < best))
+                {
+                    pos = j;
+                    best = cost[j];
+                }
+            }
+
+            double c = best + gamma;
+            double st = sum[2] + initSum;
+            double totCost = (kvad[2] + initKvad) - st * st / (ant[2] + initAnt);
+            if (totCost < c)
+            {
+                pos = 1;
+                c = totCost;
+            }
+
+            bestCost[n] = c;
+            bestSplit[n] = pos - 1;
+            if (markSub is not null && pos - 1 >= 1)
+            {
+                markSub[pos - 2] = true; // R markSub[Pos − 1] (1-based)
+            }
+        }
+
+        return bestSplit;
+    }
+
+    /// <summary>copynumber <c>findEst(bestSplit, N, Nr, Sum, yest = T)$yhat</c>.</summary>
+    private static double[] BattenbergFindEst(int[] bestSplit, int bigN, int[] nr, double[] sum)
+    {
+        var lengths = new List<int>();
+        int n = bigN;
+        while (n > 0)
+        {
+            lengths.Add(n - bestSplit[n]);
+            n = bestSplit[n];
+        }
+
+        lengths.Reverse();
+        var yhat = new List<double>();
+        int start = 0; // 0-based into the compact arrays
+        foreach (int len in lengths)
+        {
+            int lengdeOrig = 0;
+            double s = 0.0;
+            for (int i = start; i < start + len; i++)
+            {
+                lengdeOrig += nr[i];
+                s += sum[i];
+            }
+
+            double verdi = s / lengdeOrig;
+            for (int i = 0; i < lengdeOrig; i++)
+            {
+                yhat.Add(verdi);
+            }
+
+            start += len;
+        }
+
+        return yhat.ToArray();
+    }
+
+    /// <summary>copynumber <c>markWithPotts</c> + <c>findMarks</c>: Potts split points mapped back to original indices.</summary>
+    private static bool[] BattenbergMarkWithPotts(int kmin, double gamma, int[] nr, double[] res, double[] sq, int subSize)
+    {
+        var markSub = new bool[nr.Length];
+        BattenbergPottsSplits(kmin, gamma, nr, res, sq, markSub);
+        var mark = new bool[subSize];
+        int orig = 0;
+        for (int i = 0; i < markSub.Length; i++)
+        {
+            orig += nr[i];
+            if (markSub[i])
+            {
+                mark[orig - 1] = true; // findMarks: mark[startOrig − 1] at the end of compact cell i
+            }
+        }
+
+        return mark;
+    }
+
+    /// <summary>
+    /// copynumber <c>filterMarkS4(x, kmin, L, L2, frac1, frac2, frac3, thres)</c>: candidate breakpoints from two
+    /// high-pass filters (widths 6L, 6L2) and a kmin-segment filter, with type-7 quantile limits
+    /// (<see cref="StatisticsHelper.SampleQuantileType7"/>). Arrays are 1-based (index 0 unused) as in R.
+    /// </summary>
+    private static bool[] BattenbergFilterMarkS4(
+        double[] x, int kmin, int bigL, int bigL2, double frac1, double frac2, double frac3, double thres)
+    {
+        int n = x.Length;
+        var xc = new double[n + 1]; // R xc = c(0, cumsum(x)); xc[j] (1-based R) = xc[j − 1] here
+        for (int i = 0; i < n; i++)
+        {
+            xc[i + 1] = xc[i] + x[i];
+        }
+
+        double Xc(int rIndex) => xc[rIndex - 1];
+
+        // cost1 (length n, 1-based)
+        var cost1 = new double[n + 1];
+        for (int t = 1; t <= n - 6 * bigL + 1; t++)
+        {
+            cost1[3 * bigL - 1 + t] = Math.Abs(
+                4 * Xc(t + 3 * bigL) - Xc(t) - Xc(t + bigL) - Xc(t + 5 * bigL) - Xc(t + 6 * bigL));
+        }
+
+        double[] test = SevenMax(cost1, n);
+        var cost1B = new List<double>();
+        for (int j = 1; j <= n; j++)
+        {
+            if (cost1[j] >= thres * test[j])
+            {
+                cost1B.Add(cost1[j]);
+            }
+        }
+
+        double frac1B = Math.Min(0.8, frac1 * n / cost1B.Count);
+        double limit = StatisticsHelper.SampleQuantileType7(cost1B, 1 - frac1B);
+        var mark = new bool[n + 1];
+        for (int j = 1; j <= n; j++)
+        {
+            mark[j] = cost1[j] > limit && cost1[j] > 0.9 * test[j];
+        }
+
+        int m2 = n - 6 * bigL2 + 1;
+        var cost2 = new double[m2];
+        for (int t = 1; t <= m2; t++)
+        {
+            cost2[t - 1] = Math.Abs(
+                4 * Xc(t + 3 * bigL2) - Xc(t) - Xc(t + bigL2) - Xc(t + 5 * bigL2) - Xc(t + 6 * bigL2));
+        }
+
+        double limit2 = StatisticsHelper.SampleQuantileType7(cost2, 1 - frac2);
+        var mark2 = new bool[n + 1];
+        for (int t = 1; t <= m2; t++)
+        {
+            mark2[3 * bigL2 - 1 + t] = cost2[t - 1] > limit2;
+        }
+
+        if (3 * bigL > kmin)
+        {
+            SetRange(mark, kmin, 3 * bigL - 1, true);
+            SetRange(mark, n - 3 * bigL + 1, n - kmin, true);
+        }
+        else
+        {
+            SetRange(mark, kmin, kmin, true);
+            SetRange(mark, n - kmin, n - kmin, true);
+        }
+
+        if (kmin > 1)
+        {
+            int m = n - 3 * kmin + 1;
+            var shortAb = new double[m + 1];
+            for (int t = 1; t <= m; t++)
+            {
+                shortAb[t] = Math.Abs(3 * (Xc(t + 2 * kmin) - Xc(t + kmin)) - (Xc(t + 3 * kmin) - Xc(t)));
+            }
+
+            double[] test2 = SevenMax(shortAb, m);
+            var cost1C = new List<double>();
+            for (int t = 1; t <= m; t++)
+            {
+                if (shortAb[t] >= thres * test2[t])
+                {
+                    cost1C.Add(shortAb[t]);
+                }
+            }
+
+            double frac1C = Math.Min(0.8, frac3 * m / cost1C.Count);
+            double limit3 = StatisticsHelper.SampleQuantileType7(cost1C, 1 - frac1C);
+            for (int t = 1; t <= m; t++)
+            {
+                if (shortAb[t] > limit3 && shortAb[t] > thres * test2[t])
+                {
+                    mark[kmin - 1 + t] = true;     // markH2
+                    mark[2 * kmin - 1 + t] = true; // markH3
+                }
+            }
+        }
+
+        for (int j = 1; j <= n; j++)
+        {
+            mark[j] |= mark2[j];
+        }
+
+        if (3 * bigL > kmin)
+        {
+            SetRange(mark, 1, kmin - 1, false);
+            SetRange(mark, kmin, 3 * bigL - 1, true);
+            SetRange(mark, n - 3 * bigL + 1, n - kmin, true);
+            SetRange(mark, n - kmin + 1, n - 1, false);
+            mark[n] = true;
+        }
+        else
+        {
+            SetRange(mark, 1, kmin - 1, false);
+            SetRange(mark, n - kmin + 1, n - 1, false);
+            mark[n] = true;
+            mark[kmin] = true;
+            mark[n - kmin] = true;
+        }
+
+        var result = new bool[n];
+        Array.Copy(mark, 1, result, 0, n);
+        return result;
+    }
+
+    /// <summary>
+    /// filterMarkS4's <c>c(rep(0, 3), pmax(v[i..i+6]), rep(0, 3))</c> over a 1-based vector v of length len.
+    /// </summary>
+    private static double[] SevenMax(double[] v, int len)
+    {
+        var test = new double[len + 1];
+        for (int i = 1; i <= len - 6; i++)
+        {
+            double mx = v[i];
+            for (int d = 1; d <= 6; d++)
+            {
+                mx = Math.Max(mx, v[i + d]);
+            }
+
+            test[3 + i] = mx;
+        }
+
+        return test;
+    }
+
+    /// <summary>R <c>mark[a:b] &lt;- value</c> on a 1-based array (descending when a &gt; b; index 0 ignored).</summary>
+    private static void SetRange(bool[] mark, int a, int b, bool value)
+    {
+        foreach (int i in RColonRange(a, b))
+        {
+            if (i >= 1)
+            {
+                mark[i] = value;
+            }
+        }
+    }
+
+    #endregion
+
+    #region Battenberg merge_segments, mask_high_cn_segments and the callSubclones driver (ONCO-ASCAT-001, B24 F60/F61)
+
+    /// <summary>Battenberg <c>callSubclones</c> default <c>max_allowed_state = 250</c> (<c>mask_high_cn_segments</c>).</summary>
+    public const int BattenbergMaxAllowedState = 250;
+
+    /// <summary>Battenberg <c>merge_segments</c>: segments farther apart than 3 Mb (<c>GenomicRanges::distance</c>) are never merged.</summary>
+    private const long BattenbergMergeMaxDistance = 3_000_000;
+
+    /// <summary>Battenberg <c>merge_segments</c>: both segments need more than 10 non-NA logR and BAF values for the t-tests.</summary>
+    private const int BattenbergMergeMinValues = 10;
+
+    /// <summary>Battenberg <c>merge_segments</c>: significance level of the two Welch t-tests (logR and BAF).</summary>
+    private const double BattenbergMergeSignificance = 0.05;
+
+    /// <summary>
+    /// One row of Battenberg's merged <c>subclones</c> table (<c>merge_segments</c> output): the segment extent (the larger
+    /// neighbour extended over the absorbed segments, gaps included), its <c>BAF</c> and <c>LogR</c> (recomputed after a
+    /// merge, else the <c>determine_copynumber</c> values) and the <c>determine_copynumber</c> row whose remaining
+    /// columns it keeps (Battenberg only updates <c>start</c>/<c>end</c>/<c>BAF</c>/<c>LogR</c> of the surviving row).
+    /// </summary>
+    /// <param name="Chromosome">Contig label.</param>
+    /// <param name="Start">startpos.</param>
+    /// <param name="End">endpos.</param>
+    /// <param name="Baf">Battenberg <c>BAF</c>: the mirrored level l of an unmerged row, or the merged segment's
+    /// <c>calc_seg_baf_option</c> summary of its <c>BAFphased</c> (not mirrored, as in Battenberg).</param>
+    /// <param name="LogR">Battenberg <c>LogR</c>: segment mean logR (merged: mean of the non-NA probes in [Start, End], 0 if
+    /// there are none).</param>
+    /// <param name="Call">The <c>determine_copynumber</c> row this one descends from (copy-number states, fractions, p-value).</param>
+    /// <param name="WasMerged">True when at least one neighbour was merged into this segment.</param>
+    public sealed record BattenbergMergedSegment(
+        string Chromosome, long Start, long End, double Baf, double LogR, BattenbergSegmentCall Call, bool WasMerged);
+
+    /// <summary>Battenberg <c>merge_segments</c> output: the merged <c>subclones</c> rows and the updated <c>BAFsegmented</c>.</summary>
+    /// <param name="Segments">Merged segments, chromosomes in <c>GenomeInfoDb</c> seqlevel order (see
+    /// <see cref="MergeBattenbergSegments"/>), segments in genome order.</param>
+    /// <param name="SegmentedSnps">The <c>BAFsegmented</c> rows, chromosomes in the same order (rows of a chromosome in input
+    /// order), with <c>BAFseg</c> of every merged segment replaced by its new BAF.</param>
+    public sealed record BattenbergSegmentMerge(
+        IReadOnlyList<BattenbergMergedSegment> Segments,
+        IReadOnlyList<PhasedBafSegmentedSnp> SegmentedSnps);
+
+    /// <summary>Battenberg <c>mask_high_cn_segments</c> output.</summary>
+    /// <param name="Calls">The calls, masked rows flagged <see cref="BattenbergSegmentCall.IsMasked"/>.</param>
+    /// <param name="SegmentedSnps">The <c>BAFsegmented</c> rows with <c>BAFseg</c> = NaN (R <c>NA</c>) for the SNPs of masked
+    /// segments with <c>startpos &lt; Position ≤ endpos</c> (Battenberg's half-open test: a masked segment's first SNP keeps
+    /// its BAFseg).</param>
+    /// <param name="MaskedCount">Battenberg <c>masked_count</c>.</param>
+    /// <param name="MaskedSize">Battenberg <c>masked_size</c> = Σ (endpos − startpos) over masked segments.</param>
+    public sealed record BattenbergHighCopyNumberMask(
+        IReadOnlyList<BattenbergSegmentCall> Calls,
+        IReadOnlyList<PhasedBafSegmentedSnp> SegmentedSnps,
+        int MaskedCount,
+        long MaskedSize);
+
+    /// <summary>
+    /// Result of <see cref="CallBattenbergSubclones"/>: the three stages of Battenberg <c>callSubclones</c>.
+    /// </summary>
+    /// <param name="InitialCalls">First <c>determine_copynumber</c> (Battenberg's <c>…_1.txt</c> table).</param>
+    /// <param name="Merge"><c>merge_segments</c> of the initial calls.</param>
+    /// <param name="Mask"><c>mask_high_cn_segments</c> of the second <c>determine_copynumber</c> on the merged
+    /// <c>BAFsegmented</c>; <see cref="Calls"/> is Battenberg's final (extended) copy-number table.</param>
+    public sealed record BattenbergSubcloneCalls(
+        IReadOnlyList<BattenbergSegmentCall> InitialCalls,
+        BattenbergSegmentMerge Merge,
+        BattenbergHighCopyNumberMask Mask)
+    {
+        /// <summary>The final per-segment calls (second <c>determine_copynumber</c>, masked).</summary>
+        public IReadOnlyList<BattenbergSegmentCall> Calls => Mask.Calls;
+    }
+
+    /// <summary>
+    /// Battenberg <c>merge_segments</c> (Wedge-lab/battenberg R/fitcopynumber.R; B24 F60): merges adjacent segments of a
+    /// fitted copy-number profile when there is not enough evidence for them to be separate. Per chromosome, repeatedly
+    /// the <b>smallest</b> segment (width end − start + 1; first on a tie) that still has an unchecked neighbour is taken,
+    /// and its neighbours are visited closest first (previous one first on a tie):
+    /// <list type="number">
+    /// <item>already checked → skipped; farther than 3 Mb (<c>GenomicRanges::distance</c> = start₂ − end₁ − 1) → not merged;</item>
+    /// <item>same clonal solution (<c>nMaj1_A</c>, <c>nMin1_A</c> equal and <c>frac1_A == 1</c> in both) → merged;</item>
+    /// <item>else, when <c>round(nmin)</c> or <c>round(nmaj)</c> agree, with
+    /// nmin = (ρ − 1 − (BAF − 1)·2^(LogR/γ)·((1 − ρ)·2 + ρ·ψ))/ρ and nmaj = (ρ − 1 + BAF·2^(LogR/γ)·((1 − ρ)·2 + ρ·ψ))/ρ
+    /// (ψ = <c>callSubclones</c>' psi of all cells, ρ·psit + 2(1 − ρ) — Battenberg's formula, used verbatim), and both
+    /// segments have &gt; 10 non-NA logR probes and SNP BAFs in their ranges: merged when neither Welch
+    /// <c>t.test</c> (logR vs logR, <c>BAFphased</c> vs <c>BAFphased</c>; <see cref="StatisticsHelper.WelchTTestPValue"/>)
+    /// has p &lt; 0.05; otherwise not merged.</item>
+    /// </list>
+    /// A merge extends the neighbour over the smaller segment, recomputes its BAF from the <c>BAFphased</c> in the new range
+    /// (<paramref name="bafOption"/>: median, mean, or median unless it is 0 or 1) and LogR (mean of the non-NA probes, 0
+    /// when none), writes the BAF into those rows' <c>BAFseg</c>, keeps the neighbour's copy-number columns, and re-opens
+    /// both sides of the merged segment for checking. Rounding is R's (half to even); the input BAF/LogR/frac1 pass
+    /// through R's 15-significant-digit <c>as.character</c> round trip of <c>determine_copynumber</c>'s character matrix.
+    /// Output chromosomes are ordered as <c>makeGRangesFromDataFrame</c> orders seqlevels (<c>GenomeInfoDb::rankSeqlevels</c>:
+    /// optional <c>CHR</c>/<c>chr</c>/<c>CH</c>/<c>ch</c> prefix, then numbers, X, Y, M, MT, other names), which changes
+    /// the row order of <c>BAFsegmented</c> for unsorted input (and with it the order of the second
+    /// <c>determine_copynumber</c>).
+    /// </summary>
+    /// <param name="calls">The fitted profile (<c>determine_copynumber</c> rows, e.g. from
+    /// <see cref="FitSubclonalCopyNumberWithBootstrap"/>); rows on chromosomes absent from
+    /// <paramref name="segmentedSnps"/> are dropped, as in Battenberg.</param>
+    /// <param name="segmentedSnps">The <c>BAFsegmented</c> rows the profile was fitted from (BAFphased, BAFseg in [0, 1]).</param>
+    /// <param name="logR">Raw logR probes; NaN = R <c>NA</c> (ignored by the means and tests, not counted).</param>
+    /// <param name="purity">ρ ∈ (0, 1] the profile was fitted with.</param>
+    /// <param name="ploidy">Tumour ploidy psit (&gt; 0) the profile was fitted with.</param>
+    /// <param name="gamma">Platform γ (&gt; 0).</param>
+    /// <param name="bafOption">Battenberg <c>calc_seg_baf_option</c> (default 3, median unless extreme).</param>
+    /// <returns>The merged segments and the updated <c>BAFsegmented</c> rows.</returns>
+    /// <exception cref="ArgumentNullException">an argument, a chromosome or a call is null.</exception>
+    /// <exception cref="ArgumentException">a BAF outside [0, 1]; an infinite logR (R's tests and means fail); a chromosome
+    /// of <paramref name="segmentedSnps"/> without any call or logR probe (R <c>stopifnot</c>).</exception>
+    /// <exception cref="ArgumentOutOfRangeException">invalid ρ, ψ, γ or an undefined <paramref name="bafOption"/>.</exception>
+    /// <exception cref="InvalidOperationException">a merge t-test whose data are essentially constant (R <c>t.test</c> stops).</exception>
+    public static BattenbergSegmentMerge MergeBattenbergSegments(
+        IReadOnlyList<BattenbergSegmentCall> calls,
+        IReadOnlyList<PhasedBafSegmentedSnp> segmentedSnps,
+        IReadOnlyList<LogRProbe> logR,
+        double purity,
+        double ploidy,
+        double gamma = AscatSequencingGamma,
+        BattenbergSegmentBafOption bafOption = BattenbergSegmentBafOption.MedianUnlessExtreme)
+    {
+        ArgumentNullException.ThrowIfNull(calls);
+        ArgumentNullException.ThrowIfNull(segmentedSnps);
+        ArgumentNullException.ThrowIfNull(logR);
+        ValidateAscatModelParameters(purity, ploidy, gamma);
+        if (!Enum.IsDefined(bafOption))
+        {
+            throw new ArgumentOutOfRangeException(nameof(bafOption), bafOption, "Undefined calc_seg_baf_option.");
+        }
+
+        var snpsByChr = new Dictionary<string, List<int>>(StringComparer.Ordinal);
+        var firstAppearance = new List<string>();
+        for (int i = 0; i < segmentedSnps.Count; i++)
+        {
+            PhasedBafSegmentedSnp row = segmentedSnps[i];
+            if (row.Chromosome is null)
+            {
+                throw new ArgumentNullException(nameof(segmentedSnps), "Every row needs a chromosome.");
+            }
+
+            if (!(row.BafPhased >= 0.0 && row.BafPhased <= 1.0) || !(row.BafSegment >= 0.0 && row.BafSegment <= 1.0))
+            {
+                throw new ArgumentException("Every BAFseg and BAFphased must lie in [0, 1].", nameof(segmentedSnps));
+            }
+
+            if (!snpsByChr.TryGetValue(row.Chromosome, out var list))
+            {
+                list = new List<int>();
+                snpsByChr.Add(row.Chromosome, list);
+                firstAppearance.Add(row.Chromosome);
+            }
+
+            list.Add(i);
+        }
+
+        var probesByChr = new Dictionary<string, List<(long Pos, double LogR)>>(StringComparer.Ordinal);
+        foreach (LogRProbe p in logR)
+        {
+            if (p.Chromosome is null)
+            {
+                throw new ArgumentNullException(nameof(logR), "Every logR probe needs a chromosome.");
+            }
+
+            if (double.IsInfinity(p.LogR))
+            {
+                throw new ArgumentException("merge_segments needs finite logR values (NaN = NA is allowed).", nameof(logR));
+            }
+
+            if (!probesByChr.TryGetValue(p.Chromosome, out var list))
+            {
+                list = new List<(long, double)>();
+                probesByChr.Add(p.Chromosome, list);
+            }
+
+            list.Add((p.Position, p.LogR));
+        }
+
+        var segsByChr = new Dictionary<string, List<BattenbergMergeSegment>>(StringComparer.Ordinal);
+        foreach (BattenbergSegmentCall call in calls)
+        {
+            if (call is null)
+            {
+                throw new ArgumentNullException(nameof(calls), "Every call must be non-null.");
+            }
+
+            AlleleSpecificSegmentSummary s = call.Fit.Segment;
+            if (s.Chromosome is null)
+            {
+                throw new ArgumentNullException(nameof(calls), "Every call needs a chromosome.");
+            }
+
+            if (!segsByChr.TryGetValue(s.Chromosome, out var list))
+            {
+                list = new List<BattenbergMergeSegment>();
+                segsByChr.Add(s.Chromosome, list);
+            }
+
+            list.Add(new BattenbergMergeSegment(call)
+            {
+                Start = s.Start,
+                End = s.End,
+                Baf = RAsCharacterRoundTrip(call.Baf),
+                LogR = RAsCharacterRoundTrip(s.MeanLogR),
+                Frac1 = RAsCharacterRoundTrip(call.Fit.PrimaryState.CellFraction),
+            });
+        }
+
+        double psiAll = MixtureCopiesPerCell(purity, ploidy);
+        double cellCopies = MixtureCopiesPerCell(purity, psiAll); // Battenberg ((1-rho)*2+rho*psi), psi of all cells
+        var bafSegOut = new double[segmentedSnps.Count];
+        for (int i = 0; i < bafSegOut.Length; i++)
+        {
+            bafSegOut[i] = segmentedSnps[i].BafSegment;
+        }
+
+        var outSegments = new List<BattenbergMergedSegment>();
+        var outRows = new List<PhasedBafSegmentedSnp>(segmentedSnps.Count);
+        foreach (string chr in BattenbergSeqlevelOrder(firstAppearance))
+        {
+            if (!segsByChr.TryGetValue(chr, out var segs) || !probesByChr.TryGetValue(chr, out var probes))
+            {
+                throw new ArgumentException(
+                    $"Chromosome '{chr}' needs at least one call and one logR probe (Battenberg merge_segments stopifnot).",
+                    nameof(segmentedSnps));
+            }
+
+            var ctx = new BattenbergMergeChromosome(segmentedSnps, snpsByChr[chr], probes, bafSegOut, bafOption);
+            BattenbergMergeChromosomeSegments(segs, ctx, purity, cellCopies, gamma);
+            foreach (BattenbergMergeSegment m in segs)
+            {
+                outSegments.Add(new BattenbergMergedSegment(chr, m.Start, m.End, m.Baf, m.LogR, m.Call, m.WasMerged));
+            }
+
+            foreach (int i in snpsByChr[chr])
+            {
+                outRows.Add(segmentedSnps[i] with { BafSegment = bafSegOut[i] });
+            }
+        }
+
+        return new BattenbergSegmentMerge(outSegments, outRows);
+    }
+
+    /// <summary>
+    /// Battenberg <c>mask_high_cn_segments</c> (R/fitcopynumber.R; B24 F60): a segment whose solution-A state 1 has
+    /// <c>nMaj1_A &gt; max_allowed_state</c> or <c>nMin1_A &gt; max_allowed_state</c> is masked — <c>nMaj1_A</c>,
+    /// <c>nMin1_A</c>, <c>nMaj2_A</c>, <c>nMin2_A</c> become NA (flag <see cref="BattenbergSegmentCall.IsMasked"/>; solution A's
+    /// copy numbers null) and the <c>BAFseg</c> of its SNPs with <c>startpos &lt; Position ≤ endpos</c> becomes NA; the
+    /// count and total size Σ(endpos − startpos) are reported. "In part an artifact of small segments" (Battenberg).
+    /// </summary>
+    /// <param name="calls">The fitted profile (<c>determine_copynumber</c> rows).</param>
+    /// <param name="segmentedSnps">The <c>BAFsegmented</c> rows (BAFseg masked in the output).</param>
+    /// <param name="maxAllowedState">Battenberg <c>max_allowed_state</c> (default 250).</param>
+    /// <returns>The masked calls and rows, <c>masked_count</c> and <c>masked_size</c>.</returns>
+    /// <exception cref="ArgumentNullException">an argument, a call or a chromosome is null.</exception>
+    public static BattenbergHighCopyNumberMask MaskHighCopyNumberSegments(
+        IReadOnlyList<BattenbergSegmentCall> calls,
+        IReadOnlyList<PhasedBafSegmentedSnp> segmentedSnps,
+        int maxAllowedState = BattenbergMaxAllowedState)
+    {
+        ArgumentNullException.ThrowIfNull(calls);
+        ArgumentNullException.ThrowIfNull(segmentedSnps);
+        var rows = segmentedSnps.ToArray();
+        var outCalls = new List<BattenbergSegmentCall>(calls.Count);
+        int count = 0;
+        long size = 0;
+        foreach (BattenbergSegmentCall call in calls)
+        {
+            if (call is null)
+            {
+                throw new ArgumentNullException(nameof(calls), "Every call must be non-null.");
+            }
+
+            SubclonalCopyNumberState a = call.Fit.PrimaryState;
+            if (!(a.MajorCopyNumber > maxAllowedState || a.MinorCopyNumber > maxAllowedState))
+            {
+                outCalls.Add(call);
+                continue;
+            }
+
+            AlleleSpecificSegmentSummary s = call.Fit.Segment;
+            for (int i = 0; i < rows.Length; i++)
+            {
+                if (rows[i].Chromosome == s.Chromosome && s.Start < rows[i].Position && s.End >= rows[i].Position)
+                {
+                    rows[i] = rows[i] with { BafSegment = double.NaN };
+                }
+            }
+
+            IReadOnlyList<BattenbergSubclonalSolution> solutions = call.Solutions;
+            if (solutions.Count > 0)
+            {
+                var masked = solutions.ToArray();
+                masked[0] = masked[0] with
+                {
+                    MajorCopyNumber1 = null, MinorCopyNumber1 = null, MajorCopyNumber2 = null, MinorCopyNumber2 = null,
+                };
+                solutions = masked;
+            }
+
+            outCalls.Add(call with { Solutions = solutions, IsMasked = true });
+            count++;
+            size += s.End - s.Start;
+        }
+
+        return new BattenbergHighCopyNumberMask(outCalls, rows, count, size);
+    }
+
+    /// <summary>
+    /// Battenberg <c>callSubclones</c> copy-number driver (R/fitcopynumber.R, B24 F61): <c>set.seed(seed)</c> →
+    /// <c>determine_copynumber</c> (<see cref="BuildBattenbergSegments"/> + <see cref="FitSubclonalCopyNumberWithBootstrap"/>)
+    /// → <see cref="MergeBattenbergSegments"/> → <c>determine_copynumber</c> on the merged <c>BAFsegmented</c> →
+    /// <see cref="MaskHighCopyNumberSegments"/>. Both <c>determine_copynumber</c> calls draw their bootstrap resamples
+    /// from <b>one</b> R Mersenne-Twister stream seeded once, as in Battenberg, so the final table (including
+    /// <c>SDfrac_BS</c> and the bootstrap bounds) is Battenberg's for the same seed. Plots, file output, the PGA-clonal
+    /// statistic and the ploidy recalculation of <c>callSubclones</c> are not part of this method. ψ of all cells is
+    /// derived from <paramref name="ploidy"/> (psit) as in <c>callSubclones</c>: <c>psi = rho·psit + 2(1 − rho)</c>.
+    /// </summary>
+    /// <param name="segmentedSnps">Battenberg <c>BAFsegmented</c> rows (e.g. <see cref="SegmentPhasedBaf"/>).</param>
+    /// <param name="logR">Raw logR probes (NaN = NA; ±∞ rejected by the merge step).</param>
+    /// <param name="purity">ρ ∈ (0, 1] (<c>rho.psi.file</c> rho).</param>
+    /// <param name="ploidy">Tumour ploidy psit (&gt; 0).</param>
+    /// <param name="seed">R <c>set.seed</c> value (Battenberg <c>seed</c>).</param>
+    /// <param name="gamma">Platform γ (&gt; 0).</param>
+    /// <param name="significanceLevel">Battenberg <c>siglevel</c> (default 0.05).</param>
+    /// <param name="maxBafDistance">Battenberg <c>maxdist</c> (default 0.01).</param>
+    /// <param name="permutations">Battenberg <c>noperms</c> (default 1000).</param>
+    /// <param name="maxAllowedState">Battenberg <c>max_allowed_state</c> (default 250).</param>
+    /// <param name="bafOption">Battenberg <c>calc_seg_baf_option</c> used by the merge (default 3).</param>
+    /// <returns>The initial calls, the merge, and the masked final calls.</returns>
+    /// <exception cref="ArgumentNullException">an argument is null.</exception>
+    /// <exception cref="ArgumentException">as <see cref="BuildBattenbergSegments"/> / <see cref="MergeBattenbergSegments"/>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">invalid ρ, ψ, γ, siglevel, maxdist, permutations &lt; 1 or bafOption.</exception>
+    /// <exception cref="InvalidOperationException">a merge t-test on essentially constant data (R stops).</exception>
+    public static BattenbergSubcloneCalls CallBattenbergSubclones(
+        IReadOnlyList<PhasedBafSegmentedSnp> segmentedSnps,
+        IReadOnlyList<LogRProbe> logR,
+        double purity,
+        double ploidy,
+        int seed,
+        double gamma = AscatSequencingGamma,
+        double significanceLevel = BattenbergSignificanceLevel,
+        double maxBafDistance = BattenbergMaxBafDistance,
+        int permutations = BattenbergDefaultPermutations,
+        int maxAllowedState = BattenbergMaxAllowedState,
+        BattenbergSegmentBafOption bafOption = BattenbergSegmentBafOption.MedianUnlessExtreme)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(permutations, 1);
+        var rng = new RMersenneTwister(seed);
+        List<BattenbergSegmentCall> initial = BattenbergDetermineCopyNumber(
+            BuildBattenbergSegments(segmentedSnps, logR), purity, ploidy, rng, gamma, significanceLevel, maxBafDistance, permutations);
+        BattenbergSegmentMerge merge = MergeBattenbergSegments(initial, segmentedSnps, logR, purity, ploidy, gamma, bafOption);
+        List<BattenbergSegmentCall> final = BattenbergDetermineCopyNumber(
+            BuildBattenbergSegments(merge.SegmentedSnps, logR), purity, ploidy, rng, gamma, significanceLevel, maxBafDistance, permutations);
+        return new BattenbergSubcloneCalls(initial, merge, MaskHighCopyNumberSegments(final, merge.SegmentedSnps, maxAllowedState));
+    }
+
+    /// <summary>A mutable <c>merge_segments</c> GRanges row (<c>ID</c> = list index, <c>Prev_checked</c>, <c>Next_checked</c>).</summary>
+    private sealed class BattenbergMergeSegment(BattenbergSegmentCall call)
+    {
+        public BattenbergSegmentCall Call { get; } = call;
+
+        public long Start { get; set; }
+
+        public long End { get; set; }
+
+        public double Baf { get; set; }
+
+        public double LogR { get; set; }
+
+        public double Frac1 { get; init; }
+
+        public bool PrevChecked { get; set; }
+
+        public bool NextChecked { get; set; }
+
+        public bool WasMerged { get; set; }
+
+        public int Major1 => Call.Fit.PrimaryState.MajorCopyNumber;
+
+        public int Minor1 => Call.Fit.PrimaryState.MinorCopyNumber;
+    }
+
+    /// <summary>Per-chromosome <c>bafsegmented</c>/<c>logR</c> data of <c>merge_segments</c> (<c>findOverlaps</c> by position).</summary>
+    private sealed class BattenbergMergeChromosome(
+        IReadOnlyList<PhasedBafSegmentedSnp> rows,
+        List<int> rowIndices,
+        List<(long Pos, double LogR)> probes,
+        double[] bafSegOut,
+        BattenbergSegmentBafOption bafOption)
+    {
+        public List<double> PhasedBafs(long start, long end)
+        {
+            var values = new List<double>();
+            foreach (int i in rowIndices)
+            {
+                if (rows[i].Position >= start && rows[i].Position <= end)
+                {
+                    values.Add(rows[i].BafPhased);
+                }
+            }
+
+            return values;
+        }
+
+        /// <summary>The probes overlapping [start, end]: their count (NA included) and the non-NA values.</summary>
+        public (int Count, List<double> Values) LogRs(long start, long end)
+        {
+            int count = 0;
+            var values = new List<double>();
+            foreach ((long pos, double value) in probes)
+            {
+                if (pos >= start && pos <= end)
+                {
+                    count++;
+                    if (!double.IsNaN(value))
+                    {
+                        values.Add(value);
+                    }
+                }
+            }
+
+            return (count, values);
+        }
+
+        /// <summary><c>merge_seg</c> BAF (<c>calc_seg_baf_option</c>) and LogR of [start, end]; writes BAFseg.</summary>
+        public (double Baf, double LogR) Recompute(long start, long end)
+        {
+            List<double> baf = PhasedBafs(start, end);
+            double newBaf;
+            switch (bafOption)
+            {
+                case BattenbergSegmentBafOption.Median:
+                    newBaf = StatisticsHelper.Median(baf);
+                    break;
+                case BattenbergSegmentBafOption.Mean:
+                    newBaf = StatisticsHelper.RMean(baf);
+                    break;
+                default:
+                    double median = StatisticsHelper.Median(baf);
+                    newBaf = median != 0.0 && median != 1.0 ? median : StatisticsHelper.RMean(baf);
+                    break;
+            }
+
+            (int count, List<double> values) = LogRs(start, end);
+            double newLogR = count == 0 ? 0.0 : StatisticsHelper.RMean(values); // mean(numeric(0)) = NaN when every probe is NA
+            foreach (int i in rowIndices)
+            {
+                if (rows[i].Position >= start && rows[i].Position <= end)
+                {
+                    bafSegOut[i] = newBaf;
+                }
+            }
+
+            return (newBaf, newLogR);
+        }
+    }
+
+    /// <summary>The <c>merge_segments</c> loop over one chromosome (segments in place).</summary>
+    private static void BattenbergMergeChromosomeSegments(
+        List<BattenbergMergeSegment> segs, BattenbergMergeChromosome data, double rho, double cellCopies, double gamma)
+    {
+        segs[0].PrevChecked = true;
+        segs[^1].NextChecked = true;
+        while (true)
+        {
+            // Smallest segment (width = end − start + 1, first on a tie) among those with an unchecked side.
+            int index = -1;
+            long bestWidth = long.MaxValue;
+            for (int k = 0; k < segs.Count; k++)
+            {
+                if ((!segs[k].PrevChecked || !segs[k].NextChecked) && segs[k].End - segs[k].Start + 1 < bestWidth)
+                {
+                    bestWidth = segs[k].End - segs[k].Start + 1;
+                    index = k;
+                }
+            }
+
+            if (index < 0)
+            {
+                return;
+            }
+
+            // Neighbours ordered by distance (order() is stable: the previous neighbour first on a tie).
+            var neighbours = new List<int>(2);
+            if (index > 0)
+            {
+                neighbours.Add(index - 1);
+            }
+
+            if (index < segs.Count - 1)
+            {
+                neighbours.Add(index + 1);
+            }
+
+            if (neighbours.Count == 2 && GRangesDistance(segs[index], segs[index + 1]) < GRangesDistance(segs[index], segs[index - 1]))
+            {
+                neighbours.Reverse();
+            }
+
+            foreach (int other in neighbours)
+            {
+                BattenbergMergeSegment a = segs[index], b = segs[other];
+                bool checkedPair = other > index ? a.NextChecked && b.PrevChecked : a.PrevChecked && b.NextChecked;
+                if (checkedPair)
+                {
+                    continue;
+                }
+
+                bool merge;
+                if (GRangesDistance(a, b) > BattenbergMergeMaxDistance)
+                {
+                    merge = false;
+                }
+                else if (a.Major1 == b.Major1 && a.Minor1 == b.Minor1 && a.Frac1 == 1.0 && b.Frac1 == 1.0)
+                {
+                    merge = true; // same clonal copy-number solution
+                }
+                else
+                {
+                    merge = BattenbergSameSquareAndNotDifferent(a, b, data, rho, cellCopies, gamma);
+                }
+
+                if (merge)
+                {
+                    BattenbergMergeInto(segs, index, other, data);
+                    break;
+                }
+
+                if (other > index)
+                {
+                    a.NextChecked = true;
+                    b.PrevChecked = true;
+                }
+                else
+                {
+                    a.PrevChecked = true;
+                    b.NextChecked = true;
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// <c>merge_segments</c> for two different solutions: same "square" (rounded nmin or nmaj equal) and neither the
+    /// logR nor the BAF Welch t-test significant (each side needs &gt; 10 non-NA values).
+    /// </summary>
+    private static bool BattenbergSameSquareAndNotDifferent(
+        BattenbergMergeSegment a, BattenbergMergeSegment b, BattenbergMergeChromosome data, double rho, double cellCopies, double gamma)
+    {
+        // calc_nmin / calc_nmax in R's left-to-right operation order.
+        double powA = Math.Pow(2.0, a.LogR / gamma), powB = Math.Pow(2.0, b.LogR / gamma);
+        double nminA = RRound((rho - 1.0 - (a.Baf - 1.0) * powA * cellCopies) / rho);
+        double nmajA = RRound((rho - 1.0 + a.Baf * powA * cellCopies) / rho);
+        double nminB = RRound((rho - 1.0 - (b.Baf - 1.0) * powB * cellCopies) / rho);
+        double nmajB = RRound((rho - 1.0 + b.Baf * powB * cellCopies) / rho);
+        if (!(nminA == nminB || nmajA == nmajB))
+        {
+            return false; // different squares
+        }
+
+        List<double> logRA = data.LogRs(a.Start, a.End).Values, logRB = data.LogRs(b.Start, b.End).Values;
+        List<double> bafA = data.PhasedBafs(a.Start, a.End), bafB = data.PhasedBafs(b.Start, b.End);
+        if (!(logRA.Count > BattenbergMergeMinValues && logRB.Count > BattenbergMergeMinValues
+              && bafA.Count > BattenbergMergeMinValues && bafB.Count > BattenbergMergeMinValues))
+        {
+            return false; // too few values
+        }
+
+        double pLogR = StatisticsHelper.WelchTTestPValue(logRA, logRB);
+        double pBaf = StatisticsHelper.WelchTTestPValue(bafA, bafB);
+        if (double.IsNaN(pLogR) || double.IsNaN(pBaf))
+        {
+            throw new InvalidOperationException(
+                "Battenberg merge_segments: t.test data are essentially constant (R stops with an error).");
+        }
+
+        return !(pLogR < BattenbergMergeSignificance) && !(pBaf < BattenbergMergeSignificance);
+    }
+
+    /// <summary><c>merge_seg</c>: extend <paramref name="into"/> over <paramref name="index"/>, drop it, recompute, re-open.</summary>
+    private static void BattenbergMergeInto(List<BattenbergMergeSegment> segs, int index, int into, BattenbergMergeChromosome data)
+    {
+        BattenbergMergeSegment target = segs[into];
+        if (into < index)
+        {
+            target.End = segs[index].End;
+        }
+        else
+        {
+            target.Start = segs[index].Start;
+        }
+
+        segs.RemoveAt(index);
+        int k = into < index ? index - 1 : index;
+        // updateAround: the merged segment and its neighbours must be re-checked.
+        if (k > 0)
+        {
+            segs[k].PrevChecked = false;
+            segs[k - 1].NextChecked = false;
+        }
+        else
+        {
+            segs[k].PrevChecked = true;
+        }
+
+        if (k < segs.Count - 1)
+        {
+            segs[k].NextChecked = false;
+            segs[k + 1].PrevChecked = false;
+        }
+        else
+        {
+            segs[k].NextChecked = true;
+        }
+
+        (target.Baf, target.LogR) = data.Recompute(target.Start, target.End);
+        target.WasMerged = true;
+    }
+
+    /// <summary><c>GenomicRanges::distance</c> of two ranges on one chromosome: 0 if they overlap or are adjacent.</summary>
+    private static long GRangesDistance(BattenbergMergeSegment a, BattenbergMergeSegment b) =>
+        Math.Max(0L, Math.Max(b.Start - a.End - 1, a.Start - b.End - 1));
+
+    /// <summary>R <c>as.numeric(as.character(x))</c> (15 significant digits), as <c>determine_copynumber</c>'s character matrix.</summary>
+    private static double RAsCharacterRoundTrip(double x) =>
+        double.IsFinite(x) ? double.Parse(x.ToString("G15", System.Globalization.CultureInfo.InvariantCulture), System.Globalization.CultureInfo.InvariantCulture) : x;
+
+    /// <summary>
+    /// Seqlevel order of <c>makeGRangesFromDataFrame</c> for character seqnames: <c>seqlevels[rankSeqlevels(seqlevels)] &lt;-
+    /// seqlevels</c> (GenomeInfoDb 1.38 <c>rankSeqlevels</c>, C collation). Super-groups by prefix <c>CHR</c>, <c>chr</c>,
+    /// <c>CH</c>, <c>ch</c>, none; inside each: Roman numerals, numbers (≤ 6 digits; suffix A/a/B/b/L/R), W, Z, X (sex
+    /// chromosome unless it is the only kind of name), Y, U, M, MT, number+text, Wxxx, Zxxx, Xxxx, Yxxx, Uxxx, Mxxx, MTxxx,
+    /// then everything else alphabetically. Ties (only for equal Roman values such as IV/IIII) keep ordinal order.
+    /// </summary>
+    internal static IReadOnlyList<string> BattenbergSeqlevelOrder(IReadOnlyList<string> names)
+    {
+        string[] levels = names.Distinct(StringComparer.Ordinal).OrderBy(n => n, StringComparer.Ordinal).ToArray();
+        var prov = new int?[levels.Length];
+        int last = 0;
+
+        void Assign(List<int> idx, List<int>? ints = null)
+        {
+            if (idx.Count == 0)
+            {
+                return;
+            }
+
+            ints ??= Enumerable.Repeat(0, idx.Count).ToList();
+            int min = ints.Min(), max = int.MinValue;
+            for (int k = 0; k < idx.Count; k++)
+            {
+                int id = last + ints[k] - min + 1;
+                prov[idx[k]] = id;
+                max = Math.Max(max, id);
+            }
+
+            last = max;
+        }
+
+        foreach (string prefix in new[] { "CHR", "chr", "CH", "ch", string.Empty })
+        {
+            var sg = new List<int>();
+            for (int i = 0; i < levels.Length; i++)
+            {
+                if (prov[i] is null && levels[i].StartsWith(prefix, StringComparison.Ordinal))
+                {
+                    sg.Add(i);
+                }
+            }
+
+            if (sg.Count == 0)
+            {
+                continue;
+            }
+
+            string[] suf = sg.Select(i => levels[i][prefix.Length..]).ToArray();
+            int n = suf.Length;
+            var nbKind = new int[n]; // −1 none; 0 plain; 1 A; 2 a; 3 B; 4 b; 5 L; 6 R
+            var nbxxx = new bool[n];
+            for (int j = 0; j < n; j++)
+            {
+                nbKind[j] = ShortNumberKind(suf[j]);
+                nbxxx[j] = nbKind[j] < 0 && LeadingDigits(suf[j]) is { Length: > 0 and <= 6 } d && d[0] != '0';
+            }
+
+            bool anyX = suf.Contains("X");
+            bool xSexual = !anyX || suf.Contains("Y") || nbKind.Any(k => k >= 0) || nbxxx.Any(v => v);
+            var roman = new int?[n];
+            for (int j = 0; j < n; j++)
+            {
+                bool seXual = suf[j] == "X" && xSexual;
+                roman[j] = seXual ? null : RomanValue(suf[j]);
+            }
+
+            bool Has(int j, string p) => suf[j].StartsWith(p, StringComparison.Ordinal);
+            List<int> Where(Func<int, bool> f) => Enumerable.Range(0, n).Where(f).ToList();
+            List<int> Map(List<int> js) => js.Select(j => sg[j]).ToList();
+            List<int> FactorCodes(List<int> js, int drop) =>
+                FactorInts(js.Select(j => suf[j][drop..]).ToList());
+
+            var isRoman = Where(j => roman[j] is not null);
+            Assign(Map(isRoman), isRoman.Select(j => roman[j]!.Value).ToList());
+            var isNb = Where(j => nbKind[j] >= 0);
+            Assign(Map(isNb), isNb.Select(j =>
+            {
+                string digits = nbKind[j] == 0 ? suf[j] : suf[j][..^1];
+                return 7 * int.Parse(digits, System.Globalization.CultureInfo.InvariantCulture) + nbKind[j];
+            }).ToList());
+            Assign(Map(Where(j => suf[j] == "W")));
+            Assign(Map(Where(j => suf[j] == "Z")));
+            Assign(Map(Where(j => suf[j] == "X" && xSexual)));
+            Assign(Map(Where(j => suf[j] == "Y")));
+            Assign(Map(Where(j => suf[j] == "U")));
+            Assign(Map(Where(j => suf[j] == "M")));
+            Assign(Map(Where(j => suf[j] == "MT")));
+            var isNbxxx = Where(j => nbxxx[j]);
+            if (isNbxxx.Count > 0)
+            {
+                var ints1 = isNbxxx.Select(j => int.Parse(LeadingDigits(suf[j]), System.Globalization.CultureInfo.InvariantCulture)).ToList();
+                var ints2 = FactorInts(isNbxxx.Select(j => suf[j][LeadingDigits(suf[j]).Length..]).ToList());
+                int m2 = ints2.Max() + 1;
+                Assign(Map(isNbxxx), ints1.Select((v, k) => m2 * v + ints2[k]).ToList());
+            }
+
+            bool Special(int j) => roman[j] is null && !(suf[j] == "X" && xSexual);
+            var wx = Where(j => Has(j, "W") && suf[j] != "W" && roman[j] is null);
+            var zx = Where(j => Has(j, "Z") && suf[j] != "Z" && roman[j] is null);
+            var xx = Where(j => Has(j, "X") && suf[j] != "X" && roman[j] is null);
+            var yx = Where(j => Has(j, "Y") && suf[j] != "Y" && roman[j] is null);
+            var ux = Where(j => Has(j, "U") && suf[j] != "U" && roman[j] is null);
+            var mtx = Where(j => Has(j, "MT") && suf[j] != "MT" && roman[j] is null);
+            var mx = Where(j => Has(j, "M") && suf[j] != "M" && suf[j] != "MT" && !mtx.Contains(j) && roman[j] is null);
+            Assign(Map(wx), FactorCodes(wx, 1));
+            Assign(Map(zx), FactorCodes(zx, 1));
+            Assign(Map(xx), FactorCodes(xx, 1));
+            Assign(Map(yx), FactorCodes(yx, 1));
+            Assign(Map(ux), FactorCodes(ux, 1));
+            Assign(Map(mx), FactorCodes(mx, 1));
+            Assign(Map(mtx), FactorCodes(mtx, 2));
+            var named = new HashSet<string>(StringComparer.Ordinal) { "W", "Z", "Y", "U", "M", "MT" };
+            var rest = Where(j => Special(j) && nbKind[j] < 0 && !nbxxx[j] && !named.Contains(suf[j]) && suf[j] != "X"
+                                  && !wx.Contains(j) && !zx.Contains(j) && !xx.Contains(j) && !yx.Contains(j)
+                                  && !ux.Contains(j) && !mx.Contains(j) && !mtx.Contains(j));
+            Assign(Map(rest), FactorCodes(rest, 0));
+        }
+
+        return Enumerable.Range(0, levels.Length).OrderBy(i => prov[i]!.Value).ThenBy(i => i).Select(i => levels[i]).ToArray();
+
+        static string LeadingDigits(string s)
+        {
+            int k = 0;
+            while (k < s.Length && s[k] >= '0' && s[k] <= '9')
+            {
+                k++;
+            }
+
+            return s[..k];
+        }
+
+        // .isShortNb(x, abc): ^[1-9][0-9]*abc$ with at most 6 leading digits; abc ∈ {"", A, a, B, b, L, R}.
+        static int ShortNumberKind(string s)
+        {
+            string d = LeadingDigits(s);
+            if (d.Length == 0 || d.Length > 6 || d[0] == '0')
+            {
+                return -1;
+            }
+
+            if (d.Length == s.Length)
+            {
+                return 0;
+            }
+
+            return s.Length == d.Length + 1 ? "AaBbLR".IndexOf(s[^1], StringComparison.Ordinal) switch { -1 => -1, int i => i + 1 } : -1;
+        }
+
+        // as.integer(factor(x)) in C collation: 1-based rank among the distinct values.
+        static List<int> FactorInts(List<string> values)
+        {
+            string[] distinct = values.Distinct(StringComparer.Ordinal).OrderBy(v => v, StringComparer.Ordinal).ToArray();
+            return values.Select(v => Array.BinarySearch(distinct, v, StringComparer.Ordinal) + 1).ToList();
+        }
+
+        // GenomeInfoDb isRoman / utils:::.roman2numeric: upper-case valid Roman numeral → its value, else null.
+        static int? RomanValue(string s)
+        {
+            if (s.Length == 0 || s != s.ToUpperInvariant())
+            {
+                return null;
+            }
+
+            string y = s.Replace("CM", "DCCCC", StringComparison.Ordinal).Replace("CD", "CCCC", StringComparison.Ordinal)
+                .Replace("XC", "LXXXX", StringComparison.Ordinal).Replace("XL", "XXXX", StringComparison.Ordinal)
+                .Replace("IX", "VIIII", StringComparison.Ordinal).Replace("IV", "IIII", StringComparison.Ordinal);
+            if (!System.Text.RegularExpressions.Regex.IsMatch(y, "^M{0,3}D?C{0,4}L?X{0,4}V?I{0,4}$"))
+            {
+                return null;
+            }
+
+            int v = 0;
+            foreach (char c in y)
+            {
+                v += c switch { 'M' => 1000, 'D' => 500, 'C' => 100, 'L' => 50, 'X' => 10, 'V' => 5, _ => 1 };
+            }
+
+            return v;
+        }
+    }
+
+    #endregion
+
+    #region CNAqc peak-based purity QC (ONCO-PURITY-001)
+
+    /// <summary>
+    /// A somatic mutation for CNAqc's peak-based purity QC: its VAF and the clonal allele-specific copy-number state
+    /// (Major:minor) of the segment it maps to (CNAqc <c>karyotype = "Major:minor"</c>).
+    /// </summary>
+    /// <param name="Vaf">Variant allele frequency NV/DP in [0, 1].</param>
+    /// <param name="MajorCopyNumber">Major allele copy number (≥ 0).</param>
+    /// <param name="MinorCopyNumber">Minor allele copy number (≥ 0).</param>
+    public readonly record struct PurityPeakMutation(double Vaf, int MajorCopyNumber, int MinorCopyNumber)
+    {
+        /// <summary>Alternate-allele read count NV (CNAqc <c>NV</c>); used by the BMix fit (<see cref="PurityPeakOptions.FitMixturePeaks"/>).</summary>
+        public int AlternateReads { get; init; }
+
+        /// <summary>
+        /// Read depth DP (CNAqc <c>DP</c>; 0 = not supplied). When every analysed mutation has DP ≥ 1, BMix mixture peaks are
+        /// fitted by default (<see cref="PurityPeakOptions.FitMixturePeaks"/>).
+        /// </summary>
+        public int Depth { get; init; }
+    }
+
+    /// <summary>How detected VAF peaks are assigned to the expected clonal peaks of a karyotype.</summary>
+    public enum PurityPeakMatchingStrategy
+    {
+        /// <summary>
+        /// Each expected peak takes the nearest non-discarded data peak (first on ties) — CNAqc 1.1.5
+        /// <c>analyze_peaks_common</c>, the only strategy its <c>analyze_peaks</c> runs.
+        /// </summary>
+        Closest,
+
+        /// <summary>
+        /// Expected peaks (descending) are paired with the highest-VAF non-discarded data peaks (descending), padding
+        /// with the rightmost peak when there are fewer data peaks — CNAqc's legacy <c>peak_detector</c>
+        /// (<c>matching_strategy = "rightmost"</c>; still documented by <c>analyze_peaks</c> but no longer forwarded to
+        /// <c>analyze_peaks_common</c> in 1.1.5).
+        /// </summary>
+        Rightmost,
+    }
+
+    /// <summary>Origin of a data peak.</summary>
+    public enum PurityPeakSource
+    {
+        /// <summary>Gaussian-KDE maximum found by <c>peakPick</c> (CNAqc <c>from = "KDE"</c>).</summary>
+        Kde,
+
+        /// <summary>A caller-supplied mixture-component mean (e.g. BMix Binomial <c>B.params</c>; CNAqc <c>from = "BMix"</c>).</summary>
+        Mixture,
+    }
+
+    /// <summary>
+    /// Parameters of <see cref="AnalyzePurityPeaks"/>; defaults are CNAqc 1.1.5 <c>analyze_peaks</c> defaults.
+    /// </summary>
+    public sealed record PurityPeakOptions
+    {
+        /// <summary>CNAqc default simple clonal karyotypes <c>c('1:0', '1:1', '2:0', '2:1', '2:2')</c> as (Major, minor).</summary>
+        public static IReadOnlyList<(int Major, int Minor)> SimpleClonalKaryotypes { get; } =
+            new[] { (1, 0), (1, 1), (2, 0), (2, 1), (2, 2) };
+
+        /// <summary>Default options (CNAqc defaults).</summary>
+        public static PurityPeakOptions Default { get; } = new();
+
+        /// <summary>Karyotypes to QC (<c>karyotypes</c>); must be a subset of <see cref="SimpleClonalKaryotypes"/>.</summary>
+        public IReadOnlyList<(int Major, int Minor)> Karyotypes { get; init; } = SimpleClonalKaryotypes;
+
+        /// <summary>Minimum share n_k / N of all mutations (<c>min_karyotype_size</c>, default 0), in [0, 1).</summary>
+        public double MinKaryotypeSize { get; init; }
+
+        /// <summary>Minimum mutations per karyotype (<c>min_absolute_karyotype_mutations</c>, default 100; n ≥ this).</summary>
+        public int MinAbsoluteKaryotypeMutations { get; init; } = 100;
+
+        /// <summary>Purity error ε (<c>purity_error</c>, default 0.05), in (0, 1); sets the VAF bands δ.</summary>
+        public double PurityError { get; init; } = 0.05;
+
+        /// <summary>VAF tolerance around a data peak for band overlap (<c>VAF_tolerance</c>, default 0.015), ≥ 0.</summary>
+        public double VafTolerance { get; init; } = 0.015;
+
+        /// <summary>KDE bandwidth multiplier (<c>kernel_adjust</c>, default 1), &gt; 0.</summary>
+        public double KernelAdjust { get; init; } = 1.0;
+
+        /// <summary>Peak-matching rule (default <see cref="PurityPeakMatchingStrategy.Closest"/>).</summary>
+        public PurityPeakMatchingStrategy MatchingStrategy { get; init; } = PurityPeakMatchingStrategy.Closest;
+
+        /// <summary>Only mutations with VAF &gt; this are analysed (<c>min_VAF</c>, default 0).</summary>
+        public double MinVaf { get; init; }
+
+        /// <summary>
+        /// Optional caller-supplied mixture-component means per karyotype (CNAqc adds BMix Binomial-mixture peaks,
+        /// <c>bmixfit(K.Binomials = 1:4)</c>, to the KDE peaks). Each mean is snapped to the nearest KDE grid point.
+        /// null = none; to fit them as CNAqc does use <see cref="FitMixturePeaks"/> instead (not both).
+        /// </summary>
+        public IReadOnlyDictionary<(int Major, int Minor), IReadOnlyList<double>>? MixturePeaks { get; init; }
+
+        /// <summary>true reproduces R ≤ 4.3 <c>density</c> values (<c>old.coords = TRUE</c>); default R ≥ 4.4.</summary>
+        public bool LegacyDensityCoordinates { get; init; }
+
+        /// <summary>
+        /// Fit CNAqc's BMix Binomial-mixture peaks (<c>mixture_peak_detector</c>: <see cref="FitBinomialMixture"/> on
+        /// (NV, DP) of each analysed karyotype, ICL-best component means snapped to the KDE grid). CNAqc's
+        /// <c>analyze_peaks</c> always runs them (<c>combined_peak_detector</c> → <c>mixture_peak_detector</c> → <c>bmixfit</c>).
+        /// <para>null (default) = automatic, as CNAqc: on when every mutation of the analysed karyotypes carries read counts
+        /// (<see cref="PurityPeakMutation.Depth"/> ≥ 1), off when none does (VAF-only input → KDE peaks only) or when
+        /// <see cref="MixturePeaks"/> are supplied; a mix of mutations with and without read counts throws
+        /// <see cref="ArgumentException"/>. true = always fit (read counts required); false = never (KDE peaks only, plus
+        /// any <see cref="MixturePeaks"/>).</para>
+        /// </summary>
+        public bool? FitMixturePeaks { get; init; }
+
+        /// <summary>
+        /// Peak-detection bootstrap replicates (<c>n_bootstrap</c>, default 1 = none), ≥ 1. With n &gt; 1 every analysed
+        /// karyotype's VAFs are resampled n times with replacement (<c>sample_n(replace = TRUE)</c>) and the KDE peaks of the
+        /// replicates not already found are added (heights re-read from the full-data density); with
+        /// <see cref="FitMixturePeaks"/> the BMix fit is bootstrapped likewise.
+        /// </summary>
+        public int BootstrapCount { get; init; } = 1;
+
+        /// <summary>
+        /// R <c>set.seed</c> value for the random steps (bootstrap resampling, BMix k-means starts and jitter); the R
+        /// stream is reproduced exactly (Mersenne-Twister, <c>sample.kind = "Rejection"</c>), so a run equals CNAqc's after
+        /// <c>set.seed(Seed)</c>. Unused when nothing is random.
+        /// </summary>
+        public int Seed { get; init; }
+    }
+
+    /// <summary>A VAF peak detected in a karyotype's data (CNAqc <c>xy_peaks</c> row).</summary>
+    /// <param name="X">Peak VAF (KDE peaks rounded to 2 decimals; mixture peaks at the snapped KDE grid point).</param>
+    /// <param name="Y">Density at the peak (KDE peaks rounded to 2 decimals).</param>
+    /// <param name="CountsPerBin">Mutations in the 0.01-wide VAF histogram bin <c>round(100·X)</c> (null if outside 1..100).</param>
+    /// <param name="Discarded">KDE peak with Y ≤ max(Y)/20 (never used for matching); mixture peaks are never discarded.</param>
+    /// <param name="Source">KDE or mixture.</param>
+    public readonly record struct PurityDataPeak(double X, double Y, int? CountsPerBin, bool Discarded, PurityPeakSource Source);
+
+    /// <summary>One expected clonal peak and its matched data peak (CNAqc <c>peaks_analysis$matches</c> row).</summary>
+    /// <param name="MajorCopyNumber">Karyotype Major.</param>
+    /// <param name="MinorCopyNumber">Karyotype minor.</param>
+    /// <param name="Multiplicity">Mutation multiplicity m (1 or Major).</param>
+    /// <param name="ExpectedPeak">m·π / (2(1−π) + π·(Major + minor)).</param>
+    /// <param name="DeltaVaf">VAF band half-width δ = 2·m·ε / (2 + π·(ploidy − 2))².</param>
+    /// <param name="MatchedPeak">The data peak assigned to this expectation.</param>
+    /// <param name="OffsetVaf">ExpectedPeak − MatchedPeak.X.</param>
+    /// <param name="Offset">Purity-space offset 2·m·OffsetVaf / (m + X·(2 − ploidy))².</param>
+    /// <param name="Weight">Karyotype weight n_k / Σ n over analysed karyotypes.</param>
+    /// <param name="Matched">[X ± VafTolerance] overlaps [ExpectedPeak ± δ].</param>
+    public readonly record struct PurityPeakMatch(
+        int MajorCopyNumber,
+        int MinorCopyNumber,
+        int Multiplicity,
+        double ExpectedPeak,
+        double DeltaVaf,
+        PurityDataPeak MatchedPeak,
+        double OffsetVaf,
+        double Offset,
+        double Weight,
+        bool Matched);
+
+    /// <summary>Per-karyotype result of <see cref="AnalyzePurityPeaks"/>.</summary>
+    /// <param name="MajorCopyNumber">Karyotype Major.</param>
+    /// <param name="MinorCopyNumber">Karyotype minor.</param>
+    /// <param name="MutationCount">Mutations pooled for this karyotype (VAF &gt; MinVaf).</param>
+    /// <param name="Weight">n_k / Σ n over analysed karyotypes.</param>
+    /// <param name="Score">Σ Weight·Offset over this karyotype's expected peaks.</param>
+    /// <param name="Pass">QC of the expected peak whose matched data peak holds the most mutations (CountsPerBin).</param>
+    /// <param name="Density">The Gaussian KDE of the karyotype's VAFs.</param>
+    /// <param name="Peaks">All data peaks (KDE, then mixture).</param>
+    /// <param name="Matches">Expected-peak matches (Closest: m = 1 then Major; Rightmost: descending expected VAF).</param>
+    public sealed record PurityPeakKaryotype(
+        int MajorCopyNumber,
+        int MinorCopyNumber,
+        int MutationCount,
+        double Weight,
+        double Score,
+        bool Pass,
+        KernelDensityEstimate Density,
+        IReadOnlyList<PurityDataPeak> Peaks,
+        IReadOnlyList<PurityPeakMatch> Matches);
+
+    /// <summary>Result of <see cref="AnalyzePurityPeaks"/> (CNAqc <c>x$peaks_analysis</c> for simple clonal CNAs).</summary>
+    /// <param name="Purity">The purity being QC'd.</param>
+    /// <param name="Score">Σ Weight·Offset over all matches (CNAqc λ, printed as "Purity correction"); NaN if nothing analysed.</param>
+    /// <param name="Pass">Sample QC: the PASS/FAIL class with the larger summed match weight (ties → FAIL); null if no karyotype passed the filters.</param>
+    /// <param name="Karyotypes">Analysed karyotypes in (Major, minor) order.</param>
+    /// <param name="Matches">All matches, karyotype by karyotype.</param>
+    public sealed record PurityPeakAnalysis(
+        double Purity,
+        double Score,
+        bool? Pass,
+        IReadOnlyList<PurityPeakKaryotype> Karyotypes,
+        IReadOnlyList<PurityPeakMatch> Matches);
+
+    /// <summary>
+    /// CNAqc peak-based QC of a tumour purity estimate for simple clonal karyotypes (CNAqc 1.1.5
+    /// <c>analyze_peaks</c> → <c>analyze_peaks_common</c>; Antonello et al. 2024, <i>Genome Biology</i> 25:38).
+    /// For each karyotype K = Major:minor in <see cref="PurityPeakOptions.Karyotypes"/> with n_K ≥ MinAbsoluteKaryotypeMutations
+    /// and n_K / N ≥ MinKaryotypeSize (N = all mutations with VAF &gt; MinVaf, any karyotype):
+    /// <list type="number">
+    /// <item>pool its VAFs; Gaussian KDE (R <c>density</c>, bw.nrd0 × KernelAdjust); peaks = union of
+    /// <c>peakPick::peakpick(neighlim = 1..5)</c> maxima, (x, y) rounded to 2 decimals, distinct x, clamped to [0, 1];
+    /// a KDE peak is discarded if y ≤ max(y)/20; optional mixture peaks are appended;</item>
+    /// <item>expected peaks for m ∈ {1, Major}: v_m = m·π / (2(1−π) + π·(Major + minor)), bands
+    /// δ_m = 2·m·ε / (2 + π·(ploidy − 2))²;</item>
+    /// <item>match each expected peak to a non-discarded data peak (<see cref="PurityPeakMatchingStrategy"/>);
+    /// offset = 2·m·(v_m − x) / (m + x·(2 − ploidy))² (purity units), weight = n_K / Σ n_analysed;
+    /// matched ⇔ [x ± VafTolerance] ∩ [v_m ± δ_m] ≠ ∅;</item>
+    /// <item>karyotype PASS ⇔ the expected peak whose matched data peak has the largest histogram count is matched;
+    /// sample PASS ⇔ PASS rows carry more total weight than FAIL rows; score λ = Σ weight·offset.</item>
+    /// </list>
+    /// CNAqc does not threshold λ against ε (ε only sets the bands) and proposes no corrected purity: <c>print</c>
+    /// reports λ as "Purity correction". <c>p_binsize_peaks</c> is accepted by CNAqc 1.1.5 but unused. KDE peak
+    /// detection is deterministic and ported exactly; CNAqc's BMix mixture peaks are fitted by default whenever the
+    /// analysed mutations carry read counts (<see cref="PurityPeakOptions.FitMixturePeaks"/> null = auto;
+    /// <see cref="FitBinomialMixture"/>, R random stream reproduced from <see cref="PurityPeakOptions.Seed"/>) or supplied
+    /// via <see cref="PurityPeakOptions.MixturePeaks"/>;
+    /// <c>n_bootstrap</c> is <see cref="PurityPeakOptions.BootstrapCount"/>. Complex and subclonal karyotypes:
+    /// <see cref="AnalyzeComplexKaryotypePeaks"/>, <see cref="AnalyzeSubclonalPurityPeaks"/>.
+    /// </summary>
+    /// <param name="mutations">Mutations with VAF and karyotype (all karyotypes; non-simple ones count towards N).</param>
+    /// <param name="purity">The purity π ∈ (0, 1] to QC.</param>
+    /// <param name="options">CNAqc parameters (null = defaults).</param>
+    /// <returns>Per-karyotype peaks, matches, scores and the QC verdict.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="mutations"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Invalid purity, option, VAF or copy number.</exception>
+    /// <exception cref="ArgumentException">A requested karyotype is not a simple clonal karyotype.</exception>
+    /// <exception cref="InvalidOperationException">An analysed karyotype yields no usable VAF peak (CNAqc errors too).</exception>
+    public static PurityPeakAnalysis AnalyzePurityPeaks(
+        IEnumerable<PurityPeakMutation> mutations,
+        double purity,
+        PurityPeakOptions? options = null)
+    {
+        ArgumentNullException.ThrowIfNull(mutations);
+        options ??= PurityPeakOptions.Default;
+        ValidatePurityPeakArguments(purity, options);
+
+        var byKaryotype = new SortedDictionary<(int Major, int Minor), List<PurityPeakMutation>>();
+        int total = 0;
+        foreach (PurityPeakMutation mutation in mutations)
+        {
+            if (double.IsNaN(mutation.Vaf) || mutation.Vaf < 0.0 || mutation.Vaf > 1.0)
+                throw new ArgumentOutOfRangeException(nameof(mutations), mutation.Vaf, "VAF must be in [0, 1].");
+            if (mutation.MajorCopyNumber < 0 || mutation.MinorCopyNumber < 0)
+                throw new ArgumentOutOfRangeException(nameof(mutations), "Allele copy numbers must be non-negative.");
+            if (!(mutation.Vaf > options.MinVaf)) continue; // CNAqc: filter(VAF > min_VAF)
+
+            var key = (mutation.MajorCopyNumber, mutation.MinorCopyNumber);
+            if (!byKaryotype.TryGetValue(key, out List<PurityPeakMutation>? group))
+            {
+                group = new List<PurityPeakMutation>();
+                byKaryotype[key] = group;
+            }
+
+            group.Add(mutation);
+            total++;
+        }
+
+        var analysed = new List<(int Major, int Minor)>();
+        int analysedTotal = 0;
+        foreach (KeyValuePair<(int Major, int Minor), List<PurityPeakMutation>> entry in byKaryotype)
+        {
+            int n = entry.Value.Count;
+            if (options.Karyotypes.Contains(entry.Key)
+                && n >= options.MinAbsoluteKaryotypeMutations
+                && (double)n / total >= options.MinKaryotypeSize)
+            {
+                analysed.Add(entry.Key);
+                analysedTotal += n;
+            }
+        }
+
+        if (analysed.Count == 0)
+        {
+            return new PurityPeakAnalysis(purity, double.NaN, null, Array.Empty<PurityPeakKaryotype>(), Array.Empty<PurityPeakMatch>());
+        }
+
+        bool fitMixture = ResolveFitMixturePeaks(options, analysed.SelectMany(k => byKaryotype[k]), nameof(mutations));
+
+        // One R random stream for the whole call (set.seed before analyze_peaks_common), consumed karyotype by karyotype.
+        RMersenneTwister? rng = fitMixture || options.BootstrapCount > 1 ? new RMersenneTwister(options.Seed) : null;
+        var karyotypes = new List<PurityPeakKaryotype>(analysed.Count);
+        var allMatches = new List<PurityPeakMatch>();
+        foreach ((int major, int minor) in analysed)
+        {
+            List<PurityPeakMutation> group = byKaryotype[(major, minor)];
+            double weight = (double)group.Count / analysedTotal;
+            IReadOnlyList<double>? mixturePeaks = null;
+            if (options.MixturePeaks is not null && options.MixturePeaks.TryGetValue((major, minor), out IReadOnlyList<double>? m))
+                mixturePeaks = m;
+
+            PurityPeakKaryotype result = AnalyzePurityPeaksKaryotype(major, minor, group, weight, purity, options, fitMixture, mixturePeaks, rng);
+            karyotypes.Add(result);
+            allMatches.AddRange(result.Matches);
+        }
+
+        double score = 0.0, passWeight = 0.0, failWeight = 0.0;
+        foreach (PurityPeakKaryotype k in karyotypes)
+        {
+            foreach (PurityPeakMatch match in k.Matches)
+            {
+                score += match.Weight * match.Offset;
+                if (k.Pass) passWeight += match.Weight; else failWeight += match.Weight;
+            }
+        }
+
+        // dplyr group_by(QC) orders "FAIL" < "PASS"; arrange(desc(prop)) is stable, so a tie resolves to FAIL.
+        return new PurityPeakAnalysis(purity, score, passWeight > failWeight, karyotypes, allMatches);
+    }
+
+    // PurityPeakOptions.FitMixturePeaks: explicit true/false as given; null (auto) = CNAqc's always-on BMix whenever every
+    // analysed mutation carries read counts (DP ≥ 1), off for VAF-only input or caller-supplied MixturePeaks. Mixed input
+    // (some DP = 0, some ≥ 1) is rejected: CNAqc requires NV/DP on every mutation, and silently dropping BMix would hide
+    // partially missing read counts.
+    private static bool ResolveFitMixturePeaks(PurityPeakOptions options, IEnumerable<PurityPeakMutation> analysed, string paramName)
+    {
+        if (options.FitMixturePeaks == false || (options.FitMixturePeaks is null && options.MixturePeaks is not null))
+            return false;
+
+        int withReads = 0, withoutReads = 0;
+        foreach (PurityPeakMutation m in analysed)
+        {
+            if (m.Depth >= 1) withReads++; else withoutReads++;
+            if (m.Depth >= 1 && (m.AlternateReads < 0 || m.AlternateReads > m.Depth))
+                throw new ArgumentException("BMix mixture peaks need 0 ≤ AlternateReads ≤ Depth on every analysed mutation.", paramName);
+        }
+
+        if (options.FitMixturePeaks == true)
+        {
+            if (withoutReads > 0)
+                throw new ArgumentException(
+                    "FitMixturePeaks needs read counts: every analysed mutation must have Depth ≥ 1 and 0 ≤ AlternateReads ≤ Depth.",
+                    paramName);
+            return true;
+        }
+
+        if (withReads > 0 && withoutReads > 0)
+            throw new ArgumentException(
+                $"Read counts supplied for {withReads} of {withReads + withoutReads} analysed mutations: supply Depth ≥ 1 for all " +
+                "(BMix mixture peaks, CNAqc default) or for none (KDE peaks only), or set FitMixturePeaks explicitly.",
+                paramName);
+        return withReads > 0;
+    }
+
+    private static void ValidatePurityPeakArguments(double purity, PurityPeakOptions options)
+    {
+        if (!(purity > 0.0 && purity <= 1.0))
+            throw new ArgumentOutOfRangeException(nameof(purity), purity, "Purity must be in (0, 1].");
+        if (!(options.PurityError > 0.0 && options.PurityError < 1.0))
+            throw new ArgumentOutOfRangeException(nameof(options), options.PurityError, "PurityError must be in (0, 1).");
+        if (!(options.MinKaryotypeSize >= 0.0 && options.MinKaryotypeSize < 1.0))
+            throw new ArgumentOutOfRangeException(nameof(options), options.MinKaryotypeSize, "MinKaryotypeSize must be in [0, 1).");
+        if (options.MinAbsoluteKaryotypeMutations < 0)
+            throw new ArgumentOutOfRangeException(nameof(options), options.MinAbsoluteKaryotypeMutations, "MinAbsoluteKaryotypeMutations must be ≥ 0.");
+        if (!(options.VafTolerance >= 0.0) || double.IsPositiveInfinity(options.VafTolerance))
+            throw new ArgumentOutOfRangeException(nameof(options), options.VafTolerance, "VafTolerance must be finite and ≥ 0.");
+        if (!(options.KernelAdjust > 0.0) || double.IsPositiveInfinity(options.KernelAdjust))
+            throw new ArgumentOutOfRangeException(nameof(options), options.KernelAdjust, "KernelAdjust must be finite and > 0.");
+        if (double.IsNaN(options.MinVaf))
+            throw new ArgumentOutOfRangeException(nameof(options), options.MinVaf, "MinVaf must not be NaN.");
+        if (options.BootstrapCount < 1)
+            throw new ArgumentOutOfRangeException(nameof(options), options.BootstrapCount, "BootstrapCount must be ≥ 1.");
+        if (options.FitMixturePeaks == true && options.MixturePeaks is not null)
+            throw new ArgumentException("Use either FitMixturePeaks or caller-supplied MixturePeaks, not both.", nameof(options));
+        if (options.Karyotypes is null)
+            throw new ArgumentException("Karyotypes must not be null.", nameof(options));
+        foreach ((int Major, int Minor) k in options.Karyotypes)
+        {
+            if (!PurityPeakOptions.SimpleClonalKaryotypes.Contains(k))
+                throw new ArgumentException(
+                    $"Karyotype {k.Major}:{k.Minor} is not a simple clonal karyotype (1:0, 1:1, 2:0, 2:1, 2:2).", nameof(options));
+        }
+    }
+
+    private static PurityPeakKaryotype AnalyzePurityPeaksKaryotype(
+        int major, int minor, List<PurityPeakMutation> group, double weight, double purity, PurityPeakOptions options,
+        bool fitMixture, IReadOnlyList<double>? mixturePeaks, RMersenneTwister? rng)
+    {
+        int ploidy = major + minor;
+        var vafs = group.Select(g => g.Vaf).ToList();
+        // combined_peak_detector: KDE peaks (simple_peak_detector, with bootstrap), then BMix peaks (mixture_peak_detector).
+        (KernelDensityEstimate density, List<PurityDataPeak> peaks) = SimplePeakDetector(
+            vafs, options.KernelAdjust, options.LegacyDensityCoordinates, $"karyotype {major}:{minor}", options.BootstrapCount, rng);
+        int[] histogram = VafHistogram(vafs);
+        if (fitMixture)
+            peaks.AddRange(MixturePeakDetector(group, options.KernelAdjust, options.LegacyDensityCoordinates, options.BootstrapCount, rng!));
+
+        if (mixturePeaks is not null)
+        {
+            foreach (double p in mixturePeaks)
+            {
+                // CNAqc mixture_peak_detector: w_den = which.min(abs(den$x − p)); x, y from the grid (unrounded).
+                int w = 0;
+                for (int i = 1; i < density.X.Count; i++)
+                {
+                    if (Math.Abs(density.X[i] - p) < Math.Abs(density.X[w] - p)) w = i;
+                }
+
+                double x = density.X[w];
+                peaks.Add(new PurityDataPeak(x, density.Y[w], HistogramCount(histogram, Math.Round(x * 100, MidpointRounding.ToEven)), false, PurityPeakSource.Mixture));
+            }
+        }
+
+        var candidates = peaks.Where(p => !p.Discarded).ToList();
+        if (candidates.Count == 0)
+            throw new InvalidOperationException($"No non-discarded VAF peak for karyotype {major}:{minor}.");
+
+        // expected_vaf_peak: multiplicities unique(c(1, Major)).
+        var multiplicities = major == 1 ? new[] { 1 } : new[] { 1, major };
+        var expected = multiplicities
+            .Select(m => (Multiplicity: m, Peak: CnaqcExpectedVaf(m, purity, ploidy)))
+            .ToList();
+
+        var assignment = new List<((int Multiplicity, double Peak) Expectation, PurityDataPeak Peak)>();
+        if (options.MatchingStrategy == PurityPeakMatchingStrategy.Closest)
+        {
+            foreach (var e in expected)
+            {
+                PurityDataPeak best = candidates[0];
+                foreach (PurityDataPeak c in candidates)
+                {
+                    if (Math.Abs(c.X - e.Peak) < Math.Abs(best.X - e.Peak)) best = c;
+                }
+
+                assignment.Add((e, best));
+            }
+        }
+        else
+        {
+            var expectedDesc = expected.OrderByDescending(e => e.Peak).ToList(); // stable
+            var peaksDesc = candidates.OrderByDescending(p => p.X).ToList();      // stable
+            for (int i = 0; i < expectedDesc.Count; i++)
+            {
+                assignment.Add((expectedDesc[i], i < peaksDesc.Count ? peaksDesc[i] : peaksDesc[0]));
+            }
+        }
+
+        var matches = new List<PurityPeakMatch>(assignment.Count);
+        double karyotypeScore = 0.0;
+        foreach (((int m, double peak), PurityDataPeak data) in assignment)
+        {
+            double band = 2 * m * options.PurityError;
+            double spread = 2 + (purity * (ploidy - 2));
+            double deltaVaf = band / (spread * spread);
+            double offsetVaf = peak - data.X;
+            double denom = m + (data.X * (2 - ploidy));
+            double offset = 2 * m * offsetVaf / (denom * denom);
+            bool matched = Math.Max(data.X - options.VafTolerance, peak - deltaVaf)
+                           <= Math.Min(data.X + options.VafTolerance, peak + deltaVaf);
+            matches.Add(new PurityPeakMatch(major, minor, m, peak, deltaVaf, data, offsetVaf, offset, weight, matched));
+            karyotypeScore += weight * offset;
+        }
+
+        // QC per karyotype: arrange(desc(counts_per_bin)) (stable, NA last) → first row's `matched`.
+        PurityPeakMatch lead = matches[0];
+        foreach (PurityPeakMatch match in matches)
+        {
+            if ((match.MatchedPeak.CountsPerBin ?? int.MinValue) > (lead.MatchedPeak.CountsPerBin ?? int.MinValue)) lead = match;
+        }
+
+        return new PurityPeakKaryotype(major, minor, vafs.Count, weight, karyotypeScore, lead.Matched, density, peaks, matches);
+    }
+
+    // CNAqc simple_peak_detector: union of peakpick(neighlim = 1..5) on the density's y; arrange(x); round(x, 2),
+    // round(y, 2); distinct(x) keeping the first; x ∈ (1, 1.01) → 1, x ∈ (−0.01, 0) → 0; keep 0 ≤ x ≤ 1; counts from
+    // hist(breaks = seq(0, 1, 0.01)) at round(100·x) (first index 0 → 1); discarded ⇔ y ≤ max(y)·(1/20).
+    private static List<PurityDataPeak> DetectKdePeaks(KernelDensityEstimate density, int[] histogram)
+    {
+        var picked = new SortedSet<int>();
+        for (int neighlim = 1; neighlim <= 5; neighlim++)
+        {
+            bool[] mask = StatisticsHelper.PeakPick(density.Y, neighlim);
+            for (int i = 0; i < mask.Length; i++)
+            {
+                if (mask[i]) picked.Add(i);
+            }
+        }
+
+        var rows = new List<(double X, double Y)>();
+        var seen = new HashSet<double>();
+        foreach (int i in picked) // grid x increases with the index, so this is arrange(x)
+        {
+            double x = RRound(density.X[i], 2);
+            if (!seen.Add(x)) continue;
+            double y = RRound(density.Y[i], 2);
+            if (x > 1 && x < 1.01) x = 1;
+            else if (x < 0 && x > -0.01) x = 0;
+            if (x <= 1 && x >= 0) rows.Add((x, y));
+        }
+
+        var peaks = new List<PurityDataPeak>(rows.Count);
+        if (rows.Count == 0) return peaks;
+        double maxY = rows.Max(r => r.Y);
+        for (int k = 0; k < rows.Count; k++)
+        {
+            double index = Math.Round(rows[k].X * 100, MidpointRounding.ToEven);
+            if (k == 0 && index == 0) index = 1;
+            peaks.Add(new PurityDataPeak(rows[k].X, rows[k].Y, HistogramCount(histogram, index),
+                rows[k].Y <= maxY * (1.0 / 20), PurityPeakSource.Kde));
+        }
+
+        return peaks;
+    }
+
+    // R hist(VAF, breaks = seq(0, 1, 0.01), plot = FALSE)$counts: right-closed bins, include.lowest, breaks fuzzed by
+    // 1e-7·median(diff(breaks)) (first break down, the others up) before R's C_BinCount bisection.
+    private static int[] VafHistogram(IReadOnlyList<double> vafs)
+    {
+        const int Bins = 100;
+        var breaks = new double[Bins + 1];
+        for (int k = 0; k <= Bins; k++) breaks[k] = Math.Min(k * 0.01, 1.0); // seq(0, 1, 0.01) = from + (0:n)·by, pmin(to)
+        var widths = new double[Bins];
+        for (int k = 0; k < Bins; k++) widths[k] = breaks[k + 1] - breaks[k];
+        double diddle = 1e-7 * StatisticsHelper.Median(widths);
+        var fuzzy = new double[Bins + 1];
+        fuzzy[0] = breaks[0] - diddle;
+        for (int k = 1; k <= Bins; k++) fuzzy[k] = breaks[k] + diddle;
+
+        var counts = new int[Bins];
+        foreach (double v in vafs)
+        {
+            if (!(fuzzy[0] <= v && v <= fuzzy[Bins])) continue;
+            int lo = 0, hi = Bins;
+            while (hi - lo >= 2)
+            {
+                int mid = (hi + lo) / 2;
+                if (v > fuzzy[mid]) lo = mid; else hi = mid;
+            }
+
+            counts[lo]++;
+        }
+
+        return counts;
+    }
+
+    // R 1-based hst[index]; indices outside 1..100 give NA (null).
+    private static int? HistogramCount(int[] histogram, double index) =>
+        index >= 1 && index <= histogram.Length ? histogram[(int)index - 1] : null;
+
+    // R ≥ 4.0 round(x, digits) (src/nmath/fround.c): pick the closer of floor/ceil(x·10^d)/10^d, even on ties.
+    private static double RRound(double x, int digits)
+    {
+        if (double.IsNaN(x) || double.IsInfinity(x) || x == 0.0) return x;
+        double sgn = 1.0;
+        if (x < 0)
+        {
+            sgn = -1.0;
+            x = -x;
+        }
+
+        double l10x = 0.30102999566398119521 * (0.5 + Math.Floor(Math.Log2(x))); // M_LOG10_2·(0.5 + logb(x))
+        if (l10x + digits > 15) return sgn * x; // DBL_DIG
+        double pow10 = Math.Pow(10, digits);
+        double x10 = x * pow10, i10 = Math.Floor(x10);
+        double xd = i10 / pow10, xu = Math.Ceiling(x10) / pow10;
+        double du = xu - x, dd = x - xd;
+        return sgn * ((du < dd || (i10 % 2 == 1 && du == dd)) ? xu : xd);
+    }
+
+    // ---- CNAqc analyze_peaks_general: complex clonal karyotypes (FIN-B24 F62) ----
+
+    /// <summary>One expected clonal VAF peak of a complex karyotype (CNAqc <c>peaks_analysis$general$expected_peaks</c> row).</summary>
+    /// <param name="MajorCopyNumber">Karyotype Major.</param>
+    /// <param name="MinorCopyNumber">Karyotype minor.</param>
+    /// <param name="Multiplicity">Mutation multiplicity m ∈ 1..max(Major, minor, 1).</param>
+    /// <param name="ExpectedPeak">m·π / (2(1−π) + π·(Major + minor)) (CNAqc <c>expected_vaf_fun</c>).</param>
+    /// <param name="Matched">Some data peak (discarded ones included) lies strictly within ε of the expected peak.</param>
+    public readonly record struct ComplexKaryotypeExpectedPeak(
+        int MajorCopyNumber, int MinorCopyNumber, int Multiplicity, double ExpectedPeak, bool Matched);
+
+    /// <summary>Per-karyotype result of <see cref="AnalyzeComplexKaryotypePeaks"/> (CNAqc <c>general$summary</c> row + its fit).</summary>
+    /// <param name="MajorCopyNumber">Karyotype Major.</param>
+    /// <param name="MinorCopyNumber">Karyotype minor.</param>
+    /// <param name="MutationCount">Mutations of this karyotype (VAF &gt; MinVaf) — CNAqc <c>n</c>.</param>
+    /// <param name="MatchedPeaks">Expected peaks with a data peak within ε.</param>
+    /// <param name="MismatchedPeaks">Expected peaks without one.</param>
+    /// <param name="MatchedProportion">MatchedPeaks / (MatchedPeaks + MismatchedPeaks) — CNAqc <c>prop</c>.</param>
+    /// <param name="Pass">CNAqc <c>analyze_peaks</c> segment/mutation <c>QC_PASS</c>: <c>prop ≥ 0.5</c>.</param>
+    /// <param name="Density">Gaussian KDE of the karyotype's VAFs.</param>
+    /// <param name="Peaks">KDE data peaks (same detector as the simple karyotypes; no mixture peaks).</param>
+    /// <param name="ExpectedPeaks">Expected peaks, multiplicity ascending.</param>
+    public sealed record ComplexKaryotypePeakResult(
+        int MajorCopyNumber,
+        int MinorCopyNumber,
+        int MutationCount,
+        int MatchedPeaks,
+        int MismatchedPeaks,
+        double MatchedProportion,
+        bool Pass,
+        KernelDensityEstimate Density,
+        IReadOnlyList<PurityDataPeak> Peaks,
+        IReadOnlyList<ComplexKaryotypeExpectedPeak> ExpectedPeaks);
+
+    /// <summary>Result of <see cref="AnalyzeComplexKaryotypePeaks"/> (CNAqc <c>x$peaks_analysis$general</c>).</summary>
+    /// <param name="Purity">The purity being QC'd.</param>
+    /// <param name="Ran">false when CNAqc's <c>analyze_peaks</c> gate skips the analysis (no karyotype outside
+    /// <see cref="PurityPeakOptions.Karyotypes"/> has more than MinAbsoluteKaryotypeMutations mutations).</param>
+    /// <param name="Karyotypes">Analysed karyotypes in CNAqc summary order: descending matched proportion, ties by
+    /// the "Major:minor" string (C collation).</param>
+    /// <param name="ExpectedPeaks">All expected peaks, karyotypes in first-appearance order of the input mutations.</param>
+    public sealed record ComplexKaryotypePeakAnalysis(
+        double Purity,
+        bool Ran,
+        IReadOnlyList<ComplexKaryotypePeakResult> Karyotypes,
+        IReadOnlyList<ComplexKaryotypeExpectedPeak> ExpectedPeaks);
+
+    /// <summary>
+    /// CNAqc peak QC of complex clonal karyotypes (CNAqc 1.1.5 <c>analyze_peaks</c> → <c>analyze_peaks_general</c>,
+    /// called with <c>n_min = min_absolute_karyotype_mutations</c>, <c>epsilon = purity_error</c>, <c>kernel_adjust</c>).
+    /// <list type="number">
+    /// <item>Gate (<c>analyze_peaks</c>): run only if some karyotype not in <see cref="PurityPeakOptions.Karyotypes"/> has
+    /// n &gt; MinAbsoluteKaryotypeMutations (strict).</item>
+    /// <item>Analysed karyotypes: every karyotype other than the five simple ones (1:0, 1:1, 2:0, 2:1, 2:2 — fixed, not
+    /// the option) with n ≥ MinAbsoluteKaryotypeMutations, in first-appearance order of the mutations (VAF &gt; MinVaf).</item>
+    /// <item>Per karyotype: KDE peaks exactly as for simple karyotypes (no BMix); expected peaks for m = 1..max(Major,
+    /// minor, 1): m·π / (2(1−π) + π·ploidy); an expected peak is matched iff |x − peak| &lt; ε for some data peak
+    /// (discarded peaks included).</item>
+    /// <item>Summary: matched / mismatched counts, prop = matched / total; <c>analyze_peaks</c> sets QC PASS iff
+    /// prop ≥ 0.5. No score and no sample-level verdict (CNAqc: "a complex segment with many matched peaks is likely to
+    /// be correct").</item>
+    /// </list>
+    /// </summary>
+    /// <param name="mutations">Mutations with VAF and karyotype.</param>
+    /// <param name="purity">The purity π ∈ (0, 1] to QC.</param>
+    /// <param name="options">CNAqc parameters (null = defaults; uses Karyotypes, MinAbsoluteKaryotypeMutations, PurityError,
+    /// KernelAdjust, MinVaf, LegacyDensityCoordinates).</param>
+    /// <returns>Per-karyotype matches and proportions.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="mutations"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Invalid purity, option, VAF or copy number.</exception>
+    /// <exception cref="InvalidOperationException">The gate opens but no complex karyotype has n ≥ MinAbsoluteKaryotypeMutations,
+    /// or a karyotype yields no KDE peak (CNAqc stops with an R error in both cases).</exception>
+    public static ComplexKaryotypePeakAnalysis AnalyzeComplexKaryotypePeaks(
+        IEnumerable<PurityPeakMutation> mutations,
+        double purity,
+        PurityPeakOptions? options = null)
+    {
+        ArgumentNullException.ThrowIfNull(mutations);
+        options ??= PurityPeakOptions.Default;
+        ValidatePurityPeakArguments(purity, options);
+
+        // x$mutations after filter(VAF > min_VAF); karyotypes kept in first-appearance order (unique / setdiff).
+        var order = new List<(int Major, int Minor)>();
+        var byKaryotype = new Dictionary<(int Major, int Minor), List<double>>();
+        foreach (PurityPeakMutation mutation in mutations)
+        {
+            ValidatePurityPeakMutation(mutation);
+            if (!(mutation.Vaf > options.MinVaf)) continue;
+            var key = (mutation.MajorCopyNumber, mutation.MinorCopyNumber);
+            if (!byKaryotype.TryGetValue(key, out List<double>? vafs))
+            {
+                vafs = new List<double>();
+                byKaryotype[key] = vafs;
+                order.Add(key);
+            }
+
+            vafs.Add(mutation.Vaf);
+        }
+
+        bool gate = order.Any(k => !options.Karyotypes.Contains(k) && byKaryotype[k].Count > options.MinAbsoluteKaryotypeMutations);
+        if (!gate)
+        {
+            return new ComplexKaryotypePeakAnalysis(purity, false, Array.Empty<ComplexKaryotypePeakResult>(), Array.Empty<ComplexKaryotypeExpectedPeak>());
+        }
+
+        var analysis = order
+            .Where(k => !PurityPeakOptions.SimpleClonalKaryotypes.Contains(k) && byKaryotype[k].Count >= options.MinAbsoluteKaryotypeMutations)
+            .ToList();
+        if (analysis.Count == 0)
+        {
+            // R: expected_peaks = Reduce(bind_rows, list()) = NULL, then `for (e in 1:nrow(NULL))` errors.
+            throw new InvalidOperationException(
+                "CNAqc analyze_peaks_general has no complex karyotype with n ≥ MinAbsoluteKaryotypeMutations (R error).");
+        }
+
+        // Data peaks in group_split(karyotype) order (C collation) — the order the R random stream is consumed in.
+        RMersenneTwister? rng = options.BootstrapCount > 1 ? new RMersenneTwister(options.Seed) : null;
+        var fits = new Dictionary<(int Major, int Minor), (KernelDensityEstimate Density, List<PurityDataPeak> Peaks)>();
+        foreach ((int major, int minor) in analysis.OrderBy(k => $"{k.Major}:{k.Minor}", StringComparer.Ordinal))
+        {
+            fits[(major, minor)] = SimplePeakDetector(byKaryotype[(major, minor)], options.KernelAdjust, options.LegacyDensityCoordinates,
+                $"{major}:{minor}", options.BootstrapCount, rng);
+        }
+
+        var results = new List<ComplexKaryotypePeakResult>(analysis.Count);
+        var allExpected = new List<ComplexKaryotypeExpectedPeak>();
+        foreach ((int major, int minor) in analysis)
+        {
+            List<double> vafs = byKaryotype[(major, minor)];
+            (KernelDensityEstimate density, List<PurityDataPeak> peaks) = fits[(major, minor)];
+            int ploidy = major + minor;
+            int maxMultiplicity = Math.Max(Math.Max(major, minor), 1);
+            var expected = new List<ComplexKaryotypeExpectedPeak>(maxMultiplicity);
+            int matched = 0;
+            for (int m = 1; m <= maxMultiplicity; m++)
+            {
+                double peak = CnaqcExpectedVaf(m, purity, ploidy); // expected_vaf_fun
+                bool hit = peaks.Any(p => Math.Abs(p.X - peak) < options.PurityError);
+                if (hit) matched++;
+                expected.Add(new ComplexKaryotypeExpectedPeak(major, minor, m, peak, hit));
+            }
+
+            allExpected.AddRange(expected);
+            double prop = (double)matched / (matched + (maxMultiplicity - matched));
+            results.Add(new ComplexKaryotypePeakResult(major, minor, vafs.Count, matched, maxMultiplicity - matched, prop,
+                prop >= 0.5, density, peaks, expected));
+        }
+
+        // summary: group_by(karyotype) (C collation) … arrange(desc(prop)) (stable).
+        var summary = results
+            .OrderBy(r => $"{r.MajorCopyNumber}:{r.MinorCopyNumber}", StringComparer.Ordinal)
+            .OrderByDescending(r => r.MatchedProportion)
+            .ToList();
+        return new ComplexKaryotypePeakAnalysis(purity, true, summary, allExpected);
+    }
+
+    private static void ValidatePurityPeakMutation(PurityPeakMutation mutation)
+    {
+        if (double.IsNaN(mutation.Vaf) || mutation.Vaf < 0.0 || mutation.Vaf > 1.0)
+            throw new ArgumentOutOfRangeException(nameof(mutation), mutation.Vaf, "VAF must be in [0, 1].");
+        if (mutation.MajorCopyNumber < 0 || mutation.MinorCopyNumber < 0)
+            throw new ArgumentOutOfRangeException(nameof(mutation), "Allele copy numbers must be non-negative.");
+    }
+
+    // CNAqc simple_peak_detector: density + peakPick peaks + histogram counts; with n_bootstrap > 1 the peaks of n
+    // resamples (sample_n(replace = TRUE)) are pooled, distinct(x), heights re-read from the full density
+    // (phase_to_density), and the new x values appended (distinct(x) after the full-data peaks).
+    private static (KernelDensityEstimate Density, List<PurityDataPeak> Peaks) SimplePeakDetector(
+        IReadOnlyList<double> vafs, double kernelAdjust, bool legacyCoordinates, string label,
+        int bootstrapCount = 1, RMersenneTwister? rng = null)
+    {
+        (KernelDensityEstimate density, List<PurityDataPeak> peaks) = KdeSingleRun(vafs, kernelAdjust, legacyCoordinates, label);
+        if (bootstrapCount > 1)
+        {
+            var pooled = new List<PurityDataPeak>();
+            for (int b = 0; b < bootstrapCount; b++)
+                pooled.AddRange(KdeSingleRun(BootstrapResample(vafs, rng!), kernelAdjust, legacyCoordinates, label).Peaks);
+            AppendDistinctX(peaks, PhaseToDensity(DistinctX(pooled), density));
+        }
+
+        return (density, peaks);
+    }
+
+    private static (KernelDensityEstimate Density, List<PurityDataPeak> Peaks) KdeSingleRun(
+        IReadOnlyList<double> vafs, double kernelAdjust, bool legacyCoordinates, string label)
+    {
+        KernelDensityEstimate density = StatisticsHelper.GaussianKernelDensity(vafs, kernelAdjust, legacyCoordinates: legacyCoordinates);
+        List<PurityDataPeak> peaks = DetectKdePeaks(density, VafHistogram(vafs));
+        if (peaks.Count == 0)
+        {
+            // simple_peak_detector: `if (indexes[1] == 0)` on an empty peak set is an R error.
+            throw new InvalidOperationException($"Cannot find KDE peaks for {label}.");
+        }
+
+        return (density, peaks);
+    }
+
+    // dplyr sample_n(x, nrow(x), replace = TRUE) = x[sample.int(n, n, replace = TRUE)]: n draws R_unif_index(n).
+    private static List<T> BootstrapResample<T>(IReadOnlyList<T> rows, RMersenneTwister rng)
+    {
+        var sample = new List<T>(rows.Count);
+        for (int i = 0; i < rows.Count; i++) sample.Add(rows[rng.UnifIndex(rows.Count)]);
+        return sample;
+    }
+
+    // dplyr distinct(x, .keep_all = TRUE): first row of each x.
+    private static List<PurityDataPeak> DistinctX(IEnumerable<PurityDataPeak> peaks)
+    {
+        var seen = new HashSet<double>();
+        return peaks.Where(p => seen.Add(p.X)).ToList();
+    }
+
+    private static void AppendDistinctX(List<PurityDataPeak> peaks, IEnumerable<PurityDataPeak> extra)
+    {
+        var seen = new HashSet<double>(peaks.Select(p => p.X));
+        peaks.AddRange(extra.Where(p => seen.Add(p.X)));
+    }
+
+    // CNAqc phase_to_density: y = density$y[which.min(|density$x − x|)] (other columns kept).
+    private static IEnumerable<PurityDataPeak> PhaseToDensity(IEnumerable<PurityDataPeak> peaks, KernelDensityEstimate density) =>
+        peaks.Select(p => p with { Y = density.Y[NearestGridIndex(density, p.X)] });
+
+    private static int NearestGridIndex(KernelDensityEstimate density, double x)
+    {
+        int w = 0;
+        for (int i = 1; i < density.X.Count; i++)
+        {
+            if (Math.Abs(density.X[i] - x) < Math.Abs(density.X[w] - x)) w = i;
+        }
+
+        return w;
+    }
+
+    // CNAqc mixture_peak_detector: BMix means snapped to the KDE grid (x, y unrounded; counts from the same data's
+    // histogram; never discarded). n_bootstrap > 1: the full-data fit still runs (R draws its random numbers) but the
+    // peaks are those of n resampled fits (each snapped to its own resample's density), distinct(x), with heights read
+    // from the density of one further resample (single_run_kde).
+    private static List<PurityDataPeak> MixturePeakDetector(
+        List<PurityPeakMutation> group, double kernelAdjust, bool legacyCoordinates, int bootstrapCount, RMersenneTwister rng)
+    {
+        if (group.Select(g => g.Vaf).Distinct().Count() == 1) return new List<PurityDataPeak>(); // returns NULL
+
+        List<PurityDataPeak> SingleRun(IReadOnlyList<PurityPeakMutation> rows)
+        {
+            var fit = BMixFit(rows.Select(r => r.AlternateReads).ToList(), rows.Select(r => r.Depth).ToList(), new[] { 1, 2, 3, 4 }, rng).Best;
+            var vafs = rows.Select(r => r.Vaf).ToList();
+            KernelDensityEstimate density = StatisticsHelper.GaussianKernelDensity(vafs, kernelAdjust, legacyCoordinates: legacyCoordinates);
+            int[] histogram = VafHistogram(vafs);
+            return fit.Means.Select(b =>
+            {
+                int w = NearestGridIndex(density, b);
+                double x = density.X[w];
+                return new PurityDataPeak(x, density.Y[w], HistogramCount(histogram, Math.Round(x * 100, MidpointRounding.ToEven)), false, PurityPeakSource.Mixture);
+            }).ToList();
+        }
+
+        List<PurityDataPeak> full = SingleRun(group);
+        if (bootstrapCount <= 1) return full;
+
+        var pooled = new List<PurityDataPeak>();
+        for (int b = 0; b < bootstrapCount; b++) pooled.AddRange(SingleRun(BootstrapResample(group, rng)));
+        var kdeSample = BootstrapResample(group, rng).Select(g => g.Vaf).ToList();
+        KernelDensityEstimate kdeDensity = StatisticsHelper.GaussianKernelDensity(kdeSample, kernelAdjust, legacyCoordinates: legacyCoordinates);
+        // single_run_kde: `hst[round(pks$x * 100)]` without the index-0 guard is an R error for a KDE peak at x < 0.005.
+        if (DetectKdePeaks(kdeDensity, VafHistogram(kdeSample)).Any(p => Math.Round(p.X * 100, MidpointRounding.ToEven) == 0))
+            throw new InvalidOperationException("CNAqc single_run_kde fails on a KDE peak at VAF 0 (R error).");
+        return DistinctX(PhaseToDensity(DistinctX(pooled), kdeDensity));
+    }
+
+    // ---- CNAqc analyze_peaks_subclonal: subclonal simple segments (FIN-B24 F62) ----
+
+    /// <summary>
+    /// A subclonal copy-number segment for <see cref="AnalyzeSubclonalPurityPeaks"/>: two subclones with karyotypes
+    /// Major:minor (cell fraction <see cref="Ccf"/>) and SecondMajor:SecondMinor (1 − Ccf), and the VAFs of the mutations
+    /// mapped to it (CNAqc <c>x$cna_subclonal</c> row: <c>karyotype</c>, <c>karyotype_2</c>, <c>CCF</c>, <c>mutations</c>).
+    /// Both karyotypes must be simple (1:0, 1:1, 2:0, 2:1, 2:2) — CNAqc drops other subclonal segments at <c>init</c>.
+    /// </summary>
+    /// <param name="Chromosome">Chromosome (identification only).</param>
+    /// <param name="Start">Segment start (identification only).</param>
+    /// <param name="End">Segment end (identification only).</param>
+    /// <param name="MajorCopyNumber">First subclone Major.</param>
+    /// <param name="MinorCopyNumber">First subclone minor.</param>
+    /// <param name="SecondMajorCopyNumber">Second subclone Major.</param>
+    /// <param name="SecondMinorCopyNumber">Second subclone minor.</param>
+    /// <param name="Ccf">Cell fraction of the first subclone, in (0, 1).</param>
+    /// <param name="Vafs">VAFs of the segment's mutations (count = CNAqc <c>n</c>).</param>
+    public sealed record SubclonalPeakSegment(
+        string Chromosome,
+        long Start,
+        long End,
+        int MajorCopyNumber,
+        int MinorCopyNumber,
+        int SecondMajorCopyNumber,
+        int SecondMinorCopyNumber,
+        double Ccf,
+        IReadOnlyList<double> Vafs);
+
+    /// <summary>Evolutionary model of a subclonal segment (CNAqc <c>model</c>).</summary>
+    public enum SubclonalEvolutionModel
+    {
+        /// <summary>Both subclones descend from the starting state independently (<c>model_id</c> "start -&gt; g1 | g2").</summary>
+        Branching,
+
+        /// <summary>One subclone descends from the other (<c>model_id</c> "start -&gt; g1 -&gt; g2").</summary>
+        Linear,
+    }
+
+    /// <summary>Parameters of <see cref="AnalyzeSubclonalPurityPeaks"/>; defaults are what CNAqc 1.1.5 <c>analyze_peaks</c> passes.</summary>
+    public sealed record SubclonalPeakOptions
+    {
+        /// <summary>Default options.</summary>
+        public static SubclonalPeakOptions Default { get; } = new();
+
+        /// <summary>Segments with n &gt; this (strict) are analysed (<c>n_min = min_absolute_karyotype_mutations</c>, 100).</summary>
+        public int MinMutations { get; init; } = 100;
+
+        /// <summary>Peak-matching tolerance |x − peak| ≤ ε (<c>epsilon = purity_error</c>, 0.05), in (0, 1).</summary>
+        public double Epsilon { get; init; } = 0.05;
+
+        /// <summary>KDE bandwidth multiplier (<c>kernel_adjust</c>, 1), &gt; 0.</summary>
+        public double KernelAdjust { get; init; } = 1.0;
+
+        /// <summary>Starting state of the evolution models (<c>starting_state_subclonal_evolution</c>, "1:1"), Major ≥ minor, Major ≥ 1.</summary>
+        public (int Major, int Minor) StartingState { get; init; } = (1, 1);
+
+        /// <summary>
+        /// R <c>set.seed</c> value for the random 8-letter mutation identifiers CNAqc draws while building the models
+        /// (<c>sample(LETTERS, 8, replace = TRUE)</c>). Expected peaks, matches and decisions do not depend on it; it only
+        /// decides which of several mutations with an identical expected VAF is reported (copies, role, identifier).
+        /// </summary>
+        public int Seed { get; init; }
+
+        /// <summary>true reproduces R ≤ 4.3 <c>density</c> values (<c>old.coords = TRUE</c>); default R ≥ 4.4.</summary>
+        public bool LegacyDensityCoordinates { get; init; }
+
+        /// <summary>Peak-detection bootstrap replicates per segment (<c>n_bootstrap</c>, default 1), ≥ 1; drawn from the
+        /// same R stream after the model identifiers (see <see cref="PurityPeakOptions.BootstrapCount"/>).</summary>
+        public int BootstrapCount { get; init; } = 1;
+    }
+
+    /// <summary>One expected VAF peak of an evolutionary model (CNAqc <c>peaks_analysis$subclonal$expected_peaks</c> row).</summary>
+    /// <param name="ModelId">CNAqc <c>model_id</c>, e.g. "A1B1 -&gt; A1A2B1 | A1B1" (allele genotypes).</param>
+    /// <param name="Model">Linear or branching.</param>
+    /// <param name="MutationId">The representative mutation's 8-letter identifier (R RNG, see <see cref="SubclonalPeakOptions.Seed"/>).</param>
+    /// <param name="FirstCloneCopies">Copies of the mutation in the first-listed clone of the model (<c>n.clone_1</c>).</param>
+    /// <param name="SecondCloneCopies">Copies in the second-listed clone (<c>n.clone_2</c>).</param>
+    /// <param name="FirstCloneGenotype">First clone's sorted alleles (e.g. "A1A2B1"), null if the mutation is absent there.</param>
+    /// <param name="SecondCloneGenotype">Second clone's sorted alleles, null if absent there.</param>
+    /// <param name="Shared">CNAqc <c>role = "shared"</c> (present in both clones), else private.</param>
+    /// <param name="ExpectedPeak">π·(n1·c1 + n2·c2) / (2(1−π) + π·(c1·ploidy1 + c2·ploidy2)).</param>
+    /// <param name="Matched">Some data peak (discarded ones included) lies within ε (|x − peak| ≤ ε).</param>
+    public sealed record SubclonalExpectedPeak(
+        string ModelId,
+        SubclonalEvolutionModel Model,
+        string MutationId,
+        int FirstCloneCopies,
+        int SecondCloneCopies,
+        string? FirstCloneGenotype,
+        string? SecondCloneGenotype,
+        bool Shared,
+        double ExpectedPeak,
+        bool Matched);
+
+    /// <summary>A model's share of matched expected peaks (CNAqc decision table row).</summary>
+    public readonly record struct SubclonalModelScore(string ModelId, SubclonalEvolutionModel Model, double MatchedProportion);
+
+    /// <summary>Per-segment result of <see cref="AnalyzeSubclonalPurityPeaks"/>.</summary>
+    /// <param name="Segment">The input segment.</param>
+    /// <param name="Density">Gaussian KDE of the segment's VAFs.</param>
+    /// <param name="Peaks">KDE data peaks.</param>
+    /// <param name="ExpectedPeaks">Expected peaks of all models (branching, then linear first→second, then second→first;
+    /// each model's peaks ascending). Empty when no model can reach the karyotypes from the starting state (CNAqc aborts
+    /// that segment's expectations).</param>
+    /// <param name="Rankings">All models by descending matched proportion (ties by model_id, C collation).</param>
+    /// <param name="BestModels">The models with the top proportion — CNAqc <c>peaks_analysis$subclonal$summary</c>.</param>
+    public sealed record SubclonalSegmentPeakResult(
+        SubclonalPeakSegment Segment,
+        KernelDensityEstimate Density,
+        IReadOnlyList<PurityDataPeak> Peaks,
+        IReadOnlyList<SubclonalExpectedPeak> ExpectedPeaks,
+        IReadOnlyList<SubclonalModelScore> Rankings,
+        IReadOnlyList<SubclonalModelScore> BestModels);
+
+    /// <summary>
+    /// CNAqc peak QC of subclonal simple copy-number segments (CNAqc 1.1.5 <c>analyze_peaks</c> →
+    /// <c>analyze_peaks_subclonal</c> with <c>cluster_subclonal_CCF = FALSE</c>, <c>R/equations.R</c>
+    /// <c>expectations_subclonal</c>). Each segment with n &gt; MinMutations is analysed on its own:
+    /// <list type="number">
+    /// <item>Evolution models from the starting state (default 1:1, alleles A1 B1): states evolve by single-allele
+    /// amplification / deletion and genome doubling (breadth-first, ploidy ≤ 2·target ploidy) until the target karyotype
+    /// appears; distinct allele sets are kept and every allele gains a new mutation at each reached state. Branching:
+    /// both clones from the start; linear: clone 1 then clone 2 from it (only when clone 1 has no LOH or both have LOH),
+    /// and clone 2 then clone 1 (symmetric condition, cell fraction 1 − CCF).</item>
+    /// <item>Expected peaks of a clone pair: for every mutation with copies n1, n2 in the two clones,
+    /// π·(n1·CCF + n2·(1 − CCF)) / (2(1−π) + π·(CCF·ploidy1 + (1 − CCF)·ploidy2)), distinct values, ascending;
+    /// solutions with identical peak vectors (15 significant digits) are dropped.</item>
+    /// <item>Data peaks: KDE peaks of the segment's VAFs (no BMix); an expected peak is matched iff |x − peak| ≤ ε for
+    /// some data peak; each model scores prop = matched / #peaks; the top-prop models are the decision.</item>
+    /// </list>
+    /// A starting state with LOH cannot reach karyotypes without LOH: such a segment gets no models (CNAqc aborts it).
+    /// CCF clustering of segments (<c>cluster_subclonal_CCF = TRUE</c>, mclust) is not ported.
+    /// </summary>
+    /// <param name="segments">Subclonal segments in CNAqc order.</param>
+    /// <param name="purity">The purity π ∈ (0, 1] to QC.</param>
+    /// <param name="options">Parameters (null = defaults).</param>
+    /// <returns>One result per analysed segment, in input order.</returns>
+    /// <exception cref="ArgumentNullException">A required argument is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Invalid purity, option, CCF or VAF.</exception>
+    /// <exception cref="ArgumentException">A segment karyotype is not simple, or the starting state is invalid.</exception>
+    /// <exception cref="InvalidOperationException">A model search cannot terminate (CNAqc's <c>evolve</c> loops forever,
+    /// e.g. from a 2:2 start to 1:0) or a segment yields no KDE peak (R error).</exception>
+    public static IReadOnlyList<SubclonalSegmentPeakResult> AnalyzeSubclonalPurityPeaks(
+        IEnumerable<SubclonalPeakSegment> segments,
+        double purity,
+        SubclonalPeakOptions? options = null)
+    {
+        ArgumentNullException.ThrowIfNull(segments);
+        options ??= SubclonalPeakOptions.Default;
+        if (!(purity > 0.0 && purity <= 1.0))
+            throw new ArgumentOutOfRangeException(nameof(purity), purity, "Purity must be in (0, 1].");
+        if (!(options.Epsilon > 0.0 && options.Epsilon < 1.0))
+            throw new ArgumentOutOfRangeException(nameof(options), options.Epsilon, "Epsilon must be in (0, 1).");
+        if (!(options.KernelAdjust > 0.0) || double.IsPositiveInfinity(options.KernelAdjust))
+            throw new ArgumentOutOfRangeException(nameof(options), options.KernelAdjust, "KernelAdjust must be finite and > 0.");
+        if (options.MinMutations < 0)
+            throw new ArgumentOutOfRangeException(nameof(options), options.MinMutations, "MinMutations must be ≥ 0.");
+        if (options.BootstrapCount < 1)
+            throw new ArgumentOutOfRangeException(nameof(options), options.BootstrapCount, "BootstrapCount must be ≥ 1.");
+        (int startMajor, int startMinor) = options.StartingState;
+        if (startMajor < 1 || startMinor < 0 || startMinor > startMajor)
+            throw new ArgumentException("StartingState must satisfy Major ≥ 1 and 0 ≤ minor ≤ Major.", nameof(options));
+
+        var all = segments.ToList();
+        foreach (SubclonalPeakSegment s in all)
+        {
+            if (s is null) throw new ArgumentException("Segments must not contain null.", nameof(segments));
+            if (s.Vafs is null) throw new ArgumentException("Segment VAFs must not be null.", nameof(segments));
+            if (!PurityPeakOptions.SimpleClonalKaryotypes.Contains((s.MajorCopyNumber, s.MinorCopyNumber))
+                || !PurityPeakOptions.SimpleClonalKaryotypes.Contains((s.SecondMajorCopyNumber, s.SecondMinorCopyNumber)))
+                throw new ArgumentException("Subclonal segment karyotypes must be simple (1:0, 1:1, 2:0, 2:1, 2:2).", nameof(segments));
+            if (!(s.Ccf > 0.0 && s.Ccf < 1.0))
+                throw new ArgumentOutOfRangeException(nameof(segments), s.Ccf, "Segment CCF must be in (0, 1).");
+            foreach (double v in s.Vafs)
+            {
+                if (double.IsNaN(v) || v < 0.0 || v > 1.0)
+                    throw new ArgumentOutOfRangeException(nameof(segments), v, "VAF must be in [0, 1].");
+            }
+        }
+
+        // subclonal_calls = filter(n > n_min); expectations for every segment first (one R RNG stream), then data peaks.
+        var calls = all.Where(s => s.Vafs.Count > options.MinMutations).ToList();
+        var rng = new RMersenneTwister(options.Seed);
+        string start = $"{startMajor}:{startMinor}";
+        var expectations = new List<List<CnaqcModelPeak>?>(calls.Count);
+        foreach (SubclonalPeakSegment s in calls)
+        {
+            expectations.Add(CnaqcExpectationsSubclonal(start, s.Ccf,
+                $"{s.MajorCopyNumber}:{s.MinorCopyNumber}", $"{s.SecondMajorCopyNumber}:{s.SecondMinorCopyNumber}", purity, rng));
+        }
+
+        var results = new List<SubclonalSegmentPeakResult>(calls.Count);
+        for (int i = 0; i < calls.Count; i++)
+        {
+            SubclonalPeakSegment s = calls[i];
+            (KernelDensityEstimate density, List<PurityDataPeak> peaks) = SimplePeakDetector(
+                s.Vafs, options.KernelAdjust, options.LegacyDensityCoordinates, $"subclonal segment {s.Chromosome}:{s.Start}",
+                options.BootstrapCount, rng);
+            var expected = new List<SubclonalExpectedPeak>();
+            foreach (CnaqcModelPeak e in expectations[i] ?? new List<CnaqcModelPeak>())
+            {
+                bool hit = peaks.Any(p => Math.Abs(p.X - e.Peak) <= options.Epsilon);
+                expected.Add(new SubclonalExpectedPeak(e.ModelId, e.Model, e.MutationId, e.N1, e.N2, e.Genotype1, e.Genotype2,
+                    e.Genotype1 is not null && e.Genotype2 is not null, e.Peak, hit));
+            }
+
+            // group_by(model_id) (C collation) → prop = sum(matched) / n() → arrange(desc(prop)) (stable).
+            var rankings = expected
+                .GroupBy(e => e.ModelId, StringComparer.Ordinal)
+                .OrderBy(g => g.Key, StringComparer.Ordinal)
+                .Select(g => new SubclonalModelScore(g.Key, g.First().Model, (double)g.Count(e => e.Matched) / g.Count()))
+                .OrderByDescending(r => r.MatchedProportion)
+                .ToList();
+            var best = rankings.Where(r => rankings.Count > 0 && r.MatchedProportion == rankings[0].MatchedProportion).ToList();
+            results.Add(new SubclonalSegmentPeakResult(s, density, peaks, expected, rankings, best));
+        }
+
+        return results;
+    }
+
+    // One row of CNAqc expectations_subclonal (get_peaks + model annotation).
+    private sealed record CnaqcModelPeak(
+        string ModelId, SubclonalEvolutionModel Model, string MutationId, int N1, int N2, string? Genotype1, string? Genotype2, double Peak);
+
+    // A copy state: alleles (e.g. "A1", "B2") in dplyr arrange(allele) order, each with the mutation IDs it carries.
+    private sealed record CnaqcAllele(string Name, string[] Mutations);
+
+    private static int CnaqcAlleleIndex(string allele) =>
+        int.Parse(allele.Replace("A", string.Empty, StringComparison.Ordinal).Replace("B", string.Empty, StringComparison.Ordinal),
+            System.Globalization.CultureInfo.InvariantCulture);
+
+    private static List<CnaqcAllele> CnaqcArrange(IEnumerable<CnaqcAllele> state) =>
+        state.OrderBy(a => a.Name, StringComparer.Ordinal).ToList(); // stable, C collation
+
+    // expectations_subclonal(starting, CCF_1, karyotype_1, karyotype_2, purity); null when CNAqc aborts (no model).
+    private static List<CnaqcModelPeak>? CnaqcExpectationsSubclonal(
+        string starting, double ccf, string karyotype1, string karyotype2, double purity, RMersenneTwister rng)
+    {
+        static bool AnyZeroPart(string k) => k.Split(':').Any(p => p == "0");
+        static bool NoZeroPart(string k) => k.Split(':').All(p => p != "0");
+        if (AnyZeroPart(starting) && (NoZeroPart(karyotype1) || NoZeroPart(karyotype2))) return null; // cli_abort
+
+        var rows = new List<CnaqcModelPeak>();
+        rows.AddRange(CnaqcBranching(starting, karyotype1, karyotype2, ccf, purity, rng));
+        bool zero1 = karyotype1.Contains('0', StringComparison.Ordinal), zero2 = karyotype2.Contains('0', StringComparison.Ordinal);
+        if ((zero1 && zero2) || !zero1) rows.AddRange(CnaqcLinear(starting, karyotype1, karyotype2, ccf, purity, rng));
+        if ((zero2 && zero1) || !zero2) rows.AddRange(CnaqcLinear(starting, karyotype2, karyotype1, 1 - ccf, purity, rng));
+        return rows;
+    }
+
+    private static IEnumerable<CnaqcModelPeak> CnaqcBranching(
+        string starting, string left, string right, double ccf, double purity, RMersenneTwister rng)
+    {
+        List<CnaqcAllele> start = CnaqcInitialState(starting, rng);
+        List<List<CnaqcAllele>> branchLeft = CnaqcEvolve(start, left, rng);
+        List<List<CnaqcAllele>> branchRight = CnaqcEvolve(start, right, rng);
+        var solutions = new List<List<CnaqcPeakRow>>();
+        foreach (List<CnaqcAllele> l in branchLeft)
+        {
+            foreach (List<CnaqcAllele> r in branchRight) solutions.Add(CnaqcGetPeaks(l, r, ccf, purity));
+        }
+
+        return CnaqcAnnotate(start, CnaqcDistinctSolutions(solutions), SubclonalEvolutionModel.Branching, " | ");
+    }
+
+    private static IEnumerable<CnaqcModelPeak> CnaqcLinear(
+        string starting, string first, string second, double ccf, double purity, RMersenneTwister rng)
+    {
+        List<CnaqcAllele> start = CnaqcInitialState(starting, rng);
+        List<List<CnaqcAllele>> firstChildren = CnaqcEvolve(start, first, rng);
+        var secondChildren = firstChildren.Select(c => CnaqcEvolve(c, second, rng)).ToList();
+        var solutions = new List<List<CnaqcPeakRow>>();
+        for (int i = 0; i < firstChildren.Count; i++)
+        {
+            foreach (List<CnaqcAllele> y in secondChildren[i]) solutions.Add(CnaqcGetPeaks(firstChildren[i], y, ccf, purity));
+        }
+
+        return CnaqcAnnotate(start, CnaqcDistinctSolutions(solutions), SubclonalEvolutionModel.Linear, " -> ");
+    }
+
+    private sealed record CnaqcPeakRow(string MutationId, int N1, int N2, string? Genotype1, string? Genotype2, double Peak);
+
+    // solutions[!duplicated(peak %>% paste(collapse = ';'))]: R as.character(double) keeps 15 significant digits.
+    private static List<List<CnaqcPeakRow>> CnaqcDistinctSolutions(List<List<CnaqcPeakRow>> solutions)
+    {
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var kept = new List<List<CnaqcPeakRow>>();
+        foreach (List<CnaqcPeakRow> s in solutions)
+        {
+            string id = string.Join(";", s.Select(r => r.Peak.ToString("E14", System.Globalization.CultureInfo.InvariantCulture)));
+            if (seen.Add(id)) kept.Add(s);
+        }
+
+        return kept;
+    }
+
+    private static IEnumerable<CnaqcModelPeak> CnaqcAnnotate(
+        List<CnaqcAllele> start, List<List<CnaqcPeakRow>> solutions, SubclonalEvolutionModel model, string separator)
+    {
+        string initial = CnaqcGenotype(start);
+        foreach (List<CnaqcPeakRow> s in solutions)
+        {
+            // paste0 drops nothing: an empty unique(genotype) vector is recycled to "".
+            string g1 = s.Select(r => r.Genotype1).FirstOrDefault(g => g is not null) ?? string.Empty;
+            string g2 = s.Select(r => r.Genotype2).FirstOrDefault(g => g is not null) ?? string.Empty;
+            string modelId = $"{initial} -> {g1}{separator}{g2}";
+            foreach (CnaqcPeakRow r in s)
+                yield return new CnaqcModelPeak(modelId, model, r.MutationId, r.N1, r.N2, r.Genotype1, r.Genotype2, r.Peak);
+        }
+    }
+
+    private static string CnaqcGenotype(List<CnaqcAllele> state) =>
+        string.Concat(state.Select(a => a.Name).OrderBy(n => n, StringComparer.Ordinal));
+
+    // as_karyotype: allele-letter counts sorted decreasingly, "a:b" (a single letter → "a:0").
+    private static string CnaqcKaryotype(List<CnaqcAllele> state)
+    {
+        var counts = state.GroupBy(a => a.Name[0]).Select(g => g.Count()).OrderByDescending(c => c).ToList();
+        string text = string.Join(":", counts);
+        return text.Contains(':', StringComparison.Ordinal) ? text : text + ":0";
+    }
+
+    // get_peaks(clone_1, clone_2, CCF_1, purity)
+    private static List<CnaqcPeakRow> CnaqcGetPeaks(List<CnaqcAllele> clone1, List<CnaqcAllele> clone2, double ccf, double purity)
+    {
+        static List<(string Id, int N)> Table(List<CnaqcAllele> state) =>
+            state.SelectMany(a => a.Mutations).GroupBy(m => m, StringComparer.Ordinal)
+                .Select(g => (g.Key, g.Count())).OrderBy(t => t.Key, StringComparer.Ordinal).ToList();
+
+        List<(string Id, int N)> m1 = Table(clone1), m2 = Table(clone2);
+        string g1 = CnaqcGenotype(clone1), g2 = CnaqcGenotype(clone2);
+        double denominator = MixtureCopiesPerCell(purity, (ccf * clone1.Count) + ((1 - ccf) * clone2.Count));
+        var in2 = m2.ToDictionary(t => t.Id, t => t.N, StringComparer.Ordinal);
+        var in1 = new HashSet<string>(m1.Select(t => t.Id), StringComparer.Ordinal);
+
+        var joined = new List<(string Id, int N1, int N2, string? G1, string? G2, double Raw)>();
+        foreach ((string id, int n1) in m1) // full_join: x rows (with their y match), then unmatched y rows
+        {
+            bool shared = in2.TryGetValue(id, out int n2);
+            double x1 = n1 * ccf, x2 = shared ? n2 * (1 - ccf) : 0.0;
+            joined.Add((id, n1, shared ? n2 : 0, g1, shared ? g2 : null, (x1 + x2) * purity));
+        }
+
+        foreach ((string id, int n2) in m2)
+        {
+            if (!in1.Contains(id)) joined.Add((id, 0, n2, null, g2, (0.0 + (n2 * (1 - ccf))) * purity));
+        }
+
+        var seen = new HashSet<double>();
+        return joined.Where(j => seen.Add(j.Raw))                                   // distinct(peak)
+            .Select(j => new CnaqcPeakRow(j.Id, j.N1, j.N2, j.G1, j.G2, j.Raw / denominator))
+            .OrderBy(r => r.Peak)                                                   // arrange(peak), stable
+            .ToList();
+    }
+
+    // initial_state(target): A1, B1 with one mutation each; evolve to the target (first reached state) unless 1:1.
+    private static List<CnaqcAllele> CnaqcInitialState(string target, RMersenneTwister rng)
+    {
+        var state = CnaqcMutation(new List<CnaqcAllele> { new("A1", Array.Empty<string>()), new("B1", Array.Empty<string>()) }, rng);
+        return target == "1:1" ? state : CnaqcEvolve(state, target, rng)[0];
+    }
+
+    // mutation(copy_state): every allele gains a fresh identifier not yet used in the state.
+    private static List<CnaqcAllele> CnaqcMutation(List<CnaqcAllele> state, RMersenneTwister rng)
+    {
+        var rows = new List<CnaqcAllele>(state);
+        for (int i = 0; i < rows.Count; i++)
+        {
+            var used = new HashSet<string>(rows.SelectMany(a => a.Mutations), StringComparer.Ordinal);
+            string id;
+            do
+            {
+                var chars = new char[8];
+                for (int k = 0; k < 8; k++) chars[k] = (char)('A' + rng.UnifIndex(26)); // sample(LETTERS, 8, replace = TRUE)
+                id = new string(chars);
+            }
+            while (used.Contains(id));
+
+            rows[i] = rows[i] with { Mutations = rows[i].Mutations.Append(id).ToArray() };
+        }
+
+        return rows;
+    }
+
+    // evolve(copy_state, target)
+    private static List<List<CnaqcAllele>> CnaqcEvolve(List<CnaqcAllele> state, string target, RMersenneTwister rng)
+    {
+        if (CnaqcKaryotype(state) == target) return new List<List<CnaqcAllele>> { CnaqcMutation(state, rng) };
+
+        int cap = 2 * target.Split(':').Sum(p => int.Parse(p, System.Globalization.CultureInfo.InvariantCulture));
+        var current = new List<List<CnaqcAllele>> { state };
+        List<List<CnaqcAllele>> reached;
+        while (true)
+        {
+            var amp = current.SelectMany(CnaqcAmplify).Where(s => s.Count <= cap).ToList();
+            var del = current.SelectMany(CnaqcDelete).Where(s => s.Count <= cap).ToList();
+            var wgs = current.Select(CnaqcGenomeDouble).Where(s => s.Count <= cap).ToList();
+            current = amp.Concat(del).Concat(wgs).ToList();
+            if (current.Count == 0)
+            {
+                throw new InvalidOperationException(
+                    $"No evolution path reaches {target} within ploidy {cap} (CNAqc's evolve() does not terminate here).");
+            }
+
+            reached = current.Where(s => CnaqcKaryotype(s) == target).ToList();
+            if (reached.Count > 0) break;
+        }
+
+        var identities = new HashSet<string>(StringComparer.Ordinal);
+        return reached.Where(s => identities.Add(CnaqcGenotype(s))).Select(s => CnaqcMutation(s, rng)).ToList();
+    }
+
+    // amplify: one state per allele, with a renamed copy of that allele (next free index of its letter).
+    private static IEnumerable<List<CnaqcAllele>> CnaqcAmplify(List<CnaqcAllele> state)
+    {
+        var names = state.Select(a => a.Name).ToList();
+        foreach (CnaqcAllele allele in state)
+        {
+            char letter = allele.Name[0];
+            int n = CnaqcAlleleIndex(allele.Name);
+            string created = $"{letter}{n + 1}";
+            while (names.Contains(created))
+            {
+                n++;
+                created = $"{letter}{n + 1}";
+            }
+
+            var copies = state.Where(a => a.Name == allele.Name).Select(a => a with { Name = created });
+            yield return CnaqcArrange(state.Concat(copies));
+        }
+    }
+
+    // delete: one state per allele, without it.
+    private static IEnumerable<List<CnaqcAllele>> CnaqcDelete(List<CnaqcAllele> state)
+    {
+        foreach (CnaqcAllele allele in state)
+            yield return CnaqcArrange(state.Where(a => a.Name != allele.Name));
+    }
+
+    // genome_double: every allele duplicated under the next free index of its letter.
+    private static List<CnaqcAllele> CnaqcGenomeDouble(List<CnaqcAllele> state)
+    {
+        var copy = new List<CnaqcAllele>(state);
+        for (int i = 0; i < copy.Count; i++)
+        {
+            char letter = state[i].Name[0];
+            int n = int.Parse(state[i].Name.AsSpan(1), System.Globalization.CultureInfo.InvariantCulture);
+            string created = $"{letter}{n + 1}";
+            while (state.Any(a => a.Name == created) || copy.Any(a => a.Name == created))
+            {
+                n++;
+                created = $"{letter}{n + 1}";
+            }
+
+            copy[i] = copy[i] with { Name = created };
+        }
+
+        return CnaqcArrange(state.Concat(copy));
+    }
+
+    // ---- BMix bmixfit (Binomial mixtures) as called by CNAqc mixture_peak_detector (FIN-B24 F63) ----
+
+    /// <summary>One BMix Binomial-mixture fit (BMix <c>bmixfit_EM</c> result) for <c>K</c> components.</summary>
+    /// <param name="Components">Number of Binomial components K.</param>
+    /// <param name="Means">Component success probabilities <c>B.params</c> ("Bin 1".."Bin K").</param>
+    /// <param name="MixingProportions">Mixing proportions <c>pi</c> after the E-step.</param>
+    /// <param name="NegativeLogLikelihood">BMix <c>NLL</c>.</param>
+    /// <param name="Bic">2·NLL + ln(N)·2K.</param>
+    /// <param name="Icl">BIC + entropy of the responsibilities.</param>
+    public sealed record BinomialMixtureFit(
+        int Components,
+        IReadOnlyList<double> Means,
+        IReadOnlyList<double> MixingProportions,
+        double NegativeLogLikelihood,
+        double Bic,
+        double Icl);
+
+    /// <summary>
+    /// Port of caravagnalab/BMix <c>bmixfit(data, K.Binomials = <paramref name="componentCounts"/>, K.BetaBinomials = 0,
+    /// epsilon = 1e-8, samples = 2, score = "ICL")</c> — the Binomial mixture CNAqc fits to (NV, DP) per karyotype
+    /// (<c>mixture_peak_detector</c>), reproducing R's random stream after <c>set.seed(<paramref name="seed"/>)</c>.
+    /// For every K (two runs each, grid order K ascending, run 1 then 2): R <c>kmeans(NV/DP, K, nstart = 100)</c>
+    /// (Hartigan–Wong, AS 136 <c>kmns.f</c>; MacQueen for K = 1; starts = <c>sample.int</c> over the distinct values),
+    /// <c>sample()</c> of the centres, jitter <c>runif(K, −0.025, 0.025)</c> (redrawn until all means are in (0, 1)), mixing
+    /// proportions = cluster shares; then BMix's EM loop, which stops after its first iteration because its convergence
+    /// test compares the change with the initial NLL <c>.Machine$integer.max</c>: one E-step (log-sum-exp
+    /// responsibilities, <c>NLL = −Σ log Σ_k π_k Binom(NV | DP, p_k)</c>) and one M-step (<c>p_k = Σ z·NV / Σ z·DP</c>,
+    /// <c>π_k = Σ z / N</c>). Score: BIC = 2·NLL + ln N·2K, ICL = BIC + entropy; the run with the smallest ICL wins. A K with
+    /// fewer distinct NV/DP values than K fails (R error, caught by <c>easypar</c>). R sums run in 80-bit long double
+    /// (<see cref="StatisticsHelper.ExtendedPrecisionSum"/>); R's <c>%*%</c> uses the system BLAS, here the
+    /// <c>matprod = "internal"</c> long-double dot product (≤ 1e−15 relative difference to OpenBLAS).
+    /// </summary>
+    /// <param name="successes">NV per mutation.</param>
+    /// <param name="trials">DP per mutation (≥ 1, ≥ NV).</param>
+    /// <param name="seed">R <c>set.seed</c> value.</param>
+    /// <param name="componentCounts">K values (default CNAqc's 1:4).</param>
+    /// <returns>The ICL-best fit and all fits in grid order (null where BMix fails).</returns>
+    public static (BinomialMixtureFit Best, IReadOnlyList<BinomialMixtureFit?> Grid) FitBinomialMixture(
+        IReadOnlyList<int> successes, IReadOnlyList<int> trials, int seed, IReadOnlyList<int>? componentCounts = null)
+    {
+        ArgumentNullException.ThrowIfNull(successes);
+        ArgumentNullException.ThrowIfNull(trials);
+        if (successes.Count != trials.Count || successes.Count == 0)
+            throw new ArgumentException("successes and trials must be non-empty and of equal length.", nameof(trials));
+        for (int i = 0; i < trials.Count; i++)
+        {
+            if (trials[i] < 1 || successes[i] < 0 || successes[i] > trials[i])
+                throw new ArgumentOutOfRangeException(nameof(trials), "Each mutation needs 1 ≤ DP and 0 ≤ NV ≤ DP.");
+        }
+
+        componentCounts ??= new[] { 1, 2, 3, 4 };
+        if (componentCounts.Count == 0 || componentCounts.Any(k => k < 1))
+            throw new ArgumentOutOfRangeException(nameof(componentCounts), "Component counts must be ≥ 1.");
+        return BMixFit(successes, trials, componentCounts, new RMersenneTwister(seed));
+    }
+
+    private static (BinomialMixtureFit Best, IReadOnlyList<BinomialMixtureFit?> Grid) BMixFit(
+        IReadOnlyList<int> successes, IReadOnlyList<int> trials, IReadOnlyList<int> componentCounts, RMersenneTwister rng)
+    {
+        const int Samples = 2;
+        var grid = new List<BinomialMixtureFit?>();
+        foreach (int k in componentCounts)
+        {
+            for (int sample = 1; sample <= Samples; sample++) grid.Add(BMixRunner(successes, trials, k, rng));
+        }
+
+        BinomialMixtureFit? best = null;
+        foreach (BinomialMixtureFit? fit in grid) // which.min(ICL): first minimum, NaN ignored
+        {
+            if (fit is null || double.IsNaN(fit.Icl)) continue;
+            if (best is null || fit.Icl < best.Icl) best = fit;
+        }
+
+        return best is null
+            ? throw new InvalidOperationException("All tasks returned error - cannot analyse this with BMix.")
+            : (best, grid);
+    }
+
+    // BMix runner(): up to 14 attempts of bmixfit_EM; an error retries, the 15th "attempt" propagates it.
+    private static BinomialMixtureFit? BMixRunner(IReadOnlyList<int> successes, IReadOnlyList<int> trials, int k, RMersenneTwister rng)
+    {
+        for (int attempt = 0; attempt < 14; attempt++)
+        {
+            BinomialMixtureFit? fit = BMixEm(successes, trials, k, rng);
+            if (fit is not null) return fit;
+        }
+
+        return null;
+    }
+
+    // bmixfit_EM(data, K = c(k, 0), epsilon = 1e-8); null = R error.
+    private static BinomialMixtureFit? BMixEm(IReadOnlyList<int> successes, IReadOnlyList<int> trials, int k, RMersenneTwister rng)
+    {
+        int n = successes.Count;
+        var frequencies = new double[n];
+        for (int i = 0; i < n; i++) frequencies[i] = (double)successes[i] / trials[i];
+
+        (double[] centers, int[] cluster)? km = RKMeans(frequencies, k, 100, rng);
+        if (km is null) return null;
+        (double[] kmCenters, int[] kmCluster) = km.Value;
+
+        // centres = sample(km$centers[, 1]): a permutation (K = 1: sample.int(1) still draws once).
+        int[] order = k == 1 ? new[] { rng.UnifIndex(1) } : rng.SampleWithoutReplacement(k, k);
+        var centres = order.Select(o => kmCenters[o]).ToArray();
+
+        var means = new double[k];
+        while (true)
+        {
+            for (int j = 0; j < k; j++) means[j] = centres[j] + RUnif(rng, -0.025, 0.025);
+            if (means.All(b => b > 0 && b < 1)) break;
+        }
+
+        // pi = table(km$cluster) / nrow(data), reordered as the centres.
+        var pi = new double[k];
+        for (int j = 0; j < k; j++) pi[j] = (double)kmCluster.Count(c => c == order[j] + 1) / n;
+
+        // E-step.
+        var z = new double[n, k];
+        var normaliser = new double[n];
+        var row = new double[k];
+        for (int i = 0; i < n; i++)
+        {
+            for (int j = 0; j < k; j++)
+                z[i, j] = StatisticsHelper.BinomialLogDensity(successes[i], trials[i], means[j]) + Math.Log(pi[j]);
+            double offset = double.NegativeInfinity;
+            for (int j = 0; j < k; j++) offset = Math.Max(offset, z[i, j]); // max(): NaN-propagating in R, finite here
+            for (int j = 0; j < k; j++) row[j] = Math.Exp(z[i, j] - offset);
+            double s = Math.Log(StatisticsHelper.ExtendedPrecisionSum(row)) + offset;
+            normaliser[i] = double.IsFinite(s) ? s : offset;
+        }
+
+        for (int i = 0; i < n; i++)
+        {
+            for (int j = 0; j < k; j++) z[i, j] = Math.Exp(z[i, j] - normaliser[i]);
+        }
+
+        double nll = -StatisticsHelper.ExtendedPrecisionSum(normaliser);
+        var column = new double[n];
+        var products = new double[n];
+        for (int j = 0; j < k; j++)
+        {
+            for (int i = 0; i < n; i++) column[i] = z[i, j];
+            pi[j] = StatisticsHelper.ExtendedPrecisionSum(column) / n; // colSums (long double)
+
+            // M-step: B[k] = z[, k] %*% NV / z[, k] %*% DP.
+            for (int i = 0; i < n; i++) products[i] = column[i] * successes[i];
+            double numerator = StatisticsHelper.ExtendedPrecisionSum(products);
+            for (int i = 0; i < n; i++) products[i] = column[i] * trials[i];
+            means[j] = numerator / StatisticsHelper.ExtendedPrecisionSum(products);
+        }
+
+        // The EM stops here: epsilon.conv = NLL − .Machine$integer.max < epsilon.
+        int parameters = k + k;
+        double bic = (2 * nll) + (Math.Log(n) * parameters);
+        var entropyTerms = new double[n * k];
+        for (int j = 0; j < k; j++)
+        {
+            for (int i = 0; i < n; i++) entropyTerms[(j * n) + i] = z[i, j] * Math.Log(z[i, j]); // column-major, 0·log 0 = NaN
+        }
+
+        double entropy = -StatisticsHelper.ExtendedPrecisionSum(entropyTerms, skipNaN: true);
+        return new BinomialMixtureFit(k, means, pi, nll, bic, bic + entropy);
+    }
+
+    // R runif(1, a, b) (nmath/runif.c): a + (b − a)·u.
+    private static double RUnif(RMersenneTwister rng, double a, double b)
+    {
+        double u;
+        do
+        {
+            u = rng.UnifRand();
+        }
+        while (u <= 0 || u >= 1);
+        return a + ((b - a) * u);
+    }
+
+    // R stats::kmeans(x, centers = k, nstart, algorithm = "Hartigan-Wong", iter.max = 10) for one-column x;
+    // null = R error (fewer distinct values than k; kmns IFAULT 1 or 3). Cluster labels are 1-based.
+    private static (double[] Centers, int[] Cluster)? RKMeans(double[] x, int k, int nstart, RMersenneTwister rng)
+    {
+        var distinct = new List<double>(); // unique(x): first occurrences
+        var seen = new HashSet<double>();
+        foreach (double v in x)
+        {
+            if (seen.Add(v)) distinct.Add(v);
+        }
+
+        if (distinct.Count < k) return null; // "more cluster centers than distinct data points."
+        const int IterMax = 10;
+        (double[] Centers, int[] Cluster, double[] Wss, int Fault) DoOne()
+        {
+            int[] pick = rng.SampleWithoutReplacement(distinct.Count, k);
+            double[] start = pick.Select(i => distinct[i]).ToArray();
+            return k == 1 ? KMeansMacQueen(x, start, IterMax) : KMeansHartiganWong(x, start, IterMax);
+        }
+
+        var best = DoOne();
+        if (best.Fault == 1 || best.Fault == 3) return null;
+        double bestWss = StatisticsHelper.ExtendedPrecisionSum(best.Wss);
+        for (int s = 2; s <= nstart; s++)
+        {
+            var candidate = DoOne();
+            if (candidate.Fault == 1 || candidate.Fault == 3) return null;
+            double wss = StatisticsHelper.ExtendedPrecisionSum(candidate.Wss);
+            if (wss < bestWss)
+            {
+                best = candidate;
+                bestWss = wss;
+            }
+        }
+
+        return (best.Centers, best.Cluster);
+    }
+
+    // R kmeans.c kmeans_MacQueen (one column).
+    private static (double[] Centers, int[] Cluster, double[] Wss, int Fault) KMeansMacQueen(double[] x, double[] centers, int maxIter)
+    {
+        int n = x.Length, k = centers.Length;
+        var cen = (double[])centers.Clone();
+        var cl = new int[n];
+        var nc = new int[k];
+        for (int i = 0; i < n; i++)
+        {
+            double best = double.PositiveInfinity;
+            int inew = 0;
+            for (int j = 0; j < k; j++)
+            {
+                double t = x[i] - cen[j];
+                double dd = 0.0 + (t * t);
+                if (dd < best)
+                {
+                    best = dd;
+                    inew = j + 1;
+                }
+            }
+
+            cl[i] = inew;
+        }
+
+        Array.Clear(cen);
+        for (int i = 0; i < n; i++)
+        {
+            nc[cl[i] - 1]++;
+            cen[cl[i] - 1] += x[i];
+        }
+
+        for (int j = 0; j < k; j++) cen[j] /= nc[j];
+        for (int iter = 0; iter < maxIter; iter++)
+        {
+            bool updated = false;
+            for (int i = 0; i < n; i++)
+            {
+                double best = double.PositiveInfinity;
+                int inew = 0;
+                for (int j = 0; j < k; j++)
+                {
+                    double t = x[i] - cen[j];
+                    double dd = 0.0 + (t * t);
+                    if (dd < best)
+                    {
+                        best = dd;
+                        inew = j;
+                    }
+                }
+
+                int iold = cl[i] - 1;
+                if (iold != inew)
+                {
+                    updated = true;
+                    cl[i] = inew + 1;
+                    nc[iold]--;
+                    nc[inew]++;
+                    cen[iold] += (cen[iold] - x[i]) / nc[iold];
+                    cen[inew] += (x[i] - cen[inew]) / nc[inew];
+                }
+            }
+
+            if (!updated) break;
+        }
+
+        var wss = new double[k];
+        for (int i = 0; i < n; i++)
+        {
+            double t = x[i] - cen[cl[i] - 1];
+            wss[cl[i] - 1] += t * t;
+        }
+
+        return (cen, cl, wss, 0);
+    }
+
+    // AS 136 (Hartigan & Wong 1979) as R stats kmns.f (one column, 1-based arrays as the Fortran).
+    private static (double[] Centers, int[] Cluster, double[] Wss, int Fault) KMeansHartiganWong(double[] x, double[] centers, int iterMax)
+    {
+        int m = x.Length, k = centers.Length;
+        double big = (double)1.0e30f; // DATA BIG /1.E30/: a REAL constant
+        var a = new double[m + 1];
+        for (int i = 0; i < m; i++) a[i + 1] = x[i];
+        var c = new double[k + 1];
+        for (int l = 0; l < k; l++) c[l + 1] = centers[l];
+        var ic1 = new int[m + 1];
+        var ic2 = new int[m + 1];
+        var nc = new int[k + 1];
+        var ncp = new int[k + 1];
+        var itran = new int[k + 1];
+        var live = new int[k + 1];
+        var an1 = new double[k + 1];
+        var an2 = new double[k + 1];
+        var d = new double[m + 1];
+        var wss = new double[k + 1];
+        int maxQtr = (int)Math.Min(int.MaxValue, 50L * m);
+        if (k <= 1 || k >= m) return (centers, new int[m], new double[k], 3);
+        int fault = 0;
+
+        for (int i = 1; i <= m; i++)
+        {
+            ic1[i] = 1;
+            ic2[i] = 2;
+            double da1 = a[i] - c[1], da2 = a[i] - c[2];
+            double dt1 = 0.0 + (da1 * da1), dt2 = 0.0 + (da2 * da2);
+            if (dt1 > dt2)
+            {
+                ic1[i] = 2;
+                ic2[i] = 1;
+                (dt1, dt2) = (dt2, dt1);
+            }
+
+            for (int l = 3; l <= k; l++)
+            {
+                double dc = a[i] - c[l];
+                double db = 0.0 + (dc * dc);
+                if (db >= dt2) continue;
+                if (db >= dt1)
+                {
+                    dt2 = db;
+                    ic2[i] = l;
+                }
+                else
+                {
+                    dt2 = dt1;
+                    ic2[i] = ic1[i];
+                    dt1 = db;
+                    ic1[i] = l;
+                }
+            }
+        }
+
+        for (int l = 1; l <= k; l++)
+        {
+            nc[l] = 0;
+            c[l] = 0.0;
+        }
+
+        for (int i = 1; i <= m; i++)
+        {
+            nc[ic1[i]]++;
+            c[ic1[i]] += a[i];
+        }
+
+        for (int l = 1; l <= k; l++)
+        {
+            if (nc[l] == 0) return (centers, new int[m], new double[k], 1);
+            double aa = nc[l];
+            c[l] /= aa;
+            an2[l] = aa / (aa + 1.0);
+            an1[l] = big;
+            if (aa > 1.0) an1[l] = aa / (aa - 1.0);
+            itran[l] = 1;
+            ncp[l] = -1;
+        }
+
+        int indx = 0;
+        bool converged = false;
+        for (int ij = 1; ij <= iterMax; ij++)
+        {
+            KmnsOptimalTransfer(a, m, c, k, ic1, ic2, nc, an1, an2, ncp, d, itran, live, ref indx, big);
+            if (indx == m)
+            {
+                converged = true;
+                break;
+            }
+
+            KmnsQuickTransfer(a, m, c, k, ic1, ic2, nc, an1, an2, ncp, d, itran, ref indx, ref maxQtr, big);
+            if (maxQtr < 0)
+            {
+                fault = 4;
+                converged = true;
+                break;
+            }
+
+            if (k == 2)
+            {
+                converged = true;
+                break;
+            }
+
+            for (int l = 1; l <= k; l++) ncp[l] = 0;
+        }
+
+        if (!converged) fault = 2;
+
+        for (int l = 1; l <= k; l++)
+        {
+            wss[l] = 0.0;
+            c[l] = 0.0;
+        }
+
+        for (int i = 1; i <= m; i++) c[ic1[i]] += a[i];
+        for (int l = 1; l <= k; l++) c[l] /= nc[l];
+        for (int i = 1; i <= m; i++)
+        {
+            double da = a[i] - c[ic1[i]];
+            wss[ic1[i]] += da * da;
+        }
+
+        var cluster = new int[m];
+        for (int i = 0; i < m; i++) cluster[i] = ic1[i + 1];
+        return (c.Skip(1).ToArray(), cluster, wss.Skip(1).ToArray(), fault);
+    }
+
+    // AS 136.1 OPTRA: optimal-transfer stage.
+    private static void KmnsOptimalTransfer(double[] a, int m, double[] c, int k, int[] ic1, int[] ic2, int[] nc,
+        double[] an1, double[] an2, int[] ncp, double[] d, int[] itran, int[] live, ref int indx, double big)
+    {
+        for (int l = 1; l <= k; l++)
+        {
+            if (itran[l] == 1) live[l] = m + 1;
+        }
+
+        for (int i = 1; i <= m; i++)
+        {
+            indx++;
+            int l1 = ic1[i], l2 = ic2[i], ll = l2;
+            if (nc[l1] != 1)
+            {
+                if (ncp[l1] != 0)
+                {
+                    double df = a[i] - c[l1];
+                    d[i] = (0.0 + (df * df)) * an1[l1];
+                }
+
+                double db = a[i] - c[l2];
+                double r2 = (0.0 + (db * db)) * an2[l2];
+                for (int l = 1; l <= k; l++)
+                {
+                    if ((i >= live[l1] && i >= live[l]) || l == l1 || l == ll) continue;
+                    double rr = r2 / an2[l];
+                    double dd = a[i] - c[l];
+                    double dc = 0.0 + (dd * dd);
+                    if (dc >= rr) continue;
+                    r2 = dc * an2[l];
+                    l2 = l;
+                }
+
+                if (r2 >= d[i])
+                {
+                    ic2[i] = l2;
+                }
+                else
+                {
+                    indx = 0;
+                    live[l1] = m + i;
+                    live[l2] = m + i;
+                    ncp[l1] = i;
+                    ncp[l2] = i;
+                    KmnsTransfer(a[i], c, nc, an1, an2, l1, l2, big);
+                    ic1[i] = l2;
+                    ic2[i] = l1;
+                }
+            }
+
+            if (indx == m) return;
+        }
+
+        for (int l = 1; l <= k; l++)
+        {
+            itran[l] = 0;
+            live[l] -= m;
+        }
+    }
+
+    // AS 136.2 QTRAN: quick-transfer stage.
+    private static void KmnsQuickTransfer(double[] a, int m, double[] c, int k, int[] ic1, int[] ic2, int[] nc,
+        double[] an1, double[] an2, int[] ncp, double[] d, int[] itran, ref int indx, ref int maxQtr, double big)
+    {
+        int icoun = 0, istep = 0;
+        while (true)
+        {
+            for (int i = 1; i <= m; i++)
+            {
+                icoun++;
+                istep++;
+                if (istep >= maxQtr)
+                {
+                    maxQtr = -1;
+                    return;
+                }
+
+                int l1 = ic1[i], l2 = ic2[i];
+                if (nc[l1] != 1)
+                {
+                    if (istep <= ncp[l1])
+                    {
+                        double db = a[i] - c[l1];
+                        d[i] = (0.0 + (db * db)) * an1[l1];
+                    }
+
+                    if (istep < ncp[l1] || istep < ncp[l2])
+                    {
+                        double r2 = d[i] / an2[l2];
+                        double de = a[i] - c[l2];
+                        double dd = 0.0 + (de * de);
+                        if (dd < r2)
+                        {
+                            icoun = 0;
+                            indx = 0;
+                            itran[l1] = 1;
+                            itran[l2] = 1;
+                            ncp[l1] = istep + m;
+                            ncp[l2] = istep + m;
+                            KmnsTransfer(a[i], c, nc, an1, an2, l1, l2, big);
+                            ic1[i] = l2;
+                            ic2[i] = l1;
+                        }
+                    }
+                }
+
+                if (icoun == m) return;
+            }
+        }
+    }
+
+    // Move one point from cluster l1 to l2 (shared OPTRA/QTRAN update of centres, counts, AN1, AN2).
+    private static void KmnsTransfer(double ai, double[] c, int[] nc, double[] an1, double[] an2, int l1, int l2, double big)
+    {
+        double al1 = nc[l1], alw = al1 - 1.0, al2 = nc[l2], alt = al2 + 1.0;
+        c[l1] = ((c[l1] * al1) - ai) / alw;
+        c[l2] = ((c[l2] * al2) + ai) / alt;
+        nc[l1]--;
+        nc[l2]++;
+        an2[l1] = alw / al1;
+        an1[l1] = big;
+        if (alw > 1.0) an1[l1] = alw / (alw - 1.0);
+        an1[l2] = alt / al2;
+        an2[l2] = alt / (alt + 1.0);
     }
 
     #endregion

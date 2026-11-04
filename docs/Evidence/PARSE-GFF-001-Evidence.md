@@ -11,11 +11,11 @@
 
 ### 1. Wikipedia - General Feature Format
 **URL:** https://en.wikipedia.org/wiki/General_feature_format  
-**Retrieved:** 2026-02-05
+**Retrieved:** 2026-02-05 · re-fetched 2026-10-14 (SRC citation audit: see corrections below)
 
 #### Key Specifications:
 - GFF is a tab-delimited file format with **9 columns**
-- All GFF formats (GFF2, GFF3, GTF) share the same structure for the first 8 fields
+- All GFF formats (GFF2, GFF3, GTF) are tab-delimited with 9 fields per line and share the same structure for the first 7 fields (column 8 is "frame" in GFF2/GTF, "phase" in GFF3)
 - GFF2/GTF has been deprecated in favor of GFF3
 
 **Column Definitions:**

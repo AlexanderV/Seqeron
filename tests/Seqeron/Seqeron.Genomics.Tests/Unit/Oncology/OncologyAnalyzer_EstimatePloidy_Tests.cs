@@ -158,7 +158,10 @@ public class OncologyAnalyzer_EstimatePloidy_Tests
 
     #endregion
 
-    #region DetectWholeGenomeDoubling (reference chromosome-size table)
+    #region DetectWholeGenomeDoubling(segments, ReferenceGenome) — explicit reference-assembly denominator option
+
+    // Since F32 (review 2026-09) the 1-argument DetectWholeGenomeDoubling is the facets-suite call
+    // (get_sample_genome denominator); these cases lock the explicit reference-assembly overload.
 
     // Authoritative autosomal genome lengths (Σ chr1–22) computed from UCSC *.chrom.sizes.
     // GRCh38 (hg38.chrom.sizes): 2,875,001,522 bp. GRCh37 (hg19.chrom.sizes): 2,881,033,286 bp.
@@ -233,7 +236,7 @@ public class OncologyAnalyzer_EstimatePloidy_Tests
             new("1", 0, elevated, 2, 0), // major 2 → elevated, autosome
         };
 
-        bool wgd = OncologyAnalyzer.DetectWholeGenomeDoubling(segments);
+        bool wgd = OncologyAnalyzer.DetectWholeGenomeDoubling(segments, OncologyAnalyzer.ReferenceGenome.GRCh38);
 
         Assert.That(wgd, Is.True,
             "elevated/Σ(chr1–22) > 0.5 (just over half the GRCh38 autosomal genome) → whole-genome doubled.");
@@ -250,7 +253,7 @@ public class OncologyAnalyzer_EstimatePloidy_Tests
             new("1", 0, half, 2, 1), // major 2 → elevated, exactly half the reference genome
         };
 
-        bool wgd = OncologyAnalyzer.DetectWholeGenomeDoubling(segments);
+        bool wgd = OncologyAnalyzer.DetectWholeGenomeDoubling(segments, OncologyAnalyzer.ReferenceGenome.GRCh38);
 
         Assert.That(wgd, Is.False,
             "elevated = exactly half the GRCh38 autosomal genome → fraction 0.5, not strictly > 0.5 → not doubled.");
@@ -266,7 +269,7 @@ public class OncologyAnalyzer_EstimatePloidy_Tests
             new("1", 0, elevated, 2, 2), // major 2 → elevated, just under half
         };
 
-        bool wgd = OncologyAnalyzer.DetectWholeGenomeDoubling(segments);
+        bool wgd = OncologyAnalyzer.DetectWholeGenomeDoubling(segments, OncologyAnalyzer.ReferenceGenome.GRCh38);
 
         Assert.That(wgd, Is.False,
             "elevated just under half the GRCh38 autosomal genome → fraction < 0.5 → not doubled.");
@@ -282,7 +285,7 @@ public class OncologyAnalyzer_EstimatePloidy_Tests
             new("2", 0, 200_000_000, 1, 1),
         };
 
-        bool wgd = OncologyAnalyzer.DetectWholeGenomeDoubling(segments);
+        bool wgd = OncologyAnalyzer.DetectWholeGenomeDoubling(segments, OncologyAnalyzer.ReferenceGenome.GRCh38);
 
         Assert.That(wgd, Is.False,
             "Balanced diploid segments have major CN 1; numerator is 0 → not doubled (WGD keys on major CN ≥ 2).");
@@ -299,7 +302,7 @@ public class OncologyAnalyzer_EstimatePloidy_Tests
             new("1", 0, 100_000_000, 2, 2), // major 2, only 100 Mb interrogated
         };
 
-        bool wgd = OncologyAnalyzer.DetectWholeGenomeDoubling(segments);
+        bool wgd = OncologyAnalyzer.DetectWholeGenomeDoubling(segments, OncologyAnalyzer.ReferenceGenome.GRCh38);
 
         Assert.That(wgd, Is.False,
             "100 Mb at major CN ≥ 2 is ~3.5% of the GRCh38 autosomal genome → not doubled; the reference denominator removes the supplied-segment bias.");
@@ -315,7 +318,7 @@ public class OncologyAnalyzer_EstimatePloidy_Tests
             new("1", 0, elevated, 2, 0), // major 2 LOH → elevated
         };
 
-        bool wgd = OncologyAnalyzer.DetectWholeGenomeDoubling(segments);
+        bool wgd = OncologyAnalyzer.DetectWholeGenomeDoubling(segments, OncologyAnalyzer.ReferenceGenome.GRCh38);
 
         Assert.That(wgd, Is.True,
             "LOH segments with major CN 2 are elevated; just over half the reference genome → doubled.");
@@ -332,7 +335,7 @@ public class OncologyAnalyzer_EstimatePloidy_Tests
             new("chrY", 0, overHalf, 2, 0), // amplified but NOT an autosome → ignored
         };
 
-        bool wgd = OncologyAnalyzer.DetectWholeGenomeDoubling(segments);
+        bool wgd = OncologyAnalyzer.DetectWholeGenomeDoubling(segments, OncologyAnalyzer.ReferenceGenome.GRCh38);
 
         Assert.That(wgd, Is.False,
             "chrX/chrY amplifications are excluded from the autosomal WGD numerator (facets-suite chrom %in% 1:22) → not doubled.");
@@ -348,7 +351,7 @@ public class OncologyAnalyzer_EstimatePloidy_Tests
             new("chr7", 0, overHalf, 2, 0), // "chr"-prefixed autosome, major 2 → elevated
         };
 
-        bool wgd = OncologyAnalyzer.DetectWholeGenomeDoubling(segments);
+        bool wgd = OncologyAnalyzer.DetectWholeGenomeDoubling(segments, OncologyAnalyzer.ReferenceGenome.GRCh38);
 
         Assert.That(wgd, Is.True,
             "A 'chr7' segment is an autosome; just over half the reference genome at major CN ≥ 2 → doubled.");
@@ -381,7 +384,7 @@ public class OncologyAnalyzer_EstimatePloidy_Tests
         var segments = new List<Segment> { new("1", 200, 100, 2, 2) }; // End < Start
 
         Assert.Throws<ArgumentException>(
-            () => OncologyAnalyzer.DetectWholeGenomeDoubling(segments),
+            () => OncologyAnalyzer.DetectWholeGenomeDoubling(segments, OncologyAnalyzer.ReferenceGenome.GRCh38),
             "A segment with End ≤ Start is invalid input.");
     }
 
@@ -392,7 +395,7 @@ public class OncologyAnalyzer_EstimatePloidy_Tests
         var segments = new List<Segment> { new("1", 0, 1_000_000, 2, -1) };
 
         Assert.Throws<ArgumentException>(
-            () => OncologyAnalyzer.DetectWholeGenomeDoubling(segments),
+            () => OncologyAnalyzer.DetectWholeGenomeDoubling(segments, OncologyAnalyzer.ReferenceGenome.GRCh38),
             "Negative copy numbers are invalid input.");
     }
 
@@ -401,7 +404,7 @@ public class OncologyAnalyzer_EstimatePloidy_Tests
     public void DetectWholeGenomeDoubling_Null_Throws()
     {
         Assert.Throws<ArgumentNullException>(
-            () => OncologyAnalyzer.DetectWholeGenomeDoubling(null!),
+            () => OncologyAnalyzer.DetectWholeGenomeDoubling(null!, OncologyAnalyzer.ReferenceGenome.GRCh38),
             "Null segments must raise ArgumentNullException.");
     }
 
@@ -409,7 +412,7 @@ public class OncologyAnalyzer_EstimatePloidy_Tests
     [Test]
     public void DetectWholeGenomeDoubling_EmptySegments_ReturnsFalse()
     {
-        bool wgd = OncologyAnalyzer.DetectWholeGenomeDoubling(new List<Segment>());
+        bool wgd = OncologyAnalyzer.DetectWholeGenomeDoubling(new List<Segment>(), OncologyAnalyzer.ReferenceGenome.GRCh38);
 
         Assert.That(wgd, Is.False,
             "With a fixed reference denominator, an empty segment set gives numerator 0 → fraction 0 → not doubled.");
@@ -546,7 +549,7 @@ public class OncologyAnalyzer_EstimatePloidy_Tests
 
         Assert.Multiple(() =>
         {
-            Assert.That(OncologyAnalyzer.DetectWholeGenomeDoubling(reference), Is.True,
+            Assert.That(OncologyAnalyzer.DetectWholeGenomeDoubling(reference, OncologyAnalyzer.ReferenceGenome.GRCh38), Is.True,
                 "tcn 3 − lcn 1 = mcn 2 over (G/2)+1 bp → doubled.");
             Assert.That(OncologyAnalyzer.DetectWholeGenomeDoublingFromSuppliedLength(supplied), Is.True,
                 "facets-suite port: 60e6 / 100e6 = 0.6 with mcn = 2.");
@@ -573,10 +576,222 @@ public class OncologyAnalyzer_EstimatePloidy_Tests
 
         Assert.Multiple(() =>
         {
-            Assert.That(OncologyAnalyzer.DetectWholeGenomeDoubling(segments), Is.True,
+            Assert.That(OncologyAnalyzer.DetectWholeGenomeDoubling(segments, OncologyAnalyzer.ReferenceGenome.GRCh38), Is.True,
                 "1e19 bp elevated ≫ G/2 (a long accumulator wraps negative → false).");
+            Assert.That(OncologyAnalyzer.DetectWholeGenomeDoubling(segments), Is.True,
+                "default (facets-suite span): frac = 1e19 / 1e19 = 1 > 0.5.");
             Assert.That(OncologyAnalyzer.DetectWholeGenomeDoublingFromSuppliedLength(segments), Is.True,
                 "frac = 1e19 / 1e19 = 1 > 0.5.");
+        });
+    }
+
+    #endregion
+
+    #region FIN-B24 F32 — default DetectWholeGenomeDoubling = facets-suite get_sample_genome denominator
+
+    // Expected values from the real facets-suite R functions get_sample_genome / is_genome_doubled
+    // (mskcc/facets-suite master, R/copy-number-scores.R, sourced in R; purrr::map_dfr shimmed as
+    // do.call(rbind, lapply(...)); parse_segs' length/lcn/mcn reproduced). Reference-assembly fraction = elevated / G_hg38.
+    // W1 150e6/248,956,422 = 0.60251508595347658 (ref 0.0522); W2 130e6/190e6 = 0.68421052631578949 (ref 0.0452);
+    // W3 1,943,767,673/2,875,001,522 = 0.67609274573455336 (both); W4 1,376,488,912/2,435,001,522 = 0.56529283434263089
+    // (ref 0.47877849853882615); W5 0.5; W6 0.42857142857142855.
+    private static readonly long[] Hg38 =
+    {
+        248_956_422L, 242_193_529L, 198_295_559L, 190_214_555L, 181_538_259L,
+        170_805_979L, 159_345_973L, 145_138_636L, 138_394_717L, 133_797_422L,
+        135_086_622L, 133_275_309L, 114_364_328L, 107_043_718L, 101_991_189L,
+        90_338_345L,  83_257_441L,  80_373_285L,  58_617_616L,  64_444_167L,
+        46_709_983L,  50_818_468L,
+    };
+
+    private static IEnumerable<TestCaseData> FacetsWgdCases()
+    {
+        yield return new TestCaseData(
+            new List<Segment> { new("1", 0, 150_000_000, 2, 2), new("1", 150_000_000, Hg38[0], 1, 1) },
+            true, false).SetName("FacetsWgd_W1_SingleChromosomeTiled");
+        yield return new TestCaseData(
+            new List<Segment>
+            {
+                new("1", 0, 80_000_000, 2, 2), new("1", 120_000_000, 140_000_000, 1, 1),
+                new("2", 0, 50_000_000, 2, 1), new("X", 0, 150_000_000, 2, 2),
+            },
+            true, false).SetName("FacetsWgd_W2_GappedWithChrX");
+        yield return new TestCaseData(
+            Enumerable.Range(1, 22).Select(c => c <= 11
+                ? new Segment($"{c}", 0, Hg38[c - 1], 2, 2)
+                : new Segment($"{c}", 0, Hg38[c - 1], 1, 1)).ToList(),
+            true, true).SetName("FacetsWgd_W3_EveryAutosomeEndToEnd");
+        yield return new TestCaseData(
+            Enumerable.Range(1, 22).Select(c => c <= 8
+                ? new Segment($"chr{c}", 10_000_000, Hg38[c - 1] - 10_000_000, 2, 2)
+                : new Segment($"chr{c}", 10_000_000, Hg38[c - 1] - 10_000_000, 1, 1)).ToList(),
+            true, false).SetName("FacetsWgd_W4_TelomericEndsUnsegmented");
+        yield return new TestCaseData(
+            new List<Segment> { new("1", 0, 50_000_000, 2, 2), new("1", 50_000_000, 100_000_000, 1, 1) },
+            false, false).SetName("FacetsWgd_W5_ExactlyHalfSpan");
+        yield return new TestCaseData(
+            new List<Segment> { new("1", 0, 60_000_000, 2, 2), new("1", 100_000_000, 140_000_000, 1, 1) },
+            false, false).SetName("FacetsWgd_W6_GapInsideChromosome");
+    }
+
+    // F32 — default = facets-suite call; the explicit GRCh38 option differs on partial/gapped genomes (W1, W2, W4).
+    [TestCaseSource(nameof(FacetsWgdCases))]
+    public void DetectWholeGenomeDoubling_Default_MatchesFacetsSuiteR(List<Segment> segments, bool facetsWgd, bool referenceWgd)
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(OncologyAnalyzer.DetectWholeGenomeDoubling(segments), Is.EqualTo(facetsWgd),
+                "default = facets-suite is_genome_doubled(segs, get_sample_genome(segs)) (R).");
+            Assert.That(OncologyAnalyzer.DetectWholeGenomeDoublingFromSuppliedLength(segments), Is.EqualTo(facetsWgd),
+                "FromSuppliedLength is the same facets-suite call.");
+            Assert.That(OncologyAnalyzer.DetectWholeGenomeDoubling(segments, OncologyAnalyzer.ReferenceGenome.GRCh38),
+                Is.EqualTo(referenceWgd), "explicit reference-assembly option: elevated / 2,875,001,522 > 0.5.");
+        });
+    }
+
+    // F32 — default has the facets-suite domain: no autosomal segment → 0/0 = NA → ArgumentException.
+    [Test]
+    public void DetectWholeGenomeDoubling_Default_NoAutosomalSegment_Throws()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentException>(() => OncologyAnalyzer.DetectWholeGenomeDoubling(new List<Segment>()),
+                "empty → autosomal_genome = 0 → NA.");
+            Assert.Throws<ArgumentException>(
+                () => OncologyAnalyzer.DetectWholeGenomeDoubling(new List<Segment> { new("X", 0, 1_000, 2, 2) }),
+                "only chrX → autosomal_genome = 0 → NA.");
+        });
+    }
+
+    // F32 — default null guard.
+    [Test]
+    public void DetectWholeGenomeDoubling_Default_Null_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(() => OncologyAnalyzer.DetectWholeGenomeDoubling(null!));
+    }
+
+    #endregion
+
+    #region FIN-B24 F30/F31 — ASCAT ascat.metrics WGD/GI and runASCAT probe-weighted ploidy
+
+    // Expected values produced by running the real ASCAT R function ascat.metrics (VanLoo-lab/ascat master,
+    // R/ascat.metrics.R, sourced in R 4.3.3) on the same segment tables (sexchromosomes = X/Y). Additionally
+    // 3000 random genomes (108 with exact mode ties) matched bit-for-bit (docs/Evidence/ONCO-PLOIDY-001-Evidence.md).
+    private static IEnumerable<TestCaseData> AscatMetricsCases()
+    {
+        static Segment S(string chr, long start, long end, int major, int minor) => new(chr, start, end, major, minor);
+
+        yield return new TestCaseData(new[] { S("1", 1, 50_000_000, 1, 1), S("2", 1, 40_000_000, 1, 1), S("3", 1, 30_000_000, 2, 1) },
+            1, 1, OncologyAnalyzer.AscatWgdStatus.NoWgd, "0", (double?)0.25, 0.0).SetName("AscatMetrics_G1_Diploid");
+        yield return new TestCaseData(new[] { S("1", 1, 60_000_000, 2, 2), S("2", 1, 50_000_000, 2, 0), S("3", 1, 20_000_000, 1, 1), S("4", 1, 10_000_000, 3, 2) },
+            2, 2, OncologyAnalyzer.AscatWgdStatus.Wgd, "1", (double?)0.5714, 0.3571).SetName("AscatMetrics_G2_Wgd");
+        yield return new TestCaseData(new[] { S("1", 1, 70_000_000, 3, 1), S("2", 1, 30_000_000, 2, 2), S("3", 1, 20_000_000, 2, 2) },
+            1, 3, OncologyAnalyzer.AscatWgdStatus.WgdPlus, "1+", (double?)0.5833, 0.0).SetName("AscatMetrics_G3_ModeThree_WgdPlus");
+        // Tie: nMajor 2 (10 + 10 Mb, two segments) vs nMajor 1 (20 Mb) on (end − start) → smaller value wins (mode 1).
+        yield return new TestCaseData(new[] { S("1", 0, 10_000_000, 2, 2), S("1", 10_000_000, 20_000_000, 2, 1), S("2", 0, 20_000_000, 1, 1) },
+            1, 1, OncologyAnalyzer.AscatWgdStatus.NoWgd, "0", (double?)0.5, 0.0).SetName("AscatMetrics_G4_Tie_SmallerValueWins");
+        yield return new TestCaseData(new[] { S("1", 1, 60_000_000, 0, 0), S("2", 1, 40_000_000, 1, 1) },
+            0, 0, OncologyAnalyzer.AscatWgdStatus.NotAvailable, "NA", (double?)null, 0.6).SetName("AscatMetrics_G5_ModeZero_NA");
+        // A 150 Mb X 2:2 segment would make the mode 2; ASCAT ignores sex chromosomes.
+        yield return new TestCaseData(new[] { S("1", 1, 30_000_000, 1, 1), S("2", 1, 20_000_000, 2, 2), S("X", 1, 150_000_000, 2, 2) },
+            1, 1, OncologyAnalyzer.AscatWgdStatus.NoWgd, "0", (double?)0.4, 0.0).SetName("AscatMetrics_G6_SexChromosomeExcluded");
+        // nMajor 6 and 7 are capped to 5 and pooled (16 Mb) → beat nMajor 2 (10 Mb).
+        yield return new TestCaseData(new[] { S("1", 1, 8_000_000, 6, 1), S("2", 1, 8_000_000, 7, 0), S("3", 1, 10_000_000, 2, 2), S("4", 1, 5_000_000, 1, 1) },
+            1, 5, OncologyAnalyzer.AscatWgdStatus.WgdPlus, "1+", (double?)0.6774, 0.2581).SetName("AscatMetrics_G7_CapAtFive");
+        yield return new TestCaseData(new[] { S("1", 100, 5_000_100, 4, 2), S("2", 100, 5_000_100, 3, 1), S("3", 100, 3_000_100, 2, 2) },
+            2, 3, OncologyAnalyzer.AscatWgdStatus.WgdPlus, "1+", (double?)0.7692, 0.0).SetName("AscatMetrics_G8_TieThreeFour_GiBaselineTwo");
+        // Non-round coordinates: GI/LOH use size = end − start + 1; chrY excluded.
+        yield return new TestCaseData(new[] { S("chr1", 12_345, 23_456_789, 2, 2), S("chr2", 777, 9_876_543, 1, 1), S("chr5", 1, 13_579_246, 2, 0), S("chrY", 1, 50_000_000, 1, 0) },
+            2, 2, OncologyAnalyzer.AscatWgdStatus.Wgd, "1", (double?)0.5001, 0.2895).SetName("AscatMetrics_G9_PlusOneSize_ChrPrefix");
+    }
+
+    [TestCaseSource(nameof(AscatMetricsCases))]
+    public void ComputeAscatGenomeMetrics_MatchesAscatR(
+        Segment[] segments, int modeMinor, int modeMajor, OncologyAnalyzer.AscatWgdStatus status, string label,
+        double? gi, double loh)
+    {
+        OncologyAnalyzer.AscatGenomeMetrics m = OncologyAnalyzer.ComputeAscatGenomeMetrics(segments);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(m.ModeMinorAllele, Is.EqualTo(modeMinor), "mode_minA (ASCAT R)");
+            Assert.That(m.ModeMajorAllele, Is.EqualTo(modeMajor), "mode_majA (ASCAT R)");
+            Assert.That(m.WgdStatus, Is.EqualTo(status), "WGD (ASCAT R)");
+            Assert.That(m.WgdLabel, Is.EqualTo(label), "WGD label (ASCAT R)");
+            Assert.That(m.GenomicInstability, Is.EqualTo(gi), "GI = round(1 − baseline/Σsize, 4) (ASCAT R)");
+            Assert.That(m.LossOfHeterozygosity, Is.EqualTo(loh), "LOH = round(Σsize[nMinor=0]/Σsize, 4) (ASCAT R)");
+        });
+    }
+
+    [Test]
+    public void ComputeAscatGenomeMetrics_SwappedAlleleLabels_SameResult()
+    {
+        var labelled = new[] { new Segment("1", 0, 60_000_000, 2, 2), new Segment("2", 0, 50_000_000, 2, 0) };
+        var swapped = new[] { new Segment("1", 0, 60_000_000, 2, 2), new Segment("2", 0, 50_000_000, 0, 2) };
+
+        Assert.That(OncologyAnalyzer.ComputeAscatGenomeMetrics(swapped),
+            Is.EqualTo(OncologyAnalyzer.ComputeAscatGenomeMetrics(labelled)), "nMajor = max, nMinor = min of the allele CNs.");
+    }
+
+    [Test]
+    public void ComputeAscatGenomeMetrics_OnlySexChromosomes_Throws()
+    {
+        var segments = new[] { new Segment("X", 0, 1_000_000, 1, 1), new Segment("chrY", 0, 1_000_000, 1, 0) };
+
+        Assert.Throws<ArgumentException>(() => OncologyAnalyzer.ComputeAscatGenomeMetrics(segments),
+            "ASCAT's autosomal profile is empty → mode undefined (R errors on a zero-length mode).");
+    }
+
+    [Test]
+    public void ComputeAscatGenomeMetrics_Null_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(() => OncologyAnalyzer.ComputeAscatGenomeMetrics(null!));
+    }
+
+    // F31 — ASCAT runASCAT ploidy = sum((nA+nB)·length)/sum(length), length = probe count; reported
+    // ploidy = mean(nA+nB) over probes. R: mean(rep(c(2,4,3), c(1000,200,800))) = 2.6000000000000001.
+    [Test]
+    public void EstimatePloidy_ProbeCounts_MatchesAscatR()
+    {
+        var segments = new List<Segment>
+        {
+            new("1", 0, 100_000_000, 1, 1),
+            new("2", 0, 100_000_000, 2, 2),
+            new("3", 0,  50_000_000, 2, 1),
+        };
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(OncologyAnalyzer.EstimatePloidy(segments, new[] { 1000, 200, 800 }), Is.EqualTo(2.6000000000000001),
+                "probe-weighted (ASCAT R) = 5200/2000");
+            Assert.That(OncologyAnalyzer.EstimatePloidy(segments), Is.EqualTo(3.0),
+                "bp-weighted default (Patchwork) is unchanged");
+            Assert.That(OncologyAnalyzer.EstimatePloidy(segments, new[] { 1, 1, 1 }), Is.EqualTo(3.0),
+                "equal probe counts → plain segment mean (2+4+3)/3");
+        });
+    }
+
+    [Test]
+    public void EstimatePloidy_ProbeCounts_NonTerminating_MatchesAscatR()
+    {
+        var segments = new[] { new Segment("1", 0, 10, 1, 1), new Segment("1", 10, 20, 2, 1), new Segment("2", 0, 5, 3, 2) };
+
+        // R: mean(rep(c(2,3,5), c(1,1,1))) = 3.3333333333333335
+        Assert.That(OncologyAnalyzer.EstimatePloidy(segments, new[] { 1, 1, 1 }), Is.EqualTo(3.3333333333333335));
+    }
+
+    [Test]
+    public void EstimatePloidy_ProbeCounts_InvalidInput_Throws()
+    {
+        var segments = new[] { new Segment("1", 0, 10, 1, 1), new Segment("2", 0, 10, 2, 1) };
+
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentException>(() => OncologyAnalyzer.EstimatePloidy(segments, new[] { 5 }), "fewer counts");
+            Assert.Throws<ArgumentException>(() => OncologyAnalyzer.EstimatePloidy(segments, new[] { 5, 5, 5 }), "more counts");
+            Assert.Throws<ArgumentException>(() => OncologyAnalyzer.EstimatePloidy(segments, new[] { 5, 0 }), "zero probes");
+            Assert.Throws<ArgumentException>(() => OncologyAnalyzer.EstimatePloidy(Array.Empty<Segment>(), Array.Empty<int>()), "empty");
+            Assert.Throws<ArgumentNullException>(() => OncologyAnalyzer.EstimatePloidy(segments, null!));
         });
     }
 

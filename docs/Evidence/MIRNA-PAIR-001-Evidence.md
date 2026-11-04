@@ -52,12 +52,12 @@
 ### Crick FHC (1966) — Codon–anticodon pairing: the wobble hypothesis (via Wikipedia "Wobble base pair", which cites the primary)
 
 **URL:** https://en.wikipedia.org/wiki/Wobble_base_pair
-**Accessed:** 2026-06-13 (WebFetch)
+**Accessed:** 2026-06-13 (WebFetch) · re-fetched 2026-10-14 (SRC citation audit: see corrections below)
 **Authority rank:** 4 (Wikipedia citing the primary: Crick FHC, J. Mol. Biol. 19(2):548–555, 1966)
 
 **Key Extracted Points:**
 
-1. **Canonical pairs:** "The standard base pairings are A-U and G-C."
+1. **Canonical pairs:** the standard (Watson–Crick) base pairings are A-U and G-C (paraphrase — this sentence is not on the current page, which shows the Watson–Crick pairs in its pairing table; re-checked 2026-10-14).
 2. **Wobble pair in RNA:** the principal RNA wobble pair is **G-U** (others listed involve inosine, not relevant to standard RNA duplexes). Source primary: Crick FHC, "Codon–anticodon pairing: the wobble hypothesis," J. Mol. Biol. 19(2):548–555 (1966).
 
 ### Lewis BP et al. (2005) — Conserved seed pairing… (PubMed 15652477, search-result abstract)

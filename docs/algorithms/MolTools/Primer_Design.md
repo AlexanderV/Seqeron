@@ -66,8 +66,13 @@ PCR primer design balances primer length, GC content, melting temperature, repet
    $d \ge 0$ a selected pair excludes from all later pairs every left (right) primer whose 3′ end lies fewer than $d$
    bases from the selected left (right) primer's 3′ end ($d = 0$: only the identical primer) — Primer3
    `choose_pair_or_triple` + `left/right_oligo_in_pair_overlaps_used_oligo` (left 3′ end = start + length − 1,
-   right 3′ end = its leftmost top-strand base). PRIMER_INTERNAL_MIN_THREE_PRIME_DISTANCE acts only with
-   SEQUENCE_INTERNAL_OVERLAP_JUNCTION_LIST (not modelled).
+   right 3′ end = its leftmost top-strand base). PRIMER_INTERNAL_MIN_THREE_PRIME_DISTANCE (which Primer3's
+   shorthand also sets, `read_boulder.c`) is read by `choose_pair_or_triple` only when
+   SEQUENCE_INTERNAL_OVERLAP_JUNCTION_LIST is non-empty (`pick_internal_oligo && intl_overlap_junctions_count > 0`);
+   this unit takes no junction list (§5.3, outside its scope), so it is inert here exactly as in Primer3 without
+   that list — no separate option exists (primer3-py 2.3.1, PRIMER_PICK_INTERNAL_OLIGO = 1: 1000/1000 designs on 200
+   random 200–500-bp templates, 1319 pairs, identical for PRIMER_INTERNAL_MIN_THREE_PRIME_DISTANCE ∈ {−1, 0, 1, 5, 20}
+   and unset; audit round 5, A5-3).
 6. **Mispriming library** (PRIMER_MISPRIMING_LIBRARY, `PrimerParameters.MisprimingLibrary` =
    `PrimerMisprimingLibrary`, primer3-py `misprime_lib`; `libprimer3.c` `oligo_repeat_library_mispriming`,
    `pair_repeat_sim`, `p3_seq_lib.c`): entries name → sequence, an optional `*w` weight (0–100, `parse_seq_name`) in
@@ -259,7 +264,7 @@ Parameter ranges documented in the original file and current source:
 | GC Content (%) | 40 | 50 | 60 | Matches current source defaults |
 | Melting Temp (°C) | 55 | 60 | 65 | Original document summary; current source defaults narrow this to `57-63` |
 | Homopolymer Run | N/A | N/A | 4 | Current source default |
-| Dinucleotide Repeats | N/A | N/A | 4 | Current source default |
+| Dinucleotide Repeats | N/A | N/A | 4 | Library default of an unsourced library screen (`FindLongestDinucleotideRepeat`; no Primer3 equivalent, `Primer3DefaultParameters` disables it — A3-8) |
 | `GcClamp` (PRIMER_GC_CLAMP) | 0 | N/A | `MinLength` | Number of consecutive G/C required at the 3′ end (Primer3 default 0; > PRIMER_MIN_SIZE throws) |
 | `MaxEndGc` (PRIMER_MAX_END_GC) | 0 | N/A | 5 | Max G/C among the five 3′-most bases; checked only when < 5 (default 5) |
 | `MaxEndStability` (PRIMER_MAX_END_STABILITY) | 0 | N/A | 100 | Fails when `end_stability` = −`Calculate3PrimeStability` > limit (default 100; an ACGT pentamer reaches at most 6.86, GCGCG/CGCGC) |
@@ -309,13 +314,13 @@ Forward primers are taken directly from the template; reverse primers are revers
 
 **Implemented (verified against primer3-py 2.3.1):**
 
-- Primer3 default Tm: bit-identical to `primer3.calc_tm` (max |Δ| = 0 over 3 000 random 2–45-mers, incl. self-complementary and > 36 nt).
+- Primer3 default Tm: bit-identical to `primer3.calc_tm(..., max_nn_length=36)` — libprimer3's MAX_NN_TM_LENGTH used when picking oligos (max |Δ| = 0 over 3 000 random 2–45-mers, incl. self-complementary and > 36 nt). primer3-py's `calc_tm` itself defaults to `max_nn_length=60`, so for 37–60 nt the five-argument `CalculateMeltingTemperaturePrimer3` differs from a bare `calc_tm(seq)` (39-mer `CTGTATAGTCCCACCTGGTGATCCTATGCTTGTGAGTAC`: 73.0492 vs 70.4249 °C); the `maxNearestNeighborLength` overload with 60 reproduces the `calc_tm` default (audit round 5, A5-4).
 - Pair search with product-size ranges, PRIMER_NUM_RETURN, pair objective and internal oligo (audit round 1, 2026-10-01): with `Primer3DefaultParameters` + `PrimerPairOptions.Primer3Defaults`, `DesignPrimerPairs` reproduced `primer3.design_primers` (only SEQUENCE_TEMPLATE/SEQUENCE_TARGET set) for 1000/1000 random templates (150–700 bp, 4990 pairs; left/right position+length, PRIMER_PAIR_k_PENALTY, _PRODUCT_TM, _COMPL_ANY_TH, _COMPL_END_TH, _PRODUCT_SIZE, ranks 0–4, |Δ| ≤ 1e-9); with random non-default PRIMER_PAIR_WT_* / PRODUCT_OPT_* / PRODUCT_MIN/MAX_TM / PAIR_MAX_DIFF_TM / multi-range PRIMER_PRODUCT_SIZE_RANGE / SEQUENCE_INCLUDED_REGION settings and with PRIMER_PICK_INTERNAL_OLIGO = 1 (+ PRIMER_PAIR_WT_IO_PENALTY; PRIMER_INTERNAL_k position, penalty, Tm, self-any/self-end/hairpin Tm) the counts are in the PRIMER-DESIGN-001 F-entry of `docs/Validation/review-2026-09/B07.md`.
 - Primer3 alignment mode (audit round 2, A1, 2026-10-02): with `PrimerStructureScreen.Primer3Alignment` (PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT = 0: dpal self_any/self_end ≤ PRIMER_MAX_SELF_ANY/_END 8/3, pair compl_any/compl_end ≤ PRIMER_PAIR_MAX_COMPL_ANY/_END 8/3, internal oligo ≤ 12/12, PRIMER_WT_SELF_ANY/_END, PRIMER_PAIR_WT_COMPL_ANY/_END) `DesignPrimerPairs` reproduced `primer3.design_primers` for 2000/2000 random templates (9135 pairs: positions, PRIMER_PAIR_k_PENALTY, _COMPL_ANY, _COMPL_END, PRIMER_LEFT/RIGHT_k_SELF_ANY/_SELF_END/_PENALTY, product Tm, PRIMER_INTERNAL_k_* ; 1000 templates with random non-default limits/weights/internal oligos); per-primer thermodynamic weights PRIMER_WT_SELF_ANY_TH/_SELF_END_TH/_HAIRPIN_TH (`PrimerParameters.PenaltyWeights`) 60/60 templates (280 pairs) identical.
 - Reaction conditions and GC optimum (audit round 3, A3-1, 2026-10-02): random PRIMER_SALT_MONOVALENT 10–200 mM, PRIMER_SALT_DIVALENT {0, 0–6} mM, PRIMER_DNTP_CONC {0, 0–2} mM, PRIMER_DNA_CONC 10–500 nM, PRIMER_OPT_GC_PERCENT 25–75 with PRIMER_WT_GC_PERCENT_GT/_LT ∈ {0, 0.25–1}, the PRIMER_INTERNAL_* counterparts (+ PRIMER_INTERNAL_OPT_GC_PERCENT / _WT_GC_PERCENT_GT/_LT) with PRIMER_PICK_INTERNAL_OLIGO ∈ {0, 1}, both PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT modes and an optional product-Tm objective: 2500/2500 templates (12 440 pairs) identical on positions, PRIMER_PAIR/LEFT/RIGHT_k_PENALTY, _TM, PRIMER_PAIR_k_PRODUCT_TM, the self-any/self-end/hairpin (or dpal) and pair compl values and PRIMER_INTERNAL_k position/penalty/Tm (relative |Δ| ≤ 1e-9); 1/2500 before (fixed 50 mM / 1.5 mM / 0.6 mM / 50 nM, GC optimum 50).
 - Primer3 per-primer penalty and pair search (before the audit, ±200 bp flanks): `DesignPrimers` returned exactly Primer3's `PRIMER_LEFT_0`/`PRIMER_RIGHT_0` in 553/553 random templates (3 seeds × 300) where Primer3's best pair also passes this library's extra screens (settings mirroring `DefaultParameters`, thermodynamic structure limits disabled).
 
-**Deviations from Primer3 defaults (documented; `Primer3DefaultParameters` / `PrimerPairOptions.Primer3Defaults` restore them):** length 18–25 (Primer3 18–27), GC 40–60 % (20–80 %), poly-X 4 (5), pair ΔTm ≤ 5 °C (100), dinucleotide-repeat limit (no Primer3 equivalent). The product-size range is Primer3's (default 100–300 bp; before audit round 1 the ±200 bp flanks bounded the product instead). Structure limits are Primer3's default thermodynamic ones (PRIMER-STRUCT-001): with them `DesignPrimers` returned primer3-py's pair (same settings) in 574/600 random templates; the 26 differences all trace to ntthal engine values (PRIMER-DIMER-001 / PRIMER-HAIRPIN-001). After PRIMER-DIMER-001 (dimer engine bit-exact) a re-run on 1800 random templates (seeds 1–9 × 200) gave 1733 identical; all 67 differences trace to `calc_hairpin` values only (PRIMER-HAIRPIN-001). After PRIMER-HAIRPIN-001 (hairpin engine bit-exact) the same 1800 templates are 1800/1800 identical (primers and pair penalty).
+**Deviations from Primer3 defaults (documented; `Primer3DefaultParameters` / `PrimerPairOptions.Primer3Defaults` restore them):** length 18–25 (Primer3 18–27), GC 40–60 % (20–80 %), poly-X 4 (5), pair ΔTm ≤ 5 °C (100), dinucleotide-repeat limit (unsourced library screen, no Primer3 equivalent; A3-8). The product-size range is Primer3's (default 100–300 bp; before audit round 1 the ±200 bp flanks bounded the product instead). Structure limits are Primer3's default thermodynamic ones (PRIMER-STRUCT-001): with them `DesignPrimers` returned primer3-py's pair (same settings) in 574/600 random templates; the 26 differences all trace to ntthal engine values (PRIMER-DIMER-001 / PRIMER-HAIRPIN-001). After PRIMER-DIMER-001 (dimer engine bit-exact) a re-run on 1800 random templates (seeds 1–9 × 200) gave 1733 identical; all 67 differences trace to `calc_hairpin` values only (PRIMER-HAIRPIN-001). After PRIMER-HAIRPIN-001 (hairpin engine bit-exact) the same 1800 templates are 1800/1800 identical (primers and pair penalty).
 
 - 3′-end checks and 3′ distance (audit round 3, A3-6 + A3-7, 2026-10-02): random 150–600-bp templates (GC bias 35–60 %), PRIMER_GC_CLAMP ∈ {0–3}, PRIMER_MAX_END_GC ∈ {0–5}, PRIMER_MAX_END_STABILITY ∈ {4–9, 100}, PRIMER_MIN_THREE_PRIME_DISTANCE or PRIMER_MIN_LEFT/RIGHT_THREE_PRIME_DISTANCE ∈ {−1, 0, 1, 2, 3, 5, 10, 20}, PRIMER_NUM_RETURN 5–10, PRIMER_WT_END_STABILITY ∈ {0, 0.5}, both alignment modes, PRIMER_PICK_INTERNAL_OLIGO ∈ {0, 1}: 2200/2200 templates (9590 pairs) identical on left/right start + length, PRIMER_PAIR/LEFT/RIGHT_k_PENALTY, _END_STABILITY and PRIMER_INTERNAL_k position (|Δ| ≤ 1e-9); without the new options 36/2000.
 
@@ -331,7 +336,17 @@ Forward primers are taken directly from the template; reverse primers are revers
 
 - Undefined GC optimum and lower-case masking (audit round 3, A3-25 + A3-26, 2026-10-02): 600 random cases (150–450-bp templates, 85 % with random lower-case runs and isolated lower-case bases; PRIMER_LOWERCASE_MASKING ∈ {unset, 0, 1}; 20 % of the pair cases with PRIMER_MASK_TEMPLATE and per-case k-mer lists; 25 % pick_hyb_probe_only; PRIMER_PICK_INTERNAL_OLIGO 35 %; random PRIMER_[INTERNAL_]OPT_GC_PERCENT set or unset with PRIMER_[INTERNAL_]WT_GC_PERCENT_GT/_LT ∈ {unset, 0, 0.25–1}; both alignment modes): 600/600 identical to primer3-py 2.3.1 `design_primers` (1316 pairs + probes on start + length and PRIMER_PAIR/LEFT/RIGHT/INTERNAL_k_PENALTY |Δ| ≤ 1e-9; 266 `_pr_data_control` GC-optimum errors reproduced with Primer3's message). Ignoring the template case: 471/600. Details: F46 in `docs/Validation/review-2026-09/B07.md`.
 
-**Not implemented:** PRIMER_INTERNAL_MIN_THREE_PRIME_DISTANCE (needs SEQUENCE_INTERNAL_OVERLAP_JUNCTION_LIST), genome-wide specificity.
+**Outside this unit's scope (Primer3 tags not modelled; not in the PRIMER-DESIGN-001 test spec):**
+SEQUENCE_OVERLAP_JUNCTION_LIST / SEQUENCE_INTERNAL_OVERLAP_JUNCTION_LIST with PRIMER_MIN_5/3_PRIME_OVERLAP_OF_JUNCTION
+and PRIMER_INTERNAL_MIN_5/3_PRIME_OVERLAP_OF_JUNCTION — Primer3's junction-spanning mode (e.g. exon–exon junctions of a
+cDNA template), a separate feature that the API has no input for. Without a junction list Primer3 itself never reads
+PRIMER_INTERNAL_MIN_THREE_PRIME_DISTANCE, so the library equals Primer3 for every input it accepts (§2.2 item 5;
+audit round 5, A5-3).
+
+**BLOCKED — genome-wide specificity:** needs a BLAST search of the primers against a genome / nucleotide database
+(NCBI Primer-BLAST [8] is a web service that couples Primer3 with BLAST over NCBI databases); Primer3 itself has no
+genome search and the API receives only the template. The in-scope Primer3 specificity checks are the mispriming
+library (§2.2 item 6) and template mispriming (item 8); approximate probe off-target search is PROBE-VALID-001.
 
 ## 6. Edge Cases and Limitations
 
@@ -390,3 +405,4 @@ Related material called out in the original document:
 5. Untergasser A et al. (2012). "Primer3 — new capabilities and interfaces", NAR 40(15):e115.
 6. Primer3 source (primer3-org/primer3, `src/oligotm.c`: `oligotm`, `seqtm`, `long_seq_tm`, `divalent_to_monovalent`; `src/libprimer3.cc`: `make_detection_primer_lists`, `pick_primer_range`, `choose_pair_or_triple`, `characterize_pair`, `obj_fn`, `choose_internal_oligo`, `primer_rec_comp`, `compare_primer_pair`, `p_obj_fn`, `_pr_data_control`, `pr_set_default_global_args_1`).
 7. von Ahsen N, Wittwer CT, Schütz E (2001). Clin Chem 47:1956-61 (divalent→monovalent equivalence).
+8. Ye J, Coulouris G, Zaretskaya I, Cutcutache I, Rozen S, Madden TL (2012). "Primer-BLAST: a tool to design target-specific primers for polymerase chain reaction", BMC Bioinformatics 13:134.

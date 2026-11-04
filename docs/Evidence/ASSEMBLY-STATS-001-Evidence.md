@@ -21,7 +21,7 @@
 ### Wikipedia — "N50, L50, and related statistics" (cites Miller 2010 and Earl 2011 primaries)
 
 **URL:** https://en.wikipedia.org/wiki/N50,_L50,_and_related_statistics (also fetched the `action=raw` wikitext at https://en.wikipedia.org/w/index.php?title=N50,_L50,_and_related_statistics&action=raw)
-**Accessed:** 2026-06-13 (fetched via WebFetch of both the rendered article and the raw wikitext)
+**Accessed:** 2026-06-13 (fetched via WebFetch of both the rendered article and the raw wikitext) · re-fetched 2026-10-14 (SRC citation audit: supports the claims above)
 **Authority rank:** 4 (Wikipedia; used for its worked example and as a cross-check of the Miller primary)
 
 **Key Extracted Points:**

@@ -79,6 +79,7 @@ derivation is documented in [DNA_Thermodynamics.md](DNA_Thermodynamics.md).)
 |------|------|---------|-------------|-------------|
 | dnaSequence | string | required | DNA sequence (5'→3') | case-insensitive; A/C/G/T |
 | useWallaceRule | bool | true | Wallace if A+C+G+T count < 14, else Marmur-Doty | — (CalculateMeltingTemperature) |
+| weightAmbiguousBases | bool | false (overload) | IUPAC codes weighted as Biopython non-strict `Tm_Wallace` / `Tm_GC` (branch still chosen by the A+C+G+T+U count) | — (CalculateMeltingTemperature(seq, useWallaceRule, weightAmbiguousBases), B03 F33; MCP `melting_temperature.weightAmbiguousBases`, B03 F48) |
 | naConcentration | double | 0.05 | Na+ concentration, mol/L | > 0 (CalculateThermodynamics) |
 | primerConcentration | double | 2.5e-7 | Total strand conc. C_T, mol/L (divided by F = 4) | > 0 (CalculateThermodynamics) |
 
@@ -103,8 +104,15 @@ for these guarded inputs.
 
 1. Count A/T/G/C/U (case-insensitive; U read as T — Biopython `_check` back-transcription, 2026-09 B03 F20; N, IUPAC codes, gaps ignored); N = A+T+G+C+U (0 → Tm 0).
 2. **CalculateMeltingTemperature:** if `useWallaceRule` and N < 14, apply the Wallace
-   rule; otherwise apply Marmur-Doty (with `useWallaceRule: false` also below 14, outside
-   its published domain — may be negative; no clamp).
+   rule; otherwise apply Marmur-Doty (with `useWallaceRule: false` also below 14: this
+   matches the reference — Biopython `Tm_GC(userset=(64.9, 0.41, 672.4, 0), saltcorr=0)` has no
+   length clamp either: `AAAA` −103.2, `GC` −230.3, `A` −607.5, `ACGTACGTACGTA` 32.1, B03 F32;
+   formula-domain note per OligoCalc: the GC formula is published for ≥ 14 nt, so short-oligo values
+   are formal, not physical).
+   With `weightAmbiguousBases: true` (B03 F33) the same branch is scored as Biopython 1.88
+   non-strict: Wallace = 2(A+T+W) + 4(C+G+S) + 3(K+M+N+R+Y) + 10/3(B+V) + 8/3(D+H)
+   (`Tm_Wallace(strict=False)`); GC = 64.9 + 0.41·%GC − 672.4/N over the `Tm_GC` alphabet
+   (ABCDGHIKMNRSTVWXY, U→T), %GC = 100·`gc_fraction(weighted)` − 50·X/N (`Tm_GC(strict=False)`).
 3. **CalculateThermodynamics:** add helix-initiation terms at both termini, sum NN
    ΔH°/ΔS° over each dinucleotide, apply the salt correction to ΔS°, then evaluate the
    NN Tm equation and ΔG°37.
@@ -131,13 +139,14 @@ source-cited in code.
 
 - `SequenceStatistics.CalculateMeltingTemperature(string, bool)`: Wallace / Marmur-Doty estimate.
 - `SequenceStatistics.CalculateThermodynamics(string, double, double)`: NN ΔH°/ΔS°/ΔG°/Tm.
-- `ThermoConstants.CalculateWallaceTm`, `CalculateMarmurDotyTm`: shared formula constants.
+- `ThermoConstants.CalculateBasicTm` (canonical basic Tm; `useWallaceRule: true`) and
+  `ThermoConstants.CountBasicTmBases` + `CalculateMarmurDotyTm` (`useWallaceRule: false`) — B03 F25.
 
 ### 5.2 Current Behavior
 
-`CalculateMeltingTemperature` delegates the formula constants to `ThermoConstants`
-(the same constants used by `PrimerDesigner.CalculateMeltingTemperature` in the MolTools
-project — the formula is consolidated in one place). The repository default total strand
+`CalculateMeltingTemperature` delegates to the canonical `ThermoConstants.CalculateBasicTm`
+(the same method behind `PrimerDesigner.CalculateMeltingTemperature` in the MolTools project —
+counting and formula live in one place, B03 F25). The repository default total strand
 concentration for the NN model is C_T = 250 nM (vs Biopython's 50 nM); the formula is
 identical and the default is an explicit parameter (see §5.4). No substring search /
 matching is involved, so the repository suffix tree is **not applicable** to this unit.
@@ -150,25 +159,32 @@ matching is involved, so the repository suffix tree is **not applicable** to thi
 - Marmur-Doty GC formula 64.9 + 41·(GC − 16.4)/N [2].
 - NN Tm equation with R = 1.987, x = 4, and the SantaLucia (1998) salt correction [3][4].
 
-**Intentionally simplified:**
+**Repository convention (not a simplification):**
 
-- Default C_T = 250 nM differs from Biopython's 50 nM; **consequence:** NN Tm differs by
-  the fixed concentration offset unless `primerConcentration` is set (passing 5e-8
-  reproduces Biopython's 60.32).
+- Default C_T = 250 nM is a library parameter default, not part of the model (Biopython's
+  `Tm_NN` defaults to dnac1 = dnac2 = 25 nM, i.e. 50 nM total); the formula is identical, so
+  **consequence:** NN Tm differs by the fixed concentration term unless `primerConcentration`
+  is set (passing 5e-8 reproduces Biopython's 60.32).
 
-**Not implemented:**
+**Available via the canonical core (no `SequenceStatistics` wrapper, to avoid a second API):**
 
-- Mg²⁺ / dNTP / Tris salt corrections and mismatch/dangling-end NN terms;
-  **users should rely on:** dedicated tools (Biopython `Tm_NN`, MELTING 5) for those.
+- Mismatch / dangling-end NN terms: `CalculateThermodynamics` takes the perfect complement only; the
+  canonical B07 NN core `ThermoConstants.CalculateNearestNeighborDuplex(sequence, complement, shift, …)`
+  (also `CalculateNearestNeighborThermodynamics` / `CalculateNearestNeighborTm`) scores them with
+  Biopython's DNA_IMM1 / DNA_TMM1 / DNA_DE1 tables.
+  (K⁺ / Tris / Mg²⁺ / dNTP salt corrections — Biopython methods 0–7, Owczarzy 2008 — are implemented via
+  `ThermodynamicsOptions`, B03 F27.)
 
 ### 5.4 Deviations and Assumptions
 
 | # | Item | Type | Impact | Status | Notes |
 |---|------|------|--------|--------|-------|
-| 1 | Default C_T = 250 nM vs Biopython 50 nM | Assumption | NN Tm offset under defaults | accepted | Explicit `primerConcentration` parameter; formula identical (ASM-02) |
+| 1 | Default C_T = 250 nM vs Biopython 50 nM | Convention | NN Tm offset under defaults | accepted (repository parameter default) | Explicit `primerConcentration` parameter; formula identical (ASM-02) |
 | 2 | SEQ-TM-001 ↔ SEQ-THERMO-001 same methods | Deviation (duplicate Registry entry) | Avoid duplicate code/tests | accepted | Consolidated; see §7.3 and TestSpec §7 |
 | 3 | Wallace/GC switch used raw string length (N/gaps counted) | Deviation | `ACGTNNNNNNNNNNNN` → −82.7 instead of 12 | fixed | 2026-09 B03 F12 (OligoCalc N = A+T+G+C) |
-| 4 | Basic-Tm counting duplicated in `PrimerDesigner` (MolTools) | Duplication | none (identical results, locked by a differential test) | open | Analysis cannot reference MolTools; cross-batch request B03 R10 |
+| 5 | `useWallaceRule: false` below 14 nt not clamped | Convention (reference) | negative/formal Tm for very short oligos | accepted | equals Biopython `Tm_GC` userset (no clamp), B03 F32; OligoCalc publishes the formula for ≥ 14 nt |
+| 6 | IUPAC ambiguity ignored in basic Tm (Biopython non-strict weights it) | Convention / option | `acgtNNSWacgt-ry` 24 (default) vs 42 | opt-in | `weightAmbiguousBases: true` = Biopython `Tm_Wallace`/`Tm_GC(strict=False)` (B03 F33); default kept (OligoCalc N = A+T+G+C; Biopython default strict=True raises) |
+| 4 | Basic-Tm counting duplicated in `PrimerDesigner` (MolTools) | Duplication | none (identical results, locked by a differential test) | fixed | Both now call `ThermoConstants.CalculateBasicTm` / `CountBasicTmBases` (B07 R10; B03 F25) |
 
 ## 6. Edge Cases and Limitations
 
@@ -185,9 +201,10 @@ matching is involved, so the repository suffix tree is **not applicable** to thi
 
 ### 6.2 Limitations
 
-Wallace/GC formulas are rules of thumb; the NN model assumes two-state melting, fixed
-buffer, and monovalent (Na⁺) salt only. Mismatches, dangling ends, divalent ions, and
-secondary structure are not modeled.
+Wallace/GC formulas are rules of thumb; the NN model assumes two-state melting and a buffer
+stated by the caller (default Na⁺ only, method 5; K⁺/Tris/Mg²⁺/dNTPs via `ThermodynamicsOptions`,
+B03 F27). Mismatches and dangling ends are scored only by the canonical
+`ThermoConstants.CalculateNearestNeighborDuplex` (complement / shift); secondary structure is not modeled.
 
 ## 7. Examples and Related Material
 

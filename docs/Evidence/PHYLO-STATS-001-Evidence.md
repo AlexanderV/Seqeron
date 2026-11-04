@@ -25,7 +25,7 @@
 ### Tree (abstract data type) — Wikipedia
 
 **URL:** https://en.wikipedia.org/wiki/Tree_(abstract_data_type)
-**Accessed:** 2026-06-13 (fetched via WebFetch)
+**Accessed:** 2026-06-13 (fetched via WebFetch) · re-fetched 2026-10-14 (SRC citation audit: supports the claims above)
 **Authority rank:** 4
 
 **Key Extracted Points:**
@@ -61,7 +61,7 @@
 ### Minimum evolution — Wikipedia (context for tree length as an optimized quantity)
 
 **URL:** https://en.wikipedia.org/wiki/Minimum_evolution
-**Accessed:** 2026-06-13 (fetched via WebFetch)
+**Accessed:** 2026-06-13 (fetched via WebFetch) · re-fetched 2026-10-14 (SRC citation audit: supports the claims above)
 **Authority rank:** 4
 
 **Key Extracted Points:**

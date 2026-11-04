@@ -24,7 +24,9 @@ namespace Seqeron.Genomics.Core
                 return;
             }
 
-            var normalized = sequence.ToUpperInvariant();
+            // ASCII-only upper-casing so a rejected non-ASCII character (e.g. U+017F 'ſ', which
+            // ToUpperInvariant turns into 'S') is reported verbatim in the validation error.
+            var normalized = SequenceExtensions.ToUpperAscii(sequence);
             ValidateSequence(normalized);
             _sequence = normalized;
         }

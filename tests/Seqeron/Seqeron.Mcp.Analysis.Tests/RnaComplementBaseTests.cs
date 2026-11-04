@@ -30,4 +30,17 @@ public class RnaComplementBaseTests
             Assert.That(AnalysisTools.RnaComplementBase("C").Complement, Is.EqualTo('G'));
         });
     }
+
+    /// <summary>
+    /// A1-12 / F25: documented IUPAC + T behaviour equals Biopython 1.88 <c>complement_rna</c>:
+    /// complement_rna("ACGTURYSWKMBDHVN") = "UGCAAYRSWMKVHDBN".
+    /// </summary>
+    [Test]
+    public void RnaComplementBase_IupacAndT_MatchBiopythonComplementRna()
+    {
+        const string input = "ACGTURYSWKMBDHVN";
+        const string expected = "UGCAAYRSWMKVHDBN";
+        for (int i = 0; i < input.Length; i++)
+            Assert.That(AnalysisTools.RnaComplementBase(input[i].ToString()).Complement, Is.EqualTo(expected[i]), $"base {input[i]}");
+    }
 }

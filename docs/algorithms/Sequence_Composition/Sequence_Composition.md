@@ -123,8 +123,10 @@ is not applicable here. GC/AT skew use zero-denominator guards returning 0.0, ma
 
 **Not implemented:**
 
-- Weighted ambiguous-base GC (`ambiguous="weighted"`); **users should rely on:** Biopython
-  `gc_fraction` for degenerate-heavy sequences.
+- Weighted ambiguous-base GC (`ambiguous="weighted"`) in the composition record itself; **users should
+  rely on:** the canonical `SequenceExtensions.CalculateGcFraction(span, GcAmbiguityMode.Weighted)` (Biopython
+  `gc_fraction` remove/ignore/weighted parity), also exposed per window by the `GcAmbiguityMode` overloads of
+  `SequenceStatistics.CalculateGcContentProfile` (B03 F19/F24).
 
 ## 6. Edge Cases and Limitations
 

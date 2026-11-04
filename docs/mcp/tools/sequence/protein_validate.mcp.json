@@ -6,7 +6,7 @@
   "stability": "stable",
   "methodId": "ProteinSequence.TryCreate",
   "docRef": "Seqeron.Genomics/ProteinSequence.cs#L357",
-  "description": "Validate a protein sequence. Returns whether the sequence contains only valid amino acids.",
+  "description": "Validate a protein sequence. Returns whether the sequence contains only valid amino acids: the 20 standard residues, B/Z/J (Asx/Glx/Xle), X (unknown), U (selenocysteine), O (pyrrolysine) and * (stop) — Biopython extended_protein_letters plus *. Case-insensitive.",
   "inputSchema": {
     "type": "object",
     "properties": {

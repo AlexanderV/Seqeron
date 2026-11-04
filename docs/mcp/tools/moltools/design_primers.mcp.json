@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "PrimerDesigner.DesignPrimers",
-  "docRef": "Seqeron.Genomics.MolTools/PrimerDesigner.cs#L104",
+  "docRef": "Seqeron.Genomics.MolTools/PrimerDesigner.cs#L138",
   "description": "Design forward and reverse PCR primers flanking a target region with Primer3's pair search (verified against primer3-py design_primers): per-primer limits (length, GC%, Primer3-default SantaLucia Tm, poly-X, dinucleotide repeat) plus, by default, Primer3's thermodynamic structure screen (ntthal self-dimer, 3' self-dimer, hairpin Tm <= 47 °C); pairs need a product size in product_size_range (default 100-300 bp), |ΔTm| <= max_tm_difference (default 5 °C) and pair hetero-dimer / 3' hetero-dimer Tm <= 47 °C; returns the lowest Primer3 pair penalty pair, its product Tm and complementarity, an optional internal hybridization oligo and up to num_return ranked pairs. With parameters.StructureScreen = Primer3Alignment the screen is Primer3's alignment mode (PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT=0: dpal self_any/self_end <= 8/3, pair compl_any/compl_end <= pair_max_compl_any/pair_max_compl_end 8/3) and complAny/complEnd are reported.",
   "inputSchema": {
     "type": "object",

@@ -3,9 +3,9 @@
 **Test Unit ID:** PRIMER-TM-001 (hairpin / secondary-structure Tm extension)
 **Area:** MolTools
 **Algorithm:** DNA hairpin (stem + loop) MFE folding + unimolecular hairpin Tm
-**Status:** ☐ In Progress
+**Status:** ☑ Complete (all items ✅ Done, tests verified present; audit round 4, A4-4)
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-06-25
+**Last Updated:** 2026-06-25; status 2026-10-08
 
 ---
 
@@ -30,8 +30,9 @@
 
 ### 1.3 Documented Corner Cases
 
-- Loop < 3 nt → prohibited. Homopolymer / no complementary stem → no hairpin. Length 3/4 special bonuses are
-  supplementary (not bundled; opt-in increment). Non-ACGT / empty / null → not computable.
+- Loop < 3 nt → prohibited. Homopolymer / no complementary stem → no hairpin. Length 3/4 special bonuses and
+  terminal mismatches are not applied by this single-stem core (opt-in increment); they are bundled and applied by
+  the ntthal hairpin `CalculateHairpinThermodynamicsNtthal` (PRIMER-TM-001-SPECIAL-LOOP / PRIMER-HAIRPIN-001). Non-ACGT / empty / null → not computable.
 
 ### 1.4 Known Failure Modes / Pitfalls
 
@@ -54,7 +55,7 @@
 
 | ID | Invariant | Verifiable | Evidence |
 |----|-----------|------------|----------|
-| INV-1 | The returned hairpin minimises ΔG°37 over all stem/loop placements (MFE). | Yes | Source 1 (folding = minimum free energy) |
+| INV-1 | The returned hairpin minimises ΔG°37 over all stem/loop placements (MFE) — every stem length closing a ≥ 3-nt loop, not only the maximal extension (GGGGCCCC → 2 bp + 3 nt; audit round 3, A3-13 / F57). | Yes | Source 1 (folding = minimum free energy) |
 | INV-2 | A homopolymer / oligo with no WC stem closing a ≥3-nt loop returns null (no hairpin). | Yes | Source 1 (no stem possible) |
 | INV-3 | Hairpin Tm is concentration-independent: Tm = ΔH°·1000/ΔS° − 273.15, no C_T term. | Yes | Source 1 Eq.11; Source 3 |
 | INV-4 | Loop ΔH° contribution is 0; loop ΔS° = −ΔG°37·1000/310.15. | Yes | Source 1 Table 4 footnote a |
@@ -113,7 +114,7 @@
 
 ### 5.3 Consolidation Plan
 
-- **Canonical file:** `tests/Seqeron/Seqeron.Genomics.Tests/PrimerDesigner_HairpinTm_Tests.cs` — all hairpin tests.
+- **Canonical file:** `tests/Seqeron/Seqeron.Genomics.Tests/Unit/MolTools/PrimerDesigner_HairpinTm_Tests.cs` — all hairpin tests.
 - **Remove:** none.
 
 ### 5.4 Final State After Consolidation
@@ -182,6 +183,9 @@
 
 ## 7. Open Questions / Decisions
 
-1. The supplementary triloop/tetraloop bonus and terminal-mismatch tables (length-3/4 loops) are not bundled;
-   exposed as an opt-in `loopBonusDeltaG37` increment (default 0). This is the honest residual recorded in
-   LIMITATIONS / the report — the stem-stack + loop-initiation core is exact and fully sourced.
+1. **Decision (B07 PRIMER-HAIRPIN-001):** the triloop/tetraloop bonus and terminal-mismatch tables are bundled
+   (primer3 `triloop`/`tetraloop`/`tstack2`/`dangle`) and applied by `CalculateHairpinThermodynamicsNtthal` /
+   `CalculateHairpinStructureNtthal` (exact to primer3-py 2.3.1 `calc_hairpin`; PRIMER-TM-001-SPECIAL-LOOP). This
+   legacy single-stem core (`FindMostStableHairpin` / `CalculateHairpinMeltingTemperature`) is kept unchanged for API
+   and value compatibility with its opt-in `loopBonusDeltaG37` increment (default 0); mixing thal's loop terms into
+   the SantaLucia & Hicks (2004) Table 1/4 core would create a hybrid with no reference implementation.

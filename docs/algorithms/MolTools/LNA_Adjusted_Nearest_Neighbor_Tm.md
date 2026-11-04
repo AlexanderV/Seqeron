@@ -69,7 +69,7 @@ closely for isolated LNAs (`CCATT(L)GCTACC`, 1e-4 M: 63.614 vs 63.483 °C).
 |----|-----------|
 | INV-01 | No LNA ⇒ equals the unified DNA NN model (Biopython `Tm_NN(nn_table=DNA_NN3)` with the same R). |
 | INV-02 | ΔH°/ΔS° equal MELTING 5.2.0 bit-exactly for every computable duplex; Tm equal with R = 1.99 whenever MELTING's f(GC) convention coincides (see 5.4). |
-| INV-03 | Not computable (null/NaN) exactly where MELTING reports missing parameters. |
+| INV-03 | Not computable (null/NaN) exactly where MELTING reports missing parameters, and additionally for a terminal LNA (MELTING 5.2.0 evaluates it by extrapolation — see 5.4). |
 | INV-04 | Position order/duplicates irrelevant; case-insensitive. |
 
 ## 3. Contract
@@ -136,7 +136,10 @@ Default overloads use Owczarzy (2011) with the perfect complement.
 Differential check vs melting5.jar 5.2.0 (`Main.getMeltingResults`, full precision; 4 200 random
 duplexes: 6–30 nt, 1–8 LNAs incl. runs, LNA-triplet and DNA mismatches, C_T 0.25–100 µM,
 Na⁺ 0.05–1 M, Mg²⁺ 0/3 mM, both models): ΔH°/ΔS° identical in every computable case, identical
-not-computable set, Tm identical (≤ 1e-8 °C, R = 1.99) except the f(GC) convention cases below.
+not-computable set for internal LNAs, Tm identical (≤ 1e-8 °C, R = 1.99) except the f(GC) convention cases below.
+Terminal LNAs are the one deliberate difference (re-run 2026-10-08, 600 random duplexes with ~15 % terminal
+LNAs: all 67 differences are terminal-LNA duplexes that MELTING evaluates and this library returns NaN; 106
+jointly not computable; see 5.4).
 rmelting `test-method.locked.R`: 63.61426 (mct04), 63.48299 (owc11), 12.94323 (GALCLC) reproduced.
 
 Agreement with measured Tm (MELTING-shipped data sets): McTigue (2004) 100 single-LNA duplexes
@@ -158,6 +161,17 @@ duplexes (2 µM) 1.01 °C perfect match, 2.87 °C central mismatch.
   iCarrin/Bio_dpt `lna_tm.py`, has −21.535).
 - **McTigue model with consecutive LNAs**: McTigue (2004) measured single internal LNAs only;
   runs use the Owczarzy (2011) tables, as MELTING does.
+- **Terminal LNA (position 0 or n − 1) → not computable; MELTING 5.2.0 does compute it.** Neither
+  paper parameterises an LNA at a duplex end (McTigue 2004: single internal LNAs; MELTING's own
+  `isApplicable` of `McTigue04LockedAcid` / `Owczarzy11LockedAcid` / `LockedAcidNNMethod` is written to
+  warn "The thermodynamics parameters for locked nucleic acids … are not established for terminal
+  locked nucleic acids." and return false). That guard never fires in 5.2.0: it compares the terminal
+  base pair with the literal pattern `"L"`/`"-"`, which an LNA base (`"CL"`, `"AL"`, …) never equals,
+  so neither the warning nor the rejection is emitted and MELTING applies the internal-LNA doublet
+  parameter at the end (e.g. 1e-4 M, 1 M Na⁺: `CLCATTGCTACC` owc11 66.65650883512683 °C (step
+  `CLC/G G` −5.904/−11.904), mct04 66.66234775338887; `CCATTGCTACCL` owc11 66.17003475528679 °C).
+  That value is an extrapolation of internal-LNA parameters outside their validated range, contrary
+  to MELTING's documented intent, so it is deliberately not reproduced (B07 F66).
 
 ## 6. Edge Cases and Limitations
 
@@ -168,7 +182,8 @@ See 3.3; mismatch opposite an isolated LNA has no published parameter (also miss
 ### 6.2 Limitations
 
 - LNA on both strands, terminal LNAs, dangling ends and terminal mismatches are not parameterised
-  by either paper (not computable).
+  by either paper (not computable). MELTING 5.2.0 also rejects terminal mismatches ("No method for
+  terminal mismatches") but evaluates terminal LNAs through a non-firing guard (see 5.4).
 - MGB: only the qualitative Kutyavin (2000) rules (3'-attachment, 12–20mer window). The quantitative
   MGB ΔTm is not computed — Kutyavin (2000) reports measured Tm only; the vendor model (Primer Express
   `MGB_dds` entropy term, Epoch/ELITech patent US 7,715,989) has no obtainable parameter values

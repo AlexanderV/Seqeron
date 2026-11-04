@@ -48,6 +48,9 @@
 | `DetectFocalAmplifications(segments, thresholds?)` | OncologyAnalyzer | Canonical | GISTIC2 length(<0.98·arm) + amplitude(>t_amp) predicate |
 | `IdentifyAmplifiedOncogenes(amplifications)` | OncologyAnalyzer | Canonical | Maps focal amplifications to ERBB2/MYC/EGFR/CCND1/MDM2/CDK4 by chromosome arm |
 | `IsFocalAmplification(segment, thresholds)` | OncologyAnalyzer | Internal | Single-segment predicate; tested via canonicals |
+| `DeconstructZiggurat(chromosomes, samples, options?)` | OncologyAnalyzer | Canonical | GISTIC2 ziggurat deconstruction (F50–F52), Octave-locked |
+| `DetectFocalAmplificationEvents(deconstruction, thresholds?)` | OncologyAnalyzer | Canonical | GISTIC2 `reconstruct_genomes` focal filter on events (F52) |
+| `GetChromosomeArmLengths(genome)` | OncologyAnalyzer | Canonical | GRCh38/GRCh37 arm table from UCSC cytoBand, GISTIC2 p/q acen split (F55) |
 
 ---
 
@@ -100,6 +103,32 @@
 | C5b | Range endpoints | t_amp 0, cutoff 2; seg 0.99, log2 0.05 | Reported | Inclusive GISTIC2 ranges |
 | C6 | NaN log2 | log2 NaN | Not reported (no-call) | NaN not above t_amp |
 | C7 | Duplicate/mixed-case arms | 11q, 17Q, 17q | ["ERBB2","CCND1"] (distinct, panel order) | INV-4 |
+| C8 | Marker-unit arm fraction (F48) | MarkerCount/ArmMarkerCount 3/10, 39/40, 40/40, 10/10 | ArmFraction 0.29999999999999999, 0.97499999999999998, 1, 1 (Octave `normalize_by_arm_length` norm_type 1) | ArmFraction_MarkerCounts_MatchesGistic2Octave |
+| C9 | Markers flip bp verdict (F48) | 0.99 bp + 39/40 markers ⇒ focal; 0.5 bp + 40/40 ⇒ not focal; no counts ⇒ bp | as stated | DetectFocalAmplifications_MarkerUnits_*, ArmFraction_NoMarkerCounts_StaysBp |
+| C10 | Invalid marker counts (F48) | (5,null), (null,5), (0,5), (6,5) | ArgumentException | IsFocalAmplification_InvalidMarkerCounts_Throws |
+| C11 | Locus overlap (F49) | 7 regions vs GRCh38 panel (touch start/end, ±1 base, inside, two genes) | Octave `genes_at` gene lists | IdentifyAmplifiedOncogenes_LocusOverlap_MatchesGistic2GenesAt |
+| C12 | Locus overlap, focal elsewhere on 17q (F49) | 17:60,000,000-61,000,000 | [] (arm-level overload would give ERBB2) | IdentifyAmplifiedOncogenes_LocusOverlap_FocalElsewhereOnArm_NotErbb2 |
+| C13 | Custom panel, chr-prefix/case, distinct (F49) | panel G2,G1 on X; regions chrX:150, x:120-250 | ["G2","G1"] | IdentifyAmplifiedOncogenes_LocusOverlap_CustomPanelAndDistinct |
+| C14 | Locus-overlap guards (F49) | null regions; End < Start; empty chromosome | ArgumentNullException / ArgumentException | IdentifyAmplifiedOncogenes_LocusOverlap_InvalidInput_Throws |
+| C15 | Default GRCh38 panel (F49) | DefaultOncogeneLoci | GISTIC2 GENCODE v22 coordinates | DefaultOncogeneLoci_Gistic2Gencode22Coordinates |
+| C16 | Ziggurat B array + per-sample deconstruction: interrupted arm gain (F50) | 1p 0.5\|1.5\|0.5, levels 0 and (0.5, 0, 0.2, 0.2) | Octave `make_sample_B` / `deconstruct_sample` rows bit-exact | MakeSampleB_And_DeconstructSample_InterruptedArmGain_MatchOctave |
+| C17 | Deletion inside gain (F50) | 1q 0.6\|−0.8\|0.6; levels 0 and (0, 0.6, −0.3, −0.3), first-row breakpoint quirk | Octave rows bit-exact | MakeSampleB_And_DeconstructSample_DeletionInsideGain_MatchOctave |
+| C18 | Centromere-spanning segment (F50) | chr2 markers 6..12 (3/8 p + 4/12 q) | fract 0.70833333333333326; whole chromosome 2 | MakeSampleB_CentromereSpanningSegment_SumsArmFractions_MatchOctave |
+| C19 | Breakpoint on first row (F50) | chr2 0.4\|1.2\|−0.5, bpt = first row | all rows vs q level (Octave) | DeconstructSample_BreakpointOnFirstRow_TreatsChromosomeAsQ_MatchOctave |
+| C20 | Equal adjacent values merged; invalid tiling (F50) | 0.5,0.5 adjacent; gaps / overrun / NaN / unknown chr / empty or duplicate layout | one B row; ArgumentException | MakeSampleB_EqualAdjacentValues_Merged, MakeSampleB_InvalidTiling_Throws |
+| C21 | Length × amplitude log table (F51) | 3-sample cohort, initial (level 0) events | all 51×51 `log_hd` cells = Octave `generate_2d_hists(QA,QD,[],[],.01,1)` (11 occupied bins, background −9.4415314548696934) | Generate2dHistogram_CohortInitialEvents_MatchOctaveLogTable |
+| C22 | Arm broad-level selection (F51) | every (sample, chromosome, breakpoint, p/q part) of the cohort, 32 calls | level, max score, num_levels, max_Q rows = Octave `find_max_broad_level_by_table` | FindMaxBroadLevelByTable_EveryArmSplitOfCohort_MatchesOctave |
+| C23 | 0.5\|1.5\|0.5 on 1p, one sample (F52) | `DeconstructZiggurat`, copy-number input, niters 1 / 2 | Octave events: broad 0.5 (1p, fract 1) + focal +1.0; `DetectFocalAmplificationEvents` → the +1.0 only; per-segment overload unchanged (3) | DeconstructZiggurat_InterruptedArmGain_OneBroadOneFocal_MatchesOctave |
+| C24 | Deletion inside gain (F52) | 1q 0.6\|−0.8\|0.6 | Octave events incl. make_final_Qs split and −0 levels | DeconstructZiggurat_DeletionInsideGain_SplitAtZero_MatchesOctave |
+| C25 | Centromere-spanning event (F52) | chr2 markers 6..12 | one focal amp, fract 0.70833333333333326 | DeconstructZiggurat_CentromereSpanningGain_MatchesOctave |
+| C26 | 3-sample cohort (F52) | niters 1 and 2 | 13 Octave events each, bit-exact | DeconstructZiggurat_ThreeSampleCohort_MatchesOctave |
+| C27 | Full pipeline log2 + cap (F52) | 3 samples, 1.9 / 1.6 / −∞ capped at 1.5 | 9 events = Octave `perform_ziggurat_deconstruction` Qs | DeconstructZiggurat_Log2InputWithDefaultCap_MatchesOctavePerformZigguratDeconstruction |
+| C28 | Focal filter on events (F52) | cohort; t_amp 1.0 equality; NaN threshold; null | amp+aod, fract < 0.98, amplitude ≥ t_amp; throws | DetectFocalAmplificationEvents_AppliesReconstructGenomesFilter |
+| C29 | All neutral; invalid arguments (F52) | zeros; null/empty samples, Cap 0/NaN, Iterations 0, +∞ without cap | no events; ArgumentNullException / ArgumentException / ArgumentOutOfRangeException | DeconstructZiggurat_AllNeutral_NoEvents, DeconstructZiggurat_InvalidArguments_Throw |
+| C30 | Noise filter counts + default 2500 (F54) | 4-sample log2 cohort: cross-chromosome equal run, cap-merged 2.0\|2.2, equal adjacent segments | SegmentCounts [2 5 2 6] (Octave SegArray `getbpt_counts` after `cap_vals`); default / max 6 / null: 16 Octave events, nothing removed | DeconstructZiggurat_NoiseFilter_SegmentCountsAndDefault2500_MatchOctave |
+| C31 | Noise filter max 5 / max 2 (F54) | same cohort | removes [3] / [1, 3] (`<=` keeps count 5); events = Octave `perform_ziggurat_deconstruction` on kept columns, original sample indices | DeconstructZiggurat_NoiseFilter_Max5_RemovesSample3_MatchesOctave, DeconstructZiggurat_NoiseFilter_Max2_KeepsSamples0And2_OriginalIndices_MatchesOctave |
+| C32 | Noise filter all removed / negative (F54) | max 1; max −1 | ArgumentException (`all_data_removed`); ArgumentOutOfRangeException | DeconstructZiggurat_NoiseFilter_AllRemoved_OrNegative_Throws |
+| C33 | Arm table (F55) | GRCh38, GRCh37 | Σ p / Σ q (Python on cytoBand; = Octave `normalize_by_arm_length` lengths), chr1 acen, ends = `GetAutosomeLengths`, spot rows chr13/22/X/Y (hg38), chr9/Y (hg19); undefined enum throws | GetChromosomeArmLengths_SumsAndChr1_MatchUcscCytoBand, GetChromosomeArmLengths_SpotValues_MatchCytoBandAcenRows |
 
 ---
 
@@ -150,7 +179,7 @@
 | 18 | C4 | ❌ Missing | Implemented | ✅ Done |
 
 **Total items:** 18
-**✅ Done:** 18 | **⛔ Blocked:** 0 | **Remaining:** must be 0
+**✅ Done:** 18 | **⛔ Blocked:** 0 | **Remaining:** 0
 
 ### 5.6 Post-Implementation Coverage
 
@@ -188,8 +217,8 @@
 | # | Assumption | Used In |
 |---|-----------|---------|
 | 1 | Amplitude "amplified" test uses GISTIC2 `t_amp` = 0.1 combined with the paper's length rule — confirmed as GISTIC2's own focal filter (`reconstruct_genomes.m`, 2026-09 review) | DetectFocalAmplifications predicate |
-| 3 | Each input segment is one SCNA event (no ziggurat deconstruction); raw flanks of a broad gain interrupted by a focal peak are reported as focal | Input contract (documented limitation) |
-| 2 | Arm label + arm length supplied by caller (no bundled cytoband table) | Segment input contract |
+| 3 | `DetectFocalAmplifications` treats each input segment as one SCNA event; GISTIC2 events (ziggurat deconstruction) via `DeconstructZiggurat` + `DetectFocalAmplificationEvents` (F50–F52) | Input contract of the per-segment overload |
+| 2 | Arm label + arm length supplied by caller for `CopyNumberArmSegment`; bundled UCSC cytoband arm table available via `GetChromosomeArmLengths` (F55) | Segment input contract |
 
 ---
 

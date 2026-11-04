@@ -241,8 +241,8 @@ public class ProbeDesigner_ProbeValidation_Tests
     {
         // S1: Secondary structure potential detected for hairpin sequences
         // Stem-loop: GCGC (stem, 4nt) + TTT (loop, 3nt) + GCGC (stem, 4nt) + filler
-        // HasSecondaryStructurePotential checks inverted repeats with stemLen≥4, gap=3
-        // revComp("GCGC") = "GCGC" → 4/4 = 100% match ≥ 80% threshold → detected
+        // A 20-nt A/C/G/T probe gets the default Primer3 ntthal hairpin screen (Tm > 47 °C); the fallback
+        // stem-loop screen PrimerDesigner.HasHairpinPotential (exact ≥ 4-bp stem, loop ≥ 3) flags it as well.
         string hairpinProbe = "GCGCTTTGCGCAAAAAAAAA"; // 20 chars
 
         var validation = ProbeDesigner.ValidateProbe(hairpinProbe, Enumerable.Empty<string>());
@@ -683,6 +683,34 @@ public class ProbeDesigner_ProbeValidation_Tests
                 "Low-identity reference (best block 0.20 < 0.75) must NOT be called an off-target");
             Assert.That(gapped.IsSpecific, Is.False,
                 "Two off-targets present → the probe is not specific");
+        });
+    }
+
+    [Test]
+    public void ScanOffTargetsGapped_TwoPerfectCopies_CountsIndependentOfReferenceOrder()
+    {
+        // A5-3: the scan has no target coordinate, so exactly one perfect, ungapped, full-coverage copy (the first in
+        // reference order) is the intended site; every further perfect copy is listed as on-target-class AND counted as
+        // an off-target. Identical copies are indistinguishable, so the counts and IsSpecific must not depend on which
+        // copy comes first.
+        const string probe = "ACGTGGCATTACGGCATTCA"; // 20 nt
+        string copyA = "TTTTT" + probe + "TTTTT";
+        string copyB = "GGGGG" + probe + "GGGGG";
+
+        var forward = ProbeDesigner.ScanOffTargetsGapped(probe, new[] { copyA, copyB });
+        var reversed = ProbeDesigner.ScanOffTargetsGapped(probe, new[] { copyB, copyA });
+
+        Assert.Multiple(() =>
+        {
+            foreach (var result in new[] { forward, reversed })
+            {
+                Assert.That(result.OnTargetHits, Has.Count.EqualTo(2), "Both perfect copies are on-target-class");
+                Assert.That(result.OffTargetCount, Is.EqualTo(1), "Only the second perfect copy is an off-target");
+                Assert.That(result.OnTargetHits[0].ReferenceIndex, Is.EqualTo(0), "First copy = intended site");
+                Assert.That(result.OffTargetHits[0].ReferenceIndex, Is.EqualTo(1), "Extra copy = off-target");
+                Assert.That(result.OffTargetHits[0].Start, Is.EqualTo(5), "Extra copy site after the 5-nt flank");
+                Assert.That(result.IsSpecific, Is.False, "A second binding site makes the probe non-specific");
+            }
         });
     }
 
@@ -1172,6 +1200,173 @@ public class ProbeDesigner_ProbeValidation_Tests
         Assert.That(stats.K, Is.EqualTo(0.7106027952162398).Within(1e-9));
     }
 
+    // KA22 — gcd > 1 schemes, K as BLAST+ computes it (KarlinKMethod.NcbiBlast): BlastKarlinLHtoK reduces low/high/λ by
+    // δ = gcd but its series reads probArrayStartLow[j] from the UNREDUCED array. blastn 2.12.0+ -task blastn -ungapped
+    // footers (λ K H): 4/−6 0.317 1.17 0.912; 6/−9 0.211 1.17 0.912; 8/−12 0.158 1.17 0.912; 4/−10 0.340 1.06 1.24;
+    // 6/−4 0.136 1.63 0.222; 6/−10 0.216 1.03 0.997; 8/−10 0.151 1.07 0.753; 10/−8 0.0958 1.31 0.357; closed forms
+    // 4/−2 0.132 0.0532 0.0722, 2/−2 0.549 0.333 0.549, 2/−4 0.666 0.621 1.12. Exact values: line-by-line Python port of
+    // blast_stat.c (Blast_KarlinBlkUngappedCalc / BlastKarlinLtoH / BlastKarlinLHtoK, verbatim indexing).
+    [TestCase(4, -6, 0.31686572154895387, 1.1666856431064105, 0.9124383922742287)]
+    [TestCase(6, -9, 0.21124381436596928, 1.1666856431064097, 0.9124383922742297)]
+    [TestCase(8, -12, 0.15843286077447694, 1.1666856431064099, 0.9124383922742294)]
+    [TestCase(4, -10, 0.34025265263757676, 1.0551429674627688, 1.2420803627364985)]
+    [TestCase(6, -4, 0.1355894744877687, 1.633485999782881, 0.22232354260180115)]
+    [TestCase(6, -10, 0.21596619831296326, 1.030863998562112, 0.9968202121665337)]
+    [TestCase(8, -10, 0.15052619278167545, 1.0682924577828306, 0.7531655560686317)]
+    [TestCase(10, -8, 0.09576464169521554, 1.3071030460951232, 0.356723851056931)]
+    [TestCase(4, -2, 0.1322485471578545, 0.05322292075469216, 0.07218608985058102)] // closed form (reduced low −1)
+    [TestCase(2, -2, 0.549306144334055, 0.3333333333333333, 0.5493061443340556)]    // closed form (reduced ±1)
+    [TestCase(2, -4, 0.6663528814101303, 0.6209911172603868, 1.1240918464926628)]   // closed form (reduced high +1)
+    [TestCase(2, -3, 0.6337314430979077, 0.4081456625463164, 0.9124383922742287)]   // δ = 1: same as ReducedLattice
+    public void ComputeUngappedKarlinParameters_NcbiBlastK_MatchesBlastn(int match, int mismatch, double lambda, double k, double h)
+    {
+        var ncbi = ProbeDesigner.ComputeUngappedKarlinParameters(
+            match, mismatch, 0.25, ProbeDesigner.KarlinKMethod.NcbiBlast);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ncbi.Lambda, Is.EqualTo(lambda).Within(1e-9));
+            Assert.That(ncbi.K, Is.EqualTo(k).Within(1e-9));
+            Assert.That(ncbi.H, Is.EqualTo(h).Within(1e-9));
+        });
+    }
+
+    // KA23 — the default stays the scale-invariant reduced lattice (Karlin & Altschul 1990): K(δ·a, −δ·b) = K(a, −b);
+    // for closed-form and δ = 1 schemes both methods agree.
+    [TestCase(4, -6, 2, -3)]
+    [TestCase(4, -10, 2, -5)]
+    [TestCase(6, -4, 3, -2)]
+    [TestCase(10, -8, 5, -4)]
+    [TestCase(4, -2, 2, -1)]
+    public void ComputeUngappedKarlinParameters_ReducedLattice_IsScaleInvariant(int match, int mismatch, int rMatch, int rMismatch)
+    {
+        var scaled = ProbeDesigner.ComputeUngappedKarlinParameters(match, mismatch);
+        var reduced = ProbeDesigner.ComputeUngappedKarlinParameters(rMatch, rMismatch);
+        var explicitReduced = ProbeDesigner.ComputeUngappedKarlinParameters(
+            match, mismatch, 0.25, ProbeDesigner.KarlinKMethod.ReducedLattice);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(scaled.K, Is.EqualTo(reduced.K).Within(1e-12));
+            Assert.That(explicitReduced, Is.EqualTo(scaled));
+        });
+    }
+
+    [Test]
+    public void ComputeUngappedKarlinParameters_KMethods_AgreeForCoprimeAndClosedForm_DifferOtherwise()
+    {
+        Assert.Multiple(() =>
+        {
+            foreach (var (m, mm) in new[] { (1, -3), (2, -3), (3, -4), (5, -4), (2, -2), (2, -4), (4, -2) })
+                Assert.That(ProbeDesigner.ComputeUngappedKarlinParameters(m, mm, 0.25, ProbeDesigner.KarlinKMethod.NcbiBlast).K,
+                    Is.EqualTo(ProbeDesigner.ComputeUngappedKarlinParameters(m, mm).K).Within(1e-12), $"{m}/{mm}");
+            Assert.That(ProbeDesigner.ComputeUngappedKarlinParameters(4, -6).K, Is.EqualTo(0.4081456625463167).Within(1e-9));
+            Assert.That(ProbeDesigner.ComputeUngappedKarlinParameters(1, -3, new[] { 0.3, 0.2, 0.2, 0.3 },
+                ProbeDesigner.KarlinKMethod.NcbiBlast).K, Is.EqualTo(0.6965155054507803).Within(1e-9), "δ = 1 composition (KA15)");
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                ProbeDesigner.ComputeUngappedKarlinParameters(4, -6, 0.25, (ProbeDesigner.KarlinKMethod)7));
+        });
+    }
+
+    // KA24 — ComputeBlastnStatistics (BLAST semantics) uses BLAST+'s K by default. blastn 2.12.0+ -task blastn, 200-nt
+    // query vs 3100-nt subject: 4/−6 -ungapped → "Effective search space used: 573996", score 400 → 182 bits, E 6.03e-50;
+    // 6/−4 -ungapped → 425600, score 602 → 117 bits, E 2.47e-30; 4/−6 gap 12/8 (≥ 2/−3 infinite domain 6/4 × 2) →
+    // "Gapped 0.317 1.17 0.912", 573996, 6.03e-50. Exact E/bits from the Python port (E = space·K·e^{−λS}).
+    [Test]
+    public void ComputeBlastnStatistics_GcdScheme_UsesBlastK_MatchesBlastn()
+    {
+        var m46 = new Seqeron.Genomics.Infrastructure.ScoringMatrix(Match: 4, Mismatch: -6, GapOpen: -12, GapExtend: -8);
+        var m64 = new Seqeron.Genomics.Infrastructure.ScoringMatrix(Match: 6, Mismatch: -4, GapOpen: -10, GapExtend: -6);
+        var u46 = ProbeDesigner.ComputeBlastnStatistics(400, 200, 3100, scoring: m46, gapped: false);
+        var g46 = ProbeDesigner.ComputeBlastnStatistics(400, 200, 3100, scoring: m46);
+        var u64 = ProbeDesigner.ComputeBlastnStatistics(602, 200, 3100, scoring: m64, gapped: false);
+        var reduced = ProbeDesigner.ComputeBlastnStatistics(400, 200, 3100, scoring: m46, gapped: false,
+            kMethod: ProbeDesigner.KarlinKMethod.ReducedLattice);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(u46.Parameters.K, Is.EqualTo(1.1666856431064105).Within(1e-9));
+            Assert.That(u46.LengthAdjustment, Is.EqualTo(14));
+            Assert.That(u46.EffectiveSearchSpace, Is.EqualTo(573996));
+            Assert.That(u46.EValue, Is.EqualTo(6.034606696310044e-50).Within(1e-58));
+            Assert.That(u46.BitScore, Is.EqualTo(182.63382615522124).Within(1e-6));
+            Assert.That(g46.Parameters, Is.EqualTo(u46.Parameters with { Gapped = true, RoundDown = true }),
+                "infinite domain copies BLAST's ungapped block (2/−3 table: round_down)");
+            Assert.That(g46.EffectiveSearchSpace, Is.EqualTo(573996));
+            Assert.That(g46.EValue, Is.EqualTo(6.034606696310044e-50).Within(1e-58));
+            Assert.That(u64.Parameters.K, Is.EqualTo(1.633485999782881).Within(1e-9));
+            Assert.That(u64.LengthAdjustment, Is.EqualTo(60));
+            Assert.That(u64.EffectiveSearchSpace, Is.EqualTo(425600));
+            Assert.That(u64.EValue, Is.EqualTo(2.471093453808567e-30).Within(1e-38));
+            Assert.That(u64.BitScore, Is.EqualTo(117.05183189919178).Within(1e-6));
+            Assert.That(reduced.Parameters.K, Is.EqualTo(0.4081456625463167).Within(1e-9), "opt-out: scale-invariant K");
+            Assert.That(ProbeDesigner.GetBlastnGappedKarlinParameters(4, -6, 12, 8, ProbeDesigner.KarlinKMethod.ReducedLattice).K,
+                Is.EqualTo(0.4081456625463167).Within(1e-9));
+            Assert.That(ProbeDesigner.ComputeKarlinAltschul(400, 200, 3100, m46, kMethod: ProbeDesigner.KarlinKMethod.NcbiBlast).K,
+                Is.EqualTo(1.1666856431064105).Within(1e-9));
+            Assert.That(ProbeDesigner.ComputeKarlinAltschul(400, 200, 3100, m46).K,
+                Is.EqualTo(0.4081456625463167).Within(1e-9), "ComputeKarlinAltschul default unchanged (reduced lattice)");
+        });
+    }
+
+    // KA25 — ungapped schemes with no BLAST+ blastn_values_* table: Blast_GetNuclAlphaBeta returns the
+    // s_GetNuclValuesArray error without setting α/β, BLAST_CalcEffLengths keeps α = β = 0 → ℓ = 0, search space m·n.
+    // NCBI blastn 2.12.0+ -task blastn -ungapped -word_size 7 -dust no, 73-nt query vs 446-nt subject (query with 3
+    // substitutions embedded, seed 71): "Effective search space used: 32558" (= 73·446) for every unsupported scheme;
+    // top-HSP raw score, E-value and bit score as printed (-outfmt "6 score evalue bitscore"). Auditor repro (same
+    // lengths): 2/−1 raw 98 → E 9.58e-09.
+    [TestCase(3, -5, 195, "3.40e-33", 122.0)]
+    [TestCase(1, -6, 52, "1.21e-27", 104.0)]
+    [TestCase(3, -7, 189, "1.34e-33", 124.0)]
+    [TestCase(5, -7, 329, "2.68e-32", 119.0)]
+    [TestCase(2, -1, 137, "3.17e-13", 56.5)]
+    [TestCase(6, -10, 390, "8.84e-33", 121.0)]
+    [TestCase(2, -1, 98, "9.58e-09", double.NaN)]
+    public void ComputeBlastnStatistics_UngappedSchemeWithoutBlastTable_NoLengthAdjustment_MatchesBlastn(
+        int reward, int penalty, int rawScore, string blastnEValue, double blastnBits)
+    {
+        var m = new Seqeron.Genomics.Infrastructure.ScoringMatrix(Match: reward, Mismatch: penalty, GapOpen: -5, GapExtend: -2);
+        var st = ProbeDesigner.ComputeBlastnStatistics(rawScore, 73, 446, scoring: m, gapped: false);
+        var ka = ProbeDesigner.ComputeUngappedKarlinParameters(reward, penalty, kMethod: ProbeDesigner.KarlinKMethod.NcbiBlast);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(st.LengthAdjustment, Is.EqualTo(0));
+            Assert.That(st.EffectiveSearchSpace, Is.EqualTo(32558));
+            Assert.That(st.Parameters.Alpha, Is.EqualTo(0.0));
+            Assert.That(st.Parameters.Beta, Is.EqualTo(0.0));
+            Assert.That(st.Parameters, Is.EqualTo(ka with { Alpha = 0, Beta = 0 }), "λ, K, H unchanged");
+            Assert.That(st.EValue, Is.EqualTo(32558 * ka.K * Math.Exp(-ka.Lambda * rawScore)).Within(1e-12).Percent);
+            Assert.That(st.EValue.ToString("0.00e+00", System.Globalization.CultureInfo.InvariantCulture),
+                Is.EqualTo(blastnEValue));
+            // Tabular output: bit scores > 99.9 are printed truncated to an integer, smaller ones with one decimal.
+            if (!double.IsNaN(blastnBits))
+                Assert.That(blastnBits >= 100 ? Math.Floor(st.BitScore) : Math.Round(st.BitScore, 1), Is.EqualTo(blastnBits));
+        });
+    }
+
+    // KA25 control — tabulated schemes keep BLAST's α = λ/H, β = s_GetUngappedBeta and ℓ > 0 (same blastn runs:
+    // 2/−3 → 28470, 1/−3 → 28974, 1/−2 → 28470, 4/−6 (gcd 2 → 2/−3 table, β 0) → 26970).
+    [TestCase(2, -3, 131, 28470, "1.02e-32")]
+    [TestCase(1, -3, 61, 28974, "8.17e-33")]
+    [TestCase(1, -2, 64, 28470, "1.60e-33")]
+    [TestCase(4, -6, 262, 26970, "2.77e-32")]
+    public void ComputeBlastnStatistics_UngappedTabulatedScheme_KeepsLengthAdjustment_MatchesBlastn(
+        int reward, int penalty, int rawScore, double blastnSpace, string blastnEValue)
+    {
+        var m = new Seqeron.Genomics.Infrastructure.ScoringMatrix(Match: reward, Mismatch: penalty, GapOpen: -5, GapExtend: -2);
+        var st = ProbeDesigner.ComputeBlastnStatistics(rawScore, 73, 446, scoring: m, gapped: false);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(st.LengthAdjustment, Is.GreaterThan(0));
+            Assert.That(st.EffectiveSearchSpace, Is.EqualTo(blastnSpace));
+            Assert.That(st.Parameters.Alpha, Is.EqualTo(st.Parameters.Lambda / st.Parameters.H));
+            Assert.That(st.EValue.ToString("0.00e+00", System.Globalization.CultureInfo.InvariantCulture),
+                Is.EqualTo(blastnEValue));
+        });
+    }
+
     #endregion
 
     #region ValidateProbe - Primer3 thermodynamic self-structure screen (PROBE-VALID-001, B07)
@@ -1396,13 +1591,15 @@ public class ProbeDesigner_ProbeValidation_Tests
                 "Cross-hybridization risk with non-target 0: identity 80%, longest contiguous match 6 nt (Kane 2000), site duplex Tm 36.1°C > 30°C"));
         });
 
-        // > 60-nt probe: thal.c THAL_MAX_ALIGN → no duplex Tm; empty strand → no site.
+        // 62-nt probe, 49-nt site [20, 68]: thal.c thal_check_errors refuses only when BOTH strands exceed THAL_MAX_ALIGN
+        // (60), so the duplex Tm is computed (A3-27; primer3-py calc_heterodimer(probe, revcomp(site)) at 50/0/0/50 nM:
+        // 36.11423712379826); empty strand → no site.
         string longProbe = KaneProbe + "ACGTACGTACGT";
         var l = ProbeDesigner.AssessCrossHybridization(longProbe, new[] { KaneNonTargetA, "" }, bothStrands: false);
         Assert.Multiple(() =>
         {
-            Assert.That(l[0].DuplexTm, Is.Null);
-            Assert.That(l[0].SiteStart, Is.GreaterThanOrEqualTo(0));
+            Assert.That((l[0].SiteStart, l[0].SiteEnd), Is.EqualTo((20, 68)));
+            Assert.That(l[0].DuplexTm, Is.EqualTo(36.11423712379826).Within(1e-9));
             Assert.That((l[1].SiteStart, l[1].SiteEnd, l[1].DuplexTm), Is.EqualTo((-1, -1, (double?)null)));
         });
     }
@@ -1487,4 +1684,448 @@ public class ProbeDesigner_ProbeValidation_Tests
     }
 
     #endregion
+
+    #region ValidateProbe - reference sites judged by the Kane criteria (audit round 3, A3-12)
+
+    // Fixtures (random.seed(20261008)); expected values from an independent Python brute-force Hamming scan
+    // (identity (L - d) / L, longest run of identical positions; Kane et al. 2000: > 0.75 or > 15 nt).
+    private const string KaneSiteProbe12 = "GATCCGACGCTA";
+    private const string KaneSiteProbe40 = "TATGCCGTACAGTTTTAAGATAGAGCGAAAGCGCAGACAA";
+
+    // Exact site at 10; probe with positions 0..11 substituted at 60 (identity 0.70, run 28); probe with positions
+    // 1, 4, …, 34 substituted at 110 (identity 0.70, longest run 5).
+    private const string KaneSiteReference40 =
+        "AAAAAAAAAATATGCCGTACAGTTTTAAGATAGAGCGAAAGCGCAGACAAAAAAAAAAAAACATGGTACGCTTTTTAAGATAGAGCGAAAGCGCAGACAA"
+        + "AAAAAAAAAATCTGGCGAACCGTATTCAGCTATAGGGACAGGGCCGACAAAAAAAAAAAA";
+
+    [Test]
+    public void ValidateProbe_ShortProbe_ThreeMismatchSiteAtSeventyFivePercent_IsNotAnOffTargetIssue()
+    {
+        // 12-mer: exact site (1.0), a 3-mismatch site (9/12 = 0.75, longest run 3 — no Kane criterion) and a
+        // 2-mismatch site (10/12 = 0.8333 > 0.75). Ungapped hits 3 → uniqueness score 1/3 (library convention).
+        var noIssue = ProbeDesigner.ValidateProbe(KaneSiteProbe12,
+            new[] { "TTTTTGATCCGACGCTATTTTTGCTCCTACGGTATTTTT" });
+        var issue = ProbeDesigner.ValidateProbe(KaneSiteProbe12,
+            new[] { "TTTTTGATCCGACGCTATTTTTGCTCCTACGGTATTTTT", "GGGGGGAACCGAGGCTAGGGGG" });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(noIssue.OffTargetHits, Is.EqualTo(2));
+            Assert.That(noIssue.SpecificityScore, Is.EqualTo(0.5).Within(1e-12));
+            Assert.That(noIssue.CrossHybridizingHits, Is.EqualTo(1));
+            Assert.That(noIssue.Issues, Has.None.Contain("off-target"));
+            Assert.That(issue.OffTargetHits, Is.EqualTo(3));
+            Assert.That(issue.SpecificityScore, Is.EqualTo(1.0 / 3).Within(1e-12));
+            Assert.That(issue.CrossHybridizingHits, Is.EqualTo(2));
+            Assert.That(issue.Issues, Has.Some.EqualTo(
+                "2 potential off-target sites (Kane 2000: identity > 75% or > 15 contiguous identical nt)"));
+        });
+    }
+
+    [Test]
+    public void ValidateProbe_ReferenceSites_FollowKaneIdentityAndContiguityCriteria()
+    {
+        var k3 = ProbeDesigner.ValidateProbe(KaneSiteProbe40, new[] { KaneSiteReference40 });
+        var k12 = ProbeDesigner.ValidateProbe(KaneSiteProbe40, new[] { KaneSiteReference40 }, maxMismatches: 12);
+        var identity069 = ProbeDesigner.ValidateProbe(KaneSiteProbe40, new[] { KaneSiteReference40 }, maxMismatches: 12,
+            maxNonTargetIdentity: 0.69);
+        var contiguous28 = ProbeDesigner.ValidateProbe(KaneSiteProbe40, new[] { KaneSiteReference40 }, maxMismatches: 12,
+            maxContiguousMatch: 28);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That((k3.OffTargetHits, k3.CrossHybridizingHits), Is.EqualTo((1, 1)), "3 mismatches: exact site only");
+            // 12 mismatches: the clustered site meets the contiguity criterion (28 > 15), the spread one neither.
+            Assert.That((k12.OffTargetHits, k12.CrossHybridizingHits), Is.EqualTo((3, 2)));
+            Assert.That(k12.Issues, Has.Some.StartWith("2 potential off-target sites"));
+            Assert.That((identity069.OffTargetHits, identity069.CrossHybridizingHits), Is.EqualTo((3, 3)), "0.70 > 0.69");
+            Assert.That(identity069.Issues, Has.Some.EqualTo(
+                "3 potential off-target sites (Kane 2000: identity > 69% or > 15 contiguous identical nt)"));
+            Assert.That((contiguous28.OffTargetHits, contiguous28.CrossHybridizingHits), Is.EqualTo((3, 1)), "28 is not > 28");
+            Assert.That(contiguous28.Issues, Has.None.Contain("off-target"));
+            Assert.That(contiguous28.SpecificityScore, Is.EqualTo(1.0 / 3).Within(1e-12), "uniqueness score is reported only");
+        });
+    }
+
+    [Test]
+    public void ValidateProbe_InvalidKaneThresholdsOrConditions_Throw()
+    {
+        string[] refs = { KaneSiteReference40 };
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(() => ProbeDesigner.ValidateProbe(KaneSiteProbe40, refs, maxNonTargetIdentity: 1.5));
+            Assert.Throws<ArgumentOutOfRangeException>(() => ProbeDesigner.ValidateProbe(KaneSiteProbe40, refs, maxNonTargetIdentity: double.NaN));
+            Assert.Throws<ArgumentOutOfRangeException>(() => ProbeDesigner.ValidateProbe(KaneSiteProbe40, refs, maxContiguousMatch: -1));
+            // Primer3 _pr_data_control: internal-oligo salt / DNA concentration > 0, divalent / dNTP >= 0.
+            var p = ProbeDesigner.Defaults.Microarray;
+            Assert.Throws<ArgumentOutOfRangeException>(() => ProbeDesigner.ValidateProbe(KaneSiteProbe40, refs, conditions: p with { MonovalentMillimolar = 0 }));
+            Assert.Throws<ArgumentOutOfRangeException>(() => ProbeDesigner.ValidateProbe(KaneSiteProbe40, refs, conditions: p with { DnaConcentrationNanomolar = 0 }));
+            Assert.Throws<ArgumentOutOfRangeException>(() => ProbeDesigner.ValidateProbe(KaneSiteProbe40, refs, conditions: p with { DivalentMillimolar = -1 }));
+            Assert.Throws<ArgumentOutOfRangeException>(() => ProbeDesigner.ValidateProbe(KaneSiteProbe40, refs, conditions: p with { DntpMillimolar = -1 }));
+        });
+    }
+
+    #endregion
+
+    #region ValidateProbe - both strands (audit round 4, A4-2, F60)
+
+    // Expected values: independent Python brute force over both strands (oracle.py — every reference window compared
+    // position by position with the probe and with its Biopython reverse complement; the union of the hit positions per
+    // reference is the site set, a position cross-hybridizing when either orientation meets a Kane criterion:
+    // identity (L - d) / L > 0.75 or a run of identical positions > 15). Fixture random.seed(20261008):
+    // reference = A + P + B + rc(P with positions 3, 11 substituted) + C + rc(P with 1, 5, 9, 13, 17 substituted) + D.
+    private const string BothStrandsProbe = "GATCCGACGCTATATGCCGT";
+    private const string BothStrandsReference =
+        "ACAGTTTTAAGATAGGATCCGACGCTATATGCCGTAGCGAAAGCGCAGACACGGCATAGAGCGTCGCATCAATAAATAATCCGTAACCGCAGATACCGTAGGAGCGGGAGACCTGGCACA";
+
+    [Test]
+    public void ValidateProbe_BothStrands_CountsReverseComplementSitesByKaneCriteria()
+    {
+        string[] refs = { BothStrandsReference };
+        var single3 = ProbeDesigner.ValidateProbe(BothStrandsProbe, refs);
+        var both3 = ProbeDesigner.ValidateProbe(BothStrandsProbe, refs, bothStrands: true);
+        var single5 = ProbeDesigner.ValidateProbe(BothStrandsProbe, refs, maxMismatches: 5);
+        var both5 = ProbeDesigner.ValidateProbe(BothStrandsProbe, refs, maxMismatches: 5, bothStrands: true);
+
+        Assert.Multiple(() =>
+        {
+            // Default (backward compatible): the given strand only — the exact site.
+            Assert.That((single3.OffTargetHits, single3.CrossHybridizingHits), Is.EqualTo((1, 1)));
+            Assert.That(single3.Issues, Has.None.Contain("off-target"));
+            // Both strands: + the 2-mismatch reverse-complement site (18/20 = 0.90 > 0.75) → off-target issue.
+            Assert.That((both3.OffTargetHits, both3.CrossHybridizingHits), Is.EqualTo((2, 2)));
+            Assert.That(both3.SpecificityScore, Is.EqualTo(0.5).Within(1e-12));
+            Assert.That(both3.Issues, Has.Some.EqualTo(
+                "2 potential off-target sites (Kane 2000: identity > 75% or > 15 contiguous identical nt)"));
+            Assert.That(both3.IsValid, Is.False);
+            // Radius 5 reaches the 5-mismatch reverse-complement site (15/20 = 0.75, longest run 3 — no Kane criterion).
+            Assert.That((single5.OffTargetHits, single5.CrossHybridizingHits), Is.EqualTo((1, 1)));
+            Assert.That((both5.OffTargetHits, both5.CrossHybridizingHits), Is.EqualTo((3, 2)));
+        });
+    }
+
+    [Test]
+    public void ValidateProbe_BothStrands_PalindromicProbeOrSiteCountedOnce()
+    {
+        // Reverse-palindromic probe (rc = itself): its reverse-complement hits are the same sites — counted once,
+        // as CheckSpecificity(bothStrands) counts a palindromic probe once.
+        const string palindrome = "GAATTCCGGAATTC";
+        Assert.That(DnaSequence.GetReverseComplementString(palindrome), Is.EqualTo(palindrome));
+        // Non-palindromic probe = the reverse-palindromic site GACGTCAGCTGACGTC with position 0 substituted: the site is
+        // 1 mismatch from the probe AND from its reverse complement (same position) → one site, not two.
+        const string palindromicSite = "GACGTCAGCTGACGTC";
+        const string nearPalindromicProbe = "TACGTCAGCTGACGTC";
+        Assert.That(DnaSequence.GetReverseComplementString(palindromicSite), Is.EqualTo(palindromicSite));
+
+        Assert.Multiple(() =>
+        {
+            foreach (int k in new[] { 0, 2 })
+            {
+                var single = ProbeDesigner.ValidateProbe(palindrome, new[] { "TTTTT" + palindrome + "AAAAA" }, k);
+                var both = ProbeDesigner.ValidateProbe(palindrome, new[] { "TTTTT" + palindrome + "AAAAA" }, k, bothStrands: true);
+                Assert.That((single.OffTargetHits, single.CrossHybridizingHits), Is.EqualTo((1, 1)), $"palindromic probe, k {k}");
+                Assert.That((both.OffTargetHits, both.CrossHybridizingHits), Is.EqualTo((1, 1)), $"palindromic probe both strands, k {k}");
+            }
+            string[] siteRef = { "CCCCC" + palindromicSite + "CCCCC" };
+            var siteSingle = ProbeDesigner.ValidateProbe(nearPalindromicProbe, siteRef, maxMismatches: 1);
+            var siteBoth = ProbeDesigner.ValidateProbe(nearPalindromicProbe, siteRef, maxMismatches: 1, bothStrands: true);
+            Assert.That((siteSingle.OffTargetHits, siteSingle.CrossHybridizingHits), Is.EqualTo((1, 1)));
+            Assert.That((siteBoth.OffTargetHits, siteBoth.CrossHybridizingHits), Is.EqualTo((1, 1)), "palindromic site once");
+            Assert.That(siteBoth.SpecificityScore, Is.EqualTo(1.0));
+        });
+    }
+
+    // Random cases (Python random.Random(7): probe 8–30 nt, 1–3 references of 0–120 random nt with 0–3 planted copies of
+    // the probe or its reverse complement carrying 0–4 substitutions; radius 0–4) where the two modes differ. Columns:
+    // probe, references, radius, (hits, Kane sites) given strand, (hits, Kane sites) both strands — from oracle.py.
+    private static IEnumerable<TestCaseData> BothStrandsOracleCases()
+    {
+        yield return new TestCaseData("CCCCCCAATGCCCCGC", new[] { "TAGGGCGGTGCGCGCCCAATGCGCGGGGCATTGGGGGGGCCGGATTTGGTGGGTAA" }, 4, 0, 0, 1, 1);
+        yield return new TestCaseData("ACTAAAGCAAGCTCCCTTGGACTA", new[] { "TTCCGTTCCCTAGCAGTCGGCGCTAGTCCAAGTGCGCTTGCTTTAGTTAACGAGAAG" }, 4, 0, 0, 1, 1);
+        yield return new TestCaseData("AGCGGAGACGGTAG", new[] { "GAACGGCTATAATCTACCGTCTCCGCTAAGCCGTCGGTAAGCTTAAACTTCTTCAGGCG" }, 1, 0, 0, 1, 1);
+        yield return new TestCaseData("AGGTTCTAAAGGCTATGC", new[] { "GTGAGTAACATTGCATAGCCTTTAGAACCTCGCGCCACAGGTTCAAAAGGCAATGCATGAGCACG" }, 1, 0, 0, 1, 1);
+        yield return new TestCaseData("CGATGCAAATTCCTCTGTTTCTAGT", new[] { "ACTAGAAACAGAGGAATTTGCATCGACATGACTAGAAACCGAGGAATTTGCATCGTCTACTTTAACTATTCGT" }, 1, 0, 0, 2, 2);
+        yield return new TestCaseData("CTGCCCACCAGTCGCGAGGCAA", new[] { "TCCACTAACAGTACAGGCACGATCTCTATTCATTCACCAACAGCAGTCCCGAAGCCTTGCCTCGCGACTGGTGGGCAG" }, 0, 0, 0, 1, 1);
+        yield return new TestCaseData("ACGGCGCTTTTATTTCGGGGTC", new[] { "AATACCCCGAAATCAAAGCGCCGTGGTCGTCCAAGGAGTGCAGCTATATTCATTTGCTTCAAAAAGTAGTCATTCCGGT" }, 3, 0, 0, 1, 1);
+        yield return new TestCaseData("TATGAGAAAAGTTG", new[] { "CTTATTAATCCAACTTTTCTCATATCATGTAGCCGGCCCGCAGAAGCAGCCGGTTTTTGTTAGATATTAGAAAAGTAGCG" }, 2, 1, 1, 2, 2);
+        yield return new TestCaseData("CTTGGCAT", new[] { "TTCGAGGTTTATTTCTTGGCATGTGAGCAGCATCGATAAGTATGCCAAGTATGGGCCTTGGCATAAAATTACGGGGGTAACGCCACCAGTTC" }, 4, 11, 2, 20, 3);
+        yield return new TestCaseData("TGTTGAGC", new[] { "CGCTATGTCTAAACGCCGCGCTTAAGGCACAAGAGTTTCTTTTGAGGAGAAGTTCTATGAGTTTGTCGAGCACGGCACTCGCAAGAGAGACTCG" }, 2, 2, 1, 3, 1);
+        yield return new TestCaseData("TCGCGATATAA", new[] { "TTATATTTATATCGGGACGGGAGCTGGCGATAAACTTTC", "TAATTAGTTATATCGGGAATACTCGCGATATAAGCGCGCGCTCCATTTACAGCCCAACGCTACAAGG" }, 4, 2, 1, 6, 3);
+    }
+
+    [TestCaseSource(nameof(BothStrandsOracleCases))]
+    public void ValidateProbe_BothStrands_MatchesPythonBruteForce(
+        string probe, string[] references, int maxMismatches,
+        int singleHits, int singleKane, int bothHits, int bothKane)
+    {
+        var single = ProbeDesigner.ValidateProbe(probe, references, maxMismatches);
+        var both = ProbeDesigner.ValidateProbe(probe, references, maxMismatches, bothStrands: true);
+        Assert.Multiple(() =>
+        {
+            Assert.That((single.OffTargetHits, single.CrossHybridizingHits), Is.EqualTo((singleHits, singleKane)), "given strand");
+            Assert.That((both.OffTargetHits, both.CrossHybridizingHits), Is.EqualTo((bothHits, bothKane)), "both strands");
+            Assert.That(both.SpecificityScore, Is.EqualTo(bothHits == 0 ? 0.0 : 1.0 / bothHits).Within(1e-12));
+            Assert.That(both.Issues.Any(i => i.Contains("off-target")), Is.EqualTo(bothKane > 1));
+        });
+    }
+
+    #endregion
+
+    #region ValidateProbe - fallback hairpin screen = PrimerDesigner.HasHairpinPotential (audit round 5, A5-2)
+
+    // 74-nt probe with a 10-bp perfect stem GCGCATCCAG·CTGGATGCGC closing the 4-nt loop TTTT;
+    // the A/C-only flanks cannot pair. Auditor's repro: the former private scan (loop of exactly 3 nt) missed it.
+    private const string StemLoop74 =
+        "ACCAACCACACAACCCAAACCCAACGCGCATCCAGTTTTCTGGATGCGCAAAAACCCAACCCACCCCACCACCC";
+
+    // 73-nt: a 5-bp "stem" ACCAC·GTAGT (4 of 5 complementary, central C·A mismatch) closing a 3-nt loop in an A/C-only
+    // background, no exact 4-bp stem anywhere: flagged only by the former unsourced "≥ 80 % matched" tolerance.
+    private const string MismatchedStem73 =
+        "ACCAACCACACAACCCAAACCCAACACCAAACCACAAAGTAGTACCAACCACACAACCCAAACCCAACACCAA";
+
+    [Test]
+    public void ValidateProbe_LongProbeFallback_FlagsStemLoopWithFourNtLoop()
+    {
+        var fallback = ProbeDesigner.ValidateProbe(StemLoop74, new[] { StemLoop74 });
+        var noTargets = new ProbeDesigner.ProbeParameters(20, 120, -1000, 1000, 0, 1, 100, true, 0.3);
+        // Opt-in ntthal (F55): thal.c (primer3-py 2.3.1 sources) compiled with -DTHAL_MAX_ALIGN=10000, calc_hairpin
+        // arguments: 50 mM / 0 / 0 / 50 nM, 37 °C, max loop 30 → Tm 77.95325865166825 °C (dG −10369.44 cal/mol; the same
+        // value primer3-py calc_hairpin gives for the 60-nt window ACACAACC…CACCCC); at the Microarray preset's
+        // OligoArray 1 M / 1 µM → 92.272558368972682 °C.
+        var thermo = ProbeDesigner.ValidateProbe(StemLoop74, new[] { StemLoop74 },
+            conditions: noTargets with { ThermodynamicScreenMaxLength = 74 });
+        var thermoMicroarray = ProbeDesigner.ValidateProbe(StemLoop74, new[] { StemLoop74 },
+            conditions: ProbeDesigner.Defaults.Microarray with { ThermodynamicScreenMaxLength = 74 });
+        Assert.Multiple(() =>
+        {
+            Assert.That(fallback.ThermodynamicScreen, Is.False, "74 nt > THAL_MAX_ALIGN 60 → fallback screens");
+            Assert.That(fallback.HasSecondaryStructure, Is.True, "10-bp stem + 4-nt loop must be flagged (was False)");
+            // A5-5: the fallback stem flag is a warning, not an issue.
+            Assert.That(fallback.Warnings, Is.EqualTo(new[] { "Potential secondary structure formation" }));
+            Assert.That(fallback.Issues, Has.None.Contain("secondary structure"));
+            Assert.That(thermo.HairpinTm, Is.EqualTo(77.95325865166825).Within(1e-6));
+            Assert.That(thermo.HasSecondaryStructure, Is.True);
+            Assert.That(thermoMicroarray.HairpinTm, Is.EqualTo(92.272558368972682).Within(1e-6));
+        });
+    }
+
+    // F55's random 61-mer (PrimerDesigner_NtthalMaxAlign_Tests.Random61): thal.c -DTHAL_MAX_ALIGN=10000 at
+    // 50 mM / 0 / 0 / 50 nM: hairpin 33.980529935122263 °C, ANY −0.968 °C, END1 −79.6 °C (all ≤ 47 °C: no sourced
+    // structure). It contains exact 4-bp stems closing ≥ 3-nt loops (independent Python scan: True), as 98 % of random
+    // 61-mers do (F61 coverage).
+    private const string Random61 = "AGACTTTCAAAGATATGCTGGGTAGAGGTCGAGGTTATTATTTGTTACCAATTCTCATTGT";
+
+    [Test]
+    public void ValidateProbe_LongProbeFallback_StemFlagIsWarning_NotValidityCriterion()
+    {
+        // Audit round 5, A5-5: validity rests on sourced criteria only (F52). The fallback stem-loop presence test
+        // (stem ≥ 4 bp, library convention) is reported but does not make IsValid false.
+        var fallback = ProbeDesigner.ValidateProbe(Random61, new[] { Random61 });
+        var heuristic = ProbeDesigner.ValidateProbe(Random61, new[] { Random61 },
+            conditions: ProbeDesigner.Defaults.Microarray with
+            {
+                MonovalentMillimolar = 50, DnaConcentrationNanomolar = 50,
+                StructureScreen = ProbeDesigner.ProbeStructureScreen.Heuristic,
+            });
+        var thermo = ProbeDesigner.ValidateProbe(Random61, new[] { Random61 },
+            conditions: ProbeDesigner.Defaults.Microarray with
+            {
+                MonovalentMillimolar = 50, DivalentMillimolar = 0, DntpMillimolar = 0, DnaConcentrationNanomolar = 50,
+                ThermodynamicScreenMaxLength = 61,
+            });
+        Assert.Multiple(() =>
+        {
+            Assert.That(fallback.ThermodynamicScreen, Is.False, "61 nt > THAL_MAX_ALIGN 60");
+            Assert.That(fallback.HasSecondaryStructure, Is.True, "exact 4-bp stem + ≥ 3-nt loop present");
+            Assert.That(fallback.Warnings, Is.EqualTo(new[] { "Potential secondary structure formation" }));
+            Assert.That(fallback.SelfAny, Is.EqualTo(7.0), "independent Smith–Waterman vs reverse complement (+1/−1, gap −2): 7");
+            Assert.That(fallback.SelfEnd, Is.LessThanOrEqualTo(12.0));
+            Assert.That(fallback.Issues, Is.Empty);
+            Assert.That(fallback.IsValid, Is.True, "was false before A5-5 (the stem flag was an issue)");
+            Assert.That(heuristic.HasSecondaryStructure, Is.True);
+            Assert.That(heuristic.IsValid, Is.True);
+            // Opt-in ntthal (F55): the sourced hairpin decision, 33.98 °C ≤ PRIMER_INTERNAL_MAX_HAIRPIN_TH 47 °C.
+            Assert.That(thermo.ThermodynamicScreen, Is.True);
+            Assert.That(thermo.HairpinTm, Is.EqualTo(33.980529935122263).Within(1e-6));
+            Assert.That(thermo.HasSecondaryStructure, Is.False);
+            Assert.That(thermo.Warnings, Is.Empty);
+            Assert.That(thermo.IsValid, Is.True);
+        });
+    }
+
+    [Test]
+    public void ValidateProbe_LongProbeFallback_StemLoopRepro_StemFlagIsNotAnIssue_NtthalHairpinDecidesWithOptIn()
+    {
+        // F61 repro (74 nt, 10-bp stem + TTTT loop): by default the fallback still reports the structure as a warning;
+        // the probe is invalid only by sourced criteria — Primer3 alignment-mode self_any 16.00 > 12.00 (independent
+        // Python Smith–Waterman of the probe vs its reverse complement, +1/−1, gap −2: 16) and, with the opt-in, the
+        // ntthal hairpin Tm (thal.c 77.95325865166825 °C > 47 °C).
+        var fallback = ProbeDesigner.ValidateProbe(StemLoop74, new[] { StemLoop74 });
+        var thermo = ProbeDesigner.ValidateProbe(StemLoop74, new[] { StemLoop74 },
+            conditions: ProbeDesigner.Defaults.Microarray with
+            {
+                MonovalentMillimolar = 50, DivalentMillimolar = 0, DntpMillimolar = 0, DnaConcentrationNanomolar = 50,
+                ThermodynamicScreenMaxLength = 100,
+            });
+        Assert.Multiple(() =>
+        {
+            Assert.That(fallback.HasSecondaryStructure, Is.True);
+            Assert.That(fallback.Warnings, Is.EqualTo(new[] { "Potential secondary structure formation" }));
+            Assert.That(fallback.SelfAny, Is.EqualTo(16.0));
+            Assert.That(fallback.Issues, Is.EqualTo(new[] { "Self-complementarity: Primer3 self_any 16.00 exceeds 12.00" }),
+                "the stem flag is not an issue; the sourced self_any limit is");
+            Assert.That(fallback.IsValid, Is.False);
+            Assert.That(thermo.ThermodynamicScreen, Is.True);
+            Assert.That(thermo.HairpinTm, Is.EqualTo(77.95325865166825).Within(1e-6));
+            Assert.That(thermo.HasSecondaryStructure, Is.True);
+            Assert.That(thermo.Issues, Has.Some.EqualTo("Potential secondary structure formation: ntthal hairpin Tm 78.0°C exceeds 47°C"));
+            Assert.That(thermo.Warnings, Is.Empty);
+            Assert.That(thermo.IsValid, Is.False);
+        });
+    }
+
+    [TestCase("TTT")]
+    [TestCase("TTTT")]
+    [TestCase("TTTTTTTT")]
+    public void ValidateProbe_LongProbeFallback_AnyLoopOfAtLeastThreeIsFlagged(string loop)
+    {
+        string probe = StemLoop74.Replace("CAGTTTTCTG", "CAG" + loop + "CTG");
+        var v = ProbeDesigner.ValidateProbe(probe, Enumerable.Empty<string>());
+        Assert.Multiple(() =>
+        {
+            Assert.That(v.ThermodynamicScreen, Is.False);
+            Assert.That(v.HasSecondaryStructure, Is.True);
+            Assert.That(v.HasSecondaryStructure, Is.EqualTo(PrimerDesigner.HasHairpinPotential(probe)));
+        });
+    }
+
+    [Test]
+    public void ValidateProbe_LongProbeFallback_NoMismatchTolerance()
+    {
+        // The canonical screen requires an exactly complementary ≥ 4-bp stem (F49 library convention); the former
+        // unsourced 80 % match tolerance is dropped.
+        var v = ProbeDesigner.ValidateProbe(MismatchedStem73, Enumerable.Empty<string>());
+        Assert.Multiple(() =>
+        {
+            Assert.That(v.ThermodynamicScreen, Is.False);
+            Assert.That(v.HasSecondaryStructure, Is.False);
+            Assert.That(v.Issues, Has.None.Contain("secondary structure"));
+        });
+    }
+
+    [Test]
+    public void FallbackHairpinScreen_EqualsHasHairpinPotential_ForLongNonAcgtAndHeuristicProbes()
+    {
+        var rng = new Random(20261008);
+        var probes = new List<string> { StemLoop74, MismatchedStem73, "GCGCTTTGCGCAAAAAAAAANAAAAAAAA", "ACGTNNNNACGTAAAAAAA" };
+        for (int i = 0; i < 20; i++)
+            probes.Add(new string(Enumerable.Range(0, 61 + rng.Next(140)).Select(_ => "ACGT"[rng.Next(4)]).ToArray()));
+        for (int i = 0; i < 10; i++)
+            probes.Add(new string(Enumerable.Range(0, 61 + rng.Next(140)).Select(_ => "AC"[rng.Next(2)]).ToArray()));
+        var heuristic = new ProbeDesigner.ProbeParameters(20, 300, -1000, 1000, 0, 1, 300, true, 0.3)
+            { StructureScreen = ProbeDesigner.ProbeStructureScreen.Heuristic };
+        Assert.Multiple(() =>
+        {
+            foreach (string p in probes)
+            {
+                bool expected = PrimerDesigner.HasHairpinPotential(p);
+                Assert.That(ProbeDesigner.ValidateProbe(p, Enumerable.Empty<string>()).HasSecondaryStructure,
+                    Is.EqualTo(expected), p);
+                Assert.That(ProbeDesigner.ValidateProbe(p, Enumerable.Empty<string>(), conditions: heuristic).HasSecondaryStructure,
+                    Is.EqualTo(expected), "Heuristic " + p);
+                var designed = ProbeDesigner.DesignProbes(p, heuristic with { MinLength = p.Length, MaxLength = p.Length }, 1).ToList();
+                if (designed.Count == 1)
+                    Assert.That(designed[0].Warnings.Contains("Potential secondary structure"), Is.EqualTo(expected), "DesignProbes " + p);
+            }
+        });
+    }
+
+    #endregion
+
+    // Audit round 7 (F68 follow-up): mismatch = int.MinValue overflowed the private gcd / series span. BLAST+
+    // (blast_stat.h) limits one-letter scores to BLAST_SCORE_MIN = INT2_MIN … BLAST_SCORE_MAX = INT2_MAX.
+    [TestCase(1, int.MinValue, "mismatch")]
+    [TestCase(1, short.MinValue - 1, "mismatch")]
+    [TestCase(1, short.MinValue, "mismatch")]   // blastn 2.12: 1/−32768 "Could not calculate ungapped Karlin-Altschul parameters"
+    [TestCase(2, short.MinValue, "mismatch")]   // blastn 2.12: 2/−32768 likewise
+    [TestCase(int.MaxValue, -3, "match")]
+    [TestCase(short.MaxValue + 1, -3, "match")]
+    [TestCase(short.MaxValue, -32767, "match")] // blastn 2.12: 32767/−32767 likewise
+    public void ComputeUngappedKarlinParameters_ScoreOutsideBlastScoreRange_Throws(int match, int mismatch, string param)
+    {
+        foreach (var method in new[] { ProbeDesigner.KarlinKMethod.ReducedLattice, ProbeDesigner.KarlinKMethod.NcbiBlast })
+            Assert.That(() => ProbeDesigner.ComputeUngappedKarlinParameters(match, mismatch, kMethod: method),
+                NUnit.Framework.Throws.TypeOf<ArgumentOutOfRangeException>().With.Property("ParamName").EqualTo(param));
+    }
+
+    [Test]
+    public void ComputeUngappedKarlinParameters_BlastScoreRangeLimits_Accepted()
+    {
+        // blastn 2.12.0+ -ungapped -reward 1 -penalty -32767: lambda 1.39, K 0.750, H 1.39.
+        var p = ProbeDesigner.ComputeUngappedKarlinParameters(1, short.MinValue + 1);
+        Assert.That(p.Lambda, Is.EqualTo(1.39).Within(0.005));
+        Assert.That(p.K, Is.EqualTo(0.750).Within(0.0005));
+        Assert.That(p.H, Is.EqualTo(1.39).Within(0.005));
+    }
+
+    // Audit round 9 (A9-1): the BLAST score-range guard (and the other scheme preconditions) report the PUBLIC
+    // method's own parameter name — match/mismatch, reward/penalty, or scoring for a ScoringMatrix argument.
+    [TestCase("ComputeLambdaNucleotide", 1, int.MinValue, "mismatch")]
+    [TestCase("ComputeLambdaNucleotide", short.MaxValue, -3, "match")]
+    [TestCase("ComputeUngappedKarlinParameters", 1, short.MinValue, "mismatch")]
+    [TestCase("ComputeUngappedKarlinParameters(frequencies)", 1, int.MinValue, "mismatch")]
+    [TestCase("ComputeUngappedKarlinParameters(frequencies)", int.MaxValue, -3, "match")]
+    [TestCase("GetBlastnGappedKarlinParameters", 2, int.MinValue, "penalty")]
+    [TestCase("GetBlastnGappedKarlinParameters", short.MaxValue, -3, "reward")]
+    [TestCase("GetBlastnGappedKarlinParameters", 0, -3, "reward")]
+    [TestCase("GetBlastnGappedKarlinParameters", 5, -1, "reward")]   // unsupported scheme (ArgumentException)
+    [TestCase("ComputeKarlinAltschul", 1, int.MinValue, "scoring")]
+    [TestCase("ComputeKarlinAltschul", short.MaxValue, -3, "scoring")]
+    [TestCase("ComputeKarlinAltschul", 4, -1, "scoring")]            // expected score ≥ 0
+    [TestCase("ComputeBlastnStatistics", 2, int.MinValue, "scoring")]
+    [TestCase("ComputeBlastnStatistics", short.MaxValue, -3, "scoring")]
+    [TestCase("ComputeBlastnStatistics", 5, -1, "scoring")]          // unsupported gapped scheme (ArgumentException)
+    [TestCase("ComputeBlastnStatistics(ungapped)", 2, int.MinValue, "scoring")]
+    [TestCase("ComputeBlastnStatistics(ungapped)", 4, -1, "scoring")] // expected score ≥ 0
+    [TestCase("ComputeBlastnStatistics(sequences)", 2, int.MinValue, "scoring")]
+    public void KarlinAltschulEntryPoints_InvalidScheme_ThrowWithOwnParamName(string method, int match, int mismatch, string param)
+    {
+        var m = new Seqeron.Genomics.Infrastructure.ScoringMatrix(Match: match, Mismatch: mismatch, GapOpen: -5, GapExtend: -2);
+        TestDelegate call = method switch
+        {
+            "ComputeLambdaNucleotide" => () => ProbeDesigner.ComputeLambdaNucleotide(match, mismatch),
+            "ComputeUngappedKarlinParameters" => () => ProbeDesigner.ComputeUngappedKarlinParameters(match, mismatch),
+            "ComputeUngappedKarlinParameters(frequencies)" =>
+                () => ProbeDesigner.ComputeUngappedKarlinParameters(match, mismatch, new[] { 0.25, 0.25, 0.25, 0.25 }),
+            "GetBlastnGappedKarlinParameters" => () => ProbeDesigner.GetBlastnGappedKarlinParameters(match, mismatch, 5, 2),
+            "ComputeKarlinAltschul" => () => ProbeDesigner.ComputeKarlinAltschul(20, 20, 1000, m),
+            "ComputeBlastnStatistics" => () => ProbeDesigner.ComputeBlastnStatistics(20, 20, 1000, 1, m),
+            "ComputeBlastnStatistics(ungapped)" => () => ProbeDesigner.ComputeBlastnStatistics(20, 20, 1000, 1, m, gapped: false),
+            "ComputeBlastnStatistics(sequences)" => () => ProbeDesigner.ComputeBlastnStatistics("ACGTACGT", "ACGTACGT", m),
+            _ => throw new ArgumentException(method),
+        };
+        Assert.That(call, NUnit.Framework.Throws.InstanceOf<ArgumentException>().With.Property("ParamName").EqualTo(param));
+    }
+
+    // Audit round 8 (A8-2): Beer–Lambert c = A/(ε·l) in µM; ε, l ≤ 0 or non-finite arguments are undefined.
+    [TestCase(0.5, 200000.0, 1.0, 2.5)]
+    [TestCase(1.0, 100000.0, 0.5, 20.0)]
+    [TestCase(-0.01, 100000.0, 1.0, -0.1)]
+    public void CalculateConcentration_BeerLambert_Micromolar(double a, double eps, double l, double expected)
+    {
+        Assert.That(ProbeDesigner.CalculateConcentration(a, eps, l), Is.EqualTo(expected).Within(1e-12));
+    }
+
+    [TestCase(0.5, 0.0, 1.0, "extinctionCoefficient")]
+    [TestCase(0.5, -10000.0, 1.0, "extinctionCoefficient")]
+    [TestCase(0.5, double.NaN, 1.0, "extinctionCoefficient")]
+    [TestCase(0.5, 10000.0, 0.0, "pathLength")]
+    [TestCase(0.5, 10000.0, -1.0, "pathLength")]
+    [TestCase(0.5, 10000.0, double.PositiveInfinity, "pathLength")]
+    [TestCase(double.NaN, 10000.0, 1.0, "absorbance260")]
+    public void CalculateConcentration_UndefinedArguments_Throw(double a, double eps, double l, string param)
+    {
+        Assert.That(() => ProbeDesigner.CalculateConcentration(a, eps, l),
+            NUnit.Framework.Throws.TypeOf<ArgumentOutOfRangeException>().With.Property("ParamName").EqualTo(param));
+    }
 }

@@ -8,7 +8,8 @@ namespace Seqeron.Genomics.MolTools;
 public static partial class PrimerDesigner
 {
     /// <summary>
-    /// Default primer design parameters (library conventions; the Primer3 3′-end checks PRIMER_GC_CLAMP,
+    /// Default primer design parameters (library conventions — <c>MaxDinucleotideRepeats</c> = 4 is an unsourced
+    /// library screen, see <see cref="FindLongestDinucleotideRepeat"/>; the Primer3 3′-end checks PRIMER_GC_CLAMP,
     /// PRIMER_MAX_END_GC and PRIMER_MAX_END_STABILITY are at their Primer3 defaults, i.e. inactive;
     /// <c>Check3PrimeStability</c> is deprecated and has no effect, see <see cref="PrimerParameters"/>).
     /// </summary>
@@ -224,7 +225,7 @@ public static partial class PrimerDesigner
     public const int PrimerSearchFlank = 200;
 
     /// <summary>
-    /// Library default maximum |Tm_forward − Tm_reverse| (°C) for a primer pair (Addgene "within 5 °C";
+    /// Library default maximum |Tm_forward − Tm_reverse| (°C) for a primer pair (Addgene "within 5°C", protocols/primer-design, re-verified 2026-10-14;
     /// stricter than Primer3's PRIMER_PAIR_MAX_DIFF_TM default of 100) — the default of
     /// <see cref="PrimerPairOptions.MaxTmDifference"/>.
     /// </summary>
@@ -259,9 +260,8 @@ public static partial class PrimerDesigner
         double monovalentEq = Primer3MonovalentEquivalent(monovalentMillimolar, divalentMillimolar, dntpMillimolar);
         if (!(monovalentEq > 0))
             throw new ArgumentOutOfRangeException(nameof(monovalentMillimolar), "Total monovalent-equivalent cation concentration must be > 0 mM.");
-        int gc = 0;
-        foreach (char c in product)
-            if (c is 'G' or 'C' or 'g' or 'c') gc++;
+        // long_seq_tm: G+C (canonical counter, case-insensitive) over the full product length.
+        int gc = product.AsSpan().CountGcAndValidNucleotides().GcCount;
         return LongSeqTm(gc, product.Length, monovalentEq);
     }
 
@@ -1071,6 +1071,7 @@ public static partial class PrimerDesigner
     /// <see cref="PrimerCandidate.Score"/> is an informational additive quality score (0–100,
     /// higher is better) that does not drive selection.
     /// </summary>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> is null.</exception>
     /// <exception cref="ArgumentOutOfRangeException">Illegal reaction conditions (Primer3 <c>_pr_data_control</c>:
     /// salt or DNA concentration ≤ 0, negative divalent / dNTP concentration, NaN / ∞).</exception>
     /// <exception cref="ArgumentException">PRIMER_MIN_QUALITY / a quality weight without a template, or a GC weight without
@@ -1081,6 +1082,7 @@ public static partial class PrimerDesigner
         bool isForward,
         PrimerParameters? parameters = null)
     {
+        ArgumentNullException.ThrowIfNull(sequence);
         var param = parameters ?? DefaultParameters;
         param.ValidateConditions(nameof(parameters));
         // No template, hence no SEQUENCE_QUALITY: Primer3 rejects PRIMER_MIN_QUALITY / PRIMER_WT_SEQ_QUAL without it.
@@ -1370,7 +1372,8 @@ public static partial class PrimerDesigner
     // _HAIRPIN_TH = 47 °C (a non-ACGT primer has no ntthal structure; it is already invalid by Tm).
     // Primer3Alignment: PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT=0 oligo_compl — dpal self_any > PRIMER_MAX_SELF_ANY,
     // then self_end > PRIMER_MAX_SELF_END (no hairpin value in this mode).
-    // Heuristic: the sequence-only stem-loop screen HasHairpinPotential (default stem 4, loop 3).
+    // Heuristic: the sequence-only library stem-loop screen HasHairpinPotential (default stem 4 = unsourced library
+    // threshold, loop 3 = thal.c min_hrpn_loop); not Primer3's hairpin screen.
     private static (bool HasHairpin, StructureValues Structure) AddStructureIssues(
         string seq, PrimerParameters param, List<string> issues)
     {
@@ -1462,7 +1465,8 @@ public static partial class PrimerDesigner
     // for oligos longer than MAX_NN_TM_LENGTH (36). Source: primer3 src/oligotm.c (oligotm,
     // seqtm, long_seq_tm, divalent_to_monovalent, symmetry; SantaLucia_1998_dH/dS tables);
     // SantaLucia (1998) PNAS 95:1460 Table 2 (NN + terminal-initiation terms); von Ahsen et al.
-    // (2001) Clin Chem 47:1956. Cross-checked against primer3-py 2.3.1 primer3.calc_tm.
+    // (2001) Clin Chem 47:1956. Cross-checked against primer3-py 2.3.1 primer3.calc_tm(max_nn_length=36)
+    // (calc_tm's own default is max_nn_length=60; see the maxNearestNeighborLength overload).
 
     /// <summary>Primer3 MAX_NN_TM_LENGTH: longer oligos use the long_seq_tm GC/length formula.</summary>
     public const int Primer3MaxNnTmLength = 36;
@@ -1510,8 +1514,14 @@ public static partial class PrimerDesigner
     /// for N &gt; <see cref="Primer3MaxNnTmLength"/>: Tm = 81.5 + 16.6·log10([Mon]_eq/1000) + 41·GC/N − 600/N.
     /// </para>
     /// Defaults are Primer3's PRIMER_DNA_CONC = 50 nM, PRIMER_SALT_MONOVALENT = 50 mM,
-    /// PRIMER_SALT_DIVALENT = 1.5 mM, PRIMER_DNTP_CONC = 0.6 mM. Matches primer3-py
-    /// <c>calc_tm</c> (e.g. AGCTAGCTAGCTAGCTAGCT → 58.101 °C).
+    /// PRIMER_SALT_DIVALENT = 1.5 mM, PRIMER_DNTP_CONC = 0.6 mM. Equals primer3-py
+    /// <c>calc_tm(…, max_nn_length=36)</c> — the MAX_NN_TM_LENGTH libprimer3 uses when picking primers and probes
+    /// (e.g. AGCTAGCTAGCTAGCTAGCT → 58.101 °C). primer3-py's <c>calc_tm</c> itself defaults to
+    /// <c>max_nn_length=60</c>, so for 37–60-nt oligos it differs from this method (39-mer
+    /// CTGTATAGTCCCACCTGGTGATCCTATGCTTGTGAGTAC: 73.049 °C here and with <c>max_nn_length=36</c>, 70.425 °C with the
+    /// <c>calc_tm</c> default); use
+    /// <see cref="CalculateMeltingTemperaturePrimer3(string, double, double, double, double, int)"/> with
+    /// <c>maxNearestNeighborLength</c> = 60 to reproduce <c>calc_tm</c>'s default.
     /// </summary>
     /// <param name="primer">Primer sequence (case-insensitive).</param>
     /// <param name="dnaConcentrationNanomolar">Oligo concentration, nM (&gt; 0).</param>
@@ -1527,8 +1537,43 @@ public static partial class PrimerDesigner
         double dnaConcentrationNanomolar = Primer3DnaConcentrationNanomolar,
         double monovalentMillimolar = Primer3MonovalentMillimolar,
         double divalentMillimolar = Primer3DivalentMillimolar,
-        double dntpMillimolar = Primer3DntpMillimolar)
+        double dntpMillimolar = Primer3DntpMillimolar) =>
+        CalculateMeltingTemperaturePrimer3(primer, dnaConcentrationNanomolar, monovalentMillimolar,
+            divalentMillimolar, dntpMillimolar, Primer3MaxNnTmLength);
+
+    /// <summary>
+    /// Primer3 <c>seqtm</c> (<see cref="CalculateMeltingTemperaturePrimer3(string, double, double, double, double)"/>)
+    /// with the nearest-neighbour length limit as an argument: oligos of at most
+    /// <paramref name="maxNearestNeighborLength"/> nt get the SantaLucia 1998 nearest-neighbour Tm, longer ones
+    /// Primer3's <c>long_seq_tm</c> (<c>oligotm.c</c> <c>seqtm</c>: <c>if (len &gt; nn_max_len) long_seq_tm … else
+    /// oligotm</c>; primer3-py <c>calc_tm(…, max_nn_length)</c>). Primer3's own primer/probe picker uses
+    /// <see cref="Primer3MaxNnTmLength"/> = 36 (the five-argument overload); primer3-py <c>calc_tm</c> defaults to
+    /// <c>max_nn_length=60</c>, i.e. <paramref name="maxNearestNeighborLength"/> = 60 reproduces it; e.g. OligoArray-style microarray probes of 50–60 nt need the
+    /// nearest-neighbour Tm over the whole oligo (limit ≥ 60).
+    /// </summary>
+    /// <param name="primer">Oligo sequence (case-insensitive).</param>
+    /// <param name="dnaConcentrationNanomolar">Oligo concentration, nM (&gt; 0).</param>
+    /// <param name="monovalentMillimolar">Monovalent cation concentration, mM (≥ 0).</param>
+    /// <param name="divalentMillimolar">Mg²⁺ concentration, mM (≥ 0).</param>
+    /// <param name="dntpMillimolar">dNTP concentration, mM (≥ 0).</param>
+    /// <param name="maxNearestNeighborLength">Longest oligo (nt) that gets the nearest-neighbour Tm (Primer3
+    /// <c>nn_max_len</c>, ≥ 0).</param>
+    /// <returns>Tm in °C, or <c>double.NaN</c> when the sequence is null/shorter than 2 bases or contains a
+    /// non-ACGT character.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">For a non-positive DNA concentration, negative ion
+    /// concentrations, a zero total monovalent-equivalent concentration or a negative
+    /// <paramref name="maxNearestNeighborLength"/>.</exception>
+    public static double CalculateMeltingTemperaturePrimer3(
+        string primer,
+        double dnaConcentrationNanomolar,
+        double monovalentMillimolar,
+        double divalentMillimolar,
+        double dntpMillimolar,
+        int maxNearestNeighborLength)
     {
+        if (maxNearestNeighborLength < 0)
+            throw new ArgumentOutOfRangeException(nameof(maxNearestNeighborLength), maxNearestNeighborLength,
+                "The nearest-neighbour length limit must be ≥ 0 nt.");
         if (!(dnaConcentrationNanomolar > 0) || double.IsInfinity(dnaConcentrationNanomolar))
             throw new ArgumentOutOfRangeException(nameof(dnaConcentrationNanomolar), dnaConcentrationNanomolar,
                 "DNA concentration must be a positive finite value in nM.");
@@ -1547,16 +1592,19 @@ public static partial class PrimerDesigner
             throw new ArgumentOutOfRangeException(nameof(monovalentMillimolar), monovalentMillimolar,
                 "Total monovalent-equivalent cation concentration must be > 0 mM.");
 
-        return Primer3SeqTm(primer, dnaConcentrationNanomolar, monovalentEq, Primer3DefaultAnnealingTemperature).Tm;
+        return Primer3SeqTm(primer, dnaConcentrationNanomolar, monovalentEq, Primer3DefaultAnnealingTemperature,
+            maxNearestNeighborLength).Tm;
     }
 
-    // Primer3 seqtm() / oligotm() (SantaLucia 1998 Tm, SantaLucia salt correction, MAX_NN_TM_LENGTH = 36) with the
+    // Primer3 seqtm() / oligotm() (SantaLucia 1998 Tm, SantaLucia salt correction, nn_max_len = maxNnLength, Primer3's
+    // MAX_NN_TM_LENGTH = 36 by default) with the
     // fraction bound at the annealing temperature (oligotm.c, PRIMER_ANNEALING_TEMP): Tm is NaN when Primer3 reports
     // OLIGOTM_ERROR (fewer than 2 bases, a non-ACGT base); Bound is Primer3OligoTmError unless annealingTemperature > 0
     // and the nearest-neighbour branch applies (long_seq_tm leaves bound = OLIGOTM_ERROR).
     // Input: validated conditions, monovalentEq = [Mon] + 120·√([Mg²⁺] − [dNTP]) in mM.
     internal static (double Tm, double Bound) Primer3SeqTm(
-        string? primer, double dnaConcentrationNanomolar, double monovalentEq, double annealingTemperature)
+        string? primer, double dnaConcentrationNanomolar, double monovalentEq, double annealingTemperature,
+        int maxNnLength = Primer3MaxNnTmLength)
     {
         if (string.IsNullOrEmpty(primer) || primer.Length < 2)
             return (double.NaN, Primer3OligoTmError);
@@ -1570,11 +1618,11 @@ public static partial class PrimerDesigner
             else if (c is not ('A' or 'T')) return (double.NaN, Primer3OligoTmError);
         }
 
-        if (n > Primer3MaxNnTmLength)
+        if (n > maxNnLength)
             return (ThermoConstants.CalculateSaltAdjustedTm((double)gc / n, n, monovalentEq / 1000.0), Primer3OligoTmError);
 
         // oligotm(): integer accumulation, then ΔH = dh·(−100) cal/mol, ΔS = ds·(−0.1) cal/(K·mol).
-        bool symmetric = IsSelfComplementary(seq);
+        bool symmetric = NtthalDimer.IsSymmetric(seq);
         int dh = 0, ds = symmetric ? Primer3SymmetryDs : 0;
         foreach (char end in new[] { seq[0], seq[^1] })
         {
@@ -1667,8 +1715,20 @@ public static partial class PrimerDesigner
     }
 
     /// <summary>
-    /// Finds the longest dinucleotide repeat (e.g., ATATAT).
+    /// Library screen (unsourced heuristic, no Primer3 counterpart): the number of consecutive copies of the
+    /// most-repeated 2-mer (e.g. ATATAT = 3 units of AT), case-insensitive; inputs shorter than 4 nt return 0.
+    /// Any 2-mer counts, including homo-dinucleotides (AAAA = 2 units of AA), and no base is treated as a
+    /// wildcard. <see cref="PrimerParameters.MaxDinucleotideRepeats"/> limits this count in
+    /// <see cref="EvaluatePrimer"/> (library default 4 in <see cref="DefaultParameters"/>). No authoritative
+    /// published definition of this screen or of the limit 4 was found (audit round 3, A3-8): Primer3 has no
+    /// dinucleotide-repeat setting (<c>primer3_manual.htm</c> lists only PRIMER_MAX_POLY_X, the mononucleotide run =
+    /// <see cref="FindLongestHomopolymer"/>, and repeat-library mispriming PRIMER_MISPRIMING_LIBRARY), so
+    /// <see cref="Primer3DefaultParameters"/> disables it (<see cref="int.MaxValue"/>). For Primer3's sourced
+    /// alternatives use PRIMER_MAX_POLY_X (<see cref="PrimerParameters.MaxHomopolymer"/>) and the mispriming
+    /// library PRIMER_MISPRIMING_LIBRARY (<see cref="PrimerParameters.MisprimingLibrary"/>).
     /// </summary>
+    /// <param name="sequence">Nucleotide sequence.</param>
+    /// <returns>Unit count of the longest dinucleotide tandem repeat (≥ 1 for inputs of ≥ 4 nt), 0 below 4 nt.</returns>
     public static int FindLongestDinucleotideRepeat(string sequence)
     {
         if (string.IsNullOrEmpty(sequence) || sequence.Length < 4)
@@ -1696,24 +1756,39 @@ public static partial class PrimerDesigner
     }
 
     /// <summary>
-    /// Sequence-only stem-loop screen: <c>true</c> when the sequence contains two non-overlapping
-    /// segments of <paramref name="minStemLength"/> bases that are exact Watson–Crick reverse
+    /// Library screen (sequence-only heuristic, no Primer3 counterpart): <c>true</c> when the sequence contains
+    /// two non-overlapping segments of <paramref name="minStemLength"/> bases that are exact Watson–Crick reverse
     /// complements of each other (an antiparallel stem) separated by at least
-    /// <paramref name="minLoopLength"/> unpaired bases (hairpin loops shorter than 3 nt are sterically
-    /// excluded; SantaLucia &amp; Hicks 2004). Case-insensitive; no G·T wobble, mismatches or energies.
-    /// This is a structural screen, not a thermodynamic model: the Primer3 hairpin Tm
+    /// <paramref name="minLoopLength"/> unpaired bases. Case-insensitive; only A·T and G·C pairs (a stem window with
+    /// N or another non-ACGT symbol never pairs, at any length); no G·T wobble, mismatches or energies.
+    /// The default minimum loop of 3 nt is Primer3's hairpin minimum (<c>thal.c</c> <c>min_hrpn_loop = 3</c>); the
+    /// default minimum stem of 4 bp is an unsourced library threshold (no published definition of a
+    /// "≥ 4-bp stem + ≥ 3-nt loop" rule was found, audit round 3, A3-8). It is not equivalent to Primer3's
+    /// hairpin screen: e.g. <c>AAAACCCTTTT</c> is flagged although Primer3 <c>calc_hairpin</c> finds no structure,
+    /// and <c>CAGTAAAACCCTTTTGCAGC</c> is flagged although its hairpin Tm is 37.65 °C (primer3-py 2.3.1,
+    /// 50 mM / 1.5 mM / 0.6 mM / 50 nM), below PRIMER_MAX_HAIRPIN_TH = 47 °C. The sourced Primer3 hairpin screen
     /// (PRIMER_HAIRPIN_TH) is <see cref="CalculatePrimer3OligoStructure"/> /
     /// <see cref="CalculateHairpinThermodynamicsNtthal(string, double)"/>, which
-    /// <see cref="EvaluatePrimer"/> uses by default. Uses an O(n²) scan below 100 nt and a suffix tree
+    /// <see cref="EvaluatePrimer"/> uses by default; primer evaluation uses this screen only with
+    /// <see cref="PrimerStructureScreen.Heuristic"/>. It is also the fallback hairpin screen of the probe designers
+    /// (<see cref="ProbeDesigner.ProbeParameters"/>: probes longer than the THAL_MAX_ALIGN of the thermodynamic screen,
+    /// non-ACGT probes, <see cref="ProbeDesigner.ProbeStructureScreen.Heuristic"/>; audit round 5, A5-2). Uses an O(n²) scan below 100 nt and a suffix tree
     /// at ≥ 100 nt (identical results).
     /// </summary>
     /// <param name="sequence">DNA sequence to check.</param>
-    /// <param name="minStemLength">Minimum stem length (default 4).</param>
-    /// <param name="minLoopLength">Minimum loop length (default 3).</param>
-    /// <returns>True if hairpin potential detected.</returns>
+    /// <param name="minStemLength">Minimum stem length (default 4; ≥ 1 — a stem has at least one base pair).</param>
+    /// <param name="minLoopLength">Minimum loop length (default 3; ≥ 0 — 0 allows the two arms to abut, below
+    /// Primer3's 3-nt hairpin minimum).</param>
+    /// <returns>True if hairpin potential detected; <c>false</c> for a null or empty sequence.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="minStemLength"/> &lt; 1 or
+    /// <paramref name="minLoopLength"/> &lt; 0.</exception>
     public static bool HasHairpinPotential(string sequence, int minStemLength = 4, int minLoopLength = 3)
     {
-        if (string.IsNullOrEmpty(sequence) || sequence.Length < minStemLength * 2 + minLoopLength)
+        // Audit round 7, A7-3: a 0-bp stem is no stem (it returned true for any long-enough sequence) and a negative
+        // stem / loop crashed in Substring.
+        ArgumentOutOfRangeException.ThrowIfLessThan(minStemLength, 1);
+        ArgumentOutOfRangeException.ThrowIfNegative(minLoopLength);
+        if (string.IsNullOrEmpty(sequence) || sequence.Length < 2L * minStemLength + minLoopLength)
             return false;
 
         var seq = sequence.ToUpperInvariant();
@@ -1742,13 +1817,15 @@ public static partial class PrimerDesigner
             for (int j = i + minStemLength + minLoopLength; j <= seq.Length - minStemLength; j++)
             {
                 string target = seq.Substring(j, minStemLength);
-                if (AreComplementary(fragment, Reverse(target)))
+                if (AreComplementary(fragment, NtthalDimer.ReverseString(target)))
                     return true;
             }
         }
 
         return false;
     }
+
+    private static readonly System.Buffers.SearchValues<char> AcgtBases = System.Buffers.SearchValues.Create("ACGT");
 
     /// <summary>
     /// Suffix tree-based O(n) hairpin detection for long sequences.
@@ -1774,6 +1851,12 @@ public static partial class PrimerDesigner
         for (int p = 0; p <= n - minStemLength; p++)
         {
             var pattern = revComp.AsSpan(p, minStemLength);
+            // Only Watson–Crick A·T / G·C pairs form a stem (IsComplementary, as in the < 100-nt scan): the IUPAC
+            // reverse complement maps N→N, S→S, W→W, so a stem window with a non-ACGT base would otherwise match itself;
+            // and it maps U→A, so the source window seq[n-p-k..n-p) must itself be ACGT (audit round 6, A6-1).
+            if (pattern.ContainsAnyExcept(AcgtBases)
+                || seq.AsSpan(n - p - minStemLength, minStemLength).ContainsAnyExcept(AcgtBases))
+                continue;
             var matches = tree.FindAllOccurrences(pattern);
 
             foreach (int i in matches)
@@ -2194,7 +2277,7 @@ public static partial class PrimerDesigner
         // oligodg (santalucia): dg = −1960 [−430 if symmetric] [−50 per terminal A/T] + Σ table, in cal/mol
         // of −ΔG; the method returns ΔG = −dg/1000.
         int dg = -1960;
-        if (IsPrimer3Symmetric(window)) dg += -430;
+        if (NtthalDimer.IsSymmetric(window)) dg += -430; // oligotm.c symmetry() = thal.c symmetry_thermo on upper case
         if (window[0] is 'A' or 'T') dg += -50;
         for (int i = 0; i + 1 < idx.Length; i++)
             dg += Primer3SantaLucia1998Dg[idx[i], idx[i + 1]];
@@ -2212,22 +2295,6 @@ public static partial class PrimerDesigner
         {  580, 1300, 1450, 1000,  580 },
         {  580, 1300, 1280,  880,  580 },
     };
-
-    // oligotm.c symmetry(): even length and every A/T and C/G position Watson-Crick paired with its mirror.
-    private static bool IsPrimer3Symmetric(string seq)
-    {
-        int n = seq.Length;
-        if (n % 2 == 1) return false;
-        for (int i = 0; i < n / 2; i++)
-        {
-            char s = seq[i], e = seq[n - 1 - i];
-            if ((s == 'A' && e != 'T') || (s == 'T' && e != 'A') || (e == 'A' && s != 'T') || (e == 'T' && s != 'A'))
-                return false;
-            if ((s == 'C' && e != 'G') || (s == 'G' && e != 'C') || (e == 'C' && s != 'G') || (e == 'G' && s != 'C'))
-                return false;
-        }
-        return true;
-    }
 
     // ---- Nearest-neighbour salt-corrected Tm (PRIMER-NNTM-001, opt-in) ----------
     // SantaLucia & Hicks (2004) Watson-Crick NN ΔH°/ΔS° (1 M NaCl; Biopython DNA_NN4 — NOT the
@@ -2327,7 +2394,7 @@ public static partial class PrimerDesigner
         if (!IsAcgtOnly(seq))
             return null; // non-ACGT base present
 
-        bool selfComp = IsSelfComplementary(seq);
+        bool selfComp = NtthalDimer.IsSymmetric(seq);
         var (dH, dS) = ThermoConstants.CalculateNearestNeighborThermodynamics(
             seq, parameterSet: DesignNnParameterSet, selfComplementary: selfComp, check: false);
         return (dH, dS, selfComp);
@@ -2517,7 +2584,7 @@ public static partial class PrimerDesigner
 
         // Symmetry term only for a fully paired, self-complementary duplex (Tm_NN's selfcomp flag).
         bool hasDangling = t.Contains('.') || b.Contains('.');
-        bool selfComp = !hasDangling && IsSelfComplementary(t)
+        bool selfComp = !hasDangling && NtthalDimer.IsSymmetric(t)
                         && string.Equals(b, Complement(t), StringComparison.Ordinal);
         return (seq, cSeq, shift, selfComp);
     }
@@ -2594,7 +2661,12 @@ public static partial class PrimerDesigner
     //    consecutive-LNA parameters (Owczarzy2011lockedTandemmn.xml); two LNAs, a mismatch opposite one of
     //    them → LNA-mismatch parameters (Owczarzy2011lockedmmn.xml). A mismatched LNA is therefore
     //    computable only when both of its neighbours are LNAs (the paper's +X+M+Y triplets).
-    //  * Terminal LNAs and terminal mismatches are not parameterised (MELTING isApplicable → not computable).
+    //  * Terminal LNAs and terminal mismatches are not parameterised by either paper → not computable.
+    //    MELTING 5.2.0 rejects terminal mismatches ("No method for terminal mismatches"), but it does evaluate a
+    //    terminal LNA: its isApplicable guard (warning "not established for terminal locked nucleic acids", then
+    //    false) compares the end base pair with the literal "L"/"-" and never fires, so it applies the internal-LNA
+    //    doublet parameter at the duplex end (e.g. CLCATTGCTACC, 0.1 mM, 1 M Na⁺ → 66.6565 °C). That extrapolation
+    //    outside the parameters' validated (internal) range is deliberately not reproduced (B07 F66).
     //  * Tm = 1000·ΔH° / (ΔS° + R·ln(C_T/x)) − 273.15 (x = 4, 1 if self-complementary) with the salt
     //    correction of saltMode (MELTING default for Na⁺ only = Owczarzy et al. 2004 Eq. 22 = Biopython
     //    method 6). MELTING's code uses R = 1.99 (NearestNeighborMode.computesMeltingTemperature); this
@@ -2765,7 +2837,8 @@ public static partial class PrimerDesigner
     /// </summary>
     /// <param name="sequence">LNA-modified oligonucleotide (DNA letters, 5'→3'; case-insensitive), ≥ 2 ACGT bases.</param>
     /// <param name="lnaPositions">Zero-based positions of the LNA monomers in <paramref name="sequence"/>; order and
-    /// duplicates are tolerated. A terminal (0 or length − 1) or out-of-range position is not parameterised.</param>
+    /// duplicates are tolerated. A terminal (0 or length − 1) or out-of-range position is not parameterised (neither
+    /// paper covers terminal LNAs; MELTING 5.2.0 extrapolates them only because its terminal-LNA guard never fires).</param>
     /// <param name="model">LNA nearest-neighbour model.</param>
     /// <param name="target">The DNA strand opposite <paramref name="sequence"/>, written 3'→5' (base i pairs with
     /// sequence[i]; same length); <c>null</c> = the perfect complement. Internal mismatches are allowed opposite a DNA
@@ -2799,7 +2872,7 @@ public static partial class PrimerDesigner
         var locked = new bool[n];
         foreach (int pos in lnaPositions)
         {
-            // Terminal LNAs are not parameterised by either model (MELTING isApplicable).
+            // Terminal LNAs are not parameterised by either model (MELTING's intended isApplicable rejection).
             if (pos <= 0 || pos >= n - 1)
                 return null;
             locked[pos] = true;
@@ -2812,7 +2885,7 @@ public static partial class PrimerDesigner
         // An LNA-modified strand paired with an unmodified DNA strand is never a symmetric duplex (the two
         // strands differ chemically), so only an LNA-free self-complementary sequence with its own complement
         // is treated as self-complementary (symmetry term, x = 1); MELTING likewise rejects -self with LNAs.
-        bool selfComp = target is null && !locked.Contains(true) && IsSelfComplementary(seq);
+        bool selfComp = target is null && !locked.Contains(true) && NtthalDimer.IsSymmetric(seq);
         var init = ThermoConstants.GetNearestNeighborInitiation(LnaBaseParameterSet);
         double dH = init.Initiation.DeltaH, dS = init.Initiation.DeltaS;
         var oneOrAll = seq.Any(c => c is 'G' or 'C') ? init.OneGC : init.AllAT;
@@ -2975,6 +3048,9 @@ public static partial class PrimerDesigner
     // here. They are exposed as an OPT-IN caller-supplied additive ΔG°37/ΔH° adjustment
     // (default 0) so a caller who has those tables can supply the increment; without it the
     // result is the stem-stack + loop-initiation core, which is exact and fully sourced.
+    // The complete model (thal.c: terminal mismatches, special loops, bulges/internal loops,
+    // dangles, Mg²⁺/dNTP) is selected with StructureModel.Ntthal on the model overloads below,
+    // which delegate to the canonical ntthal engine (audit round 3, A3-13).
 
     /// <summary>Hairpin loop ΔG°37 increment (kcal/mol, 1 M NaCl) by loop size (number of
     /// unpaired loop nucleotides). SantaLucia &amp; Hicks (2004) Table 4 "Hairpin loops" column;
@@ -3046,9 +3122,13 @@ public static partial class PrimerDesigner
     /// Watson-Crick stem closing one hairpin loop — in <paramref name="sequence"/>, using the
     /// SantaLucia &amp; Hicks (2004) Table 1 nearest-neighbour stem stacks and their
     /// Table 4 hairpin-loop initiation increments. <b>Opt-in</b>: the duplex Tm methods
-    /// are unchanged. Returns <c>null</c> when the sequence is empty, contains a non-ACGT
+    /// are unchanged. Every stem length from <paramref name="minStemLength"/> up to the maximal
+    /// Watson–Crick extension of each closing pair is a candidate as long as it closes a loop of
+    /// ≥ 3 nt (so GGGGCCCC folds into a 2-bp stem + 3-nt loop). Returns <c>null</c> when the sequence is empty, contains a non-ACGT
     /// character, or admits no hairpin at all (no stem of ≥ 2 bp can close a loop of ≥ 3 nt,
-    /// e.g. a homopolymer such as poly-A).
+    /// e.g. a homopolymer such as poly-A). The full thal.c hairpin model is the
+    /// <see cref="FindMostStableHairpin(string, StructureModel, double?, double?, double?, double?, int?)"/> overload with
+    /// <see cref="StructureModel.Ntthal"/>.
     /// <para>
     /// Model: ΔG°37 = Σ stem NN stacks (Table 1) + ΔG°37(loop of N) (Table 4); the bimolecular
     /// duplex-initiation term is intentionally excluded for this unimolecular structure. Loop
@@ -3090,7 +3170,11 @@ public static partial class PrimerDesigner
                     continue;
 
                 double dH = 0.0, dS = 0.0;
-                // Extend the stem from the outermost pair (i, j) inward.
+                // Extend the stem from the outermost pair (i, j) inward. EVERY stem length that closes a
+                // loop of ≥ 3 nt is a candidate (not only the maximal Watson–Crick extension): a stem that
+                // could pair further but would then close a < 3-nt loop (e.g. GGGGCCCC, GCGCGCGCGC) still
+                // forms the shorter stem + loop, as the loop bases are simply unpaired (SantaLucia & Hicks
+                // 2004 Eqs 8–10; INV-01/INV-02).
                 int a = i, b = j;
                 int stemPairs = 0;
                 while (a < b && IsWatsonCrickPair(seq[a], seq[b]))
@@ -3105,30 +3189,29 @@ public static partial class PrimerDesigner
                         dS += p.DeltaS;
                     }
                     stemPairs++;
+
+                    // Innermost pair is (a, b); the loop is the bases strictly between them.
+                    int loopSize = b - a - 1;
+                    if (loopSize < MinHairpinLoopSize)
+                        break; // a longer stem only shrinks the loop further
+
+                    if (stemPairs >= minStemLength)
+                    {
+                        double loopDg = HairpinLoopDeltaG(loopSize) + loopBonusDeltaG37;
+                        // Loop ΔH° = 0; loop ΔS° = −ΔG°37·1000/310.15 (destabilising loop).
+                        double loopDs = -loopDg * 1000.0 / ReferenceTemperatureKelvin;
+
+                        double totalDh = dH;                       // loop ΔH° contribution is 0
+                        double totalDs = dS + loopDs;
+                        double dG37 = totalDh - ReferenceTemperatureKelvin * totalDs / 1000.0;
+
+                        if (best is null || dG37 < best.Value.DeltaG37)
+                            best = new HairpinResult(i, j, stemPairs, loopSize, totalDh, totalDs, dG37);
+                    }
+
                     a++;
                     b--;
                 }
-
-                if (stemPairs < minStemLength)
-                    continue;
-
-                // Innermost pair is (a-1, b+1); loop is the bases strictly between them.
-                int innerLeft = a - 1;
-                int innerRight = b + 1;
-                int loopSize = innerRight - innerLeft - 1;
-                if (loopSize < MinHairpinLoopSize)
-                    continue;
-
-                double loopDg = HairpinLoopDeltaG(loopSize) + loopBonusDeltaG37;
-                // Loop ΔH° = 0; loop ΔS° = −ΔG°37·1000/310.15 (destabilising loop).
-                double loopDs = -loopDg * 1000.0 / ReferenceTemperatureKelvin;
-
-                double totalDh = dH;                       // loop ΔH° contribution is 0
-                double totalDs = dS + loopDs;
-                double dG37 = totalDh - ReferenceTemperatureKelvin * totalDs / 1000.0;
-
-                if (best is null || dG37 < best.Value.DeltaG37)
-                    best = new HairpinResult(i, j, stemPairs, loopSize, totalDh, totalDs, dG37);
             }
         }
 
@@ -3163,6 +3246,135 @@ public static partial class PrimerDesigner
         return (h.DeltaH * 1000.0) / h.DeltaS - KelvinOffset;
     }
 
+    /// <summary>
+    /// Thermodynamic structure model of <see cref="FindMostStableHairpin(string, StructureModel, double?, double?, double?, double?, int?)"/>,
+    /// <see cref="CalculateHairpinMeltingTemperature(string, StructureModel, double?, double?, double?, double?, int?)"/> and
+    /// <see cref="FindMostStableDimer(string, string, StructureModel, double?, double?, double?, double?, double?, int?)"/>.
+    /// </summary>
+    public enum StructureModel
+    {
+        /// <summary>The default single-helix models: the hairpin single-stem core (SantaLucia &amp; Hicks 2004
+        /// Table 1 stem stacks + Table 4 loop initiation, 1 M NaCl, no terminal-mismatch / special-loop /
+        /// bulge / internal-loop terms) and the gapless contiguous Watson–Crick dimer scorer.</summary>
+        SingleHelix = 0,
+
+        /// <summary>The complete Primer3 <c>ntthal</c> (thal.c) dynamic program — SantaLucia &amp; Hicks (2004)
+        /// stacks with terminal mismatches (<c>tstack</c>/<c>tstack2</c>), dangling ends, single mismatches,
+        /// bulges, internal loops, size-keyed hairpin loops with the triloop/tetraloop bonus tables and the
+        /// Mg²⁺/dNTP salt model — identical to primer3-py 2.3.1 <c>calc_hairpin</c> /
+        /// <c>calc_homodimer</c> / <c>calc_heterodimer</c> (delegates to
+        /// <see cref="CalculateHairpinStructureNtthal(string, double, double, double, double, int)"/> /
+        /// <see cref="CalculateDimerStructureNtthal(string, string, NtthalAlignmentMode, double, double, double, double, double, int)"/>).</summary>
+        Ntthal = 1,
+    }
+
+    /// <summary>
+    /// <see cref="FindMostStableHairpin(string, int, double)"/> with a selectable <paramref name="model"/>.
+    /// <see cref="StructureModel.SingleHelix"/> is exactly <c>FindMostStableHairpin(sequence)</c> (the SantaLucia &amp;
+    /// Hicks 2004 single-stem core at 1 M NaCl; every condition argument must then be <c>null</c>).
+    /// <see cref="StructureModel.Ntthal"/> folds the oligo with the full thal.c hairpin DP (primer3-py
+    /// <c>calc_hairpin</c>) and maps the optimal structure onto <see cref="HairpinResult"/>:
+    /// <c>StemStart</c> = the 5′-most paired base, <c>StemEnd</c> = its partner, <c>StemLength</c> = base pairs of the
+    /// stem closed by that pair (counted across bulges / internal loops), <c>LoopSize</c> = unpaired bases enclosed by
+    /// its innermost pair, and ΔH°/ΔS°/ΔG = the ntthal values of the whole structure (kcal/mol, cal/(K·mol) incl. the
+    /// ntthal salt term, kcal/mol at <paramref name="temperatureCelsius"/>) — exactly primer3-py <c>dh</c>/1000,
+    /// <c>ds</c>, <c>dg</c>/1000. When ntthal places more than one hairpin on the oligo, the span / stem / loop fields
+    /// describe the 5′-most one.
+    /// </summary>
+    /// <param name="sequence">DNA oligo (5′→3′), ACGT only (case-insensitive).</param>
+    /// <param name="model">Structure model.</param>
+    /// <param name="sodiumMolar">Ntthal only: mv, mol/L (null = 0.05, the calc_hairpin default).</param>
+    /// <param name="divalentMolar">Ntthal only: dv, mol/L (null = 0.0015).</param>
+    /// <param name="dntpMolar">Ntthal only: dNTP, mol/L (null = 0.0006).</param>
+    /// <param name="temperatureCelsius">Ntthal only: temp_c (null = 37).</param>
+    /// <param name="maxLoop">Ntthal only: max_loop 0–30 (null = 30).</param>
+    /// <returns>The hairpin, or <c>null</c> for invalid input / no hairpin (ntthal <c>no_structure</c>).</returns>
+    /// <exception cref="ArgumentException"><see cref="StructureModel.SingleHelix"/> with a non-null condition argument,
+    /// or <see cref="StructureModel.Ntthal"/> with an oligo longer than 60 nt (thal.c <c>THAL_MAX_ALIGN</c>).</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="model"/> undefined or max_loop outside 0–30.</exception>
+    public static HairpinResult? FindMostStableHairpin(
+        string sequence,
+        StructureModel model,
+        double? sodiumMolar = null,
+        double? divalentMolar = null,
+        double? dntpMolar = null,
+        double? temperatureCelsius = null,
+        int? maxLoop = null)
+    {
+        if (!UseNtthal(model, sodiumMolar, divalentMolar, dntpMolar, null, temperatureCelsius, maxLoop))
+            return FindMostStableHairpin(sequence);
+
+        var r = RunHairpinNtthal(sequence, sodiumMolar ?? 0.05, divalentMolar ?? 0.0015, dntpMolar ?? 0.0006,
+            temperatureCelsius ?? NtthalDefaultTemperatureCelsius, maxLoop ?? NtthalDefaultMaxLoop,
+            withStructure: false, NtthalMaxAlignLength);
+        if (r is null)
+            return null;
+        var v = r.Value;
+        int[] bp = v.PairPartners!;
+        int first = Array.FindIndex(bp, p => p > 0); // 0-based 5'-most paired base
+        int a = first, b = bp[first] - 1, stem = 1;
+        while (true)
+        {
+            // Next pair nested inside (a, b): the first paired base after a (a hairpin stem has no branches).
+            int k = a + 1;
+            while (k < b && bp[k] == 0) k++;
+            if (k >= b) break;
+            a = k;
+            b = bp[k] - 1;
+            stem++;
+        }
+        return new HairpinResult(first, bp[first] - 1, stem, b - a - 1,
+            v.DeltaH / 1000.0, v.DeltaS, v.DeltaG37 / 1000.0);
+    }
+
+    /// <summary>
+    /// <see cref="CalculateHairpinMeltingTemperature(string, int, double)"/> with a selectable <paramref name="model"/>:
+    /// <see cref="StructureModel.SingleHelix"/> is exactly <c>CalculateHairpinMeltingTemperature(sequence)</c> (every
+    /// condition argument must be <c>null</c>); <see cref="StructureModel.Ntthal"/> returns the ntthal hairpin Tm
+    /// (primer3-py <c>calc_hairpin(...).tm</c>, <see cref="CalculateHairpinThermodynamicsNtthal(string, double, double, double, double, int)"/>).
+    /// Parameters as in <see cref="FindMostStableHairpin(string, StructureModel, double?, double?, double?, double?, int?)"/>.
+    /// </summary>
+    /// <returns>The hairpin Tm in °C, or <c>double.NaN</c> for invalid input / no hairpin.</returns>
+    /// <exception cref="ArgumentException">As <see cref="FindMostStableHairpin(string, StructureModel, double?, double?, double?, double?, int?)"/>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">As <see cref="FindMostStableHairpin(string, StructureModel, double?, double?, double?, double?, int?)"/>.</exception>
+    public static double CalculateHairpinMeltingTemperature(
+        string sequence,
+        StructureModel model,
+        double? sodiumMolar = null,
+        double? divalentMolar = null,
+        double? dntpMolar = null,
+        double? temperatureCelsius = null,
+        int? maxLoop = null)
+    {
+        if (!UseNtthal(model, sodiumMolar, divalentMolar, dntpMolar, null, temperatureCelsius, maxLoop))
+            return CalculateHairpinMeltingTemperature(sequence);
+
+        var r = RunHairpinNtthal(sequence, sodiumMolar ?? 0.05, divalentMolar ?? 0.0015, dntpMolar ?? 0.0006,
+            temperatureCelsius ?? NtthalDefaultTemperatureCelsius, maxLoop ?? NtthalDefaultMaxLoop,
+            withStructure: false, NtthalMaxAlignLength);
+        return r is null ? double.NaN : r.Value.TmCelsius;
+    }
+
+    // Validates a StructureModel and its ntthal-only condition arguments: true = Ntthal; false = SingleHelix, which
+    // takes no ntthal condition (its own conditions, if any, are passed separately by the caller).
+    private static bool UseNtthal(StructureModel model, double? mv, double? dv, double? dntp, double? dnaConc,
+        double? tempC, int? maxLoop)
+    {
+        switch (model)
+        {
+            case StructureModel.Ntthal:
+                return true;
+            case StructureModel.SingleHelix:
+                if (mv is not null || dv is not null || dntp is not null || dnaConc is not null || tempC is not null || maxLoop is not null)
+                    throw new ArgumentException(
+                        "The SingleHelix model has fixed conditions (hairpin: 1 M NaCl, 37 °C; dimer: monovalent salt and " +
+                        "strand concentration only); ntthal condition arguments require StructureModel.Ntthal.");
+                return false;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(model), model, "Unknown StructureModel.");
+        }
+    }
+
     // ---- Self-dimer / hetero-dimer (intermolecular) Tm via thermodynamic alignment ----
     // PRIMER-TM-001, opt-in. Finds the most stable INTERMOLECULAR antiparallel duplex
     // between two oligonucleotides (self-dimer = an oligo against a second copy of itself;
@@ -3172,7 +3384,8 @@ public static partial class PrimerDesigner
     // 0.368 entropy salt coefficient already used by CalculateMeltingTemperatureNN.
     // The duplex Tm / hairpin Tm / default Tm methods and their defaults are UNCHANGED.
     //
-    // Model (Primer3 / ntthal — SantaLucia & Hicks 2004 unified NN):
+    // Model (gapless contiguous-WC scorer on the ntthal duplex terms — SantaLucia & Hicks 2004 unified NN;
+    // the full ntthal DP with mismatches/loops/bulges/overhangs is NtthalDimer via CalculateDimerThermodynamicsNtthal):
     //   For each gapless antiparallel offset of strand2 (read 3'→5') under strand1 (5'→3'),
     //   each maximal contiguous run of Watson-Crick pairs (≥ 1 NN stack) is a candidate
     //   duplex with
@@ -3201,8 +3414,11 @@ public static partial class PrimerDesigner
     //     (mv=50, dv=0, dntp=0, dna_conc=50 nM): this method reproduces ntthal's ΔH°, ΔS°
     //     and Tm to machine precision for every case whose optimal structure is a contiguous
     //     Watson-Crick duplex (e.g. GCGCGCGC, ACGTACGTACGT, ATCGATCGATCG/CGATCGATCGAT,
-    //     CGATCGATCG self-dimer, GCATGC, GGGGCCCC). ntthal's extra terminal-stack /
-    //     overhang-extension terms for some sequences are NOT modelled here (documented limit).
+    //     CGATCGATCG self-dimer, GCATGC, GGGGCCCC). By design this record keeps the contiguous-WC
+    //     optimum (DNA_Dimer_Tm.md §5.3/§5.4): ntthal's mismatch / loop / bulge / terminal-overhang
+    //     (tstack2 / dangle) terms are in the full port NtthalDimer — CalculateDimerThermodynamicsNtthal,
+    //     CalculateSelfDimerMeltingTemperature and CalculateDimerMeltingTemperature use it (bit-exact to
+    //     primer3-py 2.3.1, incl. dv/dntp, temp_c, max_loop; PRIMER-DIMER-001).
 
     /// <summary>
     /// The most stable intermolecular DNA duplex (self- or hetero-dimer) found between two
@@ -3220,9 +3436,12 @@ public static partial class PrimerDesigner
         double DeltaH, double DeltaS, double DeltaG37);
 
     /// <summary>
-    /// Finds the most stable (highest-Tm) intermolecular DNA duplex between two oligonucleotides
-    /// using the Primer3 / <c>ntthal</c> thermodynamic alignment over the SantaLucia &amp; Hicks
-    /// (2004) unified nearest-neighbour model. A <b>self-dimer</b> is obtained by passing the same
+    /// Finds the most stable (highest-Tm) gapless, contiguous Watson–Crick intermolecular DNA duplex between two
+    /// oligonucleotides, scored with the <c>ntthal</c> duplex terms over the SantaLucia &amp; Hicks (2004) unified
+    /// nearest-neighbour model (the full <c>ntthal</c> alignment with mismatches, loops, bulges and terminal
+    /// overhangs is <see cref="CalculateDimerThermodynamicsNtthal(string, string, NtthalAlignmentMode, double, double, double, double)"/>,
+    /// and the <see cref="FindMostStableDimer(string, string, StructureModel, double?, double?, double?, double?, double?, int?)"/>
+    /// overload with <see cref="StructureModel.Ntthal"/> maps that structure onto this record). A <b>self-dimer</b> is obtained by passing the same
     /// sequence as both strands; a <b>hetero/cross-dimer</b> by passing two different sequences.
     /// <b>Opt-in</b>: the duplex (<see cref="CalculateMeltingTemperatureNN"/>) and hairpin Tm
     /// methods, and the default <see cref="CalculateMeltingTemperature(string)"/>, are unchanged.
@@ -3263,14 +3482,14 @@ public static partial class PrimerDesigner
             if (c is not ('A' or 'C' or 'G' or 'T')) return null;
 
         // x = 1 only when both strands are reverse-complement palindromes (ntthal symmetry_thermo).
-        bool symmetric = IsSelfComplementary(s1) && IsSelfComplementary(s2);
+        bool symmetric = NtthalDimer.IsSymmetric(s1) && NtthalDimer.IsSymmetric(s2);
         double x = symmetric ? SelfComplementaryFactor : NonSelfComplementaryFactor;
         // Strand-concentration term R·ln(C_T / x) for the bimolecular Tm (constant over candidates).
         double rcTerm = GasConstant * Math.Log(strandConcentrationMolar / x);
         double saltPerStack = SantaLuciaEntropySaltCoefficient * Math.Log(sodiumMolar);
 
         // Strand 2 read 3'→5' so its index i pairs base-for-base under strand 1 read 5'→3'.
-        string s2Rev = Reverse(s2);
+        string s2Rev = NtthalDimer.ReverseString(s2);
         int n = s1.Length, m = s2.Length;
 
         DimerResult? best = null;
@@ -3343,6 +3562,63 @@ public static partial class PrimerDesigner
                 best = new DimerResult(runStart, strand2Start5, basePairs, dH, dS, dG37);
             }
         }
+    }
+
+    /// <summary>
+    /// <see cref="FindMostStableDimer(string, string, double, double)"/> with a selectable <paramref name="model"/>.
+    /// <see cref="StructureModel.SingleHelix"/> is exactly <c>FindMostStableDimer(strand1, strand2, sodiumMolar,
+    /// strandConcentrationMolar)</c> (the gapless contiguous Watson–Crick scorer; null = its defaults 50 mM / 50 nM;
+    /// <paramref name="divalentMolar"/>, <paramref name="dntpMolar"/>, <paramref name="temperatureCelsius"/> and
+    /// <paramref name="maxLoop"/> must be <c>null</c>). <see cref="StructureModel.Ntthal"/> runs the full thal.c dimer
+    /// DP in mode ANY (primer3-py <c>calc_heterodimer(strand1, strand2, …)</c>; a self-dimer —
+    /// <c>calc_homodimer</c> — by passing the same sequence twice) and maps its optimal structure onto
+    /// <see cref="DimerResult"/>: <c>Strand1Start</c> / <c>Strand2Start</c> = the 0-based 5′-most paired base on each
+    /// strand, <c>BasePairs</c> = paired bases of the structure (ntthal reports single-pair structures too), and
+    /// ΔH°/ΔS°/ΔG = the ntthal values (kcal/mol; cal/(K·mol) incl. the ntthal salt term; kcal/mol at
+    /// <paramref name="temperatureCelsius"/>) — exactly primer3-py <c>dh</c>/1000, <c>ds</c>, <c>dg</c>/1000. The
+    /// structure may contain mismatches, bulges, internal loops and dangling ends; its Tm is
+    /// <see cref="CalculateDimerThermodynamicsNtthal(string, string, NtthalAlignmentMode, double, double, double, double, double, int)"/>.
+    /// </summary>
+    /// <param name="strand1">First DNA oligo (5′→3′), ACGT only (case-insensitive).</param>
+    /// <param name="strand2">Second DNA oligo (5′→3′); the same string for a self-dimer.</param>
+    /// <param name="model">Structure model.</param>
+    /// <param name="sodiumMolar">mv, mol/L (null = 0.05 for both models).</param>
+    /// <param name="divalentMolar">Ntthal only: dv, mol/L (null = 0.0015, the primer3-py default).</param>
+    /// <param name="dntpMolar">Ntthal only: dNTP, mol/L (null = 0.0006).</param>
+    /// <param name="strandConcentrationMolar">Oligo concentration, mol/L (null = 50 nM for both models).</param>
+    /// <param name="temperatureCelsius">Ntthal only: temp_c (null = 37).</param>
+    /// <param name="maxLoop">Ntthal only: max_loop 0–30 (null = 30).</param>
+    /// <returns>The dimer, or <c>null</c> for invalid input / no duplex (ntthal <c>no_structure</c>).</returns>
+    /// <exception cref="ArgumentException"><see cref="StructureModel.SingleHelix"/> with a non-null ntthal-only argument,
+    /// or <see cref="StructureModel.Ntthal"/> with both strands longer than 60 nt / either longer than 10 000 nt
+    /// (thal.c <c>THAL_MAX_ALIGN</c> / <c>THAL_MAX_SEQ</c>).</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="model"/> undefined or max_loop outside 0–30.</exception>
+    public static DimerResult? FindMostStableDimer(
+        string strand1,
+        string strand2,
+        StructureModel model,
+        double? sodiumMolar = null,
+        double? divalentMolar = null,
+        double? dntpMolar = null,
+        double? strandConcentrationMolar = null,
+        double? temperatureCelsius = null,
+        int? maxLoop = null)
+    {
+        double mv = sodiumMolar ?? ThermoConstants.DefaultNaConcentration;
+        double dnaConc = strandConcentrationMolar ?? DefaultDimerStrandConcentrationMolar;
+        if (!UseNtthal(model, null, divalentMolar, dntpMolar, null, temperatureCelsius, maxLoop))
+            return FindMostStableDimer(strand1, strand2, mv, dnaConc);
+
+        var r = RunDimerNtthal(strand1, strand2, NtthalAlignmentMode.Any, mv, divalentMolar ?? 0.0015,
+            dntpMolar ?? 0.0006, dnaConc, temperatureCelsius ?? NtthalDefaultTemperatureCelsius,
+            maxLoop ?? NtthalDefaultMaxLoop, withStructure: false, NtthalMaxAlignLength);
+        if (r is null)
+            return null;
+        var v = r.Value;
+        // thal.c pairs strand 1 (1-based i) with the REVERSED strand 2 (1-based j); the traceback starts at the
+        // 3'-most strand-1 pair (Strand1End, Strand2End), whose partner is the 5'-most paired base of strand 2.
+        return new DimerResult(v.Strand1Start - 1, strand2.Length - v.Strand2End, v.BasePairs,
+            v.DeltaH / 1000.0, v.DeltaS, v.DeltaG37 / 1000.0);
     }
 
     // Minimum base pairs for a dimer duplex (at least one NN stack). ntthal requires a paired
@@ -3570,6 +3846,20 @@ public static partial class PrimerDesigner
     public const int NtthalDefaultMaxLoop = 30;
 
     /// <summary>
+    /// thal.h <c>THAL_MAX_ALIGN</c> = 60: Primer3 / primer3-py refuse a dimer whose two strands are both longer, and a
+    /// hairpin of a longer oligo ("At least one sequence must be equal to or shorter than 60bp …"). It is a
+    /// compile-time constant of thal.c (<c>#ifndef THAL_MAX_ALIGN</c>, used only by <c>thal_check_errors</c>; the DP
+    /// tables are allocated from the actual lengths) chosen by the Primer3 authors as "the maximum reasonable length
+    /// for nearest neighbor models … only two states of melting" (thal.h). The ntthal overloads taking
+    /// <c>maxAlignLength</c> raise it (opt-in) and then reproduce ntthal built with <c>-DTHAL_MAX_ALIGN=…</c>.
+    /// </summary>
+    public const int NtthalMaxAlignLength = 60;
+
+    /// <summary>thal.h <c>THAL_MAX_SEQ</c> = 10 000: maximum length of either strand (and the largest
+    /// <c>maxAlignLength</c> accepted).</summary>
+    public const int NtthalMaxSequenceLength = 10000;
+
+    /// <summary>
     /// Full <c>ntthal</c> dimer thermodynamics with every primer3-py <c>calc_heterodimer</c> /
     /// <c>calc_end_stability</c> argument: alignment type, mv/dv/dntp/dna_conc, <c>temp_c</c> (the
     /// temperature at which ΔG is evaluated: ΔG = ΔH − (temp_c + 273.15)·ΔS, thal.c <c>calcDimer</c>;
@@ -3601,7 +3891,45 @@ public static partial class PrimerDesigner
         double temperatureCelsius,
         int maxLoop) =>
         CalculateDimerStructureNtthal(strand1, strand2, mode, sodiumMolar, divalentMolar, dntpMolar,
-            strandConcentrationMolar, temperatureCelsius, maxLoop, withStructure: false)?.Thermodynamics;
+            strandConcentrationMolar, temperatureCelsius, maxLoop, withStructure: false,
+            NtthalMaxAlignLength)?.Thermodynamics;
+
+    /// <summary>
+    /// As <see cref="CalculateDimerThermodynamicsNtthal(string, string, NtthalAlignmentMode, double, double, double, double, double, int)"/>
+    /// with thal.h <c>THAL_MAX_ALIGN</c> raised to <paramref name="maxAlignLength"/> (opt-in; see
+    /// <see cref="NtthalMaxAlignLength"/>): the unchanged ntthal recursions run when at least one strand is at most
+    /// <paramref name="maxAlignLength"/> nt — identical to ntthal / thal.c compiled with
+    /// <c>-DTHAL_MAX_ALIGN=maxAlignLength</c>. With 60 it is the 9-argument overload. Cost is O(len1·len2·maxLoop²).
+    /// </summary>
+    /// <param name="maxAlignLength">THAL_MAX_ALIGN, <see cref="NtthalMaxAlignLength"/> (60) …
+    /// <see cref="NtthalMaxSequenceLength"/> (10 000) — smaller values would refuse what Primer3 accepts.</param>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxLoop"/> outside 0–30 or
+    /// <paramref name="maxAlignLength"/> outside 60–10 000.</exception>
+    /// <exception cref="ArgumentException">Both strands are longer than <paramref name="maxAlignLength"/>, or either
+    /// is longer than 10 000 nt.</exception>
+    public static DimerThermodynamics? CalculateDimerThermodynamicsNtthal(
+        string strand1,
+        string strand2,
+        NtthalAlignmentMode mode,
+        double sodiumMolar,
+        double divalentMolar,
+        double dntpMolar,
+        double strandConcentrationMolar,
+        double temperatureCelsius,
+        int maxLoop,
+        int maxAlignLength) =>
+        CalculateDimerStructureNtthal(strand1, strand2, mode, sodiumMolar, divalentMolar, dntpMolar,
+            strandConcentrationMolar, temperatureCelsius, maxLoop, withStructure: false,
+            CheckedMaxAlignLength(maxAlignLength))?.Thermodynamics;
+
+    // Public THAL_MAX_ALIGN override range: 60 (Primer3) … 10 000 (THAL_MAX_SEQ).
+    private static int CheckedMaxAlignLength(int maxAlignLength)
+    {
+        if (maxAlignLength < NtthalMaxAlignLength || maxAlignLength > NtthalMaxSequenceLength)
+            throw new ArgumentOutOfRangeException(nameof(maxAlignLength), maxAlignLength,
+                "THAL_MAX_ALIGN override must be in 60..10000 (Primer3 default .. THAL_MAX_SEQ).");
+        return maxAlignLength;
+    }
 
     /// <summary>
     /// As <see cref="CalculateDimerThermodynamicsNtthal(string, string, NtthalAlignmentMode, double, double, double, double, double, int)"/>,
@@ -3625,11 +3953,48 @@ public static partial class PrimerDesigner
         double temperatureCelsius = NtthalDefaultTemperatureCelsius,
         int maxLoop = NtthalDefaultMaxLoop) =>
         CalculateDimerStructureNtthal(strand1, strand2, mode, sodiumMolar, divalentMolar, dntpMolar,
-            strandConcentrationMolar, temperatureCelsius, maxLoop, withStructure: true);
+            strandConcentrationMolar, temperatureCelsius, maxLoop, withStructure: true, NtthalMaxAlignLength);
+
+    /// <summary>
+    /// As <see cref="CalculateDimerStructureNtthal(string, string, NtthalAlignmentMode, double, double, double, double, double, int)"/>
+    /// with THAL_MAX_ALIGN raised to <paramref name="maxAlignLength"/> (opt-in, 60–10 000; see
+    /// <see cref="CalculateDimerThermodynamicsNtthal(string, string, NtthalAlignmentMode, double, double, double, double, double, int, int)"/>).
+    /// </summary>
+    public static NtthalDimerStructure? CalculateDimerStructureNtthal(
+        string strand1,
+        string strand2,
+        NtthalAlignmentMode mode,
+        double sodiumMolar,
+        double divalentMolar,
+        double dntpMolar,
+        double strandConcentrationMolar,
+        double temperatureCelsius,
+        int maxLoop,
+        int maxAlignLength) =>
+        CalculateDimerStructureNtthal(strand1, strand2, mode, sodiumMolar, divalentMolar, dntpMolar,
+            strandConcentrationMolar, temperatureCelsius, maxLoop, withStructure: true,
+            CheckedMaxAlignLength(maxAlignLength));
 
     private static NtthalDimerStructure? CalculateDimerStructureNtthal(
         string strand1, string strand2, NtthalAlignmentMode mode, double sodiumMolar, double divalentMolar,
-        double dntpMolar, double strandConcentrationMolar, double temperatureCelsius, int maxLoop, bool withStructure)
+        double dntpMolar, double strandConcentrationMolar, double temperatureCelsius, int maxLoop, bool withStructure,
+        int maxAlign)
+    {
+        var r = RunDimerNtthal(strand1, strand2, mode, sodiumMolar, divalentMolar, dntpMolar,
+            strandConcentrationMolar, temperatureCelsius, maxLoop, withStructure, maxAlign);
+        if (r is null)
+            return null;
+        var v = r.Value;
+        return new NtthalDimerStructure(
+            new DimerThermodynamics(v.DeltaH / 1000.0, v.DeltaS, v.DeltaG37 / 1000.0, v.TmCelsius, v.BasePairs),
+            v.AsciiStructure ?? Array.Empty<string>());
+    }
+
+    // The one entry into the ntthal dimer engine (ACGT check, upper-casing, mode mapping, °C → K).
+    private static NtthalDimer.Result? RunDimerNtthal(
+        string strand1, string strand2, NtthalAlignmentMode mode, double sodiumMolar, double divalentMolar,
+        double dntpMolar, double strandConcentrationMolar, double temperatureCelsius, int maxLoop, bool withStructure,
+        int maxAlign)
     {
         if (!IsAcgtOnly(strand1) || !IsAcgtOnly(strand2))
             return null;
@@ -3640,15 +4005,9 @@ public static partial class PrimerDesigner
             NtthalAlignmentMode.End2 => NtthalDimer.AlignmentType.End2,
             _ => throw new ArgumentOutOfRangeException(nameof(mode)),
         };
-        var r = NtthalDimer.Run(strand1.ToUpperInvariant(), strand2.ToUpperInvariant(),
+        return NtthalDimer.Run(strand1.ToUpperInvariant(), strand2.ToUpperInvariant(),
             sodiumMolar, strandConcentrationMolar, type, divalentMolar, dntpMolar,
-            temperatureCelsius + KelvinOffset, maxLoop, withStructure);
-        if (r is null)
-            return null;
-        var v = r.Value;
-        return new NtthalDimerStructure(
-            new DimerThermodynamics(v.DeltaH / 1000.0, v.DeltaS, v.DeltaG37 / 1000.0, v.TmCelsius, v.BasePairs),
-            v.AsciiStructure ?? Array.Empty<string>());
+            temperatureCelsius + KelvinOffset, maxLoop, withStructure, maxAlign);
     }
 
     /// <summary>
@@ -3704,7 +4063,32 @@ public static partial class PrimerDesigner
         double temperatureCelsius,
         int maxLoop) =>
         CalculateHairpinStructureNtthal(sequence, sodiumMolar, divalentMolar, dntpMolar,
-            temperatureCelsius, maxLoop, withStructure: false)?.Thermodynamics;
+            temperatureCelsius, maxLoop, withStructure: false, NtthalMaxAlignLength)?.Thermodynamics;
+
+    /// <summary>
+    /// As <see cref="CalculateHairpinThermodynamicsNtthal(string, double, double, double, double, int)"/> with thal.h
+    /// <c>THAL_MAX_ALIGN</c> raised to <paramref name="maxAlignLength"/> (opt-in; see <see cref="NtthalMaxAlignLength"/>):
+    /// oligos up to <paramref name="maxAlignLength"/> nt are folded by the unchanged ntthal hairpin recursions —
+    /// identical to ntthal / thal.c compiled with <c>-DTHAL_MAX_ALIGN=maxAlignLength</c> (verified on 61–120-mers
+    /// against thal.c from primer3-py 2.3.1 built with a larger THAL_MAX_ALIGN). With 60 it is the 6-argument
+    /// overload. Cost is O(n²·maxLoop²). Note that the Primer3 authors chose 60 as the limit of the two-state
+    /// nearest-neighbour model (thal.h); longer oligos are folded with the same single-structure model.
+    /// </summary>
+    /// <param name="maxAlignLength">THAL_MAX_ALIGN, <see cref="NtthalMaxAlignLength"/> (60) …
+    /// <see cref="NtthalMaxSequenceLength"/> (10 000).</param>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxLoop"/> outside 0–30 or
+    /// <paramref name="maxAlignLength"/> outside 60–10 000.</exception>
+    /// <exception cref="ArgumentException">The sequence is longer than <paramref name="maxAlignLength"/>.</exception>
+    public static HairpinThermodynamics? CalculateHairpinThermodynamicsNtthal(
+        string sequence,
+        double sodiumMolar,
+        double divalentMolar,
+        double dntpMolar,
+        double temperatureCelsius,
+        int maxLoop,
+        int maxAlignLength) =>
+        CalculateHairpinStructureNtthal(sequence, sodiumMolar, divalentMolar, dntpMolar,
+            temperatureCelsius, maxLoop, withStructure: false, CheckedMaxAlignLength(maxAlignLength))?.Thermodynamics;
 
     /// <summary>
     /// As <see cref="CalculateHairpinThermodynamicsNtthal(string, double, double, double, double, int)"/>,
@@ -3727,16 +4111,30 @@ public static partial class PrimerDesigner
         double temperatureCelsius = NtthalDefaultTemperatureCelsius,
         int maxLoop = NtthalDefaultMaxLoop) =>
         CalculateHairpinStructureNtthal(sequence, sodiumMolar, divalentMolar, dntpMolar,
-            temperatureCelsius, maxLoop, withStructure: true);
+            temperatureCelsius, maxLoop, withStructure: true, NtthalMaxAlignLength);
+
+    /// <summary>
+    /// As <see cref="CalculateHairpinStructureNtthal(string, double, double, double, double, int)"/> with THAL_MAX_ALIGN
+    /// raised to <paramref name="maxAlignLength"/> (opt-in, 60–10 000; see
+    /// <see cref="CalculateHairpinThermodynamicsNtthal(string, double, double, double, double, int, int)"/>).
+    /// </summary>
+    public static NtthalHairpinStructure? CalculateHairpinStructureNtthal(
+        string sequence,
+        double sodiumMolar,
+        double divalentMolar,
+        double dntpMolar,
+        double temperatureCelsius,
+        int maxLoop,
+        int maxAlignLength) =>
+        CalculateHairpinStructureNtthal(sequence, sodiumMolar, divalentMolar, dntpMolar,
+            temperatureCelsius, maxLoop, withStructure: true, CheckedMaxAlignLength(maxAlignLength));
 
     private static NtthalHairpinStructure? CalculateHairpinStructureNtthal(
         string sequence, double sodiumMolar, double divalentMolar, double dntpMolar,
-        double temperatureCelsius, int maxLoop, bool withStructure)
+        double temperatureCelsius, int maxLoop, bool withStructure, int maxAlign)
     {
-        if (!IsAcgtOnly(sequence))
-            return null;
-        var r = NtthalHairpin.Run(sequence.ToUpperInvariant(), sodiumMolar, divalentMolar, dntpMolar,
-            temperatureCelsius + KelvinOffset, maxLoop, withStructure);
+        var r = RunHairpinNtthal(sequence, sodiumMolar, divalentMolar, dntpMolar,
+            temperatureCelsius, maxLoop, withStructure, maxAlign);
         if (r is null)
             return null;
         var v = r.Value;
@@ -3744,6 +4142,15 @@ public static partial class PrimerDesigner
             new HairpinThermodynamics(v.DeltaH / 1000.0, v.DeltaS, v.DeltaG37 / 1000.0, v.TmCelsius, v.BasePairs),
             v.AsciiStructure ?? Array.Empty<string>());
     }
+
+    // The one entry into the ntthal hairpin engine (ACGT check, upper-casing, °C → K).
+    private static NtthalHairpin.Result? RunHairpinNtthal(
+        string sequence, double sodiumMolar, double divalentMolar, double dntpMolar,
+        double temperatureCelsius, int maxLoop, bool withStructure, int maxAlign) =>
+        IsAcgtOnly(sequence)
+            ? NtthalHairpin.Run(sequence.ToUpperInvariant(), sodiumMolar, divalentMolar, dntpMolar,
+                temperatureCelsius + KelvinOffset, maxLoop, withStructure, maxAlign)
+            : null;
 
     /// <summary>
     /// ntthal hairpin thermodynamics plus the thal.c <c>drawHairpin</c> ASCII structure
@@ -3753,13 +4160,8 @@ public static partial class PrimerDesigner
     /// <param name="AsciiStructureLines">The "SEQ\t…" and "STR\t…" lines.</param>
     public sealed record NtthalHairpinStructure(HairpinThermodynamics Thermodynamics, IReadOnlyList<string> AsciiStructureLines);
 
-    private static bool IsAcgtOnly(string? s)
-    {
-        if (string.IsNullOrEmpty(s)) return false;
-        foreach (char c in s)
-            if (c is not ('A' or 'C' or 'G' or 'T' or 'a' or 'c' or 'g' or 't')) return false;
-        return true;
-    }
+    // Non-empty and A/C/G/T only (case-insensitive): the canonical Core predicate SequenceExtensions.IsValidDna.
+    private static bool IsAcgtOnly(string? s) => !string.IsNullOrEmpty(s) && s.AsSpan().IsValidDna();
 
     /// <summary>
     /// Primer3's default (thermodynamic) limit, in °C, on every secondary-structure Tm:
@@ -3901,16 +4303,42 @@ public static partial class PrimerDesigner
         double monovalentMillimolar = Primer3MonovalentMillimolar,
         double divalentMillimolar = Primer3DivalentMillimolar,
         double dntpMillimolar = Primer3DntpMillimolar,
-        double dnaConcentrationNanomolar = Primer3DnaConcentrationNanomolar)
+        double dnaConcentrationNanomolar = Primer3DnaConcentrationNanomolar) =>
+        CalculatePrimer3OligoStructureCore(primer, monovalentMillimolar, divalentMillimolar, dntpMillimolar,
+            dnaConcentrationNanomolar, NtthalMaxAlignLength);
+
+    /// <summary>
+    /// As <see cref="CalculatePrimer3OligoStructure(string, double, double, double, double)"/> with thal.h
+    /// <c>THAL_MAX_ALIGN</c> raised to <paramref name="maxAlignLength"/> (opt-in; see <see cref="NtthalMaxAlignLength"/>):
+    /// self_any / self_end / hairpin of oligos up to <paramref name="maxAlignLength"/> nt by the unchanged ntthal
+    /// recursions (= thal.c compiled with <c>-DTHAL_MAX_ALIGN=maxAlignLength</c>). Primer3 itself never sees such
+    /// oligos (PRIMER_MAX_SIZE ≤ 35 / internal ≤ 36 nt and THAL_MAX_ALIGN = 60).
+    /// </summary>
+    /// <param name="maxAlignLength">THAL_MAX_ALIGN, 60 … 10 000.</param>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxAlignLength"/> outside 60–10 000.</exception>
+    /// <exception cref="ArgumentException">The oligo is longer than <paramref name="maxAlignLength"/>.</exception>
+    public static Primer3OligoStructure? CalculatePrimer3OligoStructure(
+        string primer,
+        double monovalentMillimolar,
+        double divalentMillimolar,
+        double dntpMillimolar,
+        double dnaConcentrationNanomolar,
+        int maxAlignLength) =>
+        CalculatePrimer3OligoStructureCore(primer, monovalentMillimolar, divalentMillimolar, dntpMillimolar,
+            dnaConcentrationNanomolar, CheckedMaxAlignLength(maxAlignLength));
+
+    private static Primer3OligoStructure? CalculatePrimer3OligoStructureCore(
+        string primer, double monovalentMillimolar, double divalentMillimolar, double dntpMillimolar,
+        double dnaConcentrationNanomolar, int maxAlign)
     {
         if (!IsAcgtOnly(primer))
             return null;
         string p = primer.ToUpperInvariant();
         double mv = monovalentMillimolar / 1000.0, dv = divalentMillimolar / 1000.0, dntp = dntpMillimolar / 1000.0;
         double conc = dnaConcentrationNanomolar * 1e-9;
-        double any = TmOrZero(NtthalDimer.Run(p, p, mv, conc, NtthalDimer.AlignmentType.Any, dv, dntp));
-        double end = TmOrZero(NtthalDimer.Run(p, p, mv, conc, NtthalDimer.AlignmentType.End1, dv, dntp));
-        var h = NtthalHairpin.Run(p, mv, dv, dntp);
+        double any = TmOrZero(NtthalDimer.Run(p, p, mv, conc, NtthalDimer.AlignmentType.Any, dv, dntp, maxAlign: maxAlign));
+        double end = TmOrZero(NtthalDimer.Run(p, p, mv, conc, NtthalDimer.AlignmentType.End1, dv, dntp, maxAlign: maxAlign));
+        var h = NtthalHairpin.Run(p, mv, dv, dntp, maxAlign: maxAlign);
         return new Primer3OligoStructure(any, end, h is null ? 0.0 : Math.Max(0.0, h.Value.TmCelsius));
     }
 
@@ -3981,25 +4409,13 @@ public static partial class PrimerDesigner
     private static string Complement(string seq) =>
         string.Create(seq.Length, seq, static (dest, src) => src.AsSpan().TryGetComplement(dest));
 
-    /// <summary>True if the sequence equals its own reverse complement (self-complementary).</summary>
-    private static bool IsSelfComplementary(string seq)
-    {
-        int n = seq.Length;
-        if (n % 2 != 0) return false; // odd-length cannot be self-complementary
-        for (int i = 0; i < n; i++)
-        {
-            char a = seq[i];
-            char b = seq[n - 1 - i];
-            bool pair = (a == 'A' && b == 'T') || (a == 'T' && b == 'A')
-                     || (a == 'G' && b == 'C') || (a == 'C' && b == 'G');
-            if (!pair) return false;
-        }
-        return true;
-    }
-
     /// <summary>
     /// Generates all possible primers for a region.
     /// </summary>
+    /// <exception cref="ArgumentNullException"><paramref name="template"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="regionStart"/> &lt; 0, or
+    /// <paramref name="regionStart"/> / <paramref name="regionEnd"/> beyond the end of the template
+    /// (<paramref name="regionEnd"/> is exclusive; an empty region yields no candidates).</exception>
     public static IEnumerable<PrimerCandidate> GeneratePrimerCandidates(
         DnaSequence template,
         int regionStart,
@@ -4007,8 +4423,17 @@ public static partial class PrimerDesigner
         bool forward = true,
         PrimerParameters? parameters = null)
     {
-        var param = parameters ?? DefaultParameters;
+        // Validated eagerly (audit round 7, A7-3/A7-4): out-of-template regions crashed in Substring on enumeration.
+        ArgumentNullException.ThrowIfNull(template);
+        ArgumentOutOfRangeException.ThrowIfNegative(regionStart);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(regionStart, template.Length);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(regionEnd, template.Length);
+        return GeneratePrimerCandidatesIterator(template, regionStart, regionEnd, forward, parameters ?? DefaultParameters);
+    }
 
+    private static IEnumerable<PrimerCandidate> GeneratePrimerCandidatesIterator(
+        DnaSequence template, int regionStart, int regionEnd, bool forward, PrimerParameters param)
+    {
         for (int start = regionStart; start + param.MinLength <= regionEnd; start++)
         {
             for (int len = param.MinLength; len <= param.MaxLength && start + len <= regionEnd; len++)
@@ -4244,13 +4669,6 @@ public static partial class PrimerDesigner
         return Math.Max(0, score);
     }
 
-    private static string Reverse(string s)
-    {
-        var chars = s.ToCharArray();
-        Array.Reverse(chars);
-        return new string(chars);
-    }
-
     private static bool AreComplementary(string s1, string s2)
     {
         if (s1.Length != s2.Length) return false;
@@ -4268,7 +4686,9 @@ public static partial class PrimerDesigner
 }
 
 /// <summary>
-/// Parameters for primer design. Primer3's 3′-end checks are <see cref="GcClamp"/> (PRIMER_GC_CLAMP),
+/// Parameters for primer design. <c>MaxDinucleotideRepeats</c> limits the unsourced library screen
+/// <see cref="PrimerDesigner.FindLongestDinucleotideRepeat"/> (no Primer3 counterpart; <see cref="int.MaxValue"/> disables
+/// it, as in <see cref="PrimerDesigner.Primer3DefaultParameters"/>). Primer3's 3′-end checks are <see cref="GcClamp"/> (PRIMER_GC_CLAMP),
 /// <see cref="MaxEndGc"/> (PRIMER_MAX_END_GC) and <see cref="MaxEndStability"/> (PRIMER_MAX_END_STABILITY).
 /// Two positional members predate them and are kept only for source compatibility (deprecated):
 /// <c>Avoid3PrimeGC</c> is a library rule, not Primer3's — despite its name it <i>requires</i> at least one G/C
@@ -4604,8 +5024,9 @@ public enum PrimerStructureScreen
     Primer3Thermodynamic = 0,
 
     /// <summary>
-    /// Sequence-only screen: <see cref="PrimerDesigner.HasHairpinPotential"/> (a ≥ 4-bp
-    /// Watson–Crick stem closing a ≥ 3-nt loop) per primer and <see cref="PrimerDesigner.HasPrimerDimer"/>
+    /// Sequence-only library screen: <see cref="PrimerDesigner.HasHairpinPotential"/> (a ≥ 4-bp
+    /// Watson–Crick stem closing a ≥ 3-nt loop; unsourced library heuristic, not Primer3's hairpin screen) per
+    /// primer and <see cref="PrimerDesigner.HasPrimerDimer"/>
     /// (Primer3 alignment-mode pair 3′ complementarity ≥ 4) per pair.
     /// </summary>
     Heuristic = 1,
@@ -5189,8 +5610,10 @@ public sealed record PrimerPairOptions
 
     /// <summary>
     /// PRIMER_MIN_THREE_PRIME_DISTANCE: Primer3's shorthand that sets <see cref="MinLeftThreePrimeDistance"/> and
-    /// <see cref="MinRightThreePrimeDistance"/> to the same value (and PRIMER_INTERNAL_MIN_THREE_PRIME_DISTANCE, which
-    /// Primer3 applies only with SEQUENCE_INTERNAL_OVERLAP_JUNCTION_LIST — not modelled here, so it has no effect).
+    /// <see cref="MinRightThreePrimeDistance"/> to the same value. Primer3's shorthand also sets
+    /// PRIMER_INTERNAL_MIN_THREE_PRIME_DISTANCE, which <c>choose_pair_or_triple</c> reads only with a non-empty
+    /// SEQUENCE_INTERNAL_OVERLAP_JUNCTION_LIST; junction lists are outside this API's scope, so — exactly as in Primer3
+    /// without that list — internal oligos are never excluded by distance (primer3-py 2.3.1 parity, audit round 5, A5-3).
     /// Reading it returns the common value, or null when the left and right distances differ.
     /// </summary>
     public int? MinThreePrimeDistance

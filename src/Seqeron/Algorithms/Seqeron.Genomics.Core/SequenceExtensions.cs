@@ -1,4 +1,7 @@
+using System.Buffers;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 
 namespace Seqeron.Genomics.Core;
 
@@ -176,7 +179,10 @@ public static class SequenceExtensions
 
         for (int i = 0; i < sequence.Length; i++)
         {
-            switch (char.ToUpperInvariant(sequence[i]))
+            // ASCII-only folding: char.ToUpperInvariant maps U+017F 'ſ' onto 'S' (strong), which Biopython
+            // gc_fraction does not count (it matches the literal letters "CGScgs"; gc_fraction("ſ", "ignore") = 0).
+            char c = ToUpperAscii(sequence[i]);
+            switch (c)
             {
                 case 'G':
                 case 'C':
@@ -192,7 +198,7 @@ public static class SequenceExtensions
                     break;
                 default:
                     if (mode == GcAmbiguityMode.Weighted)
-                        gc += WeightedGcValue(char.ToUpperInvariant(sequence[i]));
+                        gc += WeightedGcValue(c);
                     break;
             }
         }
@@ -336,8 +342,19 @@ public static class SequenceExtensions
     #region Span-based K-mer Operations
 
     /// <summary>
-    /// Counts k-mers using span-based iteration (memory efficient).
+    /// Counts the L − k + 1 overlapping k-mers of <paramref name="sequence"/> (case-insensitive; keys are
+    /// upper-case).
     /// </summary>
+    /// <remarks>
+    /// The input is upper-cased once (ASCII letters only, see <see cref="ToUpperAscii(char)"/>), and each
+    /// window is looked up as a span through <see cref="Dictionary{TKey,TValue}.GetAlternateLookup{TAlternateKey}"/>
+    /// with <see cref="CollectionsMarshal.GetValueRefOrAddDefault{TKey,TValue,TAlternateKey}"/>, so a string is
+    /// allocated only for the first occurrence of each distinct k-mer (previously one string per window, two
+    /// for lower-case input). Keys enumerate in order of first occurrence. Non-ASCII characters are kept as
+    /// they are: U+017F 'ſ' is not counted as 'S' (Seqeron alphabets are ASCII; consistent with
+    /// <c>IupacDnaSequence</c> and <c>CalculateGcFraction</c>).
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="k"/> ≤ 0.</exception>
     public static Dictionary<string, int> CountKmersSpan(this ReadOnlySpan<char> sequence, int k)
     {
         if (k <= 0)
@@ -348,17 +365,43 @@ public static class SequenceExtensions
         if (sequence.Length < k)
             return counts;
 
-        for (int i = 0; i <= sequence.Length - k; i++)
+        if (sequence.IndexOfAnyInRange('a', 'z') < 0)
         {
-            var kmer = sequence.Slice(i, k);
-            var kmerStr = new string(kmer).ToUpperInvariant();
-
-            if (!counts.TryAdd(kmerStr, 1))
-                counts[kmerStr]++;
+            CountUpperCaseWindows(sequence, k, counts);
+        }
+        else if (sequence.Length <= StackallocCharThreshold)
+        {
+            Span<char> buffer = stackalloc char[sequence.Length];
+            Infrastructure.SequenceCase.ToUpperAscii(sequence, buffer);
+            CountUpperCaseWindows(buffer, k, counts);
+        }
+        else
+        {
+            char[] rented = ArrayPool<char>.Shared.Rent(sequence.Length);
+            try
+            {
+                Span<char> buffer = rented.AsSpan(0, sequence.Length);
+                Infrastructure.SequenceCase.ToUpperAscii(sequence, buffer);
+                CountUpperCaseWindows(buffer, k, counts);
+            }
+            finally
+            {
+                ArrayPool<char>.Shared.Return(rented);
+            }
         }
 
         return counts;
     }
+
+    /// <summary>Adds every window of the already upper-cased <paramref name="upper"/> to <paramref name="counts"/>.</summary>
+    private static void CountUpperCaseWindows(ReadOnlySpan<char> upper, int k, Dictionary<string, int> counts)
+    {
+        var lookup = counts.GetAlternateLookup<ReadOnlySpan<char>>();
+        for (int i = 0; i <= upper.Length - k; i++)
+            CollectionsMarshal.GetValueRefOrAddDefault(lookup, upper.Slice(i, k), out _)++;
+    }
+
+    private const int StackallocCharThreshold = 256;
 
     /// <summary>
     /// Enumerates k-mers without allocating strings (yields spans).
@@ -383,8 +426,15 @@ public static class SequenceExtensions
     #region Span-based Hamming Distance
 
     /// <summary>
-    /// Calculates Hamming distance between two spans of equal length.
+    /// Calculates Hamming distance between two spans of equal length (case-insensitive).
     /// </summary>
+    /// <remarks>
+    /// Number of positions whose characters differ after upper-casing ASCII letters only
+    /// (<see cref="ToUpperAscii(char)"/>), i.e. scipy <c>hamming(list(a.upper()), list(b.upper())) · n</c> for
+    /// ASCII input. Non-ASCII characters are compared as they are, so U+017F 'ſ' vs 'S' is a mismatch
+    /// (Seqeron alphabets are ASCII; consistent with <c>IupacDnaSequence</c> and <c>CalculateGcFraction</c>).
+    /// </remarks>
+    /// <exception cref="ArgumentException">The spans differ in length.</exception>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static int HammingDistance(this ReadOnlySpan<char> s1, ReadOnlySpan<char> s2)
     {
@@ -394,7 +444,7 @@ public static class SequenceExtensions
         int distance = 0;
         for (int i = 0; i < s1.Length; i++)
         {
-            if (char.ToUpperInvariant(s1[i]) != char.ToUpperInvariant(s2[i]))
+            if (ToUpperAscii(s1[i]) != ToUpperAscii(s2[i]))
                 distance++;
         }
 
@@ -471,14 +521,23 @@ public static class SequenceExtensions
     /// character are rejected (NC-IUB 1984 defines no gap symbol). Empty span is valid.
     /// </remarks>
     public static bool IsValidIupacDna(this ReadOnlySpan<char> sequence)
+        => IndexOfInvalidIupacDna(sequence) < 0;
+
+    /// <summary>
+    /// Returns the index of the first character that is not an IUPAC DNA nucleotide code
+    /// (the alphabet of <see cref="IsValidIupacDna"/>: A, C, G, T, R, Y, S, W, K, M, B, D, H, V, N;
+    /// ASCII case-insensitive), or -1 when every character is valid. Canonical predicate behind
+    /// <see cref="IsValidIupacDna"/>; lets callers report the offending symbol and position.
+    /// </summary>
+    public static int IndexOfInvalidIupacDna(this ReadOnlySpan<char> sequence)
     {
         for (int i = 0; i < sequence.Length; i++)
         {
             char c = ToUpperAscii(sequence[i]);
             if (c == 'U' || !IupacHelper.IsNucleotideCode(c))
-                return false;
+                return i;
         }
-        return true;
+        return -1;
     }
 
     /// <summary>
@@ -491,22 +550,59 @@ public static class SequenceExtensions
     /// Empty span is valid.
     /// </remarks>
     public static bool IsValidIupacRna(this ReadOnlySpan<char> sequence)
+        => IndexOfInvalidIupacRna(sequence) < 0;
+
+    /// <summary>
+    /// Returns the index of the first character that is not an IUPAC RNA nucleotide code
+    /// (the alphabet of <see cref="IsValidIupacRna"/>: A, C, G, U, R, Y, S, W, K, M, B, D, H, V, N;
+    /// ASCII case-insensitive), or -1 when every character is valid. Canonical predicate behind
+    /// <see cref="IsValidIupacRna"/>.
+    /// </summary>
+    public static int IndexOfInvalidIupacRna(this ReadOnlySpan<char> sequence)
     {
         for (int i = 0; i < sequence.Length; i++)
         {
             char c = ToUpperAscii(sequence[i]);
             if (c == 'T' || !(c == 'U' || IupacHelper.IsNucleotideCode(c)))
-                return false;
+                return i;
         }
-        return true;
+        return -1;
     }
 
     /// <summary>
-    /// Upper-cases ASCII letters only. Unlike <see cref="char.ToUpperInvariant(char)"/> this never maps a
-    /// non-ASCII character onto an ASCII sequence symbol (e.g. U+017F 'ſ' → 'S').
+    /// Upper-cases an ASCII letter (<c>a</c>–<c>z</c> → <c>A</c>–<c>Z</c>); every other character,
+    /// including every non-ASCII one, is returned unchanged.
     /// </summary>
+    /// <param name="c">The character to fold.</param>
+    /// <returns>The ASCII upper-case form of <paramref name="c"/>, or <paramref name="c"/> itself.</returns>
+    /// <remarks>
+    /// This is the case folding every Seqeron sequence type and comparison uses. Unlike
+    /// <see cref="char.ToUpperInvariant(char)"/> it never maps a non-ASCII character onto an ASCII
+    /// sequence symbol (.NET's invariant culture folds U+017F 'ſ' onto 'S', an IUPAC code), so such a
+    /// character stays invalid instead of silently reading as a nucleotide or amino-acid symbol.
+    /// Delegates to the canonical <see cref="Infrastructure.SequenceCase.ToUpperAscii(char)"/>.
+    /// Public since review 2026-09 (B08 for B01) so other assemblies fold exactly as Core does
+    /// instead of keeping private copies.
+    /// </remarks>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static char ToUpperAscii(char c) => char.IsAsciiLetterLower(c) ? (char)(c - 32) : c;
+    public static char ToUpperAscii(char c) => Infrastructure.SequenceCase.ToUpperAscii(c);
+
+    /// <summary>
+    /// String form of <see cref="ToUpperAscii(char)"/>: upper-cases ASCII letters only. Length-preserving.
+    /// </summary>
+    /// <param name="s">The text to fold; may be <see langword="null"/>.</param>
+    /// <returns>
+    /// <paramref name="s"/> itself when it is <see langword="null"/> or contains no ASCII lower-case
+    /// letter (no allocation); otherwise a new string with every <c>a</c>–<c>z</c> upper-cased and every
+    /// other character unchanged.
+    /// </returns>
+    /// <remarks>
+    /// Unlike the canonical <see cref="Infrastructure.SequenceCase.ToUpperAscii(string)"/>, which throws on
+    /// <see langword="null"/>, this overload passes <see langword="null"/> through (its long-standing Core
+    /// contract). Public since review 2026-09 (B08 for B01).
+    /// </remarks>
+    [return: NotNullIfNotNull(nameof(s))]
+    public static string? ToUpperAscii(string? s) => s is null ? null : Infrastructure.SequenceCase.ToUpperAscii(s);
 
     #endregion
 }

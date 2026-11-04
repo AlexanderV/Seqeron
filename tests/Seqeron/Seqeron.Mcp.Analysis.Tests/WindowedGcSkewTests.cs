@@ -39,4 +39,15 @@ public class WindowedGcSkewTests
             Assert.That(pts[1].WindowEnd, Is.EqualTo(7));
         });
     }
+
+    [Test]
+    public void WindowedGcSkew_IncludePartialWindow_MatchesBiopython()
+    {
+        // Biopython 1.88 GC_skew("GGGCACGTGGCCCCATG", 4) = [0.5, 0.0, 0.0, -1.0, 1.0].
+        var pts = AnalysisTools.WindowedGcSkew("GGGCACGTGGCCCCATG", 4, 4, includePartialWindow: true).Items;
+        Assert.That(pts.Select(p => p.GcSkew), Is.EqualTo(new[] { 0.5, 0.0, 0.0, -1.0, 1.0 }).Within(1e-12));
+        Assert.That(pts[^1].WindowStart, Is.EqualTo(16));
+        Assert.That(pts[^1].WindowEnd, Is.EqualTo(16));
+        Assert.That(AnalysisTools.WindowedGcSkew("GGGCACGTGGCCCCATG", 4, 4).Items, Has.Length.EqualTo(4));
+    }
 }

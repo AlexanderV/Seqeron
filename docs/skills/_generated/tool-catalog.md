@@ -36,7 +36,7 @@
 | `semi_global_align` | `SequenceAligner.SemiGlobalAlign` | [doc](../../mcp/tools/alignment/semi_global_align.md) |
 | `sequence_identity` | `SequenceAssembler.CalculateIdentity` | [doc](../../mcp/tools/alignment/sequence_identity.md) |
 
-## Analysis (126 tools)
+## Analysis (127 tools)
 
 | tool | Method ID | doc |
 |------|-----------|-----|
@@ -49,6 +49,7 @@
 | `bulge_loop_energy` | `RnaSecondaryStructure.CalculateBulgeLoopEnergy` | [doc](../../mcp/tools/analysis/bulge_loop_energy.md) |
 | `calculate_ani` | `ComparativeGenomics.CalculateANI` | [doc](../../mcp/tools/analysis/calculate_ani.md) |
 | `can_pair` | `RnaSecondaryStructure.CanPair` | [doc](../../mcp/tools/analysis/can_pair.md) |
+| `chou_fasman_assign` | `SequenceStatistics.PredictSecondaryStructureChouFasman` | [doc](../../mcp/tools/analysis/chou_fasman_assign.md) |
 | `codon_frequencies` | `SequenceStatistics.CalculateCodonFrequencies` | [doc](../../mcp/tools/analysis/codon_frequencies.md) |
 | `compare_genomes` | `ComparativeGenomics.CompareGenomes` | [doc](../../mcp/tools/analysis/compare_genomes.md) |
 | `compression_ratio` | `SequenceComplexity.EstimateCompressionRatio` | [doc](../../mcp/tools/analysis/compression_ratio.md) |
@@ -353,7 +354,7 @@
 | `select_phylogenetic_markers` | `PanGenomeAnalyzer.SelectPhylogeneticMarkers` | [doc](../../mcp/tools/metagenomics/select_phylogenetic_markers.md) |
 | `taxonomic_profile` | `MetagenomicsAnalyzer.GenerateTaxonomicProfile` | [doc](../../mcp/tools/metagenomics/taxonomic_profile.md) |
 
-## MolTools (48 tools)
+## MolTools (59 tools)
 
 | tool | Method ID | doc |
 |------|-----------|-----|
@@ -361,12 +362,17 @@
 | `blunt_cutters` | `RestrictionAnalyzer.GetBluntCutters` | [doc](../../mcp/tools/moltools/blunt_cutters.md) |
 | `build_codon_table` | `CodonOptimizer.CreateCodonTableFromSequence` | [doc](../../mcp/tools/moltools/build_codon_table.md) |
 | `cai_from_organism_table` | `CodonOptimizer.CalculateCAI` | [doc](../../mcp/tools/moltools/cai_from_organism_table.md) |
+| `calculate_on_target_doench2014` | `CrisprDesigner.CalculateOnTargetDoench2014` | [doc](../../mcp/tools/moltools/calculate_on_target_doench2014.md) |
+| `calculate_on_target_rule_set2` | `CrisprDesigner.CalculateOnTargetRuleSet2` | [doc](../../mcp/tools/moltools/calculate_on_target_rule_set2.md) |
 | `codon_adaptation_index` | `CodonUsageAnalyzer.CalculateCai` | [doc](../../mcp/tools/moltools/codon_adaptation_index.md) |
+| `codon_minmax_profile` | `CodonOptimizer.CalculateMinMaxProfile` | [doc](../../mcp/tools/moltools/codon_minmax_profile.md) |
 | `codon_usage_statistics` | `CodonUsageAnalyzer.GetStatistics` | [doc](../../mcp/tools/moltools/codon_usage_statistics.md) |
 | `compare_codon_usage` | `CodonOptimizer.CompareCodonUsage` | [doc](../../mcp/tools/moltools/compare_codon_usage.md) |
 | `compatible_enzymes` | `RestrictionAnalyzer.FindCompatibleEnzymes` | [doc](../../mcp/tools/moltools/compatible_enzymes.md) |
 | `count_codons` | `CodonUsageAnalyzer.CountCodons` | [doc](../../mcp/tools/moltools/count_codons.md) |
-| `crispr_specificity_score` | `CrisprDesigner.CalculateSpecificityScore` | [doc](../../mcp/tools/moltools/crispr_specificity_score.md) |
+| `crispr_cfd_specificity_score` | `CrisprDesigner.CalculateCfdSpecificityScore` | [doc](../../mcp/tools/moltools/crispr_cfd_specificity_score.md) |
+| `crispr_mit_specificity_score` | `CrisprDesigner.CalculateMitSpecificityScore` | [doc](../../mcp/tools/moltools/crispr_mit_specificity_score.md) |
+| `crispr_specificity_score` | `CrisprDesigner.CalculateHeuristicSpecificityScore` | [doc](../../mcp/tools/moltools/crispr_specificity_score.md) |
 | `crispr_system_info` | `CrisprDesigner.GetSystem` | [doc](../../mcp/tools/moltools/crispr_system_info.md) |
 | `design_antisense_probes` | `ProbeDesigner.DesignAntisenseProbes` | [doc](../../mcp/tools/moltools/design_antisense_probes.md) |
 | `design_guide_rnas` | `CrisprDesigner.DesignGuideRnas` | [doc](../../mcp/tools/moltools/design_guide_rnas.md) |
@@ -382,10 +388,14 @@
 | `evaluate_guide_rna` | `CrisprDesigner.EvaluateGuideRna` | [doc](../../mcp/tools/moltools/evaluate_guide_rna.md) |
 | `evaluate_primer` | `PrimerDesigner.EvaluatePrimer` | [doc](../../mcp/tools/moltools/evaluate_primer.md) |
 | `find_all_restriction_sites` | `RestrictionAnalyzer.FindAllSites` | [doc](../../mcp/tools/moltools/find_all_restriction_sites.md) |
+| `find_conserved_rare_codon_clusters` | `CodonOptimizer.FindConservedRareCodonClusters` | [doc](../../mcp/tools/moltools/find_conserved_rare_codon_clusters.md) |
 | `find_off_targets` | `CrisprDesigner.FindOffTargets` | [doc](../../mcp/tools/moltools/find_off_targets.md) |
 | `find_pam_sites` | `CrisprDesigner.FindPamSites` | [doc](../../mcp/tools/moltools/find_pam_sites.md) |
+| `find_pattern_occurrences` | `RestrictionAnalyzer.FindPatternOccurrences` | [doc](../../mcp/tools/moltools/find_pattern_occurrences.md) |
+| `find_rare_codon_clusters` | `CodonOptimizer.FindRareCodonClusters` | [doc](../../mcp/tools/moltools/find_rare_codon_clusters.md) |
 | `find_rare_codons` | `CodonOptimizer.FindRareCodons` | [doc](../../mcp/tools/moltools/find_rare_codons.md) |
 | `find_restriction_sites` | `RestrictionAnalyzer.FindSites` | [doc](../../mcp/tools/moltools/find_restriction_sites.md) |
+| `find_sites_custom_enzyme` | `RestrictionAnalyzer.FindSites` | [doc](../../mcp/tools/moltools/find_sites_custom_enzyme.md) |
 | `generate_primer_candidates` | `PrimerDesigner.GeneratePrimerCandidates` | [doc](../../mcp/tools/moltools/generate_primer_candidates.md) |
 | `get_enzyme` | `RestrictionAnalyzer.GetEnzyme` | [doc](../../mcp/tools/moltools/get_enzyme.md) |
 | `hairpin_potential` | `PrimerDesigner.HasHairpinPotential` | [doc](../../mcp/tools/moltools/hairpin_potential.md) |
@@ -394,12 +404,14 @@
 | `oligo_concentration_from_absorbance` | `ProbeDesigner.CalculateConcentration` | [doc](../../mcp/tools/moltools/oligo_concentration_from_absorbance.md) |
 | `oligo_extinction_coefficient` | `ProbeDesigner.CalculateExtinctionCoefficient` | [doc](../../mcp/tools/moltools/oligo_extinction_coefficient.md) |
 | `optimize_codons` | `CodonOptimizer.OptimizeSequence` | [doc](../../mcp/tools/moltools/optimize_codons.md) |
+| `partial_digest` | `RestrictionAnalyzer.PartialDigest` | [doc](../../mcp/tools/moltools/partial_digest.md) |
 | `primer_dimer` | `PrimerDesigner.HasPrimerDimer` | [doc](../../mcp/tools/moltools/primer_dimer.md) |
 | `primer_melting_temperature` | `PrimerDesigner.CalculateMeltingTemperature` | [doc](../../mcp/tools/moltools/primer_melting_temperature.md) |
 | `primer_melting_temperature_salt` | `PrimerDesigner.CalculateMeltingTemperatureWithSalt` | [doc](../../mcp/tools/moltools/primer_melting_temperature_salt.md) |
 | `reduce_secondary_structure` | `CodonOptimizer.ReduceSecondaryStructure` | [doc](../../mcp/tools/moltools/reduce_secondary_structure.md) |
 | `remove_restriction_sites` | `CodonOptimizer.RemoveRestrictionSites` | [doc](../../mcp/tools/moltools/remove_restriction_sites.md) |
 | `restriction_digest` | `RestrictionAnalyzer.Digest` | [doc](../../mcp/tools/moltools/restriction_digest.md) |
+| `restriction_digest_custom_enzyme` | `RestrictionAnalyzer.Digest` | [doc](../../mcp/tools/moltools/restriction_digest_custom_enzyme.md) |
 | `restriction_map` | `RestrictionAnalyzer.CreateMap` | [doc](../../mcp/tools/moltools/restriction_map.md) |
 | `rscu` | `CodonUsageAnalyzer.CalculateRscu` | [doc](../../mcp/tools/moltools/rscu.md) |
 | `sticky_cutters` | `RestrictionAnalyzer.GetStickyCutters` | [doc](../../mcp/tools/moltools/sticky_cutters.md) |

@@ -18,7 +18,7 @@ Returns the IUPAC ambiguity code that represents a given set of nucleotide bases
 
 ## Core Documentation Reference
 
-- Source: [ISequence.cs#L228](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Core/ISequence.cs#L228)
+- Source: [ISequence.cs#L225](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Core/ISequence.cs#L225)
 
 ## Input Schema
 

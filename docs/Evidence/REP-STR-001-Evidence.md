@@ -13,7 +13,7 @@
 ### Wikipedia: Microsatellite
 
 **URL:** https://en.wikipedia.org/wiki/Microsatellite
-**Accessed:** 2026-06-24 (prior validation session)
+**Accessed:** 2026-06-24 (prior validation session) · re-fetched 2026-10-14 (SRC citation audit: supports the claims above)
 **Authority rank:** 4 (encyclopedia citing primaries)
 
 **Key Extracted Points:**

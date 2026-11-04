@@ -233,7 +233,7 @@ Caveat: alpha; not for clinical use — validate before ordering.
 2. **Cross-check:** `coding_potential`(orf.sequence) confirms the ORF is coding — `GenomeAnnotator.CalculateCodingPotential` · [doc](../../../docs/mcp/tools/annotation/coding_potential.md)
 3. `design_guide_rnas`(sequence, region_start, region_end, system_type=SpCas9) → candidate guides — `CrisprDesigner.DesignGuideRnas` · [doc](../../../docs/mcp/tools/moltools/design_guide_rnas.md)
 4. `find_off_targets`(guide, genome, max_mismatches=3) → off-target hits — `CrisprDesigner.FindOffTargets` · [doc](../../../docs/mcp/tools/moltools/find_off_targets.md)
-5. `crispr_specificity_score`(guide, genome) → specificity — `CrisprDesigner.CalculateSpecificityScore` · [doc](../../../docs/mcp/tools/moltools/crispr_specificity_score.md)
+5. `crispr_specificity_score`(guide, genome) → specificity — `CrisprDesigner.CalculateHeuristicSpecificityScore` · [doc](../../../docs/mcp/tools/moltools/crispr_specificity_score.md)
 
 **Rigor checkpoints.** The ORF interval from step 1 (**0-based**, `end` inclusive of stop) must feed the
 guide `region_start`/`region_end` (**0-based inclusive**) — coordinate hand-off is the key correctness

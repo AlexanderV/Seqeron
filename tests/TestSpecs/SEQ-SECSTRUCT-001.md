@@ -96,6 +96,7 @@
 |----|-----------|-------------|------------------|-------|
 | C1 | Helix-favouring peptide | "AEMLK" window len | mean Helix > mean Sheet | Exact means from table |
 | C2 | Sheet-favouring peptide | "VIY" window len | mean Sheet > mean Helix | Exact means from table |
+| C3 | ASCII-only fold (2026-10-14, B03 F45) | "AAſAAAA"/"AAıAAAA" ≡ "AAXAAAA" (profile, window 7 → A's 1.42/0.83/0.66); "EEEEſEEE" ≡ "EEEEXEEE", "VVıVVIVV" ≡ "VVXVVIVV" (assignment, Standard + Graded1978); 200 random BMP strings ≡ ASCII-folded reference | identical | EMBOSS convention (F22) |
 
 ---
 
@@ -202,6 +203,20 @@ All 16 in-scope cases ✅.
 | CF10 | null / "" / "A" / "AAAAA" | "" / "" / "C" / "CCCCC" | contract |
 | CF-F | 500 random polluted inputs (fuzz) | length preserved, [HETC] only, case-insensitive, junk → C | contract |
 
+### 5.8 Completeness audit 2026-10 (B03 F34) — `ChouFasmanRuleSet.Graded1978`
+
+| ID | Test Case | Expected (Graded / Standard) | Evidence |
+|----|-----------|------------------------------|----------|
+| CG1 | "AAAHHS" | HHHHHH / CCCCCC (Iα counts ½) | CFSSP/MIT ½ rule; Table II |
+| CG2 | "EEEENY", "EEEESY" | CCCCCC / HHHHHH; HHHHHH / HHHHHH (≤ 1 breaker) | CFSSP ⅓ rule; UCI theory |
+| CG3 | "EEESRR", "RRSEEE" | HHHHHH; CCCCCC (Arg Iα near C-terminus) | Table I footnote b |
+| CG4 | "PNEEEE" | HHHHHH (Pro Iα in N-terminal turn) | Table I footnote b; rule 1 |
+| CG5 | "EEEEEEP", "AEEPEEEEE", "PAEEEEEE" | HHHHHHC / HHHHHHH; CHHHHHHHH / HHHHHHHHH; HHHHHHHH / same | rule 1 (Pro) |
+| CG6 | "VVVSW", "WVVVS" | CCCCC / EEEEE; EEEEE / EEEEE (Trp bβ near C-terminus) | Table I footnote c |
+| CG7 | "EEEEGG" | CCTTTT / HHTTTT (turn step shared) | rules 3-4 |
+| CG8 | haemoglobin α P69905 | Python-reference strings; lowercase identical | Evidence F34 cross-check |
+| CG9 | Standard ≡ one-arg overload; null/""/X; undefined enum → ArgumentOutOfRangeException | contract | contract |
+
 ## 6. Assumption Register
 
 **Total assumptions:** 3
@@ -216,4 +231,8 @@ All 16 in-scope cases ✅.
 
 ## 7. Open Questions / Decisions
 
-1. The method is a sliding-window propensity *profile*, not the full Chou-Fasman nucleation/extension/turn state machine. The full classifier (helix/sheet/turn segment assignment, 4-of-6 nucleation, p-value turn product) is **Not implemented** here and is documented as out-of-scope in the algorithm doc §5.3.
+1. The method is a sliding-window propensity *profile*, not the full Chou-Fasman nucleation/extension/turn state machine. The full classifier (helix/sheet/turn segment assignment, 4-of-6 nucleation, p-value turn product) is not part of this method; it is implemented separately as `PredictSecondaryStructureChouFasman` (B03 F14, graded 1978 rule set F34; §5.7/§5.8; MCP `chou_fasman_assign`, F40).
+
+## 8. Addendum 2026-10-14 (FIN-B03 R2-WP5): MCP `chou_fasman_assign` (F40)
+
+- `chou_fasman_assign(proteinSequence, ruleSet)`: Standard `EEEEEEVVVVVV` → HHHHEEEEEEEE, `PPPP` CCCC, `NPDG` TTTT; Graded1978 pairs of §5.8 (`AAAHHS` HHHHHH, `EEEEEEP` HHHHHHC …); 300-input library equality for both rule sets; unknown / numeric rule set rejected. Tests: `Seqeron.Mcp.Analysis.Tests/B03SequenceStatisticsMcpOptionsTests`.

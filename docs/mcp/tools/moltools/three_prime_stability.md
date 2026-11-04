@@ -18,7 +18,7 @@ Computes Primer3's 3′-end stability (`oligotm.c` `end_oligodg(seq, 5)`): the S
 
 ## Core Documentation Reference
 
-- Source: [PrimerDesigner.cs](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/PrimerDesigner.cs) (`Calculate3PrimeStability`)
+- Source: [PrimerDesigner.cs#L2263](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/PrimerDesigner.cs#L2263) (`Calculate3PrimeStability`)
 
 ## Input Schema
 

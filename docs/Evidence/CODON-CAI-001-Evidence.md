@@ -209,3 +209,20 @@ All values E. coli K12 (Kazusa species=316407); CUA(Leu) w = 0.04/0.50 = 0.08; A
 - Peden, J.F. (1999). CodonW 1.4.4; Bulmer, M. (1988). J. Evol. Biol. 1:15-26
 - Wikipedia: Codon Adaptation Index
 - Kazusa Codon Usage Database: https://www.kazusa.or.jp/codon/
+
+## F48 — genetic-code-aware `CodonOptimizer.CalculateCAI` (review 2026-09, audit A2-1)
+
+Sources opened: dnachisel 3.2.16 `dnachisel/builtin_specifications/EnforceTranslation.py`
+(`genetic_table="default"` → `default_genetic_table = "Standard"`, families from
+`biotools.get_backtranslation_table(genetic_table)`), `dnachisel/biotools/biotables.py`
+(`get_backtranslation_table` = Biopython `CodonTable.unambiguous_dna_by_name[name].forward_table`
+grouped by amino acid, `stop_codons` as the `*` family), Biopython 1.88
+`Bio.Data.CodonTable.unambiguous_dna_by_id` (tables 2, 4, 11, 27, 28, 31 inspected).
+
+`CalculateCAI` now forwards an optional `GeneticCode? geneticCode` to the canonical core
+`CodonUsageAnalyzer.CalculateCai(..., code, excludeSingleCodonFamilies)`, which is already locked to
+CodonW 1.4.4 `cai_out` over 8 genetic codes (see the CODON-CAI-001 cross-check above). `null` keeps
+`GeneticCode.Standard`, so every published value is unchanged; under table 2 the scored set changes
+exactly as the code dictates (AGA/AGG are stops and are dropped; Met {AUA, AUG} and Trp {UGA, UGG}
+are two-codon families and are scored). Tests assert equality with the core under both tables, and
+inequality between tables, in `CodonOptimizer_GeneticCode_Tests`.

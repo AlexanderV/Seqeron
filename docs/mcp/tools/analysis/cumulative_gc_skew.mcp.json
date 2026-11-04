@@ -5,13 +5,14 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "GcSkewCalculator.CalculateCumulativeGcSkew",
-  "docRef": "Seqeron.Genomics.Analysis/GcSkewCalculator.cs#L115",
+  "docRef": "Seqeron.Genomics.Analysis/GcSkewCalculator.cs#L305",
   "description": "Cumulative GC skew over non-overlapping windows (step == windowSize); running sum of (G-C)/(G+C). Minimum approximates replication origin, maximum the terminus.",
   "inputSchema": {
     "type": "object",
     "properties": {
       "sequence": { "type": "string", "description": "DNA sequence", "minLength": 1 },
-      "windowSize": { "type": "integer", "description": "Window size", "minimum": 1, "default": 1000 }
+      "windowSize": { "type": "integer", "description": "Window size", "minimum": 1, "default": 1000 },
+      "includePartialWindow": { "type": "boolean", "description": "Also include the trailing partial window in the running sum; true matches Biopython GC_skew + accumulate", "default": false }
     },
     "required": ["sequence"]
   },

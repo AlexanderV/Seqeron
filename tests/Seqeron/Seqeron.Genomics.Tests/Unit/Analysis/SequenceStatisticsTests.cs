@@ -236,6 +236,83 @@ public class SequenceStatisticsTests
         Assert.That(tm, Is.EqualTo(24.0).Within(0.1));
     }
 
+    // F25 (FIN-B03 A4) — basic Tm routed to ThermoConstants. Biopython 1.88 executed:
+    // Tm_Wallace(s) and Tm_GC(s, userset=(64.9, 0.41, 672.4, 0), saltcorr=0) (OligoCalc basic Tm).
+    [TestCase("ATGCATGC", true, 24.0)]
+    [TestCase("ATGCATGC", false, 1.3500000000000085)]
+    [TestCase("ACGUACGU", false, 1.3500000000000085)]
+    [TestCase("ACGTACGTACGTACGTAC", true, 48.04444444444445)]
+    [TestCase("ACGTACGTACGTACGTAC", false, 48.04444444444445)]
+    public void CalculateMeltingTemperature_MatchesBiopythonBasicTm(string seq, bool wallace, double expected)
+    {
+        Assert.That(SequenceStatistics.CalculateMeltingTemperature(seq, wallace), Is.EqualTo(expected).Within(1e-12));
+    }
+
+    // F32 (FIN-B03 A14) — useWallaceRule:false below 14 nt is Biopython 1.88
+    // Tm_GC(s, userset=(64.9, 0.41, 672.4, 0), saltcorr=0) (executed; no length clamp there either).
+    [TestCase("AAAA", -103.19999999999999)]
+    [TestCase("GC", -230.29999999999998)]
+    [TestCase("A", -607.5)]
+    [TestCase("ACGTACGTACGTA", 32.1)]
+    public void CalculateMeltingTemperature_GcFormulaBelow14_MatchesBiopythonTmGc(string seq, double expected)
+    {
+        Assert.That(SequenceStatistics.CalculateMeltingTemperature(seq, useWallaceRule: false), Is.EqualTo(expected).Within(1e-9));
+    }
+
+    // F33 (FIN-B03 A15) — IUPAC-weighted basic Tm. Biopython 1.88 executed:
+    // Tm_Wallace(s, strict=False) for < 14 A/C/G/T/U bases, else
+    // Tm_GC(s, userset=(64.9, 0.41, 672.4, 0), saltcorr=0, strict=False).
+    [TestCase("acgtNNSWacgt-ry", true, 42.0)]
+    [TestCase("ACGTRYKMBDHVN", true, 39.0)]
+    [TestCase("acguSWnn", true, 24.0)]
+    [TestCase("NNNN", true, 12.0)]
+    [TestCase("ACGTACGTACGTACNNSW", true, 48.04444444444445)]
+    [TestCase("ACGTACGTACGTACGTRYKMBDHV", true, 57.38333333333334)]
+    [TestCase("acgtacgtacgtacgtXI-nn", true, 49.73000000000001)]
+    [TestCase("ACGUACGUACGUACGUNS", true, 49.18333333333334)]
+    [TestCase("ACGT-NNacg", false, 12.966666666666669)]
+    public void CalculateMeltingTemperature_WeightAmbiguousBases_MatchesBiopythonNonStrict(string seq, bool wallace, double expected)
+    {
+        Assert.That(SequenceStatistics.CalculateMeltingTemperature(seq, wallace, weightAmbiguousBases: true),
+            Is.EqualTo(expected).Within(1e-9));
+    }
+
+    [Test]
+    public void CalculateMeltingTemperature_WeightAmbiguousBasesFalse_EqualsDefault_AndEmptyIsZero()
+    {
+        var rng = new Random(733);
+        const string alphabet = "ACGTUacgtuNRYSWKMBDHVXI-n ";
+        for (int i = 0; i < 500; i++)
+        {
+            var chars = new char[rng.Next(0, 30)];
+            for (int j = 0; j < chars.Length; j++) chars[j] = alphabet[rng.Next(alphabet.Length)];
+            string s = new(chars);
+            foreach (bool w in new[] { true, false })
+                Assert.That(SequenceStatistics.CalculateMeltingTemperature(s, w, weightAmbiguousBases: false),
+                    Is.EqualTo(SequenceStatistics.CalculateMeltingTemperature(s, w)), s);
+        }
+        Assert.That(SequenceStatistics.CalculateMeltingTemperature("", true, true), Is.EqualTo(0));
+        Assert.That(SequenceStatistics.CalculateMeltingTemperature("--", false, true), Is.EqualTo(0));
+    }
+
+    // F25 — bit-identical to the canonical ThermoConstants basic Tm (and to the pre-routing
+    // composition-based count, including non-ASCII ſ/ı that ToUpperInvariant maps to S/I) on random input.
+    [Test]
+    public void CalculateMeltingTemperature_EqualsCanonicalThermoConstants_Random()
+    {
+        var rng = new Random(4862);
+        const string alphabet = "ACGTUacgtuNnSWRY-\u017F\u0131 ";
+        for (int iter = 0; iter < 2000; iter++)
+        {
+            var s = new string(Enumerable.Range(0, rng.Next(0, 40)).Select(_ => alphabet[rng.Next(alphabet.Length)]).ToArray());
+            var comp = SequenceStatistics.CalculateNucleotideComposition(s);
+            int at = comp.CountA + comp.CountT + comp.CountU, gc = comp.CountG + comp.CountC;
+            Assert.That(SequenceStatistics.CalculateMeltingTemperature(s, true), Is.EqualTo(ThermoConstants.CalculateBasicTm(s)));
+            Assert.That(SequenceStatistics.CalculateMeltingTemperature(s, false),
+                Is.EqualTo(at + gc == 0 ? 0 : ThermoConstants.CalculateMarmurDotyTm(gc, at + gc)), s);
+        }
+    }
+
     [Test]
     public void CalculateMeltingTemperature_EmptyString_ReturnsZero()
     {
@@ -318,6 +395,17 @@ public class SequenceStatisticsTests
 
         // Σ V_k / Σ V_max,k = 12/29 (Python reference, B03 F21).
         Assert.That(complexity, Is.EqualTo(12.0 / 29.0).Within(1e-12));
+    }
+
+    // FIN-B03 WP16 (A29, F42): alphabet a = |{A,C,G,T/U} ∪ observed| (B04 F20) ⇒ LC ≤ 1. Exact-fraction Python
+    // reference (Σ V_k / Σ min(a^k, N−k+1), m = min(6, N)): ACGTN a = 5 → 15/15 (was 15/14 with a = 4);
+    // ATGCATGCATGC → 24/49; AAAAAAAAAA → 2/13 (the MCP linguistic_complexity doc examples).
+    [TestCase("ACGTN", 1.0)]
+    [TestCase("ATGCATGCATGC", 24.0 / 49.0)]
+    [TestCase("AAAAAAAAAA", 2.0 / 13.0)]
+    public void CalculateLinguisticComplexity_InferredAlphabet_MatchesPythonReference(string sequence, double expected)
+    {
+        Assert.That(SequenceStatistics.CalculateLinguisticComplexity(sequence), Is.EqualTo(expected).Within(1e-12));
     }
 
     [Test]

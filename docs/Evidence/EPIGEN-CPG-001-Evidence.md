@@ -11,7 +11,7 @@
 ### Wikipedia — CpG site
 
 **URL:** https://en.wikipedia.org/wiki/CpG_site
-**Accessed:** 2026-02-13
+**Accessed:** 2026-02-13 · re-fetched 2026-10-14 (SRC citation audit: supports the claims above)
 **Authority rank:** 4 (Wikipedia with citations to primary sources)
 
 **Key Extracted Points:**

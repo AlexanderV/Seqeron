@@ -22,7 +22,9 @@
 
 `FindMostStableDimer`, `CalculateDimerMeltingTemperature`, `CalculateSelfDimerMeltingTemperature`,
 `CalculateDimerThermodynamicsNtthal` (full DP; overloads with alignment mode / Mg²⁺ / dNTP / temp_c / max_loop),
-`CalculateDimerStructureNtthal` (+ ASCII structure), internal `NtthalDimer.Run`.
+`CalculateDimerStructureNtthal` (+ ASCII structure), internal `NtthalDimer.Run`;
+`FindMostStableDimer(s1, s2, StructureModel model, double? mv, dv, dntp, C_T, temp_c, int? max_loop)` (audit round 3,
+A3-13 / F58: `SingleHelix` = the default contiguous scorer, `Ntthal` = `calc_heterodimer` mapped onto `DimerResult`).
 
 - **Source file:** `src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/PrimerDesigner.cs`, `NtthalDimer.cs`
 - **Test fixture:** `tests/Seqeron/Seqeron.Genomics.Tests/PrimerDesigner_DimerTm_Tests.cs`
@@ -33,7 +35,9 @@
   with negative Tm and/or positive ΔG (e.g. primer3-py `calc_heterodimer('A','T')`: Tm −437.07 °C,
   ΔG +2087.8 cal/mol; END2 `CGGGCG`/`CGTCCGAATCAGTTGTGAT`: ΔG +1967.85 cal/mol) — reported, as primer3-py does.
 - **L (limits):** both strands > 60 nt or either > 10 000 nt → `ArgumentException` (thal.c CHECK_ERROR);
-  max_loop outside 0–30 → `ArgumentOutOfRangeException` (primer3-py setter).
+  max_loop outside 0–30 → `ArgumentOutOfRangeException` (primer3-py setter). Opt-in overloads with a trailing
+  `maxAlignLength` (60–10 000, else `ArgumentOutOfRangeException`) replace 60 by that THAL_MAX_ALIGN — identical to
+  thal.c compiled with `-DTHAL_MAX_ALIGN=…` (audit round 3, A3-9, F55; `PrimerDesigner_NtthalMaxAlign_Tests`).
 - **T (temperature):** temp_c changes only ΔG (= ΔH − (temp_c+273.15)·ΔS), not Tm / ΔH / ΔS.
 - **M (monotonicity):** a longer/stronger complementary core has the lower (more stable) ΔG / higher Tm.
 - **D (determinism):** identical inputs ⇒ identical outputs.
@@ -60,6 +64,21 @@
 - Tests: `CalculateDimerThermodynamicsNtthal_FormerDiscrepancies_MatchPrimer3Py` (6),
   `_TemperatureAndMaxLoop_MatchPrimer3Py`, `CalculateDimerStructureNtthal_AsciiStructure_MatchesPrimer3Py`,
   `CalculateDimerThermodynamicsNtthal_ThalLimits`.
+
+### 4.2 StructureModel opt-in (audit round 3, A3-13 / F58, primer3-py 2.3.1)
+
+- `FindMostStableDimer(…, StructureModel.Ntthal, …)` vs `calc_heterodimer(…, output_structure=True)`: 8000 random
+  pairs (seeds 1–2; 25 % self-dimers, 45 % mutated reverse complements with substitutions/indels, 30 % random;
+  half at the defaults, half at random mv/dv/dntp/dna_conc/temp_c/max_loop) — 0 differences: ΔH/ΔS/ΔG |Δ| = 0,
+  `Strand1Start`/`Strand2Start`/`BasePairs` = the 5′-most paired bases / pair count read off `ascii_structure_lines`;
+  null ⇔ `structure_found` False.
+- Locked: `TCAGGTCAGCTAGGCATC`/`GATGCCTAGATGACCTGA` (internal G·A mismatch) 0/0/17, ΔH −121, ΔS −338.75052502741124,
+  ΔG −15.936524662748416 (mv 100, dv 3, dntp 0.8, dna 250 nM, 55 °C, max_loop 10: ΔS −335.6376679534587,
+  ΔG −10.860499261072546, Tm 55.11775596157162); `GCGCGCAAAA`/`AAAAGCGCGC` 0/4/6, −60, −163.12828907104912,
+  −9.405761144614116; `ACGTTGCAAGCTTGCAACGT` self (`calc_homodimer`) 0/0/20, −160.8, −443.34749847006265,
+  −23.29577334951007 — `PrimerDesigner_StructureModel_Tests`.
+- Guards: `SingleHelix` + dv/dntp/temp_c/max_loop → `ArgumentException`; undefined model → `ArgumentOutOfRangeException`;
+  `Ntthal` keeps the THAL_MAX_ALIGN / max_loop limits.
 
 ## 5. Validation Checklist (restored ☑)
 

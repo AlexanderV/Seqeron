@@ -265,5 +265,50 @@ public class SequenceStatistics_SummarizeNucleotideSequence_Tests
         });
     }
 
+    // F33 (FIN-B03 A15) — opt-in IUPAC-weighted Tm (Biopython 1.88 non-strict Tm_Wallace/Tm_GC, executed)
+    // Default Tm = Biopython on the A/C/G/T-only spelling (acgtacgt 24.0, ACGT 12.0, Tm_GC userset
+    // ACGTACGTACGTAC 37.37142857142858, ACGTACGTACGTACGT 43.37500000000001);
+    // and the non-positional MolecularWeight field (Biopython 1.88 molecular_weight, executed).
+    [TestCase("acgtNNSWacgt-ry", 24.0, 42.0)]
+    [TestCase("ACGTRYKMBDHVN", 12.0, 39.0)]
+    [TestCase("ACGTACGTACGTACNNSW", 37.37142857142858, 48.04444444444445)]
+    [TestCase("ACGTACGTACGTACGTRYKMBDHV", 43.37500000000001, 57.38333333333334)]
+    public void SummarizeNucleotideSequence_WeightAmbiguousBasesInTm_MatchesBiopythonNonStrict(
+        string seq, double defaultTm, double weightedTm)
+    {
+        var plain = SequenceStatistics.SummarizeNucleotideSequence(seq);
+        var weighted = SequenceStatistics.SummarizeNucleotideSequence(seq, weightAmbiguousBasesInTm: true);
+        Assert.Multiple(() =>
+        {
+            Assert.That(plain.MeltingTemperature, Is.EqualTo(defaultTm).Within(1e-9), "default: A/C/G/T/U only");
+            Assert.That(weighted.MeltingTemperature, Is.EqualTo(weightedTm).Within(1e-9), "Biopython strict=False");
+            Assert.That(weighted with { MeltingTemperature = plain.MeltingTemperature, Composition = plain.Composition },
+                Is.EqualTo(plain), "only the Tm differs");
+        });
+    }
+
+    [TestCase("ATGCATGC", 2489.5901)]
+    [TestCase("AUGCAUGC", 2589.5321)]
+    [TestCase("ACGTACGTACGTACGTAC", 5563.553199999999)]
+    [TestCase("GGGAAAUUUCCCAAAUGC", 5819.4607)]
+    [TestCase("ATGCGATCGATCG", 4054.5834)]
+    public void SummarizeNucleotideSequence_MolecularWeight_MatchesBiopython(string seq, double expected)
+    {
+        var summary = SequenceStatistics.SummarizeNucleotideSequence(seq);
+        Assert.That(summary.MolecularWeight, Is.EqualTo(expected).Within(1e-6));
+        Assert.That(summary.MolecularWeight,
+            Is.EqualTo(SequenceStatistics.CalculateNucleotideMolecularWeight(seq, isDna: !seq.Contains('U'))));
+    }
+
+    [Test]
+    public void SummarizeNucleotideSequence_MolecularWeight_EmptyIsZero_PositionalShapeUnchanged()
+    {
+        Assert.That(SequenceStatistics.SummarizeNucleotideSequence(null).MolecularWeight, Is.EqualTo(0));
+        var (length, gc, entropy, complexity, tm, composition) = SequenceStatistics.SummarizeNucleotideSequence("ACGT");
+        Assert.That((length, gc, tm, composition.Count), Is.EqualTo((4, 0.5, 12.0, 6)));
+        Assert.That(entropy, Is.EqualTo(2.0).Within(1e-12));
+        Assert.That(complexity, Is.GreaterThan(0));
+    }
+
     #endregion
 }

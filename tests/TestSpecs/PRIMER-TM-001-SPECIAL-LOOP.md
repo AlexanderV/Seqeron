@@ -4,9 +4,9 @@
 **Area:** MolTools
 **Algorithm:** Full Primer3 `ntthal` intramolecular-hairpin DP with bundled sequence-specific
 special triloop / tetraloop stability bonuses
-**Status:** ☐ In Progress
+**Status:** ☑ Complete (all items ✅ Done, tests verified present; audit round 4, A4-4)
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-06-25
+**Last Updated:** 2026-06-25; status 2026-10-08
 
 ---
 
@@ -105,7 +105,7 @@ special triloop / tetraloop stability bonuses
 
 - Hairpin tests existed in `PrimerDesigner_HairpinTm_Tests.cs` (legacy Table-4 model). No tests
   existed for bundled special-loop bonuses or the ntthal hairpin DP. New canonical file:
-  `tests/Seqeron/Seqeron.Genomics.Tests/PrimerDesigner_HairpinSpecialLoop_Tests.cs`.
+  `tests/Seqeron/Seqeron.Genomics.Tests/Unit/MolTools/PrimerDesigner_HairpinSpecialLoop_Tests.cs`.
 
 ### 5.2 Coverage Classification
 

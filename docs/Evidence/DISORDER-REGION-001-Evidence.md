@@ -87,7 +87,7 @@ This is a **citable, deterministic scheme** that maps cleanly onto the per-resid
 ### Wikipedia — Intrinsically Disordered Proteins
 
 **URL:** https://en.wikipedia.org/wiki/Intrinsically_disordered_proteins
-**Accessed:** 2026-02-12
+**Accessed:** 2026-02-12 · re-fetched 2026-10-14 (SRC citation audit: supports the claims above)
 **Authority rank:** 4 (Wikipedia citing Dunker 2001 [ref 2], Campen 2008 [ref 71], van der Lee 2014 [ref 11])
 
 **Key Extracted Points:**

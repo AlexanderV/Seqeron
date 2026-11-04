@@ -26,4 +26,20 @@ public class RnaValidateTests
         Assert.That(invalid.Valid, Is.False);
         Assert.That(invalid.Error, Does.Contain("T"));
     }
+
+    // iupac=true delegates to Core SequenceExtensions.IndexOfInvalidIupacRna: Biopython 1.88
+    // IUPACData.ambiguous_rna_letters "GAUCRYWSMKHBVDN" (scikit-bio 0.7.4 RNA("ACGUN") valid, RNA("ACGTN") ValueError).
+    [Test]
+    public void RnaValidate_Iupac_AcceptsAmbiguityCodes()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(SequenceTools.RnaValidate("ACGUN").Valid, Is.False, "strict default unchanged");
+            Assert.That(SequenceTools.RnaValidate("ACGURYSWKMBDHVN", iupac: true).Valid, Is.True);
+            var t = SequenceTools.RnaValidate("ACGTN", iupac: true);
+            Assert.That(t.Valid, Is.False);
+            Assert.That(t.Error, Is.EqualTo("Invalid nucleotide 'T' at position 3"));
+            Assert.Throws<ArgumentException>(() => SequenceTools.RnaValidate("", iupac: true));
+        });
+    }
 }

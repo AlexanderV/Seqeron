@@ -67,7 +67,7 @@ For unambiguous DNA the values equal compseq `-frame f` exactly (executed, 300 r
 
 ### 3.3 Preconditions and Validation
 
-A negative `readingFrame` throws `ArgumentOutOfRangeException`. `null`, empty, or length &lt; 3 returns an empty dictionary. Input is upper-cased and RNA `U` is read as `T`; keys are reported in DNA spelling (EMBOSS cusp, CodonW; same normalisation as the canonical `CodonUsageAnalyzer.CountCodons`). Counting is 0-based starting at `readingFrame`; only complete non-overlapping triplets are read, so trailing 1–2 bases are ignored. If no triplet is composed solely of ACGT (`total = 0`), the result is empty — there is no division by zero.
+A negative `readingFrame` throws `ArgumentOutOfRangeException`. `null`, empty, or length &lt; 3 returns an empty dictionary. Input is upper-cased and RNA `U` is read as `T`; keys are reported in DNA spelling (EMBOSS cusp, CodonW; delegated to the canonical Core `Translator.CountCodons(seq, frame)`, ASCII case fold). Counting is 0-based starting at `readingFrame`; only complete non-overlapping triplets are read, so trailing 1–2 bases are ignored. If no triplet is composed solely of ACGT (`total = 0`), the result is empty — there is no division by zero.
 
 ## 4. Algorithm
 
@@ -110,13 +110,13 @@ Single linear pass over the sequence. The method is a frequency tabulation, not 
 - exclusion of ambiguous (non-ACGT) codons from the count [2].
 - frequencies sum to 1 (INV-02), equal to CUTG per-thousand ÷ 1000 (INV-05) [2][3].
 
-**Intentionally simplified:**
+- Per-thousand scaling and the per-amino-acid "Fraction" column of EMBOSS cusp via the overload `CalculateCodonFrequencies(seq, frame, CodonFrequencyNormalization.PerThousand | .PerAminoAcid, GeneticCode? code = Standard)` (review 2026-09 B03 F36; cusp 6.6.0 executed, locked to its 3-dp columns; families from `GeneticCode.Translate`, stops one '*' family; other NCBI tables re-group families). MCP `codon_frequencies` exposes it as `normalization` (Total | PerThousand | PerAminoAcid) + `genetic_code` (NCBI table, default 1; review 2026-09 B03 F49).
 
-- Per-thousand scaling and the per-amino-acid Fraction column reported by Kazusa/cusp are not produced here; **consequence:** callers needing per-thousand multiply by 1000, and per-amino-acid proportions are out of scope for this method.
+**Intentionally simplified:** none. (cusp counts an ambiguous triplet as its lowest constituent, e.g. NNN → AAA; here such triplets are skipped — B02 F9 contract.)
 
 **Not implemented:** none. (RNA `U` handling, previously listed here, is implemented — review 2026-09 B03 F15.)
 
-**Duplication note:** Analysis cannot reference MolTools (MolTools references Analysis), so the loop cannot call `CodonUsageAnalyzer.CountCodons`; semantics are kept identical and a move of the codon-splitting core to Core is requested (B03 R16).
+**Duplication note:** resolved (B03 R16, FIN-B03 A2): the codon-splitting core now lives in Core (`Translator.SplitInFrameCodons` / `Translator.CountCodons(seq, frame)`), and `CalculateCodonFrequencies` returns `Translator.CountCodons(seq, frame)` divided by its total — no own splitter.
 
 ## 6. Edge Cases and Limitations
 
@@ -134,7 +134,7 @@ Single linear pass over the sequence. The method is a frequency tabulation, not 
 
 ### 6.2 Limitations
 
-Computes raw codon usage only; does not derive codon-usage indices (CAI, Fop, Nc) [4], and does not interpret reading frames biologically (no ORF detection).
+Computes raw codon usage only; does not derive codon-usage indices (CAI, Fop, Nc) [4] — CAI, Nc (ENC) and RSCU are provided by `CodonUsageAnalyzer.CalculateCai` / `CalculateEnc` / `CalculateRscu` (MolTools, B02) — and does not interpret reading frames biologically (no ORF detection).
 
 ## 7. Examples and Related Material
 

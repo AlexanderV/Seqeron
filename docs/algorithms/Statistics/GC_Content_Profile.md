@@ -86,8 +86,12 @@ these input classes. `windowSize < 1` or `stepSize < 1` throws `ArgumentOutOfRan
 eagerly at call time (B03 F17: step 0 previously never terminated and W 0 returned n+1 zeros;
 Biopython `GC_skew(seq, 0)` raises `ValueError`; same contract as
 `GcSkewCalculator.CalculateWindowedGcSkew` and the MCP `gc_content_profile` wrapper).
-Only complete windows are reported (EMBOSS `isochore` and `GcSkewCalculator` likewise; Biopython
-`GC_skew` appends a trailing partial window). Values carry no coordinates: window k starts at
+Only complete windows are reported by default (EMBOSS `isochore` and `GcSkewCalculator` likewise;
+Biopython `GC_skew` appends a trailing partial window). The opt-in `includePartialWindow: true`
+overloads (B03 F24) follow Biopython `GC_skew` windowing — starts `range(0, len, step)`, window
+`seq[i:i+W]` truncated at the end — so every start < length is emitted (a sequence shorter than W
+yields its partial windows). Biopython 1.88 has no windowed GC-content function of its own; oracle
+`[gc_fraction(s[i:i+w]) for i in range(0, len(s), step)]` executed. Values carry no coordinates: window k starts at
 0-based offset k·step (EMBOSS `isochore` prints the 1-based window centre).
 
 ## 4. Algorithm
@@ -117,8 +121,12 @@ Only complete windows are reported (EMBOSS `isochore` and `GcSkewCalculator` lik
   streams the GC% of each sliding window (arguments validated eagerly, values deferred).
 - `SequenceStatistics.CalculateGcContentProfile(string, int, int, bool, SequenceExtensions.GcAmbiguityMode)`:
   Biopython `gc_fraction(window, ambiguous=…)` parity (B03 F19).
-- Per-window kernel: canonical `SequenceExtensions.CalculateGcFraction` (B01) — no inline
-  counting (B03 D6).
+- `SequenceStatistics.CalculateGcContentProfile(string, int, int, bool, bool includePartialWindow)` and
+  `(…, GcAmbiguityMode, bool includePartialWindow)`: opt-in Biopython `GC_skew`-style trailing partial
+  windows (B03 F24); off = identical to the overloads above.
+- Window driver: canonical `GcSkewCalculator.CalculateWindowedGcContent(seq, w, s, fraction[, mode])`
+  (`GcContent` column; B01) — no own window loop (B03 F24, B01 request). Per-window kernel: canonical
+  `SequenceExtensions.CalculateGcFraction` (B01) — no inline counting (B03 D6); partial windows use it directly.
 
 ### 5.2 Current Behavior
 

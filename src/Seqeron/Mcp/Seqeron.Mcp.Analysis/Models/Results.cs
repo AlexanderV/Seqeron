@@ -107,7 +107,13 @@ public record DoubleProfileResult(double[] Values);
 public record DinucleotideFrequenciesResult(Dictionary<string, double> Frequencies);
 
 /// <summary>Observed/expected dinucleotide ratios.</summary>
-public record DinucleotideRatiosResult(Dictionary<string, double> Ratios);
+public record DinucleotideRatiosResult(Dictionary<string, double> Ratios)
+{
+    /// <summary>Karlin representation class per returned dinucleotide (UnderRepresented / Normal /
+    /// OverRepresented); null (omitted from the JSON) unless <c>includeRepresentation</c> is set.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public Dictionary<string, string>? Representation { get; init; }
+}
 
 /// <summary>Codon frequency map.</summary>
 public record CodonFrequenciesResult(Dictionary<string, double> Frequencies);
@@ -117,6 +123,9 @@ public record ChouFasmanItem(double Helix, double Sheet, double Turn);
 
 /// <summary>Result of <c>predict_chou_fasman</c>.</summary>
 public record PredictChouFasmanResult(ChouFasmanItem[] Items);
+
+/// <summary>Result of <c>chou_fasman_assign</c>: one state code per residue (H helix, E strand, T turn, C coil).</summary>
+public record ChouFasmanAssignResult(string Assignment);
 
 // ================================
 // GenomicAnalyzer Results
@@ -940,7 +949,18 @@ public record PredictReplicationOriginResult(
     int PredictedTerminus,
     double OriginSkew,
     double TerminusSkew,
-    bool IsSignificant);
+    bool IsSignificant)
+{
+    /// <summary>All prefix indices minimizing the cumulative skew (Rosalind BA1F answer), ascending.</summary>
+    public int[] OriginPositions { get; init; } = [];
+
+    /// <summary>All prefix indices maximizing the cumulative skew, ascending.</summary>
+    public int[] TerminusPositions { get; init; } = [];
+
+    /// <summary>SkewIT Skew Index (when <c>skewIndexWindow</c> is given); null when not requested or
+    /// when SkewIT's skewi.py reports no value for the sequence.</summary>
+    public double? SkewIndex { get; init; }
+}
 
 /// <summary>Result of <c>analyze_gc_content</c>.</summary>
 public record AnalyzeGcContentResult(

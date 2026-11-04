@@ -181,8 +181,11 @@ None. The opt-in surfaces reproduce Biopython `gc_fraction` exactly; defaults ar
   `CalculateAminoAcidComposition_Albumin_MatchesBiopython`, `CalculateAminoAcidComposition_StopSymbol_ExcludedFromLength`.
 
 ### Notes
-- **N3 (documented convention):** amino-acid `Length`/ratio denominators count letters only; Biopython
-  and EMBOSS divide by the full sequence length (incl. `*`/`-`). Identical for letter-only input.
+- **N3 (documented convention):** amino-acid `Length`/ratio denominators count letters only — the EMBOSS
+  pepstats "Mole%" convention (pepstats 6.6.0 executed: "MKW*" → Residues = 3, K 33.333 %); Biopython
+  divides by the full sequence length (incl. `*`/`-`). Identical for letter-only input. Biopython's
+  denominator is available opt-in since review 2026-09 B03 F35
+  (`AminoAcidCompositionDenominator.SequenceLength`, `CalculateAminoAcidFractions`).
 - **N4 (MCP, not in ownership):** `nucleotide_composition` MCP result has no `N` field and maps only
   `CountOther` to `Other`, so N counts are silently dropped (e.g. `ATGCNN` → Length 6, A+T+G+C+U+Other = 4).
   Reported to the batch lead (additive fix: an `N` property on `NucleotideCompositionResult`).

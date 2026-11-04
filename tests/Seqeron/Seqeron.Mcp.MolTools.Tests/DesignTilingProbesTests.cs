@@ -20,19 +20,26 @@ public class DesignTilingProbesTests
         // Overlap must be < probe length.
         Assert.Throws<ArgumentException>(() => MolToolsTools.design_tiling_probes(Target, 50, 50));
         Assert.Throws<ArgumentException>(() => MolToolsTools.design_tiling_probes(Target, 50, -1));
+        // B07 audit round 7, A7-2: a target shorter than probe_length (30 nt, default 60) is an argument error, not
+        // InvalidOperationException "Sequence contains no elements".
+        var ex = Assert.Throws<ArgumentException>(() => MolToolsTools.design_tiling_probes(new string('A', 30)));
+        Assert.That(ex!.ParamName, Is.EqualTo("probe_length"));
     }
 
     [Test]
     public void DesignTilingProbes_Binding_InvokesSuccessfully()
     {
-        // probeLength=50, overlap=10 -> step=40. Starts {0,40,80,120}; coverage = 170 positions.
+        // probeLength=50, overlap=10 -> step=40. Grid starts {0,40,80,120} end at 169; (208 − 50) mod 40 = 38 ≠ 0, so a
+        // final window is anchored at the end (CATCH): start 208 − 50 = 158 → every one of the 208 positions covered
+        // (B07 audit round 7, A7-2; previously 4 probes, coverage 170).
         var set = MolToolsTools.design_tiling_probes(Target, probe_length: 50, overlap: 10);
 
         Assert.Multiple(() =>
         {
-            Assert.That(set.Probes.Count, Is.EqualTo(4));
-            Assert.That(set.Probes.Select(p => p.Start), Is.EqualTo(new[] { 0, 40, 80, 120 }));
-            Assert.That(set.Coverage, Is.EqualTo(170));
+            Assert.That(set.Probes.Count, Is.EqualTo(5));
+            Assert.That(set.Probes.Select(p => p.Start), Is.EqualTo(new[] { 0, 40, 80, 120, 158 }));
+            Assert.That(set.Probes[^1].End, Is.EqualTo(207));
+            Assert.That(set.Coverage, Is.EqualTo(208));
             Assert.That(set.Probes.All(p => p.Type == ProbeDesigner.ProbeType.Tiling), Is.True);
             // MeanTm / TmRange consistency with the individual probes.
             Assert.That(set.MeanTm, Is.EqualTo(set.Probes.Average(p => p.Tm)).Within(1e-6));

@@ -408,7 +408,7 @@ public class PopulationGeneticsAnalyzer_Diversity_Tests
     }
 
     [Test]
-    [Description("TD-C01: Wikipedia Tajima's D full example — exact numerical verification")]
+    [Description("TD-C01: Wikipedia Tajima's D example data — D per Tajima (1989) eq. 38, exact numerical verification")]
     public void CalculateTajimasD_WikipediaExample_ExactValue()
     {
         // Source: https://en.wikipedia.org/wiki/Tajima%27s_D#Example
@@ -427,7 +427,8 @@ public class PopulationGeneticsAnalyzer_Diversity_Tests
         // e₂ = 0.02267/5.76389 ≈ 0.003933
         //
         // Var = e₁·S + e₂·S·(S−1) = 0.0384 + 0.04720 ≈ 0.08560
-        // D = 0.08 / √0.08560 ≈ 0.2734
+        // D = 0.08 / √0.08560 ≈ 0.2734  (computed with Tajima 1989, Genetics 123:585, eq. 38;
+        //  the Wikipedia example stops at d = 0.08 and does not state D)
         double kHat = 2.0;
         int segregatingSites = 4;
         int sampleSize = 5;
@@ -435,7 +436,7 @@ public class PopulationGeneticsAnalyzer_Diversity_Tests
         double d = PopulationGeneticsAnalyzer.CalculateTajimasD(kHat, segregatingSites, sampleSize);
 
         Assert.That(d, Is.EqualTo(0.273).Within(0.005),
-            "Wikipedia example: D should be approximately 0.273");
+            "Wikipedia example data: D (Tajima 1989 eq. 38) should be approximately 0.273");
     }
 
     [Test]
@@ -461,7 +462,7 @@ public class PopulationGeneticsAnalyzer_Diversity_Tests
             Assert.That(stats.SegregratingSites, Is.EqualTo(4), "S = 4 (positions 3,7,13,19)");
             Assert.That(stats.NucleotideDiversity, Is.EqualTo(0.1).Within(0.001), "π = 2.0/20 = 0.1");
             Assert.That(stats.WattersonTheta, Is.EqualTo(0.096).Within(0.001), "θ_W = 4/(2.083×20) ≈ 0.096");
-            Assert.That(stats.TajimasD, Is.EqualTo(0.273).Within(0.005), "D ≈ 0.273 per Wikipedia hand-calculation");
+            Assert.That(stats.TajimasD, Is.EqualTo(0.273).Within(0.005), "D ≈ 0.273 = d/sqrt(e1·S+e2·S(S−1)) per Tajima (1989) eq. 38 on the Wikipedia dataset (Wikipedia stops at d = 0.08)");
         });
     }
 

@@ -311,5 +311,73 @@ public class SequenceStatistics_CalculateGcContentProfile_Tests
             SequenceStatistics.CalculateGcContentProfile("ACGTACGT", windowSize, stepSize));
     }
 
+    // F24 (FIN-B03 A21) — opt-in trailing partial windows, Biopython GC_skew windowing
+    // (for i in range(0, len(s), step): s[i:i+w]) applied to gc_fraction. Oracle executed with
+    // Biopython 1.88: [gc_fraction(s[i:i+w]) for i in range(0, len(s), step)].
+    [TestCase("GGGCCCAAATTTGCGCA", 6, 4, new[] { 1.0, 0.3333333333333333, 0.3333333333333333, 0.8, 0.0 })]
+    [TestCase("GGGCCCAAATTTGCGCA", 5, 5, new[] { 1.0, 0.2, 0.6, 0.5 })]
+    [TestCase("GCA", 10, 1, new[] { 0.6666666666666666, 0.5, 0.0 })]
+    [TestCase("ACGNN", 3, 3, new[] { 0.6666666666666666, 0.0 })]
+    [TestCase("acgu", 3, 2, new[] { 0.6666666666666666, 0.5 })]
+    public void CalculateGcContentProfile_IncludePartialWindow_MatchesBiopythonRangeSlicing(
+        string seq, int w, int step, double[] expected)
+    {
+        var fraction = SequenceStatistics.CalculateGcContentProfile(seq, w, step, true, includePartialWindow: true).ToArray();
+        var percent = SequenceStatistics.CalculateGcContentProfile(seq, w, step, false, includePartialWindow: true).ToArray();
+
+        Assert.That(fraction, Is.EqualTo(expected).Within(1e-15));
+        Assert.That(percent, Is.EqualTo(expected.Select(v => v * 100.0).ToArray()).Within(1e-12));
+    }
+
+    // F24 — ambiguity modes with partial windows; Biopython 1.88 executed on "ACGTNSWACGN", w = step = 4.
+    [TestCase(SequenceExtensions.GcAmbiguityMode.Remove, new[] { 0.5, 0.3333333333333333, 1.0 })]
+    [TestCase(SequenceExtensions.GcAmbiguityMode.Ignore, new[] { 0.5, 0.25, 0.6666666666666666 })]
+    [TestCase(SequenceExtensions.GcAmbiguityMode.Weighted, new[] { 0.5, 0.375, 0.8333333333333334 })]
+    public void CalculateGcContentProfile_IncludePartialWindow_AmbiguityMode_MatchesBiopython(
+        SequenceExtensions.GcAmbiguityMode mode, double[] expected)
+    {
+        var fraction = SequenceStatistics.CalculateGcContentProfile("ACGTNSWACGN", 4, 4, true, mode, includePartialWindow: true).ToArray();
+        Assert.That(fraction, Is.EqualTo(expected).Within(1e-15));
+    }
+
+    // F24 — option off is the unchanged complete-window profile; guards stay eager.
+    [Test]
+    public void CalculateGcContentProfile_IncludePartialWindowFalse_EqualsDefault_AndGuardsAreEager()
+    {
+        const string s = "GGGCCCAAATTTGCGCANNSW";
+        Assert.That(SequenceStatistics.CalculateGcContentProfile(s, 6, 4, false, includePartialWindow: false),
+            Is.EqualTo(SequenceStatistics.CalculateGcContentProfile(s, 6, 4)));
+        Assert.That(SequenceStatistics.CalculateGcContentProfile(s, 6, 4, true, SequenceExtensions.GcAmbiguityMode.Weighted, false),
+            Is.EqualTo(SequenceStatistics.CalculateGcContentProfile(s, 6, 4, true, SequenceExtensions.GcAmbiguityMode.Weighted)));
+        Assert.That(SequenceStatistics.CalculateGcContentProfile("", 3, 1, false, includePartialWindow: true), Is.Empty);
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            SequenceStatistics.CalculateGcContentProfile(s, 0, 1, false, includePartialWindow: true));
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            SequenceStatistics.CalculateGcContentProfile(s, 3, 0, false, SequenceExtensions.GcAmbiguityMode.Remove, true));
+        // Huge step: exactly one complete + no overflow in the partial-start arithmetic.
+        Assert.That(SequenceStatistics.CalculateGcContentProfile(s, 6, int.MaxValue, true, includePartialWindow: true).Count(),
+            Is.EqualTo(1));
+    }
+
+    // F24 (FIN-B03 A3) — the profile is the canonical GcSkewCalculator.CalculateWindowedGcContent
+    // GcContent column (bit-identical, every overload) on random IUPAC input.
+    [Test]
+    public void CalculateGcContentProfile_EqualsCanonicalWindowedGcContent_Random()
+    {
+        var rng = new Random(20261014);
+        const string alphabet = "ACGTUacgtuNSWRYKMBDHVn-";
+        for (int iter = 0; iter < 300; iter++)
+        {
+            var s = new string(Enumerable.Range(0, rng.Next(0, 60)).Select(_ => alphabet[rng.Next(alphabet.Length)]).ToArray());
+            int w = rng.Next(1, 20), st = rng.Next(1, 10);
+            bool fr = rng.Next(2) == 0;
+            Assert.That(SequenceStatistics.CalculateGcContentProfile(s, w, st, fr),
+                Is.EqualTo(GcSkewCalculator.CalculateWindowedGcContent(s, w, st, fr).Select(p => p.GcContent)));
+            foreach (var mode in Enum.GetValues<SequenceExtensions.GcAmbiguityMode>())
+                Assert.That(SequenceStatistics.CalculateGcContentProfile(s, w, st, fr, mode),
+                    Is.EqualTo(GcSkewCalculator.CalculateWindowedGcContent(s, w, st, fr, mode).Select(p => p.GcContent)));
+        }
+    }
+
     #endregion
 }

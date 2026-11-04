@@ -21,24 +21,34 @@ public static class ProbeDesigner
     /// <see cref="DnaConcentrationNanomolar"/>, <see cref="MonovalentMillimolar"/>, <see cref="DivalentMillimolar"/>,
     /// <see cref="DntpMillimolar"/>. The defaults are Primer3's hybridization-probe (internal-oligo) conditions
     /// PRIMER_INTERNAL_DNA_CONC = 50 nM, PRIMER_INTERNAL_SALT_MONOVALENT = 50 mM, PRIMER_INTERNAL_SALT_DIVALENT = 0,
-    /// PRIMER_INTERNAL_DNTP_CONC = 0 (<c>libprimer3.cc</c> <c>pr_set_default_global_args</c>).
+    /// PRIMER_INTERNAL_DNTP_CONC = 0 (<c>libprimer3.cc</c> <c>pr_set_default_global_args</c>). The nearest-neighbour
+    /// length limit is <see cref="MaxNearestNeighborLength"/> (Primer3 <c>nn_max_len</c>, default 36). The presets in
+    /// <see cref="Defaults"/> state their own conditions; each preset's Tm window is reachable on this scale for its
+    /// length and G+C window (audit round 3, A3-10).
     /// </para>
     /// <para>
     /// <b>Self-structure.</b> With <see cref="StructureScreen"/> = <see cref="ProbeStructureScreen.Thermodynamic"/>
-    /// (default) a probe of ≤ 60 nt made of A/C/G/T is screened as Primer3 screens a hybridization probe
+    /// (default) a probe of ≤ <see cref="ThermodynamicScreenMaxLength"/> (default 60) nt made of A/C/G/T is screened as Primer3 screens a hybridization probe
     /// (PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT = 1): ntthal self-dimer (ANY), 3′ self-dimer (END1) and hairpin
     /// Tm (<see cref="PrimerDesigner.CalculatePrimer3OligoStructure"/>) must not exceed <see cref="MaxStructureTm"/>
     /// (PRIMER_INTERNAL_MAX_SELF_ANY_TH / _SELF_END_TH / _HAIRPIN_TH = 47 °C). The self-dimer limit replaces
     /// <see cref="MaxSelfComplementarity"/>; the hairpin limit is applied when <see cref="AvoidSecondaryStructure"/>.
-    /// Probes longer than 60 nt (thal.c <c>THAL_MAX_ALIGN</c>), probes with non-ACGT bases and
-    /// <see cref="ProbeStructureScreen.Heuristic"/> use the fallback screens: the self-dimer criterion is Primer3's
+    /// Probes longer than <see cref="ThermodynamicScreenMaxLength"/> (thal.c <c>THAL_MAX_ALIGN</c>, default 60; a
+    /// larger value is an opt-in that runs the unchanged ntthal recursions on longer probes), probes with non-ACGT
+    /// bases and <see cref="ProbeStructureScreen.Heuristic"/> use the fallback screens: the self-dimer criterion is Primer3's
     /// alignment-mode internal-oligo screen (PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT = 0, <c>oligo_compl</c>): the dpal
     /// <c>self_any</c> (<see cref="PrimerDesigner.CalculatePrimerSelfAnyComplementarity"/>) and <c>self_end</c>
     /// (<see cref="PrimerDesigner.CalculatePrimerSelfEndComplementarity"/>) scores, which have no length limit, must not
     /// exceed <see cref="MaxSelfAny"/> / <see cref="MaxSelfEnd"/> (PRIMER_INTERNAL_MAX_SELF_ANY / _SELF_END = 12.00);
-    /// the hairpin criterion stays the sequence-only inverted-repeat stem screen (≥ 4 bp, loop 3, ≥ 80 % matched) —
-    /// a thermodynamic hairpin for &gt; 60-nt DNA needs a DNA-parameter MFE fold, which the library does not have yet
-    /// (cross-batch request to B12). <see cref="MaxSelfComplementarity"/> (position-wise fold-back fraction limit) is
+    /// the hairpin criterion is the canonical sequence-only stem-loop screen
+    /// <see cref="PrimerDesigner.HasHairpinPotential"/> (an exactly complementary stem of ≥ 4 bp — library convention,
+    /// no published source — closing a loop of ≥ 3 nt, thal.c <c>min_hrpn_loop</c> = 3; audit round 5, A5-2). It is a
+    /// conservative presence test, not a stability estimate: almost every random probe of &gt; 60 nt contains such a
+    /// stem. It therefore only lowers the additive library score in <see cref="DesignProbes(string, ProbeParameters?, int)"/>
+    /// (with <see cref="AvoidSecondaryStructure"/>) and is reported, but does not decide validity, in
+    /// <see cref="ValidateProbe"/> (audit round 5, A5-5). With the default THAL_MAX_ALIGN = 60 a &gt; 60-nt probe gets no thermodynamic hairpin; raise
+    /// <see cref="ThermodynamicScreenMaxLength"/> for the ntthal hairpin of longer probes (audit round 3, A3-9).
+    /// <see cref="MaxSelfComplementarity"/> (position-wise fold-back fraction limit) is
     /// no longer used by any screen; it is kept for source compatibility.
     /// </para>
     /// </remarks>
@@ -65,6 +75,13 @@ public static class ProbeDesigner
         /// <summary>dNTP concentration in mM (Primer3 PRIMER_INTERNAL_DNTP_CONC, default 0).</summary>
         public double DntpMillimolar { get; init; } = PrimerDesigner.Primer3InternalDntpMillimolar;
 
+        /// <summary>
+        /// Longest probe (nt) whose Tm is the SantaLucia 1998 nearest-neighbour Tm; longer probes get Primer3's
+        /// <c>long_seq_tm</c> (Primer3 <c>seqtm</c> <c>nn_max_len</c>; default <see cref="PrimerDesigner.Primer3MaxNnTmLength"/>
+        /// = 36, Primer3's MAX_NN_TM_LENGTH; ≥ 0).
+        /// </summary>
+        public int MaxNearestNeighborLength { get; init; } = PrimerDesigner.Primer3MaxNnTmLength;
+
         /// <summary>Self-structure screen (default <see cref="ProbeStructureScreen.Thermodynamic"/>).</summary>
         public ProbeStructureScreen StructureScreen { get; init; } = ProbeStructureScreen.Thermodynamic;
 
@@ -73,6 +90,18 @@ public static class ProbeDesigner
         /// (Primer3 PRIMER_INTERNAL_MAX_SELF_ANY_TH = _SELF_END_TH = _HAIRPIN_TH = 47 °C).
         /// </summary>
         public double MaxStructureTm { get; init; } = PrimerDesigner.Primer3MaxStructureTm;
+
+        /// <summary>
+        /// Longest probe (nt) screened by the <see cref="ProbeStructureScreen.Thermodynamic"/> ntthal screen — thal.h
+        /// <c>THAL_MAX_ALIGN</c>. Default <see cref="PrimerDesigner.NtthalMaxAlignLength"/> = 60 (Primer3 / primer3-py;
+        /// unchanged behaviour). THAL_MAX_ALIGN is only a compile-time guard of thal.c, so a larger value (opt-in,
+        /// ≤ <see cref="PrimerDesigner.NtthalMaxSequenceLength"/>) screens longer ACGT probes with the unchanged ntthal
+        /// self-dimer / 3′ self-dimer / hairpin recursions (= ntthal compiled with <c>-DTHAL_MAX_ALIGN=…</c>) instead of
+        /// the fallback screens. Cost grows as O(n²·30²) per probe and screen — keep it to the probe lengths in use.
+        /// Also the THAL_MAX_ALIGN of the <see cref="AssessCrossHybridization"/> / <see cref="ValidateProbe"/> non-target site
+        /// duplex Tm (audit round 3, A3-27). Outside 60–10 000 → <see cref="ArgumentOutOfRangeException"/>.
+        /// </summary>
+        public int ThermodynamicScreenMaxLength { get; init; } = PrimerDesigner.NtthalMaxAlignLength;
 
         /// <summary>
         /// Maximum Primer3 alignment-mode <c>self_any</c> of the fallback self-dimer screen
@@ -85,33 +114,112 @@ public static class ProbeDesigner
         /// (PRIMER_INTERNAL_MAX_SELF_END, Primer3 default 12.00; flagged when strictly greater).
         /// </summary>
         public double MaxSelfEnd { get; init; } = PrimerDesigner.Primer3InternalMaxSelfComplementarity;
+
+        /// <summary>
+        /// Ranking of <see cref="DesignProbes(string, ProbeParameters?, int)"/> (default
+        /// <see cref="ProbeRanking.AdditiveScore"/>, the library heuristic). <see cref="ProbeRanking.Primer3Penalty"/>
+        /// ranks by Primer3's internal-oligo objective <c>p_obj_fn</c> (PRIMER_INTERNAL_n_PENALTY) around
+        /// <see cref="OptTm"/> / <see cref="OptLength"/> — the sourced ranking.
+        /// </summary>
+        public ProbeRanking Ranking { get; init; } = ProbeRanking.AdditiveScore;
+
+        /// <summary>
+        /// Optimum probe Tm (°C) of the <see cref="ProbeRanking.Primer3Penalty"/> ranking (Primer3 PRIMER_INTERNAL_OPT_TM,
+        /// default 60 °C, <c>pr_set_default_global_args</c> <c>o_args.opt_tm</c>). With that ranking it must lie in
+        /// [<see cref="MinTm"/>, <see cref="MaxTm"/>] (Primer3 <c>_pr_data_control</c>: "Optimum internal oligo Tm lower
+        /// than minimum or higher than maximum"); unused by the additive score.
+        /// </summary>
+        public double OptTm { get; init; } = PrimerDesigner.DefaultPrimer3Optima.OptTm;
+
+        /// <summary>
+        /// Optimum probe length (nt) of the <see cref="ProbeRanking.Primer3Penalty"/> ranking (Primer3 PRIMER_INTERNAL_OPT_SIZE,
+        /// default 20, <c>o_args.opt_size</c>). With that ranking it must lie in [<see cref="MinLength"/>, <see cref="MaxLength"/>]
+        /// (Primer3 <c>_pr_data_control</c>: "PRIMER_INTERNAL_{OPT,DEFAULT}_SIZE &gt; MAX_SIZE" / "&lt; MIN_SIZE");
+        /// unused by the additive score.
+        /// </summary>
+        public int OptLength { get; init; } = PrimerDesigner.DefaultPrimer3Optima.OptSize;
+    }
+
+    /// <summary>Ranking order of <see cref="DesignProbes(string, ProbeParameters?, int)"/> (see <see cref="ProbeParameters.Ranking"/>).</summary>
+    public enum ProbeRanking
+    {
+        /// <summary>
+        /// Library heuristic (default, unchanged): 1.0 minus fixed penalties (GC 0.3, Tm 0.3, homopolymer 0.2,
+        /// self-complementarity 0.2, secondary structure 0.15, repeats 0.1, terminal G/C 0.02 each), score descending.
+        /// The penalty values have no published source.
+        /// </summary>
+        AdditiveScore,
+
+        /// <summary>
+        /// Primer3's internal-oligo objective <c>p_obj_fn</c> (<c>OT_INTL</c> branch, Primer3 default internal-oligo
+        /// weights: PRIMER_INTERNAL_WT_TM_GT/_LT = PRIMER_INTERNAL_WT_SIZE_GT/_LT = 1, every other weight 0), i.e.
+        /// |Tm − <see cref="ProbeParameters.OptTm"/>| + |length − <see cref="ProbeParameters.OptLength"/>| with the probe Tm
+        /// at the parameters' conditions (<see cref="PrimerDesigner.CalculatePrimer3Penalty"/>), ordered as Primer3's
+        /// <c>primer_rec_comp</c>: penalty ascending, then start descending, then length ascending. Sourced ranking
+        /// (Primer3 <c>libprimer3.cc</c>; = primer3-py PRIMER_INTERNAL_n_PENALTY).
+        /// </summary>
+        Primer3Penalty
     }
 
     /// <summary>Self-structure screen used by the probe designers (see <see cref="ProbeParameters"/>).</summary>
     public enum ProbeStructureScreen
     {
-        /// <summary>Primer3 thermodynamic screen (ntthal self-dimer, 3′ self-dimer, hairpin Tm) for ≤ 60-nt ACGT probes.</summary>
+        /// <summary>Primer3 thermodynamic screen (ntthal self-dimer, 3′ self-dimer, hairpin Tm) for ACGT probes of ≤ <see cref="ProbeParameters.ThermodynamicScreenMaxLength"/> (default 60) nt.</summary>
         Thermodynamic,
 
         /// <summary>The fallback screens for every probe: Primer3 alignment-mode self_any / self_end (dpal, limits
         /// <see cref="ProbeParameters.MaxSelfAny"/> / <see cref="ProbeParameters.MaxSelfEnd"/>) and the sequence-only
-        /// inverted-repeat hairpin stem.</summary>
+        /// stem-loop screen <see cref="PrimerDesigner.HasHairpinPotential"/> (stem ≥ 4 bp, loop ≥ 3 nt).</summary>
         Heuristic
     }
 
     /// <summary>
     /// Default probe parameters for different applications.
     /// </summary>
+    /// <remarks>
+    /// Every preset's Tm window is reachable on its own Tm scale and conditions for its length and G+C window
+    /// (audit round 3, A3-10; primer3-py 2.3.1 <c>calc_tm</c> witnesses in the PROBE-DESIGN-001 tests). Primer3
+    /// <c>long_seq_tm</c> (the Tm of every probe &gt; <see cref="ProbeParameters.MaxNearestNeighborLength"/>) at the
+    /// 50 mM Primer3 probe conditions spans 71.25–85.35 °C over the FISH window (200–500 nt, G+C 35–65 %),
+    /// 70.30–82.50 °C over the Northern window (100–300 nt, G+C 40–60 %) and 70.32–85.35 °C over the Southern window
+    /// (150–500 nt, G+C 35–65 %); their Tm windows are library conventions (no published Tm window for these long
+    /// probes was found — set them for the protocol's hybridization buffer). The qPCR window (68–70 °C, Primer Express)
+    /// is reachable for 20–30-nt probes with G+C 30–80 % (nearest-neighbour Tm at the Primer3 probe conditions).
+    /// </remarks>
     public static class Defaults
     {
+        /// <summary>OligoArray 2.0 microarray Tm conditions: [Na⁺] = 1 M, oligo 1 µM (Rouillard, Zuker &amp; Gulari 2003).</summary>
+        public const double OligoArrayMonovalentMillimolar = 1000.0;
+
+        /// <summary>OligoArray 2.0 oligo concentration for the Tm, 1 µM = 1000 nM (Rouillard, Zuker &amp; Gulari 2003).</summary>
+        public const double OligoArrayDnaConcentrationNanomolar = 1000.0;
+
+        /// <summary>
+        /// Long-oligo microarray probe preset (50–60 nt: Kane et al. 2000 50-mers, Agilent 60-mers; G+C 40–60 %) with
+        /// OligoArray 2.0's Tm (Rouillard, Zuker &amp; Gulari 2003, NAR 31:3057): nearest-neighbour Tm over the whole
+        /// oligo at [Na⁺] = 1 M and 1 µM oligo, Tm window 82–90 °C (the paper's microarray design setting). Here the
+        /// nearest-neighbour Tm is Primer3 <c>oligotm</c> (SantaLucia 1998 unified parameters, C/4 for a
+        /// non-self-complementary oligo) with <see cref="ProbeParameters.MaxNearestNeighborLength"/> = 60, no Mg²⁺/dNTP.
+        /// The previous window 75–85 °C at the 50 mM Primer3 conditions was unreachable for 50–60-mers with G+C ≤ 60 %
+        /// (<c>long_seq_tm</c> maximum 74.50 °C). The structure screen runs at the same conditions.
+        /// </summary>
         public static ProbeParameters Microarray => new(
             MinLength: 50, MaxLength: 60,
-            MinTm: 75, MaxTm: 85,
+            MinTm: 82, MaxTm: 90,
             MinGc: 0.40, MaxGc: 0.60,
             MaxHomopolymer: 5,
             AvoidSecondaryStructure: true,
-            MaxSelfComplementarity: 0.3);
+            MaxSelfComplementarity: 0.3)
+        {
+            MonovalentMillimolar = OligoArrayMonovalentMillimolar,
+            DnaConcentrationNanomolar = OligoArrayDnaConcentrationNanomolar,
+            DivalentMillimolar = 0,
+            DntpMillimolar = 0,
+            MaxNearestNeighborLength = 60
+        };
 
+        /// <summary>FISH probe preset (200–500 nt, G+C 35–65 %, Tm 70–90 °C at the Primer3 probe conditions; library
+        /// convention, reachable: <c>long_seq_tm</c> 71.25–85.35 °C over the window).</summary>
         public static ProbeParameters FISH => new(
             MinLength: 200, MaxLength: 500,
             MinTm: 70, MaxTm: 90,
@@ -120,6 +228,8 @@ public static class ProbeDesigner
             AvoidSecondaryStructure: false,
             MaxSelfComplementarity: 0.4);
 
+        /// <summary>Northern-blot probe preset (100–300 nt, G+C 40–60 %, Tm 65–80 °C at the Primer3 probe conditions;
+        /// library convention, reachable: <c>long_seq_tm</c> 70.30–82.50 °C over the window).</summary>
         public static ProbeParameters NorthernBlot => new(
             MinLength: 100, MaxLength: 300,
             MinTm: 65, MaxTm: 80,
@@ -144,6 +254,8 @@ public static class ProbeDesigner
             AvoidSecondaryStructure: true,
             MaxSelfComplementarity: 0.25);
 
+        /// <summary>Southern-blot probe preset (150–500 nt, G+C 35–65 %, Tm 65–75 °C at the Primer3 probe conditions;
+        /// library convention, reachable: <c>long_seq_tm</c> 70.32–85.35 °C over the window).</summary>
         public static ProbeParameters SouthernBlot => new(
             MinLength: 150, MaxLength: 500,
             MinTm: 65, MaxTm: 75,
@@ -164,11 +276,24 @@ public static class ProbeDesigner
         double GcContent,
         double Score,
         ProbeType Type,
-        IReadOnlyList<string> Warnings);
+        IReadOnlyList<string> Warnings)
+    {
+        /// <summary>
+        /// Primer3 internal-oligo penalty (<c>p_obj_fn</c>, PRIMER_INTERNAL_n_PENALTY) of the probe when
+        /// <see cref="ProbeParameters.Ranking"/> = <see cref="ProbeRanking.Primer3Penalty"/> and its Tm is computable;
+        /// otherwise <c>null</c>. Lower is better. <see cref="Score"/> stays the additive library score.
+        /// </summary>
+        public double? Primer3Penalty { get; init; }
+    }
 
     /// <summary>
-    /// Probe set for tiling.
+    /// Probe set for tiling (<see cref="DesignTilingProbes"/>).
     /// </summary>
+    /// <param name="Probes">Tiling windows in start order (the last one may be anchored at the target end).</param>
+    /// <param name="Coverage">Number of target positions covered by at least one window (= target length unless the
+    /// overlap is negative).</param>
+    /// <param name="MeanTm">Mean probe Tm.</param>
+    /// <param name="TmRange">max(Tm) − min(Tm).</param>
     public readonly record struct TilingProbeSet(
         IReadOnlyList<Probe> Probes,
         int Coverage,
@@ -178,10 +303,14 @@ public static class ProbeDesigner
     /// <summary>
     /// Probe validation result (<see cref="ValidateProbe"/>).
     /// </summary>
-    /// <param name="IsValid">True when no issue was recorded (no multiple hits, no self-structure flag, no
-    /// cross-hybridizing non-target).</param>
+    /// <param name="IsValid">True when no issue was recorded (at most one reference site meeting the Kane et al. (2000)
+    /// criteria, no sourced self-structure flag — ntthal self-dimer / 3′ self-dimer / hairpin Tm or, in the fallback,
+    /// Primer3 alignment-mode self_any / self_end — and no cross-hybridizing non-target). The fallback sequence-only
+    /// stem-loop flag is reported in <see cref="HasSecondaryStructure"/> / <see cref="Warnings"/> and does not enter it
+    /// (audit round 5, A5-5).</param>
     /// <param name="SpecificityScore">Library-defined uniqueness score 1/N over the N ungapped candidate binding
-    /// sites (0 when there is none); not a published metric — see <see cref="ValidateProbe"/>.</param>
+    /// sites (0 when there is none); a library convention, not a published metric, and not used by
+    /// <paramref name="IsValid"/> — see <see cref="ValidateProbe"/>.</param>
     /// <param name="OffTargetHits">Total ungapped k-mismatch hits across the references (the intended site
     /// included).</param>
     /// <param name="SelfComplementarity">Position-wise fold-back fraction (fraction of positions i with
@@ -189,8 +318,11 @@ public static class ProbeDesigner
     /// self-dimer criterion is ntthal or, in the fallback, Primer3 alignment-mode <see cref="SelfAny"/> /
     /// <see cref="SelfEnd"/>).</param>
     /// <param name="HasSecondaryStructure">Hairpin flag: ntthal hairpin Tm &gt; MaxStructureTm (thermodynamic
-    /// screen) or the inverted-repeat stem screen (fallback).</param>
-    /// <param name="Issues">Recorded validation issues.</param>
+    /// screen; an issue, so <see cref="IsValid"/> is false) or the sequence-only stem-loop screen
+    /// <see cref="PrimerDesigner.HasHairpinPotential"/> (fallback: an exactly complementary stem of ≥ 4 bp closing a loop
+    /// of ≥ 3 nt; a library-convention presence test, recorded as a <see cref="Warnings"/> entry and not deciding
+    /// <see cref="IsValid"/>).</param>
+    /// <param name="Issues">Recorded validation issues (sourced criteria; any issue makes <see cref="IsValid"/> false).</param>
     public readonly record struct ProbeValidation(
         bool IsValid,
         double SpecificityScore,
@@ -199,9 +331,9 @@ public static class ProbeDesigner
         bool HasSecondaryStructure,
         IReadOnlyList<string> Issues)
     {
-        /// <summary>True when the Primer3 thermodynamic self-structure screen was applied (≤ 60-nt A/C/G/T
+        /// <summary>True when the Primer3 thermodynamic self-structure screen was applied (A/C/G/T, ≤ ThermodynamicScreenMaxLength nt
         /// probe with <see cref="ProbeStructureScreen.Thermodynamic"/>); false for the fallback screen (Primer3
-        /// alignment-mode self_any / self_end + inverted-repeat hairpin stem).</summary>
+        /// alignment-mode self_any / self_end + the <see cref="PrimerDesigner.HasHairpinPotential"/> stem-loop screen).</summary>
         public bool ThermodynamicScreen { get; init; }
 
         /// <summary>ntthal self-dimer (ANY) Tm in °C (Primer3 SELF_ANY_TH); null when the fallback screen was used.</summary>
@@ -226,6 +358,21 @@ public static class ProbeDesigner
         /// (<see cref="AssessCrossHybridization"/>); empty when no non-target sequences were supplied.</summary>
         public IReadOnlyList<CrossHybridizationAssessment> CrossHybridization { get; init; }
             = Array.Empty<CrossHybridizationAssessment>();
+
+        /// <summary>Number of the <see cref="OffTargetHits"/> ungapped sites that meet a Kane et al. (2000)
+        /// cross-hybridization criterion (identity (L − mismatches) / L &gt; the identity threshold, default 0.75, or a
+        /// run of identical positions longer than the contiguous threshold, default 15 nt); more than one such site
+        /// records the off-target issue (audit round 3, A3-12).</summary>
+        public int CrossHybridizingHits { get; init; }
+
+        /// <summary>Reported findings that do not decide <see cref="IsValid"/>: the fallback sequence-only stem-loop flag
+        /// ("Potential secondary structure formation", <see cref="PrimerDesigner.HasHairpinPotential"/> — stem ≥ 4 bp is a
+        /// library convention without a published source, and almost every random probe of &gt; 60 nt has such a stem),
+        /// set for probes screened by the fallback (longer than ThermodynamicScreenMaxLength, non-ACGT, or
+        /// <see cref="ProbeStructureScreen.Heuristic"/>). Until audit round 5 (A5-5) this entry was an issue and made
+        /// the probe invalid; raise <see cref="ProbeParameters.ThermodynamicScreenMaxLength"/> for a sourced hairpin
+        /// decision (ntthal hairpin Tm) on long probes.</summary>
+        public IReadOnlyList<string> Warnings { get; init; } = Array.Empty<string>();
     }
 
     /// <summary>
@@ -270,8 +417,10 @@ public static class ProbeDesigner
         /// Thermodynamic stability of the probe on this off-target site: ntthal duplex (THAL_ANY) Tm in °C of the
         /// probe with the strand complementary to the aligned site (primer3-py <c>calc_heterodimer(probe,
         /// revcomp(site))</c>; 0 when no duplex forms) at the assessment conditions — the duplex-Tm cross-hybridization
-        /// check of OligoArray (Rouillard et al. 2003). Null when the probe is longer than 60 nt (thal.c
-        /// THAL_MAX_ALIGN), probe or site contain a non-ACGT base, or nothing aligns.
+        /// check of OligoArray (Rouillard et al. 2003). Null when both the probe and the site are longer than the
+        /// conditions' <see cref="ProbeParameters.ThermodynamicScreenMaxLength"/> (thal.c <c>THAL_MAX_ALIGN</c>, default
+        /// 60: thal_check_errors refuses only when both strands are longer — primer3-py raises), either is longer than
+        /// 10 000 nt (THAL_MAX_SEQ), probe or site contain a non-ACGT base, or nothing aligns.
         /// </summary>
         public double? DuplexTm { get; init; }
     }
@@ -445,6 +594,9 @@ public static class ProbeDesigner
     /// primer Tm computed on the same scale (e.g. <see cref="PrimerDesigner.CalculateMeltingTemperaturePrimer3"/>);
     /// it is <c>NaN</c> when the probe has fewer than 2 bases or a non-ACGT base, and the Tm gate then fails
     /// whenever a primer Tm is supplied.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="probeSequence"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">DNA or monovalent concentration not &gt; 0, divalent or dNTP concentration
+    /// negative, or any of them non-finite (Primer3 <c>_pr_data_control</c>).</exception>
     public static TaqManProbeEvaluation EvaluateTaqManProbe(
         string probeSequence,
         double? primerTm = null,
@@ -456,6 +608,16 @@ public static class ProbeDesigner
         double dntpMillimolar = PrimerDesigner.Primer3InternalDntpMillimolar)
     {
         ArgumentNullException.ThrowIfNull(probeSequence);
+        // Primer3 _pr_data_control condition limits, each reported under its own parameter (heavy tier, HEAVY-2: an
+        // infinite salt surfaced as ThermoConstants' "naConcentration").
+        if (!(dnaConcentrationNanomolar > 0) || double.IsInfinity(dnaConcentrationNanomolar))
+            throw new ArgumentOutOfRangeException(nameof(dnaConcentrationNanomolar), dnaConcentrationNanomolar, "PRIMER_INTERNAL_DNA_CONC must be > 0 and finite.");
+        if (!(monovalentMillimolar > 0) || double.IsInfinity(monovalentMillimolar))
+            throw new ArgumentOutOfRangeException(nameof(monovalentMillimolar), monovalentMillimolar, "PRIMER_INTERNAL_SALT_MONOVALENT must be > 0 and finite.");
+        if (!(divalentMillimolar >= 0) || double.IsInfinity(divalentMillimolar))
+            throw new ArgumentOutOfRangeException(nameof(divalentMillimolar), divalentMillimolar, "PRIMER_INTERNAL_SALT_DIVALENT must be ≥ 0 and finite.");
+        if (!(dntpMillimolar >= 0) || double.IsInfinity(dntpMillimolar))
+            throw new ArgumentOutOfRangeException(nameof(dntpMillimolar), dntpMillimolar, "PRIMER_INTERNAL_DNTP_CONC must be ≥ 0 and finite.");
 
         string seq = probeSequence.ToUpperInvariant();
         var violations = new List<string>();
@@ -480,7 +642,7 @@ public static class ProbeDesigner
             violations.Add($"run of {maxGRun} consecutive Gs (>= {TaqManMaxGuanineRun})");
 
         // Rule 4: G+C content within 30-80%.
-        double gc = CalculateGcContent(seq);
+        double gc = seq.CalculateGcFractionFast();
         bool gcInRange = gc >= TaqManMinGc && gc <= TaqManMaxGc;
         if (!gcInRange)
             violations.Add($"G+C content {gc:P0} outside {TaqManMinGc:P0}-{TaqManMaxGc:P0}");
@@ -678,15 +840,32 @@ public static class ProbeDesigner
     /// secondary structure 0.15 (only with <see cref="ProbeParameters.AvoidSecondaryStructure"/>), di-/trinucleotide
     /// microsatellite ≥ 4 copies 0.1, G/C at each terminus 0.02 (see <see cref="ProbeParameters"/> for the self-structure
     /// screens). Probes with score &gt; 0 are returned by score descending, ties by (length, start) ascending. This
-    /// additive score is a library ranking heuristic; <see cref="DesignProbesPrimer3"/> is Primer3's published picker.
+    /// additive score (the default, <see cref="ProbeRanking.AdditiveScore"/>) is a library ranking heuristic: its penalty
+    /// values have no published source. With <see cref="ProbeParameters.Ranking"/> = <see cref="ProbeRanking.Primer3Penalty"/>
+    /// the same candidates (score &gt; 0) are instead ranked by Primer3's internal-oligo objective <c>p_obj_fn</c>
+    /// (PRIMER_INTERNAL_n_PENALTY = |Tm − <see cref="ProbeParameters.OptTm"/>| + |length − <see cref="ProbeParameters.OptLength"/>|
+    /// with Primer3's default internal-oligo weights, reported in <see cref="Probe.Primer3Penalty"/>) in Primer3's
+    /// <c>primer_rec_comp</c> order (penalty ascending, start descending, length ascending; a probe whose Tm is not
+    /// computable ranks last) — the sourced ranking. <see cref="DesignProbesPrimer3"/> is Primer3's complete picker
+    /// (Primer3's acceptance limits as well as its ranking).
     /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException">With the <see cref="ProbeRanking.Primer3Penalty"/> ranking:
+    /// <see cref="ProbeParameters.OptLength"/> outside [MinLength, MaxLength] or <see cref="ProbeParameters.OptTm"/> outside
+    /// [MinTm, MaxTm] (Primer3 <c>_pr_data_control</c>); an undefined <see cref="ProbeParameters.Ranking"/> value;
+    /// <see cref="ProbeParameters.ThermodynamicScreenMaxLength"/> outside 60–10 000; <see cref="ProbeParameters.MinLength"/> &lt; 1 (Primer3 <c>_pr_data_control</c>: PRIMER_INTERNAL_MIN_SIZE must be ≥ 1), a negative <see cref="ProbeParameters.MaxNearestNeighborLength"/>, or illegal reaction conditions (monovalent salt or DNA concentration not &gt; 0, divalent salt or dNTP negative, or non-finite — Primer3 <c>_pr_data_control</c>; audit heavy tier, HEAVY-2).</exception>
     public static IEnumerable<Probe> DesignProbes(
         string targetSequence,
         ProbeParameters? parameters = null,
         int maxProbes = 10)
     {
         var param = parameters ?? Defaults.Microarray;
+        ValidateRanking(param, nameof(parameters));
+        ValidateDesignParameters(param, nameof(parameters), checkLengths: true);
+        return DesignProbesIterator(targetSequence, param, maxProbes);
+    }
 
+    private static IEnumerable<Probe> DesignProbesIterator(string targetSequence, ProbeParameters param, int maxProbes)
+    {
         if (string.IsNullOrEmpty(targetSequence) || targetSequence.Length < param.MinLength)
             yield break;
 
@@ -702,51 +881,73 @@ public static class ProbeDesigner
     }
 
     /// <summary>
-    /// Designs probes with genome-wide specificity check using suffix tree.
+    /// Designs probes with a genome-wide specificity check through a suffix tree: the candidates of
+    /// <see cref="DesignProbes(string, ProbeParameters?, int)"/> are walked in their ranking order and each one's
+    /// <see cref="CheckSpecificity(string, global::SuffixTree.ISuffixTree, bool)"/> value (1 / occurrences in the index)
+    /// is applied — with <paramref name="requireUnique"/> a probe occurring more than once is dropped (the remaining
+    /// probes keep their score and order), otherwise <see cref="Probe.Score"/> is multiplied by the specificity and the
+    /// probes are re-ranked on the scaled score (stable: equal scores keep the documented tie order; the
+    /// <see cref="ProbeRanking.Primer3Penalty"/> order is unaffected because the specificity does not enter the penalty).
+    /// <b>Every</b> candidate is considered, lazily: the walk stops as soon as <paramref name="maxProbes"/> probes are
+    /// produced, so the common case costs no more than the base design plus O(m) per inspected candidate.
     /// O(n × m) for probe generation + O(m) per specificity check.
     /// </summary>
     /// <param name="targetSequence">Target sequence to design probes for.</param>
     /// <param name="genomeIndex">Pre-built suffix tree index for the genome (enables O(m) specificity lookup).</param>
     /// <param name="parameters">Probe design parameters.</param>
-    /// <param name="maxProbes">Maximum number of probes to return.</param>
+    /// <param name="maxProbes">Maximum number of probes to return (none when ≤ 0).</param>
     /// <param name="requireUnique">If true, only return probes unique in the genome.</param>
+    /// <param name="bothStrands">Count the probe's reverse-complement occurrences in the index too (passed to
+    /// <see cref="CheckSpecificity(string, global::SuffixTree.ISuffixTree, bool)"/>: a probe whose reverse complement
+    /// occurs in a double-stranded genome binds the other strand there; a reverse-palindromic probe is counted once).
+    /// Default false: the indexed strand only (the behaviour before audit round 4, B07 F60) — pass true when the index
+    /// holds one strand of a double-stranded genome.</param>
+    /// <remarks>Candidates come in the order of <see cref="ProbeParameters.Ranking"/> (see
+    /// <see cref="DesignProbes(string, ProbeParameters?, int)"/>), after the specificity scaling when
+    /// <paramref name="requireUnique"/> is false. Before audit round 4 (B07 F59) only the top
+    /// <paramref name="maxProbes"/> × 5 candidates were inspected and the scaled scores were not re-ranked.</remarks>
+    /// <exception cref="ArgumentOutOfRangeException">Invalid Primer3-ranking optima or other invalid parameters (see
+    /// <see cref="DesignProbes(string, ProbeParameters?, int)"/>).</exception>
     public static IEnumerable<Probe> DesignProbes(
         string targetSequence,
         global::SuffixTree.ISuffixTree genomeIndex,
         ProbeParameters? parameters = null,
         int maxProbes = 10,
-        bool requireUnique = true)
+        bool requireUnique = true,
+        bool bothStrands = false)
     {
         var param = parameters ?? Defaults.Microarray;
+        ValidateRanking(param, nameof(parameters));
+        ValidateDesignParameters(param, nameof(parameters), checkLengths: true);
+        return DesignProbesIterator(targetSequence, genomeIndex, param, maxProbes, requireUnique, bothStrands);
+    }
 
-        if (string.IsNullOrEmpty(targetSequence) || targetSequence.Length < param.MinLength)
+    private static IEnumerable<Probe> DesignProbesIterator(
+        string targetSequence,
+        global::SuffixTree.ISuffixTree genomeIndex,
+        ProbeParameters param,
+        int maxProbes,
+        bool requireUnique,
+        bool bothStrands)
+    {
+        if (string.IsNullOrEmpty(targetSequence) || targetSequence.Length < param.MinLength || maxProbes <= 0)
             yield break;
 
         targetSequence = targetSequence.ToUpperInvariant();
 
-        // Get candidates using optimized method
-        var candidates = DesignProbesOptimized(targetSequence, param, maxProbes * 5); // Get more candidates for filtering
+        // Every candidate is considered, lazily in ranking order, until maxProbes survive (audit round 4, A4-1, F59):
+        // requireUnique drops a probe with specificity < 1 (its score is unchanged, so the order is the base ranking);
+        // otherwise the score is scaled by the specificity (never raised) and EnumerateRankedProbes re-ranks on it.
+        Func<Probe, Probe?> applySpecificity = requireUnique
+            ? probe => CheckSpecificity(probe.Sequence, genomeIndex, bothStrands) < 1.0 ? null : probe
+            : probe => probe with { Score = probe.Score * CheckSpecificity(probe.Sequence, genomeIndex, bothStrands) };
 
         int returned = 0;
-        foreach (var probe in candidates)
+        foreach (var probe in EnumerateRankedProbes(targetSequence, param, applySpecificity))
         {
-            if (returned >= maxProbes)
+            yield return probe;
+            if (++returned >= maxProbes)
                 yield break;
-
-            // Fast O(m) specificity check using suffix tree
-            double specificity = CheckSpecificity(probe.Sequence, genomeIndex);
-
-            if (requireUnique && specificity < 1.0)
-                continue; // Skip non-unique probes
-
-            // Boost score based on specificity
-            var adjustedProbe = probe with
-            {
-                Score = probe.Score * specificity
-            };
-
-            returned++;
-            yield return adjustedProbe;
         }
     }
 
@@ -765,7 +966,45 @@ public static class ProbeDesigner
         int Homopolymer,
         bool HasRepeats,
         double PositionPenalty,
-        double BaseScore);
+        double BaseScore,
+        double? Primer3Penalty);
+
+    // Primer3 _pr_data_control checks of the optima used by the Primer3Penalty ranking.
+    private static void ValidateRanking(ProbeParameters param, string paramName)
+    {
+        if (!Enum.IsDefined(param.Ranking))
+            throw new ArgumentOutOfRangeException(paramName, $"Undefined probe ranking {param.Ranking}.");
+        if (param.Ranking != ProbeRanking.Primer3Penalty)
+            return;
+        if (param.OptLength > param.MaxLength)
+            throw new ArgumentOutOfRangeException(paramName,
+                "PRIMER_INTERNAL_{OPT,DEFAULT}_SIZE > MAX_SIZE (Primer3 _pr_data_control): OptLength must not exceed MaxLength.");
+        if (param.OptLength < param.MinLength)
+            throw new ArgumentOutOfRangeException(paramName,
+                "PRIMER_INTERNAL_{OPT,DEFAULT}_SIZE < MIN_SIZE (Primer3 _pr_data_control): OptLength must not be below MinLength.");
+        if (!(param.OptTm >= param.MinTm && param.OptTm <= param.MaxTm))
+            throw new ArgumentOutOfRangeException(paramName,
+                "Optimum internal oligo Tm lower than minimum or higher than maximum (Primer3 _pr_data_control): OptTm must lie in [MinTm, MaxTm].");
+    }
+
+    // Primer3 p_obj_fn, internal-oligo branch (OT_INTL) with Primer3's default internal-oligo weights (Tm and size
+    // weights 1, every other weight 0) around the parameters' optima; null when the Tm is not computable.
+    private static double? ComputePrimer3ProbePenalty(double tm, int length, double gcFraction, ProbeParameters param) =>
+        double.IsNaN(tm)
+            ? null
+            : PrimerDesigner.CalculatePrimer3Penalty(
+                new Primer3PenaltyInputs(tm, length, 100.0 * gcFraction),
+                PrimerDesigner.DefaultPrimer3Weights,
+                new Primer3Optima(param.OptTm, param.OptLength, null));
+
+    // Primer3 primer_rec_comp: penalty (quality) ascending, then start descending, then length ascending.
+    private static int ComparePrimer3Rank(double penaltyA, int startA, int lengthA, double penaltyB, int startB, int lengthB)
+    {
+        int c = penaltyA.CompareTo(penaltyB);
+        if (c != 0) return c;
+        c = startB.CompareTo(startA);
+        return c != 0 ? c : lengthA.CompareTo(lengthB);
+    }
 
     private static ProbeBase EvaluateProbeBase(string sequence, int start, int order, ProbeParameters param, double gc)
     {
@@ -791,8 +1030,12 @@ public static class ProbeDesigner
         if (repeats) score -= 0.1;
         score -= positionPenalty;
 
+        double? primer3Penalty = param.Ranking == ProbeRanking.Primer3Penalty
+            ? ComputePrimer3ProbePenalty(tmRaw, sequence.Length, gc, param)
+            : null;
+
         return new ProbeBase(sequence, start, order, gc, tm, tmComputable, gcOutside, tmOutside,
-            homopolymer, repeats, positionPenalty, score);
+            homopolymer, repeats, positionPenalty, score, primer3Penalty);
     }
 
     // Adds the self-structure screens to a base evaluation (penalties in the original order:
@@ -862,7 +1105,10 @@ public static class ProbeDesigner
             b.Gc,
             Math.Max(0, score),
             ProbeType.Standard,
-            warnings);
+            warnings)
+        {
+            Primer3Penalty = b.Primer3Penalty,
+        };
     }
 
     // Self-structure screens (see ProbeParameters remarks). Returns (self-complementarity flag + warning,
@@ -920,41 +1166,120 @@ public static class ProbeDesigner
     }
 
     // Primer3 thermodynamic self-structure of a probe (ntthal ANY / END1 self-dimer and hairpin Tm at the
-    // parameters' conditions), or null when the fallback screen applies (Heuristic screen, > 60 nt,
-    // or a non-ACGT base).
+    // parameters' conditions), or null when the fallback screen applies (Heuristic screen, longer than
+    // ThermodynamicScreenMaxLength = THAL_MAX_ALIGN (default 60), or a non-ACGT base).
     private static PrimerDesigner.Primer3OligoStructure? ComputeThermodynamicSelfStructure(
         string sequence, ProbeParameters param)
     {
-        if (param.StructureScreen != ProbeStructureScreen.Thermodynamic || sequence.Length > NtthalMaxLength)
+        if (param.StructureScreen != ProbeStructureScreen.Thermodynamic || sequence.Length > param.ThermodynamicScreenMaxLength)
             return null;
 
         return PrimerDesigner.CalculatePrimer3OligoStructure(
             sequence, param.MonovalentMillimolar, param.DivalentMillimolar, param.DntpMillimolar,
-            param.DnaConcentrationNanomolar);
+            param.DnaConcentrationNanomolar, param.ThermodynamicScreenMaxLength);
+    }
+
+    // ProbeParameters.ThermodynamicScreenMaxLength: THAL_MAX_ALIGN override range 60 (Primer3) … 10 000 (THAL_MAX_SEQ).
+    private static void ValidateThermodynamicScreenMaxLength(ProbeParameters param, string paramName)
+    {
+        if (param.ThermodynamicScreenMaxLength < PrimerDesigner.NtthalMaxAlignLength
+            || param.ThermodynamicScreenMaxLength > PrimerDesigner.NtthalMaxSequenceLength)
+            throw new ArgumentOutOfRangeException(paramName,
+                "ThermodynamicScreenMaxLength (THAL_MAX_ALIGN) must be in 60..10000.");
     }
 
     /// <summary>
-    /// Ranks every window of the configured length range (prefix-sum GC). The self-structure screens
-    /// only lower a score, so they are evaluated lazily in descending base-score order and the scan stops
-    /// once no remaining candidate can enter the top <paramref name="maxProbes"/> (branch and bound); the
-    /// result equals an exhaustive evaluation: probes with score &gt; 0, ordered by score descending, ties
-    /// by (length, start) ascending.
+    /// The top <paramref name="maxProbes"/> of <see cref="EnumerateRankedProbes"/>: every window of the configured
+    /// length range (prefix-sum GC) is ranked; the self-structure screens only lower a score, so they are evaluated
+    /// lazily and the scan stops once no remaining candidate can enter the top <paramref name="maxProbes"/>; the
+    /// result equals an exhaustive evaluation: probes with score &gt; 0, ordered by score descending, ties by
+    /// (length, start) ascending (or by the Primer3 penalty with <see cref="ProbeRanking.Primer3Penalty"/>).
     /// </summary>
     private static List<Probe> DesignProbesOptimized(
         string targetSequence,
         ProbeParameters param,
-        int maxProbes)
+        int maxProbes) =>
+        maxProbes <= 0
+            ? new List<Probe>()
+            : EnumerateRankedProbes(targetSequence, param).Take(maxProbes).ToList();
+
+    /// <summary>
+    /// Lazily yields every candidate (score &gt; 0 after the self-structure screens, then <paramref name="adjust"/>;
+    /// a null from <paramref name="adjust"/> drops the probe) in the ranking order of <see cref="ProbeParameters.Ranking"/>:
+    /// <see cref="ProbeRanking.AdditiveScore"/> — (adjusted) score descending, ties by enumeration order (length, start)
+    /// ascending; <see cref="ProbeRanking.Primer3Penalty"/> — Primer3 <c>primer_rec_comp</c> on the penalty (which
+    /// <paramref name="adjust"/> does not change). <paramref name="adjust"/> must never raise a score: the additive order is
+    /// then produced by a lazy merge — candidates are finished in descending base-score order (an upper bound of their final
+    /// score) and a finished probe is released once it ranks before the bound of every unfinished candidate — so a prefix
+    /// of the output costs only the candidates it needs, and the full output equals an exhaustive evaluation + stable sort.
+    /// </summary>
+    private static IEnumerable<Probe> EnumerateRankedProbes(
+        string targetSequence,
+        ProbeParameters param,
+        Func<Probe, Probe?>? adjust = null)
+    {
+        var bases = EvaluateCandidateBases(targetSequence, param);
+        var structureCache = new Dictionary<string, (bool, string?, bool, string?)>(StringComparer.Ordinal);
+
+        if (param.Ranking == ProbeRanking.Primer3Penalty)
+        {
+            // The penalty does not depend on the self-structure screens: sort by primer_rec_comp (a non-computable
+            // penalty ranks last) and finish lazily.
+            bases.Sort((a, b) => ComparePrimer3Rank(
+                a.Primer3Penalty ?? double.PositiveInfinity, a.Start, a.Sequence.Length,
+                b.Primer3Penalty ?? double.PositiveInfinity, b.Start, b.Sequence.Length));
+            foreach (var b in bases)
+            {
+                if (FinishProbe(b, param, structureCache) is { } p && (adjust is null ? p : adjust(p)) is { } q)
+                    yield return q;
+            }
+            yield break;
+        }
+
+        // Rank key: score descending, then enumeration order ascending (= stable sort of the eager scan).
+        static int CompareKeys((double Score, int Order) a, (double Score, int Order) b)
+        {
+            int c = b.Score.CompareTo(a.Score);
+            return c != 0 ? c : a.Order.CompareTo(b.Order);
+        }
+
+        var pending = new PriorityQueue<Probe, (double Score, int Order)>(
+            Comparer<(double Score, int Order)>.Create(CompareKeys));
+        // Stable: equal base scores keep the enumeration order, so the bound (BaseScore, Order) is non-decreasing in rank.
+        foreach (var b in bases.OrderByDescending(x => x.BaseScore))
+        {
+            // Structure screens and adjust never raise a score: a pending probe that ranks before this candidate's best
+            // possible key ranks before every later candidate too.
+            while (pending.TryPeek(out var head, out var key) && CompareKeys(key, (b.BaseScore, b.Order)) < 0)
+            {
+                pending.Dequeue();
+                yield return head;
+            }
+
+            if (FinishProbe(b, param, structureCache) is { } p && (adjust is null ? p : adjust(p)) is { } q)
+                pending.Enqueue(q, (q.Score, b.Order));
+        }
+
+        while (pending.TryDequeue(out var rest, out _))
+            yield return rest;
+    }
+
+    // Every window of the configured length range (prefix-sum GC) with base score > 0, in enumeration order
+    // (length ascending, then start ascending).
+    private static List<ProbeBase> EvaluateCandidateBases(string targetSequence, ProbeParameters param)
     {
         int n = targetSequence.Length;
-        if (maxProbes <= 0)
-            return new List<Probe>();
 
-        // gcPrefixSum[i] = count of G/C in sequence[0..i-1]
+        // gcPrefixSum[i] / validPrefixSum[i] = count of G/C / of valid nucleotides (A/C/G/T/U) in sequence[0..i-1],
+        // classified by the canonical SequenceExtensions.CountGcAndValidNucleotides, so a window's GC fraction equals
+        // CalculateGcFractionFast(window) (= Primer3 gc_and_n_content: G+C over the non-N bases) in O(1).
         int[] gcPrefixSum = new int[n + 1];
+        int[] validPrefixSum = new int[n + 1];
         for (int i = 0; i < n; i++)
         {
-            char c = targetSequence[i];
-            gcPrefixSum[i + 1] = gcPrefixSum[i] + (c == 'G' || c == 'C' ? 1 : 0);
+            var (gcBase, validBase) = targetSequence.AsSpan(i, 1).CountGcAndValidNucleotides();
+            gcPrefixSum[i + 1] = gcPrefixSum[i] + gcBase;
+            validPrefixSum[i + 1] = validPrefixSum[i] + validBase;
         }
 
         var bases = new List<ProbeBase>();
@@ -964,7 +1289,8 @@ public static class ProbeDesigner
             for (int start = 0; start <= n - length; start++)
             {
                 int gcCount = gcPrefixSum[start + length] - gcPrefixSum[start];
-                double gc = (double)gcCount / length;
+                int validCount = validPrefixSum[start + length] - validPrefixSum[start];
+                double gc = validCount == 0 ? 0 : (double)gcCount / validCount;
 
                 // Early rejection far outside the GC window.
                 if (gc < param.MinGc - 0.1 || gc > param.MaxGc + 0.1)
@@ -975,114 +1301,98 @@ public static class ProbeDesigner
                     bases.Add(b);
             }
         }
-
-        // Rank key: score descending, then enumeration order ascending (= stable sort of the eager scan).
-        static int CompareKeys((double Score, int Order) a, (double Score, int Order) b)
-        {
-            int c = b.Score.CompareTo(a.Score);
-            return c != 0 ? c : a.Order.CompareTo(b.Order);
-        }
-
-        var best = new SortedSet<(double Score, int Order)>(Comparer<(double Score, int Order)>.Create(CompareKeys));
-        var probesByOrder = new Dictionary<int, Probe>();
-        var structureCache = new Dictionary<string, (bool, string?, bool, string?)>(StringComparer.Ordinal);
-        foreach (var b in bases.OrderByDescending(x => x.BaseScore))
-        {
-            // Structure screens never raise a score: once a candidate's best possible key ranks after the
-            // current k-th best, so does every later candidate (base score non-increasing, ties by order).
-            if (best.Count == maxProbes && CompareKeys((b.BaseScore, b.Order), best.Max) > 0)
-                break;
-
-            if (FinishProbe(b, param, structureCache) is not { } p)
-                continue;
-
-            best.Add((p.Score, b.Order));
-            probesByOrder[b.Order] = p;
-            if (best.Count > maxProbes)
-            {
-                var worst = best.Max;
-                best.Remove(worst);
-                probesByOrder.Remove(worst.Order);
-            }
-        }
-
-        return best.Select(k => probesByOrder[k.Order]).ToList();
+        return bases;
     }
 
     /// <summary>
-    /// Evaluates a potential probe sequence (all screens, eager).
-    /// </summary>
-    private static Probe? EvaluateProbe(string sequence, int start, ProbeParameters param)
-    {
-        double gc = CalculateGcContent(sequence);
-        return FinishProbe(EvaluateProbeBase(sequence, start, 0, param, gc), param);
-    }
-
-    /// <summary>
-    /// Designs tiling probes to cover entire sequence.
+    /// Designs tiling probes that cover the whole target: windows every <c>probeLength − overlap</c> bases plus,
+    /// when the last of them stops short of the 3′ end, one window anchored at the target end.
     /// </summary>
     /// <remarks>
-    /// Windows of <paramref name="probeLength"/> start every <c>probeLength − overlap</c> bases; each is scored
+    /// Windows of <paramref name="probeLength"/> start at <c>0, step, 2·step, …</c> (<c>step = probeLength − overlap</c>)
+    /// while they fit; if the last one ends before the target end, a final window starts at
+    /// <c>targetSequence.Length − probeLength</c> so the 3′ tail is covered — the end-anchored probe of CATCH
+    /// (Metsky et al. 2019, <c>candidate_probes.make_candidate_probes_from_sequence</c>: "There are bases on the right
+    /// that were never covered, so add another probe for this"). It is added exactly when
+    /// <c>(Length − probeLength) mod step ≠ 0</c> (CATCH's own test, <c>len(seq) mod stride ≠ 0</c>, can duplicate the
+    /// last window or miss a tail, e.g. 120 nt / 60 / stride 40); it overlaps its predecessor by more than
+    /// <paramref name="overlap"/>. With <paramref name="overlap"/> ≥ 0 every base is covered
+    /// (<see cref="TilingProbeSet.Coverage"/> = target length); a negative overlap leaves gaps between windows and
+    /// <see cref="TilingProbeSet.Coverage"/> counts the positions actually covered. Each window is scored
     /// like <see cref="DesignProbes(string, ProbeParameters?, int)"/> (Tm = Primer3 <c>seqtm</c> at the
-    /// parameters' conditions, thermodynamic self-structure screen for ≤ 60 nt). A window whose score is
-    /// ≤ 0 is still emitted (score 0.3, warning "Suboptimal probe…") so coverage is preserved.
+    /// parameters' conditions, thermodynamic self-structure screen for ≤ ThermodynamicScreenMaxLength nt, default 60). A window whose score is
+    /// ≤ 0 is still emitted (score 0.3, warning "Suboptimal probe…") so coverage is preserved. Windows keep their
+    /// tiling order (start ascending); with <see cref="ProbeParameters.Ranking"/> = <see cref="ProbeRanking.Primer3Penalty"/> each scored
+    /// window also carries <see cref="Probe.Primer3Penalty"/>.
     /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="targetSequence"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="probeLength"/> ≤ 0 or longer than the target
+    /// (CATCH rejects a sequence shorter than the probe length), or <paramref name="overlap"/> ≥
+    /// <paramref name="probeLength"/> (the step would not advance); invalid <paramref name="parameters"/> (Primer3-ranking optima, ThermodynamicScreenMaxLength outside 60–10 000, a negative MaxNearestNeighborLength or illegal reaction conditions, as for <see cref="DesignProbes(string, ProbeParameters?, int)"/>; its MinLength / MaxLength are not used).</exception>
     public static TilingProbeSet DesignTilingProbes(
         string targetSequence,
         int probeLength = 60,
         int overlap = 20,
         ProbeParameters? parameters = null)
     {
+        ArgumentNullException.ThrowIfNull(targetSequence);
+        if (probeLength <= 0)
+            throw new ArgumentOutOfRangeException(nameof(probeLength), probeLength, "Probe length must be positive.");
+        if (overlap >= probeLength)
+            throw new ArgumentOutOfRangeException(nameof(overlap), overlap,
+                $"Overlap must be less than the probe length ({probeLength}) so the tiling step is positive.");
+        if (probeLength > targetSequence.Length)
+            throw new ArgumentOutOfRangeException(nameof(probeLength), probeLength,
+                $"Probe length must not exceed the target length ({targetSequence.Length}).");
+
         var param = parameters ?? Defaults.Microarray with
         {
             MinLength = probeLength,
             MaxLength = probeLength
         };
+        ValidateRanking(param, nameof(parameters));
+        ValidateDesignParameters(param, nameof(parameters), checkLengths: false);
 
         targetSequence = targetSequence.ToUpperInvariant();
         var probes = new List<Probe>();
-        int step = probeLength - overlap;
+        // long: a very negative overlap (gapped tiling) must not overflow the step (audit round 7, A7-3).
+        long step = (long)probeLength - overlap;
+        int lastStart = targetSequence.Length - probeLength;
 
-        for (int start = 0; start <= targetSequence.Length - probeLength; start += step)
-        {
-            string probeSeq = targetSequence.Substring(start, probeLength);
-            var probe = EvaluateProbe(probeSeq, start, param);
+        for (long start = 0; start <= lastStart; start += step)
+            probes.Add(TilingWindow(targetSequence, (int)start, probeLength, param));
 
-            if (probe.HasValue)
-            {
-                probes.Add(probe.Value with { Type = ProbeType.Tiling });
-            }
-            else
-            {
-                // Add with warnings for coverage
-                double tm = CalculateProbeTm(probeSeq, param);
-                double gc = CalculateGcContent(probeSeq);
-                probes.Add(new Probe(
-                    probeSeq, start, start + probeLength - 1,
-                    double.IsNaN(tm) ? 0.0 : tm, gc, 0.3, ProbeType.Tiling,
-                    new List<string> { "Suboptimal probe, included for coverage" }));
-            }
-        }
+        // End-anchored window (CATCH) when the regular grid stops short of the 3' end.
+        if (lastStart % step != 0)
+            probes.Add(TilingWindow(targetSequence, lastStart, probeLength, param));
 
-        // Calculate coverage
-        int covered = 0;
-        var coveredPositions = new bool[targetSequence.Length];
+        // Covered positions: union of the windows (sorted by start).
+        int covered = 0, coveredEnd = 0;
         foreach (var probe in probes)
         {
-            for (int i = probe.Start; i <= probe.End && i < targetSequence.Length; i++)
-            {
-                if (!coveredPositions[i])
-                {
-                    coveredPositions[i] = true;
-                    covered++;
-                }
-            }
+            covered += Math.Max(0, probe.End + 1 - Math.Max(probe.Start, coveredEnd));
+            coveredEnd = Math.Max(coveredEnd, probe.End + 1);
         }
 
         double meanTm = probes.Average(p => p.Tm);
         double tmRange = probes.Max(p => p.Tm) - probes.Min(p => p.Tm);
 
         return new TilingProbeSet(probes, covered, meanTm, tmRange);
+    }
+
+    private static Probe TilingWindow(string targetSequence, int start, int probeLength, ProbeParameters param)
+    {
+        string probeSeq = targetSequence.Substring(start, probeLength);
+        // One evaluation (all screens, eager); a window scoring ≤ 0 is still emitted for coverage with the same Tm
+        // (0 when not computable) and GC, instead of recomputing them.
+        var b = EvaluateProbeBase(probeSeq, start, 0, param, probeSeq.CalculateGcFractionFast());
+        if (FinishProbe(b, param) is { } probe)
+            return probe with { Type = ProbeType.Tiling };
+
+        return new Probe(
+            probeSeq, start, start + probeLength - 1,
+            b.Tm, b.Gc, 0.3, ProbeType.Tiling,
+            new List<string> { "Suboptimal probe, included for coverage" });
     }
 
     /// <summary>
@@ -1380,13 +1690,7 @@ public static class ProbeDesigner
             sequenceQuality is { Count: > 0 } ? sequenceQuality : null, s.LowercaseMasking ? template : null);
 
         // primer_rec_comp: quality ascending, then start descending, then length ascending.
-        accepted.Sort((a, b) =>
-        {
-            int c = a.Penalty.CompareTo(b.Penalty);
-            if (c != 0) return c;
-            c = b.Start.CompareTo(a.Start);
-            return c != 0 ? c : a.Length.CompareTo(b.Length);
-        });
+        accepted.Sort((a, b) => ComparePrimer3Rank(a.Penalty, a.Start, a.Length, b.Penalty, b.Start, b.Length));
 
         return accepted.Count > numReturn ? accepted.GetRange(0, numReturn) : accepted;
     }
@@ -1639,7 +1943,7 @@ public static class ProbeDesigner
     /// checked against T + 7 °C; without it the library's default window 55–65 °C is used.
     /// </para>
     /// <para>
-    /// Warnings carry the stem/loop sizes and, for a beacon of ≤ 60 nt, the ntthal hairpin Tm of the whole
+    /// Warnings carry the stem/loop sizes and, for a beacon of ≤ <c>maxAlignLength</c> (default 60) nt, the ntthal hairpin Tm of the whole
     /// beacon (the stem melting temperature; <see cref="PrimerDesigner.CalculateHairpinThermodynamicsNtthal(string, double, double, double)"/>
     /// at the same conditions). <see cref="Probe.Tm"/> is the loop (probe–target) Tm.
     /// </para>
@@ -1648,17 +1952,37 @@ public static class ProbeDesigner
     /// <param name="probeLength">Loop length (Tyagi &amp; Kramer: 15–30 nt; default 25).</param>
     /// <param name="stemLength">Arm length in bp (Tyagi &amp; Kramer: 5–7 bp; default 5).</param>
     /// <param name="detectionTemperatureCelsius">Optional detection (annealing) temperature T in °C.</param>
+    /// <param name="maxAlignLength">ntthal <c>THAL_MAX_ALIGN</c> of the stem-loop hairpin Tm
+    /// (<see cref="PrimerDesigner.NtthalMaxAlignLength"/> = 60, Primer3's compile-time default, …
+    /// <see cref="PrimerDesigner.NtthalMaxSequenceLength"/> = 10 000): beacons up to this length get the ntthal hairpin
+    /// Tm (opt-in for beacons longer than 60 nt; = thal.c compiled with <c>-DTHAL_MAX_ALIGN=…</c>; audit round 3, A3-27).</param>
+    /// <exception cref="ArgumentNullException"><paramref name="targetSequence"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="probeLength"/> or <paramref name="stemLength"/> ≤ 0
+    /// (a beacon needs a loop and two arms; the Tyagi &amp; Kramer ranges are recommendations and are not enforced),
+    /// <paramref name="stemLength"/> so large that the beacon (2·stem + loop) cannot be built,
+    /// or <paramref name="maxAlignLength"/> outside 60–10 000.</exception>
     public static Probe? DesignMolecularBeacon(
         string targetSequence,
         int probeLength = 25,
         int stemLength = 5,
-        double? detectionTemperatureCelsius = null)
+        double? detectionTemperatureCelsius = null,
+        int maxAlignLength = PrimerDesigner.NtthalMaxAlignLength)
     {
+        ArgumentNullException.ThrowIfNull(targetSequence);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(probeLength);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(stemLength);
+        // The beacon (two arms + loop) must fit in a string (heavy tier, HEAVY-2: stemLength = int.MaxValue overflowed
+        // into an OutOfMemoryException).
+        if (2L * stemLength + probeLength > Array.MaxLength)
+            throw new ArgumentOutOfRangeException(nameof(stemLength), stemLength, "The beacon (2·stemLength + probeLength) is too long.");
+        if (maxAlignLength < PrimerDesigner.NtthalMaxAlignLength || maxAlignLength > PrimerDesigner.NtthalMaxSequenceLength)
+            throw new ArgumentOutOfRangeException(nameof(maxAlignLength), maxAlignLength,
+                "THAL_MAX_ALIGN must be in 60..10000.");
         if (targetSequence.Length < probeLength)
             return null;
 
         targetSequence = targetSequence.ToUpperInvariant();
-        var conditions = Defaults.Microarray; // only the (default Primer3 internal-oligo) conditions are used
+        var conditions = Primer3ProbeConditions; // only the (default Primer3 internal-oligo) conditions are used
 
         double minLoopTm = detectionTemperatureCelsius is { } t0 ? t0 + BeaconMinTmAboveDetection : 55;
         double maxLoopTm = detectionTemperatureCelsius is { } t1 ? t1 + BeaconMaxTmAboveDetection : 65;
@@ -1673,7 +1997,7 @@ public static class ProbeDesigner
         for (int start = 0; start <= targetSequence.Length - loopLength; start++)
         {
             string loop = targetSequence.Substring(start, loopLength);
-            double gc = CalculateGcContent(loop);
+            double gc = loop.CalculateGcFractionFast();
             double tmRaw = CalculateProbeTm(loop, conditions);
             double tm = double.IsNaN(tmRaw) ? 0.0 : tmRaw;
 
@@ -1701,13 +2025,16 @@ public static class ProbeDesigner
         string beaconSequence = stem5 + bestLoop + stem3;
         var warnings = new List<string> { $"Stem: {stemLength}bp, Loop: {loopLength}bp" };
 
-        if (beaconSequence.Length <= NtthalMaxLength)
+        if (beaconSequence.Length <= maxAlignLength)
         {
             var hp = PrimerDesigner.CalculateHairpinThermodynamicsNtthal(
                 beaconSequence,
                 conditions.MonovalentMillimolar / 1000.0,
                 conditions.DivalentMillimolar / 1000.0,
-                conditions.DntpMillimolar / 1000.0);
+                conditions.DntpMillimolar / 1000.0,
+                PrimerDesigner.NtthalDefaultTemperatureCelsius,
+                PrimerDesigner.NtthalDefaultMaxLoop,
+                maxAlignLength);
             if (hp is { } h)
             {
                 warnings.Add($"Stem-loop (hairpin) Tm {h.TmCelsius:F1}°C (ntthal)");
@@ -1726,7 +2053,7 @@ public static class ProbeDesigner
             bestStart,
             bestStart + loopLength - 1,
             bestTm,
-            CalculateGcContent(beaconSequence),
+            beaconSequence.CalculateGcFractionFast(),
             bestScore,
             ProbeType.MolecularBeacon,
             warnings);
@@ -1743,25 +2070,46 @@ public static class ProbeDesigner
     /// <remarks>
     /// <para>
     /// <b>Hits.</b> Every reference is scanned with the canonical ungapped k-mismatch (Hamming) matcher
-    /// <see cref="ApproximateMatcher.FindWithMismatches(string, string, int)"/> (case-insensitive, overlapping, the
-    /// strand given only); <see cref="ProbeValidation.OffTargetHits"/> is the total and includes the intended site.
-    /// More than one hit records an issue. <see cref="ProbeValidation.SpecificityScore"/> = 1/N for N ≥ 1 hits
+    /// <see cref="ApproximateMatcher.FindWithMismatches(string, string, int)"/> (case-insensitive, overlapping; the
+    /// strand given only by default, and with <paramref name="bothStrands"/> also for the probe's reverse complement —
+    /// the probe's sites on the other strand of a double-stranded reference, as blastn <c>-strand both</c> and
+    /// <see cref="CheckSpecificity(string, global::SuffixTree.ISuffixTree, bool)"/> with <c>bothStrands</c>; a reference
+    /// position hit in both orientations — a reverse-palindromic probe, or a reverse-palindromic site — is one site,
+    /// counted once, as <see cref="CheckSpecificity(string, global::SuffixTree.ISuffixTree, bool)"/> counts a
+    /// palindromic probe once); <see cref="ProbeValidation.OffTargetHits"/> is the total and includes the intended site.
+    /// Each hit is judged by the Kane et al. (2000) criteria on its ungapped diagonal — identity (L − mismatches) / L
+    /// over the probe length &gt; <paramref name="maxNonTargetIdentity"/> or a run of identical positions longer than
+    /// <paramref name="maxContiguousMatch"/> (<see cref="ProbeValidation.CrossHybridizingHits"/>); more than one such
+    /// site records an issue (the probe can bind somewhere besides its intended site). With the default 3 mismatches
+    /// every hit of a probe ≥ 13 nt meets the identity criterion ((L − 3) / L &gt; 0.75), so the decision equals the
+    /// former "more than one hit" rule there. <see cref="ProbeValidation.SpecificityScore"/> = 1/N for N ≥ 1 hits
     /// (0 for none) is a library-defined uniqueness score (the share of the probe's N candidate binding sites
-    /// taken by one site), not a published specificity metric; the sourced cross-hybridization decision is the
-    /// Kane assessment below.
+    /// taken by one site), not a published specificity metric (no published 1/N score was found — Kane 2000,
+    /// OligoArray 2.0, Li &amp; Stormo 2001 and Primer3's PRIMER_INTERNAL_MAX_LIBRARY_MISHYB judge a site by
+    /// identity / free energy / alignment score, not by a hit count); it is reported only and does not enter
+    /// <see cref="ProbeValidation.IsValid"/>.
     /// </para>
     /// <para>
     /// <b>Self-structure.</b> The same screen as <see cref="DesignProbes(string, ProbeParameters?, int)"/>: with
-    /// <see cref="ProbeStructureScreen.Thermodynamic"/> (default) a ≤ 60-nt A/C/G/T probe is screened as Primer3
+    /// <see cref="ProbeStructureScreen.Thermodynamic"/> (default) an A/C/G/T probe of ≤ <see cref="ProbeParameters.ThermodynamicScreenMaxLength"/> (default 60) nt is screened as Primer3
     /// screens a hybridization probe — ntthal self-dimer (ANY), 3′ self-dimer (END1) and hairpin Tm
     /// (<see cref="PrimerDesigner.CalculatePrimer3OligoStructure"/>, primer3-py <c>calc_homodimer</c> /
     /// <c>calc_end_stability</c> / <c>calc_hairpin</c> parity) at the <paramref name="conditions"/> salt/oligo
     /// concentrations must not exceed <see cref="ProbeParameters.MaxStructureTm"/> (PRIMER_INTERNAL_MAX_SELF_ANY_TH
-    /// = _SELF_END_TH = _HAIRPIN_TH = 47 °C). Longer probes (thal.c THAL_MAX_ALIGN = 60), non-ACGT probes and
+    /// = _SELF_END_TH = _HAIRPIN_TH = 47 °C). Probes longer than <see cref="ProbeParameters.ThermodynamicScreenMaxLength"/>
+    /// (thal.c THAL_MAX_ALIGN, default 60; opt-in larger values run ntthal on longer probes), non-ACGT probes and
     /// <see cref="ProbeStructureScreen.Heuristic"/> use the fallback screens: Primer3 alignment-mode internal-oligo
     /// self-complementarity (dpal <c>self_any</c> / <c>self_end</c> &gt; <see cref="ProbeParameters.MaxSelfAny"/> /
     /// <see cref="ProbeParameters.MaxSelfEnd"/>, PRIMER_INTERNAL_MAX_SELF_ANY / _SELF_END = 12.00, no length limit)
-    /// and the sequence-only inverted-repeat hairpin stem (no DNA MFE fold for &gt; 60 nt yet). The alignment-mode
+    /// and the sequence-only stem-loop screen <see cref="PrimerDesigner.HasHairpinPotential"/> (an exactly complementary
+    /// stem of ≥ 4 bp — library convention — closing a loop of ≥ 3 nt, thal.c <c>min_hrpn_loop</c>; almost every random
+    /// probe of &gt; 60 nt is flagged, so raise <see cref="ProbeParameters.ThermodynamicScreenMaxLength"/> for a hairpin
+    /// Tm decision on long probes). The fallback stem-loop flag is reported in
+    /// <see cref="ProbeValidation.HasSecondaryStructure"/> and <see cref="ProbeValidation.Warnings"/> but is not an issue:
+    /// validity rests on sourced criteria only (audit round 3, A3-12), and a stem ≥ 4 bp is a library convention
+    /// (audit round 5, A5-5 — a correction of the validity rule; before it, this flag made almost every &gt; 60-nt probe
+    /// invalid). The ntthal hairpin Tm limit (PRIMER_INTERNAL_MAX_HAIRPIN_TH) and the fallback alignment-mode self_any /
+    /// self_end limits (PRIMER_INTERNAL_MAX_SELF_ANY / _SELF_END) are issues. The alignment-mode
     /// values are reported for every probe in <see cref="ProbeValidation.SelfAny"/> / <see cref="ProbeValidation.SelfEnd"/>;
     /// <see cref="ProbeValidation.SelfComplementarity"/> (fold-back fraction) is a library metric only.
     /// </para>
@@ -1771,25 +2119,39 @@ public static class ProbeDesigner
     /// or a contiguous identical stretch &gt; 15 nt → the probe may cross-hybridize); each cross-hybridizing
     /// non-target strand records an issue.
     /// </para>
-    /// <para><see cref="ProbeValidation.IsValid"/> is true when no issue was recorded.</para>
+    /// <para><see cref="ProbeValidation.IsValid"/> is true when no issue was recorded
+    /// (<see cref="ProbeValidation.Warnings"/> do not count).</para>
     /// </remarks>
     /// <param name="probeSequence">Probe sequence to validate (case-insensitive). Null throws; empty → invalid result.</param>
     /// <param name="referenceSequences">Reference sequences scanned for ungapped hits (target included).</param>
-    /// <param name="maxMismatches">Maximum mismatches of the ungapped site-counting scan (≥ 0; default 3, a screening
-    /// tolerance kept for compatibility — the sourced hybridization cross-reactivity decision is the Kane assessment).</param>
+    /// <param name="maxMismatches">Search radius of the ungapped site scan (≥ 0; default 3 — a library convention kept for
+    /// compatibility, no published hybridization source: the figure is the CRISPR guide mismatch tolerance). Whether a
+    /// found site is a problem is decided by the Kane criteria; to find every ungapped site that meets the Kane identity
+    /// criterion pass ⌈L/4⌉ − 1 (the largest d with (L − d) / L &gt; 0.75).</param>
     /// <param name="selfComplementarityThreshold">Former fold-back-fraction limit of the fallback screen; kept for
     /// source compatibility and copied into <see cref="ProbeParameters.MaxSelfComplementarity"/>, but no longer used by
     /// any screen (the fallback self-dimer limits are <see cref="ProbeParameters.MaxSelfAny"/> / <see cref="ProbeParameters.MaxSelfEnd"/>)
     /// (default 0.3, the Microarray preset's <see cref="ProbeParameters.MaxSelfComplementarity"/>).</param>
-    /// <param name="conditions">Hybridization conditions and structure-screen settings (default
-    /// <see cref="Defaults.Microarray"/>: Primer3 probe conditions 50 nM / 50 mM / 0 Mg²⁺ / 0 dNTP, thermodynamic
-    /// screen, 47 °C); its <see cref="ProbeParameters.MaxSelfComplementarity"/> is replaced by
-    /// <paramref name="selfComplementarityThreshold"/>.</param>
+    /// <param name="conditions">Hybridization conditions and structure-screen settings (default: Primer3 probe
+    /// conditions 50 nM / 50 mM / 0 Mg²⁺ / 0 dNTP, thermodynamic screen, 47 °C — the settings of
+    /// <see cref="Defaults.Microarray"/> at those conditions); its <see cref="ProbeParameters.MaxSelfComplementarity"/> is replaced by
+    /// <paramref name="selfComplementarityThreshold"/>. Used: the salt / dNTP / oligo concentrations (ntthal screen and
+    /// non-target duplex Tm; Primer3 <c>_pr_data_control</c> legality — monovalent and oligo &gt; 0, Mg²⁺ and dNTP ≥ 0,
+    /// else <see cref="ArgumentOutOfRangeException"/>), <see cref="ProbeParameters.StructureScreen"/>,
+    /// <see cref="ProbeParameters.MaxStructureTm"/>, <see cref="ProbeParameters.MaxSelfAny"/> / <see cref="ProbeParameters.MaxSelfEnd"/>,
+    /// <see cref="ProbeParameters.ThermodynamicScreenMaxLength"/> (THAL_MAX_ALIGN of the screen and of the non-target duplex
+    /// Tm; 60–10 000, else <see cref="ArgumentOutOfRangeException"/>).</param>
     /// <param name="nonTargetSequences">Optional known non-target sequences for the Kane assessment.</param>
-    /// <param name="maxNonTargetIdentity">Kane identity threshold (default 0.75; flagged when strictly above).</param>
-    /// <param name="maxContiguousMatch">Kane contiguous-identity threshold in nt (default 15; flagged when strictly longer).</param>
+    /// <param name="maxNonTargetIdentity">Kane identity threshold in [0, 1] (default 0.75; flagged when strictly above),
+    /// for the reference sites and the non-targets; outside [0, 1] or NaN → <see cref="ArgumentOutOfRangeException"/>.</param>
+    /// <param name="maxContiguousMatch">Kane contiguous-identity threshold in nt (≥ 0, default 15; flagged when strictly
+    /// longer), for the reference sites and the non-targets; negative → <see cref="ArgumentOutOfRangeException"/>.</param>
     /// <param name="maxDuplexTm">Optional OligoArray-style off-target duplex-Tm threshold (°C; see
     /// <see cref="AssessCrossHybridization"/>); null = Kane criteria only.</param>
+    /// <param name="bothStrands">Also scan the references for the probe's reverse complement (default false: the
+    /// references' given strand only, the behaviour before audit round 4, B07 F60). A site found in both orientations
+    /// at the same reference position is counted once and is cross-hybridizing when either orientation meets a Kane
+    /// criterion. The non-target assessment is two-stranded regardless (<see cref="AssessCrossHybridization"/>).</param>
     public static ProbeValidation ValidateProbe(
         string probeSequence,
         IEnumerable<string> referenceSequences,
@@ -1799,13 +2161,25 @@ public static class ProbeDesigner
         IEnumerable<string>? nonTargetSequences = null,
         double maxNonTargetIdentity = KaneMaxIdentity,
         int maxContiguousMatch = KaneMaxContiguousMatch,
-        double? maxDuplexTm = null)
+        double? maxDuplexTm = null,
+        bool bothStrands = false)
     {
         ArgumentNullException.ThrowIfNull(probeSequence);
         ArgumentNullException.ThrowIfNull(referenceSequences);
+        if (double.IsNaN(maxNonTargetIdentity) || maxNonTargetIdentity < 0 || maxNonTargetIdentity > 1)
+            throw new ArgumentOutOfRangeException(nameof(maxNonTargetIdentity), "Identity threshold must be in [0, 1].");
+        if (maxContiguousMatch < 0)
+            throw new ArgumentOutOfRangeException(nameof(maxContiguousMatch), "Contiguous-match threshold cannot be negative.");
+        if (conditions is { } stated)
+        {
+            PrimerDesigner.ValidatePrimer3Conditions(stated.MonovalentMillimolar, stated.DivalentMillimolar,
+                stated.DntpMillimolar, stated.DnaConcentrationNanomolar, nameof(conditions));
+            ValidateThermodynamicScreenMaxLength(stated, nameof(conditions));
+        }
 
         probeSequence = probeSequence.ToUpperInvariant();
         var issues = new List<string>();
+        var warnings = new List<string>();
 
         // Empty probe is a degenerate input — cannot hybridize specifically
         if (probeSequence.Length == 0)
@@ -1820,22 +2194,46 @@ public static class ProbeDesigner
         }
 
         int offTargetHits = 0;
+        int crossHybridizingHits = 0;
 
-        // Check off-target hits via approximate matching
+        // Canonical ungapped k-mismatch (Hamming) scan; case-insensitive, overlapping hits included. Each hit is a
+        // candidate binding site; it counts as a cross-hybridizing site when it meets a Kane et al. (2000) criterion.
+        // With bothStrands the probe's reverse complement is scanned too (the probe's sites on the other strand of a
+        // double-stranded reference, as blastn -strand both / CheckSpecificity(bothStrands)); a reference position hit
+        // in both orientations (a reverse-palindromic probe, or a site that is itself a reverse palindrome) is one
+        // site, cross-hybridizing when either orientation meets a Kane criterion (audit round 4, A4-2, F60).
+        string[] patterns = [probeSequence];
+        if (bothStrands)
+        {
+            string reverseComplement = DnaSequence.GetReverseComplementString(probeSequence);
+            if (!string.Equals(reverseComplement, probeSequence, StringComparison.Ordinal))
+                patterns = [probeSequence, reverseComplement];
+        }
         foreach (var reference in referenceSequences)
         {
-            // Canonical ungapped k-mismatch (Hamming) scan; case-insensitive, overlapping hits included.
-            offTargetHits += ApproximateMatcher.FindWithMismatches(reference, probeSequence, maxMismatches).Count();
+            var sites = new Dictionary<int, bool>();
+            foreach (string pattern in patterns)
+            {
+                foreach (var hit in ApproximateMatcher.FindWithMismatches(reference, pattern, maxMismatches))
+                {
+                    bool kane = UngappedSiteMeetsKaneCriteria(hit.MismatchPositions, probeSequence.Length, maxNonTargetIdentity, maxContiguousMatch);
+                    sites[hit.Position] = sites.TryGetValue(hit.Position, out bool seen) ? seen || kane : kane;
+                }
+            }
+            offTargetHits += sites.Count;
+            crossHybridizingHits += sites.Values.Count(kane => kane);
         }
 
-        if (offTargetHits > 1)
+        // More than one site meeting the Kane criteria = the probe can bind somewhere besides its intended site.
+        if (crossHybridizingHits > 1)
         {
-            issues.Add($"{offTargetHits} potential off-target sites");
+            issues.Add(string.Create(System.Globalization.CultureInfo.InvariantCulture,
+                $"{crossHybridizingHits} potential off-target sites (Kane 2000: identity > {maxNonTargetIdentity * 100:0.##}% or > {maxContiguousMatch} contiguous identical nt)"));
         }
 
-        // Self-structure: the DesignProbes screen (Primer3 ntthal for ≤ 60-nt ACGT probes; otherwise Primer3
-        // alignment-mode self_any / self_end + the inverted-repeat hairpin stem).
-        var param = (conditions ?? Defaults.Microarray) with { MaxSelfComplementarity = selfComplementarityThreshold };
+        // Self-structure: the DesignProbes screen (Primer3 ntthal for ACGT probes ≤ ThermodynamicScreenMaxLength; otherwise Primer3
+        // alignment-mode self_any / self_end + the PrimerDesigner.HasHairpinPotential stem-loop screen).
+        var param = (conditions ?? Primer3ProbeConditions) with { MaxSelfComplementarity = selfComplementarityThreshold };
         double selfComp = CalculateSelfComplementarity(probeSequence);
         double alnSelfAny = PrimerDesigner.CalculatePrimerSelfAnyComplementarity(probeSequence);
         double alnSelfEnd = PrimerDesigner.CalculatePrimerSelfEndComplementarity(probeSequence);
@@ -1858,8 +2256,12 @@ public static class ProbeDesigner
             hasStructure = HasSecondaryStructurePotential(probeSequence);
             if (selfCompIssue)
                 issues.Add(selfCompWarning!);
+            // The sequence-only stem-loop screen (stem >= 4 bp: library convention) is a presence test that flags almost
+            // every random probe of > 60 nt; per the validity rule it is reported (HasSecondaryStructure, Warnings) but
+            // does not decide IsValid (audit round 5, A5-5). The ntthal hairpin Tm above (Primer3
+            // PRIMER_INTERNAL_MAX_HAIRPIN_TH) decides validity wherever it runs.
             if (hasStructure)
-                issues.Add("Potential secondary structure formation");
+                warnings.Add("Potential secondary structure formation");
         }
 
         // Kane et al. (2000) cross-hybridization criteria against known non-targets (optional).
@@ -1897,7 +2299,29 @@ public static class ProbeDesigner
             SelfAny = alnSelfAny,
             SelfEnd = alnSelfEnd,
             CrossHybridization = cross,
+            CrossHybridizingHits = crossHybridizingHits,
+            Warnings = warnings,
         };
+    }
+
+    // Kane et al. (2000) criteria applied to an ungapped k-mismatch site of a probe of length L with mismatches at the
+    // given (ascending, probe-relative) positions: identity (L − d) / L over the probe length > maxIdentity, or the
+    // longest run of identical positions > maxContiguousMatch (the same measures AssessCrossHybridization takes from the
+    // best local alignment / longest common substring, here on the ungapped diagonal of the hit).
+    private static bool UngappedSiteMeetsKaneCriteria(
+        IReadOnlyList<int> mismatchPositions, int probeLength, double maxIdentity, int maxContiguousMatch)
+    {
+        double identity = (double)(probeLength - mismatchPositions.Count) / probeLength;
+        if (identity > maxIdentity)
+            return true;
+        int longest = 0, previous = -1;
+        foreach (int position in mismatchPositions)
+        {
+            longest = Math.Max(longest, position - previous - 1);
+            previous = position;
+        }
+        longest = Math.Max(longest, probeLength - previous - 1);
+        return longest > maxContiguousMatch;
     }
 
     /// <summary>
@@ -1977,15 +2401,18 @@ public static class ProbeDesigner
     /// <param name="bothStrands">Assess the reverse complement of each non-target too (default true).</param>
     /// <param name="scoring">Local-alignment scoring (default <see cref="SequenceAligner.BlastDna"/>, affine gaps).</param>
     /// <param name="conditions">Hybridization conditions for the site duplex Tm
-    /// (<see cref="CrossHybridizationAssessment.DuplexTm"/>; default Primer3 probe conditions 50 nM / 50 mM / 0 / 0).</param>
+    /// (<see cref="CrossHybridizationAssessment.DuplexTm"/>; default Primer3 probe conditions 50 nM / 50 mM / 0 / 0).
+    /// Its <see cref="ProbeParameters.ThermodynamicScreenMaxLength"/> is the ntthal <c>THAL_MAX_ALIGN</c> of the
+    /// duplex (default 60; opt-in up to 10 000 for longer probes and sites — audit round 3, A3-27).</param>
     /// <param name="maxDuplexTm">Optional OligoArray-style specificity threshold (°C): a strand whose site duplex Tm
     /// is strictly above it is flagged (<see cref="CrossHybridizationAssessment.ExceedsDuplexTmThreshold"/>); null
     /// (default) applies only the Kane criteria. The threshold is assay-specific (Rouillard et al. 2003: user-set).</param>
     /// <returns>One assessment per non-target strand: index order, forward strand before reverse complement.</returns>
     /// <exception cref="ArgumentNullException">A null probe or non-target collection.</exception>
     /// <exception cref="ArgumentException">An empty probe.</exception>
-    /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxIdentity"/> outside [0, 1] or a negative
-    /// <paramref name="maxContiguousMatch"/>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxIdentity"/> outside [0, 1], a negative
+    /// <paramref name="maxContiguousMatch"/>, or a <paramref name="conditions"/>
+    /// <see cref="ProbeParameters.ThermodynamicScreenMaxLength"/> outside 60–10 000.</exception>
     public static IReadOnlyList<CrossHybridizationAssessment> AssessCrossHybridization(
         string probeSequence,
         IEnumerable<string> nonTargetSequences,
@@ -2005,10 +2432,17 @@ public static class ProbeDesigner
         if (maxContiguousMatch < 0)
             throw new ArgumentOutOfRangeException(nameof(maxContiguousMatch), "Contiguous-match threshold cannot be negative.");
 
+        if (conditions is { } stated)
+            ValidateThermodynamicScreenMaxLength(stated, nameof(conditions));
+
         var matrix = scoring ?? SequenceAligner.BlastDna;
-        var cond = conditions ?? Defaults.Microarray;
+        var cond = conditions ?? Primer3ProbeConditions;
         string probe = probeSequence.ToUpperInvariant();
-        bool duplexComputable = probe.Length <= NtthalMaxLength && probe.All(c => c is 'A' or 'C' or 'G' or 'T');
+        // thal.c thal_check_errors: at least one strand ≤ THAL_MAX_ALIGN (ThermodynamicScreenMaxLength, default 60)
+        // and neither longer than THAL_MAX_SEQ (10 000).
+        int maxAlign = cond.ThermodynamicScreenMaxLength;
+        bool duplexComputable = probe.Length <= PrimerDesigner.NtthalMaxSequenceLength
+            && probe.All(c => c is 'A' or 'C' or 'G' or 'T');
         var probeTree = global::SuffixTree.SuffixTree.Build(probe);
         var result = new List<CrossHybridizationAssessment>();
 
@@ -2033,13 +2467,16 @@ public static class ProbeDesigner
             if (duplexComputable && siteStart >= 0)
             {
                 string site = strand.Substring(siteStart, siteEnd - siteStart + 1);
-                if (site.All(c => c is 'A' or 'C' or 'G' or 'T'))
+                if (Math.Min(probe.Length, site.Length) <= maxAlign
+                    && site.Length <= PrimerDesigner.NtthalMaxSequenceLength
+                    && site.All(c => c is 'A' or 'C' or 'G' or 'T'))
                 {
                     // The probe hybridizes to the strand complementary to the site (primer3-py calc_heterodimer).
                     var d = PrimerDesigner.CalculateDimerThermodynamicsNtthal(
                         probe, DnaSequence.GetReverseComplementString(site), PrimerDesigner.NtthalAlignmentMode.Any,
                         cond.MonovalentMillimolar / 1000.0, cond.DivalentMillimolar / 1000.0, cond.DntpMillimolar / 1000.0,
-                        cond.DnaConcentrationNanomolar * 1e-9);
+                        cond.DnaConcentrationNanomolar * 1e-9, PrimerDesigner.NtthalDefaultTemperatureCelsius,
+                        PrimerDesigner.NtthalDefaultMaxLoop, maxAlign);
                     duplexTm = d?.TmCelsius ?? 0.0;
                 }
             }
@@ -2092,13 +2529,8 @@ public static class ProbeDesigner
 
         static (int Score, int Identical, int Start, int End) Summarize(AlignmentResult aln, int offset)
         {
-            int identical = 0;
-            for (int k = 0; k < aln.AlignedSequence1.Length; k++)
-            {
-                char c1 = aln.AlignedSequence1[k];
-                if (c1 != AlignmentGapChar && c1 == aln.AlignedSequence2[k])
-                    identical++;
-            }
+            // Identical (non-gap) columns: the canonical SequenceAligner.CalculateStatistics Matches.
+            int identical = SequenceAligner.CalculateStatistics(aln).Matches;
 
             return aln.Score > 0
                 ? (aln.Score, identical, offset + aln.StartPosition2, offset + aln.EndPosition2)
@@ -2119,9 +2551,6 @@ public static class ProbeDesigner
     // the local alignment (a gap shifts the reference frame). Two extra bases lets the Smith-Waterman
     // local alignment absorb short insertions/deletions while keeping each window O(probeLen) wide.
     private const int GappedScanGapAllowance = 2;
-
-    // Gap character emitted by SequenceAligner in its aligned-output strings.
-    private const char AlignmentGapChar = '-';
 
     /// <summary>
     /// Opt-in <b>gapped</b> off-target scan using the library's validated Smith-Waterman local
@@ -2240,23 +2669,12 @@ public static class ProbeDesigner
             if (ap.Length == 0)
                 continue;
 
-            int identical = 0;
-            int ungapped = 0;
-            bool hasGap = false;
-            for (int k = 0; k < ap.Length; k++)
-            {
-                char c1 = ap[k];
-                char c2 = ar[k];
-                if (c1 == AlignmentGapChar || c2 == AlignmentGapChar)
-                {
-                    hasGap = true;
-                    continue;
-                }
-
-                ungapped++;
-                if (c1 == c2)
-                    identical++;
-            }
+            // Column counts from the canonical SequenceAligner.CalculateStatistics: identical = Matches,
+            // ungapped = Matches + Mismatches, gapped = Gaps > 0.
+            var stats = SequenceAligner.CalculateStatistics(aln);
+            int identical = stats.Matches;
+            int ungapped = stats.Matches + stats.Mismatches;
+            bool hasGap = stats.Gaps > 0;
 
             double identity = (double)identical / probeLen;
             if (identity < minIdentity)
@@ -2336,21 +2754,27 @@ public static class ProbeDesigner
     /// Per-base background frequency (default 0.25, uniform — the standard nucleotide composition NCBI blastn uses).
     /// The model takes p(match) = 4·p² and p(mismatch) = 1 − 4·p², which is the composition-exact value only at
     /// p = 0.25; for a non-uniform composition use
-    /// <see cref="ComputeUngappedKarlinParameters(int, int, IReadOnlyList{double})"/>. Must lie in (0, 0.5).
+    /// <see cref="ComputeUngappedKarlinParameters(int, int, IReadOnlyList{double}, KarlinKMethod)"/>. Must lie in (0, 0.5).
     /// </param>
     /// <returns>The positive λ solving the Karlin–Altschul equation.</returns>
     /// <exception cref="ArgumentOutOfRangeException">
     /// Thrown when the scheme cannot define λ: the match score is not positive, the mismatch score is
-    /// not negative, or the expected per-pair score is not negative (the theory's preconditions); or when
+    /// not negative, or the expected per-pair score is not negative (the theory's preconditions); a score outside
+    /// BLAST+'s score range (<c>BlastScoreBlkMaxScoreSet</c>, blast_stat.h INT2 limits, exclusive): a match score ≥ 32767 (BLAST_SCORE_MAX) or a mismatch score ≤ −32768 (BLAST_SCORE_MIN) (ParamName <c>match</c> / <c>mismatch</c>); or when
     /// <paramref name="baseFrequency"/> is outside (0, 0.5) (p(match) = 4·p² would not be a probability in (0, 1)).
     /// </exception>
     public static double ComputeLambdaNucleotide(
         int match,
         int mismatch,
         double baseFrequency = UniformBaseFrequency)
+        => LambdaNucleotide(match, mismatch, baseFrequency, nameof(match), nameof(mismatch));
+
+    // ComputeLambdaNucleotide with the caller's parameter names for the scheme (A9-1: each public method reports its own).
+    private static double LambdaNucleotide(
+        int match, int mismatch, double baseFrequency, string matchParam, string mismatchParam)
     {
         // Karlin–Altschul preconditions: at least one positive score, and negative expected score.
-        ValidateMatchMismatch(match, mismatch);
+        ValidateMatchMismatch(match, mismatch, matchParam, mismatchParam);
 
         // p(match) = 4 · p² (the four identical ordered pairs); p(mismatch) = 1 − p(match).
         double pMatch = MatchProbability(baseFrequency);
@@ -2359,7 +2783,7 @@ public static class ProbeDesigner
         // Expected per-pair score must be negative for the theory to hold.
         double expectedScore = pMatch * match + pMismatch * mismatch;
         if (expectedScore >= 0)
-            throw new ArgumentOutOfRangeException(nameof(mismatch),
+            throw new ArgumentOutOfRangeException(mismatchParam,
                 "Karlin–Altschul λ is undefined: the expected per-pair score must be negative.");
 
         // f(λ) = p(match)·e^{λ·match} + p(mismatch)·e^{λ·mismatch} − 1: f(0) = 0, f'(0) = expectedScore < 0,
@@ -2377,13 +2801,13 @@ public static class ProbeDesigner
     /// Altschul et al. 1990). λ is computed from <paramref name="scoring"/> by
     /// <see cref="ComputeLambdaNucleotide"/>; K is, unless the caller supplies it, computed for the same
     /// scoring scheme and background by the Karlin–Altschul (1990) lattice formula as NCBI BLAST+ computes it
-    /// (<see cref="ComputeUngappedKarlinParameters(int, int, double)"/>; +1/−3 → K = 0.7106, +2/−3 → K = 0.4081,
+    /// (<see cref="ComputeUngappedKarlinParameters(int, int, double, KarlinKMethod)"/>; +1/−3 → K = 0.7106, +2/−3 → K = 0.4081,
     /// the values blastn 2.12 reports for ungapped searches).
     /// </para>
     /// <para>
     /// These are the <b>ungapped</b> statistics on the raw search space m·n. For a gapped (affine) alignment score
     /// such as <see cref="CrossHybridizationAssessment.AlignmentScore"/>, and for BLAST's edge-effect length
-    /// correction, use <see cref="ComputeBlastnStatistics(int, int, long, int, ScoringMatrix?, bool)"/>.
+    /// correction, use <see cref="ComputeBlastnStatistics(int, int, long, int, ScoringMatrix?, bool, KarlinKMethod)"/>.
     /// </para>
     /// </remarks>
     /// <param name="rawScore">The raw alignment score S of the hit.</param>
@@ -2391,24 +2815,32 @@ public static class ProbeDesigner
     /// <param name="databaseLength">Database (reference) length n (&gt; 0).</param>
     /// <param name="scoring">
     /// The scoring scheme. Its <see cref="ScoringMatrix.Match"/>/<see cref="ScoringMatrix.Mismatch"/>
-    /// determine λ. Defaults to <see cref="SequenceAligner.BlastDna"/> (+2/−3). Pass a +1/−3 matrix to
-    /// reproduce the published λ ≈ 1.374.
+    /// determine λ. Null (the default) means <see cref="SequenceAligner.BlastDna"/> (+2/−3); it is not an error.
+    /// Pass a +1/−3 matrix to reproduce the published λ ≈ 1.374.
     /// </param>
     /// <param name="k">
     /// The Karlin–Altschul K parameter; null (default) computes it for <paramref name="scoring"/> and
-    /// <paramref name="baseFrequency"/> (<see cref="ComputeUngappedKarlinParameters(int, int, double)"/>).
+    /// <paramref name="baseFrequency"/> (<see cref="ComputeUngappedKarlinParameters(int, int, double, KarlinKMethod)"/>).
     /// </param>
     /// <param name="baseFrequency">Per-base background frequency for λ (default 0.25, uniform).</param>
+    /// <param name="kMethod">
+    /// How the computed K treats schemes whose scores share a divisor &gt; 1 (default
+    /// <see cref="KarlinKMethod.ReducedLattice"/>, scale-invariant; <see cref="KarlinKMethod.NcbiBlast"/> reproduces
+    /// blastn's printed K, e.g. 1.17 for +4/−6). Ignored when <paramref name="k"/> is given.
+    /// </param>
     /// <returns>The <see cref="KarlinAltschulStatistics"/> for the hit.</returns>
-    /// <exception cref="ArgumentNullException">Thrown when <paramref name="scoring"/> is null.</exception>
-    /// <exception cref="ArgumentOutOfRangeException">Thrown for non-positive lengths or K, or a scheme for which λ is undefined.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown for non-positive lengths or K, a base frequency outside (0, 0.5),
+    /// an undefined <paramref name="kMethod"/>, or (ParamName <c>scoring</c>) a scheme for which λ is undefined (non-positive
+    /// match, non-negative mismatch or non-negative expected score) or with a score outside
+    /// BLAST+'s score range (<c>BlastScoreBlkMaxScoreSet</c>, blast_stat.h INT2 limits, exclusive): a match score ≥ 32767 (BLAST_SCORE_MAX) or a mismatch score ≤ −32768 (BLAST_SCORE_MIN).</exception>
     public static KarlinAltschulStatistics ComputeKarlinAltschul(
         double rawScore,
         int queryLength,
         long databaseLength,
         ScoringMatrix? scoring = null,
         double? k = null,
-        double baseFrequency = UniformBaseFrequency)
+        double baseFrequency = UniformBaseFrequency,
+        KarlinKMethod kMethod = KarlinKMethod.ReducedLattice)
     {
         var matrix = scoring ?? SequenceAligner.BlastDna;
         ArgumentNullException.ThrowIfNull(matrix);
@@ -2419,8 +2851,9 @@ public static class ProbeDesigner
         if (k is double given && !(given > 0))
             throw new ArgumentOutOfRangeException(nameof(k), "K must be positive.");
 
-        double lambda = ComputeLambdaNucleotide(matrix.Match, matrix.Mismatch, baseFrequency);
-        double kValue = k ?? ComputeUngappedKarlinParameters(matrix.Match, matrix.Mismatch, baseFrequency).K;
+        double lambda = LambdaNucleotide(matrix.Match, matrix.Mismatch, baseFrequency, nameof(scoring), nameof(scoring));
+        double kValue = k ?? UngappedKarlinParameters(
+            matrix.Match, matrix.Mismatch, MatchProbability(baseFrequency), kMethod, nameof(scoring)).K;
 
         // S' = (λS − ln K) / ln 2  (Altschul et al. 1990).
         double bitScore = (lambda * rawScore - Math.Log(kValue)) / Math.Log(2.0);
@@ -2453,6 +2886,8 @@ public static class ProbeDesigner
     /// <param name="H">Relative entropy H (nats per aligned pair).</param>
     /// <param name="Alpha">
     /// Edge-effect parameter α (BLAST+ <c>Blast_GetNuclAlphaBeta</c>; ungapped: λ/H). The length adjustment uses α/λ.
+    /// In ungapped <see cref="BlastnStatistics"/> of a reward/penalty scheme without a BLAST+ <c>blastn_values_*</c>
+    /// table, α = β = 0 (BLAST+ then applies no length adjustment).
     /// </param>
     /// <param name="Beta">Edge-effect parameter β (BLAST+ <c>Blast_GetNuclAlphaBeta</c>).</param>
     /// <param name="RoundDown">
@@ -2468,6 +2903,29 @@ public static class ProbeDesigner
         double Beta,
         bool RoundDown,
         bool Gapped);
+
+    /// <summary>
+    /// How the ungapped Karlin–Altschul K is evaluated when the scores share a common divisor δ &gt; 1
+    /// (e.g. +4/−6, δ = 2). Schemes with δ = 1 give identical K under both choices.
+    /// </summary>
+    public enum KarlinKMethod
+    {
+        /// <summary>
+        /// Karlin &amp; Altschul (1990, PNAS 87:2264, appendix) on the δ-reduced lattice: K is invariant under
+        /// multiplying all scores by an integer (+4/−6 → K = 0.4081 = K(+2/−3)).
+        /// </summary>
+        ReducedLattice = 0,
+
+        /// <summary>
+        /// Exactly as NCBI BLAST+ <c>BlastKarlinLHtoK</c> (blast_stat.c) computes it: low/high/λ are reduced by δ but
+        /// the series reads the score probabilities at the reduced offsets from the unreduced lowest score
+        /// (<c>probArrayStartLow[j]</c>, j = 0…range/δ), so K is not scale-invariant. Reproduces the K blastn 2.12.0+
+        /// prints: +4/−6 → 1.17, +4/−10 → 1.06, +6/−4 → 1.63, +6/−10 → 1.03, +8/−10 → 1.07, +10/−8 → 1.31.
+        /// The closed forms (reduced lowest score −1 or highest +1, e.g. +2/−2, +2/−4, +4/−2) agree with
+        /// <see cref="ReducedLattice"/>.
+        /// </summary>
+        NcbiBlast = 1,
+    }
 
     /// <summary>
     /// NCBI BLAST+ blastn statistics of an alignment score: bit score and E-value over the effective
@@ -2564,39 +3022,51 @@ public static class ProbeDesigner
     /// </summary>
     /// <remarks>
     /// Reproduces the Lambda/K/H that NCBI blastn 2.12.0+ prints for ungapped searches: +1/−3 → 1.374 / 0.711 / 1.31,
-    /// +2/−3 → 0.634 / 0.408 / 0.912, +1/−2 → 1.33 / 0.621 / 1.12. K is computed on the reduced lattice, so it is
-    /// invariant under multiplying all scores by an integer (λ scales by its inverse) as the theory requires;
-    /// BLAST+ 2.12 indexes the probabilities by the unreduced offset when δ &gt; 1 (e.g. it prints K = 1.17 for
-    /// +4/−6 although +2/−3 gives 0.408), which this port does not reproduce. <see cref="KarlinAltschulParameters.Alpha"/>
+    /// +2/−3 → 0.634 / 0.408 / 0.912, +1/−2 → 1.33 / 0.621 / 1.12. By default (<see cref="KarlinKMethod.ReducedLattice"/>)
+    /// K is computed on the reduced lattice, so it is invariant under multiplying all scores by an integer (λ scales by
+    /// its inverse) as the theory requires; BLAST+ indexes the series' probabilities by the reduced offset from the
+    /// unreduced lowest score when δ &gt; 1 (blastn 2.12.0+ prints K = 1.17 for +4/−6 although +2/−3 gives 0.408) —
+    /// <see cref="KarlinKMethod.NcbiBlast"/> reproduces that value exactly. <see cref="KarlinAltschulParameters.Alpha"/>
     /// = λ/H and <see cref="KarlinAltschulParameters.Beta"/> = BLAST+ <c>s_GetUngappedBeta</c> (−2 for +1/−1 and
     /// +2/−3, else 0).
     /// </remarks>
     /// <param name="match">Match score (&gt; 0).</param>
     /// <param name="mismatch">Mismatch score (&lt; 0).</param>
     /// <param name="baseFrequency">Per-base frequency, p(match) = 4·p² (default 0.25; must lie in (0, 0.5)).</param>
+    /// <param name="kMethod">
+    /// K for schemes whose scores share a divisor δ &gt; 1: <see cref="KarlinKMethod.ReducedLattice"/> (default,
+    /// scale-invariant per Karlin &amp; Altschul 1990) or <see cref="KarlinKMethod.NcbiBlast"/> (BLAST+ indexing,
+    /// as blastn prints it: +4/−6 → 1.1666856431064105). Identical for δ = 1.
+    /// </param>
     /// <exception cref="ArgumentOutOfRangeException">λ undefined (no positive score, non-negative mismatch or
-    /// non-negative expected score) or a base frequency outside (0, 0.5).</exception>
+    /// non-negative expected score), a score at or beyond BLAST+'s BLAST_SCORE_MIN / BLAST_SCORE_MAX (INT2 limits, exclusive), a base
+    /// frequency outside (0, 0.5), or an undefined <paramref name="kMethod"/>.</exception>
     public static KarlinAltschulParameters ComputeUngappedKarlinParameters(
-        int match, int mismatch, double baseFrequency = UniformBaseFrequency)
+        int match, int mismatch, double baseFrequency = UniformBaseFrequency,
+        KarlinKMethod kMethod = KarlinKMethod.ReducedLattice)
     {
-        ValidateMatchMismatch(match, mismatch);
-        return UngappedKarlinParameters(match, mismatch, MatchProbability(baseFrequency));
+        ValidateMatchMismatch(match, mismatch, nameof(match), nameof(mismatch));
+        return UngappedKarlinParameters(match, mismatch, MatchProbability(baseFrequency), kMethod, nameof(mismatch));
     }
 
     /// <summary>
     /// Ungapped Karlin–Altschul parameters for a match/mismatch scheme under an arbitrary base composition
     /// (Σ_{i,j} p_i p_j e^{λ s_ij} = 1 with p(match) = Σ p_i²), computed as in
-    /// <see cref="ComputeUngappedKarlinParameters(int, int, double)"/>.
+    /// <see cref="ComputeUngappedKarlinParameters(int, int, double, KarlinKMethod)"/>.
     /// </summary>
     /// <param name="match">Match score (&gt; 0).</param>
     /// <param name="mismatch">Mismatch score (&lt; 0).</param>
     /// <param name="baseFrequencies">Frequencies of A, C, G, T (four finite non-negative values with a positive sum;
     /// normalized to sum 1 as BLAST+ <c>BlastScoreFreqCalc</c> normalizes the score probabilities).</param>
+    /// <param name="kMethod">K for schemes whose scores share a divisor &gt; 1 (default
+    /// <see cref="KarlinKMethod.ReducedLattice"/>; <see cref="KarlinKMethod.NcbiBlast"/> = BLAST+ indexing).</param>
     /// <exception cref="ArgumentNullException"><paramref name="baseFrequencies"/> is null.</exception>
     /// <exception cref="ArgumentException">Not exactly four frequencies, a negative/non-finite one, or a zero sum.</exception>
-    /// <exception cref="ArgumentOutOfRangeException">λ undefined for the scheme and composition.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">λ undefined for the scheme and composition, a score outside
+    /// BLAST+'s score range (<c>BlastScoreBlkMaxScoreSet</c>, blast_stat.h INT2 limits, exclusive): a match score ≥ 32767 (BLAST_SCORE_MAX) or a mismatch score ≤ −32768 (BLAST_SCORE_MIN) (ParamName <c>match</c> / <c>mismatch</c>), or an undefined <paramref name="kMethod"/>.</exception>
     public static KarlinAltschulParameters ComputeUngappedKarlinParameters(
-        int match, int mismatch, IReadOnlyList<double> baseFrequencies)
+        int match, int mismatch, IReadOnlyList<double> baseFrequencies,
+        KarlinKMethod kMethod = KarlinKMethod.ReducedLattice)
     {
         ArgumentNullException.ThrowIfNull(baseFrequencies);
         if (baseFrequencies.Count != 4)
@@ -2613,12 +3083,12 @@ public static class ProbeDesigner
         if (!(sum > 0))
             throw new ArgumentException("Base frequencies must have a positive sum.", nameof(baseFrequencies));
 
-        ValidateMatchMismatch(match, mismatch);
+        ValidateMatchMismatch(match, mismatch, nameof(match), nameof(mismatch));
         double pMatch = sumSquares / (sum * sum);
         if (!(pMatch < 1.0))
             throw new ArgumentOutOfRangeException(nameof(baseFrequencies),
                 "Karlin–Altschul λ is undefined: a single-base composition has no mismatch (expected score not negative).");
-        return UngappedKarlinParameters(match, mismatch, pMatch);
+        return UngappedKarlinParameters(match, mismatch, pMatch, kMethod, nameof(mismatch));
     }
 
     /// <summary>
@@ -2636,22 +3106,39 @@ public static class ProbeDesigner
     /// <param name="penalty">Mismatch penalty (&lt; 0).</param>
     /// <param name="gapOpen">Gap existence cost (≥ 0; a gap of length k costs gapOpen + k·gapExtend).</param>
     /// <param name="gapExtend">Gap extension cost (≥ 0).</param>
-    /// <exception cref="ArgumentOutOfRangeException">Non-positive reward, non-negative penalty or negative gap costs.</exception>
+    /// <param name="kMethod">
+    /// K of the ungapped block copied in the infinite gap-cost domain for a scheme whose scores share a divisor &gt; 1:
+    /// <see cref="KarlinKMethod.NcbiBlast"/> (default — what BLAST+ copies; blastn +4/−6 gap 12/8 prints "Gapped …
+    /// 0.317 1.17 0.912") or <see cref="KarlinKMethod.ReducedLattice"/> (scale-invariant). The tabulated rows are unaffected.
+    /// </param>
+    /// <exception cref="ArgumentOutOfRangeException">Non-positive reward, non-negative penalty, a reward ≥ 32767 or penalty
+    /// ≤ −32768 (BLAST+'s score range, <c>BlastScoreBlkMaxScoreSet</c>, blast_stat.h INT2 limits, exclusive; ParamName
+    /// <c>reward</c> / <c>penalty</c>), negative gap costs or an undefined <paramref name="kMethod"/>.</exception>
     /// <exception cref="ArgumentException">A reward/penalty or gap-cost combination BLAST+ does not support.</exception>
     public static KarlinAltschulParameters GetBlastnGappedKarlinParameters(
-        int reward, int penalty, int gapOpen, int gapExtend)
+        int reward, int penalty, int gapOpen, int gapExtend, KarlinKMethod kMethod = KarlinKMethod.NcbiBlast)
     {
-        ValidateMatchMismatch(reward, penalty);
+        ValidateMatchMismatch(reward, penalty, nameof(reward), nameof(penalty));
         if (gapOpen < 0)
             throw new ArgumentOutOfRangeException(nameof(gapOpen), "Gap existence cost cannot be negative.");
         if (gapExtend < 0)
             throw new ArgumentOutOfRangeException(nameof(gapExtend), "Gap extension cost cannot be negative.");
+        return BlastnGappedKarlinParameters(
+            reward, penalty, gapOpen, gapExtend, kMethod, nameof(reward), nameof(penalty), nameof(gapOpen));
+    }
+
+    // GetBlastnGappedKarlinParameters after the argument checks; rewardParam/penaltyParam/gapParam are the public
+    // caller's parameter names for an unsupported scheme or gap-cost combination (A9-1).
+    private static KarlinAltschulParameters BlastnGappedKarlinParameters(
+        int reward, int penalty, int gapOpen, int gapExtend, KarlinKMethod kMethod,
+        string rewardParam, string penaltyParam, string gapParam)
+    {
 
         int divisor = Gcd(reward, -penalty);
         if (!BlastnValueTables.TryGetValue((reward / divisor, penalty / divisor), out var table))
             throw new ArgumentException(
                 $"Substitution scores {reward} and {penalty} are not supported by NCBI BLAST+ blastn statistics.",
-                nameof(reward));
+                rewardParam);
 
         // s_SplitArrayOf8: a leading {0, 0} row is the non-affine entry; the remaining rows are the affine ones.
         bool split = table.Rows[0][0] == 0 && table.Rows[0][1] == 0;
@@ -2679,7 +3166,8 @@ public static class ProbeDesigner
         if (gapOpen >= table.GapOpenMax * divisor && gapExtend >= table.GapExtendMax * divisor)
         {
             // Infinite gap-cost domain: Blast_KarlinBlkCopy(kbp, kbp_ungap); α/β fall back to the ungapped values.
-            var ungapped = UngappedKarlinParameters(reward, penalty, MatchProbability(UniformBaseFrequency));
+            var ungapped = UngappedKarlinParameters(
+                reward, penalty, MatchProbability(UniformBaseFrequency), kMethod, penaltyParam);
             return ungapped with { RoundDown = table.RoundDown, Gapped = true };
         }
 
@@ -2688,7 +3176,7 @@ public static class ProbeDesigner
             $"{reward} and {penalty}; supported: " +
             string.Join(", ", normal.Select(r => $"{(int)r[0] * divisor}/{(int)r[1] * divisor}")) +
             $", or any values at least {table.GapOpenMax * divisor}/{table.GapExtendMax * divisor}.",
-            nameof(gapOpen));
+            gapParam);
     }
 
     /// <summary>
@@ -2783,7 +3271,7 @@ public static class ProbeDesigner
 
     /// <summary>
     /// NCBI BLAST+ blastn statistics of an alignment score: the Karlin–Altschul parameters of the scoring scheme
-    /// (gapped: <see cref="GetBlastnGappedKarlinParameters"/>; ungapped: <see cref="ComputeUngappedKarlinParameters(int, int, double)"/>),
+    /// (gapped: <see cref="GetBlastnGappedKarlinParameters"/>; ungapped: <see cref="ComputeUngappedKarlinParameters(int, int, double, KarlinKMethod)"/>),
     /// the edge-effect length adjustment (<see cref="ComputeLengthAdjustment"/>), the effective search space
     /// (m − ℓ)·max(1, n − N·ℓ) (<c>BLAST_CalcEffLengths</c>), the bit score S' = (λS − ln K)/ln 2 and the E-value
     /// E = K·(m − ℓ)(n − N·ℓ)·e^{−λS}, with odd gapped scores rounded down to even for the E-value where the BLAST+
@@ -2794,6 +3282,10 @@ public static class ProbeDesigner
     /// ℓ = 11, effective search space 88972, raw score 80 → 73.4 bits, E = 7e-18; a raw score of 15 is evaluated as 14.
     /// The scoring follows <see cref="ScoringMatrix"/>'s convention (gap of length k = GapOpen + k·GapExtend),
     /// so BLAST's gap existence/extension costs are −GapOpen/−GapExtend.
+    /// Ungapped statistics of a reward/penalty scheme whose gcd-reduced form has no BLAST+ <c>blastn_values_*</c> table
+    /// (e.g. +3/−5, +1/−6, +2/−1, +6/−10) use α = β = 0 as BLAST+ does (<c>Blast_GetNuclAlphaBeta</c> fails and
+    /// <c>BLAST_CalcEffLengths</c> keeps its zero initial values), so ℓ = 0 and the search space is m·n: blastn 2.12.0+
+    /// -ungapped, 73-nt query vs 446-nt subject → 32558 for all of them, while a tabulated scheme (+2/−3) gives 28470.
     /// </remarks>
     /// <param name="rawScore">Raw alignment score S (e.g. <see cref="CrossHybridizationAssessment.AlignmentScore"/>).</param>
     /// <param name="queryLength">Query (probe) length m (&gt; 0).</param>
@@ -2801,15 +3293,24 @@ public static class ProbeDesigner
     /// <param name="databaseSequenceCount">Number of database sequences N (≥ 1; default 1, a single subject).</param>
     /// <param name="scoring">Scoring scheme (default <see cref="SequenceAligner.BlastDna"/>: +2/−3, gap 5/2).</param>
     /// <param name="gapped">Gapped statistics (default true, as blastn); false for ungapped HSP scores.</param>
-    /// <exception cref="ArgumentOutOfRangeException">Non-positive lengths/count, or positive gap scores.</exception>
-    /// <exception cref="ArgumentException">A scoring scheme BLAST+ has no gapped statistics for.</exception>
+    /// <param name="kMethod">
+    /// Ungapped K for a scheme whose scores share a divisor &gt; 1 (ungapped statistics, or gapped in the infinite
+    /// gap-cost domain): <see cref="KarlinKMethod.NcbiBlast"/> (default — blastn's own value; +4/−6 ungapped prints
+    /// K 1.17, effective search space 573996 for a 200-nt query vs a 3100-nt subject) or
+    /// <see cref="KarlinKMethod.ReducedLattice"/> (scale-invariant K, = the reduced scheme's). No effect for δ = 1.
+    /// </param>
+    /// <exception cref="ArgumentOutOfRangeException">Non-positive lengths/count, positive gap scores, an undefined
+    /// <paramref name="kMethod"/>, or (ParamName <c>scoring</c>) a non-positive match, non-negative mismatch, a
+    /// non-negative expected score (ungapped) or a score outside BLAST+'s score range (<c>BlastScoreBlkMaxScoreSet</c>, blast_stat.h INT2 limits, exclusive): a match score ≥ 32767 (BLAST_SCORE_MAX) or a mismatch score ≤ −32768 (BLAST_SCORE_MIN).</exception>
+    /// <exception cref="ArgumentException">A scoring scheme BLAST+ has no gapped statistics for (ParamName <c>scoring</c>).</exception>
     public static BlastnStatistics ComputeBlastnStatistics(
         int rawScore,
         int queryLength,
         long databaseLength,
         int databaseSequenceCount = 1,
         ScoringMatrix? scoring = null,
-        bool gapped = true)
+        bool gapped = true,
+        KarlinKMethod kMethod = KarlinKMethod.NcbiBlast)
     {
         var matrix = scoring ?? SequenceAligner.BlastDna;
         if (queryLength <= 0)
@@ -2821,9 +3322,18 @@ public static class ProbeDesigner
         if (matrix.GapOpen > 0 || matrix.GapExtend > 0)
             throw new ArgumentOutOfRangeException(nameof(scoring), "Gap scores must be non-positive (penalties).");
 
+        ValidateMatchMismatch(matrix.Match, matrix.Mismatch, nameof(scoring), nameof(scoring));
         KarlinAltschulParameters p = gapped
-            ? GetBlastnGappedKarlinParameters(matrix.Match, matrix.Mismatch, -matrix.GapOpen, -matrix.GapExtend)
-            : ComputeUngappedKarlinParameters(matrix.Match, matrix.Mismatch);
+            ? BlastnGappedKarlinParameters(matrix.Match, matrix.Mismatch, -matrix.GapOpen, -matrix.GapExtend, kMethod,
+                nameof(scoring), nameof(scoring), nameof(scoring))
+            : UngappedKarlinParameters(
+                matrix.Match, matrix.Mismatch, MatchProbability(UniformBaseFrequency), kMethod, nameof(scoring));
+
+        // Blast_GetNuclAlphaBeta returns s_GetNuclValuesArray's error status without setting α/β when the reduced
+        // reward/penalty has no blastn_values_* table; BLAST_CalcEffLengths ignores the status and keeps its
+        // initial α = β = 0, so ℓ = 0 (ungapped only — a gapped search with such a scheme is rejected above).
+        if (!gapped && !HasBlastnValueTable(matrix.Match, matrix.Mismatch))
+            p = p with { Alpha = 0, Beta = 0 };
 
         int adjustment = ComputeLengthAdjustment(
             p.K, p.Alpha / p.Lambda, p.Beta, queryLength, databaseLength, databaseSequenceCount);
@@ -2847,14 +3357,16 @@ public static class ProbeDesigner
     /// search space: m = probe length, n = subject length, N = 1). The alignment is the canonical affine
     /// Smith–Waterman–Gotoh <see cref="SequenceAligner.LocalAlignAffine(string, string, ScoringMatrix?)"/> — the same
     /// optimal local score <see cref="AssessCrossHybridization"/> reports — and its score is evaluated by
-    /// <see cref="ComputeBlastnStatistics(int, int, long, int, ScoringMatrix?, bool)"/> with gapped parameters.
+    /// <see cref="ComputeBlastnStatistics(int, int, long, int, ScoringMatrix?, bool, KarlinKMethod)"/> with gapped parameters.
     /// Only the given strand is aligned; pass the reverse complement for the other strand.
     /// </summary>
     /// <param name="probeSequence">Probe (query) sequence (non-empty).</param>
     /// <param name="subjectSequence">Subject (off-target) sequence (non-empty).</param>
     /// <param name="scoring">Scoring scheme (default <see cref="SequenceAligner.BlastDna"/>).</param>
     /// <exception cref="ArgumentNullException">A null sequence.</exception>
-    /// <exception cref="ArgumentException">An empty sequence or an unsupported scoring scheme.</exception>
+    /// <exception cref="ArgumentException">An empty sequence or an unsupported scoring scheme (ParamName <c>scoring</c>).</exception>
+    /// <exception cref="ArgumentOutOfRangeException">(ParamName <c>scoring</c>) a non-positive match, non-negative mismatch,
+    /// positive gap scores, or a score outside BLAST+'s score range (<c>BlastScoreBlkMaxScoreSet</c>, blast_stat.h INT2 limits, exclusive): a match score ≥ 32767 (BLAST_SCORE_MAX) or a mismatch score ≤ −32768 (BLAST_SCORE_MIN).</exception>
     public static BlastnStatistics ComputeBlastnStatistics(
         string probeSequence, string subjectSequence, ScoringMatrix? scoring = null)
     {
@@ -2866,19 +3378,35 @@ public static class ProbeDesigner
             throw new ArgumentException("Subject sequence cannot be empty.", nameof(subjectSequence));
 
         var matrix = scoring ?? SequenceAligner.BlastDna;
+        ValidateMatchMismatch(matrix.Match, matrix.Mismatch, nameof(scoring), nameof(scoring));
         var (score, _, _, _) = BestLocalAlignment(
             probeSequence.ToUpperInvariant(), subjectSequence.ToUpperInvariant(), matrix);
         return ComputeBlastnStatistics(score, probeSequence.Length, subjectSequence.Length, 1, matrix, gapped: true);
     }
 
-    private static void ValidateMatchMismatch(int match, int mismatch)
+    // s_GetNuclValuesArray: is there a blastn_values_* table for the gcd-reduced reward/penalty?
+    private static bool HasBlastnValueTable(int reward, int penalty)
+    {
+        int divisor = Gcd(reward, -penalty);
+        return BlastnValueTables.ContainsKey((reward / divisor, penalty / divisor));
+    }
+
+    // matchParam/mismatchParam: the public caller's parameter names (match/mismatch, reward/penalty, or scoring for a
+    // ScoringMatrix argument), so each public method throws with its own ParamName (audit round 9, A9-1).
+    private static void ValidateMatchMismatch(int match, int mismatch, string matchParam, string mismatchParam)
     {
         if (match <= 0)
-            throw new ArgumentOutOfRangeException(nameof(match),
+            throw new ArgumentOutOfRangeException(matchParam,
                 "Karlin–Altschul λ is undefined: the scoring scheme must have at least one positive score.");
         if (mismatch >= 0)
-            throw new ArgumentOutOfRangeException(nameof(mismatch),
+            throw new ArgumentOutOfRangeException(mismatchParam,
                 "Karlin–Altschul λ is undefined: the mismatch score must be negative.");
+        // BLAST+ blast_stat.h: BLAST_SCORE_MIN = INT2_MIN, BLAST_SCORE_MAX = INT2_MAX (one-letter comparison scores).
+        // BlastScoreBlkMaxScoreSet skips scores <= BLAST_SCORE_MIN or >= BLAST_SCORE_MAX, so the limits are exclusive.
+        if (match >= short.MaxValue)
+            throw new ArgumentOutOfRangeException(matchParam, "Match score must be below BLAST_SCORE_MAX (32767).");
+        if (mismatch <= short.MinValue)
+            throw new ArgumentOutOfRangeException(mismatchParam, "Mismatch score must be above BLAST_SCORE_MIN (−32768).");
     }
 
     // p(match) = 4·p² for four equiprobable bases of frequency p (p must keep it a probability in (0, 1)).
@@ -2890,12 +3418,17 @@ public static class ProbeDesigner
     }
 
     // Blast_KarlinBlkUngappedCalc for the two-score distribution {match: pMatch, mismatch: 1 − pMatch}.
-    private static KarlinAltschulParameters UngappedKarlinParameters(int match, int mismatch, double pMatch)
+    // mismatchParam: the public caller's parameter name reported when the expected score is not negative (A9-1).
+    private static KarlinAltschulParameters UngappedKarlinParameters(
+        int match, int mismatch, double pMatch, KarlinKMethod kMethod, string mismatchParam)
     {
+        if (kMethod is not (KarlinKMethod.ReducedLattice or KarlinKMethod.NcbiBlast))
+            throw new ArgumentOutOfRangeException(nameof(kMethod), kMethod, "Unknown K method.");
+
         double pMismatch = 1.0 - pMatch;
         double expected = pMatch * match + pMismatch * mismatch;
         if (expected >= 0)
-            throw new ArgumentOutOfRangeException(nameof(mismatch),
+            throw new ArgumentOutOfRangeException(mismatchParam,
                 "Karlin–Altschul λ is undefined: the expected per-pair score must be negative.");
 
         double lambda = SolveLambda(pMatch, match, pMismatch, mismatch);
@@ -2904,13 +3437,18 @@ public static class ProbeDesigner
         double h = lambda * (pMatch * match * Math.Exp(lambda * match) + pMismatch * mismatch * Math.Exp(lambda * mismatch));
 
         // BlastKarlinLHtoK on the lattice reduced by δ = gcd(match, −mismatch): scores low = mismatch/δ … high = match/δ,
-        // λ·δ, mean score / δ (H is scale-invariant).
+        // λ·δ, mean score / δ (H is scale-invariant). The closed forms read the true probabilities of the lowest and
+        // highest scores; the series reads seriesProb[j], j = 0 … high − low:
+        //  - ReducedLattice: the reduced lattice (seriesProb[j] = probability of reduced score low + j);
+        //  - NcbiBlast: BLAST+'s probArrayStartLow, the UNREDUCED array (seriesProb[j] = probability of the unreduced
+        //    score mismatch + j), which BlastKarlinLHtoK indexes with the reduced offsets.
         int delta = Gcd(match, -mismatch);
         int low = mismatch / delta, high = match / delta;
-        var prob = new double[high - low + 1];
-        prob[0] = pMismatch;
-        prob[high - low] = pMatch;
-        double k = KarlinLHtoK(prob, low, high, lambda * delta, h, expected / delta);
+        int seriesSpan = kMethod == KarlinKMethod.NcbiBlast ? match - mismatch : high - low;
+        var seriesProb = new double[seriesSpan + 1];
+        seriesProb[0] = pMismatch;
+        seriesProb[seriesSpan] = pMatch;
+        double k = KarlinLHtoK(seriesProb, pMismatch, pMatch, low, high, lambda * delta, h, expected / delta);
 
         double beta = (match == 1 && mismatch == -1) || (match == 2 && mismatch == -3) ? -2.0 : 0.0;
         return new KarlinAltschulParameters(lambda, k, h, lambda / h, beta, RoundDown: false, Gapped: false);
@@ -2933,18 +3471,18 @@ public static class ProbeDesigner
         return 0.5 * (lo + hi);
     }
 
-    // BlastKarlinLHtoK (blast_stat.c) on a gcd-1 lattice: prob[j] is the probability of score low + j.
-    private static double KarlinLHtoK(double[] prob, int low, int high, double lambda, double h, double scoreAverage)
+    // BlastKarlinLHtoK (blast_stat.c) after the gcd reduction: low/high/λ/mean are the reduced values, pLow/pHigh the
+    // probabilities of the lowest/highest score (closed forms, sprob[low·δ]/sprob[high·δ]) and prob[j], j = 0 … high − low,
+    // the score probabilities the series reads (probArrayStartLow[j]).
+    private static double KarlinLHtoK(
+        double[] prob, double pLow, double pHigh, int low, int high, double lambda, double h, double scoreAverage)
     {
         int range = high - low;
         double firstTermClosedForm = h / lambda;
         double expMinusLambda = Math.Exp(-lambda);
 
         if (low == -1 && high == 1)
-        {
-            double pLow = prob[0], pHigh = prob[range];
             return (pLow - pHigh) * (pLow - pHigh) / pLow;
-        }
 
         if (low == -1 || high == 1)
         {
@@ -3007,11 +3545,12 @@ public static class ProbeDesigner
 
     private static int Gcd(int a, int b)
     {
-        a = Math.Abs(a);
-        b = Math.Abs(b);
-        while (b != 0)
-            (a, b) = (b, a % b);
-        return a;
+        // long: |int.MinValue| (e.g. -penalty for penalty = int.MinValue) does not fit in int. The result divides a
+        // validated positive int, so it fits.
+        long x = Math.Abs((long)a), y = Math.Abs((long)b);
+        while (y != 0)
+            (x, y) = (y, x % y);
+        return (int)x;
     }
 
     #endregion
@@ -3025,13 +3564,15 @@ public static class ProbeDesigner
     /// G+C fraction, single-stranded molecular weight (<see cref="CalculateMolecularWeight(string)"/>) and the
     /// mononucleotide-sum ε260 (<see cref="CalculateExtinctionCoefficient(string)"/>).
     /// </summary>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> is null.</exception>
     public static (double Tm, double GcContent, double MolecularWeight, double ExtinctionCoefficient)
         AnalyzeOligo(string sequence)
     {
+        ArgumentNullException.ThrowIfNull(sequence);
         sequence = sequence.ToUpperInvariant();
 
-        double tm = CalculateProbeTm(sequence, Defaults.Microarray);
-        double gc = CalculateGcContent(sequence);
+        double tm = CalculateProbeTm(sequence, Primer3ProbeConditions);
+        double gc = sequence.CalculateGcFractionFast();
         double mw = CalculateMolecularWeight(sequence);
         double extinction = CalculateExtinctionCoefficient(sequence);
 
@@ -3069,8 +3610,12 @@ public static class ProbeDesigner
     /// (A 15400, C 7400, G 11500, T 8700, U 9900; any other symbol 10000). This ignores base-stacking
     /// hypochromicity; the nearest-neighbour value is <see cref="CalculateExtinctionCoefficientNearestNeighbor"/>.
     /// </summary>
+    /// <returns>ε260 in M⁻¹·cm⁻¹; 0 for a null or empty sequence (as <see cref="CalculateExtinctionCoefficientNearestNeighbor"/>
+    /// and <see cref="CalculateMolecularWeight(string)"/>).</returns>
     public static double CalculateExtinctionCoefficient(string sequence)
     {
+        if (string.IsNullOrEmpty(sequence))
+            return 0;
         double coefficient = 0;
         sequence = sequence.ToUpperInvariant();
 
@@ -3154,27 +3699,31 @@ public static class ProbeDesigner
     }
 
     /// <summary>
-    /// Calculates concentration from absorbance.
+    /// Oligonucleotide concentration from absorbance by the Beer–Lambert law, A = ε·c·l ⇒ c = A / (ε·l).
     /// </summary>
+    /// <param name="absorbance260">Absorbance at 260 nm (finite; blank-subtracted readings may be ≤ 0).</param>
+    /// <param name="extinctionCoefficient">Molar extinction coefficient ε₂₆₀ in L·mol⁻¹·cm⁻¹ (finite, &gt; 0),
+    /// e.g. from <see cref="CalculateExtinctionCoefficient"/>.</param>
+    /// <param name="pathLength">Optical path length l in cm (finite, &gt; 0; default 1).</param>
+    /// <returns>Concentration in µM (mol/L × 10⁶).</returns>
+    /// <exception cref="ArgumentOutOfRangeException">A non-finite argument, or ε or l ≤ 0 (c undefined).</exception>
     public static double CalculateConcentration(
         double absorbance260,
         double extinctionCoefficient,
         double pathLength = 1.0)
     {
-        // Beer-Lambert law: A = εcl
-        // c = A / (ε * l)
-        return absorbance260 / (extinctionCoefficient * pathLength) * 1e6; // µM
+        if (!double.IsFinite(absorbance260))
+            throw new ArgumentOutOfRangeException(nameof(absorbance260), "Absorbance must be finite.");
+        if (!double.IsFinite(extinctionCoefficient) || extinctionCoefficient <= 0)
+            throw new ArgumentOutOfRangeException(nameof(extinctionCoefficient), "Extinction coefficient must be finite and positive.");
+        if (!double.IsFinite(pathLength) || pathLength <= 0)
+            throw new ArgumentOutOfRangeException(nameof(pathLength), "Path length must be finite and positive.");
+        return absorbance260 / (extinctionCoefficient * pathLength) * 1e6;
     }
 
     #endregion
 
     #region Helper Methods
-
-    // thal.c THAL_MAX_ALIGN: ntthal cannot align two strands both longer than 60 nt (self-dimer, hairpin).
-    private const int NtthalMaxLength = 60;
-
-    private static double CalculateGcContent(string sequence) =>
-        sequence.Length > 0 ? sequence.CalculateGcFractionFast() : 0;
 
     // Probe Tm = Primer3 seqtm at the parameters' hybridization conditions (NaN when not computable).
     private static double CalculateProbeTm(string sequence, ProbeParameters param) =>
@@ -3183,7 +3732,21 @@ public static class ProbeDesigner
             param.DnaConcentrationNanomolar,
             param.MonovalentMillimolar,
             param.DivalentMillimolar,
-            param.DntpMillimolar);
+            param.DntpMillimolar,
+            param.MaxNearestNeighborLength);
+
+    // Primer3 hybridization-probe (internal-oligo) conditions 50 nM / 50 mM / 0 Mg²⁺ / 0 dNTP, nearest-neighbour Tm up to
+    // 36 nt, with the remaining settings of the Microarray preset (thermodynamic screen, 47 °C): the default conditions of
+    // ValidateProbe, AssessCrossHybridization, DesignMolecularBeacon and AnalyzeOligo (the Microarray preset's own
+    // conditions are OligoArray's 1 M / 1 µM since A3-10).
+    private static ProbeParameters Primer3ProbeConditions => Defaults.Microarray with
+    {
+        DnaConcentrationNanomolar = PrimerDesigner.Primer3InternalDnaConcentrationNanomolar,
+        MonovalentMillimolar = PrimerDesigner.Primer3InternalMonovalentMillimolar,
+        DivalentMillimolar = PrimerDesigner.Primer3InternalDivalentMillimolar,
+        DntpMillimolar = PrimerDesigner.Primer3InternalDntpMillimolar,
+        MaxNearestNeighborLength = PrimerDesigner.Primer3MaxNnTmLength
+    };
 
     private static double CalculateSelfComplementarity(string sequence)
     {
@@ -3199,32 +3762,28 @@ public static class ProbeDesigner
         return matches / (double)sequence.Length;
     }
 
-    private static bool HasSecondaryStructurePotential(string sequence)
+    // Fallback hairpin criterion (> ThermodynamicScreenMaxLength nt, non-ACGT, ProbeStructureScreen.Heuristic): the
+    // canonical sequence-only stem-loop screen PrimerDesigner.HasHairpinPotential with its defaults — an exactly
+    // complementary stem of ≥ 4 bp (library convention, F49) closing a loop of ≥ 3 nt (thal.c min_hrpn_loop = 3) —
+    // in place of the former private scan that tested a loop of exactly 3 nt with an unsourced ≥ 80 % stem match
+    // (audit round 5, A5-2).
+    private static bool HasSecondaryStructurePotential(string sequence) => PrimerDesigner.HasHairpinPotential(sequence);
+
+    // Eager ProbeParameters checks of the designers (heavy tier, HEAVY-2): MinLength < 1 crashed the window scan
+    // (IndexOutOfRange) and illegal conditions surfaced lazily from the Tm with a foreign parameter name. Primer3
+    // _pr_data_control: PRIMER_INTERNAL_MIN_SIZE must be >= 1 (checked only where MinLength is used), PRIMER_INTERNAL_SALT_
+    // MONOVALENT / DNA_CONC > 0, SALT_DIVALENT / DNTP_CONC >= 0 (canonical ValidatePrimer3Conditions); the Tm's
+    // max_nn_length must be >= 0; plus the ranking optima and THAL_MAX_ALIGN range.
+    private static void ValidateDesignParameters(ProbeParameters param, string paramName, bool checkLengths)
     {
-        // Check for inverted repeats that could form hairpins
-        int halfLen = sequence.Length / 2;
-
-        for (int stemLen = 4; stemLen <= halfLen; stemLen++)
-        {
-            for (int i = 0; i <= sequence.Length - stemLen * 2 - 3; i++)
-            {
-                string left = sequence.Substring(i, stemLen);
-                string right = sequence.Substring(i + stemLen + 3, stemLen);
-                string rightRC = DnaSequence.GetReverseComplementString(right);
-
-                int matches = 0;
-                for (int j = 0; j < stemLen; j++)
-                {
-                    if (left[j] == rightRC[j])
-                        matches++;
-                }
-
-                if (matches >= stemLen * 0.8)
-                    return true;
-            }
-        }
-
-        return false;
+        if (checkLengths && param.MinLength < 1)
+            throw new ArgumentOutOfRangeException(paramName,
+                "PRIMER_INTERNAL_MIN_SIZE must be >= 1 (Primer3 _pr_data_control): MinLength must be at least 1.");
+        if (param.MaxNearestNeighborLength < 0)
+            throw new ArgumentOutOfRangeException(paramName, "MaxNearestNeighborLength (max_nn_length) cannot be negative.");
+        PrimerDesigner.ValidatePrimer3Conditions(param.MonovalentMillimolar, param.DivalentMillimolar,
+            param.DntpMillimolar, param.DnaConcentrationNanomolar, paramName);
+        ValidateThermodynamicScreenMaxLength(param, paramName);
     }
 
     // Simple-sequence repeat: a di- or trinucleotide microsatellite of ≥ 4 complete copies, found by the

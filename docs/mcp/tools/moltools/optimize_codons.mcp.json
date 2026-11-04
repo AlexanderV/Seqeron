@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "CodonOptimizer.OptimizeSequence",
-  "docRef": "Seqeron.Genomics.MolTools/CodonOptimizer.cs#L277",
+  "docRef": "Seqeron.Genomics.MolTools/CodonOptimizer.cs#L597",
   "description": "Optimize a coding sequence's synonymous codons for expression in a target organism using one of five strategies.",
   "inputSchema": {
     "type": "object",
@@ -22,13 +22,17 @@
       },
       "strategy": {
         "type": "string",
-        "description": "Optimization strategy.",
-        "enum": ["MaximizeCAI", "BalancedOptimization", "HarmonizeExpression", "MinimizeSecondary", "AvoidRareCodeons"],
+        "description": "Optimization strategy. AvoidRareCodons and its historical misspelling AvoidRareCodeons are the same value; names are matched case-insensitively.",
+        "enum": ["MaximizeCAI", "BalancedOptimization", "HarmonizeExpression", "MinimizeSecondary", "AvoidRareCodons", "AvoidRareCodeons"],
         "default": "BalancedOptimization"
       },
       "gc_target_min": { "type": "number", "description": "Lower GC fraction bound.", "minimum": 0, "maximum": 1, "default": 0.40 },
       "gc_target_max": { "type": "number", "description": "Upper GC fraction bound.", "minimum": 0, "maximum": 1, "default": 0.60 },
-      "rare_codon_threshold": { "type": "number", "description": "Rare-codon frequency threshold.", "default": 0.15 }
+      "rare_codon_threshold": { "type": "number", "description": "Rare-codon frequency threshold.", "default": 0.15 },
+      "secondary_scoring": { "type": "string", "description": "Window scoring model of the MinimizeSecondary structure pass: PairCount (default, canonical-pair fraction heuristic) or Turner2004Mfe (Turner 2004 nearest-neighbour free energy; thermodynamic but much slower). Ignored by the other strategies.", "enum": ["PairCount", "Turner2004Mfe"], "default": "PairCount" },
+      "gc_window": { "type": ["integer", "null"], "description": "Omitted/null (default): the GC pass constrains the GLOBAL GC fraction only (DNA Chisel EnforceGCContent(mini, maxi)). A positive window size in nucleotides instead constrains EVERY sliding window of that size to [gc_target_min, gc_target_max] (DNA Chisel EnforceGCContent(mini, maxi, window=...)), resolved by a deterministic greedy synonymous-codon repair.", "minimum": 1, "default": null },
+      "avoid_sites": { "type": ["array", "null"], "items": { "type": "string", "maxLength": 64 }, "description": "Omitted/null (default): no restriction-site avoidance. Recognition sequences (DNA or RNA, IUPAC codes allowed, same form as remove_restriction_sites) are cleared from the optimized sequence AFTER codon selection, the GC pass and the structure pass, so no later pass can re-introduce a site (DNA Chisel resolves the hard AvoidPattern constraints last). Both strands are cleared; each removal changes one codon; an unremovable occurrence is left in place. Each site is at most 64 characters (a longer one, or a non-IUPAC character, is refused whatever the sequence is); the pass is linear in the sequence length except that with a GC target every candidate is also scored against the whole sequence. For the strategies with a GC target (BalancedOptimization, MinimizeSecondary) the pass is GC-constraint-aware: it keeps gc_target_min/gc_target_max and every gc_window window satisfied whenever a site-removing synonymous codon can (ranking: GC feasibility, then codon frequency, then leftmost codon, then NCBI codon order); if none can, the least-breach candidate is used and the site is still removed. Reported CAI, GC and codon changes describe the final sequence.", "default": null },
+      "genetic_code": { "type": "integer", "description": "NCBI translation table number (default 1 = Standard). Defines the encoded protein and the synonymous-codon families (DNA Chisel EnforceTranslation(genetic_table=…)); under table 2 AGA/AGG are stops and never used for Arg, UGA is Trp, AUA is Met.", "enum": [1, 2, 3, 4, 5, 6, 9, 10, 11, 12, 13, 14, 15, 16, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33], "default": 1 }
     },
     "required": ["coding_sequence", "target_organism"]
   },
@@ -62,9 +66,18 @@
     { "code": 1001, "message": "Coding sequence cannot be null or empty" },
     { "code": 1002, "message": "GC target minimum/maximum must be a fraction in [0, 1]" },
     { "code": 1003, "message": "GC target minimum must not exceed the maximum" },
-    { "code": 1004, "message": "Unknown codon-usage preset" }
+    { "code": 1004, "message": "Unknown codon-usage preset" },
+    { "code": 1005, "message": "GC window must be a positive number of nucleotides" },
+    { "code": 1006, "message": "Unknown genetic code table: N. Supported NCBI tables: 1, 2, 3, 4, 5, 6, 9, 10, 11, 12, 13, 14, 15, 16, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33." },
+    { "code": 1007, "message": "Restriction site '…' contains a character that is not an IUPAC nucleotide code (from avoid_sites)" },
+    { "code": 1008, "message": "A restriction site is N characters long; the longest supported is 64. (from avoid_sites)" }
   ],
   "examples": [
+    {
+      "name": "Vertebrate mitochondrial gene (genetic_code 2)",
+      "input": { "coding_sequence": "AUGCGUAGACGCAGGUGAAUAUAA", "target_organism": { "preset": "EColiK12" }, "strategy": "MaximizeCAI", "genetic_code": 2 },
+      "output": { "optimizedSequence": "AUGCGCAGACGCAGGUGGAUGUAA", "proteinSequence": "MR*R*WM*" }
+    },
     {
       "name": "MaximizeCAI on rare E. coli leucines",
       "input": { "coding_sequence": "ATGTTACTTCTATAA", "target_organism": { "preset": "EColiK12" }, "strategy": "MaximizeCAI" },

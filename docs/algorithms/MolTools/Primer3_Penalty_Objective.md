@@ -150,11 +150,13 @@ Default weights and optima (Primer3 source / manual) [3][4]:
 
 ### 5.2 Current Behavior
 
-Reproduces the left/right-primer branch of Primer3 `p_obj_fn` for the core terms
-(Tm, size, GC%, self_any, self_end, num_ns). The legacy convenience `Score`
-(`CalculatePrimerScore`, used by `EvaluatePrimer`/`DesignPrimers`) is **kept unchanged**
-and available for backward compatibility; the new method is the validated, Primer3-anchored
-objective. No search/matching is involved, so the repository suffix tree is N/A here.
+Reproduces the left/right-primer and internal-oligo branches of Primer3 `p_obj_fn` with every per-oligo term
+(Tm, size, GC%, alignment- and thermodynamic-mode self_any / self_end / hairpin, num_ns, end_stability, failure_rate,
+seq_quality, bound, pos_penalty, library and template mispriming — §4.1, §5.3). It is the ranking objective:
+`EvaluatePrimer` reports it as `PrimerCandidate.Penalty`, and `DesignPrimers` / `DesignPrimerPairs` /
+`DesignProbesPrimer3` select by it. The additive `PrimerCandidate.Score` (`CalculatePrimerScore`) is only an
+informational 0–100 quality score kept for backward compatibility; it does not drive selection. No search/matching
+is involved, so the repository suffix tree is N/A here.
 
 ### 5.3 Conformance to Theory / Spec
 
@@ -228,7 +230,7 @@ which sums this per-primer penalty for the two primers; verified against primer3
 
 | # | Item | Type | Impact | Status | Notes |
 |---|------|------|--------|--------|-------|
-| 1 | self_any/self_end scores caller-supplied | Assumption | only when WT_SELF_* ≠ 0 (default 0) | accepted | ASM-01 |
+| 1 | A direct `CalculatePrimer3Penalty` call takes every measured value (Tm, structure scores, end stability, bound, position, quality, failure rate, library/template mispriming) from `Primer3PenaltyInputs` | Assumption | a caller passing values on another scale misweights the term (ASM-01) | accepted | `EvaluatePrimer` / `DesignPrimers` / `DesignProbesPrimer3` compute each input with the Primer3-exact library methods listed in §5.3 |
 
 ## 6. Edge Cases and Limitations
 
@@ -243,9 +245,11 @@ which sums this per-primer penalty for the two primers; verified against primer3
 
 ### 6.2 Limitations
 
-Per-primer only (no pair penalty); the failure-rate and sequence-quality terms take their values from the caller
-(`Primer3PenaltyInputs.MaskFailureRate` / `SequenceQuality`; `DesignPrimers` computes them, B07 F45). self_any/self_end alignment scores
-are caller-supplied (§5.3).
+This method is the per-oligo objective; the pair objective (`obj_fn`, PRIMER_PAIR_WT_*) is implemented in
+PRIMER-DESIGN-001 (`DesignPrimers` / `DesignPrimerPairs`, §5.3 "Implemented elsewhere"). A direct call scores the
+values it is given (§5.4 #1); `EvaluatePrimer` / `DesignPrimers` / `DesignProbesPrimer3` compute all of them
+(dpal / ntthal structure, `end_oligodg`, fraction bound, position penalty, sequence quality, masker failure rate,
+library and template mispriming — B07 F38–F45).
 
 ## 7. Examples and Related Material
 

@@ -79,6 +79,18 @@
 4. Above the last cutoff: `int(np.ceil(_log2_ratio_to_absolute_pure(row.log2, ref_copies)))` — Python ints are unbounded (log2 30 → 2147483648 = 2^31) and `int(np.ceil(inf))` raises `OverflowError`.
 5. Faithful Python port of `absolute_threshold` + `do_call` rounding (ploidy 2, default cutoffs): −2→0, −1.1→0, −1→1, −0.25→1, 0→2, 0.2→2, log2(1.5)→3, 0.7→3, 0.8→4, 1→4, 2→8, NaN→2, 29.9→2003673093, 30→2147483648, −∞→0; ploidy 3: 0→2, 0.8→6, 1.0→6.
 
+### CNVkit purity path — re-verification 2026-10-09 (B24 F28/F29)
+
+**URL:** https://raw.githubusercontent.com/etal/cnvkit/master/cnvlib/call.py (`do_call`, `absolute_clonal`, `absolute_dataframe`, `_log2_ratio_to_absolute`, `log2_ratios`, `get_as_dframe_and_set_reference_and_expect_copies`) and `cnvlib/commands.py` (`purity_value`); numeric reference CNVkit 0.9.14 (`pip install cnvkit`, `call.do_call(CopyNumArray(chr1 rows), method="threshold", ploidy, purity)`), 2026-10-09.
+
+1. `do_call`: `if purity and purity < 1.0:` → `absolutes = absolute_clonal(...)` (per row `_log2_ratio_to_absolute(log2, reference, expect, purity)`), then `outarr["log2"] = log2_ratios(outarr, absolutes, ploidy, ...)`, then (method threshold) `absolute_threshold` on the rescaled log2. Purity 1 / None skips rescaling.
+2. `_log2_ratio_to_absolute`: `ncopies = (ref_copies * 2**log2_ratio - expect_copies * (1 - purity)) / purity`; `max(0.0, ncopies)` unless NaN (#503); `purity == 1` → `_log2_ratio_to_absolute_pure` (`ref_copies * 2**log2_ratio`).
+3. `log2_ratios`: `np.log2(np.maximum(absolutes / ploidy, 1e-3))` (+1 on chrY, and chrX for a haploid-X reference). Autosomes: reference = expect = ploidy; chrX reference = ploidy//2 for a male reference, expect = ploidy (female) or ploidy//2 (male); chrY reference ploidy//2, expect 0 (female) or ploidy//2.
+4. `commands.py` `purity_value`: "purity must be in (0, 1]".
+5. NaN: 0.9.14 `absolute_dataframe` leaves NaN → rescaled log2 NaN → `absolute_threshold` NaN branch → reference copies (CN 2). (Master replaces NaN absolute by the reference → log2 0 → CN 2 for default cutoffs: same result.)
+6. CNVkit 0.9.14 `do_call` (ploidy 2, default cutoffs) — `cn`: purity 0.7: −1.0→0 (absolute 0.5714285714285713, rescaled log2 −1.8073549220576044), −0.2→1, 0.15→3 (absolute 2.313055634479557), 0.8→5 (4.117431790263566), 1.5→8 (7.224077499274829); purity 0.5: −1.0→0 (absolute clamped 0, log2 −9.965784284662087), −0.4→1, 1.0→6 (absolute 6.0, round-trip); purity 0.3: −0.6→0 (clamped), −0.4→0, −0.25→1, 0.0→2 (absolute 2.0000000000000004), 0.3→4, 1.0→9 (8.666666666666668); purity 1.0: identical to pure (−1.1→0, −1.0→1, 1.5→6). Ploidy 3, purity 0.6: −1.0→0, −0.3→1 (2.0612619817811773), 0.4→3 (4.597539553864471), 1.0→8 (8.0). Deletion boundary at purity 0.7: v* = −0.6744718626824432 (rescaled −1.1); v*−1e-9→0, v*+1e-9→1. Custom cutoffs (−1.5,−0.3,0.3,1.0), purity 0.7: −0.5→1, 0.1→2, 0.35→3. −∞→0, NaN→2.
+7. Sex-chromosome form (`_log2_ratio_to_absolute(0.5, 1, 2, 0.6)` = 1.0236892706218252; `(−2.0, 1, 2, 0.6)` = 0.0; `(0.5, 1, 2, 1.0)` = 1.4142135623730951) locked in `CopyNumberMathTests`.
+
 ## Documented Corner Cases and Failure Modes
 
 ### From CNVkit `cnvlib/call.py`
@@ -158,3 +170,4 @@
 
 - **2026-06-14**: Initial documentation (ONCO-CNA-001).
 - **2026-09-28**: Re-verified against CNVkit master (review campaign 2026-09, B24); added do_call half-to-even rounding, Int32 overflow and non-finite ploidy corner cases.
+- **2026-10-09**: B24 F28/F29 — CNVkit purity path (`do_call` purity rescaling, `_log2_ratio_to_absolute`, `log2_ratios`) ported as additive purity overloads; canonical `CopyNumberMath`; CNVkit 0.9.14 numbers recorded.

@@ -11,7 +11,7 @@
 ### Wikipedia: MicroRNA
 
 **URL:** https://en.wikipedia.org/wiki/MicroRNA
-**Accessed:** 2026-02-10
+**Accessed:** 2026-02-10 · re-fetched 2026-10-14 (SRC citation audit: supports the claims above)
 **Authority rank:** 4 (Wikipedia with cited primaries)
 
 **Key Extracted Points:**

@@ -12,10 +12,49 @@ public static class CodonOptimizer
     /// <summary>
     /// Represents an organism's codon usage table.
     /// </summary>
+    /// <param name="OrganismName">Organism name.</param>
+    /// <param name="CodonFrequencies">
+    /// Codon usage (RNA keys). For the built-in presets: relative frequency of each codon within
+    /// its synonymous family (Kazusa "fraction" column).
+    /// </param>
+    /// <param name="CodonToAminoAcid">Codon → one-letter amino acid mapping.</param>
     public readonly record struct CodonUsageTable(
         string OrganismName,
         IReadOnlyDictionary<string, double> CodonFrequencies,
-        IReadOnlyDictionary<string, string> CodonToAminoAcid);
+        IReadOnlyDictionary<string, string> CodonToAminoAcid)
+    {
+        /// <summary>
+        /// Optional usage of each codon per thousand codons of the SAME table entry (Kazusa / CUTG
+        /// "/1000" column, RNA keys), or <see langword="null"/> when the table carries only
+        /// <see cref="CodonFrequencies"/>. Unlike the per-amino-acid fractions, these values weight
+        /// each residue by its overall usage — the input the %MinMax reference implementation takes
+        /// (Clarke &amp; Clark 2008; Clark-lab <c>calculateMinMax</c>), so
+        /// <see cref="CalculateMinMaxProfile(string, CodonUsageTable, int)"/> uses them when present.
+        /// Set for all three presets: <see cref="EColiK12"/> (Kazusa species=316407),
+        /// <see cref="Yeast"/> (Kazusa species=4932) and <see cref="Human"/> (Kazusa species=9606).
+        /// </summary>
+        public IReadOnlyDictionary<string, double>? PerThousand { get; init; }
+    }
+
+    /// <summary>
+    /// Which codon-usage values <see cref="CalculateMinMaxProfile(string, CodonUsageTable, int, MinMaxUsageBasis)"/>
+    /// feeds into the %MinMax sums.
+    /// </summary>
+    public enum MinMaxUsageBasis
+    {
+        /// <summary>
+        /// <see cref="CodonUsageTable.PerThousand"/> when the table carries it, otherwise
+        /// <see cref="CodonUsageTable.CodonFrequencies"/> (default; per-thousand usage is the input of
+        /// the Clark-lab reference implementation).
+        /// </summary>
+        PerThousandWhenAvailable = 0,
+
+        /// <summary>
+        /// Always <see cref="CodonUsageTable.CodonFrequencies"/> (for the presets: per-amino-acid
+        /// fractions, every residue weighted equally — the pre-2026-10 behaviour for Yeast/Human).
+        /// </summary>
+        CodonFrequencies = 1,
+    }
 
     /// <summary>
     /// Result of codon optimization.
@@ -53,6 +92,79 @@ public static class CodonOptimizer
     public readonly record struct RareCodonCluster(int StartCodon, int EndCodon, int RareCount);
 
     /// <summary>
+    /// Parameters of the Sherlocc 1.0 stage-3 analysis
+    /// (<see cref="FindConservedRareCodonClusters(IReadOnlyList{string}, CodonUsageTable, double, SherloccOptions?)"/>).
+    /// Defaults are the constants of <c>sherlocc.pl</c> (github.com/mtthchrtr/sherlocc, commit b3b4d15).
+    /// </summary>
+    public sealed record SherloccOptions
+    {
+        /// <summary>Width (odd, in alignment columns) of the centred averaging window: columns i−3 … i+3 (l. 785, default 7).</summary>
+        public int AveragingWindow { get; init; } = 7;
+
+        /// <summary>Width (in alignment columns) of the cluster window i … i+6 (l. 838–842, default 7).</summary>
+        public int ClusterWindow { get; init; } = 7;
+
+        /// <summary>Minimum pause columns inside a cluster window (l. 848 <c>$win_pause_count &gt;= 4</c>, default 4).</summary>
+        public int MinPauses { get; init; } = 4;
+
+        /// <summary>
+        /// Representativeness ("conservation") filter: a column is averaged only when at least
+        /// <c>MinCoverage × sequences × AveragingWindow</c> window cells carry a usage value
+        /// (l. 772 <c>$tresh=($row*(7))*(0.75)</c>, l. 799 <c>$freq_count &gt;= $tresh</c>; default 0.75 —
+        /// README "windows occupied by alignment gaps … by 25% or more are excluded").
+        /// </summary>
+        public double MinCoverage { get; init; } = 0.75;
+
+        /// <summary>
+        /// <see langword="false"/> (default): usage values are <see cref="CodonUsageTable.PerThousand"/>
+        /// (Sherlocc's CUTG per-thousand column, <c>files/cut</c>); a table without it is rejected.
+        /// <see langword="true"/>: use <see cref="CodonUsageTable.CodonFrequencies"/> instead (the
+        /// threshold must then be on that scale).
+        /// </summary>
+        public bool UseCodonFrequencies { get; init; }
+    }
+
+    /// <summary>
+    /// One conserved rare-codon cluster of a codon alignment (Sherlocc 1.0 stage 3).
+    /// </summary>
+    /// <param name="StartColumn">0-based alignment column of the first pause of the cluster (Sherlocc prints it 1-based).</param>
+    /// <param name="EndColumn">0-based alignment column of the last pause of the cluster (inclusive).</param>
+    /// <param name="PauseCount">Number of pause columns in StartColumn…EndColumn.</param>
+    /// <param name="MeanUsage">
+    /// Sherlocc "Usage Frequency Average" (<c>$cluster_avrg</c>, l. 875–879): mean of the column
+    /// averages over the span; a non-representative column inside the span has no average and
+    /// contributes 0 (Perl undefined value), exactly as in the script.
+    /// </param>
+    /// <param name="MiddlePoint">
+    /// Sherlocc "Middle Point" (l. 1137–1140), 1-based: <c>stop − (length / 2)</c> with the decimals dropped.
+    /// </param>
+    public readonly record struct ConservedRareCodonCluster(
+        int StartColumn, int EndColumn, int PauseCount, double MeanUsage, int MiddlePoint);
+
+    /// <summary>
+    /// Result of <see cref="FindConservedRareCodonClusters(IReadOnlyList{string}, CodonUsageTable, double, SherloccOptions?)"/>.
+    /// </summary>
+    /// <param name="SequenceCount">Number of aligned sequences (rows).</param>
+    /// <param name="AlignmentLength">Number of codon columns.</param>
+    /// <param name="ColumnAverages">Per column: window-and-family average usage (<c>$avrg</c>), or <see langword="null"/> when the column is not representative ("NA").</param>
+    /// <param name="ColumnUsageCounts">Per column: number of window cells with a usage value (<c>$freq_count</c>).</param>
+    /// <param name="PauseColumns">0-based pause ("slow") columns: average ≤ threshold.</param>
+    /// <param name="Clusters">Merged conserved rare-codon clusters in column order.</param>
+    /// <param name="TotalClusterLength">Σ (EndColumn − StartColumn + 1) over the clusters.</param>
+    /// <param name="ClusterFraction">TotalClusterLength / AlignmentLength (Sherlocc "Fraction of the pfam occupied by rare codon clusters").</param>
+    /// <param name="MeanClusterUsage">Mean of the clusters' <see cref="ConservedRareCodonCluster.MeanUsage"/> (<c>clusters_freq_avrg</c>), or <see langword="null"/> without clusters.</param>
+    public sealed record SherloccResult(
+        int SequenceCount,
+        int AlignmentLength,
+        IReadOnlyList<double?> ColumnAverages,
+        IReadOnlyList<int> ColumnUsageCounts,
+        IReadOnlyList<int> PauseColumns,
+        IReadOnlyList<ConservedRareCodonCluster> Clusters,
+        int TotalClusterLength,
+        double ClusterFraction,
+        double? MeanClusterUsage);
+
+    /// <summary>
     /// Optimization strategy options.
     /// </summary>
     public enum OptimizationStrategy
@@ -61,35 +173,80 @@ public static class CodonOptimizer
         BalancedOptimization,  // Balance CAI with other factors
         HarmonizeExpression,   // Match host codon usage distribution
         MinimizeSecondary,     // Avoid mRNA secondary structures
-        AvoidRareCodeons       // Only replace rare codons
+
+        /// <summary>
+        /// Only replace rare codons. Misspelling of <see cref="AvoidRareCodons"/>, kept for
+        /// backward compatibility: both members have the same underlying value, so they are
+        /// interchangeable in every API and comparison. New code should use
+        /// <see cref="AvoidRareCodons"/>. The member carries no <c>[Obsolete]</c> attribute by
+        /// policy: additive alias only — the misspelt member stays supported, no deprecation
+        /// (campaign backward-compatibility rule).
+        /// </summary>
+        AvoidRareCodeons,
+
+        /// <summary>
+        /// Only replace codons whose table frequency is strictly below the rare-codon threshold
+        /// (correctly spelled alias of the historical <see cref="AvoidRareCodeons"/> member; same
+        /// underlying value).
+        /// </summary>
+        AvoidRareCodons = AvoidRareCodeons
     }
 
     #endregion
 
-    #region Standard Genetic Code
+    #region Genetic-code families
 
-    // Codon → amino acid and the synonymous-codon families of the NCBI Standard code (table 1),
-    // RNA spelling, in NCBI codon order (UUU, UUC, UUA, … GGG) — derived from the canonical
-    // GeneticCode.Standard, never from a private copy (DUP_MAP §2). The NCBI order fixes the
+    // Codon → amino acid and the synonymous-codon families of an NCBI genetic code, RNA
+    // spelling, in NCBI codon order (UUU, UUC, UUA, … GGG) — derived from the canonical
+    // GeneticCode tables, never from a private copy (DUP_MAP §2). The NCBI order fixes the
     // tie-break of every "most frequent synonymous codon" choice below: when two synonymous
     // codons share the maximal table frequency, the one that comes first in NCBI order wins, so
     // optimisation is deterministic (Biopython CodonAdaptationIndex.optimize only warns on such
     // ties and picks one arbitrarily).
-    private static readonly IReadOnlyDictionary<string, string> StandardCodonToAminoAcid =
-        GeneticCode.Standard.CodonTable.ToDictionary(kv => kv.Key, kv => kv.Value.ToString());
+    //
+    // A family is the set of codons GeneticCode.CodonTable assigns to one residue — DNA Chisel's
+    // get_backtranslation_table(genetic_table) (Biopython CodonTable.forward_table grouped by
+    // amino acid) and the grouping of the canonical CodonUsageAnalyzer core (RSCU/CAI/ENC). The
+    // context-dependent ("dual-coding") stops of NCBI tables 27/28/31 therefore sit in the family
+    // of the amino acid they encode, exactly as in Biopython/DNA Chisel and CodonUsageAnalyzer.
+    private sealed class CodeFamilies
+    {
+        public CodeFamilies(GeneticCode code)
+        {
+            Code = code;
+            CodonToAminoAcid = code.CodonTable.ToDictionary(kv => kv.Key, kv => kv.Value.ToString());
+            Synonyms = code.CodonTable
+                .GroupBy(kv => kv.Value)
+                .ToDictionary(g => g.Key, g => g.Select(kv => kv.Key).ToArray());
+        }
 
-    private static readonly IReadOnlyDictionary<char, string[]> SynonymousCodons =
-        GeneticCode.Standard.CodonTable
-            .GroupBy(kv => kv.Value)
-            .ToDictionary(g => g.Key, g => g.Select(kv => kv.Key).ToArray());
+        public GeneticCode Code { get; }
+
+        public IReadOnlyDictionary<string, string> CodonToAminoAcid { get; }
+
+        public IReadOnlyDictionary<char, string[]> Synonyms { get; }
+    }
+
+    // One immutable family set per NCBI table (GeneticCode instances are per-table singletons).
+    private static readonly IReadOnlyDictionary<int, CodeFamilies> FamiliesByTable =
+        GeneticCode.SupportedTableNumbers.ToDictionary(n => n, n => new CodeFamilies(GeneticCode.GetByTableNumber(n)));
+
+    private static readonly CodeFamilies StandardFamilies = FamiliesByTable[GeneticCode.Standard.TableNumber];
+
+    private static readonly IReadOnlyDictionary<string, string> StandardCodonToAminoAcid =
+        StandardFamilies.CodonToAminoAcid;
+
+    // null → the NCBI Standard code (table 1), the historical behaviour of every API here.
+    private static CodeFamilies FamiliesFor(GeneticCode? geneticCode) =>
+        geneticCode is null ? StandardFamilies : FamiliesByTable[geneticCode.TableNumber];
 
     /// <summary>
-    /// Translates one RNA triplet with the canonical <see cref="GeneticCode.Standard"/> table.
+    /// Translates one RNA triplet with the canonical genetic-code table of <paramref name="families"/>.
     /// Returns <see langword="false"/> (with <paramref name="aminoAcid"/> = 'X') for a triplet
     /// that is not a valid IUPAC codon, so callers can leave such a triplet untouched instead of
     /// throwing. IUPAC-ambiguous triplets translate per Biopython (GCN → A, UAR → *, NNN → X).
     /// </summary>
-    private static bool TryTranslateCodon(string codon, out char aminoAcid)
+    private static bool TryTranslateCodon(string codon, CodeFamilies families, out char aminoAcid)
     {
         aminoAcid = 'X';
         if (codon.Length != 3)
@@ -97,24 +254,24 @@ public static class CodonOptimizer
 
         foreach (char c in codon)
         {
-            char dna = char.ToUpperInvariant(c);
+            char dna = SequenceCase.ToUpperAscii(c);
             if (dna == 'U') dna = 'T';
             if (!IupacHelper.IsNucleotideCode(dna))
                 return false;
         }
 
-        aminoAcid = GeneticCode.Standard.Translate(codon);
+        aminoAcid = families.Code.Translate(codon);
         return true;
     }
 
-    // Synonymous codons of the amino acid encoded by <paramref name="codon"/>, or an empty span
-    // when the triplet is unusable (non-IUPAC symbols) or its amino acid is itself ambiguous
-    // (B, Z, J, X — no unique synonymous family).
-    private static string[] SynonymsFor(string codon)
+    // Synonymous codons of the amino acid encoded by <paramref name="codon"/> under the code of
+    // <paramref name="families"/>, or an empty span when the triplet is unusable (non-IUPAC
+    // symbols) or its amino acid is itself ambiguous (B, Z, J, X — no unique synonymous family).
+    private static string[] SynonymsFor(string codon, CodeFamilies families)
     {
-        if (!TryTranslateCodon(codon, out char aa))
+        if (!TryTranslateCodon(codon, families, out char aa))
             return Array.Empty<string>();
-        return SynonymousCodons.TryGetValue(aa, out var syn) ? syn : Array.Empty<string>();
+        return families.Synonyms.TryGetValue(aa, out var syn) ? syn : Array.Empty<string>();
     }
 
     #endregion
@@ -126,6 +283,16 @@ public static class CodonOptimizer
     /// Source: Kazusa Codon Usage Database, species=316407 (E. coli K-12 substr. W3110, 4332 CDS).
     /// URL: https://www.kazusa.or.jp/codon/cgi-bin/showcodon.cgi?species=316407
     /// </summary>
+    /// <remarks>
+    /// <see cref="CodonUsageTable.PerThousand"/>: the same Kazusa species=316407 entry
+    /// ("Escherichia coli W3110 [gbbct]: 4332 CDS's (1372057 codons)"), frequency per thousand codons
+    /// as published (one decimal), verbatim from
+    /// https://www.kazusa.or.jp/codon/cgi-bin/showcodon.cgi?species=316407 (fetched 2026-10-14; each
+    /// value = 1000 × count / 1 372 057 rounded to 0.1, Σ = 1000.0). The fraction column of that page
+    /// equals the fractions below at all 64 codons; the per-amino-acid ratios of the one-decimal
+    /// values are within 0.0055 of them (the one-decimal rounding). Before 2026-10-14 (review
+    /// 2026-10, kazusa.or.jp unreachable) this column was <see langword="null"/>.
+    /// </remarks>
     public static readonly CodonUsageTable EColiK12 = new(
         "Escherichia coli K12",
         new Dictionary<string, double>
@@ -173,13 +340,23 @@ public static class CodonOptimizer
             // Glycine (G)
             { "GGU", 0.34 }, { "GGC", 0.41 }, { "GGA", 0.11 }, { "GGG", 0.15 }
         },
-        StandardCodonToAminoAcid);
+        StandardCodonToAminoAcid)
+    {
+        PerThousand = EColiKazusaPerThousand(),
+    };
 
     /// <summary>
     /// Saccharomyces cerevisiae (yeast) codon usage frequencies (relative fraction per amino acid).
     /// Source: Kazusa Codon Usage Database, species=4932.
     /// URL: https://www.kazusa.or.jp/codon/cgi-bin/showcodon.cgi?species=4932
     /// </summary>
+    /// <remarks>
+    /// <see cref="CodonUsageTable.PerThousand"/>: the same Kazusa species=4932 entry, frequency per
+    /// thousand codons as published (one decimal), verbatim from the Clark-lab CHARMING repository
+    /// file <c>ScerCUB.txt</c> (github.com/wrightgs/CHARMING, commit 2c75d1b). Its per-amino-acid
+    /// ratios round to these fractions at 62/64 codons; the stop family (UAA 1.1, UAG 0.5, UGA 0.7)
+    /// differs by ≤ 0.013 only because its per-thousand values are rounded to 0.1.
+    /// </remarks>
     public static readonly CodonUsageTable Yeast = new(
         "Saccharomyces cerevisiae",
         new Dictionary<string, double>
@@ -206,13 +383,23 @@ public static class CodonOptimizer
             { "CGU", 0.14 }, { "CGC", 0.06 }, { "CGA", 0.07 }, { "CGG", 0.04 }, { "AGA", 0.48 }, { "AGG", 0.21 },
             { "GGU", 0.47 }, { "GGC", 0.19 }, { "GGA", 0.22 }, { "GGG", 0.12 }
         },
-        StandardCodonToAminoAcid);
+        StandardCodonToAminoAcid)
+    {
+        PerThousand = YeastKazusaPerThousand(),
+    };
 
     /// <summary>
     /// Human codon usage frequencies (relative fraction per amino acid).
     /// Source: Kazusa Codon Usage Database, species=9606.
     /// URL: https://www.kazusa.or.jp/codon/cgi-bin/showcodon.cgi?species=9606
     /// </summary>
+    /// <remarks>
+    /// <see cref="CodonUsageTable.PerThousand"/>: 1000 × count / 40 662 582 from the codon counts
+    /// ("Number" column) of the same Kazusa species=9606 entry (93 487 CDS, 40 662 582 codons), as
+    /// shipped in the PyPI package codon-optimizer 0.2.0
+    /// (<c>reference_seq/Homo_sapiens_codon_frequency.csv</c>, citing kazusa.or.jp/codon). The
+    /// per-amino-acid ratios of these counts round to the fractions below at all 64 codons.
+    /// </remarks>
     public static readonly CodonUsageTable Human = new(
         "Homo sapiens",
         new Dictionary<string, double>
@@ -239,7 +426,62 @@ public static class CodonOptimizer
             { "CGU", 0.08 }, { "CGC", 0.18 }, { "CGA", 0.11 }, { "CGG", 0.20 }, { "AGA", 0.21 }, { "AGG", 0.21 },
             { "GGU", 0.16 }, { "GGC", 0.34 }, { "GGA", 0.25 }, { "GGG", 0.25 }
         },
-        StandardCodonToAminoAcid);
+        StandardCodonToAminoAcid)
+    {
+        PerThousand = HumanKazusaPerThousand(),
+    };
+
+    // Kazusa species=316407 ("Escherichia coli W3110 [gbbct]: 4332 CDS's (1372057 codons)") frequency
+    // per thousand codons (one decimal, as published), verbatim from
+    // https://www.kazusa.or.jp/codon/cgi-bin/showcodon.cgi?species=316407, fetched 2026-10-14
+    // (SRC RO1). A method, not a static field, so the preset initialiser does not depend on static
+    // field order.
+    private static IReadOnlyDictionary<string, double> EColiKazusaPerThousand() => new Dictionary<string, double>
+    {
+            { "UUU", 22.2 }, { "UUC", 16.5 }, { "UUA", 13.8 }, { "UUG", 13.6 }, { "UCU", 8.4 }, { "UCC", 8.6 }, { "UCA", 7.0 }, { "UCG", 8.9 },
+            { "UAU", 16.1 }, { "UAC", 12.2 }, { "UAA", 2.0 }, { "UAG", 0.2 }, { "UGU", 5.1 }, { "UGC", 6.4 }, { "UGA", 0.9 }, { "UGG", 15.2 },
+            { "CUU", 11.0 }, { "CUC", 11.1 }, { "CUA", 3.8 }, { "CUG", 53.1 }, { "CCU", 7.0 }, { "CCC", 5.5 }, { "CCA", 8.4 }, { "CCG", 23.4 },
+            { "CAU", 13.0 }, { "CAC", 9.8 }, { "CAA", 15.4 }, { "CAG", 29.0 }, { "CGU", 21.0 }, { "CGC", 22.3 }, { "CGA", 3.5 }, { "CGG", 5.4 },
+            { "AUU", 30.4 }, { "AUC", 25.2 }, { "AUA", 4.2 }, { "AUG", 27.8 }, { "ACU", 8.8 }, { "ACC", 23.5 }, { "ACA", 6.9 }, { "ACG", 14.4 },
+            { "AAU", 17.6 }, { "AAC", 21.6 }, { "AAA", 33.6 }, { "AAG", 10.3 }, { "AGU", 8.7 }, { "AGC", 16.1 }, { "AGA", 2.0 }, { "AGG", 1.1 },
+            { "GUU", 18.2 }, { "GUC", 15.3 }, { "GUA", 10.9 }, { "GUG", 26.3 }, { "GCU", 15.2 }, { "GCC", 25.7 }, { "GCA", 20.1 }, { "GCG", 33.9 },
+            { "GAU", 32.2 }, { "GAC", 19.1 }, { "GAA", 39.7 }, { "GAG", 18.0 }, { "GGU", 24.7 }, { "GGC", 29.8 }, { "GGA", 7.9 }, { "GGG", 11.0 },
+    };
+
+    // Kazusa species=4932 frequency per thousand codons (one decimal, as published), verbatim from
+    // CHARMING ScerCUB.txt (Clark lab; github.com/wrightgs/CHARMING). A method, not a static field,
+    // so the preset initialiser above does not depend on static field order.
+    private static IReadOnlyDictionary<string, double> YeastKazusaPerThousand() => new Dictionary<string, double>
+    {
+            { "UUU", 26.1 }, { "UUC", 18.4 }, { "UUA", 26.2 }, { "UUG", 27.2 }, { "UCU", 23.5 }, { "UCC", 14.2 }, { "UCA", 18.7 }, { "UCG", 8.6 },
+            { "UAU", 18.8 }, { "UAC", 14.8 }, { "UAA", 1.1 }, { "UAG", 0.5 }, { "UGU", 8.1 }, { "UGC", 4.8 }, { "UGA", 0.7 }, { "UGG", 10.4 },
+            { "CUU", 12.3 }, { "CUC", 5.4 }, { "CUA", 13.4 }, { "CUG", 10.5 }, { "CCU", 13.5 }, { "CCC", 6.8 }, { "CCA", 18.3 }, { "CCG", 5.3 },
+            { "CAU", 13.6 }, { "CAC", 7.8 }, { "CAA", 27.3 }, { "CAG", 12.1 }, { "CGU", 6.4 }, { "CGC", 2.6 }, { "CGA", 3.0 }, { "CGG", 1.7 },
+            { "AUU", 30.1 }, { "AUC", 17.2 }, { "AUA", 17.8 }, { "AUG", 20.9 }, { "ACU", 20.3 }, { "ACC", 12.7 }, { "ACA", 17.8 }, { "ACG", 8.0 },
+            { "AAU", 35.7 }, { "AAC", 24.8 }, { "AAA", 41.9 }, { "AAG", 30.8 }, { "AGU", 14.2 }, { "AGC", 9.8 }, { "AGA", 21.3 }, { "AGG", 9.2 },
+            { "GUU", 22.1 }, { "GUC", 11.8 }, { "GUA", 11.8 }, { "GUG", 10.8 }, { "GCU", 21.2 }, { "GCC", 12.6 }, { "GCA", 16.2 }, { "GCG", 6.2 },
+            { "GAU", 37.6 }, { "GAC", 20.2 }, { "GAA", 45.6 }, { "GAG", 19.2 }, { "GGU", 23.9 }, { "GGC", 9.8 }, { "GGA", 10.9 }, { "GGG", 6.0 },
+    };
+
+    // Kazusa species=9606 codon counts ("Number" column; 40 662 582 codons), as shipped in PyPI
+    // codon-optimizer 0.2.0 reference_seq/Homo_sapiens_codon_frequency.csv; per thousand =
+    // 1000 * count / total.
+    private static IReadOnlyDictionary<string, double> HumanKazusaPerThousand()
+    {
+        var counts = new Dictionary<string, long>
+        {
+                { "UUU", 714298 }, { "UUC", 824692 }, { "UUA", 311881 }, { "UUG", 525688 }, { "UCU", 618711 }, { "UCC", 718892 }, { "UCA", 496448 }, { "UCG", 179419 },
+                { "UAU", 495699 }, { "UAC", 622407 }, { "UAA", 40285 }, { "UAG", 32109 }, { "UGU", 430311 }, { "UGC", 513028 }, { "UGA", 63237 }, { "UGG", 535595 },
+                { "CUU", 536515 }, { "CUC", 796638 }, { "CUA", 290751 }, { "CUG", 1611801 }, { "CCU", 713233 }, { "CCC", 804620 }, { "CCA", 688038 }, { "CCG", 281570 },
+                { "CAU", 441711 }, { "CAC", 613713 }, { "CAA", 501911 }, { "CAG", 1391973 }, { "CGU", 184609 }, { "CGC", 423516 }, { "CGA", 250760 }, { "CGG", 464485 },
+                { "AUU", 650473 }, { "AUC", 846466 }, { "AUA", 304565 }, { "AUG", 896005 }, { "ACU", 533609 }, { "ACC", 768147 }, { "ACA", 614523 }, { "ACG", 246105 },
+                { "AAU", 689701 }, { "AAC", 776603 }, { "AAA", 993621 }, { "AAG", 1295568 }, { "AGU", 493429 }, { "AGC", 791383 }, { "AGA", 494682 }, { "AGG", 486463 },
+                { "GUU", 448607 }, { "GUC", 588138 }, { "GUA", 287712 }, { "GUG", 1143534 }, { "GCU", 750096 }, { "GCC", 1127679 }, { "GCA", 643471 }, { "GCG", 299495 },
+                { "GAU", 885429 }, { "GAC", 1020595 }, { "GAA", 1177632 }, { "GAG", 1609975 }, { "GGU", 437126 }, { "GGC", 903565 }, { "GGA", 669873 }, { "GGG", 669768 },
+        };
+        long total = counts.Values.Sum();
+        return counts.ToDictionary(kv => kv.Key, kv => 1000.0 * kv.Value / total);
+    }
 
     #endregion
 
@@ -254,8 +496,10 @@ public static class CodonOptimizer
     /// are kept as they are; codons of single-codon amino acids (Met AUG, Trp UGG) have no
     /// synonym and never change; a triplet that is not a valid IUPAC codon, or whose amino acid
     /// is itself ambiguous (B, Z, J, X), is left untouched and contributes 'X' to
-    /// <see cref="OptimizationResult.ProteinSequence"/>. Amino acids are taken from the canonical
-    /// <see cref="GeneticCode.Standard"/> table.
+    /// <see cref="OptimizationResult.ProteinSequence"/>. Amino acids and synonymous families are
+    /// taken from the canonical <see cref="GeneticCode"/> table selected by
+    /// <paramref name="geneticCode"/> (default <see cref="GeneticCode.Standard"/>), so the
+    /// protein is preserved under that code (<c>Translator.Translate(…, geneticCode)</c>).
     /// <para>Strategies:</para>
     /// <list type="bullet">
     /// <item><description><b>MaximizeCAI</b> — every codon becomes the most frequent synonymous
@@ -265,12 +509,26 @@ public static class CodonOptimizer
     /// <item><description><b>AvoidRareCodeons</b> — only codons whose table frequency is strictly
     /// below <paramref name="rareCodonThreshold"/> are replaced, by the most frequent synonymous
     /// codon; codons at or above the threshold are kept.</description></item>
-    /// <item><description><b>BalancedOptimization</b> (default) and <b>MinimizeSecondary</b> —
-    /// as MaximizeCAI, then a GC-balancing pass moves the overall GC fraction into
+    /// <item><description><b>BalancedOptimization</b> (default) — as MaximizeCAI, then a
+    /// GC-balancing pass moves the overall GC fraction into
     /// [<paramref name="gcTargetMin"/>, <paramref name="gcTargetMax"/>] with further synonymous
-    /// swaps (DNA Chisel <c>EnforceGCContent(mini, maxi)</c> combined with codon optimisation).
-    /// <c>MinimizeSecondary</c> shares this codon selection; the dedicated structure pass is
-    /// <see cref="ReduceSecondaryStructure"/>.</description></item>
+    /// swaps (DNA Chisel <c>EnforceGCContent(mini, maxi)</c> combined with codon
+    /// optimisation).</description></item>
+    /// <item><description><b>MinimizeSecondary</b> — BalancedOptimization (codon selection + GC
+    /// pass) followed by the structure pass
+    /// <see cref="ReduceSecondaryStructure(string, CodonUsageTable, int, double, double, SecondaryStructureScoring, double, int)"/>
+    /// with its default window settings, scored by <paramref name="secondaryScoring"/>. The
+    /// default is the pair-count heuristic, which costs ~0.06 s per kilobase; pass
+    /// <see cref="SecondaryStructureScoring.Turner2004Mfe"/> for the sourced Turner 2004
+    /// free-energy model (~9 s per kilobase). That structure pass is <b>GC-constraint-aware</b>
+    /// (review 2026-09 F63): a rewrite is accepted only when it does not increase the GC breach of
+    /// the band [<paramref name="gcTargetMin"/>, <paramref name="gcTargetMax"/>] (every sliding
+    /// window when <paramref name="gcWindow"/> is set), so the strategy cannot undo the GC target
+    /// it was asked to hold — DNA Chisel resolves <c>EnforceGCContent</c> as a hard constraint and
+    /// optimises the remaining objectives only with mutations that keep the constraints satisfied.
+    /// A direct call of
+    /// <see cref="ReduceSecondaryStructure(string, CodonUsageTable, int, double, double, SecondaryStructureScoring, double, int, GeneticCode?)"/>
+    /// declares no GC target and is unaffected.</description></item>
     /// <item><description><b>HarmonizeExpression</b> — the codon usage of the output matches the
     /// target table as closely as integer codon counts allow (DNA Chisel
     /// <c>match_codon_usage</c> / <c>MatchTargetCodonUsage</c>), deterministically: per amino
@@ -285,14 +543,76 @@ public static class CodonOptimizer
     /// <param name="gcTargetMin">Lower bound of the target GC fraction (BalancedOptimization / MinimizeSecondary).</param>
     /// <param name="gcTargetMax">Upper bound of the target GC fraction (BalancedOptimization / MinimizeSecondary).</param>
     /// <param name="rareCodonThreshold">Frequency below which a codon counts as rare (strict &lt;).</param>
+    /// <param name="secondaryScoring">Window scoring model of the MinimizeSecondary structure pass (default <see cref="SecondaryStructureScoring.PairCount"/>); ignored by the other strategies.</param>
+    /// <param name="gcWindow">
+    /// <see langword="null"/> (default): the GC pass constrains the <i>global</i> GC fraction only
+    /// (DNA Chisel <c>EnforceGCContent(mini, maxi)</c>). A positive value: the GC pass constrains
+    /// every sliding window of that many nucleotides to
+    /// [<paramref name="gcTargetMin"/>, <paramref name="gcTargetMax"/>], i.e. DNA Chisel
+    /// <c>EnforceGCContent(mini, maxi, window=gcWindow)</c>; see
+    /// <see cref="BalanceGcContentWindowed"/> and <see cref="EvaluateGcContent"/>.
+    /// </param>
+    /// <param name="geneticCode">
+    /// NCBI genetic code that defines the encoded protein and the synonymous-codon families
+    /// (<see langword="null"/>, the default: <see cref="GeneticCode.Standard"/>, identical to the
+    /// historical output). DNA Chisel <c>EnforceTranslation(genetic_table=…)</c>: under table 2
+    /// (vertebrate mitochondrial) AGA/AGG are stops and are never used for Arg, UGA is Trp and AUA
+    /// is Met; dual-coding codons of tables 27/28/31 belong to the family of the amino acid they
+    /// encode (Biopython <c>forward_table</c>, DNA Chisel back-translation table).
+    /// </param>
+    /// <param name="avoidSites">
+    /// <see langword="null"/> or empty (default): no site avoidance, the historical behaviour. A
+    /// list of restriction recognition sequences (DNA or RNA, IUPAC codes allowed, each at most
+    /// <see cref="RestrictionAnalyzer.MaxRecognitionLength"/> = 64 characters; an invalid or longer one is an
+    /// <see cref="ArgumentException"/> whatever the sequence, an empty sequence included) instead runs
+    /// <see cref="RemoveRestrictionSites(string, IEnumerable{string}, CodonUsageTable, GeneticCode?)"/>
+    /// on the selected/GC-balanced/structure-relaxed sequence with the same table and genetic
+    /// code — DNA Chisel composes the objective <c>CodonOptimize(...)</c> with the constraints
+    /// <c>AvoidPattern(EnzymeSitePattern(...))</c> and <c>EnforceTranslation()</c> in one problem
+    /// and resolves the hard constraints last, so no later pass can re-introduce a site. Sites
+    /// are cleared on both strands with IUPAC semantics; an occurrence that no single synonymous
+    /// substitution can remove is left in place.
+    /// <para>
+    /// For <see cref="OptimizationStrategy.BalancedOptimization"/> and
+    /// <see cref="OptimizationStrategy.MinimizeSecondary"/> — the strategies that declare a GC
+    /// target — the site pass is <b>GC-constraint-aware</b>: it carries the same constraint the GC
+    /// pass enforced (<paramref name="gcTargetMin"/>/<paramref name="gcTargetMax"/>, and every
+    /// sliding window when <paramref name="gcWindow"/> is set, with
+    /// <see cref="EvaluateGcContent"/> semantics), because DNA Chisel resolves
+    /// <c>AvoidPattern</c> and <c>EnforceGCContent</c> as hard constraints of one problem. Among
+    /// the synonymous codons that remove an occurrence it prefers, lexicographically, (a) those
+    /// whose resulting sequence satisfies the GC constraint — or, when the input already breaches
+    /// it, those that do not increase the breach score — then (b) the higher usage frequency, then
+    /// (c) the left-most codon, then (d) NCBI codon order. If <i>no</i> site-removing candidate
+    /// satisfies the GC constraint, the least-breach candidate is applied and the site is still
+    /// removed: <c>AvoidPattern</c> stays the hard constraint and this method never throws (DNA
+    /// Chisel would raise <c>NoSolutionError</c> for such a problem instead). The structure pass of
+    /// <see cref="OptimizationStrategy.MinimizeSecondary"/> runs <i>before</i> the site pass and is
+    /// not re-run afterwards, so the site pass is GC-aware only and the one codon it changes per
+    /// occurrence can still alter the secondary-structure score slightly.
+    /// </para>
+    /// The reported CAI, GC fractions, <see cref="OptimizationResult.Changes"/> and
+    /// <see cref="OptimizationResult.ChangedCodons"/> always describe the final sequence.
+    /// </param>
     public static OptimizationResult OptimizeSequence(
         string codingSequence,
         CodonUsageTable targetOrganism,
         OptimizationStrategy strategy = OptimizationStrategy.BalancedOptimization,
         double gcTargetMin = 0.40,
         double gcTargetMax = 0.60,
-        double rareCodonThreshold = 0.15)
+        double rareCodonThreshold = 0.15,
+        SecondaryStructureScoring secondaryScoring = SecondaryStructureScoring.PairCount,
+        int? gcWindow = null,
+        GeneticCode? geneticCode = null,
+        IReadOnlyList<string>? avoidSites = null)
     {
+        if (gcWindow is <= 0)
+            throw new ArgumentOutOfRangeException(nameof(gcWindow), gcWindow, "The GC window must be a positive number of nucleotides.");
+
+        // The sites are validated whatever the sequence is: an empty or sub-codon sequence used to skip the check (B08 R14).
+        if (avoidSites is { Count: > 0 })
+            _ = ParseSitePatterns(avoidSites, nameof(avoidSites));
+
         if (string.IsNullOrEmpty(codingSequence))
         {
             return new OptimizationResult("", "", "", 0, 0, 0, 0, 0, new List<(int, string, string)>());
@@ -307,23 +627,58 @@ public static class CodonOptimizer
         }
 
         var originalCodons = SplitIntoCodons(rna);
+        var families = FamiliesFor(geneticCode);
 
-        double originalCAI = CalculateCAI(rna, targetOrganism);
+        double originalCAI = CalculateCAI(rna, targetOrganism, geneticCode: geneticCode);
         var proteinBuilder = new StringBuilder();
         foreach (string codon in originalCodons)
-            proteinBuilder.Append(TryTranslateCodon(codon, out char aa) ? aa : 'X');
+            proteinBuilder.Append(TryTranslateCodon(codon, families, out char aa) ? aa : 'X');
 
         List<string> optimizedCodons = strategy == OptimizationStrategy.HarmonizeExpression
-            ? MatchTargetCodonUsage(originalCodons, targetOrganism)
+            ? MatchTargetCodonUsage(originalCodons, targetOrganism, families)
             : originalCodons
-                .Select(c => SelectOptimalCodon(c, targetOrganism, strategy, rareCodonThreshold))
+                .Select(c => SelectOptimalCodon(c, targetOrganism, strategy, rareCodonThreshold, families))
                 .ToList();
 
         // GC balancing for the strategies that declare a GC target.
         if (strategy is OptimizationStrategy.BalancedOptimization or OptimizationStrategy.MinimizeSecondary)
-            BalanceGcContent(optimizedCodons, targetOrganism, gcTargetMin, gcTargetMax, rareCodonThreshold);
+        {
+            if (gcWindow is int windowSize)
+                BalanceGcContentWindowed(optimizedCodons, targetOrganism, gcTargetMin, gcTargetMax, windowSize, rareCodonThreshold, families);
+            else
+                BalanceGcContent(optimizedCodons, targetOrganism, gcTargetMin, gcTargetMax, rareCodonThreshold, families);
+        }
 
         string optimizedSequence = string.Concat(optimizedCodons);
+
+        // MinimizeSecondary additionally runs the dedicated structure pass on the GC-balanced
+        // sequence, so the strategy actually does what its name says.
+        if (strategy == OptimizationStrategy.MinimizeSecondary)
+        {
+            optimizedSequence = ReduceSecondaryStructure(
+                optimizedSequence, targetOrganism, windowSize: 40, structureThreshold: 0.5,
+                minCodonFrequency: 0.1, scoring: secondaryScoring, mfeThreshold: 0.0,
+                maxFoldEvaluations: 20_000, geneticCode: geneticCode,
+                gcConstraint: new GcConstraint(gcTargetMin, gcTargetMax, gcWindow));
+            optimizedCodons = SplitIntoCodons(optimizedSequence);
+        }
+
+        // Restriction-site avoidance is a hard constraint (DNA Chisel AvoidPattern), so it runs
+        // last: no later pass can re-introduce a site. For the strategies that declare a GC
+        // target the pass is GC-aware — it carries the same constraint the GC pass enforced
+        // (DNA Chisel resolves AvoidPattern and EnforceGCContent as hard constraints of one
+        // problem), so the site removal keeps the GC bounds / windows satisfied whenever a
+        // site-removing synonymous codon can.
+        if (avoidSites is { Count: > 0 })
+        {
+            var gcConstraint = strategy is OptimizationStrategy.BalancedOptimization or OptimizationStrategy.MinimizeSecondary
+                ? new GcConstraint(gcTargetMin, gcTargetMax, gcWindow)
+                : null;
+
+            optimizedSequence = RemoveRestrictionSites(
+                optimizedSequence, avoidSites, targetOrganism, geneticCode, gcConstraint);
+            optimizedCodons = SplitIntoCodons(optimizedSequence);
+        }
 
         var changes = new List<(int Position, string Original, string Optimized)>();
         for (int i = 0; i < originalCodons.Count; i++)
@@ -332,7 +687,7 @@ public static class CodonOptimizer
                 changes.Add((i * 3, originalCodons[i], optimizedCodons[i]));
         }
 
-        double optimizedCAI = CalculateCAI(optimizedSequence, targetOrganism);
+        double optimizedCAI = CalculateCAI(optimizedSequence, targetOrganism, geneticCode: geneticCode);
 
         return new OptimizationResult(
             OriginalSequence: rna,
@@ -348,9 +703,9 @@ public static class CodonOptimizer
 
     // Most frequent synonymous codon of <paramref name="codon"/> in <paramref name="table"/>;
     // ties (and codons without usable synonyms) resolve to the first codon in NCBI order.
-    private static string BestSynonymousCodon(string codon, CodonUsageTable table)
+    private static string BestSynonymousCodon(string codon, CodonUsageTable table, CodeFamilies families)
     {
-        var synonyms = SynonymsFor(codon);
+        var synonyms = SynonymsFor(codon, families);
         if (synonyms.Length == 0)
             return codon;
 
@@ -369,9 +724,10 @@ public static class CodonOptimizer
         return best;
     }
 
-    private static string SelectOptimalCodon(string currentCodon, CodonUsageTable table, OptimizationStrategy strategy, double rareCodonThreshold)
+    private static string SelectOptimalCodon(
+        string currentCodon, CodonUsageTable table, OptimizationStrategy strategy, double rareCodonThreshold, CodeFamilies families)
     {
-        if (!TryTranslateCodon(currentCodon, out char aminoAcid) || aminoAcid == '*')
+        if (!TryTranslateCodon(currentCodon, families, out char aminoAcid) || aminoAcid == '*')
             return currentCodon; // stop codons and unusable triplets are preserved
 
         if (strategy == OptimizationStrategy.AvoidRareCodeons &&
@@ -380,7 +736,7 @@ public static class CodonOptimizer
             return currentCodon; // not rare → untouched
         }
 
-        return BestSynonymousCodon(currentCodon, table);
+        return BestSynonymousCodon(currentCodon, table, families);
     }
 
     /// <summary>
@@ -391,7 +747,7 @@ public static class CodonOptimizer
     /// allotted codon keep it, so only the surplus positions are edited. Stop codons and triplets
     /// without a usable synonymous family are left unchanged.
     /// </summary>
-    private static List<string> MatchTargetCodonUsage(List<string> codons, CodonUsageTable table)
+    private static List<string> MatchTargetCodonUsage(List<string> codons, CodonUsageTable table, CodeFamilies families)
     {
         var result = new List<string>(codons);
 
@@ -399,7 +755,7 @@ public static class CodonOptimizer
         var positionsByAminoAcid = new Dictionary<char, List<int>>();
         for (int i = 0; i < codons.Count; i++)
         {
-            if (!TryTranslateCodon(codons[i], out char aa) || aa == '*' || !SynonymousCodons.ContainsKey(aa))
+            if (!TryTranslateCodon(codons[i], families, out char aa) || aa == '*' || !families.Synonyms.ContainsKey(aa))
                 continue;
             if (!positionsByAminoAcid.TryGetValue(aa, out var positions))
                 positionsByAminoAcid[aa] = positions = new List<int>();
@@ -408,7 +764,7 @@ public static class CodonOptimizer
 
         foreach (var (aminoAcid, positions) in positionsByAminoAcid)
         {
-            var family = SynonymousCodons[aminoAcid];
+            var family = families.Synonyms[aminoAcid];
             int n = positions.Count;
 
             double total = family.Sum(c => table.CodonFrequencies.GetValueOrDefault(c, 0));
@@ -475,7 +831,8 @@ public static class CodonOptimizer
         CodonUsageTable table,
         double minGc,
         double maxGc,
-        double minCodonFrequency)
+        double minCodonFrequency,
+        CodeFamilies families)
     {
         int length = codons.Count * 3;
         if (length == 0)
@@ -488,7 +845,7 @@ public static class CodonOptimizer
         {
             bool needMoreGc = gc < minGc * length;
             string current = codons[i];
-            if (!TryTranslateCodon(current, out char aa) || aa == '*')
+            if (!TryTranslateCodon(current, families, out char aa) || aa == '*')
                 continue;
 
             int currentGc = CountGc(current);
@@ -497,7 +854,7 @@ public static class CodonOptimizer
             double bestFrequency = double.NegativeInfinity;
             bool bestInRange = false;
 
-            foreach (string alternative in SynonymsFor(current))
+            foreach (string alternative in SynonymsFor(current, families))
             {
                 if (alternative == current)
                     continue;
@@ -537,6 +894,328 @@ public static class CodonOptimizer
         bool IsWithin(int gcCount) => gcCount >= minGc * length && gcCount <= maxGc * length;
     }
 
+    /// <summary>
+    /// A breach segment of a GC-content constraint, as DNA Chisel's
+    /// <c>EnforceGCContent.evaluate</c> reports it: a half-open nucleotide interval
+    /// [<paramref name="Start"/>, <paramref name="End"/>).
+    /// </summary>
+    /// <param name="Start">0-based start of the breach segment.</param>
+    /// <param name="End">Exclusive end of the breach segment.</param>
+    public sealed record GcBreachLocation(int Start, int End);
+
+    /// <summary>
+    /// Result of evaluating a GC-content constraint on a sequence
+    /// (DNA Chisel <c>EnforceGCContent(mini, maxi, window).evaluate(problem)</c>).
+    /// </summary>
+    /// <param name="Score">
+    /// Negated sum of the out-of-bound deviations over all evaluated windows
+    /// (0 when every window satisfies the bounds), i.e. DNA Chisel's
+    /// <c>SpecEvaluation.score</c>.
+    /// </param>
+    /// <param name="BreachWindowStarts">0-based start positions of the windows that breach the bounds.</param>
+    /// <param name="BreachLocations">
+    /// Breach segments after grouping neighbouring breaching windows, as DNA Chisel reports
+    /// <c>SpecEvaluation.locations</c>.
+    /// </param>
+    public sealed record GcContentEvaluation(
+        double Score,
+        IReadOnlyList<int> BreachWindowStarts,
+        IReadOnlyList<GcBreachLocation> BreachLocations);
+
+    /// <summary>
+    /// Evaluates a GC-content constraint on <paramref name="sequence"/> exactly as DNA Chisel's
+    /// <c>EnforceGCContent(mini, maxi, window).evaluate(problem)</c> does (DNA Chisel 3.2.16,
+    /// <c>builtin_specifications/EnforceGCContent.py</c> + <c>biotools/gc_content.py</c>).
+    /// </summary>
+    /// <remarks>
+    /// With <paramref name="window"/> = <see langword="null"/> the global GC fraction
+    /// (G+C over sequence length) is compared with the bounds and a breach is reported as the whole
+    /// sequence. With a window size <c>w</c> the GC fraction of every sliding window
+    /// <c>[i, i+w)</c>, <c>i = 0 … len-w</c>, is compared with the bounds (so there are
+    /// <c>len - w + 1</c> windows; a window longer than the sequence yields no windows, score 0).
+    /// Per window the breach extent is <c>max(0, mini - gc) + max(0, gc - maxi)</c>; both bounds are
+    /// inclusive (a window exactly at a bound does not breach) and
+    /// <see cref="GcContentEvaluation.Score"/> is the negated sum of those extents. Breaching
+    /// windows are grouped the way DNA Chisel groups them (<c>group_nearby_segments</c> with
+    /// <c>max_start_spread = max(1, locationsSpan)</c>: a window joins the current group while its
+    /// start is less than <paramref name="locationsSpan"/> nucleotides after the group's first
+    /// start), and each group is reported as [first start, last start + w).
+    /// G and C are counted by the canonical counting primitive, so lower case and RNA (U) input is
+    /// handled; any other symbol simply does not count as G/C, as in DNA Chisel.
+    /// </remarks>
+    /// <param name="sequence">Sequence to evaluate (DNA or RNA, any case).</param>
+    /// <param name="mini">Lower bound of the GC fraction (inclusive).</param>
+    /// <param name="maxi">Upper bound of the GC fraction (inclusive).</param>
+    /// <param name="window">Sliding-window size in nucleotides, or <see langword="null"/> for global GC.</param>
+    /// <param name="locationsSpan">
+    /// Grouping resolution of the reported breach segments (DNA Chisel
+    /// <c>EnforceGCContent.locations_span</c>, 50).
+    /// </param>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="window"/> is not positive.</exception>
+    public static GcContentEvaluation EvaluateGcContent(
+        string sequence,
+        double mini = 0.0,
+        double maxi = 1.0,
+        int? window = null,
+        int locationsSpan = 50)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        if (window is <= 0)
+            throw new ArgumentOutOfRangeException(nameof(window), window, "The GC window must be a positive number of nucleotides.");
+
+        var noBreaches = new GcContentEvaluation(0, Array.Empty<int>(), Array.Empty<GcBreachLocation>());
+        if (sequence.Length == 0)
+            return noBreaches;
+
+        if (window is not int w)
+        {
+            double globalGc = (double)sequence.AsSpan().CountGcAndValidNucleotides().GcCount / sequence.Length;
+            double globalBreach = Math.Max(0, mini - globalGc) + Math.Max(0, globalGc - maxi);
+            return globalBreach <= 0
+                ? noBreaches
+                : new GcContentEvaluation(-globalBreach, new[] { 0 }, new[] { new GcBreachLocation(0, sequence.Length) });
+        }
+
+        if (w > sequence.Length)
+            return noBreaches; // no window fits: DNA Chisel evaluates an empty window array
+
+        // Prefix sums of G/C indicators, as dnachisel's cumulative-sum window GC.
+        var prefix = new int[sequence.Length + 1];
+        for (int i = 0; i < sequence.Length; i++)
+        {
+            prefix[i + 1] = prefix[i] + CodonUsageAnalyzer.GcIndicator(sequence[i]);
+        }
+
+        double totalBreach = 0;
+        var starts = new List<int>();
+        for (int start = 0; start + w <= sequence.Length; start++)
+        {
+            double gc = (double)(prefix[start + w] - prefix[start]) / w;
+            double breach = Math.Max(0, mini - gc) + Math.Max(0, gc - maxi);
+            if (breach > 0)
+            {
+                totalBreach += breach;
+                starts.Add(start);
+            }
+        }
+
+        if (starts.Count == 0)
+            return noBreaches;
+
+        var locations = new List<GcBreachLocation>();
+        if (starts.Count == 1)
+        {
+            locations.Add(new GcBreachLocation(starts[0], starts[0] + w));
+        }
+        else
+        {
+            int spread = Math.Max(1, locationsSpan);
+            int groupStart = starts[0];
+            int lastStart = starts[0];
+            for (int k = 1; k < starts.Count; k++)
+            {
+                if (starts[k] - groupStart < spread)
+                {
+                    lastStart = starts[k];
+                    continue;
+                }
+
+                locations.Add(new GcBreachLocation(groupStart, lastStart + w));
+                groupStart = lastStart = starts[k];
+            }
+
+            locations.Add(new GcBreachLocation(groupStart, lastStart + w));
+        }
+
+        return new GcContentEvaluation(-totalBreach, starts, locations);
+    }
+
+    /// <summary>
+    /// Brings every sliding window of <paramref name="window"/> nucleotides of
+    /// <paramref name="codons"/> into [<paramref name="minGc"/>, <paramref name="maxGc"/>] with
+    /// synonymous codon swaps — DNA Chisel's <c>EnforceGCContent(mini, maxi, window=…)</c>
+    /// constraint resolved by synonymous mutations, with a deterministic greedy search instead of
+    /// DNA Chisel's randomised constraint solver.
+    /// </summary>
+    /// <remarks>
+    /// Search: repeatedly take the left-most window that breaches the bounds (breach extent and
+    /// window geometry exactly as in <see cref="EvaluateGcContent"/>) and try every synonymous
+    /// replacement of every codon overlapping that window whose frequency in
+    /// <paramref name="table"/> is at least <paramref name="minCodonFrequency"/>. The replacement
+    /// that lowers the total breach of the whole sequence the most is applied; ties are broken by
+    /// the higher codon frequency, then the left-most codon position, then NCBI codon order, so the
+    /// output is deterministic. When no replacement improves the total breach, that window is left
+    /// alone (its bounds are unreachable with synonymous codons) and the search moves on to the
+    /// next breaching window. Stop codons and triplets without a usable synonymous family are never
+    /// changed, so the encoded protein is preserved. The pass returns the lowest-total-breach sequence
+    /// it reached (DNA Chisel keeps a mutated sequence only when the constraint score improves), so
+    /// its output never breaches the windows more than its input.
+    /// </remarks>
+    private static void BalanceGcContentWindowed(
+        List<string> codons,
+        CodonUsageTable table,
+        double minGc,
+        double maxGc,
+        int window,
+        double minCodonFrequency,
+        CodeFamilies families)
+    {
+        int length = codons.Count * 3;
+        if (length == 0 || window <= 0 || window > length)
+            return;
+
+        var gcFlags = new int[length];
+        for (int i = 0; i < codons.Count; i++)
+        {
+            string codon = codons[i];
+            for (int k = 0; k < 3 && k < codon.Length; k++)
+            {
+                gcFlags[i * 3 + k] = CodonUsageAnalyzer.GcIndicator(codon[k]);
+            }
+        }
+
+        int windowCount = length - window + 1;
+
+        double WindowBreach(int start)
+        {
+            int gc = 0;
+            for (int p = start; p < start + window; p++)
+                gc += gcFlags[p];
+            double fraction = (double)gc / window;
+            return Math.Max(0, minGc - fraction) + Math.Max(0, fraction - maxGc);
+        }
+
+        double TotalBreach()
+        {
+            double total = 0;
+            for (int start = 0; start < windowCount; start++)
+                total += WindowBreach(start);
+            return total;
+        }
+
+        void WriteCodon(int index, string codon)
+        {
+            codons[index] = codon;
+            for (int k = 0; k < 3; k++)
+            {
+                gcFlags[index * 3 + k] = CodonUsageAnalyzer.GcIndicator(codon[k]);
+            }
+        }
+
+        // Rounds of a left-to-right pass: a repair can re-break an already visited window, so the
+        // pass is repeated while the total breach strictly decreases (at most MaxRounds rounds).
+        // A round targets the left-most breaching window first, so it can end with a larger total
+        // breach than it started from; as in DNA Chisel's constraint solver, which keeps a mutated
+        // sequence only when its constraint score improves and otherwise restores the previous one
+        // (ConstraintsSolverMixin.resolve_constraints_by_random_mutations: "If this score is superior
+        // to the score of the previous sequence, the new sequence becomes the problem's new
+        // sequence"), the pass returns the lowest-breach sequence it reached — never one worse than
+        // its input (review 2026-09 F62).
+        const int MaxRounds = 8;
+        double previousTotal = double.PositiveInfinity;
+        string[] lowestBreachCodons = codons.ToArray();
+        double lowestBreach = TotalBreach();
+        for (int round = 0; round < MaxRounds; round++)
+        {
+            double totalBefore = TotalBreach();
+            if (totalBefore < lowestBreach - 1e-12)
+            {
+                lowestBreach = totalBefore;
+                lowestBreachCodons = codons.ToArray();
+            }
+            if (totalBefore <= 0 || totalBefore >= previousTotal - 1e-12)
+                break;
+            previousTotal = totalBefore;
+
+            int frozen = 0;
+            int guard = Math.Max(16, codons.Count * 16);
+            while (frozen < windowCount && guard-- > 0)
+            {
+                int breaching = -1;
+                for (int start = frozen; start < windowCount; start++)
+                {
+                    if (WindowBreach(start) > 0)
+                    {
+                        breaching = start;
+                        break;
+                    }
+                }
+
+                if (breaching < 0)
+                    break;
+
+                double windowBefore = WindowBreach(breaching);
+                double totalCurrent = TotalBreach();
+                int firstCodon = breaching / 3;
+                int lastCodon = Math.Min(codons.Count - 1, (breaching + window - 1) / 3);
+
+                int bestCodonIndex = -1;
+                string? bestCodon = null;
+                double bestWindow = windowBefore;
+                double bestTotal = totalCurrent;
+                double bestFrequency = double.NegativeInfinity;
+
+                for (int index = firstCodon; index <= lastCodon; index++)
+                {
+                    string current = codons[index];
+                    if (!TryTranslateCodon(current, families, out char aa) || aa == '*')
+                        continue;
+
+                    foreach (string alternative in SynonymsFor(current, families))
+                    {
+                        if (alternative == current)
+                            continue;
+                        double frequency = table.CodonFrequencies.GetValueOrDefault(alternative, 0);
+                        if (frequency < minCodonFrequency)
+                            continue;
+
+                        WriteCodon(index, alternative);
+                        double windowAfter = WindowBreach(breaching);
+                        double totalAfter = TotalBreach();
+                        WriteCodon(index, current);
+
+                        // Only moves that improve the targeted window, or keep it and lower the
+                        // total breach, are candidates (lexicographic objective).
+                        bool improves = windowAfter < windowBefore - 1e-12 ||
+                            (Math.Abs(windowAfter - windowBefore) <= 1e-12 && totalAfter < totalCurrent - 1e-12);
+                        if (!improves)
+                            continue;
+
+                        bool better = bestCodon is null ||
+                            windowAfter < bestWindow - 1e-12 ||
+                            (Math.Abs(windowAfter - bestWindow) <= 1e-12 &&
+                                (totalAfter < bestTotal - 1e-12 ||
+                                    (Math.Abs(totalAfter - bestTotal) <= 1e-12 && frequency > bestFrequency)));
+                        if (!better)
+                            continue;
+
+                        bestCodonIndex = index;
+                        bestCodon = alternative;
+                        bestWindow = windowAfter;
+                        bestTotal = totalAfter;
+                        bestFrequency = frequency;
+                    }
+                }
+
+                if (bestCodon is null)
+                {
+                    // This window's bounds are unreachable with synonymous codons: leave it.
+                    frozen = breaching + 1;
+                    continue;
+                }
+
+                WriteCodon(bestCodonIndex, bestCodon);
+            }
+        }
+
+        if (TotalBreach() > lowestBreach + 1e-12)
+        {
+            for (int i = 0; i < codons.Count; i++)
+                WriteCodon(i, lowestBreachCodons[i]);
+        }
+    }
+
     // G+C count of a codon via the canonical counting primitive (SequenceExtensions).
     private static int CountGc(string codon) => codon.AsSpan().CountGcAndValidNucleotides().GcCount;
 
@@ -549,7 +1228,11 @@ public static class CodonOptimizer
     /// frequency table: <c>CAI = exp((1/L) Σ ln w_k)</c> with <c>w_ij = f_ij / max_j f_ij</c> over the
     /// synonymous codons of amino acid i. Delegates to the canonical
     /// <see cref="CodonUsageAnalyzer.CalculateCai(string, IReadOnlyDictionary{string, double}, GeneticCode)"/>
-    /// core (CodonW <c>cai_out</c> conventions), under the Standard genetic code.
+    /// core (CodonW <c>cai_out</c> conventions), under the genetic code <paramref name="geneticCode"/>
+    /// (default Standard): the value equals
+    /// <c>CodonUsageAnalyzer.CalculateCai(codingSequence, table, geneticCode)</c>, so stops and
+    /// single-codon families are those of that code (under table 2, for instance, AGA/AGG are
+    /// stops, the Met family is {AUA, AUG} and the Trp family {UGA, UGG}, so neither is excluded).
     /// </summary>
     /// <remarks>
     /// Stop codons are never scored. A relative adaptiveness below 0.0001 (codon absent from the
@@ -567,9 +1250,18 @@ public static class CodonOptimizer
     /// implement. <see langword="false"/>: they are scored with w = 1 (EMBOSS <c>cai</c> convention),
     /// which inflates CAI of Met/Trp-rich genes.
     /// </param>
+    /// <param name="geneticCode">
+    /// NCBI genetic code defining the stop codons and the synonymous families
+    /// (<see langword="null"/>, the default: <see cref="GeneticCode.Standard"/>, identical to the
+    /// historical value).
+    /// </param>
     /// <exception cref="ArgumentException"><paramref name="table"/> has no frequency dictionary.</exception>
     /// <exception cref="ArgumentOutOfRangeException">A frequency is negative or not finite.</exception>
-    public static double CalculateCAI(string codingSequence, CodonUsageTable table, bool excludeSingleCodonAminoAcids = true)
+    public static double CalculateCAI(
+        string codingSequence,
+        CodonUsageTable table,
+        bool excludeSingleCodonAminoAcids = true,
+        GeneticCode? geneticCode = null)
     {
         if (string.IsNullOrEmpty(codingSequence))
             return 0;
@@ -579,10 +1271,11 @@ public static class CodonOptimizer
         // The canonical core keys codons in DNA spelling.
         var reference = new Dictionary<string, double>(table.CodonFrequencies.Count);
         foreach (var (codon, frequency) in table.CodonFrequencies)
-            reference[codon.ToUpperInvariant().Replace('U', 'T')] = frequency;
+            reference[SequenceCase.ToUpperDna(codon)] = frequency;
 
         return CodonUsageAnalyzer.CalculateCai(
-            codingSequence, reference, GeneticCode.Standard, excludeSingleCodonFamilies: excludeSingleCodonAminoAcids);
+            codingSequence, reference, geneticCode ?? GeneticCode.Standard,
+            excludeSingleCodonFamilies: excludeSingleCodonAminoAcids);
     }
 
     #endregion
@@ -609,17 +1302,99 @@ public static class CodonOptimizer
     /// read as RNA (T → U) and trimmed to complete codons.
     /// </remarks>
     /// <param name="codingSequence">Coding sequence (DNA or RNA); empty → empty result.</param>
-    /// <param name="restrictionSites">Recognition sequences (DNA or RNA, IUPAC codes allowed).</param>
+    /// <param name="restrictionSites">
+    /// Recognition sequences (DNA or RNA, IUPAC codes allowed), each at most
+    /// <see cref="RestrictionAnalyzer.MaxRecognitionLength"/> = 64 characters (the scan costs sequence length x site length). Empty entries
+    /// are skipped.
+    /// </param>
     /// <param name="table">Codon-usage table of the expression host, used to pick replacements.</param>
-    public static string RemoveRestrictionSites(string codingSequence, IEnumerable<string> restrictionSites, CodonUsageTable table)
+    /// <param name="geneticCode">
+    /// NCBI genetic code whose synonymous families the substitutions come from, so the protein is
+    /// preserved under that code (<see langword="null"/>, the default:
+    /// <see cref="GeneticCode.Standard"/>, identical to the historical output).
+    /// </param>
+    /// <exception cref="ArgumentNullException"><paramref name="restrictionSites"/> is null (checked whatever the sequence is).</exception>
+    /// <exception cref="ArgumentException">
+    /// A site contains a character that is not an IUPAC nucleotide code or is longer than
+    /// <see cref="RestrictionAnalyzer.MaxRecognitionLength"/> (checked whatever the sequence is, an empty one included).
+    /// </exception>
+    public static string RemoveRestrictionSites(
+        string codingSequence,
+        IEnumerable<string> restrictionSites,
+        CodonUsageTable table,
+        GeneticCode? geneticCode = null)
+        => RemoveRestrictionSites(codingSequence, restrictionSites, table, geneticCode, gcConstraint: null);
+
+    // A GC-content constraint the site-removal pass has to keep satisfied, with exactly the
+    // semantics of EvaluateGcContent (DNA Chisel EnforceGCContent(mini, maxi, window)):
+    // Window = null constrains the global GC fraction, a positive value every sliding window.
+    private sealed record GcConstraint(double Mini, double Maxi, int? Window);
+
+    // Site removal that additionally respects a GC-content constraint when one is given
+    // (CODON-OPT-001 / review 2026-09 F60): DNA Chisel treats AvoidPattern and EnforceGCContent
+    // as hard constraints of ONE problem, so the pass that clears the sites must not break the
+    // GC bounds the GC pass established.
+    private static string RemoveRestrictionSites(
+        string codingSequence,
+        IEnumerable<string> restrictionSites,
+        CodonUsageTable table,
+        GeneticCode? geneticCode,
+        GcConstraint? gcConstraint)
     {
+        // The sites are validated whatever the sequence is (an empty or sub-codon sequence used to skip the check, and a site over the length
+        // limit was only refused from inside the scan, under the scan's parameter name).
+        var patterns = ParseSitePatterns(restrictionSites, nameof(restrictionSites));
+
         if (string.IsNullOrEmpty(codingSequence))
             return "";
 
-        ArgumentNullException.ThrowIfNull(restrictionSites);
-
         string rna = ToUpperRna(codingSequence);
         var codons = SplitIntoCodons(rna);
+        var families = FamiliesFor(geneticCode);
+
+        // The sequence the patterns are matched against: DNA spelling with every non-ACGT base masked to '-' (see MatchableDna), one char per
+        // base, kept in step with `codons` - a rewrite changes one codon, so the buffer changes in three places and is never rebuilt.
+        char[] dna = MatchableDna(string.Concat(codons));
+
+        foreach (string pattern in patterns)
+        {
+            int from = 0;
+            int scan = 0;
+            // A substitution can create a new occurrence elsewhere, whose removal could in
+            // principle undo the first one; cap the rewrites per pattern so the loop always
+            // terminates (one rewrite per codon plus a small margin).
+            int budget = codons.Count + 8;
+            while (budget-- > 0)
+            {
+                int position = IndexOfPattern(dna, pattern, scan);
+                if (position < 0)
+                    break;
+
+                if (TryRemoveOccurrence(codons, dna, position, pattern, table, families, gcConstraint, out int changedCodon))
+                {
+                    // Re-scan from the same offset: the edit may expose/shift matches. Only a window that overlaps the three bases of the
+                    // rewritten codon can have changed, and the windows in [from, position) did not match before the edit, so the first
+                    // match at or after `from` is not before the first window that reaches into the codon: the scan resumes there instead of
+                    // at `from` (which made every rewrite cost a pass over the sequence, and the pass quadratic).
+                    scan = Math.Max(from, 3 * changedCodon - pattern.Length + 1);
+                    continue;
+                }
+
+                from = position + 1; // unremovable occurrence — keep it and look further along
+                scan = from;
+            }
+        }
+
+        return string.Concat(codons);
+    }
+
+    // The distinct upper-case DNA patterns of the sites, each followed by its reverse complement (REBASE lists one strand; the enzyme cuts
+    // both). Empty entries are skipped. A site that is not made of IUPAC nucleotide codes, or is longer than RestrictionAnalyzer.MaxRecognitionLength
+    // (the scan costs sequence length x pattern length), is an ArgumentException naming `paramName` (`restrictionSites`, or `avoidSites` when OptimizeSequence asks).
+    private static List<string> ParseSitePatterns(IEnumerable<string> restrictionSites, string paramName)
+    {
+        if (restrictionSites is null)
+            throw new ArgumentNullException(paramName);
 
         // Match on DNA spelling: 'U' is not an IUPAC DNA code.
         var patterns = new List<string>();
@@ -627,38 +1402,21 @@ public static class CodonOptimizer
         {
             if (string.IsNullOrEmpty(site))
                 continue;
-            string pattern = site.ToUpperInvariant().Replace('U', 'T');
+            string pattern = SequenceCase.ToUpperDna(site);
             if (!pattern.All(IupacHelper.IsNucleotideCode))
                 throw new ArgumentException(
                     $"Restriction site '{site}' contains a character that is not an IUPAC nucleotide code.",
-                    nameof(restrictionSites));
+                    paramName);
+            if (pattern.Length > RestrictionAnalyzer.MaxRecognitionLength)
+                throw new ArgumentException(
+                    $"A restriction site is {pattern.Length} characters long; the longest supported is {RestrictionAnalyzer.MaxRecognitionLength}.",
+                    paramName);
 
             AddPattern(patterns, pattern);
             AddPattern(patterns, DnaSequence.GetReverseComplementString(pattern));
         }
 
-        foreach (string pattern in patterns)
-        {
-            int from = 0;
-            // A substitution can create a new occurrence elsewhere, whose removal could in
-            // principle undo the first one; cap the rewrites per pattern so the loop always
-            // terminates (one rewrite per codon plus a small margin).
-            int budget = codons.Count + 8;
-            while (budget-- > 0)
-            {
-                string dna = string.Concat(codons).Replace('U', 'T');
-                int position = FindPattern(dna, pattern, from);
-                if (position < 0)
-                    break;
-
-                if (TryRemoveOccurrence(codons, position, pattern, table))
-                    continue; // re-scan from the same offset: the edit may expose/shift matches
-
-                from = position + 1; // unremovable occurrence — keep it and look further along
-            }
-        }
-
-        return string.Concat(codons);
+        return patterns;
 
         static void AddPattern(List<string> patterns, string pattern)
         {
@@ -667,51 +1425,104 @@ public static class CodonOptimizer
         }
     }
 
-    // First index >= from where the IUPAC pattern matches (-1 when absent).
-    private static int FindPattern(string dnaSequence, string pattern, int from)
+    // First index >= from where the IUPAC pattern matches (-1 when absent), with RestrictionAnalyzer.FindPatternOccurrences' per-position rule
+    // (IupacPattern.MatchesCode): a pattern 'N' matches any of the 15 IUPAC codes in the sequence (Biopython's site-regex rule), while this
+    // optimizer never lets an ambiguous triplet match anything (it occupies its position but contributes nothing, cf. the codon-usage counters),
+    // which is why every non-ACGT base is masked to '-' in the buffer, a character that matches nothing.
+    private static int IndexOfPattern(char[] dna, string pattern, int from)
     {
-        for (int i = Math.Max(0, from); i + pattern.Length <= dnaSequence.Length; i++)
+        for (int i = from; i <= dna.Length - pattern.Length; i++)
         {
-            bool match = true;
-            for (int k = 0; k < pattern.Length && match; k++)
-                match = IupacHelper.MatchesIupac(dnaSequence[i + k], pattern[k]);
-            if (match)
+            int k = 0;
+            while (k < pattern.Length && IupacPattern.MatchesCode(dna[i + k], pattern[k]))
+                k++;
+            if (k == pattern.Length)
                 return i;
         }
 
         return -1;
     }
 
+    // DNA spelling (SequenceCase.ToUpperDna: ASCII fold, U -> T) with every non-ACGT symbol replaced by '-', which matches no pattern code.
+    private static char[] MatchableDna(string sequence)
+    {
+        string dna = SequenceCase.ToUpperDna(sequence);
+        var chars = new char[dna.Length];
+        for (int i = 0; i < chars.Length; i++)
+            chars[i] = dna[i] is 'A' or 'C' or 'G' or 'T' ? dna[i] : '-';
+        return chars;
+    }
+
     // Replaces the single synonymous codon that removes the occurrence at <paramref name="position"/>
     // with the smallest loss of codon usage; returns false when no synonymous substitution works.
-    private static bool TryRemoveOccurrence(List<string> codons, int position, string pattern, CodonUsageTable table)
+    // With a GC constraint the ranking is lexicographic: (a) candidates whose resulting sequence
+    // keeps the GC constraint satisfied — or, when the input already breaches it, candidates that
+    // do not increase the breach score; then (b) usage frequency; then (c) the left-most codon;
+    // then (d) NCBI codon order (the iteration order supplies (c) and (d)). When no candidate is
+    // acceptable, the least-breach candidate wins and the site is still removed: AvoidPattern
+    // stays the hard constraint (dnachisel would raise NoSolutionError instead).
+    private static bool TryRemoveOccurrence(
+        List<string> codons,
+        char[] dna,
+        int position,
+        string pattern,
+        CodonUsageTable table,
+        CodeFamilies families,
+        GcConstraint? gcConstraint,
+        out int changedCodon)
     {
+        changedCodon = -1;
         int firstCodon = position / 3;
         int lastCodon = Math.Min((position + pattern.Length - 1) / 3, codons.Count - 1);
 
+        // Breach of the sequence as it stands: when it is already > 0 the pass can only be asked
+        // not to make it worse.
+        double breachBefore = gcConstraint is null ? 0 : GcBreach(string.Concat(codons), gcConstraint);
+        double tolerated = Math.Max(0, breachBefore);
+
         int bestIndex = -1;
         string? bestCodon = null;
+        bool bestAcceptable = false;
+        double bestBreach = double.PositiveInfinity;
         double bestFrequency = double.NegativeInfinity;
 
         for (int i = firstCodon; i <= lastCodon; i++)
         {
             string original = codons[i];
-            if (!TryTranslateCodon(original, out char aa) || aa == '*')
+            if (!TryTranslateCodon(original, families, out char aa) || aa == '*')
                 continue;
 
-            foreach (string alternative in SynonymsFor(original))
+            foreach (string alternative in SynonymsFor(original, families))
             {
                 if (alternative == original)
                     continue;
 
-                string dna = ConcatCodons(codons, 0, codons.Count, i, alternative).Replace('U', 'T');
-                if (FindPattern(dna, pattern, position) == position)
+                // The candidate removes the occurrence when the window at `position` no longer matches; only the replaced codon and its
+                // neighbours inside the window decide that, so it is read off the buffer (the whole candidate sequence is built only when a
+                // GC constraint has to score it - the breach is a property of the whole sequence).
+                if (StillMatchesAt(dna, position, pattern, i, MatchableDna(alternative)))
                     continue;
 
                 double frequency = table.CodonFrequencies.GetValueOrDefault(alternative, 0);
-                if (frequency > bestFrequency)
+                double breach = gcConstraint is null ? 0 : GcBreach(ConcatCodons(codons, 0, codons.Count, i, alternative), gcConstraint);
+                bool acceptable = breach <= tolerated + 1e-12;
+
+                // Lexicographic: acceptable first; among the unacceptable ones the least breach;
+                // then the higher frequency. Strict improvement keeps the left-most codon and
+                // NCBI codon order as the final tie-breakers.
+                bool better = bestCodon is null ||
+                    (acceptable && !bestAcceptable) ||
+                    (acceptable == bestAcceptable &&
+                        (acceptable
+                            ? frequency > bestFrequency
+                            : breach < bestBreach - 1e-12 ||
+                                (Math.Abs(breach - bestBreach) <= 1e-12 && frequency > bestFrequency)));
+
+                if (better)
                 {
                     bestFrequency = frequency;
+                    bestBreach = breach;
+                    bestAcceptable = acceptable;
                     bestIndex = i;
                     bestCodon = alternative;
                 }
@@ -722,43 +1533,146 @@ public static class CodonOptimizer
             return false;
 
         codons[bestIndex] = bestCodon;
+        MatchableDna(bestCodon).CopyTo(dna, 3 * bestIndex);
+        changedCodon = bestIndex;
         return true;
     }
 
+    // Whether the pattern still matches at `position` once codon `index` is replaced by `alternative` (given in its matchable spelling): the
+    // window [position, position + pattern.Length) is read from the buffer, with the replaced codon's three bases substituted.
+    private static bool StillMatchesAt(char[] dna, int position, string pattern, int index, char[] alternative)
+    {
+        for (int k = 0; k < pattern.Length; k++)
+        {
+            int p = position + k;
+            char c = p / 3 == index ? alternative[p % 3] : dna[p];
+            if (!IupacPattern.MatchesCode(c, pattern[k]))
+                return false;
+        }
+
+        return true;
+    }
+
+    // Total out-of-bound GC deviation of <paramref name="sequence"/> under <paramref name="constraint"/>
+    // (0 when satisfied) — the negated EvaluateGcContent score, i.e. dnachisel's breach extent.
+    private static double GcBreach(string sequence, GcConstraint constraint)
+    {
+        var evaluation = EvaluateGcContent(sequence, constraint.Mini, constraint.Maxi, constraint.Window);
+        return -evaluation.Score;
+    }
+
     /// <summary>
-    /// Reduces mRNA secondary structure by replacing codons inside self-complementary windows
-    /// with synonymous codons that lower the window's self-complementarity.
+    /// How <see cref="ReduceSecondaryStructure(string, CodonUsageTable, int, double, double, SecondaryStructureScoring, double, int)"/>
+    /// scores the structure of a window.
+    /// </summary>
+    public enum SecondaryStructureScoring
+    {
+        /// <summary>
+        /// Fraction of position pairs (i, j), j ≥ i + 4, that can form a canonical pair
+        /// (Watson-Crick or G·U wobble). A pairing-potential heuristic, not an energy model;
+        /// the historical default.
+        /// </summary>
+        PairCount,
+
+        /// <summary>
+        /// Minimum free energy of the window in kcal/mol, from the canonical Turner 2004
+        /// nearest-neighbour folding engine
+        /// <see cref="RnaSecondaryStructure.CalculateMinimumFreeEnergy(string, int)"/>
+        /// (Zuker-style DP, NNDB Turner 2004 parameters; the energy model of ViennaRNA RNAfold).
+        /// Minimising structure means maximising the MFE (making it less negative).
+        /// </summary>
+        Turner2004Mfe
+    }
+
+    /// <summary>
+    /// Reduces mRNA secondary structure by replacing codons inside structured windows
+    /// with synonymous codons that lower the window's structure score.
     /// </summary>
     /// <remarks>
-    /// The score of a window is the fraction of position pairs (i, j), j ≥ i + 4, whose bases can
-    /// form a canonical pair — Watson-Crick A·U / G·C <b>or the G·U wobble</b>, taken from the
+    /// Windows of <paramref name="windowSize"/> nucleotides (rounded up to whole codons —
+    /// ceil(<paramref name="windowSize"/> / 3) codons, so the default 40 is scored over 14 codons
+    /// = 42 nt; review 2026-09 F64 corrected an off-by-one codon for a
+    /// <paramref name="windowSize"/> that is a multiple of 3) are
+    /// walked left to right; a window whose score exceeds the mode's threshold is rewritten codon
+    /// by codon, each codon taking the synonymous codon that minimises the score of the
+    /// <b>current</b> window content (the baseline is re-evaluated after every accepted change),
+    /// among codons whose usage frequency in <paramref name="table"/> is at least
+    /// <paramref name="minCodonFrequency"/>. The sequence is upper-cased, read as RNA and trimmed
+    /// to complete codons; a sequence shorter than <paramref name="windowSize"/> is returned
+    /// normalised but otherwise unchanged. The translated protein is preserved in every mode:
+    /// only synonymous codons of the genetic code <paramref name="geneticCode"/> (default
+    /// <see cref="GeneticCode.Standard"/>) are used (a stop codon can only become another stop
+    /// codon).
+    /// <para><b>Scoring modes</b> (<paramref name="scoring"/>):</para>
+    /// <list type="bullet">
+    /// <item><description><see cref="SecondaryStructureScoring.PairCount"/> (default, unchanged
+    /// behaviour) — the score is the fraction of position pairs (i, j), j ≥ i + 4, whose bases can
+    /// form a canonical pair, Watson-Crick A·U / G·C <b>or the G·U wobble</b>, taken from the
     /// canonical <see cref="RnaSecondaryStructure.CanPair"/> (ViennaRNA default pair set), not a
-    /// private Watson-Crick-only copy. Windows scoring above
-    /// <paramref name="structureThreshold"/> are rewritten codon by codon, each codon taking the
-    /// synonymous codon that minimises the score of the <b>current</b> window content (the
-    /// baseline is re-evaluated after every accepted change), among codons whose usage frequency
-    /// in <paramref name="table"/> is at least <paramref name="minCodonFrequency"/>.
-    /// The sequence is upper-cased, read as RNA and trimmed to complete codons; a sequence
-    /// shorter than <paramref name="windowSize"/> is returned normalised but otherwise unchanged.
-    /// <para>
-    /// <b>Limitation.</b> The window score is a base-pair-count heuristic, not a thermodynamic
-    /// folding model: it ignores stacking, loop penalties and pair nesting. A free-energy-guided
-    /// search would evaluate <see cref="RnaSecondaryStructure.CalculateMinimumFreeEnergy"/>
-    /// (Turner 2004) for every candidate codon, which is O(w³) per candidate (~6 ms per 43-nt
-    /// window here, i.e. minutes per kilobase) and is therefore left to the caller.
-    /// </para>
+    /// private Watson-Crick-only copy. A window is rewritten when that fraction is strictly above
+    /// <paramref name="structureThreshold"/>. This is a pairing-potential heuristic: it ignores
+    /// stacking, loop penalties and pair nesting.</description></item>
+    /// <item><description><see cref="SecondaryStructureScoring.Turner2004Mfe"/> (opt-in) — the
+    /// score is the window's minimum free energy from
+    /// <see cref="RnaSecondaryStructure.CalculateMinimumFreeEnergy(string, int)"/> (Turner 2004
+    /// nearest-neighbour parameters, the energy model of ViennaRNA RNAfold), and the search
+    /// maximises it: a window is rewritten when its MFE is strictly below
+    /// <paramref name="mfeThreshold"/> kcal/mol, and a synonymous codon is accepted only when it
+    /// raises (makes less negative) the window MFE. <paramref name="structureThreshold"/> is
+    /// ignored in this mode. Folding is O(w³) per evaluation, so window energies are memoised by
+    /// window content and the pass stops once <paramref name="maxFoldEvaluations"/> distinct folds
+    /// have been computed (deterministically, leaving the remaining windows as they are), which
+    /// bounds the runtime of a long CDS. Note that DNA Chisel has no free-energy objective (its
+    /// <c>AvoidHairpins</c> is the IDT reverse-complement stem rule), so the energy model is taken
+    /// from ViennaRNA RNAfold / NNDB Turner 2004 through this repository's own folding
+    /// engine.</description></item>
+    /// </list>
     /// </remarks>
     /// <param name="codingSequence">Coding sequence (DNA or RNA).</param>
     /// <param name="table">Codon-usage table of the expression host.</param>
-    /// <param name="windowSize">Window width in nucleotides (default 40).</param>
-    /// <param name="structureThreshold">Score above which a window is rewritten (default 0.5).</param>
+    /// <param name="windowSize">Window width in nucleotides, rounded up to whole codons (default 40 → 14 codons).</param>
+    /// <param name="structureThreshold">Pair-count score above which a window is rewritten (default 0.5; <see cref="SecondaryStructureScoring.PairCount"/> only).</param>
     /// <param name="minCodonFrequency">Minimum usage frequency of a replacement codon (default 0.1).</param>
+    /// <param name="scoring">Window scoring model (default <see cref="SecondaryStructureScoring.PairCount"/>).</param>
+    /// <param name="mfeThreshold">MFE in kcal/mol below which a window is rewritten (default 0, i.e. every window with a thermodynamically favourable structure; <see cref="SecondaryStructureScoring.Turner2004Mfe"/> only).</param>
+    /// <param name="maxFoldEvaluations">Budget of distinct window folds in <see cref="SecondaryStructureScoring.Turner2004Mfe"/> mode (default 20000); the pass stops when it is exhausted.</param>
+    /// <param name="geneticCode">
+    /// NCBI genetic code whose synonymous families the rewrites use (<see langword="null"/>, the
+    /// default: <see cref="GeneticCode.Standard"/>, identical to the historical output).
+    /// </param>
     public static string ReduceSecondaryStructure(
         string codingSequence,
         CodonUsageTable table,
         int windowSize = 40,
         double structureThreshold = 0.5,
-        double minCodonFrequency = 0.1)
+        double minCodonFrequency = 0.1,
+        SecondaryStructureScoring scoring = SecondaryStructureScoring.PairCount,
+        double mfeThreshold = 0.0,
+        int maxFoldEvaluations = 20_000,
+        GeneticCode? geneticCode = null)
+        => ReduceSecondaryStructure(
+            codingSequence, table, windowSize, structureThreshold, minCodonFrequency, scoring,
+            mfeThreshold, maxFoldEvaluations, geneticCode, gcConstraint: null);
+
+    // Structure pass that additionally respects a GC-content constraint when one is given
+    // (CODON-OPT-001 / review 2026-09 F63): DNA Chisel resolves EnforceGCContent as a hard
+    // constraint of the problem and optimises the remaining objectives only with mutations that
+    // keep the constraints satisfied (DnaOptimizationProblem.optimize →
+    // "the mutations that do not break the constraints"), so the structure pass of
+    // OptimizationStrategy.MinimizeSecondary must not undo the GC bounds / windows the GC pass of
+    // the same call established. gcConstraint = null (every direct call of the public method) keeps
+    // the historical behaviour bit-for-bit.
+    private static string ReduceSecondaryStructure(
+        string codingSequence,
+        CodonUsageTable table,
+        int windowSize,
+        double structureThreshold,
+        double minCodonFrequency,
+        SecondaryStructureScoring scoring,
+        double mfeThreshold,
+        int maxFoldEvaluations,
+        GeneticCode? geneticCode,
+        GcConstraint? gcConstraint)
     {
         if (string.IsNullOrEmpty(codingSequence))
             return codingSequence;
@@ -768,20 +1682,61 @@ public static class CodonOptimizer
             return rna;
 
         var codons = SplitIntoCodons(rna);
-        int windowCodons = windowSize / 3 + 1;
+        var families = FamiliesFor(geneticCode);
+        // Whole-codon window: ceil(windowSize / 3) codons, i.e. the smallest codon-aligned window
+        // that is at least windowSize nucleotides wide (the documented contract "windows of
+        // windowSize nucleotides, rounded up to whole codons"). windowSize / 3 + 1 over-rounded by
+        // one codon whenever windowSize was a multiple of 3 (review 2026-09, F64); the default 40
+        // is unchanged (14 codons = 42 nt).
+        int windowCodons = (windowSize + 2) / 3;
+
+        bool turner = scoring == SecondaryStructureScoring.Turner2004Mfe;
+        // Window energies are memoised by window content: the candidate windows of overlapping
+        // positions repeat heavily, and a fold is orders of magnitude costlier than a lookup.
+        var mfeCache = turner ? new Dictionary<string, double>(StringComparer.Ordinal) : null;
+        int folds = 0;
+
+        // Higher = more structured in both modes, so the same minimisation drives both:
+        // the pair-count fraction, or the negated MFE (maximising MFE = minimising −MFE).
+        double Score(string window)
+        {
+            if (!turner)
+                return CalculateLocalStructure(window);
+
+            if (!mfeCache!.TryGetValue(window, out double mfe))
+            {
+                mfe = RnaSecondaryStructure.CalculateMinimumFreeEnergy(window);
+                mfeCache[window] = mfe;
+                folds++;
+            }
+
+            return -mfe;
+        }
+
+        double threshold = turner ? -mfeThreshold : structureThreshold;
+
+        // GC constraint of the surrounding optimisation, when one was declared: a rewrite is
+        // accepted only when the whole sequence's GC breach does not grow (an input that already
+        // breaches the band can only be asked not to get worse — the F60 rule of the site pass).
+        double toleratedGcBreach = gcConstraint is null
+            ? 0
+            : Math.Max(0, GcBreach(string.Concat(codons), gcConstraint));
 
         for (int i = 0; i + windowCodons <= codons.Count; i++)
         {
-            if (CalculateLocalStructure(ConcatCodons(codons, i, windowCodons, -1, "")) <= structureThreshold)
+            if (turner && folds >= maxFoldEvaluations)
+                break; // fold budget exhausted — remaining windows are left unchanged
+
+            if (Score(ConcatCodons(codons, i, windowCodons, -1, "")) <= threshold)
                 continue;
 
             for (int j = i; j < i + windowCodons; j++)
             {
                 string current = codons[j];
-                double bestScore = CalculateLocalStructure(ConcatCodons(codons, i, windowCodons, -1, current));
+                double bestScore = Score(ConcatCodons(codons, i, windowCodons, -1, current));
                 string bestAlternative = current;
 
-                foreach (string alternative in SynonymsFor(current))
+                foreach (string alternative in SynonymsFor(current, families))
                 {
                     if (alternative == current ||
                         table.CodonFrequencies.GetValueOrDefault(alternative, 0) < minCodonFrequency)
@@ -789,7 +1744,15 @@ public static class CodonOptimizer
                         continue;
                     }
 
-                    double score = CalculateLocalStructure(ConcatCodons(codons, i, windowCodons, j, alternative));
+                    double score = Score(ConcatCodons(codons, i, windowCodons, j, alternative));
+
+                    if (score < bestScore &&
+                        gcConstraint is not null &&
+                        GcBreach(ConcatCodons(codons, 0, codons.Count, j, alternative), gcConstraint)
+                            > toleratedGcBreach + 1e-12)
+                    {
+                        continue; // would break the GC constraint of this optimisation
+                    }
 
                     if (score < bestScore)
                     {
@@ -839,19 +1802,51 @@ public static class CodonOptimizer
     /// <see cref="CodonUsageAnalyzer.CountCodons(string)"/> (EMBOSS <c>ajCodSetTripletsS</c>).
     /// A valid codon that is absent from <paramref name="table"/> (never observed in the reference
     /// genes) has frequency 0 and is reported whenever <paramref name="threshold"/> &gt; 0.
-    /// Stop codons are screened like any other row of the table. The amino acid is the NCBI
-    /// Standard-code translation (<see cref="GeneticCode.Standard"/>).
+    /// Stop codons are screened like any other row of the table. The amino acid is the
+    /// translation under <paramref name="geneticCode"/> (default <see cref="GeneticCode.Standard"/>).
     /// </remarks>
     /// <returns>
     /// (0-based nucleotide position of the codon, RNA codon, one-letter amino acid or <c>*</c>,
     /// table frequency) in sequence order.
     /// </returns>
+    /// <param name="geneticCode">
+    /// NCBI genetic code used to translate each reported codon (<see langword="null"/>, the
+    /// default: <see cref="GeneticCode.Standard"/>, identical to the historical output). The
+    /// selection of rare codons itself is code-independent (it is a per-codon table lookup); the
+    /// code only names the amino acid, so e.g. UGA is reported as <c>*</c> under table 1 and as
+    /// <c>W</c> under table 2.
+    /// </param>
     public static IEnumerable<(int Position, string Codon, string AminoAcid, double Frequency)> FindRareCodons(
         string codingSequence,
         CodonUsageTable table,
-        double threshold = 0.15)
+        double threshold = 0.15,
+        GeneticCode? geneticCode = null)
+        => FindRareCodons(codingSequence, table, threshold, inclusiveThreshold: false, geneticCode: geneticCode);
+
+    /// <summary>
+    /// <see cref="FindRareCodons(string, CodonUsageTable, double)"/> with a selectable threshold
+    /// comparison: <paramref name="inclusiveThreshold"/> = <see langword="true"/> also reports codons
+    /// whose frequency EQUALS <paramref name="threshold"/> (frequency ≤ threshold — the Sherlocc
+    /// "slow position" comparison, <c>if($avrg &lt;= $avrg_lim)</c> in sherlocc.pl, README "equal or
+    /// lower than the specified threshold"; Chartier et&#160;al. 2012); <see langword="false"/> is
+    /// the default strict &lt; contract of the 3-argument overload.
+    /// </summary>
+    /// <param name="geneticCode">
+    /// NCBI genetic code used to translate each reported codon (<see langword="null"/>, the
+    /// default: <see cref="GeneticCode.Standard"/>, identical to the historical output). The
+    /// selection of rare codons itself is code-independent (it is a per-codon table lookup); the
+    /// code only names the amino acid, so e.g. UGA is reported as <c>*</c> under table 1 and as
+    /// <c>W</c> under table 2.
+    /// </param>
+    public static IEnumerable<(int Position, string Codon, string AminoAcid, double Frequency)> FindRareCodons(
+        string codingSequence,
+        CodonUsageTable table,
+        double threshold,
+        bool inclusiveThreshold,
+        GeneticCode? geneticCode = null)
     {
         var codons = SplitIntoScreenedCodons(codingSequence);
+        var code = geneticCode ?? GeneticCode.Standard;
 
         for (int i = 0; i < codons.Length; i++)
         {
@@ -860,10 +1855,15 @@ public static class CodonOptimizer
                 continue;
 
             double freq = table.CodonFrequencies.GetValueOrDefault(codon, 0);
-            if (freq < threshold)
-                yield return (i * 3, codon, GeneticCode.Standard.Translate(codon).ToString(), freq);
+            if (IsBelowThreshold(freq, threshold, inclusiveThreshold))
+                yield return (i * 3, codon, code.Translate(codon).ToString(), freq);
         }
     }
+
+    // Rare-codon comparison: strict (freq < threshold) or Sherlocc-inclusive (freq <= threshold;
+    // sherlocc.pl: if($avrg <= $avrg_lim){ #We have a pause).
+    private static bool IsBelowThreshold(double frequency, double threshold, bool inclusive) =>
+        inclusive ? frequency <= threshold : frequency < threshold;
 
     // Default sliding-window width (in codons) for the %MinMax profile.
     // "%MinMax results are typically averaged over an 18-codon sliding window."
@@ -891,17 +1891,22 @@ public static class CodonOptimizer
     /// Clarke &amp; Clark (2008), PLoS ONE 3(10):e3412; reproduced term-for-term from the Clark
     /// lab reference code (<c>calculateMinMax</c> in CHARMING.py, Wright et&#160;al. 2022), whose
     /// synonymous families are those of the Standard code including the stop family
-    /// {UAA, UAG, UGA}. Families here come from <see cref="GeneticCode.Standard"/>; codons of
+    /// {UAA, UAG, UGA}. Families here come from <paramref name="geneticCode"/> (default
+    /// <see cref="GeneticCode.Standard"/>, the reference behaviour); codons of
     /// single-codon amino acids (Met, Trp) contribute 0 to both numerator and denominator, and an
     /// ambiguous triplet (non-ACGU symbol) occupies its window position but contributes nothing.
     /// <para>
     /// <b>Frequency scale.</b> The reference implementation takes a codon usage table in
     /// frequency per thousand codons (Kazusa "/1000" column), so the window sums weight each
-    /// residue by its overall usage. Passing a <see cref="CodonUsageTable"/> whose
-    /// <c>CodonFrequencies</c> hold per-thousand values reproduces the reference exactly. The
-    /// built-in presets (<see cref="EColiK12"/>, <see cref="Yeast"/>, <see cref="Human"/>) hold
-    /// per-amino-acid relative fractions; with them every residue has equal weight, which gives
-    /// the reference value only for windows of a single amino acid.
+    /// residue by its overall usage. This overload therefore uses
+    /// <see cref="CodonUsageTable.PerThousand"/> when the table carries it (the <see cref="EColiK12"/>,
+    /// <see cref="Yeast"/> and <see cref="Human"/> presets: Kazusa 316407 / 4932 / 9606 per-thousand
+    /// usage, so the presets reproduce the reference), and otherwise <c>CodonFrequencies</c> — a
+    /// caller table whose <c>CodonFrequencies</c> hold per-thousand values also reproduces the
+    /// reference exactly. With per-amino-acid relative fractions (a caller table without
+    /// <c>PerThousand</c>, or <see cref="MinMaxUsageBasis.CodonFrequencies"/>) every residue has
+    /// equal weight, which approximates the reference only for windows of a single amino acid (equal
+    /// when the fractions are exact ratios of the per-thousand values).
     /// </para>
     /// </remarks>
     /// <param name="codingSequence">DNA or RNA coding sequence (T is normalised to U).</param>
@@ -916,14 +1921,48 @@ public static class CodonOptimizer
     /// <paramref name="windowSize"/> complete codons.
     /// </returns>
     /// <exception cref="ArgumentOutOfRangeException">windowSize &lt; 1.</exception>
+    /// <param name="geneticCode">
+    /// NCBI genetic code defining the synonymous families of the %MinMax sums
+    /// (<see langword="null"/>, the default: <see cref="GeneticCode.Standard"/>, identical to the
+    /// historical profile).
+    /// </param>
     public static IReadOnlyList<MinMaxWindow> CalculateMinMaxProfile(
         string codingSequence,
         CodonUsageTable table,
-        int windowSize = DefaultMinMaxWindowCodons)
+        int windowSize = DefaultMinMaxWindowCodons,
+        GeneticCode? geneticCode = null)
+        => CalculateMinMaxProfile(
+            codingSequence, table, windowSize, MinMaxUsageBasis.PerThousandWhenAvailable, geneticCode);
+
+    /// <summary>
+    /// <see cref="CalculateMinMaxProfile(string, CodonUsageTable, int)"/> with an explicit choice of
+    /// the usage values: <see cref="MinMaxUsageBasis.PerThousandWhenAvailable"/> (default of the
+    /// 3-argument overload) or <see cref="MinMaxUsageBasis.CodonFrequencies"/> (always the
+    /// per-amino-acid fractions / caller values in <c>CodonFrequencies</c>).
+    /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException">windowSize &lt; 1, or <paramref name="basis"/> undefined.</exception>
+    /// <param name="geneticCode">
+    /// NCBI genetic code defining the synonymous families of the %MinMax sums
+    /// (<see langword="null"/>, the default: <see cref="GeneticCode.Standard"/>, identical to the
+    /// historical profile).
+    /// </param>
+    public static IReadOnlyList<MinMaxWindow> CalculateMinMaxProfile(
+        string codingSequence,
+        CodonUsageTable table,
+        int windowSize,
+        MinMaxUsageBasis basis,
+        GeneticCode? geneticCode = null)
     {
         if (windowSize < 1)
             throw new ArgumentOutOfRangeException(nameof(windowSize), windowSize, "Window size must be at least 1 codon.");
+        IReadOnlyDictionary<string, double> usage = basis switch
+        {
+            MinMaxUsageBasis.PerThousandWhenAvailable => table.PerThousand ?? table.CodonFrequencies,
+            MinMaxUsageBasis.CodonFrequencies => table.CodonFrequencies,
+            _ => throw new ArgumentOutOfRangeException(nameof(basis), basis, "Unknown %MinMax usage basis."),
+        };
 
+        var families = FamiliesFor(geneticCode);
         var profile = new List<MinMaxWindow>();
         var codons = SplitIntoScreenedCodons(codingSequence);
         if (codons.Length < windowSize)
@@ -941,21 +1980,21 @@ public static class CodonOptimizer
             if (codon is null)
                 continue; // ambiguous triplet: all four terms stay 0 (no contribution).
 
-            xij[i] = table.CodonFrequencies.GetValueOrDefault(codon, 0);
-            char aa = GeneticCode.Standard.Translate(codon);
+            xij[i] = usage.GetValueOrDefault(codon, 0);
+            char aa = families.Code.Translate(codon);
             if (!familyStats.TryGetValue(aa, out var stats))
             {
                 double sum = 0, max = double.MinValue, min = double.MaxValue;
                 int n = 0;
-                foreach (string syn in GeneticCode.Standard.GetCodonsForAminoAcid(aa))
+                foreach (string syn in families.Synonyms.GetValueOrDefault(aa, Array.Empty<string>()))
                 {
-                    double f = table.CodonFrequencies.GetValueOrDefault(syn, 0);
+                    double f = usage.GetValueOrDefault(syn, 0);
                     sum += f;
                     n++;
                     if (f > max) max = f;
                     if (f < min) min = f;
                 }
-                stats = (sum / n, max, min);
+                stats = n > 0 ? (sum / n, max, min) : (0.0, 0.0, 0.0);
                 familyStats[aa] = stats;
             }
 
@@ -1001,18 +2040,29 @@ public static class CodonOptimizer
     /// <paramref name="minRareCodons"/> rare ("pause") codons.
     /// </summary>
     /// <remarks>
-    /// A codon is "rare"/"pause" when its usage frequency in <paramref name="table"/> is strictly
-    /// below <paramref name="rareThreshold"/> — the same per-codon criterion (and the same
-    /// unambiguous-codon screen: an ambiguous triplet is never a pause) as
-    /// <see cref="FindRareCodons"/>. Overlapping windows are merged into maximal clusters so a long
+    /// A codon is "rare"/"pause" when its usage frequency in <paramref name="table"/> is equal to
+    /// or lower than <paramref name="rareThreshold"/> — the Sherlocc comparison: sherlocc.pl
+    /// <c>if($avrg &lt;= $avrg_lim){ #We have a pause</c>, README "positions with a codon usage
+    /// frequency average equal or lower than the specified threshold … considered as 'slow'
+    /// positions" (github.com/mtthchrtr/sherlocc, commit b3b4d15). Until review 2026-10 the
+    /// comparison was strict &lt;; that behaviour is available through the overload with
+    /// <c>inclusiveThreshold: false</c>. The unambiguous-codon screen is the one of
+    /// <see cref="FindRareCodons(string, CodonUsageTable, double)"/> (an ambiguous triplet is never
+    /// a pause). Simplification kept: Sherlocc compares a centred 7-codon window AVERAGE of per-thousand
+    /// usage (averaged over every sequence of a protein-family alignment) with the threshold, whereas
+    /// this method compares each codon's own table value. Overlapping windows are merged into maximal clusters so a long
     /// rare run is reported once. This is opt-in; <see cref="FindRareCodons"/> (per-codon) is
-    /// unchanged. Defaults reproduce the published Sherlocc rule "a seven position-wide window …
+    /// unchanged. The rule is <b>genetic-code independent</b>: a pause is a per-codon usage-table
+    /// lookup, no codon is translated and no synonymous family is formed, so no
+    /// <see cref="GeneticCode"/> parameter is offered (the same holds for
+    /// <see cref="FindConservedRareCodonClusters(IReadOnlyList{string}, CodonUsageTable, double, SherloccOptions?)"/>,
+    /// <see cref="CalculateCodonUsage(string)"/> and <see cref="CompareCodonUsage(string, string)"/>). Defaults reproduce the published Sherlocc rule "a seven position-wide window …
     /// containing at least four pause positions out of seven" (Chartier et&#160;al. 2012,
     /// doi:10.1093/bioinformatics/bts149).
     /// </remarks>
     /// <param name="codingSequence">DNA or RNA coding sequence (T is normalised to U).</param>
     /// <param name="table">Reference codon-usage table (per-amino-acid relative fractions).</param>
-    /// <param name="rareThreshold">Per-codon rare-frequency cutoff (default 0.15, strict &lt;).</param>
+    /// <param name="rareThreshold">Per-codon rare-frequency cutoff (default 0.15, frequency ≤ cutoff, per Sherlocc).</param>
     /// <param name="windowSize">Cluster window width in codons (default 7, per Sherlocc).</param>
     /// <param name="minRareCodons">Minimum rare codons in a window to call a cluster (default 4, per Sherlocc).</param>
     /// <returns>Maximal, non-overlapping <see cref="RareCodonCluster"/> regions in codon-index order.</returns>
@@ -1023,6 +2073,23 @@ public static class CodonOptimizer
         double rareThreshold = 0.15,
         int windowSize = DefaultClusterWindowCodons,
         int minRareCodons = DefaultClusterMinRareCodons)
+        => FindRareCodonClusters(codingSequence, table, rareThreshold, windowSize, minRareCodons, inclusiveThreshold: true);
+
+    /// <summary>
+    /// <see cref="FindRareCodonClusters(string, CodonUsageTable, double, int, int)"/> with a selectable
+    /// pause comparison: <paramref name="inclusiveThreshold"/> = <see langword="true"/> (the default of
+    /// the 5-argument overload, Sherlocc) marks frequency ≤ threshold as a pause;
+    /// <see langword="false"/> marks only frequency &lt; threshold (the pre-2026-10 behaviour, the
+    /// same comparison as <see cref="FindRareCodons(string, CodonUsageTable, double)"/>).
+    /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException">windowSize &lt; 1 or minRareCodons &lt; 1.</exception>
+    public static IReadOnlyList<RareCodonCluster> FindRareCodonClusters(
+        string codingSequence,
+        CodonUsageTable table,
+        double rareThreshold,
+        int windowSize,
+        int minRareCodons,
+        bool inclusiveThreshold)
     {
         if (windowSize < 1)
             throw new ArgumentOutOfRangeException(nameof(windowSize), windowSize, "Window size must be at least 1 codon.");
@@ -1034,12 +2101,12 @@ public static class CodonOptimizer
         if (codons.Length < windowSize)
             return clusters;
 
-        // Mark each codon as rare (pause) when its table frequency is strictly below the threshold.
-        // An ambiguous triplet has no usage frequency and is never a pause position.
+        // Mark each codon as rare (pause) when its table frequency is at or below (Sherlocc) / strictly
+        // below the threshold. An ambiguous triplet has no usage frequency and is never a pause position.
         var isRare = new bool[codons.Length];
         for (int i = 0; i < codons.Length; i++)
             isRare[i] = codons[i] is { } codon
-                && table.CodonFrequencies.GetValueOrDefault(codon, 0) < rareThreshold;
+                && IsBelowThreshold(table.CodonFrequencies.GetValueOrDefault(codon, 0), rareThreshold, inclusiveThreshold);
 
         int? mergedStart = null;
         int mergedEnd = -1;
@@ -1094,6 +2161,206 @@ public static class CodonOptimizer
     }
 
     /// <summary>
+    /// Sherlocc 1.0 conserved rare-codon cluster analysis (Chartier, Gaudreault &amp; Najmanovich 2012;
+    /// <c>sherlocc.pl</c> stage 3, github.com/mtthchrtr/sherlocc commit b3b4d15) of a codon alignment of
+    /// homologous coding sequences, every sequence scored with the same usage table.
+    /// </summary>
+    /// <remarks>
+    /// <para>Input convention: equal-length aligned nucleotide CDS (DNA or RNA, any case), one codon per
+    /// 3 alignment characters; a codon column made only of <c>-</c>/<c>.</c> is a gap (Sherlocc <c>x</c>).
+    /// A triplet with no usage value (partially gapped, ambiguous, or absent from the table) is also
+    /// an <c>x</c> cell.</para>
+    /// <para>Algorithm (verbatim from the script): (1) every cell gets its codon's per-thousand usage
+    /// (stage 2, l. 494–522); (2) for every column i the values of columns i−3 … i+3 of ALL sequences
+    /// are summed, skipping out-of-range and <c>x</c> cells (l. 780–798); (3) the column is
+    /// representative only when the number of valued cells ≥ 0.75 × sequences × 7 (l. 772, 799) — the
+    /// conservation/gap filter; (4) a representative column with average ≤ threshold is a pause
+    /// (l. 803); (5) every window of columns i … i+6 holding ≥ 4 pauses yields a cluster from its first
+    /// to its last pause (l. 838–854); (6) successive clusters are merged when the next one starts
+    /// inside the current one, otherwise a new cluster starts — abutting clusters are NOT merged
+    /// (l. 894–961); (7) each cluster's mean usage, middle point, the total length and the fraction of
+    /// the alignment are those of the result table (l. 875–879, 1131–1155).</para>
+    /// <para>Not ported: the FoldIndex/Uversky unstructured-region prediction (a separate output of the
+    /// script) and stages 1–2 retrieval (UniProt/ENA web queries). The cluster P-values of the paper are
+    /// not computed by <c>sherlocc.pl</c> and their model is not available (see the CODON-RARE-001
+    /// Evidence), so no P-value is reported.</para>
+    /// </remarks>
+    /// <param name="alignedCodingSequences">Aligned in-frame coding sequences (gaps <c>-</c> or <c>.</c>).</param>
+    /// <param name="table">Codon-usage table applied to every sequence (needs <see cref="CodonUsageTable.PerThousand"/> unless <see cref="SherloccOptions.UseCodonFrequencies"/>).</param>
+    /// <param name="threshold">Sherlocc threshold (per thousand by default; README examples 14, 15, 16); pause = average ≤ threshold.</param>
+    /// <param name="options">Window/filter parameters; <see langword="null"/> = Sherlocc defaults.</param>
+    /// <exception cref="ArgumentNullException">A list, sequence or table is null.</exception>
+    /// <exception cref="ArgumentException">Empty alignment, unequal lengths, length not a multiple of 3, or a table without per-thousand usage.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Threshold is NaN, or an option is out of range.</exception>
+    public static SherloccResult FindConservedRareCodonClusters(
+        IReadOnlyList<string> alignedCodingSequences,
+        CodonUsageTable table,
+        double threshold,
+        SherloccOptions? options = null)
+    {
+        ArgumentNullException.ThrowIfNull(alignedCodingSequences);
+        var tables = new CodonUsageTable[alignedCodingSequences.Count];
+        Array.Fill(tables, table);
+        return FindConservedRareCodonClusters(alignedCodingSequences, tables, threshold, options);
+    }
+
+    /// <summary>
+    /// <see cref="FindConservedRareCodonClusters(IReadOnlyList{string}, CodonUsageTable, double, SherloccOptions?)"/>
+    /// with one usage table per sequence — Sherlocc scores each family member with the codon usage of
+    /// its own organism (stage 2 looks up <c>$cu_hash{$org_id}</c> per protein, l. 497).
+    /// </summary>
+    /// <param name="alignedCodingSequences">Aligned in-frame coding sequences (gaps <c>-</c> or <c>.</c>).</param>
+    /// <param name="tablesPerSequence">One table per sequence, same order.</param>
+    /// <param name="threshold">Sherlocc threshold; pause = average ≤ threshold.</param>
+    /// <param name="options">Window/filter parameters; <see langword="null"/> = Sherlocc defaults.</param>
+    public static SherloccResult FindConservedRareCodonClusters(
+        IReadOnlyList<string> alignedCodingSequences,
+        IReadOnlyList<CodonUsageTable> tablesPerSequence,
+        double threshold,
+        SherloccOptions? options = null)
+    {
+        ArgumentNullException.ThrowIfNull(alignedCodingSequences);
+        ArgumentNullException.ThrowIfNull(tablesPerSequence);
+        options ??= new SherloccOptions();
+        if (double.IsNaN(threshold))
+            throw new ArgumentOutOfRangeException(nameof(threshold), threshold, "Threshold must be a number.");
+        if (options.AveragingWindow < 1 || options.AveragingWindow % 2 == 0)
+            throw new ArgumentOutOfRangeException(nameof(options), options.AveragingWindow, "AveragingWindow must be a positive odd number of columns.");
+        if (options.ClusterWindow < 1)
+            throw new ArgumentOutOfRangeException(nameof(options), options.ClusterWindow, "ClusterWindow must be at least 1 column.");
+        if (options.MinPauses < 1)
+            throw new ArgumentOutOfRangeException(nameof(options), options.MinPauses, "MinPauses must be at least 1.");
+        if (!(options.MinCoverage >= 0 && options.MinCoverage <= 1))
+            throw new ArgumentOutOfRangeException(nameof(options), options.MinCoverage, "MinCoverage must be in [0, 1].");
+
+        int rows = alignedCodingSequences.Count;
+        if (rows == 0)
+            throw new ArgumentException("The alignment must contain at least one sequence.", nameof(alignedCodingSequences));
+        if (tablesPerSequence.Count != rows)
+            throw new ArgumentException("One codon-usage table per sequence is required.", nameof(tablesPerSequence));
+
+        int length = -1;
+        for (int r = 0; r < rows; r++)
+        {
+            string? s = alignedCodingSequences[r];
+            if (s is null)
+                throw new ArgumentNullException(nameof(alignedCodingSequences), $"Sequence {r} is null.");
+            if (s.Length % 3 != 0)
+                throw new ArgumentException($"Sequence {r} length {s.Length} is not a multiple of 3.", nameof(alignedCodingSequences));
+            if (length >= 0 && s.Length != length)
+                throw new ArgumentException("All aligned sequences must have the same length.", nameof(alignedCodingSequences));
+            length = s.Length;
+            var t = tablesPerSequence[r];
+            if (t.CodonFrequencies is null)
+                throw new ArgumentNullException(nameof(tablesPerSequence), $"Table {r} has no codon frequencies.");
+            if (!options.UseCodonFrequencies && t.PerThousand is null)
+                throw new ArgumentException(
+                    $"Table {r} ('{t.OrganismName}') has no per-thousand usage; Sherlocc uses CUTG per-thousand values " +
+                    "(set SherloccOptions.UseCodonFrequencies to score CodonFrequencies instead).", nameof(tablesPerSequence));
+        }
+
+        int columns = length / 3;
+
+        // Stage 2: one usage value per cell, NaN for an 'x' cell.
+        var matrix = new double[rows, columns];
+        for (int r = 0; r < rows; r++)
+        {
+            var usage = options.UseCodonFrequencies ? tablesPerSequence[r].CodonFrequencies : tablesPerSequence[r].PerThousand!;
+            var codons = SplitIntoCodons(ToUpperRna(alignedCodingSequences[r]));
+            for (int c = 0; c < columns; c++)
+                matrix[r, c] = usage.TryGetValue(codons[c], out double v) ? v : double.NaN;
+        }
+
+        // Stage 3: window-and-family averages, representativeness filter, pauses.
+        int half = options.AveragingWindow / 2;
+        double minCells = rows * options.AveragingWindow * options.MinCoverage;
+        var averages = new double?[columns];
+        var counts = new int[columns];
+        var pauses = new List<int>();
+        var isPause = new bool[columns];
+        for (int i = 0; i < columns; i++)
+        {
+            double sum = 0;
+            int count = 0;
+            for (int r = 0; r < rows; r++)
+            {
+                for (int c = i - half; c <= i + half; c++)
+                {
+                    if (c < 0 || c >= columns || double.IsNaN(matrix[r, c]))
+                        continue;
+                    sum += matrix[r, c];
+                    count++;
+                }
+            }
+
+            counts[i] = count;
+            if (count > 0 && count >= minCells)
+            {
+                double avg = sum / count;
+                averages[i] = avg;
+                if (avg <= threshold)
+                {
+                    isPause[i] = true;
+                    pauses.Add(i);
+                }
+            }
+        }
+
+        // Cluster windows i … i+W−1 with ≥ MinPauses pauses → (first pause, last pause).
+        var merged = new List<(int Start, int Stop)>();
+        for (int i = 0; i + options.ClusterWindow <= columns; i++)
+        {
+            int first = -1, last = -1, n = 0;
+            for (int j = i; j < i + options.ClusterWindow; j++)
+            {
+                if (!isPause[j]) continue;
+                if (first < 0) first = j;
+                last = j;
+                n++;
+            }
+
+            if (n < options.MinPauses)
+                continue;
+            if (merged.Count > 0 && first >= merged[^1].Start && first <= merged[^1].Stop)
+                merged[^1] = (merged[^1].Start, last);
+            else if (merged.Count == 0 || first > merged[^1].Stop)
+                merged.Add((first, last));
+        }
+
+        var clusters = new List<ConservedRareCodonCluster>(merged.Count);
+        int totalLength = 0;
+        double meanSum = 0;
+        foreach (var (start, stop) in merged)
+        {
+            double sum = 0;
+            int pauseCount = 0;
+            for (int k = start; k <= stop; k++)
+            {
+                sum += averages[k] ?? 0.0;
+                if (isPause[k]) pauseCount++;
+            }
+
+            int spanLength = stop - start + 1;
+            double mean = sum / spanLength;
+            int middle = (int)((stop + 1) - spanLength / 2.0);
+            clusters.Add(new ConservedRareCodonCluster(start, stop, pauseCount, mean, middle));
+            totalLength += spanLength;
+            meanSum += mean;
+        }
+
+        return new SherloccResult(
+            rows,
+            columns,
+            averages,
+            counts,
+            pauses,
+            clusters,
+            totalLength,
+            columns > 0 ? (double)totalLength / columns : 0.0,
+            clusters.Count > 0 ? meanSum / clusters.Count : null);
+    }
+
+    /// <summary>
     /// Counts the in-frame (frame 0) codons of a coding sequence, returning RNA-spelled keys
     /// (<c>AUG</c>, <c>GCU</c>, …) mapped to raw counts (the "Number" column of an EMBOSS
     /// <c>cusp</c> / Kazusa codon usage table).
@@ -1121,7 +2388,7 @@ public static class CodonOptimizer
         // The canonical counter normalises case and U/T itself and reports DNA spelling;
         // this API reports RNA spelling.
         foreach (var (codon, count) in CodonUsageAnalyzer.CountCodons(codingSequence))
-            usage[codon.Replace('T', 'U')] = count;
+            usage[ToRnaSpelling(codon)] = count;
 
         return usage;
     }
@@ -1170,12 +2437,17 @@ public static class CodonOptimizer
     {
         var codons = CodonUsageAnalyzer.SplitInFrameCodons(codingSequence);
         for (int k = 0; k < codons.Length; k++)
-            codons[k] = codons[k]?.Replace('T', 'U');
+            codons[k] = codons[k] is { } codon ? ToRnaSpelling(codon) : null;
         return codons;
     }
 
-    // Upper-case RNA spelling (T read as U) used by every rewriting API of this class.
-    private static string ToUpperRna(string sequence) => sequence.ToUpperInvariant().Replace('T', 'U');
+    // Upper-case RNA spelling (T read as U) used by every rewriting API of this class; ASCII-only
+    // folding by the canonical SequenceCase (TRANS-PROT-001: 'ſ' must not read as the IUPAC code S).
+    private static string ToUpperRna(string sequence) => SequenceCase.ToUpperRna(sequence);
+
+    // Re-spelling of already upper-case codon text from the DNA spelling of the canonical
+    // CodonUsageAnalyzer back to the RNA working alphabet of this class.
+    private static string ToRnaSpelling(string dna) => dna.Replace('T', 'U');
 
     // Every complete frame-0 triplet, including ambiguous ones (the rewriting APIs must keep
     // them in place to preserve the reading frame and the sequence length); a trailing partial
@@ -1207,15 +2479,21 @@ public static class CodonOptimizer
     /// <summary>
     /// Creates a <see cref="CodonUsageTable"/> from codon frequencies, filling
     /// <see cref="CodonUsageTable.CodonToAminoAcid"/> with the canonical
-    /// <see cref="GeneticCode.Standard"/> mapping (RNA spelling) that the optimizer uses, so a
+    /// <see cref="GeneticCode"/> mapping (RNA spelling) of <paramref name="geneticCode"/>, so a
     /// caller-supplied table carries the same codon → amino-acid assignment as the built-in
     /// presets. Frequency keys are normalised to upper-case RNA spelling.
     /// </summary>
     /// <param name="organismName">Name stored in the table.</param>
     /// <param name="codonFrequencies">Per-amino-acid relative codon frequencies (DNA or RNA keys).</param>
+    /// <param name="geneticCode">
+    /// NCBI genetic code of the <see cref="CodonUsageTable.CodonToAminoAcid"/> mapping
+    /// (<see langword="null"/>, the default: <see cref="GeneticCode.Standard"/>, identical to the
+    /// historical table).
+    /// </param>
     public static CodonUsageTable CreateCodonUsageTable(
         string organismName,
-        IReadOnlyDictionary<string, double> codonFrequencies)
+        IReadOnlyDictionary<string, double> codonFrequencies,
+        GeneticCode? geneticCode = null)
     {
         ArgumentNullException.ThrowIfNull(codonFrequencies);
 
@@ -1223,13 +2501,13 @@ public static class CodonOptimizer
         foreach (var (codon, frequency) in codonFrequencies)
             frequencies[ToUpperRna(codon)] = frequency;
 
-        return new CodonUsageTable(organismName, frequencies, StandardCodonToAminoAcid);
+        return new CodonUsageTable(organismName, frequencies, FamiliesFor(geneticCode).CodonToAminoAcid);
     }
 
     /// <summary>
     /// Builds a codon-usage table from a reference gene set (one concatenated in-frame coding
     /// sequence, or a single gene), as the relative frequency of each codon within its
-    /// synonymous family of the Standard genetic code.
+    /// synonymous family of the genetic code <paramref name="geneticCode"/> (default Standard).
     /// </summary>
     /// <remarks>
     /// Codons are counted by the canonical counter (frame 0, complete unambiguous triplets only;
@@ -1242,16 +2520,27 @@ public static class CodonOptimizer
     /// simply carries no information. All 64 codons are therefore present in the result, and the
     /// relative adaptiveness w = f / max f derived from it equals Biopython's index exactly.
     /// Stop codons form their own family (as in Biopython). The frequencies of each family sum
-    /// to 1.
+    /// to 1. Stop codons of the chosen code form their own family; in tables 27/28/31 a
+    /// dual-coding codon counts in the family of the amino acid it encodes (Biopython
+    /// <c>forward_table</c>, DNA Chisel back-translation table).
     /// </remarks>
     /// <param name="referenceSequence">Reference coding sequence(s), in frame 0 (DNA or RNA).</param>
     /// <param name="organismName">Name stored in the resulting table.</param>
-    public static CodonUsageTable CreateCodonTableFromSequence(string referenceSequence, string organismName)
+    /// <param name="geneticCode">
+    /// NCBI genetic code defining the synonymous families the frequencies are normalised within,
+    /// and the resulting table's codon → amino-acid mapping (<see langword="null"/>, the default:
+    /// <see cref="GeneticCode.Standard"/>, identical to the historical table). DNA Chisel builds
+    /// its families the same way from a Biopython codon table
+    /// (<c>get_backtranslation_table(genetic_table)</c>).
+    /// </param>
+    public static CodonUsageTable CreateCodonTableFromSequence(
+        string referenceSequence, string organismName, GeneticCode? geneticCode = null)
     {
+        var families = FamiliesFor(geneticCode);
         var usage = CalculateCodonUsage(referenceSequence);
         var frequencies = new Dictionary<string, double>(64);
 
-        foreach (var family in SynonymousCodons.Values)
+        foreach (var family in families.Synonyms.Values)
         {
             // Sharp & Li (1987) / Biopython: codons absent from the reference set count as 0.5.
             double total = 0;
@@ -1267,7 +2556,7 @@ public static class CodonOptimizer
                 frequencies[family[k]] = counts[k] / total;
         }
 
-        return new CodonUsageTable(organismName, frequencies, StandardCodonToAminoAcid);
+        return new CodonUsageTable(organismName, frequencies, families.CodonToAminoAcid);
     }
 
     #endregion

@@ -83,6 +83,8 @@
 | S7 | Biopython remove, RNA+N, step 2 (B03) | `ggnnAAUGCCnnnn` w=4 s=2 | [100, 0, 25, 75, 100, 0] | `gc_fraction(...,"remove")` executed |
 | S8 | Polluted 60-mer (B03) | w=10 s=7, % and fraction | 8 values locked | Biopython executed |
 | S9 | Ambiguity modes (B03 F19) | `ACGTSSWWNNRYacgusw` w=6 s=3 Remove/Ignore/Weighted | Biopython `gc_fraction` values | 5-arg overload |
+| S11 | Trailing partial windows (B03 F24) | `GGGCCCAAATTTGCGCA` w6 s4 / w5 s5, `GCA` w10, `ACGNN` w3 s3, `acgu` w3 s2; `ACGTNSWACGN` w4 s4 × 3 modes | Biopython `[gc_fraction(s[i:i+w]) for i in range(0,len(s),step)]` executed | `includePartialWindow: true`; off = default; eager guards; huge step |
+| S12 | Canonical window driver (B03 F24) | 300 random IUPAC inputs, all overloads | equal to `GcSkewCalculator.CalculateWindowedGcContent(...).GcContent` | B01 request |
 | S10 | Canonical delegation (B03 D6) | all 65 536 UTF-16 units + 2000 random inputs | equal to former inline kernel and `CalculateGcContent` | behaviour preservation |
 
 ### 4.3 COULD Tests (Nice to have)
@@ -182,3 +184,7 @@
 ## 7. Open Questions / Decisions
 
 1. **Decision (resolved):** the implementation previously returned a fraction (0–1). It is corrected to return a percentage (×100) to conform to the Wikipedia GC-content definition and the repository's locked SEQ-GC-ANALYSIS-001 convention; checklist behavioral note ("(G+C)/window×100") agrees.
+
+## 8. Addendum 2026-10-14 (FIN-B03 R2-WP5): MCP options (F41)
+
+- MCP `gc_content_profile(fraction, ambiguityMode, includePartialWindow)` → S11/S12 overloads; `ACGTSSWWNNRYacgusw` W6 s3 remove [0.6666666666666666, 0.4, 0, 0.6666666666666666, 0.5], weighted […, 0.4166666666666667, 0.3333333333333333, 0.5833333333333334, 0.5] (Biopython 1.88 `gc_fraction`); 300-input library equality; invalid mode error names `ambiguityMode`. Tests: `Seqeron.Mcp.Analysis.Tests/B03SequenceStatisticsMcpOptionsTests` (F41).

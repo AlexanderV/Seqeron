@@ -84,11 +84,7 @@ public abstract class SequenceBase : ISequence
     protected SequenceBase(string sequence)
     {
         ArgumentNullException.ThrowIfNull(sequence);
-        _sequence = string.Create(sequence.Length, sequence, static (dest, src) =>
-        {
-            for (int i = 0; i < src.Length; i++)
-                dest[i] = SequenceExtensions.ToUpperAscii(src[i]);
-        });
+        _sequence = SequenceExtensions.ToUpperAscii(sequence);
     }
 
     public string Sequence => _sequence;
@@ -204,9 +200,15 @@ public class IupacDnaSequence : SequenceBase
     /// <summary>
     /// Expands IUPAC code to possible bases.
     /// </summary>
+    /// <remarks>
+    /// ASCII letters are case-folded (as in <see cref="CodesMatch"/>); any other character, including
+    /// non-ASCII letters such as U+017F 'ſ' (which <see cref="char.ToUpperInvariant(char)"/> would turn
+    /// into 'S'), is not a code and yields { 'N' }. Biopython <c>IUPACData.ambiguous_dna_values</c> has no
+    /// 'ſ' key (<c>nt_search(s, "ſ")</c> raises KeyError) and scikit-bio <c>DNA("ſ")</c> raises.
+    /// </remarks>
     public static char[] ExpandCode(char iupacCode)
     {
-        return _expansions.TryGetValue(char.ToUpperInvariant(iupacCode), out var bases)
+        return _expansions.TryGetValue(SequenceExtensions.ToUpperAscii(iupacCode), out var bases)
             ? bases
             : new[] { 'N' };
     }
@@ -256,10 +258,8 @@ public class IupacDnaSequence : SequenceBase
 
         for (int i = 0; i < pattern.Length; i++)
         {
-            char p = char.ToUpperInvariant(pattern[i]);
-            char s = _sequence[position + i];
-
-            if (!CodesMatch(p, s))
+            // CodesMatch applies the ASCII-only case folding (no 'ſ' → 'S').
+            if (!CodesMatch(pattern[i], _sequence[position + i]))
                 return false;
         }
 
@@ -298,14 +298,48 @@ public class IupacDnaSequence : SequenceBase
     }
 
     /// <summary>
-    /// Calculates ambiguity level (1.0 = no ambiguity, 0.0 = all N).
+    /// Fraction of positions holding a definite base A, C, G or T (1.0 = no ambiguity, 0.0 = no definite base).
+    /// Despite the name, this is the <em>definite</em> fraction, not the degenerate fraction
+    /// (see <see cref="GetDegenerateFraction"/>).
     /// </summary>
+    /// <remarks>
+    /// Equals scikit-bio 0.7.4 <c>DNA(seq, lowercase=True).definites().mean()</c> (definite chars "ACGT"):
+    /// "ACNR-G.T" → 0.5, "ACGTN" → 0.8, "NNNN" → 0.0, "acgt" → 1.0, "A-" → 0.5. Gaps ('-', '.') and any other
+    /// symbol count in the denominator but are not definite, as in scikit-bio.
+    /// Differences (kept for backward compatibility): an empty sequence returns 1.0 (scikit-bio: NaN, the mean of
+    /// an empty vector); 'U', which this container tolerates, is not counted as definite ("ACGU" → 0.75;
+    /// scikit-bio <c>DNA("ACGU")</c> raises, so there is no reference value).
+    /// </remarks>
     public double GetAmbiguityLevel()
     {
         if (Length == 0) return 1.0;
 
         int unambiguous = _sequence.Count(c => c == 'A' || c == 'C' || c == 'G' || c == 'T');
         return unambiguous / (double)Length;
+    }
+
+    /// <summary>
+    /// Fraction of positions holding one of the 11 NC-IUB (1984) degenerate codes R, Y, S, W, K, M, B, D, H, V, N.
+    /// </summary>
+    /// <remarks>
+    /// Equals scikit-bio 0.7.4 <c>DNA(seq, lowercase=True).degenerates().mean()</c> (<c>DNA.degenerate_chars</c>):
+    /// "ACNR-G.T" → 0.25, "ACGTN" → 0.2, "NNNN" → 1.0, "RYSWKMBDHVN" → 1.0, "ACGT" → 0.0, "----" → 0.0.
+    /// Gaps ('-', '.'), definite bases (including 'U') and any other symbol count in the denominator but are not
+    /// degenerate, so <see cref="GetAmbiguityLevel"/> + this value + the gap fraction = 1 for scikit-bio-valid input.
+    /// An empty sequence returns 0.0 (no degenerate position, consistent with scikit-bio <c>has_degenerates()</c>
+    /// = False and with <see cref="GetAmbiguityLevel"/> = 1.0); scikit-bio's mean of the empty vector is NaN.
+    /// </remarks>
+    public double GetDegenerateFraction()
+    {
+        if (Length == 0) return 0.0;
+
+        int degenerate = 0;
+        foreach (char c in _sequence)
+        {
+            if (IupacHelper.IsNucleotideCode(c) && c is not ('A' or 'C' or 'G' or 'T'))
+                degenerate++;
+        }
+        return degenerate / (double)Length;
     }
 
     /// <summary>
@@ -423,9 +457,18 @@ public class QualitySequence : SequenceBase
     public byte GetQuality(int index) => _qualities[index];
 
     /// <summary>
-    /// Gets mean quality score.
+    /// Gets the arithmetic mean of the Phred quality scores, (1/N) Σ qᵢ.
     /// </summary>
-    public double MeanQuality => _qualities.Average(q => (double)q);
+    /// <remarks>
+    /// The mean of zero scores is undefined. As Python <c>statistics.mean([])</c> (raises <c>StatisticsError</c>),
+    /// an empty sequence throws rather than returning a value; numpy <c>mean([])</c> would give NaN with a
+    /// RuntimeWarning. Callers that want a zeroed summary for empty input can use
+    /// <c>QualityScoreAnalyzer.CalculateStatistics</c>.
+    /// </remarks>
+    /// <exception cref="InvalidOperationException">The sequence is empty (no quality scores).</exception>
+    public double MeanQuality => _qualities.Length == 0
+        ? throw new InvalidOperationException("Mean quality is undefined for an empty quality sequence.")
+        : _qualities.Average(q => (double)q);
 
     /// <summary>
     /// Gets the quality string (Phred+<paramref name="phredOffset"/> encoding, default Sanger Phred+33).

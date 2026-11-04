@@ -11,7 +11,7 @@
 ### Wikipedia — K-mer
 
 **URL:** https://en.wikipedia.org/wiki/K-mer
-**Accessed:** 2026-06-14
+**Accessed:** 2026-06-14 · re-fetched 2026-10-14 (SRC citation audit: supports the claims above)
 **Authority rank:** 4 (encyclopedia article; used for the foundational definition and worked example, which are standard and uncontested)
 
 **Retrieval:** WebSearch query `k-mer definition substring length k overlapping bioinformatics number of k-mers n-k+1`, then WebFetch of the article URL above.

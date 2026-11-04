@@ -6,7 +6,7 @@
 | Test Unit ID | ONCO-CNA-003 |
 | Related Projects | Seqeron.Genomics.Oncology |
 | Implementation Status | Production |
-| Last Reviewed | 2026-06-14 |
+| Last Reviewed | 2026-10-10 |
 
 ## 1. Overview
 
@@ -54,6 +54,7 @@ A segment is therefore a homozygous deletion **iff** its integer copy number equ
 | (DetectHomozygousDeletions) | `IReadOnlyList<CopyNumberArmSegment>` | The CN-0 segments, in input order |
 | (IsHomozygousDeletion) | `bool` | true iff the segment's integer CN is 0 |
 | (IdentifyDeletedTumorSuppressors) | `IReadOnlyList<string>` | Distinct tumour-suppressor symbols on deleted arms, in panel order |
+| (IdentifyDeletedTumorSuppressors, `CopyNumberRegion` overload) | `IReadOnlyList<string>` | Distinct panel genes whose GRCh38 locus overlaps a deleted region (GISTIC2 `genes_at`, closed intervals), in panel order |
 
 ### 3.3 Preconditions and Validation
 
@@ -91,11 +92,12 @@ Tumour-suppressor panel and arms (NCBI Gene cytogenetic locations) [5]:
 
 ### 5.1 Location and Entry Points
 
-**Implementation location:** [OncologyAnalyzer.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Oncology/OncologyAnalyzer.cs)
+**Implementation location:** [OncologyAnalyzer.CopyNumberPloidy.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Oncology/OncologyAnalyzer.CopyNumberPloidy.cs)
 
 - `OncologyAnalyzer.DetectHomozygousDeletions(segments, thresholds?, ploidy?)`: order-preserving filter of CN-0 segments.
 - `OncologyAnalyzer.IsHomozygousDeletion(segment, thresholds?, ploidy?)`: predicate, integer CN == 0.
 - `OncologyAnalyzer.IdentifyDeletedTumorSuppressors(deletions)`: arm → tumour-suppressor panel mapping.
+- `OncologyAnalyzer.IdentifyDeletedTumorSuppressors(IEnumerable<CopyNumberRegion> deletedRegions, IReadOnlyList<GeneLocus>? genePanel = null)`: GISTIC2 locus-overlap mapping (B24 F49): gene reported iff same chromosome ∧ `gene.start ≤ region.end` ∧ `gene.end ≥ region.start` (`genes_at.m`, `partial_hits = 1`); default panel `DefaultTumorSuppressorLoci` (GRCh38, GENCODE v22 from GISTIC2 `refgenes`). See [Focal_Amplification_Detection](./Focal_Amplification_Detection.md) §5.3 and ONCO-CNA-002 Evidence for the source and Octave runs.
 
 ### 5.2 Current Behavior
 
@@ -108,13 +110,11 @@ Reuses the ONCO-CNA-002 `CopyNumberArmSegment` record and `ValidateArmSegment`, 
 - Homozygous deletion = total copy number 0 (both alleles lost) [1]; called as integer CN 0 via CNVkit `absolute_threshold` [4] and cBioPortal Deep Deletion ("−2") [2][3].
 - Tumour-suppressor arms from NCBI Gene cytogenetic locations [5].
 
-**Intentionally simplified:**
+**Scope notes (no simplification of the cited definition):**
 
-- Homozygous status is inferred from total integer copy number (CN 0), not from allele-specific copy number; **consequence:** a copy-neutral LOH or an allele-specific zero with a retained other allele is not distinguished here (total-CN model, consistent with cBioPortal discrete calls).
+- Homozygous status is inferred from total integer copy number (CN 0, consistent with cBioPortal discrete calls). This is not a loss of information: total CN 0 already means both alleles are 0, and a copy-neutral LOH (total CN 2, minor allele 0) or a hemizygous loss (total CN 1) can never be called CN 0. What the total-CN input cannot report is LOH itself (one allele 0, the other retained) — that is ONCO-LOH-001 (`DetectLOH`, allele-specific segments).
 
-**Not implemented:**
-
-- Purity/ploidy correction of the discrete calls beyond the `ploidy` parameter; **users should rely on:** purity/ploidy estimation units (ONCO-PURITY/PLOIDY) upstream before classification.
+- Purity correction (B24 F29): `IsHomozygousDeletion(segment, thresholds, ploidy, purity)` / `DetectHomozygousDeletions(…, purity)` rescale the segment log2 exactly as CNVkit `do_call(purity=p)` (`_log2_ratio_to_absolute` with the #503 clamp at 0 → `log2_ratios`) before the CN-0 test; e.g. log2 −1.0 is CN 1 when pure but CN 0 at purity 0.7 (CNVkit 0.9.14) [4]. Purity itself must come from upstream estimation (ONCO-PURITY).
 
 ## 6. Edge Cases and Limitations
 
@@ -126,13 +126,14 @@ Reuses the ONCO-CNA-002 `CopyNumberArmSegment` record and `ValidateArmSegment`, 
 | log2 exactly −1.1 | Reported (CN 0) | CNVkit "≤ each threshold in sequence" [4] |
 | log2 just above −1.1 | Not reported (CN 1) | CNVkit threshold boundary [4] |
 | NaN log2 | Not reported (neutral no-call) | CNVkit no-call → reference CN [4] |
+| log2 −1.0, purity 0.7 | Reported (rescaled log2 −1.807 → CN 0) | CNVkit `do_call` purity path [4] |
 | Empty input | Empty result | Filter of empty set |
 | Null input | `ArgumentNullException` | Validation |
-| Deletion on non-panel arm | No gene reported | Closed panel |
+| Deletion on non-panel arm | No gene reported | Closed panel (arm overload; the locus overload reports any supplied `GeneLocus` it overlaps) |
 
 ### 6.2 Limitations
 
-Uses total copy number, not allele-specific copy number; cannot separate homozygous deletion from copy-neutral LOH. Discrete calls are putative and sensitive to tumour purity/ploidy [2]; the gene panel is the fixed six-gene tumour-suppressor list (TP53, RB1, CDKN2A, PTEN, BRCA1, BRCA2) and does not annotate other deleted loci.
+Uses total copy number (CN 0 = both alleles lost), so LOH with a retained allele is out of scope here (see ONCO-LOH-001). Discrete calls are putative and sensitive to tumour purity/ploidy [2] (pass `purity` to apply the CNVkit correction). Gene annotation: the arm-label overload `IdentifyDeletedTumorSuppressors(deletions)` uses the six-gene arm panel (TP53, RB1, CDKN2A, PTEN, BRCA1, BRCA2); the locus-overlap overload (B24 F49, GISTIC2 `genes_at`) accepts any caller-supplied `GeneLocus` panel (default `DefaultTumorSuppressorLoci`, the same six genes at GRCh38 loci), so other deleted loci are annotated by passing them.
 
 ## 7. Examples and Related Material
 

@@ -13,13 +13,13 @@
 
 1. **Wikipedia - FASTQ format**
    - URL: https://en.wikipedia.org/wiki/FASTQ_format
-   - Access Date: 2026-02-05
+   - Access Date: 2026-02-05 · re-fetched 2026-10-14 (SRC citation audit: see corrections below)
    - Key Information:
      - Format specification: 4 lines per record (@header, sequence, +, quality)
      - Quality encoding: Phred+33 (Sanger/Illumina 1.8+) and Phred+64 (Illumina 1.3-1.7)
      - Quality formula: Q = -10 × log₁₀(p), where p = error probability
      - ASCII ranges: Phred+33 uses 33-126, Phred+64 uses 64-126
-     - Detection heuristic: chars < '@' → Phred+33; chars > 'I' → Phred+64
+     - Detection heuristic: NOT stated on this page — see "Auto-Detection Heuristic (revised 2026-09)" below (lowest char < '@' → Phred+33, per FastQC PhredEncoding.java; char > 'J' → Phred+64)
 
 2. **Cock et al. (2009) - The Sanger FASTQ file format**
    - DOI: 10.1093/nar/gkp1137

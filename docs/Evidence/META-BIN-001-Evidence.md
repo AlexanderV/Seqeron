@@ -12,7 +12,7 @@
      - Methods use compositional features (GC-content, tetranucleotide frequencies)
      - Methods also use coverage across samples
      - Can employ supervised or unsupervised classification
-   - Referenced algorithms: TETRA, MEGAN, Phylopythia, SOrt-ITEMS, MetaBAT2, MaxBin2, CONCOCT, DAS Tool
+   - Referenced algorithms: TETRA, MEGAN, Phylopythia, SOrt-ITEMS (named on the page); MetaBAT2, MaxBin2, DAS Tool are NOT named on the page and CONCOCT appears only as a cited paper (re-checked 2026-10-14, SRC citation audit)
 
 2. **TETRA (Teeling et al., 2004)**
    - URL: https://doi.org/10.1186/1471-2105-5-163

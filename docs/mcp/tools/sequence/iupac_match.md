@@ -18,7 +18,7 @@ Checks if two IUPAC ambiguity codes can represent the same nucleotide base. This
 
 ## Core Documentation Reference
 
-- Source: [ISequence.cs#L273](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Core/ISequence.cs#L273)
+- Source: [ISequence.cs#L278](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Core/ISequence.cs#L278)
 
 ## Input Schema
 

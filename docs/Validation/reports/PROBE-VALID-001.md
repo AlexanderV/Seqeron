@@ -24,7 +24,9 @@ not copied from the prior report.
 2. **SpecificityScore** — derived from hit count: `0 → 0.0`, `1 → 1.0`, `N>1 → 1/N`.
 3. **SelfComplementarity** — fraction of positions where `seq[i] == revComp(seq)[i]`, in [0,1].
 4. **HasSecondaryStructure** — inverted-repeat (hairpin) scan: stem ≥4 nt, loop gap = 3,
-   stem complementarity ≥ 80%.
+   stem complementarity ≥ 80%. *(Superseded: ntthal hairpin Tm for ACGT probes ≤ THAL_MAX_ALIGN since F22/F55; the
+   fallback is the canonical `PrimerDesigner.HasHairpinPotential` — exact stem ≥ 4 bp, loop ≥ 3 nt — since audit
+   round 5, A5-2, F61, see docs/Validation/review-2026-09/B07.md.)*
 5. **Issues / IsValid** — human-readable issues plus an `IsValid` verdict.
 
 The "valid" verdict (`ProbeDesigner.cs:555`):

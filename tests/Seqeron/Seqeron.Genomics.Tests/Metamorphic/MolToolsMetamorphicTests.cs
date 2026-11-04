@@ -1763,9 +1763,11 @@ public class MolToolsMetamorphicTests
     //        early-reject band [MinGc−0.1, MaxGc+0.1] is dropped BEFORE scoring.
     //     4. return the top-`maxProbes` candidates by descending score.
     //   DesignProbes(target, ISuffixTree genomeIndex, params, maxProbes, requireUnique)
-    //     forms the same raw-score shortlist, then (requireUnique) SKIPS any probe with
-    //     CheckSpecificity < 1.0, i.e. any probe occurring more than once in the genome
-    //     index (INV-03: spec = 0 / 1 / 1·hits⁻¹).
+    //     walks the SAME ranked candidate stream (every candidate, lazily — B07 F59) and
+    //     (requireUnique) SKIPS any probe with CheckSpecificity < 1.0, i.e. any probe
+    //     occurring more than once in the genome index (INV-03: spec = 0 / 1 / 1·hits⁻¹);
+    //     with requireUnique = false it instead scales Score by that specificity and
+    //     re-ranks on the scaled score (the candidate SET is unchanged either way).
     //
     // A probe's run-order-independent identity is (Start, Sequence); its full record
     // (Tm, GcContent, Score, Warnings) is a PURE function of that one window's substring
@@ -1784,12 +1786,13 @@ public class MolToolsMetamorphicTests
     //     valid set is a SUPERSET. The exact, non-vacuous mechanism is asserted directly:
     //     for a probe shared by the narrow- and wide-Tm designs, every field but Score is
     //     identical and Score rises by EXACTLY the documented 0.3 iff the probe's Tm lay
-    //     outside the narrow window (the salt-adjusted formula puts a balanced 50–60mer
-    //     near 69 °C, below the 75–85 °C Microarray window, so the toggle is real).
+    //     outside the narrow window (the OligoArray-condition nearest-neighbour Tm — 1 M Na⁺,
+    //     1 µM — of balanced 50–60mers spans ~83–96 °C, partly above the 82–90 °C Microarray
+    //     window, so the toggle is real).
     //
     //   • SUB (stricter uniqueness → ⊆ results): `requireUnique=true` applies an EXTRA
-    //     conjunct (skip specificity < 1) over the SAME ordered candidate stream that
-    //     `requireUnique=false` yields. With the cap lifted it therefore yields a SUBSET:
+    //     conjunct (skip specificity < 1) over the SAME candidate stream that
+    //     `requireUnique=false` yields (which only rescales and re-ranks it). With the cap lifted it therefore yields a SUBSET:
     //     ids(requireUnique) ⊆ ids(¬requireUnique), count non-increasing. A genome that
     //     fully duplicates the target makes EVERY probe non-unique, so the strict filter
     //     empties the result (the SUB endpoint), while the lenient design stays non-empty.
@@ -1808,10 +1811,10 @@ public class MolToolsMetamorphicTests
     //   docs/algorithms/MolTools/Hybridization_Probe_Design.md §2.2 (penalty table),
     //   §2.4 (INV-01 raw-score-positive shortlist, INV-03 specificity 0/1/1·hits⁻¹),
     //   §3.1/§3.3 (requireUnique filters specificity < 1.0; top-maxProbes after ranking),
-    //   §4.2 (Microarray default: length 50–60, Tm 75–85 °C, GC 0.40–0.60).
+    //   §4.2 (Microarray default: length 50–60, Tm 82–90 °C at 1 M Na⁺ / 1 µM, GC 0.40–0.60).
     // ─────────────────────────────────────────────────────────────────────────
 
-    /// <summary>Microarray default probe parameters (length 50–60, Tm 75–85, GC 0.40–0.60).</summary>
+    /// <summary>Microarray default probe parameters (length 50–60, Tm 82–90 at 1 M Na⁺ / 1 µM, GC 0.40–0.60).</summary>
     private static ProbeDesigner.ProbeParameters Microarray => ProbeDesigner.Defaults.Microarray;
 
     /// <summary>Documented Tm-window penalty (doc §2.2): a probe whose Tm is out of [MinTm,MaxTm] loses 0.3.</summary>
@@ -1854,11 +1857,11 @@ public class MolToolsMetamorphicTests
     [Description("MON: along a chain that widens [MinTm,MaxTm] (all else fixed) the valid-probe set grows monotonically — each narrower set is a subset of the wider one, count non-decreasing.")]
     public void DesignProbes_WideningTmWindow_YieldsSuperset_CountNonDecreasing()
     {
-        // Increasingly wide Tm windows, each ⊇ the prior (Microarray default 75–85 outward).
+        // Increasingly wide Tm windows, each ⊇ the prior (Microarray default 82–90 outward).
         (double Min, double Max)[] tmChain =
         {
-            (75, 85),   // Microarray default
-            (70, 90),
+            (82, 90),   // Microarray default
+            (75, 95),
             (50, 100),
             (0, 200),   // Tm filter effectively disabled
         };
@@ -1896,8 +1899,8 @@ public class MolToolsMetamorphicTests
 
         foreach (var target in ProbeTargets())
         {
-            // narrow = Microarray default (75–85 °C); wide = Tm filter disabled.
-            var narrow = DesignById(target, Microarray with { MinTm = 75, MaxTm = 85 });
+            // narrow = Microarray default (82–90 °C); wide = Tm filter disabled.
+            var narrow = DesignById(target, Microarray with { MinTm = 82, MaxTm = 90 });
             var wide = DesignById(target, Microarray with { MinTm = 0, MaxTm = 200 });
 
             foreach (var (id, probe) in narrow)
@@ -1913,8 +1916,8 @@ public class MolToolsMetamorphicTests
                 twin.GcContent.Should().Be(probe.GcContent, because: "GC content depends only on the window, not on the Tm range");
 
                 // The ONLY score difference is the Tm penalty: present in narrow iff the probe's
-                // Tm is outside [75,85]; never present in the wide (0–200) window.
-                bool tmOutsideNarrow = probe.Tm < 75 || probe.Tm > 85;
+                // Tm is outside [82,90]; never present in the wide (0–200) window.
+                bool tmOutsideNarrow = probe.Tm < 82 || probe.Tm > 90;
                 double expectedDelta = tmOutsideNarrow ? ProbeTmPenalty : 0.0;
                 if (tmOutsideNarrow) sawTmToggle = true;
 
@@ -1926,7 +1929,7 @@ public class MolToolsMetamorphicTests
         }
 
         sawTmToggle.Should().BeTrue(
-            because: "the salt-adjusted formula puts balanced 50–60mers near 69 °C (below 75–85 °C), so at least one probe's Tm toggles — the relation is exercised, not vacuous");
+            because: "the 1 M / 1 µM nearest-neighbour Tm of balanced 50–60mers reaches above 90 °C, so at least one probe's Tm toggles — the relation is exercised, not vacuous");
     }
 
     #endregion
@@ -1952,7 +1955,7 @@ public class MolToolsMetamorphicTests
                 .Select(ProbeId).ToHashSet();
 
             lenient.IsSupersetOf(unique).Should().BeTrue(
-                because: "requiring genome uniqueness only SKIPS candidates with specificity < 1 from the same ordered stream, " +
+                because: "requiring genome uniqueness only SKIPS candidates with specificity < 1 from the same candidate stream, " +
                          "so the unique-only probe set is a subset of the lenient one");
             unique.Count.Should().BeLessThanOrEqualTo(lenient.Count,
                 because: "a stricter uniqueness requirement removes-or-keeps each candidate, never adds one — count is non-increasing");
@@ -1987,14 +1990,20 @@ public class MolToolsMetamorphicTests
     [Description("INV: appending any unrelated downstream region preserves every original probe EXACTLY (same Start/Sequence/Tm/GC/Score/Warnings); the extended valid set is a superset.")]
     public void DesignProbes_AppendUnrelatedRegion_PreservesOriginalProbesExactly()
     {
+        // Microarray preset (1 M Na⁺ / 1 µM, Tm 82–90, G+C 0.40–0.60, ntthal screen) with the length window narrowed
+        // to 50–51 nt (B07 heavy tier, HEAVY-2): with the cap lifted every window gets the three ntthal recursions
+        // (≈ 30 ms per 50–60-mer in Debug), so the full 50–60 window over the 25 designs below took 9–11 min (B06
+        // "hang"). The relation — a window's record depends only on the window — is independent of the length range;
+        // two lengths keep the multi-length enumeration / tie order in play. Same targets, same appends, same checks.
+        var param = Microarray with { MaxLength = Microarray.MinLength + 1 };
         foreach (var target in ProbeTargets())
         {
-            var baseProbes = DesignAll(target, Microarray);
+            var baseProbes = DesignAll(target, param);
             baseProbes.Should().NotBeEmpty(because: "each target is constructed to yield Microarray probes");
 
             foreach (var ext in new[] { RandomDna(30), RandomDna(60), "GGGGCCCCAAAATTTT", NonPamRegion(40) })
             {
-                var extById = DesignById(target + ext, Microarray);
+                var extById = DesignById(target + ext, param);
 
                 foreach (var bp in baseProbes)
                 {

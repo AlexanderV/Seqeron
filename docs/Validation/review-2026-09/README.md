@@ -30,6 +30,15 @@ implementation), plus the three campaign rules below.
    Also check the MCP tool wrappers (`src/Seqeron/Mcp/**`) that expose your classes: a wrapper
    must delegate, not re-implement.
 
+**Privacy when fetching references (added 2026-10-15 after a real slip).** A B08 subagent sent the
+repository owner's e-mail address in a `User-Agent` header on one `en.wikipedia.org` request. Nothing
+was committed and later requests used a generic header, but the guard it wrote lived only in that
+session's scratchpad, so it is restated here where every session reads it: **never put the owner's
+e-mail, name or account id into an HTTP header, User-Agent string, URL, query or payload** when
+fetching a source. Use a neutral User-Agent (e.g. `Seqeron-review/1.0`). This binds the lead and
+EVERY subagent — copy it into subagent prompts alongside the WIP block. The owner's e-mail is for
+authorship and attribution inside this repository only.
+
 ## Environment for a fresh container
 
 ```bash
@@ -56,6 +65,25 @@ Batches run concurrently in separate sessions and push to the same branch.
   canonical lives in another batch's file and must change), do **not** do it — record it in your
   report under *Cross-batch dedup requests*; the dedup phase handles it.
 - Removing a duplicate by making **your own** file call an existing canonical method elsewhere is allowed.
+- **Requests to a FINISHED batch (user decision 2026-10-09).** Finished batches are listed in QUEUE.md
+  "Finished batches". No session owns their files any more, so the concurrency reason for "do not do it" above
+  does not apply to them, and a request that only sits in your own report would never be acted on.
+  1. **Verify first (every cross-batch request, to any batch).** Check the request against the current code and
+     the target batch's report: a real duplicate or defect (same semantics; file:line; minimal repro or an
+     equivalence argument), not a similar-looking loop, and not already resolved there. Unverified → do not record.
+  2. **Small → do it yourself** in the finished batch's file: a caller switch to an existing canonical with no
+     behaviour change, a doc / XML-doc / MCP-description fix, a test-robustness fix with a sourced reason, or a
+     one-method bug fix locked to a reference value. Run the targeted tier for the touched classes (+ their MCP test
+     project), commit with `(<YOUR BATCH> for <TARGET>)` in the message, mark the request **done** in your report and
+     append one line (what, why, commit) to the target's report under `## Post-completion changes`.
+  3. **Large → register it**: a behaviour change of a public method, a new option/algorithm, many callers, or
+     anything needing the heavy tier. Do not do it; add it to QUEUE.md "Requests to finished batches" (target,
+     file:line, evidence, requesting batch). The orchestrator reads that register on every check-in and launches a
+     short finisher for the target batch (audit of just those items → fix → targeted/fast tier → heavy tier for the
+     touched classes → report) as soon as one item is a correctness defect or several items have piled up.
+  - A failing or seed-dependent test in a finished batch is a request too ("flake" is not a root cause: an FsCheck
+    counterexample is real) — small → root-cause and fix it yourself, otherwise register it.
+  - A request to a finished batch never ends only in your own report: it is either **done** or in the register.
 - **Do not edit** `VALIDATION_LEDGER.md` / `FINDINGS_REGISTER.md` / `ALGORITHMS_CHECKLIST_V2.md`
   (the orchestrator consolidates). Write your results only to `docs/Validation/review-2026-09/<BATCH>.md`.
 - Commit per unit (or per fix), then `git fetch origin claude/stoic-maxwell-0olr2z && git rebase origin/claude/stoic-maxwell-0olr2z && git push -u origin claude/stoic-maxwell-0olr2z`; on rejection repeat the fetch/rebase/push (network errors: retry with backoff 2/4/8/16 s).
@@ -137,6 +165,17 @@ end states. The only accepted leftover is one that is *impossible or critically 
 must carry concrete proof (what exactly is missing: a proprietary model/dataset, an unavailable
 upstream binary, a redesign spanning files owned by another batch — with the exact blocker).
 "Takes time", "large", "many tests to update", "beyond this unit's scope" are **not** proof.
+
+**Every DOABLE item is implemented BEFORE the duplication sweep — without exception (user 2026-10-21 23:45).**
+There is no third classification and no "carry on past it". If the environment itself refuses to let the work happen
+(a safety classifier halts the subagent or the lead, a needed capability is unavailable), the item stays **DOABLE** and
+the session must NOT reclassify it, NOT skip it and NOT proceed to the sweep. Instead it **prepares a hand-off package**
+and stops for the user: a self-contained document in `docs/Validation/review-2026-09/` carrying the published source
+for the algorithm, the exact files and line ranges to change, the planned API shape, the oracle numbers or the command
+that produces them, the tests that must pass, and how to verify the result. The user runs it in another environment and
+returns the result, which the next session integrates under the normal rules (sourced, oracle-checked, tests, fast
+tier). Until that result lands the batch is **not finished** and the sweep does not run — and if a sweep has already run
+before such an item was completed, it is re-run over the code the item adds.
 
 Before writing the final report the lead runs a **completeness-audit loop**:
 1. Spawn a fresh **auditor** subagent. It reads the batch report, `git diff <batch-start>..HEAD`

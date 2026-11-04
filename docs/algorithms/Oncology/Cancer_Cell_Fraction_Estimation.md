@@ -6,7 +6,7 @@
 | Test Unit ID | ONCO-CCF-001 |
 | Related Projects | Seqeron.Genomics.Oncology |
 | Implementation Status | Production |
-| Last Reviewed | 2026-09-28 |
+| Last Reviewed | 2026-10-10 |
 
 ## 1. Overview
 
@@ -77,11 +77,17 @@ the sorted values, so the global optimum is found exactly by dynamic programming
 x₁..xᵢ in q clusters, `D[q][i] = min_{q≤j≤i} D[q−1][j−1] + ssq(x_j..x_i)` (Wang & Song 2011, Ckmeans.1d.dp [6]),
 followed by backtracking. The result needs no seeding and is fully reproducible.
 
+When k is not known, Ckmeans.1d.dp chooses it in [k_min, k_max] by the Bayesian information criterion
+(`select_levels`, R default `estimate.k = "BIC"` [6]): for each K the optimal partition defines a Gaussian mixture
+with weights λ_k = n_k/N, block means μ_k and unbiased block variances σ²_k (σ² = 0 → d²/36, singleton → d², d the
+gap to the nearest neighbouring value outside the block); `BIC(K) = 2·Σ_i ln Σ_k λ_k·φ(x_i; μ_k, σ²_k) − (3K − 1)·ln N`,
+and the smallest K with the maximal BIC is selected.
+
 #### Modeling Assumptions
 
 | ID | Assumption | Consequence if Violated |
 |----|------------|--------------------------|
-| ASM-CL-01 | The number of clones k is supplied | Wrong k over-/under-splits populations |
+| ASM-CL-01 | The number of clones k is supplied, or chosen in [k_min, k_max] by the Ckmeans.1d.dp Gaussian-mixture BIC | Wrong k / non-Gaussian clusters over-/under-split populations |
 | ASM-CL-02 | Clones are separable by 1D CCF distance | Overlapping CCF distributions merge distinct clones |
 
 #### Properties and Invariants
@@ -106,7 +112,8 @@ followed by backtracking. The result needs no seeding and is fully reproducible.
 | tumorCopyNumber | int | required | Local tumor copy number N_T | ≥ 1 |
 | multiplicity | int | required | Mutated copies per cancer cell m | [1, tumorCopyNumber] |
 | ccfValues | IReadOnlyList&lt;double&gt; | required | CCF values to cluster | non-empty, finite |
-| clusterCount | int | required | Number of clusters k | [1, count] |
+| clusterCount | int | required (fixed-k overload) | Number of clusters k | [1, count] |
+| minClusters, maxClusters | int | required (BIC overload) | Range of k searched by BIC (R `k = c(kmin, kmax)`) | 1 ≤ minClusters ≤ maxClusters; capped at #distinct values as in R |
 
 ### 3.2 Output / Return Value
 
@@ -123,7 +130,10 @@ followed by backtracking. The result needs no seeding and is fully reproducible.
 `EstimateCcf` throws `ArgumentOutOfRangeException` for vaf ∉ [0,1], purity ∉ (0,1], or tumorCopyNumber < 1, and
 `ArgumentException` for multiplicity ∉ [1, tumorCopyNumber]. `ClusterCcfValues` throws `ArgumentNullException`
 for null input, `ArgumentException` for an empty list or a NaN/infinite value, and `ArgumentOutOfRangeException`
-for clusterCount ∉ [1, count]. All indices are 0-based.
+for clusterCount ∉ [1, count]; the BIC overload throws `ArgumentOutOfRangeException` for minClusters < 1 or
+maxClusters < minClusters (maxClusters above the number of values is allowed: R caps it at the number of distinct
+values; if minClusters exceeds that number both bounds become it). Either overload rejects a DP matrix above 10⁸
+cells. All indices are 0-based.
 
 ## 4. Algorithm
 
@@ -147,21 +157,26 @@ for clusterCount ∉ [1, count]. All indices are 0-based.
 
 1. Validate; stable-sort values carrying original indices; k ← min(k, number of distinct values) [6].
 2. Median-shifted prefix sums Σx, Σx² (Ckmeans.1d.dp `EWL2::fill_dp_matrix`).
-3. Fill the DP rows q = 1..k−1 with the log-linear divide-and-conquer row fill (`fill_row_q_log_linear`,
-   monotone split index J); only two rows of D are kept, the backtrack matrix J is k × n.
+3. Fill the DP rows q = 1..k−1 with the O(n) SMAWK row fill (`fill_row_q_SMAWK`, R's default
+   `method = "linear"`, incl. its tie-breaking among equal-WCSS splits); only two rows of D are kept, the backtrack
+   matrix J is k × n.
 4. Backtrack cluster boundaries from J; centroid = block mean; clusters are ascending, the last is clonal.
+5. BIC overload: adjust [k_min, k_max] to the number of distinct values (R `cluster.1d.dp`), fill one DP for
+   K = k_max, compute BIC(K) for K = k_min..k_max by `select_levels`, backtrack with the selected K (all values
+   equal → one cluster).
 
 #### Decision Rules / Reference Tables
 
-Port of Ckmeans.1d.dp 4.3.6 C++ (`EWL2_dynamic_prog.cpp`, `EWL2_fill_log_linear.cpp`, `EWL2_within_cluster.h`,
-`dynamic_prog.cpp::backtrack`); `ldouble` is `double` there, so arithmetic is identical. Inputs whose effective
+Port of Ckmeans.1d.dp 4.3.6 C++ (`EWL2_dynamic_prog.cpp`, `EWL2_fill_SMAWK.cpp`, `EWL2_within_cluster.h`,
+`dynamic_prog.cpp::backtrack`); `ldouble` is `double` there, so arithmetic is identical. The R defaults are
+reproduced: `method = "linear"` (SMAWK), unweighted (`y = 1`), criterion `"L2"`. Inputs whose effective
 k × n exceeds 10⁸ backtrack cells are rejected (`ArgumentOutOfRangeException`).
 
 #### Complexity
 
 | Operation | Time | Space | Notes |
 |-----------|------|-------|-------|
-| ClusterCcfValues | O(k·n·log n) | O(k·n) | log-linear DP row fill [6]; sort O(n log n); n=10⁵, k=10 ≈ 0.2 s |
+| ClusterCcfValues | O(k·n) | O(k·n) | SMAWK DP row fill [6]; sort O(n log n) |
 
 ## 5. Implementation Notes
 
@@ -171,14 +186,19 @@ k × n exceeds 10⁸ backtrack cells are rejected (`ArgumentOutOfRangeException`
 
 - `OncologyAnalyzer.EstimateCcf(vaf, purity, tumorCopyNumber, multiplicity)`: point CCF estimate (capped + raw).
 - `OncologyAnalyzer.ClusterCcfValues(ccfValues, clusterCount)`: optimal 1D k-means (Ckmeans.1d.dp) + clonal-cluster id.
+- `OncologyAnalyzer.ClusterCcfValues(ccfValues, minClusters, maxClusters)`: same, with k chosen by BIC
+  (R `Ckmeans.1d.dp(x, k = c(minClusters, maxClusters))`); chosen k = `Centroids.Count`.
 
 ### 5.2 Current Behavior
 
-Multiplicity is a caller-supplied integer (multi-region/PICTograph convention); automatic multiplicity inference
-from VAF is out of scope. Clustering is the exact Ckmeans.1d.dp optimum (no seeding), so output is identical
-across runs and independent of input order; cross-checked against the Ckmeans.1d.dp C++ code (ckwrap 1.2.3):
-2999/3000 random inputs bit-identical labels and centroids, 1 equal-WCSS tie broken differently (ckwrap uses the
-SMAWK row fill, this port the log-linear fill). No substring/pattern search is
+Multiplicity is an integer input of `EstimateCcf` (multi-region/PICTograph convention); it can be inferred from VAF,
+purity and local copy number with `OncologyAnalyzer.DeriveMultiplicity` (ONCO-ASCAT-001; facets-suite
+`expected_mutant_copies`, McGranahan 2016). Clustering is the exact Ckmeans.1d.dp optimum (no seeding), so output is identical
+across runs and independent of input order. Cross-checked against R Ckmeans.1d.dp 4.3.6 `Ckmeans.1d.dp(x, k)`
+(defaults): 6000/6000 random inputs (n 2–60, k 1–8, 5 of 6 generators tie-heavy) bit-identical labels and centroids
+(F46; the former log-linear fill, = R `method = "loglinear"`, differed on 21 equal-WCSS ties). The BIC overload matches
+R `Ckmeans.1d.dp(x, c(kmin, kmax))` on 3000/3000 random inputs (kmin 1–3, kmax kmin..kmin+9; selected k 1–10):
+labels, centers and the `$BIC` vector bit-identical (F47). No substring/pattern search is
 involved, so the repository suffix tree is not applicable.
 
 ### 5.3 Conformance to Theory / Spec
@@ -196,7 +216,7 @@ involved, so the repository suffix tree is not applicable.
 **Not implemented:**
 
 - Posterior/uncertainty modeling of CCF; **users should rely on:** ONCO-CLONAL-001 `ClassifyClonality` (Bayesian grid posterior) when probabilistic CCF is needed.
-- Automatic multiplicity inference; **users should rely on:** caller-supplied integer multiplicity.
+- Multiplicity inference inside `EstimateCcf`; **users should rely on:** `OncologyAnalyzer.DeriveMultiplicity(vaf, purity, totalCopyNumber, majorCopyNumber)` (ONCO-ASCAT-001, facets-suite `expected_mutant_copies`) to derive m, then pass it to `EstimateCcf`.
 
 #### 5.3.B 1D CCF clustering
 
@@ -206,11 +226,12 @@ involved, so the repository suffix tree is not applicable.
 
 **Intentionally simplified:**
 
-- k must be supplied; **consequence:** no automatic model selection of the number of clones.
+- ~~k must be supplied~~ — **Resolved (F47):** automatic k by the Ckmeans.1d.dp BIC (`select_levels`) via
+  `ClusterCcfValues(ccfValues, minClusters, maxClusters)`; R-locked bit for bit (labels, centers, BIC vector).
 
 **Not implemented:**
 
-- Dirichlet-process / beta-binomial mixture clustering; **users should rely on:** external tools (PyClone, SciClone, DPClust) for full probabilistic subclone inference.
+- Dirichlet-process / beta-binomial mixture clustering — scope of the proposed unit ONCO-PYCLONE-001 (Dirichlet-process subclonal clustering, PyClone / PyClone-VI; ALGORITHMS_CHECKLIST_V2.md); **until then users should rely on:** external tools (PyClone, SciClone, DPClust) for full probabilistic subclone inference.
 
 ## 6. Edge Cases and Limitations
 
@@ -222,12 +243,16 @@ involved, so the repository suffix tree is not applicable.
 | raw CCF > 1 | reported 1.0, RawCcf > 1 | INV-CCF-01 / CNAqc [4] |
 | multi-copy locus (N_T>2, m>1) | uses supplied m | multiplicity definition [1] |
 | k = 1 | single cluster at the global mean; clonal index 0 | trivial partition |
+| BIC overload, all values equal | one cluster; BIC vector all 0 | Ckmeans.1d.dp `nUnique == 1` branch [6] |
+| BIC overload, minClusters > distinct values | both bounds set to the number of distinct values | R `cluster.1d.dp` [6] |
 | k > distinct values | k reduced to the number of distinct values (no empty clusters) | Ckmeans.1d.dp [6] |
 | empty values / null / k out of range | exception | validation |
 
 ### 6.2 Limitations
 
-Point CCF carries no uncertainty; clustering assumes clones are 1D-separable and that k is known. Aneuploid
+Point CCF carries no uncertainty; clustering assumes clones are 1D-separable, and k is either supplied or chosen in
+[k_min, k_max] by the Ckmeans.1d.dp Gaussian-mixture BIC (`ClusterCcfValues(ccf, minClusters, maxClusters)`, B24 F47),
+which can still over-/under-split non-Gaussian populations (ASM-CL-01). Aneuploid
 matched normals violate the CN_n = 2 assumption. Not a replacement for full probabilistic subclone callers.
 
 ## 7. Examples and Related Material

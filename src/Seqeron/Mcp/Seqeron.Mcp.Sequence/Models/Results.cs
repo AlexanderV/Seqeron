@@ -35,13 +35,28 @@ public record AminoAcidCompositionResult(
     double IsoelectricPoint,
     double Hydrophobicity,
     double ChargedResidueRatio,
-    double AromaticResidueRatio);
+    double AromaticResidueRatio)
+{
+    /// <summary>Per-residue fractions count / denominator for every occurring residue letter; null
+    /// (omitted from the JSON) unless <c>includeFractions</c> is set.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public Dictionary<string, double>? Fractions { get; init; }
+}
 
 /// <summary>Result of molecular_weight_protein operation.</summary>
 public record MolecularWeightProteinResult(double MolecularWeight, string Unit);
 
 /// <summary>Result of isoelectric_point operation.</summary>
-public record IsoelectricPointResult(double PI);
+public record IsoelectricPointResult(
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    double? PI)
+{
+    /// <summary>Whether a pI was found; set only for <c>window = "Emboss"</c> (false = EMBOSS <c>iep</c>
+    /// "Isoelectric Point = None": same strict charge sign at pH 1 and 14, and <c>pI</c> is then omitted).
+    /// Null (omitted from the JSON) for the other windows, which always return a pI.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public bool? Found { get; init; }
+}
 
 /// <summary>Result of hydrophobicity operation.</summary>
 public record HydrophobicityResult(double Gravy);
@@ -51,7 +66,7 @@ public record HydrophobicityResult(double Gravy);
 // ================================
 
 /// <summary>Result of nucleotide_composition operation.</summary>
-public record NucleotideCompositionResult(int Length, int A, int T, int G, int C, int U, int Other, double GcContent);
+public record NucleotideCompositionResult(int Length, int A, int T, int G, int C, int U, int Other, double GcContent, int N);
 
 /// <summary>Result of molecular_weight_nucleotide operation.</summary>
 public record MolecularWeightNucleotideResult(double MolecularWeight, string Unit, string SequenceType);
@@ -75,7 +90,11 @@ public record SummarizeSequenceResult(
     double Entropy,
     double Complexity,
     double MeltingTemperature,
-    Dictionary<string, int> Composition);
+    Dictionary<string, int> Composition)
+{
+    /// <summary>Single-stranded average molecular weight (Da), Biopython <c>molecular_weight</c>.</summary>
+    public double MolecularWeight { get; init; }
+}
 
 /// <summary>Result of gc_content operation.</summary>
 public record GcContentResult(double GcContent, int GcCount, int TotalCount);

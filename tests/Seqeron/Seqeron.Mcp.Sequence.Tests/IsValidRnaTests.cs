@@ -34,4 +34,15 @@ public class IsValidRnaTests
         var lowercase = SequenceTools.IsValidRna("augc");
         Assert.That(lowercase.IsValid, Is.True);
     }
+
+    [Test]
+    public void IsValidRna_Iupac_AcceptsAmbiguityCodes()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(SequenceTools.IsValidRna("ACGUN").IsValid, Is.False);
+            Assert.That(SequenceTools.IsValidRna("ACGURYSWKMBDHVN", iupac: true).IsValid, Is.True);
+            Assert.That(SequenceTools.IsValidRna("ACGT", iupac: true).IsValid, Is.False);
+        });
+    }
 }

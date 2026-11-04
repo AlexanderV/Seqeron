@@ -11,7 +11,7 @@
 ### Wikipedia — K-mer
 
 **URL:** https://en.wikipedia.org/wiki/K-mer
-**Accessed:** 2026-06-14
+**Accessed:** 2026-06-14 · re-fetched 2026-10-14 (SRC citation audit: supports the claims above)
 **Authority rank:** 4 (encyclopedia article; the definition and the n^k count are standard and uncontested; used here for the foundational definition and the size of the k-mer universe)
 
 **Retrieval:** WebSearch query `k-mer definition all possible k-mers 4^k DNA alphabet ACGT bioinformatics`, then WebFetch of the article URL above.

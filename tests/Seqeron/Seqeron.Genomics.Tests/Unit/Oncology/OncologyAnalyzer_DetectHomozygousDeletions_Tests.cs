@@ -461,4 +461,36 @@ public class OncologyAnalyzer_DetectHomozygousDeletions_Tests
     }
 
     #endregion
+
+    #region IdentifyDeletedTumorSuppressors — locus overlap (F49, GISTIC2 genes_at partial_hits = 1)
+
+    // Locked from GNU Octave running GISTIC2 genes_at.m on the GRCh38 panel (GENCODE v22, GISTIC2 refgenes).
+    [TestCase("17", 7_000_000, 50_000_000, new[] { "TP53", "BRCA1" })]
+    [TestCase("13", 32_315_474, 32_315_474, new[] { "BRCA2" })]   // single base = BRCA2 start
+    [TestCase("9", 1, 21_967_752, new string[0])]                  // ends one base before CDKN2A
+    [TestCase("9", 1, 21_967_753, new[] { "CDKN2A" })]
+    public void IdentifyDeletedTumorSuppressors_LocusOverlap_MatchesGistic2GenesAt(
+        string chromosome, long start, long end, string[] expected)
+    {
+        var result = OncologyAnalyzer.IdentifyDeletedTumorSuppressors(
+            new[] { new OncologyAnalyzer.CopyNumberRegion(chromosome, start, end) });
+        Assert.That(result, Is.EqualTo(expected),
+            "Genes are reported iff their locus overlaps a deleted region (closed intervals, panel order).");
+    }
+
+    [Test]
+    public void DefaultTumorSuppressorLoci_Gistic2Gencode22Coordinates()
+    {
+        Assert.That(OncologyAnalyzer.DefaultTumorSuppressorLoci, Is.EqualTo(new[]
+        {
+            new OncologyAnalyzer.GeneLocus("TP53", "17", 7_661_779, 7_687_550),
+            new OncologyAnalyzer.GeneLocus("RB1", "13", 48_303_751, 48_481_986),
+            new OncologyAnalyzer.GeneLocus("CDKN2A", "9", 21_967_753, 21_995_301),
+            new OncologyAnalyzer.GeneLocus("PTEN", "10", 87_863_113, 87_971_930),
+            new OncologyAnalyzer.GeneLocus("BRCA1", "17", 43_044_295, 43_125_483),
+            new OncologyAnalyzer.GeneLocus("BRCA2", "13", 32_315_474, 32_400_266),
+        }));
+    }
+
+    #endregion
 }

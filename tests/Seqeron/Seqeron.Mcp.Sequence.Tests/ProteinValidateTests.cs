@@ -32,4 +32,19 @@ public class ProteinValidateTests
         var withStop = SequenceTools.ProteinValidate("MAEG*");
         Assert.That(withStop.Valid, Is.True); // * is valid stop codon
     }
+
+    // FIN-B02 WP5: the offending character is located with ASCII-only folding (as ProteinSequence,
+    // F31), so a non-ASCII letter that ToUpperInvariant would fold onto a valid residue
+    // (U+017F 'ſ' -> 'S', U+0131 'ı' -> 'I') is reported, not a generic "Invalid sequence".
+    [TestCase("MAſEG", "\u017f", 2)]
+    [TestCase("ıMAEG", "\u0131", 0)]
+    public void ProteinValidate_NonAsciiLetter_IsReportedVerbatim(string sequence, string ch, int position)
+    {
+        var result = SequenceTools.ProteinValidate(sequence);
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Valid, Is.False);
+            Assert.That(result.Error, Is.EqualTo($"Invalid amino acid '{ch}' at position {position}"));
+        });
+    }
 }

@@ -29,9 +29,14 @@ The implementation reproduces Primer3 (Untergasser et al. 2012; `libprimer3.cc`,
 | Longest mononucleotide run | `PRIMER_MAX_POLY_X` check | `FindLongestHomopolymer` |
 | ntthal ANY / END1 / END2 dimer, hairpin with Mg²⁺/dNTP | `ntthal -a ANY/END1/END2/HAIRPIN` | `CalculateDimerThermodynamicsNtthal(…, mode, …)`, `CalculateHairpinThermodynamicsNtthal(…, dv, dntp)` |
 
-Two sequence-only screens without a Primer3 counterpart remain: `HasHairpinPotential` (exact
-Watson–Crick stem of ≥ `minStemLength` closing a loop of ≥ `minLoopLength`) and
-`FindLongestDinucleotideRepeat`.
+Two sequence-only **library screens** without a Primer3 counterpart remain (unsourced heuristics —
+no authoritative published definition was found, audit round 3, A3-8): `HasHairpinPotential` (exact
+Watson–Crick stem of ≥ `minStemLength` closing a loop of ≥ `minLoopLength`; the default loop 3 is
+Primer3's hairpin minimum `thal.c` `min_hrpn_loop = 3`, the default stem 4 is a library threshold) and
+`FindLongestDinucleotideRepeat` (limit `MaxDinucleotideRepeats` = 4 in `DefaultParameters`; Primer3 has no
+dinucleotide-repeat setting). The sourced Primer3 alternatives are the ntthal hairpin Tm
+(`CalculatePrimer3OligoStructure` / `CalculateHairpinThermodynamicsNtthal`, PRIMER_MAX_HAIRPIN_TH 47 °C) and
+PRIMER_MAX_POLY_X (`FindLongestHomopolymer`) / PRIMER_MISPRIMING_LIBRARY.
 
 ## 2. Scientific / Formal Basis
 
@@ -113,7 +118,7 @@ base, longer run reported): ANA 3, GNGNG 5, ANGNG 4.
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `[HasHairpinPotential] minStemLength / minLoopLength` | `int` | 4 / 3 | Stem length and minimum loop of the sequence-only screen |
+| `[HasHairpinPotential] minStemLength / minLoopLength` | `int` | 4 / 3 | Stem length and minimum loop of the sequence-only library screen (stem 4: unsourced library threshold; loop 3: Primer3 `thal.c` `min_hrpn_loop`) |
 | `[HasPrimerDimer] minComplementarity` | `int` | 4 | Flag when the Primer3 alignment-mode compl_end score ≥ this value |
 | `[CalculatePrimer3OligoStructure / PairComplementarity] monovalentMillimolar, divalentMillimolar, dntpMillimolar, dnaConcentrationNanomolar` | `double` | 50, 1.5, 0.6, 50 | Primer3 primer conditions |
 | `[CalculateDimerThermodynamicsNtthal] mode` | `NtthalAlignmentMode` | — | `Any`, `End1`, `End2` |
@@ -202,8 +207,11 @@ methods score any non-ACGT character as N (Primer3 `p3_reverse_complement` turns
 | Non-ACGT primer | No thermodynamic values (`null`); `EvaluatePrimer` already rejects it (Tm) |
 
 `FindLongestDinucleotideRepeat` counts any repeated 2-mer (so AAAA counts as 2 "AA" units) and has
-no Primer3 equivalent; `HasHairpinPotential` is a sequence-only screen kept for the `Heuristic`
-mode and the `hairpin_potential` MCP tool.
+no Primer3 equivalent; `HasHairpinPotential` is a sequence-only library screen kept for the `Heuristic`
+mode and the `hairpin_potential` MCP tool. Both are unsourced library heuristics (A3-8). The hairpin screen
+can disagree with Primer3 (primer3-py 2.3.1 `calc_hairpin`, 50 mM / 1.5 mM / 0.6 mM / 50 nM):
+`AAAACCCTTTT` is flagged although Primer3 finds no structure, `CAGTAAAACCCTTTTGCAGC` is flagged although its
+hairpin Tm is 37.65 °C (< 47 °C, Primer3 accepts it).
 
 ## 8. References
 

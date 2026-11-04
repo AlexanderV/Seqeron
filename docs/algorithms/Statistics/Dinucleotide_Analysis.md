@@ -56,7 +56,7 @@ The same odds-ratio shape underlies the CpG O/E ratio of Gardiner-Garden & Fromm
 
 ### 3.3 Preconditions and Validation
 
-Input is normalized to upper case (`ToUpperInvariant`). `CalculateDinucleotideFrequencies`/`CalculateDinucleotideRatios` return an empty dictionary for null/empty input or length < 2; `CalculateCodonFrequencies` returns empty for null/empty or length < 3. Dinucleotides outside {A,T,G,C,U} and triplets outside {A,T,G,C} are excluded from counts. When a constituent base of a dinucleotide is absent (expected = 0), its ρ is reported as 0 to avoid division by zero.
+Input is normalized to upper case (`ToUpperInvariant`; `CalculateCodonFrequencies` delegates to the canonical `Translator.CountCodons(seq, frame)` — ASCII fold, U read as T — and divides by the total). `CalculateDinucleotideFrequencies`/`CalculateDinucleotideRatios` return an empty dictionary for null/empty input or length < 2; `CalculateCodonFrequencies` returns empty for null/empty or length < 3. Dinucleotides outside {A,T,G,C,U} and triplets outside {A,T,G,C} are excluded from counts. When a constituent base of a dinucleotide is absent (expected = 0), its ρ is reported as 0 to avoid division by zero.
 
 ## 4. Algorithm
 
@@ -69,7 +69,7 @@ Input is normalized to upper case (`ToUpperInvariant`). `CalculateDinucleotideFr
 ### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures
 
 - Dinucleotide alphabet filter: `{A,T,G,C,U}`; codon alphabet filter: `{A,T,G,C}`.
-- Karlin (N−1) normalization for dinucleotide frequency [1]; interpretive thresholds 0.78 / 1.23 are documentation-only and not applied in code [2].
+- Karlin (N−1) normalization for dinucleotide frequency [1] (denominator = counted in-alphabet dinucleotides, = N−1 for pure-alphabet input); Karlin's interpretive thresholds 0.78 / 1.23 are applied only by the opt-in `ClassifyDinucleotideRatio(s)` (B03 F37) — ρ / ρ* values themselves are unthresholded [2].
 
 ### 4.3 Complexity
 
@@ -104,9 +104,9 @@ Input is normalized to upper case (`ToUpperInvariant`). `CalculateDinucleotideFr
 
 **Intentionally simplified:** none.
 
-**Not implemented:**
+- Karlin over-/under-representation classes [2]: `ClassifyDinucleotideRatio(ρ)` (ρ ≤ 0.78 under, ρ ≥ 1.23 over, bounds inclusive; constants `KarlinUnderRepresentedThreshold` / `KarlinOverRepresentedThreshold`) and `ClassifyDinucleotideRatios(seq, strandSymmetric = true)` over the keys of `CalculateDinucleotideRatios` (review 2026-09 B03 F37). Absent dinucleotides (ρ = 0 when both bases occur) are not keys, as in the ratio map. Opt-in `includeAbsent` (`CalculateDinucleotideRatios(seq, strandSymmetric, includeAbsent)` / `ClassifyDinucleotideRatios(seq, strandSymmetric, includeAbsent)`, MCP `dinucleotide_ratios` `includeAbsent`; review 2026-09 B03 F51) adds every unobserved XY whose two bases occur (ρ*: A/T if A+T > 0, C/G if C+G > 0) with ρ = 0 → UnderRepresented — seqinr 4.2.36 `rho()` executed ("AACCTTGGAACCTTGG": 8 zero words); an XY with an absent base is undefined (seqinr NaN) and stays excluded.
 
-- Over-/under-representation classification (0.78 / 1.23 thresholds) [2]; **users should rely on:** comparing the returned ρ against those thresholds themselves.
+**Not implemented:** none.
 
 ### 5.4 Deviations and Assumptions
 
@@ -114,7 +114,7 @@ Input is normalized to upper case (`ToUpperInvariant`). `CalculateDinucleotideFr
 |---|------|------|--------|--------|-------|
 | 1 | (N−1) vs N dinucleotide normalization | Assumption | numeric ratio differs by N/(N−1) from the Gardiner-Garden CpG form | accepted | Karlin convention [1]; both authoritative. The Gardiner-Garden & Frommer CpG O/E (N·CpG/(C·G)) is `EpigeneticsAnalyzer.CalculateCpGObservedExpected` |
 | 2 | Non-alphabet symbols excluded from denominators | Convention | differs from EMBOSS compseq, which keeps "Other" words/bases in the totals | accepted | seqinr `rho`/`count` convention [5] |
-| 3 | Only observed dinucleotides are keys | Convention | absent key ⇒ ρ = 0 when both bases occur (seqinr/compseq print 0), undefined (0/0) otherwise | accepted | every returned ratio is finite and > 0; the expected = 0 case cannot occur for an observed pair |
+| 3 | Only observed dinucleotides are keys (default) | Convention / option | absent key ⇒ ρ = 0 when both bases occur (seqinr/compseq print 0), undefined (0/0) otherwise | opt-in (B03 F51) | default: every returned ratio is finite and > 0; `includeAbsent: true` adds ρ = 0 (→ `UnderRepresented`) for absent words whose bases occur, as seqinr `rho`; undefined 0/0 words stay excluded |
 
 ## 6. Edge Cases and Limitations
 
@@ -130,7 +130,7 @@ Input is normalized to upper case (`ToUpperInvariant`). `CalculateDinucleotideFr
 
 ### 6.2 Limitations
 
-No classification output; ρ\* is defined for double-stranded DNA only (U excluded); codon analysis assumes the caller supplies the correct frame and treats the input as a single contiguous coding region.
+Karlin over/under-representation classes are available via `ClassifyDinucleotideRatio(s)` (B03 F37; thresholds 0.78 / 1.23). ρ\* is defined for double-stranded DNA only (U excluded); codon analysis assumes the caller supplies the correct frame and treats the input as a single contiguous coding region.
 
 ## 7. Examples and Related Material
 

@@ -269,6 +269,28 @@ public class PrimerDesigner_PrimerStructure_Tests
     }
 
     /// <summary>
+    /// M10b — <c>HasHairpinPotential</c> is a sequence-only library screen (default stem 4 unsourced, loop 3 =
+    /// Primer3 thal.c min_hrpn_loop), not Primer3's hairpin screen: it flags both sequences although Primer3's
+    /// ntthal hairpin (PRIMER_HAIRPIN_TH, limit 47 °C) accepts them.
+    /// Source: primer3-py 2.3.1 <c>calc_hairpin</c> at 50 mM Na⁺ / 1.5 mM Mg²⁺ / 0.6 mM dNTP / 50 nM:
+    /// AAAACCCTTTT → structure_found False (Tm 0); CAGTAAAACCCTTTTGCAGC → Tm 37.65 °C.
+    /// </summary>
+    [TestCase("AAAACCCTTTT", 0.0)]
+    [TestCase("CAGTAAAACCCTTTTGCAGC", 37.65)]
+    public void HasHairpinPotential_LibraryScreen_DiffersFromPrimer3NtthalHairpin(string sequence, double primer3HairpinTm)
+    {
+        var primer3 = PrimerDesigner.CalculatePrimer3OligoStructure(sequence);
+        Assert.Multiple(() =>
+        {
+            Assert.That(PrimerDesigner.HasHairpinPotential(sequence), Is.True, "library screen flags the exact 4-bp stem");
+            Assert.That(primer3, Is.Not.Null);
+            Assert.That(primer3!.Value.HairpinTh, Is.EqualTo(primer3HairpinTm).Within(0.005), "Primer3 ntthal hairpin Tm");
+            Assert.That(primer3.Value.HairpinTh, Is.LessThanOrEqualTo(PrimerDesigner.Primer3MaxStructureTm),
+                "Primer3 PRIMER_MAX_HAIRPIN_TH accepts it");
+        });
+    }
+
+    /// <summary>
     /// Long sequence (>100bp) uses suffix tree optimization.
     /// Source: Performance optimization test.
     /// </summary>
@@ -292,6 +314,74 @@ public class PrimerDesigner_PrimerStructure_Tests
     /// Long sequence without hairpin returns false.
     /// Source: Performance optimization test.
     /// </summary>
+    /// <summary>
+    /// A5-2: only A·T / G·C pairs form a stem at every length. The ≥ 100-nt suffix-tree path used the IUPAC reverse
+    /// complement (N→N), so two NNNN blocks counted as a stem there but not in the &lt; 100-nt scan.
+    /// </summary>
+    [TestCase(97)]
+    [TestCase(113)]
+    public void HasHairpinPotential_NonAcgtBlocks_NeverPair_OnBothPaths(int length)
+    {
+        string flank = string.Concat(Enumerable.Repeat("ACCA", (length - 13) / 8));
+        string seq = flank + "NNNNACCACNNNN" + string.Concat(Enumerable.Repeat("CAAC", (length - 13 - flank.Length) / 4));
+        Assert.Multiple(() =>
+        {
+            Assert.That(seq.Length, Is.EqualTo(length));
+            Assert.That(PrimerDesigner.HasHairpinPotential(seq), Is.False, "A/C/N only: no Watson–Crick stem");
+            Assert.That(PrimerDesigner.HasHairpinPotential(seq.Replace("NNNNACCACNNNN", "GGTTACCACAACC")), Is.True,
+                "control: GGTT·AACC stem with a 5-nt loop");
+        });
+    }
+
+    /// <summary>
+    /// A6-1: the canonical reverse complement maps U→A, so before the fix a U stem window became "AAAA", passed the
+    /// pattern-only non-ACGT guard and matched an A run on the ≥ 100-nt suffix-tree path, while the &lt; 100-nt scan
+    /// (strict A·T / G·C) never pairs U. Lowercase input is upper-cased before either path, so it pairs identically.
+    /// </summary>
+    [TestCase("AAAAACCCCUUUUU", false, TestName = "U_never_pairs_with_A")]
+    [TestCase("AAAAACCCCuuuuu", false, TestName = "lowercase_u_never_pairs_with_A")]
+    [TestCase("AAAAACCCCTTTTT", true, TestName = "control_T_pairs_with_A")]
+    [TestCase("aaaaaccccttttt", true, TestName = "lowercase_pairs_like_uppercase")]
+    [TestCase("AAAAACCCCCCCCC", false, TestName = "control_no_stem")]
+    public void HasHairpinPotential_UracilAndLowercase_SameOnBothPaths(string core, bool expected)
+    {
+        string longSeq = core + string.Concat(Enumerable.Repeat("AC", 60)); // 134 nt → suffix-tree path
+        Assert.Multiple(() =>
+        {
+            Assert.That(core.Length, Is.LessThan(100));
+            Assert.That(longSeq.Length, Is.GreaterThanOrEqualTo(100));
+            Assert.That(PrimerDesigner.HasHairpinPotential(core), Is.EqualTo(expected), "< 100-nt scan");
+            Assert.That(PrimerDesigner.HasHairpinPotential(longSeq), Is.EqualTo(expected), "≥ 100-nt suffix tree");
+        });
+    }
+
+    /// <summary>
+    /// A6-1: randomized equivalence of the two scan paths. Padding a &lt; 100-nt sequence with N (which never pairs on
+    /// either path) up to ≥ 100 nt switches it to the suffix-tree path without adding or removing any A·T / G·C stem,
+    /// so the result must be unchanged — over an alphabet that includes U, N, an IUPAC code and lowercase.
+    /// </summary>
+    [Test]
+    public void HasHairpinPotential_ShortScanAndSuffixTree_AgreeOnRandomSequences()
+    {
+        const string alphabet = "ACGTACGTUNSacgtu";
+        var rng = new Random(20261008);
+        int positives = 0;
+        for (int trial = 0; trial < 2000; trial++)
+        {
+            int len = rng.Next(11, 99);
+            var chars = new char[len];
+            for (int i = 0; i < len; i++)
+                chars[i] = alphabet[rng.Next(alphabet.Length)];
+            string s = new(chars);
+            int stem = rng.Next(3, 6), loop = rng.Next(3, 5);
+            bool shortResult = PrimerDesigner.HasHairpinPotential(s, stem, loop);
+            bool longResult = PrimerDesigner.HasHairpinPotential(s + new string('N', 100), stem, loop);
+            Assert.That(longResult, Is.EqualTo(shortResult), $"seq={s} stem={stem} loop={loop}");
+            if (shortResult) positives++;
+        }
+        Assert.That(positives, Is.InRange(200, 1800), "both outcomes are exercised");
+    }
+
     [Test]
     public void HasHairpinPotential_LongSequenceNoHairpin_ReturnsFalse()
     {
@@ -712,6 +802,89 @@ public class PrimerDesigner_PrimerStructure_Tests
             Assert.That(relaxed.HasHairpin, Is.False);
             Assert.That(relaxed.Issues.Any(i => i.Contains("Primer3 PRIMER_MAX_")), Is.False);
         });
+    }
+
+    #endregion
+
+    #region B07 audit round 7, A7-3 + A7-4: degenerate / null arguments
+
+    // A7-3: minStemLength 0 returned true for any long-enough sequence (a 0-bp "stem"); a negative stem or loop threw a
+    // raw Substring AOORE ('length' / 'startIndex'). A stem has ≥ 1 bp; a loop of 0 (abutting arms) is degenerate but
+    // well defined.
+    [TestCase(0, 3, "minStemLength")]
+    [TestCase(-1, 3, "minStemLength")]
+    [TestCase(int.MinValue, 3, "minStemLength")]
+    [TestCase(4, -1, "minLoopLength")]
+    [TestCase(4, int.MinValue, "minLoopLength")]
+    public void HasHairpinPotential_IllegalStemOrLoop_ThrowsArgumentOutOfRange(int stem, int loop, string param)
+    {
+        foreach (var seq in new[] { "GGGGAAACCCC", "", null, new string('A', 60) + "GGGGAAACCCC" + new string('T', 60) })
+        {
+            var ex = Assert.Throws<ArgumentOutOfRangeException>(() => PrimerDesigner.HasHairpinPotential(seq!, stem, loop));
+            Assert.That(ex!.ParamName, Is.EqualTo(param));
+        }
+    }
+
+    [TestCase("GGGGCCCC", 4, 0, true)]      // arms abut: GGGG / CCCC
+    [TestCase("GGGGCCCC", 4, 1, false)]
+    [TestCase("GGGGAAACCCC", 4, 3, true)]   // unchanged default behaviour
+    [TestCase("GGGGAAACCCC", 1, 3, true)]
+    [TestCase("GGGGAAACCCC", int.MaxValue, 3, false)] // 2·stem + loop no longer overflows
+    [TestCase("GGGGAAACCCC", 4, int.MaxValue, false)]
+    public void HasHairpinPotential_BoundaryArguments(string seq, int stem, int loop, bool expected)
+    {
+        Assert.That(PrimerDesigner.HasHairpinPotential(seq, stem, loop), Is.EqualTo(expected));
+    }
+
+    [Test]
+    public void EvaluatePrimer_Null_ThrowsArgumentNull()
+    {
+        // A7-4: was NullReferenceException in EvaluatePrimerCore (DesignPrimers & co. throw ArgumentNullException).
+        var ex = Assert.Throws<ArgumentNullException>(() => PrimerDesigner.EvaluatePrimer(null!, 0, true));
+        Assert.That(ex!.ParamName, Is.EqualTo("sequence"));
+    }
+
+    [Test]
+    public void GeneratePrimerCandidates_NullTemplate_ThrowsArgumentNull()
+    {
+        Assert.Throws<ArgumentNullException>(() => PrimerDesigner.GeneratePrimerCandidates(null!, 0, 30));
+    }
+
+    [TestCase(-1, 30, "regionStart")]
+    [TestCase(int.MinValue, 30, "regionStart")]
+    [TestCase(int.MaxValue, 40, "regionStart")]
+    [TestCase(0, 41, "regionEnd")]
+    [TestCase(0, int.MaxValue, "regionEnd")]
+    public void GeneratePrimerCandidates_RegionOutsideTemplate_ThrowsArgumentOutOfRangeEagerly(int start, int end, string param)
+    {
+        // Sweep: these crashed with a raw Substring AOORE (or start + MinLength overflow) during enumeration.
+        var template = new DnaSequence("ACGTACGTACGTACGTACGTACGTACGTACGTACGTACGT"); // 40 nt
+        var ex = Assert.Throws<ArgumentOutOfRangeException>(() => PrimerDesigner.GeneratePrimerCandidates(template, start, end));
+        Assert.That(ex!.ParamName, Is.EqualTo(param));
+    }
+
+    [Test]
+    public void GeneratePrimerCandidates_FullAndEmptyRegion_Unchanged()
+    {
+        var template = new DnaSequence("ACGTACGTACGTACGTACGTACGTACGTACGTACGTACGT"); // 40 nt
+        var all = PrimerDesigner.GeneratePrimerCandidates(template, 0, 40).ToList();
+        int min = PrimerDesigner.DefaultParameters.MinLength, max = PrimerDesigner.DefaultParameters.MaxLength;
+        int expected = 0;
+        for (int s = 0; s + min <= 40; s++)
+            expected += Math.Min(max, 40 - s) - min + 1;
+        Assert.That(all, Has.Count.EqualTo(expected));
+        Assert.That(PrimerDesigner.GeneratePrimerCandidates(template, 40, 40), Is.Empty);
+        Assert.That(PrimerDesigner.GeneratePrimerCandidates(template, 30, 10), Is.Empty);
+    }
+
+    [Test]
+    public void CalculateTemplateMispriming_PositionPlusLengthOverflow_ThrowsArgumentOutOfRange()
+    {
+        // Sweep: position + length overflowed past the site check and crashed in Substring ('startIndex').
+        var template = new DnaSequence("ACGTACGTACGTACGTACGTACGTACGTACGTACGTACGT");
+        var ex = Assert.Throws<ArgumentOutOfRangeException>(
+            () => PrimerDesigner.CalculateTemplateMispriming(template, int.MaxValue, 20, true));
+        Assert.That(ex!.ParamName, Is.EqualTo("position"));
     }
 
     #endregion

@@ -3,9 +3,9 @@
 **Test Unit ID:** PRIMER-TM-001
 **Area:** MolTools
 **Algorithm:** Nearest-neighbour (SantaLucia 1998) salt-corrected melting temperature (opt-in)
-**Status:** ☐ In Progress
+**Status:** ☑ Complete (all items ✅ Done, tests verified present; audit round 4, A4-4)
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-06-24
+**Last Updated:** 2026-06-24; status 2026-10-08
 
 > Scope: the **opt-in NN salt-corrected design Tm** added under PRIMER-TM-001
 > (`CalculateMeltingTemperatureNN`, `CalculateNearestNeighborThermodynamics`). The Wallace /
@@ -163,7 +163,7 @@ Tm = −51.9·1000/(−136.4 + 1.9872·ln(0.5e−6/4)) − 273.15 = **35.8034921
 
 ### 5.3 Consolidation Plan
 
-- **Canonical file:** `tests/Seqeron/Seqeron.Genomics.Tests/PrimerDesigner_NearestNeighborTm_Tests.cs` — all NN Tm cases.
+- **Canonical file:** `tests/Seqeron/Seqeron.Genomics.Tests/Unit/MolTools/PrimerDesigner_NearestNeighborTm_Tests.cs` — all NN Tm cases.
 - **Remove:** nothing (legacy fixtures cover the unchanged default Tm and the penalty objective).
 
 ### 5.4 Final State After Consolidation

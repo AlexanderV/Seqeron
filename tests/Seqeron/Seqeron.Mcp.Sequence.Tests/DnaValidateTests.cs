@@ -27,4 +27,24 @@ public class DnaValidateTests
         Assert.That(invalid.Length, Is.EqualTo(8));
         Assert.That(invalid.Error, Does.Contain("X"));
     }
+
+    // iupac=true delegates to Core SequenceExtensions.IndexOfInvalidIupacDna: the alphabet is Biopython 1.88
+    // IUPACData.ambiguous_dna_letters "GATCRYWSMKHBVDN" (scikit-bio 0.7.4 DNA("ACGTN") also valid, DNA("ACGTU") ValueError).
+    [Test]
+    public void DnaValidate_Iupac_AcceptsAmbiguityCodes()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(SequenceTools.DnaValidate("ACGTN").Valid, Is.False, "strict default unchanged");
+            Assert.That(SequenceTools.DnaValidate("ACGTN").Error, Is.EqualTo("Invalid nucleotide 'N' at position 4"));
+            Assert.That(SequenceTools.DnaValidate("ACGTRYSWKMBDHVN", iupac: true).Valid, Is.True);
+            Assert.That(SequenceTools.DnaValidate("acgtn", iupac: true).Valid, Is.True);
+            var u = SequenceTools.DnaValidate("ACGNU", iupac: true);
+            Assert.That(u.Valid, Is.False);
+            Assert.That(u.Error, Is.EqualTo("Invalid nucleotide 'U' at position 4"));
+            Assert.That(SequenceTools.DnaValidate("ACX", iupac: true).Error, Is.EqualTo("Invalid nucleotide 'X' at position 2"));
+            // Empty input stays rejected (MCP null/empty convention) in both modes.
+            Assert.Throws<ArgumentException>(() => SequenceTools.DnaValidate("", iupac: true));
+        });
+    }
 }

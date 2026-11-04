@@ -12,12 +12,12 @@ public static partial class OncologyAnalyzer
     private const double RootCcf = 1.0;
 
     /// <summary>
-    /// Default noise margin ε for the lineage-precedence (Eq. 2) and sum-rule (Eq. 5) inequalities. LICHeE's default
-    /// (<c>-e</c>, <c>Parameters.VAF_ERROR_MARGIN</c>) is 0.1 and PICTograph uses ε₁=0.1, ε₂=0.2; this unit consumes
-    /// already-clustered CCF point estimates, so the library default is the strict ε = 0 and callers pass a positive
-    /// tolerance to reproduce the source defaults.
+    /// Default noise margin ε for the lineage-precedence (Eq. 2) and sum-rule (Eq. 5) inequalities — LICHeE's default
+    /// <c>-e</c> = <c>Parameters.VAF_ERROR_MARGIN</c> = 0.1, which also applies in cell-prevalence mode (<c>-cp</c> only
+    /// sets <c>VAF_MAX</c> = <c>MAX_ALLOWED_VAF</c> = 1; <c>LineageEngine</c> option parsing, github.com/viq854/lichee).
+    /// Pass 0 for the strict inequalities.
     /// </summary>
-    public const double DefaultPhylogenyTolerance = 0.0;
+    public const double DefaultPhylogenyTolerance = 0.1;
 
     /// <summary>
     /// Maximum number of valid spanning trees enumerated before the search stops — LICHeE
@@ -28,7 +28,9 @@ public static partial class OncologyAnalyzer
     /// <summary>
     /// Maximum number of recursive <c>grow</c> calls of the Gabow–Myers spanning-tree enumeration — LICHeE
     /// <c>Parameters.MAX_NUM_GROW_CALLS</c> = 10⁸. When the budget is exhausted the enumeration stops and the best tree
-    /// found so far is returned.
+    /// found so far is returned. LICHeE's <c>grow</c> returns from the frame that hit the cap and its callers keep looping
+    /// over their remaining stack edges, but a recursion is only entered below the cap, so no tree is added after it:
+    /// the tree list — and hence the ranking — equals the trees completed within the first 10⁸ calls, as here.
     /// </summary>
     public const int MaxPhylogenyGrowCalls = 100_000_000;
 
@@ -78,6 +80,13 @@ public static partial class OncologyAnalyzer
         /// </summary>
         public bool UsedCompleteNetwork { get; init; }
 
+        /// <summary>
+        /// Ids of the non-robust clusters LICHeE's <c>fixNetwork</c> dropped (in removal order) before a valid tree was
+        /// found; they are absent from <see cref="Clusters"/> and <see cref="Edges"/>. Empty when nothing was removed
+        /// (always for <see cref="ReconstructPhylogeny"/>).
+        /// </summary>
+        public IReadOnlyList<int> RemovedClusterIds { get; init; } = Array.Empty<int>();
+
         /// <summary>Returns the parent id of <paramref name="clusterId"/>, or null if it is the root or absent.</summary>
         public int? ParentOf(int clusterId)
         {
@@ -126,11 +135,13 @@ public static partial class OncologyAnalyzer
     /// tree is returned. If the default network admits no valid tree, the complete network (<c>ALL_EDGES</c>) is
     /// searched, as LICHeE does.</description></item>
     /// </list>
-    /// Presence profiles are grouped in order of first appearance in <paramref name="clusters"/> (LICHeE iterates a
-    /// <c>HashMap</c>), which fixes the enumeration order and therefore the tie-break among equal-score trees.
+    /// Presence-profile groups are visited in LICHeE's order — the iteration order of its <c>HashMap&lt;String, …&gt;</c> of
+    /// profile tags ('1'/'0' per sample) filled in order of first appearance, emulated exactly (String hash codes are
+    /// deterministic) — within a group in input order. This fixes the node ids, the network's edge order and the
+    /// enumeration order, and therefore the tie-break among equal-score trees.
     /// </summary>
     /// <param name="clusters">CCF clusters to place; each cluster's <see cref="CcfCluster.CcfPerSample"/> must have the same length.</param>
-    /// <param name="tolerance">Noise margin ε for both inequalities; default <see cref="DefaultPhylogenyTolerance"/> (0).</param>
+    /// <param name="tolerance">Noise margin ε for both inequalities; default <see cref="DefaultPhylogenyTolerance"/> (0.1, LICHeE <c>-e</c>).</param>
     /// <returns>The top-ranking <see cref="ClonalPhylogeny"/> rooted at a synthetic normal node.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="clusters"/> or any cluster's CCF list is null.</exception>
     /// <exception cref="ArgumentException">CCF lists differ in length, are empty, or contain NaN / out-of-[0,1] values; or two clusters share an id.</exception>
@@ -161,11 +172,7 @@ public static partial class OncologyAnalyzer
         double tolerance = DefaultPhylogenyTolerance)
     {
         ArgumentNullException.ThrowIfNull(clusters);
-        if (double.IsNaN(tolerance) || tolerance < 0.0)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(tolerance), tolerance, "Phylogeny tolerance ε must be a non-negative number.");
-        }
+        ValidatePhylogenyTolerance(tolerance);
 
         int rootId = RootIdFor(clusters);
         if (clusters.Count == 0)
@@ -180,13 +187,87 @@ public static partial class OncologyAnalyzer
         }
 
         int sampleCount = ValidateAndGetSampleCount(clusters);
+        return TryReconstructLichee(clusters, sampleCount, tolerance, standardErrors: null, memberCounts: null, robust: null, out phylogeny);
+    }
 
+    /// <summary>
+    /// Test hook: <see cref="TryReconstructPhylogeny"/> with the grow-call budget <paramref name="maxGrowCalls"/> instead of
+    /// <see cref="MaxPhylogenyGrowCalls"/> (LICHeE <c>Parameters.MAX_NUM_GROW_CALLS</c>), to lock the post-cap result.
+    /// </summary>
+    internal static bool TryReconstructPhylogeny(
+        IReadOnlyList<CcfCluster> clusters,
+        out ClonalPhylogeny phylogeny,
+        double tolerance,
+        int maxGrowCalls)
+    {
+        ArgumentNullException.ThrowIfNull(clusters);
+        ValidatePhylogenyTolerance(tolerance);
+        ArgumentOutOfRangeException.ThrowIfLessThan(maxGrowCalls, 1);
+        if (clusters.Count == 0)
+        {
+            return TryReconstructPhylogeny(clusters, out phylogeny, tolerance);
+        }
+
+        int sampleCount = ValidateAndGetSampleCount(clusters);
+        return TryReconstructLichee(
+            clusters, sampleCount, tolerance, standardErrors: null, memberCounts: null, robust: null, out phylogeny, maxGrowCalls);
+    }
+
+    /// <summary>
+    /// LICHeE <c>LineageEngine.buildLineage</c> steps 4–6 on validated clusters: constraint network, tree search,
+    /// network adjustment, ranking. <paramref name="standardErrors"/> = per-cluster <c>1.96·sd/√n</c> (null = static ε).
+    /// When no tree exists: with <paramref name="memberCounts"/>/<paramref name="robust"/> supplied, LICHeE's
+    /// <c>fixNetwork</c> loop drops the smallest non-robust cluster (first in node-id order on ties) and searches again
+    /// until a tree is found or no non-robust cluster is left; then the complete network (<c>ALL_EDGES</c>) is
+    /// searched on the remaining clusters.
+    /// </summary>
+    private static bool TryReconstructLichee(
+        IReadOnlyList<CcfCluster> clusters,
+        int sampleCount,
+        double tolerance,
+        double[][]? standardErrors,
+        int[]? memberCounts,
+        bool[]? robust,
+        out ClonalPhylogeny phylogeny,
+        int maxGrowCalls = MaxPhylogenyGrowCalls)
+    {
+        int rootId = RootIdFor(clusters);
+        var nodeOrder = new List<int>(LicheeNodeOrder(clusters, sampleCount));
+        var removed = new List<int>();
         bool usedComplete = false;
-        LicheeSearchResult result = new LicheeNetwork(clusters, sampleCount, tolerance, completeNetwork: false).Search();
+        LicheeSearchResult result = new LicheeNetwork(
+            clusters, sampleCount, tolerance, completeNetwork: false, nodeOrder, standardErrors, maxGrowCalls).Search();
+        if (result.TreeCount == 0 && memberCounts is not null && robust is not null)
+        {
+            // fixNetwork: iterate nodes in id order, keep the first non-robust cluster of strictly smallest size.
+            while (result.TreeCount == 0)
+            {
+                int toRemove = -1;
+                foreach (int c in nodeOrder)
+                {
+                    if (!robust[c] && (toRemove < 0 || memberCounts[c] < memberCounts[toRemove]))
+                    {
+                        toRemove = c;
+                    }
+                }
+
+                if (toRemove < 0)
+                {
+                    break; // no node removed (delta = 0): the rebuilt network is unchanged.
+                }
+
+                nodeOrder.Remove(toRemove);
+                removed.Add(clusters[toRemove].Id);
+                result = new LicheeNetwork(
+                    clusters, sampleCount, tolerance, completeNetwork: false, nodeOrder, standardErrors, maxGrowCalls).Search();
+            }
+        }
+
         if (result.TreeCount == 0)
         {
             usedComplete = true;
-            result = new LicheeNetwork(clusters, sampleCount, tolerance, completeNetwork: true).Search();
+            result = new LicheeNetwork(
+                clusters, sampleCount, tolerance, completeNetwork: true, nodeOrder, standardErrors, maxGrowCalls).Search();
         }
 
         if (result.TreeCount == 0)
@@ -195,21 +276,247 @@ public static partial class OncologyAnalyzer
             return false;
         }
 
-        var edges = new ClonalEdge[clusters.Count];
+        var kept = new List<CcfCluster>(clusters.Count - removed.Count);
+        var edges = new List<ClonalEdge>(clusters.Count - removed.Count);
         for (int c = 0; c < clusters.Count; c++)
         {
             int parentCluster = result.ParentClusterIndex[c];
-            edges[c] = new ClonalEdge(parentCluster < 0 ? rootId : clusters[parentCluster].Id, clusters[c].Id);
+            if (parentCluster == int.MinValue)
+            {
+                continue; // removed by fixNetwork
+            }
+
+            kept.Add(clusters[c]);
+            edges.Add(new ClonalEdge(parentCluster < 0 ? rootId : clusters[parentCluster].Id, clusters[c].Id));
         }
 
-        phylogeny = new ClonalPhylogeny(rootId, clusters.ToArray(), edges, sampleCount)
+        phylogeny = new ClonalPhylogeny(rootId, kept, edges, sampleCount)
         {
             Tolerance = tolerance,
             ErrorScore = result.ErrorScore,
             ValidTreeCount = result.TreeCount,
             UsedCompleteNetwork = usedComplete,
+            RemovedClusterIds = removed,
         };
         return true;
+    }
+
+    /// <summary>
+    /// LICHeE's per-cluster standard-error multiplier: the edge margin uses <c>1.96·sd/√n</c> per cluster and sample
+    /// (<c>PHYNetwork.getAAFErrorMargin</c>, github.com/viq854/lichee) — the two-sided 95 % normal quantile.
+    /// </summary>
+    public const double LicheeStandardErrorZ = 1.96;
+
+    /// <summary>
+    /// LICHeE <c>Parameters.MIN_ROBUST_CLUSTER_SUPPORT</c> = 2: a cluster is robust iff at least this many of its member
+    /// mutations are robust (<c>SNVGroup.setSubPopulations</c>); <c>PHYNetwork.fixNetwork</c> drops non-robust clusters.
+    /// </summary>
+    public const int LicheeMinRobustClusterSupport = 2;
+
+    /// <summary>
+    /// A CCF cluster with the dispersion summary LICHeE keeps per cluster (<c>AAFClusterer.Cluster</c>): centroid
+    /// (mean member CCF per sample), per-sample standard deviation of the member CCFs and member count. Used by
+    /// <see cref="ReconstructPhylogenyFromClusterSummaries"/> for LICHeE's per-cluster edge error margins.
+    /// </summary>
+    /// <param name="Id">Caller-assigned cluster identifier.</param>
+    /// <param name="CcfPerSample">Centroid CCF per sample, each in [0, 1] (0 = absent, LICHeE presence profile).</param>
+    /// <param name="StdDevPerSample">Standard deviation of the member CCFs per sample (LICHeE: population SD, divisor
+    /// n — <c>Cluster.recomputeCentroidAndStdDev</c> / EM <c>setStdDev</c>), finite and ≥ 0; ignored (treated as 0)
+    /// where the centroid is 0, as LICHeE <c>PHYNode.getStdDev</c> returns 0 for samples outside the profile.</param>
+    /// <param name="MemberCount">Number of member mutations n ≥ 1 (<c>getMembership().size()</c>).</param>
+    public readonly record struct CcfClusterSummary(
+        int Id,
+        IReadOnlyList<double> CcfPerSample,
+        IReadOnlyList<double> StdDevPerSample,
+        int MemberCount)
+    {
+        /// <summary>
+        /// Number of robust member mutations (LICHeE <c>SNVEntry.isRobust</c>: no sample VAF in the ambiguous band
+        /// [<c>MAX_VAF_ABSENT</c>, <c>MIN_VAF_PRESENT</c>), empty at the defaults 0.005/0.005). Null (default) = every
+        /// member is robust (= <see cref="MemberCount"/>). The cluster is robust iff this is ≥
+        /// <see cref="LicheeMinRobustClusterSupport"/>; 0 reproduces LICHeE's <c>--clustersFile</c> input, whose clusters
+        /// are never marked robust.
+        /// </summary>
+        public int? RobustMemberCount { get; init; }
+
+        /// <summary>
+        /// Builds the summary from member-level CCFs exactly as LICHeE does
+        /// (<c>Cluster.recomputeCentroidAndStdDev</c>): centroid = Σ member / n, SD = √(Σ (member − centroid)² / n)
+        /// per sample (population SD, <see cref="StatisticsHelper.PopulationVariance"/>), n = member count.
+        /// </summary>
+        /// <param name="id">Cluster identifier.</param>
+        /// <param name="memberCcfs">One CCF vector per member mutation (all of equal length ≥ 1, values in [0, 1]).</param>
+        /// <exception cref="ArgumentNullException"><paramref name="memberCcfs"/> or a member vector is null.</exception>
+        /// <exception cref="ArgumentException">No members, empty or ragged vectors.</exception>
+        public static CcfClusterSummary FromMembers(int id, IReadOnlyList<IReadOnlyList<double>> memberCcfs)
+        {
+            ArgumentNullException.ThrowIfNull(memberCcfs);
+            if (memberCcfs.Count == 0)
+            {
+                throw new ArgumentException($"Cluster {id} has no members.", nameof(memberCcfs));
+            }
+
+            int samples = -1;
+            foreach (IReadOnlyList<double> m in memberCcfs)
+            {
+                if (m is null)
+                {
+                    throw new ArgumentNullException(nameof(memberCcfs), $"Cluster {id} has a null member CCF vector.");
+                }
+
+                if (samples < 0)
+                {
+                    samples = m.Count;
+                }
+                else if (m.Count != samples)
+                {
+                    throw new ArgumentException($"Cluster {id}: all member CCF vectors must have the same length.", nameof(memberCcfs));
+                }
+            }
+
+            if (samples == 0)
+            {
+                throw new ArgumentException($"Cluster {id}: member CCF vectors are empty.", nameof(memberCcfs));
+            }
+
+            int n = memberCcfs.Count;
+            var centroid = new double[samples];
+            var sd = new double[samples];
+            var column = new double[n];
+            for (int s = 0; s < samples; s++)
+            {
+                double sum = 0.0;
+                for (int m = 0; m < n; m++)
+                {
+                    column[m] = memberCcfs[m][s];
+                    sum += column[m];
+                }
+
+                centroid[s] = sum / n;
+                sd[s] = Math.Sqrt(StatisticsHelper.PopulationVariance(column));
+            }
+
+            return new CcfClusterSummary(id, centroid, sd, n);
+        }
+    }
+
+    /// <summary>
+    /// <see cref="ReconstructPhylogeny"/> with LICHeE's per-cluster edge error margins
+    /// (<c>PHYNetwork.getAAFErrorMargin</c>): the lineage-precedence test (Eq. 2) of an edge u→v in sample i uses
+    /// <c>max(ε, se_u,i + se_v,i)</c> with <c>se = 1.96·sd/√n</c> for a cluster (<see cref="LicheeStandardErrorZ"/>)
+    /// and <c>se = ε</c> for the root, instead of the static ε. The sum rule (Eq. 5, <c>PHYTree.checkConstraint</c>)
+    /// keeps the static ε, as in LICHeE. With every SD = 0 and every cluster robust the result is identical to
+    /// <see cref="ReconstructPhylogeny"/>.
+    /// <para>
+    /// Network adjustment (LICHeE <c>LineageEngine.buildLineage</c> step 5, <c>PHYNetwork.fixNetwork</c>): when no tree
+    /// exists, the smallest non-robust cluster (fewer than <see cref="LicheeMinRobustClusterSupport"/> robust members,
+    /// see <see cref="CcfClusterSummary.RobustMemberCount"/>; ties → first in network node order) is dropped and the
+    /// search repeated until a tree is found or no non-robust cluster is left; then the complete network
+    /// (<c>ALL_EDGES</c>) is searched on the remaining clusters. Dropped ids are reported in
+    /// <see cref="ClonalPhylogeny.RemovedClusterIds"/>. LICHeE always runs this step; pass
+    /// <paramref name="removeNonRobustClusters"/> = false to keep every cluster.
+    /// </para>
+    /// </summary>
+    /// <param name="clusters">Cluster summaries (centroid, SD, member count), e.g. from <see cref="CcfClusterSummary.FromMembers"/>.</param>
+    /// <param name="tolerance">Static margin ε (LICHeE <c>-e</c>); default <see cref="DefaultPhylogenyTolerance"/>.</param>
+    /// <param name="removeNonRobustClusters">Run LICHeE's <c>fixNetwork</c> cluster removal (default true, as LICHeE).</param>
+    /// <returns>The top-ranking phylogeny; <see cref="ClonalPhylogeny.Clusters"/> holds the centroids of the kept clusters.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="clusters"/>, a CCF or an SD list is null.</exception>
+    /// <exception cref="ArgumentException">As <see cref="ReconstructPhylogeny"/>; SD lists of the wrong length or with
+    /// negative / non-finite values; member count &lt; 1; robust member count outside [0, member count].</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="tolerance"/> is negative or NaN.</exception>
+    /// <exception cref="InvalidOperationException">No valid lineage tree exists.</exception>
+    public static ClonalPhylogeny ReconstructPhylogenyFromClusterSummaries(
+        IReadOnlyList<CcfClusterSummary> clusters,
+        double tolerance = DefaultPhylogenyTolerance,
+        bool removeNonRobustClusters = true)
+    {
+        if (!TryReconstructPhylogenyFromClusterSummaries(clusters, out ClonalPhylogeny phylogeny, tolerance, removeNonRobustClusters))
+        {
+            throw new InvalidOperationException(
+                "No lineage tree satisfies the sum rule (LICHeE Eq. 5) for these CCF clusters at the given tolerance; "
+                + "increase the tolerance or re-cluster the CCFs.");
+        }
+
+        return phylogeny;
+    }
+
+    /// <summary>
+    /// Non-throwing variant of <see cref="ReconstructPhylogenyFromClusterSummaries"/>: false (and a default phylogeny)
+    /// when no valid lineage tree exists, also after <c>fixNetwork</c> and the complete-network fallback. Argument
+    /// validation still throws.
+    /// </summary>
+    public static bool TryReconstructPhylogenyFromClusterSummaries(
+        IReadOnlyList<CcfClusterSummary> clusters,
+        out ClonalPhylogeny phylogeny,
+        double tolerance = DefaultPhylogenyTolerance,
+        bool removeNonRobustClusters = true)
+    {
+        ArgumentNullException.ThrowIfNull(clusters);
+        ValidatePhylogenyTolerance(tolerance);
+        var centroids = new CcfCluster[clusters.Count];
+        for (int c = 0; c < clusters.Count; c++)
+        {
+            centroids[c] = new CcfCluster(clusters[c].Id, clusters[c].CcfPerSample);
+        }
+
+        if (clusters.Count == 0)
+        {
+            return TryReconstructPhylogeny(centroids, out phylogeny, tolerance);
+        }
+
+        int sampleCount = ValidateAndGetSampleCount(centroids);
+        var standardErrors = new double[clusters.Count][];
+        var memberCounts = new int[clusters.Count];
+        var robust = new bool[clusters.Count];
+        for (int c = 0; c < clusters.Count; c++)
+        {
+            CcfClusterSummary summary = clusters[c];
+            if (summary.StdDevPerSample is null)
+            {
+                throw new ArgumentNullException(nameof(clusters), $"Cluster {summary.Id} has a null SD list.");
+            }
+
+            if (summary.StdDevPerSample.Count != sampleCount)
+            {
+                throw new ArgumentException(
+                    $"Cluster {summary.Id} has {summary.StdDevPerSample.Count} SD values, expected {sampleCount}.", nameof(clusters));
+            }
+
+            if (summary.MemberCount < 1)
+            {
+                throw new ArgumentException($"Cluster {summary.Id} must have at least one member.", nameof(clusters));
+            }
+
+            int robustMembers = summary.RobustMemberCount ?? summary.MemberCount;
+            if (robustMembers < 0 || robustMembers > summary.MemberCount)
+            {
+                throw new ArgumentException(
+                    $"Cluster {summary.Id}: robust member count {robustMembers} must be in [0, {summary.MemberCount}].", nameof(clusters));
+            }
+
+            memberCounts[c] = summary.MemberCount;
+            robust[c] = robustMembers >= LicheeMinRobustClusterSupport;
+            double rootN = Math.Sqrt((double)summary.MemberCount);
+            standardErrors[c] = new double[sampleCount];
+            for (int s = 0; s < sampleCount; s++)
+            {
+                double sd = summary.StdDevPerSample[s];
+                if (!double.IsFinite(sd) || sd < 0.0)
+                {
+                    throw new ArgumentException(
+                        $"Standard deviation must be finite and non-negative; cluster {summary.Id} has {sd}.", nameof(clusters));
+                }
+
+                // PHYNode.getStdDev: 0 for a sample outside the presence profile.
+                double effectiveSd = summary.CcfPerSample[s] > 0.0 ? sd : 0.0;
+                standardErrors[c][s] = LicheeStandardErrorZ * effectiveSd / rootN;
+            }
+        }
+
+        return removeNonRobustClusters
+            ? TryReconstructLichee(centroids, sampleCount, tolerance, standardErrors, memberCounts, robust, out phylogeny)
+            : TryReconstructLichee(centroids, sampleCount, tolerance, standardErrors, memberCounts: null, robust: null, out phylogeny);
     }
 
     /// <summary>
@@ -309,18 +616,22 @@ public static partial class OncologyAnalyzer
     /// Port of LICHeE's <c>PHYNetwork</c> (constraint network construction, <c>checkAndAddEdge</c>,
     /// <c>getLineageTrees</c>/<c>grow</c> Gabow–Myers enumeration with the <c>PHYTree.checkConstraint</c> sum rule) and
     /// <c>PHYTree.computeErrorScore</c> ranking. Node 0 is the root; nodes 1..n are the clusters grouped by presence
-    /// profile (first-appearance order), within a profile in input order — the LICHeE node-id order.
+    /// profile (LICHeE <c>HashMap</c> order, see <see cref="LicheeNodeOrder"/>), within a profile in input order — the
+    /// LICHeE node-id order.
     /// </summary>
     private sealed class LicheeNetwork
     {
         private readonly int _samples;
         private readonly double _eps;
         private readonly int _nodeCount;
+        private readonly int _clusterTotal;
         private readonly double[][] _ccf;
+        private readonly double[][]? _se;
         private readonly int[] _level;
         private readonly int[] _clusterIndex;
         private readonly SortedDictionary<int, List<int>> _levels = new();
         private readonly List<int>[] _net;
+        private readonly int _maxGrowCalls;
 
         // Search state (LICHeE grow): f stack, working tree t (= L after the first complete tree).
         private readonly List<(int From, int To)> _f = new();
@@ -333,12 +644,31 @@ public static partial class OncologyAnalyzer
         private double _bestError = double.PositiveInfinity;
         private int[]? _bestParent;
 
-        public LicheeNetwork(IReadOnlyList<CcfCluster> clusters, int samples, double eps, bool completeNetwork)
+        /// <param name="clusters">All input clusters (indexed by input position).</param>
+        /// <param name="samples">Sample count.</param>
+        /// <param name="eps">Static margin ε (<c>VAF_ERROR_MARGIN</c>).</param>
+        /// <param name="completeNetwork">LICHeE <c>ALL_EDGES</c>.</param>
+        /// <param name="nodeOrder">Input indices of the clusters in the network, in LICHeE node-id order (grouped by
+        /// presence profile, see <see cref="LicheeNodeOrder"/>); clusters not listed are absent (removed by fixNetwork).</param>
+        /// <param name="standardErrors">Per input cluster and sample, LICHeE's <c>1.96·sd/√n</c> (null = static ε,
+        /// i.e. every cluster's standard error is 0).</param>
+        /// <param name="maxGrowCalls">Grow-call budget (<see cref="MaxPhylogenyGrowCalls"/>; smaller only from the test hook).</param>
+        public LicheeNetwork(
+            IReadOnlyList<CcfCluster> clusters,
+            int samples,
+            double eps,
+            bool completeNetwork,
+            IReadOnlyList<int> nodeOrder,
+            double[][]? standardErrors,
+            int maxGrowCalls)
         {
+            _maxGrowCalls = maxGrowCalls;
             _samples = samples;
             _eps = eps;
-            _nodeCount = clusters.Count + 1;
+            _nodeCount = nodeOrder.Count + 1;
+            _clusterTotal = clusters.Count;
             _ccf = new double[_nodeCount][];
+            _se = standardErrors is null ? null : new double[_nodeCount][];
             _level = new int[_nodeCount];
             _clusterIndex = new int[_nodeCount];
             _net = new List<int>[_nodeCount];
@@ -353,57 +683,43 @@ public static partial class OncologyAnalyzer
             _clusterIndex[0] = -1;
             AddNode(0, samples + 1);
 
-            // Group clusters by presence profile in order of first appearance.
-            var groups = new List<List<int>>();
-            var groupByProfile = new Dictionary<string, List<int>>(StringComparer.Ordinal);
-            for (int c = 0; c < clusters.Count; c++)
+            // Clusters grouped by presence profile (nodeOrder is already grouped); node ids follow nodeOrder.
+            int first = 1;
+            string? groupKey = null;
+            for (int k = 0; k < nodeOrder.Count; k++)
             {
-                var profile = new char[samples];
-                for (int s = 0; s < samples; s++)
+                int c = nodeOrder[k];
+                int id = k + 1;
+                string key = PresenceProfile(clusters[c].CcfPerSample, samples);
+                if (groupKey is not null && key != groupKey)
                 {
-                    profile[s] = clusters[c].CcfPerSample[s] > 0.0 ? '1' : '0';
+                    AddIntraGroupEdges(first, id);
+                    first = id;
                 }
 
-                string key = new(profile);
-                if (!groupByProfile.TryGetValue(key, out List<int>? members))
+                groupKey = key;
+                _ccf[id] = clusters[c].CcfPerSample.ToArray();
+                if (_se is not null)
                 {
-                    members = new List<int>();
-                    groupByProfile[key] = members;
-                    groups.Add(members);
+                    _se[id] = standardErrors![c];
                 }
 
-                members.Add(c);
+                _clusterIndex[id] = c;
+                int present = 0;
+                foreach (double v in _ccf[id])
+                {
+                    if (v > 0.0)
+                    {
+                        present++;
+                    }
+                }
+
+                AddNode(id, present);
             }
 
-            int nextId = 1;
-            foreach (List<int> group in groups)
+            if (nodeOrder.Count > 0)
             {
-                int first = nextId;
-                foreach (int c in group)
-                {
-                    int id = nextId++;
-                    _ccf[id] = clusters[c].CcfPerSample.ToArray();
-                    _clusterIndex[id] = c;
-                    int present = 0;
-                    foreach (double v in _ccf[id])
-                    {
-                        if (v > 0.0)
-                        {
-                            present++;
-                        }
-                    }
-
-                    AddNode(id, present);
-                }
-
-                // Edges between each group's sub-population nodes.
-                for (int i = first; i < nextId; i++)
-                {
-                    for (int j = i + 1; j < nextId; j++)
-                    {
-                        CheckAndAddEdge(i, j);
-                    }
-                }
+                AddIntraGroupEdges(first, _nodeCount);
             }
 
             // Inter-level edges: each level to the next non-empty lower level.
@@ -536,6 +852,36 @@ public static partial class OncologyAnalyzer
             list.Add(id);
         }
 
+        /// <summary>Edges between each group's sub-population nodes (node ids [first, end)).</summary>
+        private void AddIntraGroupEdges(int first, int end)
+        {
+            for (int i = first; i < end; i++)
+            {
+                for (int j = i + 1; j < end; j++)
+                {
+                    CheckAndAddEdge(i, j);
+                }
+            }
+        }
+
+        /// <summary>
+        /// LICHeE <c>PHYNetwork.getAAFErrorMargin(from, to, i)</c>: <c>max(ε, se_from + se_to)</c> with
+        /// <c>se = 1.96·sd/√n</c> for a cluster and <c>se = ε</c> for the root; the static margin ε when no per-cluster
+        /// dispersion was supplied.
+        /// </summary>
+        private double ErrorMargin(int from, int to, int i)
+        {
+            if (_se is null)
+            {
+                return _eps;
+            }
+
+            double parentStdError = from == 0 ? _eps : _se[from]![i];
+            double childStdError = to == 0 ? _eps : _se[to]![i];
+            double standardError = parentStdError + childStdError;
+            return standardError > _eps ? standardError : _eps;
+        }
+
         private void AddNetEdge(int from, int to)
         {
             if (!_net[from].Contains(to))
@@ -560,7 +906,7 @@ public static partial class OncologyAnalyzer
                     break;
                 }
 
-                comp12 += a1[i] >= a2[i] - _eps ? 1 : 0;
+                comp12 += a1[i] >= a2[i] - ErrorMargin(n1, n2, i) ? 1 : 0;
                 if (a1[i] < a2[i])
                 {
                     err12 += a2[i] - a1[i];
@@ -574,7 +920,7 @@ public static partial class OncologyAnalyzer
                     break;
                 }
 
-                comp21 += a2[i] >= a1[i] - _eps ? 1 : 0;
+                comp21 += a2[i] >= a1[i] - ErrorMargin(n2, n1, i) ? 1 : 0;
                 if (a2[i] < a1[i])
                 {
                     err21 += a1[i] - a2[i];
@@ -660,7 +1006,9 @@ public static partial class OncologyAnalyzer
 
                     _f.RemoveAll(edgesRemoved.Contains);
 
-                    if (_growCalls >= MaxPhylogenyGrowCalls)
+                    // LICHeE returns from this frame only; its callers keep looping but can never recurse again
+                    // (the counter stays ≥ the cap), so no further tree is found — stopping here is equivalent.
+                    if (_growCalls >= _maxGrowCalls)
                     {
                         _stop = true;
                         return;
@@ -828,7 +1176,8 @@ public static partial class OncologyAnalyzer
         /// <summary>Parent of every input cluster (by input index) in the current complete tree; −1 = root.</summary>
         private int[] CurrentParents()
         {
-            var parent = new int[_nodeCount - 1];
+            var parent = new int[_clusterTotal];
+            Array.Fill(parent, int.MinValue);
             foreach (KeyValuePair<int, List<int>> kv in _treeEdges)
             {
                 foreach (int child in kv.Value)
@@ -838,6 +1187,676 @@ public static partial class OncologyAnalyzer
             }
 
             return parent;
+        }
+    }
+
+    private static void ValidatePhylogenyTolerance(double tolerance)
+    {
+        if (double.IsNaN(tolerance) || tolerance < 0.0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(tolerance), tolerance, "Phylogeny tolerance ε must be a non-negative number.");
+        }
+    }
+
+    /// <summary>LICHeE presence profile of a cluster: '1' where CCF &gt; 0, else '0'.</summary>
+    private static string PresenceProfile(IReadOnlyList<double> ccf, int samples)
+    {
+        var profile = new char[samples];
+        for (int s = 0; s < samples; s++)
+        {
+            profile[s] = ccf[s] > 0.0 ? '1' : '0';
+        }
+
+        return new string(profile);
+    }
+
+    /// <summary>
+    /// LICHeE node-id order of the input clusters: one SNV group per presence profile, groups in the iteration order of
+    /// LICHeE's <c>HashMap&lt;String, …&gt; tag2SNVs</c> (<c>SNVDataStore</c> clusters-file loader inserts the profile tags in
+    /// order of first appearance, never removes one; <c>LineageEngine.buildLineage</c> step 2 iterates its
+    /// <c>keySet()</c>), within a group in input order (node 0 is the root). See <see cref="JavaStringHashMapOrder"/>.
+    /// </summary>
+    private static int[] LicheeNodeOrder(IReadOnlyList<CcfCluster> clusters, int samples)
+    {
+        var profiles = new List<string>();
+        var groupByProfile = new Dictionary<string, List<int>>(StringComparer.Ordinal);
+        for (int c = 0; c < clusters.Count; c++)
+        {
+            string key = PresenceProfile(clusters[c].CcfPerSample, samples);
+            if (!groupByProfile.TryGetValue(key, out List<int>? members))
+            {
+                members = new List<int>();
+                groupByProfile[key] = members;
+                profiles.Add(key);
+            }
+
+            members.Add(c);
+        }
+
+        var order = new int[clusters.Count];
+        int k = 0;
+        foreach (string profile in JavaStringHashMapOrder.KeyOrder(profiles))
+        {
+            foreach (int c in groupByProfile[profile])
+            {
+                order[k++] = c;
+            }
+        }
+
+        return order;
+    }
+
+    /// <summary>
+    /// Key iteration order of a <c>java.util.HashMap&lt;String, ?&gt;</c> (default capacity 16, load factor 0.75) after
+    /// the given distinct keys are inserted in order with no removals — LICHeE's <c>tag2SNVs</c> presence-profile map,
+    /// whose <c>keySet()</c> order fixes the SNV-group (node-id) order. Port of OpenJDK 8–21 <c>HashMap.putVal</c> /
+    /// <c>resize</c> / <c>treeifyBin</c> and <c>TreeNode.treeify</c> / <c>putTreeVal</c> / <c>split</c> /
+    /// <c>untreeify</c> / <c>balanceInsertion</c> / <c>moveRootToFront</c>: <c>String.hashCode</c>, spread
+    /// <c>h ^ (h &gt;&gt;&gt; 16)</c>, bucket <c>(n − 1) &amp; hash</c>, doubling once size exceeds 0.75·n, bins of ≥ 9 nodes
+    /// treeified (table ≥ 64, else resized) with red-black insertion ordered by hash then <c>String.compareTo</c>;
+    /// iteration walks the buckets in index order and each bin along its <c>next</c> chain.
+    /// </summary>
+    internal static class JavaStringHashMapOrder
+    {
+        private const int TreeifyThreshold = 8;
+        private const int UntreeifyThreshold = 6;
+        private const int MinTreeifyCapacity = 64;
+        private const int DefaultCapacity = 16;
+
+        private sealed class Node
+        {
+            public Node(int hash, string key)
+            {
+                Hash = hash;
+                Key = key;
+            }
+
+            public int Hash { get; }
+
+            public string Key { get; }
+
+            public Node? Next { get; set; }
+
+            public bool IsTree { get; set; }
+
+            public Node? Parent { get; set; }
+
+            public Node? Left { get; set; }
+
+            public Node? Right { get; set; }
+
+            public Node? Prev { get; set; }
+
+            public bool Red { get; set; }
+        }
+
+        /// <summary>Java <c>String.hashCode</c> (UTF-16 code units, s[0]·31^(n−1) + … with int overflow).</summary>
+        public static int JavaStringHash(string s)
+        {
+            int h = 0;
+            unchecked
+            {
+                foreach (char c in s)
+                {
+                    h = (31 * h) + c;
+                }
+            }
+
+            return h;
+        }
+
+        /// <summary>Iteration order of the keys (duplicates are ignored, as <c>put</c> on an existing key).</summary>
+        public static IReadOnlyList<string> KeyOrder(IEnumerable<string> keysInInsertionOrder)
+        {
+            Node?[] table = Array.Empty<Node?>();
+            int threshold = 0;
+            int size = 0;
+            foreach (string key in keysInInsertionOrder)
+            {
+                int h = JavaStringHash(key);
+                int hash = h ^ (int)((uint)h >> 16);
+                if (table.Length == 0)
+                {
+                    (table, threshold) = Resize(table, threshold);
+                }
+
+                int i = (table.Length - 1) & hash;
+                Node? p = table[i];
+                bool inserted = true;
+                if (p is null)
+                {
+                    table[i] = new Node(hash, key);
+                }
+                else if (p.Hash == hash && p.Key == key)
+                {
+                    inserted = false;
+                }
+                else if (p.IsTree)
+                {
+                    inserted = PutTreeVal(table, p, hash, key);
+                }
+                else
+                {
+                    int binCount = 0;
+                    while (true)
+                    {
+                        Node? e = p.Next;
+                        if (e is null)
+                        {
+                            p.Next = new Node(hash, key);
+                            if (binCount >= TreeifyThreshold - 1)
+                            {
+                                (table, threshold) = TreeifyBin(table, threshold, hash);
+                            }
+
+                            break;
+                        }
+
+                        if (e.Hash == hash && e.Key == key)
+                        {
+                            inserted = false;
+                            break;
+                        }
+
+                        p = e;
+                        binCount++;
+                    }
+                }
+
+                if (inserted && ++size > threshold)
+                {
+                    (table, threshold) = Resize(table, threshold);
+                }
+            }
+
+            var order = new List<string>(size);
+            foreach (Node? bin in table)
+            {
+                for (Node? e = bin; e is not null; e = e.Next)
+                {
+                    order.Add(e.Key);
+                }
+            }
+
+            return order;
+        }
+
+        /// <summary>TreeNode direction: hash first, then <c>String.compareTo</c> (distinct keys never compare equal).</summary>
+        private static int Compare(Node x, int hash, string key)
+        {
+            if (x.Hash > hash)
+            {
+                return -1;
+            }
+
+            if (x.Hash < hash)
+            {
+                return 1;
+            }
+
+            return Math.Sign(string.CompareOrdinal(key, x.Key));
+        }
+
+        private static (Node?[] Table, int Threshold) Resize(Node?[] oldTab, int oldThr)
+        {
+            int oldCap = oldTab.Length;
+            int newCap = oldCap > 0 ? oldCap << 1 : DefaultCapacity;
+            int newThr = oldCap >= DefaultCapacity ? oldThr << 1 : (int)(newCap * 0.75f);
+            var newTab = new Node?[newCap];
+            for (int j = 0; j < oldCap; j++)
+            {
+                Node? e = oldTab[j];
+                if (e is null)
+                {
+                    continue;
+                }
+
+                if (e.Next is null)
+                {
+                    newTab[e.Hash & (newCap - 1)] = e;
+                }
+                else if (e.IsTree)
+                {
+                    SplitTree(newTab, e, j, oldCap);
+                }
+                else
+                {
+                    Node? loHead = null, loTail = null, hiHead = null, hiTail = null;
+                    for (Node? x = e; x is not null;)
+                    {
+                        Node? next = x.Next;
+                        if ((x.Hash & oldCap) == 0)
+                        {
+                            if (loTail is null)
+                            {
+                                loHead = x;
+                            }
+                            else
+                            {
+                                loTail.Next = x;
+                            }
+
+                            loTail = x;
+                        }
+                        else
+                        {
+                            if (hiTail is null)
+                            {
+                                hiHead = x;
+                            }
+                            else
+                            {
+                                hiTail.Next = x;
+                            }
+
+                            hiTail = x;
+                        }
+
+                        x = next;
+                    }
+
+                    if (loTail is not null)
+                    {
+                        loTail.Next = null;
+                        newTab[j] = loHead;
+                    }
+
+                    if (hiTail is not null)
+                    {
+                        hiTail.Next = null;
+                        newTab[j + oldCap] = hiHead;
+                    }
+                }
+            }
+
+            return (newTab, newThr);
+        }
+
+        private static (Node?[] Table, int Threshold) TreeifyBin(Node?[] table, int threshold, int hash)
+        {
+            if (table.Length < MinTreeifyCapacity)
+            {
+                return Resize(table, threshold);
+            }
+
+            int index = (table.Length - 1) & hash;
+            Node? prev = null;
+            for (Node? e = table[index]; e is not null; e = e.Next)
+            {
+                e.IsTree = true;
+                e.Prev = prev;
+                prev = e;
+            }
+
+            Treeify(table, table[index]!);
+            return (table, threshold);
+        }
+
+        private static void Treeify(Node?[] table, Node head)
+        {
+            Node? root = null;
+            for (Node? x = head; x is not null; x = x.Next)
+            {
+                x.Left = null;
+                x.Right = null;
+                if (root is null)
+                {
+                    x.Parent = null;
+                    x.Red = false;
+                    root = x;
+                    continue;
+                }
+
+                for (Node p = root; ;)
+                {
+                    int dir = Compare(p, x.Hash, x.Key);
+                    Node xp = p;
+                    Node? child = dir <= 0 ? p.Left : p.Right;
+                    if (child is null)
+                    {
+                        x.Parent = xp;
+                        if (dir <= 0)
+                        {
+                            xp.Left = x;
+                        }
+                        else
+                        {
+                            xp.Right = x;
+                        }
+
+                        root = BalanceInsertion(root, x);
+                        break;
+                    }
+
+                    p = child;
+                }
+            }
+
+            MoveRootToFront(table, root!);
+        }
+
+        private static bool PutTreeVal(Node?[] table, Node first, int hash, string key)
+        {
+            Node root = first;
+            while (root.Parent is not null)
+            {
+                root = root.Parent;
+            }
+
+            for (Node p = root; ;)
+            {
+                if (p.Hash == hash && p.Key == key)
+                {
+                    return false;
+                }
+
+                int dir = Compare(p, hash, key);
+                Node xp = p;
+                Node? child = dir <= 0 ? p.Left : p.Right;
+                if (child is null)
+                {
+                    Node? xpn = xp.Next;
+                    var x = new Node(hash, key) { IsTree = true, Next = xpn };
+                    if (dir <= 0)
+                    {
+                        xp.Left = x;
+                    }
+                    else
+                    {
+                        xp.Right = x;
+                    }
+
+                    xp.Next = x;
+                    x.Parent = xp;
+                    x.Prev = xp;
+                    if (xpn is not null)
+                    {
+                        xpn.Prev = x;
+                    }
+
+                    MoveRootToFront(table, BalanceInsertion(root, x));
+                    return true;
+                }
+
+                p = child;
+            }
+        }
+
+        private static void SplitTree(Node?[] table, Node head, int index, int bit)
+        {
+            Node? loHead = null, loTail = null, hiHead = null, hiTail = null;
+            int lc = 0, hc = 0;
+            for (Node? e = head; e is not null;)
+            {
+                Node? next = e.Next;
+                e.Next = null;
+                if ((e.Hash & bit) == 0)
+                {
+                    e.Prev = loTail;
+                    if (loTail is null)
+                    {
+                        loHead = e;
+                    }
+                    else
+                    {
+                        loTail.Next = e;
+                    }
+
+                    loTail = e;
+                    lc++;
+                }
+                else
+                {
+                    e.Prev = hiTail;
+                    if (hiTail is null)
+                    {
+                        hiHead = e;
+                    }
+                    else
+                    {
+                        hiTail.Next = e;
+                    }
+
+                    hiTail = e;
+                    hc++;
+                }
+
+                e = next;
+            }
+
+            if (loHead is not null)
+            {
+                if (lc <= UntreeifyThreshold)
+                {
+                    table[index] = Untreeify(loHead);
+                }
+                else
+                {
+                    table[index] = loHead;
+                    if (hiHead is not null)
+                    {
+                        Treeify(table, loHead);
+                    }
+                }
+            }
+
+            if (hiHead is not null)
+            {
+                if (hc <= UntreeifyThreshold)
+                {
+                    table[index + bit] = Untreeify(hiHead);
+                }
+                else
+                {
+                    table[index + bit] = hiHead;
+                    if (loHead is not null)
+                    {
+                        Treeify(table, hiHead);
+                    }
+                }
+            }
+        }
+
+        private static Node Untreeify(Node head)
+        {
+            for (Node? e = head; e is not null; e = e.Next)
+            {
+                e.IsTree = false;
+                e.Parent = null;
+                e.Left = null;
+                e.Right = null;
+                e.Prev = null;
+                e.Red = false;
+            }
+
+            return head;
+        }
+
+        private static void MoveRootToFront(Node?[] table, Node root)
+        {
+            int index = (table.Length - 1) & root.Hash;
+            Node? first = table[index];
+            if (ReferenceEquals(root, first))
+            {
+                return;
+            }
+
+            table[index] = root;
+            Node? rp = root.Prev;
+            Node? rn = root.Next;
+            if (rn is not null)
+            {
+                rn.Prev = rp;
+            }
+
+            if (rp is not null)
+            {
+                rp.Next = rn;
+            }
+
+            if (first is not null)
+            {
+                first.Prev = root;
+            }
+
+            root.Next = first;
+            root.Prev = null;
+        }
+
+        private static Node RotateLeft(Node root, Node p)
+        {
+            Node? r = p.Right;
+            if (r is null)
+            {
+                return root;
+            }
+
+            Node? rl = r.Left;
+            p.Right = rl;
+            if (rl is not null)
+            {
+                rl.Parent = p;
+            }
+
+            Node? pp = p.Parent;
+            r.Parent = pp;
+            if (pp is null)
+            {
+                root = r;
+                r.Red = false;
+            }
+            else if (ReferenceEquals(pp.Left, p))
+            {
+                pp.Left = r;
+            }
+            else
+            {
+                pp.Right = r;
+            }
+
+            r.Left = p;
+            p.Parent = r;
+            return root;
+        }
+
+        private static Node RotateRight(Node root, Node p)
+        {
+            Node? l = p.Left;
+            if (l is null)
+            {
+                return root;
+            }
+
+            Node? lr = l.Right;
+            p.Left = lr;
+            if (lr is not null)
+            {
+                lr.Parent = p;
+            }
+
+            Node? pp = p.Parent;
+            l.Parent = pp;
+            if (pp is null)
+            {
+                root = l;
+                l.Red = false;
+            }
+            else if (ReferenceEquals(pp.Right, p))
+            {
+                pp.Right = l;
+            }
+            else
+            {
+                pp.Left = l;
+            }
+
+            l.Right = p;
+            p.Parent = l;
+            return root;
+        }
+
+        private static Node BalanceInsertion(Node root, Node x)
+        {
+            x.Red = true;
+            while (true)
+            {
+                Node? xp = x.Parent;
+                if (xp is null)
+                {
+                    x.Red = false;
+                    return x;
+                }
+
+                Node? xpp = xp.Parent;
+                if (!xp.Red || xpp is null)
+                {
+                    return root;
+                }
+
+                Node? xppl = xpp.Left;
+                if (ReferenceEquals(xp, xppl))
+                {
+                    Node? xppr = xpp.Right;
+                    if (xppr is not null && xppr.Red)
+                    {
+                        xppr.Red = false;
+                        xp.Red = false;
+                        xpp.Red = true;
+                        x = xpp;
+                    }
+                    else
+                    {
+                        if (ReferenceEquals(x, xp.Right))
+                        {
+                            x = xp;
+                            root = RotateLeft(root, x);
+                            xp = x.Parent;
+                            xpp = xp?.Parent;
+                        }
+
+                        if (xp is not null)
+                        {
+                            xp.Red = false;
+                            if (xpp is not null)
+                            {
+                                xpp.Red = true;
+                                root = RotateRight(root, xpp);
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    if (xppl is not null && xppl.Red)
+                    {
+                        xppl.Red = false;
+                        xp.Red = false;
+                        xpp.Red = true;
+                        x = xpp;
+                    }
+                    else
+                    {
+                        if (ReferenceEquals(x, xp.Left))
+                        {
+                            x = xp;
+                            root = RotateRight(root, x);
+                            xp = x.Parent;
+                            xpp = xp?.Parent;
+                        }
+
+                        if (xp is not null)
+                        {
+                            xp.Red = false;
+                            if (xpp is not null)
+                            {
+                                xpp.Red = true;
+                                root = RotateLeft(root, xpp);
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -930,7 +1949,9 @@ public static partial class OncologyAnalyzer
     /// <param name="MathScore">Mutant-Allele Tumour Heterogeneity (MATH) score = 100·1.4826·MAD(VAF)/median(VAF),
     /// computed over the mutant-allele (variant) fractions (Mroz &amp; Rocco 2013).</param>
     /// <param name="ShannonDiversity">Shannon diversity index H = −Σ pᵢ·ln(pᵢ) over the clone fractions pᵢ
-    /// (fraction of mutations assigned to each CCF cluster), using the natural logarithm (Shannon 1948).</param>
+    /// (fraction of mutations assigned to each CCF cluster), using the natural logarithm (Shannon 1948). This is the
+    /// mutation-count-weighted form; for the cellular-frequency-weighted index of Martinez et al. (2017) use
+    /// <see cref="CalculateCloneShannonDiversity"/>.</param>
     /// <param name="SubcloneCount">Number of distinct clones/subclones = number of non-empty CCF clusters.</param>
     /// <param name="SubclonalFraction">Fraction of mutations whose CCF does not exceed the clonal threshold (CCF ≤ 0.95, i.e. not clonal under
     /// Landau et al. 2013) and are therefore subclonal.</param>
@@ -995,10 +2016,115 @@ public static partial class OncologyAnalyzer
     }
 
     /// <summary>
+    /// maftools <c>math.score</c> default minimum VAF: a variant is used only if its VAF is not below this cutoff
+    /// (<c>dat = dat[!t_vaf &lt; vafCutOff]</c>, so a VAF exactly equal to 0.075 is kept). Source: maftools
+    /// <c>R/mathScore.R</c>, <c>math.score(maf, vafCol = NULL, sampleName = NULL, vafCutOff = 0.075)</c>.
+    /// </summary>
+    public const double MaftoolsMathVafCutOff = 0.075;
+
+    /// <summary>
+    /// maftools <c>math.score</c> minimum number of (cutoff-passing, non-NA) VAFs per sample: with fewer
+    /// (<c>length(vaf) &lt; 5</c>) the sample is skipped ("Not enough mutations in … Skipping..") and gets no MATH row.
+    /// The 5 is hard-coded in maftools <c>R/mathScore.R</c> (not a function argument).
+    /// </summary>
+    public const int MaftoolsMathMinMutations = 5;
+
+    /// <summary>
+    /// Computes the MATH score with maftools <c>math.score</c>'s per-sample pre-filters: VAFs below
+    /// <paramref name="vafCutOff"/> are dropped (a VAF equal to the cutoff is kept — <c>!t_vaf &lt; vafCutOff</c>), and
+    /// if fewer than <paramref name="minMutations"/> VAFs remain the sample is skipped (<see langword="null"/>, the
+    /// counterpart of maftools emitting no row); otherwise the result is <see cref="CalculateITH(IReadOnlyList{double})"/>
+    /// over the retained VAFs, bit-identical to maftools. Pass <see cref="MaftoolsMathVafCutOff"/> and
+    /// <see cref="MaftoolsMathMinMutations"/> for maftools' defaults. The single-argument overload applies no filter
+    /// (the MATH definition of Mroz &amp; Rocco 2013 on the supplied VAFs). maftools derives a missing <c>t_vaf</c> as
+    /// <c>t_alt_count / (t_ref_count + t_alt_count)</c> and divides all VAFs by 100 when their maximum exceeds 1;
+    /// here VAFs must already be fractions in [0, 1]. Source: maftools <c>R/mathScore.R</c>.
+    /// </summary>
+    /// <param name="variantAlleleFractions">The sample's VAFs, each finite in [0, 1].</param>
+    /// <param name="vafCutOff">Minimum VAF kept, finite in [0, 1] (maftools default 0.075; 0 disables the filter).</param>
+    /// <param name="minMutations">Minimum number of retained VAFs, ≥ 1 (maftools: 5).</param>
+    /// <returns>The MATH score of the retained VAFs, or <see langword="null"/> when fewer than
+    /// <paramref name="minMutations"/> VAFs pass the cutoff.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="variantAlleleFractions"/> is null.</exception>
+    /// <exception cref="ArgumentException">a VAF is non-finite or outside [0, 1], or the retained VAFs have median 0
+    /// (only possible with <paramref name="vafCutOff"/> = 0).</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="vafCutOff"/> is not finite in [0, 1], or
+    /// <paramref name="minMutations"/> &lt; 1.</exception>
+    public static double? CalculateITH(
+        IReadOnlyList<double> variantAlleleFractions,
+        double vafCutOff,
+        int minMutations = MaftoolsMathMinMutations)
+    {
+        ArgumentNullException.ThrowIfNull(variantAlleleFractions);
+        if (!double.IsFinite(vafCutOff) || vafCutOff < 0.0 || vafCutOff > 1.0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(vafCutOff), vafCutOff, "The VAF cutoff must be a finite value in [0, 1].");
+        }
+
+        ArgumentOutOfRangeException.ThrowIfLessThan(minMutations, 1);
+
+        var retained = new List<double>(variantAlleleFractions.Count);
+        for (int i = 0; i < variantAlleleFractions.Count; i++)
+        {
+            double v = variantAlleleFractions[i];
+            if (double.IsNaN(v) || double.IsInfinity(v) || v < 0.0 || v > 1.0)
+            {
+                throw new ArgumentException(
+                    $"Allele fraction must be a finite value in [0, 1]; got {v} at index {i}.", nameof(variantAlleleFractions));
+            }
+
+            // maftools: dat[!t_vaf < vafCutOff] — keep VAF >= cutoff.
+            if (!(v < vafCutOff))
+            {
+                retained.Add(v);
+            }
+        }
+
+        // maftools: if (length(vaf) < 5) "Not enough mutations … Skipping.." (no MATH row).
+        return retained.Count < minMutations ? null : CalculateITH(retained);
+    }
+
+    /// <summary>
+    /// Shannon clonal-diversity index H = −Σ pᵢ·ln pᵢ (natural logarithm) over the clones' cellular frequencies
+    /// (the fraction of tumour cells in each clone), pᵢ = fᵢ / Σf. This is the prevalence-weighted form used by
+    /// Martinez et al. (2017), <i>Sci Rep</i> 7:3248 (PMC5468233), whose reference diversity of each clone mixture is
+    /// the Shannon index "calculated using the clonal frequencies of each mixture", with richness = number of clones
+    /// present. <see cref="AnalyzeHeterogeneity"/> instead weights clusters by their mutation counts. Supply clone
+    /// (not cumulative) fractions: for nested subclones the parent's own fraction is its CCF minus its children's.
+    /// Equal to <c>scipy.stats.entropy(cloneFractions)</c> (canonical <see cref="StatisticsHelper.ShannonIndexOfWeights"/>);
+    /// zero-frequency clones contribute 0.
+    /// </summary>
+    /// <param name="cloneFractions">Cellular frequency of each clone, each finite in [0, 1], with a positive total
+    /// (normalised to sum 1, as scipy does).</param>
+    /// <returns>H ≥ 0; 0 for a single clone, ln k for k equally frequent clones.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="cloneFractions"/> is null.</exception>
+    /// <exception cref="ArgumentException">no fractions, a fraction non-finite or outside [0, 1], or all zero.</exception>
+    public static double CalculateCloneShannonDiversity(IReadOnlyList<double> cloneFractions)
+    {
+        ArgumentNullException.ThrowIfNull(cloneFractions);
+        if (cloneFractions.Count == 0)
+        {
+            throw new ArgumentException("At least one clone fraction is required.", nameof(cloneFractions));
+        }
+
+        for (int i = 0; i < cloneFractions.Count; i++)
+        {
+            double f = cloneFractions[i];
+            if (!double.IsFinite(f) || f < 0.0 || f > 1.0)
+            {
+                throw new ArgumentException(
+                    $"Clone fraction must be a finite value in [0, 1]; got {f} at index {i}.", nameof(cloneFractions));
+            }
+        }
+
+        return StatisticsHelper.ShannonIndexOfWeights(cloneFractions);
+    }
+
+    /// <summary>
     /// Counts the number of distinct clones/subclones in a tumour as the number of non-empty CCF clusters produced
     /// by <see cref="ClusterCcfValues"/> (ONCO-CCF-001). Each cluster centroid is a clonal population; the count is
     /// the tumour's clonal richness. Source: Mroz et al. (2015) treat genetic heterogeneity as the number/spread of
-    /// subpopulations; Liu et al. (2017), <i>BMC Genomics</i> 18:457 (PMC5468233) define richness as "the number of
+    /// subpopulations; Martinez et al. (2017), <i>Sci Rep</i> 7:3248 (PMC5468233) define richness as "the number of
     /// clones present" when computing Shannon-based ITH scores.
     /// </summary>
     /// <param name="ccfClusters">A CCF clustering (its <see cref="CcfClustering.Assignments"/> determine which

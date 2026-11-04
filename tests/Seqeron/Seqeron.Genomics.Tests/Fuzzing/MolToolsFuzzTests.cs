@@ -742,47 +742,37 @@ public class MolToolsFuzzTests
     }
 
     /// <summary>
-    /// MC: non-DNA junk fed to the RAW-STRING overload must NOT crash and must NOT
-    /// invent sites. Each sequence character is tested as the `nucleotide` argument
-    /// of MatchesIupac(seqChar, pamChar); a junk char matches no IUPAC code, so it
-    /// can never satisfy a PAM position. The reverse-strand pass complements via
-    /// GetComplementBase, whose fall-through arm passes non-IUPAC chars through
-    /// unchanged — no exception, no out-of-range indexing. Pure-junk input yields no
-    /// PAM sites. We force enumeration so the in-iterator scan actually runs.
+    /// MC: non-DNA junk fed to the RAW-STRING overload must NOT crash and must NOT invent sites. Since audit
+    /// round 5 (A5-7) the overload is CRISPOR's front end: a text with a character other than A/C/G/T/N is an
+    /// <see cref="ArgumentException"/> at the call (before, such a character inside a protospacer window came back
+    /// as a "guide" that EvaluateGuideRna then rejected). Pure junk therefore throws; it never yields a site.
     /// </summary>
     [Test]
     [CancelAfter(5000)]
-    public void FindPamSites_NonDnaSequence_RawOverload_NoSitesNoCrash()
+    public void FindPamSites_NonDnaSequence_RawOverload_IsRejectedAtTheCall()
     {
-        var act = () => CrisprDesigner.FindPamSites("$#@!XYZ123 ￿qwerty", CrisprSystemType.SpCas9).ToList();
+        var act = () => CrisprDesigner.FindPamSites("$#@!XYZ123^\uFFFDqwerty", CrisprSystemType.SpCas9);
 
-        act.Should().NotThrow(
-            "non-DNA characters are tested against the PAM via IUPAC matching and complemented via a pass-through arm; neither path indexes out of range");
-
-        CrisprDesigner.FindPamSites("$#@!XYZ123 ￿qwerty", CrisprSystemType.SpCas9)
-            .Should().BeEmpty(
-                "a character that is not A/C/G/T matches no PAM position, so pure junk can never produce a spurious PAM site");
+        act.Should().ThrowExactly<ArgumentException>(
+            "a character that is not A/C/G/T/N is not a nucleotide; the front end refuses it before any scan")
+            .WithParameterName("sequence");
     }
 
     /// <summary>
-    /// MC: junk INTERLEAVED into an otherwise-valid PAM window must suppress that
-    /// site, not crash. "…AGG" at the right offset is a real forward SpCas9 site;
-    /// replacing the final 'G' with '#' breaks the NGG match (the '#' satisfies no
-    /// IUPAC code), so no forward site is reported there — proving junk neither
-    /// fabricates nor silently "rounds to" a valid PAM.
+    /// MC: junk INTERLEAVED into an otherwise-valid PAM window. "\u2026AGG" at the right offset is a real forward SpCas9
+    /// site; replacing the final 'G' with '#' used to break the NGG match silently. With the front-end check the '#'
+    /// is named and refused instead - junk neither fabricates nor silently "rounds to" a valid PAM, and it is no
+    /// longer swallowed either.
     /// </summary>
     [Test]
-    public void FindPamSites_JunkInsidePamWindow_SuppressesThatSite()
+    public void FindPamSites_JunkInsidePamWindow_IsRejectedAtTheCall()
     {
-        // 20 A's (guide) + "AG#" — the NGG window at index 20 is broken by '#'.
+        // 20 A's (guide) + "AG#" - the NGG window at index 20 is broken by '#'.
         string broken = new string('A', 20) + "AG#";
 
-        var sites = CrisprDesigner.FindPamSites(broken, CrisprSystemType.SpCas9).ToList();
+        var act = () => CrisprDesigner.FindPamSites(broken, CrisprSystemType.SpCas9);
 
-        sites.Should().NotContain(s => s.IsForwardStrand && s.Position == 20,
-            "the '#' in the third PAM position fails IUPAC matching, so the forward NGG site at index 20 is correctly NOT reported");
-        sites.Should().OnlyContain(s => s.PamSequence.All(c => c == 'A' || c == 'C' || c == 'G' || c == 'T'),
-            "any site that IS reported still has a clean A/C/G/T PAM string — junk never leaks into a reported PAM");
+        act.Should().ThrowExactly<ArgumentException>().Which.Message.Should().Contain("'#'").And.Contain("index 22");
     }
 
     #endregion
@@ -1096,18 +1086,18 @@ public class MolToolsFuzzTests
     /// division-by-zero hazard — CalculateSelfComplementarity divides by
     /// <c>length * length</c> and the GC computation would face an empty span. The
     /// source short-circuits this BEFORE any scoring: EvaluateGuideRna throws
-    /// ArgumentNullException on a null/empty guide (CrisprDesigner.cs line 205), so the
-    /// degenerate guide is a DOCUMENTED validation throw — NOT a DivideByZeroException,
+    /// ArgumentNullException on a null guide and ArgumentException on an empty one (the null-vs-empty convention,
+    /// B08 round 4 H19), so the degenerate guide is a DOCUMENTED validation throw — NOT a DivideByZeroException,
     /// IndexOutOfRangeException, or a NaN score (Guide_RNA_Design.md §6.1). Pinned for
     /// both the empty string and null.
     /// </summary>
     [Test]
-    public void EvaluateGuideRna_ZeroLengthGuide_ThrowsArgumentNullException()
+    public void EvaluateGuideRna_ZeroLengthGuide_ThrowsArgumentException_NullThrowsArgumentNullException()
     {
         var empty = () => CrisprDesigner.EvaluateGuideRna(string.Empty);
         var nullGuide = () => CrisprDesigner.EvaluateGuideRna((string)null!);
 
-        empty.Should().Throw<ArgumentNullException>(
+        empty.Should().ThrowExactly<ArgumentException>(
             "a zero-length guide is degenerate; the source rejects it up front rather than dividing by length² or scoring an empty span");
         nullGuide.Should().Throw<ArgumentNullException>(
             "a null guide is rejected by the same guard, never dereferenced");
@@ -1133,29 +1123,22 @@ public class MolToolsFuzzTests
     }
 
     /// <summary>
-    /// MC (non-DNA, raw evaluator): the standalone EvaluateGuideRna scores a raw string
-    /// without A/C/G/T validation, so it must TOLERATE junk without crashing. Non-DNA
-    /// characters are excluded from GC (CalculateGcFraction counts only A/C/G/T/U and
-    /// returns 0 when none are valid) and the reverse complement used by
-    /// self-complementarity passes non-IUPAC chars through unchanged (GetComplementBase
-    /// fall-through) — no exception, no out-of-range indexing, and no division by zero
-    /// because the guide is non-empty (length > 0). We pin: a pure-junk guide scores
-    /// without throwing, with a finite, clamped (>= 0) score (INV-01) and GC of 0.
+    /// MC (non-DNA, raw evaluator): the standalone EvaluateGuideRna takes a raw string, and since
+    /// B08 round 2 (E3) it validates the alphabet like every other raw-string guard in CrisprDesigner
+    /// (CFD / SaCas9 / MIT scorers) and like the DnaSequence type that guide design goes through:
+    /// anything but A/C/G/T (U is read as T) is a typed <see cref="ArgumentException"/> naming the
+    /// parameter -- never an out-of-range index, a NaN score or a scored candidate for junk. The previous
+    /// contract ("scores a pure-junk guide with GC 0") returned a plausible-looking Score for input
+    /// that is not a nucleotide sequence at all.
     /// </summary>
     [Test]
     [CancelAfter(5000)]
-    public void EvaluateGuideRna_NonDnaGuide_ScoresWithoutCrash()
+    public void EvaluateGuideRna_NonDnaGuide_IsRejectedWithATypedException()
     {
-        var act = () => CrisprDesigner.EvaluateGuideRna("$#@!XYZ123 ￿qwerty");
+        var act = () => CrisprDesigner.EvaluateGuideRna("$#@!XYZ123 \uFFFFqwerty");
 
-        act.Should().NotThrow(
-            "non-DNA characters are excluded from GC and pass through the complement unchanged; neither path indexes out of range or divides by zero");
-
-        var candidate = CrisprDesigner.EvaluateGuideRna("$#@!XYZ123 ￿qwerty");
-        candidate.Score.Should().BeGreaterThanOrEqualTo(0,
-            "INV-01: the score is clamped to >= 0 even on garbage input");
-        candidate.Score.Should().NotBe(double.NaN, "a junk guide must not produce a NaN score");
-        candidate.GcContent.Should().Be(0, "no character is A/C/G/T, so GC content is 0, not a divide-by-zero");
+        act.Should().Throw<ArgumentException>()
+            .Which.ParamName.Should().Be("guideSequence");
     }
 
     #endregion
@@ -1286,21 +1269,21 @@ public class MolToolsFuzzTests
 
     /// <summary>
     /// BE (empty guide): a zero-length (or null) guide is degenerate and is rejected up
-    /// front with ArgumentNullException (CrisprDesigner.cs line 337–338) — BEFORE the
+    /// front (ArgumentNullException for null, ArgumentException for empty; B08 round 4 H19) — BEFORE the
     /// length check, the PAM scan, or any CountMismatches loop, so there is no
     /// IndexOutOfRange and no division by a zero guide/seed length
     /// (Off_Target_Analysis.md §3.3, §6.1). The throw lives inside the yield iterator,
     /// so enumeration is forced. Pinned for both the empty string and null.
     /// </summary>
     [Test]
-    public void FindOffTargets_EmptyGuide_ThrowsArgumentNullException()
+    public void FindOffTargets_EmptyGuide_ThrowsArgumentException_NullThrowsArgumentNullException()
     {
         var genome = new DnaSequence(new string('A', 20) + "AGG");
 
         var empty = () => CrisprDesigner.FindOffTargets(string.Empty, genome, 3, CrisprSystemType.SpCas9).ToList();
         var nullGuide = () => CrisprDesigner.FindOffTargets((string)null!, genome, 3, CrisprSystemType.SpCas9).ToList();
 
-        empty.Should().Throw<ArgumentNullException>(
+        empty.Should().ThrowExactly<ArgumentException>(
             "an empty guide is degenerate; it is rejected before any scoring or scan, never dividing by a zero guide length");
         nullGuide.Should().Throw<ArgumentNullException>(
             "a null guide is rejected by the same guard, never dereferenced");
@@ -1311,35 +1294,28 @@ public class MolToolsFuzzTests
     #region MC — Guide of all N's (wildcard vs literal)
 
     /// <summary>
-    /// MC (all-N guide — KEY): 'N' is the IUPAC "any base" code, so the central question
-    /// is whether off-target matching treats it as a WILDCARD. This API does NOT:
-    /// CountMismatches is a literal position-by-position <c>!=</c> compare
-    /// (CrisprDesigner.cs lines 393–405) with no IUPAC semantics. A 20-nt all-N guide
-    /// PASSES the SpCas9 length check (length 20 == GuideLength), then MISMATCHES every
-    /// A/C/G/T base of any PAM-adjacent target, so each site's mismatch count is the full
-    /// guide length (20) — far above the 0..5 cap — and NO site is ever yielded. So all-N
-    /// is the OPPOSITE of a wildcard blow-up: instead of matching every position (a hang /
-    /// off-target-everywhere hazard) it matches NOTHING, because every position is a
-    /// guaranteed mismatch. Theory-correct result on a real, PAM-rich genome: the EMPTY
-    /// enumerable, promptly (CancelAfter guards against any hang), with no exception.
+    /// MC (all-N guide): 'N' is the IUPAC "any base" code, but this API never treats it as a wildcard
+    /// (CountMismatches is a literal position-by-position compare). Until B08 round 3 G2 an all-N guide
+    /// passed the length check and matched NOTHING (20 mismatches everywhere), so the specificity
+    /// aggregates reported a false perfect 100. It is now refused up front, like every non-A/C/G/T guide
+    /// (F70/C-023): a typed <see cref="ArgumentException"/> naming <c>guideSequence</c>, promptly
+    /// (CancelAfter guards against any hang).
     /// </summary>
     [Test]
     [CancelAfter(5000)]
-    public void FindOffTargets_AllNGuide_MatchesNothingAndDoesNotHang()
+    public void FindOffTargets_AllNGuide_IsRejectedWithATypedException_AndDoesNotHang()
     {
         const string allN = "NNNNNNNNNNNNNNNNNNNN"; // 20 N's == SpCas9 guide length
-        // A PAM-rich genome so the scan actually has many targets to compare against.
         var genome = new DnaSequence(RandomDna(500, seed: 20_001));
 
+        // B08 round 3 G2 (consistency with F70/C-023): the guide alphabet is A/C/G/T (U read as T). The
+        // previous contract (an all-N guide "matches nothing", every site a 20-mismatch non-hit) let the
+        // specificity aggregates report a false perfect 100 for a guide that is not a nucleotide sequence.
+        // The property under test is unchanged - prompt, typed, no out-of-range index, no hang.
         var act = () => CrisprDesigner.FindOffTargets(allN, genome, maxMismatches: 5,
             CrisprSystemType.SpCas9).ToList();
 
-        act.Should().NotThrow(
-            "'N' is compared literally (not as a wildcard); it differs from every A/C/G/T base but never indexes out of range or hangs");
-
-        CrisprDesigner.FindOffTargets(allN, genome, maxMismatches: 5, CrisprSystemType.SpCas9)
-            .Should().BeEmpty(
-                "an all-N guide mismatches every target base, so each candidate has 20 mismatches — above the cap of 5 — and no off-target is ever yielded; 'N' is not a wildcard");
+        act.Should().Throw<ArgumentException>().Which.ParamName.Should().Be("guideSequence");
     }
 
     /// <summary>
@@ -2248,9 +2224,10 @@ public class MolToolsFuzzTests
     /// chosen MUTUALLY SATISFIABLE for the salt-adjusted Tm model: for a 50–60-nt probe the
     /// source computes Tm = 81.5 + 16.6·log10(0.05) + 41·GC − 600/length, so a 0.40–0.60-GC
     /// window maps to roughly 64–74 °C — hence the GC window [0.40, 0.60] is paired with a Tm
-    /// window [60, 80] (the Microarray Tm default of 75–85 is, by contrast, unreachable at
-    /// ≤ 0.60 GC for this formula, which is exactly why the inverted-range test asserts on
-    /// warnings rather than the default ranges). The target is a 300-nt fixed-seed sequence;
+    /// window [60, 80] (the former Microarray Tm default of 75–85 was unreachable at ≤ 0.60 GC
+    /// for this formula; since audit round 3 A3-10 the Microarray preset uses OligoArray's
+    /// 1 M / 1 µM nearest-neighbour scale with a reachable 82–90 window — this test keeps the
+    /// Primer3 50 mM conditions of a plain ProbeParameters). The target is a 300-nt fixed-seed sequence;
     /// AT LEAST ONE returned probe must satisfy INV-01 (Score &gt; 0), INV-02
     /// (0 ≤ GcContent ≤ 1), have GC within [MinGc, MaxGc] AND Tm within [MinTm, MaxTm], and —
     /// being fully in-range — carry NO GC or Tm out-of-range warning.
@@ -2540,23 +2517,24 @@ public class MolToolsFuzzTests
 
     /// <summary>
     /// BE: the multi-enzyme overload called with an EMPTY enzyme list is the lower
-    /// boundary of "how many enzymes to scan". The `foreach (var name in enzymeNames)`
-    /// loop (RestrictionAnalyzer.cs line 211) iterates zero times, so the result is the
-    /// EMPTY enumerable — never a crash and never a fabricated site. Because the overload
-    /// is a `yield` iterator, the body runs only on enumeration, so we force `.ToList()`.
+    /// boundary of "how many enzymes to scan". Before B08 round 4 H24 it quietly returned no sites
+    /// while every sibling (<c>Digest</c>, <c>PartialDigest</c>, <c>GetDigestSummary</c>, the methylation
+    /// <c>FindSites</c>) refused the same argument shape; the contract is now one: an empty name list is
+    /// an <see cref="ArgumentException"/> raised at the call (eagerly), a null array an
+    /// <see cref="ArgumentNullException"/>. <c>CreateMap</c> alone keeps "empty = every common enzyme".
     /// </summary>
     [Test]
     [CancelAfter(5000)]
-    public void FindSites_EmptyEnzymeList_IsEmptyAndDoesNotThrow()
+    public void FindSites_EmptyEnzymeList_ThrowsArgumentException_NotAnEmptyScan()
     {
         var sequence = new DnaSequence("AAAGAATTCAAAGGATCCAAA");
 
-        var act = () => RestrictionAnalyzer.FindSites(sequence, Array.Empty<string>()).ToList();
+        var empty = () => RestrictionAnalyzer.FindSites(sequence, Array.Empty<string>());
+        var nullArray = () => RestrictionAnalyzer.FindSites(sequence, (string[])null!);
 
-        act.Should().NotThrow(
-            "an empty enzyme list scans no enzymes; the per-enzyme loop never runs, so there is nothing to throw");
-        RestrictionAnalyzer.FindSites(sequence, Array.Empty<string>())
-            .Should().BeEmpty("no enzymes requested ⇒ no restriction sites, never a spurious cut");
+        empty.Should().ThrowExactly<ArgumentException>(
+            "an empty enzyme list has the same meaning for FindSites as for Digest: nothing to look for is a caller mistake (H24)");
+        nullArray.Should().Throw<ArgumentNullException>("a null name array is a missing argument");
     }
 
     #endregion
@@ -2608,12 +2586,12 @@ public class MolToolsFuzzTests
 
     /// <summary>
     /// MC/BE: a null OR empty enzyme name is the degenerate "no enzyme specified" input.
-    /// The typed overload guards it with ArgumentNullException (line 130–131) BEFORE the
-    /// catalog lookup, so an empty name is a documented validation throw — never a
-    /// silent empty scan and never a KeyNotFoundException.
+    /// The typed overload guards it BEFORE the catalog lookup - ArgumentNullException for null,
+    /// ArgumentException for empty (B08 H19) - so an empty name is a documented validation throw,
+    /// never a silent empty scan and never a KeyNotFoundException.
     /// </summary>
     [Test]
-    public void FindSites_NullOrEmptyEnzymeName_TypedOverload_ThrowsArgumentNullException()
+    public void FindSites_NullEnzymeName_ThrowsArgumentNullException_EmptyThrowsArgumentException()
     {
         var sequence = new DnaSequence("AAAGAATTCAAA");
 
@@ -2622,7 +2600,7 @@ public class MolToolsFuzzTests
 
         nullName.Should().Throw<ArgumentNullException>(
             "a null enzyme name is rejected up front, not dereferenced into a lookup");
-        emptyName.Should().Throw<ArgumentNullException>(
+        emptyName.Should().ThrowExactly<ArgumentException>(
             "an empty enzyme name is the same degenerate 'no enzyme' input and is rejected up front");
     }
 

@@ -28,7 +28,7 @@
 ### Wikipedia — Transition (genetics)
 
 **URL:** https://en.wikipedia.org/wiki/Transition_(genetics)
-**Accessed:** 2026-06-13
+**Accessed:** 2026-06-13 · re-fetched 2026-10-14 (SRC citation audit: supports the claims above)
 **Authority rank:** 4 (Wikipedia citing primary sources; primaries used below)
 
 **How retrieved:** `WebSearch` for "transition transversion definition purine pyrimidine SNP molecular evolution"; `WebFetch` of the article URL.
@@ -42,7 +42,7 @@
 ### Wikipedia — Transversion
 
 **URL:** https://en.wikipedia.org/wiki/Transversion
-**Accessed:** 2026-06-13
+**Accessed:** 2026-06-13 · re-fetched 2026-10-14 (SRC citation audit: supports the claims above)
 **Authority rank:** 4 (Wikipedia citing primary source Futuyma, *Evolution*, 2013)
 
 **How retrieved:** `WebFetch` of the article URL.

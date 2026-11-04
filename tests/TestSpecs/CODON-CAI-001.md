@@ -211,3 +211,17 @@ None — algorithm well-documented in Sharp & Li (1987).
 1. Create new canonical test file: `CodonOptimizer_CAI_Tests.cs`
 2. Consolidate CAI tests from `CodonOptimizerTests.cs`
 3. Keep `CodonUsageAnalyzerTests.cs` CAI tests as smoke verification (different class)
+
+## Review 2026-09 (F48 — genetic-code-aware CAI, audit A2-1)
+
+`CodonOptimizer.CalculateCAI(string, CodonUsageTable, bool excludeSingleCodonAminoAcids = true,
+GeneticCode? geneticCode = null)`: the new optional last parameter is forwarded to the canonical,
+CodonW-locked core `CodonUsageAnalyzer.CalculateCai(sequence, reference, code,
+excludeSingleCodonFamilies)`; `null` = `GeneticCode.Standard`, so existing values are unchanged.
+
+| # | Scenario | Expectation | Test |
+|---|----------|-------------|------|
+| G1 | default vs explicit Standard | identical value | `CalculateCAI_GeneticCode_MatchesCanonicalCoreUnderThatCode` |
+| G2 | explicit Standard vs `CodonUsageAnalyzer.CalculateCai(…, Standard)` | equal within 1e-12 | same test |
+| G3 | table 2 vs `CodonUsageAnalyzer.CalculateCai(…, table 2)` | equal within 1e-12 | same test |
+| G4 | table 2 vs table 1 on a gene with AGA/AGG/UGA/AUA | different (stops and the Met/Trp families differ, so the scored codon set differs) | same test |

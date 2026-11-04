@@ -48,6 +48,8 @@
 |--------|-------|------|-------|
 | `CalculateMolecularWeight(string proteinSequence)` | SequenceStatistics | **Canonical** | Average-mass protein Mw |
 | `CalculateNucleotideMolecularWeight(string sequence, bool isDna = true)` | SequenceStatistics | **Canonical** | Average-mass DNA/RNA Mw |
+| `CalculateMolecularWeight(string, MolecularWeightOptions?)` | SequenceStatistics | **Canonical** | Monoisotopic / circular / strict protein Mw (F28) |
+| `CalculateNucleotideMolecularWeight(string, bool, bool, MolecularWeightOptions?)` | SequenceStatistics | **Canonical** | Monoisotopic / circular / ds / strict DNA/RNA Mw (F28) |
 
 ---
 
@@ -97,6 +99,9 @@
 | C2 | Bond-count invariant (DNA) | MW("AG", DNA) = m_A + m_G − water | 331.2218+347.2212−18.0153 = 660.4277 Da | INV-4 |
 | R1 | Sec/Pyl weighed (review 2026-09) | MW("U"), MW("O"), MW("MUA"), MW("OK"), MW("GUO") | 168.0532 / 255.3134 / 370.3271 / 383.4857 / 462.4026 Da | Biopython 1.88 |
 | R2 | Double-stranded / circular (review 2026-09) | 4-arg overload, 9 cases (e.g. AGC DNA ds = 1890.2057, circular = 931.5942) | see Evidence addendum | Biopython 1.88 `double_stranded`/`circular` |
+| R3 | Monoisotopic / circular peptide (F28) | protein avg/mono × linear/circular, 8 cases (e.g. GAGA mono circular = 256.117152) | see Evidence addendum 2026-10 | Biopython 1.88 `monoisotopic`/`circular` |
+| R4 | Monoisotopic nucleic acids (F28) | DNA/RNA mono × ss/ds × linear/circular, 12 cases (e.g. ATGCGTAC DNA ds circ mono = 4940.810128) | see Evidence addendum 2026-10 | Biopython 1.88 |
+| R5 | Strict mode (F28) | protein X/B/Z/'*', DNA N/U, RNA T throw `ArgumentException`; whitespace ignored ("ma k" = 348.4615); default options = existing overloads | Biopython `ValueError` | Biopython 1.88 |
 
 ---
 
@@ -203,3 +208,7 @@ Total in-scope cases: 16. ✅ count: 16.
 
 1. Decision: nucleotide MW corrected to the Biopython average-mass tables and `(len−1)·water` phosphodiester correction (previous code summed raw monophosphate masses with no water removal — a defect vs. the reference). Confirmed by re-deriving the published AGC examples.
 2. Decision: protein MW already followed the Expasy definition; constants upgraded to the 4-decimal Biopython/Expasy values for exactness.
+
+## 8. Addendum 2026-10-14 (FIN-B03 R2-WP5): MCP options (F39)
+
+- MCP `molecular_weight_nucleotide(doubleStranded, circular, monoisotopic, strict)` / `molecular_weight_protein(monoisotopic, circular, strict)`: AGC DNA ss 949.6095 / ds 1890.2057 / circ 931.5942 / ds+circ 1854.1751; GAGA mono circ 256.117152; strict ValueError cases (Biopython 1.88). Tests: `Seqeron.Mcp.Sequence.Tests/B03SequenceStatisticsMcpOptionsTests`.

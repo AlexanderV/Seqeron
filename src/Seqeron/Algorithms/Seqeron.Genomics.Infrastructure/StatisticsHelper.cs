@@ -120,16 +120,58 @@ namespace Seqeron.Genomics.Infrastructure
                 throw new ArgumentException("The total count must be positive.", nameof(counts));
             }
 
-            double h = 0.0;
-            for (int i = 0; i < counts.Count; i++)
+            return ShannonEntropyCore(counts, total);
+        }
+
+        /// <summary>
+        /// Shannon diversity index H′ = −Σ pᵢ·ln pᵢ (natural logarithm) over non-negative real weights, pᵢ = wᵢ / Σw;
+        /// zero weights contribute nothing (0·ln 0 = 0). The real-valued counterpart of
+        /// <see cref="ShannonIndex(IReadOnlyList{int})"/> (same accumulation), equal to <c>scipy.stats.entropy(weights)</c>
+        /// (which normalises its input the same way); e.g. {0.6, 0.3, 0.1} → 0.8979457248567798, {0.5, 0.5} → ln 2.
+        /// </summary>
+        /// <param name="weights">Non-negative finite weights (proportions, fractions or abundances) with a positive total.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="weights"/> is null.</exception>
+        /// <exception cref="ArgumentException">a weight is negative, NaN or infinite, or the total is 0.</exception>
+        public static double ShannonIndexOfWeights(IReadOnlyList<double> weights)
+        {
+            ArgumentNullException.ThrowIfNull(weights);
+            double total = 0.0;
+            for (int i = 0; i < weights.Count; i++)
             {
-                if (counts[i] == 0) continue;
-                double p = (double)counts[i] / total;
+                double w = weights[i];
+                if (!double.IsFinite(w) || w < 0.0)
+                {
+                    throw new ArgumentException($"Weights must be finite and non-negative; got {w} at index {i}.", nameof(weights));
+                }
+
+                total += w;
+            }
+
+            if (total <= 0.0 || !double.IsFinite(total))
+            {
+                throw new ArgumentException("The total weight must be positive and finite.", nameof(weights));
+            }
+
+            return ShannonEntropyCore(weights, total);
+        }
+
+        // −Σ pᵢ·ln pᵢ with pᵢ = wᵢ / total over validated non-negative values, zeros skipped (shared by ShannonIndex and
+        // ShannonIndexOfWeights; an int count converts to double exactly, as the former (double)count / (long) total did).
+        private static double ShannonEntropyCore<T>(IReadOnlyList<T> values, double total)
+            where T : System.Numerics.INumberBase<T>
+        {
+            double h = 0.0;
+            for (int i = 0; i < values.Count; i++)
+            {
+                double w = double.CreateTruncating(values[i]);
+                if (w == 0.0) continue;
+                double p = w / total;
                 h -= p * Math.Log(p);
             }
 
             return h;
         }
+
         /// <summary>
         /// Binomial upper tail P(X ≥ <paramref name="successes"/>) for X ~ Binomial(<paramref name="trials"/>, <paramref name="p"/>)
         /// — the "sum of binomials" of RSAT <c>RSAT::stats::binomial_boe</c> / <c>sum_of_binomials</c> (van Helden et al. 1998)
@@ -393,6 +435,413 @@ namespace Seqeron.Genomics.Infrastructure
             return result + Math.Log(x) - 0.5 / x - series;
         }
 
+        /// <summary>
+        /// Regularized incomplete beta function I_x(a, b) = B(x; a, b) / B(a, b) (R <c>pbeta(x, a, b)</c>,
+        /// <c>scipy.special.betainc(a, b, x)</c>), for a, b &gt; 0 and x ∈ [0, 1]. Evaluated by the modified-Lentz continued
+        /// fraction (Press et al., <i>Numerical Recipes</i> 3rd ed. §6.4, <c>betacf</c>) on the side
+        /// x &lt; (a + 1)/(a + b + 2), else through I_x(a, b) = 1 − I_{1−x}(b, a); the prefactor xᵃ(1 − x)ᵇ/B(a, b) uses
+        /// R's <c>lbeta</c> (nmath/lbeta.c: Stirling-correction form for large arguments), or TOMS 708 <c>brcomp</c>'s
+        /// large-parameter form when a, b ≥ 8; the continued fraction runs in double-double arithmetic. Agrees with R 4.3.3
+        /// <c>pbeta</c> to ≤ 9e−15 relative in 90 % and ≤ 1.5e−13 in all of a 300-case sweep (a, b ∈ [0.01, 3·10⁴];
+        /// Evidence ONCO-ASCAT-001 §F39).
+        /// </summary>
+        /// <param name="x">Upper integration limit, in [0, 1].</param>
+        /// <param name="a">Shape a &gt; 0 (finite).</param>
+        /// <param name="b">Shape b &gt; 0 (finite).</param>
+        /// <exception cref="ArgumentOutOfRangeException">x ∉ [0, 1] or a shape is not a finite positive number.</exception>
+        public static double RegularizedIncompleteBeta(double x, double a, double b)
+        {
+            if (!(x >= 0.0 && x <= 1.0))
+                throw new ArgumentOutOfRangeException(nameof(x), x, "x must lie in [0, 1].");
+            ValidateBetaShape(a, nameof(a));
+            ValidateBetaShape(b, nameof(b));
+            return RegularizedIncompleteBetaCore(new DoubleDouble(x), DoubleDouble.Sum(1.0, -x), Math.Log(x), Log1P(-x), a, b);
+        }
+
+        /// <summary>
+        /// Cumulative distribution function of Student's t distribution with <paramref name="degreesOfFreedom"/> degrees
+        /// of freedom (R <c>pt(t, df)</c>, <c>scipy.stats.t.cdf</c>): with q = t²/ν, P(T ≤ t) = ½·I_{1/(1+q)}(ν/2, ½) for
+        /// t &lt; 0 and 1 − ½·I_{1/(1+q)}(ν/2, ½) for t ≥ 0 (Abramowitz &amp; Stegun 26.7.1 / 26.5.27; R nmath/pt.c), with
+        /// 1/(1+q) and q/(1+q) formed in double-double. Agrees with R 4.3.3 <c>pt</c> to ≤ 2e−14 relative for
+        /// probabilities above 1e−30 and ≤ 2e−13 in the far tail (400-case sweep, ν ∈ [1, 3·10⁵]); for ν &gt; 4·10⁵ R switches
+        /// to a normal approximation, this keeps the exact form.
+        /// </summary>
+        /// <param name="t">The quantile (±∞ allowed: 0 / 1).</param>
+        /// <param name="degreesOfFreedom">ν &gt; 0 (finite; non-integer allowed).</param>
+        /// <exception cref="ArgumentOutOfRangeException">ν is not a finite positive number, or t is NaN.</exception>
+        public static double StudentTCdf(double t, double degreesOfFreedom)
+        {
+            if (double.IsNaN(t))
+                throw new ArgumentOutOfRangeException(nameof(t), t, "t must not be NaN.");
+            ValidateBetaShape(degreesOfFreedom, nameof(degreesOfFreedom));
+            double halfTail = 0.5 * StudentTTwoSidedTail(t, degreesOfFreedom);
+            return t < 0.0 ? halfTail : 1.0 - halfTail;
+        }
+
+        /// <summary>
+        /// Two-sided one-sample Student t-test p-value of H₀: mean = <paramref name="mu"/>, exactly as R
+        /// <c>t.test(x, mu = mu, alternative = "two.sided")$p.value</c> (stats/R/t.test.R): t = (x̄ − μ)/√(s²/n),
+        /// ν = n − 1, p = 2·pt(−|t|, ν) = I_{ν/(ν+t²)}(ν/2, ½) (s² the n − 1 sample variance). Returns
+        /// <see cref="double.NaN"/> in the two cases where R's <c>t.test</c> stops with an error: fewer than two values
+        /// ("not enough 'x' observations") and "data are essentially constant" (√(s²/n) &lt; 10·ε·|x̄|, ε = 2⁻⁵²).
+        /// E.g. x = {0.61, 0.64, 0.66, 0.59, 0.70}, μ = 0.6 ⇒ p = 0.10608282922154902 (R 4.3.3).
+        /// </summary>
+        /// <param name="values">The sample (finite values).</param>
+        /// <param name="mu">Hypothesised mean (finite).</param>
+        /// <exception cref="ArgumentNullException"><paramref name="values"/> is null.</exception>
+        /// <exception cref="ArgumentException">a value or <paramref name="mu"/> is not finite.</exception>
+        public static double OneSampleTTestPValue(IReadOnlyList<double> values, double mu)
+        {
+            ArgumentNullException.ThrowIfNull(values);
+            if (!double.IsFinite(mu))
+                throw new ArgumentException("mu must be finite.", nameof(mu));
+            (double mean, double variance) = RMeanAndVariance(values, nameof(values));
+            int n = values.Count;
+            if (n < 2)
+                return double.NaN; // R: "not enough 'x' observations"
+
+            double stdErr = Math.Sqrt(variance / n);
+            if (stdErr < 10.0 * MachineEpsilon * Math.Abs(mean))
+                return double.NaN; // R: "data are essentially constant"
+
+            double tStat = (mean - mu) / stdErr;
+            return StudentTTwoSidedTail(tStat, n - 1);
+        }
+
+        /// <summary>
+        /// Two-sided Welch (unequal-variance) two-sample t-test p-value of H₀: mean(x) = mean(y), exactly as R
+        /// <c>t.test(x, y)$p.value</c> (stats/R/t.test.R, defaults <c>var.equal = FALSE</c>, <c>mu = 0</c>):
+        /// sₓ = √(var(x)/nₓ), s_y = √(var(y)/n_y), s = √(sₓ² + s_y²), ν = s⁴/(sₓ⁴/(nₓ − 1) + s_y⁴/(n_y − 1)),
+        /// t = (x̄ − ȳ)/s, p = 2·pt(−|t|, ν) = I_{ν/(ν+t²)}(ν/2, ½) (Welch 1947; Satterthwaite 1946). Returns
+        /// <see cref="double.NaN"/> where R's <c>t.test</c> stops with an error: fewer than two values in either sample
+        /// ("not enough observations") and "data are essentially constant" (s &lt; 10·ε·max(|x̄|, |ȳ|), ε = 2⁻⁵²). NaN
+        /// values must be removed by the caller (R drops <c>NA</c> before testing). For ν &gt; 4·10⁵ R's <c>pt</c> switches to
+        /// a normal approximation; this keeps the exact form (see <see cref="StudentTCdf"/>).
+        /// E.g. x = {0.61, 0.64, 0.66, 0.59, 0.70}, y = {0.55, 0.58, 0.62, 0.57} ⇒ p = 0.042862029945299411 (R 4.3.3).
+        /// </summary>
+        /// <param name="x">First sample (finite values).</param>
+        /// <param name="y">Second sample (finite values).</param>
+        /// <exception cref="ArgumentNullException"><paramref name="x"/> or <paramref name="y"/> is null.</exception>
+        /// <exception cref="ArgumentException">a value is not finite.</exception>
+        public static double WelchTTestPValue(IReadOnlyList<double> x, IReadOnlyList<double> y)
+        {
+            ArgumentNullException.ThrowIfNull(x);
+            ArgumentNullException.ThrowIfNull(y);
+            (double mx, double vx) = RMeanAndVariance(x, nameof(x));
+            (double my, double vy) = RMeanAndVariance(y, nameof(y));
+            int nx = x.Count, ny = y.Count;
+            if (nx < 2 || ny < 2)
+                return double.NaN; // R: "not enough 'x' / 'y' observations"
+
+            double stderrX = Math.Sqrt(vx / nx);
+            double stderrY = Math.Sqrt(vy / ny);
+            double stderr = Math.Sqrt(stderrX * stderrX + stderrY * stderrY);
+            double df = Math.Pow(stderr, 4) / (Math.Pow(stderrX, 4) / (nx - 1) + Math.Pow(stderrY, 4) / (ny - 1));
+            if (stderr < 10.0 * MachineEpsilon * Math.Max(Math.Abs(mx), Math.Abs(my)))
+                return double.NaN; // R: "data are essentially constant"
+
+            return StudentTTwoSidedTail((mx - my) / stderr, df);
+        }
+
+        // R mean.default and var (RMean / RSampleVariance) of finite values; NaN mean for n = 0, NaN variance for n < 2.
+        private static (double Mean, double Variance) RMeanAndVariance(IReadOnlyList<double> values, string name)
+        {
+            for (int i = 0; i < values.Count; i++)
+            {
+                if (!double.IsFinite(values[i]))
+                    throw new ArgumentException("Every value must be finite.", name);
+            }
+
+            return (RMean(values), RSampleVariance(values));
+        }
+
+        /// <summary>
+        /// R <c>mean(x)</c> (<c>mean.default</c> → summary.c <c>real_mean</c>): s = Σx/n, then, when s is finite, refined by
+        /// the mean residual s + Σ(x − s)/n (R accumulates in 80-bit long double; here in double, left to right — for R's
+        /// exact bits use <see cref="ExtendedPrecisionMean"/>).
+        /// NaN for an empty list or any NaN value. E.g. {1, 2, 3, 4} → 2.5.
+        /// </summary>
+        /// <param name="values">The values.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="values"/> is null.</exception>
+        public static double RMean(IReadOnlyList<double> values)
+        {
+            ArgumentNullException.ThrowIfNull(values);
+            int n = values.Count;
+            double s = 0.0;
+            for (int i = 0; i < n; i++) s += values[i];
+            s /= n;
+            if (double.IsFinite(s))
+            {
+                double t = 0.0;
+                for (int i = 0; i < n; i++) t += values[i] - s;
+                s += t / n;
+            }
+
+            return s;
+        }
+
+        /// <summary>
+        /// R <c>var(x)</c> of a vector: the two-pass Σ(x − x̄)²/(n − 1) about the refined mean <see cref="RMean"/>.
+        /// NaN for fewer than two values or any NaN value. E.g. {1, 2, 3, 4} → 1.6666666666666667; R <c>sd(x)</c> is its
+        /// square root.
+        /// </summary>
+        /// <param name="values">The values.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="values"/> is null.</exception>
+        public static double RSampleVariance(IReadOnlyList<double> values)
+        {
+            ArgumentNullException.ThrowIfNull(values);
+            int n = values.Count;
+            if (n < 2)
+                return double.NaN;
+            double mean = RMean(values);
+            double sumSq = 0.0;
+            for (int i = 0; i < n; i++)
+            {
+                double d = values[i] - mean;
+                sumSq += d * d;
+            }
+
+            return sumSq / (n - 1);
+        }
+
+        private const double MachineEpsilon = 2.220446049250313e-16; // 2⁻⁵² (R .Machine$double.eps)
+
+        // P(|T| ≥ |t|) = I_{ν/(ν+t²)}(ν/2, ½), with x = 1/(1+q), 1 − x = q/(1+q), q = t²/ν (R nmath/pt.c); x and 1 − x are
+        // formed in double-double so the continued fraction sees the exact pair.
+        private static double StudentTTwoSidedTail(double t, double df)
+        {
+            if (double.IsNaN(t))
+                return double.NaN; // R: an all-zero sample tested against mu = 0 gives t = 0/0
+            double r = t / Math.Sqrt(df);
+            double q = r * r;
+            if (double.IsPositiveInfinity(q))
+                return 0.0;
+            if (q == 0.0)
+                return 1.0;
+            DoubleDouble onePlusQ = DoubleDouble.Sum(1.0, q);
+            DoubleDouble x = DoubleDouble.One / onePlusQ;
+            DoubleDouble y = new DoubleDouble(q) / onePlusQ;
+            return RegularizedIncompleteBetaCore(x, y, -Log1P(q), Math.Log(y.Hi), 0.5 * df, 0.5);
+        }
+
+        private static void ValidateBetaShape(double value, string name)
+        {
+            if (!(value > 0.0) || double.IsPositiveInfinity(value))
+                throw new ArgumentOutOfRangeException(name, value, "Must be a finite positive number.");
+        }
+
+        // I_x(a, b) given x and y = 1 − x (double-double, so neither carries the other's cancellation) and ln x, ln y.
+        // Continued fraction on the side where it converges fast (NR betacf), else the complement.
+        private static double RegularizedIncompleteBetaCore(
+            DoubleDouble x, DoubleDouble y, double logX, double logY, double a, double b)
+        {
+            if (x.Hi <= 0.0) return 0.0;
+            if (y.Hi <= 0.0) return 1.0;
+            double front = BetaPrefactor(x, y, logX, logY, a, b);
+            if (x.Hi < (a + 1.0) / (a + b + 2.0))
+                return front * BetaContinuedFraction(x, a, b) / a;
+            // Symmetry I_x(a, b) = 1 − I_{1−x}(b, a): the shapes are swapped on purpose.
+#pragma warning disable S2234
+            return 1.0 - front * BetaContinuedFraction(y, b, a) / b;
+#pragma warning restore S2234
+        }
+
+        // xᵃ·yᵇ / B(a, b). For a, b ≥ 8 the TOMS 708 brcomp form (Didonato & Morris 1992; R nmath/toms708.c), which
+        // avoids the cancellation of a·ln x + b·ln y − ln B(a, b) between large terms; otherwise exp of that sum.
+        private static double BetaPrefactor(DoubleDouble x, DoubleDouble y, double logX, double logY, double a, double b)
+        {
+            if (a < 8.0 || b < 8.0)
+                return Math.Exp(a * logX + b * logY - LogBeta(a, b));
+
+            double h, x0, y0, lambda;
+            if (a > b)
+            {
+                h = b / a;
+                x0 = 1.0 / (1.0 + h);
+                y0 = h / (1.0 + h);
+                lambda = (DoubleDouble.Sum(a, b) * y - new DoubleDouble(b)).ToDouble();
+            }
+            else
+            {
+                h = a / b;
+                x0 = h / (1.0 + h);
+                y0 = 1.0 / (1.0 + h);
+                lambda = (new DoubleDouble(a) - DoubleDouble.Sum(a, b) * x).ToDouble();
+            }
+
+            double e = -lambda / a;
+            double u = Math.Abs(e) > 0.6 ? e - (logX - Math.Log(x0)) : Rlog1(e);
+            e = lambda / b;
+            double v = Math.Abs(e) > 0.6 ? e - (logY - Math.Log(y0)) : Rlog1(e);
+            double z = Math.Exp(-(a * u + b * v));
+            double bcorr = LogGammaCorrection(a) + LogGammaCorrection(b) - LogGammaCorrection(a + b);
+            return InvSqrt2Pi * Math.Sqrt(b * x0) * z * Math.Exp(-bcorr);
+        }
+
+        // rlog1(x) = x − ln(1 + x) for |x| ≤ 0.6 without cancellation: with r = x/(2 + x), ln(1 + x) = 2·atanh r, so
+        // x − ln(1 + x) = r·x − 2(r³/3 + r⁵/5 + …) (r² ≤ 0.18, summed to machine precision).
+        private static double Rlog1(double x)
+        {
+            double r = x / (2.0 + x);
+            double r2 = r * r;
+            double power = r * r2;
+            double series = 0.0;
+            for (int k = 3; k < 200; k += 2)
+            {
+                double term = power / k;
+                series += term;
+                if (Math.Abs(term) <= 1e-17 * Math.Abs(series))
+                    break;
+                power *= r2;
+            }
+
+            return r * x - 2.0 * series;
+        }
+
+        // Modified Lentz evaluation of the incomplete-beta continued fraction (NR 3rd ed. §6.4, betacf) in
+        // double-double arithmetic: near x ≈ (a + 1)/(a + b + 2) with large shapes the recurrence 1 + aa·d cancels by
+        // several orders of magnitude, which plain doubles turn into ~1e−11 relative error.
+        private static double BetaContinuedFraction(DoubleDouble x, double a, double b)
+        {
+            const double Tiny = 1e-300;
+            const int MaxIterations = 1_000_000;
+            DoubleDouble one = DoubleDouble.One;
+            DoubleDouble da = new(a), qab = DoubleDouble.Sum(a, b), qap = DoubleDouble.Sum(a, 1.0), qam = DoubleDouble.Sum(a, -1.0);
+            DoubleDouble c = one;
+            DoubleDouble d = one - qab * x / qap;
+            if (Math.Abs(d.Hi) < Tiny) d = new DoubleDouble(Tiny);
+            d = one / d;
+            DoubleDouble h = d;
+            for (int m = 1; m <= MaxIterations; m++)
+            {
+                double m2 = 2.0 * m;
+                DoubleDouble aa = new DoubleDouble(m) * DoubleDouble.Sum(b, -m) * x / ((qam + m2) * (da + m2));
+                d = one + aa * d;
+                if (Math.Abs(d.Hi) < Tiny) d = new DoubleDouble(Tiny);
+                c = one + aa / c;
+                if (Math.Abs(c.Hi) < Tiny) c = new DoubleDouble(Tiny);
+                d = one / d;
+                h = h * d * c;
+                aa = -(DoubleDouble.Sum(a, m) * (qab + m) * x / ((da + m2) * (qap + m2)));
+                d = one + aa * d;
+                if (Math.Abs(d.Hi) < Tiny) d = new DoubleDouble(Tiny);
+                c = one + aa / c;
+                if (Math.Abs(c.Hi) < Tiny) c = new DoubleDouble(Tiny);
+                d = one / d;
+                DoubleDouble del = d * c;
+                h *= del;
+                if (Math.Abs((del - one).Hi) <= 1e-17)
+                    break;
+            }
+
+            return h.ToDouble();
+        }
+
+        // Double-double number Hi + Lo (|Lo| ≤ ½ ulp(Hi)), ~106-bit significand (Dekker 1971; Hida, Li &amp; Bailey 2001 QD).
+        private readonly struct DoubleDouble
+        {
+            public DoubleDouble(double hi, double lo = 0.0)
+            {
+                Hi = hi;
+                Lo = lo;
+            }
+
+            public double Hi { get; }
+
+            public double Lo { get; }
+
+            public static DoubleDouble One => new(1.0);
+
+            public double ToDouble() => Hi + Lo;
+
+            // Exact a + b.
+            public static DoubleDouble Sum(double a, double b)
+            {
+                double s = a + b;
+                double bb = s - a;
+                return new DoubleDouble(s, (a - (s - bb)) + (b - bb));
+            }
+
+            private static DoubleDouble QuickSum(double a, double b)
+            {
+                double s = a + b;
+                return new DoubleDouble(s, b - (s - a));
+            }
+
+            public static DoubleDouble operator -(DoubleDouble v) => new(-v.Hi, -v.Lo);
+
+            public static DoubleDouble operator +(DoubleDouble l, DoubleDouble r)
+            {
+                DoubleDouble s = Sum(l.Hi, r.Hi);
+                DoubleDouble t = Sum(l.Lo, r.Lo);
+                DoubleDouble u = QuickSum(s.Hi, s.Lo + t.Hi);
+                return QuickSum(u.Hi, u.Lo + t.Lo);
+            }
+
+            public static DoubleDouble operator +(DoubleDouble l, double r) => l + new DoubleDouble(r);
+
+            public static DoubleDouble operator -(DoubleDouble l, DoubleDouble r) => l + -r;
+
+            public static DoubleDouble operator *(DoubleDouble l, DoubleDouble r)
+            {
+                double p = l.Hi * r.Hi;
+                double e = Math.FusedMultiplyAdd(l.Hi, r.Hi, -p);
+                e += l.Hi * r.Lo + l.Lo * r.Hi;
+                return QuickSum(p, e);
+            }
+
+            public static DoubleDouble operator /(DoubleDouble l, DoubleDouble r)
+            {
+                double q1 = l.Hi / r.Hi;
+                DoubleDouble rem = l - r * new DoubleDouble(q1);
+                double q2 = rem.Hi / r.Hi;
+                rem -= r * new DoubleDouble(q2);
+                double q3 = rem.Hi / r.Hi;
+                return QuickSum(q1, q2) + new DoubleDouble(q3);
+            }
+        }
+
+        // ln B(a, b) as R nmath/lbeta.c: Stirling-correction forms when an argument is ≥ 10, else ln Γ(p)Γ(q)/Γ(p+q).
+        private static double LogBeta(double a, double b)
+        {
+            double p = Math.Min(a, b), q = Math.Max(a, b);
+            if (p >= 10.0)
+            {
+                double corr = LogGammaCorrection(p) + LogGammaCorrection(q) - LogGammaCorrection(p + q);
+                return Math.Log(q) * -0.5 + LogSqrt2Pi + corr + (p - 0.5) * Math.Log(p / (p + q)) + q * Log1P(-p / (p + q));
+            }
+
+            if (q >= 10.0)
+            {
+                double corr = LogGammaCorrection(q) - LogGammaCorrection(p + q);
+                return LogGammaSmall(p) + corr + p - p * Math.Log(p + q) + (q - 0.5) * Log1P(-p / (p + q));
+            }
+
+            return LogGammaSmall(p) + LogGammaSmall(q) - LogGammaSmall(p + q);
+        }
+
+        // lgammacor(x) = ln Γ(x) − ((x − ½)·ln x − x + ln √(2π)) for x ≥ 10: Stirling series through B₁₄ (next term
+        // < 3e−17 at x = 10).
+        private static double LogGammaCorrection(double x)
+        {
+            double inv2 = 1.0 / (x * x);
+            return (1.0 / 12 - inv2 * (1.0 / 360 - inv2 * (1.0 / 1260 - inv2 * (1.0 / 1680 - inv2 * (1.0 / 1188
+                - inv2 * (691.0 / 360360 - inv2 / 156)))))) / x;
+        }
+
+        // ln Γ(x) for 0 < x < 20: shift to z = x + n ≥ 10, Stirling with lgammacor, minus ln Π_{k<n}(x + k).
+        private static double LogGammaSmall(double x)
+        {
+            double product = 1.0;
+            while (x < 10.0)
+            {
+                product *= x;
+                x += 1.0;
+            }
+
+            return (x - 0.5) * Math.Log(x) - x + LogSqrt2Pi + LogGammaCorrection(x) - Math.Log(product);
+        }
+
         // ln P(X = x), X ~ Binomial(n, p), 0 ≤ x ≤ n, 0 < p < 1 — Loader (2000) / R nmath dbinom_raw.
         private static double LogBinomialPmf(long x, long n, double logP, double p, double logQ)
         {
@@ -410,8 +859,15 @@ namespace Seqeron.Genomics.Infrastructure
             if (x == n)
                 return q < 0.1 ? -BinomialDeviance(n, np) - n * q : n * logP;
 
+            return LoaderInteriorLogPmf(x, n, p, q);
+        }
+
+        // Loader (2000) saddle-point ln P(X = x) for 0 < x < n (R nmath dbinom_raw interior branch):
+        // lc = stirlerr(n) − stirlerr(x) − stirlerr(n − x) − bd0(x, n·p) − bd0(n − x, n·q); result lc − ½·ln(2π·x·(1 − x/n)).
+        private static double LoaderInteriorLogPmf(long x, long n, double p, double q)
+        {
             double lc = StirlingError(n) - StirlingError(x) - StirlingError(n - x)
-                        - BinomialDeviance(x, np) - BinomialDeviance(n - x, n * q);
+                        - BinomialDeviance(x, n * p) - BinomialDeviance(n - x, n * q);
             double lf = Log2Pi + Math.Log(x) + Log1P(-(double)x / n);
             return lc - 0.5 * lf;
         }
@@ -466,5 +922,643 @@ namespace Seqeron.Genomics.Infrastructure
             }
             return x * Math.Log(x / np) + np - x;
         }
+        /// <summary>
+        /// R <c>sum(x)</c> on x86-64: the values are accumulated left to right in an x87 80-bit <c>long double</c>
+        /// (64-bit significand, round-to-nearest-even after every addition; R <c>summary.c</c> <c>rsum</c>, also
+        /// <c>colSums</c> and the <c>matprod = "internal"</c> dot product) and the total is rounded once more to double.
+        /// The accumulator is emulated exactly with integer arithmetic, so the result is bit-identical to R's (± overflow
+        /// to ±∞ as R). With <paramref name="skipNaN"/> (R <c>na.rm = TRUE</c>) NaN values are skipped, otherwise a NaN
+        /// makes the sum NaN; +∞ and −∞ together give NaN.
+        /// </summary>
+        /// <param name="values">Values in summation order.</param>
+        /// <param name="skipNaN">Skip NaN values (R <c>na.rm = TRUE</c>).</param>
+        /// <returns>The sum rounded to double.</returns>
+        public static double ExtendedPrecisionSum(ReadOnlySpan<double> values, bool skipNaN = false)
+        {
+            System.Numerics.BigInteger mantissa = System.Numerics.BigInteger.Zero; // value = mantissa · 2^exponent
+            int exponent = 0;
+            bool nan = false, positiveInfinity = false, negativeInfinity = false;
+            foreach (double v in values)
+            {
+                if (double.IsNaN(v))
+                {
+                    if (!skipNaN) nan = true;
+                    continue;
+                }
+
+                if (double.IsPositiveInfinity(v)) { positiveInfinity = true; continue; }
+                if (double.IsNegativeInfinity(v)) { negativeInfinity = true; continue; }
+                if (v == 0.0) continue;
+
+                (mantissa, exponent) = LongDoubleAdd((mantissa, exponent), LongDoubleOf(v));
+            }
+
+            if (nan || (positiveInfinity && negativeInfinity)) return double.NaN;
+            if (positiveInfinity) return double.PositiveInfinity;
+            if (negativeInfinity) return double.NegativeInfinity;
+            return LongDoubleToDouble((mantissa, exponent));
+        }
+
+        /// <summary>
+        /// R <c>mean(x)</c> on x86-64, bit-identical: summary.c <c>real_mean</c> accumulates s = Σx in an x87 80-bit
+        /// <c>long double</c>, divides by n, and — when s is finite — adds the mean residual Σ(x − s)/n, every step in
+        /// long double (emulated exactly as in <see cref="ExtendedPrecisionSum"/>); the result is rounded once to double.
+        /// When Σx overflows a double, R's fallback Σ(x/n) (then Σ((x − s)/n)) is followed. With
+        /// <paramref name="skipNaN"/> this is R <c>mean(x, na.rm = TRUE)</c> (<c>mean.default</c> drops the NA values
+        /// first, n = number kept). NaN for no values or (without <paramref name="skipNaN"/>) any NaN; ±∞ as R
+        /// (+∞ with −∞ ⇒ NaN). <see cref="RMean"/> is the same algorithm accumulated in double.
+        /// E.g. {1, 2, 3, 4} → 2.5; {0.1, 0.2, 0.3} → 0.20000000000000001 (R; plain Σx/n gives 0.20000000000000004).
+        /// </summary>
+        /// <param name="values">Values in summation order.</param>
+        /// <param name="skipNaN">Skip NaN values (R <c>na.rm = TRUE</c>).</param>
+        /// <returns>The mean rounded to double.</returns>
+        public static double ExtendedPrecisionMean(ReadOnlySpan<double> values, bool skipNaN = false)
+        {
+            int n = 0;
+            bool positiveInfinity = false, negativeInfinity = false;
+            foreach (double v in values)
+            {
+                if (double.IsNaN(v))
+                {
+                    if (!skipNaN) return double.NaN;
+                    continue;
+                }
+
+                positiveInfinity |= double.IsPositiveInfinity(v);
+                negativeInfinity |= double.IsNegativeInfinity(v);
+                n++;
+            }
+
+            if (n == 0 || (positiveInfinity && negativeInfinity)) return double.NaN; // R: 0/0; Inf − Inf
+            if (positiveInfinity) return double.PositiveInfinity;
+            if (negativeInfinity) return double.NegativeInfinity;
+            return LongDoubleToDouble(LongDoubleRefinedMean(values, n, overflowFallback: true));
+        }
+
+        /// <summary>
+        /// R <c>var(x)</c> of a vector on x86-64, bit-identical (stats cov.c, <c>use = "everything"</c> /
+        /// <c>"na.or.complete"</c> on complete data): the mean x̄ is the two-pass long-double mean of
+        /// <see cref="ExtendedPrecisionMean"/> rounded to double, then Σ (x − x̄)·(x − x̄) and the division by n − 1 are
+        /// carried out in 80-bit <c>long double</c> (<c>sum += (LDOUBLE)(xx[k] − xxm) * (yy[k] − yym)</c>, xxm a long
+        /// double) and the result is rounded once to double. R <c>sd(x)</c> is its square root. NaN for fewer than two
+        /// values or any non-finite value (R gives NA / NaN). <see cref="RSampleVariance"/> is the same algorithm in
+        /// double. E.g. {1, 2, 3, 4} → 1.6666666666666667.
+        /// </summary>
+        /// <param name="values">The values.</param>
+        /// <returns>The sample variance (n − 1 divisor) rounded to double.</returns>
+        public static double ExtendedPrecisionVariance(ReadOnlySpan<double> values)
+        {
+            int n = values.Length;
+            if (n < 2) return double.NaN;
+            foreach (double v in values)
+            {
+                if (!double.IsFinite(v)) return double.NaN;
+            }
+
+            // cov.c MEAN_: no overflow fallback; xm[i] = (double) tmp, then xxm (long double) = xm[i].
+            var mean = LongDoubleOf(LongDoubleToDouble(LongDoubleRefinedMean(values, n, overflowFallback: false)));
+            var negativeMean = (-mean.Mantissa, mean.Exponent);
+            (System.Numerics.BigInteger Mantissa, int Exponent) sum = (System.Numerics.BigInteger.Zero, 0);
+            foreach (double v in values)
+            {
+                var d = LongDoubleAdd(LongDoubleOf(v), negativeMean);
+                sum = LongDoubleAdd(sum, LongDoubleMultiply(d, d));
+            }
+
+            return LongDoubleToDouble(LongDoubleDivide(sum, n - 1));
+        }
+
+        // R real_mean / cov.c MEAN_ in long double over the non-NaN finite values (n of them): s = Σx/n, refined by Σ(x − s)/n
+        // when s is finite. With overflowFallback (real_mean only), a sum that overflows a double is replaced by Σ(x/n).
+        private static (System.Numerics.BigInteger Mantissa, int Exponent) LongDoubleRefinedMean(
+            ReadOnlySpan<double> values, int n, bool overflowFallback)
+        {
+            (System.Numerics.BigInteger Mantissa, int Exponent) s = (System.Numerics.BigInteger.Zero, 0);
+            foreach (double v in values)
+            {
+                if (!double.IsNaN(v)) s = LongDoubleAdd(s, LongDoubleOf(v));
+            }
+
+            bool finiteSum = double.IsFinite(LongDoubleToDouble(s));
+            if (finiteSum || !overflowFallback)
+            {
+                s = LongDoubleDivide(s, n);
+            }
+            else
+            {
+                s = (System.Numerics.BigInteger.Zero, 0);
+                foreach (double v in values)
+                {
+                    if (!double.IsNaN(v)) s = LongDoubleAdd(s, LongDoubleDivide(LongDoubleOf(v), n));
+                }
+            }
+
+            if (!double.IsFinite(LongDoubleToDouble(s))) return s;
+            var negativeS = (-s.Mantissa, s.Exponent);
+            (System.Numerics.BigInteger Mantissa, int Exponent) t = (System.Numerics.BigInteger.Zero, 0);
+            foreach (double v in values)
+            {
+                if (double.IsNaN(v)) continue;
+                var residual = LongDoubleAdd(LongDoubleOf(v), negativeS);
+                t = LongDoubleAdd(t, finiteSum || !overflowFallback ? residual : LongDoubleDivide(residual, n));
+            }
+
+            return LongDoubleAdd(s, finiteSum || !overflowFallback ? LongDoubleDivide(t, n) : t);
+        }
+
+        // ── x87 80-bit long double emulation (finite values; value = Mantissa·2^Exponent, ≤ 64 significant bits after each
+        // operation, round to nearest, ties to even; the exponent range is unbounded, R's long double never overflows here).
+
+        private static (System.Numerics.BigInteger Mantissa, int Exponent) LongDoubleOf(double v)
+        {
+            if (v == 0.0) return (System.Numerics.BigInteger.Zero, 0);
+            long bits = BitConverter.DoubleToInt64Bits(v);
+            int biased = (int)((bits >> 52) & 0x7FF);
+            long fraction = bits & 0xFFFFFFFFFFFFFL;
+            long m = biased == 0 ? fraction : fraction | (1L << 52);
+            int e = biased == 0 ? -1074 : biased - 1075;
+            return (v < 0 ? -(System.Numerics.BigInteger)m : m, e);
+        }
+
+        private static (System.Numerics.BigInteger Mantissa, int Exponent) LongDoubleAdd(
+            (System.Numerics.BigInteger Mantissa, int Exponent) a, (System.Numerics.BigInteger Mantissa, int Exponent) b)
+        {
+            if (b.Mantissa.IsZero) return a;
+            if (a.Mantissa.IsZero) return b;
+            int e = Math.Min(a.Exponent, b.Exponent);
+            System.Numerics.BigInteger sum = (a.Mantissa << (a.Exponent - e)) + (b.Mantissa << (b.Exponent - e));
+            return RoundToSignificantBits(sum, e, 64);
+        }
+
+        private static (System.Numerics.BigInteger Mantissa, int Exponent) LongDoubleMultiply(
+            (System.Numerics.BigInteger Mantissa, int Exponent) a, (System.Numerics.BigInteger Mantissa, int Exponent) b) =>
+            RoundToSignificantBits(a.Mantissa * b.Mantissa, a.Exponent + b.Exponent, 64);
+
+        // a / divisor (divisor ≥ 1): a quotient with ≥ 66 significant bits plus a sticky bit, then one rounding to 64 bits.
+        private static (System.Numerics.BigInteger Mantissa, int Exponent) LongDoubleDivide(
+            (System.Numerics.BigInteger Mantissa, int Exponent) a, long divisor)
+        {
+            if (a.Mantissa.IsZero) return a;
+            System.Numerics.BigInteger magnitude = System.Numerics.BigInteger.Abs(a.Mantissa);
+            int shift = (int)Math.Max(0L, 67 + (64 - long.LeadingZeroCount(divisor)) - magnitude.GetBitLength());
+            System.Numerics.BigInteger quotient = System.Numerics.BigInteger.DivRem(magnitude << shift, divisor, out var remainder);
+            int exponent = a.Exponent - shift;
+            if (!remainder.IsZero)
+            {
+                quotient = (quotient << 1) | System.Numerics.BigInteger.One; // sticky bit below the rounding position
+                exponent--;
+            }
+
+            return RoundToSignificantBits(a.Mantissa.Sign < 0 ? -quotient : quotient, exponent, 64);
+        }
+
+        private static double LongDoubleToDouble((System.Numerics.BigInteger Mantissa, int Exponent) a)
+        {
+            if (a.Mantissa.IsZero) return 0.0;
+            (System.Numerics.BigInteger mantissa, int exponent) = RoundToSignificantBits(a.Mantissa, a.Exponent, 53);
+            return Math.ScaleB((double)mantissa, exponent); // |mantissa| ≤ 2^53: exact; ScaleB overflows to ±∞ as R
+        }
+
+        // Rounds mantissa·2^exponent to `bits` significant bits, ties to even.
+        private static (System.Numerics.BigInteger Mantissa, int Exponent) RoundToSignificantBits(
+            System.Numerics.BigInteger mantissa, int exponent, int bits)
+        {
+            if (mantissa.IsZero) return (mantissa, 0);
+            bool negative = mantissa.Sign < 0;
+            System.Numerics.BigInteger magnitude = System.Numerics.BigInteger.Abs(mantissa);
+            long length = magnitude.GetBitLength();
+            if (length > bits)
+            {
+                int shift = (int)(length - bits);
+                System.Numerics.BigInteger quotient = magnitude >> shift;
+                System.Numerics.BigInteger remainder = magnitude - (quotient << shift);
+                System.Numerics.BigInteger half = System.Numerics.BigInteger.One << (shift - 1);
+                if (remainder > half || (remainder == half && !quotient.IsEven)) quotient += 1;
+                magnitude = quotient;
+                exponent += shift;
+                if (magnitude.GetBitLength() > bits)
+                {
+                    magnitude >>= 1; // rounding carried to a power of two: exact
+                    exponent += 1;
+                }
+            }
+
+            // Drop trailing zero bits so the exponent stays bounded (does not change the value).
+            while (!magnitude.IsZero && magnitude.IsEven)
+            {
+                int tz = (int)System.Numerics.BigInteger.TrailingZeroCount(magnitude);
+                magnitude >>= tz;
+                exponent += tz;
+            }
+
+            return (negative ? -magnitude : magnitude, exponent);
+        }
+
+        /// <summary>
+        /// R <c>dbinom(x, size, prob, log = TRUE)</c> (R 4.3 nmath <c>dbinom.c</c> → <c>dbinom_raw(x, n, p, 1 − p)</c>:
+        /// Loader's saddle-point form with <c>stirlerr</c> and <c>bd0</c>): ln P(X = x), X ~ Binomial(size, prob).
+        /// NaN arguments propagate; prob ∉ [0, 1] or a negative / non-integer size give NaN; x &lt; 0, non-integer
+        /// or &gt; size give −∞.
+        /// </summary>
+        /// <param name="x">Number of successes.</param>
+        /// <param name="size">Number of trials.</param>
+        /// <param name="prob">Success probability.</param>
+        /// <returns>The log probability.</returns>
+        public static double BinomialLogDensity(double x, double size, double prob)
+        {
+            if (double.IsNaN(x) || double.IsNaN(size) || double.IsNaN(prob)) return x + size + prob;
+            if (prob < 0 || prob > 1 || size < 0 || Math.Abs(size - Math.Round(size)) > 1e-7 * Math.Max(1.0, Math.Abs(size)))
+                return double.NaN;
+            if (Math.Abs(x - Math.Round(x)) > 1e-7 * Math.Max(1.0, Math.Abs(x))) return double.NegativeInfinity; // R_D_nonint_check
+            if (x < 0 || double.IsInfinity(x)) return double.NegativeInfinity;
+            double n = Math.Round(size), k = Math.Round(x), p = prob, q = 1 - prob;
+
+            if (p == 0) return k == 0 ? 0.0 : double.NegativeInfinity;
+            if (q == 0) return k == n ? 0.0 : double.NegativeInfinity;
+            if (k == 0)
+            {
+                if (n == 0) return 0.0;
+                return p < 0.1 ? -BinomialDeviance(n, n * q) - n * p : n * Math.Log(q);
+            }
+
+            if (k == n) return q < 0.1 ? -BinomialDeviance(n, n * p) - n * q : n * Math.Log(p);
+            if (k < 0 || k > n) return double.NegativeInfinity;
+            return LoaderInteriorLogPmf((long)k, (long)n, p, q);
+        }
+
+        /// <summary>
+        /// Silverman's rule-of-thumb bandwidth for a Gaussian kernel density estimate, exactly as R
+        /// <c>stats::bw.nrd0</c>: <c>h = 0.9 · lo · n^(−1/5)</c> with <c>lo = min(sd(x), IQR(x)/1.34)</c> (sample SD,
+        /// n − 1 divisor; IQR from R's default type-7 quantiles); when that is 0, <c>lo</c> falls back to sd(x), then
+        /// to |x₁| (the first value as supplied), then to 1 (R: <c>(lo &lt;- hi) || (lo &lt;- abs(x[1L])) || (lo &lt;- 1)</c>).
+        /// Silverman (1986) <i>Density Estimation</i>, eq. 3.31. sd(x) is R's long-double <c>var</c>
+        /// (<see cref="ExtendedPrecisionVariance"/>), so the result is bit-identical to R 4.3.3 <c>bw.nrd0</c> on x86-64.
+        /// </summary>
+        /// <param name="values">The sample (at least two finite values).</param>
+        /// <exception cref="ArgumentNullException"><paramref name="values"/> is null.</exception>
+        /// <exception cref="ArgumentException">fewer than two values, or a value is not finite.</exception>
+        public static double BandwidthNrd0(IReadOnlyList<double> values)
+        {
+            ArgumentNullException.ThrowIfNull(values);
+            int n = values.Count;
+            if (n < 2)
+            {
+                throw new ArgumentException("bw.nrd0 needs at least 2 data points.", nameof(values));
+            }
+
+            var sorted = new double[n];
+            for (int i = 0; i < n; i++)
+            {
+                if (!double.IsFinite(values[i]))
+                {
+                    throw new ArgumentException("All values must be finite.", nameof(values));
+                }
+
+                sorted[i] = values[i];
+            }
+
+            double hi = Math.Sqrt(ExtendedPrecisionVariance(sorted)); // sd(x) = sqrt(var(x)), R's long-double cov.c (F66)
+            Array.Sort(sorted);
+            // R's 1-based index 1 + (n − 1)·p is exact for p = ¼, ¾, so this is the same arithmetic as the former 0-based form.
+            double iqr = QuantileType7(sorted, 0.75) - QuantileType7(sorted, 0.25);
+
+            double lo = Math.Min(hi, iqr / 1.34);
+            if (lo == 0.0)
+            {
+                lo = hi;
+                if (lo == 0.0) lo = Math.Abs(values[0]);
+                if (lo == 0.0) lo = 1.0;
+            }
+
+            return 0.9 * lo * Math.Pow(n, -0.2);
+        }
+
+        /// <summary>
+        /// R <c>quantile(x, probability, type = 7, names = FALSE)</c> (stats/R/quantile.R, Hyndman &amp; Fan 1996 type 7),
+        /// with R's own 1-based arithmetic: <c>index = 1 + (n − 1)·p</c>, <c>lo = floor(index)</c>, <c>hi = ceiling(index)</c>,
+        /// <c>qs = x[lo]</c>, and <c>(1 − h)·qs + h·x[hi]</c> (h = index − lo) only when <c>index &gt; lo</c> and
+        /// <c>x[hi] ≠ qs</c>. E.g. x = {3, 1, 4, 1, 5}, p = 0.85 ⇒ 4.4 (R 4.3.3). Added for Battenberg's
+        /// <c>filterMarkS4</c> (FIN-B24 F40).
+        /// </summary>
+        /// <param name="values">The sample (unsorted; at least one finite value).</param>
+        /// <param name="probability">Probability p ∈ [0, 1].</param>
+        /// <exception cref="ArgumentNullException"><paramref name="values"/> is null.</exception>
+        /// <exception cref="ArgumentException">empty sample or a non-finite value.</exception>
+        /// <exception cref="ArgumentOutOfRangeException">p outside [0, 1].</exception>
+        public static double SampleQuantileType7(IReadOnlyList<double> values, double probability)
+        {
+            ArgumentNullException.ThrowIfNull(values);
+            if (!(probability >= 0.0 && probability <= 1.0))
+                throw new ArgumentOutOfRangeException(nameof(probability), probability, "p must lie in [0, 1].");
+            int n = values.Count;
+            if (n == 0)
+                throw new ArgumentException("The sample must not be empty.", nameof(values));
+            var x = new double[n];
+            for (int i = 0; i < n; i++)
+            {
+                if (!double.IsFinite(values[i]))
+                    throw new ArgumentException("Every value must be finite.", nameof(values));
+                x[i] = values[i];
+            }
+
+            Array.Sort(x);
+            return QuantileType7(x, probability);
+        }
+
+        // R stats::quantile type 7 on an ascending-sorted sample, R's 1-based arithmetic: index = 1 + (n − 1)·p,
+        // lo = floor(index), hi = ceiling(index); interpolate (1 − h)·x[lo] + h·x[hi] only when index > lo and
+        // x[hi] ≠ x[lo] (R quantile.default).
+        private static double QuantileType7(double[] sorted, double probability)
+        {
+            int n = sorted.Length;
+            double index = 1.0 + (n - 1) * probability;
+            double lo = Math.Floor(index);
+            double hi = Math.Ceiling(index);
+            double qs = sorted[(int)lo - 1];
+            double xHi = sorted[(int)hi - 1];
+            if (index > lo && xHi != qs)
+            {
+                double h = index - lo;
+                qs = ((1 - h) * qs) + (h * xHi);
+            }
+
+            return qs;
+        }
+
+        /// <summary>
+        /// Gaussian kernel density estimate exactly as R <c>stats::density.default(x, bw = "nrd0", adjust, kernel =
+        /// "gaussian", n, cut)</c> with unit weights: bandwidth <c>bw = adjust · bw.nrd0(x)</c>; output grid
+        /// <c>seq(min(x) − cut·bw, max(x) + cut·bw, length.out = n)</c>; the data are linearly binned
+        /// (<c>C_BinDist</c>, weight 1/N) onto <c>N_g = max(n, 512)</c> (rounded up to a power of two above 512) points
+        /// spanning <c>[from − 4·bw, to + 4·bw]</c>, convolved with the Gaussian kernel, clamped at 0 and linearly
+        /// interpolated (<c>approx</c>) onto the output grid. R evaluates the circular convolution by FFT; here it is
+        /// evaluated directly (the binned mass occupies only the first half of the zero-padded 2·N_g buffer, so the
+        /// circular and linear sums coincide), which agrees with R to ≈ 1e−15 absolute.
+        /// <para>
+        /// Kernel lattice: R ≥ 4.4 (default <c>old.coords = FALSE</c>) evaluates the kernel at multiples of the bin
+        /// spacing (up − lo)/(N_g − 1); R ≤ 4.3 (or <c>old.coords = TRUE</c>) used 2·(up − lo)/(2·N_g − 1), which
+        /// rescales densities by ≈ 0.999 (R PR#18337). <paramref name="legacyCoordinates"/> selects the R ≤ 4.3 lattice.
+        /// </para>
+        /// </summary>
+        /// <param name="values">The sample (at least two finite values).</param>
+        /// <param name="adjust">Bandwidth multiplier (R <c>adjust</c>), &gt; 0.</param>
+        /// <param name="points">Number of output grid points (R <c>n</c>, default 512), ≥ 2.</param>
+        /// <param name="cut">Grid extension beyond the data in bandwidths (R <c>cut</c>, default 3), ≥ 0.</param>
+        /// <param name="legacyCoordinates">true reproduces R ≤ 4.3 (<c>old.coords = TRUE</c>) values.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="values"/> is null.</exception>
+        /// <exception cref="ArgumentException">fewer than two values or a non-finite value.</exception>
+        /// <exception cref="ArgumentOutOfRangeException">invalid <paramref name="adjust"/>, <paramref name="points"/> or <paramref name="cut"/>.</exception>
+        public static KernelDensityEstimate GaussianKernelDensity(
+            IReadOnlyList<double> values,
+            double adjust = 1.0,
+            int points = 512,
+            double cut = 3.0,
+            bool legacyCoordinates = false)
+        {
+            ArgumentNullException.ThrowIfNull(values);
+            if (!(adjust > 0.0) || double.IsPositiveInfinity(adjust))
+                throw new ArgumentOutOfRangeException(nameof(adjust), adjust, "adjust must be a finite positive number.");
+            if (points < 2)
+                throw new ArgumentOutOfRangeException(nameof(points), points, "At least two grid points are required.");
+            if (!(cut >= 0.0) || double.IsPositiveInfinity(cut))
+                throw new ArgumentOutOfRangeException(nameof(cut), cut, "cut must be a finite non-negative number.");
+
+            double bw = adjust * BandwidthNrd0(values);
+            int nx = values.Count;
+            double min = double.PositiveInfinity, max = double.NegativeInfinity;
+            for (int i = 0; i < nx; i++)
+            {
+                min = Math.Min(min, values[i]);
+                max = Math.Max(max, values[i]);
+            }
+
+            int ng = Math.Max(points, 512);
+            if (ng > 512) ng = 1 << (int)Math.Ceiling(Math.Log2(ng));
+
+            double from = min - (cut * bw);
+            double to = max + (cut * bw);
+            double lo = from - (4 * bw);
+            double up = to + (4 * bw);
+
+            // C_BinDist: linear binning of weight 1/N onto ng points over [lo, up].
+            var binned = new double[ng];
+            double weight = 1.0 / nx;
+            double xdelta = (up - lo) / (ng - 1);
+            int ixmax = ng - 2;
+            for (int i = 0; i < nx; i++)
+            {
+                double xpos = (values[i] - lo) / xdelta;
+                int ix = (int)Math.Floor(xpos);
+                double fx = xpos - ix;
+                if (ix >= 0 && ix <= ixmax)
+                {
+                    binned[ix] += (1 - fx) * weight;
+                    binned[ix + 1] += fx * weight;
+                }
+                else if (ix == -1)
+                {
+                    binned[0] += fx * weight;
+                }
+                else if (ix == ixmax + 1)
+                {
+                    binned[ix] += (1 - fx) * weight;
+                }
+            }
+
+            // Kernel ordinates kords = seq.int(0, L, length.out = 2·ng) with L = ((2ng − 1)/(ng − 1))·(up − lo)
+            // (R ≥ 4.4) or 2·(up − lo) (old.coords); the lag-d kernel weight is dnorm(d·step, sd = bw).
+            double span = legacyCoordinates ? 2 * (up - lo) : (2.0 * ng - 1) / (ng - 1) * (up - lo);
+            double step = span / ((2 * ng) - 1);
+            var kernel = new double[ng];
+            for (int d = 0; d < ng; d++)
+            {
+                double z = d * step / bw;
+                kernel[d] = InvSqrt2Pi * Math.Exp(-0.5 * z * z) / bw; // R dnorm4: M_1_SQRT_2PI·exp(−x²/2)/σ
+            }
+
+            var kords = new double[ng];
+            for (int j = 0; j < ng; j++)
+            {
+                double acc = 0.0;
+                for (int m = 0; m < ng; m++)
+                {
+                    if (binned[m] != 0.0) acc += binned[m] * kernel[Math.Abs(m - j)];
+                }
+
+                kords[j] = Math.Max(0.0, acc);
+            }
+
+            double[] xords = RSequence(lo, up, ng);
+            double[] gridX = RSequence(from, to, points);
+            var gridY = new double[points];
+            for (int k = 0; k < points; k++)
+            {
+                gridY[k] = LinearInterpolate(xords, kords, gridX[k]);
+            }
+
+            return new KernelDensityEstimate(gridX, gridY, bw);
+        }
+
+        private const double InvSqrt2Pi = 0.398942280401432677939946059934; // R M_1_SQRT_2PI
+
+        // R seq.int(from, to, length.out = n): from + i·((to − from)/(n − 1)), last element exactly `to`.
+        private static double[] RSequence(double from, double to, int n)
+        {
+            var seq = new double[n];
+            double by = (to - from) / (n - 1);
+            seq[0] = from;
+            for (int i = 1; i < n - 1; i++) seq[i] = from + (i * by);
+            seq[n - 1] = to;
+            return seq;
+        }
+
+        // R stats approx1 (method = "linear", rule = 1): bisection, exact knots returned verbatim.
+        private static double LinearInterpolate(double[] x, double[] y, double v)
+        {
+            int i = 0, j = x.Length - 1;
+            if (v < x[i] || v > x[j]) return double.NaN;
+            while (i < j - 1)
+            {
+                int ij = (i + j) / 2;
+                if (v < x[ij]) j = ij; else i = ij;
+            }
+
+            if (v == x[j]) return y[j];
+            if (v == x[i]) return y[i];
+            return y[i] + ((y[j] - y[i]) * ((v - x[i]) / (x[j] - x[i])));
+        }
+
+        /// <summary>
+        /// Smooth-peak detection of R <c>peakPick::peakpick</c> (v0.11; Weber, Ramachandran &amp; Henikoff 2014,
+        /// <i>Mol Cell</i> 53:819) on one series: (1) centred derivative <c>der[i] = (v[i+1] − v[i−1])/2</c>; a candidate is
+        /// a point adjacent to a non-flat +→− derivative sign change with <c>|der| &lt; derivativeLimit</c>; (2) candidates
+        /// within <paramref name="peakPositions"/> of either end are dropped, and a candidate survives only if
+        /// <c>v[i] &gt; mean + peakMinSd · sd / √(2·npos + 1)</c> over its ±npos window (R's long-double <c>mean</c> / <c>sd</c>,
+        /// <see cref="ExtendedPrecisionMean"/> / <see cref="ExtendedPrecisionVariance"/>); (3) while two candidates are
+        /// ≤ <paramref name="neighborLimit"/> apart, the lower of the closest pair is removed (first on ties).
+        /// Returns a boolean peak mask of the same length.
+        /// </summary>
+        /// <param name="series">The series (e.g. a density's y values).</param>
+        /// <param name="neighborLimit">peakpick <c>neighlim</c> (≥ 0).</param>
+        /// <param name="derivativeLimit">peakpick <c>deriv.lim</c> (default 0.04).</param>
+        /// <param name="peakMinSd">peakpick <c>peak.min.sd</c> (default 0.5).</param>
+        /// <param name="peakPositions">peakpick <c>peak.npos</c> (default 10).</param>
+        /// <exception cref="ArgumentNullException"><paramref name="series"/> is null.</exception>
+        /// <exception cref="ArgumentOutOfRangeException">negative <paramref name="neighborLimit"/> or <paramref name="peakPositions"/>.</exception>
+        public static bool[] PeakPick(
+            IReadOnlyList<double> series,
+            int neighborLimit,
+            double derivativeLimit = 0.04,
+            double peakMinSd = 0.5,
+            int peakPositions = 10)
+        {
+            ArgumentNullException.ThrowIfNull(series);
+            if (neighborLimit < 0)
+                throw new ArgumentOutOfRangeException(nameof(neighborLimit), neighborLimit, "neighlim must be non-negative.");
+            if (peakPositions < 0)
+                throw new ArgumentOutOfRangeException(nameof(peakPositions), peakPositions, "peak.npos must be non-negative.");
+
+            int n = series.Count;
+            var candidates = new bool[n];
+            if (n < 3) return candidates;
+
+            // der = rbind(NA, diff(mat, lag = 2)/2, NA); NaN plays R's NA.
+            var der = new double[n];
+            der[0] = double.NaN;
+            der[n - 1] = double.NaN;
+            for (int i = 1; i < n - 1; i++) der[i] = (series[i + 1] - series[i - 1]) / 2;
+
+            // pos2neg[i] = der[i] ≥ 0 & der[i+1] ≤ 0 & !(der[i] == 0 & der[i+1] == 0), R three-valued logic.
+            var pos2neg = new bool?[n - 1];
+            for (int i = 0; i < n - 1; i++)
+            {
+                bool? a = Cmp(der[i], v => v >= 0), b = Cmp(der[i + 1], v => v <= 0);
+                bool? bothZero = And(Cmp(der[i], v => v == 0), Cmp(der[i + 1], v => v == 0));
+                pos2neg[i] = And(And(a, b), Not(bothZero));
+            }
+
+            for (int j = 0; j < n; j++)
+            {
+                bool? sign = Or(j < n - 1 ? pos2neg[j] : null, j > 0 ? pos2neg[j - 1] : null);
+                bool? small = Cmp(der[j], v => Math.Abs(v) < derivativeLimit);
+                candidates[j] = And(small, sign) == true;
+            }
+
+            // smallpeaks: drop the npos head/tail positions, then candidates not rising above mean + nsd·SEM.
+            for (int j = 0; j < Math.Min(peakPositions, n); j++)
+            {
+                candidates[j] = false;
+                candidates[n - 1 - j] = false;
+            }
+
+            var toDelete = new List<int>();
+            for (int pos = 0; pos < n; pos++)
+            {
+                if (!candidates[pos]) continue;
+                int count = (2 * peakPositions) + 1;
+                if (count == 1)
+                {
+                    continue; // R: sd() of one value is NA, ifelse(NA) is NA and which() drops it — kept
+                }
+
+                var window = new double[count];
+                for (int k = 0; k < count; k++) window[k] = series[pos - peakPositions + k];
+                double mean = ExtendedPrecisionMean(window, skipNaN: true); // mean(vec[postocheck], na.rm = TRUE)
+                double sd = Math.Sqrt(ExtendedPrecisionVariance(window)); // sd(vec[postocheck], na.rm = TRUE)
+                double limit = mean + (peakMinSd * sd / Math.Sqrt(count));
+                if (!(series[pos] > limit)) toDelete.Add(pos);
+            }
+
+            foreach (int pos in toDelete) candidates[pos] = false;
+
+            // keepmax: repeatedly drop the lower member of the closest pair while any pair is ≤ neighlim apart.
+            while (true)
+            {
+                var positions = new List<int>();
+                for (int k = 0; k < n; k++) if (candidates[k]) positions.Add(k);
+                int best = -1, bestDist = int.MaxValue;
+                for (int k = 0; k + 1 < positions.Count; k++)
+                {
+                    int dist = positions[k + 1] - positions[k];
+                    if (dist < bestDist)
+                    {
+                        bestDist = dist;
+                        best = k;
+                    }
+                }
+
+                if (best < 0 || bestDist > neighborLimit) return candidates;
+                int p1 = positions[best], p2 = positions[best + 1];
+                candidates[series[p2] < series[p1] ? p2 : p1] = false;
+            }
+        }
+
+        private static bool? Cmp(double v, Func<double, bool> predicate) => double.IsNaN(v) ? null : predicate(v);
+
+        // R three-valued `&`: FALSE dominates, then NA.
+        private static bool? And(bool? a, bool? b)
+        {
+            if (a == false || b == false) return false;
+            if (a == true && b == true) return true;
+            return null;
+        }
+
+        // R three-valued `|`: TRUE dominates, then NA.
+        private static bool? Or(bool? a, bool? b)
+        {
+            if (a == true || b == true) return true;
+            if (a == false && b == false) return false;
+            return null;
+        }
+
+        private static bool? Not(bool? a) => a.HasValue ? !a.Value : null;
     }
+
+    /// <summary>
+    /// A kernel density estimate on an evenly spaced grid (R <c>density</c> object: <c>$x</c>, <c>$y</c>, <c>$bw</c>).
+    /// </summary>
+    /// <param name="X">Grid abscissae.</param>
+    /// <param name="Y">Density ordinates at <paramref name="X"/>.</param>
+    /// <param name="Bandwidth">The kernel standard deviation used (after <c>adjust</c>).</param>
+    public sealed record KernelDensityEstimate(IReadOnlyList<double> X, IReadOnlyList<double> Y, double Bandwidth);
 }

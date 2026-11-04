@@ -74,7 +74,7 @@ Verbatim quotes extracted from the retrieved text:
 ### Hyndman & Fan (1996) — sample quantile type 7
 
 **URL:** https://en.wikipedia.org/wiki/Quantile (Estimating quantiles from a sample → Type 7 / "linear interpolation of the modes")
-**Accessed:** 2026-06-14
+**Accessed:** 2026-06-14 · re-fetched 2026-10-14 (SRC citation audit: supports the claims above)
 **Authority rank:** 4 (Wikipedia, citing the primary Hyndman R.J. & Fan Y., 1996, *The American Statistician* 50(4):361–365)
 
 **Key Extracted Points:**

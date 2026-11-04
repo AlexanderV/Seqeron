@@ -873,4 +873,46 @@ public class StatisticsMetamorphicTests
     }
 
     #endregion
+    #region B03 F22/F45 INV — non-ASCII letters are non-residues (ASCII-only case fold)
+
+    [Test]
+    [Description("INV: the protein methods fold case ASCII-only (EMBOSS pepstats; B02 TRANS-PROT-001), so a non-ASCII letter (ſ, ı, K Kelvin sign, é, ß, Ω, ﬀ …) is an unknown symbol exactly like X: replacing every such letter with X leaves MW (all lenient options), pI / net charge (both scales, all windows), GRAVY, the hydropathy profile and both Chou–Fasman assignments unchanged.")]
+    public void ProteinProperties_NonAsciiLetters_BehaveLikeX()
+    {
+        var rng = new System.Random(22045);
+        const string residues = "ARNDCEQGHILKMFPSTWYVarndcekhy";
+        char[] nonAscii = { 'ſ', 'ı', 'K', 'é', 'Ä', 'ß', 'Ω', 'Ж', 'ﬀ' };
+        for (int trial = 0; trial < 300; trial++)
+        {
+            int n = rng.Next(1, 40);
+            char[] a = Enumerable.Range(0, n)
+                .Select(_ => rng.Next(4) == 0 ? nonAscii[rng.Next(nonAscii.Length)] : residues[rng.Next(residues.Length)]).ToArray();
+            string seq = new(a);
+            string xed = new(a.Select(c => c > 0x7F ? 'X' : c).ToArray());
+            string because = $"'{seq}' vs '{xed}'";
+
+            foreach (var mw in new[] { SequenceStatistics.MolecularWeightOptions.Default, new() { Monoisotopic = true }, new() { Circular = true } })
+                SequenceStatistics.CalculateMolecularWeight(seq, mw).Should().Be(SequenceStatistics.CalculateMolecularWeight(xed, mw), because);
+            SequenceStatistics.CalculateHydrophobicity(seq).Should().Be(SequenceStatistics.CalculateHydrophobicity(xed), because);
+            SequenceStatistics.CalculateHydrophobicityProfile(seq, 5, 0.5).Should().Equal(SequenceStatistics.CalculateHydrophobicityProfile(xed, 5, 0.5), because);
+            foreach (var scale in new[] { SequenceStatistics.PkaScale.Emboss, SequenceStatistics.PkaScale.Bjellqvist })
+            {
+                SequenceStatistics.CalculateIsoelectricPoint(seq, scale).Should().Be(SequenceStatistics.CalculateIsoelectricPoint(xed, scale), because);
+                SequenceStatistics.CalculateNetCharge(seq, 7.0, scale).Should().Be(SequenceStatistics.CalculateNetCharge(xed, 7.0, scale), because);
+                foreach (var window in Enum.GetValues<SequenceStatistics.IsoelectricPointWindow>())
+                {
+                    var opts = new SequenceStatistics.IsoelectricPointOptions { Scale = scale, Window = window, LysinesModified = 1 };
+                    bool f1 = SequenceStatistics.TryCalculateIsoelectricPoint(seq, opts, out double p1);
+                    bool f2 = SequenceStatistics.TryCalculateIsoelectricPoint(xed, opts, out double p2);
+                    f1.Should().Be(f2, because);
+                    p1.Should().Be(p2, because);
+                }
+            }
+            foreach (var rules in new[] { SequenceStatistics.ChouFasmanRuleSet.Standard, SequenceStatistics.ChouFasmanRuleSet.Graded1978 })
+                SequenceStatistics.PredictSecondaryStructureChouFasman(seq, rules)
+                    .Should().Be(SequenceStatistics.PredictSecondaryStructureChouFasman(xed, rules), because);
+        }
+    }
+
+    #endregion
 }

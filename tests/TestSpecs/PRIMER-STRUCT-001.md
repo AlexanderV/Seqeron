@@ -42,8 +42,8 @@
 ## Invariants
 
 1. **Homopolymer invariant:** Result ≥ 1 for non-empty sequences, 0 for empty
-2. **Dinucleotide invariant:** Result ≥ 0; 0 for sequences < 4 bp
-3. **Hairpin invariant:** Requires minimum length (2×stem + loop) to return true
+2. **Dinucleotide invariant:** Result ≥ 0; 0 for sequences < 4 bp (unsourced library screen, no Primer3 counterpart — audit round 3, A3-8)
+3. **Hairpin invariant:** Requires minimum length (2×stem + loop) to return true (`HasHairpinPotential` is a sequence-only library screen: default loop 3 = Primer3 `thal.c` `min_hrpn_loop`, default stem 4 unsourced; it can disagree with Primer3's ntthal hairpin, see M10b)
 4. **Stability invariant:** GC-rich 3' ends have more negative (stable) ΔG
 5. **Primer-dimer invariant:** Returns false for empty primers; the compl_end score is symmetric and ≥ 0
 6. **Primer3 structure invariant:** every *_TH value is ≥ 0 (negative Tm / no structure → 0)
@@ -59,11 +59,12 @@
 | M3 | Homopolymer | All same (AAAAAA) | 6 | Primer3 PRIMER_MAX_POLY_X |
 | M4 | Homopolymer | Mixed case (AaAaAa) | 6 (case insensitive) | Universal DNA convention |
 | M5 | Dinucleotide | Null/empty/short (<4 bp) | 0 | Implementation bounds |
-| M6 | Dinucleotide | No repeat (ACGT) | 1 | Primer3 behavior |
-| M7 | Dinucleotide | ACACACAC | 4 | Primer3 behavior |
+| M6 | Dinucleotide | No repeat (ACGT) | 1 | Library screen contract (unsourced; Primer3 has no dinucleotide limit — A3-8) |
+| M7 | Dinucleotide | ACACACAC | 4 | Library screen contract (unsourced; Primer3 has no dinucleotide limit — A3-8) |
 | M8 | Hairpin | Null/empty/too-short | false | Stem-loop theory (min 2×stem + loop) |
 | M9 | Hairpin | Non-self-complementary | false | Wikipedia Stem-loop |
 | M10 | Hairpin | Self-complementary | true | Wikipedia Stem-loop |
+| M10b | Hairpin | Library screen ≠ Primer3: `CAGTAAAACCCTTTTGCAGC` flagged; `AAAACCCTTTT` flagged | true / true, while Primer3 ntthal hairpin Tm 37.65 °C (< 47) / no structure | primer3-py 2.3.1 `calc_hairpin` (50 mM / 1.5 mM / 0.6 mM / 50 nM) |
 | M11 | Primer-dimer | Null/empty primer (either side) | false | Null guard |
 | M12 | Primer-dimer | Non-complementary 3' ends (A₈ vs AAAACCCC) | false, compl_end 0 | primer3-py check_primers (alignment mode) |
 | M13 | Primer-dimer | Complementary 3' ends (A₈ vs T₈); identical poly-A (A₈ vs A₈) is NOT a dimer; GGCC/GGCC 3' ends ARE | true / false / true (8 / 0 / 4) | Primer3 dpal.c (compiled), primer3-py check_primers |
@@ -76,6 +77,7 @@
 | M15 | 3' Stability | GC-rich vs AT-rich (exact values) | GCGCG = -6.86, TATAT = -0.86 | SantaLucia (1998) + Primer3 Manual |
 | M16 | 3' Stability | GCGCG (most stable 5mer) | -6.86 kcal/mol | Primer3 Manual + SantaLucia (1998) |
 | M17 | 3' Stability | TATAT (least stable 5mer) | -0.86 kcal/mol | Primer3 Manual + SantaLucia (1998) |
+| M18 | Argument contract (A7-3/A7-4, F68) | `HasHairpinPotential` minStemLength < 1 / minLoopLength < 0 → `ArgumentOutOfRangeException` (was true for a 0-bp stem, raw Substring AOORE for negatives); loop 0 allowed (GGGGCCCC, 4, 0 → true); int.MaxValue stem/loop → false (no 2·stem + loop overflow); `EvaluatePrimer(null)` → `ArgumentNullException` (was NRE); `GeneratePrimerCandidates` null template / region outside the template → eager `ArgumentNullException` / `ArgumentOutOfRangeException`; `CalculateTemplateMispriming` position + length overflow → `ArgumentOutOfRangeException` (`position`) | ≥ 1-bp stem; library argument contract | Primer3 thal.c min_hrpn_loop (loop semantics) |
 
 ### SHOULD Tests (Recommended)
 
@@ -126,8 +128,12 @@
 | `HasHairpinPotential_SelfComplementary_ReturnsTrue` | 1 | ✅ Covered | M10 |
 | `HasHairpinPotential_CustomMinStem_RespectsParameter` | 1 | ✅ Covered | S3 |
 | `HasHairpinPotential_CustomMinLoopLength_RespectsParameter` | 1 | ✅ Covered | S4 (was ❌ Missing) |
+| `HasHairpinPotential_LibraryScreen_DiffersFromPrimer3NtthalHairpin` | 2 | ✅ Covered | M10b |
 | `HasHairpinPotential_LongSequence_UsesSuffixTreeOptimization` | 1 | ✅ Covered | C3 |
 | `HasHairpinPotential_LongSequenceNoHairpin_ReturnsFalse` | 1 | ✅ Covered | C3 |
+| `HasHairpinPotential_NonAcgtBlocks_NeverPair_OnBothPaths` | 2 | ✅ Covered | C3: only A·T/G·C pair on both paths (97 nt O(n²), 113 nt suffix tree; the suffix path used the IUPAC N→N complement before audit round 5, A5-2) |
+| `HasHairpinPotential_UracilAndLowercase_SameOnBothPaths` | 5 | ✅ Covered | C3: U never pairs with A and lowercase pairs like uppercase on both paths (14 nt O(n²), 134 nt suffix tree; the suffix path mapped U→A before audit round 6, A6-1) |
+| `HasHairpinPotential_ShortScanAndSuffixTree_AgreeOnRandomSequences` | 1 | ✅ Covered | C3: 2000 seeded random < 100-nt sequences (ACGTUNS + lowercase) give the same result as their 100-N-padded suffix-tree extension (A6-1) |
 | `HasPrimerDimer_NullOrEmptyPrimer_ReturnsFalse` | 4 | ✅ Covered | M11 (4 cases: null/empty × both sides) |
 | `HasPrimerDimer_NonComplementary3Ends_ReturnsFalse` | 1 | ✅ Covered | M12 (fixture replaced 2026-10-01: the old AAAACCCCCCCC/GGGGGGGGTTTT pair is fully reverse-complementary, compl_end 12) |
 | `HasPrimerDimer_Complementary3Ends_ReturnsTrue` | 1 | ✅ Covered | M13 (A₈/T₈) |
@@ -144,6 +150,7 @@
 | `Calculate3PrimeStability_MixedCase_ReturnsSameExactValue` | 1 | ✅ Covered | S7 (was ⚠ Weak: now checks -6.86) |
 | `Calculate3PrimeStability_MostStable5mer_MatchesPrimer3` | 1 | ✅ Covered | M16 |
 | `Calculate3PrimeStability_LeastStable5mer_MatchesPrimer3` | 1 | ✅ Covered | M17 |
+| `HasHairpinPotential_IllegalStemOrLoop_ThrowsArgumentOutOfRange` ×5, `HasHairpinPotential_BoundaryArguments` ×6, `EvaluatePrimer_Null_ThrowsArgumentNull`, `GeneratePrimerCandidates_NullTemplate_ThrowsArgumentNull`, `GeneratePrimerCandidates_RegionOutsideTemplate_ThrowsArgumentOutOfRangeEagerly` ×5, `GeneratePrimerCandidates_FullAndEmptyRegion_Unchanged`, `CalculateTemplateMispriming_PositionPlusLengthOverflow_ThrowsArgumentOutOfRange` | 20 | ✅ Covered | M18 |
 | `PrimerStructureAnalysis_WellDesignedPrimer_ExactMetrics` | 1 | ✅ Covered | C4 (was ⚠ Weak: `True.Or.False` → exact values) |
 | `PrimerStructureAnalysis_ProblematicPrimer_ExactMetrics` | 1 | ✅ Covered | C5 (was ⚠ Weak: `<-5.0` → exact -5.40) |
 | `Primer3ThermodynamicStructure_MatchesPrimer3CheckPrimers` | 4 | ✅ Covered | M18 |

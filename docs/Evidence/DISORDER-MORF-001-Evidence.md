@@ -27,7 +27,7 @@
 ### Wikipedia — "Molecular recognition feature" (citing primaries)
 
 **URL:** https://en.wikipedia.org/wiki/Molecular_recognition_feature
-**Accessed:** 2026-06-14 (retrieved via WebFetch; discovered via WebSearch query
+**Accessed:** 2026-06-14 (retrieved via WebFetch; discovered via WebSearch query · re-fetched 2026-10-14 (SRC citation audit: supports the claims above)
 "MoRF molecular recognition feature definition short segment order within disordered region alpha-MoRF length")
 **Authority rank:** 4 (Wikipedia citing primaries — the cited primary is Mohan 2006)
 

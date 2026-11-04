@@ -353,4 +353,224 @@ public class SequenceStatistics_CalculateDinucleotide_Tests
     }
 
     #endregion
+    #region Karlin representation classes (FIN-B03 WP11, audit row A19, F37)
+
+    // Criterion (Karlin & Burge 1995, quoted verbatim in MBE 19(6):964 — SEQ-DINUC-001 Evidence):
+    // "underrepresented if ρ*XY ≤ 0.78 and overrepresented if ρ*XY ≥ 1.23" (bounds inclusive).
+    [TestCase(0.0, SequenceStatistics.DinucleotideRepresentation.UnderRepresented)]
+    [TestCase(0.78, SequenceStatistics.DinucleotideRepresentation.UnderRepresented)]
+    [TestCase(0.78000000000000014, SequenceStatistics.DinucleotideRepresentation.Normal)]
+    [TestCase(1.0, SequenceStatistics.DinucleotideRepresentation.Normal)]
+    [TestCase(1.2299999999999998, SequenceStatistics.DinucleotideRepresentation.Normal)]
+    [TestCase(1.23, SequenceStatistics.DinucleotideRepresentation.OverRepresented)]
+    [TestCase(double.PositiveInfinity, SequenceStatistics.DinucleotideRepresentation.OverRepresented)]
+    public void ClassifyDinucleotideRatio_KarlinThresholds(double rho, SequenceStatistics.DinucleotideRepresentation expected)
+    {
+        Assert.That(SequenceStatistics.ClassifyDinucleotideRatio(rho), Is.EqualTo(expected));
+    }
+
+    [TestCase(double.NaN)]
+    [TestCase(-0.1)]
+    public void ClassifyDinucleotideRatio_InvalidRatio_Throws(double rho)
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => SequenceStatistics.ClassifyDinucleotideRatio(rho));
+    }
+
+    // ρ* of ATGCATGCAATTGGCCATGCAAACGTTTAAGG computed independently in Python (seqinr rho of
+    // seq + separator + reverse complement): AA 1.4273197929111907, AC 0.5243215565796211,
+    // AG 0.26216077828981055, AT 1.6312226204699323, CA 2.0972862263184844, CC 1.011191573403555,
+    // CG 0.67412771560237, CT 0.26216077828981055, GC 2.69651086240948, GG 1.011191573403555,
+    // GT 0.5243215565796211, TA 0.40780565511748307, TG 2.0972862263184844, TT 1.4273197929111907.
+    [Test]
+    public void ClassifyDinucleotideRatios_StrandSymmetric_MatchesKarlinClassesOfIndependentRhoStar()
+    {
+        const string seq = "ATGCATGCAATTGGCCATGCAAACGTTTAAGG";
+        var under = SequenceStatistics.DinucleotideRepresentation.UnderRepresented;
+        var over = SequenceStatistics.DinucleotideRepresentation.OverRepresented;
+        var normal = SequenceStatistics.DinucleotideRepresentation.Normal;
+        var expected = new Dictionary<string, SequenceStatistics.DinucleotideRepresentation>
+        {
+            ["AA"] = over, ["AC"] = under, ["AG"] = under, ["AT"] = over, ["CA"] = over, ["CC"] = normal,
+            ["CG"] = under, ["CT"] = under, ["GC"] = over, ["GG"] = normal, ["GT"] = under, ["TA"] = under,
+            ["TG"] = over, ["TT"] = over,
+        };
+
+        var classes = SequenceStatistics.ClassifyDinucleotideRatios(seq);
+        var ratios = SequenceStatistics.CalculateDinucleotideRatios(seq, strandSymmetric: true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(classes, Is.EquivalentTo(expected));
+            Assert.That(ratios["CG"], Is.EqualTo(0.67412771560237).Within(1e-12));
+            Assert.That(ratios["TA"], Is.EqualTo(0.40780565511748307).Within(1e-12));
+        });
+    }
+
+    // Single-strand ρ (Python): AAAATTTTCCCCGGGGACGT -> AA/CC/GG/TT 2.526315789473684 (over),
+    // CG 1.6842105263157894 (over), AC/AT/GA/GT/TC 0.8421052631578947 (normal).
+    [Test]
+    public void ClassifyDinucleotideRatios_SingleStrand_KeysAndClassesFollowRatioMap()
+    {
+        var classes = SequenceStatistics.ClassifyDinucleotideRatios("AAAATTTTCCCCGGGGACGT", strandSymmetric: false);
+        var over = SequenceStatistics.DinucleotideRepresentation.OverRepresented;
+        var normal = SequenceStatistics.DinucleotideRepresentation.Normal;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(classes.Keys, Is.EquivalentTo(new[] { "AA", "AC", "AT", "CC", "CG", "GA", "GG", "GT", "TC", "TT" }));
+            foreach (var d in new[] { "AA", "CC", "GG", "TT", "CG" }) Assert.That(classes[d], Is.EqualTo(over), d);
+            foreach (var d in new[] { "AC", "AT", "GA", "GT", "TC" }) Assert.That(classes[d], Is.EqualTo(normal), d);
+            Assert.That(SequenceStatistics.ClassifyDinucleotideRatios(""), Is.Empty);
+            Assert.That(SequenceStatistics.ClassifyDinucleotideRatios("A"), Is.Empty);
+        });
+    }
+
+    #endregion
+
+    #region Absent dinucleotides, rho = 0 (FIN-B03 R2-WP4, round 2 B7, F51)
+
+    // seqinr 4.2.36 rho() executed 2026-10-14 (R 4, Debian r-cran-seqinr): every word over the occurring
+    // bases is reported; an unobserved word with both bases present is 0, a word with an absent base NaN.
+    private static void AssertRatios(IReadOnlyDictionary<string, double> actual, IReadOnlyDictionary<string, double> expected)
+    {
+        Assert.That(actual.Keys, Is.EquivalentTo(expected.Keys));
+        Assert.Multiple(() =>
+        {
+            foreach (var (k, v) in expected)
+                Assert.That(actual[k], Is.EqualTo(v).Within(1e-12), k);
+        });
+    }
+
+    [Test]
+    public void DinucleotideRatios_IncludeAbsent_SingleStrand_MatchesSeqinrRhoAll16()
+    {
+        const double hi = 32.0 / 15; // seqinr 2.1333333333333333
+        AssertRatios(SequenceStatistics.CalculateDinucleotideRatios("AACCTTGGAACCTTGG", strandSymmetric: false, includeAbsent: true),
+            new Dictionary<string, double>
+            {
+                ["AA"] = hi, ["AC"] = hi, ["CC"] = hi, ["CT"] = hi, ["GG"] = hi, ["TG"] = hi, ["TT"] = hi,
+                ["GA"] = 16.0 / 15, // seqinr 1.0666666666666667
+                ["AG"] = 0, ["AT"] = 0, ["CA"] = 0, ["CG"] = 0, ["GC"] = 0, ["GT"] = 0, ["TA"] = 0, ["TC"] = 0,
+            });
+    }
+
+    [Test]
+    public void DinucleotideRatios_IncludeAbsent_StrandSymmetric_MatchesSeqinrRhoOfSeqPlusReverseComplement()
+    {
+        AssertRatios(SequenceStatistics.CalculateDinucleotideRatios("AACCTTGGAACCTTGG", strandSymmetric: true, includeAbsent: true),
+            new Dictionary<string, double>
+            {
+                ["AA"] = 32.0 / 15, ["CC"] = 32.0 / 15, ["GG"] = 32.0 / 15, ["TT"] = 32.0 / 15,
+                ["AC"] = 16.0 / 15, ["AG"] = 16.0 / 15, ["CA"] = 16.0 / 15, ["CT"] = 16.0 / 15, ["GT"] = 16.0 / 15, ["TG"] = 16.0 / 15,
+                ["GA"] = 8.0 / 15, ["TC"] = 8.0 / 15, // seqinr 0.53333333333333333
+                ["AT"] = 0, ["CG"] = 0, ["GC"] = 0, ["TA"] = 0,
+            });
+
+        // F37 sequence: seqinr rho* reports GA = TC = 0; the other 14 values are the F37 ones.
+        var r = SequenceStatistics.CalculateDinucleotideRatios("ATGCATGCAATTGGCCATGCAAACGTTTAAGG", true, true);
+        Assert.That(r, Has.Count.EqualTo(16));
+        Assert.Multiple(() =>
+        {
+            Assert.That(r["GA"], Is.EqualTo(0.0));
+            Assert.That(r["TC"], Is.EqualTo(0.0));
+            Assert.That(r["GC"], Is.EqualTo(2.69651086240947979).Within(1e-12));
+            Assert.That(r["AG"], Is.EqualTo(0.26216077828981055).Within(1e-12));
+        });
+    }
+
+    // seqinr: rho(s2c("aaaatttt")) → cg etc. NaN (C and G absent): undefined, so not keys; TA = 0 is.
+    // seqinr: rho(s2c("aacng")) → aa 2, ac 4, ag/ca/cc/cg/ga/gc/gg 0, words with t NaN.
+    [Test]
+    public void DinucleotideRatios_IncludeAbsent_UndefinedRatiosExcluded_AsSeqinrNaN()
+    {
+        AssertRatios(SequenceStatistics.CalculateDinucleotideRatios("AAAATTTT", false, true),
+            new Dictionary<string, double> { ["AA"] = 12.0 / 7, ["AT"] = 4.0 / 7, ["TA"] = 0, ["TT"] = 12.0 / 7 });
+        AssertRatios(SequenceStatistics.CalculateDinucleotideRatios("AAAATTTT", true, true),
+            new Dictionary<string, double> { ["AA"] = 12.0 / 7, ["AT"] = 4.0 / 7, ["TA"] = 0, ["TT"] = 12.0 / 7 });
+        AssertRatios(SequenceStatistics.CalculateDinucleotideRatios("aacng", false, true),
+            new Dictionary<string, double>
+            {
+                ["AA"] = 2, ["AC"] = 4, ["AG"] = 0, ["CA"] = 0, ["CC"] = 0, ["CG"] = 0, ["GA"] = 0, ["GC"] = 0, ["GG"] = 0,
+            });
+
+        // seqinr rho(s2c("an")): all NaN (no counted dinucleotide) → nothing added.
+        Assert.That(SequenceStatistics.CalculateDinucleotideRatios("AN", false, true), Is.Empty);
+        Assert.That(SequenceStatistics.CalculateDinucleotideRatios("A", true, true), Is.Empty);
+        Assert.That(SequenceStatistics.CalculateDinucleotideRatios("", false, true), Is.Empty);
+    }
+
+    // Karlin: rho <= 0.78 under-represented; rho = 0 (CpG-free) is the strongest under-representation.
+    [Test]
+    public void ClassifyDinucleotideRatios_IncludeAbsent_CpGFree_CGUnderRepresented()
+    {
+        var withAbsent = SequenceStatistics.ClassifyDinucleotideRatios("AACCTTGGAACCTTGG", strandSymmetric: true, includeAbsent: true);
+        var observedOnly = SequenceStatistics.ClassifyDinucleotideRatios("AACCTTGGAACCTTGG", strandSymmetric: true);
+        Assert.Multiple(() =>
+        {
+            Assert.That(withAbsent, Has.Count.EqualTo(16));
+            foreach (var d in new[] { "AT", "CG", "GC", "TA", "GA", "TC" })
+                Assert.That(withAbsent[d], Is.EqualTo(SequenceStatistics.DinucleotideRepresentation.UnderRepresented), d);
+            foreach (var d in new[] { "AA", "CC", "GG", "TT" })
+                Assert.That(withAbsent[d], Is.EqualTo(SequenceStatistics.DinucleotideRepresentation.OverRepresented), d);
+            Assert.That(observedOnly.ContainsKey("CG"), Is.False, "default keeps observed dinucleotides only");
+        });
+
+        var f37 = SequenceStatistics.ClassifyDinucleotideRatios("ATGCATGCAATTGGCCATGCAAACGTTTAAGG", true, true);
+        Assert.That(f37["GA"], Is.EqualTo(SequenceStatistics.DinucleotideRepresentation.UnderRepresented));
+        Assert.That(f37["TC"], Is.EqualTo(SequenceStatistics.DinucleotideRepresentation.UnderRepresented));
+    }
+
+    [Test]
+    public void DinucleotideRatios_IncludeAbsent_DefaultUnchanged_AndAddsOnlyZerosOverOccurringBases()
+    {
+        var rng = new Random(51);
+        const string alphabet = "ACGTUNacgt-";
+        for (int iteration = 0; iteration < 400; iteration++)
+        {
+            var chars = new char[rng.Next(0, 40)];
+            for (int i = 0; i < chars.Length; i++) chars[i] = alphabet[rng.Next(rng.Next(2, alphabet.Length + 1))];
+            string seq = new(chars);
+            foreach (bool symmetric in new[] { false, true })
+            {
+                var baseline = SequenceStatistics.CalculateDinucleotideRatios(seq, symmetric);
+                Assert.That(SequenceStatistics.CalculateDinucleotideRatios(seq, symmetric, includeAbsent: false), Is.EquivalentTo(baseline), seq);
+                Assert.That(SequenceStatistics.ClassifyDinucleotideRatios(seq, symmetric, includeAbsent: false),
+                    Is.EquivalentTo(SequenceStatistics.ClassifyDinucleotideRatios(seq, symmetric)), seq);
+
+                var complete = SequenceStatistics.CalculateDinucleotideRatios(seq, symmetric, includeAbsent: true);
+                string upper = seq.ToUpperInvariant();
+                foreach (var (k, v) in complete)
+                {
+                    if (baseline.TryGetValue(k, out double observed))
+                    {
+                        Assert.That(v, Is.EqualTo(observed), seq + " " + k);
+                        continue;
+                    }
+
+                    Assert.That(v, Is.EqualTo(0.0), seq + " " + k);
+                    foreach (char b in k)
+                    {
+                        bool occurs = symmetric
+                            ? (b is 'A' or 'T' ? upper.IndexOfAny(new[] { 'A', 'T' }) >= 0 : upper.IndexOfAny(new[] { 'C', 'G' }) >= 0)
+                            : upper.Contains(b);
+                        Assert.That(occurs, Is.True, $"{seq} {k}: base {b} must occur");
+                    }
+                }
+
+                if (baseline.Count > 0)
+                {
+                    int bases = symmetric
+                        ? (upper.IndexOfAny(new[] { 'A', 'T' }) >= 0 ? 2 : 0) + (upper.IndexOfAny(new[] { 'C', 'G' }) >= 0 ? 2 : 0)
+                        : "ACGTU".Count(upper.Contains);
+                    Assert.That(complete, Has.Count.EqualTo(bases * bases), seq);
+                }
+                else
+                {
+                    Assert.That(complete, Is.Empty, seq);
+                }
+            }
+        }
+    }
+
+    #endregion
 }

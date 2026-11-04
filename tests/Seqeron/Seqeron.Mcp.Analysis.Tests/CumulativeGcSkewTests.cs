@@ -40,4 +40,13 @@ public class CumulativeGcSkewTests
             Assert.That(items[1].CumulativeGcSkew, Is.EqualTo(0.0).Within(1e-12));
         });
     }
+
+    [Test]
+    public void CumulativeGcSkew_IncludePartialWindow_MatchesBiopythonAccumulate()
+    {
+        // Biopython 1.88 GC_skew("GGGCACGTGGCCCCATG", 4) = [0.5, 0, 0, -1, 1] -> accumulate [0.5, 0.5, 0.5, -0.5, 0.5].
+        var items = AnalysisTools.CumulativeGcSkew("GGGCACGTGGCCCCATG", 4, includePartialWindow: true).Items;
+        Assert.That(items.Select(i => i.CumulativeGcSkew), Is.EqualTo(new[] { 0.5, 0.5, 0.5, -0.5, 0.5 }).Within(1e-12));
+        Assert.That(AnalysisTools.CumulativeGcSkew("GGGCACGTGGCCCCATG", 4).Items, Has.Length.EqualTo(4));
+    }
 }

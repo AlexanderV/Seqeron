@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "GcSkewCalculator.CalculateGcSkew",
-  "docRef": "Seqeron.Genomics.Analysis/GcSkewCalculator.cs#L30",
+  "docRef": "Seqeron.Genomics.Analysis/GcSkewCalculator.cs#L26",
   "description": "Whole-sequence GC skew = (G - C) / (G + C). Range [-1, 1]; 0 when the sequence has no G or C.",
   "inputSchema": {
     "type": "object",

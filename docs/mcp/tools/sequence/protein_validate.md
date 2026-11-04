@@ -14,7 +14,7 @@ Validate a protein (amino acid) sequence.
 
 ## Description
 
-Validates whether a sequence contains only valid amino acid codes. Valid characters include the 20 standard amino acids (A, C, D, E, F, G, H, I, K, L, M, N, P, Q, R, S, T, V, W, Y), stop codon (*), unknown (X), and the IUPAC ambiguity codes B (Asx), Z (Glx) and J (Xle). Case-insensitive validation.
+Validates whether a sequence contains only valid amino acid codes. Valid characters include the 20 standard amino acids (A, C, D, E, F, G, H, I, K, L, M, N, P, Q, R, S, T, V, W, Y), stop codon (*), unknown (X), the IUPAC ambiguity codes B (Asx), Z (Glx) and J (Xle), and the 21st/22nd proteinogenic amino acids U (Sec, selenocysteine) and O (Pyl, pyrrolysine) — i.e. Biopython `IUPACData.extended_protein_letters` ("ACDEFGHIKLMNPQRSTVWYBXZJUO") plus `*`, 27 characters. Case-insensitive validation (ASCII letters only).
 
 ## Core Documentation Reference
 

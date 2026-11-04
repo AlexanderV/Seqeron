@@ -18,12 +18,209 @@ and commits it after every change. Batch definitions (units, owned files) are in
   (re-audit their reports first — later batches may have resolved items), THEN Phase 2 (cross-batch dedup),
   THEN final consolidation (VALIDATION_LEDGER, FINDINGS_REGISTER, wiki ingest, final summary).
 - **Suffix-tree upgrade plan (ST-UPGRADE, stages 0–8):** proposed, NOT approved — do not start without the user's yes.
+- **All DOABLE before the sweep; a halted item becomes a hand-off package (user 2026-10-21 23:45):** "Все дуєбл
+  повинно бути зроблене до дедублікації. Без виключення. Якщо щось зупиняється - робиш пакет і просиш мене виконати на
+  іншому середовищі і віддати тобі результат." So the "environment obstruction" wording I had invented for D19 is
+  **withdrawn** — it was never a campaign category and it contradicted the Definition of Done. Full rule now in README
+  "Definition of Done". Consequence for B08: **D19 stays DOABLE**, the batch is not finished, and the duplication sweep
+  must not precede it; the D19 hand-off package is `docs/Validation/review-2026-09/D19-handoff.md`. **Closed 2026-10-25:** the owner implemented it externally and the result was integrated as **F90** (`798136f1`) after independent oracle verification and a full fast-tier re-run here (18775/0). The rule stands as the way any future halted item is handled — it worked end to end.
+- **Never send the owner's identity to a source host (2026-10-15, after a real slip):** a B08 WP10 subagent put the
+  owner's e-mail in a `User-Agent` header on an `en.wikipedia.org` request. Nothing was committed, later requests used
+  a generic header, and the e-mail appears nowhere in the tree (checked). The session's own guard lived only in its
+  scratchpad, so the rule now sits in README "Campaign rules" where every session reads it: no e-mail, name or account
+  id in any header, UA string, URL, query or payload when fetching a reference; neutral UA; binds every subagent too.
+- **Decide before spending (user 2026-10-14, after the B08 restarts):** before any interrupt, relaunch or new session
+  that costs real money, say the cost and the expected gain first, and do not retry while the cause of the failure is
+  still true (e.g. the model fallback is account-wide at that minute — then report and wait, do not relaunch). A batch
+  already flagged unfinishable gets no further spend without the user's decision. Never create a session for work the
+  user may be restarting themselves — ask who does it. Waste this rule exists to prevent: the 10:53 B08 relaunch
+  ($10, the fallback was account-wide and the new session fell back too), ~$199 spent on resume-2 without first asking
+  whether an off-model B08 was worth full price, and the duplicate FIN-B03 at 14:03 ($0.22).
+- **Scope of a model re-verification pass (user 2026-10-14) — this is the SPEC of the pass that is now DEFERRED, not cancelled (see the 5-5-debt rule below): when the debt is eventually paid, this is what the pass does.** Off-model work does NOT have to be redone. What is
+  model-independent stays valid — oracle numbers recorded in Evidence (CRISPOR, Biopython Restriction, matrices read
+  from the papers), the tests that lock them bit-exactly, and the cited source line or formula. What needs a pass on
+  claude-opus-5-5 is the judgement: which convention is canonical where sources disagree, whether a divergence is a
+  defect or a documented deviation, whether a BLOCKED proof really proves it, whether an unsourced heuristic may stay.
+  So the owed B08 pass — and now B02's as well — is a REVIEW of those decisions against the recorded evidence, not a
+  re-run of the batch, and it must check each test expectation against the oracle number in Evidence: green tests
+  written off-model can lock in a wrong expectation. Every off-model F-entry must therefore carry its oracle number in
+  Evidence. This pass is **owed, not scheduled** — nothing is launched for it now, and it does not block any batch.
+- **Model — claude-opus-5-5 for EVERY session (user 2026-10-14):** these are algorithms; output from another model
+  does real damage, so the model is checked, never assumed. `create_session`'s `model` is not always honoured.
+  Verify right after launch AND at every check-in with `get_session`: BOTH `session_context.model` and
+  `external_metadata.last_served_model` must read `claude-opus-5-5` (a turn-level fallback shows up only in the
+  latter). If 5-5 cannot be served: **let the session run as it is** and record what was produced on which model
+  under "5-5 debt" below. This applies to every session of the campaign, including the orchestrator's own and any
+  future resume/finisher, not only to the session where it was first noticed.
+- **SUPERSEDED — the 5-5 debt is a note, not a blocker (user 2026-10-14 23:15):** "На 5.5 не запускається — так і не
+  запуститься. Що ти хочеш від нього? На 5-му перевірив? Ок? Помітив, що борг 5.5 і все." Subagents are served
+  `claude-opus-5` and will keep being served it, so withholding completion over the model blocks the campaign on
+  something no session can fix. From now on: work verified on claude-opus-5 **counts as verified**; the batch is
+  finished when its `## Leftovers` has zero DOABLE items, and **no session is launched for the sole purpose of clearing
+  the debt**. But the debt is **not written off** (user 23:30: "Не треба прибирати всі згадки про відкладену перевірку
+  на 5-5. Вони потім, наступного разу, не скоро будуть валідуватись. Ми повинні помітити і залишити до наступного
+  разу"): every off-model entry stays listed under "5-5 debt" as an **owed, deferred pass**, with the F-entries named,
+  so that whenever a model that is actually served can do it, the pass knows exactly what to re-read. The campaign's
+  final consolidation carries that register forward instead of closing it. The rule above still stands for what it is
+  good for: always check and record which model served a session, and never silently pretend a session ran on 5-5.
+  (VER-B02, launched at 23:09 to clear B02's debt, was stopped under this rule after ~6 minutes — the pass it was to
+  run is deferred, not cancelled.)
 
-## State (2026-10-02 19:40 UTC) — EVERYTHING PAUSED by user (save weekly tokens)
+**Subagents fall back off-model even when the lead does not (2026-10-14).** FIN-B02's lead was served claude-opus-5-5
+for its whole run while its subagents were served `claude-opus-5` — including both of its own re-verification reviewers.
+So the launch-time model check on the lead is NOT sufficient: for any pass whose deliverable *is* the model (a 5-5
+re-verification), every judgement must be made in the lead's own context and subagents used only for verdict-free
+retrieval (install a tool, run a command, grep, list file:line). And such a pass that is itself served off-model
+produces nothing. Under the superseding rule above this no longer blocks anything: it is the reason the 5-5 debt
+is simply recorded instead of chased.
+
+## State (2026-10-29) — B08 DONE (final report with `## Leftovers` pushed; zero DOABLE); nothing running
+- **B08 is finished.** F1-F120, audit rounds 1-9 (rounds 8 and 9: zero confirmed defects in the audited code), the duplication sweep (F116) and the single heavy tier are done; final tiers on the final code: unfiltered `Seqeron.Genomics.Tests` 27 145 / 0,
+  `Seqeron.Mcp.MolTools.Tests` 633 / 0, B08 heavy classes 319 / 0 three times. Orchestrator `session_01RvCz2EUn2rHYPaGoqfozS2` (served `claude-sonnet-5-5` by the user's switch). The restriction slice (cloud session, F100-F114) is part of the report (`B08-restriction-slice.md`); its session is archived.
+- **Open cross-batch requests from this batch:** R11 (B05), R12 (B07), R13 (B07/B02), **R14 (B02: `RemoveRestrictionSites` quadratic; 64-character limit undocumented) - **DONE 2026-11-02 by B08 at the owner's explicit request**; R10 (wiki re-ingest) stays deferred by OD2.
+- **For the user:** the REBASE permission follow-up (due about 2026-10-29) is the OWNER's action, not a session's; `Resources/rebase_enzymes.tsv` and `scripts/rebase/generate_rebase_enzymes.py` are untouched. B09-B23, B25, B26, Phase 2 (dedup) and the final consolidation are not started.
+- Earlier state lines below are kept for history.
+
+## State (2026-10-27) — B08 round-4 worklist IN IMPLEMENTATION (user: "ще уважно і ретельно попрацюємо над B08")
+- **Running:** `session_015WLziRGxnF8p6aSDcRy28h` (cloud, configured `claude-opus-5`, launched 2026-10-27 14:00 UTC) = B08
+  **restriction slice**: H6 H7 H13 H24 H25 H27 H28 H30-H36 H45 H52 + the restriction rows of H54. Files: `RestrictionAnalyzer*.cs`,
+  restriction tests/docs, restriction MCP hunks. Writes only to `B08-restriction-slice.md` (F100+) and ticks its own lines in B08.md.
+  Orchestrator (this session) implements every other H item (CRISPR/Azimuth/off-target/scorers, F91-F99), then runs the single
+  duplication sweep, final audit and the heavy tier for the whole batch. Why a cloud session for this slice only: the four classifier
+  halts were all on CRISPR off-target material, which the restriction slice does not contain.
+- Earlier state line below is kept for history (2026-10-25).
+
+## State (2026-10-25) — D19 integrated (F90), B08 unblocked at audit round 4; nothing running
+- **FIN-B03 DONE** (session_019yqGyk8v1PunaUYAP83i7B archived, 10:35 – 17:57, ≈ $75.1, served claude-opus-5-5
+  throughout, as was the B03 first pass — so B03 goes into "Finished batches"): audit rounds 1–3 + final round,
+  F22 onwards, dedup sweep, heavy tier once (da6bd804), final report 5bcceeca. 73 changed docs listed for wiki
+  re-ingest (orchestrator task).
+- B03.md `## Leftovers`: DOABLE none. BLOCKED with proof: ProtScale exponential weight-variation model (no source
+  gives the equation; mirrors 403/ENOTFOUND; the one sample fits a ∈ [0.81, 0.94] with no natural constant),
+  pI with PTM charges (one-letter API, no reference models PTMs), pI with coupled electrostatics (needs 3-D
+  coordinates). Open cross-batch requests: **R26, R27, C3 → B02 (RELAY, B02 is in flight, not the register)** —
+  monoisotopic amino-acid table + water 18.010565 and a parameterised pK table into
+  `Infrastructure/ProteinPhysicochemistry.cs`, and `SequenceExtensions.ToUpperAscii` made public; A33 → B14,
+  A34 → B15, A35 → B11 (targets not finished); QUEUE R3 → B01 and R4 → B07 already in the register below.
+- Still running: FIN-B02 (round 3, WP22 landed b2148fa3, WP23 CodonW Fop/CBI next) and B08 resume-3
+  (RESTR-DIGEST-001, Biopython cross-check 0 mismatches; 4/6 units on main; off-model, see below).
+- **Cost watch:** B08 resume-3 passed the $120 threshold (≈ $125.5 at 18:32, context 257k) without closing its unit.
+
+### Earlier state (2026-10-14 10:37 UTC) — FIN-B02 + FIN-B03 + B08 RUNNING (3 in parallel, user's word)
+- User 10-14 ~10:30 "Запусти ще B03" + "І резумни b08" (explicitly above the usual max-2 rule):
+  - FIN-B03 session_019yqGyk8v1PunaUYAP83i7B (re-audit B03.md + requests to B03, ~22 known leftover items incl. B02
+    ProteinPhysicochemistry routing and R16 codon splitter, MCP R-items; F from F22; WIP `-wip-B03`).
+  - B08 resume session_01E7mHtXGjdaPccegYRGjrba (CRISPR-PAM/GUIDE done F1–F8; remaining CRISPR-OFF, RESTR-FIND,
+    RESTR-DIGEST, RESTR-FILTER, then audit loop/dedup/heavy; F from F9; WIP `-wip-B08`; adds the RestrictionAnalyzer
+    raw-pattern API requested by B02 — the CodonOptimizer caller switch stays with B02). Old paused B08 session
+    session_01NvVQb3FM1E4YGuhxEtXqjH archived (superseded; it cost ≈ $28.9).
+  - **Model rule (user 10-14): every campaign session MUST run claude-opus-5-5** ("це алгоритми; шкода від кривих
+    значна"). The first resume session_01E7mHtXGjdaPccegYRGjrba was served claude-opus-5 (its stored session model
+    switched at creation although configured 5-5) → INTERRUPTED at 10:53 after ≈ $10, CRISPR-OFF-001 work kept only on
+    `-wip-B08` a80bdfa7. Relaunched as **B08 resume-2 session_01JEZHM6XkDpcN8pugzHb9ns** (verified: session model and
+    last served model = claude-opus-5-5), whose prompt cherry-picks a80bdfa7 and RE-VERIFIES it against CRISPOR/Hsu/
+    Doench before committing. Every check-in now also verifies each session's model and interrupts on a fallback.
+  - All three share the branch: no cross-edits of each other's files, `pull --rebase` before every push.
+- FIN-B02 at 10:29: round 1 16/19 done (F31+), getorf modes in progress.
+- Check-in trigger covers all three (~45 min).
+
+### Earlier state (2026-10-14 07:25 UTC) — FIN-B02 RUNNING (only it)
+- User 10-14 "давай допрацюємо B02": session_016tDCWJHjR3NXKjhHLFynHz = FIN-B02 (re-audit B02.md + cross-batch requests to
+  B02, completeness-audit loop over 14 known leftover items incl. CODON-RARE-001 Sherlocc `<` vs `≤`, dedup sweep, final
+  audit, heavy tier once, `## Leftovers`). F-entries from F31. WIP branch `claude/stoic-maxwell-0olr2z-wip-B02`.
+  Check-in trigger re-enabled (~45 min). B08 still paused (not archived); nothing else running.
+
+### Earlier state (2026-10-10 23:40 UTC) — FIN-B24 DONE; EVERYTHING PAUSED
+- FIN-B24 done (session_01SLG1sxNgXVQkrwHr1EHya2, 10-09 20:44 – 10-10 23:01, archived, cost ≈ $204.6): audit rounds 1–3 +
+  final round, F24–F66 (43 fixes), dedup sweep, heavy tier once (39 new tests, B24 heavy classes 930/930 ×15), full
+  unfiltered `Seqeron.Genomics.Tests` 25159/0 (84cbf060). LIMITED ONCO-CNA-002 / ONCO-PURITY-001 → FIXED. Report tip
+  03a06ee5; WIP branch `-wip-B24` clean (= main).
+- B24.md `## Leftovers`: DOABLE none. BLOCKED with proof: built-in Battenberg IMPUTE2/Beagle5 imputation (binary-only +
+  multi-GB 1000G panel, proxy 403; phased path F40 ported), LICHeE post-`fixNetwork` identity-hash group order
+  (lichee.jar nondeterministic, 156/4000), MATLAB `unique` tie semantics (MATLAB proprietary; Octave-locked).
+  Open cross-batch requests → B17, B19, B21, B22, B23, B25, Phase 2 (none finished — no register entries).
+- FIN-B24 also fixed B04's `Bbduk_MonotoneInCutoff` generator (w > k) test-only under the FINISHED-batch rule (84cbf060,
+  R2 below).
+- Nothing running; B08 paused (not archived); check-in trigger disabled.
+- Billing note (user question 10-12): cloud sessions always bill the claude.ai subscription (an API key in the cloud env is
+  ignored). API (Console) money can pay only for a LOCAL run — LOCAL_RUN.md + `tools/review/run-batch.sh` with
+  `ANTHROPIC_API_KEY` set (or `/login` with a Console account). Reported session costs are API-rate equivalents.
+  Moving to a local run was offered; no decision yet.
+
+### Earlier state (2026-10-09 20:45 UTC) — FIN-B24 RUNNING (only it)
+- User 10-09 ~20:40 "Давай доробимо B24": session_01SLG1sxNgXVQkrwHr1EHya2 = FIN-B24 (completeness-audit loop over the
+  old-process B24 report → all DOABLE incl. LIMITED ONCO-CNA-002 / ONCO-PURITY-001 and the LIMITATIONS proposals →
+  dedup sweep → final audit → heavy tier once → `## Leftovers`). WIP branch `claude/stoic-maxwell-0olr2z-wip-B24`.
+- Orchestrator permission: FIN-B24 may edit ONLY the ONCO-PURITY-001 methods (`EstimatePurity*`) in B22-owned
+  `OncologyAnalyzer.SomaticCalling.cs` (B24 F7/F8 patches), logged in B22.md "## Changes made by FIN-B24 in this file";
+  every other B22 item stays a request. B25's ONCO-CHIP-001 methods in Clonality.cs are excluded.
+  **User approved this exception 2026-10-10 ~13:20 UTC** ("цього разу можеш правити. Це критична функціональність").
+  Done so far: WP1 4f6fd71c (F7/F8 → FIN-B24 F24/F25), logged in B22.md "## Changes made by FIN-B24 in this file".
+- Everything else paused; B08 paused (not archived); check-in trigger re-armed (FIN-B24 check-in).
+
+### Earlier state (2026-10-09 20:25 UTC) — R1 DONE; EVERYTHING PAUSED by user
+- R1 done (session_01N4ZfEhLRF1Fh8ZLet3KyaQ, 20:04–20:20, archived, cost ≈ $1.4): test defect, production code unchanged
+  (bd780061 + 233381ac). Primer3 `oligo_repeat_library_mispriming` keeps the first entry above the INTEGER running max, so
+  only ⌊score⌋ is order-invariant/monotone; the port matches primer3-py 2.3.1 bit-exactly. Property now asserts the integer
+  part; regression locks the primer3-py values. Recorded in B07.md "## Post-completion changes".
+- Nothing running; B08 paused (not archived); check-in trigger disabled.
+
+### Earlier state (2026-10-09 20:05 UTC) — R1 (B07 post-completion) RUNNING (only it)
+- User 10-09 ~20:00 "Запускай": session_01N4ZfEhLRF1Fh8ZLet3KyaQ root-causes register item R1 (B07 FsCheck counterexample
+  in LibraryMispriming_OrderInvariant_MonotoneInWeight) under the new "Requests to a FINISHED batch" rule. Nothing else
+  runs; after it everything stops again. Check-in trigger re-enabled (+30 min).
+
+### Earlier state (2026-10-09 19:40 UTC) — FIN-B01 DONE; EVERYTHING PAUSED by user
+- **FIN-B01 done** (session_018dhx24UekZpd2HKsvqhw3X, 15:57–19:19, archived 19:36, cost ≈ $39.4): audit rounds 1–3 +
+  final round (20 DOABLE items), fixes F14–F31, dedup sweep c019eae4, heavy once f2e48444 (+29 tests), final report
+  0ca2e247. `## Leftovers`: B01 none (all LIMITATIONS proposals resolved). Full Seqeron.Genomics.Tests 24544/1 — the 1 is
+  B07 `B07PrimerDesignMetamorphicTests.LibraryMispriming_OrderInvariant_MonotoneInWeight` (seed-dependent, passes on re-run);
+  Mcp.Sequence 112/0, Mcp.Analysis 377/0. WIP branch -wip-B01 clean (= 0ca2e247).
+- Orchestrator fix in B01.md: "B07 ProbeDesigner Wallace count loops" was a false positive (Wallace Tm already routed to
+  ThermoConstants.CalculateBasicTm by B07; :633 C-vs-G TaqMan rule and :741 G-run rule are not GC counting) → moved to done.
+- Everything paused again: nothing launched. B08 paused (not archived). Trigger trig_01MvAagyZjUaqveNm9GXWGtm disabled.
+- Batch status: fully done B01 B04 B05 B06 B07; finisher needed B02 (1 open item) B03 B24 (2 LIMITED); B08 2/6 paused;
+  B09–B23, B25, B26 not run under the full process; Phase 2 and consolidation not started.
+
+### Earlier state (2026-10-09 15:58 UTC) — FIN-B01 RUNNING (only it)
+- **User 10-09 ~15:50: "А тепер давай доробимо B01"** → FIN-B01 launched as cloud session_018dhx24UekZpd2HKsvqhw3X
+  (prompt: B01 finisher — re-audit B01.md, completeness-audit loop, all DOABLE incl. LIMITATIONS proposals and
+  cross-batch requests addressed to B01 (B06 CountKmersSpan, B03 R18, StatisticsHelper.ShannonEntropy), dedup sweep,
+  final audit, heavy once, final B01.md with `## Leftovers`). WIP branch `claude/stoic-maxwell-0olr2z-wip-B01`.
+  (A first launch, session_01ESJRAKGAm3Af18dZknYwM9, got an empty prompt and was archived at once.)
+- Only FIN-B01 runs; after it finishes everything stops again (launch nothing). B08 stays paused, not archived.
+  Check-in trigger trig_01MvAagyZjUaqveNm9GXWGtm re-enabled (every ~45 min, disables itself after FIN-B01).
+
+### Earlier state (2026-10-09 03:55 UTC) — B07 DONE; EVERYTHING PAUSED by user
+- **B07 done** (user 10-08 ~21:20: "B07 доходим до конца и останавливаемся"). resume5 (cloud
+  session_01XittAhqmUUdF5idpt2X6rU, archived 10-09 03:53) ran audit rounds 3–10 (round 10 = zero DOABLE),
+  the duplication sweep (DUP-1), the final audit (AF-4/5/7) and the heavy tier once, then wrote the final report
+  (ecb6a84d). All 10 units FIXED (F1–F75); `## Leftovers`: none DOABLE; BLOCKED only (MGB ΔTm, LNA on both
+  strands / terminal LNA, genome-wide primer specificity, extreme-score K runtime). Full `Seqeron.Genomics.Tests`
+  24397/0, Mcp.MolTools 214/0. WIP branch -wip-B07 = main (clean). resume5 cost ≈ $158.9.
+- **Everything paused by user:** nothing launched after B07 — no finisher, no B08, no other batch. B08
+  (session_01NvVQb3FM1E4YGuhxEtXqjH) stays paused, not archived. Check-in trigger trig_01MvAagyZjUaqveNm9GXWGtm
+  disabled. Old B07 session_01AJjD6znMPKvtM3iddFir9r idle, not archived. Branch carries 54 commits not yet in master
+  (no PR yet — only on the user's request).
+- Batch status: fully done B04 B05 B06 B07; units done but FINISHER needed B01 B02 (1 open item) B03 B24 (2 LIMITED);
+  B08 2/6 paused; B09–B23, B25, B26 not run under the full process (first-pass 09-28: 0–3 units each);
+  Phase 2 and consolidation not started.
+- Next when the user resumes: queue order as above (B08 resume first, then new batches, then finishers).
+
+### Earlier state (2026-10-08 11:48 UTC)
+- **Running:** B07 resume5 (cloud session_01XittAhqmUUdF5idpt2X6rU, launched 10-08 11:48 on the user's word
+  "продолжаем B07"): audit round 3 (A3-8…A3-14, A3-17…A3-19) → further rounds → sweep → final audit → heavy → report.
+  Everything else stays paused (B08 included).
+
+### Earlier state (2026-10-02 19:40 UTC) — EVERYTHING PAUSED by user (save weekly tokens)
 - **Paused by user (10-02 ~19:30):** B07 (cloud session_01AJjD6znMPKvtM3iddFir9r, idle, not archived). Stopped cleanly after WP3-9:
   last main commit cfe64a7 (F47); WIP branch -wip-B07 = cfe64a7 (clean, nothing unpushed). Audit round 3: 10 items open
   (A3-8…A3-14, A3-17…A3-19, unticked in B07.md worklist); then full fast tier, further audit rounds, sweep, final audit, heavy, report.
   Resume: tools/review/prompts/B07.md (local) or the cloud resume prompt; state from B07.md worklist + git log. Check-in trigger disabled.
+- **2026-10-08:** campaign work so far (B01–B06, B24 done; B07 partial; B08 2/6) merged to master via
+  AlexanderV/Seqeron#12 (merge commit 7ee2db6) after a CI fix (adbfcaf: B07 heavy tests aligned with the
+  documented contracts, skills catalog regenerated). `claude/stoic-maxwell-0olr2z` and `-wip-B07` restarted
+  from master 7ee2db6 (same names); the next PR carries only new work.
 - **Paused by user (10-01 22:05):** B08 — 2/6 units done (CRISPR-PAM-001, CRISPR-GUIDE-001). Resume only on the user's word
   (prompt: tools/review/prompts/B08.md).
 - **User rule since 10-02:** ONLY B07 runs until the user says otherwise.
@@ -32,11 +229,228 @@ and commits it after every change. Batch definitions (units, owned files) are in
 - **Done:** B01, B02, B03, B24 (finishers pending, see leftovers notes in their reports), B04 (F1–F65), B05 (F1–F35),
   B06 (F1–F38, 43841d1, Leftovers none).
 
+## 5-5 debt (work served by `claude-opus-5` instead of `claude-opus-5-5` — an OWED, DEFERRED review; not a blocker, not written off)
+**Campaign-wide (user 2026-10-14 23:15, "І так для всіх взагалі").** This applies to EVERY batch — past, present and
+future, B08 included — not to B02 alone. A batch is finished when its `## Leftovers` holds zero DOABLE items; the model
+that served the work is **recorded, never required**, and **no session is launched to clear a row here**.
+
+**Every row is an OWED, DEFERRED pass — not a closed one (user 23:30).** The validation will happen later, not soon, so
+each row names the F-entries the pass must re-read and the spec it follows ("Scope of a model re-verification pass" in
+Standing user rules): a REVIEW of the judgement calls against the oracle numbers already in Evidence, including a check
+that every test expectation matches its oracle number. Nothing here is deleted when a batch is marked finished, and the
+final consolidation carries this register forward rather than closing it. What remains mandatory meanwhile: check
+`session_context.model` and `external_metadata.last_served_model` at launch and at every check-in, and never state that
+a session ran on 5-5 when it did not.
+
+| Batch | What was produced off-model | Session | Model actually served | Owed pass (deferred) |
+|---|---|---|---|---|
+| B08 | CRISPR-PAM-001 F1–F2 (`73fe1972`) + the B08.md skeleton | session_01YRNyThk8LUUghgQswiDmsF (first pass, archived, ≈ $19.6) | claude-opus-5 (session model AND last served) | **OWED** — 5-5 review of F1–F2 against CRISPOR/Doench/Hsu numbers in Evidence |
+| B08 | CRISPR-GUIDE-001 F3–F8 (`2fc133c2`, `e8e6c72`) | session_01NvVQb3FM1E4YGuhxEtXqjH (2026-10-01, archived) | claude-opus-5 (configured + session model 5-5, served 5) | **OWED** — 5-5 review of F3–F8 (CRISPR-GUIDE-001 judgement calls + test expectations vs Evidence) |
+| B08 | CRISPR-OFF-001 WIP that was never merged (`-wip-B08` a80bdfa7, cda5b4c8) | session_01E7mHtXGjdaPccegYRGjrba (≈ $10) and session_01JEZHM6XkDpcN8pugzHb9ns (resume-2, ≈ $199.3; both archived) | claude-opus-5 (resume-2 passed the 5-5 check at launch, then fell back mid-session) | nothing owed — never merged; resume-3 re-did this work from scratch (its own row carries the debt) |
+| B08 | F9–F39: CRISPR-OFF-001 (re-verified claim-by-claim, 5 claims overturned), RESTR-FIND/DIGEST/FILTER-001, audit round 1, WP1/WP2/WP-SRC | session_01WLgw5gNJSSJdHmg5UKDkPY (resume-3, ≈ $206.5, archived) | claude-opus-5 from its first turn, the fourth B08 session in a row | **OWED** — 5-5 review of F9–F39: the overturned CRISPR-OFF claims, the four RESTR units' convention calls and the audit-round-1 BLOCKED proofs. Its oracle runs are on the record (144→0 of 34 906; 313→0 of 1452; 1521/1521 + 75 466/75 466), so the pass reads decisions, not numbers |
+| B08 | resume-4's **tail**: WP13 (F64 R9 re-attribution, F65 D18 wiki-staleness register) and everything after it — D19 and the round-1 full fast tier | session_01Gei6HyCuq5texhxCCGEvji (RUNNING) | 5-5 at the 22:57 launch and at every check-in through 04:59; **fell back to `claude-opus-5` mid-session, seen at 05:16 in BOTH `session_context.model` and `last_served_model`** (configured stays 5-5) | **OWED** — a 5-5 review of the tail entries above. WP1–WP12b (F40–F63) were served 5-5 and are NOT in debt. Third time the fallback is observed mid-session (resume-2 in the morning, VER-B02 at 23:15, now this), which is why the debt is recorded and not chased |
+| B08 | resume-5's work after the D19 halt: audit round 2 from WP-A/E1 (F66, F67) onward | session_01VJE7r5BGjSKPcb7DxUsVn7 (RUNNING) | 5-5 on turn 1 (D19 attempt), then **switched off Opus entirely**: the live session record reads `model` = `last_served_model` = **`claude-sonnet-5-5`**, `user_switched_model: claude-sonnet-5-5`, `effort_level: high`. B08.md's own resume-5 provenance table says `claude-opus-5` for this phase — the live record is authoritative and the report's line needs correcting | **OWED** — a re-review of F66 onward. **The switch was the user's own, confirmed 2026-10-21 16:10** ("Так, я перемкнув — хай іде"), so the session runs on as is and no future check-in should treat Sonnet here as an anomaly or try to "fix" it. It is still recorded as debt, like any off-model work — this is the first debt row that is a deliberate model choice rather than a runtime fallback |
+| B08 | **audit round 4 itself** — the worklist H1-H55 (`fc976b8c`) | orchestrator `session_01RvCz2EUn2rHYPaGoqfozS2`, lead + 4 background subagents | lead configured AND served `claude-opus-5`; the four auditors' per-agent served models were not captured | **OWED** — a 5-5 re-read of the round-4 findings as *judgements*, not numbers: the numbers are the strong part (947 Azimuth rows, 283881 REBASE pairs, 72384 Biopython rows, 12750 EMBOSS rows, every repro naming its oracle and scratch harness), and H1 was independently re-confirmed here by arithmetic (947-585=362, 947-637=310). What a 5-5 pass should re-weigh: the H7 call that EMBOSS rather than Biopython matches the chemistry, the H2/H3 choice of which Cas-OFFinder version is the reference for the gap-offset domain, and the DOABLE/BLOCKED line on H4 (`repCount`, where the BWA bookkeeping genuinely is not transplantable but the observable rule is two comparisons). Per the standing ruling this is deferred, never chased — no session is launched over it |
+| B08 | **audit rounds 5 and 6, their implementation (F96-F99, F115-F117), the duplication sweep (F116) and the heavy tier** — everything from `0775beef` to the final report | orchestrator `session_01RvCz2EUn2rHYPaGoqfozS2` (configured `claude-opus-5-5` at creation; the user switched it to `claude-sonnet-5-5` and `session_context.model` = `last_served_model` = `user_switched_model` = `claude-sonnet-5-5`, read with `get_session` on 2026-10-29 11:54) + background auditors (per-agent transcripts record `requestedModel` `claude-sonnet-5-5`, advisor `claude-opus-5-5`) | `claude-sonnet-5-5` | **OWED** — a 5-5 re-read of the round-5/6 findings as *judgements* and of the F117 expectations against their oracles (exact arithmetic for the cut offsets, the documented IUPAC rule); recorded, never chased |
+| B02 | F41, F42, F43, F48, F49, F54, F55, F60, F63, F64 + the WP27a/b review verdicts (B02.md "## Model provenance") | FIN-B02 `session_016tDCWJHjR3NXKjhHLFynHz` — lead 5-5 throughout, its **subagents** served opus-5 for WP9/WP10/WP14/WP15/WP18/WP22 and for BOTH re-verification reviewers (WP27a 114 of 124 turns, WP27b 86 of 106) | claude-opus-5 (runtime fallback; per-turn model fields in the subagent transcripts) | **OWED** — 5-5 review of those ten F-entries and the WP27a/b verdicts. Accepted as verified for completion (B02 is in "Finished batches"): the off-model pass re-ran every oracle (ViennaRNA 2.7.2, dnachisel 3.2.16, Biopython 1.88 across all 27 supported tables, an independent `sherlocc.pl` port) and found two real defects, F63 and F64 — which is also why the deferred pass is worth running |
+
+**Provenance audit done 2026-10-14** (all 36 campaign sessions queried; table in `scratchpad/model-provenance.md`):
+every session was *configured* claude-opus-5-5, and every batch except B08 was also *served* 5-5 — B01–B07, B09–B26,
+the B07 resumes, FIN-B01, FIN-B24 and R1 all clean. B08 kept being affected across all five of its sessions, and
+FIN-B02 showed the subtler form: a 5-5 lead with opus-5 subagents. The one record with no data is the FIN-B01 launch
+aborted over the literal `$(cat …)` prompt (session_01ESJRAKGAm3Af18dZknYwM9) — no commits, nothing depends on it.
+
+**Why chasing 5-5 was abandoned.** VER-B02 (session_015916Bdb7VvK2GSYCTiNjbG), launched 23:09 to clear B02's debt,
+recorded the decisive evidence itself: it verified 5-5 on its first turn and then fell back to `claude-opus-5`
+mid-session, in **both** `session_context.model` and `last_served_model`. So "launch it again and check at launch" does
+not hold a session on 5-5 — resume-2 showed the same thing in the morning. It stopped with nothing verified and no code
+touched (its one durable product: the oracle environment is pinned and reproducible, B02.md "## Model provenance" →
+VER-B02), and was archived. The policy above stops the chasing; it does not retire the pass, which stays owed in the
+rows above.
+
+## Consolidation task — re-anchor citations to reachable sources (user 2026-10-14)
+The agent proxy answers **403 to CONNECT** for `en.wikipedia.org:443`, `www.addgene.org:443` and
+`rebase.neb.com:443`; earlier batches also recorded `rosalind.info`, Kazusa (`www.kazusa.or.jp`), ExPASy
+(`web.expasy.org`) and the 1000 Genomes panel as unreachable. No number in the review rests on them — the method is
+oracle-first (install the reference tool, compare numbers), and e.g. RESTR-DIGEST's circular `k` / linear `k+1` and
+fragment-sum rules were re-confirmed against Biopython `catalyse` on 1452 cases — but two things need work:
+1. **275 files** under `docs/Validation/reports/` and `tests/TestSpecs/` cite Wikipedia or Addgene, mostly inherited
+   from the pre-campaign pass and no longer re-fetchable here. Where such a citation backs an actual NUMBER
+   (e.g. `PRIMER-DESIGN-001`: primer length 18–24, GC 40–60 %, pair Tm ≤ 5 °C partly from Addgene), re-anchor it to a
+   reachable source (Primer3 source, EMBOSS, the paper) or mark it "inherited, not re-verified in this environment".
+   Batch reports that cite them: B01, B04, B05, B06, B07, B08, README.
+2. ~~**REBASE is only available as the snapshot bundled in Biopython** (`Bio.Restriction`), i.e. enzyme definitions as
+   of that Biopython release, not live REBASE.~~ **Premise corrected by B08 WP-SRC (resume-3):** REBASE `allenz.104`
+   **with its verbatim header** (`REBASE version 104`, `Copyright (c) Dr. Richard J. Roberts, 2021`,
+   `Rich Roberts Mar 31 2021`) is served from the allowed host `raw.githubusercontent.com`, vendored in
+   `crisprVerse/crisprBase`, and B08 already uses it. What stands as a limitation: **no REBASE release newer than 404
+   (Apr 2024) is reachable**, and recognition sites / cut positions still come from the Biopython snapshot (version
+   stated in Evidence). Record that, not the old claim.
+Hosts to allow in the environment's network settings so later sessions do not hit this: `en.wikipedia.org`,
+`www.addgene.org`, `rebase.neb.com`, `rosalind.info`, `www.kazusa.or.jp`, `web.expasy.org`. Kazusa and ExPASy would
+also unblock two items currently BLOCKED with proof (B02 E. coli per-thousand table; B03 ProtScale exponential
+weighting), so those should be re-opened once access exists. **→ access opened 2026-10-14, see the next section.**
+
+## Network access opened (user 2026-10-14 ~22:00 UTC) — two BLOCKED items re-opened
+The user opened the environment's network settings. Verified from the orchestrator container with
+`curl -sS -o /dev/null -w '%{http_code}'` **plus** a payload check (not just a status code):
+| Host | Result | Payload seen |
+|---|---|---|
+| `www.kazusa.or.jp` | 200 | Codon Usage Database page for *E. coli* W3110 incl. the per-thousand (`/1000`) columns |
+| `web.expasy.org` | 200 | ProtScale page listing "Weight variation" with the **exponential** and **linear** models |
+| `en.wikipedia.org` | 200 | article HTML |
+| `www.addgene.org` | 200 | protocol HTML |
+| `rosalind.info` | 200 | problem HTML |
+| `raw.githubusercontent.com`, PyPI | 200 | unchanged, still fine |
+| `rebase.neb.com` | **curl exit 60** (TLS certificate verification fails; `--cacert /root/.ccr/ca-bundle.crt` does not help although the proxy reports `bundleCoversEveryHost: true`) | — |
+
+**REBASE decision (user: "брати дані REBASE з дзеркала allenz або ігнорити помилки сертифікату").** We take the
+mirror, never the certificate shortcut: **disabling TLS verification and unsetting `HTTPS_PROXY` are forbidden in this
+environment** (container rules), so `curl -k` is not an option for any session. The mirror is already in use — B08
+sourced the REBASE organism and methylation columns from **REBASE `allenz.104` as vendored in the Bioconductor package
+`crisprBase` (`crisprVerse/crisprBase`, reachable over `raw.githubusercontent.com`)**: see
+`docs/Evidence/B08-Source-Provenance.md` §3/§3a and `RESTR-FIND-001-Evidence.md:62,122,236`,
+`RESTR-FILTER-001-Evidence.md:168`, `RESTR-DIGEST-001-Evidence.md:258`. Rule for every session: enzyme recognition
+sites and cut positions come from the Biopython `Bio.Restriction` snapshot (version stated in Evidence); organism /
+methylation / prototype columns come from `allenz.104` via `crisprBase`; live `rebase.neb.com` stays unavailable and
+that is recorded as an environment limitation, not worked around.
+
+**Re-opened items** (were BLOCKED-with-proof solely because the host answered 403; the proof no longer holds):
+| # | Batch | Item | Where it is recorded | Owner of the fix |
+|---|---|---|---|---|
+| RO1 | B02 | CODON-USAGE-001 organism presets hold per-AA fractions only — add the per-thousand columns from the Kazusa Codon Usage Database (`MolTools/CodonUsageAnalyzer.cs`). **Supersedes B02.md leftover (b)** ("E. coli 316407 per-thousand usage — kazusa.or.jp blocked"), whose proof was the 403 | B02.md `## Leftovers` (b) | **SRC** — FIN-B02 landed at 23:04, so SRC's task C condition is met; commit "(SRC for B02)" |
+| ~~RO2~~ | B03 | PROT-SCALE / ProtScale **exponential** weight-variation model | B03.md `## Leftovers` (BLOCKED) | **DONE 2026-10-14 `4bb88d80`** (SRC for B03, register row R6): derived from the live ExPASy tool — `w(0)=1`, `w(d)=(e-0.01)+(1-e)(0.01/(1-e))^(d/R)` for edge weight `e` and half-window `R` — implemented as `HydrophobicityProfileOptions.WeightModel` (Linear stays the default), locked to ProtScale's own output at 3 dp in 14 unit cases + an MCP test, Evidence SEQ-HYDRO-001 "SRC RO2". **First of the two re-opened items closed, and it was closed by the network access** |
+
+Both are now DOABLE unless the fetched page still fails to define the quantity; if so, the new proof must quote the
+fetched page (not a 403).
+
+Also newly verifiable, but **B08-owned** (handled by the B08 session, not by SRC): the Addgene 8–10 nt seed-range
+citation at `src/.../MolTools/CrisprDesigner.cs:258`, which B08 WP-SRC had to leave unverifiable
+(nothing depends on it numerically; the comment states its own derivation).
+
+## Running sessions (2026-10-14 23:00 UTC)
+| Task | Session | Configured / served | Scope |
+|---|---|---|---|
+| ~~FIN-B02~~ | `session_016tDCWJHjR3NXKjhHLFynHz` (archived, $188.14) | lead 5-5 / **subagents mostly opus-5** | **DONE 2026-10-14 23:04**, final report `b36eecb3`: 4 audit rounds to 0 DOABLE, F31–F64, dedup sweep, heavy tier, full unfiltered **26280/0**. **FINISHED** (0 DOABLE); its off-model entries are a note in "5-5 debt" |
+| ~~SRC~~ | `session_01Wa9VJs4Gp5H1yEXuySyxf8` (archived, **$28.89**, 5-5 throughout) | **DONE 2026-10-15 00:25**, report `docs/Validation/review-2026-09/SRC.md` (`02f0b148`), per-occurrence ledger `docs/Evidence/SRC-Citation-Audit.md` (169 KB). A: RO2 ProtScale DONE. C: RO1 Kazusa DONE (`b02a2d77`, R7). B: census 421 files / 793 occurrences / **205 distinct URLs, all 205 answering 200 and re-fetched**; NUMBER 173 / DEFINITION 79 / BIBLIOGRAPHY 536; **27 occurrences (3.4 %) cited a page that does not state what was attributed** + 13 verbatim mismatches → F1–F20, 8 fix commits; **no number driving code or a test was wrong** — in every defect the value was right and rested on a primary, the attribution was not; 93 code/test-driving occurrences now carry their primary; nothing left as "inherited, not re-verified" |
+| ~~VER-B02~~ | `session_015916Bdb7VvK2GSYCTiNjbG` (stopped 23:15, archived) | 5-5 | Launched to clear B02's 5-5 debt; **stopped by the user's ruling** that the debt is a note and not a blocker. Its design lesson is kept above: subagents fall back off-model even when the lead does not |
+| ~~B08 resume-5~~ | `session_01VJE7r5BGjSKPcb7DxUsVn7` (archived, **$53.75**, context 245.7k) | 5-5 on turn 1, then `claude-sonnet-5-5` for everything after the D19 halt — the **user's own deliberate switch**, confirmed 16:10 | **STOPPED 2026-10-22 00:00 at the user's boundary, before the duplication sweep.** Audit round 2 E1–E11 (F66–F76, fast tier 18639/0) and round 3 G1–G14 (F77–F89) complete; G15 BLOCKED with proof. Stop state written as "## Resume state (end of resume-5 session)"; its own WP-K checkpoint was stale and has been replaced. **B08 is NOT finished: D19 stays DOABLE and was handed off** (`D19-handoff.md`) after a third classifier halt, so the sweep must not precede it. Next session: integrate the returned D19 result → round 4 (include CRISPOR `repCount`) → sweep → final audit → heavy tier → report |
+| **B08 round-4 audit (redone)** | orchestrator's own session, 4 background subagents | lead `claude-opus-5`; subagents' own models unrecorded per-agent | **DONE 2026-10-25**, `## Audit worklist (round 4)` in B08.md: **55 items H1-H55, all DOABLE, none BLOCKED.** Four fresh adversarial auditors on disjoint slices (PAM+guide+Azimuth / off-target+bulge+scorers / restriction+MCP / tests+docs), none reading B08.md. **Two findings overturn earlier "confirmed" work:** **H1** - the Azimuth Rule Set 2 NGGX one-hot is in the wrong alphabet order (362/947 and 310/947 fixture rows outside Azimuth's own 1e-3; the sorted order gives 947/947 at 5e-10), and `CrisprDesigner_RuleSet2_Tests.cs:24-28` **excluded exactly those rows** as the upstream fixture's fault (947-585=362, 947-637=310) while `AzimuthRuleSet2.cs:25` claims "validated end-to-end"; **H2/H3** - the D19 bulge code integrated as F90 emits a terminal RNA bulge no Cas-OFFinder version generates (phantom 0-mismatch hits that outrank real ones) and mislabels gap offset 0, so a guide's own on-target returns 4x at wrong coordinates and 0x correctly. **H4** closes `repCount`. Differential scale: 283881 REBASE pairs, 72384 Biopython digest rows, 12750 EMBOSS rows, 2004 PAM sites, 1400 scorer cases, 947 Azimuth rows - all recorded under "Verified clean in round 4" so the next session does not re-spend on them. Worklist NOT implemented: the user's instruction was "Зроби аудит і зупинись" |
+| ~~B08 round-4 audit~~ | `session_012aZTr89BBy9tMg4YKGzSzU` (archived, **$0.51**, context 88.3k) | configured 5-5 / served `claude-opus-5` | **PRODUCED NOTHING — halted by the safety classifier** 2026-10-25 20:53 (`safety_stopped: true`); its own summary: "B08 round-4 audit not produced; halted, needs fresh session", advice "run in a fresh session with per-item greps delegated so no session holds the whole B08 report". Mandate had been audit-only (write `## Audit worklist (round 4)`, implement nothing). **Fourth classifier halt on B08's CRISPR off-target material** (two resume-4 subagents, resume-5's D19 lead, now this). Its check-in `trig_01PXcx5FSh6YEkBi6eE33ED3` was deleted with it. **Replaced by running round 4 in the orchestrator's own session** with four fresh adversarial auditors on disjoint slices (PAM+guide / off-target+bulge+scorers / restriction / tests-and-docs coverage), none of them reading B08.md — if that also fails, round 4 becomes a hand-off package like D19's |
+| ~~B08 resume-4~~ | `session_01Gei6HyCuq5texhxCCGEvji` (archived, **$68.49**) | 5-5 from launch to 04:59, then fell back to `claude-opus-5` mid-session | **STOPPED 05:40 at the user's boundary** (`e3a877ec`), not on a defect and not at the context ceiling. Round 1 complete except D19: F40–F65 over WP3–WP13, round-1 full fast tier **18567/0**, MolTools MCP 441/0, catalog 483; tree clean, WIP branch marked clean, `## Resume state (end of resume-4 session)` written. **D19 not attempted** — two subagents were halted by a safety classifier (one during read-only recon), so `CrisprDesigner.cs` is untouched by it; it stays DOABLE and the next session must do it in the lead's own context, with the recon the halted subagent returned already recorded. Cost per WP a third of resume-2/-3 ($199/$206) — the discipline block worked |
+
+**STOP B08 AFTER THE DUPLICATION SWEEP (user 2026-10-21 23:25): "Після дедуплікації збережи все і призупинись до
+подальших команд."** This supersedes resume-5's instruction to run to the final report. The boundary: round 3 ticked to
+zero DOABLE **and** the one duplication sweep done and recorded in B08.md (including the skills-catalog regeneration
+check, `python3 scripts/skills/gen-catalog.py --check`) — then stop, BEFORE the final audit round, the heavy tier and
+the report. Procedure for the orchestrator (cloud sessions cannot be messaged, so this is a check-in task):
+1. Watch the commit log and the round-3 ticks at each check-in. At 23:18 round 3 stood at 11 of 14 (open G8, G9, G10).
+2. When the sweep has landed, `interrupt_session` — preferably right after a commit so the tree is clean; the WIP branch
+   `claude/stoic-maxwell-0olr2z-wip-B08` is the recovery point otherwise.
+3. Make sure B08.md carries a current `## Resume state` saying what landed (rounds 2 and 3, F66–F8x, the sweep) and what
+   the next session does **in order**: final audit round → the single heavy tier (the 14-item update/add list, FsCheck
+   classes ≥3 runs, full unfiltered `Seqeron.Genomics.Tests` + touched MCP projects) → final report ending with
+   `## Leftovers`. It must also carry: ~~D19 as an "environment obstruction"~~ — **that category was never in the
+   rules and is withdrawn** (user 2026-10-21: all DOABLE before the sweep, a halted item becomes a hand-off package);
+   D19 was handed off and is **closed as F90** (`798136f1`) — the REBASE data **freeze** while the licence answer is
+   pending, the **5-5 debt** note for F66 onward, and that B08 **may** enter "Finished batches" on zero DOABLE because
+   the model is recorded and not required. If the session was cut before writing it, the orchestrator writes it from the
+   ticks and `git log`, commit "(ORCH for B08)".
+4. Also fix, once stopped, B08.md's "## Provenance / model flag (resume-5)" line that calls the post-D19 phase
+   `claude-opus-5` — the live session record says `claude-sonnet-5-5`.
+5. Push, mark the WIP branch clean per README, then `archive_session` (an archived session releases its container and
+   costs nothing), and report the cost. **Then launch nothing** — the user said pause until further commands.
+6. B08 is NOT finished at that point: the final audit, the heavy tier and the report remain.
+
+**STOP B08 AFTER AUDIT ROUND 1 (user 2026-10-15 00:05): "Після фіксу першої черги аудиту для B08 — збережи по ньому
+все і зупини так, щоб не жрав, але наступного разу можна було б продовжити."** B08 resume-4 was launched to run to a
+final report; it must instead stop at the end of round 1. The boundary: every item of "## Audit worklist (round 1)"
+(D1–D21) ticked **plus** the round-1 full fast tier run and recorded — then stop, BEFORE audit round 2. Procedure for
+the orchestrator (cloud sessions cannot be messaged, so this is a check-in task):
+1. At each check-in count the `☐`/`☑` ticks in the round-1 worklist. At 00:05 it stood at **9 ticked / 12 open of 21**.
+2. When the last item is ticked and the fast tier is in, `interrupt_session` — preferably right after a WP commit, so
+   the tree is clean. Never interrupt in the middle of a WP if it can be avoided; the WIP branch
+   `claude/stoic-maxwell-0olr2z-wip-B08` is the recovery point if it happens anyway.
+3. Make sure B08.md carries an up-to-date `## Resume state`: what landed in round 1, what the next session does in
+   order (audit round 2 until zero DOABLE → duplication sweep → final audit → the single heavy tier with its 14-item
+   update/add list → final report), and what it must NOT re-do. If the session was cut before writing it, the
+   orchestrator writes it from the worklist ticks and the commit log, commit "(ORCH for B08)".
+4. Push, mark the WIP branch clean per README, then `archive_session` — an archived session releases its container and
+   costs nothing, and the next B08 session resumes from the `## Resume state` exactly as resume-4 did from resume-3.
+5. B08 is NOT finished at that point (round 2, dedup, heavy tier and the report remain) — it stays out of "Finished
+   batches" for that reason, not over the model.
+
+**B08's launch prompt predates the 23:15 ruling** — it was told its report must keep B08 out of "Finished batches"
+over the model. When it lands, the orchestrator corrects that: B08 goes into "Finished batches" if its `## Leftovers`
+has zero DOABLE items, with its off-model entries moved to the "5-5 debt" register. Cloud sessions cannot be messaged,
+so this is a check-in task, not a relaunch.
+
+Ownership while these run: SRC must not touch B02-owned or B08-owned files (its prompt names them); B08 keeps its own
+`CRISPR-*`/`RESTR-*` citations; nobody force-pushes the shared branch. Two sessions launched at 22:56 without a repo
+source (`config:no-git-repo`, my omission) were interrupted after ~20 s and archived — $0.36 total, no commits; the
+replacements above carry `source_url` + `source_revision`.
+
+## Owner decisions (answered 2026-10-15)
+| # | Question | Owner's answer | What follows |
+|---|---|---|---|
+| OD1 | The vendored REBASE `allenz.104` columns in `Resources/rebase_enzymes.tsv` — `Organism` (746 values) and `MethylationField` (282) — carry "Copyright (c) Dr. Richard J. Roberts, 2021. All rights reserved." and reach an **MIT-licensed** repo via `crisprBase` (MIT). Keep as is / keep + ask REBASE / drop the two columns / fetch at build time? | **B — keep them and ask REBASE for written permission.** | **Letter SENT 2026-10-15 by the owner**; awaiting an answer, follow up once if silent by ~2026-10-29. Tracker: `docs/Validation/review-2026-09/REBASE-permission-request.md` (status, the draft itself, and the contained removal recipe if the answer is no). The data stays in place while the answer is pending; `generate_rebase_enzymes.py` and the TSV header now point at that tracker. Nothing in the site/cut path depends on those columns, so a later removal costs one regeneration + reverting F52 and the D11 `Organism` check |
+| OD2 | Wiki re-ingest backlog: B02 73 changed docs, B03 73, B08 20 stale pages + 35 docs with no page (R10). Do it now in a dedicated session / leave it to the final consolidation / per-batch from now on? | **Leave it to the final consolidation.** | R10 and the B02/B03 re-ingest lists stay queued for the consolidation phase and are NOT scheduled before it. Rationale recorded: B09–B26 will churn the same docs, so ingesting now would be paid twice; the campaign's own sessions read batch reports and Evidence, not `wiki/**`, so staleness does not mislead them. Keep appending to the backlog as batches land |
+
+## Finished batches (rule "Requests to a FINISHED batch", README → Ownership)
+B01 (FIN-B01 2026-10-09), **B02 (FIN-B02 2026-10-14, 5-5 debt recorded)**, B03 (FIN-B03 2026-10-14), B04, B05, B06,
+B07, **B08 (2026-10-29, final report with `## Leftovers` in `B08.md`, 5-5 debt recorded)**, B24 (FIN-B24 2026-10-10). Add a batch here when its final report with `## Leftovers` is pushed and has zero
+DOABLE items. The model is recorded, not required: off-model entries go to the "5-5 debt" register above and do not
+hold the batch back (user 2026-10-14 23:15).
+
+## Requests to finished batches (register — orchestrator checks it on every check-in)
+| # | Target | File:line / test | Evidence | From | Status |
+|---|---|---|---|---|---|
+| R1 | B07 | `B07PrimerDesignMetamorphicTests.LibraryMispriming_OrderInvariant_MonotoneInWeight` | FsCheck counterexample in the FIN-B01 full heavy run (passed on re-run) — root-cause in `PrimerDesigner` library mispriming or the generator | FIN-B01 | done (bd78006) |
+| R2 | B04 | `B04AuditProperties.Bbduk_MonotoneInCutoff_InvariantUnderCaseAndU` | generator drew w = k, violating BBTools `EntropyTracker` k < windowBases (FIN-B24 full heavy run) | FIN-B24 | done (84cbf060, test-only) |
+| R3 | B01 | `GcSkewCalculator.CalculateWindowedGcContent` (both overloads, GcSkewCalculator.cs:1136/1162) | additive `includePartialWindow` (private `EnumerateWindows` :199 already has it); then SS `CalculateGcContentProfile(…, includePartialWindow)` projects it instead of its own `PartialWindowStarts` copy of the placement (B03.md "Duplication sweep (finisher)") | FIN-B03 | open |
+| R4 | B07 | `PrimerProbeProperties.LnaTm_AddingLnaCPosition_NeverLowersTm` (tests/.../Properties/PrimerProbeProperties.cs:2370); `PrimerDesigner.CalculateMeltingTemperatureNNLna` (MolTools/PrimerDesigner.cs:2966) | FsCheck counterexample in the FIN-B03 full heavy run (passed 3/3 on re-run). Brute force over the test's generator: 5/6046 violations, e.g. GCTACGCCCGGGGCTAGTGACAAG, LNA {1,4,7,8,9,10,11,12,14,15,18,19,20,22} + C@13: 94.1352 → 93.9034 °C. The invariant is not exact under the default Owczarzy 2011 model (B07 F27). Check against MELTING 5 whether the model is correct, then narrow the invariant with a source, or fix the model | FIN-B03 | open |
+| R9 | B08 | `docs/Evidence/RESTR-FILTER-001-Evidence.md:41` (per-enzyme 4/6/8-bp site lengths cited to Wikipedia "Restriction site", an index page that only says "usually short (3 to 8 bp)" and carries no enzyme table) and `tests/.../RestrictionAnalyzer_FindSites_Tests.cs:~871` (cases labelled "Wikipedia" include BglII and ApaI, absent from the page's Examples table; the other 19 enzymes and cut positions match) | Both values are CORRECT per Biopython `Bio.Restriction`, B08's own oracle — only the label is wrong, so this is attribution-only, doc/test-comment scope | SRC (audit verdicts, not edited: B08 owns its citations) | done (f7e8fa9b) |
+| R6 | B03 | `Analysis/SequenceStatistics.cs` `HydrophobicityProfileOptions.WeightModel` / `HydropathyWeightModel.Exponential` (QUEUE RO2) | ProtScale exponential model derived from the live web tool (34 runs) and locked to its output, `docs/Evidence/SEQ-HYDRO-001-Evidence.md` "SRC RO2" | SRC | done (SRC RO2 commit) |
+| R7 | B02 | MolTools/CodonOptimizer.cs EColiK12.PerThousand (QUEUE RO1) | Kazusa 316407 /1000 column fetched 2026-10-14; CHARMING %MinMax oracle | SRC | done (a9e8c94d) |
+| R8 | B02 | `docs/Evidence/CODON-OPT-001-Evidence.md:21`, `CODON-STATS-001-Evidence.md:25`, `CODON-USAGE-001-Evidence.md:17` | SRC citation audit: claims attributed to Wikipedia pages that do not state them (CAI range; log form; RSCU/cosine bullets) — doc-only re-attribution, values correct (`docs/Evidence/SRC-Citation-Audit.md` O039/O041/O042) | SRC | open |
+| R5 | B03 | `Analysis/SequenceStatistics.cs:1184-1191` private `ToUpperAscii(char)` / `ToUpperAscii(string)` | verbatim copy of the new public canonical `Infrastructure/SequenceCase.ToUpperAscii` (FIN-B02 WP24; same body `IsAsciiLetterLower ? c - 32 : c`); caller switch, no behaviour change | FIN-B02 | done (d1e6111) |
+| R10 | ORCH (wiki) | 20 `wiki/**` pages stale through B08 commits (8 B08-domain: `concepts/restriction-{site-detection,digest-simulation,enzyme-filtering}`, `concepts/crispr-guide-rna-design`, `gotchas/crispr-guide-and-offtarget-scores-are-heuristic`, `sources/restr-filter-001-evidence`, `concepts/algorithm-validation-evidence`, `concepts/mcp-tool-catalog`; 12 via repo-wide prose) + 35 B08 resume-4 docs with no wiki page and 15 to re-ingest — full list with moved sources: B08.md "## Wiki staleness and re-ingest (D18, for the orchestrator)" | AGENTS.md rule: stale ⇔ a `sources:` path has commits after `source_commit`; scripted `git rev-list --count --grep=B08 <source_commit>..HEAD -- <path>` over every `wiki/**/*.md` (B08 F65) | B08 | open |
+| R11 | B05 | `src/Seqeron/Mcp/Seqeron.Mcp.Analysis/Tools/AnalysisTools.cs:1313` (`find_degenerate_motif` → `RequireDna`) | `find_degenerate_motif("nnnGAATTCnnnGGATCCNNN", "GAATTC")` → `ArgumentException "Invalid DNA sequence"`; `DnaSequence` is ACGT-only (`Core/DnaSequence.cs:19-31`). `MotifFinder.FindDegenerateMotif(string, string, CancellationToken)` (`Analysis/MotifFinder.cs:118`) already exists, so the wrapper only needs to route through it — but the tool changes from erroring to answering, and that overload treats a sequence `N` as matching nothing, where B08's restriction scan lets a pattern `N` match it (Biopython's rule). B05 decides which semantics the tool should advertise | B08 restriction slice (H27) | open |
+| R12 | B07 | `docs/mcp/tools/moltools/{evaluate_primer,design_tiling_probes,design_probes,design_antisense_probes,design_molecular_beacon}.mcp.json` `examples[]` (+ `design_primers`, `generate_primer_candidates`, whose examples refer to "the standard 258 bp template" without giving its sequence) | Executing the examples through the real wrappers (B07ToolDocsContractTests `McpJson_Examples_ReproduceTheTool` with the Primer/Probe stems added, B08 round 5): `evaluate_primer` "50% GC 20-mer" documents `meltingTemperature` 51.8, the tool returns 57.4; `design_tiling_probes` documents `coverage` 208, returns 204; `design_probes` / `design_antisense_probes` document `probesCount`, absent from the result; `design_molecular_beacon` documents a `probe` field, absent. The guard lists them out (`ExecutableExampleStems` holds only CrisprDesigner and RestrictionAnalyzer); B07 fixes the examples (or the claims) and adds its stems | B08 round 5 (A5-2 generalised) | open |
+| R13 | B07, B02 | `src/Seqeron/Mcp/Seqeron.Mcp.MolTools/Tools/MolToolsTools.cs` regions PrimerDesigner (11), ProbeDesigner (7), CodonUsageAnalyzer (5), CodonOptimizer (8); `RestrictionAnalyzer.Modulo` vs `RepeatFinder.Wrap` | B08's duplication sweep replaced the 21 copies of the 3-line `if (string.IsNullOrEmpty(x)) throw new ArgumentException("... cannot be null or empty.", nameof(x))` guard in the CRISPR and restriction regions by one private `RequireNotEmpty(value, paramName, label)` (same exception, same message); the other 31 sites of the file are in regions of B07 / B02 and can adopt the same helper without a behaviour change. `RestrictionAnalyzer.Modulo(long, int)` (non-negative remainder) and `RepeatFinder.Wrap` (Analysis, private) are twins; if a shared helper in Core is wanted it is B01's call | B08 duplication sweep | open |
+| R14 | B02 | `src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonOptimizer.cs:1354-1371` `RemoveRestrictionSites` (MCP `remove_restriction_sites`, `optimize_codons` with `avoid_sites`); docs `docs/mcp/tools/moltools/{optimize_codons,remove_restriction_sites}.{md,mcp.json}`, `docs/algorithms/MolTools/Sequence_Optimization.md:72`, the XML `<param>` of `avoidSites` / `restrictionSites` and the `[Description]` of `avoid_sites` / `restriction_sites` (the algorithm doc is `docs/algorithms/Codon_Optimization/Sequence_Optimization.md`, not `MolTools/`) | B08 audit round 9 (A9-4, O9-1..O9-3), reproduced by the auditor on both `9b454d19` and `0180b815`: (1) `RemoveRestrictionSites` is **quadratic in the coding sequence** - each rewrite rescans and `string.Concat`s: MCP, site `N`, 6k / 12k / 24k / 48k nt = 218 / 630 / 1797 / 8222 ms (x4 per doubling), a 64 x `N` site on 24 kb = 14.9 s; a single pass with a position list and a `StringBuilder` (or a local window re-check after each rewrite) would be linear. (2) B08's A8-7 made the shared pattern validation refuse a pattern over 64 characters (`RestrictionAnalyzer.MaxRecognitionLength`), so these two tools now do too - the limit is not in their docs, and the exception carries ParamName `recognitionPattern`, a name those tools do not have (a non-IUPAC site keeps `restrictionSites`). (3) Pre-existing: a coding sequence shorter than one codon skips site validation in `OptimizeSequence` (`optimize_codons("AT", avoid_sites=[N x 65])` returns an empty sequence instead of refusing the site). | B08 | **done 2026-11-02** (owner: "Чи можна зробити ... R14", overriding the "B08 does not edit B02's files" rule for this item). (1) linear: one mutable buffer, scan rewound by at most the site length after a replacement, candidates judged on the buffer; 96 000 nt Release: `N` 10.2 s → 22 ms, tandem `GAATTC` 20.4 s → 26 ms, 64 × `N` 10.3 s → 0.2 s; outputs byte-identical on 464 stored cases (golden `TestData/Codon/remove_restriction_sites_golden.tsv`, generated from `ea937485`) and 3 × 3 105 further random cases (3 seeds) incl. GC-aware `OptimizeSequence`; the GC-constrained path stays `O(n)` per candidate (`GcBreach` is a whole-sequence floating-point sum - kept so the results cannot change). (2) the 64-character limit is documented in both tool pages (.md/.mcp.json), both `[Description]`s, the XML docs and `Sequence_Optimization.md`; ParamName is `restrictionSites` (`avoidSites` from `OptimizeSequence`). (3) sites are validated before the empty / sub-codon return in both methods. Tests: `CodonOptimizer_RemoveRestrictionSites_Linear_Tests` (31), MCP `RemoveRestrictionSitesLimitTests` (13). |
+
+Pre-rule candidates (recorded before 2026-10-09 as "open" in reports; VERIFY each against current code before
+acting — several may already be resolved): B06.md → B04 `SequenceComplexity.ShannonEntropyBits` visibility (B01 F-entry
+may have resolved via `StatisticsHelper`), ~~B04 `Bbduk_MonotoneInCutoff` generator (w = k = 5)~~ done R2; B06.md → B05
+`MotifFinder` Core `CountKmersSpan` callers → `KmerAnalyzer.CountKmers`, B05.md D3 stale rationale, `FindExactMotif`
+vs B09 `FindMotif`; B05.md → B04 `RepeatFinder.EnumerateForwardMaximalPairs` → `FindMaximalRepeatedPairs`; B05.md → B07
+`ProbeDesigner.FindApproximateMatches` → `ApproximateMatcher.FindWithMismatches`; B04.md → B06
+`KmerAnalyzer.CalculateKmerEntropy` delegation + `kmer_entropy` MCP doc example; B01.md → B06 `K-mer_Counting.md` stale
+sentence, B05 D3 rationale.
+
 ## Known cross-batch items to carry into Phase 2
-- B04: `B04AuditProperties.Bbduk_MonotoneInCutoff_InvariantUnderCaseAndU` generator can draw w = k = 5 → draw w from [k+1, 60] (flaky ~1/30).
+- **RNA-aware complement in raw-string scans (B08 round 7, O7-4; a check, not evidence of a defect).** `DnaSequence.GetReverseComplementString` complements `U` to `A`. In B08's restriction scan that read `GAAUUC` as
+  `GAATTC` on the reverse strand only (A6-2, fixed by `IupacPattern.ReverseComplement`). The audit checked MolTools and the `RepeatFinder` uses (guarded); the other callers in Analysis / Annotation / Alignment / Chromosome /
+  Metagenomics (MotifFinder, KmerAnalyzer, GenomicAnalyzer, ...) were not looked at for a scan that documents "a character outside the alphabet matches nothing". Phase 2 (dedup) should grep the callers once.
+- **The 5-5 debt register must be carried into the final consolidation, not closed.** Every row in "5-5 debt" is an
+  owed review pass (spec: Standing user rules → "Scope of a model re-verification pass"). Validation will come later,
+  not soon; the final summary lists what is still owed, per batch and per F-entry.
+- B02 (FIN-B02 final report `b36eecb3`) → requests to batches not yet reviewed, each to be honoured when that batch runs:
+  B11 `GenomeAnnotator.GetCodonUsage` (:1175, :1232) → `Translator.CountCodons` + `CodonUsageAnalyzer.CalculateRscu`;
+  B11/B09 ORF-engine unification on `Translator.FindOrfs`; B20 `GenBankParser` private translate (:686-697) →
+  `Translator.Translate`; B09 `GenomicAnalyzer` hard-coded stops (:413, :506) → `GeneticCode.Standard.IsStopCodon`;
+  B23 `OncologyAnalyzer.Fusions` to-first-stop loop (:546-557) → `Translator.Translate(…, toFirstStop: true)`;
+  B12 MFE vs ViennaRNA int21/int22 residual (max |Δ| 2.24 kcal/mol, RNA-STRUCT-001 D3/D4).
+  Its three requests to B08 are already covered by B08's own worklist (raw-pattern search done as B08 F22
+  `FindPatternOccurrences`; `CrisprDesigner.cs:662` ToUpperAscii = D12; the two MCP doc pairs = D14+D17).
+- ~~B04: `B04AuditProperties.Bbduk_MonotoneInCutoff_InvariantUnderCaseAndU` generator can draw w = k = 5 → draw w from [k+1, 60] (flaky ~1/30).~~ Done R2 (84cbf060).
+- B24.md "## Leftovers" → open requests to B17/B19/B21/B22/B23/B25 + Phase 2 (Median, MAD, KMeans advisory); orchestrator notes for consolidation: ALGORITHMS_CHECKLIST_V2 rows (ONCO-ASCAT-001 method table, l.4784 ONCO-CCF-001 Ckmeans, l.4808 ONCO-HETERO-001 citation), stale Oncology wiki pages, non-B24 Oncology docs linking the pre-split `OncologyAnalyzer.cs`.
 - B06 report "Cross-batch requests" (B01, B04, B05, B07, B09, B10, B17, B18, MCP owner) — k-mer counting routed to canonical KmerAnalyzer.
 - Stray branch `claude/stoic-maxwell-0olr2z-wip-TEST` (proxy cannot delete it) — ignore or delete in the GitHub UI.
 
 ## Log
 - 10-02 06:54–07:00 README: no-lost-work rule (90d60c7), WIP branch (a0272b2, de7d295); B07 relaunched with them.
 - 10-02 ~11:30 README: targeted test tier (9dc5a87); local-run kit added (tools/review/, LOCAL_RUN.md).
+- 10-29 B08: audit rounds 5-9 + implementation (F96-F120), duplication sweep (F116), single heavy tier, final report; R11-R14 registered; State updated; B08 added to Finished batches.
+- 11-02 B08: R14 done at the owner's request (linear `RemoveRestrictionSites`, 64-character limit documented, eager validation, ParamName); R14 closed in the register.

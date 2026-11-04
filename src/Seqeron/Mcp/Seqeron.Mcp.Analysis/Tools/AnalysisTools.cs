@@ -421,24 +421,59 @@ public class AnalysisTools
     #region SequenceStatistics
 
     [McpServerTool(Name = "hydrophobicity_profile", Title = "Protein — Hydrophobicity Profile", ReadOnly = true)]
-    [Description("Sliding-window Kyte-Doolittle hydropathy values for a protein sequence.")]
+    [Description("Sliding-window amino-acid scale profile for a protein sequence (ExPASy ProtScale / Biopython protein_scale), Kyte-Doolittle hydropathy by default. Optional scale selects a Biopython 1.88 ProtParamData table: KyteDoolittle (kd, default), HoppWoods (hw, hydrophilicity), Emini (em, surface fractional probability), Janin (ja, transfer energy) or Flexibility (Flex, Vihinen B-values). Optional edgeWeight (linear weight of the window edges, ProtScale 'relative weight of the window edges'), convention (Standard | Biopython line-for-line protein_scale), strict (reject symbols without a scale value), normalizeScale (ProtScale 0..1 scale normalisation) and weightModel (ProtScale Linear | Exponential weight variation). Defaults reproduce the unweighted Kyte-Doolittle mean.")]
     public static DoubleProfileResult HydrophobicityProfile(
         [Description("Protein sequence.")] string proteinSequence,
-        [Description("Sliding window size (default 9).")] int windowSize = 9)
+        [Description("Sliding window size (default 9).")] int windowSize = 9,
+        [Description("Relative weight of the window edges in [0, 1], linear in between with the centre weighted 1 (Biopython protein_scale edge). Default 1 = unweighted; < 1 needs an odd window in the Standard convention.")] double edgeWeight = 1.0,
+        [Description("Window convention (case-insensitive): 'Standard' (default; per-position weights, unknown residue contributes 0 and keeps its weight) or 'Biopython' (line-for-line Biopython 1.88 protein_scale: even windows count residue W/2 twice, a pair with an unknown residue is dropped; window >= 2).")] string convention = "Standard",
+        [Description("true: throw when the sequence contains a symbol without a scale value (Biopython gravy KeyError). Default false.")] bool strict = false,
+        [Description("true: min-max normalise the selected scale to 0..1 before profiling (ExPASy ProtScale 'normalize the scale from 0 to 1'). Default false.")] bool normalizeScale = false,
+        [Description("Residue scale (case-insensitive): 'KyteDoolittle' (default, kd), 'HoppWoods' (hw), 'Emini' (em), 'Janin' (ja) or 'Flexibility' (flex) — Biopython 1.88 Bio.SeqUtils.ProtParamData tables; the Biopython keys are accepted as aliases.")] string scale = "KyteDoolittle",
+        [Description("ExPASy ProtScale weight variation model for edgeWeight < 1 (case-insensitive): 'Linear' (default) or 'Exponential' (ProtScale exponential model; Standard convention only).")] string weightModel = "Linear")
     {
         if (string.IsNullOrEmpty(proteinSequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(proteinSequence));
         if (windowSize < 1)
             throw new ArgumentOutOfRangeException(nameof(windowSize), "Window size must be at least 1");
 
-        var values = SequenceStatistics
-            .CalculateHydrophobicityProfile(proteinSequence, windowSize)
-            .ToArray();
-        return new DoubleProfileResult(values);
+        var windowConvention = ParseExactEnumName<SequenceStatistics.HydropathyWindowConvention>(convention, nameof(convention), "window convention");
+        var weightVariation = ParseExactEnumName<SequenceStatistics.HydropathyWeightModel>(weightModel, nameof(weightModel), "weight variation model");
+        var residueScale = ResolveProteinScale(scale);
+        // Kyte-Doolittle is the options' default scale (Scale = null), so the default path is unchanged.
+        IReadOnlyDictionary<char, double>? customScale =
+            ReferenceEquals(residueScale, ProteinScales.KyteDoolittle) ? null : residueScale;
+        var values = windowConvention == SequenceStatistics.HydropathyWindowConvention.Standard && !strict && !normalizeScale && customScale is null
+            && weightVariation == SequenceStatistics.HydropathyWeightModel.Linear
+            ? SequenceStatistics.CalculateHydrophobicityProfile(proteinSequence, windowSize, edgeWeight)
+            : SequenceStatistics.CalculateHydrophobicityProfile(proteinSequence, windowSize, edgeWeight,
+                new SequenceStatistics.HydrophobicityProfileOptions
+                {
+                    Convention = windowConvention,
+                    Strict = strict,
+                    NormalizeScale = normalizeScale,
+                    Scale = customScale,
+                    WeightModel = weightVariation,
+                });
+        return new DoubleProfileResult(values.ToArray());
     }
 
+    // Scale name (or Biopython ProtParamData key) → shipped read-only table (B03 F52).
+    private static IReadOnlyDictionary<char, double> ResolveProteinScale(string? scale) =>
+        scale?.ToUpperInvariant() switch
+        {
+            "KYTEDOOLITTLE" or "KD" => ProteinScales.KyteDoolittle,
+            "HOPPWOODS" or "HW" => ProteinScales.HoppWoods,
+            "EMINI" or "EM" => ProteinScales.Emini,
+            "JANIN" or "JA" => ProteinScales.Janin,
+            "FLEXIBILITY" or "FLEX" => ProteinScales.Flexibility,
+            _ => throw new ArgumentException(
+                $"Unknown scale '{scale}'. Expected one of: KyteDoolittle (kd), HoppWoods (hw), Emini (em), Janin (ja), Flexibility (flex).",
+                nameof(scale)),
+        };
+
     [McpServerTool(Name = "dinucleotide_frequencies", Title = "Sequence — Dinucleotide Frequencies", ReadOnly = true)]
-    [Description("Frequency of each adjacent dinucleotide over the alphabet A/T/G/C/U.")]
+    [Description("Normalized adjacent-dinucleotide frequencies f_XY = count(XY) / (number of overlapping dinucleotides whose two symbols are both in A,T,G,C,U), case-insensitive (seqinr count(seq, 2, freq = TRUE)). Pairs containing N, IUPAC codes or gaps are excluded from count and denominator, so the denominator is N-1 only when every base is in the alphabet. Frequencies sum to 1.")]
     public static DinucleotideFrequenciesResult DinucleotideFrequencies(
         [Description("Nucleotide sequence.")] string sequence)
     {
@@ -450,34 +485,71 @@ public class AnalysisTools
     }
 
     [McpServerTool(Name = "dinucleotide_ratios", Title = "Sequence — Dinucleotide Obs/Exp Ratios", ReadOnly = true)]
-    [Description("Observed/expected ratios for each dinucleotide (e.g., CpG ratio for CpG-island detection).")]
+    [Description("Dinucleotide relative abundance (Karlin odds ratio) rho_XY = f_XY / (f_X * f_Y) for each occurring dinucleotide: single-strand rho (default, = seqinr rho / EMBOSS compseq Obs/Exp) or Karlin's strand-symmetrized genomic-signature rho* (strandSymmetric=true; sequence + its reverse complement). rho > 1 over-, < 1 under-represented. This is not the Gardiner-Garden & Frommer CpG O/E used for CpG-island calling (that normalizes by window length; see the annotation server's CpG-island tools). Optional includeRepresentation adds Karlin's class per dinucleotide (rho <= 0.78 under, >= 1.23 over). Only observed dinucleotides are returned unless includeAbsent is set: then every unobserved dinucleotide whose two bases occur is added with rho = 0 (seqinr rho reports 0; class UnderRepresented, e.g. CG of a CpG-free sequence); a dinucleotide containing an absent base has an undefined ratio (seqinr NaN) and is still omitted.")]
     public static DinucleotideRatiosResult DinucleotideRatios(
-        [Description("Nucleotide sequence.")] string sequence)
+        [Description("Nucleotide sequence (case-insensitive; symbols outside A/C/G/T/U are excluded, U too when strandSymmetric).")] string sequence,
+        [Description("true: Karlin strand-symmetrized rho* over the sequence and its reverse complement (alphabet A/C/G/T); false (default): single-strand rho over A/C/G/T/U.")] bool strandSymmetric = false,
+        [Description("true: also return Karlin's representation class (UnderRepresented rho <= 0.78, Normal, OverRepresented rho >= 1.23) for every returned dinucleotide. Default false (field omitted).")] bool includeRepresentation = false,
+        [Description("true: also return rho = 0 for every unobserved dinucleotide whose two bases occur in the sequence (rho*: A/T when A+T > 0, C/G when C+G > 0), as seqinr rho does; dinucleotides with an absent base (undefined 0/0) stay omitted. Default false (observed dinucleotides only).")] bool includeAbsent = false)
     {
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
 
-        var ratios = SequenceStatistics.CalculateDinucleotideRatios(sequence);
-        return new DinucleotideRatiosResult(new Dictionary<string, double>(ratios));
+        // includeAbsent = false is exactly the 2-argument overload (unchanged default path).
+        var ratios = SequenceStatistics.CalculateDinucleotideRatios(sequence, strandSymmetric, includeAbsent);
+        return new DinucleotideRatiosResult(new Dictionary<string, double>(ratios))
+        {
+            Representation = includeRepresentation
+                ? SequenceStatistics.ClassifyDinucleotideRatios(sequence, strandSymmetric, includeAbsent)
+                    .ToDictionary(kv => kv.Key, kv => kv.Value.ToString())
+                : null,
+        };
     }
 
     [McpServerTool(Name = "codon_frequencies", Title = "DNA — Codon Frequencies", ReadOnly = true)]
-    [Description("Codon usage frequencies in the specified reading frame (0..2).")]
+    [Description("Codon usage frequencies over non-overlapping in-frame triplets in the specified reading frame. Input is DNA or RNA, case-insensitive: U is read as T and codons are reported in DNA spelling; triplets containing any other symbol (N, IUPAC codes, gaps) are skipped without shifting the frame; a trailing partial triplet is ignored. Optional normalization (EMBOSS cusp columns): Total (default; count/total, Kazusa CUTG), PerThousand (count/total x 1000, cusp 'Frequency') or PerAminoAcid (count / count of its synonymous family, stops one '*' family, cusp 'Fraction'); the families follow the NCBI genetic code genetic_code (default 1 = Standard, as cusp). Only observed codons are returned.")]
     public static CodonFrequenciesResult CodonFrequencies(
-        [Description("DNA sequence.")] string dnaSequence,
-        [Description("Reading frame: 0, 1, or 2 (default 0).")] int readingFrame = 0)
+        [Description("DNA or RNA coding sequence (case-insensitive; U read as T).")] string dnaSequence,
+        [Description("Reading frame: 0, 1, or 2 (default 0).")] int readingFrame = 0,
+        [Description("Output normalisation (case-insensitive): 'Total' (default; count / total counted codons), 'PerThousand' (x 1000, EMBOSS cusp Frequency column) or 'PerAminoAcid' (count / total of the codons encoding the same amino acid under genetic_code, stop codons one family; EMBOSS cusp Fraction column).")] string normalization = "Total",
+        [Description("NCBI translation table number defining the synonymous codon families and stop codons used by normalization = PerAminoAcid (default 1 = Standard, identical to omitting it; e.g. 2 = vertebrate mitochondrial, 11 = bacterial/plastid). Must be one of the NCBI gc.prt tables (1-6, 9-16, 21-33); validated for every normalization.")] int genetic_code = 1)
     {
         if (string.IsNullOrEmpty(dnaSequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(dnaSequence));
         if (readingFrame is < 0 or > 2)
             throw new ArgumentException("Reading frame must be 0, 1, or 2", nameof(readingFrame));
 
-        var freq = SequenceStatistics.CalculateCodonFrequencies(dnaSequence, readingFrame);
+        var mode = ParseExactEnumName<SequenceStatistics.CodonFrequencyNormalization>(normalization, nameof(normalization));
+        var code = ResolveGeneticCode(genetic_code);
+        var freq = mode == SequenceStatistics.CodonFrequencyNormalization.Total
+            ? SequenceStatistics.CalculateCodonFrequencies(dnaSequence, readingFrame)
+            : SequenceStatistics.CalculateCodonFrequencies(dnaSequence, readingFrame, mode, code);
         return new CodonFrequenciesResult(new Dictionary<string, double>(freq));
     }
 
+    // Exact (case-insensitive) enum member name; Enum.TryParse alone would also accept numeric strings.
+    // The error names the parameter by `label` (default: paramName) and lists `expected` (default:
+    // Enum.GetNames<TEnum>() in declaration order).
+    private static TEnum ParseExactEnumName<TEnum>(string? value, string paramName, string? label = null, string? expected = null)
+        where TEnum : struct, Enum
+    {
+        foreach (var member in Enum.GetValues<TEnum>())
+        {
+            if (string.Equals(member.ToString(), value, StringComparison.OrdinalIgnoreCase))
+                return member;
+        }
+
+        throw new ArgumentException(
+            $"Unknown {label ?? paramName} '{value}'. Expected one of: {expected ?? string.Join(", ", Enum.GetNames<TEnum>())}.", paramName);
+    }
+
+    // NCBI translation table number → GeneticCode; same contract and error as the MolTools
+    // codon tools' genetic_code parameter (FIN-B02 WP15).
+    private static GeneticCode ResolveGeneticCode(int genetic_code) =>
+        GeneticCode.GetByTableNumberOrThrow(genetic_code, nameof(genetic_code));
+
     [McpServerTool(Name = "predict_chou_fasman", Title = "Protein — Chou-Fasman Propensities", ReadOnly = true)]
-    [Description("Per-window helix/sheet/turn propensities for a protein sequence (Chou-Fasman parameters).")]
+    [Description("Propensity profile, not an assignment: mean Chou-Fasman (1978) helix Pa / sheet Pb / turn Pt parameters over each sliding window (windowSize 1 = per-residue propensities). Residues without parameters are skipped; a window with none emits no item. For the discrete per-residue H/E/T/C Chou-Fasman prediction use chou_fasman_assign.")]
     public static PredictChouFasmanResult PredictChouFasman(
         [Description("Protein sequence.")] string proteinSequence,
         [Description("Sliding window size (default 7).")] int windowSize = 7)
@@ -494,12 +566,29 @@ public class AnalysisTools
         return new PredictChouFasmanResult(items);
     }
 
+    [McpServerTool(Name = "chou_fasman_assign", Title = "Protein — Chou-Fasman Secondary Structure", ReadOnly = true)]
+    [Description("Discrete Chou & Fasman (1978) secondary-structure assignment: one state per residue, H (alpha-helix), E (beta-strand), T (beta-turn) or C (coil). Helix nucleation >= 4 formers in 6, sheet >= 3 in 5, tetrapeptide extension while mean >= 1.00, acceptance <Pa> > 1.03 / <Pb> > 1.05, overlap by mean propensity, beta-turn p(t) > 7.5e-5 overrides H/E. ruleSet 'Standard' (default; former = P > 1.00) or 'Graded1978' (Chou & Fasman 1978 graded former/breaker classes with half-counted weak formers, breaker limit and Pro/Arg/Trp boundary rules). Non-standard residues stay C. Q3 accuracy ~50-60%.")]
+    public static ChouFasmanAssignResult ChouFasmanAssign(
+        [Description("Protein sequence, one-letter code (case-insensitive).")] string proteinSequence,
+        [Description("Nucleation rule set (case-insensitive): 'Standard' (default) or 'Graded1978'.")] string ruleSet = "Standard")
+    {
+        if (string.IsNullOrEmpty(proteinSequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(proteinSequence));
+
+        var rules = ParseExactEnumName<SequenceStatistics.ChouFasmanRuleSet>(ruleSet, nameof(ruleSet), "Chou-Fasman rule set");
+        return new ChouFasmanAssignResult(
+            SequenceStatistics.PredictSecondaryStructureChouFasman(proteinSequence, rules));
+    }
+
     [McpServerTool(Name = "gc_content_profile", Title = "Sequence — GC Content Profile", ReadOnly = true)]
-    [Description("GC content in sliding windows along the sequence.")]
+    [Description("GC content in sliding windows along the sequence: percentage [0,100] by default or a fraction [0,1] with fraction=true. Optional ambiguityMode (remove|ignore|weighted) applies Biopython gc_fraction IUPAC handling per window; optional includePartialWindow also scores the trailing windows shorter than windowSize (Biopython GC_skew-style range(0, len, step) slicing).")]
     public static DoubleProfileResult GcContentProfile(
         [Description("Nucleotide sequence.")] string sequence,
         [Description("Window size (default 100).")] int windowSize = 100,
-        [Description("Step size (default 1).")] int stepSize = 1)
+        [Description("Step size (default 1).")] int stepSize = 1,
+        [Description("Report each window as a fraction in [0,1] (Biopython gc_fraction) instead of a percentage. Default false.")] bool fraction = false,
+        [Description("Optional Biopython gc_fraction ambiguous mode per window (case-insensitive): remove (S counts as GC, S/W in the denominator, other codes dropped), ignore (denominator = window length), weighted (codes add their mean GC, N = 0.5). Omit for the default counting: (G+C)/(A+C+G+T+U), every other symbol excluded.")] string? ambiguityMode = null,
+        [Description("true: after the complete windows, also score every further start k*stepSize < length on the truncated trailing slice. Default false (complete windows only).")] bool includePartialWindow = false)
     {
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
@@ -508,18 +597,31 @@ public class AnalysisTools
         if (stepSize < 1)
             throw new ArgumentOutOfRangeException(nameof(stepSize), "Step size must be at least 1");
 
-        var values = SequenceStatistics
-            .CalculateGcContentProfile(sequence, windowSize, stepSize)
-            .ToArray();
-        return new DoubleProfileResult(values);
+        IEnumerable<double> values;
+        if (ambiguityMode is null)
+        {
+            values = includePartialWindow
+                ? SequenceStatistics.CalculateGcContentProfile(sequence, windowSize, stepSize, fraction, includePartialWindow: true)
+                : SequenceStatistics.CalculateGcContentProfile(sequence, windowSize, stepSize, fraction);
+        }
+        else
+        {
+            var mode = ParseGcAmbiguityMode(ambiguityMode, nameof(ambiguityMode));
+            values = SequenceStatistics.CalculateGcContentProfile(
+                sequence, windowSize, stepSize, fraction, mode, includePartialWindow);
+        }
+
+        return new DoubleProfileResult(values.ToArray());
     }
 
     [McpServerTool(Name = "entropy_profile", Title = "Sequence — Shannon Entropy Profile", ReadOnly = true)]
-    [Description("Shannon entropy in sliding windows along the sequence.")]
+    [Description("Shannon entropy (bits) in sliding windows along the sequence: letter entropy by default (every case-folded letter is its own symbol: N/IUPAC codes distinct, T and U not merged, non-letters ignored), or k-mer (block) entropy of the overlapping k-mers of each window with k. Optional includePartialWindow also scores the trailing windows shorter than windowSize (Biopython-style range(0, len, step) slicing).")]
     public static DoubleProfileResult EntropyProfile(
         [Description("Sequence to analyze.")] string sequence,
         [Description("Window size (default 50).")] int windowSize = 50,
-        [Description("Step size (default 1).")] int stepSize = 1)
+        [Description("Step size (default 1).")] int stepSize = 1,
+        [Description("Optional k-mer length (>= 1): entropy of the overlapping k-mers of each (upper-cased) window, every k-substring a symbol; a window shorter than k scores 0. Omit for letter (Shannon) entropy.")] int? k = null,
+        [Description("true: after the complete windows, also score every further start k*stepSize < length on the truncated trailing slice. Default false.")] bool includePartialWindow = false)
     {
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
@@ -527,11 +629,18 @@ public class AnalysisTools
             throw new ArgumentOutOfRangeException(nameof(windowSize), "Window size must be at least 1");
         if (stepSize < 1)
             throw new ArgumentOutOfRangeException(nameof(stepSize), "Step size must be at least 1");
+        if (k is < 1)
+            throw new ArgumentOutOfRangeException(nameof(k), "k must be at least 1");
 
-        var values = SequenceStatistics
-            .CalculateEntropyProfile(sequence, windowSize, stepSize)
-            .ToArray();
-        return new DoubleProfileResult(values);
+        IEnumerable<double> values;
+        if (k is int kmer)
+            values = SequenceStatistics.CalculateEntropyProfile(sequence, windowSize, stepSize, kmer, includePartialWindow);
+        else if (includePartialWindow)
+            values = SequenceStatistics.CalculateEntropyProfile(sequence, windowSize, stepSize, includePartialWindow: true);
+        else
+            values = SequenceStatistics.CalculateEntropyProfile(sequence, windowSize, stepSize);
+
+        return new DoubleProfileResult(values.ToArray());
     }
 
     #endregion
@@ -2735,7 +2844,8 @@ public class AnalysisTools
     public static WindowedGcSkewResult WindowedGcSkew(
         [Description("DNA sequence.")] string sequence,
         [Description("Window size in bp (default 1000).")] int windowSize = 1000,
-        [Description("Step size in bp (default 100).")] int stepSize = 100)
+        [Description("Step size in bp (default 100).")] int stepSize = 100,
+        [Description("Also emit trailing partial window(s) truncated at the sequence end (default false). With stepSize == windowSize this matches Biopython GC_skew.")] bool includePartialWindow = false)
     {
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
@@ -2745,7 +2855,7 @@ public class AnalysisTools
             throw new ArgumentOutOfRangeException(nameof(stepSize), "Step size must be at least 1");
 
         var items = GcSkewCalculator
-            .CalculateWindowedGcSkew(sequence, windowSize, stepSize)
+            .CalculateWindowedGcSkew(sequence, windowSize, stepSize, includePartialWindow)
             .Select(p => new GcSkewPointItem(p.Position, p.GcSkew, p.WindowStart, p.WindowEnd))
             .ToArray();
         return new WindowedGcSkewResult(items);
@@ -2755,7 +2865,8 @@ public class AnalysisTools
     [Description("Cumulative GC skew along the sequence — minimum approximates origin and maximum approximates terminus of replication.")]
     public static CumulativeGcSkewResult CumulativeGcSkew(
         [Description("DNA sequence.")] string sequence,
-        [Description("Window size (default 1000).")] int windowSize = 1000)
+        [Description("Window size (default 1000).")] int windowSize = 1000,
+        [Description("Also include the trailing partial window in the running sum (default false; true matches Biopython GC_skew).")] bool includePartialWindow = false)
     {
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
@@ -2763,7 +2874,7 @@ public class AnalysisTools
             throw new ArgumentOutOfRangeException(nameof(windowSize), "Window size must be at least 1");
 
         var items = GcSkewCalculator
-            .CalculateCumulativeGcSkew(sequence, windowSize)
+            .CalculateCumulativeGcSkew(sequence, windowSize, includePartialWindow)
             .Select(p => new CumulativeGcSkewPointItem(p.Position, p.GcSkew, p.CumulativeGcSkew))
             .ToArray();
         return new CumulativeGcSkewResult(items);
@@ -2781,25 +2892,71 @@ public class AnalysisTools
     }
 
     [McpServerTool(Name = "predict_replication_origin", Title = "GC Skew — Predict Origin/Terminus", ReadOnly = true)]
-    [Description("Predicts replication origin and terminus from cumulative GC skew extrema. Best on complete circular bacterial genomes.")]
+    [Description("Predicts replication origin and terminus from cumulative GC skew extrema (per-base #G-#C walk, Rosalind BA1F). Also returns ALL minimizing/maximizing prefix indices. Optional windowSize switches to Grigoriev's windowed cumulative skew (window centres; linear only). Optional skewIndexWindow adds the SkewIT Skew Index (skewi.py). Best on complete circular bacterial genomes.")]
     public static PredictReplicationOriginResult PredictReplicationOrigin(
-        [Description("DNA sequence (ideally complete circular genome).")] string sequence)
+        [Description("DNA sequence (ideally complete circular genome).")] string sequence,
+        [Description("Treat the input as a circular chromosome: prefix index n is the same junction as 0, positions reported mod n in [0, n-1] (default false = linear, positions in [0, n]). Not combinable with windowSize.")] bool circular = false,
+        [Description("Optional Grigoriev (1998) window in bp (>= 1): origin/terminus = centre (start + windowSize/2) of the first adjacent non-overlapping complete window with the minimum/maximum running sum of (G-C)/(G+C); skews are those cumulative values. Omit (default) for the per-base walk. With a window, originPositions/terminusPositions are empty (they are per-base prefix indices); circular=true is rejected.")] int? windowSize = null,
+        [Description("Optional SkewIT window k in bp (>= 1; SkewIT default 20000): adds skewIndex, the Lu & Salzberg 2020 Skew Index in (0, 1] exactly as skewi.py, or null when skewi.py reports none (e.g. fewer than 13 windows). Omit to skip.")] int? skewIndexWindow = null)
     {
         var dna = RequireDna(sequence, nameof(sequence));
-        var r = GcSkewCalculator.PredictReplicationOrigin(dna);
+        if (windowSize is < 1)
+            throw new ArgumentOutOfRangeException(nameof(windowSize), "Window size must be at least 1");
+        if (skewIndexWindow is < 1)
+            throw new ArgumentOutOfRangeException(nameof(skewIndexWindow), "Skew index window must be at least 1");
+        if (windowSize is not null && circular)
+            throw new ArgumentException(
+                "circular is not supported with windowSize (the windowed Grigoriev prediction is linear)", nameof(circular));
+
+        double? skewIndex = skewIndexWindow is { } k ? GcSkewCalculator.CalculateSkewIndex(dna, k) : null;
+
+        if (windowSize is { } w)
+        {
+            var rw = GcSkewCalculator.PredictReplicationOrigin(dna, w);
+            return new PredictReplicationOriginResult(
+                rw.PredictedOrigin, rw.PredictedTerminus, rw.OriginSkew, rw.TerminusSkew, rw.IsSignificant)
+            {
+                SkewIndex = skewIndex,
+            };
+        }
+
+        var r = GcSkewCalculator.PredictReplicationOrigin(dna, circular);
         return new PredictReplicationOriginResult(
-            r.PredictedOrigin, r.PredictedTerminus, r.OriginSkew, r.TerminusSkew, r.IsSignificant);
+            r.PredictedOrigin, r.PredictedTerminus, r.OriginSkew, r.TerminusSkew, r.IsSignificant)
+        {
+            OriginPositions = GcSkewCalculator.FindMinimumSkewPositions(dna, circular).ToArray(),
+            TerminusPositions = GcSkewCalculator.FindMaximumSkewPositions(dna, circular).ToArray(),
+            SkewIndex = skewIndex,
+        };
     }
 
     [McpServerTool(Name = "analyze_gc_content", Title = "GC — Comprehensive Analysis", ReadOnly = true)]
-    [Description("Comprehensive GC report: overall GC content, GC/AT skew, content/skew variances, and windowed GC profiles.")]
+    [Description("Comprehensive GC report: overall GC content, GC/AT skew, content/skew variances, and windowed GC profiles. GC content is a percentage [0,100] by default, or a fraction [0,1] with fraction=true. Optional ambiguity (remove|ignore|weighted) applies Biopython gc_fraction IUPAC handling to the GC content and accepts IUPAC DNA input.")]
     public static AnalyzeGcContentResult AnalyzeGcContent(
-        [Description("DNA sequence.")] string sequence,
+        [Description("DNA sequence (A/C/G/T; IUPAC codes allowed when ambiguity is set).")] string sequence,
         [Description("Window size (default 1000).")] int windowSize = 1000,
-        [Description("Step size (default 100).")] int stepSize = 100)
+        [Description("Step size (default 100).")] int stepSize = 100,
+        [Description("Report overall and windowed GC content (and its variance) as a fraction in [0,1] (Biopython gc_fraction) instead of a percentage. Default false.")] bool fraction = false,
+        [Description("Optional Biopython gc_fraction ambiguous mode for the overall and windowed GC content (case-insensitive): remove (Biopython default: S counts as GC, S/W in the denominator, other codes dropped; GGSW -> 0.75), ignore (denominator = length), weighted (codes add their mean GC, N = 0.5). Input may then contain IUPAC codes ACGTRYSWKMBDHVN. Skews are unchanged (G/C and A/T only). Omit for the default strict-DNA counting.")] string? ambiguity = null)
     {
-        var dna = RequireDna(sequence, nameof(sequence));
-        var r = GcSkewCalculator.AnalyzeGcContent(dna, windowSize, stepSize);
+        GcAnalysisResult r;
+        if (ambiguity is null)
+        {
+            var dna = RequireDna(sequence, nameof(sequence));
+            r = GcSkewCalculator.AnalyzeGcContent(dna, windowSize, stepSize, fraction);
+        }
+        else
+        {
+            var mode = ParseGcAmbiguityMode(ambiguity);
+            if (string.IsNullOrEmpty(sequence))
+                throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+            int bad = sequence.AsSpan().IndexOfInvalidIupacDna();
+            if (bad >= 0)
+                throw new ArgumentException(
+                    $"Invalid IUPAC DNA symbol '{sequence[bad]}' at position {bad}", nameof(sequence));
+            r = GcSkewCalculator.AnalyzeGcContent(sequence, windowSize, stepSize, fraction, mode);
+        }
+
         var skewPoints = r.WindowedGcSkew
             .Select(p => new GcSkewPointItem(p.Position, p.GcSkew, p.WindowStart, p.WindowEnd))
             .ToArray();
@@ -2811,6 +2968,11 @@ public class AnalysisTools
             r.GcContentVariance, r.GcSkewVariance,
             skewPoints, contentPoints, r.SequenceLength);
     }
+
+    // Exact (case-insensitive) GcAmbiguityMode name (numeric strings and comma lists rejected);
+    // the documented error lists the modes in lower case (analyze_gc_content / gc_content_profile).
+    private static SequenceExtensions.GcAmbiguityMode ParseGcAmbiguityMode(string ambiguity, string paramName = "ambiguity") =>
+        ParseExactEnumName<SequenceExtensions.GcAmbiguityMode>(ambiguity, paramName, "ambiguity mode", "remove, ignore, weighted");
 
     #endregion
 
@@ -2871,7 +3033,7 @@ public class AnalysisTools
     }
 
     [McpServerTool(Name = "rna_complement_base", Title = "RNA — Complement Base", ReadOnly = true)]
-    [Description("Returns the RNA complement (A↔U, G↔C) for a single base.")]
+    [Description("Returns the RNA complement of a single base, as Biopython complement_rna: A→U, U→A, G↔C, DNA T→A; IUPAC ambiguity codes are complemented (R↔Y, K↔M, B↔V, D↔H; S, W, N unchanged). Case-insensitive, upper-case output for recognized codes; other characters pass through.")]
     public static RnaComplementBaseResult RnaComplementBase(
         [Description("RNA base (length-1 string).")] string @base)
     {

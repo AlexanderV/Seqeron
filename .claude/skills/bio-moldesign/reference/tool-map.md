@@ -1,4 +1,4 @@
-# MolTools tool map (48 tools)
+# MolTools tool map (55 tools)
 
 Grouped by sub-domain. All on the **MolTools** MCP server; C# in `Seqeron.Genomics.MolTools`.
 One line = tool · one-line purpose · `Method ID`. Open the per-tool doc under
@@ -28,7 +28,11 @@ guess. Source of truth for names/status: `docs/mcp/MCP_STATUS.md`.
 | `evaluate_guide_rna` | Score/QC one guide | `CrisprDesigner.EvaluateGuideRna` |
 | `find_pam_sites` | Enumerate PAM sites for a system | `CrisprDesigner.FindPamSites` |
 | `find_off_targets` | Naïve genome scan for off-targets | `CrisprDesigner.FindOffTargets` |
-| `crispr_specificity_score` | Aggregate off-targets → 0..100 specificity | `CrisprDesigner.CalculateSpecificityScore` |
+| `crispr_specificity_score` | Aggregate off-targets → 0..100 specificity (this library's own heuristic, not a published model) | `CrisprDesigner.CalculateHeuristicSpecificityScore` |
+| `crispr_mit_specificity_score` | Published MIT / Hsu 2013 aggregate guide specificity (CRISPOR `calcMitGuideScore`) | `CrisprDesigner.CalculateMitSpecificityScore` |
+| `crispr_cfd_specificity_score` | Published Doench 2016 CFD aggregate guide specificity (CRISPOR) | `CrisprDesigner.CalculateCfdSpecificityScore` |
+| `calculate_on_target_doench2014` | Doench 2014 Rule Set 1 on-target score (0..100) from the 30-nt context | `CrisprDesigner.CalculateOnTargetDoench2014` |
+| `calculate_on_target_rule_set2` | Doench 2016 Rule Set 2 / Azimuth on-target score (0..1) from the 30-nt context | `CrisprDesigner.CalculateOnTargetRuleSet2` |
 | `crispr_system_info` | System parameters (PAM, guide length…) | `CrisprDesigner.GetSystem` |
 
 ## Codon optimization & usage (`CodonOptimizer`, `CodonUsageAnalyzer`)
@@ -39,6 +43,9 @@ guess. Source of truth for names/status: `docs/mcp/MCP_STATUS.md`.
 | `build_codon_table` | Codon usage table from a reference sequence | `CodonOptimizer.CreateCodonTableFromSequence` |
 | `compare_codon_usage` | Compare two codon-usage profiles | `CodonOptimizer.CompareCodonUsage` |
 | `find_rare_codons` | Locate rare codons below a threshold | `CodonOptimizer.FindRareCodons` |
+| `find_rare_codon_clusters` | Rare-codon clusters (Sherlocc: ≥4 rare in a 7-codon window) | `CodonOptimizer.FindRareCodonClusters` |
+| `codon_minmax_profile` | %MinMax sliding-window codon-usage profile (Clarke & Clark) | `CodonOptimizer.CalculateMinMaxProfile` |
+| `find_conserved_rare_codon_clusters` | Conserved rare-codon clusters of a codon alignment (Sherlocc 1.0) | `CodonOptimizer.FindConservedRareCodonClusters` |
 | `reduce_secondary_structure` | Rewrite codons to reduce mRNA structure | `CodonOptimizer.ReduceSecondaryStructure` |
 | `remove_restriction_sites` | Silently remove restriction sites from a CDS | `CodonOptimizer.RemoveRestrictionSites` |
 | `cai_from_organism_table` | CAI vs an organism table | `CodonOptimizer.CalculateCAI` |
@@ -50,17 +57,24 @@ guess. Source of truth for names/status: `docs/mcp/MCP_STATUS.md`.
 
 ## Restriction analysis (`RestrictionAnalyzer`)
 
+Every sequence-taking tool here accepts **IUPAC ambiguity codes** anywhere in the sequence, so an
+N-containing contig or a soft-masked assembly can be scanned, digested or mapped as it is (B08 H27).
+
 | Tool | Purpose | Method ID |
 |---|---|---|
 | `find_restriction_sites` | Sites for named enzymes | `RestrictionAnalyzer.FindSites` |
-| `find_all_restriction_sites` | Sites for all known enzymes | `RestrictionAnalyzer.FindAllSites` |
-| `restriction_digest` | Simulate a linear digest → fragments | `RestrictionAnalyzer.Digest` |
+| `find_all_restriction_sites` | Sites for every enzyme of a set (`enzyme_set`: 39 common by default, `"rebase"` = 754) | `RestrictionAnalyzer.FindAllSites` |
+| `restriction_digest` | Simulate a digest (`topology` Linear \| Circular) → fragments | `RestrictionAnalyzer.Digest` |
+| `partial_digest` | Partial digest: every fragment with any subset of sites uncut (+ missed-cut count; no yield) | `RestrictionAnalyzer.PartialDigest` |
 | `restriction_map` | Build a restriction map | `RestrictionAnalyzer.CreateMap` |
 | `digest_summary` | Summarize a digest (fragment sizes…) | `RestrictionAnalyzer.GetDigestSummary` |
 | `get_enzyme` | Look up one enzyme's properties | `RestrictionAnalyzer.GetEnzyme` |
 | `blunt_cutters` | Enzymes producing blunt ends | `RestrictionAnalyzer.GetBluntCutters` |
 | `sticky_cutters` | Enzymes producing sticky ends | `RestrictionAnalyzer.GetStickyCutters` |
-| `enzymes_by_cut_length` | Enzymes by recognition-site length | `RestrictionAnalyzer.GetEnzymesByCutLength` |
+| `enzymes_by_cut_length` | Enzymes by recognition-site length; `max_length` makes it an inclusive range, so "all 4-6 bp cutters" is one call | `RestrictionAnalyzer.GetEnzymesByCutLength` |
+| `find_pattern_occurrences` | The raw IUPAC pattern scan under `find_restriction_sites`: start indices on one strand, no enzyme and no cut arithmetic | `RestrictionAnalyzer.FindPatternOccurrences` |
+| `find_sites_custom_enzyme` | Sites of a caller-supplied enzyme definition (site + the two cut offsets, optional Type IIB second pair) — for an enzyme not in the table, or one of the 334 REBASE enzymes with no defined cut | `RestrictionAnalyzer.FindSites` |
+| `restriction_digest_custom_enzyme` | Digest with a caller-supplied enzyme definition | `RestrictionAnalyzer.Digest` |
 | `compatible_enzymes` | Enzymes compatible with a given one | `RestrictionAnalyzer.FindCompatibleEnzymes` |
 | `enzymes_compatible` | Are two enzymes compatible? | `RestrictionAnalyzer.AreCompatible` |
 

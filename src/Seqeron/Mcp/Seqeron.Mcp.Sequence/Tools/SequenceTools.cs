@@ -16,15 +16,21 @@ public class SequenceTools
     /// Validate a DNA sequence.
     /// </summary>
     [McpServerTool(Name = "dna_validate", Title = "DNA — Validate Sequence", ReadOnly = true)]
-    [Description("Validate a DNA sequence. Returns whether the sequence contains only valid nucleotides (A, C, G, T).")]
+    [Description("Validate a DNA sequence. Returns whether the sequence contains only valid nucleotides (A, C, G, T; case-insensitive). With iupac=true the 11 IUPAC ambiguity codes R, Y, S, W, K, M, B, D, H, V, N are also accepted (Biopython ambiguous_dna_letters). Empty input is rejected.")]
     public static DnaValidateResult DnaValidate(
-        [Description("The DNA sequence to validate")] string sequence)
+        [Description("The DNA sequence to validate")] string sequence,
+        [Description("Also accept IUPAC ambiguity codes R, Y, S, W, K, M, B, D, H, V, N (U, X and gaps still invalid). Default false = strict A/C/G/T.")] bool iupac = false)
     {
+        // Null/empty → ArgumentException is the project-wide MCP input convention (docs/mcp-prompt.md
+        // "Definition of Done" §1; error 1001). Core IsValid*/Biopython/scikit-bio treat "" as valid.
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
 
-        // Delegates to the canonical SEQ-VALID-001 predicate (same check as DnaSequence construction).
-        int invalidAt = global::Seqeron.Genomics.Core.SequenceExtensions.IndexOfInvalidDna(sequence.AsSpan());
+        // Delegates to the canonical SEQ-VALID-001 predicates (strict = same check as DnaSequence
+        // construction; iupac = SequenceExtensions.IsValidIupacDna).
+        int invalidAt = iupac
+            ? global::Seqeron.Genomics.Core.SequenceExtensions.IndexOfInvalidIupacDna(sequence.AsSpan())
+            : global::Seqeron.Genomics.Core.SequenceExtensions.IndexOfInvalidDna(sequence.AsSpan());
         return invalidAt < 0
             ? new DnaValidateResult(true, sequence.Length, null)
             : new DnaValidateResult(false, sequence.Length, $"Invalid nucleotide '{sequence[invalidAt]}' at position {invalidAt}");
@@ -53,15 +59,21 @@ public class SequenceTools
     /// Validate an RNA sequence.
     /// </summary>
     [McpServerTool(Name = "rna_validate", Title = "RNA — Validate Sequence", ReadOnly = true)]
-    [Description("Validate an RNA sequence. Returns whether the sequence contains only valid nucleotides (A, C, G, U).")]
+    [Description("Validate an RNA sequence. Returns whether the sequence contains only valid nucleotides (A, C, G, U; case-insensitive). With iupac=true the 11 IUPAC ambiguity codes R, Y, S, W, K, M, B, D, H, V, N are also accepted (Biopython ambiguous_rna_letters). Empty input is rejected.")]
     public static RnaValidateResult RnaValidate(
-        [Description("The RNA sequence to validate")] string sequence)
+        [Description("The RNA sequence to validate")] string sequence,
+        [Description("Also accept IUPAC ambiguity codes R, Y, S, W, K, M, B, D, H, V, N (T, X and gaps still invalid). Default false = strict A/C/G/U.")] bool iupac = false)
     {
+        // Null/empty → ArgumentException is the project-wide MCP input convention (docs/mcp-prompt.md
+        // "Definition of Done" §1; error 1001). Core IsValid*/Biopython/scikit-bio treat "" as valid.
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
 
-        // Delegates to the canonical SEQ-VALID-001 predicate (same check as RnaSequence construction).
-        int invalidAt = global::Seqeron.Genomics.Core.SequenceExtensions.IndexOfInvalidRna(sequence.AsSpan());
+        // Delegates to the canonical SEQ-VALID-001 predicates (strict = same check as RnaSequence
+        // construction; iupac = SequenceExtensions.IsValidIupacRna).
+        int invalidAt = iupac
+            ? global::Seqeron.Genomics.Core.SequenceExtensions.IndexOfInvalidIupacRna(sequence.AsSpan())
+            : global::Seqeron.Genomics.Core.SequenceExtensions.IndexOfInvalidRna(sequence.AsSpan());
         return invalidAt < 0
             ? new RnaValidateResult(true, sequence.Length, null)
             : new RnaValidateResult(false, sequence.Length, $"Invalid nucleotide '{sequence[invalidAt]}' at position {invalidAt}");
@@ -89,7 +101,7 @@ public class SequenceTools
     /// Validate a protein (amino acid) sequence.
     /// </summary>
     [McpServerTool(Name = "protein_validate", Title = "Protein — Validate Sequence", ReadOnly = true)]
-    [Description("Validate a protein sequence. Returns whether the sequence contains only valid amino acids.")]
+    [Description("Validate a protein sequence. Returns whether the sequence contains only valid amino acids: the 20 standard residues, B/Z/J (Asx/Glx/Xle), X (unknown), U (selenocysteine), O (pyrrolysine) and * (stop) — Biopython extended_protein_letters plus *. Case-insensitive.")]
     public static ProteinValidateResult ProteinValidate(
         [Description("The protein sequence to validate")] string sequence)
     {
@@ -105,11 +117,13 @@ public class SequenceTools
         else
         {
             // Find the invalid character for error message
-            var upperSeq = sequence.ToUpperInvariant();
+            // ASCII-only folding (as ProteinSequence, F31): ToUpperInvariant would map a non-ASCII
+            // letter such as U+017F 'ſ' onto 'S' and hide the offending character.
             var validChars = global::Seqeron.Genomics.Core.ProteinSequence.ValidCharacters;
-            for (int i = 0; i < upperSeq.Length; i++)
+            for (int i = 0; i < sequence.Length; i++)
             {
-                if (!validChars.Contains(upperSeq[i]))
+                char c = SequenceCase.ToUpperAscii(sequence[i]);
+                if (!validChars.Contains(c))
                 {
                     return new ProteinValidateResult(false, sequence.Length, $"Invalid amino acid '{sequence[i]}' at position {i}");
                 }
@@ -122,7 +136,7 @@ public class SequenceTools
     /// Calculate nucleotide composition of a DNA/RNA sequence.
     /// </summary>
     [McpServerTool(Name = "nucleotide_composition", Title = "Sequence — Nucleotide Composition", ReadOnly = true)]
-    [Description("Calculate nucleotide composition (A, T, G, C, U counts) and GC content of a DNA/RNA sequence.")]
+    [Description("Calculate nucleotide composition (A, T, G, C, U, N counts; every other character in 'other') and GC content of a DNA/RNA sequence.")]
     public static NucleotideCompositionResult NucleotideComposition(
         [Description("The DNA or RNA sequence to analyze")] string sequence)
     {
@@ -138,16 +152,19 @@ public class SequenceTools
             comp.CountC,
             comp.CountU,
             comp.CountOther,
-            comp.GcContent);
+            comp.GcContent,
+            comp.CountN);
     }
 
     /// <summary>
     /// Calculate amino acid composition of a protein sequence.
     /// </summary>
     [McpServerTool(Name = "amino_acid_composition", Title = "Protein — Amino Acid Composition", ReadOnly = true)]
-    [Description("Calculate amino acid composition, molecular weight, and other properties of a protein sequence.")]
+    [Description("Calculate amino acid composition, molecular weight, and other properties of a protein sequence. chargedResidueRatio (D+E+H+K+R) and aromaticResidueRatio (F+W+Y) divide by the residue count (default denominator 'Residues' = EMBOSS pepstats Mole%) or by the full input length including '*' (denominator 'SequenceLength' = Biopython ProteinAnalysis aromaticity / amino_acids_percent). Optional includeFractions adds per-residue fractions count/denominator for every occurring residue letter (omitted by default).")]
     public static AminoAcidCompositionResult AminoAcidComposition(
-        [Description("The protein sequence to analyze")] string sequence)
+        [Description("The protein sequence to analyze")] string sequence,
+        [Description("Ratio denominator (case-insensitive): 'Residues' (default; residue letters only, EMBOSS pepstats: \"MKW*\" aromatic 1/3) or 'SequenceLength' (every character incl. '*', Biopython ProteinAnalysis: \"MKW*\" aromaticity 0.25). length, counts, MW, pI and GRAVY are unaffected.")] string denominator = "Residues",
+        [Description("true: also return 'fractions', count/denominator for every occurring residue letter (pepstats Mole%/100 or Biopython amino_acids_percent/100, per denominator). Default false (field omitted).")] bool includeFractions = false)
     {
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
@@ -155,7 +172,10 @@ public class SequenceTools
         if (!global::Seqeron.Genomics.Core.ProteinSequence.TryCreate(sequence, out _))
             throw new ArgumentException("Invalid protein sequence", nameof(sequence));
 
-        var comp = SequenceStatistics.CalculateAminoAcidComposition(sequence);
+        var ratioDenominator = ParseExactEnumName<SequenceStatistics.AminoAcidCompositionDenominator>(denominator, nameof(denominator), "composition denominator");
+        var comp = ratioDenominator == SequenceStatistics.AminoAcidCompositionDenominator.Residues
+            ? SequenceStatistics.CalculateAminoAcidComposition(sequence)
+            : SequenceStatistics.CalculateAminoAcidComposition(sequence, ratioDenominator);
         return new AminoAcidCompositionResult(
             comp.Length,
             comp.Counts.ToDictionary(kv => kv.Key.ToString(), kv => kv.Value),
@@ -163,16 +183,25 @@ public class SequenceTools
             comp.IsoelectricPoint,
             comp.Hydrophobicity,
             comp.ChargedResidueRatio,
-            comp.AromaticResidueRatio);
+            comp.AromaticResidueRatio)
+        {
+            Fractions = includeFractions
+                ? SequenceStatistics.CalculateAminoAcidFractions(sequence, ratioDenominator)
+                    .ToDictionary(kv => kv.Key.ToString(), kv => kv.Value)
+                : null,
+        };
     }
 
     /// <summary>
     /// Calculate molecular weight of a protein sequence.
     /// </summary>
     [McpServerTool(Name = "molecular_weight_protein", Title = "Protein — Molecular Weight", ReadOnly = true)]
-    [Description("Calculate the molecular weight of a protein sequence in Daltons (Da).")]
+    [Description("Calculate the molecular weight of a protein sequence in Daltons (Da) (Biopython molecular_weight(seq, 'protein')). Optional monoisotopic masses, head-to-tail cyclic peptide (circular) and strict mode (reject B/Z/J/X/'*' instead of skipping them).")]
     public static MolecularWeightProteinResult MolecularWeightProtein(
-        [Description("The protein sequence")] string sequence)
+        [Description("The protein sequence")] string sequence,
+        [Description("Use monoisotopic residue masses and water 18.010565 Da (Biopython monoisotopic=True). Default false = average masses.")] bool monoisotopic = false,
+        [Description("Head-to-tail cyclic peptide: one more water lost (Biopython circular=True). Default false = linear.")] bool circular = false,
+        [Description("Reject residues without a mass (B, Z, J, X, '*') like Biopython's ValueError. Default false = skip them.")] bool strict = false)
     {
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
@@ -180,7 +209,8 @@ public class SequenceTools
         if (!global::Seqeron.Genomics.Core.ProteinSequence.TryCreate(sequence, out _))
             throw new ArgumentException("Invalid protein sequence", nameof(sequence));
 
-        var mw = SequenceStatistics.CalculateMolecularWeight(sequence);
+        var mw = SequenceStatistics.CalculateMolecularWeight(sequence,
+            new SequenceStatistics.MolecularWeightOptions { Monoisotopic = monoisotopic, Circular = circular, Strict = strict });
         return new MolecularWeightProteinResult(mw, "Da");
     }
 
@@ -188,15 +218,20 @@ public class SequenceTools
     /// Calculate molecular weight of a DNA or RNA sequence.
     /// </summary>
     [McpServerTool(Name = "molecular_weight_nucleotide", Title = "Sequence — Nucleotide Molecular Weight", ReadOnly = true)]
-    [Description("Calculate the molecular weight of a DNA or RNA sequence in Daltons (Da).")]
+    [Description("Calculate the molecular weight of a DNA or RNA sequence in Daltons (Da) (Biopython molecular_weight). Optional double-stranded (adds the complementary strand), circular, monoisotopic masses and strict mode (reject symbols without a mass instead of skipping them).")]
     public static MolecularWeightNucleotideResult MolecularWeightNucleotide(
         [Description("The DNA or RNA sequence")] string sequence,
-        [Description("True for DNA, false for RNA (default: true)")] bool isDna = true)
+        [Description("True for DNA, false for RNA (default: true)")] bool isDna = true,
+        [Description("Add the Watson-Crick complementary strand (Biopython double_stranded=True). Default false = single strand.")] bool doubleStranded = false,
+        [Description("Circular molecule: one more water lost per strand (Biopython circular=True). Default false = linear.")] bool circular = false,
+        [Description("Use monoisotopic nucleotide masses and water 18.010565 Da (Biopython monoisotopic=True). Default false = average masses.")] bool monoisotopic = false,
+        [Description("Reject symbols without a mass (e.g. N; U in DNA; T in RNA) like Biopython's ValueError. Default false = skip them.")] bool strict = false)
     {
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
 
-        var mw = SequenceStatistics.CalculateNucleotideMolecularWeight(sequence, isDna);
+        var mw = SequenceStatistics.CalculateNucleotideMolecularWeight(sequence, isDna, doubleStranded,
+            new SequenceStatistics.MolecularWeightOptions { Monoisotopic = monoisotopic, Circular = circular, Strict = strict });
         return new MolecularWeightNucleotideResult(mw, "Da", isDna ? "DNA" : "RNA");
     }
 
@@ -204,9 +239,14 @@ public class SequenceTools
     /// Calculate isoelectric point (pI) of a protein sequence.
     /// </summary>
     [McpServerTool(Name = "isoelectric_point", Title = "Protein — Isoelectric Point", ReadOnly = true)]
-    [Description("Calculate the isoelectric point (pI) of a protein sequence. pI is the pH at which the protein has no net charge.")]
+    [Description("Calculate the isoelectric point (pI) of a protein sequence. pI is the pH at which the protein has no net charge. pK scale: 'Emboss' (EMBOSS iep, default) or 'Bjellqvist' (ExPASy Compute pI/Mw, Biopython IsoelectricPoint). Optional reference conventions: window 'Default' (library [0,14] search, 2 dp), 'Emboss' (iep [1,14]; found=false and no pI when the charge does not change sign = iep 'None'), 'Biopython' (IsoelectricPoint.pi() [4.05,12] window, unrounded); termini=false (iep -notermini), lysinesModified (iep -lysinemodified), disulphides (iep -disulphides).")]
     public static IsoelectricPointResult IsoelectricPoint(
-        [Description("The protein sequence")] string sequence)
+        [Description("The protein sequence")] string sequence,
+        [Description("pK scale: 'Emboss' (default, EMBOSS iep) or 'Bjellqvist' (ExPASy / Biopython); case-insensitive")] string scale = "Emboss",
+        [Description("pH search window: 'Default' (library [0,14], rounded to 2 dp), 'Emboss' (iep [1,14], unrounded; 'None' → found=false) or 'Biopython' (pi() [4.05,12], unrounded); case-insensitive")] string window = "Default",
+        [Description("Count the N-/C-terminal charges (default true); false = EMBOSS iep -notermini")] bool termini = true,
+        [Description("Number of lysines whose side chain is modified (uncharged), as iep -lysinemodified (default 0; all K when fewer present)")] int lysinesModified = 0,
+        [Description("Number of disulphide bridges (each removes 2 cysteine charges), as iep -disulphides (default 0)")] int disulphides = 0)
     {
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
@@ -214,8 +254,45 @@ public class SequenceTools
         if (!global::Seqeron.Genomics.Core.ProteinSequence.TryCreate(sequence, out _))
             throw new ArgumentException("Invalid protein sequence", nameof(sequence));
 
-        var pI = SequenceStatistics.CalculateIsoelectricPoint(sequence);
-        return new IsoelectricPointResult(pI);
+        if (lysinesModified < 0)
+            throw new ArgumentException("lysinesModified must be non-negative", nameof(lysinesModified));
+        if (disulphides < 0)
+            throw new ArgumentException("disulphides must be non-negative", nameof(disulphides));
+
+        var pkaScale = ParseExactEnumName<SequenceStatistics.PkaScale>(scale, nameof(scale), "pK scale");
+        var pIWindow = ParseExactEnumName<SequenceStatistics.IsoelectricPointWindow>(window, nameof(window), "pI window");
+        if (pIWindow == SequenceStatistics.IsoelectricPointWindow.Default && termini && lysinesModified == 0 && disulphides == 0)
+            return new IsoelectricPointResult(SequenceStatistics.CalculateIsoelectricPoint(sequence, pkaScale));
+
+        bool found = SequenceStatistics.TryCalculateIsoelectricPoint(sequence,
+            new SequenceStatistics.IsoelectricPointOptions
+            {
+                Scale = pkaScale,
+                Window = pIWindow,
+                Termini = termini,
+                LysinesModified = lysinesModified,
+                Disulphides = disulphides,
+            },
+            out double pI);
+        return new IsoelectricPointResult(found ? pI : null)
+        {
+            Found = pIWindow == SequenceStatistics.IsoelectricPointWindow.Emboss ? found : null,
+        };
+    }
+
+    // Exact (case-insensitive) enum member name; Enum.TryParse alone would also accept numeric strings.
+    // The error names the parameter by `label` (default: paramName) and lists Enum.GetNames<TEnum>() in declaration order.
+    private static TEnum ParseExactEnumName<TEnum>(string? value, string paramName, string? label = null)
+        where TEnum : struct, Enum
+    {
+        foreach (var member in Enum.GetValues<TEnum>())
+        {
+            if (string.Equals(member.ToString(), value, StringComparison.OrdinalIgnoreCase))
+                return member;
+        }
+
+        throw new ArgumentException(
+            $"Unknown {label ?? paramName} '{value}'. Expected one of: {string.Join(", ", Enum.GetNames<TEnum>())}.", paramName);
     }
 
     /// <summary>
@@ -240,16 +317,39 @@ public class SequenceTools
     /// Calculate thermodynamic properties of a DNA duplex.
     /// </summary>
     [McpServerTool(Name = "thermodynamics", Title = "DNA — Thermodynamic Properties", ReadOnly = true)]
-    [Description("Calculate thermodynamic properties (ΔH, ΔS, ΔG, Tm) of a DNA duplex using the nearest-neighbor method.")]
+    [Description("Calculate thermodynamic properties (ΔH, ΔS, ΔG, Tm) of a DNA duplex using the nearest-neighbor method (Allawi & SantaLucia 1997; Biopython Tm_NN with DNA_NN3). Optional self-complementary duplex, Biopython salt-correction method 0-7 with K+/Tris/Mg2+/dNTPs (mol/L), and unrounded output.")]
     public static ThermodynamicsResult Thermodynamics(
         [Description("The DNA sequence")] string sequence,
         [Description("Na+ concentration in M (default: 0.05 = 50mM)")] double naConcentration = 0.05,
-        [Description("Primer concentration in M (default: 0.00000025 = 250nM)")] double primerConcentration = 0.00000025)
+        [Description("Primer concentration in M (default: 0.00000025 = 250nM)")] double primerConcentration = 0.00000025,
+        [Description("Self-complementary (homo)duplex: symmetry correction and Tm uses C_T/1 instead of C_T/4 (Biopython selfcomp=True). Default false.")] bool selfComplementary = false,
+        [Description("Biopython salt-correction method 0-7: 0 none, 1-4 add to Tm, 5 SantaLucia 1998 entropy (default), 6 Owczarzy 2004, 7 Owczarzy 2008 (Mg2+/dNTPs)")] int saltMethod = 5,
+        [Description("K+ concentration in M (default 0)")] double kConcentration = 0,
+        [Description("Tris concentration in M (default 0)")] double trisConcentration = 0,
+        [Description("Mg2+ concentration in M (default 0)")] double mgConcentration = 0,
+        [Description("dNTPs concentration in M (default 0)")] double dntpsConcentration = 0,
+        [Description("Round ΔH/ΔS/ΔG to 2 decimals and Tm to 1 decimal (default true); false returns unrounded values")] bool roundResults = true)
     {
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
 
-        var props = SequenceStatistics.CalculateThermodynamics(sequence, naConcentration, primerConcentration);
+        // Default conditions go through the 4-argument overload (identical results and Na+ > 0 guard);
+        // any salt option selects the ThermodynamicsOptions overload (FIN-B03 A23).
+        bool defaultConditions = saltMethod == (int)NnSaltCorrection.SantaLucia1998Entropy
+            && kConcentration == 0 && trisConcentration == 0 && mgConcentration == 0
+            && dntpsConcentration == 0 && roundResults;
+        var props = defaultConditions
+            ? SequenceStatistics.CalculateThermodynamics(sequence, naConcentration, primerConcentration, selfComplementary)
+            : SequenceStatistics.CalculateThermodynamics(sequence, naConcentration, primerConcentration, selfComplementary,
+                new SequenceStatistics.ThermodynamicsOptions
+                {
+                    SaltCorrection = (NnSaltCorrection)saltMethod,
+                    PotassiumConcentration = kConcentration,
+                    TrisConcentration = trisConcentration,
+                    MagnesiumConcentration = mgConcentration,
+                    DntpConcentration = dntpsConcentration,
+                    RoundResults = roundResults,
+                });
         return new ThermodynamicsResult(props.DeltaH, props.DeltaS, props.DeltaG, props.MeltingTemperature);
     }
 
@@ -257,15 +357,18 @@ public class SequenceTools
     /// Calculate simple melting temperature of a DNA sequence.
     /// </summary>
     [McpServerTool(Name = "melting_temperature", Title = "DNA — Melting Temperature", ReadOnly = true)]
-    [Description("Calculate the melting temperature (Tm) of a DNA sequence using Wallace rule or GC formula.")]
+    [Description("Calculate the melting temperature (Tm) of a DNA sequence using Wallace rule or GC formula. weightAmbiguousBases = true weights IUPAC codes as Biopython non-strict Tm_Wallace/Tm_GC (e.g. acgtNNSWacgt-ry → 42.0).")]
     public static MeltingTemperatureResult MeltingTemperature(
         [Description("The DNA sequence")] string sequence,
-        [Description("Use Wallace rule for short oligos (default: true)")] bool useWallaceRule = true)
+        [Description("Use Wallace rule for short oligos (default: true)")] bool useWallaceRule = true,
+        [Description("Weight IUPAC ambiguity codes as Biopython Tm_Wallace/Tm_GC(strict=False) (default false: A/C/G/T/U only)")] bool weightAmbiguousBases = false)
     {
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
 
-        var tm = SequenceStatistics.CalculateMeltingTemperature(sequence, useWallaceRule);
+        var tm = weightAmbiguousBases
+            ? SequenceStatistics.CalculateMeltingTemperature(sequence, useWallaceRule, weightAmbiguousBases: true)
+            : SequenceStatistics.CalculateMeltingTemperature(sequence, useWallaceRule);
         return new MeltingTemperatureResult(tm, "°C");
     }
 
@@ -273,7 +376,7 @@ public class SequenceTools
     /// Calculate Shannon entropy of a sequence.
     /// </summary>
     [McpServerTool(Name = "shannon_entropy", Title = "Sequence — Shannon Entropy", ReadOnly = true)]
-    [Description("Calculate Shannon entropy of a sequence. Higher values indicate more complexity/randomness.")]
+    [Description("Shannon entropy H = -sum p_i log2 p_i (bits per symbol) of the per-letter composition. Alphabet: every letter (case-folded) is its own symbol, so DNA, RNA and protein all work; N and IUPAC codes count as distinct symbols, T and U are not merged, and non-letters (gaps, digits, '*', whitespace) are ignored. Max log2(m) for m distinct letters (2 bits for A/C/G/T); 0 for a homopolymer.")]
     public static ShannonEntropyResult ShannonEntropy(
         [Description("The sequence to analyze")] string sequence)
     {
@@ -288,7 +391,7 @@ public class SequenceTools
     /// Calculate linguistic complexity of a sequence.
     /// </summary>
     [McpServerTool(Name = "linguistic_complexity", Title = "Sequence — Linguistic Complexity", ReadOnly = true)]
-    [Description("Calculate linguistic complexity of a sequence based on k-mer diversity. Values range from 0 to 1.")]
+    [Description("Linguistic complexity in the Orlov-Potapov (2004) summation form LC = sum_{k=1..m} V_k / sum_{k=1..m} min(a^k, N-k+1), where V_k = number of distinct k-words, m = min(maxK, N) and a = alphabetSize or, by default, |{A,C,G,T (U for RNA)} union observed symbols| (so LC <= 1). Equals Troyanskaya et al. (2002) / Rosalind LING when maxK >= N. 1 = every possible word present; repeats lower it. Same measure as complexity_linguistic (which defaults to maxWordLength 10; this tool defaults to maxK 6).")]
     public static LinguisticComplexityResult LinguisticComplexity(
         [Description("The sequence to analyze")] string sequence,
         [Description("Maximum k-mer length to consider (default: 6)")] int maxK = 6,
@@ -307,37 +410,43 @@ public class SequenceTools
     /// Generate comprehensive summary statistics for a DNA/RNA sequence.
     /// </summary>
     [McpServerTool(Name = "summarize_sequence", Title = "Sequence — Comprehensive Summary", ReadOnly = true)]
-    [Description("Generate comprehensive summary statistics for a DNA/RNA sequence including composition, GC content, entropy, complexity, and Tm.")]
+    [Description("Generate comprehensive summary statistics for a DNA/RNA sequence including composition, GC content (fraction 0-1), entropy, complexity, basic Tm (Wallace below 14 A/C/G/T/U bases, else 64.9 + 41(GC-16.4)/N) and single-stranded average molecular weight (Biopython molecular_weight; RNA table when U and no T). weightAmbiguousBasesInTm = true weights IUPAC codes in the Tm as Biopython non-strict Tm_Wallace/Tm_GC.")]
     public static SummarizeSequenceResult SummarizeSequence(
-        [Description("The DNA or RNA sequence to analyze")] string sequence)
+        [Description("The DNA or RNA sequence to analyze")] string sequence,
+        [Description("Weight IUPAC ambiguity codes in the Tm as Biopython Tm_Wallace/Tm_GC(strict=False) (default false: A/C/G/T/U only)")] bool weightAmbiguousBasesInTm = false)
     {
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
 
-        var summary = SequenceStatistics.SummarizeNucleotideSequence(sequence);
+        var summary = SequenceStatistics.SummarizeNucleotideSequence(sequence, weightAmbiguousBasesInTm);
         return new SummarizeSequenceResult(
             summary.Length,
             summary.GcContent,
             summary.Entropy,
             summary.Complexity,
             summary.MeltingTemperature,
-            summary.Composition.ToDictionary(kv => kv.Key.ToString(), kv => kv.Value));
+            summary.Composition.ToDictionary(kv => kv.Key.ToString(), kv => kv.Value))
+        {
+            MolecularWeight = summary.MolecularWeight
+        };
     }
 
     /// <summary>
     /// Calculate GC content of a DNA/RNA sequence.
     /// </summary>
     [McpServerTool(Name = "gc_content", Title = "Sequence — GC Content", ReadOnly = true)]
-    [Description("Calculate the GC content (percentage of G and C nucleotides) of a DNA/RNA sequence.")]
+    [Description("Calculate the GC content (percentage of G and C nucleotides) of a DNA/RNA sequence: (G+C)/(A+C+G+T+U) × 100, case-insensitive; IUPAC ambiguity codes (incl. S/W), N, gaps and other characters are excluded from both counts. totalCount is the number of valid A/C/G/T/U nucleotides (the denominator), not the sequence length.")]
     public static GcContentResult GcContent(
         [Description("The DNA or RNA sequence")] string sequence)
     {
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
 
+        // Both values come from the Core canonical primitives: the percentage from CalculateGcContentFast and the
+        // raw counts from CountGcAndValidNucleotides, the very counts that percentage is computed from
+        // (GcCount = #G+#C, ValidCount = #A+#C+#G+#T+#U, case-insensitive; IUPAC codes, N, gaps excluded).
         var gcContent = global::Seqeron.Genomics.Core.SequenceExtensions.CalculateGcContentFast(sequence);
-        int gcCount = sequence.Count(c => c == 'G' || c == 'C' || c == 'g' || c == 'c');
-        int validCount = sequence.Count(c => c is 'A' or 'a' or 'T' or 't' or 'G' or 'g' or 'C' or 'c' or 'U' or 'u');
+        var (gcCount, validCount) = global::Seqeron.Genomics.Core.SequenceExtensions.CountGcAndValidNucleotides(sequence.AsSpan());
         return new GcContentResult(gcContent, gcCount, validCount);
     }
 
@@ -345,15 +454,18 @@ public class SequenceTools
     /// Get the complement of a single nucleotide base.
     /// </summary>
     [McpServerTool(Name = "complement_base", Title = "Sequence — Complement Base", ReadOnly = true)]
-    [Description("Get the Watson-Crick complement of a single nucleotide base (A↔T, C↔G for DNA; A↔U for RNA).")]
+    [Description("Get the complement of a single nucleotide base (IUPAC-complete, case-insensitive, upper-case output). Default (rna=false) emits the DNA alphabet like Biopython complement: A→T, T→A, U→A, G↔C. With rna=true emits the RNA alphabet like Biopython complement_rna: A→U, U→A, T→A, G↔C. Ambiguity codes in both modes: R↔Y, K↔M, B↔V, D↔H, S, W, N unchanged; other characters pass through.")]
     public static ComplementBaseResult ComplementBase(
-        [Description("The nucleotide base (A, T, G, C, or U)")] string nucleotide)
+        [Description("The nucleotide base (A, C, G, T, U or an IUPAC ambiguity code), exactly one character")] string nucleotide,
+        [Description("Emit the RNA alphabet (A→U, as Biopython complement_rna) instead of DNA (A→T). Default false.")] bool rna = false)
     {
         if (string.IsNullOrEmpty(nucleotide) || nucleotide.Length != 1)
             throw new ArgumentException("Must provide exactly one nucleotide character", nameof(nucleotide));
 
         char input = nucleotide[0];
-        char complement = global::Seqeron.Genomics.Core.SequenceExtensions.GetComplementBase(input);
+        char complement = rna
+            ? global::Seqeron.Genomics.Core.SequenceExtensions.GetRnaComplementBase(input)
+            : global::Seqeron.Genomics.Core.SequenceExtensions.GetComplementBase(input);
         return new ComplementBaseResult(complement.ToString(), input.ToString());
     }
 
@@ -361,14 +473,19 @@ public class SequenceTools
     /// Quick validation if a sequence contains only valid DNA characters.
     /// </summary>
     [McpServerTool(Name = "is_valid_dna", Title = "DNA — Quick Validate", ReadOnly = true)]
-    [Description("Quick check if a sequence contains only valid DNA characters (A, T, G, C). Faster than dna_validate but returns less information.")]
+    [Description("Quick check if a sequence contains only valid DNA characters (A, T, G, C; case-insensitive); iupac=true also accepts the IUPAC ambiguity codes R, Y, S, W, K, M, B, D, H, V, N. Faster than dna_validate but returns less information. Empty input is rejected.")]
     public static IsValidDnaResult IsValidDna(
-        [Description("The sequence to validate")] string sequence)
+        [Description("The sequence to validate")] string sequence,
+        [Description("Also accept IUPAC ambiguity codes R, Y, S, W, K, M, B, D, H, V, N (U, X and gaps still invalid). Default false = strict.")] bool iupac = false)
     {
+        // Null/empty → ArgumentException is the project-wide MCP input convention (docs/mcp-prompt.md
+        // "Definition of Done" §1; error 1001). Core IsValid*/Biopython/scikit-bio treat "" as valid.
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
 
-        bool isValid = global::Seqeron.Genomics.Core.SequenceExtensions.IsValidDna(sequence.AsSpan());
+        bool isValid = iupac
+            ? global::Seqeron.Genomics.Core.SequenceExtensions.IsValidIupacDna(sequence.AsSpan())
+            : global::Seqeron.Genomics.Core.SequenceExtensions.IsValidDna(sequence.AsSpan());
         return new IsValidDnaResult(isValid, sequence.Length);
     }
 
@@ -376,14 +493,19 @@ public class SequenceTools
     /// Quick validation if a sequence contains only valid RNA characters.
     /// </summary>
     [McpServerTool(Name = "is_valid_rna", Title = "RNA — Quick Validate", ReadOnly = true)]
-    [Description("Quick check if a sequence contains only valid RNA characters (A, U, G, C). Faster than rna_validate but returns less information.")]
+    [Description("Quick check if a sequence contains only valid RNA characters (A, U, G, C; case-insensitive); iupac=true also accepts the IUPAC ambiguity codes R, Y, S, W, K, M, B, D, H, V, N. Faster than rna_validate but returns less information. Empty input is rejected.")]
     public static IsValidRnaResult IsValidRna(
-        [Description("The sequence to validate")] string sequence)
+        [Description("The sequence to validate")] string sequence,
+        [Description("Also accept IUPAC ambiguity codes R, Y, S, W, K, M, B, D, H, V, N (T, X and gaps still invalid). Default false = strict.")] bool iupac = false)
     {
+        // Null/empty → ArgumentException is the project-wide MCP input convention (docs/mcp-prompt.md
+        // "Definition of Done" §1; error 1001). Core IsValid*/Biopython/scikit-bio treat "" as valid.
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
 
-        bool isValid = global::Seqeron.Genomics.Core.SequenceExtensions.IsValidRna(sequence.AsSpan());
+        bool isValid = iupac
+            ? global::Seqeron.Genomics.Core.SequenceExtensions.IsValidIupacRna(sequence.AsSpan())
+            : global::Seqeron.Genomics.Core.SequenceExtensions.IsValidRna(sequence.AsSpan());
         return new IsValidRnaResult(isValid, sequence.Length);
     }
 
@@ -432,9 +554,9 @@ public class SequenceTools
     /// Calculate Shannon entropy using SequenceComplexity class.
     /// </summary>
     [McpServerTool(Name = "complexity_shannon", Title = "Complexity — Shannon Entropy", ReadOnly = true)]
-    [Description("Calculate DNA Shannon entropy (bits per base). Maximum entropy for DNA is 2 bits.")]
+    [Description("Calculate nucleotide Shannon entropy (bits per base) over the alphabet A/C/G/T/U, case-insensitive, with RNA U counted as T (an RNA and its DNA transcript give the same value). Other characters (N, IUPAC codes, gaps) are ignored. Maximum is 2 bits.")]
     public static ComplexityShannonResult ComplexityShannon(
-        [Description("The DNA sequence to analyze")] string sequence)
+        [Description("The DNA or RNA sequence to analyze")] string sequence)
     {
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
@@ -679,34 +801,39 @@ public class SequenceTools
     /// Translate DNA sequence to protein.
     /// </summary>
     [McpServerTool(Name = "translate_dna", Title = "DNA — Translate to Protein", ReadOnly = true)]
-    [Description("Translate a DNA sequence to protein using the standard genetic code.")]
+    [Description("Translate a DNA sequence to protein with an NCBI genetic code (geneticCode, default 1 = Standard), like Biopython Seq.translate(table, to_stop). Case-insensitive DNA letters A, C, G, T plus the IUPAC ambiguity codes R, Y, S, W, K, M, B, D, H, V, N (and X when allowNucleotideX=true); U is rejected (use translate_rna). An ambiguous codon resolves to the single amino acid all its expansions code for (e.g. GCN → A), to B/Z/J, or to X; trailing bases that do not form a full codon are ignored.")]
     public static TranslateDnaResult TranslateDna(
-        [Description("The DNA sequence to translate")] string sequence,
+        [Description("The DNA sequence to translate (A, C, G, T and IUPAC ambiguity codes)")] string sequence,
         [Description("Reading frame (0, 1, or 2, default: 0)")] int frame = 0,
-        [Description("Stop at first stop codon (default: false)")] bool toFirstStop = false)
+        [Description("Stop at first stop codon (default: false; not allowed for tables 27, 28, 31, which have dual-coding stop codons)")] bool toFirstStop = false,
+        [Description("NCBI translation table number (default 1 = Standard; e.g. 2 = vertebrate mitochondrial, 11 = bacterial/plastid). Must be one of the NCBI gc.prt tables (1-6, 9-16, 21-33).")] int geneticCode = 1,
+        [Description("Accept nucleotide X as any base, as Biopython does (default: false); an X-containing codon that may be a stop is an error.")] bool allowNucleotideX = false)
     {
-        if (string.IsNullOrEmpty(sequence))
-            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
-
-        if (frame < 0 || frame > 2)
-            throw new ArgumentException("Frame must be 0, 1, or 2", nameof(frame));
-
-        if (!global::Seqeron.Genomics.Core.DnaSequence.TryCreate(sequence, out var dna))
-            throw new ArgumentException("Invalid DNA sequence", nameof(sequence));
-
-        var protein = global::Seqeron.Genomics.Core.Translator.Translate(dna!, null, frame, toFirstStop);
-        return new TranslateDnaResult(protein.Sequence, frame, sequence.Length);
+        var protein = TranslateNucleotides(sequence, frame, toFirstStop, geneticCode, allowNucleotideX, isRna: false);
+        return new TranslateDnaResult(protein, frame, sequence.Length);
     }
 
     /// <summary>
     /// Translate RNA sequence to protein.
     /// </summary>
     [McpServerTool(Name = "translate_rna", Title = "RNA — Translate to Protein", ReadOnly = true)]
-    [Description("Translate an RNA sequence to protein using the standard genetic code.")]
+    [Description("Translate an RNA sequence to protein with an NCBI genetic code (geneticCode, default 1 = Standard), like Biopython Seq.translate(table, to_stop). Case-insensitive RNA letters A, C, G, U plus the IUPAC ambiguity codes R, Y, S, W, K, M, B, D, H, V, N (and X when allowNucleotideX=true); T is rejected (use translate_dna). An ambiguous codon resolves to the single amino acid all its expansions code for (e.g. GCN → A), to B/Z/J, or to X; trailing bases that do not form a full codon are ignored.")]
     public static TranslateRnaResult TranslateRna(
-        [Description("The RNA sequence to translate")] string sequence,
+        [Description("The RNA sequence to translate (A, C, G, U and IUPAC ambiguity codes)")] string sequence,
         [Description("Reading frame (0, 1, or 2, default: 0)")] int frame = 0,
-        [Description("Stop at first stop codon (default: false)")] bool toFirstStop = false)
+        [Description("Stop at first stop codon (default: false; not allowed for tables 27, 28, 31, which have dual-coding stop codons)")] bool toFirstStop = false,
+        [Description("NCBI translation table number (default 1 = Standard; e.g. 2 = vertebrate mitochondrial, 11 = bacterial/plastid). Must be one of the NCBI gc.prt tables (1-6, 9-16, 21-33).")] int geneticCode = 1,
+        [Description("Accept nucleotide X as any base, as Biopython does (default: false); an X-containing codon that may be a stop is an error.")] bool allowNucleotideX = false)
+    {
+        var protein = TranslateNucleotides(sequence, frame, toFirstStop, geneticCode, allowNucleotideX, isRna: true);
+        return new TranslateRnaResult(protein, frame, sequence.Length);
+    }
+
+    // Validates the whole input against the DNA (ACGT) or RNA (ACGU) alphabet plus the IUPAC
+    // ambiguity codes (and X when allowed) — the translator itself only inspects complete in-frame
+    // codons — then delegates to the IUPAC-aware Translator string overload.
+    private static string TranslateNucleotides(string sequence, int frame, bool toFirstStop,
+        int geneticCode, bool allowNucleotideX, bool isRna)
     {
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
@@ -714,10 +841,22 @@ public class SequenceTools
         if (frame < 0 || frame > 2)
             throw new ArgumentException("Frame must be 0, 1, or 2", nameof(frame));
 
-        if (!global::Seqeron.Genomics.Core.RnaSequence.TryCreate(sequence, out var rna))
-            throw new ArgumentException("Invalid RNA sequence", nameof(sequence));
+        var code = global::Seqeron.Genomics.Core.GeneticCode.GetByTableNumberOrThrow(geneticCode, nameof(geneticCode));
 
-        var protein = global::Seqeron.Genomics.Core.Translator.Translate(rna!, null, frame, toFirstStop);
-        return new TranslateRnaResult(protein.Sequence, frame, sequence.Length);
+        const string Iupac = "RYSWKMBDHVN";
+        for (int i = 0; i < sequence.Length; i++)
+        {
+            char c = SequenceCase.ToUpperAscii(sequence[i]);
+            bool ok = c is 'A' or 'C' or 'G'
+                || c == (isRna ? 'U' : 'T')
+                || Iupac.Contains(c)
+                || (allowNucleotideX && c == 'X');
+            if (!ok)
+                throw new ArgumentException(
+                    $"Invalid {(isRna ? "RNA" : "DNA")} sequence: character '{sequence[i]}' at position {i}",
+                    nameof(sequence));
+        }
+
+        return global::Seqeron.Genomics.Core.Translator.Translate(sequence, code, frame, toFirstStop, allowNucleotideX).Sequence;
     }
 }

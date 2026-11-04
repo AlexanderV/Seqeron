@@ -5,11 +5,52 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "RestrictionAnalyzer.FindCompatibleEnzymes",
-  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L502",
-  "description": "Enumerate all pairs of built-in restriction enzymes that produce ligatable (compatible) ends.",
+  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1835",
+  "description": "Enumerate pairs of restriction enzymes whose ends can be ligated (enzyme_set \"common\" = 39 enzymes, 64 pairs; \"rebase\" = 754 enzymes, 27869 pairs; paged by max_pairs / offset with totalPairs and truncated), or - with enzyme_name (any of the 754 REBASE enzymes with a defined cut) - the enzymes of enzyme_set that one enzyme's end can be ligated to, itself included.",
   "inputSchema": {
     "type": "object",
-    "properties": {},
+    "properties": {
+      "enzyme_name": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null,
+        "description": "Optional: restrict the result to pairs involving this enzyme (case-insensitive); omit or leave blank for every pair of enzyme_set."
+      },
+      "enzyme_set": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "enum": [
+          "common",
+          "rebase",
+          null
+        ],
+        "default": "common",
+        "description": "Table to list: \"common\" (default; the 39 common laboratory enzymes) or \"rebase\" (all 754 REBASE enzymes with a defined cut). Case-insensitive."
+      },
+      "max_pairs": {
+        "type": [
+          "integer",
+          "null"
+        ],
+        "minimum": 1,
+        "maximum": 10000,
+        "default": null,
+        "description": "All-pairs listing only: maximum number of pairs returned (1-10000; default 1000, which holds the whole common set). Not allowed together with enzyme_name."
+      },
+      "offset": {
+        "type": [
+          "integer",
+          "null"
+        ],
+        "minimum": 0,
+        "default": null,
+        "description": "All-pairs listing only: number of pairs to skip before the returned page (>= 0; default 0). Not allowed together with enzyme_name."
+      }
+    },
     "required": []
   },
   "outputSchema": {
@@ -20,27 +61,193 @@
         "items": {
           "type": "object",
           "properties": {
-            "enzyme1": { "type": "string" },
-            "enzyme2": { "type": "string" },
-            "compatibleEnd": { "type": "string", "description": "\"blunt\" or the shared overhang sequence." }
+            "enzyme1": {
+              "type": "string"
+            },
+            "enzyme2": {
+              "type": "string"
+            },
+            "end2": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "description": "enzyme2's own end, same convention as compatibleEnd; equal to it except for the 12 REBASE pairs that anneal only through the reverse complement (all GN against CN)."
+            },
+            "compatibleEnd": {
+              "type": "string",
+              "description": "\"blunt\" or the shared overhang sequence."
+            }
           },
-          "required": ["enzyme1", "enzyme2", "compatibleEnd"]
+          "required": [
+            "enzyme1",
+            "enzyme2",
+            "compatibleEnd"
+          ]
         }
+      },
+      "totalPairs": {
+        "type": "integer",
+        "description": "All-pairs listing only: number of compatible pairs in the whole enzyme_set (common 64, rebase 27869), independent of max_pairs / offset. Omitted for the enzyme_name form."
+      },
+      "truncated": {
+        "type": "boolean",
+        "description": "All-pairs listing only: true when more pairs follow the returned page (offset + pairs.length < totalPairs). Omitted for the enzyme_name form."
       }
     },
-    "required": ["pairs"]
+    "required": [
+      "pairs"
+    ]
   },
-  "errors": [],
-  "examples": [
+  "errors": [
     {
-      "name": "GATC-compatible sticky pair",
-      "input": {},
-      "output": { "pairs": [ { "enzyme1": "BamHI", "enzyme2": "BglII", "compatibleEnd": "GATC" } ] }
+      "code": 1003,
+      "message": "Unknown enzyme: <name> (only when enzyme_name is given)"
     },
     {
-      "name": "Blunt pair count",
+      "code": 1010,
+      "message": "Unknown enzyme set '<value>'; expected \"common\" or \"rebase\""
+    },
+    {
+      "code": 1003,
+      "message": "max_pairs must be between 1 and 10000; offset cannot be negative (all-pairs listing)"
+    },
+    {
+      "code": 1011,
+      "message": "max_pairs and offset page the all-pairs listing; they cannot be combined with enzyme_name."
+    }
+  ],
+  "examples": [
+    {
+      "name": "First pairs of the common set",
       "input": {},
-      "output": { "pairs": "45 pairs carry compatibleEnd == \"blunt\" (all C(10,2) blunt-cutter pairs)" }
+      "output": {
+        "pairs": [
+          {
+            "enzyme1": "BamHI",
+            "enzyme2": "Sau3AI",
+            "compatibleEnd": "GATC",
+            "end2": "GATC"
+          },
+          {
+            "enzyme1": "BamHI",
+            "enzyme2": "MboI",
+            "compatibleEnd": "GATC",
+            "end2": "GATC"
+          },
+          {
+            "enzyme1": "BamHI",
+            "enzyme2": "BglII",
+            "compatibleEnd": "GATC",
+            "end2": "GATC"
+          }
+        ],
+        "totalPairs": 64,
+        "truncated": false
+      }
+    },
+    {
+      "name": "Complete listing",
+      "input": {},
+      "output": {
+        "pairs": "64 pairs: 45 \"blunt\" (all C(10,2) blunt-cutter pairs), 6 \"GATC\", 6 \"CTAG\", 6 \"CG\", 1 \"TCGA\"",
+        "totalPairs": 64,
+        "truncated": false
+      }
+    },
+    {
+      "name": "Per-enzyme query",
+      "input": {
+        "enzyme_name": "BamHI"
+      },
+      "output": {
+        "pairs": [
+          {
+            "enzyme1": "BamHI",
+            "enzyme2": "BamHI",
+            "compatibleEnd": "GATC",
+            "end2": "GATC"
+          },
+          {
+            "enzyme1": "BamHI",
+            "enzyme2": "Sau3AI",
+            "compatibleEnd": "GATC",
+            "end2": "GATC"
+          },
+          {
+            "enzyme1": "BamHI",
+            "enzyme2": "MboI",
+            "compatibleEnd": "GATC",
+            "end2": "GATC"
+          },
+          {
+            "enzyme1": "BamHI",
+            "enzyme2": "BglII",
+            "compatibleEnd": "GATC",
+            "end2": "GATC"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Unique overhang - compatible with itself only",
+      "input": {
+        "enzyme_name": "SfiI"
+      },
+      "output": {
+        "pairs": [
+          {
+            "enzyme1": "SfiI",
+            "enzyme2": "SfiI",
+            "compatibleEnd": "NNN",
+            "end2": "NNN"
+          }
+        ]
+      }
+    },
+    {
+      "name": "BamHI partners over the REBASE set",
+      "input": {
+        "enzyme_name": "BamHI",
+        "enzyme_set": "rebase"
+      },
+      "output": {
+        "pairs": "59 rows = Biopython 1.88 BamHI.compatible_end(RestrictionBatch(754)), e.g. {enzyme1: BamHI, enzyme2: BclI, compatibleEnd: GATC}, BglII GATC, BsaI GATC (distal Type IIS: Ambiguous end), MboI, Sau3AI, ..."
+      }
+    },
+    {
+      "name": "REBASE all-pairs listing (first page)",
+      "input": {
+        "enzyme_set": "rebase"
+      },
+      "output": {
+        "pairs": "first 1000 of 27869 pairs in table order, starting {enzyme1: AanI, enzyme2: Acc16I, compatibleEnd: blunt}",
+        "totalPairs": 27869,
+        "truncated": true
+      }
+    },
+    {
+      "name": "REBASE page by offset",
+      "input": {
+        "enzyme_set": "rebase",
+        "max_pairs": 10,
+        "offset": 27865
+      },
+      "output": {
+        "pairs": "the last 4 pairs",
+        "totalPairs": 27869,
+        "truncated": false
+      }
+    },
+    {
+      "name": "Unknown enzyme set",
+      "input": {
+        "enzyme_name": "EcoRI",
+        "enzyme_set": "all"
+      },
+      "output": {
+        "error": "Unknown enzyme set 'all'; expected \"common\" or \"rebase\"."
+      }
     }
   ]
 }

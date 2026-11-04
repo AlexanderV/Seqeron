@@ -46,7 +46,7 @@
 ### "Informative site" (Wikipedia) → Zvelebil & Baum, *Understanding Bioinformatics* (2008)
 
 **URL:** https://en.wikipedia.org/wiki/Informative_site
-**Accessed:** 2026-06-13 (WebSearch query "parsimony informative sites phylogenetic marker selection variable sites core gene alignment"; then WebFetch of the article, which cites Zvelebil 2008 as the primary source for the definition)
+**Accessed:** 2026-06-13 (WebSearch query "parsimony informative sites phylogenetic marker selection variable sites core gene alignment"; then WebFetch of the article, which cites Zvelebil 2008 as the primary source for the definition) · re-fetched 2026-10-14 (SRC citation audit: supports the claims above)
 **Authority rank:** 4 (Wikipedia article; the numeric definition is attributed to the Zvelebil 2008 textbook — primary, authority rank 1)
 
 **Key Extracted Points:**

@@ -54,7 +54,8 @@ the Nilsen 2012 DP with the joint two-track cost (γ charged once per segment, s
 means via `BuildSegmentSummary`). DP runs per chromosome, so no segment crosses a contig. ✅
 
 **Multiplicity** — `DeriveMultiplicity` (line 7574): `n_mut = VAF·(ρ·N_T+2(1−ρ))/ρ`, round
-away-from-zero, `Clamp(·,1,majorCN)`. = McGranahan n_mut at CCF=1 / DeCiFer F·v/(ρM) with M=n_mut. ✅
+half-to-even (FIN-B24 F26; was away-from-zero — facets-suite `expected_mutant_copies` uses R `round`),
+`Clamp(·,1,majorCN)`. = McGranahan n_mut at CCF=1 / DeCiFer F·v/(ρM) with M=n_mut. ✅
 
 **Sub-clonal** — `FitSubclonalCopyNumber` (line 7825): integer-within-tolerance ⇒ clonal single
 state f=1; else `n_obs = f·ceil + (1−f)·floor` with a single shared least-squares fraction over
@@ -101,7 +102,7 @@ major/minor swap. This is benign (no defect). The documented residual (multi-sam
 `SegmentAlleleSpecificAspcf`+`SegmentChromosomeAspcf`+`AspcfSegmentSse` 7636/7679/7750,
 `FitSubclonalCopyNumber`+`SolveSharedFraction` 7825/7918. Constants: `NormalDiploidCopyNumber=2`,
 `AscatSequencingGamma=1`, `AscatWorstCaseIntegerDistance=0.25`, `AscatBalancedSegmentWeight=0.05`,
-`BalancedBaf=0.5`, `AspcfDefaultPenalty=40`, `SubclonalIntegerTolerance=0.05`.
+`BalancedBaf=0.5`, `AspcfDefaultPenalty=40`, `SubclonalIntegerTolerance=0.05` (`[Obsolete]` since FIN-B24 F27 — unused since F14).
 
 ### Formula realised correctly?
 Yes — every formula above maps line-for-line to the source. SSE uses the numerically stable prefix-

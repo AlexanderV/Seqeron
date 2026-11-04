@@ -846,9 +846,10 @@ public static partial class OncologyAnalyzer
     /// <summary>
     /// Maximum number of multiplicative-update iterations for the de-novo NMF signature extraction. Source:
     /// Lee &amp; Seung (2001), <i>Algorithms for Non-negative Matrix Factorization</i>, NIPS 13 — the
-    /// multiplicative updates are "applied iteratively until W and H converge"
+    /// multiplicative updates are iterated "Until W and H are stable"
     /// (https://en.wikipedia.org/wiki/Non-negative_matrix_factorization). NMF is non-convex, so a finite cap is
-    /// a safety bound; this default mirrors the iteration budgets used by SigProfiler-style extractors.
+    /// a safety bound; 10 000 equals SigProfilerExtractor's min_nmf_iterations / nmf_test_conv default
+    /// (sigpro.py; its max_nmf_iterations default is 1 000 000).
     /// </summary>
     public const int DefaultNmfMaxIterations = 10_000;
 
@@ -871,8 +872,8 @@ public static partial class OncologyAnalyzer
     /// <summary>
     /// A small additive floor on the multiplicative-update denominators (and on the random initialisation) to
     /// avoid 0/0 when a row or column of a factor collapses to zero. Source: standard regularisation of the
-    /// Lee &amp; Seung multiplicative updates whose denominators (WᵀWH, WHHᵀ) can vanish
-    /// (https://en.wikipedia.org/wiki/Non-negative_matrix_factorization). Value = 1e-12, far below any
+    /// Lee &amp; Seung multiplicative updates whose denominators (WᵀWH, WHHᵀ) can vanish (same practice as
+    /// scikit-learn's _nmf.py, which floors at float32 eps). Value = 1e-12 is an implementation choice, far below any
     /// meaningful mutation count.
     /// </summary>
     private const double NmfEpsilon = 1e-12;

@@ -49,6 +49,12 @@
 | `EstimatePurityFromVAF(IEnumerable<VariantObservation>)` | OncologyAnalyzer | Canonical | Copy-neutral diploid heterozygous model: per-variant ρ = 2·VAF, aggregated by median. |
 | `EstimatePurity(IEnumerable<PurityVariant>)` | OncologyAnalyzer | Canonical | Allele-specific model: inverts v = mπ/[2(1−π)+π·n_tot]; aggregated by median. |
 | `EstimatePurityFromVaf(double vaf)` | OncologyAnalyzer | Delegate | Single-VAF closed form ρ = 2·VAF; smoke only. |
+| `AnalyzePurityPeaks(IEnumerable<PurityPeakMutation>, double, PurityPeakOptions?)` | OncologyAnalyzer | Canonical | CNAqc 1.1.5 `analyze_peaks_common` peak-based purity QC (FIN-B24 F34). |
+| `StatisticsHelper.BandwidthNrd0` / `GaussianKernelDensity` / `PeakPick` | StatisticsHelper (Infrastructure) | Canonical (shared) | R `bw.nrd0` / `density.default` / `peakPick::peakpick` (FIN-B24 F33). |
+| `AnalyzeComplexKaryotypePeaks(IEnumerable<PurityPeakMutation>, double, PurityPeakOptions?)` | OncologyAnalyzer | Canonical | CNAqc 1.1.5 `analyze_peaks_general` (FIN-B24 F62). |
+| `AnalyzeSubclonalPurityPeaks(IEnumerable<SubclonalPeakSegment>, double, SubclonalPeakOptions?)` | OncologyAnalyzer | Canonical | CNAqc 1.1.5 `analyze_peaks_subclonal` + `expectations_subclonal` (FIN-B24 F62). |
+| `FitBinomialMixture(IReadOnlyList<int>, IReadOnlyList<int>, int, IReadOnlyList<int>?)` | OncologyAnalyzer | Canonical | BMix `bmixfit(K.Binomials = 1:4)` as called by CNAqc `mixture_peak_detector` (FIN-B24 F63). |
+| `StatisticsHelper.ExtendedPrecisionSum` / `BinomialLogDensity` | StatisticsHelper (Infrastructure) | Canonical (shared) | R long-double `sum` / `dbinom(log = TRUE)` (FIN-B24 F63). |
 
 ---
 
@@ -178,7 +184,90 @@
 | `EstimatePurity_CnaqcExpectedVafFun_RoundTripRecoversPurity` (6 karyotypes) | CNAqc `R/equations.R` `expected_vaf_fun`, Python port values |
 | `EstimateCcf_RawCcf_EqualsCanonicalPurityCorrectionOverMultiplicity` | dedup lock: EstimateCcf/DeriveMultiplicity route through `AdjustVAFForPurity` |
 
-Open (cross-batch, code in B22-owned `OncologyAnalyzer.SomaticCalling.cs`): tests for m > n_tot rejection and the π = 1 boundary (v 0.2, m 1, n_tot 5 → 1.0) are added with the fix.
+| `EstimatePurity_MultiplicityAboveTotalCopyNumber_Throws` (v 0.5, m 3, n_tot 2) | CNAqc `expectations_generalised` m ∈ 1..Major (R source); FIN-B24 F24 |
+| `EstimatePurity_ExactClonalPeakAtFullPurity_ReturnsExactlyOne` ((0.2,1,5), (0.4,2,5) → 1.0) | CNAqc `expected_vaf_fun(1,4,1,1)` = 0.20000000000000001, `(2,3,2,1)` = 0.40000000000000002 in R; raw inversion 1.0000000000000002; FIN-B24 F25 |
+| `EstimatePurity_SlightlyAboveFullPurityPeak_StillThrows` (v 0.2·(1+1e-9), m 1, n_tot 5 → π 1.0000000025000004) | tolerance guard; FIN-B24 F25 |
+
+Property `KnownPurityVariantGen` (Properties/OncologyProperties.cs) now draws π ∈ (0, 1] (cap 950‰ → 1000‰) since the π = 1 boundary no longer throws (FIN-B24 F25; property class passes, 422 tests).
+
+Fixed (FIN-B24 F24/F25, code in B22-owned `OncologyAnalyzer.SomaticCalling.cs` under orchestrator special permission).
+
+### 5.8 FIN-B24 F33/F34 — CNAqc peak-based purity QC
+
+Data: `TestData/CNAqc/cnaqc_D{1,3,4}.tsv` — seeded R simulations (D1 π 0.7: 1:1 ×400, 2:1 ×250, 2:2 ×150, 1:0 ×120, 3:1 ×60; D3 π 0.45: 1:1 ×500 clonal + ×200 CCF 0.35, 2:0 ×150, + 60 true-4:0 m = 4 mutations labelled 2:0; D4 π 0.3: 1:1 ×150, 2:1 ×90, 1:0 ×110). Reference: CNAqc 1.1.5 (4b7cea4a) `analyze_peaks_common` sourced in R 4.3.3 (prefix-strip + `easypar::run` shims), density lattice R ≥ 4.4 unless "old".
+
+| ID | Test | Expected (CNAqc R) |
+|----|------|--------------------|
+| P1 | D1 π 0.7 default | λ 0.0023756289876209163, PASS (all karyotypes PASS); full match + peak tables |
+| P2 | D1 π 0.7 `LegacyDensityCoordinates` (R 4.3.3 native `density`) | λ identical, peak y 8.64 vs 8.63 (1:0) |
+| P3 | D1 π 0.5 (wrong purity) | λ −0.29645326597409133, FAIL (all karyotypes FAIL) |
+| P4 | D1 π 0.7 `KernelAdjust` 0.5 | λ 0.023857243903529196, PASS; 1:1 6 KDE peaks incl. one discarded (y 0.31 ≤ 8.19/20) |
+| P5 | D1 π 0.7 ε 0.01, tol 0.005 | 1:0 FAIL, sample PASS (weight 0.87 vs 0.13) |
+| P6 | D1 π 0.62 | λ −0.11362481021020236 (|λ| > ε) yet PASS; 2:1 m = 2 unmatched but 2:1 PASS (lead row = highest counts_per_bin) |
+| P7 | D3 π 0.45 / `MinVaf` 0.12 | λ 0.014615384615384629 / 0.030000000000000027 (subclonal tail removed changes weights) |
+| P8 | D4 π 0.3: default / size 0.35 / min count 80 / min count 200 | λ 0.0039996443291489122 / 0 (only 1:1) / −0.010660215188956853 (2:1 included) / not analysed (`Pass` null, λ NaN) |
+| P9 | Rightmost (legacy `peak_detector` matching) on D1, D3 | same peaks as Closest; rows in descending expected-peak order |
+| P10 | Mixture peaks = R BMix `B.params` (set.seed 7): D1, D3 Closest, D3 Rightmost | λ 0.0045358591466179345, 0.0037889790909820253, −0.13824761798675933; D3 2:0 Closest PASS vs Rightmost FAIL (0.45 → BMix 0.618 peak) |
+| P11 | Σ karyotype scores = λ; Σ weights = 1; counts 120/400/250/150 | identity |
+| P12 | MinKaryotypeSize denominator includes non-simple karyotypes (1:0 = 120/980) | kept at 120/980, dropped at +1e−9 |
+| P13 | invalid arguments (null, π ∉ (0,1], ε 0, size 1, adjust 0, min count −1, karyotype 3:1, VAF 1.2, Major −1) | throws |
+| K1 | `BandwidthNrd0` ×3 datasets + 4 fall-back cases | R `bw.nrd0` |
+| K2 | `GaussianKernelDensity` ×6 (dataset, adjust, coords) × 9 grid points | R `density` (≤ 1e−12 rel.) |
+| K3 | `PeakPick` on R densities (neighlim 1–5) and synthetic series (neighlim 0/1/8/12/20; deriv.lim, peak.min.sd, npos) | peakPick 0.11 |
+
+Tests: `OncologyAnalyzer_AnalyzePurityPeaks_Tests` (21), `StatisticsHelper_GaussianKde_Tests` (26).
+
+### 5.9 FIN-B24 F62 — CNAqc complex-karyotype and subclonal peak QC
+
+Data: `TestData/CNAqc/cnaqc_G{1,2,3}.tsv` (seeded clonal sets with complex karyotypes: G1 π 0.6 1:1 ×300, 3:0 ×200, 3:1 ×250, 4:1 ×150, 3:2 ×80; G2 π 0.4 2:1 ×200, 3:1 ×180, 4:2 ×160; G3 π 0.85 5:2 ×120, 3:3 ×110, 4:0 ×100, 6:1 ×101, 1:0 ×90) and `cnaqc_S{1,2,3}_segments.tsv` / `_mutations.tsv` (subclonal segments, VAFs simulated around one model's CNAqc expected peaks). Reference: CNAqc 1.1.5 `analyze_peaks_general` / `analyze_peaks_subclonal` sourced in R 4.3.3 (`easypar::run` sequential shim, tidyr `replace_na` / `expand_grid` / `pivot_wider` shims), outputs in `cnaqc_general_R.txt` / `cnaqc_subclonal_R.txt`; C# must reproduce every line (`%.17g` doubles, mutation identifiers).
+
+| ID | Test | Expected (CNAqc R) |
+|----|------|--------------------|
+| G1–G10 | general: G1 π 0.6 (default, ε 0.01, adjust 0.5), G1 π 0.75, G2 π 0.4, G2 π 0.55 `MinVaf` 0.05, G3 π 0.85 (default, min 101, min 150, min 60 with `Karyotypes` {1:1}) | analysis order, every expected peak (m, VAF, matched, n), data peak (x, y, counts, discarded), summary row (matched, mismatched, prop) line-identical; min 150 → gate closed (`Ran` false) |
+| G11 | G1 π 0.6 summary | 3:0 / 3:1 / 4:1 prop 1, 2/3, 1/2, all PASS; 3:1 peaks 0.18749999999999997 (hit), 0.37499999999999994 (miss), 0.56249999999999989 (hit) |
+| G12 | ε 0.01 | 4:1 prop 0.25 → FAIL (strict \|x − v\| < ε) |
+| G13 | gate strict (n > 100) vs analysis inclusive (n ≥ 100) | G3 4:0 with exactly 100 mutations analysed; min 150 closes the gate |
+| G14 | gate open without complex karyotype (`Karyotypes` {1:1}, simple-only data) | `InvalidOperationException` (R error) |
+| U1–U8 | subclonal: S1 π 0.7 seeds 1 / 99 (ε 0.02) / 5 (n_min 150, adjust 0.5), S2 π 0.5 seed 2 and seed 3 with start 2:2 (two segments), S3 π 0.8 seed 4, seed 6 with start 1:0, n_min 300 | every model's expected peaks (model id, model, mutation id, n1, n2, genotypes, role, peak, matched), data peaks and decision rows line-identical; n_min 300 → no segment |
+| U9 | S1 chr1 (2:1 CCF 0.6 / 1:1, π 0.7) | rankings 0.75 / 0.75 / 2/3; best = linear A1B1 → A1A2B1 → A2B1 + branching A1B1 → A1A2B1 \| A1B1; branching peaks 0.11570247933884296 … 0.46280991735537186; chr7 (n = 100) not analysed |
+| U10 | seed independence | peaks, matches, decisions equal for seeds 2 and 12345; identifiers differ |
+| U11 | start 1:0 → segments without LOH | no models (CNAqc `cli_abort` caught by easypar), data peaks kept |
+| U12 | start 2:2 with a 1:0 segment | `InvalidOperationException` (CNAqc `evolve` never terminates) |
+| U13 | invalid arguments (null, π 1.5, ε 0, start 1:2, karyotype 3:1, CCF 1, VAF 1.5) | throws |
+
+Tests: `OncologyAnalyzer_CnaqcGeneralSubclonalPeaks_Tests` (28).
+
+### 5.10 FIN-B24 F63 — BMix mixture peaks and `n_bootstrap`
+
+Reference: caravagnalab/BMix `bmixfit` / `bmixfit_EM` and CNAqc 1.1.5 `combined_peak_detector` / `mixture_peak_detector` / `simple_peak_detector` in R 4.3.3, `set.seed(seed)` immediately before each call; outputs `TestData/CNAqc/cnaqc_bmix_R.txt` (both `options(matprod = "default")` (OpenBLAS) and `"internal"`), `cnaqc_common_boot_R.txt`, `cnaqc_general_boot_R.txt`, `cnaqc_subclonal_boot_R.txt`.
+
+| ID | Test | Expected (R) |
+|----|------|--------------|
+| B1–B7 | `FitBinomialMixture` on D1 2:1 / 1:1 / 2:2, D3 2:0 / 1:1, G1 3:1 / 1:1 (seeds 7, 7, 11, 7, 3, 42, 5) | all 8 grid fits (NLL, BIC, ICL) and best K, means, π bit-identical to `matprod = "internal"`; ≤ 1e−12 relative to the default (OpenBLAS) run |
+| B8 | D1 2:1 seed 7 | grid K 1,1,2,2,3,3,4,4; best K = 2, ICL 1901.1530982123516, means 0.51667932020615859 / 0.26289651855238316 |
+| B9 | 2 distinct frequencies | K = 3, 4 fail (R `kmeans` error, retried, dropped); best K = 2 |
+| B10 | invalid arguments (null, length mismatch, NV > DP, K = 0) | throws |
+| C1–C9 | `AnalyzePurityPeaks` with `FitMixturePeaks`: D1 π 0.7 seed 7, D3 π 0.45 seed 7, D4 π 0.3 seed 11 (B = 1); D1 seed 7 B = 3; D3 seed 21 B = 5; D4 seed 11 B = 2; D1 π 0.6 seed 3 B = 4 adjust 0.5; KDE-only bootstrap D3 seed 5 B = 5, D1 seed 9 B = 10 adjust 0.5 | λ, QC, every match row (x, y, counts, source, offset, matched, karyotype QC) and peak row equal (numbers ≤ 1e−12 relative — KDE heights / grid x at FFT-vs-direct rounding); e.g. D1 B = 1 λ 0.0045358591466179345, D1 B = 3 −0.0047951961423504073 |
+| C10 | fitted vs supplied R means (D1 seed 7) | λ 0.0045358591466179345, PASS |
+| C11 | VAF-only input (Depth 0), any `Seed`, or `FitMixturePeaks = false` with reads → KDE only (F64) | λ 0.0023756289876209163 (F34 unchanged) |
+| C11a | F64: read counts on every mutation, no flag, `Seed` 7 (D1 π 0.7) = R `set.seed(7); analyze_peaks` default | λ 0.0045358591466179345, PASS, BMix peaks present; matches identical to `FitMixturePeaks = true` |
+| C11b | F64 auto: caller `MixturePeaks` → no fit (λ 0.0045358591466179345); one mutation without reads → `ArgumentException` (explicit `false` runs); unanalysed 3:1 mutation without reads ignored | as stated |
+| C12 | invalid: `BootstrapCount` 0 (all three analyses), `FitMixturePeaks` without reads, `FitMixturePeaks` + `MixturePeaks` | throws |
+| C13–C15 | `AnalyzeComplexKaryotypePeaks` bootstrap G1 seed 4 B = 3, G1 seed 8 B = 10 adjust 0.5, G2 seed 1 B = 5 | all lines equal (≤ 1e−12) |
+| C16–C17 | `AnalyzeSubclonalPurityPeaks` bootstrap S1 seed 13 B = 3, S2 seed 2 B = 6 adjust 0.5 | all lines equal incl. identifiers |
+| C18 | bootstrap keeps the full-data peaks first | prefix equality |
+| R1 | `ExtendedPrecisionSum` | R `sum`: c(1, 2⁻⁵³, 2⁻⁵³) → 1.0000000000000002; c(1, 2⁻⁵³, 2⁻⁶⁴) → 1 (x87 double rounding); c(1e16, 1, 1) → 10000000000000002; 0.1+0.2+0.3 → 0.59999999999999998; Inf / NaN / na.rm cases |
+| R2 | `BinomialLogDensity` | R `dbinom(log = TRUE)` 7 interior/edge values (≤ 4e−16 relative) + boundaries (p 0/1, x > n, non-integer x, p 1.5 → NaN) |
+
+Tests: `OncologyAnalyzer_CnaqcBMixBootstrap_Tests` (30), `StatisticsHelper_RSumDbinom_Tests` (16). C1–C9 KDE-only rows and C18 set `FitMixturePeaks = false` since F64.
+
+### 5.11 FIN-B24 F66 — R-exact `mean` / `var` in `bw.nrd0` and `peakpick`
+
+| ID | Test | Expected (R 4.3.3) |
+|----|------|--------------------|
+| V1 | `ExtendedPrecisionVariance_MatchesRVar` | var(c(0.52, 0.05, 0.08, 0.41, 0.58)) = 0.061469999999999997, sd 0.24793144213673263, bw.nrd0 0.16172610052228839; var(1:4) = 1.6666666666666667; n = 1 / Inf → NaN |
+| V2 | `BandwidthNrd0_MatchesR` (D1 1:1, D3 1:1, D1 2:1), `BandwidthNrd0_SmallSamples_MatchR`, KDE `Bandwidth` | exact equality (formerly 1e−14 relative / 1e−15) |
+| V3 | every CNAqc peak / λ / QC lock (F34, F62–F64) | unchanged |
 
 ## 6. Assumption Register
 

@@ -11,15 +11,15 @@
 ### Wikipedia — Tandem repeat (citing primary sources Duitama et al. 2014; MeSH; Jorda et al. 2010)
 
 **URL:** https://en.wikipedia.org/wiki/Tandem_repeat
-**Accessed:** 2026-06-13
+**Accessed:** 2026-06-13 · re-fetched 2026-10-14 (SRC citation audit: see corrections below)
 **Authority rank:** 4 (Wikipedia citing primaries)
 
 **Key Extracted Points:**
 
 1. **Definition (verbatim):** "A pattern of one or more nucleotides is repeated and the repetitions are directly adjacent to each other" (example given: ATTCG ATTCG ATTCG). The defining structural feature is a **head-to-tail consecutive arrangement** — repetitions occur immediately adjacent with no intervening sequence.
-2. **Microsatellite / STR size:** the repeated unit is short ("fewer than 10 nucleotides repeated per unit"); microsatellites/STRs are commonly defined as motifs 1–6 bp.
-3. **Minisatellite size:** "Between 10 and 60 nucleotides are repeated."
-4. **Minimum copies:** a tandem repeat is defined by "two or more" directly adjacent repetitions (a single occurrence of a motif is not a tandem repeat).
+2. **Microsatellite / STR size:** the repeated unit is short (fewer than 10 nt: "Those with fewer are known as microsatellites or short tandem repeats"); the 1–6 bp STR convention is from Tóth et al. (2000) Genome Res 10:967 (PMC310925), not Wikipedia.
+3. **Minisatellite size:** "between 10 and 60 nucleotides are repeated".
+4. **Minimum copies:** "A tandem repeat in DNA is two or more contiguous, approximate copies of a pattern of nucleotides" — Benson (1999) NAR 27(2):573 (PMC148217); Wikipedia does not state a minimum.
 
 ### Wikipedia — Inverted repeat (citing Ussery et al. 2008; Ye et al. 2014)
 
@@ -103,7 +103,7 @@
 
 ### Dataset: Repeat classification by motif size (microsatellite / Simple_repeat)
 
-**Source:** Wikipedia "Tandem repeat" (STR 1–6 bp); RepeatMasker classes
+**Source:** Wikipedia "Tandem repeat"; STR 1–6 bp per Tóth et al. (2000) (PMC310925, not on the Wikipedia page); RepeatMasker classes
 
 | Query motif | Size | RepeatMasker-style class |
 |-------------|------|--------------------------|
@@ -123,7 +123,7 @@
 ## Recommendations for Test Coverage
 
 1. **MUST Test:** tandem repeat `ATTCGATTCGATTCG` is found as unit `ATTCG`, 3 copies, span [0,15) — Evidence: Wikipedia Tandem repeat worked example.
-2. **MUST Test:** single occurrence of a motif (copies = 1) is NOT reported as a tandem repeat — Evidence: Wikipedia ("two or more").
+2. **MUST Test:** single occurrence of a motif (copies = 1) is NOT reported as a tandem repeat — Evidence: Benson (1999) NAR 27(2):573 (PMC148217): "two or more contiguous, approximate copies" (not on the Wikipedia page).
 3. **MUST Test:** inverted repeat `GAATTC` detected with arms `GAA`/`TTC` (revcomp), gap 0 — Evidence: Wikipedia + IUPACpal WW̄ᴿ.
 4. **MUST Test:** gapped inverted repeat `TTACGAAAAAACGTAA` detected: left `TTACG`, right `CGTAA`=revcomp, gap 6 — Evidence: Wikipedia example, IUPACpal WGW̄ᴿ.
 5. **MUST Test:** `ClassifyRepeat` returns the library class of an exactly-matching entry (e.g. an `AluY` SINE) — Evidence: RepeatMasker best-match classification.
@@ -140,6 +140,8 @@
 2. Wikipedia contributors. 2026. *Inverted repeat*. Wikipedia. https://en.wikipedia.org/wiki/Inverted_repeat (cites Ussery DW, Wassenaar TM, Borini S. 2008. *Computing for Comparative Microbial Genomics*, Springer; Ye C, Ji G, Liang C. 2014. detectIR. *PLoS ONE* 9(11):e113349, https://doi.org/10.1371/journal.pone.0113349).
 3. Hampson SE, Pissis SP, et al. 2021. *IUPACpal: efficient identification of inverted repeats in IUPAC-encoded DNA sequences*. BMC Bioinformatics 22:51. https://doi.org/10.1186/s12859-021-03983-2 (PMC7866733: https://pmc.ncbi.nlm.nih.gov/articles/PMC7866733/).
 4. Smit AFA, Hubley R, Green P. *RepeatMasker Open-4*. RepeatMasker documentation. https://www.repeatmasker.org/webrepeatmaskerhelp.html (Repbase Update, G.I.R.I.).
+5. Benson G. 1999. Tandem repeats finder: a program to analyze DNA sequences. *Nucleic Acids Res* 27(2):573–580. PMC148217 (abstract re-fetched 2026-10-14 via Europe PMC).
+6. Tóth G, Gáspári Z, Jurka J. 2000. Microsatellites in different eukaryotic genomes: survey and analysis. *Genome Res* 10:967–981. PMC310925 (abstract re-fetched 2026-10-14 via Europe PMC: "repeated unit lengths of 1-6 base pairs").
 
 ---
 

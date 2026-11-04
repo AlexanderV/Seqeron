@@ -11,7 +11,7 @@
 ### Shannon (1948) — A Mathematical Theory of Communication (primary source)
 
 **URL:** https://en.wikipedia.org/wiki/A_Mathematical_Theory_of_Communication (bibliographic confirmation) ; DOI https://doi.org/10.1002/j.1538-7305.1948.tb01338.x
-**Accessed:** 2026-06-14
+**Accessed:** 2026-06-14 · re-fetched 2026-10-14 (SRC citation audit: supports the claims above)
 **Authority rank:** 1 (peer-reviewed primary paper)
 
 **Retrieval:** Web search `Shannon 1948 "A Mathematical Theory of Communication" entropy H = - sum p log p Theorem 2 choice uncertainty`, then WebFetch of the Wikipedia article on the paper to confirm full bibliographic details.
@@ -24,7 +24,7 @@
 ### Entropy (information theory) — Wikipedia (citing Shannon 1948)
 
 **URL:** https://en.wikipedia.org/wiki/Entropy_(information_theory)
-**Accessed:** 2026-06-14
+**Accessed:** 2026-06-14 · re-fetched 2026-10-14 (SRC citation audit: supports the claims above)
 **Authority rank:** 4 (Wikipedia citing the primary Shannon 1948)
 
 **Retrieval:** WebFetch of the URL with a prompt requesting the formal H definition, log base, units, and the maximum-entropy property.
@@ -103,7 +103,7 @@ upper-cased letter counts of each complete window:
 
 ## Assumptions
 
-1. **ASSUMPTION: Per-symbol (k=1) frequencies over the IUPAC letter alphabet** — The implementation computes pᵢ from single-character (mono-nucleotide) frequencies of the letters present in the window (case-folded, non-letters ignored). The cited sources define H over any symbol probability distribution; the choice of the mono-symbol alphabet (rather than k-mer/block entropy) is the implementation's modelling choice and is consistent with the four-letter DNA application (max 2 bits) in the IntechOpen chapter. This does not change the formula, only the alphabet over which pᵢ is taken.
+1. **ASSUMPTION: Per-symbol (k=1) frequencies over the IUPAC letter alphabet** — The implementation computes pᵢ from single-character (mono-nucleotide) frequencies of the letters present in the window (case-folded, non-letters ignored). The cited sources define H over any symbol probability distribution; the choice of the mono-symbol alphabet is the default overload's modelling choice (k-mer/block entropy is available since 2026-10-14 via `CalculateEntropyProfile(seq, W, step, k)`, B03 F38) and is consistent with the four-letter DNA application (max 2 bits) in the IntechOpen chapter. This does not change the formula, only the alphabet over which pᵢ is taken.
 
 ---
 
@@ -126,6 +126,15 @@ upper-cased letter counts of each complete window:
 
 ---
 
+## Addendum 2026-10-14 (FIN-B03 F38, F41) — partial windows, k-mer entropy profile, MCP
+
+Executed reference: `scipy.stats.entropy(counts, base=2)` over `s[i:i+W]`, `i in range(0, len(s), step)` (Biopython `GC_skew` slicing, F24).
+- Letters + trailing partial windows: `ACGTACGTAAAACCCGGT` W8 s3 → [2.0, 1.75, 1.75, 1.561278124459133, 1.4591479170272446, 0.9182958340544894]; `AAAAAAAAACGT` W5 s4 → [0, 0, 2.0]; `GATTACA` W5 s5 → [1.5219280948873626, 1.0]; `AC-GTnn` W3 s2 → [1, 1, 0.9182958340544894, 0 (no letter; scipy nan)].
+- k-mer (Counter of overlapping k-mers): `ACGTACGTAAAACCCGGT` W8 s3 k2 → [1.950212064914747, 2.2359263506290326, 2.128085278891394, 2.2359263506290326] + partial [1.9219280948873625, 1.0]; k3 → [1.9182958340544893, 2.584962500721156, 2.2516291673878226, 2.584962500721156] + [2.0, 0]; `AAAAAAAAACGT` W6 s2 k1 → [0, 0, 0.6500224216483541, 1.7924812503605778] + [2.0, 1.0]; `GATTACA` W5 s2 k2 → [2.0, 2.0] + [1.0, 0].
+- API: `CalculateEntropyProfile(seq, W, step, bool includePartialWindow)`, `CalculateEntropyProfile(seq, W, step, int k, bool includePartialWindow = false)` (per window canonical `SequenceComplexity.CalculateKmerEntropy`, B04); MCP `entropy_profile(k, includePartialWindow)` (F41).
+- Tests: `CalculateEntropyProfile_IncludePartialWindow_MatchesScipyOverBiopythonSlicing`, `CalculateEntropyProfile_Kmer_MatchesScipyEntropyOfKmerCounts`, `CalculateEntropyProfile_Kmer_EqualsCanonicalKmerEntropyPerWindow_Random` (300) + guards (12 total); MCP `B03SequenceStatisticsMcpOptionsTests` (F41).
+
 ## Change History
 
 - **2026-06-14**: Initial documentation.
+- **2026-10-14**: FIN-B03 R2-WP5 — addendum F38/F41; Assumption 1 updated (k-mer entropy available).

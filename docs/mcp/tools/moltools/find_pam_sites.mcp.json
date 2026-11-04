@@ -5,13 +5,13 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "CrisprDesigner.FindPamSites",
-  "docRef": "Seqeron.Genomics.MolTools/CrisprDesigner.cs#L51",
+  "docRef": "Seqeron.Genomics.MolTools/CrisprDesigner.cs#L52",
   "description": "Find all PAM matches (both strands) for a CRISPR system in a DNA sequence.",
   "inputSchema": {
     "type": "object",
     "properties": {
-      "sequence": { "type": "string", "description": "DNA sequence to scan.", "minLength": 1 },
-      "system_type": { "type": "string", "enum": ["SpCas9", "SpCas9_NAG", "SaCas9", "Cas12a", "AsCas12a", "LbCas12a", "CasX"], "default": "SpCas9" }
+      "sequence": { "type": "string", "description": "DNA sequence to scan: A, C, G, T or N, in either case. Any other character (U, an IUPAC code other than N, a space, a trailing newline, a FASTA header line) is rejected with the character and its index.", "minLength": 1 },
+      "system_type": { "type": "string", "enum": ["SpCas9", "SpCas9_NAG", "SpCas9_NGA", "SaCas9", "SaCas9_NNGRRN", "Cas12a", "AsCas12a", "LbCas12a", "CasX"], "description": "CRISPR system (default SpCas9).", "default": "SpCas9" }
     },
     "required": ["sequence"]
   },
@@ -27,16 +27,30 @@
             "pamSequence": { "type": "string" },
             "targetSequence": { "type": "string" },
             "targetStart": { "type": "integer" },
-            "isForwardStrand": { "type": "boolean" }
+            "isForwardStrand": { "type": "boolean" },
+            "system": {
+            "type": "object",
+            "description": "The CRISPR system record (see crispr_system_info).",
+            "properties": {
+              "name": { "type": "string" },
+              "pamSequence": { "type": "string" },
+              "guideLength": { "type": "integer" },
+              "pamAfterTarget": { "type": "boolean" },
+              "description": { "type": "string" },
+              "cutOffset": { "type": "integer" }
+            },
+            "required": ["name", "pamSequence", "guideLength", "pamAfterTarget", "description", "cutOffset"]
+          }
           },
-          "required": ["position", "pamSequence", "targetSequence", "targetStart", "isForwardStrand"]
+          "required": ["position", "pamSequence", "targetSequence", "targetStart", "isForwardStrand", "system"]
         }
       }
     },
     "required": ["sites"]
   },
   "errors": [
-    { "code": 1001, "message": "Sequence cannot be null or empty" }
+    { "code": 1001, "message": "Sequence cannot be null or empty" },
+    { "code": 1002, "message": "Expected A/C/G/T/N but found '{char}' at index {i}." }
   ],
   "examples": [
     {

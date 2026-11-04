@@ -55,7 +55,7 @@
 
 ### From McTigue 2004 / MELTING
 
-1. **Terminal LNA not parameterised:** an LNA at the first or last duplex position has no McTigue increment — must be rejected (return not-computable), not silently treated as internal.
+1. **Terminal LNA not parameterised:** an LNA at the first or last duplex position has no McTigue increment — must be rejected (return not-computable), not silently treated as internal. (2026-10-08, B07 F66: MELTING 5.2.0's `isApplicable` is written to reject it with the warning "not established for terminal locked nucleic acids", but its test compares the end pair with the literal "L"/"-" and never fires, so melting5 does return a value — `CLCATTGCTACC` owc11 66.65650883512683 °C — by applying the internal-LNA doublet parameter at the end. Not reproduced.)
 2. **Sequence-dependence:** the per-LNA ΔΔ varies widely by NN context (some ΔΔH increments are positive, some negative), but the net effect on Tm is stabilizing for internal LNA; tests must use the actual table values, not a single average.
 3. **Non-ACGT base:** the underlying DNA NN lookup fails on a non-ACGT base → not computable.
 
@@ -134,7 +134,7 @@ Tm = ΔH°·1000 / (ΔS° + R·ln(C_T/4)) − 273.15, R = 1.9872:
 1. **MUST Test:** ΔH°/ΔS° of `CCATTGCTACC` with LNA at index 4 equals the hand-derived −80.014 kcal/mol / −216.6 cal/(mol·K) — Evidence: McTigue 2004 XML (`TTL/AA`, `TLG/AC`) + SantaLucia base NN.
 2. **MUST Test:** LNA-adjusted Tm of that duplex (C=1e-4, Na=1, no extra salt correction) = 63.52759 °C (hand value), and is within ~0.1 °C of the MELTING `mct04` 63.61426 °C — Evidence: rmelting worked example.
 3. **MUST Test:** adding the LNA monomer **raises** Tm vs the all-DNA duplex (63.53 > 59.69) — Evidence: McTigue 2004 stabilization.
-4. **MUST Test:** a terminal LNA (index 0 or last) is rejected (not-computable / NaN) — Evidence: McTigue/MELTING terminal exclusion.
+4. **MUST Test:** a terminal LNA (index 0 or last) is rejected (not-computable / NaN) — Evidence: McTigue (internal LNAs only) / MELTING's intended terminal exclusion (its guard does not fire in 5.2.0 — B07 F66).
 5. **SHOULD Test:** every one of the 32 increment keys present; spot-check a negative-ΔΔH key (`GLG/CC` = −2844) is applied with correct sign.
 6. **SHOULD Test:** null/empty/short/non-ACGT and out-of-range LNA index → not-computable.
 7. **COULD Test:** MGB design-rule check — shorter probe length window (13–20 nt) flagged; 3'-MGB placement guidance.

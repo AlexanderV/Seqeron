@@ -54,12 +54,17 @@ verbatim from Charneski et al. (2011) [2] and corroborated by the Lobry (1996) p
 |------|------|---------|-------------|-------------|
 | sequence | `string` | required | DNA sequence; only A/T counted | case-insensitive; null/empty ⇒ 0 |
 | sequence | `DnaSequence` | required | DNA sequence value object (already upper-cased) | non-null |
+| windowSize | `int` | `1000` | `CalculateWindowedAtSkew` / `CalculateCumulativeAtSkew` window length | `>= 1` (eager `ArgumentOutOfRangeException`) |
+| stepSize | `int` | `100` | `CalculateWindowedAtSkew` step between window starts | `>= 1` (eager) |
+| includePartialWindow | `bool` | `false` | also emit the trailing partial window(s), truncated at the sequence end | same contract as the GC-skew overloads (SEQ-GCSKEW-001) |
 
 ### 3.2 Output / Return Value
 
 | Field | Type | Description |
 |-------|------|-------------|
 | (return) | `double` | AT skew in [−1, +1]; 0 when A + T = 0 |
+| `AtSkewPoint` | record | `CalculateWindowedAtSkew`: window centre `Position`, `AtSkew`, `WindowStart`, `WindowEnd` |
+| `CumulativeAtSkewPoint` | record | `CalculateCumulativeAtSkew`: `Position`, window `AtSkew`, running sum `CumulativeAtSkew` over adjacent non-overlapping windows |
 
 ### 3.3 Preconditions and Validation
 
@@ -109,7 +114,9 @@ The two public overloads share a private `CalculateAtSkewCore`, which delegates 
 
 **Not implemented:**
 
-- Windowed / cumulative AT skew profiles and replication-origin location from AT skew: out of scope for this unit; **users should rely on** `CalculateWindowedGcSkew` / `CalculateCumulativeGcSkew` / `PredictReplicationOrigin` (GC-skew based) in the same class.
+- Replication-origin location from AT skew: out of scope for this unit; **users should rely on** `PredictReplicationOrigin` (GC-skew based) in the same class.
+
+**Implemented 2026-10 (finisher A1-4):** windowed (`CalculateWindowedAtSkew`) and cumulative (`CalculateCumulativeAtSkew`) AT skew, computed by the same window enumerator and skew kernel as the GC versions (`CalculateSkewCore(seq, 'A', 'T')`): window starts `0, s, 2s, …`, complete windows only unless `includePartialWindow`; cumulative = running sum of (A−T)/(A+T) over adjacent windows (step = window), the AT analogue of the Grigoriev (1998) cumulative GC skew. Cross-checked against a direct numpy computation (e.g. `"AAATTTAAGCAT"`, w = 5, partial → [0.2, 1/3, 0.0], cumulative [0.2, 0.5333…, 0.5333…]).
 
 ### 5.4 Deviations and Assumptions (Optional)
 
@@ -132,7 +139,7 @@ The two public overloads share a private `CalculateAtSkewCore`, which delegates 
 
 ### 6.2 Limitations
 
-Computes a single global statistic; it does not localize asymmetry along the sequence (use the windowed/cumulative GC-skew methods for that). No T↔U conversion: RNA input ("U") would be ignored rather than treated as T.
+`CalculateAtSkew` computes a single global statistic; use `CalculateWindowedAtSkew` / `CalculateCumulativeAtSkew` to localize asymmetry along the sequence. No T↔U conversion: RNA input ("U") would be ignored rather than treated as T.
 
 ## 7. Examples and Related Material (Optional)
 

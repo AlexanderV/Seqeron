@@ -33,7 +33,7 @@
 ### Wikipedia "GC skew" (cited primary: Lobry 1996)
 
 **URL:** https://en.wikipedia.org/wiki/GC_skew
-**Accessed:** 2026-06-14 (retrieved via WebFetch)
+**Accessed:** 2026-06-14 (retrieved via WebFetch) · re-fetched 2026-10-14 (SRC citation audit: supports the claims above)
 **Authority rank:** 4 (Wikipedia citing the Lobry 1996 primary, used here only to corroborate formula + range)
 
 **Key Extracted Points:**

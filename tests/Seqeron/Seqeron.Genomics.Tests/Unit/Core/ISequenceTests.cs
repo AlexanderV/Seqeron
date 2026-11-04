@@ -126,6 +126,42 @@ public class ISequenceTests
         Assert.That(allAmbiguous.GetAmbiguityLevel(), Is.EqualTo(0.0));
     }
 
+    // scikit-bio 0.7.4: DNA(s, lowercase=True).definites().mean() / .degenerates().mean()
+    [TestCase("ACNR-G.T", 0.5, 0.25)]
+    [TestCase("ACGT", 1.0, 0.0)]
+    [TestCase("NNNN", 0.0, 1.0)]
+    [TestCase("acgt", 1.0, 0.0)]
+    [TestCase("ACGTN", 0.8, 0.2)]
+    [TestCase("RYSWKMBDHVN", 0.0, 1.0)]
+    [TestCase("----", 0.0, 0.0)]
+    [TestCase("A-", 0.5, 0.0)]
+    [TestCase("ACGTNNNN", 0.5, 0.5)]
+    public void IupacDnaSequence_DefiniteAndDegenerateFractions_MatchScikitBio(string seq, double definite, double degenerate)
+    {
+        var s = new IupacDnaSequence(seq);
+        Assert.Multiple(() =>
+        {
+            Assert.That(s.GetAmbiguityLevel(), Is.EqualTo(definite).Within(1e-15), "definites().mean()");
+            Assert.That(s.GetDegenerateFraction(), Is.EqualTo(degenerate).Within(1e-15), "degenerates().mean()");
+        });
+    }
+
+    [Test]
+    public void IupacDnaSequence_DefiniteAndDegenerateFractions_EmptyAndU_DocumentedConventions()
+    {
+        // scikit-bio gives NaN for the empty mean; Seqeron documents 1.0 / 0.0 (no degenerate position).
+        var empty = new IupacDnaSequence("");
+        // scikit-bio DNA rejects U; this container tolerates it and counts it as neither definite nor degenerate.
+        var withU = new IupacDnaSequence("ACGU");
+        Assert.Multiple(() =>
+        {
+            Assert.That(empty.GetAmbiguityLevel(), Is.EqualTo(1.0));
+            Assert.That(empty.GetDegenerateFraction(), Is.EqualTo(0.0));
+            Assert.That(withU.GetAmbiguityLevel(), Is.EqualTo(0.75));
+            Assert.That(withU.GetDegenerateFraction(), Is.EqualTo(0.0));
+        });
+    }
+
     [Test]
     public void IupacDnaSequence_ExpandAll_GeneratesAllPossibilities()
     {
@@ -200,6 +236,18 @@ public class ISequenceTests
         var seq = new QualitySequence("ACGT", new byte[] { 10, 20, 30, 40 });
 
         Assert.That(seq.MeanQuality, Is.EqualTo(25.0));
+    }
+
+    [Test]
+    public void QualitySequence_MeanQuality_Empty_ThrowsDocumentedException()
+    {
+        // Python statistics.mean([]) raises StatisticsError ("mean requires at least one data point").
+        var empty = new QualitySequence("", Array.Empty<byte>());
+        var ex = Assert.Throws<InvalidOperationException>(() => _ = empty.MeanQuality);
+        Assert.That(ex!.Message, Does.Contain("empty"));
+        // statistics.mean([0, 93, 41]) = 44.666666666666664
+        Assert.That(new QualitySequence("ACG", new byte[] { 0, 93, 41 }).MeanQuality,
+            Is.EqualTo(44.666666666666664).Within(1e-12));
     }
 
     [Test]
@@ -315,6 +363,25 @@ public class ISequenceTests
         Assert.That(rc.Qualities, Is.EquivalentTo(new byte[] { 40, 30, 20, 10 }));
     }
 
+    // B01 finisher dedup sweep (uncovered public method): GetReverse. Reference Biopython 1.88:
+    // Seq("ACNR-G.T")[::-1] = "T.G-RNCA"; SeqRecord(Seq("ACGTN"), phred_quality=[10,20,30,40,2])[::-1]
+    // → "NTGCA", [2,40,30,20,10] (letter annotations are reversed with the sequence).
+    [Test]
+    public void IupacAndQualitySequence_GetReverse_MatchesBiopythonSliceReversal()
+    {
+        var iupac = new IupacDnaSequence("ACNR-G.T").GetReverse();
+        var qual = new QualitySequence("ACGTN", new byte[] { 10, 20, 30, 40, 2 }).GetReverse() as QualitySequence;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(iupac, Is.InstanceOf<IupacDnaSequence>());
+            Assert.That(iupac.Sequence, Is.EqualTo("T.G-RNCA"));
+            Assert.That(qual, Is.Not.Null);
+            Assert.That(qual!.Sequence, Is.EqualTo("NTGCA"));
+            Assert.That(qual.Qualities, Is.EqualTo(new byte[] { 2, 40, 30, 20, 10 }));
+        });
+    }
+
     [Test]
     public void QualitySequence_Subsequence_PreservesQuality()
     {
@@ -387,6 +454,49 @@ public class ISequenceTests
             Assert.That(IupacDnaSequence.CodesMatch(c1, c2), Is.EqualTo(expected));
             Assert.That(IupacDnaSequence.CodesMatch(c2, c1), Is.EqualTo(expected), "symmetric");
             Assert.That(IupacDnaSequence.CodesMatch(char.ToUpperInvariant(c1), char.ToUpperInvariant(c2)), Is.EqualTo(expected));
+        });
+    }
+
+    [Test]
+    [Description("A1-6/F19: ExpandCode/MatchesAt fold ASCII only — U+017F 'ſ' is not S (Biopython ambiguous_dna_values has no 'ſ' key, nt_search raises KeyError; scikit-bio DNA('ſ') raises)")]
+    public void IupacDnaSequence_ExpandCodeAndMatchesAt_NonAsciiLettersNotFolded()
+    {
+        var seq = new IupacDnaSequence("ACGTSN\u017f");
+        Assert.Multiple(() =>
+        {
+            // Unknown-character contract: { 'N' } (as for 'X', '1', '-').
+            Assert.That(IupacDnaSequence.ExpandCode('\u017f'), Is.EqualTo(new[] { 'N' }));
+            Assert.That(IupacDnaSequence.ExpandCode('\u0131'), Is.EqualTo(new[] { 'N' }));
+            Assert.That(IupacDnaSequence.ExpandCode('\u212a'), Is.EqualTo(new[] { 'N' }));
+            Assert.That(IupacDnaSequence.ExpandCode('X'), Is.EqualTo(new[] { 'N' }));
+            Assert.That(IupacDnaSequence.ExpandCode('s'), Is.EquivalentTo(new[] { 'G', 'C' }));
+            Assert.That(IupacDnaSequence.ExpandCode('k'), Is.EquivalentTo(new[] { 'G', 'T' }));
+
+            // Pattern 'ſ' is not S: no match at G (2), C (1) or S (4); it matches only the literal 'ſ' (6),
+            // a non-code symbol matching itself per the CodesMatch contract.
+            Assert.That(seq.MatchesAt("\u017f", 1), Is.False);
+            Assert.That(seq.MatchesAt("\u017f", 2), Is.False);
+            Assert.That(seq.MatchesAt("\u017f", 4), Is.False);
+            Assert.That(seq.FindPattern("\u017f").ToList(), Is.EqualTo(new[] { 6 }));
+            Assert.That(seq.FindPattern("s").ToList(), Is.EqualTo(new[] { 1, 2, 4, 5 }));
+            Assert.That(seq.FindPattern("\u212a").ToList(), Is.Empty);
+            Assert.That(seq.MatchesAt("acgtsn", 0), Is.True);
+        });
+    }
+
+    [TestCase("\u017f")]
+    [TestCase("AC\u017f")]
+    [Description("A1-6/F19: DnaSequence/RnaSequence ctor reports the rejected non-ASCII character verbatim (not the ToUpperInvariant fold 'S')")]
+    public void DnaRnaSequence_Ctor_NonAsciiLetter_RejectedAndReportedVerbatim(string sequence)
+    {
+        Assert.Multiple(() =>
+        {
+            var dna = Assert.Throws<ArgumentException>(() => new DnaSequence(sequence));
+            Assert.That(dna!.Message, Does.Contain("'\u017f'"));
+            var rna = Assert.Throws<ArgumentException>(() => new RnaSequence(sequence));
+            Assert.That(rna!.Message, Does.Contain("'\u017f'"));
+            Assert.That(new DnaSequence("acgt").Sequence, Is.EqualTo("ACGT"));
+            Assert.That(new RnaSequence("acgu").Sequence, Is.EqualTo("ACGU"));
         });
     }
 

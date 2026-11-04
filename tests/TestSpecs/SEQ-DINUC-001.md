@@ -205,4 +205,15 @@
 
 ## 7. Open Questions / Decisions
 
-1. Decision: methods return raw frequencies/ratios; the 0.78/1.23 Karlin & Burge classification thresholds are documentation-only (not applied in code), so no threshold constant is needed in the implementation.
+1. Decision: ratio methods return raw frequencies/ratios. ~~The 0.78/1.23 Karlin & Burge thresholds are documentation-only.~~ Superseded 2026-10-14 (B03 F37): the thresholds are applied by `ClassifyDinucleotideRatio(s)` (constants `KarlinUnderRepresentedThreshold` / `KarlinOverRepresentedThreshold`).
+
+## 8. Addendum 2026-10-14 (FIN-B03 R2-WP5): Karlin classes (F37), absent dinucleotides (F51), MCP (F40)
+
+| ID | Case | Oracle |
+|----|------|--------|
+| DC1 | `ClassifyDinucleotideRatio` at 0, 0.78, next double above 0.78, 1, 1.2299999999999998, 1.23, +∞; NaN/negative throw | Karlin & Burge 1995 (≤ 0.78 / ≥ 1.23, inclusive) |
+| DC2 | ρ* classes of `ATGCATGCAATTGGCCATGCAAACGTTTAAGG` (over AA AT CA GC TG TT; under AC AG CG CT GT TA; normal CC GG; GC 2.69651086240948, CG 0.67412771560237) | independent Python ρ* |
+| DC3 | single-strand `AAAATTTTCCCCGGGGACGT`: CG 1.6842105263157894 over, AC 0.8421052631578947 normal | Python ρ |
+| DC4 | `includeAbsent`: "AACCTTGGAACCTTGG" all 16 single-strand / ρ* values incl. zeros; NaN words ("AAAATTTT" c/g, "an") excluded; CpG-free → CG `UnderRepresented`; default unchanged (400 × 2 strands) | R seqinr 4.2.36 `rho()` |
+
+Tests: `ClassifyDinucleotideRatio_*`, `ClassifyDinucleotideRatios_*`, `DinucleotideRatios_IncludeAbsent_*` in `SequenceStatistics_CalculateDinucleotide_Tests`; MCP `Seqeron.Mcp.Analysis.Tests/B03SequenceStatisticsMcpOptionsTests`.

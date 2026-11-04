@@ -6,13 +6,13 @@
   "stability": "stable",
   "methodId": "SequenceComplexity.CalculateShannonEntropy",
   "docRef": "Seqeron.Genomics.Analysis/SequenceComplexity.cs#L214",
-  "description": "Calculate DNA Shannon entropy (bits per base). Maximum entropy for DNA is 2 bits.",
+  "description": "Calculate nucleotide Shannon entropy (bits per base) over the alphabet A/C/G/T/U, case-insensitive, with RNA U counted as T (an RNA and its DNA transcript give the same value). Other characters (N, IUPAC codes, gaps) are ignored. Maximum is 2 bits.",
   "inputSchema": {
     "type": "object",
     "properties": {
       "sequence": {
         "type": "string",
-        "description": "The DNA sequence to analyze",
+        "description": "The DNA or RNA sequence to analyze",
         "minLength": 1
       }
     },

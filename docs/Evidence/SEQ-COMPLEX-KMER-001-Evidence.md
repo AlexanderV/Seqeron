@@ -69,7 +69,7 @@ not load-bearing.
 ### Wikipedia, "Entropy (information theory)" (citing Shannon 1948)
 
 **URL:** https://en.wikipedia.org/wiki/Entropy_(information_theory)
-**Accessed:** 2026-06-14 (fetched via WebFetch)
+**Accessed:** 2026-06-14 (fetched via WebFetch) · re-fetched 2026-10-14 (SRC citation audit: supports the claims above)
 **Authority rank:** 4 (uses Shannon 1948 primary)
 
 **Key Extracted Points:**

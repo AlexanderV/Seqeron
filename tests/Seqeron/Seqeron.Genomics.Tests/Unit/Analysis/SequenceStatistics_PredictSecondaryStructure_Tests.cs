@@ -363,4 +363,204 @@ public class SequenceStatistics_PredictSecondaryStructure_Tests
     }
 
     #endregion
+
+    #region PredictSecondaryStructureChouFasman — Graded1978 rule set (B03 F34)
+
+    // Graded 1978 classes from Prevelige & Fasman (1989) Table II (Chou & Fasman 1977/1978, 29 proteins);
+    // rule wording from Prevelige & Fasman rules 1-4 + Table I footnotes, CFSSP / MIT 20.320 PS2
+    // (Iα = ½ hα, ≥ ⅓ breakers unfavourable). No runnable graded port exists: expected strings are
+    // hand-traced from the published rules (traces below and in SEQ-SECSTRUCT-001-Evidence.md) and
+    // agree with an independent Python reference (3000/3000 random sequences identical to C#).
+    private static string Graded(string s) =>
+        SequenceStatistics.PredictSecondaryStructureChouFasman(s, SequenceStatistics.ChouFasmanRuleSet.Graded1978);
+
+    private static string Standard(string s) =>
+        SequenceStatistics.PredictSecondaryStructureChouFasman(s, SequenceStatistics.ChouFasmanRuleSet.Standard);
+
+    // Fractional counting: A,A,A = Hα (3 formers) + H,H = Iα (2 × ½) = 4 formers in 6, no breaker →
+    // nucleus; ΣPα 703 > 1.03·6·100 = 618, ΣPβ 498 → helix. Standard: only A,A,A have Pα > 1.00
+    // (His = 1.00 exactly) → no nucleus → coil.
+    [Test]
+    public void ChouFasmanGraded_WeakFormersCountHalf_NucleatesHelix()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(Graded("AAAHHS"), Is.EqualTo("HHHHHH"));
+            Assert.That(Standard("AAAHHS"), Is.EqualTo("CCCCCC"));
+        });
+    }
+
+    // Breaker limit: EEEENY has 4 Hα formers but N and Y are bα (2 breakers ≥ ⅓ of 6) → no nucleus.
+    // Standard counts only Pα > 1.00 (4/6) → helix (ΣPα 740 > 618, ΣPβ 384). EEEESY: S is iα, only Y
+    // is a breaker → nucleus → helix under both.
+    [TestCase("EEEENY", "CCCCCC", "HHHHHH")]
+    [TestCase("EEEESY", "HHHHHH", "HHHHHH")]
+    public void ChouFasmanGraded_AtMostOneBreakerInHelixNucleus(string sequence, string graded, string standard)
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(Graded(sequence), Is.EqualTo(graded));
+            Assert.That(Standard(sequence), Is.EqualTo(standard));
+        });
+    }
+
+    // C-terminal boundary: Arg in the last three nucleus residues is Iα (Table I footnote b):
+    // EEESRR = 3 Hα + 2 × ½ = 4 → helix (ΣPα 726 > 618). RRSEEE: Arg at the N-terminal side stays
+    // iα → 3 formers → coil (no turn: p(t) RRSE 5.9e-5, RSEE 4.8e-5 < 7.5e-5).
+    [TestCase("EEESRR", "HHHHHH")]
+    [TestCase("RRSEEE", "CCCCCC")]
+    public void ChouFasmanGraded_ArgininePrefersHelixCTerminus(string sequence, string expected)
+    {
+        Assert.That(Graded(sequence), Is.EqualTo(expected));
+    }
+
+    // N-terminal boundary: Pro in the first turn of a nucleus is Iα, not Bα: PNEEEE = 4 Hα + ½ with
+    // one breaker (N) → helix (ΣPα 728 > 618, ΣPβ 292); a Bα Pro would make 2 breakers.
+    [Test]
+    public void ChouFasmanGraded_ProlineInNTerminalTurnCountsAsWeakFormer()
+    {
+        Assert.That(Graded("PNEEEE"), Is.EqualTo("HHHHHH"));
+    }
+
+    // Proline rule: Pro cannot be added at the C-terminal end (EEEEEEP: extension stops at Pro; Standard
+    // extends because ⟨Pα⟩(EEEP) = 1.275 ≥ 1.00) and must stay within the first three helix residues
+    // (AEEPEEEEE: nucleus 1..6 = EEPEEE; N-extension to A would put Pro at helix position 4 → blocked;
+    // window AEEPEE is rejected because Pro is at offset 3).
+    [TestCase("EEEEEEP", "HHHHHHC", "HHHHHHH")]
+    [TestCase("AEEPEEEEE", "CHHHHHHHH", "HHHHHHHHH")]
+    [TestCase("PAEEEEEE", "HHHHHHHH", "HHHHHHHH")]
+    public void ChouFasmanGraded_ProlineOnlyInFirstHelixTurn(string sequence, string graded, string standard)
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(Graded(sequence), Is.EqualTo(graded));
+            Assert.That(Standard(sequence), Is.EqualTo(standard));
+        });
+    }
+
+    // Sheet: Trp near the C-terminal end of a β nucleus is bβ (Table I footnote c). VVVSW: Hβ×3 but S (bβ)
+    // + W (bβ) = 2 breakers → no sheet; the helix window is too short → coil. WVVVS: Trp at the N-terminal
+    // end is hβ → 4 formers, 1 breaker → ΣPβ 722 > 525, > ΣPα 503 → strand. Standard: both strands.
+    [TestCase("VVVSW", "CCCCC", "EEEEE")]
+    [TestCase("WVVVS", "EEEEE", "EEEEE")]
+    public void ChouFasmanGraded_TryptophanBreaksSheetNearCTerminus(string sequence, string graded, string standard)
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(Graded(sequence), Is.EqualTo(graded));
+            Assert.That(Standard(sequence), Is.EqualTo(standard));
+        });
+    }
+
+    // Shared steps (turn override) unchanged: EEEEGG — graded nucleus rejected (G,G = 2 Bα) → only the
+    // EEGG turn remains; standard keeps the helix head.
+    [Test]
+    public void ChouFasmanGraded_TurnRuleShared()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(Graded("EEEEGG"), Is.EqualTo("CCTTTT"));
+            Assert.That(Standard("EEEEGG"), Is.EqualTo("HHTTTT"));
+        });
+    }
+
+    // Human haemoglobin α (UniProt P69905): graded differs from Standard at residues 1-3 (MVL: the
+    // β nucleus MVLSP has P (Bβ) + S (bβ) = 2 breakers) and residue 38 (Pro); locked to the Python reference.
+    [Test]
+    public void ChouFasmanGraded_HaemoglobinAlpha_MatchesPythonReference()
+    {
+        const string hba = "MVLSPADKTNVKAAWGKVGAHAGEYGAEALERMFLSFPTTKTYFPHFDLSHGSAQVKGHGKKVADALTNAVAHVDDMPNALSALSDLHAHKLRVDPVNFKLLSHCLLVTLAAHLPAEFTPAVHASLDKFLASVSTVLTSKYR";
+        Assert.Multiple(() =>
+        {
+            Assert.That(Graded(hba), Is.EqualTo(
+                "CCCTTTTTTTHHHHHHHHHHHHTTTTHHHHHEEEEEECEEEEEEEEECTTTTTTCCCTTTTTHHHEEEEEEETTTTTTTTHHHHHHHHHHHHHHTTTTEEETTTTEEEEEEEHHHHHEEEEEHHHHHHHHHHHHEEETTTTT"));
+            Assert.That(Standard(hba), Is.EqualTo(
+                "EEETTTTTTTHHHHHHHHHHHHTTTTHHHHHEEEEEEEEEEEEEEEECTTTTTTCCCTTTTTHHHEEEEEEETTTTTTTTHHHHHHHHHHHHHHTTTTEEETTTTEEEEEEEHHHHHEEEEEHHHHHHHHHHHHEEETTTTT"));
+            Assert.That(Graded(hba.ToLowerInvariant()), Is.EqualTo(Graded(hba)), "case-insensitive");
+        });
+    }
+
+    [Test]
+    public void ChouFasmanGraded_StandardRuleSetEqualsOneArgumentOverload()
+    {
+        const string ub = "MQIFVKTLTGKTITLEVEPSDTIENVKAKIQDKEGIPPDQQRLIFAGKQLEDGRTLSDYNIQKESTLHLVLRLRGG";
+        Assert.That(Standard(ub), Is.EqualTo(SequenceStatistics.PredictSecondaryStructureChouFasman(ub)));
+    }
+
+    [TestCase(null, "")]
+    [TestCase("", "")]
+    [TestCase("AAAAXAAAA", "CCCCCCCCC")]
+    public void ChouFasmanGraded_EmptyAndUnknownResidues(string? sequence, string expected)
+    {
+        Assert.That(Graded(sequence!), Is.EqualTo(expected));
+    }
+
+    [Test]
+    public void ChouFasmanGraded_UndefinedRuleSet_Throws()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            SequenceStatistics.PredictSecondaryStructureChouFasman("AAAAAA", (SequenceStatistics.ChouFasmanRuleSet)7));
+    }
+
+    #endregion
+    #region ASCII-only case fold (B03 round 2, B1 / F45)
+
+    // EMBOSS convention (F22): only ASCII letters fold; U+017F 'ſ' (ToUpperInvariant → 'S') and
+    // U+0131 'ı' (→ 'I') are non-residues exactly like 'X' — pepstats "MSKſ" = 3 residues.
+    [TestCase("AAſAAAA", "AAXAAAA")]
+    [TestCase("AAıAAAA", "AAXAAAA")]
+    [TestCase("aaſaaaa", "AAXAAAA")]
+    public void PredictSecondaryStructure_NonAsciiFoldingLetter_IsNonResidue(string sequence, string asciiEquivalent)
+    {
+        var actual = SequenceStatistics.PredictSecondaryStructure(sequence, 7).ToList();
+        var expected = SequenceStatistics.PredictSecondaryStructure(asciiEquivalent, 7).ToList();
+
+        actual.Should().Equal(expected);
+        // Mean over the 6 A residues only (1.42, 0.83, 0.66), not over A×6 + S.
+        actual.Single().Helix.Should().BeApproximately(1.42, Tolerance);
+        actual.Single().Sheet.Should().BeApproximately(0.83, Tolerance);
+        actual.Single().Turn.Should().BeApproximately(0.66, Tolerance);
+    }
+
+    [TestCase("EEEEſEEE", "EEEEXEEE", SequenceStatistics.ChouFasmanRuleSet.Standard)]
+    [TestCase("EEEEſEEE", "EEEEXEEE", SequenceStatistics.ChouFasmanRuleSet.Graded1978)]
+    [TestCase("AAſAAAA", "AAXAAAA", SequenceStatistics.ChouFasmanRuleSet.Standard)]
+    [TestCase("AAſAAAA", "AAXAAAA", SequenceStatistics.ChouFasmanRuleSet.Graded1978)]
+    [TestCase("VVıVVIVV", "VVXVVIVV", SequenceStatistics.ChouFasmanRuleSet.Standard)]
+    [TestCase("VVıVVIVV", "VVXVVIVV", SequenceStatistics.ChouFasmanRuleSet.Graded1978)]
+    public void ChouFasman_NonAsciiFoldingLetter_EqualsX(string sequence, string asciiEquivalent, SequenceStatistics.ChouFasmanRuleSet ruleSet)
+    {
+        string states = SequenceStatistics.PredictSecondaryStructureChouFasman(sequence, ruleSet);
+
+        states.Should().Be(SequenceStatistics.PredictSecondaryStructureChouFasman(asciiEquivalent, ruleSet));
+        states[sequence.IndexOfAny(new[] { 'ſ', 'ı' })].Should().Be(SequenceStatistics.ChouFasmanCoil);
+    }
+
+    // Differential over random BMP text: the result equals that of the ASCII-folded reference
+    // in which every non-ASCII-letter code point is replaced by 'X' (no parameters).
+    [Test]
+    public void SecondaryStructure_RandomBmp_EqualsAsciiFoldedReference()
+    {
+        var rng = new Random(20261014);
+        const string residues = "ACDEFGHIKLMNPQRSTVWYacdefghiklmnpqrstvwy";
+        for (int trial = 0; trial < 200; trial++)
+        {
+            var chars = new char[rng.Next(1, 40)];
+            for (int i = 0; i < chars.Length; i++)
+                chars[i] = rng.NextDouble() < 0.7 ? residues[rng.Next(residues.Length)]
+                    : rng.NextDouble() < 0.3 ? (rng.Next(2) == 0 ? 'ſ' : 'ı')
+                    : (char)rng.Next(0x0080, 0x10000);
+            string seq = new(chars);
+            string reference = new(chars.Select(c => char.IsAsciiLetter(c) ? char.ToUpperInvariant(c) : 'X').ToArray());
+
+            foreach (var ruleSet in new[] { SequenceStatistics.ChouFasmanRuleSet.Standard, SequenceStatistics.ChouFasmanRuleSet.Graded1978 })
+                SequenceStatistics.PredictSecondaryStructureChouFasman(seq, ruleSet)
+                    .Should().Be(SequenceStatistics.PredictSecondaryStructureChouFasman(reference, ruleSet), $"'{seq}'");
+            int window = Math.Min(7, seq.Length);
+            SequenceStatistics.PredictSecondaryStructure(seq, window)
+                .Should().Equal(SequenceStatistics.PredictSecondaryStructure(reference, window));
+        }
+    }
+
+    #endregion
 }

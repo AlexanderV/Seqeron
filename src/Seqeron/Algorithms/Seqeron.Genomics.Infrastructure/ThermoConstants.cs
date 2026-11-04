@@ -865,6 +865,11 @@ public static class ThermoConstants
         string tmpSeq = seq, tmpCseq = cSeq;
         double dH = 0, dS = 0;
 
+        // Every shift beyond one base past the other strand leaves the same strands after the over-dangling ends
+        // are removed below (Biopython: no overlap → no NN data); clamping is exact and avoids int.MinValue negation
+        // and huge padding allocations.
+        shift = (int)Math.Clamp((long)shift, -(long)(seq.Length + 1), cSeq.Length + 1L);
+
         // Dangling ends?
         if (shift != 0 || seq.Length != cSeq.Length)
         {

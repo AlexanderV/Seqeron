@@ -190,3 +190,15 @@ In-scope cases: 10. ✅ count: 10. No ❌ / ⚠ remain.
 
 1. Decision: `CalculateCodonFrequencies` was previously implemented and tested inside SEQ-DINUC-001's file. It is the dedicated method of THIS unit, so its tests are relocated to the canonical file for SEQ-CODON-FREQ-001 and weak legacy duplicates are removed (one canonical file per unit). No behavioral change to the implementation.
 2. The method is not a search/matching operation; the repository suffix tree is N/A (linear single pass).
+
+## 8. Addendum 2026-10-14 (FIN-B03 R2-WP5): canonical counter (F23), cusp normalisations (F36), MCP (F49)
+
+| ID | Case | Oracle |
+|----|------|--------|
+| CF1 | `PerAminoAcid` on the 26-codon cusp sequence (22 rows: GCT 0.400, AAA 0.667, CTG 0.333, TAA/TAG/TGA 0.333 …; exact 2/3, 1/6, 1/3); lower-case RNA identical | EMBOSS 6.6.0 cusp Fraction |
+| CF2 | `PerThousand` (22 rows, Number·1000/26: GCT 76.923, TAA 38.462) | cusp Frequency |
+| CF3 | genetic code 2: AGA/AGG/TAA/TAG 0.25, TGA/TGG 0.5, CGC/CGT 0.5 | hand-derived regrouping |
+| CF4 | 500 random inputs ≡ `Translator.CountCodons`/total (F23); 300-input Total ≡ default, PerThousand = 1000·Total, families sum to 1 | invariants |
+| CF5 | MCP `codon_frequencies(normalization, genetic_code)` | F49 |
+
+Tests: `CodonFrequencies_RandomInputs_EqualTranslatorCountCodonsOverTotal`, `CalculateCodonFrequencies_PerAminoAcid_MatchesEmbossCuspFraction`, `CalculateCodonFrequencies_PerThousand_MatchesEmbossCuspFrequency`, `CalculateCodonFrequencies_PerAminoAcid_VertebrateMitochondrialCode_RegroupsFamilies`; MCP `B03SequenceStatisticsMcpOptionsTests` (+10).

@@ -45,13 +45,14 @@ Everything below lives in **one namespace `Seqeron.Genomics.Oncology`**, across 
 
 | Class | Covers | Source (from repo root `../../../`) |
 |---|---|---|
-| `OncologyAnalyzer` | purity/ploidy/ASCAT, copy number, signatures, fusions, TMB/MSI, neoantigen windows, matrix pMHC, clonal/phylogeny, HRD/LOH, ctDNA | `src/Seqeron/Algorithms/Seqeron.Genomics.Oncology/OncologyAnalyzer.cs:30` |
-| `ImmuneAnalyzer` | immune-infiltration / deconvolution + ESTIMATE-purity (**guarded ONCO-IMMUNE-001**) | `src/.../Seqeron.Genomics.Oncology/ImmuneAnalyzer.cs:23` |
-| `MhcflurryAffinityPredictor` | ANN IC50 prediction (caller supplies the weight pack) | `src/.../Seqeron.Genomics.Oncology/MhcflurryAffinityPredictor.cs:45` |
+| `OncologyAnalyzer` | purity/ploidy/ASCAT/Battenberg, copy number, signatures, fusions, TMB/MSI, neoantigen windows, matrix pMHC, clonal/phylogeny, HRD/LOH, ctDNA | `static partial` class split over `src/Seqeron/Algorithms/Seqeron.Genomics.Oncology/OncologyAnalyzer.*.cs` (e.g. `.CopyNumberPloidy.cs`, `.Clonality.cs`, `.PhylogenyHeterogeneity.cs`, `.SomaticCalling.cs`, `.Signatures.cs`) |
+| `ImmuneAnalyzer` | immune-infiltration / deconvolution + ESTIMATE-purity (**guarded ONCO-IMMUNE-001**) | `src/.../Seqeron.Genomics.Oncology/ImmuneAnalyzer.cs` |
+| `MhcflurryAffinityPredictor` | ANN IC50 prediction (caller supplies the weight pack) | `src/.../Seqeron.Genomics.Oncology/MhcflurryAffinityPredictor.cs` |
 
-`OncologyAnalyzer` is a large static class; find any method with
-`grep -n "public static" src/Seqeron/Algorithms/Seqeron.Genomics.Oncology/OncologyAnalyzer.cs`.
-For the full curated Method-ID index see [`reference/api-conventions.md`](reference/api-conventions.md).
+Locate any method by name (line numbers drift, so this skill cites method + partial file, not lines):
+`grep -n "public static .* <Name>(" src/Seqeron/Algorithms/Seqeron.Genomics.Oncology/*.cs`.
+For the full curated Method-ID index (with partial file + algorithm doc) see
+[`reference/api-conventions.md`](reference/api-conventions.md).
 
 ## Guarded units — STOP rule (in scope)
 
@@ -61,88 +62,99 @@ report** (name the unit + workaround), never widen to force output. Read
 [`bio-rigor` envelope](../bio-rigor/reference/envelope.md) + `docs/Validation/LIMITATIONS.md`.
 
 - **ONCO-MHC-001** — matrix (SMM/BIMAS) pMHC scorers `PredictIc50Smm` / `PredictBindingHalfLifeBimas`
-  each call `LimitationPolicy.Enforce("ONCO-MHC-001")` (`OncologyAnalyzer.cs:8523`, `:8490`).
+  each call `LimitationPolicy.Enforce("ONCO-MHC-001")` (`OncologyAnalyzer.Neoantigen.cs`).
   No redistributable matrix ships — the **caller supplies the coefficients**. Workaround: use a
   vendor model (NetMHCpan-4.1) or `ClassifyMhcBinding` on a caller-supplied IC50.
 - **ONCO-IMMUNE-001** — `ImmuneAnalyzer.EstimateTumorPurity` / `DeconvoluteImmuneCells[NuSvr]`
-  call `LimitationPolicy.Enforce("ONCO-IMMUNE-001")` (`ImmuneAnalyzer.cs:477`, `:525`, `:680`).
+  call `LimitationPolicy.Enforce("ONCO-IMMUNE-001")` (`ImmuneAnalyzer.cs`).
   Ships a bundled ABIS matrix, **not** exact CIBERSORT-LM22; ESTIMATE purity is Affymetrix-calibrated.
-- **ONCO-ASCAT-001 / ONCO-PURITY-001** are **documented-only** (no runtime guard) — the purity/ploidy
-  grid fit is exact for its stated ASCAT-style model; report the model caveat, nothing throws.
+- **ONCO-ASCAT-001 / ONCO-PURITY-001** have **no runtime guard** — they are ports of ASCAT
+  (`runASCAT`, `ascat.aspcf`, `ascat.asmultipcf`, `ascat.metrics`), Battenberg and CNAqc, locked against
+  the R reference; report the model caveat (algorithm doc §5–6), nothing throws.
 
 ## Decision guide — task → C# entry point
 
-| Task | Method ID (`OncologyAnalyzer.*` unless noted) · file:line |
+| Task | Method ID (`OncologyAnalyzer.*` unless noted) · partial file |
 |---|---|
-| Fit tumor purity + ploidy jointly (ASCAT grid) | `FitPurityPloidy` · `:7411` |
-| Quick purity from VAF cluster | `EstimatePurity` · `:515` / `EstimatePurityFromVAF` · `:451` |
-| Ploidy from allele-specific segments | `EstimatePloidy` · `:6554` |
-| Segment allele-specific CN (ASPCF) | `SegmentAlleleSpecificAspcf` · `:7641` / `SegmentAlleleSpecific` · `:7282` |
-| log2-ratio → copy number; classify amp/del | `Log2RatioToCopyNumber` · `:5900` → `ClassifyCopyNumbers` · `:5995` |
-| SBS96 channel of a mutation / all 96 channels | `ClassifySbsContext` · `:2659` / `EnumerateSbs96Channels` · `:2696` |
-| Extract signatures de novo (NMF) | `ExtractSignatures` · `:3431` |
-| Fit / refit known signatures (NNLS) | `FitSignatures` · `:2933` → match: `MatchToReferenceSignatures` · `:4609` |
-| Bootstrap exposure confidence intervals | `BootstrapExposures` · `:4774` |
-| Call fusions; is it in-frame? | `DetectFusions` · `:5421` / `IsInFrame` · `:5382` |
-| Known-fusion DB lookup; breakpoint analysis | `MatchKnownFusions` · `:5558` / `AnalyzeBreakpoint` · `:5703` |
-| TMB (count or calls) + status | `CalculateTMB` · `:1508`/`:1540` → `ClassifyTMB` · `:1557` |
-| MSI score + status (Bethesda) | `CalculateMSIScore` · `:1634` → `ClassifyMSIStatus` · `:1664` / `ClassifyBethesdaPanel` · `:1688` |
-| Neoantigen candidate peptide windows | `GenerateNeoantigenPeptides` · `:8026` |
-| Classify a supplied IC50 → binding strength | `ClassifyMhcBinding` · `:8292` |
-| ANN IC50 (caller weight pack) | `MhcflurryAffinityPredictor.PredictIc50` · `MhcflurryAffinityPredictor.cs:619` |
-| Clonal vs subclonal; CCF | `ClassifyClonality` · `:6789` / `EstimateCcf` · `:7014` |
-| CCF clustering → subclones; heterogeneity | `ClusterCcfValues` · `:7061` / `AnalyzeHeterogeneity` · `:11042` |
-| Reconstruct tumor phylogeny | `ReconstructPhylogeny` · `:10617` |
-| HRD score / LOH | `CalculateHrdLohScore` · `:2017` / `DetectLOH` · `:1979` |
+| Fit tumor purity + ploidy jointly (ASCAT `runASCAT`) | `FitPurityPloidy` (segment summaries) / `FitPurityPloidyFromAspcf` (germline-aware ASPCF, all-probe ploidy) · `CopyNumberPloidy` |
+| Male (haploid X/Y) ASCAT model | `AscatSexModel.MaleWithXNonPar(genome)` passed to the `FitPurityPloidy*` / `SegmentAlleleSpecificAspcf` overloads · `CopyNumberPloidy` |
+| Quick purity from VAF cluster | `EstimatePurity` / `EstimatePurityFromVAF` · `SomaticCalling` |
+| QC a supplied purity (CNAqc peaks) | `AnalyzePurityPeaks` / `AnalyzeComplexKaryotypePeaks` / `AnalyzeSubclonalPurityPeaks`; BMix `FitBinomialMixture` · `CopyNumberPloidy` |
+| Ploidy / WGD from allele-specific segments | `EstimatePloidy` (bp; probe-weighted overload) / `DetectWholeGenomeDoubling` / `ComputeAscatGenomeMetrics` · `CopyNumberPloidy` |
+| Segment allele-specific CN (ASPCF) | `SegmentAlleleSpecificAspcf` / multi-sample `SegmentAlleleSpecificAsMultiPcf` · `CopyNumberPloidy` |
+| Subclonal copy number (Battenberg) | `FitSubclonalCopyNumber` → `…WithSnpTest` / `…WithBootstrap`; driver `CallBattenbergSubclones` · `CopyNumberPloidy` |
+| log2-ratio → copy number; classify amp/del | `Log2RatioToCopyNumber` → `ClassifyCopyNumbers` (optional `purity` overloads) · `CopyNumberPloidy` |
+| GISTIC2 focal / broad events | `DeconstructZiggurat` → `DetectFocalAmplificationEvents`; per-segment `DetectFocalAmplifications` · `CopyNumberPloidy` |
+| Homozygous deletions; affected genes | `DetectHomozygousDeletions`; `IdentifyAmplifiedOncogenes` / `IdentifyDeletedTumorSuppressors` (`GeneLocus` overlap overloads) · `CopyNumberPloidy` |
+| SBS96 channel of a mutation / all 96 channels | `ClassifySbsContext` / `EnumerateSbs96Channels` · `Signatures` |
+| Extract signatures de novo (NMF) | `ExtractSignatures` · `Signatures` |
+| Fit / refit known signatures (NNLS) | `FitSignatures` → match: `MatchToReferenceSignatures` · `Signatures` |
+| Bootstrap exposure confidence intervals | `BootstrapExposures` · `Signatures` |
+| Call fusions; is it in-frame? | `DetectFusions` / `IsInFrame` · `Fusions` |
+| Known-fusion DB lookup; breakpoint analysis | `MatchKnownFusions` / `AnalyzeBreakpoint` · `Fusions` |
+| TMB (count or calls) + status | `CalculateTMB` → `ClassifyTMB` · `TmbMsi` |
+| MSI score + status (Bethesda) | `CalculateMSIScore` → `ClassifyMSIStatus` / `ClassifyBethesdaPanel` · `TmbMsi` |
+| Neoantigen candidate peptide windows | `GenerateNeoantigenPeptides` · `Neoantigen` |
+| Classify a supplied IC50 → binding strength | `ClassifyMhcBinding` · `Neoantigen` |
+| ANN IC50 (caller weight pack) | `MhcflurryAffinityPredictor.PredictIc50` · `MhcflurryAffinityPredictor.cs` |
+| Clonal vs subclonal; CCF | `ClassifyClonality` / `EstimateCcf` · `Clonality` |
+| CCF clustering (Ckmeans.1d.dp) | `ClusterCcfValues(ccf, k)` or BIC-selected `ClusterCcfValues(ccf, minK, maxK)` · `Clonality` |
+| Reconstruct tumor phylogeny (LICHeE) | `ReconstructPhylogeny` / `ReconstructPhylogenyFromClusterSummaries` · `PhylogenyHeterogeneity` |
+| Heterogeneity (MATH, Shannon) | `CalculateITH` / `CalculateCloneShannonDiversity` / `AnalyzeHeterogeneity` · `PhylogenyHeterogeneity` |
+| HRD score / LOH | `CalculateHrdLohScore` / `DetectLOH` · `HrdLoh` |
 
 ## Canonical C#-API pipelines
 
-### (a) Tumor purity + ploidy from allele-specific segments (ASCAT-like)
-1. `SegmentAlleleSpecificAspcf(...)` → `AlleleSpecificSegmentSummary[]` (`OncologyAnalyzer.cs:7641`).
-2. `FitPurityPloidy(segments, purityMin=0.05, purityMax=1.0, purityStep=0.01, ploidyMin=1.5, ploidyMax=5.0, ploidyStep=0.05, gamma=…)` → `PurityPloidyFit` (`:7411`).
-3. Cross-check purity via an independent VAF path: `EstimatePurity(variants)` (`:515`) — magnitudes should agree.
+### (a) Tumor purity + ploidy from allele-specific segments (ASCAT)
+1. `SegmentAlleleSpecificAspcf(loci, germlineHeterozygous)` → `AspcfSegmentation` (ASCAT `ascat.aspcf`, penalty 70).
+2. `FitPurityPloidyFromAspcf(segmentation)` → `PurityPloidyFit` (ASCAT `runASCAT` grid; defaults
+   `purityMin=0.1, purityMax=1.05, purityStep=0.01, ploidyMin=1.5, ploidyMax=5.5, ploidyStep=0.05, gamma=1.0`).
+   Without germline genotypes: `SegmentAlleleSpecificAspcf(loci)` → summaries → `FitPurityPloidy(summaries)` (same defaults).
+3. Cross-check purity via an independent VAF path: `EstimatePurity(variants)` — magnitudes should agree;
+   `AnalyzePurityPeaks(mutations, purity)` gives CNAqc's PASS/FAIL purity QC.
 ```
 Provenance
-1) OncologyAnalyzer.SegmentAlleleSpecificAspcf(logR,baf,positions,…) → segments
-2) OncologyAnalyzer.FitPurityPloidy(segments, grid defaults) → {purity, ploidy, gof}
-3) OncologyAnalyzer.EstimatePurity(vafVariants) → purity (independent cross-check)
-Envelope: ONCO-ASCAT-001 / ONCO-PURITY-001 documented-only — exact for the ASCAT-style grid model.
+1) OncologyAnalyzer.SegmentAlleleSpecificAspcf(loci, germlineHet) → segmentation
+2) OncologyAnalyzer.FitPurityPloidyFromAspcf(segmentation) → {purity, ploidy, goodness of fit}
+3) OncologyAnalyzer.EstimatePurity(vafVariants) → purity (independent cross-check); AnalyzePurityPeaks → QC
+Envelope: ONCO-ASCAT-001 / ONCO-PURITY-001 — no runtime guard; ASCAT/CNAqc ports (see algorithm docs §5–6).
 Caveat: alpha, research-grade — NOT for clinical use; purity is decision-relevant, validate independently.
 ```
 
 ### (b) Mutational signatures — SBS96 catalog → fit → confidence
-1. Per mutation: `ClassifySbsContext(fivePrime, ref, alt, threePrime)` → one of 96 channels (`:2659`); build the 96-vector catalog (`EnumerateSbs96Channels` `:2696` gives the canonical order).
-2. `FitSignatures(catalog, referenceSignatures)` → NNLS exposures (`:2933`); or `ExtractSignatures(...)` for de-novo NMF (`:3431`).
-3. `MatchToReferenceSignatures(...)` (`:4609`) to label; `BootstrapExposures(...)` (`:4774`) for CIs — report exposures **with** their intervals.
+1. Per mutation: `ClassifySbsContext(fivePrime, ref, alt, threePrime)` → one of 96 channels; build the 96-vector catalog (`EnumerateSbs96Channels` gives the canonical order).
+2. `FitSignatures(catalog, referenceSignatures)` → NNLS exposures; or `ExtractSignatures(...)` for de-novo NMF.
+3. `MatchToReferenceSignatures(...)` to label; `BootstrapExposures(...)` for CIs — report exposures **with** their intervals.
 
 ### (c) Gene fusions — call → frame → annotate
-1. `DetectFusions(candidates, thresholds?)` → `FusionCall[]` (`:5421`).
-2. Per call: `IsInFrame(fivePrimeCodingBases, threePrimeStartPhase)` (`:5382`); `MatchKnownFusions(...)` (`:5558`) for DB hits; `AnalyzeBreakpoint(...)` (`:5703`) for junction detail.
+1. `DetectFusions(candidates, thresholds?)` → `FusionCall[]`.
+2. Per call: `IsInFrame(fivePrimeCodingBases, threePrimeStartPhase)`; `MatchKnownFusions(...)` for DB hits; `AnalyzeBreakpoint(...)` for junction detail.
 
 ### (d) TMB + MSI status
-1. `CalculateTMB(mutationCount, targetRegionMb)` (`:1508`) → `ClassifyTMB(tmb)` → `TmbStatus` (`:1557`).
-2. `CalculateMSIScore(unstableLoci, totalLoci)` (`:1634`) → `ClassifyMSIStatus(score)` (`:1664`) (or `ClassifyBethesdaPanel` `:1688`).
+1. `CalculateTMB(mutationCount, targetRegionMb)` → `ClassifyTMB(tmb)` → `TmbStatus`.
+2. `CalculateMSIScore(unstableLoci, totalLoci)` → `ClassifyMSIStatus(score)` (or `ClassifyBethesdaPanel`).
 - Both are clinical-flavoured — attach the caveat; report units (TMB = mutations/Mb).
 
 ### (e) Neoantigen candidates + MHC binding (guarded scorer)
-1. `GenerateNeoantigenPeptides(wildTypeProtein, mutantResidue, mutationPosition, minLength=8, maxLength=11)` → mutant peptide windows (`:8026`).
-2. Score binding: **preferred** ANN `MhcflurryAffinityPredictor.PredictIc50(networks, peptide, allele)` (`MhcflurryAffinityPredictor.cs:619`) with a caller weight pack; then `ClassifyMhcBinding(peptideLength, ic50Nm, mhcClass)` (`:8292`).
-3. Matrix scorers `PredictIc50Smm` (`:8516`) / `PredictBindingHalfLifeBimas` (`:8483`) are **guarded (ONCO-MHC-001)** and need caller-supplied coefficients — if unavailable, STOP and report.
+1. `GenerateNeoantigenPeptides(wildTypeProtein, mutantResidue, mutationPosition, minLength=8, maxLength=11)` → mutant peptide windows.
+2. Score binding: **preferred** ANN `MhcflurryAffinityPredictor.PredictIc50(networks, peptide, allele)` with a caller weight pack; then `ClassifyMhcBinding(peptideLength, ic50Nm, mhcClass)`.
+3. Matrix scorers `PredictIc50Smm` / `PredictBindingHalfLifeBimas` are **guarded (ONCO-MHC-001)** and need caller-supplied coefficients — if unavailable, STOP and report.
 
 ## End-to-end grounded example
 
 **Task.** From allele-specific segments + somatic VAFs, estimate purity/ploidy, then place mutations on the clonal timeline.
-1. `SegmentAlleleSpecificAspcf(...)` → segments (`:7641`).
-2. `FitPurityPloidy(segments, defaults)` → `{purity, ploidy}` (`:7411`).
-3. `ClassifyClonality(clonalityVariants, purity)` → clonal vs subclonal (`:6789`); per variant `EstimateCcf(vaf, purity, tumorCN, multiplicity)` (`:7014`).
-4. `ClusterCcfValues(ccfValues, clusterCount)` (`:7061`) → `ReconstructPhylogeny(...)` (`:10617`) for the subclone tree.
+1. `SegmentAlleleSpecificAspcf(loci, germlineHeterozygous)` → segmentation.
+2. `FitPurityPloidyFromAspcf(segmentation)` → `{purity, ploidy}`.
+3. `ClassifyClonality(clonalityVariants, purity)` → clonal vs subclonal; per variant `EstimateCcf(vaf, purity, tumorCN, multiplicity)`.
+4. `ClusterCcfValues(ccfValues, 1, 9)` (BIC-selected k) → build `CcfClusterSummary.FromMembers(...)` per cluster →
+   `ReconstructPhylogenyFromClusterSummaries(summaries)` (LICHeE, default ε 0.1) for the subclone tree.
 ```
 Provenance
-1) SegmentAlleleSpecificAspcf(logR,baf,pos) → segments
-2) FitPurityPloidy(segments) → purity,ploidy
-3) ClassifyClonality(variants,purity); EstimateCcf(vaf,purity,cn,mult) per variant
-4) ClusterCcfValues(ccf,k) → ReconstructPhylogeny(...) → subclone tree
-Envelope: ONCO-ASCAT-001/ONCO-PURITY-001 documented-only (ASCAT-style model, exact for that model).
+1) SegmentAlleleSpecificAspcf(loci, germlineHet) → segmentation
+2) FitPurityPloidyFromAspcf(segmentation) → purity, ploidy
+3) ClassifyClonality(variants, purity); EstimateCcf(vaf, purity, cn, mult) per variant
+4) ClusterCcfValues(ccf, minK, maxK) → CcfClusterSummary.FromMembers → ReconstructPhylogenyFromClusterSummaries → tree
+Envelope: ONCO-ASCAT-001 / ONCO-PURITY-001 — no runtime guard (ASCAT / LICHeE ports; caveats in algorithm docs).
 Caveat: alpha, research-grade — NOT for clinical/diagnostic use; validate independently.
 ```
 
@@ -158,7 +170,7 @@ Caveat: alpha, research-grade — NOT for clinical/diagnostic use; validate inde
   [`Fusion_Gene_Detection.md`](../../../docs/algorithms/Oncology/Fusion_Gene_Detection.md),
   [`Tumor_Mutational_Burden.md`](../../../docs/algorithms/Oncology/Tumor_Mutational_Burden.md),
   [`MHC_Peptide_Binding_Classification.md`](../../../docs/algorithms/Oncology/MHC_Peptide_Binding_Classification.md)
-- **Operating envelope / guarded units:** [`LIMITATIONS.md`](../../../docs/Validation/LIMITATIONS.md) (ONCO-MHC-001, ONCO-IMMUNE-001, ONCO-ASCAT-001, ONCO-PURITY-001)
+- **Operating envelope / guarded units:** [`LIMITATIONS.md`](../../../docs/Validation/LIMITATIONS.md) (ONCO-MHC-001, ONCO-IMMUNE-001); ONCO-ASCAT-001 / ONCO-PURITY-001 caveats live in their algorithm docs
 - **Cross-cutting:** [`seqeron-dev`](../seqeron-dev/SKILL.md) (C# API mechanics — this skill's parent) ·
   [`bio-rigor`](../bio-rigor/SKILL.md) (rigor + clinical caveat) ·
   [`seqeron-discovery`](../seqeron-discovery/SKILL.md) (tool/algorithm lookup)

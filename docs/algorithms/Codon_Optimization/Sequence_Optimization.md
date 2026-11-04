@@ -6,7 +6,7 @@
 | Test Unit ID | CODON-OPT-001 |
 | Related Projects | N/A |
 | Implementation Status | N/A |
-| Last Reviewed | 2026-09-28 |
+| Last Reviewed | 2026-10-14 |
 
 ## 1. Overview
 
@@ -34,8 +34,8 @@ The optimization goal is to preserve the amino-acid sequence while changing codo
 | Maximum CAI | `MaximizeCAI` | Choose the highest-frequency synonymous codon. |
 | Balanced optimization | `BalancedOptimization` | Prefer non-rare codons, then rebalance GC toward the configured range. |
 | Harmonized expression | `HarmonizeExpression` | Deterministic largest-remainder match of the target codon-usage profile (DNA Chisel `match_codon_usage`).[8] |
-| Avoid rare codons | `AvoidRareCodeons` | Replace only codons whose current frequency is below the threshold. |
-| Minimize secondary structure | `MinimizeSecondary` | Same codon selection and GC pass as `BalancedOptimization` inside `OptimizeSequence`; the dedicated pass is `ReduceSecondaryStructure`. |
+| Avoid rare codons | `AvoidRareCodons` (historical alias `AvoidRareCodeons`, same value) | Replace only codons whose current frequency is below the threshold. |
+| Minimize secondary structure | `MinimizeSecondary` | `BalancedOptimization` codon selection and GC pass, then the `ReduceSecondaryStructure` sliding-window pass; scored by `secondaryScoring` (`PairCount` by default, `Turner2004Mfe` for the Turner 2004 energy model). The structure pass is GC-constraint-aware: it never increases the GC breach of the band / windows the GC pass established (review 2026-09, F63). |
 
 CAI is used as one of the optimization metrics and is defined as in [CAI_Calculation.md](CAI_Calculation.md).[1]
 
@@ -68,6 +68,9 @@ CAI is used as one of the optimization metrics and is defined as in [CAI_Calcula
 | `gcTargetMin` | `double` | `0.40` | Lower bound for GC balancing. | Used only during `BalancedOptimization`. |
 | `gcTargetMax` | `double` | `0.60` | Upper bound for GC balancing. | Used only during `BalancedOptimization`. |
 | `rareCodonThreshold` | `double` | `0.15` | Threshold used by rare-codon-aware branches. | Compared against table frequencies. |
+| `geneticCode` | `GeneticCode?` | `null` | NCBI genetic code defining the encoded protein and the synonymous families (`null` = `GeneticCode.Standard`, bit-identical to the historical output). DNA Chisel `EnforceTranslation(genetic_table=…)` / `CodonOptimize(…)`, whose families are `get_backtranslation_table(genetic_table)` (Biopython `forward_table` grouped by amino acid, the table's `stop_codons` as `*`). Same parameter on `CalculateCAI`, `RemoveRestrictionSites`, `ReduceSecondaryStructure`, `FindRareCodons`, `CalculateMinMaxProfile`, `CreateCodonUsageTable`, `CreateCodonTableFromSequence` (review 2026-09, F48). | Any NCBI table of `GeneticCode.SupportedTableNumbers`. |
+| `avoidSites` | `IReadOnlyList<string>?` | `null` | `null`/empty: no site avoidance (historical behaviour). A list of restriction recognition sequences (DNA or RNA, IUPAC codes allowed) runs `RemoveRestrictionSites(...)` with the same table and genetic code **after** codon selection, the GC pass and the structure pass — DNA Chisel composes `CodonOptimize(...)` with `AvoidPattern(EnzymeSitePattern(...))` + `EnforceTranslation()` in one problem and resolves the hard constraints last (review 2026-09, F54). Each site is at most `RestrictionAnalyzer.MaxRecognitionLength` = 64 characters (the scan costs sequence length × site length). | A site with a character that is not an IUPAC nucleotide code, or longer than 64 characters → `ArgumentException` (`ParamName` = `avoidSites`), **whatever the sequence is**: an empty or sub-codon sequence no longer skips the check (review 2026-09, B08 R14 / O9-2). Applies to every strategy. |
+| `gcWindow` | `int?` | `null` | `null`: the GC pass constrains the global GC fraction (historical behaviour). A positive value: every sliding window of that many nucleotides is constrained to `[gcTargetMin, gcTargetMax]`. | Must be positive; `ArgumentOutOfRangeException` otherwise. Used only during `BalancedOptimization` / `MinimizeSecondary`. |
 
 ### 3.2 Output / Return Value
 
@@ -97,8 +100,10 @@ The method uppercases the sequence, converts `T` to `U`, and trims any trailing 
 4. Translate each codon to an amino acid and preserve stop codons.
 5. Select a synonymous replacement according to the chosen strategy.
 6. Build the optimized sequence and record codon changes.
-7. If the strategy is `BalancedOptimization`, rebalance GC content and rebuild the change list from the final codons.
-8. Recompute CAI and GC content and return the final `OptimizationResult`.
+7. If the strategy is `BalancedOptimization` or `MinimizeSecondary`, rebalance GC content (globally or per `gcWindow`).
+8. If the strategy is `MinimizeSecondary`, run the `ReduceSecondaryStructure` pass, carrying the GC constraint of step 7 — a rewrite that would increase the GC breach is rejected (review 2026-09, F63).
+9. If `avoidSites` is non-empty, run `RemoveRestrictionSites` on the result (hard constraint last).
+10. Rebuild the change list from the original vs. final codons, recompute CAI and GC content, and return the final `OptimizationResult`.
 
 ### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures
 
@@ -110,17 +115,20 @@ The repository strategy behaviors are:
 | `AvoidRareCodeons` | If the current codon frequency is below `rareCodonThreshold`, replace it with the highest-frequency synonymous codon; otherwise keep the current codon. |
 | `HarmonizeExpression` | Per amino acid, allocate the synonymous codons by largest-remainder rounding of `frequency × residue count`; positions already holding an allotted codon keep it. This is the deterministic optimum of DNA Chisel's `MatchTargetCodonUsage` objective.[8] |
 | `BalancedOptimization` | As `MaximizeCAI`, then the GC pass. |
-| `MinimizeSecondary` | Same as `BalancedOptimization` in `SelectOptimalCodon`. |
+| `MinimizeSecondary` | Same as `BalancedOptimization` in `SelectOptimalCodon`, plus the `ReduceSecondaryStructure` pass on the GC-balanced sequence (default window 40 nt, scoring `secondaryScoring`), restricted to rewrites that do not increase the GC breach (review 2026-09, F63). |
 
 GC pass (`BalanceGcContent`): while the overall GC fraction is outside `[gcTargetMin, gcTargetMax]`, walk the codons and apply only swaps that move GC in the required direction, preferring a swap that lands the sequence inside the window over one that overshoots and, among equals, the most frequent codon; codons below `rareCodonThreshold` are not used; the pass stops as soon as the sequence is inside the window (DNA Chisel `EnforceGCContent(mini, maxi)` resolved by synonymous mutations).[8]
 
-Ambiguity: amino acids come from `GeneticCode.Standard`, so an IUPAC-ambiguous triplet that still encodes one amino acid (e.g. `GCN` → Ala) is optimised like any other codon, while `NNN`, `B`/`Z`/`J` cases and triplets containing non-IUPAC symbols are carried through unchanged and translate to `X`.
+Genetic code: amino acids and synonymous families come from the `geneticCode` argument (`null` = `GeneticCode.Standard`), so a non-standard table changes the rewrite exactly as the code dictates — under NCBI table 2 (vertebrate mitochondrial) `AGA`/`AGG` are stops and are never used for Arg, `UGA` is Trp (family {UGA, UGG}) and `AUA` is Met (family {AUA, AUG}); under table 11 the codon table equals table 1's, so the output is identical to the Standard one. In the dual-coding tables 27/28/31 a context-dependent stop belongs to the family of the amino acid it encodes (`UAA`/`UAG` → Gln in table 27), exactly as in Biopython's `forward_table` and DNA Chisel's back-translation table; a caller that must keep a terminator in those tables has to exclude it itself, and a usage table built for the Standard code is not meaningful there (use `CreateCodonTableFromSequence(reference, name, code)`).
+
+Ambiguity: amino acids come from that table, so an IUPAC-ambiguous triplet that still encodes one amino acid (e.g. `GCN` → Ala) is optimised like any other codon, while `NNN`, `B`/`Z`/`J` cases and triplets containing non-IUPAC symbols are carried through unchanged and translate to `X`.
 
 ### 4.3 Complexity
 
 | Operation | Time | Space | Notes |
 |-----------|------|-------|-------|
 | `OptimizeSequence` | `O(n)` | `O(n)` | The repository test spec classifies the algorithm as linear in the sequence length under fixed codon tables.[7] |
+| `RemoveRestrictionSites` (also the `avoidSites` pass) | `O(p·m·(n + r·m))` | `O(n)` | `n` = sequence length, `p` = distinct patterns (each site and its reverse complement), `m` ≤ 64 = longest site, `r` = occurrences replaced. One mutable buffer of the matchable DNA; the scan of a pattern continues from where it stopped and is rewound by at most `m` positions after a replacement (a changed codon can only create or expose an occurrence that overlaps it); a candidate is judged on the buffer. For fixed sites this is linear in `n` (96 000 nt, Release: site `N` 10.2 s → 22 ms, 16 000 tandem `GAATTC` 20.4 s → 26 ms, 64 × `N` 10.3 s → 0.2 s; byte-identical outputs). Before the fix every replacement rescanned and rebuilt the whole sequence (`O(r·n)` with `r` up to `n/3`; review 2026-09, B08 R14). **Exception:** with a GC constraint (`BalancedOptimization`, `MinimizeSecondary`) each candidate is also scored by `GcBreach` over the whole sequence, a floating-point sum whose order is part of the result, so that path costs `O(c·r·n)` (`c` = candidates per occurrence). |
 
 ## 5. Implementation Notes
 
@@ -132,12 +140,12 @@ Ambiguity: amino acids come from `GeneticCode.Standard`, so an IUPAC-ambiguous t
 - `CodonOptimizer.SelectOptimalCodon(...)` (private helper)
 - `CodonOptimizer.BalanceGcContent(...)` (private helper)
 - `CodonOptimizer.ReduceSecondaryStructure(...)` (separate public helper not called from `OptimizeSequence`)
-- `CodonOptimizer.RemoveRestrictionSites(...)` (separate public helper: IUPAC site matching on both strands, one synonymous codon change per removed occurrence, replacement chosen by host codon usage)
-- `CodonOptimizer.CreateCodonTableFromSequence(...)` / `CodonOptimizer.CreateCodonUsageTable(...)` (reference table from a gene set, Sharp & Li 0.5 pseudo-count; table factory carrying the Standard-code codon→amino-acid map)
+- `CodonOptimizer.RemoveRestrictionSites(...)` (also chained inside `OptimizeSequence` via the optional `avoidSites`: IUPAC site matching on both strands, one synonymous codon change per removed occurrence, replacement chosen by host codon usage; every site at most 64 characters and validated before the sequence is looked at)
+- `CodonOptimizer.CreateCodonTableFromSequence(...)` / `CodonOptimizer.CreateCodonUsageTable(...)` (reference table from a gene set, Sharp & Li 0.5 pseudo-count; table factory carrying the selected code's codon→amino-acid map, Standard by default)
 
 ### 5.2 Current Behavior
 
-The result stores the normalized RNA input rather than the caller's original string. Stop codons are preserved unchanged. `Changes` and `ChangedCodons` are always rebuilt from the original vs. final codons, so they include the GC-balancing pass. `BalancedOptimization` and `MinimizeSecondary` share the same codon selection and the same GC pass; a separate `ReduceSecondaryStructure` helper exists for direct structure-reduction work and is not invoked automatically by `OptimizeSequence`.[7] Codon families and translation come from `GeneticCode.Standard` (no private genetic-code copy), in NCBI codon order, which is also the tie-break for equal-frequency codons.
+The result stores the normalized RNA input rather than the caller's original string. Stop codons are preserved unchanged. `Changes` and `ChangedCodons` are always rebuilt from the original vs. final codons, so they include the GC-balancing pass. `BalancedOptimization` and `MinimizeSecondary` share the same codon selection and the same GC pass; `MinimizeSecondary` then runs `ReduceSecondaryStructure` on the GC-balanced sequence — carrying the GC constraint, so a rewrite that would increase the GC breach of `[gcTargetMin, gcTargetMax]` (per `gcWindow` window when set) is rejected (review 2026-09, F63) — and the reported CAI, GC and `Changes` describe that final sequence (review 2026-09, F42).[7] With `avoidSites`, `RemoveRestrictionSites` runs last, after the GC and structure passes, and the reported CAI, GC and `Changes` describe that final sequence (review 2026-09, F54). Codon families and translation come from the canonical `GeneticCode` tables (no private genetic-code copy; `null` = Standard), in NCBI codon order, which is also the tie-break for equal-frequency codons.
 
 ### 5.3 Conformance to Theory / Spec
 
@@ -148,21 +156,22 @@ The result stores the normalized RNA input rather than the caller's original str
 
 **Intentionally simplified:**
 
-- GC balancing works on the global GC fraction rather than on sliding GC windows (DNA Chisel supports both); **consequence:** a sequence inside the global window may still contain GC-extreme stretches.
-- `MinimizeSecondary` does not invoke a secondary-structure pass inside `OptimizeSequence`; **consequence:** callers must call `ReduceSecondaryStructure` for that.
-- `ReduceSecondaryStructure` scores a window by counting positions that can form a canonical pair (Watson-Crick plus G·U wobble, via `RnaSecondaryStructure.CanPair`) rather than by folding free energy; **consequence:** it relaxes obvious self-complementarity only. A free-energy-guided search would need `RnaSecondaryStructure.CalculateMinimumFreeEnergy` per candidate codon — O(w³) each (≈6 ms per 43-nt window measured here, i.e. minutes per kilobase) — and is left to the caller.
+- GC balancing constrains the global GC fraction by default and, with `gcWindow = w`, every sliding window of `w` nucleotides — both modes of DNA Chisel's `EnforceGCContent(mini, maxi[, window])` (review 2026-09, F43). The windowed breach set, breach score and breach segments of `CodonOptimizer.EvaluateGcContent(...)` equal DNA Chisel 3.2.16's `EnforceGCContent(mini, maxi, window).evaluate(problem)`; the repair is a deterministic greedy synonymous-codon search rather than DNA Chisel's randomised constraint solver, and — like that solver, which keeps a mutation only when the constraint score improves — it returns the lowest-breach sequence it reached, never one that breaches more than its input (review 2026-09, F62); **consequence:** the two libraries agree on which windows breach and by how much, but may land on different (equally valid) repaired sequences.
+- `ReduceSecondaryStructure` scores whole-codon windows: ceil(`windowSize` / 3) codons, the smallest codon-aligned window at least `windowSize` nucleotides wide (default 40 → 14 codons = 42 nt). Before review 2026-09 F64 the width was `windowSize / 3 + 1` codons, one codon too wide for a `windowSize` that is a multiple of 3; the default is unchanged. A sequence shorter than `windowSize` is returned normalised but otherwise untouched (trailing partial codon kept).
+- `ReduceSecondaryStructure` defaults to the pair-count window score (Watson-Crick plus G·U wobble, via `RnaSecondaryStructure.CanPair`), a pairing-potential heuristic that ignores stacking, loop penalties and nesting; **consequence:** with the default scoring it relaxes obvious self-complementarity only. The thermodynamic alternative is opt-in: `scoring = Turner2004Mfe` scores every window with `RnaSecondaryStructure.CalculateMinimumFreeEnergy` (NNDB Turner 2004, the ViennaRNA RNAfold energy model) and maximises it. It is practical because window energies are memoised by window content and the fold count is capped by `maxFoldEvaluations` (default 20000), but it costs ~9.0 s per kilobase against ~0.06 s for the pair count (999-nt CDS, Release; 4.42 ms per 43-nt fold), which is why the heuristic remains the default of both the method and the `MinimizeSecondary` strategy.
+
+- Restriction-site avoidance is composed into `OptimizeSequence` through the optional `avoidSites` list (review 2026-09, F54), mirroring DNA Chisel's single `DnaOptimizationProblem(constraints=[AvoidPattern(EnzymeSitePattern(...)), EnforceTranslation()], objectives=[CodonOptimize(...)])`: the hard site constraint is resolved **last**, after codon selection, the GC pass and the structure pass, so no later pass can re-introduce a site; an occurrence that no single synonymous substitution can remove is left in place (as for the standalone `RemoveRestrictionSites`). For `BalancedOptimization` / `MinimizeSecondary` the pass is **GC-constraint-aware** (review 2026-09, F60): it carries the same constraint the GC pass enforced — `gcTargetMin`/`gcTargetMax`, and every sliding window when `gcWindow` is set, with `EvaluateGcContent` semantics — because DNA Chisel resolves `AvoidPattern` and `EnforceGCContent` as hard constraints of ONE problem. Among the synonymous codons that remove an occurrence it ranks lexicographically (a) those whose resulting sequence satisfies the GC constraint, or, when the input already breaches it, those that do not increase the breach score, (b) the higher usage frequency, (c) the left-most codon, (d) NCBI codon order. **Deterministic fallback:** if no site-removing candidate satisfies the GC constraint, the least-breach candidate is applied and the site is still removed — `AvoidPattern` stays the hard constraint and the method never throws, whereas DNA Chisel's `resolve_constraints()` raises `NoSolutionError` for such a problem (verified, Evidence D-F60). **Consequence:** the GC bounds / windows established by the GC pass survive the site pass whenever a site-removing synonymous codon can keep them; the structure pass of `MinimizeSecondary` runs *before* the site pass and is itself GC-constraint-aware (F63), so it cannot undo those bounds either; it is not re-run after the site pass, so the one codon the site pass changes per occurrence can still alter the secondary-structure score slightly. The repair is a deterministic greedy synonymous search rather than DNA Chisel's randomised solver, but on the three F54 and the four F60 verification genes it lands on the byte-identical sequence (Evidence D-F54, D-F60).
 
 **Not implemented:**
 
-- Automatic invocation of `ReduceSecondaryStructure` as part of `OptimizeSequence`; **users should rely on:** `CodonOptimizer.ReduceSecondaryStructure(...)` when a separate structure pass is required.
-- Constraint sets such as restriction-site removal or codon-pair scoring inside `OptimizeSequence`; **users should rely on:** separate repository APIs such as `RemoveRestrictionSites(...)` where applicable.
+- Codon-pair scoring / codon-pair bias inside `OptimizeSequence`; **users should rely on:** the single-codon strategies plus the composable `avoidSites`, `gcWindow` and `MinimizeSecondary` passes.
 
 ### 5.4 Deviations and Assumptions
 
 | # | Item | Type | Impact | Status | Notes |
 |---|------|------|--------|--------|-------|
-| 1 | Public enum member is spelled `AvoidRareCodeons`. | Deviation | Documentation and callers must use the API spelling, not the natural-language spelling. | accepted | Confirmed in [CodonOptimizer.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonOptimizer.cs). |
-| 2 | `MinimizeSecondary` shares codon selection and the GC pass with `BalancedOptimization` inside `OptimizeSequence`. | Deviation | This strategy name does not currently provide a distinct optimization path in that method. | accepted | Documented in [CODON-OPT-001.md](../../../tests/TestSpecs/CODON-OPT-001.md). |
+| 1 | Public enum member was spelled `AvoidRareCodeons`. | Deviation | — | resolved (review 2026-09, F55) | The correctly spelled `AvoidRareCodons` member was added with the **same underlying value**, so both spellings are interchangeable (and both parse case-insensitively in the MCP layer); the old name is kept un-attributed by **policy: additive alias only — the misspelt member stays supported, no deprecation (campaign backward-compatibility rule)**. `ToString()` still returns `AvoidRareCodeons`, so no serialized value changes meaning. |
+| 2 | `MinimizeSecondary` shares codon selection and the GC pass with `BalancedOptimization`, and adds the `ReduceSecondaryStructure` pass. | Design | The strategy is a distinct path: its output differs from `BalancedOptimization` whenever a window exceeds the structure threshold. | resolved (review 2026-09, F42) | Documented in [CODON-OPT-001.md](../../../tests/TestSpecs/CODON-OPT-001.md). |
 
 ## 6. Edge Cases and Limitations
 
@@ -178,13 +187,16 @@ The result stores the normalized RNA input rather than the caller's original str
 
 ### 6.2 Limitations
 
-`OptimizeSequence` is a codon-selection routine over a single codon-usage table. It does not model mRNA folding, codon-pair bias, ramp effects or regulatory context, and it optimises one objective at a time rather than solving a multi-constraint design problem the way a full sequence optimiser (DNA Chisel) does. Restriction-site removal and structure reduction are separate passes (`RemoveRestrictionSites`, `ReduceSecondaryStructure`) and are not run automatically.
+`OptimizeSequence` is a codon-selection routine over a single codon-usage table. It does not model mRNA folding, codon-pair bias, ramp effects or regulatory context, and it optimises one objective at a time rather than solving a multi-constraint design problem the way a full sequence optimiser (DNA Chisel) does. Restriction-site removal runs inside `OptimizeSequence` only when `avoidSites` is supplied (it is still available standalone as `RemoveRestrictionSites`), and it is a last-pass hard constraint; under `BalancedOptimization`/`MinimizeSecondary` it is GC-constraint-aware (F60, as is the structure pass itself — F63) but not structure-aware, and if the GC bounds are unreachable it removes the site with the least-breach candidate rather than failing; the structure pass (`ReduceSecondaryStructure`) runs only under the `MinimizeSecondary` strategy. Its thermodynamic scoring (`Turner2004Mfe`) is greedy and window-local: it maximises per-window Turner 2004 MFE, it does not minimise the folding energy of the whole transcript.
 
 ## 7. Examples and Related Material
 
 ### 7.3 Related Tests, Evidence, or Documents
 
 - Tests: [CodonOptimizer_OptimizeSequence_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/MolTools/CodonOptimizer_OptimizeSequence_Tests.cs) — covers `INV-01`, `INV-02`, `INV-03`, `INV-04`
+- Tests: [CodonOptimizer_GeneticCode_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/MolTools/CodonOptimizer_GeneticCode_Tests.cs) — optional `geneticCode` on every code-dependent API: default == explicit Standard, table 2 / 11 / 27 behaviour, DNA Chisel `match_codon_usage` cross-check under table 2
+- Tests: [CodonOptimizer_SecondaryStructureScoring_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/MolTools/CodonOptimizer_SecondaryStructureScoring_Tests.cs) — Turner 2004 window energies vs ViennaRNA 2.7.2, window-MFE improvement, protein preservation, `MinimizeSecondary` structure pass
+- Tests: [CodonOptimizer_AvoidSites_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/MolTools/CodonOptimizer_AvoidSites_Tests.cs) — the `avoidSites` pass (sites cleared on both strands, protein preserved, metrics of the final sequence, dnachisel-identical outputs) and the `AvoidRareCodons` spelling alias
 - Test specification: [CODON-OPT-001.md](../../../tests/TestSpecs/CODON-OPT-001.md)
 - Related algorithms: [CAI_Calculation.md](CAI_Calculation.md), [Rare_Codon_Detection.md](Rare_Codon_Detection.md), [Codon_Usage_Analysis.md](Codon_Usage_Analysis.md)
 
@@ -200,3 +212,5 @@ The result stores the normalized RNA input rather than the caller's original str
 8. Zulkower V, Rosser S. 2020. DNA Chisel, a versatile sequence optimizer. Bioinformatics 36(16):4508-4509. Reference implementation 3.2.16: `CodonOptimize` (`use_best_codon` / `match_codon_usage` / `harmonize_rca`), `MatchTargetCodonUsage.codon_usage_matching_stats`, `EnforceGCContent`, `AvoidPattern`. https://edinburgh-genome-foundry.github.io/DnaChisel/
 9. Biopython 1.88, `Bio.SeqUtils.CodonAdaptationIndex` — builds the reference index from a gene set with a count of 0.5 for codons absent from the reference set ("following the description in the original paper", Sharp & Li 1987) and `optimize()` for the most-preferred-codon rewrite.
 10. Puigbò P, Guzmán E, Romeu A, Garcia-Vallvé S. 2007. OPTIMIZER: a web server for optimizing the codon usage of DNA sequences. Nucleic Acids Research 35:W126-W131 ("one amino acid – one codon" method).
+9. Turner DH, Mathews DH. 2010. NNDB: the nearest neighbor parameter database for predicting stability of nucleic acid secondary structure. Nucleic Acids Research 38:D280-D282. Turner 2004 parameter set used by `RnaSecondaryStructure.CalculateMinimumFreeEnergy`. https://doi.org/10.1093/nar/gkp892
+10. Lorenz R et al. 2011. ViennaRNA Package 2.0. Algorithms for Molecular Biology 6:26. Reference implementation 2.7.2 (`RNA.fold_compound(...).mfe()`, `md.dangles = 2`) used to cross-check the window free energies of the `Turner2004Mfe` scoring mode. https://doi.org/10.1186/1748-7188-6-26

@@ -77,7 +77,7 @@ namespace Seqeron.Genomics.Infrastructure
             double weight = 0;
             int residues = 0;
 
-            foreach (char aa in proteinSequence.ToUpperInvariant())
+            foreach (char aa in SequenceCase.ToUpperAscii(proteinSequence))
             {
                 if (AminoAcidWeights.TryGetValue(aa, out double aaWeight))
                 {
@@ -213,7 +213,8 @@ namespace Seqeron.Genomics.Infrastructure
 
         private static ChargeModel BuildChargeModel(string proteinSequence, ProteinPkaScale scale)
         {
-            string upper = proteinSequence.ToUpperInvariant();
+            // ASCII-only fold (TRANS-PROT-001): "MSKſ" is not MSKS (EMBOSS pepstats skips ſ).
+            string upper = SequenceCase.ToUpperAscii(proteinSequence);
             var sideChains = scale == ProteinPkaScale.Bjellqvist ? BjellqvistSideChains : EmbossSideChains;
 
             var counts = new Dictionary<char, int>();
@@ -284,7 +285,7 @@ namespace Seqeron.Genomics.Infrastructure
             double sum = 0;
             int count = 0;
 
-            foreach (char aa in proteinSequence.ToUpperInvariant())
+            foreach (char aa in SequenceCase.ToUpperAscii(proteinSequence))
             {
                 if (KyteDoolittleScale.TryGetValue(aa, out double value))
                 {

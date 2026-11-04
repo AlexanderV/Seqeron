@@ -45,7 +45,7 @@
 ### Wikipedia — Synteny (for definition + cited primaries)
 
 **URL:** https://en.wikipedia.org/wiki/Synteny
-**Accessed:** 2026-06-13
+**Accessed:** 2026-06-13 · re-fetched 2026-10-14 (SRC citation audit: supports the claims above)
 **Authority rank:** 4 (used only to confirm definitions and to locate primaries)
 **Retrieved how:** WebSearch query `synteny Wikipedia collinearity conserved gene order definition primary source` → opened with WebFetch.
 

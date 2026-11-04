@@ -36,7 +36,7 @@
 ### Wikipedia "Restriction site" (citing primary palindrome fact) — biological motif example
 
 **URL:** https://en.wikipedia.org/wiki/Restriction_site
-**Accessed:** 2026-06-13
+**Accessed:** 2026-06-13 · re-fetched 2026-10-14 (SRC citation audit: supports the claims above)
 **Authority rank:** 4 (Wikipedia, used for a widely-documented sequence fact also held in REBASE/NEB rank-5 DBs)
 **Retrieved by:** WebSearch "REBASE EcoRI recognition sequence GAATTC restriction enzyme" → WebFetch of the article.
 

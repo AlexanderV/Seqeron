@@ -61,7 +61,7 @@ Let `kd(r)` be the Kyte-Doolittle index of residue `r` [1][2]. For a sequence `S
 
 ### 3.3 Preconditions and Validation
 
-Input is case-insensitive (uppercased before lookup). Only the 20 standard residues are defined in the scale [1]; any other character (ambiguity codes B/Z/X, gaps, stop) is skipped by GRAVY (not added to the count) and contributes 0 to a profile window. Null or empty input returns GRAVY 0 and an empty profile without throwing. No exceptions are raised for any character input.
+Input is case-insensitive (ASCII-only upper-casing before lookup; GRAVY delegates to the canonical `ProteinPhysicochemistry.Gravy` and the profile reads `ProteinPhysicochemistry.KyteDoolittle`, FIN-B03 A1 — non-ASCII letters such as `ı` U+0131 are not residues, as in EMBOSS). Only the 20 standard residues are defined in the scale [1]; any other character (ambiguity codes B/Z/X, gaps, stop) is skipped by GRAVY (not added to the count) and contributes 0 to a profile window. Null or empty input returns GRAVY 0 and an empty profile without throwing. No exceptions are raised for any character input.
 
 ## 4. Algorithm
 
@@ -113,17 +113,22 @@ The scale is a static `Dictionary<char,double>` matching Biopython `kd` exactly 
 
 - (none).
 
-**Not implemented:**
+**Options (2026-10, FIN-B03 F29–F31)** — `CalculateHydrophobicityProfile(seq, W, edge, HydrophobicityProfileOptions?)`, defaults = the 3-argument overload:
 
-- ProtScale's "exponential" weight-variation model and scale normalisation (only the linear model, as in Biopython, is implemented).
-- Alternative scales (Hopp-Woods, Eisenberg); **users should rely on:** no current alternative in this class — only Kyte-Doolittle is provided.
+- `Convention = HydropathyWindowConvention.Biopython`: line-for-line Biopython 1.88 `protein_scale(param_dict, window, edge)` — pairs (j, W−1−j) with half-list weight `edge + j·2(1−edge)/(W−1)`, then residue ⌊W/2⌋ with weight 1, divided by 2·Σhalf + 1. For even W the residue W/2 is counted twice (divisor W + 1 at edge 1); even weighted windows are accepted; a pair containing an unknown residue is dropped as a whole; W = 1 is rejected (Biopython ZeroDivisionError).
+- `Strict = true`: any symbol absent from the scale throws `ArgumentException` (Biopython `gravy()` KeyError).
+- `NormalizeScale = true`: ExPASy ProtScale "normalize the scale from 0 to 1" — v' = (v − min)/(max − min) over the scale's entries, applied to the scale before profiling.
+- `Scale` (or the overload `CalculateHydrophobicityProfile(seq, IReadOnlyDictionary<char,double> scale, W, edge)`): any caller-supplied residue scale, e.g. Biopython `ProtParamData.hw` (Hopp-Woods), `em` (Emini surface fractional probability — Biopython's own comment; F31 had mislabelled it "Eisenberg"), `ja` (Janin), `Flex` (Vihinen); locked against executed Biopython for these four.
+- Shipped scales (2026-10, B03 F52): `Seqeron.Genomics.Infrastructure.ProteinScales.HoppWoods / Emini / Janin / Flexibility` — read-only, Biopython 1.88 `ProtParamData` verbatim (test-locked); `ProteinScales.KyteDoolittle` forwards to the canonical `ProteinPhysicochemistry.KyteDoolittle`. MCP `hydrophobicity_profile` selects them with `scale` (KyteDoolittle default | HoppWoods | Emini | Janin | Flexibility, or the Biopython keys kd | hw | em | ja | flex).
+
+- `WeightModel = HydropathyWeightModel.Exponential` (2026-10-14, SRC RO2 for B03): ProtScale's "exponential" weight-variation model, w(0) = 1 and w(d) = (e − 0.01) + (1 − e)·(0.01/(1 − e))^(d/R) for 1 ≤ d ≤ R = (W − 1)/2 (all 1 at e = 1). The ProtScale doc defines it only in words and its worked example (W 7, edge 10 %: 10 %, 12 %, 39 %, 100 %) is stale — the live tool prints and uses 0.10, 0.13, 0.29, 1.00 — so the equation was derived from the tool's own weight tables and profile output (34 runs) and locked against it within its 3-decimal rounding (`docs/Evidence/SEQ-HYDRO-001-Evidence.md` "SRC RO2"). Standard convention only (Biopython has no exponential model); default stays `Linear`.
 
 ### 5.4 Deviations and Assumptions (Optional)
 
 | # | Item | Type | Impact | Status | Notes |
 |---|------|------|--------|--------|-------|
-| 1 | Non-standard residues skipped (GRAVY divides by recognized count; profile adds 0 and keeps the position's weight in the divisor) | Deviation | Biopython `gravy()` raises `KeyError`; `protein_scale` adds 0 for an unknown centre residue (same as here) but also drops the symmetric partner of an off-centre unknown (not done here) | accepted | Sources define only the 20 standard residues [1][4]; canonical values unchanged. Tracked in Evidence Assumptions. |
-| 2 | Even window with edge weight 1 → plain mean over W residues | Deviation | Biopython counts residue W/2 twice and divides by W+1 (e.g. "AV", W=2: 3.4 vs 3.0 here) | accepted | ProtScale accepts odd windows only; Biopython's value is an artefact of its odd-window loop. Weighted (edge < 1) even windows are rejected. |
+| 1 | Non-standard residues skipped (default; `Strict` rejects them, `Convention = Biopython` reproduces the pair drop) (GRAVY divides by recognized count; profile adds 0 and keeps the position's weight in the divisor) | Deviation | Biopython `gravy()` raises `KeyError`; `protein_scale` adds 0 for an unknown centre residue (same as here) but also drops the symmetric partner of an off-centre unknown (not done here) | accepted | Sources define only the 20 standard residues [1][4]; canonical values unchanged. Tracked in Evidence Assumptions. |
+| 2 | Even window with edge weight 1 → plain mean over W residues | Deviation | Biopython counts residue W/2 twice and divides by W+1 (e.g. "AV", W=2: 3.4 vs 3.0 here) | accepted | ProtScale accepts odd windows only; Biopython's value is an artefact of its odd-window loop. Weighted (edge < 1) even windows are rejected. The Biopython behaviour is available via `Convention = Biopython` (F29). |
 
 ## 6. Edge Cases and Limitations
 
@@ -139,7 +144,7 @@ The scale is a static `Dictionary<char,double>` matching Biopython `kd` exactly 
 
 ### 6.2 Limitations
 
-Only the Kyte-Doolittle scale is supported. The profile supports the linear edge-weight model only. Biological interpretation thresholds (e.g. transmembrane peaks > 1.6 at W=19) are the caller's responsibility — the method returns raw averages, not classifications.
+Kyte-Doolittle is the default scale; Hopp-Woods, Emini, Janin and Flexibility are shipped in `ProteinScales` (B03 F52) and any caller-supplied scale is accepted (F31). Both ProtScale weight-variation models are supported (linear default; exponential via `HydrophobicityProfileOptions.WeightModel`, SRC RO2). Biological interpretation thresholds (e.g. transmembrane peaks > 1.6 at W=19) are the caller's responsibility — the method returns raw averages, not classifications.
 
 ## 7. Examples and Related Material (Optional)
 

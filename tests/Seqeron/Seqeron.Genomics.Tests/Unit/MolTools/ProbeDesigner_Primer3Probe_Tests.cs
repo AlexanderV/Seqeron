@@ -2,6 +2,7 @@
 // molecular weight and nearest-neighbour extinction coefficient.
 // Reference: primer3-py 2.3.1 design_primers(PRIMER_TASK = pick_hyb_probe_only), calc_tm;
 //            Biopython 1.88 Bio.SeqUtils.molecular_weight; Cantor, Warshaw & Shapiro (1970) ε260 table.
+using Seqeron.Genomics.Core;
 using Seqeron.Genomics.MolTools;
 
 namespace Seqeron.Genomics.Tests.Unit.MolTools;
@@ -177,5 +178,138 @@ public class ProbeDesigner_Primer3Probe_Tests
             Assert.That(ProbeDesigner.CalculateExtinctionCoefficientNearestNeighbor("ACGU"), Is.NaN);
             Assert.That(ProbeDesigner.CalculateExtinctionCoefficientNearestNeighbor(""), Is.EqualTo(0.0));
         });
+    }
+
+    // ---- Assay presets: sourced Tm windows reachable on their own Tm scale (audit round 3, A3-10, B07.md F50) ----
+
+    [Test]
+    public void Defaults_Microarray_UsesOligoArrayConditionsAndTmWindow()
+    {
+        // OligoArray 2.0 (Rouillard, Zuker & Gulari 2003): NN Tm over the whole oligo at [Na+] 1 M, 1 µM oligo,
+        // Tm window 82–90 °C; length 50–60 nt (Kane 2000 50-mers, Agilent 60-mers), G+C 40–60 %.
+        var p = ProbeDesigner.Defaults.Microarray;
+        Assert.Multiple(() =>
+        {
+            Assert.That((p.MinLength, p.MaxLength), Is.EqualTo((50, 60)));
+            Assert.That((p.MinTm, p.MaxTm), Is.EqualTo((82.0, 90.0)));
+            Assert.That((p.MinGc, p.MaxGc), Is.EqualTo((0.40, 0.60)));
+            Assert.That(p.MonovalentMillimolar, Is.EqualTo(1000.0));
+            Assert.That(p.DnaConcentrationNanomolar, Is.EqualTo(1000.0));
+            Assert.That((p.DivalentMillimolar, p.DntpMillimolar), Is.EqualTo((0.0, 0.0)));
+            Assert.That(p.MaxNearestNeighborLength, Is.EqualTo(60));
+            // Other presets keep the Primer3 probe conditions and Primer3's MAX_NN_TM_LENGTH.
+            foreach (var q in new[] { ProbeDesigner.Defaults.qPCR, ProbeDesigner.Defaults.FISH,
+                         ProbeDesigner.Defaults.NorthernBlot, ProbeDesigner.Defaults.SouthernBlot })
+            {
+                Assert.That((q.DnaConcentrationNanomolar, q.MonovalentMillimolar, q.DivalentMillimolar, q.DntpMillimolar),
+                    Is.EqualTo((50.0, 50.0, 0.0, 0.0)));
+                Assert.That(q.MaxNearestNeighborLength, Is.EqualTo(36));
+            }
+        });
+    }
+
+    [Test]
+    public void Defaults_OldMicroarrayWindow_WasUnreachableAtPrimer3Conditions()
+    {
+        // The defect: 75–85 °C at 50 nM / 50 mM (long_seq_tm for 50–60 nt) — primer3-py calc_tm(max_nn_length 36):
+        // 60-mer with 60 % G+C (the window maximum) = 74.5029020719779 °C < 75.
+        double max = PrimerDesigner.CalculateMeltingTemperaturePrimer3(new string('G', 36) + new string('A', 24), 50, 50, 0, 0);
+        Assert.That(max, Is.EqualTo(74.5029020719779).Within(1e-9));
+        Assert.That(max, Is.LessThan(75.0));
+    }
+
+    // Witness probes (length and G+C inside the preset window) whose Tm on the preset's own scale lies inside its Tm
+    // window; expected Tm = primer3-py 2.3.1 calc_tm(seq, mv, dv 0, dntp 0, dna, max_nn_length).
+    private static IEnumerable<TestCaseData> PresetWitnesses()
+    {
+        yield return new TestCaseData("Microarray", "AGTCCTCGATCCGTTCCTAATAAGGAATGGTGATTCCCTGTCATACCAAT", 86.25468810488348);
+        yield return new TestCaseData("qPCR", "AGGAGCTTCACATCTGGCGCCGTGTGCCT", 68.58490905493761);
+        yield return new TestCaseData("FISH", string.Concat(Enumerable.Repeat("ACGT", 50)), 77.4029020719779);
+        yield return new TestCaseData("NorthernBlot", string.Concat(Enumerable.Repeat("ACGT", 25)), 74.4029020719779);
+        yield return new TestCaseData("SouthernBlot", string.Concat(Enumerable.Repeat("AACGT", 40)), 73.30290207197791);
+    }
+
+    private static ProbeDesigner.ProbeParameters Preset(string name) => name switch
+    {
+        "Microarray" => ProbeDesigner.Defaults.Microarray,
+        "qPCR" => ProbeDesigner.Defaults.qPCR,
+        "FISH" => ProbeDesigner.Defaults.FISH,
+        "NorthernBlot" => ProbeDesigner.Defaults.NorthernBlot,
+        "SouthernBlot" => ProbeDesigner.Defaults.SouthernBlot,
+        _ => throw new ArgumentException(name),
+    };
+
+    [TestCaseSource(nameof(PresetWitnesses))]
+    public void Defaults_TmWindow_IsReachableForLengthAndGcWindow(string preset, string witness, double expectedTm)
+    {
+        var p = Preset(preset);
+        double gc = witness.CalculateGcFractionFast();
+        double tm = PrimerDesigner.CalculateMeltingTemperaturePrimer3(witness, p.DnaConcentrationNanomolar,
+            p.MonovalentMillimolar, p.DivalentMillimolar, p.DntpMillimolar, p.MaxNearestNeighborLength);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(witness.Length, Is.InRange(p.MinLength, p.MaxLength), "length window");
+            Assert.That(gc, Is.InRange(p.MinGc, p.MaxGc), "G+C window");
+            Assert.That(tm, Is.EqualTo(expectedTm).Within(1e-9), "primer3-py calc_tm at the preset conditions");
+            Assert.That(tm, Is.InRange(p.MinTm, p.MaxTm), "Tm window reachable");
+            // DesignProbes reports the same Tm and no Tm penalty for the witness window.
+            var probe = ProbeDesigner.DesignProbes(witness, p with { MinLength = witness.Length, MaxLength = witness.Length }, 1).Single();
+            Assert.That(probe.Tm, Is.EqualTo(expectedTm).Within(1e-9));
+        });
+    }
+
+    // Exact attainable long_seq_tm range over the length × G+C window of the long-probe presets (the Tm depends only
+    // on length and G+C count above MAX_NN_TM_LENGTH): primer3-py calc_tm(max_nn_length 36, mv 50, dv 0, dntp 0, dna 50)
+    // minimised / maximised over every (N, #GC) in the window.
+    [TestCase("FISH", 71.2529020719779, 85.35290207197791)]
+    [TestCase("NorthernBlot", 70.30290207197791, 82.5029020719779)]
+    [TestCase("SouthernBlot", 70.32012061502427, 85.35290207197791)]
+    public void Defaults_LongProbePresets_AttainableTmRangeOverlapsWindow(string preset, double expectedMin, double expectedMax)
+    {
+        var p = Preset(preset);
+        double min = double.PositiveInfinity, max = double.NegativeInfinity;
+        for (int n = p.MinLength; n <= p.MaxLength; n++)
+        {
+            for (int g = (int)Math.Ceiling(p.MinGc * n - 1e-9); g <= (int)Math.Floor(p.MaxGc * n + 1e-9); g++)
+            {
+                double tm = PrimerDesigner.CalculateMeltingTemperaturePrimer3(new string('G', g) + new string('A', n - g),
+                    p.DnaConcentrationNanomolar, p.MonovalentMillimolar, p.DivalentMillimolar, p.DntpMillimolar,
+                    p.MaxNearestNeighborLength);
+                min = Math.Min(min, tm);
+                max = Math.Max(max, tm);
+            }
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(min, Is.EqualTo(expectedMin).Within(1e-9));
+            Assert.That(max, Is.EqualTo(expectedMax).Within(1e-9));
+            Assert.That(Math.Max(min, p.MinTm), Is.LessThanOrEqualTo(Math.Min(max, p.MaxTm)), "window ∩ attainable range ≠ ∅");
+        });
+    }
+
+    [Test]
+    public void CalculateMeltingTemperaturePrimer3_MaxNearestNeighborLength_MatchesPrimer3SeqTm()
+    {
+        // primer3-py calc_tm(seq, mv 1000, dv 0, dntp 0, dna 1000, max_nn_length 60 / 36) — oligotm.c seqtm:
+        // len > nn_max_len → long_seq_tm. Biopython Tm_NN(DNA_NN3, Na 1000, dnac1 = dnac2 = 500, saltcorr 0) = 86.2547.
+        const string s = "AGTCCTCGATCCGTTCCTAATAAGGAATGGTGATTCCCTGTCATACCAAT";
+        Assert.Multiple(() =>
+        {
+            Assert.That(PrimerDesigner.CalculateMeltingTemperaturePrimer3(s, 1000, 1000, 0, 0, 60), Is.EqualTo(86.25468810488348).Within(1e-9));
+            Assert.That(PrimerDesigner.CalculateMeltingTemperaturePrimer3(s, 1000, 1000, 0, 0, 36), Is.EqualTo(87.53999999999999).Within(1e-9));
+            Assert.That(PrimerDesigner.CalculateMeltingTemperaturePrimer3(s, 50, 50, 0, 0, 36),
+                Is.EqualTo(PrimerDesigner.CalculateMeltingTemperaturePrimer3(s, 50, 50, 0, 0)));
+            Assert.Throws<ArgumentOutOfRangeException>(() => PrimerDesigner.CalculateMeltingTemperaturePrimer3(s, 50, 50, 0, 0, -1));
+        });
+    }
+
+    [Test]
+    public void DefaultConditions_OfValidateAnalyzeBeacon_StayPrimer3ProbeConditions()
+    {
+        // AnalyzeOligo keeps the Primer3 probe conditions (50 nM / 50 mM, NN ≤ 36 nt): the 50-mer is long_seq_tm.
+        const string s = "AGTCCTCGATCCGTTCCTAATAAGGAATGGTGATTCCCTGTCATACCAAT";
+        Assert.That(ProbeDesigner.AnalyzeOligo(s).Tm, Is.EqualTo(65.9429020719779).Within(1e-9));
     }
 }

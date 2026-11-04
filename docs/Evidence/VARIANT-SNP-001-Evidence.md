@@ -26,7 +26,7 @@
 ### Wikipedia — Transversion (uses primary Futuyma 2013)
 
 **URL:** https://en.wikipedia.org/wiki/Transversion
-**Accessed:** 2026-06-13
+**Accessed:** 2026-06-13 · re-fetched 2026-10-14 (SRC citation audit: see corrections below)
 **Authority rank:** 4 (Wikipedia citing primary source Futuyma, *Evolution*, 2013)
 
 **How retrieved:** `WebFetch` of the article URL asking for the verbatim transversion definition and the explicit enumeration of the four transversions.
@@ -34,8 +34,8 @@
 **Key Extracted Points:**
 
 1. **Definition (verbatim):** a transversion is "a point mutation in DNA in which a single (two ring) purine (A or G) is changed for a (one ring) pyrimidine (T or C), or vice versa."
-2. **The four transversions (verbatim list):** A↔C, A↔T, G↔C, G↔T.
-3. **Counting:** four transversions are possible per base vs. one transition per base; transitions nonetheless occur more frequently (transition/transversion bias).
+2. **The four transversions (derived from the definition; not listed verbatim on the page):** A↔C, A↔T, G↔C, G↔T.
+3. **Counting:** two transversions are possible per base vs. one transition per base (four transversion pair types in total); transitions nonetheless occur more frequently (transition/transversion bias).
 
 ### Hamming Distance as a Concept in DNA Molecular Recognition (PMC5410656)
 

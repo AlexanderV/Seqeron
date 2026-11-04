@@ -273,8 +273,249 @@ end") is the codon-set contract already adopted by `CodonUsageAnalyzer.CountCodo
 such as NNN has no row in a Kazusa/cusp table, so it has no usage frequency; it is skipped by all
 three rare-codon screens (frame preserved) instead of being reported as a frequency-0 "rare codon".
 
-## Open item
+## Open item (2026-09) — resolved 2026-10 (review FIN-B02 WP7, A1-1)
 Sherlocc README (quoted 2026-06): slow positions have frequency "equal or lower than the specified
-threshold"; `FindRareCodonClusters` uses strict `<` (shared with `FindRareCodons`). With the
+threshold"; `FindRareCodonClusters` used strict `<` (shared with `FindRareCodons`). With the
 E. coli preset this matters at the 0.15 default for UCU/UCC/UCG/AGU/GUA/GGG (exactly 0.15).
-Not changed: the reference code and Sherlocc's frequency scale could not be opened this session.
+
+# Review 2026-10 (FIN-B02 WP7) — Sherlocc source; per-thousand presets
+
+## Sherlocc 1.0 reference implementation (opened)
+`git clone https://github.com/mtthchrtr/sherlocc` (commit b3b4d15987c5f8205d1957db3a757dbd390d5049,
+2020-06-25; files `sherlocc.pl` 1223 lines, `README.md`, `files/cut`); README also via
+`raw.githubusercontent.com/mtthchrtr/sherlocc/master/README.md`. Verbatim:
+- Threshold prompt (l. 26–28): `print "\nEnter Sherlocc threshold:\n"; chomp($avrg_lim = <STDIN>);`
+  — README: "A rare codon frequency threshold (i.e.: 14,15,16,etc)".
+- Frequencies (stage 2, l. 449–522): per-organism rows of `files/cut`
+  (`org_id=…|transl_tbl=…` then `TTT5.5|TCT19.2|…` — CUTG frequency per thousand codons, keyed by
+  Kazusa/NCBI taxid); each aligned residue gets its codon's per-thousand value, gaps/unknown → `x`.
+- Pause (stage 3, l. 775–825): for every alignment column `i`, sum the values of columns
+  `i−3 … i+3` over all rows (sequences); out-of-range columns and `x` cells are not counted;
+  `$tresh=($row*(7))*(0.75)`; `if($freq_count >= $tresh)` → `$avrg=$freq_sum/$freq_count`;
+  **`if($avrg <= $avrg_lim){ #We have a pause`**; otherwise (or column not representative) not a pause.
+  README: "a centered 7 positions wide window … windows occupied by alignment gaps … by 25% or more
+  are excluded … positions with a codon usage frequency average equal or lower than the specified
+  threshold … considered as 'slow' positions".
+- Clusters (l. 834–960): `for($i=0; $i<=($#col_type-6); $i++)` count pauses in columns `i … i+6`;
+  `if($win_pause_count >= 4)` → cluster `first pause – last pause` of that window; consecutive
+  clusters merged only when `this_start >= start && this_start <= stop` (overlap); each reported
+  with the mean column average over its span (`$cluster_avrg`), 1-based.
+- No P-value / randomisation / shuffling code in `sherlocc.pl` (grep `rand|shuffl|pval|simul`:
+  none); the conservation aspect is the averaging over all family members of the Pfam alignment
+  plus the 75 % representativeness filter. P-values are only in the paper (not opened here).
+
+Decision: `FindRareCodonClusters` (TestSpec cites Chartier 2012 as its canonical source) now uses the
+source comparison `≤` by default; the previous strict `<` stays available (`inclusiveThreshold:
+false`). `FindRareCodons` is not a Sherlocc unit (sources: Kazusa / GenRCA / Shu 2006, TestSpec M06
+strict `<`), so its default stays strict, with an opt-in `inclusiveThreshold: true`. The window
+averaging / alignment / per-thousand scale differences are recorded as a kept simplification
+(algorithm doc §5.3) and are the subject of audit item A1-2.
+
+## Per-thousand presets (A1-3)
+- %MinMax input scale: CHARMING `calculateMinMax` sums the table values directly; its tables are
+  per-thousand (`ScerCUB.txt` "TTT 26.1"), so per-thousand is the sourced default when available.
+- Yeast (Kazusa 4932): CHARMING `ScerCUB.txt` (commit 2c75d1b, one decimal). Per-amino-acid ratios
+  vs python-codon-tables 0.1.18 `s_cerevisiae_4932`: 62/64 equal at 2 dp; stop family UAA 0.478 vs
+  0.47, UAG 0.217 vs 0.23 (one-decimal rounding of 1.1/0.5/0.7 — e.g. 1.05/0.52/0.68 give
+  0.47/0.23/0.30).
+- Human (Kazusa 9606): PyPI `codon-optimizer` 0.2.0 `codon_optimizer/reference_seq/Homo_sapiens_codon_frequency.csv`
+  (AmAcid, Codon, Number, /1000, Fraction; tool help cites kazusa.or.jp/codon); Σ Number =
+  40 662 582 = the Kazusa 9606 codon total; ratios equal python-codon-tables `h_sapiens_9606` at all
+  64 codons (2 dp); stored as 1000·n/40 662 582 (its /1000 column agrees within 0.005).
+- E. coli (Kazusa 316407): per-thousand column not obtainable — kazusa.or.jp, genscript.com,
+  detaibio.com, dnahive.fda.gov blocked (proxy / WebFetch ENOTFOUND); GitHub code search not
+  available; python-codon-tables (0.1.3.3, 0.1.9, 0.1.12, 0.1.18, GitHub source),
+  codon-harmony, CodonU, pycodon, freqgen, codonopt, codon-tools, dnachisel, kuma
+  (`kuma_core/kuro/resources/codon_tables/ecoli.json`, fractions only) carry fractions only.
+  EMBOSS 6.6 `Eecoli.cut` (CUTG146, 5045 CDS) differs from the 316407 fractions at 9 codons,
+  CHARMING `EcolCUB.txt` at 43 — different entries, not used. `EColiK12.PerThousand` = null.
+  **Resolved post-completion 2026-10-14 (SRC RO1):** kazusa.or.jp became reachable; the 316407
+  /1000 column is now on `EColiK12.PerThousand` — see "SRC RO1 (2026-10-14)" below.
+- Independent check: Python port of the formula and CHARMING's own `calculateMinMax` (isolated)
+  over the same tables — yeast `CUGAGA` w2 33.99209486166008 (CHARMING 33.99); 20-codon gene w18
+  12.68791340950089 / 17.028571428571425 / 15.991062879029688 (12.69/17.03/15.99); human gene w18
+  28.796581754809075 / 23.264123403923747 / 16.195449171123403 (28.8/23.26/16.2); human `UUACGU` w2
+  −96.40404591634571 (−96.4); human fractions (CodonFrequencies basis) 19.650655021834133 /
+  13.878080415045439 / 13.803548247511891, `UUACGU` −94.54545454545456.
+
+# Review 2026-10 (FIN-B02 WP8) — Sherlocc alignment analysis (A1-2)
+
+## Source re-read in full
+`sherlocc.pl` (commit b3b4d15, 1223 lines) read end to end. Stage 1 (l. 95–445) retrieves, per Pfam
+row, UniProt/ENA records over HTTP and writes `u_id/org_id/pfam_ori/pfam_aa/transl_tbl/coding_seq`
+(l. 369–374). Stage 2 (l. 447–537) gives every aligned residue the per-thousand usage of its codon in
+its OWN organism's CUTG row (`$cu_hash{$org_id}`, l. 497), non-residue/unknown → `x`. Stage 3:
+- Averaging + filter (l. 772–819): `$tresh=($row*(7))*(0.75)`; for column `i`, cells of columns
+  `i−3…i+3` of all rows are summed (`$freq_count`), out-of-range / `x` cells skipped;
+  `if($freq_count >= $tresh)` → `$avrg=$freq_sum/$freq_count`, pause `if($avrg <= $avrg_lim)`; else
+  the column is "NA" (not representative). This is the whole "conservation" filter — no separate
+  per-sequence or identity filter exists.
+- Clusters (l. 838–854): windows `i…i+6`, `$win_pause_count >= 4` → `first pause – last pause`.
+- Merge (l. 894–961): next cluster extends the current one when `this_start` ∈ [start, stop]; when
+  `this_start > stop` a new cluster starts (abutting clusters stay separate).
+- Cluster mean (l. 875–879): `$freq_sum+=$col_freq[$k]` over the span — an NA column inside a span
+  is an undefined value (0). Middle point (l. 1137–1140) `stop − (len/2)`, decimals stripped;
+  fraction (l. 1154) `total_cluster_length / alignment_length`; `clusters_freq_avrg` = mean of cluster
+  means.
+- FoldIndex block (l. 683–744, 997–1103): Uversky/Prilusky unstructured-region prediction — a separate
+  output, not ported.
+- P-values: none (no `rand`, shuffle, P-value or significance code; `grep -n -i
+  "p-val|pval|random|shuffl|signific|rand("` → only the comment "significant windows (clusters)" l. 837/848).
+
+## Oracle run
+perl 5.38 + libwww-perl (apt) in an isolated copy; stages 2+3 on hand-written stage-1 records (the
+only change to the script: l. 15 `cleanup("stage1")` and l. 17 `mkdir "stage1"` removed so the records
+survive; stage 1 needs live UniProt/ENA). `files/cut`: `org_id=4932` / `org_id=9606` rows with the
+Yeast / Human preset per-thousand values. Results (`results/out/results`, HTML "Average" row):
+- A (yeast, 3×20, threshold 15): pauses 9–12 (1-based); `clusters=9-12|9.83928571428571`,
+  `total_nb_of_pauses=4`.
+- B (yeast, 2×18, threshold 15, two fully gapped columns): column 10 (1-based) "NA";
+  `clusters=6-13|5.265625` (the NA column counted as 0), `total_nb_of_pauses=7`.
+- C (yeast/human/yeast, 3×34, threshold 16): `clusters=4-10|9.20962052101093,21-27|9.30926559372343`,
+  `clusters_freq_avrg=9.25944305736718`, `total_nb_of_pauses=14`.
+An independent Python port of l. 772–961 reproduces every 2-dp column average and every cluster
+value (unrounded values used in the tests at 1e-12).
+
+## Cluster P-values — BLOCKED
+The paper (Chartier, Gaudreault & Najmanovich 2012, doi:10.1093/bioinformatics/bts149, PMID 22467916)
+reports P-values (WebSearch snippet: P22 tailspike cluster "P-value of 1.72×10^−8 at a threshold of
+15"), but the model is not in `sherlocc.pl` and the full text could not be opened: academic.oup.com
+(…/article/28/11/1438/265476 and /266932), pmc.ncbi.nlm.nih.gov, pubmed.ncbi.nlm.nih.gov,
+eutils.ncbi.nlm.nih.gov, www.ebi.ac.uk/europepmc, api.semanticscholar.org, web.archive.org,
+ui.adsabs.harvard.edu, journals.plos.org, arxiv.org — proxy `CONNECT tunnel failed, response 403` /
+WebFetch `ENOTFOUND`; WebSearch snippets give no null model. No P-value is reported.
+
+## F48 — genetic-code awareness of the rare-codon APIs (review 2026-09, audit A2-1)
+
+Sources opened: dnachisel 3.2.16 `biotools/biotables.get_backtranslation_table` and
+`builtin_specifications/EnforceTranslation.py` (`genetic_table`), Biopython 1.88
+`Bio.Data.CodonTable` tables 2 / 4 / 11 / 27 / 28 / 31.
+
+- `FindRareCodons`: rarity is a per-codon usage-table lookup, so the *selection* is code-independent;
+  the genetic code only names the amino acid. Added optional `geneticCode` (default Standard):
+  on `AUGCGUAGACGCAGGUGAAUAUAA` at threshold 0.30 the reported positions are identical under tables 1
+  and 2, while `UGA` is reported as `*` under table 1 and `W` under table 2, and `AGA` as `*` under
+  table 2.
+- `CalculateMinMaxProfile`: the %MinMax sums are per-family (Xavg, Xmax, Xmin), so the profile is
+  code-dependent. Added optional `geneticCode` (default Standard, the Clark-lab reference
+  behaviour); under table 2 the Arg family is CGU/CGC/CGA/CGG (AGA/AGG are stops) and Met/Trp become
+  two-codon families, which changes the profile while the window count is unchanged.
+- `FindRareCodonClusters` / `FindConservedRareCodonClusters` (Sherlocc): no translation and no
+  synonymous family is involved — pause marking compares a per-codon (or per-column average) usage
+  value with the threshold — so these methods are genetic-code independent and no parameter was
+  added. Documented in the XML docs and `Rare_Codon_Detection.md`.
+
+---
+
+# SRC RO1 (2026-10-14) — Kazusa 316407 per-thousand column on `EColiK12`
+
+## Source (opened)
+
+- URL: https://www.kazusa.or.jp/codon/cgi-bin/showcodon.cgi?species=316407 (fetched 2026-10-14;
+  the `aa=1&style=N` layout and the compact default layout were both saved and agree at all 64 codons).
+- Header: "Escherichia coli W3110 [gbbct]: 4332 CDS's (1372057 codons)"; fields
+  [triplet] [amino acid] [fraction] [frequency: per thousand] ([number]).
+- Checks: Σ number = 1 372 057; Σ /1000 = 1000.0; every /1000 value = round(1000 × number /
+  1 372 057, 1) (64/64); the fraction column equals the `EColiK12.CodonFrequencies` preset at 64/64
+  codons (same entry as the 2026-06 python-codon-tables `e_coli_316407` fractions); per-amino-acid
+  ratios of the one-decimal /1000 values are within 0.0055 of the fractions (max 0.00548 UAG,
+  0.00538 AAA/AAG — the 0.1 rounding); ratios of the raw numbers within 0.0049.
+- Stored verbatim (one decimal, as published) in `CodonOptimizer.EColiKazusaPerThousand()` →
+  `EColiK12.PerThousand`.
+
+| Codon | AA | Fraction | /1000 | Number |
+|---|---|---|---|---|
+| UUU | F | 0.57 | 22.2 | 30462 |
+| UUC | F | 0.43 | 16.5 | 22705 |
+| UUA | L | 0.13 | 13.8 | 18894 |
+| UUG | L | 0.13 | 13.6 | 18664 |
+| UCU | S | 0.15 | 8.4 | 11512 |
+| UCC | S | 0.15 | 8.6 | 11802 |
+| UCA | S | 0.12 | 7.0 | 9620 |
+| UCG | S | 0.15 | 8.9 | 12210 |
+| UAU | Y | 0.57 | 16.1 | 22037 |
+| UAC | Y | 0.43 | 12.2 | 16795 |
+| UAA | * | 0.64 | 2.0 | 2765 |
+| UAG | * | 0.07 | 0.2 | 321 |
+| UGU | C | 0.44 | 5.1 | 7016 |
+| UGC | C | 0.56 | 6.4 | 8797 |
+| UGA | * | 0.29 | 0.9 | 1249 |
+| UGG | W | 1.00 | 15.2 | 20889 |
+| CUU | L | 0.10 | 11.0 | 15082 |
+| CUC | L | 0.10 | 11.1 | 15272 |
+| CUA | L | 0.04 | 3.8 | 5266 |
+| CUG | L | 0.50 | 53.1 | 72898 |
+| CCU | P | 0.16 | 7.0 | 9540 |
+| CCC | P | 0.12 | 5.5 | 7490 |
+| CCA | P | 0.19 | 8.4 | 11569 |
+| CCG | P | 0.53 | 23.4 | 32080 |
+| CAU | H | 0.57 | 13.0 | 17791 |
+| CAC | H | 0.43 | 9.8 | 13399 |
+| CAA | Q | 0.35 | 15.4 | 21121 |
+| CAG | Q | 0.65 | 29.0 | 39835 |
+| CGU | R | 0.38 | 21.0 | 28866 |
+| CGC | R | 0.40 | 22.3 | 30530 |
+| CGA | R | 0.06 | 3.5 | 4810 |
+| CGG | R | 0.10 | 5.4 | 7401 |
+| AUU | I | 0.51 | 30.4 | 41644 |
+| AUC | I | 0.42 | 25.2 | 34568 |
+| AUA | I | 0.07 | 4.2 | 5733 |
+| AUG | M | 1.00 | 27.8 | 38167 |
+| ACU | T | 0.16 | 8.8 | 12119 |
+| ACC | T | 0.44 | 23.5 | 32265 |
+| ACA | T | 0.13 | 6.9 | 9452 |
+| ACG | T | 0.27 | 14.4 | 19820 |
+| AAU | N | 0.45 | 17.6 | 24106 |
+| AAC | N | 0.55 | 21.6 | 29581 |
+| AAA | K | 0.76 | 33.6 | 46116 |
+| AAG | K | 0.24 | 10.3 | 14174 |
+| AGU | S | 0.15 | 8.7 | 11924 |
+| AGC | S | 0.28 | 16.1 | 22067 |
+| AGA | R | 0.04 | 2.0 | 2771 |
+| AGG | R | 0.02 | 1.1 | 1496 |
+| GUU | V | 0.26 | 18.2 | 24991 |
+| GUC | V | 0.22 | 15.3 | 21050 |
+| GUA | V | 0.15 | 10.9 | 14901 |
+| GUG | V | 0.37 | 26.3 | 36108 |
+| GCU | A | 0.16 | 15.2 | 20813 |
+| GCC | A | 0.27 | 25.7 | 35252 |
+| GCA | A | 0.21 | 20.1 | 27567 |
+| GCG | A | 0.36 | 33.9 | 46524 |
+| GAU | D | 0.63 | 32.2 | 44217 |
+| GAC | D | 0.37 | 19.1 | 26270 |
+| GAA | E | 0.69 | 39.7 | 54431 |
+| GAG | E | 0.31 | 18.0 | 24629 |
+| GGU | G | 0.34 | 24.7 | 33875 |
+| GGC | G | 0.41 | 29.8 | 40849 |
+| GGA | G | 0.11 | 7.9 | 10774 |
+| GGG | G | 0.15 | 11.0 | 15115 |
+
+## Oracle (%MinMax, Clark-lab CHARMING `calculateMinMax`)
+
+`calculateMinMax` and `generateAAFreqDict` from CHARMING.py (github.com/wrightgs/CHARMING, commit
+2c75d1b; SHA-256 of the file 27e17062…ed37a78) extracted with `ast` and run isolated on the
+Kazusa 316407 table (families = Standard code incl. the stop family), plus an independent Python
+port of the Clarke & Clark (2008) formula (unrounded values). CHARMING prints 2 dp; the port equals
+it at every window.
+
+| Input | Window | Per thousand (default): CHARMING / port | Fractions (`CodonFrequencies`): CHARMING / port |
+|---|---|---|---|
+| `CUGAGA` | 2 | 58.1 / 58.10113519091846 | 36.47 / 36.47058823529413 (C# 36.470588235294116, unchanged) |
+| 20-codon gene `AUGCUGAGAAAAGAAGCUCUGAGGUUUCCCGGAAUAUCUCGAUGGAAGACCCUAGUUCAG` | 18 | 7.42, 7.37, −6.57 / 7.417300184918832, 7.371763071733311, −6.565186442534101 | −1.36, −0.9, −8.18 / −1.358411703239252, −0.9027081243731403, −8.181517058628705 |
+| `UUACGU` | 2 | 16.2 / 16.202270381836932 | 31.18 / 31.1764705882353 |
+| `AGAAGAAGA` | 3 | −88.91 / −88.91170431211498 | −86.36 / −86.36363636363636 |
+| `CGCCGCAGAAGAAGA` | 3 | 48.28, −5.54, −88.91 / 48.280254777070056, −5.544147843942496, −88.91170431211498 | 48.57, −4.55, −86.36 |
+
+Hand check `AGAAGAAGA` w3: Arg /1000 = 21.0, 22.3, 3.5, 5.4, 2.0, 1.1 → mean 9.21667, min 1.1;
+%Min = (9.21667 − 2.0)/(9.21667 − 1.1) × 100 = 88.9117.
+
+## Consequences (F39 design kept)
+
+- `CalculateMinMaxProfile(string, table, int)` (default `PerThousandWhenAvailable`) now gives the
+  reference value on `EColiK12`; `MinMaxUsageBasis.CodonFrequencies` keeps the fraction values.
+- Sherlocc (`FindConservedRareCodonClusters`, default `UseCodonFrequencies = false`) now accepts
+  `EColiK12`. Hand check: AGA×10 / AGG×10, threshold 15 → representative columns 2–7 average
+  (2.0 + 1.1)/2 = 1.55, pauses 2–7, one cluster 2–7 (6 pauses, mean 1.55). The rejection of a table
+  without per-thousand usage is unchanged (tested with `EColiK12 with { PerThousand = null }`).
+- Fractions (`CodonFrequencies`) and every other API (CAI, optimisation, `FindRareCodons`,
+  `FindRareCodonClusters`) unchanged.

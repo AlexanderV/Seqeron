@@ -284,5 +284,44 @@ public class OncologyAnalyzer_EstimatePurity_Tests
             $"CNAqc expected_vaf_fun({minor},{major},{multiplicity},{purity}) = {cnaqcVaf} must invert to {purity}");
     }
 
+    // B24 review 2026-09 (FIN-B24 F24) — CNAqc `expectations_generalised` enumerates multiplicities only over
+    // 1..Major ≤ n_tot (R/equations.R: lapply(1:m, …), lapply(1:M, …)); m = 3 on n_tot = 2 is not a CNAqc peak.
+    // Before the fix this silently returned π = 2·0.5/[3 + 0.5·0] = 0.3333.
+    [Test]
+    public void EstimatePurity_MultiplicityAboveTotalCopyNumber_Throws()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.EstimatePurity(new[]
+        {
+            new OncologyAnalyzer.PurityVariant(0.5, Multiplicity: 3, TumorTotalCopyNumber: 2)
+        }), "m = 3 > n_tot = 2 is not a CNAqc peak (m ∈ 1..Major)");
+    }
+
+    // B24 review 2026-09 (FIN-B24 F25) — exact clonal peaks at π = 1. CNAqc R `expected_vaf_fun(m, M, i, 1)`
+    // evaluated in R 2026-10-09: (1,4,1,1) → 0.20000000000000001 (= literal 0.2), (2,3,2,1) → 0.40000000000000002
+    // (= literal 0.4). The IEEE-double inversion gives 1.0000000000000002 (1 ulp over), which must be accepted
+    // (tolerance (n_tot + 4)·ε) and clamped to exactly 1.0.
+    [TestCase(0.2, 1, 5)] // karyotype 4:1, m = 1
+    [TestCase(0.4, 2, 5)] // karyotype 3:2, m = 2
+    public void EstimatePurity_ExactClonalPeakAtFullPurity_ReturnsExactlyOne(double vaf, int multiplicity, int totalCopyNumber)
+    {
+        double estimated = OncologyAnalyzer.EstimatePurity(new[]
+        {
+            new OncologyAnalyzer.PurityVariant(vaf, multiplicity, totalCopyNumber)
+        });
+
+        Assert.That(estimated, Is.EqualTo(1.0), $"VAF {vaf} = m/n_tot is the π = 1 clonal peak");
+    }
+
+    // F25 guard — the rounding tolerance must not admit a genuinely super-unit purity: VAF 0.2·(1+1e-9) at
+    // m = 1, n_tot = 5 inverts to π = 1.0000000025000004 ≫ 1 + (5+4)·ε and is still rejected.
+    [Test]
+    public void EstimatePurity_SlightlyAboveFullPurityPeak_StillThrows()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.EstimatePurity(new[]
+        {
+            new OncologyAnalyzer.PurityVariant(0.2 * (1 + 1e-9), 1, 5)
+        }), "π ≈ 1 + 2.5e-9 exceeds the machine-ε tolerance");
+    }
+
     #endregion
 }

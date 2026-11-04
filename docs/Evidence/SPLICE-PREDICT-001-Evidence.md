@@ -11,7 +11,7 @@
 ### 1. Wikipedia — Intron
 
 **URL:** https://en.wikipedia.org/wiki/Intron
-**Accessed:** 2026-02-12
+**Accessed:** 2026-02-12 · re-fetched 2026-10-14 (SRC citation audit: supports the claims above)
 **Authority rank:** 4 (cites primary sources)
 
 **Key Extracted Points:**
@@ -31,7 +31,7 @@
 ### 2. Wikipedia — Exon
 
 **URL:** https://en.wikipedia.org/wiki/Exon
-**Accessed:** 2026-02-12
+**Accessed:** 2026-02-12 · re-fetched 2026-10-14 (SRC citation audit: supports the claims above)
 **Authority rank:** 4
 
 **Key Extracted Points:**
@@ -47,7 +47,7 @@
 ### 3. Wikipedia — Gene Structure
 
 **URL:** https://en.wikipedia.org/wiki/Gene_structure
-**Accessed:** 2026-02-12
+**Accessed:** 2026-02-12 · re-fetched 2026-10-14 (SRC citation audit: see corrections below)
 **Authority rank:** 4
 
 **Key Extracted Points:**
@@ -57,7 +57,7 @@
 2. **Spliced sequence:** Once spliced together, exons form a single continuous
    protein-coding region; splice boundaries are not detectable in mature mRNA.
 3. **Single-exon genes:** Some genes lack introns entirely (e.g., most prokaryotic genes,
-   some eukaryotic genes like histone genes).
+   some eukaryotic genes; the Gene structure page itself only states "Introns are extremely rare in prokaryotes").
 
 ### 4. Breathnach & Chambon (1981)
 

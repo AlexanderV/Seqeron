@@ -45,6 +45,7 @@ namespace Seqeron.Mcp.Analysis;
 [JsonSerializable(typeof(ChouFasmanItem))]
 [JsonSerializable(typeof(ChouFasmanItem[]))]
 [JsonSerializable(typeof(PredictChouFasmanResult))]
+[JsonSerializable(typeof(ChouFasmanAssignResult))]
 
 // GenomicAnalyzer
 [JsonSerializable(typeof(RepeatItem))]

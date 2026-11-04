@@ -36,19 +36,40 @@ public sealed record DesignPrimersResult(
     double? TemplateMispriming = null);
 
 // RestrictionAnalyzer result wrappers
-public sealed record EnzymeLookupResult(RestrictionEnzyme? Enzyme);
+public sealed record EnzymeLookupResult(
+    RestrictionEnzyme? Enzyme,
+    string? OverhangSequence = null,
+    IReadOnlyList<string>? Equischizomers = null,
+    IReadOnlyList<string>? Neoschizomers = null);
 public sealed record EnzymeListResult(IReadOnlyList<RestrictionEnzyme> Enzymes);
 public sealed record RestrictionSiteListResult(IReadOnlyList<RestrictionSite> Sites);
+// The raw IUPAC pattern scan under find_restriction_sites: 0-based start indices on the given
+// strand only, ascending, overlaps included (review 2026-09 B08 H27/H28).
+public sealed record PatternOccurrencesResult(IReadOnlyList<int> Positions);
 public sealed record DigestResult(IReadOnlyList<DigestFragment> Fragments);
-public sealed record EnzymeCompatibilityPair(string Enzyme1, string Enzyme2, string CompatibleEnd);
-public sealed record CompatibleEnzymesResult(IReadOnlyList<EnzymeCompatibilityPair> Pairs);
-public sealed record EnzymeCompatibilityResult(bool Compatible);
+public sealed record PartialDigestResult(IReadOnlyList<PartialDigestFragment> Fragments);
+// CompatibleEnd is Enzyme1's own overhang window ("blunt" for a blunt pair); End2 is Enzyme2's.
+// They are the same string whenever the two windows intersect directly, and differ for the 12 REBASE
+// pairs that anneal only through the reverse complement — all GN against CN (review 2026-09 B08 H30).
+public sealed record EnzymeCompatibilityPair(
+    string Enzyme1, string Enzyme2, string CompatibleEnd, string? End2 = null);
+// TotalPairs / Truncated are reported by the all-pairs listing only (null, hence omitted, for the per-enzyme form).
+public sealed record CompatibleEnzymesResult(
+    IReadOnlyList<EnzymeCompatibilityPair> Pairs, int? TotalPairs = null, bool? Truncated = null);
+// CompatibleEnd is the FIRST enzyme's own overhang window, End2 the second's; see
+// EnzymeCompatibilityPair (review 2026-09 B08 H30). Both null when the pair is incompatible.
+public sealed record EnzymeCompatibilityResult(
+    bool Compatible, string? CompatibleEnd = null, string? End2 = null);
 
 // CodonUsageAnalyzer result wrappers
 public sealed record CodonCountsResult(Dictionary<string, int> Counts);
 public sealed record RscuResult(Dictionary<string, double> Rscu);
 public sealed record CaiResult(double Cai);
-public sealed record EncResult(double Enc);
+public sealed record EncResult(double Enc, bool Calculable)
+{
+    /// <summary>Back-compatible constructor: a calculated Nc is never 0 (0 = not calculable).</summary>
+    public EncResult(double Enc) : this(Enc, Enc > 0) { }
+}
 
 // CodonOptimizer input/output wrappers
 /// <summary>
@@ -78,6 +99,27 @@ public sealed record OptimizedSequenceResult(string OptimizedSequence);
 
 public sealed record RareCodon(int Position, string Codon, string AminoAcid, double Frequency);
 public sealed record RareCodonsResult(IReadOnlyList<RareCodon> RareCodons);
+
+public sealed record MinMaxWindowDto(int WindowStartCodon, double PercentMinMax);
+public sealed record MinMaxProfileResult(IReadOnlyList<MinMaxWindowDto> Windows);
+
+public sealed record RareCodonClusterDto(int StartCodon, int EndCodon, int RareCount);
+public sealed record RareCodonClustersResult(IReadOnlyList<RareCodonClusterDto> Clusters);
+
+/// <summary>One conserved rare-codon cluster of a codon alignment (Sherlocc 1.0 stage 3; 0-based inclusive columns).</summary>
+public sealed record ConservedRareCodonClusterDto(int StartColumn, int EndColumn, int PauseCount, double MeanUsage, int MiddlePoint);
+
+/// <summary>find_conserved_rare_codon_clusters output (mirrors <see cref="CodonOptimizer.SherloccResult"/>).</summary>
+public sealed record ConservedRareCodonClustersResult(
+    int SequenceCount,
+    int AlignmentLength,
+    IReadOnlyList<double?> ColumnAverages,
+    IReadOnlyList<int> ColumnUsageCounts,
+    IReadOnlyList<int> PauseColumns,
+    IReadOnlyList<ConservedRareCodonClusterDto> Clusters,
+    int TotalClusterLength,
+    double ClusterFraction,
+    double? MeanClusterUsage);
 
 public sealed record SimilarityResult(double Similarity);
 

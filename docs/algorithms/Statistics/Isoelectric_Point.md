@@ -76,7 +76,7 @@ Bjellqvist pK values [4][7]: side chains Cys 9.0, Asp 4.05, Glu 4.45, His 5.98, 
 
 ### 3.3 Preconditions and Validation
 
-Input is uppercased (case-insensitive). Null or empty returns the neutral sentinel 7.0 (pI is undefined for a zero-length protein; see ASM-03). Only the nine ionizable groups (7 side chains + 2 termini) contribute (plus B/Z via the Dayhoff split on the EMBOSS scale); any other character is ignored, so non-standard residues, gaps, or whitespace do not throw. No exceptions are raised for valid string input.
+Input is uppercased ASCII-only (case-insensitive; `CalculateIsoelectricPoint`/`CalculateNetCharge` delegate to the canonical `ProteinPhysicochemistry.IsoelectricPoint`/`NetCharge`, `PkaScale` mapped to `ProteinPkaScale`, FIN-B03 A1; non-ASCII letters such as `ſ` are ignored, as EMBOSS iep does). Null or empty returns the neutral sentinel 7.0 (pI is undefined for a zero-length protein; see ASM-03). Only the nine ionizable groups (7 side chains + 2 termini) contribute (plus B/Z via the Dayhoff split on the EMBOSS scale); any other character is ignored, so non-standard residues, gaps, or whitespace do not throw. No exceptions are raised for valid string input.
 
 ## 4. Algorithm
 
@@ -118,7 +118,10 @@ EMBOSS 6.6.0 Epk.dat pKa table (origin: EMBOSS source [6]):
 - `SequenceStatistics.CalculateIsoelectricPoint(string)`: EMBOSS-scale entry point.
 - `SequenceStatistics.CalculateIsoelectricPoint(string, PkaScale)`: scale-selectable pI.
 - `SequenceStatistics.CalculateNetCharge(string, double, PkaScale)`: Henderson–Hasselbalch net charge at a given pH.
-- MCP `isoelectric_point` (Seqeron.Mcp.Sequence) delegates to the EMBOSS-scale overload.
+- `SequenceStatistics.TryCalculateIsoelectricPoint(string, IsoelectricPointOptions?, out double)`: pI with a selectable search convention (`IsoelectricPointWindow.Default` [0,14] 2 dp / `Emboss` = `iep` [1,14] with "None" → false / `Biopython` = `IsoelectricPoint.pi()` [4.05,12] from 7.775) and the `iep` qualifiers `Termini` (`-notermini`), `LysinesModified` (`-lysinemodified N`), `Disulphides` (`-disulphides N`).
+- `SequenceStatistics.CalculateNetCharge(string, double, IsoelectricPointOptions?)`: net charge with the same qualifiers.
+- All of them evaluate the canonical `ProteinPhysicochemistry.NetCharge` (Infrastructure); the options only adjust the counts handed to it (modified K / bonded C replaced by the neutral, non-terminal-specific G) or cancel the default termini (`NetCharge("G"+s+"G") − NetCharge("GG")`).
+- MCP `isoelectric_point` (Seqeron.Mcp.Sequence) delegates to `CalculateIsoelectricPoint(string, PkaScale)` with default options, and to `TryCalculateIsoelectricPoint` for its optional `window` / `termini` / `lysinesModified` / `disulphides` (2026-10-14, B03 F47; `iep` "None" → `found: false`, `pi` omitted).
 
 ### 5.2 Current Behavior
 
@@ -135,12 +138,13 @@ pKa values are stored as named constants and a dictionary keyed by residue, each
 
 **Intentionally different from the references:**
 
-- Search window [0, 14]: EMBOSS searches [1, 14] (and reports none without a sign change), Biopython [4.05, 12] (returns the window edge for roots outside, e.g. Bjellqvist `DDDD` 3.52, `RRRRRRRR` 12.85). Inside those windows results are identical.
-- EMBOSS `iep` options `-disulphides`, `-lysinemodified`, `-notermini`, custom `-pkdata` are not exposed.
+- Default search window [0, 14]: EMBOSS searches [1, 14] (and reports none without a sign change), Biopython [4.05, 12] (returns the window edge for roots outside, e.g. Bjellqvist `DDDD` 3.52, `RRRRRRRR` 12.85). Inside those windows results are identical. Both reference conventions are available as opt-in `IsoelectricPointWindow.Emboss` / `.Biopython` (unrounded, as the references return them; FIN-B03 F43).
+- EMBOSS `iep` `-notermini`, `-lysinemodified N`, `-disulphides N` are implemented as `IsoelectricPointOptions` (FIN-B03 F44); locked against `iep` 6.6.0, incl. the doc example IFNA2_HUMAN `-disulphides 2 -lysinemodified 2` = 5.7240.
+- Custom `-pkdata` pK tables and the `-amino N` / `-carboxyl N` terminus multiplicities are **not exposed**: they need a parameterised charge model in `ProteinPhysicochemistry` (B02-owned) — open request R27 to B02.
 
 **Not implemented:**
 
-- Phosphorylation / PTM charges and non-standard residue pKa; **users should rely on:** specialized tools (e.g., IPC, pIChemiSt) for modified peptides.
+- Phosphorylation / PTM charges and non-standard residue pKa — BLOCKED (B03 A37: one-letter sequence API, none of the references models PTMs); coupled electrostatics / structure-based pKa shifts — BLOCKED (A38: needs 3-D coordinates); **users should rely on:** specialized tools (e.g., IPC, pIChemiSt) for modified peptides.
 
 ### 5.4 Deviations and Assumptions
 
@@ -161,6 +165,10 @@ pKa values are stored as named constants and a dictionary keyed by residue, each
 | Basic-only (`KKKK`) | 11.28 (EMBOSS iep 11.2772); 10.48 (Bjellqvist) | Basic side chains push pI up |
 | B / Z (EMBOSS) | `B` 3.75, `Z` 3.85 | Dayhoff split to D / E (iep) |
 | Lowercase input | same as uppercase | Case-insensitive normalization |
+| No sign change in [1, 14] (EMBOSS window), e.g. R×40; `-notermini` `DDDD`/`KKKK`/`INGAR` | `TryCalculateIsoelectricPoint` → false (iep "None") | `embIepPhConverge` |
+| No charged group with `-notermini` (`A`, `GGG`) | 7.5 (EMBOSS window) | zero charge everywhere → first midpoint (iep 7.5000) |
+| Root outside [4.05, 12] (Biopython window), e.g. `DDDD`, `RRRRRRRR` | 4.0500284… / 11.9999677… | Biopython `pi()` has no range extension |
+| `-lysinemodified N` / `-disulphides N` exceeding the K / 2·C count | all K / all C removed | `embIepCompC` |
 
 ### 6.2 Limitations
 

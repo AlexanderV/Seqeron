@@ -11,7 +11,7 @@
 ### 1. Wikipedia — RNA splicing
 
 **URL:** https://en.wikipedia.org/wiki/RNA_splicing
-**Accessed:** 2026-02-12
+**Accessed:** 2026-02-12 · re-fetched 2026-10-14 (SRC citation audit: supports the claims above)
 **Authority rank:** 4 (Wikipedia citing primary sources)
 
 **Key Extracted Points:**
@@ -26,14 +26,14 @@
 ### 2. Wikipedia — Polypyrimidine tract
 
 **URL:** https://en.wikipedia.org/wiki/Polypyrimidine_tract
-**Accessed:** 2026-02-12
+**Accessed:** 2026-02-12 · re-fetched 2026-10-14 (SRC citation audit: see corrections below)
 **Authority rank:** 4 (Wikipedia citing Lodish et al. 2004, Wagner & Garcia-Blanco 2001)
 
 **Key Extracted Points:**
 
 1. **PPT definition:** Region of pre-mRNA rich in pyrimidine nucleotides (especially uracil), usually 15–20 base pairs long.
 2. **PPT location:** Located about 5–40 base pairs before the 3' end of the intron.
-3. **U2AF binding:** U2AF65 binds to the PPT; U2AF35 binds at the 3' splice site AG. This promotes spliceosome assembly.
+3. **U2AF binding:** the page states only that protein factors bind the PPT, "including the spliceosome component U2AF" (and PTB). The U2AF65 (PPT) / U2AF35 (3' AG) subunit split is NOT on this page (re-checked 2026-10-14); see Burge et al. (1999), source 5, for U2AF65 recruitment.
 4. **PPT quality:** Strong PPT (continuous pyrimidines) produces robust splicing; weak PPT (interrupted by purines) can be suppressed by PTB binding.
 
 ---
@@ -41,14 +41,14 @@
 ### 3. Wikipedia — Spliceosome
 
 **URL:** https://en.wikipedia.org/wiki/Spliceosome
-**Accessed:** 2026-02-12
+**Accessed:** 2026-02-12 · re-fetched 2026-10-14 (SRC citation audit: see corrections below)
 **Authority rank:** 4 (Wikipedia citing Will & Lührmann 2011, Burge et al. 1999)
 
 **Key Extracted Points:**
 
 1. **3' splice site elements:** 3' splice site defined by AG dinucleotide, preceded by polypyrimidine tract (PPT) and branch point sequence (BPS).
-2. **Branch point distance:** BPS typically 18–50 nt upstream of the 3' splice site.
-3. **Minor spliceosome:** U12-type introns use AT-AC dinucleotides instead of canonical GT-AG (Patel & Steitz 2003).
+2. **Branch point distance:** not stated on this page; the distance used is from Mercer et al. (2015) ("most branch sites are between 19 and 35 nucleotides away from the 3′ss") and Gao et al. (2008) (−34..−21), see below.
+3. **Minor spliceosome:** the page mentions the minor (U12-type) spliceosome (citing Patel & Steitz 2003) but does not state the AT-AC dinucleotides; the U12-type AC acceptor is per Burge et al. (1999), source 5 (corrected 2026-10-14, SRC citation audit).
 
 ---
 

@@ -1,7 +1,7 @@
 ---
 name: bio-moldesign
 description: >-
-  Design and QC molecular-biology reagents with Seqeron's MolTools server (48
+  Design and QC molecular-biology reagents with Seqeron's MolTools server (56
   tools) — PCR primer pairs and hybridization probes, CRISPR guide RNAs with
   off-target and specificity scoring, codon optimization of a CDS for a target
   organism (CAI/GC before-after), restriction-site finding and digest
@@ -17,7 +17,7 @@ allowed-tools: Read, Grep, Glob, Bash
 
 # bio-moldesign — molecular design & QC (MolTools)
 
-Routing + orchestration layer over the **MolTools** MCP server (48 tools) and the
+Routing + orchestration layer over the **MolTools** MCP server (59 tools) and the
 `Seqeron.Genomics.MolTools` C# namespace. It gives dual-mode recipes; it does **not**
 restate schemas — read the per-tool doc for exact I/O, and delegate all rigor to `bio-rigor`.
 
@@ -44,11 +44,11 @@ and `bio-rigor` [`reference/envelope.md`](../bio-rigor/reference/envelope.md).
 | Enumerate / score candidate primers, or QC one primer | primer | `generate_primer_candidates`, `evaluate_primer` |
 | Primer QC: dimer / hairpin / 3′ stability / repeats | primer | `primer_dimer`, `hairpin_potential`, `three_prime_stability`, `longest_homopolymer`, `longest_dinucleotide_repeat` |
 | Melting temperature (basic / salt-corrected) | primer | `primer_melting_temperature`, `primer_melting_temperature_salt` |
-| Design **CRISPR** guide RNAs for a region | crispr | `design_guide_rnas` → `find_off_targets` → `crispr_specificity_score` |
+| Design **CRISPR** guide RNAs for a region | crispr | `design_guide_rnas` → `find_off_targets` → `crispr_mit_specificity_score` / `crispr_cfd_specificity_score` |
 | Find PAM sites / evaluate one guide / system info | crispr | `find_pam_sites`, `evaluate_guide_rna`, `crispr_system_info` |
 | **Codon-optimize** a CDS for an organism | codon | `optimize_codons` (reports CAI+GC before/after) |
-| Codon usage analysis (CAI, RSCU, ENC, rare codons) | codon | `codon_adaptation_index`, `rscu`, `effective_number_of_codons`, `find_rare_codons` |
-| **Restriction** sites / digest / enzyme choice | restriction | `find_restriction_sites`, `restriction_digest`, `digest_summary`, `compatible_enzymes` |
+| Codon usage analysis (CAI, RSCU, ENC, rare codons) | codon | `codon_adaptation_index`, `rscu`, `effective_number_of_codons`, `find_rare_codons`, `find_rare_codon_clusters`, `codon_minmax_profile`, `find_conserved_rare_codon_clusters` |
+| **Restriction** sites / digest / enzyme choice | restriction | `find_restriction_sites`, `restriction_digest`, `partial_digest`, `digest_summary`, `compatible_enzymes` |
 | Design / validate a hybridization **probe** | probe | `design_probes`, `design_probes_primer3`, `validate_probe`, `analyze_oligo` (see STOP rule for MGB) |
 
 Full per-tool map: [`reference/tool-map.md`](reference/tool-map.md). Fuller recipes + parameter
@@ -71,11 +71,37 @@ Goal: a valid, well-behaved primer pair flanking a target, with a Tm-difference 
 ### (b) CRISPR guide design → off-targets → specificity → rank
 Goal: rank guide RNAs targeting a region by on-target score and off-target specificity.
 - **[MCP]** `design_guide_rnas`(sequence, region_start, region_end, system_type) → for each guide:
-  `find_off_targets`(guide, genome, max_mismatches) → `crispr_specificity_score`(guide, genome) → rank by (score, specificity).
-- **[C# API]** `CrisprDesigner.DesignGuideRnas` → `CrisprDesigner.FindOffTargets` → `CrisprDesigner.CalculateSpecificityScore`.
-- Key params: 0-based inclusive region; default system `SpCas9`; `max_mismatches` 0..5 (default 3);
-  specificity uses maxMismatches=4, seed = PAM-proximal 12 bp. Keep genome ≲ 1 Mb (O(genome×guide)).
-- **Provenance:** design_guide_rnas → find_off_targets → crispr_specificity_score per guide, + system + params.
+  `find_off_targets`(guide, genome, max_mismatches) → **`crispr_mit_specificity_score`**(guide, genome)
+  and/or **`crispr_cfd_specificity_score`**(guide, genome) → rank by (on-target score, specificity).
+- **On-target score = a published model, not the composite `score`.** Every 20-nt NGG guide whose 30-nt
+  context fits the sequence is returned by `design_guide_rnas` with `context30Mer` and **`onTargetScore`**
+  (Doench 2016 Rule Set 2 / Azimuth, 0..1, higher = more active); `parameters.ranking = OnTargetRuleSet2`
+  orders the list by it (default ranks by the library's own heuristic `score`; guides without a context
+  rank last). For any other 30-nt context call **`calculate_on_target_rule_set2`**(context_30mer) — or the
+  older Rule Set 1, **`calculate_on_target_doench2014`**(context_30mer), 0..100. SaCas9 / Cas12a-class /
+  CasX guides (and SpCas9-NAG / -NGA) carry no `onTargetScore`; so do guides without 4 nt / 3 nt of flank.
+- **[C# API]** `CrisprDesigner.DesignGuideRnas` (`GuideRnaParameters.Ranking = GuideRnaRanking.OnTargetRuleSet2`;
+  `GuideRnaCandidate.OnTargetScore`; standalone `CrisprDesigner.CalculateOnTargetRuleSet2` /
+  `CalculateOnTargetDoench2014`) → `CrisprDesigner.FindOffTargets` →
+  `CrisprDesigner.CalculateMitSpecificityScore` / `CrisprDesigner.CalculateCfdSpecificityScore`.
+- **Use a published aggregate, not the heuristic.** `crispr_mit_specificity_score` is MIT/Hsu 2013
+  (CRISPOR `calcMitGuideScore`, per-hit Hsu model; SaCas9 via Tycko 2018) and
+  `crispr_cfd_specificity_score` is Doench 2016 CFD — both reproduce CRISPOR numerically. Both refuse
+  PAM-before-target systems (Cas12a-class, CasX) instead of inventing a number, and CFD additionally
+  refuses non-20-nt guides. `crispr_specificity_score`
+  (`CrisprDesigner.CalculateHeuristicSpecificityScore`) is **this library's own unsourced convenience
+  heuristic**, kept for coarse triage only: report it as such, never as "the" specificity, and never
+  alongside a published value without saying which is which.
+- Key params: 0-based inclusive region; default system `SpCas9`; `max_mismatches` 0..5 (default 3 for
+  `find_off_targets`, 4 — the reference's default — for the published aggregates). Pass
+  `include_alternative_pams=true` to `crispr_mit_specificity_score` to also count the alternative-PAM
+  off-targets — NAG and NGA for SpCas9 at CRISPOR's ×0.2 weight, NNGRRN for SaCas9 unweighted (the
+  reference weights only NGG searches); without it the scan sees the one system's PAM only and the guide
+  looks more specific than in the reference. `crispr_cfd_specificity_score` takes the same flag (NAG/NGA, each hit scored by its own PAM, no ×0.2). Both published aggregates also take `on_target_start`/`on_target_end` (0-based, end-exclusive, protospacer+PAM): by default the first exact match is the on-target (CRISPOR's auto-ontarget mode) and every further perfect match is scored as an off-target; with an interval the exact hits inside it are the on-target. Both also take `max_occurrences` (default 60000, CRISPOR's MAXOCC): a repeat guide with more alignments than that scores 0. The heuristic's own fixed internals: maxMismatches=4, seed =
+  PAM-proximal 12 bp. Naive O(genome×guide) scan — a screen, not a genome-wide off-target caller.
+- **Provenance:** design_guide_rnas (ranking) → find_off_targets → crispr_mit_specificity_score (and/or
+  crispr_cfd_specificity_score) per guide, + system + params; name the model behind every number
+  (Rule Set 2 for `onTargetScore`, MIT/CFD for specificity, "heuristic" for `score`).
 
 ### (c) Codon-optimize a CDS for a target organism
 Goal: raise CAI for the host while staying in a GC band; report CAI/GC before→after.
@@ -84,15 +110,26 @@ Goal: raise CAI for the host while staying in a GC band; report CAI/GC before→
 - **[C# API]** `CodonOptimizer.OptimizeSequence`; standalone CAI via `CodonUsageAnalyzer.CalculateCai`
   or `CodonOptimizer.CalculateCAI` (organism table).
 - Key params: presets `EColiK12`/`Yeast`/`Human` (or custom RNA table); strategy default `BalancedOptimization`
-  (`MaximizeCAI` deterministic; `HarmonizeExpression` **non-deterministic** — set seed/repeat); GC band default 0.40–0.60.
+  (all strategies deterministic; `HarmonizeExpression` = DNA Chisel match-codon-usage allocation); GC band default 0.40–0.60;
+  `genetic_code` (NCBI table, default 1) for non-standard-code genes (e.g. 2 = vertebrate mitochondrial).
 - **Provenance:** optimize_codons(preset, strategy, GC band) → report ΔCAI, ΔGC, changedCodons.
 
 ### (d) Restriction analysis: find sites / simulate digest
 Goal: locate cut sites for chosen enzymes and produce fragment list.
 - **[MCP]** `find_restriction_sites`(sequence, enzyme_names) → `restriction_digest`(sequence, enzyme_names)
   → `digest_summary`; choose enzymes with `compatible_enzymes` / `get_enzyme`.
-- **[C# API]** `RestrictionAnalyzer.FindSites` → `RestrictionAnalyzer.Digest` → `RestrictionAnalyzer.GetDigestSummary`.
-- Key params: linear molecule; `k` distinct forward cuts → `k+1` fragments. Site positions are 0-based.
+- **[C# API]** `RestrictionAnalyzer.FindSites` → `RestrictionAnalyzer.Digest` → `RestrictionAnalyzer.GetDigestSummary`
+  (the `MoleculeTopology` overloads take `Circular`).
+- Key params: **`topology`** (`Linear` default | `Circular`) — set **`topology = Circular` for a plasmid**: it finds
+  origin-spanning sites, and `k` cuts then give `k` fragments (linear: `k+1`). Every site / digest tool takes it
+  (`find_restriction_sites`, `find_all_restriction_sites`, `restriction_digest`, `partial_digest`,
+  `digest_summary`, `restriction_map`). Site positions are 0-based.
+- Optional `methylation` (`none` default | `dam` | `dcm` | `dam+dcm` | `emboss`) on `find_restriction_sites`,
+  `restriction_digest`, `digest_summary`, `restriction_map`, `partial_digest`, `find_all_restriction_sites` drops every site whose recognition window covers a
+  base the methylase set methylates (EMBOSS `restrict -methylation`; a window rule, not an enzyme-sensitivity
+  table). Off by default.
+- Enzyme names resolve against all 754 REBASE enzymes with a defined cut (BsaI, BaeI, …); listing tools
+  default to the 39 common enzymes — pass `enzyme_set: "rebase"` for the full set.
 - **Provenance:** find_restriction_sites(enzymes) → restriction_digest(enzymes) → fragment table.
 
 ### (e) Probe design + salt-corrected Tm

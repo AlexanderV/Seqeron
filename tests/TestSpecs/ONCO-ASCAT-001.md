@@ -53,7 +53,7 @@
 
 | Method | Class | Type | Notes |
 |--------|-------|------|-------|
-| `SegmentAlleleSpecific` | OncologyAnalyzer | **Canonical** | PCF/CBS-style mean-shift segmentation of per-locus logR/BAF |
+| `SegmentAlleleSpecific` | OncologyAnalyzer | **Delegate** | ≡ `SegmentAlleleSpecificAspcf(loci, 70)` since B24 F35 (former unsourced greedy heuristic removed; thresholds ignored) |
 | `FitPurityPloidy` | OncologyAnalyzer | **Canonical** | ASCAT grid fit; recovers ρ, ψ, integer (nA,nB) |
 | `DeriveMultiplicity` | OncologyAnalyzer | **Canonical** | McGranahan n_mut rounding/clamp |
 | `SegmentAlleleSpecificAspcf` | OncologyAnalyzer | **Canonical** | ASPCF penalised-least-squares (PCF DP) joint logR/BAF segmentation [6][7] |
@@ -70,9 +70,9 @@
 | INV-2 | Recovered ρ, ψ equal planted ρ₀, ψ₀ within the grid step | Yes | source 1 |
 | INV-3 | Derived multiplicity ∈ [1, majorCopyNumber] | Yes | sources 3, 4 |
 | INV-4 | End-to-end CCF of a planted clonal mutation = 1.0 (within tolerance) | Yes | sources 3, 5 |
-| INV-5 | Segment count = number of distinct mean-shift runs; breakpoints at planted change positions | Yes | source 1 (segmentation) |
+| INV-5 | Segmentation = ascat.aspcf output (breakpoints at the R-verified positions); `SegmentAlleleSpecific` ≡ ASPCF at γ = 70 (F35) | Yes | source 2 (R run) |
 | INV-6 | GoF percentage ≤ 100; distance at true (ρ,ψ) ≤ distance at a wrong (ρ,ψ) | Yes | source 2 |
-| INV-7 | ASPCF penalised cost is the global minimum: ≤ greedy cost on the same track | Yes | source 6 |
+| INV-7 | ASPCF penalised cost is the global minimum over segmentations of the track (pinned by the R-locked outputs) | Yes | source 6 |
 | INV-8 | ASPCF: γ→large ⇒ 1 segment; small γ recovers each level; no segment crosses a chromosome | Yes | source 6 |
 | INV-9 | Sub-clonal state fractions sum to 1; integer (nA,nB) ⇒ single clonal state (f=1) | Yes | source 8 |
 
@@ -84,7 +84,8 @@
 
 | ID | Test Case | Description | Expected Outcome | Evidence |
 |----|-----------|-------------|------------------|----------|
-| M1 | Segmentation recovers breakpoints | Per-locus logR with two clear levels and a chromosome change | 3 segments at the planted boundaries | source 1 |
+| M1 | `SegmentAlleleSpecific` = ascat.aspcf (penalty 70) (F35) | M-ASPCF-1 noisy step track, logRChangeThreshold 0.5 | 2 segments (40/40), logR −0.023564999999999999/0.60321000000000002, BAF 0.5/0.75129407874999998; equal to `SegmentAlleleSpecificAspcf(…, 70)` | source 2 (R run) |
+| M1b | Legacy thresholds ignored (F35) | same track, thresholds (0.05, 0.01, 1) vs (10, 5, 50) | identical segmentations | F35 delegation |
 | M2 | Grid fit recovers ρ₀, ψ₀ | Synthesise (r,b) from ρ₀=0.80, ψ₀=2.2, segs {1+1,2+0,1+1,2+1,1+1} | Purity=0.80, Ploidy=2.2 | source 1/2 |
 | M3 | Grid fit recovers integer (nA,nB) | Same input as M2 | Segments: (1,1),(2,0),(1,1),(2,1),(1,1) | source 2 |
 | M4 | GoF ≈ 100% at true params | Same input as M2 | GoodnessOfFit ≈ 100 (distance ≈ 0) | source 2 |
@@ -93,8 +94,9 @@
 | M7 | Multiplicity clamped to major CN | High VAF that rounds above major CN | result = majorCopyNumber | source 3/4 |
 | M8 | Multiplicity clamped to ≥ 1 | Tiny VAF that rounds to 0 | result = 1 | source 3/4 |
 | M9 | End-to-end CCF = 1.0 (clonal) | Fit → derive CN, multiplicity → EstimateCcf on VAF=0.40 | CCF = 1.0 | source 3/5 |
+| M11 | Multiplicity exact .5 ties → half-to-even (FIN-B24 F26) | (VAF,ρ,N_T,major) = (0.625,1,4,4); (0.375,0.5,2,2); (0.875,1,4,4); (0.5625,1,8,8); (0.125,1,4,4) | 2; 2; 4; 4; 1 (R `expected_mutant_copies` output) | facets-suite `ccf-annotate-maf.R` |
 | M10 | DeriveMultiplicity invalid args throw | vaf>1, purity≤0, CN<1, major∉[1,CN] | ArgumentOutOfRangeException | contract |
-| M11 | SegmentAlleleSpecific invalid args throw | null loci, threshold≤0, minLoci<1 | ArgumentNullException / ArgumentOutOfRangeException | contract |
+| M11 | SegmentAlleleSpecific invalid args throw | null loci, threshold≤0, minLoci<1; NaN/+∞ logR, BAF −0.3 / 1.5 (F35) | ArgumentNullException / ArgumentOutOfRangeException / ArgumentException | contract; ASPCF input contract |
 | M12 | FitPurityPloidy invalid args throw | null/empty segments, bad grid bounds | ArgumentNullException / ArgumentException / ArgumentOutOfRangeException | contract |
 | M-ASPCF-1 | ASPCF = ascat.aspcf on a noisy step | 80 loci, logR 0→0.6, BAF balanced→0.5±0.25, penalty 70 | 2 segments (40/40), logR −0.023565/0.60321, BAF 0.5 (shrunk)/0.751294079 | source 2 (R run) |
 | M-ASPCF-2 | noise-free track | 10×0.0 + 10×1.0, penalty 0.5 | 1 segment (MAD 0 ⇒ window skipped), logR 0.5 | source 2 (R run) |
@@ -137,7 +139,7 @@
 
 | Area / Test Case ID | Status | Notes |
 |---------------------|--------|-------|
-| M1–M12, S1–S3, C1 | ✅ Covered | prior session (greedy segmentation, fit, multiplicity) |
+| M1–M12, S1–S3, C1 | ✅ Covered | prior session (greedy segmentation, fit, multiplicity); M1/M11 re-locked to ASPCF by F35 (§9) |
 | M-ASPCF-1..3, S-ASPCF-1..2, C-ASPCF-1 | ❌ Missing | new ASPCF half |
 | M-SUB-1..2, C-SUB-1 | ❌ Missing | new sub-clonal half |
 
@@ -236,3 +238,209 @@ Assumptions 1–2 affect only test-input synthesis (not production code) and are
 - Tests: unit (`OncologyAnalyzer_AscatDerivation_Tests.cs`) M-ASCAT-1..4, M-ASPCF-1..3, S-ASPCF-1..4, M-SUB-1..3;
   fuzz (`OncologyAscatFuzzTests.cs`) single-segment genomes ⇒ ASCAT NA, random genomes ⇒ well-formed or NA;
   properties (`OncologyProperties.cs`) ranges/determinism over found optima; metamorphic ASPCF logR-shift on a noisy track.
+
+## 9. FIN-B24 F35 — `SegmentAlleleSpecific` delegates to ASPCF (2026-10-09)
+
+- The unsourced greedy mean-shift heuristic behind `SegmentAlleleSpecific` was removed; the method now returns
+  `SegmentAlleleSpecificAspcf(loci, AspcfDefaultPenalty = 70)` (ascat.aspcf port, R-verified F13). Legacy parameters
+  `logRChangeThreshold` / `bafChangeThreshold` / `minLociPerSegment` are ignored (still range-checked). Loci with
+  NaN/±∞ logR or BAF ∉ [0, 1] → `ArgumentException` (ASPCF input contract).
+- M1 now locks the R ascat.aspcf output of the M-ASPCF-1 track through `SegmentAlleleSpecific`; M1b: thresholds
+  ignored; M11 extended with the ASPCF validation.
+- Fit tests (M2–M4, M9, S1–S3) and the Algebraic / Combinatorial / Metamorphic allele-swap fixtures place each planted
+  segment on its own chromosome (5 loci < kmin 6 ⇒ one ascat.aspcf segment per chromosome, S-ASPCF-3; noise-free
+  data has MAD 0 ⇒ no in-chromosome breakpoint, S-ASPCF-2) — the planted fit expectations are unchanged.
+- Heavy-tier contracts changed: Fuzz `SegmentAlleleSpecific_LohVsBalancedSameLogR_SplitsOnBaf` (now the R-locked
+  80-locus LOH track ⇒ 2 segments, 40/40), `SegmentAlleleSpecific_RandomSignal_PreservesLocusCountNoMalformedSummary`
+  (out-of-domain BAF on every 5th seed ⇒ `ArgumentException`; in-domain ⇒ invariants + BAF ∈ [0.5, 1]);
+  Metamorphic `Ascat_ConstantLogRShift_PreservesGreedyBreakpoints` → `…PreservesSegmentAlleleSpecificBreakpoints`
+  (noisy track, R-verified shifts).
+
+## 10. FIN-B24 F36 — `ascat.aspcf` with germline genotypes (2026-10-10)
+
+Test file: `Unit/Oncology/OncologyAnalyzer_AscatGermlineHomozygous_Tests.cs`. Inputs: genomes G1–G3 from the shared
+MINSTD generator (Evidence § F36); expected values = output of the original R `ascat.aspcf` (R 4.3.3).
+
+| ID | Test | Input | Expected | Evidence |
+|----|------|-------|----------|----------|
+| M-ASPCF-G1 | homozygous deletion inside a homozygous stretch | G1 (1080 probes, 608 het) | 11 logR segments = R (extents, levels ≤ 1e-14, first-het BAF ≤ 1e-15); deletion 281000–330000 level −1.9130208073104829, no BAF; chr3 (no het) one segment, no BAF | source 2 (R run) |
+| M-ASPCF-G2 | CN breakpoint inside a homozygous gap | G2 (1002 probes) | 7 segments = R; chr1 split at probe 240; homozygous-only chr4 no BAF; 12-probe chr3 | source 2 (R run) |
+| M-ASPCF-G3 | focal gain inside a homozygous stretch | G3 (1100 probes) | 8 segments = R; 481000–540000 level 0.26558251092493651, no BAF | source 2 (R run) |
+| S-ASPCF-G1 | per-locus tracks | G1 | segments tile all 1080 loci; BAF NaN exactly at homozygous loci; every locus carries its segment level | ascat.aspcf output contract |
+| S-ASPCF-G2 | all heterozygous ⇒ het-only overload | het subsets of G1–G3 | segments bit-identical to `SegmentAlleleSpecificAspcf(loci, 70)` | F13 behaviour preserved |
+| S-ASPCF-G3 | homozygous probes carry CN information | G1 with homozygous probes dropped | het-only overload has no level < −1; germline overload finds the deletion at 281000 | source 2 (R run) |
+| C-ASPCF-G1 | invalid arguments | null loci / genotypes, length mismatch, het BAF 1.5 (het BAF NaN accepted since F59), +∞ logR, penalty 0; homozygous BAF NaN accepted | ArgumentNullException / ArgumentException / ArgumentOutOfRangeException | contract |
+
+## 11. FIN-B24 F37 — runASCAT with homozygous segments (2026-10-10)
+
+Same file and genomes as §10; expected values = original R `ascat.runAscat(gamma = 1)` on the `ascat.aspcf` output.
+
+| ID | Test | Input | Expected | Evidence |
+|----|------|-------|----------|----------|
+| M-ASCAT-G1 | end-to-end fit, homozygous deletion + no-het chromosome | G1 | ρ 0.7, ψ 2.45, ploidy 2.4722222222222223, GoF 99.937918942624279, seg_raw 1:1 2:1 2:1 0:0 2:1 2:1 1:0 2:2 2:0 3:1 1:1 | source 2 (R run) |
+| M-ASCAT-G2 | breakpoint in homozygous gap, chrX | G2 | ρ 0.53, ψ 2.35, ploidy 2.1816367265469063, GoF 99.634551649302338, 1:1 3:0 1:0 2:1 2:2 1:0 1:1 | source 2 (R run) |
+| M-ASCAT-G3 | focal gain in homozygous stretch | G3 | ρ 0.92, ψ 3.15, ploidy 3.3818181818181818, GoF 98.658353206884712, 2:2 3:1 2:0 4:0 2:0 3:2 2:1 3:0 | source 2 (R run) |
+| S-ASCAT-G1 | segment without het probes | G1 | minor 0 on every no-BAF segment; chr3 2:0 (`bafke = 0`) | source 2 |
+| S-ASCAT-G2 | ploidy over all probes | G1–G3 | = LocusCount-weighted mean; het-probe mean = R 2.6134868421052633 / 2.2716666666666665 / 3.539047619047619 (≠ ploidy) | source 2 (R run) |
+| S-ASCAT-G3 | manual (ρ, ψ) at the optimum | G3 | `EvaluatePurityPloidyFromAspcf` = fit (GoF, segments, ploidy); `TryFit…` true | rho_manual path |
+| S-ASCAT-G4 | all heterozygous ⇒ summary fit | het subsets of G1–G3 | identical ρ, ψ, GoF, ploidy, segments to `FitPurityPloidy(SegmentAlleleSpecificAspcf(…))` | F12 behaviour preserved |
+| C-ASCAT-G1 | invalid arguments | null; homozygous-only; X-only; purityStep 0; ρ 1.5 | ArgumentNullException / ArgumentException / ArgumentOutOfRangeException | contract |
+
+## 12. FIN-B24 F38 — runASCAT sex-chromosome model: male haploid X/Y (2026-10-10)
+
+File `OncologyAnalyzer_AscatSexChromosome_Tests.cs`; genomes M1–M3 = G1–G3 autosomes + X (PAR / non-PAR) and Y blocks
+(generator of §10 plus per-block positions). Expected values = original R `runASCAT` (gamma = 1) with
+`ASCATobj$gender` / `ASCATobj$X_nonPAR` set after `ascat.aspcf(X_nonPAR = NULL)`. Models: M1 `Male` (X_nonPAR NULL),
+M2 XY with custom non-PAR [890000, 1090000], M3 `MaleWithXNonPar(GRCh37)` (hg19 constants).
+
+| ID | Test | Input | Expected | Evidence |
+|----|------|-------|----------|----------|
+| M-ASCAT-X1 | germline-aware fit, XY | M1 `Male` | ρ 0.7, ψ 2.45, ploidy 2.181159420289855, GoF 99.937918942624279; X 1:0 2:0 2:0, Y 1:0 1:0 0:0 | source 2 (R run) |
+| M-ASCAT-X2 | germline-aware fit, XY, custom non-PAR | M2 | ρ 0.53, ψ 2.35, ploidy 2.0981228668941978; X 3:0 3:0 1:0 2:0 2:1 (PAR1 segment 17001/34001 > ½ ⇒ haploid; PAR2 12001/45001 ⇒ diploid), Y 1:0 | source 2 (R run) |
+| M-ASCAT-X3 | germline-aware fit, XY, hg19 non-PAR | M3 | ρ 0.92, ψ 3.15, ploidy 2.9482758620689653; X 1:1 1:1 1:0 3:0 1:1, Y 2:0 0:0 | source 2 (R run) |
+| M-ASCAT-X4..X6 | same genomes, XX | M1–M3 `Female` | ploidy 2.1775362318840581 / 1.8805460750853242 / 2.9482758620689653; ρ, ψ, GoF as XY | source 2 (R run, gender "XX") |
+| M-ASCAT-X7..X8 | XY without X_nonPAR (whole X haploid) | M2, M3 `Male` | ploidy 2.1365187713310578 (PAR2 4:0) / 2.9482758620689653 (PAR 2:0) | source 2 (R run) |
+| M-ASCAT-X9..X14 | summary path (`FitPurityPloidy`), XY and XX | het-only M1–M3 | M1 2.4579831932773111 (XY = XX), M2 2.3914529914529914 / 2.3384615384615386, M3 ρ 0.91 ψ 3.2 3.4351687388987568 (X 100000–155135000 2:0 vs 1:1) | source 2 (R run) |
+| S-ASCAT-X1 | gender-less = `Female` | M1–M3, all six entry points | bit-identical fit and segments | default unchanged |
+| S-ASCAT-X2 | sex model does not change the fit | M1–M3 | ρ, ψ, GoF, non-aberrant and autosomal segments identical; X/Y nB = 0 | `autoprobes` |
+| S-ASCAT-X3 | manual (ρ, ψ) with a sex model | M2, het-only M3 | = fit; `TryFit…` overloads true | rho_manual path |
+| S-ASCAT-X4 | hand-computed equations + 50 % rule | ρ 0.5, ψ 2, r 0 | haploid 3:0, diploid 1:1; overlap 5/10 ⇒ diploid, 6/10 ⇒ haploid; Y always haploid; XX ignores X_nonPAR; ploidy 8/3 | `diploidprobes_fixnonPAR` |
+| S-ASCAT-X5 | haploid deletion | Y r = −5 | 0:0 (nAraw −0.875) | negative-value correction |
+| S-ASCAT-X6 | presets | — | hg19 (2699521, 154931043), hg38 (2781480, 155701382), CHM13 (2394411, 153925834) | ascat.loadData.R |
+| C-ASCAT-X1 | invalid arguments | Start > End; undefined gender / genome; null model on all six overloads | ArgumentOutOfRangeException / ArgumentNullException | contract |
+
+## 13. FIN-B24 F39 — Battenberg per-SNP clonality t-test (2026-10-10)
+
+File `OncologyAnalyzer_AscatDerivation_Tests.cs` (region `FitSubclonalCopyNumberWithSnpTest`) and
+`Unit/Core/StatisticsHelper_StudentT_Tests.cs`. Expected values = Battenberg `determine_copynumber` sourced verbatim
+(R 4.3.3; maxdist 0.01, siglevel 0.05) and R `pbeta` / `pt` / `t.test` (Evidence § F39).
+
+| ID | Test | Input | Expected | Evidence |
+|----|------|-------|----------|----------|
+| M-SUBT-1 | Battenberg rows | 18 segments of 4 genomes (G1S28/40–45, G2S15/41/42, G3S31/40–42, G4S27/41/42/44) | R pval (≤ 1e−12 rel), clonal/sub-clonal call, states, fractions | R run |
+| M-SUBT-2 | t-test overrides maxdist | G1S41 | maxdist-only sub-clonal, Battenberg clonal 2:1 (p 0.5609) | R run |
+| M-SUBT-3 | siglevel / maxdist parameters | G1S28 siglevel 0.1; G1S45 maxdist 0.001 / 0 | (2,0)@0.61666732876527997 + (2,1); p 0.46228196278297101 clonal | R run |
+| M-SUBT-4 | SNP BAFs not mirrored | BAFseg < 0.5, SNPs 1 − G1S42 | p 1.7441626943676701e−09, (2,0)@0.15605024544591201 | R run |
+| S-SUBT-5 | constant / single SNP ≡ maxdist-only overload | 3 segments | fits identical | `sd == 0 ⇒ pval 0` |
+| C-SUBT-1 | invalid arguments | null list / SNP list, SNP BAF 1.2 / NaN, ρ 0, siglevel 1.5, maxdist −0.1 | ArgumentNullException / ArgumentException / ArgumentOutOfRangeException | contract |
+| M-STAT-T1 | `RegularizedIncompleteBeta` | 9 (x, a, b) incl. a = b = 10⁴, a = 500 b = ½ | R `pbeta` ≤ 1e−13 rel | R run |
+| M-STAT-T2 | `StudentTCdf` | 11 (t, ν) incl. ν 2·10⁵, P 1.7e−24 | R `pt` ≤ 1e−13 rel | R run |
+| M-STAT-T3 | `OneSampleTTestPValue` | 5 samples | R `t.test(x, mu)$p.value` ≤ 1e−12 rel; n < 2 / constant ⇒ NaN (R stops) | R run |
+
+## 14. FIN-B24 F40 — Battenberg phased-BAF segmentation (2026-10-10)
+
+File `OncologyAnalyzer_BattenbergPhasedSegmentation_Tests.cs` and `Unit/Core/StatisticsHelper_QuantileType7_Tests.cs`.
+Expected values = Battenberg `segment.baf.phased` / `determine_copynumber` sourced verbatim (R 4.3.3), inputs from a
+deterministic LCG generator reproduced in the test (Evidence § F40).
+
+| ID | Test | Input | Expected | Evidence |
+|----|------|-------|----------|----------|
+| M-PHSEG-1 | `runFastPcf` < 1000 SNPs | t1 (300 SNPs, 15-SNP switched blocks) | 3 segments, BAFseg ≤ 1e−12, Σ ≤ 1e−12 rel | R run |
+| M-PHSEG-2 | 1000–15 000 SNPs, ≥ 3 Mb gap, < 50-SNP chromosome, options 3 / 1 / 2 | t2 | 6 segments each option | R run |
+| M-PHSEG-3 | `runPcfSubset` ≥ 15 000 SNPs | t3 (16 000) | 5 segments | R run |
+| M-PHSEG-4 | prior breakpoints, gamma 5, kmin 5; no_segmentation | t4 | 4 segments; 1 segment 0.63947307586669999 | R run |
+| M-PHSEG-5 | noisy track (sd 0.1, 7-SNP blocks) | t5 | 4 segments at R's breakpoints | R run |
+| M-PHSEG-6 | end-to-end `BuildBattenbergSegments` → `FitSubclonalCopyNumberWithSnpTest` | e1 (t1, ρ 0.7, ψ 2.6, Inf probe), e2 (t2, ρ 0.85, ψ 3) | 9/9 segments: extents, LogR, pval, states, fractions | R run |
+| S-PHSEG-7 | NA dropped; < 50 SNPs ⇒ mean phase, median segment BAF | 4 SNPs | phased (0.8, 0.7, 0.1), BAFseg 0.7 | `run_pcf` code |
+| S-PHSEG-8 | option 3 keeps mean when median ∈ {0, 1} | (1, 1, 0.7) | 0.9 (option 1: 1) | `run_pcf` code |
+| S-PHSEG-9 | `BuildBattenbergSegments`: no finite logR ⇒ 0; chromosome change splits | 3 rows | 2 segments, LogR 0 | `determine_copynumber` code |
+| C-PHSEG-1 | invalid arguments | null, BAF 1.2, kmin 0, phasekmin 15, gamma NaN, option 4, BAFseg 1.5 | ArgumentNullException / ArgumentException / ArgumentOutOfRangeException | contract |
+| M-STAT-Q1 | `SampleQuantileType7` | 7-value sample, p ∈ {0, 0.05, 0.25, 0.5, 0.85, 0.88, 1}; {3,1,4,1,5} p 0.85 | R `quantile` ≤ 1e−15 | R run |
+
+## 15. FIN-B24 F41 — Battenberg solutions A–F, SDfrac and bootstrap CIs (2026-10-10)
+
+File `OncologyAnalyzer_BattenbergBootstrap_Tests.cs`. Expected values = `set.seed(seed); determine_copynumber(...)`
+sourced verbatim (R 4.3.3), every column %.17g (Evidence § F41).
+
+| ID | Test | Input | Expected | Evidence |
+|----|------|-------|----------|----------|
+| M-BOOT-1 | single segments, all 60 columns | s1, s1n500, s1n20, s2, s3, s4, s5 (seeds 7, 3, −12345, 2³¹−1, 0) | CNs exact, τ/SDfrac/SDfrac_BS/bounds ≤ 1e−12; NA solution F last; NA bounds for noperms < 975 / < 25; 1 SNP ⇒ SDfrac NA, SD_BS 0 | R run |
+| M-BOOT-2 | RNG stream across segments | F40 tracks e1 (seed 4711), e2 (seed 99) | every sub-clonal row ≤ 1e−12; clonal rows no solutions | R run |
+| M-BOOT-3 | statistical agreement, seeds disjoint from R | s4, 100 C# seeds vs R 400 seeds | means of SD_BS / bounds within 5 MC standard errors; SDfrac seed-independent | R run |
+| S-BOOT-4 | reproducibility, clonal ⇒ empty, guards | s1 twice; within-maxdist segment; permutations 0, null, ρ 0 | identical; Solutions empty; ArgumentOutOfRange / ArgumentNull | contract |
+
+## 16. FIN-B24 F53 — multi-sample `ascat.asmultipcf` (2026-10-10)
+
+File `OncologyAnalyzer_AscatAsMultiPcf_Tests.cs` (+ S-ASPCF-G4 in `OncologyAnalyzer_AscatGermlineHomozygous_Tests.cs`).
+Expected values = `ascat.asmultipcf(...)` sourced verbatim (R 4.3.3) on the MINSTD cohorts C1–C5 (Evidence § F53).
+
+| ID | Test | Input | Expected | Evidence |
+|----|------|-------|----------|----------|
+| M-AMPCF-1..14 | `SegmentAlleleSpecificAsMultiPcf_MatchesAscatAsMultiPcf` | C1 (default, no refine, per-track wsample), C2, C3 (default, no refine, wsample, penalty 25, penalty 0.001 ⇒ ladder), C5 (default, wsample c(1, 4)), C4 6500 probes (exact, fast, fast + wsample) | per-sample segment extents / probe / het counts identical; logR and BAF ≤ 1e−12 (observed ≤ 7.8e−16) | R run |
+| S-AMPCF-1 | refinement removes unsupported breakpoints | C1 | joint: breaks 400, 900 in both; refined: S1 only 900, S2 only 400 | R run |
+| S-AMPCF-2 | R quirk: zero-BAF-weight first block | C1 chr4 (homozygous only) | refine ⇒ 1 level; no refine ⇒ 150 + 150, −1.4828774511765428 | R run |
+| S-AMPCF-3 | output shape, default genotypes | C2 | segments tile 1437 probes; BAF NaN exactly at homozygous probes; null genotypes ≡ all heterozygous | contract |
+| C-AMPCF-1 | guards | 1 sample, single-probe chromosome (R errors), differing probes, genotype / wsample count, wsample ≤ 0, penalty 0 / NaN, het BAF 1.5, +∞ logR (NaN accepted since F59) | `ArgumentException` / `ArgumentOutOfRangeException` / `ArgumentNullException` | R run / contract |
+| S-ASPCF-G4 | F36 last-window `x[n:(n−1)]` | single sample, chr2 of 32 probes | 200 / 100 / 16 / 16 segments, R levels ≤ 1e−14 | R run |
+
+## 17. FIN-B24 F58 — male X non-PAR germline re-genotyping (2026-10-10)
+
+File `OncologyAnalyzer_AscatMaleXNonPar_Tests.cs`. Expected values = `ascat.aspcf` / `ascat.asmultipcf(…, seed)` sourced
+verbatim (R 4.3.3) with `gender = "XY"`, `X_nonPAR` = hg19, on the MINSTD male tracks M1–M4 / K1–K3 (Evidence § F58).
+
+| ID | Test | Input | Expected | Evidence |
+|----|------|-------|----------|----------|
+| M-MALEX-1..7 | `MaleXNonParRegenotyping_MatchesAscat` | M1 (rank, seed 1), M2 (rank, k inside the 167 DIST = 0 ties), M3 (`sample()`, seed 42), M4 (time-type seed 1760090000), K1/K2/K3 (asmultipcf 2/3/2 samples, rank/rank/sample, penalty 10) | re-genotyped X non-PAR probe set identical (bit string); segment extents / probe / het counts identical; logR, BAF ≤ 1e−12 (observed ≤ 5.6e−16) | R run |
+| M-MALEX-8 | `…_SelectedCount_IsAutosomeMatchedFraction` | M1 | round(400 · 422/600) = 281 | R run |
+| S-MALEX-1 | inactive model ≡ default overload | M1, Female / Male without X_nonPAR | genotypes, levels, segments identical | source (`!is.null(X_nonPAR) && gender == "XY"`) |
+| S-MALEX-2 | ≤ 5 non-PAR probes | 20 autosomal + 5 X probes | genotypes unchanged | source (`length(nonPAR_index) > 5`) |
+| S-MALEX-3 | seed | M3; null seed | same seed ⇒ same draw, seed 43 differs; null ⇒ current Unix second (`as.integer(Sys.time())`) | source |
+| S-MALEX-4 | no heterozygous autosome, germline BAF | M1 all homozygous | `rank(DIST) <= NA` selects none ⇒ all non-PAR homozygous | source |
+| C-MALEX-1 | guards | null model / spec, germline BAF 1.2, wrong count, `sample()` branch without autosomal het (R: `sample(x, NA)` fails) | `ArgumentNullException` / `ArgumentException` | source / contract |
+
+| M-MALEX-9..11 | `MaleXNonParRegenotyping_AspcfSamples_OneStream_MatchesAscat` (F65) | K1 (2 × XY, rank, seed 1), K2 (XY/XX/XY, rank, seed 2024), K3 (2 × XY, `sample()`, seed 99); `ascat.aspcf` multi-sample, penalty 70 | per sample: re-genotyped set identical; segments identical, levels ≤ 1e−12 | R run (Evidence § F65) |
+| S-MALEX-5 | stream continues (F65) | K2 | sample 1 = single call; sample 3 ≠ fresh-seed call; female sample = plain overload | R run / source |
+| C-MALEX-2 | driver guards (F65) | null list / element, penalty 0, wrong genotype count; empty list | throws; empty result | contract |
+
+## 18. FIN-B24 F59 — missing data (R NA) in `ascat.asmultipcf` / `ascat.aspcf` (2026-10-10)
+
+File `OncologyAnalyzer_AscatMissingData_Tests.cs` (+ C-AMPCF-1 / C-ASPCF-G1 updated: NaN is accepted, +∞ still throws).
+Expected values = R 4.3.3 `ascat.asmultipcf` / `ascat.aspcf` / `ascat.runAscat(gamma = 1)` on the MINSTD cohorts of F53 with
+deterministic NA rules (Evidence § F59).
+
+| ID | Test | Input | Expected | Evidence |
+|----|------|-------|----------|----------|
+| M-ANA-1..6 | `Segmentation_WithMissingData_MatchesAscat` | N1 (scattered NA), N2 (whole-chromosome NA runs), N3 (NA BAF at het probes, all-NA part, single selected site, all-NA logR chromosome); asmultipcf and per-sample aspcf | per probe: logR and mirrored BAF ≤ 1e−12, identical breakpoints, identical NA (no segmented BAF) positions | R run |
+| M-ANA-7..18 | `FitPurityPloidyFromAspcf_WithMissingData_MatchesRunAscat` | the 12 NA tracks with an R solution | purity, ψ, ploidy ≤ 1e−12; goodnessOfFit ≤ 1e−9; seg_raw identical | R run |
+| S-ANA-1 | complete data unchanged | N1 without NA | BAF exactly at heterozygous probes (F53 / F36 / F37 R-locked suites unchanged) | source |
+| S-ANA-2 | whole part missing | N3 chr5 | no NaN level anywhere; asmultipcf: chr5 = previous level (`prevlevel`), no BAF | R run / source |
+| C-ANA-1 | non-finite input | NaN logR / BAF; ±∞ logR / BAF | NaN accepted by both drivers; ±∞ `ArgumentException`; the fastAspcf overload still rejects NaN | source / contract |
+
+## 19. FIN-B24 F60 — Battenberg `merge_segments` / `mask_high_cn_segments` (2026-10-10)
+
+Files `OncologyAnalyzer_BattenbergMergeMask_Tests.cs`, `BattenbergCallSubclonesData.cs` (shared genomes G1–G4 and R
+expectations), `Unit/Core/StatisticsHelper_WelchTTest_Tests.cs`. Expected values = R 4.3.3 + GenomicRanges 1.54.1 running
+Battenberg's `determine_copynumber` → `merge_segments` → `determine_copynumber` → `mask_high_cn_segments` (Evidence § F60).
+
+| ID | Test | Input | Expected | Evidence |
+|----|------|-------|----------|----------|
+| M-MERGE-1..4 | `MergeBattenbergSegments_MatchesR` | G1–G4 (every merge branch; options 2/3/1/3; reordered chromosomes) | first fit = R r1 (≤ 1e−12, pval 1e−9 rel); merged extents/states identical, BAF/LogR ≤ 1e−12; `BAFsegmented` runs identical | R run |
+| M-MASK-1..4 | `MaskHighCopyNumberSegments_MatchesR` | second fit of the merged rows; max state 5 / 250 / 250 / 250 | masked_count, masked_size, masked rows, BAFseg NA count identical | R run |
+| M-MASK-5 | half-open BAFseg mask | G1 (6,1) segment | first SNP keeps BAFseg; default 250 masks nothing | R run / source |
+| M-SEQLVL-1..7 | `BattenbergSeqlevelOrder_MatchesGenomeInfoDb` | 7 name sets | = R `s[rankSeqlevels(s)] <- s` | R run |
+| M-WELCH-1 | `WelchTTestPValue_MatchesRTTest` | 5 sample pairs | R `t.test(x, y)$p.value` ≤ 1e−13 rel | R run |
+| C-MERGE-1 | constant data / invalid input | identical logR/BAF; null; ±∞ logR; chromosome without calls/probes; option 4; ρ = 0 | `InvalidOperationException` (R stops); `ArgumentNullException` / `ArgumentException` / `ArgumentOutOfRangeException` | source / contract |
+| C-WELCH-1 | R error cases | constant; n < 2; NaN / ∞ | NaN; NaN; `ArgumentException` | R run / contract |
+
+## 20. FIN-B24 F61 — Battenberg `callSubclones` driver (2026-10-10)
+
+File `OncologyAnalyzer_BattenbergCallSubclones_Tests.cs` (data: `BattenbergCallSubclonesData.cs`, genomes G1–G4 of §19).
+Expected values = R 4.3.3 `set.seed(rseed); determine_copynumber; merge_segments; determine_copynumber;
+mask_high_cn_segments` (Evidence § F61).
+
+| ID | Test | Input | Expected | Evidence |
+|----|------|-------|----------|----------|
+| M-CALLSUB-1..4 | `CallBattenbergSubclones_MatchesR` | G1–G4 | initial table and final masked table: every column ≤ 1e−12 (pval 1e−9 rel), incl. the second fit's bootstrap columns; merged extents; masked_count / masked_size | R run |
+| M-CALLSUB-5 | stream continuation | G1 | τ equals a re-seeded second fit, SDfrac_A_BS differs from it and equals R's 0.039088938618727802 | R run |
+| C-CALLSUB-1 | invalid input | null rows / logR; permutations 0; ρ 1.5 | `ArgumentNullException`; `ArgumentOutOfRangeException` | contract |
+
+
+## 21. FIN-B24 F66 — R `mean()` bit-identical in the ASPCF ports (2026-10-10)
+
+`Mean` / `MeanNaRm` / fastAspcf μ = `StatisticsHelper.ExtendedPrecisionMean` (R `real_mean`, long double; Evidence § F66).
+
+| ID | Test | Expected | Evidence |
+|----|------|----------|----------|
+| M-MEAN-1 | `ExtendedPrecisionMean_MatchesRMean` (StatisticsHelper_RSumDbinom_Tests) | c(0.28, 0.01, 0.37, 0.96) → 0.40499999999999997; two 6-value vectors where double refinement is 1 ulp off; 0.1/0.2/0.3 → 0.20000000000000001; overflow fallback c(1e308, 1e308) → 1e308 | R 4.3.3 |
+| M-MEAN-2 | `ExtendedPrecisionMean_SpecialValues_MatchR` | na.rm skips NaN; empty / all-NA → NaN; NA propagates; Inf; Inf − Inf → NaN | R 4.3.3 |
+| M-MEAN-3 | existing ASPCF / asmultipcf / male-X / germline / NA segment-level locks and runASCAT XX/XY/germline fits | now exact equality (formerly 1e−15…1e−12) | R runs (§§ 6–19) |

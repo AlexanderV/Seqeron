@@ -158,6 +158,24 @@ WebSearch result extract)
 - **Applied Biosystems Primer Express TaqMan guidelines** (WebSearch extracts; Thermo/Fisher PDFs blocked):
   "the melting temperature (Tm) should be 68 to 70 °C when using Primer Express software", "Keep G-C content in the
   30-80% range", "runs of four or more Gs should be avoided", "as short as possible, without being shorter than 13 nucleotides".
+- **OligoArray 2.0** (Rouillard, Zuker & Gulari 2003, NAR 31:3057; WebSearch extracts — academic.oup.com, PMC,
+  ResearchGate and the umich OligoArray site blocked; audit round 3, A3-10): "This Tm is computed using the nearest
+  neighbor (NN) model (10) with Na+ and DNA concentrations set to 1 M and 1 µM" (the PDF extract reads 1 mM; 1 µM taken,
+  1 mM oligo is not a hybridization condition); A. thaliana design: length 45–47 nt, Tm range 82–90 °C; OligoArray 2.1
+  installation example `-l 45 -L 47 -t 82 -T 88`. Microarray preset: 1 M / 1 µM, NN over the whole oligo, Tm 82–90 °C.
+  Primer3 `oligotm.c` `seqtm` (raw.githubusercontent.com): `if (len > nn_max_len) long_seq_tm … else oligotm`.
+  Cross-check: primer3-py 2.3.1 `calc_tm(AGTCCTCGATCCGTTCCTAATAAGGAATGGTGATTCCCTGTCATACCAAT, mv 1000, dv 0, dntp 0,
+  dna 1000, max_nn_length 60)` = 86.25468810488348 = Biopython `Tm_NN(DNA_NN3, Na 1000, dnac1 = dnac2 = 500,
+  saltcorr 0)` 86.2547; old window max (60-mer, 60 % G+C, 50 mM, long_seq_tm) 74.5029020719779 < 75.
+- **`DesignProbes` ranking (audit round 3, A3-11)**: Primer3 `src/libprimer3.cc` (raw.githubusercontent.com/primer3-org/primer3/main)
+  `p_obj_fn` OT_INTL branch (`o_args.weights.temp_gt/temp_lt` × |Tm − opt_tm|, `length_lt/length_gt` × |len − opt_size|, …),
+  `primer_rec_comp` (quality ↑, start ↓, length ↑), `_pr_data_control` ("PRIMER_INTERNAL_{OPT,DEFAULT}_SIZE > MAX_SIZE" /
+  "< MIN_SIZE", "Optimum internal oligo Tm lower than minimum or higher than maximum"). The default additive score of
+  `DesignProbes` has no published source (library heuristic); `ProbeRanking.Primer3Penalty` is the sourced option. Cross-check:
+  primer3-py 2.3.1 `design_primers` (pick_hyb_probe_only, PRIMER_PICK_INTERNAL_OLIGO, size 18–27, Tm 57–63, GC 20–80, poly-X 5,
+  PRIMER_NUM_RETURN 12) on 4 random 70-nt templates (random.seed(20261008)): 48/48 Primer3 probes are `DesignProbes` candidates
+  with identical PRIMER_INTERNAL_n_PENALTY and Tm (|Δ| ≤ 1e-9, e.g. 27/22 0.007361159225695246, 14/19 0.007730506722964492)
+  and order (ties 16/20 before 15/20 at 2.374406691313709, 22/24 before 21/24 at 2.6378890608341408).
 - **Kane et al. 2000** (NAR 28:4552; WebSearch extracts): 50-mer probes; > 75 % identity or a ≥ 15-nt contiguous stretch to
   non-targets may cross-hybridize (specificity rule — PROBE-VALID-001 scope).
 - **Molecular beacons** (Tyagi & Kramer 1996; Marras/Vet design protocol; WebSearch extracts, publisher pages blocked):
@@ -165,3 +183,52 @@ WebSearch result extract)
 - **ε260 nearest-neighbour tables** (Cantor, Warshaw & Shapiro 1970; Warshaw & Tinoco 1966; WebSearch extracts of
   vendor/ATDBio tables — ATDBio/TriLink pages blocked): DNA ApA 27400, ApC 21200, ApG 25000, CpC 14600, CpG 18000,
   CpT 15200 …; RNA ApA 27400, ApC 21000, ApG 25000, ApU 24000, CpC 14200, CpG 17800, CpU 16200 …
+
+## 2026-10-08 review (B07, F59, audit round 4 A4-1) — genome-index overload walks all candidates
+
+- **Contract source opened:** `ProbeDesigner.DesignProbes(string, ISuffixTree, ProbeParameters?, int, bool)` XML
+  ("Maximum number of probes to return", "If true, only return probes unique in the genome") and
+  `docs/algorithms/MolTools/Hybridization_Probe_Design.md` §3.1/§3.3/§5.3 (which admitted the `maxProbes * 5`
+  shortlist as an intentional simplification). No external reference defines this library overload; the contract is
+  the specification, so the shortlist was a defect (unique probes that exist are not returned) and the missing
+  re-rank after the `Score × specificity` scaling broke the documented score-descending order.
+- **Repro fixture (auditor):** `genome = X + T10 + X + T10 + Y`, `target = X + Y` with X (400 nt) and Y (80 nt) drawn
+  from `new Random(7)` as uniform ACGT; Microarray preset, `maxProbes = 2`, `requireUnique = true` → 0 probes before
+  the fix, the unique 50-mers at target 402 and 417 (additive score 0.85) after it.
+- **Independent cross-check (Python 3, `str.find` overlapping-occurrence count over the same two strings dumped from
+  the C# fixture):** of the 4686 candidate windows (lengths 50–60) 3806 occur exactly twice in the genome (inside the
+  duplicated X), 583 not at all (crossing the X|Y junction) and **297 occur exactly once** (all starting at ≥ 399, i.e.
+  inside Y) — so unique probes exist although none of them is in the top `maxProbes * 5 = 10` raw-score candidates.
+  The 50-mers at 402 / 417 have G+C 0.50 / 0.46 (inside the preset's 0.40–0.60) and occurrence count 1.
+  In-test oracle: the exhaustive non-index `DesignProbes(target, param, int.MaxValue)` candidate list (the documented
+  ranking) filtered / scaled with that naive occurrence count reproduces the overload's output for
+  `maxProbes` ∈ {1, 3, 100000} and both `requireUnique` values, and for the `Primer3Penalty` ranking (F51).
+
+## 2026-10-08 review (B07, F60, audit round 4 A4-2) — genome-index overload on both strands (opt-in)
+
+- **Source opened:** BLAST+ 2.12.0 `blastn -help` (`-strand` default `both`); `CheckSpecificity(…, bothStrands)` contract (F24: reverse-palindromic probe counted once).
+- **Oracle:** Python `str.find` overlapping-occurrence counts + Biopython `reverse_complement` over the dumped fixture strings (X, Y from C# `System.Random(7)`; index X + T10 + Y + T10 + rc(X), target X + Y): of the 4686 candidate windows (50–60 nt) 3806 have (indexed-strand, both-strand) sites (1, 2), 297 (1, 1) — all inside Y —, 561 (0, 0) and 22 (0, 1) (X|Y-crossing windows with Y's first 1–2 nt `AA`, whose reverse complement `TT` lies in the T10 before rc(X)).
+- **Result:** default unchanged (indexed strand); `bothStrands = true`, Microarray, `maxProbes = 2`, `requireUnique` → 351 (X|Y-crossing window `GTCTTTGATCGCCACGACCTACCCCTAACAAACATTAGTCCAATTTAATA`, G+C 0.40, Python 0 / 1 sites — present only as its reverse complement; score 0.98) / 402 (0.85); brute force over all candidates equals the overload for `requireUnique` × `maxProbes` ∈ {3, 100000}.
+
+## 2026-10-08 review (B07, F67, audit round 7 A7-2) — tiling covers the 3′ tail; argument guards
+
+- **Source opened:** CATCH v1.5.2 (Metsky HC et al. 2019, Nat Biotechnol 37:160–168; git tag `v1.5.2` of
+  github.com/broadinstitute/catch, cloned 2026-10-08) `catch/filter/candidate_probes.py`
+  `make_candidate_probes_from_sequence(seq, probe_length, probe_stride, …)`:
+  - grid: `for start in np.arange(0, len(seq), probe_stride): if start + probe_length > len(seq): break` — the same
+    grid as `DesignTilingProbes` (`step = probeLength − overlap`);
+  - end anchor: `if len(seq) % probe_stride != 0: # There are bases on the right that were never covered, so add
+    another probe for this` → `add_probe_from_subsequence(len(seq) - probe_length, len(seq))`;
+  - short sequence: `if len(seq) < probe_length:` → `ValueError("An input sequence is smaller than the probe length …")`
+    unless `allow_small_seqs`.
+- **Adopted:** the end-anchored final window (start `L − probeLength`) and rejection of a target shorter than the probe.
+  **Not adopted (documented):** CATCH's trigger `len(seq) mod stride ≠ 0` — it does not test what its comment states:
+  100 nt / 60 / stride 40 adds start 40 a second time (CATCH notes duplicates are possible), 120 nt / 60 / stride 40
+  (120 mod 40 = 0) leaves 100–119 uncovered. The library adds the window exactly when the last grid window ends before
+  the target end, `(L − probeLength) mod step ≠ 0`.
+- **Repros (auditor):** 30-nt target, default 60 → `InvalidOperationException` ("Sequence contains no elements") also
+  through MCP; `probeLength ≤ 0` or `overlap ≥ probeLength` → infinite loop (MCP guarded); 110 nt / 60 / 20 → starts
+  0, 40 only, positions 100–109 uncovered while the doc claimed full coverage. After: `ArgumentOutOfRangeException`,
+  `ArgumentOutOfRangeException`, starts 0, 40, 50 with Coverage 110.
+- **Oracle:** tests compute the expected starts by hand from the rule above and Coverage independently (boolean
+  union over `[start, start + P)`), for 9 (L, P, overlap) cases incl. both CATCH corner cases and negative overlap.

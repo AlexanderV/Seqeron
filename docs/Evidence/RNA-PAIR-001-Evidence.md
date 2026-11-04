@@ -11,7 +11,7 @@
 ### Crick FHC (1966) — Codon–anticodon pairing: the wobble hypothesis
 
 **URL:** https://en.wikipedia.org/wiki/Wobble_base_pair (Wikipedia article citing the primary, used to obtain the primary citation and the G–U rule); primary: Crick FHC (1966) *J Mol Biol* 19:548–555, DOI 10.1016/S0022-2836(66)80022-0
-**Accessed:** 2026-06-14
+**Accessed:** 2026-06-14 · re-fetched 2026-10-14 (SRC citation audit: supports the claims above)
 **Authority rank:** 1 (peer-reviewed primary) / 4 (Wikipedia → cited primary)
 
 **Retrieval:** WebSearch query "G:U wobble base pair Crick 1966 codon anticodon wobble hypothesis RNA" then WebFetch of https://en.wikipedia.org/wiki/Wobble_base_pair; a second WebSearch "Crick wobble hypothesis 1966 wobble rules table G pairs U C anticodon U pairs A G" confirmed the pairing rules.
@@ -26,7 +26,7 @@
 ### Wikipedia — Base pair (canonical Watson-Crick pairs)
 
 **URL:** https://en.wikipedia.org/wiki/Base_pair
-**Accessed:** 2026-06-14
+**Accessed:** 2026-06-14 · re-fetched 2026-10-14 (SRC citation audit: supports the claims above)
 **Authority rank:** 4 (Wikipedia citing primaries)
 
 **Retrieval:** WebSearch "Watson-Crick base pairs RNA A-U G-C canonical hydrogen bonds definition" then WebFetch of https://en.wikipedia.org/wiki/Base_pair.
@@ -40,7 +40,7 @@
 ### Wikipedia — Nucleic acid notation (IUPAC codes & complements)
 
 **URL:** https://en.wikipedia.org/wiki/Nucleic_acid_notation
-**Accessed:** 2026-06-14
+**Accessed:** 2026-06-14 · re-fetched 2026-10-14 (SRC citation audit: supports the claims above)
 **Authority rank:** 2 (official IUPAC-IUB nomenclature, via Wikipedia) — primary: IUPAC-IUB Commission on Biochemical Nomenclature (1970), *Biochemistry* 9(20):4022–4027
 
 **Retrieval:** WebFetch of https://en.wikipedia.org/wiki/Nucleic_acid_notation.

@@ -5,12 +5,12 @@
 | Algorithm Group | Codon Optimization |
 | Test Unit ID | CODON-USAGE-001 |
 | Related Projects | N/A |
-| Implementation Status | N/A |
-| Last Reviewed | 2026-09-28 |
+| Implementation Status | Production |
+| Last Reviewed | 2026-10-14 |
 
 ## 1. Overview
 
-Codon usage analysis measures how often codons appear in a coding sequence and compares codon distributions between sequences.[1][2] In this repository, `CodonOptimizer.CalculateCodonUsage` returns raw codon counts, while `CodonOptimizer.CompareCodonUsage` compares normalized codon-frequency distributions using a total-variation-distance similarity score. The implementation is case-insensitive, accepts DNA or RNA, reports RNA-spelled codons, skips triplets containing ambiguity codes or other non-nucleotide characters (without shifting the frame), and ignores incomplete trailing bases. These methods are intended for direct sequence-level codon-profile analysis rather than organism-wide bias modeling by themselves.[2][4]
+Codon usage analysis measures how often codons appear in a coding sequence and compares codon distributions between sequences.[1][2] In this repository, `CodonOptimizer.CalculateCodonUsage` returns raw codon counts, while `CodonOptimizer.CompareCodonUsage` compares normalized codon-frequency distributions using a total-variation-distance similarity score. The implementation is case-insensitive (ASCII case folding only), accepts DNA or RNA, reports RNA-spelled codons, skips triplets containing ambiguity codes or other non-nucleotide characters (without shifting the frame), and ignores incomplete trailing bases. These methods are intended for direct sequence-level codon-profile analysis rather than organism-wide bias modeling by themselves; synonymous-codon statistics (RSCU, ENC, GC3s, CAI) are separate units of `CodonUsageAnalyzer` (see §5.3).[2][4]
 
 ## 2. Scientific / Formal Basis
 
@@ -73,15 +73,15 @@ $$
 
 ### 3.3 Preconditions and Validation
 
-Both methods uppercase the input and accept `T` or `U`. Codons are extracted only from complete in-frame triplets, so trailing one or two bases are ignored; a triplet containing any character outside {A,C,G,T,U} (IUPAC ambiguity codes, gaps, other letters) is skipped and the frame is kept — the contract documented for EMBOSS `ajCodSetTripletsS` ("Skips triplets with ambiguity codes and any incomplete triplet at the end") and consistent with Biopython's 64-codon `CodonAdaptationIndex` count table.[6][7] `CompareCodonUsage` returns `0` when either sequence yields zero codons after preprocessing.
+Both methods fold ASCII lower case to upper case (a non-ASCII letter such as `ſ` is not folded, so its triplet is skipped; B02 F31) and accept `T` or `U`. Codons are extracted only from complete in-frame triplets, so trailing one or two bases are ignored; a triplet containing any character outside {A,C,G,T,U} (IUPAC ambiguity codes, gaps, other letters) is skipped and the frame is kept — the contract documented for EMBOSS `ajCodSetTripletsS` ("Skips triplets with ambiguity codes and any incomplete triplet at the end") and consistent with Biopython's 64-codon `CodonAdaptationIndex` count table.[6][7] `CompareCodonUsage` returns `0` when either sequence yields zero codons after preprocessing.
 
 ## 4. Algorithm
 
 ### 4.1 High-Level Steps
 
-1. Normalize the input to uppercase RNA notation.
+1. Fold ASCII lower case to upper case and read `U` as `T` (canonical counter `CodonUsageAnalyzer.CountCodons`).
 2. Split the sequence into complete codons.
-3. For `CalculateCodonUsage`, increment a count for each observed codon.
+3. For `CalculateCodonUsage`, increment a count for each observed unambiguous codon and report the keys in RNA spelling.
 4. For `CompareCodonUsage`, compute counts for both sequences.
 5. Form the union of codons observed in either sequence.
 6. Convert counts to frequencies using the codon totals for each sequence.
@@ -129,10 +129,16 @@ The comparison metric is the same total-variation-distance similarity documented
 - The count output includes only codons present in the sequence; **consequence:** absent codons are represented implicitly rather than as explicit zero entries.
 - The comparison metric is a single scalar similarity rather than a richer codon-bias profile; **consequence:** different distribution shapes can collapse to the same summary score.
 
+**Provided by other units (not part of this unit's contract):**
+
+- Relative synonymous codon usage — `CodonUsageAnalyzer.CalculateRscu` (any NCBI genetic code, DNA or RNA input, optional pseudocount; MCP `rscu` with `genetic_code`): [Relative_Synonymous_Codon_Usage.md](../Codon/Relative_Synonymous_Codon_Usage.md) (CODON-RSCU-001).
+- Effective number of codons — `CodonUsageAnalyzer.CalculateEnc`: [Effective_Number_of_Codons.md](../Codon/Effective_Number_of_Codons.md); GC/GC3s and summary statistics — `CodonUsageAnalyzer.GetStatistics`: [Codon_Usage_Statistics.md](../Codon/Codon_Usage_Statistics.md).
+- Organism-table-aware weighting (CAI): [CAI_Calculation.md](CAI_Calculation.md).
+- The canonical counter itself is `CodonUsageAnalyzer.CountCodons` (DNA-spelled keys; MCP `count_codons`), which `CalculateCodonUsage` re-spells T→U.
+
 **Not implemented:**
 
-- Relative synonymous codon usage (RSCU), codon-pair bias, or position-specific codon statistics; **users should rely on:** no current alternative.
-- Organism-table-aware normalization inside these methods; **users should rely on:** [CAI_Calculation.md](CAI_Calculation.md) or caller-side interpretation.
+- Codon-pair bias and position-specific codon statistics; **users should rely on:** no current alternative.
 
 ## 6. Edge Cases and Limitations
 
@@ -146,11 +152,12 @@ The comparison metric is the same total-variation-distance similarity documented
 | Incomplete trailing bases | Ignored. | Codon splitting requires three bases. |
 | Triplet with ambiguity code / non-nucleotide (`NNN`, `RYT`, `-GC`) | Skipped, frame preserved. | EMBOSS `ajCodSetTripletsS` contract; Biopython 64-codon table. |
 | Only ambiguous triplets (`NNNNNN`) in a comparison | Similarity `0` (no countable codon). | Same as empty input. |
-| DNA input | Converted to RNA notation before counting. | Internal normalization uses `T -> U`. |
+| DNA or RNA input | Same counts; keys reported in RNA spelling (`AUG`). | The canonical counter `CodonUsageAnalyzer.CountCodons` reads U as T and reports DNA keys; `CalculateCodonUsage` re-spells them T→U. |
+| Non-ASCII letter (`ſ`, `ı`) in a triplet | Triplet skipped, frame preserved. | ASCII-only case folding (B02 F31; scikit-bio / Biopython reject non-ASCII). |
 
 ### 6.2 Limitations
 
-These methods operate only on direct codon counts and normalized frequency differences. They do not attach biological weighting, do not validate whether a sequence is a true CDS, and do not infer organism-specific codon bias without external context.
+These methods operate only on direct codon counts and normalized frequency differences. They do not attach biological weighting (use RSCU / CAI / ENC above for that), do not validate whether a sequence is a true CDS, and do not infer organism-specific codon bias without external context.
 
 ## 7. Examples and Related Material
 
@@ -158,7 +165,7 @@ These methods operate only on direct codon counts and normalized frequency diffe
 
 - Tests: [CodonOptimizer_CodonUsage_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/MolTools/CodonOptimizer_CodonUsage_Tests.cs) — covers `INV-01`, `INV-02`, `INV-03`, `INV-04`
 - Test specification: [CODON-USAGE-001.md](../../../tests/TestSpecs/CODON-USAGE-001.md)
-- Related algorithms: [CAI_Calculation.md](CAI_Calculation.md), [Rare_Codon_Detection.md](Rare_Codon_Detection.md), [Sequence_Optimization.md](Sequence_Optimization.md)
+- Related algorithms: [Relative_Synonymous_Codon_Usage.md](../Codon/Relative_Synonymous_Codon_Usage.md), [Codon_Usage_Statistics.md](../Codon/Codon_Usage_Statistics.md), [Effective_Number_of_Codons.md](../Codon/Effective_Number_of_Codons.md), [CAI_Calculation.md](CAI_Calculation.md), [Rare_Codon_Detection.md](Rare_Codon_Detection.md), [Sequence_Optimization.md](Sequence_Optimization.md)
 
 ## 8. References
 

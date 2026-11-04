@@ -26,7 +26,7 @@
 ### Wikipedia — Intrinsically Disordered Proteins
 
 **URL:** https://en.wikipedia.org/wiki/Intrinsically_disordered_proteins
-**Accessed:** 2026-02-10
+**Accessed:** 2026-02-10 · re-fetched 2026-10-14 (SRC citation audit: supports the claims above)
 **Authority rank:** 3
 
 **Key Extracted Points:**
@@ -42,7 +42,7 @@
 ### Wikipedia — Hydrophilicity Plot (Kyte-Doolittle Scale)
 
 **URL:** https://en.wikipedia.org/wiki/Hydrophilicity_plot
-**Accessed:** 2026-02-10
+**Accessed:** 2026-02-10 · re-fetched 2026-10-14 (SRC citation audit: supports the claims above)
 **Authority rank:** 3
 
 **Key Extracted Points:**
@@ -79,7 +79,7 @@
 ### Wikipedia — Amino Acid (Properties Table)
 
 **URL:** https://en.wikipedia.org/wiki/Amino_acid
-**Accessed:** 2026-02-10
+**Accessed:** 2026-02-10 · re-fetched 2026-10-14 (SRC citation audit: supports the claims above)
 **Authority rank:** 3
 
 **Key Extracted Points:**

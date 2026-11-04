@@ -10,6 +10,7 @@
       Position: 42,
       PamSequence: TGG,
       TargetSequence: GTTTTTTTTTTTTTTTTTTT,
+      TargetStart: 22,
       IsForwardStrand: true
     }
   ]

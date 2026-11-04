@@ -86,7 +86,7 @@ Null or empty input returns an all-zero `NucleotideComposition`. Input is upper-
 
 **Delegation (no duplication, review 2026-09):** `GcContent` is computed by the canonical `SequenceExtensions.CalculateGcFraction(ReadOnlySpan<char>)`; `GcSkew`/`AtSkew` by the canonical `GcSkewCalculator.CalculateGcSkew(string)` / `CalculateAtSkew(string)`. Only the counts and `AtContent` are computed locally.
 
-**Amino-acid composition conventions:** `Counts` holds every letter (case-insensitive, incl. B/Z/X/U/O/J); `Length` = number of letters — non-letter symbols (`*`, `-`, digits) are not residues and are excluded from counts, length and ratio denominators (Biopython `ProteinAnalysis` divides by `len(seq)`; identical for letter-only input). `AromaticResidueRatio` = (F+W+Y)/Length = Biopython `ProteinAnalysis.aromaticity()` (Lobry & Gautier 1994); EMBOSS pepstats' "Aromatic" class also includes H. `ChargedResidueRatio` = (D+E+H+K+R)/Length = EMBOSS pepstats "Charged" class (B+D+E+H+K+R+Z) restricted to unambiguous residues.
+**Amino-acid composition conventions:** `Counts` holds every letter (case-insensitive, incl. B/Z/X/U/O/J); `Length` = number of letters — non-letter symbols (`*`, `-`, digits) are not residues and are excluded from counts, length and ratio denominators (Biopython `ProteinAnalysis` divides by `len(seq)`; identical for letter-only input — opt-in via `CalculateAminoAcidComposition(seq, AminoAcidCompositionDenominator.SequenceLength)`, and per-residue fractions via `CalculateAminoAcidFractions(seq, denominator)`, B03 F35). `AromaticResidueRatio` = (F+W+Y)/Length = Biopython `ProteinAnalysis.aromaticity()` (Lobry & Gautier 1994); EMBOSS pepstats' "Aromatic" class also includes H. `ChargedResidueRatio` = (D+E+H+K+R)/Length = EMBOSS pepstats "Charged" class (B+D+E+H+K+R+Z) restricted to unambiguous residues.
 
 ### 5.2 Current Behavior
 
@@ -101,9 +101,9 @@ This is not a search/matching operation, so the repository suffix tree is not ap
 - AT skew = (A−T)/(A+T) with 0 returned when A+T = 0 [3].
 - Case-insensitive counting [2].
 
-**Intentionally simplified:**
+**Repository convention (not a simplification):**
 
-- Degenerate IUPAC symbols (S, W, R, Y, …): counted as `Other` rather than partially toward GC/AT as Biopython's `gc_fraction` does for S/W; **consequence:** for sequences containing degenerate codes the GC content differs slightly from Biopython. For the standard {A,T,G,C,U} alphabet the results are identical.
+- Degenerate IUPAC symbols (S, W, R, Y, …): counted as `Other` rather than partially toward GC/AT as Biopython's `gc_fraction` does for S/W; **consequence:** for sequences containing degenerate codes the GC content differs slightly from Biopython. For the standard {A,T,G,C,U} alphabet the results are identical. Biopython parity (remove / ignore / weighted) is available from the canonical `CalculateGcFraction(GcAmbiguityMode)`.
 
 **Not implemented:**
 
@@ -123,7 +123,7 @@ This is not a search/matching operation, so the repository suffix tree is not ap
 
 ### 6.2 Limitations
 
-Does not model degenerate IUPAC ambiguity codes in GC/AT totals. Windowed skew and replication-boundary heuristics are out of scope (separate unit).
+Degenerate IUPAC ambiguity codes are not counted in the composition's GC/AT totals (use `CalculateGcFraction(GcAmbiguityMode)` for Biopython parity). Windowed skew and replication-boundary heuristics are out of scope (separate unit).
 
 ## 7. Examples and Related Material
 

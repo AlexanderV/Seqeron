@@ -11,7 +11,7 @@
 
 ## 1. Overview
 
-Sequence validation determines whether a nucleic acid string contains only valid nucleotide characters according to IUPAC nomenclature standards. In this repository, the documented validation surface is a strict character-membership check for DNA and RNA alphabets, with linear time complexity in sequence length.
+Sequence validation determines whether a nucleic acid string contains only valid nucleotide characters according to IUPAC nomenclature standards. In this repository, validation has two modes, both linear in sequence length: a strict character-membership check for the unambiguous DNA/RNA alphabets (`IsValidDna`/`IsValidRna`), and an IUPAC mode that also accepts the NC-IUB 1984 ambiguity codes (`IsValidIupacDna`/`IsValidIupacRna`, F2; Biopython `ambiguous_*_letters` and scikit-bio agree).
 
 ## 2. Scientific / Formal Basis
 
@@ -119,8 +119,10 @@ Validation is case-insensitive because characters are normalized with uppercase 
 - `SequenceExtensions.IsValidRna(ReadOnlySpan<char>)`: Validates RNA characters against `A/C/G/U` using uppercase comparison.
 - `DnaSequence.TryCreate(string, out DnaSequence?)`: Factory-style DNA validation and creation that returns `false` when `DnaSequence` construction throws `ArgumentException`.
 - `SequenceExtensions.IndexOfInvalidDna/IndexOfInvalidRna(ReadOnlySpan<char>)`: canonical predicate (first invalid index or -1) shared by `IsValidDna/IsValidRna`, the `DnaSequence`/`RnaSequence` constructors and the MCP `dna_validate`/`rna_validate` tools.
-- `SequenceExtensions.IsValidIupacDna/IsValidIupacRna(ReadOnlySpan<char>)`: IUPAC mode — the 4 bases plus the 11 NC-IUB 1984 codes R, Y, S, W, K, M, B, D, H, V, N (= Biopython `ambiguous_dna_letters` "GATCRYWSMKHBVDN" / `ambiguous_rna_letters` "GAUCRYWSMKHBVDN"); gaps rejected. Code set = `IupacHelper.IsNucleotideCode`.
-- Case folding is ASCII-only (U+017F 'ſ' is never folded to 'S'; scikit-bio rejects it too). `IupacDnaSequence` (container) additionally tolerates `U`, `-`, `.` in `IsValid()`.
+- `SequenceExtensions.IsValidIupacDna/IsValidIupacRna(ReadOnlySpan<char>)`: IUPAC mode — the 4 bases plus the 11 NC-IUB 1984 codes R, Y, S, W, K, M, B, D, H, V, N (= Biopython `ambiguous_dna_letters` "GATCRYWSMKHBVDN" / `ambiguous_rna_letters` "GAUCRYWSMKHBVDN"); gaps rejected. Code set = `IupacHelper.IsNucleotideCode`. Canonical predicate `IndexOfInvalidIupacDna/IndexOfInvalidIupacRna` (first invalid index or -1) backs them and the MCP `dna_validate`/`rna_validate`/`is_valid_dna`/`is_valid_rna` `iupac=true` option. The MCP tools reject empty input (project-wide MCP null/empty convention, `docs/mcp-prompt.md`), unlike these Core predicates, Biopython and scikit-bio, which treat "" as valid.
+- Case folding is ASCII-only (U+017F 'ſ' is never folded to 'S'; scikit-bio rejects it too). `IupacDnaSequence` (container) additionally tolerates `U`, `-`, `.` in `IsValid()`. The same ASCII-only folding applies to `IupacDnaSequence.ExpandCode` (non-code characters, incl. 'ſ', → `{ 'N' }`), `MatchesAt`/`FindPattern` (pattern 'ſ' matches only a literal 'ſ', never G/C/S), and the `DnaSequence`/`RnaSequence` constructors (a rejected 'ſ' is reported verbatim, not as 'S').
+- `IupacDnaSequence.GetAmbiguityLevel()` is the **definite** fraction (#A/C/G/T ÷ length) = scikit-bio 0.7.4 `DNA(s, lowercase=True).definites().mean()` ("ACNR-G.T" → 0.5); `GetDegenerateFraction()` is the share of the 11 NC-IUB degenerate codes = `degenerates().mean()` ("ACNR-G.T" → 0.25). Gaps and other symbols count in the denominator only, as in scikit-bio. Deviations: empty → 1.0 / 0.0 (scikit-bio: NaN); 'U' (tolerated by the container, rejected by scikit-bio `DNA`) is neither definite nor degenerate ("ACGU" → 0.75 / 0.0).
+- `QualitySequence.MeanQuality` throws `InvalidOperationException` on an empty sequence (mean undefined; Python `statistics.mean([])` raises `StatisticsError`).
 
 ### 5.2 Current Behavior
 
@@ -160,14 +162,14 @@ Behavior examples documented for the current implementation:
 
 | # | Item | Type | Impact | Status | Notes |
 |---|------|------|--------|--------|-------|
-| 1 | Strict validation vs full IUPAC alphabet | Deviation | Sequences containing ambiguity codes or gaps are rejected even though they are defined by the IUPAC standard | accepted | See deviation aspects below: ambiguity codes, gap character, and case handling |
+| 1 | Strict validation vs full IUPAC alphabet | Deviation | Strict mode rejects ambiguity codes | resolved by IUPAC mode (`IsValidIupacDna/Rna`, F2) | See aspects below: ambiguity codes, gap character, and case handling |
 
 Deviation aspects documented for the current implementation:
 
 | Aspect | IUPAC Standard | Implementation | Reason |
 |--------|----------------|----------------|--------|
-| Ambiguity codes | Defined | Not accepted | Strict validation mode |
-| Gap character (`-`) | Defined | Not accepted | Strict validation mode |
+| Ambiguity codes | Defined | Strict: rejected; IUPAC mode: accepted | Two validation modes |
+| Gap character (`-`) | Not an NC-IUB 1984 code (listed by Bioinformatics.org [4]) | Rejected in both modes; `IupacDnaSequence.IsValid()` tolerates `-`/`.` | Gaps are alignment symbols, not nucleotides |
 | Case | Not specified | Case-insensitive | Common bioinformatics practice |
 
 ## 6. Edge Cases and Limitations

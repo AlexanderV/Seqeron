@@ -55,7 +55,9 @@ public static class SequenceStatistics
     /// and <see cref="GcSkewCalculator.CalculateAtSkew(string)"/>; each is 0 when its denominator is 0.
     /// AT skew is the DNA definition: U is not paired with A (an all-RNA sequence therefore has
     /// AtSkew = +1 whenever it contains A).</para>
-    /// <para>Null or empty input returns an all-zero composition.</para>
+    /// <para>Null or empty input returns an all-zero composition. Case folding uses
+    /// <see cref="string.ToUpperInvariant()"/>; no non-ASCII character folds to A/C/G/T/U/N, so this
+    /// equals an ASCII-only fold.</para>
     /// </remarks>
     public static NucleotideComposition CalculateNucleotideComposition(string sequence)
     {
@@ -109,38 +111,76 @@ public static class SequenceStatistics
     /// Calculates amino acid composition of a protein sequence.
     /// </summary>
     /// <remarks>
-    /// <para><c>Counts</c> holds the case-insensitive count of every letter (the 20 standard residues
-    /// plus any ambiguity/extended codes such as B, Z, X, U, O, J). <c>Length</c> is the number of
+    /// <para><c>Counts</c> holds the case-insensitive count of every ASCII letter (the 20 standard residues
+    /// plus any ambiguity/extended codes such as B, Z, X, U, O, J), folded ASCII-only as in
+    /// <see cref="ProteinPhysicochemistry"/>; non-ASCII letters (e.g. U+017F 'ſ', U+0131 'ı') are not
+    /// residue codes (EMBOSS pepstats skips them). <c>Length</c> is the number of
     /// letters; non-letter symbols (stop <c>*</c>, gap <c>-</c>, digits, whitespace) are not residues
     /// and are excluded from <c>Counts</c>, <c>Length</c> and the ratio denominators. This differs from
-    /// Biopython <c>ProteinAnalysis</c>, whose denominator is <c>len(seq)</c> including such symbols;
-    /// for letter-only input the two agree exactly.</para>
+    /// Biopython <c>ProteinAnalysis</c>, whose denominator is <c>len(seq)</c> including such symbols
+    /// (opt in with <see cref="CalculateAminoAcidComposition(string, AminoAcidCompositionDenominator)"/>,
+    /// <see cref="AminoAcidCompositionDenominator.SequenceLength"/>); for letter-only input the two agree
+    /// exactly. The residue denominator is the EMBOSS pepstats "Mole%" convention.</para>
     /// <para><c>AromaticResidueRatio</c> = (F+W+Y)/Length — the aromaticity of Lobry &amp; Gautier
     /// (1994) as implemented by Biopython <c>ProteinAnalysis.aromaticity()</c> (EMBOSS pepstats'
     /// "Aromatic" class additionally includes H). <c>ChargedResidueRatio</c> = (D+E+H+K+R)/Length —
     /// the EMBOSS pepstats "Charged" class (B+D+E+H+K+R+Z) restricted to unambiguous residues.</para>
     /// <para><c>MolecularWeight</c>, <c>IsoelectricPoint</c> and <c>Hydrophobicity</c> delegate to
-    /// <see cref="CalculateMolecularWeight"/>, <see cref="CalculateIsoelectricPoint"/> and
+    /// <see cref="CalculateMolecularWeight(string)"/>, <see cref="CalculateIsoelectricPoint"/> and
     /// <see cref="CalculateHydrophobicity"/>. Null/empty input returns Length 0, empty counts,
     /// ratios 0 and the neutral-pH pI default of those methods.</para>
     /// </remarks>
-    public static AminoAcidComposition CalculateAminoAcidComposition(string sequence)
+    public static AminoAcidComposition CalculateAminoAcidComposition(string sequence) =>
+        CalculateAminoAcidComposition(sequence, AminoAcidCompositionDenominator.Residues);
+
+    /// <summary>
+    /// Denominator of the amino-acid composition ratios
+    /// (<see cref="CalculateAminoAcidComposition(string, AminoAcidCompositionDenominator)"/>,
+    /// <see cref="CalculateAminoAcidFractions"/>).
+    /// </summary>
+    public enum AminoAcidCompositionDenominator
     {
+        /// <summary>
+        /// Number of residues (ASCII letters) — EMBOSS 6.6.0 pepstats "Mole%" convention: stop <c>*</c>,
+        /// gaps, digits and whitespace are not residues (pepstats "MKW*" → Residues = 3, Mole% 33.333).
+        /// Default.
+        /// </summary>
+        Residues = 0,
+
+        /// <summary>
+        /// Full input length <c>sequence.Length</c>, every character included — Biopython 1.88
+        /// <c>ProteinAnalysis</c> convention (<c>self.length = len(self.sequence)</c>, used by
+        /// <c>amino_acids_percent</c> and <c>aromaticity()</c>): <c>ProteinAnalysis("MKW*")</c> →
+        /// percent 25.0 each, aromaticity 0.25. For letter-only input both denominators agree.
+        /// </summary>
+        SequenceLength = 1,
+    }
+
+    /// <summary>
+    /// Amino-acid composition with a selectable ratio denominator. With
+    /// <see cref="AminoAcidCompositionDenominator.Residues"/> this is exactly
+    /// <see cref="CalculateAminoAcidComposition(string)"/>; with
+    /// <see cref="AminoAcidCompositionDenominator.SequenceLength"/> <c>ChargedResidueRatio</c> and
+    /// <c>AromaticResidueRatio</c> divide by <c>sequence.Length</c> (Biopython 1.88
+    /// <c>ProteinAnalysis.aromaticity()</c>, e.g. "mkwfy**" → 3/7). <c>Length</c>, <c>Counts</c>,
+    /// molecular weight, pI and GRAVY are unaffected by the denominator.
+    /// </summary>
+    /// <param name="sequence">Protein sequence (case-insensitive).</param>
+    /// <param name="denominator">Ratio denominator (default convention: residues).</param>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="denominator"/> is not a defined value.</exception>
+    public static AminoAcidComposition CalculateAminoAcidComposition(
+        string sequence,
+        AminoAcidCompositionDenominator denominator)
+    {
+        ValidateCompositionDenominator(denominator);
         if (string.IsNullOrEmpty(sequence))
         {
             return new AminoAcidComposition(0, new Dictionary<char, int>(), 0, NeutralPhDefault, 0, 0, 0);
         }
 
-        var counts = new Dictionary<char, int>();
-        foreach (char ch in sequence.ToUpperInvariant())
-        {
-            if (char.IsLetter(ch))
-            {
-                counts[ch] = counts.GetValueOrDefault(ch) + 1;
-            }
-        }
-
-        int length = counts.Values.Sum();
+        var counts = CountAsciiResidues(sequence);
+        int residues = counts.Values.Sum();
+        int ratioDenominator = denominator == AminoAcidCompositionDenominator.SequenceLength ? sequence.Length : residues;
         double mw = CalculateMolecularWeight(sequence);
         double pi = CalculateIsoelectricPoint(sequence);
         double hydro = CalculateHydrophobicity(sequence);
@@ -149,15 +189,15 @@ public static class SequenceStatistics
         int charged = counts.GetValueOrDefault('D') + counts.GetValueOrDefault('E') +
                      counts.GetValueOrDefault('K') + counts.GetValueOrDefault('R') +
                      counts.GetValueOrDefault('H');
-        double chargedRatio = length > 0 ? (double)charged / length : 0;
+        double chargedRatio = ratioDenominator > 0 ? (double)charged / ratioDenominator : 0;
 
         // Aromatic residues: F, Y, W
         int aromatic = counts.GetValueOrDefault('F') + counts.GetValueOrDefault('Y') +
                       counts.GetValueOrDefault('W');
-        double aromaticRatio = length > 0 ? (double)aromatic / length : 0;
+        double aromaticRatio = ratioDenominator > 0 ? (double)aromatic / ratioDenominator : 0;
 
         return new AminoAcidComposition(
-            Length: length,
+            Length: residues,
             Counts: counts,
             MolecularWeight: mw,
             IsoelectricPoint: pi,
@@ -166,30 +206,66 @@ public static class SequenceStatistics
             AromaticResidueRatio: aromaticRatio);
     }
 
+    /// <summary>
+    /// Per-residue composition fractions count(X) / denominator for every residue code (ASCII letter,
+    /// case-insensitive, ASCII-only fold) that occurs in <paramref name="sequence"/>.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="AminoAcidCompositionDenominator.Residues"/> (default) reproduces EMBOSS 6.6.0 pepstats
+    /// "Mole%"/100 (denominator = residues; "MKW*" → 1/3 each); <see cref="AminoAcidCompositionDenominator.SequenceLength"/>
+    /// reproduces Biopython 1.88 <c>ProteinAnalysis.amino_acids_percent</c>/100 (denominator = len(seq);
+    /// "MKW*" → 0.25 each, "MKW-A" → 0.2 each). Absent residues are not keys (fraction 0). Unlike
+    /// Biopython, which reports only the 20 standard residues, ambiguity/extended codes (B, X, Z, U, O, J)
+    /// are keys too — as the per-letter rows of pepstats. Null/empty input returns an empty map.
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="denominator"/> is not a defined value.</exception>
+    public static IReadOnlyDictionary<char, double> CalculateAminoAcidFractions(
+        string sequence,
+        AminoAcidCompositionDenominator denominator = AminoAcidCompositionDenominator.Residues)
+    {
+        ValidateCompositionDenominator(denominator);
+        var fractions = new Dictionary<char, double>();
+        if (string.IsNullOrEmpty(sequence))
+            return fractions;
+
+        var counts = CountAsciiResidues(sequence);
+        int total = denominator == AminoAcidCompositionDenominator.SequenceLength
+            ? sequence.Length
+            : counts.Values.Sum();
+        foreach (var (residue, count) in counts)
+            fractions[residue] = (double)count / total;
+
+        return fractions;
+    }
+
+    // Residue codes are ASCII letters, folded ASCII-only (as ProteinPhysicochemistry):
+    // non-ASCII letters such as U+017F 'ſ' are not residues (EMBOSS pepstats skips them).
+    // Canonical Core 1-mer counter (ASCII-only fold, first-occurrence key order), filtered to ASCII letters.
+    private static Dictionary<char, int> CountAsciiResidues(string sequence)
+    {
+        var counts = new Dictionary<char, int>();
+        foreach (var (symbol, count) in sequence.AsSpan().CountKmersSpan(1))
+        {
+            if (char.IsAsciiLetter(symbol[0]))
+                counts.Add(symbol[0], count);
+        }
+
+        return counts;
+    }
+
+    private static void ValidateCompositionDenominator(AminoAcidCompositionDenominator denominator)
+    {
+        if (!Enum.IsDefined(denominator))
+            throw new ArgumentOutOfRangeException(nameof(denominator), denominator, "Undefined composition denominator.");
+    }
+
     #endregion
 
     #region Molecular Weight
 
-    // Average isotopic mass of one water molecule (Da).
-    // Expasy FindMod "Other mass values": H2O = 18.01524; Biopython SeqUtils uses water = 18.0153.
-    // Source: https://web.expasy.org/findmod/findmod_masses.html ;
-    //         Biopython Bio/SeqUtils/__init__.py (molecular_weight).
-    private const double AverageWaterMass = 18.0153;
-
-    // Average molecular masses of the 20 standard free amino acids plus the two
-    // genetically encoded non-standard ones, selenocysteine (U) and pyrrolysine (O) (Da).
-    // Source: Biopython Bio/Data/IUPACData.py `protein_weights` (master, 22 entries incl. O/U),
-    // "Mass data taken from PubChem"; consistent with Expasy FindMod average residue masses +
-    // AverageWaterMass. Expasy ProtParam / Compute pI/Mw likewise accept U and O.
-    private static readonly Dictionary<char, double> AminoAcidWeights = new()
-    {
-        { 'A', 89.0932 },  { 'C', 121.1582 }, { 'D', 133.1027 }, { 'E', 147.1293 },
-        { 'F', 165.1891 }, { 'G', 75.0666 },  { 'H', 155.1546 }, { 'I', 131.1729 },
-        { 'K', 146.1876 }, { 'L', 131.1729 }, { 'M', 149.2113 }, { 'N', 132.1179 },
-        { 'O', 255.3134 }, { 'P', 115.1305 }, { 'Q', 146.1445 }, { 'R', 174.201 },
-        { 'S', 105.0926 }, { 'T', 119.1192 }, { 'U', 168.0532 }, { 'V', 117.1463 },
-        { 'W', 204.2252 }, { 'Y', 181.1885 }
-    };
+    // Average isotopic mass of one water molecule (Da): Biopython SeqUtils water = 18.0153
+    // (Expasy FindMod H2O = 18.01524). Single source: ProteinPhysicochemistry.AverageWaterMass.
+    private const double AverageWaterMass = ProteinPhysicochemistry.AverageWaterMass;
 
     // Average molecular masses of DNA mononucleotides (5'-monophosphate, Da).
     // Source: Biopython Bio/Data/IUPACData.py `unambiguous_dna_weights`.
@@ -205,6 +281,97 @@ public static class SequenceStatistics
         { 'A', 347.2212 }, { 'C', 323.1965 }, { 'G', 363.2206 }, { 'U', 324.1813 }
     };
 
+    // Monoisotopic mass of one water molecule (Da): Biopython 1.88 Bio.SeqUtils.molecular_weight
+    // (monoisotopic=True) water = 18.010565.
+    private const double MonoisotopicWaterMass = 18.010565;
+
+    // Monoisotopic masses of the free amino acids (20 standard + U Sec + O Pyl, Da).
+    // Source: Biopython 1.88 Bio/Data/IUPACData.py `monoisotopic_protein_weights`.
+    // (Proposed home: Infrastructure/ProteinPhysicochemistry next to AverageAminoAcidMasses —
+    // B03 cross-batch request R26 to B02.)
+    private static readonly Dictionary<char, double> MonoisotopicAminoAcidWeights = new()
+    {
+        { 'A', 89.047678 },  { 'C', 121.019749 }, { 'D', 133.037508 }, { 'E', 147.053158 },
+        { 'F', 165.078979 }, { 'G', 75.032028 },  { 'H', 155.069477 }, { 'I', 131.094629 },
+        { 'K', 146.105528 }, { 'L', 131.094629 }, { 'M', 149.051049 }, { 'N', 132.053492 },
+        { 'O', 255.158292 }, { 'P', 115.063329 }, { 'Q', 146.069142 }, { 'R', 174.111676 },
+        { 'S', 105.042593 }, { 'T', 119.058243 }, { 'U', 168.964203 }, { 'V', 117.078979 },
+        { 'W', 204.089878 }, { 'Y', 181.073893 }
+    };
+
+    // Monoisotopic masses of DNA mononucleotides (5'-monophosphate, Da).
+    // Source: Biopython 1.88 Bio/Data/IUPACData.py `monoisotopic_unambiguous_dna_weights`.
+    private static readonly Dictionary<char, double> MonoisotopicDnaNucleotideWeights = new()
+    {
+        { 'A', 331.06817 }, { 'C', 307.056936 }, { 'G', 347.063084 }, { 'T', 322.056602 }
+    };
+
+    // Monoisotopic masses of RNA mononucleotides (5'-monophosphate, Da).
+    // Source: Biopython 1.88 Bio/Data/IUPACData.py `monoisotopic_unambiguous_rna_weights`.
+    private static readonly Dictionary<char, double> MonoisotopicRnaNucleotideWeights = new()
+    {
+        { 'A', 347.063084 }, { 'C', 323.051851 }, { 'G', 363.057999 }, { 'U', 324.035867 }
+    };
+
+    /// <summary>
+    /// Options of the molecular-weight calculations
+    /// (<see cref="CalculateMolecularWeight(string, MolecularWeightOptions)"/>,
+    /// <see cref="CalculateNucleotideMolecularWeight(string, bool, bool, MolecularWeightOptions)"/>),
+    /// mirroring the keyword arguments of Biopython 1.88 <c>Bio.SeqUtils.molecular_weight</c>.
+    /// The defaults reproduce the existing overloads (average masses, linear, lenient).
+    /// </summary>
+    public sealed record MolecularWeightOptions
+    {
+        /// <summary>Default options: average masses, linear molecule, unknown symbols skipped.</summary>
+        public static MolecularWeightOptions Default { get; } = new();
+
+        /// <summary>
+        /// True to use monoisotopic monomer masses and water = 18.010565 Da (Biopython
+        /// <c>monoisotopic=True</c>); false (default) for average masses and water = 18.0153 Da.
+        /// </summary>
+        public bool Monoisotopic { get; init; }
+
+        /// <summary>
+        /// True for a circular molecule: one further water is lost per strand for the ring-closing
+        /// bond (Biopython <c>circular=True</c>; for a protein, a head-to-tail cyclic peptide).
+        /// </summary>
+        public bool Circular { get; init; }
+
+        /// <summary>
+        /// True to reject any symbol that has no mass in the selected table (ambiguity codes
+        /// B/Z/J/X, '*', gaps, N, U in DNA, T in RNA, …) with <see cref="ArgumentException"/>, as
+        /// Biopython raises <c>ValueError</c>; whitespace is ignored (Biopython strips it).
+        /// False (default) skips such symbols (no mass, no bond).
+        /// </summary>
+        public bool Strict { get; init; }
+    }
+
+    // Shared accumulation of the MW of one strand: sum of monomer masses − bonds × water, where a
+    // linear strand of n monomers has n − 1 bonds and a circular one n bonds (Biopython
+    // molecular_weight). Case folding is ASCII-only. In strict mode a non-whitespace symbol without
+    // a mass throws; otherwise it is skipped. Returns (sum of masses, monomer count).
+    private static (double Sum, int Monomers) SumMonomerMasses(
+        string sequence, IReadOnlyDictionary<char, double> table, bool strict, string paramName, string kind)
+    {
+        double sum = 0;
+        int monomers = 0;
+        foreach (char raw in sequence)
+        {
+            char ch = SequenceCase.ToUpperAscii(raw);
+            if (table.TryGetValue(ch, out double mass))
+            {
+                sum += mass;
+                monomers++;
+            }
+            else if (strict && !char.IsWhiteSpace(raw))
+            {
+                throw new ArgumentException(
+                    $"'{raw}' is not a valid unambiguous letter for {kind} (strict mode).", paramName);
+            }
+        }
+        return (sum, monomers);
+    }
+
     /// <summary>
     /// Calculates the average-isotopic molecular weight of a protein sequence (Da).
     /// </summary>
@@ -216,31 +383,49 @@ public static class SequenceStatistics
     /// selenocysteine (U) and pyrrolysine (O), as in Biopython <c>protein_weights</c>.
     /// Unknown/ambiguous symbols (B, Z, X, J, '*', gaps, …) are skipped (contribute no mass and
     /// no bond) — Biopython instead raises <c>ValueError</c>. Linear chain, average masses only.
+    /// Delegates to the canonical <see cref="ProteinPhysicochemistry.MolecularWeight"/>; case folding
+    /// is ASCII-only, so a non-ASCII letter such as 'ſ' is skipped like any unknown symbol (EMBOSS
+    /// pepstats; Python's Unicode <c>str.upper()</c> in Biopython would read it as S).
     /// </remarks>
     /// <param name="proteinSequence">Protein sequence (case-insensitive, one-letter codes).</param>
     /// <returns>Molecular weight in daltons; 0 for null/empty input.</returns>
-    public static double CalculateMolecularWeight(string proteinSequence)
+    public static double CalculateMolecularWeight(string proteinSequence) =>
+        ProteinPhysicochemistry.MolecularWeight(proteinSequence);
+
+    /// <summary>
+    /// Calculates the molecular weight of a protein (Da) with Biopython 1.88
+    /// <c>molecular_weight(seq, "protein", circular, monoisotopic)</c> options and an optional strict mode.
+    /// </summary>
+    /// <remarks>
+    /// Σ free amino-acid masses − bonds × water, bonds = n − 1 (linear) or n (circular, head-to-tail
+    /// cyclic peptide: one more water lost). Masses: average (<see cref="ProteinPhysicochemistry.AverageAminoAcidMasses"/>,
+    /// water 18.0153) or monoisotopic (Biopython <c>IUPACData.monoisotopic_protein_weights</c>,
+    /// water 18.010565). With <see cref="MolecularWeightOptions.Default"/> this is exactly
+    /// <see cref="CalculateMolecularWeight(string)"/>. Alphabet: 20 standard residues + U + O.
+    /// </remarks>
+    /// <param name="proteinSequence">Protein sequence (case-insensitive, one-letter codes).</param>
+    /// <param name="options">Mass set, topology and strictness; null = <see cref="MolecularWeightOptions.Default"/>.</param>
+    /// <returns>Molecular weight in daltons; 0 for null/empty input or when no residue has a mass.</returns>
+    /// <exception cref="ArgumentException">Strict mode and a symbol without a mass (e.g. B, Z, X, '*').</exception>
+    public static double CalculateMolecularWeight(string proteinSequence, MolecularWeightOptions? options)
     {
+        options ??= MolecularWeightOptions.Default;
         if (string.IsNullOrEmpty(proteinSequence))
             return 0;
+        if (!options.Monoisotopic && !options.Circular && !options.Strict)
+            return ProteinPhysicochemistry.MolecularWeight(proteinSequence);
 
-        double weight = 0;
-        int residues = 0;
+        IReadOnlyDictionary<char, double> table = options.Monoisotopic
+            ? MonoisotopicAminoAcidWeights
+            : ProteinPhysicochemistry.AverageAminoAcidMasses;
+        double water = options.Monoisotopic ? MonoisotopicWaterMass : AverageWaterMass;
 
-        foreach (char aa in proteinSequence.ToUpperInvariant())
-        {
-            if (AminoAcidWeights.TryGetValue(aa, out double aaWeight))
-            {
-                weight += aaWeight;
-                residues++;
-            }
-        }
-
+        var (sum, residues) = SumMonomerMasses(proteinSequence, table, options.Strict, nameof(proteinSequence), "protein");
         if (residues == 0)
             return 0;
 
-        // One water is lost per peptide bond; n residues form (n − 1) bonds.
-        return weight - (residues - 1) * AverageWaterMass;
+        int bonds = options.Circular ? residues : residues - 1;
+        return sum - bonds * water;
     }
 
     /// <summary>
@@ -279,42 +464,68 @@ public static class SequenceStatistics
     /// <returns>Molecular weight in daltons; 0 when no recognized nucleotide is present.</returns>
     public static double CalculateNucleotideMolecularWeight(
         string sequence, bool isDna, bool doubleStranded, bool circular = false)
+        => CalculateNucleotideMolecularWeight(sequence, isDna, doubleStranded,
+            circular ? CircularAverageOptions : MolecularWeightOptions.Default);
+
+    private static readonly MolecularWeightOptions CircularAverageOptions = new() { Circular = true };
+
+    /// <summary>
+    /// Calculates the molecular weight of a DNA or RNA molecule (Da) with Biopython 1.88
+    /// <c>molecular_weight(seq, seq_type, double_stranded, circular, monoisotopic)</c> options and an
+    /// optional strict mode.
+    /// </summary>
+    /// <remarks>
+    /// Each strand weighs Σ monophosphate masses − bonds × water (bonds = n − 1 linear, n circular);
+    /// when <paramref name="doubleStranded"/> is true the complementary strand (canonical
+    /// <see cref="Seqeron.Genomics.Core.SequenceExtensions.GetComplementBase"/> /
+    /// <see cref="Seqeron.Genomics.Core.SequenceExtensions.GetRnaComplementBase"/>) is added by the same
+    /// rule. Masses: average (Biopython <c>unambiguous_dna/rna_weights</c>, water 18.0153) or
+    /// monoisotopic (<c>monoisotopic_unambiguous_dna/rna_weights</c>, water 18.010565).
+    /// </remarks>
+    /// <param name="sequence">Nucleotide sequence of one strand (case-insensitive).</param>
+    /// <param name="isDna">True for DNA (A/C/G/T table); false for RNA (A/C/G/U table).</param>
+    /// <param name="doubleStranded">True to add the Watson–Crick complementary strand.</param>
+    /// <param name="options">Mass set, topology and strictness; null = <see cref="MolecularWeightOptions.Default"/>.</param>
+    /// <returns>Molecular weight in daltons; 0 when no recognized nucleotide is present.</returns>
+    /// <exception cref="ArgumentException">Strict mode and a symbol without a mass (e.g. N; U in DNA; T in RNA).</exception>
+    public static double CalculateNucleotideMolecularWeight(
+        string sequence, bool isDna, bool doubleStranded, MolecularWeightOptions? options)
     {
+        options ??= MolecularWeightOptions.Default;
         if (string.IsNullOrEmpty(sequence))
             return 0;
 
-        Dictionary<char, double> table = isDna ? DnaNucleotideWeights : RnaNucleotideWeights;
+        Dictionary<char, double> table;
+        if (options.Monoisotopic)
+            table = isDna ? MonoisotopicDnaNucleotideWeights : MonoisotopicRnaNucleotideWeights;
+        else
+            table = isDna ? DnaNucleotideWeights : RnaNucleotideWeights;
+        double water = options.Monoisotopic ? MonoisotopicWaterMass : AverageWaterMass;
 
-        double weight = 0;
-        double complementWeight = 0;
-        int monomers = 0;
-
-        foreach (char ch in sequence.ToUpperInvariant())
-        {
-            if (table.TryGetValue(ch, out double ntWeight))
-            {
-                weight += ntWeight;
-                monomers++;
-                if (doubleStranded)
-                {
-                    char complement = isDna
-                        ? Seqeron.Genomics.Core.SequenceExtensions.GetComplementBase(ch)
-                        : Seqeron.Genomics.Core.SequenceExtensions.GetRnaComplementBase(ch);
-                    complementWeight += table[complement];
-                }
-            }
-        }
-
+        var (weight, monomers) = SumMonomerMasses(sequence, table, options.Strict, nameof(sequence), isDna ? "DNA" : "RNA");
         if (monomers == 0)
             return 0;
 
         // One water is lost per phosphodiester bond: n monomers form (n − 1) bonds in a linear
         // strand and n bonds in a circular one.
-        int bondsPerStrand = circular ? monomers : monomers - 1;
-        double result = weight - bondsPerStrand * AverageWaterMass;
+        int bondsPerStrand = options.Circular ? monomers : monomers - 1;
+        double result = weight - bondsPerStrand * water;
 
         if (doubleStranded)
-            result += complementWeight - bondsPerStrand * AverageWaterMass;
+        {
+            double complementWeight = 0;
+            foreach (char raw in sequence)
+            {
+                char ch = SequenceCase.ToUpperAscii(raw);
+                if (!table.ContainsKey(ch))
+                    continue;
+                char complement = isDna
+                    ? Seqeron.Genomics.Core.SequenceExtensions.GetComplementBase(ch)
+                    : Seqeron.Genomics.Core.SequenceExtensions.GetRnaComplementBase(ch);
+                complementWeight += table[complement];
+            }
+            result += complementWeight - bondsPerStrand * water;
+        }
 
         return result;
     }
@@ -346,54 +557,13 @@ public static class SequenceStatistics
         Bjellqvist
     }
 
-    // EMBOSS 6.6.0 emboss/data/Epk.dat (the file shipped with and read by `iep`; embiep.c
-    // embIepPkReadFile also defaults amino = 7.50 when the file has no "Amino" line).
-    // NOTE: the Epk.dat listing printed on the EMBOSS iep web page (Amino 8.6) is stale — the
-    // page's own worked outputs (LACI_ECOLI pI 6.8385, IFNA2_HUMAN pI 5.7240) are only reproduced
-    // with Amino 7.5 (verified against the EMBOSS 6.6.0 `iep` binary).
-    private const double EmbossNTerminusPka = 7.5;
-    private const double EmbossCTerminusPka = 3.6;
-
-    // Ionizable side chains: pKa and sign (+1 basic, -1 acidic).
-    private static readonly Dictionary<char, (double pKa, int charge)> EmbossSideChains = new()
-    {
-        { 'C', (8.5, -1) }, { 'D', (3.9, -1) }, { 'E', (4.1, -1) }, { 'Y', (10.1, -1) },
-        { 'H', (6.5, 1) },  { 'K', (10.8, 1) }, { 'R', (12.5, 1) }
-    };
-
-    // Bjellqvist et al. 1993 (Electrophoresis 14:1023) / 1994 (Electrophoresis 15:529) pK set,
-    // as implemented by Biopython Bio/SeqUtils/IsoelectricPoint.py (positive_pKs, negative_pKs,
-    // pKnterminal, pKcterminal) and ExPASy Compute pI/Mw.
-    private static readonly Dictionary<char, (double pKa, int charge)> BjellqvistSideChains = new()
-    {
-        { 'C', (9.0, -1) }, { 'D', (4.05, -1) }, { 'E', (4.45, -1) }, { 'Y', (10.0, -1) },
-        { 'H', (5.98, 1) }, { 'K', (10.0, 1) },  { 'R', (12.0, 1) }
-    };
-
-    private const double BjellqvistNTerminusPka = 7.5;
-    private const double BjellqvistCTerminusPka = 3.55;
-
-    private static readonly Dictionary<char, double> BjellqvistNTerminalResiduePka = new()
-    {
-        { 'A', 7.59 }, { 'M', 7.0 }, { 'S', 6.93 }, { 'P', 8.36 }, { 'T', 6.82 }, { 'V', 7.44 }, { 'E', 7.7 }
-    };
-
-    private static readonly Dictionary<char, double> BjellqvistCTerminalResiduePka = new()
-    {
-        { 'D', 4.55 }, { 'E', 4.75 }
-    };
-
-    // Bisection window and convergence. The root is located to 1e-9 pH and then rounded, so the
-    // returned value is the correctly rounded pI (a 0.01-wide final bracket could round wrongly).
-    private const double MinPh = 0.0;
-    private const double MaxPh = 14.0;
-    private const double PiBisectionPrecision = 1e-9;
+    // The pK tables (EMBOSS 6.6.0 Epk.dat; Bjellqvist 1993/1994 incl. terminal-residue pKs), the
+    // EMBOSS B/Z Dayhoff split, the [0, 14] bisection to 1e-9 pH and the 2-dp rounding live in the
+    // canonical ProteinPhysicochemistry (review 2026-09, B02 request; FIN-B03 A1).
 
     // pI returned for empty/null input: pI is undefined for a zero-length protein (a real
     // protein always has both termini); neutral 7.0 is used as a documented input-guard sentinel.
     private const double NeutralPhDefault = 7.0;
-
-    private const int PiDecimalPlaces = 2;
 
     /// <summary>
     /// Calculates the theoretical isoelectric point (pI) of a protein on the EMBOSS <c>iep</c>
@@ -419,34 +589,16 @@ public static class SequenceStatistics
     /// <remarks>
     /// <para>EMBOSS: reproduces EMBOSS 6.6.0 <c>iep</c> (nucleus/embiep.c, data/Epk.dat) with default
     /// options (both termini charged, no disulphides, no modified lysines). EMBOSS searches pH [1, 14]
-    /// and reports "none" when the charge does not change sign there; this method searches [0, 14].</para>
+    /// and reports "none" when the charge does not change sign there; this method searches [0, 14]
+    /// (the EMBOSS window, "none" and the <c>iep</c> qualifiers are available through
+    /// <see cref="TryCalculateIsoelectricPoint"/>).</para>
     /// <para>Bjellqvist: reproduces Biopython <c>IsoelectricPoint.pi()</c> / ExPASy Compute pI; Biopython
     /// clamps its bisection to [4.05, 12], so for extremely acidic/basic peptides whose true root lies
-    /// outside that window Biopython returns the window edge while this method returns the true root.</para>
+    /// outside that window Biopython returns the window edge while this method returns the true root
+    /// (<see cref="IsoelectricPointWindow.Biopython"/> reproduces Biopython's window).</para>
     /// </remarks>
-    public static double CalculateIsoelectricPoint(string proteinSequence, PkaScale scale)
-    {
-        if (string.IsNullOrEmpty(proteinSequence))
-            return NeutralPhDefault;
-
-        var model = BuildChargeModel(proteinSequence, scale);
-
-        double pHLow = MinPh;
-        double pHHigh = MaxPh;
-
-        while (pHHigh - pHLow > PiBisectionPrecision)
-        {
-            double pH = (pHLow + pHHigh) / 2.0;
-
-            // Net charge is monotonically non-increasing in pH: positive ⇒ pI is higher.
-            if (model.NetCharge(pH) > 0)
-                pHLow = pH;
-            else
-                pHHigh = pH;
-        }
-
-        return Math.Round((pHLow + pHHigh) / 2.0, PiDecimalPlaces);
-    }
+    public static double CalculateIsoelectricPoint(string proteinSequence, PkaScale scale) =>
+        ProteinPhysicochemistry.IsoelectricPoint(proteinSequence, ToProteinPkaScale(scale));
 
     /// <summary>
     /// Net charge of a protein at a given pH (Henderson–Hasselbalch): basic groups (N-terminus,
@@ -454,98 +606,320 @@ public static class SequenceStatistics
     /// −1/(1+10^(pKa−pH)); each terminus is counted once.
     /// Equivalent to EMBOSS <c>embIepGetCharge</c> and Biopython <c>IsoelectricPoint.charge_at_pH</c>.
     /// </summary>
-    /// <param name="proteinSequence">Single-letter amino-acid sequence (case-insensitive).</param>
+    /// <param name="proteinSequence">Single-letter amino-acid sequence (case-insensitive, ASCII fold).</param>
     /// <param name="pH">pH at which to evaluate the charge.</param>
     /// <param name="scale">pK set (default EMBOSS).</param>
     /// <returns>Net charge (elementary charges); 0 for null/empty input.</returns>
-    public static double CalculateNetCharge(string proteinSequence, double pH, PkaScale scale = PkaScale.Emboss)
+    public static double CalculateNetCharge(string proteinSequence, double pH, PkaScale scale = PkaScale.Emboss) =>
+        ProteinPhysicochemistry.NetCharge(proteinSequence, pH, ToProteinPkaScale(scale));
+
+    /// <summary>
+    /// pH search convention used by <see cref="TryCalculateIsoelectricPoint"/>.
+    /// </summary>
+    public enum IsoelectricPointWindow
     {
+        /// <summary>
+        /// Library convention (= <see cref="CalculateIsoelectricPoint(string, PkaScale)"/>): bisection
+        /// over [0, 14] to 1e-9 pH, result rounded to 2 decimals; a root is always reported (the window
+        /// edge when the charge does not change sign); null/empty → 7.0.
+        /// </summary>
+        Default,
+
+        /// <summary>
+        /// EMBOSS 6.6.0 <c>iep</c> (<c>embIepPhConverge</c>): bisection over [1, 14] while the bracket
+        /// is wider than 1e-4, returning its lower bound (or the midpoint where the charge is exactly
+        /// 0), unrounded (<c>iep</c> prints it with 4 decimals). When the net charge has the same strict
+        /// sign at pH 1 and pH 14 there is no pI ("Isoelectric Point = None"): the Try method returns
+        /// false. Null/empty → false.
+        /// </summary>
+        Emboss,
+
+        /// <summary>
+        /// Biopython 1.88 <c>IsoelectricPoint.pi(pH=7.775, min_=4.05, max_=12)</c>: bisection that
+        /// starts at pH 7.775 inside [4.05, 12] and stops once the bracket is ≤ 1e-4, returning the
+        /// last midpoint, unrounded. There is no range extension: a root outside the window is reported
+        /// at the window edge (4.0500284… for very acidic, 11.9999677… for very basic peptides).
+        /// Null/empty → false (Biopython raises <c>IndexError</c>).
+        /// </summary>
+        Biopython
+    }
+
+    /// <summary>
+    /// Options for <see cref="TryCalculateIsoelectricPoint"/> and
+    /// <see cref="CalculateNetCharge(string, double, IsoelectricPointOptions)"/>, mirroring the
+    /// EMBOSS 6.6.0 <c>iep</c> qualifiers <c>-[no]termini</c>, <c>-lysinemodified</c> and
+    /// <c>-disulphides</c> and the EMBOSS / Biopython pI search windows. The defaults reproduce
+    /// <see cref="CalculateIsoelectricPoint(string)"/> and <see cref="CalculateNetCharge(string, double, PkaScale)"/>.
+    /// </summary>
+    /// <remarks>
+    /// The charge model is always the canonical <see cref="ProteinPhysicochemistry.NetCharge"/>;
+    /// options only adjust the residue counts handed to it (EMBOSS <c>embIepCompC</c>) or drop the
+    /// termini. Custom pK tables (<c>-pkdata</c>) and N-/C-terminus multiplicities
+    /// (<c>-amino</c>/<c>-carboxyl</c>) need a parameterised charge model in
+    /// <c>ProteinPhysicochemistry</c> and are not offered here (review 2026-09 request R27 to B02).
+    /// </remarks>
+    public sealed record IsoelectricPointOptions
+    {
+        /// <summary>Default options: EMBOSS pK scale, library window, both termini charged, no modifications.</summary>
+        public static IsoelectricPointOptions Default { get; } = new();
+
+        /// <summary>pK set (default <see cref="PkaScale.Emboss"/>).</summary>
+        public PkaScale Scale { get; init; } = PkaScale.Emboss;
+
+        /// <summary>pH search convention (default <see cref="IsoelectricPointWindow.Default"/>).</summary>
+        public IsoelectricPointWindow Window { get; init; } = IsoelectricPointWindow.Default;
+
+        /// <summary>
+        /// True (default) to include the charged N- and C-terminus; false = EMBOSS <c>-notermini</c>
+        /// (side chains only).
+        /// </summary>
+        public bool Termini { get; init; } = true;
+
+        /// <summary>
+        /// Number of chemically modified (uncharged) lysines, EMBOSS <c>-lysinemodified N</c>: N lysines
+        /// are removed from the charged-group count; if the sequence has fewer than N lysines, all are
+        /// removed (<c>embIepCompC</c>). Must be ≥ 0.
+        /// </summary>
+        public int LysinesModified { get; init; }
+
+        /// <summary>
+        /// Number of disulphide bonds, EMBOSS <c>-disulphides N</c>: 2N cysteines are removed from the
+        /// charged-group count; if the sequence has fewer than 2N cysteines, all are removed
+        /// (<c>embIepCompC</c>). Must be ≥ 0.
+        /// </summary>
+        public int Disulphides { get; init; }
+    }
+
+    // Residue used to neutralise a modified K / bonded C in the string handed to
+    // ProteinPhysicochemistry: G has no ionizable side chain in either scale and, like K and C, has
+    // no residue-specific Bjellqvist terminal pK (N-term A/M/S/P/T/V/E, C-term D/E), so substituting
+    // it changes the side-chain counts only and leaves both terminal pKs untouched.
+    private const char NeutralResidue = 'G';
+
+    // EMBOSS embIepPhConverge window and bracket width; Biopython IsoelectricPoint.pi defaults.
+    private const double EmbossPiLowPh = 1.0;
+    private const double EmbossPiHighPh = 14.0;
+    private const double EmbossPiBracket = 0.0001;
+    private const double BiopythonPiStartPh = 7.775;
+    private const double BiopythonPiLowPh = 4.05;
+    private const double BiopythonPiHighPh = 12.0;
+    private const double BiopythonPiBracket = 0.0001;
+
+    // Library window (= ProteinPhysicochemistry.IsoelectricPoint): [0, 14], 1e-9 pH, 2 dp.
+    private const double DefaultPiLowPh = 0.0;
+    private const double DefaultPiHighPh = 14.0;
+    private const double DefaultPiPrecision = 1e-9;
+    private const int DefaultPiDecimalPlaces = 2;
+
+    /// <summary>
+    /// Net charge at a given pH with EMBOSS <c>iep</c> options (termini on/off, modified lysines,
+    /// disulphide-bonded cysteines). With <see cref="IsoelectricPointOptions.Default"/> (or any
+    /// options that keep the termini and modify nothing) this is exactly
+    /// <see cref="CalculateNetCharge(string, double, PkaScale)"/>. <see cref="IsoelectricPointOptions.Window"/> is ignored.
+    /// </summary>
+    /// <param name="proteinSequence">Single-letter amino-acid sequence (case-insensitive, ASCII fold).</param>
+    /// <param name="pH">pH at which to evaluate the charge.</param>
+    /// <param name="options">Options; null = <see cref="IsoelectricPointOptions.Default"/>.</param>
+    /// <returns>Net charge (elementary charges); 0 for null/empty input.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">Negative <c>LysinesModified</c>/<c>Disulphides</c> or an unknown scale.</exception>
+    public static double CalculateNetCharge(string proteinSequence, double pH, IsoelectricPointOptions? options)
+    {
+        options ??= IsoelectricPointOptions.Default;
+        ValidateIsoelectricPointOptions(options);
         if (string.IsNullOrEmpty(proteinSequence))
             return 0.0;
 
-        return BuildChargeModel(proteinSequence, scale).NetCharge(pH);
+        return BuildOptionsCharge(proteinSequence, options)(pH);
     }
 
-    private readonly record struct ChargeModel(
-        double NTerminusPka,
-        double CTerminusPka,
-        Dictionary<char, (double pKa, int charge)> SideChains,
-        Dictionary<char, int> Counts)
+    /// <summary>
+    /// Isoelectric point with EMBOSS <c>iep</c> / Biopython conventions selected by
+    /// <paramref name="options"/>: pK scale, search window (<see cref="IsoelectricPointWindow"/>),
+    /// <c>-notermini</c>, <c>-lysinemodified N</c> and <c>-disulphides N</c>.
+    /// </summary>
+    /// <param name="proteinSequence">Single-letter amino-acid sequence (case-insensitive, ASCII fold).</param>
+    /// <param name="options">Options; null = <see cref="IsoelectricPointOptions.Default"/>.</param>
+    /// <param name="isoelectricPoint">The pI, or <see cref="double.NaN"/> when there is none.</param>
+    /// <returns>
+    /// False when the selected convention reports no pI: <see cref="IsoelectricPointWindow.Emboss"/>
+    /// when the net charge has the same strict sign at pH 1 and 14 (<c>iep</c> "None"), or a
+    /// null/empty sequence under the EMBOSS / Biopython windows. Always true for the default window.
+    /// </returns>
+    /// <remarks>
+    /// <para>Default window + default options returns exactly <see cref="CalculateIsoelectricPoint(string, PkaScale)"/>.</para>
+    /// <para>EMBOSS window: <c>embIepPhConverge</c> over the <c>embIepCompC</c>-adjusted counts; the
+    /// result is unrounded (compare with <c>iep</c>'s 4-dp output). Biopython window:
+    /// <c>IsoelectricPoint.pi()</c> with its defaults, unrounded (Bjellqvist scale reproduces
+    /// <c>ProteinAnalysis.isoelectric_point()</c>).</para>
+    /// <para>The modifications and <c>-notermini</c> are EMBOSS features; combined with the Bjellqvist
+    /// scale they apply the same count adjustment (terminal-residue pKs are unaffected).</para>
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException">Negative <c>LysinesModified</c>/<c>Disulphides</c>, unknown scale or window.</exception>
+    public static bool TryCalculateIsoelectricPoint(string proteinSequence, IsoelectricPointOptions? options, out double isoelectricPoint)
     {
-        public double NetCharge(double pH)
-        {
-            double charge = 1.0 / (1.0 + Math.Pow(10, pH - NTerminusPka));
-            charge -= 1.0 / (1.0 + Math.Pow(10, CTerminusPka - pH));
+        options ??= IsoelectricPointOptions.Default;
+        ValidateIsoelectricPointOptions(options);
+        isoelectricPoint = double.NaN;
 
-            foreach (var (aa, count) in Counts)
+        if (string.IsNullOrEmpty(proteinSequence))
+        {
+            if (options.Window != IsoelectricPointWindow.Default)
+                return false;
+            isoelectricPoint = NeutralPhDefault;
+            return true;
+        }
+
+        bool unmodified = options.Termini && options.LysinesModified == 0 && options.Disulphides == 0;
+        if (options.Window == IsoelectricPointWindow.Default && unmodified)
+        {
+            isoelectricPoint = CalculateIsoelectricPoint(proteinSequence, options.Scale);
+            return true;
+        }
+
+        if (options.Window == IsoelectricPointWindow.Default && options.Termini)
+        {
+            // Termini kept: only the residue counts change, so the canonical pI applies as is.
+            isoelectricPoint = ProteinPhysicochemistry.IsoelectricPoint(AdjustResidueCounts(proteinSequence, options), ToProteinPkaScale(options.Scale));
+            return true;
+        }
+
+        Func<double, double> charge = BuildOptionsCharge(proteinSequence, options);
+        switch (options.Window)
+        {
+            case IsoelectricPointWindow.Default:
+                // -notermini only (no termini parameter in ProteinPhysicochemistry yet, request R27).
+                isoelectricPoint = BisectDefaultWindow(charge);
+                return true;
+            case IsoelectricPointWindow.Emboss:
+                return TryBisectEmbossWindow(charge, out isoelectricPoint);
+            default: // Biopython (validated above)
+                isoelectricPoint = BisectBiopythonWindow(charge);
+                return true;
+        }
+    }
+
+    private static void ValidateIsoelectricPointOptions(IsoelectricPointOptions options)
+    {
+        if (options.LysinesModified < 0)
+            throw new ArgumentOutOfRangeException(nameof(options), options.LysinesModified, "LysinesModified must be non-negative.");
+        if (options.Disulphides < 0)
+            throw new ArgumentOutOfRangeException(nameof(options), options.Disulphides, "Disulphides must be non-negative.");
+        if (!Enum.IsDefined(options.Window))
+            throw new ArgumentOutOfRangeException(nameof(options), options.Window, "Unknown pI window.");
+        _ = ToProteinPkaScale(options.Scale);
+    }
+
+    // Charge function composed over the canonical ProteinPhysicochemistry.NetCharge: modified
+    // lysines / bonded cysteines are neutralised in the string (embIepCompC count adjustment); with
+    // Termini = false the side-chain charge is NetCharge("G"+s+"G") − NetCharge("GG"), whose default
+    // termini cancel (G is not ionizable and not a terminal-specific residue in either scale).
+    private static Func<double, double> BuildOptionsCharge(string proteinSequence, IsoelectricPointOptions options)
+    {
+        var scale = ToProteinPkaScale(options.Scale);
+        string adjusted = AdjustResidueCounts(proteinSequence, options);
+
+        if (options.Termini)
+            return pH => ProteinPhysicochemistry.NetCharge(adjusted, pH, scale);
+
+        string flanked = NeutralResidue + adjusted + NeutralResidue;
+        string terminiOnly = new(NeutralResidue, 2);
+        return pH => ProteinPhysicochemistry.NetCharge(flanked, pH, scale)
+                     - ProteinPhysicochemistry.NetCharge(terminiOnly, pH, scale);
+    }
+
+    // embIepCompC count adjustment: LysinesModified K and 2·Disulphides C neutralised.
+    private static string AdjustResidueCounts(string proteinSequence, IsoelectricPointOptions options) =>
+        NeutraliseResidues(NeutraliseResidues(proteinSequence, 'K', options.LysinesModified), 'C', 2L * options.Disulphides);
+
+    // embIepCompC: remove `count` residues of `residue` from the charged-group count, or all of them
+    // when fewer are present. Case folding is ASCII-only (as ProteinPhysicochemistry).
+    private static string NeutraliseResidues(string sequence, char residue, long count)
+    {
+        if (count == 0)
+            return sequence;
+
+        char lower = (char)(residue | 0x20);
+        var chars = sequence.ToCharArray();
+        long remaining = count;
+        for (int i = 0; i < chars.Length && remaining > 0; i++)
+        {
+            if (chars[i] == residue || chars[i] == lower)
             {
-                var (pKa, sign) = SideChains[aa];
-                if (sign > 0)
-                    charge += count / (1.0 + Math.Pow(10, pH - pKa));   // basic group
-                else
-                    charge -= count / (1.0 + Math.Pow(10, pKa - pH));   // acidic group
+                chars[i] = NeutralResidue;
+                remaining--;
             }
-
-            return charge;
         }
+
+        return new string(chars);
     }
 
-    private static ChargeModel BuildChargeModel(string proteinSequence, PkaScale scale)
+    // The single bisection kernel of the three pI search conventions. The net charge is
+    // non-increasing in pH, so a positive charge at the probe raises the lower bound, otherwise the
+    // probe becomes the upper bound (with stopAtZero, as embIepPhConverge, a probe whose charge is
+    // neither > 0 nor < 0 ends the search). Iterates while the bracket is wider than `bracket`;
+    // returns the final bounds and the last probe (the next midpoint, or the zero-charge pH).
+    private static (double Low, double High, double Probe, bool HitZero) BisectNonIncreasingCharge(
+        Func<double, double> charge, double low, double high, double bracket, double firstProbe,
+        bool embossMidpoint, bool stopAtZero)
     {
-        string upper = proteinSequence.ToUpperInvariant();
-        var sideChains = scale == PkaScale.Bjellqvist ? BjellqvistSideChains : EmbossSideChains;
-
-        var counts = new Dictionary<char, int>();
-        int countB = 0, countZ = 0;
-        foreach (char aa in upper)
+        double probe = firstProbe;
+        while (high - low > bracket)
         {
-            if (sideChains.ContainsKey(aa))
-                counts[aa] = counts.GetValueOrDefault(aa) + 1;
-            else if (aa == 'B')
-                countB++;
-            else if (aa == 'Z')
-                countZ++;
+            double c = charge(probe);
+            if (c > 0.0)
+                low = probe;
+            else if (stopAtZero && !(c < 0.0))
+                return (low, high, probe, true);
+            else
+                high = probe;
+            probe = embossMidpoint ? ((high - low) / 2.0) + low : (low + high) / 2.0;
         }
 
-        if (scale == PkaScale.Bjellqvist)
-        {
-            // Terminal-residue-specific pKs (Bjellqvist 1994; Biopython _update_pKs_tables).
-            double nPka = BjellqvistNTerminalResiduePka.GetValueOrDefault(upper[0], BjellqvistNTerminusPka);
-            double cPka = BjellqvistCTerminalResiduePka.GetValueOrDefault(upper[^1], BjellqvistCTerminusPka);
-            return new ChargeModel(nPka, cPka, sideChains, counts);
-        }
-
-        // EMBOSS embIepCompC: B = D or N, Z = E or Q, split by Dayhoff frequencies
-        // (D 5.5 / N 4.3; E 6.0 / Q 3.9), rounding half up via (int)(0.5 + x).
-        if (countB > 0)
-        {
-            int asp = (int)(0.5 + countB * 5.5 / 9.8);
-            if (asp > 0) counts['D'] = counts.GetValueOrDefault('D') + asp;
-        }
-        if (countZ > 0)
-        {
-            int glu = (int)(0.5 + countZ * 6.0 / 9.9);
-            if (glu > 0) counts['E'] = counts.GetValueOrDefault('E') + glu;
-        }
-
-        return new ChargeModel(EmbossNTerminusPka, EmbossCTerminusPka, sideChains, counts);
+        return (low, high, probe, false);
     }
+
+    // -notermini with the library's own window: same bracket, precision and rounding as
+    // ProteinPhysicochemistry.IsoelectricPoint (removable once PPC takes termini counts, R27).
+    private static double BisectDefaultWindow(Func<double, double> charge) =>
+        Math.Round(BisectNonIncreasingCharge(charge, DefaultPiLowPh, DefaultPiHighPh, DefaultPiPrecision,
+            (DefaultPiLowPh + DefaultPiHighPh) / 2.0, embossMidpoint: false, stopAtZero: false).Probe, DefaultPiDecimalPlaces);
+
+    // EMBOSS 6.6.0 nucleus/embiep.c embIepPhConverge (and embIepIepC's "!*iep → none"):
+    // mid = ((bph − tph) / 2) + tph, exact zero returns mid, otherwise returns tph.
+    private static bool TryBisectEmbossWindow(Func<double, double> charge, out double isoelectricPoint)
+    {
+        isoelectricPoint = double.NaN;
+        double top = charge(EmbossPiLowPh), bot = charge(EmbossPiHighPh);
+        if ((top > 0.0 && bot > 0.0) || (top < 0.0 && bot < 0.0))
+            return false;
+
+        var r = BisectNonIncreasingCharge(charge, EmbossPiLowPh, EmbossPiHighPh, EmbossPiBracket,
+            ((EmbossPiHighPh - EmbossPiLowPh) / 2.0) + EmbossPiLowPh, embossMidpoint: true, stopAtZero: true);
+        isoelectricPoint = r.HitZero ? r.Probe : r.Low;
+        return true;
+    }
+
+    // Biopython 1.88 Bio/SeqUtils/IsoelectricPoint.py IsoelectricPoint.pi (recursion unrolled):
+    // first probe 7.775 (not the bracket midpoint), returns the last midpoint.
+    private static double BisectBiopythonWindow(Func<double, double> charge) =>
+        BisectNonIncreasingCharge(charge, BiopythonPiLowPh, BiopythonPiHighPh, BiopythonPiBracket,
+            BiopythonPiStartPh, embossMidpoint: false, stopAtZero: false).Probe;
+
+    // Maps the (backward-compatible) public SequenceStatistics.PkaScale onto the canonical scale.
+    private static ProteinPkaScale ToProteinPkaScale(PkaScale scale) => scale switch
+    {
+        PkaScale.Emboss => ProteinPkaScale.Emboss,
+        PkaScale.Bjellqvist => ProteinPkaScale.Bjellqvist,
+        _ => throw new ArgumentOutOfRangeException(nameof(scale), scale, "Unknown pK scale."),
+    };
 
     #endregion
 
     #region Hydrophobicity
 
-    // Kyte-Doolittle hydropathy scale (kcal-derived index, the 20 standard residues).
-    // Values per Kyte J, Doolittle RF (1982) J Mol Biol 157:105-132; identical to
-    // Biopython Bio.SeqUtils.ProtParamData.kd.
-    private static readonly Dictionary<char, double> HydrophobicityScale = new()
-    {
-        { 'A', 1.8 },  { 'R', -4.5 }, { 'N', -3.5 }, { 'D', -3.5 },
-        { 'C', 2.5 },  { 'E', -3.5 }, { 'Q', -3.5 }, { 'G', -0.4 },
-        { 'H', -3.2 }, { 'I', 4.5 },  { 'L', 3.8 },  { 'K', -3.9 },
-        { 'M', 1.9 },  { 'F', 2.8 },  { 'P', -1.6 }, { 'S', -0.8 },
-        { 'T', -0.7 }, { 'W', -0.9 }, { 'Y', -1.3 }, { 'V', 4.2 }
-    };
+    // Kyte-Doolittle (1982) hydropathy index of the 20 standard residues (= Biopython
+    // ProtParamData.kd); single source: ProteinPhysicochemistry.KyteDoolittle.
+    private static readonly IReadOnlyDictionary<char, double> HydrophobicityScale = ProteinPhysicochemistry.KyteDoolittle;
 
     // Default sliding-window size; Kyte & Doolittle (1982) report window 9 gives the
     // best results for surface regions of globular proteins (per GCAT/Davidson summary).
@@ -556,26 +930,10 @@ public static class SequenceStatistics
     /// hydropathy values of all recognized residues divided by the residue count.
     /// Positive values indicate hydrophobic, negative hydrophilic. Non-standard residues
     /// are skipped (not counted). Returns 0 for null/empty input or no recognized residues.
+    /// Delegates to the canonical <see cref="ProteinPhysicochemistry.Gravy"/> (ASCII-only case fold).
     /// </summary>
-    public static double CalculateHydrophobicity(string proteinSequence)
-    {
-        if (string.IsNullOrEmpty(proteinSequence))
-            return 0;
-
-        double sum = 0;
-        int count = 0;
-
-        foreach (char aa in proteinSequence.ToUpperInvariant())
-        {
-            if (HydrophobicityScale.TryGetValue(aa, out double value))
-            {
-                sum += value;
-                count++;
-            }
-        }
-
-        return count > 0 ? sum / count : 0;
-    }
+    public static double CalculateHydrophobicity(string proteinSequence) =>
+        ProteinPhysicochemistry.Gravy(proteinSequence);
 
     /// <summary>
     /// Calculates the sliding-window Kyte-Doolittle hydropathy profile (Kyte &amp; Doolittle 1982;
@@ -594,13 +952,18 @@ public static class SequenceStatistics
     /// mean of the original Kyte-Doolittle method. A weighted window needs a central residue, so
     /// <paramref name="edgeWeight"/> &lt; 1 requires an odd window (ProtScale accepts odd windows only).
     /// For an even window with edge 1 the plain mean over the W residues is returned (Biopython instead
-    /// counts residue W/2 twice and divides by W + 1 — an artefact of its odd-window loop).</para>
+    /// counts residue W/2 twice and divides by W + 1 — an artefact of its odd-window loop; reproduce it with
+    /// <see cref="HydropathyWindowConvention.Biopython"/> in the options overload).</para>
     /// <para>Non-standard residues (B, Z, X, gaps, stop) have no scale value and contribute 0 to the
     /// weighted sum while keeping their weight in the divisor — identical to Biopython for such a
     /// residue at the window centre (Biopython also drops the symmetric partner of an off-centre
-    /// unknown residue; this library does not).</para>
+    /// unknown residue; this library does not — use <see cref="HydropathyWindowConvention.Biopython"/> for that, or
+    /// <see cref="HydrophobicityProfileOptions.Strict"/> to reject unknown residues).</para>
+    /// <para>Other scales, strict mode and ProtScale 0..1 scale normalisation:
+    /// <see cref="CalculateHydrophobicityProfile(string, int, double, HydrophobicityProfileOptions)"/>.</para>
     /// </remarks>
-    /// <param name="proteinSequence">One-letter amino-acid sequence (case-insensitive).</param>
+    /// <param name="proteinSequence">One-letter amino-acid sequence (case-insensitive, ASCII-only fold:
+    /// non-ASCII characters such as 'ſ' are non-residues).</param>
     /// <param name="windowSize">Window length W (≥ 1; default 9).</param>
     /// <param name="edgeWeight">Relative weight of the window edges, in [0, 1] (default 1 = unweighted).</param>
     /// <exception cref="ArgumentOutOfRangeException">W &lt; 1, or <paramref name="edgeWeight"/> outside [0, 1].</exception>
@@ -620,11 +983,174 @@ public static class SequenceStatistics
         if (string.IsNullOrEmpty(proteinSequence) || windowSize > proteinSequence.Length)
             return Array.Empty<double>();
 
-        return HydrophobicityProfileIterator(proteinSequence.ToUpperInvariant(), windowSize, edgeWeight);
+        return HydrophobicityProfileIterator(proteinSequence, windowSize, edgeWeight);
     }
 
-    private static IEnumerable<double> HydrophobicityProfileIterator(string upper, int windowSize, double edgeWeight)
+    /// <summary>
+    /// Window convention of <see cref="CalculateHydrophobicityProfile(string, int, double, HydrophobicityProfileOptions)"/>.
+    /// </summary>
+    public enum HydropathyWindowConvention
     {
+        /// <summary>Default: every window position j has its own weight w_j, the value is Σ w·v / Σ w over the W
+        /// residues; an unknown residue contributes 0 and keeps its weight; even windows need edge = 1.</summary>
+        Standard = 0,
+
+        /// <summary>Line-for-line Biopython 1.88 <c>ProteinAnalysis.protein_scale(param_dict, window, edge)</c>:
+        /// positions j and W−1−j (j &lt; ⌊W/2⌋) are scored as a pair with the half-list weight
+        /// <c>edge + j·2(1 − edge)/(W − 1)</c>, then residue ⌊W/2⌋ is added with weight 1, and the sum is divided by
+        /// 2·Σ half-weights + 1. Hence for an even W residue W/2 is counted twice (once in its pair, once as the
+        /// "middle") and the divisor is W + 1 at edge 1; even windows with edge &lt; 1 are accepted; a pair with an
+        /// unknown residue is dropped as a whole (its known partner too), an unknown middle is dropped; the
+        /// divisor never changes. W = 1 is rejected (Biopython raises ZeroDivisionError).</summary>
+        Biopython = 1,
+    }
+
+    /// <summary>
+    /// Options for <see cref="CalculateHydrophobicityProfile(string, int, double, HydrophobicityProfileOptions)"/>.
+    /// <see cref="Default"/> reproduces <see cref="CalculateHydrophobicityProfile(string, int, double)"/> exactly.
+    /// </summary>
+    public sealed record HydrophobicityProfileOptions
+    {
+        /// <summary>Kyte-Doolittle scale, standard window convention, lenient, unnormalised.</summary>
+        public static HydrophobicityProfileOptions Default { get; } = new();
+
+        /// <summary>Window convention (default <see cref="HydropathyWindowConvention.Standard"/>).</summary>
+        public HydropathyWindowConvention Convention { get; init; } = HydropathyWindowConvention.Standard;
+
+        /// <summary>Residue scale keyed by upper-case one-letter code (e.g. Biopython <c>ProtParamData.hw</c>,
+        /// <c>em</c>, <c>ja</c>, <c>Flex</c>); null (default) = Kyte-Doolittle
+        /// (<see cref="ProteinPhysicochemistry.KyteDoolittle"/>). Sequence letters are upper-cased (ASCII) before lookup.</summary>
+        public IReadOnlyDictionary<char, double>? Scale { get; init; }
+
+        /// <summary>True: throw <see cref="ArgumentException"/> when the sequence contains a symbol absent from the
+        /// scale (the Biopython <c>gravy()</c> KeyError behaviour). False (default): such symbols are handled by the
+        /// window convention (no score).</summary>
+        public bool Strict { get; init; }
+
+        /// <summary>True: normalise the scale to 0..1 before profiling, v' = (v − min)/(max − min) over the scale's
+        /// entries (ExPASy ProtScale "normalize the scale from 0 to 1", Gasteiger et al. 2005). Default false.</summary>
+        public bool NormalizeScale { get; init; }
+
+        /// <summary>ExPASy ProtScale "weight variation model" for edge weights &lt; 1 (default
+        /// <see cref="HydropathyWeightModel.Linear"/>). <see cref="HydropathyWeightModel.Exponential"/> needs the
+        /// <see cref="HydropathyWindowConvention.Standard"/> convention (Biopython has no exponential model).</summary>
+        public HydropathyWeightModel WeightModel { get; init; } = HydropathyWeightModel.Linear;
+    }
+
+    /// <summary>
+    /// ExPASy ProtScale weight-variation model: how the window weights fall from 1 at the centre to the
+    /// edge weight e at the two window ends (d = distance from the centre, R = (W − 1)/2).
+    /// </summary>
+    public enum HydropathyWeightModel
+    {
+        /// <summary>w(d) = e + (R − d)(1 − e)/R (ProtScale "linear"; Biopython <c>_weight_list</c>).</summary>
+        Linear = 0,
+
+        /// <summary>ProtScale "exponential": w(0) = 1 and, for 1 ≤ d ≤ R,
+        /// w(d) = (e − 0.01) + (1 − e)·(0.01/(1 − e))^(d/R), i.e. an exponential that falls from 1 − e to 0.01 above
+        /// the floor e − 0.01 (all weights 1 when e = 1). Derived from and verified against the ProtScale web tool
+        /// (web.expasy.org/cgi-bin/protscale/protscale.pl, 2026-10-14): the weight table it prints and the profile
+        /// values agree to its 3-decimal output for W = 3…21 and e = 0…99.5 % (docs/Evidence/SEQ-HYDRO-001-Evidence.md).</summary>
+        Exponential = 1,
+    }
+
+    /// <summary>
+    /// Sliding-window amino-acid-scale profile with an explicit scale, window convention, strictness and
+    /// ProtScale 0..1 scale normalisation (see <see cref="HydrophobicityProfileOptions"/>). With
+    /// <see cref="HydrophobicityProfileOptions.Default"/> it equals
+    /// <see cref="CalculateHydrophobicityProfile(string, int, double)"/>.
+    /// </summary>
+    /// <param name="proteinSequence">One-letter amino-acid sequence (ASCII case fold).</param>
+    /// <param name="windowSize">Window length W (≥ 1; ≥ 2 in the Biopython convention).</param>
+    /// <param name="edgeWeight">Relative weight of the window edges, in [0, 1].</param>
+    /// <param name="options">Scale / convention / strictness / normalisation; null = <see cref="HydrophobicityProfileOptions.Default"/>.</param>
+    /// <exception cref="ArgumentOutOfRangeException">Bad W or edge weight; W = 1 in the Biopython convention.</exception>
+    /// <exception cref="ArgumentException">Standard convention with edge &lt; 1 and even W; an empty or constant scale
+    /// to normalise; strict mode and a symbol absent from the scale.</exception>
+    public static IEnumerable<double> CalculateHydrophobicityProfile(
+        string proteinSequence,
+        int windowSize,
+        double edgeWeight,
+        HydrophobicityProfileOptions? options)
+    {
+        options ??= HydrophobicityProfileOptions.Default;
+        bool biopython = options.Convention == HydropathyWindowConvention.Biopython;
+        if (!Enum.IsDefined(options.Convention))
+            throw new ArgumentOutOfRangeException(nameof(options), options.Convention, "Unknown window convention.");
+        if (windowSize < (biopython ? 2 : 1))
+            throw new ArgumentOutOfRangeException(nameof(windowSize), windowSize,
+                biopython ? "The Biopython convention needs a window of at least 2 (W = 1 divides by W − 1 = 0)." : "Window size must be at least 1.");
+        if (double.IsNaN(edgeWeight) || edgeWeight < 0.0 || edgeWeight > 1.0)
+            throw new ArgumentOutOfRangeException(nameof(edgeWeight), edgeWeight, "Edge weight must be in [0, 1].");
+        if (!biopython && edgeWeight < 1.0 && windowSize % 2 == 0)
+            throw new ArgumentException("An edge-weighted window must have an odd size (a central residue).", nameof(windowSize));
+        if (!Enum.IsDefined(options.WeightModel))
+            throw new ArgumentOutOfRangeException(nameof(options), options.WeightModel, "Unknown weight variation model.");
+        bool exponential = options.WeightModel == HydropathyWeightModel.Exponential;
+        if (biopython && exponential)
+            throw new ArgumentException("The exponential weight model is a ProtScale model; the Biopython convention is linear only.", nameof(options));
+
+        IReadOnlyDictionary<char, double> scale = options.Scale ?? HydrophobicityScale;
+        if (options.NormalizeScale)
+            scale = NormalizeScaleZeroToOne(scale, nameof(options));
+
+        if (string.IsNullOrEmpty(proteinSequence))
+            return Array.Empty<double>();
+
+        if (options.Strict)
+        {
+            foreach (char c in proteinSequence)
+            {
+                if (!scale.ContainsKey(SequenceCase.ToUpperAscii(c)))
+                    throw new ArgumentException($"Symbol '{c}' has no value in the scale (strict mode).", nameof(proteinSequence));
+            }
+        }
+
+        if (windowSize > proteinSequence.Length)
+            return Array.Empty<double>();
+
+        return biopython
+            ? BiopythonScaleProfileIterator(proteinSequence, windowSize, edgeWeight, scale)
+            : HydrophobicityProfileIterator(proteinSequence, windowSize, edgeWeight, scale, exponential);
+    }
+
+    /// <summary>
+    /// Sliding-window profile of a caller-supplied amino-acid scale (e.g. the shipped Biopython
+    /// <c>ProtParamData</c> tables <see cref="ProteinScales.HoppWoods"/> (<c>hw</c>), <see cref="ProteinScales.Emini"/>
+    /// (<c>em</c>, Emini surface probability), <see cref="ProteinScales.Janin"/> (<c>ja</c>),
+    /// <see cref="ProteinScales.Flexibility"/> (<c>Flex</c>, Vihinen)) with the standard
+    /// window convention; shorthand for the options overload with <see cref="HydrophobicityProfileOptions.Scale"/>.
+    /// </summary>
+    public static IEnumerable<double> CalculateHydrophobicityProfile(
+        string proteinSequence,
+        IReadOnlyDictionary<char, double> scale,
+        int windowSize = DefaultHydropathyWindow,
+        double edgeWeight = 1.0)
+    {
+        ArgumentNullException.ThrowIfNull(scale);
+        return CalculateHydrophobicityProfile(proteinSequence, windowSize, edgeWeight,
+            new HydrophobicityProfileOptions { Scale = scale });
+    }
+
+    // ExPASy ProtScale "normalize the scale from 0 to 1": min–max over the scale's own entries.
+    private static IReadOnlyDictionary<char, double> NormalizeScaleZeroToOne(IReadOnlyDictionary<char, double> scale, string paramName)
+    {
+        if (scale.Count == 0)
+            throw new ArgumentException("Cannot normalise an empty scale.", paramName);
+        double min = scale.Values.Min(), max = scale.Values.Max();
+        if (!(max > min))
+            throw new ArgumentException("Cannot normalise a constant scale (max = min).", paramName);
+        var normalized = new Dictionary<char, double>(scale.Count);
+        foreach (var (key, value) in scale)
+            normalized[key] = (value - min) / (max - min);
+        return normalized;
+    }
+
+    private static IEnumerable<double> HydrophobicityProfileIterator(
+        string sequence, int windowSize, double edgeWeight, IReadOnlyDictionary<char, double>? scale = null,
+        bool exponential = false)
+    {
+        scale ??= HydrophobicityScale;
         // Position weights (all 1 for the unweighted Kyte-Doolittle mean).
         var weights = new double[windowSize];
         double weightSum = 0;
@@ -632,21 +1158,58 @@ public static class SequenceStatistics
         for (int j = 0; j < windowSize; j++)
         {
             int fromEdge = Math.Min(j, windowSize - 1 - j);
-            weights[j] = edgeWeight >= 1.0 || fromEdge >= half
-                ? 1.0
-                : edgeWeight + fromEdge * 2.0 * (1.0 - edgeWeight) / (windowSize - 1);
+            if (edgeWeight >= 1.0 || fromEdge >= half)
+                weights[j] = 1.0;
+            else if (exponential)
+                weights[j] = ProtScaleExponentialWeight(half - fromEdge, half, edgeWeight);
+            else
+                weights[j] = edgeWeight + fromEdge * 2.0 * (1.0 - edgeWeight) / (windowSize - 1);
             weightSum += weights[j];
         }
 
-        for (int i = 0; i <= upper.Length - windowSize; i++)
+        for (int i = 0; i <= sequence.Length - windowSize; i++)
         {
             double sum = 0;
             for (int j = 0; j < windowSize; j++)
             {
-                if (HydrophobicityScale.TryGetValue(upper[i + j], out double value))
+                if (scale.TryGetValue(SequenceCase.ToUpperAscii(sequence[i + j]), out double value))
                     sum += weights[j] * value;
             }
             yield return sum / weightSum;
+        }
+    }
+
+    // ProtScale exponential model, distance d (1..R) from the centre, edge weight e < 1 (see HydropathyWeightModel).
+    private static double ProtScaleExponentialWeight(int distance, int radius, double edgeWeight) =>
+        edgeWeight - 0.01 + (1.0 - edgeWeight) * Math.Pow(0.01 / (1.0 - edgeWeight), (double)distance / radius);
+
+    // Line-for-line port of Biopython 1.88 ProteinAnalysis.protein_scale / _weight_list (W ≥ 2).
+    private static IEnumerable<double> BiopythonScaleProfileIterator(
+        string sequence, int windowSize, double edgeWeight, IReadOnlyDictionary<char, double> scale)
+    {
+        int half = windowSize / 2;
+        double unit = 2.0 * (1.0 - edgeWeight) / (windowSize - 1);
+        var weights = new double[half];
+        double halfSum = 0;
+        for (int j = 0; j < half; j++)
+        {
+            weights[j] = edgeWeight + unit * j;
+            halfSum += weights[j];
+        }
+        double sumOfWeights = halfSum * 2 + 1;
+
+        for (int i = 0; i <= sequence.Length - windowSize; i++)
+        {
+            double score = 0.0;
+            for (int j = 0; j < half; j++)
+            {
+                if (scale.TryGetValue(SequenceCase.ToUpperAscii(sequence[i + j]), out double front)
+                    && scale.TryGetValue(SequenceCase.ToUpperAscii(sequence[i + windowSize - j - 1]), out double back))
+                    score += weights[j] * front + weights[j] * back;
+            }
+            if (scale.TryGetValue(SequenceCase.ToUpperAscii(sequence[i + half]), out double middle))
+                score += middle;
+            yield return score / sumOfWeights;
         }
     }
 
@@ -654,60 +1217,14 @@ public static class SequenceStatistics
 
     #region DNA Thermodynamics
 
-    // Unified nearest-neighbor thermodynamic parameters for Watson-Crick base pairs
-    // in 1 M NaCl, ΔH in kcal/mol and ΔS in cal/(mol·K).
-    // Source: Allawi HT, SantaLucia J (1997), Biochemistry 36(34):10581-10594,
-    //         Table 1 (also tabulated as DNA_NN3 in Biopython Bio.SeqUtils.MeltingTemp).
-    // Each entry and its Watson-Crick complement share the same values
-    // (e.g. AA/TT, CA/TG), so all 16 dinucleotides are listed explicitly.
-    private static readonly Dictionary<string, (double dH, double dS)> NearestNeighborParams = new()
-    {
-        { "AA", (-7.9, -22.2) }, { "TT", (-7.9, -22.2) },
-        { "AT", (-7.2, -20.4) },
-        { "TA", (-7.2, -21.3) },
-        { "CA", (-8.5, -22.7) }, { "TG", (-8.5, -22.7) },
-        { "GT", (-8.4, -22.4) }, { "AC", (-8.4, -22.4) },
-        { "CT", (-7.8, -21.0) }, { "AG", (-7.8, -21.0) },
-        { "GA", (-8.2, -22.2) }, { "TC", (-8.2, -22.2) },
-        { "CG", (-10.6, -27.2) },
-        { "GC", (-9.8, -24.4) },
-        { "GG", (-8.0, -19.9) }, { "CC", (-8.0, -19.9) }
-    };
-
-    // Helix-initiation parameters applied once at EACH duplex terminus,
-    // selected by whether that terminal base pair is G·C or A·T.
-    // Source: Allawi & SantaLucia (1997), Table 1; "init. w/ term. G·C" and
-    // "init. w/ term. A·T" (Biopython DNA_NN3 keys init_G/C, init_A/T).
-    private const double InitTerminalGcDeltaH = 0.1;   // kcal/mol
-    private const double InitTerminalGcDeltaS = -2.8;  // cal/(mol·K)
-    private const double InitTerminalAtDeltaH = 2.3;   // kcal/mol
-    private const double InitTerminalAtDeltaS = 4.1;   // cal/(mol·K)
-
-    // Salt (Na+) entropy correction per SantaLucia (1998) "method 5":
-    // ΔS(salt) = 0.368 * (N-1) * ln[Na+], [Na+] in mol/L.
-    // Source: SantaLucia J (1998), PNAS 95(4):1460-1465; Biopython salt_correction method 5.
-    private const double SaltEntropyCoefficient = 0.368;
-
-    // Gas constant R in cal/(mol·K) used in the Tm equation.
-    // Source: Allawi & SantaLucia (1997); Biopython Tm_NN uses R = 1.987.
-    private const double GasConstantCalPerMolK = 1.987;
+    // The nearest-neighbour model is the canonical Infrastructure core
+    // ThermoConstants.CalculateNearestNeighborDuplex (a line-by-line port of Biopython 1.88
+    // Bio.SeqUtils.MeltingTemp.Tm_NN; 2026-10 FIN-B03 F26). SequenceStatistics only maps its
+    // mol/L inputs onto Tm_NN's nM / mM arguments, keeps its "< 2 bases → zeros" sentinel and
+    // derives ΔG°₃₇ = ΔH° − 310.15·ΔS°/1000.
 
     // Reference temperature for ΔG° calculation: 37 °C = 310.15 K.
     private const double ReferenceTemperatureKelvin = 310.15;
-
-    // Kelvin-to-Celsius offset.
-    private const double KelvinToCelsiusOffset = 273.15;
-
-    // Total-strand-concentration divisor F (x) for the Tm equation Tm = ΔH°/(ΔS° + R·ln(C_T/x)).
-    // x = 4 for two non-self-complementary strands in equal amount, x = 1 for a
-    // self-complementary (homo)duplex. Source: SantaLucia (1998) PNAS 95:1460 Eq. 3;
-    // Biopython Tm_NN: k = dnac1 − dnac2/2 (non-self-complementary), k = dnac1 (selfcomp).
-    private const double NonSelfComplementaryFactor = 4.0;
-    private const double SelfComplementaryFactor = 1.0;
-
-    // Symmetry correction for a self-complementary duplex (ΔH° = 0, ΔS° = −1.4 cal/(mol·K)).
-    // Source: SantaLucia (1998) Table 2 "symmetry correction"; Biopython DNA_NN3 key "sym" (0, −1.4).
-    private const double SymmetryCorrectionDeltaS = -1.4;
 
     /// <summary>
     /// DNA thermodynamic properties.
@@ -717,6 +1234,39 @@ public static class SequenceStatistics
         double DeltaS,
         double DeltaG,
         double MeltingTemperature);
+
+    /// <summary>
+    /// Reaction conditions beyond [Na⁺] / C_T for
+    /// <see cref="CalculateThermodynamics(string, double, double, bool, ThermodynamicsOptions)"/>:
+    /// the Biopython <c>MeltingTemp.salt_correction</c> method (0–7) with its K⁺ / Tris / Mg²⁺ / dNTP
+    /// inputs, and whether the result is rounded. The defaults (method 5, no other ions, rounded) give
+    /// exactly <see cref="CalculateThermodynamics(string, double, double, bool)"/>.
+    /// </summary>
+    public sealed record ThermodynamicsOptions
+    {
+        /// <summary>Default conditions: SantaLucia (1998) method-5 entropy correction, Na⁺ only, rounded output.</summary>
+        public static ThermodynamicsOptions Default { get; } = new();
+
+        /// <summary>Biopython <c>saltcorr</c> method (default 5, SantaLucia 1998 entropy). 1–4 add to Tm,
+        /// 5 adds to ΔS°, 6 (Owczarzy 2004) and 7 (Owczarzy 2008, Mg²⁺/dNTPs) add to 1/Tm; 0 = none.</summary>
+        public NnSaltCorrection SaltCorrection { get; init; } = NnSaltCorrection.SantaLucia1998Entropy;
+
+        /// <summary>[K⁺] in mol/L (default 0); ≥ 0.</summary>
+        public double PotassiumConcentration { get; init; }
+
+        /// <summary>[Tris] in mol/L (default 0); ≥ 0. Counts as [Tris]/2 monovalent ions (Biopython).</summary>
+        public double TrisConcentration { get; init; }
+
+        /// <summary>[Mg²⁺] in mol/L (default 0); ≥ 0.</summary>
+        public double MagnesiumConcentration { get; init; }
+
+        /// <summary>[dNTPs] in mol/L (default 0); ≥ 0.</summary>
+        public double DntpConcentration { get; init; }
+
+        /// <summary>Round ΔH°/ΔS°/ΔG° to 2 decimals and Tm to 1 decimal (default true); false returns
+        /// the unrounded values (Biopython <c>Tm_NN</c> returns an unrounded Tm).</summary>
+        public bool RoundResults { get; init; } = true;
+    }
 
     /// <summary>
     /// Calculates thermodynamic properties (ΔH°, ΔS°, ΔG°₃₇ and Tm) of a DNA duplex formed by
@@ -729,7 +1279,9 @@ public static class SequenceStatistics
     /// </summary>
     /// <param name="dnaSequence">DNA sequence (5'→3'). Normalised like Biopython <c>Tm_NN</c>
     /// (<c>_check</c>): case-insensitive, whitespace removed, RNA U read as T, and every character
-    /// other than A/C/G/T removed before the model is applied. Fewer than 2 remaining bases → all zero.</param>
+    /// other than A/C/G/T and inosine I removed before the model is applied. Inosine is scored with
+    /// Biopython's <c>DNA_IMM1</c> parameters (SantaLucia 2005); a neighbour pair without parameters
+    /// (e.g. "II") throws, as Biopython's default strict mode does. Fewer than 2 remaining bases → all zero.</param>
     /// <param name="naConcentration">Na+ concentration in mol/L (default 0.05 = 50 mM); must be &gt; 0.</param>
     /// <param name="primerConcentration">
     /// Total strand concentration C_T in mol/L (default 2.5e-7 = 250 nM; must be &gt; 0); the Tm
@@ -737,10 +1289,12 @@ public static class SequenceStatistics
     /// </param>
     /// <returns>
     /// ΔH° (kcal/mol), ΔS° (cal/(mol·K), salt-corrected), ΔG°₃₇ (kcal/mol) rounded to 2 decimals
-    /// and Tm (°C) rounded to 1 decimal. For null input or fewer than 2 A/C/G/T(U) bases all four
+    /// and Tm (°C) rounded to 1 decimal. For null input or fewer than 2 A/C/G/T/I (U) bases all four
     /// fields are 0.
     /// </returns>
     /// <exception cref="ArgumentOutOfRangeException">A concentration is not a positive finite number.</exception>
+    /// <exception cref="ArgumentException">A neighbour pair has no nearest-neighbour parameter (only possible
+    /// with inosine, e.g. "II"; Biopython <c>Tm_NN</c> raises <c>ValueError</c>).</exception>
     public static ThermodynamicProperties CalculateThermodynamics(
         string dnaSequence,
         double naConcentration = 0.05, // 50 mM
@@ -765,6 +1319,7 @@ public static class SequenceStatistics
     /// caller's statement of the experiment and is not inferred from the sequence.
     /// </param>
     /// <exception cref="ArgumentOutOfRangeException">A concentration is not a positive finite number.</exception>
+    /// <exception cref="ArgumentException">A neighbour pair has no nearest-neighbour parameter (inosine only).</exception>
     public static ThermodynamicProperties CalculateThermodynamics(
         string dnaSequence,
         double naConcentration,
@@ -777,88 +1332,91 @@ public static class SequenceStatistics
         if (!(naConcentration > 0) || double.IsInfinity(naConcentration))
             throw new ArgumentOutOfRangeException(nameof(naConcentration), naConcentration,
                 "Na+ concentration must be a positive finite value in mol/L.");
+        return CalculateThermodynamics(dnaSequence, naConcentration, primerConcentration, selfComplementary,
+            ThermodynamicsOptions.Default);
+    }
+
+    /// <summary>
+    /// Calculates ΔH°, ΔS°, ΔG°₃₇ and Tm of a DNA duplex (Allawi &amp; SantaLucia 1997, Biopython
+    /// <c>DNA_NN3</c>) under any Biopython <c>MeltingTemp.salt_correction</c> method (0–7) with
+    /// Na⁺ / K⁺ / Tris / Mg²⁺ / dNTPs, optionally unrounded. Reproduces Biopython 1.88
+    /// <c>Tm_NN(seq, Na=1000·[Na⁺], K=, Tris=, Mg=, dNTPs= (mM), dnac1=dnac2=C_T/2 (nM; self-complementary:
+    /// dnac1=C_T, dnac2=0), selfcomp=, saltcorr=method)</c> through the canonical
+    /// <see cref="ThermoConstants.CalculateNearestNeighborDuplex"/>.
+    /// </summary>
+    /// <param name="dnaSequence">DNA sequence (5'→3'); normalised as in
+    /// <see cref="CalculateThermodynamics(string, double, double)"/>.</param>
+    /// <param name="naConcentration">Na⁺ concentration in mol/L; ≥ 0 and finite (a zero total ion
+    /// concentration is rejected by methods 1–6, as in Biopython).</param>
+    /// <param name="primerConcentration">Strand concentration C_T in mol/L; must be &gt; 0 (see the 4-argument overload).</param>
+    /// <param name="selfComplementary">Self-complementary (homo)duplex (see the 4-argument overload).</param>
+    /// <param name="options">Salt-correction method, other ions and rounding; <c>null</c> = <see cref="ThermodynamicsOptions.Default"/>.</param>
+    /// <returns>
+    /// ΔH° (kcal/mol, 1 M NaCl); ΔS° (cal/(mol·K)) — salt-corrected for method 5, the 1 M NaCl value for every
+    /// other method (methods 1–4 / 6–7 correct Tm or 1/Tm, not ΔS°); ΔG°₃₇ = ΔH° − 310.15·ΔS°/1000 from those two;
+    /// Tm (°C) with the chosen correction. Rounded to 2 / 1 decimals unless
+    /// <see cref="ThermodynamicsOptions.RoundResults"/> is false. All zero for fewer than 2 A/C/G/T/I (U) bases.
+    /// </returns>
+    /// <exception cref="ArgumentOutOfRangeException">C_T not positive finite, an ion concentration negative or
+    /// not finite, or a method outside 0–7.</exception>
+    /// <exception cref="ArgumentException">A neighbour pair without parameters (inosine) or a salt input Biopython
+    /// rejects (zero total ion concentration for methods 1–6, ln of a non-positive concentration).</exception>
+    public static ThermodynamicProperties CalculateThermodynamics(
+        string dnaSequence,
+        double naConcentration,
+        double primerConcentration,
+        bool selfComplementary,
+        ThermodynamicsOptions? options)
+    {
+        options ??= ThermodynamicsOptions.Default;
         if (!(primerConcentration > 0) || double.IsInfinity(primerConcentration))
             throw new ArgumentOutOfRangeException(nameof(primerConcentration), primerConcentration,
                 "Strand concentration must be a positive finite value in mol/L.");
+        RequireNonNegativeFinite(naConcentration, nameof(naConcentration));
+        RequireNonNegativeFinite(options.PotassiumConcentration, nameof(options.PotassiumConcentration));
+        RequireNonNegativeFinite(options.TrisConcentration, nameof(options.TrisConcentration));
+        RequireNonNegativeFinite(options.MagnesiumConcentration, nameof(options.MagnesiumConcentration));
+        RequireNonNegativeFinite(options.DntpConcentration, nameof(options.DntpConcentration));
+        if (options.SaltCorrection is < NnSaltCorrection.None or > NnSaltCorrection.Owczarzy2008)
+            throw new ArgumentOutOfRangeException(nameof(options), options.SaltCorrection,
+                "Allowed salt-correction methods are 0–7.");
 
-        string seq = NormalizeForNearestNeighbor(dnaSequence);
-        if (seq.Length < 2)
+        // Sentinel kept from the original API: fewer than two scorable bases → zeros (Biopython has no
+        // duplex either: a 1-nt Tm_NN has no neighbour pair).
+        if (ThermoConstants.NormalizeForNearestNeighbor(dnaSequence).Length < 2)
             return new ThermodynamicProperties(0, 0, 0, 0);
 
-        // Calculate ΔH and ΔS using the nearest-neighbor method.
-        double dH = 0;
-        double dS = 0;
+        // mol/L → Tm_NN units: strands in nM, ions in mM. Equimolar strands dnac1 = dnac2 = C_T/2
+        // give k = dnac1 − dnac2/2 = C_T/4; self-complementary k = dnac1 = C_T.
+        double ctNanomolar = primerConcentration * 1e9;
+        var r = ThermoConstants.CalculateNearestNeighborDuplex(
+            dnaSequence,
+            parameterSet: NnParameterSet.AllawiSantaLucia1997,
+            dnac1: selfComplementary ? ctNanomolar : ctNanomolar / 2,
+            dnac2: selfComplementary ? 0 : ctNanomolar / 2,
+            selfComplementary: selfComplementary,
+            sodium: naConcentration * 1000,
+            potassium: options.PotassiumConcentration * 1000,
+            tris: options.TrisConcentration * 1000,
+            magnesium: options.MagnesiumConcentration * 1000,
+            dntps: options.DntpConcentration * 1000,
+            saltCorrection: options.SaltCorrection);
 
-        // Helix-initiation parameters are applied at BOTH duplex termini
-        // (first and last base pair) per Allawi & SantaLucia (1997), Table 1.
-        AddTerminalInitiation(seq[0], ref dH, ref dS);
-        AddTerminalInitiation(seq[^1], ref dH, ref dS);
+        // ΔG°₃₇ = ΔH° − T·ΔS° (ΔS° converted from cal to kcal).
+        double dG = r.DeltaH - (ReferenceTemperatureKelvin * r.SaltCorrectedDeltaS / 1000.0);
+        return options.RoundResults
+            ? new ThermodynamicProperties(
+                DeltaH: Math.Round(r.DeltaH, 2),
+                DeltaS: Math.Round(r.SaltCorrectedDeltaS, 2),
+                DeltaG: Math.Round(dG, 2),
+                MeltingTemperature: Math.Round(r.MeltingTemperature, 1))
+            : new ThermodynamicProperties(r.DeltaH, r.SaltCorrectedDeltaS, dG, r.MeltingTemperature);
 
-        // Sum nearest-neighbor contributions over each overlapping dinucleotide
-        // (the normalised sequence is pure A/C/G/T, so every step is in the table).
-        for (int i = 0; i < seq.Length - 1; i++)
+        static void RequireNonNegativeFinite(double value, string name)
         {
-            var param = NearestNeighborParams[seq.Substring(i, 2)];
-            dH += param.dH;
-            dS += param.dS;
-        }
-
-        double strandFactor = NonSelfComplementaryFactor;
-        if (selfComplementary)
-        {
-            dS += SymmetryCorrectionDeltaS;
-            strandFactor = SelfComplementaryFactor;
-        }
-
-        // Salt correction for ΔS (SantaLucia 1998, method 5); N = number of bases.
-        dS += SaltEntropyCoefficient * (seq.Length - 1) * Math.Log(naConcentration);
-
-        // ΔG° at 37 °C: ΔG° = ΔH° - T·ΔS° (ΔS° converted from cal to kcal).
-        double dG = dH - (ReferenceTemperatureKelvin * dS / 1000.0);
-
-        // Tm = ΔH° / (ΔS° + R · ln(C_T / x)) - 273.15, with ΔH° converted to cal.
-        double tm = (dH * 1000) /
-                    (dS + GasConstantCalPerMolK * Math.Log(primerConcentration / strandFactor))
-                    - KelvinToCelsiusOffset;
-
-        return new ThermodynamicProperties(
-            DeltaH: Math.Round(dH, 2),
-            DeltaS: Math.Round(dS, 2),
-            DeltaG: Math.Round(dG, 2),
-            MeltingTemperature: Math.Round(tm, 1));
-    }
-
-    // Biopython MeltingTemp._check(seq, "Tm_NN"): upper-case, drop whitespace, back-transcribe
-    // (U → T), keep only bases the NN table can score. DNA_NN3 has no inosine (I) parameters
-    // (Biopython raises on I), so only A/C/G/T are kept.
-    private static string NormalizeForNearestNeighbor(string? sequence)
-    {
-        if (string.IsNullOrEmpty(sequence))
-            return string.Empty;
-
-        var sb = new System.Text.StringBuilder(sequence.Length);
-        foreach (char ch in sequence)
-        {
-            char b = char.ToUpperInvariant(ch);
-            if (b == 'U') b = 'T';
-            if (b is 'A' or 'C' or 'G' or 'T')
-                sb.Append(b);
-        }
-        return sb.ToString();
-    }
-
-    // Adds the helix-initiation contribution for one terminal base (A/C/G/T).
-    private static void AddTerminalInitiation(char terminalBase, ref double dH, ref double dS)
-    {
-        if (terminalBase is 'G' or 'C')
-        {
-            dH += InitTerminalGcDeltaH;
-            dS += InitTerminalGcDeltaS;
-        }
-        else
-        {
-            dH += InitTerminalAtDeltaH;
-            dS += InitTerminalAtDeltaS;
+            if (!(value >= 0) || double.IsInfinity(value))
+                throw new ArgumentOutOfRangeException(name, value,
+                    "Ion concentration must be a non-negative finite value in mol/L.");
         }
     }
 
@@ -874,34 +1432,110 @@ public static class SequenceStatistics
     /// <see cref="CalculateThermodynamics(string, double, double)"/> does). Every other character
     /// (N, IUPAC codes, gaps, whitespace) is ignored. As in OligoCalc — whose GC formula divides by
     /// N = wA+xT+yG+zC — the length that selects the formula is the number of counted bases, so for
-    /// U-free input the result with <paramref name="useWallaceRule"/> = true equals the canonical
-    /// <c>PrimerDesigner.CalculateMeltingTemperature</c> (MolTools; not callable from this assembly;
-    /// that DNA-primer method ignores U).
+    /// <paramref name="useWallaceRule"/> = true delegates to the canonical
+    /// <see cref="ThermoConstants.CalculateBasicTm"/> (also behind <c>PrimerDesigner.CalculateMeltingTemperature</c>);
+    /// false uses <see cref="ThermoConstants.CountBasicTmBases"/> + <see cref="ThermoConstants.CalculateMarmurDotyTm"/>.
     /// With <paramref name="useWallaceRule"/> = false the GC formula is applied at any length; below
     /// 14 bases this is outside its published domain and can be negative. Returns 0 for null/empty
     /// input or when no A/C/G/T base is present.
     /// </remarks>
     public static double CalculateMeltingTemperature(string dnaSequence, bool useWallaceRule = true)
     {
+        // Canonical basic Tm (Infrastructure, B07): same A/C/G/T/U count with U read as T
+        // (Biopython MeltingTemp._check; 2026-09 B03 F20) and the same 14-base Wallace switch
+        // (2026-10 FIN-B03 F25).
+        if (useWallaceRule)
+            return ThermoConstants.CalculateBasicTm(dnaSequence);
+
+        // GC formula (Marmur-Doty / OligoCalc basic Tm) at any length.
+        var (at, gc) = ThermoConstants.CountBasicTmBases(dnaSequence);
+        return ThermoConstants.CalculateMarmurDotyTm(gc, at + gc);
+    }
+
+    /// <summary>
+    /// Basic melting temperature with optional IUPAC-ambiguity weighting as Biopython 1.88 non-strict
+    /// <c>Bio.SeqUtils.MeltingTemp.Tm_Wallace(seq, strict=False)</c> /
+    /// <c>Tm_GC(seq, userset=(64.9, 0.41, 672.4, 0), saltcorr=0, strict=False)</c>.
+    /// </summary>
+    /// <remarks>
+    /// <paramref name="weightAmbiguousBases"/> = false is exactly
+    /// <see cref="CalculateMeltingTemperature(string, bool)"/>. When true:
+    /// <list type="bullet">
+    /// <item>The formula is selected as in the default: Wallace when <paramref name="useWallaceRule"/> is
+    /// true and fewer than 14 A/C/G/T/U bases are present (OligoCalc's N = wA+xT+yG+zC), the GC formula
+    /// otherwise — so weighting never changes which formula applies.</item>
+    /// <item>Wallace = Biopython <c>Tm_Wallace(strict=False)</c>: 2·(A+T+W) + 4·(C+G+S) + 3·(K+M+N+R+Y)
+    /// + 10/3·(B+V) + 8/3·(D+H) (U read as T; other characters ignored).</item>
+    /// <item>GC formula = Biopython <c>Tm_GC(strict=False, mismatch=True)</c> with the OligoCalc userset:
+    /// the sequence is reduced to the <c>Tm_GC</c> alphabet A B C D G H I K M N R S T V W X Y (U read as T),
+    /// N is its length, %GC = 100·<c>gc_fraction(seq, "weighted")</c> − 50·X/N (canonical
+    /// <see cref="SequenceExtensions.CalculateGcFraction(string, SequenceExtensions.GcAmbiguityMode)"/>,
+    /// Weighted mode), Tm = 64.9 + 0.41·%GC − 672.4/N. X and I therefore count in N but add no GC.</item>
+    /// </list>
+    /// Case folding is ASCII-only (Python <c>str.upper</c> also maps U+0131 'ı' to I). Returns 0 for
+    /// null/empty input and when the selected formula has no base to score.
+    /// </remarks>
+    /// <param name="dnaSequence">Oligonucleotide (DNA or RNA), case-insensitive.</param>
+    /// <param name="useWallaceRule">True: Wallace below 14 A/C/G/T/U bases, GC formula otherwise; false: GC formula.</param>
+    /// <param name="weightAmbiguousBases">True to weight IUPAC ambiguity codes as Biopython non-strict.</param>
+    /// <returns>Tm in °C.</returns>
+    public static double CalculateMeltingTemperature(string dnaSequence, bool useWallaceRule, bool weightAmbiguousBases)
+    {
+        if (!weightAmbiguousBases)
+            return CalculateMeltingTemperature(dnaSequence, useWallaceRule);
         if (string.IsNullOrEmpty(dnaSequence))
             return 0;
 
-        var comp = CalculateNucleotideComposition(dnaSequence);
-        // U is read as T (Biopython MeltingTemp._check back-transcription; 2026-09 B03 F20).
-        int at = comp.CountA + comp.CountT + comp.CountU;
-        int gc = comp.CountG + comp.CountC;
-        int validLength = at + gc;
-        if (validLength == 0)
+        var (at, gc) = ThermoConstants.CountBasicTmBases(dnaSequence);
+        return useWallaceRule && at + gc < ThermoConstants.WallaceMaxLength
+            ? AmbiguityWeightedWallaceTm(dnaSequence)
+            : AmbiguityWeightedGcTm(dnaSequence);
+    }
+
+    // Biopython 1.88 MeltingTemp.Tm_Wallace(seq, check=True, strict=False), term for term.
+    private static double AmbiguityWeightedWallaceTm(string sequence)
+    {
+        int weak = 0, strong = 0, half = 0, twoThirds = 0, oneThird = 0;
+        foreach (char raw in sequence)
+        {
+            switch (SequenceCase.ToUpperAscii(raw))
+            {
+                case 'A': case 'T': case 'U': case 'W': weak++; break;
+                case 'C': case 'G': case 'S': strong++; break;
+                case 'K': case 'M': case 'N': case 'R': case 'Y': half++; break;
+                case 'B': case 'V': twoThirds++; break;
+                case 'D': case 'H': oneThird++; break;
+            }
+        }
+        double meltingTemp = ThermoConstants.CalculateWallaceTm(weak, strong);
+        double ambiguous = 3 * half + 10 / 3.0 * twoThirds + 8 / 3.0 * oneThird;
+        return meltingTemp + ambiguous;
+    }
+
+    // Biopython 1.88 MeltingTemp.Tm_GC(seq, userset=(64.9, 0.41, 672.4, 0), saltcorr=0, strict=False):
+    // _check keeps the Tm_GC alphabet (RNA back-transcribed), %GC = gc_fraction(weighted)·100 − X·50/N.
+    private static double AmbiguityWeightedGcTm(string sequence)
+    {
+        var kept = new System.Text.StringBuilder(sequence.Length);
+        int countX = 0;
+        foreach (char raw in sequence)
+        {
+            char c = SequenceCase.ToUpperAscii(raw);
+            if (c == 'U') c = 'T';
+            if ("ABCDGHIKMNRSTVWXY".IndexOf(c) < 0)
+                continue;
+            if (c == 'X') countX++;
+            kept.Append(c);
+        }
+        int length = kept.Length;
+        if (length == 0)
             return 0;
 
-        if (useWallaceRule && validLength < ThermoConstants.WallaceMaxLength)
-        {
-            // Wallace rule for short oligos: Tm = 2(A+T) + 4(G+C)
-            return ThermoConstants.CalculateWallaceTm(at, gc);
-        }
-
-        // GC formula (Marmur-Doty / OligoCalc basic Tm)
-        return ThermoConstants.CalculateMarmurDotyTm(gc, validLength);
+        double percentGc = kept.ToString().CalculateGcFraction(SequenceExtensions.GcAmbiguityMode.Weighted) * 100;
+        percentGc -= countX * 50.0 / length;
+        return ThermoConstants.MarmurDotyBase
+            + ThermoConstants.MarmurDotyGcCoefficient / 100 * percentGc
+            - ThermoConstants.MarmurDotyGcCoefficient * ThermoConstants.MarmurDotyGcOffset / length;
     }
 
     #endregion
@@ -1043,11 +1677,7 @@ public static class SequenceStatistics
         var symmetricCounts = new Dictionary<string, int>();
         foreach (var (dinuc, count) in counts)
         {
-            string reverseComplement = new(new[]
-            {
-                Seqeron.Genomics.Core.SequenceExtensions.GetComplementBase(dinuc[1]),
-                Seqeron.Genomics.Core.SequenceExtensions.GetComplementBase(dinuc[0])
-            });
+            string reverseComplement = DnaSequence.GetReverseComplementString(dinuc);
             symmetricCounts[dinuc] = symmetricCounts.GetValueOrDefault(dinuc) + count;
             symmetricCounts[reverseComplement] = symmetricCounts.GetValueOrDefault(reverseComplement) + count;
         }
@@ -1059,6 +1689,139 @@ public static class SequenceStatistics
         }
 
         return ratios;
+    }
+
+    /// <summary>
+    /// Dinucleotide relative abundances as <see cref="CalculateDinucleotideRatios(string, bool)"/>, optionally
+    /// completed with the absent dinucleotides whose ratio is defined and equal to 0.
+    /// </summary>
+    /// <remarks>
+    /// <para>With <paramref name="includeAbsent"/> = true, every dinucleotide XY over the bases that occur
+    /// (single strand: A/C/G/T/U with count &gt; 0; ρ*: A and T when A+T &gt; 0, C and G when C+G &gt; 0) is a
+    /// key; an XY that is not observed gets ρ = 0 (observed 0 over a positive expected frequency). This is
+    /// seqinr 4.2.36 <c>rho()</c>, which reports all 16 words with 0 for such an XY (executed: "AACCTTGGAACCTTGG"
+    /// → AG = AT = CA = CG = GC = GT = TA = TC = 0; "aacng" → ag = ca = … = 0).</para>
+    /// <para>An XY containing a base that does not occur is <b>undefined</b> (expected frequency 0 ⇒ 0/0;
+    /// seqinr returns <c>NaN</c>, e.g. CG of "AAAATTTT") and is excluded, so every value stays finite and
+    /// classifiable; likewise nothing is added when no dinucleotide is counted (seqinr: all NaN).
+    /// false (default) is exactly <see cref="CalculateDinucleotideRatios(string, bool)"/>.</para>
+    /// </remarks>
+    /// <param name="sequence">Nucleotide sequence (case-insensitive).</param>
+    /// <param name="strandSymmetric">true for Karlin's strand-symmetrized ρ*; false for single-strand ρ.</param>
+    /// <param name="includeAbsent">true: add ρ = 0 for unobserved dinucleotides whose two bases occur.</param>
+    public static IReadOnlyDictionary<string, double> CalculateDinucleotideRatios(
+        string sequence,
+        bool strandSymmetric,
+        bool includeAbsent)
+    {
+        var observed = CalculateDinucleotideRatios(sequence, strandSymmetric);
+        if (!includeAbsent || observed.Count == 0)
+            return observed;
+
+        var comp = CalculateNucleotideComposition(sequence);
+        var bases = new List<char>(5);
+        if (strandSymmetric)
+        {
+            if (comp.CountA + comp.CountT > 0) { bases.Add('A'); bases.Add('T'); }
+            if (comp.CountC + comp.CountG > 0) { bases.Add('C'); bases.Add('G'); }
+        }
+        else
+        {
+            if (comp.CountA > 0) bases.Add('A');
+            if (comp.CountC > 0) bases.Add('C');
+            if (comp.CountG > 0) bases.Add('G');
+            if (comp.CountT > 0) bases.Add('T');
+            if (comp.CountU > 0) bases.Add('U');
+        }
+
+        var complete = new Dictionary<string, double>(observed);
+        foreach (char x in bases)
+        {
+            foreach (char y in bases)
+                complete.TryAdd(new string(new[] { x, y }), 0.0);
+        }
+
+        return complete;
+    }
+
+    /// <summary>
+    /// Karlin's representation class of a dinucleotide relative abundance (odds ratio) ρ / ρ*.
+    /// </summary>
+    public enum DinucleotideRepresentation
+    {
+        /// <summary>0.78 &lt; ρ &lt; 1.23 — within the normal range.</summary>
+        Normal = 0,
+
+        /// <summary>ρ ≤ 0.78 — under-represented (Karlin &amp; Burge 1995).</summary>
+        UnderRepresented = 1,
+
+        /// <summary>ρ ≥ 1.23 — over-represented (Karlin &amp; Burge 1995).</summary>
+        OverRepresented = 2,
+    }
+
+    /// <summary>Karlin under-representation threshold: ρ ≤ 0.78 (Karlin &amp; Burge 1995).</summary>
+    public const double KarlinUnderRepresentedThreshold = 0.78;
+
+    /// <summary>Karlin over-representation threshold: ρ ≥ 1.23 (Karlin &amp; Burge 1995).</summary>
+    public const double KarlinOverRepresentedThreshold = 1.23;
+
+    /// <summary>
+    /// Classifies a dinucleotide relative abundance with Karlin's criterion: under-represented when
+    /// ρ ≤ 0.78, over-represented when ρ ≥ 1.23, normal otherwise (both bounds inclusive).
+    /// </summary>
+    /// <remarks>
+    /// Criterion of Karlin &amp; Burge (1995), Trends Genet 11(7):283–290, as quoted verbatim in
+    /// MBE 19(6):964: "the XY dinucleotide was considered to be underrepresented if ρ*XY ≤ 0.78 and
+    /// overrepresented if ρ*XY ≥ 1.23" (also Karlin, Mrázek &amp; Campbell 1997; Karlin 1998). Karlin
+    /// states it for the strand-symmetrized ρ*; it applies equally to single-strand ρ.
+    /// </remarks>
+    /// <param name="ratio">Odds ratio ρ (finite or +∞, ≥ 0).</param>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="ratio"/> is NaN or negative.</exception>
+    public static DinucleotideRepresentation ClassifyDinucleotideRatio(double ratio)
+    {
+        if (double.IsNaN(ratio) || ratio < 0)
+            throw new ArgumentOutOfRangeException(nameof(ratio), ratio, "Relative abundance must be a non-negative number.");
+
+        if (ratio <= KarlinUnderRepresentedThreshold) return DinucleotideRepresentation.UnderRepresented;
+        if (ratio >= KarlinOverRepresentedThreshold) return DinucleotideRepresentation.OverRepresented;
+        return DinucleotideRepresentation.Normal;
+    }
+
+    /// <summary>
+    /// Karlin representation class of every dinucleotide returned by
+    /// <see cref="CalculateDinucleotideRatios(string, bool)"/> (same keys; see
+    /// <see cref="ClassifyDinucleotideRatio(double)"/>). A dinucleotide absent from the ratio map but
+    /// whose two bases occur has ρ = 0 and is under-represented; it is not a key here, as in the ratio
+    /// map — use <see cref="ClassifyDinucleotideRatios(string, bool, bool)"/> with <c>includeAbsent</c> to
+    /// include it.
+    /// </summary>
+    /// <param name="sequence">Nucleotide sequence (case-insensitive).</param>
+    /// <param name="strandSymmetric">true for Karlin's strand-symmetrized ρ* (default); false for single-strand ρ.</param>
+    public static IReadOnlyDictionary<string, DinucleotideRepresentation> ClassifyDinucleotideRatios(
+        string sequence,
+        bool strandSymmetric = true) =>
+        ClassifyDinucleotideRatios(sequence, strandSymmetric, includeAbsent: false);
+
+    /// <summary>
+    /// Karlin representation class of every dinucleotide returned by
+    /// <see cref="CalculateDinucleotideRatios(string, bool, bool)"/>. With <paramref name="includeAbsent"/>
+    /// an unobserved dinucleotide whose two bases occur (ρ = 0, seqinr <c>rho</c> 0) is
+    /// <see cref="DinucleotideRepresentation.UnderRepresented"/> (e.g. CG of a CpG-free sequence);
+    /// undefined ratios (a base absent, seqinr NaN) are not keys.
+    /// </summary>
+    /// <param name="sequence">Nucleotide sequence (case-insensitive).</param>
+    /// <param name="strandSymmetric">true for Karlin's strand-symmetrized ρ*; false for single-strand ρ.</param>
+    /// <param name="includeAbsent">true: also classify unobserved dinucleotides with ρ = 0.</param>
+    public static IReadOnlyDictionary<string, DinucleotideRepresentation> ClassifyDinucleotideRatios(
+        string sequence,
+        bool strandSymmetric,
+        bool includeAbsent)
+    {
+        var classes = new Dictionary<string, DinucleotideRepresentation>();
+        foreach (var (dinucleotide, ratio) in CalculateDinucleotideRatios(sequence, strandSymmetric, includeAbsent))
+            classes[dinucleotide] = ClassifyDinucleotideRatio(ratio);
+
+        return classes;
     }
 
     /// <summary>
@@ -1085,37 +1848,15 @@ public static class SequenceStatistics
         string dnaSequence,
         int readingFrame = 0)
     {
-        ArgumentOutOfRangeException.ThrowIfNegative(readingFrame);
+        // Canonical in-frame splitter (Core Translator.CountCodons, review 2026-09 R16): U read as T,
+        // ASCII case fold, triplets with any non-ACGT symbol skipped without shifting the frame,
+        // trailing partial triplet dropped, negative frame throws ArgumentOutOfRangeException.
+        var counts = Translator.CountCodons(dnaSequence, readingFrame);
+        int total = counts.Values.Sum();
 
-        // Codon length is fixed by the genetic code (non-overlapping triplets), per Kazusa CUTG.
-        const int CodonLength = 3;
-
-        var counts = new Dictionary<string, int>();
-        var freq = new Dictionary<string, double>();
-
-        if (string.IsNullOrEmpty(dnaSequence) || dnaSequence.Length < CodonLength)
-            return freq;
-
-        // Case-fold and read RNA U as T (EMBOSS ajBaseAlphaToBin maps U to the T bit; CodonW
-        // ident_codon treats T/t/U/u identically) — the normalisation of the canonical
-        // CodonUsageAnalyzer.CountCodons, which Analysis cannot call (MolTools references Analysis).
-        string normalized = dnaSequence.ToUpperInvariant().Replace('U', 'T');
-        int total = 0;
-
-        for (int i = readingFrame; i <= normalized.Length - CodonLength; i += CodonLength)
-        {
-            string codon = normalized.Substring(i, CodonLength);
-            // Codons containing an ambiguous / non-nucleotide symbol are skipped (Kazusa CUTG;
-            // EMBOSS ajCodSetTripletsS "Skips triplets with ambiguity codes"); the frame is kept.
-            if (codon.All(c => c is 'A' or 'C' or 'G' or 'T'))
-            {
-                counts[codon] = counts.GetValueOrDefault(codon) + 1;
-                total++;
-            }
-        }
-
-        // total == 0 (no valid codon) leaves counts empty, so this loop yields an empty table
-        // and avoids any division by zero.
+        // total == 0 (no valid codon) leaves counts empty, so this yields an empty table and
+        // avoids any division by zero.
+        var freq = new Dictionary<string, double>(counts.Count);
         foreach (var (codon, count) in counts)
         {
             freq[codon] = (double)count / total;
@@ -1123,6 +1864,92 @@ public static class SequenceStatistics
 
         return freq;
     }
+
+    /// <summary>
+    /// Normalisation of <see cref="CalculateCodonFrequencies(string, int, CodonFrequencyNormalization, GeneticCode?)"/>,
+    /// matching the columns of EMBOSS 6.6.0 <c>cusp</c>.
+    /// </summary>
+    public enum CodonFrequencyNormalization
+    {
+        /// <summary>count / total counted codons (Kazusa CUTG; cusp "Frequency"/1000). Default.</summary>
+        Total = 0,
+
+        /// <summary>count / total counted codons × 1000 — cusp "Frequency" (per thousand) column.</summary>
+        PerThousand = 1,
+
+        /// <summary>
+        /// count / Σ counts of the codons that encode the same amino acid (stop codons form one
+        /// '*' class) under the genetic code — cusp "Fraction" column.
+        /// </summary>
+        PerAminoAcid = 2,
+    }
+
+    /// <summary>
+    /// Codon usage with a selectable normalisation — the "Frequency" (per thousand) and per-amino-acid
+    /// "Fraction" columns of EMBOSS 6.6.0 <c>cusp</c>.
+    /// </summary>
+    /// <remarks>
+    /// <para>Codons are counted exactly as by <see cref="CalculateCodonFrequencies(string, int)"/> (canonical
+    /// <c>Translator.CountCodons</c>: U read as T, case-insensitive, triplets with non-ACGT symbols skipped
+    /// without shifting the frame, trailing partial triplet dropped). <see cref="CodonFrequencyNormalization.Total"/>
+    /// equals that method; <see cref="CodonFrequencyNormalization.PerThousand"/> multiplies by 1000.</para>
+    /// <para><see cref="CodonFrequencyNormalization.PerAminoAcid"/> divides each count by the total count of
+    /// its synonymous family, the amino acid being <see cref="GeneticCode.Translate(string)"/> of the codon
+    /// (stop codons share the '*' family). cusp always uses the standard code (NCBI table 1); other tables
+    /// re-group the families (e.g. table 2: AGA/AGG join '*', TGA joins W). Example (cusp-executed):
+    /// <c>…AAAAAGAAA…</c> → AAA 0.667, AAG 0.333; TAA/TAG/TGA 0.333 each.</para>
+    /// <para>Only observed codons are keys (absent codon ⇒ 0, as cusp's zero rows). Difference from cusp:
+    /// cusp maps a triplet with an ambiguous base to the lowest constituent (NNN → AAA) and counts it;
+    /// here it is skipped (B02 F9 / <c>ajCodSetTripletsS</c> contract).</para>
+    /// </remarks>
+    /// <param name="dnaSequence">DNA or RNA coding sequence.</param>
+    /// <param name="readingFrame">0-based offset of the first codon (non-negative).</param>
+    /// <param name="normalization">Output normalisation.</param>
+    /// <param name="geneticCode">Genetic code for <see cref="CodonFrequencyNormalization.PerAminoAcid"/>
+    /// (default <see cref="GeneticCode.Standard"/>, as cusp); ignored by the other normalisations.</param>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="readingFrame"/> is negative or
+    /// <paramref name="normalization"/> is undefined.</exception>
+    public static IReadOnlyDictionary<string, double> CalculateCodonFrequencies(
+        string dnaSequence,
+        int readingFrame,
+        CodonFrequencyNormalization normalization,
+        GeneticCode? geneticCode = null)
+    {
+        if (!Enum.IsDefined(normalization))
+            throw new ArgumentOutOfRangeException(nameof(normalization), normalization, "Undefined codon normalisation.");
+
+        if (normalization == CodonFrequencyNormalization.Total)
+            return CalculateCodonFrequencies(dnaSequence, readingFrame);
+
+        var counts = Translator.CountCodons(dnaSequence, readingFrame);
+        var result = new Dictionary<string, double>(counts.Count);
+
+        if (normalization == CodonFrequencyNormalization.PerThousand)
+        {
+            int total = counts.Values.Sum();
+            foreach (var (codon, count) in counts)
+                result[codon] = count * PerThousandScale / total;
+            return result;
+        }
+
+        var code = geneticCode ?? GeneticCode.Standard;
+        var familyTotals = new Dictionary<char, int>();
+        var familyOf = new Dictionary<string, char>(counts.Count);
+        foreach (var (codon, count) in counts)
+        {
+            char aminoAcid = code.Translate(codon);
+            familyOf[codon] = aminoAcid;
+            familyTotals[aminoAcid] = familyTotals.GetValueOrDefault(aminoAcid) + count;
+        }
+
+        foreach (var (codon, count) in counts)
+            result[codon] = (double)count / familyTotals[familyOf[codon]];
+
+        return result;
+    }
+
+    // cusp "Frequency" column scale: codons per thousand counted codons.
+    private const double PerThousandScale = 1000.0;
 
     #endregion
 
@@ -1141,6 +1968,8 @@ public static class SequenceStatistics
     /// The kernel is the canonical <see cref="StatisticsHelper.ShannonIndex"/> (natural log) converted to
     /// bits by dividing by ln 2 — the same computation as <c>scipy.stats.entropy(counts, base=2)</c>
     /// and scikit-bio <c>shannon(counts, base=2)</c>. Null, empty or letter-free input returns 0.
+    /// Case folding is <see cref="string.ToUpperInvariant()"/> on purpose (general letter alphabet,
+    /// = Python <c>str.upper</c> + scipy), unlike the ASCII-only fold of the protein methods.
     /// </remarks>
     public static double CalculateShannonEntropy(string sequence)
     {
@@ -1164,8 +1993,8 @@ public static class SequenceStatistics
     private static readonly double Ln2 = Math.Log(2.0);
 
     /// <summary>
-    /// Calculates linguistic complexity LC = Σ_{k=1..m} V_k / Σ_{k=1..m} min(4^k, N − k + 1)
-    /// (V_k = distinct k-words, m = min(maxK, N)) — Orlov &amp; Potapov (2004) summation form, equal to
+    /// Calculates linguistic complexity LC = Σ_{k=1..m} V_k / Σ_{k=1..m} min(a^k, N − k + 1)
+    /// (V_k = distinct k-words, m = min(maxK, N), a = alphabet size) — Orlov &amp; Potapov (2004) summation form, equal to
     /// Troyanskaya et al. (2002) / Rosalind LING when m ≥ N. Delegates to the canonical
     /// <see cref="SequenceComplexity.CalculateLinguisticComplexity(string, int)"/>.
     /// </summary>
@@ -1173,9 +2002,9 @@ public static class SequenceStatistics
     /// <paramref name="maxK"/> is the canonical maximum word length m (same meaning: word lengths
     /// 1..min(maxK, N)); only the default differs (6 here, 10 in <c>SequenceComplexity</c>).
     /// Before the 2026-09 review (B03 F21) this method returned the unsourced arithmetic mean of the
-    /// per-k usages U_k (e.g. ATTTGGATT, m = 6: 293/336 instead of 29/34). Input is upper-cased and
-    /// every character is a word symbol (N, IUPAC codes, gaps and U vs T are distinct), so with more
-    /// than four distinct symbols the result can exceed 1 (canonical behaviour, cross-batch R23).
+    /// per-k usages U_k (e.g. ATTTGGATT, m = 6: 293/336 instead of 29/34). Input is upper-cased; every character
+    /// is a word symbol and a = |{A, C, G, T (U for RNA)} ∪ observed symbols| (inferred as in <c>SequenceComplexity</c>,
+    /// B04 F20), so a ≥ 4 and LC ≤ 1 for any input (e.g. ACGTN: a = 5 → 15/15 = 1.0, formerly 15/14).
     /// Null/empty input or <paramref name="maxK"/> &lt; 1 returns 0.
     /// </remarks>
     public static double CalculateLinguisticComplexity(string sequence, int maxK = 6) =>
@@ -1242,7 +2071,8 @@ public static class SequenceStatistics
     /// the corresponding conformation. Unknown residues (e.g. X, B, Z, gaps) are skipped and
     /// excluded from the per-window average.
     /// </summary>
-    /// <param name="proteinSequence">Amino-acid sequence in one-letter code; case-insensitive.</param>
+    /// <param name="proteinSequence">Amino-acid sequence in one-letter code; case-insensitive with an
+    /// ASCII-only fold (U+017F 'ſ' and U+0131 'ı' are non-residues, like 'X' — EMBOSS convention).</param>
     /// <param name="windowSize">Sliding-window length (residues). Must be positive and
     /// not exceed the sequence length.</param>
     /// <returns>One (Helix, Sheet, Turn) mean-propensity tuple per window position, in
@@ -1255,7 +2085,7 @@ public static class SequenceStatistics
         if (string.IsNullOrEmpty(proteinSequence) || windowSize < 1 || windowSize > proteinSequence.Length)
             yield break;
 
-        string upper = proteinSequence.ToUpperInvariant();
+        string upper = SequenceCase.ToUpperAscii(proteinSequence);
 
         for (int i = 0; i <= upper.Length - windowSize; i++)
         {
@@ -1296,6 +2126,29 @@ public static class SequenceStatistics
     private const int TurnMinimumPtSum = 400;       // tetrapeptide <Pt> > 1.00
     private const double TurnBendProbabilityThreshold = 7.5e-5; // p(t) = f(i)f(i+1)f(i+2)f(i+3)
 
+    /// <summary>
+    /// Nucleation rule set of <see cref="PredictSecondaryStructureChouFasman(string, ChouFasmanRuleSet)"/>.
+    /// </summary>
+    public enum ChouFasmanRuleSet
+    {
+        /// <summary>Default: a residue is a former when its parameter exceeds 1.00 (Pα &gt; 1.00 /
+        /// Pβ &gt; 1.00); nucleus = ≥ 4 formers in 6 (helix) / ≥ 3 in 5 (sheet); breakers are not counted
+        /// (Chen, Gu &amp; Huang 2006 statement of the rules). Same output as the one-argument overload.</summary>
+        Standard = 0,
+
+        /// <summary>Chou &amp; Fasman (1978) graded classes for the 1978 parameters (Prevelige &amp; Fasman 1989
+        /// Table II): helix Hα = E M A L, hα = K F Q W I V, Iα = D H, iα = R T S C, bα = Y N, Bα = P G;
+        /// sheet Hβ = V I Y, hβ = F W L C T Q M, iβ = R N H A, bβ = S G K, Bβ = P D E (no Iβ residue).
+        /// Nucleus: Hα/hα (Hβ/hβ) count 1, Iα (Iβ) ½; helix ≥ 4 of 6, sheet ≥ 3 of 5, and at most one
+        /// breaker (b or B; ≥ ⅓ breakers is unfavourable). Boundary rules: Pro may occur only in the first three
+        /// helix residues (it is never added at the C-terminal end or inside the helix) and counts as Iα in the
+        /// N-terminal turn of a helix nucleus; Arg counts as Iα in the C-terminal three residues of a helix
+        /// nucleus; Trp counts as bβ in the C-terminal two residues of a sheet nucleus. Extension (until a
+        /// tetrapeptide mean &lt; 1.00), acceptance (⟨Pα⟩ &gt; 1.03 / ⟨Pβ⟩ &gt; 1.05 and greater than the
+        /// competitor), overlap and β-turn steps are those of <see cref="Standard"/>.</summary>
+        Graded1978 = 1,
+    }
+
     /// <summary>Per-residue state code: α-helix.</summary>
     public const char ChouFasmanHelix = 'H';
     /// <summary>Per-residue state code: β-strand (sheet).</summary>
@@ -1328,28 +2181,65 @@ public static class SequenceStatistics
     /// Unlike <see cref="PredictSecondaryStructure(string, int)"/> (a windowed mean-propensity
     /// profile), this is the discrete Chou-Fasman assignment. Q3 accuracy is ~50-60%.
     /// </summary>
-    /// <param name="proteinSequence">Amino-acid sequence in one-letter code; case-insensitive.</param>
+    /// <param name="proteinSequence">Amino-acid sequence in one-letter code; case-insensitive with an
+    /// ASCII-only fold (U+017F 'ſ' and U+0131 'ı' are non-residues, like 'X' — EMBOSS convention).</param>
     /// <returns>A string of the same length as the input with one state code per residue:
     /// <see cref="ChouFasmanHelix"/> ('H'), <see cref="ChouFasmanSheet"/> ('E'),
     /// <see cref="ChouFasmanTurn"/> ('T') or <see cref="ChouFasmanCoil"/> ('C').
     /// Empty for null/empty input.</returns>
-    public static string PredictSecondaryStructureChouFasman(string proteinSequence)
+    public static string PredictSecondaryStructureChouFasman(string proteinSequence) =>
+        PredictSecondaryStructureChouFasman(proteinSequence, ChouFasmanRuleSet.Standard);
+
+    /// <summary>
+    /// Discrete Chou &amp; Fasman assignment with a selectable nucleation rule set.
+    /// <see cref="ChouFasmanRuleSet.Standard"/> is identical to
+    /// <see cref="PredictSecondaryStructureChouFasman(string)"/>;
+    /// <see cref="ChouFasmanRuleSet.Graded1978"/> applies the graded former/breaker classes
+    /// (Hα/hα/Iα/iα/bα/Bα, Hβ/hβ/Iβ/iβ/bβ/Bβ) of Chou &amp; Fasman (1978), fractional former counting,
+    /// the breaker limit, the proline rule and the helix/sheet boundary reassignments — see
+    /// <see cref="ChouFasmanRuleSet.Graded1978"/>. Extension, acceptance, overlap and β-turn steps are shared.
+    /// </summary>
+    /// <param name="proteinSequence">Amino-acid sequence in one-letter code; case-insensitive with an
+    /// ASCII-only fold (U+017F 'ſ' and U+0131 'ı' are non-residues, like 'X' — EMBOSS convention).</param>
+    /// <param name="ruleSet">Nucleation rule set (default behaviour = <see cref="ChouFasmanRuleSet.Standard"/>).</param>
+    /// <returns>One state code (H/E/T/C) per residue; empty for null/empty input.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="ruleSet"/> is not a defined value.</exception>
+    public static string PredictSecondaryStructureChouFasman(string proteinSequence, ChouFasmanRuleSet ruleSet)
     {
+        if (ruleSet is not (ChouFasmanRuleSet.Standard or ChouFasmanRuleSet.Graded1978))
+            throw new ArgumentOutOfRangeException(nameof(ruleSet), ruleSet, "Unknown Chou-Fasman rule set.");
+
         if (string.IsNullOrEmpty(proteinSequence))
             return string.Empty;
+
+        bool graded = ruleSet == ChouFasmanRuleSet.Graded1978;
 
         int n = proteinSequence.Length;
         var parameters = new ChouFasmanParameters?[n];
         for (int i = 0; i < n; i++)
         {
-            if (ChouFasmanTable.TryGetValue(char.ToUpperInvariant(proteinSequence[i]), out var p))
+            if (ChouFasmanTable.TryGetValue(SequenceCase.ToUpperAscii(proteinSequence[i]), out var p))
                 parameters[i] = p;
         }
 
-        bool[] helix = FindChouFasmanSegments(parameters, static p => p.Pa, static p => p.Pb,
-            HelixNucleationWindow, HelixNucleationFormers, HelixAcceptThreshold);
-        bool[] sheet = FindChouFasmanSegments(parameters, static p => p.Pb, static p => p.Pa,
-            SheetNucleationWindow, SheetNucleationFormers, SheetAcceptThreshold);
+        bool[] helix, sheet;
+        if (graded)
+        {
+            string upper = SequenceCase.ToUpperAscii(proteinSequence);
+            helix = FindChouFasmanSegments(parameters, static p => p.Pa, static p => p.Pb,
+                HelixNucleationWindow, HelixNucleationFormers, HelixAcceptThreshold,
+                (start, window) => IsGradedHelixNucleus(upper, start, window), upper);
+            sheet = FindChouFasmanSegments(parameters, static p => p.Pb, static p => p.Pa,
+                SheetNucleationWindow, SheetNucleationFormers, SheetAcceptThreshold,
+                (start, window) => IsGradedSheetNucleus(upper, start, window), null);
+        }
+        else
+        {
+            helix = FindChouFasmanSegments(parameters, static p => p.Pa, static p => p.Pb,
+                HelixNucleationWindow, HelixNucleationFormers, HelixAcceptThreshold, null, null);
+            sheet = FindChouFasmanSegments(parameters, static p => p.Pb, static p => p.Pa,
+                SheetNucleationWindow, SheetNucleationFormers, SheetAcceptThreshold, null, null);
+        }
 
         var states = new char[n];
         Array.Fill(states, ChouFasmanCoil);
@@ -1402,7 +2292,9 @@ public static class SequenceStatistics
         Func<ChouFasmanParameters, int> competitor,
         int window,
         int minimumFormers,
-        int acceptThreshold)
+        int acceptThreshold,
+        Func<int, int, bool>? gradedNucleus,
+        string? prolineRuleSequence)
     {
         int n = parameters.Length;
         var covered = new bool[n];
@@ -1416,16 +2308,22 @@ public static class SequenceStatistics
                 if (parameters[k] is not { } p) { allKnown = false; break; }
                 if (own(p) > FormerThreshold) formers++;
             }
-            if (!allKnown || formers < minimumFormers)
+            if (!allKnown)
+                continue;
+            if (gradedNucleus is null ? formers < minimumFormers : !gradedNucleus(start, window))
                 continue;
 
             int first = start, last = start + window - 1;
 
             // C-terminal extension: tetrapeptide = last three segment residues + the new residue.
-            while (last + 1 < n && TetrapeptideSum(parameters, last - 2, own) >= ExtensionMinimumSum)
+            // Proline rule (graded helix only): Pro is never added at the C-terminal end.
+            while (last + 1 < n && TetrapeptideSum(parameters, last - 2, own) >= ExtensionMinimumSum
+                   && !(prolineRuleSequence is not null && prolineRuleSequence[last + 1] == 'P'))
                 last++;
             // N-terminal extension: tetrapeptide = the new residue + first three segment residues.
-            while (first - 1 >= 0 && TetrapeptideSum(parameters, first - 1, own) >= ExtensionMinimumSum)
+            // Proline rule (graded helix only): every Pro must stay within the first three helix residues.
+            while (first - 1 >= 0 && TetrapeptideSum(parameters, first - 1, own) >= ExtensionMinimumSum
+                   && (prolineRuleSequence is null || ProlinesWithinNTerminalTurn(prolineRuleSequence, first - 1, last)))
                 first--;
 
             long sumOwn = 0, sumCompetitor = 0;
@@ -1459,6 +2357,108 @@ public static class SequenceStatistics
             sum += selector(p);
         }
         return sum;
+    }
+
+    // ---- Graded 1978 rule set (ChouFasmanRuleSet.Graded1978) ----
+    // Class assignments for the 1978 (29-protein) parameters: Chou & Fasman (1978) as reproduced in
+    // Prevelige & Fasman (1989) Table II (brackets Hα/hα/Iα/iα/bα/Bα and Hβ/hβ/iβ/bβ/Bβ; no residue is Iβ).
+    private enum ChouFasmanClass { StrongFormer, Former, WeakFormer, Indifferent, Breaker, StrongBreaker }
+
+    private const string HelixStrongFormers = "EMAL";     // Hα
+    private const string HelixFormers = "KFQWIV";         // hα
+    private const string HelixWeakFormers = "DH";         // Iα
+    private const string HelixBreakers = "YN";            // bα
+    private const string HelixStrongBreakers = "PG";      // Bα   (iα = R T S C)
+    private const string SheetStrongFormers = "VIY";      // Hβ
+    private const string SheetFormers = "FWLCTQM";        // hβ
+    private const string SheetBreakers = "SGK";           // bβ
+    private const string SheetStrongBreakers = "PDE";     // Bβ   (iβ = R N H A; Iβ empty)
+
+    // Fractional counting in half-former units: Hα/hα (Hβ/hβ) = 2, Iα (Iβ) = 1 ("Iα counts as ½ hα").
+    private const int HalfUnitsPerFormer = 2;
+    private const int MaximumNucleusBreakers = 1;         // ≥ 1/3 breakers (bα/Bα, bβ/Bβ) is unfavourable
+    // Boundary zone of a nucleation window: residues "near the N-terminal end" are window offsets
+    // 0..2 (the first helical turn, where Pro is allowed); "near the C-terminal end" are the last three
+    // offsets of the helix window and the last two of the β window.
+    private const int HelixBoundaryZone = 3;
+    private const int SheetBoundaryZone = 2;
+
+    private static ChouFasmanClass HelixClass(char residue) => residue switch
+    {
+        _ when HelixStrongFormers.Contains(residue) => ChouFasmanClass.StrongFormer,
+        _ when HelixFormers.Contains(residue) => ChouFasmanClass.Former,
+        _ when HelixWeakFormers.Contains(residue) => ChouFasmanClass.WeakFormer,
+        _ when HelixBreakers.Contains(residue) => ChouFasmanClass.Breaker,
+        _ when HelixStrongBreakers.Contains(residue) => ChouFasmanClass.StrongBreaker,
+        _ => ChouFasmanClass.Indifferent,
+    };
+
+    private static ChouFasmanClass SheetClass(char residue) => residue switch
+    {
+        _ when SheetStrongFormers.Contains(residue) => ChouFasmanClass.StrongFormer,
+        _ when SheetFormers.Contains(residue) => ChouFasmanClass.Former,
+        _ when SheetBreakers.Contains(residue) => ChouFasmanClass.Breaker,
+        _ when SheetStrongBreakers.Contains(residue) => ChouFasmanClass.StrongBreaker,
+        _ => ChouFasmanClass.Indifferent,
+    };
+
+    private static bool IsGradedNucleus(IEnumerable<ChouFasmanClass> classes, int requiredFormers)
+    {
+        int halfUnits = 0, breakers = 0;
+        foreach (var c in classes)
+        {
+            halfUnits += c switch
+            {
+                ChouFasmanClass.StrongFormer or ChouFasmanClass.Former => HalfUnitsPerFormer,
+                ChouFasmanClass.WeakFormer => 1,
+                _ => 0,
+            };
+            if (c is ChouFasmanClass.Breaker or ChouFasmanClass.StrongBreaker)
+                breakers++;
+        }
+        return halfUnits >= requiredFormers * HalfUnitsPerFormer && breakers <= MaximumNucleusBreakers;
+    }
+
+    // Helix nucleus: Pro may only occupy the N-terminal turn (offsets 0..2) and is then assigned Iα;
+    // Arg near the C-terminal end (last three offsets) is assigned Iα (Table I footnote b).
+    private static bool IsGradedHelixNucleus(string upper, int start, int window)
+    {
+        var classes = new ChouFasmanClass[window];
+        for (int k = 0; k < window; k++)
+        {
+            char r = upper[start + k];
+            bool nTerminal = k < HelixBoundaryZone;
+            bool cTerminal = k >= window - HelixBoundaryZone;
+            if (r == 'P' && !nTerminal)
+                return false;
+            classes[k] = (r == 'P' && nTerminal) || (r == 'R' && cTerminal)
+                ? ChouFasmanClass.WeakFormer
+                : HelixClass(r);
+        }
+        return IsGradedNucleus(classes, HelixNucleationFormers);
+    }
+
+    // Sheet nucleus: Trp near the C-terminal end (last two offsets) is assigned bβ (Table I footnote c).
+    private static bool IsGradedSheetNucleus(string upper, int start, int window)
+    {
+        var classes = new ChouFasmanClass[window];
+        for (int k = 0; k < window; k++)
+        {
+            char r = upper[start + k];
+            classes[k] = r == 'W' && k >= window - SheetBoundaryZone ? ChouFasmanClass.Breaker : SheetClass(r);
+        }
+        return IsGradedNucleus(classes, SheetNucleationFormers);
+    }
+
+    // True if every Pro in [first, last] lies within the first three residues of the segment.
+    private static bool ProlinesWithinNTerminalTurn(string upper, int first, int last)
+    {
+        for (int k = first + HelixBoundaryZone; k <= last; k++)
+        {
+            if (upper[k] == 'P')
+                return false;
+        }
+        return true;
     }
 
     private static bool IsChouFasmanTurn(ChouFasmanParameters?[] parameters, int i)
@@ -1514,7 +2514,8 @@ public static class SequenceStatistics
     /// <see cref="SequenceExtensions.CalculateGcFraction(ReadOnlySpan{char})"/> (S/W excluded like
     /// other ambiguity codes). Only complete windows are reported (as EMBOSS <c>isochore</c> and
     /// <see cref="GcSkewCalculator.CalculateWindowedGcSkew(string,int,int)"/>; Biopython
-    /// <c>GC_skew</c> instead appends a trailing partial window). Values carry no positions: window
+    /// <c>GC_skew</c> instead appends a trailing partial window — opt in via
+    /// <see cref="CalculateGcContentProfile(string,int,int,bool,bool)"/>). Values carry no positions: window
     /// k starts at 0-based offset k·stepSize.
     /// </remarks>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="windowSize"/> or
@@ -1530,7 +2531,10 @@ public static class SequenceStatistics
         if (string.IsNullOrEmpty(sequence) || windowSize > sequence.Length)
             return Array.Empty<double>();
 
-        return GcContentProfileIterator(sequence, windowSize, stepSize, fraction ? 1.0 : PercentScale);
+        // Canonical sliding-GC driver (B01): same complete-window loop and per-window
+        // SequenceExtensions.CalculateGcFraction, ×100 unless fraction (2026-10 FIN-B03 F24).
+        return GcSkewCalculator.CalculateWindowedGcContent(sequence, windowSize, stepSize, fraction)
+            .Select(p => p.GcContent);
     }
 
     /// <summary>
@@ -1555,23 +2559,94 @@ public static class SequenceStatistics
         if (string.IsNullOrEmpty(sequence) || windowSize > sequence.Length)
             return Array.Empty<double>();
 
-        return GcContentProfileIterator(sequence, windowSize, stepSize, fraction ? 1.0 : PercentScale, ambiguityMode);
+        return GcSkewCalculator.CalculateWindowedGcContent(sequence, windowSize, stepSize, fraction, ambiguityMode)
+            .Select(p => p.GcContent);
     }
 
-    private static IEnumerable<double> GcContentProfileIterator(
-        string sequence, int windowSize, int stepSize, double scale, SequenceExtensions.GcAmbiguityMode mode)
+    /// <summary>
+    /// GC-content profile with an opt-in trailing partial window, Biopython <c>GC_skew</c> windowing:
+    /// window starts are <c>range(0, len(seq), stepSize)</c> and each window is the slice
+    /// <c>seq[i:i+windowSize]</c>, truncated at the sequence end.
+    /// </summary>
+    /// <param name="sequence">Input nucleotide sequence (DNA or RNA; case-insensitive).</param>
+    /// <param name="windowSize">Window width W in bases (≥ 1).</param>
+    /// <param name="stepSize">Window advance in bases (≥ 1).</param>
+    /// <param name="fraction">true → fraction in [0, 1]; false → percentage.</param>
+    /// <param name="includePartialWindow">false → identical to
+    /// <see cref="CalculateGcContentProfile(string,int,int,bool)"/> (complete windows only).
+    /// true → after the complete windows, every further start &lt; length is emitted with the
+    /// truncated window (so a sequence shorter than W yields its partial windows instead of nothing).</param>
+    /// <remarks>
+    /// Biopython 1.88 has no windowed GC-content function; its only windowed nucleotide statistic,
+    /// <c>Bio.SeqUtils.GC_skew(seq, window)</c>, iterates <c>for i in range(0, len(seq), window): s = seq[i:i+window]</c>
+    /// and so emits the trailing partial window. This option applies that convention (generalised to
+    /// step ≠ W) to <c>gc_fraction</c>: oracle <c>[gc_fraction(s[i:i+w]) for i in range(0, len(s), step)]</c>.
+    /// Complete windows come from the canonical <see cref="GcSkewCalculator.CalculateWindowedGcContent(string,int,int,bool)"/>;
+    /// each partial window is scored by the canonical
+    /// <see cref="SequenceExtensions.CalculateGcFraction(ReadOnlySpan{char})"/> (0 for a window without A/C/G/T/U).
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="windowSize"/> or
+    /// <paramref name="stepSize"/> is less than 1 (validated eagerly).</exception>
+    public static IEnumerable<double> CalculateGcContentProfile(
+        string sequence,
+        int windowSize,
+        int stepSize,
+        bool fraction,
+        bool includePartialWindow)
     {
-        for (int i = 0; i <= sequence.Length - windowSize; i += stepSize)
-            yield return sequence.AsSpan(i, windowSize).CalculateGcFraction(mode) * scale;
+        if (!includePartialWindow)
+            return CalculateGcContentProfile(sequence, windowSize, stepSize, fraction);
+
+        ValidateWindowAndStep(windowSize, stepSize);
+        if (string.IsNullOrEmpty(sequence))
+            return Array.Empty<double>();
+
+        double scale = fraction ? 1.0 : PercentScale;
+        return CalculateGcContentProfile(sequence, windowSize, stepSize, fraction)
+            .Concat(PartialWindowStarts(sequence.Length, windowSize, stepSize)
+                .Select(i => sequence.AsSpan(i).CalculateGcFraction() * scale));
     }
 
-    private static IEnumerable<double> GcContentProfileIterator(string sequence, int windowSize, int stepSize, double scale)
+    /// <summary>
+    /// <see cref="CalculateGcContentProfile(string,int,int,bool,bool)"/> with Biopython
+    /// <c>gc_fraction(window, ambiguous=…)</c> handling (see
+    /// <see cref="CalculateGcContentProfile(string,int,int,bool,SequenceExtensions.GcAmbiguityMode)"/>);
+    /// partial windows are scored by the canonical
+    /// <see cref="SequenceExtensions.CalculateGcFraction(ReadOnlySpan{char},SequenceExtensions.GcAmbiguityMode)"/>.
+    /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="windowSize"/> or
+    /// <paramref name="stepSize"/> is less than 1.</exception>
+    public static IEnumerable<double> CalculateGcContentProfile(
+        string sequence,
+        int windowSize,
+        int stepSize,
+        bool fraction,
+        SequenceExtensions.GcAmbiguityMode ambiguityMode,
+        bool includePartialWindow)
     {
-        // Per-window GC delegates to the canonical SequenceExtensions.CalculateGcFraction
-        // (case-insensitive; G+C over A+C+G+T+U; every other symbol excluded; 0 when no valid base).
-        // Opt-in fraction == true reports [0,1] (Bio.SeqUtils.gc_fraction); default is GC% = fraction·100.
-        for (int i = 0; i <= sequence.Length - windowSize; i += stepSize)
-            yield return sequence.AsSpan(i, windowSize).CalculateGcFraction() * scale;
+        if (!includePartialWindow)
+            return CalculateGcContentProfile(sequence, windowSize, stepSize, fraction, ambiguityMode);
+
+        ValidateWindowAndStep(windowSize, stepSize);
+        if (string.IsNullOrEmpty(sequence))
+            return Array.Empty<double>();
+
+        double scale = fraction ? 1.0 : PercentScale;
+        return CalculateGcContentProfile(sequence, windowSize, stepSize, fraction, ambiguityMode)
+            .Concat(PartialWindowStarts(sequence.Length, windowSize, stepSize)
+                .Select(i => sequence.AsSpan(i).CalculateGcFraction(ambiguityMode) * scale));
+    }
+
+    // Starts k·step (k ≥ 0) with start < length but start + windowSize > length — the truncated
+    // windows that Biopython's range(0, len, step) slicing adds after the complete ones. long
+    // arithmetic avoids int overflow for huge steps/windows.
+    private static IEnumerable<int> PartialWindowStarts(int length, int windowSize, int stepSize)
+    {
+        long first = length >= windowSize
+            ? ((long)(length - windowSize) / stepSize + 1) * stepSize
+            : 0;
+        for (long i = first; i < length; i += stepSize)
+            yield return (int)i;
     }
 
     // Shared eager validation for the sliding-window profiles (as GcSkewCalculator.CalculateWindowedGcSkew):
@@ -1616,13 +2691,93 @@ public static class SequenceStatistics
         if (string.IsNullOrEmpty(sequence) || windowSize > sequence.Length)
             return Array.Empty<double>();
 
-        return EntropyProfileIterator(sequence, windowSize, stepSize);
+        return CompleteWindowStarts(sequence.Length, windowSize, stepSize)
+            .Select(i => CalculateShannonEntropy(sequence.Substring(i, windowSize)));
     }
 
-    private static IEnumerable<double> EntropyProfileIterator(string sequence, int windowSize, int stepSize)
+    /// <summary>
+    /// Entropy profile with optional Biopython-style trailing partial windows (letter-symbol entropy as
+    /// <see cref="CalculateEntropyProfile(string, int, int)"/>).
+    /// </summary>
+    /// <remarks>
+    /// With <paramref name="includePartialWindow"/> = true the window starts are
+    /// <c>range(0, len(seq), stepSize)</c> as in Biopython 1.88 <c>GC_skew</c> slicing: after the complete
+    /// windows, every start with start + W &gt; length yields the entropy of the truncated window
+    /// <c>seq[start:]</c> — the same convention as
+    /// <see cref="CalculateGcContentProfile(string, int, int, bool, bool)"/> (B03 F24). false equals the
+    /// three-argument overload. Oracle: <c>scipy.stats.entropy(letter counts of seq[i:i+W], base=2)</c>.
+    /// A window with no letter yields 0 (scipy: nan).
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="windowSize"/> or
+    /// <paramref name="stepSize"/> is less than 1 (validated eagerly).</exception>
+    public static IEnumerable<double> CalculateEntropyProfile(
+        string sequence,
+        int windowSize,
+        int stepSize,
+        bool includePartialWindow)
     {
-        for (int i = 0; i <= sequence.Length - windowSize; i += stepSize)
-            yield return CalculateShannonEntropy(sequence.Substring(i, windowSize));
+        if (!includePartialWindow)
+            return CalculateEntropyProfile(sequence, windowSize, stepSize);
+
+        ValidateWindowAndStep(windowSize, stepSize);
+        if (string.IsNullOrEmpty(sequence))
+            return Array.Empty<double>();
+
+        return CalculateEntropyProfile(sequence, windowSize, stepSize)
+            .Concat(PartialWindowStarts(sequence.Length, windowSize, stepSize)
+                .Select(i => CalculateShannonEntropy(sequence.Substring(i))));
+    }
+
+    /// <summary>
+    /// Higher-order (k-mer, block) entropy profile: the Shannon entropy in bits of the overlapping k-mer
+    /// distribution of each window, delegated per window to the canonical
+    /// <see cref="SequenceComplexity.CalculateKmerEntropy(string, int)"/> (no new kernel).
+    /// </summary>
+    /// <remarks>
+    /// <para>Order-k block entropy H_k (Herzel, Ebeling &amp; Schmitt 1994; Schmitt &amp; Herzel 1997) per
+    /// window of length W (W − k + 1 overlapping k-mers), plug-in estimate, maximum
+    /// min(2k, log₂(W − k + 1)) bits for DNA. Kernel conventions apply: the window is upper-cased and every
+    /// length-k substring is a symbol (N, IUPAC codes, gaps and non-letters are symbols, unlike the
+    /// letter-only <see cref="CalculateEntropyProfile(string, int, int)"/>; for k = 1 the two coincide on
+    /// letter-only input). A window shorter than k yields 0.</para>
+    /// <para>Windows: offsets 0, step, 2·step, … ≤ length − W; with <paramref name="includePartialWindow"/>
+    /// also the Biopython-style trailing truncated windows <c>seq[start:]</c> (as
+    /// <see cref="CalculateEntropyProfile(string, int, int, bool)"/>). Oracle:
+    /// <c>scipy.stats.entropy(Counter(w[j:j+k] for j in range(len(w)-k+1)).values(), base=2)</c>.</para>
+    /// </remarks>
+    /// <param name="sequence">Input sequence.</param>
+    /// <param name="windowSize">Window width W (≥ 1).</param>
+    /// <param name="stepSize">Window advance (≥ 1).</param>
+    /// <param name="k">K-mer length (≥ 1).</param>
+    /// <param name="includePartialWindow">Also emit trailing partial windows (default false).</param>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="windowSize"/>, <paramref name="stepSize"/>
+    /// or <paramref name="k"/> is less than 1 (validated eagerly).</exception>
+    public static IEnumerable<double> CalculateEntropyProfile(
+        string sequence,
+        int windowSize,
+        int stepSize,
+        int k,
+        bool includePartialWindow = false)
+    {
+        ValidateWindowAndStep(windowSize, stepSize);
+        ArgumentOutOfRangeException.ThrowIfLessThan(k, 1);
+
+        if (string.IsNullOrEmpty(sequence))
+            return Array.Empty<double>();
+
+        var starts = CompleteWindowStarts(sequence.Length, windowSize, stepSize);
+        if (includePartialWindow)
+            starts = starts.Concat(PartialWindowStarts(sequence.Length, windowSize, stepSize));
+
+        return starts.Select(i => SequenceComplexity.CalculateKmerEntropy(
+            sequence.Substring(i, Math.Min(windowSize, sequence.Length - i)), k));
+    }
+
+    // Offsets 0, step, 2·step, … ≤ length − windowSize of the complete windows (none when W > length).
+    private static IEnumerable<int> CompleteWindowStarts(int length, int windowSize, int stepSize)
+    {
+        for (long i = 0; i <= (long)length - windowSize; i += stepSize)
+            yield return (int)i;
     }
 
     #endregion
@@ -1638,7 +2793,16 @@ public static class SequenceStatistics
         double Entropy,
         double Complexity,
         double MeltingTemperature,
-        IReadOnlyDictionary<char, int> Composition);
+        IReadOnlyDictionary<char, int> Composition)
+    {
+        /// <summary>
+        /// Average-isotopic single-stranded linear molecular weight (Da) from
+        /// <see cref="CalculateNucleotideMolecularWeight(string, bool)"/> (Biopython <c>molecular_weight</c>);
+        /// RNA table when the sequence has U and no T, DNA table otherwise; unknown symbols skipped.
+        /// Non-positional (2026-10 FIN-B03 F33) so the positional record shape is unchanged.
+        /// </summary>
+        public double MolecularWeight { get; init; }
+    }
 
     /// <summary>
     /// Generates comprehensive summary statistics for a DNA/RNA sequence.
@@ -1654,6 +2818,16 @@ public static class SequenceStatistics
     /// in <c>Length</c> but not listed. Null is treated as empty (all-zero summary).
     /// </remarks>
     public static SequenceSummary SummarizeNucleotideSequence(string? sequence)
+        => SummarizeNucleotideSequence(sequence, weightAmbiguousBasesInTm: false);
+
+    /// <summary>
+    /// Generates the summary of <see cref="SummarizeNucleotideSequence(string?)"/>, optionally with the
+    /// melting temperature weighted for IUPAC ambiguity codes as Biopython non-strict
+    /// <c>Tm_Wallace</c>/<c>Tm_GC</c> (<see cref="CalculateMeltingTemperature(string, bool, bool)"/>).
+    /// </summary>
+    /// <param name="sequence">DNA/RNA sequence; null is treated as empty.</param>
+    /// <param name="weightAmbiguousBasesInTm">False (default behaviour): Tm counts A/C/G/T/U only.</param>
+    public static SequenceSummary SummarizeNucleotideSequence(string? sequence, bool weightAmbiguousBasesInTm)
     {
         // Treat null and empty identically (each per-metric method guards IsNullOrEmpty);
         // normalizing null to empty avoids dereferencing a null length when selecting the
@@ -1666,7 +2840,11 @@ public static class SequenceStatistics
         // formula applies otherwise (SEQ-TM-001).
         // CalculateMeltingTemperature(useWallaceRule: true) itself selects the formula from the
         // number of A/C/G/T/U bases (OligoCalc), so N/gaps cannot push a short oligo into the GC formula.
-        double tm = CalculateMeltingTemperature(seq, useWallaceRule: true);
+        double tm = CalculateMeltingTemperature(seq, useWallaceRule: true, weightAmbiguousBases: weightAmbiguousBasesInTm);
+        // Canonical nucleotide MW (Biopython molecular_weight, average masses, ss linear); RNA table for
+        // U-only spellings so an RNA summary is not reduced to its non-U residues.
+        bool isRna = comp.CountU > 0 && comp.CountT == 0;
+        double molecularWeight = CalculateNucleotideMolecularWeight(seq, isDna: !isRna);
 
         var composition = new Dictionary<char, int>
         {
@@ -1684,7 +2862,10 @@ public static class SequenceStatistics
             Entropy: entropy,
             Complexity: complexity,
             MeltingTemperature: tm,
-            Composition: composition);
+            Composition: composition)
+        {
+            MolecularWeight = molecularWeight
+        };
     }
 
     #endregion

@@ -18,26 +18,27 @@ Scans both strands for the PAM of the chosen CRISPR system (IUPAC-aware, e.g. `N
 
 ## Core Documentation Reference
 
-- Source: [CrisprDesigner.cs#L51](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L51)
+- Source: [CrisprDesigner.cs#L52](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L52)
 
 ## Input Schema
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `sequence` | string | Yes | DNA sequence to scan (non-empty). |
+| `sequence` | string | Yes | DNA sequence to scan (non-empty): A, C, G, T or N, in either case. Any other character (U, an IUPAC code other than N, a space, a trailing newline, a FASTA header line) is rejected with the character and its index. |
 | `system_type` | enum | No | CRISPR system (default `SpCas9`). |
 
 ## Output Schema
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `sites` | array | PAM sites, each `{position, pamSequence, targetSequence, targetStart, isForwardStrand}`. |
+| `sites` | array | PAM sites, each `{position, pamSequence, targetSequence, targetStart, isForwardStrand, system}` (`system` = the system record of `crispr_system_info`). |
 
 ## Errors
 
 | Code | Message |
 |------|---------|
 | 1001 | Sequence cannot be null or empty |
+| 1002 | Expected A/C/G/T/N but found '{char}' at index {i}. (`ArgumentException`: only A/C/G/T/N, either case, are scanned; a protospacer window holding an `N` is not returned) |
 
 ## Examples
 

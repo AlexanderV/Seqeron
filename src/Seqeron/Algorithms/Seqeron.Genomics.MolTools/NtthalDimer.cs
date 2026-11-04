@@ -70,6 +70,18 @@ internal static class NtthalDimer
     /// <summary>thal.h THAL_MAX_SEQ: maximum length of either strand.</summary>
     internal const int ThalMaxSeq = 10000;
 
+    // thal.c thal_check_errors message ("… shorter than " XSTR(THAL_MAX_ALIGN) "bp …").
+    internal static string MaxAlignMessage(int maxAlign) =>
+        $"At least one sequence must be equal to or shorter than {maxAlign}bp for thermodynamic calculations";
+
+    // Valid THAL_MAX_ALIGN override: 1 … THAL_MAX_SEQ.
+    internal static void CheckMaxAlign(int maxAlign)
+    {
+        if (maxAlign < 1 || maxAlign > ThalMaxSeq)
+            throw new ArgumentOutOfRangeException(nameof(maxAlign), maxAlign,
+                "THAL_MAX_ALIGN must be in 1..10000 (THAL_MAX_SEQ).");
+    }
+
     // bp index matrix BPI[5][5] (A,C,G,T,N): 1 = Watson-Crick pair, 0 = none (thal.c lines 140-145).
     internal static readonly int[,] Bpi =
     {
@@ -89,7 +101,14 @@ internal static class NtthalDimer
         _ => 4,
     };
 
-    internal static bool IsFinite(double x) => !double.IsInfinity(x);
+    // thal.c `#define isFinite(x) isfinite(x)` (C isfinite: false for ±∞ and NaN); the one finiteness
+    // test of both ntthal engines (dimer and NtthalHairpin).
+    internal static bool IsFinite(double x) => double.IsFinite(x);
+
+    // Table accessors shared by the dimer and hairpin engines: 4-D flat arrays indexed [i][ii][j][jj] ->
+    // ((i*5+ii)*5+j)*5+jj; 3-D dangle tables i*25 + col*5 + col2.
+    internal static double T4(double[] t, int i, int ii, int j, int jj) => t[((i * 5 + ii) * 5 + j) * 5 + jj];
+    internal static double T3(double[] t, int i, int j, int k) => t[(i * 5 + j) * 5 + k];
 
     /// <summary>The most stable dimer's ntthal thermodynamics (native ntthal units).</summary>
     /// <param name="DeltaH">Dimer ΔH° in cal/mol (salt-independent).</param>
@@ -101,9 +120,10 @@ internal static class NtthalDimer
     /// <param name="Strand2End">1-based paired index on the reversed strand 2 (ntthal align_end_2).</param>
     /// <param name="AsciiStructure">The four thal.c <c>drawDimer</c> lines ("SEQ\t…", "SEQ\t…",
     /// "STR\t…", "STR\t…"; primer3-py <c>ascii_structure_lines</c>) when requested, else null.</param>
+    /// <param name="Strand1Start">1-based 5′-most paired index on strand 1 (the end of the thal.c traceback).</param>
     internal readonly record struct Result(
         double DeltaH, double DeltaS, double DeltaG37, double TmCelsius,
-        int BasePairs, int Strand1End, int Strand2End, string[]? AsciiStructure = null);
+        int BasePairs, int Strand1End, int Strand2End, string[]? AsciiStructure = null, int Strand1Start = 0);
 
     /// <summary>
     /// Runs the full ntthal dimer DP for two oligos (5′→3′). Returns <c>null</c> when no duplex
@@ -127,13 +147,12 @@ internal static class NtthalDimer
     /// <summary>
     /// saltCorrectS (thal.c line 1039-1043): 0.368·ln((mv + 120·√max(0, dv − dntp))/1000), with all
     /// concentrations in mM (von Ahsen et al. 2001 divalent→monovalent equivalence; dntp is ignored
-    /// when dv ≤ 0).
+    /// when dv ≤ 0). The equivalent monovalent concentration is the one oligotm.c conversion
+    /// <see cref="PrimerDesigner.Primer3MonovalentEquivalent"/> (thal.c's "dv ≤ 0 ⇒ dntp = dv" is its
+    /// "no divalent ⇒ no contribution" once a non-positive dv is read as 0; bit-identical for every input).
     /// </summary>
-    internal static double SaltCorrectS(double mvMm, double dvMm, double dntpMm)
-    {
-        if (dvMm <= 0) dntpMm = dvMm;
-        return 0.368 * Math.Log((mvMm + 120.0 * Math.Sqrt(Math.Max(0.0, dvMm - dntpMm))) / 1000.0);
-    }
+    internal static double SaltCorrectS(double mvMm, double dvMm, double dntpMm) =>
+        0.368 * Math.Log(PrimerDesigner.Primer3MonovalentEquivalent(mvMm, dvMm <= 0 ? 0.0 : dvMm, dntpMm) / 1000.0);
 
     /// <summary>
     /// Runs the ntthal dimer DP with an explicit alignment type and divalent/dNTP concentrations
@@ -142,17 +161,23 @@ internal static class NtthalDimer
     /// <param name="tempKelvin">ntthal <c>temp</c> (K): the temperature at which the reported ΔG is
     /// evaluated (<c>calcDimer</c>: G = H − temp·S). The DP itself always ranks at 310.15 K.</param>
     /// <param name="maxLoop">ntthal <c>maxLoop</c>: maximum internal-loop / bulge size (0–30).</param>
+    /// <param name="maxAlign">thal.h <c>THAL_MAX_ALIGN</c> (default 60): at least one strand must be at most this
+    /// long. It is a compile-time guard of thal.c (<c>#ifndef THAL_MAX_ALIGN</c>, checked only in
+    /// <c>thal_check_errors</c>; the DP tables are sized from the actual lengths), so a larger value runs the same
+    /// recursions on longer strands — as ntthal built with <c>-DTHAL_MAX_ALIGN=…</c> does. 1 ≤ maxAlign ≤
+    /// <see cref="ThalMaxSeq"/>.</param>
     internal static Result? Run(
         string oligo1, string oligo2, double mvMolar, double dnaConcMolar,
         AlignmentType type, double dvMolar, double dntpMolar,
-        double tempKelvin = TempKelvin, int maxLoop = MaxLoop, bool withStructure = false)
+        double tempKelvin = TempKelvin, int maxLoop = MaxLoop, bool withStructure = false,
+        int maxAlign = ThalMaxAlign)
     {
         if (maxLoop < 0 || maxLoop > MaxLoop)
             throw new ArgumentOutOfRangeException(nameof(maxLoop), maxLoop, "ntthal max_loop must be in 0..30.");
+        CheckMaxAlign(maxAlign);
         // thal.c CHECK_ERROR: at least one sequence must be ≤ THAL_MAX_ALIGN (60) nt, neither > THAL_MAX_SEQ.
-        if (oligo1.Length > ThalMaxAlign && oligo2.Length > ThalMaxAlign)
-            throw new ArgumentException(
-                "At least one sequence must be equal to or shorter than 60bp for thermodynamic calculations");
+        if (oligo1.Length > maxAlign && oligo2.Length > maxAlign)
+            throw new ArgumentException(MaxAlignMessage(maxAlign));
         if (oligo1.Length > ThalMaxSeq || oligo2.Length > ThalMaxSeq)
             throw new ArgumentException(
                 "Target sequence length > maximum allowed (10000) in thermodynamic alignment");
@@ -190,10 +215,6 @@ internal static class NtthalDimer
         // DP tables (1-indexed). EnthalpyDPT/EntropyDPT.
         var enH = new double[len1 + 2, len2 + 2];
         var enS = new double[len1 + 2, len2 + 2];
-
-        // ---- table accessors (4-D flat arrays indexed [i][ii][j][jj] -> i*125+ii*25+j*5+jj) ----
-        static double T4(double[] t, int i, int ii, int j, int jj) => t[((i * 5 + ii) * 5 + j) * 5 + jj];
-        static double T3(double[] t, int i, int j, int k) => t[(i * 5 + j) * 5 + k];
 
         // initMatrix (thal.c 1547-1562).
         for (int i = 1; i <= len1; i++)
@@ -436,7 +457,9 @@ internal static class NtthalDimer
         string[]? structure = withStructure
             ? DrawDimer(oligo1.ToUpperInvariant(), ReverseString(oligo2.ToUpperInvariant()), ps1, ps2)
             : null;
-        return new Result(dH, dsOut, dg, tm, n + 1, bestI, bestJ, structure);
+        int firstPaired1 = 1;
+        while (firstPaired1 < len1 && ps1[firstPaired1 - 1] == 0) firstPaired1++;
+        return new Result(dH, dsOut, dg, tm, n + 1, bestI, bestJ, structure, firstPaired1);
     }
 
     // A·T penalty tables (thal.c tableStartATH/ATS): only A·T (0,3)/(3,0) carry the penalty.
@@ -488,8 +511,6 @@ internal static class NtthalDimer
     internal static (double S, double H) RightTerminalPair(
         int[] a, int[] b, int i, int j, double dplxInitH, double dplxInitS, double rc)
     {
-        static double T4(double[] t, int i, int ii, int j, int jj) => t[((i * 5 + ii) * 5 + j) * 5 + jj];
-        static double T3(double[] t, int i, int j, int k) => t[(i * 5 + j) * 5 + k];
         if (Bpi[a[i], b[j]] == 0) return (-1.0, Inf);
         double s1 = AtPenaltySOf(a[i], b[j]) + T4(Tstack2S, a[i], a[i + 1], b[j], b[j + 1]);
         double h1 = AtPenaltyHOf(a[i], b[j]) + T4(Tstack2H, a[i], a[i + 1], b[j], b[j + 1]);
@@ -510,7 +531,7 @@ internal static class NtthalDimer
         return TerminalPair(s1, h1, unpaired && (d3 || d5), s2, h2, a[i], b[j], dplxInitH, dplxInitS, rc);
     }
 
-    private static string ReverseString(string s)
+    internal static string ReverseString(string s)
     {
         var c = s.ToCharArray();
         Array.Reverse(c);
@@ -573,9 +594,13 @@ internal static class NtthalDimer
     /// <summary>
     /// Reverse-complement palindrome test, a port of thal.c <c>symmetry_thermo</c>: odd length is
     /// never symmetric; each mirrored pair fails only when one side is A/T/C/G and the other is not
-    /// its Watson–Crick partner (two non-ACGT characters pass, as in thal.c).
+    /// its Watson–Crick partner (two non-ACGT characters pass, as in thal.c). Also oligotm.c
+    /// <c>symmetry()</c> (the same test on raw characters), used by <see cref="PrimerDesigner.Calculate3PrimeStability"/>
+    /// on its upper-cased window, and the one self-complementarity test of <see cref="PrimerDesigner"/>'s
+    /// nearest-neighbour paths (oligotm <c>oligotm()</c> → <c>symmetry()</c>, Biopython <c>Tm_NN</c> <c>selfcomp</c>,
+    /// the LNA / mismatch / SantaLucia dimer duplexes), all of which pass validated upper-case ACGT only.
     /// </summary>
-    private static bool IsSymmetric(string oligo)
+    internal static bool IsSymmetric(string oligo)
     {
         int len = oligo.Length;
         if (len % 2 != 0) return false;

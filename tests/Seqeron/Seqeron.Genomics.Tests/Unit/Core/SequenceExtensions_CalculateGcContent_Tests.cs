@@ -487,6 +487,40 @@ public class SequenceExtensions_CalculateGcContent_Tests
         });
     }
 
+    // Non-ASCII letters that culture-invariant case mapping folds onto ASCII (U+017F 'ſ' -> 'S' under
+    // ToUpperInvariant, U+0131 'ı' -> 'I' under Python str.upper, U+212A Kelvin -> 'k' under ToLowerInvariant)
+    // are NOT nucleotide codes: Biopython counts the literal letters "CGScgs"/"ATWUatwu"/"BDHKMNRVXY"(+lower)
+    // only. Expected values: Biopython 1.88 gc_fraction(seq, ambiguous=remove/ignore/weighted), run 2026-10-09.
+    [TestCase("\u017f", 0.0, 0.0, 0.0)]
+    [TestCase("\u0131", 0.0, 0.0, 0.0)]
+    [TestCase("\u212a", 0.0, 0.0, 0.0)]
+    [TestCase("AC\u017f", 0.5, 0.3333333333333333, 0.3333333333333333)]
+    [TestCase("GC\u017f\u0131\u212aN", 1.0, 0.3333333333333333, 0.4166666666666667)]
+    [TestCase("s\u017f", 1.0, 0.5, 0.5)]
+    [TestCase("\u017fGCAT", 0.5, 0.4, 0.4)]
+    [TestCase("NN\u017f", 0.0, 0.0, 0.3333333333333333)]
+    [TestCase("\u0131\u212aSWacgt", 0.5, 0.375, 0.375)]
+    [TestCase("k\u212aK", 0.0, 0.0, 0.3333333333333333)]
+    [TestCase("\u017f\u017f\u017fG", 1.0, 0.25, 0.25)]
+    [Description("A1-5/F18: ASCII-only case folding — 'ſ' is not S (Biopython gc_fraction('ſ', 'ignore') = 0)")]
+    public void CalculateGcFraction_AmbiguityModes_NonAsciiLettersNotFolded_MatchBiopython(
+        string sequence, double remove, double ignore, double weighted)
+    {
+        Assert.Multiple(() =>
+        {
+            foreach (var (mode, expected) in new[]
+                     {
+                         (SequenceExtensions.GcAmbiguityMode.Remove, remove),
+                         (SequenceExtensions.GcAmbiguityMode.Ignore, ignore),
+                         (SequenceExtensions.GcAmbiguityMode.Weighted, weighted),
+                     })
+            {
+                Assert.That(sequence.CalculateGcFraction(mode), Is.EqualTo(expected).Within(1e-12), $"{mode} (string)");
+                Assert.That(sequence.AsSpan().CalculateGcFraction(mode), Is.EqualTo(expected).Within(1e-12), $"{mode} (span)");
+            }
+        });
+    }
+
     // Default overload excludes S/W (documented divergence from Biopython "remove"):
     // "ACTGSSSS" -> (G+C)/(A+T+G+C) = 2/4 = 0.5, whereas Biopython remove gives 0.75.
     [Test]

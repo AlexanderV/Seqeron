@@ -24,7 +24,12 @@ Hybridization probes are used in sequence-detection assays such as FISH, DNA mic
 
 ### 2.2 Core Model
 
-The candidate score starts at `1.0` and is reduced by a fixed set of penalties:
+**Ranking (`ProbeParameters.Ranking`, audit round 3, A3-11).** Two orders are available; the candidate set (windows with additive score > 0) is the same for both:
+
+- `ProbeRanking.AdditiveScore` (default, unchanged) — the additive score below, score descending (ties by length, then start). **This score is a library heuristic**: the penalty values (0.3, 0.3, 0.2, 0.2, 0.15, 0.1, 0.02) have no published source; the score ranks candidates but is not a hybridization probability.
+- `ProbeRanking.Primer3Penalty` — **the sourced ranking**: Primer3's internal-oligo objective `p_obj_fn` (`libprimer3.cc`, `OT_INTL` branch; PRIMER_INTERNAL_n_PENALTY) with Primer3's default internal-oligo weights (PRIMER_INTERNAL_WT_TM_GT/_LT = PRIMER_INTERNAL_WT_SIZE_GT/_LT = 1, all other weights 0), i.e. $|T_m - OptTm| + |N - OptLength|$ with the probe Tm at the parameters' conditions, computed by the canonical `PrimerDesigner.CalculatePrimer3Penalty` (the same call `DesignProbesPrimer3` makes) and reported in `Probe.Primer3Penalty`; order = Primer3 `primer_rec_comp` (penalty ↑, start ↓, length ↑); a probe whose Tm is not computable (non-ACGT base, which Primer3 rejects) ranks last with `Primer3Penalty = null`. `ProbeParameters.OptTm` / `OptLength` default to Primer3's PRIMER_INTERNAL_OPT_TM = 60 °C / PRIMER_INTERNAL_OPT_SIZE = 20 and must lie within [MinTm, MaxTm] / [MinLength, MaxLength] (`ArgumentOutOfRangeException`, Primer3 `_pr_data_control` "Optimum internal oligo Tm lower than minimum or higher than maximum" / "PRIMER_INTERNAL_{OPT,DEFAULT}_SIZE > MAX_SIZE / < MIN_SIZE"; checked eagerly) — so a preset such as Microarray (82–90 °C, 50–60 nt) needs its own optima. `Score` stays the additive score. Cross-check: primer3-py 2.3.1 `design_primers` PRIMER_TASK = pick_hyb_probe_only (PRIMER_PICK_INTERNAL_OLIGO, internal size 18–27, Tm 57–63, GC 20–80 %, poly-X 5, optima (60, 20), (61.5, 22), (59, 19), (60, 24)) on four random 70-nt templates: every one of the 48 Primer3 probes is a `DesignProbes` candidate with the same PRIMER_INTERNAL_n_PENALTY and Tm (|Δ| ≤ 1e-9) and the same relative order, including the start-descending ties (`ProbeDesigner_Primer3Ranking_Tests`). `DesignProbesPrimer3` remains Primer3's complete picker (its acceptance limits and five-prime-problem enumeration as well as its ranking).
+
+The additive candidate score starts at `1.0` and is reduced by a fixed set of penalties:
 
 | Factor | Penalty |
 |--------|---------|
@@ -37,9 +42,9 @@ The candidate score starts at `1.0` and is reduced by a fixed set of penalties:
 | Starts with `G/C` | `-0.02` |
 | Ends with `G/C` | `-0.02` |
 
-**Probe Tm.** Every probe Tm (designer, tiling, molecular beacon, TaqMan check, `AnalyzeOligo`) is Primer3's `seqtm` (`PrimerDesigner.CalculateMeltingTemperaturePrimer3`, identical to primer3-py `calc_tm(..., max_nn_length=36)`, the MAX_NN_TM_LENGTH libprimer3 uses when picking oligos): SantaLucia (1998) nearest-neighbour ΔH/ΔS with the SantaLucia entropy salt correction and the von Ahsen Mg²⁺→Na⁺-equivalent for ≤ 36 nt, and Primer3 `long_seq_tm` = 81.5 + 16.6·log10([Na⁺]eq) + 0.41·%GC − 600/N above 36 nt, at the hybridization conditions in `ProbeParameters` (default = Primer3 internal-oligo defaults: 50 nM probe, 50 mM monovalent, 0 Mg²⁺, 0 dNTP). A probe with a non-ACGT base has no computable Tm (reported 0 with a warning and the Tm penalty; `AnalyzeOligo`/TaqMan report NaN).
+**Probe Tm.** Every probe Tm (designer, tiling, molecular beacon, TaqMan check, `AnalyzeOligo`) is Primer3's `seqtm` (`PrimerDesigner.CalculateMeltingTemperaturePrimer3`, identical to primer3-py `calc_tm(..., max_nn_length=ProbeParameters.MaxNearestNeighborLength)`, default 36 = the MAX_NN_TM_LENGTH libprimer3 uses when picking oligos; the Microarray preset uses 60): SantaLucia (1998) nearest-neighbour ΔH/ΔS with the SantaLucia entropy salt correction and the von Ahsen Mg²⁺→Na⁺-equivalent for ≤ 36 nt, and Primer3 `long_seq_tm` = 81.5 + 16.6·log10([Na⁺]eq) + 0.41·%GC − 600/N above 36 nt, at the hybridization conditions in `ProbeParameters` (`ProbeParameters` default = Primer3 internal-oligo defaults: 50 nM probe, 50 mM monovalent, 0 Mg²⁺, 0 dNTP; the Microarray preset — the `DesignProbes` / tiling default — uses OligoArray's 1 M / 1 µM, see §4.2). A probe with a non-ACGT base has no computable Tm (reported 0 with a warning and the Tm penalty; `AnalyzeOligo`/TaqMan report NaN).
 
-**Self-structure.** With `StructureScreen = Thermodynamic` (default) a probe of ≤ 60 nt of A/C/G/T is screened like a Primer3 hybridization probe: ntthal self-dimer (ANY), 3′ self-dimer (END1) and hairpin Tm (`PrimerDesigner.CalculatePrimer3OligoStructure`, bit-exact to primer3-py) must not exceed `MaxStructureTm` (PRIMER_INTERNAL_MAX_SELF_ANY_TH / _SELF_END_TH / _HAIRPIN_TH = 47 °C); the self-dimer limit drives the "self-complementarity" penalty and the hairpin limit the "secondary structure" penalty. Longer probes (thal.c THAL_MAX_ALIGN = 60), non-ACGT probes and `StructureScreen = Heuristic` use the fallback screens: the self-dimer criterion is Primer3's alignment-mode internal-oligo screen (PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT = 0, `oligo_compl`): dpal `self_any` (`PrimerDesigner.CalculatePrimerSelfAnyComplementarity`, DPAL_LOCAL) and `self_end` (`CalculatePrimerSelfEndComplementarity`, DPAL_GLOBAL_END), which have no length limit, must not exceed `MaxSelfAny` / `MaxSelfEnd` (PRIMER_INTERNAL_MAX_SELF_ANY / _SELF_END = 12.00); the hairpin criterion stays the sequence-only inverted-repeat stem ≥ 4 bp with a 3-nt loop and ≥ 80 % matches (a thermodynamic hairpin for > 60-nt DNA needs a DNA-parameter MFE fold — cross-batch request to B12). Note: Primer3 itself picks internal oligos of ≤ 36 nt, so 12.00 is calibrated for short oligos; random 200–500-nt probes exceed it by chance in roughly half of the cases (a −0.2 ranking penalty in `DesignProbes`) — raise `MaxSelfAny`/`MaxSelfEnd` for long FISH/blot probes. `MaxSelfComplementarity` (fold-back fraction limit) is no longer used by any screen (kept for source compatibility).
+**Self-structure.** With `StructureScreen = Thermodynamic` (default) a probe of ≤ `ThermodynamicScreenMaxLength` (default 60) nt of A/C/G/T is screened like a Primer3 hybridization probe: ntthal self-dimer (ANY), 3′ self-dimer (END1) and hairpin Tm (`PrimerDesigner.CalculatePrimer3OligoStructure`, bit-exact to primer3-py) must not exceed `MaxStructureTm` (PRIMER_INTERNAL_MAX_SELF_ANY_TH / _SELF_END_TH / _HAIRPIN_TH = 47 °C); the self-dimer limit drives the "self-complementarity" penalty and the hairpin limit the "secondary structure" penalty. Longer probes (thal.c THAL_MAX_ALIGN, default 60 — see the opt-in below), non-ACGT probes and `StructureScreen = Heuristic` use the fallback screens: the self-dimer criterion is Primer3's alignment-mode internal-oligo screen (PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT = 0, `oligo_compl`): dpal `self_any` (`PrimerDesigner.CalculatePrimerSelfAnyComplementarity`, DPAL_LOCAL) and `self_end` (`CalculatePrimerSelfEndComplementarity`, DPAL_GLOBAL_END), which have no length limit, must not exceed `MaxSelfAny` / `MaxSelfEnd` (PRIMER_INTERNAL_MAX_SELF_ANY / _SELF_END = 12.00); the hairpin criterion is the canonical sequence-only stem-loop screen `PrimerDesigner.HasHairpinPotential` with its defaults: an exactly complementary (A·T / G·C) stem of ≥ 4 bp — a library convention, no published source (F49) — closing a loop of ≥ 3 nt (thal.c `min_hrpn_loop` = 3). It replaced a private duplicate scan that tested a loop of exactly 3 nt with an unsourced ≥ 80 % stem-match tolerance and so missed e.g. a 10-bp perfect stem with a 4-nt loop (ntthal hairpin Tm 77.95 °C at 50 mM / 50 nM; audit round 5, A5-2). The screen is a presence test, not a stability estimate: almost every random probe of > 60 nt contains such a stem (≈ 98 % at 61 nt, all at ≥ 100 nt), so with `AvoidSecondaryStructure` the −0.15 penalty hits nearly every long candidate alike (it only lowers the additive library score; no candidate is rejected on the flag itself), and `ValidateProbe` reports it in `HasSecondaryStructure` / `Warnings` without letting it decide `IsValid` (validity rests on sourced criteria only; audit round 5, A5-5) — for a hairpin-Tm decision on longer probes use the opt-in below (default THAL_MAX_ALIGN = 60). Note: Primer3 itself picks internal oligos of ≤ 36 nt, so 12.00 is calibrated for short oligos; random 200–500-nt probes exceed it by chance in roughly half of the cases (a −0.2 ranking penalty in `DesignProbes`) — raise `MaxSelfAny`/`MaxSelfEnd` for long FISH/blot probes. `MaxSelfComplementarity` (fold-back fraction limit) is no longer used by any screen (kept for source compatibility).
 
 **Simple repeats** are di-/trinucleotide microsatellites of ≥ 4 complete copies (canonical `RepeatFinder.FindMicrosatellites`, MISA convention: primitive units, A/C/G/T only).
 
@@ -62,8 +67,8 @@ If a 5' G cannot be avoided on the sense strand, the probe is designed on the co
 
 | ID | Invariant | Holds because |
 |----|-----------|---------------|
-| INV-01 | The base ranking pass retains only raw-score-positive candidates before optional specificity rescaling | `DesignProbesOptimized(...)` rejects candidates when `score <= 0`, but the suffix-tree overload can later rescale shortlisted scores |
-| INV-02 | Probe GC content is computed as a fraction of length | The source uses `gcCount / length` |
+| INV-01 | The ranking pass retains only raw-score-positive candidates before optional specificity rescaling | `EnumerateRankedProbes(...)` rejects candidates when `score <= 0`; the suffix-tree overload then rescales (or filters) every retained candidate |
+| INV-02 | Probe GC content is a fraction: G+C over the valid (A/C/G/T/U) bases, N excluded | canonical `CalculateGcFractionFast` (the `DesignProbes` prefix sums count with the same `CountGcAndValidNucleotides`); = Primer3 `gc_and_n_content` (100·num_gc/num_gcat) |
 | INV-03 | `CheckSpecificity(...)` returns `0` for no hits, `1` for a unique hit, and `1 / hits` otherwise | That mapping is explicit in source |
 
 ## 3. Contract
@@ -74,9 +79,12 @@ If a 5' G cannot be avoided on the sense strand, the probe is designed on the co
 |------|------|---------|-------------|-------------|
 | `targetSequence` | `string` | required | Sequence from which probe candidates are generated | Uppercased before processing |
 | `parameters` | `ProbeParameters?` | `Defaults.Microarray` | Application-specific probe design limits | Includes length, Tm, GC, homopolymer, and self-complementarity thresholds |
-| `maxProbes` | `int` | `10` | Maximum number of returned probes | Applied after ranking |
+| `maxProbes` | `int` | `10` | Maximum number of returned probes | Applied after ranking (and, in the genome-index overload, after the specificity filter / re-rank); `<= 0` returns none |
+| `parameters.Ranking` | `ProbeRanking` | `AdditiveScore` | `AdditiveScore` (library heuristic) or `Primer3Penalty` (Primer3 internal-oligo `p_obj_fn`, sourced) | Enum value must be defined |
+| `parameters.OptTm` / `OptLength` | `double` / `int` | `60` / `20` | PRIMER_INTERNAL_OPT_TM / _OPT_SIZE of the Primer3 ranking | Within [MinTm, MaxTm] / [MinLength, MaxLength] when `Ranking = Primer3Penalty` |
 | `genomeIndex` | `ISuffixTree` | required for specificity overload | Pre-built suffix tree for genome-wide uniqueness filtering | Used only by the overload with specificity checking |
 | `requireUnique` | `bool` | `true` | Whether non-unique probes are excluded when `genomeIndex` is provided | Filters candidates with specificity `< 1.0` |
+| `bothStrands` | `bool` | `false` | Genome-index overload: also count the probe's reverse-complement occurrences (`CheckSpecificity(…, bothStrands)`) — a probe binds the other strand of a double-stranded genome wherever its reverse complement occurs, as blastn `-strand both` searches | Optional (audit round 4, A4-2); reverse-palindromic probes counted once; default = indexed strand only |
 
 ### 3.2 Output / Return Value
 
@@ -86,13 +94,14 @@ If a 5' G cannot be avoided on the sense strand, the probe is designed on the co
 | `Start` / `End` | `int` | Probe coordinates in the source sequence |
 | `Tm` | `double` | Melting-temperature estimate |
 | `GcContent` | `double` | GC fraction |
-| `Score` | `double` | Heuristic quality score |
+| `Score` | `double` | Additive library-heuristic quality score (unsourced penalty values) |
+| `Primer3Penalty` | `double?` | Primer3 PRIMER_INTERNAL_n_PENALTY (`p_obj_fn`) with `Ranking = Primer3Penalty`; `null` otherwise or when the Tm is not computable |
 | `Type` | `ProbeType` | Probe category such as `Standard`, `Tiling`, `Antisense`, `LNA`, or `MolecularBeacon` |
 | `Warnings` | `IReadOnlyList<string>` | Quality warnings recorded during evaluation |
 
 ### 3.3 Preconditions and Validation
 
-`DesignProbes(...)` returns no probes when the target sequence is null, empty, or shorter than the configured minimum length. All sequences are converted to uppercase before processing. The suffix-tree overload first builds a larger raw-score shortlist than the final requested count, then either filters that shortlist for uniqueness or scales shortlisted scores by the specificity value returned by `CheckSpecificity(...)`; when `requireUnique` is `false`, a shortlisted probe can therefore remain in the output with final score `0` if specificity is `0`.
+`DesignProbes(...)` returns no probes when the target sequence is null, empty, shorter than the configured minimum length, or when `maxProbes <= 0`. All sequences are converted to uppercase before processing. The suffix-tree overload walks **every** candidate in the ranking order (lazily, stopping once `maxProbes` probes have been produced) and applies the specificity value returned by `CheckSpecificity(...)` (with `bothStrands` on both strands of the indexed genome — occurrences of the probe and of its reverse complement, a reverse-palindromic probe once; default the indexed strand only): with `requireUnique` a candidate occurring more than once is dropped (the surviving probes keep their score and order), otherwise the score is multiplied by the specificity and the probes are re-ranked on the scaled score (stable — equal scores keep the documented `(length, start)` tie order; the `Primer3Penalty` order is unchanged because the specificity does not enter the penalty). With `requireUnique = false` a probe whose specificity is `0` (not present in the index) therefore still appears, with final score `0`, last.
 
 ## 4. Algorithm
 
@@ -102,24 +111,24 @@ If a 5' G cannot be avoided on the sense strand, the probe is designed on the co
 2. Precompute GC prefix sums for the target sequence.
 3. Enumerate all candidate windows within the configured length range.
 4. Evaluate each candidate for GC content, Tm, homopolymers, self-complementarity, secondary structure, repeats, and terminal G/C penalties.
-5. Keep only candidates with positive raw scores, sort them by score, and return the top results.
-6. In the genome-index overload, apply suffix-tree specificity filtering or post-shortlist score adjustment before yielding the final probes.
+5. Keep only candidates with positive raw scores, sort them by score (default) or by Primer3 internal-oligo penalty (`Ranking = Primer3Penalty`), and return the top results.
+6. In the genome-index overload, walk the whole ranked candidate list lazily and apply suffix-tree specificity (uniqueness filter, or score scaling followed by a stable re-rank) before yielding up to `maxProbes` probes.
 
 ### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures
 
 Application-specific defaults from `ProbeDesigner.Defaults`:
 
-| Application | Length (bp) | Tm (°C) | GC Content | Notes |
-|-------------|-------------|---------|------------|-------|
-| Microarray | 50-60 | 75-85 | 0.40-0.60 | Default parameter set |
-| FISH | 200-500 | 70-90 | 0.35-0.65 | Higher self-complementarity tolerance |
-| Northern Blot | 100-300 | 65-80 | 0.40-0.60 | Intermediate probe sizes |
-| qPCR | 20-30 | 68-70 | 0.30-0.80 | TaqMan probe Tm/GC per Applied Biosystems Primer Express guidelines [10] |
-| Southern Blot | 150-500 | 65-75 | 0.35-0.65 | Long-probe setting |
+| Application | Length (bp) | Tm (°C) | GC Content | Tm conditions / scale | Notes |
+|-------------|-------------|---------|------------|-----------------------|-------|
+| Microarray | 50-60 | 82-90 | 0.40-0.60 | OligoArray 2.0: [Na⁺] 1 M, 1 µM oligo, nearest-neighbour Tm over the whole oligo (`MaxNearestNeighborLength` 60) | Default parameter set; Tm window and conditions from Rouillard, Zuker & Gulari 2003 |
+| FISH | 200-500 | 70-90 | 0.35-0.65 | Primer3 probe conditions (50 nM / 50 mM), `long_seq_tm` | Library convention; attainable 71.25–85.35 |
+| Northern Blot | 100-300 | 65-80 | 0.40-0.60 | Primer3 probe conditions, `long_seq_tm` | Library convention; attainable 70.30–82.50 |
+| qPCR | 20-30 | 68-70 | 0.30-0.80 | Primer3 probe conditions, NN ≤ 36 nt | TaqMan probe Tm/GC per Applied Biosystems Primer Express guidelines [10] |
+| Southern Blot | 150-500 | 65-75 | 0.35-0.65 | Primer3 probe conditions, `long_seq_tm` | Library convention; attainable 70.32–85.35 |
 
 The implementation uses prefix sums for O(1) GC lookup and a suffix-tree overload for O(m) uniqueness checking of each candidate probe. The thermodynamic self-structure screens only lower a score, so they are evaluated lazily in descending base-score order with a branch-and-bound stop (identical result to an exhaustive evaluation; ties by length, then start).
 
-The Microarray, FISH, Northern and Southern Tm windows are library conventions (assay- and tool-specific; e.g. OligoArray designs use other conditions) — set `MinTm`/`MaxTm` and the hybridization conditions for your protocol. Lengths: microarray long oligos 50–60 nt (Kane et al. 2000 50-mers; Agilent 60-mers).
+Every preset's Tm window is reachable on its own Tm scale for its length × G+C window (audit round 3, A3-10; primer3-py `calc_tm` witnesses and exact `long_seq_tm` ranges locked in `ProbeDesigner_Primer3Probe_Tests`). The Microarray preset follows OligoArray 2.0 (Rouillard, Zuker & Gulari 2003): nearest-neighbour Tm at [Na⁺] = 1 M and 1 µM oligo, Tm window 82–90 °C — computed as Primer3 `oligotm` (SantaLucia 1998, C/4 for non-self-complementary oligos; identical to Biopython `Tm_NN(DNA_NN3)` at the same conditions) with `ProbeParameters.MaxNearestNeighborLength` = 60 (Primer3 `seqtm` `nn_max_len`); attainable Tm of random 50–60-mers with 40–60 % G+C ≈ 83–97 °C. Its former window 75–85 °C at the 50 mM Primer3 conditions was unreachable (`long_seq_tm` maximum 74.50 °C for a 60-mer with 60 % G+C). The Microarray structure screen runs at the same 1 M / 1 µM conditions. `ValidateProbe`, `AssessCrossHybridization`, `DesignMolecularBeacon` and `AnalyzeOligo` keep the Primer3 probe conditions (50 nM / 50 mM, NN ≤ 36 nt) as their default. The FISH, Northern and Southern Tm windows are library conventions (no published Tm window for these long probes was found) — set `MinTm`/`MaxTm` and the hybridization conditions for your protocol. Lengths: microarray long oligos 50–60 nt (Kane et al. 2000 50-mers; Agilent 60-mers).
 
 ### 4.4 Primer3 hybridization-probe picker (`DesignProbesPrimer3`)
 
@@ -137,7 +146,7 @@ GC optimum and lower-case masking (audit round 3, A3-25 + A3-26): `Primer3ProbeS
 
 - Molecular weight: canonical `SequenceStatistics.CalculateNucleotideMolecularWeight` (= Biopython `molecular_weight`, single-stranded; `CalculateMolecularWeight(seq)` infers RNA when the oligo has U and no T).
 - ε260: `CalculateExtinctionCoefficient` = sum of mononucleotide values (no hypochromicity); `CalculateExtinctionCoefficientNearestNeighbor` = nearest-neighbour model ε = Σ ε(NᵢNᵢ₊₁) − Σ ε(internal Nᵢ) with the Cantor, Warshaw & Shapiro (1970) DNA / Warshaw & Tinoco (1966) RNA tables [11].
-- Molecular beacon: loop Tm window [T+7, T+10] °C and stem-loop (ntthal hairpin) Tm ≥ T+7 °C for a detection temperature T (Tyagi & Kramer 1996 design rules [12]); without T the window is 55–65 °C.
+- Molecular beacon: loop Tm window [T+7, T+10] °C and stem-loop (ntthal hairpin) Tm ≥ T+7 °C for a detection temperature T (Tyagi & Kramer 1996 design rules [12]); without T the window is 55–65 °C. The stem-loop Tm is reported for beacons ≤ `maxAlignLength` nt (default 60 = THAL_MAX_ALIGN; opt-in up to 10 000).
 
 ### 4.3 Complexity
 
@@ -145,7 +154,7 @@ GC optimum and lower-case masking (audit round 3, A3-25 + A3-26): `Primer3ProbeS
 |-----------|------|-------|-------|
 | `DesignProbes` | `O(n × m)` | `O(k)` | `n` is sequence length, `m` is the scanned length range, and `k` is the number of retained candidates |
 | `CheckSpecificity` | `O(m)` | `O(1)` | Uses suffix-tree lookups per probe |
-| `DesignTilingProbes` | `O(n)` over fixed-length windows | `O(k)` | Produces overlapping probes for coverage |
+| `DesignTilingProbes` | `O(n)` over fixed-length windows | `O(k)` | Produces overlapping probes covering the whole target (grid + end-anchored window) |
 
 ## 5. Implementation Notes
 
@@ -154,17 +163,17 @@ GC optimum and lower-case masking (audit round 3, A3-25 + A3-26): `Primer3ProbeS
 **Implementation location:** [ProbeDesigner.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/ProbeDesigner.cs), [ThermoConstants.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Infrastructure/ThermoConstants.cs)
 
 - `ProbeDesigner.DesignProbes(string, ProbeParameters?, int)`: Main probe-generation and ranking routine.
-- `ProbeDesigner.DesignProbes(string, ISuffixTree, ProbeParameters?, int, bool)`: Uniqueness-aware overload using a suffix tree.
-- `ProbeDesigner.DesignTilingProbes(...)`: Generates overlapping tiling probes for coverage.
-- `ProbeDesigner.CheckSpecificity(string, ISuffixTree)`: Maps suffix-tree hit counts to a specificity score.
-- `ProbeDesigner.EvaluateTaqManProbe(string, double?, int, int)`: Opt-in TaqMan rule check; returns a `TaqManProbeEvaluation` with one boolean per rule and a `PassesAll` conjunction.
+- `ProbeDesigner.DesignProbes(string, ISuffixTree, ProbeParameters?, int, bool, bool)`: Uniqueness-aware overload using a suffix tree (lazy walk of all candidates; `EnumerateRankedProbes(...)` is the shared ranking stream; opt-in `bothStrands` counts reverse-complement occurrences too).
+- `ProbeDesigner.DesignTilingProbes(...)`: Generates overlapping tiling probes covering the whole target.
+- `ProbeDesigner.CheckSpecificity(string probeSequence, ISuffixTree genomeIndex, bool bothStrands = false)`: Maps suffix-tree hit counts to a specificity score (opt-in `bothStrands` also counts the reverse complement).
+- `ProbeDesigner.EvaluateTaqManProbe(string probeSequence, double? primerTm = null, int minLength = 18, int maxLength = 22, double dnaConcentrationNanomolar = 50, double monovalentMillimolar = 50, double divalentMillimolar = 0, double dntpMillimolar = 0)` (Tm conditions default to the Primer3 internal-oligo conditions): Opt-in TaqMan rule check; returns a `TaqManProbeEvaluation` with one boolean per rule and a `PassesAll` conjunction.
 - `ProbeDesigner.SelectTaqManStrand(string, double?)`: Chooses the sense strand or its reverse complement, whichever better satisfies the TaqMan rules (no 5'-G, more C than G first).
 - `ProbeDesigner.DesignProbesPrimer3(string, Primer3ProbeSettings?, int, IReadOnlyList<int>?)`: Primer3 `pick_hyb_probe_only` picker (§4.4), incl. the mishybridization library.
 - `PrimerDesigner.CalculateLibraryMishyb(string, PrimerMisprimingLibrary, bool)`: Primer3 internal-oligo library mishybridization score and entry.
 
 ### 5.2 Current Behavior
 
-The implementation evaluates candidates with prefix-sum GC optimization and begins from a raw-score-positive shortlist. Probe sequences are uppercased before evaluation. The suffix-tree overload does not rescore the full candidate universe: it rechecks only a larger raw-score shortlist, currently `maxProbes * 5`, can enforce uniqueness on that shortlist, or scales shortlisted scores by `1 / hitCount`; if `requireUnique` is `false` and specificity is `0`, a shortlisted probe can remain in the final output with score `0`, so final ordering still inherits the initial raw-score pass. `DesignTilingProbes(...)` includes suboptimal probes when needed for coverage and reports coverage, mean Tm, and Tm range. The source also defines probe types `Standard`, `Tiling`, `Antisense`, `LNA`, and `MolecularBeacon`.
+The implementation evaluates candidates with prefix-sum GC optimization and keeps the raw-score-positive ones. Probe sequences are uppercased before evaluation. `EnumerateRankedProbes(...)` yields them lazily in the ranking order — the self-structure screens (and the specificity scaling) can only lower a score, so finished candidates are released through a priority queue as soon as no unfinished candidate can outrank them, and the enumeration equals an exhaustive evaluation followed by a stable sort. The suffix-tree overload consumes that stream, so it considers **every** candidate (`maxProbes * 5` shortlist removed, audit round 4, A4-1, F59) while costing only the candidates a prefix of the output needs: it enforces uniqueness (`CheckSpecificity(...) < 1` dropped) or scales the score by `1 / hitCount` and re-ranks on the scaled score; with `requireUnique = false` a probe with specificity `0` stays in the output with score `0` (ranked last). `DesignTilingProbes(...)` places windows of `probeLength` at `0, step, 2·step, …` (`step = probeLength − overlap`) while they fit and, when the last grid window ends before the target end (`(L − probeLength) mod step ≠ 0`), one more window anchored at the end (start `L − probeLength`) — the end-anchored probe of CATCH (Metsky et al. 2019, `candidate_probes.make_candidate_probes_from_sequence`, "There are bases on the right that were never covered, so add another probe for this"; the test is ours: CATCH's `len(seq) mod stride ≠ 0` duplicates the last window for e.g. 100 nt / 60 / stride 40 and misses the 100–119 tail for 120 nt / 60 / stride 40). That window overlaps its predecessor by more than `overlap`. With `overlap ≥ 0` every base is covered (`Coverage` = L); a negative overlap leaves gaps and `Coverage` counts the covered positions. Like CATCH (which raises unless `allow_small_seqs`), a target shorter than `probeLength` is rejected (`ArgumentOutOfRangeException`), as are `probeLength ≤ 0` and `overlap ≥ probeLength` (non-advancing step); a null target is `ArgumentNullException` (audit round 7, A7-2, F67 — before: `InvalidOperationException` "Sequence contains no elements" for a short target, an infinite loop for a non-advancing step, and the 3′ tail after the last grid window left untiled, e.g. 110 nt / 60 / 20 → starts 0, 40 only, positions 100–109 uncovered). Suboptimal windows are included for coverage; the set reports coverage, mean Tm, and Tm range. The source also defines probe types `Standard`, `Tiling`, `Antisense`, `LNA`, and `MolecularBeacon`.
 
 ### 5.3 Conformance to Theory / Spec
 
@@ -172,19 +181,21 @@ The implementation evaluates candidates with prefix-sum GC optimization and begi
 
 - Application-specific probe-length, GC, and Tm windows.
 - Heuristic penalties for GC, Tm, self-complementarity, secondary structure, and repeats.
-- Genome-index-based uniqueness checking through a suffix tree.
+- Genome-index-based uniqueness checking through a suffix tree, over the **whole** ranked candidate list (`requireUnique` returns the best `maxProbes` unique probes; without it the score is scaled by `1 / hits` and the probes are re-ranked) — audit round 4, A4-1, F59; opt-in on both strands of a double-stranded genome (`bothStrands`, as blastn `-strand both`) — audit round 4, A4-2, F60.
 - Opt-in TaqMan rules (no 5'-G, more C than G, no ≥4-G run, GC 30–80%, length 18–22 nt, probe Tm ≥ primer Tm + 10 °C) and strand selection. [7][8][9]
 
 **Intentionally simplified:**
 
-- `DesignProbes` ranks with a fixed additive penalty score (the published Primer3 objective is available as `DesignProbesPrimer3`); **consequence:** scores rank candidates but are not hybridization probabilities.
-- Probes > 60 nt (Northern/Southern/FISH presets) use the sequence-only self-structure screens: ntthal (thal.c THAL_MAX_ALIGN = 60) and Primer3 do not handle longer oligos.
-- Genome-index specificity is applied only after an initial raw-score shortlist is formed; **consequence:** uniqueness-aware results are specificity-filtered or specificity-scaled subsets of the top raw-score candidates rather than a full-candidate rerank.
+- `DesignProbes` ranks by default with a fixed additive penalty score — a library heuristic without a published source; the sourced Primer3 internal-oligo objective is the opt-in `ProbeParameters.Ranking = ProbeRanking.Primer3Penalty` (and Primer3's complete picker is `DesignProbesPrimer3`); **consequence:** additive scores rank candidates but are not hybridization probabilities.
+- Probes > 60 nt (Northern/Southern/FISH presets): by default ntthal does not align a self-structure whose two strands are both > 60 nt (thal.h `THAL_MAX_ALIGN` = 60; primer3-py raises "At least one sequence must be equal to or shorter than 60bp for thermodynamic calculations"), so their self-dimer criterion is Primer3's alignment-mode internal-oligo screen (dpal `self_any` / `self_end` ≤ `MaxSelfAny` / `MaxSelfEnd` = 12.00, no length limit; F37) and the hairpin criterion is the sequence-only stem-loop screen `PrimerDesigner.HasHairpinPotential` (exact stem ≥ 4 bp, loop ≥ 3 nt; §2.2) — a conservative presence test that flags almost every long probe; it lowers the `DesignProbes` additive score and is a `ValidateProbe` warning, not a validity criterion (A5-5).
+- **Opt-in thermodynamic screen for > 60 nt (audit round 3, A3-9, F55).** `THAL_MAX_ALIGN` is a compile-time guard of thal.c (`#ifndef THAL_MAX_ALIGN` in thal.h; used only by `thal_check_errors` — the DP tables are allocated from the actual lengths), not a limit of the recursions. `ProbeParameters.ThermodynamicScreenMaxLength` (default 60 = unchanged behaviour; 60–10 000 = THAL_MAX_SEQ, else `ArgumentOutOfRangeException`) raises it: ACGT probes up to that length get the full ntthal self-dimer (ANY), 3′ self-dimer (END1) and hairpin Tm ≤ `MaxStructureTm` screen in `DesignProbes` / `DesignTilingProbes` / `ValidateProbe`. The engines are exposed as `PrimerDesigner.CalculateHairpinThermodynamicsNtthal` / `CalculateHairpinStructureNtthal` / `CalculateDimerThermodynamicsNtthal` / `CalculateDimerStructureNtthal` / `CalculatePrimer3OligoStructure` overloads with a trailing `maxAlignLength` (constants `PrimerDesigner.NtthalMaxAlignLength` = 60, `NtthalMaxSequenceLength` = 10 000). Verified against thal.c + thal_parameters.c of primer3-py 2.3.1 compiled with `-DTHAL_MAX_ALIGN=10000` (driven through `thal()` exactly as primer3-py's `calc_hairpin` / `calc_homodimer` / `calc_end_stability`; the same build reproduces primer3-py on 600 ≤ 60-nt cases): 560 oligos of 61–120 nt (random, designed stem-loops with mismatches, palindromes, GC-rich) × hairpin/ANY/END1 at four condition sets (50/0/0/50 nM 37 °C; 50/1.5/0.6; 100/3/0.8/250 nM 55 °C max_loop 20; 10/0/0/1 µM 25 °C max_loop 10) → 0 mismatches (|ΔTm| = 0, |ΔG| ≤ 1.5e-11 cal/mol). Caveats: (1) Primer3 chose 60 as "the maximum reasonable length for nearest neighbor models … only two states of melting" (thal.h) — beyond it the same single-structure two-state model is applied, which over-simplifies long-probe melting; (2) cost is O(n²·30²) per probe and screen (the three ntthal runs together ≈ 0.08 s for a 120-mer, 0.3 s for a 250-mer, 1.4 s for a 500-mer; Release build), multiplied by the number of windows `DesignProbes` evaluates — keep the value to the probe lengths in use. The same opt-in reaches `AssessCrossHybridization` (the conditions' `ThermodynamicScreenMaxLength` is the THAL_MAX_ALIGN of the site duplex; the duplex Tm is computed when the probe **or** the site is within it, as thal.c `thal_check_errors` — so a > 60-nt probe on a ≤ 60-nt site gets primer3-py's `calc_heterodimer` value by default) and `DesignMolecularBeacon(…, maxAlignLength)` (stem-loop Tm of beacons up to that length); MCP `design_probes` / `design_tiling_probes` / `design_antisense_probes` / `validate_probe` (`thermodynamic_screen_max_length`) and `design_molecular_beacon` (`max_align_length`) expose it (audit round 3, A3-27 + A3-28, F56; 600/600 random probe/site strands of 40–120-nt probes and 60/60 beacons of 61–112 nt = thal.c `-DTHAL_MAX_ALIGN=10000`, the default equal to primer3-py on all 563 strands it accepts).
 
 **Not implemented:**
 
 - Database-style alignment or experimentally calibrated hybridization prediction; **users should rely on:** external probe-validation workflows when those are required.
-- MGB (minor-groove binder), LNA, and dual-quencher probe chemistries; **users should rely on:** the relevant chemistry's own design tool for those. The TaqMan rules implemented here target standard (single reporter/quencher) hydrolysis probes.
+- Dual-quencher probe chemistries and the quantitative MGB ΔTm (vendor `MGB_dds` parameters unpublished — BLOCKED, B07 F28). The TaqMan rules implemented here target standard (single reporter/quencher) hydrolysis probes.
+
+**Implemented elsewhere:** LNA-modified probe Tm — `PrimerDesigner.CalculateMeltingTemperatureNNLna` / `CalculateNearestNeighborThermodynamicsLna` (Owczarzy 2011 default, McTigue 2004 option; MELTING 5 parity; [LNA_Adjusted_Nearest_Neighbor_Tm.md](LNA_Adjusted_Nearest_Neighbor_Tm.md), PROBE-LNATM-001); the citable 3′-MGB design rules (Kutyavin 2000: 3′ attachment, 12–20-mer) — `ProbeDesigner.EvaluateMgbProbeDesign`. `DesignProbes` itself designs unmodified DNA probes (`ProbeType.LNA` is a label only).
 
 ### 5.4 Deviations and Assumptions (Optional)
 
@@ -202,13 +213,15 @@ The implementation evaluates candidates with prefix-sum GC optimization and begi
 | Sequence shorter than `MinLength` | Returns no probes | No valid candidate window exists |
 | Candidate with score `<= 0` | Rejected | The evaluator returns `null` for non-positive scores |
 | Specificity check with no genome hits | Returns `0` | The probe does not match the indexed genome |
+| `DesignTilingProbes` with target shorter than `probeLength`, `probeLength ≤ 0` or `overlap ≥ probeLength` | `ArgumentOutOfRangeException` (null target: `ArgumentNullException`) | CATCH rejects a sequence shorter than the probe; a step ≤ 0 cannot advance (A7-2, F67) |
+| `DesignTilingProbes` with `(L − probeLength) mod step ≠ 0` | Extra window anchored at the target end; `Coverage` = L | CATCH end-anchored probe (A7-2, F67) |
 | `DesignProbesPrimer3` with `numReturn` < 1 | `ArgumentOutOfRangeException` | Primer3 `_pr_data_control` "PRIMER_NUM_RETURN < 1" |
 | `DesignProbesPrimer3` with `WeightGcPercentGt/Lt` ≠ 0 and no `OptGcPercent` | `ArgumentException` | Primer3 "Hyb probe GC content is part of objective function while optimum gc_content is not defined" |
 | `DesignProbesPrimer3` with `WeightLibraryMishyb` ≠ 0 and no mishyb library | `ArgumentException` | Primer3 "Internal oligo mispriming score is part of objective function while mishyb library is not defined" |
 
 ### 6.2 Limitations
 
-The current implementation uses heuristic penalties, simple self-structure detection, and shared Tm helpers instead of a full thermodynamic or database-backed specificity model. It is suitable for fast candidate generation and filtering, but not for high-confidence experimental validation by itself.
+`DesignProbes` ranks with heuristic additive penalties over Primer3-exact measurements (seqtm Tm; ntthal self-dimer / hairpin Tm for ACGT probes ≤ `ThermodynamicScreenMaxLength` (default 60 = Primer3 THAL_MAX_ALIGN; opt-in up to 10 000, F55/F56), dpal self_any / self_end and a sequence-only hairpin stem otherwise); specificity is exact-hit uniqueness through the suffix tree over **all** candidates (mismatch-aware off-target assessment is `ValidateProbe` / `ScanOffTargetsGapped`, PROBE-VALID-001). A unique-probe request can therefore cost a suffix-tree lookup per candidate window when few candidates are unique (the lookup is O(probe length); the walk stops at `maxProbes` probes). It is suitable for fast candidate generation and filtering, but not for high-confidence experimental validation by itself.
 
 ## 8. References
 
@@ -225,3 +238,4 @@ The current implementation uses heuristic penalties, simple self-structure detec
 11. Cantor CR, Warshaw MM, Shapiro H (1970) Biopolymers 9:1059–1077; Warshaw MM, Tinoco I (1966) J Mol Biol 20:29–38 (ε260 nearest-neighbour tables as tabulated by OligoCalc / ATDBio; values confirmed via WebSearch extracts).
 12. Tyagi S, Kramer FR (1996) Nat Biotechnol 14:303–308; Marras SAE et al. molecular-beacon design rules (stem 5–7 bp; probe and stem Tm 7–10 °C above the detection temperature).
 13. Rozen S, Skaletsky H (2000) Primer3 on the WWW; Untergasser A et al. (2012) Nucleic Acids Res 40:e115; primer3 `libprimer3.cc` (raw.githubusercontent.com/primer3-org/primer3).
+14. Metsky HC et al. (2019) "Capturing sequence diversity in metagenomes with comprehensive and scalable probe design." Nat Biotechnol 37:160–168; CATCH v1.5.2 `catch/filter/candidate_probes.py` `make_candidate_probes_from_sequence` (github.com/broadinstitute/catch) — tiling grid with an end-anchored final probe.

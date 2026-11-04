@@ -12,7 +12,7 @@
 
 ### 1.1 Wikipedia - Models of DNA Evolution
 **URL:** https://en.wikipedia.org/wiki/Models_of_DNA_evolution
-**Accessed:** 2026-02-01
+**Accessed:** 2026-02-01 · re-fetched 2026-10-14 (SRC citation audit: supports the claims above)
 
 **Key Information Extracted:**
 - **p-distance (Hamming proportion):** Proportion of differing sites between two sequences; d = (differences / comparable sites)
@@ -28,11 +28,11 @@
 
 ### 1.2 Wikipedia - Substitution Model
 **URL:** https://en.wikipedia.org/wiki/Substitution_model
-**Accessed:** 2026-02-01
+**Accessed:** 2026-02-01 · re-fetched 2026-10-14 (SRC citation audit: see corrections below)
 
 **Key Information Extracted:**
-- Distance matrix is symmetric: d(i,j) = d(j,i)
-- Diagonal elements are zero: d(i,i) = 0
+- Distance matrix is symmetric: d(i,j) = d(j,i) — NOT on this page (a metric property; the page's "diagonal" refers to the rate matrix Q)
+- Diagonal elements are zero: d(i,i) = 0 — NOT on this page (metric property; re-checked 2026-10-14, SRC citation audit)
 - Time-reversible models allow evolutionary distance calculation between any two sequences
 - JC69 reference: Jukes TH, Cantor CR (1969) "Evolution of Protein Molecules"
 - K80 reference: Kimura M (1980) "A simple method for estimating evolutionary rates"

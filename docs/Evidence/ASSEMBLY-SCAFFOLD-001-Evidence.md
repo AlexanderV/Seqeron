@@ -47,7 +47,7 @@
 ### Pop, Kosack & Salzberg (2004) — "Hierarchical Scaffolding With Bambus" (via Wikipedia primary citation)
 
 **URL:** https://en.wikipedia.org/wiki/Scaffolding_(bioinformatics)
-**Accessed:** 2026-06-13 (retrieved via WebFetch; used for the primary citation, not as authority itself)
+**Accessed:** 2026-06-13 (retrieved via WebFetch; used for the primary citation, not as authority itself) · re-fetched 2026-10-14 (SRC citation audit: supports the claims above)
 **Authority rank:** 4 (Wikipedia) → primary: Genome Research 14(1):149–159
 
 **Key Extracted Points:**

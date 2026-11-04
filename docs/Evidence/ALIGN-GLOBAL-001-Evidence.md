@@ -10,7 +10,7 @@
 
 ### Wikipedia: Needleman–Wunsch Algorithm
 **URL:** https://en.wikipedia.org/wiki/Needleman%E2%80%93Wunsch_algorithm
-**Accessed:** 2026-03-06
+**Accessed:** 2026-03-06 · re-fetched 2026-10-14 (SRC citation audit: supports the claims above)
 
 **Key Extracted Points:**
 
@@ -58,7 +58,7 @@
 
 ### Wikipedia: Sequence Alignment (Global vs. Local)
 **URL:** https://en.wikipedia.org/wiki/Sequence_alignment
-**Accessed:** 2026-02-01
+**Accessed:** 2026-02-01 · re-fetched 2026-10-14 (SRC citation audit: see corrections below)
 
 **Key Extracted Points:**
 
@@ -68,9 +68,14 @@
    - Can start and/or end in gaps.
    - Needleman–Wunsch is the canonical global alignment method.
 
-2. **Multiple Optimal Alignments:**
-   - Multiple traceback paths can exist for the same optimal score.
-   - Common in sequences with repeated motifs or low complexity regions.
+2. **Multiple Optimal Alignments** (not on the Sequence alignment page — re-attributed 2026-10-14, SRC citation audit):
+   - Multiple traceback paths can exist for the same optimal score. Stated on the Needleman–Wunsch page (above):
+     "If there are multiple arrows to choose from, they represent a branching of the alignments. If two or more
+     branches all belong to paths from the bottom right to the top left cell, they are equally viable alignments."
+     (likewise the Smith–Waterman page: "An element can receive score from more than one element, each will form a
+     different path if this element is traced back.")
+   - Common in sequences with repeated motifs or low complexity regions — an editorial observation, not stated on
+     any of the cited pages.
 
 ---
 

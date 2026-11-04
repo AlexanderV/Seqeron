@@ -2,7 +2,7 @@
 
 MCP server — **K-mer, motif, repeat, complexity, RNA-structure and comparative-genomics analysis.**
 
-Exposes **126 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
+Exposes **127 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
 MCP. Every tool carries an explicit JSON input/output schema and a Schema+Binding test, with a
 per-tool doc under [`docs/mcp/tools/analysis/`](../../../../docs/mcp/tools/analysis). Rollout status:
 [`docs/mcp/MCP_STATUS.md`](../../../../docs/mcp/MCP_STATUS.md).
@@ -15,19 +15,20 @@ dotnet run --project Seqeron.Mcp.Analysis
 
 Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run","--project","Seqeron.Mcp.Analysis"]`). New to MCP? The [hub guide](../../../../docs/mcp/README.md) lists all 11 servers and how to wire them up.
 
-## Tools (126)
+## Tools (127)
 
 | Tool | Description |
 |------|-------------|
 | `alphabet_pwm_score_pvalue` | Exact p-value of a score / exact score threshold of a p-value for a PWM over any alphabet (protein, RNA, …) built from aligned instances — the TFM-Pvalue engine of pwm_score_pvalue with K rows… |
 | `alphabet_pwm_score_thresholds` | Score thresholds (FPR / FNR / balanced / patser) of an any-alphabet PWM from its discretised score distribution — Biopython pssm.distribution… |
-| `analyze_gc_content` | Comprehensive GC report: overall GC content, GC/AT skew, content/skew variances, and windowed GC profiles. |
+| `analyze_gc_content` | Comprehensive GC report: overall GC content, GC/AT skew, content/skew variances, and windowed GC profiles (`fraction=true` for [0,1]; `ambiguity=remove\|ignore\|weighted` for Biopython `gc_fraction` IUPAC handling). |
 | `analyze_kmers` | Aggregate k-mer statistics (Jellyfish stats fields): total, distinct (uniqueKmers/distinctKmers), singleton (count-1) k-mers, min/max/mean count, and Shannon entropy; optional Jellyfish -L/-U count filters and canonical (count -C) / acgtOnly modes. |
 | `at_skew` | Whole-sequence AT skew = (A - T) / (A + T). |
 | `base_pair_type` | Classification of an RNA base-pair candidate: WatsonCrick, Wobble, or null if bases cannot pair. |
 | `bulge_loop_energy` | Free energy of an RNA bulge loop (special-C bonus, n=1 stacking, degeneracy entropy from numStates). |
 | `calculate_ani` | Average Nucleotide Identity (ANI) between two genome sequences (fragment-and-match). |
 | `can_pair` | Whether two RNA bases form a Watson-Crick (A-U, G-C) or wobble (G-U) pair. |
+| `chou_fasman_assign` | Discrete Chou-Fasman (1978) per-residue H/E/T/C secondary-structure assignment; `ruleSet` Standard (default) or Graded1978. |
 | `codon_frequencies` | Codon usage frequencies in the specified reading frame (0..2). |
 | `compare_genomes` | End-to-end comparative pipeline: RBH orthologs + synteny + rearrangements + summary stats. |
 | `compression_ratio` | Estimate sequence repetitiveness as the normalized Lempel-Ziv complexity c/(n/log_b(n)). |
@@ -40,12 +41,12 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `detect_pseudoknots` | Identifies pseudoknots as crossing base pairs: i < i' < j < j' for pairs (i,j) and (i',j'). |
 | `detect_rearrangements` | Inversions, deletions, insertions inferred from gene-order disagreements between two genomes. |
 | `dinucleotide_frequencies` | Frequency of each adjacent dinucleotide over the alphabet A/T/G/C/U. |
-| `dinucleotide_ratios` | Observed/expected ratios for each dinucleotide (e.g., CpG ratio for CpG-island detection). |
+| `dinucleotide_ratios` | Karlin dinucleotide odds ratio ρ (single strand) or strand-symmetrized ρ* (`strandSymmetric=true`), optional Karlin over/under-representation classes (`includeRepresentation`). Not the CpG-island O/E. |
 | `discover_motifs` | Overrepresented k-mers (de novo motif discovery) in a DNA sequence. |
 | `disorder_propensity` | Returns the TOP-IDP propensity value for a single amino acid (Campen 2008). |
 | `dust_score` | DUST low-complexity score (BLAST-style, triplet-based) for a DNA sequence. |
 | `dyad_analysis` | RSAT dyad-analysis: over-represented spaced dyads M1 n{s} M2 (any / dr / ir / rep) with monad-based expected frequencies, z-scores and binomial occ_P / occ_E / occ_sig… |
-| `entropy_profile` | Shannon entropy in sliding windows along the sequence. |
+| `entropy_profile` | Shannon entropy in sliding windows along the sequence; optional k-mer (block) entropy (`k`) and trailing partial windows (`includePartialWindow`). |
 | `find_approximate_direct_repeats` | Finds **all maximal k-mismatch (Hamming) direct repeats** (Kurtz et al. 2000 REPuter; Vmatch -h k): two copies of equal length length at 0-… |
 | `find_approximate_tandem_repeats` | Finds approximate (imperfect / interrupted) tandem repeats with the **Tandem Repeats Finder** model (Benson 1999; TRF 4.10.0 trf File Match… |
 | `find_clump_windows` | (L, t)-clump k-mers with the maximal runs of window starts in which they form clumps (same k-mer set as `find_clumps`). |
@@ -86,7 +87,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `find_syntenic_blocks` | Collinear runs of orthologous genes between two genomes. |
 | `find_tandem_repeats` | Consecutive repeating units (e.g., ATGATGATG) of unit-length >= minUnitLength repeated >= minRepetitions times. |
 | `flush_coaxial_stacking` | Coaxial stacking energy for two RNA helices with no intervening unpaired bases. |
-| `gc_content_profile` | GC content in sliding windows along the sequence. |
+| `gc_content_profile` | GC content in sliding windows along the sequence (`fraction=true` for [0,1]; `ambiguityMode=remove\|ignore\|weighted` for Biopython gc_fraction; `includePartialWindow`). |
 | `gc_skew` | Whole-sequence GC skew = (G - C) / (G + C). |
 | `generate_all_kmers` | Enumerate the entire k-mer space for an alphabet (default "ACGT"); result size alphabet.Length^k, at most 1,048,576 (4^10) k-mers per call. |
 | `generate_cavener_consensus` | Degenerate IUPAC consensus of aligned equal-length DNA sequences by the Cavener (1987) rules (TRANSFAC / Biopython degenerate_consensus): s… |
@@ -96,7 +97,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `generate_dumb_consensus` | Majority-threshold consensus with Biopython SummaryInfo.dumb_consensus semantics: per column the most frequent non-gap residue is emitted i… |
 | `generate_emboss_consensus` | Scoring-matrix plurality consensus of an alignment, identical to EMBOSS 6.6.0 'cons' (EDNAFULL for nucleotides, EBLOSUM62 for proteins; N/X where no residue reaches the plurality; residueType 'auto', padRaggedRows)… |
 | `hairpin_loop_energy` | Free energy of an RNA hairpin loop (Turner 2004 with special tri/tetra/hexaloops, terminal mismatch, all-C and special-GU adjustments). |
-| `hydrophobicity_profile` | Sliding-window Kyte-Doolittle hydropathy values for a protein sequence. |
+| `hydrophobicity_profile` | Sliding-window Kyte-Doolittle hydropathy (ProtScale / Biopython protein_scale): optional `edgeWeight`, `convention` (Standard\|Biopython), `strict`, `normalizeScale`, `scale`, `weightModel` (Linear\|Exponential). |
 | `internal_loop_energy` | Free energy of a generic RNA internal loop (Turner 2004; |
 | `is_disorder_promoting` | Whether an amino acid is in Dunker's disorder-promoting set {A, R, G, Q, S, P, E, K} (Dunker 2001). |
 | `kmer_d2_statistics` | Background-adjusted D2* / D2S statistics, d2* / d2S dissimilarities, Markov orders used and per-sequence BIC values; optional `markovOrder`, `bothStrands` (CAFE -R). |
@@ -116,12 +117,12 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `multibranch_loop_energy` | Free energy of an RNA multibranch loop (Turner 2004 affine model: offset + asymmetry + helix term + stacking + strain). |
 | `oligo_analysis` | RSAT oligo-analysis over-representation of the k-mers of one DNA sequence (or a set with extraSequences): occurrences, expected frequency under a background model (equipr… |
 | `parse_dot_bracket` | Parses dot-bracket notation into a list of base-pair coordinates. |
-| `predict_chou_fasman` | Per-window helix/sheet/turn propensities for a protein sequence (Chou-Fasman parameters). |
+| `predict_chou_fasman` | Propensity profile: per-window mean Chou-Fasman helix/sheet/turn parameters (window 1 = per residue); not an assignment (see `chou_fasman_assign`). |
 | `predict_coiled_coils` | Heptad-repeat-based coiled-coil prediction. |
 | `predict_disorder` | TOP-IDP disorder prediction (Campen 2008): per-residue scores plus contiguous IDR regions with confidence and subtype classification. |
 | `predict_low_complexity_seg` | SEG algorithm (Wootton & Federhen 1993/1996) for low-complexity protein regions: trigger window K1 + extension K2. |
 | `predict_morfs` | Predicts Molecular Recognition Features within IDRs by hydropathy enrichment (heuristic, Mohan 2006-inspired). |
-| `predict_replication_origin` | Predicts replication origin and terminus from cumulative GC skew extrema. |
+| `predict_replication_origin` | Predicts replication origin and terminus from cumulative GC skew extrema (optional `circular`; `windowSize` = Grigoriev windowed diagram; `skewIndexWindow` adds the SkewIT Skew Index). |
 | `predict_rna_structure` | Greedy non-overlapping stem-loop selection — produces dot-bracket notation, base pairs, stems, pseudoknots, and total MFE. |
 | `predict_sigma70_promoters` | σ70 promoter prediction with the Promoter Calculator v1.0 (La Fleur, Hossain & Salis 2022, Nat Commun 13:5159; port of the authors' reference code)… |
 | `predict_signal_peptide` | von Heijne (1986) weight-matrix signal-peptide cleavage-site prediction (EMBOSS sigcleave). |
@@ -130,7 +131,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `pwm_score_pvalue` | Exact p-value of a PWM score, P(S >= score) for a random background word (i.i.d. or order-m Markov table; TFM-Pvalue search options, exhaustive mode), or the exact score threshold of a p-value (smallest word score t with P(S >= t) <= pValue) — Touzet & Varré 2007 TFM-Pvalue… |
 | `pwm_score_thresholds` | Score thresholds of a PWM from its discretised score distribution (Biopython Bio.motifs.thresholds.ScoreDistribution): background false-pos… |
 | `reversal_distance` | Lower-bound reversal distance via breakpoint count for two equal-length permutations. |
-| `rna_complement_base` | Returns the RNA complement (A↔U, G↔C) for a single base. |
+| `rna_complement_base` | Returns the RNA complement of a single base (Biopython `complement_rna`): A↔U, G↔C, T→A, IUPAC ambiguity codes complemented. |
 | `scan_with_alphabet_pwm` | Build a PWM over an arbitrary alphabet from aligned instances (as create_alphabet_pwm) and score every window of a sequence (Biopython pssm.calculate rule)… |
 | `scan_with_pwm` | Scan a DNA sequence with a 4×L Position Weight Matrix; |
 | `scan_with_pwm_both_strands` | Scan both strands of a DNA sequence with a 4×L PWM (rows A,C,G,T), as Biopython pssm.search(both=True): minus strand scored with the revers… |

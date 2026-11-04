@@ -1,6 +1,6 @@
 > ⚠️ **SUPERSEDED (2026-07-01).** This v4 plan describes a 12-server / 241-tool design
 > (`SuffixTree.Mcp.*`, with Variants/Assembly/Epigenetics/Structure servers) that was **never
-> built**. The repository actually ships **11 servers / ~474 tools** with a different decomposition.
+> built**. The repository actually ships **11 servers / ~483 tools** with a different decomposition.
 > The live source of truth and campaign ledger is **`docs/mcp/MCP_STATUS.md`**. Sections 6–8 below
 > (error catalog, schema rules, doc contract) remain valid as standards.
 
@@ -159,7 +159,7 @@ Legend:
 | 10 | `fastq_trim_adapter` | Trim adapter sequences | ✓ | FastqParser.cs:L297#xml | FastqParser.TrimAdapter | 1.0.0 | stable |
 | 11 | `fastq_statistics` | Calculate FASTQ statistics | ✓ | FastqParser.cs:L344#xml | FastqParser.CalculateStatistics | 1.0.0 | stable |
 | 12 | `fastq_write` | Write FASTQ file | ✓ | FastqParser.cs:L437#xml | FastqParser.WriteToFile | 1.0.0 | stable |
-| 13 | `fastq_format` | Format to FASTQ string | ✓ | FastqParser.cs:L474#xml | FastqParser.ToFastqString | 1.0.0 | stable |
+| 13 | `fastq_format` | Format to FASTQ string | ✓ | FastqParser.cs:L477#xml | FastqParser.ToFastqString | 1.0.0 | stable |
 | 14 | `genbank_parse` | Parse GenBank format | ✓ | GenBankParser.cs#xml | GenBankParser.Parse | 1.0.0 | stable |
 | 15 | `genbank_parse_location` | Parse feature location | ✓ | GenBankParser.cs:L471#xml | GenBankParser.ParseLocation | 1.0.0 | stable |
 | 16 | `genbank_extract_sequence` | Extract sequence by location | ✓ | GenBankParser.cs:L556#xml | GenBankParser.ExtractSequence | 1.0.0 | stable |
@@ -265,12 +265,12 @@ Legend:
 | 14 | `probe_molecular_weight` | Calculate probe MW | ✓ | ProbeDesigner.cs:L647#xml | ProbeDesigner.CalculateMolecularWeight | 1.0.0 | stable |
 | 15 | `probe_extinction` | Calculate extinction coefficient | ✓ | ProbeDesigner.cs:L673#xml | ProbeDesigner.CalculateExtinctionCoefficient | 1.0.0 | stable |
 | 16 | `probe_concentration` | Calculate concentration | ✓ | ProbeDesigner.cs:L699#xml | ProbeDesigner.CalculateConcentration | 1.0.0 | stable |
-| 17 | `restriction_digest_summary` | Get digest summary | ✓ | docs/algorithms/MolTools/Restriction_Digest_Simulation.md | RestrictionAnalyzer.GetDigestSummary | 1.0.0 | stable |
-| 18 | `restriction_create_map` | Create restriction map | ✓ | docs/algorithms/MolTools/Restriction_Site_Detection.md | RestrictionAnalyzer.CreateMap | 1.0.0 | stable |
-| 19 | `restriction_compatible` | Check enzyme compatibility | ✓ | RestrictionAnalyzer.cs:L375#xml | RestrictionAnalyzer.AreCompatible | 1.0.0 | stable |
-| 20 | `crispr_system` | Get CRISPR system info | ✓ | CrisprDesigner.cs:L18#xml | CrisprDesigner.GetSystem | 1.0.0 | stable |
-| 21 | `crispr_evaluate_guide` | Evaluate guide RNA | ✓ | docs/algorithms/MolTools/Guide_RNA_Design.md | CrisprDesigner.EvaluateGuideRna | 1.0.0 | stable |
-| 22 | `crispr_specificity` | Calculate specificity score | ✓ | docs/algorithms/MolTools/Off_Target_Analysis.md | CrisprDesigner.CalculateSpecificityScore | 1.0.0 | stable |
+| 17 | `restriction_digest_summary` (never built; shipped as `digest_summary`) | Get digest summary | ✓ | docs/algorithms/MolTools/Restriction_Digest_Simulation.md | RestrictionAnalyzer.GetDigestSummary | 1.0.0 | stable |
+| 18 | `restriction_create_map` (never built; shipped as `restriction_map`) | Create restriction map | ✓ | docs/algorithms/MolTools/Restriction_Site_Detection.md | RestrictionAnalyzer.CreateMap | 1.0.0 | stable |
+| 19 | `restriction_compatible` (never built; shipped as `enzymes_compatible`) | Check enzyme compatibility | ✓ | RestrictionAnalyzer.cs:L1308#xml | RestrictionAnalyzer.AreCompatible | 1.0.0 | stable |
+| 20 | `crispr_system` (never built; shipped as `crispr_system_info`) | Get CRISPR system info | ✓ | CrisprDesigner.cs:L14#xml | CrisprDesigner.GetSystem | 1.0.0 | stable |
+| 21 | `crispr_evaluate_guide` (never built; shipped as `evaluate_guide_rna`) | Evaluate guide RNA | ✓ | docs/algorithms/MolTools/Guide_RNA_Design.md | CrisprDesigner.EvaluateGuideRna | 1.0.0 | stable |
+| 22 | `crispr_specificity` (never built; shipped as `crispr_specificity_score`) | Calculate specificity score | ✓ | docs/algorithms/MolTools/Off_Target_Analysis.md | CrisprDesigner.CalculateHeuristicSpecificityScore (alias `CalculateSpecificityScore`) | 1.0.0 | stable |
 | 23 | `codon_cai` | Calculate CAI (DnaSequence) | ✓ | CodonUsageAnalyzer.cs:L120#xml | CodonUsageAnalyzer.CalculateCai | 1.0.0 | stable |
 | 24 | `codon_enc` | Calculate ENC | ✓ | CodonUsageAnalyzer.cs:L324#xml | CodonUsageAnalyzer.CalculateEnc | 1.0.0 | stable |
 | 25 | `codon_statistics` | Get codon usage statistics | ✓ | CodonUsageAnalyzer.cs:L410#xml | CodonUsageAnalyzer.GetStatistics | 1.0.0 | stable |
