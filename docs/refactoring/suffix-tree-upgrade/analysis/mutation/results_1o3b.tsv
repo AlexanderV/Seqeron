@@ -1,0 +1,32 @@
+D01	long-rank cap is n / 2 instead of n / 4	killed(1)	
+D02	escape cap is n / 16 + 1 (one escape too many for the U8 rule)	killed(1)	
+D03	escape cap is n / 8	killed(1)	
+D04	limit == width goes to the scalar path (exact value, equivalent)	survived	survived
+D05	vector load with width - 1 symbols left (reads one byte past the text)	survived	killed(9)
+D06	min instead of max of the two suffix positions (limit too large: vectors read past the end)	killed(1)	
+D07	arguments of EqualPrefix swapped (symmetric, equivalent)	survived	survived
+D08	a match of width - 1 symbols counts as long	killed(4)	
+D09	the long list stores the wrong rank (r - 1)	killed(5)	
+D10	dst[0] is not 0	killed(5)	
+D11	resolution starts one symbol early (a redundant compare of a known-equal symbol: equivalent)	survived	survived
+D12	resolution starts one symbol late (skips the symbol at offset width)	killed(4)	
+D13	scalar tail also when exactly one vector is left (slower, equivalent)	survived	survived
+D14	vector steps may read one symbol past the common length	survived	killed(7)
+D15	resolution stops after the first full vector	killed(4)	
+D16	step budget doubled	killed(1)	
+D17	one escape too many accepted (escapes > cap instead of ==)	killed(1)	
+D18	value 255 stored without an escape entry	killed(2)	
+D19	wrong rank in the escape list	killed(2)	
+D20	wrong value in the escape list	killed(2)	
+D21	resolution look-ahead reads the long list one past its end	killed(host crash)	
+D22	scan look-ahead not clamped to n (reads SA[n + 1 ..])	survived	killed(9)
+D23	second prefetch address is ahead + width (no architectural effect: equivalent)	survived	survived
+D24	entry n accepted at rank >= 1	killed(1)	
+D25	sa[0] only has to be at most n	killed(1)	
+D26	the give-up of the scan is ignored	killed(4)	
+D27	the give-up of the resolution is ignored	killed(2)	
+D28	the previous suffix is not carried	killed(8)	
+D29	early exit never fires (performance only: equivalent)	survived	survived
+D30	early exit fires from the first rank on (performance only: equivalent)	killed(1)	
+D31	width mask wrong: bits above the vector width not zero (tzcnt of the complement without the guard)	killed(7)	
+D32	overflow lists copied one entry short	killed(2)	
