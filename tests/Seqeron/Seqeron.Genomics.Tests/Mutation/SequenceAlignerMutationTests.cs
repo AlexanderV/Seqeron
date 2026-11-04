@@ -136,16 +136,16 @@ public class SequenceAlignerMutationTests
         r.Score.Should().Be(4);
     }
 
-    // ── FormatAlignment: EMBOSS srspair markup ('|' identity, ':' similar, ' ' gap/mismatch) ─
+    // ── FormatAlignment: EMBOSS srspair markup ('|' identity, ':' similar, '.' mismatch, ' ' gap) ─
 
     [Test]
     public void FormatAlignment_Markup_FollowsSrspairLegend()
     {
-        // Columns: A|A '|', C|C '|', G/A mismatch (SimpleDna mismatch −1, not >0) ' ', '-'/T gap ' ', T|T '|'.
+        // Columns: A|A '|', C|C '|', G/A mismatch (SimpleDna mismatch −1, not >0) '.', '-'/T gap ' ', T|T '|'.
         var aln = new AlignmentResult("ACG-T", "ACATT", 0, AlignmentType.Global, 0, 0, 4, 4);
         var formatted = SequenceAligner.FormatAlignment(aln, lineWidth: 60, SequenceAligner.SimpleDna);
 
-        formatted.Should().Be("ACG-T\n||  |\nACATT\n\n");
+        formatted.Should().Be("ACG-T\n||. |\nACATT\n\n");
     }
 
     [Test]

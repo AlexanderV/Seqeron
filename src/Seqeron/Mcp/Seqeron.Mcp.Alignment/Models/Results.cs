@@ -23,7 +23,9 @@ public record AlignmentStatisticsDto(
     int AlignmentLength,
     double Identity,
     double Similarity,
-    double GapPercent);
+    double GapPercent,
+    int Positives = 0,
+    int GapOpens = 0);
 
 /// <summary>BLAST-style formatted alignment text.</summary>
 public record FormatAlignmentResult(string Formatted);
