@@ -417,6 +417,8 @@ Sources actually opened in this review (neutral `Seqeron-review/1.0` User-Agent,
 - T-Coffee: ACGTTACGT/ACGACGT/ACGTACGA primary(S0.0,S1.0) = 200 (global 7/7 + local 7/7), extended 385 = 200 + min(87+100, 85+100) = 200 + 185; CTT/ACT/CAA pair (S1.1,S2.0): primary 0, extended 133 = min(200, 133) via S0.
 - Iterative: TCA/TCT/GCAC/TAAC progressive `T--CA T--CT GCAC- TAAC-` SP −7, refined `TCA- TCT- GCAC TAAC` SP −3.
 
+- T-Coffee binary (Debian `t-coffee` 13.45, apt): same explicit primary library + same UPGMA tree + `-extend_mode slow_triplet`. Rows equal in 15/120 (k = 3) and 13/150 (k = 4-5) random sets; the rest differ because the binary rescales each extended pair score by its residue's partner-weight total (`evaluate.c` L5245-5250), which is not in the paper. Under the paper's objective (Σ extended weights over aligned residue pairs) the binary's alignment was never higher than ours for k = 3 (0/120) and higher in 7/150 sets for k = 4-5. `-lib_only -out_lib` does not extend, so the extended weights were not read out of the binary; the extension rule is confirmed by the paper text (p.208-209) and `residue_pair_extended_list`.
+
 ## Assumptions (B09)
 
 1. The linear-gap model applies to every MSA method (documented deviation; `GlobalAlignAffine` for pairs).
