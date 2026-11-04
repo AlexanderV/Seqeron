@@ -48,9 +48,9 @@ internal sealed class DirectReport
 /// <para>
 /// <b>Per-rank resolution (the fast path).</b> Each long rank is resolved by continuing the comparison from the vector width, vector by vector. This is not amortised (Kasai's
 /// argument needs text order): a repeat of length L costs about L^2 / 32 vector steps. It is the cheapest way when the long matches are short, which is the case on texts
-/// without long repeats (random DNA: no step at all for 99.9 % of the long ranks), so it runs first, with a budget of <see cref="ResolveStepsPerLong"/> steps per long rank
-/// (plus <see cref="ResolveBaseSteps"/>). Iteration 1o.3b gave the whole attempt up when this budget (then 2 n steps) ran out, which one repeat longer than about 8 sqrt(n) symbols
-/// did (REVIEW-S1a-opt MAJ-1).
+/// without long repeats (random DNA: no step at all for 99.9 % of the long ranks), so it runs first, with an allowance of <see cref="ResolveStepsPerLong"/> steps per long rank
+/// (plus <see cref="ResolveBaseSteps"/>, cumulative: it is checked against the ranks processed so far). Iteration 1o.3b gave the whole attempt up when this budget (then 2 n steps) ran
+/// out, which one repeat longer than about 8 sqrt(n) symbols did (REVIEW-S1a-opt MAJ-1). With <see cref="TextOrderMinLongs"/> or more long ranks the per-rank loop is not tried at all.
 /// </para>
 /// <para>
 /// <b>Resolution in text order (iteration 1o.3c, when the budget runs out).</b> The long ranks are sorted by text position with a bitmap (set the bit of every position, prefix
@@ -91,11 +91,22 @@ internal static unsafe partial class LcpKernel
     /// </summary>
     internal const int EarlyAbortMinRanks = 1024;
 
-    /// <summary>Budget of the per-rank resolution in vector steps, per long rank (random DNA needs 0.0 to 0.1; a repeat needs L^2 / 32 for L ranks).</summary>
+    /// <summary>
+    /// Allowance of the per-rank resolution in vector steps for every long rank it has processed (random DNA needs 0.0 to 0.1; a repeat of length L needs L^2 / 32 for L ranks). The
+    /// allowance is cumulative (<see cref="ResolveBaseSteps"/> plus this per processed rank), so the attempt is abandoned within a few thousand ranks when the long matches are
+    /// long, wherever they are in the rank order: every processed rank costs about 100 ns (two random cache lines), a budget per rank of the whole list wasted 0.11 s at 10 Mbp.
+    /// </summary>
     internal const int ResolveStepsPerLong = 4;
 
-    /// <summary>Budget of the per-rank resolution in vector steps, independent of the number of long ranks.</summary>
+    /// <summary>Allowance of the per-rank resolution in vector steps before the first rank.</summary>
     internal const int ResolveBaseSteps = 4096;
+
+    /// <summary>
+    /// With at least this many long ranks the text-order resolution is used at once: it costs about 30 ns per long rank, the per-rank loop about 100 ns (two random cache
+    /// lines each, however short the match), and the text-order code costs about 4 ms of JIT in a cold process, which is what 40,000 per-rank resolutions cost. Random DNA has
+    /// 11,000 long ranks at 10 Mbp (per-rank) and 2.3 million at 100 Mbp (text order).
+    /// </summary>
+    internal const int TextOrderMinLongs = 1 << 16;
 
     /// <summary>Builds the compact LCP in suffix-array order with a three-pass fallback; <paramref name="trace"/> gets the scan in <c>PlcpTicks</c>, the per-rank resolution in <c>CountTicks</c> and, for the text-order resolution, its output in <c>OutputTicks</c>.</summary>
     internal static CompactLcp BuildDirect<TSym>(Buf<TSym> text, int n, Buf<int> sa, NativeArena arena, LcpTrace? trace = null, DirectReport? report = null)
@@ -142,8 +153,8 @@ internal static unsafe partial class LcpKernel
 
             int escapes = -1;
             long steps = 0;
-            if (report is null || !report.ForceTextOrder)
-                escapes = ResolveLong(text, n, sa, dst, longRanks, longs, escapeRanks, escapeValues, escapeCap, ((long)ResolveStepsPerLong * longs) + ResolveBaseSteps, out steps);
+            if (longs < TextOrderMinLongs && (report is null || !report.ForceTextOrder))
+                escapes = ResolveLong(text, n, sa, dst, longRanks, longs, escapeRanks, escapeValues, escapeCap, out steps);
             if (report is not null)
             {
                 report.LongRanks = longs;
@@ -226,18 +237,21 @@ internal static unsafe partial class LcpKernel
 
     /// <summary>
     /// Continues the comparison of every long rank from the vector width, writes the exact value (or the escape 255 plus a list entry). Returns the number of escapes,
-    /// or -1 when the step budget is exhausted or more than <paramref name="escapeCap"/> escapes would be needed; <paramref name="steps"/> is the number of full-vector steps taken.
+    /// or -1 when the cumulative step allowance (<see cref="ResolveBaseSteps"/> + <see cref="ResolveStepsPerLong"/> per processed rank) is exhausted or more than
+    /// <paramref name="escapeCap"/> escapes would be needed; <paramref name="steps"/> is the number of full-vector steps taken (the first one over the allowance included).
     /// </summary>
-    private static int ResolveLong<TSym>(Buf<TSym> text, int n, Buf<int> sa, Buf<byte> dst, Buf<int> longRanks, int longs, Buf<int> escapeRanks, Buf<int> escapeValues, int escapeCap, long budget, out long steps)
+    internal static int ResolveLong<TSym>(Buf<TSym> text, int n, Buf<int> sa, Buf<byte> dst, Buf<int> longRanks, int longs, Buf<int> escapeRanks, Buf<int> escapeValues, int escapeCap, out long steps)
         where TSym : unmanaged, IEquatable<TSym>
     {
         int width = Vector128<TSym>.Count;
         int distance = LcpPrefetch.Resolve;
         int escapes = 0;
         long work = 0;
+        long budget = ResolveBaseSteps;
         steps = 0;
         for (int k = 0; k < longs; k++)
         {
+            budget += ResolveStepsPerLong;
             if (k + distance < longs)
             {
                 int ahead = longRanks[k + distance];
@@ -288,6 +302,7 @@ internal static unsafe partial class LcpKernel
     /// increasing order with the Kasai carry, chooses the kind from the exact counts and writes the long entries in rank order. The workspace comes from <paramref name="arena"/>
     /// and is released again.
     /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     private static CompactLcp ResolveInTextOrder<TSym>(Buf<TSym> text, int n, Buf<int> sa, NativeArena arena, Buf<byte> dst, byte[] lcp8, int longs, Buf<int> longRanks, DirectReport? report)
         where TSym : unmanaged, IEquatable<TSym>
     {
@@ -391,6 +406,7 @@ internal static unsafe partial class LcpKernel
     /// Chooses the kind from the exact counts of values at or above 255 and 65,535 among the long ranks (the others are below the vector width), then writes the long entries in
     /// rank order: into the byte array (<c>U8</c>, with the escape list), or into a widened <c>ushort</c> / <c>int</c> copy of it.
     /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     private static CompactLcp Materialize(int n, Buf<byte> dst, byte[] lcp8, int longs, Buf<int> longRanks, Buf<int> values)
     {
         long escapes8 = 0, escapes16 = 0;

@@ -203,11 +203,50 @@ public class LcpDirectTests
         }
     }
 
-    [Test]
-    public void ALongRepeat_ExhaustsThePerRankBudget_AndIsResolvedInTextOrder()
+    /// <summary>
+    /// Replays the per-rank resolution on the reference data without the kernel: the minimum over all its vector steps of (allowance - steps taken so far), the number of steps at the
+    /// end (or at the first step over the allowance) and whether the allowance was exceeded. The allowance is <see cref="LcpKernel.ResolveBaseSteps"/> plus
+    /// <see cref="LcpKernel.ResolveStepsPerLong"/> for every long rank processed so far, checked after each full-vector step.
+    /// </summary>
+    private static (long MinSlack, long Steps, bool Exhausted, int Processed) PerRankReplay(PreparedText p, int[] sa)
     {
-        // 2,000-symbol block twice in 40,000: 1,984 long ranks (<= n / 4), 1,746 escapes, about 125,000 vector steps for the per-rank resolution against a budget of 4 * 1,984 + 4,096;
-        // the attempt of 1o.3b (budget 2 n = 80,000) gave up here, now the text-order resolution takes over
+        int n = p.Length, width = p.Width == SymbolWidth.Byte ? 16 : 8;
+        long work = 0, budget = LcpKernel.ResolveBaseSteps, minSlack = long.MaxValue;
+        int previous = n, processed = 0;
+        for (int r = 1; r <= n; r++)
+        {
+            int s = sa[r];
+            int limit = n - Math.Max(previous, s);
+            bool isLong = limit >= width;
+            for (int i = 0; isLong && i < width; i++) isLong = p.SymbolAt(previous + i) == p.SymbolAt(s + i);
+            if (isLong)
+            {
+                processed++;
+                budget += LcpKernel.ResolveStepsPerLong;
+                int offset = width;
+                while (offset + width <= limit)
+                {
+                    int c = 0;
+                    while (c < width && p.SymbolAt(previous + offset + c) == p.SymbolAt(s + offset + c)) c++;
+                    offset += c;
+                    if (c < width) break;
+                    work++;
+                    minSlack = Math.Min(minSlack, budget - work);
+                    if (work > budget) return (minSlack, work, true, processed);
+                }
+            }
+
+            previous = s;
+        }
+
+        return (minSlack, work, false, processed);
+    }
+
+    [Test]
+    public void ALongRepeat_ExhaustsThePerRankAllowance_AndIsResolvedInTextOrder()
+    {
+        // 2,000-symbol block twice in 40,000: 1,984 long ranks (<= n / 4), 1,746 escapes, about 125,000 vector steps for the per-rank resolution against an allowance of 4,096 + 4 per
+        // processed rank; the attempt of 1o.3b (budget 2 n = 80,000) gave up here, now the text-order resolution takes over after a few thousand steps
         string block = StringFamilies.Random(2000, 4, 31);
         string text = StringFamilies.Random(18_000, 4, 32) + block + StringFamilies.Random(18_000, 4, 33) + block;
         Assert.That(text.Length, Is.EqualTo(40_000));
@@ -215,12 +254,83 @@ public class LcpDirectTests
         CompactLcp? direct = Attempt(text, out int[] sa, out PreparedText p, report);
         Assert.That(direct, Is.Not.Null);
         Assert.That(report.Outcome, Is.EqualTo(DirectOutcome.ResolvedInTextOrder));
-        Assert.That(report.PerRankSteps, Is.EqualTo((4L * report.LongRanks) + 4096 + 1), "the per-rank resolution stopped at the first step over its budget");
+        var replay = PerRankReplay(p, sa);
+        Assert.That(replay.Exhausted, Is.True);
+        Assert.That(report.PerRankSteps, Is.EqualTo(replay.Steps), "the per-rank resolution stopped at the first step over its cumulative allowance");
+        Assert.That(replay.Steps, Is.EqualTo(LcpKernel.ResolveBaseSteps + (LcpKernel.ResolveStepsPerLong * (long)replay.Processed) + 1));
+        Assert.That(replay.Processed, Is.LessThan(report.LongRanks / 2), "the allowance is cumulative: the attempt ends long before the end of the list");
         Assert.That(report.LongPositions, Is.EqualTo(report.LongRanks));
         int[] expected = Reference(p, sa).ToArray();
         Assert.That(report.LongRanks, Is.EqualTo(expected.Count(v => v >= 16)));
         Assert.That(direct!.ToArray(), Is.EqualTo(expected));
         AssertAttempt(text, succeeds: true);
+    }
+
+    [Test]
+    public void ThePerRankAllowance_IsCumulativeAndExactToTheStep()
+    {
+        // repeats around the length where the steps (about (m - 16)^2 / 32) cross the allowance (4,096 + 4 per processed rank, i.e. m of about 440): the outcome and the number of steps must
+        // equal the replay for every text, and some texts end exactly on the allowance (kept, not exceeded) or one step over it
+        int over = 0, kept = 0;
+        for (int length = 380; length <= 500; length += 1)
+            for (ulong seed = 0; seed < 3; seed++)
+            {
+                string block = StringFamilies.Random(length, 4, 1000 + seed);
+                string text = StringFamilies.Random(5000, 4, 2000 + seed) + block + StringFamilies.Random(1000, 4, 3000 + seed) + block;
+                var report = new DirectReport();
+                Assert.That(Attempt(text, out int[] sa, out PreparedText p, report), Is.Not.Null);
+                var replay = PerRankReplay(p, sa);
+                Assert.That(report.Outcome, Is.EqualTo(replay.Exhausted ? DirectOutcome.ResolvedInTextOrder : DirectOutcome.ResolvedPerRank), $"length {length} seed {seed}");
+                Assert.That(report.PerRankSteps, Is.EqualTo(replay.Steps), $"length {length} seed {seed}");
+                if (replay.Exhausted) over++;
+                else kept++;
+            }
+
+        Assert.That(kept, Is.GreaterThan(20));
+        Assert.That(over, Is.GreaterThan(20));
+
+        // a second, short repeat of q symbols moves the allowance by 4 per rank and the steps by (q - 16)^2 / 32: with it a text can be tuned until the per-rank resolution ends exactly on its
+        // allowance (kept: slack 0), where a check that is one step too strict would give it up
+        // (the slack of the main repeat falls by about 22 per symbol of its length, from 344 at 441 symbols: it is near zero at 457)
+        bool foundExact = false;
+        for (int length = 452; length <= 461 && !foundExact; length++)
+            for (int q = 16; q <= 90 && !foundExact; q++)
+            {
+                string block = StringFamilies.Random(length, 4, 77), small = StringFamilies.Random(q, 4, 78);
+                string text = StringFamilies.Random(5000, 4, 79) + block + StringFamilies.Random(1000, 4, 80) + block + StringFamilies.Random(2000, 4, 81) + small + StringFamilies.Random(1000, 4, 82) + small;
+                PreparedText p = TextPreparation.Prepare(text);
+                int[] sa = SaisReference.BuildSuffixArray(text);
+                var replay = PerRankReplay(p, sa);
+                if (replay.Exhausted || replay.MinSlack != 0) continue;
+                foundExact = true;
+                var report = new DirectReport();
+                Assert.That(Attempt(p, sa, report), Is.Not.Null);
+                Assert.That(report.Outcome, Is.EqualTo(DirectOutcome.ResolvedPerRank), $"length {length} q {q}: steps {replay.Steps} on an allowance of exactly that many");
+                Assert.That(report.PerRankSteps, Is.EqualTo(replay.Steps));
+            }
+
+        Assert.That(foundExact, Is.True, "no text ended exactly on the allowance: widen the family");
+    }
+
+    [Test]
+    public void ManyLongRanks_GoStraightToTextOrder_EvenWhenTheirMatchesAreShort()
+    {
+        // random text over three letters: about 7 % of the ranks have an LCP of 16 or more (more than TextOrderMinLongs of them at 3 million), none of them a long one, so the per-rank loop would
+        // need almost no step but two random cache lines per rank; the text-order resolution is chosen up front
+        const int N = 3_000_000;
+        string text = StringFamilies.Random(N, 3, 91);
+        PreparedText prepared = TextPreparation.Prepare(text);
+        int[] sa = SaisKernel.Build(SaisKernelKind.Pointer, prepared);
+        var report = new DirectReport();
+        CompactLcp? direct = Attempt(prepared, sa, report);
+        Assert.That(direct, Is.Not.Null);
+        Assert.That(report.LongRanks, Is.GreaterThanOrEqualTo(LcpKernel.TextOrderMinLongs));
+        Assert.That(report.Outcome, Is.EqualTo(DirectOutcome.ResolvedInTextOrder));
+        Assert.That(report.PerRankSteps, Is.EqualTo(0), "the per-rank loop was not tried");
+        CompactLcp reference = LcpKernel.Build(LcpKernelKind.Reference, prepared, sa);
+        Assert.That(direct!.Kind, Is.EqualTo(reference.Kind));
+        Assert.That(direct.OverflowCount, Is.EqualTo(reference.OverflowCount));
+        Assert.That(direct.ToArray(), Is.EqualTo(reference.ToArray()));
     }
 
     [Test]
