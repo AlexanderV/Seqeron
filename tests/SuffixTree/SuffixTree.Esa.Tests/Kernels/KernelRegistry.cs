@@ -33,11 +33,14 @@ internal static class KernelRegistry
     /// <summary>The same kernel with a recording probe: the intermediate states (bucket arrays, LMS order, names) are compared with the oracle. Not part of the heavy categories (copies every level).</summary>
     internal static readonly SaisEngine PointerSaisWithStates = new("SaisKernel.Pointer+states", RunPointerSaisWithStates, InHeavyTests: false);
 
+    /// <summary>1o.1a: the pointer kernel for Phi, PLCP and the compact LCP (<see cref="LcpKernel"/>), run on guarded copies of its inputs.</summary>
+    internal static readonly LcpEngine PointerLcp = new("LcpKernel.Pointer", RunPointerLcp);
+
     /// <summary>All suffix-array engines, the reference first.</summary>
     internal static IReadOnlyList<SaisEngine> SaisEngines { get; } = [ReferenceSais, PointerSais, PointerSaisWithStates];
 
     /// <summary>All LCP engines, the reference first.</summary>
-    internal static IReadOnlyList<LcpEngine> LcpEngines { get; } = [ReferenceLcp];
+    internal static IReadOnlyList<LcpEngine> LcpEngines { get; } = [ReferenceLcp, PointerLcp];
 
     /// <summary>The suffix-array engines that are not the reference (the optimized kernels).</summary>
     internal static IEnumerable<SaisEngine> OptimizedSais => SaisEngines.Where(e => e != ReferenceSais && e.InHeavyTests);
@@ -61,6 +64,28 @@ internal static class KernelRegistry
         if (prepared.Width == SymbolWidth.Byte)
             return new LcpRun(LcpReference.Build(prepared.ByteReader(), sa), LcpReference.ComputePlcp(prepared.ByteReader(), sa));
         return new LcpRun(LcpReference.Build(prepared.UShortReader(), sa), LcpReference.ComputePlcp(prepared.UShortReader(), sa));
+    }
+
+    private static LcpRun RunPointerLcp(PreparedText prepared, int[] sa, NativeArena arena)
+    {
+        Buf<int> saBuf = arena.Allocate<int>(sa.Length, zero: false, "sa");
+        sa.CopyTo(saBuf.AsSpan(sa.Length));
+        return prepared.Width == SymbolWidth.Byte
+            ? RunPointerLcp(prepared.Bytes, sa, saBuf, arena)
+            : RunPointerLcp(prepared.UShorts, sa, saBuf, arena);
+    }
+
+    private static LcpRun RunPointerLcp<TSym>(ReadOnlySpan<TSym> symbols, int[] original, Buf<int> sa, NativeArena arena)
+        where TSym : unmanaged, IEquatable<TSym>
+    {
+        int n = symbols.Length;
+        Buf<TSym> text = arena.Allocate<TSym>(n, zero: false, "text");
+        symbols.CopyTo(text.AsSpan(n));
+        CompactLcp lcp = LcpKernel.Build(text, n, sa, arena);
+        Buf<int> plcp = LcpKernel.ComputePlcp(text, n, sa, arena, out _, out _);
+        if (!sa.AsSpan(n + 1).SequenceEqual(original) || !text.AsSpan(n).SequenceEqual(symbols))
+            throw new InvalidOperationException("the LCP kernel modified its input");
+        return new LcpRun(lcp, plcp.AsSpan(n).ToArray());
     }
 
     /// <summary>The pipelines of the optimized kernels, each combined with the reference of the other stage and (when both exist) with each other.</summary>

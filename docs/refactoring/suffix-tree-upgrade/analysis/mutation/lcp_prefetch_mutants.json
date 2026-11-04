@@ -1,0 +1,58 @@
+[
+ {
+  "id": "Q01",
+  "desc": "PLCP loop: the look-ahead read of Phi is not clamped to n - 1 (reads past the end of Phi)",
+  "old": "text.Prefetch(phi[Math.Min(j + LcpPrefetch.Plcp, n - 1)]);",
+  "new": "text.Prefetch(phi[j + LcpPrefetch.Plcp]);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/LcpKernel.cs"
+ },
+ {
+  "id": "Q02",
+  "desc": "PLCP loop: the look-ahead index is clamped to n instead of n - 1 (reads Phi[n], one past the end)",
+  "old": "text.Prefetch(phi[Math.Min(j + LcpPrefetch.Plcp, n - 1)]);",
+  "new": "text.Prefetch(phi[Math.Min(j + LcpPrefetch.Plcp, n)]);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/LcpKernel.cs"
+ },
+ {
+  "id": "Q03",
+  "desc": "pass 3 (U32): the look-ahead read of the suffix array is not clamped (reads SA[n + 1 ..])",
+  "old": "            plcp.Prefetch(sa[Math.Min(r + LcpPrefetch.Gather, n)]);\n            dst[r] = plcp[sa[r]];",
+  "new": "            plcp.Prefetch(sa[r + LcpPrefetch.Gather]);\n            dst[r] = plcp[sa[r]];",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/LcpKernel.cs"
+ },
+ {
+  "id": "Q04",
+  "desc": "pass 3 (U8): the look-ahead read of the suffix array is not clamped (reads SA[n + 1 ..])",
+  "old": "            plcp.Prefetch(sa[Math.Min(r + LcpPrefetch.Gather, n)]);\n            int v = plcp[sa[r]];\n            if (v < byte.MaxValue)",
+  "new": "            plcp.Prefetch(sa[r + LcpPrefetch.Gather]);\n            int v = plcp[sa[r]];\n            if (v < byte.MaxValue)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/LcpKernel.cs"
+ },
+ {
+  "id": "Q05",
+  "desc": "pass 3 (U16): the look-ahead read of the suffix array is not clamped (reads SA[n + 1 ..])",
+  "old": "            plcp.Prefetch(sa[Math.Min(r + LcpPrefetch.Gather, n)]);\n            int v = plcp[sa[r]];\n            if (v < ushort.MaxValue)",
+  "new": "            plcp.Prefetch(sa[r + LcpPrefetch.Gather]);\n            int v = plcp[sa[r]];\n            if (v < ushort.MaxValue)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/LcpKernel.cs"
+ },
+ {
+  "id": "Q06",
+  "desc": "PLCP loop: the prefetch target is the successor position text[p + 1] instead of text[p] (a prefetch has no architectural effect: equivalent)",
+  "old": "text.Prefetch(phi[Math.Min(j + LcpPrefetch.Plcp, n - 1)]);",
+  "new": "text.Prefetch(phi[Math.Min(j + LcpPrefetch.Plcp, n - 1)] + 1);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/LcpKernel.cs"
+ },
+ {
+  "id": "Q07",
+  "desc": "PLCP loop: prefetches phi[j] (the current entry) instead of the one LcpPrefetch.Plcp ahead (equivalent: no architectural effect)",
+  "old": "text.Prefetch(phi[Math.Min(j + LcpPrefetch.Plcp, n - 1)]);",
+  "new": "text.Prefetch(p);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/LcpKernel.cs"
+ },
+ {
+  "id": "Q08",
+  "desc": "pass 3 (U8): prefetches the entry of the current rank instead of the one ahead (equivalent: no architectural effect)",
+  "old": "            plcp.Prefetch(sa[Math.Min(r + LcpPrefetch.Gather, n)]);\n            int v = plcp[sa[r]];\n            if (v < byte.MaxValue)",
+  "new": "            plcp.Prefetch(sa[r]);\n            int v = plcp[sa[r]];\n            if (v < byte.MaxValue)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/LcpKernel.cs"
+ }
+]

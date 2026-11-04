@@ -35,7 +35,7 @@ internal sealed class BuildResult
 internal static class Pipeline
 {
     /// <summary>Text preparation (dense order-preserving remap), <see cref="SaisReference"/>, <see cref="LcpReference"/>; the optional traces add one timestamp per phase.</summary>
-    internal static BuildResult Build(string text, SaisTrace? saisTrace = null, LcpTrace? lcpTrace = null, SaisKernelKind saisKernel = SaisKernelKind.Reference)
+    internal static BuildResult Build(string text, SaisTrace? saisTrace = null, LcpTrace? lcpTrace = null, SaisKernelKind saisKernel = SaisKernelKind.Reference, LcpKernelKind lcpKernel = LcpKernelKind.Reference)
     {
         long t0 = Stopwatch.GetTimestamp();
         PreparedText prepared = TextPreparation.Prepare(text);
@@ -48,14 +48,14 @@ internal static class Pipeline
             ByteSymbols reader = prepared.ByteReader();
             sa = SaisKernel.Build(saisKernel, prepared, saisTrace);
             t2 = Stopwatch.GetTimestamp();
-            lcp = LcpReference.Build(reader, sa, lcpTrace);
+            lcp = lcpKernel == LcpKernelKind.Pointer ? LcpKernel.Build(prepared, sa, lcpTrace) : LcpReference.Build(reader, sa, lcpTrace);
         }
         else
         {
             UShortSymbols reader = prepared.UShortReader();
             sa = SaisKernel.Build(saisKernel, prepared, saisTrace);
             t2 = Stopwatch.GetTimestamp();
-            lcp = LcpReference.Build(reader, sa, lcpTrace);
+            lcp = lcpKernel == LcpKernelKind.Pointer ? LcpKernel.Build(prepared, sa, lcpTrace) : LcpReference.Build(reader, sa, lcpTrace);
         }
         long t3 = Stopwatch.GetTimestamp();
         return new BuildResult { Sa = sa, Lcp = lcp, Prepared = prepared, PrepareTicks = t1 - t0, SaisTicks = t2 - t1, LcpTicks = t3 - t2 };

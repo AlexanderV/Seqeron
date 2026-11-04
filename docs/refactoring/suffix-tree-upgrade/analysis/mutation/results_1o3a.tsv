@@ -1,0 +1,8 @@
+Q01	PLCP loop: the look-ahead read of Phi is not clamped to n - 1 (reads past the end of Phi)	survived	killed(8)
+Q02	PLCP loop: the look-ahead index is clamped to n instead of n - 1 (reads Phi[n], one past the end)	survived	killed(8)
+Q03	pass 3 (U32): the look-ahead read of the suffix array is not clamped (reads SA[n + 1 ..])	survived	killed(1)
+Q04	pass 3 (U8): the look-ahead read of the suffix array is not clamped (reads SA[n + 1 ..])	survived	killed(8)
+Q05	pass 3 (U16): the look-ahead read of the suffix array is not clamped (reads SA[n + 1 ..])	survived	killed(3)
+Q06	PLCP loop: the prefetch target is the successor position text[p + 1] instead of text[p] (a prefetch has no architectural effect: equivalent)	survived	survived
+Q07	PLCP loop: prefetches phi[j] (the current entry) instead of the one LcpPrefetch.Plcp ahead (equivalent: no architectural effect)	survived	survived
+Q08	pass 3 (U8): prefetches the entry of the current rank instead of the one ahead (equivalent: no architectural effect)	survived	survived
