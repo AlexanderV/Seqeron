@@ -1,6 +1,6 @@
 # global_align
 
-Global pairwise alignment (Needleman-Wunsch): align the full length of both sequences end-to-end under a configurable match/mismatch/gap scoring.
+Global pairwise alignment (Needleman-Wunsch): align the full length of both sequences end-to-end. Linear gap model: every gap position scores gapExtend; gapOpen is IGNORED (use global_align_affine for gapOpen + k·gapExtend).
 
 ## Overview
 
@@ -14,11 +14,11 @@ Global pairwise alignment (Needleman-Wunsch): align the full length of both sequ
 
 ## Description
 
-Global pairwise alignment (Needleman-Wunsch): align the full length of both sequences end-to-end under a configurable match/mismatch/gap scoring.
+Global pairwise alignment (Needleman-Wunsch): align the full length of both sequences end-to-end. Linear gap model: every gap position scores gapExtend; gapOpen is IGNORED (use global_align_affine for gapOpen + k·gapExtend).
 
 ## Core Documentation Reference
 
-- Source: [Seqeron.Genomics.Alignment/SequenceAligner.cs#L72](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.cs#L72)
+- Source: [Seqeron.Genomics.Alignment/SequenceAligner.cs#L63](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.cs#L63)
 
 ## Input Schema
 
@@ -28,7 +28,7 @@ Global pairwise alignment (Needleman-Wunsch): align the full length of both sequ
 | `sequence2` | string | Yes | Second sequence. |
 | `match` | integer | No | Score for matching base. (default: 1) |
 | `mismatch` | integer | No | Score for mismatching base. (default: -1) |
-| `gapOpen` | integer | No | Gap-open penalty. (default: -2) |
+| `gapOpen` | integer | No | Gap-open penalty (ignored: linear-gap model; kept for schema compatibility). (default: -2) |
 | `gapExtend` | integer | No | Gap-extend penalty (linear gap per position). (default: -1) |
 
 ## Output Schema
@@ -112,5 +112,5 @@ With default scoring (match +1), two identical 7-mers align with score 7. `GATTA
 
 ## References
 
-- Algorithm source: [Seqeron.Genomics.Alignment/SequenceAligner.cs#L72](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.cs#L72)
+- Algorithm source: [Seqeron.Genomics.Alignment/SequenceAligner.cs#L63](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.cs#L63)
 - Binding: [AlignmentTools.cs](../../../../src/Seqeron/Mcp/Seqeron.Mcp.Alignment/Tools/AlignmentTools.cs)

@@ -5,8 +5,8 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "SequenceAligner.SemiGlobalAlign",
-  "docRef": "Seqeron.Genomics.Alignment/SequenceAligner.cs#L412",
-  "description": "Semi-global (fitting/glocal) pairwise alignment with free end gaps in sequence2; useful for fitting a shorter query into a longer reference.",
+  "docRef": "Seqeron.Genomics.Alignment/SequenceAligner.cs#L873",
+  "description": "Semi-global (fitting) pairwise alignment with free end gaps in sequence2. Linear gap model: every gap position scores gapExtend; gapOpen is IGNORED (use semi_global_align_affine for gapOpen + k·gapExtend).",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -32,7 +32,7 @@
       },
       "gapOpen": {
         "type": "integer",
-        "description": "Gap-open penalty.",
+        "description": "Gap-open penalty (ignored: linear-gap model; kept for schema compatibility).",
         "default": -2
       },
       "gapExtend": {

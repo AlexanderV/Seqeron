@@ -1,6 +1,6 @@
 # semi_global_align
 
-Semi-global (fitting/glocal) pairwise alignment with free end gaps in sequence2; useful for fitting a shorter query into a longer reference.
+Semi-global (fitting) pairwise alignment with free end gaps in sequence2. Linear gap model: every gap position scores gapExtend; gapOpen is IGNORED (use semi_global_align_affine for gapOpen + k·gapExtend).
 
 ## Overview
 
@@ -14,11 +14,11 @@ Semi-global (fitting/glocal) pairwise alignment with free end gaps in sequence2;
 
 ## Description
 
-Semi-global (fitting/glocal) pairwise alignment with free end gaps in sequence2; useful for fitting a shorter query into a longer reference.
+Semi-global (fitting) pairwise alignment with free end gaps in sequence2. Linear gap model: every gap position scores gapExtend; gapOpen is IGNORED (use semi_global_align_affine for gapOpen + k·gapExtend).
 
 ## Core Documentation Reference
 
-- Source: [Seqeron.Genomics.Alignment/SequenceAligner.cs#L412](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.cs#L412)
+- Source: [Seqeron.Genomics.Alignment/SequenceAligner.cs#L873](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.cs#L873)
 
 ## Input Schema
 
@@ -28,7 +28,7 @@ Semi-global (fitting/glocal) pairwise alignment with free end gaps in sequence2;
 | `sequence2` | string | Yes | Reference sequence (typically longer). |
 | `match` | integer | No | Score for matching base. (default: 1) |
 | `mismatch` | integer | No | Score for mismatching base. (default: -1) |
-| `gapOpen` | integer | No | Gap-open penalty. (default: -2) |
+| `gapOpen` | integer | No | Gap-open penalty (ignored: linear-gap model; kept for schema compatibility). (default: -2) |
 | `gapExtend` | integer | No | Gap-extend penalty. (default: -1) |
 
 ## Output Schema
@@ -85,5 +85,5 @@ Free end gaps let the query `ACGT` match its exact occurrence in `TTACGTTT` (sco
 
 ## References
 
-- Algorithm source: [Seqeron.Genomics.Alignment/SequenceAligner.cs#L412](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.cs#L412)
+- Algorithm source: [Seqeron.Genomics.Alignment/SequenceAligner.cs#L873](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.cs#L873)
 - Binding: [AlignmentTools.cs](../../../../src/Seqeron/Mcp/Seqeron.Mcp.Alignment/Tools/AlignmentTools.cs)

@@ -16,14 +16,14 @@ public class AlignmentTools
     #region SequenceAligner
 
     [McpServerTool(Name = "global_align", Title = "Pairwise — Global Alignment (Needleman–Wunsch)", ReadOnly = true)]
-    [Description("Performs global pairwise alignment using the Needleman–Wunsch dynamic programming algorithm (aligns full length of both sequences end-to-end).")]
+    [Description("Performs global pairwise alignment using the Needleman–Wunsch dynamic programming algorithm (aligns full length of both sequences end-to-end). Linear gap model: every gap position costs gapExtend; gapOpen is IGNORED by this tool (use global_align_affine for gapOpen + k·gapExtend).")]
     public static AlignmentResultDto GlobalAlign(
         [Description("First sequence (DNA, uppercased internally).")] string sequence1,
         [Description("Second sequence.")] string sequence2,
         [Description("Score for matching base.")] int match = 1,
         [Description("Score for mismatching base.")] int mismatch = -1,
-        [Description("Gap-open penalty.")] int gapOpen = -2,
-        [Description("Gap-extend penalty.")] int gapExtend = -1)
+        [Description("Gap-open penalty (ignored by this linear-gap tool; kept for schema compatibility).")] int gapOpen = -2,
+        [Description("Gap penalty charged per gap position.")] int gapExtend = -1)
     {
         if (string.IsNullOrEmpty(sequence1))
             throw new ArgumentException("Sequence cannot be null or empty.", nameof(sequence1));
@@ -36,14 +36,14 @@ public class AlignmentTools
     }
 
     [McpServerTool(Name = "local_align", Title = "Pairwise — Local Alignment (Smith–Waterman)", ReadOnly = true)]
-    [Description("Performs local pairwise alignment using the Smith–Waterman algorithm (finds best-scoring substring alignment, with zero floor).")]
+    [Description("Performs local pairwise alignment using the Smith–Waterman algorithm (finds best-scoring substring alignment, with zero floor). Linear gap model: every gap position costs gapExtend; gapOpen is IGNORED by this tool (use local_align_affine for gapOpen + k·gapExtend).")]
     public static AlignmentResultDto LocalAlign(
         [Description("First sequence.")] string sequence1,
         [Description("Second sequence.")] string sequence2,
         [Description("Score for matching base.")] int match = 1,
         [Description("Score for mismatching base.")] int mismatch = -1,
-        [Description("Gap-open penalty.")] int gapOpen = -2,
-        [Description("Gap-extend penalty.")] int gapExtend = -1)
+        [Description("Gap-open penalty (ignored by this linear-gap tool; kept for schema compatibility).")] int gapOpen = -2,
+        [Description("Gap penalty charged per gap position.")] int gapExtend = -1)
     {
         if (string.IsNullOrEmpty(sequence1))
             throw new ArgumentException("Sequence cannot be null or empty.", nameof(sequence1));
@@ -56,14 +56,14 @@ public class AlignmentTools
     }
 
     [McpServerTool(Name = "semi_global_align", Title = "Pairwise — Semi-Global (Fitting) Alignment", ReadOnly = true)]
-    [Description("Performs semi-global (fitting / glocal) pairwise alignment with free end gaps in sequence2; useful for fitting a shorter query into a longer reference.")]
+    [Description("Performs semi-global (fitting / glocal) pairwise alignment with free end gaps in sequence2; useful for fitting a shorter query into a longer reference. Linear gap model: every gap position costs gapExtend; gapOpen is IGNORED by this tool (use semi_global_align_affine for gapOpen + k·gapExtend).")]
     public static AlignmentResultDto SemiGlobalAlign(
         [Description("Query sequence (typically shorter).")] string sequence1,
         [Description("Reference sequence (typically longer).")] string sequence2,
         [Description("Score for matching base.")] int match = 1,
         [Description("Score for mismatching base.")] int mismatch = -1,
-        [Description("Gap-open penalty.")] int gapOpen = -2,
-        [Description("Gap-extend penalty.")] int gapExtend = -1)
+        [Description("Gap-open penalty (ignored by this linear-gap tool; kept for schema compatibility).")] int gapOpen = -2,
+        [Description("Gap penalty charged per gap position.")] int gapExtend = -1)
     {
         if (!global::Seqeron.Genomics.Core.DnaSequence.TryCreate(sequence1, out var d1))
             throw new ArgumentException("Invalid DNA in sequence1.", nameof(sequence1));
@@ -128,14 +128,130 @@ public class AlignmentTools
         return new FormatAlignmentResult(formatted);
     }
 
-    [McpServerTool(Name = "multiple_align", Title = "MSA — Anchor-Based Progressive Alignment", ReadOnly = true)]
-    [Description("Anchor-based progressive multiple sequence alignment: picks a center sequence by 4-mer cosine similarity, builds a suffix tree on it, and reconciles per-sequence anchored alignments into a single MSA with consensus and sum-of-pairs score.")]
+    [McpServerTool(Name = "global_align_affine", Title = "Pairwise — Global Alignment, Affine Gaps (Gotoh)", ReadOnly = true)]
+    [Description("Global pairwise alignment with affine gap costs (Gotoh 1982): a gap of length k scores gapOpen + k·gapExtend (the BLAST+ / Biopython open_gap_score = gapOpen + gapExtend convention), so BLAST scoring (match 2, mismatch -3, gapOpen -5, gapExtend -2) can be applied. Border gaps are charged an opening each (Flouri et al. 2015). Equals Biopython PairwiseAligner(mode='global') and parasail nw_trace.")]
+    public static AlignmentResultDto GlobalAlignAffine(
+        [Description("First sequence (DNA, uppercased internally).")] string sequence1,
+        [Description("Second sequence.")] string sequence2,
+        [Description("Score for matching base.")] int match = 1,
+        [Description("Score for mismatching base.")] int mismatch = -1,
+        [Description("Gap-open score added once per gap run (negative = penalty).")] int gapOpen = -2,
+        [Description("Gap score per gap position, in addition to gapOpen for the first one.")] int gapExtend = -1)
+    {
+        if (string.IsNullOrEmpty(sequence1))
+            throw new ArgumentException("Sequence cannot be null or empty.", nameof(sequence1));
+        if (string.IsNullOrEmpty(sequence2))
+            throw new ArgumentException("Sequence cannot be null or empty.", nameof(sequence2));
+
+        var scoring = new global::Seqeron.Genomics.Infrastructure.ScoringMatrix(match, mismatch, gapOpen, gapExtend);
+        var r = global::Seqeron.Genomics.Alignment.SequenceAligner.GlobalAlignAffine(sequence1, sequence2, scoring);
+        return ToAlignmentDto(r);
+    }
+
+    [McpServerTool(Name = "local_align_affine", Title = "Pairwise — Local Alignment, Affine Gaps (Smith–Waterman–Gotoh)", ReadOnly = true)]
+    [Description("Local pairwise alignment with affine gap costs (Smith–Waterman 1981 with Gotoh 1982 gaps): a gap of length k scores gapOpen + k·gapExtend; zero floor. Equals Biopython PairwiseAligner(mode='local') and parasail sw_trace.")]
+    public static AlignmentResultDto LocalAlignAffine(
+        [Description("First sequence.")] string sequence1,
+        [Description("Second sequence.")] string sequence2,
+        [Description("Score for matching base.")] int match = 1,
+        [Description("Score for mismatching base.")] int mismatch = -1,
+        [Description("Gap-open score added once per gap run (negative = penalty).")] int gapOpen = -2,
+        [Description("Gap score per gap position, in addition to gapOpen for the first one.")] int gapExtend = -1)
+    {
+        if (string.IsNullOrEmpty(sequence1))
+            throw new ArgumentException("Sequence cannot be null or empty.", nameof(sequence1));
+        if (string.IsNullOrEmpty(sequence2))
+            throw new ArgumentException("Sequence cannot be null or empty.", nameof(sequence2));
+
+        var scoring = new global::Seqeron.Genomics.Infrastructure.ScoringMatrix(match, mismatch, gapOpen, gapExtend);
+        var r = global::Seqeron.Genomics.Alignment.SequenceAligner.LocalAlignAffine(sequence1, sequence2, scoring);
+        return ToAlignmentDto(r);
+    }
+
+    [McpServerTool(Name = "semi_global_align_affine", Title = "Pairwise — Semi-Global (Fitting) Alignment, Affine Gaps", ReadOnly = true)]
+    [Description("Semi-global (fitting) pairwise alignment with affine gap costs: sequence1 is aligned end to end inside sequence2 (free leading/trailing sequence2 residues); a gap of length k scores gapOpen + k·gapExtend. Equals Biopython PairwiseAligner(mode='global', end_insertion_score=0) and parasail sg_dx.")]
+    public static AlignmentResultDto SemiGlobalAlignAffine(
+        [Description("Query sequence (typically shorter).")] string sequence1,
+        [Description("Reference sequence (typically longer).")] string sequence2,
+        [Description("Score for matching base.")] int match = 1,
+        [Description("Score for mismatching base.")] int mismatch = -1,
+        [Description("Gap-open score added once per gap run (negative = penalty).")] int gapOpen = -2,
+        [Description("Gap score per gap position, in addition to gapOpen for the first one.")] int gapExtend = -1)
+    {
+        if (!global::Seqeron.Genomics.Core.DnaSequence.TryCreate(sequence1, out var d1))
+            throw new ArgumentException("Invalid DNA in sequence1.", nameof(sequence1));
+        if (!global::Seqeron.Genomics.Core.DnaSequence.TryCreate(sequence2, out var d2))
+            throw new ArgumentException("Invalid DNA in sequence2.", nameof(sequence2));
+
+        var scoring = new global::Seqeron.Genomics.Infrastructure.ScoringMatrix(match, mismatch, gapOpen, gapExtend);
+        var r = global::Seqeron.Genomics.Alignment.SequenceAligner.SemiGlobalAlignAffine(d1!, d2!, scoring);
+        return ToAlignmentDto(r);
+    }
+
+    [McpServerTool(Name = "multiple_align", Title = "MSA — Center-Star Alignment (Gusfield)", ReadOnly = true)]
+    [Description("Center-star multiple sequence alignment (Gusfield 1993) with exact pairwise alignments: the center is the sequence with the highest total optimal Needleman–Wunsch score to the others, every other sequence is aligned to it with the canonical global aligner and the pairwise alignments are merged column-wise (once a gap, always a gap). Linear gap model (every gap position costs gapExtend; gapOpen is ignored); for two sequences the result is an optimal pairwise global alignment. Returns the aligned rows, majority consensus and column sum-of-pairs score (gap-gap columns score 0).")]
     public static MultipleAlignmentResultDto MultipleAlign(
         [Description("DNA sequences to align (at least one).")] string[] sequences,
         [Description("Score for matching base.")] int match = 1,
         [Description("Score for mismatching base.")] int mismatch = -1,
-        [Description("Gap-open penalty.")] int gapOpen = -2,
-        [Description("Gap-extend penalty.")] int gapExtend = -1)
+        [Description("Gap-open penalty (ignored: linear-gap model).")] int gapOpen = -2,
+        [Description("Gap penalty charged per gap position.")] int gapExtend = -1) =>
+        RunMsa(sequences, match, mismatch, gapOpen, gapExtend,
+            global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlign);
+
+    [McpServerTool(Name = "multiple_align_anchored", Title = "MSA — Anchored Center-Star (approximate, suffix-tree seeds)", ReadOnly = true)]
+    [Description("Approximate, faster center-star MSA: picks the center by 4-mer count cosine similarity, builds a suffix tree on it and aligns every other sequence with exact-match anchors (MUMmer-style seed, weighted colinear chain, Needleman–Wunsch on the gaps between anchors). The pairwise alignments are NOT guaranteed optimal, so the sum-of-pairs score can be lower than multiple_align's. Linear gap model (gapOpen ignored).")]
+    public static MultipleAlignmentResultDto MultipleAlignAnchored(
+        [Description("DNA sequences to align (at least one).")] string[] sequences,
+        [Description("Score for matching base.")] int match = 1,
+        [Description("Score for mismatching base.")] int mismatch = -1,
+        [Description("Gap-open penalty (ignored: linear-gap model).")] int gapOpen = -2,
+        [Description("Gap penalty charged per gap position.")] int gapExtend = -1) =>
+        RunMsa(sequences, match, mismatch, gapOpen, gapExtend,
+            global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignAnchored);
+
+    [McpServerTool(Name = "multiple_align_progressive", Title = "MSA — Progressive Guide-Tree Alignment (Clustal-style)", ReadOnly = true)]
+    [Description("Guide-tree progressive MSA (Feng & Doolittle 1987 / Clustal-style): all pairwise Needleman–Wunsch alignments give distances 1 − fractional identity, a UPGMA guide tree orders the merges, and profiles are aligned by profile–profile Needleman–Wunsch with sum-of-pairs column scores (once a gap, always a gap). Linear gap model (gapOpen ignored). Returns rows, majority consensus and sum-of-pairs score.")]
+    public static MultipleAlignmentResultDto MultipleAlignProgressive(
+        [Description("DNA sequences to align (at least one).")] string[] sequences,
+        [Description("Score for matching base.")] int match = 1,
+        [Description("Score for mismatching base.")] int mismatch = -1,
+        [Description("Gap-open penalty (ignored: linear-gap model).")] int gapOpen = -2,
+        [Description("Gap penalty charged per gap position.")] int gapExtend = -1) =>
+        RunMsa(sequences, match, mismatch, gapOpen, gapExtend,
+            global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignProgressive);
+
+    [McpServerTool(Name = "multiple_align_iterative", Title = "MSA — Progressive + Iterative Refinement (MUSCLE-style)", ReadOnly = true)]
+    [Description("Progressive MSA followed by MUSCLE-style tree-dependent restricted-partitioning refinement (Edgar 2004, stage 3): each guide-tree edge splits the alignment into two profiles that are re-aligned and kept only if the sum-of-pairs score strictly improves; repeated until convergence or maxIterations passes. The result's sum-of-pairs score is never below multiple_align_progressive's. Linear gap model (gapOpen ignored).")]
+    public static MultipleAlignmentResultDto MultipleAlignIterative(
+        [Description("DNA sequences to align (at least one).")] string[] sequences,
+        [Description("Score for matching base.")] int match = 1,
+        [Description("Score for mismatching base.")] int mismatch = -1,
+        [Description("Gap-open penalty (ignored: linear-gap model).")] int gapOpen = -2,
+        [Description("Gap penalty charged per gap position.")] int gapExtend = -1,
+        [Description("Upper bound on full refinement passes (>= 1).")] int maxIterations = 16)
+    {
+        if (maxIterations < 1)
+            throw new ArgumentOutOfRangeException(nameof(maxIterations), "maxIterations must be >= 1.");
+
+        return RunMsa(sequences, match, mismatch, gapOpen, gapExtend,
+            (seqs, scoring) => global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignIterative(seqs, scoring, maxIterations));
+    }
+
+    [McpServerTool(Name = "multiple_align_consistency", Title = "MSA — Consistency-Based Alignment (T-Coffee)", ReadOnly = true)]
+    [Description("Consistency-based MSA (T-Coffee; Notredame, Higgins & Heringa 2000): a primary library of global (Needleman–Wunsch) and local (Smith–Waterman) pairwise alignments weighted by percent identity, extended by the triplet consistency transformation (direct weight + Σ min(W1, W2) over third sequences), then progressively aligned along a UPGMA guide tree with the extended-library weights as position-specific scores and zero gap penalties. The scoring parameters only seed the pairwise library; totalScore is the ordinary column sum-of-pairs score of the result under them.")]
+    public static MultipleAlignmentResultDto MultipleAlignConsistency(
+        [Description("DNA sequences to align (at least one).")] string[] sequences,
+        [Description("Score for matching base (pairwise library and reported score).")] int match = 1,
+        [Description("Score for mismatching base.")] int mismatch = -1,
+        [Description("Gap-open penalty (ignored: linear-gap model).")] int gapOpen = -2,
+        [Description("Gap penalty charged per gap position.")] int gapExtend = -1) =>
+        RunMsa(sequences, match, mismatch, gapOpen, gapExtend,
+            global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignConsistency);
+
+    private static MultipleAlignmentResultDto RunMsa(
+        string[] sequences, int match, int mismatch, int gapOpen, int gapExtend,
+        Func<IEnumerable<global::Seqeron.Genomics.Core.DnaSequence>, global::Seqeron.Genomics.Infrastructure.ScoringMatrix?, global::Seqeron.Genomics.Infrastructure.MultipleAlignmentResult> align)
     {
         if (sequences == null || sequences.Length == 0)
         {
@@ -152,7 +268,7 @@ public class AlignmentTools
         }
 
         var scoring = new global::Seqeron.Genomics.Infrastructure.ScoringMatrix(match, mismatch, gapOpen, gapExtend);
-        var r = global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlign(dnaList, scoring);
+        var r = align(dnaList, scoring);
         return new MultipleAlignmentResultDto(r.AlignedSequences, r.Consensus, r.TotalScore);
     }
 

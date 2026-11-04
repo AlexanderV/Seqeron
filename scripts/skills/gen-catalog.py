@@ -5,7 +5,7 @@ WHY THIS EXISTS
 ---------------
 The skills architecture (docs/skills/STRATEGY.md, esp. sections 5 and 6) is
 "many independent skills". The risk of that architecture is drift: N skills
-whose tool tables slowly diverge from the real set of MCP tools (486 documented;
+whose tool tables slowly diverge from the real set of MCP tools (493 documented;
 see EXPECTED_COUNTS below, which is the number this script enforces). The
 counter-measure is a SINGLE generator (this script) that reads the source of
 truth and emits every tool table, wrapped in machine-owned markers.
@@ -71,7 +71,7 @@ EXPECTED_COUNTS = {
     "core": 18,
     "sequence": 35,
     "parsers": 41,
-    "alignment": 27,
+    "alignment": 34,
     "analysis": 127,
     "annotation": 97,
     "chromosome": 32,
@@ -80,7 +80,7 @@ EXPECTED_COUNTS = {
     "phylogenetics": 13,
     "population": 18,
 }
-EXPECTED_TOTAL = 486
+EXPECTED_TOTAL = 493
 
 BEGIN_MARK = "<!-- BEGIN generated: do not edit by hand -->"
 END_MARK = "<!-- END generated -->"

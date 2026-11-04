@@ -23,7 +23,7 @@ per-tool doc for the full I/O schema — do not guess parameters. Servers: **Ali
 
 | Tool | Method ID | Purpose |
 |---|---|---|
-| [`multiple_align`](../../../../docs/mcp/tools/alignment/multiple_align.md) | `SequenceAligner.MultipleAlign` | Anchor-based progressive MSA → aligned rows, consensus, sum-of-pairs score. |
+| [`multiple_align`](../../../../docs/mcp/tools/alignment/multiple_align.md) | `SequenceAligner.MultipleAlign` | Center-star MSA (exact pairwise NW) → aligned rows, consensus, sum-of-pairs score; siblings `multiple_align_anchored`, `_progressive`, `_iterative`, `_consistency`. |
 | [`compute_consensus`](../../../../docs/mcp/tools/alignment/compute_consensus.md) | `SequenceAssembler.ComputeConsensus` | Majority-vote consensus from pre-aligned equal-length reads (ties → `N`). |
 
 ## Approximate / fuzzy matching (Alignment server)

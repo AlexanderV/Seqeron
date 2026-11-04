@@ -5,8 +5,8 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "SequenceAligner.LocalAlign",
-  "docRef": "Seqeron.Genomics.Alignment/SequenceAligner.cs#L301",
-  "description": "Local pairwise alignment (Smith-Waterman): find the best-scoring substring alignment with a zero floor, ignoring poorly matching flanks.",
+  "docRef": "Seqeron.Genomics.Alignment/SequenceAligner.cs#L654",
+  "description": "Local pairwise alignment (Smith-Waterman, zero floor). Linear gap model: every gap position scores gapExtend; gapOpen is IGNORED (use local_align_affine for gapOpen + k·gapExtend).",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -32,7 +32,7 @@
       },
       "gapOpen": {
         "type": "integer",
-        "description": "Gap-open penalty.",
+        "description": "Gap-open penalty (ignored: linear-gap model; kept for schema compatibility).",
         "default": -2
       },
       "gapExtend": {

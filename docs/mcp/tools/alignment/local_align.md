@@ -1,6 +1,6 @@
 # local_align
 
-Local pairwise alignment (Smith-Waterman): find the best-scoring substring alignment with a zero floor, ignoring poorly matching flanks.
+Local pairwise alignment (Smith-Waterman, zero floor). Linear gap model: every gap position scores gapExtend; gapOpen is IGNORED (use local_align_affine for gapOpen + k·gapExtend).
 
 ## Overview
 
@@ -14,11 +14,11 @@ Local pairwise alignment (Smith-Waterman): find the best-scoring substring align
 
 ## Description
 
-Local pairwise alignment (Smith-Waterman): find the best-scoring substring alignment with a zero floor, ignoring poorly matching flanks.
+Local pairwise alignment (Smith-Waterman, zero floor). Linear gap model: every gap position scores gapExtend; gapOpen is IGNORED (use local_align_affine for gapOpen + k·gapExtend).
 
 ## Core Documentation Reference
 
-- Source: [Seqeron.Genomics.Alignment/SequenceAligner.cs#L301](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.cs#L301)
+- Source: [Seqeron.Genomics.Alignment/SequenceAligner.cs#L654](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.cs#L654)
 
 ## Input Schema
 
@@ -28,7 +28,7 @@ Local pairwise alignment (Smith-Waterman): find the best-scoring substring align
 | `sequence2` | string | Yes | Second sequence. |
 | `match` | integer | No | Score for matching base. (default: 1) |
 | `mismatch` | integer | No | Score for mismatching base. (default: -1) |
-| `gapOpen` | integer | No | Gap-open penalty. (default: -2) |
+| `gapOpen` | integer | No | Gap-open penalty (ignored: linear-gap model; kept for schema compatibility). (default: -2) |
 | `gapExtend` | integer | No | Gap-extend penalty. (default: -1) |
 
 ## Output Schema
@@ -112,5 +112,5 @@ The shared core `ACGT` scores 4 and is reported without the differing `TTT.../GG
 
 ## References
 
-- Algorithm source: [Seqeron.Genomics.Alignment/SequenceAligner.cs#L301](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.cs#L301)
+- Algorithm source: [Seqeron.Genomics.Alignment/SequenceAligner.cs#L654](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.cs#L654)
 - Binding: [AlignmentTools.cs](../../../../src/Seqeron/Mcp/Seqeron.Mcp.Alignment/Tools/AlignmentTools.cs)

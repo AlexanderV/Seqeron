@@ -5,8 +5,8 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "SequenceAligner.GlobalAlign",
-  "docRef": "Seqeron.Genomics.Alignment/SequenceAligner.cs#L72",
-  "description": "Global pairwise alignment (Needleman-Wunsch): align the full length of both sequences end-to-end under a configurable match/mismatch/gap scoring.",
+  "docRef": "Seqeron.Genomics.Alignment/SequenceAligner.cs#L63",
+  "description": "Global pairwise alignment (Needleman-Wunsch): align the full length of both sequences end-to-end. Linear gap model: every gap position scores gapExtend; gapOpen is IGNORED (use global_align_affine for gapOpen + k·gapExtend).",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -32,7 +32,7 @@
       },
       "gapOpen": {
         "type": "integer",
-        "description": "Gap-open penalty.",
+        "description": "Gap-open penalty (ignored: linear-gap model; kept for schema compatibility).",
         "default": -2
       },
       "gapExtend": {

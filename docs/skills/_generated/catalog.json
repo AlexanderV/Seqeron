@@ -137,14 +137,28 @@
     "server": "Alignment",
     "methodId": "SequenceAligner.GlobalAlign",
     "docPath": "docs/mcp/tools/alignment/global_align.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.cs#L72"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.cs#L63"
+  },
+  {
+    "tool": "global_align_affine",
+    "server": "Alignment",
+    "methodId": "SequenceAligner.GlobalAlignAffine",
+    "docPath": "docs/mcp/tools/alignment/global_align_affine.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.cs#L387"
   },
   {
     "tool": "local_align",
     "server": "Alignment",
     "methodId": "SequenceAligner.LocalAlign",
     "docPath": "docs/mcp/tools/alignment/local_align.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.cs#L301"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.cs#L654"
+  },
+  {
+    "tool": "local_align_affine",
+    "server": "Alignment",
+    "methodId": "SequenceAligner.LocalAlignAffine",
+    "docPath": "docs/mcp/tools/alignment/local_align_affine.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.cs#L807"
   },
   {
     "tool": "merge_contigs",
@@ -158,7 +172,35 @@
     "server": "Alignment",
     "methodId": "SequenceAligner.MultipleAlign",
     "docPath": "docs/mcp/tools/alignment/multiple_align.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.cs#L702"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.cs#L1203"
+  },
+  {
+    "tool": "multiple_align_anchored",
+    "server": "Alignment",
+    "methodId": "SequenceAligner.MultipleAlignAnchored",
+    "docPath": "docs/mcp/tools/alignment/multiple_align_anchored.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.cs#L1242"
+  },
+  {
+    "tool": "multiple_align_consistency",
+    "server": "Alignment",
+    "methodId": "SequenceAligner.MultipleAlignConsistency",
+    "docPath": "docs/mcp/tools/alignment/multiple_align_consistency.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.cs#L2425"
+  },
+  {
+    "tool": "multiple_align_iterative",
+    "server": "Alignment",
+    "methodId": "SequenceAligner.MultipleAlignIterative",
+    "docPath": "docs/mcp/tools/alignment/multiple_align_iterative.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.cs#L2111"
+  },
+  {
+    "tool": "multiple_align_progressive",
+    "server": "Alignment",
+    "methodId": "SequenceAligner.MultipleAlignProgressive",
+    "docPath": "docs/mcp/tools/alignment/multiple_align_progressive.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.cs#L1676"
   },
   {
     "tool": "quality_trim_reads",
@@ -179,7 +221,14 @@
     "server": "Alignment",
     "methodId": "SequenceAligner.SemiGlobalAlign",
     "docPath": "docs/mcp/tools/alignment/semi_global_align.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.cs#L412"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.cs#L873"
+  },
+  {
+    "tool": "semi_global_align_affine",
+    "server": "Alignment",
+    "methodId": "SequenceAligner.SemiGlobalAlignAffine",
+    "docPath": "docs/mcp/tools/alignment/semi_global_align_affine.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.cs#L910"
   },
   {
     "tool": "sequence_identity",

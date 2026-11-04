@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "multiple_align_progressive",
+  "serverName": "Alignment",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "SequenceAligner.MultipleAlignProgressive",
+  "docRef": "Seqeron.Genomics.Alignment/SequenceAligner.cs#L1676",
+  "description": "Guide-tree progressive MSA (Feng & Doolittle 1987 / CLUSTAL): ClustalW pairwise distances from all Needleman-Wunsch alignments (1 - identities / shorter length), a UPGMA guide tree, then profile-profile Needleman-Wunsch with sum-of-pairs column scores (once a gap, always a gap). Linear gap model (gapOpen ignored).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequences": {
+        "type": "array",
+        "description": "DNA sequences to align (at least one)."
+      },
+      "match": {
+        "type": "integer",
+        "description": "Score for matching base.",
+        "default": 1
+      },
+      "mismatch": {
+        "type": "integer",
+        "description": "Score for mismatching base.",
+        "default": -1
+      },
+      "gapOpen": {
+        "type": "integer",
+        "description": "Gap-open penalty (ignored: linear-gap model).",
+        "default": -2
+      },
+      "gapExtend": {
+        "type": "integer",
+        "description": "Gap penalty charged per gap position.",
+        "default": -1
+      }
+    },
+    "required": [
+      "sequences"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "alignedSequences": {
+        "type": "array",
+        "description": "The aligned rows of the MSA."
+      },
+      "consensus": {
+        "type": "string",
+        "description": "Majority-vote consensus of the aligned rows (gaps vote; a nucleotide beats a gap on ties)."
+      },
+      "totalScore": {
+        "type": "integer",
+        "description": "Column sum-of-pairs score of the MSA (match/mismatch from the matrix, residue-gap = gapExtend, gap-gap = 0)."
+      }
+    },
+    "required": [
+      "alignedSequences",
+      "consensus",
+      "totalScore"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1010,
+      "message": "Invalid DNA in sequences"
+    }
+  ],
+  "examples": [
+    {
+      "name": "One deletion",
+      "input": {
+        "sequences": [
+          "ACGT",
+          "ACGT",
+          "AGT"
+        ]
+      },
+      "output": {
+        "alignedSequences": [
+          "ACGT",
+          "ACGT",
+          "A-GT"
+        ],
+        "consensus": "ACGT",
+        "totalScore": 8
+      }
+    }
+  ]
+}

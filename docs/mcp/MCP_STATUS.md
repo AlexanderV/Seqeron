@@ -20,7 +20,7 @@
 | Core | SuffixTree.Mcp.Core | 18 | 18/18 | 18/18 | 18/18 | ✅ done |
 | Sequence | Seqeron.Mcp.Sequence | 35 | 35/35 | 35/35 | 35/35 | ✅ done |
 | Parsers | Seqeron.Mcp.Parsers | 41 | 41/41 | 41/41 | 41/41 | ✅ done |
-| Alignment | Seqeron.Mcp.Alignment | 27 | 27/27 | 27/27 | 27/27 | ✅ done |
+| Alignment | Seqeron.Mcp.Alignment | 34 | 34/34 | 34/34 | 34/34 | ✅ done |
 | Analysis | Seqeron.Mcp.Analysis | 127 | 127/127 | 127/127 | 127/127 | ✅ done |
 | Annotation | Seqeron.Mcp.Annotation | 97 | 97/97 | 97/97 | 97/97 | ✅ done |
 | Chromosome | Seqeron.Mcp.Chromosome | 32 | 32/32 | 32/32 | 32/32 | ✅ done |
@@ -140,7 +140,7 @@
 | 40 | `vcf_variant_length` | ☑ | ☑ | ☑ |
 | 41 | `vcf_write` | ☑ | ☑ | ☑ |
 
-### Alignment (Seqeron.Mcp.Alignment) — 27 tools
+### Alignment (Seqeron.Mcp.Alignment) — 34 tools
 
 | # | tool | B | T | D |
 |---:|---|:--:|:--:|:--:|
@@ -164,13 +164,20 @@
 | 18 | `frequent_kmers_with_mismatches` | ☑ | ☑ | ☑ |
 | 19 | `frequent_kmers_with_mismatches_and_revcomp` | ☑ | ☑ | ☑ |
 | 20 | `global_align` | ☑ | ☑ | ☑ |
-| 21 | `local_align` | ☑ | ☑ | ☑ |
-| 22 | `merge_contigs` | ☑ | ☑ | ☑ |
-| 23 | `multiple_align` | ☑ | ☑ | ☑ |
-| 24 | `quality_trim_reads` | ☑ | ☑ | ☑ |
-| 25 | `scaffold_contigs` | ☑ | ☑ | ☑ |
-| 26 | `semi_global_align` | ☑ | ☑ | ☑ |
-| 27 | `sequence_identity` | ☑ | ☑ | ☑ |
+| 21 | `global_align_affine` | ☑ | ☑ | ☑ |
+| 22 | `local_align` | ☑ | ☑ | ☑ |
+| 23 | `local_align_affine` | ☑ | ☑ | ☑ |
+| 24 | `merge_contigs` | ☑ | ☑ | ☑ |
+| 25 | `multiple_align` | ☑ | ☑ | ☑ |
+| 26 | `multiple_align_anchored` | ☑ | ☑ | ☑ |
+| 27 | `multiple_align_consistency` | ☑ | ☑ | ☑ |
+| 28 | `multiple_align_iterative` | ☑ | ☑ | ☑ |
+| 29 | `multiple_align_progressive` | ☑ | ☑ | ☑ |
+| 30 | `quality_trim_reads` | ☑ | ☑ | ☑ |
+| 31 | `scaffold_contigs` | ☑ | ☑ | ☑ |
+| 32 | `semi_global_align` | ☑ | ☑ | ☑ |
+| 33 | `semi_global_align_affine` | ☑ | ☑ | ☑ |
+| 34 | `sequence_identity` | ☑ | ☑ | ☑ |
 
 ### Analysis (Seqeron.Mcp.Analysis) — 127 tools
 

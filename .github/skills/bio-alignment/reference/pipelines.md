@@ -5,21 +5,21 @@ cross-check, 0-based coords, alpha caveat) come from **`bio-rigor`** — not rep
 
 ## Scoring parameters (shared by all pairwise + MSA tools)
 
-`global_align`, `local_align`, `semi_global_align`, `multiple_align` take the same four knobs:
+`global_align`, `local_align`, `semi_global_align`, the `multiple_align*` tools and the affine variants (`global_align_affine`, `local_align_affine`, `semi_global_align_affine`) take the same four knobs:
 
 | Param | Default | Meaning |
 |---|---|---|
 | `match` | `+1` | reward for an identical column |
 | `mismatch` | `-1` | penalty for a substitution column |
-| `gapOpen` | `-2` | penalty applied when a gap starts |
-| `gapExtend` | `-1` | penalty **per gap position** (linear gap model) |
+| `gapOpen` | `-2` | one-time penalty per gap run — **used only by the `*_affine` tools**; the linear tools (`global_align`, `local_align`, `semi_global_align`, all `multiple_align*`) ignore it |
+| `gapExtend` | `-1` | penalty **per gap position** (a gap of length k costs `gapOpen + k·gapExtend` in the affine tools, `k·gapExtend` in the linear ones) |
 
 Guidance:
 - **DNA, closely related seqs:** defaults are fine. Raise `|mismatch|` (e.g. `-2`) to punish
   substitutions harder and favor gaps; lower it to tolerate SNP-dense inputs.
-- **Favor few long gaps over many short gaps:** make `gapOpen` more negative relative to
-  `gapExtend` (affine-style intent). The model here is linear per position; treat `gapOpen` as the
-  one-time cost and `gapExtend` as the per-base cost.
+- **Favor few long gaps over many short gaps:** use `global_align_affine` / `local_align_affine` /
+  `semi_global_align_affine` and make `gapOpen` more negative relative to `gapExtend`. The linear
+  tools ignore `gapOpen` (every gap position costs `gapExtend`).
 - **Always report the scoring set in provenance** — identity/score are only comparable under the
   same scheme.
 - These tools are **DNA-oriented** (A/C/G/T, uppercased internally). Validate the alphabet first
@@ -57,9 +57,11 @@ equals identity unless a similarity/substitution grouping is in play — see
 ## MSA + consensus + conservation
 
 `multiple_align(sequences=[…])` → `alignedSequences` (equal-length rows), `consensus`
-(majority vote), `totalScore` (sum-of-pairs). It is **anchor-based progressive** (center picked by
-4-mer cosine similarity, suffix-tree anchoring) — good for a family of related DNA seqs; it is not a
-guaranteed-optimal MSA. Details: [`docs/algorithms/Alignment/Multiple_Sequence_Alignment.md`](../../../../docs/algorithms/Alignment/Multiple_Sequence_Alignment.md).
+(majority vote), `totalScore` (sum-of-pairs). `multiple_align` is the **center-star** MSA (Gusfield 1993;
+exact pairwise Needleman–Wunsch alignments to the best-scoring center); `multiple_align_progressive`
+(guide-tree), `multiple_align_iterative` (+ MUSCLE-style refinement), `multiple_align_consistency`
+(T-Coffee) and `multiple_align_anchored` (faster, approximate, suffix-tree anchors) give other
+trade-offs — none is a guaranteed-optimal MSA, and all use the linear gap model. Details: [`docs/algorithms/Alignment/Multiple_Sequence_Alignment.md`](../../../../docs/algorithms/Alignment/Multiple_Sequence_Alignment.md).
 
 Downstream:
 - **Independent consensus check:** run `compute_consensus(alignedReads=alignedSequences)` — a

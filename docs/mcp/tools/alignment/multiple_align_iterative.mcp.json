@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "multiple_align_iterative",
+  "serverName": "Alignment",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "SequenceAligner.MultipleAlignIterative",
+  "docRef": "Seqeron.Genomics.Alignment/SequenceAligner.cs#L2111",
+  "description": "Progressive MSA followed by MUSCLE-style tree-dependent restricted-partitioning refinement (Edgar 2004, stage 3): each guide-tree edge splits the alignment into two profiles that are re-aligned and kept only if the sum-of-pairs score strictly improves; repeated until convergence or maxIterations passes. Never scores below multiple_align_progressive. Linear gap model (gapOpen ignored).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequences": {
+        "type": "array",
+        "description": "DNA sequences to align (at least one)."
+      },
+      "match": {
+        "type": "integer",
+        "description": "Score for matching base.",
+        "default": 1
+      },
+      "mismatch": {
+        "type": "integer",
+        "description": "Score for mismatching base.",
+        "default": -1
+      },
+      "gapOpen": {
+        "type": "integer",
+        "description": "Gap-open penalty (ignored: linear-gap model).",
+        "default": -2
+      },
+      "gapExtend": {
+        "type": "integer",
+        "description": "Gap penalty charged per gap position.",
+        "default": -1
+      },
+      "maxIterations": {
+        "type": "integer",
+        "description": "Upper bound on full refinement passes (>= 1).",
+        "default": 16
+      }
+    },
+    "required": [
+      "sequences"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "alignedSequences": {
+        "type": "array",
+        "description": "The aligned rows of the MSA."
+      },
+      "consensus": {
+        "type": "string",
+        "description": "Majority-vote consensus of the aligned rows (gaps vote; a nucleotide beats a gap on ties)."
+      },
+      "totalScore": {
+        "type": "integer",
+        "description": "Column sum-of-pairs score of the MSA (match/mismatch from the matrix, residue-gap = gapExtend, gap-gap = 0)."
+      }
+    },
+    "required": [
+      "alignedSequences",
+      "consensus",
+      "totalScore"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1010,
+      "message": "Invalid DNA in sequences"
+    },
+    {
+      "code": 1002,
+      "message": "maxIterations must be >= 1"
+    }
+  ],
+  "examples": [
+    {
+      "name": "Gap relocation",
+      "input": {
+        "sequences": [
+          "TCA",
+          "TCT",
+          "GCAC",
+          "TAAC"
+        ]
+      },
+      "output": {
+        "alignedSequences": [
+          "TCA-",
+          "TCT-",
+          "GCAC",
+          "TAAC"
+        ],
+        "consensus": "TCAC",
+        "totalScore": -3
+      }
+    }
+  ]
+}

@@ -4,7 +4,7 @@
 
 <!-- BEGIN generated: do not edit by hand -->
 
-## Alignment (27 tools)
+## Alignment (34 tools)
 
 | tool | Method ID | doc |
 |------|-----------|-----|
@@ -28,12 +28,19 @@
 | `frequent_kmers_with_mismatches` | `ApproximateMatcher.FindFrequentKmersWithMismatches` | [doc](../../mcp/tools/alignment/frequent_kmers_with_mismatches.md) |
 | `frequent_kmers_with_mismatches_and_revcomp` | `ApproximateMatcher.FindFrequentKmersWithMismatchesAndReverseComplements` | [doc](../../mcp/tools/alignment/frequent_kmers_with_mismatches_and_revcomp.md) |
 | `global_align` | `SequenceAligner.GlobalAlign` | [doc](../../mcp/tools/alignment/global_align.md) |
+| `global_align_affine` | `SequenceAligner.GlobalAlignAffine` | [doc](../../mcp/tools/alignment/global_align_affine.md) |
 | `local_align` | `SequenceAligner.LocalAlign` | [doc](../../mcp/tools/alignment/local_align.md) |
+| `local_align_affine` | `SequenceAligner.LocalAlignAffine` | [doc](../../mcp/tools/alignment/local_align_affine.md) |
 | `merge_contigs` | `SequenceAssembler.MergeContigs` | [doc](../../mcp/tools/alignment/merge_contigs.md) |
 | `multiple_align` | `SequenceAligner.MultipleAlign` | [doc](../../mcp/tools/alignment/multiple_align.md) |
+| `multiple_align_anchored` | `SequenceAligner.MultipleAlignAnchored` | [doc](../../mcp/tools/alignment/multiple_align_anchored.md) |
+| `multiple_align_consistency` | `SequenceAligner.MultipleAlignConsistency` | [doc](../../mcp/tools/alignment/multiple_align_consistency.md) |
+| `multiple_align_iterative` | `SequenceAligner.MultipleAlignIterative` | [doc](../../mcp/tools/alignment/multiple_align_iterative.md) |
+| `multiple_align_progressive` | `SequenceAligner.MultipleAlignProgressive` | [doc](../../mcp/tools/alignment/multiple_align_progressive.md) |
 | `quality_trim_reads` | `SequenceAssembler.QualityTrimReads` | [doc](../../mcp/tools/alignment/quality_trim_reads.md) |
 | `scaffold_contigs` | `SequenceAssembler.Scaffold` | [doc](../../mcp/tools/alignment/scaffold_contigs.md) |
 | `semi_global_align` | `SequenceAligner.SemiGlobalAlign` | [doc](../../mcp/tools/alignment/semi_global_align.md) |
+| `semi_global_align_affine` | `SequenceAligner.SemiGlobalAlignAffine` | [doc](../../mcp/tools/alignment/semi_global_align_affine.md) |
 | `sequence_identity` | `SequenceAssembler.CalculateIdentity` | [doc](../../mcp/tools/alignment/sequence_identity.md) |
 
 ## Analysis (127 tools)
