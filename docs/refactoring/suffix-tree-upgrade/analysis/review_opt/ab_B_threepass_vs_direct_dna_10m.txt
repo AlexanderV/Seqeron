@@ -1,0 +1,39 @@
+session 2026-11-04 13:03:54Z input dna_10m pairs 15 calibration pairs 9
+A: dll (this) args [--sa-kernel pointer --lcp-kernel pointer] env []
+B: dll (this) args [--sa-kernel pointer --lcp-kernel direct] env []
+load average at start (1 min): 0.20 (limit 0.30)
+libsais SA+PLCP+LCP (pre): 0.571 0.566 0.610 0.576 0.603 0.590 0.583; median 0.583 s
+AA pair  1 (A B): total A 0.960 s, B 0.972 s, B/A 1.0125
+AA pair  2 (B A): total A 0.966 s, B 0.985 s, B/A 1.0194
+AA pair  3 (A B): total A 0.963 s, B 0.968 s, B/A 1.0048
+AA pair  4 (B A): total A 0.939 s, B 0.965 s, B/A 1.0277
+AA pair  5 (A B): total A 0.938 s, B 0.939 s, B/A 1.0012
+AA pair  6 (B A): total A 0.944 s, B 0.947 s, B/A 1.0024
+AA pair  7 (A B): total A 0.954 s, B 1.038 s, B/A 1.0885
+AA pair  8 (B A): total A 1.021 s, B 1.029 s, B/A 1.0079
+AA pair  9 (A B): total A 1.013 s, B 1.031 s, B/A 1.0177
+AB pair  1 (A B): total A 1.024 s, B 0.818 s, B/A 0.7989
+AB pair  2 (B A): total A 1.011 s, B 0.778 s, B/A 0.7694
+AB pair  3 (A B): total A 0.956 s, B 0.804 s, B/A 0.8411
+AB pair  4 (B A): total A 1.006 s, B 0.809 s, B/A 0.8038
+AB pair  5 (A B): total A 1.022 s, B 0.770 s, B/A 0.7532
+AB pair  6 (B A): total A 1.043 s, B 0.731 s, B/A 0.7006
+AB pair  7 (A B): total A 0.997 s, B 0.795 s, B/A 0.7972
+AB pair  8 (B A): total A 1.045 s, B 0.803 s, B/A 0.7680
+AB pair  9 (A B): total A 0.991 s, B 0.796 s, B/A 0.8028
+AB pair 10 (B A): total A 1.004 s, B 0.813 s, B/A 0.8094
+AB pair 11 (A B): total A 1.017 s, B 0.844 s, B/A 0.8303
+AB pair 12 (B A): total A 0.992 s, B 0.783 s, B/A 0.7890
+AB pair 13 (A B): total A 1.001 s, B 0.752 s, B/A 0.7511
+AB pair 14 (B A): total A 0.959 s, B 0.734 s, B/A 0.7656
+AB pair 15 (A B): total A 1.038 s, B 0.779 s, B/A 0.7507
+libsais SA+PLCP+LCP (post): 0.629 0.561 0.590 0.574 0.605 0.584 0.572; median 0.584 s
+load average at end (1 min): 0.76
+
+== report ==
+build_total_s [s]: A median 1.0063 (0.9557-1.045), B median 0.79484 (0.73051-0.84447); paired B/A median 0.7890 (min 0.7006, max 0.8411, 95 % interval of the median 0.7532-0.8038); A/A median 1.0125 (min 1.0012, max 1.0885), noise band [0.9780, 1.0220]
+build_sa_s [s]: A median 0.71859 (0.67193-0.75595), B median 0.71144 (0.66076-0.75797); paired B/A median 1.0131 (min 0.9053, max 1.0697, 95 % interval of the median 0.9542-1.0216); A/A median 1.0174 (min 1.0014, max 1.0915), noise band [0.9696, 1.0304]
+build_lcp_s [s]: A median 0.2921 (0.27378-0.32906), B median 0.075619 (0.068678-0.091188); paired B/A median 0.2640 (min 0.2087, max 0.3155, 95 % interval of the median 0.2530-0.2736); A/A median 1.0096 (min 0.9874, max 1.0812), noise band [0.9790, 1.0210]
+peak_rss_hwm_after_build [B]: A median 1.5319E+08 (1.5294E+08-1.5329E+08), B median 1.2343E+08 (1.2338E+08-1.2355E+08); paired B/A median 0.8060 (min 0.8050, max 0.8071, 95 % interval of the median 0.8054-0.8063); A/A median 0.9998 (min 0.9990, max 1.0005), noise band [0.9996, 1.0004]
+VERDICT (SA+LCP, build_total_s): ACCEPT - median paired ratio 0.7890 (B/A), acceptance bar <= 0.97, A/A noise band [0.9780, 1.0220], 95 % interval of the median [0.7532, 0.8038]: at least 3 % faster, outside the noise band, interval below 1
+same-session libsais SA+PLCP+LCP median 0.583 s (pre 0.583, post 0.584, drift 0.2 %); A/libsais 1.73x, B/libsais 1.36x

@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using SuffixTree.Esa.Tests.Kernels;
 using SuffixTree.Esa.Tests.TestSupport;
 
@@ -194,6 +195,68 @@ public class ReviewS1aOptTests
         GC.Collect(2, GCCollectionMode.Forced, blocking: true, compacting: true);
     }
 
+    // ---- read-before-write: every possible poison byte, not only the four of the registry -----------------------------------------------
+
+    [Test]
+    public void EveryPoisonByte_GivesTheReferenceResult_ForAllOptimizedEngines()
+    {
+        // The registry harness fills uninitialised workspace with 0xCD, 0x00, 0xFF and 0x5A. A read of a cell that was never written is harmless for a pattern whose
+        // value is inert (any negative int is "empty", 0 is "no position"), so all 256 byte values are used here, on texts that exercise the recursion.
+        var texts = new List<string> { string.Empty, "a", "ab", "ba", "aa", "banana", "mississippi" };
+        var rng = new SplitMix64(0x9015);
+        foreach (int sigma in new[] { 2, 3, 4, 20, 130 })
+            for (int k = 0; k < 6; k++) texts.Add(StringFamilies.Random(5 + rng.NextInt(60), sigma, rng.Next()));
+        texts.Add(StringFamilies.Fibonacci(89));
+        texts.Add(StringFamilies.PeriodicAaB(100, 7));
+        texts.Add(StringFamilies.AllSame(50));
+        texts.Add(StringFamilies.ThueMorse(120));
+        foreach (string text in texts)
+        {
+            PreparedText prepared = TextPreparation.Prepare(text);
+            int[] expectedSa = SaisReference.BuildSuffixArray(text);
+            int[] expectedLcp = LcpKernel.Build(LcpKernelKind.Reference, prepared, expectedSa).ToArray();
+            for (int poison = 0; poison < 256; poison++)
+            {
+                using var arena = new NativeArena(ArenaOptions.Guarded((byte)poison));
+                foreach (SaisEngine e in KernelRegistry.OptimizedSais)
+                {
+                    int[] sa = e.Run(prepared, arena).Sa;
+                    arena.VerifyCanaries();
+                    Assert.That(sa, Is.EqualTo(expectedSa), $"{e.Name} poison 0x{poison:X2} on '{text}'");
+                }
+
+                foreach (LcpEngine e in KernelRegistry.OptimizedLcp)
+                {
+                    int[] lcp = e.Run(prepared, expectedSa, arena).Lcp.ToArray();
+                    arena.VerifyCanaries();
+                    Assert.That(lcp, Is.EqualTo(expectedLcp), $"{e.Name} poison 0x{poison:X2} on '{text}'");
+                }
+            }
+        }
+    }
+
+    // ---- which code paths a run really takes (evidence for the reduced-instruction-set runs) --------------------------------------------
+
+    [Test]
+    [Category("ReviewIntrinsics")]
+    [Explicit("Report only: run under DOTNET_EnableHWIntrinsic=0 / DOTNET_EnableAVX2=0 / ... with --filter Category=ReviewIntrinsics to see which paths a configuration really selects")]
+    public void ReportInstructionSets()
+    {
+        string line = string.Join(' ',
+            $"Sse={System.Runtime.Intrinsics.X86.Sse.IsSupported}",
+            $"Sse41={System.Runtime.Intrinsics.X86.Sse41.IsSupported}",
+            $"Avx2={System.Runtime.Intrinsics.X86.Avx2.IsSupported}",
+            $"Bmi1={System.Runtime.Intrinsics.X86.Bmi1.IsSupported}",
+            $"Lzcnt={System.Runtime.Intrinsics.X86.Lzcnt.IsSupported}",
+            $"Popcnt={System.Runtime.Intrinsics.X86.Popcnt.IsSupported}",
+            $"Vector128Accelerated={System.Runtime.Intrinsics.Vector128.IsHardwareAccelerated}",
+            $"Vector256Accelerated={System.Runtime.Intrinsics.Vector256.IsHardwareAccelerated}",
+            $"TieredCompilation={System.Runtime.CompilerServices.RuntimeFeature.IsDynamicCodeCompiled}",
+            $"BoundsChecked={EsaBuild.BoundsChecked}");
+        Console.WriteLine("INSTRUCTION-SETS " + line);
+        Assert.That(line, Is.Not.Empty);
+    }
+
     // ---- no shared mutable state: concurrent builds of different texts -----------------------------------------------------------------
 
     [Test]
@@ -226,6 +289,50 @@ public class ReviewS1aOptTests
             }
         });
         Assert.That(failures, Is.Empty);
+    }
+
+    [Test]
+    public void BuildsUnderGcPressure_WithForcedCompactingCollections_GiveTheReferenceResults()
+    {
+        // every managed array that a kernel reaches through a pointer must be pinned for the whole access (fixed): a thread that keeps allocating and forcing
+        // compacting collections would move an unpinned array under the kernel and corrupt the result or crash the host
+        string text = ReviewS1aOptWorstCaseTests.Family("dup400-p15", 40_000);
+        PreparedText prepared = TextPreparation.Prepare(text);
+        int[] expectedSa = SaisReference.BuildSuffixArray(text);
+        CompactLcp reference = LcpKernel.Build(LcpKernelKind.Reference, prepared, expectedSa);
+        int[] expectedLcp = reference.ToArray();
+        using var stop = new CancellationTokenSource();
+        long collections = 0;
+        var pressure = Task.Run(() =>
+        {
+            var keep = new List<byte[]>();
+            while (!stop.IsCancellationRequested)
+            {
+                for (int k = 0; k < 300; k++) keep.Add(new byte[(k % 7 * 20_000) + 1000]); // allocation churn between collections, so that the builder keeps running
+                if (keep.Count > 600) keep.RemoveRange(0, 450);
+                GC.Collect(2, GCCollectionMode.Forced, blocking: true, compacting: true);
+                Interlocked.Increment(ref collections);
+            }
+        });
+        try
+        {
+            // build until at least 20 collections happened while the kernels were running (a loaded machine may starve the pressure thread), at most 15 s
+            var clock = Stopwatch.StartNew();
+            for (int round = 0; round < 3 || (Interlocked.Read(ref collections) < 20 && clock.Elapsed.TotalSeconds < 15); round++)
+            {
+                int[] sa = SaisKernel.Build(SaisKernelKind.Pointer, prepared);
+                Assert.That(sa, Is.EqualTo(expectedSa), $"SA round {round}");
+                foreach (LcpKernelKind kind in new[] { LcpKernelKind.Pointer, LcpKernelKind.Direct })
+                    Assert.That(LcpKernel.Build(kind, prepared, sa).ToArray(), Is.EqualTo(expectedLcp), $"{kind} round {round}");
+            }
+        }
+        finally
+        {
+            stop.Cancel();
+            pressure.Wait();
+        }
+
+        Assert.That(Interlocked.Read(ref collections), Is.GreaterThanOrEqualTo(20), "the pressure thread must have forced collections while the kernels ran");
     }
 
     // ---- boundary sweep (item 5): sizes around block, unroll and vector boundaries, every alphabet class -------------------------

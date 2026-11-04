@@ -1,0 +1,12 @@
+# Output of ReviewS1aOptTests.ReportInstructionSets (Category=ReviewIntrinsics) under each knob, .NET SDK 10.0.403, 2026-11-04, Intel Xeon (KVM)
+# "ignored" = the runtime reports the same instruction sets as without the knob
+none (base):                                  Sse=True  Sse41=True  Avx2=True  Bmi1=True  Lzcnt=True  Popcnt=True  Vector128Accelerated=True  Vector256Accelerated=True
+DOTNET_EnableHWIntrinsic=0:                   Sse=False Sse41=False Avx2=False Bmi1=False Lzcnt=False Popcnt=False Vector128Accelerated=False Vector256Accelerated=False
+DOTNET_EnableAVX2=0:                          Sse=True  Sse41=True  Avx2=False Bmi1=False Lzcnt=False Popcnt=True  Vector128Accelerated=True  Vector256Accelerated=False
+DOTNET_EnableAVX=0:                           Sse=True  Sse41=True  Avx2=False Bmi1=False Lzcnt=False Popcnt=True  Vector128Accelerated=True  Vector256Accelerated=False
+DOTNET_EnableSSE42=0:                         Sse=True  Sse41=False Avx2=False Bmi1=False Lzcnt=False Popcnt=False Vector128Accelerated=True  Vector256Accelerated=False
+DOTNET_EnableSSE41=0:                         ignored
+DOTNET_EnableSSE3_4=0:                        ignored
+DOTNET_EnableAVX=0 DOTNET_EnableSSE41=0:      same as EnableAVX=0 (EnableSSE41 ignored)
+DOTNET_EnableBMI1=0 / EnableLZCNT=0 / EnablePOPCNT=0 (each alone, and together with EnableBMI2=0): ignored
+DOTNET_EnableSSE=0 / EnableSSE2=0:            ignored

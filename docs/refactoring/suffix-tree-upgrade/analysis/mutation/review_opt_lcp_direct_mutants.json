@@ -7,7 +7,7 @@
  },
  {
   "id": "R61",
-  "desc": "step budget 1000 n instead of 2 n (quadratic worst case on two copies of a block)",
+  "desc": "step budget 1000 n instead of 2 n (quadratic worst case on a text with an embedded long repeat)",
   "old": "internal const int ResolveStepsPerChar = 2;",
   "new": "internal const int ResolveStepsPerChar = 1000;"
  },
@@ -49,7 +49,7 @@
  },
  {
   "id": "R68",
-  "desc": "resolution: the continuation compares from the wrong offset (i = width + 1 start only for the tail scalar)",
+  "desc": "resolution: the scalar tail stops one symbol early (limit - 1)",
   "old": "while (i < limit && text[a + i].Equals(text[b + i])) i++;",
   "new": "while (i < limit - 1 && text[a + i].Equals(text[b + i])) i++;"
  },

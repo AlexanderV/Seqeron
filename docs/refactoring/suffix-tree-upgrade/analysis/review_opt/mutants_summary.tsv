@@ -1,0 +1,65 @@
+id	site	change	release_build	checked_build	pre_existing_suite_only	final	note
+R80	Memory/Buf.cs:61	checked indexer admits index == length	survived	killed(5)	survived / killed(4)	K	
+R81	Memory/Buf.cs:69	checked Slice(start, length) admits one element too many	survived	killed(2)	survived / killed(1)	K	
+R82	Memory/Buf.cs:85	checked ReadUnaligned admits a word that ends one byte past the buffer	survived	killed(1)	survived / survived	K-new	Buf edge test
+R83	Memory/Buf.cs:85	checked ReadUnaligned admits negative indices	survived	killed(1)	survived / survived	K-new	Buf edge test
+R84	Memory/Buf.cs:93	checked LoadVector128 admits a vector that ends one element past the buffer	survived	killed(1)	survived / survived	K-new	Buf edge test
+R85	Memory/Buf.cs:93	checked LoadVector128 admits negative indices	survived	killed(1)	survived / survived	K-new	Buf edge test
+R86	Memory/Buf.cs:100	checked AsSpan admits one element too many	survived	killed(2)	survived / killed(1)	K	
+R87	Memory/Buf.cs:152	prefetch uses the non-temporal hint (correct results, evicts early)	survived	survived	not run	PERF	hint only (nta)
+R92	Memory/NativeArena.cs:102	ReleaseTo leaves the oldest block of a level allocated and unverified	killed(2)	-	killed(2)	K	
+R93	Memory/NativeArena.cs:163	the guard band after the payload is never verified	killed(7)	-	killed(6)	K	
+R94	Memory/NativeArena.cs:72	zeroed blocks of a guarded arena are not cleared	killed(host crash)	-	killed(host crash)	K	
+R90	Memory/NativeArena.cs:181	canary pattern is constant zero (a kernel that writes zeros into a guard band is not detected)	killed(2)	-	killed(1)	K	
+R91	Memory/NativeArena.cs:73	poison does not cover the last byte of an uninitialised block (payload > 0)	killed(2)	-	killed(1)	K	
+R60	LcpKernel.Direct.cs:109	dst[0] is not written (uninitialised managed array: invisible unless the heap is dirty)	killed(4)	-	killed(1)	K	
+R61	LcpKernel.Direct.cs:41	step budget 1000 n instead of 2 n (quadratic worst case on a text with an embedded long repeat)	killed(2)	-	killed(1)	K	
+R62	LcpKernel.Direct.cs:32	no cap on the long ranks (divisor 1 << 30: longCap = 0 for small n, huge otherwise)	killed(3)	-	killed(3)	K	
+R63	LcpKernel.Direct.cs:108	early exit threshold: min instead of max (aborts after 1024 ranks even for large n: performance only)	killed(1)	-	killed(1)	K	
+R64	LcpKernel.Direct.cs:125	early exit needs three quarters long instead of half (performance only)	survived	survived	not run	PERF	only the moment of giving up changes
+R65	LcpKernel.Direct.cs:59	long ranks array has no spare slot (claimed equivalent: the cap check precedes the store)	survived	survived	not run	EQ	checked build, exact size
+R66	LcpKernel.Direct.cs:60	escape arrays have no spare slot (claimed equivalent: the cap check precedes the store)	survived	survived	not run	EQ	checked build, exact size
+R67	LcpKernel.Direct.cs:172	resolution budget counted per long rank instead of per vector step (performance only on repeats)	killed(3)	-	killed(3)	K	
+R68	LcpKernel.Direct.cs:166	resolution: the scalar tail stops one symbol early (limit - 1)	killed(5)	-	killed(4)	K	
+R72	LcpKernel.Direct.cs:133	the placeholder for a long rank is width + 1 (overwritten by the resolution: claimed equivalent unless the scan result is used raw)	survived	survived	not run	EQ	placeholder always overwritten
+R50	LcpKernel.cs:156	PLCP: l <= limit also calls the comparison (max = 0 returns 0: claimed equivalent)	survived	survived	not run	EQ	max = 0 returns 0
+R51	LcpKernel.cs:163	PLCP: l is decremented without the l > 0 guard	killed(18)	-	killed(12)	K	
+R52	LcpKernel.cs:273	CommonPrefix: the head loop ignores max (reads up to 7 symbols past the allowed range)	killed(7)	-	killed(4)	K	
+R53	LcpKernel.cs:81	kind U16: the escape count announced from the 8-bit threshold	killed(10)	-	killed(6)	K	
+R54	LcpKernel.cs:280	CommonPrefix: the word loop allows one word past max	killed(3)	-	killed(1)	K	
+R55	LcpKernel.cs:286	CommonPrefix: the mismatch position of a word is counted in bits instead of symbols for bytes	killed(16)	-	killed(10)	K	
+R56	LcpKernel.cs:126	FillPhi: the first predecessor is 0 instead of n (the sentinel)	killed(14)	-	killed(10)	K	
+R57	LcpKernel.cs:310	pass 3 U32: the look-ahead distance overflows (int.MaxValue)	killed(host crash)	-	killed(host crash)	K	
+R58	LcpKernel.cs:307	PLCP prefetch distance int.MaxValue (the clamp Math.Min(j + d, n - 1) sees a negative index)	killed(host crash)	-	killed(host crash)	K	
+R69	LcpKernel.cs:313	scan: prefetch distance int.MaxValue (r + distance overflows)	killed(host crash)	-	killed(host crash)	K	
+R70	LcpKernel.cs:316	resolve: prefetch distance negative (k + distance < longs reads long ranks before index 0)	killed(host crash)	-	killed(host crash)	K	
+R01	SaisKernel.cs:223	classification: the distance of the symbols is reversed (next - c)	killed(host crash)	-	killed(host crash)	K	
+R02	SaisKernel.cs:226	classification: equal symbols inherit the opposite type	killed(28)	-	killed(22)	K	
+R03	SaisKernel.cs:206	counting stores presence instead of a count	killed(host crash)	-	killed(host crash)	K	
+R04	SaisKernel.cs:248	SetBucketTails leaves the bucket of the largest symbol stale (claim: never used, the largest symbol is always L-type)	killed(9)	-	killed(9)	K	
+R05	SaisKernel.cs:262	round 1 placement starts from the symbol of position n - 2 (reads index -1 for n = 1)	survived	killed(9)	survived / killed(7)	K	
+R06	SaisKernel.cs:285	CompactSortedLms: the clamp of an empty slot is dropped (reads packed[-1] for p = -1)	survived	survived	not run	EQ	E06h
+R07	SaisKernel.cs:336	reduced problem: the LMS positions in text order are written one slot lower (spare slot: claimed equivalent because m <= (n - 1) / 2)	survived	survived	not run	EQ	E07
+R08	SaisKernel.cs:115	representation choice: packed bytes also for 128 symbols (127 << 1 | 1 = 255 still fits: claimed equivalent)	survived	survived	not run	EQ	E08
+R09	SaisKernel.cs:348	translation of the reduced ranks reads the tail one entry too high	killed(host crash)	-	killed(host crash)	K	
+R10	SaisKernel.cs:363	round 2 placement: the bucket cursor is not stored back	killed(host crash)	-	killed(host crash)	K	
+R11	SaisKernel.cs:152	stage 1 sorts with the heads of the buckets in the S pass (tails not re-set)	killed(host crash)	-	killed(host crash)	K	
+R12	SaisKernel.cs:324	recursion receives the wrong alphabet size (m instead of names)	killed(8)	-	killed(7)	K	
+R13	SaisKernel.cs:319	the reduced SA block is one entry short (m instead of m + 1)	survived	killed(31)	survived / killed(25)	K	
+R14	SaisKernel.cs:219	classification: the last position is typed S-type for the equal-run rule only (nextIsS starts as 1)	killed(28)	-	killed(22)	K	
+R20	SaisInduction.cs:32	L pass: the clamped prefetch index is dropped (prefetch of index -2 for empty entries: no architectural effect, claimed equivalent)	survived	survived	not run	K-new	prefetch pin
+R21	SaisInduction.cs:76	naming: previous starts at 0 instead of -1	killed(6)	-	killed(5)	K	
+R22	SaisInduction.cs:101	naming: the end test compares with b instead of a	killed(27)	-	killed(22)	K	
+R23	SaisInduction.cs:87	naming returns the last name instead of the count	killed(31)	-	killed(25)	K	
+R24	SaisInduction.cs:52	S pass: look-ahead entry from the wrong end (Math.Min instead of Math.Max, reads past n)	survived	survived	not run	K-new	prefetch pin
+R25	SaisInduction.cs:81	naming: the name slot of the look-ahead is computed from the position instead of the entry (no architectural effect, claimed equivalent)	survived	survived	not run	PERF	Buf-level prefetch, not interceptable
+R26	SaisInduction.cs:29	L pass: loop starts at 1 (the sentinel suffix n is never scanned)	killed(30)	-	killed(24)	K	
+R30	TypedText.cs:95	packed sentinel byte is hostile (0xFF): claim the sentinel is never read	survived	survived	not run	EQ	E30
+R31	TypedText.cs:62	split sink writes the sentinel as L-type (claim: never read)	survived	survived	not run	EQ	E30
+R32	TypedText.cs:97	packed: the type bit is OR-ed into the symbol position (isS << 1)	killed(26)	-	killed(20)	K	
+R33	TypedText.cs:43	split Get reads the type of the neighbour	killed(host crash)	-	killed(host crash)	K	
+R40	SaisPrefetch.cs:13	induction prefetch distance 0 (look-ahead is the current entry: no architectural effect, performance only)	survived	survived	not run	K-new	prefetch pin
+R41	SaisPrefetch.cs:13	induction prefetch distance int.MaxValue (i + distance overflows to a negative index)	killed(host crash)	-	killed(host crash)	K	
+R42	SaisPrefetch.cs:16	naming prefetch distance int.MaxValue (overflow)	killed(host crash)	-	killed(host crash)	K	
+R43	SaisPrefetch.cs:13	induction prefetch distance 2^30 (i + 2^30 does not overflow below n = 2^30, clamped to n: claimed equivalent)	survived	survived	not run	K-new	prefetch pin
+R44	SaisPrefetch.cs:16	naming prefetch distance negative (look-ahead reads before the first sorted LMS entry)	survived	killed(30)	survived / killed(24)	K	

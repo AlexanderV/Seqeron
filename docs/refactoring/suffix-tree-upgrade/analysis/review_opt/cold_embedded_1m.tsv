@@ -1,0 +1,6 @@
+file	n	libsais_total_med	libsais_sa	direct_total_med	direct_sa	direct_lcp	p3_total_med	p3_lcp	ref_lcp(1run)	kind	rss_Bpc	hash_ok
+embedded-015pct_1000000	1000000	0.043	-	0.079	0.071	0.009	0.094	0.024	0.032	U8	42.8	1
+embedded-040pct_1000000	1000000	0.042	-	0.087	0.075	0.011	0.097	0.024	0.029	U8	42.9	1
+embedded-1pct_1000000	1000000	0.043	-	0.111	0.069	0.042	0.094	0.024	0.040	U8	46.9	1
+embedded-20pct_1000000	1000000	0.043	-	0.115	0.070	0.044	0.097	0.025	0.031	U32	50.3	1
+embedded-5pct_1000000	1000000	0.045	-	0.115	0.071	0.044	0.097	0.026	0.032	U8	47.6	1

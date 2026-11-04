@@ -26,7 +26,7 @@ public class ReviewS1aOptWorstCaseTests
     [
         "random-dna", "random-binary", "random-protein", "all-same", "ab-repeat", "fibonacci", "thue-morse",
         "period2-noise", "period1000-noise", "rep-100x-1pct", "debruijn-2", "debruijn-4",
-        "dup400-p10", "dup400-p15", "dup400-p20", "dup400-p25", "two-copies", "three-copies", "tandem-1000",
+        "dup400-p10", "dup400-p15", "dup400-p20", "dup400-p25", "embedded-015pct", "embedded-040pct", "embedded-1pct", "embedded-5pct", "embedded-20pct", "two-copies", "three-copies", "tandem-1000",
         "u16-random-1000", "u16-bmp", "u16-all-same", "u16-period1000-noise", "akb-k100", "runs-L256",
     ];
 
@@ -51,6 +51,11 @@ public class ReviewS1aOptWorstCaseTests
             case "dup400-p15": return DuplicatedBlocks(n, 400, 0.15, Seed);
             case "dup400-p20": return DuplicatedBlocks(n, 400, 0.20, Seed);
             case "dup400-p25": return DuplicatedBlocks(n, 400, 0.255, Seed);
+            case "embedded-015pct": return EmbeddedRepeat(n, 0.0015, Seed);
+            case "embedded-040pct": return EmbeddedRepeat(n, 0.004, Seed);
+            case "embedded-1pct": return EmbeddedRepeat(n, 0.01, Seed);
+            case "embedded-5pct": return EmbeddedRepeat(n, 0.05, Seed);
+            case "embedded-20pct": return EmbeddedRepeat(n, 0.20, Seed);
             case "two-copies": return Copies(n, 2, Seed);
             case "three-copies": return Copies(n, 3, Seed);
             case "tandem-1000": return StringFamilies.Periodic(n, 1000, Seed);
@@ -151,13 +156,14 @@ public class ReviewS1aOptWorstCaseTests
     // ---- the complexity contract (default tests) ---------------------------------------------------------------------------------
 
     [Test]
-    public void Direct_OnTwoCopiesOfARandomBlock_IsLinear_AndEqualsTheReference()
+    public void Direct_OnAnEmbeddedLongRepeat_IsLinear_AndEqualsTheReference()
     {
-        // B B with |B| = n / 2: the LCP of suffix i of the second copy with suffix i of the first is n/2 - i, so the sum of the LCP values is n^2 / 8 and an unbounded
-        // continuation would take n^2 / 128 = 7.8e9 vector steps at n = 10^6 (seconds to minutes); the step budget (2n steps, then the three-pass fallback) makes it ~ms.
-        // A mutation of ResolveStepsPerChar, of the early exit or of the quarter limit that removes the bound shows up here as a timeout, not as a wrong result.
-        const int N = 1_000_000;
-        string text = Copies(N, 2, 7);
+        // random text with one block of 20 % of the length occurring twice: 20 % of the ranks are long (below the quarter limit, so the scan completes and the early exit
+        // does not fire: the long ranks are spread over the whole suffix array) and their LCP values average 400,000, i.e. 25,000 vector steps each. Without the step budget
+        // (2n steps, then the three-pass fallback) the resolution would take 2e10 steps (tens of seconds); with it, milliseconds. A mutation of ResolveStepsPerChar or
+        // of the budget test shows up here as a timeout, not as a wrong result (the fallback result equals the direct result).
+        const int N = 4_000_000;
+        string text = EmbeddedRepeat(N, 0.20, 7);
         PreparedText prepared = TextPreparation.Prepare(text);
         int[] sa = SaisKernel.Build(SaisKernelKind.Pointer, prepared);
         string warm = new(text.AsSpan(0, 2000));
@@ -166,7 +172,7 @@ public class ReviewS1aOptWorstCaseTests
         CompactLcp direct = LcpKernel.Build(LcpKernelKind.Direct, prepared, sa);
         double seconds = sw.Elapsed.TotalSeconds;
         CompactLcp reference = LcpKernel.Build(LcpKernelKind.Reference, prepared, sa);
-        Assert.That(seconds, Is.LessThan(5.0), "direct LCP on B B must be linear (normally ~20 ms)");
+        Assert.That(seconds, Is.LessThan(3.0), "direct LCP on a text with an embedded long repeat must be linear (normally ~0.1 s)");
         Assert.That(direct.Kind, Is.EqualTo(reference.Kind));
         Assert.That(direct.OverflowCount, Is.EqualTo(reference.OverflowCount));
         Assert.That(direct.ToArray(), Is.EqualTo(reference.ToArray()));
@@ -185,6 +191,55 @@ public class ReviewS1aOptWorstCaseTests
         Assert.That(direct.Kind, Is.EqualTo(reference.Kind));
         Assert.That(direct.OverflowCount, Is.EqualTo(reference.OverflowCount));
         Assert.That(direct.ToArray(), Is.EqualTo(reference.ToArray()));
+    }
+
+    [Test]
+    [Explicit("KNOWN LIMITATION, fails today (REVIEW-S1a-opt MAJ-1): one repeat of 1 % of the text length already exhausts the 2n-step resolution budget, the direct attempt gives up and the LCP phase runs at three-pass speed (plus the wasted attempt)")]
+    public void Direct_Succeeds_OnRandomDnaWithOneEmbeddedRepeatOfOnePercent()
+    {
+        // n = 10^6 random DNA; the block of 10,000 letters occurs twice. 10,000 ranks are long (1 %, far below the quarter limit) and their LCP values average 5,000,
+        // i.e. 312 vector steps each: 3.1e6 steps in total against a budget of 2e6, so ResolveLong returns -1. In general a single repeat of length L has about L^2 / 32 steps
+        // and the budget is 2n, so every repeat longer than about 8 * sqrt(n) symbols (8,000 at 10^6, 25,000 at 10^7, 80,000 at 10^8) defeats the direct scan. Real genomes
+        // contain such repeats (segmental duplications, satellite arrays).
+        const int N = 1_000_000;
+        string text = EmbeddedRepeat(N, 0.01, 3);
+        PreparedText prepared = TextPreparation.Prepare(text);
+        int[] sa = SaisKernel.Build(SaisKernelKind.Pointer, prepared);
+        TryDirectOnce(prepared, sa, out bool ok);
+        Assert.That(ok, Is.True, "the direct scan should resolve a single 1 % repeat");
+    }
+
+    [Test]
+    public void InvalidSuffixArrays_InRange_AreProcessedInLinearTime_ByBothLcpKernels()
+    {
+        // The kernels trust a suffix array whose entries are in range. For a wrong one the result is garbage, but the time must stay linear and nothing may be read out of
+        // bounds: the Kasai-style loop carries l, which never exceeds n and drops by at most 1 per step, so its total work is <= 2n whatever the entries are; the direct scan
+        // gives up through its caps. A random permutation and an all-zero array over a^n and over a periodic text (the worst shapes for an unverified carried length).
+        const int N = 400_000;
+        foreach (string text in new[] { StringFamilies.AllSame(N), StringFamilies.Periodic(N, 3, 9) })
+        {
+            PreparedText prepared = TextPreparation.Prepare(text);
+            var rng = new SplitMix64(5);
+            int[] permutation = new int[N + 1];
+            permutation[0] = N;
+            for (int i = 1; i <= N; i++) permutation[i] = i - 1;
+            for (int i = N; i > 1; i--)
+            {
+                int j = 1 + rng.NextInt(i);
+                (permutation[i], permutation[j]) = (permutation[j], permutation[i]);
+            }
+
+            int[] zeros = new int[N + 1];
+            zeros[0] = N;
+            foreach (int[] sa in new[] { permutation, zeros })
+                foreach (LcpKernelKind kind in new[] { LcpKernelKind.Direct, LcpKernelKind.Pointer })
+                {
+                    var sw = Stopwatch.StartNew();
+                    CompactLcp lcp = LcpKernel.Build(kind, prepared, sa);
+                    Assert.That(sw.Elapsed.TotalSeconds, Is.LessThan(5.0), $"{kind} on an invalid suffix array of {N} entries");
+                    Assert.That(lcp.Length, Is.EqualTo(N + 1));
+                }
+        }
     }
 
     // ---- generators --------------------------------------------------------------------------------------------------------------
@@ -230,6 +285,22 @@ public class ReviewS1aOptWorstCaseTests
         for (int i = 0; i < n; i++) c[i] = b[i % block];
         long edits = (long)(n * rate);
         for (long k = 0; k < edits; k++) c[rng.NextInt(n)] = (char)('a' + rng.NextInt(4));
+        return new string(c);
+    }
+
+    /// <summary>
+    /// Random DNA of length n in which one block of <paramref name="fraction"/> * n letters occurs twice (random, block, random, the same block, random): about
+    /// <paramref name="fraction"/> of the ranks have an LCP between 16 and the block length, spread over the whole suffix array.
+    /// </summary>
+    internal static string EmbeddedRepeat(int n, double fraction, ulong seed)
+    {
+        var rng = new SplitMix64(seed);
+        int block = (int)(n * fraction);
+        int gap = (n - (2 * block)) / 3;
+        var c = new char[n];
+        for (int i = 0; i < n; i++) c[i] = (char)('a' + rng.NextInt(4));
+        int first = gap, second = gap + block + gap;
+        for (int i = 0; i < block; i++) c[second + i] = c[first + i];
         return new string(c);
     }
 
