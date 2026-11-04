@@ -424,57 +424,72 @@ internal static unsafe partial class LcpKernel
         int escapes = kind switch { LcpKind.U8 => (int)escapes8, LcpKind.U16 => (int)escapes16, _ => 0 };
         var overflowRank = new int[escapes];
         var overflowValue = new int[escapes];
-        int e = 0;
-        switch (kind)
+        fixed (int* pRank = overflowRank)
+        fixed (int* pValue = overflowValue)
         {
-            case LcpKind.U8:
-                for (int k = 0; k < longs; k++)
-                {
-                    int v = values[k];
-                    int r = longRanks[k];
-                    if (v < byte.MaxValue)
-                    {
-                        dst[r] = (byte)v;
-                        continue;
-                    }
-
-                    dst[r] = byte.MaxValue;
-                    overflowRank[e] = r;
-                    overflowValue[e] = v;
-                    e++;
-                }
-
-                return CompactLcp.FromParts(kind, n + 1, lcp8, null, null, overflowRank, overflowValue);
-            case LcpKind.U16:
-                {
-                    ushort[] lcp16 = GC.AllocateUninitializedArray<ushort>(n + 1);
-                    Widen(lcp8, lcp16);
+            var escapedRanks = new Buf<int>(pRank, escapes, "overflowRank");
+            var escapedValues = new Buf<int>(pValue, escapes, "overflowValue");
+            int e = 0;
+            switch (kind)
+            {
+                case LcpKind.U8:
                     for (int k = 0; k < longs; k++)
                     {
                         int v = values[k];
                         int r = longRanks[k];
-                        if (v < ushort.MaxValue)
+                        if (v < byte.MaxValue)
                         {
-                            lcp16[r] = (ushort)v;
+                            dst[r] = (byte)v;
                             continue;
                         }
 
-                        lcp16[r] = ushort.MaxValue;
-                        overflowRank[e] = r;
-                        overflowValue[e] = v;
+                        dst[r] = byte.MaxValue;
+                        escapedRanks[e] = r;
+                        escapedValues[e] = v;
                         e++;
                     }
 
-                    return CompactLcp.FromParts(kind, n + 1, null, lcp16, null, overflowRank, overflowValue);
-                }
+                    return CompactLcp.FromParts(kind, n + 1, lcp8, null, null, overflowRank, overflowValue);
+                case LcpKind.U16:
+                    {
+                        ushort[] lcp16 = GC.AllocateUninitializedArray<ushort>(n + 1);
+                        Widen(lcp8, lcp16);
+                        fixed (ushort* pLcp = lcp16)
+                        {
+                            var wide = new Buf<ushort>(pLcp, n + 1, "lcp16");
+                            for (int k = 0; k < longs; k++)
+                            {
+                                int v = values[k];
+                                int r = longRanks[k];
+                                if (v < ushort.MaxValue)
+                                {
+                                    wide[r] = (ushort)v;
+                                    continue;
+                                }
 
-            default:
-                {
-                    int[] lcp32 = GC.AllocateUninitializedArray<int>(n + 1);
-                    Widen(lcp8, lcp32);
-                    for (int k = 0; k < longs; k++) lcp32[longRanks[k]] = values[k];
-                    return CompactLcp.FromParts(kind, n + 1, null, null, lcp32, overflowRank, overflowValue);
-                }
+                                wide[r] = ushort.MaxValue;
+                                escapedRanks[e] = r;
+                                escapedValues[e] = v;
+                                e++;
+                            }
+                        }
+
+                        return CompactLcp.FromParts(kind, n + 1, null, lcp16, null, overflowRank, overflowValue);
+                    }
+
+                default:
+                    {
+                        int[] lcp32 = GC.AllocateUninitializedArray<int>(n + 1);
+                        Widen(lcp8, lcp32);
+                        fixed (int* pLcp = lcp32)
+                        {
+                            var wide = new Buf<int>(pLcp, n + 1, "lcp32");
+                            for (int k = 0; k < longs; k++) wide[longRanks[k]] = values[k];
+                        }
+
+                        return CompactLcp.FromParts(kind, n + 1, null, null, lcp32, overflowRank, overflowValue);
+                    }
+            }
         }
     }
 

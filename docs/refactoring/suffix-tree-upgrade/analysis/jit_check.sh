@@ -25,7 +25,7 @@ for l in listings:
         continue
     checked += 1
     rng = l.count('CORINFO_HELP_RNGCHKFAIL')
-    calls = len(re.findall(r'call\s+\[?[^\n]*Buf`1', l))  # a surviving call into the accessor struct (not System.Buffer helpers)
+    calls = len(re.findall(r'call\s+\[(?:SuffixTree\.Esa\.)?Buf`1\[', l))  # a surviving call INTO the accessor struct (its indexer, loads, slices); a call that merely takes or returns a Buf (arena allocation, a helper method) is not an accessor call
     print(f'{head}: range-check helpers {rng}, accessor calls {calls}')
     if rng or calls: bad += 1
 if checked == 0:

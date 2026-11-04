@@ -1,0 +1,248 @@
+[
+ {
+  "id": "F01",
+  "desc": "allowance: the per-processed-rank term is dropped",
+  "old": "budget += ResolveStepsPerLong;",
+  "new": "budget += k < 0 ? ResolveStepsPerLong : 0;"
+ },
+ {
+  "id": "F02",
+  "desc": "allowance: the base term is dropped",
+  "old": "long budget = ResolveBaseSteps;",
+  "new": "long budget = 0;"
+ },
+ {
+  "id": "F03",
+  "desc": "allowance: exhausted one step early (>= instead of >)",
+  "old": "if (++work > budget)",
+  "new": "if (++work >= budget)"
+ },
+ {
+  "id": "F04",
+  "desc": "force hook ignored (the per-rank resolution runs first even when text order is forced)",
+  "old": "if (longs < TextOrderMinLongs && (report is null || !report.ForceTextOrder))",
+  "new": "if (longs < TextOrderMinLongs)"
+ },
+ {
+  "id": "F05",
+  "desc": "escape cap: allows one escape too many (writes one past the lists)",
+  "old": "if (escapes == escapeCap)",
+  "new": "if (escapes > escapeCap)"
+ },
+ {
+  "id": "F06",
+  "desc": "rescue keeps the escape lists of the failed attempt allocated (memory only)",
+  "old": "arena.ReleaseTo(rankMark); // the escape lists of the failed attempt are dead",
+  "new": "_ = rankMark; // the escape lists of the failed attempt are dead"
+ },
+ {
+  "id": "F07",
+  "desc": "success leaves its blocks in the arena",
+  "old": "arena.ReleaseTo(mark);\n        return result;\n    }\n\n    /// <summary>\n    /// The scan:",
+  "new": "return result;\n    }\n\n    /// <summary>\n    /// The scan:"
+ },
+ {
+  "id": "F08",
+  "desc": "give-up leaves its blocks in the arena",
+  "old": "arena.ReleaseTo(mark);\n                if (report is not null) report.Outcome = DirectOutcome.GaveUp;",
+  "new": "if (report is not null) report.Outcome = DirectOutcome.GaveUp;"
+ },
+ {
+  "id": "F09",
+  "desc": "scan: cap check allows one more long rank (writes one past the list)",
+  "old": "if (longs == longCap || (r >= probe && longs > (r >> 1))) return -1;",
+  "new": "if (longs > longCap || (r >= probe && longs > (r >> 1))) return -1;"
+ },
+ {
+  "id": "F10",
+  "desc": "text order: bitmap words (n + 63) >> 6 replaced by n >> 6 (last partial word missing)",
+  "old": "int words = (n + 63) >> 6;",
+  "new": "int words = n >> 6;"
+ },
+ {
+  "id": "F11",
+  "desc": "text order: bit set with = instead of |=",
+  "old": "bits[j >> 6] |= 1UL << (j & 63);",
+  "new": "bits[j >> 6] = 1UL << (j & 63);"
+ },
+ {
+  "id": "F12",
+  "desc": "text order: prefix counts taken after adding the word",
+  "old": "before[w] = running;\n            running += BitOperations.PopCount(bits[w]);",
+  "new": "running += BitOperations.PopCount(bits[w]);\n            before[w] = running;"
+ },
+ {
+  "id": "F13",
+  "desc": "text order: index includes the bit of the position itself",
+  "old": "int index = before[w] + BitOperations.PopCount(bits[w] & ((1UL << (j & 63)) - 1));",
+  "new": "int index = before[w] + BitOperations.PopCount(bits[w] & ((2UL << (j & 63)) - 1));"
+ },
+ {
+  "id": "F14",
+  "desc": "text order: result array not initialised (displaced records keep stale content)",
+  "old": "sorted[index] = (uint)predecessors[k] | ((ulong)(uint)k << 32);\n            values[k] = width;",
+  "new": "sorted[index] = (uint)predecessors[k] | ((ulong)(uint)k << 32);"
+ },
+ {
+  "id": "F15",
+  "desc": "text order: carry dropped (always restart at the width): output identical, quadratic time",
+  "old": "int l = j == previousPosition + 1 ? Math.Max(previousLength - 1, width) : width;",
+  "new": "int l = j == previousPosition + 1 && previousLength < 0 ? Math.Max(previousLength - 1, width) : width;"
+ },
+ {
+  "id": "F16",
+  "desc": "text order: carry does not subtract one (starts one symbol too far)",
+  "old": "Math.Max(previousLength - 1, width)",
+  "new": "Math.Max(previousLength, width)"
+ },
+ {
+  "id": "F17",
+  "desc": "text order: carry applies to any later position, not only j - 1",
+  "old": "int l = j == previousPosition + 1 ? Math.Max",
+  "new": "int l = j > previousPosition ? Math.Max"
+ },
+ {
+  "id": "F18",
+  "desc": "text order: carry subtracts two (one more comparison per position; output identical)",
+  "old": "Math.Max(previousLength - 1, width)",
+  "new": "Math.Max(previousLength - 2, width)"
+ },
+ {
+  "id": "F19",
+  "desc": "text order: carried position not updated (carry never applies; output identical, quadratic time)",
+  "old": "previousPosition = j;\n                previousLength = l;",
+  "new": "previousLength = l;"
+ },
+ {
+  "id": "F20",
+  "desc": "text order: carried length not updated (restarts at the width; output identical, quadratic time)",
+  "old": "previousPosition = j;\n                previousLength = l;",
+  "new": "previousPosition = j;"
+ },
+ {
+  "id": "F21",
+  "desc": "text order: start length not clamped to the limit (corrupt suffix arrays only)",
+  "old": "if (l > limit) l = limit; // never needed",
+  "new": "// never needed"
+ },
+ {
+  "id": "F22",
+  "desc": "text order: limit uses the smaller of the two positions (vectors read past the end)",
+  "old": "int top = j ^ ((j ^ p) & ((j - p) >> 31)); // max(j, p) without a branch",
+  "new": "int top = p ^ ((j ^ p) & ((j - p) >> 31)); // max(j, p) without a branch"
+ },
+ {
+  "id": "F23",
+  "desc": "text order: scalar tail runs one symbol too far",
+  "old": "while (l < limit && text[j + l].Equals(text[p + l])) l++;",
+  "new": "while (l <= limit && text[j + l].Equals(text[p + l])) l++;"
+ },
+ {
+  "id": "F24",
+  "desc": "text order: vector step with one symbol too few left (reads past the end)",
+  "old": "if (l + width > limit)\n                    {\n                        while (l < limit && text[j",
+  "new": "if (l + width > limit + 1)\n                    {\n                        while (l < limit && text[j"
+ },
+ {
+  "id": "F25",
+  "desc": "text order: continuation stops after the first vector",
+  "old": "int c = EqualPrefix(text, j + l, p + l);\n                    l += c;\n                    if (c < width) break;",
+  "new": "int c = EqualPrefix(text, j + l, p + l);\n                    l += c;\n                    if (c < width || previousPosition > -100) break;"
+ },
+ {
+  "id": "F26",
+  "desc": "text order: sorted record keeps the position instead of the predecessor",
+  "old": "sorted[index] = (uint)predecessors[k]",
+  "new": "sorted[index] = (uint)j"
+ },
+ {
+  "id": "F27",
+  "desc": "text order: gather reads the predecessor at the rank itself",
+  "old": "int j = sa[r], p = sa[r - 1];",
+  "new": "int j = sa[r], p = sa[r];"
+ },
+ {
+  "id": "F28",
+  "desc": "text order: gather does not re-check the predecessor (the scan checked it)",
+  "old": "if ((uint)p >= (uint)n) throw BadEntry(r - 1, p, n, nameof(sa));",
+  "new": "if ((uint)p >= (uint)n && n < 0) throw BadEntry(r - 1, p, n, nameof(sa));"
+ },
+ {
+  "id": "F29",
+  "desc": "text order: gather does not re-check the position (the scan checked it)",
+  "old": "if ((uint)j >= (uint)n) throw BadEntry(r, j, n, nameof(sa));",
+  "new": "if ((uint)j >= (uint)n && n < 0) throw BadEntry(r, j, n, nameof(sa));"
+ },
+ {
+  "id": "F30",
+  "desc": "materialize: byte escape threshold is > 255",
+  "old": "if (v >= byte.MaxValue)\n            {\n                escapes8++;",
+  "new": "if (v > byte.MaxValue)\n            {\n                escapes8++;"
+ },
+ {
+  "id": "F31",
+  "desc": "materialize: 16-bit escape threshold is > 65,535",
+  "old": "if (v >= ushort.MaxValue) escapes16++;",
+  "new": "if (v > ushort.MaxValue) escapes16++;"
+ },
+ {
+  "id": "F32",
+  "desc": "materialize: U16 patch writes the value shifted by one",
+  "old": "lcp16[r] = (ushort)v;",
+  "new": "lcp16[r] = (ushort)(v + 1);"
+ },
+ {
+  "id": "F33",
+  "desc": "materialize: U32 patch skips the first long rank",
+  "old": "for (int k = 0; k < longs; k++) lcp32[longRanks[k]] = values[k];",
+  "new": "for (int k = 1; k < longs; k++) lcp32[longRanks[k]] = values[k];"
+ },
+ {
+  "id": "F34",
+  "desc": "widen: 32-bit third quarter stored four elements too low",
+  "old": "c.AsInt32().CopyTo(dst.Slice(i + 8, 4));",
+  "new": "c.AsInt32().CopyTo(dst.Slice(i + 4, 4));"
+ },
+ {
+  "id": "F35",
+  "desc": "widen: 16-bit tail dropped (only whole blocks of 16 are copied)",
+  "old": "for (; i < src.Length; i++) dst[i] = src[i];\n    }\n\n    /// <summary><c>dst[i] = src[i]</c> with 16 bytes per step (safe code; the lengths are checked by the slices).</summary>\n    private static void Widen(ReadOnlySpan<byte> src, Span<int> dst)",
+  "new": "for (; i < src.Length && i < 0; i++) dst[i] = src[i];\n    }\n\n    /// <summary><c>dst[i] = src[i]</c> with 16 bytes per step (safe code; the lengths are checked by the slices).</summary>\n    private static void Widen(ReadOnlySpan<byte> src, Span<int> dst)"
+ },
+ {
+  "id": "F36",
+  "desc": "report: the per-rank step count is not recorded",
+  "old": "        steps = work;\n        return escapes;",
+  "new": "        return escapes;"
+ },
+ {
+  "id": "F37",
+  "desc": "text order: look-ahead prefetch reads one record too far (address only)",
+  "old": "if (t + ahead < distinct) text.Prefetch",
+  "new": "if (t + ahead <= distinct) text.Prefetch"
+ },
+ {
+  "id": "F38",
+  "desc": "text order: gather look-ahead reads one rank too far (address only)",
+  "old": "if (k + lookAhead < longs) sa.Prefetch",
+  "new": "if (k + lookAhead <= longs) sa.Prefetch"
+ },
+ {
+  "id": "F39",
+  "desc": "threshold removed: the per-rank loop is always tried first, however many long ranks there are",
+  "old": "if (longs < TextOrderMinLongs && (report is null",
+  "new": "if ((report is null"
+ },
+ {
+  "id": "F40",
+  "desc": "threshold 65,536 -> 65,537 (identical output, a different path for exactly 65,536 long ranks; equivalent)",
+  "old": "internal const int TextOrderMinLongs = 1 << 16;",
+  "new": "internal const int TextOrderMinLongs = (1 << 16) + 1;"
+ },
+ {
+  "id": "F41",
+  "desc": "AggressiveOptimization removed from the text-order method (JIT cost only; equivalent)",
+  "old": "    [MethodImpl(MethodImplOptions.AggressiveOptimization)]\n    private static CompactLcp ResolveInTextOrder<TSym>(",
+  "new": "    private static CompactLcp ResolveInTextOrder<TSym>("
+ }
+]

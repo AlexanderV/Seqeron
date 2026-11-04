@@ -312,6 +312,46 @@ public class LcpDirectTests
         Assert.That(foundExact, Is.True, "no text ended exactly on the allowance: widen the family");
     }
 
+    /// <summary>Calls the per-rank resolution alone (the long ranks from the reference LCP, the given escape capacity) in a guarded arena; returns its result and the steps.</summary>
+    private static int CallResolveLong(string text, int escapeCap, out long steps, out int[] dstValues)
+    {
+        PreparedText p = TextPreparation.Prepare(text);
+        int[] sa = SaisReference.BuildSuffixArray(text);
+        int n = p.Length;
+        int[] reference = Reference(p, sa).ToArray();
+        int[] longRanks = [.. Enumerable.Range(1, n).Where(r => reference[r] >= 16)];
+        using var arena = new NativeArena(ArenaOptions.Guarded());
+        Buf<int> saBuf = arena.Allocate<int>(n + 1, zero: false, "sa");
+        sa.CopyTo(saBuf.AsSpan(n + 1));
+        Buf<byte> t = arena.Allocate<byte>(n, zero: false, "text");
+        p.Bytes.CopyTo(t.AsSpan(n));
+        Buf<byte> dst = arena.Allocate<byte>(n + 1, zero: true, "dst");
+        Buf<int> ranks = arena.Allocate<int>(longRanks.Length + 1, zero: false, "ranks");
+        longRanks.CopyTo(ranks.AsSpan(longRanks.Length));
+        Buf<int> escapeRanks = arena.Allocate<int>(escapeCap + 1, zero: false, "escapeRanks");
+        Buf<int> escapeValues = arena.Allocate<int>(escapeCap + 1, zero: false, "escapeValues");
+        int escapes = LcpKernel.ResolveLong(t, n, saBuf, dst, ranks, longRanks.Length, escapeRanks, escapeValues, escapeCap, out steps);
+        arena.VerifyCanaries();
+        dstValues = [.. dst.AsSpan(n + 1).ToArray().Select(b => (int)b)];
+        return escapes;
+    }
+
+    [Test]
+    public void ThePerRankResolution_GivesUpAtTheEscapeCapacity_AndNotBefore()
+    {
+        // two copies of a 300-symbol block: 46 values of 255 or more (300 - 254), 285 long ranks, 2,800 steps in all (inside the allowance of 4,096 + 4 per rank)
+        string block = StringFamilies.Random(300, 4, 61);
+        string text = StringFamilies.Random(3000, 4, 62) + block + StringFamilies.Random(1000, 4, 63) + block;
+        int n = text.Length;
+        Assert.That(CallResolveLong(text, 46, out long steps, out int[] values), Is.EqualTo(46), "exactly as many escapes as the capacity: all fit");
+        Assert.That(steps, Is.GreaterThan(0));
+        Assert.That(values.Count(v => v == 255), Is.EqualTo(46));
+        Assert.That(CallResolveLong(text, 47, out _, out _), Is.EqualTo(46));
+        Assert.That(CallResolveLong(text, 45, out _, out _), Is.EqualTo(-1), "one escape more than the capacity: the resolution gives up (the caller then resolves in text order)");
+        Assert.That(CallResolveLong(text, 0, out _, out _), Is.EqualTo(-1));
+        Assert.That(n, Is.GreaterThan(4000));
+    }
+
     [Test]
     public void ManyLongRanks_GoStraightToTextOrder_EvenWhenTheirMatchesAreShort()
     {
@@ -482,9 +522,10 @@ public class LcpDirectTests
         CompactLcp? result = Attempt(p, sa, report);
         Assert.That(result, Is.Not.Null);
         Assert.That(report.LongRanks, Is.GreaterThan(report.LongPositions));
-        // both ranks are long: whichever record the counting sort kept, the other one still holds the minimum of a long rank (the width), not stale memory
+        // both ranks are long. The counting sort keeps the record of the later rank (it is written last), the earlier rank's record is displaced and keeps the minimum of a long rank, the width:
+        // exactly 16, not the stale content of the array (the text position, which the array holds before the sort)
         int[] values = result!.ToArray();
-        Assert.That(values[r], Is.GreaterThanOrEqualTo(16));
+        Assert.That(values[r], Is.EqualTo(16));
         Assert.That(values[r + 1], Is.GreaterThanOrEqualTo(16));
     }
 
