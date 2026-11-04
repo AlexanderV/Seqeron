@@ -7,6 +7,8 @@ Targets: ceiling goal <= 1.0 s (3x), aspiration <= 0.5 s (1.5x); libsais referen
 Decisions already taken by the owner: managed only; positions are `long` in the new contract from the start; contract-first (stable contract, replaceable engines);
 Ukkonen stays untouched (oracle, online); ESA persistent container is a separate format kind; native accelerator not allowed.
 
+**Owner requirement 2026-11-04 (categorical, supersedes ADR-003 / ADR-002 wherever they say "build in RAM, then write the file"):** the persistent index (SESA) must be built by **streaming straight into the memory-mapped files**; "build in RAM, then write" is rejected. Only a small fixed buffer is allowed; working memory must not grow with n. The input text may be read through a read-only mapping (it is the input, not the index). The in-memory backend is unaffected (its index lives in RAM by definition). Consequence: an external-memory / streaming construction algorithm must be chosen first; the S1a in-RAM kernels stay as the in-memory builder and as candidate building blocks, but are not the persistent builder. Selection: [ADR-004](adr/ADR-004-external-memory-construction.md) (research step, 2026-11-04). S1b work packages 1b.7 (container writer) and anything that assumes an in-RAM build of the persistent file wait for ADR-004.
+
 Answers to the S1-0 open questions (orchestrator, 2026-11-03; reversible, none touches a published format):
 1. The 16 B/char gate applies to **Full** (index with the navigation pack); Core and Full are both reported.
 2. The 3.3 s gate applies twice: S1a = SA+LCP <= 3.3 s; S1b = whole pipeline (SA+LCP+child table+navigation pack) <= 3.3 s.
