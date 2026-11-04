@@ -342,9 +342,15 @@ public class StatisticsHelperProperties
         });
     }
 
-    /// <summary>On integers the sum Σx is exact in long double, so <see cref="StatisticsHelper.ExtendedPrecisionMean"/>
-    /// (R <c>mean</c>: long-double Σx/n plus the residual, rounded once to double) is within one ulp of the correctly
-    /// rounded Σx/n (the long-double intermediate permits a double-rounding tie, never more).</summary>
+    /// <summary>On integers the sum Σx is exact in long double, but R's <c>mean</c> (long-double Σx/n plus the residual
+    /// Σ(x − s)/n, rounded once to double) is not correctly rounded: the residual is accumulated with a 64-bit mantissa,
+    /// so its absolute error is about 2⁻⁶⁴·Σ|x − s|, which is not small against one ulp of the mean when the data are far
+    /// larger than the mean. <see cref="StatisticsHelper.ExtendedPrecisionMean"/> reproduces R bit for bit, so the result
+    /// is within one ulp plus 2⁻⁶² times the mean absolute deviation of the correctly rounded Σx/n. This is a derived
+    /// bound: on 6,000 random inputs R's own algorithm, emulated exactly, deviated by more than one ulp in 0.03 % of
+    /// cases (up to 6 ulp) and never exceeded 41 % of it (<c>scripts/verification/r_mean_longdouble_emulation.py</c>).
+    /// The earlier "within one ulp" claim failed on such an input (CI 2026-11-04, FsCheck 3.6.0: 22 integers, Σ = 844,
+    /// 2 ulp low); see <c>ExtendedPrecisionMean_FollowsRLongDoubleTwoPass_TwoUlpFromExact</c>.</summary>
     [FsCheck.NUnit.Property]
     public Property ExtendedPrecisionMean_IntegerInput_WithinOneUlpOfExact()
     {
@@ -356,7 +362,9 @@ public class StatisticsHelperProperties
             double m = StatisticsHelper.ExtendedPrecisionMean(xs.Select(x => (double)x).ToArray());
             double exact = (double)xs.Sum(x => (long)x) / xs.Length;
             double ulp = Math.BitIncrement(Math.Abs(exact)) - Math.Abs(exact);
-            return (Math.Abs(m - exact) <= ulp).Label($"mean={m}, exact={exact}");
+            double meanAbsDev = xs.Average(x => Math.Abs(x - exact));
+            double tol = ulp + Math.ScaleB(meanAbsDev, -62);
+            return (Math.Abs(m - exact) <= tol).Label($"mean={m}, exact={exact}, tol={tol}");
         });
     }
 

@@ -29,8 +29,8 @@
   <ItemGroup>
     <!-- Assertions, property-based, snapshot & architecture testing -->
     <PackageVersion Include="FluentAssertions" Version="8.0.1" />
-    <PackageVersion Include="FsCheck" Version="3.1.0" />
-    <PackageVersion Include="FsCheck.NUnit" Version="3.1.0" />
+    <PackageVersion Include="FsCheck" Version="3.6.0" />
+    <PackageVersion Include="FsCheck.NUnit" Version="3.6.0" />
     <PackageVersion Include="CsCheck" Version="4.1.0" />
     <PackageVersion Include="Verify.NUnit" Version="28.7.1" />
     <PackageVersion Include="TngTech.ArchUnitNET.NUnit" Version="0.13.2" />

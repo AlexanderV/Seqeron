@@ -81,6 +81,22 @@ public class StatisticsHelper_RSumDbinom_Tests
         Assert.That(StatisticsHelper.ExtendedPrecisionMean(values), Is.EqualTo(expected));
     }
 
+    // R's mean() is not correctly rounded: the residual t = Σ(x − s) is accumulated in a 64-bit-mantissa long double, so its
+    // absolute error is not small against one ulp of the mean when |x| >> |mean|. These 22 integers (Σ = 844, exact
+    // Σ/n = 38.36363636363637) give 38.36363636363635, 2 ulp low. Expected value: exact rational emulation of summary.c
+    // real_mean (x87 extended, round-to-nearest-even), scripts/verification/r_mean_longdouble_emulation.py — not a run of R
+    // itself; ExtendedPrecisionMean reproduces it bit for bit.
+    [Test]
+    public void ExtendedPrecisionMean_FollowsRLongDoubleTwoPass_TwoUlpFromExact()
+    {
+        double[] xs = { 939853, 812265, -544392, 558617, -82511, -513122, 30411, 527327, -409764, -715409, -11039,
+                        518869, 830861, -695734, 221617, -818309, -108322, 987640, -43404, 471213, -970525, -985298 };
+        double m = StatisticsHelper.ExtendedPrecisionMean(xs);
+        double exact = 844.0 / 22;
+        Assert.That(m, Is.EqualTo(38.36363636363635));
+        Assert.That(Math.Abs(m - exact), Is.EqualTo(2 * (Math.BitIncrement(exact) - exact)));
+    }
+
     // R: mean(c(0.28, NA, 0.01, 0.37, NaN, 0.96), na.rm = TRUE) = 0.40499999999999997; mean(numeric(0)) = NaN;
     // mean(c(1, NA)) = NA; mean(c(Inf, 1)) = Inf; mean(c(Inf, -Inf)) = NaN.
     [Test]

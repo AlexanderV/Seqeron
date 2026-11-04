@@ -2351,19 +2351,24 @@ public class PrimerProbeProperties
     // returns the qualitative Kutyavin (2000) MGB design rules (a boolean + a reasons list).
 
     /// <summary>
-    /// INV-1 (R): adding an LNA-<b>C</b> substitution never lowers the duplex Tm: Tm(S ∪ {p}) ≥ Tm(S) when the
-    /// locked base at p is C.
+    /// INV-1 (R): adding an <b>isolated</b> LNA-<b>C</b> substitution never lowers the duplex Tm: Tm(S ∪ {p}) ≥ Tm(S) when the
+    /// locked base at p is C and neither neighbour (p−1, p+1) is already locked.
     /// <para>
-    /// The McTigue, Peterson &amp; Kahn (2004) LNA NN increments are NOT uniformly stabilising — they are the
-    /// published per-step ΔΔH°/ΔΔS° and are mixed-sign by design (e.g. the G_L-A step is ΔΔH°=+3.16, ΔΔS°=+10.5
-    /// and a fully internally-locked A/T-rich duplex can even melt LOWER than the bare DNA). So the blanket
-    /// "any added LNA never lowers Tm" is false: a single LNA-A — and LNA-G in a few steps — can shave a few
-    /// tenths of a °C off in some sequence contexts. That is the McTigue model behaving correctly, not a defect
-    /// (the increments are transcribed verbatim from MELTING 5's McTigue2004lockedmn.xml). The robust, reliably
-    /// stabilising case is LNA-C: ALL eight C-locked McTigue steps are net-stabilising for Tm. Verified
-    /// empirically: adding an LNA-C never lowered Tm across ~11k random duplexes (0 violations), whereas the
-    /// blanket claim fails ~0.17% of the time, all on LNA-A / a few LNA-G steps. LNA-C is also the canonical
-    /// CG-anchoring LNA used in probe design (Kutyavin 2000), so this is the meaningful monotonicity guarantee.
+    /// Two facts bound the claim. (1) The published LNA nearest-neighbour increments are mixed-sign by design (McTigue,
+    /// Peterson &amp; Kahn 2004; e.g. the G_L-A step ΔΔH°=+3.16, ΔΔS°=+10.5), so the blanket "any added LNA never lowers Tm"
+    /// is false: a single LNA-A, and LNA-G in a few steps, can shave a few tenths of a °C off in some sequence contexts.
+    /// LNA-C is the reliably stabilising case. (2) The model used here by default, Owczarzy et al. (2011) (the MELTING 5
+    /// default), publishes separate complete step parameters for a step with one locked base ("single") and for a step with
+    /// two locked bases ("consecutive"). Adding an LNA next to an existing LNA therefore does not add one stabilising
+    /// increment; it swaps two "single" steps for "consecutive" steps, and that can lower Tm. Found by the CI
+    /// property run of 2026-11-04 and confirmed from MELTING 5.2.0's own data files (every table entry of the code equals
+    /// the XML entry; an independent recomputation reproduces the values, see
+    /// <c>scripts/verification/lna_owczarzy2011_vs_melting.py</c> and
+    /// <c>ProbeDesigner_LnaTm_Tests.Owczarzy2011_LockingBaseNextToLna_CanLowerTm_FromPublishedConsecutiveParameters</c>):
+    /// CCCCGCTCGCCCCGCC with LNA at {1,2,3,4,5,7,8,10,11,12,13,14}, adding LNA-C at 9, moves Tm 100.30 → 100.21 °C.
+    /// The generator therefore only adds an LNA whose neighbours are not LNA; for those no violation was found in
+    /// 1,000,000 random duplexes (the earlier ~11k-sample check used the unrestricted generator and missed the
+    /// consecutive-LNA case).
     /// </para>
     /// </summary>
     [FsCheck.NUnit.Property]
@@ -2374,6 +2379,7 @@ public class PrimerProbeProperties
                    where seq.Contains('C')
                    from p in Gen.Elements(Enumerable.Range(0, seq.Length).Where(i => seq[i] == 'C').ToArray())
                    from baseFlags in Gen.Elements(true, false).ArrayOf(seq.Length)
+                   where (p == 0 || !baseFlags[p - 1]) && (p == seq.Length - 1 || !baseFlags[p + 1])
                    select (seq, p, baseSet: Enumerable.Range(0, seq.Length).Where(i => baseFlags[i] && i != p).ToList()))
                    .ToArbitrary();
 
