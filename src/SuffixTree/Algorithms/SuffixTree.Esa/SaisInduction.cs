@@ -1,6 +1,3 @@
-using System.Runtime.CompilerServices;
-using System.Runtime.Intrinsics;
-
 namespace SuffixTree.Esa;
 
 /// <summary>
@@ -65,83 +62,6 @@ internal static unsafe class SaisInduction
             bkt[c] = slot;
         }
         sa[0] = n;
-    }
-
-    /// <summary>
-    /// Experiment 1o.4: the L pass with the (at most four) bucket cursors in one SIMD register instead of the <c>bkt</c> array, for packed byte texts with sigma &lt;= 4.
-    /// </summary>
-    internal static void InduceL<TTyped>(TTyped tt, Buf<int> sa, Buf<int> bkt, int n, int sigma)
-        where TTyped : struct, ITypedText
-    {
-        if (Ind4 && typeof(TTyped) == typeof(PackedBytes) && sigma <= 4) InduceL4(Unsafe.As<TTyped, PackedBytes>(ref tt), sa, bkt, sigma, n);
-        else InduceL(tt, sa, bkt, n);
-    }
-
-    /// <summary>Experiment 1o.4: the S pass, see the L overload.</summary>
-    internal static void InduceS<TTyped>(TTyped tt, Buf<int> sa, Buf<int> bkt, int n, int sigma)
-        where TTyped : struct, ITypedText
-    {
-        if (Ind4 && typeof(TTyped) == typeof(PackedBytes) && sigma <= 4) InduceS4(Unsafe.As<TTyped, PackedBytes>(ref tt), sa, bkt, sigma, n);
-        else InduceS(tt, sa, bkt, n);
-    }
-
-    internal static readonly bool Ind4 = Environment.GetEnvironmentVariable("ESA_IND4") == "1"; // experiment switch
-
-    private static void InduceL4(PackedBytes tt, Buf<int> sa, Buf<int> bkt, int sigma, int n)
-    {
-        Vector128<int> cursors = LoadCursors(bkt, sigma);
-        Vector128<int> lanes = Vector128.Create(0, 1, 2, 3);
-        for (int i = 0; i <= n; i++)
-        {
-            int ahead = sa[Math.Min(i + SaisPrefetch.Induce, n)];
-            tt.Prefetch((ahead - 1) & -(int)((uint)-ahead >> 31));
-            int p = sa[i];
-            int positive = (int)((uint)-p >> 31);
-            int j = p - 1;
-            int jc = j & -positive;
-            tt.Get(jc, out int c, out int isS);
-            int take = positive & (isS ^ 1);
-            Vector128<int> which = Vector128.Create(c);
-            int slot = Vector128.Shuffle(cursors, which).ToScalar();
-            sa[slot & -take] = j;
-            cursors += Vector128.Equals(which, lanes) & Vector128.Create(take);
-        }
-        StoreCursors(bkt, sigma, cursors);
-        sa[0] = n;
-    }
-
-    private static void InduceS4(PackedBytes tt, Buf<int> sa, Buf<int> bkt, int sigma, int n)
-    {
-        Vector128<int> cursors = LoadCursors(bkt, sigma);
-        Vector128<int> lanes = Vector128.Create(0, 1, 2, 3);
-        for (int i = n; i >= 1; i--)
-        {
-            int ahead = sa[Math.Max(i - SaisPrefetch.Induce, 1)];
-            tt.Prefetch((ahead - 1) & -(int)((uint)-ahead >> 31));
-            int p = sa[i];
-            int positive = (int)((uint)-p >> 31);
-            int j = p - 1;
-            int jc = j & -positive;
-            tt.Get(jc, out int c, out int isS);
-            int take = positive & isS;
-            Vector128<int> which = Vector128.Create(c);
-            cursors -= Vector128.Equals(which, lanes) & Vector128.Create(take);
-            int slot = Vector128.Shuffle(cursors, which).ToScalar();
-            sa[slot & -take] = j;
-        }
-        StoreCursors(bkt, sigma, cursors);
-        sa[0] = n;
-    }
-
-    private static Vector128<int> LoadCursors(Buf<int> bkt, int sigma)
-    {
-        int b1 = sigma > 1 ? bkt[1] : 0, b2 = sigma > 2 ? bkt[2] : 0, b3 = sigma > 3 ? bkt[3] : 0;
-        return Vector128.Create(sigma > 0 ? bkt[0] : 0, b1, b2, b3);
-    }
-
-    private static void StoreCursors(Buf<int> bkt, int sigma, Vector128<int> cursors)
-    {
-        for (int c = 0; c < sigma; c++) bkt[c] = cursors.GetElement(c);
     }
 
     /// <summary>

@@ -148,12 +148,12 @@ internal static unsafe class SaisKernel
         tick = SaisTrace.Begin(trace);
         SetBucketHeads(counts, bkt, sigma);
         if (TProbe.Enabled) probe.Heads(level, bkt.AsSpan(sigma));
-        SaisInduction.InduceL(tt, sa, bkt, n, sigma);
+        SaisInduction.InduceL(tt, sa, bkt, n);
         trace?.End(level, SaisPhase.Round1InduceL, tick);
         if (TProbe.Enabled) probe.SaState(level, SaisPhase.Round1InduceL, sa.AsSpan(n + 1));
         tick = SaisTrace.Begin(trace);
         SetBucketTails(counts, bkt, sigma);
-        SaisInduction.InduceS(tt, sa, bkt, n, sigma);
+        SaisInduction.InduceS(tt, sa, bkt, n);
         trace?.End(level, SaisPhase.Round1InduceS, tick);
         if (TProbe.Enabled) probe.SaState(level, SaisPhase.Round1InduceS, sa.AsSpan(n + 1));
 
@@ -184,12 +184,12 @@ internal static unsafe class SaisKernel
         if (TProbe.Enabled) probe.SaState(level, SaisPhase.Round2Place, sa.AsSpan(n + 1));
         tick = SaisTrace.Begin(trace);
         SetBucketHeads(counts, bkt, sigma);
-        SaisInduction.InduceL(tt, sa, bkt, n, sigma);
+        SaisInduction.InduceL(tt, sa, bkt, n);
         trace?.End(level, SaisPhase.Round2InduceL, tick);
         if (TProbe.Enabled) probe.SaState(level, SaisPhase.Round2InduceL, sa.AsSpan(n + 1));
         tick = SaisTrace.Begin(trace);
         SetBucketTails(counts, bkt, sigma);
-        SaisInduction.InduceS(tt, sa, bkt, n, sigma);
+        SaisInduction.InduceS(tt, sa, bkt, n);
         trace?.End(level, SaisPhase.Round2InduceS, tick);
         if (TProbe.Enabled) probe.SaState(level, SaisPhase.Round2InduceS, sa.AsSpan(n + 1));
     }
