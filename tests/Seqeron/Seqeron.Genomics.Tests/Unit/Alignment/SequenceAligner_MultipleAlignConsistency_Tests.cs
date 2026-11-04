@@ -347,4 +347,65 @@ public class SequenceAligner_MultipleAlignConsistency_Tests
     }
 
     #endregion
+
+    #region B09 review: extension of every residue pair, T-Coffee percent-identity weight
+
+    // Oracle: independent Python implementation of the T-Coffee pipeline (own NW/SW, weight
+    // = floor(100*identical/aligned) as in get_seq_sim sim1 of cbcrg/tcoffee
+    // lib/util_lib/aln_convertion_util.c, extension "direct + sum_k min(W1,W2)" over EVERY residue
+    // pair as in residue_pair_extended_list of lib/dp_lib/evaluate.c), cross-checked by hand below.
+
+    /// <summary>
+    /// Percent identity counts aligned columns only (gap columns are not in the denominator):
+    /// global ACGTTACGT/ACG--ACGT has 7 identical of 7 aligned columns = 100 (not 78 = 7/9), local
+    /// likewise 100, so the signal-added primary weight is 200. Extension adds min(W1,W2) over the
+    /// third sequence S2: W(S0.0,S2.0) = 87 (global 7/8) + 100 (local 7/7) = 187 and
+    /// W(S1.0,S2.0) = 85 (global 6/7) + 100 (local 6/6) = 185 -> + min = 185, extended 385.
+    /// </summary>
+    [Test]
+    public void LibraryWeights_PercentIdentityExcludesGapColumns_AndExtensionAddsMinOfLegs()
+    {
+        var inputs = new[] { "ACGTTACGT", "ACGACGT", "ACGTACGA" };
+
+        var (primary, extended) = SequenceAligner.GetLibraryWeights(inputs, 0, 0, 1, 0);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(primary, Is.EqualTo(200));
+            Assert.That(extended, Is.EqualTo(385));
+        });
+    }
+
+    /// <summary>
+    /// Notredame et al. 2000 p.208-209 and T-Coffee's residue_pair_extended_list: the extension is
+    /// evaluated for every residue pair, so a pair that no primary alignment joins directly but that
+    /// two alignments join through a third sequence has a positive extended weight.
+    /// CTT / ACT / CAA: S1.1 (C) and S2.0 (C) are not aligned in any direct S1-S2 alignment
+    /// (global -ACT/CA-A, local A/A), but S1.1~S0.0 has W = 200 (global C/C + T/T = 100, local CT/CT = 100)
+    /// and S0.0~S2.0 has W = 133 (global 1/3 = 33, local C/C = 100); extended = 0 + min(200, 133) = 133.
+    /// </summary>
+    [Test]
+    public void LibraryWeights_PairWithoutDirectSupport_GetsWeightThroughIntermediate()
+    {
+        var inputs = new[] { "CTT", "ACT", "CAA" };
+
+        var (primary, extended) = SequenceAligner.GetLibraryWeights(inputs, 1, 1, 2, 0);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(primary, Is.EqualTo(0));
+            Assert.That(extended, Is.EqualTo(133));
+        });
+    }
+
+    [Test]
+    public void MultipleAlignConsistency_MatchesIndependentTCoffeeReference()
+    {
+        var r = SequenceAligner.MultipleAlignConsistency(
+            new[] { "CTT", "ACT", "CAA" }.Select(x => new DnaSequence(x)));
+
+        Assert.That(r.AlignedSequences, Is.EqualTo(new[] { "-CTT", "AC-T", "-CAA" }));
+    }
+
+    #endregion
 }

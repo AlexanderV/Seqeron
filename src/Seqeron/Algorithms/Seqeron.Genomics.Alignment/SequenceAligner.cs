@@ -225,6 +225,119 @@ public static class SequenceAligner
         return result;
     }
 
+    /// <summary>
+    /// Exact linear-space global alignment (Hirschberg 1975, Commun ACM 18:341-343; Myers &amp; Miller
+    /// 1988) under the same linear-gap model as <see cref="GlobalAlign(DnaSequence, DnaSequence, ScoringMatrix?)"/>:
+    /// the score equals the Needleman-Wunsch optimum, with O(m+n) working memory per recursion
+    /// level instead of O(m·n). The recursion splits <paramref name="seq1"/> in the middle, finds the
+    /// optimal split column of <paramref name="seq2"/> from a forward and a backward last-row score
+    /// pass, and recurses; sub-problems of at most <paramref name="maxFullMatrixCells"/> cells are
+    /// solved by the canonical <c>GlobalAlignCore</c>. Tie-breaking of co-optimal alignments may differ
+    /// from <c>GlobalAlign</c> (only the score is guaranteed identical).
+    /// </summary>
+    internal static AlignmentResult GlobalAlignLinearSpace(
+        string seq1, string seq2, ScoringMatrix scoring, long maxFullMatrixCells = 25_000_000)
+    {
+        ArgumentNullException.ThrowIfNull(seq1);
+        ArgumentNullException.ThrowIfNull(seq2);
+        ArgumentNullException.ThrowIfNull(scoring);
+
+        var out1 = new StringBuilder(seq1.Length + seq2.Length);
+        var out2 = new StringBuilder(seq1.Length + seq2.Length);
+        int score = 0;
+        HirschbergAlign(seq1, 0, seq1.Length, seq2, 0, seq2.Length, scoring, maxFullMatrixCells, out1, out2, ref score);
+
+        return new AlignmentResult(out1.ToString(), out2.ToString(), score, AlignmentType.Global,
+            0, 0, seq1.Length - 1, seq2.Length - 1);
+    }
+
+    private static void HirschbergAlign(
+        string a, int aStart, int aEnd, string b, int bStart, int bEnd,
+        ScoringMatrix scoring, long maxFullMatrixCells, StringBuilder out1, StringBuilder out2, ref int score)
+    {
+        int m = aEnd - aStart;
+        int n = bEnd - bStart;
+
+        if (m == 0 || n == 0)
+        {
+            // One side empty: the other is an all-gap run.
+            if (m > 0)
+            {
+                out1.Append(a, aStart, m);
+                out2.Append('-', m);
+            }
+            else if (n > 0)
+            {
+                out1.Append('-', n);
+                out2.Append(b, bStart, n);
+            }
+            score += (m + n) * scoring.GapExtend;
+            return;
+        }
+
+        if (m == 1 || (long)(m + 1) * (n + 1) <= maxFullMatrixCells)
+        {
+            var r = GlobalAlignCore(a.Substring(aStart, m), b.Substring(bStart, n), scoring);
+            out1.Append(r.AlignedSequence1);
+            out2.Append(r.AlignedSequence2);
+            score += r.Score;
+            return;
+        }
+
+        int mid = m / 2;
+        int[] forward = LinearLastRow(a, aStart, aStart + mid, b, bStart, bEnd, scoring, reverse: false);
+        int[] backward = LinearLastRow(a, aStart + mid, aEnd, b, bStart, bEnd, scoring, reverse: true);
+
+        int split = 0;
+        long bestSplit = long.MinValue;
+        for (int j = 0; j <= n; j++)
+        {
+            long total = (long)forward[j] + backward[n - j];
+            if (total > bestSplit)
+            {
+                bestSplit = total;
+                split = j;
+            }
+        }
+
+        HirschbergAlign(a, aStart, aStart + mid, b, bStart, bStart + split, scoring, maxFullMatrixCells, out1, out2, ref score);
+        HirschbergAlign(a, aStart + mid, aEnd, b, bStart + split, bEnd, scoring, maxFullMatrixCells, out1, out2, ref score);
+    }
+
+    /// <summary>
+    /// Last row of the linear-gap NW matrix of a[aStart..aEnd) against b[bStart..bEnd): entry j is the
+    /// optimal score of aligning all of a with the first j characters of b (or, with
+    /// <paramref name="reverse"/>, with the last j characters of b — both strings read backwards).
+    /// </summary>
+    private static int[] LinearLastRow(
+        string a, int aStart, int aEnd, string b, int bStart, int bEnd, ScoringMatrix scoring, bool reverse)
+    {
+        int m = aEnd - aStart;
+        int n = bEnd - bStart;
+        var prev = new int[n + 1];
+        var cur = new int[n + 1];
+
+        for (int j = 0; j <= n; j++)
+            prev[j] = j * scoring.GapExtend;
+
+        for (int i = 1; i <= m; i++)
+        {
+            char ca = reverse ? a[aEnd - i] : a[aStart + i - 1];
+            cur[0] = i * scoring.GapExtend;
+            for (int j = 1; j <= n; j++)
+            {
+                char cb = reverse ? b[bEnd - j] : b[bStart + j - 1];
+                int diag = prev[j - 1] + (ca == cb ? scoring.Match : scoring.Mismatch);
+                int up = prev[j] + scoring.GapExtend;
+                int left = cur[j - 1] + scoring.GapExtend;
+                cur[j] = Math.Max(diag, Math.Max(up, left));
+            }
+            (prev, cur) = (cur, prev);
+        }
+
+        return prev;
+    }
+
     #endregion
 
     #region Global Alignment with affine gaps (Gotoh)
@@ -1043,27 +1156,50 @@ public static class SequenceAligner
 
     #endregion
 
-    #region Multiple Sequence Alignment (Anchor-Based)
+    #region Multiple Sequence Alignment (Center Star)
+
+    // Center-star multiple sequence alignment (Gusfield 1993, Bull Math Biol 55:141-154, DOI
+    // 10.1007/BF02460299; Gusfield 1997 "Algorithms on Strings, Trees and Sequences" §14.6.1):
+    //   1. All C(k,2) pairwise OPTIMAL global alignments give a pair score D(i,j).
+    //   2. The center S_c is the sequence with the best total pairwise score, argmax_c Σ_{j≠c} D(c,j)
+    //      (Gusfield: the string minimising Σ_j distance(S_c, S_j)).
+    //   3. The optimal pairwise alignments of every other sequence against S_c are merged into one
+    //      MSA by "once a gap, always a gap": the number of residues of S_j inserted between two
+    //      consecutive center residues is made equal for all rows (the maximum over rows), and
+    //      residues are never moved between columns.
+    // The pairwise stage is the canonical linear-gap Needleman-Wunsch (GlobalAlignCore), so for two
+    // sequences the MSA is exactly an optimal pairwise alignment. An approximate, faster variant that
+    // replaces step 1-2 by a 4-mer-cosine center and the pairwise alignments by suffix-tree anchored
+    // alignments (AnchorBasedAligner, MUMmer-style) is MultipleAlignAnchored.
 
     /// <summary>
-    /// Performs progressive multiple sequence alignment using an anchor-based approach.
-    /// <para>
-    /// <b>Algorithm:</b>
-    /// <list type="number">
-    /// <item>Selects the best center sequence using suffix tree LCS distances (O(k²·L))</item>
-    /// <item>Builds a suffix tree on the center sequence (O(L))</item>
-    /// <item>For each other sequence, finds exact-match anchors via the suffix tree (O(L))</item>
-    /// <item>Applies Needleman-Wunsch only to gaps between anchors (O(Σδᵢ²))</item>
-    /// </list>
-    /// </para>
-    /// <para>
-    /// For closely related sequences where anchors cover ~80% of length, this yields
-    /// approximately 25× speedup over the standard O(k·L²) approach.
-    /// </para>
+    /// Performs <b>center-star</b> multiple sequence alignment (Gusfield 1993) with exact pairwise
+    /// alignments: the center is the sequence with the highest total optimal pairwise
+    /// Needleman-Wunsch score to all others, every other sequence is aligned to it with the canonical
+    /// <see cref="GlobalAlign(DnaSequence, DnaSequence, ScoringMatrix?)"/> dynamic program, and the
+    /// pairwise alignments are merged column-wise (once a gap, always a gap).
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Linear gap model: every gap position scores <see cref="ScoringMatrix.GapExtend"/>
+    /// (<see cref="ScoringMatrix.GapOpen"/> is not used, as in <c>GlobalAlign</c>). For two sequences
+    /// the result is an optimal pairwise global alignment. Ties for the center are broken by the
+    /// lowest input index.
+    /// </para>
+    /// <para>
+    /// Complexity O(k²·L²) time for the pairwise scores (parallelised over pairs), O(L) memory per
+    /// concurrent pair for scoring and bounded (≤ 16 MB, exact Hirschberg above that) for alignment. For large, closely related inputs the approximate
+    /// <see cref="MultipleAlignAnchored(IEnumerable{DnaSequence}, ScoringMatrix?)"/> is faster.
+    /// </para>
+    /// <para>
+    /// <see cref="MultipleAlignmentResult.TotalScore"/> is the column-based sum-of-pairs score of the
+    /// final MSA (match/mismatch from the matrix, residue-vs-gap = <c>GapExtend</c>, gap-vs-gap = 0).
+    /// </para>
+    /// </remarks>
     /// <param name="sequences">Collection of sequences to align.</param>
     /// <param name="scoring">Scoring matrix (default: SimpleDna).</param>
     /// <returns>Multiple alignment result.</returns>
+    /// <exception cref="ArgumentNullException">When <paramref name="sequences"/> is null.</exception>
     public static MultipleAlignmentResult MultipleAlign(
         IEnumerable<DnaSequence> sequences,
         ScoringMatrix? scoring = null)
@@ -1071,6 +1207,77 @@ public static class SequenceAligner
         ArgumentNullException.ThrowIfNull(sequences);
 
         var seqList = sequences.ToList();
+        var trivial = TrivialMultipleAlignment(seqList);
+        if (trivial != null)
+            return trivial;
+
+        var effectiveScoring = scoring ?? SimpleDna;
+        var rawSeqs = seqList.Select(s => s.Sequence).ToArray();
+
+        int centerIdx = SelectCenterByPairwiseScore(rawSeqs, effectiveScoring);
+        string centerStr = rawSeqs[centerIdx];
+
+        var pairwise = AlignAllToCenter(rawSeqs.Length, centerIdx,
+            i => GlobalAlignLinearSpace(centerStr, rawSeqs[i], effectiveScoring, StarFullMatrixCells));
+        return FinishStarAlignment(MergeCenterAlignments(centerStr, pairwise, centerIdx), effectiveScoring);
+    }
+
+    /// <summary>
+    /// Approximate, faster center-star alignment: the center is chosen by 4-mer count cosine
+    /// similarity (no pairwise DP) and every other sequence is aligned to it with the
+    /// suffix-tree anchored aligner (<see cref="AnchorBasedAligner"/>: exact-match anchors, gaps
+    /// between anchors filled by Needleman-Wunsch). Unlike
+    /// <see cref="MultipleAlign(IEnumerable{DnaSequence}, ScoringMatrix?)"/> the pairwise alignments
+    /// are <b>not guaranteed optimal</b> (an anchor chain constrains the path), so the resulting
+    /// sum-of-pairs score can be lower.
+    /// </summary>
+    /// <remarks>
+    /// For closely related sequences where anchors cover a fraction α of the length the DP work
+    /// shrinks by about (1−α)². Same output contract and linear gap model as
+    /// <see cref="MultipleAlign(IEnumerable{DnaSequence}, ScoringMatrix?)"/>.
+    /// </remarks>
+    /// <param name="sequences">Collection of sequences to align.</param>
+    /// <param name="scoring">Scoring matrix (default: SimpleDna).</param>
+    /// <returns>Multiple alignment result.</returns>
+    /// <exception cref="ArgumentNullException">When <paramref name="sequences"/> is null.</exception>
+    public static MultipleAlignmentResult MultipleAlignAnchored(
+        IEnumerable<DnaSequence> sequences,
+        ScoringMatrix? scoring = null)
+    {
+        ArgumentNullException.ThrowIfNull(sequences);
+
+        var seqList = sequences.ToList();
+        var trivial = TrivialMultipleAlignment(seqList);
+        if (trivial != null)
+            return trivial;
+
+        var effectiveScoring = scoring ?? SimpleDna;
+        var rawSeqs = seqList.Select(s => s.Sequence).ToArray();
+
+        int centerIdx = SelectCenterSequence(seqList);
+        string centerStr = rawSeqs[centerIdx];
+        var centerTree = SuffixTree.SuffixTree.Build(centerStr);
+
+        var pairwise = AlignAllToCenter(rawSeqs.Length, centerIdx,
+            i => AnchorBasedAligner.AlignWithAnchors(centerStr, centerTree, rawSeqs[i], effectiveScoring));
+        var merged = MergeCenterAlignments(centerStr, pairwise, centerIdx);
+
+        // An empty input yields an empty anchored result: pad to the common length.
+        int maxLen = merged.Max(s => s.Length);
+        for (int i = 0; i < merged.Count; i++)
+            if (merged[i].Length < maxLen)
+                merged[i] = merged[i].PadRight(maxLen, '-');
+
+        return FinishStarAlignment(merged, effectiveScoring);
+    }
+
+    // Pairs above this many DP cells are aligned by the exact linear-space recursion (bounded memory
+    // per concurrent pair: 4M cells = 16 MB); smaller pairs use the canonical full-matrix NW.
+    private const long StarFullMatrixCells = 4_000_000;
+
+    /// <summary>Empty / single-sequence results shared by every MSA entry point; null when k ≥ 2.</summary>
+    private static MultipleAlignmentResult? TrivialMultipleAlignment(List<DnaSequence> seqList)
+    {
         if (seqList.Count == 0)
             return MultipleAlignmentResult.Empty;
 
@@ -1082,91 +1289,110 @@ public static class SequenceAligner
                 TotalScore: 0);
         }
 
-        var effectiveScoring = scoring ?? SimpleDna;
+        return null;
+    }
 
-        // Step 1: Select the best center sequence using k-mer cosine similarity.
-        // The center is the sequence that maximizes total similarity to all others.
-        int centerIdx = SelectCenterSequence(seqList);
-
-        var centerSeq = seqList[centerIdx];
-        string centerStr = centerSeq.Sequence;
-
-        // Step 2: Build suffix tree once on the center sequence — O(L)
-        var centerTree = SuffixTree.SuffixTree.Build(centerStr);
-
-        // Step 3: Reconcile pairwise alignments into a single MSA.
-        // ReconcileAlignments performs all pairwise alignments (parallelized for k≥3)
-        // and merges gap patterns from independent center-vs-other alignments.
-        var (mergedAligned, _) = ReconcileAlignments(
-            seqList, centerIdx, centerStr, centerTree, effectiveScoring);
-
-        // Pad sequences to same length
-        int maxLen = mergedAligned.Max(s => s.Length);
-        for (int i = 0; i < mergedAligned.Count; i++)
-        {
-            if (mergedAligned[i].Length < maxLen)
-                mergedAligned[i] = mergedAligned[i].PadRight(maxLen, '-');
-        }
-
-        // Generate consensus
-        string consensus = BuildConsensus(mergedAligned, maxLen);
-
-        // Compute true sum-of-pairs score on the final aligned sequences.
-        // Per Wikipedia MSA: SP = sum over all C(k,2) pairs of column-based scores.
-        int spScore = ComputeSumOfPairsScore(mergedAligned, effectiveScoring);
-
+    private static MultipleAlignmentResult FinishStarAlignment(List<string> merged, ScoringMatrix scoring)
+    {
+        int maxLen = merged.Max(s => s.Length);
         return new MultipleAlignmentResult(
-            AlignedSequences: mergedAligned.ToArray(),
-            Consensus: consensus,
-            TotalScore: spScore);
+            AlignedSequences: merged.ToArray(),
+            Consensus: BuildConsensus(merged, maxLen),
+            TotalScore: ComputeSumOfPairsScore(merged, scoring));
     }
 
     /// <summary>
-    /// Classic star alignment (fallback for short sequences or small sets).
+    /// Runs <paramref name="alignToCenter"/> for every non-center sequence (in parallel for k ≥ 4;
+    /// each slot is independent and written once, so the result does not depend on scheduling).
+    /// </summary>
+    private static AlignmentResult[] AlignAllToCenter(int k, int centerIdx, Func<int, AlignmentResult> alignToCenter)
+    {
+        var results = new AlignmentResult[k];
+
+        if (k >= 4)
+        {
+            Parallel.For(0, k, i =>
+            {
+                if (i != centerIdx)
+                    results[i] = alignToCenter(i);
+            });
+        }
+        else
+        {
+            for (int i = 0; i < k; i++)
+                if (i != centerIdx)
+                    results[i] = alignToCenter(i);
+        }
+
+        return results;
+    }
+
+    /// <summary>
+    /// Classic star alignment with the FIRST sequence as center and exact pairwise alignments
+    /// (benchmark baseline for <see cref="MultipleAlignAnchored(IEnumerable{DnaSequence}, ScoringMatrix?)"/>).
     /// </summary>
     internal static MultipleAlignmentResult MultipleAlignClassic(
         List<DnaSequence> seqList, ScoringMatrix scoring)
     {
-        var aligned = new List<string> { seqList[0].Sequence };
-        int totalScore = 0;
-
-        for (int i = 1; i < seqList.Count; i++)
-        {
-            var result = GlobalAlign(seqList[0], seqList[i], scoring);
-            aligned.Add(result.AlignedSequence2);
-            totalScore += result.Score;
-        }
-
-        int maxLen = aligned.Max(s => s.Length);
-        for (int i = 0; i < aligned.Count; i++)
-        {
-            if (aligned[i].Length < maxLen)
-                aligned[i] = aligned[i].PadRight(maxLen, '-');
-        }
-
-        string consensus = BuildConsensus(aligned, maxLen);
-
-        return new MultipleAlignmentResult(
-            AlignedSequences: aligned.ToArray(),
-            Consensus: consensus,
-            TotalScore: ComputeSumOfPairsScore(aligned, scoring));
+        var raw = seqList.Select(s => s.Sequence).ToArray();
+        var pairwise = AlignAllToCenter(raw.Length, 0, i => GlobalAlignCore(raw[0], raw[i], scoring));
+        return FinishStarAlignment(MergeCenterAlignments(raw[0], pairwise, 0), scoring);
     }
 
     /// <summary>
-    /// Selects the center sequence for star alignment by finding the sequence
-    /// with the highest total similarity to all others.
-    /// Uses 4-mer frequency cosine similarity: O(k²·L) with small constant,
-    /// instead of O(k²·L) suffix-tree LCS which builds k trees.
+    /// Gusfield (1993) center: the sequence maximising the total optimal Needleman-Wunsch score to the
+    /// other sequences (pair scores = last cell of the linear-space NW pass, identical to the
+    /// canonical <see cref="GlobalAlignCore"/> score).
+    /// Ties go to the lowest index.
+    /// </summary>
+    private static int SelectCenterByPairwiseScore(string[] seqs, ScoringMatrix scoring)
+    {
+        int k = seqs.Length;
+        var pairScore = new int[k, k];
+
+        var pairs = new List<(int I, int J)>(k * (k - 1) / 2);
+        for (int i = 0; i < k; i++)
+            for (int j = i + 1; j < k; j++)
+                pairs.Add((i, j));
+
+        Parallel.ForEach(pairs, pair =>
+        {
+            // Optimal NW score in O(n) memory (last row of the NW matrix; equals GlobalAlignCore(..).Score).
+            int s = LinearLastRow(seqs[pair.I], 0, seqs[pair.I].Length, seqs[pair.J], 0, seqs[pair.J].Length, scoring, reverse: false)[seqs[pair.J].Length];
+            pairScore[pair.I, pair.J] = s;
+            pairScore[pair.J, pair.I] = s;
+        });
+
+        long bestTotal = long.MinValue;
+        int bestIdx = 0;
+        for (int c = 0; c < k; c++)
+        {
+            long total = 0;
+            for (int j = 0; j < k; j++)
+                if (j != c)
+                    total += pairScore[c, j];
+
+            if (total > bestTotal)
+            {
+                bestTotal = total;
+                bestIdx = c;
+            }
+        }
+
+        return bestIdx;
+    }
+
+    /// <summary>
+    /// Selects the center for the approximate anchored star alignment: the sequence with the highest
+    /// total 4-mer count cosine similarity to all others. K-mers are counted by the canonical Core
+    /// counter <see cref="SequenceExtensions.CountKmersSpan"/> (DNA input is already upper-case ACGT, so
+    /// every window is a valid 4-mer). Always prefers a non-empty center (an empty center has no
+    /// positions to carry the anchored reconciliation).
     /// </summary>
     private static int SelectCenterSequence(List<DnaSequence> sequences)
     {
         int k = sequences.Count;
 
-        // The center is the star-alignment hub: every other sequence is aligned to it and
-        // the final MSA is projected onto the center's coordinate space. An EMPTY center
-        // has no positions to carry that projection, so non-empty sequences would lose all
-        // their content during reconciliation. Always prefer a non-empty center when one
-        // exists; only fall through to the heuristic among the non-empty candidates.
         int firstNonEmpty = -1;
         for (int i = 0; i < k; i++)
         {
@@ -1182,40 +1408,34 @@ public static class SequenceAligner
 
         if (k <= 2) return firstNonEmpty;
 
-        // Build 4-mer frequency vectors for each sequence.
-        // 4-mer over ACGT → 256 possible k-mers, stored as int[256].
         const int KmerLen = 4;
-        const int VocabSize = 256; // 4^4
-        var profiles = new int[k][];
+        var profiles = new Dictionary<string, int>[k];
         var norms = new double[k];
 
         for (int i = 0; i < k; i++)
         {
-            profiles[i] = new int[VocabSize];
-            string seq = sequences[i].Sequence;
-            for (int p = 0; p <= seq.Length - KmerLen; p++)
-            {
-                int hash = KmerHash(seq, p, KmerLen);
-                if (hash >= 0)
-                    profiles[i][hash]++;
-            }
-
+            profiles[i] = sequences[i].Sequence.AsSpan().CountKmersSpan(KmerLen);
             double norm = 0;
-            for (int v = 0; v < VocabSize; v++)
-                norm += (double)profiles[i][v] * profiles[i][v];
+            foreach (var count in profiles[i].Values)
+                norm += (double)count * count;
             norms[i] = Math.Sqrt(norm);
         }
 
-        // Compute pairwise cosine similarity; pick sequence with max total
         var totalSimilarity = new double[k];
 
         for (int i = 0; i < k; i++)
         {
             for (int j = i + 1; j < k; j++)
             {
+                // Iterate the smaller profile; integer products are exact in double.
+                var (small, large) = profiles[i].Count <= profiles[j].Count
+                    ? (profiles[i], profiles[j])
+                    : (profiles[j], profiles[i]);
+
                 double dot = 0;
-                for (int v = 0; v < VocabSize; v++)
-                    dot += (double)profiles[i][v] * profiles[j][v];
+                foreach (var (kmer, count) in small)
+                    if (large.TryGetValue(kmer, out int other))
+                        dot += (double)count * other;
 
                 double sim = (norms[i] > 0 && norms[j] > 0)
                     ? dot / (norms[i] * norms[j])
@@ -1226,8 +1446,6 @@ public static class SequenceAligner
             }
         }
 
-        // Restrict the center choice to NON-EMPTY candidates (an empty center cannot carry
-        // the reconciliation projection — see above). firstNonEmpty is guaranteed valid.
         int bestIdx = firstNonEmpty;
         for (int i = firstNonEmpty + 1; i < k; i++)
         {
@@ -1241,87 +1459,28 @@ public static class SequenceAligner
     }
 
     /// <summary>
-    /// Hashes a 4-mer at the given position into [0..255].
-    /// Returns -1 if any character is not A/C/G/T.
+    /// Merges the pairwise center-vs-sequence alignments into one MSA ("once a gap, always a gap",
+    /// Feng &amp; Doolittle 1987 / Gusfield 1993): for every center position the number of
+    /// non-center residues inserted before it is the maximum over all pairwise alignments, and each
+    /// row's own inserted residues are left-justified in that slot.
     /// </summary>
-    private static int KmerHash(string seq, int pos, int len)
+    private static List<string> MergeCenterAlignments(string centerStr, AlignmentResult[] pairwise, int centerIdx)
     {
-        int hash = 0;
-        for (int i = 0; i < len; i++)
-        {
-            int code = seq[pos + i] switch
-            {
-                'A' or 'a' => 0,
-                'C' or 'c' => 1,
-                'G' or 'g' => 2,
-                'T' or 't' => 3,
-                _ => -1
-            };
-            if (code < 0) return -1;
-            hash = (hash << 2) | code;
-        }
-        return hash;
-    }
+        int k = pairwise.Length;
 
-    /// <summary>
-    /// Reconciles multiple pairwise alignments against the center into a single MSA.
-    /// Uses the simple approach of aligning each sequence to center independently
-    /// and then merging gap columns.
-    /// </summary>
-    private static (List<string> Aligned, int TotalScore) ReconcileAlignments(
-        List<DnaSequence> sequences,
-        int centerIdx,
-        string centerStr,
-        SuffixTree.SuffixTree centerTree,
-        ScoringMatrix scoring)
-    {
-        int k = sequences.Count;
-
-        // Perform all pairwise alignments to center — parallelized for k≥3
-        var pairwiseResults = new AlignmentResult[k];
-        int totalScore = 0;
-
-        // Center aligns to itself (identity)
-        pairwiseResults[centerIdx] = new AlignmentResult(
+        // Center aligns to itself (identity).
+        pairwise[centerIdx] = new AlignmentResult(
             centerStr, centerStr, 0, AlignmentType.Global, 0, 0,
             centerStr.Length - 1, centerStr.Length - 1);
 
-        if (k >= 4)
-        {
-            // Parallel: suffix tree is immutable, each slot is independent
-            Parallel.For(0, k, i =>
-            {
-                if (i == centerIdx) return;
-
-                var result = AnchorBasedAligner.AlignWithAnchors(
-                    centerStr, centerTree, sequences[i].Sequence, scoring);
-                pairwiseResults[i] = result;
-                Interlocked.Add(ref totalScore, result.Score);
-            });
-        }
-        else
-        {
-            // Sequential for small k (avoid thread pool overhead)
-            for (int i = 0; i < k; i++)
-            {
-                if (i == centerIdx) continue;
-
-                pairwiseResults[i] = AnchorBasedAligner.AlignWithAnchors(
-                    centerStr, centerTree, sequences[i].Sequence, scoring);
-                totalScore += pairwiseResults[i].Score;
-            }
-        }
-
-        // Merge: build a gap map from all center alignments.
-        // For each position in the original center sequence, track how many gaps
-        // need to be inserted before it (maximum across all pairwise alignments).
+        // gapsBefore[p] = number of columns to insert before center position p (p = Length: trailing).
         var gapsBefore = new int[centerStr.Length + 1];
 
         for (int i = 0; i < k; i++)
         {
             if (i == centerIdx) continue;
 
-            string alignedCenter = pairwiseResults[i].AlignedSequence1;
+            string alignedCenter = pairwise[i].AlignedSequence1;
             int origPos = 0;
             int gapCount = 0;
 
@@ -1338,17 +1497,16 @@ public static class SequenceAligner
                     gapCount = 0;
                 }
             }
-            // Trailing gaps
             gapsBefore[centerStr.Length] = Math.Max(gapsBefore[centerStr.Length], gapCount);
         }
 
-        // Now re-project each pairwise alignment into the merged coordinate space
+        // Re-project each pairwise alignment into the merged coordinate space.
         var merged = new List<string>(k);
 
         for (int i = 0; i < k; i++)
         {
-            string alignedCenter = pairwiseResults[i].AlignedSequence1;
-            string alignedOther = pairwiseResults[i].AlignedSequence2;
+            string alignedCenter = pairwise[i].AlignedSequence1;
+            string alignedOther = pairwise[i].AlignedSequence2;
 
             var sb = new StringBuilder();
             int alignPos = 0;
@@ -1357,7 +1515,7 @@ public static class SequenceAligner
             {
                 int neededGaps = gapsBefore[p];
 
-                // Count how many gaps this alignment has at this center position
+                // Residues of this row inserted before center position p.
                 int thisGaps = 0;
                 int tempAlignPos = alignPos;
                 while (tempAlignPos < alignedCenter.Length && alignedCenter[tempAlignPos] == '-')
@@ -1366,23 +1524,17 @@ public static class SequenceAligner
                     tempAlignPos++;
                 }
 
-                // Emit this alignment's gaps (from the other sequence)
                 for (int g = 0; g < thisGaps; g++)
                 {
-                    if (alignPos < alignedOther.Length)
-                        sb.Append(alignedOther[alignPos]);
-                    else
-                        sb.Append('-');
+                    sb.Append(alignPos < alignedOther.Length ? alignedOther[alignPos] : '-');
                     alignPos++;
                 }
 
-                // Emit additional gaps to match the maximum
+                // Pad the slot to the maximum insertion width.
                 for (int g = thisGaps; g < neededGaps; g++)
-                {
                     sb.Append('-');
-                }
 
-                // Emit the character at center position p
+                // The row's character at center position p.
                 if (p < centerStr.Length && alignPos < alignedOther.Length)
                 {
                     sb.Append(alignedOther[alignPos]);
@@ -1390,18 +1542,12 @@ public static class SequenceAligner
                 }
             }
 
-            // Emit any remaining characters
-            while (alignPos < alignedOther.Length)
-            {
-                sb.Append(alignedOther[alignPos]);
-                alignPos++;
-            }
-
             merged.Add(sb.ToString());
         }
 
-        return (merged, totalScore);
+        return merged;
     }
+
 
     /// <summary>
     /// Builds a majority-vote consensus from aligned sequences.
@@ -1591,10 +1737,13 @@ public static class SequenceAligner
     }
 
     /// <summary>
-    /// Pairwise distance for the guide tree: 1 − (identical columns / pairwise NW alignment
-    /// length). Two empty sequences (no comparable column) are treated as distance 0.
-    /// Source: Feng &amp; Doolittle (1987) convert pairwise alignment to a distance; the
-    /// identity-based distance d = 1 − fractional identity is the standard Clustal-style choice.
+    /// Pairwise distance for the guide tree, the ClustalW pairwise distance (Thompson, Higgins &amp;
+    /// Gibson 1994): 1 − (identical aligned residue pairs of the optimal pairwise alignment) /
+    /// (length of the shorter sequence). This is <c>tmat = (100 − mm_score) / 100</c> with
+    /// <c>mm_score = 100·count / MIN(len1, len2)</c> in <c>pairalign.c</c> of ClustalW 1.83 (the
+    /// reference alignment there uses affine gaps; this method uses the repository's linear
+    /// Needleman-Wunsch). Two empty sequences (no comparable residue) are treated as distance 0, an
+    /// empty versus a non-empty sequence as distance 1.
     /// </summary>
     private static double PairwiseIdentityDistance(string a, string b, ScoringMatrix scoring)
     {
@@ -1604,20 +1753,16 @@ public static class SequenceAligner
             return 1.0; // no shared residues possible
 
         var pa = GlobalAlignCore(a, b, scoring);
-        int length = pa.AlignedSequence1.Length;
-        if (length == 0)
-            return 0.0;
 
         int identical = 0;
-        for (int i = 0; i < length; i++)
+        for (int i = 0; i < pa.AlignedSequence1.Length; i++)
         {
             char c1 = pa.AlignedSequence1[i];
-            char c2 = pa.AlignedSequence2[i];
-            if (c1 != '-' && c2 != '-' && c1 == c2)
+            if (c1 != '-' && c1 == pa.AlignedSequence2[i])
                 identical++;
         }
 
-        return 1.0 - (double)identical / length;
+        return 1.0 - (double)identical / Math.Min(a.Length, b.Length);
     }
 
     /// <summary>
@@ -1637,7 +1782,7 @@ public static class SequenceAligner
     /// Builds a UPGMA guide tree over the pairwise distance matrix. Uses proportional
     /// (cluster-size weighted) averaging, identical to PhylogeneticAnalyzer.BuildUPGMA
     /// (Sokal &amp; Michener 1958). Tie-breaking is deterministic: the lowest (i, j) index
-    /// pair wins, so hand-derived test cases have a unique tree.
+    /// pair wins (distances equal within <see cref="ProfileScoreEpsilon"/> tie), so hand-derived test cases have a unique tree.
     /// </summary>
     private static ProgressiveGuideNode BuildProgressiveGuideTree(int k, double[,] distance)
     {
@@ -1672,7 +1817,9 @@ public static class SequenceAligner
                     int b = active[jj];
                     var key = a < b ? (a, b) : (b, a);
                     double d = dist.GetValueOrDefault(key, 0);
-                    if (d < minDist)
+                    // Strictly smaller beyond rounding noise: mathematically equal averaged distances
+                    // (e.g. 0.3 + 0.4 vs 0.7) must tie so that the lowest-index rule decides.
+                    if (d < minDist - ProfileScoreEpsilon)
                     {
                         minDist = d;
                         minI = a;
@@ -2305,7 +2452,7 @@ public static class SequenceAligner
         var rawSeqs = seqList.Select(s => s.Sequence).ToArray();
 
         // Steps 1-2: primary library (global + local, signal-added) then triplet extension.
-        var library = BuildExtendedLibrary(rawSeqs, effectiveScoring);
+        var library = new ExtendedLibrary(BuildPrimaryLibrary(rawSeqs, effectiveScoring));
 
         // Step 3a: UPGMA guide tree over (1 - fractional identity), reusing the progressive pipeline.
         var distance = new double[k, k];
@@ -2350,20 +2497,96 @@ public static class SequenceAligner
             : new ResiduePairKey(s2, p2, s1, p1);
 
     /// <summary>
-    /// Builds the T-Coffee <b>extended</b> library: the primary library (global + local pairwise
-    /// alignments, weighted by percent identity and combined by signal addition) transformed by the
-    /// triplet consistency extension (Notredame et al. 2000, pp.207-209).
+    /// The T-Coffee <b>extended</b> library (Notredame et al. 2000, pp.207-209): the primary library
+    /// (global + local pairwise alignments, weighted by percent identity and combined by signal
+    /// addition) plus the triplet consistency transformation, evaluated for <b>any</b> residue pair
+    /// on demand (the paper: "Extension will be carried out on each pair of residues of A and B";
+    /// the reference implementation <c>residue_pair_extended_list</c> in <c>lib/dp_lib/evaluate.c</c>
+    /// likewise scores every pair the dynamic program asks for, not only pairs of the primary library).
     /// </summary>
-    private static Dictionary<ResiduePairKey, double> BuildExtendedLibrary(
-        string[] seqs, ScoringMatrix scoring)
+    private sealed class ExtendedLibrary
     {
+        private readonly Dictionary<ResiduePairKey, double> _primary;
+        private readonly Dictionary<(int Seq, int Pos), Dictionary<(int Seq, int Pos), double>> _neighbours;
+        private readonly Dictionary<ResiduePairKey, double> _cache = new();
+
+        public ExtendedLibrary(Dictionary<ResiduePairKey, double> primary)
+        {
+            _primary = primary;
+            _neighbours = BuildNeighbourIndex(primary);
+        }
+
+        /// <summary>
+        /// Inverts the primary library into a per-residue adjacency: (seq,pos) -&gt; {(otherSeq,otherPos):
+        /// weight}. Both directions of each stored pair are emitted so the triplet extension can walk from
+        /// either endpoint.
+        /// </summary>
+        private static Dictionary<(int Seq, int Pos), Dictionary<(int Seq, int Pos), double>>
+            BuildNeighbourIndex(Dictionary<ResiduePairKey, double> primary)
+        {
+            var index = new Dictionary<(int, int), Dictionary<(int, int), double>>();
+
+            void Add(int s1, int p1, int s2, int p2, double w)
+            {
+                if (!index.TryGetValue((s1, p1), out var inner))
+                {
+                    inner = new Dictionary<(int, int), double>();
+                    index[(s1, p1)] = inner;
+                }
+                inner[(s2, p2)] = w;
+            }
+
+            foreach (var (key, w) in primary)
+            {
+                Add(key.SeqA, key.PosA, key.SeqB, key.PosB, w);
+                Add(key.SeqB, key.PosB, key.SeqA, key.PosA, w);
+            }
+
+            return index;
+        }
+
+        public double Primary(ResiduePairKey key) => _primary.GetValueOrDefault(key);
+
+        /// <summary>
+        /// Extended weight of (Si.p, Sj.q) = direct primary weight + Σ over every residue Sk.r of a
+        /// third sequence that is in the primary library with both Si.p (W1) and Sj.q (W2) of
+        /// min(W1, W2) (worked example of the paper: 88 + min(77, 100) = 165). Zero when the pair has
+        /// neither direct nor triplet support.
+        /// </summary>
+        public double Extended(ResiduePairKey key)
+        {
+            if (_cache.TryGetValue(key, out double cached))
+                return cached;
+
+            double total = _primary.GetValueOrDefault(key);
+
+            if (_neighbours.TryGetValue((key.SeqA, key.PosA), out var partnersOfA) &&
+                _neighbours.TryGetValue((key.SeqB, key.PosB), out var partnersOfB))
+            {
+                // Intersect on (Sk, r); walk the smaller adjacency list.
+                var (walk, other) = partnersOfA.Count <= partnersOfB.Count
+                    ? (partnersOfA, partnersOfB)
+                    : (partnersOfB, partnersOfA);
+
+                foreach (var (partner, w1) in walk)
+                {
+                    if (partner.Seq == key.SeqA || partner.Seq == key.SeqB) continue; // third sequences only
+                    if (other.TryGetValue(partner, out double w2))
+                        total += Math.Min(w1, w2);
+                }
+            }
+
+            _cache[key] = total;
+            return total;
+        }
+    }
+
+    /// <summary>Primary library: global (NW) + local (SW) pairwise alignments of every sequence pair, signal-added.</summary>
+    private static Dictionary<ResiduePairKey, double> BuildPrimaryLibrary(string[] seqs, ScoringMatrix scoring)
+    {
+        var primary = new Dictionary<ResiduePairKey, double>();
         int k = seqs.Length;
 
-        // ---- Step 1: primary library (global + local), keyed per (sequence,position) pair. ----
-        var primary = new Dictionary<ResiduePairKey, double>();
-
-        // Per-(i,j) adjacency used by the extension: position p in Si -> list of (Sj, q, weight).
-        // Built from the primary library after combination so weights are the signal-added totals.
         for (int i = 0; i < k; i++)
         {
             for (int j = i + 1; j < k; j++)
@@ -2379,41 +2602,7 @@ public static class SequenceAligner
             }
         }
 
-        // ---- Step 2: triplet consistency extension. ----
-        // Build, per sequence position, the list of partners (other sequence, position, weight) from
-        // the primary library, so triplets can be enumerated in O(neighbours) per residue.
-        var neighbours = BuildNeighbourIndex(primary);
-
-        // Extended weight = direct primary weight + sum over intermediates Sk of min(W1, W2).
-        var extended = new Dictionary<ResiduePairKey, double>(primary);
-
-        foreach (var entry in primary)
-        {
-            var key = entry.Key; // (SeqA.PosA, SeqB.PosB), SeqA < SeqB
-            int sA = key.SeqA, pA = key.PosA, sB = key.SeqB, pB = key.PosB;
-
-            // Every intermediate residue r in some Sk that aligns to BOTH endpoints contributes
-            // min(W(A,k), W(k,B)). We iterate the neighbours of A and intersect on (Sk, r).
-            if (!neighbours.TryGetValue((sA, pA), out var partnersOfA))
-                continue;
-            if (!neighbours.TryGetValue((sB, pB), out var partnersOfB))
-                continue;
-
-            // Index B's partners by (seq,pos) for O(1) intersection.
-            foreach (var partner in partnersOfA)
-            {
-                int kSeq = partner.Key.Item1;
-                int kPos = partner.Key.Item2;
-                double w1 = partner.Value;
-                if (kSeq == sA || kSeq == sB) continue; // intermediate must be a third sequence
-                if (!partnersOfB.TryGetValue((kSeq, kPos), out double w2)) continue;
-                double contribution = Math.Min(w1, w2);
-                if (contribution <= 0) continue;
-                extended[key] = extended.GetValueOrDefault(key) + contribution;
-            }
-        }
-
-        return extended;
+        return primary;
     }
 
     /// <summary>
@@ -2477,52 +2666,31 @@ public static class SequenceAligner
     }
 
     /// <summary>
-    /// Percent identity of a pairwise alignment = 100 × (columns where both residues are equal and
-    /// non-gap) / (alignment length). The percent-identity weight per Notredame et al. (2000) p.207.
+    /// Percent identity of a pairwise alignment = ⌊100 × identical columns / aligned columns⌋, where an
+    /// aligned column has a residue in both rows (gap columns are not counted). This is the library
+    /// weight of T-Coffee's default <c>-weight=sim</c> (<c>get_seq_sim</c> in
+    /// <c>lib/util_lib/aln_convertion_util.c</c>, mode sim1: <c>(sim*MAXID)/pos0</c>, integer division;
+    /// Notredame et al. 2000 p.207: "a weight equal to percent identity within the pair-wise
+    /// alignment it comes from").
     /// </summary>
     private static double PercentIdentity(string a, string b)
     {
-        int len = a.Length;
-        if (len == 0) return 0;
+        int aligned = 0;
         int identical = 0;
-        for (int c = 0; c < len; c++)
-            if (a[c] != '-' && a[c] == b[c])
+        for (int c = 0; c < a.Length; c++)
+        {
+            if (a[c] == '-' || b[c] == '-')
+                continue;
+            aligned++;
+            if (a[c] == b[c])
                 identical++;
-        // PercentIdentityScale: the weight is a percentage (Notredame et al. 2000, p.207).
-        return Math.Round(PercentIdentityScale * identical / len);
+        }
+
+        return aligned == 0 ? 0 : (int)(PercentIdentityScale * identical) / aligned;
     }
 
     // Weight is expressed as a percentage (0-100), matching the paper's integer "Prim Weight" values.
     private const double PercentIdentityScale = 100.0;
-
-    /// <summary>
-    /// Inverts the primary library into a per-residue adjacency: (seq,pos) -&gt; {(otherSeq,otherPos):
-    /// weight}. Both directions of each stored pair are emitted so the triplet extension can walk from
-    /// either endpoint.
-    /// </summary>
-    private static Dictionary<(int Seq, int Pos), Dictionary<(int Seq, int Pos), double>>
-        BuildNeighbourIndex(Dictionary<ResiduePairKey, double> primary)
-    {
-        var index = new Dictionary<(int, int), Dictionary<(int, int), double>>();
-
-        void Add(int s1, int p1, int s2, int p2, double w)
-        {
-            if (!index.TryGetValue((s1, p1), out var inner))
-            {
-                inner = new Dictionary<(int, int), double>();
-                index[(s1, p1)] = inner;
-            }
-            inner[(s2, p2)] = w;
-        }
-
-        foreach (var (key, w) in primary)
-        {
-            Add(key.SeqA, key.PosA, key.SeqB, key.PosB, w);
-            Add(key.SeqB, key.PosB, key.SeqA, key.PosA, w);
-        }
-
-        return index;
-    }
 
     // ----- Consistency profile + progressive DP ----------------------------------------------
 
@@ -2541,7 +2709,7 @@ public static class SequenceAligner
     }
 
     private static ConsistencyProfile AlignConsistencySubtree(
-        ProgressiveGuideNode node, string[] rawSeqs, Dictionary<ResiduePairKey, double> library)
+        ProgressiveGuideNode node, string[] rawSeqs, ExtendedLibrary library)
     {
         if (node.IsLeaf)
         {
@@ -2568,7 +2736,7 @@ public static class SequenceAligner
     /// edited; gaps are inserted as whole all-gap columns ("once a gap, always a gap").
     /// </summary>
     private static ConsistencyProfile AlignConsistencyProfiles(
-        ConsistencyProfile p1, ConsistencyProfile p2, Dictionary<ResiduePairKey, double> library)
+        ConsistencyProfile p1, ConsistencyProfile p2, ExtendedLibrary library)
     {
         int m = p1.Width;
         int n = p2.Width;
@@ -2665,7 +2833,7 @@ public static class SequenceAligner
     /// </summary>
     private static double ColumnLibraryScore(
         ConsistencyProfile p1, int col1, ConsistencyProfile p2, int col2,
-        Dictionary<ResiduePairKey, double> library)
+        ExtendedLibrary library)
     {
         double total = 0;
         for (int r1 = 0; r1 < p1.Rows.Count; r1++)
@@ -2678,9 +2846,7 @@ public static class SequenceAligner
                 int posB = p2.PositionMaps[r2][col2];
                 if (posB < 0) continue;
                 int seqB = p2.SequenceIndices[r2];
-                var key = MakeKey(seqA, posA, seqB, posB);
-                if (library.TryGetValue(key, out double w))
-                    total += w;
+                total += library.Extended(MakeKey(seqA, posA, seqB, posB));
             }
         }
         return total;
@@ -2696,27 +2862,9 @@ public static class SequenceAligner
         string[] seqs, int seqI, int posI, int seqJ, int posJ, ScoringMatrix? scoring = null)
     {
         var effectiveScoring = scoring ?? SimpleDna;
-        var primaryOnly = BuildPrimaryLibraryForDiagnostics(seqs, effectiveScoring);
-        var extended = BuildExtendedLibrary(seqs, effectiveScoring);
+        var library = new ExtendedLibrary(BuildPrimaryLibrary(seqs, effectiveScoring));
         var key = MakeKey(seqI, posI, seqJ, posJ);
-        return (primaryOnly.GetValueOrDefault(key), extended.GetValueOrDefault(key));
-    }
-
-    private static Dictionary<ResiduePairKey, double> BuildPrimaryLibraryForDiagnostics(
-        string[] seqs, ScoringMatrix scoring)
-    {
-        var primary = new Dictionary<ResiduePairKey, double>();
-        int k = seqs.Length;
-        for (int i = 0; i < k; i++)
-            for (int j = i + 1; j < k; j++)
-            {
-                AddAlignmentToPrimary(primary, i, j, seqs[i], seqs[j],
-                    GlobalAlignCore(seqs[i], seqs[j], scoring));
-                if (seqs[i].Length > 0 && seqs[j].Length > 0)
-                    AddLocalAlignmentToPrimary(primary, i, j, seqs[i], seqs[j],
-                        LocalAlignCore(seqs[i], seqs[j], scoring));
-            }
-        return primary;
+        return (library.Primary(key), library.Extended(key));
     }
 
     #endregion

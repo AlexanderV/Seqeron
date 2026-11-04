@@ -119,36 +119,39 @@ public class SequenceAligner_MultipleAlignIterative_Tests
     #region MUST — Iterative refinement corrects an early-gap-placement error (the headline fix)
 
     /// <summary>
-    /// M06: HEADLINE CORRECTION CASE. Progressive MSA misplaces an internal gap; iterative
-    /// refinement relocates it and raises the SP score by exactly +2. This is the "once a gap,
-    /// always a gap" error being corrected.
+    /// M06: HEADLINE CORRECTION CASE. Progressive MSA misplaces a gap block; iterative refinement
+    /// relocates it and raises the SP score by exactly +4. This is the "once a gap, always a gap"
+    /// error being corrected.
     ///
-    /// Input ["CGA","GAGAT","CGC","GAC"], SimpleDna (match +1, mismatch −1, gap −1).
+    /// Input ["TCA","TCT","GCAC","TAAC"], SimpleDna (match +1, mismatch −1, gap −1). The guide tree
+    /// (ClustalW distance 1 − identities / shorter length, UPGMA) joins TCA+TCT first and the two
+    /// 4-mers last; the early TCA/TCT profile fixes its end-gap-free layout, so the final merge must
+    /// open an internal gap block (independent Python re-implementation of the pipeline).
     ///
-    /// Progressive seed (hand-derived; the early profile merge fixes a gap before the final base):
-    ///   -CG-A
-    ///   GAGAT
-    ///   -CG-C
-    ///   --GAC
-    ///   SP by column (6 pairs each): col0 {-,G,-,-}=−3; col1 {C,A,C,-}=−4; col2 {G,G,G,G}=+6;
-    ///   col3 {-,A,-,A}=−3; col4 {A,T,C,C}=−4  ⇒  SP = −8.
+    /// Progressive seed (hand-derived):
+    ///   T--CA
+    ///   T--CT
+    ///   GCAC-
+    ///   TAAC-
+    ///   SP by column (6 pairs each): col0 {T,T,G,T}=0; col1 {-,-,C,A}=−5; col2 {-,-,A,A}=−3;
+    ///   col3 {C,C,C,C}=+6; col4 {A,T,-,-}=−5  ⇒  SP = −7.
     ///
-    /// Iterative refinement re-splits at a guide-tree edge and realigns, relocating the internal
-    /// gap of rows 0 and 2 to the terminal position:
-    ///   -CGA-
-    ///   GAGAT
-    ///   -CGC-
-    ///   --GAC
-    ///   SP by column: col0 {-,G,-,-}=−3; col1 {C,A,C,-}=−4; col2 {G,G,G,G}=+6;
-    ///   col3 {A,A,C,A}=0; col4 {-,T,-,C}=−5  ⇒  SP = −6.
+    /// Iterative refinement re-splits at a guide-tree edge and realigns the two sub-profiles, moving
+    /// the gap block to the terminal column:
+    ///   TCA-
+    ///   TCT-
+    ///   GCAC
+    ///   TAAC
+    ///   SP by column: col0 {T,T,G,T}=0; col1 {C,C,C,A}=0; col2 {A,T,A,A}=0; col3 {-,-,C,C}=−3
+    ///   ⇒  SP = −3.
     ///
-    /// The gain (+2) comes from col3 −3 → 0 and col4 −4 → −5 (net +3 − 1 = +2). Both alignments
-    /// degap to the same inputs, so this is a pure gap RELOCATION the single-pass method cannot make.
+    /// Both alignments degap to the same inputs, so this is a pure gap RELOCATION the single-pass
+    /// method cannot make.
     /// </summary>
     [Test]
     public void MultipleAlignIterative_CorrectsEarlyGapPlacement_RaisesSpScore()
     {
-        var input = new[] { "CGA", "GAGAT", "CGC", "GAC" }
+        var input = new[] { "TCA", "TCT", "GCAC", "TAAC" }
             .Select(s => new DnaSequence(s)).ToArray();
 
         var prog = SequenceAligner.MultipleAlignProgressive(input);
@@ -156,22 +159,22 @@ public class SequenceAligner_MultipleAlignIterative_Tests
 
         Assert.Multiple(() =>
         {
-            // Progressive seed is the suboptimal arrangement (hand-derived SP = −8).
+            // Progressive seed is the suboptimal arrangement (hand-derived SP = −7).
             Assert.That(prog.AlignedSequences,
-                Is.EqualTo(new[] { "-CG-A", "GAGAT", "-CG-C", "--GAC" }),
-                "Progressive seed places the gap internally (the error to be corrected)");
-            Assert.That(prog.TotalScore, Is.EqualTo(-8));
+                Is.EqualTo(new[] { "T--CA", "T--CT", "GCAC-", "TAAC-" }),
+                "Progressive seed places the gap block internally (the error to be corrected)");
+            Assert.That(prog.TotalScore, Is.EqualTo(-7));
 
-            // Refinement relocates the gap to the terminal column (hand-derived SP = −6).
+            // Refinement relocates the gap block to the terminal column (hand-derived SP = −3).
             Assert.That(iter.AlignedSequences,
-                Is.EqualTo(new[] { "-CGA-", "GAGAT", "-CGC-", "--GAC" }),
-                "Refinement relocates the internal gap to the terminal position");
-            Assert.That(iter.TotalScore, Is.EqualTo(-6),
+                Is.EqualTo(new[] { "TCA-", "TCT-", "GCAC", "TAAC" }),
+                "Refinement relocates the internal gap block to the terminal position");
+            Assert.That(iter.TotalScore, Is.EqualTo(-3),
                 "Hand-derived corrected SP score");
 
-            // The fix strictly improves SP by +2.
-            Assert.That(iter.TotalScore - prog.TotalScore, Is.EqualTo(2),
-                "Iterative refinement strictly improves SP by exactly 2 over the seed");
+            // The fix strictly improves SP by +4.
+            Assert.That(iter.TotalScore - prog.TotalScore, Is.EqualTo(4),
+                "Iterative refinement strictly improves SP by exactly 4 over the seed");
 
             // Integrity: both arrangements degap to the inputs (a relocation, not a content change).
             for (int i = 0; i < input.Length; i++)
@@ -195,7 +198,7 @@ public class SequenceAligner_MultipleAlignIterative_Tests
     {
         string[][] panel =
         {
-            new[] { "CGA", "GAGAT", "CGC", "GAC" },          // headline win
+            new[] { "TCA", "TCT", "GCAC", "TAAC" },          // headline win
             new[] { "ACGT", "ACGT", "AGT" },                 // already optimal seed
             new[] { "GGAC", "TGT", "CTGGT", "TGG" },         // win
             new[] { "ACTAG", "TCAT", "TAAGG", "CTG" },       // win
@@ -317,7 +320,7 @@ public class SequenceAligner_MultipleAlignIterative_Tests
     [Test]
     public void MultipleAlignIterative_ConvergesWithinCap()
     {
-        var input = new[] { "CGA", "GAGAT", "CGC", "GAC" }
+        var input = new[] { "TCA", "TCT", "GCAC", "TAAC" }
             .Select(s => new DnaSequence(s)).ToArray();
 
         var oneIter = SequenceAligner.MultipleAlignIterative(input, null, maxIterations: 1);
@@ -325,7 +328,7 @@ public class SequenceAligner_MultipleAlignIterative_Tests
 
         Assert.Multiple(() =>
         {
-            Assert.That(oneIter.TotalScore, Is.EqualTo(-6),
+            Assert.That(oneIter.TotalScore, Is.EqualTo(-3),
                 "One pass already reaches the converged SP score");
             Assert.That(manyIter.TotalScore, Is.EqualTo(oneIter.TotalScore),
                 "Additional passes do not change the converged result");

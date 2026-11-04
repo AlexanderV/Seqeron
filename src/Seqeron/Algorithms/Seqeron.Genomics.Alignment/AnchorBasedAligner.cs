@@ -3,21 +3,28 @@ using System.Text;
 namespace Seqeron.Genomics.Alignment;
 
 /// <summary>
-/// Anchor-based sequence aligner that uses a suffix tree to find exact-match anchors
-/// between sequences, then applies Needleman-Wunsch only to the gaps between anchors.
+/// Anchor-based (seed-chain-extend) pairwise aligner: exact-match anchors between a reference and a
+/// query are taken from a suffix tree, a colinear chain of anchors is selected, and the regions
+/// between the chain's anchors are aligned with the canonical Needleman-Wunsch dynamic program.
 /// <para>
-/// This approach is inspired by MUMmer (Delcher et al., 1999) and LAGAN (Brudno et al., 2003),
-/// which use suffix trees to find Maximal Exact Matches (MEMs) as anchors and align only
-/// the intervening regions with dynamic programming.
+/// The anchor/chain/fill scheme is the one of MUMmer (Delcher et al. 1999, Nucleic Acids Res
+/// 27:2369: exact matches from a suffix tree, longest colinear subset, DP on the gaps between them)
+/// and LAGAN (Brudno et al. 2003). The anchors here are the maximal exact matches (MEMs) of
+/// <c>SuffixTree.FindExactMatchAnchors</c>: one MEM per matching diagonal run found by suffix-link
+/// streaming (<b>not</b> the full set of MEMs, and not unique matches), so anchors from different
+/// diagonals may overlap; the chain step handles overlaps by trimming (see <see cref="ChainAnchors"/>).
 /// </para>
 /// <para>
-/// <b>Complexity improvement:</b>
-/// <list type="bullet">
-/// <item>Standard NW: O(L²) per pair</item>
-/// <item>Anchor-based: O(L) for tree build + O(L) for anchor finding + O(Σδᵢ²) for gap NW</item>
-/// </list>
-/// When anchors cover fraction α of the sequence, the effective cost drops by ~(1-α)².
-/// For closely related sequences (α ≈ 0.8), this yields a ~25× speedup.
+/// <b>Optimality:</b> the alignment is forced through the chained anchors, so it is a valid global
+/// alignment whose score is <b>at most</b> that of the unconstrained optimum
+/// (<c>SequenceAligner.GlobalAlign</c>); it equals the optimum whenever an optimal path contains all
+/// chained anchors. Gap scoring is the linear model of <c>GlobalAlign</c>
+/// (<see cref="ScoringMatrix.GapExtend"/> per gap position, <see cref="ScoringMatrix.GapOpen"/> unused),
+/// so the reported <c>Score</c> is the linear score of the returned alignment.
+/// </para>
+/// <para>
+/// <b>Cost:</b> O(n+m) suffix-tree streaming + O(a²) chaining over a anchors + O(Σδᵢ²) DP over the
+/// inter-anchor gaps (very large gaps use the exact linear-space Hirschberg variant).
 /// </para>
 /// </summary>
 internal static class AnchorBasedAligner
@@ -30,10 +37,10 @@ internal static class AnchorBasedAligner
     private const int DefaultMinAnchorLength = 8;
 
     /// <summary>
-    /// Maximum gap size for which we run full NW. Larger gaps fall back
-    /// to standard alignment to avoid excessive memory.
+    /// Largest inter-anchor segment (cells = (m+1)·(n+1)) aligned with the full O(m·n)-memory
+    /// matrix; bigger segments use the exact linear-space Hirschberg recursion.
     /// </summary>
-    private const int MaxGapForNW = 5000;
+    private const long MaxGapCellsForFullMatrix = 25_000_000;
 
     /// <summary>
     /// Represents an exact-match anchor between reference and query.
@@ -75,131 +82,96 @@ internal static class AnchorBasedAligner
         ScoringMatrix scoring,
         int minAnchorLength = DefaultMinAnchorLength)
     {
-        if (string.IsNullOrEmpty(reference) || string.IsNullOrEmpty(query))
-            return AlignmentResult.Empty;
+        ArgumentNullException.ThrowIfNull(reference);
+        ArgumentNullException.ThrowIfNull(query);
+        ArgumentNullException.ThrowIfNull(scoring);
 
-        // Step 1: Find all Maximal Exact Matches (MEMs) using O(n+m) suffix-link streaming
-        var memTuples = refTree.FindExactMatchAnchors(query, minAnchorLength);
+        if (reference.Length == 0 || query.Length == 0)
+            return StitchAlignment(reference, query, new List<Anchor>(), scoring);
+
+        // Step 1: maximal exact matches (one MEM per matching diagonal run) by O(n+m) suffix-link streaming
+        var memTuples = refTree.FindExactMatchAnchors(query, Math.Max(1, minAnchorLength));
         var mems = new List<Anchor>(memTuples.Count);
         foreach (var (refPos, queryPos, len) in memTuples)
             mems.Add(new Anchor(refPos, queryPos, len));
 
-        // Step 2: Chain anchors — find the longest consistent chain (monotonic in both coords)
+        // Step 2: weighted colinear chain of the (possibly overlapping) anchors
         var chain = ChainAnchors(mems);
 
-        // Step 3: If we have too few anchors, fall back to standard NW
-        if (chain.Count == 0)
-        {
-            return SequenceAligner.GlobalAlign(reference, query, scoring);
-        }
+        // Step 3: no anchors -> the gap-filler aligns the whole pair (canonical NW)
 
         // Step 4: Align gaps between anchors using NW, stitch everything together
         return StitchAlignment(reference, query, chain, scoring);
     }
 
     /// <summary>
-    /// Chains anchors using a Longest Increasing Subsequence (LIS) approach
-    /// to find the longest chain of non-overlapping anchors consistent in both
-    /// reference and query coordinates.
+    /// Selects the colinear chain of anchors with the largest total number of matched bases
+    /// (maximum-weight chain of colinear non-overlapping fragments, weight = length;
+    /// Abouelhoda &amp; Ohlebusch 2005, J Discrete Algorithms 3:321-341; MUMmer's longest increasing
+    /// subsequence of matches, Delcher et al. 1999, is the unit-weight, overlap-free special case).
     /// </summary>
+    /// <remarks>
+    /// Anchors from different diagonals may overlap in either sequence (repeats). Instead of
+    /// discarding one of two overlapping anchors, the front of the later anchor is trimmed by the
+    /// smallest amount t that makes it start at or after the earlier anchor's end in both sequences;
+    /// a suffix of an exact match is still an exact match, so the trimmed anchor <c>(RefStart+t,
+    /// QueryStart+t, Length−t)</c> remains valid, and the chain gains only the non-overlapping
+    /// remainder. The returned anchors are therefore pairwise non-overlapping and strictly increasing
+    /// in both coordinates (<c>RefEnd ≤ next.RefStart</c>, <c>QueryEnd ≤ next.QueryStart</c>).
+    /// O(a²) dynamic program over a anchors; deterministic (ties: earlier predecessor / earlier anchor).
+    /// </remarks>
     internal static List<Anchor> ChainAnchors(List<Anchor> anchors)
     {
-        if (anchors.Count == 0)
+        ArgumentNullException.ThrowIfNull(anchors);
+
+        var sorted = anchors
+            .Where(a => a.Length > 0 && a.RefStart >= 0 && a.QueryStart >= 0)
+            .OrderBy(a => a.RefStart).ThenBy(a => a.QueryStart).ThenByDescending(a => a.Length)
+            .ToList();
+        int n = sorted.Count;
+        if (n == 0)
             return new List<Anchor>();
 
-        // Sort by reference position
-        var sorted = anchors.OrderBy(a => a.RefStart).ThenBy(a => a.QueryStart).ToList();
-
-        // Remove overlapping anchors — keep the longest at each position
-        var cleaned = RemoveOverlaps(sorted);
-
-        if (cleaned.Count == 0)
-            return new List<Anchor>();
-
-        // LIS on query positions to find longest consistent chain
-        return LongestIncreasingSubsequenceChain(cleaned);
-    }
-
-    /// <summary>
-    /// Removes overlapping anchors, preferring longer ones.
-    /// </summary>
-    private static List<Anchor> RemoveOverlaps(List<Anchor> sorted)
-    {
-        var result = new List<Anchor>();
-
-        foreach (var anchor in sorted)
-        {
-            // Check if this anchor overlaps with the last accepted anchor
-            if (result.Count > 0)
-            {
-                var last = result[^1];
-                if (anchor.RefStart < last.RefEnd || anchor.QueryStart < last.QueryEnd)
-                {
-                    // Overlap — keep the longer one
-                    if (anchor.Length > last.Length)
-                    {
-                        result[^1] = anchor;
-                    }
-                    continue;
-                }
-            }
-
-            result.Add(anchor);
-        }
-
-        return result;
-    }
-
-    /// <summary>
-    /// Finds the longest chain of anchors where both RefStart and QueryStart
-    /// are strictly increasing (and non-overlapping). Uses patience sorting (LIS).
-    /// </summary>
-    private static List<Anchor> LongestIncreasingSubsequenceChain(List<Anchor> anchors)
-    {
-        int n = anchors.Count;
-        if (n == 0) return new List<Anchor>();
-        if (n == 1) return new List<Anchor> { anchors[0] };
-
-        // dp[i] = length of LIS ending at anchors[i]
-        var dp = new int[n];
+        // best[i] = most matched bases of a chain ending with (a front-trimmed) sorted[i];
+        // trimOf[i] = how much of sorted[i]'s front the chosen predecessor forces us to drop.
+        var best = new long[n];
         var prev = new int[n];
+        var trimOf = new int[n];
 
         for (int i = 0; i < n; i++)
         {
-            dp[i] = 1;
+            best[i] = sorted[i].Length;
             prev[i] = -1;
-        }
 
-        int bestLen = 1, bestIdx = 0;
-
-        for (int i = 1; i < n; i++)
-        {
             for (int j = 0; j < i; j++)
             {
-                // Anchor j must end before anchor i starts in both coords
-                if (anchors[j].RefEnd <= anchors[i].RefStart &&
-                    anchors[j].QueryEnd <= anchors[i].QueryStart &&
-                    dp[j] + 1 > dp[i])
-                {
-                    dp[i] = dp[j] + 1;
-                    prev[i] = j;
-                }
-            }
+                int trim = Math.Max(0, Math.Max(
+                    sorted[j].RefEnd - sorted[i].RefStart,
+                    sorted[j].QueryEnd - sorted[i].QueryStart));
+                int gain = sorted[i].Length - trim;
+                if (gain <= 0)
+                    continue;
 
-            if (dp[i] > bestLen)
-            {
-                bestLen = dp[i];
-                bestIdx = i;
+                if (best[j] + gain > best[i])
+                {
+                    best[i] = best[j] + gain;
+                    prev[i] = j;
+                    trimOf[i] = trim;
+                }
             }
         }
 
-        // Reconstruct the chain
+        int bestIdx = 0;
+        for (int i = 1; i < n; i++)
+            if (best[i] > best[bestIdx])
+                bestIdx = i;
+
         var chain = new List<Anchor>();
-        int idx = bestIdx;
-        while (idx >= 0)
+        for (int idx = bestIdx; idx >= 0; idx = prev[idx])
         {
-            chain.Add(anchors[idx]);
-            idx = prev[idx];
+            var a = sorted[idx];
+            int t = prev[idx] >= 0 ? trimOf[idx] : 0;
+            chain.Add(new Anchor(a.RefStart + t, a.QueryStart + t, a.Length - t));
         }
 
         chain.Reverse();
@@ -268,88 +240,28 @@ internal static class AnchorBasedAligner
     }
 
     /// <summary>
-    /// Aligns a gap segment. For very short or equal gaps, uses trivial alignment.
-    /// For moderate gaps, uses standard NW (anchors keep gaps small, typically &lt;100bp).
-    /// For gaps exceeding MaxGapForNW, uses a simpler heuristic.
+    /// Aligns one inter-anchor segment with the linear-gap model of <c>GlobalAlign</c>
+    /// (<see cref="ScoringMatrix.GapExtend"/> per gap position). An empty side is an all-gap run;
+    /// identical segments are the trivial diagonal; everything else goes through the canonical
+    /// Needleman-Wunsch (linear-space Hirschberg variant above <see cref="MaxGapCellsForFullMatrix"/>
+    /// cells), so the gap alignment is always optimal.
     /// </summary>
     private static (string Aligned1, string Aligned2, int Score) AlignGap(
         string refGap, string queryGap, ScoringMatrix scoring)
     {
-        // Both empty — nothing to do
         if (refGap.Length == 0 && queryGap.Length == 0)
             return ("", "", 0);
 
-        // One side empty — all gaps
         if (refGap.Length == 0)
-        {
-            string gaps = new string('-', queryGap.Length);
-            int score = scoring.GapOpen + queryGap.Length * scoring.GapExtend;
-            return (gaps, queryGap, score);
-        }
+            return (new string('-', queryGap.Length), queryGap, queryGap.Length * scoring.GapExtend);
 
         if (queryGap.Length == 0)
-        {
-            string gaps = new string('-', refGap.Length);
-            int score = scoring.GapOpen + refGap.Length * scoring.GapExtend;
-            return (refGap, gaps, score);
-        }
+            return (refGap, new string('-', refGap.Length), refGap.Length * scoring.GapExtend);
 
-        // Identical gaps — trivial match
         if (refGap == queryGap)
-        {
-            int score = refGap.Length * scoring.Match;
-            return (refGap, queryGap, score);
-        }
+            return (refGap, queryGap, refGap.Length * scoring.Match);
 
-        // Very large gap — fall back to simple diagonal alignment
-        if (refGap.Length > MaxGapForNW || queryGap.Length > MaxGapForNW)
-        {
-            return SimpleAlignLargeGap(refGap, queryGap, scoring);
-        }
-
-        // Standard NW for remaining gaps — anchors keep gaps small (typically <100bp),
-        // so full NW is cheap and always finds the optimal alignment.
-        var result = SequenceAligner.GlobalAlign(refGap, queryGap, scoring);
+        var result = SequenceAligner.GlobalAlignLinearSpace(refGap, queryGap, scoring, MaxGapCellsForFullMatrix);
         return (result.AlignedSequence1, result.AlignedSequence2, result.Score);
-    }
-
-    /// <summary>
-    /// Simple alignment for very large gaps where full NW would be too expensive.
-    /// Aligns matching prefix, pads the difference with gaps, aligns matching suffix.
-    /// </summary>
-    private static (string Aligned1, string Aligned2, int Score) SimpleAlignLargeGap(
-        string refGap, string queryGap, ScoringMatrix scoring)
-    {
-        var a1 = new StringBuilder();
-        var a2 = new StringBuilder();
-        int score = 0;
-
-        int minLen = Math.Min(refGap.Length, queryGap.Length);
-
-        // Align character-by-character up to min length
-        for (int i = 0; i < minLen; i++)
-        {
-            a1.Append(refGap[i]);
-            a2.Append(queryGap[i]);
-            score += refGap[i] == queryGap[i] ? scoring.Match : scoring.Mismatch;
-        }
-
-        // Pad the shorter one with gaps
-        if (refGap.Length > minLen)
-        {
-            string tail = refGap[minLen..];
-            a1.Append(tail);
-            a2.Append(new string('-', tail.Length));
-            score += scoring.GapOpen + tail.Length * scoring.GapExtend;
-        }
-        else if (queryGap.Length > minLen)
-        {
-            string tail = queryGap[minLen..];
-            a1.Append(new string('-', tail.Length));
-            a2.Append(tail);
-            score += scoring.GapOpen + tail.Length * scoring.GapExtend;
-        }
-
-        return (a1.ToString(), a2.ToString(), score);
     }
 }

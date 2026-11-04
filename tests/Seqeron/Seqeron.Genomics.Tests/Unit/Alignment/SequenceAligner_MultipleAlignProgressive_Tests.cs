@@ -7,7 +7,8 @@ namespace Seqeron.Genomics.Tests.Unit.Alignment;
 ///
 /// Algorithm under test (additive second aligner; star MultipleAlign() is unchanged):
 /// 1. All pairwise Needleman-Wunsch alignments → distance matrix
-///    (distance = 1 − fractional identity = 1 − identical columns / pairwise alignment length).
+///    (ClustalW pairwise distance, Thompson et al. 1994; clustalw 1.83 pairalign.c:
+///    distance = 1 − identical aligned residue pairs / length of the shorter sequence).
 /// 2. UPGMA guide tree over that matrix (the classic Feng-Doolittle choice).
 /// 3. Progressive profile-profile alignment from the tips using the NW recurrence over columns
 ///    with sum-of-pairs profile scoring and the "once a gap, always a gap" rule.
