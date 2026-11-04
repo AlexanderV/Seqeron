@@ -77,6 +77,38 @@ public class ProbeDesigner_LnaTm_Tests
         AssertMelting("GALCLC", null, Owc, 1e-4, 1, 0, -24849.0, -65.76899999999999, 12.943226486909339);
     }
 
+    // Owczarzy 2011 gives a step with two locked bases its own complete parameters (Owczarzy2011lockedTandemmn.xml), so
+    // locking a base NEXT TO an existing LNA replaces two single-LNA steps by two consecutive-LNA steps and can LOWER Tm
+    // (the isolated-LNA monotonicity of PrimerProbeProperties.LnaTm_AddingLnaCPosition_NeverLowersTm does not extend to it).
+    // Expected values: independent recomputation from MELTING 5.2.0's Owczarzy2011lockedmn.xml / ...lockedTandemmn.xml
+    // (every step here has a locked base) + SantaLucia 1998 initiation (two terminal G·C pairs) + Owczarzy 2004 monovalent
+    // salt correction, scripts/verification/lna_owczarzy2011_vs_melting.py — not a melting5.jar run.
+    [Test]
+    public void Owczarzy2011_LockingBaseNextToLna_CanLowerTm_FromPublishedConsecutiveParameters()
+    {
+        const string seq = "CCCCGCTCGCCCCGCC";
+        int[] before = { 1, 2, 3, 4, 5, 7, 8, 10, 11, 12, 13, 14 };
+        int[] after = { 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12, 13, 14 };
+
+        var a = PrimerDesigner.CalculateNearestNeighborThermodynamicsLna(seq, before, Owc);
+        var b = PrimerDesigner.CalculateNearestNeighborThermodynamicsLna(seq, after, Owc);
+        double tmBefore = PrimerDesigner.CalculateMeltingTemperatureNNLna(seq, before);
+        double tmAfter = PrimerDesigner.CalculateMeltingTemperatureNNLna(seq, after);
+
+        Assert.That(a, Is.Not.Null);
+        Assert.That(b, Is.Not.Null);
+        Assert.Multiple(() =>
+        {
+            Assert.That(a!.Value.DeltaH, Is.EqualTo(-179.909).Within(1e-9));
+            Assert.That(a.Value.DeltaS, Is.EqualTo(-435.374).Within(1e-9));
+            Assert.That(b!.Value.DeltaH, Is.EqualTo(-195.320).Within(1e-9));
+            Assert.That(b.Value.DeltaS, Is.EqualTo(-475.501).Within(1e-9));
+            Assert.That(tmBefore, Is.EqualTo(100.29881).Within(1e-5));
+            Assert.That(tmAfter, Is.EqualTo(100.20802).Within(1e-5));
+            Assert.That(tmAfter, Is.LessThan(tmBefore));
+        });
+    }
+
     [Test]
     public void DefaultOverloads_AreOwczarzy2011()
     {

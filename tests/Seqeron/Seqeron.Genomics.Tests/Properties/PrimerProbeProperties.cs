@@ -2360,8 +2360,11 @@ public class PrimerProbeProperties
     /// LNA-C is the reliably stabilising case. (2) The model used here by default, Owczarzy et al. (2011) (the MELTING 5
     /// default), publishes separate complete step parameters for a step with one locked base ("single") and for a step with
     /// two locked bases ("consecutive"). Adding an LNA next to an existing LNA therefore does not add one stabilising
-    /// increment; it swaps two "single" steps for "consecutive" steps, and that can lower Tm. Observed with this
-    /// implementation (found by the CI property run of 2026-11-04; not independently re-checked against MELTING 5):
+    /// increment; it swaps two "single" steps for "consecutive" steps, and that can lower Tm. Found by the CI
+    /// property run of 2026-11-04 and confirmed from MELTING 5.2.0's own data files (every table entry of the code equals
+    /// the XML entry; an independent recomputation reproduces the values, see
+    /// <c>scripts/verification/lna_owczarzy2011_vs_melting.py</c> and
+    /// <c>ProbeDesigner_LnaTm_Tests.Owczarzy2011_LockingBaseNextToLna_CanLowerTm_FromPublishedConsecutiveParameters</c>):
     /// CCCCGCTCGCCCCGCC with LNA at {1,2,3,4,5,7,8,10,11,12,13,14}, adding LNA-C at 9, moves Tm 100.30 → 100.21 °C.
     /// The generator therefore only adds an LNA whose neighbours are not LNA; for those no violation was found in
     /// 1,000,000 random duplexes (the earlier ~11k-sample check used the unrestricted generator and missed the
