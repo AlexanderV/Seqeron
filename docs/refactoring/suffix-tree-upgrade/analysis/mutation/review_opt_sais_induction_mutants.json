@@ -1,0 +1,44 @@
+[
+ {
+  "id": "R20",
+  "desc": "L pass: the clamped prefetch index is dropped (prefetch of index -2 for empty entries: no architectural effect, claimed equivalent)",
+  "old": "tt.Prefetch((ahead - 1) & -(int)((uint)-ahead >> 31));\n            int p = sa[i];\n            int positive = (int)((uint)-p >> 31); // 1 for p > 0",
+  "new": "tt.Prefetch(ahead - 1);\n            int p = sa[i];\n            int positive = (int)((uint)-p >> 31); // 1 for p > 0"
+ },
+ {
+  "id": "R21",
+  "desc": "naming: previous starts at 0 instead of -1",
+  "old": "int previous = -1;",
+  "new": "int previous = 0;"
+ },
+ {
+  "id": "R22",
+  "desc": "naming: the end test compares with b instead of a",
+  "old": "if (x != a && tt.IsS(x) != 0 && tt.IsS(x - 1) == 0) return true;",
+  "new": "if (x != b && tt.IsS(x) != 0 && tt.IsS(x - 1) == 0) return true;"
+ },
+ {
+  "id": "R23",
+  "desc": "naming returns the last name instead of the count",
+  "old": "return name + 1;",
+  "new": "return name;"
+ },
+ {
+  "id": "R24",
+  "desc": "S pass: look-ahead entry from the wrong end (Math.Min instead of Math.Max, reads past n)",
+  "old": "int ahead = sa[Math.Max(i - SaisPrefetch.Induce, 1)];",
+  "new": "int ahead = sa[Math.Min(i + SaisPrefetch.Induce, n)];"
+ },
+ {
+  "id": "R25",
+  "desc": "naming: the name slot of the look-ahead is computed from the position instead of the entry (no architectural effect, claimed equivalent)",
+  "old": "sa.Prefetch(1 + m + (ahead >> 1));",
+  "new": "sa.Prefetch(1 + m + (i >> 1));"
+ },
+ {
+  "id": "R26",
+  "desc": "L pass: loop starts at 1 (the sentinel suffix n is never scanned)",
+  "old": "for (int i = 0; i <= n; i++)",
+  "new": "for (int i = 1; i <= n; i++)"
+ }
+]

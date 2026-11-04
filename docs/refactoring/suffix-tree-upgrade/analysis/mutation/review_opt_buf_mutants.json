@@ -1,0 +1,50 @@
+[
+ {
+  "id": "R80",
+  "desc": "checked indexer admits index == length",
+  "old": "if ((uint)index >= (uint)_length) ThrowOutOfBounds(index, 1);",
+  "new": "if ((uint)index > (uint)_length) ThrowOutOfBounds(index, 1);"
+ },
+ {
+  "id": "R81",
+  "desc": "checked Slice(start, length) admits one element too many",
+  "old": "if (start < 0 || length < 0 || start > _length - length) ThrowOutOfBounds(start, length);",
+  "new": "if (start < 0 || length < 0 || start > _length - length + 1) ThrowOutOfBounds(start, length);"
+ },
+ {
+  "id": "R82",
+  "desc": "checked ReadUnaligned admits a word that ends one byte past the buffer",
+  "old": "((long)index * sizeof(T)) + sizeof(TWord) > (long)_length * sizeof(T))",
+  "new": "((long)index * sizeof(T)) + sizeof(TWord) > (long)_length * sizeof(T) + 1)"
+ },
+ {
+  "id": "R83",
+  "desc": "checked ReadUnaligned admits negative indices",
+  "old": "if (index < 0 || ((long)index * sizeof(T)) + sizeof(TWord)",
+  "new": "if (((long)index * sizeof(T)) + sizeof(TWord)"
+ },
+ {
+  "id": "R84",
+  "desc": "checked LoadVector128 admits a vector that ends one element past the buffer",
+  "old": "if (index < 0 || index > _length - Vector128<T>.Count) ThrowOutOfBounds(index, Vector128<T>.Count);",
+  "new": "if (index < 0 || index > _length - Vector128<T>.Count + 1) ThrowOutOfBounds(index, Vector128<T>.Count);"
+ },
+ {
+  "id": "R85",
+  "desc": "checked LoadVector128 admits negative indices",
+  "old": "if (index < 0 || index > _length - Vector128<T>.Count) ThrowOutOfBounds(index, Vector128<T>.Count);",
+  "new": "if (index > _length - Vector128<T>.Count) ThrowOutOfBounds(index, Vector128<T>.Count);"
+ },
+ {
+  "id": "R86",
+  "desc": "checked AsSpan admits one element too many",
+  "old": "if ((uint)length > (uint)_length) ThrowOutOfBounds(0, length);",
+  "new": "if ((uint)length > (uint)_length + 1) ThrowOutOfBounds(0, length);"
+ },
+ {
+  "id": "R87",
+  "desc": "prefetch uses the non-temporal hint (correct results, evicts early)",
+  "old": "if (Sse.IsSupported) Sse.Prefetch0(_p + index);",
+  "new": "if (Sse.IsSupported) Sse.PrefetchNonTemporal(_p + index);"
+ }
+]

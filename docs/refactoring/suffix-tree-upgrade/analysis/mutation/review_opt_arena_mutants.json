@@ -1,0 +1,32 @@
+[
+ {
+  "id": "R90",
+  "desc": "canary pattern is constant zero (a kernel that writes zeros into a guard band is not detected)",
+  "old": "=> (byte)(((int)(i * 167) + (Id * 31) + (before ? 0x35 : 0x5A)) ^ 0xA5 ^ (int)(i >> 3));",
+  "new": "=> (byte)0;"
+ },
+ {
+  "id": "R91",
+  "desc": "poison does not cover the last byte of an uninitialised block",
+  "old": "NativeMemory.Fill(body, payload, poison);",
+  "new": "NativeMemory.Fill(body, payload - 1, poison);"
+ },
+ {
+  "id": "R92",
+  "desc": "ReleaseTo leaves the oldest block of a level allocated and unverified",
+  "old": "for (int i = _blocks.Count - 1; i >= mark; i--)",
+  "new": "for (int i = _blocks.Count - 1; i > mark; i--)"
+ },
+ {
+  "id": "R93",
+  "desc": "the guard band after the payload is never verified",
+  "old": "            Check(before: true);\n            Check(before: false);",
+  "new": "            Check(before: true);"
+ },
+ {
+  "id": "R94",
+  "desc": "zeroed blocks of a guarded arena are not cleared",
+  "old": "if (zero && !zeroedByAllocator) NativeMemory.Clear(body, payload);",
+  "new": "if (zero && !zeroedByAllocator) { }"
+ }
+]

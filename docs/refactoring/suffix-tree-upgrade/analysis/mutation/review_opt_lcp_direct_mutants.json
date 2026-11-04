@@ -1,0 +1,62 @@
+[
+ {
+  "id": "R60",
+  "desc": "dst[0] is not written (uninitialised managed array: invisible unless the heap is dirty)",
+  "old": "        dst[0] = 0;\n        for (int r = 1; r <= n; r++)\n        {\n            int s = sa[r];",
+  "new": "        for (int r = 1; r <= n; r++)\n        {\n            int s = sa[r];"
+ },
+ {
+  "id": "R61",
+  "desc": "step budget 1000 n instead of 2 n (quadratic worst case on two copies of a block)",
+  "old": "internal const int ResolveStepsPerChar = 2;",
+  "new": "internal const int ResolveStepsPerChar = 1000;"
+ },
+ {
+  "id": "R62",
+  "desc": "no cap on the long ranks (divisor 1 << 30: longCap = 0 for small n, huge otherwise)",
+  "old": "internal const int LongFractionDivisor = 4;",
+  "new": "internal const int LongFractionDivisor = 1 << 30;"
+ },
+ {
+  "id": "R63",
+  "desc": "early exit threshold: min instead of max (aborts after 1024 ranks even for large n: performance only)",
+  "old": "int probe = Math.Max(n >> 5, EarlyAbortMinRanks);",
+  "new": "int probe = Math.Min(n >> 5, EarlyAbortMinRanks);"
+ },
+ {
+  "id": "R64",
+  "desc": "early exit needs three quarters long instead of half (performance only)",
+  "old": "(r >= probe && longs > (r >> 1))",
+  "new": "(r >= probe && longs > (r >> 1) + (r >> 2))"
+ },
+ {
+  "id": "R65",
+  "desc": "long ranks array has no spare slot (claimed equivalent: the cap check precedes the store)",
+  "old": "arena.Allocate<int>(longCap + 1, zero: false, \"longRanks\")",
+  "new": "arena.Allocate<int>(longCap, zero: false, \"longRanks\")"
+ },
+ {
+  "id": "R66",
+  "desc": "escape arrays have no spare slot (claimed equivalent: the cap check precedes the store)",
+  "old": "Buf<int> escapeRanks = arena.Allocate<int>(escapeCap + 1, zero: false, \"escapeRanks\");",
+  "new": "Buf<int> escapeRanks = arena.Allocate<int>(escapeCap, zero: false, \"escapeRanks\");"
+ },
+ {
+  "id": "R67",
+  "desc": "resolution budget counted per long rank instead of per vector step (performance only on repeats)",
+  "old": "if (++work > budget) return -1;",
+  "new": "if (++work > budget >> 4) return -1;"
+ },
+ {
+  "id": "R68",
+  "desc": "resolution: the continuation compares from the wrong offset (i = width + 1 start only for the tail scalar)",
+  "old": "while (i < limit && text[a + i].Equals(text[b + i])) i++;",
+  "new": "while (i < limit - 1 && text[a + i].Equals(text[b + i])) i++;"
+ },
+ {
+  "id": "R72",
+  "desc": "the placeholder for a long rank is width + 1 (overwritten by the resolution: claimed equivalent unless the scan result is used raw)",
+  "old": "dst[r] = (byte)v;\n            previous = s;",
+  "new": "dst[r] = (byte)(v == width ? v + 1 : v);\n            previous = s;"
+ }
+]

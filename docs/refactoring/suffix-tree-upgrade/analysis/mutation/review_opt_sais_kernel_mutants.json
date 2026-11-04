@@ -1,0 +1,86 @@
+[
+ {
+  "id": "R01",
+  "desc": "classification: the distance of the symbols is reversed (next - c)",
+  "old": "int d = c - next; // symbols are below 2^30: no overflow",
+  "new": "int d = next - c; // symbols are below 2^30: no overflow"
+ },
+ {
+  "id": "R02",
+  "desc": "classification: equal symbols inherit the opposite type",
+  "old": "int isS = smaller | (equal & nextIsS);",
+  "new": "int isS = smaller | (equal & (nextIsS ^ 1));"
+ },
+ {
+  "id": "R03",
+  "desc": "counting stores presence instead of a count",
+  "old": "counts[c]++;",
+  "new": "counts[c] = 1;"
+ },
+ {
+  "id": "R04",
+  "desc": "SetBucketTails leaves the bucket of the largest symbol stale (claim: never used, the largest symbol is always L-type)",
+  "old": "        for (int c = 0; c < sigma; c++)\n        {\n            sum += counts[c];\n            bkt[c] = sum; // exclusive end",
+  "new": "        for (int c = 0; c < sigma - 1; c++)\n        {\n            sum += counts[c];\n            bkt[c] = sum; // exclusive end"
+ },
+ {
+  "id": "R05",
+  "desc": "round 1 placement starts from the symbol of position n - 2 (reads index -1 for n = 1)",
+  "old": "tt.Get(n - 1, out int c, out int isS);\n        for (int i = n - 1; i >= 1; i--)\n        {\n            tt.Get(i - 1, out int previousSymbol, out int previous);",
+  "new": "tt.Get(n - 2, out int c, out int isS);\n        for (int i = n - 1; i >= 1; i--)\n        {\n            tt.Get(i - 1, out int previousSymbol, out int previous);"
+ },
+ {
+  "id": "R06",
+  "desc": "CompactSortedLms: the clamp of an empty slot is dropped (reads packed[-1] for p = -1)",
+  "old": "int pc = p & -positive; // a valid position even for an empty slot",
+  "new": "int pc = p; // a valid position even for an empty slot"
+ },
+ {
+  "id": "R07",
+  "desc": "reduced problem: the LMS positions in text order are written one slot lower (spare slot: claimed equivalent because m <= (n - 1) / 2)",
+  "old": "int tailBase = n + 1 - m;\n        int idx = m;",
+  "new": "int tailBase = n - m;\n        int idx = m;"
+ },
+ {
+  "id": "R08",
+  "desc": "representation choice: packed bytes also for 128 symbols (127 << 1 | 1 = 255 still fits: claimed equivalent)",
+  "old": "sigma < PackedBytes.Limit)",
+  "new": "sigma <= PackedBytes.Limit)"
+ },
+ {
+  "id": "R09",
+  "desc": "translation of the reduced ranks reads the tail one entry too high",
+  "old": "for (int i = 1; i <= m; i++) sa[i] = sa[tailBase + sa[i]];",
+  "new": "for (int i = 1; i <= m; i++) sa[i] = sa[tailBase + sa[i] + 1];"
+ },
+ {
+  "id": "R10",
+  "desc": "round 2 placement: the bucket cursor is not stored back",
+  "old": "            sa[slot] = p; // the target index is >= r, so no unread LMS entry is overwritten\n            bkt[c] = slot;",
+  "new": "            sa[slot] = p; // the target index is >= r, so no unread LMS entry is overwritten"
+ },
+ {
+  "id": "R11",
+  "desc": "stage 1 sorts with the heads of the buckets in the S pass (tails not re-set)",
+  "old": "        trace?.End(level, SaisPhase.Round1InduceL, tick);\n        if (TProbe.Enabled) probe.SaState(level, SaisPhase.Round1InduceL, sa.AsSpan(n + 1));\n        tick = SaisTrace.Begin(trace);\n        SetBucketTails(counts, bkt, sigma);",
+  "new": "        trace?.End(level, SaisPhase.Round1InduceL, tick);\n        if (TProbe.Enabled) probe.SaState(level, SaisPhase.Round1InduceL, sa.AsSpan(n + 1));\n        tick = SaisTrace.Begin(trace);"
+ },
+ {
+  "id": "R12",
+  "desc": "recursion receives the wrong alphabet size (m instead of names)",
+  "old": "Sais<IntPtrText, TProbe>(new IntPtrText(s1, m), m, names, sa1, arena, probe, trace, level + 1);",
+  "new": "Sais<IntPtrText, TProbe>(new IntPtrText(s1, m), m, m, sa1, arena, probe, trace, level + 1);"
+ },
+ {
+  "id": "R13",
+  "desc": "the reduced SA block is one entry short (m instead of m + 1)",
+  "old": "Buf<int> sa1 = sa.Slice(0, m + 1);",
+  "new": "Buf<int> sa1 = sa.Slice(0, m);"
+ },
+ {
+  "id": "R14",
+  "desc": "classification: the last position is typed S-type for the equal-run rule only (nextIsS starts as 1)",
+  "old": "int nextIsS = 0;",
+  "new": "int nextIsS = 1;"
+ }
+]

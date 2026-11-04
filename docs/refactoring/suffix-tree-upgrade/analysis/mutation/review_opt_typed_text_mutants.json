@@ -1,0 +1,26 @@
+[
+ {
+  "id": "R30",
+  "desc": "packed sentinel byte is hostile (0xFF): claim the sentinel is never read",
+  "old": "public void SetSentinel(int n) => packed[n] = 1;",
+  "new": "public void SetSentinel(int n) => packed[n] = 0xFF;"
+ },
+ {
+  "id": "R31",
+  "desc": "split sink writes the sentinel as L-type (claim: never read)",
+  "old": "public void SetSentinel(int n) => types[n] = 1;",
+  "new": "public void SetSentinel(int n) => types[n] = 0;"
+ },
+ {
+  "id": "R32",
+  "desc": "packed: the type bit is OR-ed into the symbol position (isS << 1)",
+  "old": "packed[i] = (byte)((symbol << 1) | isS);",
+  "new": "packed[i] = (byte)((symbol << 1) | (isS << 1));"
+ },
+ {
+  "id": "R33",
+  "desc": "split Get reads the type of the neighbour",
+  "old": "        isS = types[i];\n    }\n\n    public int Symbol(int i) => text[i];",
+  "new": "        isS = types[i + 1];\n    }\n\n    public int Symbol(int i) => text[i];"
+ }
+]

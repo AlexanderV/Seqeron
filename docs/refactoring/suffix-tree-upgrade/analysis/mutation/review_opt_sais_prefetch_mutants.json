@@ -1,0 +1,32 @@
+[
+ {
+  "id": "R40",
+  "desc": "induction prefetch distance 0 (look-ahead is the current entry: no architectural effect, performance only)",
+  "old": "internal const int Induce = 32;",
+  "new": "internal const int Induce = 0;"
+ },
+ {
+  "id": "R41",
+  "desc": "induction prefetch distance int.MaxValue (i + distance overflows to a negative index)",
+  "old": "internal const int Induce = 32;",
+  "new": "internal const int Induce = int.MaxValue;"
+ },
+ {
+  "id": "R42",
+  "desc": "naming prefetch distance int.MaxValue (overflow)",
+  "old": "internal const int Name = 16;",
+  "new": "internal const int Name = int.MaxValue;"
+ },
+ {
+  "id": "R43",
+  "desc": "induction prefetch distance 2^30 (i + 2^30 does not overflow below n = 2^30, clamped to n: claimed equivalent)",
+  "old": "internal const int Induce = 32;",
+  "new": "internal const int Induce = 1 << 30;"
+ },
+ {
+  "id": "R44",
+  "desc": "naming prefetch distance negative (look-ahead reads before the first sorted LMS entry)",
+  "old": "internal const int Name = 16;",
+  "new": "internal const int Name = -16;"
+ }
+]

@@ -1,0 +1,68 @@
+[
+ {
+  "id": "R50",
+  "desc": "PLCP: l <= limit also calls the comparison (max = 0 returns 0: claimed equivalent)",
+  "old": "if (l < limit) l += CommonPrefix(text, j + l, p + l, limit - l);",
+  "new": "if (l <= limit) l += CommonPrefix(text, j + l, p + l, limit - l);"
+ },
+ {
+  "id": "R51",
+  "desc": "PLCP: l is decremented without the l > 0 guard",
+  "old": "if (l > 0) l--;",
+  "new": "l--;"
+ },
+ {
+  "id": "R52",
+  "desc": "CommonPrefix: the head loop ignores max (reads up to 7 symbols past the allowed range)",
+  "old": "int head = max < HeadSymbols ? max : HeadSymbols;",
+  "new": "int head = HeadSymbols;"
+ },
+ {
+  "id": "R53",
+  "desc": "kind U16: the escape count announced from the 8-bit threshold",
+  "old": "LcpKind.U16 => (int)escapes16,",
+  "new": "LcpKind.U16 => (int)escapes8,"
+ },
+ {
+  "id": "R54",
+  "desc": "CommonPrefix: the word loop allows one word past max",
+  "old": "while (i + perWord <= max)",
+  "new": "while (i + perWord <= max + 1)"
+ },
+ {
+  "id": "R55",
+  "desc": "CommonPrefix: the mismatch position of a word is counted in bits instead of symbols for bytes",
+  "old": "return i + (bits >> (sizeof(TSym) == 1 ? 3 : 4));",
+  "new": "return i + (bits >> (sizeof(TSym) == 1 ? 4 : 3));"
+ },
+ {
+  "id": "R56",
+  "desc": "FillPhi: the first predecessor is 0 instead of n (the sentinel)",
+  "old": "int previous = n;\n        for (int i = 1; i <= n; i++)\n        {\n            int s = sa[i];\n            if ((uint)s >= (uint)n) return i;",
+  "new": "int previous = 0;\n        for (int i = 1; i <= n; i++)\n        {\n            int s = sa[i];\n            if ((uint)s >= (uint)n) return i;"
+ },
+ {
+  "id": "R57",
+  "desc": "pass 3 U32: the look-ahead distance overflows (int.MaxValue)",
+  "old": "internal const int Gather = 16;",
+  "new": "internal const int Gather = int.MaxValue;"
+ },
+ {
+  "id": "R58",
+  "desc": "PLCP prefetch distance int.MaxValue (the clamp Math.Min(j + d, n - 1) sees a negative index)",
+  "old": "internal const int Plcp = 16;",
+  "new": "internal const int Plcp = int.MaxValue;"
+ },
+ {
+  "id": "R69",
+  "desc": "scan: prefetch distance int.MaxValue (r + distance overflows)",
+  "old": "internal const int Direct = 32;",
+  "new": "internal const int Direct = int.MaxValue;"
+ },
+ {
+  "id": "R70",
+  "desc": "resolve: prefetch distance negative (k + distance < longs reads long ranks before index 0)",
+  "old": "internal const int Resolve = 8;",
+  "new": "internal const int Resolve = -8;"
+ }
+]
