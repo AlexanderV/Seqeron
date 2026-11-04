@@ -15,28 +15,38 @@ public class LcpDirectTests
         => p.Width == SymbolWidth.Byte ? LcpReference.Build(p.ByteReader(), sa) : LcpReference.Build(p.UShortReader(), sa);
 
     /// <summary>Runs the direct attempt alone on a text with its true suffix array; null when it gave up.</summary>
-    private static CompactLcp? Attempt(string text, out int[] sa, out PreparedText prepared)
+    private static CompactLcp? Attempt(string text, out int[] sa, out PreparedText prepared, DirectReport? report = null)
     {
         prepared = TextPreparation.Prepare(text);
         sa = SaisReference.BuildSuffixArray(text);
+        return Attempt(prepared, sa, report);
+    }
+
+    /// <summary>Runs the direct attempt alone on the given (possibly corrupt) suffix array in a guarded arena and verifies the canaries.</summary>
+    private static CompactLcp? Attempt(PreparedText prepared, int[] sa, DirectReport? report = null)
+    {
         using var arena = new NativeArena(ArenaOptions.Guarded());
         int n = prepared.Length;
         Buf<int> saBuf = arena.Allocate<int>(n + 1, zero: false, "sa");
         sa.CopyTo(saBuf.AsSpan(n + 1));
         CompactLcp? result;
+        int blocks;
         if (prepared.Width == SymbolWidth.Byte)
         {
             Buf<byte> t = arena.Allocate<byte>(n, zero: false, "text");
             prepared.Bytes.CopyTo(t.AsSpan(n));
-            result = LcpKernel.TryDirect(t, n, saBuf, arena);
+            blocks = arena.BlockCount;
+            result = LcpKernel.TryDirect(t, n, saBuf, arena, report: report);
         }
         else
         {
             Buf<ushort> t = arena.Allocate<ushort>(n, zero: false, "text");
             prepared.UShorts.CopyTo(t.AsSpan(n));
-            result = LcpKernel.TryDirect(t, n, saBuf, arena);
+            blocks = arena.BlockCount;
+            result = LcpKernel.TryDirect(t, n, saBuf, arena, report: report);
         }
         arena.VerifyCanaries();
+        Assert.That(arena.BlockCount, Is.EqualTo(blocks), "the attempt, successful or not, returns all its workspace to the arena");
         return result;
     }
 
@@ -88,7 +98,7 @@ public class LcpDirectTests
     public void RandomDna_SucceedsDirectly_AndLongRepeatsAreResolved()
     {
         AssertAttempt(StringFamilies.RandomDna(100_000, 5), succeeds: true);
-        // a block of 1,000 twice inside random filler: the pair gives one LCP entry per offset, 746 escapes (16 * 746 <= 40,000: U8), 984 long ranks (<= n / 4), about 1,000^2 / 32 = 31,000 steps (<= 2 n = 80,000)
+        // a block of 1,000 twice inside random filler: the pair gives one LCP entry per offset, 746 escapes (16 * 746 <= 40,000: U8), 984 long ranks (<= n / 4)
         string block = StringFamilies.Random(1000, 4, 7);
         string text = StringFamilies.Random(19_000, 4, 8) + block + StringFamilies.Random(19_000, 4, 9) + block;
         AssertAttempt(text, succeeds: true);
@@ -127,16 +137,17 @@ public class LcpDirectTests
     }
 
     [Test]
-    public void MoreEscapesThanTheU8Rule_GiveUp_AndTheFallbackPicksTheWiderKind()
+    public void TheKindRule_IsTheReferenceRule_OnBothSidesOfTheU8Limit()
     {
+        // Before 1o.3c the attempt gave up when the escapes did not fit the U8 rule and the three-pass kernel chose the wider kind; now the long ranks are always resolved and the kind
+        // comes from the exact counts, so the direct result itself must have the reference kind.
         // 1,500 symbols copied from the start of a random text of 10,000: 1,245 escapes against a limit of n / 16 = 718, 1,500 long ranks (<= n / 4)
         string x = StringFamilies.Random(10_000, 4, 21);
         string text = x + x[..1500];
-        AssertAttempt(text, succeeds: false);
-        PreparedText p = TextPreparation.Prepare(text);
-        Assert.That(Reference(p, SaisReference.BuildSuffixArray(text)).Kind, Is.EqualTo(LcpKind.U16));
+        AssertAttempt(text, succeeds: true);
+        Assert.That(Attempt(text, out _, out _)!.Kind, Is.EqualTo(LcpKind.U16));
         // the limit itself passes (16 * escapes <= n), one escape more does not; a random text of f symbols followed by a copy of its first c symbols has c - 254 escapes:
-        // n = 4,096 = 16 * 256 with (f, c) = (3,586, 510) is exactly on the limit, (3,585, 511) one escape over it (steps stay below 2 n: about c^2 / 32)
+        // n = 4,096 = 16 * 256 with (f, c) = (3,586, 510) is exactly on the limit, (3,585, 511) one escape over it
         foreach (var (filler, copy, u8) in new[] { (3586, 510, true), (3585, 511, false) })
         {
             string t = StringFamilies.Random(filler, 4, 77);
@@ -144,21 +155,197 @@ public class LcpDirectTests
             Assert.That(t.Length, Is.EqualTo(4096));
             int escapes = Reference(TextPreparation.Prepare(t), SaisReference.BuildSuffixArray(t)).ToArray().Count(v => v >= 255);
             Assert.That(escapes, Is.EqualTo(copy - 254).Or.EqualTo(copy - 253), $"copy {copy}");
-            Assert.That(Reference(TextPreparation.Prepare(t), SaisReference.BuildSuffixArray(t)).Kind, Is.EqualTo(u8 ? LcpKind.U8 : LcpKind.U16), $"copy {copy}: escapes {escapes}");
-            AssertAttempt(t, succeeds: u8);
+            AssertAttempt(t, succeeds: true);
+            Assert.That(Attempt(t, out _, out _)!.Kind, Is.EqualTo(u8 ? LcpKind.U8 : LcpKind.U16), $"copy {copy}: escapes {escapes}");
         }
     }
 
     [Test]
-    public void TheStepBudget_GivesUp_AndTheFallbackIsTheReference()
+    public void TheEscapeThresholds_At255_And65535_AreExact()
     {
-        // 2,000-symbol block twice in 40,000: 1,746 escapes (16 * 1,746 <= 40,000: U8 holds), 1,984 long ranks (<= n / 4), about 2,000^2 / 32 = 125,000 steps > 2 n = 80,000
+        // two copies of a block of L symbols have the LCP L at one rank (the suffix of the later copy is shorter than the earlier one): that value is an escape from L = 255 on
+        // (the escape value itself is an overflow entry), so there are L - 254 escapes of the byte array; one level up, 65,535 is the escape of the U16 array
+        foreach (int length in new[] { 253, 254, 255, 256, 257 })
+        {
+            string block = StringFamilies.Random(length, 4, 6);
+            string text = StringFamilies.Random(30_000, 4, 5) + block + StringFamilies.Random(5000, 4, 15) + block;
+            AssertAttempt(text, succeeds: true);
+            CompactLcp direct = Attempt(text, out int[] sa, out PreparedText p)!;
+            CompactLcp reference = Reference(p, sa);
+            Assert.That(direct.Kind, Is.EqualTo(LcpKind.U8));
+            Assert.That(direct.OverflowCount, Is.EqualTo(reference.OverflowCount), $"block {length}");
+            Assert.That(direct.OverflowCount, Is.EqualTo(Math.Max(0, length - 254)), $"block {length}");
+        }
+
+        foreach (int length in new[] { 65_533, 65_534, 65_535, 65_536, 65_537 })
+        {
+            string block = StringFamilies.Random(length, 4, 8);
+            string text = StringFamilies.Random(200_000, 4, 9) + block + StringFamilies.Random(60_000, 4, 10) + block; // n about 391,000, 17 % of the ranks long
+            AssertAttempt(text, succeeds: true);
+            CompactLcp direct = Attempt(text, out int[] sa, out PreparedText p)!;
+            CompactLcp reference = Reference(p, sa);
+            Assert.That(direct.Kind, Is.EqualTo(LcpKind.U16), $"block {length}"); // 16 * escapes8 > n, 8 * escapes16 <= n
+            Assert.That(direct.OverflowCount, Is.EqualTo(reference.OverflowCount), $"block {length}");
+            Assert.That(direct.OverflowCount, Is.EqualTo(Math.Max(0, length - 65_534)), $"block {length}");
+        }
+    }
+
+    [Test]
+    public void ALongRepeat_IsResolvedWithoutAnyBudget()
+    {
+        // 2,000-symbol block twice in 40,000: 1,984 long ranks (<= n / 4), 1,746 escapes; the old step budget (2 n = 80,000 vector steps, about 125,000 needed) ended the attempt here
         string block = StringFamilies.Random(2000, 4, 31);
         string text = StringFamilies.Random(18_000, 4, 32) + block + StringFamilies.Random(18_000, 4, 33) + block;
         Assert.That(text.Length, Is.EqualTo(40_000));
+        var report = new DirectReport();
+        CompactLcp? direct = Attempt(text, out int[] sa, out PreparedText p, report);
+        Assert.That(direct, Is.Not.Null);
+        Assert.That(report.Outcome, Is.EqualTo(DirectOutcome.Succeeded));
+        Assert.That(report.LongPositions, Is.EqualTo(report.LongRanks));
+        int[] expected = Reference(p, sa).ToArray();
+        Assert.That(report.LongRanks, Is.EqualTo(expected.Count(v => v >= 16)));
+        Assert.That(direct!.ToArray(), Is.EqualTo(expected));
+        AssertAttempt(text, succeeds: true);
+    }
+
+    [Test]
+    public void RepeatArrangements_AreResolvedExactly_WhenTheyFitTheCap()
+    {
+        // repeats of lengths around the vector widths in front, behind and inside the filler, at the very start and end of the text (the suffixes there have fewer symbols than a vector),
+        // adjacent (tandem), mutated copies (the run of long positions breaks and restarts), three copies (the predecessor of a position changes), in byte and 16-bit symbols
+        int succeeded = 0, gaveUp = 0;
+        foreach (int length in new[] { 15, 16, 17, 23, 31, 32, 33, 64, 100, 255, 256, 257, 700 })
+            foreach (int gap in new[] { 0, 1, 40 })
+                foreach (int tail in new[] { 0, 3, 40 })
+                    foreach (int head in new[] { 0, 9, 200 })
+                    {
+                        string block = StringFamilies.Random(length, 4, (ulong)(length * 7 + gap));
+                        string text = StringFamilies.Random(head + 2000, 4, (ulong)(head + 1)) + block + StringFamilies.Random(gap, 4, (ulong)(gap + 2)) + block + StringFamilies.Random(tail, 4, (ulong)(tail + 3));
+                        CheckArrangement(text, ref succeeded, ref gaveUp);
+                        string substituted = block.Remove(length / 2, 1).Insert(length / 2, block[length / 2] == 'a' ? "b" : "a");
+                        CheckArrangement(StringFamilies.Random(head + 2000, 4, (ulong)(head + 4)) + block + StringFamilies.Random(gap + 20, 4, (ulong)(gap + 5)) + substituted + StringFamilies.Random(tail, 4, (ulong)(tail + 6)), ref succeeded, ref gaveUp);
+                        CheckArrangement(StringFamilies.Random(head + 2000, 4, (ulong)(head + 7)) + block + StringFamilies.Random(gap + 3, 4, 8) + block + StringFamilies.Random(gap + 5, 4, 9) + block + StringFamilies.Random(tail, 4, (ulong)(tail + 10)), ref succeeded, ref gaveUp);
+                    }
+        Assert.That(succeeded, Is.GreaterThan(1000));
+        Assert.That(gaveUp, Is.LessThan(succeeded / 4));
+    }
+
+    private static void CheckArrangement(string text, ref int succeeded, ref int gaveUp)
+    {
+        foreach (string t in new[] { text, new string([.. text.Select(c => (char)(c + 0x300))]) })
+        {
+            PreparedText p = TextPreparation.Prepare(t);
+            int[] sa = SaisReference.BuildSuffixArray(t);
+            int width = p.Width == SymbolWidth.Byte ? 16 : 8;
+            int longs = Reference(p, sa).ToArray().Count(v => v >= width);
+            bool fits = longs <= t.Length / 4;
+            AssertAttempt(t, fits);
+            if (fits) succeeded++;
+            else gaveUp++;
+        }
+    }
+
+    [Test]
+    public void TheSample_AndTheCap_DecideWhereTheyShould()
+    {
+        var report = new DirectReport();
+        // few long ranks: the attempt succeeds and the report counts them
+        string random = StringFamilies.RandomDna(100_000, 12);
+        Assert.That(Attempt(random, out int[] sa, out PreparedText p, report), Is.Not.Null);
+        Assert.That(report.Outcome, Is.EqualTo(DirectOutcome.Succeeded));
+        Assert.That(report.LongRanks, Is.EqualTo(Reference(p, sa).ToArray().Count(v => v >= 16)));
+        Assert.That(report.LongPositions, Is.EqualTo(report.LongRanks));
+
+        // one block of f * n occurring twice gives about f * n long ranks: 20 % fits, 26 % passes the sample (cap 25 %, sample limit 28.1 %) and is stopped by the scan, 32 % is rejected by the sample
+        foreach (var (fraction, outcome) in new[] { (0.20, DirectOutcome.Succeeded), (0.26, DirectOutcome.GaveUpByCap), (0.32, DirectOutcome.GaveUpBySample) })
+        {
+            string text = Review.ReviewS1aOptWorstCaseTests.EmbeddedRepeat(100_000, fraction, 17);
+            report = new DirectReport();
+            CompactLcp? result = Attempt(text, out sa, out p, report);
+            Assert.That(report.Outcome, Is.EqualTo(outcome), $"fraction {fraction}");
+            Assert.That(result is not null, Is.EqualTo(outcome == DirectOutcome.Succeeded));
+            KernelHarness.AssertLcp(Engine, text, allPoisons: false); // whatever the decision, the engine returns the reference result
+        }
+
+        // a text of at most SampleRanks ranks is examined completely: the decision is the exact cap
+        report = new DirectReport();
+        Assert.That(Attempt(StringFamilies.AllSame(LcpKernel.SampleRanks), out _, out _, report), Is.Null);
+        Assert.That(report.Outcome, Is.EqualTo(DirectOutcome.GaveUpBySample));
+    }
+
+    [Test]
+    public void CorruptSuffixArrays_WithLongRanks_StayInsideTheBuffers()
+    {
+        // The resolution walks records that came from the suffix array: duplicated and displaced entries must not lead outside the text, the bitmap, the sorted records or the value array.
+        // The texts have a few percent of long ranks so that the attempt reaches the resolution; the guarded arena and, in the checked build, the accessors detect any stray access.
+        var rng = new SplitMix64(0x51CEUL);
+        int reached = 0;
+        for (int i = 0; i < 400; i++)
+        {
+            int n = 400 + rng.NextInt(2500);
+            int block = 20 + rng.NextInt(n / 8);
+            string text = StringFamilies.Random(n - block, 4, rng.Next());
+            text += text.Substring(rng.NextInt(text.Length - block), block);
+            PreparedText p = TextPreparation.Prepare(text);
+            int[] sa = SaisReference.BuildSuffixArray(text);
+            switch (i % 5)
+            {
+                case 0:
+                    for (int k = 0, swaps = 1 + rng.NextInt(6); k < swaps; k++) { int a = 1 + rng.NextInt(n), b = 1 + rng.NextInt(n); (sa[a], sa[b]) = (sa[b], sa[a]); }
+                    break;
+                case 1:
+                    for (int k = 0, copies = 1 + rng.NextInt(6); k < copies; k++) { int to = 1 + rng.NextInt(n), from = 1 + rng.NextInt(n); sa[to] = sa[from]; }
+                    break;
+                case 2:
+                    { int a = 1 + rng.NextInt(n - 1); sa[a + 1] = sa[a]; }
+                    break;
+                case 3:
+                    Array.Reverse(sa, 1 + rng.NextInt(n / 2), 2 + rng.NextInt(n / 4));
+                    break;
+                default:
+                    for (int k = 1; k <= n; k++) sa[k] = (sa[k] + (n - 1 - sa[k] > 0 ? 1 : 0)) % n; // every position shifted by one (still in range, not a permutation of the suffixes)
+                    break;
+            }
+
+            try
+            {
+                var report = new DirectReport();
+                CompactLcp? result = Attempt(p, sa, report);
+                if (result is not null)
+                {
+                    reached++;
+                    Assert.That(result.Length, Is.EqualTo(n + 1));
+                    Assert.That(report.LongPositions, Is.LessThanOrEqualTo(report.LongRanks));
+                }
+            }
+            catch (ArgumentException)
+            {
+                // an entry outside [0, n) is rejected like the reference does
+            }
+        }
+
+        Assert.That(reached, Is.GreaterThan(200));
+    }
+
+    [Test]
+    public void ARepeatedTextPosition_KeepsTheMinimum_AndIsCountedOnce()
+    {
+        string block = StringFamilies.Random(300, 4, 3);
+        string text = StringFamilies.Random(3000, 4, 4) + block + StringFamilies.Random(3000, 4, 5) + block;
         PreparedText p = TextPreparation.Prepare(text);
-        Assert.That(Reference(p, SaisReference.BuildSuffixArray(text)).Kind, Is.EqualTo(LcpKind.U8));
-        AssertAttempt(text, succeeds: false);
+        int[] sa = SaisReference.BuildSuffixArray(text);
+        int[] lcp = Reference(p, sa).ToArray();
+        int r = Array.FindIndex(lcp, 2, v => v >= 16 && v < 100); // a long rank somewhere in the middle of the repeat
+        Assert.That(r, Is.GreaterThan(1));
+        sa[r + 1] = sa[r]; // the same text position at two consecutive ranks: the second pair compares a suffix with itself (long, as far as the text goes)
+        var report = new DirectReport();
+        CompactLcp? result = Attempt(p, sa, report);
+        Assert.That(result, Is.Not.Null);
+        Assert.That(report.LongRanks, Is.GreaterThan(report.LongPositions));
+        // both ranks are long: whichever record the counting sort kept, the other one still holds the minimum of a long rank (the width), not stale memory
+        int[] values = result!.ToArray();
+        Assert.That(values[r], Is.GreaterThanOrEqualTo(16));
+        Assert.That(values[r + 1], Is.GreaterThanOrEqualTo(16));
     }
 
     [Test]

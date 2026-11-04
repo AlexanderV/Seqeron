@@ -158,10 +158,10 @@ public class ReviewS1aOptWorstCaseTests
     [Test]
     public void Direct_OnAnEmbeddedLongRepeat_IsLinear_AndEqualsTheReference()
     {
-        // random text with one block of 20 % of the length occurring twice: 20 % of the ranks are long (below the quarter limit, so the scan completes and the early exit
-        // does not fire: the long ranks are spread over the whole suffix array) and their LCP values average 400,000, i.e. 25,000 vector steps each. Without the step budget
-        // (2n steps, then the three-pass fallback) the resolution would take 2e10 steps (tens of seconds); with it, milliseconds. A mutation of ResolveStepsPerChar or
-        // of the budget test shows up here as a timeout, not as a wrong result (the fallback result equals the direct result).
+        // random text with one block of 20 % of the length occurring twice: 20 % of the ranks are long (below the quarter limit, so the scan completes: the long ranks are spread
+        // over the whole suffix array) and their LCP values average 400,000, i.e. 25,000 vector steps each. Resolved one rank at a time (the kernel before 1o.3c, without its budget) the
+        // resolution would take 2e10 steps (tens of seconds); carrying the length from text position to text position (Kasai) it takes about 2.5e5 steps in all. A mutation that loses the
+        // carry shows up here as a timeout, not as a wrong result.
         const int N = 4_000_000;
         string text = EmbeddedRepeat(N, 0.20, 7);
         PreparedText prepared = TextPreparation.Prepare(text);
@@ -181,11 +181,13 @@ public class ReviewS1aOptWorstCaseTests
     [Test]
     public void Direct_OnDuplicatedBlocks_JustBelowTheQuarterLimit_IsLinear_AndEqualsTheReference()
     {
-        // about 24 % of the ranks long, average LCP 200 (12 vector steps each): the scan runs to the end, the resolution exhausts its budget, the fallback runs
+        // about 24 % of the ranks long, average LCP 200 (12 vector steps each): the scan runs to the end and the resolution takes the carried length from position to position
         const int N = 400_000;
         string text = DuplicatedBlocks(N, 400, 0.20, 11);
         PreparedText prepared = TextPreparation.Prepare(text);
         int[] sa = SaisKernel.Build(SaisKernelKind.Pointer, prepared);
+        TryDirectOnce(prepared, sa, out bool ok);
+        Assert.That(ok, Is.True, "the resolution, not the three-pass fallback, must produce this result");
         CompactLcp direct = LcpKernel.Build(LcpKernelKind.Direct, prepared, sa);
         CompactLcp reference = LcpKernel.Build(LcpKernelKind.Reference, prepared, sa);
         Assert.That(direct.Kind, Is.EqualTo(reference.Kind));
@@ -194,19 +196,37 @@ public class ReviewS1aOptWorstCaseTests
     }
 
     [Test]
-    [Explicit("KNOWN LIMITATION, fails today (REVIEW-S1a-opt MAJ-1): one repeat of 1 % of the text length already exhausts the 2n-step resolution budget, the direct attempt gives up and the LCP phase runs at three-pass speed (plus the wasted attempt)")]
     public void Direct_Succeeds_OnRandomDnaWithOneEmbeddedRepeatOfOnePercent()
     {
-        // n = 10^6 random DNA; the block of 10,000 letters occurs twice. 10,000 ranks are long (1 %, far below the quarter limit) and their LCP values average 5,000,
-        // i.e. 312 vector steps each: 3.1e6 steps in total against a budget of 2e6, so ResolveLong returns -1. In general a single repeat of length L has about L^2 / 32 steps
-        // and the budget is 2n, so every repeat longer than about 8 * sqrt(n) symbols (8,000 at 10^6, 25,000 at 10^7, 80,000 at 10^8) defeats the direct scan. Real genomes
-        // contain such repeats (segmental duplications, satellite arrays).
+        // Regression test of REVIEW-S1a-opt MAJ-1 (explicit and failing until iteration 1o.3b; passes since 1o.3c, unchanged). n = 10^6 random DNA; the block of 10,000 letters occurs twice.
+        // 10,000 ranks are long (1 %, far below the quarter limit) and their LCP values average 5,000, i.e. 312 vector steps each: 3.1e6 steps in total against the old budget of 2e6, so the old
+        // resolution gave up. In general a single repeat of length L had about L^2 / 32 steps against a budget of 2n, so every repeat longer than about 8 * sqrt(n) symbols (8,000 at 10^6, 25,000
+        // at 10^7, 80,000 at 10^8) defeated the old direct scan. Real genomes contain such repeats (segmental duplications, satellite arrays). The text-order resolution costs the length of the repeat once.
         const int N = 1_000_000;
         string text = EmbeddedRepeat(N, 0.01, 3);
         PreparedText prepared = TextPreparation.Prepare(text);
         int[] sa = SaisKernel.Build(SaisKernelKind.Pointer, prepared);
         TryDirectOnce(prepared, sa, out bool ok);
         Assert.That(ok, Is.True, "the direct scan should resolve a single 1 % repeat");
+    }
+
+    [TestCase(0.01)]
+    [TestCase(0.05)]
+    [TestCase(0.20)]
+    public void Direct_OnRandomDnaWithOneEmbeddedRepeat_EqualsTheReference(double fraction)
+    {
+        // the same text family for 1 %, 5 % and 20 % repeats (repeat lengths 10,000 / 50,000 / 200,000: 1.2x, 6x and 25x the old limit of 8 * sqrt(n)): the attempt succeeds and its result is the reference result
+        const int N = 1_000_000;
+        string text = EmbeddedRepeat(N, fraction, 3);
+        PreparedText prepared = TextPreparation.Prepare(text);
+        int[] sa = SaisKernel.Build(SaisKernelKind.Pointer, prepared);
+        TryDirectOnce(prepared, sa, out bool ok);
+        Assert.That(ok, Is.True, "the direct scan must resolve a single repeat");
+        CompactLcp direct = LcpKernel.Build(LcpKernelKind.Direct, prepared, sa);
+        CompactLcp reference = LcpKernel.Build(LcpKernelKind.Reference, prepared, sa);
+        Assert.That(direct.Kind, Is.EqualTo(reference.Kind));
+        Assert.That(direct.OverflowCount, Is.EqualTo(reference.OverflowCount));
+        Assert.That(direct.ToArray(), Is.EqualTo(reference.ToArray()));
     }
 
     [Test]
