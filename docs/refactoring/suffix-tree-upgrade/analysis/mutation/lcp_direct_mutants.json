@@ -1,0 +1,194 @@
+[
+ {
+  "id": "D01",
+  "desc": "long-rank cap is n / 2 instead of n / 4",
+  "old": "int longCap = n / LongFractionDivisor;",
+  "new": "int longCap = n / 2;"
+ },
+ {
+  "id": "D02",
+  "desc": "escape cap is n / 16 + 1 (one escape too many for the U8 rule)",
+  "old": "int escapeCap = n / 16; // 16 * escapes <= n",
+  "new": "int escapeCap = n / 16 + 1; // 16 * escapes <= n"
+ },
+ {
+  "id": "D03",
+  "desc": "escape cap is n / 8",
+  "old": "int escapeCap = n / 16; // 16 * escapes <= n",
+  "new": "int escapeCap = n / 8; // 16 * escapes <= n"
+ },
+ {
+  "id": "D04",
+  "desc": "limit == width goes to the scalar path (exact value, equivalent)",
+  "old": "if (limit >= width)\n            {\n                v = EqualPrefix",
+  "new": "if (limit > width)\n            {\n                v = EqualPrefix"
+ },
+ {
+  "id": "D05",
+  "desc": "vector load with width - 1 symbols left (reads one byte past the text)",
+  "old": "if (limit >= width)\n            {\n                v = EqualPrefix",
+  "new": "if (limit >= width - 1)\n            {\n                v = EqualPrefix"
+ },
+ {
+  "id": "D06",
+  "desc": "min instead of max of the two suffix positions (limit too large: vectors read past the end)",
+  "old": "int top = previous ^ ((previous ^ s) & ((previous - s) >> 31));",
+  "new": "int top = s ^ ((previous ^ s) & ((previous - s) >> 31));"
+ },
+ {
+  "id": "D07",
+  "desc": "arguments of EqualPrefix swapped (symmetric, equivalent)",
+  "old": "v = EqualPrefix(text, previous, s);",
+  "new": "v = EqualPrefix(text, s, previous);"
+ },
+ {
+  "id": "D08",
+  "desc": "a match of width - 1 symbols counts as long",
+  "old": "if (v == width)\n                {\n                    if (longs == longCap",
+  "new": "if (v >= width - 1)\n                {\n                    if (longs == longCap"
+ },
+ {
+  "id": "D09",
+  "desc": "the long list stores the wrong rank (r - 1)",
+  "old": "longRanks[longs++] = r;",
+  "new": "longRanks[longs++] = r - 1;"
+ },
+ {
+  "id": "D10",
+  "desc": "dst[0] is not 0",
+  "old": "dst[0] = 0;\n        for (int r = 1; r <= n; r++)\n        {\n            int s = sa[r];\n            int ahead",
+  "new": "dst[0] = 7;\n        for (int r = 1; r <= n; r++)\n        {\n            int s = sa[r];\n            int ahead"
+ },
+ {
+  "id": "D11",
+  "desc": "resolution starts one symbol early (a redundant compare of a known-equal symbol: equivalent)",
+  "old": "int i = width; // the first",
+  "new": "int i = width - 1; // the first"
+ },
+ {
+  "id": "D12",
+  "desc": "resolution starts one symbol late (skips the symbol at offset width)",
+  "old": "int i = width; // the first",
+  "new": "int i = width + 1; // the first"
+ },
+ {
+  "id": "D13",
+  "desc": "scalar tail also when exactly one vector is left (slower, equivalent)",
+  "old": "if (i + width > limit)",
+  "new": "if (i + width >= limit)"
+ },
+ {
+  "id": "D14",
+  "desc": "vector steps may read one symbol past the common length",
+  "old": "if (i + width > limit)",
+  "new": "if (i + width > limit + 1)"
+ },
+ {
+  "id": "D15",
+  "desc": "resolution stops after the first full vector",
+  "old": "if (c < width) break;",
+  "new": "if (c <= width) break;"
+ },
+ {
+  "id": "D16",
+  "desc": "step budget doubled",
+  "old": "if (++work > budget) return -1;",
+  "new": "if (++work > 2 * budget) return -1;"
+ },
+ {
+  "id": "D17",
+  "desc": "one escape too many accepted (escapes > cap instead of ==)",
+  "old": "if (escapes == escapeCap) return -1;",
+  "new": "if (escapes > escapeCap) return -1;"
+ },
+ {
+  "id": "D18",
+  "desc": "value 255 stored without an escape entry",
+  "old": "if (i < byte.MaxValue)",
+  "new": "if (i <= byte.MaxValue)"
+ },
+ {
+  "id": "D19",
+  "desc": "wrong rank in the escape list",
+  "old": "escapeRanks[escapes] = r;",
+  "new": "escapeRanks[escapes] = r + 1;"
+ },
+ {
+  "id": "D20",
+  "desc": "wrong value in the escape list",
+  "old": "escapeValues[escapes] = i;",
+  "new": "escapeValues[escapes] = i + 1;"
+ },
+ {
+  "id": "D21",
+  "desc": "resolution look-ahead reads the long list one past its end",
+  "old": "if (k + distance < longs)",
+  "new": "if (k + distance <= longs)"
+ },
+ {
+  "id": "D22",
+  "desc": "scan look-ahead not clamped to n (reads SA[n + 1 ..])",
+  "old": "int ahead = sa[Math.Min(r + distance, n)];",
+  "new": "int ahead = sa[r + distance];"
+ },
+ {
+  "id": "D23",
+  "desc": "second prefetch address is ahead + width (no architectural effect: equivalent)",
+  "old": "text.Prefetch(ahead + (width - 1));",
+  "new": "text.Prefetch(ahead + width);"
+ },
+ {
+  "id": "D24",
+  "desc": "entry n accepted at rank >= 1",
+  "old": "if ((uint)s >= (uint)n) throw",
+  "new": "if ((uint)s > (uint)n) throw"
+ },
+ {
+  "id": "D25",
+  "desc": "sa[0] only has to be at most n",
+  "old": "if (sa[0] != n) throw new ArgumentException(\"sa[0] must be n, the empty suffix\", nameof(sa));",
+  "new": "if (sa[0] > n) throw new ArgumentException(\"sa[0] must be n, the empty suffix\", nameof(sa));"
+ },
+ {
+  "id": "D26",
+  "desc": "the give-up of the scan is ignored",
+  "old": "if (longs < 0) return null;",
+  "new": "if (longs < -1) return null;"
+ },
+ {
+  "id": "D27",
+  "desc": "the give-up of the resolution is ignored",
+  "old": "if (escapes < 0) return null;",
+  "new": "if (escapes < -1) return null;"
+ },
+ {
+  "id": "D28",
+  "desc": "the previous suffix is not carried",
+  "old": "            dst[r] = (byte)v;\n            previous = s;",
+  "new": "            dst[r] = (byte)v;\n            previous = n;"
+ },
+ {
+  "id": "D29",
+  "desc": "early exit never fires (performance only: equivalent)",
+  "old": "(r >= probe && longs > (r >> 1))",
+  "new": "(r >= probe && longs > r)"
+ },
+ {
+  "id": "D30",
+  "desc": "early exit fires from the first rank on (performance only: equivalent)",
+  "old": "int probe = Math.Max(n >> 5, EarlyAbortMinRanks);",
+  "new": "int probe = 1;"
+ },
+ {
+  "id": "D31",
+  "desc": "width mask wrong: bits above the vector width not zero (tzcnt of the complement without the guard)",
+  "old": "return BitOperations.TrailingZeroCount(~equal);",
+  "new": "return BitOperations.TrailingZeroCount(~equal) & 15;"
+ },
+ {
+  "id": "D32",
+  "desc": "overflow lists copied one entry short",
+  "old": "escapeValues.AsSpan(escapes).CopyTo(overflowValue);",
+  "new": "escapeValues.AsSpan(escapes).CopyTo(overflowValue.AsSpan(0, escapes == 0 ? 0 : escapes - 1)); // mutant"
+ }
+]

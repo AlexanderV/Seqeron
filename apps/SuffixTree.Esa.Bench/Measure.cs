@@ -40,23 +40,9 @@ internal static class Pipeline
         long t0 = Stopwatch.GetTimestamp();
         PreparedText prepared = TextPreparation.Prepare(text);
         long t1 = Stopwatch.GetTimestamp();
-        int[] sa;
-        long t2;
-        CompactLcp lcp;
-        if (prepared.Width == SymbolWidth.Byte)
-        {
-            ByteSymbols reader = prepared.ByteReader();
-            sa = SaisKernel.Build(saisKernel, prepared, saisTrace);
-            t2 = Stopwatch.GetTimestamp();
-            lcp = lcpKernel == LcpKernelKind.Pointer ? LcpKernel.Build(prepared, sa, lcpTrace) : LcpReference.Build(reader, sa, lcpTrace);
-        }
-        else
-        {
-            UShortSymbols reader = prepared.UShortReader();
-            sa = SaisKernel.Build(saisKernel, prepared, saisTrace);
-            t2 = Stopwatch.GetTimestamp();
-            lcp = lcpKernel == LcpKernelKind.Pointer ? LcpKernel.Build(prepared, sa, lcpTrace) : LcpReference.Build(reader, sa, lcpTrace);
-        }
+        int[] sa = SaisKernel.Build(saisKernel, prepared, saisTrace);
+        long t2 = Stopwatch.GetTimestamp();
+        CompactLcp lcp = LcpKernel.Build(lcpKernel, prepared, sa, lcpTrace);
         long t3 = Stopwatch.GetTimestamp();
         return new BuildResult { Sa = sa, Lcp = lcp, Prepared = prepared, PrepareTicks = t1 - t0, SaisTicks = t2 - t1, LcpTicks = t3 - t2 };
     }

@@ -10,7 +10,7 @@ internal static class Cli
         SuffixTree.Esa.Bench - SA + LCP build measurements of the ESA backend (work package 1a.8)
 
           build   --input <file> [--name <label>] [--verify <sa_vectors.tsv>] [--sa-kernel reference|pointer]
-          build   --input <file> [--name <label>] [--verify <sa_vectors.tsv>] [--lcp-kernel reference|pointer]
+          build   --input <file> [--name <label>] [--verify <sa_vectors.tsv>] [--lcp-kernel reference|pointer|direct]
                   one cold build in a fresh process: build_prepare_s / build_sais_s / build_sa_s / build_lcp_s / build_total_s, peak RSS
                   (VmHWM), GC allocation and collections, index bytes of SA + LCP + text, SHA-256 of SA and LCP (vector_match with --verify)
           steady  --input <file> [--builds 5] [--name <label>]

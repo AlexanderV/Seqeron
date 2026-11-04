@@ -11,6 +11,9 @@ internal enum LcpKernelKind
 
     /// <summary><see cref="LcpKernel"/>: <c>int</c>-only pointer kernel behind <see cref="Buf{T}"/>.</summary>
     Pointer,
+
+    /// <summary><see cref="LcpKernel.BuildDirect{TSym}"/>: the suffix-array-order scan with the pointer kernel as the fallback (iteration 1o.3b).</summary>
+    Direct,
 }
 
 /// <summary>
@@ -26,13 +29,17 @@ internal enum LcpKernelKind
 /// <item>pass 3 cannot write more escapes than were counted: the announced number is checked in the (rare) escape branch, and the final count is compared (<see cref="InvalidOperationException"/> like the reference's builder).</item>
 /// </list>
 /// </summary>
-internal static unsafe class LcpKernel
+internal static unsafe partial class LcpKernel
 {
     /// <summary>Builds the compact LCP with the selected implementation.</summary>
     internal static CompactLcp Build(LcpKernelKind kind, PreparedText prepared, int[] sa, LcpTrace? trace = null)
     {
         ArgumentNullException.ThrowIfNull(prepared);
-        if (kind == LcpKernelKind.Pointer) return Build(prepared, sa, trace);
+        if (kind != LcpKernelKind.Reference)
+        {
+            using var arena = new NativeArena();
+            return Build(prepared, sa, arena, trace, kind == LcpKernelKind.Direct);
+        }
         return prepared.Width == SymbolWidth.Byte
             ? LcpReference.Build(prepared.ByteReader(), sa, trace)
             : LcpReference.Build(prepared.UShortReader(), sa, trace);
@@ -46,7 +53,7 @@ internal static unsafe class LcpKernel
     }
 
     /// <summary>Builds the compact LCP with the workspace taken from <paramref name="arena"/> (the tests pass a guarded arena and verify its canaries afterwards).</summary>
-    internal static CompactLcp Build(PreparedText prepared, ReadOnlySpan<int> sa, NativeArena arena, LcpTrace? trace = null)
+    internal static CompactLcp Build(PreparedText prepared, ReadOnlySpan<int> sa, NativeArena arena, LcpTrace? trace = null, bool direct = false)
     {
         ArgumentNullException.ThrowIfNull(prepared);
         ArgumentNullException.ThrowIfNull(arena);
@@ -58,9 +65,9 @@ internal static unsafe class LcpKernel
             var saBuf = new Buf<int>(pSa, n + 1, "sa");
             if (prepared.Width == SymbolWidth.Byte)
             {
-                fixed (byte* pText = prepared.Bytes) return Build(new Buf<byte>(pText, n, "text"), n, saBuf, arena, trace);
+                fixed (byte* pText = prepared.Bytes) return direct ? BuildDirect(new Buf<byte>(pText, n, "text"), n, saBuf, arena, trace) : Build(new Buf<byte>(pText, n, "text"), n, saBuf, arena, trace);
             }
-            fixed (ushort* pText = prepared.UShorts) return Build(new Buf<ushort>(pText, n, "text"), n, saBuf, arena, trace);
+            fixed (ushort* pText = prepared.UShorts) return direct ? BuildDirect(new Buf<ushort>(pText, n, "text"), n, saBuf, arena, trace) : Build(new Buf<ushort>(pText, n, "text"), n, saBuf, arena, trace);
         }
     }
 
@@ -301,4 +308,10 @@ internal static class LcpPrefetch
 
     /// <summary>Pass 3: the PLCP entry that will be gathered <c>Gather</c> iterations later.</summary>
     internal const int Gather = 16;
+
+    /// <summary>Direct scan (1o.3b): the text vector of the suffix that will be compared <c>Direct</c> ranks later (sweep 8-64: 61-75 ms, flat from 16; one random line per rank at about 6 ns is the limit of the line-fill buffers).</summary>
+    internal const int Direct = 32;
+
+    /// <summary>Resolution of the long ranks (1o.3b): the continuation of the entry <c>Resolve</c> long ranks later.</summary>
+    internal const int Resolve = 8;
 }

@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using System.Runtime.Intrinsics;
 using System.Runtime.Intrinsics.X86;
 
 namespace SuffixTree.Esa;
@@ -85,6 +86,14 @@ internal readonly unsafe struct Buf<T>
         return Unsafe.ReadUnaligned<TWord>(_p + index);
     }
 
+    /// <summary>Loads <c>Vector128&lt;T&gt;.Count</c> consecutive elements from element <paramref name="index"/> (unaligned); the whole range must lie inside the buffer.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal Vector128<T> LoadVector128(int index)
+    {
+        if (index < 0 || index > _length - Vector128<T>.Count) ThrowOutOfBounds(index, Vector128<T>.Count);
+        return Vector128.Load(_p + index);
+    }
+
     /// <summary>A span over the first <paramref name="length"/> elements (safe-code access to the same memory).</summary>
     internal Span<T> AsSpan(int length)
     {
@@ -123,6 +132,10 @@ internal readonly unsafe struct Buf<T>
     internal TWord ReadUnaligned<TWord>(int index)
         where TWord : unmanaged
         => Unsafe.ReadUnaligned<TWord>(_p + index);
+
+    /// <summary>Loads <c>Vector128&lt;T&gt;.Count</c> consecutive elements from element <paramref name="index"/> (unaligned).</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal Vector128<T> LoadVector128(int index) => Vector128.Load(_p + index);
 
     /// <summary>A span over the first <paramref name="length"/> elements.</summary>
     internal Span<T> AsSpan(int length) => new(_p, length);

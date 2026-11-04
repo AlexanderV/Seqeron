@@ -36,11 +36,14 @@ internal static class KernelRegistry
     /// <summary>1o.1a: the pointer kernel for Phi, PLCP and the compact LCP (<see cref="LcpKernel"/>), run on guarded copies of its inputs.</summary>
     internal static readonly LcpEngine PointerLcp = new("LcpKernel.Pointer", RunPointerLcp);
 
+    /// <summary>1o.3b: the suffix-array-order scan (<see cref="LcpKernel.BuildDirect{TSym}"/>), with the pointer kernel as its fallback; it has no PLCP array.</summary>
+    internal static readonly LcpEngine DirectLcp = new("LcpKernel.Direct", RunDirectLcp);
+
     /// <summary>All suffix-array engines, the reference first.</summary>
     internal static IReadOnlyList<SaisEngine> SaisEngines { get; } = [ReferenceSais, PointerSais, PointerSaisWithStates];
 
     /// <summary>All LCP engines, the reference first.</summary>
-    internal static IReadOnlyList<LcpEngine> LcpEngines { get; } = [ReferenceLcp, PointerLcp];
+    internal static IReadOnlyList<LcpEngine> LcpEngines { get; } = [ReferenceLcp, PointerLcp, DirectLcp];
 
     /// <summary>The suffix-array engines that are not the reference (the optimized kernels).</summary>
     internal static IEnumerable<SaisEngine> OptimizedSais => SaisEngines.Where(e => e != ReferenceSais && e.InHeavyTests);
@@ -73,6 +76,27 @@ internal static class KernelRegistry
         return prepared.Width == SymbolWidth.Byte
             ? RunPointerLcp(prepared.Bytes, sa, saBuf, arena)
             : RunPointerLcp(prepared.UShorts, sa, saBuf, arena);
+    }
+
+    private static LcpRun RunDirectLcp(PreparedText prepared, int[] sa, NativeArena arena)
+    {
+        Buf<int> saBuf = arena.Allocate<int>(sa.Length, zero: false, "sa");
+        sa.CopyTo(saBuf.AsSpan(sa.Length));
+        return prepared.Width == SymbolWidth.Byte
+            ? RunDirectLcp(prepared.Bytes, sa, saBuf, arena)
+            : RunDirectLcp(prepared.UShorts, sa, saBuf, arena);
+    }
+
+    private static LcpRun RunDirectLcp<TSym>(ReadOnlySpan<TSym> symbols, int[] original, Buf<int> sa, NativeArena arena)
+        where TSym : unmanaged, IEquatable<TSym>
+    {
+        int n = symbols.Length;
+        Buf<TSym> text = arena.Allocate<TSym>(n, zero: false, "text");
+        symbols.CopyTo(text.AsSpan(n));
+        CompactLcp lcp = LcpKernel.BuildDirect(text, n, sa, arena);
+        if (!sa.AsSpan(n + 1).SequenceEqual(original) || !text.AsSpan(n).SequenceEqual(symbols))
+            throw new InvalidOperationException("the LCP kernel modified its input");
+        return new LcpRun(lcp, null);
     }
 
     private static LcpRun RunPointerLcp<TSym>(ReadOnlySpan<TSym> symbols, int[] original, Buf<int> sa, NativeArena arena)
