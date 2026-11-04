@@ -53,18 +53,19 @@
 
 ## Implementation Details
 
-The `SequenceAligner.MultipleAlign()` method implements an **anchor-based star alignment**:
+The `SequenceAligner.MultipleAlign()` method implements the **center-star alignment** (Gusfield 1993; corrected 2026-11, B09 F4 — the earlier anchor-based pairwise stage is now `MultipleAlignAnchored`):
 
-1. **Center selection** via 4-mer cosine similarity — selects the sequence with highest total similarity to all others (O(k²·L)). *Note: ClustalV uses k-tuple match counts (Wikipedia Clustal); cosine similarity on k-mer frequency vectors is an implementation design choice.*
-2. **Suffix tree construction** on center sequence (O(L)) — *implementation-specific; not from external sources*
-3. **Anchor-based pairwise alignment** of each other sequence to center via suffix tree exact-match anchors, with Needleman-Wunsch for gaps between anchors — *implementation-specific*
-4. **Gap reconciliation** — merges gap columns from independent pairwise alignments into a single MSA coordinate space — *implementation-specific*
-5. **Pad sequences** to equal length
-6. **Consensus generation** via majority voting at each position (Wikipedia Consensus sequence: "most frequent residues... at each position"). *Implementation choices: gaps participate in the vote; on tie between gap and nucleotide, nucleotide is preferred.*
-7. **Sum-of-pairs scoring** — column-based SP score across all C(k,2) pairs (Wikipedia MSA). *Implementation choice: gap-gap pairs scored as 0 (standard bioinformatics convention, not stated in Wikipedia).*
+1. **Pairwise scores** — the optimal Needleman-Wunsch score of every pair (canonical `GlobalAlign` core).
+2. **Center selection** — the sequence with the highest total pair score (Gusfield: the string minimising the total pairwise distance). Ties: lowest index.
+3. **Pairwise alignment** of every other sequence to the center with the canonical Needleman-Wunsch.
+4. **Gap reconciliation** — "once a gap, always a gap" merge: per center position the maximum number of inserted columns over all rows; own insertions left-justified in the slot (Gusfield 1993; Feng & Doolittle 1987).
+5. **Consensus generation** via majority voting at each position (Wikipedia Consensus sequence: "most frequent residues... at each position"). *Implementation choices: gaps participate in the vote; on tie between gap and nucleotide, nucleotide is preferred.*
+6. **Sum-of-pairs scoring** — column-based SP score across all C(k,2) pairs (Wikipedia MSA). *Implementation choice: gap-gap pairs scored as 0 (standard bioinformatics convention, not stated in Wikipedia).*
+
+`MultipleAlignAnchored` keeps the former implementation idea (4-mer cosine center, suffix-tree anchors per MUMmer/LAGAN, NW between anchors) as an explicitly approximate variant.
 
 ### Complexity
-- **Time:** O(k² × m) where k = number of sequences, m = average sequence length
+- **Time:** O(k² × m²) for the exact center-star (all pair scores); `MultipleAlignAnchored` O(k²·4⁴ + k·m + Σδ²)
 - **Space:** O(k × L) for aligned sequences, where L = alignment length
 
 ### Scoring
@@ -388,3 +389,36 @@ output.
 10. Notredame C, Higgins DG, Heringa J (2000). T-Coffee: A novel method for fast and accurate multiple sequence alignment. *J Mol Biol* 302(1):205–217. https://doi.org/10.1006/jmbi.2000.4042 (full text https://web.stanford.edu/class/gene211/pdfs/Notredame-Tcoffee.pdf ; PubMed https://pubmed.ncbi.nlm.nih.gov/10964570/)
 11. T-Coffee Technical Documentation. https://tcoffee.readthedocs.io/en/latest/tcoffee_technical_documentation.html (accessed 2026-06-23)
 12. Gotoh O (1982). An improved algorithm for matching biological sequences. *J Mol Biol* 162(3):705–708. https://doi.org/10.1016/0022-2836(82)90398-9
+
+
+---
+
+# Addendum: B09 re-validation 2026-11-04 (campaign 2026-09)
+
+Sources actually opened in this review (neutral `Seqeron-review/1.0` User-Agent, no personal data sent):
+
+| Source | How | What it confirms |
+|---|---|---|
+| T-Coffee paper PDF, https://tcoffee.org/Publications/Ps_pdf/tcoffee.pdf (pp.207-210, `pdftotext`) | curl | Constraint weight = "percent identity within the pair-wise alignment it comes from"; signal addition; "Extension will be carried out on each pair of residues of A and B"; triplet weight = minimum of W1, W2 (88 + 77 = 165); group columns use average library scores; DP with gap penalties set to zero; NJ guide tree |
+| T-Coffee sources, `lib/dp_lib/evaluate.c` `residue_pair_extended_list` (raw.githubusercontent.com/cbcrg/tcoffee) | curl | Extension is evaluated for *any* residue pair (s1,r1),(s2,r2) the DP asks for: direct weight + Σ MIN(w(s1.r1,t), w(s2.r2,t)) over common partners t |
+| T-Coffee sources, `lib/util_lib/aln_convertion_util.c` `get_seq_sim` | curl | Default `-weight=sim` = `(sim*MAXID)/pos0`: identical columns × 100 / aligned non-gap columns, integer division |
+| T-Coffee technical documentation (readthedocs) | WebFetch | `-weight=sim` default; `-extend_mode=very_fast_triplet` default |
+| ClustalW 1.83 `pairalign.c` (raw.githubusercontent.com/epruesse/ARB/master/GDE/CLUSTALW) | curl | Pairwise distance `tmat = (100 − mm_score)/100`, `mm_score = 100·count/MIN(len1,len2)` (identities over the shorter sequence length) |
+| Abouelhoda & Ohlebusch 2005, J Discrete Algorithms 3:321-341 (uni-ulm.de PDF) | curl, `pdftotext` | Chaining problem = maximum-weight chain of colinear non-overlapping fragments; MUMmer cited as a chaining client |
+| Gusfield 1993, Bull Math Biol 55:141-154 (WebSearch snippets: Springer/MaRDI) | WebSearch | Center-star method, bound 2 − 2/k |
+| Higgins & Sharp 1988, Gene 73:237 (PubMed snippet) | WebSearch | UPGMA-based guide tree, simplified Feng-Doolittle |
+
+## Oracle numbers
+
+- Independent Python implementations (own NW/SW with the documented tie order, Gusfield center-star, ClustalW distance + UPGMA with exact `Fraction` arithmetic, profile-profile NW, MUSCLE edge refinement, T-Coffee primary library + on-demand triplet extension + zero-gap progressive DP) compared with 300 random sets (k = 2..6, three scoring schemes): star 0/300, progressive 0/300, iterative 0/300, consistency 0/300 row mismatches. Before the fixes: consistency 170/300 rows differed from the T-Coffee reference semantics; k = 2 star MSAs were suboptimal in 4 of 2000 related pairs (anchored pairwise stage; e.g. 9 vs Biopython 24).
+- Biopython 1.88 `PairwiseAligner(mode='global', match_score=1, mismatch_score=-1, open_gap_score=-1, extend_gap_score=-1)`: GGAAGCCAATAATCGTGCACGAAGGTGACTGCAGGAGAGTACGAAGGT / AGACAGCCAAAATCTTCAGAGTTCGACTGGAGGTGACTACGAAGAT = 24; TAGACGCATCAAACAGCCTAGGCCGTACTGCGATTCAGCTGTCAACAGGTAAAACAGA / TAGACGCCTAGTCAACAGCCTACGGCCCTATCAGCTGTATACATGTTAGTCCACCGTAACAGT = 27; CACTTGGGGACAGTTAGCTCCGCCCCCGTTAGTTTGATGCGGGTCC / ACGGCGCGTAGGAAGTATAGTAATTCTTAGATGGGGACACGATACTA = −3.
+- Star rows/SP (python, hand-checked): ACACG/AGAGC/AATGGC → `-A-CACG-`, `-A-GA-GC`, `AATG--GC`, SP −3; TTTGA/AGGTCA/AGTGCGA/ACTGGCA → SP −5; CAT/TAT/CGAT/CTAT/CTA → SP 10.
+- Chaining: A(0,0,10)+A(6,20,10) overlap 4 → chain (0,0,10),(10,24,6) = 16 bases.
+- T-Coffee: ACGTTACGT/ACGACGT/ACGTACGA primary(S0.0,S1.0) = 200 (global 7/7 + local 7/7), extended 385 = 200 + min(87+100, 85+100) = 200 + 185; CTT/ACT/CAA pair (S1.1,S2.0): primary 0, extended 133 = min(200, 133) via S0.
+- Iterative: TCA/TCT/GCAC/TAAC progressive `T--CA T--CT GCAC- TAAC-` SP −7, refined `TCA- TCT- GCAC TAAC` SP −3.
+
+## Assumptions (B09)
+
+1. The linear-gap model applies to every MSA method (documented deviation; `GlobalAlignAffine` for pairs).
+2. UPGMA guide tree for all progressive-family methods (CLUSTAL 1988) instead of NJ.
+3. T-Coffee local library = best single SW alignment per pair (Lalign supplies up to N non-intersecting alignments in T-Coffee).

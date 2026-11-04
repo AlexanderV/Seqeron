@@ -154,3 +154,30 @@ hand/probe-derived value matches the live code; tests are strict, deterministic,
 2. Wikipedia "UPGMA" — https://en.wikipedia.org/wiki/UPGMA
 3. Wikipedia "Multiple sequence alignment" / "Clustal".
 4. Feng DF, Doolittle RF (1987) J Mol Evol 25:351-360. PubMed 3118049.
+
+
+---
+
+# Re-validation 2026-11-04 (campaign 2026-09, batch B09) — supersedes the verdicts above
+
+- **Stage A verdict:** PASS-WITH-NOTES · **Stage B verdict:** PASS-WITH-NOTES after fixes (four defects found and fixed, see below) · **End-state:** ✅ FIXED (declared deviations remain in the algorithm doc §5.3).
+
+## Stage A — description
+
+Sources opened this time: the T-Coffee paper PDF (tcoffee.org, pp.207-210), the T-Coffee sources `evaluate.c` / `aln_convertion_util.c`, ClustalW 1.83 `pairalign.c`, Abouelhoda & Ohlebusch 2005 (PDF), Gusfield 1993 and Higgins & Sharp 1988 (bibliographic records via WebSearch). Findings against the previous description: (1) the "star" method was described as the Gusfield/Wikipedia center-star but its pairwise stage was a suffix-tree anchored heuristic, so the claim "pairwise alignments of a center-star" did not hold; (2) the Clustal-style distance claimed in the progressive description is not the ClustalW distance (ClustalW divides identities by the *shorter sequence length*, not by the alignment length); (3) T-Coffee extension was described as applying to "each pair of residues", implemented only for pairs of the primary library; (4) the T-Coffee weight "percent identity" was taken over the full alignment length (including gap columns) whereas the reference implementation counts aligned residue pairs only.
+
+## Stage B — implementation, defects and fixes
+
+| # | Defect | Evidence | Fix |
+|---|---|---|---|
+| F4 | `MultipleAlign` (k = 2) was not an optimal pairwise alignment: anchors constrain the path | 4/2000 random related pairs; e.g. SP 9 vs Biopython 24, 22 vs 27, −35 vs −3 | exact center-star (Gusfield): canonical NW for every pair, center = best total pair score; anchored variant kept as `MultipleAlignAnchored` |
+| F5 | `AnchorBasedAligner`: overlapping anchors discarded by a greedy filter, LIS maximised the *count* of anchors, one-sided gaps scored affinely while DP gaps were linear (inconsistent `Score`), > 5000-base segments aligned by a diagonal heuristic, comments claimed "all MEMs" | unit tests (chain of overlapping anchors 10 vs 16 bases; Score ≠ re-scored rows) | weighted colinear chain with overlap trimming, linear scoring everywhere, exact Hirschberg for big gaps, comments corrected |
+| F6 | `SelectCenterSequence` counted 4-mers with a private hash | B06 request | Core `CountKmersSpan` (identical counts) |
+| F7 | T-Coffee extension only for primary pairs and percent identity over gap columns | 170/300 rows differ from the independent T-Coffee reference | on-demand extension for every residue pair; weight = ⌊100·identical/aligned⌋ |
+| F8 | Progressive distance not the ClustalW distance; UPGMA ties decided by floating-point noise | `pairalign.c`; 1/300 random sets differ between exact-rational and double ties | identities / min length; ties within 1e-9 |
+
+Cross-verification: independent Python implementations of all five methods reproduce the rows of 300 random sets exactly (see Evidence addendum); MCP tools added for every method; GapOpen is documented as unused by the linear-gap MSA family.
+
+## Verdict
+
+PASS-WITH-NOTES / PASS-WITH-NOTES, FIXED. Full fast tier: see `docs/Validation/review-2026-09/B09.md`.

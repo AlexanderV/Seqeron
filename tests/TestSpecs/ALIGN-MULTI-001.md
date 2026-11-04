@@ -4,8 +4,8 @@
 - **ID:** ALIGN-MULTI-001
 - **Area:** Alignment
 - **Canonical Method:** `SequenceAligner.MultipleAlign(IEnumerable<DnaSequence>, ScoringMatrix?)`
-- **Complexity:** O(k² × m) where k = sequences, m = average length
-- **Algorithm:** Anchor-based star alignment (progressive alignment with suffix tree anchors)
+- **Complexity:** O(k² × m²) (exact center-star pair scores)
+- **Algorithm:** Center-star alignment (Gusfield 1993) with exact pairwise Needleman-Wunsch alignments; variants: `MultipleAlignAnchored` (suffix-tree anchors, approximate), `MultipleAlignProgressive`, `MultipleAlignIterative`, `MultipleAlignConsistency`
 - **Status:** ☑ Complete
 
 ---
@@ -311,6 +311,28 @@ on the extended library.
 
 | # | Assumption | Used In |
 |---|-----------|---------|
-| 1 | Primary weight = integer percent identity of the pairwise global alignment; local entries from Smith–Waterman added by signal addition. | primary library |
+| 1 | Primary weight = ⌊100·identical / aligned (non-gap) columns⌋ of the pairwise alignment (T-Coffee `get_seq_sim` sim1); local entries from Smith–Waterman added by signal addition. | primary library |
 | 2 | Guide tree = existing UPGMA (NJ in paper); affects merge order only. | progressive step |
 | 3 | Progressive DP gap score = 0 (T-Coffee p.210); group columns use average extended-library score. | progressive DP |
+
+---
+
+## B09 re-validation addendum (2026-11-04)
+
+Tests added (all lock oracle values: Biopython 1.88 pair optima and independent Python references, see Evidence addendum):
+
+| ID | Test | Expected | Source |
+|---|---|---|---|
+| B01-B03 | `MultipleAlign_TwoSequences_IsOptimalPairwiseAlignment` ×3 | SP = Biopython optimum 24 / 27 / −3 (previous anchored stage: 9 / 22 / −35) | Biopython 1.88; Gusfield 1993 |
+| B04-B06 | `MultipleAlign_{Three,Four,Five}Sequences_…MatchesIndependentCenterStar` | exact rows; SP −3 / −5 / 10 | independent Python center-star |
+| B07 | `MultipleAlign_CenterIsTheSequenceWithBestTotalPairScore_NotTheFirst` | totals −2/4/2 → center S1 | Gusfield center |
+| B08-B10 | determinism, random validity (150 sets), empty member inside set | invariants INV-01..05, INV-11 | MSA definition |
+| B11-B14 | `MultipleAlignAnchored_*` | valid rows, ≤ optimum, identical → gap-free (SP 30) | approximate variant contract |
+| C01-C07 | `AnchorBasedAligner_Tests` (`ChainAnchors`) | overlap trimming (0,0,10)+(6,20,10) → (0,0,10),(10,24,6); coverage over count; crossing anchors; random invariants | Abouelhoda & Ohlebusch 2005; Delcher 1999 |
+| C08-C12 | `AlignWithAnchors_*` | identical; empty side = all-gap alignment; linear gap scoring; related pairs ≤ `GlobalAlign`; repeated blocks | MUMmer scheme |
+| C13-C14 | `GlobalAlignLinearSpace_*` | Hirschberg score = NW optimum (24/27 Biopython; 200 random pairs × 4 schemes, forced recursion) | Hirschberg 1975 |
+| T01 | `LibraryWeights_PercentIdentityExcludesGapColumns_AndExtensionAddsMinOfLegs` | primary 200, extended 385 | T-Coffee `get_seq_sim`, p.209 |
+| T02 | `LibraryWeights_PairWithoutDirectSupport_GetsWeightThroughIntermediate` | primary 0, extended 133 | T-Coffee `residue_pair_extended_list` |
+| T03 | `MultipleAlignConsistency_MatchesIndependentTCoffeeReference` | `-CTT`, `AC-T`, `-CAA` | independent Python T-Coffee |
+| I01 | `MultipleAlignIterative_CorrectsEarlyGapPlacement_RaisesSpScore` (re-engineered for the ClustalW distance) | −7 → −3 | hand SP, Python refinement |
+| M01-M08 | MCP: `multiple_align*` bindings, `global/local/semi_global_align_affine` | Biopython/parasail values (−17, 12 @ (7,12,0,5), 7 `--GA-TTACA--`) | SequenceAligner unit tests |
