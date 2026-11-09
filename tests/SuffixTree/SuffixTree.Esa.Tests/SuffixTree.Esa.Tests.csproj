@@ -29,6 +29,8 @@
   <ItemGroup>
     <ProjectReference Include="..\..\..\src\SuffixTree\Algorithms\SuffixTree.Esa\SuffixTree.Esa.csproj" />
     <ProjectReference Include="..\..\..\src\SuffixTree\Algorithms\SuffixTree\SuffixTree.csproj" />
+    <!-- v6 persistent tree: the second oracle of the Traverse event stream and of the logical hash (1b.1) -->
+    <ProjectReference Include="..\..\..\src\SuffixTree\Algorithms\SuffixTree.Persistent\SuffixTree.Persistent.csproj" />
   </ItemGroup>
 
 </Project>

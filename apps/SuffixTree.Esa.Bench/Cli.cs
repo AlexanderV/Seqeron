@@ -17,6 +17,9 @@ internal static class Cli
                   <builds> builds in one process; the last three are reported (steady state, JIT warm)
           profile --input <file> [--builds 3] [--name <label>]
                   <builds> instrumented builds in one process; phase times of the first (cold) and the last (warm) build
+          query   --input <file> [--name <label>] [--queries <bench dir>] [--layout reference3|packed|tagged|all] [--trace true] [--min-seconds 1.0]
+          query   --synthetic <a^n|abab|fibonacci|thue-morse|n-runs>[:n] ...
+                  work package 1b.1 (prototype P3): SA + LCP once, then per child-table layout the scan time, bytes and write trace (--trace)
           ab      --input <file> [--name <label>] [--verify <sa_vectors.tsv>] [--pairs 9] [--calibration-pairs 7]
                   [--a-args "<build options>"] [--b-args "<build options>"] [--a-env KEY=VALUE]... [--b-env KEY=VALUE]...
                   [--a-dll <path>] [--b-dll <path>] [--libsais <driver>] [--libsais-runs 5] [--max-load 0.30] [--out <raw.tsv>]
@@ -41,6 +44,7 @@ internal static class Cli
                 case "build": Commands.Build(options); return 0;
                 case "steady": Commands.Steady(options); return 0;
                 case "profile": Commands.Profile(options); return 0;
+                case "query": QueryCommands.Query(options); return 0;
                 default: return UsageError($"unknown command '{args[0]}'");
             }
         }
@@ -133,12 +137,25 @@ internal sealed class Options
     internal SaisKernelKind SaisKernel { get; private init; }
     internal LcpKernelKind LcpKernel { get; private init; }
 
+    internal string? Queries { get; private init; }
+
+    internal string? Synthetic { get; private init; }
+
+    internal ChildLayoutKind[] Layouts { get; private init; } = [ChildLayoutKind.Packed];
+
+    internal bool Trace { get; private init; }
+
+    internal double MinSeconds { get; private init; } = 1.0;
+
     internal static Options Parse(string[] args)
     {
-        string? input = null, name = null, verify = null;
+        string? input = null, name = null, verify = null, queries = null, synthetic = null;
         int? builds = null;
         var saisKernel = SaisKernelKind.Reference;
         var lcpKernel = LcpKernelKind.Reference;
+        ChildLayoutKind[] layouts = [ChildLayoutKind.Packed];
+        bool trace = false;
+        double minSeconds = 1.0;
         for (int i = 0; i < args.Length; i += 2)
         {
             string value = i + 1 < args.Length ? args[i + 1] : throw new ArgumentException($"option {args[i]} needs a value");
@@ -150,14 +167,24 @@ internal sealed class Options
                 case "--builds": builds = int.Parse(value, CultureInfo.InvariantCulture); break;
                 case "--sa-kernel": saisKernel = Enum.Parse<SaisKernelKind>(value, ignoreCase: true); break;
                 case "--lcp-kernel": lcpKernel = Enum.Parse<LcpKernelKind>(value, ignoreCase: true); break;
+                case "--queries": queries = value; break;
+                case "--synthetic": synthetic = value; break;
+                case "--layout": layouts = value.Equals("all", StringComparison.OrdinalIgnoreCase) ? Enum.GetValues<ChildLayoutKind>() : [Enum.Parse<ChildLayoutKind>(value, ignoreCase: true)]; break;
+                case "--trace": trace = bool.Parse(value); break;
+                case "--min-seconds": minSeconds = double.Parse(value, CultureInfo.InvariantCulture); break;
                 default: throw new ArgumentException($"unknown option '{args[i]}'");
             }
         }
-        if (input is null) throw new ArgumentException("--input is required");
+        if (input is null && synthetic is null) throw new ArgumentException("--input is required");
         return new Options
         {
-            Input = input,
-            Name = name ?? Path.GetFileNameWithoutExtension(input),
+            Input = input ?? "",
+            Queries = queries,
+            Synthetic = synthetic,
+            Layouts = layouts,
+            Trace = trace,
+            MinSeconds = minSeconds,
+            Name = name ?? (synthetic is not null ? synthetic.Split(':')[0] : Path.GetFileNameWithoutExtension(input!)),
             Verify = verify,
             Builds = builds ?? 0,
             SaisKernel = saisKernel,
