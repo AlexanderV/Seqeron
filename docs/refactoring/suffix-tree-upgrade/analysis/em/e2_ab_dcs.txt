@@ -1,0 +1,4 @@
+# paired interleaved A/B of the DCS cost on dna_10m (python3 -I ab_dcs.py <dll> /tmp/stbench/data 9 1024), 2026-11-09
+A/A ratios (9 pairs): median 1.0056 range [0.9458, 1.0772]
+B/A ratios (9 pairs, X=1024): median 1.0737 range [1.0355, 1.1548]  -> DCS slowdown 7.4 % (gate < 25 %)
+pairs: 1.058 1.155 1.035 1.135 1.132 1.052 1.074 1.119 1.037

@@ -74,3 +74,64 @@ Result against the E1 rules of ADR-004 section 5:
 
 Provenance. The first measurement session (run 0 of a^n 1 M, tandem and N run in `e1.tsv`, 118 / 502 / 410 s) used the build before the scratch-file counters were added to the position store; all other rows come
 from the frozen build `bin_e1` of the same source with introsort ties. The E1 code path (direct comparator) was not changed afterwards except for the added `--tie-sort` option.
+
+## E2: the difference-cover sample (2026-11-09)
+
+What is added to E1: (a) a difference cover D of Z_X, **constructed and proved by test** (below); (b) the sample ranks, computed in RAM (`DcsBuilder`): the sample positions (`p mod X` in D, p in [0, n]) are sorted by
+their X-prefix and named, equal names get the same number; when all names are distinct they are the ranks (`dna_10m`, `rep_10m`, `prot_1m`), otherwise the names of each residue class form a reduced string whose suffix
+array (SA-IS `SaisReference<int>` up to 16 M symbols, this builder recursively above) gives the ranks; (c) the comparator of Karkkainen (TCS 2007): for two suffixes i, j find l < X such that i+l and j+l are both sample
+positions (table `Witness[(j-i) mod X]`), compare the first l symbols directly, then compare the two sample ranks. Nothing else changes. The 32-bit fast division (Lemire) replaces five 64-bit divisions per call; the merge sort replaces the
+introsort for key ties (both are part of the final code; see "Ablation" below).
+
+**Difference covers (the ADR said the table was unverified).** There is no table: `DifferenceCover.Create(X)` constructs a cover for any X. For `X = q^2 + q + 1` with q prime it builds Singer's perfect difference set (q + 1 residues, every non-zero
+difference exactly once; the residues i with a zero constant coefficient of alpha^i in GF(q^3), alpha a primitive root found by search); for any other X it prunes the square-root construction `{0..m-1} + {m, 2m, .., m*m}` greedily (random order, fixed seed).
+Proof by test (`DifferenceCoverTests`, default run, a few seconds): for **every X from 2 to 2300** an independent exhaustive loop checks that all X residue differences occur among the pairs of D, and that the witness table `Witness[d]` names an
+a in D with (a + d) mod X in D for every d; for the 15 Singer moduli q = 2..47 the set is perfect and has q + 1 elements. Sizes: exact periods 512 / 1024 / 2048 / 4096 give |D| = 33 / 47 / 67 / 95 (6.5 / 4.6 / 3.3 / 2.3 % of the positions; the ADR guess
+was 0.04-0.05 for X = 1024); Singer periods 553 / 993 / 1893 give |D| = 24 / 32 / 44 (4.3 / 3.2 / 2.3 %). `NearestSingerPeriod` maps the nominal 512 / 1024 / 2048 of the ADR to 553 / 993 / 1893.
+
+**Round 1 (the design as written: nominal X = 1024 = Singer 993, K = n/1000, 1 thread).** `analysis/em/e2_r1.tsv`; all 38 suffix arrays equal to the libsais hash or to `SaisKernel`. `total` = rank table construction + bucket build; ratio = total / total of `dna_10m` (1.052 s).
+
+| family | n | runs | rank table (s) | bucket build `sa_s` (s) | total (s) [min-max] | ratio to `dna_10m` | gate 10x |
+|---|---|---|---|---|---|---|---|
+| dna_10m | 10 M | 5 | 0.073 | 0.977 | 1.052 [1.048-1.084] | 1 | - |
+| rep_10m | 10 M | 3 | 0.208 | 2.766 | 2.974 [2.951-3.103] | 2.8 | pass |
+| prot_1m | 1 M | 3 | 0.016 | 0.233 | 0.249 | 0.24 | pass |
+| Thue-Morse | 1 M | 3 | 0.221 | 0.878 | 1.094 [0.978-1.126] | 1.0 | pass |
+| Fibonacci | 1 M | 3 | 0.232 | 0.754 | 0.987 [0.961-1.020] | 0.9 | pass |
+| genome-like | 10 M | 3 | 0.234 | 1.291 | 1.529 [1.518-1.551] | 1.5 | pass |
+| a^n | 1 M | 3 | 0.228 | 0.648 | 0.877 [0.875-0.886] | 0.8 | pass |
+| 171-bp tandem x 10^4 | 1.71 M | 3 | 0.245 | 0.953 | 1.199 [1.196-1.228] | 1.1 | pass |
+| N run 1 M in 10 M | 10 M | 3 | 0.260 | 1.647 | 1.907 [1.872-1.945] | 1.8 | pass |
+| a^n | 10 M | 3 | 0.392 | 5.919 | 6.266 [6.119-6.532] | **6.0** | pass |
+| Fibonacci | 10 M | 3 | 0.414 | 7.895 | 8.285 [8.275-8.960] | **7.9** | pass (largest) |
+| Thue-Morse | 10 M | 3 | 0.388 | 6.641 | 7.038 [6.973-7.095] | 6.7 | pass |
+
+(E1 for comparison: a^n 1 M 118 s, tandem 505 s, N run 412 s, a^n 10 M above 600 s.)
+
+**Gates.** (1) Every adversarial family <= 10x `dna_10m`: **met** (largest: Fibonacci 10 M, 7.9x; a^n 10 M 6.0x; the three that failed E1 by 117-502x are 0.8-1.8x). (2) `dna_10m` slowdown caused by the DCS < 25 %: **met**:
+paired interleaved A/B, 9 fresh-process pairs (`e2_ab_dcs.txt`), rank table construction included: median ratio 1.074 (7.4 %; pairs 1.035-1.155; the A/A of the same session is 1.006 [0.946-1.077]). No tuning round was needed (the ADR allows two before declaring "use F1").
+`dna_10m` with 4 threads: 0.606 s total; a^n 10 M 3.45 s; Fibonacci 10 M 3.23 s.
+
+**Sweep (informational; 3 runs for dna_10m / a^n / Fibonacci, 1 run for rep_10m, genome, tandem, N run; `e2_sweep.tsv`).** Total seconds (ratio to `dna_10m` of the same configuration):
+
+| config | dna_10m | rep_10m | genome-like 10 M | a^n 10 M | Fibonacci 10 M | tandem 1.71 M | N run 10 M |
+|---|---|---|---|---|---|---|---|
+| X=512 exact (|D|=33) | 1.09 | 3.36 (3.1x) | 1.35 (1.2x) | 4.09 (3.8x) | 7.02 (6.5x) | 0.97 (0.9x) | 1.65 (1.5x) |
+| X=553 Singer (24) | 1.06 | 3.43 (3.3x) | 1.44 (1.4x) | 5.17 (4.9x) | 7.48 (7.1x) | 1.09 (1.0x) | 1.89 (1.8x) |
+| X=993 Singer (32), K=n/1000 (round 1) | 1.05 | 2.97 (2.8x) | 1.53 (1.5x) | 6.27 (6.0x) | 8.28 (7.9x) | 1.20 (1.1x) | 1.91 (1.8x) |
+| X=1024 exact (47) | 1.09 | 2.91 (2.7x) | 1.29 (1.2x) | 4.49 (4.1x) | 8.32 (7.6x) | 1.02 (0.9x) | 1.74 (1.6x) |
+| X=1893 Singer (44) | 1.04 | 2.81 (2.7x) | 1.36 (1.3x) | 7.16 (6.9x) | 8.95 (8.6x) | 1.42 (1.4x) | 2.11 (2.0x) |
+| X=2048 exact (67) | 1.09 | 2.97 (2.7x) | 1.36 (1.2x) | 6.29 (5.7x) | 9.31 (8.5x) | 1.28 (1.2x) | 2.07 (1.9x) |
+| X=993, K=n/300 | 0.93 | 3.07 (3.3x) | - | 5.80 (6.2x) | 7.59 (8.1x) | 1.11 (1.2x) | 1.76 (1.9x) |
+| X=993, K=n/3000 | 1.24 | 3.24 (2.6x) | - | 6.32 (5.1x) | 8.29 (6.7x) | 1.32 (1.1x) | 2.22 (1.8x) |
+| X=993, K=n/1000, 4 threads | 0.61 | 1.35 (2.2x) | - | 3.45 (5.7x) | 3.23 (5.3x) | - | - |
+
+Reading: every configuration passes both gates (largest ratio 9.3 / 1.09 = 8.5x for Fibonacci 10 M with the exact period 2048). A smaller period is faster on the repetitive texts (a^n 10 M: 4.1 s at X = 512, 6.3 s at 2048) because
+the direct part of the comparator is shorter (average l is about X/2), at the price of a denser sample (6.5 % of the positions at 512, 2.3 % at 1893: rank file 0.26 B/char against 0.09 B/char). On random DNA the choice of X is irrelevant (1.04-1.09 s).
+Fibonacci is the worst family at every X (many ties, long LCP, pairs of near-neighbours in the order).
+
+**Ablation of the implementation changes (single unrepeated runs of a^n 10 M at X = 993, made while another process was running on a different core, so only the order of magnitude counts):** first version (introsort, 64-bit `%` and `/`) 11.1 s;
+with the 32-bit fast division 9.2 s; with the merge sort for tie runs 5.8 s. The E1 numbers above are the first version (introsort); `e1_merge.tsv` has the merge-sort variant.
+
+**What E2 does not show.** The rank table is built in RAM by safe code (`DcsBuilder`, `SaisReference` for the reduced string): its construction time (0.07-0.4 s per 10 M) and memory (about 60 B per sample position transient) are not those of the
+external PH1 of the design; n is at most 10 M, so the rank table is 1.3 MB-2.6 MB and fits in the CPU cache: the cost of rank lookups that miss the cache is what E3 measures; a text of 3 x 10^9 symbols was not tried.

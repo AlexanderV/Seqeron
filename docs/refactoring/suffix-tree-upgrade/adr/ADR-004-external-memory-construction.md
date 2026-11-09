@@ -240,6 +240,12 @@ Measured with `e1` of `apps/SuffixTree.EmProto` (1 thread, K = n/1000, fan-out 6
 
 With the merge sort of the final code (fewer comparator calls) the numbers are lower by 11-39 % but the picture is the same: a^n 1 M 88x, tandem 301x, N run 240x, a^n 10 M still above 600 s. **Rule of E1: not every family is within 10x, so the difference-cover sample (PH1) is needed and E2 was run.** The cost of a failing family is not the number of comparator calls (1.4-2.6 x 10^7 for all of them) but their length: 10^6 matched symbols per text symbol.
 
+### E2 with the difference-cover sample (in-RAM ranks) - gates met
+
+The difference covers are constructed, not tabulated: Singer perfect difference sets for `X = q^2 + q + 1` (q prime; nominal 512 / 1024 / 2048 become 553 / 993 / 1893 with |D| = 24 / 32 / 44) and a pruned square-root construction for any other X (exact 512 / 1024 / 2048 give |D| = 33 / 47 / 67, i.e. 6.5 / 4.6 / 3.3 % of the positions). **Proof:** the default test covers every X from 2 to 2300 (all residue differences occur) and checks the Singer sets for perfection. The comparator is Karkkainen's (compare l < X symbols, then two sample ranks).
+
+Round 1 (Singer 993, K = n/1000, 1 thread, ranks built in RAM and charged to the time): `dna_10m` 1.052 s; every adversarial family within 10x: a^n 1 M 0.8x, tandem 1.1x, N run 1.8x, Thue-Morse 1 M 1.0x, Fibonacci 1 M 0.9x, rep_10m 2.8x, genome-like 1.5x, and at 10 M a^n 6.0x, Thue-Morse 6.7x, **Fibonacci 7.9x (the largest)**. The cost of the DCS on `dna_10m`: 7.4 % (paired A/B, 9 pairs; gate 25 %). All outputs equal the libsais hashes or `SaisKernel`. **No tuning round was needed.** Sweep over X (553, 993, 1893 Singer; 512, 1024, 2048 exact), K = n/300 and n/3000 and 4 threads: every configuration passes (worst ratio 8.5x); smaller X is faster on repetitive text (a^n 10 M 4.1 s at 512, 6.3 s at 2048) and costs a denser rank file (6.5 % against 2.3 % of the positions). Details: [RESULTS.md](../analysis/em/RESULTS.md).
+
 ## 6. Honest limitations and open questions
 
 What I could **not** verify:
