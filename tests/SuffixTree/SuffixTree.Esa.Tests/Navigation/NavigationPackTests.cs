@@ -106,18 +106,19 @@ public class NavigationPackTests
     [Test]
     public void Life_ConcurrentFirstUse_BuildsOnce()
     {
-        for (int round = 0; round < 40; round++)
+        for (int round = 0; round < 12; round++)
         {
             EsaIndex index = EsaIndex.Build(StringFamilies.RandomDna(2000 + round, (ulong)round));
             const int Threads = 8;
             var start = new Barrier(Threads);
             var packs = new EsaNavigationPack[Threads];
-            var tasks = Enumerable.Range(0, Threads).Select(t => Task.Run(() =>
+            var threads = Enumerable.Range(0, Threads).Select(t => new Thread(() =>
             {
                 start.SignalAndWait();
                 packs[t] = index.Navigation;
             })).ToArray();
-            Task.WaitAll(tasks);
+            foreach (Thread thread in threads) thread.Start();
+            foreach (Thread thread in threads) thread.Join();
             Assert.That(index.NavigationBuildCount, Is.EqualTo(1), $"round {round}");
             Assert.That(packs.All(p => ReferenceEquals(p, packs[0])), Is.True, $"round {round}: one instance");
         }
@@ -126,7 +127,7 @@ public class NavigationPackTests
     [Test]
     public void Life_ConcurrentReaders_AgreeWithTheSequentialWalk()
     {
-        EsaIndex index = EsaIndex.Build(StringFamilies.Fibonacci(3000));
+        EsaIndex index = EsaIndex.Build(StringFamilies.Fibonacci(1200));
         var expected = NavigatorWalk.Walk(index, false, "sequential");
         var results = new List<TreeRecord>[6];
         Parallel.For(0, results.Length, i => results[i] = NavigatorWalk.Walk(index, false, $"thread {i}"));

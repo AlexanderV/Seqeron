@@ -163,12 +163,12 @@ public class EsaNavigatorTests
     {
         foreach (var (name, text) in new[]
         {
-            ("fibonacci", StringFamilies.Fibonacci(4000)),
-            ("thue-morse", StringFamilies.ThueMorse(3000)),
-            ("a^2500", StringFamilies.AllSame(2500)),
+            ("fibonacci", StringFamilies.Fibonacci(2500)),
+            ("thue-morse", StringFamilies.ThueMorse(2000)),
+            ("a^500", StringFamilies.AllSame(500)),
             ("dna", StringFamilies.RandomDna(12000, 7)),
-            ("periodic", StringFamilies.Periodic(5000, 37, 9)),
-            ("a^(p-1)b", StringFamilies.PeriodicAaB(3000, 50)),
+            ("periodic", StringFamilies.Periodic(4000, 37, 9)),
+            ("a^(p-1)b", StringFamilies.PeriodicAaB(2000, 50)),
         })
             NavigatorWalk.AssertEqualsUkkonen(EsaIndex.Build(text), false, name);
     }

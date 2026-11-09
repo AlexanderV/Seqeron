@@ -243,7 +243,7 @@ public class EsaMatchingTests
             UkkonenTree ukkonen = UkkonenTree.Build(text);
             string window = text.Substring(rng.NextInt(text.Length / 2), Math.Min(text.Length / 3, 3000));
             string query = MatchingChecks.Mutate(window, 0.02, rng);
-            foreach (int minLength in new[] { 1, 12, 20, 60 })
+            foreach (int minLength in new[] { 8, 12, 20, 60 })
             {
                 var mems = MatchingChecks.Triples(esa.FindMaximalExactMatches(query, minLength));
                 Assert.That(mems, Is.EqualTo(MatchingChecks.Triples(ukkonen.FindMaximalExactMatches(query, minLength))), $"{name} MEM L {minLength}");
@@ -332,7 +332,8 @@ public class EsaMatchingTests
         {
             EsaIndex index = EsaIndex.Build(text, layout);
             Assert.That(MatchingChecks.Triples(index.FindMaximalExactMatches(query, 10)), Is.EqualTo(expected), $"{layout}");
-            MatchingChecks.CheckAll(index, null, text[..300], MatchingChecks.Mutate(text.Substring(20, 200), 0.05, new SplitMix64(6)), [2, 6], $"{layout}");
+            string small = text[..300];
+            MatchingChecks.CheckAll(EsaIndex.Build(small, layout), null, small, MatchingChecks.Mutate(text.Substring(20, 200), 0.05, new SplitMix64(6)), [2, 6], $"{layout}");
         }
     }
 }

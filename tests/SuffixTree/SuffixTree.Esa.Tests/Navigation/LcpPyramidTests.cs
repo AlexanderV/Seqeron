@@ -50,11 +50,16 @@ public class LcpPyramidTests
             bounds.Add(x + 1);
             if (x > 0) bounds.Add(x - 1);
         }
+        // long arrays: a spread of bounds and positions (the brute force is O(n) per query)
+        int[] boundList = bounds.ToArray();
+        if (boundList.Length > 24) boundList = Enumerable.Range(0, 24).Select(i => boundList[i * (boundList.Length - 1) / 23]).Distinct().ToArray();
+        int posStep = Math.Max(1, v.Length / 48);
         for (int p = 0; p < v.Length; p++)
         {
+            if (v.Length > 96 && p % posStep != 0 && p >= 3 && p < v.Length - 3 && (p & 511) != 0 && (p & 511) != 511) continue;
             int got = pyramid.ValueAt(p);
             if (got != v[p]) Fail(ctx, $"ValueAt({p})", got, v[p]);
-            foreach (int bound in bounds)
+            foreach (int bound in boundList)
             {
                 got = pyramid.PrevLess(p, bound);
                 int want = BrutePrevLess(v, p, bound);

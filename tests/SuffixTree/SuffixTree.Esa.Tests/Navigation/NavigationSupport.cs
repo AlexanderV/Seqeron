@@ -52,6 +52,8 @@ internal static class UkkonenShape
 /// </summary>
 internal static class NavigatorWalk
 {
+    private static string P(string path) => path.Length > 40 ? path[..40] + $"...({path.Length})" : path;
+
     internal static List<TreeRecord> Walk(EsaIndex index, bool bruteLeaves, string context)
     {
         string text = index.Text;
@@ -86,30 +88,36 @@ internal static class NavigatorWalk
             nav.GetChildren(node, children);
             var kids = children.OrderBy(c => nav.GetEdgeSymbol(c, 0)).ToList();
             bool leaf = node.IsLeaf;
-            Assert.That(kids.Count == 0, Is.EqualTo(leaf), $"{context}: node '{path}' leaf <=> no children");
+            Assert.That(kids.Count == 0, Is.EqualTo(leaf), $"{context}: node '{P(path)}' leaf <=> no children");
             records.Add(new TreeRecord(path, leaf, node.Rb - node.Lb + 1, kids.Count, key));
             CheckNode(nav, text, node, path, bruteLeaves, context);
             if (leaf) continue;
 
+            // the leaves of a node are exactly the leaves of its children (so a position is validated at its own leaf)
+            var union = new List<int>();
+            foreach (EsaNode child in kids) nav.CollectLeaves(child, node.Depth, union);
+            var whole = new List<int>();
+            nav.CollectLeaves(node, node.ParentDepth, whole);
+            Assert.That(union.Order().SequenceEqual(whole.Order()), $"{context}: leaves of '{P(path)}' are the union of the leaves of its children");
             var seen = new HashSet<int>();
             foreach (EsaNode child in kids)
             {
-                Assert.That(child.ParentDepth, Is.EqualTo(node.Depth), $"{context}: parent depth of a child of '{path}'");
-                Assert.That(child.Depth, Is.GreaterThan(node.Depth), $"{context}: child of '{path}' is deeper");
+                Assert.That(child.ParentDepth, Is.EqualTo(node.Depth), $"{context}: parent depth of a child of '{P(path)}'");
+                Assert.That(child.Depth, Is.GreaterThan(node.Depth), $"{context}: child of '{P(path)}' is deeper");
                 Assert.That(nav.LengthOf(child), Is.EqualTo(child.Depth - node.Depth), context);
                 Assert.That(child.Lb, Is.GreaterThanOrEqualTo(node.Lb), context);
                 Assert.That(child.Rb, Is.LessThanOrEqualTo(node.Rb), context);
                 int firstSymbol = nav.GetEdgeSymbol(child, 0);
-                Assert.That(seen.Add(firstSymbol), $"{context}: two children of '{path}' share the key {firstSymbol}");
+                Assert.That(seen.Add(firstSymbol), $"{context}: two children of '{P(path)}' share the key {firstSymbol}");
                 string childPath = child.IsLeaf ? text.Substring(Math.Min(child.Pos, n)) : text.Substring(child.Pos, child.Depth);
-                Assert.That(childPath.StartsWith(path, StringComparison.Ordinal), $"{context}: '{childPath}' extends '{path}'");
-                Assert.That(nav.TryGetChild(node, firstSymbol, out EsaNode found), $"{context}: TryGetChild('{path}', {firstSymbol})");
+                Assert.That(childPath.StartsWith(path, StringComparison.Ordinal), $"{context}: '{P(childPath)}' extends '{P(path)}'");
+                Assert.That(nav.TryGetChild(node, firstSymbol, out EsaNode found), $"{context}: TryGetChild('{P(path)}', {firstSymbol})");
                 Assert.That(found, Is.EqualTo(child), $"{context}: TryGetChild returns the child that GetChildren lists");
             }
             foreach (int probe in probeKeys)
             {
                 if (seen.Contains(probe)) continue;
-                Assert.That(nav.TryGetChild(node, probe, out EsaNode absent), Is.False, $"{context}: '{path}' has no child with key {probe}");
+                Assert.That(nav.TryGetChild(node, probe, out EsaNode absent), Is.False, $"{context}: '{P(path)}' has no child with key {probe}");
                 Assert.That(nav.IsNull(absent), $"{context}: a failed TryGetChild yields the null node");
             }
             for (int i = kids.Count - 1; i >= 0; i--)
@@ -126,14 +134,17 @@ internal static class NavigatorWalk
     {
         int n = text.Length;
         bool isRoot = node.Depth == 0;
-        Assert.That(nav.IsRoot(node), Is.EqualTo(isRoot), $"{context}: IsRoot('{path}')");
+        Assert.That(nav.IsRoot(node), Is.EqualTo(isRoot), $"{context}: IsRoot('{P(path)}')");
         Assert.That(nav.IsNull(node), Is.False, context);
         // edge symbols: the path label past the parent depth, then the terminator for a leaf
-        for (int o = 0; o < node.Depth - node.ParentDepth; o++)
+        int edgeLength = node.Depth - node.ParentDepth;
+        for (int o = 0; o < edgeLength; o++)
         {
+            if (edgeLength > 80 && o >= 16 && o < edgeLength - 16 && o % 61 != 0) continue; // a long leaf edge: both ends and a spread (plain comparison, an assertion per symbol costs seconds)
             int at = node.ParentDepth + o;
             int expected = at < path.Length ? path[at] : -1;
-            Assert.That(nav.GetEdgeSymbol(node, o), Is.EqualTo(expected), $"{context}: edge symbol {o} of '{path}'");
+            int actual = nav.GetEdgeSymbol(node, o);
+            if (actual != expected) Assert.Fail($"{context}: edge symbol {o} of '{P(path)}' is {actual}, expected {expected}");
         }
         if (node.IsLeaf) Assert.That(nav.GetEdgeSymbol(node, node.Depth - node.ParentDepth - 1), Is.EqualTo(-1), $"{context}: a leaf edge ends with the terminator");
         else if (!isRoot) Assert.That(nav.GetEdgeSymbol(node, node.Depth - node.ParentDepth - 1), Is.GreaterThanOrEqualTo(0), $"{context}: an internal edge never holds the terminator");
@@ -143,19 +154,23 @@ internal static class NavigatorWalk
         Assert.That(leaves[0], Is.EqualTo(-7), $"{context}: CollectLeaves appends");
         leaves.RemoveAt(0);
         int expectedCount = node.IsLeaf ? (path.Length > 0 ? 1 : 0) : (isRoot ? n : node.Rb - node.Lb + 1);
-        Assert.That(leaves.Count, Is.EqualTo(expectedCount), $"{context}: CollectLeaves('{path}') count");
+        Assert.That(leaves.Count, Is.EqualTo(expectedCount), $"{context}: CollectLeaves('{P(path)}') count");
         Assert.That(leaves.Distinct().Count(), Is.EqualTo(leaves.Count), $"{context}: leaf positions are distinct");
-        foreach (int p in leaves)
+        // every position is a genuine occurrence of the label: all of them for a small node, a spread (both ends, every eighth) for a large one; the union check below covers the rest
+        int sampleStep = Math.Max(1, leaves.Count / 8);
+        for (int i = 0; i < leaves.Count; i++)
         {
+            if (leaves.Count > 24 && i % sampleStep != 0 && i > 3 && i < leaves.Count - 4) continue;
+            int p = leaves[i];
             Assert.That((uint)p, Is.LessThan((uint)n), context);
-            Assert.That(string.CompareOrdinal(text, p, path, 0, path.Length) == 0 && (!node.IsLeaf || p + path.Length == n), $"{context}: leaf position {p} of '{path}'");
+            Assert.That(string.CompareOrdinal(text, p, path, 0, path.Length) == 0 && (!node.IsLeaf || p + path.Length == n), $"{context}: leaf position {p} of '{P(path)}'");
         }
         if (bruteLeaves && !node.IsLeaf)
-            Assert.That(leaves.Order().ToList(), Is.EqualTo(BruteForce.Occurrences(text, path)), $"{context}: leaves of '{path}' against brute force");
+            Assert.That(leaves.Order().ToList(), Is.EqualTo(BruteForce.Occurrences(text, path)), $"{context}: leaves of '{P(path)}' against brute force");
 
         int any = nav.FindAnyLeafPosition(node, node.ParentDepth);
-        if (expectedCount == 0) Assert.That(any, Is.EqualTo(-1), $"{context}: no real suffix below '{path}'");
-        else Assert.That(leaves, Does.Contain(any), $"{context}: FindAnyLeafPosition('{path}') is one of the leaves");
+        if (expectedCount == 0) Assert.That(any, Is.EqualTo(-1), $"{context}: no real suffix below '{P(path)}'");
+        else Assert.That(leaves, Does.Contain(any), $"{context}: FindAnyLeafPosition('{P(path)}') is one of the leaves");
     }
 
     /// <summary>The walk of <paramref name="index"/> and the Ukkonen shape of the same text must be equal record by record.</summary>

@@ -1,4 +1,3 @@
-#pragma warning disable S2325, S4144, S1144, S3453, CA1822 // stub of the red run (work package 1b.4): every member throws NotImplementedException; the implementation replaces this file
 using System.Runtime.InteropServices;
 
 namespace SuffixTree.Esa;
@@ -48,15 +47,16 @@ internal sealed unsafe class PinnedArray<T> : IDisposable
     /// <summary>A new array of <paramref name="length"/> elements on the pinned object heap; zeroed when <paramref name="zero"/>, else uninitialised.</summary>
     internal static PinnedArray<T> Allocate(int length, bool zero, string name)
     {
-        _ = (length, zero, name);
-        throw new NotImplementedException();
+        ArgumentOutOfRangeException.ThrowIfNegative(length);
+        T[] array = zero ? GC.AllocateArray<T>(length, pinned: true) : GC.AllocateUninitializedArray<T>(length, pinned: true);
+        return new PinnedArray<T>(array, default, name);
     }
 
     /// <summary>Pins an existing array until <see cref="Dispose"/> (or the finalizer).</summary>
     internal static PinnedArray<T> Pin(T[] array, string name)
     {
-        _ = (array, name);
-        throw new NotImplementedException();
+        ArgumentNullException.ThrowIfNull(array);
+        return new PinnedArray<T>(array, GCHandle.Alloc(array, GCHandleType.Pinned), name);
     }
 
     /// <summary>Frees the handle of a pinned array; idempotent. The <see cref="Buf"/> must not be used afterwards.</summary>
