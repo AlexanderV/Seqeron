@@ -189,12 +189,17 @@ public class IndexConformanceTests(IndexEngineFactory factory)
     [Test]
     public void ExtendRight_SymbolsOutsideTheCodeUnitRangeFail()
     {
-        var index = Build("banana");
-        foreach (int symbol in new[] { -1, -2, 65536, int.MaxValue, int.MinValue })
+        // the text holds U+0000 and U+FFFF, the code units that an engine would reach by truncating -1, 65536, int.MinValue or int.MaxValue to 16 bits
+        var index = Build("ab\0\uFFFFab\0\uFFFF");
+        foreach (int symbol in new[] { -1, -2, 65536, 65537, int.MaxValue, int.MinValue })
         {
             Assert.That(index.TryExtendRight(index.Root, symbol, out var result), Is.False, $"symbol {symbol}");
             Assert.That(result, Is.EqualTo(default(IndexLocus)), $"symbol {symbol}");
         }
+        Assert.That(index.TryExtendRight(index.Root, 0, out var zero), Is.True);
+        Assert.That(index.Count(zero), Is.EqualTo(2));
+        Assert.That(index.TryExtendRight(index.Root, 65535, out var ffff), Is.True);
+        Assert.That(index.Count(ffff), Is.EqualTo(2));
     }
 
     [Test]
@@ -252,6 +257,8 @@ public class IndexConformanceTests(IndexEngineFactory factory)
         Assert.That(index.Locate(an, 0, Span<long>.Empty), Is.EqualTo(0));
         Assert.That(index.Locate(an, 1, new long[4]), Is.EqualTo(1));
         Assert.That(() => index.Locate(an, -1, new long[4]), Throws.TypeOf<ArgumentOutOfRangeException>());
+        Assert.That(() => index.Locate(an, -1, Span<long>.Empty), Throws.TypeOf<ArgumentOutOfRangeException>(), "a negative skip is rejected even when nothing could be written");
+        Assert.That(() => index.Locate(an, long.MinValue, new long[4]), Throws.TypeOf<ArgumentOutOfRangeException>());
     }
 
     [Test]

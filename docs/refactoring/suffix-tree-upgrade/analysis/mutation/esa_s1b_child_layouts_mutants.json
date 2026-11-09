@@ -1,0 +1,50 @@
+[
+ {
+  "id": "L01",
+  "desc": "Packed: the next link of a gap of exactly two is not written",
+  "old": "if (previous >= 0 && k != previous + 1) _cld[previous] = k;",
+  "new": "if (previous >= 0 && k != previous + 1 && k != previous + 2) _cld[previous] = k;"
+ },
+ {
+  "id": "L02",
+  "desc": "Packed.NextLIndex: the last l-index is not recognised (k > rb)",
+  "old": "        if (k >= rb) return -1;\n        int lk = _lcp[k];",
+  "new": "        if (k > rb) return -1;\n        int lk = _lcp[k];"
+ },
+ {
+  "id": "L03",
+  "desc": "Packed: a down field is taken for a next link (>= instead of ==)",
+  "old": "return _lcp[v] == lk ? v : -1;",
+  "new": "return _lcp[v] >= lk ? v : -1;"
+ },
+ {
+  "id": "L04",
+  "desc": "Packed.Close: up and down slots swapped",
+  "old": "public void Close(int ell, int lb, int rb, int first, bool lastChild) => _cld[lastChild ? lb : rb] = first;",
+  "new": "public void Close(int ell, int lb, int rb, int first, bool lastChild) => _cld[lastChild ? rb : lb] = first;"
+ },
+ {
+  "id": "L09",
+  "desc": "Reference3.Close: up and down arrays swapped",
+  "old": "        if (lastChild) _down[lb] = first;\n        else _up[rb] = first;",
+  "new": "        if (lastChild) _up[lb] = first;\n        else _down[rb] = first;"
+ },
+ {
+  "id": "L10",
+  "desc": "Reference3.NextLIndex: undefined reported as 0",
+  "old": "        return v == 0 ? -1 : v;",
+  "new": "        return v;"
+ },
+ {
+  "id": "L11",
+  "desc": "Packed.FirstLIndex: slot choice inverted",
+  "old": "public int FirstLIndex(int lb, int rb, bool lastChild) => _cld[lastChild ? lb : rb];\n\n    public int NextLIndex(int k, int rb)\n    {\n        if (k >= rb) return -1;",
+  "new": "public int FirstLIndex(int lb, int rb, bool lastChild) => _cld[lastChild ? rb : lb];\n\n    public int NextLIndex(int k, int rb)\n    {\n        if (k >= rb) return -1;"
+ },
+ {
+  "id": "L12",
+  "desc": "Packed: equal LCP shortcut returns k + 2",
+  "old": "if (_lcp[k + 1] == lk) return k + 1;",
+  "new": "if (_lcp[k + 1] == lk) return k + 2;"
+ }
+]

@@ -1,0 +1,62 @@
+[
+ {
+  "id": "S01",
+  "desc": "pop condition >= instead of > (an interval of equal value is closed too)",
+  "old": "while (sp > 0 && ell[sp - 1] > cur)",
+  "new": "while (sp > 0 && ell[sp - 1] >= cur)"
+ },
+ {
+  "id": "S02",
+  "desc": "lastChild: <= instead of < (a middle child is reported as the last one)",
+  "old": "sp == 0 || cur < ell[sp - 1]",
+  "new": "sp == 0 || cur <= ell[sp - 1]"
+ },
+ {
+  "id": "S03",
+  "desc": "the left boundary of a new interval ignores the popped children",
+  "old": "                left = b;\n",
+  "new": "                left = i - 1;\n"
+ },
+ {
+  "id": "S04",
+  "desc": "previous l-index of a pushed interval is off by one",
+  "old": "                last[sp] = i;\n                sp++;",
+  "new": "                last[sp] = i + 1;\n                sp++;"
+ },
+ {
+  "id": "S05",
+  "desc": "stack growth one entry too late",
+  "old": "if (sp == capacity)\n                {\n                    capacity *= 2;",
+  "new": "if (sp == capacity + 1)\n                {\n                    capacity *= 2;"
+ },
+ {
+  "id": "S06",
+  "desc": "peak height not tracked",
+  "old": "                if (sp > peak) peak = sp;\n",
+  "new": ""
+ },
+ {
+  "id": "S07",
+  "desc": "Close reports the wrong right boundary (i instead of i - 1)",
+  "old": "sink.Close(ell[sp], b, i - 1, first[sp]",
+  "new": "sink.Close(ell[sp], b, i, first[sp]"
+ },
+ {
+  "id": "S08",
+  "desc": "LCP[1] != 0 accepted",
+  "old": "(i == 1 && cur != 0)",
+  "new": "(i == 1 && cur < 0)"
+ },
+ {
+  "id": "S09",
+  "desc": "negative values accepted",
+  "old": "(cur < 0 || (i == 1",
+  "new": "(cur < -1 || (i == 1"
+ },
+ {
+  "id": "S10",
+  "desc": "the first l-index of an open interval is linked to the previous one (previous kept instead of -1)",
+  "old": "                first[top] = i;\n                last[top] = i;\n                sink.LIndex(-1, i);",
+  "new": "                first[top] = i;\n                last[top] = i;\n                sink.LIndex(top, i);"
+ }
+]

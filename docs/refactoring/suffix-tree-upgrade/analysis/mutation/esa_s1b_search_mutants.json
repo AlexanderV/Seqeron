@@ -1,0 +1,98 @@
+[
+ {
+  "id": "Q01",
+  "desc": "no end test of the child list (walks off the last child)",
+  "old": "if (key > symbol || boundary < 0)",
+  "new": "if (key > symbol)"
+ },
+ {
+  "id": "Q02",
+  "desc": "child chosen when its key is not smaller (>= instead of ==)",
+  "old": "if (key == symbol) break;",
+  "new": "if (key >= symbol) break;"
+ },
+ {
+  "id": "Q03",
+  "desc": "terminator read past the end",
+  "old": "int key = p < n ? ToInt(text[p]) : -1;",
+  "new": "int key = p <= n ? ToInt(text[p]) : -1;"
+ },
+ {
+  "id": "Q04",
+  "desc": "leaf: a pattern that ends exactly at the text end is rejected",
+  "old": "if (m - c > n - start ||",
+  "new": "if (m - c >= n - start ||"
+ },
+ {
+  "id": "Q05",
+  "desc": "edge comparison skips the second symbol",
+  "old": "if (limit > c + 1 && !text.Slice(from + 1, limit - c - 1)",
+  "new": "if (limit > c + 2 && !text.Slice(from + 2, limit - c - 2)"
+ },
+ {
+  "id": "Q06",
+  "desc": "matched length not advanced to the end of the edge",
+  "old": "            c = limit;\n            lb = a;",
+  "new": "            c = limit - 1;\n            lb = a;"
+ },
+ {
+  "id": "Q07",
+  "desc": "child is always taken for the last child",
+  "old": "            isLast = childIsLast;\n        }\n        lo = lb;",
+  "new": "            isLast = true;\n        }\n        lo = lb;"
+ },
+ {
+  "id": "Q08",
+  "desc": "symbol map one entry short",
+  "old": "int s = c < map.Length ? map[c] : -1;",
+  "new": "int s = c <= map.Length ? map[c] : -1;"
+ },
+ {
+  "id": "Q09",
+  "desc": "absent code units map to symbol 0",
+  "old": "Array.Fill(map, -1);",
+  "new": "Array.Fill(map, 0);"
+ },
+ {
+  "id": "Q10",
+  "desc": "Contains of the empty pattern requires a match",
+  "old": "=> pattern.IsEmpty || TryMatch(pattern, out _, out _);",
+  "new": "=> pattern.IsEmpty && TryMatch(pattern, out _, out _);"
+ },
+ {
+  "id": "Q11",
+  "desc": "count of the empty pattern is 0",
+  "old": "        if (pattern.IsEmpty) return Length;\n        return TryMatch(pattern, out int lo, out int hi) ? hi - lo + 1 : 0;",
+  "new": "        if (pattern.IsEmpty) return 0;\n        return TryMatch(pattern, out int lo, out int hi) ? hi - lo + 1 : 0;"
+ },
+ {
+  "id": "Q12",
+  "desc": "FindAll copies from the wrong rank",
+  "old": "Array.Copy(SuffixArray, lo, result, 0, result.Length);",
+  "new": "Array.Copy(SuffixArray, lo + 1, result, 0, result.Length);"
+ },
+ {
+  "id": "Q13",
+  "desc": "non-empty pattern on the empty text is not rejected up front",
+  "old": "        if (Length == 0) return false;\n        return Prepared.Width",
+  "new": "        return Prepared.Width"
+ },
+ {
+  "id": "Q14",
+  "desc": "Locate writes more than the page",
+  "old": "int count = (int)Math.Min(available, positions.Length);\n        SuffixArray.AsSpan((int)(lo + skip), count).CopyTo(positions);",
+  "new": "int count = (int)available;\n        SuffixArray.AsSpan((int)(lo + skip), count).CopyTo(positions);"
+ },
+ {
+  "id": "Q15",
+  "desc": "Locate rejects the interval that ends at rank n",
+  "old": "if ((uint)lo > (uint)hi || hi > Length) throw new ArgumentOutOfRangeException(nameof(lo), \"not a rank interval of this index\");\n        long available = (long)hi - lo + 1 - skip;\n        if (available <= 0) return 0;\n        int count = (int)Math.Min(available, positions.Length);\n        SuffixArray.AsSpan",
+  "new": "if ((uint)lo > (uint)hi || hi >= Length) throw new ArgumentOutOfRangeException(nameof(lo), \"not a rank interval of this index\");\n        long available = (long)hi - lo + 1 - skip;\n        if (available <= 0) return 0;\n        int count = (int)Math.Min(available, positions.Length);\n        SuffixArray.AsSpan"
+ },
+ {
+  "id": "Q16",
+  "desc": "the leaf comparison starts at the wrong offset",
+  "old": "int start = sa[a] + c;\n                if (m - c > n - start",
+  "new": "int start = sa[a] + c + 1;\n                if (m - c > n - start"
+ }
+]

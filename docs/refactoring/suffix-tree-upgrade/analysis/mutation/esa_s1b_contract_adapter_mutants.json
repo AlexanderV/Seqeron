@@ -1,0 +1,56 @@
+[
+ {
+  "id": "U01",
+  "desc": "Locate pages skip one position too many",
+  "old": "for (long i = skip; i < all.Count && written < positions.Length; i++)",
+  "new": "for (long i = skip + 1; i < all.Count && written < positions.Length; i++)"
+ },
+ {
+  "id": "U02",
+  "desc": "negative symbols are accepted by ExtendRight",
+  "old": "if ((uint)symbol > char.MaxValue)",
+  "new": "if (symbol > char.MaxValue)"
+ },
+ {
+  "id": "U03",
+  "desc": "SymbolAt of position n is not the terminator",
+  "old": "return position >= text.Length ? -1 : text[(int)position];",
+  "new": "return position > text.Length ? -1 : text[(int)position];"
+ },
+ {
+  "id": "U04",
+  "desc": "CopyTo does not clip to the text",
+  "old": "int count = (int)Math.Min(destination.Length, text.Length - start);",
+  "new": "int count = destination.Length;"
+ },
+ {
+  "id": "U05",
+  "desc": "ExtendLeft reported as Native",
+  "old": "operation is IndexOperation.Count or IndexOperation.ExtendRight or IndexOperation.LazyLocate or IndexOperation.TextAccess\n            ?",
+  "new": "operation is IndexOperation.Count or IndexOperation.ExtendRight or IndexOperation.LazyLocate or IndexOperation.TextAccess or IndexOperation.ExtendLeft\n            ?"
+ },
+ {
+  "id": "U06",
+  "desc": "a negative skip is accepted by Locate",
+  "old": "        ArgumentOutOfRangeException.ThrowIfNegative(skip);\n        IReadOnlyList<int> all",
+  "new": "        IReadOnlyList<int> all"
+ },
+ {
+  "id": "U07",
+  "desc": "an absent extension succeeds",
+  "old": "if (positions.Count == 0 && pattern.Length > 0)",
+  "new": "if (positions.Count == 0 && pattern.Length > 1000)"
+ },
+ {
+  "id": "U08",
+  "desc": "Count counts the empty pattern as 1",
+  "old": "public long Count(in IndexLocus locus) => _tree.CountOccurrences(PatternOf(locus));",
+  "new": "public long Count(in IndexLocus locus) => locus.Length == 0 ? 1 : _tree.CountOccurrences(PatternOf(locus));"
+ },
+ {
+  "id": "U09",
+  "desc": "an undefined operation is not rejected",
+  "old": "if (!Enum.IsDefined(operation)) throw new ArgumentOutOfRangeException(nameof(operation), operation, \"not an IndexOperation\");",
+  "new": "_ = operation;"
+ }
+]

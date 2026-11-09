@@ -1,0 +1,62 @@
+[
+ {
+  "id": "T01",
+  "desc": "edge start uses the first leaf instead of the leftmost occurrence (the ADR-001 fallback)",
+  "old": "int occ = occurrence[first];",
+  "new": "int occ = SuffixArray[a] + (occurrence[first] * 0);"
+ },
+ {
+  "id": "T02",
+  "desc": "next child boundary off by one",
+  "old": "int b = lastChild ? f.Rb : f.NextBoundary - 1;",
+  "new": "int b = lastChild ? f.Rb : f.NextBoundary;"
+ },
+ {
+  "id": "T03",
+  "desc": "leaf end is not boundless",
+  "old": "visitor.VisitNode(p, -1, 1, 0, f.Ell);",
+  "new": "visitor.VisitNode(p, 0, 1, 0, f.Ell);"
+ },
+ {
+  "id": "T04",
+  "desc": "ExitBranch also for the root frame",
+  "old": "if (top > 0) visitor.ExitBranch();",
+  "new": "if (top >= 0) visitor.ExitBranch();"
+ },
+ {
+  "id": "T05",
+  "desc": "child count without the first child",
+  "old": "        int count = 1;\n        for (int k = first;",
+  "new": "        int count = 0;\n        for (int k = first;"
+ },
+ {
+  "id": "T06",
+  "desc": "root leaf count n instead of n + 1",
+  "old": "visitor.VisitNode(0, 0, n + 1, CountChildren(firstOfRoot, n), 0);",
+  "new": "visitor.VisitNode(0, 0, n, CountChildren(firstOfRoot, n), 0);"
+ },
+ {
+  "id": "T07",
+  "desc": "terminator key read one position too far",
+  "old": "visitor.EnterBranch(p < n ? Text[p] : -1);",
+  "new": "visitor.EnterBranch(p <= n ? Text[p] : -1);"
+ },
+ {
+  "id": "T08",
+  "desc": "child interval depth taken from the parent (ell not updated)",
+  "old": "            int ell = Lcp[first];\n",
+  "new": "            int ell = f.Ell + 1;\n"
+ },
+ {
+  "id": "T09",
+  "desc": "frame of a child starts after its first leaf",
+  "old": "frames.Add(new TraverseFrame { A = a, NextBoundary = first, Rb = b, Ell = ell });",
+  "new": "frames.Add(new TraverseFrame { A = a + 1, NextBoundary = first, Rb = b, Ell = ell });"
+ },
+ {
+  "id": "T10",
+  "desc": "last-child flag wrong for the first-l-index lookup",
+  "old": "int first = Child.FirstLIndex(a, b, lastChild);",
+  "new": "int first = Child.FirstLIndex(a, b, !lastChild);"
+ }
+]

@@ -1,0 +1,26 @@
+[
+ {
+  "id": "A01",
+  "desc": "Equals ignores Aux",
+  "old": "Length == other.Length && Aux == other.Aux;",
+  "new": "Length == other.Length;"
+ },
+ {
+  "id": "A02",
+  "desc": "!= operator returns equality",
+  "old": "public static bool operator !=(IndexLocus left, IndexLocus right) => !left.Equals(right);",
+  "new": "public static bool operator !=(IndexLocus left, IndexLocus right) => left.Equals(right);"
+ },
+ {
+  "id": "A03",
+  "desc": "Equals ignores Lo",
+  "old": "public bool Equals(IndexLocus other) => Lo == other.Lo && Hi == other.Hi",
+  "new": "public bool Equals(IndexLocus other) => Hi == other.Hi"
+ },
+ {
+  "id": "A04",
+  "desc": "ToString swaps Lo and Hi",
+  "old": "$\"[{Lo}..{Hi}] depth {Length} aux {Aux}\"",
+  "new": "$\"[{Hi}..{Lo}] depth {Length} aux {Aux}\""
+ }
+]

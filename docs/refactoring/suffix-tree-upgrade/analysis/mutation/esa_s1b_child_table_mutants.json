@@ -1,0 +1,38 @@
+[
+ {
+  "id": "C01",
+  "desc": "NodeCount without the root",
+  "old": "1L + stats.Internal + (n + 1L)",
+  "new": "stats.Internal + (n + 1L)"
+ },
+ {
+  "id": "C02",
+  "desc": "the root is counted as an internal node",
+  "old": "        if (ell <= 0) return;\n        Internal++;",
+  "new": "        if (ell < 0) return;\n        Internal++;"
+ },
+ {
+  "id": "C03",
+  "desc": "deepest internal node: the last of equal depths wins",
+  "old": "        if (ell > LrsDepth)\n",
+  "new": "        if (ell >= LrsDepth)\n"
+ },
+ {
+  "id": "C04",
+  "desc": "LeafCount = n + 1",
+  "old": "new EsaStatistics(n, 1L + stats.Internal + (n + 1L), stats.Internal, n, n, stats.LrsDepth",
+  "new": "new EsaStatistics(n, 1L + stats.Internal + (n + 1L), stats.Internal, n + 1, n, stats.LrsDepth"
+ },
+ {
+  "id": "C05",
+  "desc": "MaxDepth = n - 1",
+  "old": "stats.Internal, n, n, stats.LrsDepth",
+  "new": "stats.Internal, n, n - 1, stats.LrsDepth"
+ },
+ {
+  "id": "C06",
+  "desc": "empty text reports NodeCount 2",
+  "old": "new EsaStatistics(0, 1, 0, 0, 0, 0, 0, 0)",
+  "new": "new EsaStatistics(0, 2, 0, 0, 0, 0, 0, 0)"
+ }
+]

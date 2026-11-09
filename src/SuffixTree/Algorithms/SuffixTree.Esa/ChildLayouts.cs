@@ -139,22 +139,34 @@ internal readonly struct TaggedChild : IChildTable, IIntervalSink
 
     internal long PayloadBytes => 4L * _cld.Length;
 
+    internal static uint PackNext(int value) => NextTag | (uint)value;
+
+    internal static uint PackUp(int value) => UpTag | (uint)value;
+
+    internal static uint PackDown(int value) => DownTag | (uint)value;
+
+    /// <summary>The value in bits 0-29 of a stored field.</summary>
+    internal static int ValueOf(uint field) => (int)(field & ValueMask);
+
+    /// <summary>True when a stored field is a next-l-index link (tag 1); up, down and empty fields are not.</summary>
+    internal static bool IsNextLink(uint field) => (field & ~ValueMask) == NextTag;
+
     public void LIndex(int previous, int k)
     {
-        if (previous >= 0) _cld[previous] = NextTag | (uint)k;
+        if (previous >= 0) _cld[previous] = PackNext(k);
     }
 
     public void Close(int ell, int lb, int rb, int first, bool lastChild)
     {
-        if (lastChild) _cld[lb] = DownTag | (uint)first;
-        else _cld[rb] = UpTag | (uint)first;
+        if (lastChild) _cld[lb] = PackDown(first);
+        else _cld[rb] = PackUp(first);
     }
 
-    public int FirstLIndex(int lb, int rb, bool lastChild) => (int)(_cld[lastChild ? lb : rb] & ValueMask);
+    public int FirstLIndex(int lb, int rb, bool lastChild) => ValueOf(_cld[lastChild ? lb : rb]);
 
     public int NextLIndex(int k, int rb)
     {
         uint c = _cld[k];
-        return (c & ~ValueMask) == NextTag ? (int)(c & ValueMask) : -1;
+        return IsNextLink(c) ? ValueOf(c) : -1;
     }
 }

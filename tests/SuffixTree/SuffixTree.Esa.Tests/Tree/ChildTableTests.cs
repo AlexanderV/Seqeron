@@ -98,6 +98,24 @@ public class ChildTableTests
     }
 
     [Test]
+    public void TaggedFields_KeepAll30ValueBitsAndTheTagApart()
+    {
+        // positions near 2^29 and 2^30 cannot be reached by a real text in a unit test, so the field encoding is checked on its own
+        foreach (int v in new[] { 1, 2, (1 << 29) - 1, 1 << 29, (1 << 29) + 1, (1 << 30) - 2, TaggedChild.MaxLength })
+        {
+            Assert.That(TaggedChild.ValueOf(TaggedChild.PackNext(v)), Is.EqualTo(v), $"next {v}");
+            Assert.That(TaggedChild.ValueOf(TaggedChild.PackUp(v)), Is.EqualTo(v), $"up {v}");
+            Assert.That(TaggedChild.ValueOf(TaggedChild.PackDown(v)), Is.EqualTo(v), $"down {v}");
+            Assert.That(TaggedChild.IsNextLink(TaggedChild.PackNext(v)), Is.True, $"next {v}");
+            Assert.That(TaggedChild.IsNextLink(TaggedChild.PackUp(v)), Is.False, $"up {v}");
+            Assert.That(TaggedChild.IsNextLink(TaggedChild.PackDown(v)), Is.False, $"down {v}");
+        }
+        Assert.That(TaggedChild.IsNextLink(0), Is.False);
+        Assert.That(TaggedChild.PackUp(5), Is.Not.EqualTo(TaggedChild.PackDown(5)));
+        Assert.That(TaggedChild.PackNext(5), Is.Not.EqualTo(TaggedChild.PackUp(5)));
+    }
+
+    [Test]
     public void RootOfASingleCharacterText_HasItsTwoChildrenAndNothingElse()
     {
         foreach (ChildLayoutKind layout in Layouts)

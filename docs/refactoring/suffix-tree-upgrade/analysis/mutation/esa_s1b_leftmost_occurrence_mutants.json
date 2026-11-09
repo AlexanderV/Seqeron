@@ -1,0 +1,38 @@
+[
+ {
+  "id": "O01",
+  "desc": "the leaf is not folded into the innermost interval",
+  "old": "            if (sa[i - 1] < min[sp - 1]) min[sp - 1] = sa[i - 1];\n",
+  "new": ""
+ },
+ {
+  "id": "O02",
+  "desc": "a closed interval does not propagate its minimum to its parent",
+  "old": "                if (sp > 0 && carry < min[sp - 1]) min[sp - 1] = carry;\n",
+  "new": ""
+ },
+ {
+  "id": "O03",
+  "desc": "a new interval starts from the last leaf only, not from the popped children",
+  "old": "                min[sp] = carry;",
+  "new": "                min[sp] = sa[i - 1] + (0 * carry);"
+ },
+ {
+  "id": "O04",
+  "desc": "stack growth one entry too late",
+  "old": "if (sp == capacity)\n                {\n                    capacity *= 2;",
+  "new": "if (sp == capacity + 1)\n                {\n                    capacity *= 2;"
+ },
+ {
+  "id": "O05",
+  "desc": "the minimum is stored at the wrong slot (the last l-index would be needed)",
+  "old": "occurrence[first[sp]] = min[sp];",
+  "new": "occurrence[first[sp] - 1] = min[sp];"
+ },
+ {
+  "id": "O06",
+  "desc": "the root never receives its first l-index",
+  "old": "            else if (first[top] < 0)\n            {\n                first[top] = i;\n            }",
+  "new": "            else if (first[top] < -1)\n            {\n                first[top] = i;\n            }"
+ }
+]

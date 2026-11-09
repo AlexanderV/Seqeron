@@ -21,6 +21,23 @@ docs/refactoring/suffix-tree-upgrade/analysis/bench/run_esa.sh aggregate        
 compact LCP payload, remapped text), and the SHA-256 of SA[1..n] and LCP[1..n]; with `--verify analysis/sa_vectors.tsv` it compares them with the libsais
 vectors (`vector_match`, exit code 3 on a mismatch). `build_lcp_jit_s` / `build_lcp_jit_methods` (1o.3c) are the JIT compilation time and method count of the LCP step on the building thread: in a cold process they are part of `build_lcp_s` (3.7 ms of the 6.8 ms at 1 Mbp), and a kernel that adds code to the common path shows it there first. Rows go to `analysis/bench/bench_esa.tsv` in the format of `bench.tsv`; `bench.tsv` is never modified.
 
+## Child table and query throughput (1b.1, 1b.2)
+
+`query` builds SA + LCP once (SA-IS pointer kernel, direct LCP kernel) and then, per child-table layout, times the child-table scan on its own, reports the table bytes, optionally the
+write trace of the scan (`--trace true`: writes at the cursor / behind it, backward runs, page misses of an LRU cache of 16 / 64 / 1,024 pages of 4,096 bytes; prototype P3, ADR-004
+section 3.2) and the query throughput of the in-memory ESA with that layout: 20-mer count of `present20` and `absent20`, locate of the 8-mers (`FindAllOccurrences`, which allocates the
+result, and the lazy `TryMatch` + `Locate` into a reused buffer). Timing as in `BENCHMARK.md`: one untimed warm-up pass over the query file, then full passes until `--min-seconds`
+(default 1.0) have elapsed, throughput = queries / mean pass time. One process = one text; repeat in fresh processes for medians. Without `--layout` the engine default for the
+text length is used (`EsaIndex.DefaultLayoutFor`).
+
+```
+dotnet apps/SuffixTree.Esa.Bench/bin/Release/net10.0/SuffixTree.Esa.Bench.dll query --input /tmp/stbench/data/dna_10m.txt --name dna_10m --queries /tmp/stbench --min-seconds 2
+dotnet apps/SuffixTree.Esa.Bench/bin/Release/net10.0/SuffixTree.Esa.Bench.dll query --input /tmp/stbench/data/rep_10m.txt --name rep_10m --queries /tmp/stbench --layout all --trace true
+dotnet apps/SuffixTree.Esa.Bench/bin/Release/net10.0/SuffixTree.Esa.Bench.dll query --synthetic fibonacci:1000000 --layout all --trace true    # a^n, abab, fibonacci, thue-morse, n-runs
+```
+
+`--queries` is the bench directory that holds `queries/<name>.present20.txt` etc. (`gen_inputs.py`); a missing query file skips that row. Do not time anything while a build or a test run is active.
+
 ## Paired interleaved A/B runner (1o.0)
 
 `ab` is the acceptance instrument of the optimization phase (PROCESS.md, amendments of 2026-11-03). It spawns FRESH `build` processes of this app, so every

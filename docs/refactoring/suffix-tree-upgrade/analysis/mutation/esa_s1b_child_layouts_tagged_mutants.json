@@ -1,0 +1,50 @@
+[
+ {
+  "id": "L05",
+  "desc": "Tagged: the down tag equals the next tag",
+  "old": "private const uint DownTag = 3u << 30;",
+  "new": "private const uint DownTag = 1u << 30;"
+ },
+ {
+  "id": "L06b",
+  "desc": "Tagged.IsNextLink: any tag counts as a next link",
+  "old": "internal static bool IsNextLink(uint field) => (field & ~ValueMask) == NextTag;",
+  "new": "internal static bool IsNextLink(uint field) => (field & ~ValueMask) != 0;"
+ },
+ {
+  "id": "L07",
+  "desc": "Tagged: value mask one bit short",
+  "old": "private const uint ValueMask = (1u << 30) - 1;",
+  "new": "private const uint ValueMask = (1u << 29) - 1;"
+ },
+ {
+  "id": "L08",
+  "desc": "Tagged: MaxLength one too large",
+  "old": "internal const int MaxLength = (1 << 30) - 1;",
+  "new": "internal const int MaxLength = 1 << 30;"
+ },
+ {
+  "id": "L13",
+  "desc": "Tagged: the up tag equals the next tag",
+  "old": "private const uint UpTag = 2u << 30;",
+  "new": "private const uint UpTag = 1u << 30;"
+ },
+ {
+  "id": "L14",
+  "desc": "Tagged: Close writes the down field at rb",
+  "old": "        if (lastChild) _cld[lb] = PackDown(first);\n        else _cld[rb] = PackUp(first);",
+  "new": "        if (lastChild) _cld[rb] = PackDown(first);\n        else _cld[lb] = PackUp(first);"
+ },
+ {
+  "id": "L15",
+  "desc": "Tagged: the first l-index is read from the wrong slot",
+  "old": "public int FirstLIndex(int lb, int rb, bool lastChild) => ValueOf(_cld[lastChild ? lb : rb]);",
+  "new": "public int FirstLIndex(int lb, int rb, bool lastChild) => ValueOf(_cld[lastChild ? rb : lb]);"
+ },
+ {
+  "id": "L16",
+  "desc": "Tagged: PackNext drops the tag",
+  "old": "internal static uint PackNext(int value) => NextTag | (uint)value;",
+  "new": "internal static uint PackNext(int value) => (uint)value;"
+ }
+]
