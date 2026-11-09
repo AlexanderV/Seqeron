@@ -24,6 +24,8 @@
   <ItemGroup>
     <!-- the statistics of the A/B runner are pinned here on synthetic data -->
     <Compile Include="..\..\..\apps\SuffixTree.Esa.Bench\PairedStats.cs" Link="Bench\PairedStats.cs" />
+    <!-- prototypes P1 / P2 of work package 1b.4a (suffix-link kernels, throwaway MEM driver): the code lives in the bench app, the tests compile the same files -->
+    <Compile Include="..\..\..\apps\SuffixTree.Esa.Bench\Links\*.cs" Link="Links\Proto\%(Filename)%(Extension)" />
   </ItemGroup>
 
   <ItemGroup>
