@@ -1,0 +1,3 @@
+P10	pack: the right endpoint uses the rank before Rb	survived	
+Y22	pyramid: NextLess early return for pos at the length is dropped (the core is also reached through the public wrapper only)	survived	
+Y36	pyramid: the left border value is -1 when the border is rank 0 (rank 0 is a valid border)	survived	
