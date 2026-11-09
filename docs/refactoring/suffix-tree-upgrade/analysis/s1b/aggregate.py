@@ -52,8 +52,8 @@ def collect(blocks):
     data = defaultdict(lambda: defaultdict(list))
     runs = defaultdict(int)
     for hdr, rows in blocks:
-        x = hdr["input"]
-        if any(m == "internal_nodes" or m == "text_chars" for _, m, _, _, _ in rows) or rows:
+        x = hdr["input"] + (f"  [{hdr['options']}]" if hdr.get("options") else "")
+        if rows:
             runs[x] += 1
         for op, metric, value, unit, notes in rows:
             v = num(value)
@@ -68,7 +68,12 @@ COMBOS = [("a_scan", "isa"), ("a_scan", "psi"), ("b_descent", "isa"), ("b_descen
 def p1(path, out):
     blocks = read(path)
     data, runs = collect(blocks)
-    order = [x for x in ["dna_10m", "rep_10m", "prot_1m", "a^n", "fibonacci", "thue-morse"] if x in data] + [x for x in data if x not in ["dna_10m", "rep_10m", "prot_1m", "a^n", "fibonacci", "thue-morse"]]
+    def sort_key(x):
+        base = ["dna_10m", "rep_10m", "prot_1m", "a^n", "fibonacci", "thue-morse"]
+        head = x.split("  [")[0]
+        name, _, size = head.partition(":")
+        return (base.index(name) if name in base else len(base), int(size) if size.isdigit() else 0, x)
+    order = sorted(data, key=sort_key)
     rows_out = []
     summary = {}
     for x in order:
@@ -99,6 +104,10 @@ def p1(path, out):
             for op in worst_ops:
                 g = lambda m: d.get((op, m), [])
                 print(f"| {op[6:]} | {span(g('timed_links'), '{:.0f}')} | {max(g('steps_max')):.0f} | {span(g('steps_median'), '{:.1f}')} | {span(g('median_net_ns'))} | {span(g('p99_net_ns'))} | {(max(g('max_ns')) if g('max_ns') else float('nan')):.0f} | {span(g('steps_budget_exceeded'), '{:.0f}')} |")
+        reps = sorted({o for (o, m) in d if o.startswith("repeat_") and m == "median_net_ns"})
+        for op in reps:
+            first = op.replace("repeat_", "sample_")
+            print(f"\ndrift check: {op[7:]} median ns (net) first {span(d.get((first, 'median_net_ns'), []))} -> repeated after all other kernels {span(d.get((op, 'median_net_ns'), []))}")
         sw = [(m, d[("sweeps", m)]) for m in ["max_scan_cost", "max_target_width", "max_string_depth", "max_node_depth"] if ("sweeps", m) in d]
         if sw:
             print("\nsweeps: " + "; ".join(f"{m} {span(v)}" for m, v in sw))
@@ -116,11 +125,46 @@ def p1(path, out):
             r = lambda t: f"{t['median'] / c['median']:.2f}" if t else "-"
             bud = lambda t: f"{t['exceeded']:.0f} of {t['counted']:.0f}" if t else "-"
             print(f"| {x} | {s} | {r(a)} | {r(b)} | {r(c2)} | {c['median']:.0f} | {a['steps_max'] if a else float('nan'):.0f} | {b['steps_max'] if b else float('nan'):.0f} | {bud(a)} | {bud(b)} |")
+    # ISA against Psi: ratio per fresh process (both were measured in the same process), median of the ratios
+    print("\n## ISA against Psi: median over the fresh processes of (Psi median ns / ISA median ns), per process; [min..max]")
+    print("| input | (a) scan | (b) descent | (c) rmq | (c2) psv |")
+    print("|---|---|---|---|---|")
+    for x in order:
+        d = data[x]
+        cells = []
+        for k in ["a_scan", "b_descent", "c_rmq", "c2_psv"]:
+            ia = d.get((f"sample_{k}_isa", "median_net_ns"), [])
+            ps = d.get((f"sample_{k}_psi", "median_net_ns"), [])
+            ratios = [p / i for i, p in zip(ia, ps) if i and i > 0]
+            cells.append(span(ratios, "{:.2f}") if ratios else "-")
+        print(f"| {x} | " + " | ".join(cells) + " |")
+
+    # boundedness: largest step counts of the sample and of the worst-node sweeps, and the exact worst scan cost over all nodes, by text size
+    print("\n## boundedness by text size (steps; max over the fresh processes; the sweeps include the worst nodes by scan cost, target width, string depth, node depth)")
+    print("| input | max scan cost over ALL nodes | max node depth | (a) steps max sample+worst | (b) steps max sample+worst | (c) steps max sample+worst | (c2) steps max sample+worst |")
+    print("|---|---|---|---|---|---|---|")
+    for x in order:
+        d = data[x]
+        def worst_steps(k, src="psi"):
+            vals = []
+            for (op, m), v in d.items():
+                if m == "steps_max" and (op == f"sample_{k}_{src}" or (op.startswith("worst_") and op.endswith(f"_{k}_{src}"))):
+                    vals += [t for t in v if isinstance(t, float)]
+            return max(vals) if vals else float("nan")
+        sc = d.get(("sweeps", "max_scan_cost"), [float("nan")])
+        nd = d.get(("sweeps", "max_node_depth"), [float("nan")])
+        print(f"| {x} | {max(sc):.0f} | {max(nd):.0f} | {worst_steps('a_scan'):.0f} | {worst_steps('b_descent'):.0f} | {worst_steps('c_rmq'):.0f} | {worst_steps('c2_psv'):.0f} |")
+
     if out:
         with open(out, "w", encoding="utf-8") as f:
             f.write("# P1 summary: medians over fresh processes; columns: input kernel source median_net_ns p99_net_ns max_ns_raw mean_batch_ns steps_median steps_p99 steps_max budget_exceeded counted first_link_ns\n")
             for r in rows_out:
                 f.write("\t".join(str(v) if not isinstance(v, float) else f"{v:.6g}" for v in r) + "\n")
+
+
+def short(x):
+    """Summary key: the input name without the size of a synthetic text, except when sizes differ (scaling rows)."""
+    return x
 
 
 def p2(path):
@@ -139,17 +183,67 @@ def p2(path):
                         if t is not None:
                             out.append(t)
             return out
-        for op, metric in [("mem", "build_esa_s"), ("mem", "build_nav_s"), ("mem_esa", "first_call_s"), ("mem_esa", "warm_median_s"), ("mem_esa", "matches"), ("mem_esa", "links_followed"),
+        for op, metric in [("mem", "build_esa_s"), ("mem", "build_nav_s"), ("mem_esa", "first_call_s"), ("mem_esa", "warm_median_s"), ("mem_esa", "steady_median_s"), ("mem_esa", "matches"), ("mem_esa", "links_followed"),
                            ("mem_esa", "extend_steps"), ("mem_esa", "child_lookups"), ("mem_esa", "rescan_lookups"), ("mem_esa", "link_kernel_share"), ("mem_esa", "link_kernel_ns_per_link"),
-                           ("mem_ukkonen", "build_s"), ("mem_ukkonen", "first_call_s"), ("mem_ukkonen", "warm_median_s"), ("mem_ukkonen", "matches"), ("mem_check", "mem_set_equal"),
+                           ("mem_ukkonen", "build_s"), ("mem_ukkonen", "first_call_s"), ("mem_ukkonen", "warm_median_s"), ("mem_ukkonen", "steady_median_s"), ("mem_ukkonen", "matches"), ("mem_check", "mem_set_equal"),
                            ("mem_esa", "peak_rss_hwm"), ("mem", "peak_rss_hwm_final")]:
             v = col(op, metric)
             if v:
                 print(f"  {op}.{metric}: {span(v, '{:.4g}')}")
 
 
+def p2_pairs(path):
+    """Paired comparison of variants that differ only in one option, pairing the fresh processes of the same repetition (run number) and input."""
+    blocks = read(path)
+    by = defaultdict(dict)       # (input, run) -> {options: {metric: value}}
+    sums = defaultdict(set)
+    for hdr, rows in blocks:
+        d = {}
+        for op, metric, value, unit, notes in rows:
+            t = num(value)
+            if t is not None:
+                d[(op, metric)] = t
+        by[(hdr["input"], hdr["run"])][hdr["options"]] = d
+        if ("mem_esa", "checksum") in d:
+            sums[hdr["input"]].add(d[("mem_esa", "checksum")])
+    print("\n## checksums of the MEM sets over all variants and runs (one value per input = identical sets)")
+    for x, v in sums.items():
+        print(f"  {x}: {sorted(v)}")
+    def key(o, **kv):
+        for k, v in kv.items():
+            if f"--{k} {v}" not in o:
+                return False
+        return True
+    pairs = [
+        ("kernel rmq: ISA / Psi (warm)", dict(kernel="rmq", loci="2"), "source", "isa", "psi"),
+        ("kernel psv: ISA / Psi (warm)", dict(kernel="psv", loci="2"), "source", "isa", "psi"),
+        ("psv psi: loci 1 / loci 2 (warm)", dict(kernel="psv", source="psi"), "loci", "1", "2"),
+        ("psi, loci 2: psv / rmq (warm)", dict(source="psi", loci="2"), "kernel", "psv", "rmq"),
+        ("psi, loci 2: scan / rmq (warm)", dict(source="psi", loci="2"), "kernel", "scan", "rmq"),
+        ("psi, loci 2: descent / rmq (warm)", dict(source="psi", loci="2"), "kernel", "descent", "rmq"),
+    ]
+    print("\n## paired ratios of the warm median (steady median of the last five calls), per repetition; median [min..max]")
+    for title, fixed, opt, a, b in pairs:
+        for inp in ("dna_10m", "rep_10m"):
+            ratios, rc = [], []
+            for (x, run), variants in by.items():
+                if x != inp:
+                    continue
+                va = [d for o, d in variants.items() if key(o, **fixed) and f"--{opt} {a}" in o]
+                vb = [d for o, d in variants.items() if key(o, **fixed) and f"--{opt} {b}" in o]
+                if va and vb and ("mem_esa", "steady_median_s") in va[0] and ("mem_esa", "steady_median_s") in vb[0]:
+                    ratios.append(va[0][("mem_esa", "steady_median_s")] / vb[0][("mem_esa", "steady_median_s")])
+                    rc.append(va[0][("mem_esa", "first_call_s")] / vb[0][("mem_esa", "first_call_s")])
+            if ratios:
+                print(f"  {inp}: {title}: warm {span(ratios, '{:.2f}')}; first call {span(rc, '{:.2f}')}  (n = {len(ratios)})")
+
+
 if __name__ == "__main__":
     if len(sys.argv) < 3 or sys.argv[1] not in ("p1", "p2"):
         sys.exit(__doc__)
     out = sys.argv[sys.argv.index("--out") + 1] if "--out" in sys.argv else None
-    (p1 if sys.argv[1] == "p1" else p2)(*( [sys.argv[2], out] if sys.argv[1] == "p1" else [sys.argv[2]] ))
+    if sys.argv[1] == "p1":
+        p1(sys.argv[2], out)
+    else:
+        p2(sys.argv[2])
+        p2_pairs(sys.argv[2])

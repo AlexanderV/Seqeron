@@ -9,7 +9,7 @@ DLL=$ROOT/apps/SuffixTree.Esa.Bench/bin/Release/net10.0/SuffixTree.Esa.Bench.dll
 D=$1; X=$2; R=$3; shift 3
 RAW=${P2_RAW:-$B/p2_mem_raw.tsv}
 COMMIT=$(git -C "$ROOT" rev-parse --short=10 HEAD)$(git -C "$ROOT" diff --quiet HEAD -- src apps 2>/dev/null || echo -dirty)
-for r in $(seq 1 "$R"); do
+for r in $(seq $(( ${RUN_BASE:-0} + 1 )) $(( ${RUN_BASE:-0} + R ))); do
   echo "# process input=$X run=$r commit=$COMMIT load=$(cut -d' ' -f1 /proc/loadavg) $(date -u +%FT%TZ) options: $*" >> "$RAW"
   dotnet "$DLL" mem --input "$D/data/$X.txt" --name "$X" --queries "$D" "$@" >> "$RAW" || echo "# process input=$X run=$r EXIT $?" >> "$RAW"
 done

@@ -54,6 +54,38 @@ dotnet apps/SuffixTree.Esa.Bench/bin/Release/net10.0/SuffixTree.Esa.Bench.dll an
 dotnet apps/SuffixTree.Esa.Bench/bin/Release/net10.0/SuffixTree.Esa.Bench.dll analysis --synthetic fibonacci:1000000 --check true
 ```
 
+## Suffix-link prototypes P1 and P2 (1b.4a)
+
+Prototype code, not the navigator of 1b.4: it lives in `Links/` (compiled into this app and, by a `Compile Include`, into `SuffixTree.Esa.Tests`, which holds its oracle tests in `Links/`).
+`LinkTables` (ISA, Psi), `LcpRangeHelper` (pyramid of block minima over the compact LCP with range minimum + leftmost position, previous / next smaller value), `LinkKernels`
+(four interval searches for the link `SL(v) = LCA(Psi(l), Psi(r))` of ADR-001 section 5: (a) outward LCP scan, (b) child-table descent along the rank path of `Psi(l)` -- the child table
+has no parent pointers, so a parent climb is not available --, (c) range minimum + previous / next smaller of its position, (c2) previous / next smaller than the known value `depth - 1`;
+each with ISA or Psi endpoints), `LinkNodeSet` (all internal nodes, node depths, seeded sample, largest keys), `MemDriver` (throwaway matching-statistics driver: extend, follow the link of
+the last node, rescan; MEMs by an outward LCP scan from the longest match).
+
+```
+dotnet apps/SuffixTree.Esa.Bench/bin/Release/net10.0/SuffixTree.Esa.Bench.dll links --input /tmp/stbench/data/dna_10m.txt --name dna_10m [--sample 200000] [--worst 1000] [--fanout 16] [--kernels all|scan,descent,rmq,psv] [--sources all|isa,psi]
+dotnet apps/SuffixTree.Esa.Bench/bin/Release/net10.0/SuffixTree.Esa.Bench.dll links --synthetic fibonacci:1000000
+dotnet apps/SuffixTree.Esa.Bench/bin/Release/net10.0/SuffixTree.Esa.Bench.dll mem --input /tmp/stbench/data/dna_10m.txt --name dna_10m --queries /tmp/stbench [--kernel rmq] [--source psi] [--loci 2] [--ukkonen true]
+docs/refactoring/suffix-tree-upgrade/analysis/s1b/run_p1.sh /tmp/stbench dna_10m 5      # 5 fresh processes -> analysis/s1b/p1_links_raw.tsv
+docs/refactoring/suffix-tree-upgrade/analysis/s1b/run_p2.sh /tmp/stbench dna_10m 5      # -> analysis/s1b/p2_mem_raw.tsv
+python3 docs/refactoring/suffix-tree-upgrade/analysis/s1b/aggregate.py p1 docs/refactoring/suffix-tree-upgrade/analysis/s1b/p1_links_raw.tsv
+```
+
+`links` (one process = one text): builds the index (tagged child table), then ISA, Psi and the pyramid with their build times and bytes per character, enumerates the internal nodes, draws a
+seeded sample A (per-link timing) and B (batch timing) of internal nodes, and measures every (kernel, source) combination: the cold first link, a counting pass with a step budget (steps
+median / p99 / max, links that exceed `--link-budget`, the sample stops at `--total-budget` steps so an unbounded kernel on a^n ends as "budget exceeded"), a round-robin warm-up of
+`--warmup` seconds (the shared readers reach their final JIT tier), the per-link timing of sample A (raw and net of the calibrated `Stopwatch` pair cost) and the batch mean on sample B. The
+results of all combinations are compared with the first one (links whose kernel gave up are skipped) and 300 of them with `EsaIndex.TryMatch` of the label without its first symbol (the
+definition); a difference sets exit code 3. `--sweeps` first runs kernel (c2) once over every internal node (untimed) to get the target width and the exact outward-scan cost of each node,
+then measures all combinations on the worst nodes by scan cost, target width, string depth and node depth. A final `repeat_*` row repeats the first combination as a drift check.
+
+`mem` (one process = one text): builds the ESA, ISA, Psi and the pyramid, runs the benchmark's `<name>.memq100k` query (100 kbp, 1 % substitutions, minLength 20) `--calls` times (the first
+call is the cold-JIT time, `warm_median_s` is over calls 2..N, `steady_median_s` over the last five), reports the counters of the driver (links followed, extension steps, child lookups, rescan
+lookups) and, with `--time-links`, the share of the kernel calls; `--ukkonen true` then builds the in-memory Ukkonen tree of the same text in the same process, answers the same query (cold and
+warm) and compares the two MEM sets (`mem_set_equal`). `--loci 2` follows the second chain of the generic algorithm (its suffix links are paid, its result is not used), `--loci 1` is the
+single-chain matching statistics of an ESA.
+
 ## Paired interleaved A/B runner (1o.0)
 
 `ab` is the acceptance instrument of the optimization phase (PROCESS.md, amendments of 2026-11-03). It spawns FRESH `build` processes of this app, so every

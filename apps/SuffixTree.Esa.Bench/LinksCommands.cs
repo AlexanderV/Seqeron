@@ -287,6 +287,8 @@ internal static class LinksCommands
         var steps = new long[count];
         var lbs = new int[count];
         var rbs = new int[count];
+        Array.Fill(lbs, -1);        // -1: not computed (budget exceeded or past the total budget): such links are not compared
+        Array.Fill(rbs, -1);
         int done = 0, exceeded = 0;
         long totalSteps = 0;
         long cp = Stopwatch.GetTimestamp();

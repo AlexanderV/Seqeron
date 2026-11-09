@@ -12,7 +12,7 @@ D=$1; X=$2; R=$3; shift 3
 RAW=${P1_RAW:-$B/p1_links_raw.tsv}
 COMMIT=$(git -C "$ROOT" rev-parse --short=10 HEAD)$(git -C "$ROOT" diff --quiet HEAD -- src apps 2>/dev/null || echo -dirty)
 case "$X" in
-  dna_10m|rep_10m|prot_1m|dna_1m) SRC=(--input "$D/data/$X.txt" --name "$X") ;;
+  dna_10m|rep_10m|prot_1m|dna_1m|dna_20m|dna_50m) SRC=(--input "$D/data/$X.txt" --name "$X") ;;
   *) SRC=(--synthetic "${X}") ;;
 esac
 for r in $(seq 1 "$R"); do
