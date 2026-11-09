@@ -135,3 +135,58 @@ with the 32-bit fast division 9.2 s; with the merge sort for tie runs 5.8 s. The
 
 **What E2 does not show.** The rank table is built in RAM by safe code (`DcsBuilder`, `SaisReference` for the reduced string): its construction time (0.07-0.4 s per 10 M) and memory (about 60 B per sample position transient) are not those of the
 external PH1 of the design; n is at most 10 M, so the rank table is 1.3 MB-2.6 MB and fits in the CPU cache: the cost of rank lookups that miss the cache is what E3 measures; a text of 3 x 10^9 symbols was not tried.
+
+## E3: scale-down emulation of the memory ratio, 100 Mbp (2026-11-09)
+
+Set-up (all measured here; raw rows `e3_dna100m.tsv`, `e3_genome100m.tsv`, `e3_setup.tsv`, `e3_cgroup.txt`; scripts `run_e3_protocol.sh`, `run_e3_cgroup.sh`, `e3_effective_cache.py`).
+* Texts: `dna_100m` = 100,000,000 uniform random DNA symbols (own deterministic generator, seed 20240001; 2 bits per symbol, packed file 25.0 MB) and, because random DNA has almost no key ties and therefore hardly touches the rank file, a **genome-like 100 M**
+  text (random background, interspersed repeats with 10-15 % divergence, 171-bp satellite arrays, N runs; ACGNT, 3 bits per symbol, 37.5 MB; 12.1 % of the leaf positions share their key, 30.8 M rank lookups).
+* Rank file: Singer period 993 (|D| = 32, nominal X = 1024), 3,222,557 sample positions, **12.9 MB (0.129 B/char)**; built in RAM by `mkranks` (0.5 s for DNA, 1.2 s for genome-like; peak 138-143 MB of that separate process; in the design PH1 is external).
+* Build (`e3`): text and rank file read through read-only memory mappings, position buckets in scratch files (write buffer 64 KB per child), K = n/3000 = 33,333, fan-out 64, **4 threads**, suffix array written at final offsets through one mapped
+  window per leaf (largest window 133,208 bytes = K x 4), no explicit flush, `DOTNET_GCHeapHardLimit=0x6000000` (96 MiB; the process reported 101 MB total available memory and a managed heap of 16-20 MB at the end), `ArenaBudget` cap 160 MiB (peak 3.2 MB).
+  RssAnon is the maximum of `/proc/self/status` read every 10 ms. Every run starts from a dropped page cache (`echo 3 > /proc/sys/vm/drop_caches`), inside a cgroup-v1 sub-group created with `mkdir` (works in this VM; `memory.limit_in_bytes` clamps as expected: a 80 MB limit held a 300 MB file read to 80 MB of cache).
+* Oracle: `SaisKernel` in RAM on the same text, SHA-256 of SA[1..n]: `ed12eb83...` (dna_100m, 13.2 s) and `d1bfd73a...` (genome-like, 11.3 s). The hash of every finished E3 build was compared (`sa_equals_oracle`).
+
+Table 3: gates measured with no cache limit (sub-group limit "max"), 3 fresh processes:
+
+| quantity | dna_100m | genome-like 100 M | gate / note |
+|---|---|---|---|
+| `sa_s` (4 threads, K = n/3000) | 14.61 s [14.09-17.17] (146 ns/symbol) | 14.96 s [14.62-15.00] | (the E6 target for the SA stage is 30 s; E6 itself was not run) |
+| **RssAnon peak** (runtime + 12 threads + buffers) | **73.9 MB [70.9-81.3]** | 69.2 MB [59.9-78.1] | **gate <= 256 MB: met**; the maximum over all 53 completed E3 runs (also the cache-limited ones) is 98.7 MB |
+| RssFile peak (mapped text, ranks, SA windows) | 65.6 MB | 78.2 MB | reported, not counted (ADR-004 section 6a) |
+| peak scratch | 4.20 B/char (420 MB) | 4.17 B/char | proposed acceptance <= 8 B/char: met |
+| explicit I/O (positions, samples) | 7.85 read + 7.84 write B/char | 7.83 + 7.82 | + SA 4.00 B/char through the mappings = **19.7 B/char**, proposed <= 100: met; text and rank reads on top: 0.40 / 0.52 B/char cold |
+| output equals the in-RAM kernel | yes | yes | gate: met |
+| same output for 1 / 2 / 4 threads (25.6 / 17.9 / 14.9 s) and K = n/1500, n/3000, n/6000 (13.0 / 14.6 / 16.8 s) | all equal | all equal (28.1 / 18.5 / 14.3 s; 12.6 / 15.0 / 17.9 s) | gate: met |
+
+For scale, the in-RAM `SaisKernel` needs 13.2 s (1 thread; its suffix array alone is 400 MB of anonymous memory) on the same text.
+
+Table 4: **page cache limited** (cgroup-v1 `memory.limit_in_bytes` = (85 + 8) MiB + rho x (text + rank); the 85 MiB are the anonymous allowance above the 83 MB peak of the unlimited run, the 8 MiB an allowance for the streaming files). Slowdown = median `sa_s`
+divided by the median of the unlimited baseline of the same text; "effective cache" = (limit - mean anonymous memory of the sub-group during the run) / (text + rank), i.e. what was really left for **all** file pages (text, ranks, scratch, SA); 3 runs each.
+
+| text | nominal rho | limit (MB) | effective cache / (text+rank) | `sa_s` median [min-max] | slowdown median (worst run) | block-layer reads (GB, median) |
+|---|---|---|---|---|---|---|
+| dna_100m | 2.0 | 173 | 3.28 | 15.6 [14.9-15.7] | 1.07x (1.08x) | 0.6 |
+| dna_100m | 1.0 | 135 | 2.20 | 17.9 [17.0-18.4] | 1.22x (1.26x) | 1.3 |
+| dna_100m | **0.5** | 116 | 1.55 | 20.8 [18.3-31.4] | **1.43x (2.15x)** | 2.8 |
+| dna_100m | 0.25 | 107 | 1.18 | 30.5 [18.4-34.9] | 2.08x (2.39x) | 9.1 |
+| dna_100m | 0 | 98 | 1.14 | 24.8 [20.0-30.2] | 1.70x (2.07x) | 7.0 |
+| genome-like | 2.0 | 198 | 2.99 | 15.2 [14.8-15.8] | 1.02x (1.06x) | 0.5 |
+| genome-like | 1.0 | 148 | 1.94 | 17.8 [17.6-18.0] | 1.19x (1.20x) | 1.3 |
+| genome-like | 0.75 | 135 | 1.46 | 27.7 [18.4-38.5] | 1.85x (2.58x) | 4.0 |
+| genome-like | **0.5** | 123 | 1.35 | 24.7 [21.0-31.7] | **1.65x (2.12x)** | 3.9 |
+| genome-like | 0.375 | 116 | 1.26 | 28.7 [28.7-56.6] | 1.92x (3.78x) | 8.3 |
+| genome-like | 0.25 | 110 | 0.74 | 171 [101-242] | **11.4x (16.2x)** | 180 |
+| genome-like | 0 | 98 | 0.84 | 204 [193-215], 1 of 3 runs killed | **13.6x (14.3x)** | 202 |
+
+Reading (measured facts, then interpretation):
+1. **Gate "slowdown <= 3x with the cache limited to 0.5x (rank + text)": met under the nominal definition**: median 1.43x (random DNA) and 1.65x (genome-like); the worst single runs are 2.15x and 2.12x, and one genome-like run at the neighbouring ratio 0.375 reached 3.78x. The abandon
+   threshold (> 5x) is not reached at 0.5x.
+2. **The nominal ratio overstates the squeeze.** The anonymous footprint of the sub-group averages 48-62 MB (peak 70-99 MB), not the 85 MB allowance, so the file pages really had 1.1-1.6x (text + rank) at the "0.5" and "0" settings. A limit below about 95-98 MB
+   cannot be used because the peak anonymous memory has to fit in it: the lowest setting (98 MB) killed one of three genome-like runs with exit code 137 (cgroup OOM kill; its incomplete output file is the only `NO` in the hash column of `e3_genome100m.tsv`, every finished build equals the oracle).
+   **An effective cache of 0.5x (text + rank) for all file pages was therefore not reached.** The helper-process alternative (pin anonymous memory) cannot reach it either: the rule of keeping 3 GB of the 15 GB free leaves a cache 60-80 times larger than the 38-50 MB working set.
+3. **There is a cliff.** For the genome-like text the build is 1.2-1.9x down to an effective cache of about 1.3x (text + rank) and **11-14x** at 0.7-0.85x (block-layer reads 180-200 GB: every rank lookup and every text window read of a tied suffix is a random 4 KB read that misses);
+   random DNA, whose keys almost never tie (10 k rank lookups) and whose text is swept in increasing position order, degrades smoothly (at most 2.4x down to 1.1x). Between the two, the results fluctuate by a factor of 2 from run to run (0.375: 28.7-56.6 s), the signature of a working set that
+   just does not fit. The knee is where the cache falls below about **1x (text + rank)**, i.e. below the text plus a part of the rank file; the interpretation (text + rank must be resident for tie-rich genomes) is the author's, the numbers are measured.
+4. **Limits of the evidence.** The disk is the virtio disk of this VM (probably served from the host's cache: 4 GB to 200 GB of 4 KB reads in 20-200 s); latency of a real NVMe or a network disk is not represented. The 38-50 MB working set is a scale-down: at 3 x 10^9 symbols the same ratio means 750 MB text (2-bit) or
+   1.1 GB (3-bit) plus 390 MB of ranks, which is not tested. The page-replacement behaviour of the cgroup-v1 reclaim is kernel specific (6.18 here). Rank construction was in RAM and is not part of these numbers.

@@ -246,6 +246,26 @@ The difference covers are constructed, not tabulated: Singer perfect difference 
 
 Round 1 (Singer 993, K = n/1000, 1 thread, ranks built in RAM and charged to the time): `dna_10m` 1.052 s; every adversarial family within 10x: a^n 1 M 0.8x, tandem 1.1x, N run 1.8x, Thue-Morse 1 M 1.0x, Fibonacci 1 M 0.9x, rep_10m 2.8x, genome-like 1.5x, and at 10 M a^n 6.0x, Thue-Morse 6.7x, **Fibonacci 7.9x (the largest)**. The cost of the DCS on `dna_10m`: 7.4 % (paired A/B, 9 pairs; gate 25 %). All outputs equal the libsais hashes or `SaisKernel`. **No tuning round was needed.** Sweep over X (553, 993, 1893 Singer; 512, 1024, 2048 exact), K = n/300 and n/3000 and 4 threads: every configuration passes (worst ratio 8.5x); smaller X is faster on repetitive text (a^n 10 M 4.1 s at 512, 6.3 s at 2048) and costs a denser rank file (6.5 % against 2.3 % of the positions). Details: [RESULTS.md](../analysis/em/RESULTS.md).
 
+### E3 scale-down emulation of the memory ratio (100 Mbp, mapped files, K = n/3000, 4 threads)
+
+Measured on `dna_100m` (random DNA, 2 bits/symbol) and on a genome-like 100 M text (3 bits/symbol, repeats, satellites, N runs, so that the rank file is really read); text and the 12.9 MB rank file (Singer 993, 0.129 B/char) through read-only mappings, position buckets in scratch files, SA written at final offsets through mapped windows of at most K x 4 = 133 KB, `DOTNET_GCHeapHardLimit` = 96 MiB. Details and raw rows: [RESULTS.md](../analysis/em/RESULTS.md).
+
+| gate | measured | result |
+|---|---|---|
+| RssAnon <= 256 MB incl. runtime and thread stacks | peak 73.9 MB [70.9-81.3] (dna_100m), 69.2 MB (genome-like); 98.7 MB over all 53 completed runs, with up to 12 threads; mapped pages (RssFile 66-78 MB) reported, not counted | **met** |
+| output identical to the in-RAM `SaisKernel` (hash) | equal in every finished build, both texts | **met** |
+| identical for 1 / 2 / 4 threads and for two K values | equal for threads 1 / 2 / 4 and K = n/1500, n/3000, n/6000 (both texts) | **met** |
+| peak scratch <= 8 B/char; total I/O <= 100 B/char (proposed in 6a) | 4.2 B/char; 19.7 B/char (7.85 read + 7.84 write explicit + 4 SA through the mappings), text/rank reads on top: 0.4-0.5 B/char cold | met |
+| time (information) | 14.6 s (dna) and 15.0 s (genome-like) with 4 threads = 146-150 ns/symbol; 25.6 s / 28.1 s with 1 thread; the in-RAM kernel needs 13.2 s / 11.3 s (1 thread) | - |
+| slowdown <= 3x with the page cache limited to 0.5x (rank + text) (cgroup-v1 limit (85 + 8) MiB + 0.5 x (text + rank), `mkdir` of a sub-group works here) | median **1.43x** (dna_100m, worst run 2.15x) and **1.65x** (genome-like, worst run 2.12x) | **met** under this definition |
+
+The nominal 0.5x is not a true 0.5x for all file pages: the anonymous memory (mean 48-62 MB, peak up to 99 MB) shares the limit, so the file pages had about 1.3-1.6x (text + rank) there; below a limit of about 98 MB the sub-group's process is killed (one of three genome-like runs at the lowest setting), so a true 0.5x could not be tested at this scale (and the pinning-helper alternative cannot reach it either: 3 GB must stay free). What the sweep shows instead: the build degrades smoothly on random DNA (at most 2.4x at an effective cache of 1.1x) but **falls off a cliff on the tie-rich genome-like text below an effective cache of about 1x (text + rank): 11.4x and 13.6x at 0.74-0.84x** (every rank lookup and tie comparison is then a random 4 KB read: 180-200 GB of block-layer reads). The ADR rule "above 5x: the design needs a minimum page cache" therefore applies below roughly 1x (text + rank) for such texts; the 3x gate at the nominal 0.5x is met with little margin (one genome-like run at the neighbouring 0.375 took 3.8x). The disk of the prototype is a virtio disk (probably host-cached), a real SSD or network disk would move the cliff's height, not its position.
+
+### Summary of E0-E3 (measured; the owner decides B-DCS versus F1)
+
+* E0 met. E1: DCS needed (a^n 117x, a^n 10 M above 10 min, tandem 502x, N run 410x of `dna_10m`). E2: DCS gives every family <= 10x (largest 7.9x, Fibonacci 10 M) at +7.4 % on `dna_10m`, no tuning round. E3: RssAnon 74 MB (cap 256), output identical for threads and K, SA stage 14.6 s per 100 Mbp on 4 threads, I/O 19.7 B/char, scratch 4.2 B/char; slowdown 1.4-1.7x at the nominal 0.5x cache, but a 11-14x cliff on tie-rich DNA when the file cache falls below about the size of text + rank.
+* Abandon rules of section 5: none fired for E0-E2 (E1 took the intended branch to E2). For E3 the gate at the nominal 0.5x is met (<= 2.2x), but the rule "above 5x: the design needs a minimum page cache; document it or drop to F1" is reached for tie-rich DNA at an effective cache below about 1x (text + rank) (11-14x at 0.74-0.84x), and a true 0.5x for all file pages, which could not be set up at this scale, lies further below: the minimum page cache is documented here as the rule asks, the choice "document or drop to F1" is the owner's. Not verified: anything beyond 100 Mbp, PH1 and PH4-PH7 in external memory (E4-E9 not started), real disk latency, other kernels' page replacement.
+
 ## 6. Honest limitations and open questions
 
 What I could **not** verify:

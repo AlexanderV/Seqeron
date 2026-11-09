@@ -8,7 +8,7 @@ internal static class Cli
     private const string Usage = """
         SuffixTree.EmProto - prototypes E0-E3 of ADR-004 (external-memory construction of the persistent ESA)
 
-          e1   --family <spec> [--data <dir>] [--vectors <sa_vectors.tsv>] [--threads 1] [--k-div 1000 | --k <K>] [--fan 64] [--limit 600] [--tie-sort merge|intro] [--run <id>] [--out raw.tsv]
+          e1   --family <spec> [--data <dir>] [--vectors <sa_vectors.tsv>] [--threads 1] [--k-div 1000 | --k <K>] [--fan 64] [--limit 600] [--tie-sort merge|intro] [--run <id>] [--rows raw.tsv]
           e2   the same with --dcs <X> [--exact] [--dcs-base 16000000]
                in-RAM simulation of the bucket partition and sort, suffix array only; spec: dna_10m, rep_10m, prot_1m, a:N, fib:N, tm:N, tandem:171x10000, nrun:N:RUN, genome:N, dna:N
           pack     --family <spec> --out <packed file>                      text to the b-bit packed file (+ .meta)
@@ -30,7 +30,8 @@ internal static class Cli
         try
         {
             Options o = Options.Parse(args[1..]);
-            var report = new Report(o.Get("out"), o.Get("run"));
+            // --rows names the raw-row file; for e0 / e1 / e2 the older spelling --out is accepted too (in the E3 commands --out is a data file)
+            var report = new Report(o.Get("rows") ?? (args[0] is "e0" or "e1" or "e2" ? o.Get("out") : null), o.Get("run"));
             switch (args[0])
             {
                 case "e0": return E0.Run(o, report);

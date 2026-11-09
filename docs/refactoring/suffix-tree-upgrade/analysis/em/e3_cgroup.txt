@@ -1,0 +1,105 @@
+# cgroup dna100m.baseline_4t_K3000-1 limit=max rc=0 failcnt=0 max_usage=574332928
+cache 470085632 rss 0 mapped_file 0 dirty 663552 writeback 0 pgpgin 85424 pgpgout 41907 pgfault 124635 pgmajfault 1730 total_cache 470085632 total_rss 0 total_mapped_file 0 total_dirty 663552 total_writeback 0 total_pgpgin 85424 total_pgpgout 41907 total_pgfault 124635 total_pgmajfault 1730 
+# cgroup dna100m.baseline_4t_K3000-2 limit=max rc=0 failcnt=0 max_usage=584286208
+cache 470122496 rss 0 mapped_file 0 dirty 659456 writeback 0 pgpgin 87640 pgpgout 45267 pgfault 128551 pgmajfault 1687 total_cache 470122496 total_rss 0 total_mapped_file 0 total_dirty 659456 total_writeback 0 total_pgpgin 87640 total_pgpgout 45267 total_pgfault 128551 total_pgmajfault 1687 
+# cgroup dna100m.baseline_4t_K3000-3 limit=max rc=0 failcnt=0 max_usage=577642496
+cache 470286336 rss 0 mapped_file 0 dirty 749568 writeback 0 pgpgin 84595 pgpgout 41464 pgfault 126267 pgmajfault 1714 total_cache 470286336 total_rss 0 total_mapped_file 0 total_dirty 749568 total_writeback 0 total_pgpgin 84595 total_pgpgout 41464 total_pgfault 126267 total_pgmajfault 1714 
+# cgroup dna100m.threads1-1 limit=max rc=0 failcnt=0 max_usage=535429120
+cache 469921792 rss 0 mapped_file 45056 dirty 536576 writeback 0 pgpgin 49858 pgpgout 31375 pgfault 120598 pgmajfault 753 total_cache 469921792 total_rss 0 total_mapped_file 45056 total_dirty 536576 total_writeback 0 total_pgpgin 49858 total_pgpgout 31375 total_pgfault 120598 total_pgmajfault 753 
+# cgroup dna100m.threads2-1 limit=max rc=0 failcnt=0 max_usage=538324992
+cache 469966848 rss 0 mapped_file 0 dirty 544768 writeback 0 pgpgin 63809 pgpgout 31731 pgfault 116023 pgmajfault 1267 total_cache 469966848 total_rss 0 total_mapped_file 0 total_dirty 544768 total_writeback 0 total_pgpgin 63809 total_pgpgout 31731 total_pgfault 116023 total_pgmajfault 1267 
+# cgroup dna100m.threads4-1 limit=max rc=0 failcnt=0 max_usage=579289088
+cache 470159360 rss 0 mapped_file 0 dirty 729088 writeback 0 pgpgin 85312 pgpgout 43780 pgfault 126536 pgmajfault 1639 total_cache 470159360 total_rss 0 total_mapped_file 0 total_dirty 729088 total_writeback 0 total_pgpgin 85312 total_pgpgout 43780 total_pgfault 126536 total_pgmajfault 1639 
+# cgroup dna100m.K1500_4t-1 limit=max rc=0 failcnt=0 max_usage=567939072
+cache 470032384 rss 0 mapped_file 0 dirty 598016 writeback 0 pgpgin 68451 pgpgout 38589 pgfault 108718 pgmajfault 1184 total_cache 470032384 total_rss 0 total_mapped_file 0 total_dirty 598016 total_writeback 0 total_pgpgin 68451 total_pgpgout 38589 total_pgfault 108718 total_pgmajfault 1184 
+# cgroup dna100m.K6000_4t-1 limit=max rc=0 failcnt=0 max_usage=577998848
+cache 470052864 rss 0 mapped_file 0 dirty 651264 writeback 0 pgpgin 106148 pgpgout 43348 pgfault 149678 pgmajfault 2501 total_cache 470052864 total_rss 0 total_mapped_file 0 total_dirty 651264 total_writeback 0 total_pgpgin 106148 total_pgpgout 43348 total_pgfault 149678 total_pgmajfault 2501 
+# cgroup dna100m.cache_rho2.0-1 limit=173298348 rc=0 failcnt=47855 max_usage=173297664
+cache 118673408 rss 0 mapped_file 0 dirty 290816 writeback 0 pgpgin 126741 pgpgout 113558 pgfault 128308 pgmajfault 3647 total_cache 118673408 total_rss 0 total_mapped_file 0 total_dirty 290816 total_writeback 0 total_pgpgin 126741 total_pgpgout 113558 total_pgfault 128308 total_pgmajfault 3647 
+# cgroup dna100m.cache_rho2.0-2 limit=173298348 rc=0 failcnt=49787 max_usage=173297664
+cache 109408256 rss 0 mapped_file 0 dirty 294912 writeback 0 pgpgin 126937 pgpgout 114685 pgfault 138645 pgmajfault 3276 total_cache 109408256 total_rss 0 total_mapped_file 0 total_dirty 294912 total_writeback 0 total_pgpgin 126937 total_pgpgout 114685 total_pgfault 138645 total_pgmajfault 3276 
+# cgroup dna100m.cache_rho2.0-3 limit=173298348 rc=0 failcnt=59158 max_usage=173297664
+cache 77643776 rss 0 mapped_file 0 dirty 233472 writeback 0 pgpgin 137620 pgpgout 128269 pgfault 134823 pgmajfault 3675 total_cache 77643776 total_rss 0 total_mapped_file 0 total_dirty 233472 total_writeback 0 total_pgpgin 137620 total_pgpgout 128269 total_pgfault 134823 total_pgmajfault 3675 
+# cgroup dna100m.cache_rho1.0-1 limit=135407958 rc=0 failcnt=105438 max_usage=135405568
+cache 78458880 rss 0 mapped_file 0 dirty 212992 writeback 0 pgpgin 213967 pgpgout 201049 pgfault 140759 pgmajfault 6889 total_cache 78458880 total_rss 0 total_mapped_file 0 total_dirty 212992 total_writeback 0 total_pgpgin 213967 total_pgpgout 201049 total_pgfault 140759 total_pgmajfault 6889 
+# cgroup dna100m.cache_rho1.0-2 limit=135407958 rc=0 failcnt=104519 max_usage=135405568
+cache 79732736 rss 0 mapped_file 0 dirty 147456 writeback 0 pgpgin 212404 pgpgout 198912 pgfault 138889 pgmajfault 7982 total_cache 79732736 total_rss 0 total_mapped_file 0 total_dirty 147456 total_writeback 0 total_pgpgin 212404 total_pgpgout 198912 total_pgfault 138889 total_pgmajfault 7982 
+# cgroup dna100m.cache_rho1.0-3 limit=135407958 rc=0 failcnt=128067 max_usage=135405568
+cache 36003840 rss 0 mapped_file 0 dirty 36864 writeback 0 pgpgin 232253 pgpgout 224899 pgfault 141492 pgmajfault 7558 total_cache 36003840 total_rss 0 total_mapped_file 0 total_dirty 36864 total_writeback 0 total_pgpgin 232253 total_pgpgout 224899 total_pgfault 141492 total_pgmajfault 7558 
+# cgroup dna100m.cache_rho0.5-1 limit=116462763 rc=0 failcnt=170948 max_usage=116461568
+cache 53743616 rss 0 mapped_file 0 dirty 36864 writeback 0 pgpgin 287286 pgpgout 276692 pgfault 146998 pgmajfault 10392 total_cache 53743616 total_rss 0 total_mapped_file 0 total_dirty 36864 total_writeback 0 total_pgpgin 287286 total_pgpgout 276692 total_pgfault 146998 total_pgmajfault 10392 
+# cgroup dna100m.cache_rho0.5-2 limit=116462763 rc=0 failcnt=348406 max_usage=116461568
+cache 63598592 rss 0 mapped_file 0 dirty 131072 writeback 0 pgpgin 563201 pgpgout 551520 pgfault 289700 pgmajfault 52902 total_cache 63598592 total_rss 0 total_mapped_file 0 total_dirty 131072 total_writeback 0 total_pgpgin 563201 total_pgpgout 551520 total_pgfault 289700 total_pgmajfault 52902 
+# cgroup dna100m.cache_rho0.5-3 limit=116462763 rc=0 failcnt=1168415 max_usage=116461568
+cache 18649088 rss 0 mapped_file 0 dirty 110592 writeback 0 pgpgin 1810216 pgpgout 1805752 pgfault 576965 pgmajfault 76088 total_cache 18649088 total_rss 0 total_mapped_file 0 total_dirty 110592 total_writeback 0 total_pgpgin 1810216 total_pgpgout 1805752 total_pgfault 576965 total_pgmajfault 76088 
+# cgroup dna100m.cache_rho0.25-1 limit=106990165 rc=0 failcnt=1610696 max_usage=106991616
+cache 44179456 rss 0 mapped_file 0 dirty 32768 writeback 0 pgpgin 2658657 pgpgout 2650999 pgfault 613133 pgmajfault 102535 total_cache 44179456 total_rss 0 total_mapped_file 0 total_dirty 32768 total_writeback 0 total_pgpgin 2658657 total_pgpgout 2650999 total_pgfault 613133 total_pgmajfault 102535 
+# cgroup dna100m.cache_rho0.25-2 limit=106990165 rc=0 failcnt=193975 max_usage=106987520
+cache 40316928 rss 0 mapped_file 0 dirty 40960 writeback 0 pgpgin 320845 pgpgout 312675 pgfault 153382 pgmajfault 12410 total_cache 40316928 total_rss 0 total_mapped_file 0 total_dirty 40960 total_writeback 0 total_pgpgin 320845 total_pgpgout 312675 total_pgfault 153382 total_pgmajfault 12410 
+# cgroup dna100m.cache_rho0.25-3 limit=106990165 rc=0 failcnt=1009994 max_usage=106987520
+cache 52957184 rss 0 mapped_file 0 dirty 32768 writeback 0 pgpgin 1575813 pgpgout 1565747 pgfault 480965 pgmajfault 63266 total_cache 52957184 total_rss 0 total_mapped_file 0 total_dirty 32768 total_writeback 0 total_pgpgin 1575813 total_pgpgout 1565747 total_pgfault 480965 total_pgmajfault 63266 
+# cgroup dna100m.cache_rho0-1 limit=97517568 rc=0 failcnt=258339 max_usage=97517568
+cache 42692608 rss 0 mapped_file 0 dirty 32768 writeback 0 pgpgin 396299 pgpgout 387876 pgfault 166525 pgmajfault 18458 total_cache 42692608 total_rss 0 total_mapped_file 0 total_dirty 32768 total_writeback 0 total_pgpgin 396299 total_pgpgout 387876 total_pgfault 166525 total_pgmajfault 18458 
+# cgroup dna100m.cache_rho0-2 limit=97517568 rc=0 failcnt=769167 max_usage=97517568
+cache 38973440 rss 0 mapped_file 0 dirty 45056 writeback 0 pgpgin 1185263 pgpgout 1176538 pgfault 396795 pgmajfault 56745 total_cache 38973440 total_rss 0 total_mapped_file 0 total_dirty 45056 total_writeback 0 total_pgpgin 1185263 total_pgpgout 1176538 total_pgfault 396795 total_pgmajfault 56745 
+# cgroup dna100m.cache_rho0-3 limit=97517568 rc=0 failcnt=859630 max_usage=97517568
+cache 34447360 rss 0 mapped_file 0 dirty 81920 writeback 0 pgpgin 1309912 pgpgout 1302419 pgfault 414412 pgmajfault 58591 total_cache 34447360 total_rss 0 total_mapped_file 0 total_dirty 81920 total_writeback 0 total_pgpgin 1309912 total_pgpgout 1302419 total_pgfault 414412 total_pgmajfault 58591 
+# cgroup genome100m.baseline_4t_K3000-1 limit=max rc=0 failcnt=0 max_usage=580771840
+cache 482664448 rss 0 mapped_file 0 dirty 753664 writeback 0 pgpgin 86047 pgpgout 39405 pgfault 121095 pgmajfault 1853 total_cache 482664448 total_rss 0 total_mapped_file 0 total_dirty 753664 total_writeback 0 total_pgpgin 86047 total_pgpgout 39405 total_pgfault 121095 total_pgmajfault 1853 
+# cgroup genome100m.baseline_4t_K3000-2 limit=max rc=0 failcnt=0 max_usage=590909440
+cache 482689024 rss 0 mapped_file 0 dirty 745472 writeback 0 pgpgin 86962 pgpgout 40269 pgfault 124407 pgmajfault 1837 total_cache 482689024 total_rss 0 total_mapped_file 0 total_dirty 745472 total_writeback 0 total_pgpgin 86962 total_pgpgout 40269 total_pgfault 124407 total_pgmajfault 1837 
+# cgroup genome100m.baseline_4t_K3000-3 limit=max rc=0 failcnt=0 max_usage=594309120
+cache 482803712 rss 0 mapped_file 0 dirty 765952 writeback 0 pgpgin 90909 pgpgout 43790 pgfault 129262 pgmajfault 1855 total_cache 482803712 total_rss 0 total_mapped_file 0 total_dirty 765952 total_writeback 0 total_pgpgin 90909 total_pgpgout 43790 total_pgfault 129262 total_pgmajfault 1855 
+# cgroup genome100m.threads1-1 limit=max rc=0 failcnt=0 max_usage=544550912
+cache 482541568 rss 0 mapped_file 0 dirty 442368 writeback 0 pgpgin 52241 pgpgout 30530 pgfault 119905 pgmajfault 882 total_cache 482541568 total_rss 0 total_mapped_file 0 total_dirty 442368 total_writeback 0 total_pgpgin 52241 total_pgpgout 30530 total_pgfault 119905 total_pgmajfault 882 
+# cgroup genome100m.threads2-1 limit=max rc=0 failcnt=0 max_usage=550178816
+cache 482553856 rss 0 mapped_file 0 dirty 593920 writeback 0 pgpgin 69414 pgpgout 32712 pgfault 116800 pgmajfault 1463 total_cache 482553856 total_rss 0 total_mapped_file 0 total_dirty 593920 total_writeback 0 total_pgpgin 69414 total_pgpgout 32712 total_pgfault 116800 total_pgmajfault 1463 
+# cgroup genome100m.threads4-1 limit=max rc=0 failcnt=0 max_usage=589533184
+cache 482693120 rss 0 mapped_file 0 dirty 765952 writeback 0 pgpgin 88072 pgpgout 40851 pgfault 123451 pgmajfault 1855 total_cache 482693120 total_rss 0 total_mapped_file 0 total_dirty 765952 total_writeback 0 total_pgpgin 88072 total_pgpgout 40851 total_pgfault 123451 total_pgmajfault 1855 
+# cgroup genome100m.K1500_4t-1 limit=max rc=0 failcnt=0 max_usage=587706368
+cache 482693120 rss 0 mapped_file 0 dirty 786432 writeback 0 pgpgin 74104 pgpgout 38518 pgfault 106379 pgmajfault 1406 total_cache 482693120 total_rss 0 total_mapped_file 0 total_dirty 786432 total_writeback 0 total_pgpgin 74104 total_pgpgout 38518 total_pgfault 106379 total_pgmajfault 1406 
+# cgroup genome100m.K6000_4t-1 limit=max rc=0 failcnt=0 max_usage=581349376
+cache 482713600 rss 0 mapped_file 0 dirty 724992 writeback 0 pgpgin 106562 pgpgout 39085 pgfault 145913 pgmajfault 2661 total_cache 482713600 total_rss 0 total_mapped_file 0 total_dirty 724992 total_writeback 0 total_pgpgin 106562 total_pgpgout 39085 total_pgfault 145913 total_pgmajfault 2661 
+# cgroup genome100m.cache_rho2.0-1 limit=198298176 rc=0 failcnt=39050 max_usage=198295552
+cache 133758976 rss 0 mapped_file 0 dirty 434176 writeback 0 pgpgin 114171 pgpgout 97807 pgfault 133996 pgmajfault 2650 total_cache 133758976 total_rss 0 total_mapped_file 0 total_dirty 434176 total_writeback 0 total_pgpgin 114171 total_pgpgout 97807 total_pgfault 133996 total_pgmajfault 2650 
+# cgroup genome100m.cache_rho2.0-2 limit=198298176 rc=0 failcnt=37482 max_usage=198295552
+cache 136802304 rss 0 mapped_file 0 dirty 446464 writeback 0 pgpgin 111474 pgpgout 95125 pgfault 132435 pgmajfault 2731 total_cache 136802304 total_rss 0 total_mapped_file 0 total_dirty 446464 total_writeback 0 total_pgpgin 111474 total_pgpgout 95125 total_pgfault 132435 total_pgmajfault 2731 
+# cgroup genome100m.cache_rho2.0-3 limit=198298176 rc=0 failcnt=43805 max_usage=198295552
+cache 136028160 rss 0 mapped_file 0 dirty 335872 writeback 0 pgpgin 123145 pgpgout 105795 pgfault 137469 pgmajfault 3023 total_cache 136028160 total_rss 0 total_mapped_file 0 total_dirty 335872 total_writeback 0 total_pgpgin 123145 total_pgpgout 105795 total_pgfault 137469 total_pgmajfault 3023 
+# cgroup genome100m.cache_rho1.0-1 limit=147907872 rc=0 failcnt=113484 max_usage=147906560
+cache 93597696 rss 0 mapped_file 0 dirty 176128 writeback 0 pgpgin 240166 pgpgout 223686 pgfault 147539 pgmajfault 12307 total_cache 93597696 total_rss 0 total_mapped_file 0 total_dirty 176128 total_writeback 0 total_pgpgin 240166 total_pgpgout 223686 total_pgfault 147539 total_pgmajfault 12307 
+# cgroup genome100m.cache_rho1.0-2 limit=147907872 rc=0 failcnt=115659 max_usage=147906560
+cache 101765120 rss 0 mapped_file 0 dirty 204800 writeback 0 pgpgin 240089 pgpgout 224431 pgfault 147790 pgmajfault 10696 total_cache 101765120 total_rss 0 total_mapped_file 0 total_dirty 204800 total_writeback 0 total_pgpgin 240089 total_pgpgout 224431 total_pgfault 147790 total_pgmajfault 10696 
+# cgroup genome100m.cache_rho1.0-3 limit=147907872 rc=0 failcnt=115341 max_usage=147906560
+cache 90865664 rss 0 mapped_file 0 dirty 135168 writeback 0 pgpgin 247412 pgpgout 230421 pgfault 146049 pgmajfault 10999 total_cache 90865664 total_rss 0 total_mapped_file 0 total_dirty 135168 total_writeback 0 total_pgpgin 247412 total_pgpgout 230421 total_pgfault 146049 total_pgmajfault 10999 
+# cgroup genome100m.cache_rho0.5-1 limit=122712720 rc=0 failcnt=1291831 max_usage=122716160
+cache 73830400 rss 0 mapped_file 0 dirty 208896 writeback 0 pgpgin 2185032 pgpgout 2168834 pgfault 777714 pgmajfault 285884 total_cache 73830400 total_rss 0 total_mapped_file 0 total_dirty 208896 total_writeback 0 total_pgpgin 2185032 total_pgpgout 2168834 total_pgfault 777714 total_pgmajfault 285884 
+# cgroup genome100m.cache_rho0.5-2 limit=122712720 rc=0 failcnt=508650 max_usage=122716160
+cache 61693952 rss 0 mapped_file 0 dirty 24576 writeback 0 pgpgin 866560 pgpgout 855436 pgfault 259747 pgmajfault 59451 total_cache 61693952 total_rss 0 total_mapped_file 0 total_dirty 24576 total_writeback 0 total_pgpgin 866560 total_pgpgout 855436 total_pgfault 259747 total_pgmajfault 59451 
+# cgroup genome100m.cache_rho0.5-3 limit=122712720 rc=0 failcnt=490242 max_usage=122712064
+cache 59289600 rss 0 mapped_file 0 dirty 24576 writeback 0 pgpgin 814255 pgpgout 800640 pgfault 431881 pgmajfault 151853 total_cache 59289600 total_rss 0 total_mapped_file 0 total_dirty 24576 total_writeback 0 total_pgpgin 814255 total_pgpgout 800640 total_pgfault 431881 total_pgmajfault 151853 
+# cgroup genome100m.cache_rho0.25-1 limit=110115144 rc=0 failcnt=9495035 max_usage=110112768
+cache 46809088 rss 0 mapped_file 0 dirty 57344 writeback 0 pgpgin 16664157 pgpgout 16652959 pgfault 3638106 pgmajfault 1543794 total_cache 46809088 total_rss 0 total_mapped_file 0 total_dirty 57344 total_writeback 0 total_pgpgin 16664157 total_pgpgout 16652959 total_pgfault 3638106 total_pgmajfault 1543794 
+# cgroup genome100m.cache_rho0.25-2 limit=110115144 rc=0 failcnt=22960892 max_usage=110112768
+cache 23080960 rss 0 mapped_file 0 dirty 53248 writeback 0 pgpgin 42341384 pgpgout 42335849 pgfault 4322552 pgmajfault 2033390 total_cache 23080960 total_rss 0 total_mapped_file 0 total_dirty 53248 total_writeback 0 total_pgpgin 42341384 total_pgpgout 42335849 total_pgfault 4322552 total_pgmajfault 2033390 
+# cgroup genome100m.cache_rho0.25-3 limit=110115144 rc=0 failcnt=33866764 max_usage=110112768
+cache 47075328 rss 0 mapped_file 0 dirty 49152 writeback 0 pgpgin 62472391 pgpgout 62461099 pgfault 5668030 pgmajfault 2718940 total_cache 47075328 total_rss 0 total_mapped_file 0 total_dirty 49152 total_writeback 0 total_pgpgin 62472391 total_pgpgout 62461099 total_pgfault 5668030 total_pgmajfault 2718940 
+# cgroup genome100m.cache_rho0-1 limit=97517568 rc=0 failcnt=25882286 max_usage=97517568
+cache 34230272 rss 0 mapped_file 0 dirty 45056 writeback 0 pgpgin 46304693 pgpgout 46296509 pgfault 5699630 pgmajfault 2387382 total_cache 34230272 total_rss 0 total_mapped_file 0 total_dirty 45056 total_writeback 0 total_pgpgin 46304693 total_pgpgout 46296509 total_pgfault 5699630 total_pgmajfault 2387382 
+# cgroup genome100m.cache_rho0-2 limit=97517568 rc=0 failcnt=29762311 max_usage=97521664
+cache 36003840 rss 0 mapped_file 0 dirty 45056 writeback 0 pgpgin 53328467 pgpgout 53319785 pgfault 6054378 pgmajfault 2578289 total_cache 36003840 total_rss 0 total_mapped_file 0 total_dirty 45056 total_writeback 0 total_pgpgin 53328467 total_pgpgout 53319785 total_pgfault 6054378 total_pgmajfault 2578289 
+/home/user/Seqeron/docs/refactoring/suffix-tree-upgrade/analysis/em/run_e3_cgroup.sh: line 18: 20060 Killed                  ( echo $BASHPID > "$CG/cgroup.procs"; exec dotnet "$EMPROTO_DLL" e3 --cgroup-usage "$CG/memory.usage_in_bytes" "$@" )
+# cgroup genome100m.cache_rho0-3 limit=97517568 rc=137 failcnt=66122689 max_usage=97525760
+cache 405504 rss 0 mapped_file 0 dirty 4096 writeback 0 pgpgin 122097421 pgpgout 122097322 pgfault 7706004 pgmajfault 4533748 total_cache 405504 total_rss 0 total_mapped_file 0 total_dirty 4096 total_writeback 0 total_pgpgin 122097421 total_pgpgout 122097322 total_pgfault 7706004 total_pgmajfault 4533748 
+# cgroup genome100m.cache_rho0.75-1 limit=135310296 rc=0 failcnt=131880 max_usage=135307264
+cache 75214848 rss 0 mapped_file 0 dirty 45056 writeback 0 pgpgin 267531 pgpgout 254428 pgfault 150314 pgmajfault 11331 total_cache 75214848 total_rss 0 total_mapped_file 0 total_dirty 45056 total_writeback 0 total_pgpgin 267531 total_pgpgout 254428 total_pgfault 150314 total_pgmajfault 11331 
+# cgroup genome100m.cache_rho0.75-2 limit=135310296 rc=0 failcnt=2790828 max_usage=135307264
+cache 85872640 rss 0 mapped_file 0 dirty 135168 writeback 0 pgpgin 4915559 pgpgout 4898546 pgfault 897588 pgmajfault 328075 total_cache 85872640 total_rss 0 total_mapped_file 0 total_dirty 135168 total_writeback 0 total_pgpgin 4915559 total_pgpgout 4898546 total_pgfault 897588 total_pgmajfault 328075 
+# cgroup genome100m.cache_rho0.75-3 limit=135310296 rc=0 failcnt=546344 max_usage=135307264
+cache 50511872 rss 0 mapped_file 0 dirty 102400 writeback 0 pgpgin 932064 pgpgout 920007 pgfault 629053 pgmajfault 232184 total_cache 50511872 total_rss 0 total_mapped_file 0 total_dirty 102400 total_writeback 0 total_pgpgin 932064 total_pgpgout 920007 total_pgfault 629053 total_pgmajfault 232184 
+# cgroup genome100m.cache_rho0.375-1 limit=116413932 rc=0 failcnt=5209910 max_usage=116412416
+cache 36048896 rss 0 mapped_file 0 dirty 53248 writeback 0 pgpgin 9203242 pgpgout 9194631 pgfault 1486667 pgmajfault 576499 total_cache 36048896 total_rss 0 total_mapped_file 0 total_dirty 53248 total_writeback 0 total_pgpgin 9203242 total_pgpgout 9194631 total_pgfault 1486667 total_pgmajfault 576499 
+# cgroup genome100m.cache_rho0.375-2 limit=116413932 rc=0 failcnt=788852 max_usage=116412416
+cache 57778176 rss 0 mapped_file 0 dirty 151552 writeback 0 pgpgin 1283520 pgpgout 1272122 pgfault 674922 pgmajfault 262451 total_cache 57778176 total_rss 0 total_mapped_file 0 total_dirty 151552 total_writeback 0 total_pgpgin 1283520 total_pgpgout 1272122 total_pgfault 674922 total_pgmajfault 262451 
+# cgroup genome100m.cache_rho0.375-3 limit=116413932 rc=0 failcnt=1220680 max_usage=116412416
+cache 57212928 rss 0 mapped_file 0 dirty 139264 writeback 0 pgpgin 2053105 pgpgout 2040298 pgfault 514506 pgmajfault 169568 total_cache 57212928 total_rss 0 total_mapped_file 0 total_dirty 139264 total_writeback 0 total_pgpgin 2053105 total_pgpgout 2040298 total_pgfault 514506 total_pgmajfault 169568 

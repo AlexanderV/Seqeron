@@ -1,0 +1,55 @@
+# E3 setup rows: oracle hashes (SaisKernel in RAM, single thread), packed text and rank file construction, and the managed-heap check (gc_heap) of one extra baseline run per text
+R	E3	dna:100000000	oracle_sa_hash	ed12eb8311638606bc31b7eb802dadabc1746ee89462df5b03db05e1b801aef1		SaisKernel in RAM on the same text, 13.17 s
+R	E3	genome:100000000	oracle_sa_hash	d1bfd73a2a570d1870eee62793d15cfe5a37c3fc6627e3c0a250c25db3f902b9		SaisKernel in RAM on the same text, 11.27 s
+R	E3	ranks	mkranks_s	0.528094	s	period 993 (Singer), |D|=32, sample=3222557, unique names=True, levels=0
+R	E3	ranks	rank_file	12890240	bytes	0.129 B/char
+R	E3	ranks	vmhwm	137.826304	MB	peak resident set of the rank construction (in RAM here, external in the design)
+R	E3	ranks	mkranks_s	1.195256	s	period 993 (Singer), |D|=32, sample=3222557, unique names=False, levels=1
+R	E3	ranks	rank_file	12890240	bytes	0.129 B/char
+R	E3	ranks	vmhwm	143.253504	MB	peak resident set of the rank construction (in RAM here, external in the design)
+R	E3	dna100m.gc_check	1	n	100000000	symbols	b=2 bits, K=33333 (n/3000), fan-out 64, threads=4, ranks: X=993 Singer |D|=32
+R	E3	dna100m.gc_check	1	sa_s	14.698381	s	partition + sort, SA written through mapped windows (page cache), without fsync
+R	E3	dna100m.gc_check	1	fsync_s	0.004248	s	flush of the SA file after the build
+R	E3	dna100m.gc_check	1	ns_per_symbol	146.983811	ns	sa_s / n
+R	E3	dna100m.gc_check	1	rssanon_peak	70.033408	MB	max RssAnon of 1471 samples at 10 ms; gate <= 256 MB incl. the .NET runtime and thread stacks (max threads 12)
+R	E3	dna100m.gc_check	1	rssfile_peak	65.622016	MB	mapped file pages resident (text, ranks, SA windows): reported, not counted (ADR-004 section 6a)
+R	E3	dna100m.gc_check	1	vmhwm	139.50976	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E3	dna100m.gc_check	1	gc_heap	19.780792	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 9/4/2
+R	E3	dna100m.gc_check	1	arena_peak	3.199968	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB)
+R	E3	dna100m.gc_check	1	io_explicit_read	784815468	bytes	7.85 B/char; scratch position files and samples (107595 calls)
+R	E3	dna100m.gc_check	1	io_explicit_write	784429740	bytes	7.84 B/char (14245 calls)
+R	E3	dna100m.gc_check	1	io_mapped_write	400000004	bytes	4.00 B/char: the SA, once, through the mapped windows (largest window 133208 bytes)
+R	E3	dna100m.gc_check	1	io_total_counted	1969245212	bytes	19.69 B/char explicit I/O plus SA (text and rank reads through mappings come on top: see block-layer read_bytes)
+R	E3	dna100m.gc_check	1	blocklayer_read	39997440	bytes	/proc/self/io read_bytes during the build (page-cache misses: cold text/rank pages and re-reads under a limit); 0.40 B/char
+R	E3	dna100m.gc_check	1	blocklayer_write	1494568960	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E3	dna100m.gc_check	1	page_faults	1414	major	minor 123797
+R	E3	dna100m.gc_check	1	scratch_peak	414982628	bytes	4.15 B/char; files left in the scratch directory: 0
+R	E3	dna100m.gc_check	1	dirty_peak	395.689984	MB	max /proc/meminfo Dirty (system-wide); max Cached 650 MB; cgroup usage max 574 MB
+R	E3	dna100m.gc_check	1	cgroup_rss	70.025216	MB	memory.stat rss of the sub-group: max, mean 51.4 MB over 294 samples at 50 ms
+R	E3	dna100m.gc_check	1	cgroup_mapped_file	62.982896	MB	mean mapped file pages charged to the sub-group (text + rank + SA windows)
+R	E3	dna100m.gc_check	1	cgroup_cache	433.523496	MB	mean page cache charged to the sub-group (incl. scratch files and the SA file)
+R	E3	dna100m.gc_check	1	buckets	6092	n	leaves=5381, partitions=711, max depth=3, largest leaf=33302, retries=0; tie share 0.0000 %, rank lookups 10396
+R	E3	dna100m.gc_check	1	phase_cpu_s	50.681585	s	summed over workers: partition 15.01, leaf sort 35.67
+R	E3	genome100m.gc_check	1	n	100000000	symbols	b=3 bits, K=33333 (n/3000), fan-out 64, threads=4, ranks: X=993 Singer |D|=32
+R	E3	genome100m.gc_check	1	sa_s	15.355177	s	partition + sort, SA written through mapped windows (page cache), without fsync
+R	E3	genome100m.gc_check	1	fsync_s	0.004824	s	flush of the SA file after the build
+R	E3	genome100m.gc_check	1	ns_per_symbol	153.55177	ns	sa_s / n
+R	E3	genome100m.gc_check	1	rssanon_peak	65.35168	MB	max RssAnon of 1535 samples at 10 ms; gate <= 256 MB incl. the .NET runtime and thread stacks (max threads 12)
+R	E3	genome100m.gc_check	1	rssfile_peak	78.209024	MB	mapped file pages resident (text, ranks, SA windows): reported, not counted (ADR-004 section 6a)
+R	E3	genome100m.gc_check	1	vmhwm	147.103744	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E3	genome100m.gc_check	1	gc_heap	16.39188	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 8/3/2
+R	E3	genome100m.gc_check	1	arena_peak	3.199968	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB)
+R	E3	genome100m.gc_check	1	io_explicit_read	782802264	bytes	7.83 B/char; scratch position files and samples (107472 calls)
+R	E3	genome100m.gc_check	1	io_explicit_write	782416856	bytes	7.82 B/char (14176 calls)
+R	E3	genome100m.gc_check	1	io_mapped_write	400000004	bytes	4.00 B/char: the SA, once, through the mapped windows (largest window 133272 bytes)
+R	E3	genome100m.gc_check	1	io_total_counted	1965219124	bytes	19.65 B/char explicit I/O plus SA (text and rank reads through mappings come on top: see block-layer read_bytes)
+R	E3	genome100m.gc_check	1	blocklayer_read	52523008	bytes	/proc/self/io read_bytes during the build (page-cache misses: cold text/rank pages and re-reads under a limit); 0.53 B/char
+R	E3	genome100m.gc_check	1	blocklayer_write	1481859072	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E3	genome100m.gc_check	1	page_faults	1570	major	minor 120614
+R	E3	genome100m.gc_check	1	scratch_peak	415518836	bytes	4.16 B/char; files left in the scratch directory: 0
+R	E3	genome100m.gc_check	1	dirty_peak	395.6736	MB	max /proc/meminfo Dirty (system-wide); max Cached 668 MB; cgroup usage max 578 MB
+R	E3	genome100m.gc_check	1	cgroup_rss	65.24928	MB	memory.stat rss of the sub-group: max, mean 48.6 MB over 307 samples at 50 ms
+R	E3	genome100m.gc_check	1	cgroup_mapped_file	75.624515	MB	mean mapped file pages charged to the sub-group (text + rank + SA windows)
+R	E3	genome100m.gc_check	1	cgroup_cache	445.58312	MB	mean page cache charged to the sub-group (incl. scratch files and the SA file)
+R	E3	genome100m.gc_check	1	buckets	6087	n	leaves=5374, partitions=713, max depth=3, largest leaf=33318, retries=0; tie share 12.1219 %, rank lookups 30842634
+R	E3	genome100m.gc_check	1	phase_cpu_s	53.281183	s	summed over workers: partition 15.33, leaf sort 37.95

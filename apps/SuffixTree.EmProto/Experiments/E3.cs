@@ -138,6 +138,8 @@ internal static unsafe class E3
         r.Row("E3", caseName, "rssanon_peak", rs.MaxRssAnonMb, "MB", $"max RssAnon of {rs.Samples} samples at 10 ms; gate <= 256 MB incl. the .NET runtime and thread stacks (max threads {rs.MaxThreads})");
         r.Row("E3", caseName, "rssfile_peak", rs.MaxRssFileMb, "MB", "mapped file pages resident (text, ranks, SA windows): reported, not counted (ADR-004 section 6a)");
         r.Row("E3", caseName, "vmhwm", rs.MaxVmHwmKb * 1024.0 / 1e6, "MB", "VmHWM (anonymous + file-backed resident), reported only");
+        GCMemoryInfo gc = GC.GetGCMemoryInfo();
+        r.Row("E3", caseName, "gc_heap", gc.HeapSizeBytes / 1e6, "MB", $"managed heap at the end; GC total available memory {gc.TotalAvailableMemoryBytes / 1e6:F0} MB (DOTNET_GCHeapHardLimit = {Environment.GetEnvironmentVariable("DOTNET_GCHeapHardLimit") ?? "not set"}); collections gen0/1/2 = {GC.CollectionCount(0)}/{GC.CollectionCount(1)}/{GC.CollectionCount(2)}");
         r.Row("E3", caseName, "arena_peak", budget.PeakBytes / 1e6, "MB", $"peak native buffers charged to the ArenaBudget (cap {budgetCap >> 20} MiB)");
         r.Row("E3", caseName, "io_explicit_read", IoCounters.ReadBytes, "bytes", $"{IoCounters.ReadBytes / (double)n:F2} B/char; scratch position files and samples ({IoCounters.ReadCalls} calls)");
         r.Row("E3", caseName, "io_explicit_write", IoCounters.WriteBytes, "bytes", $"{IoCounters.WriteBytes / (double)n:F2} B/char ({IoCounters.WriteCalls} calls)");
@@ -148,10 +150,16 @@ internal static unsafe class E3
         r.Row("E3", caseName, "page_faults", majflt1 - majflt0, "major", $"minor {minflt1 - minflt0}");
         r.Row("E3", caseName, "scratch_peak", scratchPeak, "bytes", $"{scratchPeak / (double)n:F2} B/char; files left in the scratch directory: {scratchLeft}");
         r.Row("E3", caseName, "dirty_peak", ms.MaxDirtyKb * 1024.0 / 1e6, "MB", $"max /proc/meminfo Dirty (system-wide); max Cached {ms.MaxCachedKb * 1024.0 / 1e6:F0} MB; cgroup usage max {ms.MaxCgroupUsageBytes / 1e6:F0} MB");
+        if (ms.CgSamples > 0)
+        {
+            r.Row("E3", caseName, "cgroup_rss", ms.MaxCgRssBytes / 1e6, "MB", $"memory.stat rss of the sub-group: max, mean {ms.AvgCgRssBytes / 1e6:F1} MB over {ms.CgSamples} samples at 50 ms");
+            r.Row("E3", caseName, "cgroup_mapped_file", ms.AvgCgMappedFileBytes / 1e6, "MB", "mean mapped file pages charged to the sub-group (text + rank + SA windows)");
+            r.Row("E3", caseName, "cgroup_cache", ms.AvgCgCacheBytes / 1e6, "MB", "mean page cache charged to the sub-group (incl. scratch files and the SA file)");
+        }
         r.Row("E3", caseName, "buckets", st.Buckets, "n", $"leaves={st.Leaves}, partitions={st.Partitions}, max depth={st.MaxDepth}, largest leaf={st.MaxLeaf}, retries={st.Retries}; tie share {100.0 * st.Work.TiePositions / Math.Max(1, st.Work.LeafPositions):F4} %, rank lookups {st.Work.RankLookups}");
         r.Row("E3", caseName, "phase_cpu_s", st.PartitionSeconds + st.LeafSeconds, "s", $"summed over workers: partition {st.PartitionSeconds:F2}, leaf sort {st.LeafSeconds:F2}");
         rankMap?.Dispose();
-        return rs.MaxRssAnonMb <= 256 && scratchLeft == 0 ? 0 : 1;
+        return rs.MaxRssAnonMb <= o.Double("rss-cap-mb", 256) && scratchLeft == 0 ? 0 : 1;
     }
 
     private static (long Minor, long Major) Faults()
