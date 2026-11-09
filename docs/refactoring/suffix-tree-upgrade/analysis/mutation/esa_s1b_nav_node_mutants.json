@@ -1,0 +1,26 @@
+[
+ {
+  "id": "E01",
+  "desc": "node: IsLeaf is Lb != Rb",
+  "old": "internal bool IsLeaf => Lb == Rb;",
+  "new": "internal bool IsLeaf => Lb != Rb;"
+ },
+ {
+  "id": "E02",
+  "desc": "node: EdgeLength adds",
+  "old": "internal int EdgeLength => Depth - ParentDepth;",
+  "new": "internal int EdgeLength => Depth + ParentDepth;"
+ },
+ {
+  "id": "E03",
+  "desc": "node: RankCount is Rb - Lb",
+  "old": "internal int RankCount => Rb - Lb + 1;",
+  "new": "internal int RankCount => Rb - Lb;"
+ },
+ {
+  "id": "E04",
+  "desc": "node: the null node has Lb 0",
+  "old": "internal static EsaNode Null => new(-1, -1, -1, -1, -1, false);",
+  "new": "internal static EsaNode Null => new(0, -1, -1, -1, -1, false);"
+ }
+]

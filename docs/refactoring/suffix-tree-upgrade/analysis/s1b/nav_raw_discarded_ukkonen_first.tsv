@@ -1,0 +1,1284 @@
+# first set of mem / mum / anchors / lcs rows, DISCARDED: the Ukkonen tree was built BEFORE the ESA calls, its 1.9 GB heap made the gen-2 collections provoked by the large result lists (LOH) expensive and inflated the ESA times (rep_10m MEM steady 0.182 s here against 0.149 s without it); kept for transparency, re-run in nav_raw.tsv with the ESA first
+# process input=dna_10m op=mem run=1 commit=d4c3a5781f load=1.21 2026-11-09T18:36:52Z options: 
+R	nav	text_chars	10000000	chars	dna_10m, op mem
+R	nav	build_esa_s	0.949284893	s	EsaIndex.Build (child layout Tagged), cold JIT
+R	nav	pack_built_before	0	bool	the navigation pack must not exist before the first matching call
+R	nav	query_chars	100000	chars	dna_10m.memq100k, minLength 20
+R	nav	pack_build_s	0.10890195	s	ISA + LCP pyramid (fanout 32) + pinned views, cold JIT; paid once by the first suffix-link user
+R	nav	pack_bytes_per_char	4.129034	B/char	ISA 4.000 + pyramid 0.129 (5 levels)
+R	nav	pyramid_build_s	0.018605493	s	second build, warm (5 levels)
+R	nav_ukkonen	build_s	13.327947909	s	in-memory Ukkonen tree, same process
+R	nav_esa	mem_first_call_s	0.110569616	s	cold JIT included
+R	nav_esa	mem_warm_median_s	0.058987942	s	median of 9 warm calls (2..10) [0.055844394 .. 0.071012259]
+R	nav_esa	mem_steady_median_s	0.057294222	s	median of the last 5 calls [0.055844394 .. 0.058987942]
+R	nav_esa	mem_results	817	count	
+R	nav_esa	mem_checksum	77915707478	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	nav_ukkonen	mem_first_call_s	0.087045051	s	cold JIT included
+R	nav_ukkonen	mem_warm_median_s	0.033807174	s	median of 9 warm calls (2..10) [0.031878558 .. 0.056384043]
+R	nav_ukkonen	mem_steady_median_s	0.032671352	s	median of the last 5 calls [0.031878558 .. 0.033807174]
+R	nav_ukkonen	mem_results	817	count	
+R	nav_ukkonen	mem_checksum	77915707478	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	nav_check	mem_equal	1	bool	the ESA answer equals the Ukkonen tree's
+R	nav	peak_rss_hwm	1904832512	bytes	VmHWM of the process at the end
+# process input=dna_10m op=mem run=2 commit=d4c3a5781f load=1.16 2026-11-09T18:37:07Z options: 
+R	nav	text_chars	10000000	chars	dna_10m, op mem
+R	nav	build_esa_s	0.986612313	s	EsaIndex.Build (child layout Tagged), cold JIT
+R	nav	pack_built_before	0	bool	the navigation pack must not exist before the first matching call
+R	nav	query_chars	100000	chars	dna_10m.memq100k, minLength 20
+R	nav	pack_build_s	0.097972265	s	ISA + LCP pyramid (fanout 32) + pinned views, cold JIT; paid once by the first suffix-link user
+R	nav	pack_bytes_per_char	4.129034	B/char	ISA 4.000 + pyramid 0.129 (5 levels)
+R	nav	pyramid_build_s	0.018170637	s	second build, warm (5 levels)
+R	nav_ukkonen	build_s	13.433108782	s	in-memory Ukkonen tree, same process
+R	nav_esa	mem_first_call_s	0.119032211	s	cold JIT included
+R	nav_esa	mem_warm_median_s	0.072560418	s	median of 9 warm calls (2..10) [0.070654128 .. 0.08024247]
+R	nav_esa	mem_steady_median_s	0.071610817	s	median of the last 5 calls [0.070654128 .. 0.074416962]
+R	nav_esa	mem_results	817	count	
+R	nav_esa	mem_checksum	77915707478	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	nav_ukkonen	mem_first_call_s	0.076109506	s	cold JIT included
+R	nav_ukkonen	mem_warm_median_s	0.053069871	s	median of 9 warm calls (2..10) [0.049803562 .. 0.058658923]
+R	nav_ukkonen	mem_steady_median_s	0.050462767	s	median of the last 5 calls [0.049803562 .. 0.053069871]
+R	nav_ukkonen	mem_results	817	count	
+R	nav_ukkonen	mem_checksum	77915707478	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	nav_check	mem_equal	1	bool	the ESA answer equals the Ukkonen tree's
+R	nav	peak_rss_hwm	1904791552	bytes	VmHWM of the process at the end
+# process input=dna_10m op=mem run=3 commit=d4c3a5781f load=1.11 2026-11-09T18:37:23Z options: 
+R	nav	text_chars	10000000	chars	dna_10m, op mem
+R	nav	build_esa_s	0.998081455	s	EsaIndex.Build (child layout Tagged), cold JIT
+R	nav	pack_built_before	0	bool	the navigation pack must not exist before the first matching call
+R	nav	query_chars	100000	chars	dna_10m.memq100k, minLength 20
+R	nav	pack_build_s	0.099445398	s	ISA + LCP pyramid (fanout 32) + pinned views, cold JIT; paid once by the first suffix-link user
+R	nav	pack_bytes_per_char	4.129034	B/char	ISA 4.000 + pyramid 0.129 (5 levels)
+R	nav	pyramid_build_s	0.018393361	s	second build, warm (5 levels)
+R	nav_ukkonen	build_s	13.634927392	s	in-memory Ukkonen tree, same process
+R	nav_esa	mem_first_call_s	0.109217653	s	cold JIT included
+R	nav_esa	mem_warm_median_s	0.073006705	s	median of 9 warm calls (2..10) [0.071043076 .. 0.075042764]
+R	nav_esa	mem_steady_median_s	0.071794007	s	median of the last 5 calls [0.071043076 .. 0.073565209]
+R	nav_esa	mem_results	817	count	
+R	nav_esa	mem_checksum	77915707478	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	nav_ukkonen	mem_first_call_s	0.074102605	s	cold JIT included
+R	nav_ukkonen	mem_warm_median_s	0.053537109	s	median of 9 warm calls (2..10) [0.050188267 .. 0.057809734]
+R	nav_ukkonen	mem_steady_median_s	0.052230423	s	median of the last 5 calls [0.050188267 .. 0.053537109]
+R	nav_ukkonen	mem_results	817	count	
+R	nav_ukkonen	mem_checksum	77915707478	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	nav_check	mem_equal	1	bool	the ESA answer equals the Ukkonen tree's
+R	nav	peak_rss_hwm	1904836608	bytes	VmHWM of the process at the end
+# process input=dna_10m op=mem run=4 commit=d4c3a5781f load=1.09 2026-11-09T18:37:40Z options: 
+R	nav	text_chars	10000000	chars	dna_10m, op mem
+R	nav	build_esa_s	0.997189439	s	EsaIndex.Build (child layout Tagged), cold JIT
+R	nav	pack_built_before	0	bool	the navigation pack must not exist before the first matching call
+R	nav	query_chars	100000	chars	dna_10m.memq100k, minLength 20
+R	nav	pack_build_s	0.098441923	s	ISA + LCP pyramid (fanout 32) + pinned views, cold JIT; paid once by the first suffix-link user
+R	nav	pack_bytes_per_char	4.129034	B/char	ISA 4.000 + pyramid 0.129 (5 levels)
+R	nav	pyramid_build_s	0.018209985	s	second build, warm (5 levels)
+R	nav_ukkonen	build_s	13.084731799	s	in-memory Ukkonen tree, same process
+R	nav_esa	mem_first_call_s	0.111688634	s	cold JIT included
+R	nav_esa	mem_warm_median_s	0.065668657	s	median of 9 warm calls (2..10) [0.063230771 .. 0.071191503]
+R	nav_esa	mem_steady_median_s	0.063320902	s	median of the last 5 calls [0.063230771 .. 0.065668657]
+R	nav_esa	mem_results	817	count	
+R	nav_esa	mem_checksum	77915707478	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	nav_ukkonen	mem_first_call_s	0.075316288	s	cold JIT included
+R	nav_ukkonen	mem_warm_median_s	0.052382041	s	median of 9 warm calls (2..10) [0.051380988 .. 0.065885498]
+R	nav_ukkonen	mem_steady_median_s	0.052145212	s	median of the last 5 calls [0.051380988 .. 0.052382041]
+R	nav_ukkonen	mem_results	817	count	
+R	nav_ukkonen	mem_checksum	77915707478	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	nav_check	mem_equal	1	bool	the ESA answer equals the Ukkonen tree's
+R	nav	peak_rss_hwm	1905131520	bytes	VmHWM of the process at the end
+# process input=dna_10m op=mem run=5 commit=d4c3a5781f load=1.07 2026-11-09T18:37:55Z options: 
+R	nav	text_chars	10000000	chars	dna_10m, op mem
+R	nav	build_esa_s	0.997769052	s	EsaIndex.Build (child layout Tagged), cold JIT
+R	nav	pack_built_before	0	bool	the navigation pack must not exist before the first matching call
+R	nav	query_chars	100000	chars	dna_10m.memq100k, minLength 20
+R	nav	pack_build_s	0.096823972	s	ISA + LCP pyramid (fanout 32) + pinned views, cold JIT; paid once by the first suffix-link user
+R	nav	pack_bytes_per_char	4.129034	B/char	ISA 4.000 + pyramid 0.129 (5 levels)
+R	nav	pyramid_build_s	0.018174695	s	second build, warm (5 levels)
+R	nav_ukkonen	build_s	12.658919491	s	in-memory Ukkonen tree, same process
+R	nav_esa	mem_first_call_s	0.10998335	s	cold JIT included
+R	nav_esa	mem_warm_median_s	0.068266776	s	median of 9 warm calls (2..10) [0.061463762 .. 0.084297159]
+R	nav_esa	mem_steady_median_s	0.067809677	s	median of the last 5 calls [0.061463762 .. 0.084297159]
+R	nav_esa	mem_results	817	count	
+R	nav_esa	mem_checksum	77915707478	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	nav_ukkonen	mem_first_call_s	0.075873749	s	cold JIT included
+R	nav_ukkonen	mem_warm_median_s	0.049024223	s	median of 9 warm calls (2..10) [0.046870023 .. 0.058390353]
+R	nav_ukkonen	mem_steady_median_s	0.04869825	s	median of the last 5 calls [0.046870023 .. 0.049024223]
+R	nav_ukkonen	mem_results	817	count	
+R	nav_ukkonen	mem_checksum	77915707478	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	nav_check	mem_equal	1	bool	the ESA answer equals the Ukkonen tree's
+R	nav	peak_rss_hwm	1901031424	bytes	VmHWM of the process at the end
+# process input=dna_10m op=mum run=1 commit=d4c3a5781f load=1.05 2026-11-09T18:38:10Z options: 
+R	nav	text_chars	10000000	chars	dna_10m, op mum
+R	nav	build_esa_s	0.917202297	s	EsaIndex.Build (child layout Tagged), cold JIT
+R	nav	pack_built_before	0	bool	the navigation pack must not exist before the first matching call
+R	nav	query_chars	100000	chars	dna_10m.memq100k, minLength 20
+R	nav	pack_build_s	0.095625154	s	ISA + LCP pyramid (fanout 32) + pinned views, cold JIT; paid once by the first suffix-link user
+R	nav	pack_bytes_per_char	4.129034	B/char	ISA 4.000 + pyramid 0.129 (5 levels)
+R	nav	pyramid_build_s	0.018207787	s	second build, warm (5 levels)
+R	nav_ukkonen	build_s	12.628964427	s	in-memory Ukkonen tree, same process
+R	nav_esa	mum_first_call_s	0.074481031	s	cold JIT included
+R	nav_esa	mum_warm_median_s	0.044916431	s	median of 9 warm calls (2..10) [0.037167052 .. 0.051669296]
+R	nav_esa	mum_steady_median_s	0.048968531	s	median of the last 5 calls [0.038799441 .. 0.050887317]
+R	nav_esa	mum_results	816	count	
+R	nav_esa	mum_checksum	77611505947	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	nav_ukkonen	mum_first_call_s	0.056527301	s	cold JIT included
+R	nav_ukkonen	mum_warm_median_s	0.035077772	s	median of 9 warm calls (2..10) [0.030068435 .. 0.044901062]
+R	nav_ukkonen	mum_steady_median_s	0.031503169	s	median of the last 5 calls [0.030068435 .. 0.040135376]
+R	nav_ukkonen	mum_results	816	count	
+R	nav_ukkonen	mum_checksum	77611505947	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	nav_check	mum_equal	1	bool	the ESA answer equals the Ukkonen tree's
+R	nav	peak_rss_hwm	1898471424	bytes	VmHWM of the process at the end
+# process input=dna_10m op=mum run=2 commit=d4c3a5781f load=1.04 2026-11-09T18:38:25Z options: 
+R	nav	text_chars	10000000	chars	dna_10m, op mum
+R	nav	build_esa_s	1.001565472	s	EsaIndex.Build (child layout Tagged), cold JIT
+R	nav	pack_built_before	0	bool	the navigation pack must not exist before the first matching call
+R	nav	query_chars	100000	chars	dna_10m.memq100k, minLength 20
+R	nav	pack_build_s	0.098336215	s	ISA + LCP pyramid (fanout 32) + pinned views, cold JIT; paid once by the first suffix-link user
+R	nav	pack_bytes_per_char	4.129034	B/char	ISA 4.000 + pyramid 0.129 (5 levels)
+R	nav	pyramid_build_s	0.01826476	s	second build, warm (5 levels)
+R	nav_ukkonen	build_s	13.193642955	s	in-memory Ukkonen tree, same process
+R	nav_esa	mum_first_call_s	0.078209304	s	cold JIT included
+R	nav_esa	mum_warm_median_s	0.041825014	s	median of 9 warm calls (2..10) [0.040270842 .. 0.046696184]
+R	nav_esa	mum_steady_median_s	0.041571758	s	median of the last 5 calls [0.040270842 .. 0.043124921]
+R	nav_esa	mum_results	816	count	
+R	nav_esa	mum_checksum	77611505947	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	nav_ukkonen	mum_first_call_s	0.056395002	s	cold JIT included
+R	nav_ukkonen	mum_warm_median_s	0.029369355	s	median of 9 warm calls (2..10) [0.027927299 .. 0.043141057]
+R	nav_ukkonen	mum_steady_median_s	0.028544066	s	median of the last 5 calls [0.027927299 .. 0.032432975]
+R	nav_ukkonen	mum_results	816	count	
+R	nav_ukkonen	mum_checksum	77611505947	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	nav_check	mum_equal	1	bool	the ESA answer equals the Ukkonen tree's
+R	nav	peak_rss_hwm	1902071808	bytes	VmHWM of the process at the end
+# process input=dna_10m op=mum run=3 commit=d4c3a5781f load=1.03 2026-11-09T18:38:40Z options: 
+R	nav	text_chars	10000000	chars	dna_10m, op mum
+R	nav	build_esa_s	1.09755747	s	EsaIndex.Build (child layout Tagged), cold JIT
+R	nav	pack_built_before	0	bool	the navigation pack must not exist before the first matching call
+R	nav	query_chars	100000	chars	dna_10m.memq100k, minLength 20
+R	nav	pack_build_s	0.098685184	s	ISA + LCP pyramid (fanout 32) + pinned views, cold JIT; paid once by the first suffix-link user
+R	nav	pack_bytes_per_char	4.129034	B/char	ISA 4.000 + pyramid 0.129 (5 levels)
+R	nav	pyramid_build_s	0.018221782	s	second build, warm (5 levels)
+R	nav_ukkonen	build_s	13.167006875	s	in-memory Ukkonen tree, same process
+R	nav_esa	mum_first_call_s	0.083764901	s	cold JIT included
+R	nav_esa	mum_warm_median_s	0.043549862	s	median of 9 warm calls (2..10) [0.042106736 .. 0.052688937]
+R	nav_esa	mum_steady_median_s	0.0427682	s	median of the last 5 calls [0.042106736 .. 0.043549862]
+R	nav_esa	mum_results	816	count	
+R	nav_esa	mum_checksum	77611505947	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	nav_ukkonen	mum_first_call_s	0.057243689	s	cold JIT included
+R	nav_ukkonen	mum_warm_median_s	0.032790086	s	median of 9 warm calls (2..10) [0.031399071 .. 0.044489027]
+R	nav_ukkonen	mum_steady_median_s	0.031911568	s	median of the last 5 calls [0.031399071 .. 0.032790086]
+R	nav_ukkonen	mum_results	816	count	
+R	nav_ukkonen	mum_checksum	77611505947	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	nav_check	mum_equal	1	bool	the ESA answer equals the Ukkonen tree's
+R	nav	peak_rss_hwm	1902530560	bytes	VmHWM of the process at the end
+# process input=dna_10m op=mum run=4 commit=d4c3a5781f load=1.02 2026-11-09T18:38:56Z options: 
+R	nav	text_chars	10000000	chars	dna_10m, op mum
+R	nav	build_esa_s	0.981993941	s	EsaIndex.Build (child layout Tagged), cold JIT
+R	nav	pack_built_before	0	bool	the navigation pack must not exist before the first matching call
+R	nav	query_chars	100000	chars	dna_10m.memq100k, minLength 20
+R	nav	pack_build_s	0.09522637	s	ISA + LCP pyramid (fanout 32) + pinned views, cold JIT; paid once by the first suffix-link user
+R	nav	pack_bytes_per_char	4.129034	B/char	ISA 4.000 + pyramid 0.129 (5 levels)
+R	nav	pyramid_build_s	0.018238199	s	second build, warm (5 levels)
+R	nav_ukkonen	build_s	13.063645777	s	in-memory Ukkonen tree, same process
+R	nav_esa	mum_first_call_s	0.078852861	s	cold JIT included
+R	nav_esa	mum_warm_median_s	0.040293138	s	median of 9 warm calls (2..10) [0.039139427 .. 0.04682611]
+R	nav_esa	mum_steady_median_s	0.039903695	s	median of the last 5 calls [0.039139427 .. 0.040840491]
+R	nav_esa	mum_results	816	count	
+R	nav_esa	mum_checksum	77611505947	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	nav_ukkonen	mum_first_call_s	0.05665455	s	cold JIT included
+R	nav_ukkonen	mum_warm_median_s	0.030525294	s	median of 9 warm calls (2..10) [0.029278334 .. 0.043821586]
+R	nav_ukkonen	mum_steady_median_s	0.029804482	s	median of the last 5 calls [0.029278334 .. 0.030967148]
+R	nav_ukkonen	mum_results	816	count	
+R	nav_ukkonen	mum_checksum	77611505947	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	nav_check	mum_equal	1	bool	the ESA answer equals the Ukkonen tree's
+R	nav	peak_rss_hwm	1902174208	bytes	VmHWM of the process at the end
+# process input=dna_10m op=mum run=5 commit=d4c3a5781f load=1.02 2026-11-09T18:39:11Z options: 
+R	nav	text_chars	10000000	chars	dna_10m, op mum
+R	nav	build_esa_s	0.944336327	s	EsaIndex.Build (child layout Tagged), cold JIT
+R	nav	pack_built_before	0	bool	the navigation pack must not exist before the first matching call
+R	nav	query_chars	100000	chars	dna_10m.memq100k, minLength 20
+R	nav	pack_build_s	0.09276711	s	ISA + LCP pyramid (fanout 32) + pinned views, cold JIT; paid once by the first suffix-link user
+R	nav	pack_bytes_per_char	4.129034	B/char	ISA 4.000 + pyramid 0.129 (5 levels)
+R	nav	pyramid_build_s	0.016082204	s	second build, warm (5 levels)
+R	nav_ukkonen	build_s	13.067187523	s	in-memory Ukkonen tree, same process
+R	nav_esa	mum_first_call_s	0.075736108	s	cold JIT included
+R	nav_esa	mum_warm_median_s	0.037657294	s	median of 9 warm calls (2..10) [0.036035038 .. 0.043912714]
+R	nav_esa	mum_steady_median_s	0.036922561	s	median of the last 5 calls [0.036035038 .. 0.037743068]
+R	nav_esa	mum_results	816	count	
+R	nav_esa	mum_checksum	77611505947	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	nav_ukkonen	mum_first_call_s	0.055629654	s	cold JIT included
+R	nav_ukkonen	mum_warm_median_s	0.028954285	s	median of 9 warm calls (2..10) [0.028031656 .. 0.043572432]
+R	nav_ukkonen	mum_steady_median_s	0.028379911	s	median of the last 5 calls [0.028031656 .. 0.028954285]
+R	nav_ukkonen	mum_results	816	count	
+R	nav_ukkonen	mum_checksum	77611505947	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	nav_check	mum_equal	1	bool	the ESA answer equals the Ukkonen tree's
+R	nav	peak_rss_hwm	1902104576	bytes	VmHWM of the process at the end
+# process input=dna_10m op=anchors run=1 commit=d4c3a5781f load=1.01 2026-11-09T18:39:26Z options: 
+R	nav	text_chars	10000000	chars	dna_10m, op anchors
+R	nav	build_esa_s	0.978926502	s	EsaIndex.Build (child layout Tagged), cold JIT
+R	nav	pack_built_before	0	bool	the navigation pack must not exist before the first matching call
+R	nav	query_chars	100000	chars	dna_10m.memq100k, minLength 20
+R	nav	pack_build_s	0.094569343	s	ISA + LCP pyramid (fanout 32) + pinned views, cold JIT; paid once by the first suffix-link user
+R	nav	pack_bytes_per_char	4.129034	B/char	ISA 4.000 + pyramid 0.129 (5 levels)
+R	nav	pyramid_build_s	0.01821026	s	second build, warm (5 levels)
+R	nav_ukkonen	build_s	12.704022926	s	in-memory Ukkonen tree, same process
+R	nav_esa	anchors_first_call_s	0.074566984	s	cold JIT included
+R	nav_esa	anchors_warm_median_s	0.036588179	s	median of 9 warm calls (2..10) [0.035351916 .. 0.041807435]
+R	nav_esa	anchors_steady_median_s	0.036011435	s	median of the last 5 calls [0.035351916 .. 0.036943131]
+R	nav_esa	anchors_results	816	count	
+R	nav_esa	anchors_checksum	77611505947	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	nav_ukkonen	anchors_first_call_s	0.051237912	s	cold JIT included
+R	nav_ukkonen	anchors_warm_median_s	0.025575522	s	median of 9 warm calls (2..10) [0.024186937 .. 0.039696245]
+R	nav_ukkonen	anchors_steady_median_s	0.025122695	s	median of the last 5 calls [0.024186937 .. 0.025575522]
+R	nav_ukkonen	anchors_results	816	count	
+R	nav_ukkonen	anchors_checksum	77611505947	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	nav_check	anchors_equal	1	bool	the ESA answer equals the Ukkonen tree's
+R	nav	peak_rss_hwm	1902497792	bytes	VmHWM of the process at the end
+# process input=dna_10m op=anchors run=2 commit=d4c3a5781f load=1.01 2026-11-09T18:39:41Z options: 
+R	nav	text_chars	10000000	chars	dna_10m, op anchors
+R	nav	build_esa_s	1.01597305	s	EsaIndex.Build (child layout Tagged), cold JIT
+R	nav	pack_built_before	0	bool	the navigation pack must not exist before the first matching call
+R	nav	query_chars	100000	chars	dna_10m.memq100k, minLength 20
+R	nav	pack_build_s	0.097057462	s	ISA + LCP pyramid (fanout 32) + pinned views, cold JIT; paid once by the first suffix-link user
+R	nav	pack_bytes_per_char	4.129034	B/char	ISA 4.000 + pyramid 0.129 (5 levels)
+R	nav	pyramid_build_s	0.018395018	s	second build, warm (5 levels)
+R	nav_ukkonen	build_s	12.635367585	s	in-memory Ukkonen tree, same process
+R	nav_esa	anchors_first_call_s	0.08042916	s	cold JIT included
+R	nav_esa	anchors_warm_median_s	0.042557456	s	median of 9 warm calls (2..10) [0.040565609 .. 0.048441868]
+R	nav_esa	anchors_steady_median_s	0.042224562	s	median of the last 5 calls [0.040565609 .. 0.042557456]
+R	nav_esa	anchors_results	816	count	
+R	nav_esa	anchors_checksum	77611505947	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	nav_ukkonen	anchors_first_call_s	0.053818488	s	cold JIT included
+R	nav_ukkonen	anchors_warm_median_s	0.030193846	s	median of 9 warm calls (2..10) [0.028847354 .. 0.042122065]
+R	nav_ukkonen	anchors_steady_median_s	0.029441822	s	median of the last 5 calls [0.028847354 .. 0.030193846]
+R	nav_ukkonen	anchors_results	816	count	
+R	nav_ukkonen	anchors_checksum	77611505947	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	nav_check	anchors_equal	1	bool	the ESA answer equals the Ukkonen tree's
+R	nav	peak_rss_hwm	1902579712	bytes	VmHWM of the process at the end
+# process input=dna_10m op=anchors run=3 commit=d4c3a5781f load=1.01 2026-11-09T18:39:55Z options: 
+R	nav	text_chars	10000000	chars	dna_10m, op anchors
+R	nav	build_esa_s	0.989295882	s	EsaIndex.Build (child layout Tagged), cold JIT
+R	nav	pack_built_before	0	bool	the navigation pack must not exist before the first matching call
+R	nav	query_chars	100000	chars	dna_10m.memq100k, minLength 20
+R	nav	pack_build_s	0.097520863	s	ISA + LCP pyramid (fanout 32) + pinned views, cold JIT; paid once by the first suffix-link user
+R	nav	pack_bytes_per_char	4.129034	B/char	ISA 4.000 + pyramid 0.129 (5 levels)
+R	nav	pyramid_build_s	0.018255759	s	second build, warm (5 levels)
+R	nav_ukkonen	build_s	13.27558157	s	in-memory Ukkonen tree, same process
+R	nav_esa	anchors_first_call_s	0.076047368	s	cold JIT included
+R	nav_esa	anchors_warm_median_s	0.040552133	s	median of 9 warm calls (2..10) [0.039365201 .. 0.045134357]
+R	nav_esa	anchors_steady_median_s	0.0395097	s	median of the last 5 calls [0.039365201 .. 0.040552133]
+R	nav_esa	anchors_results	816	count	
+R	nav_esa	anchors_checksum	77611505947	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	nav_ukkonen	anchors_first_call_s	0.050777804	s	cold JIT included
+R	nav_ukkonen	anchors_warm_median_s	0.030663742	s	median of 9 warm calls (2..10) [0.028446406 .. 0.040841363]
+R	nav_ukkonen	anchors_steady_median_s	0.028971056	s	median of the last 5 calls [0.028446406 .. 0.030663742]
+R	nav_ukkonen	anchors_results	816	count	
+R	nav_ukkonen	anchors_checksum	77611505947	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	nav_check	anchors_equal	1	bool	the ESA answer equals the Ukkonen tree's
+R	nav	peak_rss_hwm	1902034944	bytes	VmHWM of the process at the end
+# process input=dna_10m op=anchors run=4 commit=d4c3a5781f load=1.00 2026-11-09T18:40:11Z options: 
+R	nav	text_chars	10000000	chars	dna_10m, op anchors
+R	nav	build_esa_s	0.951867663	s	EsaIndex.Build (child layout Tagged), cold JIT
+R	nav	pack_built_before	0	bool	the navigation pack must not exist before the first matching call
+R	nav	query_chars	100000	chars	dna_10m.memq100k, minLength 20
+R	nav	pack_build_s	0.104359309	s	ISA + LCP pyramid (fanout 32) + pinned views, cold JIT; paid once by the first suffix-link user
+R	nav	pack_bytes_per_char	4.129034	B/char	ISA 4.000 + pyramid 0.129 (5 levels)
+R	nav	pyramid_build_s	0.015893175	s	second build, warm (5 levels)
+R	nav_ukkonen	build_s	13.011914124	s	in-memory Ukkonen tree, same process
+R	nav_esa	anchors_first_call_s	0.072022441	s	cold JIT included
+R	nav_esa	anchors_warm_median_s	0.037387448	s	median of 9 warm calls (2..10) [0.035492969 .. 0.043962914]
+R	nav_esa	anchors_steady_median_s	0.03597656	s	median of the last 5 calls [0.035492969 .. 0.03751548]
+R	nav_esa	anchors_results	816	count	
+R	nav_esa	anchors_checksum	77611505947	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	nav_ukkonen	anchors_first_call_s	0.051155847	s	cold JIT included
+R	nav_ukkonen	anchors_warm_median_s	0.027803506	s	median of 9 warm calls (2..10) [0.026280644 .. 0.04043782]
+R	nav_ukkonen	anchors_steady_median_s	0.027154582	s	median of the last 5 calls [0.026280644 .. 0.027803506]
+R	nav_ukkonen	anchors_results	816	count	
+R	nav_ukkonen	anchors_checksum	77611505947	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	nav_check	anchors_equal	1	bool	the ESA answer equals the Ukkonen tree's
+R	nav	peak_rss_hwm	1902596096	bytes	VmHWM of the process at the end
+# process input=dna_10m op=anchors run=5 commit=d4c3a5781f load=1.00 2026-11-09T18:40:26Z options: 
+R	nav	text_chars	10000000	chars	dna_10m, op anchors
+R	nav	build_esa_s	0.952685837	s	EsaIndex.Build (child layout Tagged), cold JIT
+R	nav	pack_built_before	0	bool	the navigation pack must not exist before the first matching call
+R	nav	query_chars	100000	chars	dna_10m.memq100k, minLength 20
+R	nav	pack_build_s	0.093455751	s	ISA + LCP pyramid (fanout 32) + pinned views, cold JIT; paid once by the first suffix-link user
+R	nav	pack_bytes_per_char	4.129034	B/char	ISA 4.000 + pyramid 0.129 (5 levels)
+R	nav	pyramid_build_s	0.016170638	s	second build, warm (5 levels)
+R	nav_ukkonen	build_s	12.64888959	s	in-memory Ukkonen tree, same process
+R	nav_esa	anchors_first_call_s	0.079725643	s	cold JIT included
+R	nav_esa	anchors_warm_median_s	0.046142486	s	median of 9 warm calls (2..10) [0.041765848 .. 0.057478515]
+R	nav_esa	anchors_steady_median_s	0.043877476	s	median of the last 5 calls [0.041765848 .. 0.046142486]
+R	nav_esa	anchors_results	816	count	
+R	nav_esa	anchors_checksum	77611505947	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	nav_ukkonen	anchors_first_call_s	0.051909937	s	cold JIT included
+R	nav_ukkonen	anchors_warm_median_s	0.028610268	s	median of 9 warm calls (2..10) [0.0278803 .. 0.041178982]
+R	nav_ukkonen	anchors_steady_median_s	0.028283202	s	median of the last 5 calls [0.0278803 .. 0.028610268]
+R	nav_ukkonen	anchors_results	816	count	
+R	nav_ukkonen	anchors_checksum	77611505947	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	nav_check	anchors_equal	1	bool	the ESA answer equals the Ukkonen tree's
+R	nav	peak_rss_hwm	1898364928	bytes	VmHWM of the process at the end
+# process input=rep_10m op=mem run=1 commit=d4c3a5781f load=1.00 2026-11-09T18:40:40Z options: 
+R	nav	text_chars	10000000	chars	rep_10m, op mem
+R	nav	build_esa_s	1.098481376	s	EsaIndex.Build (child layout Tagged), cold JIT
+R	nav	pack_built_before	0	bool	the navigation pack must not exist before the first matching call
+R	nav	query_chars	100000	chars	rep_10m.memq100k, minLength 20
+R	nav	pack_build_s	0.109616862	s	ISA + LCP pyramid (fanout 32) + pinned views, cold JIT; paid once by the first suffix-link user
+R	nav	pack_bytes_per_char	4.129034	B/char	ISA 4.000 + pyramid 0.129 (5 levels)
+R	nav	pyramid_build_s	0.023472324	s	second build, warm (5 levels)
+R	nav_ukkonen	build_s	9.041111295	s	in-memory Ukkonen tree, same process
+R	nav_esa	mem_first_call_s	0.247084588	s	cold JIT included
+R	nav_esa	mem_warm_median_s	0.179966585	s	median of 9 warm calls (2..10) [0.177909038 .. 0.24176039]
+R	nav_esa	mem_steady_median_s	0.185049714	s	median of the last 5 calls [0.178215869 .. 0.213129862]
+R	nav_esa	mem_results	160979	count	
+R	nav_esa	mem_checksum	25158196373282	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	nav_ukkonen	mem_first_call_s	0.525651769	s	cold JIT included
+R	nav_ukkonen	mem_warm_median_s	0.397894239	s	median of 9 warm calls (2..10) [0.387174269 .. 0.475953468]
+R	nav_ukkonen	mem_steady_median_s	0.394583452	s	median of the last 5 calls [0.387174269 .. 0.451952898]
+R	nav_ukkonen	mem_results	160979	count	
+R	nav_ukkonen	mem_checksum	25158196373282	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	nav_check	mem_equal	1	bool	the ESA answer equals the Ukkonen tree's
+R	nav	peak_rss_hwm	2294423552	bytes	VmHWM of the process at the end
+# process input=rep_10m op=mem run=2 commit=d4c3a5781f load=1.00 2026-11-09T18:40:57Z options: 
+R	nav	text_chars	10000000	chars	rep_10m, op mem
+R	nav	build_esa_s	1.02201393	s	EsaIndex.Build (child layout Tagged), cold JIT
+R	nav	pack_built_before	0	bool	the navigation pack must not exist before the first matching call
+R	nav	query_chars	100000	chars	rep_10m.memq100k, minLength 20
+R	nav	pack_build_s	0.117328544	s	ISA + LCP pyramid (fanout 32) + pinned views, cold JIT; paid once by the first suffix-link user
+R	nav	pack_bytes_per_char	4.129034	B/char	ISA 4.000 + pyramid 0.129 (5 levels)
+R	nav	pyramid_build_s	0.023083228	s	second build, warm (5 levels)
+R	nav_ukkonen	build_s	8.085692998	s	in-memory Ukkonen tree, same process
+R	nav_esa	mem_first_call_s	0.27328423	s	cold JIT included
+R	nav_esa	mem_warm_median_s	0.175551839	s	median of 9 warm calls (2..10) [0.169245232 .. 0.187054296]
+R	nav_esa	mem_steady_median_s	0.178417092	s	median of the last 5 calls [0.169245232 .. 0.187054296]
+R	nav_esa	mem_results	160979	count	
+R	nav_esa	mem_checksum	25158196373282	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	nav_ukkonen	mem_first_call_s	0.511870459	s	cold JIT included
+R	nav_ukkonen	mem_warm_median_s	0.379017101	s	median of 9 warm calls (2..10) [0.372768566 .. 0.436618984]
+R	nav_ukkonen	mem_steady_median_s	0.378043938	s	median of the last 5 calls [0.372768566 .. 0.436618984]
+R	nav_ukkonen	mem_results	160979	count	
+R	nav_ukkonen	mem_checksum	25158196373282	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	nav_check	mem_equal	1	bool	the ESA answer equals the Ukkonen tree's
+R	nav	peak_rss_hwm	2294657024	bytes	VmHWM of the process at the end
+# process input=rep_10m op=mem run=3 commit=d4c3a5781f load=1.00 2026-11-09T18:41:12Z options: 
+R	nav	text_chars	10000000	chars	rep_10m, op mem
+R	nav	build_esa_s	1.100634258	s	EsaIndex.Build (child layout Tagged), cold JIT
+R	nav	pack_built_before	0	bool	the navigation pack must not exist before the first matching call
+R	nav	query_chars	100000	chars	rep_10m.memq100k, minLength 20
+R	nav	pack_build_s	0.110017016	s	ISA + LCP pyramid (fanout 32) + pinned views, cold JIT; paid once by the first suffix-link user
+R	nav	pack_bytes_per_char	4.129034	B/char	ISA 4.000 + pyramid 0.129 (5 levels)
+R	nav	pyramid_build_s	0.023430393	s	second build, warm (5 levels)
+R	nav_ukkonen	build_s	8.385948654	s	in-memory Ukkonen tree, same process
+R	nav_esa	mem_first_call_s	0.251218996	s	cold JIT included
+R	nav_esa	mem_warm_median_s	0.184678664	s	median of 9 warm calls (2..10) [0.175675637 .. 0.201452267]
+R	nav_esa	mem_steady_median_s	0.177629749	s	median of the last 5 calls [0.175675637 .. 0.184678664]
+R	nav_esa	mem_results	160979	count	
+R	nav_esa	mem_checksum	25158196373282	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	nav_ukkonen	mem_first_call_s	0.516838875	s	cold JIT included
+R	nav_ukkonen	mem_warm_median_s	0.381861749	s	median of 9 warm calls (2..10) [0.37037211 .. 0.388975884]
+R	nav_ukkonen	mem_steady_median_s	0.381861749	s	median of the last 5 calls [0.376612943 .. 0.388975884]
+R	nav_ukkonen	mem_results	160979	count	
+R	nav_ukkonen	mem_checksum	25158196373282	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	nav_check	mem_equal	1	bool	the ESA answer equals the Ukkonen tree's
+R	nav	peak_rss_hwm	2294550528	bytes	VmHWM of the process at the end
+# process input=rep_10m op=mem run=4 commit=d4c3a5781f load=1.00 2026-11-09T18:41:28Z options: 
+R	nav	text_chars	10000000	chars	rep_10m, op mem
+R	nav	build_esa_s	1.103440694	s	EsaIndex.Build (child layout Tagged), cold JIT
+R	nav	pack_built_before	0	bool	the navigation pack must not exist before the first matching call
+R	nav	query_chars	100000	chars	rep_10m.memq100k, minLength 20
+R	nav	pack_build_s	0.11098799	s	ISA + LCP pyramid (fanout 32) + pinned views, cold JIT; paid once by the first suffix-link user
+R	nav	pack_bytes_per_char	4.129034	B/char	ISA 4.000 + pyramid 0.129 (5 levels)
+R	nav	pyramid_build_s	0.023421413	s	second build, warm (5 levels)
+R	nav_ukkonen	build_s	8.306665289	s	in-memory Ukkonen tree, same process
+R	nav_esa	mem_first_call_s	0.28160712	s	cold JIT included
+R	nav_esa	mem_warm_median_s	0.181146673	s	median of 9 warm calls (2..10) [0.175061648 .. 0.186274979]
+R	nav_esa	mem_steady_median_s	0.182105125	s	median of the last 5 calls [0.176688761 .. 0.184627223]
+R	nav_esa	mem_results	160979	count	
+R	nav_esa	mem_checksum	25158196373282	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	nav_ukkonen	mem_first_call_s	0.512128652	s	cold JIT included
+R	nav_ukkonen	mem_warm_median_s	0.381339584	s	median of 9 warm calls (2..10) [0.369882554 .. 0.45037435]
+R	nav_ukkonen	mem_steady_median_s	0.408800234	s	median of the last 5 calls [0.369882554 .. 0.45037435]
+R	nav_ukkonen	mem_results	160979	count	
+R	nav_ukkonen	mem_checksum	25158196373282	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	nav_check	mem_equal	1	bool	the ESA answer equals the Ukkonen tree's
+R	nav	peak_rss_hwm	2294808576	bytes	VmHWM of the process at the end
+# process input=rep_10m op=mem run=5 commit=d4c3a5781f load=1.00 2026-11-09T18:41:44Z options: 
+R	nav	text_chars	10000000	chars	rep_10m, op mem
+R	nav	build_esa_s	1.080856582	s	EsaIndex.Build (child layout Tagged), cold JIT
+R	nav	pack_built_before	0	bool	the navigation pack must not exist before the first matching call
+R	nav	query_chars	100000	chars	rep_10m.memq100k, minLength 20
+R	nav	pack_build_s	0.106186874	s	ISA + LCP pyramid (fanout 32) + pinned views, cold JIT; paid once by the first suffix-link user
+R	nav	pack_bytes_per_char	4.129034	B/char	ISA 4.000 + pyramid 0.129 (5 levels)
+R	nav	pyramid_build_s	0.022669363	s	second build, warm (5 levels)
+R	nav_ukkonen	build_s	8.448860445	s	in-memory Ukkonen tree, same process
+R	nav_esa	mem_first_call_s	0.251792624	s	cold JIT included
+R	nav_esa	mem_warm_median_s	0.185510229	s	median of 9 warm calls (2..10) [0.179555234 .. 0.19536811]
+R	nav_esa	mem_steady_median_s	0.184346601	s	median of the last 5 calls [0.179555234 .. 0.19536811]
+R	nav_esa	mem_results	160979	count	
+R	nav_esa	mem_checksum	25158196373282	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	nav_ukkonen	mem_first_call_s	0.656412864	s	cold JIT included
+R	nav_ukkonen	mem_warm_median_s	0.368990234	s	median of 9 warm calls (2..10) [0.356570841 .. 0.396921484]
+R	nav_ukkonen	mem_steady_median_s	0.358625589	s	median of the last 5 calls [0.356570841 .. 0.386268481]
+R	nav_ukkonen	mem_results	160979	count	
+R	nav_ukkonen	mem_checksum	25158196373282	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	nav_check	mem_equal	1	bool	the ESA answer equals the Ukkonen tree's
+R	nav	peak_rss_hwm	2294558720	bytes	VmHWM of the process at the end
+# process input=rep_10m op=mum run=1 commit=d4c3a5781f load=1.00 2026-11-09T18:41:59Z options: 
+R	nav	text_chars	10000000	chars	rep_10m, op mum
+R	nav	build_esa_s	1.03287362	s	EsaIndex.Build (child layout Tagged), cold JIT
+R	nav	pack_built_before	0	bool	the navigation pack must not exist before the first matching call
+R	nav	query_chars	100000	chars	rep_10m.memq100k, minLength 20
+R	nav	pack_build_s	0.105482178	s	ISA + LCP pyramid (fanout 32) + pinned views, cold JIT; paid once by the first suffix-link user
+R	nav	pack_bytes_per_char	4.129034	B/char	ISA 4.000 + pyramid 0.129 (5 levels)
+R	nav	pyramid_build_s	0.022726167	s	second build, warm (5 levels)
+R	nav_ukkonen	build_s	8.300364421	s	in-memory Ukkonen tree, same process
+R	nav_esa	mum_first_call_s	0.096330961	s	cold JIT included
+R	nav_esa	mum_warm_median_s	0.03130522	s	median of 9 warm calls (2..10) [0.029657969 .. 0.04203296]
+R	nav_esa	mum_steady_median_s	0.030073847	s	median of the last 5 calls [0.029657969 .. 0.03130522]
+R	nav_esa	mum_results	682	count	
+R	nav_esa	mum_checksum	73124093001	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	nav_ukkonen	mum_first_call_s	0.036399951	s	cold JIT included
+R	nav_ukkonen	mum_warm_median_s	0.017979878	s	median of 9 warm calls (2..10) [0.017474968 .. 0.028151444]
+R	nav_ukkonen	mum_steady_median_s	0.017838386	s	median of the last 5 calls [0.017474968 .. 0.018013253]
+R	nav_ukkonen	mum_results	682	count	
+R	nav_ukkonen	mum_checksum	73124093001	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	nav_check	mum_equal	1	bool	the ESA answer equals the Ukkonen tree's
+R	nav	peak_rss_hwm	2156969984	bytes	VmHWM of the process at the end
+# process input=rep_10m op=mum run=2 commit=d4c3a5781f load=1.00 2026-11-09T18:42:10Z options: 
+R	nav	text_chars	10000000	chars	rep_10m, op mum
+R	nav	build_esa_s	1.102872145	s	EsaIndex.Build (child layout Tagged), cold JIT
+R	nav	pack_built_before	0	bool	the navigation pack must not exist before the first matching call
+R	nav	query_chars	100000	chars	rep_10m.memq100k, minLength 20
+R	nav	pack_build_s	0.109144284	s	ISA + LCP pyramid (fanout 32) + pinned views, cold JIT; paid once by the first suffix-link user
+R	nav	pack_bytes_per_char	4.129034	B/char	ISA 4.000 + pyramid 0.129 (5 levels)
+R	nav	pyramid_build_s	0.023793832	s	second build, warm (5 levels)
+R	nav_ukkonen	build_s	8.080196308	s	in-memory Ukkonen tree, same process
+R	nav_esa	mum_first_call_s	0.068683332	s	cold JIT included
+R	nav_esa	mum_warm_median_s	0.028936739	s	median of 9 warm calls (2..10) [0.027084626 .. 0.034804932]
+R	nav_esa	mum_steady_median_s	0.028230235	s	median of the last 5 calls [0.027084626 .. 0.028936739]
+R	nav_esa	mum_results	682	count	
+R	nav_esa	mum_checksum	73124093001	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	nav_ukkonen	mum_first_call_s	0.035576195	s	cold JIT included
+R	nav_ukkonen	mum_warm_median_s	0.015575541	s	median of 9 warm calls (2..10) [0.013190546 .. 0.026767497]
+R	nav_ukkonen	mum_steady_median_s	0.014410678	s	median of the last 5 calls [0.013190546 .. 0.016634433]
+R	nav_ukkonen	mum_results	682	count	
+R	nav_ukkonen	mum_checksum	73124093001	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	nav_check	mum_equal	1	bool	the ESA answer equals the Ukkonen tree's
+R	nav	peak_rss_hwm	2153259008	bytes	VmHWM of the process at the end
+# process input=rep_10m op=mum run=3 commit=d4c3a5781f load=1.00 2026-11-09T18:42:20Z options: 
+R	nav	text_chars	10000000	chars	rep_10m, op mum
+R	nav	build_esa_s	1.123051611	s	EsaIndex.Build (child layout Tagged), cold JIT
+R	nav	pack_built_before	0	bool	the navigation pack must not exist before the first matching call
+R	nav	query_chars	100000	chars	rep_10m.memq100k, minLength 20
+R	nav	pack_build_s	0.113827574	s	ISA + LCP pyramid (fanout 32) + pinned views, cold JIT; paid once by the first suffix-link user
+R	nav	pack_bytes_per_char	4.129034	B/char	ISA 4.000 + pyramid 0.129 (5 levels)
+R	nav	pyramid_build_s	0.023606085	s	second build, warm (5 levels)
+R	nav_ukkonen	build_s	8.362218169	s	in-memory Ukkonen tree, same process
+R	nav_esa	mum_first_call_s	0.064608362	s	cold JIT included
+R	nav_esa	mum_warm_median_s	0.038506529	s	median of 9 warm calls (2..10) [0.025953131 .. 0.045608941]
+R	nav_esa	mum_steady_median_s	0.040854146	s	median of the last 5 calls [0.025953131 .. 0.04477434]
+R	nav_esa	mum_results	682	count	
+R	nav_esa	mum_checksum	73124093001	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	nav_ukkonen	mum_first_call_s	0.03325609	s	cold JIT included
+R	nav_ukkonen	mum_warm_median_s	0.013696278	s	median of 9 warm calls (2..10) [0.012800138 .. 0.026015735]
+R	nav_ukkonen	mum_steady_median_s	0.013407231	s	median of the last 5 calls [0.012800138 .. 0.013696278]
+R	nav_ukkonen	mum_results	682	count	
+R	nav_ukkonen	mum_checksum	73124093001	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	nav_check	mum_equal	1	bool	the ESA answer equals the Ukkonen tree's
+R	nav	peak_rss_hwm	2157023232	bytes	VmHWM of the process at the end
+# process input=rep_10m op=mum run=4 commit=d4c3a5781f load=1.00 2026-11-09T18:42:30Z options: 
+R	nav	text_chars	10000000	chars	rep_10m, op mum
+R	nav	build_esa_s	1.108898885	s	EsaIndex.Build (child layout Tagged), cold JIT
+R	nav	pack_built_before	0	bool	the navigation pack must not exist before the first matching call
+R	nav	query_chars	100000	chars	rep_10m.memq100k, minLength 20
+R	nav	pack_build_s	0.110929529	s	ISA + LCP pyramid (fanout 32) + pinned views, cold JIT; paid once by the first suffix-link user
+R	nav	pack_bytes_per_char	4.129034	B/char	ISA 4.000 + pyramid 0.129 (5 levels)
+R	nav	pyramid_build_s	0.023395196	s	second build, warm (5 levels)
+R	nav_ukkonen	build_s	8.230391003	s	in-memory Ukkonen tree, same process
+R	nav_esa	mum_first_call_s	0.076978502	s	cold JIT included
+R	nav_esa	mum_warm_median_s	0.034618484	s	median of 9 warm calls (2..10) [0.029877029 .. 0.038872607]
+R	nav_esa	mum_steady_median_s	0.033079607	s	median of the last 5 calls [0.029877029 .. 0.037879816]
+R	nav_esa	mum_results	682	count	
+R	nav_esa	mum_checksum	73124093001	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	nav_ukkonen	mum_first_call_s	0.035516195	s	cold JIT included
+R	nav_ukkonen	mum_warm_median_s	0.018803514	s	median of 9 warm calls (2..10) [0.017072719 .. 0.02731718]
+R	nav_ukkonen	mum_steady_median_s	0.017207822	s	median of the last 5 calls [0.017072719 .. 0.018803514]
+R	nav_ukkonen	mum_results	682	count	
+R	nav_ukkonen	mum_checksum	73124093001	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	nav_check	mum_equal	1	bool	the ESA answer equals the Ukkonen tree's
+R	nav	peak_rss_hwm	2157023232	bytes	VmHWM of the process at the end
+# process input=rep_10m op=mum run=5 commit=d4c3a5781f load=1.00 2026-11-09T18:42:40Z options: 
+R	nav	text_chars	10000000	chars	rep_10m, op mum
+R	nav	build_esa_s	1.042284098	s	EsaIndex.Build (child layout Tagged), cold JIT
+R	nav	pack_built_before	0	bool	the navigation pack must not exist before the first matching call
+R	nav	query_chars	100000	chars	rep_10m.memq100k, minLength 20
+R	nav	pack_build_s	0.106063417	s	ISA + LCP pyramid (fanout 32) + pinned views, cold JIT; paid once by the first suffix-link user
+R	nav	pack_bytes_per_char	4.129034	B/char	ISA 4.000 + pyramid 0.129 (5 levels)
+R	nav	pyramid_build_s	0.022710761	s	second build, warm (5 levels)
+R	nav_ukkonen	build_s	8.280161246	s	in-memory Ukkonen tree, same process
+R	nav_esa	mum_first_call_s	0.07160367	s	cold JIT included
+R	nav_esa	mum_warm_median_s	0.032283752	s	median of 9 warm calls (2..10) [0.031760637 .. 0.050087693]
+R	nav_esa	mum_steady_median_s	0.032266297	s	median of the last 5 calls [0.031760637 .. 0.032283752]
+R	nav_esa	mum_results	682	count	
+R	nav_esa	mum_checksum	73124093001	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	nav_ukkonen	mum_first_call_s	0.035776088	s	cold JIT included
+R	nav_ukkonen	mum_warm_median_s	0.019756391	s	median of 9 warm calls (2..10) [0.018898794 .. 0.027908097]
+R	nav_ukkonen	mum_steady_median_s	0.019045768	s	median of the last 5 calls [0.018898794 .. 0.019876391]
+R	nav_ukkonen	mum_results	682	count	
+R	nav_ukkonen	mum_checksum	73124093001	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	nav_check	mum_equal	1	bool	the ESA answer equals the Ukkonen tree's
+R	nav	peak_rss_hwm	2153193472	bytes	VmHWM of the process at the end
+# process input=rep_10m op=anchors run=1 commit=d4c3a5781f load=1.00 2026-11-09T18:42:50Z options: 
+R	nav	text_chars	10000000	chars	rep_10m, op anchors
+R	nav	build_esa_s	1.093691395	s	EsaIndex.Build (child layout Tagged), cold JIT
+R	nav	pack_built_before	0	bool	the navigation pack must not exist before the first matching call
+R	nav	query_chars	100000	chars	rep_10m.memq100k, minLength 20
+R	nav	pack_build_s	0.108290133	s	ISA + LCP pyramid (fanout 32) + pinned views, cold JIT; paid once by the first suffix-link user
+R	nav	pack_bytes_per_char	4.129034	B/char	ISA 4.000 + pyramid 0.129 (5 levels)
+R	nav	pyramid_build_s	0.023392906	s	second build, warm (5 levels)
+R	nav_ukkonen	build_s	8.563571015	s	in-memory Ukkonen tree, same process
+R	nav_esa	anchors_first_call_s	0.069434262	s	cold JIT included
+R	nav_esa	anchors_warm_median_s	0.033711648	s	median of 9 warm calls (2..10) [0.032320206 .. 0.037772397]
+R	nav_esa	anchors_steady_median_s	0.033711648	s	median of the last 5 calls [0.032320206 .. 0.037397353]
+R	nav_esa	anchors_results	715	count	
+R	nav_esa	anchors_checksum	80566387150	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	nav_ukkonen	anchors_first_call_s	0.032467654	s	cold JIT included
+R	nav_ukkonen	anchors_warm_median_s	0.017628423	s	median of 9 warm calls (2..10) [0.016605021 .. 0.026155681]
+R	nav_ukkonen	anchors_steady_median_s	0.017348597	s	median of the last 5 calls [0.016605021 .. 0.017734998]
+R	nav_ukkonen	anchors_results	715	count	
+R	nav_ukkonen	anchors_checksum	80448587150	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	nav_check	anchors_equal	1	bool	the ESA answer equals the Ukkonen tree's
+R	nav	peak_rss_hwm	2156945408	bytes	VmHWM of the process at the end
+# process input=rep_10m op=anchors run=2 commit=d4c3a5781f load=1.00 2026-11-09T18:43:01Z options: 
+R	nav	text_chars	10000000	chars	rep_10m, op anchors
+R	nav	build_esa_s	1.130696042	s	EsaIndex.Build (child layout Tagged), cold JIT
+R	nav	pack_built_before	0	bool	the navigation pack must not exist before the first matching call
+R	nav	query_chars	100000	chars	rep_10m.memq100k, minLength 20
+R	nav	pack_build_s	0.112598276	s	ISA + LCP pyramid (fanout 32) + pinned views, cold JIT; paid once by the first suffix-link user
+R	nav	pack_bytes_per_char	4.129034	B/char	ISA 4.000 + pyramid 0.129 (5 levels)
+R	nav	pyramid_build_s	0.023488549	s	second build, warm (5 levels)
+R	nav_ukkonen	build_s	8.154408219	s	in-memory Ukkonen tree, same process
+R	nav_esa	anchors_first_call_s	0.075417127	s	cold JIT included
+R	nav_esa	anchors_warm_median_s	0.034104985	s	median of 9 warm calls (2..10) [0.030218487 .. 0.045836435]
+R	nav_esa	anchors_steady_median_s	0.031446195	s	median of the last 5 calls [0.030218487 .. 0.034104985]
+R	nav_esa	anchors_results	715	count	
+R	nav_esa	anchors_checksum	80566387150	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	nav_ukkonen	anchors_first_call_s	0.032561293	s	cold JIT included
+R	nav_ukkonen	anchors_warm_median_s	0.016029759	s	median of 9 warm calls (2..10) [0.01494178 .. 0.025786534]
+R	nav_ukkonen	anchors_steady_median_s	0.015796274	s	median of the last 5 calls [0.01494178 .. 0.016646511]
+R	nav_ukkonen	anchors_results	715	count	
+R	nav_ukkonen	anchors_checksum	80448587150	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	nav_check	anchors_equal	1	bool	the ESA answer equals the Ukkonen tree's
+R	nav	peak_rss_hwm	2157064192	bytes	VmHWM of the process at the end
+# process input=rep_10m op=anchors run=3 commit=d4c3a5781f load=1.00 2026-11-09T18:43:11Z options: 
+R	nav	text_chars	10000000	chars	rep_10m, op anchors
+R	nav	build_esa_s	1.145052158	s	EsaIndex.Build (child layout Tagged), cold JIT
+R	nav	pack_built_before	0	bool	the navigation pack must not exist before the first matching call
+R	nav	query_chars	100000	chars	rep_10m.memq100k, minLength 20
+R	nav	pack_build_s	0.11229156	s	ISA + LCP pyramid (fanout 32) + pinned views, cold JIT; paid once by the first suffix-link user
+R	nav	pack_bytes_per_char	4.129034	B/char	ISA 4.000 + pyramid 0.129 (5 levels)
+R	nav	pyramid_build_s	0.022870849	s	second build, warm (5 levels)
+R	nav_ukkonen	build_s	8.166108561	s	in-memory Ukkonen tree, same process
+R	nav_esa	anchors_first_call_s	0.070030076	s	cold JIT included
+R	nav_esa	anchors_warm_median_s	0.028070732	s	median of 9 warm calls (2..10) [0.027498963 .. 0.034607581]
+R	nav_esa	anchors_steady_median_s	0.028019364	s	median of the last 5 calls [0.027498963 .. 0.029011143]
+R	nav_esa	anchors_results	715	count	
+R	nav_esa	anchors_checksum	80566387150	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	nav_ukkonen	anchors_first_call_s	0.03359599	s	cold JIT included
+R	nav_ukkonen	anchors_warm_median_s	0.014412887	s	median of 9 warm calls (2..10) [0.013821441 .. 0.025585083]
+R	nav_ukkonen	anchors_steady_median_s	0.014012788	s	median of the last 5 calls [0.013821441 .. 0.014412887]
+R	nav_ukkonen	anchors_results	715	count	
+R	nav_ukkonen	anchors_checksum	80448587150	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	nav_check	anchors_equal	1	bool	the ESA answer equals the Ukkonen tree's
+R	nav	peak_rss_hwm	2157084672	bytes	VmHWM of the process at the end
+# process input=rep_10m op=anchors run=4 commit=d4c3a5781f load=1.00 2026-11-09T18:43:21Z options: 
+R	nav	text_chars	10000000	chars	rep_10m, op anchors
+R	nav	build_esa_s	1.184761939	s	EsaIndex.Build (child layout Tagged), cold JIT
+R	nav	pack_built_before	0	bool	the navigation pack must not exist before the first matching call
+R	nav	query_chars	100000	chars	rep_10m.memq100k, minLength 20
+R	nav	pack_build_s	0.110850686	s	ISA + LCP pyramid (fanout 32) + pinned views, cold JIT; paid once by the first suffix-link user
+R	nav	pack_bytes_per_char	4.129034	B/char	ISA 4.000 + pyramid 0.129 (5 levels)
+R	nav	pyramid_build_s	0.022841382	s	second build, warm (5 levels)
+R	nav_ukkonen	build_s	7.996977379	s	in-memory Ukkonen tree, same process
+R	nav_esa	anchors_first_call_s	0.070332208	s	cold JIT included
+R	nav_esa	anchors_warm_median_s	0.031927742	s	median of 9 warm calls (2..10) [0.030205625 .. 0.036590672]
+R	nav_esa	anchors_steady_median_s	0.031331169	s	median of the last 5 calls [0.030205625 .. 0.03260066]
+R	nav_esa	anchors_results	715	count	
+R	nav_esa	anchors_checksum	80566387150	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	nav_ukkonen	anchors_first_call_s	0.033759993	s	cold JIT included
+R	nav_ukkonen	anchors_warm_median_s	0.016600038	s	median of 9 warm calls (2..10) [0.015663042 .. 0.026216266]
+R	nav_ukkonen	anchors_steady_median_s	0.015729766	s	median of the last 5 calls [0.015663042 .. 0.016600038]
+R	nav_ukkonen	anchors_results	715	count	
+R	nav_ukkonen	anchors_checksum	80448587150	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	nav_check	anchors_equal	1	bool	the ESA answer equals the Ukkonen tree's
+R	nav	peak_rss_hwm	2153177088	bytes	VmHWM of the process at the end
+# process input=rep_10m op=anchors run=5 commit=d4c3a5781f load=1.00 2026-11-09T18:43:31Z options: 
+R	nav	text_chars	10000000	chars	rep_10m, op anchors
+R	nav	build_esa_s	1.099647205	s	EsaIndex.Build (child layout Tagged), cold JIT
+R	nav	pack_built_before	0	bool	the navigation pack must not exist before the first matching call
+R	nav	query_chars	100000	chars	rep_10m.memq100k, minLength 20
+R	nav	pack_build_s	0.111179948	s	ISA + LCP pyramid (fanout 32) + pinned views, cold JIT; paid once by the first suffix-link user
+R	nav	pack_bytes_per_char	4.129034	B/char	ISA 4.000 + pyramid 0.129 (5 levels)
+R	nav	pyramid_build_s	0.023270047	s	second build, warm (5 levels)
+R	nav_ukkonen	build_s	8.080241672	s	in-memory Ukkonen tree, same process
+R	nav_esa	anchors_first_call_s	0.071219165	s	cold JIT included
+R	nav_esa	anchors_warm_median_s	0.030909058	s	median of 9 warm calls (2..10) [0.030019156 .. 0.039596183]
+R	nav_esa	anchors_steady_median_s	0.030130679	s	median of the last 5 calls [0.030019156 .. 0.030909058]
+R	nav_esa	anchors_results	715	count	
+R	nav_esa	anchors_checksum	80566387150	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	nav_ukkonen	anchors_first_call_s	0.033330293	s	cold JIT included
+R	nav_ukkonen	anchors_warm_median_s	0.016985636	s	median of 9 warm calls (2..10) [0.016273145 .. 0.026552518]
+R	nav_ukkonen	anchors_steady_median_s	0.016581613	s	median of the last 5 calls [0.016273145 .. 0.017181145]
+R	nav_ukkonen	anchors_results	715	count	
+R	nav_ukkonen	anchors_checksum	80448587150	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	nav_check	anchors_equal	1	bool	the ESA answer equals the Ukkonen tree's
+R	nav	peak_rss_hwm	2157027328	bytes	VmHWM of the process at the end
+# process input=dna_1m op=lcs run=1 commit=d4c3a5781f load=1.00 2026-11-09T18:43:41Z options: --other-kind mutated
+R	nav	text_chars	1000000	chars	dna_1m, op lcs
+R	nav	build_esa_s	0.105024517	s	EsaIndex.Build (child layout Tagged), cold JIT
+R	nav	pack_built_before	0	bool	the navigation pack must not exist before the first matching call
+R	nav	pack_build_s	0.013945685	s	ISA + LCP pyramid (fanout 32) + pinned views, cold JIT; paid once by the first suffix-link user
+R	nav	pack_bytes_per_char	4.129044	B/char	ISA 4.000 + pyramid 0.129 (4 levels)
+R	nav	pyramid_build_s	0.001946221	s	second build, warm (4 levels)
+R	nav_ukkonen	build_s	0.720578445	s	in-memory Ukkonen tree, same process
+R	nav	other_chars	1000006	chars	the second text (mutated)
+R	nav_esa	lcs_info_first_call_s	0.260994982	s	cold JIT included
+R	nav_esa	lcs_info_warm_median_s	0.240185286	s	median of 9 warm calls (2..10) [0.238748139 .. 0.244970349]
+R	nav_esa	lcs_info_steady_median_s	0.239782837	s	median of the last 5 calls [0.239091603 .. 0.242145527]
+R	nav_esa	lcs_info_length	1078	chars	
+R	nav_ukkonen	lcs_info_first_call_s	0.273252186	s	cold JIT included
+R	nav_ukkonen	lcs_info_warm_median_s	0.232985775	s	median of 9 warm calls (2..10) [0.226796316 .. 0.248253831]
+R	nav_ukkonen	lcs_info_steady_median_s	0.230002273	s	median of the last 5 calls [0.226796316 .. 0.232985775]
+R	nav_ukkonen	lcs_info_length	1078	chars	
+R	nav_check	lcs_info_equal	1	bool	the ESA answer equals the Ukkonen tree's
+R	nav_esa	lcs_all_first_call_s	0.22605975	s	cold JIT included
+R	nav_esa	lcs_all_warm_median_s	0.219041534	s	median of 9 warm calls (2..10) [0.216484311 .. 0.279274508]
+R	nav_esa	lcs_all_steady_median_s	0.218648611	s	median of the last 5 calls [0.216484311 .. 0.279274508]
+R	nav_esa	lcs_all_length	1078	chars	1 positions in the text, 1 in the other text
+R	nav_ukkonen	lcs_all_first_call_s	0.280817968	s	cold JIT included
+R	nav_ukkonen	lcs_all_warm_median_s	0.247910917	s	median of 9 warm calls (2..10) [0.235661942 .. 0.258585068]
+R	nav_ukkonen	lcs_all_steady_median_s	0.243542582	s	median of the last 5 calls [0.235661942 .. 0.247910917]
+R	nav_ukkonen	lcs_all_length	1078	chars	1 positions in the text, 1 in the other text
+R	nav_check	lcs_all_equal	1	bool	the ESA answer equals the Ukkonen tree's
+R	nav_esa	lcs_distinct_first_call_s	0.243728	s	cold JIT included
+R	nav_esa	lcs_distinct_warm_median_s	0.234719911	s	median of 9 warm calls (2..10) [0.23237883 .. 0.238080795]
+R	nav_esa	lcs_distinct_steady_median_s	0.234132145	s	median of the last 5 calls [0.23237883 .. 0.235105655]
+R	nav_esa	lcs_distinct_ties	1	count	length 1078
+R	nav_ukkonen	lcs_distinct_first_call_s	0.255246452	s	cold JIT included
+R	nav_ukkonen	lcs_distinct_warm_median_s	0.228463147	s	median of 9 warm calls (2..10) [0.225755713 .. 0.237950307]
+R	nav_ukkonen	lcs_distinct_steady_median_s	0.228463147	s	median of the last 5 calls [0.225755713 .. 0.236368527]
+R	nav_ukkonen	lcs_distinct_ties	1	count	length 1078
+R	nav_check	lcs_distinct_equal	1	bool	the ESA answer equals the Ukkonen tree's
+R	nav	peak_rss_hwm	228618240	bytes	VmHWM of the process at the end
+# process input=dna_1m op=lcs run=2 commit=d4c3a5781f load=1.00 2026-11-09T18:43:57Z options: --other-kind mutated
+R	nav	text_chars	1000000	chars	dna_1m, op lcs
+R	nav	build_esa_s	0.10318994	s	EsaIndex.Build (child layout Tagged), cold JIT
+R	nav	pack_built_before	0	bool	the navigation pack must not exist before the first matching call
+R	nav	pack_build_s	0.012046385	s	ISA + LCP pyramid (fanout 32) + pinned views, cold JIT; paid once by the first suffix-link user
+R	nav	pack_bytes_per_char	4.129044	B/char	ISA 4.000 + pyramid 0.129 (4 levels)
+R	nav	pyramid_build_s	0.001829171	s	second build, warm (4 levels)
+R	nav_ukkonen	build_s	0.706374951	s	in-memory Ukkonen tree, same process
+R	nav	other_chars	1000006	chars	the second text (mutated)
+R	nav_esa	lcs_info_first_call_s	0.240450074	s	cold JIT included
+R	nav_esa	lcs_info_warm_median_s	0.221991562	s	median of 9 warm calls (2..10) [0.215977522 .. 0.259942221]
+R	nav_esa	lcs_info_steady_median_s	0.225101062	s	median of the last 5 calls [0.218318272 .. 0.259942221]
+R	nav_esa	lcs_info_length	1078	chars	
+R	nav_ukkonen	lcs_info_first_call_s	0.271641204	s	cold JIT included
+R	nav_ukkonen	lcs_info_warm_median_s	0.246012868	s	median of 9 warm calls (2..10) [0.238217178 .. 0.2532786]
+R	nav_ukkonen	lcs_info_steady_median_s	0.244367949	s	median of the last 5 calls [0.238710714 .. 0.2532786]
+R	nav_ukkonen	lcs_info_length	1078	chars	
+R	nav_check	lcs_info_equal	1	bool	the ESA answer equals the Ukkonen tree's
+R	nav_esa	lcs_all_first_call_s	0.226657024	s	cold JIT included
+R	nav_esa	lcs_all_warm_median_s	0.219876129	s	median of 9 warm calls (2..10) [0.218003725 .. 0.234803326]
+R	nav_esa	lcs_all_steady_median_s	0.219865149	s	median of the last 5 calls [0.218173412 .. 0.22148312]
+R	nav_esa	lcs_all_length	1078	chars	1 positions in the text, 1 in the other text
+R	nav_ukkonen	lcs_all_first_call_s	0.27801399	s	cold JIT included
+R	nav_ukkonen	lcs_all_warm_median_s	0.239837693	s	median of 9 warm calls (2..10) [0.23111992 .. 0.305821165]
+R	nav_ukkonen	lcs_all_steady_median_s	0.237150861	s	median of the last 5 calls [0.23111992 .. 0.239837693]
+R	nav_ukkonen	lcs_all_length	1078	chars	1 positions in the text, 1 in the other text
+R	nav_check	lcs_all_equal	1	bool	the ESA answer equals the Ukkonen tree's
+R	nav_esa	lcs_distinct_first_call_s	0.227104691	s	cold JIT included
+R	nav_esa	lcs_distinct_warm_median_s	0.218808262	s	median of 9 warm calls (2..10) [0.217527483 .. 0.241558847]
+R	nav_esa	lcs_distinct_steady_median_s	0.217868182	s	median of the last 5 calls [0.217527483 .. 0.241558847]
+R	nav_esa	lcs_distinct_ties	1	count	length 1078
+R	nav_ukkonen	lcs_distinct_first_call_s	0.285729386	s	cold JIT included
+R	nav_ukkonen	lcs_distinct_warm_median_s	0.236767145	s	median of 9 warm calls (2..10) [0.228420897 .. 0.254326899]
+R	nav_ukkonen	lcs_distinct_steady_median_s	0.236505286	s	median of the last 5 calls [0.229786263 .. 0.237201818]
+R	nav_ukkonen	lcs_distinct_ties	1	count	length 1078
+R	nav_check	lcs_distinct_equal	1	bool	the ESA answer equals the Ukkonen tree's
+R	nav	peak_rss_hwm	228528128	bytes	VmHWM of the process at the end
+# process input=dna_1m op=lcs run=3 commit=d4c3a5781f load=1.00 2026-11-09T18:44:12Z options: --other-kind mutated
+R	nav	text_chars	1000000	chars	dna_1m, op lcs
+R	nav	build_esa_s	0.101221844	s	EsaIndex.Build (child layout Tagged), cold JIT
+R	nav	pack_built_before	0	bool	the navigation pack must not exist before the first matching call
+R	nav	pack_build_s	0.011871441	s	ISA + LCP pyramid (fanout 32) + pinned views, cold JIT; paid once by the first suffix-link user
+R	nav	pack_bytes_per_char	4.129044	B/char	ISA 4.000 + pyramid 0.129 (4 levels)
+R	nav	pyramid_build_s	0.001858937	s	second build, warm (4 levels)
+R	nav_ukkonen	build_s	0.680248237	s	in-memory Ukkonen tree, same process
+R	nav	other_chars	1000006	chars	the second text (mutated)
+R	nav_esa	lcs_info_first_call_s	0.245827915	s	cold JIT included
+R	nav_esa	lcs_info_warm_median_s	0.221241261	s	median of 9 warm calls (2..10) [0.217635557 .. 0.224627404]
+R	nav_esa	lcs_info_steady_median_s	0.218593112	s	median of the last 5 calls [0.217635557 .. 0.222394491]
+R	nav_esa	lcs_info_length	1078	chars	
+R	nav_ukkonen	lcs_info_first_call_s	0.266017532	s	cold JIT included
+R	nav_ukkonen	lcs_info_warm_median_s	0.219813393	s	median of 9 warm calls (2..10) [0.216644451 .. 0.272343217]
+R	nav_ukkonen	lcs_info_steady_median_s	0.222295008	s	median of the last 5 calls [0.216753871 .. 0.272343217]
+R	nav_ukkonen	lcs_info_length	1078	chars	
+R	nav_check	lcs_info_equal	1	bool	the ESA answer equals the Ukkonen tree's
+R	nav_esa	lcs_all_first_call_s	0.293852326	s	cold JIT included
+R	nav_esa	lcs_all_warm_median_s	0.233718699	s	median of 9 warm calls (2..10) [0.218569514 .. 0.253859917]
+R	nav_esa	lcs_all_steady_median_s	0.233718699	s	median of the last 5 calls [0.21920253 .. 0.253859917]
+R	nav_esa	lcs_all_length	1078	chars	1 positions in the text, 1 in the other text
+R	nav_ukkonen	lcs_all_first_call_s	0.2738889	s	cold JIT included
+R	nav_ukkonen	lcs_all_warm_median_s	0.218586532	s	median of 9 warm calls (2..10) [0.201607432 .. 0.233263424]
+R	nav_ukkonen	lcs_all_steady_median_s	0.206225986	s	median of the last 5 calls [0.201607432 .. 0.231251753]
+R	nav_ukkonen	lcs_all_length	1078	chars	1 positions in the text, 1 in the other text
+R	nav_check	lcs_all_equal	1	bool	the ESA answer equals the Ukkonen tree's
+R	nav_esa	lcs_distinct_first_call_s	0.215410666	s	cold JIT included
+R	nav_esa	lcs_distinct_warm_median_s	0.206096537	s	median of 9 warm calls (2..10) [0.204521001 .. 0.260365244]
+R	nav_esa	lcs_distinct_steady_median_s	0.210334343	s	median of the last 5 calls [0.205992295 .. 0.260365244]
+R	nav_esa	lcs_distinct_ties	1	count	length 1078
+R	nav_ukkonen	lcs_distinct_first_call_s	0.271441614	s	cold JIT included
+R	nav_ukkonen	lcs_distinct_warm_median_s	0.245392561	s	median of 9 warm calls (2..10) [0.231699623 .. 0.271131429]
+R	nav_ukkonen	lcs_distinct_steady_median_s	0.256129914	s	median of the last 5 calls [0.238277696 .. 0.271131429]
+R	nav_ukkonen	lcs_distinct_ties	1	count	length 1078
+R	nav_check	lcs_distinct_equal	1	bool	the ESA answer equals the Ukkonen tree's
+R	nav	peak_rss_hwm	228519936	bytes	VmHWM of the process at the end
+# process input=dna_1m op=lcs run=4 commit=d4c3a5781f load=1.00 2026-11-09T18:44:26Z options: --other-kind mutated
+R	nav	text_chars	1000000	chars	dna_1m, op lcs
+R	nav	build_esa_s	0.097726306	s	EsaIndex.Build (child layout Tagged), cold JIT
+R	nav	pack_built_before	0	bool	the navigation pack must not exist before the first matching call
+R	nav	pack_build_s	0.012743809	s	ISA + LCP pyramid (fanout 32) + pinned views, cold JIT; paid once by the first suffix-link user
+R	nav	pack_bytes_per_char	4.129044	B/char	ISA 4.000 + pyramid 0.129 (4 levels)
+R	nav	pyramid_build_s	0.001851376	s	second build, warm (4 levels)
+R	nav_ukkonen	build_s	0.737111033	s	in-memory Ukkonen tree, same process
+R	nav	other_chars	1000006	chars	the second text (mutated)
+R	nav_esa	lcs_info_first_call_s	0.262464126	s	cold JIT included
+R	nav_esa	lcs_info_warm_median_s	0.241163985	s	median of 9 warm calls (2..10) [0.230254313 .. 0.279784643]
+R	nav_esa	lcs_info_steady_median_s	0.241163985	s	median of the last 5 calls [0.230254313 .. 0.279784643]
+R	nav_esa	lcs_info_length	1078	chars	
+R	nav_ukkonen	lcs_info_first_call_s	0.276496919	s	cold JIT included
+R	nav_ukkonen	lcs_info_warm_median_s	0.238844581	s	median of 9 warm calls (2..10) [0.227732861 .. 0.250555152]
+R	nav_ukkonen	lcs_info_steady_median_s	0.248030815	s	median of the last 5 calls [0.227732861 .. 0.24986954]
+R	nav_ukkonen	lcs_info_length	1078	chars	
+R	nav_check	lcs_info_equal	1	bool	the ESA answer equals the Ukkonen tree's
+R	nav_esa	lcs_all_first_call_s	0.234136927	s	cold JIT included
+R	nav_esa	lcs_all_warm_median_s	0.224747233	s	median of 9 warm calls (2..10) [0.221616398 .. 0.2498602]
+R	nav_esa	lcs_all_steady_median_s	0.242445559	s	median of the last 5 calls [0.221675364 .. 0.2498602]
+R	nav_esa	lcs_all_length	1078	chars	1 positions in the text, 1 in the other text
+R	nav_ukkonen	lcs_all_first_call_s	0.265563479	s	cold JIT included
+R	nav_ukkonen	lcs_all_warm_median_s	0.229971929	s	median of 9 warm calls (2..10) [0.215993886 .. 0.254598831]
+R	nav_ukkonen	lcs_all_steady_median_s	0.225936768	s	median of the last 5 calls [0.215993886 .. 0.23707881]
+R	nav_ukkonen	lcs_all_length	1078	chars	1 positions in the text, 1 in the other text
+R	nav_check	lcs_all_equal	1	bool	the ESA answer equals the Ukkonen tree's
+R	nav_esa	lcs_distinct_first_call_s	0.220910005	s	cold JIT included
+R	nav_esa	lcs_distinct_warm_median_s	0.214059865	s	median of 9 warm calls (2..10) [0.21185126 .. 0.255253014]
+R	nav_esa	lcs_distinct_steady_median_s	0.212362939	s	median of the last 5 calls [0.21185126 .. 0.255253014]
+R	nav_esa	lcs_distinct_ties	1	count	length 1078
+R	nav_ukkonen	lcs_distinct_first_call_s	0.294217557	s	cold JIT included
+R	nav_ukkonen	lcs_distinct_warm_median_s	0.241377864	s	median of 9 warm calls (2..10) [0.235473947 .. 0.267916123]
+R	nav_ukkonen	lcs_distinct_steady_median_s	0.243222552	s	median of the last 5 calls [0.236443106 .. 0.266227802]
+R	nav_ukkonen	lcs_distinct_ties	1	count	length 1078
+R	nav_check	lcs_distinct_equal	1	bool	the ESA answer equals the Ukkonen tree's
+R	nav	peak_rss_hwm	228540416	bytes	VmHWM of the process at the end
+# process input=dna_1m op=lcs run=5 commit=d4c3a5781f load=1.00 2026-11-09T18:44:42Z options: --other-kind mutated
+R	nav	text_chars	1000000	chars	dna_1m, op lcs
+R	nav	build_esa_s	0.102469148	s	EsaIndex.Build (child layout Tagged), cold JIT
+R	nav	pack_built_before	0	bool	the navigation pack must not exist before the first matching call
+R	nav	pack_build_s	0.01182978	s	ISA + LCP pyramid (fanout 32) + pinned views, cold JIT; paid once by the first suffix-link user
+R	nav	pack_bytes_per_char	4.129044	B/char	ISA 4.000 + pyramid 0.129 (4 levels)
+R	nav	pyramid_build_s	0.001984256	s	second build, warm (4 levels)
+R	nav_ukkonen	build_s	0.715510049	s	in-memory Ukkonen tree, same process
+R	nav	other_chars	1000006	chars	the second text (mutated)
+R	nav_esa	lcs_info_first_call_s	0.249429362	s	cold JIT included
+R	nav_esa	lcs_info_warm_median_s	0.22414592	s	median of 9 warm calls (2..10) [0.221435829 .. 0.23599366]
+R	nav_esa	lcs_info_steady_median_s	0.223871353	s	median of the last 5 calls [0.221634628 .. 0.22658648]
+R	nav_esa	lcs_info_length	1078	chars	
+R	nav_ukkonen	lcs_info_first_call_s	0.276859663	s	cold JIT included
+R	nav_ukkonen	lcs_info_warm_median_s	0.238428953	s	median of 9 warm calls (2..10) [0.221676251 .. 0.256860469]
+R	nav_ukkonen	lcs_info_steady_median_s	0.22971956	s	median of the last 5 calls [0.221676251 .. 0.249138071]
+R	nav_ukkonen	lcs_info_length	1078	chars	
+R	nav_check	lcs_info_equal	1	bool	the ESA answer equals the Ukkonen tree's
+R	nav_esa	lcs_all_first_call_s	0.234945295	s	cold JIT included
+R	nav_esa	lcs_all_warm_median_s	0.227706901	s	median of 9 warm calls (2..10) [0.226378693 .. 0.230282686]
+R	nav_esa	lcs_all_steady_median_s	0.227857026	s	median of the last 5 calls [0.226981624 .. 0.230282686]
+R	nav_esa	lcs_all_length	1078	chars	1 positions in the text, 1 in the other text
+R	nav_ukkonen	lcs_all_first_call_s	0.272695315	s	cold JIT included
+R	nav_ukkonen	lcs_all_warm_median_s	0.241843893	s	median of 9 warm calls (2..10) [0.224307582 .. 0.26379374]
+R	nav_ukkonen	lcs_all_steady_median_s	0.235465619	s	median of the last 5 calls [0.224307582 .. 0.26379374]
+R	nav_ukkonen	lcs_all_length	1078	chars	1 positions in the text, 1 in the other text
+R	nav_check	lcs_all_equal	1	bool	the ESA answer equals the Ukkonen tree's
+R	nav_esa	lcs_distinct_first_call_s	0.255362308	s	cold JIT included
+R	nav_esa	lcs_distinct_warm_median_s	0.240923903	s	median of 9 warm calls (2..10) [0.236077309 .. 0.250704629]
+R	nav_esa	lcs_distinct_steady_median_s	0.239435451	s	median of the last 5 calls [0.236077309 .. 0.250704629]
+R	nav_esa	lcs_distinct_ties	1	count	length 1078
+R	nav_ukkonen	lcs_distinct_first_call_s	0.266227352	s	cold JIT included
+R	nav_ukkonen	lcs_distinct_warm_median_s	0.234877072	s	median of 9 warm calls (2..10) [0.228045381 .. 0.244199163]
+R	nav_ukkonen	lcs_distinct_steady_median_s	0.234636912	s	median of the last 5 calls [0.233372136 .. 0.239236928]
+R	nav_ukkonen	lcs_distinct_ties	1	count	length 1078
+R	nav_check	lcs_distinct_equal	1	bool	the ESA answer equals the Ukkonen tree's
+R	nav	peak_rss_hwm	228515840	bytes	VmHWM of the process at the end
+# process input=dna_1m op=lcs run=101 commit=d4c3a5781f load=1.00 2026-11-09T18:44:57Z options: --other-kind random
+R	nav	text_chars	1000000	chars	dna_1m, op lcs
+R	nav	build_esa_s	0.130894255	s	EsaIndex.Build (child layout Tagged), cold JIT
+R	nav	pack_built_before	0	bool	the navigation pack must not exist before the first matching call
+R	nav	pack_build_s	0.012435344	s	ISA + LCP pyramid (fanout 32) + pinned views, cold JIT; paid once by the first suffix-link user
+R	nav	pack_bytes_per_char	4.129044	B/char	ISA 4.000 + pyramid 0.129 (4 levels)
+R	nav	pyramid_build_s	0.001842749	s	second build, warm (4 levels)
+R	nav_ukkonen	build_s	0.669395649	s	in-memory Ukkonen tree, same process
+R	nav	other_chars	1000000	chars	the second text (random)
+R	nav_esa	lcs_info_first_call_s	0.332178519	s	cold JIT included
+R	nav_esa	lcs_info_warm_median_s	0.308369779	s	median of 9 warm calls (2..10) [0.306496765 .. 0.32303066]
+R	nav_esa	lcs_info_steady_median_s	0.308345698	s	median of the last 5 calls [0.306496765 .. 0.312009753]
+R	nav_esa	lcs_info_length	21	chars	
+R	nav_ukkonen	lcs_info_first_call_s	0.348913162	s	cold JIT included
+R	nav_ukkonen	lcs_info_warm_median_s	0.315556343	s	median of 9 warm calls (2..10) [0.30753001 .. 0.319396487]
+R	nav_ukkonen	lcs_info_steady_median_s	0.317376675	s	median of the last 5 calls [0.315095199 .. 0.319367119]
+R	nav_ukkonen	lcs_info_length	21	chars	
+R	nav_check	lcs_info_equal	1	bool	the ESA answer equals the Ukkonen tree's
+R	nav_esa	lcs_all_first_call_s	0.319920151	s	cold JIT included
+R	nav_esa	lcs_all_warm_median_s	0.291911327	s	median of 9 warm calls (2..10) [0.264097371 .. 0.307706461]
+R	nav_esa	lcs_all_steady_median_s	0.291911327	s	median of the last 5 calls [0.264097371 .. 0.305041623]
+R	nav_esa	lcs_all_length	21	chars	1 positions in the text, 1 in the other text
+R	nav_ukkonen	lcs_all_first_call_s	0.332369833	s	cold JIT included
+R	nav_ukkonen	lcs_all_warm_median_s	0.298436687	s	median of 9 warm calls (2..10) [0.285027695 .. 0.358238317]
+R	nav_ukkonen	lcs_all_steady_median_s	0.290661842	s	median of the last 5 calls [0.285027695 .. 0.321318618]
+R	nav_ukkonen	lcs_all_length	21	chars	1 positions in the text, 1 in the other text
+R	nav_check	lcs_all_equal	1	bool	the ESA answer equals the Ukkonen tree's
+R	nav_esa	lcs_distinct_first_call_s	0.285494082	s	cold JIT included
+R	nav_esa	lcs_distinct_warm_median_s	0.281421562	s	median of 9 warm calls (2..10) [0.277582865 .. 0.286129709]
+R	nav_esa	lcs_distinct_steady_median_s	0.283094286	s	median of the last 5 calls [0.28089679 .. 0.286129709]
+R	nav_esa	lcs_distinct_ties	1	count	length 21
+R	nav_ukkonen	lcs_distinct_first_call_s	0.318891652	s	cold JIT included
+R	nav_ukkonen	lcs_distinct_warm_median_s	0.29162512	s	median of 9 warm calls (2..10) [0.284227115 .. 0.308283906]
+R	nav_ukkonen	lcs_distinct_steady_median_s	0.29162512	s	median of the last 5 calls [0.287513905 .. 0.306698114]
+R	nav_ukkonen	lcs_distinct_ties	1	count	length 21
+R	nav_check	lcs_distinct_equal	1	bool	the ESA answer equals the Ukkonen tree's
+R	nav	peak_rss_hwm	228450304	bytes	VmHWM of the process at the end
+# process input=dna_1m op=lcs run=102 commit=d4c3a5781f load=1.00 2026-11-09T18:45:16Z options: --other-kind random
+R	nav	text_chars	1000000	chars	dna_1m, op lcs
+R	nav	build_esa_s	0.102174291	s	EsaIndex.Build (child layout Tagged), cold JIT
+R	nav	pack_built_before	0	bool	the navigation pack must not exist before the first matching call
+R	nav	pack_build_s	0.011745843	s	ISA + LCP pyramid (fanout 32) + pinned views, cold JIT; paid once by the first suffix-link user
+R	nav	pack_bytes_per_char	4.129044	B/char	ISA 4.000 + pyramid 0.129 (4 levels)
+R	nav	pyramid_build_s	0.001968407	s	second build, warm (4 levels)
+R	nav_ukkonen	build_s	0.679045963	s	in-memory Ukkonen tree, same process
+R	nav	other_chars	1000000	chars	the second text (random)
+R	nav_esa	lcs_info_first_call_s	0.33044557	s	cold JIT included
+R	nav_esa	lcs_info_warm_median_s	0.315210954	s	median of 9 warm calls (2..10) [0.299396921 .. 0.347358933]
+R	nav_esa	lcs_info_steady_median_s	0.315210954	s	median of the last 5 calls [0.299396921 .. 0.346833007]
+R	nav_esa	lcs_info_length	21	chars	
+R	nav_ukkonen	lcs_info_first_call_s	0.36351163	s	cold JIT included
+R	nav_ukkonen	lcs_info_warm_median_s	0.30438267	s	median of 9 warm calls (2..10) [0.297640162 .. 0.333357744]
+R	nav_ukkonen	lcs_info_steady_median_s	0.303186062	s	median of the last 5 calls [0.297640162 .. 0.314179365]
+R	nav_ukkonen	lcs_info_length	21	chars	
+R	nav_check	lcs_info_equal	1	bool	the ESA answer equals the Ukkonen tree's
+R	nav_esa	lcs_all_first_call_s	0.309977987	s	cold JIT included
+R	nav_esa	lcs_all_warm_median_s	0.30423786	s	median of 9 warm calls (2..10) [0.301723433 .. 0.318507293]
+R	nav_esa	lcs_all_steady_median_s	0.311847397	s	median of the last 5 calls [0.302789075 .. 0.318507293]
+R	nav_esa	lcs_all_length	21	chars	1 positions in the text, 1 in the other text
+R	nav_ukkonen	lcs_all_first_call_s	0.35123492	s	cold JIT included
+R	nav_ukkonen	lcs_all_warm_median_s	0.310836747	s	median of 9 warm calls (2..10) [0.307922728 .. 0.322730619]
+R	nav_ukkonen	lcs_all_steady_median_s	0.31289808	s	median of the last 5 calls [0.308193804 .. 0.322730619]
+R	nav_ukkonen	lcs_all_length	21	chars	1 positions in the text, 1 in the other text
+R	nav_check	lcs_all_equal	1	bool	the ESA answer equals the Ukkonen tree's
+R	nav_esa	lcs_distinct_first_call_s	0.325963638	s	cold JIT included
+R	nav_esa	lcs_distinct_warm_median_s	0.316834023	s	median of 9 warm calls (2..10) [0.315040843 .. 0.321379919]
+R	nav_esa	lcs_distinct_steady_median_s	0.316834023	s	median of the last 5 calls [0.315040843 .. 0.321379919]
+R	nav_esa	lcs_distinct_ties	1	count	length 21
+R	nav_ukkonen	lcs_distinct_first_call_s	0.362340416	s	cold JIT included
+R	nav_ukkonen	lcs_distinct_warm_median_s	0.322253343	s	median of 9 warm calls (2..10) [0.313469953 .. 0.340565175]
+R	nav_ukkonen	lcs_distinct_steady_median_s	0.322253343	s	median of the last 5 calls [0.317086125 .. 0.340565175]
+R	nav_ukkonen	lcs_distinct_ties	1	count	length 21
+R	nav_check	lcs_distinct_equal	1	bool	the ESA answer equals the Ukkonen tree's
+R	nav	peak_rss_hwm	228360192	bytes	VmHWM of the process at the end
+# process input=dna_1m op=lcs run=103 commit=d4c3a5781f load=1.00 2026-11-09T18:45:36Z options: --other-kind random
+R	nav	text_chars	1000000	chars	dna_1m, op lcs
+R	nav	build_esa_s	0.108995489	s	EsaIndex.Build (child layout Tagged), cold JIT
+R	nav	pack_built_before	0	bool	the navigation pack must not exist before the first matching call
+R	nav	pack_build_s	0.015197992	s	ISA + LCP pyramid (fanout 32) + pinned views, cold JIT; paid once by the first suffix-link user
+R	nav	pack_bytes_per_char	4.129044	B/char	ISA 4.000 + pyramid 0.129 (4 levels)
+R	nav	pyramid_build_s	0.002695598	s	second build, warm (4 levels)
+R	nav_ukkonen	build_s	0.696799848	s	in-memory Ukkonen tree, same process
+R	nav	other_chars	1000000	chars	the second text (random)
+R	nav_esa	lcs_info_first_call_s	0.338877128	s	cold JIT included
+R	nav_esa	lcs_info_warm_median_s	0.325330243	s	median of 9 warm calls (2..10) [0.312236118 .. 0.34207573]
+R	nav_esa	lcs_info_steady_median_s	0.327866242	s	median of the last 5 calls [0.325330243 .. 0.34207573]
+R	nav_esa	lcs_info_length	21	chars	
+R	nav_ukkonen	lcs_info_first_call_s	0.378323529	s	cold JIT included
+R	nav_ukkonen	lcs_info_warm_median_s	0.32621574	s	median of 9 warm calls (2..10) [0.316415314 .. 0.343044597]
+R	nav_ukkonen	lcs_info_steady_median_s	0.32621574	s	median of the last 5 calls [0.316415314 .. 0.334645739]
+R	nav_ukkonen	lcs_info_length	21	chars	
+R	nav_check	lcs_info_equal	1	bool	the ESA answer equals the Ukkonen tree's
+R	nav_esa	lcs_all_first_call_s	0.332360372	s	cold JIT included
+R	nav_esa	lcs_all_warm_median_s	0.304988542	s	median of 9 warm calls (2..10) [0.302621006 .. 0.318133264]
+R	nav_esa	lcs_all_steady_median_s	0.305344572	s	median of the last 5 calls [0.303544965 .. 0.318133264]
+R	nav_esa	lcs_all_length	21	chars	1 positions in the text, 1 in the other text
+R	nav_ukkonen	lcs_all_first_call_s	0.362755745	s	cold JIT included
+R	nav_ukkonen	lcs_all_warm_median_s	0.298999091	s	median of 9 warm calls (2..10) [0.291587869 .. 0.311026269]
+R	nav_ukkonen	lcs_all_steady_median_s	0.298077966	s	median of the last 5 calls [0.295846165 .. 0.311026269]
+R	nav_ukkonen	lcs_all_length	21	chars	1 positions in the text, 1 in the other text
+R	nav_check	lcs_all_equal	1	bool	the ESA answer equals the Ukkonen tree's
+R	nav_esa	lcs_distinct_first_call_s	0.321222562	s	cold JIT included
+R	nav_esa	lcs_distinct_warm_median_s	0.312828836	s	median of 9 warm calls (2..10) [0.311747332 .. 0.315590404]
+R	nav_esa	lcs_distinct_steady_median_s	0.31212278	s	median of the last 5 calls [0.311747332 .. 0.313775455]
+R	nav_esa	lcs_distinct_ties	1	count	length 21
+R	nav_ukkonen	lcs_distinct_first_call_s	0.341320261	s	cold JIT included
+R	nav_ukkonen	lcs_distinct_warm_median_s	0.323842879	s	median of 9 warm calls (2..10) [0.306678558 .. 0.328590571]
+R	nav_ukkonen	lcs_distinct_steady_median_s	0.325641891	s	median of the last 5 calls [0.322645608 .. 0.328590571]
+R	nav_ukkonen	lcs_distinct_ties	1	count	length 21
+R	nav_check	lcs_distinct_equal	1	bool	the ESA answer equals the Ukkonen tree's
+R	nav	peak_rss_hwm	228548608	bytes	VmHWM of the process at the end
+# process input=dna_1m op=lcs run=104 commit=d4c3a5781f load=1.00 2026-11-09T18:45:56Z options: --other-kind random
+R	nav	text_chars	1000000	chars	dna_1m, op lcs
+R	nav	build_esa_s	0.109650533	s	EsaIndex.Build (child layout Tagged), cold JIT
+R	nav	pack_built_before	0	bool	the navigation pack must not exist before the first matching call
+R	nav	pack_build_s	0.012382046	s	ISA + LCP pyramid (fanout 32) + pinned views, cold JIT; paid once by the first suffix-link user
+R	nav	pack_bytes_per_char	4.129044	B/char	ISA 4.000 + pyramid 0.129 (4 levels)
+R	nav	pyramid_build_s	0.001876293	s	second build, warm (4 levels)
+R	nav_ukkonen	build_s	0.716270697	s	in-memory Ukkonen tree, same process
+R	nav	other_chars	1000000	chars	the second text (random)
+R	nav_esa	lcs_info_first_call_s	0.330821326	s	cold JIT included
+R	nav_esa	lcs_info_warm_median_s	0.306214808	s	median of 9 warm calls (2..10) [0.299573574 .. 0.374031492]
+R	nav_esa	lcs_info_steady_median_s	0.300028274	s	median of the last 5 calls [0.299573574 .. 0.306214808]
+R	nav_esa	lcs_info_length	21	chars	
+R	nav_ukkonen	lcs_info_first_call_s	0.348265904	s	cold JIT included
+R	nav_ukkonen	lcs_info_warm_median_s	0.302362864	s	median of 9 warm calls (2..10) [0.295506625 .. 0.327370453]
+R	nav_ukkonen	lcs_info_steady_median_s	0.316905863	s	median of the last 5 calls [0.301998267 .. 0.327370453]
+R	nav_ukkonen	lcs_info_length	21	chars	
+R	nav_check	lcs_info_equal	1	bool	the ESA answer equals the Ukkonen tree's
+R	nav_esa	lcs_all_first_call_s	0.35048752	s	cold JIT included
+R	nav_esa	lcs_all_warm_median_s	0.312009891	s	median of 9 warm calls (2..10) [0.271487066 .. 0.327634859]
+R	nav_esa	lcs_all_steady_median_s	0.278407313	s	median of the last 5 calls [0.271487066 .. 0.317574656]
+R	nav_esa	lcs_all_length	21	chars	1 positions in the text, 1 in the other text
+R	nav_ukkonen	lcs_all_first_call_s	0.384906067	s	cold JIT included
+R	nav_ukkonen	lcs_all_warm_median_s	0.318616756	s	median of 9 warm calls (2..10) [0.308987114 .. 0.332512022]
+R	nav_ukkonen	lcs_all_steady_median_s	0.318616756	s	median of the last 5 calls [0.317177089 .. 0.328143616]
+R	nav_ukkonen	lcs_all_length	21	chars	1 positions in the text, 1 in the other text
+R	nav_check	lcs_all_equal	1	bool	the ESA answer equals the Ukkonen tree's
+R	nav_esa	lcs_distinct_first_call_s	0.319216441	s	cold JIT included
+R	nav_esa	lcs_distinct_warm_median_s	0.30077893	s	median of 9 warm calls (2..10) [0.300002354 .. 0.320723001]
+R	nav_esa	lcs_distinct_steady_median_s	0.300544291	s	median of the last 5 calls [0.300002354 .. 0.301377098]
+R	nav_esa	lcs_distinct_ties	1	count	length 21
+R	nav_ukkonen	lcs_distinct_first_call_s	0.365719751	s	cold JIT included
+R	nav_ukkonen	lcs_distinct_warm_median_s	0.312869486	s	median of 9 warm calls (2..10) [0.299772946 .. 0.322964911]
+R	nav_ukkonen	lcs_distinct_steady_median_s	0.31494458	s	median of the last 5 calls [0.309033226 .. 0.322964911]
+R	nav_ukkonen	lcs_distinct_ties	1	count	length 21
+R	nav_check	lcs_distinct_equal	1	bool	the ESA answer equals the Ukkonen tree's
+R	nav	peak_rss_hwm	228474880	bytes	VmHWM of the process at the end
+# process input=dna_1m op=lcs run=105 commit=d4c3a5781f load=1.00 2026-11-09T18:46:15Z options: --other-kind random
+R	nav	text_chars	1000000	chars	dna_1m, op lcs
+R	nav	build_esa_s	0.10060768	s	EsaIndex.Build (child layout Tagged), cold JIT
+R	nav	pack_built_before	0	bool	the navigation pack must not exist before the first matching call
+R	nav	pack_build_s	0.011843319	s	ISA + LCP pyramid (fanout 32) + pinned views, cold JIT; paid once by the first suffix-link user
+R	nav	pack_bytes_per_char	4.129044	B/char	ISA 4.000 + pyramid 0.129 (4 levels)
+R	nav	pyramid_build_s	0.001807947	s	second build, warm (4 levels)
+R	nav_ukkonen	build_s	0.637470864	s	in-memory Ukkonen tree, same process
+R	nav	other_chars	1000000	chars	the second text (random)
+R	nav_esa	lcs_info_first_call_s	0.329866215	s	cold JIT included
+R	nav_esa	lcs_info_warm_median_s	0.317755462	s	median of 9 warm calls (2..10) [0.313473213 .. 0.324023643]
+R	nav_esa	lcs_info_steady_median_s	0.317959641	s	median of the last 5 calls [0.314469134 .. 0.324023643]
+R	nav_esa	lcs_info_length	21	chars	
+R	nav_ukkonen	lcs_info_first_call_s	0.353589078	s	cold JIT included
+R	nav_ukkonen	lcs_info_warm_median_s	0.309686989	s	median of 9 warm calls (2..10) [0.29070667 .. 0.355376466]
+R	nav_ukkonen	lcs_info_steady_median_s	0.309686989	s	median of the last 5 calls [0.295123583 .. 0.355376466]
+R	nav_ukkonen	lcs_info_length	21	chars	
+R	nav_check	lcs_info_equal	1	bool	the ESA answer equals the Ukkonen tree's
+R	nav_esa	lcs_all_first_call_s	0.356943296	s	cold JIT included
+R	nav_esa	lcs_all_warm_median_s	0.317726333	s	median of 9 warm calls (2..10) [0.30601493 .. 0.360974277]
+R	nav_esa	lcs_all_steady_median_s	0.319613277	s	median of the last 5 calls [0.30601493 .. 0.326314008]
+R	nav_esa	lcs_all_length	21	chars	1 positions in the text, 1 in the other text
+R	nav_ukkonen	lcs_all_first_call_s	0.374354248	s	cold JIT included
+R	nav_ukkonen	lcs_all_warm_median_s	0.318488555	s	median of 9 warm calls (2..10) [0.304084192 .. 0.3285446]
+R	nav_ukkonen	lcs_all_steady_median_s	0.313680142	s	median of the last 5 calls [0.304084192 .. 0.321632182]
+R	nav_ukkonen	lcs_all_length	21	chars	1 positions in the text, 1 in the other text
+R	nav_check	lcs_all_equal	1	bool	the ESA answer equals the Ukkonen tree's
+R	nav_esa	lcs_distinct_first_call_s	0.312801893	s	cold JIT included
+R	nav_esa	lcs_distinct_warm_median_s	0.308500483	s	median of 9 warm calls (2..10) [0.30642205 .. 0.320456629]
+R	nav_esa	lcs_distinct_steady_median_s	0.313539518	s	median of the last 5 calls [0.306639012 .. 0.320456629]
+R	nav_esa	lcs_distinct_ties	1	count	length 21
+R	nav_ukkonen	lcs_distinct_first_call_s	0.372152524	s	cold JIT included
+R	nav_ukkonen	lcs_distinct_warm_median_s	0.323608605	s	median of 9 warm calls (2..10) [0.313345536 .. 0.361055399]
+R	nav_ukkonen	lcs_distinct_steady_median_s	0.33055047	s	median of the last 5 calls [0.318988307 .. 0.361055399]
+R	nav_ukkonen	lcs_distinct_ties	1	count	length 21
+R	nav_check	lcs_distinct_equal	1	bool	the ESA answer equals the Ukkonen tree's
+R	nav	peak_rss_hwm	228425728	bytes	VmHWM of the process at the end
+# split rows without the GetChildren replay, superseded
+# process input=dna_10m op=split run=1 commit=d4c3a5781f load=1.00 2026-11-09T18:46:49Z options: 
+R	nav	text_chars	10000000	chars	dna_10m, op split
+R	nav	build_esa_s	0.989940775	s	EsaIndex.Build (child layout Tagged), cold JIT
+R	nav	pack_built_before	0	bool	the navigation pack must not exist before the first matching call
+R	nav	query_chars	100000	chars	dna_10m.memq100k, minLength 20
+R	nav	pack_build_s	0.098722477	s	ISA + LCP pyramid (fanout 32) + pinned views, cold JIT; paid once by the first suffix-link user
+R	nav	pack_bytes_per_char	4.129034	B/char	ISA 4.000 + pyramid 0.129 (5 levels)
+R	nav	pyramid_build_s	0.018206601	s	second build, warm (5 levels)
+R	split_plain	mem_first_call_s	0.101959213	s	cold JIT included
+R	split_plain	mem_warm_median_s	0.060873259	s	median of 9 warm calls (2..10) [0.059294708 .. 0.066173358]
+R	split_plain	mem_steady_median_s	0.060873259	s	median of the last 5 calls [0.05979623 .. 0.061045719]
+R	split_plain	mem_results	817	count	
+R	split_plain	mem_checksum	77915707478	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	split_plain	allocated_bytes_per_call	33326	bytes	0 gen-0 collections in 10 calls; the result list and the lists of the generic algorithm
+R	split	counting_navigator_same_result	1	bool	the counting wrapper does not change the answer
+R	split	timer_floor_ns	22.1602875	ns	mean of an empty timed interval
+R	split_calls	GetEdgeSymbol	273213	count	
+R	split_calls	LengthOf	633828	count	
+R	split_calls	IsNull	745171	count	
+R	split_calls	IsRoot	200000	count	
+R	split_calls	GetSuffixLink	200000	count	
+R	split_time	GetSuffixLink	0.0368381035	s	60.5 % of the plain steady call (0.060873259 s); 184 ns per call
+R	split_calls	TryGetChildAfterLink	359193	count	TryGetChild: after an IsRoot call (a rescan, or the one extension lookup that follows it) / otherwise
+R	split_time	TryGetChildAfterLink	0.037326168852012495	s	61.3 % of the plain steady call (0.060873259 s); 104 ns per call
+R	split_calls	TryGetChildOther	9226	count	TryGetChild: after an IsRoot call (a rescan, or the one extension lookup that follows it) / otherwise
+R	split_time	TryGetChildOther	0.00020538518752500002	s	0.3 % of the plain steady call (0.060873259 s); 22 ns per call
+R	split_calls	GetChildren	1	count	
+R	split_time	GetChildren	1.9598397124999997E-06	s	0.0 % of the plain steady call (0.060873259 s); 1960 ns per call
+R	split_calls	CollectLeaves	81836	count	
+R	split_time	CollectLeaves	0.0008741477121499998	s	1.4 % of the plain steady call (0.060873259 s); 11 ns per call
+R	split_calls	FindAnyLeafPosition	0	count	
+R	split_time	FindAnyLeafPosition	0	s	0.0 % of the plain steady call (0.060873259 s); 0 ns per call
+R	split_calls	children_returned	2	count	
+R	split_calls	leaves_collected	81836	count	
+R	split_time	timed_members_total	0.07524576509139999	s	123.6 % of the plain steady call
+R	split_time	remainder	-0.014372506091399992	s	-23.6 %: GetEdgeSymbol / LengthOf / IsNull / IsRoot (1852212 calls), the generic algorithm itself and its allocations
+R	split_time	timed_run_total	0.111796112	s	the best of three timed runs (inflated by the timers); the shares of THIS total are the better estimate of the inline numbers
+R	replay	loop_overhead_ns	1.806649	ns	an empty replay loop with the dependency chain; subtract from the figures below when the member is cheap
+R	replay	GetSuffixLink_ns	97.562925	ns	200000 calls -> 0.019512585000000002 s, 32.1 % of the plain steady call
+R	replay	TryGetChild_ns	88.61581514525581	ns	368419 calls -> 0.03264775 s, 53.6 % of the plain steady call
+R	replay	GetEdgeSymbol_ns	13.400478747350968	ns	273213 calls -> 0.0036611850000000004 s, 6.0 % of the plain steady call
+R	replay	LengthOf_ns	8.180594735480287	ns	633828 calls -> 0.005185090000000001 s, 8.5 % of the plain steady call
+R	replay	CollectLeaves_ns	37.44767583948384	ns	81836 calls -> 0.0030645679999999997 s, 5.0 % of the plain steady call
+R	replay	IsNull_IsRoot_estimate	0.0009451710000000001	s	1 ns per call (inlined compares)
+R	replay	members_total	0.065016349	s	106.8 % of the plain steady call
+R	replay	remainder	-0.004143090000000002	s	-6.8 % of the plain steady call: the generic algorithm itself (loop control, list handling, left-maximality tests, the result list), allocations, and what the replay cannot see (cache warmth between members)
+R	nav	peak_rss_hwm	361308160	bytes	VmHWM of the process at the end
+# process input=dna_10m op=split run=2 commit=d4c3a5781f load=1.00 2026-11-09T18:46:51Z options: 
+R	nav	text_chars	10000000	chars	dna_10m, op split
+R	nav	build_esa_s	0.932585952	s	EsaIndex.Build (child layout Tagged), cold JIT
+R	nav	pack_built_before	0	bool	the navigation pack must not exist before the first matching call
+R	nav	query_chars	100000	chars	dna_10m.memq100k, minLength 20
+R	nav	pack_build_s	0.103060906	s	ISA + LCP pyramid (fanout 32) + pinned views, cold JIT; paid once by the first suffix-link user
+R	nav	pack_bytes_per_char	4.129034	B/char	ISA 4.000 + pyramid 0.129 (5 levels)
+R	nav	pyramid_build_s	0.016294978	s	second build, warm (5 levels)
+R	split_plain	mem_first_call_s	0.10674346	s	cold JIT included
+R	split_plain	mem_warm_median_s	0.063957369	s	median of 9 warm calls (2..10) [0.061121887 .. 0.074348219]
+R	split_plain	mem_steady_median_s	0.064951947	s	median of the last 5 calls [0.061121887 .. 0.074348219]
+R	split_plain	mem_results	817	count	
+R	split_plain	mem_checksum	77915707478	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	split_plain	allocated_bytes_per_call	33326	bytes	0 gen-0 collections in 10 calls; the result list and the lists of the generic algorithm
+R	split	counting_navigator_same_result	1	bool	the counting wrapper does not change the answer
+R	split	timer_floor_ns	22.14414	ns	mean of an empty timed interval
+R	split_calls	GetEdgeSymbol	273213	count	
+R	split_calls	LengthOf	633828	count	
+R	split_calls	IsNull	745171	count	
+R	split_calls	IsRoot	200000	count	
+R	split_calls	GetSuffixLink	200000	count	
+R	split_time	GetSuffixLink	0.038901315	s	59.9 % of the plain steady call (0.064951947 s); 195 ns per call
+R	split_calls	TryGetChildAfterLink	359193	count	TryGetChild: after an IsRoot call (a rescan, or the one extension lookup that follows it) / otherwise
+R	split_time	TryGetChildAfterLink	0.04055618492098	s	62.4 % of the plain steady call (0.064951947 s); 113 ns per call
+R	split_calls	TryGetChildOther	9226	count	TryGetChild: after an IsRoot call (a rescan, or the one extension lookup that follows it) / otherwise
+R	split_time	TryGetChildOther	0.00020075516436	s	0.3 % of the plain steady call (0.064951947 s); 22 ns per call
+R	split_calls	GetChildren	1	count	
+R	split_time	GetChildren	2.30285586E-06	s	0.0 % of the plain steady call (0.064951947 s); 2303 ns per call
+R	split_calls	CollectLeaves	81836	count	
+R	split_time	CollectLeaves	0.0008076481589599997	s	1.2 % of the plain steady call (0.064951947 s); 10 ns per call
+R	split_calls	FindAnyLeafPosition	0	count	
+R	split_time	FindAnyLeafPosition	0	s	0.0 % of the plain steady call (0.064951947 s); 0 ns per call
+R	split_calls	children_returned	2	count	
+R	split_calls	leaves_collected	81836	count	
+R	split_time	timed_members_total	0.08046820610016	s	123.9 % of the plain steady call
+R	split_time	remainder	-0.01551625910016001	s	-23.9 %: GetEdgeSymbol / LengthOf / IsNull / IsRoot (1852212 calls), the generic algorithm itself and its allocations
+R	split_time	timed_run_total	0.117012228	s	the best of three timed runs (inflated by the timers); the shares of THIS total are the better estimate of the inline numbers
+R	replay	loop_overhead_ns	2.155915	ns	an empty replay loop with the dependency chain; subtract from the figures below when the member is cheap
+R	replay	GetSuffixLink_ns	91.86535	ns	200000 calls -> 0.018373070000000002 s, 28.3 % of the plain steady call
+R	replay	TryGetChild_ns	86.3455929254463	ns	368419 calls -> 0.031811357000000005 s, 49.0 % of the plain steady call
+R	replay	GetEdgeSymbol_ns	12.879248059206553	ns	273213 calls -> 0.003518778 s, 5.4 % of the plain steady call
+R	replay	LengthOf_ns	7.475963510605401	ns	633828 calls -> 0.004738475000000001 s, 7.3 % of the plain steady call
+R	replay	CollectLeaves_ns	30.712620362676574	ns	81836 calls -> 0.002513398 s, 3.9 % of the plain steady call
+R	replay	IsNull_IsRoot_estimate	0.0009451710000000001	s	1 ns per call (inlined compares)
+R	replay	members_total	0.061900249000000004	s	95.3 % of the plain steady call
+R	replay	remainder	0.0030516979999999916	s	4.7 % of the plain steady call: the generic algorithm itself (loop control, list handling, left-maximality tests, the result list), allocations, and what the replay cannot see (cache warmth between members)
+R	nav	peak_rss_hwm	361193472	bytes	VmHWM of the process at the end
+# process input=dna_10m op=split run=3 commit=d4c3a5781f load=1.00 2026-11-09T18:46:54Z options: 
+R	nav	text_chars	10000000	chars	dna_10m, op split
+R	nav	build_esa_s	0.98649962	s	EsaIndex.Build (child layout Tagged), cold JIT
+R	nav	pack_built_before	0	bool	the navigation pack must not exist before the first matching call
+R	nav	query_chars	100000	chars	dna_10m.memq100k, minLength 20
+R	nav	pack_build_s	0.107844193	s	ISA + LCP pyramid (fanout 32) + pinned views, cold JIT; paid once by the first suffix-link user
+R	nav	pack_bytes_per_char	4.129034	B/char	ISA 4.000 + pyramid 0.129 (5 levels)
+R	nav	pyramid_build_s	0.019772715	s	second build, warm (5 levels)
+R	split_plain	mem_first_call_s	0.123496208	s	cold JIT included
+R	split_plain	mem_warm_median_s	0.063184243	s	median of 9 warm calls (2..10) [0.058746645 .. 0.067511117]
+R	split_plain	mem_steady_median_s	0.062327134	s	median of the last 5 calls [0.058746645 .. 0.063399247]
+R	split_plain	mem_results	817	count	
+R	split_plain	mem_checksum	77915707478	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	split_plain	allocated_bytes_per_call	33326	bytes	0 gen-0 collections in 10 calls; the result list and the lists of the generic algorithm
+R	split	counting_navigator_same_result	1	bool	the counting wrapper does not change the answer
+R	split	timer_floor_ns	22.0939915	ns	mean of an empty timed interval
+R	split_calls	GetEdgeSymbol	273213	count	
+R	split_calls	LengthOf	633828	count	
+R	split_calls	IsNull	745171	count	
+R	split_calls	IsRoot	200000	count	
+R	split_calls	GetSuffixLink	200000	count	
+R	split_time	GetSuffixLink	0.0368688597	s	59.2 % of the plain steady call (0.062327134 s); 184 ns per call
+R	split_calls	TryGetChildAfterLink	359193	count	TryGetChild: after an IsRoot call (a rescan, or the one extension lookup that follows it) / otherwise
+R	split_time	TryGetChildAfterLink	0.037423659911140494	s	60.0 % of the plain steady call (0.062327134 s); 104 ns per call
+R	split_calls	TryGetChildOther	9226	count	TryGetChild: after an IsRoot call (a rescan, or the one extension lookup that follows it) / otherwise
+R	split_time	TryGetChildOther	0.00022873383442099997	s	0.4 % of the plain steady call (0.062327134 s); 25 ns per call
+R	split_calls	GetChildren	1	count	
+R	split_time	GetChildren	3.0419060085E-06	s	0.0 % of the plain steady call (0.062327134 s); 3042 ns per call
+R	split_calls	CollectLeaves	81836	count	
+R	split_time	CollectLeaves	0.0010013511116059998	s	1.6 % of the plain steady call (0.062327134 s); 12 ns per call
+R	split_calls	FindAnyLeafPosition	0	count	
+R	split_time	FindAnyLeafPosition	0	s	0.0 % of the plain steady call (0.062327134 s); 0 ns per call
+R	split_calls	children_returned	2	count	
+R	split_calls	leaves_collected	81836	count	
+R	split_time	timed_members_total	0.075525646463176	s	121.2 % of the plain steady call
+R	split_time	remainder	-0.013198512463176	s	-21.2 %: GetEdgeSymbol / LengthOf / IsNull / IsRoot (1852212 calls), the generic algorithm itself and its allocations
+R	split_time	timed_run_total	0.111951413	s	the best of three timed runs (inflated by the timers); the shares of THIS total are the better estimate of the inline numbers
+R	replay	loop_overhead_ns	1.82205	ns	an empty replay loop with the dependency chain; subtract from the figures below when the member is cheap
+R	replay	GetSuffixLink_ns	99.42959	ns	200000 calls -> 0.019885918000000002 s, 31.9 % of the plain steady call
+R	replay	TryGetChild_ns	97.92043298526949	ns	368419 calls -> 0.036075748000000005 s, 57.9 % of the plain steady call
+R	replay	GetEdgeSymbol_ns	12.716678928162276	ns	273213 calls -> 0.0034743620000000004 s, 5.6 % of the plain steady call
+R	replay	LengthOf_ns	7.953955962816411	ns	633828 calls -> 0.00504144 s, 8.1 % of the plain steady call
+R	replay	CollectLeaves_ns	35.271152060218	ns	81836 calls -> 0.0028864500000000005 s, 4.6 % of the plain steady call
+R	replay	IsNull_IsRoot_estimate	0.0009451710000000001	s	1 ns per call (inlined compares)
+R	replay	members_total	0.068309089	s	109.6 % of the plain steady call
+R	replay	remainder	-0.005981955000000004	s	-9.6 % of the plain steady call: the generic algorithm itself (loop control, list handling, left-maximality tests, the result list), allocations, and what the replay cannot see (cache warmth between members)
+R	nav	peak_rss_hwm	361136128	bytes	VmHWM of the process at the end
+# process input=rep_10m op=split run=1 commit=d4c3a5781f load=1.00 2026-11-09T18:47:11Z options: 
+R	nav	text_chars	10000000	chars	rep_10m, op split
+R	nav	build_esa_s	1.089605758	s	EsaIndex.Build (child layout Tagged), cold JIT
+R	nav	pack_built_before	0	bool	the navigation pack must not exist before the first matching call
+R	nav	query_chars	100000	chars	rep_10m.memq100k, minLength 20
+R	nav	pack_build_s	0.105331195	s	ISA + LCP pyramid (fanout 32) + pinned views, cold JIT; paid once by the first suffix-link user
+R	nav	pack_bytes_per_char	4.129034	B/char	ISA 4.000 + pyramid 0.129 (5 levels)
+R	nav	pyramid_build_s	0.023220132	s	second build, warm (5 levels)
+R	split_plain	mem_first_call_s	0.174130895	s	cold JIT included
+R	split_plain	mem_warm_median_s	0.140153702	s	median of 9 warm calls (2..10) [0.131380327 .. 0.147960544]
+R	split_plain	mem_steady_median_s	0.141334383	s	median of the last 5 calls [0.131380327 .. 0.147960544]
+R	split_plain	mem_results	160979	count	
+R	split_plain	mem_checksum	25158196373282	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	split_plain	allocated_bytes_per_call	8392374	bytes	0 gen-0 collections in 10 calls; the result list and the lists of the generic algorithm
+R	split	counting_navigator_same_result	1	bool	the counting wrapper does not change the answer
+R	split	timer_floor_ns	21.986665	ns	mean of an empty timed interval
+R	split_calls	GetEdgeSymbol	3288984	count	
+R	split_calls	LengthOf	1963249	count	
+R	split_calls	IsNull	641521	count	
+R	split_calls	IsRoot	200000	count	
+R	split_calls	GetSuffixLink	200000	count	
+R	split_time	GetSuffixLink	0.050840805999999995	s	36.0 % of the plain steady call (0.141334383 s); 254 ns per call
+R	split_calls	TryGetChildAfterLink	214597	count	TryGetChild: after an IsRoot call (a rescan, or the one extension lookup that follows it) / otherwise
+R	split_time	TryGetChildAfterLink	0.045117718650995	s	31.9 % of the plain steady call (0.141334383 s); 210 ns per call
+R	split_calls	TryGetChildOther	1448512	count	TryGetChild: after an IsRoot call (a rescan, or the one extension lookup that follows it) / otherwise
+R	split_time	TryGetChildOther	0.022312216907520006	s	15.8 % of the plain steady call (0.141334383 s); 15 ns per call
+R	split_calls	GetChildren	1392772	count	
+R	split_time	GetChildren	0.03969556461462001	s	28.1 % of the plain steady call (0.141334383 s); 29 ns per call
+R	split_calls	CollectLeaves	1765823	count	
+R	split_time	CollectLeaves	0.023692981249704995	s	16.8 % of the plain steady call (0.141334383 s); 13 ns per call
+R	split_calls	FindAnyLeafPosition	0	count	
+R	split_time	FindAnyLeafPosition	0	s	0.0 % of the plain steady call (0.141334383 s); 0 ns per call
+R	split_calls	children_returned	3073280	count	
+R	split_calls	leaves_collected	5516262	count	
+R	split_time	timed_members_total	0.18165928742284	s	128.5 % of the plain steady call
+R	split_time	remainder	-0.04032490442283998	s	-28.5 %: GetEdgeSymbol / LengthOf / IsNull / IsRoot (6093754 calls), the generic algorithm itself and its allocations
+R	split_time	timed_run_total	0.485354305	s	the best of three timed runs (inflated by the timers); the shares of THIS total are the better estimate of the inline numbers
+R	replay	loop_overhead_ns	1.821725	ns	an empty replay loop with the dependency chain; subtract from the figures below when the member is cheap
+R	replay	GetSuffixLink_ns	75.596355	ns	200000 calls -> 0.015119271 s, 10.7 % of the plain steady call
+R	replay	TryGetChild_ns	34.84875615488822	ns	1663109 calls -> 0.05795727999999999 s, 41.0 % of the plain steady call
+R	replay	GetEdgeSymbol_ns	17.876917005373087	ns	3288984 calls -> 0.058796894 s, 41.6 % of the plain steady call
+R	replay	LengthOf_ns	10.839723336163676	ns	1963249 calls -> 0.021281076000000003 s, 15.1 % of the plain steady call
+R	replay	CollectLeaves_ns	17.830641576194218	ns	1765823 calls -> 0.031485757 s, 22.3 % of the plain steady call
+R	replay	IsNull_IsRoot_estimate	0.000841521	s	1 ns per call (inlined compares)
+R	replay	members_total	0.185481799	s	131.2 % of the plain steady call
+R	replay	remainder	-0.044147415999999995	s	-31.2 % of the plain steady call: the generic algorithm itself (loop control, list handling, left-maximality tests, the result list), allocations, and what the replay cannot see (cache warmth between members)
+R	nav	peak_rss_hwm	903495680	bytes	VmHWM of the process at the end
+# process input=rep_10m op=split run=2 commit=d4c3a5781f load=1.00 2026-11-09T18:47:17Z options: 
+R	nav	text_chars	10000000	chars	rep_10m, op split
+R	nav	build_esa_s	1.135373637	s	EsaIndex.Build (child layout Tagged), cold JIT
+R	nav	pack_built_before	0	bool	the navigation pack must not exist before the first matching call
+R	nav	query_chars	100000	chars	rep_10m.memq100k, minLength 20
+R	nav	pack_build_s	0.110099627	s	ISA + LCP pyramid (fanout 32) + pinned views, cold JIT; paid once by the first suffix-link user
+R	nav	pack_bytes_per_char	4.129034	B/char	ISA 4.000 + pyramid 0.129 (5 levels)
+R	nav	pyramid_build_s	0.02294243	s	second build, warm (5 levels)
+R	split_plain	mem_first_call_s	0.180081867	s	cold JIT included
+R	split_plain	mem_warm_median_s	0.149641359	s	median of 9 warm calls (2..10) [0.148107925 .. 0.150791733]
+R	split_plain	mem_steady_median_s	0.149470104	s	median of the last 5 calls [0.148107925 .. 0.150334808]
+R	split_plain	mem_results	160979	count	
+R	split_plain	mem_checksum	25158196373282	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	split_plain	allocated_bytes_per_call	8392374	bytes	0 gen-0 collections in 10 calls; the result list and the lists of the generic algorithm
+R	split	counting_navigator_same_result	1	bool	the counting wrapper does not change the answer
+R	split	timer_floor_ns	21.972887	ns	mean of an empty timed interval
+R	split_calls	GetEdgeSymbol	3288984	count	
+R	split_calls	LengthOf	1963249	count	
+R	split_calls	IsNull	641521	count	
+R	split_calls	IsRoot	200000	count	
+R	split_calls	GetSuffixLink	200000	count	
+R	split_time	GetSuffixLink	0.052054044599999995	s	34.8 % of the plain steady call (0.149470104 s); 260 ns per call
+R	split_calls	TryGetChildAfterLink	214597	count	TryGetChild: after an IsRoot call (a rescan, or the one extension lookup that follows it) / otherwise
+R	split_time	TryGetChildAfterLink	0.047486104368461	s	31.8 % of the plain steady call (0.149470104 s); 221 ns per call
+R	split_calls	TryGetChildOther	1448512	count	TryGetChild: after an IsRoot call (a rescan, or the one extension lookup that follows it) / otherwise
+R	split_time	TryGetChildOther	0.022166112505855998	s	14.8 % of the plain steady call (0.149470104 s); 15 ns per call
+R	split_calls	GetChildren	1392772	count	
+R	split_time	GetChildren	0.039970604227236	s	26.7 % of the plain steady call (0.149470104 s); 29 ns per call
+R	split_calls	CollectLeaves	1765823	count	
+R	split_time	CollectLeaves	0.019541882758999	s	13.1 % of the plain steady call (0.149470104 s); 11 ns per call
+R	split_calls	FindAnyLeafPosition	0	count	
+R	split_time	FindAnyLeafPosition	0	s	0.0 % of the plain steady call (0.149470104 s); 0 ns per call
+R	split_calls	children_returned	3073280	count	
+R	split_calls	leaves_collected	5516262	count	
+R	split_time	timed_members_total	0.18121874846055197	s	121.2 % of the plain steady call
+R	split_time	remainder	-0.03174864446055198	s	-21.2 %: GetEdgeSymbol / LengthOf / IsNull / IsRoot (6093754 calls), the generic algorithm itself and its allocations
+R	split_time	timed_run_total	0.484587872	s	the best of three timed runs (inflated by the timers); the shares of THIS total are the better estimate of the inline numbers
+R	replay	loop_overhead_ns	2.297412	ns	an empty replay loop with the dependency chain; subtract from the figures below when the member is cheap
+R	replay	GetSuffixLink_ns	73.62227	ns	200000 calls -> 0.014724454000000001 s, 9.9 % of the plain steady call
+R	replay	TryGetChild_ns	34.82354433774335	ns	1663109 calls -> 0.05791535000000001 s, 38.7 % of the plain steady call
+R	replay	GetEdgeSymbol_ns	16.988457225696447	ns	3288984 calls -> 0.055874764 s, 37.4 % of the plain steady call
+R	replay	LengthOf_ns	11.470186919743751	ns	1963249 calls -> 0.022518833000000002 s, 15.1 % of the plain steady call
+R	replay	CollectLeaves_ns	18.21086484885518	ns	1765823 calls -> 0.032157164 s, 21.5 % of the plain steady call
+R	replay	IsNull_IsRoot_estimate	0.000841521	s	1 ns per call (inlined compares)
+R	replay	members_total	0.18403208600000004	s	123.1 % of the plain steady call
+R	replay	remainder	-0.03456198200000005	s	-23.1 % of the plain steady call: the generic algorithm itself (loop control, list handling, left-maximality tests, the result list), allocations, and what the replay cannot see (cache warmth between members)
+R	nav	peak_rss_hwm	903581696	bytes	VmHWM of the process at the end
+# process input=rep_10m op=split run=3 commit=d4c3a5781f load=1.00 2026-11-09T18:47:23Z options: 
+R	nav	text_chars	10000000	chars	rep_10m, op split
+R	nav	build_esa_s	1.1468807	s	EsaIndex.Build (child layout Tagged), cold JIT
+R	nav	pack_built_before	0	bool	the navigation pack must not exist before the first matching call
+R	nav	query_chars	100000	chars	rep_10m.memq100k, minLength 20
+R	nav	pack_build_s	0.109718766	s	ISA + LCP pyramid (fanout 32) + pinned views, cold JIT; paid once by the first suffix-link user
+R	nav	pack_bytes_per_char	4.129034	B/char	ISA 4.000 + pyramid 0.129 (5 levels)
+R	nav	pyramid_build_s	0.022895535	s	second build, warm (5 levels)
+R	split_plain	mem_first_call_s	0.194150556	s	cold JIT included
+R	split_plain	mem_warm_median_s	0.156607737	s	median of 9 warm calls (2..10) [0.147638298 .. 0.169596015]
+R	split_plain	mem_steady_median_s	0.155715759	s	median of the last 5 calls [0.147638298 .. 0.169596015]
+R	split_plain	mem_results	160979	count	
+R	split_plain	mem_checksum	25158196373282	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	split_plain	allocated_bytes_per_call	8392374	bytes	0 gen-0 collections in 10 calls; the result list and the lists of the generic algorithm
+R	split	counting_navigator_same_result	1	bool	the counting wrapper does not change the answer
+R	split	timer_floor_ns	22.286237	ns	mean of an empty timed interval
+R	split_calls	GetEdgeSymbol	3288984	count	
+R	split_calls	LengthOf	1963249	count	
+R	split_calls	IsNull	641521	count	
+R	split_calls	IsRoot	200000	count	
+R	split_calls	GetSuffixLink	200000	count	
+R	split_time	GetSuffixLink	0.047659854599999996	s	30.6 % of the plain steady call (0.155715759 s); 238 ns per call
+R	split_calls	TryGetChildAfterLink	214597	count	TryGetChild: after an IsRoot call (a rescan, or the one extension lookup that follows it) / otherwise
+R	split_time	TryGetChildAfterLink	0.045090209398510994	s	29.0 % of the plain steady call (0.155715759 s); 210 ns per call
+R	split_calls	TryGetChildOther	1448512	count	TryGetChild: after an IsRoot call (a rescan, or the one extension lookup that follows it) / otherwise
+R	split_time	TryGetChildOther	0.022525279270656	s	14.5 % of the plain steady call (0.155715759 s); 16 ns per call
+R	split_calls	GetChildren	1392772	count	
+R	split_time	GetChildren	0.03935248912103599	s	25.3 % of the plain steady call (0.155715759 s); 28 ns per call
+R	split_calls	CollectLeaves	1765823	count	
+R	split_time	CollectLeaves	0.020256895121948996	s	13.0 % of the plain steady call (0.155715759 s); 11 ns per call
+R	split_calls	FindAnyLeafPosition	0	count	
+R	split_time	FindAnyLeafPosition	0	s	0.0 % of the plain steady call (0.155715759 s); 0 ns per call
+R	split_calls	children_returned	3073280	count	
+R	split_calls	leaves_collected	5516262	count	
+R	split_time	timed_members_total	0.174884727512152	s	112.3 % of the plain steady call
+R	split_time	remainder	-0.019168968512151996	s	-12.3 %: GetEdgeSymbol / LengthOf / IsNull / IsRoot (6093754 calls), the generic algorithm itself and its allocations
+R	split_time	timed_run_total	0.477836597	s	the best of three timed runs (inflated by the timers); the shares of THIS total are the better estimate of the inline numbers
+R	replay	loop_overhead_ns	1.936708	ns	an empty replay loop with the dependency chain; subtract from the figures below when the member is cheap
+R	replay	GetSuffixLink_ns	77.417375	ns	200000 calls -> 0.015483475000000003 s, 9.9 % of the plain steady call
+R	replay	TryGetChild_ns	36.48299961096958	ns	1663109 calls -> 0.06067520500000001 s, 39.0 % of the plain steady call
+R	replay	GetEdgeSymbol_ns	17.50858775840807	ns	3288984 calls -> 0.05758546500000001 s, 37.0 % of the plain steady call
+R	replay	LengthOf_ns	12.153680964564352	ns	1963249 calls -> 0.023860702 s, 15.3 % of the plain steady call
+R	replay	CollectLeaves_ns	19.122754658875778	ns	1765823 calls -> 0.0337674 s, 21.7 % of the plain steady call
+R	replay	IsNull_IsRoot_estimate	0.000841521	s	1 ns per call (inlined compares)
+R	replay	members_total	0.19221376800000003	s	123.4 % of the plain steady call
+R	replay	remainder	-0.036498009000000026	s	-23.4 % of the plain steady call: the generic algorithm itself (loop control, list handling, left-maximality tests, the result list), allocations, and what the replay cannot see (cache warmth between members)
+R	nav	peak_rss_hwm	903462912	bytes	VmHWM of the process at the end

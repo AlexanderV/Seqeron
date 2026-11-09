@@ -293,6 +293,23 @@ public class EsaMatchingTests
     }
 
     [Test]
+    public void Contract_InvalidArguments_DoNotBuildThePack()
+    {
+        EsaIndex index = EsaIndex.Build(StringFamilies.RandomDna(500, 11));
+        Assert.Throws<ArgumentNullException>(() => index.FindMaximalExactMatches(null!, 3));
+        Assert.Throws<ArgumentOutOfRangeException>(() => index.FindMaximalExactMatches("ACGT", 0));
+        Assert.Throws<ArgumentNullException>(() => index.FindMaximalUniqueMatches(null!, 3));
+        Assert.Throws<ArgumentOutOfRangeException>(() => index.FindMaximalUniqueMatches("ACGT", 0));
+        Assert.Throws<ArgumentOutOfRangeException>(() => index.FindMaximalUniqueMatches("ACGT", 2, (MumUniqueness)7));
+        Assert.Throws<ArgumentNullException>(() => index.FindExactMatchAnchors(null!, 3));
+        Assert.Throws<ArgumentNullException>(() => index.FindAllDistinctLongestCommonSubstrings(null!));
+        Assert.Throws<ArgumentNullException>(() => index.FindAllLongestCommonSubstrings(null!));
+        Assert.Throws<ArgumentNullException>(() => index.LongestCommonSubstring((string)null!));
+        Assert.Throws<ArgumentNullException>(() => index.LongestCommonSubstringInfo((string)null!));
+        Assert.That(index.NavigationBuilt, Is.False, "an invalid call never pays for the O(n) pack");
+    }
+
+    [Test]
     public void Life_TheMatchingOperationsBuildThePackOnFirstUse()
     {
         EsaIndex index = EsaIndex.Build(StringFamilies.RandomDna(4000, 9));

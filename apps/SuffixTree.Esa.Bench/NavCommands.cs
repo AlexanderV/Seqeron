@@ -88,30 +88,48 @@ internal static class NavCommands
         }
         GC.Collect();
 
-        UkkonenTree? tree = ukkonen && op is "mem" or "mum" or "anchors" or "lcs" ? Build(text) : null;
+        // the ESA runs first, with nothing else on the heap; the Ukkonen tree (about 1.9 GB of small objects) is built afterwards: with it alive the gen-2 collections that the large result lists
+        // provoke (LOH allocations) walk its whole object graph and would be charged to the ESA
+        var steps = new List<Step>();
         switch (op)
         {
             case "mem":
-                Operation("mem", calls, () => index.FindMaximalExactMatches(query, minLength), tree, t => t.FindMaximalExactMatches(query, minLength), SameTriples);
+                steps.Add(new Step("mem", () => index.FindMaximalExactMatches(query, minLength), t => t.FindMaximalExactMatches(query, minLength), (a, b) => SameTriples((IReadOnlyList<Triple>)a, (IReadOnlyList<Triple>)b)));
                 break;
             case "mum":
-                Operation("mum", calls, () => index.FindMaximalUniqueMatches(query, minLength), tree, t => t.FindMaximalUniqueMatches(query, minLength), SameTriples);
+                steps.Add(new Step("mum", () => index.FindMaximalUniqueMatches(query, minLength), t => t.FindMaximalUniqueMatches(query, minLength), (a, b) => SameTriples((IReadOnlyList<Triple>)a, (IReadOnlyList<Triple>)b)));
                 break;
             case "anchors":
-                Operation("anchors", calls, () => index.FindExactMatchAnchors(query, minLength), tree, t => t.FindExactMatchAnchors(query, minLength), SameAnchors);
+                steps.Add(new Step("anchors", () => index.FindExactMatchAnchors(query, minLength), t => t.FindExactMatchAnchors(query, minLength), (a, b) => SameAnchors((IReadOnlyList<Triple>)a, (IReadOnlyList<Triple>)b)));
                 break;
             case "lcs":
                 string second = other is not null ? Pipeline.LoadText(other) : MakeOther(text, otherKind, seed);
                 Emit.Row("nav", "other_chars", second.Length, "chars", $"the second text ({(other is not null ? other : otherKind)})");
-                Operation("lcs_info", calls, () => index.LongestCommonSubstringInfo(second), tree, t => t.LongestCommonSubstringInfo(second), SameInfo);
-                Operation("lcs_all", calls, () => index.FindAllLongestCommonSubstrings(second), tree, t => t.FindAllLongestCommonSubstrings(second), SameAll);
-                Operation("lcs_distinct", calls, () => index.FindAllDistinctLongestCommonSubstrings(second), tree, t => t.FindAllDistinctLongestCommonSubstrings(second), SameDistinct);
+                steps.Add(new Step("lcs_info", () => index.LongestCommonSubstringInfo(second), t => t.LongestCommonSubstringInfo(second), (a, b) => SameInfo(((string, int, int))a, ((string, int, int))b)));
+                steps.Add(new Step("lcs_all", () => index.FindAllLongestCommonSubstrings(second), t => t.FindAllLongestCommonSubstrings(second), (a, b) => SameAll(((string, IReadOnlyList<int>, IReadOnlyList<int>))a, ((string, IReadOnlyList<int>, IReadOnlyList<int>))b)));
+                steps.Add(new Step("lcs_distinct", () => index.FindAllDistinctLongestCommonSubstrings(second), t => t.FindAllDistinctLongestCommonSubstrings(second), (a, b) => SameDistinct((IReadOnlyList<(string Substring, IReadOnlyList<int> PositionsInText, IReadOnlyList<int> PositionsInOther)>)a, (IReadOnlyList<(string Substring, IReadOnlyList<int> PositionsInText, IReadOnlyList<int> PositionsInOther)>)b)));
                 break;
             case "split":
                 Split(index, query, minLength, calls);
                 break;
             default:
                 throw new ArgumentException($"unknown --op '{op}' (mem, mum, anchors, lcs, links, split)");
+        }
+
+        var esaResults = new List<object>();
+        foreach (Step step in steps) esaResults.Add(RunCalls("nav_esa", step.Label, calls, step.Esa));
+        UkkonenTree? tree = null;
+        if (ukkonen && steps.Count > 0)
+        {
+            tree = Build(text);
+            for (int i = 0; i < steps.Count; i++)
+            {
+                Step step = steps[i];
+                object expected = RunCalls("nav_ukkonen", step.Label, calls, () => step.Ukkonen(tree));
+                bool equal = step.Same(esaResults[i], expected);
+                Emit.Row("nav_check", $"{step.Label}_equal", equal ? 1 : 0, "bool", "the ESA answer equals the Ukkonen tree's");
+                if (!equal) Environment.ExitCode = 3;
+            }
         }
         Emit.Row("nav", "peak_rss_hwm", Process.StatusBytes("VmHWM"), "bytes", "VmHWM of the process at the end");
         GC.KeepAlive(tree);
@@ -126,34 +144,24 @@ internal static class NavCommands
         return tree;
     }
 
-    /// <summary>Runs the ESA operation and, when a tree is given, the Ukkonen one: cold first call, warm median, steady median, and the comparison of the last answers.</summary>
-    private static void Operation<TResult>(string label, int calls, Func<TResult> esa, UkkonenTree? tree, Func<UkkonenTree, TResult> reference, Func<TResult, TResult, bool> same)
+    private sealed record Step(string Label, Func<object> Esa, Func<UkkonenTree, object> Ukkonen, Func<object, object, bool> Same);
+
+    /// <summary>Calls <paramref name="call"/> <paramref name="calls"/> times, reports the cold first call, the warm median and the steady median, and returns the last answer.</summary>
+    private static object RunCalls(string group, string label, int calls, Func<object> call)
     {
-        TResult? result = default;
+        object? result = null;
         var seconds = new List<double>();
-        for (int call = 0; call < calls; call++)
+        for (int i = 0; i < calls; i++)
         {
             long c0 = Stopwatch.GetTimestamp();
-            result = esa();
+            result = call();
             seconds.Add(Seconds(c0));
         }
-        Report("nav_esa", label, seconds, result);
-        if (tree is null) return;
-        TResult? expected = default;
-        var useconds = new List<double>();
-        for (int call = 0; call < calls; call++)
-        {
-            long c0 = Stopwatch.GetTimestamp();
-            expected = reference(tree);
-            useconds.Add(Seconds(c0));
-        }
-        Report("nav_ukkonen", label, useconds, expected);
-        bool equal = same(result!, expected!);
-        Emit.Row("nav_check", $"{label}_equal", equal ? 1 : 0, "bool", "the ESA answer equals the Ukkonen tree's");
-        if (!equal) Environment.ExitCode = 3;
+        Report(group, label, seconds, result);
+        return result!;
     }
 
-    private static void Report<TResult>(string group, string label, List<double> seconds, TResult? result)
+    private static void Report(string group, string label, List<double> seconds, object? result)
     {
         double[] warm = seconds.Skip(1).Order().ToArray();
         double[] steady = seconds.Skip(seconds.Count - 5).Order().ToArray();
@@ -400,20 +408,24 @@ internal static class NavCommands
         var edgeCalls = rec.EdgeCalls.ToArray();
         var lengthNodes = rec.LengthNodes.ToArray();
         var collectNodes = rec.CollectNodes.ToArray();
+        var childrenNodes = rec.ChildrenNodes.ToArray();
         double linkNs = ReplayNs(linkNodes.Length, (k, d) => nav2.GetSuffixLink(linkNodes[k + d]).Lb);
         double childNs = ReplayNs(childCalls.Length, (k, d) => { nav2.TryGetChild(childCalls[k + d].Node, childCalls[k + d].Key, out EsaNode c); return c.Lb + 1; });
         double edgeNs = ReplayNs(edgeCalls.Length, (k, d) => nav2.GetEdgeSymbol(edgeCalls[k + d].Node, edgeCalls[k + d].Offset) + 1);
         double lengthNs = ReplayNs(lengthNodes.Length, (k, d) => nav2.LengthOf(lengthNodes[k + d]));
         var scratch = new List<int>();
         double collectNs = ReplayNs(collectNodes.Length, (k, d) => { scratch.Clear(); nav2.CollectLeaves(collectNodes[k + d], 0, scratch); return scratch.Count; });
+        var childList = new List<EsaNode>();
+        double childrenNs = ReplayNs(childrenNodes.Length, (k, d) => { nav2.GetChildren(childrenNodes[k + d], childList); return childList.Count; });
         double emptyNs = ReplayNs(1_000_000, (k, d) => d);
         Emit.Row("replay", "loop_overhead_ns", emptyNs, "ns", "an empty replay loop with the dependency chain; subtract from the figures below when the member is cheap");
-        double linkSeconds = linkNodes.Length * linkNs * 1e-9, childSeconds = childCalls.Length * childNs * 1e-9, edgeSeconds = edgeCalls.Length * edgeNs * 1e-9, lengthSeconds = lengthNodes.Length * lengthNs * 1e-9, collectSeconds = collectNodes.Length * collectNs * 1e-9;
+        double childrenSeconds = childrenNodes.Length * childrenNs * 1e-9, linkSeconds = linkNodes.Length * linkNs * 1e-9, childSeconds = childCalls.Length * childNs * 1e-9, edgeSeconds = edgeCalls.Length * edgeNs * 1e-9, lengthSeconds = lengthNodes.Length * lengthNs * 1e-9, collectSeconds = collectNodes.Length * collectNs * 1e-9;
         double lightSeconds = (counts.Calls[NavProfile.IsNull] + counts.Calls[NavProfile.IsRoot]) * 1e-9 * 1.0;
-        double sum = linkSeconds + childSeconds + edgeSeconds + lengthSeconds + collectSeconds + lightSeconds;
+        double sum = linkSeconds + childSeconds + childrenSeconds + edgeSeconds + lengthSeconds + collectSeconds + lightSeconds;
         string Share(double x) => $"{(x / plainSeconds * 100).ToString("F1", Inv)} % of the plain steady call";
         Emit.Row("replay", "GetSuffixLink_ns", linkNs, "ns", $"{linkNodes.Length} calls -> {linkSeconds.ToString("R", Inv)} s, {Share(linkSeconds)}");
         Emit.Row("replay", "TryGetChild_ns", childNs, "ns", $"{childCalls.Length} calls -> {childSeconds.ToString("R", Inv)} s, {Share(childSeconds)}");
+        Emit.Row("replay", "GetChildren_ns", childrenNs, "ns", $"{childrenNodes.Length} calls -> {childrenSeconds.ToString("R", Inv)} s, {Share(childrenSeconds)}");
         Emit.Row("replay", "GetEdgeSymbol_ns", edgeNs, "ns", $"{edgeCalls.Length} calls -> {edgeSeconds.ToString("R", Inv)} s, {Share(edgeSeconds)}");
         Emit.Row("replay", "LengthOf_ns", lengthNs, "ns", $"{lengthNodes.Length} calls -> {lengthSeconds.ToString("R", Inv)} s, {Share(lengthSeconds)}");
         Emit.Row("replay", "CollectLeaves_ns", collectNs, "ns", $"{collectNodes.Length} calls -> {collectSeconds.ToString("R", Inv)} s, {Share(collectSeconds)}");
@@ -486,6 +498,8 @@ internal sealed class NavProfile(bool timed)
     internal List<EsaNode> LengthNodes { get; } = [];
 
     internal List<EsaNode> CollectNodes { get; } = [];
+
+    internal List<EsaNode> ChildrenNodes { get; } = [];
 }
 
 /// <summary>A navigator that forwards to <see cref="EsaNavigator"/> and counts (and optionally times) the calls of the generic algorithm.</summary>
@@ -578,6 +592,7 @@ internal readonly struct ProfilingNavigator(EsaNavigator inner, NavProfile profi
     {
         profile.Calls[NavProfile.GetChildren]++;
         profile.AfterLink = false;
+        if (profile.Record) profile.ChildrenNodes.Add(node);
         if (!profile.TimeIt)
         {
             inner.GetChildren(node, children);

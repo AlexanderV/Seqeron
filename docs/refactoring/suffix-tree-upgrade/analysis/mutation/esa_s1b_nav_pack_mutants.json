@@ -1,0 +1,123 @@
+[
+ {
+  "id": "P01",
+  "desc": "pack: the root handle is not marked as the last child",
+  "old": "internal EsaNode Root => new(0, _n, 0, 0, _n, true);",
+  "new": "internal EsaNode Root => new(0, _n, 0, 0, _n, false);"
+ },
+ {
+  "id": "P02",
+  "desc": "pack: ISA stores rank + 1",
+  "old": "for (int rank = 0, count = index.SuffixArray.Length; rank < count; rank++) isaBuf[saBuf[rank]] = rank;",
+  "new": "for (int rank = 0, count = index.SuffixArray.Length; rank < count; rank++) isaBuf[saBuf[rank]] = rank + 1;"
+ },
+ {
+  "id": "P03",
+  "desc": "pack: ISA misses the last rank",
+  "old": "for (int rank = 0, count = index.SuffixArray.Length; rank < count; rank++) isaBuf[saBuf[rank]] = rank;",
+  "new": "for (int rank = 0, count = index.SuffixArray.Length - 1; rank < count; rank++) isaBuf[saBuf[rank]] = rank;"
+ },
+ {
+  "id": "P04",
+  "desc": "pack: Isa() rejects position n",
+  "old": "if ((uint)position > (uint)_n) throw new ArgumentOutOfRangeException(nameof(position));",
+  "new": "if ((uint)position >= (uint)_n) throw new ArgumentOutOfRangeException(nameof(position));"
+ },
+ {
+  "id": "P05",
+  "desc": "pack: PayloadBytes forgets the pyramid",
+  "old": "internal long PayloadBytes => (4L * _isa.Length) + _pyramid.LevelBytes;",
+  "new": "internal long PayloadBytes => 4L * _isa.Length;"
+ },
+ {
+  "id": "P06",
+  "desc": "pack: the null node does not throw",
+  "old": "if (node.Lb < 0) throw new ArgumentException(\"the null node has no suffix link\", nameof(node));",
+  "new": "if (node.Lb < -1) throw new ArgumentException(\"the null node has no suffix link\", nameof(node));"
+ },
+ {
+  "id": "P07",
+  "desc": "pack: the root test also requires Lb == 0 (the root is the only node of depth 0)",
+  "old": "if (node.Depth == 0) return Root;                        // the root",
+  "new": "if (node.Depth == 0 && node.Lb == 0) return Root;       // the root",
+  "equivalent_expected": "equivalent: the root is the only node of depth 0 and has Lb = 0"
+ },
+ {
+  "id": "P08",
+  "desc": "pack: a leaf is recognised as Lb == Rb - 1",
+  "old": "if (node.Lb == node.Rb) return LeafLink(node);           // a leaf: the leaf of the next suffix",
+  "new": "if (node.Lb == node.Rb - 1) return LeafLink(node);       // a leaf: the leaf of the next suffix"
+ },
+ {
+  "id": "P09",
+  "desc": "pack: a node of depth 2 links to the root",
+  "old": "if (t == 0) return Root;                                  // an internal node of depth 1",
+  "new": "if (t <= 1) return Root;                                  // an internal node of depth 1"
+ },
+ {
+  "id": "P10",
+  "desc": "pack: the right endpoint uses the rank before Rb",
+  "old": "int b = isa[sa[node.Rb] + 1];",
+  "new": "int b = isa[sa[node.Rb - 1] + 1];"
+ },
+ {
+  "id": "P11",
+  "desc": "pack: the left endpoint is ISA at Pos instead of Pos + 1",
+  "old": "int a = isa[node.Pos + 1];",
+  "new": "int a = isa[node.Pos];"
+ },
+ {
+  "id": "P12",
+  "desc": "pack: the parent depth is the smaller of the two border values",
+  "old": "return new EsaNode(left, right - 1, t, Math.Max(leftValue, rightValue), sa[left], leftValue > rightValue);",
+  "new": "return new EsaNode(left, right - 1, t, Math.Min(leftValue, rightValue), sa[left], leftValue > rightValue);"
+ },
+ {
+  "id": "P13",
+  "desc": "pack: the last-child flag uses >=",
+  "old": "return new EsaNode(left, right - 1, t, Math.Max(leftValue, rightValue), sa[left], leftValue > rightValue);",
+  "new": "return new EsaNode(left, right - 1, t, Math.Max(leftValue, rightValue), sa[left], leftValue >= rightValue);"
+ },
+ {
+  "id": "P14",
+  "desc": "pack: Pos of the target is SA of the right border",
+  "old": "return new EsaNode(left, right - 1, t, Math.Max(leftValue, rightValue), sa[left], leftValue > rightValue);",
+  "new": "return new EsaNode(left, right - 1, t, Math.Max(leftValue, rightValue), sa[right - 1], leftValue > rightValue);"
+ },
+ {
+  "id": "P15",
+  "desc": "pack: the target depth is the node depth (not depth - 1)",
+  "old": "return new EsaNode(left, right - 1, t, Math.Max(leftValue, rightValue), sa[left], leftValue > rightValue);",
+  "new": "return new EsaNode(left, right - 1, t + 1, Math.Max(leftValue, rightValue), sa[left], leftValue > rightValue);"
+ },
+ {
+  "id": "P16",
+  "desc": "pack: the terminator-only leaf does not link to the root",
+  "old": "if (position >= _n) return Root; // the terminator-only leaf of the root",
+  "new": "if (position > _n) return Root; // the terminator-only leaf of the root"
+ },
+ {
+  "id": "P17",
+  "desc": "pack: the leaf link has the leaf's own depth",
+  "old": "return new EsaNode(rank, rank, leaf.Depth - 1, Math.Max(left, right), position + 1, left > right);",
+  "new": "return new EsaNode(rank, rank, leaf.Depth, Math.Max(left, right), position + 1, left > right);"
+ },
+ {
+  "id": "P18",
+  "desc": "pack: the leaf link has Pos = position",
+  "old": "return new EsaNode(rank, rank, leaf.Depth - 1, Math.Max(left, right), position + 1, left > right);",
+  "new": "return new EsaNode(rank, rank, leaf.Depth - 1, Math.Max(left, right), position, left > right);"
+ },
+ {
+  "id": "P19",
+  "desc": "pack: the leaf link has no right border value for the last rank (reads rank + 1 past the array)",
+  "old": "int right = rank < _n ? _pyramid.ValueAt(rank + 1) : -1;",
+  "new": "int right = rank <= _n ? _pyramid.ValueAt(rank + 1) : -1;"
+ },
+ {
+  "id": "P20",
+  "desc": "pack: the leaf link's last-child flag uses >=",
+  "old": "return new EsaNode(rank, rank, leaf.Depth - 1, Math.Max(left, right), position + 1, left > right);",
+  "new": "return new EsaNode(rank, rank, leaf.Depth - 1, Math.Max(left, right), position + 1, left >= right);"
+ }
+]

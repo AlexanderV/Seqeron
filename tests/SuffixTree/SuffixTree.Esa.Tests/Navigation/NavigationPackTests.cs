@@ -168,4 +168,27 @@ public class NavigationPackTests
         Assert.DoesNotThrow(pack.Dispose);
         Assert.DoesNotThrow(pack.Dispose);
     }
+
+    [Test]
+    public void SuffixLink_OfTheNullNode_Throws()
+    {
+        EsaNavigationPack pack = EsaIndex.Build("abc").Navigation;
+        Assert.Throws<ArgumentException>(() => pack.SuffixLink(EsaNode.Null));
+        EsaNavigator nav = EsaIndex.Build("abc").CreateNavigator();
+        Assert.Throws<ArgumentException>(() => nav.GetSuffixLink(nav.NullNode));
+    }
+
+    [Test]
+    public void Borders_RejectsEndpointsOutsideTheArrayOrOutOfOrder()
+    {
+        using LcpPyramid pyramid = LcpPyramid.Build(CompactLcp.FromDense(new[] { 0, 0, 1, 2, 0 }), 2);
+        Assert.Throws<ArgumentOutOfRangeException>(() => pyramid.Borders(3, 2, 1, out _, out _, out _, out _), "b before a");
+        Assert.Throws<ArgumentOutOfRangeException>(() => pyramid.Borders(5, 5, 1, out _, out _, out _, out _), "a at the length");
+        Assert.Throws<ArgumentOutOfRangeException>(() => pyramid.Borders(1, 5, 1, out _, out _, out _, out _), "b at the length");
+        Assert.Throws<ArgumentOutOfRangeException>(() => pyramid.Borders(-1, 2, 1, out _, out _, out _, out _), "a negative");
+        pyramid.Borders(2, 3, 1, out int left, out int right, out int leftValue, out int rightValue);
+        Assert.That((left, right, leftValue, rightValue), Is.EqualTo((1, 4, 0, 0)), "ranks 2..3 hold LCP >= 1; the borders are LCP[1] = 0 and LCP[4] = 0");
+        pyramid.Borders(2, 4, 1, out left, out right, out leftValue, out rightValue);
+        Assert.That((left, right, leftValue, rightValue), Is.EqualTo((1, 5, 0, -1)), "no border to the right: the length and -1");
+    }
 }

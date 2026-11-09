@@ -1,0 +1,227 @@
+[
+ {
+  "id": "Y01",
+  "desc": "pyramid: the fanout check accepts 1 (power of two test only)",
+  "old": "if (fanout < 2 || (fanout & (fanout - 1)) != 0)",
+  "new": "if (fanout < 1 || (fanout & (fanout - 1)) != 0)"
+ },
+ {
+  "id": "Y02",
+  "desc": "pyramid: the fanout check accepts any fanout of at least 2 (no power-of-two test)",
+  "old": "if (fanout < 2 || (fanout & (fanout - 1)) != 0)",
+  "new": "if (fanout < 2)"
+ },
+ {
+  "id": "Y03",
+  "desc": "pyramid: log2 of the fanout is one too small",
+  "old": "_logFanout = int.TrailingZeroCount(fanout);",
+  "new": "_logFanout = int.TrailingZeroCount(fanout) - 1;"
+ },
+ {
+  "id": "Y04",
+  "desc": "pyramid: a level has one block too many when the size is a multiple of the fanout",
+  "old": "size = (int)(((long)size + fanout - 1) / fanout);",
+  "new": "size = (int)(((long)size + fanout) / fanout);"
+ },
+ {
+  "id": "Y05",
+  "desc": "pyramid: the level loop stops one level early (until the level has at most 2 blocks)",
+  "old": "            while (size > 1);",
+  "new": "            while (size > 2);"
+ },
+ {
+  "id": "Y06",
+  "desc": "pyramid: the first level reads one entry past its block",
+  "old": "int end = Math.Min(_length, start + f);",
+  "new": "int end = Math.Min(_length, start + f + 1);"
+ },
+ {
+  "id": "Y07",
+  "desc": "pyramid: the first level keeps the maximum instead of the minimum",
+  "old": "for (int j = start; j < end; j++) min = Math.Min(min, reader.Value(j));\n            _levels[b] = min;",
+  "new": "for (int j = start; j < end; j++) min = Math.Max(min == int.MaxValue ? 0 : min, reader.Value(j));\n            _levels[b] = min;"
+ },
+ {
+  "id": "Y08",
+  "desc": "pyramid: the upper levels skip the last block of the level below",
+  "old": "int end = Math.Min(belowCount, start + f);",
+  "new": "int end = Math.Min(belowCount - 1, start + f);"
+ },
+ {
+  "id": "Y09",
+  "desc": "pyramid: ValueAt accepts the rank equal to the length (reads one past the array)",
+  "old": "if ((uint)rank >= (uint)_length) throw new ArgumentOutOfRangeException(nameof(rank));",
+  "new": "if ((uint)rank > (uint)_length) throw new ArgumentOutOfRangeException(nameof(rank));"
+ },
+ {
+  "id": "Y10",
+  "desc": "pyramid: Min accepts hi equal to the length",
+  "old": "if ((uint)lo > (uint)hi || hi >= _length) throw new ArgumentOutOfRangeException(nameof(lo)",
+  "new": "if ((uint)lo > (uint)hi || hi > _length) throw new ArgumentOutOfRangeException(nameof(lo)"
+ },
+ {
+  "id": "Y11",
+  "desc": "pyramid: Min of a range inside one block takes the wrong branch condition",
+  "old": "        if (loBlock == hiBlock)\n        {\n            for (int j = lo; j <= hi; j++)",
+  "new": "        if (loBlock != hiBlock)\n        {\n            for (int j = lo; j <= hi; j++)"
+ },
+ {
+  "id": "Y12",
+  "desc": "pyramid: Min reads the partial block at the low end one entry short",
+  "old": "for (int j = lo, end = lo | (f - 1); j <= end; j++) min = Math.Min(min, reader.Value(j));",
+  "new": "for (int j = lo, end = (lo | (f - 1)) - 1; j <= end; j++) min = Math.Min(min, reader.Value(j));"
+ },
+ {
+  "id": "Y13",
+  "desc": "pyramid: Min starts the partial block at the high end one entry late",
+  "old": "for (int j = hi & ~(f - 1); j <= hi; j++) min = Math.Min(min, reader.Value(j));",
+  "new": "for (int j = (hi & ~(f - 1)) + 1; j <= hi; j++) min = Math.Min(min, reader.Value(j));"
+ },
+ {
+  "id": "Y14",
+  "desc": "pyramid: Min includes the partial blocks again at the first level (l = loBlock)",
+  "old": "int l = loBlock + 1, r = hiBlock - 1;",
+  "new": "int l = loBlock, r = hiBlock - 1;"
+ },
+ {
+  "id": "Y15",
+  "desc": "pyramid: Min does not move the high end one level up correctly (r not decremented)",
+  "old": "r = (r >> _logFanout) - 1;",
+  "new": "r = (r >> _logFanout);"
+ },
+ {
+  "id": "Y16",
+  "desc": "pyramid: PrevLess scans the block down to start + 1 only (misses the first entry of the block)",
+  "old": "for (int j = pos, start = pos & ~(f - 1); j >= start; j--)\n            if (reader.Less(j, bound)) return j;",
+  "new": "for (int j = pos, start = pos & ~(f - 1); j > start; j--)\n            if (reader.Less(j, bound)) return j;"
+ },
+ {
+  "id": "Y17",
+  "desc": "pyramid: PrevLess skips the group start block at the level scan",
+  "old": "for (int b = idx - 1, start = idx & ~(f - 1); b >= start; b--)",
+  "new": "for (int b = idx - 1, start = idx & ~(f - 1); b > start; b--)"
+ },
+ {
+  "id": "Y18",
+  "desc": "pyramid: PrevLess compares the block minimum with <= bound",
+  "old": "if (_levels[off + b] < bound) return RightmostBelow(reader, k, b, bound);",
+  "new": "if (_levels[off + b] <= bound) return RightmostBelow(reader, k, b, bound);"
+ },
+ {
+  "id": "Y19",
+  "desc": "pyramid: NextLess scans the block only up to end - 1",
+  "old": "for (int j = pos, end = Math.Min(pos | (f - 1), _length - 1); j <= end; j++)",
+  "new": "for (int j = pos, end = Math.Min(pos | (f - 1), _length - 1); j < end; j++)"
+ },
+ {
+  "id": "Y20",
+  "desc": "pyramid: NextLess scans the block up to the length (one past the array) instead of length - 1",
+  "old": "for (int j = pos, end = Math.Min(pos | (f - 1), _length - 1); j <= end; j++)",
+  "new": "for (int j = pos, end = Math.Min(pos | (f - 1), _length); j <= end; j++)"
+ },
+ {
+  "id": "Y21",
+  "desc": "pyramid: NextLess level scan clamps to the count instead of count - 1",
+  "old": "for (int b = idx + 1, end = Math.Min(idx | (f - 1), _count[k - 1] - 1); b <= end; b++)",
+  "new": "for (int b = idx + 1, end = Math.Min(idx | (f - 1), _count[k - 1]); b <= end; b++)"
+ },
+ {
+  "id": "Y22",
+  "desc": "pyramid: NextLess early return for pos at the length is dropped (the core is also reached through the public wrapper only)",
+  "old": "        if (pos >= _length) return _length;\n        int f = _fanout;\n        for (int j = pos, end",
+  "new": "        int f = _fanout;\n        for (int j = pos, end"
+ },
+ {
+  "id": "Y23",
+  "desc": "pyramid: RightmostBelow starts the search at the block's first child instead of the last",
+  "old": "int c = Math.Min(lowest + f - 1, _count[k - 1] - 1);",
+  "new": "int c = lowest;"
+ },
+ {
+  "id": "Y24",
+  "desc": "pyramid: RightmostBelow accepts a child whose minimum equals the bound",
+  "old": "            while (_levels[off + c] >= bound)\n            {\n                if (--c < lowest)",
+  "new": "            while (_levels[off + c] > bound)\n            {\n                if (--c < lowest)"
+ },
+ {
+  "id": "Y25",
+  "desc": "pyramid: LeftmostBelow starts one child late",
+  "old": "            int c = b * f;\n            int last = Math.Min(c + f - 1, _count[k - 1] - 1);",
+  "new": "            int c = (b * f) + 1;\n            int last = Math.Min(c + f - 1, _count[k - 1] - 1);"
+ },
+ {
+  "id": "Y26",
+  "desc": "pyramid: LeftmostBelow's last base position is one too early",
+  "old": "int end = Math.Min((b * f) + f - 1, _length - 1);",
+  "new": "int end = Math.Min((b * f) + f - 2, _length - 1);"
+ },
+ {
+  "id": "Y27",
+  "desc": "pyramid: the escape-aware reader resolves with || (a bound above the escape is always 'less')",
+  "old": "return bound > U8Escape && Resolve(overflowRanks, overflowValues, rank) < bound;",
+  "new": "return bound > U8Escape || Resolve(overflowRanks, overflowValues, rank) < bound;"
+ },
+ {
+  "id": "Y28",
+  "desc": "pyramid: the U8 reader never resolves an escape (treats it as 255)",
+  "old": "return v != U8Escape ? v : Resolve(overflowRanks, overflowValues, rank);",
+  "new": "return v;"
+ },
+ {
+  "id": "Y29",
+  "desc": "pyramid: the U16 reader resolves a bound above 255 although the escape is 65,535 (only slower)",
+  "old": "return bound > U16Escape && Resolve(overflowRanks, overflowValues, rank) < bound;",
+  "new": "return bound > U8Escape && Resolve(overflowRanks, overflowValues, rank) < bound;",
+  "equivalent_expected": "equivalent: for 255 < bound <= 65,535 an escaped entry (true value >= 65,535) is not below the bound either way; only the binary search is paid"
+ },
+ {
+  "id": "Y30",
+  "desc": "pyramid: the U16 reader's Less never resolves (an escaped entry is never below any bound)",
+  "old": "return bound > U16Escape && Resolve(overflowRanks, overflowValues, rank) < bound;",
+  "new": "return false;"
+ },
+ {
+  "id": "Y31",
+  "desc": "pyramid: Resolve returns the neighbouring overflow value when the rank is missing instead of throwing",
+  "old": "if (k < 0) throw new InvalidOperationException($\"overflow entry for rank {rank} is missing\");",
+  "new": "if (k < 0) k = ~k < overflowValues.Length ? ~k : 0;",
+  "equivalent_expected": "equivalent for a valid CompactLcp: every escaped entry is listed (CompactLcp.FromParts checks it), the branch is the corrupt-input guard"
+ },
+ {
+  "id": "Y32",
+  "desc": "pyramid: Borders drops the b >= a guard",
+  "old": "if ((uint)a >= (uint)_length || b < a || b >= _length) throw new ArgumentOutOfRangeException(nameof(a));",
+  "new": "if ((uint)a >= (uint)_length || b >= _length) throw new ArgumentOutOfRangeException(nameof(a));"
+ },
+ {
+  "id": "Y33",
+  "desc": "pyramid: the left border search starts one rank to the left of Psi(l)",
+  "old": "left = PrevLessCore(reader, a, t);",
+  "new": "left = PrevLessCore(reader, a - 1, t);"
+ },
+ {
+  "id": "Y34",
+  "desc": "pyramid: the right border search starts AT Psi(r) instead of Psi(r) + 1",
+  "old": "right = NextLessCore(reader, b + 1, t);",
+  "new": "right = NextLessCore(reader, b, t);",
+  "equivalent_expected": "equivalent: Psi(r) lies inside the target, so LCP[Psi(r)] >= t is not below t; only one step is saved (the prototype survivors K2 and K5 of 1b.4a are the same mutation)"
+ },
+ {
+  "id": "Y35",
+  "desc": "pyramid: the right border value is read at the length when there is none (rank == length)",
+  "old": "rightValue = right < _length ? reader.Value(right) : -1;",
+  "new": "rightValue = right <= _length ? reader.Value(right) : -1;"
+ },
+ {
+  "id": "Y36",
+  "desc": "pyramid: the left border value is -1 when the border is rank 0 (rank 0 is a valid border)",
+  "old": "leftValue = left >= 0 ? reader.Value(left) : -1;",
+  "new": "leftValue = left > 0 ? reader.Value(left) : -1;"
+ },
+ {
+  "id": "Y37",
+  "desc": "pyramid: LevelBytes counts 8 bytes per entry",
+  "old": "internal long LevelBytes => 4L * _levelData.Length;",
+  "new": "internal long LevelBytes => 8L * _levelData.Length;"
+ }
+]

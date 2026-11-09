@@ -1,0 +1,174 @@
+[
+ {
+  "id": "N01",
+  "desc": "navigator: IsNull is Lb <= 0",
+  "old": "public bool IsNull(EsaNode node) => node.Lb < 0;",
+  "new": "public bool IsNull(EsaNode node) => node.Lb <= 0;"
+ },
+ {
+  "id": "N02",
+  "desc": "navigator: IsRoot is Depth == 1",
+  "old": "public bool IsRoot(EsaNode node) => node.Depth == 0;",
+  "new": "public bool IsRoot(EsaNode node) => node.Depth == 1;"
+ },
+ {
+  "id": "N03",
+  "desc": "navigator: the edge symbol at the end of the text is read instead of the terminator",
+  "old": "return index < (uint)_n ? _text[(int)index] : -1;",
+  "new": "return index <= (uint)_n ? _text[(int)index] : -1;"
+ },
+ {
+  "id": "N04",
+  "desc": "navigator: the edge symbol ignores the parent depth",
+  "old": "uint index = (uint)node.Pos + (uint)node.ParentDepth + (uint)offset;",
+  "new": "uint index = (uint)node.Pos + (uint)offset;"
+ },
+ {
+  "id": "N05",
+  "desc": "navigator: LengthOf adds the parent depth",
+  "old": "public int LengthOf(EsaNode node) => node.Depth - node.ParentDepth;",
+  "new": "public int LengthOf(EsaNode node) => node.Depth + node.ParentDepth;"
+ },
+ {
+  "id": "N06",
+  "desc": "navigator: GetSuffixLink returns the root",
+  "old": "public EsaNode GetSuffixLink(EsaNode node) => _pack.SuffixLink(node);",
+  "new": "public EsaNode GetSuffixLink(EsaNode node) => Root;"
+ },
+ {
+  "id": "N07",
+  "desc": "navigator: TryGetChild treats Lb < Rb as a leaf",
+  "old": "        if (node.Lb == node.Rb)\n        {\n            child = EsaNode.Null;\n            return false;\n        }",
+  "new": "        if (node.Lb < node.Rb)\n        {\n            child = EsaNode.Null;\n            return false;\n        }"
+ },
+ {
+  "id": "N08",
+  "desc": "navigator: the Packed layout reads the tagged table",
+  "old": "ChildLayoutKind.Packed => TryGetChildCore(_packed, node, key, out child),",
+  "new": "ChildLayoutKind.Packed => TryGetChildCore(_tagged, node, key, out child),"
+ },
+ {
+  "id": "N09",
+  "desc": "navigator: the child lookup stops at >= instead of >",
+  "old": "if (symbol > key || boundary < 0)",
+  "new": "if (symbol >= key || boundary < 0)",
+  "equivalent_expected": "equivalent: equality was handled by the branch above"
+ },
+ {
+  "id": "N10",
+  "desc": "navigator: the child lookup compares for inequality",
+  "old": "            if (symbol == key)\n            {\n                int b = boundary >= 0 ? boundary - 1 : rb;",
+  "new": "            if (symbol != key)\n            {\n                int b = boundary >= 0 ? boundary - 1 : rb;"
+ },
+ {
+  "id": "N11",
+  "desc": "navigator: the symbol at the node depth is read one position late",
+  "old": "int p = saA + node.Depth;",
+  "new": "int p = saA + node.Depth + 1;"
+ },
+ {
+  "id": "N12",
+  "desc": "navigator: the terminator child is not recognised (p <= n reads past the text)",
+  "old": "int symbol = p < _n ? _text[p] : -1;",
+  "new": "int symbol = p <= _n ? _text[p] : -1;"
+ },
+ {
+  "id": "N13",
+  "desc": "navigator: the found child is flagged last when the boundary is positive",
+  "old": "child = MakeChild(table, a, b, saA, node.Depth, boundary < 0);",
+  "new": "child = MakeChild(table, a, b, saA, node.Depth, boundary > 0);"
+ },
+ {
+  "id": "N14",
+  "desc": "navigator: the child lookup's right bound is the boundary (not boundary - 1)",
+  "old": "                int b = boundary >= 0 ? boundary - 1 : rb;\n                child = MakeChild",
+  "new": "                int b = boundary >= 0 ? boundary : rb;\n                child = MakeChild"
+ },
+ {
+  "id": "N15",
+  "desc": "navigator: GetChildren's right bound is the boundary (not boundary - 1)",
+  "old": "            int b = boundary >= 0 ? boundary - 1 : rb;\n            children.Add",
+  "new": "            int b = boundary >= 0 ? boundary : rb;\n            children.Add"
+ },
+ {
+  "id": "N16",
+  "desc": "navigator: GetChildren does not clear the list",
+  "old": "        children.Clear();\n        if (node.Lb == node.Rb) return;",
+  "new": "        if (node.Lb == node.Rb) return;"
+ },
+ {
+  "id": "N17",
+  "desc": "navigator: GetChildren treats Lb + 1 == Rb as a leaf",
+  "old": "        children.Clear();\n        if (node.Lb == node.Rb) return;",
+  "new": "        children.Clear();\n        if (node.Lb + 1 >= node.Rb) return;"
+ },
+ {
+  "id": "N18",
+  "desc": "navigator: GetChildren stops at boundary <= 0 (a valid boundary is never 0)",
+  "old": "            if (boundary < 0) return;\n            a = boundary;\n            boundary = table.NextLIndex(boundary, rb);\n            if (boundary >= 0 && (boundary <= a || boundary > rb)) ThrowCorruptChildTable();\n        }\n    }\n\n    /// <summary>The child",
+  "new": "            if (boundary <= 0) return;\n            a = boundary;\n            boundary = table.NextLIndex(boundary, rb);\n            if (boundary >= 0 && (boundary <= a || boundary > rb)) ThrowCorruptChildTable();\n        }\n    }\n\n    /// <summary>The child",
+  "equivalent_expected": "equivalent: an l-index is a rank above Lb, never 0"
+ },
+ {
+  "id": "N19",
+  "desc": "navigator: MakeChild takes an interval for a leaf",
+  "old": "        => a == b\n            ? new EsaNode(a, a, _n - saA + 1, parentDepth, saA, childIsLast)",
+  "new": "        => a != b\n            ? new EsaNode(a, a, _n - saA + 1, parentDepth, saA, childIsLast)"
+ },
+ {
+  "id": "N20",
+  "desc": "navigator: a leaf's depth forgets the terminator",
+  "old": "? new EsaNode(a, a, _n - saA + 1, parentDepth, saA, childIsLast)",
+  "new": "? new EsaNode(a, a, _n - saA, parentDepth, saA, childIsLast)"
+ },
+ {
+  "id": "N21",
+  "desc": "navigator: an internal child reads its value at the wrong table slot (last-child flag negated)",
+  "old": ": new EsaNode(a, b, _lcp.ValueAt(table.FirstLIndex(a, b, childIsLast)), parentDepth, saA, childIsLast);",
+  "new": ": new EsaNode(a, b, _lcp.ValueAt(table.FirstLIndex(a, b, !childIsLast)), parentDepth, saA, childIsLast);"
+ },
+ {
+  "id": "N22",
+  "desc": "navigator: CollectLeaves includes the empty suffix of the root",
+  "old": "int from = Math.Max(node.Lb, 1);",
+  "new": "int from = node.Lb;"
+ },
+ {
+  "id": "N23",
+  "desc": "navigator: CollectLeaves drops the last rank",
+  "old": "int count = node.Rb - from + 1;",
+  "new": "int count = node.Rb - from;"
+ },
+ {
+  "id": "N24",
+  "desc": "navigator: CollectLeaves does not skip an empty range",
+  "old": "if (count > 0) results.AddRange(",
+  "new": "if (count >= 0) results.AddRange(",
+  "equivalent_expected": "equivalent: an empty span adds nothing"
+ },
+ {
+  "id": "N25",
+  "desc": "navigator: FindAnyLeafPosition of the root reports the second suffix",
+  "old": "if (node.Lb == 0) return node.Rb >= 1 ? _sa[1] : -1;",
+  "new": "if (node.Lb == 0) return node.Rb >= 2 ? _sa[1] : -1;"
+ },
+ {
+  "id": "N26",
+  "desc": "navigator: FindAnyLeafPosition reports the left rank",
+  "old": "        return node.Pos;\n    }",
+  "new": "        return node.Lb;\n    }"
+ },
+ {
+  "id": "N27",
+  "desc": "navigator: the Reference3 layout reads the packed table",
+  "old": "_ => TryGetChildCore(_reference3, node, key, out child),",
+  "new": "_ => TryGetChildCore(_packed, node, key, out child),"
+ },
+ {
+  "id": "N28",
+  "desc": "navigator: the first boundary check is dropped (strictly increasing l-indices, corrupt-table guard)",
+  "old": "        if (boundary >= 0 && (boundary <= a || boundary > rb)) ThrowCorruptChildTable();\n        while (true)\n        {\n            int saA = _sa[a];",
+  "new": "        while (true)\n        {\n            int saA = _sa[a];",
+  "equivalent_expected": "equivalent for a valid child table: the guard only fires on a corrupt one (bounded-loop safety of 1b.7)"
+ }
+]

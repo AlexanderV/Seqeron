@@ -1,0 +1,40 @@
+[
+ {
+  "id": "A01",
+  "desc": "pinned: Allocate gives uninitialised memory when zero is requested",
+  "old": "T[] array = zero ? GC.AllocateArray<T>(length, pinned: true) : GC.AllocateUninitializedArray<T>(length, pinned: true);",
+  "new": "T[] array = GC.AllocateUninitializedArray<T>(length, pinned: true);",
+  "equivalent_expected": "equivalent in practice: the pinned object heap hands out zeroed memory for fresh pages; a test cannot force dirty pages deterministically"
+ },
+ {
+  "id": "A02",
+  "desc": "pinned: Release never frees the handle",
+  "old": "if (_handle.IsAllocated) _handle.Free();",
+  "new": "if (_handle.IsAllocated) { }"
+ },
+ {
+  "id": "A03",
+  "desc": "pinned: HoldsHandle is inverted",
+  "old": "internal bool HoldsHandle => _handle.IsAllocated;",
+  "new": "internal bool HoldsHandle => !_handle.IsAllocated;"
+ },
+ {
+  "id": "A04",
+  "desc": "pinned: Pin takes a normal (movable) handle",
+  "old": "GCHandle.Alloc(array, GCHandleType.Pinned)",
+  "new": "GCHandle.Alloc(array, GCHandleType.Normal)"
+ },
+ {
+  "id": "A05",
+  "desc": "pinned: Dispose does not suppress the finalizer",
+  "old": "        Release();\n        GC.SuppressFinalize(this);",
+  "new": "        Release();",
+  "equivalent_expected": "equivalent: the finalizer then calls Release again, which is a no-op after the first"
+ },
+ {
+  "id": "A06",
+  "desc": "pinned: Length reports one more",
+  "old": "internal int Length => _array.Length;",
+  "new": "internal int Length => _array.Length + 1;"
+ }
+]

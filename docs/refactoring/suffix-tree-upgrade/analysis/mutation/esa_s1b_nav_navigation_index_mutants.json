@@ -1,0 +1,32 @@
+[
+ {
+  "id": "I01",
+  "desc": "index: the build counter is not incremented",
+  "old": "_navigationBuilds++;",
+  "new": "_navigationBuilds += 0;"
+ },
+ {
+  "id": "I02",
+  "desc": "index: NavigationBuilt is inverted",
+  "old": "internal bool NavigationBuilt => Volatile.Read(ref _navigation) is not null;",
+  "new": "internal bool NavigationBuilt => Volatile.Read(ref _navigation) is null;"
+ },
+ {
+  "id": "I03",
+  "desc": "index: SuffixLinkSupport is inverted",
+  "old": "internal IndexSupport SuffixLinkSupport => NavigationBuilt ? IndexSupport.Native : IndexSupport.Degraded;",
+  "new": "internal IndexSupport SuffixLinkSupport => NavigationBuilt ? IndexSupport.Degraded : IndexSupport.Native;"
+ },
+ {
+  "id": "I04",
+  "desc": "index: the lock is a fresh object per call (no mutual exclusion)",
+  "old": "        lock (_navigationLock)",
+  "new": "        lock (new object())"
+ },
+ {
+  "id": "I05",
+  "desc": "index: the pack is rebuilt on every call (the double check is dropped)",
+  "old": "            if (pack is null)\n            {",
+  "new": "            if (pack is null || pack is not null)\n            {"
+ }
+]

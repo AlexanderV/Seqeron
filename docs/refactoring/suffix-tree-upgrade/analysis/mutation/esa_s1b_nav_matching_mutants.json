@@ -1,0 +1,51 @@
+[
+ {
+  "id": "M01",
+  "desc": "matching: the info reports the position in the other text as the position in the text",
+  "old": "return (results.Substring, results.PositionsInText[0], results.PositionsInOther[0]);",
+  "new": "return (results.Substring, results.PositionsInOther[0], results.PositionsInText[0]);"
+ },
+ {
+  "id": "M02",
+  "desc": "matching: MEM accepts minLength 0",
+  "old": "        ArgumentOutOfRangeException.ThrowIfLessThan(minLength, 1);\n        EsaNavigator nav = CreateNavigator();\n        return SuffixTreeAlgorithms.FindMaximalExactMatches",
+  "new": "        ArgumentOutOfRangeException.ThrowIfLessThan(minLength, 0);\n        EsaNavigator nav = CreateNavigator();\n        return SuffixTreeAlgorithms.FindMaximalExactMatches"
+ },
+ {
+  "id": "M03",
+  "desc": "matching: MUM refuses the Reference mode",
+  "old": "if (uniqueness is not (MumUniqueness.Both or MumUniqueness.Reference))",
+  "new": "if (uniqueness is not MumUniqueness.Both)"
+ },
+ {
+  "id": "M04",
+  "desc": "matching: the canonical list is computed as first-only",
+  "old": "var results = FindAllLcsInternal(other, firstOnly: false);",
+  "new": "var results = FindAllLcsInternal(other, firstOnly: true);"
+ },
+ {
+  "id": "M05",
+  "desc": "matching: the info asks for all positions (valid, only slower)",
+  "old": "var results = FindAllLcsInternal(other, firstOnly: true);",
+  "new": "var results = FindAllLcsInternal(other, firstOnly: false);",
+  "equivalent_expected": "equivalent: the first of the ascending list is a valid occurrence in the text and the first occurrence in the other text; the contract leaves the occurrence open"
+ },
+ {
+  "id": "M06",
+  "desc": "matching: anchors check null after building the navigator (argument order)",
+  "old": "        ArgumentNullException.ThrowIfNull(query);\n        EsaNavigator nav = CreateNavigator();\n        return SuffixTreeAlgorithms.FindExactMatchAnchors",
+  "new": "        EsaNavigator nav = CreateNavigator();\n        ArgumentNullException.ThrowIfNull(query);\n        return SuffixTreeAlgorithms.FindExactMatchAnchors"
+ },
+ {
+  "id": "M07",
+  "desc": "matching: the distinct LCS builds the navigator before the null check",
+  "old": "        ArgumentNullException.ThrowIfNull(other);\n        EsaNavigator nav = CreateNavigator();\n        return SuffixTreeAlgorithms.FindAllDistinctLongestCommonSubstrings",
+  "new": "        EsaNavigator nav = CreateNavigator();\n        ArgumentNullException.ThrowIfNull(other);\n        return SuffixTreeAlgorithms.FindAllDistinctLongestCommonSubstrings"
+ },
+ {
+  "id": "M08",
+  "desc": "matching: the span overload of LongestCommonSubstring drops the last character of the query",
+  "old": "internal string LongestCommonSubstring(ReadOnlySpan<char> other) => LongestCommonSubstringInfo(new string(other)).Substring;",
+  "new": "internal string LongestCommonSubstring(ReadOnlySpan<char> other) => LongestCommonSubstringInfo(new string(other[..Math.Max(0, other.Length - 1)])).Substring;"
+ }
+]
