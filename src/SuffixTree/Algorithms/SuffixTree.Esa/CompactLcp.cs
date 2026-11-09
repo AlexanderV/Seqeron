@@ -57,6 +57,21 @@ internal sealed class CompactLcp
     /// <summary>The escape value of the base array, or -1 when there is none (U32).</summary>
     private int EscapeValue => Kind switch { LcpKind.U8 => U8Escape, LcpKind.U16 => U16Escape, _ => -1 };
 
+    /// <summary>The base array of kind <see cref="LcpKind.U8"/> (null for the other kinds). Read access for the pointer readers of the navigation pack (work package 1b.4); never written.</summary>
+    internal byte[]? BaseU8 => _u8;
+
+    /// <summary>The base array of kind <see cref="LcpKind.U16"/> (null for the other kinds); see <see cref="BaseU8"/>.</summary>
+    internal ushort[]? BaseU16 => _u16;
+
+    /// <summary>The base array of kind <see cref="LcpKind.U32"/> (null for the other kinds); see <see cref="BaseU8"/>.</summary>
+    internal int[]? BaseU32 => _u32;
+
+    /// <summary>The ranks of the escaped entries, strictly ascending (empty for U32); see <see cref="BaseU8"/>.</summary>
+    internal int[] OverflowRanks => _overflowRank;
+
+    /// <summary>The true values of the escaped entries, parallel to <see cref="OverflowRanks"/>; see <see cref="BaseU8"/>.</summary>
+    internal int[] OverflowValues => _overflowValue;
+
     /// <summary>The LCP value at <paramref name="rank"/> (random access; binary search for escaped entries).</summary>
     internal int this[int rank]
     {
