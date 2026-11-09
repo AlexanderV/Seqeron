@@ -211,26 +211,53 @@ public class LinkKernelTests
     [Test]
     public void StepBudget_StopsTheUnboundedKernels_AndTheBoundedOnesStayInsideIt()
     {
-        const int n = 6000;
-        LinkKernelChecks.Prepared p = LinkKernelChecks.Prepare(StringFamilies.AllSame(n), [16]);
-        var set = LinkNodeSet.Enumerate(p.Esa.Lcp);
-        // the deepest node of a^n has depth n - 1 and its link target is a^(n-2): wide (n) for the scan, node depth n - 2 for the descent
-        int deepest = LinkNodeSet.Largest(set.Depth, 1)[0];
-        LinkNode v = set.Node(deepest, p.Esa.SuffixArray);
-        Assert.That(v.Depth, Is.EqualTo(n - 1));
-
+        // the scan reads the part of the target interval outside [Psi(l), Psi(r)]: long for a shallow node of a Fibonacci word (measured: about n / 4 steps at depth 2)
+        LinkKernelChecks.Prepared fib = LinkKernelChecks.Prepare(StringFamilies.Fibonacci(6000), [16]);
+        var fibSet = LinkNodeSet.Enumerate(fib.Esa.Lcp);
+        LinkNode w = default;
+        long worst = 0;
+        for (int i = 0; i < fibSet.Count; i++)
+        {
+            LinkNode candidate = fibSet.Node(i, fib.Esa.SuffixArray);
+            LinkKernels.TryLink(LinkKernel.Scan, EndpointSource.Psi, fib.Contexts[0], candidate, long.MaxValue, out _, out long steps);
+            if (steps > worst)
+            {
+                worst = steps;
+                w = candidate;
+            }
+        }
+        Assert.That(worst, Is.GreaterThan(500), "the scan is not bounded on a Fibonacci word");
         foreach (EndpointSource source in Sources)
         {
-            Assert.That(LinkKernels.TryLink(LinkKernel.Scan, source, p.Contexts[0], v, 100, out _, out long scanSteps), Is.False, "scan on a^n exceeds a small budget");
+            Assert.That(LinkKernels.TryLink(LinkKernel.Scan, source, fib.Contexts[0], w, 100, out _, out long scanSteps), Is.False, "the worst scan exceeds a small budget");
             Assert.That(scanSteps, Is.GreaterThan(100));
-            Assert.That(LinkKernels.TryLink(LinkKernel.Descent, source, p.Contexts[0], v, 100, out _, out long descentSteps), Is.False, "descent on a^n exceeds a small budget");
-            Assert.That(descentSteps, Is.GreaterThan(100));
-            Assert.That(LinkKernels.TryLink(LinkKernel.Scan, source, p.Contexts[0], v, 10_000_000, out LinkTarget scanned, out long used), Is.True);
-            Assert.That(used, Is.GreaterThan(n / 2), "the scan reads the whole target interval");
-            foreach (LinkKernel bounded in new[] { LinkKernel.RmqPsvNsv, LinkKernel.PsvNsv })
+            Assert.That(LinkKernels.TryLink(LinkKernel.Scan, source, fib.Contexts[0], w, 10_000_000, out LinkTarget scanned, out long used), Is.True);
+            Assert.That(used, Is.EqualTo(worst));
+            foreach (LinkKernel bounded in new[] { LinkKernel.RmqPsvNsv, LinkKernel.PsvNsv, LinkKernel.Descent })
             {
-                Assert.That(LinkKernels.TryLink(bounded, source, p.Contexts[0], v, 1500, out LinkTarget t, out long steps), Is.True, $"{bounded} stays inside a small budget on a^n");
+                Assert.That(LinkKernels.TryLink(bounded, source, fib.Contexts[0], w, 1500, out LinkTarget t, out long steps), Is.True, $"{bounded} stays inside the budget where the scan is long");
                 Assert.That(t, Is.EqualTo(scanned));
+                Assert.That(steps, Is.LessThan(1500));
+            }
+        }
+
+        // the descent walks the node depth of the target: n - 2 levels for the deepest node of a^n; the pyramid kernels stay bounded
+        const int n = 6000;
+        LinkKernelChecks.Prepared run = LinkKernelChecks.Prepare(StringFamilies.AllSame(n), [16]);
+        var runSet = LinkNodeSet.Enumerate(run.Esa.Lcp);
+        int deepest = LinkNodeSet.Largest(runSet.Depth, 1)[0];
+        LinkNode v = runSet.Node(deepest, run.Esa.SuffixArray);
+        Assert.That(v.Depth, Is.EqualTo(n - 1));
+        foreach (EndpointSource source in Sources)
+        {
+            Assert.That(LinkKernels.TryLink(LinkKernel.Descent, source, run.Contexts[0], v, 100, out _, out long descentSteps), Is.False, "the descent on a^n exceeds a small budget");
+            Assert.That(descentSteps, Is.GreaterThan(100));
+            Assert.That(LinkKernels.TryLink(LinkKernel.Descent, source, run.Contexts[0], v, 10_000_000, out LinkTarget descended, out long walked), Is.True);
+            Assert.That(walked, Is.GreaterThan(n), "about three table reads per level");
+            foreach (LinkKernel bounded in new[] { LinkKernel.RmqPsvNsv, LinkKernel.PsvNsv, LinkKernel.Scan })
+            {
+                Assert.That(LinkKernels.TryLink(bounded, source, run.Contexts[0], v, 1500, out LinkTarget t, out long steps), Is.True, $"{bounded} stays inside a small budget on a^n");
+                Assert.That(t, Is.EqualTo(descended));
                 Assert.That(steps, Is.LessThan(1500));
             }
         }

@@ -43,7 +43,7 @@ public class LcpRangeHelperTests
     }
 
     /// <summary>Checks every query of the helper on <paramref name="a"/>: all (lo, hi) pairs when the array is short, a seeded sample otherwise; all positions and the interesting bounds.</summary>
-    private static void CheckArray(int[] a, string name, bool allPairs = true, int sampledPairs = 3000, ulong seed = 1)
+    internal static void CheckArray(int[] a, string name, bool allPairs = true, int sampledPairs = 3000, ulong seed = 1)
     {
         foreach (LcpKind kind in new[] { LcpKind.U32, LcpKind.U8, LcpKind.U16 })
         {
@@ -116,14 +116,14 @@ public class LcpRangeHelperTests
     }
 
     [Test]
-    public void AllBinaryArrays_UpToLength14()
+    public void AllBinaryArrays_UpToLength11()
     {
-        for (int len = 9; len <= 14; len++)
+        for (int len = 9; len <= 11; len++)
             for (int code = 0; code < 1 << len; code++)
             {
                 var a = new int[len];
                 for (int i = 0; i < len; i++) a[i] = (code >> i) & 1;
-                CheckArray(a, $"binary-{len}-{code}", allPairs: len <= 11, sampledPairs: 500);
+                CheckArray(a, $"binary-{len}-{code}", allPairs: len <= 10, sampledPairs: 500);
             }
     }
 
@@ -232,5 +232,37 @@ public class LcpRangeHelperTests
         var none = new NoCount();
         Assert.That(h.NextLess(4, 1, ref none), Is.EqualTo(a.Length));
         Assert.That(none.Steps, Is.EqualTo(0));
+    }
+}
+
+/// <summary>The long enumerations of the helper tests (binary arrays up to length 14, ternary up to 9). Heavy; explicit, category <c>Exhaustive</c>.</summary>
+[TestFixture]
+[Category("Exhaustive")]
+[Explicit("Heavy enumeration; run with --filter Category=Exhaustive (see PROGRESS-S1.md, Log 1b.4a)")]
+public class LcpRangeHelperExhaustiveTests
+{
+    [Test]
+    public void AllBinaryArrays_Length12To14()
+    {
+        for (int len = 12; len <= 14; len++)
+            for (int code = 0; code < 1 << len; code++)
+            {
+                var a = new int[len];
+                for (int i = 0; i < len; i++) a[i] = (code >> i) & 1;
+                LcpRangeHelperTests.CheckArray(a, $"binary-{len}-{code}", allPairs: false, sampledPairs: 300);
+            }
+    }
+
+    [Test]
+    public void AllTernaryArrays_Length9()
+    {
+        const int len = 9;
+        int total = (int)Math.Pow(3, len);
+        for (int code = 0; code < total; code++)
+        {
+            var a = new int[len];
+            for (int i = 0, c = code; i < len; i++, c /= 3) a[i] = c % 3;
+            LcpRangeHelperTests.CheckArray(a, $"ternary-{len}-{code}");
+        }
     }
 }

@@ -25,6 +25,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\SuffixTree\Algorithms\SuffixTree.Esa\SuffixTree.Esa.csproj" />
+    <!-- prototype P2 (1b.4a): the in-memory Ukkonen tree answers the same MEM query in the same process as the reference; referenced, not modified -->
+    <ProjectReference Include="..\..\src\SuffixTree\Algorithms\SuffixTree\SuffixTree.csproj" />
   </ItemGroup>
 
 </Project>

@@ -27,6 +27,14 @@ internal static class Cli
                   counts, suffix enumeration; first call cold and the median of three more); --generic adds the operations that run on Traverse through the generic algorithms
                   (maximal repeated pairs of at least --min-length, k-common substrings of the two halves of the text); --check compares the native results with the
                   Traverse-default path of the same index (exit code 3 on a difference)
+          links   --input <file>|--synthetic <a^n|fibonacci|thue-morse|abab|n-runs>[:n] [--name <label>] [--sample 200000] [--seed 1] [--worst 1000] [--fanout 16]
+                  [--kernels all|scan,descent,rmq,psv] [--sources all|isa,psi] [--rotate k] [--link-budget 3000000] [--total-budget 400000000] [--time-cap 4] [--search-check 300] [--sweeps true]
+                  work package 1b.4a, prototype P1: suffix-link kernels (a) LCP scan, (b) child-table descent, (c) RMQ + PSV/NSV, (c2) PSV/NSV with ISA or Psi endpoints: ns per link
+                  (median, p99, max; cold first call), steps, build time and bytes per character of ISA / Psi / the LCP pyramid, definition checks, worst-node sweeps
+          mem     --input <file> --queries <bench dir> [--name <label>] [--kernel scan|descent|rmq|psv] [--source isa|psi] [--loci 1|2] [--calls 10] [--min-length 20] [--fanout 16]
+                  [--ukkonen true] [--time-links true]
+                  work package 1b.4a, prototype P2: MEM of the benchmark's 100 kbp query (1 % substitutions) with the throwaway ESA matching-statistics driver (cold first call, warm calls,
+                  links followed, extend steps) and, with --ukkonen, the in-memory Ukkonen tree on the same query in the same process (reference time, MEM-set equality)
           ab      --input <file> [--name <label>] [--verify <sa_vectors.tsv>] [--pairs 9] [--calibration-pairs 7]
                   [--a-args "<build options>"] [--b-args "<build options>"] [--a-env KEY=VALUE]... [--b-env KEY=VALUE]...
                   [--a-dll <path>] [--b-dll <path>] [--libsais <driver>] [--libsais-runs 5] [--max-load 0.30] [--out <raw.tsv>]
@@ -45,6 +53,16 @@ internal static class Cli
         try
         {
             if (args[0] == "ab") return AbRunner.Run(ParseAb(args[1..]));
+            if (args[0] == "links")
+            {
+                LinksCommands.Run(args[1..]);
+                return Environment.ExitCode;
+            }
+            if (args[0] == "mem")
+            {
+                MemCommands.Run(args[1..]);
+                return Environment.ExitCode;
+            }
             var options = Options.Parse(args[1..]);
             switch (args[0])
             {
