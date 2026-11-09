@@ -1,0 +1,1920 @@
+# process input=dna_10m run=1 commit=71c5dabaf3-dirty load=0.82 2026-11-09T16:07:32Z options: --kernel rmq --source psi --loci 2 --ukkonen true
+R	mem	text_chars	10000000	chars	dna_10m
+R	mem	query_chars	100000	chars	dna_10m.memq100k, minLength 20, variant c_rmq_psi_loci2
+R	mem	build_esa_s	1.02605382	s	EsaIndex.Build (tagged child table), cold JIT
+R	mem	build_nav_s	0.208857907	s	ISA 0.077827843 s + Psi 0.102316798 s + pyramid 0.028771465 s
+R	mem_esa	first_call_s	0.137161239	s	cold JIT included
+R	mem_esa	call2_s	0.119892372	s	warm
+R	mem_esa	call3_s	0.108168496	s	warm
+R	mem_esa	call4_s	0.100776231	s	warm
+R	mem_esa	call5_s	0.101098203	s	warm
+R	mem_esa	call6_s	0.10170123	s	warm
+R	mem_esa	call7_s	0.104501945	s	warm
+R	mem_esa	call8_s	0.107525057	s	warm
+R	mem_esa	call9_s	0.105668988	s	warm
+R	mem_esa	call10_s	0.105775102	s	warm
+R	mem_esa	warm_median_s	0.105668988	s	median of 9 warm calls (2..10) [0.100776231 .. 0.119892372]
+R	mem_esa	steady_median_s	0.105668988	s	median of the last 5 calls (after the tiered JIT settled) [0.10170123 .. 0.107525057]
+R	mem_esa	matches	817	count	
+R	mem_esa	checksum	77915707478	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	mem_esa	starts	100000	count	
+R	mem_esa	links_followed	200000	count	kernel calls (2 loci)
+R	mem_esa	extend_steps	200000	count	query symbols consumed by the extension
+R	mem_esa	child_lookups	21707	count	extensions from a node
+R	mem_esa	rescan_lookups	342090	count	child lookups of the rescans after the links
+R	mem_esa	emitted	817	count	
+R	mem_esa	link_kernel_share	0.5184391180232769	fraction	one extra warm call with a timer around every kernel call: 0.068134973 s of 0.131423287 s (the 2 timestamps per link are inside both numbers)
+R	mem_esa	link_kernel_ns_per_link	340.674865	ns	includes the timer floor
+R	mem_esa	peak_rss_hwm	253333504	bytes	VmHWM before the Ukkonen reference is built
+R	mem_ukkonen	build_s	12.959070849	s	in-memory Ukkonen tree, same process
+R	mem_ukkonen	steady_median_s	0.047893489	s	median of the last 5 calls [0.046929301 .. 0.048637758]
+R	mem_ukkonen	first_call_s	0.08278445	s	cold JIT of the Ukkonen MEM path in this process (the ESA driver ran first)
+R	mem_ukkonen	warm_median_s	0.04863007	s	median of 9 warm calls [0.046929301 .. 0.061046654]
+R	mem_ukkonen	matches	817	count	
+R	mem_ukkonen	checksum	77915707478	count	
+R	mem_check	mem_set_equal	1	bool	set of (position in text, position in query, length): ESA driver == Ukkonen FindMaximalExactMatches
+R	mem	peak_rss_hwm_final	1950990336	bytes	VmHWM after the Ukkonen tree
+# process input=dna_10m run=1 commit=71c5dabaf3-dirty load=0.86 2026-11-09T16:07:48Z options: --kernel rmq --source isa --loci 2 --ukkonen true
+R	mem	text_chars	10000000	chars	dna_10m
+R	mem	query_chars	100000	chars	dna_10m.memq100k, minLength 20, variant c_rmq_isa_loci2
+R	mem	build_esa_s	1.001350164	s	EsaIndex.Build (tagged child table), cold JIT
+R	mem	build_nav_s	0.184457859	s	ISA 0.073115022 s + Psi 0.082608145 s + pyramid 0.028791114 s
+R	mem_esa	first_call_s	0.118664581	s	cold JIT included
+R	mem_esa	call2_s	0.094045524	s	warm
+R	mem_esa	call3_s	0.12161619	s	warm
+R	mem_esa	call4_s	0.107413918	s	warm
+R	mem_esa	call5_s	0.088373985	s	warm
+R	mem_esa	call6_s	0.086736162	s	warm
+R	mem_esa	call7_s	0.090158026	s	warm
+R	mem_esa	call8_s	0.093167587	s	warm
+R	mem_esa	call9_s	0.090923246	s	warm
+R	mem_esa	call10_s	0.087908735	s	warm
+R	mem_esa	warm_median_s	0.090923246	s	median of 9 warm calls (2..10) [0.086736162 .. 0.12161619]
+R	mem_esa	steady_median_s	0.090158026	s	median of the last 5 calls (after the tiered JIT settled) [0.086736162 .. 0.093167587]
+R	mem_esa	matches	817	count	
+R	mem_esa	checksum	77915707478	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	mem_esa	starts	100000	count	
+R	mem_esa	links_followed	200000	count	kernel calls (2 loci)
+R	mem_esa	extend_steps	200000	count	query symbols consumed by the extension
+R	mem_esa	child_lookups	21707	count	extensions from a node
+R	mem_esa	rescan_lookups	342090	count	child lookups of the rescans after the links
+R	mem_esa	emitted	817	count	
+R	mem_esa	link_kernel_share	0.5090070826128873	fraction	one extra warm call with a timer around every kernel call: 0.053688198 s of 0.105476328 s (the 2 timestamps per link are inside both numbers)
+R	mem_esa	link_kernel_ns_per_link	268.44099	ns	includes the timer floor
+R	mem_esa	peak_rss_hwm	253476864	bytes	VmHWM before the Ukkonen reference is built
+R	mem_ukkonen	build_s	12.437999777	s	in-memory Ukkonen tree, same process
+R	mem_ukkonen	steady_median_s	0.047136277	s	median of the last 5 calls [0.046708567 .. 0.047835817]
+R	mem_ukkonen	first_call_s	0.066446126	s	cold JIT of the Ukkonen MEM path in this process (the ESA driver ran first)
+R	mem_ukkonen	warm_median_s	0.047772433	s	median of 9 warm calls [0.046708567 .. 0.052780738]
+R	mem_ukkonen	matches	817	count	
+R	mem_ukkonen	checksum	77915707478	count	
+R	mem_check	mem_set_equal	1	bool	set of (position in text, position in query, length): ESA driver == Ukkonen FindMaximalExactMatches
+R	mem	peak_rss_hwm_final	1951137792	bytes	VmHWM after the Ukkonen tree
+# process input=dna_10m run=1 commit=71c5dabaf3-dirty load=0.89 2026-11-09T16:08:03Z options: --kernel psv --source psi --loci 2 --ukkonen true
+R	mem	text_chars	10000000	chars	dna_10m
+R	mem	query_chars	100000	chars	dna_10m.memq100k, minLength 20, variant c2_psv_psi_loci2
+R	mem	build_esa_s	0.925332714	s	EsaIndex.Build (tagged child table), cold JIT
+R	mem	build_nav_s	0.179541965	s	ISA 0.074103358 s + Psi 0.078256805 s + pyramid 0.027226857 s
+R	mem_esa	first_call_s	0.094421844	s	cold JIT included
+R	mem_esa	call2_s	0.075316856	s	warm
+R	mem_esa	call3_s	0.074706155	s	warm
+R	mem_esa	call4_s	0.069916617	s	warm
+R	mem_esa	call5_s	0.07299795	s	warm
+R	mem_esa	call6_s	0.072526053	s	warm
+R	mem_esa	call7_s	0.070711193	s	warm
+R	mem_esa	call8_s	0.069991422	s	warm
+R	mem_esa	call9_s	0.071660269	s	warm
+R	mem_esa	call10_s	0.073035073	s	warm
+R	mem_esa	warm_median_s	0.072526053	s	median of 9 warm calls (2..10) [0.069916617 .. 0.075316856]
+R	mem_esa	steady_median_s	0.071660269	s	median of the last 5 calls (after the tiered JIT settled) [0.069991422 .. 0.073035073]
+R	mem_esa	matches	817	count	
+R	mem_esa	checksum	77915707478	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	mem_esa	starts	100000	count	
+R	mem_esa	links_followed	200000	count	kernel calls (2 loci)
+R	mem_esa	extend_steps	200000	count	query symbols consumed by the extension
+R	mem_esa	child_lookups	21707	count	extensions from a node
+R	mem_esa	rescan_lookups	342090	count	child lookups of the rescans after the links
+R	mem_esa	emitted	817	count	
+R	mem_esa	link_kernel_share	0.4854241165641033	fraction	one extra warm call with a timer around every kernel call: 0.046232804 s of 0.095242083 s (the 2 timestamps per link are inside both numbers)
+R	mem_esa	link_kernel_ns_per_link	231.16402	ns	includes the timer floor
+R	mem_esa	peak_rss_hwm	253411328	bytes	VmHWM before the Ukkonen reference is built
+R	mem_ukkonen	build_s	13.163588987	s	in-memory Ukkonen tree, same process
+R	mem_ukkonen	steady_median_s	0.047134435	s	median of the last 5 calls [0.045856284 .. 0.047802573]
+R	mem_ukkonen	first_call_s	0.068003572	s	cold JIT of the Ukkonen MEM path in this process (the ESA driver ran first)
+R	mem_ukkonen	warm_median_s	0.047802573	s	median of 9 warm calls [0.045856284 .. 0.054061758]
+R	mem_ukkonen	matches	817	count	
+R	mem_ukkonen	checksum	77915707478	count	
+R	mem_check	mem_set_equal	1	bool	set of (position in text, position in query, length): ESA driver == Ukkonen FindMaximalExactMatches
+R	mem	peak_rss_hwm_final	1954840576	bytes	VmHWM after the Ukkonen tree
+# process input=dna_10m run=1 commit=71c5dabaf3-dirty load=0.92 2026-11-09T16:08:19Z options: --kernel psv --source isa --loci 2 --ukkonen false
+R	mem	text_chars	10000000	chars	dna_10m
+R	mem	query_chars	100000	chars	dna_10m.memq100k, minLength 20, variant c2_psv_isa_loci2
+R	mem	build_esa_s	0.931904975	s	EsaIndex.Build (tagged child table), cold JIT
+R	mem	build_nav_s	0.189592179	s	ISA 0.082491753 s + Psi 0.080058955 s + pyramid 0.02708396 s
+R	mem_esa	first_call_s	0.083193043	s	cold JIT included
+R	mem_esa	call2_s	0.069224257	s	warm
+R	mem_esa	call3_s	0.067450816	s	warm
+R	mem_esa	call4_s	0.065112536	s	warm
+R	mem_esa	call5_s	0.072447794	s	warm
+R	mem_esa	call6_s	0.071565298	s	warm
+R	mem_esa	call7_s	0.062314491	s	warm
+R	mem_esa	call8_s	0.069304934	s	warm
+R	mem_esa	call9_s	0.071736263	s	warm
+R	mem_esa	call10_s	0.070584195	s	warm
+R	mem_esa	warm_median_s	0.069304934	s	median of 9 warm calls (2..10) [0.062314491 .. 0.072447794]
+R	mem_esa	steady_median_s	0.070584195	s	median of the last 5 calls (after the tiered JIT settled) [0.062314491 .. 0.071736263]
+R	mem_esa	matches	817	count	
+R	mem_esa	checksum	77915707478	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	mem_esa	starts	100000	count	
+R	mem_esa	links_followed	200000	count	kernel calls (2 loci)
+R	mem_esa	extend_steps	200000	count	query symbols consumed by the extension
+R	mem_esa	child_lookups	21707	count	extensions from a node
+R	mem_esa	rescan_lookups	342090	count	child lookups of the rescans after the links
+R	mem_esa	emitted	817	count	
+R	mem_esa	link_kernel_share	0.41882883121140685	fraction	one extra warm call with a timer around every kernel call: 0.038150766 s of 0.091089159 s (the 2 timestamps per link are inside both numbers)
+R	mem_esa	link_kernel_ns_per_link	190.75383	ns	includes the timer floor
+R	mem_esa	peak_rss_hwm	253341696	bytes	VmHWM before the Ukkonen reference is built
+# process input=dna_10m run=1 commit=71c5dabaf3-dirty load=0.92 2026-11-09T16:08:21Z options: --kernel psv --source psi --loci 1 --ukkonen false
+R	mem	text_chars	10000000	chars	dna_10m
+R	mem	query_chars	100000	chars	dna_10m.memq100k, minLength 20, variant c2_psv_psi_loci1
+R	mem	build_esa_s	0.94998292	s	EsaIndex.Build (tagged child table), cold JIT
+R	mem	build_nav_s	0.17195392299999998	s	ISA 0.070299485 s + Psi 0.074849531 s + pyramid 0.026849091 s
+R	mem_esa	first_call_s	0.079004504	s	cold JIT included
+R	mem_esa	call2_s	0.057159638	s	warm
+R	mem_esa	call3_s	0.057817535	s	warm
+R	mem_esa	call4_s	0.054695356	s	warm
+R	mem_esa	call5_s	0.050800811	s	warm
+R	mem_esa	call6_s	0.050361018	s	warm
+R	mem_esa	call7_s	0.048427207	s	warm
+R	mem_esa	call8_s	0.050273015	s	warm
+R	mem_esa	call9_s	0.049687105	s	warm
+R	mem_esa	call10_s	0.052067783	s	warm
+R	mem_esa	warm_median_s	0.050800811	s	median of 9 warm calls (2..10) [0.048427207 .. 0.057817535]
+R	mem_esa	steady_median_s	0.050273015	s	median of the last 5 calls (after the tiered JIT settled) [0.048427207 .. 0.052067783]
+R	mem_esa	matches	817	count	
+R	mem_esa	checksum	77915707478	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	mem_esa	starts	100000	count	
+R	mem_esa	links_followed	100000	count	kernel calls (1 loci)
+R	mem_esa	extend_steps	100000	count	query symbols consumed by the extension
+R	mem_esa	child_lookups	10852	count	extensions from a node
+R	mem_esa	rescan_lookups	171047	count	child lookups of the rescans after the links
+R	mem_esa	emitted	817	count	
+R	mem_esa	link_kernel_share	0.5002166303287823	fraction	one extra warm call with a timer around every kernel call: 0.035448987 s of 0.07086727 s (the 2 timestamps per link are inside both numbers)
+R	mem_esa	link_kernel_ns_per_link	354.48987	ns	includes the timer floor
+R	mem_esa	peak_rss_hwm	253415424	bytes	VmHWM before the Ukkonen reference is built
+# process input=dna_10m run=1 commit=71c5dabaf3-dirty load=0.93 2026-11-09T16:08:23Z options: --kernel rmq --source psi --loci 1 --ukkonen false
+R	mem	text_chars	10000000	chars	dna_10m
+R	mem	query_chars	100000	chars	dna_10m.memq100k, minLength 20, variant c_rmq_psi_loci1
+R	mem	build_esa_s	0.931607107	s	EsaIndex.Build (tagged child table), cold JIT
+R	mem	build_nav_s	0.195014425	s	ISA 0.080243717 s + Psi 0.087638877 s + pyramid 0.027181084 s
+R	mem_esa	first_call_s	0.108465004	s	cold JIT included
+R	mem_esa	call2_s	0.08712767	s	warm
+R	mem_esa	call3_s	0.088422483	s	warm
+R	mem_esa	call4_s	0.077127951	s	warm
+R	mem_esa	call5_s	0.071489356	s	warm
+R	mem_esa	call6_s	0.068887439	s	warm
+R	mem_esa	call7_s	0.066598236	s	warm
+R	mem_esa	call8_s	0.070577816	s	warm
+R	mem_esa	call9_s	0.070158012	s	warm
+R	mem_esa	call10_s	0.06821002	s	warm
+R	mem_esa	warm_median_s	0.070577816	s	median of 9 warm calls (2..10) [0.066598236 .. 0.088422483]
+R	mem_esa	steady_median_s	0.068887439	s	median of the last 5 calls (after the tiered JIT settled) [0.066598236 .. 0.070577816]
+R	mem_esa	matches	817	count	
+R	mem_esa	checksum	77915707478	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	mem_esa	starts	100000	count	
+R	mem_esa	links_followed	100000	count	kernel calls (1 loci)
+R	mem_esa	extend_steps	100000	count	query symbols consumed by the extension
+R	mem_esa	child_lookups	10852	count	extensions from a node
+R	mem_esa	rescan_lookups	171047	count	child lookups of the rescans after the links
+R	mem_esa	emitted	817	count	
+R	mem_esa	link_kernel_share	0.5286080478231177	fraction	one extra warm call with a timer around every kernel call: 0.046449747 s of 0.087871812 s (the 2 timestamps per link are inside both numbers)
+R	mem_esa	link_kernel_ns_per_link	464.49747	ns	includes the timer floor
+R	mem_esa	peak_rss_hwm	253345792	bytes	VmHWM before the Ukkonen reference is built
+# process input=dna_10m run=1 commit=71c5dabaf3-dirty load=0.93 2026-11-09T16:08:25Z options: --kernel scan --source psi --loci 2 --ukkonen false
+R	mem	text_chars	10000000	chars	dna_10m
+R	mem	query_chars	100000	chars	dna_10m.memq100k, minLength 20, variant a_scan_psi_loci2
+R	mem	build_esa_s	1.010153699	s	EsaIndex.Build (tagged child table), cold JIT
+R	mem	build_nav_s	0.17968501099999998	s	ISA 0.07147849 s + Psi 0.0797111 s + pyramid 0.028671442 s
+R	mem_esa	first_call_s	0.092131286	s	cold JIT included
+R	mem_esa	call2_s	0.076033448	s	warm
+R	mem_esa	call3_s	0.070066293	s	warm
+R	mem_esa	call4_s	0.064896345	s	warm
+R	mem_esa	call5_s	0.06357776	s	warm
+R	mem_esa	call6_s	0.065254292	s	warm
+R	mem_esa	call7_s	0.069075694	s	warm
+R	mem_esa	call8_s	0.066635383	s	warm
+R	mem_esa	call9_s	0.065139538	s	warm
+R	mem_esa	call10_s	0.062953745	s	warm
+R	mem_esa	warm_median_s	0.065254292	s	median of 9 warm calls (2..10) [0.062953745 .. 0.076033448]
+R	mem_esa	steady_median_s	0.065254292	s	median of the last 5 calls (after the tiered JIT settled) [0.062953745 .. 0.069075694]
+R	mem_esa	matches	817	count	
+R	mem_esa	checksum	77915707478	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	mem_esa	starts	100000	count	
+R	mem_esa	links_followed	200000	count	kernel calls (2 loci)
+R	mem_esa	extend_steps	200000	count	query symbols consumed by the extension
+R	mem_esa	child_lookups	21707	count	extensions from a node
+R	mem_esa	rescan_lookups	342090	count	child lookups of the rescans after the links
+R	mem_esa	emitted	817	count	
+R	mem_esa	link_kernel_share	0.4770708916897003	fraction	one extra warm call with a timer around every kernel call: 0.041573466 s of 0.087143162 s (the 2 timestamps per link are inside both numbers)
+R	mem_esa	link_kernel_ns_per_link	207.86733	ns	includes the timer floor
+R	mem_esa	peak_rss_hwm	253267968	bytes	VmHWM before the Ukkonen reference is built
+# process input=dna_10m run=1 commit=71c5dabaf3-dirty load=0.93 2026-11-09T16:08:27Z options: --kernel descent --source psi --loci 2 --ukkonen false
+R	mem	text_chars	10000000	chars	dna_10m
+R	mem	query_chars	100000	chars	dna_10m.memq100k, minLength 20, variant b_descent_psi_loci2
+R	mem	build_esa_s	0.938223868	s	EsaIndex.Build (tagged child table), cold JIT
+R	mem	build_nav_s	0.182497699	s	ISA 0.075719198 s + Psi 0.079767776 s + pyramid 0.027062366 s
+R	mem_esa	first_call_s	0.189525102	s	cold JIT included
+R	mem_esa	call2_s	0.176320192	s	warm
+R	mem_esa	call3_s	0.177752385	s	warm
+R	mem_esa	call4_s	0.188021305	s	warm
+R	mem_esa	call5_s	0.171194933	s	warm
+R	mem_esa	call6_s	0.153721403	s	warm
+R	mem_esa	call7_s	0.162075954	s	warm
+R	mem_esa	call8_s	0.159937711	s	warm
+R	mem_esa	call9_s	0.159930936	s	warm
+R	mem_esa	call10_s	0.162761027	s	warm
+R	mem_esa	warm_median_s	0.162761027	s	median of 9 warm calls (2..10) [0.153721403 .. 0.188021305]
+R	mem_esa	steady_median_s	0.159937711	s	median of the last 5 calls (after the tiered JIT settled) [0.153721403 .. 0.162761027]
+R	mem_esa	matches	817	count	
+R	mem_esa	checksum	77915707478	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	mem_esa	starts	100000	count	
+R	mem_esa	links_followed	200000	count	kernel calls (2 loci)
+R	mem_esa	extend_steps	200000	count	query symbols consumed by the extension
+R	mem_esa	child_lookups	21707	count	extensions from a node
+R	mem_esa	rescan_lookups	342090	count	child lookups of the rescans after the links
+R	mem_esa	emitted	817	count	
+R	mem_esa	link_kernel_share	0.7409765191310577	fraction	one extra warm call with a timer around every kernel call: 0.138282434 s of 0.186621884 s (the 2 timestamps per link are inside both numbers)
+R	mem_esa	link_kernel_ns_per_link	691.41217	ns	includes the timer floor
+R	mem_esa	peak_rss_hwm	253366272	bytes	VmHWM before the Ukkonen reference is built
+# process input=dna_10m run=2 commit=71c5dabaf3-dirty load=0.93 2026-11-09T16:08:30Z options: --kernel rmq --source psi --loci 2 --ukkonen true
+R	mem	text_chars	10000000	chars	dna_10m
+R	mem	query_chars	100000	chars	dna_10m.memq100k, minLength 20, variant c_rmq_psi_loci2
+R	mem	build_esa_s	1.04313642	s	EsaIndex.Build (tagged child table), cold JIT
+R	mem	build_nav_s	0.190226057	s	ISA 0.077226052 s + Psi 0.084849346 s + pyramid 0.028205362 s
+R	mem_esa	first_call_s	0.1304129	s	cold JIT included
+R	mem_esa	call2_s	0.117197072	s	warm
+R	mem_esa	call3_s	0.105295404	s	warm
+R	mem_esa	call4_s	0.093425454	s	warm
+R	mem_esa	call5_s	0.094967971	s	warm
+R	mem_esa	call6_s	0.097897566	s	warm
+R	mem_esa	call7_s	0.099416026	s	warm
+R	mem_esa	call8_s	0.100790502	s	warm
+R	mem_esa	call9_s	0.099304098	s	warm
+R	mem_esa	call10_s	0.09900489	s	warm
+R	mem_esa	warm_median_s	0.099304098	s	median of 9 warm calls (2..10) [0.093425454 .. 0.117197072]
+R	mem_esa	steady_median_s	0.099304098	s	median of the last 5 calls (after the tiered JIT settled) [0.097897566 .. 0.100790502]
+R	mem_esa	matches	817	count	
+R	mem_esa	checksum	77915707478	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	mem_esa	starts	100000	count	
+R	mem_esa	links_followed	200000	count	kernel calls (2 loci)
+R	mem_esa	extend_steps	200000	count	query symbols consumed by the extension
+R	mem_esa	child_lookups	21707	count	extensions from a node
+R	mem_esa	rescan_lookups	342090	count	child lookups of the rescans after the links
+R	mem_esa	emitted	817	count	
+R	mem_esa	link_kernel_share	0.5457900293571929	fraction	one extra warm call with a timer around every kernel call: 0.065518356 s of 0.120043153 s (the 2 timestamps per link are inside both numbers)
+R	mem_esa	link_kernel_ns_per_link	327.59178	ns	includes the timer floor
+R	mem_esa	peak_rss_hwm	253276160	bytes	VmHWM before the Ukkonen reference is built
+R	mem_ukkonen	build_s	13.179800835	s	in-memory Ukkonen tree, same process
+R	mem_ukkonen	steady_median_s	0.051732119	s	median of the last 5 calls [0.051541667 .. 0.052801278]
+R	mem_ukkonen	first_call_s	0.070788123	s	cold JIT of the Ukkonen MEM path in this process (the ESA driver ran first)
+R	mem_ukkonen	warm_median_s	0.052250149	s	median of 9 warm calls [0.051541667 .. 0.056556766]
+R	mem_ukkonen	matches	817	count	
+R	mem_ukkonen	checksum	77915707478	count	
+R	mem_check	mem_set_equal	1	bool	set of (position in text, position in query, length): ESA driver == Ukkonen FindMaximalExactMatches
+R	mem	peak_rss_hwm_final	1954701312	bytes	VmHWM after the Ukkonen tree
+# process input=dna_10m run=2 commit=71c5dabaf3-dirty load=0.95 2026-11-09T16:08:47Z options: --kernel rmq --source isa --loci 2 --ukkonen true
+R	mem	text_chars	10000000	chars	dna_10m
+R	mem	query_chars	100000	chars	dna_10m.memq100k, minLength 20, variant c_rmq_isa_loci2
+R	mem	build_esa_s	1.043330795	s	EsaIndex.Build (tagged child table), cold JIT
+R	mem	build_nav_s	0.17346625000000002	s	ISA 0.070759281 s + Psi 0.074690749 s + pyramid 0.028103673 s
+R	mem_esa	first_call_s	0.113987176	s	cold JIT included
+R	mem_esa	call2_s	0.097537215	s	warm
+R	mem_esa	call3_s	0.086125226	s	warm
+R	mem_esa	call4_s	0.08103831	s	warm
+R	mem_esa	call5_s	0.077932682	s	warm
+R	mem_esa	call6_s	0.078257249	s	warm
+R	mem_esa	call7_s	0.079673467	s	warm
+R	mem_esa	call8_s	0.080040828	s	warm
+R	mem_esa	call9_s	0.080431472	s	warm
+R	mem_esa	call10_s	0.078301988	s	warm
+R	mem_esa	warm_median_s	0.080040828	s	median of 9 warm calls (2..10) [0.077932682 .. 0.097537215]
+R	mem_esa	steady_median_s	0.079673467	s	median of the last 5 calls (after the tiered JIT settled) [0.078257249 .. 0.080431472]
+R	mem_esa	matches	817	count	
+R	mem_esa	checksum	77915707478	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	mem_esa	starts	100000	count	
+R	mem_esa	links_followed	200000	count	kernel calls (2 loci)
+R	mem_esa	extend_steps	200000	count	query symbols consumed by the extension
+R	mem_esa	child_lookups	21707	count	extensions from a node
+R	mem_esa	rescan_lookups	342090	count	child lookups of the rescans after the links
+R	mem_esa	emitted	817	count	
+R	mem_esa	link_kernel_share	0.514369212666769	fraction	one extra warm call with a timer around every kernel call: 0.048258888 s of 0.093821494 s (the 2 timestamps per link are inside both numbers)
+R	mem_esa	link_kernel_ns_per_link	241.29444	ns	includes the timer floor
+R	mem_esa	peak_rss_hwm	253403136	bytes	VmHWM before the Ukkonen reference is built
+R	mem_ukkonen	build_s	13.566551493	s	in-memory Ukkonen tree, same process
+R	mem_ukkonen	steady_median_s	0.050873523	s	median of the last 5 calls [0.048675583 .. 0.051756975]
+R	mem_ukkonen	first_call_s	0.07088107	s	cold JIT of the Ukkonen MEM path in this process (the ESA driver ran first)
+R	mem_ukkonen	warm_median_s	0.051057711	s	median of 9 warm calls [0.048675583 .. 0.055715064]
+R	mem_ukkonen	matches	817	count	
+R	mem_ukkonen	checksum	77915707478	count	
+R	mem_check	mem_set_equal	1	bool	set of (position in text, position in query, length): ESA driver == Ukkonen FindMaximalExactMatches
+R	mem	peak_rss_hwm_final	1951019008	bytes	VmHWM after the Ukkonen tree
+# process input=dna_10m run=2 commit=71c5dabaf3-dirty load=0.96 2026-11-09T16:09:03Z options: --kernel psv --source psi --loci 2 --ukkonen true
+R	mem	text_chars	10000000	chars	dna_10m
+R	mem	query_chars	100000	chars	dna_10m.memq100k, minLength 20, variant c2_psv_psi_loci2
+R	mem	build_esa_s	1.027599431	s	EsaIndex.Build (tagged child table), cold JIT
+R	mem	build_nav_s	0.191499012	s	ISA 0.07832232 s + Psi 0.085613642 s + pyramid 0.027648147 s
+R	mem_esa	first_call_s	0.105720874	s	cold JIT included
+R	mem_esa	call2_s	0.088764298	s	warm
+R	mem_esa	call3_s	0.090232391	s	warm
+R	mem_esa	call4_s	0.082744786	s	warm
+R	mem_esa	call5_s	0.080062758	s	warm
+R	mem_esa	call6_s	0.08087484	s	warm
+R	mem_esa	call7_s	0.090197886	s	warm
+R	mem_esa	call8_s	0.073335211	s	warm
+R	mem_esa	call9_s	0.065997097	s	warm
+R	mem_esa	call10_s	0.069093225	s	warm
+R	mem_esa	warm_median_s	0.08087484	s	median of 9 warm calls (2..10) [0.065997097 .. 0.090232391]
+R	mem_esa	steady_median_s	0.073335211	s	median of the last 5 calls (after the tiered JIT settled) [0.065997097 .. 0.090197886]
+R	mem_esa	matches	817	count	
+R	mem_esa	checksum	77915707478	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	mem_esa	starts	100000	count	
+R	mem_esa	links_followed	200000	count	kernel calls (2 loci)
+R	mem_esa	extend_steps	200000	count	query symbols consumed by the extension
+R	mem_esa	child_lookups	21707	count	extensions from a node
+R	mem_esa	rescan_lookups	342090	count	child lookups of the rescans after the links
+R	mem_esa	emitted	817	count	
+R	mem_esa	link_kernel_share	0.4866325749738465	fraction	one extra warm call with a timer around every kernel call: 0.045571708 s of 0.093647056 s (the 2 timestamps per link are inside both numbers)
+R	mem_esa	link_kernel_ns_per_link	227.85854	ns	includes the timer floor
+R	mem_esa	peak_rss_hwm	253407232	bytes	VmHWM before the Ukkonen reference is built
+R	mem_ukkonen	build_s	12.644923842	s	in-memory Ukkonen tree, same process
+R	mem_ukkonen	steady_median_s	0.053291115	s	median of the last 5 calls [0.052284295 .. 0.055341642]
+R	mem_ukkonen	first_call_s	0.071591431	s	cold JIT of the Ukkonen MEM path in this process (the ESA driver ran first)
+R	mem_ukkonen	warm_median_s	0.054181523	s	median of 9 warm calls [0.052284295 .. 0.057588694]
+R	mem_ukkonen	matches	817	count	
+R	mem_ukkonen	checksum	77915707478	count	
+R	mem_check	mem_set_equal	1	bool	set of (position in text, position in query, length): ESA driver == Ukkonen FindMaximalExactMatches
+R	mem	peak_rss_hwm_final	1951031296	bytes	VmHWM after the Ukkonen tree
+# process input=dna_10m run=2 commit=71c5dabaf3-dirty load=0.97 2026-11-09T16:09:18Z options: --kernel psv --source isa --loci 2 --ukkonen false
+R	mem	text_chars	10000000	chars	dna_10m
+R	mem	query_chars	100000	chars	dna_10m.memq100k, minLength 20, variant c2_psv_isa_loci2
+R	mem	build_esa_s	1.008086123	s	EsaIndex.Build (tagged child table), cold JIT
+R	mem	build_nav_s	0.209841503	s	ISA 0.083008912 s + Psi 0.09046299 s + pyramid 0.03642842 s
+R	mem_esa	first_call_s	0.105332219	s	cold JIT included
+R	mem_esa	call2_s	0.086961265	s	warm
+R	mem_esa	call3_s	0.071732347	s	warm
+R	mem_esa	call4_s	0.065154275	s	warm
+R	mem_esa	call5_s	0.059289746	s	warm
+R	mem_esa	call6_s	0.057541506	s	warm
+R	mem_esa	call7_s	0.05544352	s	warm
+R	mem_esa	call8_s	0.053400178	s	warm
+R	mem_esa	call9_s	0.054144922	s	warm
+R	mem_esa	call10_s	0.061631856	s	warm
+R	mem_esa	warm_median_s	0.059289746	s	median of 9 warm calls (2..10) [0.053400178 .. 0.086961265]
+R	mem_esa	steady_median_s	0.05544352	s	median of the last 5 calls (after the tiered JIT settled) [0.053400178 .. 0.061631856]
+R	mem_esa	matches	817	count	
+R	mem_esa	checksum	77915707478	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	mem_esa	starts	100000	count	
+R	mem_esa	links_followed	200000	count	kernel calls (2 loci)
+R	mem_esa	extend_steps	200000	count	query symbols consumed by the extension
+R	mem_esa	child_lookups	21707	count	extensions from a node
+R	mem_esa	rescan_lookups	342090	count	child lookups of the rescans after the links
+R	mem_esa	emitted	817	count	
+R	mem_esa	link_kernel_share	0.4252017195155273	fraction	one extra warm call with a timer around every kernel call: 0.032238481 s of 0.075819263 s (the 2 timestamps per link are inside both numbers)
+R	mem_esa	link_kernel_ns_per_link	161.192405	ns	includes the timer floor
+R	mem_esa	peak_rss_hwm	253448192	bytes	VmHWM before the Ukkonen reference is built
+# process input=dna_10m run=2 commit=71c5dabaf3-dirty load=0.97 2026-11-09T16:09:20Z options: --kernel psv --source psi --loci 1 --ukkonen false
+R	mem	text_chars	10000000	chars	dna_10m
+R	mem	query_chars	100000	chars	dna_10m.memq100k, minLength 20, variant c2_psv_psi_loci1
+R	mem	build_esa_s	0.927837196	s	EsaIndex.Build (tagged child table), cold JIT
+R	mem	build_nav_s	0.17656921199999998	s	ISA 0.072304038 s + Psi 0.076975777 s + pyramid 0.027347894 s
+R	mem_esa	first_call_s	0.086287917	s	cold JIT included
+R	mem_esa	call2_s	0.091380979	s	warm
+R	mem_esa	call3_s	0.067720934	s	warm
+R	mem_esa	call4_s	0.061290853	s	warm
+R	mem_esa	call5_s	0.063021654	s	warm
+R	mem_esa	call6_s	0.072518823	s	warm
+R	mem_esa	call7_s	0.068281732	s	warm
+R	mem_esa	call8_s	0.087961729	s	warm
+R	mem_esa	call9_s	0.06076324	s	warm
+R	mem_esa	call10_s	0.050690225	s	warm
+R	mem_esa	warm_median_s	0.067720934	s	median of 9 warm calls (2..10) [0.050690225 .. 0.091380979]
+R	mem_esa	steady_median_s	0.068281732	s	median of the last 5 calls (after the tiered JIT settled) [0.050690225 .. 0.087961729]
+R	mem_esa	matches	817	count	
+R	mem_esa	checksum	77915707478	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	mem_esa	starts	100000	count	
+R	mem_esa	links_followed	100000	count	kernel calls (1 loci)
+R	mem_esa	extend_steps	100000	count	query symbols consumed by the extension
+R	mem_esa	child_lookups	10852	count	extensions from a node
+R	mem_esa	rescan_lookups	171047	count	child lookups of the rescans after the links
+R	mem_esa	emitted	817	count	
+R	mem_esa	link_kernel_share	0.5045192954255666	fraction	one extra warm call with a timer around every kernel call: 0.035469552 s of 0.070303658 s (the 2 timestamps per link are inside both numbers)
+R	mem_esa	link_kernel_ns_per_link	354.69552	ns	includes the timer floor
+R	mem_esa	peak_rss_hwm	253415424	bytes	VmHWM before the Ukkonen reference is built
+# process input=dna_10m run=2 commit=71c5dabaf3-dirty load=0.97 2026-11-09T16:09:22Z options: --kernel rmq --source psi --loci 1 --ukkonen false
+R	mem	text_chars	10000000	chars	dna_10m
+R	mem	query_chars	100000	chars	dna_10m.memq100k, minLength 20, variant c_rmq_psi_loci1
+R	mem	build_esa_s	0.980753301	s	EsaIndex.Build (tagged child table), cold JIT
+R	mem	build_nav_s	0.17462002699999998	s	ISA 0.071012151 s + Psi 0.074725082 s + pyramid 0.028932863 s
+R	mem_esa	first_call_s	0.107638687	s	cold JIT included
+R	mem_esa	call2_s	0.075648576	s	warm
+R	mem_esa	call3_s	0.06690689	s	warm
+R	mem_esa	call4_s	0.058276629	s	warm
+R	mem_esa	call5_s	0.058861384	s	warm
+R	mem_esa	call6_s	0.058488551	s	warm
+R	mem_esa	call7_s	0.057643427	s	warm
+R	mem_esa	call8_s	0.057844846	s	warm
+R	mem_esa	call9_s	0.061883751	s	warm
+R	mem_esa	call10_s	0.061376745	s	warm
+R	mem_esa	warm_median_s	0.058861384	s	median of 9 warm calls (2..10) [0.057643427 .. 0.075648576]
+R	mem_esa	steady_median_s	0.058488551	s	median of the last 5 calls (after the tiered JIT settled) [0.057643427 .. 0.061883751]
+R	mem_esa	matches	817	count	
+R	mem_esa	checksum	77915707478	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	mem_esa	starts	100000	count	
+R	mem_esa	links_followed	100000	count	kernel calls (1 loci)
+R	mem_esa	extend_steps	100000	count	query symbols consumed by the extension
+R	mem_esa	child_lookups	10852	count	extensions from a node
+R	mem_esa	rescan_lookups	171047	count	child lookups of the rescans after the links
+R	mem_esa	emitted	817	count	
+R	mem_esa	link_kernel_share	0.5325672699507517	fraction	one extra warm call with a timer around every kernel call: 0.043406481 s of 0.081504222 s (the 2 timestamps per link are inside both numbers)
+R	mem_esa	link_kernel_ns_per_link	434.06481	ns	includes the timer floor
+R	mem_esa	peak_rss_hwm	253362176	bytes	VmHWM before the Ukkonen reference is built
+# process input=dna_10m run=2 commit=71c5dabaf3-dirty load=0.97 2026-11-09T16:09:24Z options: --kernel scan --source psi --loci 2 --ukkonen false
+R	mem	text_chars	10000000	chars	dna_10m
+R	mem	query_chars	100000	chars	dna_10m.memq100k, minLength 20, variant a_scan_psi_loci2
+R	mem	build_esa_s	1.065359495	s	EsaIndex.Build (tagged child table), cold JIT
+R	mem	build_nav_s	0.18709354100000003	s	ISA 0.076734803 s + Psi 0.083219977 s + pyramid 0.027195072 s
+R	mem_esa	first_call_s	0.139724898	s	cold JIT included
+R	mem_esa	call2_s	0.106404153	s	warm
+R	mem_esa	call3_s	0.080583839	s	warm
+R	mem_esa	call4_s	0.074400575	s	warm
+R	mem_esa	call5_s	0.073376334	s	warm
+R	mem_esa	call6_s	0.070684805	s	warm
+R	mem_esa	call7_s	0.06696175	s	warm
+R	mem_esa	call8_s	0.071666971	s	warm
+R	mem_esa	call9_s	0.07164492	s	warm
+R	mem_esa	call10_s	0.069067131	s	warm
+R	mem_esa	warm_median_s	0.071666971	s	median of 9 warm calls (2..10) [0.06696175 .. 0.106404153]
+R	mem_esa	steady_median_s	0.070684805	s	median of the last 5 calls (after the tiered JIT settled) [0.06696175 .. 0.071666971]
+R	mem_esa	matches	817	count	
+R	mem_esa	checksum	77915707478	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	mem_esa	starts	100000	count	
+R	mem_esa	links_followed	200000	count	kernel calls (2 loci)
+R	mem_esa	extend_steps	200000	count	query symbols consumed by the extension
+R	mem_esa	child_lookups	21707	count	extensions from a node
+R	mem_esa	rescan_lookups	342090	count	child lookups of the rescans after the links
+R	mem_esa	emitted	817	count	
+R	mem_esa	link_kernel_share	0.4874875496242795	fraction	one extra warm call with a timer around every kernel call: 0.045902224 s of 0.094160813 s (the 2 timestamps per link are inside both numbers)
+R	mem_esa	link_kernel_ns_per_link	229.51112	ns	includes the timer floor
+R	mem_esa	peak_rss_hwm	253452288	bytes	VmHWM before the Ukkonen reference is built
+# process input=dna_10m run=2 commit=71c5dabaf3-dirty load=0.98 2026-11-09T16:09:27Z options: --kernel descent --source psi --loci 2 --ukkonen false
+R	mem	text_chars	10000000	chars	dna_10m
+R	mem	query_chars	100000	chars	dna_10m.memq100k, minLength 20, variant b_descent_psi_loci2
+R	mem	build_esa_s	1.02401218	s	EsaIndex.Build (tagged child table), cold JIT
+R	mem	build_nav_s	0.195864714	s	ISA 0.079713058 s + Psi 0.087873957 s + pyramid 0.02833738 s
+R	mem_esa	first_call_s	0.214451224	s	cold JIT included
+R	mem_esa	call2_s	0.182289547	s	warm
+R	mem_esa	call3_s	0.178139792	s	warm
+R	mem_esa	call4_s	0.180586241	s	warm
+R	mem_esa	call5_s	0.186014212	s	warm
+R	mem_esa	call6_s	0.184901544	s	warm
+R	mem_esa	call7_s	0.17973262	s	warm
+R	mem_esa	call8_s	0.188844425	s	warm
+R	mem_esa	call9_s	0.185530171	s	warm
+R	mem_esa	call10_s	0.179207256	s	warm
+R	mem_esa	warm_median_s	0.182289547	s	median of 9 warm calls (2..10) [0.178139792 .. 0.188844425]
+R	mem_esa	steady_median_s	0.184901544	s	median of the last 5 calls (after the tiered JIT settled) [0.179207256 .. 0.188844425]
+R	mem_esa	matches	817	count	
+R	mem_esa	checksum	77915707478	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	mem_esa	starts	100000	count	
+R	mem_esa	links_followed	200000	count	kernel calls (2 loci)
+R	mem_esa	extend_steps	200000	count	query symbols consumed by the extension
+R	mem_esa	child_lookups	21707	count	extensions from a node
+R	mem_esa	rescan_lookups	342090	count	child lookups of the rescans after the links
+R	mem_esa	emitted	817	count	
+R	mem_esa	link_kernel_share	0.7426376845969407	fraction	one extra warm call with a timer around every kernel call: 0.166043021 s of 0.223585504 s (the 2 timestamps per link are inside both numbers)
+R	mem_esa	link_kernel_ns_per_link	830.215105	ns	includes the timer floor
+R	mem_esa	peak_rss_hwm	253407232	bytes	VmHWM before the Ukkonen reference is built
+# process input=dna_10m run=3 commit=71c5dabaf3-dirty load=0.98 2026-11-09T16:09:30Z options: --kernel rmq --source psi --loci 2 --ukkonen true
+R	mem	text_chars	10000000	chars	dna_10m
+R	mem	query_chars	100000	chars	dna_10m.memq100k, minLength 20, variant c_rmq_psi_loci2
+R	mem	build_esa_s	0.936293582	s	EsaIndex.Build (tagged child table), cold JIT
+R	mem	build_nav_s	0.19136470900000002	s	ISA 0.078948148 s + Psi 0.085312284 s + pyramid 0.027160907 s
+R	mem_esa	first_call_s	0.150223136	s	cold JIT included
+R	mem_esa	call2_s	0.129168375	s	warm
+R	mem_esa	call3_s	0.102913153	s	warm
+R	mem_esa	call4_s	0.090020786	s	warm
+R	mem_esa	call5_s	0.085521456	s	warm
+R	mem_esa	call6_s	0.088114188	s	warm
+R	mem_esa	call7_s	0.091520729	s	warm
+R	mem_esa	call8_s	0.107075843	s	warm
+R	mem_esa	call9_s	0.112198296	s	warm
+R	mem_esa	call10_s	0.096641022	s	warm
+R	mem_esa	warm_median_s	0.096641022	s	median of 9 warm calls (2..10) [0.085521456 .. 0.129168375]
+R	mem_esa	steady_median_s	0.096641022	s	median of the last 5 calls (after the tiered JIT settled) [0.088114188 .. 0.112198296]
+R	mem_esa	matches	817	count	
+R	mem_esa	checksum	77915707478	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	mem_esa	starts	100000	count	
+R	mem_esa	links_followed	200000	count	kernel calls (2 loci)
+R	mem_esa	extend_steps	200000	count	query symbols consumed by the extension
+R	mem_esa	child_lookups	21707	count	extensions from a node
+R	mem_esa	rescan_lookups	342090	count	child lookups of the rescans after the links
+R	mem_esa	emitted	817	count	
+R	mem_esa	link_kernel_share	0.5334282501342467	fraction	one extra warm call with a timer around every kernel call: 0.060193476 s of 0.112842685 s (the 2 timestamps per link are inside both numbers)
+R	mem_esa	link_kernel_ns_per_link	300.96738	ns	includes the timer floor
+R	mem_esa	peak_rss_hwm	253280256	bytes	VmHWM before the Ukkonen reference is built
+R	mem_ukkonen	build_s	12.549823906	s	in-memory Ukkonen tree, same process
+R	mem_ukkonen	steady_median_s	0.040680893	s	median of the last 5 calls [0.039486078 .. 0.043077844]
+R	mem_ukkonen	first_call_s	0.070533502	s	cold JIT of the Ukkonen MEM path in this process (the ESA driver ran first)
+R	mem_ukkonen	warm_median_s	0.043077844	s	median of 9 warm calls [0.039486078 .. 0.055288608]
+R	mem_ukkonen	matches	817	count	
+R	mem_ukkonen	checksum	77915707478	count	
+R	mem_check	mem_set_equal	1	bool	set of (position in text, position in query, length): ESA driver == Ukkonen FindMaximalExactMatches
+R	mem	peak_rss_hwm_final	1950937088	bytes	VmHWM after the Ukkonen tree
+# process input=dna_10m run=3 commit=71c5dabaf3-dirty load=0.98 2026-11-09T16:09:46Z options: --kernel rmq --source isa --loci 2 --ukkonen true
+R	mem	text_chars	10000000	chars	dna_10m
+R	mem	query_chars	100000	chars	dna_10m.memq100k, minLength 20, variant c_rmq_isa_loci2
+R	mem	build_esa_s	1.030947889	s	EsaIndex.Build (tagged child table), cold JIT
+R	mem	build_nav_s	0.187277909	s	ISA 0.07731112 s + Psi 0.082894785 s + pyramid 0.027124656 s
+R	mem_esa	first_call_s	0.11577968	s	cold JIT included
+R	mem_esa	call2_s	0.096250955	s	warm
+R	mem_esa	call3_s	0.093628042	s	warm
+R	mem_esa	call4_s	0.08048935	s	warm
+R	mem_esa	call5_s	0.076581007	s	warm
+R	mem_esa	call6_s	0.07721274	s	warm
+R	mem_esa	call7_s	0.077077796	s	warm
+R	mem_esa	call8_s	0.082386167	s	warm
+R	mem_esa	call9_s	0.080099493	s	warm
+R	mem_esa	call10_s	0.079878622	s	warm
+R	mem_esa	warm_median_s	0.080099493	s	median of 9 warm calls (2..10) [0.076581007 .. 0.096250955]
+R	mem_esa	steady_median_s	0.079878622	s	median of the last 5 calls (after the tiered JIT settled) [0.077077796 .. 0.082386167]
+R	mem_esa	matches	817	count	
+R	mem_esa	checksum	77915707478	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	mem_esa	starts	100000	count	
+R	mem_esa	links_followed	200000	count	kernel calls (2 loci)
+R	mem_esa	extend_steps	200000	count	query symbols consumed by the extension
+R	mem_esa	child_lookups	21707	count	extensions from a node
+R	mem_esa	rescan_lookups	342090	count	child lookups of the rescans after the links
+R	mem_esa	emitted	817	count	
+R	mem_esa	link_kernel_share	0.5148414254122697	fraction	one extra warm call with a timer around every kernel call: 0.049054264 s of 0.095280336 s (the 2 timestamps per link are inside both numbers)
+R	mem_esa	link_kernel_ns_per_link	245.27132	ns	includes the timer floor
+R	mem_esa	peak_rss_hwm	253394944	bytes	VmHWM before the Ukkonen reference is built
+R	mem_ukkonen	build_s	13.024688284	s	in-memory Ukkonen tree, same process
+R	mem_ukkonen	steady_median_s	0.04436769	s	median of the last 5 calls [0.041513046 .. 0.045841813]
+R	mem_ukkonen	first_call_s	0.066025245	s	cold JIT of the Ukkonen MEM path in this process (the ESA driver ran first)
+R	mem_ukkonen	warm_median_s	0.045364358	s	median of 9 warm calls [0.041513046 .. 0.05687174]
+R	mem_ukkonen	matches	817	count	
+R	mem_ukkonen	checksum	77915707478	count	
+R	mem_check	mem_set_equal	1	bool	set of (position in text, position in query, length): ESA driver == Ukkonen FindMaximalExactMatches
+R	mem	peak_rss_hwm_final	1951006720	bytes	VmHWM after the Ukkonen tree
+# process input=dna_10m run=3 commit=71c5dabaf3-dirty load=0.99 2026-11-09T16:10:01Z options: --kernel psv --source psi --loci 2 --ukkonen true
+R	mem	text_chars	10000000	chars	dna_10m
+R	mem	query_chars	100000	chars	dna_10m.memq100k, minLength 20, variant c2_psv_psi_loci2
+R	mem	build_esa_s	1.024606381	s	EsaIndex.Build (tagged child table), cold JIT
+R	mem	build_nav_s	0.19309144700000003	s	ISA 0.078961945 s + Psi 0.086753398 s + pyramid 0.027424867 s
+R	mem_esa	first_call_s	0.102779892	s	cold JIT included
+R	mem_esa	call2_s	0.081773038	s	warm
+R	mem_esa	call3_s	0.080252029	s	warm
+R	mem_esa	call4_s	0.076947437	s	warm
+R	mem_esa	call5_s	0.074943519	s	warm
+R	mem_esa	call6_s	0.074830994	s	warm
+R	mem_esa	call7_s	0.07533377	s	warm
+R	mem_esa	call8_s	0.075335698	s	warm
+R	mem_esa	call9_s	0.073159022	s	warm
+R	mem_esa	call10_s	0.073183519	s	warm
+R	mem_esa	warm_median_s	0.07533377	s	median of 9 warm calls (2..10) [0.073159022 .. 0.081773038]
+R	mem_esa	steady_median_s	0.074830994	s	median of the last 5 calls (after the tiered JIT settled) [0.073159022 .. 0.075335698]
+R	mem_esa	matches	817	count	
+R	mem_esa	checksum	77915707478	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	mem_esa	starts	100000	count	
+R	mem_esa	links_followed	200000	count	kernel calls (2 loci)
+R	mem_esa	extend_steps	200000	count	query symbols consumed by the extension
+R	mem_esa	child_lookups	21707	count	extensions from a node
+R	mem_esa	rescan_lookups	342090	count	child lookups of the rescans after the links
+R	mem_esa	emitted	817	count	
+R	mem_esa	link_kernel_share	0.49515666889259435	fraction	one extra warm call with a timer around every kernel call: 0.04502157 s of 0.090923889 s (the 2 timestamps per link are inside both numbers)
+R	mem_esa	link_kernel_ns_per_link	225.10785	ns	includes the timer floor
+R	mem_esa	peak_rss_hwm	253173760	bytes	VmHWM before the Ukkonen reference is built
+R	mem_ukkonen	build_s	13.076652757	s	in-memory Ukkonen tree, same process
+R	mem_ukkonen	steady_median_s	0.046740166	s	median of the last 5 calls [0.046019871 .. 0.048457959]
+R	mem_ukkonen	first_call_s	0.079653916	s	cold JIT of the Ukkonen MEM path in this process (the ESA driver ran first)
+R	mem_ukkonen	warm_median_s	0.048457959	s	median of 9 warm calls [0.046019871 .. 0.053199075]
+R	mem_ukkonen	matches	817	count	
+R	mem_ukkonen	checksum	77915707478	count	
+R	mem_check	mem_set_equal	1	bool	set of (position in text, position in query, length): ESA driver == Ukkonen FindMaximalExactMatches
+R	mem	peak_rss_hwm_final	1950793728	bytes	VmHWM after the Ukkonen tree
+# process input=dna_10m run=3 commit=71c5dabaf3-dirty load=0.99 2026-11-09T16:10:17Z options: --kernel psv --source isa --loci 2 --ukkonen false
+R	mem	text_chars	10000000	chars	dna_10m
+R	mem	query_chars	100000	chars	dna_10m.memq100k, minLength 20, variant c2_psv_isa_loci2
+R	mem	build_esa_s	1.019665323	s	EsaIndex.Build (tagged child table), cold JIT
+R	mem	build_nav_s	0.19229761099999998	s	ISA 0.077751884 s + Psi 0.085614101 s + pyramid 0.028997114 s
+R	mem_esa	first_call_s	0.089993717	s	cold JIT included
+R	mem_esa	call2_s	0.067587142	s	warm
+R	mem_esa	call3_s	0.067940714	s	warm
+R	mem_esa	call4_s	0.066636408	s	warm
+R	mem_esa	call5_s	0.07042531	s	warm
+R	mem_esa	call6_s	0.068567174	s	warm
+R	mem_esa	call7_s	0.06763154	s	warm
+R	mem_esa	call8_s	0.064709877	s	warm
+R	mem_esa	call9_s	0.065832135	s	warm
+R	mem_esa	call10_s	0.064124767	s	warm
+R	mem_esa	warm_median_s	0.067587142	s	median of 9 warm calls (2..10) [0.064124767 .. 0.07042531]
+R	mem_esa	steady_median_s	0.065832135	s	median of the last 5 calls (after the tiered JIT settled) [0.064124767 .. 0.068567174]
+R	mem_esa	matches	817	count	
+R	mem_esa	checksum	77915707478	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	mem_esa	starts	100000	count	
+R	mem_esa	links_followed	200000	count	kernel calls (2 loci)
+R	mem_esa	extend_steps	200000	count	query symbols consumed by the extension
+R	mem_esa	child_lookups	21707	count	extensions from a node
+R	mem_esa	rescan_lookups	342090	count	child lookups of the rescans after the links
+R	mem_esa	emitted	817	count	
+R	mem_esa	link_kernel_share	0.4200099554842272	fraction	one extra warm call with a timer around every kernel call: 0.034469939 s of 0.082069338 s (the 2 timestamps per link are inside both numbers)
+R	mem_esa	link_kernel_ns_per_link	172.349695	ns	includes the timer floor
+R	mem_esa	peak_rss_hwm	253341696	bytes	VmHWM before the Ukkonen reference is built
+# process input=dna_10m run=3 commit=71c5dabaf3-dirty load=0.99 2026-11-09T16:10:19Z options: --kernel psv --source psi --loci 1 --ukkonen false
+R	mem	text_chars	10000000	chars	dna_10m
+R	mem	query_chars	100000	chars	dna_10m.memq100k, minLength 20, variant c2_psv_psi_loci1
+R	mem	build_esa_s	1.120152549	s	EsaIndex.Build (tagged child table), cold JIT
+R	mem	build_nav_s	0.197184116	s	ISA 0.079707635 s + Psi 0.088685686 s + pyramid 0.028848584 s
+R	mem_esa	first_call_s	0.089719043	s	cold JIT included
+R	mem_esa	call2_s	0.06881416	s	warm
+R	mem_esa	call3_s	0.064010708	s	warm
+R	mem_esa	call4_s	0.059857267	s	warm
+R	mem_esa	call5_s	0.060652327	s	warm
+R	mem_esa	call6_s	0.059963046	s	warm
+R	mem_esa	call7_s	0.053333197	s	warm
+R	mem_esa	call8_s	0.052961618	s	warm
+R	mem_esa	call9_s	0.052135496	s	warm
+R	mem_esa	call10_s	0.051074186	s	warm
+R	mem_esa	warm_median_s	0.059857267	s	median of 9 warm calls (2..10) [0.051074186 .. 0.06881416]
+R	mem_esa	steady_median_s	0.052961618	s	median of the last 5 calls (after the tiered JIT settled) [0.051074186 .. 0.059963046]
+R	mem_esa	matches	817	count	
+R	mem_esa	checksum	77915707478	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	mem_esa	starts	100000	count	
+R	mem_esa	links_followed	100000	count	kernel calls (1 loci)
+R	mem_esa	extend_steps	100000	count	query symbols consumed by the extension
+R	mem_esa	child_lookups	10852	count	extensions from a node
+R	mem_esa	rescan_lookups	171047	count	child lookups of the rescans after the links
+R	mem_esa	emitted	817	count	
+R	mem_esa	link_kernel_share	0.500973529170528	fraction	one extra warm call with a timer around every kernel call: 0.036977274 s of 0.073810834 s (the 2 timestamps per link are inside both numbers)
+R	mem_esa	link_kernel_ns_per_link	369.77274	ns	includes the timer floor
+R	mem_esa	peak_rss_hwm	253308928	bytes	VmHWM before the Ukkonen reference is built
+# process input=dna_10m run=3 commit=71c5dabaf3-dirty load=0.99 2026-11-09T16:10:21Z options: --kernel rmq --source psi --loci 1 --ukkonen false
+R	mem	text_chars	10000000	chars	dna_10m
+R	mem	query_chars	100000	chars	dna_10m.memq100k, minLength 20, variant c_rmq_psi_loci1
+R	mem	build_esa_s	0.936684278	s	EsaIndex.Build (tagged child table), cold JIT
+R	mem	build_nav_s	0.178148142	s	ISA 0.072960645 s + Psi 0.078120562 s + pyramid 0.027110829 s
+R	mem_esa	first_call_s	0.10423685	s	cold JIT included
+R	mem_esa	call2_s	0.078377546	s	warm
+R	mem_esa	call3_s	0.073380107	s	warm
+R	mem_esa	call4_s	0.065670675	s	warm
+R	mem_esa	call5_s	0.063219293	s	warm
+R	mem_esa	call6_s	0.060203485	s	warm
+R	mem_esa	call7_s	0.063536049	s	warm
+R	mem_esa	call8_s	0.063649656	s	warm
+R	mem_esa	call9_s	0.063527801	s	warm
+R	mem_esa	call10_s	0.067045259	s	warm
+R	mem_esa	warm_median_s	0.063649656	s	median of 9 warm calls (2..10) [0.060203485 .. 0.078377546]
+R	mem_esa	steady_median_s	0.063536049	s	median of the last 5 calls (after the tiered JIT settled) [0.060203485 .. 0.067045259]
+R	mem_esa	matches	817	count	
+R	mem_esa	checksum	77915707478	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	mem_esa	starts	100000	count	
+R	mem_esa	links_followed	100000	count	kernel calls (1 loci)
+R	mem_esa	extend_steps	100000	count	query symbols consumed by the extension
+R	mem_esa	child_lookups	10852	count	extensions from a node
+R	mem_esa	rescan_lookups	171047	count	child lookups of the rescans after the links
+R	mem_esa	emitted	817	count	
+R	mem_esa	link_kernel_share	0.5318926495466915	fraction	one extra warm call with a timer around every kernel call: 0.044441601 s of 0.083553704 s (the 2 timestamps per link are inside both numbers)
+R	mem_esa	link_kernel_ns_per_link	444.41601	ns	includes the timer floor
+R	mem_esa	peak_rss_hwm	253325312	bytes	VmHWM before the Ukkonen reference is built
+# process input=dna_10m run=3 commit=71c5dabaf3-dirty load=0.99 2026-11-09T16:10:23Z options: --kernel scan --source psi --loci 2 --ukkonen false
+R	mem	text_chars	10000000	chars	dna_10m
+R	mem	query_chars	100000	chars	dna_10m.memq100k, minLength 20, variant a_scan_psi_loci2
+R	mem	build_esa_s	0.934195679	s	EsaIndex.Build (tagged child table), cold JIT
+R	mem	build_nav_s	0.176301495	s	ISA 0.071668533 s + Psi 0.076439252 s + pyramid 0.028233053 s
+R	mem_esa	first_call_s	0.088778928	s	cold JIT included
+R	mem_esa	call2_s	0.070250519	s	warm
+R	mem_esa	call3_s	0.065471875	s	warm
+R	mem_esa	call4_s	0.060377326	s	warm
+R	mem_esa	call5_s	0.059785659	s	warm
+R	mem_esa	call6_s	0.060595092	s	warm
+R	mem_esa	call7_s	0.061150473	s	warm
+R	mem_esa	call8_s	0.061310108	s	warm
+R	mem_esa	call9_s	0.058269548	s	warm
+R	mem_esa	call10_s	0.058163682	s	warm
+R	mem_esa	warm_median_s	0.060595092	s	median of 9 warm calls (2..10) [0.058163682 .. 0.070250519]
+R	mem_esa	steady_median_s	0.060595092	s	median of the last 5 calls (after the tiered JIT settled) [0.058163682 .. 0.061310108]
+R	mem_esa	matches	817	count	
+R	mem_esa	checksum	77915707478	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	mem_esa	starts	100000	count	
+R	mem_esa	links_followed	200000	count	kernel calls (2 loci)
+R	mem_esa	extend_steps	200000	count	query symbols consumed by the extension
+R	mem_esa	child_lookups	21707	count	extensions from a node
+R	mem_esa	rescan_lookups	342090	count	child lookups of the rescans after the links
+R	mem_esa	emitted	817	count	
+R	mem_esa	link_kernel_share	0.47804473003888304	fraction	one extra warm call with a timer around every kernel call: 0.037518538 s of 0.078483321 s (the 2 timestamps per link are inside both numbers)
+R	mem_esa	link_kernel_ns_per_link	187.59269	ns	includes the timer floor
+R	mem_esa	peak_rss_hwm	253243392	bytes	VmHWM before the Ukkonen reference is built
+# process input=dna_10m run=3 commit=71c5dabaf3-dirty load=0.99 2026-11-09T16:10:25Z options: --kernel descent --source psi --loci 2 --ukkonen false
+R	mem	text_chars	10000000	chars	dna_10m
+R	mem	query_chars	100000	chars	dna_10m.memq100k, minLength 20, variant b_descent_psi_loci2
+R	mem	build_esa_s	1.024769637	s	EsaIndex.Build (tagged child table), cold JIT
+R	mem	build_nav_s	0.24377173	s	ISA 0.087383014 s + Psi 0.118708586 s + pyramid 0.0377333 s
+R	mem_esa	first_call_s	0.208101848	s	cold JIT included
+R	mem_esa	call2_s	0.176233433	s	warm
+R	mem_esa	call3_s	0.166707137	s	warm
+R	mem_esa	call4_s	0.151103294	s	warm
+R	mem_esa	call5_s	0.155246417	s	warm
+R	mem_esa	call6_s	0.153357569	s	warm
+R	mem_esa	call7_s	0.15128342	s	warm
+R	mem_esa	call8_s	0.163852128	s	warm
+R	mem_esa	call9_s	0.15626093	s	warm
+R	mem_esa	call10_s	0.175889798	s	warm
+R	mem_esa	warm_median_s	0.15626093	s	median of 9 warm calls (2..10) [0.151103294 .. 0.176233433]
+R	mem_esa	steady_median_s	0.15626093	s	median of the last 5 calls (after the tiered JIT settled) [0.15128342 .. 0.175889798]
+R	mem_esa	matches	817	count	
+R	mem_esa	checksum	77915707478	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	mem_esa	starts	100000	count	
+R	mem_esa	links_followed	200000	count	kernel calls (2 loci)
+R	mem_esa	extend_steps	200000	count	query symbols consumed by the extension
+R	mem_esa	child_lookups	21707	count	extensions from a node
+R	mem_esa	rescan_lookups	342090	count	child lookups of the rescans after the links
+R	mem_esa	emitted	817	count	
+R	mem_esa	link_kernel_share	0.7368075293655443	fraction	one extra warm call with a timer around every kernel call: 0.160266969 s of 0.217515379 s (the 2 timestamps per link are inside both numbers)
+R	mem_esa	link_kernel_ns_per_link	801.334845	ns	includes the timer floor
+R	mem_esa	peak_rss_hwm	253329408	bytes	VmHWM before the Ukkonen reference is built
+# process input=dna_10m run=4 commit=71c5dabaf3-dirty load=0.99 2026-11-09T16:10:29Z options: --kernel rmq --source psi --loci 2 --ukkonen true
+R	mem	text_chars	10000000	chars	dna_10m
+R	mem	query_chars	100000	chars	dna_10m.memq100k, minLength 20, variant c_rmq_psi_loci2
+R	mem	build_esa_s	0.942139843	s	EsaIndex.Build (tagged child table), cold JIT
+R	mem	build_nav_s	0.188054961	s	ISA 0.081381449 s + Psi 0.079642318 s + pyramid 0.027084584 s
+R	mem_esa	first_call_s	0.124855269	s	cold JIT included
+R	mem_esa	call2_s	0.107279703	s	warm
+R	mem_esa	call3_s	0.100728454	s	warm
+R	mem_esa	call4_s	0.089244817	s	warm
+R	mem_esa	call5_s	0.092345493	s	warm
+R	mem_esa	call6_s	0.091398808	s	warm
+R	mem_esa	call7_s	0.090389703	s	warm
+R	mem_esa	call8_s	0.087093415	s	warm
+R	mem_esa	call9_s	0.091544259	s	warm
+R	mem_esa	call10_s	0.083454603	s	warm
+R	mem_esa	warm_median_s	0.091398808	s	median of 9 warm calls (2..10) [0.083454603 .. 0.107279703]
+R	mem_esa	steady_median_s	0.090389703	s	median of the last 5 calls (after the tiered JIT settled) [0.083454603 .. 0.091544259]
+R	mem_esa	matches	817	count	
+R	mem_esa	checksum	77915707478	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	mem_esa	starts	100000	count	
+R	mem_esa	links_followed	200000	count	kernel calls (2 loci)
+R	mem_esa	extend_steps	200000	count	query symbols consumed by the extension
+R	mem_esa	child_lookups	21707	count	extensions from a node
+R	mem_esa	rescan_lookups	342090	count	child lookups of the rescans after the links
+R	mem_esa	emitted	817	count	
+R	mem_esa	link_kernel_share	0.5482485497317606	fraction	one extra warm call with a timer around every kernel call: 0.0522784 s of 0.095355291 s (the 2 timestamps per link are inside both numbers)
+R	mem_esa	link_kernel_ns_per_link	261.392	ns	includes the timer floor
+R	mem_esa	peak_rss_hwm	253358080	bytes	VmHWM before the Ukkonen reference is built
+R	mem_ukkonen	build_s	13.566796985	s	in-memory Ukkonen tree, same process
+R	mem_ukkonen	steady_median_s	0.051620851	s	median of the last 5 calls [0.051483085 .. 0.051883225]
+R	mem_ukkonen	first_call_s	0.073570181	s	cold JIT of the Ukkonen MEM path in this process (the ESA driver ran first)
+R	mem_ukkonen	warm_median_s	0.051883225	s	median of 9 warm calls [0.051483085 .. 0.058893764]
+R	mem_ukkonen	matches	817	count	
+R	mem_ukkonen	checksum	77915707478	count	
+R	mem_check	mem_set_equal	1	bool	set of (position in text, position in query, length): ESA driver == Ukkonen FindMaximalExactMatches
+R	mem	peak_rss_hwm_final	1951019008	bytes	VmHWM after the Ukkonen tree
+# process input=dna_10m run=4 commit=71c5dabaf3-dirty load=1.00 2026-11-09T16:10:45Z options: --kernel rmq --source isa --loci 2 --ukkonen true
+R	mem	text_chars	10000000	chars	dna_10m
+R	mem	query_chars	100000	chars	dna_10m.memq100k, minLength 20, variant c_rmq_isa_loci2
+R	mem	build_esa_s	1.012092901	s	EsaIndex.Build (tagged child table), cold JIT
+R	mem	build_nav_s	0.190281472	s	ISA 0.077444487 s + Psi 0.083954856 s + pyramid 0.028925367 s
+R	mem_esa	first_call_s	0.127127234	s	cold JIT included
+R	mem_esa	call2_s	0.109965894	s	warm
+R	mem_esa	call3_s	0.099934966	s	warm
+R	mem_esa	call4_s	0.089588544	s	warm
+R	mem_esa	call5_s	0.089610197	s	warm
+R	mem_esa	call6_s	0.092311184	s	warm
+R	mem_esa	call7_s	0.091568231	s	warm
+R	mem_esa	call8_s	0.089493647	s	warm
+R	mem_esa	call9_s	0.09098994	s	warm
+R	mem_esa	call10_s	0.092497329	s	warm
+R	mem_esa	warm_median_s	0.091568231	s	median of 9 warm calls (2..10) [0.089493647 .. 0.109965894]
+R	mem_esa	steady_median_s	0.091568231	s	median of the last 5 calls (after the tiered JIT settled) [0.089493647 .. 0.092497329]
+R	mem_esa	matches	817	count	
+R	mem_esa	checksum	77915707478	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	mem_esa	starts	100000	count	
+R	mem_esa	links_followed	200000	count	kernel calls (2 loci)
+R	mem_esa	extend_steps	200000	count	query symbols consumed by the extension
+R	mem_esa	child_lookups	21707	count	extensions from a node
+R	mem_esa	rescan_lookups	342090	count	child lookups of the rescans after the links
+R	mem_esa	emitted	817	count	
+R	mem_esa	link_kernel_share	0.4791911005965241	fraction	one extra warm call with a timer around every kernel call: 0.056574875 s of 0.118063284 s (the 2 timestamps per link are inside both numbers)
+R	mem_esa	link_kernel_ns_per_link	282.874375	ns	includes the timer floor
+R	mem_esa	peak_rss_hwm	253308928	bytes	VmHWM before the Ukkonen reference is built
+R	mem_ukkonen	build_s	13.332876308	s	in-memory Ukkonen tree, same process
+R	mem_ukkonen	steady_median_s	0.053483994	s	median of the last 5 calls [0.052203933 .. 0.053605352]
+R	mem_ukkonen	first_call_s	0.071021812	s	cold JIT of the Ukkonen MEM path in this process (the ESA driver ran first)
+R	mem_ukkonen	warm_median_s	0.053605352	s	median of 9 warm calls [0.052203933 .. 0.058916983]
+R	mem_ukkonen	matches	817	count	
+R	mem_ukkonen	checksum	77915707478	count	
+R	mem_check	mem_set_equal	1	bool	set of (position in text, position in query, length): ESA driver == Ukkonen FindMaximalExactMatches
+R	mem	peak_rss_hwm_final	1954742272	bytes	VmHWM after the Ukkonen tree
+# process input=dna_10m run=4 commit=71c5dabaf3-dirty load=1.00 2026-11-09T16:11:01Z options: --kernel psv --source psi --loci 2 --ukkonen true
+R	mem	text_chars	10000000	chars	dna_10m
+R	mem	query_chars	100000	chars	dna_10m.memq100k, minLength 20, variant c2_psv_psi_loci2
+R	mem	build_esa_s	0.976142491	s	EsaIndex.Build (tagged child table), cold JIT
+R	mem	build_nav_s	0.180572073	s	ISA 0.073095405 s + Psi 0.079036155 s + pyramid 0.028499262 s
+R	mem_esa	first_call_s	0.099846498	s	cold JIT included
+R	mem_esa	call2_s	0.084833504	s	warm
+R	mem_esa	call3_s	0.076534881	s	warm
+R	mem_esa	call4_s	0.069674156	s	warm
+R	mem_esa	call5_s	0.068479695	s	warm
+R	mem_esa	call6_s	0.067087647	s	warm
+R	mem_esa	call7_s	0.067962153	s	warm
+R	mem_esa	call8_s	0.065430457	s	warm
+R	mem_esa	call9_s	0.064173255	s	warm
+R	mem_esa	call10_s	0.064760678	s	warm
+R	mem_esa	warm_median_s	0.067962153	s	median of 9 warm calls (2..10) [0.064173255 .. 0.084833504]
+R	mem_esa	steady_median_s	0.065430457	s	median of the last 5 calls (after the tiered JIT settled) [0.064173255 .. 0.067962153]
+R	mem_esa	matches	817	count	
+R	mem_esa	checksum	77915707478	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	mem_esa	starts	100000	count	
+R	mem_esa	links_followed	200000	count	kernel calls (2 loci)
+R	mem_esa	extend_steps	200000	count	query symbols consumed by the extension
+R	mem_esa	child_lookups	21707	count	extensions from a node
+R	mem_esa	rescan_lookups	342090	count	child lookups of the rescans after the links
+R	mem_esa	emitted	817	count	
+R	mem_esa	link_kernel_share	0.4879437527050704	fraction	one extra warm call with a timer around every kernel call: 0.045007355 s of 0.092238818 s (the 2 timestamps per link are inside both numbers)
+R	mem_esa	link_kernel_ns_per_link	225.036775	ns	includes the timer floor
+R	mem_esa	peak_rss_hwm	253423616	bytes	VmHWM before the Ukkonen reference is built
+R	mem_ukkonen	build_s	13.649808126	s	in-memory Ukkonen tree, same process
+R	mem_ukkonen	steady_median_s	0.050645426	s	median of the last 5 calls [0.050244181 .. 0.051750097]
+R	mem_ukkonen	first_call_s	0.070050842	s	cold JIT of the Ukkonen MEM path in this process (the ESA driver ran first)
+R	mem_ukkonen	warm_median_s	0.051450968	s	median of 9 warm calls [0.05006532 .. 0.055620551]
+R	mem_ukkonen	matches	817	count	
+R	mem_ukkonen	checksum	77915707478	count	
+R	mem_check	mem_set_equal	1	bool	set of (position in text, position in query, length): ESA driver == Ukkonen FindMaximalExactMatches
+R	mem	peak_rss_hwm_final	1951039488	bytes	VmHWM after the Ukkonen tree
+# process input=dna_10m run=5 commit=71c5dabaf3-dirty load=1.00 2026-11-09T16:11:18Z options: --kernel rmq --source psi --loci 2 --ukkonen true
+R	mem	text_chars	10000000	chars	dna_10m
+R	mem	query_chars	100000	chars	dna_10m.memq100k, minLength 20, variant c_rmq_psi_loci2
+R	mem	build_esa_s	1.01785012	s	EsaIndex.Build (tagged child table), cold JIT
+R	mem	build_nav_s	0.18979507699999998	s	ISA 0.077084856 s + Psi 0.08422394 s + pyramid 0.02854355 s
+R	mem_esa	first_call_s	0.129808953	s	cold JIT included
+R	mem_esa	call2_s	0.112704813	s	warm
+R	mem_esa	call3_s	0.108723524	s	warm
+R	mem_esa	call4_s	0.094958756	s	warm
+R	mem_esa	call5_s	0.098899641	s	warm
+R	mem_esa	call6_s	0.100913445	s	warm
+R	mem_esa	call7_s	0.095942459	s	warm
+R	mem_esa	call8_s	0.090976085	s	warm
+R	mem_esa	call9_s	0.095791282	s	warm
+R	mem_esa	call10_s	0.093408571	s	warm
+R	mem_esa	warm_median_s	0.095942459	s	median of 9 warm calls (2..10) [0.090976085 .. 0.112704813]
+R	mem_esa	steady_median_s	0.095791282	s	median of the last 5 calls (after the tiered JIT settled) [0.090976085 .. 0.100913445]
+R	mem_esa	matches	817	count	
+R	mem_esa	checksum	77915707478	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	mem_esa	starts	100000	count	
+R	mem_esa	links_followed	200000	count	kernel calls (2 loci)
+R	mem_esa	extend_steps	200000	count	query symbols consumed by the extension
+R	mem_esa	child_lookups	21707	count	extensions from a node
+R	mem_esa	rescan_lookups	342090	count	child lookups of the rescans after the links
+R	mem_esa	emitted	817	count	
+R	mem_esa	link_kernel_share	0.5419548396646023	fraction	one extra warm call with a timer around every kernel call: 0.062769545 s of 0.115820619 s (the 2 timestamps per link are inside both numbers)
+R	mem_esa	link_kernel_ns_per_link	313.84772499999997	ns	includes the timer floor
+R	mem_esa	peak_rss_hwm	253259776	bytes	VmHWM before the Ukkonen reference is built
+R	mem_ukkonen	build_s	13.065605151	s	in-memory Ukkonen tree, same process
+R	mem_ukkonen	steady_median_s	0.04597129	s	median of the last 5 calls [0.044426584 .. 0.046552241]
+R	mem_ukkonen	first_call_s	0.066068847	s	cold JIT of the Ukkonen MEM path in this process (the ESA driver ran first)
+R	mem_ukkonen	warm_median_s	0.046552241	s	median of 9 warm calls [0.044426584 .. 0.051641732]
+R	mem_ukkonen	matches	817	count	
+R	mem_ukkonen	checksum	77915707478	count	
+R	mem_check	mem_set_equal	1	bool	set of (position in text, position in query, length): ESA driver == Ukkonen FindMaximalExactMatches
+R	mem	peak_rss_hwm_final	1954689024	bytes	VmHWM after the Ukkonen tree
+# process input=dna_10m run=5 commit=71c5dabaf3-dirty load=1.00 2026-11-09T16:11:34Z options: --kernel rmq --source isa --loci 2 --ukkonen true
+R	mem	text_chars	10000000	chars	dna_10m
+R	mem	query_chars	100000	chars	dna_10m.memq100k, minLength 20, variant c_rmq_isa_loci2
+R	mem	build_esa_s	1.014272821	s	EsaIndex.Build (tagged child table), cold JIT
+R	mem	build_nav_s	0.191662176	s	ISA 0.078083002 s + Psi 0.085136268 s + pyramid 0.028485549 s
+R	mem_esa	first_call_s	0.123950752	s	cold JIT included
+R	mem_esa	call2_s	0.10905772	s	warm
+R	mem_esa	call3_s	0.101615765	s	warm
+R	mem_esa	call4_s	0.099584007	s	warm
+R	mem_esa	call5_s	0.098461037	s	warm
+R	mem_esa	call6_s	0.094970379	s	warm
+R	mem_esa	call7_s	0.104742641	s	warm
+R	mem_esa	call8_s	0.144393598	s	warm
+R	mem_esa	call9_s	0.101227093	s	warm
+R	mem_esa	call10_s	0.099944696	s	warm
+R	mem_esa	warm_median_s	0.101227093	s	median of 9 warm calls (2..10) [0.094970379 .. 0.144393598]
+R	mem_esa	steady_median_s	0.101227093	s	median of the last 5 calls (after the tiered JIT settled) [0.094970379 .. 0.144393598]
+R	mem_esa	matches	817	count	
+R	mem_esa	checksum	77915707478	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	mem_esa	starts	100000	count	
+R	mem_esa	links_followed	200000	count	kernel calls (2 loci)
+R	mem_esa	extend_steps	200000	count	query symbols consumed by the extension
+R	mem_esa	child_lookups	21707	count	extensions from a node
+R	mem_esa	rescan_lookups	342090	count	child lookups of the rescans after the links
+R	mem_esa	emitted	817	count	
+R	mem_esa	link_kernel_share	0.5291831374441436	fraction	one extra warm call with a timer around every kernel call: 0.063256408 s of 0.119535948 s (the 2 timestamps per link are inside both numbers)
+R	mem_esa	link_kernel_ns_per_link	316.28204	ns	includes the timer floor
+R	mem_esa	peak_rss_hwm	253366272	bytes	VmHWM before the Ukkonen reference is built
+R	mem_ukkonen	build_s	12.481733293	s	in-memory Ukkonen tree, same process
+R	mem_ukkonen	steady_median_s	0.044885654	s	median of the last 5 calls [0.043943438 .. 0.046009481]
+R	mem_ukkonen	first_call_s	0.064756831	s	cold JIT of the Ukkonen MEM path in this process (the ESA driver ran first)
+R	mem_ukkonen	warm_median_s	0.046009481	s	median of 9 warm calls [0.043943438 .. 0.052463062]
+R	mem_ukkonen	matches	817	count	
+R	mem_ukkonen	checksum	77915707478	count	
+R	mem_check	mem_set_equal	1	bool	set of (position in text, position in query, length): ESA driver == Ukkonen FindMaximalExactMatches
+R	mem	peak_rss_hwm_final	1951035392	bytes	VmHWM after the Ukkonen tree
+# process input=dna_10m run=5 commit=71c5dabaf3-dirty load=1.00 2026-11-09T16:11:49Z options: --kernel psv --source psi --loci 2 --ukkonen true
+R	mem	text_chars	10000000	chars	dna_10m
+R	mem	query_chars	100000	chars	dna_10m.memq100k, minLength 20, variant c2_psv_psi_loci2
+R	mem	build_esa_s	1.01158069	s	EsaIndex.Build (tagged child table), cold JIT
+R	mem	build_nav_s	0.194518787	s	ISA 0.078353546 s + Psi 0.087462974 s + pyramid 0.028756159 s
+R	mem_esa	first_call_s	0.105326146	s	cold JIT included
+R	mem_esa	call2_s	0.089788327	s	warm
+R	mem_esa	call3_s	0.086268006	s	warm
+R	mem_esa	call4_s	0.082665661	s	warm
+R	mem_esa	call5_s	0.077365159	s	warm
+R	mem_esa	call6_s	0.077954507	s	warm
+R	mem_esa	call7_s	0.076110414	s	warm
+R	mem_esa	call8_s	0.073519933	s	warm
+R	mem_esa	call9_s	0.076721187	s	warm
+R	mem_esa	call10_s	0.081461991	s	warm
+R	mem_esa	warm_median_s	0.077954507	s	median of 9 warm calls (2..10) [0.073519933 .. 0.089788327]
+R	mem_esa	steady_median_s	0.076721187	s	median of the last 5 calls (after the tiered JIT settled) [0.073519933 .. 0.081461991]
+R	mem_esa	matches	817	count	
+R	mem_esa	checksum	77915707478	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	mem_esa	starts	100000	count	
+R	mem_esa	links_followed	200000	count	kernel calls (2 loci)
+R	mem_esa	extend_steps	200000	count	query symbols consumed by the extension
+R	mem_esa	child_lookups	21707	count	extensions from a node
+R	mem_esa	rescan_lookups	342090	count	child lookups of the rescans after the links
+R	mem_esa	emitted	817	count	
+R	mem_esa	link_kernel_share	0.4851730917181876	fraction	one extra warm call with a timer around every kernel call: 0.050807397 s of 0.104720146 s (the 2 timestamps per link are inside both numbers)
+R	mem_esa	link_kernel_ns_per_link	254.036985	ns	includes the timer floor
+R	mem_esa	peak_rss_hwm	253431808	bytes	VmHWM before the Ukkonen reference is built
+R	mem_ukkonen	build_s	13.564115887	s	in-memory Ukkonen tree, same process
+R	mem_ukkonen	steady_median_s	0.050345002	s	median of the last 5 calls [0.049695663 .. 0.051249055]
+R	mem_ukkonen	first_call_s	0.071403606	s	cold JIT of the Ukkonen MEM path in this process (the ESA driver ran first)
+R	mem_ukkonen	warm_median_s	0.051249055	s	median of 9 warm calls [0.049695663 .. 0.056500231]
+R	mem_ukkonen	matches	817	count	
+R	mem_ukkonen	checksum	77915707478	count	
+R	mem_check	mem_set_equal	1	bool	set of (position in text, position in query, length): ESA driver == Ukkonen FindMaximalExactMatches
+R	mem	peak_rss_hwm_final	1951100928	bytes	VmHWM after the Ukkonen tree
+# process input=rep_10m run=1 commit=71c5dabaf3-dirty load=1.00 2026-11-09T16:12:06Z options: --kernel rmq --source psi --loci 2 --ukkonen true
+R	mem	text_chars	10000000	chars	rep_10m
+R	mem	query_chars	100000	chars	rep_10m.memq100k, minLength 20, variant c_rmq_psi_loci2
+R	mem	build_esa_s	1.139877848	s	EsaIndex.Build (tagged child table), cold JIT
+R	mem	build_nav_s	0.21493987300000003	s	ISA 0.088751646 s + Psi 0.093504262 s + pyramid 0.032738441 s
+R	mem_esa	first_call_s	0.212878956	s	cold JIT included
+R	mem_esa	call2_s	0.172195683	s	warm
+R	mem_esa	call3_s	0.198423516	s	warm
+R	mem_esa	call4_s	0.175531561	s	warm
+R	mem_esa	call5_s	0.158070294	s	warm
+R	mem_esa	call6_s	0.156533725	s	warm
+R	mem_esa	call7_s	0.156159561	s	warm
+R	mem_esa	call8_s	0.159805527	s	warm
+R	mem_esa	call9_s	0.187939532	s	warm
+R	mem_esa	call10_s	0.181312333	s	warm
+R	mem_esa	warm_median_s	0.172195683	s	median of 9 warm calls (2..10) [0.156159561 .. 0.198423516]
+R	mem_esa	steady_median_s	0.159805527	s	median of the last 5 calls (after the tiered JIT settled) [0.156159561 .. 0.187939532]
+R	mem_esa	matches	160979	count	
+R	mem_esa	checksum	25158196373282	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	mem_esa	starts	100000	count	
+R	mem_esa	links_followed	200000	count	kernel calls (2 loci)
+R	mem_esa	extend_steps	200000	count	query symbols consumed by the extension
+R	mem_esa	child_lookups	70165	count	extensions from a node
+R	mem_esa	rescan_lookups	186061	count	child lookups of the rescans after the links
+R	mem_esa	emitted	160979	count	
+R	mem_esa	link_kernel_share	0.4998496883500703	fraction	one extra warm call with a timer around every kernel call: 0.09179329 s of 0.183641787 s (the 2 timestamps per link are inside both numbers)
+R	mem_esa	link_kernel_ns_per_link	458.96645	ns	includes the timer floor
+R	mem_esa	peak_rss_hwm	339185664	bytes	VmHWM before the Ukkonen reference is built
+R	mem_ukkonen	build_s	7.939072639	s	in-memory Ukkonen tree, same process
+R	mem_ukkonen	steady_median_s	0.36329837	s	median of the last 5 calls [0.35820629 .. 0.37493655]
+R	mem_ukkonen	first_call_s	0.511162919	s	cold JIT of the Ukkonen MEM path in this process (the ESA driver ran first)
+R	mem_ukkonen	warm_median_s	0.366796901	s	median of 9 warm calls [0.35820629 .. 0.379250202]
+R	mem_ukkonen	matches	160979	count	
+R	mem_ukkonen	checksum	25158196373282	count	
+R	mem_check	mem_set_equal	1	bool	set of (position in text, position in query, length): ESA driver == Ukkonen FindMaximalExactMatches
+R	mem	peak_rss_hwm_final	2362884096	bytes	VmHWM after the Ukkonen tree
+# process input=rep_10m run=1 commit=71c5dabaf3-dirty load=1.00 2026-11-09T16:12:21Z options: --kernel rmq --source isa --loci 2 --ukkonen true
+R	mem	text_chars	10000000	chars	rep_10m
+R	mem	query_chars	100000	chars	rep_10m.memq100k, minLength 20, variant c_rmq_isa_loci2
+R	mem	build_esa_s	1.185943783	s	EsaIndex.Build (tagged child table), cold JIT
+R	mem	build_nav_s	0.197953738	s	ISA 0.080831478 s + Psi 0.08453921 s + pyramid 0.03263384 s
+R	mem_esa	first_call_s	0.202336148	s	cold JIT included
+R	mem_esa	call2_s	0.172581475	s	warm
+R	mem_esa	call3_s	0.164625545	s	warm
+R	mem_esa	call4_s	0.150976195	s	warm
+R	mem_esa	call5_s	0.152501544	s	warm
+R	mem_esa	call6_s	0.152332192	s	warm
+R	mem_esa	call7_s	0.149602585	s	warm
+R	mem_esa	call8_s	0.150670726	s	warm
+R	mem_esa	call9_s	0.151251349	s	warm
+R	mem_esa	call10_s	0.148985644	s	warm
+R	mem_esa	warm_median_s	0.151251349	s	median of 9 warm calls (2..10) [0.148985644 .. 0.172581475]
+R	mem_esa	steady_median_s	0.150670726	s	median of the last 5 calls (after the tiered JIT settled) [0.148985644 .. 0.152332192]
+R	mem_esa	matches	160979	count	
+R	mem_esa	checksum	25158196373282	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	mem_esa	starts	100000	count	
+R	mem_esa	links_followed	200000	count	kernel calls (2 loci)
+R	mem_esa	extend_steps	200000	count	query symbols consumed by the extension
+R	mem_esa	child_lookups	70165	count	extensions from a node
+R	mem_esa	rescan_lookups	186061	count	child lookups of the rescans after the links
+R	mem_esa	emitted	160979	count	
+R	mem_esa	link_kernel_share	0.4372367313753899	fraction	one extra warm call with a timer around every kernel call: 0.076661006 s of 0.175330663 s (the 2 timestamps per link are inside both numbers)
+R	mem_esa	link_kernel_ns_per_link	383.30503	ns	includes the timer floor
+R	mem_esa	peak_rss_hwm	339144704	bytes	VmHWM before the Ukkonen reference is built
+R	mem_ukkonen	build_s	7.980799102	s	in-memory Ukkonen tree, same process
+R	mem_ukkonen	steady_median_s	0.371775046	s	median of the last 5 calls [0.366774472 .. 0.488100351]
+R	mem_ukkonen	first_call_s	0.505466911	s	cold JIT of the Ukkonen MEM path in this process (the ESA driver ran first)
+R	mem_ukkonen	warm_median_s	0.377770824	s	median of 9 warm calls [0.364687156 .. 0.488100351]
+R	mem_ukkonen	matches	160979	count	
+R	mem_ukkonen	checksum	25158196373282	count	
+R	mem_check	mem_set_equal	1	bool	set of (position in text, position in query, length): ESA driver == Ukkonen FindMaximalExactMatches
+R	mem	peak_rss_hwm_final	2359095296	bytes	VmHWM after the Ukkonen tree
+# process input=rep_10m run=1 commit=71c5dabaf3-dirty load=1.00 2026-11-09T16:12:37Z options: --kernel psv --source psi --loci 2 --ukkonen true
+R	mem	text_chars	10000000	chars	rep_10m
+R	mem	query_chars	100000	chars	rep_10m.memq100k, minLength 20, variant c2_psv_psi_loci2
+R	mem	build_esa_s	1.136028454	s	EsaIndex.Build (tagged child table), cold JIT
+R	mem	build_nav_s	0.221589234	s	ISA 0.091645026 s + Psi 0.096982761 s + pyramid 0.033046296 s
+R	mem_esa	first_call_s	0.185034153	s	cold JIT included
+R	mem_esa	call2_s	0.114781442	s	warm
+R	mem_esa	call3_s	0.113590043	s	warm
+R	mem_esa	call4_s	0.113164999	s	warm
+R	mem_esa	call5_s	0.124904869	s	warm
+R	mem_esa	call6_s	0.111773487	s	warm
+R	mem_esa	call7_s	0.111829719	s	warm
+R	mem_esa	call8_s	0.112680029	s	warm
+R	mem_esa	call9_s	0.11465774	s	warm
+R	mem_esa	call10_s	0.113479658	s	warm
+R	mem_esa	warm_median_s	0.113479658	s	median of 9 warm calls (2..10) [0.111773487 .. 0.124904869]
+R	mem_esa	steady_median_s	0.112680029	s	median of the last 5 calls (after the tiered JIT settled) [0.111773487 .. 0.11465774]
+R	mem_esa	matches	160979	count	
+R	mem_esa	checksum	25158196373282	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	mem_esa	starts	100000	count	
+R	mem_esa	links_followed	200000	count	kernel calls (2 loci)
+R	mem_esa	extend_steps	200000	count	query symbols consumed by the extension
+R	mem_esa	child_lookups	70165	count	extensions from a node
+R	mem_esa	rescan_lookups	186061	count	child lookups of the rescans after the links
+R	mem_esa	emitted	160979	count	
+R	mem_esa	link_kernel_share	0.39805423243869476	fraction	one extra warm call with a timer around every kernel call: 0.069464056 s of 0.174509025 s (the 2 timestamps per link are inside both numbers)
+R	mem_esa	link_kernel_ns_per_link	347.32028	ns	includes the timer floor
+R	mem_esa	peak_rss_hwm	339079168	bytes	VmHWM before the Ukkonen reference is built
+R	mem_ukkonen	build_s	8.031008149	s	in-memory Ukkonen tree, same process
+R	mem_ukkonen	steady_median_s	0.392894392	s	median of the last 5 calls [0.380355502 .. 0.414692979]
+R	mem_ukkonen	first_call_s	0.519224921	s	cold JIT of the Ukkonen MEM path in this process (the ESA driver ran first)
+R	mem_ukkonen	warm_median_s	0.387170528	s	median of 9 warm calls [0.364027446 .. 0.427435409]
+R	mem_ukkonen	matches	160979	count	
+R	mem_ukkonen	checksum	25158196373282	count	
+R	mem_check	mem_set_equal	1	bool	set of (position in text, position in query, length): ESA driver == Ukkonen FindMaximalExactMatches
+R	mem	peak_rss_hwm_final	2359103488	bytes	VmHWM after the Ukkonen tree
+# process input=rep_10m run=1 commit=71c5dabaf3-dirty load=1.00 2026-11-09T16:12:52Z options: --kernel psv --source isa --loci 2 --ukkonen false
+R	mem	text_chars	10000000	chars	rep_10m
+R	mem	query_chars	100000	chars	rep_10m.memq100k, minLength 20, variant c2_psv_isa_loci2
+R	mem	build_esa_s	1.038565177	s	EsaIndex.Build (tagged child table), cold JIT
+R	mem	build_nav_s	0.193963202	s	ISA 0.079279851 s + Psi 0.08245418 s + pyramid 0.032280718 s
+R	mem_esa	first_call_s	0.114455722	s	cold JIT included
+R	mem_esa	call2_s	0.106527008	s	warm
+R	mem_esa	call3_s	0.106058558	s	warm
+R	mem_esa	call4_s	0.084599573	s	warm
+R	mem_esa	call5_s	0.082632733	s	warm
+R	mem_esa	call6_s	0.08224283	s	warm
+R	mem_esa	call7_s	0.088110135	s	warm
+R	mem_esa	call8_s	0.09642771	s	warm
+R	mem_esa	call9_s	0.082432183	s	warm
+R	mem_esa	call10_s	0.085001733	s	warm
+R	mem_esa	warm_median_s	0.085001733	s	median of 9 warm calls (2..10) [0.08224283 .. 0.106527008]
+R	mem_esa	steady_median_s	0.085001733	s	median of the last 5 calls (after the tiered JIT settled) [0.08224283 .. 0.09642771]
+R	mem_esa	matches	160979	count	
+R	mem_esa	checksum	25158196373282	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	mem_esa	starts	100000	count	
+R	mem_esa	links_followed	200000	count	kernel calls (2 loci)
+R	mem_esa	extend_steps	200000	count	query symbols consumed by the extension
+R	mem_esa	child_lookups	70165	count	extensions from a node
+R	mem_esa	rescan_lookups	186061	count	child lookups of the rescans after the links
+R	mem_esa	emitted	160979	count	
+R	mem_esa	link_kernel_share	0.31794683927527745	fraction	one extra warm call with a timer around every kernel call: 0.044777453 s of 0.140833144 s (the 2 timestamps per link are inside both numbers)
+R	mem_esa	link_kernel_ns_per_link	223.887265	ns	includes the timer floor
+R	mem_esa	peak_rss_hwm	339234816	bytes	VmHWM before the Ukkonen reference is built
+# process input=rep_10m run=1 commit=71c5dabaf3-dirty load=1.00 2026-11-09T16:12:54Z options: --kernel psv --source psi --loci 1 --ukkonen false
+R	mem	text_chars	10000000	chars	rep_10m
+R	mem	query_chars	100000	chars	rep_10m.memq100k, minLength 20, variant c2_psv_psi_loci1
+R	mem	build_esa_s	1.039988231	s	EsaIndex.Build (tagged child table), cold JIT
+R	mem	build_nav_s	0.220281113	s	ISA 0.090525478 s + Psi 0.097187555 s + pyramid 0.032624527 s
+R	mem_esa	first_call_s	0.12184566	s	cold JIT included
+R	mem_esa	call2_s	0.108835357	s	warm
+R	mem_esa	call3_s	0.105452095	s	warm
+R	mem_esa	call4_s	0.100545584	s	warm
+R	mem_esa	call5_s	0.10240766	s	warm
+R	mem_esa	call6_s	0.102239584	s	warm
+R	mem_esa	call7_s	0.101854522	s	warm
+R	mem_esa	call8_s	0.100245419	s	warm
+R	mem_esa	call9_s	0.099302922	s	warm
+R	mem_esa	call10_s	0.099548054	s	warm
+R	mem_esa	warm_median_s	0.101854522	s	median of 9 warm calls (2..10) [0.099302922 .. 0.108835357]
+R	mem_esa	steady_median_s	0.100245419	s	median of the last 5 calls (after the tiered JIT settled) [0.099302922 .. 0.102239584]
+R	mem_esa	matches	160979	count	
+R	mem_esa	checksum	25158196373282	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	mem_esa	starts	100000	count	
+R	mem_esa	links_followed	100000	count	kernel calls (1 loci)
+R	mem_esa	extend_steps	100000	count	query symbols consumed by the extension
+R	mem_esa	child_lookups	21537	count	extensions from a node
+R	mem_esa	rescan_lookups	114312	count	child lookups of the rescans after the links
+R	mem_esa	emitted	160979	count	
+R	mem_esa	link_kernel_share	0.3798973486721636	fraction	one extra warm call with a timer around every kernel call: 0.053194341 s of 0.140022933 s (the 2 timestamps per link are inside both numbers)
+R	mem_esa	link_kernel_ns_per_link	531.94341	ns	includes the timer floor
+R	mem_esa	peak_rss_hwm	339324928	bytes	VmHWM before the Ukkonen reference is built
+# process input=rep_10m run=1 commit=71c5dabaf3-dirty load=1.00 2026-11-09T16:12:57Z options: --kernel rmq --source psi --loci 1 --ukkonen false
+R	mem	text_chars	10000000	chars	rep_10m
+R	mem	query_chars	100000	chars	rep_10m.memq100k, minLength 20, variant c_rmq_psi_loci1
+R	mem	build_esa_s	1.130050301	s	EsaIndex.Build (tagged child table), cold JIT
+R	mem	build_nav_s	0.213608072	s	ISA 0.088499293 s + Psi 0.092642206 s + pyramid 0.032522345 s
+R	mem_esa	first_call_s	0.163311186	s	cold JIT included
+R	mem_esa	call2_s	0.147591332	s	warm
+R	mem_esa	call3_s	0.128832038	s	warm
+R	mem_esa	call4_s	0.127114205	s	warm
+R	mem_esa	call5_s	0.127031151	s	warm
+R	mem_esa	call6_s	0.126668374	s	warm
+R	mem_esa	call7_s	0.123857316	s	warm
+R	mem_esa	call8_s	0.12400818	s	warm
+R	mem_esa	call9_s	0.125564266	s	warm
+R	mem_esa	call10_s	0.125250154	s	warm
+R	mem_esa	warm_median_s	0.126668374	s	median of 9 warm calls (2..10) [0.123857316 .. 0.147591332]
+R	mem_esa	steady_median_s	0.125250154	s	median of the last 5 calls (after the tiered JIT settled) [0.123857316 .. 0.126668374]
+R	mem_esa	matches	160979	count	
+R	mem_esa	checksum	25158196373282	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	mem_esa	starts	100000	count	
+R	mem_esa	links_followed	100000	count	kernel calls (1 loci)
+R	mem_esa	extend_steps	100000	count	query symbols consumed by the extension
+R	mem_esa	child_lookups	21537	count	extensions from a node
+R	mem_esa	rescan_lookups	114312	count	child lookups of the rescans after the links
+R	mem_esa	emitted	160979	count	
+R	mem_esa	link_kernel_share	0.4857276644382729	fraction	one extra warm call with a timer around every kernel call: 0.069861001 s of 0.143827511 s (the 2 timestamps per link are inside both numbers)
+R	mem_esa	link_kernel_ns_per_link	698.61001	ns	includes the timer floor
+R	mem_esa	peak_rss_hwm	339152896	bytes	VmHWM before the Ukkonen reference is built
+# process input=rep_10m run=1 commit=71c5dabaf3-dirty load=1.00 2026-11-09T16:13:00Z options: --kernel scan --source psi --loci 2 --ukkonen false
+R	mem	text_chars	10000000	chars	rep_10m
+R	mem	query_chars	100000	chars	rep_10m.memq100k, minLength 20, variant a_scan_psi_loci2
+R	mem	build_esa_s	1.090476016	s	EsaIndex.Build (tagged child table), cold JIT
+R	mem	build_nav_s	0.194859668	s	ISA 0.079488668 s + Psi 0.083057407 s + pyramid 0.032363141 s
+R	mem_esa	first_call_s	0.127825527	s	cold JIT included
+R	mem_esa	call2_s	0.116711598	s	warm
+R	mem_esa	call3_s	0.112375841	s	warm
+R	mem_esa	call4_s	0.099790628	s	warm
+R	mem_esa	call5_s	0.097928502	s	warm
+R	mem_esa	call6_s	0.108276457	s	warm
+R	mem_esa	call7_s	0.105527574	s	warm
+R	mem_esa	call8_s	0.102322567	s	warm
+R	mem_esa	call9_s	0.103485685	s	warm
+R	mem_esa	call10_s	0.099185442	s	warm
+R	mem_esa	warm_median_s	0.103485685	s	median of 9 warm calls (2..10) [0.097928502 .. 0.116711598]
+R	mem_esa	steady_median_s	0.103485685	s	median of the last 5 calls (after the tiered JIT settled) [0.099185442 .. 0.108276457]
+R	mem_esa	matches	160979	count	
+R	mem_esa	checksum	25158196373282	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	mem_esa	starts	100000	count	
+R	mem_esa	links_followed	200000	count	kernel calls (2 loci)
+R	mem_esa	extend_steps	200000	count	query symbols consumed by the extension
+R	mem_esa	child_lookups	70165	count	extensions from a node
+R	mem_esa	rescan_lookups	186061	count	child lookups of the rescans after the links
+R	mem_esa	emitted	160979	count	
+R	mem_esa	link_kernel_share	0.39953912571649985	fraction	one extra warm call with a timer around every kernel call: 0.061257473 s of 0.153320336 s (the 2 timestamps per link are inside both numbers)
+R	mem_esa	link_kernel_ns_per_link	306.287365	ns	includes the timer floor
+R	mem_esa	peak_rss_hwm	339271680	bytes	VmHWM before the Ukkonen reference is built
+# process input=rep_10m run=1 commit=71c5dabaf3-dirty load=1.00 2026-11-09T16:13:02Z options: --kernel descent --source psi --loci 2 --ukkonen false
+R	mem	text_chars	10000000	chars	rep_10m
+R	mem	query_chars	100000	chars	rep_10m.memq100k, minLength 20, variant b_descent_psi_loci2
+R	mem	build_esa_s	1.229391178	s	EsaIndex.Build (tagged child table), cold JIT
+R	mem	build_nav_s	0.215120909	s	ISA 0.095351566 s + Psi 0.086843906 s + pyramid 0.032975978 s
+R	mem_esa	first_call_s	0.263278712	s	cold JIT included
+R	mem_esa	call2_s	0.247986263	s	warm
+R	mem_esa	call3_s	0.233735816	s	warm
+R	mem_esa	call4_s	0.254557622	s	warm
+R	mem_esa	call5_s	0.246524358	s	warm
+R	mem_esa	call6_s	0.235027732	s	warm
+R	mem_esa	call7_s	0.247130073	s	warm
+R	mem_esa	call8_s	0.232193934	s	warm
+R	mem_esa	call9_s	0.221267203	s	warm
+R	mem_esa	call10_s	0.22468668	s	warm
+R	mem_esa	warm_median_s	0.235027732	s	median of 9 warm calls (2..10) [0.221267203 .. 0.254557622]
+R	mem_esa	steady_median_s	0.232193934	s	median of the last 5 calls (after the tiered JIT settled) [0.221267203 .. 0.247130073]
+R	mem_esa	matches	160979	count	
+R	mem_esa	checksum	25158196373282	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	mem_esa	starts	100000	count	
+R	mem_esa	links_followed	200000	count	kernel calls (2 loci)
+R	mem_esa	extend_steps	200000	count	query symbols consumed by the extension
+R	mem_esa	child_lookups	70165	count	extensions from a node
+R	mem_esa	rescan_lookups	186061	count	child lookups of the rescans after the links
+R	mem_esa	emitted	160979	count	
+R	mem_esa	link_kernel_share	0.6727073678402591	fraction	one extra warm call with a timer around every kernel call: 0.17989782 s of 0.267423591 s (the 2 timestamps per link are inside both numbers)
+R	mem_esa	link_kernel_ns_per_link	899.4891	ns	includes the timer floor
+R	mem_esa	peak_rss_hwm	339247104	bytes	VmHWM before the Ukkonen reference is built
+# process input=rep_10m run=2 commit=71c5dabaf3-dirty load=1.00 2026-11-09T16:13:06Z options: --kernel rmq --source psi --loci 2 --ukkonen true
+R	mem	text_chars	10000000	chars	rep_10m
+R	mem	query_chars	100000	chars	rep_10m.memq100k, minLength 20, variant c_rmq_psi_loci2
+R	mem	build_esa_s	1.053384979	s	EsaIndex.Build (tagged child table), cold JIT
+R	mem	build_nav_s	0.229134707	s	ISA 0.098340846 s + Psi 0.097891085 s + pyramid 0.032961059 s
+R	mem_esa	first_call_s	0.269454447	s	cold JIT included
+R	mem_esa	call2_s	0.179518387	s	warm
+R	mem_esa	call3_s	0.171055338	s	warm
+R	mem_esa	call4_s	0.175781237	s	warm
+R	mem_esa	call5_s	0.169069618	s	warm
+R	mem_esa	call6_s	0.17496684	s	warm
+R	mem_esa	call7_s	0.169928168	s	warm
+R	mem_esa	call8_s	0.171109069	s	warm
+R	mem_esa	call9_s	0.168675699	s	warm
+R	mem_esa	call10_s	0.169721347	s	warm
+R	mem_esa	warm_median_s	0.171055338	s	median of 9 warm calls (2..10) [0.168675699 .. 0.179518387]
+R	mem_esa	steady_median_s	0.169928168	s	median of the last 5 calls (after the tiered JIT settled) [0.168675699 .. 0.17496684]
+R	mem_esa	matches	160979	count	
+R	mem_esa	checksum	25158196373282	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	mem_esa	starts	100000	count	
+R	mem_esa	links_followed	200000	count	kernel calls (2 loci)
+R	mem_esa	extend_steps	200000	count	query symbols consumed by the extension
+R	mem_esa	child_lookups	70165	count	extensions from a node
+R	mem_esa	rescan_lookups	186061	count	child lookups of the rescans after the links
+R	mem_esa	emitted	160979	count	
+R	mem_esa	link_kernel_share	0.5068414701026722	fraction	one extra warm call with a timer around every kernel call: 0.098910121 s of 0.195150016 s (the 2 timestamps per link are inside both numbers)
+R	mem_esa	link_kernel_ns_per_link	494.550605	ns	includes the timer floor
+R	mem_esa	peak_rss_hwm	339308544	bytes	VmHWM before the Ukkonen reference is built
+R	mem_ukkonen	build_s	8.315488967	s	in-memory Ukkonen tree, same process
+R	mem_ukkonen	steady_median_s	0.396168989	s	median of the last 5 calls [0.36581833 .. 0.467853429]
+R	mem_ukkonen	first_call_s	0.51066534	s	cold JIT of the Ukkonen MEM path in this process (the ESA driver ran first)
+R	mem_ukkonen	warm_median_s	0.381629408	s	median of 9 warm calls [0.36581833 .. 0.467853429]
+R	mem_ukkonen	matches	160979	count	
+R	mem_ukkonen	checksum	25158196373282	count	
+R	mem_check	mem_set_equal	1	bool	set of (position in text, position in query, length): ESA driver == Ukkonen FindMaximalExactMatches
+R	mem	peak_rss_hwm_final	2359246848	bytes	VmHWM after the Ukkonen tree
+# process input=rep_10m run=2 commit=71c5dabaf3-dirty load=1.00 2026-11-09T16:13:22Z options: --kernel rmq --source isa --loci 2 --ukkonen true
+R	mem	text_chars	10000000	chars	rep_10m
+R	mem	query_chars	100000	chars	rep_10m.memq100k, minLength 20, variant c_rmq_isa_loci2
+R	mem	build_esa_s	1.085536947	s	EsaIndex.Build (tagged child table), cold JIT
+R	mem	build_nav_s	0.248618124	s	ISA 0.076557535 s + Psi 0.127705293 s + pyramid 0.044405694 s
+R	mem_esa	first_call_s	0.185110076	s	cold JIT included
+R	mem_esa	call2_s	0.136766029	s	warm
+R	mem_esa	call3_s	0.135018151	s	warm
+R	mem_esa	call4_s	0.145765904	s	warm
+R	mem_esa	call5_s	0.134647935	s	warm
+R	mem_esa	call6_s	0.134098219	s	warm
+R	mem_esa	call7_s	0.134680938	s	warm
+R	mem_esa	call8_s	0.140270426	s	warm
+R	mem_esa	call9_s	0.132770728	s	warm
+R	mem_esa	call10_s	0.136040238	s	warm
+R	mem_esa	warm_median_s	0.135018151	s	median of 9 warm calls (2..10) [0.132770728 .. 0.145765904]
+R	mem_esa	steady_median_s	0.134680938	s	median of the last 5 calls (after the tiered JIT settled) [0.132770728 .. 0.140270426]
+R	mem_esa	matches	160979	count	
+R	mem_esa	checksum	25158196373282	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	mem_esa	starts	100000	count	
+R	mem_esa	links_followed	200000	count	kernel calls (2 loci)
+R	mem_esa	extend_steps	200000	count	query symbols consumed by the extension
+R	mem_esa	child_lookups	70165	count	extensions from a node
+R	mem_esa	rescan_lookups	186061	count	child lookups of the rescans after the links
+R	mem_esa	emitted	160979	count	
+R	mem_esa	link_kernel_share	0.4419282457555508	fraction	one extra warm call with a timer around every kernel call: 0.073980214 s of 0.167403226 s (the 2 timestamps per link are inside both numbers)
+R	mem_esa	link_kernel_ns_per_link	369.90107	ns	includes the timer floor
+R	mem_esa	peak_rss_hwm	339132416	bytes	VmHWM before the Ukkonen reference is built
+R	mem_ukkonen	build_s	7.612540547	s	in-memory Ukkonen tree, same process
+R	mem_ukkonen	steady_median_s	0.373123225	s	median of the last 5 calls [0.362589855 .. 0.422453425]
+R	mem_ukkonen	first_call_s	0.532905774	s	cold JIT of the Ukkonen MEM path in this process (the ESA driver ran first)
+R	mem_ukkonen	warm_median_s	0.399129301	s	median of 9 warm calls [0.362589855 .. 0.438510264]
+R	mem_ukkonen	matches	160979	count	
+R	mem_ukkonen	checksum	25158196373282	count	
+R	mem_check	mem_set_equal	1	bool	set of (position in text, position in query, length): ESA driver == Ukkonen FindMaximalExactMatches
+R	mem	peak_rss_hwm_final	2359091200	bytes	VmHWM after the Ukkonen tree
+# process input=rep_10m run=2 commit=71c5dabaf3-dirty load=1.00 2026-11-09T16:13:37Z options: --kernel psv --source psi --loci 2 --ukkonen true
+R	mem	text_chars	10000000	chars	rep_10m
+R	mem	query_chars	100000	chars	rep_10m.memq100k, minLength 20, variant c2_psv_psi_loci2
+R	mem	build_esa_s	1.101563275	s	EsaIndex.Build (tagged child table), cold JIT
+R	mem	build_nav_s	0.211556079	s	ISA 0.083319448 s + Psi 0.085163629 s + pyramid 0.043125436 s
+R	mem_esa	first_call_s	0.199165637	s	cold JIT included
+R	mem_esa	call2_s	0.113507185	s	warm
+R	mem_esa	call3_s	0.113844112	s	warm
+R	mem_esa	call4_s	0.114852122	s	warm
+R	mem_esa	call5_s	0.125757236	s	warm
+R	mem_esa	call6_s	0.112665464	s	warm
+R	mem_esa	call7_s	0.116841549	s	warm
+R	mem_esa	call8_s	0.123291871	s	warm
+R	mem_esa	call9_s	0.096927301	s	warm
+R	mem_esa	call10_s	0.09791089	s	warm
+R	mem_esa	warm_median_s	0.113844112	s	median of 9 warm calls (2..10) [0.096927301 .. 0.125757236]
+R	mem_esa	steady_median_s	0.112665464	s	median of the last 5 calls (after the tiered JIT settled) [0.096927301 .. 0.123291871]
+R	mem_esa	matches	160979	count	
+R	mem_esa	checksum	25158196373282	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	mem_esa	starts	100000	count	
+R	mem_esa	links_followed	200000	count	kernel calls (2 loci)
+R	mem_esa	extend_steps	200000	count	query symbols consumed by the extension
+R	mem_esa	child_lookups	70165	count	extensions from a node
+R	mem_esa	rescan_lookups	186061	count	child lookups of the rescans after the links
+R	mem_esa	emitted	160979	count	
+R	mem_esa	link_kernel_share	0.3898485125573062	fraction	one extra warm call with a timer around every kernel call: 0.055836622 s of 0.143226459 s (the 2 timestamps per link are inside both numbers)
+R	mem_esa	link_kernel_ns_per_link	279.18311	ns	includes the timer floor
+R	mem_esa	peak_rss_hwm	339124224	bytes	VmHWM before the Ukkonen reference is built
+R	mem_ukkonen	build_s	7.888720033	s	in-memory Ukkonen tree, same process
+R	mem_ukkonen	steady_median_s	0.425102486	s	median of the last 5 calls [0.364671664 .. 0.47129393]
+R	mem_ukkonen	first_call_s	0.460953371	s	cold JIT of the Ukkonen MEM path in this process (the ESA driver ran first)
+R	mem_ukkonen	warm_median_s	0.37024261	s	median of 9 warm calls [0.364416536 .. 0.47129393]
+R	mem_ukkonen	matches	160979	count	
+R	mem_ukkonen	checksum	25158196373282	count	
+R	mem_check	mem_set_equal	1	bool	set of (position in text, position in query, length): ESA driver == Ukkonen FindMaximalExactMatches
+R	mem	peak_rss_hwm_final	2359017472	bytes	VmHWM after the Ukkonen tree
+# process input=rep_10m run=2 commit=71c5dabaf3-dirty load=1.00 2026-11-09T16:13:52Z options: --kernel psv --source isa --loci 2 --ukkonen false
+R	mem	text_chars	10000000	chars	rep_10m
+R	mem	query_chars	100000	chars	rep_10m.memq100k, minLength 20, variant c2_psv_isa_loci2
+R	mem	build_esa_s	1.091498469	s	EsaIndex.Build (tagged child table), cold JIT
+R	mem	build_nav_s	0.19786549999999997	s	ISA 0.08174705 s + Psi 0.083821965 s + pyramid 0.032350602 s
+R	mem_esa	first_call_s	0.11644684	s	cold JIT included
+R	mem_esa	call2_s	0.104201432	s	warm
+R	mem_esa	call3_s	0.104595214	s	warm
+R	mem_esa	call4_s	0.083835396	s	warm
+R	mem_esa	call5_s	0.083340931	s	warm
+R	mem_esa	call6_s	0.082749021	s	warm
+R	mem_esa	call7_s	0.091027113	s	warm
+R	mem_esa	call8_s	0.083721209	s	warm
+R	mem_esa	call9_s	0.085357934	s	warm
+R	mem_esa	call10_s	0.086328985	s	warm
+R	mem_esa	warm_median_s	0.085357934	s	median of 9 warm calls (2..10) [0.082749021 .. 0.104595214]
+R	mem_esa	steady_median_s	0.085357934	s	median of the last 5 calls (after the tiered JIT settled) [0.082749021 .. 0.091027113]
+R	mem_esa	matches	160979	count	
+R	mem_esa	checksum	25158196373282	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	mem_esa	starts	100000	count	
+R	mem_esa	links_followed	200000	count	kernel calls (2 loci)
+R	mem_esa	extend_steps	200000	count	query symbols consumed by the extension
+R	mem_esa	child_lookups	70165	count	extensions from a node
+R	mem_esa	rescan_lookups	186061	count	child lookups of the rescans after the links
+R	mem_esa	emitted	160979	count	
+R	mem_esa	link_kernel_share	0.30405755754631847	fraction	one extra warm call with a timer around every kernel call: 0.034663194 s of 0.11400208 s (the 2 timestamps per link are inside both numbers)
+R	mem_esa	link_kernel_ns_per_link	173.31597	ns	includes the timer floor
+R	mem_esa	peak_rss_hwm	339173376	bytes	VmHWM before the Ukkonen reference is built
+# process input=rep_10m run=2 commit=71c5dabaf3-dirty load=1.00 2026-11-09T16:13:55Z options: --kernel psv --source psi --loci 1 --ukkonen false
+R	mem	text_chars	10000000	chars	rep_10m
+R	mem	query_chars	100000	chars	rep_10m.memq100k, minLength 20, variant c2_psv_psi_loci1
+R	mem	build_esa_s	1.029208807	s	EsaIndex.Build (tagged child table), cold JIT
+R	mem	build_nav_s	0.225081119	s	ISA 0.103052793 s + Psi 0.089848735 s + pyramid 0.032234343 s
+R	mem_esa	first_call_s	0.112767193	s	cold JIT included
+R	mem_esa	call2_s	0.097593658	s	warm
+R	mem_esa	call3_s	0.094068745	s	warm
+R	mem_esa	call4_s	0.079329623	s	warm
+R	mem_esa	call5_s	0.079261377	s	warm
+R	mem_esa	call6_s	0.07864182	s	warm
+R	mem_esa	call7_s	0.078560159	s	warm
+R	mem_esa	call8_s	0.0807296	s	warm
+R	mem_esa	call9_s	0.080633205	s	warm
+R	mem_esa	call10_s	0.082452551	s	warm
+R	mem_esa	warm_median_s	0.080633205	s	median of 9 warm calls (2..10) [0.078560159 .. 0.097593658]
+R	mem_esa	steady_median_s	0.080633205	s	median of the last 5 calls (after the tiered JIT settled) [0.078560159 .. 0.082452551]
+R	mem_esa	matches	160979	count	
+R	mem_esa	checksum	25158196373282	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	mem_esa	starts	100000	count	
+R	mem_esa	links_followed	100000	count	kernel calls (1 loci)
+R	mem_esa	extend_steps	100000	count	query symbols consumed by the extension
+R	mem_esa	child_lookups	21537	count	extensions from a node
+R	mem_esa	rescan_lookups	114312	count	child lookups of the rescans after the links
+R	mem_esa	emitted	160979	count	
+R	mem_esa	link_kernel_share	0.384756781033587	fraction	one extra warm call with a timer around every kernel call: 0.041533937 s of 0.107948551 s (the 2 timestamps per link are inside both numbers)
+R	mem_esa	link_kernel_ns_per_link	415.33937	ns	includes the timer floor
+R	mem_esa	peak_rss_hwm	339230720	bytes	VmHWM before the Ukkonen reference is built
+# process input=rep_10m run=2 commit=71c5dabaf3-dirty load=1.00 2026-11-09T16:13:57Z options: --kernel rmq --source psi --loci 1 --ukkonen false
+R	mem	text_chars	10000000	chars	rep_10m
+R	mem	query_chars	100000	chars	rep_10m.memq100k, minLength 20, variant c_rmq_psi_loci1
+R	mem	build_esa_s	1.070714495	s	EsaIndex.Build (tagged child table), cold JIT
+R	mem	build_nav_s	0.191311426	s	ISA 0.077880839 s + Psi 0.081232855 s + pyramid 0.032248949 s
+R	mem_esa	first_call_s	0.160235813	s	cold JIT included
+R	mem_esa	call2_s	0.161137296	s	warm
+R	mem_esa	call3_s	0.128100566	s	warm
+R	mem_esa	call4_s	0.120751131	s	warm
+R	mem_esa	call5_s	0.146134419	s	warm
+R	mem_esa	call6_s	0.166914678	s	warm
+R	mem_esa	call7_s	0.118586239	s	warm
+R	mem_esa	call8_s	0.117081467	s	warm
+R	mem_esa	call9_s	0.128035045	s	warm
+R	mem_esa	call10_s	0.134371385	s	warm
+R	mem_esa	warm_median_s	0.128100566	s	median of 9 warm calls (2..10) [0.117081467 .. 0.166914678]
+R	mem_esa	steady_median_s	0.128035045	s	median of the last 5 calls (after the tiered JIT settled) [0.117081467 .. 0.166914678]
+R	mem_esa	matches	160979	count	
+R	mem_esa	checksum	25158196373282	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	mem_esa	starts	100000	count	
+R	mem_esa	links_followed	100000	count	kernel calls (1 loci)
+R	mem_esa	extend_steps	100000	count	query symbols consumed by the extension
+R	mem_esa	child_lookups	21537	count	extensions from a node
+R	mem_esa	rescan_lookups	114312	count	child lookups of the rescans after the links
+R	mem_esa	emitted	160979	count	
+R	mem_esa	link_kernel_share	0.4762722565413915	fraction	one extra warm call with a timer around every kernel call: 0.06453323 s of 0.135496513 s (the 2 timestamps per link are inside both numbers)
+R	mem_esa	link_kernel_ns_per_link	645.3323	ns	includes the timer floor
+R	mem_esa	peak_rss_hwm	339296256	bytes	VmHWM before the Ukkonen reference is built
+# process input=rep_10m run=2 commit=71c5dabaf3-dirty load=1.00 2026-11-09T16:14:00Z options: --kernel scan --source psi --loci 2 --ukkonen false
+R	mem	text_chars	10000000	chars	rep_10m
+R	mem	query_chars	100000	chars	rep_10m.memq100k, minLength 20, variant a_scan_psi_loci2
+R	mem	build_esa_s	1.039414588	s	EsaIndex.Build (tagged child table), cold JIT
+R	mem	build_nav_s	0.20259343000000002	s	ISA 0.08167454 s + Psi 0.088292929 s + pyramid 0.032680706 s
+R	mem_esa	first_call_s	0.144307544	s	cold JIT included
+R	mem_esa	call2_s	0.134140497	s	warm
+R	mem_esa	call3_s	0.115197253	s	warm
+R	mem_esa	call4_s	0.113191643	s	warm
+R	mem_esa	call5_s	0.109560538	s	warm
+R	mem_esa	call6_s	0.108498905	s	warm
+R	mem_esa	call7_s	0.108418007	s	warm
+R	mem_esa	call8_s	0.10695326	s	warm
+R	mem_esa	call9_s	0.111834108	s	warm
+R	mem_esa	call10_s	0.120162661	s	warm
+R	mem_esa	warm_median_s	0.111834108	s	median of 9 warm calls (2..10) [0.10695326 .. 0.134140497]
+R	mem_esa	steady_median_s	0.108498905	s	median of the last 5 calls (after the tiered JIT settled) [0.10695326 .. 0.120162661]
+R	mem_esa	matches	160979	count	
+R	mem_esa	checksum	25158196373282	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	mem_esa	starts	100000	count	
+R	mem_esa	links_followed	200000	count	kernel calls (2 loci)
+R	mem_esa	extend_steps	200000	count	query symbols consumed by the extension
+R	mem_esa	child_lookups	70165	count	extensions from a node
+R	mem_esa	rescan_lookups	186061	count	child lookups of the rescans after the links
+R	mem_esa	emitted	160979	count	
+R	mem_esa	link_kernel_share	0.3946514989236963	fraction	one extra warm call with a timer around every kernel call: 0.078290179 s of 0.19837801 s (the 2 timestamps per link are inside both numbers)
+R	mem_esa	link_kernel_ns_per_link	391.450895	ns	includes the timer floor
+R	mem_esa	peak_rss_hwm	339279872	bytes	VmHWM before the Ukkonen reference is built
+# process input=rep_10m run=2 commit=71c5dabaf3-dirty load=1.00 2026-11-09T16:14:03Z options: --kernel descent --source psi --loci 2 --ukkonen false
+R	mem	text_chars	10000000	chars	rep_10m
+R	mem	query_chars	100000	chars	rep_10m.memq100k, minLength 20, variant b_descent_psi_loci2
+R	mem	build_esa_s	1.034934416	s	EsaIndex.Build (tagged child table), cold JIT
+R	mem	build_nav_s	0.238322517	s	ISA 0.077458624 s + Psi 0.080816607 s + pyramid 0.080103369 s
+R	mem_esa	first_call_s	0.244105617	s	cold JIT included
+R	mem_esa	call2_s	0.214140744	s	warm
+R	mem_esa	call3_s	0.212460718	s	warm
+R	mem_esa	call4_s	0.211012042	s	warm
+R	mem_esa	call5_s	0.217513309	s	warm
+R	mem_esa	call6_s	0.221812332	s	warm
+R	mem_esa	call7_s	0.233393974	s	warm
+R	mem_esa	call8_s	0.228953865	s	warm
+R	mem_esa	call9_s	0.236175615	s	warm
+R	mem_esa	call10_s	0.230925654	s	warm
+R	mem_esa	warm_median_s	0.221812332	s	median of 9 warm calls (2..10) [0.211012042 .. 0.236175615]
+R	mem_esa	steady_median_s	0.230925654	s	median of the last 5 calls (after the tiered JIT settled) [0.221812332 .. 0.236175615]
+R	mem_esa	matches	160979	count	
+R	mem_esa	checksum	25158196373282	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	mem_esa	starts	100000	count	
+R	mem_esa	links_followed	200000	count	kernel calls (2 loci)
+R	mem_esa	extend_steps	200000	count	query symbols consumed by the extension
+R	mem_esa	child_lookups	70165	count	extensions from a node
+R	mem_esa	rescan_lookups	186061	count	child lookups of the rescans after the links
+R	mem_esa	emitted	160979	count	
+R	mem_esa	link_kernel_share	0.6646844132342188	fraction	one extra warm call with a timer around every kernel call: 0.175935431 s of 0.264690171 s (the 2 timestamps per link are inside both numbers)
+R	mem_esa	link_kernel_ns_per_link	879.677155	ns	includes the timer floor
+R	mem_esa	peak_rss_hwm	339226624	bytes	VmHWM before the Ukkonen reference is built
+# process input=rep_10m run=3 commit=71c5dabaf3-dirty load=1.00 2026-11-09T16:14:06Z options: --kernel rmq --source psi --loci 2 --ukkonen true
+R	mem	text_chars	10000000	chars	rep_10m
+R	mem	query_chars	100000	chars	rep_10m.memq100k, minLength 20, variant c_rmq_psi_loci2
+R	mem	build_esa_s	1.039197401	s	EsaIndex.Build (tagged child table), cold JIT
+R	mem	build_nav_s	0.194630309	s	ISA 0.080163545 s + Psi 0.082187845 s + pyramid 0.03233467 s
+R	mem_esa	first_call_s	0.209882845	s	cold JIT included
+R	mem_esa	call2_s	0.165819381	s	warm
+R	mem_esa	call3_s	0.160896697	s	warm
+R	mem_esa	call4_s	0.158561548	s	warm
+R	mem_esa	call5_s	0.155183728	s	warm
+R	mem_esa	call6_s	0.155491634	s	warm
+R	mem_esa	call7_s	0.154271867	s	warm
+R	mem_esa	call8_s	0.153242314	s	warm
+R	mem_esa	call9_s	0.154679188	s	warm
+R	mem_esa	call10_s	0.15379464	s	warm
+R	mem_esa	warm_median_s	0.155183728	s	median of 9 warm calls (2..10) [0.153242314 .. 0.165819381]
+R	mem_esa	steady_median_s	0.154271867	s	median of the last 5 calls (after the tiered JIT settled) [0.153242314 .. 0.155491634]
+R	mem_esa	matches	160979	count	
+R	mem_esa	checksum	25158196373282	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	mem_esa	starts	100000	count	
+R	mem_esa	links_followed	200000	count	kernel calls (2 loci)
+R	mem_esa	extend_steps	200000	count	query symbols consumed by the extension
+R	mem_esa	child_lookups	70165	count	extensions from a node
+R	mem_esa	rescan_lookups	186061	count	child lookups of the rescans after the links
+R	mem_esa	emitted	160979	count	
+R	mem_esa	link_kernel_share	0.5056682212445484	fraction	one extra warm call with a timer around every kernel call: 0.103399227 s of 0.204480374 s (the 2 timestamps per link are inside both numbers)
+R	mem_esa	link_kernel_ns_per_link	516.996135	ns	includes the timer floor
+R	mem_esa	peak_rss_hwm	339116032	bytes	VmHWM before the Ukkonen reference is built
+R	mem_ukkonen	build_s	7.868576473	s	in-memory Ukkonen tree, same process
+R	mem_ukkonen	steady_median_s	0.391596397	s	median of the last 5 calls [0.366088187 .. 0.446086834]
+R	mem_ukkonen	first_call_s	0.493737144	s	cold JIT of the Ukkonen MEM path in this process (the ESA driver ran first)
+R	mem_ukkonen	warm_median_s	0.391596397	s	median of 9 warm calls [0.341253999 .. 0.446086834]
+R	mem_ukkonen	matches	160979	count	
+R	mem_ukkonen	checksum	25158196373282	count	
+R	mem_check	mem_set_equal	1	bool	set of (position in text, position in query, length): ESA driver == Ukkonen FindMaximalExactMatches
+R	mem	peak_rss_hwm_final	2359062528	bytes	VmHWM after the Ukkonen tree
+# process input=rep_10m run=3 commit=71c5dabaf3-dirty load=1.00 2026-11-09T16:14:22Z options: --kernel rmq --source isa --loci 2 --ukkonen true
+R	mem	text_chars	10000000	chars	rep_10m
+R	mem	query_chars	100000	chars	rep_10m.memq100k, minLength 20, variant c_rmq_isa_loci2
+R	mem	build_esa_s	1.210184683	s	EsaIndex.Build (tagged child table), cold JIT
+R	mem	build_nav_s	0.212939512	s	ISA 0.082478522 s + Psi 0.088202665 s + pyramid 0.042310307 s
+R	mem_esa	first_call_s	0.217983607	s	cold JIT included
+R	mem_esa	call2_s	0.1508906	s	warm
+R	mem_esa	call3_s	0.161824996	s	warm
+R	mem_esa	call4_s	0.148739885	s	warm
+R	mem_esa	call5_s	0.148256298	s	warm
+R	mem_esa	call6_s	0.149949462	s	warm
+R	mem_esa	call7_s	0.148591885	s	warm
+R	mem_esa	call8_s	0.149135743	s	warm
+R	mem_esa	call9_s	0.148967101	s	warm
+R	mem_esa	call10_s	0.148609752	s	warm
+R	mem_esa	warm_median_s	0.148967101	s	median of 9 warm calls (2..10) [0.148256298 .. 0.161824996]
+R	mem_esa	steady_median_s	0.148967101	s	median of the last 5 calls (after the tiered JIT settled) [0.148591885 .. 0.149949462]
+R	mem_esa	matches	160979	count	
+R	mem_esa	checksum	25158196373282	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	mem_esa	starts	100000	count	
+R	mem_esa	links_followed	200000	count	kernel calls (2 loci)
+R	mem_esa	extend_steps	200000	count	query symbols consumed by the extension
+R	mem_esa	child_lookups	70165	count	extensions from a node
+R	mem_esa	rescan_lookups	186061	count	child lookups of the rescans after the links
+R	mem_esa	emitted	160979	count	
+R	mem_esa	link_kernel_share	0.44086088438222587	fraction	one extra warm call with a timer around every kernel call: 0.076475557 s of 0.173468683 s (the 2 timestamps per link are inside both numbers)
+R	mem_esa	link_kernel_ns_per_link	382.377785	ns	includes the timer floor
+R	mem_esa	peak_rss_hwm	339279872	bytes	VmHWM before the Ukkonen reference is built
+R	mem_ukkonen	build_s	8.567152728	s	in-memory Ukkonen tree, same process
+R	mem_ukkonen	steady_median_s	0.455980381	s	median of the last 5 calls [0.370842823 .. 0.488276899]
+R	mem_ukkonen	first_call_s	0.493061534	s	cold JIT of the Ukkonen MEM path in this process (the ESA driver ran first)
+R	mem_ukkonen	warm_median_s	0.386111384	s	median of 9 warm calls [0.370842823 .. 0.488276899]
+R	mem_ukkonen	matches	160979	count	
+R	mem_ukkonen	checksum	25158196373282	count	
+R	mem_check	mem_set_equal	1	bool	set of (position in text, position in query, length): ESA driver == Ukkonen FindMaximalExactMatches
+R	mem	peak_rss_hwm_final	2359181312	bytes	VmHWM after the Ukkonen tree
+# process input=rep_10m run=3 commit=71c5dabaf3-dirty load=1.00 2026-11-09T16:14:38Z options: --kernel psv --source psi --loci 2 --ukkonen true
+R	mem	text_chars	10000000	chars	rep_10m
+R	mem	query_chars	100000	chars	rep_10m.memq100k, minLength 20, variant c2_psv_psi_loci2
+R	mem	build_esa_s	1.185049547	s	EsaIndex.Build (tagged child table), cold JIT
+R	mem	build_nav_s	0.220212033	s	ISA 0.090483214 s + Psi 0.096355595 s + pyramid 0.033427549 s
+R	mem_esa	first_call_s	0.177012851	s	cold JIT included
+R	mem_esa	call2_s	0.155113777	s	warm
+R	mem_esa	call3_s	0.13121981	s	warm
+R	mem_esa	call4_s	0.112314048	s	warm
+R	mem_esa	call5_s	0.112588945	s	warm
+R	mem_esa	call6_s	0.114284659	s	warm
+R	mem_esa	call7_s	0.113292041	s	warm
+R	mem_esa	call8_s	0.112426735	s	warm
+R	mem_esa	call9_s	0.111282172	s	warm
+R	mem_esa	call10_s	0.108758238	s	warm
+R	mem_esa	warm_median_s	0.112588945	s	median of 9 warm calls (2..10) [0.108758238 .. 0.155113777]
+R	mem_esa	steady_median_s	0.112426735	s	median of the last 5 calls (after the tiered JIT settled) [0.108758238 .. 0.114284659]
+R	mem_esa	matches	160979	count	
+R	mem_esa	checksum	25158196373282	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	mem_esa	starts	100000	count	
+R	mem_esa	links_followed	200000	count	kernel calls (2 loci)
+R	mem_esa	extend_steps	200000	count	query symbols consumed by the extension
+R	mem_esa	child_lookups	70165	count	extensions from a node
+R	mem_esa	rescan_lookups	186061	count	child lookups of the rescans after the links
+R	mem_esa	emitted	160979	count	
+R	mem_esa	link_kernel_share	0.3948699509804255	fraction	one extra warm call with a timer around every kernel call: 0.064962229 s of 0.164515504 s (the 2 timestamps per link are inside both numbers)
+R	mem_esa	link_kernel_ns_per_link	324.811145	ns	includes the timer floor
+R	mem_esa	peak_rss_hwm	339161088	bytes	VmHWM before the Ukkonen reference is built
+R	mem_ukkonen	build_s	8.209633315	s	in-memory Ukkonen tree, same process
+R	mem_ukkonen	steady_median_s	0.391842952	s	median of the last 5 calls [0.369065985 .. 0.403569514]
+R	mem_ukkonen	first_call_s	0.480465904	s	cold JIT of the Ukkonen MEM path in this process (the ESA driver ran first)
+R	mem_ukkonen	warm_median_s	0.391842952	s	median of 9 warm calls [0.369065985 .. 0.425863651]
+R	mem_ukkonen	matches	160979	count	
+R	mem_ukkonen	checksum	25158196373282	count	
+R	mem_check	mem_set_equal	1	bool	set of (position in text, position in query, length): ESA driver == Ukkonen FindMaximalExactMatches
+R	mem	peak_rss_hwm_final	2362859520	bytes	VmHWM after the Ukkonen tree
+# process input=rep_10m run=3 commit=71c5dabaf3-dirty load=1.00 2026-11-09T16:14:53Z options: --kernel psv --source isa --loci 2 --ukkonen false
+R	mem	text_chars	10000000	chars	rep_10m
+R	mem	query_chars	100000	chars	rep_10m.memq100k, minLength 20, variant c2_psv_isa_loci2
+R	mem	build_esa_s	1.087060628	s	EsaIndex.Build (tagged child table), cold JIT
+R	mem	build_nav_s	0.198950107	s	ISA 0.081813422 s + Psi 0.084612241 s + pyramid 0.032580554 s
+R	mem_esa	first_call_s	0.117985997	s	cold JIT included
+R	mem_esa	call2_s	0.105654473	s	warm
+R	mem_esa	call3_s	0.103268859	s	warm
+R	mem_esa	call4_s	0.09129751	s	warm
+R	mem_esa	call5_s	0.092905199	s	warm
+R	mem_esa	call6_s	0.090763283	s	warm
+R	mem_esa	call7_s	0.10149197	s	warm
+R	mem_esa	call8_s	0.142271597	s	warm
+R	mem_esa	call9_s	0.125997255	s	warm
+R	mem_esa	call10_s	0.091596973	s	warm
+R	mem_esa	warm_median_s	0.10149197	s	median of 9 warm calls (2..10) [0.090763283 .. 0.142271597]
+R	mem_esa	steady_median_s	0.10149197	s	median of the last 5 calls (after the tiered JIT settled) [0.090763283 .. 0.142271597]
+R	mem_esa	matches	160979	count	
+R	mem_esa	checksum	25158196373282	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	mem_esa	starts	100000	count	
+R	mem_esa	links_followed	200000	count	kernel calls (2 loci)
+R	mem_esa	extend_steps	200000	count	query symbols consumed by the extension
+R	mem_esa	child_lookups	70165	count	extensions from a node
+R	mem_esa	rescan_lookups	186061	count	child lookups of the rescans after the links
+R	mem_esa	emitted	160979	count	
+R	mem_esa	link_kernel_share	0.3212924956726147	fraction	one extra warm call with a timer around every kernel call: 0.04290046 s of 0.133524625 s (the 2 timestamps per link are inside both numbers)
+R	mem_esa	link_kernel_ns_per_link	214.5023	ns	includes the timer floor
+R	mem_esa	peak_rss_hwm	339288064	bytes	VmHWM before the Ukkonen reference is built
+# process input=rep_10m run=3 commit=71c5dabaf3-dirty load=1.00 2026-11-09T16:14:56Z options: --kernel psv --source psi --loci 1 --ukkonen false
+R	mem	text_chars	10000000	chars	rep_10m
+R	mem	query_chars	100000	chars	rep_10m.memq100k, minLength 20, variant c2_psv_psi_loci1
+R	mem	build_esa_s	1.092823788	s	EsaIndex.Build (tagged child table), cold JIT
+R	mem	build_nav_s	0.197905948	s	ISA 0.079920899 s + Psi 0.085047319 s + pyramid 0.032996639 s
+R	mem_esa	first_call_s	0.112799939	s	cold JIT included
+R	mem_esa	call2_s	0.100957562	s	warm
+R	mem_esa	call3_s	0.102011918	s	warm
+R	mem_esa	call4_s	0.0918551	s	warm
+R	mem_esa	call5_s	0.087373027	s	warm
+R	mem_esa	call6_s	0.086055933	s	warm
+R	mem_esa	call7_s	0.089549839	s	warm
+R	mem_esa	call8_s	0.091493181	s	warm
+R	mem_esa	call9_s	0.090282544	s	warm
+R	mem_esa	call10_s	0.092746135	s	warm
+R	mem_esa	warm_median_s	0.091493181	s	median of 9 warm calls (2..10) [0.086055933 .. 0.102011918]
+R	mem_esa	steady_median_s	0.090282544	s	median of the last 5 calls (after the tiered JIT settled) [0.086055933 .. 0.092746135]
+R	mem_esa	matches	160979	count	
+R	mem_esa	checksum	25158196373282	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	mem_esa	starts	100000	count	
+R	mem_esa	links_followed	100000	count	kernel calls (1 loci)
+R	mem_esa	extend_steps	100000	count	query symbols consumed by the extension
+R	mem_esa	child_lookups	21537	count	extensions from a node
+R	mem_esa	rescan_lookups	114312	count	child lookups of the rescans after the links
+R	mem_esa	emitted	160979	count	
+R	mem_esa	link_kernel_share	0.3510077196013879	fraction	one extra warm call with a timer around every kernel call: 0.060332567 s of 0.171883875 s (the 2 timestamps per link are inside both numbers)
+R	mem_esa	link_kernel_ns_per_link	603.32567	ns	includes the timer floor
+R	mem_esa	peak_rss_hwm	339181568	bytes	VmHWM before the Ukkonen reference is built
+# process input=rep_10m run=3 commit=71c5dabaf3-dirty load=1.00 2026-11-09T16:14:58Z options: --kernel rmq --source psi --loci 1 --ukkonen false
+R	mem	text_chars	10000000	chars	rep_10m
+R	mem	query_chars	100000	chars	rep_10m.memq100k, minLength 20, variant c_rmq_psi_loci1
+R	mem	build_esa_s	1.04102552	s	EsaIndex.Build (tagged child table), cold JIT
+R	mem	build_nav_s	0.206272002	s	ISA 0.085136762 s + Psi 0.088691211 s + pyramid 0.032525138 s
+R	mem_esa	first_call_s	0.167754862	s	cold JIT included
+R	mem_esa	call2_s	0.150057597	s	warm
+R	mem_esa	call3_s	0.122106952	s	warm
+R	mem_esa	call4_s	0.120656387	s	warm
+R	mem_esa	call5_s	0.118061762	s	warm
+R	mem_esa	call6_s	0.118788024	s	warm
+R	mem_esa	call7_s	0.119460953	s	warm
+R	mem_esa	call8_s	0.118715985	s	warm
+R	mem_esa	call9_s	0.117864865	s	warm
+R	mem_esa	call10_s	0.118736831	s	warm
+R	mem_esa	warm_median_s	0.118788024	s	median of 9 warm calls (2..10) [0.117864865 .. 0.150057597]
+R	mem_esa	steady_median_s	0.118736831	s	median of the last 5 calls (after the tiered JIT settled) [0.117864865 .. 0.119460953]
+R	mem_esa	matches	160979	count	
+R	mem_esa	checksum	25158196373282	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	mem_esa	starts	100000	count	
+R	mem_esa	links_followed	100000	count	kernel calls (1 loci)
+R	mem_esa	extend_steps	100000	count	query symbols consumed by the extension
+R	mem_esa	child_lookups	21537	count	extensions from a node
+R	mem_esa	rescan_lookups	114312	count	child lookups of the rescans after the links
+R	mem_esa	emitted	160979	count	
+R	mem_esa	link_kernel_share	0.46761595855603044	fraction	one extra warm call with a timer around every kernel call: 0.061914005 s of 0.132403533 s (the 2 timestamps per link are inside both numbers)
+R	mem_esa	link_kernel_ns_per_link	619.14005	ns	includes the timer floor
+R	mem_esa	peak_rss_hwm	339144704	bytes	VmHWM before the Ukkonen reference is built
+# process input=rep_10m run=3 commit=71c5dabaf3-dirty load=1.00 2026-11-09T16:15:01Z options: --kernel scan --source psi --loci 2 --ukkonen false
+R	mem	text_chars	10000000	chars	rep_10m
+R	mem	query_chars	100000	chars	rep_10m.memq100k, minLength 20, variant a_scan_psi_loci2
+R	mem	build_esa_s	1.097434088	s	EsaIndex.Build (tagged child table), cold JIT
+R	mem	build_nav_s	0.18850147499999997	s	ISA 0.075860736 s + Psi 0.080257456 s + pyramid 0.032436493 s
+R	mem_esa	first_call_s	0.131093835	s	cold JIT included
+R	mem_esa	call2_s	0.121902831	s	warm
+R	mem_esa	call3_s	0.111836528	s	warm
+R	mem_esa	call4_s	0.097988144	s	warm
+R	mem_esa	call5_s	0.097622889	s	warm
+R	mem_esa	call6_s	0.099181676	s	warm
+R	mem_esa	call7_s	0.110722577	s	warm
+R	mem_esa	call8_s	0.097575443	s	warm
+R	mem_esa	call9_s	0.097288336	s	warm
+R	mem_esa	call10_s	0.1042122	s	warm
+R	mem_esa	warm_median_s	0.099181676	s	median of 9 warm calls (2..10) [0.097288336 .. 0.121902831]
+R	mem_esa	steady_median_s	0.099181676	s	median of the last 5 calls (after the tiered JIT settled) [0.097288336 .. 0.110722577]
+R	mem_esa	matches	160979	count	
+R	mem_esa	checksum	25158196373282	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	mem_esa	starts	100000	count	
+R	mem_esa	links_followed	200000	count	kernel calls (2 loci)
+R	mem_esa	extend_steps	200000	count	query symbols consumed by the extension
+R	mem_esa	child_lookups	70165	count	extensions from a node
+R	mem_esa	rescan_lookups	186061	count	child lookups of the rescans after the links
+R	mem_esa	emitted	160979	count	
+R	mem_esa	link_kernel_share	0.39399998987624496	fraction	one extra warm call with a timer around every kernel call: 0.064993669 s of 0.164958555 s (the 2 timestamps per link are inside both numbers)
+R	mem_esa	link_kernel_ns_per_link	324.96834500000006	ns	includes the timer floor
+R	mem_esa	peak_rss_hwm	339169280	bytes	VmHWM before the Ukkonen reference is built
+# process input=rep_10m run=3 commit=71c5dabaf3-dirty load=1.00 2026-11-09T16:15:04Z options: --kernel descent --source psi --loci 2 --ukkonen false
+R	mem	text_chars	10000000	chars	rep_10m
+R	mem	query_chars	100000	chars	rep_10m.memq100k, minLength 20, variant b_descent_psi_loci2
+R	mem	build_esa_s	1.172333022	s	EsaIndex.Build (tagged child table), cold JIT
+R	mem	build_nav_s	0.214628414	s	ISA 0.091989648 s + Psi 0.090296952 s + pyramid 0.0323868 s
+R	mem_esa	first_call_s	0.287419267	s	cold JIT included
+R	mem_esa	call2_s	0.268533358	s	warm
+R	mem_esa	call3_s	0.270279981	s	warm
+R	mem_esa	call4_s	0.266666348	s	warm
+R	mem_esa	call5_s	0.315704254	s	warm
+R	mem_esa	call6_s	0.269611159	s	warm
+R	mem_esa	call7_s	0.267666104	s	warm
+R	mem_esa	call8_s	0.26572902	s	warm
+R	mem_esa	call9_s	0.278934025	s	warm
+R	mem_esa	call10_s	0.27051873	s	warm
+R	mem_esa	warm_median_s	0.269611159	s	median of 9 warm calls (2..10) [0.26572902 .. 0.315704254]
+R	mem_esa	steady_median_s	0.269611159	s	median of the last 5 calls (after the tiered JIT settled) [0.26572902 .. 0.278934025]
+R	mem_esa	matches	160979	count	
+R	mem_esa	checksum	25158196373282	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	mem_esa	starts	100000	count	
+R	mem_esa	links_followed	200000	count	kernel calls (2 loci)
+R	mem_esa	extend_steps	200000	count	query symbols consumed by the extension
+R	mem_esa	child_lookups	70165	count	extensions from a node
+R	mem_esa	rescan_lookups	186061	count	child lookups of the rescans after the links
+R	mem_esa	emitted	160979	count	
+R	mem_esa	link_kernel_share	0.6849342230371821	fraction	one extra warm call with a timer around every kernel call: 0.207761815 s of 0.303331047 s (the 2 timestamps per link are inside both numbers)
+R	mem_esa	link_kernel_ns_per_link	1038.809075	ns	includes the timer floor
+R	mem_esa	peak_rss_hwm	339210240	bytes	VmHWM before the Ukkonen reference is built
+# process input=rep_10m run=4 commit=71c5dabaf3-dirty load=1.00 2026-11-09T16:15:08Z options: --kernel rmq --source psi --loci 2 --ukkonen true
+R	mem	text_chars	10000000	chars	rep_10m
+R	mem	query_chars	100000	chars	rep_10m.memq100k, minLength 20, variant c_rmq_psi_loci2
+R	mem	build_esa_s	1.097745498	s	EsaIndex.Build (tagged child table), cold JIT
+R	mem	build_nav_s	0.199356807	s	ISA 0.080405293 s + Psi 0.086506923 s + pyramid 0.03249376 s
+R	mem_esa	first_call_s	0.209481691	s	cold JIT included
+R	mem_esa	call2_s	0.16800001	s	warm
+R	mem_esa	call3_s	0.170847112	s	warm
+R	mem_esa	call4_s	0.171798737	s	warm
+R	mem_esa	call5_s	0.16848543	s	warm
+R	mem_esa	call6_s	0.170008895	s	warm
+R	mem_esa	call7_s	0.169154563	s	warm
+R	mem_esa	call8_s	0.169574069	s	warm
+R	mem_esa	call9_s	0.169482175	s	warm
+R	mem_esa	call10_s	0.16909508	s	warm
+R	mem_esa	warm_median_s	0.169482175	s	median of 9 warm calls (2..10) [0.16800001 .. 0.171798737]
+R	mem_esa	steady_median_s	0.169482175	s	median of the last 5 calls (after the tiered JIT settled) [0.16909508 .. 0.170008895]
+R	mem_esa	matches	160979	count	
+R	mem_esa	checksum	25158196373282	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	mem_esa	starts	100000	count	
+R	mem_esa	links_followed	200000	count	kernel calls (2 loci)
+R	mem_esa	extend_steps	200000	count	query symbols consumed by the extension
+R	mem_esa	child_lookups	70165	count	extensions from a node
+R	mem_esa	rescan_lookups	186061	count	child lookups of the rescans after the links
+R	mem_esa	emitted	160979	count	
+R	mem_esa	link_kernel_share	0.5012185969042966	fraction	one extra warm call with a timer around every kernel call: 0.095064373 s of 0.189666492 s (the 2 timestamps per link are inside both numbers)
+R	mem_esa	link_kernel_ns_per_link	475.321865	ns	includes the timer floor
+R	mem_esa	peak_rss_hwm	339197952	bytes	VmHWM before the Ukkonen reference is built
+R	mem_ukkonen	build_s	8.380648561	s	in-memory Ukkonen tree, same process
+R	mem_ukkonen	steady_median_s	0.391091019	s	median of the last 5 calls [0.376718863 .. 0.403602859]
+R	mem_ukkonen	first_call_s	0.550443131	s	cold JIT of the Ukkonen MEM path in this process (the ESA driver ran first)
+R	mem_ukkonen	warm_median_s	0.379719675	s	median of 9 warm calls [0.331224231 .. 0.403602859]
+R	mem_ukkonen	matches	160979	count	
+R	mem_ukkonen	checksum	25158196373282	count	
+R	mem_check	mem_set_equal	1	bool	set of (position in text, position in query, length): ESA driver == Ukkonen FindMaximalExactMatches
+R	mem	peak_rss_hwm_final	2362888192	bytes	VmHWM after the Ukkonen tree
+# process input=rep_10m run=4 commit=71c5dabaf3-dirty load=1.00 2026-11-09T16:15:24Z options: --kernel rmq --source isa --loci 2 --ukkonen true
+R	mem	text_chars	10000000	chars	rep_10m
+R	mem	query_chars	100000	chars	rep_10m.memq100k, minLength 20, variant c_rmq_isa_loci2
+R	mem	build_esa_s	1.214955057	s	EsaIndex.Build (tagged child table), cold JIT
+R	mem	build_nav_s	0.21742015799999997	s	ISA 0.090230436 s + Psi 0.094563889 s + pyramid 0.032683088 s
+R	mem_esa	first_call_s	0.204045184	s	cold JIT included
+R	mem_esa	call2_s	0.155350872	s	warm
+R	mem_esa	call3_s	0.16533037	s	warm
+R	mem_esa	call4_s	0.14972295	s	warm
+R	mem_esa	call5_s	0.150523635	s	warm
+R	mem_esa	call6_s	0.148835519	s	warm
+R	mem_esa	call7_s	0.151365821	s	warm
+R	mem_esa	call8_s	0.153022268	s	warm
+R	mem_esa	call9_s	0.152537537	s	warm
+R	mem_esa	call10_s	0.153384889	s	warm
+R	mem_esa	warm_median_s	0.152537537	s	median of 9 warm calls (2..10) [0.148835519 .. 0.16533037]
+R	mem_esa	steady_median_s	0.152537537	s	median of the last 5 calls (after the tiered JIT settled) [0.148835519 .. 0.153384889]
+R	mem_esa	matches	160979	count	
+R	mem_esa	checksum	25158196373282	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	mem_esa	starts	100000	count	
+R	mem_esa	links_followed	200000	count	kernel calls (2 loci)
+R	mem_esa	extend_steps	200000	count	query symbols consumed by the extension
+R	mem_esa	child_lookups	70165	count	extensions from a node
+R	mem_esa	rescan_lookups	186061	count	child lookups of the rescans after the links
+R	mem_esa	emitted	160979	count	
+R	mem_esa	link_kernel_share	0.450525201491028	fraction	one extra warm call with a timer around every kernel call: 0.082234684 s of 0.182530708 s (the 2 timestamps per link are inside both numbers)
+R	mem_esa	link_kernel_ns_per_link	411.17342	ns	includes the timer floor
+R	mem_esa	peak_rss_hwm	339247104	bytes	VmHWM before the Ukkonen reference is built
+R	mem_ukkonen	build_s	8.278705716	s	in-memory Ukkonen tree, same process
+R	mem_ukkonen	steady_median_s	0.376873181	s	median of the last 5 calls [0.371548631 .. 0.442389506]
+R	mem_ukkonen	first_call_s	0.474595584	s	cold JIT of the Ukkonen MEM path in this process (the ESA driver ran first)
+R	mem_ukkonen	warm_median_s	0.37375663	s	median of 9 warm calls [0.330407965 .. 0.442389506]
+R	mem_ukkonen	matches	160979	count	
+R	mem_ukkonen	checksum	25158196373282	count	
+R	mem_check	mem_set_equal	1	bool	set of (position in text, position in query, length): ESA driver == Ukkonen FindMaximalExactMatches
+R	mem	peak_rss_hwm_final	2363052032	bytes	VmHWM after the Ukkonen tree
+# process input=rep_10m run=4 commit=71c5dabaf3-dirty load=1.00 2026-11-09T16:15:40Z options: --kernel psv --source psi --loci 2 --ukkonen true
+R	mem	text_chars	10000000	chars	rep_10m
+R	mem	query_chars	100000	chars	rep_10m.memq100k, minLength 20, variant c2_psv_psi_loci2
+R	mem	build_esa_s	1.215790468	s	EsaIndex.Build (tagged child table), cold JIT
+R	mem	build_nav_s	0.223134417	s	ISA 0.093179037 s + Psi 0.097216065 s + pyramid 0.032797189 s
+R	mem_esa	first_call_s	0.147025055	s	cold JIT included
+R	mem_esa	call2_s	0.13059961	s	warm
+R	mem_esa	call3_s	0.118978564	s	warm
+R	mem_esa	call4_s	0.131480962	s	warm
+R	mem_esa	call5_s	0.121061701	s	warm
+R	mem_esa	call6_s	0.118139963	s	warm
+R	mem_esa	call7_s	0.116671023	s	warm
+R	mem_esa	call8_s	0.116344757	s	warm
+R	mem_esa	call9_s	0.117079711	s	warm
+R	mem_esa	call10_s	0.113958102	s	warm
+R	mem_esa	warm_median_s	0.118139963	s	median of 9 warm calls (2..10) [0.113958102 .. 0.131480962]
+R	mem_esa	steady_median_s	0.116671023	s	median of the last 5 calls (after the tiered JIT settled) [0.113958102 .. 0.118139963]
+R	mem_esa	matches	160979	count	
+R	mem_esa	checksum	25158196373282	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	mem_esa	starts	100000	count	
+R	mem_esa	links_followed	200000	count	kernel calls (2 loci)
+R	mem_esa	extend_steps	200000	count	query symbols consumed by the extension
+R	mem_esa	child_lookups	70165	count	extensions from a node
+R	mem_esa	rescan_lookups	186061	count	child lookups of the rescans after the links
+R	mem_esa	emitted	160979	count	
+R	mem_esa	link_kernel_share	0.39558101935592055	fraction	one extra warm call with a timer around every kernel call: 0.068214544 s of 0.172441398 s (the 2 timestamps per link are inside both numbers)
+R	mem_esa	link_kernel_ns_per_link	341.07272	ns	includes the timer floor
+R	mem_esa	peak_rss_hwm	339124224	bytes	VmHWM before the Ukkonen reference is built
+R	mem_ukkonen	build_s	8.480903709	s	in-memory Ukkonen tree, same process
+R	mem_ukkonen	steady_median_s	0.38580162	s	median of the last 5 calls [0.377150284 .. 0.398895992]
+R	mem_ukkonen	first_call_s	0.498976672	s	cold JIT of the Ukkonen MEM path in this process (the ESA driver ran first)
+R	mem_ukkonen	warm_median_s	0.380445822	s	median of 9 warm calls [0.315850691 .. 0.398895992]
+R	mem_ukkonen	matches	160979	count	
+R	mem_ukkonen	checksum	25158196373282	count	
+R	mem_check	mem_set_equal	1	bool	set of (position in text, position in query, length): ESA driver == Ukkonen FindMaximalExactMatches
+R	mem	peak_rss_hwm_final	2359103488	bytes	VmHWM after the Ukkonen tree
+# process input=rep_10m run=5 commit=71c5dabaf3-dirty load=1.00 2026-11-09T16:15:55Z options: --kernel rmq --source psi --loci 2 --ukkonen true
+R	mem	text_chars	10000000	chars	rep_10m
+R	mem	query_chars	100000	chars	rep_10m.memq100k, minLength 20, variant c_rmq_psi_loci2
+R	mem	build_esa_s	1.109688211	s	EsaIndex.Build (tagged child table), cold JIT
+R	mem	build_nav_s	0.19945524299999998	s	ISA 0.079876014 s + Psi 0.086975033 s + pyramid 0.032660291 s
+R	mem_esa	first_call_s	0.211003004	s	cold JIT included
+R	mem_esa	call2_s	0.166910959	s	warm
+R	mem_esa	call3_s	0.165249319	s	warm
+R	mem_esa	call4_s	0.169354426	s	warm
+R	mem_esa	call5_s	0.160668581	s	warm
+R	mem_esa	call6_s	0.160017185	s	warm
+R	mem_esa	call7_s	0.156685608	s	warm
+R	mem_esa	call8_s	0.156942894	s	warm
+R	mem_esa	call9_s	0.157098791	s	warm
+R	mem_esa	call10_s	0.159397924	s	warm
+R	mem_esa	warm_median_s	0.160017185	s	median of 9 warm calls (2..10) [0.156685608 .. 0.169354426]
+R	mem_esa	steady_median_s	0.157098791	s	median of the last 5 calls (after the tiered JIT settled) [0.156685608 .. 0.160017185]
+R	mem_esa	matches	160979	count	
+R	mem_esa	checksum	25158196373282	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	mem_esa	starts	100000	count	
+R	mem_esa	links_followed	200000	count	kernel calls (2 loci)
+R	mem_esa	extend_steps	200000	count	query symbols consumed by the extension
+R	mem_esa	child_lookups	70165	count	extensions from a node
+R	mem_esa	rescan_lookups	186061	count	child lookups of the rescans after the links
+R	mem_esa	emitted	160979	count	
+R	mem_esa	link_kernel_share	0.503812801670278	fraction	one extra warm call with a timer around every kernel call: 0.09143905 s of 0.181494098 s (the 2 timestamps per link are inside both numbers)
+R	mem_esa	link_kernel_ns_per_link	457.19525	ns	includes the timer floor
+R	mem_esa	peak_rss_hwm	339169280	bytes	VmHWM before the Ukkonen reference is built
+R	mem_ukkonen	build_s	8.179194888	s	in-memory Ukkonen tree, same process
+R	mem_ukkonen	steady_median_s	0.376254687	s	median of the last 5 calls [0.361617202 .. 0.448428472]
+R	mem_ukkonen	first_call_s	0.453511097	s	cold JIT of the Ukkonen MEM path in this process (the ESA driver ran first)
+R	mem_ukkonen	warm_median_s	0.376254687	s	median of 9 warm calls [0.327013266 .. 0.464932608]
+R	mem_ukkonen	matches	160979	count	
+R	mem_ukkonen	checksum	25158196373282	count	
+R	mem_check	mem_set_equal	1	bool	set of (position in text, position in query, length): ESA driver == Ukkonen FindMaximalExactMatches
+R	mem	peak_rss_hwm_final	2362912768	bytes	VmHWM after the Ukkonen tree
+# process input=rep_10m run=5 commit=71c5dabaf3-dirty load=1.00 2026-11-09T16:16:11Z options: --kernel rmq --source isa --loci 2 --ukkonen true
+R	mem	text_chars	10000000	chars	rep_10m
+R	mem	query_chars	100000	chars	rep_10m.memq100k, minLength 20, variant c_rmq_isa_loci2
+R	mem	build_esa_s	1.039342143	s	EsaIndex.Build (tagged child table), cold JIT
+R	mem	build_nav_s	0.252119737	s	ISA 0.084295577 s + Psi 0.125472663 s + pyramid 0.042407116 s
+R	mem_esa	first_call_s	0.186428436	s	cold JIT included
+R	mem_esa	call2_s	0.150042331	s	warm
+R	mem_esa	call3_s	0.14628566	s	warm
+R	mem_esa	call4_s	0.152887265	s	warm
+R	mem_esa	call5_s	0.149960134	s	warm
+R	mem_esa	call6_s	0.168405116	s	warm
+R	mem_esa	call7_s	0.152608324	s	warm
+R	mem_esa	call8_s	0.157839589	s	warm
+R	mem_esa	call9_s	0.159437707	s	warm
+R	mem_esa	call10_s	0.140408401	s	warm
+R	mem_esa	warm_median_s	0.152608324	s	median of 9 warm calls (2..10) [0.140408401 .. 0.168405116]
+R	mem_esa	steady_median_s	0.157839589	s	median of the last 5 calls (after the tiered JIT settled) [0.140408401 .. 0.168405116]
+R	mem_esa	matches	160979	count	
+R	mem_esa	checksum	25158196373282	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	mem_esa	starts	100000	count	
+R	mem_esa	links_followed	200000	count	kernel calls (2 loci)
+R	mem_esa	extend_steps	200000	count	query symbols consumed by the extension
+R	mem_esa	child_lookups	70165	count	extensions from a node
+R	mem_esa	rescan_lookups	186061	count	child lookups of the rescans after the links
+R	mem_esa	emitted	160979	count	
+R	mem_esa	link_kernel_share	0.4341551159386612	fraction	one extra warm call with a timer around every kernel call: 0.076183438 s of 0.175475159 s (the 2 timestamps per link are inside both numbers)
+R	mem_esa	link_kernel_ns_per_link	380.91719	ns	includes the timer floor
+R	mem_esa	peak_rss_hwm	339255296	bytes	VmHWM before the Ukkonen reference is built
+R	mem_ukkonen	build_s	7.661363023	s	in-memory Ukkonen tree, same process
+R	mem_ukkonen	steady_median_s	0.364560975	s	median of the last 5 calls [0.354407368 .. 0.370987502]
+R	mem_ukkonen	first_call_s	0.482410862	s	cold JIT of the Ukkonen MEM path in this process (the ESA driver ran first)
+R	mem_ukkonen	warm_median_s	0.363617377	s	median of 9 warm calls [0.320257058 .. 0.370987502]
+R	mem_ukkonen	matches	160979	count	
+R	mem_ukkonen	checksum	25158196373282	count	
+R	mem_check	mem_set_equal	1	bool	set of (position in text, position in query, length): ESA driver == Ukkonen FindMaximalExactMatches
+R	mem	peak_rss_hwm_final	2359197696	bytes	VmHWM after the Ukkonen tree
+# process input=rep_10m run=5 commit=71c5dabaf3-dirty load=1.00 2026-11-09T16:16:26Z options: --kernel psv --source psi --loci 2 --ukkonen true
+R	mem	text_chars	10000000	chars	rep_10m
+R	mem	query_chars	100000	chars	rep_10m.memq100k, minLength 20, variant c2_psv_psi_loci2
+R	mem	build_esa_s	1.083170523	s	EsaIndex.Build (tagged child table), cold JIT
+R	mem	build_nav_s	0.201166611	s	ISA 0.081740111 s + Psi 0.084297696 s + pyramid 0.035181425 s
+R	mem_esa	first_call_s	0.172442056	s	cold JIT included
+R	mem_esa	call2_s	0.146122369	s	warm
+R	mem_esa	call3_s	0.104565021	s	warm
+R	mem_esa	call4_s	0.101328339	s	warm
+R	mem_esa	call5_s	0.101592688	s	warm
+R	mem_esa	call6_s	0.111163424	s	warm
+R	mem_esa	call7_s	0.110805311	s	warm
+R	mem_esa	call8_s	0.102932687	s	warm
+R	mem_esa	call9_s	0.107148413	s	warm
+R	mem_esa	call10_s	0.106094595	s	warm
+R	mem_esa	warm_median_s	0.106094595	s	median of 9 warm calls (2..10) [0.101328339 .. 0.146122369]
+R	mem_esa	steady_median_s	0.107148413	s	median of the last 5 calls (after the tiered JIT settled) [0.102932687 .. 0.111163424]
+R	mem_esa	matches	160979	count	
+R	mem_esa	checksum	25158196373282	count	sum of r*31 + q*17 + len, as in BENCHMARK.md
+R	mem_esa	starts	100000	count	
+R	mem_esa	links_followed	200000	count	kernel calls (2 loci)
+R	mem_esa	extend_steps	200000	count	query symbols consumed by the extension
+R	mem_esa	child_lookups	70165	count	extensions from a node
+R	mem_esa	rescan_lookups	186061	count	child lookups of the rescans after the links
+R	mem_esa	emitted	160979	count	
+R	mem_esa	link_kernel_share	0.3968084061420449	fraction	one extra warm call with a timer around every kernel call: 0.063351039 s of 0.159651454 s (the 2 timestamps per link are inside both numbers)
+R	mem_esa	link_kernel_ns_per_link	316.755195	ns	includes the timer floor
+R	mem_esa	peak_rss_hwm	339238912	bytes	VmHWM before the Ukkonen reference is built
+R	mem_ukkonen	build_s	8.060430255	s	in-memory Ukkonen tree, same process
+R	mem_ukkonen	steady_median_s	0.367431583	s	median of the last 5 calls [0.359491863 .. 0.383281785]
+R	mem_ukkonen	first_call_s	0.449694163	s	cold JIT of the Ukkonen MEM path in this process (the ESA driver ran first)
+R	mem_ukkonen	warm_median_s	0.362465657	s	median of 9 warm calls [0.328208084 .. 0.383281785]
+R	mem_ukkonen	matches	160979	count	
+R	mem_ukkonen	checksum	25158196373282	count	
+R	mem_check	mem_set_equal	1	bool	set of (position in text, position in query, length): ESA driver == Ukkonen FindMaximalExactMatches
+R	mem	peak_rss_hwm_final	2362933248	bytes	VmHWM after the Ukkonen tree

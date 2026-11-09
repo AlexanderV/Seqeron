@@ -1,0 +1,1488 @@
+# process input=dna_10m run=1 commit=71c5dabaf3-dirty load=1.00 2026-11-09T16:04:08Z options: --fanout 8 --kernels rmq,psv --sources psi --sweeps false --search-check 0
+R	links	input_chars	10000000	chars	dna_10m; sample 200000 seed 1; fanout 8; rotate 0
+R	links	build_total_s	1.013475016	s	EsaIndex.Build (tagged child table), cold JIT
+R	nav	build_isa_s	0.074991477	s	ISA from SA: one scattered pass (cold JIT)
+R	nav	build_psi_s	0.090981805	s	Psi from SA and ISA: one gather pass (add build_isa_s for the cost from SA alone)
+R	nav	build_rmq_s	0.046949168	s	block-minima pyramid, fanout 8, 8 levels: one sequential pass over the compact LCP
+R	nav	isa_bytes_per_char	4.0000004	bytes/char	
+R	nav	psi_bytes_per_char	4.0000004	bytes/char	
+R	nav	rmq_bytes_per_char	0.5714308	bytes/char	pyramid only; the LCP array (1.000 B/char, kind U8) is shared with the index
+R	nav	lcp_kind	U8	kind	escapes 0
+R	nodes	internal_nodes	6229745	count	enumerate_s 0.332688039; header statistic 6229745
+R	timer	per_link_timer_floor_ns	22	ns	median of back-to-back Stopwatch.GetTimestamp pairs; the per-link medians below are raw (include it) and the *_net rows subtract it
+R	nodes	sample_nodes	200000	count	sample A (per-link) and B (batch) of 200000 each, warm-up 4000
+R	sample_c_rmq_psi	first_link_ns	4007847	ns	very first call of this kernel in the process (JIT + first touch); the first kernel also pays the JIT of the shared readers
+R	sample_c2_psv_psi	first_link_ns	464205	ns	very first call of this kernel in the process (JIT + first touch); the first kernel also pays the JIT of the shared readers
+R	links	warmup_links	22794400	count	round robin over all kernels for at least 1 s before the first timed pass
+R	sample_c_rmq_psi	counting_pass_s	0.155139315	s	steps and results of the sample (BudgetSteps instantiation)
+R	sample_c_rmq_psi	steps_links	200000	count	counted of 200000 sampled (total step budget 400000000)
+R	sample_c_rmq_psi	steps_budget_exceeded	0	count	links that needed more than 3000000 steps; the sample stops at the total budget
+R	sample_c_rmq_psi	steps_median	18	steps	array entries read
+R	sample_c_rmq_psi	steps_p99	88	steps	
+R	sample_c_rmq_psi	steps_max	219	steps	
+R	sample_c_rmq_psi	steps_mean	22.693415	steps	
+R	sample_c_rmq_psi	cross_check	reference	label	first combination of this process: the others are compared with it
+R	sample_c_rmq_psi	timed_links	200000	count	of 200000 sampled; time cap 4 s
+R	sample_c_rmq_psi	median_ns	526	ns	raw per-link timing (includes the timer floor)
+R	sample_c_rmq_psi	p99_ns	985	ns	raw
+R	sample_c_rmq_psi	max_ns	165542	ns	raw
+R	sample_c_rmq_psi	median_net_ns	504	ns	median minus the timer floor
+R	sample_c_rmq_psi	p99_net_ns	963	ns	p99 minus the timer floor
+R	sample_c_rmq_psi	mean_batch_ns	670.38598	ns	mean over 200000 links of sample B, no per-link timer
+R	sample_c2_psv_psi	counting_pass_s	0.096188974	s	steps and results of the sample (BudgetSteps instantiation)
+R	sample_c2_psv_psi	steps_links	200000	count	counted of 200000 sampled (total step budget 400000000)
+R	sample_c2_psv_psi	steps_budget_exceeded	0	count	links that needed more than 3000000 steps; the sample stops at the total budget
+R	sample_c2_psv_psi	steps_median	4	steps	array entries read
+R	sample_c2_psv_psi	steps_p99	17	steps	
+R	sample_c2_psv_psi	steps_max	30	steps	
+R	sample_c2_psv_psi	steps_mean	5.27538	steps	
+R	sample_c2_psv_psi	cross_check_different	0	count	of 200000 comparable links (both finished) against sample_c_rmq_psi
+R	sample_c2_psv_psi	timed_links	200000	count	of 200000 sampled; time cap 4 s
+R	sample_c2_psv_psi	median_ns	405	ns	raw per-link timing (includes the timer floor)
+R	sample_c2_psv_psi	p99_ns	722	ns	raw
+R	sample_c2_psv_psi	max_ns	53132	ns	raw
+R	sample_c2_psv_psi	median_net_ns	383	ns	median minus the timer floor
+R	sample_c2_psv_psi	p99_net_ns	700	ns	p99 minus the timer floor
+R	sample_c2_psv_psi	mean_batch_ns	456.370065	ns	mean over 200000 links of sample B, no per-link timer
+R	repeat_c_rmq_psi	counting_pass_s	0.130808424	s	steps and results of the sample (BudgetSteps instantiation)
+R	repeat_c_rmq_psi	steps_links	200000	count	counted of 200000 sampled (total step budget 400000000)
+R	repeat_c_rmq_psi	steps_budget_exceeded	0	count	links that needed more than 3000000 steps; the sample stops at the total budget
+R	repeat_c_rmq_psi	steps_median	18	steps	array entries read
+R	repeat_c_rmq_psi	steps_p99	88	steps	
+R	repeat_c_rmq_psi	steps_max	219	steps	
+R	repeat_c_rmq_psi	steps_mean	22.693415	steps	
+R	repeat_c_rmq_psi	cross_check	reference	label	first combination of this process: the others are compared with it
+R	repeat_c_rmq_psi	timed_links	200000	count	of 200000 sampled; time cap 4 s
+R	repeat_c_rmq_psi	median_ns	499	ns	raw per-link timing (includes the timer floor)
+R	repeat_c_rmq_psi	p99_ns	923	ns	raw
+R	repeat_c_rmq_psi	max_ns	137611	ns	raw
+R	repeat_c_rmq_psi	median_net_ns	477	ns	median minus the timer floor
+R	repeat_c_rmq_psi	p99_net_ns	901	ns	p99 minus the timer floor
+R	repeat_c_rmq_psi	mean_batch_ns	661.37692	ns	mean over 200000 links of sample B, no per-link timer
+R	links	peak_rss_hwm	608624640	bytes	VmHWM of the process
+# process input=dna_10m run=2 commit=71c5dabaf3-dirty load=1.00 2026-11-09T16:04:12Z options: --fanout 8 --kernels rmq,psv --sources psi --sweeps false --search-check 0
+R	links	input_chars	10000000	chars	dna_10m; sample 200000 seed 1; fanout 8; rotate 2
+R	links	build_total_s	1.019011771	s	EsaIndex.Build (tagged child table), cold JIT
+R	nav	build_isa_s	0.078054961	s	ISA from SA: one scattered pass (cold JIT)
+R	nav	build_psi_s	0.086006038	s	Psi from SA and ISA: one gather pass (add build_isa_s for the cost from SA alone)
+R	nav	build_rmq_s	0.035892432	s	block-minima pyramid, fanout 8, 8 levels: one sequential pass over the compact LCP
+R	nav	isa_bytes_per_char	4.0000004	bytes/char	
+R	nav	psi_bytes_per_char	4.0000004	bytes/char	
+R	nav	rmq_bytes_per_char	0.5714308	bytes/char	pyramid only; the LCP array (1.000 B/char, kind U8) is shared with the index
+R	nav	lcp_kind	U8	kind	escapes 0
+R	nodes	internal_nodes	6229745	count	enumerate_s 0.312853049; header statistic 6229745
+R	timer	per_link_timer_floor_ns	22	ns	median of back-to-back Stopwatch.GetTimestamp pairs; the per-link medians below are raw (include it) and the *_net rows subtract it
+R	nodes	sample_nodes	200000	count	sample A (per-link) and B (batch) of 200000 each, warm-up 4000
+R	sample_c_rmq_psi	first_link_ns	4007931	ns	very first call of this kernel in the process (JIT + first touch); the first kernel also pays the JIT of the shared readers
+R	sample_c2_psv_psi	first_link_ns	514831	ns	very first call of this kernel in the process (JIT + first touch); the first kernel also pays the JIT of the shared readers
+R	links	warmup_links	22406400	count	round robin over all kernels for at least 1 s before the first timed pass
+R	sample_c_rmq_psi	counting_pass_s	0.15712547	s	steps and results of the sample (BudgetSteps instantiation)
+R	sample_c_rmq_psi	steps_links	200000	count	counted of 200000 sampled (total step budget 400000000)
+R	sample_c_rmq_psi	steps_budget_exceeded	0	count	links that needed more than 3000000 steps; the sample stops at the total budget
+R	sample_c_rmq_psi	steps_median	18	steps	array entries read
+R	sample_c_rmq_psi	steps_p99	88	steps	
+R	sample_c_rmq_psi	steps_max	219	steps	
+R	sample_c_rmq_psi	steps_mean	22.693415	steps	
+R	sample_c_rmq_psi	cross_check	reference	label	first combination of this process: the others are compared with it
+R	sample_c_rmq_psi	timed_links	200000	count	of 200000 sampled; time cap 4 s
+R	sample_c_rmq_psi	median_ns	520	ns	raw per-link timing (includes the timer floor)
+R	sample_c_rmq_psi	p99_ns	987	ns	raw
+R	sample_c_rmq_psi	max_ns	83567	ns	raw
+R	sample_c_rmq_psi	median_net_ns	498	ns	median minus the timer floor
+R	sample_c_rmq_psi	p99_net_ns	965	ns	p99 minus the timer floor
+R	sample_c_rmq_psi	mean_batch_ns	667.83198	ns	mean over 200000 links of sample B, no per-link timer
+R	sample_c2_psv_psi	counting_pass_s	0.098515024	s	steps and results of the sample (BudgetSteps instantiation)
+R	sample_c2_psv_psi	steps_links	200000	count	counted of 200000 sampled (total step budget 400000000)
+R	sample_c2_psv_psi	steps_budget_exceeded	0	count	links that needed more than 3000000 steps; the sample stops at the total budget
+R	sample_c2_psv_psi	steps_median	4	steps	array entries read
+R	sample_c2_psv_psi	steps_p99	17	steps	
+R	sample_c2_psv_psi	steps_max	30	steps	
+R	sample_c2_psv_psi	steps_mean	5.27538	steps	
+R	sample_c2_psv_psi	cross_check_different	0	count	of 200000 comparable links (both finished) against sample_c_rmq_psi
+R	sample_c2_psv_psi	timed_links	200000	count	of 200000 sampled; time cap 4 s
+R	sample_c2_psv_psi	median_ns	411	ns	raw per-link timing (includes the timer floor)
+R	sample_c2_psv_psi	p99_ns	720	ns	raw
+R	sample_c2_psv_psi	max_ns	77950	ns	raw
+R	sample_c2_psv_psi	median_net_ns	389	ns	median minus the timer floor
+R	sample_c2_psv_psi	p99_net_ns	698	ns	p99 minus the timer floor
+R	sample_c2_psv_psi	mean_batch_ns	466.311015	ns	mean over 200000 links of sample B, no per-link timer
+R	repeat_c_rmq_psi	counting_pass_s	0.137054877	s	steps and results of the sample (BudgetSteps instantiation)
+R	repeat_c_rmq_psi	steps_links	200000	count	counted of 200000 sampled (total step budget 400000000)
+R	repeat_c_rmq_psi	steps_budget_exceeded	0	count	links that needed more than 3000000 steps; the sample stops at the total budget
+R	repeat_c_rmq_psi	steps_median	18	steps	array entries read
+R	repeat_c_rmq_psi	steps_p99	88	steps	
+R	repeat_c_rmq_psi	steps_max	219	steps	
+R	repeat_c_rmq_psi	steps_mean	22.693415	steps	
+R	repeat_c_rmq_psi	cross_check	reference	label	first combination of this process: the others are compared with it
+R	repeat_c_rmq_psi	timed_links	200000	count	of 200000 sampled; time cap 4 s
+R	repeat_c_rmq_psi	median_ns	514	ns	raw per-link timing (includes the timer floor)
+R	repeat_c_rmq_psi	p99_ns	950	ns	raw
+R	repeat_c_rmq_psi	max_ns	107988	ns	raw
+R	repeat_c_rmq_psi	median_net_ns	492	ns	median minus the timer floor
+R	repeat_c_rmq_psi	p99_net_ns	928	ns	p99 minus the timer floor
+R	repeat_c_rmq_psi	mean_batch_ns	681.64019	ns	mean over 200000 links of sample B, no per-link timer
+R	links	peak_rss_hwm	608595968	bytes	VmHWM of the process
+# process input=dna_10m run=3 commit=71c5dabaf3-dirty load=1.00 2026-11-09T16:04:17Z options: --fanout 8 --kernels rmq,psv --sources psi --sweeps false --search-check 0
+R	links	input_chars	10000000	chars	dna_10m; sample 200000 seed 1; fanout 8; rotate 4
+R	links	build_total_s	1.045220494	s	EsaIndex.Build (tagged child table), cold JIT
+R	nav	build_isa_s	0.077593217	s	ISA from SA: one scattered pass (cold JIT)
+R	nav	build_psi_s	0.085769954	s	Psi from SA and ISA: one gather pass (add build_isa_s for the cost from SA alone)
+R	nav	build_rmq_s	0.035730969	s	block-minima pyramid, fanout 8, 8 levels: one sequential pass over the compact LCP
+R	nav	isa_bytes_per_char	4.0000004	bytes/char	
+R	nav	psi_bytes_per_char	4.0000004	bytes/char	
+R	nav	rmq_bytes_per_char	0.5714308	bytes/char	pyramid only; the LCP array (1.000 B/char, kind U8) is shared with the index
+R	nav	lcp_kind	U8	kind	escapes 0
+R	nodes	internal_nodes	6229745	count	enumerate_s 0.302061564; header statistic 6229745
+R	timer	per_link_timer_floor_ns	22	ns	median of back-to-back Stopwatch.GetTimestamp pairs; the per-link medians below are raw (include it) and the *_net rows subtract it
+R	nodes	sample_nodes	200000	count	sample A (per-link) and B (batch) of 200000 each, warm-up 4000
+R	sample_c_rmq_psi	first_link_ns	4146757	ns	very first call of this kernel in the process (JIT + first touch); the first kernel also pays the JIT of the shared readers
+R	sample_c2_psv_psi	first_link_ns	444358	ns	very first call of this kernel in the process (JIT + first touch); the first kernel also pays the JIT of the shared readers
+R	links	warmup_links	22559200	count	round robin over all kernels for at least 1 s before the first timed pass
+R	sample_c_rmq_psi	counting_pass_s	0.158942537	s	steps and results of the sample (BudgetSteps instantiation)
+R	sample_c_rmq_psi	steps_links	200000	count	counted of 200000 sampled (total step budget 400000000)
+R	sample_c_rmq_psi	steps_budget_exceeded	0	count	links that needed more than 3000000 steps; the sample stops at the total budget
+R	sample_c_rmq_psi	steps_median	18	steps	array entries read
+R	sample_c_rmq_psi	steps_p99	88	steps	
+R	sample_c_rmq_psi	steps_max	219	steps	
+R	sample_c_rmq_psi	steps_mean	22.693415	steps	
+R	sample_c_rmq_psi	cross_check	reference	label	first combination of this process: the others are compared with it
+R	sample_c_rmq_psi	timed_links	200000	count	of 200000 sampled; time cap 4 s
+R	sample_c_rmq_psi	median_ns	556	ns	raw per-link timing (includes the timer floor)
+R	sample_c_rmq_psi	p99_ns	1038	ns	raw
+R	sample_c_rmq_psi	max_ns	76233	ns	raw
+R	sample_c_rmq_psi	median_net_ns	534	ns	median minus the timer floor
+R	sample_c_rmq_psi	p99_net_ns	1016	ns	p99 minus the timer floor
+R	sample_c_rmq_psi	mean_batch_ns	692.20666	ns	mean over 200000 links of sample B, no per-link timer
+R	sample_c2_psv_psi	counting_pass_s	0.100530508	s	steps and results of the sample (BudgetSteps instantiation)
+R	sample_c2_psv_psi	steps_links	200000	count	counted of 200000 sampled (total step budget 400000000)
+R	sample_c2_psv_psi	steps_budget_exceeded	0	count	links that needed more than 3000000 steps; the sample stops at the total budget
+R	sample_c2_psv_psi	steps_median	4	steps	array entries read
+R	sample_c2_psv_psi	steps_p99	17	steps	
+R	sample_c2_psv_psi	steps_max	30	steps	
+R	sample_c2_psv_psi	steps_mean	5.27538	steps	
+R	sample_c2_psv_psi	cross_check_different	0	count	of 200000 comparable links (both finished) against sample_c_rmq_psi
+R	sample_c2_psv_psi	timed_links	200000	count	of 200000 sampled; time cap 4 s
+R	sample_c2_psv_psi	median_ns	431	ns	raw per-link timing (includes the timer floor)
+R	sample_c2_psv_psi	p99_ns	781	ns	raw
+R	sample_c2_psv_psi	max_ns	65121	ns	raw
+R	sample_c2_psv_psi	median_net_ns	409	ns	median minus the timer floor
+R	sample_c2_psv_psi	p99_net_ns	759	ns	p99 minus the timer floor
+R	sample_c2_psv_psi	mean_batch_ns	464.32335	ns	mean over 200000 links of sample B, no per-link timer
+R	repeat_c_rmq_psi	counting_pass_s	0.182475174	s	steps and results of the sample (BudgetSteps instantiation)
+R	repeat_c_rmq_psi	steps_links	200000	count	counted of 200000 sampled (total step budget 400000000)
+R	repeat_c_rmq_psi	steps_budget_exceeded	0	count	links that needed more than 3000000 steps; the sample stops at the total budget
+R	repeat_c_rmq_psi	steps_median	18	steps	array entries read
+R	repeat_c_rmq_psi	steps_p99	88	steps	
+R	repeat_c_rmq_psi	steps_max	219	steps	
+R	repeat_c_rmq_psi	steps_mean	22.693415	steps	
+R	repeat_c_rmq_psi	cross_check	reference	label	first combination of this process: the others are compared with it
+R	repeat_c_rmq_psi	timed_links	200000	count	of 200000 sampled; time cap 4 s
+R	repeat_c_rmq_psi	median_ns	639	ns	raw per-link timing (includes the timer floor)
+R	repeat_c_rmq_psi	p99_ns	1643	ns	raw
+R	repeat_c_rmq_psi	max_ns	109313	ns	raw
+R	repeat_c_rmq_psi	median_net_ns	617	ns	median minus the timer floor
+R	repeat_c_rmq_psi	p99_net_ns	1621	ns	p99 minus the timer floor
+R	repeat_c_rmq_psi	mean_batch_ns	698.110395	ns	mean over 200000 links of sample B, no per-link timer
+R	links	peak_rss_hwm	608530432	bytes	VmHWM of the process
+# process input=rep_10m run=1 commit=71c5dabaf3-dirty load=1.00 2026-11-09T16:04:21Z options: --fanout 8 --kernels rmq,psv --sources psi --sweeps false --search-check 0
+R	links	input_chars	10000000	chars	rep_10m; sample 200000 seed 1; fanout 8; rotate 0
+R	links	build_total_s	1.18319164	s	EsaIndex.Build (tagged child table), cold JIT
+R	nav	build_isa_s	0.089421124	s	ISA from SA: one scattered pass (cold JIT)
+R	nav	build_psi_s	0.094659175	s	Psi from SA and ISA: one gather pass (add build_isa_s for the cost from SA alone)
+R	nav	build_rmq_s	0.035206752	s	block-minima pyramid, fanout 8, 8 levels: one sequential pass over the compact LCP
+R	nav	isa_bytes_per_char	4.0000004	bytes/char	
+R	nav	psi_bytes_per_char	4.0000004	bytes/char	
+R	nav	rmq_bytes_per_char	0.5714308	bytes/char	pyramid only; the LCP array (2.000 B/char, kind U16) is shared with the index
+R	nav	lcp_kind	U16	kind	escapes 0
+R	nodes	internal_nodes	8568247	count	enumerate_s 0.445606108; header statistic 8568247
+R	timer	per_link_timer_floor_ns	22	ns	median of back-to-back Stopwatch.GetTimestamp pairs; the per-link medians below are raw (include it) and the *_net rows subtract it
+R	nodes	sample_nodes	200000	count	sample A (per-link) and B (batch) of 200000 each, warm-up 4000
+R	sample_c_rmq_psi	first_link_ns	3789735	ns	very first call of this kernel in the process (JIT + first touch); the first kernel also pays the JIT of the shared readers
+R	sample_c2_psv_psi	first_link_ns	474097	ns	very first call of this kernel in the process (JIT + first touch); the first kernel also pays the JIT of the shared readers
+R	links	warmup_links	19338400	count	round robin over all kernels for at least 1 s before the first timed pass
+R	sample_c_rmq_psi	counting_pass_s	0.174888666	s	steps and results of the sample (BudgetSteps instantiation)
+R	sample_c_rmq_psi	steps_links	200000	count	counted of 200000 sampled (total step budget 400000000)
+R	sample_c_rmq_psi	steps_budget_exceeded	0	count	links that needed more than 3000000 steps; the sample stops at the total budget
+R	sample_c_rmq_psi	steps_median	34	steps	array entries read
+R	sample_c_rmq_psi	steps_p99	82	steps	
+R	sample_c_rmq_psi	steps_max	246	steps	
+R	sample_c_rmq_psi	steps_mean	34.10638	steps	
+R	sample_c_rmq_psi	cross_check	reference	label	first combination of this process: the others are compared with it
+R	sample_c_rmq_psi	timed_links	200000	count	of 200000 sampled; time cap 4 s
+R	sample_c_rmq_psi	median_ns	573	ns	raw per-link timing (includes the timer floor)
+R	sample_c_rmq_psi	p99_ns	1045	ns	raw
+R	sample_c_rmq_psi	max_ns	78222	ns	raw
+R	sample_c_rmq_psi	median_net_ns	551	ns	median minus the timer floor
+R	sample_c_rmq_psi	p99_net_ns	1023	ns	p99 minus the timer floor
+R	sample_c_rmq_psi	mean_batch_ns	737.97216	ns	mean over 200000 links of sample B, no per-link timer
+R	sample_c2_psv_psi	counting_pass_s	0.063034835	s	steps and results of the sample (BudgetSteps instantiation)
+R	sample_c2_psv_psi	steps_links	200000	count	counted of 200000 sampled (total step budget 400000000)
+R	sample_c2_psv_psi	steps_budget_exceeded	0	count	links that needed more than 3000000 steps; the sample stops at the total budget
+R	sample_c2_psv_psi	steps_median	2	steps	array entries read
+R	sample_c2_psv_psi	steps_p99	22	steps	
+R	sample_c2_psv_psi	steps_max	54	steps	
+R	sample_c2_psv_psi	steps_mean	2.579745	steps	
+R	sample_c2_psv_psi	cross_check_different	0	count	of 200000 comparable links (both finished) against sample_c_rmq_psi
+R	sample_c2_psv_psi	timed_links	200000	count	of 200000 sampled; time cap 4 s
+R	sample_c2_psv_psi	median_ns	412	ns	raw per-link timing (includes the timer floor)
+R	sample_c2_psv_psi	p99_ns	859	ns	raw
+R	sample_c2_psv_psi	max_ns	176628	ns	raw
+R	sample_c2_psv_psi	median_net_ns	390	ns	median minus the timer floor
+R	sample_c2_psv_psi	p99_net_ns	837	ns	p99 minus the timer floor
+R	sample_c2_psv_psi	mean_batch_ns	312.26015	ns	mean over 200000 links of sample B, no per-link timer
+R	repeat_c_rmq_psi	counting_pass_s	0.146845193	s	steps and results of the sample (BudgetSteps instantiation)
+R	repeat_c_rmq_psi	steps_links	200000	count	counted of 200000 sampled (total step budget 400000000)
+R	repeat_c_rmq_psi	steps_budget_exceeded	0	count	links that needed more than 3000000 steps; the sample stops at the total budget
+R	repeat_c_rmq_psi	steps_median	34	steps	array entries read
+R	repeat_c_rmq_psi	steps_p99	82	steps	
+R	repeat_c_rmq_psi	steps_max	246	steps	
+R	repeat_c_rmq_psi	steps_mean	34.10638	steps	
+R	repeat_c_rmq_psi	cross_check	reference	label	first combination of this process: the others are compared with it
+R	repeat_c_rmq_psi	timed_links	200000	count	of 200000 sampled; time cap 4 s
+R	repeat_c_rmq_psi	median_ns	559	ns	raw per-link timing (includes the timer floor)
+R	repeat_c_rmq_psi	p99_ns	986	ns	raw
+R	repeat_c_rmq_psi	max_ns	58431	ns	raw
+R	repeat_c_rmq_psi	median_net_ns	537	ns	median minus the timer floor
+R	repeat_c_rmq_psi	p99_net_ns	964	ns	p99 minus the timer floor
+R	repeat_c_rmq_psi	mean_batch_ns	730.699135	ns	mean over 200000 links of sample B, no per-link timer
+R	links	peak_rss_hwm	897867776	bytes	VmHWM of the process
+# process input=rep_10m run=2 commit=71c5dabaf3-dirty load=1.00 2026-11-09T16:04:25Z options: --fanout 8 --kernels rmq,psv --sources psi --sweeps false --search-check 0
+R	links	input_chars	10000000	chars	rep_10m; sample 200000 seed 1; fanout 8; rotate 2
+R	links	build_total_s	1.18582215	s	EsaIndex.Build (tagged child table), cold JIT
+R	nav	build_isa_s	0.087952491	s	ISA from SA: one scattered pass (cold JIT)
+R	nav	build_psi_s	0.093776468	s	Psi from SA and ISA: one gather pass (add build_isa_s for the cost from SA alone)
+R	nav	build_rmq_s	0.03583985	s	block-minima pyramid, fanout 8, 8 levels: one sequential pass over the compact LCP
+R	nav	isa_bytes_per_char	4.0000004	bytes/char	
+R	nav	psi_bytes_per_char	4.0000004	bytes/char	
+R	nav	rmq_bytes_per_char	0.5714308	bytes/char	pyramid only; the LCP array (2.000 B/char, kind U16) is shared with the index
+R	nav	lcp_kind	U16	kind	escapes 0
+R	nodes	internal_nodes	8568247	count	enumerate_s 0.437732243; header statistic 8568247
+R	timer	per_link_timer_floor_ns	22	ns	median of back-to-back Stopwatch.GetTimestamp pairs; the per-link medians below are raw (include it) and the *_net rows subtract it
+R	nodes	sample_nodes	200000	count	sample A (per-link) and B (batch) of 200000 each, warm-up 4000
+R	sample_c_rmq_psi	first_link_ns	3881419	ns	very first call of this kernel in the process (JIT + first touch); the first kernel also pays the JIT of the shared readers
+R	sample_c2_psv_psi	first_link_ns	448919	ns	very first call of this kernel in the process (JIT + first touch); the first kernel also pays the JIT of the shared readers
+R	links	warmup_links	20303200	count	round robin over all kernels for at least 1 s before the first timed pass
+R	sample_c_rmq_psi	counting_pass_s	0.185289321	s	steps and results of the sample (BudgetSteps instantiation)
+R	sample_c_rmq_psi	steps_links	200000	count	counted of 200000 sampled (total step budget 400000000)
+R	sample_c_rmq_psi	steps_budget_exceeded	0	count	links that needed more than 3000000 steps; the sample stops at the total budget
+R	sample_c_rmq_psi	steps_median	34	steps	array entries read
+R	sample_c_rmq_psi	steps_p99	82	steps	
+R	sample_c_rmq_psi	steps_max	246	steps	
+R	sample_c_rmq_psi	steps_mean	34.10638	steps	
+R	sample_c_rmq_psi	cross_check	reference	label	first combination of this process: the others are compared with it
+R	sample_c_rmq_psi	timed_links	200000	count	of 200000 sampled; time cap 4 s
+R	sample_c_rmq_psi	median_ns	633	ns	raw per-link timing (includes the timer floor)
+R	sample_c_rmq_psi	p99_ns	1117	ns	raw
+R	sample_c_rmq_psi	max_ns	76670	ns	raw
+R	sample_c_rmq_psi	median_net_ns	611	ns	median minus the timer floor
+R	sample_c_rmq_psi	p99_net_ns	1095	ns	p99 minus the timer floor
+R	sample_c_rmq_psi	mean_batch_ns	813.487405	ns	mean over 200000 links of sample B, no per-link timer
+R	sample_c2_psv_psi	counting_pass_s	0.069298874	s	steps and results of the sample (BudgetSteps instantiation)
+R	sample_c2_psv_psi	steps_links	200000	count	counted of 200000 sampled (total step budget 400000000)
+R	sample_c2_psv_psi	steps_budget_exceeded	0	count	links that needed more than 3000000 steps; the sample stops at the total budget
+R	sample_c2_psv_psi	steps_median	2	steps	array entries read
+R	sample_c2_psv_psi	steps_p99	22	steps	
+R	sample_c2_psv_psi	steps_max	54	steps	
+R	sample_c2_psv_psi	steps_mean	2.579745	steps	
+R	sample_c2_psv_psi	cross_check_different	0	count	of 200000 comparable links (both finished) against sample_c_rmq_psi
+R	sample_c2_psv_psi	timed_links	200000	count	of 200000 sampled; time cap 4 s
+R	sample_c2_psv_psi	median_ns	471	ns	raw per-link timing (includes the timer floor)
+R	sample_c2_psv_psi	p99_ns	970	ns	raw
+R	sample_c2_psv_psi	max_ns	201208	ns	raw
+R	sample_c2_psv_psi	median_net_ns	449	ns	median minus the timer floor
+R	sample_c2_psv_psi	p99_net_ns	948	ns	p99 minus the timer floor
+R	sample_c2_psv_psi	mean_batch_ns	344.366035	ns	mean over 200000 links of sample B, no per-link timer
+R	repeat_c_rmq_psi	counting_pass_s	0.163621257	s	steps and results of the sample (BudgetSteps instantiation)
+R	repeat_c_rmq_psi	steps_links	200000	count	counted of 200000 sampled (total step budget 400000000)
+R	repeat_c_rmq_psi	steps_budget_exceeded	0	count	links that needed more than 3000000 steps; the sample stops at the total budget
+R	repeat_c_rmq_psi	steps_median	34	steps	array entries read
+R	repeat_c_rmq_psi	steps_p99	82	steps	
+R	repeat_c_rmq_psi	steps_max	246	steps	
+R	repeat_c_rmq_psi	steps_mean	34.10638	steps	
+R	repeat_c_rmq_psi	cross_check	reference	label	first combination of this process: the others are compared with it
+R	repeat_c_rmq_psi	timed_links	200000	count	of 200000 sampled; time cap 4 s
+R	repeat_c_rmq_psi	median_ns	630	ns	raw per-link timing (includes the timer floor)
+R	repeat_c_rmq_psi	p99_ns	1099	ns	raw
+R	repeat_c_rmq_psi	max_ns	76240	ns	raw
+R	repeat_c_rmq_psi	median_net_ns	608	ns	median minus the timer floor
+R	repeat_c_rmq_psi	p99_net_ns	1077	ns	p99 minus the timer floor
+R	repeat_c_rmq_psi	mean_batch_ns	824.124015	ns	mean over 200000 links of sample B, no per-link timer
+R	links	peak_rss_hwm	897589248	bytes	VmHWM of the process
+# process input=rep_10m run=3 commit=71c5dabaf3-dirty load=1.00 2026-11-09T16:04:30Z options: --fanout 8 --kernels rmq,psv --sources psi --sweeps false --search-check 0
+R	links	input_chars	10000000	chars	rep_10m; sample 200000 seed 1; fanout 8; rotate 4
+R	links	build_total_s	1.18593927	s	EsaIndex.Build (tagged child table), cold JIT
+R	nav	build_isa_s	0.089922986	s	ISA from SA: one scattered pass (cold JIT)
+R	nav	build_psi_s	0.096237321	s	Psi from SA and ISA: one gather pass (add build_isa_s for the cost from SA alone)
+R	nav	build_rmq_s	0.035124046	s	block-minima pyramid, fanout 8, 8 levels: one sequential pass over the compact LCP
+R	nav	isa_bytes_per_char	4.0000004	bytes/char	
+R	nav	psi_bytes_per_char	4.0000004	bytes/char	
+R	nav	rmq_bytes_per_char	0.5714308	bytes/char	pyramid only; the LCP array (2.000 B/char, kind U16) is shared with the index
+R	nav	lcp_kind	U16	kind	escapes 0
+R	nodes	internal_nodes	8568247	count	enumerate_s 0.439475474; header statistic 8568247
+R	timer	per_link_timer_floor_ns	22	ns	median of back-to-back Stopwatch.GetTimestamp pairs; the per-link medians below are raw (include it) and the *_net rows subtract it
+R	nodes	sample_nodes	200000	count	sample A (per-link) and B (batch) of 200000 each, warm-up 4000
+R	sample_c_rmq_psi	first_link_ns	3714354	ns	very first call of this kernel in the process (JIT + first touch); the first kernel also pays the JIT of the shared readers
+R	sample_c2_psv_psi	first_link_ns	558840	ns	very first call of this kernel in the process (JIT + first touch); the first kernel also pays the JIT of the shared readers
+R	links	warmup_links	19418400	count	round robin over all kernels for at least 1 s before the first timed pass
+R	sample_c_rmq_psi	counting_pass_s	0.193723665	s	steps and results of the sample (BudgetSteps instantiation)
+R	sample_c_rmq_psi	steps_links	200000	count	counted of 200000 sampled (total step budget 400000000)
+R	sample_c_rmq_psi	steps_budget_exceeded	0	count	links that needed more than 3000000 steps; the sample stops at the total budget
+R	sample_c_rmq_psi	steps_median	34	steps	array entries read
+R	sample_c_rmq_psi	steps_p99	82	steps	
+R	sample_c_rmq_psi	steps_max	246	steps	
+R	sample_c_rmq_psi	steps_mean	34.10638	steps	
+R	sample_c_rmq_psi	cross_check	reference	label	first combination of this process: the others are compared with it
+R	sample_c_rmq_psi	timed_links	200000	count	of 200000 sampled; time cap 4 s
+R	sample_c_rmq_psi	median_ns	844	ns	raw per-link timing (includes the timer floor)
+R	sample_c_rmq_psi	p99_ns	1623	ns	raw
+R	sample_c_rmq_psi	max_ns	152214	ns	raw
+R	sample_c_rmq_psi	median_net_ns	822	ns	median minus the timer floor
+R	sample_c_rmq_psi	p99_net_ns	1601	ns	p99 minus the timer floor
+R	sample_c_rmq_psi	mean_batch_ns	953.42592	ns	mean over 200000 links of sample B, no per-link timer
+R	sample_c2_psv_psi	counting_pass_s	0.072355438	s	steps and results of the sample (BudgetSteps instantiation)
+R	sample_c2_psv_psi	steps_links	200000	count	counted of 200000 sampled (total step budget 400000000)
+R	sample_c2_psv_psi	steps_budget_exceeded	0	count	links that needed more than 3000000 steps; the sample stops at the total budget
+R	sample_c2_psv_psi	steps_median	2	steps	array entries read
+R	sample_c2_psv_psi	steps_p99	22	steps	
+R	sample_c2_psv_psi	steps_max	54	steps	
+R	sample_c2_psv_psi	steps_mean	2.579745	steps	
+R	sample_c2_psv_psi	cross_check_different	0	count	of 200000 comparable links (both finished) against sample_c_rmq_psi
+R	sample_c2_psv_psi	timed_links	200000	count	of 200000 sampled; time cap 4 s
+R	sample_c2_psv_psi	median_ns	467	ns	raw per-link timing (includes the timer floor)
+R	sample_c2_psv_psi	p99_ns	973	ns	raw
+R	sample_c2_psv_psi	max_ns	69245	ns	raw
+R	sample_c2_psv_psi	median_net_ns	445	ns	median minus the timer floor
+R	sample_c2_psv_psi	p99_net_ns	951	ns	p99 minus the timer floor
+R	sample_c2_psv_psi	mean_batch_ns	516.98881	ns	mean over 200000 links of sample B, no per-link timer
+R	repeat_c_rmq_psi	counting_pass_s	0.172156875	s	steps and results of the sample (BudgetSteps instantiation)
+R	repeat_c_rmq_psi	steps_links	200000	count	counted of 200000 sampled (total step budget 400000000)
+R	repeat_c_rmq_psi	steps_budget_exceeded	0	count	links that needed more than 3000000 steps; the sample stops at the total budget
+R	repeat_c_rmq_psi	steps_median	34	steps	array entries read
+R	repeat_c_rmq_psi	steps_p99	82	steps	
+R	repeat_c_rmq_psi	steps_max	246	steps	
+R	repeat_c_rmq_psi	steps_mean	34.10638	steps	
+R	repeat_c_rmq_psi	cross_check	reference	label	first combination of this process: the others are compared with it
+R	repeat_c_rmq_psi	timed_links	200000	count	of 200000 sampled; time cap 4 s
+R	repeat_c_rmq_psi	median_ns	698	ns	raw per-link timing (includes the timer floor)
+R	repeat_c_rmq_psi	p99_ns	1375	ns	raw
+R	repeat_c_rmq_psi	max_ns	72316	ns	raw
+R	repeat_c_rmq_psi	median_net_ns	676	ns	median minus the timer floor
+R	repeat_c_rmq_psi	p99_net_ns	1353	ns	p99 minus the timer floor
+R	repeat_c_rmq_psi	mean_batch_ns	829.267865	ns	mean over 200000 links of sample B, no per-link timer
+R	links	peak_rss_hwm	897851392	bytes	VmHWM of the process
+# process input=dna_10m run=1 commit=71c5dabaf3-dirty load=1.00 2026-11-09T16:04:35Z options: --fanout 16 --kernels rmq,psv --sources psi --sweeps false --search-check 0
+R	links	input_chars	10000000	chars	dna_10m; sample 200000 seed 1; fanout 16; rotate 0
+R	links	build_total_s	1.057929771	s	EsaIndex.Build (tagged child table), cold JIT
+R	nav	build_isa_s	0.077435731	s	ISA from SA: one scattered pass (cold JIT)
+R	nav	build_psi_s	0.094591166	s	Psi from SA and ISA: one gather pass (add build_isa_s for the cost from SA alone)
+R	nav	build_rmq_s	0.028449522	s	block-minima pyramid, fanout 16, 6 levels: one sequential pass over the compact LCP
+R	nav	isa_bytes_per_char	4.0000004	bytes/char	
+R	nav	psi_bytes_per_char	4.0000004	bytes/char	
+R	nav	rmq_bytes_per_char	0.266668	bytes/char	pyramid only; the LCP array (1.000 B/char, kind U8) is shared with the index
+R	nav	lcp_kind	U8	kind	escapes 0
+R	nodes	internal_nodes	6229745	count	enumerate_s 0.300818958; header statistic 6229745
+R	timer	per_link_timer_floor_ns	22	ns	median of back-to-back Stopwatch.GetTimestamp pairs; the per-link medians below are raw (include it) and the *_net rows subtract it
+R	nodes	sample_nodes	200000	count	sample A (per-link) and B (batch) of 200000 each, warm-up 4000
+R	sample_c_rmq_psi	first_link_ns	3897634	ns	very first call of this kernel in the process (JIT + first touch); the first kernel also pays the JIT of the shared readers
+R	sample_c2_psv_psi	first_link_ns	512235	ns	very first call of this kernel in the process (JIT + first touch); the first kernel also pays the JIT of the shared readers
+R	links	warmup_links	18382400	count	round robin over all kernels for at least 1 s before the first timed pass
+R	sample_c_rmq_psi	counting_pass_s	0.15494938	s	steps and results of the sample (BudgetSteps instantiation)
+R	sample_c_rmq_psi	steps_links	200000	count	counted of 200000 sampled (total step budget 400000000)
+R	sample_c_rmq_psi	steps_budget_exceeded	0	count	links that needed more than 3000000 steps; the sample stops at the total budget
+R	sample_c_rmq_psi	steps_median	17	steps	array entries read
+R	sample_c_rmq_psi	steps_p99	120	steps	
+R	sample_c_rmq_psi	steps_max	304	steps	
+R	sample_c_rmq_psi	steps_mean	26.32049	steps	
+R	sample_c_rmq_psi	cross_check	reference	label	first combination of this process: the others are compared with it
+R	sample_c_rmq_psi	timed_links	200000	count	of 200000 sampled; time cap 4 s
+R	sample_c_rmq_psi	median_ns	516	ns	raw per-link timing (includes the timer floor)
+R	sample_c_rmq_psi	p99_ns	1055	ns	raw
+R	sample_c_rmq_psi	max_ns	126141	ns	raw
+R	sample_c_rmq_psi	median_net_ns	494	ns	median minus the timer floor
+R	sample_c_rmq_psi	p99_net_ns	1033	ns	p99 minus the timer floor
+R	sample_c_rmq_psi	mean_batch_ns	641.466335	ns	mean over 200000 links of sample B, no per-link timer
+R	sample_c2_psv_psi	counting_pass_s	0.091467774	s	steps and results of the sample (BudgetSteps instantiation)
+R	sample_c2_psv_psi	steps_links	200000	count	counted of 200000 sampled (total step budget 400000000)
+R	sample_c2_psv_psi	steps_budget_exceeded	0	count	links that needed more than 3000000 steps; the sample stops at the total budget
+R	sample_c2_psv_psi	steps_median	4	steps	array entries read
+R	sample_c2_psv_psi	steps_p99	19	steps	
+R	sample_c2_psv_psi	steps_max	45	steps	
+R	sample_c2_psv_psi	steps_mean	5.171845	steps	
+R	sample_c2_psv_psi	cross_check_different	0	count	of 200000 comparable links (both finished) against sample_c_rmq_psi
+R	sample_c2_psv_psi	timed_links	200000	count	of 200000 sampled; time cap 4 s
+R	sample_c2_psv_psi	median_ns	383	ns	raw per-link timing (includes the timer floor)
+R	sample_c2_psv_psi	p99_ns	663	ns	raw
+R	sample_c2_psv_psi	max_ns	66933	ns	raw
+R	sample_c2_psv_psi	median_net_ns	361	ns	median minus the timer floor
+R	sample_c2_psv_psi	p99_net_ns	641	ns	p99 minus the timer floor
+R	sample_c2_psv_psi	mean_batch_ns	446.143925	ns	mean over 200000 links of sample B, no per-link timer
+R	repeat_c_rmq_psi	counting_pass_s	0.128126253	s	steps and results of the sample (BudgetSteps instantiation)
+R	repeat_c_rmq_psi	steps_links	200000	count	counted of 200000 sampled (total step budget 400000000)
+R	repeat_c_rmq_psi	steps_budget_exceeded	0	count	links that needed more than 3000000 steps; the sample stops at the total budget
+R	repeat_c_rmq_psi	steps_median	17	steps	array entries read
+R	repeat_c_rmq_psi	steps_p99	120	steps	
+R	repeat_c_rmq_psi	steps_max	304	steps	
+R	repeat_c_rmq_psi	steps_mean	26.32049	steps	
+R	repeat_c_rmq_psi	cross_check	reference	label	first combination of this process: the others are compared with it
+R	repeat_c_rmq_psi	timed_links	200000	count	of 200000 sampled; time cap 4 s
+R	repeat_c_rmq_psi	median_ns	551	ns	raw per-link timing (includes the timer floor)
+R	repeat_c_rmq_psi	p99_ns	1228	ns	raw
+R	repeat_c_rmq_psi	max_ns	137090	ns	raw
+R	repeat_c_rmq_psi	median_net_ns	529	ns	median minus the timer floor
+R	repeat_c_rmq_psi	p99_net_ns	1206	ns	p99 minus the timer floor
+R	repeat_c_rmq_psi	mean_batch_ns	663.74291	ns	mean over 200000 links of sample B, no per-link timer
+R	links	peak_rss_hwm	605655040	bytes	VmHWM of the process
+# process input=dna_10m run=2 commit=71c5dabaf3-dirty load=1.00 2026-11-09T16:04:39Z options: --fanout 16 --kernels rmq,psv --sources psi --sweeps false --search-check 0
+R	links	input_chars	10000000	chars	dna_10m; sample 200000 seed 1; fanout 16; rotate 2
+R	links	build_total_s	1.029693418	s	EsaIndex.Build (tagged child table), cold JIT
+R	nav	build_isa_s	0.092241509	s	ISA from SA: one scattered pass (cold JIT)
+R	nav	build_psi_s	0.086516326	s	Psi from SA and ISA: one gather pass (add build_isa_s for the cost from SA alone)
+R	nav	build_rmq_s	0.027419592	s	block-minima pyramid, fanout 16, 6 levels: one sequential pass over the compact LCP
+R	nav	isa_bytes_per_char	4.0000004	bytes/char	
+R	nav	psi_bytes_per_char	4.0000004	bytes/char	
+R	nav	rmq_bytes_per_char	0.266668	bytes/char	pyramid only; the LCP array (1.000 B/char, kind U8) is shared with the index
+R	nav	lcp_kind	U8	kind	escapes 0
+R	nodes	internal_nodes	6229745	count	enumerate_s 0.305208788; header statistic 6229745
+R	timer	per_link_timer_floor_ns	22	ns	median of back-to-back Stopwatch.GetTimestamp pairs; the per-link medians below are raw (include it) and the *_net rows subtract it
+R	nodes	sample_nodes	200000	count	sample A (per-link) and B (batch) of 200000 each, warm-up 4000
+R	sample_c_rmq_psi	first_link_ns	4115254	ns	very first call of this kernel in the process (JIT + first touch); the first kernel also pays the JIT of the shared readers
+R	sample_c2_psv_psi	first_link_ns	441382	ns	very first call of this kernel in the process (JIT + first touch); the first kernel also pays the JIT of the shared readers
+R	links	warmup_links	19420000	count	round robin over all kernels for at least 1 s before the first timed pass
+R	sample_c_rmq_psi	counting_pass_s	0.15132884	s	steps and results of the sample (BudgetSteps instantiation)
+R	sample_c_rmq_psi	steps_links	200000	count	counted of 200000 sampled (total step budget 400000000)
+R	sample_c_rmq_psi	steps_budget_exceeded	0	count	links that needed more than 3000000 steps; the sample stops at the total budget
+R	sample_c_rmq_psi	steps_median	17	steps	array entries read
+R	sample_c_rmq_psi	steps_p99	120	steps	
+R	sample_c_rmq_psi	steps_max	304	steps	
+R	sample_c_rmq_psi	steps_mean	26.32049	steps	
+R	sample_c_rmq_psi	cross_check	reference	label	first combination of this process: the others are compared with it
+R	sample_c_rmq_psi	timed_links	200000	count	of 200000 sampled; time cap 4 s
+R	sample_c_rmq_psi	median_ns	494	ns	raw per-link timing (includes the timer floor)
+R	sample_c_rmq_psi	p99_ns	989	ns	raw
+R	sample_c_rmq_psi	max_ns	54816	ns	raw
+R	sample_c_rmq_psi	median_net_ns	472	ns	median minus the timer floor
+R	sample_c_rmq_psi	p99_net_ns	967	ns	p99 minus the timer floor
+R	sample_c_rmq_psi	mean_batch_ns	650.149285	ns	mean over 200000 links of sample B, no per-link timer
+R	sample_c2_psv_psi	counting_pass_s	0.093724973	s	steps and results of the sample (BudgetSteps instantiation)
+R	sample_c2_psv_psi	steps_links	200000	count	counted of 200000 sampled (total step budget 400000000)
+R	sample_c2_psv_psi	steps_budget_exceeded	0	count	links that needed more than 3000000 steps; the sample stops at the total budget
+R	sample_c2_psv_psi	steps_median	4	steps	array entries read
+R	sample_c2_psv_psi	steps_p99	19	steps	
+R	sample_c2_psv_psi	steps_max	45	steps	
+R	sample_c2_psv_psi	steps_mean	5.171845	steps	
+R	sample_c2_psv_psi	cross_check_different	0	count	of 200000 comparable links (both finished) against sample_c_rmq_psi
+R	sample_c2_psv_psi	timed_links	200000	count	of 200000 sampled; time cap 4 s
+R	sample_c2_psv_psi	median_ns	390	ns	raw per-link timing (includes the timer floor)
+R	sample_c2_psv_psi	p99_ns	665	ns	raw
+R	sample_c2_psv_psi	max_ns	75017	ns	raw
+R	sample_c2_psv_psi	median_net_ns	368	ns	median minus the timer floor
+R	sample_c2_psv_psi	p99_net_ns	643	ns	p99 minus the timer floor
+R	sample_c2_psv_psi	mean_batch_ns	429.88394	ns	mean over 200000 links of sample B, no per-link timer
+R	repeat_c_rmq_psi	counting_pass_s	0.126525359	s	steps and results of the sample (BudgetSteps instantiation)
+R	repeat_c_rmq_psi	steps_links	200000	count	counted of 200000 sampled (total step budget 400000000)
+R	repeat_c_rmq_psi	steps_budget_exceeded	0	count	links that needed more than 3000000 steps; the sample stops at the total budget
+R	repeat_c_rmq_psi	steps_median	17	steps	array entries read
+R	repeat_c_rmq_psi	steps_p99	120	steps	
+R	repeat_c_rmq_psi	steps_max	304	steps	
+R	repeat_c_rmq_psi	steps_mean	26.32049	steps	
+R	repeat_c_rmq_psi	cross_check	reference	label	first combination of this process: the others are compared with it
+R	repeat_c_rmq_psi	timed_links	200000	count	of 200000 sampled; time cap 4 s
+R	repeat_c_rmq_psi	median_ns	470	ns	raw per-link timing (includes the timer floor)
+R	repeat_c_rmq_psi	p99_ns	935	ns	raw
+R	repeat_c_rmq_psi	max_ns	74867	ns	raw
+R	repeat_c_rmq_psi	median_net_ns	448	ns	median minus the timer floor
+R	repeat_c_rmq_psi	p99_net_ns	913	ns	p99 minus the timer floor
+R	repeat_c_rmq_psi	mean_batch_ns	635.7850850000001	ns	mean over 200000 links of sample B, no per-link timer
+R	links	peak_rss_hwm	605532160	bytes	VmHWM of the process
+# process input=dna_10m run=3 commit=71c5dabaf3-dirty load=1.00 2026-11-09T16:04:43Z options: --fanout 16 --kernels rmq,psv --sources psi --sweeps false --search-check 0
+R	links	input_chars	10000000	chars	dna_10m; sample 200000 seed 1; fanout 16; rotate 4
+R	links	build_total_s	0.998626916	s	EsaIndex.Build (tagged child table), cold JIT
+R	nav	build_isa_s	0.076669869	s	ISA from SA: one scattered pass (cold JIT)
+R	nav	build_psi_s	0.084628856	s	Psi from SA and ISA: one gather pass (add build_isa_s for the cost from SA alone)
+R	nav	build_rmq_s	0.027214345	s	block-minima pyramid, fanout 16, 6 levels: one sequential pass over the compact LCP
+R	nav	isa_bytes_per_char	4.0000004	bytes/char	
+R	nav	psi_bytes_per_char	4.0000004	bytes/char	
+R	nav	rmq_bytes_per_char	0.266668	bytes/char	pyramid only; the LCP array (1.000 B/char, kind U8) is shared with the index
+R	nav	lcp_kind	U8	kind	escapes 0
+R	nodes	internal_nodes	6229745	count	enumerate_s 0.296144746; header statistic 6229745
+R	timer	per_link_timer_floor_ns	22	ns	median of back-to-back Stopwatch.GetTimestamp pairs; the per-link medians below are raw (include it) and the *_net rows subtract it
+R	nodes	sample_nodes	200000	count	sample A (per-link) and B (batch) of 200000 each, warm-up 4000
+R	sample_c_rmq_psi	first_link_ns	3908154	ns	very first call of this kernel in the process (JIT + first touch); the first kernel also pays the JIT of the shared readers
+R	sample_c2_psv_psi	first_link_ns	567646	ns	very first call of this kernel in the process (JIT + first touch); the first kernel also pays the JIT of the shared readers
+R	links	warmup_links	19642400	count	round robin over all kernels for at least 1 s before the first timed pass
+R	sample_c_rmq_psi	counting_pass_s	0.147650422	s	steps and results of the sample (BudgetSteps instantiation)
+R	sample_c_rmq_psi	steps_links	200000	count	counted of 200000 sampled (total step budget 400000000)
+R	sample_c_rmq_psi	steps_budget_exceeded	0	count	links that needed more than 3000000 steps; the sample stops at the total budget
+R	sample_c_rmq_psi	steps_median	17	steps	array entries read
+R	sample_c_rmq_psi	steps_p99	120	steps	
+R	sample_c_rmq_psi	steps_max	304	steps	
+R	sample_c_rmq_psi	steps_mean	26.32049	steps	
+R	sample_c_rmq_psi	cross_check	reference	label	first combination of this process: the others are compared with it
+R	sample_c_rmq_psi	timed_links	200000	count	of 200000 sampled; time cap 4 s
+R	sample_c_rmq_psi	median_ns	469	ns	raw per-link timing (includes the timer floor)
+R	sample_c_rmq_psi	p99_ns	933	ns	raw
+R	sample_c_rmq_psi	max_ns	59842	ns	raw
+R	sample_c_rmq_psi	median_net_ns	447	ns	median minus the timer floor
+R	sample_c_rmq_psi	p99_net_ns	911	ns	p99 minus the timer floor
+R	sample_c_rmq_psi	mean_batch_ns	628.79646	ns	mean over 200000 links of sample B, no per-link timer
+R	sample_c2_psv_psi	counting_pass_s	0.090276438	s	steps and results of the sample (BudgetSteps instantiation)
+R	sample_c2_psv_psi	steps_links	200000	count	counted of 200000 sampled (total step budget 400000000)
+R	sample_c2_psv_psi	steps_budget_exceeded	0	count	links that needed more than 3000000 steps; the sample stops at the total budget
+R	sample_c2_psv_psi	steps_median	4	steps	array entries read
+R	sample_c2_psv_psi	steps_p99	19	steps	
+R	sample_c2_psv_psi	steps_max	45	steps	
+R	sample_c2_psv_psi	steps_mean	5.171845	steps	
+R	sample_c2_psv_psi	cross_check_different	0	count	of 200000 comparable links (both finished) against sample_c_rmq_psi
+R	sample_c2_psv_psi	timed_links	200000	count	of 200000 sampled; time cap 4 s
+R	sample_c2_psv_psi	median_ns	398	ns	raw per-link timing (includes the timer floor)
+R	sample_c2_psv_psi	p99_ns	693	ns	raw
+R	sample_c2_psv_psi	max_ns	64213	ns	raw
+R	sample_c2_psv_psi	median_net_ns	376	ns	median minus the timer floor
+R	sample_c2_psv_psi	p99_net_ns	671	ns	p99 minus the timer floor
+R	sample_c2_psv_psi	mean_batch_ns	452.34418	ns	mean over 200000 links of sample B, no per-link timer
+R	repeat_c_rmq_psi	counting_pass_s	0.128454988	s	steps and results of the sample (BudgetSteps instantiation)
+R	repeat_c_rmq_psi	steps_links	200000	count	counted of 200000 sampled (total step budget 400000000)
+R	repeat_c_rmq_psi	steps_budget_exceeded	0	count	links that needed more than 3000000 steps; the sample stops at the total budget
+R	repeat_c_rmq_psi	steps_median	17	steps	array entries read
+R	repeat_c_rmq_psi	steps_p99	120	steps	
+R	repeat_c_rmq_psi	steps_max	304	steps	
+R	repeat_c_rmq_psi	steps_mean	26.32049	steps	
+R	repeat_c_rmq_psi	cross_check	reference	label	first combination of this process: the others are compared with it
+R	repeat_c_rmq_psi	timed_links	200000	count	of 200000 sampled; time cap 4 s
+R	repeat_c_rmq_psi	median_ns	489	ns	raw per-link timing (includes the timer floor)
+R	repeat_c_rmq_psi	p99_ns	984	ns	raw
+R	repeat_c_rmq_psi	max_ns	65768	ns	raw
+R	repeat_c_rmq_psi	median_net_ns	467	ns	median minus the timer floor
+R	repeat_c_rmq_psi	p99_net_ns	962	ns	p99 minus the timer floor
+R	repeat_c_rmq_psi	mean_batch_ns	651.78899	ns	mean over 200000 links of sample B, no per-link timer
+R	links	peak_rss_hwm	605454336	bytes	VmHWM of the process
+# process input=rep_10m run=1 commit=71c5dabaf3-dirty load=1.00 2026-11-09T16:04:47Z options: --fanout 16 --kernels rmq,psv --sources psi --sweeps false --search-check 0
+R	links	input_chars	10000000	chars	rep_10m; sample 200000 seed 1; fanout 16; rotate 0
+R	links	build_total_s	1.121082057	s	EsaIndex.Build (tagged child table), cold JIT
+R	nav	build_isa_s	0.087185406	s	ISA from SA: one scattered pass (cold JIT)
+R	nav	build_psi_s	0.091862833	s	Psi from SA and ISA: one gather pass (add build_isa_s for the cost from SA alone)
+R	nav	build_rmq_s	0.032276217	s	block-minima pyramid, fanout 16, 6 levels: one sequential pass over the compact LCP
+R	nav	isa_bytes_per_char	4.0000004	bytes/char	
+R	nav	psi_bytes_per_char	4.0000004	bytes/char	
+R	nav	rmq_bytes_per_char	0.266668	bytes/char	pyramid only; the LCP array (2.000 B/char, kind U16) is shared with the index
+R	nav	lcp_kind	U16	kind	escapes 0
+R	nodes	internal_nodes	8568247	count	enumerate_s 0.436541875; header statistic 8568247
+R	timer	per_link_timer_floor_ns	22	ns	median of back-to-back Stopwatch.GetTimestamp pairs; the per-link medians below are raw (include it) and the *_net rows subtract it
+R	nodes	sample_nodes	200000	count	sample A (per-link) and B (batch) of 200000 each, warm-up 4000
+R	sample_c_rmq_psi	first_link_ns	3700553	ns	very first call of this kernel in the process (JIT + first touch); the first kernel also pays the JIT of the shared readers
+R	sample_c2_psv_psi	first_link_ns	547584	ns	very first call of this kernel in the process (JIT + first touch); the first kernel also pays the JIT of the shared readers
+R	links	warmup_links	14949600	count	round robin over all kernels for at least 1 s before the first timed pass
+R	sample_c_rmq_psi	counting_pass_s	0.183218892	s	steps and results of the sample (BudgetSteps instantiation)
+R	sample_c_rmq_psi	steps_links	200000	count	counted of 200000 sampled (total step budget 400000000)
+R	sample_c_rmq_psi	steps_budget_exceeded	0	count	links that needed more than 3000000 steps; the sample stops at the total budget
+R	sample_c_rmq_psi	steps_median	43	steps	array entries read
+R	sample_c_rmq_psi	steps_p99	112	steps	
+R	sample_c_rmq_psi	steps_max	310	steps	
+R	sample_c_rmq_psi	steps_mean	43.373235	steps	
+R	sample_c_rmq_psi	cross_check	reference	label	first combination of this process: the others are compared with it
+R	sample_c_rmq_psi	timed_links	200000	count	of 200000 sampled; time cap 4 s
+R	sample_c_rmq_psi	median_ns	639	ns	raw per-link timing (includes the timer floor)
+R	sample_c_rmq_psi	p99_ns	1133	ns	raw
+R	sample_c_rmq_psi	max_ns	166440	ns	raw
+R	sample_c_rmq_psi	median_net_ns	617	ns	median minus the timer floor
+R	sample_c_rmq_psi	p99_net_ns	1111	ns	p99 minus the timer floor
+R	sample_c_rmq_psi	mean_batch_ns	793.03843	ns	mean over 200000 links of sample B, no per-link timer
+R	sample_c2_psv_psi	counting_pass_s	0.060734193	s	steps and results of the sample (BudgetSteps instantiation)
+R	sample_c2_psv_psi	steps_links	200000	count	counted of 200000 sampled (total step budget 400000000)
+R	sample_c2_psv_psi	steps_budget_exceeded	0	count	links that needed more than 3000000 steps; the sample stops at the total budget
+R	sample_c2_psv_psi	steps_median	2	steps	array entries read
+R	sample_c2_psv_psi	steps_p99	27	steps	
+R	sample_c2_psv_psi	steps_max	79	steps	
+R	sample_c2_psv_psi	steps_mean	2.69444	steps	
+R	sample_c2_psv_psi	cross_check_different	0	count	of 200000 comparable links (both finished) against sample_c_rmq_psi
+R	sample_c2_psv_psi	timed_links	200000	count	of 200000 sampled; time cap 4 s
+R	sample_c2_psv_psi	median_ns	393	ns	raw per-link timing (includes the timer floor)
+R	sample_c2_psv_psi	p99_ns	802	ns	raw
+R	sample_c2_psv_psi	max_ns	51620	ns	raw
+R	sample_c2_psv_psi	median_net_ns	371	ns	median minus the timer floor
+R	sample_c2_psv_psi	p99_net_ns	780	ns	p99 minus the timer floor
+R	sample_c2_psv_psi	mean_batch_ns	325.303245	ns	mean over 200000 links of sample B, no per-link timer
+R	repeat_c_rmq_psi	counting_pass_s	0.159370689	s	steps and results of the sample (BudgetSteps instantiation)
+R	repeat_c_rmq_psi	steps_links	200000	count	counted of 200000 sampled (total step budget 400000000)
+R	repeat_c_rmq_psi	steps_budget_exceeded	0	count	links that needed more than 3000000 steps; the sample stops at the total budget
+R	repeat_c_rmq_psi	steps_median	43	steps	array entries read
+R	repeat_c_rmq_psi	steps_p99	112	steps	
+R	repeat_c_rmq_psi	steps_max	310	steps	
+R	repeat_c_rmq_psi	steps_mean	43.373235	steps	
+R	repeat_c_rmq_psi	cross_check	reference	label	first combination of this process: the others are compared with it
+R	repeat_c_rmq_psi	timed_links	200000	count	of 200000 sampled; time cap 4 s
+R	repeat_c_rmq_psi	median_ns	607	ns	raw per-link timing (includes the timer floor)
+R	repeat_c_rmq_psi	p99_ns	1083	ns	raw
+R	repeat_c_rmq_psi	max_ns	76013	ns	raw
+R	repeat_c_rmq_psi	median_net_ns	585	ns	median minus the timer floor
+R	repeat_c_rmq_psi	p99_net_ns	1061	ns	p99 minus the timer floor
+R	repeat_c_rmq_psi	mean_batch_ns	788.437415	ns	mean over 200000 links of sample B, no per-link timer
+R	links	peak_rss_hwm	894582784	bytes	VmHWM of the process
+# process input=rep_10m run=2 commit=71c5dabaf3-dirty load=1.00 2026-11-09T16:04:52Z options: --fanout 16 --kernels rmq,psv --sources psi --sweeps false --search-check 0
+R	links	input_chars	10000000	chars	rep_10m; sample 200000 seed 1; fanout 16; rotate 2
+R	links	build_total_s	1.11961222	s	EsaIndex.Build (tagged child table), cold JIT
+R	nav	build_isa_s	0.087599838	s	ISA from SA: one scattered pass (cold JIT)
+R	nav	build_psi_s	0.091006458	s	Psi from SA and ISA: one gather pass (add build_isa_s for the cost from SA alone)
+R	nav	build_rmq_s	0.033344981	s	block-minima pyramid, fanout 16, 6 levels: one sequential pass over the compact LCP
+R	nav	isa_bytes_per_char	4.0000004	bytes/char	
+R	nav	psi_bytes_per_char	4.0000004	bytes/char	
+R	nav	rmq_bytes_per_char	0.266668	bytes/char	pyramid only; the LCP array (2.000 B/char, kind U16) is shared with the index
+R	nav	lcp_kind	U16	kind	escapes 0
+R	nodes	internal_nodes	8568247	count	enumerate_s 0.436680226; header statistic 8568247
+R	timer	per_link_timer_floor_ns	22	ns	median of back-to-back Stopwatch.GetTimestamp pairs; the per-link medians below are raw (include it) and the *_net rows subtract it
+R	nodes	sample_nodes	200000	count	sample A (per-link) and B (batch) of 200000 each, warm-up 4000
+R	sample_c_rmq_psi	first_link_ns	3856695	ns	very first call of this kernel in the process (JIT + first touch); the first kernel also pays the JIT of the shared readers
+R	sample_c2_psv_psi	first_link_ns	432180	ns	very first call of this kernel in the process (JIT + first touch); the first kernel also pays the JIT of the shared readers
+R	links	warmup_links	15148000	count	round robin over all kernels for at least 1 s before the first timed pass
+R	sample_c_rmq_psi	counting_pass_s	0.184921375	s	steps and results of the sample (BudgetSteps instantiation)
+R	sample_c_rmq_psi	steps_links	200000	count	counted of 200000 sampled (total step budget 400000000)
+R	sample_c_rmq_psi	steps_budget_exceeded	0	count	links that needed more than 3000000 steps; the sample stops at the total budget
+R	sample_c_rmq_psi	steps_median	43	steps	array entries read
+R	sample_c_rmq_psi	steps_p99	112	steps	
+R	sample_c_rmq_psi	steps_max	310	steps	
+R	sample_c_rmq_psi	steps_mean	43.373235	steps	
+R	sample_c_rmq_psi	cross_check	reference	label	first combination of this process: the others are compared with it
+R	sample_c_rmq_psi	timed_links	200000	count	of 200000 sampled; time cap 4 s
+R	sample_c_rmq_psi	median_ns	629	ns	raw per-link timing (includes the timer floor)
+R	sample_c_rmq_psi	p99_ns	1109	ns	raw
+R	sample_c_rmq_psi	max_ns	63469	ns	raw
+R	sample_c_rmq_psi	median_net_ns	607	ns	median minus the timer floor
+R	sample_c_rmq_psi	p99_net_ns	1087	ns	p99 minus the timer floor
+R	sample_c_rmq_psi	mean_batch_ns	808.28192	ns	mean over 200000 links of sample B, no per-link timer
+R	sample_c2_psv_psi	counting_pass_s	0.064497202	s	steps and results of the sample (BudgetSteps instantiation)
+R	sample_c2_psv_psi	steps_links	200000	count	counted of 200000 sampled (total step budget 400000000)
+R	sample_c2_psv_psi	steps_budget_exceeded	0	count	links that needed more than 3000000 steps; the sample stops at the total budget
+R	sample_c2_psv_psi	steps_median	2	steps	array entries read
+R	sample_c2_psv_psi	steps_p99	27	steps	
+R	sample_c2_psv_psi	steps_max	79	steps	
+R	sample_c2_psv_psi	steps_mean	2.69444	steps	
+R	sample_c2_psv_psi	cross_check_different	0	count	of 200000 comparable links (both finished) against sample_c_rmq_psi
+R	sample_c2_psv_psi	timed_links	200000	count	of 200000 sampled; time cap 4 s
+R	sample_c2_psv_psi	median_ns	436	ns	raw per-link timing (includes the timer floor)
+R	sample_c2_psv_psi	p99_ns	857	ns	raw
+R	sample_c2_psv_psi	max_ns	76302	ns	raw
+R	sample_c2_psv_psi	median_net_ns	414	ns	median minus the timer floor
+R	sample_c2_psv_psi	p99_net_ns	835	ns	p99 minus the timer floor
+R	sample_c2_psv_psi	mean_batch_ns	344.13034	ns	mean over 200000 links of sample B, no per-link timer
+R	repeat_c_rmq_psi	counting_pass_s	0.159654835	s	steps and results of the sample (BudgetSteps instantiation)
+R	repeat_c_rmq_psi	steps_links	200000	count	counted of 200000 sampled (total step budget 400000000)
+R	repeat_c_rmq_psi	steps_budget_exceeded	0	count	links that needed more than 3000000 steps; the sample stops at the total budget
+R	repeat_c_rmq_psi	steps_median	43	steps	array entries read
+R	repeat_c_rmq_psi	steps_p99	112	steps	
+R	repeat_c_rmq_psi	steps_max	310	steps	
+R	repeat_c_rmq_psi	steps_mean	43.373235	steps	
+R	repeat_c_rmq_psi	cross_check	reference	label	first combination of this process: the others are compared with it
+R	repeat_c_rmq_psi	timed_links	200000	count	of 200000 sampled; time cap 4 s
+R	repeat_c_rmq_psi	median_ns	616	ns	raw per-link timing (includes the timer floor)
+R	repeat_c_rmq_psi	p99_ns	1081	ns	raw
+R	repeat_c_rmq_psi	max_ns	77723	ns	raw
+R	repeat_c_rmq_psi	median_net_ns	594	ns	median minus the timer floor
+R	repeat_c_rmq_psi	p99_net_ns	1059	ns	p99 minus the timer floor
+R	repeat_c_rmq_psi	mean_batch_ns	814.371035	ns	mean over 200000 links of sample B, no per-link timer
+R	links	peak_rss_hwm	894590976	bytes	VmHWM of the process
+# process input=rep_10m run=3 commit=71c5dabaf3-dirty load=1.00 2026-11-09T16:04:56Z options: --fanout 16 --kernels rmq,psv --sources psi --sweeps false --search-check 0
+R	links	input_chars	10000000	chars	rep_10m; sample 200000 seed 1; fanout 16; rotate 4
+R	links	build_total_s	1.204504759	s	EsaIndex.Build (tagged child table), cold JIT
+R	nav	build_isa_s	0.089423414	s	ISA from SA: one scattered pass (cold JIT)
+R	nav	build_psi_s	0.092765558	s	Psi from SA and ISA: one gather pass (add build_isa_s for the cost from SA alone)
+R	nav	build_rmq_s	0.032431366	s	block-minima pyramid, fanout 16, 6 levels: one sequential pass over the compact LCP
+R	nav	isa_bytes_per_char	4.0000004	bytes/char	
+R	nav	psi_bytes_per_char	4.0000004	bytes/char	
+R	nav	rmq_bytes_per_char	0.266668	bytes/char	pyramid only; the LCP array (2.000 B/char, kind U16) is shared with the index
+R	nav	lcp_kind	U16	kind	escapes 0
+R	nodes	internal_nodes	8568247	count	enumerate_s 0.436656128; header statistic 8568247
+R	timer	per_link_timer_floor_ns	22	ns	median of back-to-back Stopwatch.GetTimestamp pairs; the per-link medians below are raw (include it) and the *_net rows subtract it
+R	nodes	sample_nodes	200000	count	sample A (per-link) and B (batch) of 200000 each, warm-up 4000
+R	sample_c_rmq_psi	first_link_ns	3776831	ns	very first call of this kernel in the process (JIT + first touch); the first kernel also pays the JIT of the shared readers
+R	sample_c2_psv_psi	first_link_ns	456519	ns	very first call of this kernel in the process (JIT + first touch); the first kernel also pays the JIT of the shared readers
+R	links	warmup_links	15046400	count	round robin over all kernels for at least 1 s before the first timed pass
+R	sample_c_rmq_psi	counting_pass_s	0.162698319	s	steps and results of the sample (BudgetSteps instantiation)
+R	sample_c_rmq_psi	steps_links	200000	count	counted of 200000 sampled (total step budget 400000000)
+R	sample_c_rmq_psi	steps_budget_exceeded	0	count	links that needed more than 3000000 steps; the sample stops at the total budget
+R	sample_c_rmq_psi	steps_median	43	steps	array entries read
+R	sample_c_rmq_psi	steps_p99	112	steps	
+R	sample_c_rmq_psi	steps_max	310	steps	
+R	sample_c_rmq_psi	steps_mean	43.373235	steps	
+R	sample_c_rmq_psi	cross_check	reference	label	first combination of this process: the others are compared with it
+R	sample_c_rmq_psi	timed_links	200000	count	of 200000 sampled; time cap 4 s
+R	sample_c_rmq_psi	median_ns	682	ns	raw per-link timing (includes the timer floor)
+R	sample_c_rmq_psi	p99_ns	1376	ns	raw
+R	sample_c_rmq_psi	max_ns	110112	ns	raw
+R	sample_c_rmq_psi	median_net_ns	660	ns	median minus the timer floor
+R	sample_c_rmq_psi	p99_net_ns	1354	ns	p99 minus the timer floor
+R	sample_c_rmq_psi	mean_batch_ns	707.81573	ns	mean over 200000 links of sample B, no per-link timer
+R	sample_c2_psv_psi	counting_pass_s	0.056132808	s	steps and results of the sample (BudgetSteps instantiation)
+R	sample_c2_psv_psi	steps_links	200000	count	counted of 200000 sampled (total step budget 400000000)
+R	sample_c2_psv_psi	steps_budget_exceeded	0	count	links that needed more than 3000000 steps; the sample stops at the total budget
+R	sample_c2_psv_psi	steps_median	2	steps	array entries read
+R	sample_c2_psv_psi	steps_p99	27	steps	
+R	sample_c2_psv_psi	steps_max	79	steps	
+R	sample_c2_psv_psi	steps_mean	2.69444	steps	
+R	sample_c2_psv_psi	cross_check_different	0	count	of 200000 comparable links (both finished) against sample_c_rmq_psi
+R	sample_c2_psv_psi	timed_links	200000	count	of 200000 sampled; time cap 4 s
+R	sample_c2_psv_psi	median_ns	331	ns	raw per-link timing (includes the timer floor)
+R	sample_c2_psv_psi	p99_ns	693	ns	raw
+R	sample_c2_psv_psi	max_ns	205704	ns	raw
+R	sample_c2_psv_psi	median_net_ns	309	ns	median minus the timer floor
+R	sample_c2_psv_psi	p99_net_ns	671	ns	p99 minus the timer floor
+R	sample_c2_psv_psi	mean_batch_ns	275.77006	ns	mean over 200000 links of sample B, no per-link timer
+R	repeat_c_rmq_psi	counting_pass_s	0.140337591	s	steps and results of the sample (BudgetSteps instantiation)
+R	repeat_c_rmq_psi	steps_links	200000	count	counted of 200000 sampled (total step budget 400000000)
+R	repeat_c_rmq_psi	steps_budget_exceeded	0	count	links that needed more than 3000000 steps; the sample stops at the total budget
+R	repeat_c_rmq_psi	steps_median	43	steps	array entries read
+R	repeat_c_rmq_psi	steps_p99	112	steps	
+R	repeat_c_rmq_psi	steps_max	310	steps	
+R	repeat_c_rmq_psi	steps_mean	43.373235	steps	
+R	repeat_c_rmq_psi	cross_check	reference	label	first combination of this process: the others are compared with it
+R	repeat_c_rmq_psi	timed_links	200000	count	of 200000 sampled; time cap 4 s
+R	repeat_c_rmq_psi	median_ns	540	ns	raw per-link timing (includes the timer floor)
+R	repeat_c_rmq_psi	p99_ns	974	ns	raw
+R	repeat_c_rmq_psi	max_ns	80120	ns	raw
+R	repeat_c_rmq_psi	median_net_ns	518	ns	median minus the timer floor
+R	repeat_c_rmq_psi	p99_net_ns	952	ns	p99 minus the timer floor
+R	repeat_c_rmq_psi	mean_batch_ns	717.005685	ns	mean over 200000 links of sample B, no per-link timer
+R	links	peak_rss_hwm	894685184	bytes	VmHWM of the process
+# process input=dna_10m run=1 commit=71c5dabaf3-dirty load=1.00 2026-11-09T16:05:01Z options: --fanout 32 --kernels rmq,psv --sources psi --sweeps false --search-check 0
+R	links	input_chars	10000000	chars	dna_10m; sample 200000 seed 1; fanout 32; rotate 0
+R	links	build_total_s	1.025517574	s	EsaIndex.Build (tagged child table), cold JIT
+R	nav	build_isa_s	0.07903373	s	ISA from SA: one scattered pass (cold JIT)
+R	nav	build_psi_s	0.096792759	s	Psi from SA and ISA: one gather pass (add build_isa_s for the cost from SA alone)
+R	nav	build_rmq_s	0.023242823	s	block-minima pyramid, fanout 32, 5 levels: one sequential pass over the compact LCP
+R	nav	isa_bytes_per_char	4.0000004	bytes/char	
+R	nav	psi_bytes_per_char	4.0000004	bytes/char	
+R	nav	rmq_bytes_per_char	0.1290336	bytes/char	pyramid only; the LCP array (1.000 B/char, kind U8) is shared with the index
+R	nav	lcp_kind	U8	kind	escapes 0
+R	nodes	internal_nodes	6229745	count	enumerate_s 0.303162004; header statistic 6229745
+R	timer	per_link_timer_floor_ns	22	ns	median of back-to-back Stopwatch.GetTimestamp pairs; the per-link medians below are raw (include it) and the *_net rows subtract it
+R	nodes	sample_nodes	200000	count	sample A (per-link) and B (batch) of 200000 each, warm-up 4000
+R	sample_c_rmq_psi	first_link_ns	4192879	ns	very first call of this kernel in the process (JIT + first touch); the first kernel also pays the JIT of the shared readers
+R	sample_c2_psv_psi	first_link_ns	437932	ns	very first call of this kernel in the process (JIT + first touch); the first kernel also pays the JIT of the shared readers
+R	links	warmup_links	14736800	count	round robin over all kernels for at least 1 s before the first timed pass
+R	sample_c_rmq_psi	counting_pass_s	0.157730469	s	steps and results of the sample (BudgetSteps instantiation)
+R	sample_c_rmq_psi	steps_links	200000	count	counted of 200000 sampled (total step budget 400000000)
+R	sample_c_rmq_psi	steps_budget_exceeded	0	count	links that needed more than 3000000 steps; the sample stops at the total budget
+R	sample_c_rmq_psi	steps_median	17	steps	array entries read
+R	sample_c_rmq_psi	steps_p99	180	steps	
+R	sample_c_rmq_psi	steps_max	548	steps	
+R	sample_c_rmq_psi	steps_mean	32.523605	steps	
+R	sample_c_rmq_psi	cross_check	reference	label	first combination of this process: the others are compared with it
+R	sample_c_rmq_psi	timed_links	200000	count	of 200000 sampled; time cap 4 s
+R	sample_c_rmq_psi	median_ns	487	ns	raw per-link timing (includes the timer floor)
+R	sample_c_rmq_psi	p99_ns	1063	ns	raw
+R	sample_c_rmq_psi	max_ns	78744	ns	raw
+R	sample_c_rmq_psi	median_net_ns	465	ns	median minus the timer floor
+R	sample_c_rmq_psi	p99_net_ns	1041	ns	p99 minus the timer floor
+R	sample_c_rmq_psi	mean_batch_ns	667.04734	ns	mean over 200000 links of sample B, no per-link timer
+R	sample_c2_psv_psi	counting_pass_s	0.093406709	s	steps and results of the sample (BudgetSteps instantiation)
+R	sample_c2_psv_psi	steps_links	200000	count	counted of 200000 sampled (total step budget 400000000)
+R	sample_c2_psv_psi	steps_budget_exceeded	0	count	links that needed more than 3000000 steps; the sample stops at the total budget
+R	sample_c2_psv_psi	steps_median	4	steps	array entries read
+R	sample_c2_psv_psi	steps_p99	18	steps	
+R	sample_c2_psv_psi	steps_max	48	steps	
+R	sample_c2_psv_psi	steps_mean	5.079705	steps	
+R	sample_c2_psv_psi	cross_check_different	0	count	of 200000 comparable links (both finished) against sample_c_rmq_psi
+R	sample_c2_psv_psi	timed_links	200000	count	of 200000 sampled; time cap 4 s
+R	sample_c2_psv_psi	median_ns	394	ns	raw per-link timing (includes the timer floor)
+R	sample_c2_psv_psi	p99_ns	670	ns	raw
+R	sample_c2_psv_psi	max_ns	103827	ns	raw
+R	sample_c2_psv_psi	median_net_ns	372	ns	median minus the timer floor
+R	sample_c2_psv_psi	p99_net_ns	648	ns	p99 minus the timer floor
+R	sample_c2_psv_psi	mean_batch_ns	448.017095	ns	mean over 200000 links of sample B, no per-link timer
+R	repeat_c_rmq_psi	counting_pass_s	0.133294343	s	steps and results of the sample (BudgetSteps instantiation)
+R	repeat_c_rmq_psi	steps_links	200000	count	counted of 200000 sampled (total step budget 400000000)
+R	repeat_c_rmq_psi	steps_budget_exceeded	0	count	links that needed more than 3000000 steps; the sample stops at the total budget
+R	repeat_c_rmq_psi	steps_median	17	steps	array entries read
+R	repeat_c_rmq_psi	steps_p99	180	steps	
+R	repeat_c_rmq_psi	steps_max	548	steps	
+R	repeat_c_rmq_psi	steps_mean	32.523605	steps	
+R	repeat_c_rmq_psi	cross_check	reference	label	first combination of this process: the others are compared with it
+R	repeat_c_rmq_psi	timed_links	200000	count	of 200000 sampled; time cap 4 s
+R	repeat_c_rmq_psi	median_ns	484	ns	raw per-link timing (includes the timer floor)
+R	repeat_c_rmq_psi	p99_ns	1060	ns	raw
+R	repeat_c_rmq_psi	max_ns	161853	ns	raw
+R	repeat_c_rmq_psi	median_net_ns	462	ns	median minus the timer floor
+R	repeat_c_rmq_psi	p99_net_ns	1038	ns	p99 minus the timer floor
+R	repeat_c_rmq_psi	mean_batch_ns	664.78465	ns	mean over 200000 links of sample B, no per-link timer
+R	links	peak_rss_hwm	604184576	bytes	VmHWM of the process
+# process input=dna_10m run=2 commit=71c5dabaf3-dirty load=1.00 2026-11-09T16:05:05Z options: --fanout 32 --kernels rmq,psv --sources psi --sweeps false --search-check 0
+R	links	input_chars	10000000	chars	dna_10m; sample 200000 seed 1; fanout 32; rotate 2
+R	links	build_total_s	0.954892548	s	EsaIndex.Build (tagged child table), cold JIT
+R	nav	build_isa_s	0.071082876	s	ISA from SA: one scattered pass (cold JIT)
+R	nav	build_psi_s	0.077077295	s	Psi from SA and ISA: one gather pass (add build_isa_s for the cost from SA alone)
+R	nav	build_rmq_s	0.02441131	s	block-minima pyramid, fanout 32, 5 levels: one sequential pass over the compact LCP
+R	nav	isa_bytes_per_char	4.0000004	bytes/char	
+R	nav	psi_bytes_per_char	4.0000004	bytes/char	
+R	nav	rmq_bytes_per_char	0.1290336	bytes/char	pyramid only; the LCP array (1.000 B/char, kind U8) is shared with the index
+R	nav	lcp_kind	U8	kind	escapes 0
+R	nodes	internal_nodes	6229745	count	enumerate_s 0.295296408; header statistic 6229745
+R	timer	per_link_timer_floor_ns	22	ns	median of back-to-back Stopwatch.GetTimestamp pairs; the per-link medians below are raw (include it) and the *_net rows subtract it
+R	nodes	sample_nodes	200000	count	sample A (per-link) and B (batch) of 200000 each, warm-up 4000
+R	sample_c_rmq_psi	first_link_ns	3962215	ns	very first call of this kernel in the process (JIT + first touch); the first kernel also pays the JIT of the shared readers
+R	sample_c2_psv_psi	first_link_ns	502676	ns	very first call of this kernel in the process (JIT + first touch); the first kernel also pays the JIT of the shared readers
+R	links	warmup_links	14498400	count	round robin over all kernels for at least 1 s before the first timed pass
+R	sample_c_rmq_psi	counting_pass_s	0.145638376	s	steps and results of the sample (BudgetSteps instantiation)
+R	sample_c_rmq_psi	steps_links	200000	count	counted of 200000 sampled (total step budget 400000000)
+R	sample_c_rmq_psi	steps_budget_exceeded	0	count	links that needed more than 3000000 steps; the sample stops at the total budget
+R	sample_c_rmq_psi	steps_median	17	steps	array entries read
+R	sample_c_rmq_psi	steps_p99	180	steps	
+R	sample_c_rmq_psi	steps_max	548	steps	
+R	sample_c_rmq_psi	steps_mean	32.523605	steps	
+R	sample_c_rmq_psi	cross_check	reference	label	first combination of this process: the others are compared with it
+R	sample_c_rmq_psi	timed_links	200000	count	of 200000 sampled; time cap 4 s
+R	sample_c_rmq_psi	median_ns	434	ns	raw per-link timing (includes the timer floor)
+R	sample_c_rmq_psi	p99_ns	970	ns	raw
+R	sample_c_rmq_psi	max_ns	59428	ns	raw
+R	sample_c_rmq_psi	median_net_ns	412	ns	median minus the timer floor
+R	sample_c_rmq_psi	p99_net_ns	948	ns	p99 minus the timer floor
+R	sample_c_rmq_psi	mean_batch_ns	719.02641	ns	mean over 200000 links of sample B, no per-link timer
+R	sample_c2_psv_psi	counting_pass_s	0.091645673	s	steps and results of the sample (BudgetSteps instantiation)
+R	sample_c2_psv_psi	steps_links	200000	count	counted of 200000 sampled (total step budget 400000000)
+R	sample_c2_psv_psi	steps_budget_exceeded	0	count	links that needed more than 3000000 steps; the sample stops at the total budget
+R	sample_c2_psv_psi	steps_median	4	steps	array entries read
+R	sample_c2_psv_psi	steps_p99	18	steps	
+R	sample_c2_psv_psi	steps_max	48	steps	
+R	sample_c2_psv_psi	steps_mean	5.079705	steps	
+R	sample_c2_psv_psi	cross_check_different	0	count	of 200000 comparable links (both finished) against sample_c_rmq_psi
+R	sample_c2_psv_psi	timed_links	200000	count	of 200000 sampled; time cap 4 s
+R	sample_c2_psv_psi	median_ns	378	ns	raw per-link timing (includes the timer floor)
+R	sample_c2_psv_psi	p99_ns	679	ns	raw
+R	sample_c2_psv_psi	max_ns	74036	ns	raw
+R	sample_c2_psv_psi	median_net_ns	356	ns	median minus the timer floor
+R	sample_c2_psv_psi	p99_net_ns	657	ns	p99 minus the timer floor
+R	sample_c2_psv_psi	mean_batch_ns	422.262995	ns	mean over 200000 links of sample B, no per-link timer
+R	repeat_c_rmq_psi	counting_pass_s	0.128810026	s	steps and results of the sample (BudgetSteps instantiation)
+R	repeat_c_rmq_psi	steps_links	200000	count	counted of 200000 sampled (total step budget 400000000)
+R	repeat_c_rmq_psi	steps_budget_exceeded	0	count	links that needed more than 3000000 steps; the sample stops at the total budget
+R	repeat_c_rmq_psi	steps_median	17	steps	array entries read
+R	repeat_c_rmq_psi	steps_p99	180	steps	
+R	repeat_c_rmq_psi	steps_max	548	steps	
+R	repeat_c_rmq_psi	steps_mean	32.523605	steps	
+R	repeat_c_rmq_psi	cross_check	reference	label	first combination of this process: the others are compared with it
+R	repeat_c_rmq_psi	timed_links	200000	count	of 200000 sampled; time cap 4 s
+R	repeat_c_rmq_psi	median_ns	468	ns	raw per-link timing (includes the timer floor)
+R	repeat_c_rmq_psi	p99_ns	1046	ns	raw
+R	repeat_c_rmq_psi	max_ns	96042	ns	raw
+R	repeat_c_rmq_psi	median_net_ns	446	ns	median minus the timer floor
+R	repeat_c_rmq_psi	p99_net_ns	1024	ns	p99 minus the timer floor
+R	repeat_c_rmq_psi	mean_batch_ns	612.025795	ns	mean over 200000 links of sample B, no per-link timer
+R	links	peak_rss_hwm	604106752	bytes	VmHWM of the process
+# process input=dna_10m run=3 commit=71c5dabaf3-dirty load=1.00 2026-11-09T16:05:09Z options: --fanout 32 --kernels rmq,psv --sources psi --sweeps false --search-check 0
+R	links	input_chars	10000000	chars	dna_10m; sample 200000 seed 1; fanout 32; rotate 4
+R	links	build_total_s	1.025155387	s	EsaIndex.Build (tagged child table), cold JIT
+R	nav	build_isa_s	0.077419038	s	ISA from SA: one scattered pass (cold JIT)
+R	nav	build_psi_s	0.085387394	s	Psi from SA and ISA: one gather pass (add build_isa_s for the cost from SA alone)
+R	nav	build_rmq_s	0.075115134	s	block-minima pyramid, fanout 32, 5 levels: one sequential pass over the compact LCP
+R	nav	isa_bytes_per_char	4.0000004	bytes/char	
+R	nav	psi_bytes_per_char	4.0000004	bytes/char	
+R	nav	rmq_bytes_per_char	0.1290336	bytes/char	pyramid only; the LCP array (1.000 B/char, kind U8) is shared with the index
+R	nav	lcp_kind	U8	kind	escapes 0
+R	nodes	internal_nodes	6229745	count	enumerate_s 0.301274907; header statistic 6229745
+R	timer	per_link_timer_floor_ns	22	ns	median of back-to-back Stopwatch.GetTimestamp pairs; the per-link medians below are raw (include it) and the *_net rows subtract it
+R	nodes	sample_nodes	200000	count	sample A (per-link) and B (batch) of 200000 each, warm-up 4000
+R	sample_c_rmq_psi	first_link_ns	3992545	ns	very first call of this kernel in the process (JIT + first touch); the first kernel also pays the JIT of the shared readers
+R	sample_c2_psv_psi	first_link_ns	454257	ns	very first call of this kernel in the process (JIT + first touch); the first kernel also pays the JIT of the shared readers
+R	links	warmup_links	14508800	count	round robin over all kernels for at least 1 s before the first timed pass
+R	sample_c_rmq_psi	counting_pass_s	0.15123724	s	steps and results of the sample (BudgetSteps instantiation)
+R	sample_c_rmq_psi	steps_links	200000	count	counted of 200000 sampled (total step budget 400000000)
+R	sample_c_rmq_psi	steps_budget_exceeded	0	count	links that needed more than 3000000 steps; the sample stops at the total budget
+R	sample_c_rmq_psi	steps_median	17	steps	array entries read
+R	sample_c_rmq_psi	steps_p99	180	steps	
+R	sample_c_rmq_psi	steps_max	548	steps	
+R	sample_c_rmq_psi	steps_mean	32.523605	steps	
+R	sample_c_rmq_psi	cross_check	reference	label	first combination of this process: the others are compared with it
+R	sample_c_rmq_psi	timed_links	200000	count	of 200000 sampled; time cap 4 s
+R	sample_c_rmq_psi	median_ns	474	ns	raw per-link timing (includes the timer floor)
+R	sample_c_rmq_psi	p99_ns	1050	ns	raw
+R	sample_c_rmq_psi	max_ns	62068	ns	raw
+R	sample_c_rmq_psi	median_net_ns	452	ns	median minus the timer floor
+R	sample_c_rmq_psi	p99_net_ns	1028	ns	p99 minus the timer floor
+R	sample_c_rmq_psi	mean_batch_ns	659.659105	ns	mean over 200000 links of sample B, no per-link timer
+R	sample_c2_psv_psi	counting_pass_s	0.092744436	s	steps and results of the sample (BudgetSteps instantiation)
+R	sample_c2_psv_psi	steps_links	200000	count	counted of 200000 sampled (total step budget 400000000)
+R	sample_c2_psv_psi	steps_budget_exceeded	0	count	links that needed more than 3000000 steps; the sample stops at the total budget
+R	sample_c2_psv_psi	steps_median	4	steps	array entries read
+R	sample_c2_psv_psi	steps_p99	18	steps	
+R	sample_c2_psv_psi	steps_max	48	steps	
+R	sample_c2_psv_psi	steps_mean	5.079705	steps	
+R	sample_c2_psv_psi	cross_check_different	0	count	of 200000 comparable links (both finished) against sample_c_rmq_psi
+R	sample_c2_psv_psi	timed_links	200000	count	of 200000 sampled; time cap 4 s
+R	sample_c2_psv_psi	median_ns	392	ns	raw per-link timing (includes the timer floor)
+R	sample_c2_psv_psi	p99_ns	670	ns	raw
+R	sample_c2_psv_psi	max_ns	59149	ns	raw
+R	sample_c2_psv_psi	median_net_ns	370	ns	median minus the timer floor
+R	sample_c2_psv_psi	p99_net_ns	648	ns	p99 minus the timer floor
+R	sample_c2_psv_psi	mean_batch_ns	427.24453	ns	mean over 200000 links of sample B, no per-link timer
+R	repeat_c_rmq_psi	counting_pass_s	0.130213647	s	steps and results of the sample (BudgetSteps instantiation)
+R	repeat_c_rmq_psi	steps_links	200000	count	counted of 200000 sampled (total step budget 400000000)
+R	repeat_c_rmq_psi	steps_budget_exceeded	0	count	links that needed more than 3000000 steps; the sample stops at the total budget
+R	repeat_c_rmq_psi	steps_median	17	steps	array entries read
+R	repeat_c_rmq_psi	steps_p99	180	steps	
+R	repeat_c_rmq_psi	steps_max	548	steps	
+R	repeat_c_rmq_psi	steps_mean	32.523605	steps	
+R	repeat_c_rmq_psi	cross_check	reference	label	first combination of this process: the others are compared with it
+R	repeat_c_rmq_psi	timed_links	200000	count	of 200000 sampled; time cap 4 s
+R	repeat_c_rmq_psi	median_ns	476	ns	raw per-link timing (includes the timer floor)
+R	repeat_c_rmq_psi	p99_ns	1068	ns	raw
+R	repeat_c_rmq_psi	max_ns	118270	ns	raw
+R	repeat_c_rmq_psi	median_net_ns	454	ns	median minus the timer floor
+R	repeat_c_rmq_psi	p99_net_ns	1046	ns	p99 minus the timer floor
+R	repeat_c_rmq_psi	mean_batch_ns	659.44404	ns	mean over 200000 links of sample B, no per-link timer
+R	links	peak_rss_hwm	604172288	bytes	VmHWM of the process
+# process input=rep_10m run=1 commit=71c5dabaf3-dirty load=1.00 2026-11-09T16:05:13Z options: --fanout 32 --kernels rmq,psv --sources psi --sweeps false --search-check 0
+R	links	input_chars	10000000	chars	rep_10m; sample 200000 seed 1; fanout 32; rotate 0
+R	links	build_total_s	1.191935133	s	EsaIndex.Build (tagged child table), cold JIT
+R	nav	build_isa_s	0.091334901	s	ISA from SA: one scattered pass (cold JIT)
+R	nav	build_psi_s	0.095914267	s	Psi from SA and ISA: one gather pass (add build_isa_s for the cost from SA alone)
+R	nav	build_rmq_s	0.032106475	s	block-minima pyramid, fanout 32, 5 levels: one sequential pass over the compact LCP
+R	nav	isa_bytes_per_char	4.0000004	bytes/char	
+R	nav	psi_bytes_per_char	4.0000004	bytes/char	
+R	nav	rmq_bytes_per_char	0.1290336	bytes/char	pyramid only; the LCP array (2.000 B/char, kind U16) is shared with the index
+R	nav	lcp_kind	U16	kind	escapes 0
+R	nodes	internal_nodes	8568247	count	enumerate_s 0.4381657; header statistic 8568247
+R	timer	per_link_timer_floor_ns	22	ns	median of back-to-back Stopwatch.GetTimestamp pairs; the per-link medians below are raw (include it) and the *_net rows subtract it
+R	nodes	sample_nodes	200000	count	sample A (per-link) and B (batch) of 200000 each, warm-up 4000
+R	sample_c_rmq_psi	first_link_ns	3841877	ns	very first call of this kernel in the process (JIT + first touch); the first kernel also pays the JIT of the shared readers
+R	sample_c2_psv_psi	first_link_ns	472158	ns	very first call of this kernel in the process (JIT + first touch); the first kernel also pays the JIT of the shared readers
+R	links	warmup_links	9754400	count	round robin over all kernels for at least 1 s before the first timed pass
+R	sample_c_rmq_psi	counting_pass_s	0.197766848	s	steps and results of the sample (BudgetSteps instantiation)
+R	sample_c_rmq_psi	steps_links	200000	count	counted of 200000 sampled (total step budget 400000000)
+R	sample_c_rmq_psi	steps_budget_exceeded	0	count	links that needed more than 3000000 steps; the sample stops at the total budget
+R	sample_c_rmq_psi	steps_median	62	steps	array entries read
+R	sample_c_rmq_psi	steps_p99	178	steps	
+R	sample_c_rmq_psi	steps_max	458	steps	
+R	sample_c_rmq_psi	steps_mean	65.11553	steps	
+R	sample_c_rmq_psi	cross_check	reference	label	first combination of this process: the others are compared with it
+R	sample_c_rmq_psi	timed_links	200000	count	of 200000 sampled; time cap 4 s
+R	sample_c_rmq_psi	median_ns	684	ns	raw per-link timing (includes the timer floor)
+R	sample_c_rmq_psi	p99_ns	1262	ns	raw
+R	sample_c_rmq_psi	max_ns	128964	ns	raw
+R	sample_c_rmq_psi	median_net_ns	662	ns	median minus the timer floor
+R	sample_c_rmq_psi	p99_net_ns	1240	ns	p99 minus the timer floor
+R	sample_c_rmq_psi	mean_batch_ns	865.37426	ns	mean over 200000 links of sample B, no per-link timer
+R	sample_c2_psv_psi	counting_pass_s	0.05903939	s	steps and results of the sample (BudgetSteps instantiation)
+R	sample_c2_psv_psi	steps_links	200000	count	counted of 200000 sampled (total step budget 400000000)
+R	sample_c2_psv_psi	steps_budget_exceeded	0	count	links that needed more than 3000000 steps; the sample stops at the total budget
+R	sample_c2_psv_psi	steps_median	2	steps	array entries read
+R	sample_c2_psv_psi	steps_p99	38	steps	
+R	sample_c2_psv_psi	steps_max	123	steps	
+R	sample_c2_psv_psi	steps_mean	2.97272	steps	
+R	sample_c2_psv_psi	cross_check_different	0	count	of 200000 comparable links (both finished) against sample_c_rmq_psi
+R	sample_c2_psv_psi	timed_links	200000	count	of 200000 sampled; time cap 4 s
+R	sample_c2_psv_psi	median_ns	389	ns	raw per-link timing (includes the timer floor)
+R	sample_c2_psv_psi	p99_ns	782	ns	raw
+R	sample_c2_psv_psi	max_ns	391832	ns	raw
+R	sample_c2_psv_psi	median_net_ns	367	ns	median minus the timer floor
+R	sample_c2_psv_psi	p99_net_ns	760	ns	p99 minus the timer floor
+R	sample_c2_psv_psi	mean_batch_ns	323.73344999999995	ns	mean over 200000 links of sample B, no per-link timer
+R	repeat_c_rmq_psi	counting_pass_s	0.14991867	s	steps and results of the sample (BudgetSteps instantiation)
+R	repeat_c_rmq_psi	steps_links	200000	count	counted of 200000 sampled (total step budget 400000000)
+R	repeat_c_rmq_psi	steps_budget_exceeded	0	count	links that needed more than 3000000 steps; the sample stops at the total budget
+R	repeat_c_rmq_psi	steps_median	62	steps	array entries read
+R	repeat_c_rmq_psi	steps_p99	178	steps	
+R	repeat_c_rmq_psi	steps_max	458	steps	
+R	repeat_c_rmq_psi	steps_mean	65.11553	steps	
+R	repeat_c_rmq_psi	cross_check	reference	label	first combination of this process: the others are compared with it
+R	repeat_c_rmq_psi	timed_links	200000	count	of 200000 sampled; time cap 4 s
+R	repeat_c_rmq_psi	median_ns	573	ns	raw per-link timing (includes the timer floor)
+R	repeat_c_rmq_psi	p99_ns	1083	ns	raw
+R	repeat_c_rmq_psi	max_ns	119572	ns	raw
+R	repeat_c_rmq_psi	median_net_ns	551	ns	median minus the timer floor
+R	repeat_c_rmq_psi	p99_net_ns	1061	ns	p99 minus the timer floor
+R	repeat_c_rmq_psi	mean_batch_ns	738.05394	ns	mean over 200000 links of sample B, no per-link timer
+R	links	peak_rss_hwm	893210624	bytes	VmHWM of the process
+# process input=rep_10m run=2 commit=71c5dabaf3-dirty load=1.00 2026-11-09T16:05:18Z options: --fanout 32 --kernels rmq,psv --sources psi --sweeps false --search-check 0
+R	links	input_chars	10000000	chars	rep_10m; sample 200000 seed 1; fanout 32; rotate 2
+R	links	build_total_s	1.037130286	s	EsaIndex.Build (tagged child table), cold JIT
+R	nav	build_isa_s	0.077858495	s	ISA from SA: one scattered pass (cold JIT)
+R	nav	build_psi_s	0.080872732	s	Psi from SA and ISA: one gather pass (add build_isa_s for the cost from SA alone)
+R	nav	build_rmq_s	0.033395435	s	block-minima pyramid, fanout 32, 5 levels: one sequential pass over the compact LCP
+R	nav	isa_bytes_per_char	4.0000004	bytes/char	
+R	nav	psi_bytes_per_char	4.0000004	bytes/char	
+R	nav	rmq_bytes_per_char	0.1290336	bytes/char	pyramid only; the LCP array (2.000 B/char, kind U16) is shared with the index
+R	nav	lcp_kind	U16	kind	escapes 0
+R	nodes	internal_nodes	8568247	count	enumerate_s 0.417493732; header statistic 8568247
+R	timer	per_link_timer_floor_ns	22	ns	median of back-to-back Stopwatch.GetTimestamp pairs; the per-link medians below are raw (include it) and the *_net rows subtract it
+R	nodes	sample_nodes	200000	count	sample A (per-link) and B (batch) of 200000 each, warm-up 4000
+R	sample_c_rmq_psi	first_link_ns	3875101	ns	very first call of this kernel in the process (JIT + first touch); the first kernel also pays the JIT of the shared readers
+R	sample_c2_psv_psi	first_link_ns	494613	ns	very first call of this kernel in the process (JIT + first touch); the first kernel also pays the JIT of the shared readers
+R	links	warmup_links	9262400	count	round robin over all kernels for at least 1 s before the first timed pass
+R	sample_c_rmq_psi	counting_pass_s	0.199077047	s	steps and results of the sample (BudgetSteps instantiation)
+R	sample_c_rmq_psi	steps_links	200000	count	counted of 200000 sampled (total step budget 400000000)
+R	sample_c_rmq_psi	steps_budget_exceeded	0	count	links that needed more than 3000000 steps; the sample stops at the total budget
+R	sample_c_rmq_psi	steps_median	62	steps	array entries read
+R	sample_c_rmq_psi	steps_p99	178	steps	
+R	sample_c_rmq_psi	steps_max	458	steps	
+R	sample_c_rmq_psi	steps_mean	65.11553	steps	
+R	sample_c_rmq_psi	cross_check	reference	label	first combination of this process: the others are compared with it
+R	sample_c_rmq_psi	timed_links	200000	count	of 200000 sampled; time cap 4 s
+R	sample_c_rmq_psi	median_ns	693	ns	raw per-link timing (includes the timer floor)
+R	sample_c_rmq_psi	p99_ns	1288	ns	raw
+R	sample_c_rmq_psi	max_ns	79380	ns	raw
+R	sample_c_rmq_psi	median_net_ns	671	ns	median minus the timer floor
+R	sample_c_rmq_psi	p99_net_ns	1266	ns	p99 minus the timer floor
+R	sample_c_rmq_psi	mean_batch_ns	865.99213	ns	mean over 200000 links of sample B, no per-link timer
+R	sample_c2_psv_psi	counting_pass_s	0.066116963	s	steps and results of the sample (BudgetSteps instantiation)
+R	sample_c2_psv_psi	steps_links	200000	count	counted of 200000 sampled (total step budget 400000000)
+R	sample_c2_psv_psi	steps_budget_exceeded	0	count	links that needed more than 3000000 steps; the sample stops at the total budget
+R	sample_c2_psv_psi	steps_median	2	steps	array entries read
+R	sample_c2_psv_psi	steps_p99	38	steps	
+R	sample_c2_psv_psi	steps_max	123	steps	
+R	sample_c2_psv_psi	steps_mean	2.97272	steps	
+R	sample_c2_psv_psi	cross_check_different	0	count	of 200000 comparable links (both finished) against sample_c_rmq_psi
+R	sample_c2_psv_psi	timed_links	200000	count	of 200000 sampled; time cap 4 s
+R	sample_c2_psv_psi	median_ns	433	ns	raw per-link timing (includes the timer floor)
+R	sample_c2_psv_psi	p99_ns	855	ns	raw
+R	sample_c2_psv_psi	max_ns	105733	ns	raw
+R	sample_c2_psv_psi	median_net_ns	411	ns	median minus the timer floor
+R	sample_c2_psv_psi	p99_net_ns	833	ns	p99 minus the timer floor
+R	sample_c2_psv_psi	mean_batch_ns	320.625555	ns	mean over 200000 links of sample B, no per-link timer
+R	repeat_c_rmq_psi	counting_pass_s	0.168407976	s	steps and results of the sample (BudgetSteps instantiation)
+R	repeat_c_rmq_psi	steps_links	200000	count	counted of 200000 sampled (total step budget 400000000)
+R	repeat_c_rmq_psi	steps_budget_exceeded	0	count	links that needed more than 3000000 steps; the sample stops at the total budget
+R	repeat_c_rmq_psi	steps_median	62	steps	array entries read
+R	repeat_c_rmq_psi	steps_p99	178	steps	
+R	repeat_c_rmq_psi	steps_max	458	steps	
+R	repeat_c_rmq_psi	steps_mean	65.11553	steps	
+R	repeat_c_rmq_psi	cross_check	reference	label	first combination of this process: the others are compared with it
+R	repeat_c_rmq_psi	timed_links	200000	count	of 200000 sampled; time cap 4 s
+R	repeat_c_rmq_psi	median_ns	673	ns	raw per-link timing (includes the timer floor)
+R	repeat_c_rmq_psi	p99_ns	1284	ns	raw
+R	repeat_c_rmq_psi	max_ns	100924	ns	raw
+R	repeat_c_rmq_psi	median_net_ns	651	ns	median minus the timer floor
+R	repeat_c_rmq_psi	p99_net_ns	1262	ns	p99 minus the timer floor
+R	repeat_c_rmq_psi	mean_batch_ns	939.925845	ns	mean over 200000 links of sample B, no per-link timer
+R	links	peak_rss_hwm	893251584	bytes	VmHWM of the process
+# process input=rep_10m run=3 commit=71c5dabaf3-dirty load=1.00 2026-11-09T16:05:22Z options: --fanout 32 --kernels rmq,psv --sources psi --sweeps false --search-check 0
+R	links	input_chars	10000000	chars	rep_10m; sample 200000 seed 1; fanout 32; rotate 4
+R	links	build_total_s	1.179645826	s	EsaIndex.Build (tagged child table), cold JIT
+R	nav	build_isa_s	0.088925494	s	ISA from SA: one scattered pass (cold JIT)
+R	nav	build_psi_s	0.092507854	s	Psi from SA and ISA: one gather pass (add build_isa_s for the cost from SA alone)
+R	nav	build_rmq_s	0.031834791	s	block-minima pyramid, fanout 32, 5 levels: one sequential pass over the compact LCP
+R	nav	isa_bytes_per_char	4.0000004	bytes/char	
+R	nav	psi_bytes_per_char	4.0000004	bytes/char	
+R	nav	rmq_bytes_per_char	0.1290336	bytes/char	pyramid only; the LCP array (2.000 B/char, kind U16) is shared with the index
+R	nav	lcp_kind	U16	kind	escapes 0
+R	nodes	internal_nodes	8568247	count	enumerate_s 0.467417086; header statistic 8568247
+R	timer	per_link_timer_floor_ns	22	ns	median of back-to-back Stopwatch.GetTimestamp pairs; the per-link medians below are raw (include it) and the *_net rows subtract it
+R	nodes	sample_nodes	200000	count	sample A (per-link) and B (batch) of 200000 each, warm-up 4000
+R	sample_c_rmq_psi	first_link_ns	3777017	ns	very first call of this kernel in the process (JIT + first touch); the first kernel also pays the JIT of the shared readers
+R	sample_c2_psv_psi	first_link_ns	466351	ns	very first call of this kernel in the process (JIT + first touch); the first kernel also pays the JIT of the shared readers
+R	links	warmup_links	9796000	count	round robin over all kernels for at least 1 s before the first timed pass
+R	sample_c_rmq_psi	counting_pass_s	0.198473765	s	steps and results of the sample (BudgetSteps instantiation)
+R	sample_c_rmq_psi	steps_links	200000	count	counted of 200000 sampled (total step budget 400000000)
+R	sample_c_rmq_psi	steps_budget_exceeded	0	count	links that needed more than 3000000 steps; the sample stops at the total budget
+R	sample_c_rmq_psi	steps_median	62	steps	array entries read
+R	sample_c_rmq_psi	steps_p99	178	steps	
+R	sample_c_rmq_psi	steps_max	458	steps	
+R	sample_c_rmq_psi	steps_mean	65.11553	steps	
+R	sample_c_rmq_psi	cross_check	reference	label	first combination of this process: the others are compared with it
+R	sample_c_rmq_psi	timed_links	200000	count	of 200000 sampled; time cap 4 s
+R	sample_c_rmq_psi	median_ns	715	ns	raw per-link timing (includes the timer floor)
+R	sample_c_rmq_psi	p99_ns	1616	ns	raw
+R	sample_c_rmq_psi	max_ns	57876	ns	raw
+R	sample_c_rmq_psi	median_net_ns	693	ns	median minus the timer floor
+R	sample_c_rmq_psi	p99_net_ns	1594	ns	p99 minus the timer floor
+R	sample_c_rmq_psi	mean_batch_ns	903.714365	ns	mean over 200000 links of sample B, no per-link timer
+R	sample_c2_psv_psi	counting_pass_s	0.067758261	s	steps and results of the sample (BudgetSteps instantiation)
+R	sample_c2_psv_psi	steps_links	200000	count	counted of 200000 sampled (total step budget 400000000)
+R	sample_c2_psv_psi	steps_budget_exceeded	0	count	links that needed more than 3000000 steps; the sample stops at the total budget
+R	sample_c2_psv_psi	steps_median	2	steps	array entries read
+R	sample_c2_psv_psi	steps_p99	38	steps	
+R	sample_c2_psv_psi	steps_max	123	steps	
+R	sample_c2_psv_psi	steps_mean	2.97272	steps	
+R	sample_c2_psv_psi	cross_check_different	0	count	of 200000 comparable links (both finished) against sample_c_rmq_psi
+R	sample_c2_psv_psi	timed_links	200000	count	of 200000 sampled; time cap 4 s
+R	sample_c2_psv_psi	median_ns	428	ns	raw per-link timing (includes the timer floor)
+R	sample_c2_psv_psi	p99_ns	855	ns	raw
+R	sample_c2_psv_psi	max_ns	1971109	ns	raw
+R	sample_c2_psv_psi	median_net_ns	406	ns	median minus the timer floor
+R	sample_c2_psv_psi	p99_net_ns	833	ns	p99 minus the timer floor
+R	sample_c2_psv_psi	mean_batch_ns	312.976165	ns	mean over 200000 links of sample B, no per-link timer
+R	repeat_c_rmq_psi	counting_pass_s	0.156990595	s	steps and results of the sample (BudgetSteps instantiation)
+R	repeat_c_rmq_psi	steps_links	200000	count	counted of 200000 sampled (total step budget 400000000)
+R	repeat_c_rmq_psi	steps_budget_exceeded	0	count	links that needed more than 3000000 steps; the sample stops at the total budget
+R	repeat_c_rmq_psi	steps_median	62	steps	array entries read
+R	repeat_c_rmq_psi	steps_p99	178	steps	
+R	repeat_c_rmq_psi	steps_max	458	steps	
+R	repeat_c_rmq_psi	steps_mean	65.11553	steps	
+R	repeat_c_rmq_psi	cross_check	reference	label	first combination of this process: the others are compared with it
+R	repeat_c_rmq_psi	timed_links	200000	count	of 200000 sampled; time cap 4 s
+R	repeat_c_rmq_psi	median_ns	601	ns	raw per-link timing (includes the timer floor)
+R	repeat_c_rmq_psi	p99_ns	1141	ns	raw
+R	repeat_c_rmq_psi	max_ns	661196	ns	raw
+R	repeat_c_rmq_psi	median_net_ns	579	ns	median minus the timer floor
+R	repeat_c_rmq_psi	p99_net_ns	1119	ns	p99 minus the timer floor
+R	repeat_c_rmq_psi	mean_batch_ns	768.098555	ns	mean over 200000 links of sample B, no per-link timer
+R	links	peak_rss_hwm	893243392	bytes	VmHWM of the process
+# process input=dna_10m run=1 commit=71c5dabaf3-dirty load=1.00 2026-11-09T16:05:27Z options: --fanout 64 --kernels rmq,psv --sources psi --sweeps false --search-check 0
+R	links	input_chars	10000000	chars	dna_10m; sample 200000 seed 1; fanout 64; rotate 0
+R	links	build_total_s	1.015152171	s	EsaIndex.Build (tagged child table), cold JIT
+R	nav	build_isa_s	0.090536477	s	ISA from SA: one scattered pass (cold JIT)
+R	nav	build_psi_s	0.124854113	s	Psi from SA and ISA: one gather pass (add build_isa_s for the cost from SA alone)
+R	nav	build_rmq_s	0.028884783	s	block-minima pyramid, fanout 64, 4 levels: one sequential pass over the compact LCP
+R	nav	isa_bytes_per_char	4.0000004	bytes/char	
+R	nav	psi_bytes_per_char	4.0000004	bytes/char	
+R	nav	rmq_bytes_per_char	0.0634932	bytes/char	pyramid only; the LCP array (1.000 B/char, kind U8) is shared with the index
+R	nav	lcp_kind	U8	kind	escapes 0
+R	nodes	internal_nodes	6229745	count	enumerate_s 0.299813578; header statistic 6229745
+R	timer	per_link_timer_floor_ns	22	ns	median of back-to-back Stopwatch.GetTimestamp pairs; the per-link medians below are raw (include it) and the *_net rows subtract it
+R	nodes	sample_nodes	200000	count	sample A (per-link) and B (batch) of 200000 each, warm-up 4000
+R	sample_c_rmq_psi	first_link_ns	3898394	ns	very first call of this kernel in the process (JIT + first touch); the first kernel also pays the JIT of the shared readers
+R	sample_c2_psv_psi	first_link_ns	405247	ns	very first call of this kernel in the process (JIT + first touch); the first kernel also pays the JIT of the shared readers
+R	links	warmup_links	13325600	count	round robin over all kernels for at least 1 s before the first timed pass
+R	sample_c_rmq_psi	counting_pass_s	0.138087229	s	steps and results of the sample (BudgetSteps instantiation)
+R	sample_c_rmq_psi	steps_links	200000	count	counted of 200000 sampled (total step budget 400000000)
+R	sample_c_rmq_psi	steps_budget_exceeded	0	count	links that needed more than 3000000 steps; the sample stops at the total budget
+R	sample_c_rmq_psi	steps_median	17	steps	array entries read
+R	sample_c_rmq_psi	steps_p99	284	steps	
+R	sample_c_rmq_psi	steps_max	861	steps	
+R	sample_c_rmq_psi	steps_mean	37.262075	steps	
+R	sample_c_rmq_psi	cross_check	reference	label	first combination of this process: the others are compared with it
+R	sample_c_rmq_psi	timed_links	200000	count	of 200000 sampled; time cap 4 s
+R	sample_c_rmq_psi	median_ns	421	ns	raw per-link timing (includes the timer floor)
+R	sample_c_rmq_psi	p99_ns	1122	ns	raw
+R	sample_c_rmq_psi	max_ns	57567	ns	raw
+R	sample_c_rmq_psi	median_net_ns	399	ns	median minus the timer floor
+R	sample_c_rmq_psi	p99_net_ns	1100	ns	p99 minus the timer floor
+R	sample_c_rmq_psi	mean_batch_ns	586.531605	ns	mean over 200000 links of sample B, no per-link timer
+R	sample_c2_psv_psi	counting_pass_s	0.083769701	s	steps and results of the sample (BudgetSteps instantiation)
+R	sample_c2_psv_psi	steps_links	200000	count	counted of 200000 sampled (total step budget 400000000)
+R	sample_c2_psv_psi	steps_budget_exceeded	0	count	links that needed more than 3000000 steps; the sample stops at the total budget
+R	sample_c2_psv_psi	steps_median	4	steps	array entries read
+R	sample_c2_psv_psi	steps_p99	18	steps	
+R	sample_c2_psv_psi	steps_max	46	steps	
+R	sample_c2_psv_psi	steps_mean	5.030905	steps	
+R	sample_c2_psv_psi	cross_check_different	0	count	of 200000 comparable links (both finished) against sample_c_rmq_psi
+R	sample_c2_psv_psi	timed_links	200000	count	of 200000 sampled; time cap 4 s
+R	sample_c2_psv_psi	median_ns	358	ns	raw per-link timing (includes the timer floor)
+R	sample_c2_psv_psi	p99_ns	621	ns	raw
+R	sample_c2_psv_psi	max_ns	64503	ns	raw
+R	sample_c2_psv_psi	median_net_ns	336	ns	median minus the timer floor
+R	sample_c2_psv_psi	p99_net_ns	599	ns	p99 minus the timer floor
+R	sample_c2_psv_psi	mean_batch_ns	403.38094	ns	mean over 200000 links of sample B, no per-link timer
+R	repeat_c_rmq_psi	counting_pass_s	0.120365937	s	steps and results of the sample (BudgetSteps instantiation)
+R	repeat_c_rmq_psi	steps_links	200000	count	counted of 200000 sampled (total step budget 400000000)
+R	repeat_c_rmq_psi	steps_budget_exceeded	0	count	links that needed more than 3000000 steps; the sample stops at the total budget
+R	repeat_c_rmq_psi	steps_median	17	steps	array entries read
+R	repeat_c_rmq_psi	steps_p99	284	steps	
+R	repeat_c_rmq_psi	steps_max	861	steps	
+R	repeat_c_rmq_psi	steps_mean	37.262075	steps	
+R	repeat_c_rmq_psi	cross_check	reference	label	first combination of this process: the others are compared with it
+R	repeat_c_rmq_psi	timed_links	200000	count	of 200000 sampled; time cap 4 s
+R	repeat_c_rmq_psi	median_ns	421	ns	raw per-link timing (includes the timer floor)
+R	repeat_c_rmq_psi	p99_ns	1125	ns	raw
+R	repeat_c_rmq_psi	max_ns	50791	ns	raw
+R	repeat_c_rmq_psi	median_net_ns	399	ns	median minus the timer floor
+R	repeat_c_rmq_psi	p99_net_ns	1103	ns	p99 minus the timer floor
+R	repeat_c_rmq_psi	mean_batch_ns	651.2556649999999	ns	mean over 200000 links of sample B, no per-link timer
+R	links	peak_rss_hwm	603447296	bytes	VmHWM of the process
+# process input=dna_10m run=2 commit=71c5dabaf3-dirty load=1.00 2026-11-09T16:05:31Z options: --fanout 64 --kernels rmq,psv --sources psi --sweeps false --search-check 0
+R	links	input_chars	10000000	chars	dna_10m; sample 200000 seed 1; fanout 64; rotate 2
+R	links	build_total_s	0.996522421	s	EsaIndex.Build (tagged child table), cold JIT
+R	nav	build_isa_s	0.075733855	s	ISA from SA: one scattered pass (cold JIT)
+R	nav	build_psi_s	0.081612595	s	Psi from SA and ISA: one gather pass (add build_isa_s for the cost from SA alone)
+R	nav	build_rmq_s	0.020773682	s	block-minima pyramid, fanout 64, 4 levels: one sequential pass over the compact LCP
+R	nav	isa_bytes_per_char	4.0000004	bytes/char	
+R	nav	psi_bytes_per_char	4.0000004	bytes/char	
+R	nav	rmq_bytes_per_char	0.0634932	bytes/char	pyramid only; the LCP array (1.000 B/char, kind U8) is shared with the index
+R	nav	lcp_kind	U8	kind	escapes 0
+R	nodes	internal_nodes	6229745	count	enumerate_s 0.297204412; header statistic 6229745
+R	timer	per_link_timer_floor_ns	22	ns	median of back-to-back Stopwatch.GetTimestamp pairs; the per-link medians below are raw (include it) and the *_net rows subtract it
+R	nodes	sample_nodes	200000	count	sample A (per-link) and B (batch) of 200000 each, warm-up 4000
+R	sample_c_rmq_psi	first_link_ns	3991871	ns	very first call of this kernel in the process (JIT + first touch); the first kernel also pays the JIT of the shared readers
+R	sample_c2_psv_psi	first_link_ns	428949	ns	very first call of this kernel in the process (JIT + first touch); the first kernel also pays the JIT of the shared readers
+R	links	warmup_links	12968800	count	round robin over all kernels for at least 1 s before the first timed pass
+R	sample_c_rmq_psi	counting_pass_s	0.141333216	s	steps and results of the sample (BudgetSteps instantiation)
+R	sample_c_rmq_psi	steps_links	200000	count	counted of 200000 sampled (total step budget 400000000)
+R	sample_c_rmq_psi	steps_budget_exceeded	0	count	links that needed more than 3000000 steps; the sample stops at the total budget
+R	sample_c_rmq_psi	steps_median	17	steps	array entries read
+R	sample_c_rmq_psi	steps_p99	284	steps	
+R	sample_c_rmq_psi	steps_max	861	steps	
+R	sample_c_rmq_psi	steps_mean	37.262075	steps	
+R	sample_c_rmq_psi	cross_check	reference	label	first combination of this process: the others are compared with it
+R	sample_c_rmq_psi	timed_links	200000	count	of 200000 sampled; time cap 4 s
+R	sample_c_rmq_psi	median_ns	425	ns	raw per-link timing (includes the timer floor)
+R	sample_c_rmq_psi	p99_ns	1140	ns	raw
+R	sample_c_rmq_psi	max_ns	72702	ns	raw
+R	sample_c_rmq_psi	median_net_ns	403	ns	median minus the timer floor
+R	sample_c_rmq_psi	p99_net_ns	1118	ns	p99 minus the timer floor
+R	sample_c_rmq_psi	mean_batch_ns	595.81482	ns	mean over 200000 links of sample B, no per-link timer
+R	sample_c2_psv_psi	counting_pass_s	0.082072286	s	steps and results of the sample (BudgetSteps instantiation)
+R	sample_c2_psv_psi	steps_links	200000	count	counted of 200000 sampled (total step budget 400000000)
+R	sample_c2_psv_psi	steps_budget_exceeded	0	count	links that needed more than 3000000 steps; the sample stops at the total budget
+R	sample_c2_psv_psi	steps_median	4	steps	array entries read
+R	sample_c2_psv_psi	steps_p99	18	steps	
+R	sample_c2_psv_psi	steps_max	46	steps	
+R	sample_c2_psv_psi	steps_mean	5.030905	steps	
+R	sample_c2_psv_psi	cross_check_different	0	count	of 200000 comparable links (both finished) against sample_c_rmq_psi
+R	sample_c2_psv_psi	timed_links	200000	count	of 200000 sampled; time cap 4 s
+R	sample_c2_psv_psi	median_ns	360	ns	raw per-link timing (includes the timer floor)
+R	sample_c2_psv_psi	p99_ns	640	ns	raw
+R	sample_c2_psv_psi	max_ns	69396	ns	raw
+R	sample_c2_psv_psi	median_net_ns	338	ns	median minus the timer floor
+R	sample_c2_psv_psi	p99_net_ns	618	ns	p99 minus the timer floor
+R	sample_c2_psv_psi	mean_batch_ns	406.01202	ns	mean over 200000 links of sample B, no per-link timer
+R	repeat_c_rmq_psi	counting_pass_s	0.118878242	s	steps and results of the sample (BudgetSteps instantiation)
+R	repeat_c_rmq_psi	steps_links	200000	count	counted of 200000 sampled (total step budget 400000000)
+R	repeat_c_rmq_psi	steps_budget_exceeded	0	count	links that needed more than 3000000 steps; the sample stops at the total budget
+R	repeat_c_rmq_psi	steps_median	17	steps	array entries read
+R	repeat_c_rmq_psi	steps_p99	284	steps	
+R	repeat_c_rmq_psi	steps_max	861	steps	
+R	repeat_c_rmq_psi	steps_mean	37.262075	steps	
+R	repeat_c_rmq_psi	cross_check	reference	label	first combination of this process: the others are compared with it
+R	repeat_c_rmq_psi	timed_links	200000	count	of 200000 sampled; time cap 4 s
+R	repeat_c_rmq_psi	median_ns	409	ns	raw per-link timing (includes the timer floor)
+R	repeat_c_rmq_psi	p99_ns	1099	ns	raw
+R	repeat_c_rmq_psi	max_ns	104846	ns	raw
+R	repeat_c_rmq_psi	median_net_ns	387	ns	median minus the timer floor
+R	repeat_c_rmq_psi	p99_net_ns	1077	ns	p99 minus the timer floor
+R	repeat_c_rmq_psi	mean_batch_ns	598.944845	ns	mean over 200000 links of sample B, no per-link timer
+R	links	peak_rss_hwm	603443200	bytes	VmHWM of the process
+# process input=dna_10m run=3 commit=71c5dabaf3-dirty load=1.00 2026-11-09T16:05:35Z options: --fanout 64 --kernels rmq,psv --sources psi --sweeps false --search-check 0
+R	links	input_chars	10000000	chars	dna_10m; sample 200000 seed 1; fanout 64; rotate 4
+R	links	build_total_s	1.013843788	s	EsaIndex.Build (tagged child table), cold JIT
+R	nav	build_isa_s	0.077670101	s	ISA from SA: one scattered pass (cold JIT)
+R	nav	build_psi_s	0.088676702	s	Psi from SA and ISA: one gather pass (add build_isa_s for the cost from SA alone)
+R	nav	build_rmq_s	0.020031709	s	block-minima pyramid, fanout 64, 4 levels: one sequential pass over the compact LCP
+R	nav	isa_bytes_per_char	4.0000004	bytes/char	
+R	nav	psi_bytes_per_char	4.0000004	bytes/char	
+R	nav	rmq_bytes_per_char	0.0634932	bytes/char	pyramid only; the LCP array (1.000 B/char, kind U8) is shared with the index
+R	nav	lcp_kind	U8	kind	escapes 0
+R	nodes	internal_nodes	6229745	count	enumerate_s 0.29872387; header statistic 6229745
+R	timer	per_link_timer_floor_ns	22	ns	median of back-to-back Stopwatch.GetTimestamp pairs; the per-link medians below are raw (include it) and the *_net rows subtract it
+R	nodes	sample_nodes	200000	count	sample A (per-link) and B (batch) of 200000 each, warm-up 4000
+R	sample_c_rmq_psi	first_link_ns	3876160	ns	very first call of this kernel in the process (JIT + first touch); the first kernel also pays the JIT of the shared readers
+R	sample_c2_psv_psi	first_link_ns	425693	ns	very first call of this kernel in the process (JIT + first touch); the first kernel also pays the JIT of the shared readers
+R	links	warmup_links	13879200	count	round robin over all kernels for at least 1 s before the first timed pass
+R	sample_c_rmq_psi	counting_pass_s	0.212079356	s	steps and results of the sample (BudgetSteps instantiation)
+R	sample_c_rmq_psi	steps_links	200000	count	counted of 200000 sampled (total step budget 400000000)
+R	sample_c_rmq_psi	steps_budget_exceeded	0	count	links that needed more than 3000000 steps; the sample stops at the total budget
+R	sample_c_rmq_psi	steps_median	17	steps	array entries read
+R	sample_c_rmq_psi	steps_p99	284	steps	
+R	sample_c_rmq_psi	steps_max	861	steps	
+R	sample_c_rmq_psi	steps_mean	37.262075	steps	
+R	sample_c_rmq_psi	cross_check	reference	label	first combination of this process: the others are compared with it
+R	sample_c_rmq_psi	timed_links	200000	count	of 200000 sampled; time cap 4 s
+R	sample_c_rmq_psi	median_ns	486	ns	raw per-link timing (includes the timer floor)
+R	sample_c_rmq_psi	p99_ns	1255	ns	raw
+R	sample_c_rmq_psi	max_ns	219191	ns	raw
+R	sample_c_rmq_psi	median_net_ns	464	ns	median minus the timer floor
+R	sample_c_rmq_psi	p99_net_ns	1233	ns	p99 minus the timer floor
+R	sample_c_rmq_psi	mean_batch_ns	657.775595	ns	mean over 200000 links of sample B, no per-link timer
+R	sample_c2_psv_psi	counting_pass_s	0.094333166	s	steps and results of the sample (BudgetSteps instantiation)
+R	sample_c2_psv_psi	steps_links	200000	count	counted of 200000 sampled (total step budget 400000000)
+R	sample_c2_psv_psi	steps_budget_exceeded	0	count	links that needed more than 3000000 steps; the sample stops at the total budget
+R	sample_c2_psv_psi	steps_median	4	steps	array entries read
+R	sample_c2_psv_psi	steps_p99	18	steps	
+R	sample_c2_psv_psi	steps_max	46	steps	
+R	sample_c2_psv_psi	steps_mean	5.030905	steps	
+R	sample_c2_psv_psi	cross_check_different	0	count	of 200000 comparable links (both finished) against sample_c_rmq_psi
+R	sample_c2_psv_psi	timed_links	200000	count	of 200000 sampled; time cap 4 s
+R	sample_c2_psv_psi	median_ns	396	ns	raw per-link timing (includes the timer floor)
+R	sample_c2_psv_psi	p99_ns	679	ns	raw
+R	sample_c2_psv_psi	max_ns	69572	ns	raw
+R	sample_c2_psv_psi	median_net_ns	374	ns	median minus the timer floor
+R	sample_c2_psv_psi	p99_net_ns	657	ns	p99 minus the timer floor
+R	sample_c2_psv_psi	mean_batch_ns	442.37576	ns	mean over 200000 links of sample B, no per-link timer
+R	repeat_c_rmq_psi	counting_pass_s	0.132388139	s	steps and results of the sample (BudgetSteps instantiation)
+R	repeat_c_rmq_psi	steps_links	200000	count	counted of 200000 sampled (total step budget 400000000)
+R	repeat_c_rmq_psi	steps_budget_exceeded	0	count	links that needed more than 3000000 steps; the sample stops at the total budget
+R	repeat_c_rmq_psi	steps_median	17	steps	array entries read
+R	repeat_c_rmq_psi	steps_p99	284	steps	
+R	repeat_c_rmq_psi	steps_max	861	steps	
+R	repeat_c_rmq_psi	steps_mean	37.262075	steps	
+R	repeat_c_rmq_psi	cross_check	reference	label	first combination of this process: the others are compared with it
+R	repeat_c_rmq_psi	timed_links	200000	count	of 200000 sampled; time cap 4 s
+R	repeat_c_rmq_psi	median_ns	471	ns	raw per-link timing (includes the timer floor)
+R	repeat_c_rmq_psi	p99_ns	1213	ns	raw
+R	repeat_c_rmq_psi	max_ns	164863	ns	raw
+R	repeat_c_rmq_psi	median_net_ns	449	ns	median minus the timer floor
+R	repeat_c_rmq_psi	p99_net_ns	1191	ns	p99 minus the timer floor
+R	repeat_c_rmq_psi	mean_batch_ns	673.39445	ns	mean over 200000 links of sample B, no per-link timer
+R	links	peak_rss_hwm	603439104	bytes	VmHWM of the process
+# process input=rep_10m run=1 commit=71c5dabaf3-dirty load=1.00 2026-11-09T16:05:39Z options: --fanout 64 --kernels rmq,psv --sources psi --sweeps false --search-check 0
+R	links	input_chars	10000000	chars	rep_10m; sample 200000 seed 1; fanout 64; rotate 0
+R	links	build_total_s	1.201443835	s	EsaIndex.Build (tagged child table), cold JIT
+R	nav	build_isa_s	0.091861407	s	ISA from SA: one scattered pass (cold JIT)
+R	nav	build_psi_s	0.094996231	s	Psi from SA and ISA: one gather pass (add build_isa_s for the cost from SA alone)
+R	nav	build_rmq_s	0.029580112	s	block-minima pyramid, fanout 64, 4 levels: one sequential pass over the compact LCP
+R	nav	isa_bytes_per_char	4.0000004	bytes/char	
+R	nav	psi_bytes_per_char	4.0000004	bytes/char	
+R	nav	rmq_bytes_per_char	0.0634932	bytes/char	pyramid only; the LCP array (2.000 B/char, kind U16) is shared with the index
+R	nav	lcp_kind	U16	kind	escapes 0
+R	nodes	internal_nodes	8568247	count	enumerate_s 0.438601414; header statistic 8568247
+R	timer	per_link_timer_floor_ns	22	ns	median of back-to-back Stopwatch.GetTimestamp pairs; the per-link medians below are raw (include it) and the *_net rows subtract it
+R	nodes	sample_nodes	200000	count	sample A (per-link) and B (batch) of 200000 each, warm-up 4000
+R	sample_c_rmq_psi	first_link_ns	3849979	ns	very first call of this kernel in the process (JIT + first touch); the first kernel also pays the JIT of the shared readers
+R	sample_c2_psv_psi	first_link_ns	493687	ns	very first call of this kernel in the process (JIT + first touch); the first kernel also pays the JIT of the shared readers
+R	links	warmup_links	7032800	count	round robin over all kernels for at least 1 s before the first timed pass
+R	sample_c_rmq_psi	counting_pass_s	0.207513073	s	steps and results of the sample (BudgetSteps instantiation)
+R	sample_c_rmq_psi	steps_links	200000	count	counted of 200000 sampled (total step budget 400000000)
+R	sample_c_rmq_psi	steps_budget_exceeded	0	count	links that needed more than 3000000 steps; the sample stops at the total budget
+R	sample_c_rmq_psi	steps_median	83	steps	array entries read
+R	sample_c_rmq_psi	steps_p99	284	steps	
+R	sample_c_rmq_psi	steps_max	936	steps	
+R	sample_c_rmq_psi	steps_mean	94.932375	steps	
+R	sample_c_rmq_psi	cross_check	reference	label	first combination of this process: the others are compared with it
+R	sample_c_rmq_psi	timed_links	200000	count	of 200000 sampled; time cap 4 s
+R	sample_c_rmq_psi	median_ns	738	ns	raw per-link timing (includes the timer floor)
+R	sample_c_rmq_psi	p99_ns	1534	ns	raw
+R	sample_c_rmq_psi	max_ns	318609	ns	raw
+R	sample_c_rmq_psi	median_net_ns	716	ns	median minus the timer floor
+R	sample_c_rmq_psi	p99_net_ns	1512	ns	p99 minus the timer floor
+R	sample_c_rmq_psi	mean_batch_ns	955.67002	ns	mean over 200000 links of sample B, no per-link timer
+R	sample_c2_psv_psi	counting_pass_s	0.074120759	s	steps and results of the sample (BudgetSteps instantiation)
+R	sample_c2_psv_psi	steps_links	200000	count	counted of 200000 sampled (total step budget 400000000)
+R	sample_c2_psv_psi	steps_budget_exceeded	0	count	links that needed more than 3000000 steps; the sample stops at the total budget
+R	sample_c2_psv_psi	steps_median	2	steps	array entries read
+R	sample_c2_psv_psi	steps_p99	67	steps	
+R	sample_c2_psv_psi	steps_max	222	steps	
+R	sample_c2_psv_psi	steps_mean	3.548565	steps	
+R	sample_c2_psv_psi	cross_check_different	0	count	of 200000 comparable links (both finished) against sample_c_rmq_psi
+R	sample_c2_psv_psi	timed_links	200000	count	of 200000 sampled; time cap 4 s
+R	sample_c2_psv_psi	median_ns	436	ns	raw per-link timing (includes the timer floor)
+R	sample_c2_psv_psi	p99_ns	885	ns	raw
+R	sample_c2_psv_psi	max_ns	361674	ns	raw
+R	sample_c2_psv_psi	median_net_ns	414	ns	median minus the timer floor
+R	sample_c2_psv_psi	p99_net_ns	863	ns	p99 minus the timer floor
+R	sample_c2_psv_psi	mean_batch_ns	309.10565	ns	mean over 200000 links of sample B, no per-link timer
+R	repeat_c_rmq_psi	counting_pass_s	0.16558921	s	steps and results of the sample (BudgetSteps instantiation)
+R	repeat_c_rmq_psi	steps_links	200000	count	counted of 200000 sampled (total step budget 400000000)
+R	repeat_c_rmq_psi	steps_budget_exceeded	0	count	links that needed more than 3000000 steps; the sample stops at the total budget
+R	repeat_c_rmq_psi	steps_median	83	steps	array entries read
+R	repeat_c_rmq_psi	steps_p99	284	steps	
+R	repeat_c_rmq_psi	steps_max	936	steps	
+R	repeat_c_rmq_psi	steps_mean	94.932375	steps	
+R	repeat_c_rmq_psi	cross_check	reference	label	first combination of this process: the others are compared with it
+R	repeat_c_rmq_psi	timed_links	200000	count	of 200000 sampled; time cap 4 s
+R	repeat_c_rmq_psi	median_ns	626	ns	raw per-link timing (includes the timer floor)
+R	repeat_c_rmq_psi	p99_ns	1251	ns	raw
+R	repeat_c_rmq_psi	max_ns	388466	ns	raw
+R	repeat_c_rmq_psi	median_net_ns	604	ns	median minus the timer floor
+R	repeat_c_rmq_psi	p99_net_ns	1229	ns	p99 minus the timer floor
+R	repeat_c_rmq_psi	mean_batch_ns	809.630955	ns	mean over 200000 links of sample B, no per-link timer
+R	links	peak_rss_hwm	892567552	bytes	VmHWM of the process
+# process input=rep_10m run=2 commit=71c5dabaf3-dirty load=1.00 2026-11-09T16:05:44Z options: --fanout 64 --kernels rmq,psv --sources psi --sweeps false --search-check 0
+R	links	input_chars	10000000	chars	rep_10m; sample 200000 seed 1; fanout 64; rotate 2
+R	links	build_total_s	1.208658607	s	EsaIndex.Build (tagged child table), cold JIT
+R	nav	build_isa_s	0.093245687	s	ISA from SA: one scattered pass (cold JIT)
+R	nav	build_psi_s	0.095784474	s	Psi from SA and ISA: one gather pass (add build_isa_s for the cost from SA alone)
+R	nav	build_rmq_s	0.028694807	s	block-minima pyramid, fanout 64, 4 levels: one sequential pass over the compact LCP
+R	nav	isa_bytes_per_char	4.0000004	bytes/char	
+R	nav	psi_bytes_per_char	4.0000004	bytes/char	
+R	nav	rmq_bytes_per_char	0.0634932	bytes/char	pyramid only; the LCP array (2.000 B/char, kind U16) is shared with the index
+R	nav	lcp_kind	U16	kind	escapes 0
+R	nodes	internal_nodes	8568247	count	enumerate_s 0.442187713; header statistic 8568247
+R	timer	per_link_timer_floor_ns	22	ns	median of back-to-back Stopwatch.GetTimestamp pairs; the per-link medians below are raw (include it) and the *_net rows subtract it
+R	nodes	sample_nodes	200000	count	sample A (per-link) and B (batch) of 200000 each, warm-up 4000
+R	sample_c_rmq_psi	first_link_ns	3789212	ns	very first call of this kernel in the process (JIT + first touch); the first kernel also pays the JIT of the shared readers
+R	sample_c2_psv_psi	first_link_ns	455579	ns	very first call of this kernel in the process (JIT + first touch); the first kernel also pays the JIT of the shared readers
+R	links	warmup_links	6350400	count	round robin over all kernels for at least 1 s before the first timed pass
+R	sample_c_rmq_psi	counting_pass_s	0.197741325	s	steps and results of the sample (BudgetSteps instantiation)
+R	sample_c_rmq_psi	steps_links	200000	count	counted of 200000 sampled (total step budget 400000000)
+R	sample_c_rmq_psi	steps_budget_exceeded	0	count	links that needed more than 3000000 steps; the sample stops at the total budget
+R	sample_c_rmq_psi	steps_median	83	steps	array entries read
+R	sample_c_rmq_psi	steps_p99	284	steps	
+R	sample_c_rmq_psi	steps_max	936	steps	
+R	sample_c_rmq_psi	steps_mean	94.932375	steps	
+R	sample_c_rmq_psi	cross_check	reference	label	first combination of this process: the others are compared with it
+R	sample_c_rmq_psi	timed_links	200000	count	of 200000 sampled; time cap 4 s
+R	sample_c_rmq_psi	median_ns	642	ns	raw per-link timing (includes the timer floor)
+R	sample_c_rmq_psi	p99_ns	1296	ns	raw
+R	sample_c_rmq_psi	max_ns	1122206	ns	raw
+R	sample_c_rmq_psi	median_net_ns	620	ns	median minus the timer floor
+R	sample_c_rmq_psi	p99_net_ns	1274	ns	p99 minus the timer floor
+R	sample_c_rmq_psi	mean_batch_ns	862.9819	ns	mean over 200000 links of sample B, no per-link timer
+R	sample_c2_psv_psi	counting_pass_s	0.064340761	s	steps and results of the sample (BudgetSteps instantiation)
+R	sample_c2_psv_psi	steps_links	200000	count	counted of 200000 sampled (total step budget 400000000)
+R	sample_c2_psv_psi	steps_budget_exceeded	0	count	links that needed more than 3000000 steps; the sample stops at the total budget
+R	sample_c2_psv_psi	steps_median	2	steps	array entries read
+R	sample_c2_psv_psi	steps_p99	67	steps	
+R	sample_c2_psv_psi	steps_max	222	steps	
+R	sample_c2_psv_psi	steps_mean	3.548565	steps	
+R	sample_c2_psv_psi	cross_check_different	0	count	of 200000 comparable links (both finished) against sample_c_rmq_psi
+R	sample_c2_psv_psi	timed_links	200000	count	of 200000 sampled; time cap 4 s
+R	sample_c2_psv_psi	median_ns	428	ns	raw per-link timing (includes the timer floor)
+R	sample_c2_psv_psi	p99_ns	874	ns	raw
+R	sample_c2_psv_psi	max_ns	392080	ns	raw
+R	sample_c2_psv_psi	median_net_ns	406	ns	median minus the timer floor
+R	sample_c2_psv_psi	p99_net_ns	852	ns	p99 minus the timer floor
+R	sample_c2_psv_psi	mean_batch_ns	313.165095	ns	mean over 200000 links of sample B, no per-link timer
+R	repeat_c_rmq_psi	counting_pass_s	0.170575462	s	steps and results of the sample (BudgetSteps instantiation)
+R	repeat_c_rmq_psi	steps_links	200000	count	counted of 200000 sampled (total step budget 400000000)
+R	repeat_c_rmq_psi	steps_budget_exceeded	0	count	links that needed more than 3000000 steps; the sample stops at the total budget
+R	repeat_c_rmq_psi	steps_median	83	steps	array entries read
+R	repeat_c_rmq_psi	steps_p99	284	steps	
+R	repeat_c_rmq_psi	steps_max	936	steps	
+R	repeat_c_rmq_psi	steps_mean	94.932375	steps	
+R	repeat_c_rmq_psi	cross_check	reference	label	first combination of this process: the others are compared with it
+R	repeat_c_rmq_psi	timed_links	200000	count	of 200000 sampled; time cap 4 s
+R	repeat_c_rmq_psi	median_ns	637	ns	raw per-link timing (includes the timer floor)
+R	repeat_c_rmq_psi	p99_ns	1286	ns	raw
+R	repeat_c_rmq_psi	max_ns	73896	ns	raw
+R	repeat_c_rmq_psi	median_net_ns	615	ns	median minus the timer floor
+R	repeat_c_rmq_psi	p99_net_ns	1264	ns	p99 minus the timer floor
+R	repeat_c_rmq_psi	mean_batch_ns	839.808095	ns	mean over 200000 links of sample B, no per-link timer
+R	links	peak_rss_hwm	892592128	bytes	VmHWM of the process
+# process input=rep_10m run=3 commit=71c5dabaf3-dirty load=1.00 2026-11-09T16:05:48Z options: --fanout 64 --kernels rmq,psv --sources psi --sweeps false --search-check 0
+R	links	input_chars	10000000	chars	rep_10m; sample 200000 seed 1; fanout 64; rotate 4
+R	links	build_total_s	1.112524438	s	EsaIndex.Build (tagged child table), cold JIT
+R	nav	build_isa_s	0.094053931	s	ISA from SA: one scattered pass (cold JIT)
+R	nav	build_psi_s	0.117208621	s	Psi from SA and ISA: one gather pass (add build_isa_s for the cost from SA alone)
+R	nav	build_rmq_s	0.028734566	s	block-minima pyramid, fanout 64, 4 levels: one sequential pass over the compact LCP
+R	nav	isa_bytes_per_char	4.0000004	bytes/char	
+R	nav	psi_bytes_per_char	4.0000004	bytes/char	
+R	nav	rmq_bytes_per_char	0.0634932	bytes/char	pyramid only; the LCP array (2.000 B/char, kind U16) is shared with the index
+R	nav	lcp_kind	U16	kind	escapes 0
+R	nodes	internal_nodes	8568247	count	enumerate_s 0.441951307; header statistic 8568247
+R	timer	per_link_timer_floor_ns	22	ns	median of back-to-back Stopwatch.GetTimestamp pairs; the per-link medians below are raw (include it) and the *_net rows subtract it
+R	nodes	sample_nodes	200000	count	sample A (per-link) and B (batch) of 200000 each, warm-up 4000
+R	sample_c_rmq_psi	first_link_ns	3709464	ns	very first call of this kernel in the process (JIT + first touch); the first kernel also pays the JIT of the shared readers
+R	sample_c2_psv_psi	first_link_ns	496454	ns	very first call of this kernel in the process (JIT + first touch); the first kernel also pays the JIT of the shared readers
+R	links	warmup_links	7092800	count	round robin over all kernels for at least 1 s before the first timed pass
+R	sample_c_rmq_psi	counting_pass_s	0.221701612	s	steps and results of the sample (BudgetSteps instantiation)
+R	sample_c_rmq_psi	steps_links	200000	count	counted of 200000 sampled (total step budget 400000000)
+R	sample_c_rmq_psi	steps_budget_exceeded	0	count	links that needed more than 3000000 steps; the sample stops at the total budget
+R	sample_c_rmq_psi	steps_median	83	steps	array entries read
+R	sample_c_rmq_psi	steps_p99	284	steps	
+R	sample_c_rmq_psi	steps_max	936	steps	
+R	sample_c_rmq_psi	steps_mean	94.932375	steps	
+R	sample_c_rmq_psi	cross_check	reference	label	first combination of this process: the others are compared with it
+R	sample_c_rmq_psi	timed_links	200000	count	of 200000 sampled; time cap 4 s
+R	sample_c_rmq_psi	median_ns	628	ns	raw per-link timing (includes the timer floor)
+R	sample_c_rmq_psi	p99_ns	1272	ns	raw
+R	sample_c_rmq_psi	max_ns	341134	ns	raw
+R	sample_c_rmq_psi	median_net_ns	606	ns	median minus the timer floor
+R	sample_c_rmq_psi	p99_net_ns	1250	ns	p99 minus the timer floor
+R	sample_c_rmq_psi	mean_batch_ns	795.879515	ns	mean over 200000 links of sample B, no per-link timer
+R	sample_c2_psv_psi	counting_pass_s	0.055848236	s	steps and results of the sample (BudgetSteps instantiation)
+R	sample_c2_psv_psi	steps_links	200000	count	counted of 200000 sampled (total step budget 400000000)
+R	sample_c2_psv_psi	steps_budget_exceeded	0	count	links that needed more than 3000000 steps; the sample stops at the total budget
+R	sample_c2_psv_psi	steps_median	2	steps	array entries read
+R	sample_c2_psv_psi	steps_p99	67	steps	
+R	sample_c2_psv_psi	steps_max	222	steps	
+R	sample_c2_psv_psi	steps_mean	3.548565	steps	
+R	sample_c2_psv_psi	cross_check_different	0	count	of 200000 comparable links (both finished) against sample_c_rmq_psi
+R	sample_c2_psv_psi	timed_links	200000	count	of 200000 sampled; time cap 4 s
+R	sample_c2_psv_psi	median_ns	367	ns	raw per-link timing (includes the timer floor)
+R	sample_c2_psv_psi	p99_ns	762	ns	raw
+R	sample_c2_psv_psi	max_ns	52152	ns	raw
+R	sample_c2_psv_psi	median_net_ns	345	ns	median minus the timer floor
+R	sample_c2_psv_psi	p99_net_ns	740	ns	p99 minus the timer floor
+R	sample_c2_psv_psi	mean_batch_ns	288.83762	ns	mean over 200000 links of sample B, no per-link timer
+R	repeat_c_rmq_psi	counting_pass_s	0.155710123	s	steps and results of the sample (BudgetSteps instantiation)
+R	repeat_c_rmq_psi	steps_links	200000	count	counted of 200000 sampled (total step budget 400000000)
+R	repeat_c_rmq_psi	steps_budget_exceeded	0	count	links that needed more than 3000000 steps; the sample stops at the total budget
+R	repeat_c_rmq_psi	steps_median	83	steps	array entries read
+R	repeat_c_rmq_psi	steps_p99	284	steps	
+R	repeat_c_rmq_psi	steps_max	936	steps	
+R	repeat_c_rmq_psi	steps_mean	94.932375	steps	
+R	repeat_c_rmq_psi	cross_check	reference	label	first combination of this process: the others are compared with it
+R	repeat_c_rmq_psi	timed_links	200000	count	of 200000 sampled; time cap 4 s
+R	repeat_c_rmq_psi	median_ns	586	ns	raw per-link timing (includes the timer floor)
+R	repeat_c_rmq_psi	p99_ns	1231	ns	raw
+R	repeat_c_rmq_psi	max_ns	80304	ns	raw
+R	repeat_c_rmq_psi	median_net_ns	564	ns	median minus the timer floor
+R	repeat_c_rmq_psi	p99_net_ns	1209	ns	p99 minus the timer floor
+R	repeat_c_rmq_psi	mean_batch_ns	805.12453	ns	mean over 200000 links of sample B, no per-link timer
+R	links	peak_rss_hwm	892575744	bytes	VmHWM of the process
