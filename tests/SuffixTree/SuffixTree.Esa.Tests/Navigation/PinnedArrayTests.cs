@@ -71,6 +71,47 @@ public unsafe class PinnedArrayTests
         Assert.DoesNotThrow(heap.Dispose);
     }
 
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static WeakReference PinThenDispose()
+    {
+        var array = new int[1000];
+        var pinned = PinnedArray<int>.Pin(array, "to be disposed");
+        var weak = new WeakReference(array);
+        pinned.Dispose();
+        return weak;
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static WeakReference PinThenForget()
+    {
+        var array = new int[1000];
+        var weak = new WeakReference(array);
+        _ = PinnedArray<int>.Pin(array, "to be finalized");
+        return weak;
+    }
+
+    [Test]
+    public void Dispose_ReleasesThePin_SoTheArrayCanBeCollected()
+    {
+        WeakReference weak = PinThenDispose();
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        GC.Collect();
+        Assert.That(weak.IsAlive, Is.False, "a pin that Dispose did not free keeps the array alive for ever");
+    }
+
+    [Test]
+    public void Finalizer_ReleasesThePin_OfAnObjectThatWasNeverDisposed()
+    {
+        WeakReference weak = PinThenForget();
+        for (int i = 0; i < 3; i++)
+        {
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+        }
+        Assert.That(weak.IsAlive, Is.False, "the finalizer of the owner frees the pin");
+    }
+
     [Test]
     public void CheckedBuild_OutOfBoundsAccessIsReported()
     {

@@ -1,0 +1,2 @@
+A02c	pinned: Release never frees the handle	BUILD-ERROR	
+A05c	pinned: Dispose suppresses the finalizer of another object	BUILD-ERROR	

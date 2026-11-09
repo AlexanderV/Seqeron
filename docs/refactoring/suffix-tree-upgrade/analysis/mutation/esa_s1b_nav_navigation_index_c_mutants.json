@@ -1,0 +1,8 @@
+[
+ {
+  "id": "I04c",
+  "desc": "index: no mutual exclusion in the pack build (every thread locks its own object)",
+  "old": "        lock (_navigationLock)\n        {",
+  "new": "        lock (_navigationBuilds >= 0 ? new object() : _navigationLock)\n        {"
+ }
+]

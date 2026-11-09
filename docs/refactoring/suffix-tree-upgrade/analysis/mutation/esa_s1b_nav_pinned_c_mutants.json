@@ -1,0 +1,15 @@
+[
+ {
+  "id": "A02c",
+  "desc": "pinned: Release never frees the handle",
+  "old": "if (_handle.IsAllocated) _handle.Free();",
+  "new": "if (_handle.IsAllocated && _array.Length == int.MinValue) _handle.Free();"
+ },
+ {
+  "id": "A05c",
+  "desc": "pinned: Dispose suppresses the finalizer of another object",
+  "old": "        GC.SuppressFinalize(this);",
+  "new": "        GC.SuppressFinalize(_array);",
+  "equivalent_expected": "equivalent: the finalizer then calls Release again, which is a no-op after the first"
+ }
+]

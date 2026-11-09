@@ -1,0 +1,6 @@
+A01	pinned: Allocate gives uninitialised memory when zero is requested	BUILD-ERROR	
+A02	pinned: Release never frees the handle	BUILD-ERROR	
+A03	pinned: HoldsHandle is inverted	killed(3)	
+A04	pinned: Pin takes a normal (movable) handle	killed(3)	
+A05	pinned: Dispose does not suppress the finalizer	BUILD-ERROR	
+A06	pinned: Length reports one more	killed(3)	

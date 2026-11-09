@@ -1,0 +1,5 @@
+I01	index: the build counter is not incremented	killed(4)	
+I02	index: NavigationBuilt is inverted	killed(4)	
+I03	index: SuffixLinkSupport is inverted	killed(3)	
+I04	index: the lock is a fresh object per call (no mutual exclusion)	BUILD-ERROR	
+I05	index: the pack is rebuilt on every call (the double check is dropped)	BUILD-ERROR	

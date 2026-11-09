@@ -1,0 +1,5 @@
+N28	navigator: the first boundary check of TryGetChild is dropped (strictly increasing l-indices, corrupt-table guard)	killed(2)	
+N29	navigator: the first boundary check of GetChildren is dropped	killed(2)	
+N30	navigator: the in-loop boundary check of TryGetChild is dropped (a self loop would never end)	killed(host crash)	
+N31	navigator: the in-loop boundary check of GetChildren is dropped (a self loop would never end)	killed(2)	
+N32	navigator: the boundary check accepts a boundary beyond the interval	killed(1)	

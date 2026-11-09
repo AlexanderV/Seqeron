@@ -1,0 +1,32 @@
+[
+ {
+  "id": "N28",
+  "desc": "navigator: the first boundary check of TryGetChild is dropped (strictly increasing l-indices, corrupt-table guard)",
+  "old": "        if (boundary >= 0 && (boundary <= a || boundary > rb)) ThrowCorruptChildTable();\n        while (true)\n        {\n            int saA = _sa[a];",
+  "new": "        while (true)\n        {\n            int saA = _sa[a];"
+ },
+ {
+  "id": "N29",
+  "desc": "navigator: the first boundary check of GetChildren is dropped",
+  "old": "        if (boundary >= 0 && (boundary <= a || boundary > rb)) ThrowCorruptChildTable();\n        while (true)\n        {\n            int b = boundary >= 0 ? boundary - 1 : rb;\n            children.Add",
+  "new": "        while (true)\n        {\n            int b = boundary >= 0 ? boundary - 1 : rb;\n            children.Add"
+ },
+ {
+  "id": "N30",
+  "desc": "navigator: the in-loop boundary check of TryGetChild is dropped (a self loop would never end)",
+  "old": "            if (boundary >= 0 && (boundary <= a || boundary > rb)) ThrowCorruptChildTable();\n        }\n    }\n\n    [MethodImpl(MethodImplOptions.AggressiveOptimization)]\n    private void GetChildrenCore",
+  "new": "        }\n    }\n\n    [MethodImpl(MethodImplOptions.AggressiveOptimization)]\n    private void GetChildrenCore"
+ },
+ {
+  "id": "N31",
+  "desc": "navigator: the in-loop boundary check of GetChildren is dropped (a self loop would never end)",
+  "old": "            if (boundary >= 0 && (boundary <= a || boundary > rb)) ThrowCorruptChildTable();\n        }\n    }\n\n    /// <summary>The child",
+  "new": "        }\n    }\n\n    /// <summary>The child"
+ },
+ {
+  "id": "N32",
+  "desc": "navigator: the boundary check accepts a boundary beyond the interval",
+  "old": "            boundary = table.NextLIndex(boundary, rb);\n            if (boundary >= 0 && (boundary <= a || boundary > rb)) ThrowCorruptChildTable();\n        }\n    }\n\n    /// <summary>The child",
+  "new": "            boundary = table.NextLIndex(boundary, rb);\n            if (boundary >= 0 && boundary <= a) ThrowCorruptChildTable();\n        }\n    }\n\n    /// <summary>The child"
+ }
+]

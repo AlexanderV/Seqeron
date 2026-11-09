@@ -1,0 +1,8 @@
+[
+ {
+  "id": "A02d",
+  "desc": "pinned: Release forgets the handle without freeing it (the pin leaks)",
+  "old": "if (_handle.IsAllocated) _handle.Free();",
+  "new": "if (_handle.IsAllocated) _handle = default;"
+ }
+]

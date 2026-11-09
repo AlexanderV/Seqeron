@@ -1,0 +1,14 @@
+[
+ {
+  "id": "I04b",
+  "desc": "index: no mutual exclusion in the pack build (the lock is replaced by an always-true test)",
+  "old": "        lock (_navigationLock)\n        {",
+  "new": "        if (_navigationBuilds >= 0)\n        {"
+ },
+ {
+  "id": "I05b",
+  "desc": "index: the double check is dropped (the pack is rebuilt by every thread that waited at the lock)",
+  "old": "            if (pack is null)\n            {",
+  "new": "            if (pack is null || _navigationBuilds >= 0)\n            {"
+ }
+]

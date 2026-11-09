@@ -93,7 +93,7 @@ public class SuffixLinkTests
 {
     private static readonly int[] Fanouts = [2, 32];
 
-    private static void CheckKernel(string text, string context)
+    internal static void CheckKernel(string text, string context)
     {
         LinkKernelChecks.Prepared p = LinkKernelChecks.Prepare(text, [16]);
         var packs = Fanouts.Select(f => EsaNavigationPack.Build(p.Esa, f)).ToArray();
@@ -247,4 +247,25 @@ public class SuffixLinkTests
         foreach (string text in new[] { StringFamilies.Fibonacci(1500), StringFamilies.ThueMorse(1200), StringFamilies.AllSame(500), StringFamilies.PeriodicAaB(900, 40) })
             SuffixLinkChecks.CheckNavigatorLinks(text, 32, $"n {text.Length}");
     }
+}
+
+/// <summary>Full enumeration of the pre-registered exhaustive sizes for the production link kernel (sigma 2 up to 14, sigma 3 up to 9, sigma 4 up to 7), every internal node against the definition and the prototypes. Heavy; explicit, category <c>Exhaustive</c>.</summary>
+[TestFixture]
+[Category("Exhaustive")]
+[Explicit("Heavy enumeration; run with --filter Category=Exhaustive (see PROGRESS-S1.md, Log 1b.4)")]
+public class SuffixLinkExhaustiveTests
+{
+    private static void All(int sigma, int maxLength)
+    {
+        foreach (string s in ExhaustiveStrings.All(sigma, maxLength)) SuffixLinkTests.CheckKernel(s, $"all sigma {sigma}");
+    }
+
+    [Test]
+    public void AllBinaryStrings_UpTo14() => All(2, 14);
+
+    [Test]
+    public void AllTernaryStrings_UpTo9() => All(3, 9);
+
+    [Test]
+    public void AllFourLetterStrings_UpTo7() => All(4, 7);
 }

@@ -1,0 +1,8 @@
+M01	matching: the info reports the position in the other text as the position in the text	killed(9)	
+M02	matching: MEM accepts minLength 0	killed(1)	
+M03	matching: MUM refuses the Reference mode	killed(14)	
+M04	matching: the canonical list is computed as first-only	killed(7)	
+M05	matching: the info asks for all positions (valid, only slower)	survived	survived
+M06	matching: anchors check null after building the navigator (argument order)	killed(1)	
+M07	matching: the distinct LCS builds the navigator before the null check	killed(1)	
+M08	matching: the span overload of LongestCommonSubstring drops the last character of the query	killed(7)	

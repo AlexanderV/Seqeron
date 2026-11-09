@@ -1,0 +1,2 @@
+I04b	index: no mutual exclusion in the pack build (the lock is replaced by an always-true test)	BUILD-ERROR	
+I05b	index: the double check is dropped (the pack is rebuilt by every thread that waited at the lock)	killed(2)	

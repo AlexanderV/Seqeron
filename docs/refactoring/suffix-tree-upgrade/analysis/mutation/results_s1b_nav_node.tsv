@@ -1,0 +1,4 @@
+E01	node: IsLeaf is Lb != Rb	killed(16)	
+E02	node: EdgeLength adds	killed(1)	
+E03	node: RankCount is Rb - Lb	killed(1)	
+E04	node: the null node has Lb 0	killed(28)	

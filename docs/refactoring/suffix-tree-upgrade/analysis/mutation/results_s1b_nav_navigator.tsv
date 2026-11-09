@@ -1,0 +1,28 @@
+N01	navigator: IsNull is Lb <= 0	killed(10)	
+N02	navigator: IsRoot is Depth == 1	killed(host crash)	
+N03	navigator: the edge symbol at the end of the text is read instead of the terminator	killed(28)	
+N04	navigator: the edge symbol ignores the parent depth	killed(host crash)	
+N05	navigator: LengthOf adds the parent depth	killed(26)	
+N06	navigator: GetSuffixLink returns the root	killed(host crash)	
+N07	navigator: TryGetChild treats Lb < Rb as a leaf	killed(30)	
+N08	navigator: the Packed layout reads the tagged table	killed(2)	
+N09	navigator: the child lookup stops at >= instead of >	survived	survived
+N10	navigator: the child lookup compares for inequality	killed(30)	
+N11	navigator: the symbol at the node depth is read one position late	killed(host crash)	
+N12	navigator: the terminator child is not recognised (p <= n reads past the text)	killed(31)	
+N13	navigator: the found child is flagged last when the boundary is positive	killed(30)	
+N14	navigator: the child lookup's right bound is the boundary (not boundary - 1)	killed(31)	
+N15	navigator: GetChildren's right bound is the boundary (not boundary - 1)	killed(28)	
+N16	navigator: GetChildren does not clear the list	killed(28)	
+N17	navigator: GetChildren treats Lb + 1 == Rb as a leaf	killed(25)	
+N18	navigator: GetChildren stops at boundary <= 0 (a valid boundary is never 0)	survived	survived
+N19	navigator: MakeChild takes an interval for a leaf	killed(host crash)	
+N20	navigator: a leaf's depth forgets the terminator	killed(25)	
+N21	navigator: an internal child reads its value at the wrong table slot (last-child flag negated)	killed(host crash)	
+N22	navigator: CollectLeaves includes the empty suffix of the root	killed(10)	
+N23	navigator: CollectLeaves drops the last rank	killed(27)	
+N24	navigator: CollectLeaves does not skip an empty range	survived	survived
+N25	navigator: FindAnyLeafPosition of the root reports the second suffix	killed(5)	
+N26	navigator: FindAnyLeafPosition reports the left rank	killed(26)	
+N27	navigator: the Reference3 layout reads the packed table	killed(2)	
+N28	navigator: the first boundary check is dropped (strictly increasing l-indices, corrupt-table guard)	survived	survived

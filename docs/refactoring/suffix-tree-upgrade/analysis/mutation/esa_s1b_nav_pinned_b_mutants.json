@@ -1,0 +1,22 @@
+[
+ {
+  "id": "A01b",
+  "desc": "pinned: the zero flag is inverted (zeroed memory when uninitialised is asked and the other way round)",
+  "old": "T[] array = zero ? GC.AllocateArray<T>(length, pinned: true) : GC.AllocateUninitializedArray<T>(length, pinned: true);",
+  "new": "T[] array = zero ? GC.AllocateUninitializedArray<T>(length, pinned: true) : GC.AllocateArray<T>(length, pinned: true);",
+  "equivalent_expected": "equivalent in practice: the pinned object heap hands out zeroed memory for fresh pages; a test cannot force dirty pages deterministically"
+ },
+ {
+  "id": "A02b",
+  "desc": "pinned: Release never frees the handle",
+  "old": "if (_handle.IsAllocated) _handle.Free();",
+  "new": "if (_handle.IsAllocated && _array.Length < 0) _handle.Free();"
+ },
+ {
+  "id": "A05b",
+  "desc": "pinned: Dispose does not suppress the finalizer",
+  "old": "        GC.SuppressFinalize(this);",
+  "new": "        GC.KeepAlive(this);",
+  "equivalent_expected": "equivalent: the finalizer then calls Release again, which is a no-op after the first"
+ }
+]

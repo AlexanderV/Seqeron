@@ -1,0 +1,3 @@
+A01b	pinned: the zero flag is inverted (zeroed memory when uninitialised is asked and the other way round)	killed(1)	
+A02b	pinned: Release never frees the handle	BUILD-ERROR	
+A05b	pinned: Dispose does not suppress the finalizer	BUILD-ERROR	
