@@ -17,9 +17,10 @@ internal static class Cli
                   <builds> builds in one process; the last three are reported (steady state, JIT warm)
           profile --input <file> [--builds 3] [--name <label>]
                   <builds> instrumented builds in one process; phase times of the first (cold) and the last (warm) build
-          query   --input <file> [--name <label>] [--queries <bench dir>] [--layout reference3|packed|tagged|all] [--trace true] [--min-seconds 1.0]
+          query   --input <file> [--name <label>] [--queries <bench dir>] [--layout reference3|packed|tagged|all; default: the engine default for the text length] [--trace true] [--min-seconds 1.0]
           query   --synthetic <a^n|abab|fibonacci|thue-morse|n-runs>[:n] ...
-                  work package 1b.1 (prototype P3): SA + LCP once, then per child-table layout the scan time, bytes and write trace (--trace)
+                  work packages 1b.1 / 1b.2 (prototype P3 and the throughput gates): SA + LCP once, then per child-table layout the scan time, bytes, write trace
+                  (--trace), 20-mer count (present / absent) and 8-mer locate throughput of the in-memory ESA
           ab      --input <file> [--name <label>] [--verify <sa_vectors.tsv>] [--pairs 9] [--calibration-pairs 7]
                   [--a-args "<build options>"] [--b-args "<build options>"] [--a-env KEY=VALUE]... [--b-env KEY=VALUE]...
                   [--a-dll <path>] [--b-dll <path>] [--libsais <driver>] [--libsais-runs 5] [--max-load 0.30] [--out <raw.tsv>]
@@ -141,7 +142,7 @@ internal sealed class Options
 
     internal string? Synthetic { get; private init; }
 
-    internal ChildLayoutKind[] Layouts { get; private init; } = [ChildLayoutKind.Packed];
+    internal ChildLayoutKind[]? Layouts { get; private init; }
 
     internal bool Trace { get; private init; }
 
@@ -153,7 +154,7 @@ internal sealed class Options
         int? builds = null;
         var saisKernel = SaisKernelKind.Reference;
         var lcpKernel = LcpKernelKind.Reference;
-        ChildLayoutKind[] layouts = [ChildLayoutKind.Packed];
+        ChildLayoutKind[]? layouts = null;
         bool trace = false;
         double minSeconds = 1.0;
         for (int i = 0; i < args.Length; i += 2)

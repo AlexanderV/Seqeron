@@ -3,9 +3,9 @@ using SuffixTree.Esa;
 namespace SuffixTree.Esa.Tests.TestSupport;
 
 /// <summary>
-/// Test-only <see cref="ISuffixTree"/> view of an <see cref="EsaIndex"/> with just what the oracles need: the text, the statistics and
-/// <see cref="Traverse"/>, so that <c>SuffixTreeSerializer.CalculateLogicalHash</c> (which takes an <see cref="ISuffixTree"/>) can be applied to the
-/// ESA. The facade of the product (work package 1b.6) replaces it; every member outside that set throws <see cref="NotSupportedException"/>.
+/// Test-only <see cref="ISuffixTree"/> view of an <see cref="EsaIndex"/> with just what the oracles need: the text, the statistics, <see cref="Traverse"/> and
+/// the search members, so that <c>SuffixTreeSerializer.CalculateLogicalHash</c> (which takes an <see cref="ISuffixTree"/>) can be applied to the
+/// ESA. The facade of the product (work package 1b.6) replaces it; every analysis member throws <see cref="NotSupportedException"/>.
 /// </summary>
 internal sealed class EsaTreeShim(EsaIndex index) : ISuffixTree
 {
@@ -23,17 +23,17 @@ internal sealed class EsaTreeShim(EsaIndex index) : ISuffixTree
 
     public string PrintTree() => throw Unsupported();
 
-    public bool Contains(string value) => throw Unsupported();
+    public bool Contains(string value) => index.Contains(value);
 
-    public bool Contains(ReadOnlySpan<char> value) => throw Unsupported();
+    public bool Contains(ReadOnlySpan<char> value) => index.Contains(value);
 
-    public IReadOnlyList<int> FindAllOccurrences(string pattern) => throw Unsupported();
+    public IReadOnlyList<int> FindAllOccurrences(string pattern) => index.FindAllOccurrences(pattern);
 
-    public IReadOnlyList<int> FindAllOccurrences(ReadOnlySpan<char> pattern) => throw Unsupported();
+    public IReadOnlyList<int> FindAllOccurrences(ReadOnlySpan<char> pattern) => index.FindAllOccurrences(pattern);
 
-    public int CountOccurrences(string pattern) => throw Unsupported();
+    public int CountOccurrences(string pattern) => index.CountOccurrences(pattern);
 
-    public int CountOccurrences(ReadOnlySpan<char> pattern) => throw Unsupported();
+    public int CountOccurrences(ReadOnlySpan<char> pattern) => index.CountOccurrences(pattern);
 
     public string LongestRepeatedSubstring() => throw Unsupported();
 
@@ -52,5 +52,5 @@ internal sealed class EsaTreeShim(EsaIndex index) : ISuffixTree
 
     public IReadOnlyList<(int PositionInText, int PositionInQuery, int Length)> FindExactMatchAnchors(string query, int minLength) => throw Unsupported();
 
-    private static NotSupportedException Unsupported() => new("the test shim of the ESA implements only Text, the statistics and Traverse");
+    private static NotSupportedException Unsupported() => new("the test shim of the ESA implements only Text, the statistics, Traverse and the search members");
 }

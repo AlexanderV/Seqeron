@@ -5,8 +5,8 @@ using SuffixTree.Esa;
 namespace SuffixTree.Esa.Bench;
 
 /// <summary>
-/// Work package 1b.1: the child-table layout comparison of prototype P3 (size, scan time, write pattern). One process measures one text; the child-table scan is timed
-/// on its own on the same SA and LCP.
+/// Work packages 1b.1 / 1b.2: the child-table layout comparison of prototype P3 (size, scan time, write pattern, count speed) and the query throughput of the
+/// in-memory ESA (20-mer count, 8-mer locate). One process measures one text; the child-table scan is timed on its own on the same SA and LCP.
 /// </summary>
 internal static class QueryCommands
 {
@@ -59,7 +59,11 @@ internal static class QueryCommands
         double saLcpSeconds = (Stopwatch.GetTimestamp() - t0) / (double)Stopwatch.Frequency;
         Emit.Row("query", "build_sa_lcp_s", saLcpSeconds, "s", "prepare + SA-IS pointer kernel + direct LCP kernel (cold JIT)");
 
-        foreach (ChildLayoutKind layout in o.Layouts)
+        string[] present = ReadQueries(o, "present20");
+        string[] absent = ReadQueries(o, "absent20");
+        string[] locate8 = ReadQueries(o, o.Name.StartsWith("prot", StringComparison.Ordinal) ? "locate4" : "locate8");
+
+        foreach (ChildLayoutKind layout in o.Layouts ?? [EsaIndex.DefaultLayoutFor(n)])
         {
             string op = $"layout_{layout}";
             long c0 = Stopwatch.GetTimestamp();
@@ -88,6 +92,47 @@ internal static class QueryCommands
                     Emit.Row(op, $"trace_page_misses_{cachePages}", t.PageMisses, "count", note);
                 }
             }
+
+            if (present.Length > 0)
+            {
+                Emit.Row(op, "count_present_qps", Throughput(present, q => index.CountOccurrences(q), o.MinSeconds), "queries/s", "20-mer count, present patterns, 1 thread; warm-up pass, then passes until the minimum time");
+                Emit.Row(op, "count_absent_qps", Throughput(absent, q => index.CountOccurrences(q), o.MinSeconds), "queries/s", "20-mer count, absent patterns");
+            }
+            if (locate8.Length > 0)
+            {
+                long hits = 0;
+                foreach (string q in locate8) hits += index.CountOccurrences(q);
+                Emit.Row(op, "locate_hits_per_pattern", hits / (double)locate8.Length, "count");
+                Emit.Row(op, "locate_findall_pps", Throughput(locate8, q => index.FindAllOccurrences(q).Count, o.MinSeconds), "patterns/s", "FindAllOccurrences (allocates the result list), the ISuffixTreeSearch contract operation");
+                var buffer = new int[65536];
+                Emit.Row(op, "locate_lazy_pps", Throughput(locate8, q => index.TryMatch(q, out int lo, out int hi) ? index.Locate(lo, hi, 0, buffer) : 0, o.MinSeconds), "patterns/s", "TryMatch + Locate into a reused buffer (no allocation)");
+            }
         }
+    }
+
+    private static string[] ReadQueries(Options o, string kind)
+    {
+        if (o.Queries is null) return [];
+        string path = Path.Combine(o.Queries, "queries", $"{o.Name}.{kind}.txt");
+        return File.Exists(path) ? File.ReadAllLines(path).Where(l => l.Length > 0).ToArray() : [];
+    }
+
+    /// <summary>Queries per second: one untimed warm-up pass (JIT, caches), then full passes until at least <paramref name="minSeconds"/> have elapsed; the mean pass time counts.</summary>
+    private static double Throughput(string[] queries, Func<string, int> op, double minSeconds)
+    {
+        long sink = 0;
+        foreach (string q in queries) sink += op(q);
+        int passes = 0;
+        long start = Stopwatch.GetTimestamp();
+        double elapsed;
+        do
+        {
+            foreach (string q in queries) sink += op(q);
+            passes++;
+            elapsed = (Stopwatch.GetTimestamp() - start) / (double)Stopwatch.Frequency;
+        }
+        while (elapsed < minSeconds);
+        GC.KeepAlive(sink);
+        return queries.Length * passes / elapsed;
     }
 }

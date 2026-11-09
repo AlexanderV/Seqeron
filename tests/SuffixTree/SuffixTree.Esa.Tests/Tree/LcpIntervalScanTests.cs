@@ -141,4 +141,34 @@ public class LcpIntervalScanTests
         for (int r = 1; r <= text.Length; r++)
             Assert.That(c.Next(), Is.EqualTo(a.Next()), $"rank {r}");
     }
+
+    [Test]
+    public void CorruptStreams_AreRejected()
+    {
+        // LCP[1] must be 0 (the predecessor of rank 1 is the empty suffix) and no value may be negative: the scan uses the values as stack comparisons
+        foreach (int[] lcp in new[] { new[] { 0, 1, 0, 0 }, new[] { 0, 0, -1, 0 }, new[] { 0, 0, 1, -5 } })
+        {
+            var stream = new ArrayLcpStream(lcp);
+            var sink = new LoggingSink(new ScanLog());
+            Assert.That(() => LcpIntervalScan.Run(lcp.Length - 1, ref stream, ref sink), Throws.TypeOf<ArgumentException>(), string.Join(",", lcp));
+        }
+        var good = new ArrayLcpStream([0, 0, 1, 0]);
+        var goodSink = new LoggingSink(new ScanLog());
+        Assert.That(LcpIntervalScan.Run(3, ref good, ref goodSink), Is.GreaterThan(0));
+        var none = new ArrayLcpStream([0]);
+        var noneSink = new LoggingSink(new ScanLog());
+        Assert.That(() => LcpIntervalScan.Run(-1, ref none, ref noneSink), Throws.TypeOf<ArgumentOutOfRangeException>());
+    }
+
+    [Test]
+    public void DeepStacks_GrowPastTheInitialCapacity()
+    {
+        // a^n needs a stack of n entries; the initial capacity is 64 and doubles
+        foreach (int n in new[] { 63, 64, 65, 127, 128, 129, 1000 })
+        {
+            ScanLog log = Scan(new string('a', n), out _, out int peak);
+            Assert.That(peak, Is.EqualTo(n), $"n {n}");
+            Assert.That(log.Closes, Has.Count.EqualTo(n), $"n {n}");
+        }
+    }
 }

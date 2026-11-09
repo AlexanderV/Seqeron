@@ -89,6 +89,15 @@ public class EsaIndexTests
     }
 
     [Test]
+    public void LongestRepeatedSubstring_OnTiesTheIntervalThatClosesFirstWins()
+    {
+        // "ab" and "cd" both repeat with length 2: "ab..." sorts first, its interval closes first, and the scan keeps the first of equal depths
+        EsaIndex index = EsaIndex.Build("abXcdYabZcd");
+        Assert.That(index.Statistics.LrsDepth, Is.EqualTo(2));
+        Assert.That(index.Text.AsSpan(index.SuffixArray[index.Statistics.LrsRank], 2).ToString(), Is.EqualTo("ab"));
+    }
+
+    [Test]
     public void Build_NullText_Throws()
     {
         Assert.That(() => EsaIndex.Build(null!), Throws.TypeOf<ArgumentNullException>());

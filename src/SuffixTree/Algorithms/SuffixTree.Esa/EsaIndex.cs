@@ -8,8 +8,12 @@ namespace SuffixTree.Esa;
 /// </summary>
 internal sealed partial class EsaIndex
 {
-    /// <summary>The child-table layout that <see cref="Build"/> uses by default (the single-array packing; prototype P3 is concluded in work package 1b.2, which needs the pattern descent).</summary>
-    internal const ChildLayoutKind DefaultLayout = ChildLayoutKind.Packed;
+    /// <summary>
+    /// The child-table layout that <see cref="Build"/> uses by default for a text of <paramref name="n"/> symbols (decided by prototype P3, Log of PROGRESS-S1.md): the tagged
+    /// single array while its 30 value bits suffice (it is the fastest: no LCP comparison on a read), else the LCP-disambiguated single array (the same 4 bytes per rank, text up to
+    /// <see cref="Array.MaxLength"/>).
+    /// </summary>
+    internal static ChildLayoutKind DefaultLayoutFor(int n) => n <= TaggedChild.MaxLength ? ChildLayoutKind.Tagged : ChildLayoutKind.Packed;
 
     private EsaIndex(string text, PreparedText prepared, int[] sa, CompactLcp lcp, ChildTable child, EsaStatistics statistics)
     {
@@ -47,13 +51,13 @@ internal sealed partial class EsaIndex
     /// </summary>
     /// <exception cref="ArgumentNullException"><paramref name="text"/> is null.</exception>
     /// <exception cref="NotSupportedException">The text does not fit the 32-bit path (or the layout).</exception>
-    internal static EsaIndex Build(string text, ChildLayoutKind layout = DefaultLayout)
+    internal static EsaIndex Build(string text, ChildLayoutKind? layout = null)
     {
         ArgumentNullException.ThrowIfNull(text);
         PreparedText prepared = TextPreparation.Prepare(text);
         int[] sa = SaisKernel.Build(prepared);
         CompactLcp lcp = LcpKernel.Build(LcpKernelKind.Direct, prepared, sa);
-        return FromArrays(text, prepared, sa, lcp, layout);
+        return FromArrays(text, prepared, sa, lcp, layout ?? DefaultLayoutFor(text.Length));
     }
 
     /// <summary>
