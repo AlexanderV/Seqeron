@@ -1,0 +1,375 @@
+[
+ {
+  "id": "A01",
+  "desc": "LRS: a repeat of depth 1 is reported as no repeat",
+  "old": "internal string LongestRepeatedSubstring() => Statistics.LrsDepth == 0 ?",
+  "new": "internal string LongestRepeatedSubstring() => Statistics.LrsDepth <= 1 ?"
+ },
+ {
+  "id": "A02",
+  "desc": "LRS: the substring starts one suffix before the interval (rank - 1)",
+  "old": "Text.Substring(SuffixArray[Statistics.LrsRank], Statistics.LrsDepth);",
+  "new": "Text.Substring(SuffixArray[Statistics.LrsRank - 1], Statistics.LrsDepth);"
+ },
+ {
+  "id": "A03",
+  "desc": "LRS: the substring is one character short",
+  "old": "Text.Substring(SuffixArray[Statistics.LrsRank], Statistics.LrsDepth);",
+  "new": "Text.Substring(SuffixArray[Statistics.LrsRank], Statistics.LrsDepth - 1);"
+ },
+ {
+  "id": "A04",
+  "desc": "LRS: starts at the SECOND suffix of the interval (rank + 1): still inside the interval, same prefix",
+  "old": "Text.Substring(SuffixArray[Statistics.LrsRank], Statistics.LrsDepth);",
+  "new": "Text.Substring(SuffixArray[Statistics.LrsRank + 1], Statistics.LrsDepth);",
+  "equivalent_expected": "equivalent: the interval [LrsRank..rb] has at least two suffixes with the same first LrsDepth symbols"
+ },
+ {
+  "id": "A05",
+  "desc": "Memory: slice one character short",
+  "old": "Text.AsMemory(SuffixArray[Statistics.LrsRank], Statistics.LrsDepth);",
+  "new": "Text.AsMemory(SuffixArray[Statistics.LrsRank], Statistics.LrsDepth - 1);"
+ },
+ {
+  "id": "A06",
+  "desc": "Memory: slice starts one position late (position + 1)",
+  "old": "Text.AsMemory(SuffixArray[Statistics.LrsRank], Statistics.LrsDepth);",
+  "new": "Text.AsMemory(SuffixArray[Statistics.LrsRank] + 1, Statistics.LrsDepth);"
+ },
+ {
+  "id": "A07",
+  "desc": "Memory: no repeat is reported only when the depth is below 2",
+  "old": "Statistics.LrsDepth == 0 ? ReadOnlyMemory<char>.Empty",
+  "new": "Statistics.LrsDepth < 2 ? ReadOnlyMemory<char>.Empty"
+ },
+ {
+  "id": "B01",
+  "desc": "FindAll: depth 1 counts as no repeat",
+  "old": "if (length == 0) return Array.Empty",
+  "new": "if (length <= 1) return Array.Empty"
+ },
+ {
+  "id": "B02",
+  "desc": "FindAll: run test >= instead of == (the maximum is the statistic, so nothing can exceed it)",
+  "old": "if (lcp.Get(rank) == length)",
+  "new": "if (lcp.Get(rank) >= length)",
+  "equivalent_expected": "equivalent: LrsDepth is the maximum LCP value, so a value above it does not exist"
+ },
+ {
+  "id": "B03",
+  "desc": "FindAll: the interval starts at the rank of the first LCP hit (loses its first suffix)",
+  "old": "if (runStart < 0) runStart = rank - 1;",
+  "new": "if (runStart < 0) runStart = rank;"
+ },
+ {
+  "id": "B04",
+  "desc": "FindAll: a closed run includes the rank that ended it",
+  "old": "results.Add(Tie(runStart, rank - 1, length));",
+  "new": "results.Add(Tie(runStart, rank, length));"
+ },
+ {
+  "id": "B05",
+  "desc": "FindAll: the run that reaches the end of the array loses its last suffix",
+  "old": "if (runStart >= 0) results.Add(Tie(runStart, Length, length));",
+  "new": "if (runStart >= 0) results.Add(Tie(runStart, Length - 1, length));"
+ },
+ {
+  "id": "B06",
+  "desc": "FindAll: the run that reaches the end of the array is dropped",
+  "old": "if (runStart >= 0) results.Add(Tie(runStart, Length, length));",
+  "new": "if (runStart >= 0 && length < 0) results.Add(Tie(runStart, Length, length));"
+ },
+ {
+  "id": "B07",
+  "desc": "FindAll: the run is not reset after it is emitted (adjacent ties merge)",
+  "old": "results.Add(Tie(runStart, rank - 1, length));\n                runStart = -1;",
+  "new": "results.Add(Tie(runStart, rank - 1, length));"
+ },
+ {
+  "id": "B08",
+  "desc": "FindAll: ties ordered by DEscending first occurrence",
+  "old": "a.Positions[0].CompareTo(b.Positions[0])",
+  "new": "b.Positions[0].CompareTo(a.Positions[0])"
+ },
+ {
+  "id": "B09",
+  "desc": "FindAll: ties left in lexicographic (suffix-array) order instead of first-occurrence order",
+  "old": "results.Sort(static (a, b) => a.Positions[0].CompareTo(b.Positions[0]));",
+  "new": "results.Sort(static (a, b) => string.CompareOrdinal(a.Substring, b.Substring));"
+ },
+ {
+  "id": "B10",
+  "desc": "FindAll: positions not sorted (suffix-array order)",
+  "old": "        Array.Sort(positions);\n        return (Text.Substring(positions[0], length), positions);",
+  "new": "        return (Text.Substring(positions[0], length), positions);"
+ },
+ {
+  "id": "B11",
+  "desc": "FindAll: the tie string is one character short",
+  "old": "return (Text.Substring(positions[0], length), positions);",
+  "new": "return (Text.Substring(positions[0], length - 1), positions);"
+ },
+ {
+  "id": "B12",
+  "desc": "FindAll: the tie string is cut at the LAST position (still an occurrence)",
+  "old": "return (Text.Substring(positions[0], length), positions);",
+  "new": "return (Text.Substring(positions[^1], length), positions);",
+  "equivalent_expected": "equivalent: every position of the interval starts the same string of the tie length"
+ },
+ {
+  "id": "B13",
+  "desc": "FindAll: the position slice drops the last suffix of the interval",
+  "old": "SuffixArray.AsSpan(lb, rb - lb + 1).ToArray();",
+  "new": "SuffixArray.AsSpan(lb, rb - lb).ToArray();"
+ },
+ {
+  "id": "B14",
+  "desc": "FindAll: the position slice starts one rank late",
+  "old": "SuffixArray.AsSpan(lb, rb - lb + 1).ToArray();",
+  "new": "SuffixArray.AsSpan(lb + 1, rb - lb).ToArray();"
+ },
+ {
+  "id": "B15",
+  "desc": "FindAll: the scan stops one rank early",
+  "old": "        for (int rank = 1; rank <= Length; rank++)\n        {\n            if (lcp.Get(rank) == length)",
+  "new": "        for (int rank = 1; rank < Length; rank++)\n        {\n            if (lcp.Get(rank) == length)"
+ },
+ {
+  "id": "B16",
+  "desc": "FindAll: the scan starts at rank 2 (LCP[1] is 0 by definition)",
+  "old": "        for (int rank = 1; rank <= Length; rank++)\n        {\n            if (lcp.Get(rank) == length)",
+  "new": "        for (int rank = 2; rank <= Length; rank++)\n        {\n            if (lcp.Get(rank) == length)",
+  "equivalent_expected": "equivalent: LCP[1] = 0 and the depth is at least 1 here, so rank 1 never starts a run"
+ },
+ {
+  "id": "B17",
+  "desc": "FindAll: the position array sorted IN the shared suffix array (corrupts the index)",
+  "old": "        int[] positions = SuffixArray.AsSpan(lb, rb - lb + 1).ToArray();\n        Array.Sort(positions);",
+  "new": "        Array.Sort(SuffixArray, lb, rb - lb + 1);\n        int[] positions = SuffixArray.AsSpan(lb, rb - lb + 1).ToArray();"
+ },
+ {
+  "id": "B18",
+  "desc": "FindAll: run closes on lcp > length-1 instead of leaving (== length-1 would be a longer match): uses the previous rank's value",
+  "old": "else if (runStart >= 0)",
+  "new": "else if (runStart >= 0 && lcp.Get(rank) < length - 1)"
+ },
+ {
+  "id": "C01",
+  "desc": "Total: n (n - 1) / 2 instead of n (n + 1) / 2",
+  "old": "long total = n * (n + 1) / 2;",
+  "new": "long total = n * (n - 1) / 2;"
+ },
+ {
+  "id": "C02",
+  "desc": "Total: closed form evaluated in int (overflow above 65,535 symbols)",
+  "old": "long total = n * (n + 1) / 2;",
+  "new": "long total = (int)n * ((int)n + 1) / 2;"
+ },
+ {
+  "id": "C03",
+  "desc": "Total: LCP values added instead of subtracted",
+  "old": "total -= lcp.Get(rank);",
+  "new": "total += lcp.Get(rank);"
+ },
+ {
+  "id": "C04",
+  "desc": "Total: the last LCP value is not subtracted",
+  "old": "for (int rank = 1; rank <= Length; rank++) total -= lcp.Get(rank);",
+  "new": "for (int rank = 1; rank < Length; rank++) total -= lcp.Get(rank);"
+ },
+ {
+  "id": "C05",
+  "desc": "Total: the LCP sum starts at rank 0 (LCP[0] = 0)",
+  "old": "for (int rank = 1; rank <= Length; rank++) total -= lcp.Get(rank);",
+  "new": "for (int rank = 0; rank <= Length; rank++) total -= lcp.Get(rank);",
+  "equivalent_expected": "equivalent: LCP[0] = 0 by definition"
+ },
+ {
+  "id": "C06",
+  "desc": "Total: lcp + 1 subtracted (counts the terminator)",
+  "old": "total -= lcp.Get(rank);",
+  "new": "total -= lcp.Get(rank) + 1;"
+ },
+ {
+  "id": "C07",
+  "desc": "Total: the LCP sum skips rank 1 and starts at rank 2",
+  "old": "for (int rank = 1; rank <= Length; rank++) total -= lcp.Get(rank);",
+  "new": "for (int rank = 2; rank <= Length; rank++) total -= lcp.Get(rank);",
+  "equivalent_expected": "equivalent: LCP[1] = 0 by definition"
+ },
+ {
+  "id": "D01",
+  "desc": "ByLength: maxLength 0 is accepted",
+  "old": "ArgumentOutOfRangeException.ThrowIfLessThan(maxLength, 1);",
+  "new": "ArgumentOutOfRangeException.ThrowIfLessThan(maxLength, 0);"
+ },
+ {
+  "id": "D02",
+  "desc": "ByLength: maxLength 1 is rejected",
+  "old": "ArgumentOutOfRangeException.ThrowIfLessThan(maxLength, 1);",
+  "new": "ArgumentOutOfRangeException.ThrowIfLessThan(maxLength, 2);"
+ },
+ {
+  "id": "D03",
+  "desc": "ByLength: clamp with Max instead of Min",
+  "old": "int m = Math.Min(maxLength, n);",
+  "new": "int m = Math.Max(maxLength, n);"
+ },
+ {
+  "id": "D04",
+  "desc": "ByLength: zero LCP values are counted too (they pollute only counts[0], which is overwritten)",
+  "old": "if (value > 0) counts[Math.Min(value, m)]++;",
+  "new": "if (value >= 0) counts[Math.Min(value, m)]++;",
+  "equivalent_expected": "equivalent: counts[0] is assigned 1 at the end; the loop below reads counts[1..m] only"
+ },
+ {
+  "id": "D05",
+  "desc": "ByLength: histogram clamped at m - 1",
+  "old": "counts[Math.Min(value, m)]++;",
+  "new": "counts[Math.Min(value, m - 1)]++;"
+ },
+ {
+  "id": "D06",
+  "desc": "ByLength: histogram not clamped (index out of range when LCP > maxLength)",
+  "old": "counts[Math.Min(value, m)]++;",
+  "new": "counts[value]++;"
+ },
+ {
+  "id": "D07",
+  "desc": "ByLength: histogram of lcp + 1",
+  "old": "counts[Math.Min(value, m)]++;",
+  "new": "counts[Math.Min(value + 1, m)]++;"
+ },
+ {
+  "id": "D08",
+  "desc": "ByLength: suffix sums stop at length 2 (length 1 keeps the histogram value)",
+  "old": "for (int i = m; i >= 1; i--)",
+  "new": "for (int i = m; i >= 2; i--)"
+ },
+ {
+  "id": "D09",
+  "desc": "ByLength: suffix sums start at m - 1 (the top bucket is never converted)",
+  "old": "for (int i = m; i >= 1; i--)",
+  "new": "for (int i = m - 1; i >= 1; i--)"
+ },
+ {
+  "id": "D10",
+  "desc": "ByLength: the running sum reads the wrong bucket",
+  "old": "atLeast += counts[i];",
+  "new": "atLeast += counts[i - 1];"
+ },
+ {
+  "id": "D11",
+  "desc": "ByLength: n - i instead of n - i + 1 suffixes of length >= i",
+  "old": "counts[i] = n - i + 1 - atLeast;",
+  "new": "counts[i] = n - i - atLeast;"
+ },
+ {
+  "id": "D12",
+  "desc": "ByLength: the two statements of the suffix sum swapped (the running sum reads the converted value)",
+  "old": "            atLeast += counts[i];\n            counts[i] = n - i + 1 - atLeast;",
+  "new": "            counts[i] = n - i + 1 - atLeast;\n            atLeast += counts[i];"
+ },
+ {
+  "id": "D13",
+  "desc": "ByLength: element 0 is 0",
+  "old": "counts[0] = 1;",
+  "new": "counts[0] = 0;"
+ },
+ {
+  "id": "D14",
+  "desc": "ByLength: element 0 not set",
+  "old": "        counts[0] = 1;\n        return counts;",
+  "new": "        return counts;"
+ },
+ {
+  "id": "D15",
+  "desc": "ByLength: the histogram pass stops one rank early",
+  "old": "for (int rank = 1; rank <= n; rank++)\n        {\n            int value = lcp.Get(rank);",
+  "new": "for (int rank = 1; rank < n; rank++)\n        {\n            int value = lcp.Get(rank);"
+ },
+ {
+  "id": "D16",
+  "desc": "ByLength: result one element short",
+  "old": "var counts = new long[m + 1];",
+  "new": "var counts = new long[m];"
+ },
+ {
+  "id": "D17",
+  "desc": "ByLength: result one element long",
+  "old": "var counts = new long[m + 1];",
+  "new": "var counts = new long[m + 2];"
+ },
+ {
+  "id": "E01",
+  "desc": "GetAll: one slot too many (trailing null)",
+  "old": "var suffixes = new string[Length];",
+  "new": "var suffixes = new string[Length + 1];"
+ },
+ {
+  "id": "E02",
+  "desc": "GetAll: includes the empty suffix (rank 0)",
+  "old": "for (int rank = 1; rank <= Length; rank++) suffixes[rank - 1] = Text.Substring(SuffixArray[rank]);",
+  "new": "for (int rank = 0; rank <= Length; rank++) suffixes[rank] = Text.Substring(SuffixArray[rank]);"
+ },
+ {
+  "id": "E03",
+  "desc": "GetAll: ranks shifted by one (the empty suffix first, the longest dropped)",
+  "old": "suffixes[rank - 1] = Text.Substring(SuffixArray[rank]);",
+  "new": "suffixes[rank - 1] = Text.Substring(SuffixArray[rank - 1]);"
+ },
+ {
+  "id": "E04",
+  "desc": "GetAll: suffixes in text order instead of suffix-array order",
+  "old": "suffixes[rank - 1] = Text.Substring(SuffixArray[rank]);",
+  "new": "suffixes[rank - 1] = Text.Substring(rank - 1);"
+ },
+ {
+  "id": "E05",
+  "desc": "GetAll: suffix one character shorter",
+  "old": "suffixes[rank - 1] = Text.Substring(SuffixArray[rank]);",
+  "new": "suffixes[rank - 1] = Text.Substring(SuffixArray[rank] + (SuffixArray[rank] + 1 < Length ? 1 : 0));"
+ },
+ {
+  "id": "E06",
+  "desc": "GetAll: order reversed",
+  "old": "        return suffixes;",
+  "new": "        Array.Reverse(suffixes);\n        return suffixes;"
+ },
+ {
+  "id": "E07",
+  "desc": "Enumerate: the last rank is not yielded",
+  "old": "for (int rank = 1; rank <= Length; rank++) yield return",
+  "new": "for (int rank = 1; rank < Length; rank++) yield return"
+ },
+ {
+  "id": "E08",
+  "desc": "Enumerate: starts at rank 2",
+  "old": "for (int rank = 1; rank <= Length; rank++) yield return",
+  "new": "for (int rank = 2; rank <= Length; rank++) yield return"
+ },
+ {
+  "id": "E09",
+  "desc": "Enumerate: starts at rank 0 (yields the empty suffix)",
+  "old": "for (int rank = 1; rank <= Length; rank++) yield return",
+  "new": "for (int rank = 0; rank <= Length; rank++) yield return"
+ },
+ {
+  "id": "E10",
+  "desc": "Enumerate: not lazy (materialises everything before the first element)",
+  "old": "for (int rank = 1; rank <= Length; rank++) yield return Text.Substring(SuffixArray[rank]);",
+  "new": "foreach (string suffix in GetAllSuffixes()) yield return suffix;"
+ },
+ {
+  "id": "E11",
+  "desc": "Enumerate: yields in text order",
+  "old": "yield return Text.Substring(SuffixArray[rank]);",
+  "new": "yield return Text.Substring(rank - 1);"
+ },
+ {
+  "id": "E12",
+  "desc": "Enumerate: yields the suffix of the previous rank",
+  "old": "yield return Text.Substring(SuffixArray[rank]);",
+  "new": "yield return Text.Substring(SuffixArray[rank - 1]);"
+ }
+]

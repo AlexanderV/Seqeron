@@ -107,4 +107,35 @@ public class EsaAnalysisContractTests
         Assert.That(all.Sum(e => e.Positions.Count), Is.LessThanOrEqualTo(text.Length));
         Assert.That(all, Has.Count.EqualTo(600));
     }
+
+    [Test]
+    public void Operations_LeaveTheIndexUnchanged()
+    {
+        // the operations work on arrays that the index shares with every other reader: none of them may write to the suffix array, the LCP array or the statistics
+        foreach (string text in new[] { "banana", "mississippi", "abcabcxyzxyz", "dcdcbabaxyxy", new string('a', 40), StringFamilies.Fibonacci(200), StringFamilies.RandomDna(300, 5) + StringFamilies.RandomDna(300, 5) })
+        {
+            EsaIndex esa = EsaIndex.Build(text);
+            int[] sa = esa.SuffixArray.ToArray();
+            int[] lcp = esa.Lcp.ToArray();
+            EsaStatistics statistics = esa.Statistics;
+            var before = new TraverseRecorder();
+            esa.Traverse(before);
+
+            _ = esa.LongestRepeatedSubstring();
+            _ = esa.LongestRepeatedSubstringMemory();
+            _ = esa.FindAllLongestRepeatedSubstrings();
+            _ = esa.CountDistinctSubstrings();
+            _ = esa.CountDistinctSubstringsByLength(text.Length);
+            _ = esa.GetAllSuffixes();
+            _ = esa.EnumerateSuffixes().ToList();
+
+            Assert.That(esa.SuffixArray, Is.EqualTo(sa), $"suffix array of '{text}'");
+            Assert.That(esa.Lcp.ToArray(), Is.EqualTo(lcp), $"LCP array of '{text}'");
+            Assert.That(esa.Statistics, Is.EqualTo(statistics), $"statistics of '{text}'");
+            var after = new TraverseRecorder();
+            esa.Traverse(after);
+            Assert.That(after.Events, Is.EqualTo(before.Events), $"Traverse stream of '{text}'");
+            Assert.That(esa.FindAllOccurrences("a").OrderBy(x => x), Is.EqualTo(BruteForce.Occurrences(text, "a")), $"search after the operations on '{text}'");
+        }
+    }
 }
