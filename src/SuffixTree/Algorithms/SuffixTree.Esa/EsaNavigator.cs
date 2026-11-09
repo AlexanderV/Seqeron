@@ -78,9 +78,11 @@ internal readonly struct EsaNavigator : ISuffixTreeNavigator<EsaNode>
     public int LengthOf(EsaNode node) => node.Depth - node.ParentDepth;
 
     /// <inheritdoc />
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     public EsaNode GetSuffixLink(EsaNode node) => _pack.SuffixLink(node);
 
     /// <inheritdoc />
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     public bool TryGetChild(EsaNode node, int key, out EsaNode child)
     {
         if (node.Lb == node.Rb)
@@ -97,6 +99,7 @@ internal readonly struct EsaNavigator : ISuffixTreeNavigator<EsaNode>
     }
 
     /// <inheritdoc />
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     public void CollectLeaves(EsaNode node, int depth, List<int> results)
     {
         // rank 0 is the empty suffix: it belongs to the root (and is the root's terminator leaf), and it is no position
@@ -106,6 +109,7 @@ internal readonly struct EsaNavigator : ISuffixTreeNavigator<EsaNode>
     }
 
     /// <inheritdoc />
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     public int FindAnyLeafPosition(EsaNode node, int depthFromRoot)
     {
         if (node.Lb == 0) return node.Rb >= 1 ? _sa[1] : -1; // the root, or its terminator leaf
@@ -113,6 +117,7 @@ internal readonly struct EsaNavigator : ISuffixTreeNavigator<EsaNode>
     }
 
     /// <inheritdoc />
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     public void GetChildren(EsaNode node, List<EsaNode> children)
     {
         children.Clear();
@@ -131,6 +136,7 @@ internal readonly struct EsaNavigator : ISuffixTreeNavigator<EsaNode>
         }
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     private bool TryGetChildCore<TChild>(TChild table, in EsaNode node, int key, out EsaNode child)
         where TChild : struct, IChildTable
     {
@@ -160,6 +166,7 @@ internal readonly struct EsaNavigator : ISuffixTreeNavigator<EsaNode>
         }
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     private void GetChildrenCore<TChild>(TChild table, in EsaNode node, List<EsaNode> children)
         where TChild : struct, IChildTable
     {

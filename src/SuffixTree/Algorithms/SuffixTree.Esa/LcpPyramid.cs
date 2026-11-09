@@ -21,7 +21,6 @@ internal sealed unsafe class LcpPyramid : IDisposable
     private const int U16Escape = ushort.MaxValue;
     private const int MaxLevels = 32;
 
-    private readonly CompactLcp _lcp;
     private readonly LcpKind _kind;
     private readonly int _length;
     private readonly int _fanout;
@@ -32,6 +31,9 @@ internal sealed unsafe class LcpPyramid : IDisposable
     private readonly PinnedArray<int>? _pinned32;
     private readonly PinnedArray<int> _levelData;
     private readonly Buf<int> _levels;
+    private readonly Reader8 _reader8;
+    private readonly Reader16 _reader16;
+    private readonly Reader32 _reader32;
 #pragma warning disable S3459, S1144 // the fields of an inline array are only reachable through its indexer
     private LevelTable _offset;
     private LevelTable _count;
@@ -45,7 +47,6 @@ internal sealed unsafe class LcpPyramid : IDisposable
 
     private LcpPyramid(CompactLcp lcp, int fanout)
     {
-        _lcp = lcp;
         _kind = lcp.Kind;
         _length = lcp.Length;
         _fanout = fanout;
@@ -76,15 +77,18 @@ internal sealed unsafe class LcpPyramid : IDisposable
         {
             case LcpKind.U8:
                 _pinned8 = PinnedArray<byte>.Pin(lcp.BaseU8!, "lcp-u8");
-                Fill(new Reader8(_pinned8.Buf, lcp.OverflowRanks, lcp.OverflowValues));
+                _reader8 = new Reader8(_pinned8.Buf, lcp.OverflowRanks, lcp.OverflowValues);
+                Fill(_reader8);
                 break;
             case LcpKind.U16:
                 _pinned16 = PinnedArray<ushort>.Pin(lcp.BaseU16!, "lcp-u16");
-                Fill(new Reader16(_pinned16.Buf, lcp.OverflowRanks, lcp.OverflowValues));
+                _reader16 = new Reader16(_pinned16.Buf, lcp.OverflowRanks, lcp.OverflowValues);
+                Fill(_reader16);
                 break;
             default:
                 _pinned32 = PinnedArray<int>.Pin(lcp.BaseU32!, "lcp-u32");
-                Fill(new Reader32(_pinned32.Buf));
+                _reader32 = new Reader32(_pinned32.Buf);
+                Fill(_reader32);
                 break;
         }
     }
@@ -114,14 +118,15 @@ internal sealed unsafe class LcpPyramid : IDisposable
 
     /// <summary>The true LCP value at <paramref name="rank"/> (an escaped entry is resolved).</summary>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="rank"/> is outside <c>0..Length-1</c>.</exception>
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     internal int ValueAt(int rank)
     {
         if ((uint)rank >= (uint)_length) throw new ArgumentOutOfRangeException(nameof(rank));
         return _kind switch
         {
-            LcpKind.U8 => new Reader8(_pinned8!.Buf, _lcp.OverflowRanks, _lcp.OverflowValues).Value(rank),
-            LcpKind.U16 => new Reader16(_pinned16!.Buf, _lcp.OverflowRanks, _lcp.OverflowValues).Value(rank),
-            _ => new Reader32(_pinned32!.Buf).Value(rank),
+            LcpKind.U8 => _reader8.Value(rank),
+            LcpKind.U16 => _reader16.Value(rank),
+            _ => _reader32.Value(rank),
         };
     }
 
@@ -132,37 +137,39 @@ internal sealed unsafe class LcpPyramid : IDisposable
         if ((uint)lo > (uint)hi || hi >= _length) throw new ArgumentOutOfRangeException(nameof(lo), $"[{lo}, {hi}] is not a range of {_length} entries");
         return _kind switch
         {
-            LcpKind.U8 => MinCore(new Reader8(_pinned8!.Buf, _lcp.OverflowRanks, _lcp.OverflowValues), lo, hi),
-            LcpKind.U16 => MinCore(new Reader16(_pinned16!.Buf, _lcp.OverflowRanks, _lcp.OverflowValues), lo, hi),
-            _ => MinCore(new Reader32(_pinned32!.Buf), lo, hi),
+            LcpKind.U8 => MinCore(_reader8, lo, hi),
+            LcpKind.U16 => MinCore(_reader16, lo, hi),
+            _ => MinCore(_reader32, lo, hi),
         };
     }
 
     /// <summary>The largest <c>j &lt;= pos</c> with <c>LCP[j] &lt; bound</c>, or -1 (also for a negative <paramref name="pos"/>).</summary>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="pos"/> is at or beyond <see cref="Length"/>.</exception>
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     internal int PrevLess(int pos, int bound)
     {
         if (pos < 0) return -1;
         ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(pos, _length);
         return _kind switch
         {
-            LcpKind.U8 => PrevLessCore(new Reader8(_pinned8!.Buf, _lcp.OverflowRanks, _lcp.OverflowValues), pos, bound),
-            LcpKind.U16 => PrevLessCore(new Reader16(_pinned16!.Buf, _lcp.OverflowRanks, _lcp.OverflowValues), pos, bound),
-            _ => PrevLessCore(new Reader32(_pinned32!.Buf), pos, bound),
+            LcpKind.U8 => PrevLessCore(_reader8, pos, bound),
+            LcpKind.U16 => PrevLessCore(_reader16, pos, bound),
+            _ => PrevLessCore(_reader32, pos, bound),
         };
     }
 
     /// <summary>The smallest <c>j &gt;= pos</c> with <c>LCP[j] &lt; bound</c>, or <see cref="Length"/> (also for a <paramref name="pos"/> at or beyond it).</summary>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="pos"/> is negative.</exception>
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     internal int NextLess(int pos, int bound)
     {
         if (pos >= _length) return _length;
         ArgumentOutOfRangeException.ThrowIfNegative(pos);
         return _kind switch
         {
-            LcpKind.U8 => NextLessCore(new Reader8(_pinned8!.Buf, _lcp.OverflowRanks, _lcp.OverflowValues), pos, bound),
-            LcpKind.U16 => NextLessCore(new Reader16(_pinned16!.Buf, _lcp.OverflowRanks, _lcp.OverflowValues), pos, bound),
-            _ => NextLessCore(new Reader32(_pinned32!.Buf), pos, bound),
+            LcpKind.U8 => NextLessCore(_reader8, pos, bound),
+            LcpKind.U16 => NextLessCore(_reader16, pos, bound),
+            _ => NextLessCore(_reader32, pos, bound),
         };
     }
 
@@ -180,19 +187,20 @@ internal sealed unsafe class LcpPyramid : IDisposable
     /// <param name="right">The smallest <c>j &gt; b</c> with <c>LCP[j] &lt; t</c>, or <see cref="Length"/>.</param>
     /// <param name="leftValue">The true <c>LCP[left]</c>.</param>
     /// <param name="rightValue">The true <c>LCP[right]</c>, or -1 when <paramref name="right"/> is <see cref="Length"/>.</param>
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     internal void Borders(int a, int b, int t, out int left, out int right, out int leftValue, out int rightValue)
     {
         if ((uint)a >= (uint)_length || b < a || b >= _length) throw new ArgumentOutOfRangeException(nameof(a));
         switch (_kind)
         {
             case LcpKind.U8:
-                BordersCore(new Reader8(_pinned8!.Buf, _lcp.OverflowRanks, _lcp.OverflowValues), a, b, t, out left, out right, out leftValue, out rightValue);
+                BordersCore(_reader8, a, b, t, out left, out right, out leftValue, out rightValue);
                 break;
             case LcpKind.U16:
-                BordersCore(new Reader16(_pinned16!.Buf, _lcp.OverflowRanks, _lcp.OverflowValues), a, b, t, out left, out right, out leftValue, out rightValue);
+                BordersCore(_reader16, a, b, t, out left, out right, out leftValue, out rightValue);
                 break;
             default:
-                BordersCore(new Reader32(_pinned32!.Buf), a, b, t, out left, out right, out leftValue, out rightValue);
+                BordersCore(_reader32, a, b, t, out left, out right, out leftValue, out rightValue);
                 break;
         }
     }
@@ -233,6 +241,7 @@ internal sealed unsafe class LcpPyramid : IDisposable
         }
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     private void BordersCore<TR>(TR reader, int a, int b, int t, out int left, out int right, out int leftValue, out int rightValue)
         where TR : struct, IBaseReader
     {
@@ -242,6 +251,7 @@ internal sealed unsafe class LcpPyramid : IDisposable
         rightValue = right < _length ? reader.Value(right) : -1;
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     private int MinCore<TR>(TR reader, int lo, int hi)
         where TR : struct, IBaseReader
     {
@@ -278,6 +288,7 @@ internal sealed unsafe class LcpPyramid : IDisposable
         return min;
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     private int PrevLessCore<TR>(TR reader, int pos, int bound)
         where TR : struct, IBaseReader
     {
@@ -296,6 +307,7 @@ internal sealed unsafe class LcpPyramid : IDisposable
         return -1;
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     private int NextLessCore<TR>(TR reader, int pos, int bound)
         where TR : struct, IBaseReader
     {
@@ -316,6 +328,7 @@ internal sealed unsafe class LcpPyramid : IDisposable
     }
 
     /// <summary>The rightmost position below <paramref name="bound"/> inside block <paramref name="b"/> of level <paramref name="k"/>, whose minimum is known to be below it.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     private int RightmostBelow<TR>(TR reader, int k, int b, int bound)
         where TR : struct, IBaseReader
     {
@@ -339,6 +352,7 @@ internal sealed unsafe class LcpPyramid : IDisposable
     }
 
     /// <summary>The leftmost position below <paramref name="bound"/> inside block <paramref name="b"/> of level <paramref name="k"/>, whose minimum is known to be below it.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     private int LeftmostBelow<TR>(TR reader, int k, int b, int bound)
         where TR : struct, IBaseReader
     {

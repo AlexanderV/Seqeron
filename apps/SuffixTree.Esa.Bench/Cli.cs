@@ -35,6 +35,11 @@ internal static class Cli
                   [--ukkonen true] [--time-links true]
                   work package 1b.4a, prototype P2: MEM of the benchmark's 100 kbp query (1 % substitutions) with the throwaway ESA matching-statistics driver (cold first call, warm calls,
                   links followed, extend steps) and, with --ukkonen, the in-memory Ukkonen tree on the same query in the same process (reference time, MEM-set equality)
+          nav     --input <file> --op mem|mum|anchors|lcs|links|split [--queries <bench dir>] [--name <label>] [--min-length 20] [--calls 10] [--ukkonen true]
+                  [--other <file>|--other-kind mutated|random] [--sample 200000] [--seed 1]
+                  work package 1b.4: the production navigator behind the generic algorithms. One process = one text and one operation: MEM / MUM / anchors of the benchmark's 100 kbp query,
+                  the LCS family against a second text, ns per link of the production kernel against the prototype (c2), or the split of the MEM time over the navigator members;
+                  cold first call, warm and steady medians, build times and bytes per character of the navigation pack, and with --ukkonen the in-memory Ukkonen tree on the same input (exit code 3 on a different answer)
           ab      --input <file> [--name <label>] [--verify <sa_vectors.tsv>] [--pairs 9] [--calibration-pairs 7]
                   [--a-args "<build options>"] [--b-args "<build options>"] [--a-env KEY=VALUE]... [--b-env KEY=VALUE]...
                   [--a-dll <path>] [--b-dll <path>] [--libsais <driver>] [--libsais-runs 5] [--max-load 0.30] [--out <raw.tsv>]
@@ -61,6 +66,11 @@ internal static class Cli
             if (args[0] == "mem")
             {
                 MemCommands.Run(args[1..]);
+                return Environment.ExitCode;
+            }
+            if (args[0] == "nav")
+            {
+                NavCommands.Run(args[1..]);
                 return Environment.ExitCode;
             }
             var options = Options.Parse(args[1..]);

@@ -1,3 +1,5 @@
+using System.Runtime.CompilerServices;
+
 namespace SuffixTree.Esa;
 
 /// <summary>
@@ -14,6 +16,8 @@ internal sealed class EsaNavigationPack : IDisposable
     private readonly int _n;
     private readonly PinnedArray<int> _sa;
     private readonly PinnedArray<int> _isa;
+    private readonly Buf<int> _saBuf;
+    private readonly Buf<int> _isaBuf;
     private readonly LcpPyramid _pyramid;
 
     private EsaNavigationPack(EsaIndex index, PinnedArray<int> sa, PinnedArray<int> isa, LcpPyramid pyramid)
@@ -22,6 +26,8 @@ internal sealed class EsaNavigationPack : IDisposable
         _n = index.Length;
         _sa = sa;
         _isa = isa;
+        _saBuf = sa.Buf;
+        _isaBuf = isa.Buf;
         _pyramid = pyramid;
     }
 
@@ -62,13 +68,13 @@ internal sealed class EsaNavigationPack : IDisposable
     internal LcpPyramid Pyramid => _pyramid;
 
     /// <summary>The pinned suffix array (<c>n + 1</c> entries).</summary>
-    internal Buf<int> Sa => _sa.Buf;
+    internal Buf<int> Sa => _saBuf;
 
     /// <summary><c>ISA[position]</c>, the rank of the suffix that starts at <paramref name="position"/> (<c>0..n</c>; <c>ISA[n] = 0</c>).</summary>
     internal int Isa(int position)
     {
         if ((uint)position > (uint)_n) throw new ArgumentOutOfRangeException(nameof(position));
-        return _isa.Buf[position];
+        return _isaBuf[position];
     }
 
     /// <summary>The inverse suffix array as a managed array (tests and diagnostics).</summary>
@@ -82,6 +88,7 @@ internal sealed class EsaNavigationPack : IDisposable
     /// terminator-only leaf), for the root the root. The result carries its parent depth, last-child flag and <c>Pos</c>.
     /// </summary>
     /// <exception cref="ArgumentException"><paramref name="node"/> is the null node.</exception>
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     internal EsaNode SuffixLink(in EsaNode node)
     {
         if (node.Lb < 0) throw new ArgumentException("the null node has no suffix link", nameof(node));
@@ -90,8 +97,8 @@ internal sealed class EsaNavigationPack : IDisposable
         int t = node.Depth - 1;
         if (t == 0) return Root;                                  // an internal node of depth 1
 
-        Buf<int> sa = _sa.Buf;
-        Buf<int> isa = _isa.Buf;
+        Buf<int> sa = _saBuf;
+        Buf<int> isa = _isaBuf;
         int a = isa[node.Pos + 1];
         int b = isa[sa[node.Rb] + 1];
         _pyramid.Borders(a, b, t, out int left, out int right, out int leftValue, out int rightValue);
@@ -106,11 +113,12 @@ internal sealed class EsaNavigationPack : IDisposable
         _pyramid.Dispose();
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     private EsaNode LeafLink(in EsaNode leaf)
     {
         int position = leaf.Pos;
         if (position >= _n) return Root; // the terminator-only leaf of the root
-        int rank = _isa.Buf[position + 1];
+        int rank = _isaBuf[position + 1];
         int left = _pyramid.ValueAt(rank);
         int right = rank < _n ? _pyramid.ValueAt(rank + 1) : -1;
         return new EsaNode(rank, rank, leaf.Depth - 1, Math.Max(left, right), position + 1, left > right);

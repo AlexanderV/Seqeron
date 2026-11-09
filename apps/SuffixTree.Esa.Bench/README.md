@@ -86,6 +86,29 @@ lookups) and, with `--time-links`, the share of the kernel calls; `--ukkonen tru
 warm) and compares the two MEM sets (`mem_set_equal`). `--loci 2` follows the second chain of the generic algorithm (its suffix links are paid, its result is not used), `--loci 1` is the
 single-chain matching statistics of an ESA.
 
+## Production navigator behind the generic algorithms (1b.4)
+
+`nav` measures the real thing: `EsaIndex.FindMaximalExactMatches` / `FindMaximalUniqueMatches` / `FindExactMatchAnchors` / the LCS family, i.e. the generic algorithms of `SuffixTree.Core`
+(`SuffixTreeAlgorithms.*<EsaNode, EsaNavigator>`) on the production navigator, the navigation pack (ISA + LCP pyramid of fanout 32, built on the first matching call) and the suffix-link kernel (c2).
+One process = one text and one operation; the in-memory Ukkonen tree of the same text answers the same query in the same process (reference time, answer comparison, exit code 3 on a difference).
+
+```
+dotnet apps/SuffixTree.Esa.Bench/bin/Release/net10.0/SuffixTree.Esa.Bench.dll nav --input /tmp/stbench/data/dna_10m.txt --name dna_10m --queries /tmp/stbench --op mem|mum|anchors [--min-length 20] [--calls 10] [--ukkonen true]
+dotnet apps/SuffixTree.Esa.Bench/bin/Release/net10.0/SuffixTree.Esa.Bench.dll nav --input /tmp/stbench/data/dna_1m.txt --name dna_1m --op lcs [--other-kind mutated|random | --other <file>]
+dotnet apps/SuffixTree.Esa.Bench/bin/Release/net10.0/SuffixTree.Esa.Bench.dll nav --input /tmp/stbench/data/dna_10m.txt --name dna_10m --op links [--sample 200000]
+dotnet apps/SuffixTree.Esa.Bench/bin/Release/net10.0/SuffixTree.Esa.Bench.dll nav --input /tmp/stbench/data/dna_10m.txt --name dna_10m --queries /tmp/stbench --op split
+docs/refactoring/suffix-tree-upgrade/analysis/s1b/run_nav.sh /tmp/stbench dna_10m mem 5      # 5 fresh processes -> analysis/s1b/nav_raw.tsv
+```
+
+`mem` / `mum` / `anchors`: the benchmark's `<name>.memq100k` query (100 kbp, 1 % substitutions), minLength 20. Rows: ESA build, the pack build on its own (`pack_build_s`, `pack_bytes_per_char`, a second warm pyramid
+build), then the operation `--calls` times: `*_first_call_s` is the cold-JIT time (the pack already exists), `*_warm_median_s` the median over calls 2..N, `*_steady_median_s` over the last five, result count and
+checksum; the same for the Ukkonen tree (`nav_ukkonen`) and `nav_check` (answers equal). `lcs`: `LongestCommonSubstringInfo`, `FindAllLongestCommonSubstrings`, `FindAllDistinctLongestCommonSubstrings` against a second
+text (a deterministic copy of the text with 1 % substitutions and 0.1 % single-letter indels, `mutated`, or an independent random text of the same letters, `random`, or a file). `links`: the production
+kernel and the prototype kernel (c2) of 1b.4a (ISA, fanout 32, WITH the extra `SA[Lb]` read that completes the production handle) on the same sampled internal nodes in paired rounds (two interleaved halves of the
+sample, the halves swap and the order alternates), ns per link net of the timer floor. `split`: MEM through a counting navigator (exact call counts per member), through a timing navigator (each heavy member
+timed one by one; the timers serialise the pipeline, so the shares of the timed run, not its absolute times, are meaningful) and through a replay (the recorded arguments of each member played back on their own
+with a data dependency); the three views bracket the share of the link kernel and of the child lookups, which are not additive because the processor overlaps them.
+
 ## Paired interleaved A/B runner (1o.0)
 
 `ab` is the acceptance instrument of the optimization phase (PROCESS.md, amendments of 2026-11-03). It spawns FRESH `build` processes of this app, so every
