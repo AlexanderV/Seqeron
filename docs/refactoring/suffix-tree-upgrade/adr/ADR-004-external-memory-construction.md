@@ -221,6 +221,25 @@ Added 2026-11-09 after the owner approved the prototypes E0-E3 (the recommendati
 | `/proc/self/io` agreement within 1 % | writes 0 %, reads 0.047 % (302 MB written, 336 MB read through `CountedFile`) | PASS |
 | `ArenaBudget` | enforced and released, thread-safe (tests); a wrapper class around `NativeArena`, which is not modified | PASS |
 
+### E1 in-RAM simulation without the difference-cover sample - gate met, DCS needed
+
+Measured with `e1` of `apps/SuffixTree.EmProto` (1 thread, K = n/1000, fan-out 64, direct comparison with an AVX2 LCE over the b-bit packed text; tables and raw rows in [RESULTS.md](../analysis/em/RESULTS.md)). Every suffix array equals the libsais hash or the `SaisKernel` result.
+
+| family | n | `sa_s` median [min-max], fresh processes | ratio to `dna_10m` | key-tie share | LCE work |
+|---|---|---|---|---|---|
+| `dna_10m` | 10 M | 1.006 s [0.973-1.041], 5 runs (gate <= 3 s: **met**; 0.556 s with 4 threads) | 1 | 0 % | 1.4 x 10^6 symbols |
+| `rep_10m` | 10 M | 2.58 s [2.43-2.65], 3 | 2.6 | 77 % | 3.4 x 10^9 |
+| `prot_1m` | 1 M | 0.258 s, 3 | 0.26 | 0 % | 5.7 x 10^5 |
+| Thue-Morse | 1 M | 4.14 s [4.03-4.27], 3 | 4.1 | 99.99 % | 3.0 x 10^11 |
+| Fibonacci | 1 M | 9.41 s [9.28-9.61], 3 | 9.4 | 99.99 % | 7.3 x 10^11 |
+| genome-like (own generator) | 10 M | 2.22 s [2.11-2.33], 3 | 2.2 | 8.6 % | 2.6 x 10^10 |
+| a^n | 1 M | 118 s [117.9-119.1], 3 | **117** | 100 % | 1.0 x 10^13 |
+| a^n | 10 M | **> 600 s, aborted** (failure by the rule) | > 600 | - | - |
+| 171-bp tandem x 10^4 | 1.71 M | 505 s [502-511], 3 | **502** | 100 % | 2.1 x 10^13 |
+| N run 1 M in 10 M random DNA | 10 M | 412 s [410-415], 3 | **410** | 10 % | 1.2 x 10^13 |
+
+With the merge sort of the final code (fewer comparator calls) the numbers are lower by 11-39 % but the picture is the same: a^n 1 M 88x, tandem 301x, N run 240x, a^n 10 M still above 600 s. **Rule of E1: not every family is within 10x, so the difference-cover sample (PH1) is needed and E2 was run.** The cost of a failing family is not the number of comparator calls (1.4-2.6 x 10^7 for all of them) but their length: 10^6 matched symbols per text symbol.
+
 ## 6. Honest limitations and open questions
 
 What I could **not** verify:

@@ -1,0 +1,461 @@
+# E1 raw rows (ADR-004 section 5), measured on this machine on 2026-11-09, 1 thread, K = n/1000, fan-out 64, tie runs ordered by introsort (--tie-sort intro, the first version of the code; frozen binary)
+# command per row: dotnet SuffixTree.EmProto.dll e1 --family <spec> --data /tmp/stbench/data --vectors analysis/sa_vectors.tsv --run <i> --out e1.tsv [--tie-sort intro]  (a:10000000 --limit 600)
+# columns: R, experiment, case, run, metric, value, unit, notes  (run 0 = the first measurement session of the slow cases, same code path; see RESULTS.md)
+R	E1	dna_10m	1	n	10000000	symbols	sigma=4, b=2 bits, K=10000, fan-out=64, threads=1
+R	E1	dna_10m	1	prep_s	0.010987	s	pack the text (excluded from sa_s)
+R	E1	dna_10m	1	sa_s	1.040515	s	PH2-PH3: partition + bucket sort, suffix array only
+R	E1	dna_10m	1	sa_plus_dcs_s	1.040515	s	bucket build plus the rank table construction
+R	E1	dna_10m	1	total_s	1.051502	s	pack + rank table + build
+R	E1	dna_10m	1	ns_per_symbol	104.051455	ns	sa_s / n
+R	E1	dna_10m	1	buckets	2105	n	leaves=2038, partitions=67, max depth=3, largest leaf=9753, degenerate retries=0
+R	E1	dna_10m	1	tie_share	0	%	positions of leaf buckets whose 64-bit key equals another's in the same bucket: 0 of 10000000
+R	E1	dna_10m	1	compares	325464	n	comparator calls; from key ties: 2037; scan positions (all levels): 20020570
+R	E1	dna_10m	1	lce_symbols	1433477	symbols	LCE work: symbols matched beyond the key; LCE calls 323403, loop steps 323403, rank lookups 0
+R	E1	dna_10m	1	lce_symbols_per_n	0.143348	symbols/symbol	LCE work per text symbol
+R	E1	dna_10m	1	phase_cpu_s	0.781011	s	summed over workers: partition 0.781, leaf sort 0.251
+R	E1	dna_10m	1	vmhwm	173.223936	MB	peak resident set of the process (text, symbols, packed text, SA, buckets)
+R	E1	dna_10m	1	sa_correct	yes		compared with libsais hash of dna_10m
+R	E1	dna_10m	2	n	10000000	symbols	sigma=4, b=2 bits, K=10000, fan-out=64, threads=1
+R	E1	dna_10m	2	prep_s	0.016986	s	pack the text (excluded from sa_s)
+R	E1	dna_10m	2	sa_s	1.005809	s	PH2-PH3: partition + bucket sort, suffix array only
+R	E1	dna_10m	2	sa_plus_dcs_s	1.005809	s	bucket build plus the rank table construction
+R	E1	dna_10m	2	total_s	1.022795	s	pack + rank table + build
+R	E1	dna_10m	2	ns_per_symbol	100.580931	ns	sa_s / n
+R	E1	dna_10m	2	buckets	2105	n	leaves=2038, partitions=67, max depth=3, largest leaf=9753, degenerate retries=0
+R	E1	dna_10m	2	tie_share	0	%	positions of leaf buckets whose 64-bit key equals another's in the same bucket: 0 of 10000000
+R	E1	dna_10m	2	compares	325464	n	comparator calls; from key ties: 2037; scan positions (all levels): 20020570
+R	E1	dna_10m	2	lce_symbols	1433477	symbols	LCE work: symbols matched beyond the key; LCE calls 323403, loop steps 323403, rank lookups 0
+R	E1	dna_10m	2	lce_symbols_per_n	0.143348	symbols/symbol	LCE work per text symbol
+R	E1	dna_10m	2	phase_cpu_s	0.7637	s	summed over workers: partition 0.764, leaf sort 0.232
+R	E1	dna_10m	2	vmhwm	173.293568	MB	peak resident set of the process (text, symbols, packed text, SA, buckets)
+R	E1	dna_10m	2	sa_correct	yes		compared with libsais hash of dna_10m
+R	E1	dna_10m	3	n	10000000	symbols	sigma=4, b=2 bits, K=10000, fan-out=64, threads=1
+R	E1	dna_10m	3	prep_s	0.014029	s	pack the text (excluded from sa_s)
+R	E1	dna_10m	3	sa_s	1.030978	s	PH2-PH3: partition + bucket sort, suffix array only
+R	E1	dna_10m	3	sa_plus_dcs_s	1.030978	s	bucket build plus the rank table construction
+R	E1	dna_10m	3	total_s	1.045008	s	pack + rank table + build
+R	E1	dna_10m	3	ns_per_symbol	103.097814	ns	sa_s / n
+R	E1	dna_10m	3	buckets	2105	n	leaves=2038, partitions=67, max depth=3, largest leaf=9753, degenerate retries=0
+R	E1	dna_10m	3	tie_share	0	%	positions of leaf buckets whose 64-bit key equals another's in the same bucket: 0 of 10000000
+R	E1	dna_10m	3	compares	325464	n	comparator calls; from key ties: 2037; scan positions (all levels): 20020570
+R	E1	dna_10m	3	lce_symbols	1433477	symbols	LCE work: symbols matched beyond the key; LCE calls 323403, loop steps 323403, rank lookups 0
+R	E1	dna_10m	3	lce_symbols_per_n	0.143348	symbols/symbol	LCE work per text symbol
+R	E1	dna_10m	3	phase_cpu_s	0.7814	s	summed over workers: partition 0.781, leaf sort 0.240
+R	E1	dna_10m	3	vmhwm	173.314048	MB	peak resident set of the process (text, symbols, packed text, SA, buckets)
+R	E1	dna_10m	3	sa_correct	yes		compared with libsais hash of dna_10m
+R	E1	dna_10m	4	n	10000000	symbols	sigma=4, b=2 bits, K=10000, fan-out=64, threads=1
+R	E1	dna_10m	4	prep_s	0.010536	s	pack the text (excluded from sa_s)
+R	E1	dna_10m	4	sa_s	0.973333	s	PH2-PH3: partition + bucket sort, suffix array only
+R	E1	dna_10m	4	sa_plus_dcs_s	0.973333	s	bucket build plus the rank table construction
+R	E1	dna_10m	4	total_s	0.983869	s	pack + rank table + build
+R	E1	dna_10m	4	ns_per_symbol	97.333319	ns	sa_s / n
+R	E1	dna_10m	4	buckets	2105	n	leaves=2038, partitions=67, max depth=3, largest leaf=9753, degenerate retries=0
+R	E1	dna_10m	4	tie_share	0	%	positions of leaf buckets whose 64-bit key equals another's in the same bucket: 0 of 10000000
+R	E1	dna_10m	4	compares	325464	n	comparator calls; from key ties: 2037; scan positions (all levels): 20020570
+R	E1	dna_10m	4	lce_symbols	1433477	symbols	LCE work: symbols matched beyond the key; LCE calls 323403, loop steps 323403, rank lookups 0
+R	E1	dna_10m	4	lce_symbols_per_n	0.143348	symbols/symbol	LCE work per text symbol
+R	E1	dna_10m	4	phase_cpu_s	0.739514	s	summed over workers: partition 0.740, leaf sort 0.226
+R	E1	dna_10m	4	vmhwm	173.223936	MB	peak resident set of the process (text, symbols, packed text, SA, buckets)
+R	E1	dna_10m	4	sa_correct	yes		compared with libsais hash of dna_10m
+R	E1	dna_10m	5	n	10000000	symbols	sigma=4, b=2 bits, K=10000, fan-out=64, threads=1
+R	E1	dna_10m	5	prep_s	0.01017	s	pack the text (excluded from sa_s)
+R	E1	dna_10m	5	sa_s	0.985943	s	PH2-PH3: partition + bucket sort, suffix array only
+R	E1	dna_10m	5	sa_plus_dcs_s	0.985943	s	bucket build plus the rank table construction
+R	E1	dna_10m	5	total_s	0.996114	s	pack + rank table + build
+R	E1	dna_10m	5	ns_per_symbol	98.594317	ns	sa_s / n
+R	E1	dna_10m	5	buckets	2105	n	leaves=2038, partitions=67, max depth=3, largest leaf=9753, degenerate retries=0
+R	E1	dna_10m	5	tie_share	0	%	positions of leaf buckets whose 64-bit key equals another's in the same bucket: 0 of 10000000
+R	E1	dna_10m	5	compares	325464	n	comparator calls; from key ties: 2037; scan positions (all levels): 20020570
+R	E1	dna_10m	5	lce_symbols	1433477	symbols	LCE work: symbols matched beyond the key; LCE calls 323403, loop steps 323403, rank lookups 0
+R	E1	dna_10m	5	lce_symbols_per_n	0.143348	symbols/symbol	LCE work per text symbol
+R	E1	dna_10m	5	phase_cpu_s	0.752407	s	summed over workers: partition 0.752, leaf sort 0.226
+R	E1	dna_10m	5	vmhwm	173.24032	MB	peak resident set of the process (text, symbols, packed text, SA, buckets)
+R	E1	dna_10m	5	sa_correct	yes		compared with libsais hash of dna_10m
+R	E1	rep_10m	1	n	10000000	symbols	sigma=4, b=2 bits, K=10000, fan-out=64, threads=1
+R	E1	rep_10m	1	prep_s	0.010064	s	pack the text (excluded from sa_s)
+R	E1	rep_10m	1	sa_s	2.429805	s	PH2-PH3: partition + bucket sort, suffix array only
+R	E1	rep_10m	1	sa_plus_dcs_s	2.429805	s	bucket build plus the rank table construction
+R	E1	rep_10m	1	total_s	2.439869	s	pack + rank table + build
+R	E1	rep_10m	1	ns_per_symbol	242.980479	ns	sa_s / n
+R	E1	rep_10m	1	buckets	2098	n	leaves=2033, partitions=65, max depth=2, largest leaf=9314, degenerate retries=0
+R	E1	rep_10m	1	tie_share	77.49296	%	positions of leaf buckets whose 64-bit key equals another's in the same bucket: 7749296 of 10000000
+R	E1	rep_10m	1	compares	45904715	n	comparator calls; from key ties: 45587194; scan positions (all levels): 20000000
+R	E1	rep_10m	1	lce_symbols	3354289531	symbols	LCE work: symbols matched beyond the key; LCE calls 45897544, loop steps 55316718, rank lookups 0
+R	E1	rep_10m	1	lce_symbols_per_n	335.428953	symbols/symbol	LCE work per text symbol
+R	E1	rep_10m	1	phase_cpu_s	0.671481	s	summed over workers: partition 0.671, leaf sort 1.750
+R	E1	rep_10m	1	vmhwm	184.766464	MB	peak resident set of the process (text, symbols, packed text, SA, buckets)
+R	E1	rep_10m	1	sa_correct	yes		compared with libsais hash of rep_10m
+R	E1	rep_10m	2	n	10000000	symbols	sigma=4, b=2 bits, K=10000, fan-out=64, threads=1
+R	E1	rep_10m	2	prep_s	0.011111	s	pack the text (excluded from sa_s)
+R	E1	rep_10m	2	sa_s	2.652071	s	PH2-PH3: partition + bucket sort, suffix array only
+R	E1	rep_10m	2	sa_plus_dcs_s	2.652071	s	bucket build plus the rank table construction
+R	E1	rep_10m	2	total_s	2.663182	s	pack + rank table + build
+R	E1	rep_10m	2	ns_per_symbol	265.207129	ns	sa_s / n
+R	E1	rep_10m	2	buckets	2098	n	leaves=2033, partitions=65, max depth=2, largest leaf=9314, degenerate retries=0
+R	E1	rep_10m	2	tie_share	77.49296	%	positions of leaf buckets whose 64-bit key equals another's in the same bucket: 7749296 of 10000000
+R	E1	rep_10m	2	compares	45904715	n	comparator calls; from key ties: 45587194; scan positions (all levels): 20000000
+R	E1	rep_10m	2	lce_symbols	3354289531	symbols	LCE work: symbols matched beyond the key; LCE calls 45897544, loop steps 55316718, rank lookups 0
+R	E1	rep_10m	2	lce_symbols_per_n	335.428953	symbols/symbol	LCE work per text symbol
+R	E1	rep_10m	2	phase_cpu_s	0.681052	s	summed over workers: partition 0.681, leaf sort 1.960
+R	E1	rep_10m	2	vmhwm	184.897536	MB	peak resident set of the process (text, symbols, packed text, SA, buckets)
+R	E1	rep_10m	2	sa_correct	yes		compared with libsais hash of rep_10m
+R	E1	rep_10m	3	n	10000000	symbols	sigma=4, b=2 bits, K=10000, fan-out=64, threads=1
+R	E1	rep_10m	3	prep_s	0.011388	s	pack the text (excluded from sa_s)
+R	E1	rep_10m	3	sa_s	2.57845	s	PH2-PH3: partition + bucket sort, suffix array only
+R	E1	rep_10m	3	sa_plus_dcs_s	2.57845	s	bucket build plus the rank table construction
+R	E1	rep_10m	3	total_s	2.589839	s	pack + rank table + build
+R	E1	rep_10m	3	ns_per_symbol	257.845023	ns	sa_s / n
+R	E1	rep_10m	3	buckets	2098	n	leaves=2033, partitions=65, max depth=2, largest leaf=9314, degenerate retries=0
+R	E1	rep_10m	3	tie_share	77.49296	%	positions of leaf buckets whose 64-bit key equals another's in the same bucket: 7749296 of 10000000
+R	E1	rep_10m	3	compares	45904715	n	comparator calls; from key ties: 45587194; scan positions (all levels): 20000000
+R	E1	rep_10m	3	lce_symbols	3354289531	symbols	LCE work: symbols matched beyond the key; LCE calls 45897544, loop steps 55316718, rank lookups 0
+R	E1	rep_10m	3	lce_symbols_per_n	335.428953	symbols/symbol	LCE work per text symbol
+R	E1	rep_10m	3	phase_cpu_s	0.700925	s	summed over workers: partition 0.701, leaf sort 1.868
+R	E1	rep_10m	3	vmhwm	184.963072	MB	peak resident set of the process (text, symbols, packed text, SA, buckets)
+R	E1	rep_10m	3	sa_correct	yes		compared with libsais hash of rep_10m
+R	E1	prot_1m	1	n	1000000	symbols	sigma=20, b=5 bits, K=1000, fan-out=64, threads=1
+R	E1	prot_1m	1	prep_s	0.002589	s	pack the text (excluded from sa_s)
+R	E1	prot_1m	1	sa_s	0.258316	s	PH2-PH3: partition + bucket sort, suffix array only
+R	E1	prot_1m	1	sa_plus_dcs_s	0.258316	s	bucket build plus the rank table construction
+R	E1	prot_1m	1	total_s	0.260905	s	pack + rank table + build
+R	E1	prot_1m	1	ns_per_symbol	258.316105	ns	sa_s / n
+R	E1	prot_1m	1	buckets	2097	n	leaves=2032, partitions=65, max depth=2, largest leaf=908, degenerate retries=0
+R	E1	prot_1m	1	tie_share	0	%	positions of leaf buckets whose 64-bit key equals another's in the same bucket: 0 of 1000000
+R	E1	prot_1m	1	compares	324835	n	comparator calls; from key ties: 2031; scan positions (all levels): 2000000
+R	E1	prot_1m	1	lce_symbols	571707	symbols	LCE work: symbols matched beyond the key; LCE calls 322775, loop steps 322775, rank lookups 0
+R	E1	prot_1m	1	lce_symbols_per_n	0.571707	symbols/symbol	LCE work per text symbol
+R	E1	prot_1m	1	phase_cpu_s	0.212699	s	summed over workers: partition 0.213, leaf sort 0.038
+R	E1	prot_1m	1	vmhwm	51.826688	MB	peak resident set of the process (text, symbols, packed text, SA, buckets)
+R	E1	prot_1m	1	sa_correct	yes		compared with libsais hash of prot_1m
+R	E1	prot_1m	2	n	1000000	symbols	sigma=20, b=5 bits, K=1000, fan-out=64, threads=1
+R	E1	prot_1m	2	prep_s	0.002416	s	pack the text (excluded from sa_s)
+R	E1	prot_1m	2	sa_s	0.277262	s	PH2-PH3: partition + bucket sort, suffix array only
+R	E1	prot_1m	2	sa_plus_dcs_s	0.277262	s	bucket build plus the rank table construction
+R	E1	prot_1m	2	total_s	0.279678	s	pack + rank table + build
+R	E1	prot_1m	2	ns_per_symbol	277.261662	ns	sa_s / n
+R	E1	prot_1m	2	buckets	2097	n	leaves=2032, partitions=65, max depth=2, largest leaf=908, degenerate retries=0
+R	E1	prot_1m	2	tie_share	0	%	positions of leaf buckets whose 64-bit key equals another's in the same bucket: 0 of 1000000
+R	E1	prot_1m	2	compares	324835	n	comparator calls; from key ties: 2031; scan positions (all levels): 2000000
+R	E1	prot_1m	2	lce_symbols	571707	symbols	LCE work: symbols matched beyond the key; LCE calls 322775, loop steps 322775, rank lookups 0
+R	E1	prot_1m	2	lce_symbols_per_n	0.571707	symbols/symbol	LCE work per text symbol
+R	E1	prot_1m	2	phase_cpu_s	0.224346	s	summed over workers: partition 0.224, leaf sort 0.046
+R	E1	prot_1m	2	vmhwm	51.867648	MB	peak resident set of the process (text, symbols, packed text, SA, buckets)
+R	E1	prot_1m	2	sa_correct	yes		compared with libsais hash of prot_1m
+R	E1	prot_1m	3	n	1000000	symbols	sigma=20, b=5 bits, K=1000, fan-out=64, threads=1
+R	E1	prot_1m	3	prep_s	0.002571	s	pack the text (excluded from sa_s)
+R	E1	prot_1m	3	sa_s	0.234564	s	PH2-PH3: partition + bucket sort, suffix array only
+R	E1	prot_1m	3	sa_plus_dcs_s	0.234564	s	bucket build plus the rank table construction
+R	E1	prot_1m	3	total_s	0.237135	s	pack + rank table + build
+R	E1	prot_1m	3	ns_per_symbol	234.563699	ns	sa_s / n
+R	E1	prot_1m	3	buckets	2097	n	leaves=2032, partitions=65, max depth=2, largest leaf=908, degenerate retries=0
+R	E1	prot_1m	3	tie_share	0	%	positions of leaf buckets whose 64-bit key equals another's in the same bucket: 0 of 1000000
+R	E1	prot_1m	3	compares	324835	n	comparator calls; from key ties: 2031; scan positions (all levels): 2000000
+R	E1	prot_1m	3	lce_symbols	571707	symbols	LCE work: symbols matched beyond the key; LCE calls 322775, loop steps 322775, rank lookups 0
+R	E1	prot_1m	3	lce_symbols_per_n	0.571707	symbols/symbol	LCE work per text symbol
+R	E1	prot_1m	3	phase_cpu_s	0.179001	s	summed over workers: partition 0.179, leaf sort 0.049
+R	E1	prot_1m	3	vmhwm	51.933184	MB	peak resident set of the process (text, symbols, packed text, SA, buckets)
+R	E1	prot_1m	3	sa_correct	yes		compared with libsais hash of prot_1m
+R	E1	tm:1000000	1	n	1000000	symbols	sigma=2, b=1 bits, K=1000, fan-out=64, threads=1
+R	E1	tm:1000000	1	prep_s	0.003039	s	pack the text (excluded from sa_s)
+R	E1	tm:1000000	1	sa_s	4.140797	s	PH2-PH3: partition + bucket sort, suffix array only
+R	E1	tm:1000000	1	sa_plus_dcs_s	4.140797	s	bucket build plus the rank table construction
+R	E1	tm:1000000	1	total_s	4.143836	s	pack + rank table + build
+R	E1	tm:1000000	1	ns_per_symbol	4140.796925	ns	sa_s / n
+R	E1	tm:1000000	1	buckets	2095	n	leaves=2030, partitions=65, max depth=2, largest leaf=931, degenerate retries=0
+R	E1	tm:1000000	1	tie_share	99.9937	%	positions of leaf buckets whose 64-bit key equals another's in the same bucket: 999937 of 1000000
+R	E1	tm:1000000	1	compares	13646552	n	comparator calls; from key ties: 13329036; scan positions (all levels): 2000000
+R	E1	tm:1000000	1	lce_symbols	297270340244	symbols	LCE work: symbols matched beyond the key; LCE calls 13643798, loop steps 1169680746, rank lookups 0
+R	E1	tm:1000000	1	lce_symbols_per_n	297270.340244	symbols/symbol	LCE work per text symbol
+R	E1	tm:1000000	1	phase_cpu_s	0.337062	s	summed over workers: partition 0.337, leaf sort 3.794
+R	E1	tm:1000000	1	vmhwm	51.912704	MB	peak resident set of the process (text, symbols, packed text, SA, buckets)
+R	E1	tm:1000000	1	sa_correct	yes		compared with libsais hash of thue-morse-n1000000
+R	E1	tm:1000000	2	n	1000000	symbols	sigma=2, b=1 bits, K=1000, fan-out=64, threads=1
+R	E1	tm:1000000	2	prep_s	0.002482	s	pack the text (excluded from sa_s)
+R	E1	tm:1000000	2	sa_s	4.031497	s	PH2-PH3: partition + bucket sort, suffix array only
+R	E1	tm:1000000	2	sa_plus_dcs_s	4.031497	s	bucket build plus the rank table construction
+R	E1	tm:1000000	2	total_s	4.033979	s	pack + rank table + build
+R	E1	tm:1000000	2	ns_per_symbol	4031.496837	ns	sa_s / n
+R	E1	tm:1000000	2	buckets	2095	n	leaves=2030, partitions=65, max depth=2, largest leaf=931, degenerate retries=0
+R	E1	tm:1000000	2	tie_share	99.9937	%	positions of leaf buckets whose 64-bit key equals another's in the same bucket: 999937 of 1000000
+R	E1	tm:1000000	2	compares	13646552	n	comparator calls; from key ties: 13329036; scan positions (all levels): 2000000
+R	E1	tm:1000000	2	lce_symbols	297270340244	symbols	LCE work: symbols matched beyond the key; LCE calls 13643798, loop steps 1169680746, rank lookups 0
+R	E1	tm:1000000	2	lce_symbols_per_n	297270.340244	symbols/symbol	LCE work per text symbol
+R	E1	tm:1000000	2	phase_cpu_s	0.337076	s	summed over workers: partition 0.337, leaf sort 3.686
+R	E1	tm:1000000	2	vmhwm	51.908608	MB	peak resident set of the process (text, symbols, packed text, SA, buckets)
+R	E1	tm:1000000	2	sa_correct	yes		compared with libsais hash of thue-morse-n1000000
+R	E1	tm:1000000	3	n	1000000	symbols	sigma=2, b=1 bits, K=1000, fan-out=64, threads=1
+R	E1	tm:1000000	3	prep_s	0.003141	s	pack the text (excluded from sa_s)
+R	E1	tm:1000000	3	sa_s	4.273073	s	PH2-PH3: partition + bucket sort, suffix array only
+R	E1	tm:1000000	3	sa_plus_dcs_s	4.273073	s	bucket build plus the rank table construction
+R	E1	tm:1000000	3	total_s	4.276214	s	pack + rank table + build
+R	E1	tm:1000000	3	ns_per_symbol	4273.073422	ns	sa_s / n
+R	E1	tm:1000000	3	buckets	2095	n	leaves=2030, partitions=65, max depth=2, largest leaf=931, degenerate retries=0
+R	E1	tm:1000000	3	tie_share	99.9937	%	positions of leaf buckets whose 64-bit key equals another's in the same bucket: 999937 of 1000000
+R	E1	tm:1000000	3	compares	13646552	n	comparator calls; from key ties: 13329036; scan positions (all levels): 2000000
+R	E1	tm:1000000	3	lce_symbols	297270340244	symbols	LCE work: symbols matched beyond the key; LCE calls 13643798, loop steps 1169680746, rank lookups 0
+R	E1	tm:1000000	3	lce_symbols_per_n	297270.340244	symbols/symbol	LCE work per text symbol
+R	E1	tm:1000000	3	phase_cpu_s	0.344576	s	summed over workers: partition 0.345, leaf sort 3.919
+R	E1	tm:1000000	3	vmhwm	51.945472	MB	peak resident set of the process (text, symbols, packed text, SA, buckets)
+R	E1	tm:1000000	3	sa_correct	yes		compared with libsais hash of thue-morse-n1000000
+R	E1	fib:1000000	1	n	1000000	symbols	sigma=2, b=1 bits, K=1000, fan-out=64, threads=1
+R	E1	fib:1000000	1	prep_s	0.002704	s	pack the text (excluded from sa_s)
+R	E1	fib:1000000	1	sa_s	9.275689	s	PH2-PH3: partition + bucket sort, suffix array only
+R	E1	fib:1000000	1	sa_plus_dcs_s	9.275689	s	bucket build plus the rank table construction
+R	E1	fib:1000000	1	total_s	9.278394	s	pack + rank table + build
+R	E1	fib:1000000	1	ns_per_symbol	9275.689181	ns	sa_s / n
+R	E1	fib:1000000	1	buckets	2100	n	leaves=2034, partitions=66, max depth=3, largest leaf=892, degenerate retries=0
+R	E1	fib:1000000	1	tie_share	99.9938	%	positions of leaf buckets whose 64-bit key equals another's in the same bucket: 999938 of 1000000
+R	E1	fib:1000000	1	compares	15256992	n	comparator calls; from key ties: 14935620; scan positions (all levels): 2001023
+R	E1	fib:1000000	1	lce_symbols	734448158703	symbols	LCE work: symbols matched beyond the key; LCE calls 15254264, loop steps 2879646676, rank lookups 0
+R	E1	fib:1000000	1	lce_symbols_per_n	734448.158703	symbols/symbol	LCE work per text symbol
+R	E1	fib:1000000	1	phase_cpu_s	0.534225	s	summed over workers: partition 0.534, leaf sort 8.732
+R	E1	fib:1000000	1	vmhwm	54.177792	MB	peak resident set of the process (text, symbols, packed text, SA, buckets)
+R	E1	fib:1000000	1	sa_correct	yes		compared with libsais hash of fibonacci-n1000000
+R	E1	fib:1000000	2	n	1000000	symbols	sigma=2, b=1 bits, K=1000, fan-out=64, threads=1
+R	E1	fib:1000000	2	prep_s	0.002714	s	pack the text (excluded from sa_s)
+R	E1	fib:1000000	2	sa_s	9.605219	s	PH2-PH3: partition + bucket sort, suffix array only
+R	E1	fib:1000000	2	sa_plus_dcs_s	9.605219	s	bucket build plus the rank table construction
+R	E1	fib:1000000	2	total_s	9.607933	s	pack + rank table + build
+R	E1	fib:1000000	2	ns_per_symbol	9605.219467	ns	sa_s / n
+R	E1	fib:1000000	2	buckets	2100	n	leaves=2034, partitions=66, max depth=3, largest leaf=892, degenerate retries=0
+R	E1	fib:1000000	2	tie_share	99.9938	%	positions of leaf buckets whose 64-bit key equals another's in the same bucket: 999938 of 1000000
+R	E1	fib:1000000	2	compares	15256992	n	comparator calls; from key ties: 14935620; scan positions (all levels): 2001023
+R	E1	fib:1000000	2	lce_symbols	734448158703	symbols	LCE work: symbols matched beyond the key; LCE calls 15254264, loop steps 2879646676, rank lookups 0
+R	E1	fib:1000000	2	lce_symbols_per_n	734448.158703	symbols/symbol	LCE work per text symbol
+R	E1	fib:1000000	2	phase_cpu_s	0.541553	s	summed over workers: partition 0.542, leaf sort 9.054
+R	E1	fib:1000000	2	vmhwm	54.1696	MB	peak resident set of the process (text, symbols, packed text, SA, buckets)
+R	E1	fib:1000000	2	sa_correct	yes		compared with libsais hash of fibonacci-n1000000
+R	E1	fib:1000000	3	n	1000000	symbols	sigma=2, b=1 bits, K=1000, fan-out=64, threads=1
+R	E1	fib:1000000	3	prep_s	0.00256	s	pack the text (excluded from sa_s)
+R	E1	fib:1000000	3	sa_s	9.414135	s	PH2-PH3: partition + bucket sort, suffix array only
+R	E1	fib:1000000	3	sa_plus_dcs_s	9.414135	s	bucket build plus the rank table construction
+R	E1	fib:1000000	3	total_s	9.416696	s	pack + rank table + build
+R	E1	fib:1000000	3	ns_per_symbol	9414.135268	ns	sa_s / n
+R	E1	fib:1000000	3	buckets	2100	n	leaves=2034, partitions=66, max depth=3, largest leaf=892, degenerate retries=0
+R	E1	fib:1000000	3	tie_share	99.9938	%	positions of leaf buckets whose 64-bit key equals another's in the same bucket: 999938 of 1000000
+R	E1	fib:1000000	3	compares	15256992	n	comparator calls; from key ties: 14935620; scan positions (all levels): 2001023
+R	E1	fib:1000000	3	lce_symbols	734448158703	symbols	LCE work: symbols matched beyond the key; LCE calls 15254264, loop steps 2879646676, rank lookups 0
+R	E1	fib:1000000	3	lce_symbols_per_n	734448.158703	symbols/symbol	LCE work per text symbol
+R	E1	fib:1000000	3	phase_cpu_s	0.537349	s	summed over workers: partition 0.537, leaf sort 8.868
+R	E1	fib:1000000	3	vmhwm	54.173696	MB	peak resident set of the process (text, symbols, packed text, SA, buckets)
+R	E1	fib:1000000	3	sa_correct	yes		compared with libsais hash of fibonacci-n1000000
+R	E1	genome:10000000	1	n	10000000	symbols	sigma=5, b=3 bits, K=10000, fan-out=64, threads=1
+R	E1	genome:10000000	1	prep_s	0.011879	s	pack the text (excluded from sa_s)
+R	E1	genome:10000000	1	sa_s	2.108938	s	PH2-PH3: partition + bucket sort, suffix array only
+R	E1	genome:10000000	1	sa_plus_dcs_s	2.108938	s	bucket build plus the rank table construction
+R	E1	genome:10000000	1	total_s	2.120817	s	pack + rank table + build
+R	E1	genome:10000000	1	ns_per_symbol	210.893843	ns	sa_s / n
+R	E1	genome:10000000	1	buckets	2104	n	leaves=2038, partitions=66, max depth=3, largest leaf=9923, degenerate retries=0
+R	E1	genome:10000000	1	tie_share	8.56281	%	positions of leaf buckets whose 64-bit key equals another's in the same bucket: 856281 of 10000000
+R	E1	genome:10000000	1	compares	4249739	n	comparator calls; from key ties: 3925737; scan positions (all levels): 20010088
+R	E1	genome:10000000	1	lce_symbols	26452166376	symbols	LCE work: symbols matched beyond the key; LCE calls 4247616, loop steps 314082952, rank lookups 0
+R	E1	genome:10000000	1	lce_symbols_per_n	2645.216638	symbols/symbol	LCE work per text symbol
+R	E1	genome:10000000	1	phase_cpu_s	0.969573	s	summed over workers: partition 0.970, leaf sort 1.131
+R	E1	genome:10000000	1	vmhwm	183.3984	MB	peak resident set of the process (text, symbols, packed text, SA, buckets)
+R	E1	genome:10000000	1	ref_saiskernel_s	0.586833	s	SaisKernel SA time on the same text (cold JIT, 1 thread), for scale
+R	E1	genome:10000000	1	sa_correct	yes		compared with SaisKernel on the same text
+R	E1	genome:10000000	2	n	10000000	symbols	sigma=5, b=3 bits, K=10000, fan-out=64, threads=1
+R	E1	genome:10000000	2	prep_s	0.015196	s	pack the text (excluded from sa_s)
+R	E1	genome:10000000	2	sa_s	2.216182	s	PH2-PH3: partition + bucket sort, suffix array only
+R	E1	genome:10000000	2	sa_plus_dcs_s	2.216182	s	bucket build plus the rank table construction
+R	E1	genome:10000000	2	total_s	2.231378	s	pack + rank table + build
+R	E1	genome:10000000	2	ns_per_symbol	221.618203	ns	sa_s / n
+R	E1	genome:10000000	2	buckets	2104	n	leaves=2038, partitions=66, max depth=3, largest leaf=9923, degenerate retries=0
+R	E1	genome:10000000	2	tie_share	8.56281	%	positions of leaf buckets whose 64-bit key equals another's in the same bucket: 856281 of 10000000
+R	E1	genome:10000000	2	compares	4249739	n	comparator calls; from key ties: 3925737; scan positions (all levels): 20010088
+R	E1	genome:10000000	2	lce_symbols	26452166376	symbols	LCE work: symbols matched beyond the key; LCE calls 4247616, loop steps 314082952, rank lookups 0
+R	E1	genome:10000000	2	lce_symbols_per_n	2645.216638	symbols/symbol	LCE work per text symbol
+R	E1	genome:10000000	2	phase_cpu_s	0.989536	s	summed over workers: partition 0.990, leaf sort 1.217
+R	E1	genome:10000000	2	vmhwm	183.414784	MB	peak resident set of the process (text, symbols, packed text, SA, buckets)
+R	E1	genome:10000000	2	ref_saiskernel_s	0.773564	s	SaisKernel SA time on the same text (cold JIT, 1 thread), for scale
+R	E1	genome:10000000	2	sa_correct	yes		compared with SaisKernel on the same text
+R	E1	genome:10000000	3	n	10000000	symbols	sigma=5, b=3 bits, K=10000, fan-out=64, threads=1
+R	E1	genome:10000000	3	prep_s	0.015348	s	pack the text (excluded from sa_s)
+R	E1	genome:10000000	3	sa_s	2.32644	s	PH2-PH3: partition + bucket sort, suffix array only
+R	E1	genome:10000000	3	sa_plus_dcs_s	2.32644	s	bucket build plus the rank table construction
+R	E1	genome:10000000	3	total_s	2.341788	s	pack + rank table + build
+R	E1	genome:10000000	3	ns_per_symbol	232.644021	ns	sa_s / n
+R	E1	genome:10000000	3	buckets	2104	n	leaves=2038, partitions=66, max depth=3, largest leaf=9923, degenerate retries=0
+R	E1	genome:10000000	3	tie_share	8.56281	%	positions of leaf buckets whose 64-bit key equals another's in the same bucket: 856281 of 10000000
+R	E1	genome:10000000	3	compares	4249739	n	comparator calls; from key ties: 3925737; scan positions (all levels): 20010088
+R	E1	genome:10000000	3	lce_symbols	26452166376	symbols	LCE work: symbols matched beyond the key; LCE calls 4247616, loop steps 314082952, rank lookups 0
+R	E1	genome:10000000	3	lce_symbols_per_n	2645.216638	symbols/symbol	LCE work per text symbol
+R	E1	genome:10000000	3	phase_cpu_s	1.02253	s	summed over workers: partition 1.023, leaf sort 1.294
+R	E1	genome:10000000	3	vmhwm	183.382016	MB	peak resident set of the process (text, symbols, packed text, SA, buckets)
+R	E1	genome:10000000	3	ref_saiskernel_s	0.622587	s	SaisKernel SA time on the same text (cold JIT, 1 thread), for scale
+R	E1	genome:10000000	3	sa_correct	yes		compared with SaisKernel on the same text
+R	E1	dna_10m_4threads	1	n	10000000	symbols	sigma=4, b=2 bits, K=10000, fan-out=64, threads=4
+R	E1	dna_10m_4threads	1	prep_s	0.011941	s	pack the text (excluded from sa_s)
+R	E1	dna_10m_4threads	1	sa_s	0.552884	s	PH2-PH3: partition + bucket sort, suffix array only
+R	E1	dna_10m_4threads	1	sa_plus_dcs_s	0.552884	s	bucket build plus the rank table construction
+R	E1	dna_10m_4threads	1	total_s	0.564825	s	pack + rank table + build
+R	E1	dna_10m_4threads	1	ns_per_symbol	55.288375	ns	sa_s / n
+R	E1	dna_10m_4threads	1	buckets	2105	n	leaves=2038, partitions=67, max depth=3, largest leaf=9753, degenerate retries=0
+R	E1	dna_10m_4threads	1	tie_share	0	%	positions of leaf buckets whose 64-bit key equals another's in the same bucket: 0 of 10000000
+R	E1	dna_10m_4threads	1	compares	325464	n	comparator calls; from key ties: 2037; scan positions (all levels): 20020570
+R	E1	dna_10m_4threads	1	lce_symbols	1433477	symbols	LCE work: symbols matched beyond the key; LCE calls 323403, loop steps 323403, rank lookups 0
+R	E1	dna_10m_4threads	1	lce_symbols_per_n	0.143348	symbols/symbol	LCE work per text symbol
+R	E1	dna_10m_4threads	1	phase_cpu_s	0.88745	s	summed over workers: partition 0.887, leaf sort 0.342
+R	E1	dna_10m_4threads	1	vmhwm	179.388416	MB	peak resident set of the process (text, symbols, packed text, SA, buckets)
+R	E1	dna_10m_4threads	1	sa_correct	yes		compared with libsais hash of dna_10m
+R	E1	dna_10m_4threads	2	n	10000000	symbols	sigma=4, b=2 bits, K=10000, fan-out=64, threads=4
+R	E1	dna_10m_4threads	2	prep_s	0.010304	s	pack the text (excluded from sa_s)
+R	E1	dna_10m_4threads	2	sa_s	0.55591	s	PH2-PH3: partition + bucket sort, suffix array only
+R	E1	dna_10m_4threads	2	sa_plus_dcs_s	0.55591	s	bucket build plus the rank table construction
+R	E1	dna_10m_4threads	2	total_s	0.566214	s	pack + rank table + build
+R	E1	dna_10m_4threads	2	ns_per_symbol	55.59098	ns	sa_s / n
+R	E1	dna_10m_4threads	2	buckets	2105	n	leaves=2038, partitions=67, max depth=3, largest leaf=9753, degenerate retries=0
+R	E1	dna_10m_4threads	2	tie_share	0	%	positions of leaf buckets whose 64-bit key equals another's in the same bucket: 0 of 10000000
+R	E1	dna_10m_4threads	2	compares	325464	n	comparator calls; from key ties: 2037; scan positions (all levels): 20020570
+R	E1	dna_10m_4threads	2	lce_symbols	1433477	symbols	LCE work: symbols matched beyond the key; LCE calls 323403, loop steps 323403, rank lookups 0
+R	E1	dna_10m_4threads	2	lce_symbols_per_n	0.143348	symbols/symbol	LCE work per text symbol
+R	E1	dna_10m_4threads	2	phase_cpu_s	0.867554	s	summed over workers: partition 0.868, leaf sort 0.390
+R	E1	dna_10m_4threads	2	vmhwm	179.03616	MB	peak resident set of the process (text, symbols, packed text, SA, buckets)
+R	E1	dna_10m_4threads	2	sa_correct	yes		compared with libsais hash of dna_10m
+R	E1	dna_10m_4threads	3	n	10000000	symbols	sigma=4, b=2 bits, K=10000, fan-out=64, threads=4
+R	E1	dna_10m_4threads	3	prep_s	0.010206	s	pack the text (excluded from sa_s)
+R	E1	dna_10m_4threads	3	sa_s	0.634475	s	PH2-PH3: partition + bucket sort, suffix array only
+R	E1	dna_10m_4threads	3	sa_plus_dcs_s	0.634475	s	bucket build plus the rank table construction
+R	E1	dna_10m_4threads	3	total_s	0.644681	s	pack + rank table + build
+R	E1	dna_10m_4threads	3	ns_per_symbol	63.447503	ns	sa_s / n
+R	E1	dna_10m_4threads	3	buckets	2105	n	leaves=2038, partitions=67, max depth=3, largest leaf=9753, degenerate retries=0
+R	E1	dna_10m_4threads	3	tie_share	0	%	positions of leaf buckets whose 64-bit key equals another's in the same bucket: 0 of 10000000
+R	E1	dna_10m_4threads	3	compares	325464	n	comparator calls; from key ties: 2037; scan positions (all levels): 20020570
+R	E1	dna_10m_4threads	3	lce_symbols	1433477	symbols	LCE work: symbols matched beyond the key; LCE calls 323403, loop steps 323403, rank lookups 0
+R	E1	dna_10m_4threads	3	lce_symbols_per_n	0.143348	symbols/symbol	LCE work per text symbol
+R	E1	dna_10m_4threads	3	phase_cpu_s	1.04609	s	summed over workers: partition 1.046, leaf sort 0.442
+R	E1	dna_10m_4threads	3	vmhwm	178.896896	MB	peak resident set of the process (text, symbols, packed text, SA, buckets)
+R	E1	dna_10m_4threads	3	sa_correct	yes		compared with libsais hash of dna_10m
+R	E1	a:1000000	1	n	1000000	symbols	sigma=1, b=1 bits, K=1000, fan-out=64, threads=1
+R	E1	a:1000000	1	prep_s	0.002434	s	pack the text (excluded from sa_s)
+R	E1	a:1000000	1	sa_s	118.026313	s	PH2-PH3: partition + bucket sort, suffix array only
+R	E1	a:1000000	1	sa_plus_dcs_s	118.026313	s	bucket build plus the rank table construction
+R	E1	a:1000000	1	total_s	118.028748	s	pack + rank table + build
+R	E1	a:1000000	1	ns_per_symbol	118026.313175	ns	sa_s / n
+R	E1	a:1000000	1	buckets	2097	n	leaves=2032, partitions=65, max depth=2, largest leaf=528, degenerate retries=0
+R	E1	a:1000000	1	tie_share	100	%	positions of leaf buckets whose 64-bit key equals another's in the same bucket: 1000000 of 1000000
+R	E1	a:1000000	1	compares	20750550	n	comparator calls; from key ties: 20431612; scan positions (all levels): 2000000
+R	E1	a:1000000	1	lce_symbols	10121006612115	symbols	LCE work: symbols matched beyond the key; LCE calls 20748519, loop steps 39576136687, rank lookups 0
+R	E1	a:1000000	1	lce_symbols_per_n	10121006.612115	symbols/symbol	LCE work per text symbol
+R	E1	a:1000000	1	phase_cpu_s	63.36113	s	summed over workers: partition 63.361, leaf sort 54.653
+R	E1	a:1000000	1	vmhwm	47.849472	MB	peak resident set of the process (text, symbols, packed text, SA, buckets)
+R	E1	a:1000000	1	sa_correct	yes		compared with libsais hash of all-same-n1000000
+R	E1	a:1000000	2	n	1000000	symbols	sigma=1, b=1 bits, K=1000, fan-out=64, threads=1
+R	E1	a:1000000	2	prep_s	0.00241	s	pack the text (excluded from sa_s)
+R	E1	a:1000000	2	sa_s	119.063049	s	PH2-PH3: partition + bucket sort, suffix array only
+R	E1	a:1000000	2	sa_plus_dcs_s	119.063049	s	bucket build plus the rank table construction
+R	E1	a:1000000	2	total_s	119.065459	s	pack + rank table + build
+R	E1	a:1000000	2	ns_per_symbol	119063.048904	ns	sa_s / n
+R	E1	a:1000000	2	buckets	2097	n	leaves=2032, partitions=65, max depth=2, largest leaf=528, degenerate retries=0
+R	E1	a:1000000	2	tie_share	100	%	positions of leaf buckets whose 64-bit key equals another's in the same bucket: 1000000 of 1000000
+R	E1	a:1000000	2	compares	20750550	n	comparator calls; from key ties: 20431612; scan positions (all levels): 2000000
+R	E1	a:1000000	2	lce_symbols	10121006612115	symbols	LCE work: symbols matched beyond the key; LCE calls 20748519, loop steps 39576136687, rank lookups 0
+R	E1	a:1000000	2	lce_symbols_per_n	10121006.612115	symbols/symbol	LCE work per text symbol
+R	E1	a:1000000	2	phase_cpu_s	63.952089	s	summed over workers: partition 63.952, leaf sort 55.096
+R	E1	a:1000000	2	vmhwm	47.812608	MB	peak resident set of the process (text, symbols, packed text, SA, buckets)
+R	E1	a:1000000	2	sa_correct	yes		compared with libsais hash of all-same-n1000000
+R	E1	a:10000000	1	status	TIMEOUT		aborted after 600 s (the limit of the gate)
+R	E1	tandem:171x10000	1	n	1710000	symbols	sigma=4, b=2 bits, K=1710, fan-out=64, threads=1
+R	E1	tandem:171x10000	1	prep_s	0.004264	s	pack the text (excluded from sa_s)
+R	E1	tandem:171x10000	1	sa_s	504.996054	s	PH2-PH3: partition + bucket sort, suffix array only
+R	E1	tandem:171x10000	1	sa_plus_dcs_s	504.996054	s	bucket build plus the rank table construction
+R	E1	tandem:171x10000	1	total_s	505.000318	s	pack + rank table + build
+R	E1	tandem:171x10000	1	ns_per_symbol	295319.329996	ns	sa_s / n
+R	E1	tandem:171x10000	1	buckets	2096	n	leaves=2031, partitions=65, max depth=2, largest leaf=1475, degenerate retries=0
+R	E1	tandem:171x10000	1	tie_share	99.998129	%	positions of leaf buckets whose 64-bit key equals another's in the same bucket: 1709968 of 1710000
+R	E1	tandem:171x10000	1	compares	26379845	n	comparator calls; from key ties: 26073247; scan positions (all levels): 3420000
+R	E1	tandem:171x10000	1	lce_symbols	21278799499674	symbols	LCE work: symbols matched beyond the key; LCE calls 26377797, loop steps 166292692443, rank lookups 0
+R	E1	tandem:171x10000	1	lce_symbols_per_n	12443742.39747	symbols/symbol	LCE work per text symbol
+R	E1	tandem:171x10000	1	phase_cpu_s	122.673743	s	summed over workers: partition 122.674, leaf sort 382.303
+R	E1	tandem:171x10000	1	vmhwm	57.565184	MB	peak resident set of the process (text, symbols, packed text, SA, buckets)
+R	E1	tandem:171x10000	1	ref_saiskernel_s	0.092087	s	SaisKernel SA time on the same text (cold JIT, 1 thread), for scale
+R	E1	tandem:171x10000	1	sa_correct	yes		compared with SaisKernel on the same text
+R	E1	tandem:171x10000	2	n	1710000	symbols	sigma=4, b=2 bits, K=1710, fan-out=64, threads=1
+R	E1	tandem:171x10000	2	prep_s	0.003298	s	pack the text (excluded from sa_s)
+R	E1	tandem:171x10000	2	sa_s	511.151855	s	PH2-PH3: partition + bucket sort, suffix array only
+R	E1	tandem:171x10000	2	sa_plus_dcs_s	511.151855	s	bucket build plus the rank table construction
+R	E1	tandem:171x10000	2	total_s	511.155153	s	pack + rank table + build
+R	E1	tandem:171x10000	2	ns_per_symbol	298919.213477	ns	sa_s / n
+R	E1	tandem:171x10000	2	buckets	2096	n	leaves=2031, partitions=65, max depth=2, largest leaf=1475, degenerate retries=0
+R	E1	tandem:171x10000	2	tie_share	99.998129	%	positions of leaf buckets whose 64-bit key equals another's in the same bucket: 1709968 of 1710000
+R	E1	tandem:171x10000	2	compares	26379845	n	comparator calls; from key ties: 26073247; scan positions (all levels): 3420000
+R	E1	tandem:171x10000	2	lce_symbols	21278799499674	symbols	LCE work: symbols matched beyond the key; LCE calls 26377797, loop steps 166292692443, rank lookups 0
+R	E1	tandem:171x10000	2	lce_symbols_per_n	12443742.39747	symbols/symbol	LCE work per text symbol
+R	E1	tandem:171x10000	2	phase_cpu_s	127.229448	s	summed over workers: partition 127.229, leaf sort 383.904
+R	E1	tandem:171x10000	2	vmhwm	57.729024	MB	peak resident set of the process (text, symbols, packed text, SA, buckets)
+R	E1	tandem:171x10000	2	ref_saiskernel_s	0.085163	s	SaisKernel SA time on the same text (cold JIT, 1 thread), for scale
+R	E1	tandem:171x10000	2	sa_correct	yes		compared with SaisKernel on the same text
+R	E1	nrun:10000000:1000000	1	n	10000000	symbols	sigma=5, b=3 bits, K=10000, fan-out=64, threads=1
+R	E1	nrun:10000000:1000000	1	prep_s	0.011537	s	pack the text (excluded from sa_s)
+R	E1	nrun:10000000:1000000	1	sa_s	411.847469	s	PH2-PH3: partition + bucket sort, suffix array only
+R	E1	nrun:10000000:1000000	1	sa_plus_dcs_s	411.847469	s	bucket build plus the rank table construction
+R	E1	nrun:10000000:1000000	1	total_s	411.859006	s	pack + rank table + build
+R	E1	nrun:10000000:1000000	1	ns_per_symbol	41184.746865	ns	sa_s / n
+R	E1	nrun:10000000:1000000	1	buckets	2102	n	leaves=2036, partitions=66, max depth=3, largest leaf=9417, degenerate retries=0
+R	E1	nrun:10000000:1000000	1	tie_share	9.99992	%	positions of leaf buckets whose 64-bit key equals another's in the same bucket: 999992 of 10000000
+R	E1	nrun:10000000:1000000	1	compares	24439380	n	comparator calls; from key ties: 24115192; scan positions (all levels): 20010418
+R	E1	nrun:10000000:1000000	1	lce_symbols	11656389252755	symbols	LCE work: symbols matched beyond the key; LCE calls 24437326, loop steps 137146039739, rank lookups 0
+R	E1	nrun:10000000:1000000	1	lce_symbols_per_n	1165638.925276	symbols/symbol	LCE work per text symbol
+R	E1	nrun:10000000:1000000	1	phase_cpu_s	132.461999	s	summed over workers: partition 132.462, leaf sort 279.376
+R	E1	nrun:10000000:1000000	1	vmhwm	170.528768	MB	peak resident set of the process (text, symbols, packed text, SA, buckets)
+R	E1	nrun:10000000:1000000	1	ref_saiskernel_s	0.659866	s	SaisKernel SA time on the same text (cold JIT, 1 thread), for scale
+R	E1	nrun:10000000:1000000	1	sa_correct	yes		compared with SaisKernel on the same text
+R	E1	nrun:10000000:1000000	2	n	10000000	symbols	sigma=5, b=3 bits, K=10000, fan-out=64, threads=1
+R	E1	nrun:10000000:1000000	2	prep_s	0.010991	s	pack the text (excluded from sa_s)
+R	E1	nrun:10000000:1000000	2	sa_s	414.992627	s	PH2-PH3: partition + bucket sort, suffix array only
+R	E1	nrun:10000000:1000000	2	sa_plus_dcs_s	414.992627	s	bucket build plus the rank table construction
+R	E1	nrun:10000000:1000000	2	total_s	415.003618	s	pack + rank table + build
+R	E1	nrun:10000000:1000000	2	ns_per_symbol	41499.262729	ns	sa_s / n
+R	E1	nrun:10000000:1000000	2	buckets	2102	n	leaves=2036, partitions=66, max depth=3, largest leaf=9417, degenerate retries=0
+R	E1	nrun:10000000:1000000	2	tie_share	9.99992	%	positions of leaf buckets whose 64-bit key equals another's in the same bucket: 999992 of 10000000
+R	E1	nrun:10000000:1000000	2	compares	24439380	n	comparator calls; from key ties: 24115192; scan positions (all levels): 20010418
+R	E1	nrun:10000000:1000000	2	lce_symbols	11656389252755	symbols	LCE work: symbols matched beyond the key; LCE calls 24437326, loop steps 137146039739, rank lookups 0
+R	E1	nrun:10000000:1000000	2	lce_symbols_per_n	1165638.925276	symbols/symbol	LCE work per text symbol
+R	E1	nrun:10000000:1000000	2	phase_cpu_s	134.897219	s	summed over workers: partition 134.897, leaf sort 280.086
+R	E1	nrun:10000000:1000000	2	vmhwm	169.324544	MB	peak resident set of the process (text, symbols, packed text, SA, buckets)
+R	E1	nrun:10000000:1000000	2	ref_saiskernel_s	0.543771	s	SaisKernel SA time on the same text (cold JIT, 1 thread), for scale
+R	E1	nrun:10000000:1000000	2	sa_correct	yes		compared with SaisKernel on the same text
+R	E1	a:1000000	0	n	1000000	symbols	sigma=1, b=1 bits, K=1000, fan-out=64, threads=1
+R	E1	a:1000000	0	prep_s	0.002437	s	pack the text (excluded from sa_s)
+R	E1	a:1000000	0	sa_s	117.850476	s	PH2-PH3: partition + bucket sort, suffix array only
+R	E1	a:1000000	0	sa_plus_dcs_s	117.850476	s	bucket build plus the rank table construction
+R	E1	a:1000000	0	total_s	117.852913	s	pack + rank table + build
+R	E1	a:1000000	0	ns_per_symbol	117850.475698	ns	sa_s / n
+R	E1	a:1000000	0	buckets	2097	n	leaves=2032, partitions=65, max depth=2, largest leaf=528, degenerate retries=0
+R	E1	a:1000000	0	tie_share	100	%	positions of leaf buckets whose 64-bit key equals another's in the same bucket: 1000000 of 1000000
+R	E1	a:1000000	0	compares	20750550	n	comparator calls; from key ties: 20431612; scan positions (all levels): 2000000
+R	E1	a:1000000	0	lce_symbols	10121006612115	symbols	LCE work: symbols matched beyond the key; LCE calls 20748519, loop steps 39576136687, rank lookups 0
+R	E1	a:1000000	0	lce_symbols_per_n	10121006.612115	symbols/symbol	LCE work per text symbol
+R	E1	a:1000000	0	phase_cpu_s	62.634859	s	summed over workers: partition 62.635, leaf sort 55.202
+R	E1	a:1000000	0	vmhwm	47.792128	MB	peak resident set of the process (text, symbols, packed text, SA, buckets)
+R	E1	a:1000000	0	sa_correct	yes		compared with libsais hash of all-same-n1000000
+R	E1	tandem:171x10000	0	n	1710000	symbols	sigma=4, b=2 bits, K=1710, fan-out=64, threads=1
+R	E1	tandem:171x10000	0	prep_s	0.003757	s	pack the text (excluded from sa_s)
+R	E1	tandem:171x10000	0	sa_s	502.26029	s	PH2-PH3: partition + bucket sort, suffix array only
+R	E1	tandem:171x10000	0	sa_plus_dcs_s	502.26029	s	bucket build plus the rank table construction
+R	E1	tandem:171x10000	0	total_s	502.264047	s	pack + rank table + build
+R	E1	tandem:171x10000	0	ns_per_symbol	293719.468034	ns	sa_s / n
+R	E1	tandem:171x10000	0	buckets	2096	n	leaves=2031, partitions=65, max depth=2, largest leaf=1475, degenerate retries=0
+R	E1	tandem:171x10000	0	tie_share	99.998129	%	positions of leaf buckets whose 64-bit key equals another's in the same bucket: 1709968 of 1710000
+R	E1	tandem:171x10000	0	compares	26379845	n	comparator calls; from key ties: 26073247; scan positions (all levels): 3420000
+R	E1	tandem:171x10000	0	lce_symbols	21278799499674	symbols	LCE work: symbols matched beyond the key; LCE calls 26377797, loop steps 166292692443, rank lookups 0
+R	E1	tandem:171x10000	0	lce_symbols_per_n	12443742.39747	symbols/symbol	LCE work per text symbol
+R	E1	tandem:171x10000	0	phase_cpu_s	123.797531	s	summed over workers: partition 123.798, leaf sort 378.444
+R	E1	tandem:171x10000	0	vmhwm	57.634816	MB	peak resident set of the process (text, symbols, packed text, SA, buckets)
+R	E1	tandem:171x10000	0	ref_saiskernel_s	0.084789	s	SaisKernel SA time on the same text (cold JIT, 1 thread), for scale
+R	E1	tandem:171x10000	0	sa_correct	yes		compared with SaisKernel on the same text
+R	E1	nrun:10000000:1000000	0	n	10000000	symbols	sigma=5, b=3 bits, K=10000, fan-out=64, threads=1
+R	E1	nrun:10000000:1000000	0	prep_s	0.011592	s	pack the text (excluded from sa_s)
+R	E1	nrun:10000000:1000000	0	sa_s	410.131234	s	PH2-PH3: partition + bucket sort, suffix array only
+R	E1	nrun:10000000:1000000	0	sa_plus_dcs_s	410.131234	s	bucket build plus the rank table construction
+R	E1	nrun:10000000:1000000	0	total_s	410.142826	s	pack + rank table + build
+R	E1	nrun:10000000:1000000	0	ns_per_symbol	41013.123356	ns	sa_s / n
+R	E1	nrun:10000000:1000000	0	buckets	2102	n	leaves=2036, partitions=66, max depth=3, largest leaf=9417, degenerate retries=0
+R	E1	nrun:10000000:1000000	0	tie_share	9.99992	%	positions of leaf buckets whose 64-bit key equals another's in the same bucket: 999992 of 10000000
+R	E1	nrun:10000000:1000000	0	compares	24439380	n	comparator calls; from key ties: 24115192; scan positions (all levels): 20010418
+R	E1	nrun:10000000:1000000	0	lce_symbols	11656389252755	symbols	LCE work: symbols matched beyond the key; LCE calls 24437326, loop steps 137146039739, rank lookups 0
+R	E1	nrun:10000000:1000000	0	lce_symbols_per_n	1165638.925276	symbols/symbol	LCE work per text symbol
+R	E1	nrun:10000000:1000000	0	phase_cpu_s	132.33502	s	summed over workers: partition 132.335, leaf sort 277.786
+R	E1	nrun:10000000:1000000	0	vmhwm	169.271296	MB	peak resident set of the process (text, symbols, packed text, SA, buckets)
+R	E1	nrun:10000000:1000000	0	ref_saiskernel_s	0.54058	s	SaisKernel SA time on the same text (cold JIT, 1 thread), for scale
+R	E1	nrun:10000000:1000000	0	sa_correct	yes		compared with SaisKernel on the same text
