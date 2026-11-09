@@ -25309,9 +25309,6 @@ R	worst_deepest_node_c2_psv_psi	median_net_ns	34	ns	median minus the timer floor
 R	worst_deepest_node_c2_psv_psi	p99_net_ns	50	ns	p99 minus the timer floor
 R	worst_deepest_node_c2_psv_psi	mean_batch_ns	32.5	ns	mean over 200 links of sample B, no per-link timer
 R	links	peak_rss_hwm	102367232	bytes	VmHWM of the process
-# process input=dna_50m run=1 commit=71c5dabaf3-dirty load=1.00 2026-11-09T16:04:08Z options: --sample 200000 --worst 300
-# process input=dna_50m run=2 commit=71c5dabaf3-dirty load=1.00 2026-11-09T16:04:08Z options: --sample 200000 --worst 300
-# process input=dna_50m run=3 commit=71c5dabaf3-dirty load=1.00 2026-11-09T16:04:08Z options: --sample 200000 --worst 300
 # process input=dna_50m run=1 commit=71c5dabaf3-dirty load=0.66 2026-11-09T16:06:18Z options: --sample 200000 --worst 300
 R	links	input_chars	50000000	chars	dna_50m; sample 200000 seed 1; fanout 16; rotate 0
 R	links	build_total_s	5.225932849	s	EsaIndex.Build (tagged child table), cold JIT

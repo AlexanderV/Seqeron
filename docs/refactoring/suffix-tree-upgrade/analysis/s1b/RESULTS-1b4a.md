@@ -95,7 +95,7 @@ Work package 1b.4a of S1b (ADR-001 section 5). Decision and discussion: PROGRESS
 | thue-morse:1000000 | 83334 | 25 | 83336 | 74 | 352 | 74 |
 | dna_50m  [--sample 200000 --worst 300] | 67 | 17 | 69 | 64 | 473 | 53 |
 
-(a) grows linearly with n on Fibonacci (exact worst case over all nodes: 29,504 / 59,013 / 118,027 / 236,064 steps at n = 125k / 250k / 500k / 1M, about 0.236 n) and on Thue-Morse (about n / 12); (b) grows as 3 n on `a^n` (node depth n - 1); (c) stays at 157-405 steps and (c2) at 2-123 steps on every input and size.
+(a) grows linearly with n on Fibonacci (exact worst case over all nodes: 29,504 / 59,013 / 118,027 / 236,064 steps at n = 125k / 250k / 500k / 1M, about 0.236 n) and on Thue-Morse (about n / 12); (b) grows as 3 n on `a^n` (node depth n - 1); (c) stays at 157-473 steps (473 at 50 Mbp) and (c2) at 2-87 steps (F = 16) on every input and size.
 
 ## P1: pyramid fanout (kernels (c) and (c2), Psi, 3 processes per cell)
 
