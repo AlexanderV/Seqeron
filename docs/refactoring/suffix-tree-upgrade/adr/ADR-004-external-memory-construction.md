@@ -209,6 +209,18 @@ Rules for all experiments: no third-party binary is run; oracles are `SaisRefere
 
 **Acceptance for adopting the recommendation**: E1/E2, E3, E4-E7 all pass. **Abandon (switch to F1)**: an adversarial family stays > 25x after tuning; RssAnon cannot be held <= 256 MB without O(n) state; total at 100 Mbp > 4.5 min; scaling exponent > 1.3; the build needs a page cache larger than 2x the text + rank file to stay within 3x.
 
+## 5a. Prototype results (measured)
+
+Added 2026-11-09 after the owner approved the prototypes E0-E3 (the recommendation text of this ADR is unchanged: the owner decides B-DCS versus F1). Code: `apps/SuffixTree.EmProto`; raw rows and the full tables: [analysis/em/RESULTS.md](../analysis/em/RESULTS.md). Everything here is **measured** on the prototype machine (A5) unless marked otherwise.
+
+### E0 harness - gates met
+
+| gate | measured | result |
+|---|---|---|
+| sampler overhead < 2 % | 0.64 % (15 interleaved pairs, `SaisKernel` on 10 M random DNA; A/A noise band 0.9917-1.0083, i.e. inside the noise) | PASS |
+| `/proc/self/io` agreement within 1 % | writes 0 %, reads 0.047 % (302 MB written, 336 MB read through `CountedFile`) | PASS |
+| `ArenaBudget` | enforced and released, thread-safe (tests); a wrapper class around `NativeArena`, which is not modified | PASS |
+
 ## 6. Honest limitations and open questions
 
 What I could **not** verify:

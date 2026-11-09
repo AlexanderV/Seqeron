@@ -1,0 +1,20 @@
+# E0 raw rows (ADR-004 section 5), measured on this machine (4 vCPU Intel Xeon, 15 GB, kernel 6.18.44, .NET 10.0.14 runtime, Release, workstation non-concurrent GC) on 2026-11-09
+# command: dotnet apps/SuffixTree.EmProto/bin/Release/net10.0/SuffixTree.EmProto.dll e0 --dir <scratch> --out e0.tsv   (commit: see git log "ST-S1: ADR-004 E0")
+# columns: R, experiment, case, metric, value, unit, notes
+R	E0	sampler	samples	29	n	10 ms interval over about 0.2 s
+R	E0	sampler	touched_alloc_mb	209.7152	MB	200 MiB of touched native memory
+R	E0	sampler	rssanon_delta	212.086784	MB	within 190..230 MB: PASS
+R	E0	sais-10m	workload_median	0.53745	s	SaisKernel on 10000000 random DNA symbols, unsampled side of 15 pairs
+R	E0	sais-10m	aa_median_ratio	0.997218	ratio	A/A, 15 pairs; noise band [0.9917, 1.0083]
+R	E0	sais-10m	ab_median_ratio	1.006368	ratio	sampled/unsampled, 15 interleaved pairs; 95% interval [0.9936, 1.0520]
+R	E0	sais-10m	sampler_overhead	0.636765	%	< 2 %: PASS
+R	E0	io	counted_write	301989888	bytes	8448 calls
+R	E0	io	proc_wchar	301989888	bytes	delta of /proc/self/io
+R	E0	io	write_difference	0	%	< 1 %: PASS
+R	E0	io	counted_read	335544320	bytes	17408 calls
+R	E0	io	proc_rchar	335702685	bytes	delta of /proc/self/io (includes the sampler reads of /proc/self/status)
+R	E0	io	read_difference	0.047174	%	< 1 %: PASS
+R	E0	io	proc_read_bytes	8192	bytes	block layer (page-cache misses), informational
+R	E0	io	proc_write_bytes	268476416	bytes	block layer (writeback done so far), informational
+R	E0	budget	enforced	yes		cap 10 MiB, refused=True, live after dispose=0, peak=8388608
+R	E0	all	gate	PASS		sampler overhead < 2 %, counters within 1 % of /proc/self/io, budget enforced

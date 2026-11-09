@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Prototypes E0-E3 of ADR-004 (external-memory construction of the persistent ESA, docs/refactoring/suffix-tree-upgrade/adr/ADR-004-external-memory-construction.md,
+    section 5): measurement harness (E0), in-RAM simulation of the bucket partition and sort without and with the difference-cover sample (E1, E2) and the
+    scale-down emulation of the memory ratio through memory-mapped files (E3). Prototype code, not shipped: nothing references this project except its tests.
+    Managed C# only, no native binaries, no P/Invoke. Runtime settings are those of the other measurement harness (workstation, non-concurrent GC, tiered PGO on).
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>SuffixTree.EmProto</RootNamespace>
+    <AssemblyName>SuffixTree.EmProto</AssemblyName>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <Optimize>true</Optimize>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <ServerGarbageCollector>false</ServerGarbageCollector>
+    <ConcurrentGarbageCollection>false</ConcurrentGarbageCollection>
+    <TieredPGO>true</TieredPGO>
+    <UseAppHost>true</UseAppHost>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- paired-run statistics (median ratio, A/A noise band) of the ESA measurement harness -->
+    <Compile Include="..\SuffixTree.Esa.Bench\PairedStats.cs" Link="Harness\PairedStats.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\SuffixTree\Algorithms\SuffixTree.Esa\SuffixTree.Esa.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="SuffixTree.EmProto.Tests" />
+  </ItemGroup>
+
+</Project>

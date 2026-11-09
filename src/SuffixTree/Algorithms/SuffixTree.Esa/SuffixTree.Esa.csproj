@@ -34,6 +34,9 @@
   <ItemGroup>
     <InternalsVisibleTo Include="SuffixTree.Esa.Tests" />
     <InternalsVisibleTo Include="SuffixTree.Esa.Bench" />
+    <!-- ADR-004 prototypes E0-E3 (apps/SuffixTree.EmProto): uses SaisKernel / SaisReference / PreparedText as oracles and as the DCS base case -->
+    <InternalsVisibleTo Include="SuffixTree.EmProto" />
+    <InternalsVisibleTo Include="SuffixTree.EmProto.Tests" />
   </ItemGroup>
 
 </Project>

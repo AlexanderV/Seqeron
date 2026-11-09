@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="NUnit" />
+    <PackageReference Include="NUnit.Analyzers" />
+    <PackageReference Include="NUnit3TestAdapter" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="NUnit.Framework" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- the adversarial string families and their PRNG, shared with the ESA test project: the generators of the prototype must reproduce them exactly (libsais hashes) -->
+    <Compile Include="..\SuffixTree.Esa.Tests\TestSupport\StringFamilies.cs" Link="Shared\StringFamilies.cs" />
+    <Compile Include="..\SuffixTree.Esa.Tests\TestSupport\SplitMix64.cs" Link="Shared\SplitMix64.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\apps\SuffixTree.EmProto\SuffixTree.EmProto.csproj" />
+  </ItemGroup>
+
+</Project>
