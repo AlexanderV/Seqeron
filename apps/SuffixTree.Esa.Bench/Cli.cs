@@ -21,6 +21,12 @@ internal static class Cli
           query   --synthetic <a^n|abab|fibonacci|thue-morse|n-runs>[:n] ...
                   work packages 1b.1 / 1b.2 (prototype P3 and the throughput gates): SA + LCP once, then per child-table layout the scan time, bytes, write trace
                   (--trace), 20-mer count (present / absent) and 8-mer locate throughput of the in-memory ESA
+          analysis --input <file> [--name <label>] [--check true] [--generic true] [--min-length 30]
+          analysis --synthetic <a^n|abab|fibonacci|thue-morse|n-runs>[:n] ...
+                  work package 1b.3: one full EsaIndex build, then the time of the native analysis operations (longest repeated substring, all ties, distinct-substring
+                  counts, suffix enumeration; first call cold and the median of three more); --generic adds the operations that run on Traverse through the generic algorithms
+                  (maximal repeated pairs of at least --min-length, k-common substrings of the two halves of the text); --check compares the native results with the
+                  Traverse-default path of the same index (exit code 3 on a difference)
           ab      --input <file> [--name <label>] [--verify <sa_vectors.tsv>] [--pairs 9] [--calibration-pairs 7]
                   [--a-args "<build options>"] [--b-args "<build options>"] [--a-env KEY=VALUE]... [--b-env KEY=VALUE]...
                   [--a-dll <path>] [--b-dll <path>] [--libsais <driver>] [--libsais-runs 5] [--max-load 0.30] [--out <raw.tsv>]
@@ -46,6 +52,7 @@ internal static class Cli
                 case "steady": Commands.Steady(options); return 0;
                 case "profile": Commands.Profile(options); return 0;
                 case "query": QueryCommands.Query(options); return 0;
+                case "analysis": AnalysisCommands.Run(options); return Environment.ExitCode;
                 default: return UsageError($"unknown command '{args[0]}'");
             }
         }
@@ -148,6 +155,12 @@ internal sealed class Options
 
     internal double MinSeconds { get; private init; } = 1.0;
 
+    internal bool Check { get; private init; }
+
+    internal bool Generic { get; private init; }
+
+    internal int MinLength { get; private init; } = 30;
+
     internal static Options Parse(string[] args)
     {
         string? input = null, name = null, verify = null, queries = null, synthetic = null;
@@ -157,6 +170,8 @@ internal sealed class Options
         ChildLayoutKind[]? layouts = null;
         bool trace = false;
         double minSeconds = 1.0;
+        bool check = false, generic = false;
+        int minLength = 30;
         for (int i = 0; i < args.Length; i += 2)
         {
             string value = i + 1 < args.Length ? args[i + 1] : throw new ArgumentException($"option {args[i]} needs a value");
@@ -165,6 +180,9 @@ internal sealed class Options
                 case "--input": input = value; break;
                 case "--name": name = value; break;
                 case "--verify": verify = value; break;
+                case "--check": check = bool.Parse(value); break;
+                case "--generic": generic = bool.Parse(value); break;
+                case "--min-length": minLength = int.Parse(value, CultureInfo.InvariantCulture); break;
                 case "--builds": builds = int.Parse(value, CultureInfo.InvariantCulture); break;
                 case "--sa-kernel": saisKernel = Enum.Parse<SaisKernelKind>(value, ignoreCase: true); break;
                 case "--lcp-kernel": lcpKernel = Enum.Parse<LcpKernelKind>(value, ignoreCase: true); break;
@@ -185,6 +203,9 @@ internal sealed class Options
             Layouts = layouts,
             Trace = trace,
             MinSeconds = minSeconds,
+            Check = check,
+            Generic = generic,
+            MinLength = minLength,
             Name = name ?? (synthetic is not null ? synthetic.Split(':')[0] : Path.GetFileNameWithoutExtension(input!)),
             Verify = verify,
             Builds = builds ?? 0,

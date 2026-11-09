@@ -38,6 +38,22 @@ dotnet apps/SuffixTree.Esa.Bench/bin/Release/net10.0/SuffixTree.Esa.Bench.dll qu
 
 `--queries` is the bench directory that holds `queries/<name>.present20.txt` etc. (`gen_inputs.py`); a missing query file skips that row. Do not time anything while a build or a test run is active.
 
+## Native analysis operations (1b.3)
+
+`analysis` builds the whole in-memory ESA once (`EsaIndex.Build`: prepare, SA-IS, LCP, child table, statistics) and then times each analysis operation on that index: the first call (cold JIT)
+and the median of three further calls, plus the bytes allocated by the first call: `LongestRepeatedSubstring` (and the zero-copy `...Memory`), `FindAllLongestRepeatedSubstrings` (ties, positions,
+output characters), `CountDistinctSubstrings`, `CountDistinctSubstringsByLength` for 100, 10,000 and n, `EnumerateSuffixes().Take(20)` (the cost is the copy of the strings: ns per character),
+`GetAllSuffixes` of the first 2,000 and 10,000 characters (Theta(n^2) output by definition). `--generic true` adds the operations that run on `Traverse` through the generic algorithms of
+`SuffixTree.Core`: `FindMaximalRepeatedPairs(--min-length)` and `FindLongestCommonSubstrings` of the two halves of the text with support 2. `--check true` computes the same results through the
+`Traverse`-default path of the same index (`SuffixTreeAlgorithms.CountDistinctSubstrings`, `...ByLength`, `FindAllLongestRepeatedSubstrings`; it also reports their times) and compares them with the native
+results; a difference sets exit code 3. One process = one text; nothing else may run while it is timed.
+
+```
+dotnet apps/SuffixTree.Esa.Bench/bin/Release/net10.0/SuffixTree.Esa.Bench.dll analysis --input /tmp/stbench/data/dna_10m.txt --name dna_10m --check true --generic true --min-length 16
+dotnet apps/SuffixTree.Esa.Bench/bin/Release/net10.0/SuffixTree.Esa.Bench.dll analysis --input /tmp/stbench/data/rep_10m.txt --name rep_10m --check true --generic true --min-length 500
+dotnet apps/SuffixTree.Esa.Bench/bin/Release/net10.0/SuffixTree.Esa.Bench.dll analysis --synthetic fibonacci:1000000 --check true
+```
+
 ## Paired interleaved A/B runner (1o.0)
 
 `ab` is the acceptance instrument of the optimization phase (PROCESS.md, amendments of 2026-11-03). It spawns FRESH `build` processes of this app, so every
