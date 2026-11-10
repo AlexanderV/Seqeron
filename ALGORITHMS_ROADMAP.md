@@ -194,14 +194,32 @@ scope: all results are research-grade.
 | TCR-ASSEMBLE-001 | 3 | 79 | MAP-SEEDEXTEND-001 | B33 | new |
 | REPORT-VACCINE-001 | 2 | 76 | NEO-RANK-001, MRNA-ASSEMBLE-001 | B33 | new |
 | BENCH-NEO-001 | 2 | 78 | NEO-RANK-001 | B33 | new |
+| BENCH-MAP-001 | 2 | — (validation against a reference) | MAP-SEEDEXTEND-001, VARIANT-GERMLINE-001 | B33 | new |
+| BENCH-SOMATIC-001 | 2 | — (validation against a reference) | VARIANT-SOMATIC-BAM-001, VARIANT-HAPLO-001 | B33 | new |
+| BENCH-HLA-001 | 2 | — (validation against a reference) | HLA-TYPE-I-001, HLA-TYPE-II-001 | B33 | new |
 | INFRA-STREAM-001 | 2 | 86 | IO-BAM-001 | B33 | new |
 | MCP-ONCO-001 | 1 | — (new server Seqeron.Mcp.Oncology) | — | B34 | new (MCP) |
 | MCP-GAP-001 | 1 | — (existing pipeline-relevant capabilities without an MCP tool) | — | B34 | new (MCP) |
 | MCP-WORKSPACE-001 | 2 | — (data by reference, long jobs, provenance) | — | B34 | new (MCP) |
 | MCP-VACCINE-FLOW-001 | 2 | — (end-to-end route for an LLM (skill + MCP prompts)) | MCP-ONCO-001, MCP-WORKSPACE-001, B27–B33 tools | B34 | new (MCP) |
 
-60 units: 52 new in the checklist (of which 2 reinstated from Dropped) and 8 already listed as proposed and promoted
+63 units: 55 new in the checklist (of which 2 reinstated from Dropped) and 8 already listed as proposed and promoted
 (IDX-FM-001 from Tier 3 to 2, the others stay). Items of the gap document already ✅ need no unit.
+
+**Validation against references (added 2026-11-10 at the owner's request).** A port is not assumed equal to its reference; parity is
+measured per stage. Three units join `BENCH-NEO-001` (TESLA) in B33: BENCH-MAP-001 (mapping and germline variants on the Genome in a
+Bottle truth sets), BENCH-SOMATIC-001 (the SEQC2 HCC1395/HCC1395BL call set and the DREAM synthetic tumours) and BENCH-HLA-001 (samples
+with independently typed HLA alleles). The data-set names and papers are from memory and are confirmed at Stage A. Rules, also in the
+review README (rule 7 of B27–B33):
+- **Pre-registered thresholds.** The numeric acceptance threshold of each stage (for example a lower bound for F1 against the reference
+  tool, a concordance rate for HLA types, a tolerance on MFE against ViennaRNA) is proposed before any measurement and approved by the
+  owner; it is fixed before the run and checked on data that was not used while writing the code. The numbers are the owner's to set.
+- **Independent measurer.** Whoever measures is not whoever implemented.
+- **Speed is a separate measurement.** Genome-scale mapping is compared with BWA-MEM2 on time and memory on a larger machine than the
+  development one, as a hand-off package under the existing rule.
+- **External tools stay a first-class path.** BAM and VCF produced by external tools (BWA, GATK and others) are accepted as input, like
+  the NetMHCpan adapter, so the library's own mapper and caller are a validated alternative and never the only route.
+- **Where parity is not reached** (closed models), the measured difference is written into `LIMITATIONS.md` as a number.
 
 **NEO-EXTERNAL-001 (added 2026-11-10 at the owner's request).** NetMHCpan-4.1 (class I) and NetMHCIIpan-4.0 (class II) are the vendor's
 (DTU Health Tech) trained models and cannot be embedded; the library only talks to a copy the **caller** has installed under the
@@ -251,7 +269,7 @@ MCP does not remove the missing algorithms: until B27–B30 land, an LLM can dri
 | Tier 1 | 35 | Quick wins — high value, low effort, easy validation. |
 | Tier 2 | 60 | High value, moderate effort — the main body of work. |
 | Tier 3 | 9 | High value but heavy/uncertain — defer until a concrete need. |
-| Vaccine pipeline | 60 | Owner decision 2026-11-10; tiers inside the section; 8 of these units are also counted in Tier 1–3 above. |
+| Vaccine pipeline | 63 | Owner decision 2026-11-10; tiers inside the section; 8 of these units are also counted in Tier 1–3 above. |
 
 The highest-leverage near-term batch is **Tier 1's shared infrastructure** (STAT-*, CLIN-ROC,
 VARIANT-NORM, TRANS-NORM) plus the **small oncology wins** (kataegis, WGD, ID83/DBS78 signatures that

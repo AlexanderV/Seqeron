@@ -10,11 +10,11 @@
 
 | Metric | Value |
 |--------|-------|
-| **Total Test Units** | 416 |
+| **Total Test Units** | 419 |
 | **Completed** | 255 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 161 (proposed roadmap — §58 Assembly, §59 Phylogenetics, §60–64 Oncology, §65–78 cross-domain; prioritized in [ALGORITHMS_ROADMAP.md](ALGORITHMS_ROADMAP.md); +52 units of the neoantigen mRNA vaccine pipeline (incl. 4 MCP units) added 2026-11-10, rows at the end of this table) |
+| **Not Started** | 164 (proposed roadmap — §58 Assembly, §59 Phylogenetics, §60–64 Oncology, §65–78 cross-domain; prioritized in [ALGORITHMS_ROADMAP.md](ALGORITHMS_ROADMAP.md); +55 units of the neoantigen mRNA vaccine pipeline (incl. 4 MCP units) added 2026-11-10, rows at the end of this table) |
 
 ---
 
@@ -438,6 +438,9 @@
 | ☐ | MCP-WORKSPACE-001 | MCP | 2 | MCP specification (resources, progress, cancellation); provenance record per bio-rigor | — (proposed) | McpWorkspace_Tests.cs (proposed) |
 | ☐ | MCP-VACCINE-FLOW-001 | MCP | 2 | Agent skill and MCP prompt conventions already used in .claude/skills | — (proposed) | VaccineFlowSkill_Tests.cs (proposed) |
 | ☐ | NEO-EXTERNAL-001 | Oncology | 2 | Reynisson et al. (2020) NetMHCpan-4.1 and NetMHCIIpan-4.0, Nucleic Acids Res 48:W449; vendor documentation | — (proposed) | ExternalMhcPredictors_Tests.cs (proposed) |
+| ☐ | BENCH-MAP-001 | Validation | 2 | Zook et al. (2019) Genome in a Bottle benchmark, Nat Biotechnol; Stage A to confirm | — (proposed) | MappingGermlineBenchmark_Tests.cs (proposed) |
+| ☐ | BENCH-SOMATIC-001 | Validation | 2 | Fang et al. (2021) SEQC2 HCC1395 reference call set, Nat Biotechnol; Ewing et al. (2015) ICGC-TCGA DREAM challenge, Nat Methods; Stage A to confirm | — (proposed) | SomaticBenchmark_Tests.cs (proposed) |
+| ☐ | BENCH-HLA-001 | Validation | 2 | Stage A to source (samples with independently typed HLA alleles) | — (proposed) | HlaTypingBenchmark_Tests.cs (proposed) |
 
 **Statuses:** ☐ Not Started | ⏳ In Progress | ☑ Complete | ⛔ Blocked
 

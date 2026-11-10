@@ -274,7 +274,7 @@ Paths are relative to `src/Seqeron/Algorithms/Seqeron.Genomics.<Project>/`.
 The owner decided on 2026-11-10 that the implementation of every missing item of
 [docs/NEOANTIGEN_VACCINE_GAP_ANALYSIS.md](../../../docs/NEOANTIGEN_VACCINE_GAP_ANALYSIS.md) joins the plan before the review continues, so that B01–B26 and the follow-up review cover
 them. The units and their tiers are in `ALGORITHMS_ROADMAP.md` (section "Neoantigen mRNA vaccine pipeline") and the checklist
-registry (60 units with the MCP ones and NEO-EXTERNAL-001: 52 new rows, 8 existing rows promoted). The seven batches below own the **new** files;
+registry (63 units with the MCP ones, NEO-EXTERNAL-001 and the benchmarks: 55 new rows, 8 existing rows promoted). The seven batches below own the **new** files;
 they are titled: B27 Read preparation, indexing and mapping; B28 Variant calling from reads, phasing, sample identity; B29 HLA typing, resources and data; B30 Neoantigen sources (mutant proteins); B31 Presentation, immunogenicity and selection; B32 mRNA construct design; B33 Post-vaccine monitoring, reporting, benchmark, streaming infrastructure.
 
 | Batch | Units | Owned files (new, relative as above) |
@@ -285,7 +285,7 @@ they are titled: B27 Read preparation, indexing and mapping; B28 Variant calling
 | B30 | NEO-PROTEIN-001 NEO-FRAMESHIFT-001 NEO-INFRAME-001 NEO-PHASED-001 NEO-FUSION-001 NEO-SPLICE-001 NEO-NONCANON-001 | new files: Oncology/MutantProteinBuilder.cs, Oncology/NeoantigenSources*.cs |
 | B31 | ONCO-MHCII-001 NEO-PROCESS-001 NEO-STABILITY-001 ONCO-IMMUNOGEN-001 ONCO-NEOFITNESS-001 NEO-TCR-001 NEO-SELF-001 NEO-EXPR-001 NEO-RANK-001 NEO-EXTERNAL-001 | new files: Oncology/OncologyAnalyzer.MhcClassII.cs, Oncology/AntigenProcessing.cs, Oncology/NeoantigenImmunogenicity.cs, Oncology/SelfProteomeFilter.cs, Oncology/NeoantigenSelection.cs, Oncology/ExternalMhcPredictors.cs |
 | B32 | MRNA-EPITOPE-ORDER-001 MRNA-LINKER-001 MRNA-SIGNAL-001 MRNA-CODON-STRUCT-001 MRNA-UTR-001 MRNA-TAIL-CAP-001 MRNA-MODNUC-001 MRNA-IVT-001 MRNA-IMMUNOSTIM-001 MRNA-STABILITY-001 MRNA-ASSEMBLE-001 | new files: MolTools/Mrna*.cs (reuses CodonOptimizer, RnaSecondaryStructure, RestrictionAnalyzer, MiRnaAnalyzer, ProteinMotifFinder without editing them) |
-| B33 | TCR-ASSEMBLE-001 REPORT-VACCINE-001 BENCH-NEO-001 INFRA-STREAM-001 | new files: Oncology/TcrRepertoire.cs, Reports/VaccineReport.cs, tests/Benchmarks for the neoantigen set, Infrastructure/StreamingPipeline.cs |
+| B33 | TCR-ASSEMBLE-001 REPORT-VACCINE-001 BENCH-NEO-001 BENCH-MAP-001 BENCH-SOMATIC-001 BENCH-HLA-001 INFRA-STREAM-001 | new files: Oncology/TcrRepertoire.cs, Reports/VaccineReport.cs, tests/Benchmarks for the neoantigen set, Infrastructure/StreamingPipeline.cs |
 
 Rules specific to these batches:
 1. **Implementation first, review second.** Each unit is implemented under the Stage A/B protocol (`VALIDATION_PROTOCOL.md`) with Evidence and TestSpec; the batch then runs the usual loop (units → audit rounds → duplication sweep → heavy tier once → report) until `## Leftovers` has zero DOABLE items.
@@ -307,6 +307,7 @@ Rules specific to these batches:
 
 6. **MCP is part of Done.** Every unit of B27–B33 ships its MCP tools (gold-standard binding, Schema+Binding test, `{tool}.md` + `{tool}.mcp.json`, as in `docs/mcp/MCP_STATUS.md`); the review of the unit includes them. Large inputs are passed as workspace handles (MCP-WORKSPACE-001), not inline.
 
+7. **No Done without a reference comparison.** A unit that ports or reimplements a published tool is not Done until it is compared with that tool on a data set with known truth, against a numeric threshold proposed before the measurement, approved by the owner and checked on data not used while writing the code (units BENCH-NEO-001, BENCH-MAP-001, BENCH-SOMATIC-001, BENCH-HLA-001, plus the oracle comparisons of the Stage A/B protocol). Speed at genome scale is measured separately on a larger machine as a hand-off package. External-tool inputs (BAM, VCF from BWA, GATK and others) are a first-class path. A shortfall is written into `LIMITATIONS.md` as a measured number.
 ### Batch B34 — MCP exposure and workflow for the pipeline (proposed 2026-11-10, NOT started)
 
 | Batch | Units | Owned files (new) |
