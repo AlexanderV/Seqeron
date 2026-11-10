@@ -10,11 +10,11 @@
 
 | Metric | Value |
 |--------|-------|
-| **Total Test Units** | 415 |
+| **Total Test Units** | 416 |
 | **Completed** | 255 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 160 (proposed roadmap — §58 Assembly, §59 Phylogenetics, §60–64 Oncology, §65–78 cross-domain; prioritized in [ALGORITHMS_ROADMAP.md](ALGORITHMS_ROADMAP.md); +51 units of the neoantigen mRNA vaccine pipeline (incl. 4 MCP units) added 2026-11-10, rows at the end of this table) |
+| **Not Started** | 161 (proposed roadmap — §58 Assembly, §59 Phylogenetics, §60–64 Oncology, §65–78 cross-domain; prioritized in [ALGORITHMS_ROADMAP.md](ALGORITHMS_ROADMAP.md); +52 units of the neoantigen mRNA vaccine pipeline (incl. 4 MCP units) added 2026-11-10, rows at the end of this table) |
 
 ---
 
@@ -437,6 +437,7 @@
 | ☐ | MCP-GAP-001 | MCP | 1 | Audit unit: every item of the gap document marked present or partial has an MCP tool or a recorded reason | — (proposed) | McpCoverageAudit_Tests.cs (proposed) |
 | ☐ | MCP-WORKSPACE-001 | MCP | 2 | MCP specification (resources, progress, cancellation); provenance record per bio-rigor | — (proposed) | McpWorkspace_Tests.cs (proposed) |
 | ☐ | MCP-VACCINE-FLOW-001 | MCP | 2 | Agent skill and MCP prompt conventions already used in .claude/skills | — (proposed) | VaccineFlowSkill_Tests.cs (proposed) |
+| ☐ | NEO-EXTERNAL-001 | Oncology | 2 | Reynisson et al. (2020) NetMHCpan-4.1 and NetMHCIIpan-4.0, Nucleic Acids Res 48:W449; vendor documentation | — (proposed) | ExternalMhcPredictors_Tests.cs (proposed) |
 
 **Statuses:** ☐ Not Started | ⏳ In Progress | ☑ Complete | ⛔ Blocked
 

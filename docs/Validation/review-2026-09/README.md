@@ -274,7 +274,7 @@ Paths are relative to `src/Seqeron/Algorithms/Seqeron.Genomics.<Project>/`.
 The owner decided on 2026-11-10 that the implementation of every missing item of
 [docs/NEOANTIGEN_VACCINE_GAP_ANALYSIS.md](../../../docs/NEOANTIGEN_VACCINE_GAP_ANALYSIS.md) joins the plan before the review continues, so that B01–B26 and the follow-up review cover
 them. The units and their tiers are in `ALGORITHMS_ROADMAP.md` (section "Neoantigen mRNA vaccine pipeline") and the checklist
-registry (55 units: 47 new rows, 8 existing rows promoted). The seven batches below own the **new** files;
+registry (60 units with the MCP ones and NEO-EXTERNAL-001: 52 new rows, 8 existing rows promoted). The seven batches below own the **new** files;
 they are titled: B27 Read preparation, indexing and mapping; B28 Variant calling from reads, phasing, sample identity; B29 HLA typing, resources and data; B30 Neoantigen sources (mutant proteins); B31 Presentation, immunogenicity and selection; B32 mRNA construct design; B33 Post-vaccine monitoring, reporting, benchmark, streaming infrastructure.
 
 | Batch | Units | Owned files (new, relative as above) |
@@ -283,7 +283,7 @@ they are titled: B27 Read preparation, indexing and mapping; B28 Variant calling
 | B28 | VARIANT-SOMATIC-BAM-001 VARIANT-HAPLO-001 VARIANT-GLK-001 VARIANT-GERMLINE-001 VARIANT-NORM-001 PHASE-READ-001 ONCO-ARTIFACT-BAM-001 FUSION-READS-001 QC-IDENTITY-001 | new files: Annotation/SomaticCallerFromReads.cs, Annotation/HaplotypeAssembly.cs, Annotation/GermlineCaller.cs, Annotation/HaplotypePhaser.cs, Oncology/ArtifactFilterFromReads.cs, Oncology/FusionFromReads.cs, IO/SampleIdentity.cs |
 | B29 | HLA-DB-001 HLA-TYPE-I-001 HLA-TYPE-II-001 ONCO-LOHHLA-001 MHC-WEIGHTS-001 DATA-RESOURCES-001 | new files: Oncology/HlaAlleleDatabase.cs, Oncology/HlaTyper.cs, Oncology/OncologyAnalyzer.HlaLoh.cs, Oncology/MhcflurryWeightPack.cs, Infrastructure/ResourceProviders.cs |
 | B30 | NEO-PROTEIN-001 NEO-FRAMESHIFT-001 NEO-INFRAME-001 NEO-PHASED-001 NEO-FUSION-001 NEO-SPLICE-001 NEO-NONCANON-001 | new files: Oncology/MutantProteinBuilder.cs, Oncology/NeoantigenSources*.cs |
-| B31 | ONCO-MHCII-001 NEO-PROCESS-001 NEO-STABILITY-001 ONCO-IMMUNOGEN-001 ONCO-NEOFITNESS-001 NEO-TCR-001 NEO-SELF-001 NEO-EXPR-001 NEO-RANK-001 | new files: Oncology/OncologyAnalyzer.MhcClassII.cs, Oncology/AntigenProcessing.cs, Oncology/NeoantigenImmunogenicity.cs, Oncology/SelfProteomeFilter.cs, Oncology/NeoantigenSelection.cs |
+| B31 | ONCO-MHCII-001 NEO-PROCESS-001 NEO-STABILITY-001 ONCO-IMMUNOGEN-001 ONCO-NEOFITNESS-001 NEO-TCR-001 NEO-SELF-001 NEO-EXPR-001 NEO-RANK-001 NEO-EXTERNAL-001 | new files: Oncology/OncologyAnalyzer.MhcClassII.cs, Oncology/AntigenProcessing.cs, Oncology/NeoantigenImmunogenicity.cs, Oncology/SelfProteomeFilter.cs, Oncology/NeoantigenSelection.cs, Oncology/ExternalMhcPredictors.cs |
 | B32 | MRNA-EPITOPE-ORDER-001 MRNA-LINKER-001 MRNA-SIGNAL-001 MRNA-CODON-STRUCT-001 MRNA-UTR-001 MRNA-TAIL-CAP-001 MRNA-MODNUC-001 MRNA-IVT-001 MRNA-IMMUNOSTIM-001 MRNA-STABILITY-001 MRNA-ASSEMBLE-001 | new files: MolTools/Mrna*.cs (reuses CodonOptimizer, RnaSecondaryStructure, RestrictionAnalyzer, MiRnaAnalyzer, ProteinMotifFinder without editing them) |
 | B33 | TCR-ASSEMBLE-001 REPORT-VACCINE-001 BENCH-NEO-001 INFRA-STREAM-001 | new files: Oncology/TcrRepertoire.cs, Reports/VaccineReport.cs, tests/Benchmarks for the neoantigen set, Infrastructure/StreamingPipeline.cs |
 

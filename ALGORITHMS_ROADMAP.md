@@ -179,6 +179,7 @@ scope: all results are research-grade.
 | NEO-SELF-001 | 1 | 52 | DATA-RESOURCES-001, protein-alphabet multi-string index (PLAN.md section 8) | B31 | new |
 | NEO-EXPR-001 | 2 | 54 | MAP-QUANT-001 or supplied TPM | B31 | new |
 | NEO-RANK-001 | 2 | 55,56 | ONCO-NEO-001 and every NEO-* above | B31 | new |
+| NEO-EXTERNAL-001 | 2 | 45,47 | ONCO-NEO-001, ONCO-MHCII-001, MHC-WEIGHTS-001 | B31 | new |
 | MRNA-EPITOPE-ORDER-001 | 2 | 57 | NEO-RANK-001, NEO-PROCESS-001 | B32 | new |
 | MRNA-LINKER-001 | 1 | 58 | — | B32 | new |
 | MRNA-SIGNAL-001 | 1 | 59,60 | PROTMOTIF-SP-001 | B32 | new |
@@ -199,8 +200,19 @@ scope: all results are research-grade.
 | MCP-WORKSPACE-001 | 2 | — (data by reference, long jobs, provenance) | — | B34 | new (MCP) |
 | MCP-VACCINE-FLOW-001 | 2 | — (end-to-end route for an LLM (skill + MCP prompts)) | MCP-ONCO-001, MCP-WORKSPACE-001, B27–B33 tools | B34 | new (MCP) |
 
-59 units: 51 new in the checklist (of which 2 reinstated from Dropped) and 8 already listed as proposed and promoted
+60 units: 52 new in the checklist (of which 2 reinstated from Dropped) and 8 already listed as proposed and promoted
 (IDX-FM-001 from Tier 3 to 2, the others stay). Items of the gap document already ✅ need no unit.
+
+**NEO-EXTERNAL-001 (added 2026-11-10 at the owner's request).** NetMHCpan-4.1 (class I) and NetMHCIIpan-4.0 (class II) are the vendor's
+(DTU Health Tech) trained models and cannot be embedded; the library only talks to a copy the **caller** has installed under the
+vendor's licence. The unit has three parts: (1) an input writer (peptides and alleles in the vendor format) and an output parser for a
+**local executable**, with the version read from the output and a caller attestation that the licence permits the intended use (the
+library does not try to judge licence terms); (2) a funnel module: a permissive pre-filter on the open models (MHCflurry port
+affinity), a threshold calibrated on a set where both answers are known, a comparison on the **percentile rank per allele** and not on
+IC50 across models, and a union of several models rather than one; (3) no web-service path by default, because the peptides come from a
+patient's tumour and must not leave the machine. Scoring everything with the vendor tool is also cheap (an estimate: about 70 000
+predictions for 300 missense mutations over 6 alleles), so the funnel is a cross-check and a licence economy, not a speed need. Its MCP
+tools ship with the unit like every other unit's (B34 rule).
 
 ### MCP exposure of the pipeline (owner decision 2026-11-10, second step)
 
@@ -239,7 +251,7 @@ MCP does not remove the missing algorithms: until B27–B30 land, an LLM can dri
 | Tier 1 | 35 | Quick wins — high value, low effort, easy validation. |
 | Tier 2 | 60 | High value, moderate effort — the main body of work. |
 | Tier 3 | 9 | High value but heavy/uncertain — defer until a concrete need. |
-| Vaccine pipeline | 59 | Owner decision 2026-11-10; tiers inside the section; 8 of these units are also counted in Tier 1–3 above. |
+| Vaccine pipeline | 60 | Owner decision 2026-11-10; tiers inside the section; 8 of these units are also counted in Tier 1–3 above. |
 
 The highest-leverage near-term batch is **Tier 1's shared infrastructure** (STAT-*, CLIN-ROC,
 VARIANT-NORM, TRANS-NORM) plus the **small oncology wins** (kataegis, WGD, ID83/DBS78 signatures that
