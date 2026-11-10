@@ -269,6 +269,42 @@ is watching. If something is doable, do it.
 
 Paths are relative to `src/Seqeron/Algorithms/Seqeron.Genomics.<Project>/`.
 
+### Batches B27–B33 — neoantigen mRNA vaccine pipeline (proposed 2026-11-10, NOT started)
+
+The owner decided on 2026-11-10 that the implementation of every missing item of
+[docs/NEOANTIGEN_VACCINE_GAP_ANALYSIS.md](../../../docs/NEOANTIGEN_VACCINE_GAP_ANALYSIS.md) joins the plan before the review continues, so that B01–B26 and the follow-up review cover
+them. The units and their tiers are in `ALGORITHMS_ROADMAP.md` (section "Neoantigen mRNA vaccine pipeline") and the checklist
+registry (55 units: 47 new rows, 8 existing rows promoted). The seven batches below own the **new** files;
+they are titled: B27 Read preparation, indexing and mapping; B28 Variant calling from reads, phasing, sample identity; B29 HLA typing, resources and data; B30 Neoantigen sources (mutant proteins); B31 Presentation, immunogenicity and selection; B32 mRNA construct design; B33 Post-vaccine monitoring, reporting, benchmark, streaming infrastructure.
+
+| Batch | Units | Owned files (new, relative as above) |
+|---|---|---|
+| B27 | IO-BAM-001 IO-FAIDX-001 QC-ADAPTER-001 READ-DEDUP-001 READ-BQSR-001 IDX-FM-001 MAP-SEEDEXTEND-001 MAP-RNA-001 MAP-QUANT-001 | new files: IO/Bam*.cs, IO/IndexedFasta.cs, IO/FastqParser adapter extension (request to B20), Alignment/Read*.cs, Alignment/ReadMapper*.cs, Alignment/SplicedReadMapper.cs, Annotation/ReadQuantifier.cs, Indexing/FmIndex.cs (touches B05's src/SuffixTree/**: request) |
+| B28 | VARIANT-SOMATIC-BAM-001 VARIANT-HAPLO-001 VARIANT-GLK-001 VARIANT-GERMLINE-001 VARIANT-NORM-001 PHASE-READ-001 ONCO-ARTIFACT-BAM-001 FUSION-READS-001 QC-IDENTITY-001 | new files: Annotation/SomaticCallerFromReads.cs, Annotation/HaplotypeAssembly.cs, Annotation/GermlineCaller.cs, Annotation/HaplotypePhaser.cs, Oncology/ArtifactFilterFromReads.cs, Oncology/FusionFromReads.cs, IO/SampleIdentity.cs |
+| B29 | HLA-DB-001 HLA-TYPE-I-001 HLA-TYPE-II-001 ONCO-LOHHLA-001 MHC-WEIGHTS-001 DATA-RESOURCES-001 | new files: Oncology/HlaAlleleDatabase.cs, Oncology/HlaTyper.cs, Oncology/OncologyAnalyzer.HlaLoh.cs, Oncology/MhcflurryWeightPack.cs, Infrastructure/ResourceProviders.cs |
+| B30 | NEO-PROTEIN-001 NEO-FRAMESHIFT-001 NEO-INFRAME-001 NEO-PHASED-001 NEO-FUSION-001 NEO-SPLICE-001 NEO-NONCANON-001 | new files: Oncology/MutantProteinBuilder.cs, Oncology/NeoantigenSources*.cs |
+| B31 | ONCO-MHCII-001 NEO-PROCESS-001 NEO-STABILITY-001 ONCO-IMMUNOGEN-001 ONCO-NEOFITNESS-001 NEO-TCR-001 NEO-SELF-001 NEO-EXPR-001 NEO-RANK-001 | new files: Oncology/OncologyAnalyzer.MhcClassII.cs, Oncology/AntigenProcessing.cs, Oncology/NeoantigenImmunogenicity.cs, Oncology/SelfProteomeFilter.cs, Oncology/NeoantigenSelection.cs |
+| B32 | MRNA-EPITOPE-ORDER-001 MRNA-LINKER-001 MRNA-SIGNAL-001 MRNA-CODON-STRUCT-001 MRNA-UTR-001 MRNA-TAIL-CAP-001 MRNA-MODNUC-001 MRNA-IVT-001 MRNA-IMMUNOSTIM-001 MRNA-STABILITY-001 MRNA-ASSEMBLE-001 | new files: MolTools/Mrna*.cs (reuses CodonOptimizer, RnaSecondaryStructure, RestrictionAnalyzer, MiRnaAnalyzer, ProteinMotifFinder without editing them) |
+| B33 | TCR-ASSEMBLE-001 REPORT-VACCINE-001 BENCH-NEO-001 INFRA-STREAM-001 | new files: Oncology/TcrRepertoire.cs, Reports/VaccineReport.cs, tests/Benchmarks for the neoantigen set, Infrastructure/StreamingPipeline.cs |
+
+Rules specific to these batches:
+1. **Implementation first, review second.** Each unit is implemented under the Stage A/B protocol (`VALIDATION_PROTOCOL.md`) with Evidence and TestSpec; the batch then runs the usual loop (units → audit rounds → duplication sweep → heavy tier once → report) until `## Leftovers` has zero DOABLE items.
+2. **Existing batches stay as defined.** Where a new unit has to change a file owned by B01–B26, it files a request under README → Ownership instead of editing the file; the known touch points:
+
+| Owner batch | File(s) | Why it is touched |
+|---|---|---|
+| B05 | `src/SuffixTree/**` | IDX-FM-001 (derive BWT/occ from the ESA or build beside it); NEO-SELF-001 needs the protein/multi-string index |
+| B09 | `Alignment/SequenceAligner.cs` | MAP-SEEDEXTEND-001 and MAP-RNA-001 reuse the local aligner as the extension step |
+| B20 | `Seqeron.Genomics.IO/**` | IO-BAM-001, IO-FAIDX-001, QC-ADAPTER-001 extend the IO project; QC-ADAPTER-001 changes FastqParser |
+| B21 | `Annotation/VariantCaller.cs, VariantAnnotator.cs` | NEO-PROTEIN-001 consumes VariantAnnotator transcripts; VARIANT-* units share the Variant types |
+| B25 | `Oncology/OncologyAnalyzer.ClinicalMisc.cs` | HLA-DB-001 and ONCO-LOHHLA-001 extend the HLA nomenclature code |
+| B26 | `Oncology/OncologyAnalyzer.Neoantigen.cs, MhcflurryAffinityPredictor.cs` | ONCO-MHCII-001, ONCO-IMMUNOGEN-001, MHC-WEIGHTS-001 share MhcClass, BindingStrength and the weight-pack format |
+| B02/B12 | `MolTools/CodonOptimizer.cs, Analysis/RnaSecondaryStructure.cs, Core/Turner2004Parameters.cs` | MRNA-CODON-STRUCT-001 and MRNA-MODNUC-001 reuse these; modified-nucleoside parameters go in a new file, not into Turner2004Parameters.cs |
+
+3. **Queue position.** After B26 and before the finishers and Phase 2: the cross-batch deduplication and the final ledger must see all code, so they wait for B27–B33. Launching a batch needs the owner's yes (the "Decide before spending" rule); nothing is started by this entry.
+4. **No clinical claim.** Every report and README of these units states: research-grade, alpha, not for clinical or diagnostic use.
+5. **Data and licences.** MHCflurry weights (MHC-WEIGHTS-001), IMGT/HLA, reference genomes, proteomes and variant databases are inputs the caller supplies or a resource provider fetches; nothing large or non-redistributable is committed (the same rule as ONCO-MHC-001 and ONCO-IMMUNE-001 in `LIMITATIONS.md`).
+
 ## Phase 2 (after all batches) — cross-batch deduplication
 
 A dedicated session collects every *Cross-batch dedup request* from the batch reports, runs a

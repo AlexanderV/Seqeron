@@ -17,6 +17,7 @@ and commits it after every change. Batch definitions (units, owned files) are in
 - **Queue order:** new batches first (B08 … B23, B25, B26), THEN finishers FIN-B01/B02/B03/B24
   (re-audit their reports first — later batches may have resolved items), THEN Phase 2 (cross-batch dedup),
   THEN final consolidation (VALIDATION_LEDGER, FINDINGS_REGISTER, wiki ingest, final summary).
+- **Neoantigen mRNA vaccine pipeline (owner 2026-11-10):** the owner put the implementation of every missing/partial item of `docs/NEOANTIGEN_VACCINE_GAP_ANALYSIS.md` into the plan so that the review covers it: 55 units (47 new checklist rows, 8 promoted), new batches **B27–B33** (README → "Batches B27–B33"), `ALGORITHMS_ROADMAP.md` section "Neoantigen mRNA vaccine pipeline". MAP-SEEDEXTEND-001 and VARIANT-HAPLO-001 are reinstated (were Dropped). Queue position: after B26, before the finishers and Phase 2. **Proposed, not started; each batch launch needs the owner's yes.**
 - **Suffix-tree upgrade plan (ST-UPGRADE, stages 0–8):** proposed, NOT approved — do not start without the user's yes. Plan, competitor matrices (13 tools × 24 properties × 81 functions) and benchmark: `docs/refactoring/suffix-tree-upgrade/` (2026-11-03).
 - **All DOABLE before the sweep; a halted item becomes a hand-off package (user 2026-10-21 23:45):** "Все дуєбл
   повинно бути зроблене до дедублікації. Без виключення. Якщо щось зупиняється - робиш пакет і просиш мене виконати на

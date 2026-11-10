@@ -183,3 +183,24 @@ Scripts: `analysis/bench/handoff_package.tar.gz`; results must not be merged int
 2. API policy for 64-bit positions (S2): additive `long` overloads (recommended) or breaking change.
 3. Whether S7 (largest cost, needed only for the +0.4 margin) is in scope.
 4. Where the hand-off runs happen (S2, S5), by whom.
+
+## 8. Consumer requirements from the neoantigen mRNA vaccine pipeline (added 2026-11-10)
+
+On 2026-11-10 the owner put the implementation of the missing vaccine-pipeline algorithms into the library plan
+(`ALGORITHMS_ROADMAP.md`, review batches B27–B33; list in `docs/NEOANTIGEN_VACCINE_GAP_ANALYSIS.md`). Some of those units are
+consumers of the index this plan builds. This section records what they need from it; **it makes no claim that the current
+contract or the ESA meets any of it**, each row is checked at the named point. A row that fails is a finding for the stage, not
+a reason to change the other plan.
+
+| # | Need | Consumer unit | What to check | Checked at |
+|---|------|---------------|---------------|-----------|
+| R1 | Protein alphabet (about 25 symbols) and many short strings (a proteome is about 2×10^7 residues in tens of thousands of isoforms): exact lookup of 8–15-mers | NEO-SELF-001 | Does the contract (ADR-001) cover several strings with separators and σ above 4 in the public API, not only in unit tests? Measure build and lookup on a synthetic 20 Mresidue proteome | Before 1b.5 (contract reading), measured at gate 1b.9 |
+| R2 | Backward search (BWT, rank checkpoints) for read seeds | IDX-FM-001, MAP-SEEDEXTEND-001 | Can the SESA container of ADR-003 carry or derive the BWT without a second build? Decide whether to reserve the field | Before 1b.7 (container), ADR-003 review |
+| R3 | Seeds for short-read mapping: MEMs of a read against a 3 Gbp reference at read-batch throughput | MAP-SEEDEXTEND-001, HLA-TYPE-I-001 | The generic MEM path pays two suffix links and two rescans per query start; the one-locus path (candidate of S3) halves that. Measure reads per second on a large reference | S3 decision point |
+| R4 | Approximate (k-mismatch) lookup of peptides and short reads on the index | NEO-SELF-001, MAP-SEEDEXTEND-001 | Which part is served by the index and which by `ApproximateMatcher` (B05) | 1b.6 facade review |
+| R5 | A persistent index reused across patients (the proteome and the reference do not change) with fast load | NEO-SELF-001, MAP-* | Load time and resident size of the persistent form; builder must stream (ADR-004) | 1b.7 and E4 |
+| R6 | Many concurrent readers over one index | every consumer | The navigation pack is built once and thread-safe (tested in 1b.4); the same for the facade | 1b.6 |
+| R7 | Bounded-memory streaming of the sequencing files around the index | INFRA-STREAM-001 | Not an index property; the index must not require the whole genome string resident beyond what ADR-004 states | ADR-004 review |
+
+Decision for the owner: whether the stage order of section 3 changes because of R1–R3 (for example, reading the contract for R1
+before 1b.5). Until the owner says so, nothing in sections 2–3 changes.

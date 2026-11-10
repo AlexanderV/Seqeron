@@ -10,11 +10,11 @@
 
 | Metric | Value |
 |--------|-------|
-| **Total Test Units** | 364 |
+| **Total Test Units** | 411 |
 | **Completed** | 255 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 109 (proposed roadmap — §58 Assembly, §59 Phylogenetics, §60–64 Oncology, §65–78 cross-domain; prioritized in [ALGORITHMS_ROADMAP.md](ALGORITHMS_ROADMAP.md)) |
+| **Not Started** | 156 (proposed roadmap — §58 Assembly, §59 Phylogenetics, §60–64 Oncology, §65–78 cross-domain; prioritized in [ALGORITHMS_ROADMAP.md](ALGORITHMS_ROADMAP.md); +47 units of the neoantigen mRNA vaccine pipeline added 2026-11-10, rows at the end of this table) |
 
 ---
 
@@ -386,6 +386,53 @@
 | ☐ | CRISPR-CFD-001 | MolTools | 2 | Doench et al. (2016) CFD, Hsu et al. (2013) | — (proposed) | CrisprDesigner_Cfd_Tests.cs (proposed) |
 | ☐ | CRISPR-PRIME-001 | MolTools | 3 | Anzalone et al. (2019) prime editing, Komor et al. (2016) base editing | — (proposed) | CrisprDesigner_PrimeBaseEditor_Tests.cs (proposed) |
 | ☐ | CLONE-ASSEMBLY-001 | MolTools | 2 | Gibson et al. (2009), Engler et al. (2008) Golden Gate | — (proposed) | CloningDesigner_AssemblyDesign_Tests.cs (proposed) |
+| ☐ | IO-BAM-001 | IO | 2 | SAM/BAM specification (hts-specs); Li et al. (2009) SAM format | — (proposed) | BamReader_Tests.cs (proposed) |
+| ☐ | IO-FAIDX-001 | IO | 1 | samtools faidx (htslib); UCSC 2bit format | — (proposed) | IndexedFasta_Tests.cs (proposed) |
+| ☐ | QC-ADAPTER-001 | IO | 1 | Bolger et al. (2014) Trimmomatic; Martin (2011) cutadapt | — (proposed) | FastqParser_AdapterTrim_Tests.cs (proposed) |
+| ☐ | READ-DEDUP-001 | Alignment | 2 | Picard MarkDuplicates (Broad Institute) | — (proposed) | ReadDuplicates_Tests.cs (proposed) |
+| ☐ | READ-BQSR-001 | Alignment | 3 | McKenna et al. (2010) GATK | — (proposed) | BaseQualityRecalibration_Tests.cs (proposed) |
+| ☐ | MAP-SEEDEXTEND-001 | Alignment | 3 | Li & Durbin (2009) BWA; Li (2013) BWA-MEM; Langmead & Salzberg (2012) Bowtie 2 | — (proposed) | ReadMapper_Tests.cs (proposed) |
+| ☐ | MAP-RNA-001 | Alignment | 3 | Dobin et al. (2013) STAR | — (proposed) | SplicedReadMapper_Tests.cs (proposed) |
+| ☐ | MAP-QUANT-001 | Transcriptome | 2 | Patro et al. (2017) Salmon; Bray et al. (2016) kallisto | — (proposed) | ReadQuantifier_Tests.cs (proposed) |
+| ☐ | VARIANT-SOMATIC-BAM-001 | Variants | 3 | Cibulskis et al. (2013) MuTect; Benjamin et al. (2019) Mutect2; Kim et al. (2018) Strelka2 | — (proposed) | SomaticCallerFromReads_Tests.cs (proposed) |
+| ☐ | VARIANT-HAPLO-001 | Variants | 3 | DePristo et al. (2011) GATK HaplotypeCaller; Poplin et al. (2018) | — (proposed) | HaplotypeAssembly_Tests.cs (proposed) |
+| ☐ | VARIANT-GERMLINE-001 | Variants | 3 | DePristo et al. (2011) GATK; Li (2011) samtools | — (proposed) | GermlineCaller_Tests.cs (proposed) |
+| ☐ | ONCO-ARTIFACT-BAM-001 | Oncology | 2 | Costello et al. (2013) oxoG artefacts; Benjamin et al. (2019) Mutect2 filters | — (proposed) | ArtifactFilterFromReads_Tests.cs (proposed) |
+| ☐ | FUSION-READS-001 | Oncology | 2 | Haas et al. (2019) STAR-Fusion; Uhrig et al. (2021) Arriba | — (proposed) | FusionFromReads_Tests.cs (proposed) |
+| ☐ | QC-IDENTITY-001 | QC | 2 | Pedersen et al. (2020) somalier; Cibulskis et al. (2011) ContEst | — (proposed) | SampleIdentity_Tests.cs (proposed) |
+| ☐ | HLA-DB-001 | Immunology | 1 | Robinson et al. (2020) IMGT/HLA | — (proposed) | HlaAlleleDatabase_Tests.cs (proposed) |
+| ☐ | HLA-TYPE-I-001 | Immunology | 3 | Szolek et al. (2014) OptiType; Shukla et al. (2015) Polysolver | — (proposed) | HlaTyperClassI_Tests.cs (proposed) |
+| ☐ | HLA-TYPE-II-001 | Immunology | 3 | Kawaguchi et al. (2017) HLA-HD | — (proposed) | HlaTyperClassII_Tests.cs (proposed) |
+| ☐ | MHC-WEIGHTS-001 | Oncology | 1 | O'Donnell et al. (2020) MHCflurry 2.0 | — (proposed) | MhcflurryWeightPack_Tests.cs (proposed) |
+| ☐ | DATA-RESOURCES-001 | Infrastructure | 2 | Stage A to source (format specs and licences of GENCODE, UniProt, gnomAD, ClinVar, COSMIC, IEDB, IMGT/HLA) | — (proposed) | ResourceProviders_Tests.cs (proposed) |
+| ☐ | NEO-PROTEIN-001 | Oncology | 2 | den Dunnen et al. (2016) HGVS nomenclature; Hundal et al. (2020) pVACtools | — (proposed) | MutantProteinBuilder_Tests.cs (proposed) |
+| ☐ | NEO-FRAMESHIFT-001 | Oncology | 2 | Turajlic et al. (2017) Lancet Oncol; Hundal et al. (2020) | — (proposed) | FrameshiftNeoantigen_Tests.cs (proposed) |
+| ☐ | NEO-INFRAME-001 | Oncology | 2 | Hundal et al. (2020) pVACtools | — (proposed) | InframeNeoantigen_Tests.cs (proposed) |
+| ☐ | NEO-PHASED-001 | Oncology | 2 | Stage A to source (pVACtools proximal variants) | — (proposed) | PhasedNeoantigen_Tests.cs (proposed) |
+| ☐ | NEO-FUSION-001 | Oncology | 2 | Stage A to source (pVACfuse; Hundal et al. 2020) | — (proposed) | FusionNeoantigen_Tests.cs (proposed) |
+| ☐ | NEO-SPLICE-001 | Oncology | 3 | Kahles et al. (2018) Cancer Cell; Smart et al. (2018) Nat Biotechnol | — (proposed) | SpliceNeoantigen_Tests.cs (proposed) |
+| ☐ | NEO-NONCANON-001 | Oncology | 3 | Stage A to source (ERV-derived and cryptic-ORF neoantigens) | — (proposed) | NoncanonicalNeoantigen_Tests.cs (proposed) |
+| ☐ | NEO-PROCESS-001 | Oncology | 3 | Nielsen et al. (2005) NetChop; Stranzl et al. (2010) NetCTLpan | — (proposed) | AntigenProcessing_Tests.cs (proposed) |
+| ☐ | NEO-STABILITY-001 | Oncology | 3 | Rasmussen et al. (2016) NetMHCstabpan | — (proposed) | PmhcStability_Tests.cs (proposed) |
+| ☐ | NEO-TCR-001 | Oncology | 3 | Stage A to source (TCR–pMHC recognition; data-limited) | — (proposed) | TcrPmhcRecognition_Tests.cs (proposed) |
+| ☐ | NEO-SELF-001 | Oncology | 1 | Hundal et al. (2020) pVACtools wild-type matching | — (proposed) | SelfProteomeFilter_Tests.cs (proposed) |
+| ☐ | NEO-EXPR-001 | Oncology | 2 | Hundal et al. (2020) pVACtools expression filters | — (proposed) | NeoantigenExpression_Tests.cs (proposed) |
+| ☐ | NEO-RANK-001 | Oncology | 2 | Wells et al. (2020) TESLA; Hundal et al. (2020) | — (proposed) | NeoantigenSelection_Tests.cs (proposed) |
+| ☐ | MRNA-EPITOPE-ORDER-001 | MolDesign | 2 | Schubert & Kohlbacher (2016) Genome Med | — (proposed) | EpitopeOrdering_Tests.cs (proposed) |
+| ☐ | MRNA-LINKER-001 | MolDesign | 1 | Schubert & Kohlbacher (2016) Genome Med | — (proposed) | EpitopeLinkers_Tests.cs (proposed) |
+| ☐ | MRNA-SIGNAL-001 | MolDesign | 1 | Kreiter et al. (2008) J Immunol (MHC class I trafficking signals); Stage A to source (signal peptide) | — (proposed) | SignalAndTrafficking_Tests.cs (proposed) |
+| ☐ | MRNA-CODON-STRUCT-001 | MolDesign | 3 | Zhang et al. (2023) LinearDesign, Nature | — (proposed) | JointCodonStructureDesign_Tests.cs (proposed) |
+| ☐ | MRNA-UTR-001 | MolDesign | 2 | Kozak (1987) NAR; Stage A to source (UTR libraries) | — (proposed) | UtrDesign_Tests.cs (proposed) |
+| ☐ | MRNA-TAIL-CAP-001 | MolDesign | 1 | Stage A to source (cap-1, poly(A) architecture) | — (proposed) | CapAndPolyATail_Tests.cs (proposed) |
+| ☐ | MRNA-MODNUC-001 | MolDesign | 3 | Karikó et al. (2008) Mol Ther; Andries et al. (2015) J Control Release; Hudson et al. (2013) RNA (Ψ–A pair thermodynamics) | — (proposed) | ModifiedNucleosides_Tests.cs (proposed) |
+| ☐ | MRNA-IVT-001 | MolDesign | 1 | Milligan et al. (1987) NAR (T7 transcription); Stage A to source (terminator and homopolymer rules) | — (proposed) | IvtTemplateDesign_Tests.cs (proposed) |
+| ☐ | MRNA-IMMUNOSTIM-001 | MolDesign | 2 | Karikó et al. (2005) Immunity; Stage A to source (dsRNA by-product risk) | — (proposed) | InnateSensingMotifs_Tests.cs (proposed) |
+| ☐ | MRNA-STABILITY-001 | MolDesign | 3 | Leppek et al. (2022) Nat Commun | — (proposed) | MrnaStability_Tests.cs (proposed) |
+| ☐ | MRNA-ASSEMBLE-001 | MolDesign | 2 | Integration unit: round-trip translation equals the planned epitope set | — (proposed) | MrnaConstructAssembly_Tests.cs (proposed) |
+| ☐ | TCR-ASSEMBLE-001 | Immunology | 3 | Bolotin et al. (2015) MiXCR; Song et al. (2021) TRUST4 | — (proposed) | TcrRepertoire_Tests.cs (proposed) |
+| ☐ | REPORT-VACCINE-001 | Reports | 2 | Provenance record per bio-rigor; Stage A to source | — (proposed) | VaccineReport_Tests.cs (proposed) |
+| ☐ | BENCH-NEO-001 | Validation | 2 | Wells et al. (2020) TESLA | — (proposed) | NeoantigenBenchmark_Tests.cs (proposed) |
+| ☐ | INFRA-STREAM-001 | Infrastructure | 2 | Engineering requirement: bounded-memory streaming (see ADR-004 for the index) | — (proposed) | StreamingPipeline_Tests.cs (proposed) |
 
 **Statuses:** ☐ Not Started | ⏳ In Progress | ☑ Complete | ⛔ Blocked
 

@@ -36,13 +36,13 @@ A unit is kept only if it clears every gate below; otherwise it is dropped as sc
 
 | Unit | Reason it fails the gate |
 |------|--------------------------|
-| **MAP-SEEDEXTEND-001** | A full short-read mapper (BWA/Bowtie class) — a product, not an analysis algorithm. Fast substring search is already served by the Ukkonen suffix tree. Gate 3. |
-| **VARIANT-HAPLO-001** | GATK HaplotypeCaller-class local reassembly + PairHMM — a whole variant-calling subsystem needing a read/BAM data model the library isn't built around, and hard to validate deterministically. Gate 2 & 3. |
 | **HIC-LOOP-001** | HiCCUPS loop calling — heavy, highly specialized, low incremental value over TAD/compartment, and validation needs large real contact matrices. Gate 2. |
 | **HIC-SCAFFOLD-001** | Hi-C scaffolding (3D-DNA/LACHESIS class) — an assembly *pipeline* over contact data, overlapping the assembly domain and needing its own infra. Gate 3. |
 | **IDX-WAVELET-001** | A rank/select data-structure detail *inside* the FM-index, not a user-facing biological algorithm unit. Fold into IDX-FM-001 if that is built. Gate 3. |
 
-> Net: **114 → 109 kept.** Registry, section counts, and Quick Reference in the checklist are updated to match.
+> **2026-11-10 (owner):** MAP-SEEDEXTEND-001 and VARIANT-HAPLO-001 were removed from this table and reinstated as Tier 3 units of the neoantigen mRNA vaccine pipeline (section below). The original reasons (a product rather than an algorithm; a whole variant-calling subsystem needing a read/BAM data model) still describe the cost; the owner accepted it.
+>
+> Net at the time of dropping: **114 → 109 kept.** Registry, section counts, and Quick Reference in the checklist are updated to match.
 
 ---
 
@@ -126,14 +126,89 @@ Worth building; needs more code or validation data than Tier 1. Grouped by domai
 
 ---
 
+## Neoantigen mRNA vaccine pipeline (owner decision 2026-11-10)
+
+Source of the list: [docs/NEOANTIGEN_VACCINE_GAP_ANALYSIS.md](docs/NEOANTIGEN_VACCINE_GAP_ANALYSIS.md) (86 numbered items: 26 present, 12 partial, 48 missing). The owner decided on 2026-11-10 that
+the implementation of all missing and partial items belongs in the plan. The review campaign (B01–B26) is extended to them as
+new batches B27–B33 (`docs/Validation/review-2026-09/README.md` → "Batches B27–B33"). Tiers below are **proposed** (value ÷ effort for this pipeline) and
+override the tier of an already listed unit for scheduling only; each unit still passes the Gates and the Stage A/B protocol.
+"Gap items" are the numbers in the gap document. The references in the checklist rows are starting points written without
+fetching the papers: Stage A re-sources and verifies every one of them (a row saying "Stage A to source" has no reference yet).
+**Nothing here is implemented yet; no batch is started.** Clinical use stays out of
+scope: all results are research-grade.
+
+| Unit | Tier | Gap items | Depends on | Review batch | Status |
+|------|------|-----------|------------|--------------|--------|
+| IO-BAM-001 | 2 | 4,5 | — | B27 | new |
+| IO-FAIDX-001 | 1 | 8 | — | B27 | new |
+| QC-ADAPTER-001 | 1 | 3 | — | B27 | new |
+| READ-DEDUP-001 | 2 | 9 | IO-BAM-001 | B27 | new |
+| READ-BQSR-001 | 3 | 9 | IO-BAM-001, IO-FAIDX-001, DATA-RESOURCES-001 | B27 | new |
+| IDX-FM-001 | 2 | 15 | IDX-SUFFIXARRAY-001, IDX-BWT-001 | B27 | existing, promoted |
+| MAP-SEEDEXTEND-001 | 3 | 10 | IDX-FM-001, ALIGN-LOCAL-001, IO-BAM-001 | B27 | reinstated |
+| MAP-RNA-001 | 3 | 11 | MAP-SEEDEXTEND-001, SPLICE-PREDICT-001 | B27 | new |
+| MAP-QUANT-001 | 2 | 12 | MAP-RNA-001 | B27 | new |
+| VARIANT-SOMATIC-BAM-001 | 3 | 17 | MAP-SEEDEXTEND-001, READ-DEDUP-001, IO-BAM-001 | B28 | new |
+| VARIANT-HAPLO-001 | 3 | 17 | MAP-SEEDEXTEND-001, READ-DEDUP-001, IO-BAM-001 | B28 | reinstated |
+| VARIANT-GLK-001 | 2 | 18 | IO-BAM-001 | B28 | existing, promoted |
+| VARIANT-GERMLINE-001 | 3 | 18 | VARIANT-GLK-001, VARIANT-NORM-001 | B28 | new |
+| VARIANT-NORM-001 | 2 | 18,19 | — | B28 | existing, promoted |
+| PHASE-READ-001 | 2 | 20,37 | IO-BAM-001 | B28 | existing, promoted |
+| ONCO-ARTIFACT-BAM-001 | 2 | 19 | IO-BAM-001, DATA-RESOURCES-001 | B28 | new |
+| FUSION-READS-001 | 2 | 24 | MAP-RNA-001 | B28 | new |
+| QC-IDENTITY-001 | 2 | 75 | IO-BAM-001, PARSE-VCF-001 | B28 | new |
+| HLA-DB-001 | 1 | 31 | DATA-RESOURCES-001 | B29 | new |
+| HLA-TYPE-I-001 | 3 | 27 | MAP-SEEDEXTEND-001, HLA-DB-001 | B29 | new |
+| HLA-TYPE-II-001 | 3 | 28 | MAP-SEEDEXTEND-001, HLA-DB-001 | B29 | new |
+| ONCO-LOHHLA-001 | 2 | 30 | HLA-TYPE-I-001, IO-BAM-001 | B29 | existing, promoted |
+| MHC-WEIGHTS-001 | 1 | 44 | — | B29 | new |
+| DATA-RESOURCES-001 | 2 | 83,84,85 | — | B29 | new |
+| NEO-PROTEIN-001 | 2 | 33,34,41 | VARIANT-ANNOT-001, PARSE-GFF-001 | B30 | new |
+| NEO-FRAMESHIFT-001 | 2 | 35 | NEO-PROTEIN-001 | B30 | new |
+| NEO-INFRAME-001 | 2 | 36 | NEO-PROTEIN-001 | B30 | new |
+| NEO-PHASED-001 | 2 | 37 | NEO-PROTEIN-001, PHASE-READ-001 | B30 | new |
+| NEO-FUSION-001 | 2 | 38 | NEO-PROTEIN-001, ONCO-FUSION-001 | B30 | new |
+| NEO-SPLICE-001 | 3 | 39 | MAP-RNA-001, SPLICE-PREDICT-001 | B30 | new |
+| NEO-NONCANON-001 | 3 | 40 | MAP-RNA-001 | B30 | new |
+| ONCO-MHCII-001 | 2 | 43,45 | MHC-WEIGHTS-001 (class II pack) | B31 | existing, promoted |
+| NEO-PROCESS-001 | 3 | 48 | — | B31 | new |
+| NEO-STABILITY-001 | 3 | 49 | — | B31 | new |
+| ONCO-IMMUNOGEN-001 | 2 | 50 | ONCO-NEO-001 | B31 | existing, promoted |
+| ONCO-NEOFITNESS-001 | 2 | 50,53 | ONCO-IMMUNOGEN-001 | B31 | existing, promoted |
+| NEO-TCR-001 | 3 | 51 | — | B31 | new |
+| NEO-SELF-001 | 1 | 52 | DATA-RESOURCES-001, protein-alphabet multi-string index (PLAN.md section 8) | B31 | new |
+| NEO-EXPR-001 | 2 | 54 | MAP-QUANT-001 or supplied TPM | B31 | new |
+| NEO-RANK-001 | 2 | 55,56 | ONCO-NEO-001 and every NEO-* above | B31 | new |
+| MRNA-EPITOPE-ORDER-001 | 2 | 57 | NEO-RANK-001, NEO-PROCESS-001 | B32 | new |
+| MRNA-LINKER-001 | 1 | 58 | — | B32 | new |
+| MRNA-SIGNAL-001 | 1 | 59,60 | PROTMOTIF-SP-001 | B32 | new |
+| MRNA-CODON-STRUCT-001 | 3 | 64,65 | CODON-OPT-001, RNA-MFE-001 | B32 | new |
+| MRNA-UTR-001 | 2 | 66 | — | B32 | new |
+| MRNA-TAIL-CAP-001 | 1 | 67 | — | B32 | new |
+| MRNA-MODNUC-001 | 3 | 68 | RNA-ENERGY-001 | B32 | new |
+| MRNA-IVT-001 | 1 | 69 | RESTR-FIND-001 | B32 | new |
+| MRNA-IMMUNOSTIM-001 | 2 | 71 | — | B32 | new |
+| MRNA-STABILITY-001 | 3 | 72 | CODON-OPT-001, RNA-PARTITION-001 | B32 | new |
+| MRNA-ASSEMBLE-001 | 2 | 74 + integration | every MRNA-* unit | B32 | new |
+| TCR-ASSEMBLE-001 | 3 | 79 | MAP-SEEDEXTEND-001 | B33 | new |
+| REPORT-VACCINE-001 | 2 | 76 | NEO-RANK-001, MRNA-ASSEMBLE-001 | B33 | new |
+| BENCH-NEO-001 | 2 | 78 | NEO-RANK-001 | B33 | new |
+| INFRA-STREAM-001 | 2 | 86 | IO-BAM-001 | B33 | new |
+
+55 units: 47 new in the checklist (of which 2 reinstated from Dropped) and 8 already listed as proposed and promoted
+(IDX-FM-001 from Tier 3 to 2, the others stay). Items of the gap document already ✅ need no unit.
+
+---
+
 ## Summary
 
 | Tier | Count | Meaning |
 |------|-------|---------|
-| Dropped | 5 | Out of mission — do not implement. |
+| Dropped | 3 | Out of mission — do not implement. (2 reinstated 2026-11-10, see the vaccine section.) |
 | Tier 1 | 35 | Quick wins — high value, low effort, easy validation. |
 | Tier 2 | 60 | High value, moderate effort — the main body of work. |
 | Tier 3 | 9 | High value but heavy/uncertain — defer until a concrete need. |
+| Vaccine pipeline | 55 | Owner decision 2026-11-10; tiers inside the section; 8 of these units are also counted in Tier 1–3 above. |
 
 The highest-leverage near-term batch is **Tier 1's shared infrastructure** (STAT-*, CLIN-ROC,
 VARIANT-NORM, TRANS-NORM) plus the **small oncology wins** (kataegis, WGD, ID83/DBS78 signatures that
