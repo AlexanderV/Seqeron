@@ -305,6 +305,16 @@ Rules specific to these batches:
 4. **No clinical claim.** Every report and README of these units states: research-grade, alpha, not for clinical or diagnostic use.
 5. **Data and licences.** MHCflurry weights (MHC-WEIGHTS-001), IMGT/HLA, reference genomes, proteomes and variant databases are inputs the caller supplies or a resource provider fetches; nothing large or non-redistributable is committed (the same rule as ONCO-MHC-001 and ONCO-IMMUNE-001 in `LIMITATIONS.md`).
 
+6. **MCP is part of Done.** Every unit of B27–B33 ships its MCP tools (gold-standard binding, Schema+Binding test, `{tool}.md` + `{tool}.mcp.json`, as in `docs/mcp/MCP_STATUS.md`); the review of the unit includes them. Large inputs are passed as workspace handles (MCP-WORKSPACE-001), not inline.
+
+### Batch B34 — MCP exposure and workflow for the pipeline (proposed 2026-11-10, NOT started)
+
+| Batch | Units | Owned files (new) |
+|---|---|---|
+| B34 | MCP-ONCO-001 MCP-GAP-001 MCP-WORKSPACE-001 MCP-VACCINE-FLOW-001 | `src/Seqeron/Mcp/Seqeron.Mcp.Oncology/**`, the shared workspace/provenance helper of the MCP servers, `.claude/skills/seqeron-vaccine/**` (+ edits to the skills `seqeron-oncology` and `seqeron-discovery`, which currently say there is no oncology MCP server) |
+
+MCP-ONCO-001 wraps code that already exists, so it does not wait for B27–B33 and may run first; MCP-WORKSPACE-001 precedes the MCP work of B27–B33; MCP-VACCINE-FLOW-001 comes last. The same launch rule applies: nothing starts without the owner's yes.
+
 ## Phase 2 (after all batches) — cross-batch deduplication
 
 A dedicated session collects every *Cross-batch dedup request* from the batch reports, runs a

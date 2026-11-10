@@ -10,11 +10,11 @@
 
 | Metric | Value |
 |--------|-------|
-| **Total Test Units** | 411 |
+| **Total Test Units** | 415 |
 | **Completed** | 255 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 156 (proposed roadmap — §58 Assembly, §59 Phylogenetics, §60–64 Oncology, §65–78 cross-domain; prioritized in [ALGORITHMS_ROADMAP.md](ALGORITHMS_ROADMAP.md); +47 units of the neoantigen mRNA vaccine pipeline added 2026-11-10, rows at the end of this table) |
+| **Not Started** | 160 (proposed roadmap — §58 Assembly, §59 Phylogenetics, §60–64 Oncology, §65–78 cross-domain; prioritized in [ALGORITHMS_ROADMAP.md](ALGORITHMS_ROADMAP.md); +51 units of the neoantigen mRNA vaccine pipeline (incl. 4 MCP units) added 2026-11-10, rows at the end of this table) |
 
 ---
 
@@ -433,6 +433,10 @@
 | ☐ | REPORT-VACCINE-001 | Reports | 2 | Provenance record per bio-rigor; Stage A to source | — (proposed) | VaccineReport_Tests.cs (proposed) |
 | ☐ | BENCH-NEO-001 | Validation | 2 | Wells et al. (2020) TESLA | — (proposed) | NeoantigenBenchmark_Tests.cs (proposed) |
 | ☐ | INFRA-STREAM-001 | Infrastructure | 2 | Engineering requirement: bounded-memory streaming (see ADR-004 for the index) | — (proposed) | StreamingPipeline_Tests.cs (proposed) |
+| ☐ | MCP-ONCO-001 | MCP | 1 | MCP specification; gold-standard binding as defined in docs/mcp/MCP_STATUS.md | — (proposed) | OncologyMcpTools_Tests.cs (proposed) |
+| ☐ | MCP-GAP-001 | MCP | 1 | Audit unit: every item of the gap document marked present or partial has an MCP tool or a recorded reason | — (proposed) | McpCoverageAudit_Tests.cs (proposed) |
+| ☐ | MCP-WORKSPACE-001 | MCP | 2 | MCP specification (resources, progress, cancellation); provenance record per bio-rigor | — (proposed) | McpWorkspace_Tests.cs (proposed) |
+| ☐ | MCP-VACCINE-FLOW-001 | MCP | 2 | Agent skill and MCP prompt conventions already used in .claude/skills | — (proposed) | VaccineFlowSkill_Tests.cs (proposed) |
 
 **Statuses:** ☐ Not Started | ⏳ In Progress | ☑ Complete | ⛔ Blocked
 

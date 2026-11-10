@@ -194,9 +194,40 @@ scope: all results are research-grade.
 | REPORT-VACCINE-001 | 2 | 76 | NEO-RANK-001, MRNA-ASSEMBLE-001 | B33 | new |
 | BENCH-NEO-001 | 2 | 78 | NEO-RANK-001 | B33 | new |
 | INFRA-STREAM-001 | 2 | 86 | IO-BAM-001 | B33 | new |
+| MCP-ONCO-001 | 1 | — (new server Seqeron.Mcp.Oncology) | — | B34 | new (MCP) |
+| MCP-GAP-001 | 1 | — (existing pipeline-relevant capabilities without an MCP tool) | — | B34 | new (MCP) |
+| MCP-WORKSPACE-001 | 2 | — (data by reference, long jobs, provenance) | — | B34 | new (MCP) |
+| MCP-VACCINE-FLOW-001 | 2 | — (end-to-end route for an LLM (skill + MCP prompts)) | MCP-ONCO-001, MCP-WORKSPACE-001, B27–B33 tools | B34 | new (MCP) |
 
-55 units: 47 new in the checklist (of which 2 reinstated from Dropped) and 8 already listed as proposed and promoted
+59 units: 51 new in the checklist (of which 2 reinstated from Dropped) and 8 already listed as proposed and promoted
 (IDX-FM-001 from Tier 3 to 2, the others stay). Items of the gap document already ✅ need no unit.
+
+### MCP exposure of the pipeline (owner decision 2026-11-10, second step)
+
+The owner asked that an LLM can run the whole pipeline through MCP. Today it cannot even run the existing oncology code: the
+library has 483 tools on 11 servers (`docs/mcp/MCP_STATUS.md`), none of them oncological (`OncologyAnalyzer`, `ImmuneAnalyzer` and
+`MhcflurryAffinityPredictor` are reachable only from C#, as the `seqeron-oncology` skill says). Four cross-cutting units close that,
+in the review batch **B34**; in addition **every unit of B27–B33 ships its own MCP tools as part of its Definition of Done**
+(gold-standard binding, Schema+Binding test, `{tool}.md` and `{tool}.mcp.json`, exactly as in `MCP_STATUS.md`), so no separate wrapper
+unit per algorithm exists.
+
+- **MCP-ONCO-001.** A new server `Seqeron.Mcp.Oncology` for the code that already exists. The source has about 230 `public static`
+  members in 15 files (constants and overloads included, so the tool count will be lower; Stage A decides what is a tool). Needs no
+  new algorithm, so it does not wait for B27–B33. The guarded units (ONCO-MHC-001, ONCO-IMMUNE-001) must reach the model as a
+  structured limitation error, never as a wrong number; the MHCflurry weight pack is passed as a workspace handle.
+- **MCP-GAP-001.** An audit and fill-in: for every item of the gap document marked present or partial, a tool exists or the reason is
+  recorded. Found so far by name search only (to be confirmed at Stage A): no tool for the RNA partition function and base-pair
+  probabilities, for the SAM parser, or for `ReportGenerator`.
+- **MCP-WORKSPACE-001.** The model must not carry sequencing data. Tools take and return **handles** to files under a configured
+  root (path, size, content hash), long steps run as jobs (start, poll, cancel, progress), every call appends a provenance record
+  (tool, version, hash of inputs, parameters), a handle cannot leave the root, and the servers stay local over stdio so patient data
+  does not leave the machine. Other units' tools depend on it.
+- **MCP-VACCINE-FLOW-001.** The route for the LLM: an agent skill `seqeron-vaccine` plus MCP prompts that chain the tools, with
+  mandatory human confirmation points (HLA type, the final neoantigen list, the final construct), the stop rule at guarded units, and
+  the research-grade, not-for-clinical-use statement on every result. Also updates the `seqeron-oncology` and `seqeron-discovery`
+  skills, which now say there is no oncology MCP server.
+
+MCP does not remove the missing algorithms: until B27–B30 land, an LLM can drive only the middle of the chain through MCP.
 
 ---
 
@@ -208,7 +239,7 @@ scope: all results are research-grade.
 | Tier 1 | 35 | Quick wins — high value, low effort, easy validation. |
 | Tier 2 | 60 | High value, moderate effort — the main body of work. |
 | Tier 3 | 9 | High value but heavy/uncertain — defer until a concrete need. |
-| Vaccine pipeline | 55 | Owner decision 2026-11-10; tiers inside the section; 8 of these units are also counted in Tier 1–3 above. |
+| Vaccine pipeline | 59 | Owner decision 2026-11-10; tiers inside the section; 8 of these units are also counted in Tier 1–3 above. |
 
 The highest-leverage near-term batch is **Tier 1's shared infrastructure** (STAT-*, CLIN-ROC,
 VARIANT-NORM, TRANS-NORM) plus the **small oncology wins** (kataegis, WGD, ID83/DBS78 signatures that

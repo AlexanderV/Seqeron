@@ -567,3 +567,18 @@
 | 16 | `scan_selection_signals` | ☑ | ☑ | ☑ |
 | 17 | `tajimas_d` | ☑ | ☑ | ☑ |
 | 18 | `wattersons_theta` | ☑ | ☑ | ☑ |
+
+## Planned (not started, 2026-11-10) — oncology and the neoantigen vaccine pipeline
+
+The totals above are unchanged: they describe the finished campaign. Planned additions, owner decision of 2026-11-10 (see
+`ALGORITHMS_ROADMAP.md`, section "Neoantigen mRNA vaccine pipeline", and `docs/Validation/review-2026-09/README.md`, batches B27–B34):
+
+| Planned | What | Unit |
+|---|---|---|
+| New server `Seqeron.Mcp.Oncology` | Tools over the existing `OncologyAnalyzer`, `ImmuneAnalyzer`, `MhcflurryAffinityPredictor` (none is exposed today) | MCP-ONCO-001 |
+| Coverage audit | A tool, or a recorded reason, for every present or partial item of the gap document (name search suggests no tool for the RNA partition function, the SAM parser, `ReportGenerator`) | MCP-GAP-001 |
+| Workspace and jobs | Handles instead of inline data, long jobs, provenance per call | MCP-WORKSPACE-001 |
+| Tools of each new algorithm | Part of that unit's Definition of Done in B27–B33 | per unit |
+| Route for the LLM | Skill `seqeron-vaccine` and MCP prompts, human confirmation points | MCP-VACCINE-FLOW-001 |
+
+The ledger rows are added when the tools exist.
