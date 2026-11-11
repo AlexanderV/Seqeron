@@ -1,0 +1,8 @@
+[
+ {
+  "id": "E08b",
+  "desc": "check-lcp: a pair ahead of its slot is accepted",
+  "old": "if (pr != rank || pr <= previousRank || pv < escape) problems++;",
+  "new": "if (pr < rank || pr <= previousRank || pv < escape) problems++;"
+ }
+]

@@ -1,0 +1,4 @@
+B06	B2: a chunk with too few tuples is accepted (round 1 survivor, re-run)	survived	survived
+B06b	bounded B2: a chunk with too few tuples is accepted	survived	survived
+B12b	B3: the consumer is told the wrong first rank	killed(2)	
+B26b	Merge: the restart cost of the last task replaces the sum	killed(2)	

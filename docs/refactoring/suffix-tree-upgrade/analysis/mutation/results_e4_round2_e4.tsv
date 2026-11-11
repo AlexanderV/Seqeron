@@ -1,0 +1,9 @@
+E06	check-lcp: structure scan accepts a missing pair (round 1 survivor, re-run)	killed(1)	
+E07b	check-lcp: only a missing pair counts as a sample mismatch	killed(1)	
+E08b	check-lcp: a pair ahead of its slot is accepted	survived	survived
+E09b	check-lcp: a pair value below the escape is accepted	killed(1)	
+H01	Healthy: the cap itself is exceeded	killed(1)	
+H02	Healthy: a leftover scratch entry is accepted (E05)	killed(1)	
+H03	Healthy: tracked scratch bytes left are accepted	killed(1)	
+H04	Healthy: native bytes still charged are accepted	killed(1)	
+H05	Healthy: the RssAnon cap is not checked	killed(2)	

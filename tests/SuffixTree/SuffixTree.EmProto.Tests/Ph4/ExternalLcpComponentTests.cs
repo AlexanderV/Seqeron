@@ -529,7 +529,8 @@ public class ExternalLcpOptionsTests
             ExtLcpOptions o = LcpHarness.Options(Path.Combine(_dir, "s"), 500, 1, boundedMode ? LcpMode.Bounded : LcpMode.Distributed, 0);
             string saPath = LcpHarness.WriteSa(sa, _dir);
             var ex = Assert.Throws<InvalidOperationException>(() => ExternalLcp.Build(saPath, t, Path.Combine(_dir, "b"), Path.Combine(_dir, "o"), o));
-            Assert.That(ex!.Message, Does.Contain("Phi tuples, expected"), "the check on the number of tuples of a chunk, not a consequence of stale buffers");
+            // with one task the first chunk that disagrees stops the build: the one with 499 tuples, or the one with 501 (a build that skipped the short chunk would end at the long one)
+            Assert.That(ex!.Message, Does.Contain(deficientFirst ? "holds 499 Phi tuples, expected 500" : "holds 501 Phi tuples, expected 500"), "the check on the number of tuples of the first chunk that disagrees");
             Assert.That(Directory.GetFileSystemEntries(Path.Combine(_dir, "s")), Is.Empty);
         }
     }
@@ -751,6 +752,14 @@ public class E4CommandTests
         File.Delete(rows);
         Assert.That(E4.CheckSample(Options.Parse(["--text", pk, "--sa", sa, "--lcp", outPrefix, "--samples", "10"]), report), Is.EqualTo(1));
         Assert.That(File.ReadAllText(rows), Does.Contain("\tstructure_problems\t1\t"), "a pair value below the escape is a structure problem");
+
+        // the last pair is ahead of its slot (rank n + 2 instead of n): the order of the pairs is still ascending, only the equality of rank and slot finds it (mutant E08b)
+        ovf = (byte[])saved.Clone();
+        ovf[^8] ^= 2;
+        File.WriteAllBytes(outPrefix + ".ovf", ovf);
+        File.Delete(rows);
+        Assert.That(E4.CheckSample(Options.Parse(["--text", pk, "--sa", sa, "--lcp", outPrefix, "--samples", "10"]), report), Is.EqualTo(1));
+        Assert.That(File.ReadAllText(rows), Does.Contain("\tstructure_problems\t1\t"), "a pair ahead of its slot is a structure problem");
     }
 
     // Added after audit round 1 (mutant E05: the exit code ignored a scratch entry left behind - the condition is now a function of its own).
