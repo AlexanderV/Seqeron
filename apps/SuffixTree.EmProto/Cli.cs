@@ -6,7 +6,7 @@ namespace SuffixTree.EmProto;
 internal static class Cli
 {
     private const string Usage = """
-        SuffixTree.EmProto - prototypes E0-E3 and E3b of ADR-004 (external-memory construction of the persistent ESA)
+        SuffixTree.EmProto - prototypes E0-E3, E3b and E4 of ADR-004 (external-memory construction of the persistent ESA)
 
           e1   --family <spec> [--data <dir>] [--vectors <sa_vectors.tsv>] [--threads 1] [--k-div 1000 | --k <K>] [--fan 64] [--limit 600] [--tie-sort merge|intro] [--run <id>] [--rows raw.tsv]
           e2   the same with --dcs <X> [--exact] [--dcs-base 16000000]
@@ -17,6 +17,11 @@ internal static class Cli
           e3b      --text <packed> --out <rank file> --scratch <dir> [--period 1024 [--exact]] [--threads 4] [--budget-mb 160] [--scale-n 3000000000] [--verify <oracle rank file>]
                    [--k-s K] [--nbase N] [--chunk R] [--sort-k K] [--fan 1024] [--reservoir 16384] [--run-spill-kb 64] [--io-kb 64] [--merge-budget-mb 16] [--window-kb 1024] [--seed 1] [--touch-buffers] [--case name] [--series]
                    external-memory PH1 (E3b): the difference-cover rank file built with bounded RAM; --scale-n scales K_s, N_base, R, K_sort by n / scale-n from their 3e9 reference values
+          e4       --text <packed> --sa <sa file> --out <prefix> --scratch <dir> [--threads 4] [--budget-mb 160] [--scale-n 3000000000] [--chunk R] [--mode distributed|bounded] [--rounds r] [--b2-workers w]
+                   [--io-kb 1024] [--tuple-kb 32] [--window-kb 1024] [--touch-buffers] [--verify <oracle prefix>] [--case name] [--series]
+                   external-memory PH4 (E4): the compact LCP (<prefix>.lcp base array, <prefix>.ovf overflow pairs) from a packed text and its suffix array file; --scale-n scales R = 8,000,000 by n / scale-n
+          lcp-oracle --text <packed> --sa <sa file> --out <prefix>   the same two files from the in-RAM LcpKernel (n < 2^31)
+          check-lcp  --text <packed> --sa <sa file> --lcp <prefix> [--samples 1000] [--seed s]   structure of the overflow list and sampled ranks against a direct comparison of the text
           packrand --n <symbols> --out <packed file> [--seed s]        packed 2-bit random DNA of any length (streamed; for runs above the 2^31 symbols of pack)
           hash-sa  --file <sa file>      SHA-256 of entries 1..n (libsais convention)
           oracle   --family <spec>       same hash from SaisKernel in RAM
@@ -45,6 +50,9 @@ internal static class Cli
                 case "mkranks": return E3.MakeRanks(o, report);
                 case "e3": return E3.Build(o, report);
                 case "e3b": return E3b.Build(o, report);
+                case "e4": return E4.Build(o, report);
+                case "lcp-oracle": return E4.Oracle(o, report);
+                case "check-lcp": return E4.CheckSample(o, report);
                 case "packrand": return E3b.PackRandom(o, report);
                 case "hash-sa": return E3.HashSa(o, report);
                 case "oracle": return E3.OracleHash(o, report);

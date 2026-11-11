@@ -108,8 +108,17 @@ internal static class ExternalLcp
     /// <summary>
     /// Builds the compact LCP of <paramref name="text"/> from the suffix array file <paramref name="saPath"/> (<c>n + 1</c> little-endian <c>uint</c> entries, <c>SA[0] = n</c>) into
     /// <paramref name="basePath"/> (<c>n + 1</c> entries of 1, 2 or 4 bytes, little endian, escape value 255 / 65,535 in the narrow kinds) and <paramref name="overflowPath"/> (pairs
-    /// <c>(rank, value)</c> of 4 bytes each, ascending ranks, ADR-003 section 4 kind 5).
+    /// <c>(rank, value)</c> of 4 bytes each, ascending ranks, ADR-003 section 4 kind 5). The output files are created after the width is known and only then; the scratch files of the build are
+    /// removed when it ends, also when it fails.
     /// </summary>
+    /// <exception cref="ArgumentException">The suffix array file has not <c>n + 1</c> entries, <c>SA[0] != n</c>, or an entry is outside <c>[0, n)</c>.</exception>
+    /// <exception cref="InvalidOperationException">The suffix array is not a permutation (a chunk holds the wrong number of tuples).</exception>
     internal static ExtLcpStats Build(string saPath, PackedText text, string basePath, string overflowPath, ExtLcpOptions options, ILcpChunkConsumer? consumer = null)
-        => throw new NotImplementedException("PH4 is implemented in the next commit");
+        => new LcpBuild(saPath, text, basePath, overflowPath, options, consumer).Run();
+
+    /// <summary>
+    /// Bytes of native buffers one B2 task holds for a text of <paramref name="n"/> symbols under <paramref name="options"/> (the arithmetic that limits the number of parallel tasks under a budget):
+    /// the Phi chunk, in the base mode the rank chunk and the write buffers of the second distribution, the tuple read buffer.
+    /// </summary>
+    internal static long WorkerBytes(long n, ExtLcpOptions options) => LcpBuild.WorkerBytes(n, options);
 }
