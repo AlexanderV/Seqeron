@@ -416,6 +416,107 @@ public class ExternalDcsDifferentialTests
         Assert.Throws<ArgumentOutOfRangeException>(() => ExternalDcs.BuildRankFile(t, cover, rank, ExtDcsHarness.Options(scratch, 4, 0)));
         Assert.Throws<ArgumentOutOfRangeException>(() => ExternalDcs.BuildRankFile(t, cover, rank, ExtDcsHarness.Options(scratch, 4, 4, 0)));
         Assert.Throws<ArgumentOutOfRangeException>(() => ExternalDcs.BuildRankFile(t, cover, rank, ExtDcsHarness.Options(scratch, 4, 4) with { ChunkSlots = 0 }));
+        ExtDcsOptions ok = ExtDcsHarness.Options(scratch, 4, 4);
+        foreach (ExtDcsOptions bad in new[]
+        {
+            ok with { FanOut = 1 },
+            ok with { ReservoirSize = 2 },
+            ok with { IoBufferBytes = 15 },
+            ok with { WindowBytes = 0 },
+            ok with { MergeBufferBudget = 7 },
+            ok with { SortLeafCapacity = 1 },
+            ok with { RunSpillBytes = -1 },
+            ok with { BucketCapacity = (int.MaxValue / 2) + 1L },
+        })
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(() => ExternalDcs.BuildRankFile(t, cover, rank, bad), $"{bad}");
+        }
+        // the smallest accepted value of every option works and gives the right table
+        byte[] expected = ExtDcsHarness.Oracle(t, cover);
+        foreach (ExtDcsOptions edge in new[]
+        {
+            ok with { FanOut = 2 },
+            ok with { ReservoirSize = 3 },
+            ok with { IoBufferBytes = 16 },
+            ok with { WindowBytes = 1 },
+            ok with { MergeBufferBudget = 8 },
+            ok with { SortLeafCapacity = 2 },
+            ok with { RunSpillBytes = 0 },
+            ok with { BucketCapacity = 2, BaseCase = 1, ChunkSlots = 1, Threads = 1 },
+            ok with { BucketCapacity = int.MaxValue / 2 },
+        })
+        {
+            (byte[] got, _) = ExtDcsHarness.Run(t, cover, edge, _dir);
+            Assert.That(got, Is.EqualTo(expected), $"{edge}");
+        }
+    }
+
+    [Test]
+    public void BaseCaseBoundary_ReducedLengthEqualToNBase_IsTheBaseCase_OneLessIsAnExternalLevel()
+    {
+        string scratch = Path.Combine(_dir, "scratch");
+        DenseCase c = BuilderTestSupport.Dense("same", StringFamilies.AllSame(2000));
+        DifferenceCover cover = DifferenceCover.Create(31);
+        using PackedText t = PackedText.Pack(c.Symbols, 1);
+        long reduced = new SampleGeometry(2000, cover).RedLength;
+        (_, ExtDcsStats atLimit) = ExtDcsHarness.Run(t, cover, ExtDcsHarness.Options(scratch, 100, reduced, 2), _dir);
+        Assert.That(atLimit.MaxLevel, Is.EqualTo(0));
+        Assert.That(atLimit.Levels[0].BaseCase, Is.True, "a reduced string of exactly N_base symbols is sorted in RAM");
+        (_, ExtDcsStats below) = ExtDcsHarness.Run(t, cover, ExtDcsHarness.Options(scratch, 100, reduced - 1, 2), _dir);
+        Assert.That(below.Levels[0].BaseCase, Is.False);
+        Assert.That(below.MaxLevel, Is.GreaterThanOrEqualTo(1), "one symbol more than N_base goes through an external level");
+    }
+
+    [Test]
+    public void ReducedStringNotShorterThanTheText_IsSortedInRam_InsteadOfRecursingForEver()
+    {
+        string scratch = Path.Combine(_dir, "scratch");
+        // a period and a length at which the reduced string (Samples + |D| symbols) is exactly as long as the text, with at least two sample suffixes of X symbols (a^n has repeated names then)
+        (int x, int n) = (from period in Enumerable.Range(3, 30)
+                          from len in Enumerable.Range(period + 2, 90)
+                          let g = new SampleGeometry(len, DifferenceCover.Create(period))
+                          where g.RedLength == len && Enumerable.Range(0, len - period + 1).Count(p => g.Cover.IndexOf[p % period] >= 0) >= 2
+                          select (period, len)).First();
+        DifferenceCover cover = DifferenceCover.Create(x);
+        using PackedText t = PackedText.Pack(new byte[n], 1);
+        (byte[] got, ExtDcsStats st) = ExtDcsHarness.Run(t, cover, ExtDcsHarness.Options(scratch, 3, 3, 1), _dir);
+        Assert.That(st.Levels[0].NamesUnique, Is.False);
+        Assert.That(st.MaxLevel, Is.EqualTo(0), $"a^{n} with X = {x} has a reduced string of {n} symbols: no gain, so the base case");
+        Assert.That(st.Levels[0].BaseCase, Is.True);
+        Assert.That(got, Is.EqualTo(ExtDcsHarness.Oracle(t, cover)));
+        int longer = Enumerable.Range(n + 1, 200).First(len => new SampleGeometry(len, cover).RedLength < len);
+        using PackedText down = PackedText.Pack(new byte[longer], 1);
+        (byte[] got2, ExtDcsStats st2) = ExtDcsHarness.Run(down, cover, ExtDcsHarness.Options(scratch, 3, 3, 1), _dir);
+        Assert.That(st2.MaxLevel, Is.GreaterThanOrEqualTo(1), $"a^{longer}: the reduced string is shorter than the text, so the external level is used");
+        Assert.That(got2, Is.EqualTo(ExtDcsHarness.Oracle(down, cover)));
+    }
+
+    [Test]
+    public void BucketBuffers_AreSizedByTheSampleCount_NotByTheCapacity()
+    {
+        DenseCase c = BuilderTestSupport.Dense("dna", StringFamilies.RandomDna(5000, 3));
+        DifferenceCover cover = DifferenceCover.Create(31);
+        using PackedText t = PackedText.Pack(c.Symbols, 2);
+        var budget = new ArenaBudget(64L << 20);
+        ExtDcsOptions o = ExtDcsHarness.Options(Path.Combine(_dir, "scratch"), 1 << 20, 1 << 20) with { Budget = budget };
+        (byte[] got, _) = ExtDcsHarness.Run(t, cover, o, _dir);
+        Assert.That(got.AsSpan().SequenceEqual(ExtDcsHarness.Oracle(t, cover)), Is.True);
+        Assert.That(budget.PeakBytes, Is.LessThan(1 << 20), "a text with about 1,000 sample positions must not reserve 24 MB for a capacity of 1 Mi");
+    }
+
+    [Test]
+    public void SplitScan_IsUsedForTheRoot_AndTheLeavesCountIsNearTwiceTheSampleOverTheCapacity()
+    {
+        DenseCase c = BuilderTestSupport.Dense("dna", StringFamilies.RandomDna(60_000, 8));
+        DifferenceCover cover = DifferenceCover.Create(31);
+        using PackedText t = PackedText.Pack(c.Symbols, 2);
+        long s = cover.SampleCount(60_000);
+        const long k = 200;
+        (_, ExtDcsStats st) = ExtDcsHarness.Run(t, cover, ExtDcsHarness.Options(Path.Combine(_dir, "scratch"), k, 1 << 20) with { FanOut = 1024, ReservoirSize = 4096 }, _dir);
+        ExtDcsLevelStats l = st.Levels[0];
+        Assert.That(l.SplitScans, Is.GreaterThanOrEqualTo(1));
+        Assert.That(l.Leaves, Is.InRange((2 * s / k) - 5, (2 * s / k) + 60), $"the root splits into about 2 x sample / K = {2 * s / k} buckets");
+        Assert.That(l.Scans, Is.GreaterThanOrEqualTo(l.Leaves + l.SplitScans), "every leaf and every split scans the sample once; an overflowing collect scan adds one more");
     }
 }
 

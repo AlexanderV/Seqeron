@@ -1,0 +1,74 @@
+[
+ {
+  "id": "D01",
+  "desc": "BuildLevel: a reduced string of exactly N_base symbols recurses",
+  "old": "if (reduced <= o.BaseCase || reduced >= text.Length)",
+  "new": "if (reduced < o.BaseCase || reduced >= text.Length)"
+ },
+ {
+  "id": "D02",
+  "desc": "BuildLevel: a reduced string as long as the text recurses",
+  "old": "if (reduced <= o.BaseCase || reduced >= text.Length)",
+  "new": "if (reduced <= o.BaseCase || reduced > text.Length)"
+ },
+ {
+  "id": "D03",
+  "desc": "BuildLevel: level rank file not deleted",
+  "old": "File.Delete(childRank);",
+  "new": ""
+ },
+ {
+  "id": "D04",
+  "desc": "BuildLevel: suffix array file not untracked",
+  "old": "ScratchTracker.Remove((reduced + 1) * 4);\n        ls.BelowSeconds",
+  "new": "ls.BelowSeconds"
+ },
+ {
+  "id": "D05",
+  "desc": "BaseCase: the inverse starts at rank 0",
+  "old": "for (int k = 1; k <= n; k++) rank[saSpan[k]] = k;",
+  "new": "for (int k = 0; k <= n; k++) rank[saSpan[k]] = k;"
+ },
+ {
+  "id": "D06",
+  "desc": "BaseCase: unused slots read the table",
+  "old": "window[i] = slot < g.Samples ? (uint)rank[(int)g.RedIndexOfSlot(slot)] : 0;",
+  "new": "window[i] = slot <= g.Samples ? (uint)rank[(int)g.RedIndexOfSlot(slot)] : 0;"
+ },
+ {
+  "id": "D07",
+  "desc": "Build: sigma of the base case one too small",
+  "old": "BaseCase(sink.Red, g, ls.DistinctNames + 1, rankPath",
+  "new": "BaseCase(sink.Red, g, ls.DistinctNames, rankPath"
+ },
+ {
+  "id": "D08",
+  "desc": "Validation: bucket capacity 1 accepted",
+  "old": "ThrowIfLessThan(options.BucketCapacity, 2)",
+  "new": "ThrowIfLessThan(options.BucketCapacity, 1)"
+ },
+ {
+  "id": "D09",
+  "desc": "Validation: reservoir of 2 accepted",
+  "old": "ThrowIfLessThan(options.ReservoirSize, 3)",
+  "new": "ThrowIfLessThan(options.ReservoirSize, 2)"
+ },
+ {
+  "id": "D10",
+  "desc": "BuildLevel: the unique branch does not return after the merge",
+  "old": "ls.MergeSeconds = Seconds(t0);\n            return;\n        }\n\n        long reduced",
+  "new": "ls.MergeSeconds = Seconds(t0);\n        }\n\n        long reduced"
+ },
+ {
+  "id": "D11",
+  "desc": "BuildLevel: level counter of the child not advanced",
+  "old": "BuildLevel(red, cover, level + 1, childRank, true, o, tag, budget, stats);",
+  "new": "BuildLevel(red, cover, level, childRank, true, o, tag, budget, stats);"
+ },
+ {
+  "id": "D12",
+  "desc": "BuildLevel: external suffix sort seeded and sized by the naming capacity",
+  "old": "LeafCapacity = o.SortLeafCapacity,",
+  "new": "LeafCapacity = o.BucketCapacity,"
+ }
+]

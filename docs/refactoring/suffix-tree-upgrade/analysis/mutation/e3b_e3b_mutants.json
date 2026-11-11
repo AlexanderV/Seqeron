@@ -1,0 +1,32 @@
+[
+ {
+  "id": "C01",
+  "desc": "Scale: scaled values rounded down to the floor",
+  "old": "return Math.Max(floor, (long)Math.Round(reference * f));",
+  "new": "return Math.Min(floor, (long)Math.Round(reference * f));"
+ },
+ {
+  "id": "C02",
+  "desc": "CompareFiles: a length mismatch is not a difference",
+  "old": "if (gx != gy) return (false, at + common);",
+  "new": "if (gx != gy) return (true, -1);"
+ },
+ {
+  "id": "C03",
+  "desc": "PackRandom: unused bits of the last byte not cleared",
+  "old": "buf[take - 1] &= (byte)(0xFF << (8 - (int)((n * 2) % 8)));",
+  "new": ""
+ },
+ {
+  "id": "C04",
+  "desc": "Build: the verify result does not change the exit code",
+  "old": "ok &= equal;",
+  "new": ""
+ },
+ {
+  "id": "C05",
+  "desc": "CompareFiles: first difference reported one early",
+  "old": "if (diff < common) return (false, at + diff);",
+  "new": "if (diff < common) return (false, at + diff - 1);"
+ }
+]

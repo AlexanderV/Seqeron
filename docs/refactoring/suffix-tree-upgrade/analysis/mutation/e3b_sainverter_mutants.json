@@ -1,0 +1,50 @@
+[
+ {
+  "id": "I01",
+  "desc": "Invert: separators are treated as real positions",
+  "old": "if (!g.TrySlotOfRed(entries[i], out long slot)) continue; // a separator",
+  "new": "if (g.TrySlotOfRed(entries[i], out long slot)) continue; // a separator"
+ },
+ {
+  "id": "I02",
+  "desc": "Invert: the entry of rank 1 is skipped instead of rank 0",
+  "old": "if (rank == 0) continue; // the empty suffix",
+  "new": "if (rank == 1) continue; // the empty suffix"
+ },
+ {
+  "id": "I03",
+  "desc": "Invert: chunk by modulo",
+  "old": "long chunk = slot / chunkSlots;",
+  "new": "long chunk = slot % chunkSlots;"
+ },
+ {
+  "id": "I04",
+  "desc": "Invert: chunk array not cleared",
+  "old": "array.Clear();",
+  "new": ""
+ },
+ {
+  "id": "I05",
+  "desc": "Invert: a full tuple buffer is flushed one entry late",
+  "old": "if (filled[chunk] == bufEntries) Flush(chunk, buf, filled, flushed, o, tag);",
+  "new": "if (filled[chunk] > bufEntries) Flush(chunk, buf, filled, flushed, o, tag);"
+ },
+ {
+  "id": "I06",
+  "desc": "Invert: tuple files not untracked",
+  "old": "ScratchTracker.Remove(flushed[chunk] * 8);",
+  "new": ""
+ },
+ {
+  "id": "I07",
+  "desc": "Invert: tuple file not deleted",
+  "old": "File.Delete(path);",
+  "new": ""
+ },
+ {
+  "id": "I08",
+  "desc": "Flush: tuple file written from the start every time",
+  "old": "f.WriteAt(MemoryMarshal.AsBytes(buf[..filled[chunk]]), flushed[chunk] * 8);",
+  "new": "f.WriteAt(MemoryMarshal.AsBytes(buf[..filled[chunk]]), 0);"
+ }
+]

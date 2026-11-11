@@ -1,0 +1,830 @@
+R	E3b	dna_10m.t4	1	n	10000000	symbols	b=2 bits, X=993 Singer |D|=32, sample 322257 (3.22 %), threads=4, touch buffers=False
+R	E3b	dna_10m.t4	1	parameters	K_s=3495 N_base=55924 R=13981 K_sort=3495		scaled by n/3e9 = 3.333E-003 from K_s=1048576 N_base=16777216 R=4194304 K_sort=1048576 run-spill=64 KiB (run spill 218 bytes: every bucket run of the 3e9 build is a scratch file); the 3e9 build has sample 96676740, about 184 sample buckets (2 x sample / K_s), this one about 184
+R	E3b	dna_10m.t4	1	ph1_s	0.283543	s	external-memory PH1: sample buckets, merge, levels below, rank file through mapped windows (without fsync)
+R	E3b	dna_10m.t4	1	fsync_s	0.000216	s	flush of the rank file after the build
+R	E3b	dna_10m.t4	1	ns_per_symbol	28.354299	ns	ph1_s / n
+R	E3b	dna_10m.t4	1	rssanon_peak	10.555392	MB	max RssAnon of 30 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E3b	dna_10m.t4	1	rssfile_peak	30.253056	MB	mapped file pages resident (text, level files, rank windows): reported, not counted (ADR-004 section 6a)
+R	E3b	dna_10m.t4	1	vmhwm	43.646976	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E3b	dna_10m.t4	1	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E3b	dna_10m.t4	1	arena_peak	12.180084	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E3b	dna_10m.t4	1	io_explicit_read	2578056	bytes	0.258 B/char; run, level, suffix-array and tuple files (185 calls)
+R	E3b	dna_10m.t4	1	io_explicit_write	2578056	bytes	0.258 B/char (185 calls)
+R	E3b	dna_10m.t4	1	io_mapped_write	1289028	bytes	0.129 B/char through mapped windows of at most 1048576 bytes (2 windows, largest 1048576); the suffix arrays of the external levels (EmBuilder) are not in this number
+R	E3b	dna_10m.t4	1	io_total_counted	6445140	bytes	0.645 B/char explicit I/O plus mapped writes (text reads and the SA writes of the external levels come on top: see block-layer read_bytes)
+R	E3b	dna_10m.t4	1	blocklayer_read	4411392	bytes	/proc/self/io read_bytes during the build (page-cache misses); 0.441 B/char
+R	E3b	dna_10m.t4	1	blocklayer_write	4448256	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E3b	dna_10m.t4	1	scratch_peak	2578056	bytes	0.258 B/char peak of all scratch files (runs, reduced strings, level rank files, suffix arrays, tuple files, position buckets), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E3b	dna_10m.t4	1	rank_file	1289088	bytes	0.129 B/char (the output)
+R	E3b	dna_10m.t4	1	dirty_peak	0.270336	MB	max /proc/meminfo Dirty (system-wide); max Cached 204 MB
+R	E3b	dna_10m.t4	1	levels	0	n	deepest level reached (0 = the names of the text are all distinct); levels 1
+R	E3b	dna_10m.t4	1	nonunique_share	0	%	sample positions at level 0 whose name is shared: 0 of 322257; distinct names 322257
+R	E3b	dna_10m.t4	1	level0	10000000	symbols	sample 322257, distinct names 322257, shared 0 (0.00 %), unique=True, base case=False, leaf buckets 185, split scans 1, scans 186, file runs 185, naming 0.14 s, merge 0.02 s, below 0.00 s
+R	E3b	dna_10m.t4	1	rank_equals_oracle	yes		byte-identical to dna_10m.oracle (1289088 bytes)
+R	E3b	dna_10m.t4	2	n	10000000	symbols	b=2 bits, X=993 Singer |D|=32, sample 322257 (3.22 %), threads=4, touch buffers=False
+R	E3b	dna_10m.t4	2	parameters	K_s=3495 N_base=55924 R=13981 K_sort=3495		scaled by n/3e9 = 3.333E-003 from K_s=1048576 N_base=16777216 R=4194304 K_sort=1048576 run-spill=64 KiB (run spill 218 bytes: every bucket run of the 3e9 build is a scratch file); the 3e9 build has sample 96676740, about 184 sample buckets (2 x sample / K_s), this one about 184
+R	E3b	dna_10m.t4	2	ph1_s	0.285161	s	external-memory PH1: sample buckets, merge, levels below, rank file through mapped windows (without fsync)
+R	E3b	dna_10m.t4	2	fsync_s	0.000155	s	flush of the rank file after the build
+R	E3b	dna_10m.t4	2	ns_per_symbol	28.5161	ns	ph1_s / n
+R	E3b	dna_10m.t4	2	rssanon_peak	12.013568	MB	max RssAnon of 30 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E3b	dna_10m.t4	2	rssfile_peak	29.773824	MB	mapped file pages resident (text, level files, rank windows): reported, not counted (ADR-004 section 6a)
+R	E3b	dna_10m.t4	2	vmhwm	44.716032	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E3b	dna_10m.t4	2	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E3b	dna_10m.t4	2	arena_peak	12.180084	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E3b	dna_10m.t4	2	io_explicit_read	2578056	bytes	0.258 B/char; run, level, suffix-array and tuple files (185 calls)
+R	E3b	dna_10m.t4	2	io_explicit_write	2578056	bytes	0.258 B/char (185 calls)
+R	E3b	dna_10m.t4	2	io_mapped_write	1289028	bytes	0.129 B/char through mapped windows of at most 1048576 bytes (2 windows, largest 1048576); the suffix arrays of the external levels (EmBuilder) are not in this number
+R	E3b	dna_10m.t4	2	io_total_counted	6445140	bytes	0.645 B/char explicit I/O plus mapped writes (text reads and the SA writes of the external levels come on top: see block-layer read_bytes)
+R	E3b	dna_10m.t4	2	blocklayer_read	4411392	bytes	/proc/self/io read_bytes during the build (page-cache misses); 0.441 B/char
+R	E3b	dna_10m.t4	2	blocklayer_write	4452352	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E3b	dna_10m.t4	2	scratch_peak	2578056	bytes	0.258 B/char peak of all scratch files (runs, reduced strings, level rank files, suffix arrays, tuple files, position buckets), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E3b	dna_10m.t4	2	rank_file	1289088	bytes	0.129 B/char (the output)
+R	E3b	dna_10m.t4	2	dirty_peak	0.376832	MB	max /proc/meminfo Dirty (system-wide); max Cached 204 MB
+R	E3b	dna_10m.t4	2	levels	0	n	deepest level reached (0 = the names of the text are all distinct); levels 1
+R	E3b	dna_10m.t4	2	nonunique_share	0	%	sample positions at level 0 whose name is shared: 0 of 322257; distinct names 322257
+R	E3b	dna_10m.t4	2	level0	10000000	symbols	sample 322257, distinct names 322257, shared 0 (0.00 %), unique=True, base case=False, leaf buckets 185, split scans 1, scans 186, file runs 185, naming 0.15 s, merge 0.02 s, below 0.00 s
+R	E3b	dna_10m.t4	2	rank_equals_oracle	yes		byte-identical to dna_10m.oracle (1289088 bytes)
+R	E3b	dna_10m.t4	3	n	10000000	symbols	b=2 bits, X=993 Singer |D|=32, sample 322257 (3.22 %), threads=4, touch buffers=False
+R	E3b	dna_10m.t4	3	parameters	K_s=3495 N_base=55924 R=13981 K_sort=3495		scaled by n/3e9 = 3.333E-003 from K_s=1048576 N_base=16777216 R=4194304 K_sort=1048576 run-spill=64 KiB (run spill 218 bytes: every bucket run of the 3e9 build is a scratch file); the 3e9 build has sample 96676740, about 184 sample buckets (2 x sample / K_s), this one about 184
+R	E3b	dna_10m.t4	3	ph1_s	0.308715	s	external-memory PH1: sample buckets, merge, levels below, rank file through mapped windows (without fsync)
+R	E3b	dna_10m.t4	3	fsync_s	0.000182	s	flush of the rank file after the build
+R	E3b	dna_10m.t4	3	ns_per_symbol	30.87152	ns	ph1_s / n
+R	E3b	dna_10m.t4	3	rssanon_peak	11.444224	MB	max RssAnon of 32 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E3b	dna_10m.t4	3	rssfile_peak	29.81888	MB	mapped file pages resident (text, level files, rank windows): reported, not counted (ADR-004 section 6a)
+R	E3b	dna_10m.t4	3	vmhwm	45.191168	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E3b	dna_10m.t4	3	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E3b	dna_10m.t4	3	arena_peak	12.180084	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E3b	dna_10m.t4	3	io_explicit_read	2578056	bytes	0.258 B/char; run, level, suffix-array and tuple files (185 calls)
+R	E3b	dna_10m.t4	3	io_explicit_write	2578056	bytes	0.258 B/char (185 calls)
+R	E3b	dna_10m.t4	3	io_mapped_write	1289028	bytes	0.129 B/char through mapped windows of at most 1048576 bytes (2 windows, largest 1048576); the suffix arrays of the external levels (EmBuilder) are not in this number
+R	E3b	dna_10m.t4	3	io_total_counted	6445140	bytes	0.645 B/char explicit I/O plus mapped writes (text reads and the SA writes of the external levels come on top: see block-layer read_bytes)
+R	E3b	dna_10m.t4	3	blocklayer_read	4759552	bytes	/proc/self/io read_bytes during the build (page-cache misses); 0.476 B/char
+R	E3b	dna_10m.t4	3	blocklayer_write	4448256	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E3b	dna_10m.t4	3	scratch_peak	2578056	bytes	0.258 B/char peak of all scratch files (runs, reduced strings, level rank files, suffix arrays, tuple files, position buckets), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E3b	dna_10m.t4	3	rank_file	1289088	bytes	0.129 B/char (the output)
+R	E3b	dna_10m.t4	3	dirty_peak	0.24576	MB	max /proc/meminfo Dirty (system-wide); max Cached 205 MB
+R	E3b	dna_10m.t4	3	levels	0	n	deepest level reached (0 = the names of the text are all distinct); levels 1
+R	E3b	dna_10m.t4	3	nonunique_share	0	%	sample positions at level 0 whose name is shared: 0 of 322257; distinct names 322257
+R	E3b	dna_10m.t4	3	level0	10000000	symbols	sample 322257, distinct names 322257, shared 0 (0.00 %), unique=True, base case=False, leaf buckets 185, split scans 1, scans 186, file runs 185, naming 0.15 s, merge 0.02 s, below 0.00 s
+R	E3b	dna_10m.t4	3	rank_equals_oracle	yes		byte-identical to dna_10m.oracle (1289088 bytes)
+R	E3b	dna_10m.t1	1	n	10000000	symbols	b=2 bits, X=993 Singer |D|=32, sample 322257 (3.22 %), threads=1, touch buffers=False
+R	E3b	dna_10m.t1	1	parameters	K_s=3495 N_base=55924 R=13981 K_sort=3495		scaled by n/3e9 = 3.333E-003 from K_s=1048576 N_base=16777216 R=4194304 K_sort=1048576 run-spill=64 KiB (run spill 218 bytes: every bucket run of the 3e9 build is a scratch file); the 3e9 build has sample 96676740, about 184 sample buckets (2 x sample / K_s), this one about 184
+R	E3b	dna_10m.t1	1	ph1_s	0.634136	s	external-memory PH1: sample buckets, merge, levels below, rank file through mapped windows (without fsync)
+R	E3b	dna_10m.t1	1	fsync_s	0.000377	s	flush of the rank file after the build
+R	E3b	dna_10m.t1	1	ns_per_symbol	63.413581	ns	ph1_s / n
+R	E3b	dna_10m.t1	1	rssanon_peak	10.52672	MB	max RssAnon of 65 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 10)
+R	E3b	dna_10m.t1	1	rssfile_peak	30.969856	MB	mapped file pages resident (text, level files, rank windows): reported, not counted (ADR-004 section 6a)
+R	E3b	dna_10m.t1	1	vmhwm	44.99456	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E3b	dna_10m.t1	1	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E3b	dna_10m.t1	1	arena_peak	12.180084	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E3b	dna_10m.t1	1	io_explicit_read	2578056	bytes	0.258 B/char; run, level, suffix-array and tuple files (185 calls)
+R	E3b	dna_10m.t1	1	io_explicit_write	2578056	bytes	0.258 B/char (185 calls)
+R	E3b	dna_10m.t1	1	io_mapped_write	1289028	bytes	0.129 B/char through mapped windows of at most 1048576 bytes (2 windows, largest 1048576); the suffix arrays of the external levels (EmBuilder) are not in this number
+R	E3b	dna_10m.t1	1	io_total_counted	6445140	bytes	0.645 B/char explicit I/O plus mapped writes (text reads and the SA writes of the external levels come on top: see block-layer read_bytes)
+R	E3b	dna_10m.t1	1	blocklayer_read	4857856	bytes	/proc/self/io read_bytes during the build (page-cache misses); 0.486 B/char
+R	E3b	dna_10m.t1	1	blocklayer_write	4427776	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E3b	dna_10m.t1	1	scratch_peak	2578056	bytes	0.258 B/char peak of all scratch files (runs, reduced strings, level rank files, suffix arrays, tuple files, position buckets), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E3b	dna_10m.t1	1	rank_file	1289088	bytes	0.129 B/char (the output)
+R	E3b	dna_10m.t1	1	dirty_peak	0.233472	MB	max /proc/meminfo Dirty (system-wide); max Cached 206 MB
+R	E3b	dna_10m.t1	1	levels	0	n	deepest level reached (0 = the names of the text are all distinct); levels 1
+R	E3b	dna_10m.t1	1	nonunique_share	0	%	sample positions at level 0 whose name is shared: 0 of 322257; distinct names 322257
+R	E3b	dna_10m.t1	1	level0	10000000	symbols	sample 322257, distinct names 322257, shared 0 (0.00 %), unique=True, base case=False, leaf buckets 185, split scans 1, scans 186, file runs 185, naming 0.47 s, merge 0.02 s, below 0.00 s
+R	E3b	dna_10m.t1	1	rank_equals_oracle	yes		byte-identical to dna_10m.oracle (1289088 bytes)
+R	E3b	dna_10m.t2	1	n	10000000	symbols	b=2 bits, X=993 Singer |D|=32, sample 322257 (3.22 %), threads=2, touch buffers=False
+R	E3b	dna_10m.t2	1	parameters	K_s=3495 N_base=55924 R=13981 K_sort=3495		scaled by n/3e9 = 3.333E-003 from K_s=1048576 N_base=16777216 R=4194304 K_sort=1048576 run-spill=64 KiB (run spill 218 bytes: every bucket run of the 3e9 build is a scratch file); the 3e9 build has sample 96676740, about 184 sample buckets (2 x sample / K_s), this one about 184
+R	E3b	dna_10m.t2	1	ph1_s	0.405289	s	external-memory PH1: sample buckets, merge, levels below, rank file through mapped windows (without fsync)
+R	E3b	dna_10m.t2	1	fsync_s	0.000443	s	flush of the rank file after the build
+R	E3b	dna_10m.t2	1	ns_per_symbol	40.528907	ns	ph1_s / n
+R	E3b	dna_10m.t2	1	rssanon_peak	11.63264	MB	max RssAnon of 42 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 11)
+R	E3b	dna_10m.t2	1	rssfile_peak	30.195712	MB	mapped file pages resident (text, level files, rank windows): reported, not counted (ADR-004 section 6a)
+R	E3b	dna_10m.t2	1	vmhwm	45.371392	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E3b	dna_10m.t2	1	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E3b	dna_10m.t2	1	arena_peak	12.180084	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E3b	dna_10m.t2	1	io_explicit_read	2578056	bytes	0.258 B/char; run, level, suffix-array and tuple files (185 calls)
+R	E3b	dna_10m.t2	1	io_explicit_write	2578056	bytes	0.258 B/char (185 calls)
+R	E3b	dna_10m.t2	1	io_mapped_write	1289028	bytes	0.129 B/char through mapped windows of at most 1048576 bytes (2 windows, largest 1048576); the suffix arrays of the external levels (EmBuilder) are not in this number
+R	E3b	dna_10m.t2	1	io_total_counted	6445140	bytes	0.645 B/char explicit I/O plus mapped writes (text reads and the SA writes of the external levels come on top: see block-layer read_bytes)
+R	E3b	dna_10m.t2	1	blocklayer_read	4771840	bytes	/proc/self/io read_bytes during the build (page-cache misses); 0.477 B/char
+R	E3b	dna_10m.t2	1	blocklayer_write	4399104	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E3b	dna_10m.t2	1	scratch_peak	2578056	bytes	0.258 B/char peak of all scratch files (runs, reduced strings, level rank files, suffix arrays, tuple files, position buckets), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E3b	dna_10m.t2	1	rank_file	1289088	bytes	0.129 B/char (the output)
+R	E3b	dna_10m.t2	1	dirty_peak	0.2048	MB	max /proc/meminfo Dirty (system-wide); max Cached 206 MB
+R	E3b	dna_10m.t2	1	levels	0	n	deepest level reached (0 = the names of the text are all distinct); levels 1
+R	E3b	dna_10m.t2	1	nonunique_share	0	%	sample positions at level 0 whose name is shared: 0 of 322257; distinct names 322257
+R	E3b	dna_10m.t2	1	level0	10000000	symbols	sample 322257, distinct names 322257, shared 0 (0.00 %), unique=True, base case=False, leaf buckets 185, split scans 1, scans 186, file runs 185, naming 0.24 s, merge 0.02 s, below 0.00 s
+R	E3b	dna_10m.t2	1	rank_equals_oracle	yes		byte-identical to dna_10m.oracle (1289088 bytes)
+R	E3b	rep10.t4	1	n	10000000	symbols	b=2 bits, X=993 Singer |D|=32, sample 322257 (3.22 %), threads=4, touch buffers=False
+R	E3b	rep10.t4	1	parameters	K_s=3495 N_base=55924 R=13981 K_sort=3495		scaled by n/3e9 = 3.333E-003 from K_s=1048576 N_base=16777216 R=4194304 K_sort=1048576 run-spill=64 KiB (run spill 218 bytes: every bucket run of the 3e9 build is a scratch file); the 3e9 build has sample 96676740, about 184 sample buckets (2 x sample / K_s), this one about 184
+R	E3b	rep10.t4	1	ph1_s	0.318058	s	external-memory PH1: sample buckets, merge, levels below, rank file through mapped windows (without fsync)
+R	E3b	rep10.t4	1	fsync_s	0.000381	s	flush of the rank file after the build
+R	E3b	rep10.t4	1	ns_per_symbol	31.805797	ns	ph1_s / n
+R	E3b	rep10.t4	1	rssanon_peak	11.517952	MB	max RssAnon of 33 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E3b	rep10.t4	1	rssfile_peak	30.572544	MB	mapped file pages resident (text, level files, rank windows): reported, not counted (ADR-004 section 6a)
+R	E3b	rep10.t4	1	vmhwm	45.07648	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E3b	rep10.t4	1	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E3b	rep10.t4	1	arena_peak	12.180084	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E3b	rep10.t4	1	io_explicit_read	2578056	bytes	0.258 B/char; run, level, suffix-array and tuple files (185 calls)
+R	E3b	rep10.t4	1	io_explicit_write	2578056	bytes	0.258 B/char (185 calls)
+R	E3b	rep10.t4	1	io_mapped_write	1289028	bytes	0.129 B/char through mapped windows of at most 1048576 bytes (2 windows, largest 1048576); the suffix arrays of the external levels (EmBuilder) are not in this number
+R	E3b	rep10.t4	1	io_total_counted	6445140	bytes	0.645 B/char explicit I/O plus mapped writes (text reads and the SA writes of the external levels come on top: see block-layer read_bytes)
+R	E3b	rep10.t4	1	blocklayer_read	4800512	bytes	/proc/self/io read_bytes during the build (page-cache misses); 0.480 B/char
+R	E3b	rep10.t4	1	blocklayer_write	4431872	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E3b	rep10.t4	1	scratch_peak	2578056	bytes	0.258 B/char peak of all scratch files (runs, reduced strings, level rank files, suffix arrays, tuple files, position buckets), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E3b	rep10.t4	1	rank_file	1289088	bytes	0.129 B/char (the output)
+R	E3b	rep10.t4	1	dirty_peak	0.221184	MB	max /proc/meminfo Dirty (system-wide); max Cached 204 MB
+R	E3b	rep10.t4	1	levels	0	n	deepest level reached (0 = the names of the text are all distinct); levels 1
+R	E3b	rep10.t4	1	nonunique_share	0	%	sample positions at level 0 whose name is shared: 0 of 322257; distinct names 322257
+R	E3b	rep10.t4	1	level0	10000000	symbols	sample 322257, distinct names 322257, shared 0 (0.00 %), unique=True, base case=False, leaf buckets 185, split scans 1, scans 186, file runs 185, naming 0.19 s, merge 0.01 s, below 0.00 s
+R	E3b	rep10.t4	1	rank_equals_oracle	yes		byte-identical to rep10.oracle (1289088 bytes)
+R	E3b	rep10.t4	2	n	10000000	symbols	b=2 bits, X=993 Singer |D|=32, sample 322257 (3.22 %), threads=4, touch buffers=False
+R	E3b	rep10.t4	2	parameters	K_s=3495 N_base=55924 R=13981 K_sort=3495		scaled by n/3e9 = 3.333E-003 from K_s=1048576 N_base=16777216 R=4194304 K_sort=1048576 run-spill=64 KiB (run spill 218 bytes: every bucket run of the 3e9 build is a scratch file); the 3e9 build has sample 96676740, about 184 sample buckets (2 x sample / K_s), this one about 184
+R	E3b	rep10.t4	2	ph1_s	0.377327	s	external-memory PH1: sample buckets, merge, levels below, rank file through mapped windows (without fsync)
+R	E3b	rep10.t4	2	fsync_s	0.00035	s	flush of the rank file after the build
+R	E3b	rep10.t4	2	ns_per_symbol	37.732699	ns	ph1_s / n
+R	E3b	rep10.t4	2	rssanon_peak	9.248768	MB	max RssAnon of 39 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E3b	rep10.t4	2	rssfile_peak	30.081024	MB	mapped file pages resident (text, level files, rank windows): reported, not counted (ADR-004 section 6a)
+R	E3b	rep10.t4	2	vmhwm	45.522944	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E3b	rep10.t4	2	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E3b	rep10.t4	2	arena_peak	12.180084	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E3b	rep10.t4	2	io_explicit_read	2578056	bytes	0.258 B/char; run, level, suffix-array and tuple files (185 calls)
+R	E3b	rep10.t4	2	io_explicit_write	2578056	bytes	0.258 B/char (185 calls)
+R	E3b	rep10.t4	2	io_mapped_write	1289028	bytes	0.129 B/char through mapped windows of at most 1048576 bytes (2 windows, largest 1048576); the suffix arrays of the external levels (EmBuilder) are not in this number
+R	E3b	rep10.t4	2	io_total_counted	6445140	bytes	0.645 B/char explicit I/O plus mapped writes (text reads and the SA writes of the external levels come on top: see block-layer read_bytes)
+R	E3b	rep10.t4	2	blocklayer_read	4988928	bytes	/proc/self/io read_bytes during the build (page-cache misses); 0.499 B/char
+R	E3b	rep10.t4	2	blocklayer_write	4427776	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E3b	rep10.t4	2	scratch_peak	2578056	bytes	0.258 B/char peak of all scratch files (runs, reduced strings, level rank files, suffix arrays, tuple files, position buckets), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E3b	rep10.t4	2	rank_file	1289088	bytes	0.129 B/char (the output)
+R	E3b	rep10.t4	2	dirty_peak	0.212992	MB	max /proc/meminfo Dirty (system-wide); max Cached 206 MB
+R	E3b	rep10.t4	2	levels	0	n	deepest level reached (0 = the names of the text are all distinct); levels 1
+R	E3b	rep10.t4	2	nonunique_share	0	%	sample positions at level 0 whose name is shared: 0 of 322257; distinct names 322257
+R	E3b	rep10.t4	2	level0	10000000	symbols	sample 322257, distinct names 322257, shared 0 (0.00 %), unique=True, base case=False, leaf buckets 185, split scans 1, scans 186, file runs 185, naming 0.22 s, merge 0.02 s, below 0.00 s
+R	E3b	rep10.t4	2	rank_equals_oracle	yes		byte-identical to rep10.oracle (1289088 bytes)
+R	E3b	rep10.t4	3	n	10000000	symbols	b=2 bits, X=993 Singer |D|=32, sample 322257 (3.22 %), threads=4, touch buffers=False
+R	E3b	rep10.t4	3	parameters	K_s=3495 N_base=55924 R=13981 K_sort=3495		scaled by n/3e9 = 3.333E-003 from K_s=1048576 N_base=16777216 R=4194304 K_sort=1048576 run-spill=64 KiB (run spill 218 bytes: every bucket run of the 3e9 build is a scratch file); the 3e9 build has sample 96676740, about 184 sample buckets (2 x sample / K_s), this one about 184
+R	E3b	rep10.t4	3	ph1_s	0.39034	s	external-memory PH1: sample buckets, merge, levels below, rank file through mapped windows (without fsync)
+R	E3b	rep10.t4	3	fsync_s	0.000234	s	flush of the rank file after the build
+R	E3b	rep10.t4	3	ns_per_symbol	39.033993	ns	ph1_s / n
+R	E3b	rep10.t4	3	rssanon_peak	11.759616	MB	max RssAnon of 41 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E3b	rep10.t4	3	rssfile_peak	30.830592	MB	mapped file pages resident (text, level files, rank windows): reported, not counted (ADR-004 section 6a)
+R	E3b	rep10.t4	3	vmhwm	45.7728	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E3b	rep10.t4	3	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E3b	rep10.t4	3	arena_peak	12.180084	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E3b	rep10.t4	3	io_explicit_read	2578056	bytes	0.258 B/char; run, level, suffix-array and tuple files (185 calls)
+R	E3b	rep10.t4	3	io_explicit_write	2578056	bytes	0.258 B/char (185 calls)
+R	E3b	rep10.t4	3	io_mapped_write	1289028	bytes	0.129 B/char through mapped windows of at most 1048576 bytes (2 windows, largest 1048576); the suffix arrays of the external levels (EmBuilder) are not in this number
+R	E3b	rep10.t4	3	io_total_counted	6445140	bytes	0.645 B/char explicit I/O plus mapped writes (text reads and the SA writes of the external levels come on top: see block-layer read_bytes)
+R	E3b	rep10.t4	3	blocklayer_read	4988928	bytes	/proc/self/io read_bytes during the build (page-cache misses); 0.499 B/char
+R	E3b	rep10.t4	3	blocklayer_write	4427776	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E3b	rep10.t4	3	scratch_peak	2578056	bytes	0.258 B/char peak of all scratch files (runs, reduced strings, level rank files, suffix arrays, tuple files, position buckets), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E3b	rep10.t4	3	rank_file	1289088	bytes	0.129 B/char (the output)
+R	E3b	rep10.t4	3	dirty_peak	0.499712	MB	max /proc/meminfo Dirty (system-wide); max Cached 206 MB
+R	E3b	rep10.t4	3	levels	0	n	deepest level reached (0 = the names of the text are all distinct); levels 1
+R	E3b	rep10.t4	3	nonunique_share	0	%	sample positions at level 0 whose name is shared: 0 of 322257; distinct names 322257
+R	E3b	rep10.t4	3	level0	10000000	symbols	sample 322257, distinct names 322257, shared 0 (0.00 %), unique=True, base case=False, leaf buckets 185, split scans 1, scans 186, file runs 185, naming 0.22 s, merge 0.02 s, below 0.00 s
+R	E3b	rep10.t4	3	rank_equals_oracle	yes		byte-identical to rep10.oracle (1289088 bytes)
+R	E3b	rep10.t1	1	n	10000000	symbols	b=2 bits, X=993 Singer |D|=32, sample 322257 (3.22 %), threads=1, touch buffers=False
+R	E3b	rep10.t1	1	parameters	K_s=3495 N_base=55924 R=13981 K_sort=3495		scaled by n/3e9 = 3.333E-003 from K_s=1048576 N_base=16777216 R=4194304 K_sort=1048576 run-spill=64 KiB (run spill 218 bytes: every bucket run of the 3e9 build is a scratch file); the 3e9 build has sample 96676740, about 184 sample buckets (2 x sample / K_s), this one about 184
+R	E3b	rep10.t1	1	ph1_s	0.746902	s	external-memory PH1: sample buckets, merge, levels below, rank file through mapped windows (without fsync)
+R	E3b	rep10.t1	1	fsync_s	0.000254	s	flush of the rank file after the build
+R	E3b	rep10.t1	1	ns_per_symbol	74.690183	ns	ph1_s / n
+R	E3b	rep10.t1	1	rssanon_peak	11.698176	MB	max RssAnon of 76 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 10)
+R	E3b	rep10.t1	1	rssfile_peak	30.957568	MB	mapped file pages resident (text, level files, rank windows): reported, not counted (ADR-004 section 6a)
+R	E3b	rep10.t1	1	vmhwm	46.211072	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E3b	rep10.t1	1	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E3b	rep10.t1	1	arena_peak	12.180084	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E3b	rep10.t1	1	io_explicit_read	2578056	bytes	0.258 B/char; run, level, suffix-array and tuple files (185 calls)
+R	E3b	rep10.t1	1	io_explicit_write	2578056	bytes	0.258 B/char (185 calls)
+R	E3b	rep10.t1	1	io_mapped_write	1289028	bytes	0.129 B/char through mapped windows of at most 1048576 bytes (2 windows, largest 1048576); the suffix arrays of the external levels (EmBuilder) are not in this number
+R	E3b	rep10.t1	1	io_total_counted	6445140	bytes	0.645 B/char explicit I/O plus mapped writes (text reads and the SA writes of the external levels come on top: see block-layer read_bytes)
+R	E3b	rep10.t1	1	blocklayer_read	5083136	bytes	/proc/self/io read_bytes during the build (page-cache misses); 0.508 B/char
+R	E3b	rep10.t1	1	blocklayer_write	4407296	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E3b	rep10.t1	1	scratch_peak	2578056	bytes	0.258 B/char peak of all scratch files (runs, reduced strings, level rank files, suffix arrays, tuple files, position buckets), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E3b	rep10.t1	1	rank_file	1289088	bytes	0.129 B/char (the output)
+R	E3b	rep10.t1	1	dirty_peak	0.212992	MB	max /proc/meminfo Dirty (system-wide); max Cached 206 MB
+R	E3b	rep10.t1	1	levels	0	n	deepest level reached (0 = the names of the text are all distinct); levels 1
+R	E3b	rep10.t1	1	nonunique_share	0	%	sample positions at level 0 whose name is shared: 0 of 322257; distinct names 322257
+R	E3b	rep10.t1	1	level0	10000000	symbols	sample 322257, distinct names 322257, shared 0 (0.00 %), unique=True, base case=False, leaf buckets 185, split scans 1, scans 186, file runs 185, naming 0.59 s, merge 0.02 s, below 0.00 s
+R	E3b	rep10.t1	1	rank_equals_oracle	yes		byte-identical to rep10.oracle (1289088 bytes)
+R	E3b	rep10.t2	1	n	10000000	symbols	b=2 bits, X=993 Singer |D|=32, sample 322257 (3.22 %), threads=2, touch buffers=False
+R	E3b	rep10.t2	1	parameters	K_s=3495 N_base=55924 R=13981 K_sort=3495		scaled by n/3e9 = 3.333E-003 from K_s=1048576 N_base=16777216 R=4194304 K_sort=1048576 run-spill=64 KiB (run spill 218 bytes: every bucket run of the 3e9 build is a scratch file); the 3e9 build has sample 96676740, about 184 sample buckets (2 x sample / K_s), this one about 184
+R	E3b	rep10.t2	1	ph1_s	0.487561	s	external-memory PH1: sample buckets, merge, levels below, rank file through mapped windows (without fsync)
+R	E3b	rep10.t2	1	fsync_s	0.000284	s	flush of the rank file after the build
+R	E3b	rep10.t2	1	ns_per_symbol	48.756111	ns	ph1_s / n
+R	E3b	rep10.t2	1	rssanon_peak	13.017088	MB	max RssAnon of 50 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 11)
+R	E3b	rep10.t2	1	rssfile_peak	29.949952	MB	mapped file pages resident (text, level files, rank windows): reported, not counted (ADR-004 section 6a)
+R	E3b	rep10.t2	1	vmhwm	46.911488	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E3b	rep10.t2	1	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E3b	rep10.t2	1	arena_peak	12.180084	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E3b	rep10.t2	1	io_explicit_read	2578056	bytes	0.258 B/char; run, level, suffix-array and tuple files (185 calls)
+R	E3b	rep10.t2	1	io_explicit_write	2578056	bytes	0.258 B/char (185 calls)
+R	E3b	rep10.t2	1	io_mapped_write	1289028	bytes	0.129 B/char through mapped windows of at most 1048576 bytes (2 windows, largest 1048576); the suffix arrays of the external levels (EmBuilder) are not in this number
+R	E3b	rep10.t2	1	io_total_counted	6445140	bytes	0.645 B/char explicit I/O plus mapped writes (text reads and the SA writes of the external levels come on top: see block-layer read_bytes)
+R	E3b	rep10.t2	1	blocklayer_read	4988928	bytes	/proc/self/io read_bytes during the build (page-cache misses); 0.499 B/char
+R	E3b	rep10.t2	1	blocklayer_write	4407296	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E3b	rep10.t2	1	scratch_peak	2578056	bytes	0.258 B/char peak of all scratch files (runs, reduced strings, level rank files, suffix arrays, tuple files, position buckets), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E3b	rep10.t2	1	rank_file	1289088	bytes	0.129 B/char (the output)
+R	E3b	rep10.t2	1	dirty_peak	0.32768	MB	max /proc/meminfo Dirty (system-wide); max Cached 205 MB
+R	E3b	rep10.t2	1	levels	0	n	deepest level reached (0 = the names of the text are all distinct); levels 1
+R	E3b	rep10.t2	1	nonunique_share	0	%	sample positions at level 0 whose name is shared: 0 of 322257; distinct names 322257
+R	E3b	rep10.t2	1	level0	10000000	symbols	sample 322257, distinct names 322257, shared 0 (0.00 %), unique=True, base case=False, leaf buckets 185, split scans 1, scans 186, file runs 185, naming 0.34 s, merge 0.02 s, below 0.00 s
+R	E3b	rep10.t2	1	rank_equals_oracle	yes		byte-identical to rep10.oracle (1289088 bytes)
+R	E3b	a10.t4	1	n	10000000	symbols	b=1 bits, X=993 Singer |D|=32, sample 322257 (3.22 %), threads=4, touch buffers=False
+R	E3b	a10.t4	1	parameters	K_s=3495 N_base=55924 R=13981 K_sort=3495		scaled by n/3e9 = 3.333E-003 from K_s=1048576 N_base=16777216 R=4194304 K_sort=1048576 run-spill=64 KiB (run spill 218 bytes: every bucket run of the 3e9 build is a scratch file); the 3e9 build has sample 96676740, about 184 sample buckets (2 x sample / K_s), this one about 184
+R	E3b	a10.t4	1	ph1_s	1.818768	s	external-memory PH1: sample buckets, merge, levels below, rank file through mapped windows (without fsync)
+R	E3b	a10.t4	1	fsync_s	0.000183	s	flush of the rank file after the build
+R	E3b	a10.t4	1	ns_per_symbol	181.876811	ns	ph1_s / n
+R	E3b	a10.t4	1	rssanon_peak	17.7152	MB	max RssAnon of 183 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E3b	a10.t4	1	rssfile_peak	30.314496	MB	mapped file pages resident (text, level files, rank windows): reported, not counted (ADR-004 section 6a)
+R	E3b	a10.t4	1	vmhwm	51.396608	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E3b	a10.t4	1	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E3b	a10.t4	1	arena_peak	14.277236	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E3b	a10.t4	1	io_explicit_read	5457632	bytes	0.546 B/char; run, level, suffix-array and tuple files (234 calls)
+R	E3b	a10.t4	1	io_explicit_write	5457500	bytes	0.546 B/char (246 calls)
+R	E3b	a10.t4	1	io_mapped_write	1330688	bytes	0.133 B/char through mapped windows of at most 1048576 bytes (3 windows, largest 1048576); the suffix arrays of the external levels (EmBuilder) are not in this number
+R	E3b	a10.t4	1	io_total_counted	12245820	bytes	1.225 B/char explicit I/O plus mapped writes (text reads and the SA writes of the external levels come on top: see block-layer read_bytes)
+R	E3b	a10.t4	1	blocklayer_read	3891200	bytes	/proc/self/io read_bytes during the build (page-cache misses); 0.389 B/char
+R	E3b	a10.t4	1	blocklayer_write	18518016	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E3b	a10.t4	1	scratch_peak	3867276	bytes	0.387 B/char peak of all scratch files (runs, reduced strings, level rank files, suffix arrays, tuple files, position buckets), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E3b	a10.t4	1	rank_file	1289088	bytes	0.129 B/char (the output)
+R	E3b	a10.t4	1	dirty_peak	0.557056	MB	max /proc/meminfo Dirty (system-wide); max Cached 204 MB
+R	E3b	a10.t4	1	levels	1	n	deepest level reached (0 = the names of the text are all distinct); levels 2
+R	E3b	a10.t4	1	nonunique_share	99.99007	%	sample positions at level 0 whose name is shared: 322225 of 322257; distinct names 33
+R	E3b	a10.t4	1	level0	10000000	symbols	sample 322257, distinct names 33, shared 322225 (99.99 %), unique=False, base case=False, leaf buckets 185, split scans 1, scans 186, file runs 185, naming 0.77 s, merge 0.02 s, below 1.01 s
+R	E3b	a10.t4	1	level1	322289	symbols	sample 10386, distinct names 1026, shared 9361 (90.13 %), unique=False, base case=True, leaf buckets 6, split scans 1, scans 7, file runs 6, naming 0.07 s, merge 0.00 s, below 0.02 s
+R	E3b	a10.t4	1	rank_equals_oracle	yes		byte-identical to a10.oracle (1289088 bytes)
+R	E3b	a10.t4	2	n	10000000	symbols	b=1 bits, X=993 Singer |D|=32, sample 322257 (3.22 %), threads=4, touch buffers=False
+R	E3b	a10.t4	2	parameters	K_s=3495 N_base=55924 R=13981 K_sort=3495		scaled by n/3e9 = 3.333E-003 from K_s=1048576 N_base=16777216 R=4194304 K_sort=1048576 run-spill=64 KiB (run spill 218 bytes: every bucket run of the 3e9 build is a scratch file); the 3e9 build has sample 96676740, about 184 sample buckets (2 x sample / K_s), this one about 184
+R	E3b	a10.t4	2	ph1_s	1.80169	s	external-memory PH1: sample buckets, merge, levels below, rank file through mapped windows (without fsync)
+R	E3b	a10.t4	2	fsync_s	0.000161	s	flush of the rank file after the build
+R	E3b	a10.t4	2	ns_per_symbol	180.168958	ns	ph1_s / n
+R	E3b	a10.t4	2	rssanon_peak	17.79712	MB	max RssAnon of 182 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E3b	a10.t4	2	rssfile_peak	30.236672	MB	mapped file pages resident (text, level files, rank windows): reported, not counted (ADR-004 section 6a)
+R	E3b	a10.t4	2	vmhwm	51.355648	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E3b	a10.t4	2	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E3b	a10.t4	2	arena_peak	14.277236	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E3b	a10.t4	2	io_explicit_read	5457632	bytes	0.546 B/char; run, level, suffix-array and tuple files (234 calls)
+R	E3b	a10.t4	2	io_explicit_write	5457500	bytes	0.546 B/char (246 calls)
+R	E3b	a10.t4	2	io_mapped_write	1330688	bytes	0.133 B/char through mapped windows of at most 1048576 bytes (3 windows, largest 1048576); the suffix arrays of the external levels (EmBuilder) are not in this number
+R	E3b	a10.t4	2	io_total_counted	12245820	bytes	1.225 B/char explicit I/O plus mapped writes (text reads and the SA writes of the external levels come on top: see block-layer read_bytes)
+R	E3b	a10.t4	2	blocklayer_read	3887104	bytes	/proc/self/io read_bytes during the build (page-cache misses); 0.389 B/char
+R	E3b	a10.t4	2	blocklayer_write	15650816	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E3b	a10.t4	2	scratch_peak	3867276	bytes	0.387 B/char peak of all scratch files (runs, reduced strings, level rank files, suffix arrays, tuple files, position buckets), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E3b	a10.t4	2	rank_file	1289088	bytes	0.129 B/char (the output)
+R	E3b	a10.t4	2	dirty_peak	0.339968	MB	max /proc/meminfo Dirty (system-wide); max Cached 204 MB
+R	E3b	a10.t4	2	levels	1	n	deepest level reached (0 = the names of the text are all distinct); levels 2
+R	E3b	a10.t4	2	nonunique_share	99.99007	%	sample positions at level 0 whose name is shared: 322225 of 322257; distinct names 33
+R	E3b	a10.t4	2	level0	10000000	symbols	sample 322257, distinct names 33, shared 322225 (99.99 %), unique=False, base case=False, leaf buckets 185, split scans 1, scans 186, file runs 185, naming 0.77 s, merge 0.02 s, below 0.99 s
+R	E3b	a10.t4	2	level1	322289	symbols	sample 10386, distinct names 1026, shared 9361 (90.13 %), unique=False, base case=True, leaf buckets 6, split scans 1, scans 7, file runs 6, naming 0.07 s, merge 0.00 s, below 0.02 s
+R	E3b	a10.t4	2	rank_equals_oracle	yes		byte-identical to a10.oracle (1289088 bytes)
+R	E3b	a10.t4	3	n	10000000	symbols	b=1 bits, X=993 Singer |D|=32, sample 322257 (3.22 %), threads=4, touch buffers=False
+R	E3b	a10.t4	3	parameters	K_s=3495 N_base=55924 R=13981 K_sort=3495		scaled by n/3e9 = 3.333E-003 from K_s=1048576 N_base=16777216 R=4194304 K_sort=1048576 run-spill=64 KiB (run spill 218 bytes: every bucket run of the 3e9 build is a scratch file); the 3e9 build has sample 96676740, about 184 sample buckets (2 x sample / K_s), this one about 184
+R	E3b	a10.t4	3	ph1_s	1.795661	s	external-memory PH1: sample buckets, merge, levels below, rank file through mapped windows (without fsync)
+R	E3b	a10.t4	3	fsync_s	0.000149	s	flush of the rank file after the build
+R	E3b	a10.t4	3	ns_per_symbol	179.566065	ns	ph1_s / n
+R	E3b	a10.t4	3	rssanon_peak	17.743872	MB	max RssAnon of 181 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E3b	a10.t4	3	rssfile_peak	30.384128	MB	mapped file pages resident (text, level files, rank windows): reported, not counted (ADR-004 section 6a)
+R	E3b	a10.t4	3	vmhwm	51.994624	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E3b	a10.t4	3	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E3b	a10.t4	3	arena_peak	14.277236	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E3b	a10.t4	3	io_explicit_read	5457632	bytes	0.546 B/char; run, level, suffix-array and tuple files (234 calls)
+R	E3b	a10.t4	3	io_explicit_write	5457500	bytes	0.546 B/char (246 calls)
+R	E3b	a10.t4	3	io_mapped_write	1330688	bytes	0.133 B/char through mapped windows of at most 1048576 bytes (3 windows, largest 1048576); the suffix arrays of the external levels (EmBuilder) are not in this number
+R	E3b	a10.t4	3	io_total_counted	12245820	bytes	1.225 B/char explicit I/O plus mapped writes (text reads and the SA writes of the external levels come on top: see block-layer read_bytes)
+R	E3b	a10.t4	3	blocklayer_read	3891200	bytes	/proc/self/io read_bytes during the build (page-cache misses); 0.389 B/char
+R	E3b	a10.t4	3	blocklayer_write	16965632	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E3b	a10.t4	3	scratch_peak	3867276	bytes	0.387 B/char peak of all scratch files (runs, reduced strings, level rank files, suffix arrays, tuple files, position buckets), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E3b	a10.t4	3	rank_file	1289088	bytes	0.129 B/char (the output)
+R	E3b	a10.t4	3	dirty_peak	0.524288	MB	max /proc/meminfo Dirty (system-wide); max Cached 204 MB
+R	E3b	a10.t4	3	levels	1	n	deepest level reached (0 = the names of the text are all distinct); levels 2
+R	E3b	a10.t4	3	nonunique_share	99.99007	%	sample positions at level 0 whose name is shared: 322225 of 322257; distinct names 33
+R	E3b	a10.t4	3	level0	10000000	symbols	sample 322257, distinct names 33, shared 322225 (99.99 %), unique=False, base case=False, leaf buckets 185, split scans 1, scans 186, file runs 185, naming 0.79 s, merge 0.02 s, below 0.97 s
+R	E3b	a10.t4	3	level1	322289	symbols	sample 10386, distinct names 1026, shared 9361 (90.13 %), unique=False, base case=True, leaf buckets 6, split scans 1, scans 7, file runs 6, naming 0.07 s, merge 0.00 s, below 0.02 s
+R	E3b	a10.t4	3	rank_equals_oracle	yes		byte-identical to a10.oracle (1289088 bytes)
+R	E3b	a10.t1	1	n	10000000	symbols	b=1 bits, X=993 Singer |D|=32, sample 322257 (3.22 %), threads=1, touch buffers=False
+R	E3b	a10.t1	1	parameters	K_s=3495 N_base=55924 R=13981 K_sort=3495		scaled by n/3e9 = 3.333E-003 from K_s=1048576 N_base=16777216 R=4194304 K_sort=1048576 run-spill=64 KiB (run spill 218 bytes: every bucket run of the 3e9 build is a scratch file); the 3e9 build has sample 96676740, about 184 sample buckets (2 x sample / K_s), this one about 184
+R	E3b	a10.t1	1	ph1_s	3.713427	s	external-memory PH1: sample buckets, merge, levels below, rank file through mapped windows (without fsync)
+R	E3b	a10.t1	1	fsync_s	0.000198	s	flush of the rank file after the build
+R	E3b	a10.t1	1	ns_per_symbol	371.342708	ns	ph1_s / n
+R	E3b	a10.t1	1	rssanon_peak	18.567168	MB	max RssAnon of 373 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 10)
+R	E3b	a10.t1	1	rssfile_peak	30.035968	MB	mapped file pages resident (text, level files, rank windows): reported, not counted (ADR-004 section 6a)
+R	E3b	a10.t1	1	vmhwm	52.047872	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E3b	a10.t1	1	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E3b	a10.t1	1	arena_peak	14.277236	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E3b	a10.t1	1	io_explicit_read	5457632	bytes	0.546 B/char; run, level, suffix-array and tuple files (234 calls)
+R	E3b	a10.t1	1	io_explicit_write	5457500	bytes	0.546 B/char (246 calls)
+R	E3b	a10.t1	1	io_mapped_write	1330688	bytes	0.133 B/char through mapped windows of at most 1048576 bytes (3 windows, largest 1048576); the suffix arrays of the external levels (EmBuilder) are not in this number
+R	E3b	a10.t1	1	io_total_counted	12245820	bytes	1.225 B/char explicit I/O plus mapped writes (text reads and the SA writes of the external levels come on top: see block-layer read_bytes)
+R	E3b	a10.t1	1	blocklayer_read	3883008	bytes	/proc/self/io read_bytes during the build (page-cache misses); 0.388 B/char
+R	E3b	a10.t1	1	blocklayer_write	28483584	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E3b	a10.t1	1	scratch_peak	3867276	bytes	0.387 B/char peak of all scratch files (runs, reduced strings, level rank files, suffix arrays, tuple files, position buckets), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E3b	a10.t1	1	rank_file	1289088	bytes	0.129 B/char (the output)
+R	E3b	a10.t1	1	dirty_peak	0.356352	MB	max /proc/meminfo Dirty (system-wide); max Cached 204 MB
+R	E3b	a10.t1	1	levels	1	n	deepest level reached (0 = the names of the text are all distinct); levels 2
+R	E3b	a10.t1	1	nonunique_share	99.99007	%	sample positions at level 0 whose name is shared: 322225 of 322257; distinct names 33
+R	E3b	a10.t1	1	level0	10000000	symbols	sample 322257, distinct names 33, shared 322225 (99.99 %), unique=False, base case=False, leaf buckets 185, split scans 1, scans 186, file runs 185, naming 2.27 s, merge 0.02 s, below 1.41 s
+R	E3b	a10.t1	1	level1	322289	symbols	sample 10386, distinct names 1026, shared 9361 (90.13 %), unique=False, base case=True, leaf buckets 6, split scans 1, scans 7, file runs 6, naming 0.09 s, merge 0.00 s, below 0.02 s
+R	E3b	a10.t1	1	rank_equals_oracle	yes		byte-identical to a10.oracle (1289088 bytes)
+R	E3b	a10.t2	1	n	10000000	symbols	b=1 bits, X=993 Singer |D|=32, sample 322257 (3.22 %), threads=2, touch buffers=False
+R	E3b	a10.t2	1	parameters	K_s=3495 N_base=55924 R=13981 K_sort=3495		scaled by n/3e9 = 3.333E-003 from K_s=1048576 N_base=16777216 R=4194304 K_sort=1048576 run-spill=64 KiB (run spill 218 bytes: every bucket run of the 3e9 build is a scratch file); the 3e9 build has sample 96676740, about 184 sample buckets (2 x sample / K_s), this one about 184
+R	E3b	a10.t2	1	ph1_s	2.471237	s	external-memory PH1: sample buckets, merge, levels below, rank file through mapped windows (without fsync)
+R	E3b	a10.t2	1	fsync_s	0.00016	s	flush of the rank file after the build
+R	E3b	a10.t2	1	ns_per_symbol	247.123713	ns	ph1_s / n
+R	E3b	a10.t2	1	rssanon_peak	17.395712	MB	max RssAnon of 249 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 11)
+R	E3b	a10.t2	1	rssfile_peak	30.26944	MB	mapped file pages resident (text, level files, rank windows): reported, not counted (ADR-004 section 6a)
+R	E3b	a10.t2	1	vmhwm	51.2	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E3b	a10.t2	1	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E3b	a10.t2	1	arena_peak	14.277236	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E3b	a10.t2	1	io_explicit_read	5457632	bytes	0.546 B/char; run, level, suffix-array and tuple files (234 calls)
+R	E3b	a10.t2	1	io_explicit_write	5457500	bytes	0.546 B/char (246 calls)
+R	E3b	a10.t2	1	io_mapped_write	1330688	bytes	0.133 B/char through mapped windows of at most 1048576 bytes (3 windows, largest 1048576); the suffix arrays of the external levels (EmBuilder) are not in this number
+R	E3b	a10.t2	1	io_total_counted	12245820	bytes	1.225 B/char explicit I/O plus mapped writes (text reads and the SA writes of the external levels come on top: see block-layer read_bytes)
+R	E3b	a10.t2	1	blocklayer_read	3887104	bytes	/proc/self/io read_bytes during the build (page-cache misses); 0.389 B/char
+R	E3b	a10.t2	1	blocklayer_write	23953408	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E3b	a10.t2	1	scratch_peak	3867276	bytes	0.387 B/char peak of all scratch files (runs, reduced strings, level rank files, suffix arrays, tuple files, position buckets), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E3b	a10.t2	1	rank_file	1289088	bytes	0.129 B/char (the output)
+R	E3b	a10.t2	1	dirty_peak	1.47456	MB	max /proc/meminfo Dirty (system-wide); max Cached 205 MB
+R	E3b	a10.t2	1	levels	1	n	deepest level reached (0 = the names of the text are all distinct); levels 2
+R	E3b	a10.t2	1	nonunique_share	99.99007	%	sample positions at level 0 whose name is shared: 322225 of 322257; distinct names 33
+R	E3b	a10.t2	1	level0	10000000	symbols	sample 322257, distinct names 33, shared 322225 (99.99 %), unique=False, base case=False, leaf buckets 185, split scans 1, scans 186, file runs 185, naming 1.28 s, merge 0.02 s, below 1.07 s
+R	E3b	a10.t2	1	level1	322289	symbols	sample 10386, distinct names 1026, shared 9361 (90.13 %), unique=False, base case=True, leaf buckets 6, split scans 1, scans 7, file runs 6, naming 0.07 s, merge 0.00 s, below 0.02 s
+R	E3b	a10.t2	1	rank_equals_oracle	yes		byte-identical to a10.oracle (1289088 bytes)
+R	E3b	fib10.t4	1	n	10000000	symbols	b=1 bits, X=993 Singer |D|=32, sample 322257 (3.22 %), threads=4, touch buffers=False
+R	E3b	fib10.t4	1	parameters	K_s=3495 N_base=55924 R=13981 K_sort=3495		scaled by n/3e9 = 3.333E-003 from K_s=1048576 N_base=16777216 R=4194304 K_sort=1048576 run-spill=64 KiB (run spill 218 bytes: every bucket run of the 3e9 build is a scratch file); the 3e9 build has sample 96676740, about 184 sample buckets (2 x sample / K_s), this one about 184
+R	E3b	fib10.t4	1	ph1_s	1.066096	s	external-memory PH1: sample buckets, merge, levels below, rank file through mapped windows (without fsync)
+R	E3b	fib10.t4	1	fsync_s	0.000182	s	flush of the rank file after the build
+R	E3b	fib10.t4	1	ns_per_symbol	106.609551	ns	ph1_s / n
+R	E3b	fib10.t4	1	rssanon_peak	17.77664	MB	max RssAnon of 108 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E3b	fib10.t4	1	rssfile_peak	30.179328	MB	mapped file pages resident (text, level files, rank windows): reported, not counted (ADR-004 section 6a)
+R	E3b	fib10.t4	1	vmhwm	50.761728	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E3b	fib10.t4	1	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E3b	fib10.t4	1	arena_peak	14.277236	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E3b	fib10.t4	1	io_explicit_read	5457632	bytes	0.546 B/char; run, level, suffix-array and tuple files (234 calls)
+R	E3b	fib10.t4	1	io_explicit_write	5457500	bytes	0.546 B/char (246 calls)
+R	E3b	fib10.t4	1	io_mapped_write	1330688	bytes	0.133 B/char through mapped windows of at most 1048576 bytes (3 windows, largest 1048576); the suffix arrays of the external levels (EmBuilder) are not in this number
+R	E3b	fib10.t4	1	io_total_counted	12245820	bytes	1.225 B/char explicit I/O plus mapped writes (text reads and the SA writes of the external levels come on top: see block-layer read_bytes)
+R	E3b	fib10.t4	1	blocklayer_read	3723264	bytes	/proc/self/io read_bytes during the build (page-cache misses); 0.372 B/char
+R	E3b	fib10.t4	1	blocklayer_write	20025344	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E3b	fib10.t4	1	scratch_peak	3867276	bytes	0.387 B/char peak of all scratch files (runs, reduced strings, level rank files, suffix arrays, tuple files, position buckets), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E3b	fib10.t4	1	rank_file	1289088	bytes	0.129 B/char (the output)
+R	E3b	fib10.t4	1	dirty_peak	1.896448	MB	max /proc/meminfo Dirty (system-wide); max Cached 204 MB
+R	E3b	fib10.t4	1	levels	1	n	deepest level reached (0 = the names of the text are all distinct); levels 2
+R	E3b	fib10.t4	1	nonunique_share	99.99007	%	sample positions at level 0 whose name is shared: 322225 of 322257; distinct names 1026
+R	E3b	fib10.t4	1	level0	10000000	symbols	sample 322257, distinct names 1026, shared 322225 (99.99 %), unique=False, base case=False, leaf buckets 185, split scans 1, scans 186, file runs 185, naming 0.71 s, merge 0.02 s, below 0.32 s
+R	E3b	fib10.t4	1	level1	322289	symbols	sample 10386, distinct names 10343, shared 86 (0.83 %), unique=False, base case=True, leaf buckets 6, split scans 1, scans 7, file runs 6, naming 0.01 s, merge 0.00 s, below 0.02 s
+R	E3b	fib10.t4	1	rank_equals_oracle	yes		byte-identical to fib10.oracle (1289088 bytes)
+R	E3b	fib10.t4	2	n	10000000	symbols	b=1 bits, X=993 Singer |D|=32, sample 322257 (3.22 %), threads=4, touch buffers=False
+R	E3b	fib10.t4	2	parameters	K_s=3495 N_base=55924 R=13981 K_sort=3495		scaled by n/3e9 = 3.333E-003 from K_s=1048576 N_base=16777216 R=4194304 K_sort=1048576 run-spill=64 KiB (run spill 218 bytes: every bucket run of the 3e9 build is a scratch file); the 3e9 build has sample 96676740, about 184 sample buckets (2 x sample / K_s), this one about 184
+R	E3b	fib10.t4	2	ph1_s	0.993797	s	external-memory PH1: sample buckets, merge, levels below, rank file through mapped windows (without fsync)
+R	E3b	fib10.t4	2	fsync_s	0.000126	s	flush of the rank file after the build
+R	E3b	fib10.t4	2	ns_per_symbol	99.379669	ns	ph1_s / n
+R	E3b	fib10.t4	2	rssanon_peak	17.788928	MB	max RssAnon of 101 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E3b	fib10.t4	2	rssfile_peak	30.14656	MB	mapped file pages resident (text, level files, rank windows): reported, not counted (ADR-004 section 6a)
+R	E3b	fib10.t4	2	vmhwm	50.765824	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E3b	fib10.t4	2	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E3b	fib10.t4	2	arena_peak	14.277236	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E3b	fib10.t4	2	io_explicit_read	5457632	bytes	0.546 B/char; run, level, suffix-array and tuple files (234 calls)
+R	E3b	fib10.t4	2	io_explicit_write	5457500	bytes	0.546 B/char (246 calls)
+R	E3b	fib10.t4	2	io_mapped_write	1330688	bytes	0.133 B/char through mapped windows of at most 1048576 bytes (3 windows, largest 1048576); the suffix arrays of the external levels (EmBuilder) are not in this number
+R	E3b	fib10.t4	2	io_total_counted	12245820	bytes	1.225 B/char explicit I/O plus mapped writes (text reads and the SA writes of the external levels come on top: see block-layer read_bytes)
+R	E3b	fib10.t4	2	blocklayer_read	3751936	bytes	/proc/self/io read_bytes during the build (page-cache misses); 0.375 B/char
+R	E3b	fib10.t4	2	blocklayer_write	17412096	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E3b	fib10.t4	2	scratch_peak	3867276	bytes	0.387 B/char peak of all scratch files (runs, reduced strings, level rank files, suffix arrays, tuple files, position buckets), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E3b	fib10.t4	2	rank_file	1289088	bytes	0.129 B/char (the output)
+R	E3b	fib10.t4	2	dirty_peak	0.811008	MB	max /proc/meminfo Dirty (system-wide); max Cached 203 MB
+R	E3b	fib10.t4	2	levels	1	n	deepest level reached (0 = the names of the text are all distinct); levels 2
+R	E3b	fib10.t4	2	nonunique_share	99.99007	%	sample positions at level 0 whose name is shared: 322225 of 322257; distinct names 1026
+R	E3b	fib10.t4	2	level0	10000000	symbols	sample 322257, distinct names 1026, shared 322225 (99.99 %), unique=False, base case=False, leaf buckets 185, split scans 1, scans 186, file runs 185, naming 0.65 s, merge 0.02 s, below 0.31 s
+R	E3b	fib10.t4	2	level1	322289	symbols	sample 10386, distinct names 10343, shared 86 (0.83 %), unique=False, base case=True, leaf buckets 6, split scans 1, scans 7, file runs 6, naming 0.01 s, merge 0.00 s, below 0.02 s
+R	E3b	fib10.t4	2	rank_equals_oracle	yes		byte-identical to fib10.oracle (1289088 bytes)
+R	E3b	fib10.t4	3	n	10000000	symbols	b=1 bits, X=993 Singer |D|=32, sample 322257 (3.22 %), threads=4, touch buffers=False
+R	E3b	fib10.t4	3	parameters	K_s=3495 N_base=55924 R=13981 K_sort=3495		scaled by n/3e9 = 3.333E-003 from K_s=1048576 N_base=16777216 R=4194304 K_sort=1048576 run-spill=64 KiB (run spill 218 bytes: every bucket run of the 3e9 build is a scratch file); the 3e9 build has sample 96676740, about 184 sample buckets (2 x sample / K_s), this one about 184
+R	E3b	fib10.t4	3	ph1_s	0.850134	s	external-memory PH1: sample buckets, merge, levels below, rank file through mapped windows (without fsync)
+R	E3b	fib10.t4	3	fsync_s	0.00018	s	flush of the rank file after the build
+R	E3b	fib10.t4	3	ns_per_symbol	85.013387	ns	ph1_s / n
+R	E3b	fib10.t4	3	rssanon_peak	17.809408	MB	max RssAnon of 87 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E3b	fib10.t4	3	rssfile_peak	30.109696	MB	mapped file pages resident (text, level files, rank windows): reported, not counted (ADR-004 section 6a)
+R	E3b	fib10.t4	3	vmhwm	50.896896	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E3b	fib10.t4	3	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E3b	fib10.t4	3	arena_peak	14.277236	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E3b	fib10.t4	3	io_explicit_read	5457632	bytes	0.546 B/char; run, level, suffix-array and tuple files (234 calls)
+R	E3b	fib10.t4	3	io_explicit_write	5457500	bytes	0.546 B/char (246 calls)
+R	E3b	fib10.t4	3	io_mapped_write	1330688	bytes	0.133 B/char through mapped windows of at most 1048576 bytes (3 windows, largest 1048576); the suffix arrays of the external levels (EmBuilder) are not in this number
+R	E3b	fib10.t4	3	io_total_counted	12245820	bytes	1.225 B/char explicit I/O plus mapped writes (text reads and the SA writes of the external levels come on top: see block-layer read_bytes)
+R	E3b	fib10.t4	3	blocklayer_read	3817472	bytes	/proc/self/io read_bytes during the build (page-cache misses); 0.382 B/char
+R	E3b	fib10.t4	3	blocklayer_write	16330752	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E3b	fib10.t4	3	scratch_peak	3867276	bytes	0.387 B/char peak of all scratch files (runs, reduced strings, level rank files, suffix arrays, tuple files, position buckets), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E3b	fib10.t4	3	rank_file	1289088	bytes	0.129 B/char (the output)
+R	E3b	fib10.t4	3	dirty_peak	0.393216	MB	max /proc/meminfo Dirty (system-wide); max Cached 203 MB
+R	E3b	fib10.t4	3	levels	1	n	deepest level reached (0 = the names of the text are all distinct); levels 2
+R	E3b	fib10.t4	3	nonunique_share	99.99007	%	sample positions at level 0 whose name is shared: 322225 of 322257; distinct names 1026
+R	E3b	fib10.t4	3	level0	10000000	symbols	sample 322257, distinct names 1026, shared 322225 (99.99 %), unique=False, base case=False, leaf buckets 185, split scans 1, scans 186, file runs 185, naming 0.55 s, merge 0.02 s, below 0.24 s
+R	E3b	fib10.t4	3	level1	322289	symbols	sample 10386, distinct names 10343, shared 86 (0.83 %), unique=False, base case=True, leaf buckets 6, split scans 1, scans 7, file runs 6, naming 0.00 s, merge 0.00 s, below 0.02 s
+R	E3b	fib10.t4	3	rank_equals_oracle	yes		byte-identical to fib10.oracle (1289088 bytes)
+R	E3b	fib10.t1	1	n	10000000	symbols	b=1 bits, X=993 Singer |D|=32, sample 322257 (3.22 %), threads=1, touch buffers=False
+R	E3b	fib10.t1	1	parameters	K_s=3495 N_base=55924 R=13981 K_sort=3495		scaled by n/3e9 = 3.333E-003 from K_s=1048576 N_base=16777216 R=4194304 K_sort=1048576 run-spill=64 KiB (run spill 218 bytes: every bucket run of the 3e9 build is a scratch file); the 3e9 build has sample 96676740, about 184 sample buckets (2 x sample / K_s), this one about 184
+R	E3b	fib10.t1	1	ph1_s	1.14421	s	external-memory PH1: sample buckets, merge, levels below, rank file through mapped windows (without fsync)
+R	E3b	fib10.t1	1	fsync_s	0.00013	s	flush of the rank file after the build
+R	E3b	fib10.t1	1	ns_per_symbol	114.420953	ns	ph1_s / n
+R	E3b	fib10.t1	1	rssanon_peak	16.883712	MB	max RssAnon of 116 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 10)
+R	E3b	fib10.t1	1	rssfile_peak	30.027776	MB	mapped file pages resident (text, level files, rank windows): reported, not counted (ADR-004 section 6a)
+R	E3b	fib10.t1	1	vmhwm	50.274304	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E3b	fib10.t1	1	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E3b	fib10.t1	1	arena_peak	14.277236	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E3b	fib10.t1	1	io_explicit_read	5457632	bytes	0.546 B/char; run, level, suffix-array and tuple files (234 calls)
+R	E3b	fib10.t1	1	io_explicit_write	5457500	bytes	0.546 B/char (246 calls)
+R	E3b	fib10.t1	1	io_mapped_write	1330688	bytes	0.133 B/char through mapped windows of at most 1048576 bytes (3 windows, largest 1048576); the suffix arrays of the external levels (EmBuilder) are not in this number
+R	E3b	fib10.t1	1	io_total_counted	12245820	bytes	1.225 B/char explicit I/O plus mapped writes (text reads and the SA writes of the external levels come on top: see block-layer read_bytes)
+R	E3b	fib10.t1	1	blocklayer_read	3805184	bytes	/proc/self/io read_bytes during the build (page-cache misses); 0.381 B/char
+R	E3b	fib10.t1	1	blocklayer_write	28053504	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E3b	fib10.t1	1	scratch_peak	3867276	bytes	0.387 B/char peak of all scratch files (runs, reduced strings, level rank files, suffix arrays, tuple files, position buckets), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E3b	fib10.t1	1	rank_file	1289088	bytes	0.129 B/char (the output)
+R	E3b	fib10.t1	1	dirty_peak	0.335872	MB	max /proc/meminfo Dirty (system-wide); max Cached 204 MB
+R	E3b	fib10.t1	1	levels	1	n	deepest level reached (0 = the names of the text are all distinct); levels 2
+R	E3b	fib10.t1	1	nonunique_share	99.99007	%	sample positions at level 0 whose name is shared: 322225 of 322257; distinct names 1026
+R	E3b	fib10.t1	1	level0	10000000	symbols	sample 322257, distinct names 1026, shared 322225 (99.99 %), unique=False, base case=False, leaf buckets 185, split scans 1, scans 186, file runs 185, naming 0.69 s, merge 0.02 s, below 0.42 s
+R	E3b	fib10.t1	1	level1	322289	symbols	sample 10386, distinct names 10343, shared 86 (0.83 %), unique=False, base case=True, leaf buckets 6, split scans 1, scans 7, file runs 6, naming 0.01 s, merge 0.00 s, below 0.02 s
+R	E3b	fib10.t1	1	rank_equals_oracle	yes		byte-identical to fib10.oracle (1289088 bytes)
+R	E3b	fib10.t2	1	n	10000000	symbols	b=1 bits, X=993 Singer |D|=32, sample 322257 (3.22 %), threads=2, touch buffers=False
+R	E3b	fib10.t2	1	parameters	K_s=3495 N_base=55924 R=13981 K_sort=3495		scaled by n/3e9 = 3.333E-003 from K_s=1048576 N_base=16777216 R=4194304 K_sort=1048576 run-spill=64 KiB (run spill 218 bytes: every bucket run of the 3e9 build is a scratch file); the 3e9 build has sample 96676740, about 184 sample buckets (2 x sample / K_s), this one about 184
+R	E3b	fib10.t2	1	ph1_s	0.91563	s	external-memory PH1: sample buckets, merge, levels below, rank file through mapped windows (without fsync)
+R	E3b	fib10.t2	1	fsync_s	0.000223	s	flush of the rank file after the build
+R	E3b	fib10.t2	1	ns_per_symbol	91.562985	ns	ph1_s / n
+R	E3b	fib10.t2	1	rssanon_peak	17.698816	MB	max RssAnon of 93 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 11)
+R	E3b	fib10.t2	1	rssfile_peak	30.22848	MB	mapped file pages resident (text, level files, rank windows): reported, not counted (ADR-004 section 6a)
+R	E3b	fib10.t2	1	vmhwm	51.712	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E3b	fib10.t2	1	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E3b	fib10.t2	1	arena_peak	14.277236	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E3b	fib10.t2	1	io_explicit_read	5457632	bytes	0.546 B/char; run, level, suffix-array and tuple files (234 calls)
+R	E3b	fib10.t2	1	io_explicit_write	5457500	bytes	0.546 B/char (246 calls)
+R	E3b	fib10.t2	1	io_mapped_write	1330688	bytes	0.133 B/char through mapped windows of at most 1048576 bytes (3 windows, largest 1048576); the suffix arrays of the external levels (EmBuilder) are not in this number
+R	E3b	fib10.t2	1	io_total_counted	12245820	bytes	1.225 B/char explicit I/O plus mapped writes (text reads and the SA writes of the external levels come on top: see block-layer read_bytes)
+R	E3b	fib10.t2	1	blocklayer_read	3887104	bytes	/proc/self/io read_bytes during the build (page-cache misses); 0.389 B/char
+R	E3b	fib10.t2	1	blocklayer_write	22138880	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E3b	fib10.t2	1	scratch_peak	3867276	bytes	0.387 B/char peak of all scratch files (runs, reduced strings, level rank files, suffix arrays, tuple files, position buckets), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E3b	fib10.t2	1	rank_file	1289088	bytes	0.129 B/char (the output)
+R	E3b	fib10.t2	1	dirty_peak	1.78176	MB	max /proc/meminfo Dirty (system-wide); max Cached 204 MB
+R	E3b	fib10.t2	1	levels	1	n	deepest level reached (0 = the names of the text are all distinct); levels 2
+R	E3b	fib10.t2	1	nonunique_share	99.99007	%	sample positions at level 0 whose name is shared: 322225 of 322257; distinct names 1026
+R	E3b	fib10.t2	1	level0	10000000	symbols	sample 322257, distinct names 1026, shared 322225 (99.99 %), unique=False, base case=False, leaf buckets 185, split scans 1, scans 186, file runs 185, naming 0.55 s, merge 0.02 s, below 0.33 s
+R	E3b	fib10.t2	1	level1	322289	symbols	sample 10386, distinct names 10343, shared 86 (0.83 %), unique=False, base case=True, leaf buckets 6, split scans 1, scans 7, file runs 6, naming 0.01 s, merge 0.00 s, below 0.02 s
+R	E3b	fib10.t2	1	rank_equals_oracle	yes		byte-identical to fib10.oracle (1289088 bytes)
+R	E3b	nrun10.t4	1	n	10000000	symbols	b=3 bits, X=993 Singer |D|=32, sample 322257 (3.22 %), threads=4, touch buffers=False
+R	E3b	nrun10.t4	1	parameters	K_s=3495 N_base=55924 R=13981 K_sort=3495		scaled by n/3e9 = 3.333E-003 from K_s=1048576 N_base=16777216 R=4194304 K_sort=1048576 run-spill=64 KiB (run spill 218 bytes: every bucket run of the 3e9 build is a scratch file); the 3e9 build has sample 96676740, about 184 sample buckets (2 x sample / K_s), this one about 184
+R	E3b	nrun10.t4	1	ph1_s	1.226035	s	external-memory PH1: sample buckets, merge, levels below, rank file through mapped windows (without fsync)
+R	E3b	nrun10.t4	1	fsync_s	0.000201	s	flush of the rank file after the build
+R	E3b	nrun10.t4	1	ns_per_symbol	122.603533	ns	ph1_s / n
+R	E3b	nrun10.t4	1	rssanon_peak	17.907712	MB	max RssAnon of 124 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E3b	nrun10.t4	1	rssfile_peak	32.5632	MB	mapped file pages resident (text, level files, rank windows): reported, not counted (ADR-004 section 6a)
+R	E3b	nrun10.t4	1	vmhwm	53.284864	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E3b	nrun10.t4	1	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E3b	nrun10.t4	1	arena_peak	14.277236	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E3b	nrun10.t4	1	io_explicit_read	5457632	bytes	0.546 B/char; run, level, suffix-array and tuple files (234 calls)
+R	E3b	nrun10.t4	1	io_explicit_write	5457500	bytes	0.546 B/char (246 calls)
+R	E3b	nrun10.t4	1	io_mapped_write	1330688	bytes	0.133 B/char through mapped windows of at most 1048576 bytes (3 windows, largest 1048576); the suffix arrays of the external levels (EmBuilder) are not in this number
+R	E3b	nrun10.t4	1	io_total_counted	12245820	bytes	1.225 B/char explicit I/O plus mapped writes (text reads and the SA writes of the external levels come on top: see block-layer read_bytes)
+R	E3b	nrun10.t4	1	blocklayer_read	6324224	bytes	/proc/self/io read_bytes during the build (page-cache misses); 0.632 B/char
+R	E3b	nrun10.t4	1	blocklayer_write	19001344	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E3b	nrun10.t4	1	scratch_peak	3867276	bytes	0.387 B/char peak of all scratch files (runs, reduced strings, level rank files, suffix arrays, tuple files, position buckets), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E3b	nrun10.t4	1	rank_file	1289088	bytes	0.129 B/char (the output)
+R	E3b	nrun10.t4	1	dirty_peak	1.593344	MB	max /proc/meminfo Dirty (system-wide); max Cached 206 MB
+R	E3b	nrun10.t4	1	levels	1	n	deepest level reached (0 = the names of the text are all distinct); levels 2
+R	E3b	nrun10.t4	1	nonunique_share	9.989853	%	sample positions at level 0 whose name is shared: 32193 of 322257; distinct names 290065
+R	E3b	nrun10.t4	1	level0	10000000	symbols	sample 322257, distinct names 290065, shared 32193 (9.99 %), unique=False, base case=False, leaf buckets 185, split scans 1, scans 186, file runs 185, naming 0.87 s, merge 0.02 s, below 0.31 s
+R	E3b	nrun10.t4	1	level1	322289	symbols	sample 10386, distinct names 10368, shared 19 (0.18 %), unique=False, base case=True, leaf buckets 6, split scans 1, scans 7, file runs 6, naming 0.02 s, merge 0.00 s, below 0.02 s
+R	E3b	nrun10.t4	1	rank_equals_oracle	yes		byte-identical to nrun10.oracle (1289088 bytes)
+R	E3b	nrun10.t4	2	n	10000000	symbols	b=3 bits, X=993 Singer |D|=32, sample 322257 (3.22 %), threads=4, touch buffers=False
+R	E3b	nrun10.t4	2	parameters	K_s=3495 N_base=55924 R=13981 K_sort=3495		scaled by n/3e9 = 3.333E-003 from K_s=1048576 N_base=16777216 R=4194304 K_sort=1048576 run-spill=64 KiB (run spill 218 bytes: every bucket run of the 3e9 build is a scratch file); the 3e9 build has sample 96676740, about 184 sample buckets (2 x sample / K_s), this one about 184
+R	E3b	nrun10.t4	2	ph1_s	0.849993	s	external-memory PH1: sample buckets, merge, levels below, rank file through mapped windows (without fsync)
+R	E3b	nrun10.t4	2	fsync_s	0.000182	s	flush of the rank file after the build
+R	E3b	nrun10.t4	2	ns_per_symbol	84.999259	ns	ph1_s / n
+R	E3b	nrun10.t4	2	rssanon_peak	18.685952	MB	max RssAnon of 86 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E3b	nrun10.t4	2	rssfile_peak	32.587776	MB	mapped file pages resident (text, level files, rank windows): reported, not counted (ADR-004 section 6a)
+R	E3b	nrun10.t4	2	vmhwm	54.382592	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E3b	nrun10.t4	2	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E3b	nrun10.t4	2	arena_peak	14.277236	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E3b	nrun10.t4	2	io_explicit_read	5457632	bytes	0.546 B/char; run, level, suffix-array and tuple files (234 calls)
+R	E3b	nrun10.t4	2	io_explicit_write	5457500	bytes	0.546 B/char (246 calls)
+R	E3b	nrun10.t4	2	io_mapped_write	1330688	bytes	0.133 B/char through mapped windows of at most 1048576 bytes (3 windows, largest 1048576); the suffix arrays of the external levels (EmBuilder) are not in this number
+R	E3b	nrun10.t4	2	io_total_counted	12245820	bytes	1.225 B/char explicit I/O plus mapped writes (text reads and the SA writes of the external levels come on top: see block-layer read_bytes)
+R	E3b	nrun10.t4	2	blocklayer_read	6324224	bytes	/proc/self/io read_bytes during the build (page-cache misses); 0.632 B/char
+R	E3b	nrun10.t4	2	blocklayer_write	15265792	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E3b	nrun10.t4	2	scratch_peak	3867276	bytes	0.387 B/char peak of all scratch files (runs, reduced strings, level rank files, suffix arrays, tuple files, position buckets), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E3b	nrun10.t4	2	rank_file	1289088	bytes	0.129 B/char (the output)
+R	E3b	nrun10.t4	2	dirty_peak	0.569344	MB	max /proc/meminfo Dirty (system-wide); max Cached 206 MB
+R	E3b	nrun10.t4	2	levels	1	n	deepest level reached (0 = the names of the text are all distinct); levels 2
+R	E3b	nrun10.t4	2	nonunique_share	9.989853	%	sample positions at level 0 whose name is shared: 32193 of 322257; distinct names 290065
+R	E3b	nrun10.t4	2	level0	10000000	symbols	sample 322257, distinct names 290065, shared 32193 (9.99 %), unique=False, base case=False, leaf buckets 185, split scans 1, scans 186, file runs 185, naming 0.48 s, merge 0.02 s, below 0.34 s
+R	E3b	nrun10.t4	2	level1	322289	symbols	sample 10386, distinct names 10368, shared 19 (0.18 %), unique=False, base case=True, leaf buckets 6, split scans 1, scans 7, file runs 6, naming 0.02 s, merge 0.00 s, below 0.02 s
+R	E3b	nrun10.t4	2	rank_equals_oracle	yes		byte-identical to nrun10.oracle (1289088 bytes)
+R	E3b	nrun10.t4	3	n	10000000	symbols	b=3 bits, X=993 Singer |D|=32, sample 322257 (3.22 %), threads=4, touch buffers=False
+R	E3b	nrun10.t4	3	parameters	K_s=3495 N_base=55924 R=13981 K_sort=3495		scaled by n/3e9 = 3.333E-003 from K_s=1048576 N_base=16777216 R=4194304 K_sort=1048576 run-spill=64 KiB (run spill 218 bytes: every bucket run of the 3e9 build is a scratch file); the 3e9 build has sample 96676740, about 184 sample buckets (2 x sample / K_s), this one about 184
+R	E3b	nrun10.t4	3	ph1_s	0.675578	s	external-memory PH1: sample buckets, merge, levels below, rank file through mapped windows (without fsync)
+R	E3b	nrun10.t4	3	fsync_s	0.000216	s	flush of the rank file after the build
+R	E3b	nrun10.t4	3	ns_per_symbol	67.557799	ns	ph1_s / n
+R	E3b	nrun10.t4	3	rssanon_peak	17.629184	MB	max RssAnon of 69 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E3b	nrun10.t4	3	rssfile_peak	32.587776	MB	mapped file pages resident (text, level files, rank windows): reported, not counted (ADR-004 section 6a)
+R	E3b	nrun10.t4	3	vmhwm	53.80096	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E3b	nrun10.t4	3	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E3b	nrun10.t4	3	arena_peak	14.277236	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E3b	nrun10.t4	3	io_explicit_read	5457632	bytes	0.546 B/char; run, level, suffix-array and tuple files (234 calls)
+R	E3b	nrun10.t4	3	io_explicit_write	5457500	bytes	0.546 B/char (246 calls)
+R	E3b	nrun10.t4	3	io_mapped_write	1330688	bytes	0.133 B/char through mapped windows of at most 1048576 bytes (3 windows, largest 1048576); the suffix arrays of the external levels (EmBuilder) are not in this number
+R	E3b	nrun10.t4	3	io_total_counted	12245820	bytes	1.225 B/char explicit I/O plus mapped writes (text reads and the SA writes of the external levels come on top: see block-layer read_bytes)
+R	E3b	nrun10.t4	3	blocklayer_read	6311936	bytes	/proc/self/io read_bytes during the build (page-cache misses); 0.631 B/char
+R	E3b	nrun10.t4	3	blocklayer_write	16244736	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E3b	nrun10.t4	3	scratch_peak	3867276	bytes	0.387 B/char peak of all scratch files (runs, reduced strings, level rank files, suffix arrays, tuple files, position buckets), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E3b	nrun10.t4	3	rank_file	1289088	bytes	0.129 B/char (the output)
+R	E3b	nrun10.t4	3	dirty_peak	1.695744	MB	max /proc/meminfo Dirty (system-wide); max Cached 206 MB
+R	E3b	nrun10.t4	3	levels	1	n	deepest level reached (0 = the names of the text are all distinct); levels 2
+R	E3b	nrun10.t4	3	nonunique_share	9.989853	%	sample positions at level 0 whose name is shared: 32193 of 322257; distinct names 290065
+R	E3b	nrun10.t4	3	level0	10000000	symbols	sample 322257, distinct names 290065, shared 32193 (9.99 %), unique=False, base case=False, leaf buckets 185, split scans 1, scans 186, file runs 185, naming 0.42 s, merge 0.02 s, below 0.22 s
+R	E3b	nrun10.t4	3	level1	322289	symbols	sample 10386, distinct names 10368, shared 19 (0.18 %), unique=False, base case=True, leaf buckets 6, split scans 1, scans 7, file runs 6, naming 0.01 s, merge 0.00 s, below 0.02 s
+R	E3b	nrun10.t4	3	rank_equals_oracle	yes		byte-identical to nrun10.oracle (1289088 bytes)
+R	E3b	nrun10.t1	1	n	10000000	symbols	b=3 bits, X=993 Singer |D|=32, sample 322257 (3.22 %), threads=1, touch buffers=False
+R	E3b	nrun10.t1	1	parameters	K_s=3495 N_base=55924 R=13981 K_sort=3495		scaled by n/3e9 = 3.333E-003 from K_s=1048576 N_base=16777216 R=4194304 K_sort=1048576 run-spill=64 KiB (run spill 218 bytes: every bucket run of the 3e9 build is a scratch file); the 3e9 build has sample 96676740, about 184 sample buckets (2 x sample / K_s), this one about 184
+R	E3b	nrun10.t1	1	ph1_s	1.076526	s	external-memory PH1: sample buckets, merge, levels below, rank file through mapped windows (without fsync)
+R	E3b	nrun10.t1	1	fsync_s	0.000191	s	flush of the rank file after the build
+R	E3b	nrun10.t1	1	ns_per_symbol	107.652577	ns	ph1_s / n
+R	E3b	nrun10.t1	1	rssanon_peak	18.51392	MB	max RssAnon of 109 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 10)
+R	E3b	nrun10.t1	1	rssfile_peak	32.497664	MB	mapped file pages resident (text, level files, rank windows): reported, not counted (ADR-004 section 6a)
+R	E3b	nrun10.t1	1	vmhwm	54.235136	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E3b	nrun10.t1	1	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E3b	nrun10.t1	1	arena_peak	14.277236	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E3b	nrun10.t1	1	io_explicit_read	5457632	bytes	0.546 B/char; run, level, suffix-array and tuple files (234 calls)
+R	E3b	nrun10.t1	1	io_explicit_write	5457500	bytes	0.546 B/char (246 calls)
+R	E3b	nrun10.t1	1	io_mapped_write	1330688	bytes	0.133 B/char through mapped windows of at most 1048576 bytes (3 windows, largest 1048576); the suffix arrays of the external levels (EmBuilder) are not in this number
+R	E3b	nrun10.t1	1	io_total_counted	12245820	bytes	1.225 B/char explicit I/O plus mapped writes (text reads and the SA writes of the external levels come on top: see block-layer read_bytes)
+R	E3b	nrun10.t1	1	blocklayer_read	6295552	bytes	/proc/self/io read_bytes during the build (page-cache misses); 0.630 B/char
+R	E3b	nrun10.t1	1	blocklayer_write	28327936	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E3b	nrun10.t1	1	scratch_peak	3867276	bytes	0.387 B/char peak of all scratch files (runs, reduced strings, level rank files, suffix arrays, tuple files, position buckets), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E3b	nrun10.t1	1	rank_file	1289088	bytes	0.129 B/char (the output)
+R	E3b	nrun10.t1	1	dirty_peak	1.57696	MB	max /proc/meminfo Dirty (system-wide); max Cached 208 MB
+R	E3b	nrun10.t1	1	levels	1	n	deepest level reached (0 = the names of the text are all distinct); levels 2
+R	E3b	nrun10.t1	1	nonunique_share	9.989853	%	sample positions at level 0 whose name is shared: 32193 of 322257; distinct names 290065
+R	E3b	nrun10.t1	1	level0	10000000	symbols	sample 322257, distinct names 290065, shared 32193 (9.99 %), unique=False, base case=False, leaf buckets 185, split scans 1, scans 186, file runs 185, naming 0.78 s, merge 0.02 s, below 0.26 s
+R	E3b	nrun10.t1	1	level1	322289	symbols	sample 10386, distinct names 10368, shared 19 (0.18 %), unique=False, base case=True, leaf buckets 6, split scans 1, scans 7, file runs 6, naming 0.01 s, merge 0.00 s, below 0.02 s
+R	E3b	nrun10.t1	1	rank_equals_oracle	yes		byte-identical to nrun10.oracle (1289088 bytes)
+R	E3b	nrun10.t2	1	n	10000000	symbols	b=3 bits, X=993 Singer |D|=32, sample 322257 (3.22 %), threads=2, touch buffers=False
+R	E3b	nrun10.t2	1	parameters	K_s=3495 N_base=55924 R=13981 K_sort=3495		scaled by n/3e9 = 3.333E-003 from K_s=1048576 N_base=16777216 R=4194304 K_sort=1048576 run-spill=64 KiB (run spill 218 bytes: every bucket run of the 3e9 build is a scratch file); the 3e9 build has sample 96676740, about 184 sample buckets (2 x sample / K_s), this one about 184
+R	E3b	nrun10.t2	1	ph1_s	0.667586	s	external-memory PH1: sample buckets, merge, levels below, rank file through mapped windows (without fsync)
+R	E3b	nrun10.t2	1	fsync_s	0.000169	s	flush of the rank file after the build
+R	E3b	nrun10.t2	1	ns_per_symbol	66.758608	ns	ph1_s / n
+R	E3b	nrun10.t2	1	rssanon_peak	17.08032	MB	max RssAnon of 68 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 11)
+R	E3b	nrun10.t2	1	rssfile_peak	32.534528	MB	mapped file pages resident (text, level files, rank windows): reported, not counted (ADR-004 section 6a)
+R	E3b	nrun10.t2	1	vmhwm	52.49024	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E3b	nrun10.t2	1	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E3b	nrun10.t2	1	arena_peak	14.277236	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E3b	nrun10.t2	1	io_explicit_read	5457632	bytes	0.546 B/char; run, level, suffix-array and tuple files (234 calls)
+R	E3b	nrun10.t2	1	io_explicit_write	5457500	bytes	0.546 B/char (246 calls)
+R	E3b	nrun10.t2	1	io_mapped_write	1330688	bytes	0.133 B/char through mapped windows of at most 1048576 bytes (3 windows, largest 1048576); the suffix arrays of the external levels (EmBuilder) are not in this number
+R	E3b	nrun10.t2	1	io_total_counted	12245820	bytes	1.225 B/char explicit I/O plus mapped writes (text reads and the SA writes of the external levels come on top: see block-layer read_bytes)
+R	E3b	nrun10.t2	1	blocklayer_read	6307840	bytes	/proc/self/io read_bytes during the build (page-cache misses); 0.631 B/char
+R	E3b	nrun10.t2	1	blocklayer_write	18120704	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E3b	nrun10.t2	1	scratch_peak	3867276	bytes	0.387 B/char peak of all scratch files (runs, reduced strings, level rank files, suffix arrays, tuple files, position buckets), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E3b	nrun10.t2	1	rank_file	1289088	bytes	0.129 B/char (the output)
+R	E3b	nrun10.t2	1	dirty_peak	1.650688	MB	max /proc/meminfo Dirty (system-wide); max Cached 206 MB
+R	E3b	nrun10.t2	1	levels	1	n	deepest level reached (0 = the names of the text are all distinct); levels 2
+R	E3b	nrun10.t2	1	nonunique_share	9.989853	%	sample positions at level 0 whose name is shared: 32193 of 322257; distinct names 290065
+R	E3b	nrun10.t2	1	level0	10000000	symbols	sample 322257, distinct names 290065, shared 32193 (9.99 %), unique=False, base case=False, leaf buckets 185, split scans 1, scans 186, file runs 185, naming 0.41 s, merge 0.02 s, below 0.23 s
+R	E3b	nrun10.t2	1	level1	322289	symbols	sample 10386, distinct names 10368, shared 19 (0.18 %), unique=False, base case=True, leaf buckets 6, split scans 1, scans 7, file runs 6, naming 0.01 s, merge 0.00 s, below 0.02 s
+R	E3b	nrun10.t2	1	rank_equals_oracle	yes		byte-identical to nrun10.oracle (1289088 bytes)
+R	E3b	genome10.t4	1	n	10000000	symbols	b=3 bits, X=993 Singer |D|=32, sample 322257 (3.22 %), threads=4, touch buffers=False
+R	E3b	genome10.t4	1	parameters	K_s=3495 N_base=55924 R=13981 K_sort=3495		scaled by n/3e9 = 3.333E-003 from K_s=1048576 N_base=16777216 R=4194304 K_sort=1048576 run-spill=64 KiB (run spill 218 bytes: every bucket run of the 3e9 build is a scratch file); the 3e9 build has sample 96676740, about 184 sample buckets (2 x sample / K_s), this one about 184
+R	E3b	genome10.t4	1	ph1_s	0.363022	s	external-memory PH1: sample buckets, merge, levels below, rank file through mapped windows (without fsync)
+R	E3b	genome10.t4	1	fsync_s	0.000171	s	flush of the rank file after the build
+R	E3b	genome10.t4	1	ns_per_symbol	36.302193	ns	ph1_s / n
+R	E3b	genome10.t4	1	rssanon_peak	19.914752	MB	max RssAnon of 38 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E3b	genome10.t4	1	rssfile_peak	32.260096	MB	mapped file pages resident (text, level files, rank windows): reported, not counted (ADR-004 section 6a)
+R	E3b	genome10.t4	1	vmhwm	54.53824	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E3b	genome10.t4	1	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E3b	genome10.t4	1	arena_peak	14.277236	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E3b	genome10.t4	1	io_explicit_read	5457632	bytes	0.546 B/char; run, level, suffix-array and tuple files (234 calls)
+R	E3b	genome10.t4	1	io_explicit_write	5457500	bytes	0.546 B/char (246 calls)
+R	E3b	genome10.t4	1	io_mapped_write	1330632	bytes	0.133 B/char through mapped windows of at most 1048576 bytes (3 windows, largest 1048576); the suffix arrays of the external levels (EmBuilder) are not in this number
+R	E3b	genome10.t4	1	io_total_counted	12245764	bytes	1.225 B/char explicit I/O plus mapped writes (text reads and the SA writes of the external levels come on top: see block-layer read_bytes)
+R	E3b	genome10.t4	1	blocklayer_read	6115328	bytes	/proc/self/io read_bytes during the build (page-cache misses); 0.612 B/char
+R	E3b	genome10.t4	1	blocklayer_write	21204992	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E3b	genome10.t4	1	scratch_peak	3867276	bytes	0.387 B/char peak of all scratch files (runs, reduced strings, level rank files, suffix arrays, tuple files, position buckets), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E3b	genome10.t4	1	rank_file	1289088	bytes	0.129 B/char (the output)
+R	E3b	genome10.t4	1	dirty_peak	2.248704	MB	max /proc/meminfo Dirty (system-wide); max Cached 206 MB
+R	E3b	genome10.t4	1	levels	1	n	deepest level reached (0 = the names of the text are all distinct); levels 2
+R	E3b	genome10.t4	1	nonunique_share	0.790984	%	sample positions at level 0 whose name is shared: 2549 of 322257; distinct names 319709
+R	E3b	genome10.t4	1	level0	10000000	symbols	sample 322257, distinct names 319709, shared 2549 (0.79 %), unique=False, base case=False, leaf buckets 185, split scans 1, scans 186, file runs 185, naming 0.18 s, merge 0.02 s, below 0.15 s
+R	E3b	genome10.t4	1	level1	322289	symbols	sample 10386, distinct names 10386, shared 0 (0.00 %), unique=True, base case=False, leaf buckets 6, split scans 1, scans 7, file runs 6, naming 0.00 s, merge 0.00 s, below 0.00 s
+R	E3b	genome10.t4	1	rank_equals_oracle	yes		byte-identical to genome10.oracle (1289088 bytes)
+R	E3b	genome10.t4	2	n	10000000	symbols	b=3 bits, X=993 Singer |D|=32, sample 322257 (3.22 %), threads=4, touch buffers=False
+R	E3b	genome10.t4	2	parameters	K_s=3495 N_base=55924 R=13981 K_sort=3495		scaled by n/3e9 = 3.333E-003 from K_s=1048576 N_base=16777216 R=4194304 K_sort=1048576 run-spill=64 KiB (run spill 218 bytes: every bucket run of the 3e9 build is a scratch file); the 3e9 build has sample 96676740, about 184 sample buckets (2 x sample / K_s), this one about 184
+R	E3b	genome10.t4	2	ph1_s	0.370106	s	external-memory PH1: sample buckets, merge, levels below, rank file through mapped windows (without fsync)
+R	E3b	genome10.t4	2	fsync_s	0.00019	s	flush of the rank file after the build
+R	E3b	genome10.t4	2	ns_per_symbol	37.010552	ns	ph1_s / n
+R	E3b	genome10.t4	2	rssanon_peak	17.240064	MB	max RssAnon of 38 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E3b	genome10.t4	2	rssfile_peak	32.309248	MB	mapped file pages resident (text, level files, rank windows): reported, not counted (ADR-004 section 6a)
+R	E3b	genome10.t4	2	vmhwm	51.974144	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E3b	genome10.t4	2	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E3b	genome10.t4	2	arena_peak	14.277236	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E3b	genome10.t4	2	io_explicit_read	5457632	bytes	0.546 B/char; run, level, suffix-array and tuple files (234 calls)
+R	E3b	genome10.t4	2	io_explicit_write	5457500	bytes	0.546 B/char (246 calls)
+R	E3b	genome10.t4	2	io_mapped_write	1330632	bytes	0.133 B/char through mapped windows of at most 1048576 bytes (3 windows, largest 1048576); the suffix arrays of the external levels (EmBuilder) are not in this number
+R	E3b	genome10.t4	2	io_total_counted	12245764	bytes	1.225 B/char explicit I/O plus mapped writes (text reads and the SA writes of the external levels come on top: see block-layer read_bytes)
+R	E3b	genome10.t4	2	blocklayer_read	6115328	bytes	/proc/self/io read_bytes during the build (page-cache misses); 0.612 B/char
+R	E3b	genome10.t4	2	blocklayer_write	18223104	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E3b	genome10.t4	2	scratch_peak	3867276	bytes	0.387 B/char peak of all scratch files (runs, reduced strings, level rank files, suffix arrays, tuple files, position buckets), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E3b	genome10.t4	2	rank_file	1289088	bytes	0.129 B/char (the output)
+R	E3b	genome10.t4	2	dirty_peak	2.031616	MB	max /proc/meminfo Dirty (system-wide); max Cached 206 MB
+R	E3b	genome10.t4	2	levels	1	n	deepest level reached (0 = the names of the text are all distinct); levels 2
+R	E3b	genome10.t4	2	nonunique_share	0.790984	%	sample positions at level 0 whose name is shared: 2549 of 322257; distinct names 319709
+R	E3b	genome10.t4	2	level0	10000000	symbols	sample 322257, distinct names 319709, shared 2549 (0.79 %), unique=False, base case=False, leaf buckets 185, split scans 1, scans 186, file runs 185, naming 0.17 s, merge 0.02 s, below 0.16 s
+R	E3b	genome10.t4	2	level1	322289	symbols	sample 10386, distinct names 10386, shared 0 (0.00 %), unique=True, base case=False, leaf buckets 6, split scans 1, scans 7, file runs 6, naming 0.00 s, merge 0.00 s, below 0.00 s
+R	E3b	genome10.t4	2	rank_equals_oracle	yes		byte-identical to genome10.oracle (1289088 bytes)
+R	E3b	genome10.t4	3	n	10000000	symbols	b=3 bits, X=993 Singer |D|=32, sample 322257 (3.22 %), threads=4, touch buffers=False
+R	E3b	genome10.t4	3	parameters	K_s=3495 N_base=55924 R=13981 K_sort=3495		scaled by n/3e9 = 3.333E-003 from K_s=1048576 N_base=16777216 R=4194304 K_sort=1048576 run-spill=64 KiB (run spill 218 bytes: every bucket run of the 3e9 build is a scratch file); the 3e9 build has sample 96676740, about 184 sample buckets (2 x sample / K_s), this one about 184
+R	E3b	genome10.t4	3	ph1_s	0.446179	s	external-memory PH1: sample buckets, merge, levels below, rank file through mapped windows (without fsync)
+R	E3b	genome10.t4	3	fsync_s	0.000193	s	flush of the rank file after the build
+R	E3b	genome10.t4	3	ns_per_symbol	44.617942	ns	ph1_s / n
+R	E3b	genome10.t4	3	rssanon_peak	19.632128	MB	max RssAnon of 46 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E3b	genome10.t4	3	rssfile_peak	32.288768	MB	mapped file pages resident (text, level files, rank windows): reported, not counted (ADR-004 section 6a)
+R	E3b	genome10.t4	3	vmhwm	54.5792	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E3b	genome10.t4	3	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E3b	genome10.t4	3	arena_peak	14.277236	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E3b	genome10.t4	3	io_explicit_read	5457632	bytes	0.546 B/char; run, level, suffix-array and tuple files (234 calls)
+R	E3b	genome10.t4	3	io_explicit_write	5457500	bytes	0.546 B/char (246 calls)
+R	E3b	genome10.t4	3	io_mapped_write	1330632	bytes	0.133 B/char through mapped windows of at most 1048576 bytes (3 windows, largest 1048576); the suffix arrays of the external levels (EmBuilder) are not in this number
+R	E3b	genome10.t4	3	io_total_counted	12245764	bytes	1.225 B/char explicit I/O plus mapped writes (text reads and the SA writes of the external levels come on top: see block-layer read_bytes)
+R	E3b	genome10.t4	3	blocklayer_read	6115328	bytes	/proc/self/io read_bytes during the build (page-cache misses); 0.612 B/char
+R	E3b	genome10.t4	3	blocklayer_write	20647936	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E3b	genome10.t4	3	scratch_peak	3867276	bytes	0.387 B/char peak of all scratch files (runs, reduced strings, level rank files, suffix arrays, tuple files, position buckets), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E3b	genome10.t4	3	rank_file	1289088	bytes	0.129 B/char (the output)
+R	E3b	genome10.t4	3	dirty_peak	0.618496	MB	max /proc/meminfo Dirty (system-wide); max Cached 205 MB
+R	E3b	genome10.t4	3	levels	1	n	deepest level reached (0 = the names of the text are all distinct); levels 2
+R	E3b	genome10.t4	3	nonunique_share	0.790984	%	sample positions at level 0 whose name is shared: 2549 of 322257; distinct names 319709
+R	E3b	genome10.t4	3	level0	10000000	symbols	sample 322257, distinct names 319709, shared 2549 (0.79 %), unique=False, base case=False, leaf buckets 185, split scans 1, scans 186, file runs 185, naming 0.21 s, merge 0.01 s, below 0.20 s
+R	E3b	genome10.t4	3	level1	322289	symbols	sample 10386, distinct names 10386, shared 0 (0.00 %), unique=True, base case=False, leaf buckets 6, split scans 1, scans 7, file runs 6, naming 0.00 s, merge 0.00 s, below 0.00 s
+R	E3b	genome10.t4	3	rank_equals_oracle	yes		byte-identical to genome10.oracle (1289088 bytes)
+R	E3b	genome10.t1	1	n	10000000	symbols	b=3 bits, X=993 Singer |D|=32, sample 322257 (3.22 %), threads=1, touch buffers=False
+R	E3b	genome10.t1	1	parameters	K_s=3495 N_base=55924 R=13981 K_sort=3495		scaled by n/3e9 = 3.333E-003 from K_s=1048576 N_base=16777216 R=4194304 K_sort=1048576 run-spill=64 KiB (run spill 218 bytes: every bucket run of the 3e9 build is a scratch file); the 3e9 build has sample 96676740, about 184 sample buckets (2 x sample / K_s), this one about 184
+R	E3b	genome10.t1	1	ph1_s	0.694187	s	external-memory PH1: sample buckets, merge, levels below, rank file through mapped windows (without fsync)
+R	E3b	genome10.t1	1	fsync_s	0.00018	s	flush of the rank file after the build
+R	E3b	genome10.t1	1	ns_per_symbol	69.418696	ns	ph1_s / n
+R	E3b	genome10.t1	1	rssanon_peak	17.084416	MB	max RssAnon of 71 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 10)
+R	E3b	genome10.t1	1	rssfile_peak	32.41984	MB	mapped file pages resident (text, level files, rank windows): reported, not counted (ADR-004 section 6a)
+R	E3b	genome10.t1	1	vmhwm	52.420608	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E3b	genome10.t1	1	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E3b	genome10.t1	1	arena_peak	14.277236	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E3b	genome10.t1	1	io_explicit_read	5457632	bytes	0.546 B/char; run, level, suffix-array and tuple files (234 calls)
+R	E3b	genome10.t1	1	io_explicit_write	5457500	bytes	0.546 B/char (246 calls)
+R	E3b	genome10.t1	1	io_mapped_write	1330632	bytes	0.133 B/char through mapped windows of at most 1048576 bytes (3 windows, largest 1048576); the suffix arrays of the external levels (EmBuilder) are not in this number
+R	E3b	genome10.t1	1	io_total_counted	12245764	bytes	1.225 B/char explicit I/O plus mapped writes (text reads and the SA writes of the external levels come on top: see block-layer read_bytes)
+R	E3b	genome10.t1	1	blocklayer_read	6311936	bytes	/proc/self/io read_bytes during the build (page-cache misses); 0.631 B/char
+R	E3b	genome10.t1	1	blocklayer_write	27344896	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E3b	genome10.t1	1	scratch_peak	3867276	bytes	0.387 B/char peak of all scratch files (runs, reduced strings, level rank files, suffix arrays, tuple files, position buckets), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E3b	genome10.t1	1	rank_file	1289088	bytes	0.129 B/char (the output)
+R	E3b	genome10.t1	1	dirty_peak	0.561152	MB	max /proc/meminfo Dirty (system-wide); max Cached 206 MB
+R	E3b	genome10.t1	1	levels	1	n	deepest level reached (0 = the names of the text are all distinct); levels 2
+R	E3b	genome10.t1	1	nonunique_share	0.790984	%	sample positions at level 0 whose name is shared: 2549 of 322257; distinct names 319709
+R	E3b	genome10.t1	1	level0	10000000	symbols	sample 322257, distinct names 319709, shared 2549 (0.79 %), unique=False, base case=False, leaf buckets 185, split scans 1, scans 186, file runs 185, naming 0.48 s, merge 0.02 s, below 0.18 s
+R	E3b	genome10.t1	1	level1	322289	symbols	sample 10386, distinct names 10386, shared 0 (0.00 %), unique=True, base case=False, leaf buckets 6, split scans 1, scans 7, file runs 6, naming 0.00 s, merge 0.00 s, below 0.00 s
+R	E3b	genome10.t1	1	rank_equals_oracle	yes		byte-identical to genome10.oracle (1289088 bytes)
+R	E3b	genome10.t2	1	n	10000000	symbols	b=3 bits, X=993 Singer |D|=32, sample 322257 (3.22 %), threads=2, touch buffers=False
+R	E3b	genome10.t2	1	parameters	K_s=3495 N_base=55924 R=13981 K_sort=3495		scaled by n/3e9 = 3.333E-003 from K_s=1048576 N_base=16777216 R=4194304 K_sort=1048576 run-spill=64 KiB (run spill 218 bytes: every bucket run of the 3e9 build is a scratch file); the 3e9 build has sample 96676740, about 184 sample buckets (2 x sample / K_s), this one about 184
+R	E3b	genome10.t2	1	ph1_s	0.480502	s	external-memory PH1: sample buckets, merge, levels below, rank file through mapped windows (without fsync)
+R	E3b	genome10.t2	1	fsync_s	0.000161	s	flush of the rank file after the build
+R	E3b	genome10.t2	1	ns_per_symbol	48.050179	ns	ph1_s / n
+R	E3b	genome10.t2	1	rssanon_peak	16.928768	MB	max RssAnon of 50 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 11)
+R	E3b	genome10.t2	1	rssfile_peak	32.677888	MB	mapped file pages resident (text, level files, rank windows): reported, not counted (ADR-004 section 6a)
+R	E3b	genome10.t2	1	vmhwm	52.4288	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E3b	genome10.t2	1	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E3b	genome10.t2	1	arena_peak	14.277236	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E3b	genome10.t2	1	io_explicit_read	5457632	bytes	0.546 B/char; run, level, suffix-array and tuple files (234 calls)
+R	E3b	genome10.t2	1	io_explicit_write	5457500	bytes	0.546 B/char (246 calls)
+R	E3b	genome10.t2	1	io_mapped_write	1330632	bytes	0.133 B/char through mapped windows of at most 1048576 bytes (3 windows, largest 1048576); the suffix arrays of the external levels (EmBuilder) are not in this number
+R	E3b	genome10.t2	1	io_total_counted	12245764	bytes	1.225 B/char explicit I/O plus mapped writes (text reads and the SA writes of the external levels come on top: see block-layer read_bytes)
+R	E3b	genome10.t2	1	blocklayer_read	6299648	bytes	/proc/self/io read_bytes during the build (page-cache misses); 0.630 B/char
+R	E3b	genome10.t2	1	blocklayer_write	27381760	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E3b	genome10.t2	1	scratch_peak	3867276	bytes	0.387 B/char peak of all scratch files (runs, reduced strings, level rank files, suffix arrays, tuple files, position buckets), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E3b	genome10.t2	1	rank_file	1289088	bytes	0.129 B/char (the output)
+R	E3b	genome10.t2	1	dirty_peak	0.647168	MB	max /proc/meminfo Dirty (system-wide); max Cached 206 MB
+R	E3b	genome10.t2	1	levels	1	n	deepest level reached (0 = the names of the text are all distinct); levels 2
+R	E3b	genome10.t2	1	nonunique_share	0.790984	%	sample positions at level 0 whose name is shared: 2549 of 322257; distinct names 319709
+R	E3b	genome10.t2	1	level0	10000000	symbols	sample 322257, distinct names 319709, shared 2549 (0.79 %), unique=False, base case=False, leaf buckets 185, split scans 1, scans 186, file runs 185, naming 0.28 s, merge 0.02 s, below 0.17 s
+R	E3b	genome10.t2	1	level1	322289	symbols	sample 10386, distinct names 10386, shared 0 (0.00 %), unique=True, base case=False, leaf buckets 6, split scans 1, scans 7, file runs 6, naming 0.01 s, merge 0.00 s, below 0.00 s
+R	E3b	genome10.t2	1	rank_equals_oracle	yes		byte-identical to genome10.oracle (1289088 bytes)
+R	E3b	tandem.t4	1	n	1710000	symbols	b=2 bits, X=993 Singer |D|=32, sample 55108 (3.22 %), threads=4, touch buffers=False
+R	E3b	tandem.t4	1	parameters	K_s=598 N_base=9563 R=2391 K_sort=598		scaled by n/3e9 = 5.700E-004 from K_s=1048576 N_base=16777216 R=4194304 K_sort=1048576 run-spill=64 KiB (run spill 37 bytes: every bucket run of the 3e9 build is a scratch file); the 3e9 build has sample 96676740, about 184 sample buckets (2 x sample / K_s), this one about 184
+R	E3b	tandem.t4	1	ph1_s	0.383787	s	external-memory PH1: sample buckets, merge, levels below, rank file through mapped windows (without fsync)
+R	E3b	tandem.t4	1	fsync_s	0.000128	s	flush of the rank file after the build
+R	E3b	tandem.t4	1	ns_per_symbol	224.436689	ns	ph1_s / n
+R	E3b	tandem.t4	1	rssanon_peak	14.385152	MB	max RssAnon of 40 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E3b	tandem.t4	1	rssfile_peak	28.073984	MB	mapped file pages resident (text, level files, rank windows): reported, not counted (ADR-004 section 6a)
+R	E3b	tandem.t4	1	vmhwm	45.850624	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E3b	tandem.t4	1	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E3b	tandem.t4	1	arena_peak	14.230876	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E3b	tandem.t4	1	io_explicit_read	675644	bytes	0.395 B/char; run, level, suffix-array and tuple files (195 calls)
+R	E3b	tandem.t4	1	io_explicit_write	675512	bytes	0.395 B/char (223 calls)
+R	E3b	tandem.t4	1	io_mapped_write	227712	bytes	0.133 B/char through mapped windows of at most 1048576 bytes (2 windows, largest 220544); the suffix arrays of the external levels (EmBuilder) are not in this number
+R	E3b	tandem.t4	1	io_total_counted	1578868	bytes	0.923 B/char explicit I/O plus mapped writes (text reads and the SA writes of the external levels come on top: see block-layer read_bytes)
+R	E3b	tandem.t4	1	blocklayer_read	2830336	bytes	/proc/self/io read_bytes during the build (page-cache misses); 1.655 B/char
+R	E3b	tandem.t4	1	blocklayer_write	3559424	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E3b	tandem.t4	1	scratch_peak	661488	bytes	0.387 B/char peak of all scratch files (runs, reduced strings, level rank files, suffix arrays, tuple files, position buckets), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E3b	tandem.t4	1	rank_file	220544	bytes	0.129 B/char (the output)
+R	E3b	tandem.t4	1	dirty_peak	0.524288	MB	max /proc/meminfo Dirty (system-wide); max Cached 200 MB
+R	E3b	tandem.t4	1	levels	1	n	deepest level reached (0 = the names of the text are all distinct); levels 2
+R	E3b	tandem.t4	1	nonunique_share	99.941932	%	sample positions at level 0 whose name is shared: 55076 of 55108; distinct names 203
+R	E3b	tandem.t4	1	level0	1710000	symbols	sample 55108, distinct names 203, shared 55076 (99.94 %), unique=False, base case=False, leaf buckets 185, split scans 1, scans 186, file runs 185, naming 0.24 s, merge 0.01 s, below 0.12 s
+R	E3b	tandem.t4	1	level1	55140	symbols	sample 1777, distinct names 1193, shared 737 (41.47 %), unique=False, base case=True, leaf buckets 6, split scans 1, scans 7, file runs 6, naming 0.00 s, merge 0.00 s, below 0.01 s
+R	E3b	tandem.t4	1	rank_equals_oracle	yes		byte-identical to tandem.oracle (220544 bytes)
+R	E3b	tandem.t4	2	n	1710000	symbols	b=2 bits, X=993 Singer |D|=32, sample 55108 (3.22 %), threads=4, touch buffers=False
+R	E3b	tandem.t4	2	parameters	K_s=598 N_base=9563 R=2391 K_sort=598		scaled by n/3e9 = 5.700E-004 from K_s=1048576 N_base=16777216 R=4194304 K_sort=1048576 run-spill=64 KiB (run spill 37 bytes: every bucket run of the 3e9 build is a scratch file); the 3e9 build has sample 96676740, about 184 sample buckets (2 x sample / K_s), this one about 184
+R	E3b	tandem.t4	2	ph1_s	0.381828	s	external-memory PH1: sample buckets, merge, levels below, rank file through mapped windows (without fsync)
+R	E3b	tandem.t4	2	fsync_s	0.000118	s	flush of the rank file after the build
+R	E3b	tandem.t4	2	ns_per_symbol	223.291085	ns	ph1_s / n
+R	E3b	tandem.t4	2	rssanon_peak	14.348288	MB	max RssAnon of 40 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E3b	tandem.t4	2	rssfile_peak	28.024832	MB	mapped file pages resident (text, level files, rank windows): reported, not counted (ADR-004 section 6a)
+R	E3b	tandem.t4	2	vmhwm	45.563904	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E3b	tandem.t4	2	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E3b	tandem.t4	2	arena_peak	14.230876	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E3b	tandem.t4	2	io_explicit_read	675644	bytes	0.395 B/char; run, level, suffix-array and tuple files (195 calls)
+R	E3b	tandem.t4	2	io_explicit_write	675512	bytes	0.395 B/char (223 calls)
+R	E3b	tandem.t4	2	io_mapped_write	227712	bytes	0.133 B/char through mapped windows of at most 1048576 bytes (2 windows, largest 220544); the suffix arrays of the external levels (EmBuilder) are not in this number
+R	E3b	tandem.t4	2	io_total_counted	1578868	bytes	0.923 B/char explicit I/O plus mapped writes (text reads and the SA writes of the external levels come on top: see block-layer read_bytes)
+R	E3b	tandem.t4	2	blocklayer_read	2801664	bytes	/proc/self/io read_bytes during the build (page-cache misses); 1.638 B/char
+R	E3b	tandem.t4	2	blocklayer_write	3436544	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E3b	tandem.t4	2	scratch_peak	661488	bytes	0.387 B/char peak of all scratch files (runs, reduced strings, level rank files, suffix arrays, tuple files, position buckets), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E3b	tandem.t4	2	rank_file	220544	bytes	0.129 B/char (the output)
+R	E3b	tandem.t4	2	dirty_peak	0.442368	MB	max /proc/meminfo Dirty (system-wide); max Cached 200 MB
+R	E3b	tandem.t4	2	levels	1	n	deepest level reached (0 = the names of the text are all distinct); levels 2
+R	E3b	tandem.t4	2	nonunique_share	99.941932	%	sample positions at level 0 whose name is shared: 55076 of 55108; distinct names 203
+R	E3b	tandem.t4	2	level0	1710000	symbols	sample 55108, distinct names 203, shared 55076 (99.94 %), unique=False, base case=False, leaf buckets 185, split scans 1, scans 186, file runs 185, naming 0.24 s, merge 0.01 s, below 0.12 s
+R	E3b	tandem.t4	2	level1	55140	symbols	sample 1777, distinct names 1193, shared 737 (41.47 %), unique=False, base case=True, leaf buckets 6, split scans 1, scans 7, file runs 6, naming 0.00 s, merge 0.00 s, below 0.01 s
+R	E3b	tandem.t4	2	rank_equals_oracle	yes		byte-identical to tandem.oracle (220544 bytes)
+R	E3b	tandem.t4	3	n	1710000	symbols	b=2 bits, X=993 Singer |D|=32, sample 55108 (3.22 %), threads=4, touch buffers=False
+R	E3b	tandem.t4	3	parameters	K_s=598 N_base=9563 R=2391 K_sort=598		scaled by n/3e9 = 5.700E-004 from K_s=1048576 N_base=16777216 R=4194304 K_sort=1048576 run-spill=64 KiB (run spill 37 bytes: every bucket run of the 3e9 build is a scratch file); the 3e9 build has sample 96676740, about 184 sample buckets (2 x sample / K_s), this one about 184
+R	E3b	tandem.t4	3	ph1_s	0.414977	s	external-memory PH1: sample buckets, merge, levels below, rank file through mapped windows (without fsync)
+R	E3b	tandem.t4	3	fsync_s	0.000201	s	flush of the rank file after the build
+R	E3b	tandem.t4	3	ns_per_symbol	242.676415	ns	ph1_s / n
+R	E3b	tandem.t4	3	rssanon_peak	14.364672	MB	max RssAnon of 43 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E3b	tandem.t4	3	rssfile_peak	28.028928	MB	mapped file pages resident (text, level files, rank windows): reported, not counted (ADR-004 section 6a)
+R	E3b	tandem.t4	3	vmhwm	45.580288	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E3b	tandem.t4	3	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E3b	tandem.t4	3	arena_peak	14.230876	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E3b	tandem.t4	3	io_explicit_read	675644	bytes	0.395 B/char; run, level, suffix-array and tuple files (195 calls)
+R	E3b	tandem.t4	3	io_explicit_write	675512	bytes	0.395 B/char (223 calls)
+R	E3b	tandem.t4	3	io_mapped_write	227712	bytes	0.133 B/char through mapped windows of at most 1048576 bytes (2 windows, largest 220544); the suffix arrays of the external levels (EmBuilder) are not in this number
+R	E3b	tandem.t4	3	io_total_counted	1578868	bytes	0.923 B/char explicit I/O plus mapped writes (text reads and the SA writes of the external levels come on top: see block-layer read_bytes)
+R	E3b	tandem.t4	3	blocklayer_read	2801664	bytes	/proc/self/io read_bytes during the build (page-cache misses); 1.638 B/char
+R	E3b	tandem.t4	3	blocklayer_write	3489792	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E3b	tandem.t4	3	scratch_peak	661488	bytes	0.387 B/char peak of all scratch files (runs, reduced strings, level rank files, suffix arrays, tuple files, position buckets), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E3b	tandem.t4	3	rank_file	220544	bytes	0.129 B/char (the output)
+R	E3b	tandem.t4	3	dirty_peak	0.581632	MB	max /proc/meminfo Dirty (system-wide); max Cached 200 MB
+R	E3b	tandem.t4	3	levels	1	n	deepest level reached (0 = the names of the text are all distinct); levels 2
+R	E3b	tandem.t4	3	nonunique_share	99.941932	%	sample positions at level 0 whose name is shared: 55076 of 55108; distinct names 203
+R	E3b	tandem.t4	3	level0	1710000	symbols	sample 55108, distinct names 203, shared 55076 (99.94 %), unique=False, base case=False, leaf buckets 185, split scans 1, scans 186, file runs 185, naming 0.24 s, merge 0.01 s, below 0.14 s
+R	E3b	tandem.t4	3	level1	55140	symbols	sample 1777, distinct names 1193, shared 737 (41.47 %), unique=False, base case=True, leaf buckets 6, split scans 1, scans 7, file runs 6, naming 0.00 s, merge 0.00 s, below 0.01 s
+R	E3b	tandem.t4	3	rank_equals_oracle	yes		byte-identical to tandem.oracle (220544 bytes)
+R	E3b	tandem.t1	1	n	1710000	symbols	b=2 bits, X=993 Singer |D|=32, sample 55108 (3.22 %), threads=1, touch buffers=False
+R	E3b	tandem.t1	1	parameters	K_s=598 N_base=9563 R=2391 K_sort=598		scaled by n/3e9 = 5.700E-004 from K_s=1048576 N_base=16777216 R=4194304 K_sort=1048576 run-spill=64 KiB (run spill 37 bytes: every bucket run of the 3e9 build is a scratch file); the 3e9 build has sample 96676740, about 184 sample buckets (2 x sample / K_s), this one about 184
+R	E3b	tandem.t1	1	ph1_s	0.527823	s	external-memory PH1: sample buckets, merge, levels below, rank file through mapped windows (without fsync)
+R	E3b	tandem.t1	1	fsync_s	0.00021	s	flush of the rank file after the build
+R	E3b	tandem.t1	1	ns_per_symbol	308.668371	ns	ph1_s / n
+R	E3b	tandem.t1	1	rssanon_peak	13.848576	MB	max RssAnon of 54 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 10)
+R	E3b	tandem.t1	1	rssfile_peak	27.9552	MB	mapped file pages resident (text, level files, rank windows): reported, not counted (ADR-004 section 6a)
+R	E3b	tandem.t1	1	vmhwm	45.125632	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E3b	tandem.t1	1	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E3b	tandem.t1	1	arena_peak	14.230876	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E3b	tandem.t1	1	io_explicit_read	675644	bytes	0.395 B/char; run, level, suffix-array and tuple files (195 calls)
+R	E3b	tandem.t1	1	io_explicit_write	675512	bytes	0.395 B/char (223 calls)
+R	E3b	tandem.t1	1	io_mapped_write	227712	bytes	0.133 B/char through mapped windows of at most 1048576 bytes (2 windows, largest 220544); the suffix arrays of the external levels (EmBuilder) are not in this number
+R	E3b	tandem.t1	1	io_total_counted	1578868	bytes	0.923 B/char explicit I/O plus mapped writes (text reads and the SA writes of the external levels come on top: see block-layer read_bytes)
+R	E3b	tandem.t1	1	blocklayer_read	2785280	bytes	/proc/self/io read_bytes during the build (page-cache misses); 1.629 B/char
+R	E3b	tandem.t1	1	blocklayer_write	3428352	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E3b	tandem.t1	1	scratch_peak	661488	bytes	0.387 B/char peak of all scratch files (runs, reduced strings, level rank files, suffix arrays, tuple files, position buckets), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E3b	tandem.t1	1	rank_file	220544	bytes	0.129 B/char (the output)
+R	E3b	tandem.t1	1	dirty_peak	0.47104	MB	max /proc/meminfo Dirty (system-wide); max Cached 200 MB
+R	E3b	tandem.t1	1	levels	1	n	deepest level reached (0 = the names of the text are all distinct); levels 2
+R	E3b	tandem.t1	1	nonunique_share	99.941932	%	sample positions at level 0 whose name is shared: 55076 of 55108; distinct names 203
+R	E3b	tandem.t1	1	level0	1710000	symbols	sample 55108, distinct names 203, shared 55076 (99.94 %), unique=False, base case=False, leaf buckets 185, split scans 1, scans 186, file runs 185, naming 0.31 s, merge 0.01 s, below 0.20 s
+R	E3b	tandem.t1	1	level1	55140	symbols	sample 1777, distinct names 1193, shared 737 (41.47 %), unique=False, base case=True, leaf buckets 6, split scans 1, scans 7, file runs 6, naming 0.00 s, merge 0.00 s, below 0.01 s
+R	E3b	tandem.t1	1	rank_equals_oracle	yes		byte-identical to tandem.oracle (220544 bytes)
+R	E3b	tandem.t2	1	n	1710000	symbols	b=2 bits, X=993 Singer |D|=32, sample 55108 (3.22 %), threads=2, touch buffers=False
+R	E3b	tandem.t2	1	parameters	K_s=598 N_base=9563 R=2391 K_sort=598		scaled by n/3e9 = 5.700E-004 from K_s=1048576 N_base=16777216 R=4194304 K_sort=1048576 run-spill=64 KiB (run spill 37 bytes: every bucket run of the 3e9 build is a scratch file); the 3e9 build has sample 96676740, about 184 sample buckets (2 x sample / K_s), this one about 184
+R	E3b	tandem.t2	1	ph1_s	0.433685	s	external-memory PH1: sample buckets, merge, levels below, rank file through mapped windows (without fsync)
+R	E3b	tandem.t2	1	fsync_s	0.000177	s	flush of the rank file after the build
+R	E3b	tandem.t2	1	ns_per_symbol	253.616873	ns	ph1_s / n
+R	E3b	tandem.t2	1	rssanon_peak	14.020608	MB	max RssAnon of 45 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 11)
+R	E3b	tandem.t2	1	rssfile_peak	27.99616	MB	mapped file pages resident (text, level files, rank windows): reported, not counted (ADR-004 section 6a)
+R	E3b	tandem.t2	1	vmhwm	45.211648	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E3b	tandem.t2	1	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E3b	tandem.t2	1	arena_peak	14.230876	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E3b	tandem.t2	1	io_explicit_read	675644	bytes	0.395 B/char; run, level, suffix-array and tuple files (195 calls)
+R	E3b	tandem.t2	1	io_explicit_write	675512	bytes	0.395 B/char (223 calls)
+R	E3b	tandem.t2	1	io_mapped_write	227712	bytes	0.133 B/char through mapped windows of at most 1048576 bytes (2 windows, largest 220544); the suffix arrays of the external levels (EmBuilder) are not in this number
+R	E3b	tandem.t2	1	io_total_counted	1578868	bytes	0.923 B/char explicit I/O plus mapped writes (text reads and the SA writes of the external levels come on top: see block-layer read_bytes)
+R	E3b	tandem.t2	1	blocklayer_read	2793472	bytes	/proc/self/io read_bytes during the build (page-cache misses); 1.634 B/char
+R	E3b	tandem.t2	1	blocklayer_write	3452928	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E3b	tandem.t2	1	scratch_peak	661488	bytes	0.387 B/char peak of all scratch files (runs, reduced strings, level rank files, suffix arrays, tuple files, position buckets), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E3b	tandem.t2	1	rank_file	220544	bytes	0.129 B/char (the output)
+R	E3b	tandem.t2	1	dirty_peak	0.47104	MB	max /proc/meminfo Dirty (system-wide); max Cached 200 MB
+R	E3b	tandem.t2	1	levels	1	n	deepest level reached (0 = the names of the text are all distinct); levels 2
+R	E3b	tandem.t2	1	nonunique_share	99.941932	%	sample positions at level 0 whose name is shared: 55076 of 55108; distinct names 203
+R	E3b	tandem.t2	1	level0	1710000	symbols	sample 55108, distinct names 203, shared 55076 (99.94 %), unique=False, base case=False, leaf buckets 185, split scans 1, scans 186, file runs 185, naming 0.26 s, merge 0.01 s, below 0.15 s
+R	E3b	tandem.t2	1	level1	55140	symbols	sample 1777, distinct names 1193, shared 737 (41.47 %), unique=False, base case=True, leaf buckets 6, split scans 1, scans 7, file runs 6, naming 0.00 s, merge 0.00 s, below 0.01 s
+R	E3b	tandem.t2	1	rank_equals_oracle	yes		byte-identical to tandem.oracle (220544 bytes)

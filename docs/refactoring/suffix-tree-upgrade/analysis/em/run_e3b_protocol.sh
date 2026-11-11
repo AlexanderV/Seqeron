@@ -41,6 +41,11 @@ slope)
   for T in dna10 dna50 dna_100m dna200 genome10 genome50 genome_100m; do
     for i in 1 2 3; do run $T "$T.slope" $i --threads 4; done
   done ;;
+slope2)
+  # five more plain runs per size (runs 4-8): the RssAnon peak of the genome-like text varies by several MB between runs (garbage collection of the managed arrays of the external level)
+  for T in dna10 dna50 dna_100m dna200 genome10 genome50 genome_100m; do
+    for i in 4 5 6 7 8; do run $T "$T.slope" $i --threads 4; done
+  done ;;
 slopetouch)
   for T in dna10 dna50 dna_100m dna200 genome10 genome50 genome_100m; do
     for i in 1 2 3; do run $T "$T.slopetouch" $i --threads 4 --touch-buffers; done

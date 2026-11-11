@@ -524,9 +524,9 @@ public class E3bCommandTests
     [TearDown]
     public void TearDown() => Directory.Delete(_dir, true);
 
-    [TestCase("genome:300000")]
-    [TestCase("a:200000")]
-    public void Pipeline_Pack_Mkranks_E3b_Verify_ReportsEquality(string family)
+    [TestCase("genome:300000", "K_s=105 N_base=1678 R=419 K_sort=105", "run spill 7 bytes")]
+    [TestCase("a:200000", "K_s=70 N_base=1118 R=280 K_sort=70", "run spill 4 bytes")]
+    public void Pipeline_Pack_Mkranks_E3b_Verify_ReportsEquality(string family, string parameters, string spill)
     {
         if (!File.Exists("/proc/self/stat")) Assert.Ignore("the report reads /proc (Linux)");
         string pk = Path.Combine(_dir, "t.pk");
@@ -539,7 +539,8 @@ public class E3bCommandTests
         Assert.That(rc, Is.EqualTo(0));
         string rows = File.ReadAllText(Path.Combine(_dir, "rows.tsv"));
         Assert.That(rows, Does.Contain("rank_equals_oracle\tyes"));
-        Assert.That(rows, Does.Contain("\tparameters\t"));
+        Assert.That(rows, Does.Contain("\tparameters\t" + parameters), "K_s, N_base, R and K_sort are their 3e9 reference values times n / 3e9");
+        Assert.That(rows, Does.Contain(spill));
         Assert.That(rows, Does.Contain("\tnonunique_share\t"));
         Assert.That(File.ReadAllBytes(rank), Is.EqualTo(File.ReadAllBytes(oracle)));
         Assert.That(Directory.GetFileSystemEntries(Path.Combine(_dir, "scratch")), Is.Empty);

@@ -1,0 +1,38 @@
+[
+ {
+  "id": "W01",
+  "desc": "WriteAt: a write at the end of the window does not open the next one (loops for ever)",
+  "old": "offset < _viewStart || offset >= _viewEnd",
+  "new": "offset < _viewStart || offset > _viewEnd"
+ },
+ {
+  "id": "W02",
+  "desc": "OpenWindow: window not clipped to the file end",
+  "old": "long size = Math.Min(_window, Length - offset);",
+  "new": "long size = _window;"
+ },
+ {
+  "id": "W03",
+  "desc": "Append: position not advanced",
+  "old": "_next += data.Length;",
+  "new": "_next += 0;"
+ },
+ {
+  "id": "W04",
+  "desc": "WriteAt: the last byte of the file cannot be written",
+  "old": "offset + data.Length > Length)",
+  "new": "offset + data.Length >= Length)"
+ },
+ {
+  "id": "W05",
+  "desc": "WriteAt: mapped write counter not updated",
+  "old": "MappedIo.AddWrite(take);",
+  "new": ""
+ },
+ {
+  "id": "W06",
+  "desc": "OpenWindow: window counter not updated",
+  "old": "MappedIo.AddWindow(size);",
+  "new": ""
+ }
+]

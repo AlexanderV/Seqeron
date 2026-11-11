@@ -1,0 +1,44 @@
+[
+ {
+  "id": "R01",
+  "desc": "Create: a run of exactly the spill size goes to a file",
+  "old": "if ((long)sorted.Length * 8 <= spillBytes)",
+  "new": "if ((long)sorted.Length * 8 < spillBytes)"
+ },
+ {
+  "id": "R02",
+  "desc": "ReadAt: reads at least the buffer (Max instead of Min)",
+  "old": "int take = (int)Math.Min(dest.Length, left);",
+  "new": "int take = (int)Math.Max(dest.Length, left);"
+ },
+ {
+  "id": "R03",
+  "desc": "Drain: a record at the limit is scattered too",
+  "old": "if (slot >= limit) break;",
+  "new": "if (slot > limit) break;"
+ },
+ {
+  "id": "R04",
+  "desc": "Drain: the bucket offset is not added",
+  "old": "window[(int)(slot - windowStart)] = offset + (uint)v;",
+  "new": "window[(int)(slot - windowStart)] = (uint)v;"
+ },
+ {
+  "id": "R05",
+  "desc": "Refill: a drained run is refilled (loops for ever)",
+  "old": "if (_consumed >= run.Count) return false;",
+  "new": "if (_consumed > run.Count) return false;"
+ },
+ {
+  "id": "R06",
+  "desc": "Create: the tracker is not told about the file",
+  "old": "ScratchTracker.Add((long)sorted.Length * 8);",
+  "new": ""
+ },
+ {
+  "id": "R07",
+  "desc": "Dispose: the tracker is not told about the deletion",
+  "old": "ScratchTracker.Remove(Count * 8);",
+  "new": ""
+ }
+]

@@ -1,0 +1,329 @@
+R	E3b	dna_100m.t4	1	n	100000000	symbols	b=2 bits, X=993 Singer |D|=32, sample 3222557 (3.22 %), threads=4, touch buffers=False
+R	E3b	dna_100m.t4	1	parameters	K_s=34953 N_base=559241 R=139810 K_sort=34953		scaled by n/3e9 = 3.333E-002 from K_s=1048576 N_base=16777216 R=4194304 K_sort=1048576 run-spill=64 KiB (run spill 2185 bytes: every bucket run of the 3e9 build is a scratch file); the 3e9 build has sample 96676740, about 184 sample buckets (2 x sample / K_s), this one about 184
+R	E3b	dna_100m.t4	1	ph1_s	1.590673	s	external-memory PH1: sample buckets, merge, levels below, rank file through mapped windows (without fsync)
+R	E3b	dna_100m.t4	1	fsync_s	0.000283	s	flush of the rank file after the build
+R	E3b	dna_100m.t4	1	ns_per_symbol	15.906727	ns	ph1_s / n
+R	E3b	dna_100m.t4	1	rssanon_peak	21.139456	MB	max RssAnon of 161 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E3b	dna_100m.t4	1	rssfile_peak	53.547008	MB	mapped file pages resident (text, level files, rank windows): reported, not counted (ADR-004 section 6a)
+R	E3b	dna_100m.t4	1	vmhwm	78.229504	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E3b	dna_100m.t4	1	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E3b	dna_100m.t4	1	arena_peak	12.6834	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E3b	dna_100m.t4	1	io_explicit_read	25780456	bytes	0.258 B/char; run, level, suffix-array and tuple files (502 calls)
+R	E3b	dna_100m.t4	1	io_explicit_write	25780456	bytes	0.258 B/char (185 calls)
+R	E3b	dna_100m.t4	1	io_mapped_write	12890228	bytes	0.129 B/char through mapped windows of at most 1048576 bytes (13 windows, largest 1048576); the suffix arrays of the external levels (EmBuilder) are not in this number
+R	E3b	dna_100m.t4	1	io_total_counted	64451140	bytes	0.645 B/char explicit I/O plus mapped writes (text reads and the SA writes of the external levels come on top: see block-layer read_bytes)
+R	E3b	dna_100m.t4	1	blocklayer_read	27369472	bytes	/proc/self/io read_bytes during the build (page-cache misses); 0.274 B/char
+R	E3b	dna_100m.t4	1	blocklayer_write	39251968	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E3b	dna_100m.t4	1	scratch_peak	25780456	bytes	0.258 B/char peak of all scratch files (runs, reduced strings, level rank files, suffix arrays, tuple files, position buckets), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E3b	dna_100m.t4	1	rank_file	12890240	bytes	0.129 B/char (the output)
+R	E3b	dna_100m.t4	1	dirty_peak	0.868352	MB	max /proc/meminfo Dirty (system-wide); max Cached 261 MB
+R	E3b	dna_100m.t4	1	levels	0	n	deepest level reached (0 = the names of the text are all distinct); levels 1
+R	E3b	dna_100m.t4	1	nonunique_share	0	%	sample positions at level 0 whose name is shared: 0 of 3222557; distinct names 3222557
+R	E3b	dna_100m.t4	1	level0	100000000	symbols	sample 3222557, distinct names 3222557, shared 0 (0.00 %), unique=True, base case=False, leaf buckets 185, split scans 1, scans 186, file runs 185, naming 1.08 s, merge 0.07 s, below 0.00 s
+R	E3b	dna_100m.t4	1	rank_equals_oracle	yes		byte-identical to dna_100m.oracle (12890240 bytes)
+R	E3b	dna_100m.t4	2	n	100000000	symbols	b=2 bits, X=993 Singer |D|=32, sample 3222557 (3.22 %), threads=4, touch buffers=False
+R	E3b	dna_100m.t4	2	parameters	K_s=34953 N_base=559241 R=139810 K_sort=34953		scaled by n/3e9 = 3.333E-002 from K_s=1048576 N_base=16777216 R=4194304 K_sort=1048576 run-spill=64 KiB (run spill 2185 bytes: every bucket run of the 3e9 build is a scratch file); the 3e9 build has sample 96676740, about 184 sample buckets (2 x sample / K_s), this one about 184
+R	E3b	dna_100m.t4	2	ph1_s	1.569845	s	external-memory PH1: sample buckets, merge, levels below, rank file through mapped windows (without fsync)
+R	E3b	dna_100m.t4	2	fsync_s	0.000353	s	flush of the rank file after the build
+R	E3b	dna_100m.t4	2	ns_per_symbol	15.698448	ns	ph1_s / n
+R	E3b	dna_100m.t4	2	rssanon_peak	20.64384	MB	max RssAnon of 158 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E3b	dna_100m.t4	2	rssfile_peak	53.501952	MB	mapped file pages resident (text, level files, rank windows): reported, not counted (ADR-004 section 6a)
+R	E3b	dna_100m.t4	2	vmhwm	77.737984	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E3b	dna_100m.t4	2	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E3b	dna_100m.t4	2	arena_peak	12.6834	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E3b	dna_100m.t4	2	io_explicit_read	25780456	bytes	0.258 B/char; run, level, suffix-array and tuple files (502 calls)
+R	E3b	dna_100m.t4	2	io_explicit_write	25780456	bytes	0.258 B/char (185 calls)
+R	E3b	dna_100m.t4	2	io_mapped_write	12890228	bytes	0.129 B/char through mapped windows of at most 1048576 bytes (13 windows, largest 1048576); the suffix arrays of the external levels (EmBuilder) are not in this number
+R	E3b	dna_100m.t4	2	io_total_counted	64451140	bytes	0.645 B/char explicit I/O plus mapped writes (text reads and the SA writes of the external levels come on top: see block-layer read_bytes)
+R	E3b	dna_100m.t4	2	blocklayer_read	27373568	bytes	/proc/self/io read_bytes during the build (page-cache misses); 0.274 B/char
+R	E3b	dna_100m.t4	2	blocklayer_write	39268352	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E3b	dna_100m.t4	2	scratch_peak	25780456	bytes	0.258 B/char peak of all scratch files (runs, reduced strings, level rank files, suffix arrays, tuple files, position buckets), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E3b	dna_100m.t4	2	rank_file	12890240	bytes	0.129 B/char (the output)
+R	E3b	dna_100m.t4	2	dirty_peak	0.847872	MB	max /proc/meminfo Dirty (system-wide); max Cached 263 MB
+R	E3b	dna_100m.t4	2	levels	0	n	deepest level reached (0 = the names of the text are all distinct); levels 1
+R	E3b	dna_100m.t4	2	nonunique_share	0	%	sample positions at level 0 whose name is shared: 0 of 3222557; distinct names 3222557
+R	E3b	dna_100m.t4	2	level0	100000000	symbols	sample 3222557, distinct names 3222557, shared 0 (0.00 %), unique=True, base case=False, leaf buckets 185, split scans 1, scans 186, file runs 185, naming 1.06 s, merge 0.08 s, below 0.00 s
+R	E3b	dna_100m.t4	2	rank_equals_oracle	yes		byte-identical to dna_100m.oracle (12890240 bytes)
+R	E3b	dna_100m.t4	3	n	100000000	symbols	b=2 bits, X=993 Singer |D|=32, sample 3222557 (3.22 %), threads=4, touch buffers=False
+R	E3b	dna_100m.t4	3	parameters	K_s=34953 N_base=559241 R=139810 K_sort=34953		scaled by n/3e9 = 3.333E-002 from K_s=1048576 N_base=16777216 R=4194304 K_sort=1048576 run-spill=64 KiB (run spill 2185 bytes: every bucket run of the 3e9 build is a scratch file); the 3e9 build has sample 96676740, about 184 sample buckets (2 x sample / K_s), this one about 184
+R	E3b	dna_100m.t4	3	ph1_s	1.612123	s	external-memory PH1: sample buckets, merge, levels below, rank file through mapped windows (without fsync)
+R	E3b	dna_100m.t4	3	fsync_s	0.000429	s	flush of the rank file after the build
+R	E3b	dna_100m.t4	3	ns_per_symbol	16.121227	ns	ph1_s / n
+R	E3b	dna_100m.t4	3	rssanon_peak	21.159936	MB	max RssAnon of 163 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E3b	dna_100m.t4	3	rssfile_peak	53.559296	MB	mapped file pages resident (text, level files, rank windows): reported, not counted (ADR-004 section 6a)
+R	E3b	dna_100m.t4	3	vmhwm	78.262272	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E3b	dna_100m.t4	3	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E3b	dna_100m.t4	3	arena_peak	12.6834	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E3b	dna_100m.t4	3	io_explicit_read	25780456	bytes	0.258 B/char; run, level, suffix-array and tuple files (502 calls)
+R	E3b	dna_100m.t4	3	io_explicit_write	25780456	bytes	0.258 B/char (185 calls)
+R	E3b	dna_100m.t4	3	io_mapped_write	12890228	bytes	0.129 B/char through mapped windows of at most 1048576 bytes (13 windows, largest 1048576); the suffix arrays of the external levels (EmBuilder) are not in this number
+R	E3b	dna_100m.t4	3	io_total_counted	64451140	bytes	0.645 B/char explicit I/O plus mapped writes (text reads and the SA writes of the external levels come on top: see block-layer read_bytes)
+R	E3b	dna_100m.t4	3	blocklayer_read	27373568	bytes	/proc/self/io read_bytes during the build (page-cache misses); 0.274 B/char
+R	E3b	dna_100m.t4	3	blocklayer_write	39276544	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E3b	dna_100m.t4	3	scratch_peak	25780456	bytes	0.258 B/char peak of all scratch files (runs, reduced strings, level rank files, suffix arrays, tuple files, position buckets), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E3b	dna_100m.t4	3	rank_file	12890240	bytes	0.129 B/char (the output)
+R	E3b	dna_100m.t4	3	dirty_peak	0.872448	MB	max /proc/meminfo Dirty (system-wide); max Cached 267 MB
+R	E3b	dna_100m.t4	3	levels	0	n	deepest level reached (0 = the names of the text are all distinct); levels 1
+R	E3b	dna_100m.t4	3	nonunique_share	0	%	sample positions at level 0 whose name is shared: 0 of 3222557; distinct names 3222557
+R	E3b	dna_100m.t4	3	level0	100000000	symbols	sample 3222557, distinct names 3222557, shared 0 (0.00 %), unique=True, base case=False, leaf buckets 185, split scans 1, scans 186, file runs 185, naming 1.09 s, merge 0.08 s, below 0.00 s
+R	E3b	dna_100m.t4	3	rank_equals_oracle	yes		byte-identical to dna_100m.oracle (12890240 bytes)
+R	E3b	dna_100m.t1	1	n	100000000	symbols	b=2 bits, X=993 Singer |D|=32, sample 3222557 (3.22 %), threads=1, touch buffers=False
+R	E3b	dna_100m.t1	1	parameters	K_s=34953 N_base=559241 R=139810 K_sort=34953		scaled by n/3e9 = 3.333E-002 from K_s=1048576 N_base=16777216 R=4194304 K_sort=1048576 run-spill=64 KiB (run spill 2185 bytes: every bucket run of the 3e9 build is a scratch file); the 3e9 build has sample 96676740, about 184 sample buckets (2 x sample / K_s), this one about 184
+R	E3b	dna_100m.t1	1	ph1_s	4.971168	s	external-memory PH1: sample buckets, merge, levels below, rank file through mapped windows (without fsync)
+R	E3b	dna_100m.t1	1	fsync_s	0.000559	s	flush of the rank file after the build
+R	E3b	dna_100m.t1	1	ns_per_symbol	49.711683	ns	ph1_s / n
+R	E3b	dna_100m.t1	1	rssanon_peak	21.774336	MB	max RssAnon of 499 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 10)
+R	E3b	dna_100m.t1	1	rssfile_peak	53.4528	MB	mapped file pages resident (text, level files, rank windows): reported, not counted (ADR-004 section 6a)
+R	E3b	dna_100m.t1	1	vmhwm	78.815232	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E3b	dna_100m.t1	1	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E3b	dna_100m.t1	1	arena_peak	12.6834	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E3b	dna_100m.t1	1	io_explicit_read	25780456	bytes	0.258 B/char; run, level, suffix-array and tuple files (502 calls)
+R	E3b	dna_100m.t1	1	io_explicit_write	25780456	bytes	0.258 B/char (185 calls)
+R	E3b	dna_100m.t1	1	io_mapped_write	12890228	bytes	0.129 B/char through mapped windows of at most 1048576 bytes (13 windows, largest 1048576); the suffix arrays of the external levels (EmBuilder) are not in this number
+R	E3b	dna_100m.t1	1	io_total_counted	64451140	bytes	0.645 B/char explicit I/O plus mapped writes (text reads and the SA writes of the external levels come on top: see block-layer read_bytes)
+R	E3b	dna_100m.t1	1	blocklayer_read	27369472	bytes	/proc/self/io read_bytes during the build (page-cache misses); 0.274 B/char
+R	E3b	dna_100m.t1	1	blocklayer_write	39268352	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E3b	dna_100m.t1	1	scratch_peak	25780456	bytes	0.258 B/char peak of all scratch files (runs, reduced strings, level rank files, suffix arrays, tuple files, position buckets), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E3b	dna_100m.t1	1	rank_file	12890240	bytes	0.129 B/char (the output)
+R	E3b	dna_100m.t1	1	dirty_peak	0.561152	MB	max /proc/meminfo Dirty (system-wide); max Cached 268 MB
+R	E3b	dna_100m.t1	1	levels	0	n	deepest level reached (0 = the names of the text are all distinct); levels 1
+R	E3b	dna_100m.t1	1	nonunique_share	0	%	sample positions at level 0 whose name is shared: 0 of 3222557; distinct names 3222557
+R	E3b	dna_100m.t1	1	level0	100000000	symbols	sample 3222557, distinct names 3222557, shared 0 (0.00 %), unique=True, base case=False, leaf buckets 185, split scans 1, scans 186, file runs 185, naming 4.39 s, merge 0.14 s, below 0.00 s
+R	E3b	dna_100m.t1	1	rank_equals_oracle	yes		byte-identical to dna_100m.oracle (12890240 bytes)
+R	E3b	dna_100m.t2	1	n	100000000	symbols	b=2 bits, X=993 Singer |D|=32, sample 3222557 (3.22 %), threads=2, touch buffers=False
+R	E3b	dna_100m.t2	1	parameters	K_s=34953 N_base=559241 R=139810 K_sort=34953		scaled by n/3e9 = 3.333E-002 from K_s=1048576 N_base=16777216 R=4194304 K_sort=1048576 run-spill=64 KiB (run spill 2185 bytes: every bucket run of the 3e9 build is a scratch file); the 3e9 build has sample 96676740, about 184 sample buckets (2 x sample / K_s), this one about 184
+R	E3b	dna_100m.t2	1	ph1_s	2.605775	s	external-memory PH1: sample buckets, merge, levels below, rank file through mapped windows (without fsync)
+R	E3b	dna_100m.t2	1	fsync_s	0.000291	s	flush of the rank file after the build
+R	E3b	dna_100m.t2	1	ns_per_symbol	26.05775	ns	ph1_s / n
+R	E3b	dna_100m.t2	1	rssanon_peak	22.392832	MB	max RssAnon of 262 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 11)
+R	E3b	dna_100m.t2	1	rssfile_peak	53.600256	MB	mapped file pages resident (text, level files, rank windows): reported, not counted (ADR-004 section 6a)
+R	E3b	dna_100m.t2	1	vmhwm	79.736832	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E3b	dna_100m.t2	1	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E3b	dna_100m.t2	1	arena_peak	12.6834	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E3b	dna_100m.t2	1	io_explicit_read	25780456	bytes	0.258 B/char; run, level, suffix-array and tuple files (502 calls)
+R	E3b	dna_100m.t2	1	io_explicit_write	25780456	bytes	0.258 B/char (185 calls)
+R	E3b	dna_100m.t2	1	io_mapped_write	12890228	bytes	0.129 B/char through mapped windows of at most 1048576 bytes (13 windows, largest 1048576); the suffix arrays of the external levels (EmBuilder) are not in this number
+R	E3b	dna_100m.t2	1	io_total_counted	64451140	bytes	0.645 B/char explicit I/O plus mapped writes (text reads and the SA writes of the external levels come on top: see block-layer read_bytes)
+R	E3b	dna_100m.t2	1	blocklayer_read	27496448	bytes	/proc/self/io read_bytes during the build (page-cache misses); 0.275 B/char
+R	E3b	dna_100m.t2	1	blocklayer_write	39264256	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E3b	dna_100m.t2	1	scratch_peak	25780456	bytes	0.258 B/char peak of all scratch files (runs, reduced strings, level rank files, suffix arrays, tuple files, position buckets), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E3b	dna_100m.t2	1	rank_file	12890240	bytes	0.129 B/char (the output)
+R	E3b	dna_100m.t2	1	dirty_peak	0.77824	MB	max /proc/meminfo Dirty (system-wide); max Cached 262 MB
+R	E3b	dna_100m.t2	1	levels	0	n	deepest level reached (0 = the names of the text are all distinct); levels 1
+R	E3b	dna_100m.t2	1	nonunique_share	0	%	sample positions at level 0 whose name is shared: 0 of 3222557; distinct names 3222557
+R	E3b	dna_100m.t2	1	level0	100000000	symbols	sample 3222557, distinct names 3222557, shared 0 (0.00 %), unique=True, base case=False, leaf buckets 185, split scans 1, scans 186, file runs 185, naming 2.09 s, merge 0.08 s, below 0.00 s
+R	E3b	dna_100m.t2	1	rank_equals_oracle	yes		byte-identical to dna_100m.oracle (12890240 bytes)
+R	E3b	dna_100m.t4.Khalf	1	n	100000000	symbols	b=2 bits, X=993 Singer |D|=32, sample 3222557 (3.22 %), threads=4, touch buffers=False
+R	E3b	dna_100m.t4.Khalf	1	parameters	K_s=17476 N_base=559241 R=139810 K_sort=34953		scaled by n/3e9 = 3.333E-002 from K_s=1048576 N_base=16777216 R=4194304 K_sort=1048576 run-spill=64 KiB (run spill 2185 bytes: every bucket run of the 3e9 build is a scratch file); the 3e9 build has sample 96676740, about 184 sample buckets (2 x sample / K_s), this one about 368
+R	E3b	dna_100m.t4.Khalf	1	ph1_s	2.766186	s	external-memory PH1: sample buckets, merge, levels below, rank file through mapped windows (without fsync)
+R	E3b	dna_100m.t4.Khalf	1	fsync_s	0.00051	s	flush of the rank file after the build
+R	E3b	dna_100m.t4.Khalf	1	ns_per_symbol	27.661857	ns	ph1_s / n
+R	E3b	dna_100m.t4.Khalf	1	rssanon_peak	27.0336	MB	max RssAnon of 278 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E3b	dna_100m.t4.Khalf	1	rssfile_peak	53.571584	MB	mapped file pages resident (text, level files, rank windows): reported, not counted (ADR-004 section 6a)
+R	E3b	dna_100m.t4.Khalf	1	vmhwm	84.303872	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E3b	dna_100m.t4.Khalf	1	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E3b	dna_100m.t4.Khalf	1	arena_peak	17.335456	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E3b	dna_100m.t4.Khalf	1	io_explicit_read	25780456	bytes	0.258 B/char; run, level, suffix-array and tuple files (741 calls)
+R	E3b	dna_100m.t4.Khalf	1	io_explicit_write	25780456	bytes	0.258 B/char (369 calls)
+R	E3b	dna_100m.t4.Khalf	1	io_mapped_write	12890228	bytes	0.129 B/char through mapped windows of at most 1048576 bytes (13 windows, largest 1048576); the suffix arrays of the external levels (EmBuilder) are not in this number
+R	E3b	dna_100m.t4.Khalf	1	io_total_counted	64451140	bytes	0.645 B/char explicit I/O plus mapped writes (text reads and the SA writes of the external levels come on top: see block-layer read_bytes)
+R	E3b	dna_100m.t4.Khalf	1	blocklayer_read	27512832	bytes	/proc/self/io read_bytes during the build (page-cache misses); 0.275 B/char
+R	E3b	dna_100m.t4.Khalf	1	blocklayer_write	39706624	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E3b	dna_100m.t4.Khalf	1	scratch_peak	25780456	bytes	0.258 B/char peak of all scratch files (runs, reduced strings, level rank files, suffix arrays, tuple files, position buckets), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E3b	dna_100m.t4.Khalf	1	rank_file	12890240	bytes	0.129 B/char (the output)
+R	E3b	dna_100m.t4.Khalf	1	dirty_peak	0.851968	MB	max /proc/meminfo Dirty (system-wide); max Cached 264 MB
+R	E3b	dna_100m.t4.Khalf	1	levels	0	n	deepest level reached (0 = the names of the text are all distinct); levels 1
+R	E3b	dna_100m.t4.Khalf	1	nonunique_share	0	%	sample positions at level 0 whose name is shared: 0 of 3222557; distinct names 3222557
+R	E3b	dna_100m.t4.Khalf	1	level0	100000000	symbols	sample 3222557, distinct names 3222557, shared 0 (0.00 %), unique=True, base case=False, leaf buckets 369, split scans 1, scans 370, file runs 369, naming 2.07 s, merge 0.07 s, below 0.00 s
+R	E3b	dna_100m.t4.Khalf	1	rank_equals_oracle	yes		byte-identical to dna_100m.oracle (12890240 bytes)
+R	E3b	dna_100m.t4.Kdouble	1	n	100000000	symbols	b=2 bits, X=993 Singer |D|=32, sample 3222557 (3.22 %), threads=4, touch buffers=False
+R	E3b	dna_100m.t4.Kdouble	1	parameters	K_s=69905 N_base=559241 R=139810 K_sort=34953		scaled by n/3e9 = 3.333E-002 from K_s=1048576 N_base=16777216 R=4194304 K_sort=1048576 run-spill=64 KiB (run spill 2185 bytes: every bucket run of the 3e9 build is a scratch file); the 3e9 build has sample 96676740, about 184 sample buckets (2 x sample / K_s), this one about 92
+R	E3b	dna_100m.t4.Kdouble	1	ph1_s	0.963758	s	external-memory PH1: sample buckets, merge, levels below, rank file through mapped windows (without fsync)
+R	E3b	dna_100m.t4.Kdouble	1	fsync_s	0.000352	s	flush of the rank file after the build
+R	E3b	dna_100m.t4.Kdouble	1	ns_per_symbol	9.637582	ns	ph1_s / n
+R	E3b	dna_100m.t4.Kdouble	1	rssanon_peak	14.262272	MB	max RssAnon of 98 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E3b	dna_100m.t4.Kdouble	1	rssfile_peak	53.608448	MB	mapped file pages resident (text, level files, rank windows): reported, not counted (ADR-004 section 6a)
+R	E3b	dna_100m.t4.Kdouble	1	vmhwm	71.090176	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E3b	dna_100m.t4.Kdouble	1	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E3b	dna_100m.t4.Kdouble	1	arena_peak	6.71088	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E3b	dna_100m.t4.Kdouble	1	io_explicit_read	25780456	bytes	0.258 B/char; run, level, suffix-array and tuple files (444 calls)
+R	E3b	dna_100m.t4.Kdouble	1	io_explicit_write	25780456	bytes	0.258 B/char (93 calls)
+R	E3b	dna_100m.t4.Kdouble	1	io_mapped_write	12890228	bytes	0.129 B/char through mapped windows of at most 1048576 bytes (13 windows, largest 1048576); the suffix arrays of the external levels (EmBuilder) are not in this number
+R	E3b	dna_100m.t4.Kdouble	1	io_total_counted	64451140	bytes	0.645 B/char explicit I/O plus mapped writes (text reads and the SA writes of the external levels come on top: see block-layer read_bytes)
+R	E3b	dna_100m.t4.Kdouble	1	blocklayer_read	27500544	bytes	/proc/self/io read_bytes during the build (page-cache misses); 0.275 B/char
+R	E3b	dna_100m.t4.Kdouble	1	blocklayer_write	39047168	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E3b	dna_100m.t4.Kdouble	1	scratch_peak	25780456	bytes	0.258 B/char peak of all scratch files (runs, reduced strings, level rank files, suffix arrays, tuple files, position buckets), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E3b	dna_100m.t4.Kdouble	1	rank_file	12890240	bytes	0.129 B/char (the output)
+R	E3b	dna_100m.t4.Kdouble	1	dirty_peak	1.028096	MB	max /proc/meminfo Dirty (system-wide); max Cached 260 MB
+R	E3b	dna_100m.t4.Kdouble	1	levels	0	n	deepest level reached (0 = the names of the text are all distinct); levels 1
+R	E3b	dna_100m.t4.Kdouble	1	nonunique_share	0	%	sample positions at level 0 whose name is shared: 0 of 3222557; distinct names 3222557
+R	E3b	dna_100m.t4.Kdouble	1	level0	100000000	symbols	sample 3222557, distinct names 3222557, shared 0 (0.00 %), unique=True, base case=False, leaf buckets 93, split scans 1, scans 94, file runs 93, naming 0.64 s, merge 0.08 s, below 0.00 s
+R	E3b	dna_100m.t4.Kdouble	1	rank_equals_oracle	yes		byte-identical to dna_100m.oracle (12890240 bytes)
+R	E3b	genome_100m.t4	1	n	100000000	symbols	b=3 bits, X=993 Singer |D|=32, sample 3222557 (3.22 %), threads=4, touch buffers=False
+R	E3b	genome_100m.t4	1	parameters	K_s=34953 N_base=559241 R=139810 K_sort=34953		scaled by n/3e9 = 3.333E-002 from K_s=1048576 N_base=16777216 R=4194304 K_sort=1048576 run-spill=64 KiB (run spill 2185 bytes: every bucket run of the 3e9 build is a scratch file); the 3e9 build has sample 96676740, about 184 sample buckets (2 x sample / K_s), this one about 184
+R	E3b	genome_100m.t4	1	ph1_s	2.135809	s	external-memory PH1: sample buckets, merge, levels below, rank file through mapped windows (without fsync)
+R	E3b	genome_100m.t4	1	fsync_s	0.000214	s	flush of the rank file after the build
+R	E3b	genome_100m.t4	1	ns_per_symbol	21.35809	ns	ph1_s / n
+R	E3b	genome_100m.t4	1	rssanon_peak	24.7808	MB	max RssAnon of 214 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E3b	genome_100m.t4	1	rssfile_peak	78.82752	MB	mapped file pages resident (text, level files, rank windows): reported, not counted (ADR-004 section 6a)
+R	E3b	genome_100m.t4	1	vmhwm	105.0624	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E3b	genome_100m.t4	1	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E3b	genome_100m.t4	1	arena_peak	14.780552	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E3b	genome_100m.t4	1	io_explicit_read	82833076	bytes	0.828 B/char; run, level, suffix-array and tuple files (4605 calls)
+R	E3b	genome_100m.t4	1	io_explicit_write	82820080	bytes	0.828 B/char (1166 calls)
+R	E3b	genome_100m.t4	1	io_mapped_write	13305644	bytes	0.133 B/char through mapped windows of at most 1048576 bytes (14 windows, largest 1048576); the suffix arrays of the external levels (EmBuilder) are not in this number
+R	E3b	genome_100m.t4	1	io_total_counted	178958800	bytes	1.790 B/char explicit I/O plus mapped writes (text reads and the SA writes of the external levels come on top: see block-layer read_bytes)
+R	E3b	genome_100m.t4	1	blocklayer_read	40169472	bytes	/proc/self/io read_bytes during the build (page-cache misses); 0.402 B/char
+R	E3b	genome_100m.t4	1	blocklayer_write	115384320	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E3b	genome_100m.t4	1	scratch_peak	39152160	bytes	0.392 B/char peak of all scratch files (runs, reduced strings, level rank files, suffix arrays, tuple files, position buckets), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E3b	genome_100m.t4	1	rank_file	12890240	bytes	0.129 B/char (the output)
+R	E3b	genome_100m.t4	1	dirty_peak	19.795968	MB	max /proc/meminfo Dirty (system-wide); max Cached 279 MB
+R	E3b	genome_100m.t4	1	levels	1	n	deepest level reached (0 = the names of the text are all distinct); levels 2
+R	E3b	genome_100m.t4	1	nonunique_share	0.843833	%	sample positions at level 0 whose name is shared: 27193 of 3222557; distinct names 3195365
+R	E3b	genome_100m.t4	1	level0	100000000	symbols	sample 3222557, distinct names 3195365, shared 27193 (0.84 %), unique=False, base case=False, leaf buckets 185, split scans 1, scans 186, file runs 185, naming 1.18 s, merge 0.08 s, below 0.85 s
+R	E3b	genome_100m.t4	1	level1	3222589	symbols	sample 103851, distinct names 103851, shared 0 (0.00 %), unique=True, base case=False, leaf buckets 6, split scans 1, scans 7, file runs 6, naming 0.01 s, merge 0.00 s, below 0.00 s
+R	E3b	genome_100m.t4	1	rank_equals_oracle	yes		byte-identical to genome_100m.oracle (12890240 bytes)
+R	E3b	genome_100m.t4	2	n	100000000	symbols	b=3 bits, X=993 Singer |D|=32, sample 3222557 (3.22 %), threads=4, touch buffers=False
+R	E3b	genome_100m.t4	2	parameters	K_s=34953 N_base=559241 R=139810 K_sort=34953		scaled by n/3e9 = 3.333E-002 from K_s=1048576 N_base=16777216 R=4194304 K_sort=1048576 run-spill=64 KiB (run spill 2185 bytes: every bucket run of the 3e9 build is a scratch file); the 3e9 build has sample 96676740, about 184 sample buckets (2 x sample / K_s), this one about 184
+R	E3b	genome_100m.t4	2	ph1_s	2.098099	s	external-memory PH1: sample buckets, merge, levels below, rank file through mapped windows (without fsync)
+R	E3b	genome_100m.t4	2	fsync_s	0.000186	s	flush of the rank file after the build
+R	E3b	genome_100m.t4	2	ns_per_symbol	20.980989	ns	ph1_s / n
+R	E3b	genome_100m.t4	2	rssanon_peak	25.165824	MB	max RssAnon of 211 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E3b	genome_100m.t4	2	rssfile_peak	78.675968	MB	mapped file pages resident (text, level files, rank windows): reported, not counted (ADR-004 section 6a)
+R	E3b	genome_100m.t4	2	vmhwm	105.582592	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E3b	genome_100m.t4	2	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E3b	genome_100m.t4	2	arena_peak	14.780552	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E3b	genome_100m.t4	2	io_explicit_read	82833076	bytes	0.828 B/char; run, level, suffix-array and tuple files (4605 calls)
+R	E3b	genome_100m.t4	2	io_explicit_write	82820080	bytes	0.828 B/char (1166 calls)
+R	E3b	genome_100m.t4	2	io_mapped_write	13305644	bytes	0.133 B/char through mapped windows of at most 1048576 bytes (14 windows, largest 1048576); the suffix arrays of the external levels (EmBuilder) are not in this number
+R	E3b	genome_100m.t4	2	io_total_counted	178958800	bytes	1.790 B/char explicit I/O plus mapped writes (text reads and the SA writes of the external levels come on top: see block-layer read_bytes)
+R	E3b	genome_100m.t4	2	blocklayer_read	40161280	bytes	/proc/self/io read_bytes during the build (page-cache misses); 0.402 B/char
+R	E3b	genome_100m.t4	2	blocklayer_write	114782208	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E3b	genome_100m.t4	2	scratch_peak	39230048	bytes	0.392 B/char peak of all scratch files (runs, reduced strings, level rank files, suffix arrays, tuple files, position buckets), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E3b	genome_100m.t4	2	rank_file	12890240	bytes	0.129 B/char (the output)
+R	E3b	genome_100m.t4	2	dirty_peak	19.898368	MB	max /proc/meminfo Dirty (system-wide); max Cached 276 MB
+R	E3b	genome_100m.t4	2	levels	1	n	deepest level reached (0 = the names of the text are all distinct); levels 2
+R	E3b	genome_100m.t4	2	nonunique_share	0.843833	%	sample positions at level 0 whose name is shared: 27193 of 3222557; distinct names 3195365
+R	E3b	genome_100m.t4	2	level0	100000000	symbols	sample 3222557, distinct names 3195365, shared 27193 (0.84 %), unique=False, base case=False, leaf buckets 185, split scans 1, scans 186, file runs 185, naming 1.13 s, merge 0.07 s, below 0.86 s
+R	E3b	genome_100m.t4	2	level1	3222589	symbols	sample 103851, distinct names 103851, shared 0 (0.00 %), unique=True, base case=False, leaf buckets 6, split scans 1, scans 7, file runs 6, naming 0.02 s, merge 0.00 s, below 0.00 s
+R	E3b	genome_100m.t4	2	rank_equals_oracle	yes		byte-identical to genome_100m.oracle (12890240 bytes)
+R	E3b	genome_100m.t4	3	n	100000000	symbols	b=3 bits, X=993 Singer |D|=32, sample 3222557 (3.22 %), threads=4, touch buffers=False
+R	E3b	genome_100m.t4	3	parameters	K_s=34953 N_base=559241 R=139810 K_sort=34953		scaled by n/3e9 = 3.333E-002 from K_s=1048576 N_base=16777216 R=4194304 K_sort=1048576 run-spill=64 KiB (run spill 2185 bytes: every bucket run of the 3e9 build is a scratch file); the 3e9 build has sample 96676740, about 184 sample buckets (2 x sample / K_s), this one about 184
+R	E3b	genome_100m.t4	3	ph1_s	2.187764	s	external-memory PH1: sample buckets, merge, levels below, rank file through mapped windows (without fsync)
+R	E3b	genome_100m.t4	3	fsync_s	0.000219	s	flush of the rank file after the build
+R	E3b	genome_100m.t4	3	ns_per_symbol	21.87764	ns	ph1_s / n
+R	E3b	genome_100m.t4	3	rssanon_peak	28.266496	MB	max RssAnon of 220 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E3b	genome_100m.t4	3	rssfile_peak	78.761984	MB	mapped file pages resident (text, level files, rank windows): reported, not counted (ADR-004 section 6a)
+R	E3b	genome_100m.t4	3	vmhwm	110.514176	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E3b	genome_100m.t4	3	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E3b	genome_100m.t4	3	arena_peak	14.780552	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E3b	genome_100m.t4	3	io_explicit_read	82833076	bytes	0.828 B/char; run, level, suffix-array and tuple files (4605 calls)
+R	E3b	genome_100m.t4	3	io_explicit_write	82820080	bytes	0.828 B/char (1166 calls)
+R	E3b	genome_100m.t4	3	io_mapped_write	13305644	bytes	0.133 B/char through mapped windows of at most 1048576 bytes (14 windows, largest 1048576); the suffix arrays of the external levels (EmBuilder) are not in this number
+R	E3b	genome_100m.t4	3	io_total_counted	178958800	bytes	1.790 B/char explicit I/O plus mapped writes (text reads and the SA writes of the external levels come on top: see block-layer read_bytes)
+R	E3b	genome_100m.t4	3	blocklayer_read	40157184	bytes	/proc/self/io read_bytes during the build (page-cache misses); 0.402 B/char
+R	E3b	genome_100m.t4	3	blocklayer_write	115380224	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E3b	genome_100m.t4	3	scratch_peak	39086624	bytes	0.391 B/char peak of all scratch files (runs, reduced strings, level rank files, suffix arrays, tuple files, position buckets), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E3b	genome_100m.t4	3	rank_file	12890240	bytes	0.129 B/char (the output)
+R	E3b	genome_100m.t4	3	dirty_peak	22.91712	MB	max /proc/meminfo Dirty (system-wide); max Cached 278 MB
+R	E3b	genome_100m.t4	3	levels	1	n	deepest level reached (0 = the names of the text are all distinct); levels 2
+R	E3b	genome_100m.t4	3	nonunique_share	0.843833	%	sample positions at level 0 whose name is shared: 27193 of 3222557; distinct names 3195365
+R	E3b	genome_100m.t4	3	level0	100000000	symbols	sample 3222557, distinct names 3195365, shared 27193 (0.84 %), unique=False, base case=False, leaf buckets 185, split scans 1, scans 186, file runs 185, naming 1.20 s, merge 0.07 s, below 0.88 s
+R	E3b	genome_100m.t4	3	level1	3222589	symbols	sample 103851, distinct names 103851, shared 0 (0.00 %), unique=True, base case=False, leaf buckets 6, split scans 1, scans 7, file runs 6, naming 0.01 s, merge 0.00 s, below 0.00 s
+R	E3b	genome_100m.t4	3	rank_equals_oracle	yes		byte-identical to genome_100m.oracle (12890240 bytes)
+R	E3b	genome_100m.t1	1	n	100000000	symbols	b=3 bits, X=993 Singer |D|=32, sample 3222557 (3.22 %), threads=1, touch buffers=False
+R	E3b	genome_100m.t1	1	parameters	K_s=34953 N_base=559241 R=139810 K_sort=34953		scaled by n/3e9 = 3.333E-002 from K_s=1048576 N_base=16777216 R=4194304 K_sort=1048576 run-spill=64 KiB (run spill 2185 bytes: every bucket run of the 3e9 build is a scratch file); the 3e9 build has sample 96676740, about 184 sample buckets (2 x sample / K_s), this one about 184
+R	E3b	genome_100m.t1	1	ph1_s	5.534142	s	external-memory PH1: sample buckets, merge, levels below, rank file through mapped windows (without fsync)
+R	E3b	genome_100m.t1	1	fsync_s	0.000188	s	flush of the rank file after the build
+R	E3b	genome_100m.t1	1	ns_per_symbol	55.341424	ns	ph1_s / n
+R	E3b	genome_100m.t1	1	rssanon_peak	26.230784	MB	max RssAnon of 555 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 10)
+R	E3b	genome_100m.t1	1	rssfile_peak	78.58176	MB	mapped file pages resident (text, level files, rank windows): reported, not counted (ADR-004 section 6a)
+R	E3b	genome_100m.t1	1	vmhwm	108.552192	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E3b	genome_100m.t1	1	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E3b	genome_100m.t1	1	arena_peak	14.780552	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E3b	genome_100m.t1	1	io_explicit_read	82833076	bytes	0.828 B/char; run, level, suffix-array and tuple files (4605 calls)
+R	E3b	genome_100m.t1	1	io_explicit_write	82820080	bytes	0.828 B/char (1166 calls)
+R	E3b	genome_100m.t1	1	io_mapped_write	13305644	bytes	0.133 B/char through mapped windows of at most 1048576 bytes (14 windows, largest 1048576); the suffix arrays of the external levels (EmBuilder) are not in this number
+R	E3b	genome_100m.t1	1	io_total_counted	178958800	bytes	1.790 B/char explicit I/O plus mapped writes (text reads and the SA writes of the external levels come on top: see block-layer read_bytes)
+R	E3b	genome_100m.t1	1	blocklayer_read	40148992	bytes	/proc/self/io read_bytes during the build (page-cache misses); 0.401 B/char
+R	E3b	genome_100m.t1	1	blocklayer_write	136314880	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E3b	genome_100m.t1	1	scratch_peak	39086624	bytes	0.391 B/char peak of all scratch files (runs, reduced strings, level rank files, suffix arrays, tuple files, position buckets), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E3b	genome_100m.t1	1	rank_file	12890240	bytes	0.129 B/char (the output)
+R	E3b	genome_100m.t1	1	dirty_peak	21.2992	MB	max /proc/meminfo Dirty (system-wide); max Cached 277 MB
+R	E3b	genome_100m.t1	1	levels	1	n	deepest level reached (0 = the names of the text are all distinct); levels 2
+R	E3b	genome_100m.t1	1	nonunique_share	0.843833	%	sample positions at level 0 whose name is shared: 27193 of 3222557; distinct names 3195365
+R	E3b	genome_100m.t1	1	level0	100000000	symbols	sample 3222557, distinct names 3195365, shared 27193 (0.84 %), unique=False, base case=False, leaf buckets 185, split scans 1, scans 186, file runs 185, naming 4.31 s, merge 0.08 s, below 1.13 s
+R	E3b	genome_100m.t1	1	level1	3222589	symbols	sample 103851, distinct names 103851, shared 0 (0.00 %), unique=True, base case=False, leaf buckets 6, split scans 1, scans 7, file runs 6, naming 0.02 s, merge 0.00 s, below 0.00 s
+R	E3b	genome_100m.t1	1	rank_equals_oracle	yes		byte-identical to genome_100m.oracle (12890240 bytes)
+R	E3b	genome_100m.t2	1	n	100000000	symbols	b=3 bits, X=993 Singer |D|=32, sample 3222557 (3.22 %), threads=2, touch buffers=False
+R	E3b	genome_100m.t2	1	parameters	K_s=34953 N_base=559241 R=139810 K_sort=34953		scaled by n/3e9 = 3.333E-002 from K_s=1048576 N_base=16777216 R=4194304 K_sort=1048576 run-spill=64 KiB (run spill 2185 bytes: every bucket run of the 3e9 build is a scratch file); the 3e9 build has sample 96676740, about 184 sample buckets (2 x sample / K_s), this one about 184
+R	E3b	genome_100m.t2	1	ph1_s	3.20591	s	external-memory PH1: sample buckets, merge, levels below, rank file through mapped windows (without fsync)
+R	E3b	genome_100m.t2	1	fsync_s	0.000163	s	flush of the rank file after the build
+R	E3b	genome_100m.t2	1	ns_per_symbol	32.059097	ns	ph1_s / n
+R	E3b	genome_100m.t2	1	rssanon_peak	28.028928	MB	max RssAnon of 322 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 11)
+R	E3b	genome_100m.t2	1	rssfile_peak	78.553088	MB	mapped file pages resident (text, level files, rank windows): reported, not counted (ADR-004 section 6a)
+R	E3b	genome_100m.t2	1	vmhwm	110.288896	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E3b	genome_100m.t2	1	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E3b	genome_100m.t2	1	arena_peak	14.780552	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E3b	genome_100m.t2	1	io_explicit_read	82833076	bytes	0.828 B/char; run, level, suffix-array and tuple files (4605 calls)
+R	E3b	genome_100m.t2	1	io_explicit_write	82820080	bytes	0.828 B/char (1166 calls)
+R	E3b	genome_100m.t2	1	io_mapped_write	13305644	bytes	0.133 B/char through mapped windows of at most 1048576 bytes (14 windows, largest 1048576); the suffix arrays of the external levels (EmBuilder) are not in this number
+R	E3b	genome_100m.t2	1	io_total_counted	178958800	bytes	1.790 B/char explicit I/O plus mapped writes (text reads and the SA writes of the external levels come on top: see block-layer read_bytes)
+R	E3b	genome_100m.t2	1	blocklayer_read	40157184	bytes	/proc/self/io read_bytes during the build (page-cache misses); 0.402 B/char
+R	E3b	genome_100m.t2	1	blocklayer_write	120713216	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E3b	genome_100m.t2	1	scratch_peak	39164512	bytes	0.392 B/char peak of all scratch files (runs, reduced strings, level rank files, suffix arrays, tuple files, position buckets), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E3b	genome_100m.t2	1	rank_file	12890240	bytes	0.129 B/char (the output)
+R	E3b	genome_100m.t2	1	dirty_peak	25.939968	MB	max /proc/meminfo Dirty (system-wide); max Cached 276 MB
+R	E3b	genome_100m.t2	1	levels	1	n	deepest level reached (0 = the names of the text are all distinct); levels 2
+R	E3b	genome_100m.t2	1	nonunique_share	0.843833	%	sample positions at level 0 whose name is shared: 27193 of 3222557; distinct names 3195365
+R	E3b	genome_100m.t2	1	level0	100000000	symbols	sample 3222557, distinct names 3195365, shared 27193 (0.84 %), unique=False, base case=False, leaf buckets 185, split scans 1, scans 186, file runs 185, naming 2.17 s, merge 0.07 s, below 0.94 s
+R	E3b	genome_100m.t2	1	level1	3222589	symbols	sample 103851, distinct names 103851, shared 0 (0.00 %), unique=True, base case=False, leaf buckets 6, split scans 1, scans 7, file runs 6, naming 0.01 s, merge 0.00 s, below 0.00 s
+R	E3b	genome_100m.t2	1	rank_equals_oracle	yes		byte-identical to genome_100m.oracle (12890240 bytes)
+R	E3b	genome_100m.t4.Khalf	1	n	100000000	symbols	b=3 bits, X=993 Singer |D|=32, sample 3222557 (3.22 %), threads=4, touch buffers=False
+R	E3b	genome_100m.t4.Khalf	1	parameters	K_s=17476 N_base=559241 R=139810 K_sort=34953		scaled by n/3e9 = 3.333E-002 from K_s=1048576 N_base=16777216 R=4194304 K_sort=1048576 run-spill=64 KiB (run spill 2185 bytes: every bucket run of the 3e9 build is a scratch file); the 3e9 build has sample 96676740, about 184 sample buckets (2 x sample / K_s), this one about 368
+R	E3b	genome_100m.t4.Khalf	1	ph1_s	3.142493	s	external-memory PH1: sample buckets, merge, levels below, rank file through mapped windows (without fsync)
+R	E3b	genome_100m.t4.Khalf	1	fsync_s	0.000209	s	flush of the rank file after the build
+R	E3b	genome_100m.t4.Khalf	1	ns_per_symbol	31.424929	ns	ph1_s / n
+R	E3b	genome_100m.t4.Khalf	1	rssanon_peak	31.06816	MB	max RssAnon of 316 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E3b	genome_100m.t4.Khalf	1	rssfile_peak	78.696448	MB	mapped file pages resident (text, level files, rank windows): reported, not counted (ADR-004 section 6a)
+R	E3b	genome_100m.t4.Khalf	1	vmhwm	110.383104	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E3b	genome_100m.t4.Khalf	1	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E3b	genome_100m.t4.Khalf	1	arena_peak	19.432608	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E3b	genome_100m.t4.Khalf	1	io_explicit_read	82833076	bytes	0.828 B/char; run, level, suffix-array and tuple files (4858 calls)
+R	E3b	genome_100m.t4.Khalf	1	io_explicit_write	82820080	bytes	0.828 B/char (1356 calls)
+R	E3b	genome_100m.t4.Khalf	1	io_mapped_write	13305644	bytes	0.133 B/char through mapped windows of at most 1048576 bytes (14 windows, largest 1048576); the suffix arrays of the external levels (EmBuilder) are not in this number
+R	E3b	genome_100m.t4.Khalf	1	io_total_counted	178958800	bytes	1.790 B/char explicit I/O plus mapped writes (text reads and the SA writes of the external levels come on top: see block-layer read_bytes)
+R	E3b	genome_100m.t4.Khalf	1	blocklayer_read	40177664	bytes	/proc/self/io read_bytes during the build (page-cache misses); 0.402 B/char
+R	E3b	genome_100m.t4.Khalf	1	blocklayer_write	116019200	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E3b	genome_100m.t4.Khalf	1	scratch_peak	39230048	bytes	0.392 B/char peak of all scratch files (runs, reduced strings, level rank files, suffix arrays, tuple files, position buckets), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E3b	genome_100m.t4.Khalf	1	rank_file	12890240	bytes	0.129 B/char (the output)
+R	E3b	genome_100m.t4.Khalf	1	dirty_peak	19.94752	MB	max /proc/meminfo Dirty (system-wide); max Cached 277 MB
+R	E3b	genome_100m.t4.Khalf	1	levels	1	n	deepest level reached (0 = the names of the text are all distinct); levels 2
+R	E3b	genome_100m.t4.Khalf	1	nonunique_share	0.843833	%	sample positions at level 0 whose name is shared: 27193 of 3222557; distinct names 3195365
+R	E3b	genome_100m.t4.Khalf	1	level0	100000000	symbols	sample 3222557, distinct names 3195365, shared 27193 (0.84 %), unique=False, base case=False, leaf buckets 369, split scans 1, scans 370, file runs 369, naming 2.09 s, merge 0.08 s, below 0.86 s
+R	E3b	genome_100m.t4.Khalf	1	level1	3222589	symbols	sample 103851, distinct names 103851, shared 0 (0.00 %), unique=True, base case=False, leaf buckets 12, split scans 1, scans 13, file runs 12, naming 0.02 s, merge 0.00 s, below 0.00 s
+R	E3b	genome_100m.t4.Khalf	1	rank_equals_oracle	yes		byte-identical to genome_100m.oracle (12890240 bytes)
+R	E3b	genome_100m.t4.Kdouble	1	n	100000000	symbols	b=3 bits, X=993 Singer |D|=32, sample 3222557 (3.22 %), threads=4, touch buffers=False
+R	E3b	genome_100m.t4.Kdouble	1	parameters	K_s=69905 N_base=559241 R=139810 K_sort=34953		scaled by n/3e9 = 3.333E-002 from K_s=1048576 N_base=16777216 R=4194304 K_sort=1048576 run-spill=64 KiB (run spill 2185 bytes: every bucket run of the 3e9 build is a scratch file); the 3e9 build has sample 96676740, about 184 sample buckets (2 x sample / K_s), this one about 92
+R	E3b	genome_100m.t4.Kdouble	1	ph1_s	1.609421	s	external-memory PH1: sample buckets, merge, levels below, rank file through mapped windows (without fsync)
+R	E3b	genome_100m.t4.Kdouble	1	fsync_s	0.00018	s	flush of the rank file after the build
+R	E3b	genome_100m.t4.Kdouble	1	ns_per_symbol	16.094209	ns	ph1_s / n
+R	E3b	genome_100m.t4.Kdouble	1	rssanon_peak	23.842816	MB	max RssAnon of 162 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E3b	genome_100m.t4.Kdouble	1	rssfile_peak	78.680064	MB	mapped file pages resident (text, level files, rank windows): reported, not counted (ADR-004 section 6a)
+R	E3b	genome_100m.t4.Kdouble	1	vmhwm	105.111552	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E3b	genome_100m.t4.Kdouble	1	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E3b	genome_100m.t4.Kdouble	1	arena_peak	8.75124	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E3b	genome_100m.t4.Kdouble	1	io_explicit_read	82833076	bytes	0.828 B/char; run, level, suffix-array and tuple files (4547 calls)
+R	E3b	genome_100m.t4.Kdouble	1	io_explicit_write	82820080	bytes	0.828 B/char (1071 calls)
+R	E3b	genome_100m.t4.Kdouble	1	io_mapped_write	13305644	bytes	0.133 B/char through mapped windows of at most 1048576 bytes (14 windows, largest 1048576); the suffix arrays of the external levels (EmBuilder) are not in this number
+R	E3b	genome_100m.t4.Kdouble	1	io_total_counted	178958800	bytes	1.790 B/char explicit I/O plus mapped writes (text reads and the SA writes of the external levels come on top: see block-layer read_bytes)
+R	E3b	genome_100m.t4.Kdouble	1	blocklayer_read	40038400	bytes	/proc/self/io read_bytes during the build (page-cache misses); 0.400 B/char
+R	E3b	genome_100m.t4.Kdouble	1	blocklayer_write	113594368	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E3b	genome_100m.t4.Kdouble	1	scratch_peak	39086624	bytes	0.391 B/char peak of all scratch files (runs, reduced strings, level rank files, suffix arrays, tuple files, position buckets), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E3b	genome_100m.t4.Kdouble	1	rank_file	12890240	bytes	0.129 B/char (the output)
+R	E3b	genome_100m.t4.Kdouble	1	dirty_peak	25.890816	MB	max /proc/meminfo Dirty (system-wide); max Cached 276 MB
+R	E3b	genome_100m.t4.Kdouble	1	levels	1	n	deepest level reached (0 = the names of the text are all distinct); levels 2
+R	E3b	genome_100m.t4.Kdouble	1	nonunique_share	0.843833	%	sample positions at level 0 whose name is shared: 27193 of 3222557; distinct names 3195365
+R	E3b	genome_100m.t4.Kdouble	1	level0	100000000	symbols	sample 3222557, distinct names 3195365, shared 27193 (0.84 %), unique=False, base case=False, leaf buckets 93, split scans 1, scans 94, file runs 93, naming 0.68 s, merge 0.07 s, below 0.83 s
+R	E3b	genome_100m.t4.Kdouble	1	level1	3222589	symbols	sample 103851, distinct names 103851, shared 0 (0.00 %), unique=True, base case=False, leaf buckets 3, split scans 1, scans 4, file runs 3, naming 0.01 s, merge 0.00 s, below 0.00 s
+R	E3b	genome_100m.t4.Kdouble	1	rank_equals_oracle	yes		byte-identical to genome_100m.oracle (12890240 bytes)

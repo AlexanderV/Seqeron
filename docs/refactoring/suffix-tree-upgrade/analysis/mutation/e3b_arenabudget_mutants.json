@@ -1,0 +1,14 @@
+[
+ {
+  "id": "T01",
+  "desc": "TouchPages: every second page",
+  "old": "for (long i = 0; i < bytes; i += 4096)",
+  "new": "for (long i = 0; i < bytes; i += 8192)"
+ },
+ {
+  "id": "T02",
+  "desc": "Allocate: pages touched when not asked",
+  "old": "if (_touch) TouchPages",
+  "new": "if (!_touch) TouchPages"
+ }
+]

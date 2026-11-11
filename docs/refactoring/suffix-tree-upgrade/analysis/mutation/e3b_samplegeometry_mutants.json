@@ -1,0 +1,50 @@
+[
+ {
+  "id": "G01",
+  "desc": "Slots: one block too few",
+  "old": "Slots = ((n / Period) + 1) * Classes;",
+  "new": "Slots = (n / Period) * Classes;"
+ },
+ {
+  "id": "G02",
+  "desc": "ClassCount: a residue equal to n has no member",
+  "old": "ClassCount[c] = r <= n ? ((n - r) / Period) + 1 : 0;",
+  "new": "ClassCount[c] = r < n ? ((n - r) / Period) + 1 : 0;"
+ },
+ {
+  "id": "G03",
+  "desc": "RedStart: separator of the class not counted",
+  "old": "RedStart[c + 1] = ClassStart[c + 1] + c + 1;",
+  "new": "RedStart[c + 1] = ClassStart[c + 1] + c;"
+ },
+ {
+  "id": "G04",
+  "desc": "SlotOf: block stride is the period instead of |D|",
+  "old": "internal long SlotOf(long p) => (p / Period * Classes)",
+  "new": "internal long SlotOf(long p) => (p / Period * Period)"
+ },
+ {
+  "id": "G05",
+  "desc": "TrySlotOfRed: the separator index k == count is taken as a member",
+  "old": "if (k >= ClassCount[lo])",
+  "new": "if (k > ClassCount[lo])"
+ },
+ {
+  "id": "G06",
+  "desc": "RedIndexOfSlot: block taken as slot modulo |D|",
+  "old": "RedStart[(int)(slot % Classes)] + (slot / Classes);",
+  "new": "RedStart[(int)(slot % Classes)] + (slot % Classes);"
+ },
+ {
+  "id": "G07",
+  "desc": "TrySlotOfRed: binary search keeps the class whose start is strictly below q",
+  "old": "if (RedStart[mid] <= q) lo = mid;",
+  "new": "if (RedStart[mid] < q) lo = mid;"
+ },
+ {
+  "id": "G08",
+  "desc": "PositionOfSlot: residue taken from the block index",
+  "old": "Cover.Residues[(int)(slot % Classes)];",
+  "new": "Cover.Residues[(int)(slot / Classes % Classes)];"
+ }
+]

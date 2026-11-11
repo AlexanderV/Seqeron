@@ -1,0 +1,170 @@
+[
+ {
+  "id": "N01",
+  "desc": "PrefixOrder: equal X-prefix needs l > X",
+  "old": "if (l >= x) return 0;",
+  "new": "if (l > x) return 0;"
+ },
+ {
+  "id": "N02",
+  "desc": "PrefixOrder: the shorter suffix is the larger",
+  "old": "if (l == maxLen) return pa > pb ? -1 : 1;",
+  "new": "if (l == maxLen) return pa > pb ? 1 : -1;"
+ },
+ {
+  "id": "N03",
+  "desc": "AssignNames: a group is continued over the boundary when the prefixes differ",
+  "old": "_prefix.Compare(prev.LastPos, leaf.FirstPos) == 0;",
+  "new": "_prefix.Compare(prev.LastPos, leaf.FirstPos) != 0;"
+ },
+ {
+  "id": "N04",
+  "desc": "AssignNames: continued bucket counts its first group again",
+  "old": "names += leaf.Distinct - 1;",
+  "new": "names += leaf.Distinct;"
+ },
+ {
+  "id": "N05",
+  "desc": "AssignNames: the offset of a continued bucket",
+  "old": "leaf.Offset = (uint)(names - 1);",
+  "new": "leaf.Offset = (uint)names;"
+ },
+ {
+  "id": "N06",
+  "desc": "AssignNames: singleton group at a boundary counted at 2",
+  "old": "names += leaf.Distinct;\n                if (openSize == 1) singles++;",
+  "new": "names += leaf.Distinct;\n                if (openSize == 2) singles++;"
+ },
+ {
+  "id": "N07",
+  "desc": "AssignNames: non-unique records are the singles",
+  "old": "r.NonUnique = _g.Samples - singles;",
+  "new": "r.NonUnique = singles;"
+ },
+ {
+  "id": "N08",
+  "desc": "AssignNames: the last group of a bucket is not discounted from the inner singles",
+  "old": "if (leaf.LastLen == 1) inner--;",
+  "new": ""
+ },
+ {
+  "id": "N09",
+  "desc": "InRange: the lower bound record itself is excluded",
+  "old": "if (key == lo.Key && Cmp(lo.Pos, p) > 0) return false;",
+  "new": "if (key == lo.Key && Cmp(lo.Pos, p) >= 0) return false;"
+ },
+ {
+  "id": "N10",
+  "desc": "InRange: the upper bound record is included",
+  "old": "if (key == hi.Key && Cmp(p, hi.Pos) >= 0) return false;",
+  "new": "if (key == hi.Key && Cmp(p, hi.Pos) > 0) return false;"
+ },
+ {
+  "id": "N11",
+  "desc": "Cmp: no position tie-break",
+  "old": "return c != 0 ? c : a.CompareTo(b);\n        }\n\n        /// <summary>One scan that stores",
+  "new": "return c;\n        }\n\n        /// <summary>One scan that stores"
+ },
+ {
+  "id": "N12",
+  "desc": "Collect: overflow detected one record late",
+  "old": "if (stored == cap)",
+  "new": "if (stored > cap)"
+ },
+ {
+  "id": "N13",
+  "desc": "Split: fan-out from count instead of 2 x count (output unchanged)",
+  "old": "(2 * count + bucket - 1) / bucket",
+  "new": "(count + bucket - 1) / bucket"
+ },
+ {
+  "id": "N14",
+  "desc": "Split: equal splitter indices kept (empty children only)",
+  "old": "if (i <= last) continue;",
+  "new": "if (i < last) continue;"
+ },
+ {
+  "id": "N15",
+  "desc": "Split: reservoir replacement may hit the slot after the last",
+  "old": "if (j < (ulong)cap) reservoir[(int)j] = (uint)p;",
+  "new": "if (j <= (ulong)cap) reservoir[(int)j] = (uint)p;"
+ },
+ {
+  "id": "N16",
+  "desc": "Split: the last reservoir record is not sorted",
+  "old": "Array.Sort(reservoir, 0, size, new RecordComparer(text, owner._prefix));",
+  "new": "Array.Sort(reservoir, 0, size - 1, new RecordComparer(text, owner._prefix));"
+ },
+ {
+  "id": "N17",
+  "desc": "Finish: insertion sort unstable on equal keys (output unchanged)",
+  "old": "while (j >= 0 && keys[j] > k)",
+  "new": "while (j >= 0 && keys[j] >= k)"
+ },
+ {
+  "id": "N18",
+  "desc": "RadixSort: wrong digit in the histogram",
+  "old": "hist[256 + (int)((k >> 8) & 0xFF)]++;",
+  "new": "hist[256 + (int)((k >> 9) & 0xFF)]++;"
+ },
+ {
+  "id": "N19",
+  "desc": "Finish: a new group starts when the keys are equal",
+  "old": "if (i == 0 || keys[i] != keys[i - 1] || owner._prefix.Compare(pos[i - 1], pos[i]) != 0)",
+  "new": "if (i == 0 || keys[i] == keys[i - 1] || owner._prefix.Compare(pos[i - 1], pos[i]) != 0)"
+ },
+ {
+  "id": "N20",
+  "desc": "Finish: slot shifted by 31 bits",
+  "old": "values[i] = ((ulong)owner._g.SlotOf(pos[i]) << 32) | (uint)distinct;",
+  "new": "values[i] = ((ulong)owner._g.SlotOf(pos[i]) << 31) | (uint)distinct;"
+ },
+ {
+  "id": "N21",
+  "desc": "Finish: the last group of the bucket not counted as a singleton",
+  "old": "if (lastLen == 1) singles++;",
+  "new": ""
+ },
+ {
+  "id": "N22",
+  "desc": "Finish: first group length of a one-group bucket not set (unused)",
+  "old": "if (distinct == 1) firstLen = lastLen;",
+  "new": ""
+ },
+ {
+  "id": "N23",
+  "desc": "Merge: fair share multiplied instead of divided",
+  "old": "long fair = _o.MergeBufferBudget / 8 / Math.Max(1, fileRuns);",
+  "new": "long fair = _o.MergeBufferBudget / 8 * Math.Max(1, fileRuns);"
+ },
+ {
+  "id": "N24",
+  "desc": "Merge: the window check only fails on too many records (defensive)",
+  "old": "if (got != end - start) throw",
+  "new": "if (got > end - start) throw"
+ },
+ {
+  "id": "N25",
+  "desc": "Collect: buffers sized by the capacity, not by the sample",
+  "old": "int cap = (int)Math.Min(owner._o.BucketCapacity, Math.Max(1, owner._g.Samples));",
+  "new": "int cap = (int)owner._o.BucketCapacity;"
+ },
+ {
+  "id": "N26",
+  "desc": "Worker: file runs not counted",
+  "old": "_fileRuns += w.FileRuns;",
+  "new": ""
+ },
+ {
+  "id": "N27",
+  "desc": "Run: the root is split only when the sample exceeds twice the capacity",
+  "old": "_g.Samples > _o.BucketCapacity, 1)",
+  "new": "_g.Samples > 2 * _o.BucketCapacity, 1)"
+ },
+ {
+  "id": "N28",
+  "desc": "Merge: window size taken as the capacity of a bucket instead of the chunk",
+  "old": "int windowSlots = (int)Math.Min(Math.Max(1, _o.ChunkSlots), s);",
+  "new": "int windowSlots = (int)Math.Min(Math.Max(1, _o.BucketCapacity), s);"
+ }
+]

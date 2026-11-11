@@ -1,0 +1,50 @@
+[
+ {
+  "id": "S01",
+  "desc": "RankFileSink: slot offset in 8-byte units",
+  "old": "public void Accept(long firstSlot, ReadOnlySpan<uint> names) => _writer.WriteAt(firstSlot * 4, MemoryMarshal.AsBytes(names));",
+  "new": "public void Accept(long firstSlot, ReadOnlySpan<uint> names) => _writer.WriteAt(firstSlot * 8, MemoryMarshal.AsBytes(names));"
+ },
+ {
+  "id": "S02",
+  "desc": "ReducedFileSink: little endian",
+  "old": "BinaryPrimitives.WriteUInt32BigEndian(buf[(_filled[c] * 4)..], names[i]);",
+  "new": "BinaryPrimitives.WriteUInt32LittleEndian(buf[(_filled[c] * 4)..], names[i]);"
+ },
+ {
+  "id": "S03",
+  "desc": "ReducedFileSink: flush offset ignores what was flushed",
+  "old": "_file.WriteAt(buf[..(_filled[c] * 4)], (_g.RedStart[c] + _flushed[c]) * 4);",
+  "new": "_file.WriteAt(buf[..(_filled[c] * 4)], _g.RedStart[c] * 4);"
+ },
+ {
+  "id": "S04",
+  "desc": "ReducedFileSink: no padding after the symbols",
+  "old": "long bytes = (geometry.RedLength * 4) + PackedText.PadBytes;",
+  "new": "long bytes = geometry.RedLength * 4;"
+ },
+ {
+  "id": "S05",
+  "desc": "ReducedFileSink: a full cursor buffer is flushed one entry late",
+  "old": "if (++_filled[c] == _bufEntries) Flush(c, buf);",
+  "new": "if (++_filled[c] > _bufEntries) Flush(c, buf);"
+ },
+ {
+  "id": "S06",
+  "desc": "ReducedRamSink: class offset replaced by the class index",
+  "old": "red[(int)(_g.RedStart[c] + block)] = (int)names[i];",
+  "new": "red[(int)(c + block)] = (int)names[i];"
+ },
+ {
+  "id": "S07",
+  "desc": "ReducedRamSink: block not advanced at the end of a row",
+  "old": "block++;\n            }",
+  "new": "block += 0;\n            }"
+ },
+ {
+  "id": "S08",
+  "desc": "RankFileSink: the scratch output is not tracked",
+  "old": "if (scratch) ScratchTracker.Add(slots * 4);",
+  "new": ""
+ }
+]

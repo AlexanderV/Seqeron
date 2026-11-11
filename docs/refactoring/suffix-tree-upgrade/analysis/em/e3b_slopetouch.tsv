@@ -1,0 +1,492 @@
+R	E3b	dna10.slopetouch	1	n	10000000	symbols	b=2 bits, X=993 Singer |D|=32, sample 322257 (3.22 %), threads=4, touch buffers=True
+R	E3b	dna10.slopetouch	1	parameters	K_s=3495 N_base=55924 R=13981 K_sort=3495		scaled by n/3e9 = 3.333E-003 from K_s=1048576 N_base=16777216 R=4194304 K_sort=1048576 run-spill=64 KiB (run spill 218 bytes: every bucket run of the 3e9 build is a scratch file); the 3e9 build has sample 96676740, about 184 sample buckets (2 x sample / K_s), this one about 184
+R	E3b	dna10.slopetouch	1	ph1_s	0.310311	s	external-memory PH1: sample buckets, merge, levels below, rank file through mapped windows (without fsync)
+R	E3b	dna10.slopetouch	1	fsync_s	0.000491	s	flush of the rank file after the build
+R	E3b	dna10.slopetouch	1	ns_per_symbol	31.031065	ns	ph1_s / n
+R	E3b	dna10.slopetouch	1	rssanon_peak	20.156416	MB	max RssAnon of 33 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E3b	dna10.slopetouch	1	rssfile_peak	30.425088	MB	mapped file pages resident (text, level files, rank windows): reported, not counted (ADR-004 section 6a)
+R	E3b	dna10.slopetouch	1	vmhwm	53.440512	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E3b	dna10.slopetouch	1	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E3b	dna10.slopetouch	1	arena_peak	12.180084	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E3b	dna10.slopetouch	1	io_explicit_read	2578056	bytes	0.258 B/char; run, level, suffix-array and tuple files (185 calls)
+R	E3b	dna10.slopetouch	1	io_explicit_write	2578056	bytes	0.258 B/char (185 calls)
+R	E3b	dna10.slopetouch	1	io_mapped_write	1289028	bytes	0.129 B/char through mapped windows of at most 1048576 bytes (2 windows, largest 1048576); the suffix arrays of the external levels (EmBuilder) are not in this number
+R	E3b	dna10.slopetouch	1	io_total_counted	6445140	bytes	0.645 B/char explicit I/O plus mapped writes (text reads and the SA writes of the external levels come on top: see block-layer read_bytes)
+R	E3b	dna10.slopetouch	1	blocklayer_read	4534272	bytes	/proc/self/io read_bytes during the build (page-cache misses); 0.453 B/char
+R	E3b	dna10.slopetouch	1	blocklayer_write	4517888	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E3b	dna10.slopetouch	1	scratch_peak	2578056	bytes	0.258 B/char peak of all scratch files (runs, reduced strings, level rank files, suffix arrays, tuple files, position buckets), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E3b	dna10.slopetouch	1	rank_file	1289088	bytes	0.129 B/char (the output)
+R	E3b	dna10.slopetouch	1	dirty_peak	0.32768	MB	max /proc/meminfo Dirty (system-wide); max Cached 205 MB
+R	E3b	dna10.slopetouch	1	levels	0	n	deepest level reached (0 = the names of the text are all distinct); levels 1
+R	E3b	dna10.slopetouch	1	nonunique_share	0	%	sample positions at level 0 whose name is shared: 0 of 322257; distinct names 322257
+R	E3b	dna10.slopetouch	1	level0	10000000	symbols	sample 322257, distinct names 322257, shared 0 (0.00 %), unique=True, base case=False, leaf buckets 185, split scans 1, scans 186, file runs 185, naming 0.16 s, merge 0.02 s, below 0.00 s
+R	E3b	dna10.slopetouch	1	rank_equals_oracle	yes		byte-identical to dna10.oracle (1289088 bytes)
+R	E3b	dna10.slopetouch	2	n	10000000	symbols	b=2 bits, X=993 Singer |D|=32, sample 322257 (3.22 %), threads=4, touch buffers=True
+R	E3b	dna10.slopetouch	2	parameters	K_s=3495 N_base=55924 R=13981 K_sort=3495		scaled by n/3e9 = 3.333E-003 from K_s=1048576 N_base=16777216 R=4194304 K_sort=1048576 run-spill=64 KiB (run spill 218 bytes: every bucket run of the 3e9 build is a scratch file); the 3e9 build has sample 96676740, about 184 sample buckets (2 x sample / K_s), this one about 184
+R	E3b	dna10.slopetouch	2	ph1_s	0.305855	s	external-memory PH1: sample buckets, merge, levels below, rank file through mapped windows (without fsync)
+R	E3b	dna10.slopetouch	2	fsync_s	0.000413	s	flush of the rank file after the build
+R	E3b	dna10.slopetouch	2	ns_per_symbol	30.58548	ns	ph1_s / n
+R	E3b	dna10.slopetouch	2	rssanon_peak	20.099072	MB	max RssAnon of 32 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E3b	dna10.slopetouch	2	rssfile_peak	30.502912	MB	mapped file pages resident (text, level files, rank windows): reported, not counted (ADR-004 section 6a)
+R	E3b	dna10.slopetouch	2	vmhwm	53.460992	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E3b	dna10.slopetouch	2	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E3b	dna10.slopetouch	2	arena_peak	12.180084	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E3b	dna10.slopetouch	2	io_explicit_read	2578056	bytes	0.258 B/char; run, level, suffix-array and tuple files (185 calls)
+R	E3b	dna10.slopetouch	2	io_explicit_write	2578056	bytes	0.258 B/char (185 calls)
+R	E3b	dna10.slopetouch	2	io_mapped_write	1289028	bytes	0.129 B/char through mapped windows of at most 1048576 bytes (2 windows, largest 1048576); the suffix arrays of the external levels (EmBuilder) are not in this number
+R	E3b	dna10.slopetouch	2	io_total_counted	6445140	bytes	0.645 B/char explicit I/O plus mapped writes (text reads and the SA writes of the external levels come on top: see block-layer read_bytes)
+R	E3b	dna10.slopetouch	2	blocklayer_read	4538368	bytes	/proc/self/io read_bytes during the build (page-cache misses); 0.454 B/char
+R	E3b	dna10.slopetouch	2	blocklayer_write	4526080	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E3b	dna10.slopetouch	2	scratch_peak	2578056	bytes	0.258 B/char peak of all scratch files (runs, reduced strings, level rank files, suffix arrays, tuple files, position buckets), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E3b	dna10.slopetouch	2	rank_file	1289088	bytes	0.129 B/char (the output)
+R	E3b	dna10.slopetouch	2	dirty_peak	0.319488	MB	max /proc/meminfo Dirty (system-wide); max Cached 205 MB
+R	E3b	dna10.slopetouch	2	levels	0	n	deepest level reached (0 = the names of the text are all distinct); levels 1
+R	E3b	dna10.slopetouch	2	nonunique_share	0	%	sample positions at level 0 whose name is shared: 0 of 322257; distinct names 322257
+R	E3b	dna10.slopetouch	2	level0	10000000	symbols	sample 322257, distinct names 322257, shared 0 (0.00 %), unique=True, base case=False, leaf buckets 185, split scans 1, scans 186, file runs 185, naming 0.16 s, merge 0.03 s, below 0.00 s
+R	E3b	dna10.slopetouch	2	rank_equals_oracle	yes		byte-identical to dna10.oracle (1289088 bytes)
+R	E3b	dna10.slopetouch	3	n	10000000	symbols	b=2 bits, X=993 Singer |D|=32, sample 322257 (3.22 %), threads=4, touch buffers=True
+R	E3b	dna10.slopetouch	3	parameters	K_s=3495 N_base=55924 R=13981 K_sort=3495		scaled by n/3e9 = 3.333E-003 from K_s=1048576 N_base=16777216 R=4194304 K_sort=1048576 run-spill=64 KiB (run spill 218 bytes: every bucket run of the 3e9 build is a scratch file); the 3e9 build has sample 96676740, about 184 sample buckets (2 x sample / K_s), this one about 184
+R	E3b	dna10.slopetouch	3	ph1_s	0.320359	s	external-memory PH1: sample buckets, merge, levels below, rank file through mapped windows (without fsync)
+R	E3b	dna10.slopetouch	3	fsync_s	0.00059	s	flush of the rank file after the build
+R	E3b	dna10.slopetouch	3	ns_per_symbol	32.035918	ns	ph1_s / n
+R	E3b	dna10.slopetouch	3	rssanon_peak	20.033536	MB	max RssAnon of 34 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E3b	dna10.slopetouch	3	rssfile_peak	29.392896	MB	mapped file pages resident (text, level files, rank windows): reported, not counted (ADR-004 section 6a)
+R	E3b	dna10.slopetouch	3	vmhwm	52.805632	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E3b	dna10.slopetouch	3	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E3b	dna10.slopetouch	3	arena_peak	12.180084	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E3b	dna10.slopetouch	3	io_explicit_read	2578056	bytes	0.258 B/char; run, level, suffix-array and tuple files (185 calls)
+R	E3b	dna10.slopetouch	3	io_explicit_write	2578056	bytes	0.258 B/char (185 calls)
+R	E3b	dna10.slopetouch	3	io_mapped_write	1289028	bytes	0.129 B/char through mapped windows of at most 1048576 bytes (2 windows, largest 1048576); the suffix arrays of the external levels (EmBuilder) are not in this number
+R	E3b	dna10.slopetouch	3	io_total_counted	6445140	bytes	0.645 B/char explicit I/O plus mapped writes (text reads and the SA writes of the external levels come on top: see block-layer read_bytes)
+R	E3b	dna10.slopetouch	3	blocklayer_read	4538368	bytes	/proc/self/io read_bytes during the build (page-cache misses); 0.454 B/char
+R	E3b	dna10.slopetouch	3	blocklayer_write	4595712	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E3b	dna10.slopetouch	3	scratch_peak	2578056	bytes	0.258 B/char peak of all scratch files (runs, reduced strings, level rank files, suffix arrays, tuple files, position buckets), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E3b	dna10.slopetouch	3	rank_file	1289088	bytes	0.129 B/char (the output)
+R	E3b	dna10.slopetouch	3	dirty_peak	0.38912	MB	max /proc/meminfo Dirty (system-wide); max Cached 205 MB
+R	E3b	dna10.slopetouch	3	levels	0	n	deepest level reached (0 = the names of the text are all distinct); levels 1
+R	E3b	dna10.slopetouch	3	nonunique_share	0	%	sample positions at level 0 whose name is shared: 0 of 322257; distinct names 322257
+R	E3b	dna10.slopetouch	3	level0	10000000	symbols	sample 322257, distinct names 322257, shared 0 (0.00 %), unique=True, base case=False, leaf buckets 185, split scans 1, scans 186, file runs 185, naming 0.16 s, merge 0.02 s, below 0.00 s
+R	E3b	dna10.slopetouch	3	rank_equals_oracle	yes		byte-identical to dna10.oracle (1289088 bytes)
+R	E3b	dna50.slopetouch	1	n	50000000	symbols	b=2 bits, X=993 Singer |D|=32, sample 1611279 (3.22 %), threads=4, touch buffers=True
+R	E3b	dna50.slopetouch	1	parameters	K_s=17476 N_base=279620 R=69905 K_sort=17476		scaled by n/3e9 = 1.667E-002 from K_s=1048576 N_base=16777216 R=4194304 K_sort=1048576 run-spill=64 KiB (run spill 1092 bytes: every bucket run of the 3e9 build is a scratch file); the 3e9 build has sample 96676740, about 184 sample buckets (2 x sample / K_s), this one about 184
+R	E3b	dna50.slopetouch	1	ph1_s	1.099872	s	external-memory PH1: sample buckets, merge, levels below, rank file through mapped windows (without fsync)
+R	E3b	dna50.slopetouch	1	fsync_s	0.000294	s	flush of the rank file after the build
+R	E3b	dna50.slopetouch	1	ns_per_symbol	21.997431	ns	ph1_s / n
+R	E3b	dna50.slopetouch	1	rssanon_peak	20.307968	MB	max RssAnon of 111 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E3b	dna50.slopetouch	1	rssfile_peak	40.8576	MB	mapped file pages resident (text, level files, rank windows): reported, not counted (ADR-004 section 6a)
+R	E3b	dna50.slopetouch	1	vmhwm	64.59392	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E3b	dna50.slopetouch	1	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E3b	dna50.slopetouch	1	arena_peak	12.40378	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E3b	dna50.slopetouch	1	io_explicit_read	12890232	bytes	0.258 B/char; run, level, suffix-array and tuple files (324 calls)
+R	E3b	dna50.slopetouch	1	io_explicit_write	12890232	bytes	0.258 B/char (185 calls)
+R	E3b	dna50.slopetouch	1	io_mapped_write	6445116	bytes	0.129 B/char through mapped windows of at most 1048576 bytes (7 windows, largest 1048576); the suffix arrays of the external levels (EmBuilder) are not in this number
+R	E3b	dna50.slopetouch	1	io_total_counted	32225580	bytes	0.645 B/char explicit I/O plus mapped writes (text reads and the SA writes of the external levels come on top: see block-layer read_bytes)
+R	E3b	dna50.slopetouch	1	blocklayer_read	15138816	bytes	/proc/self/io read_bytes during the build (page-cache misses); 0.303 B/char
+R	E3b	dna50.slopetouch	1	blocklayer_write	19931136	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E3b	dna50.slopetouch	1	scratch_peak	12890232	bytes	0.258 B/char peak of all scratch files (runs, reduced strings, level rank files, suffix arrays, tuple files, position buckets), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E3b	dna50.slopetouch	1	rank_file	6445184	bytes	0.129 B/char (the output)
+R	E3b	dna50.slopetouch	1	dirty_peak	0.241664	MB	max /proc/meminfo Dirty (system-wide); max Cached 231 MB
+R	E3b	dna50.slopetouch	1	levels	0	n	deepest level reached (0 = the names of the text are all distinct); levels 1
+R	E3b	dna50.slopetouch	1	nonunique_share	0	%	sample positions at level 0 whose name is shared: 0 of 1611279; distinct names 1611279
+R	E3b	dna50.slopetouch	1	level0	50000000	symbols	sample 1611279, distinct names 1611279, shared 0 (0.00 %), unique=True, base case=False, leaf buckets 185, split scans 1, scans 186, file runs 185, naming 0.74 s, merge 0.05 s, below 0.00 s
+R	E3b	dna50.slopetouch	1	rank_equals_oracle	yes		byte-identical to dna50.oracle (6445184 bytes)
+R	E3b	dna50.slopetouch	2	n	50000000	symbols	b=2 bits, X=993 Singer |D|=32, sample 1611279 (3.22 %), threads=4, touch buffers=True
+R	E3b	dna50.slopetouch	2	parameters	K_s=17476 N_base=279620 R=69905 K_sort=17476		scaled by n/3e9 = 1.667E-002 from K_s=1048576 N_base=16777216 R=4194304 K_sort=1048576 run-spill=64 KiB (run spill 1092 bytes: every bucket run of the 3e9 build is a scratch file); the 3e9 build has sample 96676740, about 184 sample buckets (2 x sample / K_s), this one about 184
+R	E3b	dna50.slopetouch	2	ph1_s	0.99759	s	external-memory PH1: sample buckets, merge, levels below, rank file through mapped windows (without fsync)
+R	E3b	dna50.slopetouch	2	fsync_s	0.000336	s	flush of the rank file after the build
+R	E3b	dna50.slopetouch	2	ns_per_symbol	19.951793	ns	ph1_s / n
+R	E3b	dna50.slopetouch	2	rssanon_peak	22.822912	MB	max RssAnon of 101 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E3b	dna50.slopetouch	2	rssfile_peak	40.902656	MB	mapped file pages resident (text, level files, rank windows): reported, not counted (ADR-004 section 6a)
+R	E3b	dna50.slopetouch	2	vmhwm	67.231744	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E3b	dna50.slopetouch	2	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E3b	dna50.slopetouch	2	arena_peak	12.40378	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E3b	dna50.slopetouch	2	io_explicit_read	12890232	bytes	0.258 B/char; run, level, suffix-array and tuple files (324 calls)
+R	E3b	dna50.slopetouch	2	io_explicit_write	12890232	bytes	0.258 B/char (185 calls)
+R	E3b	dna50.slopetouch	2	io_mapped_write	6445116	bytes	0.129 B/char through mapped windows of at most 1048576 bytes (7 windows, largest 1048576); the suffix arrays of the external levels (EmBuilder) are not in this number
+R	E3b	dna50.slopetouch	2	io_total_counted	32225580	bytes	0.645 B/char explicit I/O plus mapped writes (text reads and the SA writes of the external levels come on top: see block-layer read_bytes)
+R	E3b	dna50.slopetouch	2	blocklayer_read	15036416	bytes	/proc/self/io read_bytes during the build (page-cache misses); 0.301 B/char
+R	E3b	dna50.slopetouch	2	blocklayer_write	20099072	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E3b	dna50.slopetouch	2	scratch_peak	12890232	bytes	0.258 B/char peak of all scratch files (runs, reduced strings, level rank files, suffix arrays, tuple files, position buckets), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E3b	dna50.slopetouch	2	rank_file	6445184	bytes	0.129 B/char (the output)
+R	E3b	dna50.slopetouch	2	dirty_peak	0.499712	MB	max /proc/meminfo Dirty (system-wide); max Cached 231 MB
+R	E3b	dna50.slopetouch	2	levels	0	n	deepest level reached (0 = the names of the text are all distinct); levels 1
+R	E3b	dna50.slopetouch	2	nonunique_share	0	%	sample positions at level 0 whose name is shared: 0 of 1611279; distinct names 1611279
+R	E3b	dna50.slopetouch	2	level0	50000000	symbols	sample 1611279, distinct names 1611279, shared 0 (0.00 %), unique=True, base case=False, leaf buckets 185, split scans 1, scans 186, file runs 185, naming 0.62 s, merge 0.06 s, below 0.00 s
+R	E3b	dna50.slopetouch	2	rank_equals_oracle	yes		byte-identical to dna50.oracle (6445184 bytes)
+R	E3b	dna50.slopetouch	3	n	50000000	symbols	b=2 bits, X=993 Singer |D|=32, sample 1611279 (3.22 %), threads=4, touch buffers=True
+R	E3b	dna50.slopetouch	3	parameters	K_s=17476 N_base=279620 R=69905 K_sort=17476		scaled by n/3e9 = 1.667E-002 from K_s=1048576 N_base=16777216 R=4194304 K_sort=1048576 run-spill=64 KiB (run spill 1092 bytes: every bucket run of the 3e9 build is a scratch file); the 3e9 build has sample 96676740, about 184 sample buckets (2 x sample / K_s), this one about 184
+R	E3b	dna50.slopetouch	3	ph1_s	0.99864	s	external-memory PH1: sample buckets, merge, levels below, rank file through mapped windows (without fsync)
+R	E3b	dna50.slopetouch	3	fsync_s	0.000346	s	flush of the rank file after the build
+R	E3b	dna50.slopetouch	3	ns_per_symbol	19.972808	ns	ph1_s / n
+R	E3b	dna50.slopetouch	3	rssanon_peak	21.082112	MB	max RssAnon of 101 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E3b	dna50.slopetouch	3	rssfile_peak	41.02144	MB	mapped file pages resident (text, level files, rank windows): reported, not counted (ADR-004 section 6a)
+R	E3b	dna50.slopetouch	3	vmhwm	65.622016	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E3b	dna50.slopetouch	3	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E3b	dna50.slopetouch	3	arena_peak	12.40378	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E3b	dna50.slopetouch	3	io_explicit_read	12890232	bytes	0.258 B/char; run, level, suffix-array and tuple files (324 calls)
+R	E3b	dna50.slopetouch	3	io_explicit_write	12890232	bytes	0.258 B/char (185 calls)
+R	E3b	dna50.slopetouch	3	io_mapped_write	6445116	bytes	0.129 B/char through mapped windows of at most 1048576 bytes (7 windows, largest 1048576); the suffix arrays of the external levels (EmBuilder) are not in this number
+R	E3b	dna50.slopetouch	3	io_total_counted	32225580	bytes	0.645 B/char explicit I/O plus mapped writes (text reads and the SA writes of the external levels come on top: see block-layer read_bytes)
+R	E3b	dna50.slopetouch	3	blocklayer_read	15036416	bytes	/proc/self/io read_bytes during the build (page-cache misses); 0.301 B/char
+R	E3b	dna50.slopetouch	3	blocklayer_write	20013056	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E3b	dna50.slopetouch	3	scratch_peak	12890232	bytes	0.258 B/char peak of all scratch files (runs, reduced strings, level rank files, suffix arrays, tuple files, position buckets), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E3b	dna50.slopetouch	3	rank_file	6445184	bytes	0.129 B/char (the output)
+R	E3b	dna50.slopetouch	3	dirty_peak	0.32768	MB	max /proc/meminfo Dirty (system-wide); max Cached 231 MB
+R	E3b	dna50.slopetouch	3	levels	0	n	deepest level reached (0 = the names of the text are all distinct); levels 1
+R	E3b	dna50.slopetouch	3	nonunique_share	0	%	sample positions at level 0 whose name is shared: 0 of 1611279; distinct names 1611279
+R	E3b	dna50.slopetouch	3	level0	50000000	symbols	sample 1611279, distinct names 1611279, shared 0 (0.00 %), unique=True, base case=False, leaf buckets 185, split scans 1, scans 186, file runs 185, naming 0.63 s, merge 0.05 s, below 0.00 s
+R	E3b	dna50.slopetouch	3	rank_equals_oracle	yes		byte-identical to dna50.oracle (6445184 bytes)
+R	E3b	dna_100m.slopetouch	1	n	100000000	symbols	b=2 bits, X=993 Singer |D|=32, sample 3222557 (3.22 %), threads=4, touch buffers=True
+R	E3b	dna_100m.slopetouch	1	parameters	K_s=34953 N_base=559241 R=139810 K_sort=34953		scaled by n/3e9 = 3.333E-002 from K_s=1048576 N_base=16777216 R=4194304 K_sort=1048576 run-spill=64 KiB (run spill 2185 bytes: every bucket run of the 3e9 build is a scratch file); the 3e9 build has sample 96676740, about 184 sample buckets (2 x sample / K_s), this one about 184
+R	E3b	dna_100m.slopetouch	1	ph1_s	1.643765	s	external-memory PH1: sample buckets, merge, levels below, rank file through mapped windows (without fsync)
+R	E3b	dna_100m.slopetouch	1	fsync_s	0.000203	s	flush of the rank file after the build
+R	E3b	dna_100m.slopetouch	1	ns_per_symbol	16.437646	ns	ph1_s / n
+R	E3b	dna_100m.slopetouch	1	rssanon_peak	21.131264	MB	max RssAnon of 166 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E3b	dna_100m.slopetouch	1	rssfile_peak	53.522432	MB	mapped file pages resident (text, level files, rank windows): reported, not counted (ADR-004 section 6a)
+R	E3b	dna_100m.slopetouch	1	vmhwm	78.303232	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E3b	dna_100m.slopetouch	1	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E3b	dna_100m.slopetouch	1	arena_peak	12.6834	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E3b	dna_100m.slopetouch	1	io_explicit_read	25780456	bytes	0.258 B/char; run, level, suffix-array and tuple files (502 calls)
+R	E3b	dna_100m.slopetouch	1	io_explicit_write	25780456	bytes	0.258 B/char (185 calls)
+R	E3b	dna_100m.slopetouch	1	io_mapped_write	12890228	bytes	0.129 B/char through mapped windows of at most 1048576 bytes (13 windows, largest 1048576); the suffix arrays of the external levels (EmBuilder) are not in this number
+R	E3b	dna_100m.slopetouch	1	io_total_counted	64451140	bytes	0.645 B/char explicit I/O plus mapped writes (text reads and the SA writes of the external levels come on top: see block-layer read_bytes)
+R	E3b	dna_100m.slopetouch	1	blocklayer_read	27623424	bytes	/proc/self/io read_bytes during the build (page-cache misses); 0.276 B/char
+R	E3b	dna_100m.slopetouch	1	blocklayer_write	39309312	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E3b	dna_100m.slopetouch	1	scratch_peak	25780456	bytes	0.258 B/char peak of all scratch files (runs, reduced strings, level rank files, suffix arrays, tuple files, position buckets), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E3b	dna_100m.slopetouch	1	rank_file	12890240	bytes	0.129 B/char (the output)
+R	E3b	dna_100m.slopetouch	1	dirty_peak	1.122304	MB	max /proc/meminfo Dirty (system-wide); max Cached 274 MB
+R	E3b	dna_100m.slopetouch	1	levels	0	n	deepest level reached (0 = the names of the text are all distinct); levels 1
+R	E3b	dna_100m.slopetouch	1	nonunique_share	0	%	sample positions at level 0 whose name is shared: 0 of 3222557; distinct names 3222557
+R	E3b	dna_100m.slopetouch	1	level0	100000000	symbols	sample 3222557, distinct names 3222557, shared 0 (0.00 %), unique=True, base case=False, leaf buckets 185, split scans 1, scans 186, file runs 185, naming 1.10 s, merge 0.08 s, below 0.00 s
+R	E3b	dna_100m.slopetouch	1	rank_equals_oracle	yes		byte-identical to dna_100m.oracle (12890240 bytes)
+R	E3b	dna_100m.slopetouch	2	n	100000000	symbols	b=2 bits, X=993 Singer |D|=32, sample 3222557 (3.22 %), threads=4, touch buffers=True
+R	E3b	dna_100m.slopetouch	2	parameters	K_s=34953 N_base=559241 R=139810 K_sort=34953		scaled by n/3e9 = 3.333E-002 from K_s=1048576 N_base=16777216 R=4194304 K_sort=1048576 run-spill=64 KiB (run spill 2185 bytes: every bucket run of the 3e9 build is a scratch file); the 3e9 build has sample 96676740, about 184 sample buckets (2 x sample / K_s), this one about 184
+R	E3b	dna_100m.slopetouch	2	ph1_s	1.625922	s	external-memory PH1: sample buckets, merge, levels below, rank file through mapped windows (without fsync)
+R	E3b	dna_100m.slopetouch	2	fsync_s	0.000396	s	flush of the rank file after the build
+R	E3b	dna_100m.slopetouch	2	ns_per_symbol	16.259219	ns	ph1_s / n
+R	E3b	dna_100m.slopetouch	2	rssanon_peak	20.860928	MB	max RssAnon of 164 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E3b	dna_100m.slopetouch	2	rssfile_peak	53.497856	MB	mapped file pages resident (text, level files, rank windows): reported, not counted (ADR-004 section 6a)
+R	E3b	dna_100m.slopetouch	2	vmhwm	77.852672	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E3b	dna_100m.slopetouch	2	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E3b	dna_100m.slopetouch	2	arena_peak	12.6834	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E3b	dna_100m.slopetouch	2	io_explicit_read	25780456	bytes	0.258 B/char; run, level, suffix-array and tuple files (502 calls)
+R	E3b	dna_100m.slopetouch	2	io_explicit_write	25780456	bytes	0.258 B/char (185 calls)
+R	E3b	dna_100m.slopetouch	2	io_mapped_write	12890228	bytes	0.129 B/char through mapped windows of at most 1048576 bytes (13 windows, largest 1048576); the suffix arrays of the external levels (EmBuilder) are not in this number
+R	E3b	dna_100m.slopetouch	2	io_total_counted	64451140	bytes	0.645 B/char explicit I/O plus mapped writes (text reads and the SA writes of the external levels come on top: see block-layer read_bytes)
+R	E3b	dna_100m.slopetouch	2	blocklayer_read	27627520	bytes	/proc/self/io read_bytes during the build (page-cache misses); 0.276 B/char
+R	E3b	dna_100m.slopetouch	2	blocklayer_write	39391232	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E3b	dna_100m.slopetouch	2	scratch_peak	25780456	bytes	0.258 B/char peak of all scratch files (runs, reduced strings, level rank files, suffix arrays, tuple files, position buckets), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E3b	dna_100m.slopetouch	2	rank_file	12890240	bytes	0.129 B/char (the output)
+R	E3b	dna_100m.slopetouch	2	dirty_peak	0.897024	MB	max /proc/meminfo Dirty (system-wide); max Cached 261 MB
+R	E3b	dna_100m.slopetouch	2	levels	0	n	deepest level reached (0 = the names of the text are all distinct); levels 1
+R	E3b	dna_100m.slopetouch	2	nonunique_share	0	%	sample positions at level 0 whose name is shared: 0 of 3222557; distinct names 3222557
+R	E3b	dna_100m.slopetouch	2	level0	100000000	symbols	sample 3222557, distinct names 3222557, shared 0 (0.00 %), unique=True, base case=False, leaf buckets 185, split scans 1, scans 186, file runs 185, naming 1.13 s, merge 0.08 s, below 0.00 s
+R	E3b	dna_100m.slopetouch	2	rank_equals_oracle	yes		byte-identical to dna_100m.oracle (12890240 bytes)
+R	E3b	dna_100m.slopetouch	3	n	100000000	symbols	b=2 bits, X=993 Singer |D|=32, sample 3222557 (3.22 %), threads=4, touch buffers=True
+R	E3b	dna_100m.slopetouch	3	parameters	K_s=34953 N_base=559241 R=139810 K_sort=34953		scaled by n/3e9 = 3.333E-002 from K_s=1048576 N_base=16777216 R=4194304 K_sort=1048576 run-spill=64 KiB (run spill 2185 bytes: every bucket run of the 3e9 build is a scratch file); the 3e9 build has sample 96676740, about 184 sample buckets (2 x sample / K_s), this one about 184
+R	E3b	dna_100m.slopetouch	3	ph1_s	1.595888	s	external-memory PH1: sample buckets, merge, levels below, rank file through mapped windows (without fsync)
+R	E3b	dna_100m.slopetouch	3	fsync_s	0.000153	s	flush of the rank file after the build
+R	E3b	dna_100m.slopetouch	3	ns_per_symbol	15.958883	ns	ph1_s / n
+R	E3b	dna_100m.slopetouch	3	rssanon_peak	21.139456	MB	max RssAnon of 161 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E3b	dna_100m.slopetouch	3	rssfile_peak	53.641216	MB	mapped file pages resident (text, level files, rank windows): reported, not counted (ADR-004 section 6a)
+R	E3b	dna_100m.slopetouch	3	vmhwm	78.41792	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E3b	dna_100m.slopetouch	3	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E3b	dna_100m.slopetouch	3	arena_peak	12.6834	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E3b	dna_100m.slopetouch	3	io_explicit_read	25780456	bytes	0.258 B/char; run, level, suffix-array and tuple files (502 calls)
+R	E3b	dna_100m.slopetouch	3	io_explicit_write	25780456	bytes	0.258 B/char (185 calls)
+R	E3b	dna_100m.slopetouch	3	io_mapped_write	12890228	bytes	0.129 B/char through mapped windows of at most 1048576 bytes (13 windows, largest 1048576); the suffix arrays of the external levels (EmBuilder) are not in this number
+R	E3b	dna_100m.slopetouch	3	io_total_counted	64451140	bytes	0.645 B/char explicit I/O plus mapped writes (text reads and the SA writes of the external levels come on top: see block-layer read_bytes)
+R	E3b	dna_100m.slopetouch	3	blocklayer_read	27623424	bytes	/proc/self/io read_bytes during the build (page-cache misses); 0.276 B/char
+R	E3b	dna_100m.slopetouch	3	blocklayer_write	39333888	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E3b	dna_100m.slopetouch	3	scratch_peak	25780456	bytes	0.258 B/char peak of all scratch files (runs, reduced strings, level rank files, suffix arrays, tuple files, position buckets), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E3b	dna_100m.slopetouch	3	rank_file	12890240	bytes	0.129 B/char (the output)
+R	E3b	dna_100m.slopetouch	3	dirty_peak	1.097728	MB	max /proc/meminfo Dirty (system-wide); max Cached 262 MB
+R	E3b	dna_100m.slopetouch	3	levels	0	n	deepest level reached (0 = the names of the text are all distinct); levels 1
+R	E3b	dna_100m.slopetouch	3	nonunique_share	0	%	sample positions at level 0 whose name is shared: 0 of 3222557; distinct names 3222557
+R	E3b	dna_100m.slopetouch	3	level0	100000000	symbols	sample 3222557, distinct names 3222557, shared 0 (0.00 %), unique=True, base case=False, leaf buckets 185, split scans 1, scans 186, file runs 185, naming 1.09 s, merge 0.08 s, below 0.00 s
+R	E3b	dna_100m.slopetouch	3	rank_equals_oracle	yes		byte-identical to dna_100m.oracle (12890240 bytes)
+R	E3b	dna200.slopetouch	1	n	200000000	symbols	b=2 bits, X=993 Singer |D|=32, sample 6445115 (3.22 %), threads=4, touch buffers=True
+R	E3b	dna200.slopetouch	1	parameters	K_s=69905 N_base=1118481 R=279620 K_sort=69905		scaled by n/3e9 = 6.667E-002 from K_s=1048576 N_base=16777216 R=4194304 K_sort=1048576 run-spill=64 KiB (run spill 4369 bytes: every bucket run of the 3e9 build is a scratch file); the 3e9 build has sample 96676740, about 184 sample buckets (2 x sample / K_s), this one about 184
+R	E3b	dna200.slopetouch	1	ph1_s	2.989527	s	external-memory PH1: sample buckets, merge, levels below, rank file through mapped windows (without fsync)
+R	E3b	dna200.slopetouch	1	fsync_s	0.000287	s	flush of the rank file after the build
+R	E3b	dna200.slopetouch	1	ns_per_symbol	14.947634	ns	ph1_s / n
+R	E3b	dna200.slopetouch	1	rssanon_peak	23.076864	MB	max RssAnon of 300 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E3b	dna200.slopetouch	1	rssfile_peak	78.577664	MB	mapped file pages resident (text, level files, rank windows): reported, not counted (ADR-004 section 6a)
+R	E3b	dna200.slopetouch	1	vmhwm	105.345024	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E3b	dna200.slopetouch	1	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E3b	dna200.slopetouch	1	arena_peak	13.24264	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E3b	dna200.slopetouch	1	io_explicit_read	51560920	bytes	0.258 B/char; run, level, suffix-array and tuple files (880 calls)
+R	E3b	dna200.slopetouch	1	io_explicit_write	51560920	bytes	0.258 B/char (185 calls)
+R	E3b	dna200.slopetouch	1	io_mapped_write	25780460	bytes	0.129 B/char through mapped windows of at most 1048576 bytes (25 windows, largest 1048576); the suffix arrays of the external levels (EmBuilder) are not in this number
+R	E3b	dna200.slopetouch	1	io_total_counted	128902300	bytes	0.645 B/char explicit I/O plus mapped writes (text reads and the SA writes of the external levels come on top: see block-layer read_bytes)
+R	E3b	dna200.slopetouch	1	blocklayer_read	52629504	bytes	/proc/self/io read_bytes during the build (page-cache misses); 0.263 B/char
+R	E3b	dna200.slopetouch	1	blocklayer_write	78147584	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E3b	dna200.slopetouch	1	scratch_peak	51560920	bytes	0.258 B/char peak of all scratch files (runs, reduced strings, level rank files, suffix arrays, tuple files, position buckets), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E3b	dna200.slopetouch	1	rank_file	25780480	bytes	0.129 B/char (the output)
+R	E3b	dna200.slopetouch	1	dirty_peak	0.88064	MB	max /proc/meminfo Dirty (system-wide); max Cached 325 MB
+R	E3b	dna200.slopetouch	1	levels	0	n	deepest level reached (0 = the names of the text are all distinct); levels 1
+R	E3b	dna200.slopetouch	1	nonunique_share	0	%	sample positions at level 0 whose name is shared: 0 of 6445115; distinct names 6445115
+R	E3b	dna200.slopetouch	1	level0	200000000	symbols	sample 6445115, distinct names 6445115, shared 0 (0.00 %), unique=True, base case=False, leaf buckets 185, split scans 1, scans 186, file runs 185, naming 2.38 s, merge 0.10 s, below 0.00 s
+R	E3b	dna200.slopetouch	1	rank_equals_oracle	yes		byte-identical to dna200.oracle (25780480 bytes)
+R	E3b	dna200.slopetouch	2	n	200000000	symbols	b=2 bits, X=993 Singer |D|=32, sample 6445115 (3.22 %), threads=4, touch buffers=True
+R	E3b	dna200.slopetouch	2	parameters	K_s=69905 N_base=1118481 R=279620 K_sort=69905		scaled by n/3e9 = 6.667E-002 from K_s=1048576 N_base=16777216 R=4194304 K_sort=1048576 run-spill=64 KiB (run spill 4369 bytes: every bucket run of the 3e9 build is a scratch file); the 3e9 build has sample 96676740, about 184 sample buckets (2 x sample / K_s), this one about 184
+R	E3b	dna200.slopetouch	2	ph1_s	2.892723	s	external-memory PH1: sample buckets, merge, levels below, rank file through mapped windows (without fsync)
+R	E3b	dna200.slopetouch	2	fsync_s	0.001	s	flush of the rank file after the build
+R	E3b	dna200.slopetouch	2	ns_per_symbol	14.463615	ns	ph1_s / n
+R	E3b	dna200.slopetouch	2	rssanon_peak	22.212608	MB	max RssAnon of 291 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E3b	dna200.slopetouch	2	rssfile_peak	78.544896	MB	mapped file pages resident (text, level files, rank windows): reported, not counted (ADR-004 section 6a)
+R	E3b	dna200.slopetouch	2	vmhwm	104.517632	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E3b	dna200.slopetouch	2	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E3b	dna200.slopetouch	2	arena_peak	13.24264	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E3b	dna200.slopetouch	2	io_explicit_read	51560920	bytes	0.258 B/char; run, level, suffix-array and tuple files (880 calls)
+R	E3b	dna200.slopetouch	2	io_explicit_write	51560920	bytes	0.258 B/char (185 calls)
+R	E3b	dna200.slopetouch	2	io_mapped_write	25780460	bytes	0.129 B/char through mapped windows of at most 1048576 bytes (25 windows, largest 1048576); the suffix arrays of the external levels (EmBuilder) are not in this number
+R	E3b	dna200.slopetouch	2	io_total_counted	128902300	bytes	0.645 B/char explicit I/O plus mapped writes (text reads and the SA writes of the external levels come on top: see block-layer read_bytes)
+R	E3b	dna200.slopetouch	2	blocklayer_read	52625408	bytes	/proc/self/io read_bytes during the build (page-cache misses); 0.263 B/char
+R	E3b	dna200.slopetouch	2	blocklayer_write	78163968	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E3b	dna200.slopetouch	2	scratch_peak	51560920	bytes	0.258 B/char peak of all scratch files (runs, reduced strings, level rank files, suffix arrays, tuple files, position buckets), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E3b	dna200.slopetouch	2	rank_file	25780480	bytes	0.129 B/char (the output)
+R	E3b	dna200.slopetouch	2	dirty_peak	0.815104	MB	max /proc/meminfo Dirty (system-wide); max Cached 335 MB
+R	E3b	dna200.slopetouch	2	levels	0	n	deepest level reached (0 = the names of the text are all distinct); levels 1
+R	E3b	dna200.slopetouch	2	nonunique_share	0	%	sample positions at level 0 whose name is shared: 0 of 6445115; distinct names 6445115
+R	E3b	dna200.slopetouch	2	level0	200000000	symbols	sample 6445115, distinct names 6445115, shared 0 (0.00 %), unique=True, base case=False, leaf buckets 185, split scans 1, scans 186, file runs 185, naming 2.27 s, merge 0.16 s, below 0.00 s
+R	E3b	dna200.slopetouch	2	rank_equals_oracle	yes		byte-identical to dna200.oracle (25780480 bytes)
+R	E3b	dna200.slopetouch	3	n	200000000	symbols	b=2 bits, X=993 Singer |D|=32, sample 6445115 (3.22 %), threads=4, touch buffers=True
+R	E3b	dna200.slopetouch	3	parameters	K_s=69905 N_base=1118481 R=279620 K_sort=69905		scaled by n/3e9 = 6.667E-002 from K_s=1048576 N_base=16777216 R=4194304 K_sort=1048576 run-spill=64 KiB (run spill 4369 bytes: every bucket run of the 3e9 build is a scratch file); the 3e9 build has sample 96676740, about 184 sample buckets (2 x sample / K_s), this one about 184
+R	E3b	dna200.slopetouch	3	ph1_s	2.869068	s	external-memory PH1: sample buckets, merge, levels below, rank file through mapped windows (without fsync)
+R	E3b	dna200.slopetouch	3	fsync_s	0.000344	s	flush of the rank file after the build
+R	E3b	dna200.slopetouch	3	ns_per_symbol	14.34534	ns	ph1_s / n
+R	E3b	dna200.slopetouch	3	rssanon_peak	22.130688	MB	max RssAnon of 288 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E3b	dna200.slopetouch	3	rssfile_peak	78.635008	MB	mapped file pages resident (text, level files, rank windows): reported, not counted (ADR-004 section 6a)
+R	E3b	dna200.slopetouch	3	vmhwm	104.525824	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E3b	dna200.slopetouch	3	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E3b	dna200.slopetouch	3	arena_peak	13.24264	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E3b	dna200.slopetouch	3	io_explicit_read	51560920	bytes	0.258 B/char; run, level, suffix-array and tuple files (880 calls)
+R	E3b	dna200.slopetouch	3	io_explicit_write	51560920	bytes	0.258 B/char (185 calls)
+R	E3b	dna200.slopetouch	3	io_mapped_write	25780460	bytes	0.129 B/char through mapped windows of at most 1048576 bytes (25 windows, largest 1048576); the suffix arrays of the external levels (EmBuilder) are not in this number
+R	E3b	dna200.slopetouch	3	io_total_counted	128902300	bytes	0.645 B/char explicit I/O plus mapped writes (text reads and the SA writes of the external levels come on top: see block-layer read_bytes)
+R	E3b	dna200.slopetouch	3	blocklayer_read	52625408	bytes	/proc/self/io read_bytes during the build (page-cache misses); 0.263 B/char
+R	E3b	dna200.slopetouch	3	blocklayer_write	78180352	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E3b	dna200.slopetouch	3	scratch_peak	51560920	bytes	0.258 B/char peak of all scratch files (runs, reduced strings, level rank files, suffix arrays, tuple files, position buckets), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E3b	dna200.slopetouch	3	rank_file	25780480	bytes	0.129 B/char (the output)
+R	E3b	dna200.slopetouch	3	dirty_peak	1.581056	MB	max /proc/meminfo Dirty (system-wide); max Cached 330 MB
+R	E3b	dna200.slopetouch	3	levels	0	n	deepest level reached (0 = the names of the text are all distinct); levels 1
+R	E3b	dna200.slopetouch	3	nonunique_share	0	%	sample positions at level 0 whose name is shared: 0 of 6445115; distinct names 6445115
+R	E3b	dna200.slopetouch	3	level0	200000000	symbols	sample 6445115, distinct names 6445115, shared 0 (0.00 %), unique=True, base case=False, leaf buckets 185, split scans 1, scans 186, file runs 185, naming 2.25 s, merge 0.14 s, below 0.00 s
+R	E3b	dna200.slopetouch	3	rank_equals_oracle	yes		byte-identical to dna200.oracle (25780480 bytes)
+R	E3b	genome10.slopetouch	1	n	10000000	symbols	b=3 bits, X=993 Singer |D|=32, sample 322257 (3.22 %), threads=4, touch buffers=True
+R	E3b	genome10.slopetouch	1	parameters	K_s=3495 N_base=55924 R=13981 K_sort=3495		scaled by n/3e9 = 3.333E-003 from K_s=1048576 N_base=16777216 R=4194304 K_sort=1048576 run-spill=64 KiB (run spill 218 bytes: every bucket run of the 3e9 build is a scratch file); the 3e9 build has sample 96676740, about 184 sample buckets (2 x sample / K_s), this one about 184
+R	E3b	genome10.slopetouch	1	ph1_s	0.386019	s	external-memory PH1: sample buckets, merge, levels below, rank file through mapped windows (without fsync)
+R	E3b	genome10.slopetouch	1	fsync_s	0.000172	s	flush of the rank file after the build
+R	E3b	genome10.slopetouch	1	ns_per_symbol	38.601948	ns	ph1_s / n
+R	E3b	genome10.slopetouch	1	rssanon_peak	26.99264	MB	max RssAnon of 40 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E3b	genome10.slopetouch	1	rssfile_peak	32.27648	MB	mapped file pages resident (text, level files, rank windows): reported, not counted (ADR-004 section 6a)
+R	E3b	genome10.slopetouch	1	vmhwm	62.275584	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E3b	genome10.slopetouch	1	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E3b	genome10.slopetouch	1	arena_peak	14.277236	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E3b	genome10.slopetouch	1	io_explicit_read	5457632	bytes	0.546 B/char; run, level, suffix-array and tuple files (234 calls)
+R	E3b	genome10.slopetouch	1	io_explicit_write	5457500	bytes	0.546 B/char (246 calls)
+R	E3b	genome10.slopetouch	1	io_mapped_write	1330632	bytes	0.133 B/char through mapped windows of at most 1048576 bytes (3 windows, largest 1048576); the suffix arrays of the external levels (EmBuilder) are not in this number
+R	E3b	genome10.slopetouch	1	io_total_counted	12245764	bytes	1.225 B/char explicit I/O plus mapped writes (text reads and the SA writes of the external levels come on top: see block-layer read_bytes)
+R	E3b	genome10.slopetouch	1	blocklayer_read	6123520	bytes	/proc/self/io read_bytes during the build (page-cache misses); 0.612 B/char
+R	E3b	genome10.slopetouch	1	blocklayer_write	18522112	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E3b	genome10.slopetouch	1	scratch_peak	3867276	bytes	0.387 B/char peak of all scratch files (runs, reduced strings, level rank files, suffix arrays, tuple files, position buckets), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E3b	genome10.slopetouch	1	rank_file	1289088	bytes	0.129 B/char (the output)
+R	E3b	genome10.slopetouch	1	dirty_peak	0.835584	MB	max /proc/meminfo Dirty (system-wide); max Cached 205 MB
+R	E3b	genome10.slopetouch	1	levels	1	n	deepest level reached (0 = the names of the text are all distinct); levels 2
+R	E3b	genome10.slopetouch	1	nonunique_share	0.790984	%	sample positions at level 0 whose name is shared: 2549 of 322257; distinct names 319709
+R	E3b	genome10.slopetouch	1	level0	10000000	symbols	sample 322257, distinct names 319709, shared 2549 (0.79 %), unique=False, base case=False, leaf buckets 185, split scans 1, scans 186, file runs 185, naming 0.19 s, merge 0.02 s, below 0.16 s
+R	E3b	genome10.slopetouch	1	level1	322289	symbols	sample 10386, distinct names 10386, shared 0 (0.00 %), unique=True, base case=False, leaf buckets 6, split scans 1, scans 7, file runs 6, naming 0.01 s, merge 0.00 s, below 0.00 s
+R	E3b	genome10.slopetouch	1	rank_equals_oracle	yes		byte-identical to genome10.oracle (1289088 bytes)
+R	E3b	genome10.slopetouch	2	n	10000000	symbols	b=3 bits, X=993 Singer |D|=32, sample 322257 (3.22 %), threads=4, touch buffers=True
+R	E3b	genome10.slopetouch	2	parameters	K_s=3495 N_base=55924 R=13981 K_sort=3495		scaled by n/3e9 = 3.333E-003 from K_s=1048576 N_base=16777216 R=4194304 K_sort=1048576 run-spill=64 KiB (run spill 218 bytes: every bucket run of the 3e9 build is a scratch file); the 3e9 build has sample 96676740, about 184 sample buckets (2 x sample / K_s), this one about 184
+R	E3b	genome10.slopetouch	2	ph1_s	0.391833	s	external-memory PH1: sample buckets, merge, levels below, rank file through mapped windows (without fsync)
+R	E3b	genome10.slopetouch	2	fsync_s	0.000145	s	flush of the rank file after the build
+R	E3b	genome10.slopetouch	2	ns_per_symbol	39.183348	ns	ph1_s / n
+R	E3b	genome10.slopetouch	2	rssanon_peak	21.786624	MB	max RssAnon of 41 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E3b	genome10.slopetouch	2	rssfile_peak	32.305152	MB	mapped file pages resident (text, level files, rank windows): reported, not counted (ADR-004 section 6a)
+R	E3b	genome10.slopetouch	2	vmhwm	59.060224	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E3b	genome10.slopetouch	2	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E3b	genome10.slopetouch	2	arena_peak	14.277236	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E3b	genome10.slopetouch	2	io_explicit_read	5457632	bytes	0.546 B/char; run, level, suffix-array and tuple files (234 calls)
+R	E3b	genome10.slopetouch	2	io_explicit_write	5457500	bytes	0.546 B/char (246 calls)
+R	E3b	genome10.slopetouch	2	io_mapped_write	1330632	bytes	0.133 B/char through mapped windows of at most 1048576 bytes (3 windows, largest 1048576); the suffix arrays of the external levels (EmBuilder) are not in this number
+R	E3b	genome10.slopetouch	2	io_total_counted	12245764	bytes	1.225 B/char explicit I/O plus mapped writes (text reads and the SA writes of the external levels come on top: see block-layer read_bytes)
+R	E3b	genome10.slopetouch	2	blocklayer_read	6119424	bytes	/proc/self/io read_bytes during the build (page-cache misses); 0.612 B/char
+R	E3b	genome10.slopetouch	2	blocklayer_write	15011840	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E3b	genome10.slopetouch	2	scratch_peak	3867276	bytes	0.387 B/char peak of all scratch files (runs, reduced strings, level rank files, suffix arrays, tuple files, position buckets), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E3b	genome10.slopetouch	2	rank_file	1289088	bytes	0.129 B/char (the output)
+R	E3b	genome10.slopetouch	2	dirty_peak	0.67584	MB	max /proc/meminfo Dirty (system-wide); max Cached 205 MB
+R	E3b	genome10.slopetouch	2	levels	1	n	deepest level reached (0 = the names of the text are all distinct); levels 2
+R	E3b	genome10.slopetouch	2	nonunique_share	0.790984	%	sample positions at level 0 whose name is shared: 2549 of 322257; distinct names 319709
+R	E3b	genome10.slopetouch	2	level0	10000000	symbols	sample 322257, distinct names 319709, shared 2549 (0.79 %), unique=False, base case=False, leaf buckets 185, split scans 1, scans 186, file runs 185, naming 0.18 s, merge 0.02 s, below 0.17 s
+R	E3b	genome10.slopetouch	2	level1	322289	symbols	sample 10386, distinct names 10386, shared 0 (0.00 %), unique=True, base case=False, leaf buckets 6, split scans 1, scans 7, file runs 6, naming 0.00 s, merge 0.00 s, below 0.00 s
+R	E3b	genome10.slopetouch	2	rank_equals_oracle	yes		byte-identical to genome10.oracle (1289088 bytes)
+R	E3b	genome10.slopetouch	3	n	10000000	symbols	b=3 bits, X=993 Singer |D|=32, sample 322257 (3.22 %), threads=4, touch buffers=True
+R	E3b	genome10.slopetouch	3	parameters	K_s=3495 N_base=55924 R=13981 K_sort=3495		scaled by n/3e9 = 3.333E-003 from K_s=1048576 N_base=16777216 R=4194304 K_sort=1048576 run-spill=64 KiB (run spill 218 bytes: every bucket run of the 3e9 build is a scratch file); the 3e9 build has sample 96676740, about 184 sample buckets (2 x sample / K_s), this one about 184
+R	E3b	genome10.slopetouch	3	ph1_s	0.414607	s	external-memory PH1: sample buckets, merge, levels below, rank file through mapped windows (without fsync)
+R	E3b	genome10.slopetouch	3	fsync_s	0.000223	s	flush of the rank file after the build
+R	E3b	genome10.slopetouch	3	ns_per_symbol	41.460666	ns	ph1_s / n
+R	E3b	genome10.slopetouch	3	rssanon_peak	22.294528	MB	max RssAnon of 43 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E3b	genome10.slopetouch	3	rssfile_peak	32.366592	MB	mapped file pages resident (text, level files, rank windows): reported, not counted (ADR-004 section 6a)
+R	E3b	genome10.slopetouch	3	vmhwm	55.95136	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E3b	genome10.slopetouch	3	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E3b	genome10.slopetouch	3	arena_peak	14.277236	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E3b	genome10.slopetouch	3	io_explicit_read	5457632	bytes	0.546 B/char; run, level, suffix-array and tuple files (234 calls)
+R	E3b	genome10.slopetouch	3	io_explicit_write	5457500	bytes	0.546 B/char (246 calls)
+R	E3b	genome10.slopetouch	3	io_mapped_write	1330632	bytes	0.133 B/char through mapped windows of at most 1048576 bytes (3 windows, largest 1048576); the suffix arrays of the external levels (EmBuilder) are not in this number
+R	E3b	genome10.slopetouch	3	io_total_counted	12245764	bytes	1.225 B/char explicit I/O plus mapped writes (text reads and the SA writes of the external levels come on top: see block-layer read_bytes)
+R	E3b	genome10.slopetouch	3	blocklayer_read	6115328	bytes	/proc/self/io read_bytes during the build (page-cache misses); 0.612 B/char
+R	E3b	genome10.slopetouch	3	blocklayer_write	15290368	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E3b	genome10.slopetouch	3	scratch_peak	3867276	bytes	0.387 B/char peak of all scratch files (runs, reduced strings, level rank files, suffix arrays, tuple files, position buckets), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E3b	genome10.slopetouch	3	rank_file	1289088	bytes	0.129 B/char (the output)
+R	E3b	genome10.slopetouch	3	dirty_peak	1.875968	MB	max /proc/meminfo Dirty (system-wide); max Cached 205 MB
+R	E3b	genome10.slopetouch	3	levels	1	n	deepest level reached (0 = the names of the text are all distinct); levels 2
+R	E3b	genome10.slopetouch	3	nonunique_share	0.790984	%	sample positions at level 0 whose name is shared: 2549 of 322257; distinct names 319709
+R	E3b	genome10.slopetouch	3	level0	10000000	symbols	sample 322257, distinct names 319709, shared 2549 (0.79 %), unique=False, base case=False, leaf buckets 185, split scans 1, scans 186, file runs 185, naming 0.19 s, merge 0.03 s, below 0.17 s
+R	E3b	genome10.slopetouch	3	level1	322289	symbols	sample 10386, distinct names 10386, shared 0 (0.00 %), unique=True, base case=False, leaf buckets 6, split scans 1, scans 7, file runs 6, naming 0.01 s, merge 0.00 s, below 0.00 s
+R	E3b	genome10.slopetouch	3	rank_equals_oracle	yes		byte-identical to genome10.oracle (1289088 bytes)
+R	E3b	genome50.slopetouch	1	n	50000000	symbols	b=3 bits, X=993 Singer |D|=32, sample 1611279 (3.22 %), threads=4, touch buffers=True
+R	E3b	genome50.slopetouch	1	parameters	K_s=17476 N_base=279620 R=69905 K_sort=17476		scaled by n/3e9 = 1.667E-002 from K_s=1048576 N_base=16777216 R=4194304 K_sort=1048576 run-spill=64 KiB (run spill 1092 bytes: every bucket run of the 3e9 build is a scratch file); the 3e9 build has sample 96676740, about 184 sample buckets (2 x sample / K_s), this one about 184
+R	E3b	genome50.slopetouch	1	ph1_s	1.277595	s	external-memory PH1: sample buckets, merge, levels below, rank file through mapped windows (without fsync)
+R	E3b	genome50.slopetouch	1	fsync_s	0.000287	s	flush of the rank file after the build
+R	E3b	genome50.slopetouch	1	ns_per_symbol	25.551893	ns	ph1_s / n
+R	E3b	genome50.slopetouch	1	rssanon_peak	24.571904	MB	max RssAnon of 129 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E3b	genome50.slopetouch	1	rssfile_peak	53.059584	MB	mapped file pages resident (text, level files, rank windows): reported, not counted (ADR-004 section 6a)
+R	E3b	genome50.slopetouch	1	vmhwm	76.398592	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E3b	genome50.slopetouch	1	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E3b	genome50.slopetouch	1	arena_peak	14.500932	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E3b	genome50.slopetouch	1	io_explicit_read	37959432	bytes	0.759 B/char; run, level, suffix-array and tuple files (4019 calls)
+R	E3b	genome50.slopetouch	1	io_explicit_write	37946180	bytes	0.759 B/char (630 calls)
+R	E3b	genome50.slopetouch	1	io_mapped_write	6652880	bytes	0.133 B/char through mapped windows of at most 1048576 bytes (8 windows, largest 1048576); the suffix arrays of the external levels (EmBuilder) are not in this number
+R	E3b	genome50.slopetouch	1	io_total_counted	82558492	bytes	1.651 B/char explicit I/O plus mapped writes (text reads and the SA writes of the external levels come on top: see block-layer read_bytes)
+R	E3b	genome50.slopetouch	1	blocklayer_read	21327872	bytes	/proc/self/io read_bytes during the build (page-cache misses); 0.427 B/char
+R	E3b	genome50.slopetouch	1	blocklayer_write	56979456	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E3b	genome50.slopetouch	1	scratch_peak	19335540	bytes	0.387 B/char peak of all scratch files (runs, reduced strings, level rank files, suffix arrays, tuple files, position buckets), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E3b	genome50.slopetouch	1	rank_file	6445184	bytes	0.129 B/char (the output)
+R	E3b	genome50.slopetouch	1	dirty_peak	9.314304	MB	max /proc/meminfo Dirty (system-wide); max Cached 237 MB
+R	E3b	genome50.slopetouch	1	levels	1	n	deepest level reached (0 = the names of the text are all distinct); levels 2
+R	E3b	genome50.slopetouch	1	nonunique_share	0.838154	%	sample positions at level 0 whose name is shared: 13505 of 1611279; distinct names 1597775
+R	E3b	genome50.slopetouch	1	level0	50000000	symbols	sample 1611279, distinct names 1597775, shared 13505 (0.84 %), unique=False, base case=False, leaf buckets 185, split scans 1, scans 186, file runs 185, naming 0.62 s, merge 0.04 s, below 0.54 s
+R	E3b	genome50.slopetouch	1	level1	1611311	symbols	sample 51924, distinct names 51924, shared 0 (0.00 %), unique=True, base case=False, leaf buckets 6, split scans 1, scans 7, file runs 6, naming 0.02 s, merge 0.00 s, below 0.00 s
+R	E3b	genome50.slopetouch	1	rank_equals_oracle	yes		byte-identical to genome50.oracle (6445184 bytes)
+R	E3b	genome50.slopetouch	2	n	50000000	symbols	b=3 bits, X=993 Singer |D|=32, sample 1611279 (3.22 %), threads=4, touch buffers=True
+R	E3b	genome50.slopetouch	2	parameters	K_s=17476 N_base=279620 R=69905 K_sort=17476		scaled by n/3e9 = 1.667E-002 from K_s=1048576 N_base=16777216 R=4194304 K_sort=1048576 run-spill=64 KiB (run spill 1092 bytes: every bucket run of the 3e9 build is a scratch file); the 3e9 build has sample 96676740, about 184 sample buckets (2 x sample / K_s), this one about 184
+R	E3b	genome50.slopetouch	2	ph1_s	1.286054	s	external-memory PH1: sample buckets, merge, levels below, rank file through mapped windows (without fsync)
+R	E3b	genome50.slopetouch	2	fsync_s	0.000199	s	flush of the rank file after the build
+R	E3b	genome50.slopetouch	2	ns_per_symbol	25.721071	ns	ph1_s / n
+R	E3b	genome50.slopetouch	2	rssanon_peak	24.10496	MB	max RssAnon of 130 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E3b	genome50.slopetouch	2	rssfile_peak	53.092352	MB	mapped file pages resident (text, level files, rank windows): reported, not counted (ADR-004 section 6a)
+R	E3b	genome50.slopetouch	2	vmhwm	76.468224	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E3b	genome50.slopetouch	2	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E3b	genome50.slopetouch	2	arena_peak	14.500932	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E3b	genome50.slopetouch	2	io_explicit_read	37959432	bytes	0.759 B/char; run, level, suffix-array and tuple files (4019 calls)
+R	E3b	genome50.slopetouch	2	io_explicit_write	37946180	bytes	0.759 B/char (630 calls)
+R	E3b	genome50.slopetouch	2	io_mapped_write	6652880	bytes	0.133 B/char through mapped windows of at most 1048576 bytes (8 windows, largest 1048576); the suffix arrays of the external levels (EmBuilder) are not in this number
+R	E3b	genome50.slopetouch	2	io_total_counted	82558492	bytes	1.651 B/char explicit I/O plus mapped writes (text reads and the SA writes of the external levels come on top: see block-layer read_bytes)
+R	E3b	genome50.slopetouch	2	blocklayer_read	21422080	bytes	/proc/self/io read_bytes during the build (page-cache misses); 0.428 B/char
+R	E3b	genome50.slopetouch	2	blocklayer_write	56025088	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E3b	genome50.slopetouch	2	scratch_peak	19335540	bytes	0.387 B/char peak of all scratch files (runs, reduced strings, level rank files, suffix arrays, tuple files, position buckets), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E3b	genome50.slopetouch	2	rank_file	6445184	bytes	0.129 B/char (the output)
+R	E3b	genome50.slopetouch	2	dirty_peak	12.713984	MB	max /proc/meminfo Dirty (system-wide); max Cached 237 MB
+R	E3b	genome50.slopetouch	2	levels	1	n	deepest level reached (0 = the names of the text are all distinct); levels 2
+R	E3b	genome50.slopetouch	2	nonunique_share	0.838154	%	sample positions at level 0 whose name is shared: 13505 of 1611279; distinct names 1597775
+R	E3b	genome50.slopetouch	2	level0	50000000	symbols	sample 1611279, distinct names 1597775, shared 13505 (0.84 %), unique=False, base case=False, leaf buckets 185, split scans 1, scans 186, file runs 185, naming 0.61 s, merge 0.04 s, below 0.61 s
+R	E3b	genome50.slopetouch	2	level1	1611311	symbols	sample 51924, distinct names 51924, shared 0 (0.00 %), unique=True, base case=False, leaf buckets 6, split scans 1, scans 7, file runs 6, naming 0.01 s, merge 0.00 s, below 0.00 s
+R	E3b	genome50.slopetouch	2	rank_equals_oracle	yes		byte-identical to genome50.oracle (6445184 bytes)
+R	E3b	genome50.slopetouch	3	n	50000000	symbols	b=3 bits, X=993 Singer |D|=32, sample 1611279 (3.22 %), threads=4, touch buffers=True
+R	E3b	genome50.slopetouch	3	parameters	K_s=17476 N_base=279620 R=69905 K_sort=17476		scaled by n/3e9 = 1.667E-002 from K_s=1048576 N_base=16777216 R=4194304 K_sort=1048576 run-spill=64 KiB (run spill 1092 bytes: every bucket run of the 3e9 build is a scratch file); the 3e9 build has sample 96676740, about 184 sample buckets (2 x sample / K_s), this one about 184
+R	E3b	genome50.slopetouch	3	ph1_s	1.350001	s	external-memory PH1: sample buckets, merge, levels below, rank file through mapped windows (without fsync)
+R	E3b	genome50.slopetouch	3	fsync_s	0.000216	s	flush of the rank file after the build
+R	E3b	genome50.slopetouch	3	ns_per_symbol	27.000016	ns	ph1_s / n
+R	E3b	genome50.slopetouch	3	rssanon_peak	27.090944	MB	max RssAnon of 136 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E3b	genome50.slopetouch	3	rssfile_peak	53.18656	MB	mapped file pages resident (text, level files, rank windows): reported, not counted (ADR-004 section 6a)
+R	E3b	genome50.slopetouch	3	vmhwm	76.951552	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E3b	genome50.slopetouch	3	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E3b	genome50.slopetouch	3	arena_peak	14.500932	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E3b	genome50.slopetouch	3	io_explicit_read	37959432	bytes	0.759 B/char; run, level, suffix-array and tuple files (4019 calls)
+R	E3b	genome50.slopetouch	3	io_explicit_write	37946180	bytes	0.759 B/char (630 calls)
+R	E3b	genome50.slopetouch	3	io_mapped_write	6652880	bytes	0.133 B/char through mapped windows of at most 1048576 bytes (8 windows, largest 1048576); the suffix arrays of the external levels (EmBuilder) are not in this number
+R	E3b	genome50.slopetouch	3	io_total_counted	82558492	bytes	1.651 B/char explicit I/O plus mapped writes (text reads and the SA writes of the external levels come on top: see block-layer read_bytes)
+R	E3b	genome50.slopetouch	3	blocklayer_read	21323776	bytes	/proc/self/io read_bytes during the build (page-cache misses); 0.426 B/char
+R	E3b	genome50.slopetouch	3	blocklayer_write	58347520	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E3b	genome50.slopetouch	3	scratch_peak	19335540	bytes	0.387 B/char peak of all scratch files (runs, reduced strings, level rank files, suffix arrays, tuple files, position buckets), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E3b	genome50.slopetouch	3	rank_file	6445184	bytes	0.129 B/char (the output)
+R	E3b	genome50.slopetouch	3	dirty_peak	12.6976	MB	max /proc/meminfo Dirty (system-wide); max Cached 237 MB
+R	E3b	genome50.slopetouch	3	levels	1	n	deepest level reached (0 = the names of the text are all distinct); levels 2
+R	E3b	genome50.slopetouch	3	nonunique_share	0.838154	%	sample positions at level 0 whose name is shared: 13505 of 1611279; distinct names 1597775
+R	E3b	genome50.slopetouch	3	level0	50000000	symbols	sample 1611279, distinct names 1597775, shared 13505 (0.84 %), unique=False, base case=False, leaf buckets 185, split scans 1, scans 186, file runs 185, naming 0.68 s, merge 0.06 s, below 0.58 s
+R	E3b	genome50.slopetouch	3	level1	1611311	symbols	sample 51924, distinct names 51924, shared 0 (0.00 %), unique=True, base case=False, leaf buckets 6, split scans 1, scans 7, file runs 6, naming 0.02 s, merge 0.00 s, below 0.00 s
+R	E3b	genome50.slopetouch	3	rank_equals_oracle	yes		byte-identical to genome50.oracle (6445184 bytes)
+R	E3b	genome_100m.slopetouch	1	n	100000000	symbols	b=3 bits, X=993 Singer |D|=32, sample 3222557 (3.22 %), threads=4, touch buffers=True
+R	E3b	genome_100m.slopetouch	1	parameters	K_s=34953 N_base=559241 R=139810 K_sort=34953		scaled by n/3e9 = 3.333E-002 from K_s=1048576 N_base=16777216 R=4194304 K_sort=1048576 run-spill=64 KiB (run spill 2185 bytes: every bucket run of the 3e9 build is a scratch file); the 3e9 build has sample 96676740, about 184 sample buckets (2 x sample / K_s), this one about 184
+R	E3b	genome_100m.slopetouch	1	ph1_s	2.271366	s	external-memory PH1: sample buckets, merge, levels below, rank file through mapped windows (without fsync)
+R	E3b	genome_100m.slopetouch	1	fsync_s	0.000245	s	flush of the rank file after the build
+R	E3b	genome_100m.slopetouch	1	ns_per_symbol	22.713657	ns	ph1_s / n
+R	E3b	genome_100m.slopetouch	1	rssanon_peak	25.78432	MB	max RssAnon of 229 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E3b	genome_100m.slopetouch	1	rssfile_peak	78.737408	MB	mapped file pages resident (text, level files, rank windows): reported, not counted (ADR-004 section 6a)
+R	E3b	genome_100m.slopetouch	1	vmhwm	107.298816	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E3b	genome_100m.slopetouch	1	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E3b	genome_100m.slopetouch	1	arena_peak	14.780552	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E3b	genome_100m.slopetouch	1	io_explicit_read	82833076	bytes	0.828 B/char; run, level, suffix-array and tuple files (4605 calls)
+R	E3b	genome_100m.slopetouch	1	io_explicit_write	82820080	bytes	0.828 B/char (1166 calls)
+R	E3b	genome_100m.slopetouch	1	io_mapped_write	13305644	bytes	0.133 B/char through mapped windows of at most 1048576 bytes (14 windows, largest 1048576); the suffix arrays of the external levels (EmBuilder) are not in this number
+R	E3b	genome_100m.slopetouch	1	io_total_counted	178958800	bytes	1.790 B/char explicit I/O plus mapped writes (text reads and the SA writes of the external levels come on top: see block-layer read_bytes)
+R	E3b	genome_100m.slopetouch	1	blocklayer_read	40161280	bytes	/proc/self/io read_bytes during the build (page-cache misses); 0.402 B/char
+R	E3b	genome_100m.slopetouch	1	blocklayer_write	118419456	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E3b	genome_100m.slopetouch	1	scratch_peak	39217696	bytes	0.392 B/char peak of all scratch files (runs, reduced strings, level rank files, suffix arrays, tuple files, position buckets), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E3b	genome_100m.slopetouch	1	rank_file	12890240	bytes	0.129 B/char (the output)
+R	E3b	genome_100m.slopetouch	1	dirty_peak	23.16288	MB	max /proc/meminfo Dirty (system-wide); max Cached 276 MB
+R	E3b	genome_100m.slopetouch	1	levels	1	n	deepest level reached (0 = the names of the text are all distinct); levels 2
+R	E3b	genome_100m.slopetouch	1	nonunique_share	0.843833	%	sample positions at level 0 whose name is shared: 27193 of 3222557; distinct names 3195365
+R	E3b	genome_100m.slopetouch	1	level0	100000000	symbols	sample 3222557, distinct names 3195365, shared 27193 (0.84 %), unique=False, base case=False, leaf buckets 185, split scans 1, scans 186, file runs 185, naming 1.30 s, merge 0.07 s, below 0.84 s
+R	E3b	genome_100m.slopetouch	1	level1	3222589	symbols	sample 103851, distinct names 103851, shared 0 (0.00 %), unique=True, base case=False, leaf buckets 6, split scans 1, scans 7, file runs 6, naming 0.01 s, merge 0.00 s, below 0.00 s
+R	E3b	genome_100m.slopetouch	1	rank_equals_oracle	yes		byte-identical to genome_100m.oracle (12890240 bytes)
+R	E3b	genome_100m.slopetouch	2	n	100000000	symbols	b=3 bits, X=993 Singer |D|=32, sample 3222557 (3.22 %), threads=4, touch buffers=True
+R	E3b	genome_100m.slopetouch	2	parameters	K_s=34953 N_base=559241 R=139810 K_sort=34953		scaled by n/3e9 = 3.333E-002 from K_s=1048576 N_base=16777216 R=4194304 K_sort=1048576 run-spill=64 KiB (run spill 2185 bytes: every bucket run of the 3e9 build is a scratch file); the 3e9 build has sample 96676740, about 184 sample buckets (2 x sample / K_s), this one about 184
+R	E3b	genome_100m.slopetouch	2	ph1_s	2.171017	s	external-memory PH1: sample buckets, merge, levels below, rank file through mapped windows (without fsync)
+R	E3b	genome_100m.slopetouch	2	fsync_s	0.000184	s	flush of the rank file after the build
+R	E3b	genome_100m.slopetouch	2	ns_per_symbol	21.710167	ns	ph1_s / n
+R	E3b	genome_100m.slopetouch	2	rssanon_peak	25.194496	MB	max RssAnon of 219 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E3b	genome_100m.slopetouch	2	rssfile_peak	78.7456	MB	mapped file pages resident (text, level files, rank windows): reported, not counted (ADR-004 section 6a)
+R	E3b	genome_100m.slopetouch	2	vmhwm	103.432192	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E3b	genome_100m.slopetouch	2	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E3b	genome_100m.slopetouch	2	arena_peak	14.780552	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E3b	genome_100m.slopetouch	2	io_explicit_read	82833076	bytes	0.828 B/char; run, level, suffix-array and tuple files (4605 calls)
+R	E3b	genome_100m.slopetouch	2	io_explicit_write	82820080	bytes	0.828 B/char (1166 calls)
+R	E3b	genome_100m.slopetouch	2	io_mapped_write	13305644	bytes	0.133 B/char through mapped windows of at most 1048576 bytes (14 windows, largest 1048576); the suffix arrays of the external levels (EmBuilder) are not in this number
+R	E3b	genome_100m.slopetouch	2	io_total_counted	178958800	bytes	1.790 B/char explicit I/O plus mapped writes (text reads and the SA writes of the external levels come on top: see block-layer read_bytes)
+R	E3b	genome_100m.slopetouch	2	blocklayer_read	40165376	bytes	/proc/self/io read_bytes during the build (page-cache misses); 0.402 B/char
+R	E3b	genome_100m.slopetouch	2	blocklayer_write	116178944	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E3b	genome_100m.slopetouch	2	scratch_peak	39152160	bytes	0.392 B/char peak of all scratch files (runs, reduced strings, level rank files, suffix arrays, tuple files, position buckets), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E3b	genome_100m.slopetouch	2	rank_file	12890240	bytes	0.129 B/char (the output)
+R	E3b	genome_100m.slopetouch	2	dirty_peak	26.19392	MB	max /proc/meminfo Dirty (system-wide); max Cached 276 MB
+R	E3b	genome_100m.slopetouch	2	levels	1	n	deepest level reached (0 = the names of the text are all distinct); levels 2
+R	E3b	genome_100m.slopetouch	2	nonunique_share	0.843833	%	sample positions at level 0 whose name is shared: 27193 of 3222557; distinct names 3195365
+R	E3b	genome_100m.slopetouch	2	level0	100000000	symbols	sample 3222557, distinct names 3195365, shared 27193 (0.84 %), unique=False, base case=False, leaf buckets 185, split scans 1, scans 186, file runs 185, naming 1.20 s, merge 0.07 s, below 0.87 s
+R	E3b	genome_100m.slopetouch	2	level1	3222589	symbols	sample 103851, distinct names 103851, shared 0 (0.00 %), unique=True, base case=False, leaf buckets 6, split scans 1, scans 7, file runs 6, naming 0.02 s, merge 0.00 s, below 0.00 s
+R	E3b	genome_100m.slopetouch	2	rank_equals_oracle	yes		byte-identical to genome_100m.oracle (12890240 bytes)
+R	E3b	genome_100m.slopetouch	3	n	100000000	symbols	b=3 bits, X=993 Singer |D|=32, sample 3222557 (3.22 %), threads=4, touch buffers=True
+R	E3b	genome_100m.slopetouch	3	parameters	K_s=34953 N_base=559241 R=139810 K_sort=34953		scaled by n/3e9 = 3.333E-002 from K_s=1048576 N_base=16777216 R=4194304 K_sort=1048576 run-spill=64 KiB (run spill 2185 bytes: every bucket run of the 3e9 build is a scratch file); the 3e9 build has sample 96676740, about 184 sample buckets (2 x sample / K_s), this one about 184
+R	E3b	genome_100m.slopetouch	3	ph1_s	2.054751	s	external-memory PH1: sample buckets, merge, levels below, rank file through mapped windows (without fsync)
+R	E3b	genome_100m.slopetouch	3	fsync_s	0.000245	s	flush of the rank file after the build
+R	E3b	genome_100m.slopetouch	3	ns_per_symbol	20.547506	ns	ph1_s / n
+R	E3b	genome_100m.slopetouch	3	rssanon_peak	24.53504	MB	max RssAnon of 206 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E3b	genome_100m.slopetouch	3	rssfile_peak	78.58176	MB	mapped file pages resident (text, level files, rank windows): reported, not counted (ADR-004 section 6a)
+R	E3b	genome_100m.slopetouch	3	vmhwm	103.493632	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E3b	genome_100m.slopetouch	3	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E3b	genome_100m.slopetouch	3	arena_peak	14.780552	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E3b	genome_100m.slopetouch	3	io_explicit_read	82833076	bytes	0.828 B/char; run, level, suffix-array and tuple files (4605 calls)
+R	E3b	genome_100m.slopetouch	3	io_explicit_write	82820080	bytes	0.828 B/char (1166 calls)
+R	E3b	genome_100m.slopetouch	3	io_mapped_write	13305644	bytes	0.133 B/char through mapped windows of at most 1048576 bytes (14 windows, largest 1048576); the suffix arrays of the external levels (EmBuilder) are not in this number
+R	E3b	genome_100m.slopetouch	3	io_total_counted	178958800	bytes	1.790 B/char explicit I/O plus mapped writes (text reads and the SA writes of the external levels come on top: see block-layer read_bytes)
+R	E3b	genome_100m.slopetouch	3	blocklayer_read	40161280	bytes	/proc/self/io read_bytes during the build (page-cache misses); 0.402 B/char
+R	E3b	genome_100m.slopetouch	3	blocklayer_write	115040256	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E3b	genome_100m.slopetouch	3	scratch_peak	39230048	bytes	0.392 B/char peak of all scratch files (runs, reduced strings, level rank files, suffix arrays, tuple files, position buckets), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E3b	genome_100m.slopetouch	3	rank_file	12890240	bytes	0.129 B/char (the output)
+R	E3b	genome_100m.slopetouch	3	dirty_peak	21.757952	MB	max /proc/meminfo Dirty (system-wide); max Cached 274 MB
+R	E3b	genome_100m.slopetouch	3	levels	1	n	deepest level reached (0 = the names of the text are all distinct); levels 2
+R	E3b	genome_100m.slopetouch	3	nonunique_share	0.843833	%	sample positions at level 0 whose name is shared: 27193 of 3222557; distinct names 3195365
+R	E3b	genome_100m.slopetouch	3	level0	100000000	symbols	sample 3222557, distinct names 3195365, shared 27193 (0.84 %), unique=False, base case=False, leaf buckets 185, split scans 1, scans 186, file runs 185, naming 1.16 s, merge 0.08 s, below 0.78 s
+R	E3b	genome_100m.slopetouch	3	level1	3222589	symbols	sample 103851, distinct names 103851, shared 0 (0.00 %), unique=True, base case=False, leaf buckets 6, split scans 1, scans 7, file runs 6, naming 0.03 s, merge 0.00 s, below 0.00 s
+R	E3b	genome_100m.slopetouch	3	rank_equals_oracle	yes		byte-identical to genome_100m.oracle (12890240 bytes)
