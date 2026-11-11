@@ -135,7 +135,7 @@ internal static unsafe class E4
         r.Row("E4", caseName, "max_plcp", st.MaxPlcp, "symbols", "largest LCP value");
         r.Row("E4", caseName, "compare_steps", st.CompareSteps, "steps", $"vector (or word) compare steps of all PLCP loops, {st.CompareSteps / (double)n:F3} per position; restart cost (symbols compared at the first position of each of the {st.TextChunks} chunks, no carry): {st.RestartSymbols}");
         r.Row("E4", caseName, "chunks", st.TextChunks, "n", $"text chunks {st.TextChunks}, rank chunks {st.RankChunks}, rounds {st.Rounds}, B2 tasks in parallel {st.Workers}");
-        bool ok = rs.MaxRssAnonMb <= o.Double("rss-cap-mb", 256) && left.Length == 0 && scratchLive == 0 && options.Budget.LiveBytes == 0;
+        bool ok = Healthy(rs.MaxRssAnonMb, o.Double("rss-cap-mb", 256), left.Length, scratchLive, options.Budget.LiveBytes);
         if (o.Get("verify") is { } oracle)
         {
             (bool eqBase, long diffBase) = E3b.CompareFiles(basePath, oracle + ".lcp");
@@ -146,6 +146,10 @@ internal static unsafe class E4
         }
         return ok ? 0 : 1;
     }
+
+    /// <summary>The exit code of a build before the comparison with the oracle: the RssAnon cap of gate G2 held, and no scratch entry, tracked scratch byte or arena byte is left behind.</summary>
+    internal static bool Healthy(double rssAnonMb, double capMb, int scratchEntriesLeft, long scratchLiveBytes, long arenaLiveBytes)
+        => rssAnonMb <= capMb && scratchEntriesLeft == 0 && scratchLiveBytes == 0 && arenaLiveBytes == 0;
 
     /// <summary><c>lcp-oracle</c>: the compact LCP of the in-RAM <see cref="LcpKernel"/> written in the layout of <see cref="ExternalLcp"/> (base file, overflow pairs); needs n below 2^31.</summary>
     internal static int Oracle(Options o, Report r)

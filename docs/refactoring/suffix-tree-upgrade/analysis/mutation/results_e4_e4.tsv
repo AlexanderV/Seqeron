@@ -1,0 +1,11 @@
+E01	R scaled down rounds towards zero	killed(4)	
+E02	rounds: floor of P / r chunks per round	killed(1)	
+E03	B2 workers: twice what the reference geometry allows	killed(3)	
+E04	the exit code ignores the oracle	killed(1)	
+E05	the exit code ignores leftover scratch	survived	survived
+E06	check-lcp: structure scan accepts a missing pair	survived	survived
+E07	check-lcp: samples are not compared	BUILD-ERROR S1854	
+E08	check-lcp: the rank of a pair is not compared	BUILD-ERROR S1481	
+E09	check-lcp: the value of a pair is not required to reach the escape	BUILD-ERROR S1481	
+E10	check-lcp: the last rank is not sampled	killed(1)	
+E11	lcp-oracle: the overflow ranks are written as values	killed(3)	

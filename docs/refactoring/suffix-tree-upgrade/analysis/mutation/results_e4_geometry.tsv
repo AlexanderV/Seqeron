@@ -1,0 +1,7 @@
+G01	TextChunks: floor instead of ceiling	killed(19)	
+G02	RankChunks: ceil(n / R) instead of ceil((n + 1) / R)	killed(15)	
+G03	TextChunkLength: the last chunk is as long as the others	killed(19)	
+G04	RankChunkLength: the empty suffix rank is not counted	killed(28)	
+G05	the fast division is not used for R = 2	killed(3)	
+G06	ChunkOf: R = 1 falls back to a single chunk	killed(1)	
+G07	a text of 2^32 - 1 symbols is accepted	killed(1)	

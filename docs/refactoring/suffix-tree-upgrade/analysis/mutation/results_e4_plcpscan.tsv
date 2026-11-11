@@ -1,0 +1,9 @@
+P01	limit from the smaller of the two positions	killed(21)	
+P02	the carried length is not decremented	killed(25)	
+P03	escape >= 255 counted from 256	killed(8)	
+P04	escape >= 65535 counted from 65536	killed(4)	
+P05	FirstValue taken at the second position	killed(5)	
+P06	the carry survives a position without a predecessor	survived	survived
+P07	MaxPlcp keeps the smallest	killed(6)	
+P08	a position without a predecessor keeps a stale value	killed(31)	
+P09	the escapes are not counted when the value reaches 255	BUILD-ERROR S1066	

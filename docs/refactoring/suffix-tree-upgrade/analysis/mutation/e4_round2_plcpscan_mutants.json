@@ -1,0 +1,8 @@
+[
+ {
+  "id": "P09b",
+  "desc": "PLCP loop: every value >= 255 counted twice",
+  "old": "                e8++;\n",
+  "new": "                e8 += 2;\n"
+ }
+]

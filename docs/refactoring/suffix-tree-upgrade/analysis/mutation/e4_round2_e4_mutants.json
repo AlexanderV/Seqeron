@@ -1,0 +1,56 @@
+[
+ {
+  "id": "E06",
+  "desc": "check-lcp: structure scan accepts a missing pair (round 1 survivor, re-run)",
+  "old": "if (width == 4 ? overflowCount != 0 : escapesInBase != overflowCount) problems++;",
+  "new": ""
+ },
+ {
+  "id": "E07b",
+  "desc": "check-lcp: only a missing pair counts as a sample mismatch",
+  "old": "if (got != expected) mismatches++;",
+  "new": "if (got != expected && got < 0) mismatches++;"
+ },
+ {
+  "id": "E08b",
+  "desc": "check-lcp: a pair ahead of its slot is accepted",
+  "old": "if (pr != rank || pr <= previousRank || pv < escape) problems++;",
+  "new": "if (pr < rank || pr <= previousRank || pv < escape) problems++;"
+ },
+ {
+  "id": "E09b",
+  "desc": "check-lcp: a pair value below the escape is accepted",
+  "old": "if (pr != rank || pr <= previousRank || pv < escape) problems++;",
+  "new": "if (pr != rank || pr <= previousRank || pv < 1) problems++;"
+ },
+ {
+  "id": "H01",
+  "desc": "Healthy: the cap itself is exceeded",
+  "old": "=> rssAnonMb <= capMb && scratchEntriesLeft == 0",
+  "new": "=> rssAnonMb < capMb && scratchEntriesLeft == 0"
+ },
+ {
+  "id": "H02",
+  "desc": "Healthy: a leftover scratch entry is accepted (E05)",
+  "old": "rssAnonMb <= capMb && scratchEntriesLeft == 0 && scratchLiveBytes == 0",
+  "new": "rssAnonMb <= capMb && scratchLiveBytes == 0"
+ },
+ {
+  "id": "H03",
+  "desc": "Healthy: tracked scratch bytes left are accepted",
+  "old": "scratchLiveBytes == 0 && arenaLiveBytes == 0;",
+  "new": "arenaLiveBytes == 0;"
+ },
+ {
+  "id": "H04",
+  "desc": "Healthy: native bytes still charged are accepted",
+  "old": "scratchLiveBytes == 0 && arenaLiveBytes == 0;",
+  "new": "scratchLiveBytes == 0;"
+ },
+ {
+  "id": "H05",
+  "desc": "Healthy: the RssAnon cap is not checked",
+  "old": "=> rssAnonMb <= capMb && scratchEntriesLeft == 0",
+  "new": "=> scratchEntriesLeft == 0"
+ }
+]

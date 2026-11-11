@@ -502,6 +502,38 @@ public class ExternalLcpOptionsTests
         }
     }
 
+    // Added after audit round 1 (mutant B06: a chunk with too FEW tuples was accepted, because the chunk with one too many is found anyway - unless the single task meets the deficient one first and goes on
+    // with stale buffers): with one task and the deficient chunk before the surplus one the check on the short chunk is the only thing that stops the build.
+    [TestCase(false, true)]
+    [TestCase(true, true)]
+    [TestCase(false, false)]
+    [TestCase(true, false)]
+    public void NotAPermutation_OneTask_IsDetectedAtTheShortChunk_OrTheLongOne_WhicheverComesFirst(bool boundedMode, bool deficientFirst)
+    {
+        (PackedText t, uint[] sa) = Small(); // n = 6000
+        using (t)
+        {
+            var g = new LcpGeometry(6000, 500);
+            // sa[from] is overwritten by a copy of sa[j]: the chunk of the old sa[from] loses a tuple, the chunk of sa[j] gains one
+            int from = 10;
+            int j = 11;
+            while (deficientFirst ? g.ChunkOf(sa[j]) <= g.ChunkOf(sa[from]) : g.ChunkOf(sa[j]) >= g.ChunkOf(sa[from]))
+            {
+                if (++j == sa.Length)
+                {
+                    from++;
+                    j = from + 1;
+                }
+            }
+            sa[from] = sa[j];
+            ExtLcpOptions o = LcpHarness.Options(Path.Combine(_dir, "s"), 500, 1, boundedMode ? LcpMode.Bounded : LcpMode.Distributed, 0);
+            string saPath = LcpHarness.WriteSa(sa, _dir);
+            var ex = Assert.Throws<InvalidOperationException>(() => ExternalLcp.Build(saPath, t, Path.Combine(_dir, "b"), Path.Combine(_dir, "o"), o));
+            Assert.That(ex!.Message, Does.Contain("Phi tuples, expected"), "the check on the number of tuples of a chunk, not a consequence of stale buffers");
+            Assert.That(Directory.GetFileSystemEntries(Path.Combine(_dir, "s")), Is.Empty);
+        }
+    }
+
     [TestCase(false)]
     [TestCase(true)]
     public void NotAPermutation_IsDetected_WhenTheChunksDisagreeOnTheirTupleCounts(bool boundedMode)
@@ -540,6 +572,24 @@ public class ExternalLcpOptionsTests
             Assert.That(ScratchTracker.Peak, Is.EqualTo((4 * 3000) + (8 * 3000)), "two rounds: the PLCP of the first half (4 B) and the pairs of the second half (8 B)");
             Assert.That(ScratchTracker.Live, Is.Zero);
         }
+    }
+
+    // Added after audit round 1 (mutant B26: the restart cost of the tasks was not summed).
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Stats_RestartSymbolsOfAllSame_AreTheSuffixLengthsAtTheChunkStarts_SummedOverTheTasks(bool boundedMode)
+    {
+        const int n = 1000;
+        var symbols = new byte[n];
+        uint[] sa = Enumerable.Range(0, n + 1).Select(i => (uint)(n - i)).ToArray();
+        using PackedText t = PackedText.Pack(symbols, 1);
+        ExtLcpOptions o = LcpHarness.Options(Path.Combine(_dir, "s"), 100, 3, boundedMode ? LcpMode.Bounded : LcpMode.Distributed, 0);
+        LcpOutcome got = LcpHarness.Run(t, sa, o, _dir);
+        Assert.That(got.Stats.RestartSymbols, Is.EqualTo(5490), "ten chunk starts compare n - start - 1 = 999, 899, ..., 99 symbols from scratch");
+        Assert.That(got.Stats.MaxPlcp, Is.EqualTo(n - 1));
+        Assert.That(got.Stats.Escapes8, Is.EqualTo(n - 255), "the values 255 .. 999 of a^1000");
+        Assert.That(got.Stats.Escapes16, Is.Zero);
+        Assert.That(got.Stats.CompareSteps, Is.GreaterThan(0));
     }
 
     [Test]
@@ -659,6 +709,10 @@ public class E4CommandTests
         ovf[8] ^= 1; // the rank of the second pair
         File.WriteAllBytes(outPrefix + ".ovf", ovf);
         Assert.That(E4.CheckSample(Options.Parse(check), report), Is.EqualTo(1), "a pair that does not belong to its escape slot is found by the structure scan");
+        ovf = (byte[])saved.Clone();
+        ovf[8] ^= 2; // the rank of the second pair becomes larger than its slot (65,539 instead of 65,537): only the equality of rank and slot finds it
+        File.WriteAllBytes(outPrefix + ".ovf", ovf);
+        Assert.That(E4.CheckSample(Options.Parse(check), report), Is.EqualTo(1), "a pair that is ahead of its slot");
         File.WriteAllBytes(outPrefix + ".ovf", saved[..^8]);
         Assert.That(E4.CheckSample(Options.Parse(check), report), Is.EqualTo(1), "an escape slot without a pair");
         File.WriteAllBytes(outPrefix + ".ovf", saved);
@@ -666,6 +720,50 @@ public class E4CommandTests
         lcp[132_000] = 0; // the entry of rank 66,000 held the escape value 65,535: now it does not, and its pair has no slot
         File.WriteAllBytes(outPrefix + ".lcp", lcp);
         Assert.That(E4.CheckSample(Options.Parse(check), report), Is.EqualTo(1));
+    }
+
+    // Added after audit round 1 (mutant E06: the closing comparison of the structure scan was not covered, because every corruption in the middle is also found by the pair that follows it).
+    [Test]
+    public void CheckSample_StructureScan_FindsAnUnusedLastPair()
+    {
+        (string pk, string sa) = Prepare("a:70000");
+        string rows = Path.Combine(_dir, "rows.tsv");
+        var report = new Report(rows);
+        string outPrefix = Path.Combine(_dir, "out");
+        Assert.That(E4.Build(Options.Parse(["--text", pk, "--sa", sa, "--out", outPrefix, "--scratch", Path.Combine(_dir, "scratch"), "--chunk", "1000", "--threads", "2", "--rss-cap-mb", "100000"]), report), Is.EqualTo(0));
+        byte[] lcp = File.ReadAllBytes(outPrefix + ".lcp");
+        lcp[2 * 70_000] = 0; // the entry of rank n held the escape value 65,535: the last pair has no slot any more
+        lcp[(2 * 70_000) + 1] = 0;
+        File.WriteAllBytes(outPrefix + ".lcp", lcp);
+        File.Delete(rows);
+        Assert.That(E4.CheckSample(Options.Parse(["--text", pk, "--sa", sa, "--lcp", outPrefix, "--samples", "10"]), report), Is.EqualTo(1));
+        Assert.That(File.ReadAllText(rows), Does.Contain("\tstructure_problems\t1\t"), "found by the structure scan itself, not only by the sample of the last rank");
+
+        // a pair whose value is below the escape value (mutant E09: the value of a pair was not required to reach the escape): the last pair, at the rank of the last escape slot
+        byte[] saved = File.ReadAllBytes(outPrefix + ".ovf");
+        lcp[2 * 70_000] = 0xFF;
+        lcp[(2 * 70_000) + 1] = 0xFF; // the slot is an escape again
+        File.WriteAllBytes(outPrefix + ".lcp", lcp);
+        byte[] ovf = (byte[])saved.Clone();
+        ovf[^4] = 100;
+        ovf[^3] = ovf[^2] = ovf[^1] = 0; // value 100 < 65,535
+        File.WriteAllBytes(outPrefix + ".ovf", ovf);
+        File.Delete(rows);
+        Assert.That(E4.CheckSample(Options.Parse(["--text", pk, "--sa", sa, "--lcp", outPrefix, "--samples", "10"]), report), Is.EqualTo(1));
+        Assert.That(File.ReadAllText(rows), Does.Contain("\tstructure_problems\t1\t"), "a pair value below the escape is a structure problem");
+    }
+
+    // Added after audit round 1 (mutant E05: the exit code ignored a scratch entry left behind - the condition is now a function of its own).
+    [Test]
+    public void Healthy_RequiresTheCapAndNothingLeftBehind()
+    {
+        Assert.That(E4.Healthy(100, 256, 0, 0, 0), Is.True);
+        Assert.That(E4.Healthy(256, 256, 0, 0, 0), Is.True, "the cap itself is allowed");
+        Assert.That(E4.Healthy(256.001, 256, 0, 0, 0), Is.False, "above the cap");
+        Assert.That(E4.Healthy(100, 256, 1, 0, 0), Is.False, "a scratch entry is left in the directory");
+        Assert.That(E4.Healthy(100, 256, 0, 1, 0), Is.False, "a tracked scratch byte is left");
+        Assert.That(E4.Healthy(100, 256, 0, 0, 1), Is.False, "a native byte is still charged to the budget");
+        Assert.That(E4.Healthy(300, 256, 1, 1, 1), Is.False);
     }
 
     [Test]

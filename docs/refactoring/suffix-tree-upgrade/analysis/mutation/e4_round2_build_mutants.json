@@ -1,0 +1,26 @@
+[
+ {
+  "id": "B06",
+  "desc": "B2: a chunk with too few tuples is accepted (round 1 survivor, re-run)",
+  "old": "if (reader.Count != length) throw new InvalidOperationException($\"text chunk {c} holds {reader.Count} Phi tuples, expected {length}: the suffix array is not a permutation\");\n                int got;\n                while ((got = reader.Read(read.AsSpan(readEntries))) > 0)\n                {\n                    for (int i = 0; i < got; i++)\n                    {\n                        PhiTuple t",
+  "new": "if (reader.Count > length) throw new InvalidOperationException($\"text chunk {c} holds {reader.Count} Phi tuples, expected {length}: the suffix array is not a permutation\");\n                int got;\n                while ((got = reader.Read(read.AsSpan(readEntries))) > 0)\n                {\n                    for (int i = 0; i < got; i++)\n                    {\n                        PhiTuple t"
+ },
+ {
+  "id": "B06b",
+  "desc": "bounded B2: a chunk with too few tuples is accepted",
+  "old": "if (reader.Count != length) throw new InvalidOperationException($\"text chunk {c} holds {reader.Count} Phi tuples, expected {length}: the suffix array is not a permutation\");\n                int got;\n                while ((got = reader.Read(read.AsSpan(readEntries))) > 0)\n                {\n                    for (int i = 0; i < got; i++)\n                    {\n                        PhiPair t",
+  "new": "if (reader.Count > length) throw new InvalidOperationException($\"text chunk {c} holds {reader.Count} Phi tuples, expected {length}: the suffix array is not a permutation\");\n                int got;\n                while ((got = reader.Read(read.AsSpan(readEntries))) > 0)\n                {\n                    for (int i = 0; i < got; i++)\n                    {\n                        PhiPair t"
+ },
+ {
+  "id": "B12b",
+  "desc": "B3: the consumer is told the wrong first rank",
+  "old": "_consumer?.Consume(firstRank, dense);",
+  "new": "_consumer?.Consume(firstRank + 1, dense);"
+ },
+ {
+  "id": "B26b",
+  "desc": "Merge: the restart cost of the last task replaces the sum",
+  "old": "_restart += t.Restart;",
+  "new": "_restart = t.Restart;"
+ }
+]
