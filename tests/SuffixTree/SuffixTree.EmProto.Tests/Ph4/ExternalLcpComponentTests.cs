@@ -503,6 +503,27 @@ public class ExternalLcpOptionsTests
     }
 
     [Test]
+    public void ScratchPeak_IsTwelveBytesPerSymbolInTheBaseMode_AndEightPlusFourOverRoundsInTheBoundedMode()
+    {
+        (PackedText t, uint[] sa) = Small(); // n = 6000
+        using (t)
+        {
+            ExtLcpOptions o = LcpHarness.Options(Path.Combine(_dir, "s"), 500, 4);
+            ScratchTracker.Reset();
+            LcpHarness.Run(t, sa, o, _dir);
+            Assert.That(ScratchTracker.Peak, Is.EqualTo(12 * 6000), "all Phi tuples (12 B) are on disk when B1 ends; every chunk file is deleted before its rank tuples (8 B) are written");
+            Assert.That(ScratchTracker.Live, Is.Zero);
+            ScratchTracker.Reset();
+            LcpHarness.Run(t, sa, o with { Mode = LcpMode.Bounded }, _dir);
+            Assert.That(ScratchTracker.Peak, Is.EqualTo(8 * 6000), "one round: all Phi pairs (8 B); the PLCP file (4 B) grows as the pair files go");
+            ScratchTracker.Reset();
+            LcpHarness.Run(t, sa, o with { Mode = LcpMode.Bounded, RoundChunks = 6 }, _dir); // two rounds of 3000 positions
+            Assert.That(ScratchTracker.Peak, Is.EqualTo((4 * 3000) + (8 * 3000)), "two rounds: the PLCP of the first half (4 B) and the pairs of the second half (8 B)");
+            Assert.That(ScratchTracker.Live, Is.Zero);
+        }
+    }
+
+    [Test]
     public void ParallelTasks_AreLimitedByTheBudget_TheChunkCount_AndTheExplicitWorkers()
     {
         (PackedText t, uint[] sa) = Small();

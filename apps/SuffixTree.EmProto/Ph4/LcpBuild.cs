@@ -186,13 +186,13 @@ internal sealed unsafe class LcpBuild
                     }
                 }
             }
+            phiSpool.Delete(c); // the chunk is in memory now: its file is scratch no more
             total.Add(PlcpScan.Run(_text, start, phi, length));
             for (int k = 0; k < length; k++)
             {
                 uint r = rank[k];
                 writer.Add(_g.ChunkOf(r), new RankTuple(r, phi[k]));
             }
-            phiSpool.Delete(c);
         }
         if (Volatile.Read(ref _error) is null) writer.FlushAll();
         Merge(total);
@@ -338,11 +338,11 @@ internal sealed unsafe class LcpBuild
                     }
                 }
             }
+            spool.Delete(c); // the chunk is in memory now: its file is scratch no more
             total.Add(PlcpScan.Run(_text, start, phi, length));
             plcp.WriteAt(MemoryMarshal.AsBytes(phi.AsSpan(length)), start * 4);
             Interlocked.Add(ref _plcpFileBytes, length * 4L);
             ScratchTracker.Add(length * 4L);
-            spool.Delete(c);
         }
         Merge(total);
     }
