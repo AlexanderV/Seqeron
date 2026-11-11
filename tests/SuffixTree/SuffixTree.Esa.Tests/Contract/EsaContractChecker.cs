@@ -17,7 +17,7 @@ internal sealed record CheckOptions(int EdgePointCap, int PairSamples, ulong See
 }
 
 /// <summary>
-/// Checks every operation of an <see cref="EsaSuffixIndex"/> on every kind of locus (the root, internal nodes, leaves including the terminator leaves and the leaf of the empty suffix,
+/// Checks every operation of an <see cref="EsaSuffixIndex"/> (or of the facade, work package 1b.6: the checks use the contract interfaces only) on every kind of locus (the root, internal nodes, leaves including the terminator leaves and the leaf of the empty suffix,
 /// positions inside an edge) against <see cref="IndexContractOracle"/>, which is derived from the definitions. The tree is walked from the oracle's side: for every node string the engine
 /// is asked for the locus (<c>TryChild</c> / <c>TryExtendRight</c>) and the answer is compared with the oracle's locus, then every operation is applied to it. Nothing here reads the engine's arrays.
 /// </summary>
@@ -36,7 +36,8 @@ internal static class EsaContractChecker
     }
 
     /// <summary>Runs every check on <paramref name="idx"/>, which must index <paramref name="o"/>'s text.</summary>
-    internal static void CheckAll(EsaSuffixIndex idx, IndexContractOracle o, string context, CheckOptions options)
+    internal static void CheckAll<TIdx>(TIdx idx, IndexContractOracle o, string context, CheckOptions options)
+        where TIdx : ISuffixTreeNavigation, ISuffixArrayAccess
     {
         CheckMetadata(idx, o, context);
         CheckArrays(idx, o, context, options);
@@ -56,7 +57,8 @@ internal static class EsaContractChecker
 
     // ------------------------------------------------------------------------------------------------------------------------------
 
-    private static void CheckMetadata(EsaSuffixIndex idx, IndexContractOracle o, string context)
+    private static void CheckMetadata<TIdx>(TIdx idx, IndexContractOracle o, string context)
+        where TIdx : ISuffixTreeNavigation, ISuffixArrayAccess
     {
         Eq(idx.Engine, "esa", () => context + " Engine");
         Eq(idx.TextLength, (long)o.N, () => context + " TextLength");
@@ -68,7 +70,8 @@ internal static class EsaContractChecker
         Eq(idx.Count(idx.Root), (long)o.N, () => context + " Count(Root)");
     }
 
-    private static void CheckArrays(EsaSuffixIndex idx, IndexContractOracle o, string context, CheckOptions options)
+    private static void CheckArrays<TIdx>(TIdx idx, IndexContractOracle o, string context, CheckOptions options)
+        where TIdx : ISuffixTreeNavigation, ISuffixArrayAccess
     {
         int n = o.N;
         for (int r = 0; r <= n; r++)
@@ -113,7 +116,8 @@ internal static class EsaContractChecker
 
     // ------------------------------------------------------------------------------------------------------------------------------
 
-    private static void CheckTree(EsaSuffixIndex idx, IndexContractOracle o, string context, CheckOptions options)
+    private static void CheckTree<TIdx>(TIdx idx, IndexContractOracle o, string context, CheckOptions options)
+        where TIdx : ISuffixTreeNavigation, ISuffixArrayAccess
     {
         int[] alphabet = Alphabet(o);
         var rng = new SplitMix64(options.Seed * 31 + (ulong)o.N);
@@ -134,7 +138,8 @@ internal static class EsaContractChecker
         }
     }
 
-    private static void CheckNode(EsaSuffixIndex idx, IndexContractOracle o, int[] w, IndexLocus locus, int[] alphabet, string context)
+    private static void CheckNode<TIdx>(TIdx idx, IndexContractOracle o, int[] w, IndexLocus locus, int[] alphabet, string context)
+        where TIdx : ISuffixTreeNavigation, ISuffixArrayAccess
     {
         string at = $"{context} node {P(w)}";
         Eq(locus, o.LocusOf(w), () => at + " locus");
@@ -149,7 +154,8 @@ internal static class EsaContractChecker
         CheckExtensions(idx, o, w, locus, alphabet, at);
     }
 
-    private static void CheckEdge(EsaSuffixIndex idx, IndexContractOracle o, int[] w, IndexLocus node, int[] childString, IndexLocus childLocus, int[] alphabet, string context, CheckOptions options, SplitMix64 rng)
+    private static void CheckEdge<TIdx>(TIdx idx, IndexContractOracle o, int[] w, IndexLocus node, int[] childString, IndexLocus childLocus, int[] alphabet, string context, CheckOptions options, SplitMix64 rng)
+        where TIdx : ISuffixTreeNavigation, ISuffixArrayAccess
     {
         int[] edge = childString[w.Length..];
         int interior = edge[^1] == -1 ? edge.Length - 1 : edge.Length; // symbols of the edge that a pattern can contain
@@ -196,7 +202,8 @@ internal static class EsaContractChecker
         }
     }
 
-    private static void CheckCountAndLocate(EsaSuffixIndex idx, IndexContractOracle o, int[] w, IndexLocus locus, string at)
+    private static void CheckCountAndLocate<TIdx>(TIdx idx, IndexContractOracle o, int[] w, IndexLocus locus, string at)
+        where TIdx : ISuffixTreeNavigation, ISuffixArrayAccess
     {
         List<int> expected = o.Positions(w).OrderBy(p => o.Isa[p]).ToList(); // suffix-array order, derived from the oracle's ISA
         Eq(idx.Count(locus), (long)expected.Count, () => at + " Count");
@@ -222,7 +229,8 @@ internal static class EsaContractChecker
         }
     }
 
-    private static void CheckParent(EsaSuffixIndex idx, IndexContractOracle o, int[] w, IndexLocus locus, string at)
+    private static void CheckParent<TIdx>(TIdx idx, IndexContractOracle o, int[] w, IndexLocus locus, string at)
+        where TIdx : ISuffixTreeNavigation, ISuffixArrayAccess
     {
         int[]? expected = o.Parent(w);
         bool got = idx.TryParent(locus, out IndexLocus parent);
@@ -230,7 +238,8 @@ internal static class EsaContractChecker
         Eq(parent, expected is null ? default : o.LocusOf(expected), () => at + " parent locus");
     }
 
-    private static void CheckSuffixLink(EsaSuffixIndex idx, IndexContractOracle o, int[] w, IndexLocus locus, string at)
+    private static void CheckSuffixLink<TIdx>(TIdx idx, IndexContractOracle o, int[] w, IndexLocus locus, string at)
+        where TIdx : ISuffixTreeNavigation, ISuffixArrayAccess
     {
         int[]? expected = IndexContractOracle.SuffixLink(w);
         bool isInternal = expected is not null && o.Children(w).Count > 0;
@@ -244,7 +253,8 @@ internal static class EsaContractChecker
         else Eq(link, default, () => at + " no link leaves the result default");
     }
 
-    private static void CheckEdgeSymbols(EsaSuffixIndex idx, IndexContractOracle o, int[] w, IndexLocus locus, string at)
+    private static void CheckEdgeSymbols<TIdx>(TIdx idx, IndexContractOracle o, int[] w, IndexLocus locus, string at)
+        where TIdx : ISuffixTreeNavigation, ISuffixArrayAccess
     {
         int[]? parent = o.Parent(w);
         int parentDepth = parent?.Length ?? 0;
@@ -257,7 +267,8 @@ internal static class EsaContractChecker
         Eq(idx.EdgeSymbol(locus, long.MaxValue), -1, () => at + " EdgeSymbol(long.MaxValue)");
     }
 
-    private static void CheckChildren(EsaSuffixIndex idx, IndexContractOracle o, int[] w, IndexLocus locus, int[] alphabet, string at)
+    private static void CheckChildren<TIdx>(TIdx idx, IndexContractOracle o, int[] w, IndexLocus locus, int[] alphabet, string at)
+        where TIdx : ISuffixTreeNavigation, ISuffixArrayAccess
     {
         var kids = o.Children(w);
         int k = kids.Count;
@@ -287,7 +298,8 @@ internal static class EsaContractChecker
         }
     }
 
-    private static void CheckExtensions(EsaSuffixIndex idx, IndexContractOracle o, int[] w, IndexLocus locus, int[] alphabet, string at)
+    private static void CheckExtensions<TIdx>(TIdx idx, IndexContractOracle o, int[] w, IndexLocus locus, int[] alphabet, string at)
+        where TIdx : ISuffixTreeNavigation, ISuffixArrayAccess
     {
         foreach (int c in alphabet)
         {

@@ -25,5 +25,8 @@ public static class IndexEngineFactories
         new IndexEngineFactory("esa", text => EsaSuffixIndex.Build(text)),
         new IndexEngineFactory("esa-packed", text => EsaSuffixIndex.Build(text, ChildLayoutKind.Packed)),
         new IndexEngineFactory("esa-reference3", text => EsaSuffixIndex.Build(text, ChildLayoutKind.Reference3)),
+        // the facade of work package 1b.6 (ISuffixTree + ISuffixTreeNavigation + ISuffixArrayAccess) as a contract engine, default and one other layout
+        new IndexEngineFactory("esa-facade", text => EsaSuffixTree.Build(text, null)),
+        new IndexEngineFactory("esa-facade-packed", text => EsaSuffixTree.Build(text, ChildLayoutKind.Packed)),
     ];
 }
