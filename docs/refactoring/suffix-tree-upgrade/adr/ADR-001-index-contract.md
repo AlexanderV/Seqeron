@@ -190,10 +190,13 @@ Capability matrix, now and planned (`N` native, `D` degraded, `-` unsupported):
 |---|---|---|---|
 | Count, ExtendRight, LazyLocate, TextAccess | N | N (locate via samples) | N |
 | ExtendLeft | **D** (interval positions `p-1` through ISA, min/max rank, O(width), needs the pack) | N | - |
-| Child, Parent, StringDepth | N | D | N |
+| Child, StringDepth | N | D | N |
+| Parent | **D** until the pack exists, then N (amended 2026-11-11, see below) | D | N |
 | SuffixLink | **D** until the pack exists, then N | D | N |
 | SuffixArrayAccess / InverseSuffixArrayAccess / LcpAccess | N / N (pack) / N | D / D / D | - |
 | Lcp(i,j), Lca | D without the RMQ helper, N with it | D | - |
+
+**Amendment 2026-11-11 (WP 1b.5).** `Parent` of the ESA is Degraded until the navigation pack exists, then Native: the child table of this layout stores the first l-indices and no up/down fields, so the parent borders come from `PrevLess` / `NextLess` on the LCP pyramid (pack). This row was `N` without a qualifier in the original table; the implementation (`EsaSuffixIndex`, commit `387c3951`) and its capability-matrix test follow the amended row, the capability test `CapabilityMatrix_EqualsAdr001Section6_OncePackExists` pins the states before and after the pack. `LcpAccess` stays Native without the pack (read through `CompactLcp`).
 
 ## 7. Relation to the existing interfaces
 
