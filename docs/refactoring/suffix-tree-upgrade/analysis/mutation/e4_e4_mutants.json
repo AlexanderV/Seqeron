@@ -1,0 +1,68 @@
+[
+ {
+  "id": "E01",
+  "desc": "R scaled down rounds towards zero",
+  "old": "Math.Max(3, (long)Math.Ceiling(ChunkRef * f))",
+  "new": "Math.Max(3, (long)Math.Floor(ChunkRef * f))"
+ },
+ {
+  "id": "E02",
+  "desc": "rounds: floor of P / r chunks per round",
+  "old": "(chunks + long.Parse(rounds, CultureInfo.InvariantCulture) - 1) / long.Parse(rounds, CultureInfo.InvariantCulture)",
+  "new": "chunks / long.Parse(rounds, CultureInfo.InvariantCulture)"
+ },
+ {
+  "id": "E03",
+  "desc": "B2 workers: twice what the reference geometry allows",
+  "old": "budgetCap / Math.Max(1, perTask)",
+  "new": "budgetCap / Math.Max(1, perTask / 2)"
+ },
+ {
+  "id": "E04",
+  "desc": "the exit code ignores the oracle",
+  "old": "ok &= equal;",
+  "new": ""
+ },
+ {
+  "id": "E05",
+  "desc": "the exit code ignores leftover scratch",
+  "old": "left.Length == 0 && scratchLive == 0",
+  "new": "scratchLive == 0"
+ },
+ {
+  "id": "E06",
+  "desc": "check-lcp: structure scan accepts a missing pair",
+  "old": "if (width == 4 ? overflowCount != 0 : escapesInBase != overflowCount) problems++;",
+  "new": ""
+ },
+ {
+  "id": "E07",
+  "desc": "check-lcp: samples are not compared",
+  "old": "if (got != expected) mismatches++;",
+  "new": ""
+ },
+ {
+  "id": "E08",
+  "desc": "check-lcp: the rank of a pair is not compared",
+  "old": "if (pr != rank || pr <= previousRank || pv < escape) problems++;",
+  "new": "if (pr <= previousRank || pv < escape) problems++;"
+ },
+ {
+  "id": "E09",
+  "desc": "check-lcp: the value of a pair is not required to reach the escape",
+  "old": "if (pr != rank || pr <= previousRank || pv < escape) problems++;",
+  "new": "if (pr != rank || pr <= previousRank) problems++;"
+ },
+ {
+  "id": "E10",
+  "desc": "check-lcp: the last rank is not sampled",
+  "old": "if (s == 1) rank = n;",
+  "new": ""
+ },
+ {
+  "id": "E11",
+  "desc": "lcp-oracle: the overflow ranks are written as values",
+  "old": "pairs[2 * i] = (uint)lcp.OverflowRanks[i];",
+  "new": "pairs[2 * i] = (uint)lcp.OverflowValues[i];"
+ }
+]

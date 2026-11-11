@@ -1,0 +1,68 @@
+[
+ {
+  "id": "S01",
+  "desc": "Append: the reserved offset is the end of the reservation",
+  "old": "long at = Interlocked.Add(ref _entries[chunk], items.Length) - items.Length;",
+  "new": "long at = Interlocked.Add(ref _entries[chunk], items.Length);"
+ },
+ {
+  "id": "S02",
+  "desc": "Append: the tracker is not told about the bytes",
+  "old": "ScratchTracker.Add((long)items.Length * sizeof(T));",
+  "new": ""
+ },
+ {
+  "id": "S03",
+  "desc": "Delete: the tracker is not told about the deletion",
+  "old": "ScratchTracker.Remove(count * sizeof(T));",
+  "new": ""
+ },
+ {
+  "id": "S04",
+  "desc": "Reader.Read: reads past the end of the chunk",
+  "old": "int take = (int)Math.Min(buffer.Length, Count - _position);",
+  "new": "int take = buffer.Length;"
+ },
+ {
+  "id": "S05",
+  "desc": "Reader.Read: the position is not advanced (loops for ever)",
+  "old": "_position += take;",
+  "new": "_position += 0;"
+ },
+ {
+  "id": "S06",
+  "desc": "Writer: a buffer holds zero tuples when bufferBytes < sizeof(T)",
+  "old": "_capacity = Math.Max(1, bufferBytes / sizeof(T));",
+  "new": "_capacity = bufferBytes / sizeof(T);"
+ },
+ {
+  "id": "S07",
+  "desc": "Writer.Add: flush one tuple too late (writes into the next buffer)",
+  "old": "if (++filled == _capacity)",
+  "new": "if (++filled > _capacity)"
+ },
+ {
+  "id": "S08",
+  "desc": "Writer.Flush: the first chunk of the writer is ignored (wrong file in later rounds)",
+  "old": "_spool.Append(_firstChunk + local,",
+  "new": "_spool.Append(local,"
+ },
+ {
+  "id": "S09",
+  "desc": "Spool.Dispose: the last chunk file is left",
+  "old": "for (long c = 0; c < _entries.Length; c++) Delete(c);",
+  "new": "for (long c = 0; c < _entries.Length - 1; c++) Delete(c);"
+ },
+ {
+  "id": "S10",
+  "desc": "Writer.FlushAll: the filled count is not reset (tuples written twice)",
+  "old": "            Flush(local, _filled[local]);\n            _filled[local] = 0;\n        }\n    }",
+  "new": "            Flush(local, _filled[local]);\n        }\n    }"
+ },
+ {
+  "id": "S11",
+  "desc": "OpenReader: a chunk with entries is treated as empty",
+  "old": "return new SpoolReader<T>(count > 0 ? new CountedFile",
+  "new": "return new SpoolReader<T>(count > 1 ? new CountedFile"
+ }
+]

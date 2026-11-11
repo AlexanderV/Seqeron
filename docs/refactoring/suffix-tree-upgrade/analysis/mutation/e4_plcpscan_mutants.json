@@ -1,0 +1,56 @@
+[
+ {
+  "id": "P01",
+  "desc": "limit from the smaller of the two positions",
+  "old": "long limit = n - Math.Max(j, p);",
+  "new": "long limit = n - Math.Min(j, p);"
+ },
+ {
+  "id": "P02",
+  "desc": "the carried length is not decremented",
+  "old": "if (l > 0) l--;",
+  "new": "if (l > 0) l -= 0;"
+ },
+ {
+  "id": "P03",
+  "desc": "escape >= 255 counted from 256",
+  "old": "if (l >= 255)",
+  "new": "if (l > 255)"
+ },
+ {
+  "id": "P04",
+  "desc": "escape >= 65535 counted from 65536",
+  "old": "if (l >= 65535) e16++;",
+  "new": "if (l > 65535) e16++;"
+ },
+ {
+  "id": "P05",
+  "desc": "FirstValue taken at the second position",
+  "old": "if (k == 0) first = l;",
+  "new": "if (k == 1) first = l;"
+ },
+ {
+  "id": "P06",
+  "desc": "the carry survives a position without a predecessor",
+  "old": "                l = 0; // j is the smallest nonempty suffix: its predecessor is the empty suffix\n",
+  "new": ""
+ },
+ {
+  "id": "P07",
+  "desc": "MaxPlcp keeps the smallest",
+  "old": "if (l > max) max = l;",
+  "new": "if (l < max) max = l;"
+ },
+ {
+  "id": "P08",
+  "desc": "a position without a predecessor keeps a stale value",
+  "old": "                phi[k] = 0;\n                continue;",
+  "new": "                continue;"
+ },
+ {
+  "id": "P09",
+  "desc": "the escapes are not counted when the value reaches 255",
+  "old": "                e8++;\n",
+  "new": ""
+ }
+]

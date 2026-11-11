@@ -1,0 +1,44 @@
+[
+ {
+  "id": "G01",
+  "desc": "TextChunks: floor instead of ceiling",
+  "old": "TextChunks = (n + chunkPositions - 1) / chunkPositions;",
+  "new": "TextChunks = n / chunkPositions;"
+ },
+ {
+  "id": "G02",
+  "desc": "RankChunks: ceil(n / R) instead of ceil((n + 1) / R)",
+  "old": "RankChunks = (n + chunkPositions) / chunkPositions;",
+  "new": "RankChunks = (n + chunkPositions - 1) / chunkPositions;"
+ },
+ {
+  "id": "G03",
+  "desc": "TextChunkLength: the last chunk is as long as the others",
+  "old": "Math.Min(R, N - (chunk * R));",
+  "new": "R;"
+ },
+ {
+  "id": "G04",
+  "desc": "RankChunkLength: the empty suffix rank is not counted",
+  "old": "Math.Min(R, N + 1 - (chunk * R));",
+  "new": "Math.Min(R, N - (chunk * R));"
+ },
+ {
+  "id": "G05",
+  "desc": "the fast division is not used for R = 2",
+  "old": "chunkPositions is >= 2 and <= uint.MaxValue;",
+  "new": "chunkPositions is >= 3 and <= uint.MaxValue;"
+ },
+ {
+  "id": "G06",
+  "desc": "ChunkOf: R = 1 falls back to a single chunk",
+  "old": "return R == 1 ? x : 0;",
+  "new": "return 0;"
+ },
+ {
+  "id": "G07",
+  "desc": "a text of 2^32 - 1 symbols is accepted",
+  "old": "if (n >= uint.MaxValue) throw",
+  "new": "if (n > uint.MaxValue) throw"
+ }
+]

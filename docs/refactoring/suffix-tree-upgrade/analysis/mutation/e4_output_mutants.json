@@ -1,0 +1,92 @@
+[
+ {
+  "id": "O01",
+  "desc": "Select: U8 only below n / 16",
+  "old": "if (16 * escapes8 <= n) return LcpKind.U8;",
+  "new": "if (16 * escapes8 < n) return LcpKind.U8;"
+ },
+ {
+  "id": "O02",
+  "desc": "Select: U16 only below n / 8",
+  "old": "if (8 * escapes16 <= n) return LcpKind.U16;",
+  "new": "if (8 * escapes16 < n) return LcpKind.U16;"
+ },
+ {
+  "id": "O03",
+  "desc": "Select: equal counts rejected",
+  "old": "if (escapes16 > escapes8) throw",
+  "new": "if (escapes16 >= escapes8) throw"
+ },
+ {
+  "id": "O04",
+  "desc": "Bytes: U16 entries have four bytes",
+  "old": "LcpKind.U16 => 2, _ => 4 };\n\n    /// <summary>The escape",
+  "new": "LcpKind.U16 => 4, _ => 4 };\n\n    /// <summary>The escape"
+ },
+ {
+  "id": "O05",
+  "desc": "Escape: U16 escape is 65534",
+  "old": "LcpKind.U16 => ushort.MaxValue, _ => uint.MaxValue };",
+  "new": "LcpKind.U16 => ushort.MaxValue - 1, _ => uint.MaxValue };"
+ },
+ {
+  "id": "O06",
+  "desc": "OverflowCount: U8 and U16 swapped",
+  "old": "LcpKind.U8 => escapes8, LcpKind.U16 => escapes16, _ => 0 };",
+  "new": "LcpKind.U8 => escapes16, LcpKind.U16 => escapes8, _ => 0 };"
+ },
+ {
+  "id": "O07",
+  "desc": "Write: ranks may arrive out of order",
+  "old": "if (firstRank != _nextRank) throw",
+  "new": "if (firstRank < _nextRank) throw"
+ },
+ {
+  "id": "O08",
+  "desc": "Write: the announced number of escapes is a bound that is reached",
+  "old": "if (_overflowWritten + pairs > _overflowExpected) throw",
+  "new": "if (_overflowWritten + pairs >= _overflowExpected) throw"
+ },
+ {
+  "id": "O09",
+  "desc": "Complete: the last rank is not required",
+  "old": "if (_nextRank != n + 1) throw",
+  "new": "if (_nextRank != n) throw"
+ },
+ {
+  "id": "O10",
+  "desc": "Convert U8: the value 255 is not an escape",
+  "old": "                    if (v >= _escape)\n                    {\n                        list[2 * pairs] = (uint)(firstRank + i);\n                        list[(2 * pairs) + 1] = v;\n                        pairs++;\n                        bytes[i] = (byte)_escape;",
+  "new": "                    if (v > _escape)\n                    {\n                        list[2 * pairs] = (uint)(firstRank + i);\n                        list[(2 * pairs) + 1] = v;\n                        pairs++;\n                        bytes[i] = (byte)_escape;"
+ },
+ {
+  "id": "O11",
+  "desc": "Convert: the rank of an escape is relative to the slice",
+  "old": "list[2 * pairs] = (uint)(firstRank + i);\n                        list[(2 * pairs) + 1] = v;\n                        pairs++;\n                        u16[i]",
+  "new": "list[2 * pairs] = (uint)i;\n                        list[(2 * pairs) + 1] = v;\n                        pairs++;\n                        u16[i]"
+ },
+ {
+  "id": "O12",
+  "desc": "Write: the last slice is a full slice",
+  "old": "ReadOnlySpan<uint> part = values.Slice(at, Math.Min(_slice, values.Length - at));",
+  "new": "ReadOnlySpan<uint> part = values.Slice(at, _slice);"
+ },
+ {
+  "id": "O13",
+  "desc": "the base file is one entry short",
+  "old": "_base = new MappedWindowWriter(basePath, (n + 1) * _width, windowBytes);",
+  "new": "_base = new MappedWindowWriter(basePath, n * _width, windowBytes);"
+ },
+ {
+  "id": "O14",
+  "desc": "the overflow file holds four bytes per entry",
+  "old": "new MappedWindowWriter(overflowPath, overflowCount * 8, windowBytes);",
+  "new": "new MappedWindowWriter(overflowPath, overflowCount * 4, windowBytes);"
+ },
+ {
+  "id": "O15",
+  "desc": "U32 values are not copied",
+  "old": "part.CopyTo(MemoryMarshal.Cast<byte, uint>(bytes));",
+  "new": ""
+ }
+]

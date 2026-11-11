@@ -1,0 +1,4 @@
+Unhandled exception. SuffixTree.EmProto.Harness.ArenaBudgetExceededException: arena budget 167772160 bytes exceeded by 'b2.phi' (32000000 bytes; 162097144 live)
+   at SuffixTree.EmProto.Harness.ArenaBudget.Reserve(Int64 bytes, String what) in /home/user/Seqeron/apps/SuffixTree.EmProto/Harness/ArenaBudget.cs:line 32
+   at SuffixTree.EmProto.Harness.BudgetedArena.Allocate[T](Int32 length, Boolean zero, String name) in /home/user/Seqeron/apps/SuffixTree.EmProto/Harness/ArenaBudget.cs:line 71
+   at SuffixTree.EmProto.Ph4.LcpBuild.PlcpWorker(Spool`1 phiSpool, Spool`1 rankSpool) in /home/user/Seqero

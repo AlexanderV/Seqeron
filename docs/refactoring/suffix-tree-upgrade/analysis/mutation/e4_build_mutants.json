@@ -1,0 +1,200 @@
+[
+ {
+  "id": "B01",
+  "desc": "the file length check ignores the empty suffix entry",
+  "old": "if (length != (n + 1) * 4) throw",
+  "new": "if (length != n * 4) throw"
+ },
+ {
+  "id": "B02",
+  "desc": "sa[0] smaller than n accepted",
+  "old": "if (first[0] != n) throw",
+  "new": "if (first[0] > n) throw"
+ },
+ {
+  "id": "B03",
+  "desc": "B1: the predecessor of the first entry is 0",
+  "old": "uint previous = (uint)n; // SA[0], the empty suffix\n        for (long first = 1; first <= n; first += readEntries)",
+  "new": "uint previous = 0; // SA[0], the empty suffix\n        for (long first = 1; first <= n; first += readEntries)"
+ },
+ {
+  "id": "B04",
+  "desc": "B1: an entry equal to n accepted",
+  "old": "if (s >= n) throw new ArgumentException($\"sa[{first + i}] = {s} is outside [0, {n})\");",
+  "new": "if (s > n) throw new ArgumentException($\"sa[{first + i}] = {s} is outside [0, {n})\");"
+ },
+ {
+  "id": "B05",
+  "desc": "B1: the rank of the tuple is off by one",
+  "old": "new PhiTuple(s, previous, (uint)(first + i))",
+  "new": "new PhiTuple(s, previous, (uint)(first + i - 1))"
+ },
+ {
+  "id": "B06",
+  "desc": "B2: a chunk with too few tuples is accepted",
+  "old": "if (reader.Count != length) throw new InvalidOperationException($\"text chunk {c} holds {reader.Count} Phi tuples, expected {length}: the suffix array is not a permutation\");\n                int got;\n                while ((got = reader.Read(read.AsSpan(readEntries))) > 0)\n                {\n                    for (int i = 0; i < got; i++)\n                    {\n                        PhiTuple t",
+  "new": "if (reader.Count > length) throw new InvalidOperationException($\"text chunk {c} holds {reader.Count} Phi tuples, expected {length}: the suffix array is not a permutation\");\n                int got;\n                while ((got = reader.Read(read.AsSpan(readEntries))) > 0)\n                {\n                    for (int i = 0; i < got; i++)\n                    {\n                        PhiTuple t"
+ },
+ {
+  "id": "B07",
+  "desc": "B2: the rank array is filled with the position",
+  "old": "rank[(int)at] = t.Rank;",
+  "new": "rank[(int)at] = t.Position;"
+ },
+ {
+  "id": "B08",
+  "desc": "B2: the Phi chunk file is not deleted",
+  "old": "phiSpool.Delete(c); // the chunk is in memory now: its file is scratch no more",
+  "new": ""
+ },
+ {
+  "id": "B09",
+  "desc": "B2: the rank tuple carries the Phi value instead of the PLCP value",
+  "old": "new RankTuple(r, phi[k])",
+  "new": "new RankTuple(r, rank[k])"
+ },
+ {
+  "id": "B10",
+  "desc": "B3: rank chunk 0 expects a tuple for the empty suffix",
+  "old": "long expected = c == 0 ? length - 1 : length;",
+  "new": "long expected = length;"
+ },
+ {
+  "id": "B11",
+  "desc": "B3: LCP[0] is whatever the buffer holds",
+  "old": "if (c == 0) dense[0] = 0; // LCP[0] = 0",
+  "new": ""
+ },
+ {
+  "id": "B12",
+  "desc": "B3: the consumer is not called",
+  "old": "_consumer?.Consume(firstRank, dense);",
+  "new": ""
+ },
+ {
+  "id": "B13",
+  "desc": "the round count of the bounded mode is floored",
+  "old": "long rounds = _g.TextChunks == 0 ? 0 : (_g.TextChunks + perRound - 1) / perRound;",
+  "new": "long rounds = _g.TextChunks == 0 ? 0 : _g.TextChunks / perRound;"
+ },
+ {
+  "id": "B14",
+  "desc": "bounded B1: the chunk range of a round includes the next chunk",
+  "old": "if (chunk >= first && chunk < last) writer.Add",
+  "new": "if (chunk >= first && chunk <= last) writer.Add"
+ },
+ {
+  "id": "B15",
+  "desc": "bounded B2: tasks of a later round start at chunk 0",
+  "old": "long c = Volatile.Read(ref _roundFirst) + Interlocked.Increment(ref _nextChunk) - 1;",
+  "new": "long c = Interlocked.Increment(ref _nextChunk) - 1;"
+ },
+ {
+  "id": "B16",
+  "desc": "bounded B2: the PLCP file bytes are not tracked as scratch",
+  "old": "ScratchTracker.Add(length * 4L);",
+  "new": ""
+ },
+ {
+  "id": "B17",
+  "desc": "bounded: the PLCP file is left behind",
+  "old": "File.Delete(plcpPath);\n            ScratchTracker.Remove(_plcpFileBytes);",
+  "new": "ScratchTracker.Remove(_plcpFileBytes);"
+ },
+ {
+  "id": "B18",
+  "desc": "bounded: the tracker keeps the PLCP file",
+  "old": "ScratchTracker.Remove(_plcpFileBytes);",
+  "new": ""
+ },
+ {
+  "id": "B19",
+  "desc": "bounded B3: the suffix array block is re-read from the start of the chunk",
+  "old": "sa.ReadExactAt(MemoryMarshal.AsBytes(read.AsSpan(take)), (start + done) * 4);",
+  "new": "sa.ReadExactAt(MemoryMarshal.AsBytes(read.AsSpan(take)), start * 4);"
+ },
+ {
+  "id": "B20",
+  "desc": "bounded B3: the gather reads the neighbour",
+  "old": "dense[done + i] = plcp[s];",
+  "new": "dense[done + i] = plcp[s == 0 ? 0 : s - 1];"
+ },
+ {
+  "id": "B21",
+  "desc": "the width is chosen from swapped counts",
+  "old": "LcpWidth.Select(n, _escapes8, _escapes16)",
+  "new": "LcpWidth.Select(n, _escapes16, _escapes8)"
+ },
+ {
+  "id": "B22",
+  "desc": "the task count may exceed the number of chunks by one",
+  "old": "workers = (int)Math.Max(1, Math.Min(workers, chunks));",
+  "new": "workers = (int)Math.Max(1, Math.Min(workers, chunks + 1));"
+ },
+ {
+  "id": "B23",
+  "desc": "the task count ignores the budget",
+  "old": "long fit = (_budget.CapBytes - _budget.LiveBytes) / Math.Max(1, perTaskBytes);",
+  "new": "long fit = int.MaxValue;"
+ },
+ {
+  "id": "B24",
+  "desc": "Merge: the escape counts of a task replace the totals",
+  "old": "_escapes8 += t.Escapes8;",
+  "new": "_escapes8 = t.Escapes8;"
+ },
+ {
+  "id": "B25",
+  "desc": "Merge: the largest PLCP of the last task wins",
+  "old": "_maxPlcp = Math.Max(_maxPlcp, t.Max);",
+  "new": "_maxPlcp = t.Max;"
+ },
+ {
+  "id": "B26",
+  "desc": "Merge: the restart cost is not summed",
+  "old": "_restart += t.Restart;",
+  "new": ""
+ },
+ {
+  "id": "B27",
+  "desc": "the base mode reports no round",
+  "old": "_stats.Rounds = 1;",
+  "new": "_stats.Rounds = 0;"
+ },
+ {
+  "id": "B28",
+  "desc": "WorkerBytes: Phi and rank chunk counted once",
+  "old": "return (8 * chunk) + (Math.Max(1, o.ReadBufferBytes / sizeof(PhiTuple))",
+  "new": "return (4 * chunk) + (Math.Max(1, o.ReadBufferBytes / sizeof(PhiTuple))"
+ },
+ {
+  "id": "B29",
+  "desc": "a failed worker does not stop the others (error only read at the end)",
+  "old": "while (Volatile.Read(ref _error) is null)\n        {\n            long c = Interlocked.Increment(ref _nextChunk) - 1;\n            if (c >= _g.TextChunks) break;\n            int length = (int)_g.TextChunkLength(c);\n            long start = c * _g.R;\n            using (SpoolReader<PhiTuple>",
+  "new": "while (true)\n        {\n            long c = Interlocked.Increment(ref _nextChunk) - 1;\n            if (c >= _g.TextChunks) break;\n            int length = (int)_g.TextChunkLength(c);\n            long start = c * _g.R;\n            using (SpoolReader<PhiTuple>"
+ },
+ {
+  "id": "B30",
+  "desc": "B2: the rank tuples are not flushed",
+  "old": "if (Volatile.Read(ref _error) is null) writer.FlushAll();",
+  "new": ""
+ },
+ {
+  "id": "B31",
+  "desc": "B1: the Phi tuples are not flushed",
+  "old": "        writer.FlushAll();\n    }\n\n    /// <summary>B2 of one task: chunks in any order;",
+  "new": "    }\n\n    /// <summary>B2 of one task: chunks in any order;"
+ },
+ {
+  "id": "B32",
+  "desc": "the stats keep the escape counts of the last chunk only (no sum in the task)",
+  "old": "Escapes8 += r.Escapes8;",
+  "new": "Escapes8 = r.Escapes8;"
+ },
+ {
+  "id": "B33",
+  "desc": "the overflow count comes from the wrong tier",
+  "old": "_stats.OverflowCount = LcpWidth.OverflowCount(_stats.Kind, _escapes8, _escapes16);",
+  "new": "_stats.OverflowCount = LcpWidth.OverflowCount(LcpKind.U8, _escapes8, _escapes16);"
+ }
+]
