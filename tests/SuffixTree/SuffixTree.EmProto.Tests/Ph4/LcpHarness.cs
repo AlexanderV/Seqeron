@@ -27,6 +27,7 @@ internal static class LcpHarness
         WindowBytes = 128,
         Mode = mode,
         RoundChunks = roundChunks,
+        ArenaGuards = ArenaOptions.Guarded(0xCD), // every buffer that is read before it is written shows as 0xCDCDCDCD
     };
 
     internal static string WriteSa(uint[] sa, string dir)

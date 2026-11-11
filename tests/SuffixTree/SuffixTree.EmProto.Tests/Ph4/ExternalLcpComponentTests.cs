@@ -502,6 +502,25 @@ public class ExternalLcpOptionsTests
         }
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public void NotAPermutation_IsDetected_WhenTheChunksDisagreeOnTheirTupleCounts(bool boundedMode)
+    {
+        (PackedText t, uint[] sa) = Small(); // n = 6000
+        using (t)
+        {
+            var g = new LcpGeometry(6000, 500);
+            int j = 11;
+            while (g.ChunkOf(sa[j]) == g.ChunkOf(sa[10])) j++;
+            sa[10] = sa[j]; // the position sa[j] appears twice, the old sa[10] never: one chunk has a tuple too many, another one too few
+            ExtLcpOptions o = LcpHarness.Options(Path.Combine(_dir, "s"), 500, 2, boundedMode ? LcpMode.Bounded : LcpMode.Distributed, 4);
+            string saPath = LcpHarness.WriteSa(sa, _dir);
+            Assert.Throws<InvalidOperationException>(() => ExternalLcp.Build(saPath, t, Path.Combine(_dir, "b"), Path.Combine(_dir, "o"), o));
+            Assert.That(Directory.GetFileSystemEntries(Path.Combine(_dir, "s")), Is.Empty, "scratch removed");
+            Assert.That(File.Exists(Path.Combine(_dir, "b")), Is.False);
+        }
+    }
+
     [Test]
     public void ScratchPeak_IsTwelveBytesPerSymbolInTheBaseMode_AndEightPlusFourOverRoundsInTheBoundedMode()
     {
@@ -595,11 +614,29 @@ public class E4CommandTests
         Assert.That(text, Does.Contain("\tlcp_equals_oracle\tyes"));
         Assert.That(text, Does.Contain("\tparameters\t"));
         Assert.That(text, Does.Contain("P=375"), "the scale-down keeps the chunk count of 3x10^9 symbols");
+        Assert.That(text, Does.Contain(mode == "bounded" ? "B2 workers=3" : "B2 workers=2"), "workers from the reference geometry: two fit the arena cap in the base mode, the bounded mode takes min(threads, 5)");
         if (rounds.Length > 0) Assert.That(text, Does.Contain($"rounds={rounds} "));
         Assert.That(Directory.GetFileSystemEntries(Path.Combine(_dir, "scratch")), Is.Empty);
         Assert.That(E4.CheckSample(Options.Parse(["--text", pk, "--sa", sa, "--lcp", Path.Combine(_dir, "out"), "--samples", "300"]), report), Is.EqualTo(0));
         Assert.That(File.ReadAllText(rows), Does.Contain("\tstructure_problems\t0\t"));
         Assert.That(File.ReadAllText(rows), Does.Contain("\tsample_mismatches\t0\t"));
+    }
+
+    [Test]
+    public void Verify_AgainstAWrongOracle_ReturnsOne_AndSaysNo()
+    {
+        (string pk, string sa) = Prepare("genome:100000");
+        string rows = Path.Combine(_dir, "rows.tsv");
+        var report = new Report(rows);
+        string oracle = Path.Combine(_dir, "oracle");
+        Assert.That(E4.Oracle(Options.Parse(["--text", pk, "--sa", sa, "--out", oracle]), report), Is.EqualTo(0));
+        byte[] lcp = File.ReadAllBytes(oracle + ".lcp");
+        lcp[5000] ^= 1;
+        File.WriteAllBytes(oracle + ".lcp", lcp);
+        string[] args = ["--text", pk, "--sa", sa, "--out", Path.Combine(_dir, "out"), "--scratch", Path.Combine(_dir, "scratch"), "--threads", "2", "--rss-cap-mb", "100000", "--verify", oracle];
+        Assert.That(E4.Build(Options.Parse(args), report), Is.EqualTo(1));
+        Assert.That(File.ReadAllText(rows), Does.Contain("\tlcp_equals_oracle\tNO\t").And.Contain("first difference: base at byte 5000"));
+        Assert.That(E4.Build(Options.Parse(["--text", pk, "--sa", sa, "--out", Path.Combine(_dir, "out"), "--scratch", Path.Combine(_dir, "scratch"), "--threads", "2", "--rss-cap-mb", "0.001"]), report), Is.EqualTo(1), "the RssAnon cap of the gate");
     }
 
     [Test]

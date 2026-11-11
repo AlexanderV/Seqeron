@@ -132,7 +132,7 @@ internal sealed unsafe class LcpBuild
     private void DistributePhi(Spool<PhiTuple> spool)
     {
         long n = _text.Length;
-        using var arena = new BudgetedArena(_budget, null, _o.TouchBuffers);
+        using var arena = new BudgetedArena(_budget, _o.ArenaGuards, _o.TouchBuffers);
         int readEntries = ReadEntries(sizeof(uint));
         Buf<uint> read = arena.Allocate<uint>(readEntries, zero: false, "b1.sa");
         var writer = new SpoolWriter<PhiTuple>(spool, arena, 0, _g.TextChunks, _o.TupleBufferBytes);
@@ -156,7 +156,7 @@ internal sealed unsafe class LcpBuild
     /// <summary>B2 of one task: chunks in any order; Phi and rank scattered into arrays of R entries, PLCP in place over Phi, the second distribution by rank.</summary>
     private void PlcpWorker(Spool<PhiTuple> phiSpool, Spool<RankTuple> rankSpool)
     {
-        using var arena = new BudgetedArena(_budget, null, _o.TouchBuffers);
+        using var arena = new BudgetedArena(_budget, _o.ArenaGuards, _o.TouchBuffers);
         int maxChunk = ChunkEntries(_g.TextChunkLength(0));
         Buf<uint> phi = arena.Allocate<uint>(maxChunk, zero: false, "b2.phi");
         Buf<uint> rank = arena.Allocate<uint>(maxChunk, zero: false, "b2.rank");
@@ -202,7 +202,7 @@ internal sealed unsafe class LcpBuild
     private void EmitRankChunks(Spool<RankTuple> rankSpool)
     {
         long n = _text.Length;
-        using var arena = new BudgetedArena(_budget, null, _o.TouchBuffers);
+        using var arena = new BudgetedArena(_budget, _o.ArenaGuards, _o.TouchBuffers);
         int maxChunk = ChunkEntries(_g.RankChunkLength(0));
         Buf<uint> dense = arena.Allocate<uint>(maxChunk, zero: false, "b3.dense");
         int readEntries = ReadEntries(sizeof(RankTuple));
@@ -285,7 +285,7 @@ internal sealed unsafe class LcpBuild
     private void DistributePairs(Spool<PhiPair> spool, long first, long last)
     {
         long n = _text.Length;
-        using var arena = new BudgetedArena(_budget, null, _o.TouchBuffers);
+        using var arena = new BudgetedArena(_budget, _o.ArenaGuards, _o.TouchBuffers);
         int readEntries = ReadEntries(sizeof(uint));
         Buf<uint> read = arena.Allocate<uint>(readEntries, zero: false, "b1.sa");
         var writer = new SpoolWriter<PhiPair>(spool, arena, first, last - first, _o.TupleBufferBytes);
@@ -310,7 +310,7 @@ internal sealed unsafe class LcpBuild
     /// <summary>B2 of one task in the bounded mode: Phi chunks of the round, PLCP written to its place in the text-order file (four bytes per position).</summary>
     private void PairWorker(Spool<PhiPair> spool, string plcpPath, long lastChunk)
     {
-        using var arena = new BudgetedArena(_budget, null, _o.TouchBuffers);
+        using var arena = new BudgetedArena(_budget, _o.ArenaGuards, _o.TouchBuffers);
         int maxChunk = ChunkEntries(_g.TextChunkLength(0));
         Buf<uint> phi = arena.Allocate<uint>(maxChunk, zero: false, "b2.phi");
         int readEntries = ReadEntries(sizeof(PhiPair));
@@ -353,7 +353,7 @@ internal sealed unsafe class LcpBuild
     private void GatherRankChunks(string plcpPath)
     {
         long n = _text.Length;
-        using var arena = new BudgetedArena(_budget, null, _o.TouchBuffers);
+        using var arena = new BudgetedArena(_budget, _o.ArenaGuards, _o.TouchBuffers);
         int maxChunk = ChunkEntries(_g.RankChunkLength(0));
         Buf<uint> dense = arena.Allocate<uint>(maxChunk, zero: false, "b3.dense");
         int readEntries = ReadEntries(sizeof(uint));

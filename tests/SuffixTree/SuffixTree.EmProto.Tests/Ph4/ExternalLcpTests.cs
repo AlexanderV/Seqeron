@@ -312,7 +312,9 @@ public class ExternalLcpDifferentialTests
         outOfRange[^1] = (uint)c.Symbols.Length + 5; // the last tuple, after most of the scratch was written
         uint[] negative = (uint[])good.Clone();
         negative[10] = uint.MaxValue;
-        foreach (uint[] bad in new[] { noEmpty, outOfRange, negative })
+        uint[] equalsN = (uint[])good.Clone();
+        equalsN[10] = (uint)c.Symbols.Length; // n is the empty suffix, it belongs to rank 0 only
+        foreach (uint[] bad in new[] { noEmpty, outOfRange, negative, equalsN })
         {
             string saPath = LcpHarness.WriteSa(bad, _dir);
             Assert.Throws<ArgumentException>(() => ExternalLcp.Build(saPath, t, basePath, ovfPath, LcpHarness.Options(Scratch, 60, 2, mode, 3)));

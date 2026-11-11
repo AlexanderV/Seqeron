@@ -54,6 +54,9 @@ internal sealed record ExtLcpOptions
     /// <summary>Shared cap of the native buffers (null = unlimited).</summary>
     internal ArenaBudget? Budget { get; init; }
 
+    /// <summary>Test hook: options of the arenas (guard bands and a poison pattern for buffers that are not zeroed, so that a read before a write shows up as a wrong result); null = production arenas.</summary>
+    internal ArenaOptions? ArenaGuards { get; init; }
+
     /// <summary>Directory of the scratch files (created when missing; every file of a build is removed when it ends).</summary>
     internal required string ScratchDir { get; init; }
 }
