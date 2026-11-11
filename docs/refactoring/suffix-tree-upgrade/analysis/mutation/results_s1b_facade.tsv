@@ -1,0 +1,116 @@
+id	description	round 1 (Release / checked)	after the gap tests / compiling form (Release / checked)	status	note
+C01	EnsureTextLength: the limit itself is refused	killed(1)		killed	
+C02	MaxTextLength is int.MaxValue	killed(1)		killed	
+C03	EnsureTextLength: a negative length is not refused	killed(1)		killed	
+C04	EnsureTextLength: the exception does not name the long API	killed(1)		killed	
+C05	CheckedNodeCount: int.MaxValue itself is refused	killed(3)		killed	
+C06	CheckedNodeCount: never refuses (wraps)	killed(2)		killed	
+C07	CheckedNodeCount: refuses only above uint.MaxValue	killed(2)		killed	
+C08	constructor ignores the statistics override	BUILD-ERROR	killed(1)	killed	compiling form C08b killed
+C09	constructor does not call EnsureTextLength	survived/survived	survived/survived	equivalent	EQUIVALENT: the constructor guard EnsureTextLength(index.Length) cannot fire for a string-backed index (a managed string has at most 2^30 - 33 symbols, the guard refuses above int.MaxValue - 1); the guard logic itself is pinned directly (FacadeInt32LimitTests.EnsureTextLength_...). It becomes reachable with the mapped texts of 1b.7.
+C10	constructor: the text source is built from another string	killed(1)		killed	
+C11	Dispose: the first call is treated as already disposed	killed(2)		killed	
+C12	Dispose: builds the pack if it does not exist	killed(1)		killed	
+C13	Dispose: releases nothing	BUILD-ERROR	killed(2)	killed	compiling form C13b killed
+C14	Dispose: does not mark the tree disposed	BUILD-ERROR	killed(29)	killed	compiling form C14b killed
+C15	ThrowIfDisposed: inverted	killed(298)		killed	
+C16	ThrowIfDisposed: names no object	killed(3)		killed	
+C17	NodeCount: LeafCount instead	killed(46)		killed	
+C18	NodeCount: unchecked narrowing	killed(1)		killed	
+C19	LeafCount: MaxDepth instead (equal by definition: both are n)	survived/survived	survived/survived	equivalent	EQUIVALENT: LeafCount and MaxDepth are both n for every text (tested: FacadeChecks.CheckSearch), so the two header values are interchangeable.
+C20	MaxDepth: NodeCount instead	killed(40)		killed	
+C21	IsEmpty: not empty	killed(22)		killed	
+C22	IsEmpty: length at most one	killed(9)		killed	
+C23	Contains(string): the null check is dropped	killed(3)		killed	
+C24	Contains(string): wrong parameter name	killed(3)		killed	
+C25	FindAllOccurrences(string): wrong parameter name	killed(3)		killed	
+C26	CountOccurrences(string): the null check is dropped	killed(3)		killed	
+C27	CountOccurrences(span): counts one occurrence too many	killed(18)		killed	
+C28	FindAllOccurrences(span): always empty	killed(18)		killed	
+C29	Contains(span): true for every pattern	killed(18)		killed	
+C30	LRS: cached string is not published	BUILD-ERROR	killed(1)	killed	compiling form C30b killed
+C31	LRS: the cache is never read	survived/survived	survived/survived	equivalent	EQUIVALENT (cost only): PublishLongestRepeat returns the string that is already published (CompareExchange hands back the first value), so ignoring the cache yields the same instance, only the substring is recomputed.
+C32	LRS: recomputes on every call and publishes the new string	survived/survived	survived/survived	equivalent	EQUIVALENT in value and for every sequential caller: later calls read the published string; only two threads racing on the very first call could be handed two different (equal) instances; not testable deterministically without a seam.
+C33	EnumerateSuffixes: no eager disposal check	killed(6)		killed	
+C34	FindMaximalRepeatedPairs: no disposal check	survived/survived	killed(3)	killed	GAP CLOSED: the disposal check of FindMaximalRepeatedPairs was masked by the later read of Text; FacadeLifetimeTests.UseAfterDispose_TheDisposalCheckComesBeforeTheArgumentCheck now calls FindMaximalRepeatedPairs(0).
+C35	FindMaximalUniqueMatches: uniqueness ignored	killed(21)		killed	
+C36	FindMaximalExactMatches: minLength + 1	killed(30)		killed	
+C37	FindExactMatchAnchors: minLength fixed to 1	killed(24)		killed	
+C38	CountDistinctSubstringsByLength: maxLength + 1	killed(24)		killed	
+C39	LongestCommonSubstring(span): first-found text position through the info	survived/survived	survived/survived	equivalent	EQUIVALENT: EsaIndex.LongestCommonSubstring(span) is defined as LongestCommonSubstringInfo(new string(other)).Substring; the mutant calls the span overload of the info directly, the same code path.
+C40	LongestCommonSubstringInfo(span): no disposal check	survived/survived	killed(1)	killed	GAP CLOSED: the span overload of the info is a member of the class and the interface-typed lifetime test never reached it; FacadeLifetimeTests.UseAfterDispose_TheSpanOverloadOfTheClass_ThrowsObjectDisposedException.
+C41	Text: no disposal check	killed(3)		killed	
+C42	NodeCount: no disposal check	killed(3)		killed	
+C43	IsEmpty: no disposal check	killed(3)		killed	
+C44	Contains(string): no disposal check	killed(15)		killed	
+C45	CountOccurrences(span): no disposal check	killed(3)		killed	
+C46	GetAllSuffixes: no disposal check	killed(3)		killed	
+C47	FindAllDistinctLongestCommonSubstrings: no disposal check	killed(3)		killed	
+C48	CountDistinctSubstrings: no disposal check	killed(3)		killed	
+C49	LongestRepeatedSubstringMemory: no disposal check	killed(3)		killed	
+C50	Build(string): the null check is dropped (EsaIndex.Build refuses null too: equivalent)	survived/survived	survived/survived	equivalent	EQUIVALENT: EsaIndex.Build performs the same ArgumentNullException.ThrowIfNull(text) with the same parameter name.
+C51	Build(string, layout): the layout is ignored	BUILD-ERROR	killed(1)	killed	compiling form C51b killed
+C52	constructor: a null index is not refused (the next line throws NullReferenceException instead)	killed(1)		killed	
+D01	PrintTree: header text	killed(24)		killed	
+D02	PrintTree: root line	killed(24)		killed	
+D03	PrintTree: the empty text is not special-cased	survived/survived	killed(3)	killed	GAP CLOSED: for the empty text the output was identical (no children) but the pack was built for nothing; FacadePrintTreeTests.PrintTree_OfTheEmptyText_BuildsNoPack_AndOfANonEmptyTextOne.
+D04	PrintTree: indentation of three per level	killed(21)		killed	
+D05	PrintTree: leaf marker text	killed(24)		killed	
+D06	PrintTree: leaves are not skipped (their links are asked)	killed(24)		killed	
+D07	PrintTree: link mark also for the root	killed(3)		killed	
+D08	PrintTree: link mark never printed	BUILD-ERROR	killed(3)	killed	compiling form D08b killed
+D09	PrintTree: link mark names the second symbol	killed(3)		killed	
+D10	PrintTree: link mark in brackets of another shape	killed(18)		killed	
+D11	PrintTree: terminator printed as $	killed(21)		killed	
+D12	PrintTree: label loses its last symbol	killed(24)		killed	
+D13	PrintTree: the continuation frame does not advance	killed(30)		killed	
+D14	PrintTree: children are pushed at the parent depth	killed(21)		killed	
+D15	PrintTree: the first child of an internal node is skipped	killed(21)		killed	
+D16	PrintTree: initial capacity (an allocation hint only: equivalent)	BUILD-ERROR	survived/survived	equivalent	EQUIVALENT: the initial capacity of the StringBuilder is an allocation hint.
+D17	PrintTree: no disposal check	killed(3)		killed	
+D18	Traverse: no disposal check	killed(6)		killed	
+D19	Traverse: visits nothing	killed(39)		killed	
+D20	PrintTree: the root children are taken from a child (second level repeated)	killed(24)		killed	
+F01	CreateEsa(ITextSource): the length guard is dropped	killed(3)		killed	
+F02	CreateEsa(ITextSource): the guard names another parameter	killed(2)		killed	
+F03	CreateEsa(ITextSource): the null check is dropped	killed(1)		killed	
+F04	CreateEsa(ITextSource): a StringTextSource is copied	killed(1)		killed	
+F05	Materialize: the last chunk is not shortened	killed(2)		killed	
+F06	Materialize: stops one chunk early	killed(2)		killed	
+F07	Materialize: the first chunk is read twice	killed(2)		killed	
+F08	Materialize: the chunk is 1 symbol (slower, same result: equivalent)	survived/survived	survived/survived	equivalent	EQUIVALENT (cost only): the read chunk size changes the number of Slice calls, not the text.
+F09	Create(string): goes through the text source path with a wrapper (same result: equivalent)	survived/survived	killed(1)	killed	GAP CLOSED: Create(string) through a StringTextSource named the argument value in the null refusal; FacadeInt32LimitTests.Create_NullText_ThrowsArgumentNullException now asserts the parameter names.
+F10	Create(ITextSource): builds from an empty string	BUILD-ERROR	killed(6)	killed	compiling form F10b killed
+F11	CreateEsa(string): ignores the text	killed(58)		killed	
+F12	Materialize: reads from the second symbol	killed(2)		killed	
+N01	Engine: another name	killed(9)		killed	
+N02	TextLength: one more	killed(11)		killed	
+N03	Root: the default locus	killed(47)		killed	
+N04	Support: always Native	killed(8)		killed	
+N05	SupportNote: never a note	killed(5)		killed	
+N06	Count: zero	killed(27)		killed	
+N07	Locate: the skip is dropped	killed(hang)		killed	
+N08	TryExtendRight(symbol): the pattern overload with an empty pattern	killed(30)		killed	
+N09	TryExtendLeft: extends to the right	BUILD-ERROR	killed(8)	killed	compiling form N09b killed
+N10	EdgeSymbol: offset + 1	killed(8)		killed	
+N11	SuffixAt: the rank before	killed(17)		killed	
+N12	RankOf: the SuffixAt function instead	killed(15)		killed	
+N13	LcpAt: Lcp of the rank with itself	killed(8)		killed	
+N14	Lcp: the arguments are swapped (symmetric: equivalent)	BUILD-ERROR	survived/survived	equivalent	EQUIVALENT: Lcp is symmetric in its two ranks (the implementation orders them itself). Checked configuration: killed(1) in the first run of round 3, one test of the whole suite failed under three parallel full-suite runs and a loaded machine; on an idle machine both configurations survive (results_s1b_facade_r3b_surv_nav.tsv); the only wall-clock-bounded tests of Esa.Tests are ReviewS1aOptWorstCaseTests (3 s / 5 s), so this is a load flake of an older timing assert, not a kill.
+N15	Lca: the arguments are swapped (symmetric: equivalent)	BUILD-ERROR	survived/survived	equivalent	EQUIVALENT: Lca is symmetric in its two ranks (the implementation orders them itself); same remark on the load flake as N14b.
+N16	Lca: the same rank twice	killed(6)		killed	
+N17	GetChildren: nothing is written	killed(8)		killed	
+N18	TryParent: the locus itself	killed(8)		killed	
+N19	TrySuffixLink: the node itself	killed(8)		killed	
+N20	TryChild: the root child of the first symbol only	killed(8)		killed	
+N21	IsExplicitNode: always true	killed(9)		killed	
+N22	Engine: no disposal check	killed(3)		killed	
+N23	Root: no disposal check	killed(3)		killed	
+N24	ISuffixIndex.Text: no disposal check	killed(3)		killed	
+N25	Support: no disposal check	killed(3)		killed	
+N26	Count: no disposal check	killed(3)		killed	
+N27	TryExtendRight(pattern): no disposal check	killed(3)		killed	
+N28	Locate: no disposal check	killed(3)		killed	
+N29	TryChild: no disposal check	killed(3)		killed	
+N30	RankOf: no disposal check	killed(3)		killed	
+N31	Lca: no disposal check	killed(3)		killed	

@@ -1,0 +1,3 @@
+C09	constructor does not call EnsureTextLength	survived	survived
+C19	LeafCount: MaxDepth instead (equal by definition: both are n)	survived	survived
+C31	LRS: the cache is never read	survived	survived

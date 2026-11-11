@@ -1,0 +1,3 @@
+C32	LRS: recomputes on every call and publishes the new string	survived	survived
+C39	LongestCommonSubstring(span): first-found text position through the info	survived	survived
+C50	Build(string): the null check is dropped (EsaIndex.Build refuses null too: equivalent)	survived	survived
