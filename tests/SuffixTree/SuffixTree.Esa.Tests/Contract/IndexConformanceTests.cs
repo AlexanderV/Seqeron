@@ -457,8 +457,8 @@ public class IndexConformanceTests(IndexEngineFactory factory)
                 int count = nav.GetChildren(node, Span<IndexLocus>.Empty);
                 var kids = new IndexLocus[count];
                 Assert.That(nav.GetChildren(node, kids), Is.EqualTo(count), $"'{text}' {RenderLocus(node)}");
-                Assert.That(kids.Sum(k => index.Count(k)), Is.EqualTo(index.Count(node)), $"'{text}' {RenderLocus(node)}: the children partition the positions");
-                if (count == 0) Assert.That(index.Count(node), Is.LessThanOrEqualTo(1), $"'{text}' a leaf has at most one position");
+                if (count > 0) Assert.That(kids.Sum(k => index.Count(k)), Is.EqualTo(index.Count(node)), $"'{text}' {RenderLocus(node)}: the children partition the positions");
+                else Assert.That(index.Count(node), Is.LessThanOrEqualTo(1), $"'{text}' a leaf has at most one position");
                 int previousKey = int.MinValue;
                 foreach (IndexLocus kid in kids)
                 {
