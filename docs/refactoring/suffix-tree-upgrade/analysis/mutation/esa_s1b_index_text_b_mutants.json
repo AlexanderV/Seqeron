@@ -1,0 +1,8 @@
+[
+ {
+  "id": "X06r",
+  "desc": "re-run of X06 after the wrapping-position tests: a negative start is not refused",
+  "old": "        ArgumentOutOfRangeException.ThrowIfNegative(start);\n        ArgumentOutOfRangeException.ThrowIfGreaterThan",
+  "new": "        ArgumentOutOfRangeException.ThrowIfGreaterThan"
+ }
+]

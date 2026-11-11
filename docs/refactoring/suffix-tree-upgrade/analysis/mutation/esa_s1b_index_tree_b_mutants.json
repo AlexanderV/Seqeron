@@ -1,0 +1,8 @@
+[
+ {
+  "id": "T39b",
+  "desc": "CheckBoundary: a boundary far beyond the interval is allowed (replaces T39, which left a parameter unused)",
+  "old": "if (boundary >= 0 && (boundary <= previous || boundary > rb)) ThrowCorruptChildTable();",
+  "new": "if (boundary >= 0 && (boundary <= previous || boundary > rb + 1000)) ThrowCorruptChildTable();"
+ }
+]

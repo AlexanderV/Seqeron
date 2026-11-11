@@ -1,0 +1,32 @@
+[
+ {
+  "id": "C07b",
+  "desc": "SupportNote: the ExtendLeft note is the pack note (replaces C07, which left a constant unused)",
+  "old": "if (operation == IndexOperation.ExtendLeft) return ExtendLeftCost;",
+  "new": "if (operation == IndexOperation.ExtendLeft) return support == IndexSupport.Degraded ? PackCost : ExtendLeftCost;"
+ },
+ {
+  "id": "C08b",
+  "desc": "SupportNote: a Degraded operation has no note (replaces C08)",
+  "old": "return support == IndexSupport.Degraded ? PackCost : null;",
+  "new": "return support == IndexSupport.Unsupported ? PackCost : null;"
+ },
+ {
+  "id": "C09b",
+  "desc": "SupportNote: a Native operation has a note (replaces C09)",
+  "old": "return support == IndexSupport.Degraded ? PackCost : null;",
+  "new": "return support != IndexSupport.Unsupported ? PackCost : null;"
+ },
+ {
+  "id": "C40b",
+  "desc": "Extend: the next node keeps the old Pos (replaces C40, which left a variable unused)",
+  "old": "                node = next;\n",
+  "new": "                node = next with { Pos = node.Pos };\n"
+ },
+ {
+  "id": "C55r",
+  "desc": "re-run of C55 after the corrupt-first-l-index test: the first l-index may be past the interval",
+  "old": "valid = first > lb && first <= rb && lcp[first] == depth;",
+  "new": "valid = first > lb && lcp[first] == depth;"
+ }
+]

@@ -74,6 +74,14 @@ public class EsaSuffixIndexTests
         Assert.That(index.Text.SymbolAt(10), Is.EqualTo('i'));
         Assert.That(index.Text.SymbolAt(11), Is.EqualTo(-1));
         Assert.That(index.Text.SymbolAt(long.MaxValue), Is.EqualTo(-1));
+        // positions whose low 32 bits look like a valid int: a truncating implementation would read them
+        foreach (long wrapping in new[] { -(1L << 32), -(1L << 32) + 3, long.MinValue })
+        {
+            Assert.That(() => index.Text.SymbolAt(wrapping), Throws.TypeOf<ArgumentOutOfRangeException>(), wrapping.ToString());
+            Assert.That(() => index.Text.CopyTo(wrapping, buffer), Throws.TypeOf<ArgumentOutOfRangeException>(), wrapping.ToString());
+        }
+        Assert.That(() => index.Text.CopyTo(1L << 32, buffer), Throws.TypeOf<ArgumentOutOfRangeException>());
+        Assert.That(() => index.Text.CopyTo(long.MaxValue, buffer), Throws.TypeOf<ArgumentOutOfRangeException>());
     }
 
     // ---- hand-derived tree of "banana" -------------------------------------------------------------------------------------------
@@ -684,6 +692,56 @@ public class EsaSuffixIndexTests
         Assert.Throws<InvalidOperationException>(() => index.GetChildren(index.Root, new IndexLocus[8]), "child with a first l-index behind its interval");
         up[a.Hi] = savedUp;
         Assert.That(index.GetChildren(index.Root, kids), Is.EqualTo(6));
+    }
+
+    [Test]
+    public void CorruptChildTable_FirstLIndexBehindTheInterval_IsNoLocus()
+    {
+        // the node "i" of mississippi is ranks 1..4 with depth 1 and is not the last child of the root: its first l-index sits at rb = 4. A table that points it to rank 7 (LCP value 1, the right value
+        // for the depth, but behind the interval) must make the locus invalid.
+        const string text = "mississippi";
+        foreach (var layout in Layouts)
+        {
+            EsaIndex esa = EsaIndex.Build(text, layout);
+            var index = new EsaSuffixIndex(esa);
+            var kids = new IndexLocus[5];
+            Assert.That(index.GetChildren(index.Root, kids), Is.EqualTo(5));
+            IndexLocus i = kids[1];
+            Assert.That(i, Is.EqualTo(new IndexLocus(1, 4, 1, 1)));
+            Assert.That(esa.Lcp[7], Is.EqualTo(1));
+            Assert.That(index.IsExplicitNode(i), Is.True);
+            switch (layout)
+            {
+                case ChildLayoutKind.Reference3:
+                    {
+                        int[] up = Field<int[]>(esa.Child.Reference3, "_up");
+                        int saved = up[4];
+                        up[4] = 7;
+                        Assert.That(() => index.IsExplicitNode(i), Throws.TypeOf<ArgumentException>(), layout.ToString());
+                        up[4] = saved;
+                        break;
+                    }
+                case ChildLayoutKind.Packed:
+                    {
+                        int[] cld = Field<int[]>(esa.Child.Packed, "_cld");
+                        int saved = cld[4];
+                        cld[4] = 7;
+                        Assert.That(() => index.IsExplicitNode(i), Throws.TypeOf<ArgumentException>(), layout.ToString());
+                        cld[4] = saved;
+                        break;
+                    }
+                default:
+                    {
+                        uint[] cld = Field<uint[]>(esa.Child.Tagged, "_cld");
+                        uint saved = cld[4];
+                        cld[4] = TaggedChild.PackUp(7);
+                        Assert.That(() => index.IsExplicitNode(i), Throws.TypeOf<ArgumentException>(), layout.ToString());
+                        cld[4] = saved;
+                        break;
+                    }
+            }
+            Assert.That(index.IsExplicitNode(i), Is.True, "the repaired table accepts the node again");
+        }
     }
 
     [Test]
