@@ -32,17 +32,17 @@ internal static unsafe class E4
         string outPrefix = o.Require("out");
         string scratch = o.Require("scratch");
         string caseName = o.Str("case", "e4");
-        (long n, int bits) = E3.ReadMeta(textPath);
-        int threads = o.Int("threads", 4);
-        long budgetCap = o.Long("budget-mb", 160) << 20;
-        bool scaled = o.Get("scale-n") is not null;
-        double f = scaled ? n / (double)o.Long("scale-n", ReferenceN) : 1.0;
         LcpMode mode = o.Str("mode", "distributed") switch
         {
             "distributed" => LcpMode.Distributed,
             "bounded" => LcpMode.Bounded,
             var other => throw new ArgumentException($"unknown --mode '{other}' (distributed or bounded)"),
         };
+        (long n, int bits) = E3.ReadMeta(textPath);
+        int threads = o.Int("threads", 4);
+        long budgetCap = o.Long("budget-mb", 160) << 20;
+        bool scaled = o.Get("scale-n") is not null;
+        double f = scaled ? n / (double)o.Long("scale-n", ReferenceN) : 1.0;
         long chunk = scaled ? Math.Max(3, (long)Math.Ceiling(ChunkRef * f)) : ChunkRef;
         if (o.Get("chunk") is { } explicitChunk) chunk = long.Parse(explicitChunk, CultureInfo.InvariantCulture);
         ExtLcpOptions options = new()
