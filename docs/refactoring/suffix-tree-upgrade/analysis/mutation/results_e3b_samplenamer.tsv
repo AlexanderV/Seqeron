@@ -1,0 +1,28 @@
+N01	PrefixOrder: equal X-prefix needs l > X	killed(15)	
+N02	PrefixOrder: the shorter suffix is the larger	killed(11)	
+N03	AssignNames: a group is continued over the boundary when the prefixes differ	killed(10)	
+N04	AssignNames: continued bucket counts its first group again	killed(9)	
+N05	AssignNames: the offset of a continued bucket	killed(11)	
+N06	AssignNames: singleton group at a boundary counted at 2	killed(2)	
+N07	AssignNames: non-unique records are the singles	killed(2)	
+N08	AssignNames: the last group of a bucket is not discounted from the inner singles	killed(2)	
+N09	InRange: the lower bound record itself is excluded	killed(18)	
+N10	InRange: the upper bound record is included	killed(18)	
+N11	Cmp: no position tie-break	killed(hang)	
+N12	Collect: overflow detected one record late	killed(9)	
+N13	Split: fan-out from count instead of 2 x count (output unchanged)	killed(1)	
+N14	Split: equal splitter indices kept (empty children only)	survived	survived
+N15	Split: reservoir replacement may hit the slot after the last	killed(9)	
+N16	Split: the last reservoir record is not sorted	killed(1)	
+N17	Finish: insertion sort unstable on equal keys (output unchanged)	survived	survived
+N18	RadixSort: wrong digit in the histogram	killed(13)	
+N19	Finish: a new group starts when the keys are equal	killed(12)	
+N20	Finish: slot shifted by 31 bits	killed(20)	
+N21	Finish: the last group of the bucket not counted as a singleton	killed(2)	
+N22	Finish: first group length of a one-group bucket not set (unused)	survived	survived
+N23	Merge: fair share multiplied instead of divided	killed(1)	
+N24	Merge: the window check only fails on too many records (defensive)	survived	survived
+N25	Collect: buffers sized by the capacity, not by the sample	killed(1)	
+N26	Worker: file runs not counted	BUILD-ERROR CS0649	
+N27	Run: the root is split only when the sample exceeds twice the capacity	survived	survived
+N28	Merge: window size taken as the capacity of a bucket instead of the chunk	survived	survived

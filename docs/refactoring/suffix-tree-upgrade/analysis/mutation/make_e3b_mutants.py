@@ -123,7 +123,28 @@ a = 'apps/SuffixTree.EmProto/Harness/ArenaBudget.cs'
 add(a, 'T01', 'TouchPages: every second page', 'for (long i = 0; i < bytes; i += 4096)', 'for (long i = 0; i < bytes; i += 8192)')
 add(a, 'T02', 'Allocate: pages touched when not asked', 'if (_touch) TouchPages', 'if (!_touch) TouchPages')
 
+# --- round 2: the survivors of round 1 that are not equivalent (against the tests added after round 1) and two mutants that did not compile in round 1, in a compiling form
+R2 = {}
+
+def add2(file, id_, desc, old, new):
+    R2.setdefault(file, []).append({'id': id_, 'desc': desc, 'old': old, 'new': new})
+
+for f, lst in M.items():
+    for m in lst:
+        if m['id'] in ('N14', 'N24', 'N27', 'N28', 'D12', 'C04'):
+            add2(f, m['id'], m['desc'], m['old'], m['new'])
+add2(n, 'N26b', 'Worker: file runs counted one too many per worker', '_fileRuns += w.FileRuns;', '_fileRuns += w.FileRuns + 1;')
+add2(e, 'C03b', 'PackRandom: unused bits of the last byte not cleared (whole statement removed)', 'if (written + take == dataBytes && (n * 2) % 8 != 0) buf[take - 1] &= (byte)(0xFF << (8 - (int)((n * 2) % 8)));', '')
+
 bad = 0
+for f, lst in R2.items():
+    src = open(os.path.join(ROOT, f)).read()
+    for m in lst:
+        if src.count(m['old']) != 1:
+            print('NOT UNIQUE (round 2)', f, m['id'], src.count(m['old']))
+            bad += 1
+    name = os.path.splitext(os.path.basename(f))[0].lower()
+    json.dump(lst, open(os.path.join(OUT, f'e3b_round2_{name}_mutants.json'), 'w'), indent=1)
 for f, lst in M.items():
     src = open(os.path.join(ROOT, f)).read()
     for m in lst:

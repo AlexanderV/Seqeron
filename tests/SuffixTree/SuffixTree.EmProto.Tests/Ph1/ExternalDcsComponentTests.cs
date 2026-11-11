@@ -7,7 +7,9 @@ using SuffixTree.EmProto.Build;
 using SuffixTree.EmProto.Dcs;
 using SuffixTree.EmProto.Experiments;
 using SuffixTree.EmProto.Harness;
+using SuffixTree.EmProto.Tests.Build;
 using SuffixTree.EmProto.Text;
+using SuffixTree.Esa.Tests.TestSupport;
 using SplitMix64 = SuffixTree.EmProto.Harness.SplitMix64;
 
 namespace SuffixTree.EmProto.Tests.Ph1;
@@ -635,5 +637,156 @@ public class E3bCommandTests
         ExtDcsOptions o = ExtDcsHarness.Options(scratch, 10, 20, 1) with { Budget = new ArenaBudget(2000) };
         Assert.Catch<InvalidOperationException>(() => ExternalDcs.BuildRankFile(t, cover, Path.Combine(_dir, "r"), o));
         Assert.That(Directory.GetFileSystemEntries(scratch), Is.Empty);
+    }
+}
+
+// Tests added after round 1 of the mutation audit (analysis/mutation/results_e3b_*.tsv): they close the survivors that were not equivalent.
+
+[TestFixture]
+public class SampleNamerAuditTests
+{
+    private string _dir = string.Empty;
+
+    [SetUp]
+    public void SetUp()
+    {
+        _dir = Path.Combine(Path.GetTempPath(), "emproto-ph1a-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(_dir);
+    }
+
+    [TearDown]
+    public void TearDown() => Directory.Delete(_dir, true);
+
+    private static (NamingResult Result, ExtDcsLevelStats Stats, SampleNamer Namer, SampleGeometry Geometry, PackedText Text) Name(byte[] symbols, int bits, int x, ExtDcsOptions o)
+    {
+        Directory.CreateDirectory(o.ScratchDir);
+        PackedText t = PackedText.Pack(symbols, bits);
+        DifferenceCover cover = DifferenceCover.Create(x);
+        var g = new SampleGeometry(symbols.Length, cover);
+        var stats = new ExtDcsLevelStats();
+        var namer = new SampleNamer(t, g, o, stats, new ArenaBudget(1 << 26), "audit");
+        return (namer.Run(), stats, namer, g, t);
+    }
+
+    [Test]
+    public void EverySplitMakesNonEmptyBuckets_AndEveryRunIsAFileWhenTheSpillIsZero()
+    {
+        var rng = new SplitMix64(31);
+        for (int round = 0; round < 40; round++)
+        {
+            var symbols = new byte[600 + rng.NextInt(1500)];
+            int family = round % 4;
+            for (int i = 0; i < symbols.Length; i++) symbols[i] = family switch { 0 => (byte)rng.NextInt(2), 1 => 0, 2 => (byte)((i / 3) & 1), _ => (byte)(rng.NextInt(10) == 0 ? 1 : 0) };
+            ExtDcsOptions o = ExtDcsHarness.Options(Path.Combine(_dir, "scratch"), 3 + rng.NextInt(30), 1 << 20, 1 + (round % 3)) with { ReservoirSize = 3 + rng.NextInt(20), FanOut = 2 + rng.NextInt(50), RunSpillBytes = 0, Seed = rng.Next() };
+            (NamingResult r, ExtDcsLevelStats st, _, _, PackedText t) = Name(symbols, 1, 7 + rng.NextInt(20), o);
+            using (t)
+            using (r)
+            {
+                Assert.That(r.Leaves.Count, Is.EqualTo(st.Leaves), $"round {round}: a split produced an empty bucket");
+                Assert.That(st.FileRuns, Is.EqualTo(st.Leaves), $"round {round}: with a spill size of 0 every bucket run is a file");
+            }
+        }
+    }
+
+    [Test]
+    public void RootBetweenOneAndTwoTimesTheCapacity_IsSplitDirectly_WithoutAnOverflowingCollectScan()
+    {
+        var rng = new SplitMix64(5);
+        var symbols = new byte[2000];
+        for (int i = 0; i < symbols.Length; i++) symbols[i] = (byte)rng.NextInt(2);
+        DifferenceCover cover = DifferenceCover.Create(31);
+        long s = cover.SampleCount(symbols.Length);
+        long k = (s * 2 / 3) + 1; // K < Samples <= 2 K
+        ExtDcsOptions o = ExtDcsHarness.Options(Path.Combine(_dir, "scratch"), k, 1 << 20) with { ReservoirSize = 4096 };
+        (NamingResult r, ExtDcsLevelStats st, _, _, PackedText t) = Name(symbols, 1, 31, o);
+        using (t)
+        using (r)
+        {
+            Assert.That(st.SplitScans, Is.EqualTo(1));
+            Assert.That(st.Scans, Is.EqualTo(st.Leaves + st.SplitScans), "the root is known to be larger than K: one split scan, then one scan per leaf, nothing wasted");
+        }
+    }
+
+    private sealed class CollectingSink : INameSink
+    {
+        internal int Calls;
+
+        public void Accept(long firstSlot, ReadOnlySpan<uint> names) => Calls++;
+
+        public void Dispose()
+        {
+        }
+    }
+
+    [Test]
+    public void Merge_ReportsAMissingRecordInItsWindow_AndADuplicate()
+    {
+        var rng = new SplitMix64(9);
+        var symbols = new byte[1500];
+        for (int i = 0; i < symbols.Length; i++) symbols[i] = (byte)rng.NextInt(2);
+        ExtDcsOptions o = ExtDcsHarness.Options(Path.Combine(_dir, "scratch"), 50, 1 << 20) with { RunSpillBytes = 1 << 20, ChunkSlots = 100 };
+        foreach (bool duplicate in new[] { false, true })
+        {
+            (NamingResult r, _, SampleNamer namer, _, PackedText t) = Name(symbols, 1, 31, o);
+            using (t)
+            using (r)
+            {
+                LeafResult leaf = r.Leaves[1];
+                ulong[] records = leaf.Run!.Memory.ToArray();
+                ulong[] damaged = duplicate ? [.. records, records[^1]] : records[..^1];
+                var broken = new LeafResult { Count = leaf.Count, Distinct = leaf.Distinct, FirstPos = leaf.FirstPos, LastPos = leaf.LastPos, FirstLen = leaf.FirstLen, LastLen = leaf.LastLen, Singles = leaf.Singles, Run = BucketRun.Create(damaged, _dir, "damaged", 1 << 20), Offset = leaf.Offset };
+                r.Leaves[1] = broken;
+                var ex = Assert.Throws<InvalidOperationException>(() => namer.Merge(r, new CollectingSink()))!;
+                Assert.That(ex.Message, Does.Contain("merge window"), $"duplicate={duplicate}: the window check names the window with the wrong number of records ({ex.Message})");
+            }
+        }
+    }
+
+    [Test]
+    public void MergeWindow_FollowsChunkSlots_NotTheBucketCapacity()
+    {
+        var rng = new SplitMix64(12);
+        var symbols = new byte[5000];
+        for (int i = 0; i < symbols.Length; i++) symbols[i] = (byte)rng.NextInt(4);
+        DifferenceCover cover = DifferenceCover.Create(31);
+        long s = cover.SampleCount(symbols.Length);
+        var budget = new ArenaBudget(1 << 26);
+        ExtDcsOptions o = ExtDcsHarness.Options(Path.Combine(_dir, "scratch"), 100, 1 << 20) with { RunSpillBytes = 1 << 20, ChunkSlots = 1000, Budget = budget };
+        using PackedText t = PackedText.Pack(symbols, 2);
+        byte[] expected = ExtDcsHarness.Oracle(t, cover);
+        (byte[] got, _) = ExtDcsHarness.Run(t, cover, o, _dir);
+        Assert.That(got.AsSpan().SequenceEqual(expected), Is.True);
+        Assert.That(budget.PeakBytes, Is.GreaterThanOrEqualTo(s * 4), $"the merge window holds min(ChunkSlots, Samples) = {s} entries of 4 bytes; the bucket arrays of K = 100 are only {100 * 24} bytes");
+    }
+
+    [Test]
+    public void ExternalSortLeaf_FollowsSortLeafCapacity_NotTheBucketCapacity()
+    {
+        DenseCase c = BuilderTestSupport.Dense("same", StringFamilies.AllSame(3000));
+        DifferenceCover cover = DifferenceCover.Create(13);
+        using PackedText t = PackedText.Pack(c.Symbols, 1);
+        var budget = new ArenaBudget(1 << 26);
+        ExtDcsOptions o = ExtDcsHarness.Options(Path.Combine(_dir, "scratch"), 3, 40, 1) with { SortLeafCapacity = 500, Budget = budget };
+        (byte[] got, ExtDcsStats st) = ExtDcsHarness.Run(t, cover, o, _dir);
+        Assert.That(st.MaxLevel, Is.GreaterThanOrEqualTo(1));
+        Assert.That(got.AsSpan().SequenceEqual(ExtDcsHarness.Oracle(t, cover)), Is.True);
+        Assert.That(budget.PeakBytes, Is.GreaterThanOrEqualTo(500 * 24), "the leaf sorter of the external level allocates 24 bytes for each of K_sort = 500 records");
+    }
+
+    [Test]
+    public void E3bCommand_ReturnsFailure_WhenTheOracleDiffers()
+    {
+        if (!File.Exists("/proc/self/stat")) Assert.Ignore("the report reads /proc (Linux)");
+        string pk = Path.Combine(_dir, "t.pk");
+        string oracle = Path.Combine(_dir, "t.oracle");
+        var report = new Report(Path.Combine(_dir, "rows.tsv"));
+        Assert.That(E3.Pack(Options.Parse(["--family", "genome:100000", "--out", pk]), report), Is.EqualTo(0));
+        Assert.That(E3.MakeRanks(Options.Parse(["--text", pk, "--out", oracle]), report), Is.EqualTo(0));
+        byte[] bytes = File.ReadAllBytes(oracle);
+        bytes[1000] ^= 1;
+        File.WriteAllBytes(oracle, bytes);
+        int rc = E3b.Build(Options.Parse(["--text", pk, "--out", Path.Combine(_dir, "t.rank"), "--scratch", Path.Combine(_dir, "scratch"), "--scale-n", "3000000000", "--verify", oracle, "--threads", "2", "--rss-cap-mb", "100000"]), report);
+        Assert.That(rc, Is.EqualTo(1));
+        Assert.That(File.ReadAllText(Path.Combine(_dir, "rows.tsv")), Does.Contain("rank_equals_oracle\tNO"));
     }
 }

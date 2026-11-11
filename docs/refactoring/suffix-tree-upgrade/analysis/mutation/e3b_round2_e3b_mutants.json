@@ -1,0 +1,14 @@
+[
+ {
+  "id": "C04",
+  "desc": "Build: the verify result does not change the exit code",
+  "old": "ok &= equal;",
+  "new": ""
+ },
+ {
+  "id": "C03b",
+  "desc": "PackRandom: unused bits of the last byte not cleared (whole statement removed)",
+  "old": "if (written + take == dataBytes && (n * 2) % 8 != 0) buf[take - 1] &= (byte)(0xFF << (8 - (int)((n * 2) % 8)));",
+  "new": ""
+ }
+]

@@ -1,0 +1,5 @@
+C01	Scale: scaled values rounded down to the floor	killed(2)	
+C02	CompareFiles: a length mismatch is not a difference	killed(1)	
+C03	PackRandom: unused bits of the last byte not cleared	BUILD-ERROR S3973	
+C04	Build: the verify result does not change the exit code	survived	survived
+C05	CompareFiles: first difference reported one early	killed(1)	

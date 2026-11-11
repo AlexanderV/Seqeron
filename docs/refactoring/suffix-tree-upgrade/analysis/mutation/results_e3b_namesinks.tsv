@@ -1,0 +1,8 @@
+S01	RankFileSink: slot offset in 8-byte units	killed(11)	
+S02	ReducedFileSink: little endian	killed(6)	
+S03	ReducedFileSink: flush offset ignores what was flushed	killed(5)	
+S04	ReducedFileSink: no padding after the symbols	killed(4)	
+S05	ReducedFileSink: a full cursor buffer is flushed one entry late	killed(7)	
+S06	ReducedRamSink: class offset replaced by the class index	killed(4)	
+S07	ReducedRamSink: block not advanced at the end of a row	killed(4)	
+S08	RankFileSink: the scratch output is not tracked	killed(4)	

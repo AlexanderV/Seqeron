@@ -1,0 +1,32 @@
+[
+ {
+  "id": "N14",
+  "desc": "Split: equal splitter indices kept (empty children only)",
+  "old": "if (i <= last) continue;",
+  "new": "if (i < last) continue;"
+ },
+ {
+  "id": "N24",
+  "desc": "Merge: the window check only fails on too many records (defensive)",
+  "old": "if (got != end - start) throw",
+  "new": "if (got > end - start) throw"
+ },
+ {
+  "id": "N27",
+  "desc": "Run: the root is split only when the sample exceeds twice the capacity",
+  "old": "_g.Samples > _o.BucketCapacity, 1)",
+  "new": "_g.Samples > 2 * _o.BucketCapacity, 1)"
+ },
+ {
+  "id": "N28",
+  "desc": "Merge: window size taken as the capacity of a bucket instead of the chunk",
+  "old": "int windowSlots = (int)Math.Min(Math.Max(1, _o.ChunkSlots), s);",
+  "new": "int windowSlots = (int)Math.Min(Math.Max(1, _o.BucketCapacity), s);"
+ },
+ {
+  "id": "N26b",
+  "desc": "Worker: file runs counted one too many per worker",
+  "old": "_fileRuns += w.FileRuns;",
+  "new": "_fileRuns += w.FileRuns + 1;"
+ }
+]

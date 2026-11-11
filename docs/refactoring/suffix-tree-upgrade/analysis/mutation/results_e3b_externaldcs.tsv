@@ -1,0 +1,12 @@
+D01	BuildLevel: a reduced string of exactly N_base symbols recurses	killed(1)	
+D02	BuildLevel: a reduced string as long as the text recurses	killed(1)	
+D03	BuildLevel: level rank file not deleted	killed(14)	
+D04	BuildLevel: suffix array file not untracked	killed(3)	
+D05	BaseCase: the inverse starts at rank 0	killed(5)	
+D06	BaseCase: unused slots read the table	killed(2)	
+D07	Build: sigma of the base case one too small	killed(5)	
+D08	Validation: bucket capacity 1 accepted	killed(1)	
+D09	Validation: reservoir of 2 accepted	killed(1)	
+D10	BuildLevel: the unique branch does not return after the merge	killed(13)	
+D11	BuildLevel: level counter of the child not advanced	killed(host crash)	
+D12	BuildLevel: external suffix sort seeded and sized by the naming capacity	survived	survived

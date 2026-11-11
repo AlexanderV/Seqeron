@@ -1,0 +1,8 @@
+[
+ {
+  "id": "D12",
+  "desc": "BuildLevel: external suffix sort seeded and sized by the naming capacity",
+  "old": "LeafCapacity = o.SortLeafCapacity,",
+  "new": "LeafCapacity = o.BucketCapacity,"
+ }
+]

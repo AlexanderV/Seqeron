@@ -1,0 +1,8 @@
+I01	Invert: separators are treated as real positions	killed(15)	
+I02	Invert: the entry of rank 1 is skipped instead of rank 0	killed(1)	
+I03	Invert: chunk by modulo	killed(15)	
+I04	Invert: chunk array not cleared	killed(11)	
+I05	Invert: a full tuple buffer is flushed one entry late	killed(11)	
+I06	Invert: tuple files not untracked	killed(2)	
+I07	Invert: tuple file not deleted	killed(11)	
+I08	Flush: tuple file written from the start every time	killed(11)	

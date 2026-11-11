@@ -1,0 +1,6 @@
+W01	WriteAt: a write at the end of the window does not open the next one (loops for ever)	killed(hang)	
+W02	OpenWindow: window not clipped to the file end	killed(23)	
+W03	Append: position not advanced	killed(12)	
+W04	WriteAt: the last byte of the file cannot be written	killed(18)	
+W05	WriteAt: mapped write counter not updated	killed(2)	
+W06	OpenWindow: window counter not updated	killed(2)	

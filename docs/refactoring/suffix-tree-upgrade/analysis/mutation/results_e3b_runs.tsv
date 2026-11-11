@@ -1,0 +1,7 @@
+R01	Create: a run of exactly the spill size goes to a file	killed(1)	
+R02	ReadAt: reads at least the buffer (Max instead of Min)	killed(16)	
+R03	Drain: a record at the limit is scattered too	killed(20)	
+R04	Drain: the bucket offset is not added	killed(19)	
+R05	Refill: a drained run is refilled (loops for ever)	killed(hang)	
+R06	Create: the tracker is not told about the file	killed(4)	
+R07	Dispose: the tracker is not told about the deletion	killed(4)	

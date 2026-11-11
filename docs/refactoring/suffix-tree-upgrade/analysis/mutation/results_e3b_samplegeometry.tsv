@@ -1,0 +1,8 @@
+G01	Slots: one block too few	killed(23)	
+G02	ClassCount: a residue equal to n has no member	killed(1)	
+G03	RedStart: separator of the class not counted	killed(13)	
+G04	SlotOf: block stride is the period instead of |D|	killed(20)	
+G05	TrySlotOfRed: the separator index k == count is taken as a member	killed(16)	
+G06	RedIndexOfSlot: block taken as slot modulo |D|	killed(6)	
+G07	TrySlotOfRed: binary search keeps the class whose start is strictly below q	killed(12)	
+G08	PositionOfSlot: residue taken from the block index	killed(1)	
