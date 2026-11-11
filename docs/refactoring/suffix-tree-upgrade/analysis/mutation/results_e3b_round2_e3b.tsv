@@ -1,0 +1,2 @@
+C04	Build: the verify result does not change the exit code	killed(1)	
+C03b	PackRandom: unused bits of the last byte not cleared (whole statement removed)	killed(1)	

@@ -1,0 +1,5 @@
+N14	Split: equal splitter indices kept (empty children only)	killed(1)	
+N24	Merge: the window check only fails on too many records (defensive)	killed(1)	
+N27	Run: the root is split only when the sample exceeds twice the capacity	killed(1)	
+N28	Merge: window size taken as the capacity of a bucket instead of the chunk	killed(1)	
+N26b	Worker: file runs counted one too many per worker	killed(1)	

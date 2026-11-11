@@ -1,0 +1,87 @@
+id	file	description	round 1 (stage 1)	round 1 (stage 2)	round 2	verdict	note
+G01	Dcs/SampleGeometry.cs	Slots: one block too few	killed(23)			killed	
+G02	Dcs/SampleGeometry.cs	ClassCount: a residue equal to n has no member	killed(1)			killed	
+G03	Dcs/SampleGeometry.cs	RedStart: separator of the class not counted	killed(13)			killed	
+G04	Dcs/SampleGeometry.cs	SlotOf: block stride is the period instead of |D|	killed(20)			killed	
+G05	Dcs/SampleGeometry.cs	TrySlotOfRed: the separator index k == count is taken as a member	killed(16)			killed	
+G06	Dcs/SampleGeometry.cs	RedIndexOfSlot: block taken as slot modulo |D|	killed(6)			killed	
+G07	Dcs/SampleGeometry.cs	TrySlotOfRed: binary search keeps the class whose start is strictly below q	killed(12)			killed	
+G08	Dcs/SampleGeometry.cs	PositionOfSlot: residue taken from the block index	killed(1)			killed	
+W01	Dcs/MappedWindowWriter.cs	WriteAt: a write at the end of the window does not open the next one (loops for ever)	killed(hang)			killed	
+W02	Dcs/MappedWindowWriter.cs	OpenWindow: window not clipped to the file end	killed(23)			killed	
+W03	Dcs/MappedWindowWriter.cs	Append: position not advanced	killed(12)			killed	
+W04	Dcs/MappedWindowWriter.cs	WriteAt: the last byte of the file cannot be written	killed(18)			killed	
+W05	Dcs/MappedWindowWriter.cs	WriteAt: mapped write counter not updated	killed(2)			killed	
+W06	Dcs/MappedWindowWriter.cs	OpenWindow: window counter not updated	killed(2)			killed	
+R01	Dcs/Runs.cs	Create: a run of exactly the spill size goes to a file	killed(1)			killed	
+R02	Dcs/Runs.cs	ReadAt: reads at least the buffer (Max instead of Min)	killed(16)			killed	
+R03	Dcs/Runs.cs	Drain: a record at the limit is scattered too	killed(20)			killed	
+R04	Dcs/Runs.cs	Drain: the bucket offset is not added	killed(19)			killed	
+R05	Dcs/Runs.cs	Refill: a drained run is refilled (loops for ever)	killed(hang)			killed	
+R06	Dcs/Runs.cs	Create: the tracker is not told about the file	killed(4)			killed	
+R07	Dcs/Runs.cs	Dispose: the tracker is not told about the deletion	killed(4)			killed	
+N01	Dcs/SampleNamer.cs	PrefixOrder: equal X-prefix needs l > X	killed(15)			killed	
+N02	Dcs/SampleNamer.cs	PrefixOrder: the shorter suffix is the larger	killed(11)			killed	
+N03	Dcs/SampleNamer.cs	AssignNames: a group is continued over the boundary when the prefixes differ	killed(10)			killed	
+N04	Dcs/SampleNamer.cs	AssignNames: continued bucket counts its first group again	killed(9)			killed	
+N05	Dcs/SampleNamer.cs	AssignNames: the offset of a continued bucket	killed(11)			killed	
+N06	Dcs/SampleNamer.cs	AssignNames: singleton group at a boundary counted at 2	killed(2)			killed	
+N07	Dcs/SampleNamer.cs	AssignNames: non-unique records are the singles	killed(2)			killed	
+N08	Dcs/SampleNamer.cs	AssignNames: the last group of a bucket is not discounted from the inner singles	killed(2)			killed	
+N09	Dcs/SampleNamer.cs	InRange: the lower bound record itself is excluded	killed(18)			killed	
+N10	Dcs/SampleNamer.cs	InRange: the upper bound record is included	killed(18)			killed	
+N11	Dcs/SampleNamer.cs	Cmp: no position tie-break	killed(hang)			killed	
+N12	Dcs/SampleNamer.cs	Collect: overflow detected one record late	killed(9)			killed	
+N13	Dcs/SampleNamer.cs	Split: fan-out from count instead of 2 x count (output unchanged)	killed(1)			killed	
+N14	Dcs/SampleNamer.cs	Split: equal splitter indices kept (empty children only)	survived	survived	killed(1)	killed after a test was added	closed by a test added after round 1 (SampleNamerAuditTests / ExternalDcsTests)
+N15	Dcs/SampleNamer.cs	Split: reservoir replacement may hit the slot after the last	killed(9)			killed	
+N16	Dcs/SampleNamer.cs	Split: the last reservoir record is not sorted	killed(1)			killed	
+N17	Dcs/SampleNamer.cs	Finish: insertion sort unstable on equal keys (output unchanged)	survived	survived		equivalent	equivalent: the order of equal elements inside a run of equal (key, X-prefix) is not observable - names depend on the groups, the run is re-sorted by slot, and the group boundary checks look at the first and last record only through key and prefix equality, which every member of a group shares
+N18	Dcs/SampleNamer.cs	RadixSort: wrong digit in the histogram	killed(13)			killed	
+N19	Dcs/SampleNamer.cs	Finish: a new group starts when the keys are equal	killed(12)			killed	
+N20	Dcs/SampleNamer.cs	Finish: slot shifted by 31 bits	killed(20)			killed	
+N21	Dcs/SampleNamer.cs	Finish: the last group of the bucket not counted as a singleton	killed(2)			killed	
+N22	Dcs/SampleNamer.cs	Finish: first group length of a one-group bucket not set (unused)	survived	survived		equivalent	equivalent: FirstLen of a bucket with one group is never read (AssignNames reads it only when Distinct >= 2); the statement is a dead write kept for symmetry
+N23	Dcs/SampleNamer.cs	Merge: fair share multiplied instead of divided	killed(1)			killed	
+N24	Dcs/SampleNamer.cs	Merge: the window check only fails on too many records (defensive)	survived	survived	killed(1)	killed after a test was added	closed by a test added after round 1 (SampleNamerAuditTests / ExternalDcsTests)
+N25	Dcs/SampleNamer.cs	Collect: buffers sized by the capacity, not by the sample	killed(1)			killed	
+N26	Dcs/SampleNamer.cs	Worker: file runs not counted	BUILD-ERROR CS0649			not compiled	analyzer error CS0649; replaced by N26b
+N27	Dcs/SampleNamer.cs	Run: the root is split only when the sample exceeds twice the capacity	survived	survived	killed(1)	killed after a test was added	closed by a test added after round 1 (SampleNamerAuditTests / ExternalDcsTests)
+N28	Dcs/SampleNamer.cs	Merge: window size taken as the capacity of a bucket instead of the chunk	survived	survived	killed(1)	killed after a test was added	closed by a test added after round 1 (SampleNamerAuditTests / ExternalDcsTests)
+S01	Dcs/NameSinks.cs	RankFileSink: slot offset in 8-byte units	killed(11)			killed	
+S02	Dcs/NameSinks.cs	ReducedFileSink: little endian	killed(6)			killed	
+S03	Dcs/NameSinks.cs	ReducedFileSink: flush offset ignores what was flushed	killed(5)			killed	
+S04	Dcs/NameSinks.cs	ReducedFileSink: no padding after the symbols	killed(4)			killed	
+S05	Dcs/NameSinks.cs	ReducedFileSink: a full cursor buffer is flushed one entry late	killed(7)			killed	
+S06	Dcs/NameSinks.cs	ReducedRamSink: class offset replaced by the class index	killed(4)			killed	
+S07	Dcs/NameSinks.cs	ReducedRamSink: block not advanced at the end of a row	killed(4)			killed	
+S08	Dcs/NameSinks.cs	RankFileSink: the scratch output is not tracked	killed(4)			killed	
+I01	Dcs/SaInverter.cs	Invert: separators are treated as real positions	killed(15)			killed	
+I02	Dcs/SaInverter.cs	Invert: the entry of rank 1 is skipped instead of rank 0	killed(1)			killed	
+I03	Dcs/SaInverter.cs	Invert: chunk by modulo	killed(15)			killed	
+I04	Dcs/SaInverter.cs	Invert: chunk array not cleared	killed(11)			killed	
+I05	Dcs/SaInverter.cs	Invert: a full tuple buffer is flushed one entry late	killed(11)			killed	
+I06	Dcs/SaInverter.cs	Invert: tuple files not untracked	killed(2)			killed	
+I07	Dcs/SaInverter.cs	Invert: tuple file not deleted	killed(11)			killed	
+I08	Dcs/SaInverter.cs	Flush: tuple file written from the start every time	killed(11)			killed	
+D01	Dcs/ExternalDcs.cs	BuildLevel: a reduced string of exactly N_base symbols recurses	killed(1)			killed	
+D02	Dcs/ExternalDcs.cs	BuildLevel: a reduced string as long as the text recurses	killed(1)			killed	
+D03	Dcs/ExternalDcs.cs	BuildLevel: level rank file not deleted	killed(14)			killed	
+D04	Dcs/ExternalDcs.cs	BuildLevel: suffix array file not untracked	killed(3)			killed	
+D05	Dcs/ExternalDcs.cs	BaseCase: the inverse starts at rank 0	killed(5)			killed	
+D06	Dcs/ExternalDcs.cs	BaseCase: unused slots read the table	killed(2)			killed	
+D07	Dcs/ExternalDcs.cs	Build: sigma of the base case one too small	killed(5)			killed	
+D08	Dcs/ExternalDcs.cs	Validation: bucket capacity 1 accepted	killed(1)			killed	
+D09	Dcs/ExternalDcs.cs	Validation: reservoir of 2 accepted	killed(1)			killed	
+D10	Dcs/ExternalDcs.cs	BuildLevel: the unique branch does not return after the merge	killed(13)			killed	
+D11	Dcs/ExternalDcs.cs	BuildLevel: level counter of the child not advanced	killed(host crash)			killed	
+D12	Dcs/ExternalDcs.cs	BuildLevel: external suffix sort seeded and sized by the naming capacity	survived	survived	killed(1)	killed after a test was added	closed by a test added after round 1 (SampleNamerAuditTests / ExternalDcsTests)
+C01	Experiments/E3b.cs	Scale: scaled values rounded down to the floor	killed(2)			killed	
+C02	Experiments/E3b.cs	CompareFiles: a length mismatch is not a difference	killed(1)			killed	
+C03	Experiments/E3b.cs	PackRandom: unused bits of the last byte not cleared	BUILD-ERROR S3973			not compiled	analyzer error S3973; replaced by C03b
+C04	Experiments/E3b.cs	Build: the verify result does not change the exit code	survived	survived	killed(1)	killed after a test was added	closed by a test added after round 1 (SampleNamerAuditTests / ExternalDcsTests)
+C05	Experiments/E3b.cs	CompareFiles: first difference reported one early	killed(1)			killed	
+T01	Harness/ArenaBudget.cs	TouchPages: every second page	killed(1)			killed	
+T02	Harness/ArenaBudget.cs	Allocate: pages touched when not asked	killed(1)			killed	
+C03b	(replacement)	PackRandom: unused bits of the last byte not cleared (whole statement removed)	-	-	killed(1)	killed	compiling form of the mutant that did not compile in round 1
+N26b	(replacement)	Worker: file runs counted one too many per worker	-	-	killed(1)	killed	compiling form of the mutant that did not compile in round 1
