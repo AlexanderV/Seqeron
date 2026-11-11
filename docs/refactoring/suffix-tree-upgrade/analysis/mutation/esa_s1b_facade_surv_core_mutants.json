@@ -1,0 +1,38 @@
+[
+ {
+  "id": "C09",
+  "desc": "constructor does not call EnsureTextLength",
+  "old": "        EnsureTextLength(index.Length);\n",
+  "new": ""
+ },
+ {
+  "id": "C19",
+  "desc": "LeafCount: MaxDepth instead (equal by definition: both are n)",
+  "old": "return _statistics.LeafCount;",
+  "new": "return _statistics.MaxDepth;"
+ },
+ {
+  "id": "C31",
+  "desc": "LRS: the cache is never read",
+  "old": "return Volatile.Read(ref _longestRepeat) ?? PublishLongestRepeat();",
+  "new": "return PublishLongestRepeat();"
+ },
+ {
+  "id": "C32",
+  "desc": "LRS: recomputes on every call and publishes the new string",
+  "old": "return Interlocked.CompareExchange(ref _longestRepeat, computed, null) ?? computed;",
+  "new": "{ _longestRepeat = computed; return computed; }"
+ },
+ {
+  "id": "C39",
+  "desc": "LongestCommonSubstring(span): first-found text position through the info",
+  "old": "return _index.LongestCommonSubstring(other);\n    }\n\n    /// <inheritdoc />\n    public (string Substring, int PositionInText, int PositionInOther) LongestCommonSubstringInfo(string other)",
+  "new": "return _index.LongestCommonSubstringInfo(other).Substring;\n    }\n\n    /// <inheritdoc />\n    public (string Substring, int PositionInText, int PositionInOther) LongestCommonSubstringInfo(string other)"
+ },
+ {
+  "id": "C50",
+  "desc": "Build(string): the null check is dropped (EsaIndex.Build refuses null too: equivalent)",
+  "old": "        ArgumentNullException.ThrowIfNull(text);\n        return new EsaSuffixTree(EsaIndex.Build(text, layout));",
+  "new": "        return new EsaSuffixTree(EsaIndex.Build(text, layout));"
+ }
+]

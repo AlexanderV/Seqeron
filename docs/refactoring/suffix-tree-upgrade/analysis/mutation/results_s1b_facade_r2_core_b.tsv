@@ -1,0 +1,13 @@
+C08b	constructor ignores the statistics override (compiling form)	killed(1)	
+C13b	Dispose: releases nothing (compiling form)	killed(2)	
+C14b	Dispose: does not mark the tree disposed (compiling form)	killed(29)	
+C30b	LRS: the computed string is never published (compiling form)	killed(1)	
+C51b	Build(string, layout): the layout is ignored (compiling form)	killed(1)	
+C09	constructor does not call EnsureTextLength	survived	survived
+C19	LeafCount: MaxDepth instead (equal by definition: both are n)	survived	survived
+C31	LRS: the cache is never read	survived	survived
+C32	LRS: recomputes on every call and publishes the new string	survived	survived
+C34	FindMaximalRepeatedPairs: no disposal check	killed(3)	
+C39	LongestCommonSubstring(span): first-found text position through the info	survived	survived
+C40	LongestCommonSubstringInfo(span): no disposal check	killed(1)	
+C50	Build(string): the null check is dropped (EsaIndex.Build refuses null too: equivalent)	survived	survived

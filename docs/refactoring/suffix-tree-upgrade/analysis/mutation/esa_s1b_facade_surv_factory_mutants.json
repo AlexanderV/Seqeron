@@ -1,0 +1,8 @@
+[
+ {
+  "id": "F08",
+  "desc": "Materialize: the chunk is 1 symbol (slower, same result: equivalent)",
+  "old": "private const int ReadChunk = 1 << 16;",
+  "new": "private const int ReadChunk = 1;"
+ }
+]

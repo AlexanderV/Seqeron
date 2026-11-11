@@ -1,0 +1,3 @@
+D08b	PrintTree: link mark never printed (compiling form)	killed(3)	
+D16b	PrintTree: initial capacity hint (an allocation hint only: equivalent; compiling form)	survived	survived
+D03	PrintTree: the empty text is not special-cased	killed(3)	

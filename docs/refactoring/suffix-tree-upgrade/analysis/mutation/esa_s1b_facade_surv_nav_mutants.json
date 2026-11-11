@@ -1,0 +1,14 @@
+[
+ {
+  "id": "N14b",
+  "desc": "Lcp: the arguments are put in ascending order (symmetric: equivalent; compiling form)",
+  "old": "return _contract.Lcp(rankA, rankB);",
+  "new": "return _contract.Lcp(Math.Min(rankA, rankB), Math.Max(rankA, rankB));"
+ },
+ {
+  "id": "N15b",
+  "desc": "Lca: the arguments are put in ascending order (symmetric: equivalent; compiling form)",
+  "old": "return _contract.Lca(rankA, rankB);",
+  "new": "return _contract.Lca(Math.Min(rankA, rankB), Math.Max(rankA, rankB));"
+ }
+]

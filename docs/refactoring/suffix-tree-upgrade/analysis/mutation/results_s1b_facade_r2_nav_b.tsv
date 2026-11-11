@@ -1,0 +1,3 @@
+N09b	TryExtendLeft: extends to the right (compiling form)	killed(8)	
+N14b	Lcp: the arguments are put in ascending order (symmetric: equivalent; compiling form)	survived	survived
+N15b	Lca: the arguments are put in ascending order (symmetric: equivalent; compiling form)	survived	survived

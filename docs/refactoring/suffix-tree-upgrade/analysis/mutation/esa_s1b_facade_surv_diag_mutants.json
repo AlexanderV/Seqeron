@@ -1,0 +1,8 @@
+[
+ {
+  "id": "D16b",
+  "desc": "PrintTree: initial capacity hint (an allocation hint only: equivalent; compiling form)",
+  "old": "Math.Min(n, PrintTreeInitialCapacityLimit) * 100",
+  "new": "Math.Min(n, PrintTreeInitialCapacityLimit)"
+ }
+]

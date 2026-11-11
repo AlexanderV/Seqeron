@@ -1,0 +1,3 @@
+F10b	Create(ITextSource): builds the tree of another text (compiling form)	killed(6)	
+F08	Materialize: the chunk is 1 symbol (slower, same result: equivalent)	survived	survived
+F09	Create(string): goes through the text source path with a wrapper (same result: equivalent)	killed(1)	
