@@ -1,0 +1,12 @@
+# cgroup cg.b1.rho3-1 limit=1367772160 rc=0 failcnt=0 max_usage=1309573120
+cache 656715776 rss 0 mapped_file 0 dirty 348160 writeback 0 pgpgin 57720 pgpgout 40622 pgfault 19381 pgmajfault 636 total_cache 656715776 total_rss 0 total_mapped_file 0 total_dirty 348160 total_writeback 0 total_pgpgin 57720 total_pgpgout 40622 total_pgfault 19381 total_pgmajfault 636 
+# cgroup cg.b1.rho1.5-1 limit=767772160 rc=0 failcnt=18037 max_usage=767770624
+cache 464961536 rss 0 mapped_file 0 dirty 73728 writeback 0 pgpgin 148909 pgpgout 134565 pgfault 19701 pgmajfault 659 total_cache 464961536 total_rss 0 total_mapped_file 0 total_dirty 73728 total_writeback 0 total_pgpgin 148909 total_pgpgout 134565 total_pgfault 19701 total_pgmajfault 659 
+# cgroup cg.b1.rho1-1 limit=567772160 rc=0 failcnt=38138 max_usage=567771136
+cache 306733056 rss 0 mapped_file 0 dirty 73728 writeback 0 pgpgin 170255 pgpgout 164065 pgfault 19678 pgmajfault 847 total_cache 306733056 total_rss 0 total_mapped_file 0 total_dirty 73728 total_writeback 0 total_pgpgin 170255 total_pgpgout 164065 total_pgfault 19678 total_pgmajfault 847 
+# cgroup cg.b1.rho0.75-1 limit=467772160 rc=0 failcnt=83886 max_usage=467771392
+cache 229900288 rss 0 mapped_file 0 dirty 73728 writeback 0 pgpgin 229713 pgpgout 223711 pgfault 23849 pgmajfault 3747 total_cache 229900288 total_rss 0 total_mapped_file 0 total_dirty 73728 total_writeback 0 total_pgpgin 229713 total_pgpgout 223711 total_pgfault 23849 total_pgmajfault 3747 
+# cgroup cg.dist.rho0.25-1 limit=267772160 rc=0 failcnt=178048 max_usage=267771904
+cache 229761024 rss 0 mapped_file 0 dirty 331776 writeback 0 pgpgin 448725 pgpgout 435828 pgfault 23139 pgmajfault 734 total_cache 229761024 total_rss 0 total_mapped_file 0 total_dirty 331776 total_writeback 0 total_pgpgin 448725 total_pgpgout 435828 total_pgfault 23139 total_pgmajfault 734 
+# cgroup cg.dist.rho0-1 limit=167772160 rc=0 failcnt=190026 max_usage=167772160
+cache 131796992 rss 0 mapped_file 16384 dirty 245760 writeback 0 pgpgin 458187 pgpgout 446748 pgfault 23330 pgmajfault 862 total_cache 131796992 total_rss 0 total_mapped_file 16384 total_dirty 245760 total_writeback 0 total_pgpgin 458187 total_pgpgout 446748 total_pgfault 23330 total_pgmajfault 862 

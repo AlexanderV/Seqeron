@@ -15,7 +15,7 @@ R=266667
 run() { # rho mode-args label rep
   RHO=$1; MODE=$2; LABEL=$3; REP=$4
   LIM=$(python3 -I -c "print(int($A + $RHO * $F))")
-  timeout -k 5 "${TIMEOUT:-240}" bash "$HERE/run_e4_cgroup.sh" "$LIM" "$LABEL-$REP" --text dna_100m.pk --sa dna_100m.sa --out dna_100m.out --scratch scratch --scale-n 3000000000 --verify dna_100m.oracle $MODE --case "$LABEL" --run "$REP" --rows "$ROWS" 2>>"$ROWS.cgroup.log" > /dev/null
+  timeout -k 5 "${TIMEOUT:-240}" bash "$HERE/run_e4_cgroup.sh" "$LIM" "$LABEL-$REP" --text dna_100m.pk --sa dna_100m.sa --out dna_100m.out --scratch scratch --scale-n 3000000000 --verify dna_100m.oracle $MODE --case "$LABEL" --run "$REP" --rows "$ROWS" 2>>"${ROWS%.tsv}_stats.txt" > /dev/null
   RC=$?
   if [ $RC -eq 124 ] || [ $RC -eq 137 ]; then
     pkill -f "emproto_e4_$LABEL-$REP" ; pkill -f 'EmProto.dll e4 --cgroup-usage'; sleep 3; rmdir "/sys/fs/cgroup/memory/emproto_e4_$LABEL-$REP" 2>/dev/null; rm -rf scratch/*
