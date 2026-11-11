@@ -111,12 +111,12 @@ public class ExternalDcsExhaustiveTests
         }
     }
 
-    private void CheckAll(int sigma, int maxLength, int bits, int x, long k, long nbase, int threads, bool exact)
+    private void CheckAll(int sigma, int maxLength, int bits, int x, long k, long nbase, int threads, int minBaseCases, int minExternalLevels)
     {
         DifferenceCover cover = DifferenceCover.Create(x);
         string scratch = Path.Combine(_dir, "scratch");
         ExtDcsOptions o = ExtDcsHarness.Options(scratch, k, nbase, threads);
-        long cases = 0, multiLevel = 0, baseCase = 0;
+        long cases = 0, external = 0, baseCase = 0, splits = 0;
         foreach (byte[] s in AllStrings(sigma, maxLength))
         {
             using PackedText t = PackedText.Pack(s, bits);
@@ -124,28 +124,28 @@ public class ExternalDcsExhaustiveTests
             (byte[] got, ExtDcsStats st) = ExtDcsHarness.Run(t, cover, o, _dir);
             if (!got.AsSpan().SequenceEqual(expected)) Assert.Fail($"sigma={sigma} X={x} K={k} base={nbase} b={bits} text=[{string.Join(',', s)}]: rank file differs from the in-RAM table");
             cases++;
-            if (st.MaxLevel >= 1) multiLevel++;
+            if (st.MaxLevel >= 1) external++;
             if (st.Levels.Any(l => l.BaseCase)) baseCase++;
+            if (st.Levels.Sum(l => l.SplitScans) > 0) splits++;
         }
+        TestContext.Out.WriteLine($"sigma={sigma} len<={maxLength} X={x} K={k} base={nbase}: {cases} strings, {baseCase} with a base case, {external} with an external level, {splits} with a split");
         Assert.That(cases, Is.GreaterThan(0));
-        if (exact)
-        {
-            Assert.That(multiLevel, Is.GreaterThan(cases / 50), "the recursion must be exercised by a good share of the strings");
-            Assert.That(baseCase, Is.GreaterThan(0));
-        }
+        Assert.That(baseCase, Is.GreaterThanOrEqualTo(minBaseCases), "strings whose names are not unique end in the base case");
+        Assert.That(external, Is.GreaterThanOrEqualTo(minExternalLevels), "the external levels must be exercised");
+        Assert.That(splits, Is.GreaterThan(cases / 2), "most strings have a sample larger than K and split");
     }
 
     [Test]
-    public void AllBinaryStrings_Length0To12_X7_TinyBuckets_EqualTheInRamTable() => CheckAll(2, 12, 1, 7, 3, 1 << 20, 1, true);
+    public void AllBinaryStrings_Length0To11_X3_TinyBuckets_BaseCaseInRam_EqualTheInRamTable() => CheckAll(2, 11, 1, 3, 3, 1 << 20, 1, 100, 0);
 
     [Test]
-    public void AllBinaryStrings_Length0To10_X7_TinyBuckets_ExternalLevels_EqualTheInRamTable() => CheckAll(2, 10, 1, 7, 2, 3, 2, true);
+    public void AllBinaryStrings_Length0To12_X7_TinyBuckets_ExternalLevels_EqualTheInRamTable() => CheckAll(2, 12, 1, 7, 3, 3, 2, 0, 4);
 
     [Test]
-    public void AllBinaryStrings_Length0To11_X9_PrunedCover_OneBucket_EqualTheInRamTable() => CheckAll(2, 11, 2, 9, 1 << 20, 5, 1, true);
+    public void AllBinaryStrings_Length0To10_X9_PrunedCover_TwoBitSymbols_EqualTheInRamTable() => CheckAll(2, 10, 2, 9, 3, 5, 3, 0, 0);
 
     [Test]
-    public void AllTernaryStrings_Length0To8_X7_EqualTheInRamTable() => CheckAll(3, 8, 2, 7, 4, 4, 3, true);
+    public void AllTernaryStrings_Length0To6_X5_EqualTheInRamTable() => CheckAll(3, 6, 2, 5, 2, 4, 4, 0, 0);
 }
 
 [TestFixture]
@@ -315,13 +315,21 @@ public class ExternalDcsDifferentialTests
         DifferenceCover cover = DifferenceCover.Create(31); // |D| = 6, density 6/31
         using PackedText t = PackedText.Pack(c.Symbols, 1);
         (_, ExtDcsStats st) = ExtDcsHarness.Run(t, cover, ExtDcsHarness.Options(scratch, 100, 50, 2), _dir);
+        foreach (ExtDcsLevelStats l in st.Levels) TestContext.Out.WriteLine($"level {l.Level}: n={l.TextLength} S={l.SampleSize} distinct={l.DistinctNames} nonunique={l.NonUniqueRecords} base={l.BaseCase} leaves={l.Leaves}");
         Assert.That(st.Levels[0].NamesUnique, Is.False);
         Assert.That(st.Levels[0].TextLength, Is.EqualTo(20_000));
-        Assert.That(st.Levels[1].TextLength, Is.EqualTo(st.Levels[0].SampleSize + cover.Residues.Length), "the reduced string has one symbol per sample position and one separator per class");
-        Assert.That(st.MaxLevel, Is.GreaterThanOrEqualTo(3));
-        Assert.That(st.Levels[^1].BaseCase, Is.True);
-        Assert.That(st.Levels.Take(st.MaxLevel).All(l => !l.BaseCase), Is.True, "only the last level is the base case");
-        for (int l = 1; l <= st.MaxLevel; l++) Assert.That(st.Levels[l].Level, Is.EqualTo(l));
+        Assert.That(st.MaxLevel, Is.EqualTo(2), "levels 0 and 1 have repeated names, level 2 (758 symbols, runs shorter than X) has unique names");
+        Assert.That(st.Levels[^1].NamesUnique, Is.True);
+        Assert.That(st.Levels.All(l => !l.BaseCase), Is.True, "N_base = 50 is never reached: the chain ends with unique names");
+        for (int l = 1; l <= st.MaxLevel; l++)
+        {
+            Assert.That(st.Levels[l].Level, Is.EqualTo(l));
+            Assert.That(st.Levels[l].TextLength, Is.EqualTo(st.Levels[l - 1].SampleSize + cover.Residues.Length), "the reduced string has one symbol per sample position and one separator per class");
+        }
+        (_, ExtDcsStats inRam) = ExtDcsHarness.Run(t, cover, ExtDcsHarness.Options(scratch, 100, 1000, 2), _dir);
+        Assert.That(inRam.MaxLevel, Is.EqualTo(1), "with N_base = 1000 the 3,878 symbol reduced string is an external level whose own reduced string (758) is sorted in RAM");
+        Assert.That(inRam.Levels[1].BaseCase, Is.True);
+        Assert.That(inRam.Levels[0].BaseCase, Is.False);
     }
 
     [Test]

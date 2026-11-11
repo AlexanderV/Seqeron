@@ -1,3 +1,7 @@
+using System.Diagnostics;
+using System.Runtime.InteropServices;
+using SuffixTree.Esa;
+using SuffixTree.EmProto.Build;
 using SuffixTree.EmProto.Harness;
 using SuffixTree.EmProto.Text;
 
@@ -104,12 +108,165 @@ internal sealed class ExtDcsStats
 
 /// <summary>
 /// PH1 of ADR-004 built in external memory (prototype "E3b"): the rank file <c>rank.L0[slot]</c> of the difference-cover sample, byte for byte the table of <see cref="DcsBuilder"/>.
+/// <para>
+/// Level l (the text T_l, mapped read-only): the sample positions are named by <see cref="SampleNamer"/> (sample buckets, one scan of the sample per bucket) and the runs are merged into slot order.
+/// All names distinct: the names are the ranks and go straight into the rank file. Otherwise the names form the reduced string (class-major, separators 0, see <see cref="SampleGeometry"/>) of
+/// <c>Samples + |D|</c> symbols over a 32-bit alphabet, and the ranks of the sample suffixes are the ranks of the suffixes of that string: if it has at most N_base symbols it is sorted by SA-IS in RAM
+/// and the inverse is written to the rank file; otherwise it is written to a file (32 bits per symbol, big endian: a <see cref="PackedText"/>), its own rank file is built by this method one level
+/// down, its suffix array is built by the bucket sorter of E3 (<see cref="EmBuilder"/>) with that rank file, and <see cref="SaInverter"/> turns the suffix array into the rank file of level l.
+/// Every file is deleted as soon as its consumer is done; every big buffer comes from a <see cref="BudgetedArena"/>; the text and the intermediate files are read through read-only mappings or bounded buffers.
+/// </para>
 /// </summary>
-internal static class ExternalDcs
+internal static unsafe class ExternalDcs
 {
+    private const int MaxLevels = 64;
+
     /// <summary>Builds the rank file of <paramref name="text"/> at <paramref name="rankPath"/> (length <c>Slots * 4</c>), written through bounded mapped windows.</summary>
     internal static ExtDcsStats BuildRankFile(PackedText text, DifferenceCover cover, string rankPath, ExtDcsOptions options)
-        => throw new NotImplementedException("E3b stub: the external-memory PH1 is written after its tests");
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        ArgumentNullException.ThrowIfNull(cover);
+        ArgumentNullException.ThrowIfNull(options);
+        ArgumentOutOfRangeException.ThrowIfLessThan(options.BucketCapacity, 2);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(options.BucketCapacity, int.MaxValue / 2);
+        ArgumentOutOfRangeException.ThrowIfLessThan(options.BaseCase, 1);
+        ArgumentOutOfRangeException.ThrowIfLessThan(options.Threads, 1);
+        ArgumentOutOfRangeException.ThrowIfLessThan(options.ChunkSlots, 1);
+        ArgumentOutOfRangeException.ThrowIfLessThan(options.FanOut, 2);
+        ArgumentOutOfRangeException.ThrowIfLessThan(options.ReservoirSize, 3);
+        ArgumentOutOfRangeException.ThrowIfLessThan(options.IoBufferBytes, 16);
+        ArgumentOutOfRangeException.ThrowIfLessThan(options.WindowBytes, 1);
+        ArgumentOutOfRangeException.ThrowIfLessThan(options.SortLeafCapacity, 2);
+        ArgumentOutOfRangeException.ThrowIfNegative(options.RunSpillBytes);
+        if (text.Length >= uint.MaxValue - 1) throw new NotSupportedException("positions are 32-bit in the prototype");
+        Directory.CreateDirectory(options.ScratchDir);
+        string tag = "e3b-" + Guid.NewGuid().ToString("N")[..8];
+        var stats = new ExtDcsStats();
+        BuildLevel(text, cover, 0, rankPath, false, options, tag, options.Budget ?? new ArenaBudget(long.MaxValue), stats);
+        return stats;
+    }
+
+    private static void BuildLevel(PackedText text, DifferenceCover cover, int level, string rankPath, bool scratchOutput, ExtDcsOptions o, string tag, ArenaBudget budget, ExtDcsStats stats)
+    {
+        if (level >= MaxLevels) throw new InvalidOperationException("the recursion of the sample ranks did not terminate");
+        var ls = new ExtDcsLevelStats { Level = level, TextLength = text.Length };
+        stats.Levels.Add(ls);
+        var g = new SampleGeometry(text.Length, cover);
+        ls.SampleSize = g.Samples;
+        long t0 = Stopwatch.GetTimestamp();
+        var namer = new SampleNamer(text, g, o, ls, budget, $"{tag}-L{level}");
+        using NamingResult naming = namer.Run();
+        ls.NamingSeconds = Seconds(t0);
+
+        t0 = Stopwatch.GetTimestamp();
+        if (ls.NamesUnique)
+        {
+            using var sink = new RankFileSink(rankPath, g.Slots, o.WindowBytes, scratchOutput);
+            namer.Merge(naming, sink);
+            ls.MergeSeconds = Seconds(t0);
+            return;
+        }
+
+        long reduced = g.RedLength;
+        // a reduced string that is not shorter than its text can only occur for tiny texts and tiny periods: sort it in RAM instead of recursing for ever
+        if (reduced <= o.BaseCase || reduced >= text.Length)
+        {
+            ls.BaseCase = true;
+            using var arena = new BudgetedArena(budget);
+            using var sink = new ReducedRamSink(g, arena);
+            namer.Merge(naming, sink);
+            ls.MergeSeconds = Seconds(t0);
+            t0 = Stopwatch.GetTimestamp();
+            naming.Dispose();
+            BaseCase(sink.Red, g, ls.DistinctNames + 1, rankPath, scratchOutput, o, arena);
+            ls.BelowSeconds = Seconds(t0);
+            return;
+        }
+
+        string redPath = Path.Combine(o.ScratchDir, $"{tag}-L{level + 1}.red");
+        string childRank = Path.Combine(o.ScratchDir, $"{tag}-L{level + 1}.rank");
+        string saPath = Path.Combine(o.ScratchDir, $"{tag}-L{level + 1}.sa");
+        using (var arena = new BudgetedArena(budget))
+        {
+            var sink = new ReducedFileSink(redPath, g, o.IoBufferBytes, arena);
+            try
+            {
+                namer.Merge(naming, sink);
+                sink.Complete();
+            }
+            finally
+            {
+                sink.Dispose();
+            }
+        }
+        ls.MergeSeconds = Seconds(t0);
+        naming.Dispose();
+
+        t0 = Stopwatch.GetTimestamp();
+        long redBytes = (reduced * 4) + PackedText.PadBytes;
+        using (var mappedRed = new MappedFile(redPath, writable: false))
+        using (var red = new PackedText(mappedRed.Pointer, reduced, 32, mappedRed, ownsOwner: false))
+        {
+            BuildLevel(red, cover, level + 1, childRank, true, o, tag, budget, stats);
+            long childSlots = new SampleGeometry(reduced, cover).Slots;
+            using (var table = new DcsRankTable(cover, new MappedFile(childRank, writable: false), reduced))
+            {
+                ScratchTracker.Add((reduced + 1) * 4);
+                using (var saSink = new MappedSaSink(saPath, reduced + 1))
+                {
+                    var build = new BuildOptions
+                    {
+                        LeafCapacity = o.SortLeafCapacity,
+                        FanOut = 64,
+                        Threads = o.Threads,
+                        Seed = o.Seed + (ulong)level + 1,
+                        ScratchDir = o.ScratchDir,
+                        SpillBytes = Math.Max(64, o.IoBufferBytes),
+                        Budget = budget,
+                    };
+                    _ = EmBuilder.Run(red, build, saSink, table);
+                }
+            }
+            File.Delete(childRank);
+            ScratchTracker.Remove(childSlots * 4);
+        }
+        File.Delete(redPath);
+        ScratchTracker.Remove(redBytes);
+        SaInverter.Invert(saPath, reduced, g, rankPath, scratchOutput, o, $"{tag}-L{level}", budget);
+        File.Delete(saPath);
+        ScratchTracker.Remove((reduced + 1) * 4);
+        ls.BelowSeconds = Seconds(t0);
+    }
+
+    /// <summary>The base case: SA-IS on the reduced string in RAM, the inverse permutation, and the rank file written window by window.</summary>
+    private static void BaseCase(Buf<int> red, SampleGeometry g, long sigma, string rankPath, bool scratchOutput, ExtDcsOptions o, BudgetedArena arena)
+    {
+        int n = checked((int)g.RedLength);
+        Buf<int> sa = arena.Allocate<int>(n + 1, zero: false, "base.sa");
+        SaisReference.Build(new IntSymbols(red.AsSpan(n)), checked((int)sigma), sa.AsSpan(n + 1));
+        Span<int> rank = red.AsSpan(n); // the reduced string is dead now: it receives the inverse permutation
+        ReadOnlySpan<int> saSpan = sa.AsSpan(n + 1);
+        for (int k = 1; k <= n; k++) rank[saSpan[k]] = k;
+
+        long slots = g.Slots;
+        long chunkSlots = Math.Max(1, o.ChunkSlots);
+        Buf<uint> chunk = arena.Allocate<uint>((int)Math.Min(chunkSlots, slots), zero: false, "base.chunk");
+        using var writer = new MappedWindowWriter(rankPath, slots * 4, o.WindowBytes);
+        if (scratchOutput) ScratchTracker.Add(slots * 4);
+        for (long start = 0; start < slots; start += chunkSlots)
+        {
+            int len = (int)Math.Min(chunkSlots, slots - start);
+            Span<uint> window = chunk.AsSpan(len);
+            for (int i = 0; i < len; i++)
+            {
+                long slot = start + i;
+                window[i] = slot < g.Samples ? (uint)rank[(int)g.RedIndexOfSlot(slot)] : 0;
+            }
+            writer.Append(MemoryMarshal.AsBytes(window));
+        }
+    }
+
+    private static double Seconds(long t0) => (Stopwatch.GetTimestamp() - t0) / (double)Stopwatch.Frequency;
 }
 
 /// <summary>Counters of the writes through mapped windows (the explicit pread / pwrite calls are counted by <see cref="IoCounters"/>).</summary>
