@@ -18,7 +18,7 @@ internal static unsafe class E3b
     /// <summary>Reference values for 3x10^9 symbols (ADR-004 section 4.2 and the choices of the E3b results): K_s, N_base, R, K of the external sort.</summary>
     internal const long ReferenceN = 3_000_000_000;
     internal const long KsRef = 1 << 20;
-    internal const long BaseRef = 4 << 20;
+    internal const long BaseRef = 16 << 20;
     internal const long ChunkRef = 4 << 20;
     internal const long SortKRef = 1 << 20;
 
@@ -54,6 +54,7 @@ internal static unsafe class E3b
             ReservoirSize = o.Int("reservoir", 16384),
             RunSpillBytes = o.Get("run-spill-kb") is { } spill ? int.Parse(spill, CultureInfo.InvariantCulture) * 1024 : (int)Scale("run-spill", 64 * 1024, 0),
             IoBufferBytes = o.Int("io-kb", 64) * 1024,
+            MergeBufferBudget = o.Long("merge-budget-mb", 16) << 20,
             WindowBytes = o.Int("window-kb", 1024) * 1024,
             Budget = new ArenaBudget(budgetCap),
         };

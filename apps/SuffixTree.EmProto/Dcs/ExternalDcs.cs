@@ -40,6 +40,9 @@ internal sealed record ExtDcsOptions
     /// <summary>Size of one read or write buffer of the merge, of the tuple files and of the class cursors.</summary>
     internal int IoBufferBytes { get; init; } = 64 * 1024;
 
+    /// <summary>Total of the read buffers of the merge (one per run file): each gets <c>min(IoBufferBytes, MergeBufferBudget / runs)</c>, so that this term does not grow with the number of buckets.</summary>
+    internal long MergeBufferBudget { get; init; } = 16 << 20;
+
     /// <summary>Size of one sliding window of the mapped rank file writer.</summary>
     internal int WindowBytes { get; init; } = 1 << 20;
 
@@ -136,6 +139,7 @@ internal static unsafe class ExternalDcs
         ArgumentOutOfRangeException.ThrowIfLessThan(options.ReservoirSize, 3);
         ArgumentOutOfRangeException.ThrowIfLessThan(options.IoBufferBytes, 16);
         ArgumentOutOfRangeException.ThrowIfLessThan(options.WindowBytes, 1);
+        ArgumentOutOfRangeException.ThrowIfLessThan(options.MergeBufferBudget, 8);
         ArgumentOutOfRangeException.ThrowIfLessThan(options.SortLeafCapacity, 2);
         ArgumentOutOfRangeException.ThrowIfNegative(options.RunSpillBytes);
         if (text.Length >= uint.MaxValue - 1) throw new NotSupportedException("positions are 32-bit in the prototype");

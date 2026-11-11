@@ -32,6 +32,7 @@ internal static class ExtDcsHarness
         ChunkSlots = 40,
         RunSpillBytes = 64,
         IoBufferBytes = 128,
+        MergeBufferBudget = 1 << 20,
         WindowBytes = 256,
         SortLeafCapacity = 7,
     };
@@ -187,6 +188,7 @@ public class ExternalDcsDifferentialTests
                         ChunkSlots = 4 + rng.NextInt(100),
                         RunSpillBytes = 16 + rng.NextInt(300),
                         IoBufferBytes = 16 + rng.NextInt(400),
+                        MergeBufferBudget = 8 + rng.NextInt(3000),
                         WindowBytes = 16 + rng.NextInt(4000),
                         SortLeafCapacity = 3 + rng.NextInt(48),
                     };
@@ -367,6 +369,26 @@ public class ExternalDcsDifferentialTests
     }
 
     [Test]
+    public void MergeBuffers_ShareOneBudget_InsteadOfGrowingWithTheNumberOfRuns()
+    {
+        // written after the first version of the merge, which gave every run file its own 64 KB buffer: the part of the working memory that grows with n / K_s is now capped
+        DenseCase c = BuilderTestSupport.Dense("dna", StringFamilies.RandomDna(50_000, 12));
+        DifferenceCover cover = DifferenceCover.Create(31);
+        using PackedText t = PackedText.Pack(c.Symbols, 2);
+        byte[] expected = ExtDcsHarness.Oracle(t, cover);
+        long[] peak = new long[2];
+        for (int i = 0; i < 2; i++)
+        {
+            ExtDcsOptions o = ExtDcsHarness.Options(Path.Combine(_dir, "scratch"), 100, 1 << 20) with { IoBufferBytes = 4096, RunSpillBytes = 64, MergeBufferBudget = i == 0 ? 1 << 20 : 19_000, Budget = new ArenaBudget(64 << 20) };
+            (byte[] got, ExtDcsStats st) = ExtDcsHarness.Run(t, cover, o, _dir);
+            Assert.That(got.AsSpan().SequenceEqual(expected), Is.True, $"budget case {i}");
+            Assert.That(st.Levels[0].FileRuns, Is.GreaterThan(80), "many run files");
+            peak[i] = o.Budget!.PeakBytes;
+        }
+        Assert.That(peak[1] + 300_000, Is.LessThan(peak[0]), $"the small budget must shrink the merge buffers ({peak[1]} against {peak[0]} bytes)");
+    }
+
+    [Test]
     public void TinyAndDegenerateTexts_EqualTheInRamTable()
     {
         string scratch = Path.Combine(_dir, "scratch");
@@ -435,6 +457,7 @@ public class ExternalDcsFuzzTests
                     ChunkSlots = 4 + rng.NextInt(400),
                     RunSpillBytes = 16 + rng.NextInt(600),
                     IoBufferBytes = 16 + rng.NextInt(600),
+                    MergeBufferBudget = 8 + rng.NextInt(6000),
                     WindowBytes = 16 + rng.NextInt(8000),
                     SortLeafCapacity = 3 + rng.NextInt(48),
                 };

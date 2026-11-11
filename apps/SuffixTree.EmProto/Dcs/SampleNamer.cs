@@ -314,7 +314,9 @@ internal sealed class SampleNamer
         using var arena = new BudgetedArena(_budget);
         int windowSlots = (int)Math.Min(Math.Max(1, _o.ChunkSlots), s);
         Buf<uint> window = arena.Allocate<uint>(windowSlots, zero: false, "merge.window");
-        int bufRecords = Math.Max(1, _o.IoBufferBytes / 8);
+        int fileRuns = r.Leaves.Count(l => !l.Run!.InMemory);
+        long fair = _o.MergeBufferBudget / 8 / Math.Max(1, fileRuns);
+        int bufRecords = (int)Math.Clamp(fair, 1, Math.Max(1, _o.IoBufferBytes / 8));
         var readers = new List<(RunReader Reader, uint Offset)>(r.Leaves.Count);
         foreach (LeafResult leaf in r.Leaves)
         {
