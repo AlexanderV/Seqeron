@@ -1,0 +1,168 @@
+R	E4	dna10.b8.t4	1	n	10000000	symbols	b=2 bits, mode=Bounded, threads=4, B2 workers=4, touch buffers=False
+R	E4	dna10.b8.t4	1	parameters	R=26667 P=375 rounds=8 tuple=32768 read=1048576 window=1048576		R scaled by n/3e9 = 3.333E-003 from R=8000000 (P = 375 at 3e9); B2 workers from the reference geometry: one task holds 31.5 MiB at 3e9, arena cap 160 MiB
+R	E4	dna10.b8.t4	1	ph4_s	0.900533	s	PH4 total: B1 + B2 + B3 (without fsync)
+R	E4	dna10.b8.t4	1	b1_s	0.537572	s	B1 of all rounds: suffix array scanned once per round, Phi pairs of the round distributed
+R	E4	dna10.b8.t4	1	b2_s	0.241968	s	B2 of all rounds: scatter, PLCP loop, PLCP chunk to the text-order file
+R	E4	dna10.b8.t4	1	b3_s	0.115798	s	B3: gather PLCP[SA[i]] in rank order, output through mapped windows
+R	E4	dna10.b8.t4	1	fsync_s	0.000294	s	flush of the two output files after the build
+R	E4	dna10.b8.t4	1	ns_per_symbol	90.053266	ns	ph4_s / n
+R	E4	dna10.b8.t4	1	throughput	11.104539	Msym/s	n / ph4_s; the gate of ADR-004 row E4 is 5 MB/s = 5 M symbols/s on 4 threads
+R	E4	dna10.b8.t4	1	rssanon_peak	15.548416	MB	max RssAnon of 92 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E4	dna10.b8.t4	1	rssfile_peak	71.51616	MB	mapped file pages resident (text, output windows, PLCP file in the bounded mode): reported, not counted (ADR-004 section 6a)
+R	E4	dna10.b8.t4	1	vmhwm	90.5216	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E4	dna10.b8.t4	1	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E4	dna10.b8.t4	1	arena_peak	4.620976	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E4	dna10.b8.t4	1	io_explicit_read	440000008	bytes	44.000 B/char; suffix array and tuple files (1063 calls)
+R	E4	dna10.b8.t4	1	io_explicit_write	120000000	bytes	12.000 B/char; tuple files and the PLCP file (3000 calls)
+R	E4	dna10.b8.t4	1	io_mapped_write	10000001	bytes	1.000 B/char: the LCP section through mapped windows of at most 1048576 bytes (10 windows, largest 1048576)
+R	E4	dna10.b8.t4	1	io_total_counted	570000009	bytes	57.000 B/char explicit I/O plus mapped writes; the bounded mode's gather reads 4.0 B/char more through a read-only mapping (61.000 B/char with it); the text reads come on top (see block-layer read_bytes)
+R	E4	dna10.b8.t4	1	blocklayer_read	42516480	bytes	/proc/self/io read_bytes during the build (page-cache misses); 4.252 B/char
+R	E4	dna10.b8.t4	1	blocklayer_write	131534848	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E4	dna10.b8.t4	1	scratch_peak	44906228	bytes	4.491 B/char peak of all scratch files (tuple files, PLCP file), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E4	dna10.b8.t4	1	lcp_file	10000001	bytes	1.000 B/char (the output): base 10000001, overflow 0
+R	E4	dna10.b8.t4	1	dirty_peak	42.283008	MB	max /proc/meminfo Dirty (system-wide); max Cached 633 MB
+R	E4	dna10.b8.t4	1	width	U8		chosen before any entry was written; escapes >= 255: 0 (0.0000 %), >= 65535: 0 (0.0000 %), overflow entries 0
+R	E4	dna10.b8.t4	1	max_plcp	25	symbols	largest LCP value
+R	E4	dna10.b8.t4	1	compare_steps	9999994	steps	vector (or word) compare steps of all PLCP loops, 1.000 per position; restart cost (symbols compared at the first position of each of the 375 chunks, no carry): 4060
+R	E4	dna10.b8.t4	1	chunks	375	n	text chunks 375, rank chunks 375, rounds 8, B2 tasks in parallel 4
+R	E4	dna10.b8.t4	1	lcp_equals_oracle	yes		base (10000001 bytes) and overflow (0 bytes) byte-identical to the LcpKernel files dna10.oracle
+R	E4	dna10.b8.t4	2	n	10000000	symbols	b=2 bits, mode=Bounded, threads=4, B2 workers=4, touch buffers=False
+R	E4	dna10.b8.t4	2	parameters	R=26667 P=375 rounds=8 tuple=32768 read=1048576 window=1048576		R scaled by n/3e9 = 3.333E-003 from R=8000000 (P = 375 at 3e9); B2 workers from the reference geometry: one task holds 31.5 MiB at 3e9, arena cap 160 MiB
+R	E4	dna10.b8.t4	2	ph4_s	1.460511	s	PH4 total: B1 + B2 + B3 (without fsync)
+R	E4	dna10.b8.t4	2	b1_s	0.531879	s	B1 of all rounds: suffix array scanned once per round, Phi pairs of the round distributed
+R	E4	dna10.b8.t4	2	b2_s	0.823594	s	B2 of all rounds: scatter, PLCP loop, PLCP chunk to the text-order file
+R	E4	dna10.b8.t4	2	b3_s	0.100192	s	B3: gather PLCP[SA[i]] in rank order, output through mapped windows
+R	E4	dna10.b8.t4	2	fsync_s	0.000335	s	flush of the two output files after the build
+R	E4	dna10.b8.t4	2	ns_per_symbol	146.051111	ns	ph4_s / n
+R	E4	dna10.b8.t4	2	throughput	6.846918	Msym/s	n / ph4_s; the gate of ADR-004 row E4 is 5 MB/s = 5 M symbols/s on 4 threads
+R	E4	dna10.b8.t4	2	rssanon_peak	15.998976	MB	max RssAnon of 148 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E4	dna10.b8.t4	2	rssfile_peak	71.651328	MB	mapped file pages resident (text, output windows, PLCP file in the bounded mode): reported, not counted (ADR-004 section 6a)
+R	E4	dna10.b8.t4	2	vmhwm	91.234304	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E4	dna10.b8.t4	2	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E4	dna10.b8.t4	2	arena_peak	4.620976	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E4	dna10.b8.t4	2	io_explicit_read	440000008	bytes	44.000 B/char; suffix array and tuple files (1063 calls)
+R	E4	dna10.b8.t4	2	io_explicit_write	120000000	bytes	12.000 B/char; tuple files and the PLCP file (3000 calls)
+R	E4	dna10.b8.t4	2	io_mapped_write	10000001	bytes	1.000 B/char: the LCP section through mapped windows of at most 1048576 bytes (10 windows, largest 1048576)
+R	E4	dna10.b8.t4	2	io_total_counted	570000009	bytes	57.000 B/char explicit I/O plus mapped writes; the bounded mode's gather reads 4.0 B/char more through a read-only mapping (61.000 B/char with it); the text reads come on top (see block-layer read_bytes)
+R	E4	dna10.b8.t4	2	blocklayer_read	42516480	bytes	/proc/self/io read_bytes during the build (page-cache misses); 4.252 B/char
+R	E4	dna10.b8.t4	2	blocklayer_write	131538944	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E4	dna10.b8.t4	2	scratch_peak	44906228	bytes	4.491 B/char peak of all scratch files (tuple files, PLCP file), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E4	dna10.b8.t4	2	lcp_file	10000001	bytes	1.000 B/char (the output): base 10000001, overflow 0
+R	E4	dna10.b8.t4	2	dirty_peak	40.177664	MB	max /proc/meminfo Dirty (system-wide); max Cached 631 MB
+R	E4	dna10.b8.t4	2	width	U8		chosen before any entry was written; escapes >= 255: 0 (0.0000 %), >= 65535: 0 (0.0000 %), overflow entries 0
+R	E4	dna10.b8.t4	2	max_plcp	25	symbols	largest LCP value
+R	E4	dna10.b8.t4	2	compare_steps	9999994	steps	vector (or word) compare steps of all PLCP loops, 1.000 per position; restart cost (symbols compared at the first position of each of the 375 chunks, no carry): 4060
+R	E4	dna10.b8.t4	2	chunks	375	n	text chunks 375, rank chunks 375, rounds 8, B2 tasks in parallel 4
+R	E4	dna10.b8.t4	2	lcp_equals_oracle	yes		base (10000001 bytes) and overflow (0 bytes) byte-identical to the LcpKernel files dna10.oracle
+R	E4	dna10.b8.t4	3	n	10000000	symbols	b=2 bits, mode=Bounded, threads=4, B2 workers=4, touch buffers=False
+R	E4	dna10.b8.t4	3	parameters	R=26667 P=375 rounds=8 tuple=32768 read=1048576 window=1048576		R scaled by n/3e9 = 3.333E-003 from R=8000000 (P = 375 at 3e9); B2 workers from the reference geometry: one task holds 31.5 MiB at 3e9, arena cap 160 MiB
+R	E4	dna10.b8.t4	3	ph4_s	1.43394	s	PH4 total: B1 + B2 + B3 (without fsync)
+R	E4	dna10.b8.t4	3	b1_s	0.519083	s	B1 of all rounds: suffix array scanned once per round, Phi pairs of the round distributed
+R	E4	dna10.b8.t4	3	b2_s	0.802172	s	B2 of all rounds: scatter, PLCP loop, PLCP chunk to the text-order file
+R	E4	dna10.b8.t4	3	b3_s	0.107952	s	B3: gather PLCP[SA[i]] in rank order, output through mapped windows
+R	E4	dna10.b8.t4	3	fsync_s	0.000444	s	flush of the two output files after the build
+R	E4	dna10.b8.t4	3	ns_per_symbol	143.393994	ns	ph4_s / n
+R	E4	dna10.b8.t4	3	throughput	6.973793	Msym/s	n / ph4_s; the gate of ADR-004 row E4 is 5 MB/s = 5 M symbols/s on 4 threads
+R	E4	dna10.b8.t4	3	rssanon_peak	16.91648	MB	max RssAnon of 145 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E4	dna10.b8.t4	3	rssfile_peak	71.479296	MB	mapped file pages resident (text, output windows, PLCP file in the bounded mode): reported, not counted (ADR-004 section 6a)
+R	E4	dna10.b8.t4	3	vmhwm	91.693056	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E4	dna10.b8.t4	3	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E4	dna10.b8.t4	3	arena_peak	4.620976	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E4	dna10.b8.t4	3	io_explicit_read	440000008	bytes	44.000 B/char; suffix array and tuple files (1063 calls)
+R	E4	dna10.b8.t4	3	io_explicit_write	120000000	bytes	12.000 B/char; tuple files and the PLCP file (3000 calls)
+R	E4	dna10.b8.t4	3	io_mapped_write	10000001	bytes	1.000 B/char: the LCP section through mapped windows of at most 1048576 bytes (10 windows, largest 1048576)
+R	E4	dna10.b8.t4	3	io_total_counted	570000009	bytes	57.000 B/char explicit I/O plus mapped writes; the bounded mode's gather reads 4.0 B/char more through a read-only mapping (61.000 B/char with it); the text reads come on top (see block-layer read_bytes)
+R	E4	dna10.b8.t4	3	blocklayer_read	42516480	bytes	/proc/self/io read_bytes during the build (page-cache misses); 4.252 B/char
+R	E4	dna10.b8.t4	3	blocklayer_write	131551232	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E4	dna10.b8.t4	3	scratch_peak	44906228	bytes	4.491 B/char peak of all scratch files (tuple files, PLCP file), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E4	dna10.b8.t4	3	lcp_file	10000001	bytes	1.000 B/char (the output): base 10000001, overflow 0
+R	E4	dna10.b8.t4	3	dirty_peak	41.259008	MB	max /proc/meminfo Dirty (system-wide); max Cached 636 MB
+R	E4	dna10.b8.t4	3	width	U8		chosen before any entry was written; escapes >= 255: 0 (0.0000 %), >= 65535: 0 (0.0000 %), overflow entries 0
+R	E4	dna10.b8.t4	3	max_plcp	25	symbols	largest LCP value
+R	E4	dna10.b8.t4	3	compare_steps	9999994	steps	vector (or word) compare steps of all PLCP loops, 1.000 per position; restart cost (symbols compared at the first position of each of the 375 chunks, no carry): 4060
+R	E4	dna10.b8.t4	3	chunks	375	n	text chunks 375, rank chunks 375, rounds 8, B2 tasks in parallel 4
+R	E4	dna10.b8.t4	3	lcp_equals_oracle	yes		base (10000001 bytes) and overflow (0 bytes) byte-identical to the LcpKernel files dna10.oracle
+R	E4	dna_100m.b8.t4	1	n	100000000	symbols	b=2 bits, mode=Bounded, threads=4, B2 workers=4, touch buffers=False
+R	E4	dna_100m.b8.t4	1	parameters	R=266667 P=375 rounds=8 tuple=32768 read=1048576 window=1048576		R scaled by n/3e9 = 3.333E-002 from R=8000000 (P = 375 at 3e9); B2 workers from the reference geometry: one task holds 31.5 MiB at 3e9, arena cap 160 MiB
+R	E4	dna_100m.b8.t4	1	ph4_s	8.408313	s	PH4 total: B1 + B2 + B3 (without fsync)
+R	E4	dna_100m.b8.t4	1	b1_s	5.316741	s	B1 of all rounds: suffix array scanned once per round, Phi pairs of the round distributed
+R	E4	dna_100m.b8.t4	1	b2_s	1.435451	s	B2 of all rounds: scatter, PLCP loop, PLCP chunk to the text-order file
+R	E4	dna_100m.b8.t4	1	b3_s	1.637532	s	B3: gather PLCP[SA[i]] in rank order, output through mapped windows
+R	E4	dna_100m.b8.t4	1	fsync_s	0.000444	s	flush of the two output files after the build
+R	E4	dna_100m.b8.t4	1	ns_per_symbol	84.083126	ns	ph4_s / n
+R	E4	dna_100m.b8.t4	1	throughput	11.892993	Msym/s	n / ph4_s; the gate of ADR-004 row E4 is 5 MB/s = 5 M symbols/s on 4 threads
+R	E4	dna_100m.b8.t4	1	rssanon_peak	29.73696	MB	max RssAnon of 842 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E4	dna_100m.b8.t4	1	rssfile_peak	454.283264	MB	mapped file pages resident (text, output windows, PLCP file in the bounded mode): reported, not counted (ADR-004 section 6a)
+R	E4	dna_100m.b8.t4	1	vmhwm	487.768064	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E4	dna_100m.b8.t4	1	gc_heap	0.087232	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 1/0/0
+R	E4	dna_100m.b8.t4	1	arena_peak	8.460976	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E4	dna_100m.b8.t4	1	io_explicit_read	4400000008	bytes	44.000 B/char; suffix array and tuple files (4932 calls)
+R	E4	dna_100m.b8.t4	1	io_explicit_write	1200000000	bytes	12.000 B/char; tuple files and the PLCP file (25125 calls)
+R	E4	dna_100m.b8.t4	1	io_mapped_write	100000001	bytes	1.000 B/char: the LCP section through mapped windows of at most 1048576 bytes (96 windows, largest 1048576)
+R	E4	dna_100m.b8.t4	1	io_total_counted	5700000009	bytes	57.000 B/char explicit I/O plus mapped writes; the bounded mode's gather reads 4.0 B/char more through a read-only mapping (61.000 B/char with it); the text reads come on top (see block-layer read_bytes)
+R	E4	dna_100m.b8.t4	1	blocklayer_read	425017344	bytes	/proc/self/io read_bytes during the build (page-cache misses); 4.250 B/char
+R	E4	dna_100m.b8.t4	1	blocklayer_write	1300418560	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E4	dna_100m.b8.t4	1	scratch_peak	449066228	bytes	4.491 B/char peak of all scratch files (tuple files, PLCP file), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E4	dna_100m.b8.t4	1	lcp_file	100000001	bytes	1.000 B/char (the output): base 100000001, overflow 0
+R	E4	dna_100m.b8.t4	1	dirty_peak	441.4464	MB	max /proc/meminfo Dirty (system-wide); max Cached 1466 MB
+R	E4	dna_100m.b8.t4	1	width	U8		chosen before any entry was written; escapes >= 255: 0 (0.0000 %), >= 65535: 0 (0.0000 %), overflow entries 0
+R	E4	dna_100m.b8.t4	1	max_plcp	25	symbols	largest LCP value
+R	E4	dna_100m.b8.t4	1	compare_steps	99999996	steps	vector (or word) compare steps of all PLCP loops, 1.000 per position; restart cost (symbols compared at the first position of each of the 375 chunks, no carry): 4693
+R	E4	dna_100m.b8.t4	1	chunks	375	n	text chunks 375, rank chunks 375, rounds 8, B2 tasks in parallel 4
+R	E4	dna_100m.b8.t4	1	lcp_equals_oracle	yes		base (100000001 bytes) and overflow (0 bytes) byte-identical to the LcpKernel files dna_100m.oracle
+R	E4	dna_100m.b8.t4	2	n	100000000	symbols	b=2 bits, mode=Bounded, threads=4, B2 workers=4, touch buffers=False
+R	E4	dna_100m.b8.t4	2	parameters	R=266667 P=375 rounds=8 tuple=32768 read=1048576 window=1048576		R scaled by n/3e9 = 3.333E-002 from R=8000000 (P = 375 at 3e9); B2 workers from the reference geometry: one task holds 31.5 MiB at 3e9, arena cap 160 MiB
+R	E4	dna_100m.b8.t4	2	ph4_s	8.194619	s	PH4 total: B1 + B2 + B3 (without fsync)
+R	E4	dna_100m.b8.t4	2	b1_s	5.282216	s	B1 of all rounds: suffix array scanned once per round, Phi pairs of the round distributed
+R	E4	dna_100m.b8.t4	2	b2_s	1.210625	s	B2 of all rounds: scatter, PLCP loop, PLCP chunk to the text-order file
+R	E4	dna_100m.b8.t4	2	b3_s	1.681522	s	B3: gather PLCP[SA[i]] in rank order, output through mapped windows
+R	E4	dna_100m.b8.t4	2	fsync_s	0.000313	s	flush of the two output files after the build
+R	E4	dna_100m.b8.t4	2	ns_per_symbol	81.946191	ns	ph4_s / n
+R	E4	dna_100m.b8.t4	2	throughput	12.20313	Msym/s	n / ph4_s; the gate of ADR-004 row E4 is 5 MB/s = 5 M symbols/s on 4 threads
+R	E4	dna_100m.b8.t4	2	rssanon_peak	30.756864	MB	max RssAnon of 821 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E4	dna_100m.b8.t4	2	rssfile_peak	454.406144	MB	mapped file pages resident (text, output windows, PLCP file in the bounded mode): reported, not counted (ADR-004 section 6a)
+R	E4	dna_100m.b8.t4	2	vmhwm	488.914944	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E4	dna_100m.b8.t4	2	gc_heap	0.09028	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 1/0/0
+R	E4	dna_100m.b8.t4	2	arena_peak	8.460976	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E4	dna_100m.b8.t4	2	io_explicit_read	4400000008	bytes	44.000 B/char; suffix array and tuple files (4932 calls)
+R	E4	dna_100m.b8.t4	2	io_explicit_write	1200000000	bytes	12.000 B/char; tuple files and the PLCP file (25125 calls)
+R	E4	dna_100m.b8.t4	2	io_mapped_write	100000001	bytes	1.000 B/char: the LCP section through mapped windows of at most 1048576 bytes (96 windows, largest 1048576)
+R	E4	dna_100m.b8.t4	2	io_total_counted	5700000009	bytes	57.000 B/char explicit I/O plus mapped writes; the bounded mode's gather reads 4.0 B/char more through a read-only mapping (61.000 B/char with it); the text reads come on top (see block-layer read_bytes)
+R	E4	dna_100m.b8.t4	2	blocklayer_read	425017344	bytes	/proc/self/io read_bytes during the build (page-cache misses); 4.250 B/char
+R	E4	dna_100m.b8.t4	2	blocklayer_write	1300430848	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E4	dna_100m.b8.t4	2	scratch_peak	449066228	bytes	4.491 B/char peak of all scratch files (tuple files, PLCP file), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E4	dna_100m.b8.t4	2	lcp_file	100000001	bytes	1.000 B/char (the output): base 100000001, overflow 0
+R	E4	dna_100m.b8.t4	2	dirty_peak	442.933248	MB	max /proc/meminfo Dirty (system-wide); max Cached 1468 MB
+R	E4	dna_100m.b8.t4	2	width	U8		chosen before any entry was written; escapes >= 255: 0 (0.0000 %), >= 65535: 0 (0.0000 %), overflow entries 0
+R	E4	dna_100m.b8.t4	2	max_plcp	25	symbols	largest LCP value
+R	E4	dna_100m.b8.t4	2	compare_steps	99999996	steps	vector (or word) compare steps of all PLCP loops, 1.000 per position; restart cost (symbols compared at the first position of each of the 375 chunks, no carry): 4693
+R	E4	dna_100m.b8.t4	2	chunks	375	n	text chunks 375, rank chunks 375, rounds 8, B2 tasks in parallel 4
+R	E4	dna_100m.b8.t4	2	lcp_equals_oracle	yes		base (100000001 bytes) and overflow (0 bytes) byte-identical to the LcpKernel files dna_100m.oracle
+R	E4	dna_100m.b8.t4	3	n	100000000	symbols	b=2 bits, mode=Bounded, threads=4, B2 workers=4, touch buffers=False
+R	E4	dna_100m.b8.t4	3	parameters	R=266667 P=375 rounds=8 tuple=32768 read=1048576 window=1048576		R scaled by n/3e9 = 3.333E-002 from R=8000000 (P = 375 at 3e9); B2 workers from the reference geometry: one task holds 31.5 MiB at 3e9, arena cap 160 MiB
+R	E4	dna_100m.b8.t4	3	ph4_s	8.706691	s	PH4 total: B1 + B2 + B3 (without fsync)
+R	E4	dna_100m.b8.t4	3	b1_s	5.367171	s	B1 of all rounds: suffix array scanned once per round, Phi pairs of the round distributed
+R	E4	dna_100m.b8.t4	3	b2_s	1.652212	s	B2 of all rounds: scatter, PLCP loop, PLCP chunk to the text-order file
+R	E4	dna_100m.b8.t4	3	b3_s	1.668495	s	B3: gather PLCP[SA[i]] in rank order, output through mapped windows
+R	E4	dna_100m.b8.t4	3	fsync_s	0.000331	s	flush of the two output files after the build
+R	E4	dna_100m.b8.t4	3	ns_per_symbol	87.066909	ns	ph4_s / n
+R	E4	dna_100m.b8.t4	3	throughput	11.48542	Msym/s	n / ph4_s; the gate of ADR-004 row E4 is 5 MB/s = 5 M symbols/s on 4 threads
+R	E4	dna_100m.b8.t4	3	rssanon_peak	31.555584	MB	max RssAnon of 872 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E4	dna_100m.b8.t4	3	rssfile_peak	454.352896	MB	mapped file pages resident (text, output windows, PLCP file in the bounded mode): reported, not counted (ADR-004 section 6a)
+R	E4	dna_100m.b8.t4	3	vmhwm	488.648704	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E4	dna_100m.b8.t4	3	gc_heap	0.087232	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 1/0/0
+R	E4	dna_100m.b8.t4	3	arena_peak	8.460976	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E4	dna_100m.b8.t4	3	io_explicit_read	4400000008	bytes	44.000 B/char; suffix array and tuple files (4932 calls)
+R	E4	dna_100m.b8.t4	3	io_explicit_write	1200000000	bytes	12.000 B/char; tuple files and the PLCP file (25125 calls)
+R	E4	dna_100m.b8.t4	3	io_mapped_write	100000001	bytes	1.000 B/char: the LCP section through mapped windows of at most 1048576 bytes (96 windows, largest 1048576)
+R	E4	dna_100m.b8.t4	3	io_total_counted	5700000009	bytes	57.000 B/char explicit I/O plus mapped writes; the bounded mode's gather reads 4.0 B/char more through a read-only mapping (61.000 B/char with it); the text reads come on top (see block-layer read_bytes)
+R	E4	dna_100m.b8.t4	3	blocklayer_read	425140224	bytes	/proc/self/io read_bytes during the build (page-cache misses); 4.251 B/char
+R	E4	dna_100m.b8.t4	3	blocklayer_write	1300434944	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E4	dna_100m.b8.t4	3	scratch_peak	449066228	bytes	4.491 B/char peak of all scratch files (tuple files, PLCP file), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E4	dna_100m.b8.t4	3	lcp_file	100000001	bytes	1.000 B/char (the output): base 100000001, overflow 0
+R	E4	dna_100m.b8.t4	3	dirty_peak	441.065472	MB	max /proc/meminfo Dirty (system-wide); max Cached 1467 MB
+R	E4	dna_100m.b8.t4	3	width	U8		chosen before any entry was written; escapes >= 255: 0 (0.0000 %), >= 65535: 0 (0.0000 %), overflow entries 0
+R	E4	dna_100m.b8.t4	3	max_plcp	25	symbols	largest LCP value
+R	E4	dna_100m.b8.t4	3	compare_steps	99999996	steps	vector (or word) compare steps of all PLCP loops, 1.000 per position; restart cost (symbols compared at the first position of each of the 375 chunks, no carry): 4693
+R	E4	dna_100m.b8.t4	3	chunks	375	n	text chunks 375, rank chunks 375, rounds 8, B2 tasks in parallel 4
+R	E4	dna_100m.b8.t4	3	lcp_equals_oracle	yes		base (100000001 bytes) and overflow (0 bytes) byte-identical to the LcpKernel files dna_100m.oracle

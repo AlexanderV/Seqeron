@@ -1,0 +1,2 @@
+B06	B2: a chunk with too few tuples is accepted (round 1 survivor, re-run)	killed(1)	
+B06b	bounded B2: a chunk with too few tuples is accepted	killed(1)	

@@ -1,0 +1,99 @@
+id	file	description	round 1 (stage 1)	round 1 (stage 2)	round 2	round 3	verdict	note
+B01	build	the file length check ignores the empty suffix entry	killed(31)				killed	
+B02	build	sa[0] smaller than n accepted	killed(2)				killed	
+B03	build	B1: the predecessor of the first entry is 0	killed(9)				killed	
+B04	build	B1: an entry equal to n accepted	killed(1)				killed	
+B05	build	B1: the rank of the tuple is off by one	killed(20)				killed	
+B06	build	B2: a chunk with too few tuples is accepted (round 1 survivor, re-run)	survived	survived	survived survived	killed(1)	killed	
+B07	build	B2: the rank array is filled with the position	killed(20)				killed	
+B08	build	B2: the Phi chunk file is not deleted	killed(1)				killed	
+B09	build	B2: the rank tuple carries the Phi value instead of the PLCP value	killed(19)				killed	
+B10	build	B3: rank chunk 0 expects a tuple for the empty suffix	killed(21)				killed	
+B11	build	B3: LCP[0] is whatever the buffer holds	killed(21)				killed	
+B12	build	B3: the consumer is not called	BUILD-ERROR S4487				not compiled	replaced by B12b
+B13	build	the round count of the bounded mode is floored	killed(9)				killed	
+B14	build	bounded B1: the chunk range of a round includes the next chunk	killed(15)				killed	
+B15	build	bounded B2: tasks of a later round start at chunk 0	killed(13)				killed	
+B16	build	bounded B2: the PLCP file bytes are not tracked as scratch	killed(3)				killed	
+B17	build	bounded: the PLCP file is left behind	killed(17)				killed	
+B18	build	bounded: the tracker keeps the PLCP file	killed(3)				killed	
+B19	build	bounded B3: the suffix array block is re-read from the start of the chunk	killed(10)				killed	
+B20	build	bounded B3: the gather reads the neighbour	killed(11)				killed	
+B21	build	the width is chosen from swapped counts	killed(19)				killed	
+B22	build	the task count may exceed the number of chunks by one	killed(1)				killed	
+B23	build	the task count ignores the budget	killed(1)				killed	
+B24	build	Merge: the escape counts of a task replace the totals	killed(13)				killed	
+B25	build	Merge: the largest PLCP of the last task wins	killed(1)				killed	
+B26	build	Merge: the restart cost is not summed	BUILD-ERROR CS0649				not compiled	replaced by B26b
+B27	build	the base mode reports no round	killed(1)				killed	
+B28	build	WorkerBytes: Phi and rank chunk counted once	killed(5)				killed	
+B29	build	a failed worker does not stop the others (error only read at the end)	survived	survived			equivalent	equivalent (time only): a worker that does not look at the error flag goes on with the remaining chunks; the first error is still stored and rethrown after all tasks have ended, scratch is removed by the spool disposal; no observable result changes
+B30	build	B2: the rank tuples are not flushed	killed(20)				killed	
+B31	build	B1: the Phi tuples are not flushed	killed(14)				killed	
+B32	build	the stats keep the escape counts of the last chunk only (no sum in the task)	killed(13)				killed	
+B33	build	the overflow count comes from the wrong tier	killed(14)				killed	
+E01	e4	R scaled down rounds towards zero	killed(4)				killed	
+E02	e4	rounds: floor of P / r chunks per round	killed(1)				killed	
+E03	e4	B2 workers: twice what the reference geometry allows	killed(3)				killed	
+E04	e4	the exit code ignores the oracle	killed(1)				killed	
+E05	e4	the exit code ignores leftover scratch	survived	survived			closed	closed: the condition was moved into the function E4.Healthy and tested; the same mutation of the function (H02) is killed in round 2
+E06	e4	check-lcp: structure scan accepts a missing pair (round 1 survivor, re-run)	survived	survived	killed(1)		killed	
+E07	e4	check-lcp: samples are not compared	BUILD-ERROR S1854				not compiled	replaced by E07b
+E08	e4	check-lcp: the rank of a pair is not compared	BUILD-ERROR S1481				not compiled	replaced by E08b
+E09	e4	check-lcp: the value of a pair is not required to reach the escape	BUILD-ERROR S1481				not compiled	replaced by E09b
+E10	e4	check-lcp: the last rank is not sampled	killed(1)				killed	
+E11	e4	lcp-oracle: the overflow ranks are written as values	killed(3)				killed	
+G01	geometry	TextChunks: floor instead of ceiling	killed(19)				killed	
+G02	geometry	RankChunks: ceil(n / R) instead of ceil((n + 1) / R)	killed(15)				killed	
+G03	geometry	TextChunkLength: the last chunk is as long as the others	killed(19)				killed	
+G04	geometry	RankChunkLength: the empty suffix rank is not counted	killed(28)				killed	
+G05	geometry	the fast division is not used for R = 2	killed(3)				killed	
+G06	geometry	ChunkOf: R = 1 falls back to a single chunk	killed(1)				killed	
+G07	geometry	a text of 2^32 - 1 symbols is accepted	killed(1)				killed	
+O01	output	Select: U8 only below n / 16	killed(2)				killed	
+O02	output	Select: U16 only below n / 8	killed(1)				killed	
+O03	output	Select: equal counts rejected	killed(12)				killed	
+O04	output	Bytes: U16 entries have four bytes	killed(14)				killed	
+O05	output	Escape: U16 escape is 65534	killed(6)				killed	
+O06	output	OverflowCount: U8 and U16 swapped	killed(18)				killed	
+O07	output	Write: ranks may arrive out of order	killed(1)				killed	
+O08	output	Write: the announced number of escapes is a bound that is reached	killed(13)				killed	
+O09	output	Complete: the last rank is not required	killed(31)				killed	
+O10	output	Convert U8: the value 255 is not an escape	killed(8)				killed	
+O11	output	Convert: the rank of an escape is relative to the slice	killed(5)				killed	
+O12	output	Write: the last slice is a full slice	killed(31)				killed	
+O13	output	the base file is one entry short	killed(31)				killed	
+O14	output	the overflow file holds four bytes per entry	killed(13)				killed	
+O15	output	U32 values are not copied	killed(3)				killed	
+P01	plcpscan	limit from the smaller of the two positions	killed(21)				killed	
+P02	plcpscan	the carried length is not decremented	killed(25)				killed	
+P03	plcpscan	escape >= 255 counted from 256	killed(8)				killed	
+P04	plcpscan	escape >= 65535 counted from 65536	killed(4)				killed	
+P05	plcpscan	FirstValue taken at the second position	killed(5)				killed	
+P06	plcpscan	the carry survives a position without a predecessor	survived	survived			equivalent	equivalent: when the predecessor of j is the empty suffix, PLCP[j] = 0, and the Kasai invariant PLCP[j] >= PLCP[j-1] - 1 then gives PLCP[j-1] <= 1, so the carried length (PLCP[j-1] - 1, at least 0) is already 0 at j; at the first position of a chunk l starts at 0 anyway
+P07	plcpscan	MaxPlcp keeps the smallest	killed(6)				killed	
+P08	plcpscan	a position without a predecessor keeps a stale value	killed(31)				killed	
+P09	plcpscan	the escapes are not counted when the value reaches 255	BUILD-ERROR S1066				not compiled	replaced by P09b
+S01	spool	Append: the reserved offset is the end of the reservation	killed(30)				killed	
+S02	spool	Append: the tracker is not told about the bytes	killed(9)				killed	
+S03	spool	Delete: the tracker is not told about the deletion	killed(9)				killed	
+S04	spool	Reader.Read: reads past the end of the chunk	killed(32)				killed	
+S05	spool	Reader.Read: the position is not advanced (loops for ever)	killed(hang)				killed	
+S06	spool	Writer: a buffer holds zero tuples when bufferBytes < sizeof(T)	killed(1)				killed	
+S07	spool	Writer.Add: flush one tuple too late (writes into the next buffer)	killed(host crash)				killed	
+S08	spool	Writer.Flush: the first chunk of the writer is ignored (wrong file in later rounds)	killed(14)				killed	
+S09	spool	Spool.Dispose: the last chunk file is left	killed(3)				killed	
+S10	spool	Writer.FlushAll: the filled count is not reset (tuples written twice)	killed(1)				killed	
+S11	spool	OpenReader: a chunk with entries is treated as empty	killed(12)				killed	
+B06b	round2_build	bounded B2: a chunk with too few tuples is accepted			survived survived	killed(1)	killed	
+B12b	round2_build	B3: the consumer is told the wrong first rank			killed(2)		killed	
+B26b	round2_build	Merge: the restart cost of the last task replaces the sum			killed(2)		killed	
+E07b	round2_e4	check-lcp: only a missing pair counts as a sample mismatch			killed(1)		killed	
+E08b	round2_e4	check-lcp: a pair ahead of its slot is accepted			survived survived	killed(1)	killed	
+E09b	round2_e4	check-lcp: a pair value below the escape is accepted			killed(1)		killed	
+H01	round2_e4	Healthy: the cap itself is exceeded			killed(1)		killed	
+H02	round2_e4	Healthy: a leftover scratch entry is accepted (E05)			killed(1)		killed	
+H03	round2_e4	Healthy: tracked scratch bytes left are accepted			killed(1)		killed	
+H04	round2_e4	Healthy: native bytes still charged are accepted			killed(1)		killed	
+H05	round2_e4	Healthy: the RssAnon cap is not checked			killed(2)		killed	
+P09b	round2_plcpscan	PLCP loop: every value >= 255 counted twice			killed(10)		killed	

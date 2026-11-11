@@ -2,8 +2,8 @@
 
 Work package of the owner decision of 2026-11-11 (ADR-004 section 6c authorises E4-E9; section 5, row E4 defines the prototype: "PH4 (chunked Phi/PLCP via DIST) on a given SA file", gate "LCP equal to `LcpKernel`; I/O <= 50 B/char; throughput >= 5 MB/s on 4 threads", abandon "LCP phase > 3x the SA phase"). The gates G1-G4 below were fixed by the orchestrator before the work.
 Code: `apps/SuffixTree.EmProto/Ph4` (`ExternalLcp.cs` entry point, options and stats; `LcpBuild.cs` the three phases in both modes; `PlcpScan.cs`; `Spool.cs` = the generalised DIST primitive; `LcpOutput.cs`; `LcpGeometry.cs`) and `Experiments/E4.cs` (commands `e4`, `lcp-oracle`, `check-lcp`); tests `tests/SuffixTree/SuffixTree.EmProto.Tests/Ph4`.
-Raw rows: `e4_*.tsv` in this directory (`R <TAB> E4 <TAB> case <TAB> run <TAB> metric <TAB> value <TAB> unit <TAB> notes`; `e4_setup.tsv` also holds the E3 rows of the SA phase), scripts `run_e4_setup.sh`, `run_e4_protocol.sh`, `run_e4_big.sh`, `run_e4_cgroup.sh`, `run_e4_cgroup_sweep.sh`, `check_allsame.py`, `summarize_e4.py`.
-Everything below is **measured here** (4 vCPU Intel Xeon, 15 GB, kernel 6.18.44, .NET 10.0.14, Release, workstation non-concurrent GC, nothing else running, `DOTNET_GCHeapHardLimit` = 96 MiB, every timed run in a fresh process after `sync; echo 3 > /proc/sys/vm/drop_caches`, i.e. a **cold page cache**, 4 threads unless noted) unless it is marked ESTIMATE. The binary under test is the build of commit `c1cb0220`/`5e93c92b` (the later commits change tests, scripts and results only; the head of each protocol is in the rows as `git rev-parse HEAD`).
+Raw rows: `e4_*.tsv` in this directory (`R <TAB> E4 <TAB> case <TAB> run <TAB> metric <TAB> value <TAB> unit <TAB> notes`; `e4_setup.tsv` also holds the E3 rows of the SA phase), scripts `run_e4_setup.sh`, `run_e4_protocol.sh`, `run_e4_big.sh`, `run_e4_cgroup.sh`, `run_e4_cgroup_sweep.sh`, `check_allsame.py`, `summarize_e4.py`; `e4_rounds8.tsv` (8 rounds of the bounded mode, run with the same binary and options by hand after the protocol), `e4_cgroup.tsv` with `e4_cgroup_stats.txt`.
+Everything below is **measured here** (4 vCPU Intel Xeon, 15 GB, kernel 6.18.44, .NET 10.0.14, Release, workstation non-concurrent GC, nothing else running, `DOTNET_GCHeapHardLimit` = 96 MiB, every timed run in a fresh process after `sync; echo 3 > /proc/sys/vm/drop_caches`, i.e. a **cold page cache**, 4 threads unless noted) unless it is marked ESTIMATE. The binary under test of every measurement is the build of commit `5e93c92b` (the head of each protocol is in the rows as `git rev-parse HEAD`); the later commits change tests, scripts, results and one reporting helper of `E4.cs` (`E4.Healthy`, the exit-code condition, moved into a function so that it can be tested) - nothing on the measured path.
 
 ## 1. What PH4 does here
 
@@ -43,7 +43,7 @@ Output independent of thread count, `R`, buffer sizes, mode and rounds (owner an
 |---|---|
 | EmProto tests before the work | 112, all green |
 | tests first, against the stub (`eba46d43`) | **23 of 135 red** (21 `NotImplementedException`, 2 expected `ArgumentException`), the 112 older green; the explicit fuzz class is not in the count |
-| after the implementation | 23 green; with the component tests written after the code (labelled in the file) and the tests added before the measurements: **172 green in the default run (2 m 13 s) and 172 green in the checked variant** (`-p:EsaBounds=true`, `ESA_EXPECT_BOUNDS=true`, 2 m 06 s); the 112 older tests are among them, unchanged |
+| after the implementation | 23 green; with the component tests written after the code (labelled in the file), the tests added before the measurements and the 8 added after audit round 1: **180 green in the default run (1 m 49 s) and 180 green in the checked variant** (`-p:EsaBounds=true`, `ESA_EXPECT_BOUNDS=true`, 2 m 04 s); 112 -> 180, the 112 older tests among them unchanged |
 | exhaustive (default run, both modes, R = 3 / 4 / 5 / 7 / 2, rounds of 1-2 chunks, threads 1 / 2 / 4, compared with `LcpKernel` in compact form and with `LcpReference` as decoded values) | every binary string of length 1-12 (8,190, base mode), 1-11 (4,094, bounded mode), every ternary string of length 1-6 (1,092, both modes): **14,468 builds**, all equal |
 | differential, adversarial families at n = 1,000 and 5,000 (the families of `StringFamilies.Adversarial`, 2 random parameter sets each, more than 100 cases: R = 3..50, b in {min, 2, 3, 4, 8, 16, 32}, vector and scalar compare, threads 1 / 2 / 4, rounds 1-4, read / tuple / window buffers of 12-4,000 bytes, touched buffers) | all equal; asserted: > 90 % have several chunks, > 30 per mode, > 10 with several rounds, kinds U8 and U16 occur |
 | widths (n = 6,400 / 140,000 / 150,000, each in both modes with chunk sizes 300-20,000, six cases) | U8 with 100+ overflow entries, U16 with 4,466, U32 without; equal to `LcpKernel`; the planted repeats are asserted to give those kinds |
@@ -54,13 +54,13 @@ Output independent of thread count, `R`, buffer sizes, mode and rounds (owner an
 
 ## 4. Gate G1: the LCP equals `LcpKernel`
 
-Every protocol run compares the output with the files of the in-RAM `LcpKernel` (`lcp-oracle`: `LcpKernel.Build` then `CompactLcp` written in the same two-file layout; `--verify`, byte for byte). **354 of 354 verified runs equal, none different** (cold cache, fresh process each):
-* the protocol groups on 36 inputs and families: 100 Mbp random DNA and genome-like (36 runs: threads 1 / 2 / 4, both modes, rounds 1 / 2 / 4, `R / 2` and `2 R`, i.e. P = 750 / 375 / 188), 10 M inputs and a^n 50 M (126 runs, the same set), the committed small families a^n, Fibonacci, Thue-Morse at 10^5 and 10^6, a 171-bp tandem, an N run, `dna_1m`, `prot_1m` (80 runs), the slope series 10 / 50 / 100 / 200 M random DNA and 10 / 50 / 100 M genome-like (84 runs): **326 runs**;
+Every protocol run compares the output with the files of the in-RAM `LcpKernel` (`lcp-oracle`: `LcpKernel.Build` then `CompactLcp` written in the same two-file layout; `--verify`, byte for byte). **360 of 360 verified runs equal, none different** (cold cache, fresh process each):
+* the protocol groups on 23 inputs and families: 100 Mbp random DNA and genome-like (36 runs: threads 1 / 2 / 4, both modes, rounds 1 / 2 / 4, `R / 2` and `2 R`, i.e. P = 750 / 375 / 188), 10 M inputs and a^n 50 M (126 runs, the same set), the committed small families a^n, Fibonacci, Thue-Morse at 10^5 and 10^6, a 171-bp tandem, an N run, `dna_1m`, `prot_1m` (80 runs), the slope series 10 / 50 / 100 / 200 M random DNA and 10 / 50 / 100 M genome-like (84 runs): **326 runs**;
 * 500 Mbp random DNA at the unscaled parameters (R = 8,000,000, P = 63): 11 of 11 equal to the kernel (the oracle took 36 s there and needs about 5 GB of RAM, not measured);
-* a^n 500 Mbp: the kernel would need 6.5 GB, so every run is compared with the **closed form** (`check_allsame.py`: the SA is `n, n-1, ..., 0` and `LCP[r] = r - 1` for every one of the 500,000,001 ranks): 11 of 11 equal; the first pass of the same 11 runs (`e4_a500_firstpass.tsv`) had the sampled `check-lcp` (2,002 ranks, structure scan) and a `cmp` of the bounded against the base output, 0 differences;
-* the cgroup sweep (section 7): 6 of 6 equal.
+* a^n 500 Mbp: the kernel would need about 6.5 GB (estimate), so every run is compared with the **closed form** (`check_allsame.py`: the SA is `n, n-1, ..., 0` and `LCP[r] = r - 1` for every one of the 500,000,001 ranks): 11 of 11 equal; a first pass of the same configurations (`e4_a500_firstpass.tsv`, same timings within the run-to-run spread) was checked less strictly: the sampled `check-lcp` (2,002 ranks, structure scan) on the base output, a `cmp` of the 2-round bounded output against it, and the closed form on the last output, 0 differences;
+* the cgroup sweep (section 7): 6 of 6 equal; 8 rounds of the bounded mode (10 M and 100 M, 3 runs each, `e4_rounds8.tsv`): 6 of 6 equal.
 
-Widths seen: **U8 + overflow** (random DNA 0 escapes, genome-like 1.39 % of the values >= 255 and 0.50 % >= 65,535, 1,390,028 overflow pairs at 100 M), **U16** (`rep_10m`: 6.94 % >= 255, none >= 65,535, so U16 without overflow; the 1 M N run: 9.9975 %, U16 + 934,465 overflow pairs at 10 M), **U32** (a^n, Fibonacci, Thue-Morse, tandem: 99.5-99.9995 % of the values >= 255).
+Widths seen: **U8 + overflow** (random DNA 0 escapes, genome-like 1.39 % of the values >= 255 and 0.50 % >= 65,535, 1,390,028 overflow pairs at 100 M), **U16** (`rep_10m`: 6.94 % >= 255, none >= 65,535, so U16 without overflow; the 1 M N run: 9.9975 %, U16 + 934,465 overflow pairs at 10 M), **U32** (a^n, Fibonacci 10 M, Thue-Morse 10^6, tandem: 99.5-99.9995 % of the values >= 255; the Fibonacci and Thue-Morse words of 10^5 symbols are U16).
 
 **G1: PASS.**
 
@@ -106,9 +106,9 @@ All fits are below 5 MB per doubling (3.3-4.5), **but the margin of the bounded 
 | bounded, 1 round | **8.0** | 33.0 | 34.0 | 36.0 |
 | bounded, 2 rounds | 6.0 | 37.0 | 38.0 | 40.0 |
 | bounded, 4 rounds | 5.0 | 45.0 | 46.0 | 48.0 |
-| bounded, 8 rounds (10 M only) | 4.5 | 61.0 | | |
+| bounded, 8 rounds (100 Mbp, 3 runs: 8.41 s [8.19-8.71]) | 4.5 | 61.0 | | |
 
-(the ADR table: 47 B/char with a 1.1 B/char LCP; the base mode is 45 + the LCP width - 1 + 8 x overflow share.) The ADR's gate is <= 50 B/char: **base mode 45.0-48.0, bounded mode 33-48 with up to 4 rounds** (more rounds exceed it: 8 rounds 61).
+(the ADR table: 47 B/char with a 1.1 B/char LCP; the base mode is 45 + the LCP width - 1 + 8 x overflow share.) The ADR's gate is <= 50 B/char: **base mode 45.0-48.0, bounded mode 33-48 with up to 4 rounds** (more rounds exceed it: 8 rounds 61, and 8.4 s instead of 5.0 s at 100 Mbp).
 
 **Throughput** (gate: >= 5 M symbols/s on 4 threads; PH4 only, from the SA file):
 
@@ -218,4 +218,23 @@ The base mode as control under the same kind of limit (sequential, but scratch f
 
 ## 10. Mutation audit of the new code
 
-(see below; filled in after the audit)
+Hand-made single-site mutants of the new production code: `LcpGeometry` (7), `Spool` (11), `PlcpScan` (9), `LcpOutput` (15), `LcpBuild` (33), `Experiments/E4` (11) = 86 in round 1, plus 12 added in round 2 (replacements of the mutants that did not compile and mutants of `E4.Healthy`): lists `analysis/mutation/e4_*_mutants.json` (generators `make_e4_mutants.py`, `make_e4_round2_mutants.py`, which also check that every pattern is unique), runner `run_e4_mutants.py` with a **watchdog** (build limit 300 s, test limit 240 s; the whole process group, test host included, is killed on expiry and the mutant counts as killed(hang)), drivers `run_e4_audit.sh`, `run_e4_audit_round2.sh`, `run_e4_audit_round3.sh` (run in a separate git worktree, so the checkout is never mutated; removed afterwards), raw results `results_e4_*.tsv`, merged table with verdicts and notes `results_e4.tsv` (`merge_e4.py`). Stage 1 runs the Ph4 tests without the slow exhaustive class; a survivor is run again against the whole Ph4 namespace.
+
+| | mutants |
+|---|---|
+| listed (round 1) | 86 |
+| did not compile (analyzer errors S4487, S1066, CS0649, S1854, S1481 twice), replaced by B12b, P09b, B26b, E07b, E08b, E09b in round 2 | 6 |
+| **compiled in round 1** | **80** |
+| killed in round 1 | 75, of them 1 by the watchdog (S05: a reader whose position never advances) and 1 by a test-host crash (S07: a buffer flushed one tuple late writes into its neighbour) |
+| survived round 1 | 5: B06, B29, E05, E06, P06 |
+| round 2 (14 mutants, head `1b07e175`): the survivors B06 / E06, the replacements, the mutants of `E4.Healthy` | 11 killed (E06, B12b, B26b, E07b, E09b, P09b, H01-H05), 3 survived (B06, B06b - the same mutation in the bounded worker - and E08b) |
+| round 3 (3 mutants, head `94daa207`), after two strengthened tests | B06, B06b, E08b killed |
+| **final: listed 98, compiled 92** | **killed 89**, closed by a refactoring and a test 1 (E05), equivalent argued 2 (P06, B29), **survivors 0**, not compiled 6 (each replaced by a mutant that compiled) |
+
+The five survivors of round 1: **B06** (B2 accepts a chunk with too few tuples): the first test of non-permutations (one tuple moved between two chunks) is also caught at the chunk with one too many; the one-task version added after round 1 still passed in round 2, because the long chunk raises the same message (a build that skipped the short chunk ends at the long one); with the numbers in the message asserted ("holds 499 Phi tuples, expected 500" when the short chunk comes first) it is killed in round 3, as is B06b, the same mutation in the bounded worker. **E05** (the exit code ignored a scratch entry left behind): not testable inside the long command method, so the condition became `E4.Healthy` and a test pins each term; its mutations H01-H05 are killed. **E06** (the closing comparison of the structure scan of `check-lcp`): every corruption in the middle of the overflow list is also found by the pair that follows it; a test with the last escape slot overwritten found it (round 2); a pair value below the escape (E09b) was killed in round 2 and a pair ahead of its slot (E08b) in round 3, by a test on the last pair. **P06** and **B29** are equivalent:
+* **P06** (the PLCP loop does not set `l = 0` at a position whose predecessor is the empty suffix): Kasai's invariant `PLCP[j] >= PLCP[j-1] - 1` with `PLCP[j] = 0` gives `PLCP[j-1] <= 1`, so the carried length `max(PLCP[j-1] - 1, 0)` is already 0; at the first position of a chunk it starts at 0 anyway. The assignment is a defensive reset that no valid suffix array can make necessary.
+* **B29** (a failed B2 task does not stop the others): the others finish their chunks, the first error is stored and rethrown after all tasks ended, the spools remove the scratch files: only the time to the exception changes.
+
+Not listed as mutants because they cannot change a result: the prefetch distances and addresses (16 positions / ranks ahead), the order of `Consume` and `Write` in `Deliver`, the slice size of the output conversion, the choice of `Math.Clamp` bound 0 or 1 in the task planning (a later `Math.Max(1, ...)`).
+
+Limits of the audit: mutants are hand-made and single-site; the reporting rows of `e4` are checked by a few assertions only (`parameters`, `n`, the verification row, the exit code); the older E0-E3b code was not audited; the first round's stage-1 tests are the Ph4 tests without the exhaustive class (a mutant that survived them was run again against the whole namespace: B06, B29, E05, E06, P06 survived both stages); the tests of the commands run on small families (the commands' timing code is not mutated).
