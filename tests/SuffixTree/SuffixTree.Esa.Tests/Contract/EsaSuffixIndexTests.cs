@@ -545,15 +545,36 @@ public class EsaSuffixIndexTests
         }
     }
 
-    [Test]
-    public void LociThatAreNotOfThisText_AreRejected()
+    private static bool ShapeAccepted(int n, long lo, long hi, long length, long aux)
     {
-        // every tuple in a box around the valid loci of the text. Every valid locus is accepted. A single-rank tuple (a point of a leaf edge) is accepted exactly when it is valid: the depth of a leaf is
-        // known. For wider intervals the O(1) checks (both borders below the depth, the first l-index in the child table with that value) cannot exclude every interval that merely looks like a node
-        // (the interior of the interval is not scanned), so look-alikes can pass: they are counted and reported, not asserted; a locus handed out by this index never is one.
-        foreach (string text in new[] { "banana", "mississippi", "aaaa", "abababa" })
+        // the O(1) shape rules documented on EsaSuffixIndex: inside the index, aux >= length, the root, the leaf of the empty suffix or a point of a non-empty suffix
+        if (lo < 0 || lo > hi || hi > n || length < 0 || aux < length || aux > n + 1L) return false;
+        return length == 0 ? lo == 0 && hi == n && aux == 0 : n > 0 && (lo > 0 || (hi == 0 && aux == 1));
+    }
+
+    private static bool NodeAccepted(IndexContractOracle o, EsaIndex esa, int lo, int hi, long length, long aux)
+    {
+        // the checks of the node operations, from the oracle's LCP array: both borders of the interval below the depth, the matched length below it and above the parent's depth, a leaf has the depth
+        // of its suffix with the terminator, an inner interval has its first l-index in the child table (inside the interval) with the LCP value of the depth
+        int n = o.N;
+        if (aux == 0) return true;
+        int left = o.Lcp[lo];
+        int right = hi < n ? o.Lcp[hi + 1] : -1;
+        if (Math.Max(left, right) >= length) return false;
+        if (lo == hi) return aux == n - o.Sa[lo] + 1;
+        int first = esa.Child.FirstLIndex(lo, hi, left > right);
+        return first > lo && first <= hi && o.Lcp[first] == aux;
+    }
+
+    [Test]
+    public void ForgedLoci_CountAndTheNodeOperationsAcceptExactlyTheDocumentedTuples()
+    {
+        // every tuple in a box around the valid loci: Count / Locate accept exactly the tuples of the shape rules, the node operations exactly those that also pass the node checks. Every real locus passes them,
+        // and a single-rank tuple (a point of a leaf edge) passes only when it is real: the depth of a leaf is known. For wider intervals the O(1) checks cannot exclude every interval that merely looks like a
+        // node (the interior is not scanned), so look-alikes pass: they are counted and reported; a locus that this index hands out is never one.
+        foreach (var (text, layout) in new[] { ("banana", ChildLayoutKind.Tagged), ("mississippi", ChildLayoutKind.Packed), ("abababa", ChildLayoutKind.Reference3), ("aaaa", ChildLayoutKind.Tagged), ("a", ChildLayoutKind.Packed), ("", ChildLayoutKind.Reference3) })
         {
-            var (index, _) = Make(text);
+            var (index, esa) = Make(text, layout);
             var oracle = new IndexContractOracle(text);
             int n = text.Length;
             var valid = new HashSet<IndexLocus>();
@@ -564,28 +585,136 @@ public class EsaSuffixIndexTests
                 for (int len = parent.Length + 1; len <= node.Length; len++) valid.Add(oracle.LocusOf(node[..len]));
             }
             int accepted = 0;
-            for (long lo = 0; lo <= n + 1; lo++)
-                for (long hi = 0; hi <= n + 1; hi++)
-                    for (long length = 0; length <= n + 2; length++)
-                        for (long aux = 0; aux <= n + 2; aux++)
+            var positions = new long[n + 2];
+            for (int lo = -1; lo <= n + 1; lo++)
+                for (int hi = -1; hi <= n + 1; hi++)
+                    for (long length = -1; length <= n + 2; length++)
+                        for (long aux = -1; aux <= n + 2; aux++)
                         {
                             var locus = new IndexLocus(lo, hi, length, aux);
-                            bool isValid = valid.Contains(locus);
-                            try
+                            string at = $"[{layout}] '{text}' {locus}";
+                            bool shape = ShapeAccepted(n, lo, hi, length, aux);
+                            bool nodeOk = shape && NodeAccepted(oracle, esa, lo, hi, length, aux);
+                            if (valid.Contains(locus)) Assert.That(nodeOk, Is.True, at + " is a locus");
+                            if (shape)
                             {
-                                bool node = index.IsExplicitNode(locus);
-                                accepted++;
-                                if (lo == hi) Assert.That(isValid, Is.True, $"'{text}' {locus} is no locus of the text but was accepted");
-                                Assert.That(node, Is.EqualTo(length == aux), locus.ToString());
+                                Assert.That(index.Count(locus), Is.EqualTo(hi - Math.Max(lo, 1) + 1), at);
+                                Assert.That(index.Locate(locus, 0, positions), Is.EqualTo(hi - Math.Max(lo, 1) + 1), at);
                             }
-                            catch (ArgumentException)
+                            else
                             {
-                                Assert.That(isValid, Is.False, $"'{text}' {locus} is a locus but was rejected");
+                                Assert.That(() => index.Count(locus), Throws.TypeOf<ArgumentException>(), at);
+                                Assert.That(() => index.Locate(locus, 0, positions), Throws.TypeOf<ArgumentException>(), at);
+                            }
+                            if (nodeOk)
+                            {
+                                accepted++;
+                                Assert.That(index.IsExplicitNode(locus), Is.EqualTo(length == aux), at);
+                                Assert.That(index.TryExtendRight(locus, ReadOnlySpan<char>.Empty, out IndexLocus same), Is.True, at);
+                                Assert.That(same, Is.EqualTo(locus), at);
+                                if (lo == hi) Assert.That(valid.Contains(locus), Is.True, at + " is no locus of the text");
+                            }
+                            else
+                            {
+                                Assert.That(() => index.IsExplicitNode(locus), Throws.TypeOf<ArgumentException>(), at);
+                                Assert.That(() => index.TryExtendRight(locus, ReadOnlySpan<char>.Empty, out _), Throws.TypeOf<ArgumentException>(), at);
                             }
                         }
             Assert.That(accepted, Is.GreaterThanOrEqualTo(valid.Count), text);
-            TestContext.Out.WriteLine($"'{text}': {valid.Count} loci, {accepted - valid.Count} look-alikes accepted");
+            TestContext.Out.WriteLine($"[{layout}] '{text}': {valid.Count} loci, {accepted - valid.Count} look-alikes pass the node checks");
         }
+    }
+
+    [Test]
+    public void InvalidSymbolWithAMalformedLocus_StillThrows()
+    {
+        var (index, _) = Make("banana");
+        var bad = new IndexLocus(9, 9, 9, 9);
+        Assert.That(() => index.TryExtendRight(bad, -1, out _), Throws.TypeOf<ArgumentException>());
+        Assert.That(() => index.TryExtendRight(bad, 70000, out _), Throws.TypeOf<ArgumentException>());
+        Assert.That(() => index.TryExtendLeft(bad, -1, out _), Throws.TypeOf<ArgumentException>());
+        Assert.That(() => index.TryExtendLeft(bad, 70000, out _), Throws.TypeOf<ArgumentException>());
+    }
+
+    // ---- corrupt child tables end in InvalidOperationException, never in a loop or a read outside the interval ---------------------------------
+
+    private static T Field<T>(object owner, string name)
+        => (T)owner.GetType().GetField(name, System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.GetValue(owner)!;
+
+    private static void AssertWalksRefuse(EsaSuffixIndex index, string what)
+    {
+        Assert.Throws<InvalidOperationException>(() => index.GetChildren(index.Root, new IndexLocus[8]), $"{what}: GetChildren");
+        Assert.Throws<InvalidOperationException>(() => index.GetChildren(index.Root, Span<IndexLocus>.Empty), $"{what}: GetChildren (count only)");
+        Assert.Throws<InvalidOperationException>(() => index.TryChild(index.Root, 'z', out _), $"{what}: TryChild of a key behind every child");
+        Assert.Throws<InvalidOperationException>(() => index.TryChild(index.Root, 'b', out _), $"{what}: TryChild of a key in the middle");
+    }
+
+    [Test]
+    public void CorruptChildTable_Reference3_IsRefused()
+    {
+        const string text = "abracadabra";
+        EsaIndex esa = EsaIndex.Build(text, ChildLayoutKind.Reference3);
+        var index = new EsaSuffixIndex(esa);
+        object table = esa.Child.Reference3;
+        int[] next = Field<int[]>(table, "_next");
+        int[] up = Field<int[]>(table, "_up");
+        int[] down = Field<int[]>(table, "_down");
+        int first = esa.Child.FirstLIndex(0, esa.Length, true);
+        int second = next[first];
+
+        next[first] = first;                       // the l-index after the first points at itself
+        AssertWalksRefuse(index, "self loop");
+        next[first] = esa.Length + 3;              // ... or beyond the interval
+        AssertWalksRefuse(index, "boundary beyond the interval");
+        next[first] = second;
+
+        int saved = down[0];
+        down[0] = 0;                               // the first l-index of the root is its own left border
+        AssertWalksRefuse(index, "first boundary at the left border");
+        down[0] = saved;
+
+        var kids = new IndexLocus[6];
+        Assert.That(index.GetChildren(index.Root, kids), Is.EqualTo(6), "the repaired table works again");
+        IndexLocus a = kids[1]; // the node 'a': a non-last child, its first l-index sits at up[rb]
+        int savedUp = up[a.Hi];
+        up[a.Hi] = 0;                              // the first l-index of an inner child at its left border
+        Assert.Throws<InvalidOperationException>(() => index.GetChildren(index.Root, new IndexLocus[8]), "child with a bad first l-index: GetChildren");
+        Assert.Throws<InvalidOperationException>(() => index.TryChild(index.Root, 'a', out _), "child with a bad first l-index: TryChild");
+        up[a.Hi] = (int)a.Hi + 5;                       // ... or behind its interval
+        Assert.Throws<InvalidOperationException>(() => index.GetChildren(index.Root, new IndexLocus[8]), "child with a first l-index behind its interval");
+        up[a.Hi] = savedUp;
+        Assert.That(index.GetChildren(index.Root, kids), Is.EqualTo(6));
+    }
+
+    [Test]
+    public void CorruptChildTable_Tagged_IsRefused()
+    {
+        const string text = "abracadabra";
+        EsaIndex esa = EsaIndex.Build(text, ChildLayoutKind.Tagged);
+        var index = new EsaSuffixIndex(esa);
+        object table = esa.Child.Tagged;
+        uint[] cld = Field<uint[]>(table, "_cld");
+        int first = esa.Child.FirstLIndex(0, esa.Length, true);
+        uint savedNext = cld[first];
+        uint savedRoot = cld[0];
+
+        cld[first] = TaggedChild.PackNext(first);
+        AssertWalksRefuse(index, "self loop");
+        cld[first] = savedNext;
+
+        cld[0] = TaggedChild.PackDown(0);
+        AssertWalksRefuse(index, "first boundary at the left border");
+        cld[0] = savedRoot;
+
+        var kids = new IndexLocus[6];
+        Assert.That(index.GetChildren(index.Root, kids), Is.EqualTo(6), "the repaired table works again");
+        IndexLocus a = kids[1];
+        uint savedUp = cld[a.Hi];
+        cld[a.Hi] = TaggedChild.PackUp(0);
+        Assert.Throws<InvalidOperationException>(() => index.GetChildren(index.Root, new IndexLocus[8]), "child with a bad first l-index: GetChildren");
+        Assert.Throws<InvalidOperationException>(() => index.TryChild(index.Root, 'a', out _), "child with a bad first l-index: TryChild");
+        cld[a.Hi] = savedUp;
+        Assert.That(index.GetChildren(index.Root, kids), Is.EqualTo(6));
     }
 
     [Test]
