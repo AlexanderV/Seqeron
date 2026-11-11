@@ -545,6 +545,65 @@ public class E3bCommandTests
         Assert.That(Directory.GetFileSystemEntries(Path.Combine(_dir, "scratch")), Is.Empty);
     }
 
+    [TestCase(1001L)]
+    [TestCase(2_500_000L)]
+    [TestCase(8L)]
+    public void PackRandom_WritesAValidPackedFile_WithMetaAndPadding(long n)
+    {
+        string path = Path.Combine(_dir, "r.pk");
+        Assert.That(E3b.PackRandom(Options.Parse(["--n", n.ToString(CultureInfo.InvariantCulture), "--out", path, "--seed", "5"]), new Report(null)), Is.EqualTo(0));
+        byte[] file = File.ReadAllBytes(path);
+        Assert.That(file, Has.Length.EqualTo(PackedText.TotalBytes(n, 2)));
+        Assert.That(file[^PackedText.PadBytes..].All(b => b == 0), Is.True);
+        (long metaN, int bits) = E3.ReadMeta(path);
+        Assert.That((metaN, bits), Is.EqualTo((n, 2)));
+        unsafe
+        {
+            fixed (byte* p = file)
+            {
+                using var t = new PackedText(p, n, 2, null, false);
+                var symbols = new byte[n];
+                var counts = new long[4];
+                for (long i = 0; i < n; i++)
+                {
+                    symbols[i] = (byte)t.Symbol(i);
+                    counts[symbols[i]]++;
+                }
+                using PackedText again = PackedText.Pack(symbols, 2);
+                Assert.That(new ReadOnlySpan<byte>(again.Pointer, (int)PackedText.TotalBytes(n, 2)).SequenceEqual(file), Is.True, "re-packing the symbols gives the same bytes (the unused bits of the last byte are zero)");
+                if (n > 1000) Assert.That(counts.All(c => Math.Abs(c - (n / 4.0)) < n * 0.05), Is.True, "the four symbols are about equally frequent");
+            }
+        }
+        Assert.Throws<ArgumentException>(() => E3b.PackRandom(Options.Parse(["--out", path]), new Report(null)));
+    }
+
+    [Test]
+    public void TouchedArena_MakesBlocksResidentAndKeepsTheContent_UntouchedDoesNot()
+    {
+        if (!RssSampler.IsSupported) Assert.Ignore("needs RssAnon (Linux)");
+        static long RssAnonKb()
+        {
+            foreach (string line in File.ReadLines("/proc/self/status"))
+            {
+                if (line.StartsWith("RssAnon:", StringComparison.Ordinal)) return long.Parse(line.Split(' ', StringSplitOptions.RemoveEmptyEntries)[1], CultureInfo.InvariantCulture);
+            }
+            return 0;
+        }
+        const int mb = 48;
+        long before = RssAnonKb();
+        using (var plain = new BudgetedArena(new ArenaBudget(1L << 30), null, touchPages: false))
+        {
+            _ = plain.Allocate<byte>(mb << 20, zero: true, "plain");
+            Assert.That(RssAnonKb() - before, Is.LessThan(8 * 1024), "a zeroed block that is not touched is not resident");
+        }
+        using (var touched = new BudgetedArena(new ArenaBudget(1L << 30), null, touchPages: true))
+        {
+            Buf<byte> b = touched.Allocate<byte>(mb << 20, zero: true, "touched");
+            Assert.That(RssAnonKb() - before, Is.GreaterThan((mb - 4) * 1024L), "every page of a touched block is resident");
+            Assert.That(b.AsSpan(mb << 20).IndexOfAnyExcept((byte)0), Is.EqualTo(-1), "the content stays zero");
+        }
+    }
+
     [Test]
     public void CompareFiles_FindsTheFirstDifference_AndALengthMismatch()
     {

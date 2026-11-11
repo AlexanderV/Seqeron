@@ -267,7 +267,7 @@ public class ExternalDcsDifferentialTests
                 {
                     foreach (long nbase in new long[] { 6, 150, 1 << 20 })
                     {
-                        (byte[] got, _) = ExtDcsHarness.Run(t, cover, ExtDcsHarness.Options(scratch, k, nbase, threads, (ulong)(threads * 1000) + (ulong)k), _dir);
+                        (byte[] got, _) = ExtDcsHarness.Run(t, cover, ExtDcsHarness.Options(scratch, k, nbase, threads, (ulong)(threads * 1000) + (ulong)k) with { TouchBuffers = k == 17 }, _dir);
                         Assert.That(got.AsSpan().SequenceEqual(expected), Is.True, $"{c.Name} threads={threads} K={k} base={nbase}");
                     }
                 }

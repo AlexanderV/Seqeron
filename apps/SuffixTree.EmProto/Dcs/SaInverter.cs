@@ -19,7 +19,7 @@ internal static class SaInverter
         long chunkSlots = Math.Max(1, o.ChunkSlots);
         long chunks = (slots + chunkSlots - 1) / chunkSlots;
         int bufEntries = Math.Max(1, o.IoBufferBytes / 8);
-        using var arena = new BudgetedArena(budget);
+        using var arena = new BudgetedArena(budget, null, o.TouchBuffers);
         Buf<ulong> tuples = arena.Allocate<ulong>(checked((int)(chunks * bufEntries)), zero: false, "invert.tuples");
         var filled = new int[chunks];
         var flushed = new long[chunks];

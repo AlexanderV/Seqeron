@@ -15,8 +15,9 @@ internal static class Cli
           mkranks  --text <packed> --out <rank file> [--period 1024 [--exact]]  difference-cover sample ranks to a file
           e3       --text <packed> --sa <out> --scratch <dir> [--ranks <file>] [--k-div 3000 | --k K] [--threads 4] [--budget-mb 160] [--cgroup-usage <file>]
           e3b      --text <packed> --out <rank file> --scratch <dir> [--period 1024 [--exact]] [--threads 4] [--budget-mb 160] [--scale-n 3000000000] [--verify <oracle rank file>]
-                   [--k-s K] [--nbase N] [--chunk R] [--sort-k K] [--fan 1024] [--reservoir 16384] [--run-spill-kb 64] [--io-kb 64] [--merge-budget-mb 16] [--window-kb 1024] [--seed 1] [--case name] [--series]
+                   [--k-s K] [--nbase N] [--chunk R] [--sort-k K] [--fan 1024] [--reservoir 16384] [--run-spill-kb 64] [--io-kb 64] [--merge-budget-mb 16] [--window-kb 1024] [--seed 1] [--touch-buffers] [--case name] [--series]
                    external-memory PH1 (E3b): the difference-cover rank file built with bounded RAM; --scale-n scales K_s, N_base, R, K_sort by n / scale-n from their 3e9 reference values
+          packrand --n <symbols> --out <packed file> [--seed s]        packed 2-bit random DNA of any length (streamed; for runs above the 2^31 symbols of pack)
           hash-sa  --file <sa file>      SHA-256 of entries 1..n (libsais convention)
           oracle   --family <spec>       same hash from SaisKernel in RAM
           e0   --dir <scratch directory> [--pairs 15] [--io-mb 256] [--out raw.tsv]
@@ -44,6 +45,7 @@ internal static class Cli
                 case "mkranks": return E3.MakeRanks(o, report);
                 case "e3": return E3.Build(o, report);
                 case "e3b": return E3b.Build(o, report);
+                case "packrand": return E3b.PackRandom(o, report);
                 case "hash-sa": return E3.HashSa(o, report);
                 case "oracle": return E3.OracleHash(o, report);
                 default:

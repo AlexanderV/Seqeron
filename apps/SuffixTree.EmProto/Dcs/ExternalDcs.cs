@@ -49,6 +49,9 @@ internal sealed record ExtDcsOptions
     /// <summary>K of the suffix sort of a reduced string at the external levels (records per leaf bucket of the position sort).</summary>
     internal long SortLeafCapacity { get; init; } = 1 << 20;
 
+    /// <summary>Makes every native buffer resident when it is allocated (the worst case of the working set: the whole arena touched), for the RssAnon figures of the scale-down emulation.</summary>
+    internal bool TouchBuffers { get; init; }
+
     /// <summary>Directory of the scratch files (created when missing; every file of a build is removed when it ends).</summary>
     internal required string ScratchDir { get; init; }
 
@@ -195,7 +198,7 @@ internal static unsafe class ExternalDcs
         if (reduced <= o.BaseCase || reduced >= text.Length)
         {
             ls.BaseCase = true;
-            using var arena = new BudgetedArena(budget);
+            using var arena = new BudgetedArena(budget, null, o.TouchBuffers);
             using var sink = new ReducedRamSink(g, arena);
             namer.Merge(naming, sink);
             ls.MergeSeconds = Seconds(t0);
@@ -209,7 +212,7 @@ internal static unsafe class ExternalDcs
         string redPath = Path.Combine(o.ScratchDir, $"{tag}-L{level + 1}.red");
         string childRank = Path.Combine(o.ScratchDir, $"{tag}-L{level + 1}.rank");
         string saPath = Path.Combine(o.ScratchDir, $"{tag}-L{level + 1}.sa");
-        using (var arena = new BudgetedArena(budget))
+        using (var arena = new BudgetedArena(budget, null, o.TouchBuffers))
         {
             var sink = new ReducedFileSink(redPath, g, o.IoBufferBytes, arena);
             try

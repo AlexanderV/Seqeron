@@ -280,7 +280,7 @@ internal sealed class SampleNamer
 
     private void Worker()
     {
-        using var arena = new BudgetedArena(_budget);
+        using var arena = new BudgetedArena(_budget, null, _o.TouchBuffers);
         var w = new NamingWorker(this, arena);
         while (_pool.Take(out NamingTask? task))
         {
@@ -311,7 +311,7 @@ internal sealed class SampleNamer
     {
         long s = _g.Samples;
         if (s == 0) return;
-        using var arena = new BudgetedArena(_budget);
+        using var arena = new BudgetedArena(_budget, null, _o.TouchBuffers);
         int windowSlots = (int)Math.Min(Math.Max(1, _o.ChunkSlots), s);
         Buf<uint> window = arena.Allocate<uint>(windowSlots, zero: false, "merge.window");
         int fileRuns = r.Leaves.Count(l => !l.Run!.InMemory);
@@ -397,7 +397,7 @@ internal sealed class SampleNamer
         /// <summary>One scan that stores the records of the range in the bucket buffers; a bucket that outgrows K_s is queued again as a split.</summary>
         private void Collect(NamingTask task)
         {
-            int cap = (int)owner._o.BucketCapacity;
+            int cap = (int)Math.Min(owner._o.BucketCapacity, Math.Max(1, owner._g.Samples)); // a text with fewer sample positions than K_s needs no larger buffers
             EnsureLeafBuffers(cap);
             Span<ulong> keys = _keys.AsSpan(cap);
             Span<uint> pos = _pos.AsSpan(cap);

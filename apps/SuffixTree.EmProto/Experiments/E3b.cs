@@ -57,13 +57,14 @@ internal static unsafe class E3b
             MergeBufferBudget = o.Long("merge-budget-mb", 16) << 20,
             WindowBytes = o.Int("window-kb", 1024) * 1024,
             Budget = new ArenaBudget(budgetCap),
+            TouchBuffers = o.Flag("touch-buffers"),
         };
         Directory.CreateDirectory(scratch);
         foreach (string file in Directory.GetFileSystemEntries(scratch)) File.Delete(file);
 
         long sRef = cover.SampleCount(ReferenceN);
         long sHere = cover.SampleCount(n);
-        r.Row("E3b", caseName, "n", n, "symbols", $"b={bits} bits, X={cover.Period} {cover.Kind} |D|={cover.Residues.Length}, sample {sHere} ({sHere * 100.0 / n:F2} %), threads={threads}");
+        r.Row("E3b", caseName, "n", n, "symbols", $"b={bits} bits, X={cover.Period} {cover.Kind} |D|={cover.Residues.Length}, sample {sHere} ({sHere * 100.0 / n:F2} %), threads={threads}, touch buffers={options.TouchBuffers}");
         r.Row("E3b", caseName, "parameters", string.Create(CultureInfo.InvariantCulture, $"K_s={options.BucketCapacity} N_base={options.BaseCase} R={options.ChunkSlots} K_sort={options.SortLeafCapacity}"), "", scaled
             ? $"scaled by n/3e9 = {f:E3} from K_s={KsRef} N_base={BaseRef} R={ChunkRef} K_sort={SortKRef} run-spill=64 KiB (run spill {options.RunSpillBytes} bytes: every bucket run of the 3e9 build is a scratch file); the 3e9 build has sample {sRef}, about {2 * sRef / KsRef} sample buckets (2 x sample / K_s), this one about {2 * sHere / options.BucketCapacity}"
             : "unscaled (explicit values or the reference values)");
@@ -126,6 +127,41 @@ internal static unsafe class E3b
             ok &= equal;
         }
         return ok ? 0 : 1;
+    }
+
+    /// <summary>
+    /// <c>packrand</c>: a packed 2-bit random DNA text of any length without ever holding the symbols (the packed form of uniform random DNA is uniform random bytes: four symbols per byte), for the
+    /// measurements above the 2^31 symbols that the in-memory generators of <c>pack</c> can reach. The file has the layout of <see cref="PackedText"/> (data, 64 zero bytes) and a <c>.meta</c> file.
+    /// </summary>
+    internal static int PackRandom(Options o, Report r)
+    {
+        long n = o.Long("n", 0);
+        string outPath = o.Require("out");
+        ulong seed = (ulong)o.Long("seed", 20240009);
+        if (n <= 0) throw new ArgumentException("missing or non-positive --n");
+        long dataBytes = PackedText.DataBytes(n, 2);
+        var rng = new SplitMix64(seed);
+        var buf = new byte[1 << 20];
+        using (var fs = new FileStream(outPath, FileMode.Create, FileAccess.Write, FileShare.None, 1 << 20))
+        {
+            long written = 0;
+            while (written < dataBytes)
+            {
+                int take = (int)Math.Min(buf.Length, dataBytes - written);
+                for (int i = 0; i < take; i += 8)
+                {
+                    ulong v = rng.Next();
+                    for (int k = 0; k < 8 && i + k < take; k++) buf[i + k] = (byte)(v >> (8 * k));
+                }
+                if (written + take == dataBytes && (n * 2) % 8 != 0) buf[take - 1] &= (byte)(0xFF << (8 - (int)((n * 2) % 8)));
+                fs.Write(buf, 0, take);
+                written += take;
+            }
+            fs.Write(new byte[PackedText.PadBytes]);
+        }
+        File.WriteAllText(outPath + ".meta", string.Create(CultureInfo.InvariantCulture, $"n={n}\nbits=2\nsigma=4\nletters=ACGT\nname=packed-random-dna-s{seed}\n"));
+        r.Row("E3b", $"random-dna-{n}", "packed_file", dataBytes + PackedText.PadBytes, "bytes", $"n={n}, sigma=4, b=2, seed {seed}");
+        return 0;
     }
 
     /// <summary>Byte-for-byte comparison of two files in 1 MB pieces: equality and the offset of the first difference (or of the shorter end).</summary>

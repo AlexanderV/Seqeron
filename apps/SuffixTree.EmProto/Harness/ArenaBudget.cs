@@ -41,17 +41,22 @@ internal sealed class ArenaBudget(long capBytes)
 /// A <see cref="NativeArena"/> whose blocks are charged to an <see cref="ArenaBudget"/>. Same contract as the arena (<c>Mark</c> / <c>ReleaseTo</c> release newest first,
 /// <c>Dispose</c> frees all and returns the bytes to the budget); not thread-safe, one instance per task like the arena it wraps.
 /// </summary>
-internal sealed class BudgetedArena : IDisposable
+internal sealed unsafe class BudgetedArena : IDisposable
 {
     private readonly NativeArena _arena;
     private readonly ArenaBudget _budget;
     private readonly List<long> _sizes = [];
+    private readonly bool _touch;
     private bool _disposed;
 
-    internal BudgetedArena(ArenaBudget budget, ArenaOptions? options = null)
+    /// <param name="budget">The shared cap.</param>
+    /// <param name="options">Arena options (guard bands in the tests).</param>
+    /// <param name="touchPages">Makes every block resident at its allocation (one write per page, content preserved): the report of the worst case in which the whole buffer set is touched, for the RssAnon of the E3b scale-down emulation.</param>
+    internal BudgetedArena(ArenaBudget budget, ArenaOptions? options = null, bool touchPages = false)
     {
         _budget = budget;
         _arena = new NativeArena(options ?? ArenaOptions.Production);
+        _touch = touchPages;
     }
 
     /// <summary>Payload bytes currently held by this arena.</summary>
@@ -62,16 +67,13 @@ internal sealed class BudgetedArena : IDisposable
         where T : unmanaged
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        long bytes;
-        unsafe
-        {
-            bytes = (long)length * sizeof(T);
-        }
+        long bytes = (long)length * sizeof(T);
         _budget.Reserve(bytes, name);
         try
         {
             Buf<T> block = _arena.Allocate<T>(length, zero, name);
             _sizes.Add(bytes);
+            if (_touch) TouchPages((byte*)block.Pointer, bytes);
             return block;
         }
         catch
@@ -79,6 +81,12 @@ internal sealed class BudgetedArena : IDisposable
             _budget.Release(bytes);
             throw;
         }
+    }
+
+    private static void TouchPages(byte* p, long bytes)
+    {
+        for (long i = 0; i < bytes; i += 4096) Volatile.Write(ref p[i], Volatile.Read(ref p[i]));
+        if (bytes > 0) Volatile.Write(ref p[bytes - 1], Volatile.Read(ref p[bytes - 1]));
     }
 
     internal int Mark() => _arena.Mark();
