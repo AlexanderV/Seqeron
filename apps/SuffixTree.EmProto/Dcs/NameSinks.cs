@@ -42,30 +42,22 @@ internal sealed class ReducedFileSink : INameSink
 {
     private readonly SampleGeometry _g;
     private readonly CountedFile _file;
-    private readonly string _path;
     private readonly int _bufEntries;
     private readonly Buf<byte> _buffers;
     private readonly int[] _filled;
     private readonly long[] _flushed;
-    private readonly long _tracked;
-
     internal ReducedFileSink(string path, SampleGeometry geometry, int ioBufferBytes, BudgetedArena arena)
     {
         _g = geometry;
-        _path = path;
         _bufEntries = Math.Max(1, ioBufferBytes / 4);
         _buffers = arena.Allocate<byte>(_bufEntries * 4 * geometry.Classes, zero: false, "reduced.cursors");
         _filled = new int[geometry.Classes];
         _flushed = new long[geometry.Classes];
         _file = new CountedFile(path, FileMode.Create, FileAccess.ReadWrite);
-        _tracked = (geometry.RedLength * 4) + PackedText.PadBytes;
-        _file.SetLength(_tracked);
-        ScratchTracker.Add(_tracked);
+        long bytes = (geometry.RedLength * 4) + PackedText.PadBytes;
+        _file.SetLength(bytes);
+        ScratchTracker.Add(bytes);
     }
-
-    internal string Path => _path;
-
-    internal long Bytes => _tracked;
 
     public void Accept(long firstSlot, ReadOnlySpan<uint> names)
     {
@@ -93,14 +85,6 @@ internal sealed class ReducedFileSink : INameSink
     }
 
     public void Dispose() => _file.Dispose();
-
-    /// <summary>Deletes the file (it is scratch).</summary>
-    internal void Delete()
-    {
-        _file.Dispose();
-        ScratchTracker.Remove(_tracked);
-        File.Delete(_path);
-    }
 
     private void Flush(int c, Span<byte> buf)
     {

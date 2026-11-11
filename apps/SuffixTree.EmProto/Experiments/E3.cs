@@ -169,7 +169,7 @@ internal static unsafe class E3
         return (long.Parse(f[7], CultureInfo.InvariantCulture), long.Parse(f[9], CultureInfo.InvariantCulture));
     }
 
-    private static (long N, int Bits) ReadMeta(string textPath)
+    internal static (long N, int Bits) ReadMeta(string textPath)
     {
         string[] meta = File.ReadAllLines(textPath + ".meta");
         long n = long.Parse(meta.First(l => l.StartsWith("n=", StringComparison.Ordinal))[2..], CultureInfo.InvariantCulture);

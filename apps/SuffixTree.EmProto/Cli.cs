@@ -6,7 +6,7 @@ namespace SuffixTree.EmProto;
 internal static class Cli
 {
     private const string Usage = """
-        SuffixTree.EmProto - prototypes E0-E3 of ADR-004 (external-memory construction of the persistent ESA)
+        SuffixTree.EmProto - prototypes E0-E3 and E3b of ADR-004 (external-memory construction of the persistent ESA)
 
           e1   --family <spec> [--data <dir>] [--vectors <sa_vectors.tsv>] [--threads 1] [--k-div 1000 | --k <K>] [--fan 64] [--limit 600] [--tie-sort merge|intro] [--run <id>] [--rows raw.tsv]
           e2   the same with --dcs <X> [--exact] [--dcs-base 16000000]
@@ -14,6 +14,9 @@ internal static class Cli
           pack     --family <spec> --out <packed file>                      text to the b-bit packed file (+ .meta)
           mkranks  --text <packed> --out <rank file> [--period 1024 [--exact]]  difference-cover sample ranks to a file
           e3       --text <packed> --sa <out> --scratch <dir> [--ranks <file>] [--k-div 3000 | --k K] [--threads 4] [--budget-mb 160] [--cgroup-usage <file>]
+          e3b      --text <packed> --out <rank file> --scratch <dir> [--period 1024 [--exact]] [--threads 4] [--budget-mb 160] [--scale-n 3000000000] [--verify <oracle rank file>]
+                   [--k-s K] [--nbase N] [--chunk R] [--sort-k K] [--fan 1024] [--reservoir 16384] [--run-spill-kb 64] [--io-kb 64] [--window-kb 1024] [--seed 1] [--case name] [--series]
+                   external-memory PH1 (E3b): the difference-cover rank file built with bounded RAM; --scale-n scales K_s, N_base, R, K_sort by n / scale-n from their 3e9 reference values
           hash-sa  --file <sa file>      SHA-256 of entries 1..n (libsais convention)
           oracle   --family <spec>       same hash from SaisKernel in RAM
           e0   --dir <scratch directory> [--pairs 15] [--io-mb 256] [--out raw.tsv]
@@ -40,6 +43,7 @@ internal static class Cli
                 case "pack": return E3.Pack(o, report);
                 case "mkranks": return E3.MakeRanks(o, report);
                 case "e3": return E3.Build(o, report);
+                case "e3b": return E3b.Build(o, report);
                 case "hash-sa": return E3.HashSa(o, report);
                 case "oracle": return E3.OracleHash(o, report);
                 default:

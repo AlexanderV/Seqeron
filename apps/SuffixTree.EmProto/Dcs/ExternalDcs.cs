@@ -142,7 +142,26 @@ internal static unsafe class ExternalDcs
         Directory.CreateDirectory(options.ScratchDir);
         string tag = "e3b-" + Guid.NewGuid().ToString("N")[..8];
         var stats = new ExtDcsStats();
-        BuildLevel(text, cover, 0, rankPath, false, options, tag, options.Budget ?? new ArenaBudget(long.MaxValue), stats);
+        try
+        {
+            BuildLevel(text, cover, 0, rankPath, false, options, tag, options.Budget ?? new ArenaBudget(long.MaxValue), stats);
+        }
+        catch
+        {
+            // a failed build leaves no scratch behind (its files carry this build's tag)
+            foreach (string file in Directory.GetFiles(options.ScratchDir, tag + "*"))
+            {
+                try
+                {
+                    File.Delete(file);
+                }
+                catch (IOException)
+                {
+                    // best effort
+                }
+            }
+            throw;
+        }
         return stats;
     }
 
