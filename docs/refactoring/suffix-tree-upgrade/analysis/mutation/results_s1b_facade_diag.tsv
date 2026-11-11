@@ -1,0 +1,20 @@
+D01	PrintTree: header text	killed(24)	
+D02	PrintTree: root line	killed(24)	
+D03	PrintTree: the empty text is not special-cased	survived	survived
+D04	PrintTree: indentation of three per level	killed(21)	
+D05	PrintTree: leaf marker text	killed(24)	
+D06	PrintTree: leaves are not skipped (their links are asked)	killed(24)	
+D07	PrintTree: link mark also for the root	killed(3)	
+D08	PrintTree: link mark never printed	BUILD-ERROR	
+D09	PrintTree: link mark names the second symbol	killed(3)	
+D10	PrintTree: link mark in brackets of another shape	killed(18)	
+D11	PrintTree: terminator printed as $	killed(21)	
+D12	PrintTree: label loses its last symbol	killed(24)	
+D13	PrintTree: the continuation frame does not advance	killed(30)	
+D14	PrintTree: children are pushed at the parent depth	killed(21)	
+D15	PrintTree: the first child of an internal node is skipped	killed(21)	
+D16	PrintTree: initial capacity (an allocation hint only: equivalent)	BUILD-ERROR	
+D17	PrintTree: no disposal check	killed(3)	
+D18	Traverse: no disposal check	killed(6)	
+D19	Traverse: visits nothing	killed(39)	
+D20	PrintTree: the root children are taken from a child (second level repeated)	killed(24)	

@@ -1,0 +1,80 @@
+[
+ {
+  "id": "C08b",
+  "desc": "constructor ignores the statistics override (compiling form)",
+  "old": "_statistics = statistics ?? index.Statistics;",
+  "new": "_statistics = index.Statistics;\n        _ = statistics;"
+ },
+ {
+  "id": "C13b",
+  "desc": "Dispose: releases nothing (compiling form)",
+  "old": "if (_index.NavigationBuilt) _index.Navigation.Dispose();",
+  "new": "if (_index.NavigationBuilt) _ = _index.Navigation;"
+ },
+ {
+  "id": "C14b",
+  "desc": "Dispose: does not mark the tree disposed (compiling form)",
+  "old": "if (Interlocked.CompareExchange(ref _disposed, 1, 0) != 0) return;",
+  "new": "if (Interlocked.CompareExchange(ref _disposed, 0, 0) != 0) return;"
+ },
+ {
+  "id": "C30b",
+  "desc": "LRS: the computed string is never published (compiling form)",
+  "old": "return Interlocked.CompareExchange(ref _longestRepeat, computed, null) ?? computed;",
+  "new": "return Interlocked.CompareExchange(ref _longestRepeat, null, null) ?? computed;"
+ },
+ {
+  "id": "C51b",
+  "desc": "Build(string, layout): the layout is ignored (compiling form)",
+  "old": "return new EsaSuffixTree(EsaIndex.Build(text, layout));",
+  "new": "ChildLayoutKind? ignored = layout;\n        _ = ignored;\n        return new EsaSuffixTree(EsaIndex.Build(text, null));"
+ },
+ {
+  "id": "C09",
+  "desc": "constructor does not call EnsureTextLength",
+  "old": "        EnsureTextLength(index.Length);\n",
+  "new": ""
+ },
+ {
+  "id": "C19",
+  "desc": "LeafCount: MaxDepth instead (equal by definition: both are n)",
+  "old": "return _statistics.LeafCount;",
+  "new": "return _statistics.MaxDepth;"
+ },
+ {
+  "id": "C31",
+  "desc": "LRS: the cache is never read",
+  "old": "return Volatile.Read(ref _longestRepeat) ?? PublishLongestRepeat();",
+  "new": "return PublishLongestRepeat();"
+ },
+ {
+  "id": "C32",
+  "desc": "LRS: recomputes on every call and publishes the new string",
+  "old": "return Interlocked.CompareExchange(ref _longestRepeat, computed, null) ?? computed;",
+  "new": "{ _longestRepeat = computed; return computed; }"
+ },
+ {
+  "id": "C34",
+  "desc": "FindMaximalRepeatedPairs: no disposal check",
+  "old": "public IReadOnlyList<(int FirstPosition, int SecondPosition, int Length)> FindMaximalRepeatedPairs(int minLength, Func<char, bool>? isUniqueSymbol = null)\n    {\n        ThrowIfDisposed();",
+  "new": "public IReadOnlyList<(int FirstPosition, int SecondPosition, int Length)> FindMaximalRepeatedPairs(int minLength, Func<char, bool>? isUniqueSymbol = null)\n    {"
+ },
+ {
+  "id": "C39",
+  "desc": "LongestCommonSubstring(span): first-found text position through the info",
+  "old": "return _index.LongestCommonSubstring(other);\n    }\n\n    /// <inheritdoc />\n    public (string Substring, int PositionInText, int PositionInOther) LongestCommonSubstringInfo(string other)",
+  "new": "return _index.LongestCommonSubstringInfo(other).Substring;\n    }\n\n    /// <inheritdoc />\n    public (string Substring, int PositionInText, int PositionInOther) LongestCommonSubstringInfo(string other)"
+ },
+ {
+  "id": "C40",
+  "desc": "LongestCommonSubstringInfo(span): no disposal check",
+  "old": "public (string Substring, int PositionInText, int PositionInOther) LongestCommonSubstringInfo(ReadOnlySpan<char> other)\n    {\n        ThrowIfDisposed();",
+  "new": "public (string Substring, int PositionInText, int PositionInOther) LongestCommonSubstringInfo(ReadOnlySpan<char> other)\n    {"
+ },
+ {
+  "id": "C50",
+  "desc": "Build(string): the null check is dropped (EsaIndex.Build refuses null too: equivalent)",
+  "old": "        ArgumentNullException.ThrowIfNull(text);\n        return new EsaSuffixTree(EsaIndex.Build(text, layout));",
+  "new": "        return new EsaSuffixTree(EsaIndex.Build(text, layout));"
+ }
+]

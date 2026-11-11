@@ -89,6 +89,21 @@ public class FacadePrintTreeTests(SuffixTreeBackend backend) : PortedBackendTest
     }
 
     [Test]
+    public void PrintTree_OfTheEmptyText_BuildsNoPack_AndOfANonEmptyTextOne()
+    {
+        if (Tree("") is not EsaSuffixTree empty)
+        {
+            Assert.Ignore("only the ESA facade has a navigation pack");
+            return;
+        }
+        _ = empty.PrintTree();
+        Assert.That(empty.Index.NavigationBuilt, Is.False, "the empty text has no links to print");
+        var tree = (EsaSuffixTree)Tree("banana");
+        _ = tree.PrintTree();
+        Assert.That(tree.Index.NavigationBuildCount, Is.EqualTo(1));
+    }
+
+    [Test]
     public void Output_UsesTheDocumentedShape()
     {
         string printed = Tree("ab").PrintTree();

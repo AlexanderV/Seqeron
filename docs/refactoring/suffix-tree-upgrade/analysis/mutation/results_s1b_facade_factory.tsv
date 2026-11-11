@@ -1,0 +1,12 @@
+F01	CreateEsa(ITextSource): the length guard is dropped	killed(3)	
+F02	CreateEsa(ITextSource): the guard names another parameter	killed(2)	
+F03	CreateEsa(ITextSource): the null check is dropped	killed(1)	
+F04	CreateEsa(ITextSource): a StringTextSource is copied	killed(1)	
+F05	Materialize: the last chunk is not shortened	killed(2)	
+F06	Materialize: stops one chunk early	killed(2)	
+F07	Materialize: the first chunk is read twice	killed(2)	
+F08	Materialize: the chunk is 1 symbol (slower, same result: equivalent)	survived	survived
+F09	Create(string): goes through the text source path with a wrapper (same result: equivalent)	survived	survived
+F10	Create(ITextSource): builds from an empty string	BUILD-ERROR	
+F11	CreateEsa(string): ignores the text	killed(58)	
+F12	Materialize: reads from the second symbol	killed(2)	

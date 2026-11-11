@@ -231,11 +231,14 @@ public class FacadeInt32LimitTests
     [Test]
     public void Create_NullText_ThrowsArgumentNullException()
     {
-        Assert.Throws<ArgumentNullException>(() => EsaSuffixTreeFactory.Create((string)null!));
-        Assert.Throws<ArgumentNullException>(() => EsaSuffixTreeFactory.Create((ITextSource)null!));
-        Assert.Throws<ArgumentNullException>(() => EsaSuffixTreeFactory.CreateEsa((string)null!));
-        Assert.Throws<ArgumentNullException>(() => EsaSuffixTreeFactory.CreateEsa((ITextSource)null!));
-        Assert.Throws<ArgumentNullException>(() => EsaSuffixTree.Build(null!));
-        Assert.Throws<ArgumentNullException>(() => new EsaSuffixTree(null!));
+        Assert.Multiple(() =>
+        {
+            Assert.That(Assert.Throws<ArgumentNullException>(() => EsaSuffixTreeFactory.Create((string)null!))!.ParamName, Is.EqualTo("text"));
+            Assert.That(Assert.Throws<ArgumentNullException>(() => EsaSuffixTreeFactory.Create((ITextSource)null!))!.ParamName, Is.EqualTo("text"));
+            Assert.That(Assert.Throws<ArgumentNullException>(() => EsaSuffixTreeFactory.CreateEsa((string)null!))!.ParamName, Is.EqualTo("text"));
+            Assert.That(Assert.Throws<ArgumentNullException>(() => EsaSuffixTreeFactory.CreateEsa((ITextSource)null!))!.ParamName, Is.EqualTo("text"));
+            Assert.That(Assert.Throws<ArgumentNullException>(() => EsaSuffixTree.Build(null!))!.ParamName, Is.EqualTo("text"));
+            Assert.That(Assert.Throws<ArgumentNullException>(() => new EsaSuffixTree(null!))!.ParamName, Is.EqualTo("index"));
+        });
     }
 }

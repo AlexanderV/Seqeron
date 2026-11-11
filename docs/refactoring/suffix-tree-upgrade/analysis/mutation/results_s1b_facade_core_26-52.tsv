@@ -1,0 +1,26 @@
+C27	CountOccurrences(span): counts one occurrence too many	killed(18)	
+C28	FindAllOccurrences(span): always empty	killed(18)	
+C29	Contains(span): true for every pattern	killed(18)	
+C30	LRS: cached string is not published	BUILD-ERROR	
+C31	LRS: the cache is never read	survived	survived
+C32	LRS: recomputes on every call and publishes the new string	survived	survived
+C33	EnumerateSuffixes: no eager disposal check	killed(6)	
+C34	FindMaximalRepeatedPairs: no disposal check	survived	survived
+C35	FindMaximalUniqueMatches: uniqueness ignored	killed(21)	
+C36	FindMaximalExactMatches: minLength + 1	killed(30)	
+C37	FindExactMatchAnchors: minLength fixed to 1	killed(24)	
+C38	CountDistinctSubstringsByLength: maxLength + 1	killed(24)	
+C39	LongestCommonSubstring(span): first-found text position through the info	survived	survived
+C40	LongestCommonSubstringInfo(span): no disposal check	survived	survived
+C41	Text: no disposal check	killed(3)	
+C42	NodeCount: no disposal check	killed(3)	
+C43	IsEmpty: no disposal check	killed(3)	
+C44	Contains(string): no disposal check	killed(15)	
+C45	CountOccurrences(span): no disposal check	killed(3)	
+C46	GetAllSuffixes: no disposal check	killed(3)	
+C47	FindAllDistinctLongestCommonSubstrings: no disposal check	killed(3)	
+C48	CountDistinctSubstrings: no disposal check	killed(3)	
+C49	LongestRepeatedSubstringMemory: no disposal check	killed(3)	
+C50	Build(string): the null check is dropped (EsaIndex.Build refuses null too: equivalent)	survived	survived
+C51	Build(string, layout): the layout is ignored	BUILD-ERROR	
+C52	constructor: a null index is not refused (the next line throws NullReferenceException instead)	killed(1)	

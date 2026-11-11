@@ -1,0 +1,26 @@
+C01	EnsureTextLength: the limit itself is refused	killed(1)	
+C02	MaxTextLength is int.MaxValue	killed(1)	
+C03	EnsureTextLength: a negative length is not refused	killed(1)	
+C04	EnsureTextLength: the exception does not name the long API	killed(1)	
+C05	CheckedNodeCount: int.MaxValue itself is refused	killed(3)	
+C06	CheckedNodeCount: never refuses (wraps)	killed(2)	
+C07	CheckedNodeCount: refuses only above uint.MaxValue	killed(2)	
+C08	constructor ignores the statistics override	BUILD-ERROR	
+C09	constructor does not call EnsureTextLength	survived	survived
+C10	constructor: the text source is built from another string	killed(1)	
+C11	Dispose: the first call is treated as already disposed	killed(2)	
+C12	Dispose: builds the pack if it does not exist	killed(1)	
+C13	Dispose: releases nothing	BUILD-ERROR	
+C14	Dispose: does not mark the tree disposed	BUILD-ERROR	
+C15	ThrowIfDisposed: inverted	killed(298)	
+C16	ThrowIfDisposed: names no object	killed(3)	
+C17	NodeCount: LeafCount instead	killed(46)	
+C18	NodeCount: unchecked narrowing	killed(1)	
+C19	LeafCount: MaxDepth instead (equal by definition: both are n)	survived	survived
+C20	MaxDepth: NodeCount instead	killed(40)	
+C21	IsEmpty: not empty	killed(22)	
+C22	IsEmpty: length at most one	killed(9)	
+C23	Contains(string): the null check is dropped	killed(3)	
+C24	Contains(string): wrong parameter name	killed(3)	
+C25	FindAllOccurrences(string): wrong parameter name	killed(3)	
+C26	CountOccurrences(string): the null check is dropped	killed(3)	

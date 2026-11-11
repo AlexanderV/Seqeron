@@ -124,6 +124,7 @@ public class FacadeLifetimeTests(SuffixTreeBackend backend)
             Assert.Throws<ObjectDisposedException>(() => tree.LongestCommonSubstring((string)null!));
             Assert.Throws<ObjectDisposedException>(() => tree.FindMaximalExactMatches(null!, 0));
             Assert.Throws<ObjectDisposedException>(() => tree.CountDistinctSubstringsByLength(0));
+            Assert.Throws<ObjectDisposedException>(() => tree.FindMaximalRepeatedPairs(0));
             Assert.Throws<ObjectDisposedException>(() => tree.Traverse(null!));
         });
     }
@@ -277,6 +278,29 @@ public class FacadeEsaDisposeTests
         Assert.That(tree.Index.NavigationBuilt, Is.True);
         tree.Dispose();
         Assert.That(PackHoldsHandle(tree.Index), Is.False);
+    }
+
+    [Test]
+    public void UseAfterDispose_TheSpanOverloadOfTheClass_ThrowsObjectDisposedException()
+    {
+        EsaSuffixTree tree = EsaSuffixTreeFactory.CreateEsa("banana");
+        tree.Dispose();
+        Assert.Throws<ObjectDisposedException>(() => tree.LongestCommonSubstringInfo("ana".AsSpan()));
+    }
+
+    [Test]
+    public void LongestRepeatedSubstring_IsComputedOnce_AndTheSameInstanceIsReturned()
+    {
+        EsaSuffixTree tree = EsaSuffixTreeFactory.CreateEsa("abracadabra abracadabra");
+        string first = tree.LongestRepeatedSubstring();
+        Assert.Multiple(() =>
+        {
+            Assert.That(first, Is.EqualTo("abracadabra"));
+            Assert.That(ReferenceEquals(tree.LongestRepeatedSubstring(), first), Is.True);
+            Assert.That(ReferenceEquals(tree.LongestRepeatedSubstring(), first), Is.True);
+        });
+        tree.Dispose();
+        Assert.Throws<ObjectDisposedException>(() => tree.LongestRepeatedSubstring(), "a cached value does not outlive the disposal check");
     }
 
     [Test]
