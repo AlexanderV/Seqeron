@@ -1,0 +1,314 @@
+[
+ {
+  "id": "C01",
+  "desc": "EnsureTextLength: the limit itself is refused",
+  "old": "if (textLength > MaxTextLength)",
+  "new": "if (textLength >= MaxTextLength)"
+ },
+ {
+  "id": "C02",
+  "desc": "MaxTextLength is int.MaxValue",
+  "old": "internal const long MaxTextLength = int.MaxValue - 1L;",
+  "new": "internal const long MaxTextLength = int.MaxValue;"
+ },
+ {
+  "id": "C03",
+  "desc": "EnsureTextLength: a negative length is not refused",
+  "old": "        ArgumentOutOfRangeException.ThrowIfNegative(textLength);\n        if (textLength > MaxTextLength)",
+  "new": "        if (textLength > MaxTextLength)"
+ },
+ {
+  "id": "C04",
+  "desc": "EnsureTextLength: the exception does not name the long API",
+  "old": "use the long API (ISuffixIndex).\")",
+  "new": "use the other API.\")"
+ },
+ {
+  "id": "C05",
+  "desc": "CheckedNodeCount: int.MaxValue itself is refused",
+  "old": "if (nodeCount > int.MaxValue)",
+  "new": "if (nodeCount >= int.MaxValue)"
+ },
+ {
+  "id": "C06",
+  "desc": "CheckedNodeCount: never refuses (wraps)",
+  "old": "        if (nodeCount > int.MaxValue)\n            throw new NotSupportedException($\"The suffix tree has {nodeCount} nodes, more than the 32-bit ISuffixTree surface can report ({int.MaxValue}); use the 64-bit ISuffixIndex surface.\");\n        return (int)nodeCount;",
+  "new": "        return unchecked((int)nodeCount);"
+ },
+ {
+  "id": "C07",
+  "desc": "CheckedNodeCount: refuses only above uint.MaxValue",
+  "old": "if (nodeCount > int.MaxValue)",
+  "new": "if (nodeCount > uint.MaxValue)"
+ },
+ {
+  "id": "C08",
+  "desc": "constructor ignores the statistics override",
+  "old": "_statistics = statistics ?? index.Statistics;",
+  "new": "_statistics = index.Statistics;"
+ },
+ {
+  "id": "C09",
+  "desc": "constructor does not call EnsureTextLength",
+  "old": "        EnsureTextLength(index.Length);\n",
+  "new": ""
+ },
+ {
+  "id": "C10",
+  "desc": "constructor: the text source is built from another string",
+  "old": "_text = new StringTextSource(index.Text);",
+  "new": "_text = new StringTextSource(new string(index.Text.AsSpan()));"
+ },
+ {
+  "id": "C11",
+  "desc": "Dispose: the first call is treated as already disposed",
+  "old": "if (Interlocked.CompareExchange(ref _disposed, 1, 0) != 0) return;",
+  "new": "if (Interlocked.CompareExchange(ref _disposed, 1, 0) == 0) return;"
+ },
+ {
+  "id": "C12",
+  "desc": "Dispose: builds the pack if it does not exist",
+  "old": "if (_index.NavigationBuilt) _index.Navigation.Dispose();",
+  "new": "_index.Navigation.Dispose();"
+ },
+ {
+  "id": "C13",
+  "desc": "Dispose: releases nothing",
+  "old": "if (_index.NavigationBuilt) _index.Navigation.Dispose();",
+  "new": "if (_index.NavigationBuilt) { }"
+ },
+ {
+  "id": "C14",
+  "desc": "Dispose: does not mark the tree disposed",
+  "old": "if (Interlocked.CompareExchange(ref _disposed, 1, 0) != 0) return;",
+  "new": "if (Volatile.Read(ref _disposed) != 0) return;"
+ },
+ {
+  "id": "C15",
+  "desc": "ThrowIfDisposed: inverted",
+  "old": "ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);",
+  "new": "ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) == 0, this);"
+ },
+ {
+  "id": "C16",
+  "desc": "ThrowIfDisposed: names no object",
+  "old": "ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);",
+  "new": "ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, \"tree\");"
+ },
+ {
+  "id": "C17",
+  "desc": "NodeCount: LeafCount instead",
+  "old": "return CheckedNodeCount(_statistics.NodeCount);",
+  "new": "return _statistics.LeafCount;"
+ },
+ {
+  "id": "C18",
+  "desc": "NodeCount: unchecked narrowing",
+  "old": "return CheckedNodeCount(_statistics.NodeCount);",
+  "new": "return unchecked((int)_statistics.NodeCount);"
+ },
+ {
+  "id": "C19",
+  "desc": "LeafCount: MaxDepth instead (equal by definition: both are n)",
+  "old": "return _statistics.LeafCount;",
+  "new": "return _statistics.MaxDepth;"
+ },
+ {
+  "id": "C20",
+  "desc": "MaxDepth: NodeCount instead",
+  "old": "return _statistics.MaxDepth;",
+  "new": "return (int)_statistics.NodeCount;"
+ },
+ {
+  "id": "C21",
+  "desc": "IsEmpty: not empty",
+  "old": "return _index.Length == 0;",
+  "new": "return _index.Length != 0;"
+ },
+ {
+  "id": "C22",
+  "desc": "IsEmpty: length at most one",
+  "old": "return _index.Length == 0;",
+  "new": "return _index.Length <= 1;"
+ },
+ {
+  "id": "C23",
+  "desc": "Contains(string): the null check is dropped",
+  "old": "        SuffixTreeSearchContracts.EnsureNotNull(value, nameof(value));\n        return _index.Contains(value.AsSpan());",
+  "new": "        return _index.Contains(value.AsSpan());"
+ },
+ {
+  "id": "C24",
+  "desc": "Contains(string): wrong parameter name",
+  "old": "SuffixTreeSearchContracts.EnsureNotNull(value, nameof(value));",
+  "new": "SuffixTreeSearchContracts.EnsureNotNull(value, \"pattern\");"
+ },
+ {
+  "id": "C25",
+  "desc": "FindAllOccurrences(string): wrong parameter name",
+  "old": "SuffixTreeSearchContracts.EnsureNotNull(pattern, nameof(pattern));\n        return _index.FindAllOccurrences(pattern.AsSpan());",
+  "new": "SuffixTreeSearchContracts.EnsureNotNull(pattern, \"value\");\n        return _index.FindAllOccurrences(pattern.AsSpan());"
+ },
+ {
+  "id": "C26",
+  "desc": "CountOccurrences(string): the null check is dropped",
+  "old": "        SuffixTreeSearchContracts.EnsureNotNull(pattern, nameof(pattern));\n        return _index.CountOccurrences(pattern.AsSpan());",
+  "new": "        return _index.CountOccurrences(pattern.AsSpan());"
+ },
+ {
+  "id": "C27",
+  "desc": "CountOccurrences(span): counts one occurrence too many",
+  "old": "return _index.CountOccurrences(pattern);",
+  "new": "return _index.CountOccurrences(pattern) + 1;"
+ },
+ {
+  "id": "C28",
+  "desc": "FindAllOccurrences(span): always empty",
+  "old": "return _index.FindAllOccurrences(pattern);\n    }\n\n    /// <inheritdoc />\n    public int CountOccurrences(string pattern)",
+  "new": "return Array.Empty<int>();\n    }\n\n    /// <inheritdoc />\n    public int CountOccurrences(string pattern)"
+ },
+ {
+  "id": "C29",
+  "desc": "Contains(span): true for every pattern",
+  "old": "return _index.Contains(value);",
+  "new": "return true;"
+ },
+ {
+  "id": "C30",
+  "desc": "LRS: cached string is not published",
+  "old": "return Interlocked.CompareExchange(ref _longestRepeat, computed, null) ?? computed;",
+  "new": "return computed;"
+ },
+ {
+  "id": "C31",
+  "desc": "LRS: the cache is never read",
+  "old": "return Volatile.Read(ref _longestRepeat) ?? PublishLongestRepeat();",
+  "new": "return PublishLongestRepeat();"
+ },
+ {
+  "id": "C32",
+  "desc": "LRS: recomputes on every call and publishes the new string",
+  "old": "return Interlocked.CompareExchange(ref _longestRepeat, computed, null) ?? computed;",
+  "new": "{ _longestRepeat = computed; return computed; }"
+ },
+ {
+  "id": "C33",
+  "desc": "EnumerateSuffixes: no eager disposal check",
+  "old": "public IEnumerable<string> EnumerateSuffixes()\n    {\n        ThrowIfDisposed();",
+  "new": "public IEnumerable<string> EnumerateSuffixes()\n    {"
+ },
+ {
+  "id": "C34",
+  "desc": "FindMaximalRepeatedPairs: no disposal check",
+  "old": "public IReadOnlyList<(int FirstPosition, int SecondPosition, int Length)> FindMaximalRepeatedPairs(int minLength, Func<char, bool>? isUniqueSymbol = null)\n    {\n        ThrowIfDisposed();",
+  "new": "public IReadOnlyList<(int FirstPosition, int SecondPosition, int Length)> FindMaximalRepeatedPairs(int minLength, Func<char, bool>? isUniqueSymbol = null)\n    {"
+ },
+ {
+  "id": "C35",
+  "desc": "FindMaximalUniqueMatches: uniqueness ignored",
+  "old": "return _index.FindMaximalUniqueMatches(query, minLength, uniqueness);",
+  "new": "return _index.FindMaximalUniqueMatches(query, minLength);"
+ },
+ {
+  "id": "C36",
+  "desc": "FindMaximalExactMatches: minLength + 1",
+  "old": "return _index.FindMaximalExactMatches(query, minLength);",
+  "new": "return _index.FindMaximalExactMatches(query, minLength + 1);"
+ },
+ {
+  "id": "C37",
+  "desc": "FindExactMatchAnchors: minLength fixed to 1",
+  "old": "return _index.FindExactMatchAnchors(query, minLength);",
+  "new": "return _index.FindExactMatchAnchors(query, 1);"
+ },
+ {
+  "id": "C38",
+  "desc": "CountDistinctSubstringsByLength: maxLength + 1",
+  "old": "return _index.CountDistinctSubstringsByLength(maxLength);",
+  "new": "return _index.CountDistinctSubstringsByLength(maxLength + 1);"
+ },
+ {
+  "id": "C39",
+  "desc": "LongestCommonSubstring(span): first-found text position through the info",
+  "old": "return _index.LongestCommonSubstring(other);\n    }\n\n    /// <inheritdoc />\n    public (string Substring, int PositionInText, int PositionInOther) LongestCommonSubstringInfo(string other)",
+  "new": "return _index.LongestCommonSubstringInfo(other).Substring;\n    }\n\n    /// <inheritdoc />\n    public (string Substring, int PositionInText, int PositionInOther) LongestCommonSubstringInfo(string other)"
+ },
+ {
+  "id": "C40",
+  "desc": "LongestCommonSubstringInfo(span): no disposal check",
+  "old": "public (string Substring, int PositionInText, int PositionInOther) LongestCommonSubstringInfo(ReadOnlySpan<char> other)\n    {\n        ThrowIfDisposed();",
+  "new": "public (string Substring, int PositionInText, int PositionInOther) LongestCommonSubstringInfo(ReadOnlySpan<char> other)\n    {"
+ },
+ {
+  "id": "C41",
+  "desc": "Text: no disposal check",
+  "old": "        get\n        {\n            ThrowIfDisposed();\n            return _text;",
+  "new": "        get\n        {\n            return _text;"
+ },
+ {
+  "id": "C42",
+  "desc": "NodeCount: no disposal check",
+  "old": "        get\n        {\n            ThrowIfDisposed();\n            return CheckedNodeCount",
+  "new": "        get\n        {\n            return CheckedNodeCount"
+ },
+ {
+  "id": "C43",
+  "desc": "IsEmpty: no disposal check",
+  "old": "        get\n        {\n            ThrowIfDisposed();\n            return _index.Length == 0;",
+  "new": "        get\n        {\n            return _index.Length == 0;"
+ },
+ {
+  "id": "C44",
+  "desc": "Contains(string): no disposal check",
+  "old": "public bool Contains(string value)\n    {\n        ThrowIfDisposed();",
+  "new": "public bool Contains(string value)\n    {"
+ },
+ {
+  "id": "C45",
+  "desc": "CountOccurrences(span): no disposal check",
+  "old": "public int CountOccurrences(ReadOnlySpan<char> pattern)\n    {\n        ThrowIfDisposed();",
+  "new": "public int CountOccurrences(ReadOnlySpan<char> pattern)\n    {"
+ },
+ {
+  "id": "C46",
+  "desc": "GetAllSuffixes: no disposal check",
+  "old": "public IReadOnlyList<string> GetAllSuffixes()\n    {\n        ThrowIfDisposed();",
+  "new": "public IReadOnlyList<string> GetAllSuffixes()\n    {"
+ },
+ {
+  "id": "C47",
+  "desc": "FindAllDistinctLongestCommonSubstrings: no disposal check",
+  "old": "public IReadOnlyList<(string Substring, IReadOnlyList<int> PositionsInText, IReadOnlyList<int> PositionsInOther)> FindAllDistinctLongestCommonSubstrings(string other)\n    {\n        ThrowIfDisposed();",
+  "new": "public IReadOnlyList<(string Substring, IReadOnlyList<int> PositionsInText, IReadOnlyList<int> PositionsInOther)> FindAllDistinctLongestCommonSubstrings(string other)\n    {"
+ },
+ {
+  "id": "C48",
+  "desc": "CountDistinctSubstrings: no disposal check",
+  "old": "public long CountDistinctSubstrings()\n    {\n        ThrowIfDisposed();",
+  "new": "public long CountDistinctSubstrings()\n    {"
+ },
+ {
+  "id": "C49",
+  "desc": "LongestRepeatedSubstringMemory: no disposal check",
+  "old": "public ReadOnlyMemory<char> LongestRepeatedSubstringMemory()\n    {\n        ThrowIfDisposed();",
+  "new": "public ReadOnlyMemory<char> LongestRepeatedSubstringMemory()\n    {"
+ },
+ {
+  "id": "C50",
+  "desc": "Build(string): the null check is dropped (EsaIndex.Build refuses null too: equivalent)",
+  "old": "        ArgumentNullException.ThrowIfNull(text);\n        return new EsaSuffixTree(EsaIndex.Build(text, layout));",
+  "new": "        return new EsaSuffixTree(EsaIndex.Build(text, layout));"
+ },
+ {
+  "id": "C51",
+  "desc": "Build(string, layout): the layout is ignored",
+  "old": "return new EsaSuffixTree(EsaIndex.Build(text, layout));",
+  "new": "return new EsaSuffixTree(EsaIndex.Build(text, null));"
+ },
+ {
+  "id": "C52",
+  "desc": "constructor: a null index is not refused (the next line throws NullReferenceException instead)",
+  "old": "        ArgumentNullException.ThrowIfNull(index);\n        EnsureTextLength(index.Length);",
+  "new": "        EnsureTextLength(index.Length);"
+ }
+]

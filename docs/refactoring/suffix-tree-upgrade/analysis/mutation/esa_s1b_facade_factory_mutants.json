@@ -1,0 +1,74 @@
+[
+ {
+  "id": "F01",
+  "desc": "CreateEsa(ITextSource): the length guard is dropped",
+  "old": "        SuffixTreeLimits.ThrowIfTextTooLong(text.Length, nameof(text));\n",
+  "new": ""
+ },
+ {
+  "id": "F02",
+  "desc": "CreateEsa(ITextSource): the guard names another parameter",
+  "old": "SuffixTreeLimits.ThrowIfTextTooLong(text.Length, nameof(text));",
+  "new": "SuffixTreeLimits.ThrowIfTextTooLong(text.Length, \"value\");"
+ },
+ {
+  "id": "F03",
+  "desc": "CreateEsa(ITextSource): the null check is dropped",
+  "old": "        ArgumentNullException.ThrowIfNull(text);\n        SuffixTreeLimits.ThrowIfTextTooLong",
+  "new": "        SuffixTreeLimits.ThrowIfTextTooLong"
+ },
+ {
+  "id": "F04",
+  "desc": "CreateEsa(ITextSource): a StringTextSource is copied",
+  "old": "text is StringTextSource source ? source.Value : Materialize(text)",
+  "new": "Materialize(text)"
+ },
+ {
+  "id": "F05",
+  "desc": "Materialize: the last chunk is not shortened",
+  "old": "Math.Min(ReadChunk, length - start)",
+  "new": "ReadChunk"
+ },
+ {
+  "id": "F06",
+  "desc": "Materialize: stops one chunk early",
+  "old": "for (int start = 0; start < length; start += ReadChunk)",
+  "new": "for (int start = 0; start < length - ReadChunk; start += ReadChunk)"
+ },
+ {
+  "id": "F07",
+  "desc": "Materialize: the first chunk is read twice",
+  "old": "var builder = new StringBuilder();",
+  "new": "var builder = new StringBuilder();\n        if (length > 0) builder.Append(text.Slice(0, 1));"
+ },
+ {
+  "id": "F08",
+  "desc": "Materialize: the chunk is 1 symbol (slower, same result: equivalent)",
+  "old": "private const int ReadChunk = 1 << 16;",
+  "new": "private const int ReadChunk = 1;"
+ },
+ {
+  "id": "F09",
+  "desc": "Create(string): goes through the text source path with a wrapper (same result: equivalent)",
+  "old": "public static ISuffixTree Create(string text) => CreateEsa(text);",
+  "new": "public static ISuffixTree Create(string text) => CreateEsa(new StringTextSource(text));"
+ },
+ {
+  "id": "F10",
+  "desc": "Create(ITextSource): builds from an empty string",
+  "old": "public static ISuffixTree Create(ITextSource text) => CreateEsa(text);",
+  "new": "public static ISuffixTree Create(ITextSource text) => CreateEsa(string.Empty);"
+ },
+ {
+  "id": "F11",
+  "desc": "CreateEsa(string): ignores the text",
+  "old": "public static EsaSuffixTree CreateEsa(string text) => EsaSuffixTree.Build(text);",
+  "new": "public static EsaSuffixTree CreateEsa(string text) => EsaSuffixTree.Build(text.Length > 0 ? text[..^1] : text);"
+ },
+ {
+  "id": "F12",
+  "desc": "Materialize: reads from the second symbol",
+  "old": "builder.Append(text.Slice(start, Math.Min(ReadChunk, length - start)));",
+  "new": "builder.Append(text.Slice(start, Math.Min(ReadChunk, length - start)).ToString().ToUpperInvariant());"
+ }
+]

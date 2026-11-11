@@ -1,0 +1,122 @@
+[
+ {
+  "id": "D01",
+  "desc": "PrintTree: header text",
+  "old": "$\"Content length: {n}\"",
+  "new": "$\"Length: {n}\""
+ },
+ {
+  "id": "D02",
+  "desc": "PrintTree: root line",
+  "old": "sb.Append(ci, $\"0:ROOT\").AppendLine();",
+  "new": "sb.Append(ci, $\"0:Root\").AppendLine();"
+ },
+ {
+  "id": "D03",
+  "desc": "PrintTree: the empty text is not special-cased",
+  "old": "        if (n == 0) return sb.ToString();\n",
+  "new": ""
+ },
+ {
+  "id": "D04",
+  "desc": "PrintTree: indentation of three per level",
+  "old": "sb.Append(' ', childDepth * 2);",
+  "new": "sb.Append(' ', childDepth * 3);"
+ },
+ {
+  "id": "D05",
+  "desc": "PrintTree: leaf marker text",
+  "old": "sb.AppendLine(\" (Leaf)\");",
+  "new": "sb.AppendLine(\" (leaf)\");"
+ },
+ {
+  "id": "D06",
+  "desc": "PrintTree: leaves are not skipped (their links are asked)",
+  "old": "                sb.AppendLine(\" (Leaf)\");\n                continue;",
+  "new": "                sb.AppendLine(\" (Leaf)\");"
+ },
+ {
+  "id": "D07",
+  "desc": "PrintTree: link mark also for the root",
+  "old": "if (!nav.IsRoot(link)) sb.Append",
+  "new": "if (true) sb.Append"
+ },
+ {
+  "id": "D08",
+  "desc": "PrintTree: link mark never printed",
+  "old": "if (!nav.IsRoot(link)) sb.Append",
+  "new": "if (false) sb.Append"
+ },
+ {
+  "id": "D09",
+  "desc": "PrintTree: link mark names the second symbol",
+  "old": "nav.GetEdgeSymbol(link, 0)",
+  "new": "nav.GetEdgeSymbol(link, 1)"
+ },
+ {
+  "id": "D10",
+  "desc": "PrintTree: link mark in brackets of another shape",
+  "old": "$\" -> [{(char)nav.GetEdgeSymbol(link, 0)}]\"",
+  "new": "$\" -> ({(char)nav.GetEdgeSymbol(link, 0)})\""
+ },
+ {
+  "id": "D11",
+  "desc": "PrintTree: terminator printed as $",
+  "old": "sb.Append('#');",
+  "new": "sb.Append('$');"
+ },
+ {
+  "id": "D12",
+  "desc": "PrintTree: label loses its last symbol",
+  "old": "for (int i = 0; i < length; i++)",
+  "new": "for (int i = 0; i < length - 1; i++)"
+ },
+ {
+  "id": "D13",
+  "desc": "PrintTree: the continuation frame does not advance",
+  "old": "stack.Push((children, index + 1, depth));",
+  "new": "stack.Push((children, index, depth));"
+ },
+ {
+  "id": "D14",
+  "desc": "PrintTree: children are pushed at the parent depth",
+  "old": "stack.Push((grandChildren, 0, childDepth));",
+  "new": "stack.Push((grandChildren, 0, depth));"
+ },
+ {
+  "id": "D15",
+  "desc": "PrintTree: the first child of an internal node is skipped",
+  "old": "stack.Push((grandChildren, 0, childDepth));",
+  "new": "stack.Push((grandChildren, 1, childDepth));"
+ },
+ {
+  "id": "D16",
+  "desc": "PrintTree: initial capacity (an allocation hint only: equivalent)",
+  "old": "var sb = new StringBuilder(Math.Max(256, Math.Min(n, PrintTreeInitialCapacityLimit) * 100));",
+  "new": "var sb = new StringBuilder(16);"
+ },
+ {
+  "id": "D17",
+  "desc": "PrintTree: no disposal check",
+  "old": "    public string PrintTree()\n    {\n        ThrowIfDisposed();",
+  "new": "    public string PrintTree()\n    {"
+ },
+ {
+  "id": "D18",
+  "desc": "Traverse: no disposal check",
+  "old": "    public void Traverse(ISuffixTreeVisitor visitor)\n    {\n        ThrowIfDisposed();",
+  "new": "    public void Traverse(ISuffixTreeVisitor visitor)\n    {"
+ },
+ {
+  "id": "D19",
+  "desc": "Traverse: visits nothing",
+  "old": "        _index.Traverse(visitor);\n",
+  "new": "        ArgumentNullException.ThrowIfNull(visitor);\n"
+ },
+ {
+  "id": "D20",
+  "desc": "PrintTree: the root children are taken from a child (second level repeated)",
+  "old": "nav.GetChildren(nav.Root, rootChildren);",
+  "new": "nav.GetChildren(nav.Root, rootChildren);\n        if (rootChildren.Count > 0) rootChildren.RemoveAt(rootChildren.Count - 1);"
+ }
+]

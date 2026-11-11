@@ -1,0 +1,188 @@
+[
+ {
+  "id": "N01",
+  "desc": "Engine: another name",
+  "old": "return _contract.Engine;",
+  "new": "return \"esa-facade\";"
+ },
+ {
+  "id": "N02",
+  "desc": "TextLength: one more",
+  "old": "return _contract.TextLength;",
+  "new": "return _contract.TextLength + 1;"
+ },
+ {
+  "id": "N03",
+  "desc": "Root: the default locus",
+  "old": "return _contract.Root;",
+  "new": "return default;"
+ },
+ {
+  "id": "N04",
+  "desc": "Support: always Native",
+  "old": "return _contract.Support(operation);",
+  "new": "return IndexSupport.Native;"
+ },
+ {
+  "id": "N05",
+  "desc": "SupportNote: never a note",
+  "old": "return _contract.SupportNote(operation);",
+  "new": "return null;"
+ },
+ {
+  "id": "N06",
+  "desc": "Count: zero",
+  "old": "return _contract.Count(in locus);",
+  "new": "return 0;"
+ },
+ {
+  "id": "N07",
+  "desc": "Locate: the skip is dropped",
+  "old": "return _contract.Locate(in locus, skip, positions);",
+  "new": "return _contract.Locate(in locus, 0, positions);"
+ },
+ {
+  "id": "N08",
+  "desc": "TryExtendRight(symbol): the pattern overload with an empty pattern",
+  "old": "return _contract.TryExtendRight(in locus, symbol, out result);",
+  "new": "return _contract.TryExtendRight(in locus, ReadOnlySpan<char>.Empty, out result);"
+ },
+ {
+  "id": "N09",
+  "desc": "TryExtendLeft: extends to the right",
+  "old": "return _contract.TryExtendLeft(in locus, symbol, out result);",
+  "new": "return _contract.TryExtendRight(in locus, symbol, out result);"
+ },
+ {
+  "id": "N10",
+  "desc": "EdgeSymbol: offset + 1",
+  "old": "return _contract.EdgeSymbol(in node, offset);",
+  "new": "return _contract.EdgeSymbol(in node, offset + 1);"
+ },
+ {
+  "id": "N11",
+  "desc": "SuffixAt: the rank before",
+  "old": "return _contract.SuffixAt(rank);",
+  "new": "return _contract.SuffixAt(rank - 1);"
+ },
+ {
+  "id": "N12",
+  "desc": "RankOf: the SuffixAt function instead",
+  "old": "return _contract.RankOf(position);",
+  "new": "return _contract.SuffixAt(position);"
+ },
+ {
+  "id": "N13",
+  "desc": "LcpAt: Lcp of the rank with itself",
+  "old": "return _contract.LcpAt(rank);",
+  "new": "return _contract.Lcp(rank, rank);"
+ },
+ {
+  "id": "N14",
+  "desc": "Lcp: the arguments are swapped (symmetric: equivalent)",
+  "old": "return _contract.Lcp(rankA, rankB);",
+  "new": "return _contract.Lcp(rankB, rankA);"
+ },
+ {
+  "id": "N15",
+  "desc": "Lca: the arguments are swapped (symmetric: equivalent)",
+  "old": "return _contract.Lca(rankA, rankB);",
+  "new": "return _contract.Lca(rankB, rankA);"
+ },
+ {
+  "id": "N16",
+  "desc": "Lca: the same rank twice",
+  "old": "return _contract.Lca(rankA, rankB);",
+  "new": "return _contract.Lca(rankA, rankA);"
+ },
+ {
+  "id": "N17",
+  "desc": "GetChildren: nothing is written",
+  "old": "return _contract.GetChildren(in node, children);",
+  "new": "return _contract.GetChildren(in node, Span<IndexLocus>.Empty);"
+ },
+ {
+  "id": "N18",
+  "desc": "TryParent: the locus itself",
+  "old": "return _contract.TryParent(in locus, out parent);",
+  "new": "parent = locus;\n        return true;"
+ },
+ {
+  "id": "N19",
+  "desc": "TrySuffixLink: the node itself",
+  "old": "return _contract.TrySuffixLink(in node, out link);",
+  "new": "link = node;\n        return true;"
+ },
+ {
+  "id": "N20",
+  "desc": "TryChild: the root child of the first symbol only",
+  "old": "return _contract.TryChild(in node, firstSymbol, out child);",
+  "new": "return _contract.TryChild(in node, firstSymbol & 0xFF, out child);"
+ },
+ {
+  "id": "N21",
+  "desc": "IsExplicitNode: always true",
+  "old": "return _contract.IsExplicitNode(in locus);",
+  "new": "return true;"
+ },
+ {
+  "id": "N22",
+  "desc": "Engine: no disposal check",
+  "old": "        get\n        {\n            ThrowIfDisposed();\n            return _contract.Engine;",
+  "new": "        get\n        {\n            return _contract.Engine;"
+ },
+ {
+  "id": "N23",
+  "desc": "Root: no disposal check",
+  "old": "        get\n        {\n            ThrowIfDisposed();\n            return _contract.Root;",
+  "new": "        get\n        {\n            return _contract.Root;"
+ },
+ {
+  "id": "N24",
+  "desc": "ISuffixIndex.Text: no disposal check",
+  "old": "        get\n        {\n            ThrowIfDisposed();\n            return _contract.Text;",
+  "new": "        get\n        {\n            return _contract.Text;"
+ },
+ {
+  "id": "N25",
+  "desc": "Support: no disposal check",
+  "old": "public IndexSupport Support(IndexOperation operation)\n    {\n        ThrowIfDisposed();",
+  "new": "public IndexSupport Support(IndexOperation operation)\n    {"
+ },
+ {
+  "id": "N26",
+  "desc": "Count: no disposal check",
+  "old": "public long Count(in IndexLocus locus)\n    {\n        ThrowIfDisposed();",
+  "new": "public long Count(in IndexLocus locus)\n    {"
+ },
+ {
+  "id": "N27",
+  "desc": "TryExtendRight(pattern): no disposal check",
+  "old": "public bool TryExtendRight(in IndexLocus locus, ReadOnlySpan<char> pattern, out IndexLocus result)\n    {\n        ThrowIfDisposed();",
+  "new": "public bool TryExtendRight(in IndexLocus locus, ReadOnlySpan<char> pattern, out IndexLocus result)\n    {"
+ },
+ {
+  "id": "N28",
+  "desc": "Locate: no disposal check",
+  "old": "public int Locate(in IndexLocus locus, long skip, Span<long> positions)\n    {\n        ThrowIfDisposed();",
+  "new": "public int Locate(in IndexLocus locus, long skip, Span<long> positions)\n    {"
+ },
+ {
+  "id": "N29",
+  "desc": "TryChild: no disposal check",
+  "old": "public bool TryChild(in IndexLocus node, int firstSymbol, out IndexLocus child)\n    {\n        ThrowIfDisposed();",
+  "new": "public bool TryChild(in IndexLocus node, int firstSymbol, out IndexLocus child)\n    {"
+ },
+ {
+  "id": "N30",
+  "desc": "RankOf: no disposal check",
+  "old": "public long RankOf(long position)\n    {\n        ThrowIfDisposed();",
+  "new": "public long RankOf(long position)\n    {"
+ },
+ {
+  "id": "N31",
+  "desc": "Lca: no disposal check",
+  "old": "public IndexLocus Lca(long rankA, long rankB)\n    {\n        ThrowIfDisposed();",
+  "new": "public IndexLocus Lca(long rankA, long rankB)\n    {"
+ }
+]

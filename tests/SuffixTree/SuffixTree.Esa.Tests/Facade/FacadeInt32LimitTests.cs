@@ -164,6 +164,68 @@ public class FacadeInt32LimitTests
         Assert.That(EsaSuffixTree.CheckedNodeCount(worst), Is.EqualTo((int)worst));
     }
 
+    // ------------------------------------------------------------ the text source overloads of the factory
+
+    [Test]
+    public void Create_StringTextSource_IsUsedWithoutACopy()
+    {
+        string text = new string('a', 100) + "xyz";
+        using EsaSuffixTree tree = EsaSuffixTreeFactory.CreateEsa(new StringTextSource(text));
+        Assert.That(ReferenceEquals(tree.Text.ToString(), text), Is.True, "the tree shares the string of a StringTextSource");
+        using EsaSuffixTree fromString = EsaSuffixTreeFactory.CreateEsa(text);
+        Assert.That(ReferenceEquals(fromString.Text.ToString(), text), Is.True, "the tree shares the string");
+    }
+
+    [Test]
+    public void Create_CustomTextSource_IsReadInChunks_AcrossTheChunkBoundaries()
+    {
+        // 70,001 symbols: one full chunk of 65,536 and a short second one
+        string text = string.Concat(Enumerable.Range(0, 70_001).Select(i => (char)('a' + (i * 7 % 26))));
+        using EsaSuffixTree tree = EsaSuffixTreeFactory.CreateEsa(new ChunkedSource(text));
+        Assert.Multiple(() =>
+        {
+            Assert.That(tree.Text.ToString(), Is.EqualTo(text));
+            Assert.That(tree.LeafCount, Is.EqualTo(70_001));
+            Assert.That(tree.CountOccurrences(text.AsSpan(65_530, 12)), Is.GreaterThanOrEqualTo(1));
+            Assert.That(tree.FindAllOccurrences(text[^5..]).Order(), Does.Contain(70_001 - 5));
+        });
+        string exact = new('b', 65_536);
+        using EsaSuffixTree full = EsaSuffixTreeFactory.CreateEsa(new ChunkedSource(exact));
+        Assert.That(full.Text.ToString(), Is.EqualTo(exact), "exactly one chunk");
+        using EsaSuffixTree empty = EsaSuffixTreeFactory.CreateEsa(new ChunkedSource(string.Empty));
+        Assert.That(empty.IsEmpty, Is.True);
+    }
+
+    [Test]
+    public void TheLayoutBackends_BuildTheirChildTableLayout()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(((EsaSuffixTree)SuffixTreeBackends.Esa.FromString("banana")).Index.Child.Kind, Is.EqualTo(ChildLayoutKind.Tagged));
+            Assert.That(((EsaSuffixTree)SuffixTreeBackends.EsaPacked.FromString("banana")).Index.Child.Kind, Is.EqualTo(ChildLayoutKind.Packed));
+            Assert.That(((EsaSuffixTree)SuffixTreeBackends.EsaReference3.FromString("banana")).Index.Child.Kind, Is.EqualTo(ChildLayoutKind.Reference3));
+            Assert.That(EsaSuffixTree.Build("banana", ChildLayoutKind.Packed).Index.Child.Kind, Is.EqualTo(ChildLayoutKind.Packed));
+        });
+    }
+
+    /// <summary>A text source that is not a <see cref="StringTextSource"/> and serves slices only.</summary>
+    private sealed class ChunkedSource(string text) : ITextSource
+    {
+        public int Length => text.Length;
+
+        public char this[int index] => text[index];
+
+        public string Substring(int start, int length) => new(text.AsSpan(start, length));
+
+        public ReadOnlySpan<char> Slice(int start, int length) => text.AsSpan(start, length);
+
+        public IEnumerator<char> GetEnumerator() => text.GetEnumerator();
+
+        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+
+        public override string ToString() => text;
+    }
+
     // ------------------------------------------------------------ argument checks of the factory
 
     [Test]
@@ -174,5 +236,6 @@ public class FacadeInt32LimitTests
         Assert.Throws<ArgumentNullException>(() => EsaSuffixTreeFactory.CreateEsa((string)null!));
         Assert.Throws<ArgumentNullException>(() => EsaSuffixTreeFactory.CreateEsa((ITextSource)null!));
         Assert.Throws<ArgumentNullException>(() => EsaSuffixTree.Build(null!));
+        Assert.Throws<ArgumentNullException>(() => new EsaSuffixTree(null!));
     }
 }
