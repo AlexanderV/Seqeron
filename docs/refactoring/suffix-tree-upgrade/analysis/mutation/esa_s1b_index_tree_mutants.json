@@ -1,0 +1,236 @@
+[
+ {
+  "id": "T01",
+  "desc": "IsExplicitNode: Length <= Aux (always true)",
+  "old": "return locus.Length == locus.Aux;",
+  "new": "return locus.Length <= locus.Aux;"
+ },
+ {
+  "id": "T02",
+  "desc": "IsExplicitNode: no locus check",
+  "old": "        Resolve(locus, nameof(locus));\n        return locus.Length == locus.Aux;",
+  "new": "        return locus.Length == locus.Aux;"
+ },
+ {
+  "id": "T03",
+  "desc": "TryParent: the root has a parent",
+  "old": "        if (node.Depth == 0) return false;\n        int parentDepth",
+  "new": "        int parentDepth"
+ },
+ {
+  "id": "T04",
+  "desc": "TryParent: the root shortcut at depth 1",
+  "old": "if (parentDepth == 0)\n        {\n            parent = Root;",
+  "new": "if (parentDepth == 1)\n        {\n            parent = Root;"
+ },
+ {
+  "id": "T05",
+  "desc": "TryParent: left border one rank too far",
+  "old": "pyramid.PrevLess(node.Lb, parentDepth);",
+  "new": "pyramid.PrevLess(node.Lb - 1, parentDepth);"
+ },
+ {
+  "id": "T06",
+  "desc": "TryParent: right border search starts inside the node",
+  "old": "pyramid.NextLess(node.Rb + 1, parentDepth);",
+  "new": "pyramid.NextLess(node.Rb, parentDepth);"
+ },
+ {
+  "id": "T07",
+  "desc": "TryParent: right border one too large",
+  "old": "parent = new IndexLocus(left, right - 1, parentDepth, parentDepth);",
+  "new": "parent = new IndexLocus(left, right, parentDepth, parentDepth);"
+ },
+ {
+  "id": "T08",
+  "desc": "TryParent: Aux of the parent is the child depth",
+  "old": "parent = new IndexLocus(left, right - 1, parentDepth, parentDepth);",
+  "new": "parent = new IndexLocus(left, right - 1, parentDepth, node.Depth);"
+ },
+ {
+  "id": "T09",
+  "desc": "TryParent: the parent is the node itself",
+  "old": "int parentDepth = node.ParentDepth;",
+  "new": "int parentDepth = node.Depth;"
+ },
+ {
+  "id": "T10",
+  "desc": "TryChild: found and not found swapped",
+  "old": "if (!FindChild(resolved, firstSymbol, out EsaNode found)) return false;",
+  "new": "if (FindChild(resolved, firstSymbol, out EsaNode found)) return false;"
+ },
+ {
+  "id": "T11",
+  "desc": "TryChild: a point inside an edge is accepted",
+  "old": "        EsaNode resolved = ResolveNode(node, nameof(node));\n        child = default;",
+  "new": "        EsaNode resolved = Resolve(node, nameof(node));\n        child = default;"
+ },
+ {
+  "id": "T12",
+  "desc": "GetChildren: a leaf is walked",
+  "old": "        if (resolved.IsLeaf) return 0;\n",
+  "new": ""
+ },
+ {
+  "id": "T13",
+  "desc": "GetChildren: an exactly fitting span is not written",
+  "old": "if (count > children.Length) return count;",
+  "new": "if (count >= children.Length) return count;"
+ },
+ {
+  "id": "T14",
+  "desc": "GetChildren: the second pass does not write",
+  "old": "ChildLayoutKind.Tagged => WalkChildren(_tagged, resolved, children, true),",
+  "new": "ChildLayoutKind.Tagged => WalkChildren(_tagged, resolved, children, false),"
+ },
+ {
+  "id": "T15",
+  "desc": "GetChildren: the count pass writes",
+  "old": "ChildLayoutKind.Tagged => WalkChildren(_tagged, resolved, default, false),",
+  "new": "ChildLayoutKind.Tagged => WalkChildren(_tagged, resolved, default, true),"
+ },
+ {
+  "id": "T16",
+  "desc": "GetChildren: the Packed layout is counted as Tagged",
+  "old": "ChildLayoutKind.Packed => WalkChildren(_packed, resolved, default, false),",
+  "new": "ChildLayoutKind.Packed => WalkChildren(_tagged, resolved, default, false),"
+ },
+ {
+  "id": "T17",
+  "desc": "TrySuffixLink: leaves have links",
+  "old": "if (resolved.Depth == 0 || resolved.IsLeaf) return false;",
+  "new": "if (resolved.Depth == 0) return false;"
+ },
+ {
+  "id": "T18",
+  "desc": "TrySuffixLink: the root has a link",
+  "old": "if (resolved.Depth == 0 || resolved.IsLeaf) return false;",
+  "new": "if (resolved.IsLeaf) return false;"
+ },
+ {
+  "id": "T19",
+  "desc": "TrySuffixLink: a point inside an edge is accepted",
+  "old": "        EsaNode resolved = ResolveNode(node, nameof(node));\n        link = default;",
+  "new": "        EsaNode resolved = Resolve(node, nameof(node));\n        link = default;"
+ },
+ {
+  "id": "T20",
+  "desc": "EdgeSymbol: no overflow guard",
+  "old": "        if (offset >= _n) return -1;\n",
+  "new": ""
+ },
+ {
+  "id": "T21",
+  "desc": "EdgeSymbol: the parent depth is not added",
+  "old": "long index = (long)resolved.Pos + resolved.ParentDepth + offset;",
+  "new": "long index = (long)resolved.Pos + offset;"
+ },
+ {
+  "id": "T22",
+  "desc": "EdgeSymbol: a negative offset is read",
+  "old": "        ArgumentOutOfRangeException.ThrowIfNegative(offset);\n",
+  "new": ""
+ },
+ {
+  "id": "T23",
+  "desc": "EdgeSymbol: the end of the text is readable",
+  "old": "return index < _n ? _index.Text[(int)index] : -1;",
+  "new": "return index <= _n ? _index.Text[(int)index] : -1;"
+ },
+ {
+  "id": "T24",
+  "desc": "FindChild: a leaf is searched",
+  "old": "        if (node.IsLeaf)\n        {\n            child = EsaNode.Null;\n            return false;\n        }\n        return _kind switch",
+  "new": "        return _kind switch"
+ },
+ {
+  "id": "T25",
+  "desc": "FindChildCore: keys compared the wrong way",
+  "old": "if (symbol > key || boundary < 0)",
+  "new": "if (symbol < key || boundary < 0)"
+ },
+ {
+  "id": "T26",
+  "desc": "FindChildCore: the walk does not advance a",
+  "old": "            a = boundary;\n            boundary = table.NextLIndex(boundary, rb);\n            CheckBoundary(boundary, a, rb);\n        }\n    }\n\n    /// <summary>Walks",
+  "new": "            boundary = table.NextLIndex(boundary, rb);\n            CheckBoundary(boundary, a, rb);\n        }\n    }\n\n    /// <summary>Walks"
+ },
+ {
+  "id": "T27",
+  "desc": "FindChildCore: the last-child flag of the child",
+  "old": "child = MakeChild(table, a, b, saA, node.Depth, boundary < 0);",
+  "new": "child = MakeChild(table, a, b, saA, node.Depth, boundary > 0);"
+ },
+ {
+  "id": "T28",
+  "desc": "FindChildCore: the child ends at its boundary",
+  "old": "int b = boundary >= 0 ? boundary - 1 : rb;\n                child",
+  "new": "int b = boundary >= 0 ? boundary : rb;\n                child"
+ },
+ {
+  "id": "T29",
+  "desc": "FindChildCore: the symbol is read one past the node depth",
+  "old": "uint at = (uint)saA + (uint)node.Depth;\n            int symbol",
+  "new": "uint at = (uint)saA + (uint)node.Depth + 1;\n            int symbol"
+ },
+ {
+  "id": "T30",
+  "desc": "FindChildCore: the end of the text reads as symbol 0",
+  "old": "int symbol = at < (uint)_n ? text[(int)at] : -1;",
+  "new": "int symbol = at < (uint)_n ? text[(int)at] : 0;"
+ },
+ {
+  "id": "T31",
+  "desc": "WalkChildren: the last-child flag of a child",
+  "old": "destination[count] = ToLocus(MakeChild(table, a, b, sa[a], node.Depth, boundary < 0));",
+  "new": "destination[count] = ToLocus(MakeChild(table, a, b, sa[a], node.Depth, boundary > 0));"
+ },
+ {
+  "id": "T32",
+  "desc": "WalkChildren: children are written one slot late",
+  "old": "destination[count] = ToLocus(",
+  "new": "destination[count > 0 ? count - 1 : 0] = ToLocus("
+ },
+ {
+  "id": "T33",
+  "desc": "WalkChildren: the count stops one early",
+  "old": "            if (boundary < 0) return count;\n            a = boundary;",
+  "new": "            if (boundary < 0) return count - 1;\n            a = boundary;"
+ },
+ {
+  "id": "T34",
+  "desc": "MakeChild: a leaf has the depth without the terminator",
+  "old": "if (a == b) return new EsaNode(a, a, _n - saA + 1, parentDepth, saA, childIsLast);",
+  "new": "if (a == b) return new EsaNode(a, a, _n - saA, parentDepth, saA, childIsLast);"
+ },
+ {
+  "id": "T35",
+  "desc": "MakeChild: the child depth is read at the interval start",
+  "old": "return new EsaNode(a, b, _index.Lcp[first], parentDepth, saA, childIsLast);",
+  "new": "return new EsaNode(a, b, _index.Lcp[a], parentDepth, saA, childIsLast);"
+ },
+ {
+  "id": "T36",
+  "desc": "MakeChild: the guard on the first l-index is gone",
+  "old": "        if (first <= a || first > b) ThrowCorruptChildTable();\n",
+  "new": ""
+ },
+ {
+  "id": "T37",
+  "desc": "CheckBoundary: a boundary equal to the right border is corrupt",
+  "old": "if (boundary >= 0 && (boundary <= previous || boundary > rb)) ThrowCorruptChildTable();",
+  "new": "if (boundary >= 0 && (boundary <= previous || boundary >= rb)) ThrowCorruptChildTable();"
+ },
+ {
+  "id": "T38",
+  "desc": "CheckBoundary: a self loop is allowed",
+  "old": "if (boundary >= 0 && (boundary <= previous || boundary > rb)) ThrowCorruptChildTable();",
+  "new": "if (boundary >= 0 && (boundary < previous || boundary > rb)) ThrowCorruptChildTable();"
+ },
+ {
+  "id": "T39",
+  "desc": "CheckBoundary: a boundary beyond the interval is allowed",
+  "old": "if (boundary >= 0 && (boundary <= previous || boundary > rb)) ThrowCorruptChildTable();",
+  "new": "if (boundary >= 0 && (boundary <= previous)) ThrowCorruptChildTable();"
+ }
+]

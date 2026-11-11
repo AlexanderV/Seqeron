@@ -1,0 +1,386 @@
+[
+ {
+  "id": "C01",
+  "desc": "Support: ExtendLeft reported Native",
+  "old": "IndexOperation.ExtendLeft => IndexSupport.Degraded,",
+  "new": "IndexOperation.ExtendLeft => IndexSupport.Native,"
+ },
+ {
+  "id": "C02",
+  "desc": "Support: the pack operations always Native",
+  "old": "or IndexOperation.Lcp or IndexOperation.Lca => _index.SuffixLinkSupport,",
+  "new": "or IndexOperation.Lcp or IndexOperation.Lca => IndexSupport.Native,"
+ },
+ {
+  "id": "C03",
+  "desc": "Support: Lca is not tied to the pack",
+  "old": "or IndexOperation.Lcp or IndexOperation.Lca => _index.SuffixLinkSupport,",
+  "new": "or IndexOperation.Lcp => _index.SuffixLinkSupport,",
+  "also": [
+   [
+    "or IndexOperation.StringDepth or IndexOperation.SuffixArrayAccess",
+    "or IndexOperation.StringDepth or IndexOperation.Lca or IndexOperation.SuffixArrayAccess"
+   ]
+  ]
+ },
+ {
+  "id": "C04",
+  "desc": "Support: Parent is not tied to the pack",
+  "old": "IndexOperation.Parent or IndexOperation.SuffixLink or IndexOperation.InverseSuffixArrayAccess",
+  "new": "IndexOperation.SuffixLink or IndexOperation.InverseSuffixArrayAccess",
+  "also": [
+   [
+    "or IndexOperation.StringDepth or IndexOperation.SuffixArrayAccess",
+    "or IndexOperation.StringDepth or IndexOperation.Parent or IndexOperation.SuffixArrayAccess"
+   ]
+  ]
+ },
+ {
+  "id": "C05",
+  "desc": "Support: Child reported Degraded",
+  "old": "IndexOperation.ExtendLeft => IndexSupport.Degraded,",
+  "new": "IndexOperation.ExtendLeft or IndexOperation.Child => IndexSupport.Degraded,",
+  "also": [
+   [
+    "or IndexOperation.Child or IndexOperation.StringDepth",
+    "or IndexOperation.StringDepth"
+   ]
+  ]
+ },
+ {
+  "id": "C06",
+  "desc": "Support: an undefined operation is reported Unsupported instead of throwing",
+  "old": "_ => throw new ArgumentOutOfRangeException(nameof(operation), operation, \"not an IndexOperation\"),",
+  "new": "_ => IndexSupport.Unsupported,"
+ },
+ {
+  "id": "C07",
+  "desc": "SupportNote: the ExtendLeft cost note is dropped",
+  "old": "if (operation == IndexOperation.ExtendLeft) return ExtendLeftCost;",
+  "new": ""
+ },
+ {
+  "id": "C08",
+  "desc": "SupportNote: a Degraded operation has no note",
+  "old": "return support == IndexSupport.Degraded ? PackCost : null;",
+  "new": "return null;"
+ },
+ {
+  "id": "C09",
+  "desc": "SupportNote: a Native operation has a note",
+  "old": "return support == IndexSupport.Degraded ? PackCost : null;",
+  "new": "return PackCost;"
+ },
+ {
+  "id": "C10",
+  "desc": "Count: rank 0 counted",
+  "old": "return locus.Hi - Math.Max(locus.Lo, 1) + 1;",
+  "new": "return locus.Hi - locus.Lo + 1;"
+ },
+ {
+  "id": "C11",
+  "desc": "Count: off by one",
+  "old": "return locus.Hi - Math.Max(locus.Lo, 1) + 1;",
+  "new": "return locus.Hi - Math.Max(locus.Lo, 1);"
+ },
+ {
+  "id": "C12",
+  "desc": "Count: no locus check",
+  "old": "        CheckLocus(locus, nameof(locus));\n        return locus.Hi",
+  "new": "        return locus.Hi"
+ },
+ {
+  "id": "C13",
+  "desc": "ExtendRight(symbol): U+FFFF rejected",
+  "old": "if ((uint)symbol > char.MaxValue)\n        {\n            Resolve(",
+  "new": "if ((uint)symbol >= char.MaxValue)\n        {\n            Resolve("
+ },
+ {
+  "id": "C14",
+  "desc": "ExtendRight(symbol): an invalid symbol skips the locus check",
+  "old": "        {\n            Resolve(locus, nameof(locus));\n            result = default;\n            return false;\n        }\n        ReadOnlySpan<char> one",
+  "new": "        {\n            result = default;\n            return false;\n        }\n        ReadOnlySpan<char> one"
+ },
+ {
+  "id": "C15",
+  "desc": "ExtendRight(symbol): the symbol is truncated to a byte",
+  "old": "ReadOnlySpan<char> one = [(char)symbol];",
+  "new": "ReadOnlySpan<char> one = [(char)(symbol & 0xFF)];"
+ },
+ {
+  "id": "C16",
+  "desc": "ExtendLeft: no locus check",
+  "old": "        Resolve(locus, nameof(locus));\n        result = default;\n        if ((uint)symbol > char.MaxValue) return false;\n        if (locus.Length == 0)",
+  "new": "        result = default;\n        if ((uint)symbol > char.MaxValue) return false;\n        if (locus.Length == 0)"
+ },
+ {
+  "id": "C17",
+  "desc": "ExtendLeft: U+FFFF rejected",
+  "old": "if ((uint)symbol > char.MaxValue) return false;\n        if (locus.Length == 0)",
+  "new": "if ((uint)symbol >= char.MaxValue) return false;\n        if (locus.Length == 0)"
+ },
+ {
+  "id": "C18",
+  "desc": "ExtendLeft: the shortcut applies to length one",
+  "old": "if (locus.Length == 0) return TryExtendRight",
+  "new": "if (locus.Length == 1) return TryExtendRight"
+ },
+ {
+  "id": "C19",
+  "desc": "ExtendLeft: the shortcut for the empty string is gone (builds the pack for the root)",
+  "old": "        if (locus.Length == 0) return TryExtendRight(locus, symbol, out result); // the empty string: a symbol on the left is a symbol on the right\n",
+  "new": ""
+ },
+ {
+  "id": "C20",
+  "desc": "ExtendLeft: position 0 has a predecessor",
+  "old": "if (position > 0 && text[position - 1] == symbol)",
+  "new": "if (position >= 0 && text[position - 1] == symbol)"
+ },
+ {
+  "id": "C21",
+  "desc": "ExtendLeft: the predecessor must differ from the symbol",
+  "old": "text[position - 1] == symbol)\n            {",
+  "new": "text[position - 1] != symbol)\n            {"
+ },
+ {
+  "id": "C22",
+  "desc": "ExtendLeft: ISA of the position itself",
+  "old": "int target = pack.Isa(position - 1);",
+  "new": "int target = pack.Isa(position);"
+ },
+ {
+  "id": "C23",
+  "desc": "ExtendLeft: low keeps the largest rank",
+  "old": "if (target < low) low = target;",
+  "new": "if (target > low) low = target;"
+ },
+ {
+  "id": "C24",
+  "desc": "ExtendLeft: high keeps the smallest rank",
+  "old": "if (target > high) high = target;",
+  "new": "if (target < high) high = target;"
+ },
+ {
+  "id": "C25",
+  "desc": "ExtendLeft: no match is not refused",
+  "old": "        if (high < 0) return false;\n        long aux",
+  "new": "        long aux"
+ },
+ {
+  "id": "C26",
+  "desc": "ExtendLeft: leaf depth without the terminator",
+  "old": "long aux = low == high ? _n - sa[low] + 1 :",
+  "new": "long aux = low == high ? _n - sa[low] :"
+ },
+ {
+  "id": "C27",
+  "desc": "ExtendLeft: range minimum includes the left border",
+  "old": "pack.Pyramid.Min(low + 1, high);",
+  "new": "pack.Pyramid.Min(low, high);"
+ },
+ {
+  "id": "C28",
+  "desc": "ExtendLeft: the length does not grow",
+  "old": "result = new IndexLocus(low, high, locus.Length + 1, aux);",
+  "new": "result = new IndexLocus(low, high, locus.Length, aux);"
+ },
+ {
+  "id": "C29",
+  "desc": "ExtendLeft: the leaf test is inverted",
+  "old": "long aux = low == high ? _n - sa[low] + 1 : pack.Pyramid.Min(low + 1, high);",
+  "new": "long aux = low != high ? _n - sa[low] + 1 : pack.Pyramid.Min(low + 1, high);"
+ },
+ {
+  "id": "C30",
+  "desc": "Locate: a negative skip is not refused",
+  "old": "        ArgumentOutOfRangeException.ThrowIfNegative(skip);\n        CheckLocus(locus, nameof(locus));\n        int from",
+  "new": "        CheckLocus(locus, nameof(locus));\n        int from"
+ },
+ {
+  "id": "C31",
+  "desc": "Locate: rank 0 is a position",
+  "old": "int from = (int)Math.Max(locus.Lo, 1);",
+  "new": "int from = (int)locus.Lo;"
+ },
+ {
+  "id": "C32",
+  "desc": "Locate: a single-rank locus has no position",
+  "old": "if (from > locus.Hi) return 0;",
+  "new": "if (from >= locus.Hi) return 0;"
+ },
+ {
+  "id": "C33",
+  "desc": "Locate: no locus check",
+  "old": "        CheckLocus(locus, nameof(locus));\n        int from",
+  "new": "        int from"
+ },
+ {
+  "id": "C34",
+  "desc": "Extend: a node is treated as an edge point",
+  "old": "if (length < node.Depth)\n            {\n                uint at",
+  "new": "if (length <= node.Depth)\n            {\n                uint at"
+ },
+ {
+  "id": "C35",
+  "desc": "Extend: the edge symbol is read at the parent depth",
+  "old": "uint at = (uint)node.Pos + (uint)length;",
+  "new": "uint at = (uint)node.Pos + (uint)node.ParentDepth;"
+ },
+ {
+  "id": "C36",
+  "desc": "Extend: the end of the text is readable",
+  "old": "if (at >= (uint)_n || text[(int)at] != symbol) return false;",
+  "new": "if (at > (uint)_n || text[(int)at] != symbol) return false;"
+ },
+ {
+  "id": "C37",
+  "desc": "Extend: the edge symbol must differ",
+  "old": "text[(int)at] != symbol) return false;",
+  "new": "text[(int)at] == symbol) return false;"
+ },
+ {
+  "id": "C38",
+  "desc": "Extend: the length is not advanced",
+  "old": "            length++;\n        }\n        result = new IndexLocus(node.Lb",
+  "new": "        }\n        result = new IndexLocus(node.Lb"
+ },
+ {
+  "id": "C39",
+  "desc": "Extend: Aux is the matched length",
+  "old": "result = new IndexLocus(node.Lb, node.Rb, length, node.Depth);",
+  "new": "result = new IndexLocus(node.Lb, node.Rb, length, length);"
+ },
+ {
+  "id": "C40",
+  "desc": "Extend: the next node is not adopted",
+  "old": "                node = next;\n",
+  "new": ""
+ },
+ {
+  "id": "C41",
+  "desc": "CheckLocus: Hi may be n + 1",
+  "old": "locus.Hi <= n && locus.Length >= 0",
+  "new": "locus.Hi <= n + 1 && locus.Length >= 0"
+ },
+ {
+  "id": "C42",
+  "desc": "CheckLocus: Aux may be n + 2",
+  "old": "locus.Aux <= n + 1;",
+  "new": "locus.Aux <= n + 2;"
+ },
+ {
+  "id": "C43",
+  "desc": "CheckLocus: Aux may be below the length",
+  "old": "locus.Aux >= locus.Length && locus.Aux <= n + 1",
+  "new": "locus.Aux <= n + 1"
+ },
+ {
+  "id": "C44",
+  "desc": "CheckLocus: the root may have any Aux",
+  "old": "? locus.Lo == 0 && locus.Hi == n && locus.Aux == 0",
+  "new": "? locus.Lo == 0 && locus.Hi == n"
+ },
+ {
+  "id": "C45",
+  "desc": "CheckLocus: the tree of the empty text has a terminator leaf",
+  "old": "locus.Length == 0\n                ? locus.Lo == 0 && locus.Hi == n && locus.Aux == 0\n                : n > 0 && (",
+  "new": "locus.Length == 0\n                ? locus.Lo == 0 && locus.Hi == n && locus.Aux == 0\n                : ("
+ },
+ {
+  "id": "C46",
+  "desc": "CheckLocus: the empty-suffix leaf may have any depth",
+  "old": "(locus.Lo > 0 || (locus.Hi == 0 && locus.Aux == 1))",
+  "new": "(locus.Lo > 0 || locus.Hi == 0)"
+ },
+ {
+  "id": "C47",
+  "desc": "CheckLocus: rank 0 may be inside a wider interval",
+  "old": "(locus.Lo > 0 || (locus.Hi == 0 && locus.Aux == 1))",
+  "new": "(locus.Lo >= 0 || (locus.Hi == 0 && locus.Aux == 1))"
+ },
+ {
+  "id": "C48",
+  "desc": "Resolve: the root is not the last child",
+  "old": "if (depth == 0) return new EsaNode(0, _n, 0, 0, _n, true);",
+  "new": "if (depth == 0) return new EsaNode(0, _n, 0, 0, _n, false);"
+ },
+ {
+  "id": "C49",
+  "desc": "Resolve: no right neighbour reads as 0",
+  "old": "int right = rb < _n ? lcp[rb + 1] : -1;",
+  "new": "int right = rb < _n ? lcp[rb + 1] : 0;"
+ },
+ {
+  "id": "C50",
+  "desc": "Resolve: last-child flag with >=",
+  "old": "bool lastChild = left > right;",
+  "new": "bool lastChild = left >= right;"
+ },
+ {
+  "id": "C51",
+  "desc": "Resolve: parent depth is the minimum",
+  "old": "int parentDepth = Math.Max(left, right);",
+  "new": "int parentDepth = Math.Min(left, right);"
+ },
+ {
+  "id": "C52",
+  "desc": "Resolve: the matched length may equal the parent depth",
+  "old": "bool valid = parentDepth < locus.Length;",
+  "new": "bool valid = parentDepth <= locus.Length;"
+ },
+ {
+  "id": "C53",
+  "desc": "Resolve: a leaf may be shallower than its suffix",
+  "old": "if (lb == rb) valid = depth == _n - pos + 1;",
+  "new": "if (lb == rb) valid = depth <= _n - pos + 1;"
+ },
+ {
+  "id": "C54",
+  "desc": "Resolve: the first l-index may be the left border",
+  "old": "valid = first > lb && first <= rb && lcp[first] == depth;",
+  "new": "valid = first >= lb && first <= rb && lcp[first] == depth;"
+ },
+ {
+  "id": "C55",
+  "desc": "Resolve: the first l-index may be past the interval",
+  "old": "valid = first > lb && first <= rb && lcp[first] == depth;",
+  "new": "valid = first > lb && lcp[first] == depth;"
+ },
+ {
+  "id": "C56",
+  "desc": "Resolve: the first l-index value is not compared",
+  "old": "valid = first > lb && first <= rb && lcp[first] == depth;",
+  "new": "valid = first > lb && first <= rb;"
+ },
+ {
+  "id": "C57",
+  "desc": "Resolve: the leaf Pos is rank-based",
+  "old": "int pos = _index.SuffixArray[lb];",
+  "new": "int pos = lb;"
+ },
+ {
+  "id": "C58",
+  "desc": "ResolveNode: a point inside an edge is accepted",
+  "old": "if (node.Length != node.Aux) throw",
+  "new": "if (node.Length > node.Aux) throw"
+ },
+ {
+  "id": "C59",
+  "desc": "CheckRank: rank n is refused",
+  "old": "if ((ulong)rank > (ulong)_n) throw",
+  "new": "if ((ulong)rank >= (ulong)_n) throw"
+ },
+ {
+  "id": "C60",
+  "desc": "CheckRank: signed comparison",
+  "old": "if ((ulong)rank > (ulong)_n) throw",
+  "new": "if (rank > _n) throw"
+ },
+ {
+  "id": "C61",
+  "desc": "TryExtendLeft/Extend: ToLocus keeps the depth in Lo",
+  "old": "private static IndexLocus ToLocus(in EsaNode node) => new(node.Lb, node.Rb, node.Depth, node.Depth);",
+  "new": "private static IndexLocus ToLocus(in EsaNode node) => new(node.Lb, node.Rb, node.Depth, node.ParentDepth);"
+ }
+]

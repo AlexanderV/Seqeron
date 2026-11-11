@@ -1,0 +1,116 @@
+[
+ {
+  "id": "A01",
+  "desc": "SuffixAt: no rank check",
+  "old": "        CheckRank(rank, nameof(rank));\n        return _index.SuffixArray[(int)rank];",
+  "new": "        return _index.SuffixArray[(int)rank];"
+ },
+ {
+  "id": "A02",
+  "desc": "SuffixAt: the next suffix",
+  "old": "return _index.SuffixArray[(int)rank];",
+  "new": "return _index.SuffixArray[(int)rank + 1];"
+ },
+ {
+  "id": "A03",
+  "desc": "RankOf: ISA of the next position",
+  "old": "return _index.Navigation.Isa((int)position);",
+  "new": "return _index.Navigation.Isa((int)position + 1);"
+ },
+ {
+  "id": "A04",
+  "desc": "RankOf: no position check",
+  "old": "        CheckRank(position, nameof(position));\n        return _index.Navigation.Isa",
+  "new": "        return _index.Navigation.Isa"
+ },
+ {
+  "id": "A05",
+  "desc": "LcpAt: the next entry",
+  "old": "return _index.Lcp[(int)rank];",
+  "new": "return _index.Lcp[(int)rank + 1];"
+ },
+ {
+  "id": "A06",
+  "desc": "Lcp: equal ranks give the suffix length plus one",
+  "old": "return _n - _index.SuffixArray[(int)rankA];",
+  "new": "return _n - _index.SuffixArray[(int)rankA] + 1;"
+ },
+ {
+  "id": "A07",
+  "desc": "Lcp: the range starts at the smaller rank",
+  "old": "Min((int)Math.Min(rankA, rankB) + 1, (int)Math.Max(rankA, rankB));",
+  "new": "Min((int)Math.Min(rankA, rankB), (int)Math.Max(rankA, rankB));"
+ },
+ {
+  "id": "A08",
+  "desc": "Lcp: no check of the second rank",
+  "old": "        CheckRank(rankB, nameof(rankB));\n        if (rankA == rankB) return",
+  "new": "        if (rankA == rankB) return"
+ },
+ {
+  "id": "A09",
+  "desc": "Lcp: equal ranks are not special",
+  "old": "        if (rankA == rankB) return _n - _index.SuffixArray[(int)rankA];\n",
+  "new": ""
+ },
+ {
+  "id": "A10",
+  "desc": "Lca: the empty text is not special",
+  "old": "        if (_n == 0) return Root;\n",
+  "new": ""
+ },
+ {
+  "id": "A11",
+  "desc": "Lca: leaf depth without the terminator",
+  "old": "long depth = _n - _index.SuffixArray[rank] + 1;",
+  "new": "long depth = _n - _index.SuffixArray[rank];"
+ },
+ {
+  "id": "A12",
+  "desc": "Lca: the root case is missing",
+  "old": "        if (value == 0) return Root;\n",
+  "new": ""
+ },
+ {
+  "id": "A13",
+  "desc": "Lca: unordered ranks are equal",
+  "old": "if (rankA == rankB)\n        {\n            int rank",
+  "new": "if (rankA <= rankB)\n        {\n            int rank"
+ },
+ {
+  "id": "A14",
+  "desc": "Lca: the left border search starts one rank early",
+  "old": "pyramid.PrevLess(lo, value)",
+  "new": "pyramid.PrevLess(lo - 1, value)"
+ },
+ {
+  "id": "A15",
+  "desc": "Lca: the right border is not decremented",
+  "old": "pyramid.NextLess(hi + 1, value) - 1",
+  "new": "pyramid.NextLess(hi + 1, value)"
+ },
+ {
+  "id": "A16",
+  "desc": "Lca: Aux is the left border",
+  "old": "return new IndexLocus(pyramid.PrevLess(lo, value), pyramid.NextLess(hi + 1, value) - 1, value, value);",
+  "new": "return new IndexLocus(pyramid.PrevLess(lo, value), pyramid.NextLess(hi + 1, value) - 1, value, lo);"
+ },
+ {
+  "id": "A17",
+  "desc": "Lca: right border search starts at hi (equivalent: LCP[hi] >= value)",
+  "old": "pyramid.NextLess(hi + 1, value) - 1",
+  "new": "pyramid.NextLess(hi, value) - 1"
+ },
+ {
+  "id": "A18",
+  "desc": "Lca: left border search starts at lo + 1 (equivalent: LCP[lo + 1] >= value)",
+  "old": "pyramid.PrevLess(lo, value)",
+  "new": "pyramid.PrevLess(lo + 1, value)"
+ },
+ {
+  "id": "A19",
+  "desc": "Lca: the value is the maximum rank",
+  "old": "int value = pyramid.Min(lo + 1, hi);",
+  "new": "int value = pyramid.Min(hi, hi);"
+ }
+]

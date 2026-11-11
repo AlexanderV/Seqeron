@@ -1,0 +1,50 @@
+[
+ {
+  "id": "X01",
+  "desc": "SymbolAt: the end of the text is readable",
+  "old": "return position >= text.Length ? -1 : text[(int)position];",
+  "new": "return position > text.Length ? -1 : text[(int)position];"
+ },
+ {
+  "id": "X02",
+  "desc": "SymbolAt: a negative position is not refused",
+  "old": "        ArgumentOutOfRangeException.ThrowIfNegative(position);\n        return position",
+  "new": "        return position"
+ },
+ {
+  "id": "X03",
+  "desc": "CopyTo: start = Length is refused",
+  "old": "ArgumentOutOfRangeException.ThrowIfGreaterThan(start, text.Length);",
+  "new": "ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(start, text.Length);"
+ },
+ {
+  "id": "X04",
+  "desc": "CopyTo: one symbol too many",
+  "old": "int count = (int)Math.Min(destination.Length, text.Length - start);",
+  "new": "int count = (int)Math.Min(destination.Length, text.Length - start + 1);"
+ },
+ {
+  "id": "X05",
+  "desc": "CopyTo: the larger of the two",
+  "old": "int count = (int)Math.Min(destination.Length, text.Length - start);",
+  "new": "int count = (int)Math.Max(destination.Length, text.Length - start);"
+ },
+ {
+  "id": "X06",
+  "desc": "CopyTo: a negative start is not refused",
+  "old": "        ArgumentOutOfRangeException.ThrowIfNegative(start);\n        ArgumentOutOfRangeException.ThrowIfGreaterThan",
+  "new": "        ArgumentOutOfRangeException.ThrowIfGreaterThan"
+ },
+ {
+  "id": "X07",
+  "desc": "CopyTo: copies from the start of the text",
+  "old": "text.AsSpan((int)start, count).CopyTo(destination);",
+  "new": "text.AsSpan(0, count).CopyTo(destination);"
+ },
+ {
+  "id": "X08",
+  "desc": "Length: one too large",
+  "old": "public long Length => text.Length;",
+  "new": "public long Length => text.Length + 1;"
+ }
+]
