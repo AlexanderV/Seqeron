@@ -364,4 +364,128 @@ public class IndexConformanceTests(IndexEngineFactory factory)
             }
         }
     }
+
+    // ---- the Unsupported rule and the optional interfaces (work package 1b.5) ----------------------------------------------------
+
+    private static string RenderLocus(IndexLocus locus) => locus.ToString();
+
+    [Test]
+    public void UnsupportedOperations_ThrowNotSupportedAndNeverFakeAnAnswer()
+    {
+        var index = Build("banana");
+        Assert.That(TryDescend(index, "ana", out var ana), Is.True);
+        var nav = index as ISuffixTreeNavigation;
+        var sa = index as ISuffixArrayAccess;
+        var checkedOperations = new List<IndexOperation>();
+        foreach (IndexOperation op in Enum.GetValues<IndexOperation>())
+        {
+            if (index.Support(op) != IndexSupport.Unsupported) continue;
+            Assert.That(index.SupportNote(op), Is.Not.Null.And.Not.Empty, $"{op}: an unsupported operation says so");
+            Action? call = op switch
+            {
+                IndexOperation.ExtendLeft => () => index.TryExtendLeft(ana, 'b', out _),
+                IndexOperation.Parent when nav is not null => () => nav.TryParent(ana, out _),
+                IndexOperation.Child when nav is not null => () => nav.TryChild(ana, 'n', out _),
+                IndexOperation.SuffixLink when nav is not null => () => nav.TrySuffixLink(ana, out _),
+                IndexOperation.StringDepth when nav is not null => () => nav.EdgeSymbol(ana, 0),
+                IndexOperation.SuffixArrayAccess when sa is not null => () => sa.SuffixAt(1),
+                IndexOperation.InverseSuffixArrayAccess when sa is not null => () => sa.RankOf(1),
+                IndexOperation.LcpAccess when sa is not null => () => sa.LcpAt(1),
+                IndexOperation.Lcp when sa is not null => () => sa.Lcp(1, 2),
+                IndexOperation.Lca when sa is not null => () => sa.Lca(1, 2),
+                _ => null, // the interface that carries the operation is not implemented: nothing to call
+            };
+            if (call is null) continue;
+            Assert.That(() => call(), Throws.TypeOf<NotSupportedException>(), op.ToString());
+            checkedOperations.Add(op);
+        }
+        TestContext.Out.WriteLine($"{factory.Name}: unsupported operations that were called: {string.Join(", ", checkedOperations)}");
+    }
+
+    [Test]
+    public void SuffixArrayAccess_EqualsTheDefinitions()
+    {
+        foreach (string text in SmallTexts)
+        {
+            var access = Build(text) as ISuffixArrayAccess;
+            if (access is null)
+            {
+                Assert.Ignore($"{factory.Name} does not implement ISuffixArrayAccess");
+                return;
+            }
+            int[] sa = NaiveSuffixArray.Build(text);
+            int[] lcp = NaiveLcp.Build(text, sa);
+            int n = text.Length;
+            var index = (ISuffixIndex)access;
+            if (index.Support(IndexOperation.SuffixArrayAccess) != IndexSupport.Unsupported)
+                for (int r = 0; r <= n; r++) Assert.That(access.SuffixAt(r), Is.EqualTo(sa[r]), $"'{text}' SA[{r}]");
+            if (index.Support(IndexOperation.InverseSuffixArrayAccess) != IndexSupport.Unsupported)
+                for (int r = 0; r <= n; r++) Assert.That(access.RankOf(sa[r]), Is.EqualTo(r), $"'{text}' ISA[SA[{r}]]");
+            if (index.Support(IndexOperation.LcpAccess) != IndexSupport.Unsupported)
+                for (int r = 0; r <= n; r++) Assert.That(access.LcpAt(r), Is.EqualTo(lcp[r]), $"'{text}' LCP[{r}]");
+            if (index.Support(IndexOperation.Lcp) != IndexSupport.Unsupported)
+                for (int a = 0; a <= n; a++)
+                    for (int b = 0; b <= n; b++)
+                    {
+                        int expected = a == b ? n - sa[a] : text.AsSpan(sa[a]).CommonPrefixLength(text.AsSpan(sa[b]));
+                        Assert.That(access.Lcp(a, b), Is.EqualTo(expected), $"'{text}' Lcp({a}, {b})");
+                    }
+        }
+    }
+
+    [Test]
+    public void Navigation_ChildrenPartitionTheirNodeAndParentsAndLinksAreConsistent()
+    {
+        foreach (string text in SmallTexts)
+        {
+            var index = Build(text);
+            var nav = index as ISuffixTreeNavigation;
+            if (nav is null || index.Support(IndexOperation.Child) == IndexSupport.Unsupported)
+            {
+                Assert.Ignore($"{factory.Name} does not implement navigation");
+                return;
+            }
+            bool hasParent = index.Support(IndexOperation.Parent) != IndexSupport.Unsupported;
+            bool hasLink = index.Support(IndexOperation.SuffixLink) != IndexSupport.Unsupported;
+            bool hasEdge = index.Support(IndexOperation.StringDepth) != IndexSupport.Unsupported;
+            var stack = new Stack<IndexLocus>();
+            stack.Push(index.Root);
+            while (stack.Count > 0)
+            {
+                IndexLocus node = stack.Pop();
+                Assert.That(nav.IsExplicitNode(node), Is.True, $"'{text}' {RenderLocus(node)}");
+                int count = nav.GetChildren(node, Span<IndexLocus>.Empty);
+                var kids = new IndexLocus[count];
+                Assert.That(nav.GetChildren(node, kids), Is.EqualTo(count), $"'{text}' {RenderLocus(node)}");
+                Assert.That(kids.Sum(k => index.Count(k)), Is.EqualTo(index.Count(node)), $"'{text}' {RenderLocus(node)}: the children partition the positions");
+                if (count == 0) Assert.That(index.Count(node), Is.LessThanOrEqualTo(1), $"'{text}' a leaf has at most one position");
+                int previousKey = int.MinValue;
+                foreach (IndexLocus kid in kids)
+                {
+                    Assert.That(kid.Length, Is.GreaterThan(node.Length), $"'{text}' child below {RenderLocus(node)}");
+                    if (hasEdge)
+                    {
+                        int key = nav.EdgeSymbol(kid, 0);
+                        Assert.That(key, Is.GreaterThan(previousKey), $"'{text}' children in ascending key order, terminator first");
+                        previousKey = key;
+                        Assert.That(nav.TryChild(node, key, out var viaKey), Is.True, $"'{text}' TryChild({key})");
+                        Assert.That(viaKey, Is.EqualTo(kid), $"'{text}' TryChild({key})");
+                    }
+                    if (hasParent)
+                    {
+                        Assert.That(nav.TryParent(kid, out var parent), Is.True);
+                        Assert.That(parent, Is.EqualTo(node), $"'{text}' parent of a child");
+                    }
+                    stack.Push(kid);
+                }
+                if (hasLink && count > 0 && node.Length > 0)
+                {
+                    Assert.That(nav.TrySuffixLink(node, out var link), Is.True, $"'{text}' internal node {RenderLocus(node)} has a suffix link");
+                    Assert.That(link.Length, Is.EqualTo(node.Length - 1), $"'{text}' the link shortens by one symbol");
+                    Assert.That(index.Count(link), Is.GreaterThanOrEqualTo(index.Count(node)), $"'{text}' the link target occurs at least as often");
+                }
+            }
+        }
+        TestContext.Out.WriteLine(factory.Name + ": navigation consistency checked");
+    }
 }

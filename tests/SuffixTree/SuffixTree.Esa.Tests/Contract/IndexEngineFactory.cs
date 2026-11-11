@@ -21,5 +21,9 @@ public static class IndexEngineFactories
     public static IEnumerable<IndexEngineFactory> All { get; } =
     [
         new IndexEngineFactory("ukkonen-adapter", text => new UkkonenIndexAdapter(text)),
+        // the enhanced suffix array of work package 1b.5, with each of the three child-table layouts (the default is Tagged)
+        new IndexEngineFactory("esa", text => EsaSuffixIndex.Build(text)),
+        new IndexEngineFactory("esa-packed", text => EsaSuffixIndex.Build(text, ChildLayoutKind.Packed)),
+        new IndexEngineFactory("esa-reference3", text => EsaSuffixIndex.Build(text, ChildLayoutKind.Reference3)),
     ];
 }
