@@ -61,7 +61,7 @@ X04	externalchild	the NSV pass is skipped when it is not concurrent	BUILD-ERROR 
 M01	nextsym	the end mark is stored one position late	killed(10)			killed	
 M02	nextsym	the LCP is not added	killed(8)			killed	
 M03	nextsym	a 9-bit text is accepted	survived / survived	killed(1)		killed	
-M04	nextsym	a suffix array file one entry short is accepted	survived / survived			SURVIVOR	
+M04	nextsym	a suffix array file one entry short is accepted	survived / survived		killed(1)	killed	
 M05	nextsym	the block is written one rank early	killed(10)			killed	
 N01	nsvscan	equal values are not popped	killed(16)			killed	
 N02	nsvscan	the "no smaller value" is n	killed(16)			killed	

@@ -23,7 +23,10 @@ names = ['a10', 'a50', 'nrun30', 'fib10', 'fib30', 'rep10', 'dna10', 'dna_100m',
 print('| input | PH4 s | A | A, spill on tmpfs | F, NSV after | F, NSV concurrent | A + PSV + NSV (both), NSV after | both, concurrent |')
 print('|---|---|---|---|---|---|---|---|')
 def cell(v, base):
-    return '-' if v is None else '%.2f (%.2f)' % (v, v / base)
+    if v is None:
+        return '-'
+    r = v / base
+    return ('**%.2f (%.2f)**' if r > 1 else '%.2f (%.2f)') % (v, r)
 for n in names:
     b = ph4.get(n + '.ph4')
     if b is None:
