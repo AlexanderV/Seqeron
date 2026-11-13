@@ -282,7 +282,7 @@ public class ExternalDcsDifferentialTests
     [TestCase("a:200000", 50)]
     public void ProductionPeriod993_ScaledBucketsAndBaseCase_EqualTheInRamTable(string family, int bucketsTarget)
     {
-        SuffixTree.EmProto.Gen.SymbolText text = FamilyLoader.Load(family, string.Empty);
+        global::SuffixTree.EmProto.Gen.SymbolText text = FamilyLoader.Load(family, string.Empty);
         DifferenceCover cover = DifferenceCover.Create(993);
         int bits = Math.Max(1, PackedText.BitsFor(text.Sigma));
         using PackedText t = PackedText.Pack(text.Symbols, bits);
@@ -337,7 +337,7 @@ public class ExternalDcsDifferentialTests
     [Test]
     public void RandomDna_WithProductionPeriod_HasUniqueNames_AndNoRecursion()
     {
-        SuffixTree.EmProto.Gen.SymbolText text = FamilyLoader.Load("dna:200000", string.Empty);
+        global::SuffixTree.EmProto.Gen.SymbolText text = FamilyLoader.Load("dna:200000", string.Empty);
         DifferenceCover cover = DifferenceCover.Create(993);
         using PackedText t = PackedText.Pack(text.Symbols, 2);
         (byte[] got, ExtDcsStats st) = ExtDcsHarness.Run(t, cover, ExtDcsHarness.Options(Path.Combine(_dir, "scratch"), 500, 100), _dir);

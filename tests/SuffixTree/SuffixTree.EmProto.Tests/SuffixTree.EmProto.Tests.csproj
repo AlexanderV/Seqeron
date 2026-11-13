@@ -25,10 +25,14 @@
     <!-- the adversarial string families and their PRNG, shared with the ESA test project: the generators of the prototype must reproduce them exactly (libsais hashes) -->
     <Compile Include="..\SuffixTree.Esa.Tests\TestSupport\StringFamilies.cs" Link="Shared\StringFamilies.cs" />
     <Compile Include="..\SuffixTree.Esa.Tests\TestSupport\SplitMix64.cs" Link="Shared\SplitMix64.cs" />
+    <Compile Include="..\SuffixTree.Esa.Tests\TestSupport\ExhaustiveStrings.cs" Link="Shared\ExhaustiveStrings.cs" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\..\apps\SuffixTree.EmProto\SuffixTree.EmProto.csproj" />
+    <!-- the Ukkonen tree and the logical hash: the oracle of PH5 for tiny texts (ADR-004 section 5, "Oracles per stage") -->
+    <ProjectReference Include="..\..\..\src\SuffixTree\Algorithms\SuffixTree\SuffixTree.csproj" />
+    <ProjectReference Include="..\..\..\src\SuffixTree\Algorithms\SuffixTree.Persistent\SuffixTree.Persistent.csproj" />
   </ItemGroup>
 
 </Project>

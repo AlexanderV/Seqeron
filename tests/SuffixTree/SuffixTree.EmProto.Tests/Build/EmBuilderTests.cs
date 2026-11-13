@@ -64,10 +64,10 @@ public class EmBuilderTests
         var rng = new SplitMix64(99);
         foreach (DenseCase c in new[]
         {
-            BuilderTestSupport.Dense("random-dna", SuffixTree.Esa.Tests.TestSupport.StringFamilies.RandomDna(100_000, 3)),
-            BuilderTestSupport.Dense("fibonacci", SuffixTree.Esa.Tests.TestSupport.StringFamilies.Fibonacci(100_000)),
-            BuilderTestSupport.Dense("periodic-p64", SuffixTree.Esa.Tests.TestSupport.StringFamilies.Periodic(60_000, 64, 1)),
-            BuilderTestSupport.Dense("all-same", SuffixTree.Esa.Tests.TestSupport.StringFamilies.AllSame(30_000)),
+            BuilderTestSupport.Dense("random-dna", global::SuffixTree.Esa.Tests.TestSupport.StringFamilies.RandomDna(100_000, 3)),
+            BuilderTestSupport.Dense("fibonacci", global::SuffixTree.Esa.Tests.TestSupport.StringFamilies.Fibonacci(100_000)),
+            BuilderTestSupport.Dense("periodic-p64", global::SuffixTree.Esa.Tests.TestSupport.StringFamilies.Periodic(60_000, 64, 1)),
+            BuilderTestSupport.Dense("all-same", global::SuffixTree.Esa.Tests.TestSupport.StringFamilies.AllSame(30_000)),
         })
         {
             uint[] expected = c.ReferenceSa();
@@ -84,7 +84,7 @@ public class EmBuilderTests
     [Test]
     public void Output_DoesNotDependOnThreadsLeafCapacityFanOutOrSeed()
     {
-        DenseCase c = BuilderTestSupport.Dense("dna", SuffixTree.Esa.Tests.TestSupport.StringFamilies.RandomDna(20_000, 8));
+        DenseCase c = BuilderTestSupport.Dense("dna", global::SuffixTree.Esa.Tests.TestSupport.StringFamilies.RandomDna(20_000, 8));
         uint[] baseline = BuilderTestSupport.Build(c, 2, Options(1 << 20, 64, 1, 1));
         Assert.That(baseline, Is.EqualTo(c.ReferenceSa()));
         foreach ((long k, int f, int threads, ulong seed) in new[] { (7L, 2, 1, 5UL), (50L, 4, 2, 6UL), (300L, 3, 4, 7UL), (3000L, 64, 4, 8UL) })
@@ -100,8 +100,8 @@ public class EmBuilderTests
         {
             foreach (DenseCase c in new[]
             {
-                BuilderTestSupport.Dense("dna", SuffixTree.Esa.Tests.TestSupport.StringFamilies.RandomDna(30_000, 2)),
-                BuilderTestSupport.Dense("tm", SuffixTree.Esa.Tests.TestSupport.StringFamilies.ThueMorse(20_000)),
+                BuilderTestSupport.Dense("dna", global::SuffixTree.Esa.Tests.TestSupport.StringFamilies.RandomDna(30_000, 2)),
+                BuilderTestSupport.Dense("tm", global::SuffixTree.Esa.Tests.TestSupport.StringFamilies.ThueMorse(20_000)),
             })
             {
                 IoCounters.Reset();
@@ -122,7 +122,7 @@ public class EmBuilderTests
     public void TieRunSorting_MergeAndIntro_GiveTheSameSuffixArray_AndMergeNeedsFewerComparisonsOnReverseOrderedRuns()
     {
         DenseCase same = BuilderTestSupport.Dense("same", new string('a', 6000));
-        DenseCase tm = BuilderTestSupport.Dense("tm", SuffixTree.Esa.Tests.TestSupport.StringFamilies.ThueMorse(8000));
+        DenseCase tm = BuilderTestSupport.Dense("tm", global::SuffixTree.Esa.Tests.TestSupport.StringFamilies.ThueMorse(8000));
         foreach (DenseCase c in new[] { same, tm })
         {
             uint[] expected = c.ReferenceSa();
@@ -163,7 +163,7 @@ public class EmBuilderTests
     public void KeyTiesAreCounted_AndRepetitiveTextsHaveMany()
     {
         DenseCase same = BuilderTestSupport.Dense("same", new string('a', 4000));
-        DenseCase dna = BuilderTestSupport.Dense("dna", SuffixTree.Esa.Tests.TestSupport.StringFamilies.RandomDna(4000, 1));
+        DenseCase dna = BuilderTestSupport.Dense("dna", global::SuffixTree.Esa.Tests.TestSupport.StringFamilies.RandomDna(4000, 1));
         long Ties(DenseCase c)
         {
             using PackedText t = PackedText.Pack(c.Symbols, Math.Max(1, c.MinBits));
@@ -178,7 +178,7 @@ public class EmBuilderTests
     [Test]
     public void LeafBuffersAreChargedToTheBudget()
     {
-        DenseCase c = BuilderTestSupport.Dense("dna", SuffixTree.Esa.Tests.TestSupport.StringFamilies.RandomDna(5000, 1));
+        DenseCase c = BuilderTestSupport.Dense("dna", global::SuffixTree.Esa.Tests.TestSupport.StringFamilies.RandomDna(5000, 1));
         var options = Options(1000, 4, 1, 1) with { Budget = new ArenaBudget(1000 * 24 - 1) };
         Assert.Throws<InvalidOperationException>(() => BuilderTestSupport.Build(c, 2, options));
         var budget = new ArenaBudget(1000 * 24);
@@ -190,7 +190,7 @@ public class EmBuilderTests
     [Test]
     public void ExactPartitionSizes_NoRetriesOnRandomText_AndDepthGrowsWithNOverK()
     {
-        DenseCase c = BuilderTestSupport.Dense("dna", SuffixTree.Esa.Tests.TestSupport.StringFamilies.RandomDna(50_000, 4));
+        DenseCase c = BuilderTestSupport.Dense("dna", global::SuffixTree.Esa.Tests.TestSupport.StringFamilies.RandomDna(50_000, 4));
         using PackedText t = PackedText.Pack(c.Symbols, 2);
         using var sink = new MemorySaSink(c.Symbols.Length + 1L);
         BuildStats st = EmBuilder.Run(t, Options(10, 2, 1, 1), sink);

@@ -139,7 +139,7 @@ public class MappedSinkTests
         int rc = E3.Build(Options.Parse(["--text", pk, "--ranks", ranks, "--sa", sa, "--scratch", scratch, "--threads", "3", "--k-div", kDiv.ToString(System.Globalization.CultureInfo.InvariantCulture), "--budget-mb", "16", "--rss-cap-mb", "100000"]), report);
         Assert.That(rc, Is.EqualTo(0), "no scratch file left behind (the RssAnon cap does not apply inside the test host)");
 
-        SuffixTree.EmProto.Gen.SymbolText text = FamilyLoader.Load(family, string.Empty);
+        global::SuffixTree.EmProto.Gen.SymbolText text = FamilyLoader.Load(family, string.Empty);
         int[] expected = Oracle.SaisKernelSa(text, out _);
         string expectedHash;
         unsafe
