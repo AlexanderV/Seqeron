@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using SuffixTree.Esa;
 using SuffixTree.EmProto.Build;
@@ -26,6 +27,23 @@ internal struct ValueEntry
     internal uint Index;
 }
 
+/// <summary>One block of the backward scan (a class so that the loop is one method that is compiled fully optimised at once).</summary>
+internal sealed class NsvBlock(SpillStack<ValueEntry> stack, AlignedWindowWriter writer, uint none)
+{
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+    internal void Process(long first, ReadOnlySpan<uint> values)
+    {
+        for (int j = values.Length - 1; j >= 0; j--)
+        {
+            uint x = values[j];
+            while (stack.Height > 0 && stack.Top.Value >= x) stack.Pop();
+            uint rank = (uint)(first + j);
+            writer.Write32(rank, stack.Height > 0 ? stack.Top.Index : none);
+            stack.Push(new ValueEntry { Value = x, Index = rank });
+        }
+    }
+}
+
 /// <summary>
 /// The backward half of layout F (ADR-004 section 3.2: "NSV by a backward scan of the LCP stream with the same stack"): next smaller value (strict) of every rank, <c>NSV[i] = min { j &gt; i : LCP[j] &lt; LCP[i] }</c> or
 /// <c>n + 1</c>, written in descending rank order, so every write is sequential. The stack holds the distinct values seen so far (strictly increasing from the bottom, at most <c>1 + max LCP</c> entries) in a
@@ -43,18 +61,9 @@ internal static class NsvScan
         using var arena = new BudgetedArena(options.Budget ?? new ArenaBudget(long.MaxValue), options.ArenaGuards, options.TouchBuffers);
         using var stack = new SpillStack<ValueEntry>(arena, Path.Combine(options.ScratchDir, "ph5-nsv-" + Guid.NewGuid().ToString("N") + ".spill"), options.BlockEntries, options.SpillFlushBytes);
         using var writer = new AlignedWindowWriter(nsvPath, 4 * (n + 1), options.WindowBytes, 2, options.FlushWindows);
+        var block = new NsvBlock(stack, writer, none);
         long t0 = Stopwatch.GetTimestamp();
-        lcp.ForEachBackward((first, values) =>
-        {
-            for (int j = values.Length - 1; j >= 0; j--)
-            {
-                uint x = values[j];
-                while (stack.Height > 0 && stack.Top.Value >= x) stack.Pop();
-                uint rank = (uint)(first + j);
-                writer.Write32(rank, stack.Height > 0 ? stack.Top.Index : none);
-                stack.Push(new ValueEntry { Value = x, Index = rank });
-            }
-        });
+        lcp.ForEachBackward(block.Process);
         writer.Dispose();
         return new NsvResult { StackPeak = stack.PeakHeight, Spill = stack.Stats, Windows = writer.Stats, Seconds = (Stopwatch.GetTimestamp() - t0) / (double)Stopwatch.Frequency };
     }

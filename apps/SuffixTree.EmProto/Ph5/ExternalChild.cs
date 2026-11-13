@@ -38,20 +38,33 @@ internal static class ExternalChild
         ArgumentNullException.ThrowIfNull(outputs);
         ArgumentNullException.ThrowIfNull(options);
         ChildScanResult forward;
-        long t0 = Stopwatch.GetTimestamp();
-        using (var file = new CompactLcpFile(lcpBase, lcpOverflow, n, options.ReadBufferBytes))
-        using (ChildScan scan = ChildScan.Create(n, new ChildScanOutputs { ChildPath = outputs.Child, PsvPath = outputs.Psv }, options))
+        Task<NsvResult>? parallel = outputs.Nsv is not null && options.ParallelBackward ? Task.Run(() => Backward(n, lcpBase, lcpOverflow, outputs.Nsv, options)) : null;
+        double wall;
+        try
         {
-            file.ForEachForward(scan.Consume);
-            forward = scan.Complete();
+            long t0 = Stopwatch.GetTimestamp();
+            using (var file = new CompactLcpFile(lcpBase, lcpOverflow, n, options.ReadBufferBytes))
+            using (ChildScan scan = ChildScan.Create(n, new ChildScanOutputs { ChildPath = outputs.Child, PsvPath = outputs.Psv }, options))
+            {
+                file.ForEachForward(scan.Consume);
+                forward = scan.Complete();
+            }
+            wall = (Stopwatch.GetTimestamp() - t0) / (double)Stopwatch.Frequency;
         }
-        double wall = (Stopwatch.GetTimestamp() - t0) / (double)Stopwatch.Frequency;
+        catch
+        {
+            if (parallel is not null) ((IAsyncResult)parallel).AsyncWaitHandle.WaitOne();
+            throw;
+        }
         NsvResult? backward = null;
-        if (outputs.Nsv is not null)
-        {
-            using var file = new CompactLcpFile(lcpBase, lcpOverflow, n, options.ReadBufferBytes);
-            backward = NsvScan.Run(n, file, outputs.Nsv, options);
-        }
+        if (parallel is not null) backward = parallel.GetAwaiter().GetResult();
+        else if (outputs.Nsv is not null) backward = Backward(n, lcpBase, lcpOverflow, outputs.Nsv, options);
         return new ChildBuildStats { Forward = forward, Backward = backward, ForwardWallSeconds = wall, LcpBytes = new FileInfo(lcpBase).Length + new FileInfo(lcpOverflow).Length };
+    }
+
+    private static NsvResult Backward(long n, string lcpBase, string lcpOverflow, string nsvPath, ChildBuildOptions options)
+    {
+        using var file = new CompactLcpFile(lcpBase, lcpOverflow, n, options.ReadBufferBytes);
+        return NsvScan.Run(n, file, nsvPath, options);
     }
 }

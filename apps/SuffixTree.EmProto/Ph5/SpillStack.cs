@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using SuffixTree.EmProto.Build;
 using SuffixTree.EmProto.Harness;
 
@@ -69,21 +70,24 @@ internal sealed unsafe class SpillStack<T> : IDisposable
     /// <summary>The top entry (read access; a write through this reference is not seen by the spill: use <see cref="TopForUpdate"/>).</summary>
     internal ref T Top
     {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         get
         {
-            if (_height == 0) throw new InvalidOperationException("the stack is empty");
+            if (_height == 0) ThrowEmpty();
             return ref _cur[_count - 1];
         }
     }
 
     /// <summary>The top entry for modification: its block is marked dirty, so a later spill writes it.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal ref T TopForUpdate()
     {
-        if (_height == 0) throw new InvalidOperationException("the stack is empty");
+        if (_height == 0) ThrowEmpty();
         _curDirty = true;
         return ref _cur[_count - 1];
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal void Push(in T value)
     {
         if (_count == _block) Advance();
@@ -92,13 +96,15 @@ internal sealed unsafe class SpillStack<T> : IDisposable
         if (++_height > _peak) _peak = _height;
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal void Pop()
     {
-        if (_height == 0) throw new InvalidOperationException("the stack is empty");
+        if (_height == 0) ThrowEmpty();
         _height--;
-        _count--;
-        if (_count == 0 && _height > 0) Retreat();
+        if (--_count == 0 && _height > 0) Retreat();
     }
+
+    private static void ThrowEmpty() => throw new InvalidOperationException("the stack is empty");
 
     public void Dispose()
     {
@@ -112,6 +118,7 @@ internal sealed unsafe class SpillStack<T> : IDisposable
     }
 
     /// <summary>The top block is full and one more entry comes: the next block becomes the top block.</summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
     private void Advance()
     {
         if (_otherBelow)
@@ -132,6 +139,7 @@ internal sealed unsafe class SpillStack<T> : IDisposable
     }
 
     /// <summary>The top block is empty and entries remain: the full block below becomes the top block (read back when it is not resident).</summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
     private void Retreat()
     {
         if (!_otherBelow)

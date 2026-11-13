@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using SuffixTree.Esa;
 using SuffixTree.EmProto.Harness;
@@ -42,6 +43,9 @@ internal sealed record ChildBuildOptions
     internal ArenaOptions? ArenaGuards { get; init; }
 
     internal bool TouchBuffers { get; init; }
+
+    /// <summary>Layout F from a file: run the backward NSV scan on its own thread while the forward scan runs (the two passes are independent: both read the LCP file, they write different files); false = one pass after the other.</summary>
+    internal bool ParallelBackward { get; init; }
 }
 
 /// <summary>The files the forward scan writes (null = that part is off): the single-array child table (layout A) and the PSV array of layout F.</summary>
@@ -236,6 +240,7 @@ internal sealed class ScanCore<TSink> : IScanCore
         _stack.Push(new IntervalEntry { Ell = 0, Lb = 0, First = ChildScan.None, Last = ChildScan.None });
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     public void Consume(long firstRank, ReadOnlySpan<uint> lcp)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
