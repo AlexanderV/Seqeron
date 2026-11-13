@@ -1,0 +1,2 @@
+P13b	a failing run leaves its scratch directory (replacement of P13, which did not compile: the analyzer rejects a catch that only rethrows)	killed(9)	
+P15b	the tracker is told that 0 bytes of scratch are gone (replacement of P15, which did not compile: unused local)	killed(16)	

@@ -1,0 +1,14 @@
+P01	the statistics file is written after the sync phase instead of before it	killed(5)	
+P02	PH1 is given the bucket capacity of PH3	killed(1)	
+P06	PH4 is given the chunk slots of PH1 as its chunk	killed(2)	
+P07	the thread count is ignored by PH3	killed(1)	
+P09	the thread count is ignored by PH4	killed(1)	
+P12	the scratch directory is not deleted after a successful run	killed(15)	
+P13	a failing run leaves its scratch directory	BUILD-ERROR S2737	
+P14	the rank file is not deleted after PH3	killed(1)	
+P15	the tracker is not told that the rank file is gone	BUILD-ERROR S1481	
+P17	the suffix array file has n entries instead of n + 1	killed(19)	
+P23	PH5 is not attached to the hook of PH4	killed(19)	
+P24	the hook consumer is not called for the last chunk	killed(19)	
+P25	off by one at the chunk boundary handed to PH5: every chunk loses its last value	killed(19)	
+P28	the scratch tracker is not reset at the start of a run	killed(10)	

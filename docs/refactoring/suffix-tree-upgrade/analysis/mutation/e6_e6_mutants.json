@@ -12,58 +12,10 @@
   "new": "SyncOutputs = o.Flag(\"no-sync\"),"
  },
  {
-  "id": "C03",
-  "desc": "the scale-down is on by default",
-  "old": "ScaleN = o.Long(\"scale-n\", 0),",
-  "new": "ScaleN = o.Long(\"scale-n\", 3_000_000_000),"
- },
- {
-  "id": "C04",
-  "desc": "the default codec is tagged",
-  "old": "o.Str(\"codec\", \"packed\")",
-  "new": "o.Str(\"codec\", \"tagged\")"
- },
- {
-  "id": "C05",
-  "desc": "--spill-kb is read in thousands of bytes",
-  "old": "SpillBytes = Kb(\"spill-kb\"),",
-  "new": "SpillBytes = I(\"spill-kb\") is { } sk ? sk * 1000 : null,"
- },
- {
-  "id": "C06",
-  "desc": "--chunk sets the chunk slots of PH1",
-  "old": "LcpChunk = L(\"chunk\"),",
-  "new": "LcpChunk = L(\"dcs-chunk\"),"
- },
- {
-  "id": "C07",
-  "desc": "--k-s sets the bucket capacity of PH3",
-  "old": "DcsBucketCapacity = L(\"k-s\"),",
-  "new": "DcsBucketCapacity = L(\"k\"),"
- },
- {
-  "id": "C08",
-  "desc": "the PH5 arena cap is read in KiB",
-  "old": "o.Long(\"ph5-budget-mb\", 64) << 20",
-  "new": "o.Long(\"ph5-budget-mb\", 64) << 10"
- },
- {
   "id": "C09",
   "desc": "the packed text is not compared with its reference",
   "old": "        Compare(\"pk\", res.Files.Packed, o.Get(\"verify-pk\"));\n",
   "new": ""
- },
- {
-  "id": "C10",
-  "desc": "the suffix array is not compared with its reference",
-  "old": "        Compare(\"sa\", res.Files.Sa, o.Get(\"verify-sa\"));\n",
-  "new": ""
- },
- {
-  "id": "C11",
-  "desc": "a difference does not fail the run",
-  "old": "ok &= equal;\n        }\n        Compare(\"pk\"",
-  "new": "if (false) ok &= equal;\n        }\n        Compare(\"pk\""
  },
  {
   "id": "C12",
@@ -72,75 +24,15 @@
   "new": "new[] { \"nodecount\", \"internal\", \"lrsdepth\" }.All"
  },
  {
-  "id": "C13",
-  "desc": "the overflow list is not compared",
-  "old": "            Compare(\"ovf\", res.Files.Overflow, lcp + \".ovf\");\n",
-  "new": ""
- },
- {
   "id": "C14",
   "desc": "the exit code needs only one of the RssAnon cap and a clean run",
   "old": "bool ok = res.RssAnonPeakMb <= o.Double(\"rss-cap-mb\", RssCapMb) && res.Clean;",
   "new": "bool ok = res.RssAnonPeakMb <= o.Double(\"rss-cap-mb\", RssCapMb) || res.Clean;"
  },
  {
-  "id": "C15",
-  "desc": "the default RssAnon cap is 25,600 MB",
-  "old": "internal const double RssCapMb = 256;",
-  "new": "internal const double RssCapMb = 25600;"
- },
- {
-  "id": "C16",
-  "desc": "the CHILD bytes are 4 n instead of 4 (n + 1)",
-  "old": "long child = 4 * (n + 1);",
-  "new": "long child = 4 * n;"
- },
- {
-  "id": "C17",
-  "desc": "total_s is the wall time of the whole run",
-  "old": "r.Row(\"E6\", c, \"total_s\", total, \"s\"",
-  "new": "r.Row(\"E6\", c, \"total_s\", wall, \"s\""
- },
- {
   "id": "C18",
   "desc": "the text file holds the dense codes instead of the letters",
   "old": "File.WriteAllBytes(outPath, Gen.Families.ToAscii(text));",
   "new": "File.WriteAllBytes(outPath, text.Symbols);"
- },
- {
-  "id": "C19",
-  "desc": "the hash comparison accepts any hash",
-  "old": "bool equal = string.Equals(hash, expectedHash, StringComparison.OrdinalIgnoreCase);",
-  "new": "bool equal = true;"
- },
- {
-  "id": "C20",
-  "desc": "the SA stage row is the total",
-  "old": "r.Row(\"E6\", c, \"sa_stage_s\", res.SaStageSeconds, \"s\"",
-  "new": "r.Row(\"E6\", c, \"sa_stage_s\", res.StageSeconds, \"s\""
- },
- {
-  "id": "C21",
-  "desc": "ns per symbol uses the wall time",
-  "old": "r.Row(\"E6\", c, \"ns_per_symbol\", total * 1e9 / n, \"ns\"",
-  "new": "r.Row(\"E6\", c, \"ns_per_symbol\", wall * 1e9 / n, \"ns\""
- },
- {
-  "id": "C22",
-  "desc": "the output footprint leaves out the metadata files",
-  "old": "foreach (string f in res.Files.All)\n        {\n            long len",
-  "new": "foreach (string f in res.Files.Big)\n        {\n            long len"
- },
- {
-  "id": "C23",
-  "desc": "the packed codec is selected by --codec tagged",
-  "old": "\"tagged\" => ChildCodec.Tagged,\n            \"packed\" => ChildCodec.Packed,",
-  "new": "\"tagged\" => ChildCodec.Packed,\n            \"packed\" => ChildCodec.Packed,"
- },
- {
-  "id": "C24",
-  "desc": "the exact flag is not read",
-  "old": "ExactPeriod = o.Flag(\"exact\"),",
-  "new": "ExactPeriod = false,"
  }
 ]

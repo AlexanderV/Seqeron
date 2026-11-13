@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Single-site mutants of the new code of the driver of the end-to-end pipeline (prototype E6: Pipeline/EndToEnd.cs, Prepare.cs, the scale rules, Experiments/E6.cs): each mutant is built and tested in the Release configuration with a WATCHDOG: a wrong scan can make a
    loop non-terminating (a window that never advances, a stack that never retreats), so every build and every test run has a time limit, the whole process group (the test host included) is killed on
-   expiry, and the mutant counts as killed(hang). Stage 1 runs the WholePipeline tests without the slow ones (the exhaustive enumeration, the families at 10^5 and 10^6, the seeded fuzz sample, the thread and K identity); a mutant that survives it is run again against stage 2 (all of them but the exhaustive enumeration). The source file is restored after every mutant.
+   expiry, and the mutant counts as killed(hang). Stage 1 runs the WholePipeline tests without the slow ones (the exhaustive enumeration, the enumeration through CHILD, the seeded fuzz sample, the thread and K identity: about 20 s of tests); a mutant that survives it is run again against stage 2 (all of them but the exhaustive enumeration). The source file is restored after every mutant.
    usage: E6_ROOT=<git worktree> run_e6_mutants.py <file relative to the repo root> <mutants.json> <result.tsv> [<start>:<end> slice] [stage-2 filter]
    environment: MUTANT_BUILD_LIMIT (s, default 300), MUTANT_TEST_LIMIT (s, default 240)."""
 import json, os, re, signal, subprocess, sys
@@ -13,7 +13,7 @@ env = dict(os.environ, PATH=os.environ['PATH'] + ':/root/.dotnet', DOTNET_ROOT='
 kernel, mutants_file, out = sys.argv[1], sys.argv[2], sys.argv[3]
 sl = sys.argv[4] if len(sys.argv) > 4 else ''
 stage2 = sys.argv[5] if len(sys.argv) > 5 else 'FullyQualifiedName~EmProto.Tests.WholePipeline&FullyQualifiedName!~Exhaustive_'
-stage1 = 'FullyQualifiedName~EmProto.Tests.WholePipeline&FullyQualifiedName!~Exhaustive_&FullyQualifiedName!~TheDeepFamilies&FullyQualifiedName!~At100000&FullyQualifiedName!~ASeeded&FullyQualifiedName!~OutputIsIdentical'
+stage1 = 'FullyQualifiedName~EmProto.Tests.WholePipeline&FullyQualifiedName!~Exhaustive_&FullyQualifiedName!~TinyTexts_Enumeration&FullyQualifiedName!~ASeeded&FullyQualifiedName!~OutputIsIdentical'
 path = os.path.join(ROOT, kernel)
 proj = ROOT + '/tests/SuffixTree/SuffixTree.EmProto.Tests/SuffixTree.EmProto.Tests.csproj'
 orig = open(path).read()

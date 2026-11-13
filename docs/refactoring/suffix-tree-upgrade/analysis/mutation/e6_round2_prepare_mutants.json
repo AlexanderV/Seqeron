@@ -1,0 +1,14 @@
+[
+ {
+  "id": "R01b",
+  "desc": "the symbol counts are not computed (replacement of R01, which did not compile: empty block)",
+  "old": "foreach (byte b in block.AsSpan(0, take)) counts[b]++;",
+  "new": "foreach (byte b in block.AsSpan(0, take)) counts[b] += 0;"
+ },
+ {
+  "id": "R05b",
+  "desc": "a block that is not a multiple of 8 is accepted (replacement of R05, which did not compile: redundant boolean)",
+  "old": "blockSymbols % BlockMultiple != 0",
+  "new": "blockSymbols % BlockMultiple != 0 && blockSymbols > int.MaxValue / 2"
+ }
+]

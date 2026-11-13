@@ -1,0 +1,2 @@
+R01b	the symbol counts are not computed (replacement of R01, which did not compile: empty block)	killed(34)	
+R05b	a block that is not a multiple of 8 is accepted (replacement of R05, which did not compile: redundant boolean)	killed(2)	

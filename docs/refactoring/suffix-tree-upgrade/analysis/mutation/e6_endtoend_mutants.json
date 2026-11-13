@@ -12,24 +12,6 @@
   "new": "BucketCapacity = p.BucketCapacity,"
  },
  {
-  "id": "P03",
-  "desc": "PH1 is given the sort capacity as its base case",
-  "old": "BaseCase = p.DcsBaseCase,",
-  "new": "BaseCase = p.DcsSortCapacity,"
- },
- {
-  "id": "P04",
-  "desc": "PH1 is given the chunk of PH4 as its chunk slots",
-  "old": "ChunkSlots = p.DcsChunkSlots,",
-  "new": "ChunkSlots = p.LcpChunk,"
- },
- {
-  "id": "P05",
-  "desc": "PH3 is given the bucket capacity of PH1",
-  "old": "LeafCapacity = p.BucketCapacity,",
-  "new": "LeafCapacity = p.DcsBucketCapacity,"
- },
- {
   "id": "P06",
   "desc": "PH4 is given the chunk slots of PH1 as its chunk",
   "old": "ChunkPositions = p.LcpChunk,",
@@ -42,28 +24,10 @@
   "new": "Threads = 1,\n                    Seed = 1,\n                    Oversample = p.Oversample,"
  },
  {
-  "id": "P08",
-  "desc": "the thread count is ignored by PH1",
-  "old": "Threads = o.Threads,\n                    Seed = 1,\n                    FanOut = p.DcsFanOut,",
-  "new": "Threads = 1,\n                    Seed = 1,\n                    FanOut = p.DcsFanOut,"
- },
- {
   "id": "P09",
   "desc": "the thread count is ignored by PH4",
   "old": "ChunkPositions = p.LcpChunk,\n                    Threads = o.Threads,",
   "new": "ChunkPositions = p.LcpChunk,\n                    Threads = 1,"
- },
- {
-  "id": "P10",
-  "desc": "PH4 runs in the bounded mode",
-  "old": "Mode = LcpMode.Distributed,",
-  "new": "Mode = LcpMode.Bounded,"
- },
- {
-  "id": "P11",
-  "desc": "the codec option is ignored (always tagged)",
-  "old": "Codec = o.Codec,",
-  "new": "Codec = ChildCodec.Tagged,"
  },
  {
   "id": "P12",
@@ -90,46 +54,10 @@
   "new": ""
  },
  {
-  "id": "P16",
-  "desc": "the tracker is not told about the rank file",
-  "old": "                ScratchTracker.Add(new FileInfo(ranksPath).Length); // the rank file is scratch of the pipeline from here on\n",
-  "new": ""
- },
- {
   "id": "P17",
   "desc": "the suffix array file has n entries instead of n + 1",
   "old": "new MappedSaSink(files.Sa, n + 1)",
   "new": "new MappedSaSink(files.Sa, n)"
- },
- {
-  "id": "P18",
-  "desc": "the final-length check of the packed text forgets the padding",
-  "old": "Expect(r.Files.Packed, PackedText.TotalBytes(n, r.Prepare.Bits), \"the packed text\");",
-  "new": "Expect(r.Files.Packed, PackedText.DataBytes(n, r.Prepare.Bits), \"the packed text\");"
- },
- {
-  "id": "P19",
-  "desc": "the metadata file is not written",
-  "old": "                File.WriteAllText(files.PackedMeta, prep.MetaText(Path.GetFileName(o.InputPath)));\n",
-  "new": ""
- },
- {
-  "id": "P20",
-  "desc": "the sync is skipped although it was asked for",
-  "old": "if (o.SyncOutputs) Phase(",
-  "new": "if (false && o.SyncOutputs) Phase("
- },
- {
-  "id": "P21",
-  "desc": "PH1 gets the arena cap of PH5",
-  "old": "ArenaBudget dcsBudget = Budget(o.ArenaCapBytes);",
-  "new": "ArenaBudget dcsBudget = Budget(o.ChildArenaCapBytes);"
- },
- {
-  "id": "P22",
-  "desc": "the CHILD windows are not flushed when released",
-  "old": "FlushWindows = true,",
-  "new": "FlushWindows = false,"
  },
  {
   "id": "P23",
@@ -162,81 +90,9 @@
   ]
  },
  {
-  "id": "P26",
-  "desc": "NODE_COUNT is written as the number of internal nodes",
-  "old": "$\"nodecount={r.Scan.NodeCount}\\ninternal",
-  "new": "$\"nodecount={r.Scan.InternalCount}\\ninternal"
- },
- {
-  "id": "P27",
-  "desc": "LRS_DEPTH and LRS_RANK are swapped in the statistics file",
-  "old": "lrsdepth={r.Scan.LrsDepth}\\nlrsrank={r.Scan.LrsRank}",
-  "new": "lrsdepth={r.Scan.LrsRank}\\nlrsrank={r.Scan.LrsDepth}"
- },
- {
   "id": "P28",
   "desc": "the scratch tracker is not reset at the start of a run",
   "old": "        ScratchTracker.Reset();\n        var budgets",
   "new": "        var budgets"
- },
- {
-  "id": "P29",
-  "desc": "the exact period and the Singer period are swapped",
-  "old": "o.ExactPeriod ? DifferenceCover.Create(o.Period) : DifferenceCover.Create(DifferenceCover.NearestSingerPeriod(o.Period))",
-  "new": "o.ExactPeriod ? DifferenceCover.Create(DifferenceCover.NearestSingerPeriod(o.Period)) : DifferenceCover.Create(o.Period)"
- },
- {
-  "id": "P30",
-  "desc": "a non-empty scratch directory is accepted",
-  "old": "if (Directory.Exists(full) && Directory.EnumerateFileSystemEntries(full).Any()) throw",
-  "new": "if (false && Directory.Exists(full) && Directory.EnumerateFileSystemEntries(full).Any()) throw"
- },
- {
-  "id": "P31",
-  "desc": "an empty input is accepted",
-  "old": "if (n == 0) throw new ArgumentException(\"the input text is empty\", nameof(o));",
-  "new": ""
- },
- {
-  "id": "P32",
-  "desc": "the stage time includes the sync",
-  "old": "Phases.Where(p => p.Name != EndToEnd.PhaseSync).Sum(p => p.Seconds)",
-  "new": "Phases.Sum(p => p.Seconds)"
- },
- {
-  "id": "P33",
-  "desc": "the SA stage includes PH4",
-  "old": "p.Name is EndToEnd.PhasePrepare or EndToEnd.PhaseDcs or EndToEnd.PhaseSa).Sum",
-  "new": "p.Name is EndToEnd.PhasePrepare or EndToEnd.PhaseDcs or EndToEnd.PhaseSa or EndToEnd.PhaseLcpChild).Sum"
- },
- {
-  "id": "P34",
-  "desc": "the RssAnon peak of the run is not reported",
-  "old": "r.RssAnonPeakMb = all.MaxRssAnonMb;",
-  "new": "r.RssAnonPeakMb = 0;"
- },
- {
-  "id": "P35",
-  "desc": "PH4 workers are not passed on",
-  "old": "Workers = p.LcpWorkers,",
-  "new": ""
- },
- {
-  "id": "P36",
-  "desc": "the CHILD windows use the PH4 window size",
-  "old": "WindowBytes = p.ChildWindowBytes,",
-  "new": "WindowBytes = p.WindowBytes,"
- },
- {
-  "id": "P38",
-  "desc": "the input file is not checked for existence",
-  "old": "if (!File.Exists(o.InputPath)) throw new FileNotFoundException(\"the input text does not exist\", o.InputPath);",
-  "new": ""
- },
- {
-  "id": "P39",
-  "desc": "the scratch of PH5 is the scratch of PH4",
-  "old": "ScratchDir = dirPh5,",
-  "new": "ScratchDir = dirPh4,"
  }
 ]

@@ -1,0 +1,6 @@
+C01	the default thread count is one	killed(1)	
+C02	the sync is off by default and on with --no-sync	killed(2)	
+C09	the packed text is not compared with its reference	killed(1)	
+C12	LRS_RANK is not compared	killed(1)	
+C14	the exit code needs only one of the RssAnon cap and a clean run	killed(1)	
+C18	the text file holds the dense codes instead of the letters	killed(1)	

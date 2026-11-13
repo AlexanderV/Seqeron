@@ -1,0 +1,5 @@
+S01	the references are truncated instead of rounded	killed(4)	
+S03	R of PH4 is rounded down	killed(6)	
+S04	the reference K of PH3 is 2^20	killed(8)	
+S08	an explicit R of PH4 is ignored	killed(2)	
+S11	unscaled runs use the scale rule with a factor of one on ScaleN 0 (division by zero)	killed(4)	

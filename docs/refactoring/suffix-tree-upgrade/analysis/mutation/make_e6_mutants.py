@@ -28,6 +28,8 @@ END_TO_END = [
     m('P11', 'the codec option is ignored (always tagged)', "Codec = o.Codec,", "Codec = ChildCodec.Tagged,"),
     m('P12', 'the scratch directory is not deleted after a successful run', "        DeleteScratch(full);\n        r.ScratchDirectoryExists", "        r.ScratchDirectoryExists"),
     m('P13', 'a failing run leaves its scratch directory', "        catch\n        {\n            DeleteScratch(full);\n            throw;\n        }", "        catch\n        {\n            throw;\n        }"),
+    m('P13b', 'a failing run leaves its scratch directory (replacement of P13, which did not compile: the analyzer rejects a catch that only rethrows)', "        catch\n        {\n            DeleteScratch(full);\n            throw;\n        }", "        catch\n        {\n            GC.KeepAlive(full);\n            throw;\n        }"),
+    m('P15b', 'the tracker is told that 0 bytes of scratch are gone (replacement of P15, which did not compile: unused local)', "                ScratchTracker.Remove(rankBytes);\n", "                ScratchTracker.Remove(0 * rankBytes);\n"),
     m('P14', 'the rank file is not deleted after PH3', "                File.Delete(ranksPath); // the rank file has served its only consumer\n", ""),
     m('P15', 'the tracker is not told that the rank file is gone', "                ScratchTracker.Remove(rankBytes);\n", ""),
     m('P16', 'the tracker is not told about the rank file', "                ScratchTracker.Add(new FileInfo(ranksPath).Length); // the rank file is scratch of the pipeline from here on\n", ""),
@@ -61,6 +63,8 @@ END_TO_END = [
 
 PREPARE = [
     m('R01', 'the symbol counts are not computed', "foreach (byte b in block.AsSpan(0, take)) counts[b]++;", "foreach (byte b in block.AsSpan(0, take)) { }"),
+    m('R01b', 'the symbol counts are not computed (replacement of R01, which did not compile: empty block)', "foreach (byte b in block.AsSpan(0, take)) counts[b]++;", "foreach (byte b in block.AsSpan(0, take)) counts[b] += 0;"),
+    m('R05b', 'a block that is not a multiple of 8 is accepted (replacement of R05, which did not compile: redundant boolean)', "blockSymbols % BlockMultiple != 0", "blockSymbols % BlockMultiple != 0 && blockSymbols > int.MaxValue / 2"),
     m('R02', 'the hash misses the last byte of every block', "hash.AppendData(block.AsSpan(0, take));", "hash.AppendData(block.AsSpan(0, take - 1));"),
     m('R03', 'the width is computed for sigma - 1', "int bits = Math.Max(1, PackedText.BitsFor(letters.Count));", "int bits = Math.Max(1, PackedText.BitsFor(letters.Count - 1));"),
     m('R04', 'the dense symbols follow decreasing byte order', "for (int v = 0; v < 256; v++)\n        {\n            if (counts[v] == 0) continue;", "for (int v = 255; v >= 0; v--)\n        {\n            if (counts[v] == 0) continue;"),
@@ -76,7 +80,7 @@ PREPARE = [
     m('R14', 'the metadata gives the width as sigma', "sigma={Sigma}\\n", "sigma={Bits}\\n"),
     m('R15', 'the second pass reads one byte less per block', "input.ReadExactAt(block.AsSpan(0, take), at);\n                for (int i = 0; i < take; i++)", "input.ReadExactAt(block.AsSpan(0, take - 1), at);\n                for (int i = 0; i < take; i++)"),
     m('R16', 'the sigma-th letter is lost: the counts list drops the last symbol', "[.. letters.Select(l => counts[l])]", "[.. letters.Select(l => counts[l]).SkipLast(1)]"),
-    m('R17', 'the number of symbols is the length of the file minus one', "long n = new FileInfo(inputPath).Length;", "long n = new FileInfo(inputPath).Length - 1;"),
+    m('R17', 'the number of symbols is the length of the file minus one', "long n = InputLength(inputPath);", "long n = InputLength(inputPath) - 1;"),
 ]
 
 SCALE = [
@@ -129,6 +133,14 @@ E6CLI = [
     m('C24', 'the exact flag is not read', 'ExactPeriod = o.Flag("exact"),', 'ExactPeriod = false,'),
 ]
 
+# the mutants that were run (the full lists above are what was written; the build of the test project costs 1-2 minutes per mutant, so the audit ran the selection below: 30 mutants, at least 5 of every file)
+RUN = {
+    'endtoend': ['P01', 'P02', 'P06', 'P07', 'P09', 'P12', 'P13', 'P14', 'P15', 'P17', 'P23', 'P24', 'P25', 'P28', 'P13b', 'P15b'],
+    'prepare': ['R01', 'R05', 'R07', 'R11', 'R12', 'R01b', 'R05b'],
+    'scalerules': ['S01', 'S03', 'S04', 'S08', 'S11'],
+    'e6': ['C01', 'C02', 'C09', 'C12', 'C14', 'C18'],
+}
+
 FILES = {
     'endtoend': ('Pipeline/EndToEnd.cs', END_TO_END),
     'prepare': ('Pipeline/Prepare.cs', PREPARE),
@@ -146,6 +158,8 @@ if __name__ == '__main__':
                 if src.count(o) != 1:
                     print('NOT UNIQUE', name, x['id'], src.count(o), repr(o[:60]))
                     bad += 1
-        json.dump(ms, open(os.path.join(HERE, 'e6_%s_mutants.json' % name), 'w'), indent=1)
+        json.dump(ms, open(os.path.join(HERE, 'e6_%s_listed.json' % name), 'w'), indent=1)
+        json.dump([x for x in ms if x['id'] in RUN[name] and not x['id'].endswith('b')], open(os.path.join(HERE, 'e6_%s_mutants.json' % name), 'w'), indent=1)
+        json.dump([x for x in ms if x['id'] in RUN[name] and x['id'].endswith('b')], open(os.path.join(HERE, 'e6_round2_%s_mutants.json' % name), 'w'), indent=1)
         print(name, len(ms))
     sys.exit(1 if bad else 0)

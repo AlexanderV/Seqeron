@@ -1,0 +1,5 @@
+R01	the symbol counts are not computed	BUILD-ERROR S108	
+R05	a block that is not a multiple of 8 is accepted	BUILD-ERROR S1125	
+R07	the second pass does not compare its counts with the first	killed(1)	
+R11	the last partial byte of a block is truncated	killed(14)	
+R12	the packed file has no padding	killed(21)	

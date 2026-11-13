@@ -1,0 +1,14 @@
+[
+ {
+  "id": "P13b",
+  "desc": "a failing run leaves its scratch directory (replacement of P13, which did not compile: the analyzer rejects a catch that only rethrows)",
+  "old": "        catch\n        {\n            DeleteScratch(full);\n            throw;\n        }",
+  "new": "        catch\n        {\n            GC.KeepAlive(full);\n            throw;\n        }"
+ },
+ {
+  "id": "P15b",
+  "desc": "the tracker is told that 0 bytes of scratch are gone (replacement of P15, which did not compile: unused local)",
+  "old": "                ScratchTracker.Remove(rankBytes);\n",
+  "new": "                ScratchTracker.Remove(0 * rankBytes);\n"
+ }
+]
