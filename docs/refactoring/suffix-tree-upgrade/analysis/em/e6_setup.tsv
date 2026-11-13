@@ -1,0 +1,111 @@
+R	E6	setup	head	59c443191910a4500071fa37b5d5034af1bf957b		git rev-parse HEAD of the checkout when the inputs were made
+R	E6	dna:100000000	text_file	100000000	bytes	100000000 symbols, sigma=4, letters 'ACGT', written to dna_100m.txt
+R	E3	dna:100000000	packed_file	25000064	bytes	n=100000000, sigma=4, b=2, 0.250 B/char
+R	E3	dna:100000000	oracle_sa_hash	ed12eb8311638606bc31b7eb802dadabc1746ee89462df5b03db05e1b801aef1		SaisKernel in RAM on the same text, 11.52 s
+R	E4	dna_100m	kernel_s	4.48511	s	LcpKernel (three passes in RAM, one thread) on n=100000000; kind U8, overflow entries 0
+R	E5	dna_100m	oracle_child_s	4.014206	s	in-RAM ChildTable.Build, tagged and packed, n=100000000, LCP kind U8, overflow entries 0
+R	E5	dna_100m	oracle_smaller_s	3.655855	s	PSV and NSV of every rank from the LcpPyramid (fanout 32)
+R	E5	dna_100m	oracle_stats	162149501	n	NODE_COUNT 162149501, internal 62149499, LRS_DEPTH 25, LRS_RANK 14863022, in-RAM stack peak 18
+R	E6	genome:100000000	text_file	100000000	bytes	100000000 symbols, sigma=5, letters 'ACGNT', written to genome_100m.txt
+R	E3	genome:100000000	packed_file	37500064	bytes	n=100000000, sigma=5, b=3, 0.375 B/char
+R	E3	genome:100000000	oracle_sa_hash	d1bfd73a2a570d1870eee62793d15cfe5a37c3fc6627e3c0a250c25db3f902b9		SaisKernel in RAM on the same text, 11.07 s
+R	E4	genome_100m	kernel_s	3.807595	s	LcpKernel (three passes in RAM, one thread) on n=100000000; kind U8, overflow entries 1390028
+R	E5	genome_100m	oracle_child_s	3.752975	s	in-RAM ChildTable.Build, tagged and packed, n=100000000, LCP kind U8, overflow entries 1390028
+R	E5	genome_100m	oracle_smaller_s	5.346213	s	PSV and NSV of every rank from the LcpPyramid (fanout 32)
+R	E5	genome_100m	oracle_stats	166050648	n	NODE_COUNT 166050648, internal 66050646, LRS_DEPTH 499999, LRS_RANK 75208039, in-RAM stack peak 500000
+R	E6	setup	head	59c443191910a4500071fa37b5d5034af1bf957b		git rev-parse HEAD of the checkout when the inputs were made
+R	E3	dna_10m	packed_file	2500064	bytes	n=10000000, sigma=4, b=2, 0.250 B/char
+R	E3	dna_10m	oracle_sa_hash	9adbdf36a2182fcb3577fac22da785ca4b24ddf1aba868702617a14d23504d60		SaisKernel in RAM on the same text, 0.45 s
+R	E4	dna_10m	kernel_s	0.217249	s	LcpKernel (three passes in RAM, one thread) on n=10000000; kind U8, overflow entries 0
+R	E5	dna_10m	oracle_child_s	0.388517	s	in-RAM ChildTable.Build, tagged and packed, n=10000000, LCP kind U8, overflow entries 0
+R	E5	dna_10m	oracle_smaller_s	0.35268	s	PSV and NSV of every rank from the LcpPyramid (fanout 32)
+R	E5	dna_10m	oracle_stats	16229747	n	NODE_COUNT 16229747, internal 6229745, LRS_DEPTH 25, LRS_RANK 5509525, in-RAM stack peak 15
+R	E3	rep_10m	packed_file	2500064	bytes	n=10000000, sigma=4, b=2, 0.250 B/char
+R	E3	rep_10m	oracle_sa_hash	b7e58603a3d43031f9090b09b3afd0f538eec0e8b0a8899672f62d989f99b9ea		SaisKernel in RAM on the same text, 0.47 s
+R	E4	rep_10m	kernel_s	0.158204	s	LcpKernel (three passes in RAM, one thread) on n=10000000; kind U16, overflow entries 0
+R	E5	rep_10m	oracle_child_s	0.394498	s	in-RAM ChildTable.Build, tagged and packed, n=10000000, LCP kind U16, overflow entries 0
+R	E5	rep_10m	oracle_smaller_s	0.559347	s	PSV and NSV of every rank from the LcpPyramid (fanout 32)
+R	E5	rep_10m	oracle_stats	18568249	n	NODE_COUNT 18568249, internal 8568247, LRS_DEPTH 790, LRS_RANK 3945487, in-RAM stack peak 64
+R	E3	prot_1m	packed_file	625064	bytes	n=1000000, sigma=20, b=5, 0.625 B/char
+R	E3	prot_1m	oracle_sa_hash	0cb77789bd75cfd8751f2c33c2ab2ce9970fe2ec78d199f79b3f01c796fdc668		SaisKernel in RAM on the same text, 0.05 s
+R	E4	prot_1m	kernel_s	0.025151	s	LcpKernel (three passes in RAM, one thread) on n=1000000; kind U8, overflow entries 0
+R	E5	prot_1m	oracle_child_s	0.049232	s	in-RAM ChildTable.Build, tagged and packed, n=1000000, LCP kind U8, overflow entries 0
+R	E5	prot_1m	oracle_smaller_s	0.059242	s	PSV and NSV of every rank from the LcpPyramid (fanout 32)
+R	E5	prot_1m	oracle_stats	1295125	n	NODE_COUNT 1295125, internal 295123, LRS_DEPTH 8, LRS_RANK 156808, in-RAM stack peak 7
+R	E6	a:100000	text_file	100000	bytes	100000 symbols, sigma=1, letters 'a', written to fam_a_1e5.txt
+R	E3	a:100000	packed_file	12564	bytes	n=100000, sigma=1, b=1, 0.126 B/char
+R	E3	a:100000	oracle_sa_hash	e26d511a6fcfaa1a2f9ea6dbb1a7cfeadd6b4204698db0acfa4cf50874b41966		SaisKernel in RAM on the same text, 0.01 s
+R	E4	fam_a_1e5	kernel_s	0.008053	s	LcpKernel (three passes in RAM, one thread) on n=100000; kind U32, overflow entries 0
+R	E5	fam_a_1e5	oracle_child_s	0.015318	s	in-RAM ChildTable.Build, tagged and packed, n=100000, LCP kind U32, overflow entries 0
+R	E5	fam_a_1e5	oracle_smaller_s	0.024888	s	PSV and NSV of every rank from the LcpPyramid (fanout 32)
+R	E5	fam_a_1e5	oracle_stats	200001	n	NODE_COUNT 200001, internal 99999, LRS_DEPTH 99999, LRS_RANK 99999, in-RAM stack peak 100000
+R	E6	fib:100000	text_file	100000	bytes	100000 symbols, sigma=2, letters 'ab', written to fam_fib_1e5.txt
+R	E3	fib:100000	packed_file	12564	bytes	n=100000, sigma=2, b=1, 0.126 B/char
+R	E3	fib:100000	oracle_sa_hash	da70d11edcb3d12f562b56a95ced07d17762595b11110c3b16177c9051f9f82c		SaisKernel in RAM on the same text, 0.03 s
+R	E4	fam_fib_1e5	kernel_s	0.005896	s	LcpKernel (three passes in RAM, one thread) on n=100000; kind U16, overflow entries 0
+R	E5	fam_fib_1e5	oracle_child_s	0.012401	s	in-RAM ChildTable.Build, tagged and packed, n=100000, LCP kind U16, overflow entries 0
+R	E5	fam_fib_1e5	oracle_smaller_s	0.025374	s	PSV and NSV of every rank from the LcpPyramid (fanout 32)
+R	E5	fam_fib_1e5	oracle_stats	199999	n	NODE_COUNT 199999, internal 99997, LRS_DEPTH 53632, LRS_RANK 38204, in-RAM stack peak 26
+R	E6	tm:100000	text_file	100000	bytes	100000 symbols, sigma=2, letters 'ab', written to fam_tm_1e5.txt
+R	E3	tm:100000	packed_file	12564	bytes	n=100000, sigma=2, b=1, 0.126 B/char
+R	E3	tm:100000	oracle_sa_hash	e952e0f10af98a0220cc28637299326f096980960fc57e63591fe80dea2b65d7		SaisKernel in RAM on the same text, 0.04 s
+R	E4	fam_tm_1e5	kernel_s	0.006019	s	LcpKernel (three passes in RAM, one thread) on n=100000; kind U16, overflow entries 0
+R	E5	fam_tm_1e5	oracle_child_s	0.013169	s	in-RAM ChildTable.Build, tagged and packed, n=100000, LCP kind U16, overflow entries 0
+R	E5	fam_tm_1e5	oracle_smaller_s	0.023736	s	PSV and NSV of every rank from the LcpPyramid (fanout 32)
+R	E5	fam_tm_1e5	oracle_stats	199904	n	NODE_COUNT 199904, internal 99902, LRS_DEPTH 32768, LRS_RANK 49999, in-RAM stack peak 19
+R	E6	tandem:171x600	text_file	102600	bytes	102600 symbols, sigma=4, letters 'ACGT', written to fam_tandem_1e5.txt
+R	E3	tandem:171x600	packed_file	25714	bytes	n=102600, sigma=4, b=2, 0.251 B/char
+R	E3	tandem:171x600	oracle_sa_hash	f17ca1287f2d37ba396ee1624ec153b7c7d31d7aee46bdf47e74cf9fe42e0cae		SaisKernel in RAM on the same text, 0.03 s
+R	E4	fam_tandem_1e5	kernel_s	0.005824	s	LcpKernel (three passes in RAM, one thread) on n=102600; kind U32, overflow entries 0
+R	E5	fam_tandem_1e5	oracle_child_s	0.012757	s	in-RAM ChildTable.Build, tagged and packed, n=102600, LCP kind U32, overflow entries 0
+R	E5	fam_tandem_1e5	oracle_smaller_s	0.026095	s	PSV and NSV of every rank from the LcpPyramid (fanout 32)
+R	E5	fam_tandem_1e5	oracle_stats	205137	n	NODE_COUNT 205137, internal 102535, LRS_DEPTH 102429, LRS_RANK 62999, in-RAM stack peak 605
+R	E6	nrun:100000:10000	text_file	100000	bytes	100000 symbols, sigma=5, letters 'ACGNT', written to fam_nrun_1e5.txt
+R	E3	nrun:100000:10000	packed_file	37564	bytes	n=100000, sigma=5, b=3, 0.376 B/char
+R	E3	nrun:100000:10000	oracle_sa_hash	f112055017977b2d73eb672aee1ce7f78fa63fde6628fb421d4971c58c7865f0		SaisKernel in RAM on the same text, 0.03 s
+R	E4	fam_nrun_1e5	kernel_s	0.00597	s	LcpKernel (three passes in RAM, one thread) on n=100000; kind U16, overflow entries 0
+R	E5	fam_nrun_1e5	oracle_child_s	0.015333	s	in-RAM ChildTable.Build, tagged and packed, n=100000, LCP kind U16, overflow entries 0
+R	E5	fam_nrun_1e5	oracle_smaller_s	0.030201	s	PSV and NSV of every rank from the LcpPyramid (fanout 32)
+R	E5	fam_nrun_1e5	oracle_stats	165979	n	NODE_COUNT 165979, internal 65977, LRS_DEPTH 9999, LRS_RANK 67544, in-RAM stack peak 11
+R	E6	a:1000000	text_file	1000000	bytes	1000000 symbols, sigma=1, letters 'a', written to fam_a_1e6.txt
+R	E3	a:1000000	packed_file	125064	bytes	n=1000000, sigma=1, b=1, 0.125 B/char
+R	E3	a:1000000	oracle_sa_hash	b4a503b86be162bd3752a15438be12dba5d2ffd1a3f45cf81fb85a3d6fefe8c6		SaisKernel in RAM on the same text, 0.05 s
+R	E4	fam_a_1e6	kernel_s	0.014466	s	LcpKernel (three passes in RAM, one thread) on n=1000000; kind U32, overflow entries 0
+R	E5	fam_a_1e6	oracle_child_s	0.066835	s	in-RAM ChildTable.Build, tagged and packed, n=1000000, LCP kind U32, overflow entries 0
+R	E5	fam_a_1e6	oracle_smaller_s	0.073907	s	PSV and NSV of every rank from the LcpPyramid (fanout 32)
+R	E5	fam_a_1e6	oracle_stats	2000001	n	NODE_COUNT 2000001, internal 999999, LRS_DEPTH 999999, LRS_RANK 999999, in-RAM stack peak 1000000
+R	E6	fib:1000000	text_file	1000000	bytes	1000000 symbols, sigma=2, letters 'ab', written to fam_fib_1e6.txt
+R	E3	fib:1000000	packed_file	125064	bytes	n=1000000, sigma=2, b=1, 0.125 B/char
+R	E3	fib:1000000	oracle_sa_hash	bff1fc1a4031c18f64e7fccd8f6ad107dea90b41bb35cb061e48baa85e958f6d		SaisKernel in RAM on the same text, 0.07 s
+R	E4	fam_fib_1e6	kernel_s	0.025132	s	LcpKernel (three passes in RAM, one thread) on n=1000000; kind U32, overflow entries 0
+R	E5	fam_fib_1e6	oracle_child_s	0.047085	s	in-RAM ChildTable.Build, tagged and packed, n=1000000, LCP kind U32, overflow entries 0
+R	E5	fam_fib_1e6	oracle_smaller_s	0.03874	s	PSV and NSV of every rank from the LcpPyramid (fanout 32)
+R	E5	fam_fib_1e6	oracle_stats	1999997	n	NODE_COUNT 1999997, internal 999995, LRS_DEPTH 514227, LRS_RANK 381971, in-RAM stack peak 32
+R	E6	tm:1000000	text_file	1000000	bytes	1000000 symbols, sigma=2, letters 'ab', written to fam_tm_1e6.txt
+R	E3	tm:1000000	packed_file	125064	bytes	n=1000000, sigma=2, b=1, 0.125 B/char
+R	E3	tm:1000000	oracle_sa_hash	807ff5517763b4bc36f302dd566c75bcf80dbc4fc848a236613a1b2563aa70ab		SaisKernel in RAM on the same text, 0.06 s
+R	E4	fam_tm_1e6	kernel_s	0.027196	s	LcpKernel (three passes in RAM, one thread) on n=1000000; kind U32, overflow entries 0
+R	E5	fam_tm_1e6	oracle_child_s	0.047059	s	in-RAM ChildTable.Build, tagged and packed, n=1000000, LCP kind U32, overflow entries 0
+R	E5	fam_tm_1e6	oracle_smaller_s	0.039877	s	PSV and NSV of every rank from the LcpPyramid (fanout 32)
+R	E5	fam_tm_1e6	oracle_stats	1999904	n	NODE_COUNT 1999904, internal 999902, LRS_DEPTH 262144, LRS_RANK 499999, in-RAM stack peak 24
+R	E6	tandem:171x6000	text_file	1026000	bytes	1026000 symbols, sigma=4, letters 'ACGT', written to fam_tandem_1e6.txt
+R	E3	tandem:171x6000	packed_file	256564	bytes	n=1026000, sigma=4, b=2, 0.250 B/char
+R	E3	tandem:171x6000	oracle_sa_hash	b4e8d195782d46a057ae5ff84fc1c0c7d7880f17dd8ad17224be1ec1944e287c		SaisKernel in RAM on the same text, 0.06 s
+R	E4	fam_tandem_1e6	kernel_s	0.018013	s	LcpKernel (three passes in RAM, one thread) on n=1026000; kind U32, overflow entries 0
+R	E5	fam_tandem_1e6	oracle_child_s	0.045551	s	in-RAM ChildTable.Build, tagged and packed, n=1026000, LCP kind U32, overflow entries 0
+R	E5	fam_tandem_1e6	oracle_smaller_s	0.074332	s	PSV and NSV of every rank from the LcpPyramid (fanout 32)
+R	E5	fam_tandem_1e6	oracle_stats	2051937	n	NODE_COUNT 2051937, internal 1025935, LRS_DEPTH 1025829, LRS_RANK 629999, in-RAM stack peak 6005
+R	E6	nrun:1000000:100000	text_file	1000000	bytes	1000000 symbols, sigma=5, letters 'ACGNT', written to fam_nrun_1e6.txt
+R	E3	nrun:1000000:100000	packed_file	375064	bytes	n=1000000, sigma=5, b=3, 0.375 B/char
+R	E3	nrun:1000000:100000	oracle_sa_hash	069af6a5dbd8ba8bbab0b604d04a551186a6f834d909d90807c0eb3f4424ffef		SaisKernel in RAM on the same text, 0.06 s
+R	E4	fam_nrun_1e6	kernel_s	0.025033	s	LcpKernel (three passes in RAM, one thread) on n=1000000; kind U16, overflow entries 34465
+R	E5	fam_nrun_1e6	oracle_child_s	0.060016	s	in-RAM ChildTable.Build, tagged and packed, n=1000000, LCP kind U16, overflow entries 34465
+R	E5	fam_nrun_1e6	oracle_smaller_s	0.086081	s	PSV and NSV of every rank from the LcpPyramid (fanout 32)
+R	E5	fam_nrun_1e6	oracle_stats	1660999	n	NODE_COUNT 1660999, internal 660997, LRS_DEPTH 99999, LRS_RANK 775527, in-RAM stack peak 100000
+R	E6	genome:1000000	text_file	1000000	bytes	1000000 symbols, sigma=5, letters 'ACGNT', written to fam_genome_1e6.txt
+R	E3	genome:1000000	packed_file	375064	bytes	n=1000000, sigma=5, b=3, 0.375 B/char
+R	E3	genome:1000000	oracle_sa_hash	3ed8a913f75d3eb64d3b3900dcea27919a2524ac3027c0baea829725ec834a96		SaisKernel in RAM on the same text, 0.06 s
+R	E4	fam_genome_1e6	kernel_s	0.025167	s	LcpKernel (three passes in RAM, one thread) on n=1000000; kind U8, overflow entries 7013
+R	E5	fam_genome_1e6	oracle_child_s	0.06072	s	in-RAM ChildTable.Build, tagged and packed, n=1000000, LCP kind U8, overflow entries 7013
+R	E5	fam_genome_1e6	oracle_smaller_s	0.065353	s	PSV and NSV of every rank from the LcpPyramid (fanout 32)
+R	E5	fam_genome_1e6	oracle_stats	1640677	n	NODE_COUNT 1640677, internal 640675, LRS_DEPTH 4999, LRS_RANK 751765, in-RAM stack peak 5000

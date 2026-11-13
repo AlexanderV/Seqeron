@@ -1,0 +1,537 @@
+R	E6	protocol	head	59c443191910a4500071fa37b5d5034af1bf957b		git rev-parse HEAD of the binary under test; group kvar
+R	E6	dna_100m.e6.t4.Khalf	1	n	100000000	symbols	b=2 bits, sigma=4, threads=4, codec=Packed, X=993 (|D|=32), touch buffers=False
+R	E6	dna_100m.e6.t4.Khalf	1	parameters	n=100000000 f=3.333E-002 scaled=True: PH1 K_s=17476 N_base=559241 R=139810 K_sort=34953 run-spill=2185; PH3 K=16666 F=64; PH4 R=266667 P=375 B2 workers=2; PH5 block=262144 window=1048576 slots=8		scale-down by n / 3000000000 = 3.333E-002: every stage by the rule of E3 / E3b / E4 (ScaleRules)
+R	E6	dna_100m.e6.t4.Khalf	1	stage_parameters	PH1 fan-out 1024, reservoir 16384, io 65536, merge budget 16777216; PH3 fan-out 64, oversample 16, spill 65536; PH4 read 1048576, tuple 32768; PH5 block 262144 entries, window 1048576 x 8, spill flush 16777216; windows 1048576; arena caps 160 + 64 MiB		
+R	E6	dna_100m.e6.t4.Khalf	1	ph0_prepare_s	0.545595	s	wall time of the phase
+R	E6	dna_100m.e6.t4.Khalf	1	ph0_prepare_io_explicit_read	200000000	bytes	2.000 B/char (program counter, explicit reads)
+R	E6	dna_100m.e6.t4.Khalf	1	ph0_prepare_io_explicit_write	0	bytes	0.000 B/char (program counter, explicit writes)
+R	E6	dna_100m.e6.t4.Khalf	1	ph0_prepare_io_mapped_write	25000000	bytes	0.250 B/char (program counter, writes through mapped windows; CHILD windows are counted at the run level)
+R	E6	dna_100m.e6.t4.Khalf	1	ph0_prepare_proc_rchar	206889960	bytes	/proc/self/io rchar during the phase, 2.069 B/char
+R	E6	dna_100m.e6.t4.Khalf	1	ph0_prepare_proc_wchar	192	bytes	/proc/self/io wchar during the phase, 0.000 B/char
+R	E6	dna_100m.e6.t4.Khalf	1	ph0_prepare_proc_read_bytes	109813760	bytes	/proc/self/io read_bytes (block layer, page-cache misses)
+R	E6	dna_100m.e6.t4.Khalf	1	ph0_prepare_proc_write_bytes	25022464	bytes	/proc/self/io write_bytes (pages that went from clean to dirty)
+R	E6	dna_100m.e6.t4.Khalf	1	ph0_prepare_rssanon_peak	13.84448	MB	max RssAnon of the phase at 10 ms
+R	E6	dna_100m.e6.t4.Khalf	1	ph0_prepare_rssfile_peak	32.39936	MB	mapped file pages resident (reported, not counted)
+R	E6	dna_100m.e6.t4.Khalf	1	ph0_prepare_scratch_peak_cum	0	bytes	0.000 B/char: peak of the tracked scratch bytes up to the end of this phase
+R	E6	dna_100m.e6.t4.Khalf	1	ph0_prepare_scratch_live_end	0	bytes	tracked scratch bytes alive at the end of this phase
+R	E6	dna_100m.e6.t4.Khalf	1	ph0_prepare_dirty_peak	1.052672	MB	max /proc/meminfo Dirty in the phase minus the baseline 0.09 MB (system-wide: scratch included)
+R	E6	dna_100m.e6.t4.Khalf	1	ph0_prepare_proc_dirty_peak	1.048576	MB	max Private_Dirty + Shared_Dirty of the mappings of the output files in the phase (per-process view)
+R	E6	dna_100m.e6.t4.Khalf	1	ph1_dcs_s	2.943419	s	wall time of the phase
+R	E6	dna_100m.e6.t4.Khalf	1	ph1_dcs_io_explicit_read	25780456	bytes	0.258 B/char (program counter, explicit reads)
+R	E6	dna_100m.e6.t4.Khalf	1	ph1_dcs_io_explicit_write	25780456	bytes	0.258 B/char (program counter, explicit writes)
+R	E6	dna_100m.e6.t4.Khalf	1	ph1_dcs_io_mapped_write	12890228	bytes	0.129 B/char (program counter, writes through mapped windows; CHILD windows are counted at the run level)
+R	E6	dna_100m.e6.t4.Khalf	1	ph1_dcs_proc_rchar	66675204	bytes	/proc/self/io rchar during the phase, 0.667 B/char
+R	E6	dna_100m.e6.t4.Khalf	1	ph1_dcs_proc_wchar	25780506	bytes	/proc/self/io wchar during the phase, 0.258 B/char
+R	E6	dna_100m.e6.t4.Khalf	1	ph1_dcs_proc_read_bytes	811008	bytes	/proc/self/io read_bytes (block layer, page-cache misses)
+R	E6	dna_100m.e6.t4.Khalf	1	ph1_dcs_proc_write_bytes	39919616	bytes	/proc/self/io write_bytes (pages that went from clean to dirty)
+R	E6	dna_100m.e6.t4.Khalf	1	ph1_dcs_rssanon_peak	34.304	MB	max RssAnon of the phase at 10 ms
+R	E6	dna_100m.e6.t4.Khalf	1	ph1_dcs_rssfile_peak	59.047936	MB	mapped file pages resident (reported, not counted)
+R	E6	dna_100m.e6.t4.Khalf	1	ph1_dcs_scratch_peak_cum	25780456	bytes	0.258 B/char: peak of the tracked scratch bytes up to the end of this phase
+R	E6	dna_100m.e6.t4.Khalf	1	ph1_dcs_scratch_live_end	12890240	bytes	tracked scratch bytes alive at the end of this phase
+R	E6	dna_100m.e6.t4.Khalf	1	ph1_dcs_dirty_peak	1.028096	MB	max /proc/meminfo Dirty in the phase minus the baseline 0.09 MB (system-wide: scratch included)
+R	E6	dna_100m.e6.t4.Khalf	1	ph1_dcs_proc_dirty_peak	0	MB	max Private_Dirty + Shared_Dirty of the mappings of the output files in the phase (per-process view)
+R	E6	dna_100m.e6.t4.Khalf	1	ph23_sa_s	16.407623	s	wall time of the phase
+R	E6	dna_100m.e6.t4.Khalf	1	ph23_sa_io_explicit_read	760805376	bytes	7.608 B/char (program counter, explicit reads)
+R	E6	dna_100m.e6.t4.Khalf	1	ph23_sa_io_explicit_write	759747648	bytes	7.597 B/char (program counter, explicit writes)
+R	E6	dna_100m.e6.t4.Khalf	1	ph23_sa_io_mapped_write	400000004	bytes	4.000 B/char (program counter, writes through mapped windows; CHILD windows are counted at the run level)
+R	E6	dna_100m.e6.t4.Khalf	1	ph23_sa_proc_rchar	999036839	bytes	/proc/self/io rchar during the phase, 9.990 B/char
+R	E6	dna_100m.e6.t4.Khalf	1	ph23_sa_proc_wchar	759747727	bytes	/proc/self/io wchar during the phase, 7.597 B/char
+R	E6	dna_100m.e6.t4.Khalf	1	ph23_sa_proc_read_bytes	630784	bytes	/proc/self/io read_bytes (block layer, page-cache misses)
+R	E6	dna_100m.e6.t4.Khalf	1	ph23_sa_proc_write_bytes	1552375808	bytes	/proc/self/io write_bytes (pages that went from clean to dirty)
+R	E6	dna_100m.e6.t4.Khalf	1	ph23_sa_rssanon_peak	83.509248	MB	max RssAnon of the phase at 10 ms
+R	E6	dna_100m.e6.t4.Khalf	1	ph23_sa_rssfile_peak	71.41376	MB	mapped file pages resident (reported, not counted)
+R	E6	dna_100m.e6.t4.Khalf	1	ph23_sa_scratch_peak_cum	430947496	bytes	4.309 B/char: peak of the tracked scratch bytes up to the end of this phase
+R	E6	dna_100m.e6.t4.Khalf	1	ph23_sa_scratch_live_end	0	bytes	tracked scratch bytes alive at the end of this phase
+R	E6	dna_100m.e6.t4.Khalf	1	ph23_sa_dirty_peak	397.983744	MB	max /proc/meminfo Dirty in the phase minus the baseline 0.09 MB (system-wide: scratch included)
+R	E6	dna_100m.e6.t4.Khalf	1	ph23_sa_proc_dirty_peak	0.12288	MB	max Private_Dirty + Shared_Dirty of the mappings of the output files in the phase (per-process view)
+R	E6	dna_100m.e6.t4.Khalf	1	ph45_lcp_child_s	7.240593	s	wall time of the phase
+R	E6	dna_100m.e6.t4.Khalf	1	ph45_lcp_child_io_explicit_read	2400000004	bytes	24.000 B/char (program counter, explicit reads)
+R	E6	dna_100m.e6.t4.Khalf	1	ph45_lcp_child_io_explicit_write	2000000000	bytes	20.000 B/char (program counter, explicit writes)
+R	E6	dna_100m.e6.t4.Khalf	1	ph45_lcp_child_io_mapped_write	100000001	bytes	1.000 B/char (program counter, writes through mapped windows; CHILD windows are counted at the run level)
+R	E6	dna_100m.e6.t4.Khalf	1	ph45_lcp_child_proc_rchar	2506178675	bytes	/proc/self/io rchar during the phase, 25.062 B/char
+R	E6	dna_100m.e6.t4.Khalf	1	ph45_lcp_child_proc_wchar	2000000020	bytes	/proc/self/io wchar during the phase, 20.000 B/char
+R	E6	dna_100m.e6.t4.Khalf	1	ph45_lcp_child_proc_read_bytes	65536	bytes	/proc/self/io read_bytes (block layer, page-cache misses)
+R	E6	dna_100m.e6.t4.Khalf	1	ph45_lcp_child_proc_write_bytes	2503761920	bytes	/proc/self/io write_bytes (pages that went from clean to dirty)
+R	E6	dna_100m.e6.t4.Khalf	1	ph45_lcp_child_rssanon_peak	121.58976	MB	max RssAnon of the phase at 10 ms
+R	E6	dna_100m.e6.t4.Khalf	1	ph45_lcp_child_rssfile_peak	67.743744	MB	mapped file pages resident (reported, not counted)
+R	E6	dna_100m.e6.t4.Khalf	1	ph45_lcp_child_scratch_peak_cum	1200000000	bytes	12.000 B/char: peak of the tracked scratch bytes up to the end of this phase
+R	E6	dna_100m.e6.t4.Khalf	1	ph45_lcp_child_scratch_live_end	0	bytes	tracked scratch bytes alive at the end of this phase
+R	E6	dna_100m.e6.t4.Khalf	1	ph45_lcp_child_dirty_peak	1204.69504	MB	max /proc/meminfo Dirty in the phase minus the baseline 0.09 MB (system-wide: scratch included)
+R	E6	dna_100m.e6.t4.Khalf	1	ph45_lcp_child_proc_dirty_peak	9.437184	MB	max Private_Dirty + Shared_Dirty of the mappings of the output files in the phase (per-process view)
+R	E6	dna_100m.e6.t4.Khalf	1	sync_s	0.015347	s	fsync of all outputs (not part of the stage times)
+R	E6	dna_100m.e6.t4.Khalf	1	sync_io_explicit_read	0	bytes	0.000 B/char (program counter, explicit reads)
+R	E6	dna_100m.e6.t4.Khalf	1	sync_io_explicit_write	0	bytes	0.000 B/char (program counter, explicit writes)
+R	E6	dna_100m.e6.t4.Khalf	1	sync_io_mapped_write	0	bytes	0.000 B/char (program counter, writes through mapped windows; CHILD windows are counted at the run level)
+R	E6	dna_100m.e6.t4.Khalf	1	sync_proc_rchar	289623	bytes	/proc/self/io rchar during the phase, 0.003 B/char
+R	E6	dna_100m.e6.t4.Khalf	1	sync_proc_wchar	11	bytes	/proc/self/io wchar during the phase, 0.000 B/char
+R	E6	dna_100m.e6.t4.Khalf	1	sync_proc_read_bytes	49152	bytes	/proc/self/io read_bytes (block layer, page-cache misses)
+R	E6	dna_100m.e6.t4.Khalf	1	sync_proc_write_bytes	0	bytes	/proc/self/io write_bytes (pages that went from clean to dirty)
+R	E6	dna_100m.e6.t4.Khalf	1	sync_rssanon_peak	97.001472	MB	max RssAnon of the phase at 10 ms
+R	E6	dna_100m.e6.t4.Khalf	1	sync_rssfile_peak	58.355712	MB	mapped file pages resident (reported, not counted)
+R	E6	dna_100m.e6.t4.Khalf	1	sync_scratch_peak_cum	1200000000	bytes	12.000 B/char: peak of the tracked scratch bytes up to the end of this phase
+R	E6	dna_100m.e6.t4.Khalf	1	sync_scratch_live_end	0	bytes	tracked scratch bytes alive at the end of this phase
+R	E6	dna_100m.e6.t4.Khalf	1	sync_dirty_peak	1.196032	MB	max /proc/meminfo Dirty in the phase minus the baseline 0.09 MB (system-wide: scratch included)
+R	E6	dna_100m.e6.t4.Khalf	1	sync_proc_dirty_peak	0	MB	max Private_Dirty + Shared_Dirty of the mappings of the output files in the phase (per-process view)
+R	E6	dna_100m.e6.t4.Khalf	1	total_s	27.137231	s	PH0 + PH1 + PH2/PH3 + PH4/PH5: wall time of the stages (gate G3: <= 90 s at 100 Mbp, 4 threads, cold cache)
+R	E6	dna_100m.e6.t4.Khalf	1	sa_stage_s	19.896637	s	PH0 + PH1 + PH2/PH3 (gate G3: <= 30 s)
+R	E6	dna_100m.e6.t4.Khalf	1	wall_s	27.490592	s	EndToEnd.Run from start to end, including the clean-up and the final sync
+R	E6	dna_100m.e6.t4.Khalf	1	ns_per_symbol	271.372305	ns	total_s / n
+R	E6	dna_100m.e6.t4.Khalf	1	throughput	3.684974	Msym/s	n / total_s
+R	E6	dna_100m.e6.t4.Khalf	1	ph0_prepare_share	0.020105		share of total_s
+R	E6	dna_100m.e6.t4.Khalf	1	ph1_dcs_share	0.108464		share of total_s
+R	E6	dna_100m.e6.t4.Khalf	1	ph23_sa_share	0.604617		share of total_s
+R	E6	dna_100m.e6.t4.Khalf	1	ph45_lcp_child_share	0.266814		share of total_s
+R	E6	dna_100m.e6.t4.Khalf	1	rssanon_peak	121.58976	MB	max RssAnon over the whole run at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks
+R	E6	dna_100m.e6.t4.Khalf	1	gc_heap	55.332288	MB	managed heap at the end (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 9/2/1
+R	E6	dna_100m.e6.t4.Khalf	1	arena_peak	30.939816	MB	largest peak of the native buffers of one stage charged to its ArenaBudget (caps 160 / 64 MiB), live at the end 0
+R	E6	dna_100m.e6.t4.Khalf	1	io_explicit_read	3386585836	bytes	33.866 B/char (program counters, all phases)
+R	E6	dna_100m.e6.t4.Khalf	1	io_explicit_write	2785528104	bytes	27.855 B/char
+R	E6	dna_100m.e6.t4.Khalf	1	io_mapped_write	937890237	bytes	9.379 B/char: packed text, rank file, SA, LCP through the counted windows plus CHILD 400000004 bytes (its windows are not counted: the file is written once, 4 (n + 1) bytes)
+R	E6	dna_100m.e6.t4.Khalf	1	io_total_counted	7110004177	bytes	71.100 B/char: explicit I/O plus mapped writes (gate G3: <= 100 B/char); reads through the mappings (text, ranks) are not in it
+R	E6	dna_100m.e6.t4.Khalf	1	proc_rchar	3782973084	bytes	37.830 B/char: /proc/self/io rchar over EndToEnd.Run (read syscalls)
+R	E6	dna_100m.e6.t4.Khalf	1	proc_wchar	2785528586	bytes	27.855 B/char: /proc/self/io wchar over EndToEnd.Run (write syscalls)
+R	E6	dna_100m.e6.t4.Khalf	1	proc_rw_total	6568501670	bytes	65.685 B/char: rchar + wchar (syscalls only; the mapped windows are not in it)
+R	E6	dna_100m.e6.t4.Khalf	1	blocklayer_read	111964160	bytes	1.120 B/char: /proc/self/io read_bytes over the run (page-cache misses)
+R	E6	dna_100m.e6.t4.Khalf	1	blocklayer_write	4121100288	bytes	41.211 B/char: /proc/self/io write_bytes over the run (pages dirtied)
+R	E6	dna_100m.e6.t4.Khalf	1	scratch_peak	1200000000	bytes	12.000 B/char: peak of the tracked scratch files over the whole pipeline (apparent size); live at the end 0; entries left 0; directory left False
+R	E6	dna_100m.e6.t4.Khalf	1	file_pk	25000064	bytes	0.250 B/char: out.dna_100m.dna_100m.e6.t4.Khalf.1.pk
+R	E6	dna_100m.e6.t4.Khalf	1	file_meta	181	bytes	0.000 B/char: out.dna_100m.dna_100m.e6.t4.Khalf.1.pk.meta
+R	E6	dna_100m.e6.t4.Khalf	1	file_sa	400000004	bytes	4.000 B/char: out.dna_100m.dna_100m.e6.t4.Khalf.1.sa
+R	E6	dna_100m.e6.t4.Khalf	1	file_lcp	100000001	bytes	1.000 B/char: out.dna_100m.dna_100m.e6.t4.Khalf.1.lcp
+R	E6	dna_100m.e6.t4.Khalf	1	file_ovf	0	bytes	0.000 B/char: out.dna_100m.dna_100m.e6.t4.Khalf.1.ovf
+R	E6	dna_100m.e6.t4.Khalf	1	file_cld	400000004	bytes	4.000 B/char: out.dna_100m.dna_100m.e6.t4.Khalf.1.cld
+R	E6	dna_100m.e6.t4.Khalf	1	file_stats	119	bytes	0.000 B/char: out.dna_100m.dna_100m.e6.t4.Khalf.1.stats
+R	E6	dna_100m.e6.t4.Khalf	1	output_bytes	925000373	bytes	9.250 B/char: disk footprint of the outputs (text, SA, LCP + overflow, CHILD, metadata)
+R	E6	dna_100m.e6.t4.Khalf	1	dirty_peak	1204.69504	MB	max /proc/meminfo Dirty minus the baseline (0.09 MB) over 1374 samples at 20 ms; system-wide, scratch of PH2/PH3 and PH4 included; absolute max 1204.78 MB
+R	E6	dna_100m.e6.t4.Khalf	1	dirty_mean	201.472218	MB	mean of Dirty minus the baseline over the run
+R	E6	dna_100m.e6.t4.Khalf	1	writeback_peak	18.194432	MB	max /proc/meminfo Writeback
+R	E6	dna_100m.e6.t4.Khalf	1	proc_dirty_peak	9.437184	MB	max Private_Dirty + Shared_Dirty of the mappings of the output files of this run (per-process view of the mapped dirty pages of the outputs; gate G3 <= 64 MB)
+R	E6	dna_100m.e6.t4.Khalf	1	ph1_levels	0	n	deepest level of the DCS recursion; level 0: sample 3222557, distinct names 3222557, shared 0.00 %, leaf buckets 369, split scans 1
+R	E6	dna_100m.e6.t4.Khalf	1	ph3_buckets	16592	n	leaves=13235, partitions=3357, max depth=3, largest leaf=16652, retries=0; tie share 0.0000 %, rank lookups 25838
+R	E6	dna_100m.e6.t4.Khalf	1	ph4_width	U8		chosen before any entry was written; escapes >= 255: 0 (0.0000 %), >= 65535: 0, overflow entries 0; B1 1.20 s, B2 2.93 s, B3 3.08 s (B3 contains the PH5 scan); chunks 375/375, B2 tasks 2, rounds 1
+R	E6	dna_100m.e6.t4.Khalf	1	ph5_scan_s	2.296552	s	time inside the PH5 scan (Consume + Complete): the share of the fused phase that belongs to PH5
+R	E6	dna_100m.e6.t4.Khalf	1	node_count	162149501	n	NODE_COUNT = 1 + I + n + 1 with I = 62149499 internal nodes
+R	E6	dna_100m.e6.t4.Khalf	1	lrs	25	symbols	LRS_DEPTH 25, LRS_RANK 14863022; max LCP 25, stack peak 18, spill written 0 bytes
+R	E6	dna_100m.e6.t4.Khalf	1	sha256	c27addf848dbaf3bee0ddb410d0cd991b2f8df293c9b99a80b649b578c0db8f0		SHA-256 of the input text (PH0)
+R	E6	dna_100m.e6.t4.Khalf	1	clean	yes		scratch directory removed, no tracked scratch byte, no live arena byte; RssAnon within 256 MB: yes
+R	E6	dna_100m.e6.t4.Khalf	1	ext_rssanon_peak	121.590	MB	independent sampler: max RssAnon of /proc/<pid>/status over 1383 samples at 20 ms
+R	E6	dna_100m.e6.t4.Khalf	1	ext_dirty_peak	1204.752	MB	independent sampler: max /proc/meminfo Dirty minus the baseline (0.03 MB, median of 5 samples before the start); absolute max 1204.78 MB
+R	E6	dna_100m.e6.t4.Khalf	1	ext_dirty_mean	200.185	MB	independent sampler: mean of Dirty minus the baseline
+R	E6	dna_100m.e6.t4.Khalf	1	ext_writeback_peak	18.665	MB	independent sampler: max /proc/meminfo Writeback
+R	E6	dna_100m.e6.t4.Khalf	1	ext_scratch_apparent_peak	1194587264	bytes	independent sampler: peak sum of st_size of the files under the scratch directory (every 100 ms; the peak lasts seconds)
+R	E6	dna_100m.e6.t4.Khalf	1	ext_scratch_allocated_peak	1195196416	bytes	independent sampler: peak sum of st_blocks * 512 under the scratch directory (sparse files count only the written blocks)
+R	E6	dna_100m.e6.t4.Khalf	1	ext_scratch_files_peak	733	n	independent sampler: most files under the scratch directory at one sample
+R	E6	dna_100m.e6.t4.Khalf	1	ext_proc_rchar	3783028662	bytes	independent sampler: /proc/<pid>/io rchar, last value before the process exited (whole process incl. runtime start)
+R	E6	dna_100m.e6.t4.Khalf	1	ext_proc_wchar	2785528765	bytes	independent sampler: /proc/<pid>/io wchar, last value before the process exited (whole process incl. runtime start)
+R	E6	dna_100m.e6.t4.Khalf	1	ext_proc_read_bytes	137244672	bytes	independent sampler: /proc/<pid>/io read_bytes, last value before the process exited (whole process incl. runtime start)
+R	E6	dna_100m.e6.t4.Khalf	1	ext_proc_write_bytes	4121161728	bytes	independent sampler: /proc/<pid>/io write_bytes, last value before the process exited (whole process incl. runtime start)
+R	E6	dna_100m.e6.t4.Khalf	1	exit_code	0		program exit code (0 = healthy, RssAnon cap held, scratch gone, every --verify-* equal)
+R	E6	dna_100m.e6.t4.Khalf	1	cmp_pk	yes		cmp of out.dna_100m.dna_100m.e6.t4.Khalf.1.pk against dna_100m.ref.pk
+R	E6	dna_100m.e6.t4.Khalf	1	cmp_sa	yes		cmp of out.dna_100m.dna_100m.e6.t4.Khalf.1.sa against dna_100m.refsa
+R	E6	dna_100m.e6.t4.Khalf	1	cmp_lcp	yes		cmp of out.dna_100m.dna_100m.e6.t4.Khalf.1.lcp against dna_100m.oracle.lcp
+R	E6	dna_100m.e6.t4.Khalf	1	cmp_ovf	yes		cmp of out.dna_100m.dna_100m.e6.t4.Khalf.1.ovf against dna_100m.oracle.ovf
+R	E6	dna_100m.e6.t4.Khalf	1	cmp_cld	yes		cmp of out.dna_100m.dna_100m.e6.t4.Khalf.1.cld against dna_100m.ref.cldP
+R	E6	dna_100m.e6.t4.Khalf	1	cmp_stats	yes		NODE_COUNT / internal / LRS_DEPTH / LRS_RANK against dna_100m.ref.stats
+R	E6	dna_100m.e6.t4.Khalf	1	scratch_left	0		entries of scratch.d after the run (the directory must be gone)
+R	E6	dna_100m.e6.t4.Kdouble	1	n	100000000	symbols	b=2 bits, sigma=4, threads=4, codec=Packed, X=993 (|D|=32), touch buffers=False
+R	E6	dna_100m.e6.t4.Kdouble	1	parameters	n=100000000 f=3.333E-002 scaled=True: PH1 K_s=69905 N_base=559241 R=139810 K_sort=34953 run-spill=2185; PH3 K=66666 F=64; PH4 R=266667 P=375 B2 workers=2; PH5 block=262144 window=1048576 slots=8		scale-down by n / 3000000000 = 3.333E-002: every stage by the rule of E3 / E3b / E4 (ScaleRules)
+R	E6	dna_100m.e6.t4.Kdouble	1	stage_parameters	PH1 fan-out 1024, reservoir 16384, io 65536, merge budget 16777216; PH3 fan-out 64, oversample 16, spill 65536; PH4 read 1048576, tuple 32768; PH5 block 262144 entries, window 1048576 x 8, spill flush 16777216; windows 1048576; arena caps 160 + 64 MiB		
+R	E6	dna_100m.e6.t4.Kdouble	1	ph0_prepare_s	0.504288	s	wall time of the phase
+R	E6	dna_100m.e6.t4.Kdouble	1	ph0_prepare_io_explicit_read	200000000	bytes	2.000 B/char (program counter, explicit reads)
+R	E6	dna_100m.e6.t4.Kdouble	1	ph0_prepare_io_explicit_write	0	bytes	0.000 B/char (program counter, explicit writes)
+R	E6	dna_100m.e6.t4.Kdouble	1	ph0_prepare_io_mapped_write	25000000	bytes	0.250 B/char (program counter, writes through mapped windows; CHILD windows are counted at the run level)
+R	E6	dna_100m.e6.t4.Kdouble	1	ph0_prepare_proc_rchar	206369605	bytes	/proc/self/io rchar during the phase, 2.064 B/char
+R	E6	dna_100m.e6.t4.Kdouble	1	ph0_prepare_proc_wchar	192	bytes	/proc/self/io wchar during the phase, 0.000 B/char
+R	E6	dna_100m.e6.t4.Kdouble	1	ph0_prepare_proc_read_bytes	109830144	bytes	/proc/self/io read_bytes (block layer, page-cache misses)
+R	E6	dna_100m.e6.t4.Kdouble	1	ph0_prepare_proc_write_bytes	25026560	bytes	/proc/self/io write_bytes (pages that went from clean to dirty)
+R	E6	dna_100m.e6.t4.Kdouble	1	ph0_prepare_rssanon_peak	13.922304	MB	max RssAnon of the phase at 10 ms
+R	E6	dna_100m.e6.t4.Kdouble	1	ph0_prepare_rssfile_peak	32.301056	MB	mapped file pages resident (reported, not counted)
+R	E6	dna_100m.e6.t4.Kdouble	1	ph0_prepare_scratch_peak_cum	0	bytes	0.000 B/char: peak of the tracked scratch bytes up to the end of this phase
+R	E6	dna_100m.e6.t4.Kdouble	1	ph0_prepare_scratch_live_end	0	bytes	tracked scratch bytes alive at the end of this phase
+R	E6	dna_100m.e6.t4.Kdouble	1	ph0_prepare_dirty_peak	1.077248	MB	max /proc/meminfo Dirty in the phase minus the baseline 0.06 MB (system-wide: scratch included)
+R	E6	dna_100m.e6.t4.Kdouble	1	ph0_prepare_proc_dirty_peak	1.048576	MB	max Private_Dirty + Shared_Dirty of the mappings of the output files in the phase (per-process view)
+R	E6	dna_100m.e6.t4.Kdouble	1	ph1_dcs_s	1.033204	s	wall time of the phase
+R	E6	dna_100m.e6.t4.Kdouble	1	ph1_dcs_io_explicit_read	25780456	bytes	0.258 B/char (program counter, explicit reads)
+R	E6	dna_100m.e6.t4.Kdouble	1	ph1_dcs_io_explicit_write	25780456	bytes	0.258 B/char (program counter, explicit writes)
+R	E6	dna_100m.e6.t4.Kdouble	1	ph1_dcs_io_mapped_write	12890228	bytes	0.129 B/char (program counter, writes through mapped windows; CHILD windows are counted at the run level)
+R	E6	dna_100m.e6.t4.Kdouble	1	ph1_dcs_proc_rchar	40192226	bytes	/proc/self/io rchar during the phase, 0.402 B/char
+R	E6	dna_100m.e6.t4.Kdouble	1	ph1_dcs_proc_wchar	25780506	bytes	/proc/self/io wchar during the phase, 0.258 B/char
+R	E6	dna_100m.e6.t4.Kdouble	1	ph1_dcs_proc_read_bytes	659456	bytes	/proc/self/io read_bytes (block layer, page-cache misses)
+R	E6	dna_100m.e6.t4.Kdouble	1	ph1_dcs_proc_write_bytes	39231488	bytes	/proc/self/io write_bytes (pages that went from clean to dirty)
+R	E6	dna_100m.e6.t4.Kdouble	1	ph1_dcs_rssanon_peak	23.08096	MB	max RssAnon of the phase at 10 ms
+R	E6	dna_100m.e6.t4.Kdouble	1	ph1_dcs_rssfile_peak	58.949632	MB	mapped file pages resident (reported, not counted)
+R	E6	dna_100m.e6.t4.Kdouble	1	ph1_dcs_scratch_peak_cum	25780456	bytes	0.258 B/char: peak of the tracked scratch bytes up to the end of this phase
+R	E6	dna_100m.e6.t4.Kdouble	1	ph1_dcs_scratch_live_end	12890240	bytes	tracked scratch bytes alive at the end of this phase
+R	E6	dna_100m.e6.t4.Kdouble	1	ph1_dcs_dirty_peak	1.548288	MB	max /proc/meminfo Dirty in the phase minus the baseline 0.06 MB (system-wide: scratch included)
+R	E6	dna_100m.e6.t4.Kdouble	1	ph1_dcs_proc_dirty_peak	0	MB	max Private_Dirty + Shared_Dirty of the mappings of the output files in the phase (per-process view)
+R	E6	dna_100m.e6.t4.Kdouble	1	ph23_sa_s	12.553464	s	wall time of the phase
+R	E6	dna_100m.e6.t4.Kdouble	1	ph23_sa_io_explicit_read	799632664	bytes	7.996 B/char (program counter, explicit reads)
+R	E6	dna_100m.e6.t4.Kdouble	1	ph23_sa_io_explicit_write	799440600	bytes	7.994 B/char (program counter, explicit writes)
+R	E6	dna_100m.e6.t4.Kdouble	1	ph23_sa_io_mapped_write	400000004	bytes	4.000 B/char (program counter, writes through mapped windows; CHILD windows are counted at the run level)
+R	E6	dna_100m.e6.t4.Kdouble	1	ph23_sa_proc_rchar	980063629	bytes	/proc/self/io rchar during the phase, 9.801 B/char
+R	E6	dna_100m.e6.t4.Kdouble	1	ph23_sa_proc_wchar	799440647	bytes	/proc/self/io wchar during the phase, 7.994 B/char
+R	E6	dna_100m.e6.t4.Kdouble	1	ph23_sa_proc_read_bytes	393216	bytes	/proc/self/io read_bytes (block layer, page-cache misses)
+R	E6	dna_100m.e6.t4.Kdouble	1	ph23_sa_proc_write_bytes	1467637760	bytes	/proc/self/io write_bytes (pages that went from clean to dirty)
+R	E6	dna_100m.e6.t4.Kdouble	1	ph23_sa_rssanon_peak	61.41952	MB	max RssAnon of the phase at 10 ms
+R	E6	dna_100m.e6.t4.Kdouble	1	ph23_sa_rssfile_peak	71.819264	MB	mapped file pages resident (reported, not counted)
+R	E6	dna_100m.e6.t4.Kdouble	1	ph23_sa_scratch_peak_cum	432943836	bytes	4.329 B/char: peak of the tracked scratch bytes up to the end of this phase
+R	E6	dna_100m.e6.t4.Kdouble	1	ph23_sa_scratch_live_end	0	bytes	tracked scratch bytes alive at the end of this phase
+R	E6	dna_100m.e6.t4.Kdouble	1	ph23_sa_dirty_peak	396.210176	MB	max /proc/meminfo Dirty in the phase minus the baseline 0.06 MB (system-wide: scratch included)
+R	E6	dna_100m.e6.t4.Kdouble	1	ph23_sa_proc_dirty_peak	0.32768	MB	max Private_Dirty + Shared_Dirty of the mappings of the output files in the phase (per-process view)
+R	E6	dna_100m.e6.t4.Kdouble	1	ph45_lcp_child_s	6.643986	s	wall time of the phase
+R	E6	dna_100m.e6.t4.Kdouble	1	ph45_lcp_child_io_explicit_read	2400000004	bytes	24.000 B/char (program counter, explicit reads)
+R	E6	dna_100m.e6.t4.Kdouble	1	ph45_lcp_child_io_explicit_write	2000000000	bytes	20.000 B/char (program counter, explicit writes)
+R	E6	dna_100m.e6.t4.Kdouble	1	ph45_lcp_child_io_mapped_write	100000001	bytes	1.000 B/char (program counter, writes through mapped windows; CHILD windows are counted at the run level)
+R	E6	dna_100m.e6.t4.Kdouble	1	ph45_lcp_child_proc_rchar	2495183884	bytes	/proc/self/io rchar during the phase, 24.952 B/char
+R	E6	dna_100m.e6.t4.Kdouble	1	ph45_lcp_child_proc_wchar	2000000020	bytes	/proc/self/io wchar during the phase, 20.000 B/char
+R	E6	dna_100m.e6.t4.Kdouble	1	ph45_lcp_child_proc_read_bytes	24576	bytes	/proc/self/io read_bytes (block layer, page-cache misses)
+R	E6	dna_100m.e6.t4.Kdouble	1	ph45_lcp_child_proc_write_bytes	2503921664	bytes	/proc/self/io write_bytes (pages that went from clean to dirty)
+R	E6	dna_100m.e6.t4.Kdouble	1	ph45_lcp_child_rssanon_peak	92.79488	MB	max RssAnon of the phase at 10 ms
+R	E6	dna_100m.e6.t4.Kdouble	1	ph45_lcp_child_rssfile_peak	67.70688	MB	mapped file pages resident (reported, not counted)
+R	E6	dna_100m.e6.t4.Kdouble	1	ph45_lcp_child_scratch_peak_cum	1200000000	bytes	12.000 B/char: peak of the tracked scratch bytes up to the end of this phase
+R	E6	dna_100m.e6.t4.Kdouble	1	ph45_lcp_child_scratch_live_end	0	bytes	tracked scratch bytes alive at the end of this phase
+R	E6	dna_100m.e6.t4.Kdouble	1	ph45_lcp_child_dirty_peak	1202.74944	MB	max /proc/meminfo Dirty in the phase minus the baseline 0.06 MB (system-wide: scratch included)
+R	E6	dna_100m.e6.t4.Kdouble	1	ph45_lcp_child_proc_dirty_peak	9.437184	MB	max Private_Dirty + Shared_Dirty of the mappings of the output files in the phase (per-process view)
+R	E6	dna_100m.e6.t4.Kdouble	1	sync_s	0.003467	s	fsync of all outputs (not part of the stage times)
+R	E6	dna_100m.e6.t4.Kdouble	1	sync_io_explicit_read	0	bytes	0.000 B/char (program counter, explicit reads)
+R	E6	dna_100m.e6.t4.Kdouble	1	sync_io_explicit_write	0	bytes	0.000 B/char (program counter, explicit writes)
+R	E6	dna_100m.e6.t4.Kdouble	1	sync_io_mapped_write	0	bytes	0.000 B/char (program counter, writes through mapped windows; CHILD windows are counted at the run level)
+R	E6	dna_100m.e6.t4.Kdouble	1	sync_proc_rchar	240543	bytes	/proc/self/io rchar during the phase, 0.002 B/char
+R	E6	dna_100m.e6.t4.Kdouble	1	sync_proc_wchar	11	bytes	/proc/self/io wchar during the phase, 0.000 B/char
+R	E6	dna_100m.e6.t4.Kdouble	1	sync_proc_read_bytes	49152	bytes	/proc/self/io read_bytes (block layer, page-cache misses)
+R	E6	dna_100m.e6.t4.Kdouble	1	sync_proc_write_bytes	0	bytes	/proc/self/io write_bytes (pages that went from clean to dirty)
+R	E6	dna_100m.e6.t4.Kdouble	1	sync_rssanon_peak	68.21888	MB	max RssAnon of the phase at 10 ms
+R	E6	dna_100m.e6.t4.Kdouble	1	sync_rssfile_peak	58.318848	MB	mapped file pages resident (reported, not counted)
+R	E6	dna_100m.e6.t4.Kdouble	1	sync_scratch_peak_cum	1200000000	bytes	12.000 B/char: peak of the tracked scratch bytes up to the end of this phase
+R	E6	dna_100m.e6.t4.Kdouble	1	sync_scratch_live_end	0	bytes	tracked scratch bytes alive at the end of this phase
+R	E6	dna_100m.e6.t4.Kdouble	1	sync_dirty_peak	0	MB	max /proc/meminfo Dirty in the phase minus the baseline 0.06 MB (system-wide: scratch included)
+R	E6	dna_100m.e6.t4.Kdouble	1	sync_proc_dirty_peak	0	MB	max Private_Dirty + Shared_Dirty of the mappings of the output files in the phase (per-process view)
+R	E6	dna_100m.e6.t4.Kdouble	1	total_s	20.734942	s	PH0 + PH1 + PH2/PH3 + PH4/PH5: wall time of the stages (gate G3: <= 90 s at 100 Mbp, 4 threads, cold cache)
+R	E6	dna_100m.e6.t4.Kdouble	1	sa_stage_s	14.090956	s	PH0 + PH1 + PH2/PH3 (gate G3: <= 30 s)
+R	E6	dna_100m.e6.t4.Kdouble	1	wall_s	21.070344	s	EndToEnd.Run from start to end, including the clean-up and the final sync
+R	E6	dna_100m.e6.t4.Kdouble	1	ns_per_symbol	207.349421	ns	total_s / n
+R	E6	dna_100m.e6.t4.Kdouble	1	throughput	4.822777	Msym/s	n / total_s
+R	E6	dna_100m.e6.t4.Kdouble	1	ph0_prepare_share	0.024321		share of total_s
+R	E6	dna_100m.e6.t4.Kdouble	1	ph1_dcs_share	0.049829		share of total_s
+R	E6	dna_100m.e6.t4.Kdouble	1	ph23_sa_share	0.605426		share of total_s
+R	E6	dna_100m.e6.t4.Kdouble	1	ph45_lcp_child_share	0.320425		share of total_s
+R	E6	dna_100m.e6.t4.Kdouble	1	rssanon_peak	92.79488	MB	max RssAnon over the whole run at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks
+R	E6	dna_100m.e6.t4.Kdouble	1	gc_heap	31.612864	MB	managed heap at the end (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 7/2/1
+R	E6	dna_100m.e6.t4.Kdouble	1	arena_peak	30.939816	MB	largest peak of the native buffers of one stage charged to its ArenaBudget (caps 160 / 64 MiB), live at the end 0
+R	E6	dna_100m.e6.t4.Kdouble	1	io_explicit_read	3425413124	bytes	34.254 B/char (program counters, all phases)
+R	E6	dna_100m.e6.t4.Kdouble	1	io_explicit_write	2825221056	bytes	28.252 B/char
+R	E6	dna_100m.e6.t4.Kdouble	1	io_mapped_write	937890237	bytes	9.379 B/char: packed text, rank file, SA, LCP through the counted windows plus CHILD 400000004 bytes (its windows are not counted: the file is written once, 4 (n + 1) bytes)
+R	E6	dna_100m.e6.t4.Kdouble	1	io_total_counted	7188524417	bytes	71.885 B/char: explicit I/O plus mapped writes (gate G3: <= 100 B/char); reads through the mappings (text, ranks) are not in it
+R	E6	dna_100m.e6.t4.Kdouble	1	proc_rchar	3725984951	bytes	37.260 B/char: /proc/self/io rchar over EndToEnd.Run (read syscalls)
+R	E6	dna_100m.e6.t4.Kdouble	1	proc_wchar	2825221506	bytes	28.252 B/char: /proc/self/io wchar over EndToEnd.Run (write syscalls)
+R	E6	dna_100m.e6.t4.Kdouble	1	proc_rw_total	6551206457	bytes	65.512 B/char: rchar + wchar (syscalls only; the mapped windows are not in it)
+R	E6	dna_100m.e6.t4.Kdouble	1	blocklayer_read	111550464	bytes	1.116 B/char: /proc/self/io read_bytes over the run (page-cache misses)
+R	E6	dna_100m.e6.t4.Kdouble	1	blocklayer_write	4035870720	bytes	40.359 B/char: /proc/self/io write_bytes over the run (pages dirtied)
+R	E6	dna_100m.e6.t4.Kdouble	1	scratch_peak	1200000000	bytes	12.000 B/char: peak of the tracked scratch files over the whole pipeline (apparent size); live at the end 0; entries left 0; directory left False
+R	E6	dna_100m.e6.t4.Kdouble	1	file_pk	25000064	bytes	0.250 B/char: out.dna_100m.dna_100m.e6.t4.Kdouble.1.pk
+R	E6	dna_100m.e6.t4.Kdouble	1	file_meta	181	bytes	0.000 B/char: out.dna_100m.dna_100m.e6.t4.Kdouble.1.pk.meta
+R	E6	dna_100m.e6.t4.Kdouble	1	file_sa	400000004	bytes	4.000 B/char: out.dna_100m.dna_100m.e6.t4.Kdouble.1.sa
+R	E6	dna_100m.e6.t4.Kdouble	1	file_lcp	100000001	bytes	1.000 B/char: out.dna_100m.dna_100m.e6.t4.Kdouble.1.lcp
+R	E6	dna_100m.e6.t4.Kdouble	1	file_ovf	0	bytes	0.000 B/char: out.dna_100m.dna_100m.e6.t4.Kdouble.1.ovf
+R	E6	dna_100m.e6.t4.Kdouble	1	file_cld	400000004	bytes	4.000 B/char: out.dna_100m.dna_100m.e6.t4.Kdouble.1.cld
+R	E6	dna_100m.e6.t4.Kdouble	1	file_stats	119	bytes	0.000 B/char: out.dna_100m.dna_100m.e6.t4.Kdouble.1.stats
+R	E6	dna_100m.e6.t4.Kdouble	1	output_bytes	925000373	bytes	9.250 B/char: disk footprint of the outputs (text, SA, LCP + overflow, CHILD, metadata)
+R	E6	dna_100m.e6.t4.Kdouble	1	dirty_peak	1202.74944	MB	max /proc/meminfo Dirty minus the baseline (0.06 MB) over 1053 samples at 20 ms; system-wide, scratch of PH2/PH3 and PH4 included; absolute max 1202.81 MB
+R	E6	dna_100m.e6.t4.Kdouble	1	dirty_mean	242.2493	MB	mean of Dirty minus the baseline over the run
+R	E6	dna_100m.e6.t4.Kdouble	1	writeback_peak	18.358272	MB	max /proc/meminfo Writeback
+R	E6	dna_100m.e6.t4.Kdouble	1	proc_dirty_peak	9.437184	MB	max Private_Dirty + Shared_Dirty of the mappings of the output files of this run (per-process view of the mapped dirty pages of the outputs; gate G3 <= 64 MB)
+R	E6	dna_100m.e6.t4.Kdouble	1	ph1_levels	0	n	deepest level of the DCS recursion; level 0: sample 3222557, distinct names 3222557, shared 0.00 %, leaf buckets 93, split scans 1
+R	E6	dna_100m.e6.t4.Kdouble	1	ph3_buckets	3066	n	leaves=3000, partitions=66, max depth=3, largest leaf=62689, retries=0; tie share 0.0000 %, rank lookups 5762
+R	E6	dna_100m.e6.t4.Kdouble	1	ph4_width	U8		chosen before any entry was written; escapes >= 255: 0 (0.0000 %), >= 65535: 0, overflow entries 0; B1 0.94 s, B2 2.82 s, B3 2.87 s (B3 contains the PH5 scan); chunks 375/375, B2 tasks 2, rounds 1
+R	E6	dna_100m.e6.t4.Kdouble	1	ph5_scan_s	2.196469	s	time inside the PH5 scan (Consume + Complete): the share of the fused phase that belongs to PH5
+R	E6	dna_100m.e6.t4.Kdouble	1	node_count	162149501	n	NODE_COUNT = 1 + I + n + 1 with I = 62149499 internal nodes
+R	E6	dna_100m.e6.t4.Kdouble	1	lrs	25	symbols	LRS_DEPTH 25, LRS_RANK 14863022; max LCP 25, stack peak 18, spill written 0 bytes
+R	E6	dna_100m.e6.t4.Kdouble	1	sha256	c27addf848dbaf3bee0ddb410d0cd991b2f8df293c9b99a80b649b578c0db8f0		SHA-256 of the input text (PH0)
+R	E6	dna_100m.e6.t4.Kdouble	1	clean	yes		scratch directory removed, no tracked scratch byte, no live arena byte; RssAnon within 256 MB: yes
+R	E6	dna_100m.e6.t4.Kdouble	1	ext_rssanon_peak	92.807	MB	independent sampler: max RssAnon of /proc/<pid>/status over 1063 samples at 20 ms
+R	E6	dna_100m.e6.t4.Kdouble	1	ext_dirty_peak	1202.807	MB	independent sampler: max /proc/meminfo Dirty minus the baseline (0.00 MB, median of 5 samples before the start); absolute max 1202.81 MB
+R	E6	dna_100m.e6.t4.Kdouble	1	ext_dirty_mean	240.006	MB	independent sampler: mean of Dirty minus the baseline
+R	E6	dna_100m.e6.t4.Kdouble	1	ext_writeback_peak	18.940	MB	independent sampler: max /proc/meminfo Writeback
+R	E6	dna_100m.e6.t4.Kdouble	1	ext_scratch_apparent_peak	1180799976	bytes	independent sampler: peak sum of st_size of the files under the scratch directory (every 100 ms; the peak lasts seconds)
+R	E6	dna_100m.e6.t4.Kdouble	1	ext_scratch_allocated_peak	1181929472	bytes	independent sampler: peak sum of st_blocks * 512 under the scratch directory (sparse files count only the written blocks)
+R	E6	dna_100m.e6.t4.Kdouble	1	ext_scratch_files_peak	736	n	independent sampler: most files under the scratch directory at one sample
+R	E6	dna_100m.e6.t4.Kdouble	1	ext_proc_rchar	3726040530	bytes	independent sampler: /proc/<pid>/io rchar, last value before the process exited (whole process incl. runtime start)
+R	E6	dna_100m.e6.t4.Kdouble	1	ext_proc_wchar	2825252054	bytes	independent sampler: /proc/<pid>/io wchar, last value before the process exited (whole process incl. runtime start)
+R	E6	dna_100m.e6.t4.Kdouble	1	ext_proc_read_bytes	137080832	bytes	independent sampler: /proc/<pid>/io read_bytes, last value before the process exited (whole process incl. runtime start)
+R	E6	dna_100m.e6.t4.Kdouble	1	ext_proc_write_bytes	4035981312	bytes	independent sampler: /proc/<pid>/io write_bytes, last value before the process exited (whole process incl. runtime start)
+R	E6	dna_100m.e6.t4.Kdouble	1	exit_code	0		program exit code (0 = healthy, RssAnon cap held, scratch gone, every --verify-* equal)
+R	E6	dna_100m.e6.t4.Kdouble	1	cmp_pk	yes		cmp of out.dna_100m.dna_100m.e6.t4.Kdouble.1.pk against dna_100m.ref.pk
+R	E6	dna_100m.e6.t4.Kdouble	1	cmp_sa	yes		cmp of out.dna_100m.dna_100m.e6.t4.Kdouble.1.sa against dna_100m.refsa
+R	E6	dna_100m.e6.t4.Kdouble	1	cmp_lcp	yes		cmp of out.dna_100m.dna_100m.e6.t4.Kdouble.1.lcp against dna_100m.oracle.lcp
+R	E6	dna_100m.e6.t4.Kdouble	1	cmp_ovf	yes		cmp of out.dna_100m.dna_100m.e6.t4.Kdouble.1.ovf against dna_100m.oracle.ovf
+R	E6	dna_100m.e6.t4.Kdouble	1	cmp_cld	yes		cmp of out.dna_100m.dna_100m.e6.t4.Kdouble.1.cld against dna_100m.ref.cldP
+R	E6	dna_100m.e6.t4.Kdouble	1	cmp_stats	yes		NODE_COUNT / internal / LRS_DEPTH / LRS_RANK against dna_100m.ref.stats
+R	E6	dna_100m.e6.t4.Kdouble	1	scratch_left	0		entries of scratch.d after the run (the directory must be gone)
+R	E6	genome_100m.e6.t4.Khalf	1	n	100000000	symbols	b=3 bits, sigma=5, threads=4, codec=Packed, X=993 (|D|=32), touch buffers=False
+R	E6	genome_100m.e6.t4.Khalf	1	parameters	n=100000000 f=3.333E-002 scaled=True: PH1 K_s=17476 N_base=559241 R=139810 K_sort=34953 run-spill=2185; PH3 K=16666 F=64; PH4 R=266667 P=375 B2 workers=2; PH5 block=262144 window=1048576 slots=8		scale-down by n / 3000000000 = 3.333E-002: every stage by the rule of E3 / E3b / E4 (ScaleRules)
+R	E6	genome_100m.e6.t4.Khalf	1	stage_parameters	PH1 fan-out 1024, reservoir 16384, io 65536, merge budget 16777216; PH3 fan-out 64, oversample 16, spill 65536; PH4 read 1048576, tuple 32768; PH5 block 262144 entries, window 1048576 x 8, spill flush 16777216; windows 1048576; arena caps 160 + 64 MiB		
+R	E6	genome_100m.e6.t4.Khalf	1	ph0_prepare_s	0.516842	s	wall time of the phase
+R	E6	genome_100m.e6.t4.Khalf	1	ph0_prepare_io_explicit_read	200000000	bytes	2.000 B/char (program counter, explicit reads)
+R	E6	genome_100m.e6.t4.Khalf	1	ph0_prepare_io_explicit_write	0	bytes	0.000 B/char (program counter, explicit writes)
+R	E6	genome_100m.e6.t4.Khalf	1	ph0_prepare_io_mapped_write	37500000	bytes	0.375 B/char (program counter, writes through mapped windows; CHILD windows are counted at the run level)
+R	E6	genome_100m.e6.t4.Khalf	1	ph0_prepare_proc_rchar	206646790	bytes	/proc/self/io rchar during the phase, 2.066 B/char
+R	E6	genome_100m.e6.t4.Khalf	1	ph0_prepare_proc_wchar	204	bytes	/proc/self/io wchar during the phase, 0.000 B/char
+R	E6	genome_100m.e6.t4.Khalf	1	ph0_prepare_proc_read_bytes	109826048	bytes	/proc/self/io read_bytes (block layer, page-cache misses)
+R	E6	genome_100m.e6.t4.Khalf	1	ph0_prepare_proc_write_bytes	37527552	bytes	/proc/self/io write_bytes (pages that went from clean to dirty)
+R	E6	genome_100m.e6.t4.Khalf	1	ph0_prepare_rssanon_peak	13.303808	MB	max RssAnon of the phase at 10 ms
+R	E6	genome_100m.e6.t4.Khalf	1	ph0_prepare_rssfile_peak	32.329728	MB	mapped file pages resident (reported, not counted)
+R	E6	genome_100m.e6.t4.Khalf	1	ph0_prepare_scratch_peak_cum	0	bytes	0.000 B/char: peak of the tracked scratch bytes up to the end of this phase
+R	E6	genome_100m.e6.t4.Khalf	1	ph0_prepare_scratch_live_end	0	bytes	tracked scratch bytes alive at the end of this phase
+R	E6	genome_100m.e6.t4.Khalf	1	ph0_prepare_dirty_peak	1.081344	MB	max /proc/meminfo Dirty in the phase minus the baseline 0.06 MB (system-wide: scratch included)
+R	E6	genome_100m.e6.t4.Khalf	1	ph0_prepare_proc_dirty_peak	1.048576	MB	max Private_Dirty + Shared_Dirty of the mappings of the output files in the phase (per-process view)
+R	E6	genome_100m.e6.t4.Khalf	1	ph1_dcs_s	2.981563	s	wall time of the phase
+R	E6	genome_100m.e6.t4.Khalf	1	ph1_dcs_io_explicit_read	82833076	bytes	0.828 B/char (program counter, explicit reads)
+R	E6	genome_100m.e6.t4.Khalf	1	ph1_dcs_io_explicit_write	82820080	bytes	0.828 B/char (program counter, explicit writes)
+R	E6	genome_100m.e6.t4.Khalf	1	ph1_dcs_io_mapped_write	26196004	bytes	0.262 B/char (program counter, writes through mapped windows; CHILD windows are counted at the run level)
+R	E6	genome_100m.e6.t4.Khalf	1	ph1_dcs_proc_rchar	124408581	bytes	/proc/self/io rchar during the phase, 1.244 B/char
+R	E6	genome_100m.e6.t4.Khalf	1	ph1_dcs_proc_wchar	82820205	bytes	/proc/self/io wchar during the phase, 0.828 B/char
+R	E6	genome_100m.e6.t4.Khalf	1	ph1_dcs_proc_read_bytes	1179648	bytes	/proc/self/io read_bytes (block layer, page-cache misses)
+R	E6	genome_100m.e6.t4.Khalf	1	ph1_dcs_proc_write_bytes	117420032	bytes	/proc/self/io write_bytes (pages that went from clean to dirty)
+R	E6	genome_100m.e6.t4.Khalf	1	ph1_dcs_rssanon_peak	35.790848	MB	max RssAnon of the phase at 10 ms
+R	E6	genome_100m.e6.t4.Khalf	1	ph1_dcs_rssfile_peak	84.201472	MB	mapped file pages resident (reported, not counted)
+R	E6	genome_100m.e6.t4.Khalf	1	ph1_dcs_scratch_peak_cum	39152160	bytes	0.392 B/char: peak of the tracked scratch bytes up to the end of this phase
+R	E6	genome_100m.e6.t4.Khalf	1	ph1_dcs_scratch_live_end	12890240	bytes	tracked scratch bytes alive at the end of this phase
+R	E6	genome_100m.e6.t4.Khalf	1	ph1_dcs_dirty_peak	24.264704	MB	max /proc/meminfo Dirty in the phase minus the baseline 0.06 MB (system-wide: scratch included)
+R	E6	genome_100m.e6.t4.Khalf	1	ph1_dcs_proc_dirty_peak	0	MB	max Private_Dirty + Shared_Dirty of the mappings of the output files in the phase (per-process view)
+R	E6	genome_100m.e6.t4.Khalf	1	ph23_sa_s	16.755307	s	wall time of the phase
+R	E6	genome_100m.e6.t4.Khalf	1	ph23_sa_io_explicit_read	761854184	bytes	7.619 B/char (program counter, explicit reads)
+R	E6	genome_100m.e6.t4.Khalf	1	ph23_sa_io_explicit_write	760791976	bytes	7.608 B/char (program counter, explicit writes)
+R	E6	genome_100m.e6.t4.Khalf	1	ph23_sa_io_mapped_write	400000004	bytes	4.000 B/char (program counter, writes through mapped windows; CHILD windows are counted at the run level)
+R	E6	genome_100m.e6.t4.Khalf	1	ph23_sa_proc_rchar	1003714229	bytes	/proc/self/io rchar during the phase, 10.037 B/char
+R	E6	genome_100m.e6.t4.Khalf	1	ph23_sa_proc_wchar	760792055	bytes	/proc/self/io wchar during the phase, 7.608 B/char
+R	E6	genome_100m.e6.t4.Khalf	1	ph23_sa_proc_read_bytes	290816	bytes	/proc/self/io read_bytes (block layer, page-cache misses)
+R	E6	genome_100m.e6.t4.Khalf	1	ph23_sa_proc_write_bytes	1548869632	bytes	/proc/self/io write_bytes (pages that went from clean to dirty)
+R	E6	genome_100m.e6.t4.Khalf	1	ph23_sa_rssanon_peak	74.457088	MB	max RssAnon of the phase at 10 ms
+R	E6	genome_100m.e6.t4.Khalf	1	ph23_sa_rssfile_peak	83.939328	MB	mapped file pages resident (reported, not counted)
+R	E6	genome_100m.e6.t4.Khalf	1	ph23_sa_scratch_peak_cum	427100884	bytes	4.271 B/char: peak of the tracked scratch bytes up to the end of this phase
+R	E6	genome_100m.e6.t4.Khalf	1	ph23_sa_scratch_live_end	0	bytes	tracked scratch bytes alive at the end of this phase
+R	E6	genome_100m.e6.t4.Khalf	1	ph23_sa_dirty_peak	398.610432	MB	max /proc/meminfo Dirty in the phase minus the baseline 0.06 MB (system-wide: scratch included)
+R	E6	genome_100m.e6.t4.Khalf	1	ph23_sa_proc_dirty_peak	0.118784	MB	max Private_Dirty + Shared_Dirty of the mappings of the output files in the phase (per-process view)
+R	E6	genome_100m.e6.t4.Khalf	1	ph45_lcp_child_s	7.37007	s	wall time of the phase
+R	E6	genome_100m.e6.t4.Khalf	1	ph45_lcp_child_io_explicit_read	2400000004	bytes	24.000 B/char (program counter, explicit reads)
+R	E6	genome_100m.e6.t4.Khalf	1	ph45_lcp_child_io_explicit_write	2000000000	bytes	20.000 B/char (program counter, explicit writes)
+R	E6	genome_100m.e6.t4.Khalf	1	ph45_lcp_child_io_mapped_write	111120225	bytes	1.111 B/char (program counter, writes through mapped windows; CHILD windows are counted at the run level)
+R	E6	genome_100m.e6.t4.Khalf	1	ph45_lcp_child_proc_rchar	2506316066	bytes	/proc/self/io rchar during the phase, 25.063 B/char
+R	E6	genome_100m.e6.t4.Khalf	1	ph45_lcp_child_proc_wchar	2000000020	bytes	/proc/self/io wchar during the phase, 20.000 B/char
+R	E6	genome_100m.e6.t4.Khalf	1	ph45_lcp_child_proc_read_bytes	57344	bytes	/proc/self/io read_bytes (block layer, page-cache misses)
+R	E6	genome_100m.e6.t4.Khalf	1	ph45_lcp_child_proc_write_bytes	2514620416	bytes	/proc/self/io write_bytes (pages that went from clean to dirty)
+R	E6	genome_100m.e6.t4.Khalf	1	ph45_lcp_child_rssanon_peak	105.701376	MB	max RssAnon of the phase at 10 ms
+R	E6	genome_100m.e6.t4.Khalf	1	ph45_lcp_child_rssfile_peak	81.334272	MB	mapped file pages resident (reported, not counted)
+R	E6	genome_100m.e6.t4.Khalf	1	ph45_lcp_child_scratch_peak_cum	1200000000	bytes	12.000 B/char: peak of the tracked scratch bytes up to the end of this phase
+R	E6	genome_100m.e6.t4.Khalf	1	ph45_lcp_child_scratch_live_end	0	bytes	tracked scratch bytes alive at the end of this phase
+R	E6	genome_100m.e6.t4.Khalf	1	ph45_lcp_child_dirty_peak	1208.868864	MB	max /proc/meminfo Dirty in the phase minus the baseline 0.06 MB (system-wide: scratch included)
+R	E6	genome_100m.e6.t4.Khalf	1	ph45_lcp_child_proc_dirty_peak	10.223616	MB	max Private_Dirty + Shared_Dirty of the mappings of the output files in the phase (per-process view)
+R	E6	genome_100m.e6.t4.Khalf	1	sync_s	0.01742	s	fsync of all outputs (not part of the stage times)
+R	E6	genome_100m.e6.t4.Khalf	1	sync_io_explicit_read	0	bytes	0.000 B/char (program counter, explicit reads)
+R	E6	genome_100m.e6.t4.Khalf	1	sync_io_explicit_write	0	bytes	0.000 B/char (program counter, explicit writes)
+R	E6	genome_100m.e6.t4.Khalf	1	sync_io_mapped_write	0	bytes	0.000 B/char (program counter, writes through mapped windows; CHILD windows are counted at the run level)
+R	E6	genome_100m.e6.t4.Khalf	1	sync_proc_rchar	284508	bytes	/proc/self/io rchar during the phase, 0.003 B/char
+R	E6	genome_100m.e6.t4.Khalf	1	sync_proc_wchar	11	bytes	/proc/self/io wchar during the phase, 0.000 B/char
+R	E6	genome_100m.e6.t4.Khalf	1	sync_proc_read_bytes	49152	bytes	/proc/self/io read_bytes (block layer, page-cache misses)
+R	E6	genome_100m.e6.t4.Khalf	1	sync_proc_write_bytes	0	bytes	/proc/self/io write_bytes (pages that went from clean to dirty)
+R	E6	genome_100m.e6.t4.Khalf	1	sync_rssanon_peak	90.558464	MB	max RssAnon of the phase at 10 ms
+R	E6	genome_100m.e6.t4.Khalf	1	sync_rssfile_peak	70.897664	MB	mapped file pages resident (reported, not counted)
+R	E6	genome_100m.e6.t4.Khalf	1	sync_scratch_peak_cum	1200000000	bytes	12.000 B/char: peak of the tracked scratch bytes up to the end of this phase
+R	E6	genome_100m.e6.t4.Khalf	1	sync_scratch_live_end	0	bytes	tracked scratch bytes alive at the end of this phase
+R	E6	genome_100m.e6.t4.Khalf	1	sync_dirty_peak	1.732608	MB	max /proc/meminfo Dirty in the phase minus the baseline 0.06 MB (system-wide: scratch included)
+R	E6	genome_100m.e6.t4.Khalf	1	sync_proc_dirty_peak	0	MB	max Private_Dirty + Shared_Dirty of the mappings of the output files in the phase (per-process view)
+R	E6	genome_100m.e6.t4.Khalf	1	total_s	27.623783	s	PH0 + PH1 + PH2/PH3 + PH4/PH5: wall time of the stages (gate G3: <= 90 s at 100 Mbp, 4 threads, cold cache)
+R	E6	genome_100m.e6.t4.Khalf	1	sa_stage_s	20.253713	s	PH0 + PH1 + PH2/PH3 (gate G3: <= 30 s)
+R	E6	genome_100m.e6.t4.Khalf	1	wall_s	27.952373	s	EndToEnd.Run from start to end, including the clean-up and the final sync
+R	E6	genome_100m.e6.t4.Khalf	1	ns_per_symbol	276.237828	ns	total_s / n
+R	E6	genome_100m.e6.t4.Khalf	1	throughput	3.620069	Msym/s	n / total_s
+R	E6	genome_100m.e6.t4.Khalf	1	ph0_prepare_share	0.01871		share of total_s
+R	E6	genome_100m.e6.t4.Khalf	1	ph1_dcs_share	0.107935		share of total_s
+R	E6	genome_100m.e6.t4.Khalf	1	ph23_sa_share	0.606554		share of total_s
+R	E6	genome_100m.e6.t4.Khalf	1	ph45_lcp_child_share	0.266802		share of total_s
+R	E6	genome_100m.e6.t4.Khalf	1	rssanon_peak	105.701376	MB	max RssAnon over the whole run at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks
+R	E6	genome_100m.e6.t4.Khalf	1	gc_heap	10.637144	MB	managed heap at the end (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 10/4/3
+R	E6	genome_100m.e6.t4.Khalf	1	arena_peak	30.939816	MB	largest peak of the native buffers of one stage charged to its ArenaBudget (caps 160 / 64 MiB), live at the end 0
+R	E6	genome_100m.e6.t4.Khalf	1	io_explicit_read	3444687264	bytes	34.447 B/char (program counters, all phases)
+R	E6	genome_100m.e6.t4.Khalf	1	io_explicit_write	2843612056	bytes	28.436 B/char
+R	E6	genome_100m.e6.t4.Khalf	1	io_mapped_write	974816237	bytes	9.748 B/char: packed text, rank file, SA, LCP through the counted windows plus CHILD 400000004 bytes (its windows are not counted: the file is written once, 4 (n + 1) bytes)
+R	E6	genome_100m.e6.t4.Khalf	1	io_total_counted	7263115557	bytes	72.631 B/char: explicit I/O plus mapped writes (gate G3: <= 100 B/char); reads through the mappings (text, ranks) are not in it
+R	E6	genome_100m.e6.t4.Khalf	1	proc_rchar	3845007238	bytes	38.450 B/char: /proc/self/io rchar over EndToEnd.Run (read syscalls)
+R	E6	genome_100m.e6.t4.Khalf	1	proc_wchar	2843612639	bytes	28.436 B/char: /proc/self/io wchar over EndToEnd.Run (write syscalls)
+R	E6	genome_100m.e6.t4.Khalf	1	proc_rw_total	6688619877	bytes	66.886 B/char: rchar + wchar (syscalls only; the mapped windows are not in it)
+R	E6	genome_100m.e6.t4.Khalf	1	blocklayer_read	111992832	bytes	1.120 B/char: /proc/self/io read_bytes over the run (page-cache misses)
+R	E6	genome_100m.e6.t4.Khalf	1	blocklayer_write	4218454016	bytes	42.185 B/char: /proc/self/io write_bytes over the run (pages dirtied)
+R	E6	genome_100m.e6.t4.Khalf	1	scratch_peak	1200000000	bytes	12.000 B/char: peak of the tracked scratch files over the whole pipeline (apparent size); live at the end 0; entries left 0; directory left False
+R	E6	genome_100m.e6.t4.Khalf	1	file_pk	37500064	bytes	0.375 B/char: out.genome_100m.genome_100m.e6.t4.Khalf.1.pk
+R	E6	genome_100m.e6.t4.Khalf	1	file_meta	193	bytes	0.000 B/char: out.genome_100m.genome_100m.e6.t4.Khalf.1.pk.meta
+R	E6	genome_100m.e6.t4.Khalf	1	file_sa	400000004	bytes	4.000 B/char: out.genome_100m.genome_100m.e6.t4.Khalf.1.sa
+R	E6	genome_100m.e6.t4.Khalf	1	file_lcp	100000001	bytes	1.000 B/char: out.genome_100m.genome_100m.e6.t4.Khalf.1.lcp
+R	E6	genome_100m.e6.t4.Khalf	1	file_ovf	11120224	bytes	0.111 B/char: out.genome_100m.genome_100m.e6.t4.Khalf.1.ovf
+R	E6	genome_100m.e6.t4.Khalf	1	file_cld	400000004	bytes	4.000 B/char: out.genome_100m.genome_100m.e6.t4.Khalf.1.cld
+R	E6	genome_100m.e6.t4.Khalf	1	file_stats	133	bytes	0.000 B/char: out.genome_100m.genome_100m.e6.t4.Khalf.1.stats
+R	E6	genome_100m.e6.t4.Khalf	1	output_bytes	948620623	bytes	9.486 B/char: disk footprint of the outputs (text, SA, LCP + overflow, CHILD, metadata)
+R	E6	genome_100m.e6.t4.Khalf	1	dirty_peak	1208.868864	MB	max /proc/meminfo Dirty minus the baseline (0.06 MB) over 1397 samples at 20 ms; system-wide, scratch of PH2/PH3 and PH4 included; absolute max 1208.93 MB
+R	E6	genome_100m.e6.t4.Khalf	1	dirty_mean	200.533513	MB	mean of Dirty minus the baseline over the run
+R	E6	genome_100m.e6.t4.Khalf	1	writeback_peak	25.870336	MB	max /proc/meminfo Writeback
+R	E6	genome_100m.e6.t4.Khalf	1	proc_dirty_peak	10.223616	MB	max Private_Dirty + Shared_Dirty of the mappings of the output files of this run (per-process view of the mapped dirty pages of the outputs; gate G3 <= 64 MB)
+R	E6	genome_100m.e6.t4.Khalf	1	ph1_levels	1	n	deepest level of the DCS recursion; level 0: sample 3222557, distinct names 3195365, shared 0.84 %, leaf buckets 369, split scans 1
+R	E6	genome_100m.e6.t4.Khalf	1	ph3_buckets	16662	n	leaves=13292, partitions=3370, max depth=3, largest leaf=16666, retries=0; tie share 12.1215 %, rank lookups 32356240
+R	E6	genome_100m.e6.t4.Khalf	1	ph4_width	U8		chosen before any entry was written; escapes >= 255: 1390028 (1.3900 %), >= 65535: 503401, overflow entries 1390028; B1 1.20 s, B2 2.91 s, B3 3.25 s (B3 contains the PH5 scan); chunks 375/375, B2 tasks 2, rounds 1
+R	E6	genome_100m.e6.t4.Khalf	1	ph5_scan_s	2.443399	s	time inside the PH5 scan (Consume + Complete): the share of the fused phase that belongs to PH5
+R	E6	genome_100m.e6.t4.Khalf	1	node_count	166050648	n	NODE_COUNT = 1 + I + n + 1 with I = 66050646 internal nodes
+R	E6	genome_100m.e6.t4.Khalf	1	lrs	499999	symbols	LRS_DEPTH 499999, LRS_RANK 75208039; max LCP 499999, stack peak 500000, spill written 0 bytes
+R	E6	genome_100m.e6.t4.Khalf	1	sha256	ca4b2719849c6505a607784114f027708739b09e6961cf5ef4e15f1fdec0caee		SHA-256 of the input text (PH0)
+R	E6	genome_100m.e6.t4.Khalf	1	clean	yes		scratch directory removed, no tracked scratch byte, no live arena byte; RssAnon within 256 MB: yes
+R	E6	genome_100m.e6.t4.Khalf	1	ext_rssanon_peak	105.701	MB	independent sampler: max RssAnon of /proc/<pid>/status over 1406 samples at 20 ms
+R	E6	genome_100m.e6.t4.Khalf	1	ext_dirty_peak	1208.930	MB	independent sampler: max /proc/meminfo Dirty minus the baseline (0.00 MB, median of 5 samples before the start); absolute max 1208.93 MB
+R	E6	genome_100m.e6.t4.Khalf	1	ext_dirty_mean	199.323	MB	independent sampler: mean of Dirty minus the baseline
+R	E6	genome_100m.e6.t4.Khalf	1	ext_writeback_peak	25.870	MB	independent sampler: max /proc/meminfo Writeback
+R	E6	genome_100m.e6.t4.Khalf	1	ext_scratch_apparent_peak	1200000000	bytes	independent sampler: peak sum of st_size of the files under the scratch directory (every 100 ms; the peak lasts seconds)
+R	E6	genome_100m.e6.t4.Khalf	1	ext_scratch_allocated_peak	1201147904	bytes	independent sampler: peak sum of st_blocks * 512 under the scratch directory (sparse files count only the written blocks)
+R	E6	genome_100m.e6.t4.Khalf	1	ext_scratch_files_peak	729	n	independent sampler: most files under the scratch directory at one sample
+R	E6	genome_100m.e6.t4.Khalf	1	ext_proc_rchar	3845062488	bytes	independent sampler: /proc/<pid>/io rchar, last value before the process exited (whole process incl. runtime start)
+R	E6	genome_100m.e6.t4.Khalf	1	ext_proc_wchar	2843612690	bytes	independent sampler: /proc/<pid>/io wchar, last value before the process exited (whole process incl. runtime start)
+R	E6	genome_100m.e6.t4.Khalf	1	ext_proc_read_bytes	137248768	bytes	independent sampler: /proc/<pid>/io read_bytes, last value before the process exited (whole process incl. runtime start)
+R	E6	genome_100m.e6.t4.Khalf	1	ext_proc_write_bytes	4218515456	bytes	independent sampler: /proc/<pid>/io write_bytes, last value before the process exited (whole process incl. runtime start)
+R	E6	genome_100m.e6.t4.Khalf	1	exit_code	0		program exit code (0 = healthy, RssAnon cap held, scratch gone, every --verify-* equal)
+R	E6	genome_100m.e6.t4.Khalf	1	cmp_pk	yes		cmp of out.genome_100m.genome_100m.e6.t4.Khalf.1.pk against genome_100m.ref.pk
+R	E6	genome_100m.e6.t4.Khalf	1	cmp_sa	yes		cmp of out.genome_100m.genome_100m.e6.t4.Khalf.1.sa against genome_100m.refsa
+R	E6	genome_100m.e6.t4.Khalf	1	cmp_lcp	yes		cmp of out.genome_100m.genome_100m.e6.t4.Khalf.1.lcp against genome_100m.oracle.lcp
+R	E6	genome_100m.e6.t4.Khalf	1	cmp_ovf	yes		cmp of out.genome_100m.genome_100m.e6.t4.Khalf.1.ovf against genome_100m.oracle.ovf
+R	E6	genome_100m.e6.t4.Khalf	1	cmp_cld	yes		cmp of out.genome_100m.genome_100m.e6.t4.Khalf.1.cld against genome_100m.ref.cldP
+R	E6	genome_100m.e6.t4.Khalf	1	cmp_stats	yes		NODE_COUNT / internal / LRS_DEPTH / LRS_RANK against genome_100m.ref.stats
+R	E6	genome_100m.e6.t4.Khalf	1	scratch_left	0		entries of scratch.d after the run (the directory must be gone)
+R	E6	genome_100m.e6.t4.Kdouble	1	n	100000000	symbols	b=3 bits, sigma=5, threads=4, codec=Packed, X=993 (|D|=32), touch buffers=False
+R	E6	genome_100m.e6.t4.Kdouble	1	parameters	n=100000000 f=3.333E-002 scaled=True: PH1 K_s=69905 N_base=559241 R=139810 K_sort=34953 run-spill=2185; PH3 K=66666 F=64; PH4 R=266667 P=375 B2 workers=2; PH5 block=262144 window=1048576 slots=8		scale-down by n / 3000000000 = 3.333E-002: every stage by the rule of E3 / E3b / E4 (ScaleRules)
+R	E6	genome_100m.e6.t4.Kdouble	1	stage_parameters	PH1 fan-out 1024, reservoir 16384, io 65536, merge budget 16777216; PH3 fan-out 64, oversample 16, spill 65536; PH4 read 1048576, tuple 32768; PH5 block 262144 entries, window 1048576 x 8, spill flush 16777216; windows 1048576; arena caps 160 + 64 MiB		
+R	E6	genome_100m.e6.t4.Kdouble	1	ph0_prepare_s	0.493732	s	wall time of the phase
+R	E6	genome_100m.e6.t4.Kdouble	1	ph0_prepare_io_explicit_read	200000000	bytes	2.000 B/char (program counter, explicit reads)
+R	E6	genome_100m.e6.t4.Kdouble	1	ph0_prepare_io_explicit_write	0	bytes	0.000 B/char (program counter, explicit writes)
+R	E6	genome_100m.e6.t4.Kdouble	1	ph0_prepare_io_mapped_write	37500000	bytes	0.375 B/char (program counter, writes through mapped windows; CHILD windows are counted at the run level)
+R	E6	genome_100m.e6.t4.Kdouble	1	ph0_prepare_proc_rchar	206355662	bytes	/proc/self/io rchar during the phase, 2.064 B/char
+R	E6	genome_100m.e6.t4.Kdouble	1	ph0_prepare_proc_wchar	204	bytes	/proc/self/io wchar during the phase, 0.000 B/char
+R	E6	genome_100m.e6.t4.Kdouble	1	ph0_prepare_proc_read_bytes	109748224	bytes	/proc/self/io read_bytes (block layer, page-cache misses)
+R	E6	genome_100m.e6.t4.Kdouble	1	ph0_prepare_proc_write_bytes	37531648	bytes	/proc/self/io write_bytes (pages that went from clean to dirty)
+R	E6	genome_100m.e6.t4.Kdouble	1	ph0_prepare_rssanon_peak	13.279232	MB	max RssAnon of the phase at 10 ms
+R	E6	genome_100m.e6.t4.Kdouble	1	ph0_prepare_rssfile_peak	32.272384	MB	mapped file pages resident (reported, not counted)
+R	E6	genome_100m.e6.t4.Kdouble	1	ph0_prepare_scratch_peak_cum	0	bytes	0.000 B/char: peak of the tracked scratch bytes up to the end of this phase
+R	E6	genome_100m.e6.t4.Kdouble	1	ph0_prepare_scratch_live_end	0	bytes	tracked scratch bytes alive at the end of this phase
+R	E6	genome_100m.e6.t4.Kdouble	1	ph0_prepare_dirty_peak	1.077248	MB	max /proc/meminfo Dirty in the phase minus the baseline 0.06 MB (system-wide: scratch included)
+R	E6	genome_100m.e6.t4.Kdouble	1	ph0_prepare_proc_dirty_peak	1.048576	MB	max Private_Dirty + Shared_Dirty of the mappings of the output files in the phase (per-process view)
+R	E6	genome_100m.e6.t4.Kdouble	1	ph1_dcs_s	1.598924	s	wall time of the phase
+R	E6	genome_100m.e6.t4.Kdouble	1	ph1_dcs_io_explicit_read	82833076	bytes	0.828 B/char (program counter, explicit reads)
+R	E6	genome_100m.e6.t4.Kdouble	1	ph1_dcs_io_explicit_write	82820080	bytes	0.828 B/char (program counter, explicit writes)
+R	E6	genome_100m.e6.t4.Kdouble	1	ph1_dcs_io_mapped_write	26196004	bytes	0.262 B/char (program counter, writes through mapped windows; CHILD windows are counted at the run level)
+R	E6	genome_100m.e6.t4.Kdouble	1	ph1_dcs_proc_rchar	105186306	bytes	/proc/self/io rchar during the phase, 1.052 B/char
+R	E6	genome_100m.e6.t4.Kdouble	1	ph1_dcs_proc_wchar	82820205	bytes	/proc/self/io wchar during the phase, 0.828 B/char
+R	E6	genome_100m.e6.t4.Kdouble	1	ph1_dcs_proc_read_bytes	978944	bytes	/proc/self/io read_bytes (block layer, page-cache misses)
+R	E6	genome_100m.e6.t4.Kdouble	1	ph1_dcs_proc_write_bytes	116920320	bytes	/proc/self/io write_bytes (pages that went from clean to dirty)
+R	E6	genome_100m.e6.t4.Kdouble	1	ph1_dcs_rssanon_peak	30.4128	MB	max RssAnon of the phase at 10 ms
+R	E6	genome_100m.e6.t4.Kdouble	1	ph1_dcs_rssfile_peak	84.2752	MB	mapped file pages resident (reported, not counted)
+R	E6	genome_100m.e6.t4.Kdouble	1	ph1_dcs_scratch_peak_cum	39164512	bytes	0.392 B/char: peak of the tracked scratch bytes up to the end of this phase
+R	E6	genome_100m.e6.t4.Kdouble	1	ph1_dcs_scratch_live_end	12890240	bytes	tracked scratch bytes alive at the end of this phase
+R	E6	genome_100m.e6.t4.Kdouble	1	ph1_dcs_dirty_peak	24.530944	MB	max /proc/meminfo Dirty in the phase minus the baseline 0.06 MB (system-wide: scratch included)
+R	E6	genome_100m.e6.t4.Kdouble	1	ph1_dcs_proc_dirty_peak	0	MB	max Private_Dirty + Shared_Dirty of the mappings of the output files in the phase (per-process view)
+R	E6	genome_100m.e6.t4.Kdouble	1	ph23_sa_s	12.375095	s	wall time of the phase
+R	E6	genome_100m.e6.t4.Kdouble	1	ph23_sa_io_explicit_read	799183968	bytes	7.992 B/char (program counter, explicit reads)
+R	E6	genome_100m.e6.t4.Kdouble	1	ph23_sa_io_explicit_write	798991264	bytes	7.990 B/char (program counter, explicit writes)
+R	E6	genome_100m.e6.t4.Kdouble	1	ph23_sa_io_mapped_write	400000004	bytes	4.000 B/char (program counter, writes through mapped windows; CHILD windows are counted at the run level)
+R	E6	genome_100m.e6.t4.Kdouble	1	ph23_sa_proc_rchar	977350851	bytes	/proc/self/io rchar during the phase, 9.774 B/char
+R	E6	genome_100m.e6.t4.Kdouble	1	ph23_sa_proc_wchar	798991311	bytes	/proc/self/io wchar during the phase, 7.990 B/char
+R	E6	genome_100m.e6.t4.Kdouble	1	ph23_sa_proc_read_bytes	495616	bytes	/proc/self/io read_bytes (block layer, page-cache misses)
+R	E6	genome_100m.e6.t4.Kdouble	1	ph23_sa_proc_write_bytes	1454735360	bytes	/proc/self/io write_bytes (pages that went from clean to dirty)
+R	E6	genome_100m.e6.t4.Kdouble	1	ph23_sa_rssanon_peak	72.41728	MB	max RssAnon of the phase at 10 ms
+R	E6	genome_100m.e6.t4.Kdouble	1	ph23_sa_rssfile_peak	84.410368	MB	mapped file pages resident (reported, not counted)
+R	E6	genome_100m.e6.t4.Kdouble	1	ph23_sa_scratch_peak_cum	434217168	bytes	4.342 B/char: peak of the tracked scratch bytes up to the end of this phase
+R	E6	genome_100m.e6.t4.Kdouble	1	ph23_sa_scratch_live_end	0	bytes	tracked scratch bytes alive at the end of this phase
+R	E6	genome_100m.e6.t4.Kdouble	1	ph23_sa_dirty_peak	396.689408	MB	max /proc/meminfo Dirty in the phase minus the baseline 0.06 MB (system-wide: scratch included)
+R	E6	genome_100m.e6.t4.Kdouble	1	ph23_sa_proc_dirty_peak	0.3072	MB	max Private_Dirty + Shared_Dirty of the mappings of the output files in the phase (per-process view)
+R	E6	genome_100m.e6.t4.Kdouble	1	ph45_lcp_child_s	6.717537	s	wall time of the phase
+R	E6	genome_100m.e6.t4.Kdouble	1	ph45_lcp_child_io_explicit_read	2400000004	bytes	24.000 B/char (program counter, explicit reads)
+R	E6	genome_100m.e6.t4.Kdouble	1	ph45_lcp_child_io_explicit_write	2000000000	bytes	20.000 B/char (program counter, explicit writes)
+R	E6	genome_100m.e6.t4.Kdouble	1	ph45_lcp_child_io_mapped_write	111120225	bytes	1.111 B/char (program counter, writes through mapped windows; CHILD windows are counted at the run level)
+R	E6	genome_100m.e6.t4.Kdouble	1	ph45_lcp_child_proc_rchar	2496653784	bytes	/proc/self/io rchar during the phase, 24.967 B/char
+R	E6	genome_100m.e6.t4.Kdouble	1	ph45_lcp_child_proc_wchar	2000000020	bytes	/proc/self/io wchar during the phase, 20.000 B/char
+R	E6	genome_100m.e6.t4.Kdouble	1	ph45_lcp_child_proc_read_bytes	16384	bytes	/proc/self/io read_bytes (block layer, page-cache misses)
+R	E6	genome_100m.e6.t4.Kdouble	1	ph45_lcp_child_proc_write_bytes	2514599936	bytes	/proc/self/io write_bytes (pages that went from clean to dirty)
+R	E6	genome_100m.e6.t4.Kdouble	1	ph45_lcp_child_rssanon_peak	104.865792	MB	max RssAnon of the phase at 10 ms
+R	E6	genome_100m.e6.t4.Kdouble	1	ph45_lcp_child_rssfile_peak	81.276928	MB	mapped file pages resident (reported, not counted)
+R	E6	genome_100m.e6.t4.Kdouble	1	ph45_lcp_child_scratch_peak_cum	1200000000	bytes	12.000 B/char: peak of the tracked scratch bytes up to the end of this phase
+R	E6	genome_100m.e6.t4.Kdouble	1	ph45_lcp_child_scratch_live_end	0	bytes	tracked scratch bytes alive at the end of this phase
+R	E6	genome_100m.e6.t4.Kdouble	1	ph45_lcp_child_dirty_peak	1202.839552	MB	max /proc/meminfo Dirty in the phase minus the baseline 0.06 MB (system-wide: scratch included)
+R	E6	genome_100m.e6.t4.Kdouble	1	ph45_lcp_child_proc_dirty_peak	10.223616	MB	max Private_Dirty + Shared_Dirty of the mappings of the output files in the phase (per-process view)
+R	E6	genome_100m.e6.t4.Kdouble	1	sync_s	0.003299	s	fsync of all outputs (not part of the stage times)
+R	E6	genome_100m.e6.t4.Kdouble	1	sync_io_explicit_read	0	bytes	0.000 B/char (program counter, explicit reads)
+R	E6	genome_100m.e6.t4.Kdouble	1	sync_io_explicit_write	0	bytes	0.000 B/char (program counter, explicit writes)
+R	E6	genome_100m.e6.t4.Kdouble	1	sync_io_mapped_write	0	bytes	0.000 B/char (program counter, writes through mapped windows; CHILD windows are counted at the run level)
+R	E6	genome_100m.e6.t4.Kdouble	1	sync_proc_rchar	278708	bytes	/proc/self/io rchar during the phase, 0.003 B/char
+R	E6	genome_100m.e6.t4.Kdouble	1	sync_proc_wchar	11	bytes	/proc/self/io wchar during the phase, 0.000 B/char
+R	E6	genome_100m.e6.t4.Kdouble	1	sync_proc_read_bytes	49152	bytes	/proc/self/io read_bytes (block layer, page-cache misses)
+R	E6	genome_100m.e6.t4.Kdouble	1	sync_proc_write_bytes	0	bytes	/proc/self/io write_bytes (pages that went from clean to dirty)
+R	E6	genome_100m.e6.t4.Kdouble	1	sync_rssanon_peak	88.219648	MB	max RssAnon of the phase at 10 ms
+R	E6	genome_100m.e6.t4.Kdouble	1	sync_rssfile_peak	70.905856	MB	mapped file pages resident (reported, not counted)
+R	E6	genome_100m.e6.t4.Kdouble	1	sync_scratch_peak_cum	1200000000	bytes	12.000 B/char: peak of the tracked scratch bytes up to the end of this phase
+R	E6	genome_100m.e6.t4.Kdouble	1	sync_scratch_live_end	0	bytes	tracked scratch bytes alive at the end of this phase
+R	E6	genome_100m.e6.t4.Kdouble	1	sync_dirty_peak	1.499136	MB	max /proc/meminfo Dirty in the phase minus the baseline 0.06 MB (system-wide: scratch included)
+R	E6	genome_100m.e6.t4.Kdouble	1	sync_proc_dirty_peak	0	MB	max Private_Dirty + Shared_Dirty of the mappings of the output files in the phase (per-process view)
+R	E6	genome_100m.e6.t4.Kdouble	1	total_s	21.185289	s	PH0 + PH1 + PH2/PH3 + PH4/PH5: wall time of the stages (gate G3: <= 90 s at 100 Mbp, 4 threads, cold cache)
+R	E6	genome_100m.e6.t4.Kdouble	1	sa_stage_s	14.467752	s	PH0 + PH1 + PH2/PH3 (gate G3: <= 30 s)
+R	E6	genome_100m.e6.t4.Kdouble	1	wall_s	21.5011	s	EndToEnd.Run from start to end, including the clean-up and the final sync
+R	E6	genome_100m.e6.t4.Kdouble	1	ns_per_symbol	211.852889	ns	total_s / n
+R	E6	genome_100m.e6.t4.Kdouble	1	throughput	4.720257	Msym/s	n / total_s
+R	E6	genome_100m.e6.t4.Kdouble	1	ph0_prepare_share	0.023305		share of total_s
+R	E6	genome_100m.e6.t4.Kdouble	1	ph1_dcs_share	0.075473		share of total_s
+R	E6	genome_100m.e6.t4.Kdouble	1	ph23_sa_share	0.584136		share of total_s
+R	E6	genome_100m.e6.t4.Kdouble	1	ph45_lcp_child_share	0.317085		share of total_s
+R	E6	genome_100m.e6.t4.Kdouble	1	rssanon_peak	104.865792	MB	max RssAnon over the whole run at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks
+R	E6	genome_100m.e6.t4.Kdouble	1	gc_heap	37.18648	MB	managed heap at the end (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 9/1/0
+R	E6	genome_100m.e6.t4.Kdouble	1	arena_peak	30.939816	MB	largest peak of the native buffers of one stage charged to its ArenaBudget (caps 160 / 64 MiB), live at the end 0
+R	E6	genome_100m.e6.t4.Kdouble	1	io_explicit_read	3482017048	bytes	34.820 B/char (program counters, all phases)
+R	E6	genome_100m.e6.t4.Kdouble	1	io_explicit_write	2881811344	bytes	28.818 B/char
+R	E6	genome_100m.e6.t4.Kdouble	1	io_mapped_write	974816237	bytes	9.748 B/char: packed text, rank file, SA, LCP through the counted windows plus CHILD 400000004 bytes (its windows are not counted: the file is written once, 4 (n + 1) bytes)
+R	E6	genome_100m.e6.t4.Kdouble	1	io_total_counted	7338644629	bytes	73.386 B/char: explicit I/O plus mapped writes (gate G3: <= 100 B/char); reads through the mappings (text, ranks) are not in it
+R	E6	genome_100m.e6.t4.Kdouble	1	proc_rchar	3789471238	bytes	37.895 B/char: /proc/self/io rchar over EndToEnd.Run (read syscalls)
+R	E6	genome_100m.e6.t4.Kdouble	1	proc_wchar	2881811895	bytes	28.818 B/char: /proc/self/io wchar over EndToEnd.Run (write syscalls)
+R	E6	genome_100m.e6.t4.Kdouble	1	proc_rw_total	6671283133	bytes	66.713 B/char: rchar + wchar (syscalls only; the mapped windows are not in it)
+R	E6	genome_100m.e6.t4.Kdouble	1	blocklayer_read	111939584	bytes	1.119 B/char: /proc/self/io read_bytes over the run (page-cache misses)
+R	E6	genome_100m.e6.t4.Kdouble	1	blocklayer_write	4123807744	bytes	41.238 B/char: /proc/self/io write_bytes over the run (pages dirtied)
+R	E6	genome_100m.e6.t4.Kdouble	1	scratch_peak	1200000000	bytes	12.000 B/char: peak of the tracked scratch files over the whole pipeline (apparent size); live at the end 0; entries left 0; directory left False
+R	E6	genome_100m.e6.t4.Kdouble	1	file_pk	37500064	bytes	0.375 B/char: out.genome_100m.genome_100m.e6.t4.Kdouble.1.pk
+R	E6	genome_100m.e6.t4.Kdouble	1	file_meta	193	bytes	0.000 B/char: out.genome_100m.genome_100m.e6.t4.Kdouble.1.pk.meta
+R	E6	genome_100m.e6.t4.Kdouble	1	file_sa	400000004	bytes	4.000 B/char: out.genome_100m.genome_100m.e6.t4.Kdouble.1.sa
+R	E6	genome_100m.e6.t4.Kdouble	1	file_lcp	100000001	bytes	1.000 B/char: out.genome_100m.genome_100m.e6.t4.Kdouble.1.lcp
+R	E6	genome_100m.e6.t4.Kdouble	1	file_ovf	11120224	bytes	0.111 B/char: out.genome_100m.genome_100m.e6.t4.Kdouble.1.ovf
+R	E6	genome_100m.e6.t4.Kdouble	1	file_cld	400000004	bytes	4.000 B/char: out.genome_100m.genome_100m.e6.t4.Kdouble.1.cld
+R	E6	genome_100m.e6.t4.Kdouble	1	file_stats	133	bytes	0.000 B/char: out.genome_100m.genome_100m.e6.t4.Kdouble.1.stats
+R	E6	genome_100m.e6.t4.Kdouble	1	output_bytes	948620623	bytes	9.486 B/char: disk footprint of the outputs (text, SA, LCP + overflow, CHILD, metadata)
+R	E6	genome_100m.e6.t4.Kdouble	1	dirty_peak	1202.839552	MB	max /proc/meminfo Dirty minus the baseline (0.06 MB) over 1075 samples at 20 ms; system-wide, scratch of PH2/PH3 and PH4 included; absolute max 1202.90 MB
+R	E6	genome_100m.e6.t4.Kdouble	1	dirty_mean	236.532592	MB	mean of Dirty minus the baseline over the run
+R	E6	genome_100m.e6.t4.Kdouble	1	writeback_peak	18.128896	MB	max /proc/meminfo Writeback
+R	E6	genome_100m.e6.t4.Kdouble	1	proc_dirty_peak	10.223616	MB	max Private_Dirty + Shared_Dirty of the mappings of the output files of this run (per-process view of the mapped dirty pages of the outputs; gate G3 <= 64 MB)
+R	E6	genome_100m.e6.t4.Kdouble	1	ph1_levels	1	n	deepest level of the DCS recursion; level 0: sample 3222557, distinct names 3195365, shared 0.84 %, leaf buckets 93, split scans 1
+R	E6	genome_100m.e6.t4.Kdouble	1	ph3_buckets	3076	n	leaves=3011, partitions=65, max depth=2, largest leaf=61416, retries=0; tie share 12.1220 %, rank lookups 30225246
+R	E6	genome_100m.e6.t4.Kdouble	1	ph4_width	U8		chosen before any entry was written; escapes >= 255: 1390028 (1.3900 %), >= 65535: 503401, overflow entries 1390028; B1 1.00 s, B2 2.72 s, B3 2.99 s (B3 contains the PH5 scan); chunks 375/375, B2 tasks 2, rounds 1
+R	E6	genome_100m.e6.t4.Kdouble	1	ph5_scan_s	2.302422	s	time inside the PH5 scan (Consume + Complete): the share of the fused phase that belongs to PH5
+R	E6	genome_100m.e6.t4.Kdouble	1	node_count	166050648	n	NODE_COUNT = 1 + I + n + 1 with I = 66050646 internal nodes
+R	E6	genome_100m.e6.t4.Kdouble	1	lrs	499999	symbols	LRS_DEPTH 499999, LRS_RANK 75208039; max LCP 499999, stack peak 500000, spill written 0 bytes
+R	E6	genome_100m.e6.t4.Kdouble	1	sha256	ca4b2719849c6505a607784114f027708739b09e6961cf5ef4e15f1fdec0caee		SHA-256 of the input text (PH0)
+R	E6	genome_100m.e6.t4.Kdouble	1	clean	yes		scratch directory removed, no tracked scratch byte, no live arena byte; RssAnon within 256 MB: yes
+R	E6	genome_100m.e6.t4.Kdouble	1	ext_rssanon_peak	104.866	MB	independent sampler: max RssAnon of /proc/<pid>/status over 1084 samples at 20 ms
+R	E6	genome_100m.e6.t4.Kdouble	1	ext_dirty_peak	1198.748	MB	independent sampler: max /proc/meminfo Dirty minus the baseline (0.00 MB, median of 5 samples before the start); absolute max 1198.75 MB
+R	E6	genome_100m.e6.t4.Kdouble	1	ext_dirty_mean	234.539	MB	independent sampler: mean of Dirty minus the baseline
+R	E6	genome_100m.e6.t4.Kdouble	1	ext_writeback_peak	28.307	MB	independent sampler: max /proc/meminfo Writeback
+R	E6	genome_100m.e6.t4.Kdouble	1	ext_scratch_apparent_peak	1196881740	bytes	independent sampler: peak sum of st_size of the files under the scratch directory (every 100 ms; the peak lasts seconds)
+R	E6	genome_100m.e6.t4.Kdouble	1	ext_scratch_allocated_peak	1197711360	bytes	independent sampler: peak sum of st_blocks * 512 under the scratch directory (sparse files count only the written blocks)
+R	E6	genome_100m.e6.t4.Kdouble	1	ext_scratch_files_peak	730	n	independent sampler: most files under the scratch directory at one sample
+R	E6	genome_100m.e6.t4.Kdouble	1	ext_proc_rchar	3789526816	bytes	independent sampler: /proc/<pid>/io rchar, last value before the process exited (whole process incl. runtime start)
+R	E6	genome_100m.e6.t4.Kdouble	1	ext_proc_wchar	2881843336	bytes	independent sampler: /proc/<pid>/io wchar, last value before the process exited (whole process incl. runtime start)
+R	E6	genome_100m.e6.t4.Kdouble	1	ext_proc_read_bytes	137306112	bytes	independent sampler: /proc/<pid>/io read_bytes, last value before the process exited (whole process incl. runtime start)
+R	E6	genome_100m.e6.t4.Kdouble	1	ext_proc_write_bytes	4123897856	bytes	independent sampler: /proc/<pid>/io write_bytes, last value before the process exited (whole process incl. runtime start)
+R	E6	genome_100m.e6.t4.Kdouble	1	exit_code	0		program exit code (0 = healthy, RssAnon cap held, scratch gone, every --verify-* equal)
+R	E6	genome_100m.e6.t4.Kdouble	1	cmp_pk	yes		cmp of out.genome_100m.genome_100m.e6.t4.Kdouble.1.pk against genome_100m.ref.pk
+R	E6	genome_100m.e6.t4.Kdouble	1	cmp_sa	yes		cmp of out.genome_100m.genome_100m.e6.t4.Kdouble.1.sa against genome_100m.refsa
+R	E6	genome_100m.e6.t4.Kdouble	1	cmp_lcp	yes		cmp of out.genome_100m.genome_100m.e6.t4.Kdouble.1.lcp against genome_100m.oracle.lcp
+R	E6	genome_100m.e6.t4.Kdouble	1	cmp_ovf	yes		cmp of out.genome_100m.genome_100m.e6.t4.Kdouble.1.ovf against genome_100m.oracle.ovf
+R	E6	genome_100m.e6.t4.Kdouble	1	cmp_cld	yes		cmp of out.genome_100m.genome_100m.e6.t4.Kdouble.1.cld against genome_100m.ref.cldP
+R	E6	genome_100m.e6.t4.Kdouble	1	cmp_stats	yes		NODE_COUNT / internal / LRS_DEPTH / LRS_RANK against genome_100m.ref.stats
+R	E6	genome_100m.e6.t4.Kdouble	1	scratch_left	0		entries of scratch.d after the run (the directory must be gone)
