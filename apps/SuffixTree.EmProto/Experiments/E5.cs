@@ -137,7 +137,34 @@ internal static unsafe class E5
         string[] left = Directory.GetFileSystemEntries(scratch).Concat(Directory.GetFileSystemEntries(spillDir)).Distinct().ToArray();
         bool ok = Healthy(rs.MaxRssAnonMb, o.Double("rss-cap-mb", 256), left.Length, ScratchTracker.Live, options.Budget!.LiveBytes);
         if (o.Get("verify") is { } oracle) ok &= Verify(r, caseName, oracle, outputs, codec, stats.Forward, n);
+        if (o.Flag("nextsym")) ok &= NextSym(o, r, caseName, textPath, n, bits, lcpPrefix, outPrefix, options, total);
         return ok ? 0 : 1;
+    }
+
+    /// <summary>The optional NEXTSYM pass (<c>--nextsym --sa &lt;sa file&gt;</c>): <c>text[SA[r] + LCP[r]]</c> per rank, random reads of the text, report-only; its time is compared with the scan's.</summary>
+    private static bool NextSym(Options o, Report r, string c, string textPath, long n, int bits, string lcpPrefix, string outPrefix, ChildBuildOptions options, double scanSeconds)
+    {
+        string saPath = o.Require("sa");
+        string path = outPrefix + ".nsym";
+        using var rss = new RssSampler(10);
+        rss.Start();
+        NextSymResult res;
+        using (var mapped = new MappedFile(textPath, writable: false))
+        using (var packed = new PackedText(mapped.Pointer, n, bits, mapped, ownsOwner: false))
+        using (var file = new CompactLcpFile(lcpPrefix + ".lcp", lcpPrefix + ".ovf", n, options.ReadBufferBytes))
+            res = NextSymScan.Run(packed, saPath, file, path, options);
+        RssStats rs = rss.Stop();
+        r.Row("E5", c, "nextsym_s", res.Seconds, "s", $"NEXTSYM pass: SA and LCP read in rank order, {res.TextReads} random text reads, one byte per rank through mapped windows (report only); {res.Seconds * 1e9 / (n + 1.0):F1} ns per rank");
+        r.Row("E5", c, "nextsym_share", res.Seconds / (res.Seconds + scanSeconds), "", $"NEXTSYM time / (NEXTSYM time + ph5_s {scanSeconds:F3} s)");
+        r.Row("E5", c, "nextsym_rssanon_peak", rs.MaxRssAnonMb, "MB", "max RssAnon during the NEXTSYM pass");
+        bool ok = true;
+        if (o.Get("verify") is { } oracle && File.Exists(oracle + ".nsym"))
+        {
+            (bool equal, long at) = E3b.CompareFiles(path, oracle + ".nsym");
+            r.Row("E5", c, "nextsym_equals_oracle", equal ? "yes" : "NO", "", equal ? $"byte-identical to {Path.GetFileName(oracle)}.nsym ({new FileInfo(path).Length} bytes)" : $"first difference at byte {at}");
+            ok = equal;
+        }
+        return ok;
     }
 
     /// <summary>The exit code of a run before the comparison with the oracle: the RssAnon cap held and no scratch entry, tracked scratch byte or arena byte is left behind.</summary>
@@ -341,6 +368,22 @@ internal static unsafe class E5
             $"stackpeak={stats.StackPeak}",
         });
         string c = o.Str("case", "e5-oracle");
+        if (o.Get("sa") is { } saPath)
+        {
+            (_, int bits) = E3.ReadMeta(textPath);
+            using var mapped = new MappedFile(textPath, writable: false);
+            using var packed = new PackedText(mapped.Pointer, n, bits, mapped, ownsOwner: false);
+            var sa = new uint[length];
+            using (var fs = new FileStream(saPath, FileMode.Open, FileAccess.Read, FileShare.Read, 1 << 20, FileOptions.SequentialScan)) fs.ReadExactly(MemoryMarshal.AsBytes(sa.AsSpan()));
+            var nextSym = new byte[length];
+            for (int i = 0; i < length; i++)
+            {
+                long p = (long)sa[i] + lcp[i];
+                nextSym[i] = p < n ? (byte)packed.Symbol(p) : (byte)0xFF; // the formula written out again, not the production helper
+            }
+            File.WriteAllBytes(outPrefix + ".nsym", nextSym);
+            r.Row("E5", c, "oracle_nextsym", length, "n", "NEXTSYM of every rank in RAM from the suffix array, the LCP and the text");
+        }
         r.Row("E5", c, "oracle_child_s", child, "s", $"in-RAM ChildTable.Build, tagged and packed, n={n}, LCP kind {lcp.Kind}, overflow entries {lcp.OverflowCount}");
         r.Row("E5", c, "oracle_smaller_s", smaller, "s", "PSV and NSV of every rank from the LcpPyramid (fanout 32)");
         r.Row("E5", c, "oracle_stats", stats.NodeCount, "n", $"NODE_COUNT {stats.NodeCount}, internal {stats.InternalCount}, LRS_DEPTH {stats.LrsDepth}, LRS_RANK {stats.LrsRank}, in-RAM stack peak {stats.StackPeak}");

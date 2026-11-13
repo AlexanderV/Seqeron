@@ -1,0 +1,26 @@
+[
+ {
+  "id": "D01",
+  "desc": "the mapping filter is a suffix match",
+  "old": "inside = slash >= 0 && line[slash..].StartsWith(prefix);",
+  "new": "inside = slash >= 0 && line[slash..].EndsWith(prefix);"
+ },
+ {
+  "id": "D02",
+  "desc": "Shared_Dirty is not summed",
+  "old": "else if (inside && (line.StartsWith(KeyPrivate) || line.StartsWith(KeyShared)))",
+  "new": "else if (inside && line.StartsWith(KeyPrivate))"
+ },
+ {
+  "id": "D03",
+  "desc": "every mapping is summed",
+  "old": "inside = slash >= 0 && line[slash..].StartsWith(prefix);",
+  "new": "inside = slash >= 0;"
+ },
+ {
+  "id": "D04",
+  "desc": "Private_Dirty is not summed",
+  "old": "else if (inside && (line.StartsWith(KeyPrivate) || line.StartsWith(KeyShared)))",
+  "new": "else if (inside && line.StartsWith(KeyShared))"
+ }
+]

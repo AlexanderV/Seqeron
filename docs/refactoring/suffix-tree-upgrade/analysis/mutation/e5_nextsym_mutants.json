@@ -1,0 +1,32 @@
+[
+ {
+  "id": "M01",
+  "desc": "the end mark is stored one position late",
+  "old": "destination[i] = p < n ? (byte)text.Symbol(p) : NoSymbol;",
+  "new": "destination[i] = p <= n ? (byte)text.Symbol(p) : NoSymbol;"
+ },
+ {
+  "id": "M02",
+  "desc": "the LCP is not added",
+  "old": "long p = (long)sa[i] + lcp[i];",
+  "new": "long p = (long)sa[i];"
+ },
+ {
+  "id": "M03",
+  "desc": "a 9-bit text is accepted",
+  "old": "if (text.Bits > 8) throw",
+  "new": "if (text.Bits > 9) throw"
+ },
+ {
+  "id": "M04",
+  "desc": "a suffix array file one entry short is accepted",
+  "old": "if (sa.Length != (n + 1) * 4) throw",
+  "new": "if (sa.Length < n * 4) throw"
+ },
+ {
+  "id": "M05",
+  "desc": "the block is written one rank early",
+  "old": "writer.Write(first + at, bytes.AsSpan(0, count));",
+  "new": "writer.Write(first + at + 1, bytes.AsSpan(0, count - 1));"
+ }
+]

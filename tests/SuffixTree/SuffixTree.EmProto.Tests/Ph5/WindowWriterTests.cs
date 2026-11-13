@@ -146,6 +146,27 @@ public class WindowWriterTests
         Assert.Throws<ArgumentOutOfRangeException>(() => w.Write(38, new byte[3]));
         Assert.Throws<ArgumentOutOfRangeException>(() => new AlignedWindowWriter(Path.Combine(_dir, "p.bin"), 40, 0, 2, true));
         Assert.Throws<ArgumentOutOfRangeException>(() => new AlignedWindowWriter(Path.Combine(_dir, "q.bin"), 40, 16, 0, true));
+        foreach (int window in new[] { 3, 6, 24, 4097, -16 }) Assert.Throws<ArgumentOutOfRangeException>(() => new AlignedWindowWriter(Path.Combine(_dir, "r.bin"), 40, window, 2, true), $"window {window}");
+        Assert.Throws<ArgumentOutOfRangeException>(() => new AlignedWindowWriter(Path.Combine(_dir, "s.bin"), -1, 16, 2, true));
+    }
+
+    [Test]
+    public void ExplicitFlush_FlushesEveryOpenWindow_AndDisposeFlushesTheRest()
+    {
+        const int window = 64;
+        var w = new AlignedWindowWriter(Path.Combine(_dir, "ef.bin"), 4 * window, window, 3, flushOnRelease: true);
+        w.Write32(0, 1);
+        w.Write32(16, 2);
+        Assert.That(w.Stats.Flushes, Is.Zero);
+        w.Flush();
+        Assert.That(w.Stats.Flushes, Is.EqualTo(2), "two windows are open");
+        Assert.That(w.Stats.FlushedBytes, Is.EqualTo(2L * window));
+        w.Write32(32, 3);
+        w.Dispose();
+        Assert.That(w.Stats.Flushes, Is.EqualTo(2 + 3), "dispose flushes the three open windows");
+        w.Dispose();
+        Assert.That(w.Stats.Flushes, Is.EqualTo(5), "a second dispose does nothing");
+        Assert.Throws<ObjectDisposedException>(() => w.Write32(0, 1));
     }
 
     [Test]

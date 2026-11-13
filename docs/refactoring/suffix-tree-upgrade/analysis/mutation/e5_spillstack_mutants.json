@@ -1,0 +1,122 @@
+[
+ {
+  "id": "S01",
+  "desc": "the stack advances one entry early (block of B - 1 entries)",
+  "old": "if (_count == _block) Advance();",
+  "new": "if (_count == _block - 1) Advance();"
+ },
+ {
+  "id": "S02",
+  "desc": "Pop retreats also at height 0",
+  "old": "if (--_count == 0 && _height > 0) Retreat();",
+  "new": "if (--_count == 0) Retreat();"
+ },
+ {
+  "id": "S03",
+  "desc": "every evicted block is written, also a clean one",
+  "old": "if (_otherDirty) WriteBlock(_topBlock - 1, _other);",
+  "new": "if (true) WriteBlock(_topBlock - 1, _other);"
+ },
+ {
+  "id": "S04",
+  "desc": "the block below is always dirty after an advance",
+  "old": "_otherDirty = _curDirty;\n        _curDirty = false;\n        _otherBelow = true;",
+  "new": "_otherDirty = true;\n        _curDirty = false;\n        _otherBelow = true;"
+ },
+ {
+  "id": "S05",
+  "desc": "a block that was read back is dirty",
+  "old": "            ReadBlock(_topBlock - 1, _other);\n            _otherDirty = false;",
+  "new": "            ReadBlock(_topBlock - 1, _other);\n            _otherDirty = true;"
+ },
+ {
+  "id": "S06",
+  "desc": "the new top block after an advance starts dirty (the push that follows sets it anyway)",
+  "old": "_curDirty = false;\n        _otherBelow = true;",
+  "new": "_curDirty = true;\n        _otherBelow = true;"
+ },
+ {
+  "id": "S07",
+  "desc": "a refilled block is one entry short",
+  "old": "        _topBlock--;\n        _count = _block;",
+  "new": "        _topBlock--;\n        _count = _block - 1;"
+ },
+ {
+  "id": "S08",
+  "desc": "Retreat reads when the block below is resident and not otherwise",
+  "old": "if (!_otherBelow)\n        {\n            ReadBlock",
+  "new": "if (_otherBelow)\n        {\n            ReadBlock"
+ },
+ {
+  "id": "S09",
+  "desc": "a block is read from the next block's offset",
+  "old": "_file!.ReadExactAt(new Span<byte>(buffer, _blockBytes), block * _blockBytes);",
+  "new": "_file!.ReadExactAt(new Span<byte>(buffer, _blockBytes), (block + 1) * _blockBytes);"
+ },
+ {
+  "id": "S10",
+  "desc": "the unflushed byte count does not grow (no fsync)",
+  "old": "_unflushed += _blockBytes;",
+  "new": "_unflushed += 0;"
+ },
+ {
+  "id": "S11",
+  "desc": "Dispose keeps the spill file",
+  "old": "        File.Delete(_path);\n        ScratchTracker.Remove(_fileBytes);",
+  "new": "        ScratchTracker.Remove(_fileBytes);"
+ },
+ {
+  "id": "S12",
+  "desc": "the peak height lags one push",
+  "old": "if (++_height > _peak) _peak = _height;",
+  "new": "if (_height++ > _peak) _peak = _height;"
+ },
+ {
+  "id": "S13",
+  "desc": "an update through TopForUpdate does not mark the block dirty",
+  "old": "        _curDirty = true;\n        return ref _cur[_count - 1];",
+  "new": "        return ref _cur[_count - 1];"
+ },
+ {
+  "id": "S14",
+  "desc": "a block size of 1 is accepted",
+  "old": "ArgumentOutOfRangeException.ThrowIfLessThan(blockEntries, 2);",
+  "new": "ArgumentOutOfRangeException.ThrowIfLessThan(blockEntries, 1);"
+ },
+ {
+  "id": "S15",
+  "desc": "Advance writes only when the other buffer is not below",
+  "old": "if (_otherBelow)\n        {\n            // the other buffer holds",
+  "new": "if (!_otherBelow)\n        {\n            // the other buffer holds"
+ },
+ {
+  "id": "S16",
+  "desc": "blocks read are not counted",
+  "old": "        _blocksRead++;\n",
+  "new": ""
+ },
+ {
+  "id": "S17",
+  "desc": "bytes written are not counted",
+  "old": "        _bytesWritten += _blockBytes;\n",
+  "new": ""
+ },
+ {
+  "id": "S18",
+  "desc": "a refilled block does not become the top (the buffers are not swapped)",
+  "old": "        T* top = _other;\n        _other = _cur;\n        _cur = top;\n        _curDirty = _otherDirty;",
+  "new": "        _curDirty = _otherDirty;"
+ },
+ {
+  "id": "S19",
+  "desc": "the file high-water mark is not tracked",
+  "old": "            _fileBytes = end;\n",
+  "new": ""
+ },
+ {
+  "id": "S20",
+  "desc": "the empty stack does not refuse Top",
+  "old": "if (_height == 0) ThrowEmpty();\n            return ref _cur[_count - 1];",
+  "new": "return ref _cur[_count - 1];"
+ }
+]

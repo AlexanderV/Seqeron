@@ -19,10 +19,13 @@ internal sealed class ChildBuildStats
 
     internal NsvResult? Backward { get; init; }
 
+    /// <summary>True when the backward pass ran on its own thread while the forward scan ran (<see cref="ChildBuildOptions.ParallelBackward"/>).</summary>
+    internal bool BackwardConcurrent { get; init; }
+
     /// <summary>Wall seconds of the forward pass including the reading of the LCP file.</summary>
     internal double ForwardWallSeconds { get; init; }
 
-    /// <summary>Bytes of the LCP files read (base and overflow) by the forward pass, and by the backward pass.</summary>
+    /// <summary>Bytes of the LCP files (base array and overflow pairs): the volume each pass reads.</summary>
     internal long LcpBytes { get; init; }
 }
 
@@ -59,7 +62,7 @@ internal static class ExternalChild
         NsvResult? backward = null;
         if (parallel is not null) backward = parallel.GetAwaiter().GetResult();
         else if (outputs.Nsv is not null) backward = Backward(n, lcpBase, lcpOverflow, outputs.Nsv, options);
-        return new ChildBuildStats { Forward = forward, Backward = backward, ForwardWallSeconds = wall, LcpBytes = new FileInfo(lcpBase).Length + new FileInfo(lcpOverflow).Length };
+        return new ChildBuildStats { Forward = forward, Backward = backward, BackwardConcurrent = parallel is not null, ForwardWallSeconds = wall, LcpBytes = new FileInfo(lcpBase).Length + new FileInfo(lcpOverflow).Length };
     }
 
     private static NsvResult Backward(long n, string lcpBase, string lcpOverflow, string nsvPath, ChildBuildOptions options)

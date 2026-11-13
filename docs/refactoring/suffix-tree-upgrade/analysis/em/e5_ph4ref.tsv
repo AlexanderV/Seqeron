@@ -1,0 +1,865 @@
+R	E5	protocol	head	10de29a93442464a9d11e28aed6ee2e57d762d7d		git rev-parse HEAD of the binary under test; group ph4ref
+R	E4	a10.ph4	1	n	10000000	symbols	b=1 bits, mode=Distributed, threads=4, B2 workers=2, touch buffers=False
+R	E4	a10.ph4	1	parameters	R=26667 P=375 rounds=1 tuple=32768 read=1048576 window=1048576		R scaled by n/3e9 = 3.333E-003 from R=8000000 (P = 375 at 3e9); B2 workers from the reference geometry: one task holds 73.8 MiB at 3e9, arena cap 160 MiB
+R	E4	a10.ph4	1	ph4_s	0.4026	s	PH4 total: B1 + B2 + B3 (without fsync)
+R	E4	a10.ph4	1	b1_s	0.127071	s	B1: suffix array scanned once, Phi tuples distributed by position / R
+R	E4	a10.ph4	1	b2_s	0.180741	s	B2: scatter, PLCP loop, rank tuples distributed by rank / R
+R	E4	a10.ph4	1	b3_s	0.092829	s	B3: rank chunks scattered and written through mapped windows
+R	E4	a10.ph4	1	fsync_s	0.00046	s	flush of the two output files after the build
+R	E4	a10.ph4	1	ns_per_symbol	40.260029	ns	ph4_s / n
+R	E4	a10.ph4	1	throughput	24.838531	Msym/s	n / ph4_s; the gate of ADR-004 row E4 is 5 MB/s = 5 M symbols/s on 4 threads
+R	E4	a10.ph4	1	rssanon_peak	26.210304	MB	max RssAnon of 42 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 11)
+R	E4	a10.ph4	1	rssfile_peak	30.26944	MB	mapped file pages resident (text, output windows, PLCP file in the bounded mode): reported, not counted (ADR-004 section 6a)
+R	E4	a10.ph4	1	vmhwm	58.523648	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E4	a10.ph4	1	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E4	a10.ph4	1	arena_peak	27.099816	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E4	a10.ph4	1	io_explicit_read	240000004	bytes	24.000 B/char; suffix array and tuple files (790 calls)
+R	E4	a10.ph4	1	io_explicit_write	200000000	bytes	20.000 B/char; tuple files and the PLCP file (6726 calls)
+R	E4	a10.ph4	1	io_mapped_write	40000004	bytes	4.000 B/char: the LCP section through mapped windows of at most 1048576 bytes (39 windows, largest 1048576)
+R	E4	a10.ph4	1	io_total_counted	480000008	bytes	48.000 B/char explicit I/O plus mapped writes; the bounded mode's gather reads 0.0 B/char more through a read-only mapping (48.000 B/char with it); the text reads come on top (see block-layer read_bytes)
+R	E4	a10.ph4	1	blocklayer_read	41721856	bytes	/proc/self/io read_bytes during the build (page-cache misses); 4.172 B/char
+R	E4	a10.ph4	1	blocklayer_write	243404800	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E4	a10.ph4	1	scratch_peak	120000000	bytes	12.000 B/char peak of all scratch files (tuple files, PLCP file), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E4	a10.ph4	1	lcp_file	40000004	bytes	4.000 B/char (the output): base 40000004, overflow 0
+R	E4	a10.ph4	1	dirty_peak	120.897536	MB	max /proc/meminfo Dirty (system-wide); max Cached 726 MB
+R	E4	a10.ph4	1	width	U32		chosen before any entry was written; escapes >= 255: 9999745 (99.9975 %), >= 65535: 9934465 (99.3447 %), overflow entries 0
+R	E4	a10.ph4	1	max_plcp	9999999	symbols	largest LCP value
+R	E4	a10.ph4	1	compare_steps	7344403	steps	vector (or word) compare steps of all PLCP loops, 0.734 per position; restart cost (symbols compared at the first position of each of the 375 chunks, no carry): 1879976250
+R	E4	a10.ph4	1	chunks	375	n	text chunks 375, rank chunks 375, rounds 1, B2 tasks in parallel 2
+R	E5	a10.ph4	1	ext_rssanon_peak	25.461	MB	independent sampler: max RssAnon of /proc/<pid>/status over 25 samples at 20 ms
+R	E5	a10.ph4	1	ext_dirty_peak	121.684	MB	independent sampler: max /proc/meminfo Dirty minus the baseline (0.10 MB, median of 5 samples before the start); gate G3 <= 64 MB; absolute max 121.79 MB
+R	E5	a10.ph4	1	ext_dirty_mean	59.401	MB	independent sampler: mean of Dirty minus the baseline
+R	E5	a10.ph4	1	ext_writeback_peak	0.918	MB	independent sampler: max /proc/meminfo Writeback
+R	E5	a10.ph4	1	device_write_bytes	40894464	bytes	sectors written by vda during the run and the sync that follows it (512 B each; includes the spill file, journal, everything)
+R	E4	a10.ph4	2	n	10000000	symbols	b=1 bits, mode=Distributed, threads=4, B2 workers=2, touch buffers=False
+R	E4	a10.ph4	2	parameters	R=26667 P=375 rounds=1 tuple=32768 read=1048576 window=1048576		R scaled by n/3e9 = 3.333E-003 from R=8000000 (P = 375 at 3e9); B2 workers from the reference geometry: one task holds 73.8 MiB at 3e9, arena cap 160 MiB
+R	E4	a10.ph4	2	ph4_s	0.423135	s	PH4 total: B1 + B2 + B3 (without fsync)
+R	E4	a10.ph4	2	b1_s	0.136482	s	B1: suffix array scanned once, Phi tuples distributed by position / R
+R	E4	a10.ph4	2	b2_s	0.184076	s	B2: scatter, PLCP loop, rank tuples distributed by rank / R
+R	E4	a10.ph4	2	b3_s	0.10052	s	B3: rank chunks scattered and written through mapped windows
+R	E4	a10.ph4	2	fsync_s	0.000368	s	flush of the two output files after the build
+R	E4	a10.ph4	2	ns_per_symbol	42.313518	ns	ph4_s / n
+R	E4	a10.ph4	2	throughput	23.63311	Msym/s	n / ph4_s; the gate of ADR-004 row E4 is 5 MB/s = 5 M symbols/s on 4 threads
+R	E4	a10.ph4	2	rssanon_peak	28.962816	MB	max RssAnon of 44 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 11)
+R	E4	a10.ph4	2	rssfile_peak	30.253056	MB	mapped file pages resident (text, output windows, PLCP file in the bounded mode): reported, not counted (ADR-004 section 6a)
+R	E4	a10.ph4	2	vmhwm	60.981248	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E4	a10.ph4	2	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E4	a10.ph4	2	arena_peak	27.099816	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E4	a10.ph4	2	io_explicit_read	240000004	bytes	24.000 B/char; suffix array and tuple files (790 calls)
+R	E4	a10.ph4	2	io_explicit_write	200000000	bytes	20.000 B/char; tuple files and the PLCP file (6721 calls)
+R	E4	a10.ph4	2	io_mapped_write	40000004	bytes	4.000 B/char: the LCP section through mapped windows of at most 1048576 bytes (39 windows, largest 1048576)
+R	E4	a10.ph4	2	io_total_counted	480000008	bytes	48.000 B/char explicit I/O plus mapped writes; the bounded mode's gather reads 0.0 B/char more through a read-only mapping (48.000 B/char with it); the text reads come on top (see block-layer read_bytes)
+R	E4	a10.ph4	2	blocklayer_read	41721856	bytes	/proc/self/io read_bytes during the build (page-cache misses); 4.172 B/char
+R	E4	a10.ph4	2	blocklayer_write	243412992	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E4	a10.ph4	2	scratch_peak	120000000	bytes	12.000 B/char peak of all scratch files (tuple files, PLCP file), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E4	a10.ph4	2	lcp_file	40000004	bytes	4.000 B/char (the output): base 40000004, overflow 0
+R	E4	a10.ph4	2	dirty_peak	121.823232	MB	max /proc/meminfo Dirty (system-wide); max Cached 726 MB
+R	E4	a10.ph4	2	width	U32		chosen before any entry was written; escapes >= 255: 9999745 (99.9975 %), >= 65535: 9934465 (99.3447 %), overflow entries 0
+R	E4	a10.ph4	2	max_plcp	9999999	symbols	largest LCP value
+R	E4	a10.ph4	2	compare_steps	7344403	steps	vector (or word) compare steps of all PLCP loops, 0.734 per position; restart cost (symbols compared at the first position of each of the 375 chunks, no carry): 1879976250
+R	E4	a10.ph4	2	chunks	375	n	text chunks 375, rank chunks 375, rounds 1, B2 tasks in parallel 2
+R	E5	a10.ph4	2	ext_rssanon_peak	27.488	MB	independent sampler: max RssAnon of /proc/<pid>/status over 25 samples at 20 ms
+R	E5	a10.ph4	2	ext_dirty_peak	121.823	MB	independent sampler: max /proc/meminfo Dirty minus the baseline (0.00 MB, median of 5 samples before the start); gate G3 <= 64 MB; absolute max 121.82 MB
+R	E5	a10.ph4	2	ext_dirty_mean	63.095	MB	independent sampler: mean of Dirty minus the baseline
+R	E5	a10.ph4	2	ext_writeback_peak	0.262	MB	independent sampler: max /proc/meminfo Writeback
+R	E5	a10.ph4	2	device_write_bytes	40902656	bytes	sectors written by vda during the run and the sync that follows it (512 B each; includes the spill file, journal, everything)
+R	E4	a10.ph4	3	n	10000000	symbols	b=1 bits, mode=Distributed, threads=4, B2 workers=2, touch buffers=False
+R	E4	a10.ph4	3	parameters	R=26667 P=375 rounds=1 tuple=32768 read=1048576 window=1048576		R scaled by n/3e9 = 3.333E-003 from R=8000000 (P = 375 at 3e9); B2 workers from the reference geometry: one task holds 73.8 MiB at 3e9, arena cap 160 MiB
+R	E4	a10.ph4	3	ph4_s	0.414654	s	PH4 total: B1 + B2 + B3 (without fsync)
+R	E4	a10.ph4	3	b1_s	0.112583	s	B1: suffix array scanned once, Phi tuples distributed by position / R
+R	E4	a10.ph4	3	b2_s	0.191816	s	B2: scatter, PLCP loop, rank tuples distributed by rank / R
+R	E4	a10.ph4	3	b3_s	0.108644	s	B3: rank chunks scattered and written through mapped windows
+R	E4	a10.ph4	3	fsync_s	0.000419	s	flush of the two output files after the build
+R	E4	a10.ph4	3	ns_per_symbol	41.465449	ns	ph4_s / n
+R	E4	a10.ph4	3	throughput	24.116464	Msym/s	n / ph4_s; the gate of ADR-004 row E4 is 5 MB/s = 5 M symbols/s on 4 threads
+R	E4	a10.ph4	3	rssanon_peak	28.553216	MB	max RssAnon of 43 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 11)
+R	E4	a10.ph4	3	rssfile_peak	30.16704	MB	mapped file pages resident (text, output windows, PLCP file in the bounded mode): reported, not counted (ADR-004 section 6a)
+R	E4	a10.ph4	3	vmhwm	60.481536	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E4	a10.ph4	3	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E4	a10.ph4	3	arena_peak	27.099816	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E4	a10.ph4	3	io_explicit_read	240000004	bytes	24.000 B/char; suffix array and tuple files (790 calls)
+R	E4	a10.ph4	3	io_explicit_write	200000000	bytes	20.000 B/char; tuple files and the PLCP file (6718 calls)
+R	E4	a10.ph4	3	io_mapped_write	40000004	bytes	4.000 B/char: the LCP section through mapped windows of at most 1048576 bytes (39 windows, largest 1048576)
+R	E4	a10.ph4	3	io_total_counted	480000008	bytes	48.000 B/char explicit I/O plus mapped writes; the bounded mode's gather reads 0.0 B/char more through a read-only mapping (48.000 B/char with it); the text reads come on top (see block-layer read_bytes)
+R	E4	a10.ph4	3	blocklayer_read	41725952	bytes	/proc/self/io read_bytes during the build (page-cache misses); 4.173 B/char
+R	E4	a10.ph4	3	blocklayer_write	243421184	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E4	a10.ph4	3	scratch_peak	120000000	bytes	12.000 B/char peak of all scratch files (tuple files, PLCP file), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E4	a10.ph4	3	lcp_file	40000004	bytes	4.000 B/char (the output): base 40000004, overflow 0
+R	E4	a10.ph4	3	dirty_peak	117.16608	MB	max /proc/meminfo Dirty (system-wide); max Cached 722 MB
+R	E4	a10.ph4	3	width	U32		chosen before any entry was written; escapes >= 255: 9999745 (99.9975 %), >= 65535: 9934465 (99.3447 %), overflow entries 0
+R	E4	a10.ph4	3	max_plcp	9999999	symbols	largest LCP value
+R	E4	a10.ph4	3	compare_steps	7344403	steps	vector (or word) compare steps of all PLCP loops, 0.734 per position; restart cost (symbols compared at the first position of each of the 375 chunks, no carry): 1879976250
+R	E4	a10.ph4	3	chunks	375	n	text chunks 375, rank chunks 375, rounds 1, B2 tasks in parallel 2
+R	E5	a10.ph4	3	ext_rssanon_peak	28.103	MB	independent sampler: max RssAnon of /proc/<pid>/status over 24 samples at 20 ms
+R	E5	a10.ph4	3	ext_dirty_peak	121.995	MB	independent sampler: max /proc/meminfo Dirty minus the baseline (0.00 MB, median of 5 samples before the start); gate G3 <= 64 MB; absolute max 122.00 MB
+R	E5	a10.ph4	3	ext_dirty_mean	63.163	MB	independent sampler: mean of Dirty minus the baseline
+R	E5	a10.ph4	3	ext_writeback_peak	0.000	MB	independent sampler: max /proc/meminfo Writeback
+R	E5	a10.ph4	3	device_write_bytes	40919040	bytes	sectors written by vda during the run and the sync that follows it (512 B each; includes the spill file, journal, everything)
+R	E4	a50.ph4	1	n	50000000	symbols	b=1 bits, mode=Distributed, threads=4, B2 workers=2, touch buffers=False
+R	E4	a50.ph4	1	parameters	R=133334 P=375 rounds=1 tuple=32768 read=1048576 window=1048576		R scaled by n/3e9 = 1.667E-002 from R=8000000 (P = 375 at 3e9); B2 workers from the reference geometry: one task holds 73.8 MiB at 3e9, arena cap 160 MiB
+R	E4	a50.ph4	1	ph4_s	1.458419	s	PH4 total: B1 + B2 + B3 (without fsync)
+R	E4	a50.ph4	1	b1_s	0.397188	s	B1: suffix array scanned once, Phi tuples distributed by position / R
+R	E4	a50.ph4	1	b2_s	0.564059	s	B2: scatter, PLCP loop, rank tuples distributed by rank / R
+R	E4	a50.ph4	1	b3_s	0.495461	s	B3: rank chunks scattered and written through mapped windows
+R	E4	a50.ph4	1	fsync_s	0.000382	s	flush of the two output files after the build
+R	E4	a50.ph4	1	ns_per_symbol	29.168383	ns	ph4_s / n
+R	E4	a50.ph4	1	throughput	34.283697	Msym/s	n / ph4_s; the gate of ADR-004 row E4 is 5 MB/s = 5 M symbols/s on 4 threads
+R	E4	a50.ph4	1	rssanon_peak	38.13376	MB	max RssAnon of 147 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 11)
+R	E4	a50.ph4	1	rssfile_peak	35.663872	MB	mapped file pages resident (text, output windows, PLCP file in the bounded mode): reported, not counted (ADR-004 section 6a)
+R	E4	a50.ph4	1	vmhwm	75.718656	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E4	a50.ph4	1	gc_heap	0.087528	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 1/0/0
+R	E4	a50.ph4	1	arena_peak	28.806488	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E4	a50.ph4	1	io_explicit_read	1200000004	bytes	24.000 B/char; suffix array and tuple files (1692 calls)
+R	E4	a50.ph4	1	io_explicit_write	1000000000	bytes	20.000 B/char; tuple files and the PLCP file (31112 calls)
+R	E4	a50.ph4	1	io_mapped_write	200000004	bytes	4.000 B/char: the LCP section through mapped windows of at most 1048576 bytes (191 windows, largest 1048576)
+R	E4	a50.ph4	1	io_total_counted	2400000008	bytes	48.000 B/char explicit I/O plus mapped writes; the bounded mode's gather reads 0.0 B/char more through a read-only mapping (48.000 B/char with it); the text reads come on top (see block-layer read_bytes)
+R	E4	a50.ph4	1	blocklayer_read	206729216	bytes	/proc/self/io read_bytes during the build (page-cache misses); 4.135 B/char
+R	E4	a50.ph4	1	blocklayer_write	1202143232	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E4	a50.ph4	1	scratch_peak	600000000	bytes	12.000 B/char peak of all scratch files (tuple files, PLCP file), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E4	a50.ph4	1	lcp_file	200000004	bytes	4.000 B/char (the output): base 200000004, overflow 0
+R	E4	a50.ph4	1	dirty_peak	601.14944	MB	max /proc/meminfo Dirty (system-wide); max Cached 1366 MB
+R	E4	a50.ph4	1	width	U32		chosen before any entry was written; escapes >= 255: 49999745 (99.9995 %), >= 65535: 49934465 (99.8689 %), overflow entries 0
+R	E4	a50.ph4	1	max_plcp	49999999	symbols	largest LCP value
+R	E4	a50.ph4	1	compare_steps	36719319	steps	vector (or word) compare steps of all PLCP loops, 0.734 per position; restart cost (symbols compared at the first position of each of the 375 chunks, no carry): 9399952875
+R	E4	a50.ph4	1	chunks	375	n	text chunks 375, rank chunks 375, rounds 1, B2 tasks in parallel 2
+R	E5	a50.ph4	1	ext_rssanon_peak	38.134	MB	independent sampler: max RssAnon of /proc/<pid>/status over 77 samples at 20 ms
+R	E5	a50.ph4	1	ext_dirty_peak	601.149	MB	independent sampler: max /proc/meminfo Dirty minus the baseline (0.00 MB, median of 5 samples before the start); gate G3 <= 64 MB; absolute max 601.15 MB
+R	E5	a50.ph4	1	ext_dirty_mean	325.044	MB	independent sampler: mean of Dirty minus the baseline
+R	E5	a50.ph4	1	ext_writeback_peak	1.049	MB	independent sampler: max /proc/meminfo Writeback
+R	E5	a50.ph4	1	device_write_bytes	201535488	bytes	sectors written by vda during the run and the sync that follows it (512 B each; includes the spill file, journal, everything)
+R	E4	a50.ph4	2	n	50000000	symbols	b=1 bits, mode=Distributed, threads=4, B2 workers=2, touch buffers=False
+R	E4	a50.ph4	2	parameters	R=133334 P=375 rounds=1 tuple=32768 read=1048576 window=1048576		R scaled by n/3e9 = 1.667E-002 from R=8000000 (P = 375 at 3e9); B2 workers from the reference geometry: one task holds 73.8 MiB at 3e9, arena cap 160 MiB
+R	E4	a50.ph4	2	ph4_s	1.443011	s	PH4 total: B1 + B2 + B3 (without fsync)
+R	E4	a50.ph4	2	b1_s	0.46291	s	B1: suffix array scanned once, Phi tuples distributed by position / R
+R	E4	a50.ph4	2	b2_s	0.525123	s	B2: scatter, PLCP loop, rank tuples distributed by rank / R
+R	E4	a50.ph4	2	b3_s	0.452847	s	B3: rank chunks scattered and written through mapped windows
+R	E4	a50.ph4	2	fsync_s	0.000268	s	flush of the two output files after the build
+R	E4	a50.ph4	2	ns_per_symbol	28.860228	ns	ph4_s / n
+R	E4	a50.ph4	2	throughput	34.649761	Msym/s	n / ph4_s; the gate of ADR-004 row E4 is 5 MB/s = 5 M symbols/s on 4 threads
+R	E4	a50.ph4	2	rssanon_peak	37.801984	MB	max RssAnon of 146 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 11)
+R	E4	a50.ph4	2	rssfile_peak	35.639296	MB	mapped file pages resident (text, output windows, PLCP file in the bounded mode): reported, not counted (ADR-004 section 6a)
+R	E4	a50.ph4	2	vmhwm	75.63264	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E4	a50.ph4	2	gc_heap	0.087464	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 1/0/0
+R	E4	a50.ph4	2	arena_peak	28.806488	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E4	a50.ph4	2	io_explicit_read	1200000004	bytes	24.000 B/char; suffix array and tuple files (1692 calls)
+R	E4	a50.ph4	2	io_explicit_write	1000000000	bytes	20.000 B/char; tuple files and the PLCP file (31116 calls)
+R	E4	a50.ph4	2	io_mapped_write	200000004	bytes	4.000 B/char: the LCP section through mapped windows of at most 1048576 bytes (191 windows, largest 1048576)
+R	E4	a50.ph4	2	io_total_counted	2400000008	bytes	48.000 B/char explicit I/O plus mapped writes; the bounded mode's gather reads 0.0 B/char more through a read-only mapping (48.000 B/char with it); the text reads come on top (see block-layer read_bytes)
+R	E4	a50.ph4	2	blocklayer_read	206741504	bytes	/proc/self/io read_bytes during the build (page-cache misses); 4.135 B/char
+R	E4	a50.ph4	2	blocklayer_write	1202159616	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E4	a50.ph4	2	scratch_peak	600000000	bytes	12.000 B/char peak of all scratch files (tuple files, PLCP file), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E4	a50.ph4	2	lcp_file	200000004	bytes	4.000 B/char (the output): base 200000004, overflow 0
+R	E4	a50.ph4	2	dirty_peak	594.194432	MB	max /proc/meminfo Dirty (system-wide); max Cached 1365 MB
+R	E4	a50.ph4	2	width	U32		chosen before any entry was written; escapes >= 255: 49999745 (99.9995 %), >= 65535: 49934465 (99.8689 %), overflow entries 0
+R	E4	a50.ph4	2	max_plcp	49999999	symbols	largest LCP value
+R	E4	a50.ph4	2	compare_steps	36719319	steps	vector (or word) compare steps of all PLCP loops, 0.734 per position; restart cost (symbols compared at the first position of each of the 375 chunks, no carry): 9399952875
+R	E4	a50.ph4	2	chunks	375	n	text chunks 375, rank chunks 375, rounds 1, B2 tasks in parallel 2
+R	E5	a50.ph4	2	ext_rssanon_peak	37.884	MB	independent sampler: max RssAnon of /proc/<pid>/status over 75 samples at 20 ms
+R	E5	a50.ph4	2	ext_dirty_peak	601.182	MB	independent sampler: max /proc/meminfo Dirty minus the baseline (0.00 MB, median of 5 samples before the start); gate G3 <= 64 MB; absolute max 601.18 MB
+R	E5	a50.ph4	2	ext_dirty_mean	327.288	MB	independent sampler: mean of Dirty minus the baseline
+R	E5	a50.ph4	2	ext_writeback_peak	0.786	MB	independent sampler: max /proc/meminfo Writeback
+R	E5	a50.ph4	2	device_write_bytes	201547776	bytes	sectors written by vda during the run and the sync that follows it (512 B each; includes the spill file, journal, everything)
+R	E4	a50.ph4	3	n	50000000	symbols	b=1 bits, mode=Distributed, threads=4, B2 workers=2, touch buffers=False
+R	E4	a50.ph4	3	parameters	R=133334 P=375 rounds=1 tuple=32768 read=1048576 window=1048576		R scaled by n/3e9 = 1.667E-002 from R=8000000 (P = 375 at 3e9); B2 workers from the reference geometry: one task holds 73.8 MiB at 3e9, arena cap 160 MiB
+R	E4	a50.ph4	3	ph4_s	1.421423	s	PH4 total: B1 + B2 + B3 (without fsync)
+R	E4	a50.ph4	3	b1_s	0.399964	s	B1: suffix array scanned once, Phi tuples distributed by position / R
+R	E4	a50.ph4	3	b2_s	0.566282	s	B2: scatter, PLCP loop, rank tuples distributed by rank / R
+R	E4	a50.ph4	3	b3_s	0.453577	s	B3: rank chunks scattered and written through mapped windows
+R	E4	a50.ph4	3	fsync_s	0.000335	s	flush of the two output files after the build
+R	E4	a50.ph4	3	ns_per_symbol	28.428453	ns	ph4_s / n
+R	E4	a50.ph4	3	throughput	35.176026	Msym/s	n / ph4_s; the gate of ADR-004 row E4 is 5 MB/s = 5 M symbols/s on 4 threads
+R	E4	a50.ph4	3	rssanon_peak	37.924864	MB	max RssAnon of 144 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 11)
+R	E4	a50.ph4	3	rssfile_peak	35.618816	MB	mapped file pages resident (text, output windows, PLCP file in the bounded mode): reported, not counted (ADR-004 section 6a)
+R	E4	a50.ph4	3	vmhwm	75.771904	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E4	a50.ph4	3	gc_heap	0.087432	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 1/0/0
+R	E4	a50.ph4	3	arena_peak	28.806488	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E4	a50.ph4	3	io_explicit_read	1200000004	bytes	24.000 B/char; suffix array and tuple files (1692 calls)
+R	E4	a50.ph4	3	io_explicit_write	1000000000	bytes	20.000 B/char; tuple files and the PLCP file (31096 calls)
+R	E4	a50.ph4	3	io_mapped_write	200000004	bytes	4.000 B/char: the LCP section through mapped windows of at most 1048576 bytes (191 windows, largest 1048576)
+R	E4	a50.ph4	3	io_total_counted	2400000008	bytes	48.000 B/char explicit I/O plus mapped writes; the bounded mode's gather reads 0.0 B/char more through a read-only mapping (48.000 B/char with it); the text reads come on top (see block-layer read_bytes)
+R	E4	a50.ph4	3	blocklayer_read	206725120	bytes	/proc/self/io read_bytes during the build (page-cache misses); 4.135 B/char
+R	E4	a50.ph4	3	blocklayer_write	1202143232	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E4	a50.ph4	3	scratch_peak	600000000	bytes	12.000 B/char peak of all scratch files (tuple files, PLCP file), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E4	a50.ph4	3	lcp_file	200000004	bytes	4.000 B/char (the output): base 200000004, overflow 0
+R	E4	a50.ph4	3	dirty_peak	601.14944	MB	max /proc/meminfo Dirty (system-wide); max Cached 1365 MB
+R	E4	a50.ph4	3	width	U32		chosen before any entry was written; escapes >= 255: 49999745 (99.9995 %), >= 65535: 49934465 (99.8689 %), overflow entries 0
+R	E4	a50.ph4	3	max_plcp	49999999	symbols	largest LCP value
+R	E4	a50.ph4	3	compare_steps	36719319	steps	vector (or word) compare steps of all PLCP loops, 0.734 per position; restart cost (symbols compared at the first position of each of the 375 chunks, no carry): 9399952875
+R	E4	a50.ph4	3	chunks	375	n	text chunks 375, rank chunks 375, rounds 1, B2 tasks in parallel 2
+R	E5	a50.ph4	3	ext_rssanon_peak	37.851	MB	independent sampler: max RssAnon of /proc/<pid>/status over 75 samples at 20 ms
+R	E5	a50.ph4	3	ext_dirty_peak	601.149	MB	independent sampler: max /proc/meminfo Dirty minus the baseline (0.00 MB, median of 5 samples before the start); gate G3 <= 64 MB; absolute max 601.15 MB
+R	E5	a50.ph4	3	ext_dirty_mean	327.238	MB	independent sampler: mean of Dirty minus the baseline
+R	E5	a50.ph4	3	ext_writeback_peak	0.655	MB	independent sampler: max /proc/meminfo Writeback
+R	E5	a50.ph4	3	device_write_bytes	201535488	bytes	sectors written by vda during the run and the sync that follows it (512 B each; includes the spill file, journal, everything)
+R	E4	nrun30.ph4	1	n	30000000	symbols	b=3 bits, mode=Distributed, threads=4, B2 workers=2, touch buffers=False
+R	E4	nrun30.ph4	1	parameters	R=80000 P=375 rounds=1 tuple=32768 read=1048576 window=1048576		R scaled by n/3e9 = 1.000E-002 from R=8000000 (P = 375 at 3e9); B2 workers from the reference geometry: one task holds 73.8 MiB at 3e9, arena cap 160 MiB
+R	E4	nrun30.ph4	1	ph4_s	1.430377	s	PH4 total: B1 + B2 + B3 (without fsync)
+R	E4	nrun30.ph4	1	b1_s	0.265484	s	B1: suffix array scanned once, Phi tuples distributed by position / R
+R	E4	nrun30.ph4	1	b2_s	0.862199	s	B2: scatter, PLCP loop, rank tuples distributed by rank / R
+R	E4	nrun30.ph4	1	b3_s	0.300824	s	B3: rank chunks scattered and written through mapped windows
+R	E4	nrun30.ph4	1	fsync_s	0.000421	s	flush of the two output files after the build
+R	E4	nrun30.ph4	1	ns_per_symbol	47.67925	ns	ph4_s / n
+R	E4	nrun30.ph4	1	throughput	20.973484	Msym/s	n / ph4_s; the gate of ADR-004 row E4 is 5 MB/s = 5 M symbols/s on 4 threads
+R	E4	nrun30.ph4	1	rssanon_peak	45.535232	MB	max RssAnon of 145 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 11)
+R	E4	nrun30.ph4	1	rssfile_peak	40.456192	MB	mapped file pages resident (text, output windows, PLCP file in the bounded mode): reported, not counted (ADR-004 section 6a)
+R	E4	nrun30.ph4	1	vmhwm	88.035328	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E4	nrun30.ph4	1	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E4	nrun30.ph4	1	arena_peak	28.01868	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E4	nrun30.ph4	1	io_explicit_read	720000004	bytes	24.000 B/char; suffix array and tuple files (867 calls)
+R	E4	nrun30.ph4	1	io_explicit_write	600000000	bytes	20.000 B/char; tuple files and the PLCP file (19002 calls)
+R	E4	nrun30.ph4	1	io_mapped_write	120000004	bytes	4.000 B/char: the LCP section through mapped windows of at most 1048576 bytes (115 windows, largest 1048576)
+R	E4	nrun30.ph4	1	io_total_counted	1440000008	bytes	48.000 B/char explicit I/O plus mapped writes; the bounded mode's gather reads 0.0 B/char more through a read-only mapping (48.000 B/char with it); the text reads come on top (see block-layer read_bytes)
+R	E4	nrun30.ph4	1	blocklayer_read	131723264	bytes	/proc/self/io read_bytes during the build (page-cache misses); 4.391 B/char
+R	E4	nrun30.ph4	1	blocklayer_write	722857984	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E4	nrun30.ph4	1	scratch_peak	360000000	bytes	12.000 B/char peak of all scratch files (tuple files, PLCP file), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E4	nrun30.ph4	1	lcp_file	120000004	bytes	4.000 B/char (the output): base 120000004, overflow 0
+R	E4	nrun30.ph4	1	dirty_peak	359.821312	MB	max /proc/meminfo Dirty (system-wide); max Cached 1048 MB
+R	E4	nrun30.ph4	1	width	U32		chosen before any entry was written; escapes >= 255: 19999745 (66.6658 %), >= 65535: 19934465 (66.4482 %), overflow entries 0
+R	E4	nrun30.ph4	1	max_plcp	19999999	symbols	largest LCP value
+R	E4	nrun30.ph4	1	compare_steps	59646921	steps	vector (or word) compare steps of all PLCP loops, 1.988 per position; restart cost (symbols compared at the first position of each of the 375 chunks, no carry): 2500001105
+R	E4	nrun30.ph4	1	chunks	375	n	text chunks 375, rank chunks 376, rounds 1, B2 tasks in parallel 2
+R	E5	nrun30.ph4	1	ext_rssanon_peak	45.535	MB	independent sampler: max RssAnon of /proc/<pid>/status over 75 samples at 20 ms
+R	E5	nrun30.ph4	1	ext_dirty_peak	360.718	MB	independent sampler: max /proc/meminfo Dirty minus the baseline (0.00 MB, median of 5 samples before the start); gate G3 <= 64 MB; absolute max 360.72 MB
+R	E5	nrun30.ph4	1	ext_dirty_mean	234.722	MB	independent sampler: mean of Dirty minus the baseline
+R	E5	nrun30.ph4	1	ext_writeback_peak	0.918	MB	independent sampler: max /proc/meminfo Writeback
+R	E5	nrun30.ph4	1	device_write_bytes	121307136	bytes	sectors written by vda during the run and the sync that follows it (512 B each; includes the spill file, journal, everything)
+R	E4	nrun30.ph4	2	n	30000000	symbols	b=3 bits, mode=Distributed, threads=4, B2 workers=2, touch buffers=False
+R	E4	nrun30.ph4	2	parameters	R=80000 P=375 rounds=1 tuple=32768 read=1048576 window=1048576		R scaled by n/3e9 = 1.000E-002 from R=8000000 (P = 375 at 3e9); B2 workers from the reference geometry: one task holds 73.8 MiB at 3e9, arena cap 160 MiB
+R	E4	nrun30.ph4	2	ph4_s	1.481948	s	PH4 total: B1 + B2 + B3 (without fsync)
+R	E4	nrun30.ph4	2	b1_s	0.279282	s	B1: suffix array scanned once, Phi tuples distributed by position / R
+R	E4	nrun30.ph4	2	b2_s	0.87914	s	B2: scatter, PLCP loop, rank tuples distributed by rank / R
+R	E4	nrun30.ph4	2	b3_s	0.321699	s	B3: rank chunks scattered and written through mapped windows
+R	E4	nrun30.ph4	2	fsync_s	0.000293	s	flush of the two output files after the build
+R	E4	nrun30.ph4	2	ns_per_symbol	49.398269	ns	ph4_s / n
+R	E4	nrun30.ph4	2	throughput	20.243624	Msym/s	n / ph4_s; the gate of ADR-004 row E4 is 5 MB/s = 5 M symbols/s on 4 threads
+R	E4	nrun30.ph4	2	rssanon_peak	45.010944	MB	max RssAnon of 150 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 11)
+R	E4	nrun30.ph4	2	rssfile_peak	40.48896	MB	mapped file pages resident (text, output windows, PLCP file in the bounded mode): reported, not counted (ADR-004 section 6a)
+R	E4	nrun30.ph4	2	vmhwm	87.547904	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E4	nrun30.ph4	2	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E4	nrun30.ph4	2	arena_peak	28.01868	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E4	nrun30.ph4	2	io_explicit_read	720000004	bytes	24.000 B/char; suffix array and tuple files (867 calls)
+R	E4	nrun30.ph4	2	io_explicit_write	600000000	bytes	20.000 B/char; tuple files and the PLCP file (18985 calls)
+R	E4	nrun30.ph4	2	io_mapped_write	120000004	bytes	4.000 B/char: the LCP section through mapped windows of at most 1048576 bytes (115 windows, largest 1048576)
+R	E4	nrun30.ph4	2	io_total_counted	1440000008	bytes	48.000 B/char explicit I/O plus mapped writes; the bounded mode's gather reads 0.0 B/char more through a read-only mapping (48.000 B/char with it); the text reads come on top (see block-layer read_bytes)
+R	E4	nrun30.ph4	2	blocklayer_read	131723264	bytes	/proc/self/io read_bytes during the build (page-cache misses); 4.391 B/char
+R	E4	nrun30.ph4	2	blocklayer_write	722853888	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E4	nrun30.ph4	2	scratch_peak	360000000	bytes	12.000 B/char peak of all scratch files (tuple files, PLCP file), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E4	nrun30.ph4	2	lcp_file	120000004	bytes	4.000 B/char (the output): base 120000004, overflow 0
+R	E4	nrun30.ph4	2	dirty_peak	359.940096	MB	max /proc/meminfo Dirty (system-wide); max Cached 1048 MB
+R	E4	nrun30.ph4	2	width	U32		chosen before any entry was written; escapes >= 255: 19999745 (66.6658 %), >= 65535: 19934465 (66.4482 %), overflow entries 0
+R	E4	nrun30.ph4	2	max_plcp	19999999	symbols	largest LCP value
+R	E4	nrun30.ph4	2	compare_steps	59646921	steps	vector (or word) compare steps of all PLCP loops, 1.988 per position; restart cost (symbols compared at the first position of each of the 375 chunks, no carry): 2500001105
+R	E4	nrun30.ph4	2	chunks	375	n	text chunks 375, rank chunks 376, rounds 1, B2 tasks in parallel 2
+R	E5	nrun30.ph4	2	ext_rssanon_peak	45.171	MB	independent sampler: max RssAnon of /proc/<pid>/status over 77 samples at 20 ms
+R	E5	nrun30.ph4	2	ext_dirty_peak	360.665	MB	independent sampler: max /proc/meminfo Dirty minus the baseline (0.00 MB, median of 5 samples before the start); gate G3 <= 64 MB; absolute max 360.67 MB
+R	E5	nrun30.ph4	2	ext_dirty_mean	236.763	MB	independent sampler: mean of Dirty minus the baseline
+R	E5	nrun30.ph4	2	ext_writeback_peak	1.049	MB	independent sampler: max /proc/meminfo Writeback
+R	E5	nrun30.ph4	2	device_write_bytes	121294848	bytes	sectors written by vda during the run and the sync that follows it (512 B each; includes the spill file, journal, everything)
+R	E4	nrun30.ph4	3	n	30000000	symbols	b=3 bits, mode=Distributed, threads=4, B2 workers=2, touch buffers=False
+R	E4	nrun30.ph4	3	parameters	R=80000 P=375 rounds=1 tuple=32768 read=1048576 window=1048576		R scaled by n/3e9 = 1.000E-002 from R=8000000 (P = 375 at 3e9); B2 workers from the reference geometry: one task holds 73.8 MiB at 3e9, arena cap 160 MiB
+R	E4	nrun30.ph4	3	ph4_s	1.56121	s	PH4 total: B1 + B2 + B3 (without fsync)
+R	E4	nrun30.ph4	3	b1_s	0.359117	s	B1: suffix array scanned once, Phi tuples distributed by position / R
+R	E4	nrun30.ph4	3	b2_s	0.897318	s	B2: scatter, PLCP loop, rank tuples distributed by rank / R
+R	E4	nrun30.ph4	3	b3_s	0.302598	s	B3: rank chunks scattered and written through mapped windows
+R	E4	nrun30.ph4	3	fsync_s	0.000378	s	flush of the two output files after the build
+R	E4	nrun30.ph4	3	ns_per_symbol	52.040326	ns	ph4_s / n
+R	E4	nrun30.ph4	3	throughput	19.215867	Msym/s	n / ph4_s; the gate of ADR-004 row E4 is 5 MB/s = 5 M symbols/s on 4 threads
+R	E4	nrun30.ph4	3	rssanon_peak	45.129728	MB	max RssAnon of 158 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 11)
+R	E4	nrun30.ph4	3	rssfile_peak	40.546304	MB	mapped file pages resident (text, output windows, PLCP file in the bounded mode): reported, not counted (ADR-004 section 6a)
+R	E4	nrun30.ph4	3	vmhwm	88.00256	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E4	nrun30.ph4	3	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E4	nrun30.ph4	3	arena_peak	28.01868	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E4	nrun30.ph4	3	io_explicit_read	720000004	bytes	24.000 B/char; suffix array and tuple files (867 calls)
+R	E4	nrun30.ph4	3	io_explicit_write	600000000	bytes	20.000 B/char; tuple files and the PLCP file (19116 calls)
+R	E4	nrun30.ph4	3	io_mapped_write	120000004	bytes	4.000 B/char: the LCP section through mapped windows of at most 1048576 bytes (115 windows, largest 1048576)
+R	E4	nrun30.ph4	3	io_total_counted	1440000008	bytes	48.000 B/char explicit I/O plus mapped writes; the bounded mode's gather reads 0.0 B/char more through a read-only mapping (48.000 B/char with it); the text reads come on top (see block-layer read_bytes)
+R	E4	nrun30.ph4	3	blocklayer_read	131723264	bytes	/proc/self/io read_bytes during the build (page-cache misses); 4.391 B/char
+R	E4	nrun30.ph4	3	blocklayer_write	722845696	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E4	nrun30.ph4	3	scratch_peak	360000000	bytes	12.000 B/char peak of all scratch files (tuple files, PLCP file), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E4	nrun30.ph4	3	lcp_file	120000004	bytes	4.000 B/char (the output): base 120000004, overflow 0
+R	E4	nrun30.ph4	3	dirty_peak	359.944192	MB	max /proc/meminfo Dirty (system-wide); max Cached 1048 MB
+R	E4	nrun30.ph4	3	width	U32		chosen before any entry was written; escapes >= 255: 19999745 (66.6658 %), >= 65535: 19934465 (66.4482 %), overflow entries 0
+R	E4	nrun30.ph4	3	max_plcp	19999999	symbols	largest LCP value
+R	E4	nrun30.ph4	3	compare_steps	59646921	steps	vector (or word) compare steps of all PLCP loops, 1.988 per position; restart cost (symbols compared at the first position of each of the 375 chunks, no carry): 2500001105
+R	E4	nrun30.ph4	3	chunks	375	n	text chunks 375, rank chunks 376, rounds 1, B2 tasks in parallel 2
+R	E5	nrun30.ph4	3	ext_rssanon_peak	45.122	MB	independent sampler: max RssAnon of /proc/<pid>/status over 83 samples at 20 ms
+R	E5	nrun30.ph4	3	ext_dirty_peak	360.669	MB	independent sampler: max /proc/meminfo Dirty minus the baseline (0.00 MB, median of 5 samples before the start); gate G3 <= 64 MB; absolute max 360.67 MB
+R	E5	nrun30.ph4	3	ext_dirty_mean	227.568	MB	independent sampler: mean of Dirty minus the baseline
+R	E5	nrun30.ph4	3	ext_writeback_peak	0.262	MB	independent sampler: max /proc/meminfo Writeback
+R	E5	nrun30.ph4	3	device_write_bytes	121290752	bytes	sectors written by vda during the run and the sync that follows it (512 B each; includes the spill file, journal, everything)
+R	E4	fib10.ph4	1	n	10000000	symbols	b=1 bits, mode=Distributed, threads=4, B2 workers=2, touch buffers=False
+R	E4	fib10.ph4	1	parameters	R=26667 P=375 rounds=1 tuple=32768 read=1048576 window=1048576		R scaled by n/3e9 = 3.333E-003 from R=8000000 (P = 375 at 3e9); B2 workers from the reference geometry: one task holds 73.8 MiB at 3e9, arena cap 160 MiB
+R	E4	fib10.ph4	1	ph4_s	0.686741	s	PH4 total: B1 + B2 + B3 (without fsync)
+R	E4	fib10.ph4	1	b1_s	0.141504	s	B1: suffix array scanned once, Phi tuples distributed by position / R
+R	E4	fib10.ph4	1	b2_s	0.413581	s	B2: scatter, PLCP loop, rank tuples distributed by rank / R
+R	E4	fib10.ph4	1	b3_s	0.12934	s	B3: rank chunks scattered and written through mapped windows
+R	E4	fib10.ph4	1	fsync_s	0.000374	s	flush of the two output files after the build
+R	E4	fib10.ph4	1	ns_per_symbol	68.674095	ns	ph4_s / n
+R	E4	fib10.ph4	1	throughput	14.561531	Msym/s	n / ph4_s; the gate of ADR-004 row E4 is 5 MB/s = 5 M symbols/s on 4 threads
+R	E4	fib10.ph4	1	rssanon_peak	37.584896	MB	max RssAnon of 70 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 11)
+R	E4	fib10.ph4	1	rssfile_peak	30.138368	MB	mapped file pages resident (text, output windows, PLCP file in the bounded mode): reported, not counted (ADR-004 section 6a)
+R	E4	fib10.ph4	1	vmhwm	69.517312	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E4	fib10.ph4	1	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E4	fib10.ph4	1	arena_peak	27.099816	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E4	fib10.ph4	1	io_explicit_read	240000004	bytes	24.000 B/char; suffix array and tuple files (790 calls)
+R	E4	fib10.ph4	1	io_explicit_write	200000000	bytes	20.000 B/char; tuple files and the PLCP file (6750 calls)
+R	E4	fib10.ph4	1	io_mapped_write	40000004	bytes	4.000 B/char: the LCP section through mapped windows of at most 1048576 bytes (39 windows, largest 1048576)
+R	E4	fib10.ph4	1	io_total_counted	480000008	bytes	48.000 B/char explicit I/O plus mapped writes; the bounded mode's gather reads 0.0 B/char more through a read-only mapping (48.000 B/char with it); the text reads come on top (see block-layer read_bytes)
+R	E4	fib10.ph4	1	blocklayer_read	41807872	bytes	/proc/self/io read_bytes during the build (page-cache misses); 4.181 B/char
+R	E4	fib10.ph4	1	blocklayer_write	243601408	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E4	fib10.ph4	1	scratch_peak	120000000	bytes	12.000 B/char peak of all scratch files (tuple files, PLCP file), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E4	fib10.ph4	1	lcp_file	40000004	bytes	4.000 B/char (the output): base 40000004, overflow 0
+R	E4	fib10.ph4	1	dirty_peak	121.856	MB	max /proc/meminfo Dirty (system-wide); max Cached 725 MB
+R	E4	fib10.ph4	1	width	U32		chosen before any entry was written; escapes >= 255: 9999490 (99.9949 %), >= 65535: 9868930 (98.6893 %), overflow entries 0
+R	E4	fib10.ph4	1	max_plcp	5702885	symbols	largest LCP value
+R	E4	fib10.ph4	1	compare_steps	9462570	steps	vector (or word) compare steps of all PLCP loops, 0.946 per position; restart cost (symbols compared at the first position of each of the 375 chunks, no carry): 958122772
+R	E4	fib10.ph4	1	chunks	375	n	text chunks 375, rank chunks 375, rounds 1, B2 tasks in parallel 2
+R	E5	fib10.ph4	1	ext_rssanon_peak	37.585	MB	independent sampler: max RssAnon of /proc/<pid>/status over 38 samples at 20 ms
+R	E5	fib10.ph4	1	ext_dirty_peak	122.036	MB	independent sampler: max /proc/meminfo Dirty minus the baseline (0.00 MB, median of 5 samples before the start); gate G3 <= 64 MB; absolute max 122.04 MB
+R	E5	fib10.ph4	1	ext_dirty_mean	71.284	MB	independent sampler: mean of Dirty minus the baseline
+R	E5	fib10.ph4	1	ext_writeback_peak	0.131	MB	independent sampler: max /proc/meminfo Writeback
+R	E5	fib10.ph4	1	device_write_bytes	41107456	bytes	sectors written by vda during the run and the sync that follows it (512 B each; includes the spill file, journal, everything)
+R	E4	fib10.ph4	2	n	10000000	symbols	b=1 bits, mode=Distributed, threads=4, B2 workers=2, touch buffers=False
+R	E4	fib10.ph4	2	parameters	R=26667 P=375 rounds=1 tuple=32768 read=1048576 window=1048576		R scaled by n/3e9 = 3.333E-003 from R=8000000 (P = 375 at 3e9); B2 workers from the reference geometry: one task holds 73.8 MiB at 3e9, arena cap 160 MiB
+R	E4	fib10.ph4	2	ph4_s	0.551567	s	PH4 total: B1 + B2 + B3 (without fsync)
+R	E4	fib10.ph4	2	b1_s	0.128481	s	B1: suffix array scanned once, Phi tuples distributed by position / R
+R	E4	fib10.ph4	2	b2_s	0.30853	s	B2: scatter, PLCP loop, rank tuples distributed by rank / R
+R	E4	fib10.ph4	2	b3_s	0.112458	s	B3: rank chunks scattered and written through mapped windows
+R	E4	fib10.ph4	2	fsync_s	0.000449	s	flush of the two output files after the build
+R	E4	fib10.ph4	2	ns_per_symbol	55.156744	ns	ph4_s / n
+R	E4	fib10.ph4	2	throughput	18.130149	Msym/s	n / ph4_s; the gate of ADR-004 row E4 is 5 MB/s = 5 M symbols/s on 4 threads
+R	E4	fib10.ph4	2	rssanon_peak	37.49888	MB	max RssAnon of 57 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 11)
+R	E4	fib10.ph4	2	rssfile_peak	30.24896	MB	mapped file pages resident (text, output windows, PLCP file in the bounded mode): reported, not counted (ADR-004 section 6a)
+R	E4	fib10.ph4	2	vmhwm	69.537792	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E4	fib10.ph4	2	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E4	fib10.ph4	2	arena_peak	27.099816	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E4	fib10.ph4	2	io_explicit_read	240000004	bytes	24.000 B/char; suffix array and tuple files (790 calls)
+R	E4	fib10.ph4	2	io_explicit_write	200000000	bytes	20.000 B/char; tuple files and the PLCP file (6750 calls)
+R	E4	fib10.ph4	2	io_mapped_write	40000004	bytes	4.000 B/char: the LCP section through mapped windows of at most 1048576 bytes (39 windows, largest 1048576)
+R	E4	fib10.ph4	2	io_total_counted	480000008	bytes	48.000 B/char explicit I/O plus mapped writes; the bounded mode's gather reads 0.0 B/char more through a read-only mapping (48.000 B/char with it); the text reads come on top (see block-layer read_bytes)
+R	E4	fib10.ph4	2	blocklayer_read	41807872	bytes	/proc/self/io read_bytes during the build (page-cache misses); 4.181 B/char
+R	E4	fib10.ph4	2	blocklayer_write	243589120	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E4	fib10.ph4	2	scratch_peak	120000000	bytes	12.000 B/char peak of all scratch files (tuple files, PLCP file), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E4	fib10.ph4	2	lcp_file	40000004	bytes	4.000 B/char (the output): base 40000004, overflow 0
+R	E4	fib10.ph4	2	dirty_peak	121.58976	MB	max /proc/meminfo Dirty (system-wide); max Cached 726 MB
+R	E4	fib10.ph4	2	width	U32		chosen before any entry was written; escapes >= 255: 9999490 (99.9949 %), >= 65535: 9868930 (98.6893 %), overflow entries 0
+R	E4	fib10.ph4	2	max_plcp	5702885	symbols	largest LCP value
+R	E4	fib10.ph4	2	compare_steps	9462570	steps	vector (or word) compare steps of all PLCP loops, 0.946 per position; restart cost (symbols compared at the first position of each of the 375 chunks, no carry): 958122772
+R	E4	fib10.ph4	2	chunks	375	n	text chunks 375, rank chunks 375, rounds 1, B2 tasks in parallel 2
+R	E5	fib10.ph4	2	ext_rssanon_peak	37.556	MB	independent sampler: max RssAnon of /proc/<pid>/status over 32 samples at 20 ms
+R	E5	fib10.ph4	2	ext_dirty_peak	121.946	MB	independent sampler: max /proc/meminfo Dirty minus the baseline (0.00 MB, median of 5 samples before the start); gate G3 <= 64 MB; absolute max 121.95 MB
+R	E5	fib10.ph4	2	ext_dirty_mean	66.301	MB	independent sampler: mean of Dirty minus the baseline
+R	E5	fib10.ph4	2	ext_writeback_peak	0.008	MB	independent sampler: max /proc/meminfo Writeback
+R	E5	fib10.ph4	2	device_write_bytes	41103360	bytes	sectors written by vda during the run and the sync that follows it (512 B each; includes the spill file, journal, everything)
+R	E4	fib10.ph4	3	n	10000000	symbols	b=1 bits, mode=Distributed, threads=4, B2 workers=2, touch buffers=False
+R	E4	fib10.ph4	3	parameters	R=26667 P=375 rounds=1 tuple=32768 read=1048576 window=1048576		R scaled by n/3e9 = 3.333E-003 from R=8000000 (P = 375 at 3e9); B2 workers from the reference geometry: one task holds 73.8 MiB at 3e9, arena cap 160 MiB
+R	E4	fib10.ph4	3	ph4_s	0.668175	s	PH4 total: B1 + B2 + B3 (without fsync)
+R	E4	fib10.ph4	3	b1_s	0.162882	s	B1: suffix array scanned once, Phi tuples distributed by position / R
+R	E4	fib10.ph4	3	b2_s	0.387433	s	B2: scatter, PLCP loop, rank tuples distributed by rank / R
+R	E4	fib10.ph4	3	b3_s	0.115812	s	B3: rank chunks scattered and written through mapped windows
+R	E4	fib10.ph4	3	fsync_s	0.000363	s	flush of the two output files after the build
+R	E4	fib10.ph4	3	ns_per_symbol	66.817534	ns	ph4_s / n
+R	E4	fib10.ph4	3	throughput	14.966131	Msym/s	n / ph4_s; the gate of ADR-004 row E4 is 5 MB/s = 5 M symbols/s on 4 threads
+R	E4	fib10.ph4	3	rssanon_peak	38.039552	MB	max RssAnon of 68 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 11)
+R	E4	fib10.ph4	3	rssfile_peak	30.261248	MB	mapped file pages resident (text, output windows, PLCP file in the bounded mode): reported, not counted (ADR-004 section 6a)
+R	E4	fib10.ph4	3	vmhwm	70.094848	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E4	fib10.ph4	3	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E4	fib10.ph4	3	arena_peak	27.099816	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E4	fib10.ph4	3	io_explicit_read	240000004	bytes	24.000 B/char; suffix array and tuple files (790 calls)
+R	E4	fib10.ph4	3	io_explicit_write	200000000	bytes	20.000 B/char; tuple files and the PLCP file (6750 calls)
+R	E4	fib10.ph4	3	io_mapped_write	40000004	bytes	4.000 B/char: the LCP section through mapped windows of at most 1048576 bytes (39 windows, largest 1048576)
+R	E4	fib10.ph4	3	io_total_counted	480000008	bytes	48.000 B/char explicit I/O plus mapped writes; the bounded mode's gather reads 0.0 B/char more through a read-only mapping (48.000 B/char with it); the text reads come on top (see block-layer read_bytes)
+R	E4	fib10.ph4	3	blocklayer_read	41807872	bytes	/proc/self/io read_bytes during the build (page-cache misses); 4.181 B/char
+R	E4	fib10.ph4	3	blocklayer_write	243589120	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E4	fib10.ph4	3	scratch_peak	120000000	bytes	12.000 B/char peak of all scratch files (tuple files, PLCP file), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E4	fib10.ph4	3	lcp_file	40000004	bytes	4.000 B/char (the output): base 40000004, overflow 0
+R	E4	fib10.ph4	3	dirty_peak	120.520704	MB	max /proc/meminfo Dirty (system-wide); max Cached 726 MB
+R	E4	fib10.ph4	3	width	U32		chosen before any entry was written; escapes >= 255: 9999490 (99.9949 %), >= 65535: 9868930 (98.6893 %), overflow entries 0
+R	E4	fib10.ph4	3	max_plcp	5702885	symbols	largest LCP value
+R	E4	fib10.ph4	3	compare_steps	9462570	steps	vector (or word) compare steps of all PLCP loops, 0.946 per position; restart cost (symbols compared at the first position of each of the 375 chunks, no carry): 958122772
+R	E4	fib10.ph4	3	chunks	375	n	text chunks 375, rank chunks 375, rounds 1, B2 tasks in parallel 2
+R	E5	fib10.ph4	3	ext_rssanon_peak	37.925	MB	independent sampler: max RssAnon of /proc/<pid>/status over 38 samples at 20 ms
+R	E5	fib10.ph4	3	ext_dirty_peak	121.950	MB	independent sampler: max /proc/meminfo Dirty minus the baseline (0.00 MB, median of 5 samples before the start); gate G3 <= 64 MB; absolute max 121.95 MB
+R	E5	fib10.ph4	3	ext_dirty_mean	69.455	MB	independent sampler: mean of Dirty minus the baseline
+R	E5	fib10.ph4	3	ext_writeback_peak	0.918	MB	independent sampler: max /proc/meminfo Writeback
+R	E5	fib10.ph4	3	device_write_bytes	41095168	bytes	sectors written by vda during the run and the sync that follows it (512 B each; includes the spill file, journal, everything)
+R	E4	fib30.ph4	1	n	30000000	symbols	b=1 bits, mode=Distributed, threads=4, B2 workers=2, touch buffers=False
+R	E4	fib30.ph4	1	parameters	R=80000 P=375 rounds=1 tuple=32768 read=1048576 window=1048576		R scaled by n/3e9 = 1.000E-002 from R=8000000 (P = 375 at 3e9); B2 workers from the reference geometry: one task holds 73.8 MiB at 3e9, arena cap 160 MiB
+R	E4	fib30.ph4	1	ph4_s	1.485685	s	PH4 total: B1 + B2 + B3 (without fsync)
+R	E4	fib30.ph4	1	b1_s	0.404874	s	B1: suffix array scanned once, Phi tuples distributed by position / R
+R	E4	fib30.ph4	1	b2_s	0.745284	s	B2: scatter, PLCP loop, rank tuples distributed by rank / R
+R	E4	fib30.ph4	1	b3_s	0.333409	s	B3: rank chunks scattered and written through mapped windows
+R	E4	fib30.ph4	1	fsync_s	0.000258	s	flush of the two output files after the build
+R	E4	fib30.ph4	1	ns_per_symbol	49.522817	ns	ph4_s / n
+R	E4	fib30.ph4	1	throughput	20.192712	Msym/s	n / ph4_s; the gate of ADR-004 row E4 is 5 MB/s = 5 M symbols/s on 4 threads
+R	E4	fib30.ph4	1	rssanon_peak	46.022656	MB	max RssAnon of 150 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 11)
+R	E4	fib30.ph4	1	rssfile_peak	33.021952	MB	mapped file pages resident (text, output windows, PLCP file in the bounded mode): reported, not counted (ADR-004 section 6a)
+R	E4	fib30.ph4	1	vmhwm	81.34656	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E4	fib30.ph4	1	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E4	fib30.ph4	1	arena_peak	28.01868	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E4	fib30.ph4	1	io_explicit_read	720000004	bytes	24.000 B/char; suffix array and tuple files (867 calls)
+R	E4	fib30.ph4	1	io_explicit_write	600000000	bytes	20.000 B/char; tuple files and the PLCP file (18934 calls)
+R	E4	fib30.ph4	1	io_mapped_write	120000004	bytes	4.000 B/char: the LCP section through mapped windows of at most 1048576 bytes (115 windows, largest 1048576)
+R	E4	fib30.ph4	1	io_total_counted	1440000008	bytes	48.000 B/char explicit I/O plus mapped writes; the bounded mode's gather reads 0.0 B/char more through a read-only mapping (48.000 B/char with it); the text reads come on top (see block-layer read_bytes)
+R	E4	fib30.ph4	1	blocklayer_read	124309504	bytes	/proc/self/io read_bytes during the build (page-cache misses); 4.144 B/char
+R	E4	fib30.ph4	1	blocklayer_write	722976768	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E4	fib30.ph4	1	scratch_peak	360000000	bytes	12.000 B/char peak of all scratch files (tuple files, PLCP file), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E4	fib30.ph4	1	lcp_file	120000004	bytes	4.000 B/char (the output): base 120000004, overflow 0
+R	E4	fib30.ph4	1	dirty_peak	358.301696	MB	max /proc/meminfo Dirty (system-wide); max Cached 1043 MB
+R	E4	fib30.ph4	1	width	U32		chosen before any entry was written; escapes >= 255: 29999490 (99.9983 %), >= 65535: 29868930 (99.5631 %), overflow entries 0
+R	E4	fib30.ph4	1	max_plcp	15069648	symbols	largest LCP value
+R	E4	fib30.ph4	1	compare_steps	26012439	steps	vector (or word) compare steps of all PLCP loops, 0.867 per position; restart cost (symbols compared at the first position of each of the 375 chunks, no carry): 2821993355
+R	E4	fib30.ph4	1	chunks	375	n	text chunks 375, rank chunks 376, rounds 1, B2 tasks in parallel 2
+R	E5	fib30.ph4	1	ext_rssanon_peak	45.646	MB	independent sampler: max RssAnon of /proc/<pid>/status over 77 samples at 20 ms
+R	E5	fib30.ph4	1	ext_dirty_peak	361.509	MB	independent sampler: max /proc/meminfo Dirty minus the baseline (0.00 MB, median of 5 samples before the start); gate G3 <= 64 MB; absolute max 361.51 MB
+R	E5	fib30.ph4	1	ext_dirty_mean	209.183	MB	independent sampler: mean of Dirty minus the baseline
+R	E5	fib30.ph4	1	ext_writeback_peak	1.049	MB	independent sampler: max /proc/meminfo Writeback
+R	E5	fib30.ph4	1	device_write_bytes	121421824	bytes	sectors written by vda during the run and the sync that follows it (512 B each; includes the spill file, journal, everything)
+R	E4	fib30.ph4	2	n	30000000	symbols	b=1 bits, mode=Distributed, threads=4, B2 workers=2, touch buffers=False
+R	E4	fib30.ph4	2	parameters	R=80000 P=375 rounds=1 tuple=32768 read=1048576 window=1048576		R scaled by n/3e9 = 1.000E-002 from R=8000000 (P = 375 at 3e9); B2 workers from the reference geometry: one task holds 73.8 MiB at 3e9, arena cap 160 MiB
+R	E4	fib30.ph4	2	ph4_s	1.541626	s	PH4 total: B1 + B2 + B3 (without fsync)
+R	E4	fib30.ph4	2	b1_s	0.400312	s	B1: suffix array scanned once, Phi tuples distributed by position / R
+R	E4	fib30.ph4	2	b2_s	0.772379	s	B2: scatter, PLCP loop, rank tuples distributed by rank / R
+R	E4	fib30.ph4	2	b3_s	0.366774	s	B3: rank chunks scattered and written through mapped windows
+R	E4	fib30.ph4	2	fsync_s	0.000407	s	flush of the two output files after the build
+R	E4	fib30.ph4	2	ns_per_symbol	51.38752	ns	ph4_s / n
+R	E4	fib30.ph4	2	throughput	19.459978	Msym/s	n / ph4_s; the gate of ADR-004 row E4 is 5 MB/s = 5 M symbols/s on 4 threads
+R	E4	fib30.ph4	2	rssanon_peak	45.449216	MB	max RssAnon of 156 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 11)
+R	E4	fib30.ph4	2	rssfile_peak	33.021952	MB	mapped file pages resident (text, output windows, PLCP file in the bounded mode): reported, not counted (ADR-004 section 6a)
+R	E4	fib30.ph4	2	vmhwm	80.699392	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E4	fib30.ph4	2	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E4	fib30.ph4	2	arena_peak	28.01868	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E4	fib30.ph4	2	io_explicit_read	720000004	bytes	24.000 B/char; suffix array and tuple files (867 calls)
+R	E4	fib30.ph4	2	io_explicit_write	600000000	bytes	20.000 B/char; tuple files and the PLCP file (19126 calls)
+R	E4	fib30.ph4	2	io_mapped_write	120000004	bytes	4.000 B/char: the LCP section through mapped windows of at most 1048576 bytes (115 windows, largest 1048576)
+R	E4	fib30.ph4	2	io_total_counted	1440000008	bytes	48.000 B/char explicit I/O plus mapped writes; the bounded mode's gather reads 0.0 B/char more through a read-only mapping (48.000 B/char with it); the text reads come on top (see block-layer read_bytes)
+R	E4	fib30.ph4	2	blocklayer_read	124309504	bytes	/proc/self/io read_bytes during the build (page-cache misses); 4.144 B/char
+R	E4	fib30.ph4	2	blocklayer_write	722976768	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E4	fib30.ph4	2	scratch_peak	360000000	bytes	12.000 B/char peak of all scratch files (tuple files, PLCP file), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E4	fib30.ph4	2	lcp_file	120000004	bytes	4.000 B/char (the output): base 120000004, overflow 0
+R	E4	fib30.ph4	2	dirty_peak	361.631744	MB	max /proc/meminfo Dirty (system-wide); max Cached 1046 MB
+R	E4	fib30.ph4	2	width	U32		chosen before any entry was written; escapes >= 255: 29999490 (99.9983 %), >= 65535: 29868930 (99.5631 %), overflow entries 0
+R	E4	fib30.ph4	2	max_plcp	15069648	symbols	largest LCP value
+R	E4	fib30.ph4	2	compare_steps	26012439	steps	vector (or word) compare steps of all PLCP loops, 0.867 per position; restart cost (symbols compared at the first position of each of the 375 chunks, no carry): 2821993355
+R	E4	fib30.ph4	2	chunks	375	n	text chunks 375, rank chunks 376, rounds 1, B2 tasks in parallel 2
+R	E5	fib30.ph4	2	ext_rssanon_peak	45.425	MB	independent sampler: max RssAnon of /proc/<pid>/status over 80 samples at 20 ms
+R	E5	fib30.ph4	2	ext_dirty_peak	360.735	MB	independent sampler: max /proc/meminfo Dirty minus the baseline (0.00 MB, median of 5 samples before the start); gate G3 <= 64 MB; absolute max 360.73 MB
+R	E5	fib30.ph4	2	ext_dirty_mean	206.582	MB	independent sampler: mean of Dirty minus the baseline
+R	E5	fib30.ph4	2	ext_writeback_peak	1.049	MB	independent sampler: max /proc/meminfo Writeback
+R	E5	fib30.ph4	2	device_write_bytes	121421824	bytes	sectors written by vda during the run and the sync that follows it (512 B each; includes the spill file, journal, everything)
+R	E4	fib30.ph4	3	n	30000000	symbols	b=1 bits, mode=Distributed, threads=4, B2 workers=2, touch buffers=False
+R	E4	fib30.ph4	3	parameters	R=80000 P=375 rounds=1 tuple=32768 read=1048576 window=1048576		R scaled by n/3e9 = 1.000E-002 from R=8000000 (P = 375 at 3e9); B2 workers from the reference geometry: one task holds 73.8 MiB at 3e9, arena cap 160 MiB
+R	E4	fib30.ph4	3	ph4_s	1.594459	s	PH4 total: B1 + B2 + B3 (without fsync)
+R	E4	fib30.ph4	3	b1_s	0.447415	s	B1: suffix array scanned once, Phi tuples distributed by position / R
+R	E4	fib30.ph4	3	b2_s	0.792652	s	B2: scatter, PLCP loop, rank tuples distributed by rank / R
+R	E4	fib30.ph4	3	b3_s	0.352123	s	B3: rank chunks scattered and written through mapped windows
+R	E4	fib30.ph4	3	fsync_s	0.000292	s	flush of the two output files after the build
+R	E4	fib30.ph4	3	ns_per_symbol	53.148633	ns	ph4_s / n
+R	E4	fib30.ph4	3	throughput	18.81516	Msym/s	n / ph4_s; the gate of ADR-004 row E4 is 5 MB/s = 5 M symbols/s on 4 threads
+R	E4	fib30.ph4	3	rssanon_peak	45.309952	MB	max RssAnon of 161 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 11)
+R	E4	fib30.ph4	3	rssfile_peak	33.202176	MB	mapped file pages resident (text, output windows, PLCP file in the bounded mode): reported, not counted (ADR-004 section 6a)
+R	E4	fib30.ph4	3	vmhwm	80.838656	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E4	fib30.ph4	3	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E4	fib30.ph4	3	arena_peak	28.01868	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E4	fib30.ph4	3	io_explicit_read	720000004	bytes	24.000 B/char; suffix array and tuple files (867 calls)
+R	E4	fib30.ph4	3	io_explicit_write	600000000	bytes	20.000 B/char; tuple files and the PLCP file (19126 calls)
+R	E4	fib30.ph4	3	io_mapped_write	120000004	bytes	4.000 B/char: the LCP section through mapped windows of at most 1048576 bytes (115 windows, largest 1048576)
+R	E4	fib30.ph4	3	io_total_counted	1440000008	bytes	48.000 B/char explicit I/O plus mapped writes; the bounded mode's gather reads 0.0 B/char more through a read-only mapping (48.000 B/char with it); the text reads come on top (see block-layer read_bytes)
+R	E4	fib30.ph4	3	blocklayer_read	124309504	bytes	/proc/self/io read_bytes during the build (page-cache misses); 4.144 B/char
+R	E4	fib30.ph4	3	blocklayer_write	722960384	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E4	fib30.ph4	3	scratch_peak	360000000	bytes	12.000 B/char peak of all scratch files (tuple files, PLCP file), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E4	fib30.ph4	3	lcp_file	120000004	bytes	4.000 B/char (the output): base 120000004, overflow 0
+R	E4	fib30.ph4	3	dirty_peak	361.558016	MB	max /proc/meminfo Dirty (system-wide); max Cached 1046 MB
+R	E4	fib30.ph4	3	width	U32		chosen before any entry was written; escapes >= 255: 29999490 (99.9983 %), >= 65535: 29868930 (99.5631 %), overflow entries 0
+R	E4	fib30.ph4	3	max_plcp	15069648	symbols	largest LCP value
+R	E4	fib30.ph4	3	compare_steps	26012439	steps	vector (or word) compare steps of all PLCP loops, 0.867 per position; restart cost (symbols compared at the first position of each of the 375 chunks, no carry): 2821993355
+R	E4	fib30.ph4	3	chunks	375	n	text chunks 375, rank chunks 376, rounds 1, B2 tasks in parallel 2
+R	E5	fib30.ph4	3	ext_rssanon_peak	45.310	MB	independent sampler: max RssAnon of /proc/<pid>/status over 83 samples at 20 ms
+R	E5	fib30.ph4	3	ext_dirty_peak	360.845	MB	independent sampler: max /proc/meminfo Dirty minus the baseline (0.00 MB, median of 5 samples before the start); gate G3 <= 64 MB; absolute max 360.85 MB
+R	E5	fib30.ph4	3	ext_dirty_mean	205.096	MB	independent sampler: mean of Dirty minus the baseline
+R	E5	fib30.ph4	3	ext_writeback_peak	0.131	MB	independent sampler: max /proc/meminfo Writeback
+R	E5	fib30.ph4	3	device_write_bytes	121405440	bytes	sectors written by vda during the run and the sync that follows it (512 B each; includes the spill file, journal, everything)
+R	E4	rep10.ph4	1	n	10000000	symbols	b=2 bits, mode=Distributed, threads=4, B2 workers=2, touch buffers=False
+R	E4	rep10.ph4	1	parameters	R=26667 P=375 rounds=1 tuple=32768 read=1048576 window=1048576		R scaled by n/3e9 = 3.333E-003 from R=8000000 (P = 375 at 3e9); B2 workers from the reference geometry: one task holds 73.8 MiB at 3e9, arena cap 160 MiB
+R	E4	rep10.ph4	1	ph4_s	0.68075	s	PH4 total: B1 + B2 + B3 (without fsync)
+R	E4	rep10.ph4	1	b1_s	0.158986	s	B1: suffix array scanned once, Phi tuples distributed by position / R
+R	E4	rep10.ph4	1	b2_s	0.424031	s	B2: scatter, PLCP loop, rank tuples distributed by rank / R
+R	E4	rep10.ph4	1	b3_s	0.095808	s	B3: rank chunks scattered and written through mapped windows
+R	E4	rep10.ph4	1	fsync_s	0.000334	s	flush of the two output files after the build
+R	E4	rep10.ph4	1	ns_per_symbol	68.07504	ns	ph4_s / n
+R	E4	rep10.ph4	1	throughput	14.689672	Msym/s	n / ph4_s; the gate of ADR-004 row E4 is 5 MB/s = 5 M symbols/s on 4 threads
+R	E4	rep10.ph4	1	rssanon_peak	40.869888	MB	max RssAnon of 70 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 11)
+R	E4	rep10.ph4	1	rssfile_peak	31.444992	MB	mapped file pages resident (text, output windows, PLCP file in the bounded mode): reported, not counted (ADR-004 section 6a)
+R	E4	rep10.ph4	1	vmhwm	74.047488	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E4	rep10.ph4	1	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E4	rep10.ph4	1	arena_peak	27.099816	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E4	rep10.ph4	1	io_explicit_read	240000004	bytes	24.000 B/char; suffix array and tuple files (790 calls)
+R	E4	rep10.ph4	1	io_explicit_write	200000000	bytes	20.000 B/char; tuple files and the PLCP file (6750 calls)
+R	E4	rep10.ph4	1	io_mapped_write	20000002	bytes	2.000 B/char: the LCP section through mapped windows of at most 1048576 bytes (20 windows, largest 1048576)
+R	E4	rep10.ph4	1	io_total_counted	460000006	bytes	46.000 B/char explicit I/O plus mapped writes; the bounded mode's gather reads 0.0 B/char more through a read-only mapping (46.000 B/char with it); the text reads come on top (see block-layer read_bytes)
+R	E4	rep10.ph4	1	blocklayer_read	43057152	bytes	/proc/self/io read_bytes during the build (page-cache misses); 4.306 B/char
+R	E4	rep10.ph4	1	blocklayer_write	223559680	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E4	rep10.ph4	1	scratch_peak	120000000	bytes	12.000 B/char peak of all scratch files (tuple files, PLCP file), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E4	rep10.ph4	1	lcp_file	20000002	bytes	2.000 B/char (the output): base 20000002, overflow 0
+R	E4	rep10.ph4	1	dirty_peak	120.598528	MB	max /proc/meminfo Dirty (system-wide); max Cached 727 MB
+R	E4	rep10.ph4	1	width	U16		chosen before any entry was written; escapes >= 255: 694126 (6.9413 %), >= 65535: 0 (0.0000 %), overflow entries 0
+R	E4	rep10.ph4	1	max_plcp	790	symbols	largest LCP value
+R	E4	rep10.ph4	1	compare_steps	10031917	steps	vector (or word) compare steps of all PLCP loops, 1.003 per position; restart cost (symbols compared at the first position of each of the 375 chunks, no carry): 36222
+R	E4	rep10.ph4	1	chunks	375	n	text chunks 375, rank chunks 375, rounds 1, B2 tasks in parallel 2
+R	E5	rep10.ph4	1	ext_rssanon_peak	40.710	MB	independent sampler: max RssAnon of /proc/<pid>/status over 37 samples at 20 ms
+R	E5	rep10.ph4	1	ext_dirty_peak	121.803	MB	independent sampler: max /proc/meminfo Dirty minus the baseline (0.05 MB, median of 5 samples before the start); gate G3 <= 64 MB; absolute max 121.86 MB
+R	E5	rep10.ph4	1	ext_dirty_mean	74.720	MB	independent sampler: mean of Dirty minus the baseline
+R	E5	rep10.ph4	1	ext_writeback_peak	0.262	MB	independent sampler: max /proc/meminfo Writeback
+R	E5	rep10.ph4	1	device_write_bytes	20987904	bytes	sectors written by vda during the run and the sync that follows it (512 B each; includes the spill file, journal, everything)
+R	E4	rep10.ph4	2	n	10000000	symbols	b=2 bits, mode=Distributed, threads=4, B2 workers=2, touch buffers=False
+R	E4	rep10.ph4	2	parameters	R=26667 P=375 rounds=1 tuple=32768 read=1048576 window=1048576		R scaled by n/3e9 = 3.333E-003 from R=8000000 (P = 375 at 3e9); B2 workers from the reference geometry: one task holds 73.8 MiB at 3e9, arena cap 160 MiB
+R	E4	rep10.ph4	2	ph4_s	0.698387	s	PH4 total: B1 + B2 + B3 (without fsync)
+R	E4	rep10.ph4	2	b1_s	0.162507	s	B1: suffix array scanned once, Phi tuples distributed by position / R
+R	E4	rep10.ph4	2	b2_s	0.428332	s	B2: scatter, PLCP loop, rank tuples distributed by rank / R
+R	E4	rep10.ph4	2	b3_s	0.105371	s	B3: rank chunks scattered and written through mapped windows
+R	E4	rep10.ph4	2	fsync_s	0.000261	s	flush of the two output files after the build
+R	E4	rep10.ph4	2	ns_per_symbol	69.838695	ns	ph4_s / n
+R	E4	rep10.ph4	2	throughput	14.31871	Msym/s	n / ph4_s; the gate of ADR-004 row E4 is 5 MB/s = 5 M symbols/s on 4 threads
+R	E4	rep10.ph4	2	rssanon_peak	37.978112	MB	max RssAnon of 71 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 11)
+R	E4	rep10.ph4	2	rssfile_peak	31.522816	MB	mapped file pages resident (text, output windows, PLCP file in the bounded mode): reported, not counted (ADR-004 section 6a)
+R	E4	rep10.ph4	2	vmhwm	71.22944	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E4	rep10.ph4	2	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E4	rep10.ph4	2	arena_peak	27.099816	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E4	rep10.ph4	2	io_explicit_read	240000004	bytes	24.000 B/char; suffix array and tuple files (790 calls)
+R	E4	rep10.ph4	2	io_explicit_write	200000000	bytes	20.000 B/char; tuple files and the PLCP file (6750 calls)
+R	E4	rep10.ph4	2	io_mapped_write	20000002	bytes	2.000 B/char: the LCP section through mapped windows of at most 1048576 bytes (20 windows, largest 1048576)
+R	E4	rep10.ph4	2	io_total_counted	460000006	bytes	46.000 B/char explicit I/O plus mapped writes; the bounded mode's gather reads 0.0 B/char more through a read-only mapping (46.000 B/char with it); the text reads come on top (see block-layer read_bytes)
+R	E4	rep10.ph4	2	blocklayer_read	43057152	bytes	/proc/self/io read_bytes during the build (page-cache misses); 4.306 B/char
+R	E4	rep10.ph4	2	blocklayer_write	223563776	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E4	rep10.ph4	2	scratch_peak	120000000	bytes	12.000 B/char peak of all scratch files (tuple files, PLCP file), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E4	rep10.ph4	2	lcp_file	20000002	bytes	2.000 B/char (the output): base 20000002, overflow 0
+R	E4	rep10.ph4	2	dirty_peak	120.578048	MB	max /proc/meminfo Dirty (system-wide); max Cached 727 MB
+R	E4	rep10.ph4	2	width	U16		chosen before any entry was written; escapes >= 255: 694126 (6.9413 %), >= 65535: 0 (0.0000 %), overflow entries 0
+R	E4	rep10.ph4	2	max_plcp	790	symbols	largest LCP value
+R	E4	rep10.ph4	2	compare_steps	10031917	steps	vector (or word) compare steps of all PLCP loops, 1.003 per position; restart cost (symbols compared at the first position of each of the 375 chunks, no carry): 36222
+R	E4	rep10.ph4	2	chunks	375	n	text chunks 375, rank chunks 375, rounds 1, B2 tasks in parallel 2
+R	E5	rep10.ph4	2	ext_rssanon_peak	37.913	MB	independent sampler: max RssAnon of /proc/<pid>/status over 37 samples at 20 ms
+R	E5	rep10.ph4	2	ext_dirty_peak	122.016	MB	independent sampler: max /proc/meminfo Dirty minus the baseline (0.00 MB, median of 5 samples before the start); gate G3 <= 64 MB; absolute max 122.02 MB
+R	E5	rep10.ph4	2	ext_dirty_mean	75.845	MB	independent sampler: mean of Dirty minus the baseline
+R	E5	rep10.ph4	2	ext_writeback_peak	0.000	MB	independent sampler: max /proc/meminfo Writeback
+R	E5	rep10.ph4	2	device_write_bytes	20992000	bytes	sectors written by vda during the run and the sync that follows it (512 B each; includes the spill file, journal, everything)
+R	E4	rep10.ph4	3	n	10000000	symbols	b=2 bits, mode=Distributed, threads=4, B2 workers=2, touch buffers=False
+R	E4	rep10.ph4	3	parameters	R=26667 P=375 rounds=1 tuple=32768 read=1048576 window=1048576		R scaled by n/3e9 = 3.333E-003 from R=8000000 (P = 375 at 3e9); B2 workers from the reference geometry: one task holds 73.8 MiB at 3e9, arena cap 160 MiB
+R	E4	rep10.ph4	3	ph4_s	0.566434	s	PH4 total: B1 + B2 + B3 (without fsync)
+R	E4	rep10.ph4	3	b1_s	0.13827	s	B1: suffix array scanned once, Phi tuples distributed by position / R
+R	E4	rep10.ph4	3	b2_s	0.341046	s	B2: scatter, PLCP loop, rank tuples distributed by rank / R
+R	E4	rep10.ph4	3	b3_s	0.085368	s	B3: rank chunks scattered and written through mapped windows
+R	E4	rep10.ph4	3	fsync_s	0.000337	s	flush of the two output files after the build
+R	E4	rep10.ph4	3	ns_per_symbol	56.643358	ns	ph4_s / n
+R	E4	rep10.ph4	3	throughput	17.654321	Msym/s	n / ph4_s; the gate of ADR-004 row E4 is 5 MB/s = 5 M symbols/s on 4 threads
+R	E4	rep10.ph4	3	rssanon_peak	37.625856	MB	max RssAnon of 58 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 11)
+R	E4	rep10.ph4	3	rssfile_peak	31.571968	MB	mapped file pages resident (text, output windows, PLCP file in the bounded mode): reported, not counted (ADR-004 section 6a)
+R	E4	rep10.ph4	3	vmhwm	70.926336	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E4	rep10.ph4	3	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E4	rep10.ph4	3	arena_peak	27.099816	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E4	rep10.ph4	3	io_explicit_read	240000004	bytes	24.000 B/char; suffix array and tuple files (790 calls)
+R	E4	rep10.ph4	3	io_explicit_write	200000000	bytes	20.000 B/char; tuple files and the PLCP file (6750 calls)
+R	E4	rep10.ph4	3	io_mapped_write	20000002	bytes	2.000 B/char: the LCP section through mapped windows of at most 1048576 bytes (20 windows, largest 1048576)
+R	E4	rep10.ph4	3	io_total_counted	460000006	bytes	46.000 B/char explicit I/O plus mapped writes; the bounded mode's gather reads 0.0 B/char more through a read-only mapping (46.000 B/char with it); the text reads come on top (see block-layer read_bytes)
+R	E4	rep10.ph4	3	blocklayer_read	43057152	bytes	/proc/self/io read_bytes during the build (page-cache misses); 4.306 B/char
+R	E4	rep10.ph4	3	blocklayer_write	223543296	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E4	rep10.ph4	3	scratch_peak	120000000	bytes	12.000 B/char peak of all scratch files (tuple files, PLCP file), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E4	rep10.ph4	3	lcp_file	20000002	bytes	2.000 B/char (the output): base 20000002, overflow 0
+R	E4	rep10.ph4	3	dirty_peak	121.749504	MB	max /proc/meminfo Dirty (system-wide); max Cached 728 MB
+R	E4	rep10.ph4	3	width	U16		chosen before any entry was written; escapes >= 255: 694126 (6.9413 %), >= 65535: 0 (0.0000 %), overflow entries 0
+R	E4	rep10.ph4	3	max_plcp	790	symbols	largest LCP value
+R	E4	rep10.ph4	3	compare_steps	10031917	steps	vector (or word) compare steps of all PLCP loops, 1.003 per position; restart cost (symbols compared at the first position of each of the 375 chunks, no carry): 36222
+R	E4	rep10.ph4	3	chunks	375	n	text chunks 375, rank chunks 375, rounds 1, B2 tasks in parallel 2
+R	E5	rep10.ph4	3	ext_rssanon_peak	37.626	MB	independent sampler: max RssAnon of /proc/<pid>/status over 32 samples at 20 ms
+R	E5	rep10.ph4	3	ext_dirty_peak	121.750	MB	independent sampler: max /proc/meminfo Dirty minus the baseline (0.00 MB, median of 5 samples before the start); gate G3 <= 64 MB; absolute max 121.75 MB
+R	E5	rep10.ph4	3	ext_dirty_mean	69.126	MB	independent sampler: mean of Dirty minus the baseline
+R	E5	rep10.ph4	3	ext_writeback_peak	0.000	MB	independent sampler: max /proc/meminfo Writeback
+R	E5	rep10.ph4	3	device_write_bytes	20979712	bytes	sectors written by vda during the run and the sync that follows it (512 B each; includes the spill file, journal, everything)
+R	E4	dna10.ph4	1	n	10000000	symbols	b=2 bits, mode=Distributed, threads=4, B2 workers=2, touch buffers=False
+R	E4	dna10.ph4	1	parameters	R=26667 P=375 rounds=1 tuple=32768 read=1048576 window=1048576		R scaled by n/3e9 = 3.333E-003 from R=8000000 (P = 375 at 3e9); B2 workers from the reference geometry: one task holds 73.8 MiB at 3e9, arena cap 160 MiB
+R	E4	dna10.ph4	1	ph4_s	0.587129	s	PH4 total: B1 + B2 + B3 (without fsync)
+R	E4	dna10.ph4	1	b1_s	0.139255	s	B1: suffix array scanned once, Phi tuples distributed by position / R
+R	E4	dna10.ph4	1	b2_s	0.37325	s	B2: scatter, PLCP loop, rank tuples distributed by rank / R
+R	E4	dna10.ph4	1	b3_s	0.072661	s	B3: rank chunks scattered and written through mapped windows
+R	E4	dna10.ph4	1	fsync_s	0.000325	s	flush of the two output files after the build
+R	E4	dna10.ph4	1	ns_per_symbol	58.712916	ns	ph4_s / n
+R	E4	dna10.ph4	1	throughput	17.032027	Msym/s	n / ph4_s; the gate of ADR-004 row E4 is 5 MB/s = 5 M symbols/s on 4 threads
+R	E4	dna10.ph4	1	rssanon_peak	37.96992	MB	max RssAnon of 60 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 11)
+R	E4	dna10.ph4	1	rssfile_peak	31.490048	MB	mapped file pages resident (text, output windows, PLCP file in the bounded mode): reported, not counted (ADR-004 section 6a)
+R	E4	dna10.ph4	1	vmhwm	71.471104	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E4	dna10.ph4	1	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E4	dna10.ph4	1	arena_peak	27.099816	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E4	dna10.ph4	1	io_explicit_read	240000004	bytes	24.000 B/char; suffix array and tuple files (790 calls)
+R	E4	dna10.ph4	1	io_explicit_write	200000000	bytes	20.000 B/char; tuple files and the PLCP file (6750 calls)
+R	E4	dna10.ph4	1	io_mapped_write	10000001	bytes	1.000 B/char: the LCP section through mapped windows of at most 1048576 bytes (10 windows, largest 1048576)
+R	E4	dna10.ph4	1	io_total_counted	450000005	bytes	45.000 B/char explicit I/O plus mapped writes; the bounded mode's gather reads 0.0 B/char more through a read-only mapping (45.000 B/char with it); the text reads come on top (see block-layer read_bytes)
+R	E4	dna10.ph4	1	blocklayer_read	43057152	bytes	/proc/self/io read_bytes during the build (page-cache misses); 4.306 B/char
+R	E4	dna10.ph4	1	blocklayer_write	213536768	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E4	dna10.ph4	1	scratch_peak	120000000	bytes	12.000 B/char peak of all scratch files (tuple files, PLCP file), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E4	dna10.ph4	1	lcp_file	10000001	bytes	1.000 B/char (the output): base 10000001, overflow 0
+R	E4	dna10.ph4	1	dirty_peak	121.679872	MB	max /proc/meminfo Dirty (system-wide); max Cached 728 MB
+R	E4	dna10.ph4	1	width	U8		chosen before any entry was written; escapes >= 255: 0 (0.0000 %), >= 65535: 0 (0.0000 %), overflow entries 0
+R	E4	dna10.ph4	1	max_plcp	25	symbols	largest LCP value
+R	E4	dna10.ph4	1	compare_steps	9999994	steps	vector (or word) compare steps of all PLCP loops, 1.000 per position; restart cost (symbols compared at the first position of each of the 375 chunks, no carry): 4060
+R	E4	dna10.ph4	1	chunks	375	n	text chunks 375, rank chunks 375, rounds 1, B2 tasks in parallel 2
+R	E5	dna10.ph4	1	ext_rssanon_peak	38.093	MB	independent sampler: max RssAnon of /proc/<pid>/status over 32 samples at 20 ms
+R	E5	dna10.ph4	1	ext_dirty_peak	121.680	MB	independent sampler: max /proc/meminfo Dirty minus the baseline (0.00 MB, median of 5 samples before the start); gate G3 <= 64 MB; absolute max 121.68 MB
+R	E5	dna10.ph4	1	ext_dirty_mean	72.823	MB	independent sampler: mean of Dirty minus the baseline
+R	E5	dna10.ph4	1	ext_writeback_peak	0.008	MB	independent sampler: max /proc/meminfo Writeback
+R	E5	dna10.ph4	1	device_write_bytes	10924032	bytes	sectors written by vda during the run and the sync that follows it (512 B each; includes the spill file, journal, everything)
+R	E4	dna10.ph4	2	n	10000000	symbols	b=2 bits, mode=Distributed, threads=4, B2 workers=2, touch buffers=False
+R	E4	dna10.ph4	2	parameters	R=26667 P=375 rounds=1 tuple=32768 read=1048576 window=1048576		R scaled by n/3e9 = 3.333E-003 from R=8000000 (P = 375 at 3e9); B2 workers from the reference geometry: one task holds 73.8 MiB at 3e9, arena cap 160 MiB
+R	E4	dna10.ph4	2	ph4_s	0.595121	s	PH4 total: B1 + B2 + B3 (without fsync)
+R	E4	dna10.ph4	2	b1_s	0.136902	s	B1: suffix array scanned once, Phi tuples distributed by position / R
+R	E4	dna10.ph4	2	b2_s	0.383737	s	B2: scatter, PLCP loop, rank tuples distributed by rank / R
+R	E4	dna10.ph4	2	b3_s	0.072715	s	B3: rank chunks scattered and written through mapped windows
+R	E4	dna10.ph4	2	fsync_s	0.000284	s	flush of the two output files after the build
+R	E4	dna10.ph4	2	ns_per_symbol	59.512148	ns	ph4_s / n
+R	E4	dna10.ph4	2	throughput	16.803292	Msym/s	n / ph4_s; the gate of ADR-004 row E4 is 5 MB/s = 5 M symbols/s on 4 threads
+R	E4	dna10.ph4	2	rssanon_peak	38.088704	MB	max RssAnon of 61 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 11)
+R	E4	dna10.ph4	2	rssfile_peak	31.424512	MB	mapped file pages resident (text, output windows, PLCP file in the bounded mode): reported, not counted (ADR-004 section 6a)
+R	E4	dna10.ph4	2	vmhwm	71.565312	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E4	dna10.ph4	2	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E4	dna10.ph4	2	arena_peak	27.099816	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E4	dna10.ph4	2	io_explicit_read	240000004	bytes	24.000 B/char; suffix array and tuple files (790 calls)
+R	E4	dna10.ph4	2	io_explicit_write	200000000	bytes	20.000 B/char; tuple files and the PLCP file (6750 calls)
+R	E4	dna10.ph4	2	io_mapped_write	10000001	bytes	1.000 B/char: the LCP section through mapped windows of at most 1048576 bytes (10 windows, largest 1048576)
+R	E4	dna10.ph4	2	io_total_counted	450000005	bytes	45.000 B/char explicit I/O plus mapped writes; the bounded mode's gather reads 0.0 B/char more through a read-only mapping (45.000 B/char with it); the text reads come on top (see block-layer read_bytes)
+R	E4	dna10.ph4	2	blocklayer_read	43057152	bytes	/proc/self/io read_bytes during the build (page-cache misses); 4.306 B/char
+R	E4	dna10.ph4	2	blocklayer_write	213536768	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E4	dna10.ph4	2	scratch_peak	120000000	bytes	12.000 B/char peak of all scratch files (tuple files, PLCP file), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E4	dna10.ph4	2	lcp_file	10000001	bytes	1.000 B/char (the output): base 10000001, overflow 0
+R	E4	dna10.ph4	2	dirty_peak	121.73312	MB	max /proc/meminfo Dirty (system-wide); max Cached 728 MB
+R	E4	dna10.ph4	2	width	U8		chosen before any entry was written; escapes >= 255: 0 (0.0000 %), >= 65535: 0 (0.0000 %), overflow entries 0
+R	E4	dna10.ph4	2	max_plcp	25	symbols	largest LCP value
+R	E4	dna10.ph4	2	compare_steps	9999994	steps	vector (or word) compare steps of all PLCP loops, 1.000 per position; restart cost (symbols compared at the first position of each of the 375 chunks, no carry): 4060
+R	E4	dna10.ph4	2	chunks	375	n	text chunks 375, rank chunks 375, rounds 1, B2 tasks in parallel 2
+R	E5	dna10.ph4	2	ext_rssanon_peak	37.827	MB	independent sampler: max RssAnon of /proc/<pid>/status over 32 samples at 20 ms
+R	E5	dna10.ph4	2	ext_dirty_peak	121.733	MB	independent sampler: max /proc/meminfo Dirty minus the baseline (0.00 MB, median of 5 samples before the start); gate G3 <= 64 MB; absolute max 121.73 MB
+R	E5	dna10.ph4	2	ext_dirty_mean	74.443	MB	independent sampler: mean of Dirty minus the baseline
+R	E5	dna10.ph4	2	ext_writeback_peak	0.000	MB	independent sampler: max /proc/meminfo Writeback
+R	E5	dna10.ph4	2	device_write_bytes	10924032	bytes	sectors written by vda during the run and the sync that follows it (512 B each; includes the spill file, journal, everything)
+R	E4	dna10.ph4	3	n	10000000	symbols	b=2 bits, mode=Distributed, threads=4, B2 workers=2, touch buffers=False
+R	E4	dna10.ph4	3	parameters	R=26667 P=375 rounds=1 tuple=32768 read=1048576 window=1048576		R scaled by n/3e9 = 3.333E-003 from R=8000000 (P = 375 at 3e9); B2 workers from the reference geometry: one task holds 73.8 MiB at 3e9, arena cap 160 MiB
+R	E4	dna10.ph4	3	ph4_s	0.602587	s	PH4 total: B1 + B2 + B3 (without fsync)
+R	E4	dna10.ph4	3	b1_s	0.136936	s	B1: suffix array scanned once, Phi tuples distributed by position / R
+R	E4	dna10.ph4	3	b2_s	0.388016	s	B2: scatter, PLCP loop, rank tuples distributed by rank / R
+R	E4	dna10.ph4	3	b3_s	0.075777	s	B3: rank chunks scattered and written through mapped windows
+R	E4	dna10.ph4	3	fsync_s	0.000406	s	flush of the two output files after the build
+R	E4	dna10.ph4	3	ns_per_symbol	60.258717	ns	ph4_s / n
+R	E4	dna10.ph4	3	throughput	16.595109	Msym/s	n / ph4_s; the gate of ADR-004 row E4 is 5 MB/s = 5 M symbols/s on 4 threads
+R	E4	dna10.ph4	3	rssanon_peak	37.793792	MB	max RssAnon of 62 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 11)
+R	E4	dna10.ph4	3	rssfile_peak	31.473664	MB	mapped file pages resident (text, output windows, PLCP file in the bounded mode): reported, not counted (ADR-004 section 6a)
+R	E4	dna10.ph4	3	vmhwm	71.213056	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E4	dna10.ph4	3	gc_heap	0	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 0/0/0
+R	E4	dna10.ph4	3	arena_peak	27.099816	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E4	dna10.ph4	3	io_explicit_read	240000004	bytes	24.000 B/char; suffix array and tuple files (790 calls)
+R	E4	dna10.ph4	3	io_explicit_write	200000000	bytes	20.000 B/char; tuple files and the PLCP file (6750 calls)
+R	E4	dna10.ph4	3	io_mapped_write	10000001	bytes	1.000 B/char: the LCP section through mapped windows of at most 1048576 bytes (10 windows, largest 1048576)
+R	E4	dna10.ph4	3	io_total_counted	450000005	bytes	45.000 B/char explicit I/O plus mapped writes; the bounded mode's gather reads 0.0 B/char more through a read-only mapping (45.000 B/char with it); the text reads come on top (see block-layer read_bytes)
+R	E4	dna10.ph4	3	blocklayer_read	43057152	bytes	/proc/self/io read_bytes during the build (page-cache misses); 4.306 B/char
+R	E4	dna10.ph4	3	blocklayer_write	213544960	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E4	dna10.ph4	3	scratch_peak	120000000	bytes	12.000 B/char peak of all scratch files (tuple files, PLCP file), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E4	dna10.ph4	3	lcp_file	10000001	bytes	1.000 B/char (the output): base 10000001, overflow 0
+R	E4	dna10.ph4	3	dirty_peak	121.626624	MB	max /proc/meminfo Dirty (system-wide); max Cached 728 MB
+R	E4	dna10.ph4	3	width	U8		chosen before any entry was written; escapes >= 255: 0 (0.0000 %), >= 65535: 0 (0.0000 %), overflow entries 0
+R	E4	dna10.ph4	3	max_plcp	25	symbols	largest LCP value
+R	E4	dna10.ph4	3	compare_steps	9999994	steps	vector (or word) compare steps of all PLCP loops, 1.000 per position; restart cost (symbols compared at the first position of each of the 375 chunks, no carry): 4060
+R	E4	dna10.ph4	3	chunks	375	n	text chunks 375, rank chunks 375, rounds 1, B2 tasks in parallel 2
+R	E5	dna10.ph4	3	ext_rssanon_peak	37.753	MB	independent sampler: max RssAnon of /proc/<pid>/status over 34 samples at 20 ms
+R	E5	dna10.ph4	3	ext_dirty_peak	121.770	MB	independent sampler: max /proc/meminfo Dirty minus the baseline (0.04 MB, median of 5 samples before the start); gate G3 <= 64 MB; absolute max 121.81 MB
+R	E5	dna10.ph4	3	ext_dirty_mean	70.928	MB	independent sampler: mean of Dirty minus the baseline
+R	E5	dna10.ph4	3	ext_writeback_peak	0.000	MB	independent sampler: max /proc/meminfo Writeback
+R	E5	dna10.ph4	3	device_write_bytes	10924032	bytes	sectors written by vda during the run and the sync that follows it (512 B each; includes the spill file, journal, everything)
+R	E4	dna_100m.ph4	1	n	100000000	symbols	b=2 bits, mode=Distributed, threads=4, B2 workers=2, touch buffers=False
+R	E4	dna_100m.ph4	1	parameters	R=266667 P=375 rounds=1 tuple=32768 read=1048576 window=1048576		R scaled by n/3e9 = 3.333E-002 from R=8000000 (P = 375 at 3e9); B2 workers from the reference geometry: one task holds 73.8 MiB at 3e9, arena cap 160 MiB
+R	E4	dna_100m.ph4	1	ph4_s	5.72562	s	PH4 total: B1 + B2 + B3 (without fsync)
+R	E4	dna_100m.ph4	1	b1_s	1.269246	s	B1: suffix array scanned once, Phi tuples distributed by position / R
+R	E4	dna_100m.ph4	1	b2_s	3.553817	s	B2: scatter, PLCP loop, rank tuples distributed by rank / R
+R	E4	dna_100m.ph4	1	b3_s	0.9003	s	B3: rank chunks scattered and written through mapped windows
+R	E4	dna_100m.ph4	1	fsync_s	0.000391	s	flush of the two output files after the build
+R	E4	dna_100m.ph4	1	ns_per_symbol	57.256205	ns	ph4_s / n
+R	E4	dna_100m.ph4	1	throughput	17.465356	Msym/s	n / ph4_s; the gate of ADR-004 row E4 is 5 MB/s = 5 M symbols/s on 4 threads
+R	E4	dna_100m.ph4	1	rssanon_peak	50.634752	MB	max RssAnon of 574 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 11)
+R	E4	dna_100m.ph4	1	rssfile_peak	54.464512	MB	mapped file pages resident (text, output windows, PLCP file in the bounded mode): reported, not counted (ADR-004 section 6a)
+R	E4	dna_100m.ph4	1	vmhwm	107.569152	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E4	dna_100m.ph4	1	gc_heap	0.094192	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 2/0/0
+R	E4	dna_100m.ph4	1	arena_peak	30.939816	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E4	dna_100m.ph4	1	io_explicit_read	2400000004	bytes	24.000 B/char; suffix array and tuple files (3008 calls)
+R	E4	dna_100m.ph4	1	io_explicit_write	2000000000	bytes	20.000 B/char; tuple files and the PLCP file (61500 calls)
+R	E4	dna_100m.ph4	1	io_mapped_write	100000001	bytes	1.000 B/char: the LCP section through mapped windows of at most 1048576 bytes (96 windows, largest 1048576)
+R	E4	dna_100m.ph4	1	io_total_counted	4500000005	bytes	45.000 B/char explicit I/O plus mapped writes; the bounded mode's gather reads 0.0 B/char more through a read-only mapping (45.000 B/char with it); the text reads come on top (see block-layer read_bytes)
+R	E4	dna_100m.ph4	1	blocklayer_read	425562112	bytes	/proc/self/io read_bytes during the build (page-cache misses); 4.256 B/char
+R	E4	dna_100m.ph4	1	blocklayer_write	2102231040	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E4	dna_100m.ph4	1	scratch_peak	1200000000	bytes	12.000 B/char peak of all scratch files (tuple files, PLCP file), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E4	dna_100m.ph4	1	lcp_file	100000001	bytes	1.000 B/char (the output): base 100000001, overflow 0
+R	E4	dna_100m.ph4	1	dirty_peak	1195.577344	MB	max /proc/meminfo Dirty (system-wide); max Cached 2177 MB
+R	E4	dna_100m.ph4	1	width	U8		chosen before any entry was written; escapes >= 255: 0 (0.0000 %), >= 65535: 0 (0.0000 %), overflow entries 0
+R	E4	dna_100m.ph4	1	max_plcp	25	symbols	largest LCP value
+R	E4	dna_100m.ph4	1	compare_steps	99999996	steps	vector (or word) compare steps of all PLCP loops, 1.000 per position; restart cost (symbols compared at the first position of each of the 375 chunks, no carry): 4693
+R	E4	dna_100m.ph4	1	chunks	375	n	text chunks 375, rank chunks 375, rounds 1, B2 tasks in parallel 2
+R	E5	dna_100m.ph4	1	ext_rssanon_peak	50.635	MB	independent sampler: max RssAnon of /proc/<pid>/status over 291 samples at 20 ms
+R	E5	dna_100m.ph4	1	ext_dirty_peak	1201.713	MB	independent sampler: max /proc/meminfo Dirty minus the baseline (0.00 MB, median of 5 samples before the start); gate G3 <= 64 MB; absolute max 1201.71 MB
+R	E5	dna_100m.ph4	1	ext_dirty_mean	832.652	MB	independent sampler: mean of Dirty minus the baseline
+R	E5	dna_100m.ph4	1	ext_writeback_peak	1.049	MB	independent sampler: max /proc/meminfo Writeback
+R	E5	dna_100m.ph4	1	device_write_bytes	101318656	bytes	sectors written by vda during the run and the sync that follows it (512 B each; includes the spill file, journal, everything)
+R	E4	dna_100m.ph4	2	n	100000000	symbols	b=2 bits, mode=Distributed, threads=4, B2 workers=2, touch buffers=False
+R	E4	dna_100m.ph4	2	parameters	R=266667 P=375 rounds=1 tuple=32768 read=1048576 window=1048576		R scaled by n/3e9 = 3.333E-002 from R=8000000 (P = 375 at 3e9); B2 workers from the reference geometry: one task holds 73.8 MiB at 3e9, arena cap 160 MiB
+R	E4	dna_100m.ph4	2	ph4_s	5.109527	s	PH4 total: B1 + B2 + B3 (without fsync)
+R	E4	dna_100m.ph4	2	b1_s	1.148571	s	B1: suffix array scanned once, Phi tuples distributed by position / R
+R	E4	dna_100m.ph4	2	b2_s	3.148642	s	B2: scatter, PLCP loop, rank tuples distributed by rank / R
+R	E4	dna_100m.ph4	2	b3_s	0.810167	s	B3: rank chunks scattered and written through mapped windows
+R	E4	dna_100m.ph4	2	fsync_s	0.00026	s	flush of the two output files after the build
+R	E4	dna_100m.ph4	2	ns_per_symbol	51.09527	ns	ph4_s / n
+R	E4	dna_100m.ph4	2	throughput	19.571283	Msym/s	n / ph4_s; the gate of ADR-004 row E4 is 5 MB/s = 5 M symbols/s on 4 threads
+R	E4	dna_100m.ph4	2	rssanon_peak	50.798592	MB	max RssAnon of 512 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 11)
+R	E4	dna_100m.ph4	2	rssfile_peak	54.452224	MB	mapped file pages resident (text, output windows, PLCP file in the bounded mode): reported, not counted (ADR-004 section 6a)
+R	E4	dna_100m.ph4	2	vmhwm	107.716608	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E4	dna_100m.ph4	2	gc_heap	0.090296	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 2/0/0
+R	E4	dna_100m.ph4	2	arena_peak	30.939816	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E4	dna_100m.ph4	2	io_explicit_read	2400000004	bytes	24.000 B/char; suffix array and tuple files (3008 calls)
+R	E4	dna_100m.ph4	2	io_explicit_write	2000000000	bytes	20.000 B/char; tuple files and the PLCP file (61500 calls)
+R	E4	dna_100m.ph4	2	io_mapped_write	100000001	bytes	1.000 B/char: the LCP section through mapped windows of at most 1048576 bytes (96 windows, largest 1048576)
+R	E4	dna_100m.ph4	2	io_total_counted	4500000005	bytes	45.000 B/char explicit I/O plus mapped writes; the bounded mode's gather reads 0.0 B/char more through a read-only mapping (45.000 B/char with it); the text reads come on top (see block-layer read_bytes)
+R	E4	dna_100m.ph4	2	blocklayer_read	425562112	bytes	/proc/self/io read_bytes during the build (page-cache misses); 4.256 B/char
+R	E4	dna_100m.ph4	2	blocklayer_write	2102185984	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E4	dna_100m.ph4	2	scratch_peak	1200000000	bytes	12.000 B/char peak of all scratch files (tuple files, PLCP file), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E4	dna_100m.ph4	2	lcp_file	100000001	bytes	1.000 B/char (the output): base 100000001, overflow 0
+R	E4	dna_100m.ph4	2	dirty_peak	1201.782784	MB	max /proc/meminfo Dirty (system-wide); max Cached 2185 MB
+R	E4	dna_100m.ph4	2	width	U8		chosen before any entry was written; escapes >= 255: 0 (0.0000 %), >= 65535: 0 (0.0000 %), overflow entries 0
+R	E4	dna_100m.ph4	2	max_plcp	25	symbols	largest LCP value
+R	E4	dna_100m.ph4	2	compare_steps	99999996	steps	vector (or word) compare steps of all PLCP loops, 1.000 per position; restart cost (symbols compared at the first position of each of the 375 chunks, no carry): 4693
+R	E4	dna_100m.ph4	2	chunks	375	n	text chunks 375, rank chunks 375, rounds 1, B2 tasks in parallel 2
+R	E5	dna_100m.ph4	2	ext_rssanon_peak	50.799	MB	independent sampler: max RssAnon of /proc/<pid>/status over 258 samples at 20 ms
+R	E5	dna_100m.ph4	2	ext_dirty_peak	1201.783	MB	independent sampler: max /proc/meminfo Dirty minus the baseline (0.00 MB, median of 5 samples before the start); gate G3 <= 64 MB; absolute max 1201.78 MB
+R	E5	dna_100m.ph4	2	ext_dirty_mean	819.089	MB	independent sampler: mean of Dirty minus the baseline
+R	E5	dna_100m.ph4	2	ext_writeback_peak	0.131	MB	independent sampler: max /proc/meminfo Writeback
+R	E5	dna_100m.ph4	2	device_write_bytes	101257216	bytes	sectors written by vda during the run and the sync that follows it (512 B each; includes the spill file, journal, everything)
+R	E4	dna_100m.ph4	3	n	100000000	symbols	b=2 bits, mode=Distributed, threads=4, B2 workers=2, touch buffers=False
+R	E4	dna_100m.ph4	3	parameters	R=266667 P=375 rounds=1 tuple=32768 read=1048576 window=1048576		R scaled by n/3e9 = 3.333E-002 from R=8000000 (P = 375 at 3e9); B2 workers from the reference geometry: one task holds 73.8 MiB at 3e9, arena cap 160 MiB
+R	E4	dna_100m.ph4	3	ph4_s	4.747657	s	PH4 total: B1 + B2 + B3 (without fsync)
+R	E4	dna_100m.ph4	3	b1_s	1.060109	s	B1: suffix array scanned once, Phi tuples distributed by position / R
+R	E4	dna_100m.ph4	3	b2_s	2.934475	s	B2: scatter, PLCP loop, rank tuples distributed by rank / R
+R	E4	dna_100m.ph4	3	b3_s	0.75091	s	B3: rank chunks scattered and written through mapped windows
+R	E4	dna_100m.ph4	3	fsync_s	0.000307	s	flush of the two output files after the build
+R	E4	dna_100m.ph4	3	ns_per_symbol	47.476569	ns	ph4_s / n
+R	E4	dna_100m.ph4	3	throughput	21.063022	Msym/s	n / ph4_s; the gate of ADR-004 row E4 is 5 MB/s = 5 M symbols/s on 4 threads
+R	E4	dna_100m.ph4	3	rssanon_peak	50.798592	MB	max RssAnon of 476 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 11)
+R	E4	dna_100m.ph4	3	rssfile_peak	54.304768	MB	mapped file pages resident (text, output windows, PLCP file in the bounded mode): reported, not counted (ADR-004 section 6a)
+R	E4	dna_100m.ph4	3	vmhwm	107.569152	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E4	dna_100m.ph4	3	gc_heap	0.09632	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 2/0/0
+R	E4	dna_100m.ph4	3	arena_peak	30.939816	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E4	dna_100m.ph4	3	io_explicit_read	2400000004	bytes	24.000 B/char; suffix array and tuple files (3008 calls)
+R	E4	dna_100m.ph4	3	io_explicit_write	2000000000	bytes	20.000 B/char; tuple files and the PLCP file (61525 calls)
+R	E4	dna_100m.ph4	3	io_mapped_write	100000001	bytes	1.000 B/char: the LCP section through mapped windows of at most 1048576 bytes (96 windows, largest 1048576)
+R	E4	dna_100m.ph4	3	io_total_counted	4500000005	bytes	45.000 B/char explicit I/O plus mapped writes; the bounded mode's gather reads 0.0 B/char more through a read-only mapping (45.000 B/char with it); the text reads come on top (see block-layer read_bytes)
+R	E4	dna_100m.ph4	3	blocklayer_read	425562112	bytes	/proc/self/io read_bytes during the build (page-cache misses); 4.256 B/char
+R	E4	dna_100m.ph4	3	blocklayer_write	2102030336	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E4	dna_100m.ph4	3	scratch_peak	1200000000	bytes	12.000 B/char peak of all scratch files (tuple files, PLCP file), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E4	dna_100m.ph4	3	lcp_file	100000001	bytes	1.000 B/char (the output): base 100000001, overflow 0
+R	E4	dna_100m.ph4	3	dirty_peak	1195.433984	MB	max /proc/meminfo Dirty (system-wide); max Cached 2185 MB
+R	E4	dna_100m.ph4	3	width	U8		chosen before any entry was written; escapes >= 255: 0 (0.0000 %), >= 65535: 0 (0.0000 %), overflow entries 0
+R	E4	dna_100m.ph4	3	max_plcp	25	symbols	largest LCP value
+R	E4	dna_100m.ph4	3	compare_steps	99999996	steps	vector (or word) compare steps of all PLCP loops, 1.000 per position; restart cost (symbols compared at the first position of each of the 375 chunks, no carry): 4693
+R	E4	dna_100m.ph4	3	chunks	375	n	text chunks 375, rank chunks 375, rounds 1, B2 tasks in parallel 2
+R	E5	dna_100m.ph4	3	ext_rssanon_peak	50.799	MB	independent sampler: max RssAnon of /proc/<pid>/status over 240 samples at 20 ms
+R	E5	dna_100m.ph4	3	ext_dirty_peak	1201.521	MB	independent sampler: max /proc/meminfo Dirty minus the baseline (0.04 MB, median of 5 samples before the start); gate G3 <= 64 MB; absolute max 1201.56 MB
+R	E5	dna_100m.ph4	3	ext_dirty_mean	804.849	MB	independent sampler: mean of Dirty minus the baseline
+R	E5	dna_100m.ph4	3	ext_writeback_peak	1.049	MB	independent sampler: max /proc/meminfo Writeback
+R	E5	dna_100m.ph4	3	device_write_bytes	101109760	bytes	sectors written by vda during the run and the sync that follows it (512 B each; includes the spill file, journal, everything)
+R	E4	genome_100m.ph4	1	n	100000000	symbols	b=3 bits, mode=Distributed, threads=4, B2 workers=2, touch buffers=False
+R	E4	genome_100m.ph4	1	parameters	R=266667 P=375 rounds=1 tuple=32768 read=1048576 window=1048576		R scaled by n/3e9 = 3.333E-002 from R=8000000 (P = 375 at 3e9); B2 workers from the reference geometry: one task holds 73.8 MiB at 3e9, arena cap 160 MiB
+R	E4	genome_100m.ph4	1	ph4_s	4.556098	s	PH4 total: B1 + B2 + B3 (without fsync)
+R	E4	genome_100m.ph4	1	b1_s	0.863753	s	B1: suffix array scanned once, Phi tuples distributed by position / R
+R	E4	genome_100m.ph4	1	b2_s	3.086787	s	B2: scatter, PLCP loop, rank tuples distributed by rank / R
+R	E4	genome_100m.ph4	1	b3_s	0.60376	s	B3: rank chunks scattered and written through mapped windows
+R	E4	genome_100m.ph4	1	fsync_s	0.000173	s	flush of the two output files after the build
+R	E4	genome_100m.ph4	1	ns_per_symbol	45.560981	ns	ph4_s / n
+R	E4	genome_100m.ph4	1	throughput	21.948606	Msym/s	n / ph4_s; the gate of ADR-004 row E4 is 5 MB/s = 5 M symbols/s on 4 threads
+R	E4	genome_100m.ph4	1	rssanon_peak	50.688	MB	max RssAnon of 457 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 11)
+R	E4	genome_100m.ph4	1	rssfile_peak	67.981312	MB	mapped file pages resident (text, output windows, PLCP file in the bounded mode): reported, not counted (ADR-004 section 6a)
+R	E4	genome_100m.ph4	1	vmhwm	120.090624	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E4	genome_100m.ph4	1	gc_heap	0.093784	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 2/0/0
+R	E4	genome_100m.ph4	1	arena_peak	30.939816	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E4	genome_100m.ph4	1	io_explicit_read	2400000004	bytes	24.000 B/char; suffix array and tuple files (3008 calls)
+R	E4	genome_100m.ph4	1	io_explicit_write	2000000000	bytes	20.000 B/char; tuple files and the PLCP file (61500 calls)
+R	E4	genome_100m.ph4	1	io_mapped_write	111120225	bytes	1.111 B/char: the LCP section through mapped windows of at most 1048576 bytes (107 windows, largest 1048576)
+R	E4	genome_100m.ph4	1	io_total_counted	4511120229	bytes	45.111 B/char explicit I/O plus mapped writes; the bounded mode's gather reads 0.0 B/char more through a read-only mapping (45.111 B/char with it); the text reads come on top (see block-layer read_bytes)
+R	E4	genome_100m.ph4	1	blocklayer_read	438067200	bytes	/proc/self/io read_bytes during the build (page-cache misses); 4.381 B/char
+R	E4	genome_100m.ph4	1	blocklayer_write	2113032192	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E4	genome_100m.ph4	1	scratch_peak	1200000000	bytes	12.000 B/char peak of all scratch files (tuple files, PLCP file), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E4	genome_100m.ph4	1	lcp_file	111120225	bytes	1.111 B/char (the output): base 100000001, overflow 11120224
+R	E4	genome_100m.ph4	1	dirty_peak	1195.372544	MB	max /proc/meminfo Dirty (system-wide); max Cached 2197 MB
+R	E4	genome_100m.ph4	1	width	U8		chosen before any entry was written; escapes >= 255: 1390028 (1.3900 %), >= 65535: 503401 (0.5034 %), overflow entries 1390028
+R	E4	genome_100m.ph4	1	max_plcp	499999	symbols	largest LCP value
+R	E4	genome_100m.ph4	1	compare_steps	99996829	steps	vector (or word) compare steps of all PLCP loops, 1.000 per position; restart cost (symbols compared at the first position of each of the 375 chunks, no carry): 856432
+R	E4	genome_100m.ph4	1	chunks	375	n	text chunks 375, rank chunks 375, rounds 1, B2 tasks in parallel 2
+R	E5	genome_100m.ph4	1	ext_rssanon_peak	50.688	MB	independent sampler: max RssAnon of /proc/<pid>/status over 230 samples at 20 ms
+R	E5	genome_100m.ph4	1	ext_dirty_peak	1198.428	MB	independent sampler: max /proc/meminfo Dirty minus the baseline (0.01 MB, median of 5 samples before the start); gate G3 <= 64 MB; absolute max 1198.44 MB
+R	E5	genome_100m.ph4	1	ext_dirty_mean	840.472	MB	independent sampler: mean of Dirty minus the baseline
+R	E5	genome_100m.ph4	1	ext_writeback_peak	1.049	MB	independent sampler: max /proc/meminfo Writeback
+R	E5	genome_100m.ph4	1	device_write_bytes	112168960	bytes	sectors written by vda during the run and the sync that follows it (512 B each; includes the spill file, journal, everything)
+R	E4	genome_100m.ph4	2	n	100000000	symbols	b=3 bits, mode=Distributed, threads=4, B2 workers=2, touch buffers=False
+R	E4	genome_100m.ph4	2	parameters	R=266667 P=375 rounds=1 tuple=32768 read=1048576 window=1048576		R scaled by n/3e9 = 3.333E-002 from R=8000000 (P = 375 at 3e9); B2 workers from the reference geometry: one task holds 73.8 MiB at 3e9, arena cap 160 MiB
+R	E4	genome_100m.ph4	2	ph4_s	4.923707	s	PH4 total: B1 + B2 + B3 (without fsync)
+R	E4	genome_100m.ph4	2	b1_s	1.044546	s	B1: suffix array scanned once, Phi tuples distributed by position / R
+R	E4	genome_100m.ph4	2	b2_s	3.284374	s	B2: scatter, PLCP loop, rank tuples distributed by rank / R
+R	E4	genome_100m.ph4	2	b3_s	0.592929	s	B3: rank chunks scattered and written through mapped windows
+R	E4	genome_100m.ph4	2	fsync_s	0.000202	s	flush of the two output files after the build
+R	E4	genome_100m.ph4	2	ns_per_symbol	49.237067	ns	ph4_s / n
+R	E4	genome_100m.ph4	2	throughput	20.309902	Msym/s	n / ph4_s; the gate of ADR-004 row E4 is 5 MB/s = 5 M symbols/s on 4 threads
+R	E4	genome_100m.ph4	2	rssanon_peak	50.794496	MB	max RssAnon of 494 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 11)
+R	E4	genome_100m.ph4	2	rssfile_peak	67.866624	MB	mapped file pages resident (text, output windows, PLCP file in the bounded mode): reported, not counted (ADR-004 section 6a)
+R	E4	genome_100m.ph4	2	vmhwm	120.078336	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E4	genome_100m.ph4	2	gc_heap	0.090384	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 2/0/0
+R	E4	genome_100m.ph4	2	arena_peak	30.939816	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E4	genome_100m.ph4	2	io_explicit_read	2400000004	bytes	24.000 B/char; suffix array and tuple files (3008 calls)
+R	E4	genome_100m.ph4	2	io_explicit_write	2000000000	bytes	20.000 B/char; tuple files and the PLCP file (61565 calls)
+R	E4	genome_100m.ph4	2	io_mapped_write	111120225	bytes	1.111 B/char: the LCP section through mapped windows of at most 1048576 bytes (107 windows, largest 1048576)
+R	E4	genome_100m.ph4	2	io_total_counted	4511120229	bytes	45.111 B/char explicit I/O plus mapped writes; the bounded mode's gather reads 0.0 B/char more through a read-only mapping (45.111 B/char with it); the text reads come on top (see block-layer read_bytes)
+R	E4	genome_100m.ph4	2	blocklayer_read	438067200	bytes	/proc/self/io read_bytes during the build (page-cache misses); 4.381 B/char
+R	E4	genome_100m.ph4	2	blocklayer_write	2112958464	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E4	genome_100m.ph4	2	scratch_peak	1200000000	bytes	12.000 B/char peak of all scratch files (tuple files, PLCP file), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E4	genome_100m.ph4	2	lcp_file	111120225	bytes	1.111 B/char (the output): base 100000001, overflow 11120224
+R	E4	genome_100m.ph4	2	dirty_peak	1201.434624	MB	max /proc/meminfo Dirty (system-wide); max Cached 2197 MB
+R	E4	genome_100m.ph4	2	width	U8		chosen before any entry was written; escapes >= 255: 1390028 (1.3900 %), >= 65535: 503401 (0.5034 %), overflow entries 1390028
+R	E4	genome_100m.ph4	2	max_plcp	499999	symbols	largest LCP value
+R	E4	genome_100m.ph4	2	compare_steps	99996829	steps	vector (or word) compare steps of all PLCP loops, 1.000 per position; restart cost (symbols compared at the first position of each of the 375 chunks, no carry): 856432
+R	E4	genome_100m.ph4	2	chunks	375	n	text chunks 375, rank chunks 375, rounds 1, B2 tasks in parallel 2
+R	E5	genome_100m.ph4	2	ext_rssanon_peak	50.794	MB	independent sampler: max RssAnon of /proc/<pid>/status over 250 samples at 20 ms
+R	E5	genome_100m.ph4	2	ext_dirty_peak	1201.435	MB	independent sampler: max /proc/meminfo Dirty minus the baseline (0.00 MB, median of 5 samples before the start); gate G3 <= 64 MB; absolute max 1201.43 MB
+R	E5	genome_100m.ph4	2	ext_dirty_mean	828.898	MB	independent sampler: mean of Dirty minus the baseline
+R	E5	genome_100m.ph4	2	ext_writeback_peak	1.311	MB	independent sampler: max /proc/meminfo Writeback
+R	E5	genome_100m.ph4	2	device_write_bytes	112087040	bytes	sectors written by vda during the run and the sync that follows it (512 B each; includes the spill file, journal, everything)
+R	E4	genome_100m.ph4	3	n	100000000	symbols	b=3 bits, mode=Distributed, threads=4, B2 workers=2, touch buffers=False
+R	E4	genome_100m.ph4	3	parameters	R=266667 P=375 rounds=1 tuple=32768 read=1048576 window=1048576		R scaled by n/3e9 = 3.333E-002 from R=8000000 (P = 375 at 3e9); B2 workers from the reference geometry: one task holds 73.8 MiB at 3e9, arena cap 160 MiB
+R	E4	genome_100m.ph4	3	ph4_s	5.029665	s	PH4 total: B1 + B2 + B3 (without fsync)
+R	E4	genome_100m.ph4	3	b1_s	0.866801	s	B1: suffix array scanned once, Phi tuples distributed by position / R
+R	E4	genome_100m.ph4	3	b2_s	3.471251	s	B2: scatter, PLCP loop, rank tuples distributed by rank / R
+R	E4	genome_100m.ph4	3	b3_s	0.689774	s	B3: rank chunks scattered and written through mapped windows
+R	E4	genome_100m.ph4	3	fsync_s	0.000193	s	flush of the two output files after the build
+R	E4	genome_100m.ph4	3	ns_per_symbol	50.296653	ns	ph4_s / n
+R	E4	genome_100m.ph4	3	throughput	19.882039	Msym/s	n / ph4_s; the gate of ADR-004 row E4 is 5 MB/s = 5 M symbols/s on 4 threads
+R	E4	genome_100m.ph4	3	rssanon_peak	50.76992	MB	max RssAnon of 504 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 11)
+R	E4	genome_100m.ph4	3	rssfile_peak	67.854336	MB	mapped file pages resident (text, output windows, PLCP file in the bounded mode): reported, not counted (ADR-004 section 6a)
+R	E4	genome_100m.ph4	3	vmhwm	120.041472	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E4	genome_100m.ph4	3	gc_heap	0.090368	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 2/0/0
+R	E4	genome_100m.ph4	3	arena_peak	30.939816	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E4	genome_100m.ph4	3	io_explicit_read	2400000004	bytes	24.000 B/char; suffix array and tuple files (3008 calls)
+R	E4	genome_100m.ph4	3	io_explicit_write	2000000000	bytes	20.000 B/char; tuple files and the PLCP file (61502 calls)
+R	E4	genome_100m.ph4	3	io_mapped_write	111120225	bytes	1.111 B/char: the LCP section through mapped windows of at most 1048576 bytes (107 windows, largest 1048576)
+R	E4	genome_100m.ph4	3	io_total_counted	4511120229	bytes	45.111 B/char explicit I/O plus mapped writes; the bounded mode's gather reads 0.0 B/char more through a read-only mapping (45.111 B/char with it); the text reads come on top (see block-layer read_bytes)
+R	E4	genome_100m.ph4	3	blocklayer_read	438067200	bytes	/proc/self/io read_bytes during the build (page-cache misses); 4.381 B/char
+R	E4	genome_100m.ph4	3	blocklayer_write	2112897024	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E4	genome_100m.ph4	3	scratch_peak	1200000000	bytes	12.000 B/char peak of all scratch files (tuple files, PLCP file), excluding the output; live at the end 0; entries left in the scratch directory: 0
+R	E4	genome_100m.ph4	3	lcp_file	111120225	bytes	1.111 B/char (the output): base 100000001, overflow 11120224
+R	E4	genome_100m.ph4	3	dirty_peak	1195.196416	MB	max /proc/meminfo Dirty (system-wide); max Cached 2197 MB
+R	E4	genome_100m.ph4	3	width	U8		chosen before any entry was written; escapes >= 255: 1390028 (1.3900 %), >= 65535: 503401 (0.5034 %), overflow entries 1390028
+R	E4	genome_100m.ph4	3	max_plcp	499999	symbols	largest LCP value
+R	E4	genome_100m.ph4	3	compare_steps	99996829	steps	vector (or word) compare steps of all PLCP loops, 1.000 per position; restart cost (symbols compared at the first position of each of the 375 chunks, no carry): 856432
+R	E4	genome_100m.ph4	3	chunks	375	n	text chunks 375, rank chunks 375, rounds 1, B2 tasks in parallel 2
+R	E5	genome_100m.ph4	3	ext_rssanon_peak	50.770	MB	independent sampler: max RssAnon of /proc/<pid>/status over 254 samples at 20 ms
+R	E5	genome_100m.ph4	3	ext_dirty_peak	1198.256	MB	independent sampler: max /proc/meminfo Dirty minus the baseline (0.00 MB, median of 5 samples before the start); gate G3 <= 64 MB; absolute max 1198.26 MB
+R	E5	genome_100m.ph4	3	ext_dirty_mean	842.280	MB	independent sampler: mean of Dirty minus the baseline
+R	E5	genome_100m.ph4	3	ext_writeback_peak	1.049	MB	independent sampler: max /proc/meminfo Writeback
+R	E5	genome_100m.ph4	3	device_write_bytes	112009216	bytes	sectors written by vda during the run and the sync that follows it (512 B each; includes the spill file, journal, everything)

@@ -95,6 +95,17 @@ internal sealed class ChildReference
     }
 }
 
+/// <summary>Texts with a known shape of the compact LCP.</summary>
+internal static class ChildSamples
+{
+    /// <summary>Random DNA with a block of 600 symbols twice: about 700 values at or above 255, so the base array stays U8 (16 x escapes &lt;= n) and the overflow list is not empty.</summary>
+    internal static string U8WithEscapes()
+    {
+        string block = global::SuffixTree.Esa.Tests.TestSupport.StringFamilies.RandomDna(600, 11);
+        return global::SuffixTree.Esa.Tests.TestSupport.StringFamilies.RandomDna(20_000, 5) + block + global::SuffixTree.Esa.Tests.TestSupport.StringFamilies.RandomDna(100, 6) + block;
+    }
+}
+
 /// <summary>Decoders of the files PH5 writes.</summary>
 internal static class ChildFiles
 {

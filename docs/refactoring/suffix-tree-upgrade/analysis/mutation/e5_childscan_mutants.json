@@ -1,0 +1,158 @@
+[
+ {
+  "id": "A01",
+  "desc": "LCP[1] is not checked",
+  "old": "if (rank <= 1)",
+  "new": "if (rank == 0)"
+ },
+ {
+  "id": "A02",
+  "desc": "a value of n + 1 is accepted",
+  "old": "else if (cur > _n)",
+  "new": "else if (cur > _n + 1)"
+ },
+ {
+  "id": "A03",
+  "desc": "the last-child flag compares with <=",
+  "old": "Close(e.Ell, e.Lb, i - 1, e.First, cur < top.Ell);",
+  "new": "Close(e.Ell, e.Lb, i - 1, e.First, cur <= top.Ell);"
+ },
+ {
+  "id": "A04",
+  "desc": "the left boundary of a new interval is not the one of the last popped interval",
+  "old": "            left = e.Lb;\n",
+  "new": ""
+ },
+ {
+  "id": "A05",
+  "desc": "the PSV of a position equal to the root is the root boundary",
+  "old": "psv = top.Ell == 0 ? ChildScan.None : top.Lb;",
+  "new": "psv = top.Lb;"
+ },
+ {
+  "id": "A06",
+  "desc": "an equal value pushes a new interval",
+  "old": "if (top.Ell < cur)\n        {\n            _stack.Push",
+  "new": "if (top.Ell <= cur)\n        {\n            _stack.Push"
+ },
+ {
+  "id": "A07",
+  "desc": "the first l-index of the root is not recorded separately",
+  "old": "else if (top.First == ChildScan.None)",
+  "new": "else if (top.First == ChildScan.None && false)"
+ },
+ {
+  "id": "A08",
+  "desc": "the root counts as an internal node",
+  "old": "        if (ell > 0)\n        {\n            _internal++;",
+  "new": "        if (ell >= 0)\n        {\n            _internal++;"
+ },
+ {
+  "id": "A09",
+  "desc": "the deepest interval is the last of equal depth",
+  "old": "if (ell > _lrsDepth)",
+  "new": "if (ell >= _lrsDepth)"
+ },
+ {
+  "id": "A10",
+  "desc": "NODE_COUNT is one too high",
+  "old": "NodeCount = _n == 0 ? 1 : 1 + _internal + _n + 1,",
+  "new": "NodeCount = _n == 0 ? 1 : 2 + _internal + _n + 1,"
+ },
+ {
+  "id": "A11",
+  "desc": "the remaining intervals are closed as non-last children",
+  "old": "Close(e.Ell, e.Lb, (uint)_n, e.First, true);",
+  "new": "Close(e.Ell, e.Lb, (uint)_n, e.First, false);"
+ },
+ {
+  "id": "A12",
+  "desc": "chunks may arrive out of order",
+  "old": "if (firstRank != _nextRank) throw",
+  "new": "if (firstRank < 0) throw"
+ },
+ {
+  "id": "A13",
+  "desc": "the last chunk is refused",
+  "old": "if (firstRank + lcp.Length > _n + 1) throw",
+  "new": "if (firstRank + lcp.Length >= _n + 1) throw"
+ },
+ {
+  "id": "A14",
+  "desc": "Complete does not need every rank",
+  "old": "if (_nextRank != _n + 1) throw",
+  "new": "if (_nextRank > _n + 1) throw"
+ },
+ {
+  "id": "A15",
+  "desc": "a text of 2^32 - 2 symbols is accepted",
+  "old": "if (n >= uint.MaxValue - 1) throw",
+  "new": "if (n > uint.MaxValue - 1) throw"
+ },
+ {
+  "id": "A16",
+  "desc": "the tagged codec accepts one symbol too many",
+  "old": "options.Codec == ChildCodec.Tagged && n > TaggedChild.MaxLength",
+  "new": "options.Codec == ChildCodec.Tagged && n > TaggedChild.MaxLength + 1"
+ },
+ {
+  "id": "A17",
+  "desc": "an up field is written with the down tag",
+  "old": "else writer.Write32(rb, UpTag | first);",
+  "new": "else writer.Write32(rb, DownTag | first);"
+ },
+ {
+  "id": "A18",
+  "desc": "the packed codec writes every next link",
+  "old": "if (previous != ChildScan.None && k != previous + 1) writer.Write32(previous, k);",
+  "new": "if (previous != ChildScan.None) writer.Write32(previous, k);"
+ },
+ {
+  "id": "A19",
+  "desc": "rank 0 gets no PSV entry",
+  "old": "                    _sink.Position(0, ChildScan.None);\n",
+  "new": ""
+ },
+ {
+  "id": "A20",
+  "desc": "the maximum LCP is the smallest",
+  "old": "if (cur > _maxLcp) _maxLcp = cur;",
+  "new": "if (cur < _maxLcp) _maxLcp = cur;"
+ },
+ {
+  "id": "A21",
+  "desc": "the tagged sink is chosen for the packed codec",
+  "old": "(not null, null, ChildCodec.Tagged) => new ScanCore<TaggedChildSink>",
+  "new": "(not null, null, ChildCodec.Packed) => new ScanCore<TaggedChildSink>"
+ },
+ {
+  "id": "A22",
+  "desc": "the first l-index of an interval is its left boundary",
+  "old": "new IntervalEntry { Ell = cur, Lb = left, First = i, Last = i }",
+  "new": "new IntervalEntry { Ell = cur, Lb = left, First = left, Last = i }"
+ },
+ {
+  "id": "A23",
+  "desc": "a next link is written from the wrong l-index",
+  "old": "_sink.LIndex(t.Last, i);\n            t.Last = i;",
+  "new": "_sink.LIndex(t.First, i);\n            t.Last = i;"
+ },
+ {
+  "id": "A24",
+  "desc": "the PSV sink writes one entry late",
+  "old": "public void Position(uint i, uint psv) => writer.Write32(i, psv);",
+  "new": "public void Position(uint i, uint psv) => writer.Write32(i == 0 ? 0 : i - 1, psv);"
+ },
+ {
+  "id": "A25",
+  "desc": "the stack peak is not reported",
+  "old": "StackPeak = _stack.PeakHeight,",
+  "new": "StackPeak = 0,"
+ },
+ {
+  "id": "A26",
+  "desc": "the root is not closed with the last-child flag set when it is popped by Complete (first l-index lost)",
+  "old": "Close(e.Ell, e.Lb, (uint)_n, e.First, true);\n            }",
+  "new": "Close(e.Ell, e.Lb, (uint)_n, e.Last, true);\n            }"
+ }
+]

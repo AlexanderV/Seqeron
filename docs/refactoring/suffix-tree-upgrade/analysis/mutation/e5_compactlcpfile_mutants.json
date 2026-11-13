@@ -1,0 +1,80 @@
+[
+ {
+  "id": "C01",
+  "desc": "a 4-byte base array is refused",
+  "old": "Width is not (1 or 2 or 4)",
+  "new": "Width is not (1 or 2)"
+ },
+ {
+  "id": "C02",
+  "desc": "a pair is accepted when only one of rank and value is wrong (forward)",
+  "old": "if (rank != first + i || value < _escape) throw new InvalidDataException($\"overflow pair {pair - 1}",
+  "new": "if (rank != first + i && value < _escape) throw new InvalidDataException($\"overflow pair {pair - 1}"
+ },
+ {
+  "id": "C03",
+  "desc": "extra pairs are not detected",
+  "old": "if (pair != OverflowCount) throw",
+  "new": "if (pair > OverflowCount) throw"
+ },
+ {
+  "id": "C04",
+  "desc": "the backward cursor starts one pair too far",
+  "old": "long pair = OverflowCount - 1;",
+  "new": "long pair = OverflowCount;"
+ },
+ {
+  "id": "C05",
+  "desc": "the backward end check expects a pair left",
+  "old": "if (pair != -1) throw",
+  "new": "if (pair != 0) throw"
+ },
+ {
+  "id": "C06",
+  "desc": "the last block is one entry short",
+  "old": "int count = (int)Math.Min(_blockEntries, _n + 1 - first);",
+  "new": "int count = (int)Math.Min(_blockEntries, _n - first);"
+ },
+ {
+  "id": "C07",
+  "desc": "the number of pairs is a quarter of the file",
+  "old": "OverflowCount = overflowLength / 8;",
+  "new": "OverflowCount = overflowLength / 4;"
+ },
+ {
+  "id": "C08",
+  "desc": "the overflow file is accepted when it holds half pairs",
+  "old": "if (overflowLength % 8 != 0)",
+  "new": "if (overflowLength % 4 != 0)"
+ },
+ {
+  "id": "C09",
+  "desc": "the overflow window going backwards starts at the index",
+  "old": "long start = backward ? Math.Max(0, index - capacity + 1) : index;",
+  "new": "long start = index;"
+ },
+ {
+  "id": "C10",
+  "desc": "a value below the escape is accepted in a pair (backward)",
+  "old": "if (rank != first + i || value < _escape) throw new InvalidDataException($\"overflow pair {pair + 1}",
+  "new": "if (rank != first + i) throw new InvalidDataException($\"overflow pair {pair + 1}"
+ },
+ {
+  "id": "C11",
+  "desc": "the base length check accepts any multiple",
+  "old": "baseLength != (n + 1) * Width",
+  "new": "baseLength < (n + 1) * Width"
+ },
+ {
+  "id": "C12",
+  "desc": "U16 entries are read as bytes",
+  "old": "                ReadOnlySpan<ushort> u16 = MemoryMarshal.Cast<byte, ushort>(bytes);\n                for (int i = 0; i < count; i++) _values[i] = u16[i];",
+  "new": "                for (int i = 0; i < count; i++) _values[i] = bytes[i];"
+ },
+ {
+  "id": "C13",
+  "desc": "a 4-byte base array with an overflow list is accepted",
+  "old": "if (Width == 4 && OverflowCount != 0) throw",
+  "new": "if (Width == 4 && OverflowCount < 0) throw"
+ }
+]

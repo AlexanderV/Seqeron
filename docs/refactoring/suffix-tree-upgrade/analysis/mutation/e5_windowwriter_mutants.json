@@ -1,0 +1,86 @@
+[
+ {
+  "id": "W01",
+  "desc": "a window that is not a power of two is accepted",
+  "old": "windowBytes < 4 || !BitOperations.IsPow2(windowBytes)",
+  "new": "windowBytes < 4"
+ },
+ {
+  "id": "W02",
+  "desc": "the bound of Write32 is one entry too wide",
+  "old": "(ulong)index >= (ulong)(Length >> 2)",
+  "new": "(ulong)index > (ulong)(Length >> 2)"
+ },
+ {
+  "id": "W03",
+  "desc": "the window that is released is the most recently used",
+  "old": "_slots[i].LastUse < oldest",
+  "new": "_slots[i].LastUse > oldest"
+ },
+ {
+  "id": "W04",
+  "desc": "a window is flushed also when flushing is off",
+  "old": "if (_flush) FlushSlot(ref _slots[victim]);",
+  "new": "FlushSlot(ref _slots[victim]);"
+ },
+ {
+  "id": "W05",
+  "desc": "a window mapped again is counted as new",
+  "old": "if ((_seen[w >> 6] & bit) != 0)",
+  "new": "if ((_seen[w >> 6] & bit) == 0)"
+ },
+ {
+  "id": "W06",
+  "desc": "Dispose does not flush",
+  "old": "            if (_flush) FlushSlot(ref _slots[i]);\n            Release(ref _slots[i]);",
+  "new": "            Release(ref _slots[i]);"
+ },
+ {
+  "id": "W07",
+  "desc": "Write does not cut the piece at the window end",
+  "old": "int take = (int)Math.Min(data.Length, _slots[HotSlot()].Size - inside);",
+  "new": "int take = data.Length;"
+ },
+ {
+  "id": "W08",
+  "desc": "the last window is mapped at the full window size",
+  "old": "long size = Math.Min(_window, Length - start);",
+  "new": "long size = _window;"
+ },
+ {
+  "id": "W09",
+  "desc": "evictions are not counted",
+  "old": "            _evictions++;\n",
+  "new": ""
+ },
+ {
+  "id": "W10",
+  "desc": "a hit does not make the window the most recent",
+  "old": "                _slots[i].LastUse = ++_clock;\n                _hotWindow = w;",
+  "new": "                _hotWindow = w;"
+ },
+ {
+  "id": "W11",
+  "desc": "Flush() flushes nothing",
+  "old": "            if (_slots[i].View is not null) FlushSlot(ref _slots[i]);\n        }\n    }",
+  "new": "            if (_slots[i].View is null) FlushSlot(ref _slots[i]);\n        }\n    }"
+ },
+ {
+  "id": "W12",
+  "desc": "a flush is not counted in bytes",
+  "old": "        _flushedBytes += slot.Size;",
+  "new": "        _flushedBytes += 0;"
+ },
+ {
+  "id": "W13",
+  "desc": "writes are not counted",
+  "old": "        _writes++;\n",
+  "new": ""
+ },
+ {
+  "id": "W14",
+  "desc": "distinct windows are not counted",
+  "old": "            _distinct++;\n",
+  "new": ""
+ }
+]

@@ -23,19 +23,12 @@ public class CompactLcpFileTests
     private static IEnumerable<(string Name, string Text, LcpKind Kind)> Cases()
     {
         yield return ("random-dna", StringFamilies.RandomDna(3000, 5), LcpKind.U8);
-        yield return ("u8-with-escapes", U8WithEscapes(), LcpKind.U8);
+        yield return ("u8-with-escapes", ChildSamples.U8WithEscapes(), LcpKind.U8);
         yield return ("fibonacci", StringFamilies.Fibonacci(4000), LcpKind.U8);
         yield return ("runs", StringFamilies.Runs(5000, 256, 3), LcpKind.U8);
         yield return ("all-same-70k", StringFamilies.AllSame(70_000), LcpKind.U16);
         yield return ("all-same-150k", StringFamilies.AllSame(150_000), LcpKind.U32);
         yield return ("period-300", string.Concat(Enumerable.Repeat(StringFamilies.RandomDna(300, 9), 40)), LcpKind.U16);
-    }
-
-    /// <summary>Random DNA with a block of 600 symbols twice: about 700 values at or above 255, so the base array stays U8 (16 x escapes &lt;= n) and the overflow list is not empty.</summary>
-    private static string U8WithEscapes()
-    {
-        string block = StringFamilies.RandomDna(600, 11);
-        return StringFamilies.RandomDna(20_000, 5) + block + StringFamilies.RandomDna(100, 6) + block;
     }
 
     [Test]
@@ -78,7 +71,7 @@ public class CompactLcpFileTests
     [Test]
     public void WrongLengths_AndCorruptOverflow_AreRefused()
     {
-        ChildReference r = ChildReference.Of(U8WithEscapes());
+        ChildReference r = ChildReference.Of(ChildSamples.U8WithEscapes());
         (string b, string o) = r.WriteLcpFiles(_dir, "bad");
         Assert.That(r.Lcp.Kind, Is.EqualTo(LcpKind.U8));
         Assert.That(r.Lcp.OverflowCount, Is.GreaterThan(2), "the case has escapes");

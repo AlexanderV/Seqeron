@@ -1,0 +1,233 @@
+R	E5	setup	head	bc567333d13f29308defa0170f9374658f5b5584		git rev-parse HEAD of the checkout when the inputs were made
+R	E3	dna10.sa_phase	n	10000000	symbols	b=2 bits, K=3333 (n/3000), fan-out 64, threads=4, ranks: X=993 Singer |D|=32
+R	E3	dna10.sa_phase	sa_s	1.680988	s	partition + sort, SA written through mapped windows (page cache), without fsync
+R	E3	dna10.sa_phase	fsync_s	0.002212	s	flush of the SA file after the build
+R	E3	dna10.sa_phase	ns_per_symbol	168.098755	ns	sa_s / n
+R	E3	dna10.sa_phase	rssanon_peak	44.752896	MB	max RssAnon of 170 samples at 10 ms; gate <= 256 MB incl. the .NET runtime and thread stacks (max threads 12)
+R	E3	dna10.sa_phase	rssfile_peak	32.735232	MB	mapped file pages resident (text, ranks, SA windows): reported, not counted (ADR-004 section 6a)
+R	E3	dna10.sa_phase	vmhwm	81.22368	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E3	dna10.sa_phase	gc_heap	10.748688	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 2/1/0
+R	E3	dna10.sa_phase	arena_peak	0.319968	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB)
+R	E3	dna10.sa_phase	io_explicit_read	40260352	bytes	4.03 B/char; scratch position files and samples (65730 calls)
+R	E3	dna10.sa_phase	io_explicit_write	40000000	bytes	4.00 B/char (642 calls)
+R	E3	dna10.sa_phase	io_mapped_write	40000004	bytes	4.00 B/char: the SA, once, through the mapped windows (largest window 13324 bytes)
+R	E3	dna10.sa_phase	io_total_counted	120260356	bytes	12.03 B/char explicit I/O plus SA (text and rank reads through mappings come on top: see block-layer read_bytes)
+R	E3	dna10.sa_phase	blocklayer_read	3923968	bytes	/proc/self/io read_bytes during the build (page-cache misses: cold text/rank pages and re-reads under a limit); 0.39 B/char
+R	E3	dna10.sa_phase	blocklayer_write	318910464	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E3	dna10.sa_phase	page_faults	205	major	minor 31434
+R	E3	dna10.sa_phase	scratch_peak	40000000	bytes	4.00 B/char; files left in the scratch directory: 0
+R	E3	dna10.sa_phase	dirty_peak	33.52576	MB	max /proc/meminfo Dirty (system-wide); max Cached 595 MB; cgroup usage max 0 MB
+R	E3	dna10.sa_phase	buckets	5998	n	leaves=5335, partitions=663, max depth=3, largest leaf=3331, retries=0; tie share 0.0000 %, rank lookups 10712
+R	E3	dna10.sa_phase	phase_cpu_s	5.655501	s	summed over workers: partition 2.37, leaf sort 3.28
+R	E4	dna10	kernel_s	0.228207	s	LcpKernel (three passes in RAM, one thread) on n=10000000; kind U8, overflow entries 0
+R	E3	rep10.sa_phase	n	10000000	symbols	b=2 bits, K=3333 (n/3000), fan-out 64, threads=4, ranks: X=993 Singer |D|=32
+R	E3	rep10.sa_phase	sa_s	2.099555	s	partition + sort, SA written through mapped windows (page cache), without fsync
+R	E3	rep10.sa_phase	fsync_s	0.002811	s	flush of the SA file after the build
+R	E3	rep10.sa_phase	ns_per_symbol	209.955515	ns	sa_s / n
+R	E3	rep10.sa_phase	rssanon_peak	43.864064	MB	max RssAnon of 211 samples at 10 ms; gate <= 256 MB incl. the .NET runtime and thread stacks (max threads 12)
+R	E3	rep10.sa_phase	rssfile_peak	32.600064	MB	mapped file pages resident (text, ranks, SA windows): reported, not counted (ADR-004 section 6a)
+R	E3	rep10.sa_phase	vmhwm	80.232448	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E3	rep10.sa_phase	gc_heap	10.91416	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 2/1/0
+R	E3	rep10.sa_phase	arena_peak	0.319968	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB)
+R	E3	rep10.sa_phase	io_explicit_read	40259328	bytes	4.03 B/char; scratch position files and samples (65475 calls)
+R	E3	rep10.sa_phase	io_explicit_write	40000000	bytes	4.00 B/char (643 calls)
+R	E3	rep10.sa_phase	io_mapped_write	40000004	bytes	4.00 B/char: the SA, once, through the mapped windows (largest window 13332 bytes)
+R	E3	rep10.sa_phase	io_total_counted	120259332	bytes	12.03 B/char explicit I/O plus SA (text and rank reads through mappings come on top: see block-layer read_bytes)
+R	E3	rep10.sa_phase	blocklayer_read	3923968	bytes	/proc/self/io read_bytes during the build (page-cache misses: cold text/rank pages and re-reads under a limit); 0.39 B/char
+R	E3	rep10.sa_phase	blocklayer_write	303173632	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E3	rep10.sa_phase	page_faults	187	major	minor 30705
+R	E3	rep10.sa_phase	scratch_peak	40000000	bytes	4.00 B/char; files left in the scratch directory: 0
+R	E3	rep10.sa_phase	dirty_peak	34.742272	MB	max /proc/meminfo Dirty (system-wide); max Cached 596 MB; cgroup usage max 0 MB
+R	E3	rep10.sa_phase	buckets	5882	n	leaves=5243, partitions=639, max depth=3, largest leaf=3333, retries=0; tie share 77.4903 %, rank lookups 7987164
+R	E3	rep10.sa_phase	phase_cpu_s	7.498218	s	summed over workers: partition 1.52, leaf sort 5.98
+R	E4	rep10	kernel_s	0.167322	s	LcpKernel (three passes in RAM, one thread) on n=10000000; kind U16, overflow entries 0
+R	E3	a10.sa_phase	n	10000000	symbols	b=1 bits, K=3333 (n/3000), fan-out 64, threads=4, ranks: X=993 Singer |D|=32
+R	E3	a10.sa_phase	sa_s	3.97739	s	partition + sort, SA written through mapped windows (page cache), without fsync
+R	E3	a10.sa_phase	fsync_s	0.00121	s	flush of the SA file after the build
+R	E3	a10.sa_phase	ns_per_symbol	397.738988	ns	sa_s / n
+R	E3	a10.sa_phase	rssanon_peak	43.17184	MB	max RssAnon of 399 samples at 10 ms; gate <= 256 MB incl. the .NET runtime and thread stacks (max threads 12)
+R	E3	a10.sa_phase	rssfile_peak	31.47776	MB	mapped file pages resident (text, ranks, SA windows): reported, not counted (ADR-004 section 6a)
+R	E3	a10.sa_phase	vmhwm	78.467072	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E3	a10.sa_phase	gc_heap	7.528192	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 2/1/0
+R	E3	a10.sa_phase	arena_peak	0.319968	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB)
+R	E3	a10.sa_phase	io_explicit_read	40262144	bytes	4.03 B/char; scratch position files and samples (66179 calls)
+R	E3	a10.sa_phase	io_explicit_write	40000000	bytes	4.00 B/char (643 calls)
+R	E3	a10.sa_phase	io_mapped_write	40000004	bytes	4.00 B/char: the SA, once, through the mapped windows (largest window 10892 bytes)
+R	E3	a10.sa_phase	io_total_counted	120262148	bytes	12.03 B/char explicit I/O plus SA (text and rank reads through mappings come on top: see block-layer read_bytes)
+R	E3	a10.sa_phase	blocklayer_read	2691072	bytes	/proc/self/io read_bytes during the build (page-cache misses: cold text/rank pages and re-reads under a limit); 0.27 B/char
+R	E3	a10.sa_phase	blocklayer_write	290832384	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E3	a10.sa_phase	page_faults	150	major	minor 28572
+R	E3	a10.sa_phase	scratch_peak	40000000	bytes	4.00 B/char; files left in the scratch directory: 0
+R	E3	a10.sa_phase	dirty_peak	37.036032	MB	max /proc/meminfo Dirty (system-wide); max Cached 595 MB; cgroup usage max 0 MB
+R	E3	a10.sa_phase	buckets	4161	n	leaves=4096, partitions=65, max depth=2, largest leaf=2723, retries=0; tie share 100.0000 %, rank lookups 367353194
+R	E3	a10.sa_phase	phase_cpu_s	9.678558	s	summed over workers: partition 5.01, leaf sort 4.67
+R	E4	a10	kernel_s	0.088921	s	LcpKernel (three passes in RAM, one thread) on n=10000000; kind U32, overflow entries 0
+R	E3	fib10.sa_phase	n	10000000	symbols	b=1 bits, K=3333 (n/3000), fan-out 64, threads=4, ranks: X=993 Singer |D|=32
+R	E3	fib10.sa_phase	sa_s	3.823489	s	partition + sort, SA written through mapped windows (page cache), without fsync
+R	E3	fib10.sa_phase	fsync_s	0.002773	s	flush of the SA file after the build
+R	E3	fib10.sa_phase	ns_per_symbol	382.348918	ns	sa_s / n
+R	E3	fib10.sa_phase	rssanon_peak	40.697856	MB	max RssAnon of 384 samples at 10 ms; gate <= 256 MB incl. the .NET runtime and thread stacks (max threads 12)
+R	E3	fib10.sa_phase	rssfile_peak	31.371264	MB	mapped file pages resident (text, ranks, SA windows): reported, not counted (ADR-004 section 6a)
+R	E3	fib10.sa_phase	vmhwm	75.85792	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E3	fib10.sa_phase	gc_heap	9.409048	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 2/1/0
+R	E3	fib10.sa_phase	arena_peak	0.319968	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB)
+R	E3	fib10.sa_phase	io_explicit_read	40260800	bytes	4.03 B/char; scratch position files and samples (65843 calls)
+R	E3	fib10.sa_phase	io_explicit_write	40000000	bytes	4.00 B/char (643 calls)
+R	E3	fib10.sa_phase	io_mapped_write	40000004	bytes	4.00 B/char: the SA, once, through the mapped windows (largest window 13324 bytes)
+R	E3	fib10.sa_phase	io_total_counted	120260804	bytes	12.03 B/char explicit I/O plus SA (text and rank reads through mappings come on top: see block-layer read_bytes)
+R	E3	fib10.sa_phase	blocklayer_read	2674688	bytes	/proc/self/io read_bytes during the build (page-cache misses: cold text/rank pages and re-reads under a limit); 0.27 B/char
+R	E3	fib10.sa_phase	blocklayer_write	321212416	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E3	fib10.sa_phase	page_faults	151	major	minor 30167
+R	E3	fib10.sa_phase	scratch_peak	40000000	bytes	4.00 B/char; files left in the scratch directory: 0
+R	E3	fib10.sa_phase	dirty_peak	37.883904	MB	max /proc/meminfo Dirty (system-wide); max Cached 595 MB; cgroup usage max 0 MB
+R	E3	fib10.sa_phase	buckets	6054	n	leaves=5369, partitions=685, max depth=3, largest leaf=3331, retries=0; tie share 99.9994 %, rank lookups 288023192
+R	E3	fib10.sa_phase	phase_cpu_s	12.676275	s	summed over workers: partition 4.39, leaf sort 8.29
+R	E4	fib10	kernel_s	0.150775	s	LcpKernel (three passes in RAM, one thread) on n=10000000; kind U32, overflow entries 0
+R	E5	setup	head	bc567333d13f29308defa0170f9374658f5b5584		git rev-parse HEAD of the checkout when the inputs were made
+R	E3	a25.sa_phase	n	25000000	symbols	b=1 bits, K=8333 (n/3000), fan-out 64, threads=4, ranks: X=993 Singer |D|=32
+R	E3	a25.sa_phase	sa_s	9.644179	s	partition + sort, SA written through mapped windows (page cache), without fsync
+R	E3	a25.sa_phase	fsync_s	0.001707	s	flush of the SA file after the build
+R	E3	a25.sa_phase	ns_per_symbol	385.76718	ns	sa_s / n
+R	E3	a25.sa_phase	rssanon_peak	53.981184	MB	max RssAnon of 965 samples at 10 ms; gate <= 256 MB incl. the .NET runtime and thread stacks (max threads 12)
+R	E3	a25.sa_phase	rssfile_peak	35.315712	MB	mapped file pages resident (text, ranks, SA windows): reported, not counted (ADR-004 section 6a)
+R	E3	a25.sa_phase	vmhwm	93.106176	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E3	a25.sa_phase	gc_heap	24.360504	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 4/1/0
+R	E3	a25.sa_phase	arena_peak	0.799968	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB)
+R	E3	a25.sa_phase	io_explicit_read	100262144	bytes	4.01 B/char; scratch position files and samples (67095 calls)
+R	E3	a25.sa_phase	io_explicit_write	100000000	bytes	4.00 B/char (1559 calls)
+R	E3	a25.sa_phase	io_mapped_write	100000004	bytes	4.00 B/char: the SA, once, through the mapped windows (largest window 27064 bytes)
+R	E3	a25.sa_phase	io_total_counted	300262148	bytes	12.01 B/char explicit I/O plus SA (text and rank reads through mappings come on top: see block-layer read_bytes)
+R	E3	a25.sa_phase	blocklayer_read	6496256	bytes	/proc/self/io read_bytes during the build (page-cache misses: cold text/rank pages and re-reads under a limit); 0.26 B/char
+R	E3	a25.sa_phase	blocklayer_write	496762880	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E3	a25.sa_phase	page_faults	257	major	minor 46830
+R	E3	a25.sa_phase	scratch_peak	100000000	bytes	4.00 B/char; files left in the scratch directory: 0
+R	E3	a25.sa_phase	dirty_peak	97.435648	MB	max /proc/meminfo Dirty (system-wide); max Cached 660 MB; cgroup usage max 0 MB
+R	E3	a25.sa_phase	buckets	4161	n	leaves=4096, partitions=65, max depth=2, largest leaf=6766, retries=0; tie share 100.0000 %, rank lookups 952344364
+R	E3	a25.sa_phase	phase_cpu_s	23.908993	s	summed over workers: partition 13.44, leaf sort 10.47
+R	E4	a25	kernel_s	0.248653	s	LcpKernel (three passes in RAM, one thread) on n=25000000; kind U32, overflow entries 0
+R	E3	a50.sa_phase	n	50000000	symbols	b=1 bits, K=16666 (n/3000), fan-out 64, threads=4, ranks: X=993 Singer |D|=32
+R	E3	a50.sa_phase	sa_s	18.359537	s	partition + sort, SA written through mapped windows (page cache), without fsync
+R	E3	a50.sa_phase	fsync_s	0.003026	s	flush of the SA file after the build
+R	E3	a50.sa_phase	ns_per_symbol	367.190747	ns	sa_s / n
+R	E3	a50.sa_phase	rssanon_peak	56.733696	MB	max RssAnon of 1837 samples at 10 ms; gate <= 256 MB incl. the .NET runtime and thread stacks (max threads 12)
+R	E3	a50.sa_phase	rssfile_peak	41.648128	MB	mapped file pages resident (text, ranks, SA windows): reported, not counted (ADR-004 section 6a)
+R	E3	a50.sa_phase	vmhwm	102.0928	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E3	a50.sa_phase	gc_heap	9.230752	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 7/5/4
+R	E3	a50.sa_phase	arena_peak	1.599936	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB)
+R	E3	a50.sa_phase	io_explicit_read	200262144	bytes	4.01 B/char; scratch position files and samples (68619 calls)
+R	E3	a50.sa_phase	io_explicit_write	200000000	bytes	4.00 B/char (3083 calls)
+R	E3	a50.sa_phase	io_mapped_write	200000004	bytes	4.00 B/char: the SA, once, through the mapped windows (largest window 53544 bytes)
+R	E3	a50.sa_phase	io_total_counted	600262148	bytes	12.01 B/char explicit I/O plus SA (text and rank reads through mappings come on top: see block-layer read_bytes)
+R	E3	a50.sa_phase	blocklayer_read	12853248	bytes	/proc/self/io read_bytes during the build (page-cache misses: cold text/rank pages and re-reads under a limit); 0.26 B/char
+R	E3	a50.sa_phase	blocklayer_write	704901120	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E3	a50.sa_phase	page_faults	492	major	minor 72610
+R	E3	a50.sa_phase	scratch_peak	200000000	bytes	4.00 B/char; files left in the scratch directory: 0
+R	E3	a50.sa_phase	dirty_peak	197.922816	MB	max /proc/meminfo Dirty (system-wide); max Cached 766 MB; cgroup usage max 0 MB
+R	E3	a50.sa_phase	buckets	4161	n	leaves=4096, partitions=65, max depth=2, largest leaf=13386, retries=0; tie share 100.0000 %, rank lookups 1953225142
+R	E3	a50.sa_phase	phase_cpu_s	46.252207	s	summed over workers: partition 26.00, leaf sort 20.25
+R	E4	a50	kernel_s	0.425948	s	LcpKernel (three passes in RAM, one thread) on n=50000000; kind U32, overflow entries 0
+R	E3	fib30.sa_phase	n	30000000	symbols	b=1 bits, K=10000 (n/3000), fan-out 64, threads=4, ranks: X=993 Singer |D|=32
+R	E3	fib30.sa_phase	sa_s	10.225518	s	partition + sort, SA written through mapped windows (page cache), without fsync
+R	E3	fib30.sa_phase	fsync_s	0.003731	s	flush of the SA file after the build
+R	E3	fib30.sa_phase	ns_per_symbol	340.85059	ns	sa_s / n
+R	E3	fib30.sa_phase	rssanon_peak	61.116416	MB	max RssAnon of 1024 samples at 10 ms; gate <= 256 MB incl. the .NET runtime and thread stacks (max threads 12)
+R	E3	fib30.sa_phase	rssfile_peak	36.470784	MB	mapped file pages resident (text, ranks, SA windows): reported, not counted (ADR-004 section 6a)
+R	E3	fib30.sa_phase	vmhwm	101.179392	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E3	fib30.sa_phase	gc_heap	40.040672	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 5/1/0
+R	E3	fib30.sa_phase	arena_peak	0.96	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB)
+R	E3	fib30.sa_phase	io_explicit_read	121713624	bytes	4.06 B/char; scratch position files and samples (67679 calls)
+R	E3	fib30.sa_phase	io_explicit_write	121450520	bytes	4.05 B/char (1903 calls)
+R	E3	fib30.sa_phase	io_mapped_write	120000004	bytes	4.00 B/char: the SA, once, through the mapped windows (largest window 39988 bytes)
+R	E3	fib30.sa_phase	io_total_counted	363164148	bytes	12.11 B/char explicit I/O plus SA (text and rank reads through mappings come on top: see block-layer read_bytes)
+R	E3	fib30.sa_phase	blocklayer_read	7757824	bytes	/proc/self/io read_bytes during the build (page-cache misses: cold text/rank pages and re-reads under a limit); 0.26 B/char
+R	E3	fib30.sa_phase	blocklayer_write	532332544	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E3	fib30.sa_phase	page_faults	405	major	minor 55140
+R	E3	fib30.sa_phase	scratch_peak	120000000	bytes	4.00 B/char; files left in the scratch directory: 0
+R	E3	fib30.sa_phase	dirty_peak	116.6336	MB	max /proc/meminfo Dirty (system-wide); max Cached 681 MB; cgroup usage max 0 MB
+R	E3	fib30.sa_phase	buckets	6060	n	leaves=5356, partitions=704, max depth=3, largest leaf=9997, retries=0; tie share 99.9998 %, rank lookups 959790514
+R	E3	fib30.sa_phase	phase_cpu_s	33.930013	s	summed over workers: partition 11.41, leaf sort 22.52
+R	E4	fib30	kernel_s	0.872532	s	LcpKernel (three passes in RAM, one thread) on n=30000000; kind U32, overflow entries 0
+R	E3	nrun30.sa_phase	n	30000000	symbols	b=3 bits, K=10000 (n/3000), fan-out 64, threads=4, ranks: X=993 Singer |D|=32
+R	E3	nrun30.sa_phase	sa_s	11.676848	s	partition + sort, SA written through mapped windows (page cache), without fsync
+R	E3	nrun30.sa_phase	fsync_s	0.002085	s	flush of the SA file after the build
+R	E3	nrun30.sa_phase	ns_per_symbol	389.228272	ns	sa_s / n
+R	E3	nrun30.sa_phase	rssanon_peak	58.875904	MB	max RssAnon of 1169 samples at 10 ms; gate <= 256 MB incl. the .NET runtime and thread stacks (max threads 12)
+R	E3	nrun30.sa_phase	rssfile_peak	44.019712	MB	mapped file pages resident (text, ranks, SA windows): reported, not counted (ADR-004 section 6a)
+R	E3	nrun30.sa_phase	vmhwm	106.725376	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E3	nrun30.sa_phase	gc_heap	19.781352	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 4/2/1
+R	E3	nrun30.sa_phase	arena_peak	0.96	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB)
+R	E3	nrun30.sa_phase	io_explicit_read	120332696	bytes	4.01 B/char; scratch position files and samples (67293 calls)
+R	E3	nrun30.sa_phase	io_explicit_write	120071000	bytes	4.00 B/char (1869 calls)
+R	E3	nrun30.sa_phase	io_mapped_write	120000004	bytes	4.00 B/char: the SA, once, through the mapped windows (largest window 39968 bytes)
+R	E3	nrun30.sa_phase	io_total_counted	360403700	bytes	12.01 B/char explicit I/O plus SA (text and rank reads through mappings come on top: see block-layer read_bytes)
+R	E3	nrun30.sa_phase	blocklayer_read	15273984	bytes	/proc/self/io read_bytes during the build (page-cache misses: cold text/rank pages and re-reads under a limit); 0.51 B/char
+R	E3	nrun30.sa_phase	blocklayer_write	532688896	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E3	nrun30.sa_phase	page_faults	445	major	minor 53134
+R	E3	nrun30.sa_phase	scratch_peak	120000000	bytes	4.00 B/char; files left in the scratch directory: 0
+R	E3	nrun30.sa_phase	dirty_peak	114.479104	MB	max /proc/meminfo Dirty (system-wide); max Cached 689 MB; cgroup usage max 0 MB
+R	E3	nrun30.sa_phase	buckets	4726	n	leaves=4471, partitions=255, max depth=3, largest leaf=9992, retries=0; tie share 66.6666 %, rank lookups 757728546
+R	E3	nrun30.sa_phase	phase_cpu_s	26.446775	s	summed over workers: partition 15.41, leaf sort 11.04
+R	E4	nrun30	kernel_s	0.472486	s	LcpKernel (three passes in RAM, one thread) on n=30000000; kind U32, overflow entries 0
+R	E3	genome_100m.sa_phase	n	100000000	symbols	b=3 bits, K=33333 (n/3000), fan-out 64, threads=4, ranks: X=993 Singer |D|=32
+R	E3	genome_100m.sa_phase	sa_s	15.215659	s	partition + sort, SA written through mapped windows (page cache), without fsync
+R	E3	genome_100m.sa_phase	fsync_s	0.005103	s	flush of the SA file after the build
+R	E3	genome_100m.sa_phase	ns_per_symbol	152.156591	ns	sa_s / n
+R	E3	genome_100m.sa_phase	rssanon_peak	61.341696	MB	max RssAnon of 1523 samples at 10 ms; gate <= 256 MB incl. the .NET runtime and thread stacks (max threads 12)
+R	E3	genome_100m.sa_phase	rssfile_peak	79.572992	MB	mapped file pages resident (text, ranks, SA windows): reported, not counted (ADR-004 section 6a)
+R	E3	genome_100m.sa_phase	vmhwm	144.613376	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E3	genome_100m.sa_phase	gc_heap	9.036008	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 7/4/3
+R	E3	genome_100m.sa_phase	arena_peak	3.199968	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB)
+R	E3	genome_100m.sa_phase	io_explicit_read	782802264	bytes	7.83 B/char; scratch position files and samples (107472 calls)
+R	E3	genome_100m.sa_phase	io_explicit_write	782416856	bytes	7.82 B/char (14176 calls)
+R	E3	genome_100m.sa_phase	io_mapped_write	400000004	bytes	4.00 B/char: the SA, once, through the mapped windows (largest window 133272 bytes)
+R	E3	genome_100m.sa_phase	io_total_counted	1965219124	bytes	19.65 B/char explicit I/O plus SA (text and rank reads through mappings come on top: see block-layer read_bytes)
+R	E3	genome_100m.sa_phase	blocklayer_read	50855936	bytes	/proc/self/io read_bytes during the build (page-cache misses: cold text/rank pages and re-reads under a limit); 0.51 B/char
+R	E3	genome_100m.sa_phase	blocklayer_write	1495834624	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E3	genome_100m.sa_phase	page_faults	1486	major	minor 118189
+R	E3	genome_100m.sa_phase	scratch_peak	417795748	bytes	4.18 B/char; files left in the scratch directory: 0
+R	E3	genome_100m.sa_phase	dirty_peak	390.84032	MB	max /proc/meminfo Dirty (system-wide); max Cached 1019 MB; cgroup usage max 0 MB
+R	E3	genome_100m.sa_phase	buckets	6087	n	leaves=5374, partitions=713, max depth=3, largest leaf=33318, retries=0; tie share 12.1219 %, rank lookups 30842634
+R	E3	genome_100m.sa_phase	phase_cpu_s	48.397697	s	summed over workers: partition 15.73, leaf sort 32.67
+R	E4	genome_100m	kernel_s	3.971145	s	LcpKernel (three passes in RAM, one thread) on n=100000000; kind U8, overflow entries 1390028
+R	E3	dna10r.sa_phase	n	10000000	symbols	b=2 bits, K=3333 (n/3000), fan-out 64, threads=4, ranks: X=993 Singer |D|=32
+R	E3	dna10r.sa_phase	sa_s	1.535492	s	partition + sort, SA written through mapped windows (page cache), without fsync
+R	E3	dna10r.sa_phase	fsync_s	0.002858	s	flush of the SA file after the build
+R	E3	dna10r.sa_phase	ns_per_symbol	153.549162	ns	sa_s / n
+R	E3	dna10r.sa_phase	rssanon_peak	48.37376	MB	max RssAnon of 155 samples at 10 ms; gate <= 256 MB incl. the .NET runtime and thread stacks (max threads 12)
+R	E3	dna10r.sa_phase	rssfile_peak	32.804864	MB	mapped file pages resident (text, ranks, SA windows): reported, not counted (ADR-004 section 6a)
+R	E3	dna10r.sa_phase	vmhwm	84.918272	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E3	dna10r.sa_phase	gc_heap	9.434688	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 2/1/0
+R	E3	dna10r.sa_phase	arena_peak	0.319968	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB)
+R	E3	dna10r.sa_phase	io_explicit_read	40258624	bytes	4.03 B/char; scratch position files and samples (65298 calls)
+R	E3	dna10r.sa_phase	io_explicit_write	40000000	bytes	4.00 B/char (642 calls)
+R	E3	dna10r.sa_phase	io_mapped_write	40000004	bytes	4.00 B/char: the SA, once, through the mapped windows (largest window 13332 bytes)
+R	E3	dna10r.sa_phase	io_total_counted	120258628	bytes	12.03 B/char explicit I/O plus SA (text and rank reads through mappings come on top: see block-layer read_bytes)
+R	E3	dna10r.sa_phase	blocklayer_read	4055040	bytes	/proc/self/io read_bytes during the build (page-cache misses: cold text/rank pages and re-reads under a limit); 0.41 B/char
+R	E3	dna10r.sa_phase	blocklayer_write	281640960	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E3	dna10r.sa_phase	page_faults	242	major	minor 32247
+R	E3	dna10r.sa_phase	scratch_peak	40000000	bytes	4.00 B/char; files left in the scratch directory: 0
+R	E3	dna10r.sa_phase	dirty_peak	35.303424	MB	max /proc/meminfo Dirty (system-wide); max Cached 597 MB; cgroup usage max 0 MB
+R	E3	dna10r.sa_phase	buckets	6065	n	leaves=5362, partitions=703, max depth=3, largest leaf=3333, retries=0; tie share 0.0000 %, rank lookups 10786
+R	E3	dna10r.sa_phase	phase_cpu_s	5.076739	s	summed over workers: partition 1.74, leaf sort 3.34
+R	E4	dna10r	kernel_s	0.337668	s	LcpKernel (three passes in RAM, one thread) on n=10000000; kind U8, overflow entries 0
+R	E3	dna50r.sa_phase	n	50000000	symbols	b=2 bits, K=16666 (n/3000), fan-out 64, threads=4, ranks: X=993 Singer |D|=32
+R	E3	dna50r.sa_phase	sa_s	5.608475	s	partition + sort, SA written through mapped windows (page cache), without fsync
+R	E3	dna50r.sa_phase	fsync_s	0.003982	s	flush of the SA file after the build
+R	E3	dna50r.sa_phase	ns_per_symbol	112.169494	ns	sa_s / n
+R	E3	dna50r.sa_phase	rssanon_peak	68.755456	MB	max RssAnon of 561 samples at 10 ms; gate <= 256 MB incl. the .NET runtime and thread stacks (max threads 12)
+R	E3	dna50r.sa_phase	rssfile_peak	47.951872	MB	mapped file pages resident (text, ranks, SA windows): reported, not counted (ADR-004 section 6a)
+R	E3	dna50r.sa_phase	vmhwm	120.471552	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E3	dna50r.sa_phase	gc_heap	10.883176	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 5/4/2
+R	E3	dna50r.sa_phase	arena_peak	1.599936	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB)
+R	E3	dna50r.sa_phase	io_explicit_read	249532084	bytes	4.99 B/char; scratch position files and samples (98651 calls)
+R	E3	dna50r.sa_phase	io_explicit_write	249154676	bytes	4.98 B/char (4340 calls)
+R	E3	dna50r.sa_phase	io_mapped_write	200000004	bytes	4.00 B/char: the SA, once, through the mapped windows (largest window 66624 bytes)
+R	E3	dna50r.sa_phase	io_total_counted	698686764	bytes	13.97 B/char explicit I/O plus SA (text and rank reads through mappings come on top: see block-layer read_bytes)
+R	E3	dna50r.sa_phase	blocklayer_read	19357696	bytes	/proc/self/io read_bytes during the build (page-cache misses: cold text/rank pages and re-reads under a limit); 0.39 B/char
+R	E3	dna50r.sa_phase	blocklayer_write	717287424	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E3	dna50r.sa_phase	page_faults	775	major	minor 78860
+R	E3	dna50r.sa_phase	scratch_peak	200000000	bytes	4.00 B/char; files left in the scratch directory: 0
+R	E3	dna50r.sa_phase	dirty_peak	191.700992	MB	max /proc/meminfo Dirty (system-wide); max Cached 775 MB; cgroup usage max 0 MB
+R	E3	dna50r.sa_phase	buckets	5962	n	leaves=5311, partitions=651, max depth=3, largest leaf=16656, retries=0; tie share 0.0000 %, rank lookups 10318
+R	E3	dna50r.sa_phase	phase_cpu_s	17.004584	s	summed over workers: partition 7.92, leaf sort 9.08
+R	E4	dna50r	kernel_s	1.838259	s	LcpKernel (three passes in RAM, one thread) on n=50000000; kind U8, overflow entries 0

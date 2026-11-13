@@ -1,0 +1,74 @@
+[
+ {
+  "id": "E01",
+  "desc": "the RssAnon cap is exclusive",
+  "old": "rssAnonMb <= capMb && scratchEntriesLeft == 0",
+  "new": "rssAnonMb < capMb && scratchEntriesLeft == 0"
+ },
+ {
+  "id": "E02",
+  "desc": "Healthy ignores the arena",
+  "old": "scratchLiveBytes == 0 && arenaLiveBytes == 0",
+  "new": "scratchLiveBytes == 0"
+ },
+ {
+  "id": "E03",
+  "desc": "Healthy ignores the tracked scratch",
+  "old": "scratchEntriesLeft == 0 && scratchLiveBytes == 0",
+  "new": "scratchEntriesLeft == 0"
+ },
+ {
+  "id": "E04",
+  "desc": "a difference of one file does not fail the run",
+  "old": "ok &= equal;",
+  "new": "ok |= equal;"
+ },
+ {
+  "id": "E05",
+  "desc": "the layout \"stats\" is refused",
+  "old": "layout is not (\"a\" or \"f\" or \"both\" or \"stats\")",
+  "new": "layout is not (\"a\" or \"f\" or \"both\")"
+ },
+ {
+  "id": "E06",
+  "desc": "windows are flushed only with --no-flush",
+  "old": "FlushWindows = !o.Flag(\"no-flush\"),",
+  "new": "FlushWindows = o.Flag(\"no-flush\"),"
+ },
+ {
+  "id": "E07",
+  "desc": "the statistics comparison ignores NODE_COUNT",
+  "old": "bool stats = expected[\"nodecount\"] == f.NodeCount.ToString(CultureInfo.InvariantCulture)\n            && ",
+  "new": "bool stats = true\n            && "
+ },
+ {
+  "id": "E08",
+  "desc": "the statistics comparison ignores LRS_RANK",
+  "old": "\n            && expected[\"lrsrank\"] == f.LrsRank.ToString(CultureInfo.InvariantCulture);",
+  "new": ";"
+ },
+ {
+  "id": "E09",
+  "desc": "the packed codec is chosen for tagged",
+  "old": "\"tagged\" => ChildCodec.Tagged,",
+  "new": "\"tagged\" => ChildCodec.Packed,"
+ },
+ {
+  "id": "E10",
+  "desc": "the oracle writes the packed array as the tagged one",
+  "old": "WriteRaw(outPrefix + \".cldT\", (uint[])typeof(TaggedChild)",
+  "new": "WriteRaw(outPrefix + \".cldT\", (uint[])typeof(PackedChild)"
+ },
+ {
+  "id": "E11",
+  "desc": "the scan result of the NEXTSYM verification is ignored",
+  "old": "ok = equal;\n        }\n        return ok;",
+  "new": "ok = true;\n        }\n        return ok;"
+ },
+ {
+  "id": "E12",
+  "desc": "the fused scan is created at the second chunk",
+  "old": "if (_scan is null)\n            {\n                sampler?.Mark();",
+  "new": "if (_scan is null && firstRank > 0)\n            {\n                sampler?.Mark();"
+ }
+]

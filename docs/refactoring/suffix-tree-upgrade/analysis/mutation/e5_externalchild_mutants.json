@@ -1,0 +1,26 @@
+[
+ {
+  "id": "X01",
+  "desc": "the parallel option is inverted",
+  "old": "outputs.Nsv is not null && options.ParallelBackward ?",
+  "new": "outputs.Nsv is not null && !options.ParallelBackward ?"
+ },
+ {
+  "id": "X02",
+  "desc": "the outputs of the forward scan are swapped",
+  "old": "new ChildScanOutputs { ChildPath = outputs.Child, PsvPath = outputs.Psv }",
+  "new": "new ChildScanOutputs { ChildPath = outputs.Psv, PsvPath = outputs.Child }"
+ },
+ {
+  "id": "X03",
+  "desc": "the volume of the LCP files counts the base array only",
+  "old": "LcpBytes = new FileInfo(lcpBase).Length + new FileInfo(lcpOverflow).Length",
+  "new": "LcpBytes = new FileInfo(lcpBase).Length"
+ },
+ {
+  "id": "X04",
+  "desc": "the NSV pass is skipped when it is not concurrent",
+  "old": "else if (outputs.Nsv is not null) backward = Backward",
+  "new": "else if (outputs.Nsv is null) backward = Backward"
+ }
+]

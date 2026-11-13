@@ -1,0 +1,754 @@
+R	E5	protocol	head	10de29a93442464a9d11e28aed6ee2e57d762d7d		git rev-parse HEAD of the binary under test; group fused
+R	E5	dna_100m.oracle	oracle_child_s	3.2857	s	in-RAM ChildTable.Build, tagged and packed, n=100000000, LCP kind U8, overflow entries 0
+R	E5	dna_100m.oracle	oracle_smaller_s	3.504702	s	PSV and NSV of every rank from the LcpPyramid (fanout 32)
+R	E5	dna_100m.oracle	oracle_stats	162149501	n	NODE_COUNT 162149501, internal 62149499, LRS_DEPTH 25, LRS_RANK 14863022, in-RAM stack peak 18
+R	E5	dna_100m.fusedA	1	n	100000000	symbols	b=2 bits, layout=a, codec=Tagged, fused with PH4=True
+R	E5	dna_100m.fusedA	1	parameters	parallel NSV=False block=262144 entries (4096 KiB) window=1048576 slots=8 flush windows=True spill flush=16777216 read=1048576 spill dir=scratch		entry 16 B (l, lb, first, last); two blocks in RAM
+R	E5	dna_100m.fusedA	1	ph4_parameters	R=266667 P=375 threads=4 B2 workers=2 arena cap 160 MiB		PH4 base mode; the scan is the consumer of its B3 hook
+R	E5	dna_100m.fusedA	1	ph5_s	7.499835	s	wall of PH4 + PH5 fused (ph5_scan_s is the share inside the hook), plus the NSV pass
+R	E5	dna_100m.fusedA	1	forward_s	7.496484	s	PH4 with the hook (PH4 + forward scan)
+R	E5	dna_100m.fusedA	1	scan_s	2.511029	s	time inside Consume + Complete of the forward scan (without reading the LCP)
+R	E5	dna_100m.fusedA	1	scan_ns_per_entry	25.11029	ns	scan_s / (n + 1)
+R	E5	dna_100m.fusedA	1	forward_ns_per_entry	74.964842	ns	forward_s / (n + 1)
+R	E5	dna_100m.fusedA	1	fsync_s	0.000106	s	flush of the output files after the run
+R	E5	dna_100m.fusedA	1	ph4_width	U8		PH4 in the same process: B1 1.23 s, B2 3.10 s, B3 3.15 s (B3 contains the scan)
+R	E5	dna_100m.fusedA	1	rssanon_peak	50.987008	MB	max RssAnon of 751 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 11)
+R	E5	dna_100m.fusedA	1	rssfile_peak	62.906368	MB	mapped file pages resident (windows, text): reported, not counted
+R	E5	dna_100m.fusedA	1	vmhwm	107.58144	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E5	dna_100m.fusedA	1	gc_heap	1.148144	MB	managed heap at the end (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 2/0/0
+R	E5	dna_100m.fusedA	1	arena_peak	8.388608	MB	peak native buffers charged to the ArenaBudget (cap 64 MiB), live at the end 0
+R	E5	dna_100m.fusedA	1	max_lcp	25	symbols	largest LCP value
+R	E5	dna_100m.fusedA	1	stack_peak	18	entries	peak height of the forward stack (<= 1 + max LCP = 26); 0.00 MB at 16 B per entry
+R	E5	dna_100m.fusedA	1	spill_written	0	bytes	forward stack: 0 blocks written, 0 read back (0 bytes), 0 clean evictions, 0 fsyncs; peak file 0 bytes
+R	E5	dna_100m.fusedA	1	spill_expected	416	bytes	16 B x (max LCP + 1); spill_written / expected = 0.000000; difference 26 entries = 0.00 blocks of 262144
+R	E5	dna_100m.fusedA	1	child_windows	400	n	CHILD: 400 windows mapped (382 distinct, 18 mapped again after release), 392 evictions, 400 flushes covering 418874372 bytes, 100000000 writes (1.000 per rank)
+R	E5	dna_100m.fusedA	1	io_explicit_read	2400000004	bytes	24.000 B/char: the LCP file(s) (forward and backward) and the spill read-back (3008 calls)
+R	E5	dna_100m.fusedA	1	io_explicit_write	2000000000	bytes	20.000 B/char: the spill file(s) (61520 calls) plus the PH4 tuple files
+R	E5	dna_100m.fusedA	1	blocklayer_read	425164800	bytes	/proc/self/io read_bytes (page-cache misses)
+R	E5	dna_100m.fusedA	1	blocklayer_write	2503856128	bytes	/proc/self/io write_bytes: bytes of pages that went from clean to dirty (every re-dirtying of a flushed page counts again)
+R	E5	dna_100m.fusedA	1	output_bytes	400000004	bytes	4.000 B/char: CHILD (4 B/char) for layout A, PSV + NSV (8 B/char) for layout F
+R	E5	dna_100m.fusedA	1	wa_dirtied	1.00964	x	write amplification, definition 1: (write_bytes of /proc/self/io - the spill bytes written 0 - the PH4 explicit writes and its mapped LCP output) / final size of the output files; 1.0 = every page was dirtied once; the device-level definition 2 is taken by the run script (sectors written by the block device after sync)
+R	E5	dna_100m.fusedA	1	dirty_peak	1201.31584	MB	max /proc/meminfo Dirty minus the baseline (0.07 MB, median of 5 samples before the start) over 375 samples at 20 ms; absolute max 1201.39 MB; gate G3 <= 64 MB
+R	E5	dna_100m.fusedA	1	dirty_mean	689.231987	MB	mean of Dirty minus the baseline over the run
+R	E5	dna_100m.fusedA	1	dirty_peak_after_mark	1.257472	MB	max Dirty after the PH5 start minus Dirty at that moment (800.44 MB)
+R	E5	dna_100m.fusedA	1	writeback_peak	1.179648	MB	max /proc/meminfo Writeback
+R	E5	dna_100m.fusedA	1	proc_dirty_peak	9.306112	MB	max Private_Dirty + Shared_Dirty of the mappings of /proc/self/smaps whose path is an output file of this run: the dirty pages this process has mapped in them (the per-process view; anonymous memory is not in it)
+R	E5	dna_100m.fusedA	1	node_count	162149501	n	NODE_COUNT = 1 + I + n + 1 with I = 62149499 internal nodes
+R	E5	dna_100m.fusedA	1	lrs	25	symbols	LRS_DEPTH 25, LRS_RANK 14863022
+R	E5	dna_100m.fusedA	1	child_equals_oracle	yes		byte-identical to dna_100m.ref.cldT (400000004 bytes)
+R	E5	dna_100m.fusedA	1	stats_equal_oracle	yes		NODE_COUNT 162149501 (oracle 162149501), internal 62149499 (62149499), LRS_DEPTH 25 (25), LRS_RANK 14863022 (14863022); in-RAM stack peak 18
+R	E5	dna_100m.fusedA	1	ext_rssanon_peak	50.987	MB	independent sampler: max RssAnon of /proc/<pid>/status over 392 samples at 20 ms
+R	E5	dna_100m.fusedA	1	ext_dirty_peak	1201.385	MB	independent sampler: max /proc/meminfo Dirty minus the baseline (0.00 MB, median of 5 samples before the start); gate G3 <= 64 MB; absolute max 1201.39 MB
+R	E5	dna_100m.fusedA	1	ext_dirty_mean	659.372	MB	independent sampler: mean of Dirty minus the baseline
+R	E5	dna_100m.fusedA	1	ext_writeback_peak	1.049	MB	independent sampler: max /proc/meminfo Writeback
+R	E5	dna_100m.fusedA	1	device_write_bytes	504885248	bytes	sectors written by vda during the run and the sync that follows it (512 B each; includes the spill file, journal, everything)
+R	E5	dna_100m.fusedF	1	n	100000000	symbols	b=2 bits, layout=f, codec=Tagged, fused with PH4=True
+R	E5	dna_100m.fusedF	1	parameters	parallel NSV=False block=262144 entries (4096 KiB) window=1048576 slots=8 flush windows=True spill flush=16777216 read=1048576 spill dir=scratch		entry 16 B (l, lb, first, last); two blocks in RAM
+R	E5	dna_100m.fusedF	1	ph4_parameters	R=266667 P=375 threads=4 B2 workers=2 arena cap 160 MiB		PH4 base mode; the scan is the consumer of its B3 hook
+R	E5	dna_100m.fusedF	1	ph5_s	9.571204	s	wall of PH4 + PH5 fused (ph5_scan_s is the share inside the hook), plus the NSV pass
+R	E5	dna_100m.fusedF	1	forward_s	7.164052	s	PH4 with the hook (PH4 + forward scan)
+R	E5	dna_100m.fusedF	1	scan_s	2.146627	s	time inside Consume + Complete of the forward scan (without reading the LCP)
+R	E5	dna_100m.fusedF	1	scan_ns_per_entry	21.466272	ns	scan_s / (n + 1)
+R	E5	dna_100m.fusedF	1	forward_ns_per_entry	71.640521	ns	forward_s / (n + 1)
+R	E5	dna_100m.fusedF	1	nsv_s	2.399913	s	backward scan of the LCP file: NSV written in descending rank order
+R	E5	dna_100m.fusedF	1	nsv_ns_per_entry	23.999131	ns	nsv_s / (n + 1)
+R	E5	dna_100m.fusedF	1	fsync_s	0.00026	s	flush of the output files after the run
+R	E5	dna_100m.fusedF	1	ph4_width	U8		PH4 in the same process: B1 0.98 s, B2 3.20 s, B3 2.98 s (B3 contains the scan)
+R	E5	dna_100m.fusedF	1	rssanon_peak	50.987008	MB	max RssAnon of 959 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 11)
+R	E5	dna_100m.fusedF	1	rssfile_peak	56.721408	MB	mapped file pages resident (windows, text): reported, not counted
+R	E5	dna_100m.fusedF	1	vmhwm	107.692032	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E5	dna_100m.fusedF	1	gc_heap	6.378408	MB	managed heap at the end (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 3/1/1
+R	E5	dna_100m.fusedF	1	arena_peak	12.582912	MB	peak native buffers charged to the ArenaBudget (cap 64 MiB), live at the end 0
+R	E5	dna_100m.fusedF	1	max_lcp	25	symbols	largest LCP value
+R	E5	dna_100m.fusedF	1	stack_peak	18	entries	peak height of the forward stack (<= 1 + max LCP = 26); 0.00 MB at 16 B per entry
+R	E5	dna_100m.fusedF	1	nsv_stack_peak	17	entries	peak height of the NSV stack (8 B per entry): 0.00 MB
+R	E5	dna_100m.fusedF	1	spill_written	0	bytes	forward stack: 0 blocks written, 0 read back (0 bytes), 0 clean evictions, 0 fsyncs; peak file 0 bytes
+R	E5	dna_100m.fusedF	1	spill_expected	416	bytes	16 B x (max LCP + 1); spill_written / expected = 0.000000; difference 26 entries = 0.00 blocks of 262144
+R	E5	dna_100m.fusedF	1	nsv_spill_written	0	bytes	NSV stack: 0 blocks written, 0 read back; expected 8 B x (max LCP + 1) = 208
+R	E5	dna_100m.fusedF	1	psv_windows	382	n	PSV: 382 windows (0 again), 382 flushes
+R	E5	dna_100m.fusedF	1	nsv_windows	382	n	NSV: 382 windows (0 again), 382 flushes
+R	E5	dna_100m.fusedF	1	io_explicit_read	2500000005	bytes	25.000 B/char: the LCP file(s) (forward and backward) and the spill read-back (3104 calls)
+R	E5	dna_100m.fusedF	1	io_explicit_write	2000000000	bytes	20.000 B/char: the spill file(s) (61500 calls) plus the PH4 tuple files
+R	E5	dna_100m.fusedF	1	blocklayer_read	425304064	bytes	/proc/self/io read_bytes (page-cache misses)
+R	E5	dna_100m.fusedF	1	blocklayer_write	2901929984	bytes	/proc/self/io write_bytes: bytes of pages that went from clean to dirty (every re-dirtying of a flushed page counts again)
+R	E5	dna_100m.fusedF	1	output_bytes	800000008	bytes	8.000 B/char: CHILD (4 B/char) for layout A, PSV + NSV (8 B/char) for layout F
+R	E5	dna_100m.fusedF	1	wa_dirtied	1.002412	x	write amplification, definition 1: (write_bytes of /proc/self/io - the spill bytes written 0 - the PH4 explicit writes and its mapped LCP output) / final size of the output files; 1.0 = every page was dirtied once; the device-level definition 2 is taken by the run script (sectors written by the block device after sync)
+R	E5	dna_100m.fusedF	1	dirty_peak	1200.304128	MB	max /proc/meminfo Dirty minus the baseline (0.08 MB, median of 5 samples before the start) over 479 samples at 20 ms; absolute max 1200.38 MB; gate G3 <= 64 MB
+R	E5	dna_100m.fusedF	1	dirty_mean	527.129966	MB	mean of Dirty minus the baseline over the run
+R	E5	dna_100m.fusedF	1	dirty_peak_after_mark	7.684096	MB	max Dirty after the PH5 start minus Dirty at that moment (793.10 MB)
+R	E5	dna_100m.fusedF	1	writeback_peak	1.118208	MB	max /proc/meminfo Writeback
+R	E5	dna_100m.fusedF	1	proc_dirty_peak	3.117056	MB	max Private_Dirty + Shared_Dirty of the mappings of /proc/self/smaps whose path is an output file of this run: the dirty pages this process has mapped in them (the per-process view; anonymous memory is not in it)
+R	E5	dna_100m.fusedF	1	node_count	162149501	n	NODE_COUNT = 1 + I + n + 1 with I = 62149499 internal nodes
+R	E5	dna_100m.fusedF	1	lrs	25	symbols	LRS_DEPTH 25, LRS_RANK 14863022
+R	E5	dna_100m.fusedF	1	psv_equals_oracle	yes		byte-identical to dna_100m.ref.psv (400000004 bytes)
+R	E5	dna_100m.fusedF	1	nsv_equals_oracle	yes		byte-identical to dna_100m.ref.nsv (400000004 bytes)
+R	E5	dna_100m.fusedF	1	stats_equal_oracle	yes		NODE_COUNT 162149501 (oracle 162149501), internal 62149499 (62149499), LRS_DEPTH 25 (25), LRS_RANK 14863022 (14863022); in-RAM stack peak 18
+R	E5	dna_100m.fusedF	1	ext_rssanon_peak	50.987	MB	independent sampler: max RssAnon of /proc/<pid>/status over 504 samples at 20 ms
+R	E5	dna_100m.fusedF	1	ext_dirty_peak	1198.391	MB	independent sampler: max /proc/meminfo Dirty minus the baseline (0.01 MB, median of 5 samples before the start); gate G3 <= 64 MB; absolute max 1198.40 MB
+R	E5	dna_100m.fusedF	1	ext_dirty_mean	500.987	MB	independent sampler: mean of Dirty minus the baseline
+R	E5	dna_100m.fusedF	1	ext_writeback_peak	1.196	MB	independent sampler: max /proc/meminfo Writeback
+R	E5	dna_100m.fusedF	1	device_write_bytes	905678848	bytes	sectors written by vda during the run and the sync that follows it (512 B each; includes the spill file, journal, everything)
+R	E5	dna_100m.fusedA	2	n	100000000	symbols	b=2 bits, layout=a, codec=Tagged, fused with PH4=True
+R	E5	dna_100m.fusedA	2	parameters	parallel NSV=False block=262144 entries (4096 KiB) window=1048576 slots=8 flush windows=True spill flush=16777216 read=1048576 spill dir=scratch		entry 16 B (l, lb, first, last); two blocks in RAM
+R	E5	dna_100m.fusedA	2	ph4_parameters	R=266667 P=375 threads=4 B2 workers=2 arena cap 160 MiB		PH4 base mode; the scan is the consumer of its B3 hook
+R	E5	dna_100m.fusedA	2	ph5_s	7.217896	s	wall of PH4 + PH5 fused (ph5_scan_s is the share inside the hook), plus the NSV pass
+R	E5	dna_100m.fusedA	2	forward_s	7.214216	s	PH4 with the hook (PH4 + forward scan)
+R	E5	dna_100m.fusedA	2	scan_s	2.223528	s	time inside Consume + Complete of the forward scan (without reading the LCP)
+R	E5	dna_100m.fusedA	2	scan_ns_per_entry	22.235276	ns	scan_s / (n + 1)
+R	E5	dna_100m.fusedA	2	forward_ns_per_entry	72.142159	ns	forward_s / (n + 1)
+R	E5	dna_100m.fusedA	2	fsync_s	0.000166	s	flush of the output files after the run
+R	E5	dna_100m.fusedA	2	ph4_width	U8		PH4 in the same process: B1 1.03 s, B2 3.18 s, B3 2.98 s (B3 contains the scan)
+R	E5	dna_100m.fusedA	2	rssanon_peak	51.011584	MB	max RssAnon of 720 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 11)
+R	E5	dna_100m.fusedA	2	rssfile_peak	62.898176	MB	mapped file pages resident (windows, text): reported, not counted
+R	E5	dna_100m.fusedA	2	vmhwm	107.60192	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E5	dna_100m.fusedA	2	gc_heap	1.14804	MB	managed heap at the end (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 2/0/0
+R	E5	dna_100m.fusedA	2	arena_peak	8.388608	MB	peak native buffers charged to the ArenaBudget (cap 64 MiB), live at the end 0
+R	E5	dna_100m.fusedA	2	max_lcp	25	symbols	largest LCP value
+R	E5	dna_100m.fusedA	2	stack_peak	18	entries	peak height of the forward stack (<= 1 + max LCP = 26); 0.00 MB at 16 B per entry
+R	E5	dna_100m.fusedA	2	spill_written	0	bytes	forward stack: 0 blocks written, 0 read back (0 bytes), 0 clean evictions, 0 fsyncs; peak file 0 bytes
+R	E5	dna_100m.fusedA	2	spill_expected	416	bytes	16 B x (max LCP + 1); spill_written / expected = 0.000000; difference 26 entries = 0.00 blocks of 262144
+R	E5	dna_100m.fusedA	2	child_windows	400	n	CHILD: 400 windows mapped (382 distinct, 18 mapped again after release), 392 evictions, 400 flushes covering 418874372 bytes, 100000000 writes (1.000 per rank)
+R	E5	dna_100m.fusedA	2	io_explicit_read	2400000004	bytes	24.000 B/char: the LCP file(s) (forward and backward) and the spill read-back (3008 calls)
+R	E5	dna_100m.fusedA	2	io_explicit_write	2000000000	bytes	20.000 B/char: the spill file(s) (61501 calls) plus the PH4 tuple files
+R	E5	dna_100m.fusedA	2	blocklayer_read	425500672	bytes	/proc/self/io read_bytes (page-cache misses)
+R	E5	dna_100m.fusedA	2	blocklayer_write	2503999488	bytes	/proc/self/io write_bytes: bytes of pages that went from clean to dirty (every re-dirtying of a flushed page counts again)
+R	E5	dna_100m.fusedA	2	output_bytes	400000004	bytes	4.000 B/char: CHILD (4 B/char) for layout A, PSV + NSV (8 B/char) for layout F
+R	E5	dna_100m.fusedA	2	wa_dirtied	1.009999	x	write amplification, definition 1: (write_bytes of /proc/self/io - the spill bytes written 0 - the PH4 explicit writes and its mapped LCP output) / final size of the output files; 1.0 = every page was dirtied once; the device-level definition 2 is taken by the run script (sectors written by the block device after sync)
+R	E5	dna_100m.fusedA	2	dirty_peak	1201.434624	MB	max /proc/meminfo Dirty minus the baseline (0.07 MB, median of 5 samples before the start) over 361 samples at 20 ms; absolute max 1201.50 MB; gate G3 <= 64 MB
+R	E5	dna_100m.fusedA	2	dirty_mean	705.112887	MB	mean of Dirty minus the baseline over the run
+R	E5	dna_100m.fusedA	2	dirty_peak_after_mark	0	MB	max Dirty after the PH5 start minus Dirty at that moment (800.65 MB)
+R	E5	dna_100m.fusedA	2	writeback_peak	1.048576	MB	max /proc/meminfo Writeback
+R	E5	dna_100m.fusedA	2	proc_dirty_peak	9.437184	MB	max Private_Dirty + Shared_Dirty of the mappings of /proc/self/smaps whose path is an output file of this run: the dirty pages this process has mapped in them (the per-process view; anonymous memory is not in it)
+R	E5	dna_100m.fusedA	2	node_count	162149501	n	NODE_COUNT = 1 + I + n + 1 with I = 62149499 internal nodes
+R	E5	dna_100m.fusedA	2	lrs	25	symbols	LRS_DEPTH 25, LRS_RANK 14863022
+R	E5	dna_100m.fusedA	2	ext_rssanon_peak	51.012	MB	independent sampler: max RssAnon of /proc/<pid>/status over 369 samples at 20 ms
+R	E5	dna_100m.fusedA	2	ext_dirty_peak	1201.504	MB	independent sampler: max /proc/meminfo Dirty minus the baseline (0.00 MB, median of 5 samples before the start); gate G3 <= 64 MB; absolute max 1201.50 MB
+R	E5	dna_100m.fusedA	2	ext_dirty_mean	689.888	MB	independent sampler: mean of Dirty minus the baseline
+R	E5	dna_100m.fusedA	2	ext_writeback_peak	1.049	MB	independent sampler: max /proc/meminfo Writeback
+R	E5	dna_100m.fusedA	2	device_write_bytes	504786944	bytes	sectors written by vda during the run and the sync that follows it (512 B each; includes the spill file, journal, everything)
+R	E5	dna_100m.fusedF	2	n	100000000	symbols	b=2 bits, layout=f, codec=Tagged, fused with PH4=True
+R	E5	dna_100m.fusedF	2	parameters	parallel NSV=False block=262144 entries (4096 KiB) window=1048576 slots=8 flush windows=True spill flush=16777216 read=1048576 spill dir=scratch		entry 16 B (l, lb, first, last); two blocks in RAM
+R	E5	dna_100m.fusedF	2	ph4_parameters	R=266667 P=375 threads=4 B2 workers=2 arena cap 160 MiB		PH4 base mode; the scan is the consumer of its B3 hook
+R	E5	dna_100m.fusedF	2	ph5_s	9.449374	s	wall of PH4 + PH5 fused (ph5_scan_s is the share inside the hook), plus the NSV pass
+R	E5	dna_100m.fusedF	2	forward_s	7.1711	s	PH4 with the hook (PH4 + forward scan)
+R	E5	dna_100m.fusedF	2	scan_s	2.1249	s	time inside Consume + Complete of the forward scan (without reading the LCP)
+R	E5	dna_100m.fusedF	2	scan_ns_per_entry	21.248997	ns	scan_s / (n + 1)
+R	E5	dna_100m.fusedF	2	forward_ns_per_entry	71.711002	ns	forward_s / (n + 1)
+R	E5	dna_100m.fusedF	2	nsv_s	2.270717	s	backward scan of the LCP file: NSV written in descending rank order
+R	E5	dna_100m.fusedF	2	nsv_ns_per_entry	22.707166	ns	nsv_s / (n + 1)
+R	E5	dna_100m.fusedF	2	fsync_s	0.000171	s	flush of the output files after the run
+R	E5	dna_100m.fusedF	2	ph4_width	U8		PH4 in the same process: B1 1.16 s, B2 3.19 s, B3 2.82 s (B3 contains the scan)
+R	E5	dna_100m.fusedF	2	rssanon_peak	50.970624	MB	max RssAnon of 946 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 11)
+R	E5	dna_100m.fusedF	2	rssfile_peak	56.56576	MB	mapped file pages resident (windows, text): reported, not counted
+R	E5	dna_100m.fusedF	2	vmhwm	107.548672	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E5	dna_100m.fusedF	2	gc_heap	6.378248	MB	managed heap at the end (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 3/1/1
+R	E5	dna_100m.fusedF	2	arena_peak	12.582912	MB	peak native buffers charged to the ArenaBudget (cap 64 MiB), live at the end 0
+R	E5	dna_100m.fusedF	2	max_lcp	25	symbols	largest LCP value
+R	E5	dna_100m.fusedF	2	stack_peak	18	entries	peak height of the forward stack (<= 1 + max LCP = 26); 0.00 MB at 16 B per entry
+R	E5	dna_100m.fusedF	2	nsv_stack_peak	17	entries	peak height of the NSV stack (8 B per entry): 0.00 MB
+R	E5	dna_100m.fusedF	2	spill_written	0	bytes	forward stack: 0 blocks written, 0 read back (0 bytes), 0 clean evictions, 0 fsyncs; peak file 0 bytes
+R	E5	dna_100m.fusedF	2	spill_expected	416	bytes	16 B x (max LCP + 1); spill_written / expected = 0.000000; difference 26 entries = 0.00 blocks of 262144
+R	E5	dna_100m.fusedF	2	nsv_spill_written	0	bytes	NSV stack: 0 blocks written, 0 read back; expected 8 B x (max LCP + 1) = 208
+R	E5	dna_100m.fusedF	2	psv_windows	382	n	PSV: 382 windows (0 again), 382 flushes
+R	E5	dna_100m.fusedF	2	nsv_windows	382	n	NSV: 382 windows (0 again), 382 flushes
+R	E5	dna_100m.fusedF	2	io_explicit_read	2500000005	bytes	25.000 B/char: the LCP file(s) (forward and backward) and the spill read-back (3104 calls)
+R	E5	dna_100m.fusedF	2	io_explicit_write	2000000000	bytes	20.000 B/char: the spill file(s) (61653 calls) plus the PH4 tuple files
+R	E5	dna_100m.fusedF	2	blocklayer_read	425508864	bytes	/proc/self/io read_bytes (page-cache misses)
+R	E5	dna_100m.fusedF	2	blocklayer_write	2901815296	bytes	/proc/self/io write_bytes: bytes of pages that went from clean to dirty (every re-dirtying of a flushed page counts again)
+R	E5	dna_100m.fusedF	2	output_bytes	800000008	bytes	8.000 B/char: CHILD (4 B/char) for layout A, PSV + NSV (8 B/char) for layout F
+R	E5	dna_100m.fusedF	2	wa_dirtied	1.002269	x	write amplification, definition 1: (write_bytes of /proc/self/io - the spill bytes written 0 - the PH4 explicit writes and its mapped LCP output) / final size of the output files; 1.0 = every page was dirtied once; the device-level definition 2 is taken by the run script (sectors written by the block device after sync)
+R	E5	dna_100m.fusedF	2	dirty_peak	1201.287168	MB	max /proc/meminfo Dirty minus the baseline (0.10 MB, median of 5 samples before the start) over 472 samples at 20 ms; absolute max 1201.39 MB; gate G3 <= 64 MB
+R	E5	dna_100m.fusedF	2	dirty_mean	534.279402	MB	mean of Dirty minus the baseline over the run
+R	E5	dna_100m.fusedF	2	dirty_peak_after_mark	0.917504	MB	max Dirty after the PH5 start minus Dirty at that moment (800.53 MB)
+R	E5	dna_100m.fusedF	2	writeback_peak	1.216512	MB	max /proc/meminfo Writeback
+R	E5	dna_100m.fusedF	2	proc_dirty_peak	3.145728	MB	max Private_Dirty + Shared_Dirty of the mappings of /proc/self/smaps whose path is an output file of this run: the dirty pages this process has mapped in them (the per-process view; anonymous memory is not in it)
+R	E5	dna_100m.fusedF	2	node_count	162149501	n	NODE_COUNT = 1 + I + n + 1 with I = 62149499 internal nodes
+R	E5	dna_100m.fusedF	2	lrs	25	symbols	LRS_DEPTH 25, LRS_RANK 14863022
+R	E5	dna_100m.fusedF	2	ext_rssanon_peak	50.971	MB	independent sampler: max RssAnon of /proc/<pid>/status over 480 samples at 20 ms
+R	E5	dna_100m.fusedF	2	ext_dirty_peak	1201.287	MB	independent sampler: max /proc/meminfo Dirty minus the baseline (0.10 MB, median of 5 samples before the start); gate G3 <= 64 MB; absolute max 1201.39 MB
+R	E5	dna_100m.fusedF	2	ext_dirty_mean	525.561	MB	independent sampler: mean of Dirty minus the baseline
+R	E5	dna_100m.fusedF	2	ext_writeback_peak	0.889	MB	independent sampler: max /proc/meminfo Writeback
+R	E5	dna_100m.fusedF	2	device_write_bytes	906846208	bytes	sectors written by vda during the run and the sync that follows it (512 B each; includes the spill file, journal, everything)
+R	E5	dna_100m.fusedA	3	n	100000000	symbols	b=2 bits, layout=a, codec=Tagged, fused with PH4=True
+R	E5	dna_100m.fusedA	3	parameters	parallel NSV=False block=262144 entries (4096 KiB) window=1048576 slots=8 flush windows=True spill flush=16777216 read=1048576 spill dir=scratch		entry 16 B (l, lb, first, last); two blocks in RAM
+R	E5	dna_100m.fusedA	3	ph4_parameters	R=266667 P=375 threads=4 B2 workers=2 arena cap 160 MiB		PH4 base mode; the scan is the consumer of its B3 hook
+R	E5	dna_100m.fusedA	3	ph5_s	7.708903	s	wall of PH4 + PH5 fused (ph5_scan_s is the share inside the hook), plus the NSV pass
+R	E5	dna_100m.fusedA	3	forward_s	7.704042	s	PH4 with the hook (PH4 + forward scan)
+R	E5	dna_100m.fusedA	3	scan_s	2.326044	s	time inside Consume + Complete of the forward scan (without reading the LCP)
+R	E5	dna_100m.fusedA	3	scan_ns_per_entry	23.260436	ns	scan_s / (n + 1)
+R	E5	dna_100m.fusedA	3	forward_ns_per_entry	77.040416	ns	forward_s / (n + 1)
+R	E5	dna_100m.fusedA	3	fsync_s	0.000184	s	flush of the output files after the run
+R	E5	dna_100m.fusedA	3	ph4_width	U8		PH4 in the same process: B1 1.26 s, B2 3.31 s, B3 3.12 s (B3 contains the scan)
+R	E5	dna_100m.fusedA	3	rssanon_peak	50.950144	MB	max RssAnon of 772 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 11)
+R	E5	dna_100m.fusedA	3	rssfile_peak	62.816256	MB	mapped file pages resident (windows, text): reported, not counted
+R	E5	dna_100m.fusedA	3	vmhwm	107.454464	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E5	dna_100m.fusedA	3	gc_heap	1.147888	MB	managed heap at the end (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 2/0/0
+R	E5	dna_100m.fusedA	3	arena_peak	8.388608	MB	peak native buffers charged to the ArenaBudget (cap 64 MiB), live at the end 0
+R	E5	dna_100m.fusedA	3	max_lcp	25	symbols	largest LCP value
+R	E5	dna_100m.fusedA	3	stack_peak	18	entries	peak height of the forward stack (<= 1 + max LCP = 26); 0.00 MB at 16 B per entry
+R	E5	dna_100m.fusedA	3	spill_written	0	bytes	forward stack: 0 blocks written, 0 read back (0 bytes), 0 clean evictions, 0 fsyncs; peak file 0 bytes
+R	E5	dna_100m.fusedA	3	spill_expected	416	bytes	16 B x (max LCP + 1); spill_written / expected = 0.000000; difference 26 entries = 0.00 blocks of 262144
+R	E5	dna_100m.fusedA	3	child_windows	400	n	CHILD: 400 windows mapped (382 distinct, 18 mapped again after release), 392 evictions, 400 flushes covering 418874372 bytes, 100000000 writes (1.000 per rank)
+R	E5	dna_100m.fusedA	3	io_explicit_read	2400000004	bytes	24.000 B/char: the LCP file(s) (forward and backward) and the spill read-back (3008 calls)
+R	E5	dna_100m.fusedA	3	io_explicit_write	2000000000	bytes	20.000 B/char: the spill file(s) (61502 calls) plus the PH4 tuple files
+R	E5	dna_100m.fusedA	3	blocklayer_read	425582592	bytes	/proc/self/io read_bytes (page-cache misses)
+R	E5	dna_100m.fusedA	3	blocklayer_write	2503860224	bytes	/proc/self/io write_bytes: bytes of pages that went from clean to dirty (every re-dirtying of a flushed page counts again)
+R	E5	dna_100m.fusedA	3	output_bytes	400000004	bytes	4.000 B/char: CHILD (4 B/char) for layout A, PSV + NSV (8 B/char) for layout F
+R	E5	dna_100m.fusedA	3	wa_dirtied	1.009651	x	write amplification, definition 1: (write_bytes of /proc/self/io - the spill bytes written 0 - the PH4 explicit writes and its mapped LCP output) / final size of the output files; 1.0 = every page was dirtied once; the device-level definition 2 is taken by the run script (sectors written by the block device after sync)
+R	E5	dna_100m.fusedA	3	dirty_peak	1201.225728	MB	max /proc/meminfo Dirty minus the baseline (0.07 MB, median of 5 samples before the start) over 385 samples at 20 ms; absolute max 1201.30 MB; gate G3 <= 64 MB
+R	E5	dna_100m.fusedA	3	dirty_mean	693.515485	MB	mean of Dirty minus the baseline over the run
+R	E5	dna_100m.fusedA	3	dirty_peak_after_mark	0.90112	MB	max Dirty after the PH5 start minus Dirty at that moment (800.43 MB)
+R	E5	dna_100m.fusedA	3	writeback_peak	1.048576	MB	max /proc/meminfo Writeback
+R	E5	dna_100m.fusedA	3	proc_dirty_peak	9.437184	MB	max Private_Dirty + Shared_Dirty of the mappings of /proc/self/smaps whose path is an output file of this run: the dirty pages this process has mapped in them (the per-process view; anonymous memory is not in it)
+R	E5	dna_100m.fusedA	3	node_count	162149501	n	NODE_COUNT = 1 + I + n + 1 with I = 62149499 internal nodes
+R	E5	dna_100m.fusedA	3	lrs	25	symbols	LRS_DEPTH 25, LRS_RANK 14863022
+R	E5	dna_100m.fusedA	3	ext_rssanon_peak	50.950	MB	independent sampler: max RssAnon of /proc/<pid>/status over 395 samples at 20 ms
+R	E5	dna_100m.fusedA	3	ext_dirty_peak	1201.295	MB	independent sampler: max /proc/meminfo Dirty minus the baseline (0.00 MB, median of 5 samples before the start); gate G3 <= 64 MB; absolute max 1201.30 MB
+R	E5	dna_100m.fusedA	3	ext_dirty_mean	676.066	MB	independent sampler: mean of Dirty minus the baseline
+R	E5	dna_100m.fusedA	3	ext_writeback_peak	1.049	MB	independent sampler: max /proc/meminfo Writeback
+R	E5	dna_100m.fusedA	3	device_write_bytes	504664064	bytes	sectors written by vda during the run and the sync that follows it (512 B each; includes the spill file, journal, everything)
+R	E5	dna_100m.fusedF	3	n	100000000	symbols	b=2 bits, layout=f, codec=Tagged, fused with PH4=True
+R	E5	dna_100m.fusedF	3	parameters	parallel NSV=False block=262144 entries (4096 KiB) window=1048576 slots=8 flush windows=True spill flush=16777216 read=1048576 spill dir=scratch		entry 16 B (l, lb, first, last); two blocks in RAM
+R	E5	dna_100m.fusedF	3	ph4_parameters	R=266667 P=375 threads=4 B2 workers=2 arena cap 160 MiB		PH4 base mode; the scan is the consumer of its B3 hook
+R	E5	dna_100m.fusedF	3	ph5_s	9.598397	s	wall of PH4 + PH5 fused (ph5_scan_s is the share inside the hook), plus the NSV pass
+R	E5	dna_100m.fusedF	3	forward_s	7.181407	s	PH4 with the hook (PH4 + forward scan)
+R	E5	dna_100m.fusedF	3	scan_s	2.065738	s	time inside Consume + Complete of the forward scan (without reading the LCP)
+R	E5	dna_100m.fusedF	3	scan_ns_per_entry	20.657379	ns	scan_s / (n + 1)
+R	E5	dna_100m.fusedF	3	forward_ns_per_entry	71.814067	ns	forward_s / (n + 1)
+R	E5	dna_100m.fusedF	3	nsv_s	2.409149	s	backward scan of the LCP file: NSV written in descending rank order
+R	E5	dna_100m.fusedF	3	nsv_ns_per_entry	24.091493	ns	nsv_s / (n + 1)
+R	E5	dna_100m.fusedF	3	fsync_s	0.000254	s	flush of the output files after the run
+R	E5	dna_100m.fusedF	3	ph4_width	U8		PH4 in the same process: B1 1.21 s, B2 3.21 s, B3 2.75 s (B3 contains the scan)
+R	E5	dna_100m.fusedF	3	rssanon_peak	51.027968	MB	max RssAnon of 961 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 11)
+R	E5	dna_100m.fusedF	3	rssfile_peak	56.594432	MB	mapped file pages resident (windows, text): reported, not counted
+R	E5	dna_100m.fusedF	3	vmhwm	107.610112	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E5	dna_100m.fusedF	3	gc_heap	6.378248	MB	managed heap at the end (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 3/1/1
+R	E5	dna_100m.fusedF	3	arena_peak	12.582912	MB	peak native buffers charged to the ArenaBudget (cap 64 MiB), live at the end 0
+R	E5	dna_100m.fusedF	3	max_lcp	25	symbols	largest LCP value
+R	E5	dna_100m.fusedF	3	stack_peak	18	entries	peak height of the forward stack (<= 1 + max LCP = 26); 0.00 MB at 16 B per entry
+R	E5	dna_100m.fusedF	3	nsv_stack_peak	17	entries	peak height of the NSV stack (8 B per entry): 0.00 MB
+R	E5	dna_100m.fusedF	3	spill_written	0	bytes	forward stack: 0 blocks written, 0 read back (0 bytes), 0 clean evictions, 0 fsyncs; peak file 0 bytes
+R	E5	dna_100m.fusedF	3	spill_expected	416	bytes	16 B x (max LCP + 1); spill_written / expected = 0.000000; difference 26 entries = 0.00 blocks of 262144
+R	E5	dna_100m.fusedF	3	nsv_spill_written	0	bytes	NSV stack: 0 blocks written, 0 read back; expected 8 B x (max LCP + 1) = 208
+R	E5	dna_100m.fusedF	3	psv_windows	382	n	PSV: 382 windows (0 again), 382 flushes
+R	E5	dna_100m.fusedF	3	nsv_windows	382	n	NSV: 382 windows (0 again), 382 flushes
+R	E5	dna_100m.fusedF	3	io_explicit_read	2500000005	bytes	25.000 B/char: the LCP file(s) (forward and backward) and the spill read-back (3104 calls)
+R	E5	dna_100m.fusedF	3	io_explicit_write	2000000000	bytes	20.000 B/char: the spill file(s) (61716 calls) plus the PH4 tuple files
+R	E5	dna_100m.fusedF	3	blocklayer_read	425598976	bytes	/proc/self/io read_bytes (page-cache misses)
+R	E5	dna_100m.fusedF	3	blocklayer_write	2901762048	bytes	/proc/self/io write_bytes: bytes of pages that went from clean to dirty (every re-dirtying of a flushed page counts again)
+R	E5	dna_100m.fusedF	3	output_bytes	800000008	bytes	8.000 B/char: CHILD (4 B/char) for layout A, PSV + NSV (8 B/char) for layout F
+R	E5	dna_100m.fusedF	3	wa_dirtied	1.002203	x	write amplification, definition 1: (write_bytes of /proc/self/io - the spill bytes written 0 - the PH4 explicit writes and its mapped LCP output) / final size of the output files; 1.0 = every page was dirtied once; the device-level definition 2 is taken by the run script (sectors written by the block device after sync)
+R	E5	dna_100m.fusedF	3	dirty_peak	1201.369088	MB	max /proc/meminfo Dirty minus the baseline (0.00 MB, median of 5 samples before the start) over 480 samples at 20 ms; absolute max 1201.37 MB; gate G3 <= 64 MB
+R	E5	dna_100m.fusedF	3	dirty_mean	525.65149	MB	mean of Dirty minus the baseline over the run
+R	E5	dna_100m.fusedF	3	dirty_peak_after_mark	5.595136	MB	max Dirty after the PH5 start minus Dirty at that moment (794.75 MB)
+R	E5	dna_100m.fusedF	3	writeback_peak	1.069056	MB	max /proc/meminfo Writeback
+R	E5	dna_100m.fusedF	3	proc_dirty_peak	3.145728	MB	max Private_Dirty + Shared_Dirty of the mappings of /proc/self/smaps whose path is an output file of this run: the dirty pages this process has mapped in them (the per-process view; anonymous memory is not in it)
+R	E5	dna_100m.fusedF	3	node_count	162149501	n	NODE_COUNT = 1 + I + n + 1 with I = 62149499 internal nodes
+R	E5	dna_100m.fusedF	3	lrs	25	symbols	LRS_DEPTH 25, LRS_RANK 14863022
+R	E5	dna_100m.fusedF	3	ext_rssanon_peak	51.028	MB	independent sampler: max RssAnon of /proc/<pid>/status over 488 samples at 20 ms
+R	E5	dna_100m.fusedF	3	ext_dirty_peak	1201.369	MB	independent sampler: max /proc/meminfo Dirty minus the baseline (0.00 MB, median of 5 samples before the start); gate G3 <= 64 MB; absolute max 1201.37 MB
+R	E5	dna_100m.fusedF	3	ext_dirty_mean	517.196	MB	independent sampler: mean of Dirty minus the baseline
+R	E5	dna_100m.fusedF	3	ext_writeback_peak	1.049	MB	independent sampler: max /proc/meminfo Writeback
+R	E5	dna_100m.fusedF	3	device_write_bytes	905383936	bytes	sectors written by vda during the run and the sync that follows it (512 B each; includes the spill file, journal, everything)
+R	E5	genome_100m.oracle	oracle_child_s	3.516307	s	in-RAM ChildTable.Build, tagged and packed, n=100000000, LCP kind U8, overflow entries 1390028
+R	E5	genome_100m.oracle	oracle_smaller_s	4.817773	s	PSV and NSV of every rank from the LcpPyramid (fanout 32)
+R	E5	genome_100m.oracle	oracle_stats	166050648	n	NODE_COUNT 166050648, internal 66050646, LRS_DEPTH 499999, LRS_RANK 75208039, in-RAM stack peak 500000
+R	E5	genome_100m.fusedA	1	n	100000000	symbols	b=3 bits, layout=a, codec=Tagged, fused with PH4=True
+R	E5	genome_100m.fusedA	1	parameters	parallel NSV=False block=262144 entries (4096 KiB) window=1048576 slots=8 flush windows=True spill flush=16777216 read=1048576 spill dir=scratch		entry 16 B (l, lb, first, last); two blocks in RAM
+R	E5	genome_100m.fusedA	1	ph4_parameters	R=266667 P=375 threads=4 B2 workers=2 arena cap 160 MiB		PH4 base mode; the scan is the consumer of its B3 hook
+R	E5	genome_100m.fusedA	1	ph5_s	7.63368	s	wall of PH4 + PH5 fused (ph5_scan_s is the share inside the hook), plus the NSV pass
+R	E5	genome_100m.fusedA	1	forward_s	7.629769	s	PH4 with the hook (PH4 + forward scan)
+R	E5	genome_100m.fusedA	1	scan_s	2.475508	s	time inside Consume + Complete of the forward scan (without reading the LCP)
+R	E5	genome_100m.fusedA	1	scan_ns_per_entry	24.755079	ns	scan_s / (n + 1)
+R	E5	genome_100m.fusedA	1	forward_ns_per_entry	76.297693	ns	forward_s / (n + 1)
+R	E5	genome_100m.fusedA	1	fsync_s	0.000164	s	flush of the output files after the run
+R	E5	genome_100m.fusedA	1	ph4_width	U8		PH4 in the same process: B1 1.13 s, B2 3.21 s, B3 3.27 s (B3 contains the scan)
+R	E5	genome_100m.fusedA	1	rssanon_peak	50.978816	MB	max RssAnon of 763 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 11)
+R	E5	genome_100m.fusedA	1	rssfile_peak	76.51328	MB	mapped file pages resident (windows, text): reported, not counted
+R	E5	genome_100m.fusedA	1	vmhwm	120.123392	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E5	genome_100m.fusedA	1	gc_heap	1.147816	MB	managed heap at the end (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 2/0/0
+R	E5	genome_100m.fusedA	1	arena_peak	8.388608	MB	peak native buffers charged to the ArenaBudget (cap 64 MiB), live at the end 0
+R	E5	genome_100m.fusedA	1	max_lcp	499999	symbols	largest LCP value
+R	E5	genome_100m.fusedA	1	stack_peak	500000	entries	peak height of the forward stack (<= 1 + max LCP = 500000); 8.00 MB at 16 B per entry
+R	E5	genome_100m.fusedA	1	spill_written	0	bytes	forward stack: 0 blocks written, 0 read back (0 bytes), 0 clean evictions, 0 fsyncs; peak file 0 bytes
+R	E5	genome_100m.fusedA	1	spill_expected	8000000	bytes	16 B x (max LCP + 1); spill_written / expected = 0.000000; difference 500000 entries = 1.91 blocks of 262144
+R	E5	genome_100m.fusedA	1	child_windows	399	n	CHILD: 399 windows mapped (382 distinct, 17 mapped again after release), 391 evictions, 399 flushes covering 417825796 bytes, 100000000 writes (1.000 per rank)
+R	E5	genome_100m.fusedA	1	io_explicit_read	2400000004	bytes	24.000 B/char: the LCP file(s) (forward and backward) and the spill read-back (3008 calls)
+R	E5	genome_100m.fusedA	1	io_explicit_write	2000000000	bytes	20.000 B/char: the spill file(s) (61588 calls) plus the PH4 tuple files
+R	E5	genome_100m.fusedA	1	blocklayer_read	438083584	bytes	/proc/self/io read_bytes (page-cache misses)
+R	E5	genome_100m.fusedA	1	blocklayer_write	2514923520	bytes	/proc/self/io write_bytes: bytes of pages that went from clean to dirty (every re-dirtying of a flushed page counts again)
+R	E5	genome_100m.fusedA	1	output_bytes	400000004	bytes	4.000 B/char: CHILD (4 B/char) for layout A, PSV + NSV (8 B/char) for layout F
+R	E5	genome_100m.fusedA	1	wa_dirtied	1.009508	x	write amplification, definition 1: (write_bytes of /proc/self/io - the spill bytes written 0 - the PH4 explicit writes and its mapped LCP output) / final size of the output files; 1.0 = every page was dirtied once; the device-level definition 2 is taken by the run script (sectors written by the block device after sync)
+R	E5	genome_100m.fusedA	1	dirty_peak	1201.577984	MB	max /proc/meminfo Dirty minus the baseline (0.01 MB, median of 5 samples before the start) over 381 samples at 20 ms; absolute max 1201.59 MB; gate G3 <= 64 MB
+R	E5	genome_100m.fusedA	1	dirty_mean	688.132193	MB	mean of Dirty minus the baseline over the run
+R	E5	genome_100m.fusedA	1	dirty_peak_after_mark	4.841472	MB	max Dirty after the PH5 start minus Dirty at that moment (795.76 MB)
+R	E5	genome_100m.fusedA	1	writeback_peak	1.048576	MB	max /proc/meminfo Writeback
+R	E5	genome_100m.fusedA	1	proc_dirty_peak	10.092544	MB	max Private_Dirty + Shared_Dirty of the mappings of /proc/self/smaps whose path is an output file of this run: the dirty pages this process has mapped in them (the per-process view; anonymous memory is not in it)
+R	E5	genome_100m.fusedA	1	node_count	166050648	n	NODE_COUNT = 1 + I + n + 1 with I = 66050646 internal nodes
+R	E5	genome_100m.fusedA	1	lrs	499999	symbols	LRS_DEPTH 499999, LRS_RANK 75208039
+R	E5	genome_100m.fusedA	1	child_equals_oracle	yes		byte-identical to genome_100m.ref.cldT (400000004 bytes)
+R	E5	genome_100m.fusedA	1	stats_equal_oracle	yes		NODE_COUNT 166050648 (oracle 166050648), internal 66050646 (66050646), LRS_DEPTH 499999 (499999), LRS_RANK 75208039 (75208039); in-RAM stack peak 500000
+R	E5	genome_100m.fusedA	1	ext_rssanon_peak	50.979	MB	independent sampler: max RssAnon of /proc/<pid>/status over 401 samples at 20 ms
+R	E5	genome_100m.fusedA	1	ext_dirty_peak	1199.596	MB	independent sampler: max /proc/meminfo Dirty minus the baseline (0.01 MB, median of 5 samples before the start); gate G3 <= 64 MB; absolute max 1199.60 MB
+R	E5	genome_100m.fusedA	1	ext_dirty_mean	653.968	MB	independent sampler: mean of Dirty minus the baseline
+R	E5	genome_100m.fusedA	1	ext_writeback_peak	1.049	MB	independent sampler: max /proc/meminfo Writeback
+R	E5	genome_100m.fusedA	1	device_write_bytes	517255168	bytes	sectors written by vda during the run and the sync that follows it (512 B each; includes the spill file, journal, everything)
+R	E5	genome_100m.fusedF	1	n	100000000	symbols	b=3 bits, layout=f, codec=Tagged, fused with PH4=True
+R	E5	genome_100m.fusedF	1	parameters	parallel NSV=False block=262144 entries (4096 KiB) window=1048576 slots=8 flush windows=True spill flush=16777216 read=1048576 spill dir=scratch		entry 16 B (l, lb, first, last); two blocks in RAM
+R	E5	genome_100m.fusedF	1	ph4_parameters	R=266667 P=375 threads=4 B2 workers=2 arena cap 160 MiB		PH4 base mode; the scan is the consumer of its B3 hook
+R	E5	genome_100m.fusedF	1	ph5_s	9.686447	s	wall of PH4 + PH5 fused (ph5_scan_s is the share inside the hook), plus the NSV pass
+R	E5	genome_100m.fusedF	1	forward_s	7.106031	s	PH4 with the hook (PH4 + forward scan)
+R	E5	genome_100m.fusedF	1	scan_s	2.300757	s	time inside Consume + Complete of the forward scan (without reading the LCP)
+R	E5	genome_100m.fusedF	1	scan_ns_per_entry	23.007567	ns	scan_s / (n + 1)
+R	E5	genome_100m.fusedF	1	forward_ns_per_entry	71.060311	ns	forward_s / (n + 1)
+R	E5	genome_100m.fusedF	1	nsv_s	2.571781	s	backward scan of the LCP file: NSV written in descending rank order
+R	E5	genome_100m.fusedF	1	nsv_ns_per_entry	25.71781	ns	nsv_s / (n + 1)
+R	E5	genome_100m.fusedF	1	fsync_s	0.000238	s	flush of the output files after the run
+R	E5	genome_100m.fusedF	1	ph4_width	U8		PH4 in the same process: B1 0.96 s, B2 3.03 s, B3 3.11 s (B3 contains the scan)
+R	E5	genome_100m.fusedF	1	rssanon_peak	51.089408	MB	max RssAnon of 970 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 11)
+R	E5	genome_100m.fusedF	1	rssfile_peak	70.279168	MB	mapped file pages resident (windows, text): reported, not counted
+R	E5	genome_100m.fusedF	1	vmhwm	120.303616	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E5	genome_100m.fusedF	1	gc_heap	6.38164	MB	managed heap at the end (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 3/1/1
+R	E5	genome_100m.fusedF	1	arena_peak	12.582912	MB	peak native buffers charged to the ArenaBudget (cap 64 MiB), live at the end 0
+R	E5	genome_100m.fusedF	1	max_lcp	499999	symbols	largest LCP value
+R	E5	genome_100m.fusedF	1	stack_peak	500000	entries	peak height of the forward stack (<= 1 + max LCP = 500000); 8.00 MB at 16 B per entry
+R	E5	genome_100m.fusedF	1	nsv_stack_peak	97	entries	peak height of the NSV stack (8 B per entry): 0.00 MB
+R	E5	genome_100m.fusedF	1	spill_written	0	bytes	forward stack: 0 blocks written, 0 read back (0 bytes), 0 clean evictions, 0 fsyncs; peak file 0 bytes
+R	E5	genome_100m.fusedF	1	spill_expected	8000000	bytes	16 B x (max LCP + 1); spill_written / expected = 0.000000; difference 500000 entries = 1.91 blocks of 262144
+R	E5	genome_100m.fusedF	1	nsv_spill_written	0	bytes	NSV stack: 0 blocks written, 0 read back; expected 8 B x (max LCP + 1) = 4000000
+R	E5	genome_100m.fusedF	1	psv_windows	382	n	PSV: 382 windows (0 again), 382 flushes
+R	E5	genome_100m.fusedF	1	nsv_windows	382	n	NSV: 382 windows (0 again), 382 flushes
+R	E5	genome_100m.fusedF	1	io_explicit_read	2511534341	bytes	25.115 B/char: the LCP file(s) (forward and backward) and the spill read-back (3115 calls)
+R	E5	genome_100m.fusedF	1	io_explicit_write	2000000000	bytes	20.000 B/char: the spill file(s) (61663 calls) plus the PH4 tuple files
+R	E5	genome_100m.fusedF	1	blocklayer_read	438099968	bytes	/proc/self/io read_bytes (page-cache misses)
+R	E5	genome_100m.fusedF	1	blocklayer_write	2913226752	bytes	/proc/self/io write_bytes: bytes of pages that went from clean to dirty (every re-dirtying of a flushed page counts again)
+R	E5	genome_100m.fusedF	1	output_bytes	800000008	bytes	8.000 B/char: CHILD (4 B/char) for layout A, PSV + NSV (8 B/char) for layout F
+R	E5	genome_100m.fusedF	1	wa_dirtied	1.002633	x	write amplification, definition 1: (write_bytes of /proc/self/io - the spill bytes written 0 - the PH4 explicit writes and its mapped LCP output) / final size of the output files; 1.0 = every page was dirtied once; the device-level definition 2 is taken by the run script (sectors written by the block device after sync)
+R	E5	genome_100m.fusedF	1	dirty_peak	1198.436352	MB	max /proc/meminfo Dirty minus the baseline (0.08 MB, median of 5 samples before the start) over 484 samples at 20 ms; absolute max 1198.51 MB; gate G3 <= 64 MB
+R	E5	genome_100m.fusedF	1	dirty_mean	502.987971	MB	mean of Dirty minus the baseline over the run
+R	E5	genome_100m.fusedF	1	dirty_peak_after_mark	1.073152	MB	max Dirty after the PH5 start minus Dirty at that moment (800.74 MB)
+R	E5	genome_100m.fusedF	1	writeback_peak	1.048576	MB	max /proc/meminfo Writeback
+R	E5	genome_100m.fusedF	1	proc_dirty_peak	3.93216	MB	max Private_Dirty + Shared_Dirty of the mappings of /proc/self/smaps whose path is an output file of this run: the dirty pages this process has mapped in them (the per-process view; anonymous memory is not in it)
+R	E5	genome_100m.fusedF	1	node_count	166050648	n	NODE_COUNT = 1 + I + n + 1 with I = 66050646 internal nodes
+R	E5	genome_100m.fusedF	1	lrs	499999	symbols	LRS_DEPTH 499999, LRS_RANK 75208039
+R	E5	genome_100m.fusedF	1	psv_equals_oracle	yes		byte-identical to genome_100m.ref.psv (400000004 bytes)
+R	E5	genome_100m.fusedF	1	nsv_equals_oracle	yes		byte-identical to genome_100m.ref.nsv (400000004 bytes)
+R	E5	genome_100m.fusedF	1	stats_equal_oracle	yes		NODE_COUNT 166050648 (oracle 166050648), internal 66050646 (66050646), LRS_DEPTH 499999 (499999), LRS_RANK 75208039 (75208039); in-RAM stack peak 500000
+R	E5	genome_100m.fusedF	1	ext_rssanon_peak	51.089	MB	independent sampler: max RssAnon of /proc/<pid>/status over 512 samples at 20 ms
+R	E5	genome_100m.fusedF	1	ext_dirty_peak	1198.514	MB	independent sampler: max /proc/meminfo Dirty minus the baseline (0.00 MB, median of 5 samples before the start); gate G3 <= 64 MB; absolute max 1198.51 MB
+R	E5	genome_100m.fusedF	1	ext_dirty_mean	475.540	MB	independent sampler: mean of Dirty minus the baseline
+R	E5	genome_100m.fusedF	1	ext_writeback_peak	1.049	MB	independent sampler: max /proc/meminfo Writeback
+R	E5	genome_100m.fusedF	1	device_write_bytes	918466560	bytes	sectors written by vda during the run and the sync that follows it (512 B each; includes the spill file, journal, everything)
+R	E5	genome_100m.fusedA	2	n	100000000	symbols	b=3 bits, layout=a, codec=Tagged, fused with PH4=True
+R	E5	genome_100m.fusedA	2	parameters	parallel NSV=False block=262144 entries (4096 KiB) window=1048576 slots=8 flush windows=True spill flush=16777216 read=1048576 spill dir=scratch		entry 16 B (l, lb, first, last); two blocks in RAM
+R	E5	genome_100m.fusedA	2	ph4_parameters	R=266667 P=375 threads=4 B2 workers=2 arena cap 160 MiB		PH4 base mode; the scan is the consumer of its B3 hook
+R	E5	genome_100m.fusedA	2	ph5_s	7.521265	s	wall of PH4 + PH5 fused (ph5_scan_s is the share inside the hook), plus the NSV pass
+R	E5	genome_100m.fusedA	2	forward_s	7.517434	s	PH4 with the hook (PH4 + forward scan)
+R	E5	genome_100m.fusedA	2	scan_s	2.375626	s	time inside Consume + Complete of the forward scan (without reading the LCP)
+R	E5	genome_100m.fusedA	2	scan_ns_per_entry	23.756262	ns	scan_s / (n + 1)
+R	E5	genome_100m.fusedA	2	forward_ns_per_entry	75.174335	ns	forward_s / (n + 1)
+R	E5	genome_100m.fusedA	2	fsync_s	0.000136	s	flush of the output files after the run
+R	E5	genome_100m.fusedA	2	ph4_width	U8		PH4 in the same process: B1 1.24 s, B2 3.15 s, B3 3.11 s (B3 contains the scan)
+R	E5	genome_100m.fusedA	2	rssanon_peak	51.044352	MB	max RssAnon of 754 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 11)
+R	E5	genome_100m.fusedA	2	rssfile_peak	76.464128	MB	mapped file pages resident (windows, text): reported, not counted
+R	E5	genome_100m.fusedA	2	vmhwm	120.15616	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E5	genome_100m.fusedA	2	gc_heap	1.147976	MB	managed heap at the end (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 2/0/0
+R	E5	genome_100m.fusedA	2	arena_peak	8.388608	MB	peak native buffers charged to the ArenaBudget (cap 64 MiB), live at the end 0
+R	E5	genome_100m.fusedA	2	max_lcp	499999	symbols	largest LCP value
+R	E5	genome_100m.fusedA	2	stack_peak	500000	entries	peak height of the forward stack (<= 1 + max LCP = 500000); 8.00 MB at 16 B per entry
+R	E5	genome_100m.fusedA	2	spill_written	0	bytes	forward stack: 0 blocks written, 0 read back (0 bytes), 0 clean evictions, 0 fsyncs; peak file 0 bytes
+R	E5	genome_100m.fusedA	2	spill_expected	8000000	bytes	16 B x (max LCP + 1); spill_written / expected = 0.000000; difference 500000 entries = 1.91 blocks of 262144
+R	E5	genome_100m.fusedA	2	child_windows	399	n	CHILD: 399 windows mapped (382 distinct, 17 mapped again after release), 391 evictions, 399 flushes covering 417825796 bytes, 100000000 writes (1.000 per rank)
+R	E5	genome_100m.fusedA	2	io_explicit_read	2400000004	bytes	24.000 B/char: the LCP file(s) (forward and backward) and the spill read-back (3008 calls)
+R	E5	genome_100m.fusedA	2	io_explicit_write	2000000000	bytes	20.000 B/char: the spill file(s) (61500 calls) plus the PH4 tuple files
+R	E5	genome_100m.fusedA	2	blocklayer_read	438087680	bytes	/proc/self/io read_bytes (page-cache misses)
+R	E5	genome_100m.fusedA	2	blocklayer_write	2515156992	bytes	/proc/self/io write_bytes: bytes of pages that went from clean to dirty (every re-dirtying of a flushed page counts again)
+R	E5	genome_100m.fusedA	2	output_bytes	400000004	bytes	4.000 B/char: CHILD (4 B/char) for layout A, PSV + NSV (8 B/char) for layout F
+R	E5	genome_100m.fusedA	2	wa_dirtied	1.010092	x	write amplification, definition 1: (write_bytes of /proc/self/io - the spill bytes written 0 - the PH4 explicit writes and its mapped LCP output) / final size of the output files; 1.0 = every page was dirtied once; the device-level definition 2 is taken by the run script (sectors written by the block device after sync)
+R	E5	genome_100m.fusedA	2	dirty_peak	1201.729536	MB	max /proc/meminfo Dirty minus the baseline (0.04 MB, median of 5 samples before the start) over 376 samples at 20 ms; absolute max 1201.77 MB; gate G3 <= 64 MB
+R	E5	genome_100m.fusedA	2	dirty_mean	700.263391	MB	mean of Dirty minus the baseline over the run
+R	E5	genome_100m.fusedA	2	dirty_peak_after_mark	0	MB	max Dirty after the PH5 start minus Dirty at that moment (801.04 MB)
+R	E5	genome_100m.fusedA	2	writeback_peak	1.048576	MB	max /proc/meminfo Writeback
+R	E5	genome_100m.fusedA	2	proc_dirty_peak	9.961472	MB	max Private_Dirty + Shared_Dirty of the mappings of /proc/self/smaps whose path is an output file of this run: the dirty pages this process has mapped in them (the per-process view; anonymous memory is not in it)
+R	E5	genome_100m.fusedA	2	node_count	166050648	n	NODE_COUNT = 1 + I + n + 1 with I = 66050646 internal nodes
+R	E5	genome_100m.fusedA	2	lrs	499999	symbols	LRS_DEPTH 499999, LRS_RANK 75208039
+R	E5	genome_100m.fusedA	2	ext_rssanon_peak	51.044	MB	independent sampler: max RssAnon of /proc/<pid>/status over 384 samples at 20 ms
+R	E5	genome_100m.fusedA	2	ext_dirty_peak	1201.840	MB	independent sampler: max /proc/meminfo Dirty minus the baseline (0.00 MB, median of 5 samples before the start); gate G3 <= 64 MB; absolute max 1201.84 MB
+R	E5	genome_100m.fusedA	2	ext_dirty_mean	685.517	MB	independent sampler: mean of Dirty minus the baseline
+R	E5	genome_100m.fusedA	2	ext_writeback_peak	1.049	MB	independent sampler: max /proc/meminfo Writeback
+R	E5	genome_100m.fusedA	2	device_write_bytes	516116480	bytes	sectors written by vda during the run and the sync that follows it (512 B each; includes the spill file, journal, everything)
+R	E5	genome_100m.fusedF	2	n	100000000	symbols	b=3 bits, layout=f, codec=Tagged, fused with PH4=True
+R	E5	genome_100m.fusedF	2	parameters	parallel NSV=False block=262144 entries (4096 KiB) window=1048576 slots=8 flush windows=True spill flush=16777216 read=1048576 spill dir=scratch		entry 16 B (l, lb, first, last); two blocks in RAM
+R	E5	genome_100m.fusedF	2	ph4_parameters	R=266667 P=375 threads=4 B2 workers=2 arena cap 160 MiB		PH4 base mode; the scan is the consumer of its B3 hook
+R	E5	genome_100m.fusedF	2	ph5_s	9.650226	s	wall of PH4 + PH5 fused (ph5_scan_s is the share inside the hook), plus the NSV pass
+R	E5	genome_100m.fusedF	2	forward_s	7.024592	s	PH4 with the hook (PH4 + forward scan)
+R	E5	genome_100m.fusedF	2	scan_s	2.229292	s	time inside Consume + Complete of the forward scan (without reading the LCP)
+R	E5	genome_100m.fusedF	2	scan_ns_per_entry	22.292917	ns	scan_s / (n + 1)
+R	E5	genome_100m.fusedF	2	forward_ns_per_entry	70.245923	ns	forward_s / (n + 1)
+R	E5	genome_100m.fusedF	2	nsv_s	2.617669	s	backward scan of the LCP file: NSV written in descending rank order
+R	E5	genome_100m.fusedF	2	nsv_ns_per_entry	26.176694	ns	nsv_s / (n + 1)
+R	E5	genome_100m.fusedF	2	fsync_s	0.000259	s	flush of the output files after the run
+R	E5	genome_100m.fusedF	2	ph4_width	U8		PH4 in the same process: B1 0.85 s, B2 3.18 s, B3 2.99 s (B3 contains the scan)
+R	E5	genome_100m.fusedF	2	rssanon_peak	50.925568	MB	max RssAnon of 967 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 11)
+R	E5	genome_100m.fusedF	2	rssfile_peak	70.28736	MB	mapped file pages resident (windows, text): reported, not counted
+R	E5	genome_100m.fusedF	2	vmhwm	120.139776	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E5	genome_100m.fusedF	2	gc_heap	6.378376	MB	managed heap at the end (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 3/1/1
+R	E5	genome_100m.fusedF	2	arena_peak	12.582912	MB	peak native buffers charged to the ArenaBudget (cap 64 MiB), live at the end 0
+R	E5	genome_100m.fusedF	2	max_lcp	499999	symbols	largest LCP value
+R	E5	genome_100m.fusedF	2	stack_peak	500000	entries	peak height of the forward stack (<= 1 + max LCP = 500000); 8.00 MB at 16 B per entry
+R	E5	genome_100m.fusedF	2	nsv_stack_peak	97	entries	peak height of the NSV stack (8 B per entry): 0.00 MB
+R	E5	genome_100m.fusedF	2	spill_written	0	bytes	forward stack: 0 blocks written, 0 read back (0 bytes), 0 clean evictions, 0 fsyncs; peak file 0 bytes
+R	E5	genome_100m.fusedF	2	spill_expected	8000000	bytes	16 B x (max LCP + 1); spill_written / expected = 0.000000; difference 500000 entries = 1.91 blocks of 262144
+R	E5	genome_100m.fusedF	2	nsv_spill_written	0	bytes	NSV stack: 0 blocks written, 0 read back; expected 8 B x (max LCP + 1) = 4000000
+R	E5	genome_100m.fusedF	2	psv_windows	382	n	PSV: 382 windows (0 again), 382 flushes
+R	E5	genome_100m.fusedF	2	nsv_windows	382	n	NSV: 382 windows (0 again), 382 flushes
+R	E5	genome_100m.fusedF	2	io_explicit_read	2511534341	bytes	25.115 B/char: the LCP file(s) (forward and backward) and the spill read-back (3115 calls)
+R	E5	genome_100m.fusedF	2	io_explicit_write	2000000000	bytes	20.000 B/char: the spill file(s) (61520 calls) plus the PH4 tuple files
+R	E5	genome_100m.fusedF	2	blocklayer_read	438099968	bytes	/proc/self/io read_bytes (page-cache misses)
+R	E5	genome_100m.fusedF	2	blocklayer_write	2913411072	bytes	/proc/self/io write_bytes: bytes of pages that went from clean to dirty (every re-dirtying of a flushed page counts again)
+R	E5	genome_100m.fusedF	2	output_bytes	800000008	bytes	8.000 B/char: CHILD (4 B/char) for layout A, PSV + NSV (8 B/char) for layout F
+R	E5	genome_100m.fusedF	2	wa_dirtied	1.002864	x	write amplification, definition 1: (write_bytes of /proc/self/io - the spill bytes written 0 - the PH4 explicit writes and its mapped LCP output) / final size of the output files; 1.0 = every page was dirtied once; the device-level definition 2 is taken by the run script (sectors written by the block device after sync)
+R	E5	genome_100m.fusedF	2	dirty_peak	1201.655808	MB	max /proc/meminfo Dirty minus the baseline (0.07 MB, median of 5 samples before the start) over 483 samples at 20 ms; absolute max 1201.73 MB; gate G3 <= 64 MB
+R	E5	genome_100m.fusedF	2	dirty_mean	510.185311	MB	mean of Dirty minus the baseline over the run
+R	E5	genome_100m.fusedF	2	dirty_peak_after_mark	1.171456	MB	max Dirty after the PH5 start minus Dirty at that moment (801.05 MB)
+R	E5	genome_100m.fusedF	2	writeback_peak	1.16736	MB	max /proc/meminfo Writeback
+R	E5	genome_100m.fusedF	2	proc_dirty_peak	3.997696	MB	max Private_Dirty + Shared_Dirty of the mappings of /proc/self/smaps whose path is an output file of this run: the dirty pages this process has mapped in them (the per-process view; anonymous memory is not in it)
+R	E5	genome_100m.fusedF	2	node_count	166050648	n	NODE_COUNT = 1 + I + n + 1 with I = 66050646 internal nodes
+R	E5	genome_100m.fusedF	2	lrs	499999	symbols	LRS_DEPTH 499999, LRS_RANK 75208039
+R	E5	genome_100m.fusedF	2	ext_rssanon_peak	50.926	MB	independent sampler: max RssAnon of /proc/<pid>/status over 490 samples at 20 ms
+R	E5	genome_100m.fusedF	2	ext_dirty_peak	1201.725	MB	independent sampler: max /proc/meminfo Dirty minus the baseline (0.00 MB, median of 5 samples before the start); gate G3 <= 64 MB; absolute max 1201.73 MB
+R	E5	genome_100m.fusedF	2	ext_dirty_mean	502.978	MB	independent sampler: mean of Dirty minus the baseline
+R	E5	genome_100m.fusedF	2	ext_writeback_peak	1.049	MB	independent sampler: max /proc/meminfo Writeback
+R	E5	genome_100m.fusedF	2	device_write_bytes	918593536	bytes	sectors written by vda during the run and the sync that follows it (512 B each; includes the spill file, journal, everything)
+R	E5	genome_100m.fusedA	3	n	100000000	symbols	b=3 bits, layout=a, codec=Tagged, fused with PH4=True
+R	E5	genome_100m.fusedA	3	parameters	parallel NSV=False block=262144 entries (4096 KiB) window=1048576 slots=8 flush windows=True spill flush=16777216 read=1048576 spill dir=scratch		entry 16 B (l, lb, first, last); two blocks in RAM
+R	E5	genome_100m.fusedA	3	ph4_parameters	R=266667 P=375 threads=4 B2 workers=2 arena cap 160 MiB		PH4 base mode; the scan is the consumer of its B3 hook
+R	E5	genome_100m.fusedA	3	ph5_s	7.045502	s	wall of PH4 + PH5 fused (ph5_scan_s is the share inside the hook), plus the NSV pass
+R	E5	genome_100m.fusedA	3	forward_s	7.042413	s	PH4 with the hook (PH4 + forward scan)
+R	E5	genome_100m.fusedA	3	scan_s	2.340549	s	time inside Consume + Complete of the forward scan (without reading the LCP)
+R	E5	genome_100m.fusedA	3	scan_ns_per_entry	23.405492	ns	scan_s / (n + 1)
+R	E5	genome_100m.fusedA	3	forward_ns_per_entry	70.42413	ns	forward_s / (n + 1)
+R	E5	genome_100m.fusedA	3	fsync_s	0.000106	s	flush of the output files after the run
+R	E5	genome_100m.fusedA	3	ph4_width	U8		PH4 in the same process: B1 0.87 s, B2 3.14 s, B3 3.02 s (B3 contains the scan)
+R	E5	genome_100m.fusedA	3	rssanon_peak	50.978816	MB	max RssAnon of 706 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 11)
+R	E5	genome_100m.fusedA	3	rssfile_peak	76.443648	MB	mapped file pages resident (windows, text): reported, not counted
+R	E5	genome_100m.fusedA	3	vmhwm	120.066048	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E5	genome_100m.fusedA	3	gc_heap	1.147592	MB	managed heap at the end (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 2/0/0
+R	E5	genome_100m.fusedA	3	arena_peak	8.388608	MB	peak native buffers charged to the ArenaBudget (cap 64 MiB), live at the end 0
+R	E5	genome_100m.fusedA	3	max_lcp	499999	symbols	largest LCP value
+R	E5	genome_100m.fusedA	3	stack_peak	500000	entries	peak height of the forward stack (<= 1 + max LCP = 500000); 8.00 MB at 16 B per entry
+R	E5	genome_100m.fusedA	3	spill_written	0	bytes	forward stack: 0 blocks written, 0 read back (0 bytes), 0 clean evictions, 0 fsyncs; peak file 0 bytes
+R	E5	genome_100m.fusedA	3	spill_expected	8000000	bytes	16 B x (max LCP + 1); spill_written / expected = 0.000000; difference 500000 entries = 1.91 blocks of 262144
+R	E5	genome_100m.fusedA	3	child_windows	399	n	CHILD: 399 windows mapped (382 distinct, 17 mapped again after release), 391 evictions, 399 flushes covering 417825796 bytes, 100000000 writes (1.000 per rank)
+R	E5	genome_100m.fusedA	3	io_explicit_read	2400000004	bytes	24.000 B/char: the LCP file(s) (forward and backward) and the spill read-back (3008 calls)
+R	E5	genome_100m.fusedA	3	io_explicit_write	2000000000	bytes	20.000 B/char: the spill file(s) (61556 calls) plus the PH4 tuple files
+R	E5	genome_100m.fusedA	3	blocklayer_read	438083584	bytes	/proc/self/io read_bytes (page-cache misses)
+R	E5	genome_100m.fusedA	3	blocklayer_write	2515300352	bytes	/proc/self/io write_bytes: bytes of pages that went from clean to dirty (every re-dirtying of a flushed page counts again)
+R	E5	genome_100m.fusedA	3	output_bytes	400000004	bytes	4.000 B/char: CHILD (4 B/char) for layout A, PSV + NSV (8 B/char) for layout F
+R	E5	genome_100m.fusedA	3	wa_dirtied	1.01045	x	write amplification, definition 1: (write_bytes of /proc/self/io - the spill bytes written 0 - the PH4 explicit writes and its mapped LCP output) / final size of the output files; 1.0 = every page was dirtied once; the device-level definition 2 is taken by the run script (sectors written by the block device after sync)
+R	E5	genome_100m.fusedA	3	dirty_peak	1201.713152	MB	max /proc/meminfo Dirty minus the baseline (0.07 MB, median of 5 samples before the start) over 352 samples at 20 ms; absolute max 1201.78 MB; gate G3 <= 64 MB
+R	E5	genome_100m.fusedA	3	dirty_mean	705.557737	MB	mean of Dirty minus the baseline over the run
+R	E5	genome_100m.fusedA	3	dirty_peak_after_mark	0.233472	MB	max Dirty after the PH5 start minus Dirty at that moment (801.12 MB)
+R	E5	genome_100m.fusedA	3	writeback_peak	1.048576	MB	max /proc/meminfo Writeback
+R	E5	genome_100m.fusedA	3	proc_dirty_peak	10.354688	MB	max Private_Dirty + Shared_Dirty of the mappings of /proc/self/smaps whose path is an output file of this run: the dirty pages this process has mapped in them (the per-process view; anonymous memory is not in it)
+R	E5	genome_100m.fusedA	3	node_count	166050648	n	NODE_COUNT = 1 + I + n + 1 with I = 66050646 internal nodes
+R	E5	genome_100m.fusedA	3	lrs	499999	symbols	LRS_DEPTH 499999, LRS_RANK 75208039
+R	E5	genome_100m.fusedA	3	ext_rssanon_peak	50.979	MB	independent sampler: max RssAnon of /proc/<pid>/status over 360 samples at 20 ms
+R	E5	genome_100m.fusedA	3	ext_dirty_peak	1201.783	MB	independent sampler: max /proc/meminfo Dirty minus the baseline (0.00 MB, median of 5 samples before the start); gate G3 <= 64 MB; absolute max 1201.78 MB
+R	E5	genome_100m.fusedA	3	ext_dirty_mean	689.816	MB	independent sampler: mean of Dirty minus the baseline
+R	E5	genome_100m.fusedA	3	ext_writeback_peak	1.049	MB	independent sampler: max /proc/meminfo Writeback
+R	E5	genome_100m.fusedA	3	device_write_bytes	517488640	bytes	sectors written by vda during the run and the sync that follows it (512 B each; includes the spill file, journal, everything)
+R	E5	genome_100m.fusedF	3	n	100000000	symbols	b=3 bits, layout=f, codec=Tagged, fused with PH4=True
+R	E5	genome_100m.fusedF	3	parameters	parallel NSV=False block=262144 entries (4096 KiB) window=1048576 slots=8 flush windows=True spill flush=16777216 read=1048576 spill dir=scratch		entry 16 B (l, lb, first, last); two blocks in RAM
+R	E5	genome_100m.fusedF	3	ph4_parameters	R=266667 P=375 threads=4 B2 workers=2 arena cap 160 MiB		PH4 base mode; the scan is the consumer of its B3 hook
+R	E5	genome_100m.fusedF	3	ph5_s	17.374861	s	wall of PH4 + PH5 fused (ph5_scan_s is the share inside the hook), plus the NSV pass
+R	E5	genome_100m.fusedF	3	forward_s	14.745378	s	PH4 with the hook (PH4 + forward scan)
+R	E5	genome_100m.fusedF	3	scan_s	7.999556	s	time inside Consume + Complete of the forward scan (without reading the LCP)
+R	E5	genome_100m.fusedF	3	scan_ns_per_entry	79.995561	ns	scan_s / (n + 1)
+R	E5	genome_100m.fusedF	3	forward_ns_per_entry	147.45378	ns	forward_s / (n + 1)
+R	E5	genome_100m.fusedF	3	nsv_s	2.619993	s	backward scan of the LCP file: NSV written in descending rank order
+R	E5	genome_100m.fusedF	3	nsv_ns_per_entry	26.199927	ns	nsv_s / (n + 1)
+R	E5	genome_100m.fusedF	3	fsync_s	0.000256	s	flush of the output files after the run
+R	E5	genome_100m.fusedF	3	ph4_width	U8		PH4 in the same process: B1 1.02 s, B2 3.22 s, B3 10.50 s (B3 contains the scan)
+R	E5	genome_100m.fusedF	3	rssanon_peak	50.962432	MB	max RssAnon of 1738 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 11)
+R	E5	genome_100m.fusedF	3	rssfile_peak	70.217728	MB	mapped file pages resident (windows, text): reported, not counted
+R	E5	genome_100m.fusedF	3	vmhwm	120.107008	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E5	genome_100m.fusedF	3	gc_heap	6.378376	MB	managed heap at the end (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 3/1/1
+R	E5	genome_100m.fusedF	3	arena_peak	12.582912	MB	peak native buffers charged to the ArenaBudget (cap 64 MiB), live at the end 0
+R	E5	genome_100m.fusedF	3	max_lcp	499999	symbols	largest LCP value
+R	E5	genome_100m.fusedF	3	stack_peak	500000	entries	peak height of the forward stack (<= 1 + max LCP = 500000); 8.00 MB at 16 B per entry
+R	E5	genome_100m.fusedF	3	nsv_stack_peak	97	entries	peak height of the NSV stack (8 B per entry): 0.00 MB
+R	E5	genome_100m.fusedF	3	spill_written	0	bytes	forward stack: 0 blocks written, 0 read back (0 bytes), 0 clean evictions, 0 fsyncs; peak file 0 bytes
+R	E5	genome_100m.fusedF	3	spill_expected	8000000	bytes	16 B x (max LCP + 1); spill_written / expected = 0.000000; difference 500000 entries = 1.91 blocks of 262144
+R	E5	genome_100m.fusedF	3	nsv_spill_written	0	bytes	NSV stack: 0 blocks written, 0 read back; expected 8 B x (max LCP + 1) = 4000000
+R	E5	genome_100m.fusedF	3	psv_windows	382	n	PSV: 382 windows (0 again), 382 flushes
+R	E5	genome_100m.fusedF	3	nsv_windows	382	n	NSV: 382 windows (0 again), 382 flushes
+R	E5	genome_100m.fusedF	3	io_explicit_read	2511534341	bytes	25.115 B/char: the LCP file(s) (forward and backward) and the spill read-back (3115 calls)
+R	E5	genome_100m.fusedF	3	io_explicit_write	2000000000	bytes	20.000 B/char: the spill file(s) (61542 calls) plus the PH4 tuple files
+R	E5	genome_100m.fusedF	3	blocklayer_read	438095872	bytes	/proc/self/io read_bytes (page-cache misses)
+R	E5	genome_100m.fusedF	3	blocklayer_write	2913476608	bytes	/proc/self/io write_bytes: bytes of pages that went from clean to dirty (every re-dirtying of a flushed page counts again)
+R	E5	genome_100m.fusedF	3	output_bytes	800000008	bytes	8.000 B/char: CHILD (4 B/char) for layout A, PSV + NSV (8 B/char) for layout F
+R	E5	genome_100m.fusedF	3	wa_dirtied	1.002945	x	write amplification, definition 1: (write_bytes of /proc/self/io - the spill bytes written 0 - the PH4 explicit writes and its mapped LCP output) / final size of the output files; 1.0 = every page was dirtied once; the device-level definition 2 is taken by the run script (sectors written by the block device after sync)
+R	E5	genome_100m.fusedF	3	dirty_peak	1200.746496	MB	max /proc/meminfo Dirty minus the baseline (0.08 MB, median of 5 samples before the start) over 869 samples at 20 ms; absolute max 1200.82 MB; gate G3 <= 64 MB
+R	E5	genome_100m.fusedF	3	dirty_mean	372.437096	MB	mean of Dirty minus the baseline over the run
+R	E5	genome_100m.fusedF	3	dirty_peak_after_mark	1.077248	MB	max Dirty after the PH5 start minus Dirty at that moment (801.10 MB)
+R	E5	genome_100m.fusedF	3	writeback_peak	1.048576	MB	max /proc/meminfo Writeback
+R	E5	genome_100m.fusedF	3	proc_dirty_peak	4.05504	MB	max Private_Dirty + Shared_Dirty of the mappings of /proc/self/smaps whose path is an output file of this run: the dirty pages this process has mapped in them (the per-process view; anonymous memory is not in it)
+R	E5	genome_100m.fusedF	3	node_count	166050648	n	NODE_COUNT = 1 + I + n + 1 with I = 66050646 internal nodes
+R	E5	genome_100m.fusedF	3	lrs	499999	symbols	LRS_DEPTH 499999, LRS_RANK 75208039
+R	E5	genome_100m.fusedF	3	ext_rssanon_peak	50.962	MB	independent sampler: max RssAnon of /proc/<pid>/status over 878 samples at 20 ms
+R	E5	genome_100m.fusedF	3	ext_dirty_peak	1201.717	MB	independent sampler: max /proc/meminfo Dirty minus the baseline (0.01 MB, median of 5 samples before the start); gate G3 <= 64 MB; absolute max 1201.73 MB
+R	E5	genome_100m.fusedF	3	ext_dirty_mean	368.566	MB	independent sampler: mean of Dirty minus the baseline
+R	E5	genome_100m.fusedF	3	ext_writeback_peak	1.049	MB	independent sampler: max /proc/meminfo Writeback
+R	E5	genome_100m.fusedF	3	device_write_bytes	919146496	bytes	sectors written by vda during the run and the sync that follows it (512 B each; includes the spill file, journal, everything)
+R	E5	a50.oracle	oracle_child_s	3.078189	s	in-RAM ChildTable.Build, tagged and packed, n=50000000, LCP kind U32, overflow entries 0
+R	E5	a50.oracle	oracle_smaller_s	3.350313	s	PSV and NSV of every rank from the LcpPyramid (fanout 32)
+R	E5	a50.oracle	oracle_stats	100000001	n	NODE_COUNT 100000001, internal 49999999, LRS_DEPTH 49999999, LRS_RANK 49999999, in-RAM stack peak 50000000
+R	E5	a50.fusedA	1	n	50000000	symbols	b=1 bits, layout=a, codec=Tagged, fused with PH4=True
+R	E5	a50.fusedA	1	parameters	parallel NSV=False block=262144 entries (4096 KiB) window=1048576 slots=8 flush windows=True spill flush=16777216 read=1048576 spill dir=scratch		entry 16 B (l, lb, first, last); two blocks in RAM
+R	E5	a50.fusedA	1	ph4_parameters	R=133334 P=375 threads=4 B2 workers=2 arena cap 160 MiB		PH4 base mode; the scan is the consumer of its B3 hook
+R	E5	a50.fusedA	1	ph5_s	4.654056	s	wall of PH4 + PH5 fused (ph5_scan_s is the share inside the hook), plus the NSV pass
+R	E5	a50.fusedA	1	forward_s	4.166159	s	PH4 with the hook (PH4 + forward scan)
+R	E5	a50.fusedA	1	scan_s	2.323441	s	time inside Consume + Complete of the forward scan (without reading the LCP)
+R	E5	a50.fusedA	1	scan_ns_per_entry	46.468826	ns	scan_s / (n + 1)
+R	E5	a50.fusedA	1	forward_ns_per_entry	83.323173	ns	forward_s / (n + 1)
+R	E5	a50.fusedA	1	fsync_s	0.000175	s	flush of the output files after the run
+R	E5	a50.fusedA	1	ph4_width	U32		PH4 in the same process: B1 0.56 s, B2 0.66 s, B3 1.94 s (B3 contains the scan)
+R	E5	a50.fusedA	1	rssanon_peak	38.846464	MB	max RssAnon of 467 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 11)
+R	E5	a50.fusedA	1	rssfile_peak	43.13088	MB	mapped file pages resident (windows, text): reported, not counted
+R	E5	a50.fusedA	1	vmhwm	80.986112	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E5	a50.fusedA	1	gc_heap	1.145656	MB	managed heap at the end (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 1/0/0
+R	E5	a50.fusedA	1	arena_peak	8.388608	MB	peak native buffers charged to the ArenaBudget (cap 64 MiB), live at the end 0
+R	E5	a50.fusedA	1	max_lcp	49999999	symbols	largest LCP value
+R	E5	a50.fusedA	1	stack_peak	50000000	entries	peak height of the forward stack (<= 1 + max LCP = 50000000); 800.00 MB at 16 B per entry
+R	E5	a50.fusedA	1	spill_written	792723456	bytes	forward stack: 189 blocks written, 189 read back (792723456 bytes), 0 clean evictions, 47 fsyncs; peak file 792723456 bytes
+R	E5	a50.fusedA	1	spill_expected	800000000	bytes	16 B x (max LCP + 1); spill_written / expected = 0.990904; difference 454784 entries = 1.73 blocks of 262144
+R	E5	a50.fusedA	1	child_windows	191	n	CHILD: 191 windows mapped (191 distinct, 0 mapped again after release), 183 evictions, 191 flushes covering 200000004 bytes, 50000000 writes (1.000 per rank)
+R	E5	a50.fusedA	1	io_explicit_read	1992723460	bytes	39.854 B/char: the LCP file(s) (forward and backward) and the spill read-back (1881 calls)
+R	E5	a50.fusedA	1	io_explicit_write	1792723456	bytes	35.854 B/char: the spill file(s) (31286 calls) plus the PH4 tuple files
+R	E5	a50.fusedA	1	blocklayer_read	206761984	bytes	/proc/self/io read_bytes (page-cache misses)
+R	E5	a50.fusedA	1	blocklayer_write	2194915328	bytes	/proc/self/io write_bytes: bytes of pages that went from clean to dirty (every re-dirtying of a flushed page counts again)
+R	E5	a50.fusedA	1	output_bytes	200000004	bytes	4.000 B/char: CHILD (4 B/char) for layout A, PSV + NSV (8 B/char) for layout F
+R	E5	a50.fusedA	1	wa_dirtied	1.010959	x	write amplification, definition 1: (write_bytes of /proc/self/io - the spill bytes written 792723456 - the PH4 explicit writes and its mapped LCP output) / final size of the output files; 1.0 = every page was dirtied once; the device-level definition 2 is taken by the run script (sectors written by the block device after sync)
+R	E5	a50.fusedA	1	dirty_peak	601.182208	MB	max /proc/meminfo Dirty minus the baseline (0.13 MB, median of 5 samples before the start) over 233 samples at 20 ms; absolute max 601.31 MB; gate G3 <= 64 MB
+R	E5	a50.fusedA	1	dirty_mean	196.804713	MB	mean of Dirty minus the baseline over the run
+R	E5	a50.fusedA	1	dirty_peak_after_mark	5.963776	MB	max Dirty after the PH5 start minus Dirty at that moment (401.44 MB)
+R	E5	a50.fusedA	1	writeback_peak	16.777216	MB	max /proc/meminfo Writeback
+R	E5	a50.fusedA	1	proc_dirty_peak	8.388608	MB	max Private_Dirty + Shared_Dirty of the mappings of /proc/self/smaps whose path is an output file of this run: the dirty pages this process has mapped in them (the per-process view; anonymous memory is not in it)
+R	E5	a50.fusedA	1	node_count	100000001	n	NODE_COUNT = 1 + I + n + 1 with I = 49999999 internal nodes
+R	E5	a50.fusedA	1	lrs	49999999	symbols	LRS_DEPTH 49999999, LRS_RANK 49999999
+R	E5	a50.fusedA	1	child_equals_oracle	yes		byte-identical to a50.ref.cldT (200000004 bytes)
+R	E5	a50.fusedA	1	stats_equal_oracle	yes		NODE_COUNT 100000001 (oracle 100000001), internal 49999999 (49999999), LRS_DEPTH 49999999 (49999999), LRS_RANK 49999999 (49999999); in-RAM stack peak 50000000
+R	E5	a50.fusedA	1	ext_rssanon_peak	38.883	MB	independent sampler: max RssAnon of /proc/<pid>/status over 246 samples at 20 ms
+R	E5	a50.fusedA	1	ext_dirty_peak	601.272	MB	independent sampler: max /proc/meminfo Dirty minus the baseline (0.04 MB, median of 5 samples before the start); gate G3 <= 64 MB; absolute max 601.31 MB
+R	E5	a50.fusedA	1	ext_dirty_mean	186.329	MB	independent sampler: mean of Dirty minus the baseline
+R	E5	a50.fusedA	1	ext_writeback_peak	16.777	MB	independent sampler: max /proc/meminfo Writeback
+R	E5	a50.fusedA	1	device_write_bytes	1196142592	bytes	sectors written by vda during the run and the sync that follows it (512 B each; includes the spill file, journal, everything)
+R	E5	a50.fusedF	1	n	50000000	symbols	b=1 bits, layout=f, codec=Tagged, fused with PH4=True
+R	E5	a50.fusedF	1	parameters	parallel NSV=False block=262144 entries (4096 KiB) window=1048576 slots=8 flush windows=True spill flush=16777216 read=1048576 spill dir=scratch		entry 16 B (l, lb, first, last); two blocks in RAM
+R	E5	a50.fusedF	1	ph4_parameters	R=133334 P=375 threads=4 B2 workers=2 arena cap 160 MiB		PH4 base mode; the scan is the consumer of its B3 hook
+R	E5	a50.fusedF	1	ph5_s	4.802497	s	wall of PH4 + PH5 fused (ph5_scan_s is the share inside the hook), plus the NSV pass
+R	E5	a50.fusedF	1	forward_s	3.401474	s	PH4 with the hook (PH4 + forward scan)
+R	E5	a50.fusedF	1	scan_s	1.657108	s	time inside Consume + Complete of the forward scan (without reading the LCP)
+R	E5	a50.fusedF	1	scan_ns_per_entry	33.142167	ns	scan_s / (n + 1)
+R	E5	a50.fusedF	1	forward_ns_per_entry	68.029483	ns	forward_s / (n + 1)
+R	E5	a50.fusedF	1	nsv_s	0.891114	s	backward scan of the LCP file: NSV written in descending rank order
+R	E5	a50.fusedF	1	nsv_ns_per_entry	17.822277	ns	nsv_s / (n + 1)
+R	E5	a50.fusedF	1	fsync_s	0.00023	s	flush of the output files after the run
+R	E5	a50.fusedF	1	ph4_width	U32		PH4 in the same process: B1 0.54 s, B2 0.68 s, B3 2.03 s (B3 contains the scan)
+R	E5	a50.fusedF	1	rssanon_peak	38.25664	MB	max RssAnon of 482 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 11)
+R	E5	a50.fusedF	1	rssfile_peak	37.883904	MB	mapped file pages resident (windows, text): reported, not counted
+R	E5	a50.fusedF	1	vmhwm	77.180928	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E5	a50.fusedF	1	gc_heap	3.235904	MB	managed heap at the end (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 2/1/1
+R	E5	a50.fusedF	1	arena_peak	12.582912	MB	peak native buffers charged to the ArenaBudget (cap 64 MiB), live at the end 0
+R	E5	a50.fusedF	1	max_lcp	49999999	symbols	largest LCP value
+R	E5	a50.fusedF	1	stack_peak	50000000	entries	peak height of the forward stack (<= 1 + max LCP = 50000000); 800.00 MB at 16 B per entry
+R	E5	a50.fusedF	1	nsv_stack_peak	1	entries	peak height of the NSV stack (8 B per entry): 0.00 MB
+R	E5	a50.fusedF	1	spill_written	792723456	bytes	forward stack: 189 blocks written, 189 read back (792723456 bytes), 0 clean evictions, 47 fsyncs; peak file 792723456 bytes
+R	E5	a50.fusedF	1	spill_expected	800000000	bytes	16 B x (max LCP + 1); spill_written / expected = 0.990904; difference 454784 entries = 1.73 blocks of 262144
+R	E5	a50.fusedF	1	nsv_spill_written	0	bytes	NSV stack: 0 blocks written, 0 read back; expected 8 B x (max LCP + 1) = 400000000
+R	E5	a50.fusedF	1	psv_windows	191	n	PSV: 191 windows (0 again), 191 flushes
+R	E5	a50.fusedF	1	nsv_windows	191	n	NSV: 191 windows (0 again), 191 flushes
+R	E5	a50.fusedF	1	io_explicit_read	2192723464	bytes	43.854 B/char: the LCP file(s) (forward and backward) and the spill read-back (2072 calls)
+R	E5	a50.fusedF	1	io_explicit_write	1792723456	bytes	35.854 B/char: the spill file(s) (31296 calls) plus the PH4 tuple files
+R	E5	a50.fusedF	1	blocklayer_read	206782464	bytes	/proc/self/io read_bytes (page-cache misses)
+R	E5	a50.fusedF	1	blocklayer_write	2394951680	bytes	/proc/self/io write_bytes: bytes of pages that went from clean to dirty (every re-dirtying of a flushed page counts again)
+R	E5	a50.fusedF	1	output_bytes	400000008	bytes	8.000 B/char: CHILD (4 B/char) for layout A, PSV + NSV (8 B/char) for layout F
+R	E5	a50.fusedF	1	wa_dirtied	1.005571	x	write amplification, definition 1: (write_bytes of /proc/self/io - the spill bytes written 792723456 - the PH4 explicit writes and its mapped LCP output) / final size of the output files; 1.0 = every page was dirtied once; the device-level definition 2 is taken by the run script (sectors written by the block device after sync)
+R	E5	a50.fusedF	1	dirty_peak	601.165824	MB	max /proc/meminfo Dirty minus the baseline (0.08 MB, median of 5 samples before the start) over 240 samples at 20 ms; absolute max 601.24 MB; gate G3 <= 64 MB
+R	E5	a50.fusedF	1	dirty_mean	200.813653	MB	mean of Dirty minus the baseline over the run
+R	E5	a50.fusedF	1	dirty_peak_after_mark	8.04864	MB	max Dirty after the PH5 start minus Dirty at that moment (399.20 MB)
+R	E5	a50.fusedF	1	writeback_peak	16.777216	MB	max /proc/meminfo Writeback
+R	E5	a50.fusedF	1	proc_dirty_peak	3.145728	MB	max Private_Dirty + Shared_Dirty of the mappings of /proc/self/smaps whose path is an output file of this run: the dirty pages this process has mapped in them (the per-process view; anonymous memory is not in it)
+R	E5	a50.fusedF	1	node_count	100000001	n	NODE_COUNT = 1 + I + n + 1 with I = 49999999 internal nodes
+R	E5	a50.fusedF	1	lrs	49999999	symbols	LRS_DEPTH 49999999, LRS_RANK 49999999
+R	E5	a50.fusedF	1	psv_equals_oracle	yes		byte-identical to a50.ref.psv (200000004 bytes)
+R	E5	a50.fusedF	1	nsv_equals_oracle	yes		byte-identical to a50.ref.nsv (200000004 bytes)
+R	E5	a50.fusedF	1	stats_equal_oracle	yes		NODE_COUNT 100000001 (oracle 100000001), internal 49999999 (49999999), LRS_DEPTH 49999999 (49999999), LRS_RANK 49999999 (49999999); in-RAM stack peak 50000000
+R	E5	a50.fusedF	1	ext_rssanon_peak	40.694	MB	independent sampler: max RssAnon of /proc/<pid>/status over 260 samples at 20 ms
+R	E5	a50.fusedF	1	ext_dirty_peak	601.244	MB	independent sampler: max /proc/meminfo Dirty minus the baseline (0.00 MB, median of 5 samples before the start); gate G3 <= 64 MB; absolute max 601.24 MB
+R	E5	a50.fusedF	1	ext_dirty_mean	185.277	MB	independent sampler: mean of Dirty minus the baseline
+R	E5	a50.fusedF	1	ext_writeback_peak	16.777	MB	independent sampler: max /proc/meminfo Writeback
+R	E5	a50.fusedF	1	device_write_bytes	1396842496	bytes	sectors written by vda during the run and the sync that follows it (512 B each; includes the spill file, journal, everything)
+R	E5	a50.fusedA	2	n	50000000	symbols	b=1 bits, layout=a, codec=Tagged, fused with PH4=True
+R	E5	a50.fusedA	2	parameters	parallel NSV=False block=262144 entries (4096 KiB) window=1048576 slots=8 flush windows=True spill flush=16777216 read=1048576 spill dir=scratch		entry 16 B (l, lb, first, last); two blocks in RAM
+R	E5	a50.fusedA	2	ph4_parameters	R=133334 P=375 threads=4 B2 workers=2 arena cap 160 MiB		PH4 base mode; the scan is the consumer of its B3 hook
+R	E5	a50.fusedA	2	ph5_s	4.306589	s	wall of PH4 + PH5 fused (ph5_scan_s is the share inside the hook), plus the NSV pass
+R	E5	a50.fusedA	2	forward_s	3.862949	s	PH4 with the hook (PH4 + forward scan)
+R	E5	a50.fusedA	2	scan_s	2.140925	s	time inside Consume + Complete of the forward scan (without reading the LCP)
+R	E5	a50.fusedA	2	scan_ns_per_entry	42.818506	ns	scan_s / (n + 1)
+R	E5	a50.fusedA	2	forward_ns_per_entry	77.258978	ns	forward_s / (n + 1)
+R	E5	a50.fusedA	2	fsync_s	0.000298	s	flush of the output files after the run
+R	E5	a50.fusedA	2	ph4_width	U32		PH4 in the same process: B1 0.48 s, B2 0.61 s, B3 1.92 s (B3 contains the scan)
+R	E5	a50.fusedA	2	rssanon_peak	38.199296	MB	max RssAnon of 432 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 11)
+R	E5	a50.fusedA	2	rssfile_peak	42.983424	MB	mapped file pages resident (windows, text): reported, not counted
+R	E5	a50.fusedA	2	vmhwm	79.884288	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E5	a50.fusedA	2	gc_heap	1.145424	MB	managed heap at the end (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 1/0/0
+R	E5	a50.fusedA	2	arena_peak	8.388608	MB	peak native buffers charged to the ArenaBudget (cap 64 MiB), live at the end 0
+R	E5	a50.fusedA	2	max_lcp	49999999	symbols	largest LCP value
+R	E5	a50.fusedA	2	stack_peak	50000000	entries	peak height of the forward stack (<= 1 + max LCP = 50000000); 800.00 MB at 16 B per entry
+R	E5	a50.fusedA	2	spill_written	792723456	bytes	forward stack: 189 blocks written, 189 read back (792723456 bytes), 0 clean evictions, 47 fsyncs; peak file 792723456 bytes
+R	E5	a50.fusedA	2	spill_expected	800000000	bytes	16 B x (max LCP + 1); spill_written / expected = 0.990904; difference 454784 entries = 1.73 blocks of 262144
+R	E5	a50.fusedA	2	child_windows	191	n	CHILD: 191 windows mapped (191 distinct, 0 mapped again after release), 183 evictions, 191 flushes covering 200000004 bytes, 50000000 writes (1.000 per rank)
+R	E5	a50.fusedA	2	io_explicit_read	1992723460	bytes	39.854 B/char: the LCP file(s) (forward and backward) and the spill read-back (1881 calls)
+R	E5	a50.fusedA	2	io_explicit_write	1792723456	bytes	35.854 B/char: the spill file(s) (31276 calls) plus the PH4 tuple files
+R	E5	a50.fusedA	2	blocklayer_read	206774272	bytes	/proc/self/io read_bytes (page-cache misses)
+R	E5	a50.fusedA	2	blocklayer_write	2194923520	bytes	/proc/self/io write_bytes: bytes of pages that went from clean to dirty (every re-dirtying of a flushed page counts again)
+R	E5	a50.fusedA	2	output_bytes	200000004	bytes	4.000 B/char: CHILD (4 B/char) for layout A, PSV + NSV (8 B/char) for layout F
+R	E5	a50.fusedA	2	wa_dirtied	1.011	x	write amplification, definition 1: (write_bytes of /proc/self/io - the spill bytes written 792723456 - the PH4 explicit writes and its mapped LCP output) / final size of the output files; 1.0 = every page was dirtied once; the device-level definition 2 is taken by the run script (sectors written by the block device after sync)
+R	E5	a50.fusedA	2	dirty_peak	599.605248	MB	max /proc/meminfo Dirty minus the baseline (0.07 MB, median of 5 samples before the start) over 215 samples at 20 ms; absolute max 599.67 MB; gate G3 <= 64 MB
+R	E5	a50.fusedA	2	dirty_mean	199.466017	MB	mean of Dirty minus the baseline over the run
+R	E5	a50.fusedA	2	dirty_peak_after_mark	5.87776	MB	max Dirty after the PH5 start minus Dirty at that moment (397.40 MB)
+R	E5	a50.fusedA	2	writeback_peak	16.777216	MB	max /proc/meminfo Writeback
+R	E5	a50.fusedA	2	proc_dirty_peak	8.388608	MB	max Private_Dirty + Shared_Dirty of the mappings of /proc/self/smaps whose path is an output file of this run: the dirty pages this process has mapped in them (the per-process view; anonymous memory is not in it)
+R	E5	a50.fusedA	2	node_count	100000001	n	NODE_COUNT = 1 + I + n + 1 with I = 49999999 internal nodes
+R	E5	a50.fusedA	2	lrs	49999999	symbols	LRS_DEPTH 49999999, LRS_RANK 49999999
+R	E5	a50.fusedA	2	ext_rssanon_peak	38.093	MB	independent sampler: max RssAnon of /proc/<pid>/status over 223 samples at 20 ms
+R	E5	a50.fusedA	2	ext_dirty_peak	601.113	MB	independent sampler: max /proc/meminfo Dirty minus the baseline (0.00 MB, median of 5 samples before the start); gate G3 <= 64 MB; absolute max 601.11 MB
+R	E5	a50.fusedA	2	ext_dirty_mean	191.915	MB	independent sampler: mean of Dirty minus the baseline
+R	E5	a50.fusedA	2	ext_writeback_peak	16.777	MB	independent sampler: max /proc/meminfo Writeback
+R	E5	a50.fusedA	2	device_write_bytes	1196032000	bytes	sectors written by vda during the run and the sync that follows it (512 B each; includes the spill file, journal, everything)
+R	E5	a50.fusedF	2	n	50000000	symbols	b=1 bits, layout=f, codec=Tagged, fused with PH4=True
+R	E5	a50.fusedF	2	parameters	parallel NSV=False block=262144 entries (4096 KiB) window=1048576 slots=8 flush windows=True spill flush=16777216 read=1048576 spill dir=scratch		entry 16 B (l, lb, first, last); two blocks in RAM
+R	E5	a50.fusedF	2	ph4_parameters	R=133334 P=375 threads=4 B2 workers=2 arena cap 160 MiB		PH4 base mode; the scan is the consumer of its B3 hook
+R	E5	a50.fusedF	2	ph5_s	5.091866	s	wall of PH4 + PH5 fused (ph5_scan_s is the share inside the hook), plus the NSV pass
+R	E5	a50.fusedF	2	forward_s	3.681462	s	PH4 with the hook (PH4 + forward scan)
+R	E5	a50.fusedF	2	scan_s	1.945079	s	time inside Consume + Complete of the forward scan (without reading the LCP)
+R	E5	a50.fusedF	2	scan_ns_per_entry	38.901581	ns	scan_s / (n + 1)
+R	E5	a50.fusedF	2	forward_ns_per_entry	73.629229	ns	forward_s / (n + 1)
+R	E5	a50.fusedF	2	nsv_s	0.866432	s	backward scan of the LCP file: NSV written in descending rank order
+R	E5	a50.fusedF	2	nsv_ns_per_entry	17.328636	ns	nsv_s / (n + 1)
+R	E5	a50.fusedF	2	fsync_s	0.00021	s	flush of the output files after the run
+R	E5	a50.fusedF	2	ph4_width	U32		PH4 in the same process: B1 0.50 s, B2 0.62 s, B3 2.39 s (B3 contains the scan)
+R	E5	a50.fusedF	2	rssanon_peak	38.27712	MB	max RssAnon of 511 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 11)
+R	E5	a50.fusedF	2	rssfile_peak	37.74464	MB	mapped file pages resident (windows, text): reported, not counted
+R	E5	a50.fusedF	2	vmhwm	77.058048	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E5	a50.fusedF	2	gc_heap	3.232656	MB	managed heap at the end (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 2/1/1
+R	E5	a50.fusedF	2	arena_peak	12.582912	MB	peak native buffers charged to the ArenaBudget (cap 64 MiB), live at the end 0
+R	E5	a50.fusedF	2	max_lcp	49999999	symbols	largest LCP value
+R	E5	a50.fusedF	2	stack_peak	50000000	entries	peak height of the forward stack (<= 1 + max LCP = 50000000); 800.00 MB at 16 B per entry
+R	E5	a50.fusedF	2	nsv_stack_peak	1	entries	peak height of the NSV stack (8 B per entry): 0.00 MB
+R	E5	a50.fusedF	2	spill_written	792723456	bytes	forward stack: 189 blocks written, 189 read back (792723456 bytes), 0 clean evictions, 47 fsyncs; peak file 792723456 bytes
+R	E5	a50.fusedF	2	spill_expected	800000000	bytes	16 B x (max LCP + 1); spill_written / expected = 0.990904; difference 454784 entries = 1.73 blocks of 262144
+R	E5	a50.fusedF	2	nsv_spill_written	0	bytes	NSV stack: 0 blocks written, 0 read back; expected 8 B x (max LCP + 1) = 400000000
+R	E5	a50.fusedF	2	psv_windows	191	n	PSV: 191 windows (0 again), 191 flushes
+R	E5	a50.fusedF	2	nsv_windows	191	n	NSV: 191 windows (0 again), 191 flushes
+R	E5	a50.fusedF	2	io_explicit_read	2192723464	bytes	43.854 B/char: the LCP file(s) (forward and backward) and the spill read-back (2072 calls)
+R	E5	a50.fusedF	2	io_explicit_write	1792723456	bytes	35.854 B/char: the spill file(s) (31294 calls) plus the PH4 tuple files
+R	E5	a50.fusedF	2	blocklayer_read	206798848	bytes	/proc/self/io read_bytes (page-cache misses)
+R	E5	a50.fusedF	2	blocklayer_write	2394943488	bytes	/proc/self/io write_bytes: bytes of pages that went from clean to dirty (every re-dirtying of a flushed page counts again)
+R	E5	a50.fusedF	2	output_bytes	400000008	bytes	8.000 B/char: CHILD (4 B/char) for layout A, PSV + NSV (8 B/char) for layout F
+R	E5	a50.fusedF	2	wa_dirtied	1.00555	x	write amplification, definition 1: (write_bytes of /proc/self/io - the spill bytes written 792723456 - the PH4 explicit writes and its mapped LCP output) / final size of the output files; 1.0 = every page was dirtied once; the device-level definition 2 is taken by the run script (sectors written by the block device after sync)
+R	E5	a50.fusedF	2	dirty_peak	601.182208	MB	max /proc/meminfo Dirty minus the baseline (0.07 MB, median of 5 samples before the start) over 255 samples at 20 ms; absolute max 601.25 MB; gate G3 <= 64 MB
+R	E5	a50.fusedF	2	dirty_mean	190.811485	MB	mean of Dirty minus the baseline over the run
+R	E5	a50.fusedF	2	dirty_peak_after_mark	9.5232	MB	max Dirty after the PH5 start minus Dirty at that moment (396.91 MB)
+R	E5	a50.fusedF	2	writeback_peak	16.777216	MB	max /proc/meminfo Writeback
+R	E5	a50.fusedF	2	proc_dirty_peak	3.145728	MB	max Private_Dirty + Shared_Dirty of the mappings of /proc/self/smaps whose path is an output file of this run: the dirty pages this process has mapped in them (the per-process view; anonymous memory is not in it)
+R	E5	a50.fusedF	2	node_count	100000001	n	NODE_COUNT = 1 + I + n + 1 with I = 49999999 internal nodes
+R	E5	a50.fusedF	2	lrs	49999999	symbols	LRS_DEPTH 49999999, LRS_RANK 49999999
+R	E5	a50.fusedF	2	ext_rssanon_peak	38.244	MB	independent sampler: max RssAnon of /proc/<pid>/status over 263 samples at 20 ms
+R	E5	a50.fusedF	2	ext_dirty_peak	599.814	MB	independent sampler: max /proc/meminfo Dirty minus the baseline (0.00 MB, median of 5 samples before the start); gate G3 <= 64 MB; absolute max 599.81 MB
+R	E5	a50.fusedF	2	ext_dirty_mean	184.963	MB	independent sampler: mean of Dirty minus the baseline
+R	E5	a50.fusedF	2	ext_writeback_peak	16.777	MB	independent sampler: max /proc/meminfo Writeback
+R	E5	a50.fusedF	2	device_write_bytes	1398116352	bytes	sectors written by vda during the run and the sync that follows it (512 B each; includes the spill file, journal, everything)
+R	E5	a50.fusedA	3	n	50000000	symbols	b=1 bits, layout=a, codec=Tagged, fused with PH4=True
+R	E5	a50.fusedA	3	parameters	parallel NSV=False block=262144 entries (4096 KiB) window=1048576 slots=8 flush windows=True spill flush=16777216 read=1048576 spill dir=scratch		entry 16 B (l, lb, first, last); two blocks in RAM
+R	E5	a50.fusedA	3	ph4_parameters	R=133334 P=375 threads=4 B2 workers=2 arena cap 160 MiB		PH4 base mode; the scan is the consumer of its B3 hook
+R	E5	a50.fusedA	3	ph5_s	4.277985	s	wall of PH4 + PH5 fused (ph5_scan_s is the share inside the hook), plus the NSV pass
+R	E5	a50.fusedA	3	forward_s	3.703079	s	PH4 with the hook (PH4 + forward scan)
+R	E5	a50.fusedA	3	scan_s	1.946496	s	time inside Consume + Complete of the forward scan (without reading the LCP)
+R	E5	a50.fusedA	3	scan_ns_per_entry	38.929913	ns	scan_s / (n + 1)
+R	E5	a50.fusedA	3	forward_ns_per_entry	74.061577	ns	forward_s / (n + 1)
+R	E5	a50.fusedA	3	fsync_s	0.00024	s	flush of the output files after the run
+R	E5	a50.fusedA	3	ph4_width	U32		PH4 in the same process: B1 0.50 s, B2 0.68 s, B3 1.78 s (B3 contains the scan)
+R	E5	a50.fusedA	3	rssanon_peak	38.158336	MB	max RssAnon of 429 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 11)
+R	E5	a50.fusedA	3	rssfile_peak	43.003904	MB	mapped file pages resident (windows, text): reported, not counted
+R	E5	a50.fusedA	3	vmhwm	80.154624	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E5	a50.fusedA	3	gc_heap	1.145	MB	managed heap at the end (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 1/0/0
+R	E5	a50.fusedA	3	arena_peak	8.388608	MB	peak native buffers charged to the ArenaBudget (cap 64 MiB), live at the end 0
+R	E5	a50.fusedA	3	max_lcp	49999999	symbols	largest LCP value
+R	E5	a50.fusedA	3	stack_peak	50000000	entries	peak height of the forward stack (<= 1 + max LCP = 50000000); 800.00 MB at 16 B per entry
+R	E5	a50.fusedA	3	spill_written	792723456	bytes	forward stack: 189 blocks written, 189 read back (792723456 bytes), 0 clean evictions, 47 fsyncs; peak file 792723456 bytes
+R	E5	a50.fusedA	3	spill_expected	800000000	bytes	16 B x (max LCP + 1); spill_written / expected = 0.990904; difference 454784 entries = 1.73 blocks of 262144
+R	E5	a50.fusedA	3	child_windows	191	n	CHILD: 191 windows mapped (191 distinct, 0 mapped again after release), 183 evictions, 191 flushes covering 200000004 bytes, 50000000 writes (1.000 per rank)
+R	E5	a50.fusedA	3	io_explicit_read	1992723460	bytes	39.854 B/char: the LCP file(s) (forward and backward) and the spill read-back (1881 calls)
+R	E5	a50.fusedA	3	io_explicit_write	1792723456	bytes	35.854 B/char: the spill file(s) (31287 calls) plus the PH4 tuple files
+R	E5	a50.fusedA	3	blocklayer_read	206798848	bytes	/proc/self/io read_bytes (page-cache misses)
+R	E5	a50.fusedA	3	blocklayer_write	2194927616	bytes	/proc/self/io write_bytes: bytes of pages that went from clean to dirty (every re-dirtying of a flushed page counts again)
+R	E5	a50.fusedA	3	output_bytes	200000004	bytes	4.000 B/char: CHILD (4 B/char) for layout A, PSV + NSV (8 B/char) for layout F
+R	E5	a50.fusedA	3	wa_dirtied	1.011021	x	write amplification, definition 1: (write_bytes of /proc/self/io - the spill bytes written 792723456 - the PH4 explicit writes and its mapped LCP output) / final size of the output files; 1.0 = every page was dirtied once; the device-level definition 2 is taken by the run script (sectors written by the block device after sync)
+R	E5	a50.fusedA	3	dirty_peak	599.732224	MB	max /proc/meminfo Dirty minus the baseline (0.12 MB, median of 5 samples before the start) over 214 samples at 20 ms; absolute max 599.86 MB; gate G3 <= 64 MB
+R	E5	a50.fusedA	3	dirty_mean	210.559914	MB	mean of Dirty minus the baseline over the run
+R	E5	a50.fusedA	3	dirty_peak_after_mark	6.139904	MB	max Dirty after the PH5 start minus Dirty at that moment (401.38 MB)
+R	E5	a50.fusedA	3	writeback_peak	16.777216	MB	max /proc/meminfo Writeback
+R	E5	a50.fusedA	3	proc_dirty_peak	8.388608	MB	max Private_Dirty + Shared_Dirty of the mappings of /proc/self/smaps whose path is an output file of this run: the dirty pages this process has mapped in them (the per-process view; anonymous memory is not in it)
+R	E5	a50.fusedA	3	node_count	100000001	n	NODE_COUNT = 1 + I + n + 1 with I = 49999999 internal nodes
+R	E5	a50.fusedA	3	lrs	49999999	symbols	LRS_DEPTH 49999999, LRS_RANK 49999999
+R	E5	a50.fusedA	3	ext_rssanon_peak	37.904	MB	independent sampler: max RssAnon of /proc/<pid>/status over 222 samples at 20 ms
+R	E5	a50.fusedA	3	ext_dirty_peak	601.166	MB	independent sampler: max /proc/meminfo Dirty minus the baseline (0.12 MB, median of 5 samples before the start); gate G3 <= 64 MB; absolute max 601.29 MB
+R	E5	a50.fusedA	3	ext_dirty_mean	202.667	MB	independent sampler: mean of Dirty minus the baseline
+R	E5	a50.fusedA	3	ext_writeback_peak	16.777	MB	independent sampler: max /proc/meminfo Writeback
+R	E5	a50.fusedA	3	device_write_bytes	1196748800	bytes	sectors written by vda during the run and the sync that follows it (512 B each; includes the spill file, journal, everything)
+R	E5	a50.fusedF	3	n	50000000	symbols	b=1 bits, layout=f, codec=Tagged, fused with PH4=True
+R	E5	a50.fusedF	3	parameters	parallel NSV=False block=262144 entries (4096 KiB) window=1048576 slots=8 flush windows=True spill flush=16777216 read=1048576 spill dir=scratch		entry 16 B (l, lb, first, last); two blocks in RAM
+R	E5	a50.fusedF	3	ph4_parameters	R=133334 P=375 threads=4 B2 workers=2 arena cap 160 MiB		PH4 base mode; the scan is the consumer of its B3 hook
+R	E5	a50.fusedF	3	ph5_s	4.711742	s	wall of PH4 + PH5 fused (ph5_scan_s is the share inside the hook), plus the NSV pass
+R	E5	a50.fusedF	3	forward_s	3.327112	s	PH4 with the hook (PH4 + forward scan)
+R	E5	a50.fusedF	3	scan_s	1.795146	s	time inside Consume + Complete of the forward scan (without reading the LCP)
+R	E5	a50.fusedF	3	scan_ns_per_entry	35.902921	ns	scan_s / (n + 1)
+R	E5	a50.fusedF	3	forward_ns_per_entry	66.542245	ns	forward_s / (n + 1)
+R	E5	a50.fusedF	3	nsv_s	0.857222	s	backward scan of the LCP file: NSV written in descending rank order
+R	E5	a50.fusedF	3	nsv_ns_per_entry	17.14443	ns	nsv_s / (n + 1)
+R	E5	a50.fusedF	3	fsync_s	0.000186	s	flush of the output files after the run
+R	E5	a50.fusedF	3	ph4_width	U32		PH4 in the same process: B1 0.43 s, B2 0.55 s, B3 2.13 s (B3 contains the scan)
+R	E5	a50.fusedF	3	rssanon_peak	38.023168	MB	max RssAnon of 472 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 11)
+R	E5	a50.fusedF	3	rssfile_peak	37.769216	MB	mapped file pages resident (windows, text): reported, not counted
+R	E5	a50.fusedF	3	vmhwm	76.857344	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E5	a50.fusedF	3	gc_heap	3.232656	MB	managed heap at the end (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 2/1/1
+R	E5	a50.fusedF	3	arena_peak	12.582912	MB	peak native buffers charged to the ArenaBudget (cap 64 MiB), live at the end 0
+R	E5	a50.fusedF	3	max_lcp	49999999	symbols	largest LCP value
+R	E5	a50.fusedF	3	stack_peak	50000000	entries	peak height of the forward stack (<= 1 + max LCP = 50000000); 800.00 MB at 16 B per entry
+R	E5	a50.fusedF	3	nsv_stack_peak	1	entries	peak height of the NSV stack (8 B per entry): 0.00 MB
+R	E5	a50.fusedF	3	spill_written	792723456	bytes	forward stack: 189 blocks written, 189 read back (792723456 bytes), 0 clean evictions, 47 fsyncs; peak file 792723456 bytes
+R	E5	a50.fusedF	3	spill_expected	800000000	bytes	16 B x (max LCP + 1); spill_written / expected = 0.990904; difference 454784 entries = 1.73 blocks of 262144
+R	E5	a50.fusedF	3	nsv_spill_written	0	bytes	NSV stack: 0 blocks written, 0 read back; expected 8 B x (max LCP + 1) = 400000000
+R	E5	a50.fusedF	3	psv_windows	191	n	PSV: 191 windows (0 again), 191 flushes
+R	E5	a50.fusedF	3	nsv_windows	191	n	NSV: 191 windows (0 again), 191 flushes
+R	E5	a50.fusedF	3	io_explicit_read	2192723464	bytes	43.854 B/char: the LCP file(s) (forward and backward) and the spill read-back (2072 calls)
+R	E5	a50.fusedF	3	io_explicit_write	1792723456	bytes	35.854 B/char: the spill file(s) (31299 calls) plus the PH4 tuple files
+R	E5	a50.fusedF	3	blocklayer_read	206811136	bytes	/proc/self/io read_bytes (page-cache misses)
+R	E5	a50.fusedF	3	blocklayer_write	2394972160	bytes	/proc/self/io write_bytes: bytes of pages that went from clean to dirty (every re-dirtying of a flushed page counts again)
+R	E5	a50.fusedF	3	output_bytes	400000008	bytes	8.000 B/char: CHILD (4 B/char) for layout A, PSV + NSV (8 B/char) for layout F
+R	E5	a50.fusedF	3	wa_dirtied	1.005622	x	write amplification, definition 1: (write_bytes of /proc/self/io - the spill bytes written 792723456 - the PH4 explicit writes and its mapped LCP output) / final size of the output files; 1.0 = every page was dirtied once; the device-level definition 2 is taken by the run script (sectors written by the block device after sync)
+R	E5	a50.fusedF	3	dirty_peak	600.6784	MB	max /proc/meminfo Dirty minus the baseline (0.07 MB, median of 5 samples before the start) over 236 samples at 20 ms; absolute max 600.74 MB; gate G3 <= 64 MB
+R	E5	a50.fusedF	3	dirty_mean	183.142435	MB	mean of Dirty minus the baseline over the run
+R	E5	a50.fusedF	3	dirty_peak_after_mark	6.033408	MB	max Dirty after the PH5 start minus Dirty at that moment (401.44 MB)
+R	E5	a50.fusedF	3	writeback_peak	16.777216	MB	max /proc/meminfo Writeback
+R	E5	a50.fusedF	3	proc_dirty_peak	3.145728	MB	max Private_Dirty + Shared_Dirty of the mappings of /proc/self/smaps whose path is an output file of this run: the dirty pages this process has mapped in them (the per-process view; anonymous memory is not in it)
+R	E5	a50.fusedF	3	node_count	100000001	n	NODE_COUNT = 1 + I + n + 1 with I = 49999999 internal nodes
+R	E5	a50.fusedF	3	lrs	49999999	symbols	LRS_DEPTH 49999999, LRS_RANK 49999999
+R	E5	a50.fusedF	3	ext_rssanon_peak	38.175	MB	independent sampler: max RssAnon of /proc/<pid>/status over 243 samples at 20 ms
+R	E5	a50.fusedF	3	ext_dirty_peak	601.289	MB	independent sampler: max /proc/meminfo Dirty minus the baseline (0.00 MB, median of 5 samples before the start); gate G3 <= 64 MB; absolute max 601.29 MB
+R	E5	a50.fusedF	3	ext_dirty_mean	177.827	MB	independent sampler: mean of Dirty minus the baseline
+R	E5	a50.fusedF	3	ext_writeback_peak	16.777	MB	independent sampler: max /proc/meminfo Writeback
+R	E5	a50.fusedF	3	device_write_bytes	1398108160	bytes	sectors written by vda during the run and the sync that follows it (512 B each; includes the spill file, journal, everything)

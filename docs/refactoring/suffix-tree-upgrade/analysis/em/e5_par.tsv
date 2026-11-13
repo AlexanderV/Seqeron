@@ -1,0 +1,1246 @@
+R	E5	protocol	head	10de29a93442464a9d11e28aed6ee2e57d762d7d		git rev-parse HEAD of the binary under test; group par
+R	E5	a50.f.par	1	n	50000000	symbols	b=1 bits, layout=f, codec=Tagged, fused with PH4=False
+R	E5	a50.f.par	1	parameters	parallel NSV=True block=262144 entries (4096 KiB) window=1048576 slots=8 flush windows=True spill flush=16777216 read=1048576 spill dir=scratch		entry 16 B (l, lb, first, last); two blocks in RAM
+R	E5	a50.f.par	1	ph5_s	2.524189	s	wall of the forward scan including the LCP read, plus the NSV pass when asked for (a second pass, or concurrent with --parallel-nsv; without fsync)
+R	E5	a50.f.par	1	forward_s	2.521439	s	forward scan including reading the LCP file
+R	E5	a50.f.par	1	scan_s	1.928606	s	time inside Consume + Complete of the forward scan (without reading the LCP)
+R	E5	a50.f.par	1	scan_ns_per_entry	38.572123	ns	scan_s / (n + 1)
+R	E5	a50.f.par	1	forward_ns_per_entry	50.428784	ns	forward_s / (n + 1)
+R	E5	a50.f.par	1	nsv_s	1.5422	s	backward scan of the LCP file: NSV written in descending rank order
+R	E5	a50.f.par	1	nsv_ns_per_entry	30.844003	ns	nsv_s / (n + 1)
+R	E5	a50.f.par	1	fsync_s	0.000278	s	flush of the output files after the run
+R	E5	a50.f.par	1	rssanon_peak	23.416832	MB	max RssAnon of 254 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E5	a50.f.par	1	rssfile_peak	32.157696	MB	mapped file pages resident (windows, text): reported, not counted
+R	E5	a50.f.par	1	vmhwm	58.69568	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E5	a50.f.par	1	gc_heap	3.306624	MB	managed heap at the end (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 1/1/1
+R	E5	a50.f.par	1	arena_peak	12.582912	MB	peak native buffers charged to the ArenaBudget (cap 64 MiB), live at the end 0
+R	E5	a50.f.par	1	max_lcp	49999999	symbols	largest LCP value
+R	E5	a50.f.par	1	stack_peak	50000000	entries	peak height of the forward stack (<= 1 + max LCP = 50000000); 800.00 MB at 16 B per entry
+R	E5	a50.f.par	1	nsv_stack_peak	1	entries	peak height of the NSV stack (8 B per entry): 0.00 MB
+R	E5	a50.f.par	1	spill_written	792723456	bytes	forward stack: 189 blocks written, 189 read back (792723456 bytes), 0 clean evictions, 47 fsyncs; peak file 792723456 bytes
+R	E5	a50.f.par	1	spill_expected	800000000	bytes	16 B x (max LCP + 1); spill_written / expected = 0.990904; difference 454784 entries = 1.73 blocks of 262144
+R	E5	a50.f.par	1	nsv_spill_written	0	bytes	NSV stack: 0 blocks written, 0 read back; expected 8 B x (max LCP + 1) = 400000000
+R	E5	a50.f.par	1	psv_windows	191	n	PSV: 191 windows (0 again), 191 flushes
+R	E5	a50.f.par	1	nsv_windows	191	n	NSV: 191 windows (0 again), 191 flushes
+R	E5	a50.f.par	1	io_explicit_read	1192723464	bytes	23.854 B/char: the LCP file(s) (forward and backward) and the spill read-back (571 calls)
+R	E5	a50.f.par	1	io_explicit_write	792723456	bytes	15.854 B/char: the spill file(s) (189 calls)
+R	E5	a50.f.par	1	blocklayer_read	200052736	bytes	/proc/self/io read_bytes (page-cache misses)
+R	E5	a50.f.par	1	blocklayer_write	1192816640	bytes	/proc/self/io write_bytes: bytes of pages that went from clean to dirty (every re-dirtying of a flushed page counts again)
+R	E5	a50.f.par	1	output_bytes	400000008	bytes	8.000 B/char: CHILD (4 B/char) for layout A, PSV + NSV (8 B/char) for layout F
+R	E5	a50.f.par	1	wa_dirtied	1.000233	x	write amplification, definition 1: (write_bytes of /proc/self/io - the spill bytes written 792723456) / final size of the output files; 1.0 = every page was dirtied once; the device-level definition 2 is taken by the run script (sectors written by the block device after sync)
+R	E5	a50.f.par	1	dirty_peak	19.943424	MB	max /proc/meminfo Dirty minus the baseline (0.06 MB, median of 5 samples before the start) over 126 samples at 20 ms; absolute max 20.00 MB; gate G3 <= 64 MB
+R	E5	a50.f.par	1	dirty_mean	6.109086	MB	mean of Dirty minus the baseline over the run
+R	E5	a50.f.par	1	dirty_peak_after_mark	20.004864	MB	max Dirty after the PH5 start minus Dirty at that moment (0.00 MB)
+R	E5	a50.f.par	1	writeback_peak	16.777216	MB	max /proc/meminfo Writeback
+R	E5	a50.f.par	1	proc_dirty_peak	4.05504	MB	max Private_Dirty + Shared_Dirty of the mappings of /proc/self/smaps whose path is an output file of this run: the dirty pages this process has mapped in them (the per-process view; anonymous memory is not in it)
+R	E5	a50.f.par	1	node_count	100000001	n	NODE_COUNT = 1 + I + n + 1 with I = 49999999 internal nodes
+R	E5	a50.f.par	1	lrs	49999999	symbols	LRS_DEPTH 49999999, LRS_RANK 49999999
+R	E5	a50.f.par	1	ext_rssanon_peak	23.417	MB	independent sampler: max RssAnon of /proc/<pid>/status over 135 samples at 20 ms
+R	E5	a50.f.par	1	ext_dirty_peak	16.359	MB	independent sampler: max /proc/meminfo Dirty minus the baseline (0.06 MB, median of 5 samples before the start); gate G3 <= 64 MB; absolute max 16.42 MB
+R	E5	a50.f.par	1	ext_dirty_mean	4.936	MB	independent sampler: mean of Dirty minus the baseline
+R	E5	a50.f.par	1	ext_writeback_peak	17.826	MB	independent sampler: max /proc/meminfo Writeback
+R	E5	a50.f.par	1	device_write_bytes	1195474944	bytes	sectors written by vda during the run and the sync that follows it (512 B each; includes the spill file, journal, everything)
+R	E5	a50.f.par	2	n	50000000	symbols	b=1 bits, layout=f, codec=Tagged, fused with PH4=False
+R	E5	a50.f.par	2	parameters	parallel NSV=True block=262144 entries (4096 KiB) window=1048576 slots=8 flush windows=True spill flush=16777216 read=1048576 spill dir=scratch		entry 16 B (l, lb, first, last); two blocks in RAM
+R	E5	a50.f.par	2	ph5_s	2.677653	s	wall of the forward scan including the LCP read, plus the NSV pass when asked for (a second pass, or concurrent with --parallel-nsv; without fsync)
+R	E5	a50.f.par	2	forward_s	2.675507	s	forward scan including reading the LCP file
+R	E5	a50.f.par	2	scan_s	1.997116	s	time inside Consume + Complete of the forward scan (without reading the LCP)
+R	E5	a50.f.par	2	scan_ns_per_entry	39.942317	ns	scan_s / (n + 1)
+R	E5	a50.f.par	2	forward_ns_per_entry	53.51013	ns	forward_s / (n + 1)
+R	E5	a50.f.par	2	nsv_s	1.70381	s	backward scan of the LCP file: NSV written in descending rank order
+R	E5	a50.f.par	2	nsv_ns_per_entry	34.07619	ns	nsv_s / (n + 1)
+R	E5	a50.f.par	2	fsync_s	0.000219	s	flush of the output files after the run
+R	E5	a50.f.par	2	rssanon_peak	23.53152	MB	max RssAnon of 269 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E5	a50.f.par	2	rssfile_peak	32.305152	MB	mapped file pages resident (windows, text): reported, not counted
+R	E5	a50.f.par	2	vmhwm	58.949632	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E5	a50.f.par	2	gc_heap	3.322616	MB	managed heap at the end (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 1/1/1
+R	E5	a50.f.par	2	arena_peak	12.582912	MB	peak native buffers charged to the ArenaBudget (cap 64 MiB), live at the end 0
+R	E5	a50.f.par	2	max_lcp	49999999	symbols	largest LCP value
+R	E5	a50.f.par	2	stack_peak	50000000	entries	peak height of the forward stack (<= 1 + max LCP = 50000000); 800.00 MB at 16 B per entry
+R	E5	a50.f.par	2	nsv_stack_peak	1	entries	peak height of the NSV stack (8 B per entry): 0.00 MB
+R	E5	a50.f.par	2	spill_written	792723456	bytes	forward stack: 189 blocks written, 189 read back (792723456 bytes), 0 clean evictions, 47 fsyncs; peak file 792723456 bytes
+R	E5	a50.f.par	2	spill_expected	800000000	bytes	16 B x (max LCP + 1); spill_written / expected = 0.990904; difference 454784 entries = 1.73 blocks of 262144
+R	E5	a50.f.par	2	nsv_spill_written	0	bytes	NSV stack: 0 blocks written, 0 read back; expected 8 B x (max LCP + 1) = 400000000
+R	E5	a50.f.par	2	psv_windows	191	n	PSV: 191 windows (0 again), 191 flushes
+R	E5	a50.f.par	2	nsv_windows	191	n	NSV: 191 windows (0 again), 191 flushes
+R	E5	a50.f.par	2	io_explicit_read	1192723464	bytes	23.854 B/char: the LCP file(s) (forward and backward) and the spill read-back (571 calls)
+R	E5	a50.f.par	2	io_explicit_write	792723456	bytes	15.854 B/char: the spill file(s) (189 calls)
+R	E5	a50.f.par	2	blocklayer_read	200048640	bytes	/proc/self/io read_bytes (page-cache misses)
+R	E5	a50.f.par	2	blocklayer_write	1192812544	bytes	/proc/self/io write_bytes: bytes of pages that went from clean to dirty (every re-dirtying of a flushed page counts again)
+R	E5	a50.f.par	2	output_bytes	400000008	bytes	8.000 B/char: CHILD (4 B/char) for layout A, PSV + NSV (8 B/char) for layout F
+R	E5	a50.f.par	2	wa_dirtied	1.000223	x	write amplification, definition 1: (write_bytes of /proc/self/io - the spill bytes written 792723456) / final size of the output files; 1.0 = every page was dirtied once; the device-level definition 2 is taken by the run script (sectors written by the block device after sync)
+R	E5	a50.f.par	2	dirty_peak	16.551936	MB	max /proc/meminfo Dirty minus the baseline (0.07 MB, median of 5 samples before the start) over 134 samples at 20 ms; absolute max 16.62 MB; gate G3 <= 64 MB
+R	E5	a50.f.par	2	dirty_mean	6.174048	MB	mean of Dirty minus the baseline over the run
+R	E5	a50.f.par	2	dirty_peak_after_mark	16.617472	MB	max Dirty after the PH5 start minus Dirty at that moment (0.00 MB)
+R	E5	a50.f.par	2	writeback_peak	16.908288	MB	max /proc/meminfo Writeback
+R	E5	a50.f.par	2	proc_dirty_peak	4.194304	MB	max Private_Dirty + Shared_Dirty of the mappings of /proc/self/smaps whose path is an output file of this run: the dirty pages this process has mapped in them (the per-process view; anonymous memory is not in it)
+R	E5	a50.f.par	2	node_count	100000001	n	NODE_COUNT = 1 + I + n + 1 with I = 49999999 internal nodes
+R	E5	a50.f.par	2	lrs	49999999	symbols	LRS_DEPTH 49999999, LRS_RANK 49999999
+R	E5	a50.f.par	2	ext_rssanon_peak	23.532	MB	independent sampler: max RssAnon of /proc/<pid>/status over 142 samples at 20 ms
+R	E5	a50.f.par	2	ext_dirty_peak	16.617	MB	independent sampler: max /proc/meminfo Dirty minus the baseline (0.00 MB, median of 5 samples before the start); gate G3 <= 64 MB; absolute max 16.62 MB
+R	E5	a50.f.par	2	ext_dirty_mean	5.277	MB	independent sampler: mean of Dirty minus the baseline
+R	E5	a50.f.par	2	ext_writeback_peak	17.666	MB	independent sampler: max /proc/meminfo Writeback
+R	E5	a50.f.par	2	device_write_bytes	1196105728	bytes	sectors written by vda during the run and the sync that follows it (512 B each; includes the spill file, journal, everything)
+R	E5	a50.f.par	3	n	50000000	symbols	b=1 bits, layout=f, codec=Tagged, fused with PH4=False
+R	E5	a50.f.par	3	parameters	parallel NSV=True block=262144 entries (4096 KiB) window=1048576 slots=8 flush windows=True spill flush=16777216 read=1048576 spill dir=scratch		entry 16 B (l, lb, first, last); two blocks in RAM
+R	E5	a50.f.par	3	ph5_s	2.814554	s	wall of the forward scan including the LCP read, plus the NSV pass when asked for (a second pass, or concurrent with --parallel-nsv; without fsync)
+R	E5	a50.f.par	3	forward_s	2.811456	s	forward scan including reading the LCP file
+R	E5	a50.f.par	3	scan_s	2.101892	s	time inside Consume + Complete of the forward scan (without reading the LCP)
+R	E5	a50.f.par	3	scan_ns_per_entry	42.037846	ns	scan_s / (n + 1)
+R	E5	a50.f.par	3	forward_ns_per_entry	56.229117	ns	forward_s / (n + 1)
+R	E5	a50.f.par	3	nsv_s	1.746957	s	backward scan of the LCP file: NSV written in descending rank order
+R	E5	a50.f.par	3	nsv_ns_per_entry	34.939131	ns	nsv_s / (n + 1)
+R	E5	a50.f.par	3	fsync_s	0.000228	s	flush of the output files after the run
+R	E5	a50.f.par	3	rssanon_peak	24.674304	MB	max RssAnon of 283 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E5	a50.f.par	3	rssfile_peak	32.444416	MB	mapped file pages resident (windows, text): reported, not counted
+R	E5	a50.f.par	3	vmhwm	60.248064	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E5	a50.f.par	3	gc_heap	3.322616	MB	managed heap at the end (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 1/1/1
+R	E5	a50.f.par	3	arena_peak	12.582912	MB	peak native buffers charged to the ArenaBudget (cap 64 MiB), live at the end 0
+R	E5	a50.f.par	3	max_lcp	49999999	symbols	largest LCP value
+R	E5	a50.f.par	3	stack_peak	50000000	entries	peak height of the forward stack (<= 1 + max LCP = 50000000); 800.00 MB at 16 B per entry
+R	E5	a50.f.par	3	nsv_stack_peak	1	entries	peak height of the NSV stack (8 B per entry): 0.00 MB
+R	E5	a50.f.par	3	spill_written	792723456	bytes	forward stack: 189 blocks written, 189 read back (792723456 bytes), 0 clean evictions, 47 fsyncs; peak file 792723456 bytes
+R	E5	a50.f.par	3	spill_expected	800000000	bytes	16 B x (max LCP + 1); spill_written / expected = 0.990904; difference 454784 entries = 1.73 blocks of 262144
+R	E5	a50.f.par	3	nsv_spill_written	0	bytes	NSV stack: 0 blocks written, 0 read back; expected 8 B x (max LCP + 1) = 400000000
+R	E5	a50.f.par	3	psv_windows	191	n	PSV: 191 windows (0 again), 191 flushes
+R	E5	a50.f.par	3	nsv_windows	191	n	NSV: 191 windows (0 again), 191 flushes
+R	E5	a50.f.par	3	io_explicit_read	1192723464	bytes	23.854 B/char: the LCP file(s) (forward and backward) and the spill read-back (571 calls)
+R	E5	a50.f.par	3	io_explicit_write	792723456	bytes	15.854 B/char: the spill file(s) (189 calls)
+R	E5	a50.f.par	3	blocklayer_read	200048640	bytes	/proc/self/io read_bytes (page-cache misses)
+R	E5	a50.f.par	3	blocklayer_write	1192812544	bytes	/proc/self/io write_bytes: bytes of pages that went from clean to dirty (every re-dirtying of a flushed page counts again)
+R	E5	a50.f.par	3	output_bytes	400000008	bytes	8.000 B/char: CHILD (4 B/char) for layout A, PSV + NSV (8 B/char) for layout F
+R	E5	a50.f.par	3	wa_dirtied	1.000223	x	write amplification, definition 1: (write_bytes of /proc/self/io - the spill bytes written 792723456) / final size of the output files; 1.0 = every page was dirtied once; the device-level definition 2 is taken by the run script (sectors written by the block device after sync)
+R	E5	a50.f.par	3	dirty_peak	19.943424	MB	max /proc/meminfo Dirty minus the baseline (0.07 MB, median of 5 samples before the start) over 141 samples at 20 ms; absolute max 20.01 MB; gate G3 <= 64 MB
+R	E5	a50.f.par	3	dirty_mean	5.66593	MB	mean of Dirty minus the baseline over the run
+R	E5	a50.f.par	3	dirty_peak_after_mark	20.00896	MB	max Dirty after the PH5 start minus Dirty at that moment (0.00 MB)
+R	E5	a50.f.par	3	writeback_peak	17.657856	MB	max /proc/meminfo Writeback
+R	E5	a50.f.par	3	proc_dirty_peak	4.112384	MB	max Private_Dirty + Shared_Dirty of the mappings of /proc/self/smaps whose path is an output file of this run: the dirty pages this process has mapped in them (the per-process view; anonymous memory is not in it)
+R	E5	a50.f.par	3	node_count	100000001	n	NODE_COUNT = 1 + I + n + 1 with I = 49999999 internal nodes
+R	E5	a50.f.par	3	lrs	49999999	symbols	LRS_DEPTH 49999999, LRS_RANK 49999999
+R	E5	a50.f.par	3	ext_rssanon_peak	24.674	MB	independent sampler: max RssAnon of /proc/<pid>/status over 149 samples at 20 ms
+R	E5	a50.f.par	3	ext_dirty_peak	17.560	MB	independent sampler: max /proc/meminfo Dirty minus the baseline (0.00 MB, median of 5 samples before the start); gate G3 <= 64 MB; absolute max 17.56 MB
+R	E5	a50.f.par	3	ext_dirty_mean	5.098	MB	independent sampler: mean of Dirty minus the baseline
+R	E5	a50.f.par	3	ext_writeback_peak	17.826	MB	independent sampler: max /proc/meminfo Writeback
+R	E5	a50.f.par	3	device_write_bytes	1196183552	bytes	sectors written by vda during the run and the sync that follows it (512 B each; includes the spill file, journal, everything)
+R	E5	a50.both.par	1	n	50000000	symbols	b=1 bits, layout=both, codec=Tagged, fused with PH4=False
+R	E5	a50.both.par	1	parameters	parallel NSV=True block=262144 entries (4096 KiB) window=1048576 slots=8 flush windows=True spill flush=16777216 read=1048576 spill dir=scratch		entry 16 B (l, lb, first, last); two blocks in RAM
+R	E5	a50.both.par	1	ph5_s	3.208456	s	wall of the forward scan including the LCP read, plus the NSV pass when asked for (a second pass, or concurrent with --parallel-nsv; without fsync)
+R	E5	a50.both.par	1	forward_s	3.206147	s	forward scan including reading the LCP file
+R	E5	a50.both.par	1	scan_s	2.518894	s	time inside Consume + Complete of the forward scan (without reading the LCP)
+R	E5	a50.both.par	1	scan_ns_per_entry	50.377886	ns	scan_s / (n + 1)
+R	E5	a50.both.par	1	forward_ns_per_entry	64.122937	ns	forward_s / (n + 1)
+R	E5	a50.both.par	1	nsv_s	1.682093	s	backward scan of the LCP file: NSV written in descending rank order
+R	E5	a50.both.par	1	nsv_ns_per_entry	33.641855	ns	nsv_s / (n + 1)
+R	E5	a50.both.par	1	fsync_s	0.000309	s	flush of the output files after the run
+R	E5	a50.both.par	1	rssanon_peak	24.506368	MB	max RssAnon of 322 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E5	a50.both.par	1	rssfile_peak	38.4	MB	mapped file pages resident (windows, text): reported, not counted
+R	E5	a50.both.par	1	vmhwm	66.269184	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E5	a50.both.par	1	gc_heap	3.322616	MB	managed heap at the end (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 1/1/1
+R	E5	a50.both.par	1	arena_peak	12.582912	MB	peak native buffers charged to the ArenaBudget (cap 64 MiB), live at the end 0
+R	E5	a50.both.par	1	max_lcp	49999999	symbols	largest LCP value
+R	E5	a50.both.par	1	stack_peak	50000000	entries	peak height of the forward stack (<= 1 + max LCP = 50000000); 800.00 MB at 16 B per entry
+R	E5	a50.both.par	1	nsv_stack_peak	1	entries	peak height of the NSV stack (8 B per entry): 0.00 MB
+R	E5	a50.both.par	1	spill_written	792723456	bytes	forward stack: 189 blocks written, 189 read back (792723456 bytes), 0 clean evictions, 47 fsyncs; peak file 792723456 bytes
+R	E5	a50.both.par	1	spill_expected	800000000	bytes	16 B x (max LCP + 1); spill_written / expected = 0.990904; difference 454784 entries = 1.73 blocks of 262144
+R	E5	a50.both.par	1	nsv_spill_written	0	bytes	NSV stack: 0 blocks written, 0 read back; expected 8 B x (max LCP + 1) = 400000000
+R	E5	a50.both.par	1	child_windows	191	n	CHILD: 191 windows mapped (191 distinct, 0 mapped again after release), 183 evictions, 191 flushes covering 200000004 bytes, 50000000 writes (1.000 per rank)
+R	E5	a50.both.par	1	psv_windows	191	n	PSV: 191 windows (0 again), 191 flushes
+R	E5	a50.both.par	1	nsv_windows	191	n	NSV: 191 windows (0 again), 191 flushes
+R	E5	a50.both.par	1	io_explicit_read	1192723464	bytes	23.854 B/char: the LCP file(s) (forward and backward) and the spill read-back (571 calls)
+R	E5	a50.both.par	1	io_explicit_write	792723456	bytes	15.854 B/char: the spill file(s) (189 calls)
+R	E5	a50.both.par	1	blocklayer_read	200077312	bytes	/proc/self/io read_bytes (page-cache misses)
+R	E5	a50.both.par	1	blocklayer_write	1392844800	bytes	/proc/self/io write_bytes: bytes of pages that went from clean to dirty (every re-dirtying of a flushed page counts again)
+R	E5	a50.both.par	1	output_bytes	600000012	bytes	12.000 B/char: CHILD (4 B/char) for layout A, PSV + NSV (8 B/char) for layout F
+R	E5	a50.both.par	1	wa_dirtied	1.000202	x	write amplification, definition 1: (write_bytes of /proc/self/io - the spill bytes written 792723456) / final size of the output files; 1.0 = every page was dirtied once; the device-level definition 2 is taken by the run script (sectors written by the block device after sync)
+R	E5	a50.both.par	1	dirty_peak	17.34656	MB	max /proc/meminfo Dirty minus the baseline (0.07 MB, median of 5 samples before the start) over 160 samples at 20 ms; absolute max 17.42 MB; gate G3 <= 64 MB
+R	E5	a50.both.par	1	dirty_mean	6.83095	MB	mean of Dirty minus the baseline over the run
+R	E5	a50.both.par	1	dirty_peak_after_mark	17.416192	MB	max Dirty after the PH5 start minus Dirty at that moment (0.00 MB)
+R	E5	a50.both.par	1	writeback_peak	17.956864	MB	max /proc/meminfo Writeback
+R	E5	a50.both.par	1	proc_dirty_peak	10.211328	MB	max Private_Dirty + Shared_Dirty of the mappings of /proc/self/smaps whose path is an output file of this run: the dirty pages this process has mapped in them (the per-process view; anonymous memory is not in it)
+R	E5	a50.both.par	1	node_count	100000001	n	NODE_COUNT = 1 + I + n + 1 with I = 49999999 internal nodes
+R	E5	a50.both.par	1	lrs	49999999	symbols	LRS_DEPTH 49999999, LRS_RANK 49999999
+R	E5	a50.both.par	1	ext_rssanon_peak	24.506	MB	independent sampler: max RssAnon of /proc/<pid>/status over 168 samples at 20 ms
+R	E5	a50.both.par	1	ext_dirty_peak	15.929	MB	independent sampler: max /proc/meminfo Dirty minus the baseline (0.00 MB, median of 5 samples before the start); gate G3 <= 64 MB; absolute max 15.93 MB
+R	E5	a50.both.par	1	ext_dirty_mean	6.662	MB	independent sampler: mean of Dirty minus the baseline
+R	E5	a50.both.par	1	ext_writeback_peak	17.658	MB	independent sampler: max /proc/meminfo Writeback
+R	E5	a50.both.par	1	device_write_bytes	1397575680	bytes	sectors written by vda during the run and the sync that follows it (512 B each; includes the spill file, journal, everything)
+R	E5	a50.both.par	2	n	50000000	symbols	b=1 bits, layout=both, codec=Tagged, fused with PH4=False
+R	E5	a50.both.par	2	parameters	parallel NSV=True block=262144 entries (4096 KiB) window=1048576 slots=8 flush windows=True spill flush=16777216 read=1048576 spill dir=scratch		entry 16 B (l, lb, first, last); two blocks in RAM
+R	E5	a50.both.par	2	ph5_s	3.141363	s	wall of the forward scan including the LCP read, plus the NSV pass when asked for (a second pass, or concurrent with --parallel-nsv; without fsync)
+R	E5	a50.both.par	2	forward_s	3.138923	s	forward scan including reading the LCP file
+R	E5	a50.both.par	2	scan_s	2.506609	s	time inside Consume + Complete of the forward scan (without reading the LCP)
+R	E5	a50.both.par	2	scan_ns_per_entry	50.13218	ns	scan_s / (n + 1)
+R	E5	a50.both.par	2	forward_ns_per_entry	62.778463	ns	forward_s / (n + 1)
+R	E5	a50.both.par	2	nsv_s	1.637477	s	backward scan of the LCP file: NSV written in descending rank order
+R	E5	a50.both.par	2	nsv_ns_per_entry	32.74953	ns	nsv_s / (n + 1)
+R	E5	a50.both.par	2	fsync_s	0.000252	s	flush of the output files after the run
+R	E5	a50.both.par	2	rssanon_peak	23.580672	MB	max RssAnon of 316 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E5	a50.both.par	2	rssfile_peak	38.469632	MB	mapped file pages resident (windows, text): reported, not counted
+R	E5	a50.both.par	2	vmhwm	65.417216	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E5	a50.both.par	2	gc_heap	3.322616	MB	managed heap at the end (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 1/1/1
+R	E5	a50.both.par	2	arena_peak	12.582912	MB	peak native buffers charged to the ArenaBudget (cap 64 MiB), live at the end 0
+R	E5	a50.both.par	2	max_lcp	49999999	symbols	largest LCP value
+R	E5	a50.both.par	2	stack_peak	50000000	entries	peak height of the forward stack (<= 1 + max LCP = 50000000); 800.00 MB at 16 B per entry
+R	E5	a50.both.par	2	nsv_stack_peak	1	entries	peak height of the NSV stack (8 B per entry): 0.00 MB
+R	E5	a50.both.par	2	spill_written	792723456	bytes	forward stack: 189 blocks written, 189 read back (792723456 bytes), 0 clean evictions, 47 fsyncs; peak file 792723456 bytes
+R	E5	a50.both.par	2	spill_expected	800000000	bytes	16 B x (max LCP + 1); spill_written / expected = 0.990904; difference 454784 entries = 1.73 blocks of 262144
+R	E5	a50.both.par	2	nsv_spill_written	0	bytes	NSV stack: 0 blocks written, 0 read back; expected 8 B x (max LCP + 1) = 400000000
+R	E5	a50.both.par	2	child_windows	191	n	CHILD: 191 windows mapped (191 distinct, 0 mapped again after release), 183 evictions, 191 flushes covering 200000004 bytes, 50000000 writes (1.000 per rank)
+R	E5	a50.both.par	2	psv_windows	191	n	PSV: 191 windows (0 again), 191 flushes
+R	E5	a50.both.par	2	nsv_windows	191	n	NSV: 191 windows (0 again), 191 flushes
+R	E5	a50.both.par	2	io_explicit_read	1192723464	bytes	23.854 B/char: the LCP file(s) (forward and backward) and the spill read-back (571 calls)
+R	E5	a50.both.par	2	io_explicit_write	792723456	bytes	15.854 B/char: the spill file(s) (189 calls)
+R	E5	a50.both.par	2	blocklayer_read	200056832	bytes	/proc/self/io read_bytes (page-cache misses)
+R	E5	a50.both.par	2	blocklayer_write	1392828416	bytes	/proc/self/io write_bytes: bytes of pages that went from clean to dirty (every re-dirtying of a flushed page counts again)
+R	E5	a50.both.par	2	output_bytes	600000012	bytes	12.000 B/char: CHILD (4 B/char) for layout A, PSV + NSV (8 B/char) for layout F
+R	E5	a50.both.par	2	wa_dirtied	1.000175	x	write amplification, definition 1: (write_bytes of /proc/self/io - the spill bytes written 792723456) / final size of the output files; 1.0 = every page was dirtied once; the device-level definition 2 is taken by the run script (sectors written by the block device after sync)
+R	E5	a50.both.par	2	dirty_peak	16.654336	MB	max /proc/meminfo Dirty minus the baseline (0.07 MB, median of 5 samples before the start) over 157 samples at 20 ms; absolute max 16.72 MB; gate G3 <= 64 MB
+R	E5	a50.both.par	2	dirty_mean	7.255738	MB	mean of Dirty minus the baseline over the run
+R	E5	a50.both.par	2	dirty_peak_after_mark	16.719872	MB	max Dirty after the PH5 start minus Dirty at that moment (0.00 MB)
+R	E5	a50.both.par	2	writeback_peak	17.825792	MB	max /proc/meminfo Writeback
+R	E5	a50.both.par	2	proc_dirty_peak	10.211328	MB	max Private_Dirty + Shared_Dirty of the mappings of /proc/self/smaps whose path is an output file of this run: the dirty pages this process has mapped in them (the per-process view; anonymous memory is not in it)
+R	E5	a50.both.par	2	node_count	100000001	n	NODE_COUNT = 1 + I + n + 1 with I = 49999999 internal nodes
+R	E5	a50.both.par	2	lrs	49999999	symbols	LRS_DEPTH 49999999, LRS_RANK 49999999
+R	E5	a50.both.par	2	ext_rssanon_peak	23.581	MB	independent sampler: max RssAnon of /proc/<pid>/status over 165 samples at 20 ms
+R	E5	a50.both.par	2	ext_dirty_peak	17.973	MB	independent sampler: max /proc/meminfo Dirty minus the baseline (0.00 MB, median of 5 samples before the start); gate G3 <= 64 MB; absolute max 17.97 MB
+R	E5	a50.both.par	2	ext_dirty_mean	7.655	MB	independent sampler: mean of Dirty minus the baseline
+R	E5	a50.both.par	2	ext_writeback_peak	17.674	MB	independent sampler: max /proc/meminfo Writeback
+R	E5	a50.both.par	2	device_write_bytes	1396977664	bytes	sectors written by vda during the run and the sync that follows it (512 B each; includes the spill file, journal, everything)
+R	E5	a50.both.par	3	n	50000000	symbols	b=1 bits, layout=both, codec=Tagged, fused with PH4=False
+R	E5	a50.both.par	3	parameters	parallel NSV=True block=262144 entries (4096 KiB) window=1048576 slots=8 flush windows=True spill flush=16777216 read=1048576 spill dir=scratch		entry 16 B (l, lb, first, last); two blocks in RAM
+R	E5	a50.both.par	3	ph5_s	3.171424	s	wall of the forward scan including the LCP read, plus the NSV pass when asked for (a second pass, or concurrent with --parallel-nsv; without fsync)
+R	E5	a50.both.par	3	forward_s	3.169127	s	forward scan including reading the LCP file
+R	E5	a50.both.par	3	scan_s	2.495136	s	time inside Consume + Complete of the forward scan (without reading the LCP)
+R	E5	a50.both.par	3	scan_ns_per_entry	49.902719	ns	scan_s / (n + 1)
+R	E5	a50.both.par	3	forward_ns_per_entry	63.382537	ns	forward_s / (n + 1)
+R	E5	a50.both.par	3	nsv_s	1.654828	s	backward scan of the LCP file: NSV written in descending rank order
+R	E5	a50.both.par	3	nsv_ns_per_entry	33.096552	ns	nsv_s / (n + 1)
+R	E5	a50.both.par	3	fsync_s	0.000406	s	flush of the output files after the run
+R	E5	a50.both.par	3	rssanon_peak	23.506944	MB	max RssAnon of 319 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E5	a50.both.par	3	rssfile_peak	38.350848	MB	mapped file pages resident (windows, text): reported, not counted
+R	E5	a50.both.par	3	vmhwm	65.224704	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E5	a50.both.par	3	gc_heap	3.306976	MB	managed heap at the end (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 1/1/1
+R	E5	a50.both.par	3	arena_peak	12.582912	MB	peak native buffers charged to the ArenaBudget (cap 64 MiB), live at the end 0
+R	E5	a50.both.par	3	max_lcp	49999999	symbols	largest LCP value
+R	E5	a50.both.par	3	stack_peak	50000000	entries	peak height of the forward stack (<= 1 + max LCP = 50000000); 800.00 MB at 16 B per entry
+R	E5	a50.both.par	3	nsv_stack_peak	1	entries	peak height of the NSV stack (8 B per entry): 0.00 MB
+R	E5	a50.both.par	3	spill_written	792723456	bytes	forward stack: 189 blocks written, 189 read back (792723456 bytes), 0 clean evictions, 47 fsyncs; peak file 792723456 bytes
+R	E5	a50.both.par	3	spill_expected	800000000	bytes	16 B x (max LCP + 1); spill_written / expected = 0.990904; difference 454784 entries = 1.73 blocks of 262144
+R	E5	a50.both.par	3	nsv_spill_written	0	bytes	NSV stack: 0 blocks written, 0 read back; expected 8 B x (max LCP + 1) = 400000000
+R	E5	a50.both.par	3	child_windows	191	n	CHILD: 191 windows mapped (191 distinct, 0 mapped again after release), 183 evictions, 191 flushes covering 200000004 bytes, 50000000 writes (1.000 per rank)
+R	E5	a50.both.par	3	psv_windows	191	n	PSV: 191 windows (0 again), 191 flushes
+R	E5	a50.both.par	3	nsv_windows	191	n	NSV: 191 windows (0 again), 191 flushes
+R	E5	a50.both.par	3	io_explicit_read	1192723464	bytes	23.854 B/char: the LCP file(s) (forward and backward) and the spill read-back (571 calls)
+R	E5	a50.both.par	3	io_explicit_write	792723456	bytes	15.854 B/char: the spill file(s) (189 calls)
+R	E5	a50.both.par	3	blocklayer_read	200060928	bytes	/proc/self/io read_bytes (page-cache misses)
+R	E5	a50.both.par	3	blocklayer_write	1392832512	bytes	/proc/self/io write_bytes: bytes of pages that went from clean to dirty (every re-dirtying of a flushed page counts again)
+R	E5	a50.both.par	3	output_bytes	600000012	bytes	12.000 B/char: CHILD (4 B/char) for layout A, PSV + NSV (8 B/char) for layout F
+R	E5	a50.both.par	3	wa_dirtied	1.000182	x	write amplification, definition 1: (write_bytes of /proc/self/io - the spill bytes written 792723456) / final size of the output files; 1.0 = every page was dirtied once; the device-level definition 2 is taken by the run script (sectors written by the block device after sync)
+R	E5	a50.both.par	3	dirty_peak	16.658432	MB	max /proc/meminfo Dirty minus the baseline (0.07 MB, median of 5 samples before the start) over 159 samples at 20 ms; absolute max 16.72 MB; gate G3 <= 64 MB
+R	E5	a50.both.par	3	dirty_mean	7.090691	MB	mean of Dirty minus the baseline over the run
+R	E5	a50.both.par	3	dirty_peak_after_mark	16.723968	MB	max Dirty after the PH5 start minus Dirty at that moment (0.00 MB)
+R	E5	a50.both.par	3	writeback_peak	17.821696	MB	max /proc/meminfo Writeback
+R	E5	a50.both.par	3	proc_dirty_peak	10.211328	MB	max Private_Dirty + Shared_Dirty of the mappings of /proc/self/smaps whose path is an output file of this run: the dirty pages this process has mapped in them (the per-process view; anonymous memory is not in it)
+R	E5	a50.both.par	3	node_count	100000001	n	NODE_COUNT = 1 + I + n + 1 with I = 49999999 internal nodes
+R	E5	a50.both.par	3	lrs	49999999	symbols	LRS_DEPTH 49999999, LRS_RANK 49999999
+R	E5	a50.both.par	3	ext_rssanon_peak	23.507	MB	independent sampler: max RssAnon of /proc/<pid>/status over 166 samples at 20 ms
+R	E5	a50.both.par	3	ext_dirty_peak	19.997	MB	independent sampler: max /proc/meminfo Dirty minus the baseline (0.00 MB, median of 5 samples before the start); gate G3 <= 64 MB; absolute max 20.00 MB
+R	E5	a50.both.par	3	ext_dirty_mean	7.368	MB	independent sampler: mean of Dirty minus the baseline
+R	E5	a50.both.par	3	ext_writeback_peak	17.666	MB	independent sampler: max /proc/meminfo Writeback
+R	E5	a50.both.par	3	device_write_bytes	1396817920	bytes	sectors written by vda during the run and the sync that follows it (512 B each; includes the spill file, journal, everything)
+R	E5	nrun30.f.par	1	n	30000000	symbols	b=3 bits, layout=f, codec=Tagged, fused with PH4=False
+R	E5	nrun30.f.par	1	parameters	parallel NSV=True block=262144 entries (4096 KiB) window=1048576 slots=8 flush windows=True spill flush=16777216 read=1048576 spill dir=scratch		entry 16 B (l, lb, first, last); two blocks in RAM
+R	E5	nrun30.f.par	1	ph5_s	1.473563	s	wall of the forward scan including the LCP read, plus the NSV pass when asked for (a second pass, or concurrent with --parallel-nsv; without fsync)
+R	E5	nrun30.f.par	1	forward_s	1.471137	s	forward scan including reading the LCP file
+R	E5	nrun30.f.par	1	scan_s	1.170187	s	time inside Consume + Complete of the forward scan (without reading the LCP)
+R	E5	nrun30.f.par	1	scan_ns_per_entry	39.00622	ns	scan_s / (n + 1)
+R	E5	nrun30.f.par	1	forward_ns_per_entry	49.037899	ns	forward_s / (n + 1)
+R	E5	nrun30.f.par	1	nsv_s	1.097766	s	backward scan of the LCP file: NSV written in descending rank order
+R	E5	nrun30.f.par	1	nsv_ns_per_entry	36.592201	ns	nsv_s / (n + 1)
+R	E5	nrun30.f.par	1	fsync_s	0.000202	s	flush of the output files after the run
+R	E5	nrun30.f.par	1	rssanon_peak	23.605248	MB	max RssAnon of 149 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E5	nrun30.f.par	1	rssfile_peak	32.321536	MB	mapped file pages resident (windows, text): reported, not counted
+R	E5	nrun30.f.par	1	vmhwm	59.052032	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E5	nrun30.f.par	1	gc_heap	3.322616	MB	managed heap at the end (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 1/1/1
+R	E5	nrun30.f.par	1	arena_peak	12.582912	MB	peak native buffers charged to the ArenaBudget (cap 64 MiB), live at the end 0
+R	E5	nrun30.f.par	1	max_lcp	19999999	symbols	largest LCP value
+R	E5	nrun30.f.par	1	stack_peak	20000000	entries	peak height of the forward stack (<= 1 + max LCP = 20000000); 320.00 MB at 16 B per entry
+R	E5	nrun30.f.par	1	nsv_stack_peak	15	entries	peak height of the NSV stack (8 B per entry): 0.00 MB
+R	E5	nrun30.f.par	1	spill_written	314572800	bytes	forward stack: 75 blocks written, 75 read back (314572800 bytes), 0 clean evictions, 18 fsyncs; peak file 314572800 bytes
+R	E5	nrun30.f.par	1	spill_expected	320000000	bytes	16 B x (max LCP + 1); spill_written / expected = 0.983040; difference 339200 entries = 1.29 blocks of 262144
+R	E5	nrun30.f.par	1	nsv_spill_written	0	bytes	NSV stack: 0 blocks written, 0 read back; expected 8 B x (max LCP + 1) = 160000000
+R	E5	nrun30.f.par	1	psv_windows	115	n	PSV: 115 windows (0 again), 115 flushes
+R	E5	nrun30.f.par	1	nsv_windows	115	n	NSV: 115 windows (0 again), 115 flushes
+R	E5	nrun30.f.par	1	io_explicit_read	554572808	bytes	18.486 B/char: the LCP file(s) (forward and backward) and the spill read-back (305 calls)
+R	E5	nrun30.f.par	1	io_explicit_write	314572800	bytes	10.486 B/char: the spill file(s) (75 calls)
+R	E5	nrun30.f.par	1	blocklayer_read	120025088	bytes	/proc/self/io read_bytes (page-cache misses)
+R	E5	nrun30.f.par	1	blocklayer_write	554635264	bytes	/proc/self/io write_bytes: bytes of pages that went from clean to dirty (every re-dirtying of a flushed page counts again)
+R	E5	nrun30.f.par	1	output_bytes	240000008	bytes	8.000 B/char: CHILD (4 B/char) for layout A, PSV + NSV (8 B/char) for layout F
+R	E5	nrun30.f.par	1	wa_dirtied	1.00026	x	write amplification, definition 1: (write_bytes of /proc/self/io - the spill bytes written 314572800) / final size of the output files; 1.0 = every page was dirtied once; the device-level definition 2 is taken by the run script (sectors written by the block device after sync)
+R	E5	nrun30.f.par	1	dirty_peak	16.535552	MB	max /proc/meminfo Dirty minus the baseline (0.07 MB, median of 5 samples before the start) over 74 samples at 20 ms; absolute max 16.61 MB; gate G3 <= 64 MB
+R	E5	nrun30.f.par	1	dirty_mean	5.753607	MB	mean of Dirty minus the baseline over the run
+R	E5	nrun30.f.par	1	dirty_peak_after_mark	16.605184	MB	max Dirty after the PH5 start minus Dirty at that moment (0.00 MB)
+R	E5	nrun30.f.par	1	writeback_peak	17.825792	MB	max /proc/meminfo Writeback
+R	E5	nrun30.f.par	1	proc_dirty_peak	4.194304	MB	max Private_Dirty + Shared_Dirty of the mappings of /proc/self/smaps whose path is an output file of this run: the dirty pages this process has mapped in them (the per-process view; anonymous memory is not in it)
+R	E5	nrun30.f.par	1	node_count	56230641	n	NODE_COUNT = 1 + I + n + 1 with I = 26230639 internal nodes
+R	E5	nrun30.f.par	1	lrs	19999999	symbols	LRS_DEPTH 19999999, LRS_RANK 27500725
+R	E5	nrun30.f.par	1	ext_rssanon_peak	23.605	MB	independent sampler: max RssAnon of /proc/<pid>/status over 82 samples at 20 ms
+R	E5	nrun30.f.par	1	ext_dirty_peak	20.537	MB	independent sampler: max /proc/meminfo Dirty minus the baseline (0.00 MB, median of 5 samples before the start); gate G3 <= 64 MB; absolute max 20.54 MB
+R	E5	nrun30.f.par	1	ext_dirty_mean	5.702	MB	independent sampler: mean of Dirty minus the baseline
+R	E5	nrun30.f.par	1	ext_writeback_peak	17.658	MB	independent sampler: max /proc/meminfo Writeback
+R	E5	nrun30.f.par	1	device_write_bytes	556150784	bytes	sectors written by vda during the run and the sync that follows it (512 B each; includes the spill file, journal, everything)
+R	E5	nrun30.f.par	2	n	30000000	symbols	b=3 bits, layout=f, codec=Tagged, fused with PH4=False
+R	E5	nrun30.f.par	2	parameters	parallel NSV=True block=262144 entries (4096 KiB) window=1048576 slots=8 flush windows=True spill flush=16777216 read=1048576 spill dir=scratch		entry 16 B (l, lb, first, last); two blocks in RAM
+R	E5	nrun30.f.par	2	ph5_s	1.45978	s	wall of the forward scan including the LCP read, plus the NSV pass when asked for (a second pass, or concurrent with --parallel-nsv; without fsync)
+R	E5	nrun30.f.par	2	forward_s	1.457739	s	forward scan including reading the LCP file
+R	E5	nrun30.f.par	2	scan_s	1.173447	s	time inside Consume + Complete of the forward scan (without reading the LCP)
+R	E5	nrun30.f.par	2	scan_ns_per_entry	39.114901	ns	scan_s / (n + 1)
+R	E5	nrun30.f.par	2	forward_ns_per_entry	48.591302	ns	forward_s / (n + 1)
+R	E5	nrun30.f.par	2	nsv_s	1.108481	s	backward scan of the LCP file: NSV written in descending rank order
+R	E5	nrun30.f.par	2	nsv_ns_per_entry	36.949361	ns	nsv_s / (n + 1)
+R	E5	nrun30.f.par	2	fsync_s	0.000231	s	flush of the output files after the run
+R	E5	nrun30.f.par	2	rssanon_peak	24.375296	MB	max RssAnon of 147 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E5	nrun30.f.par	2	rssfile_peak	32.219136	MB	mapped file pages resident (windows, text): reported, not counted
+R	E5	nrun30.f.par	2	vmhwm	59.71968	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E5	nrun30.f.par	2	gc_heap	3.322616	MB	managed heap at the end (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 1/1/1
+R	E5	nrun30.f.par	2	arena_peak	12.582912	MB	peak native buffers charged to the ArenaBudget (cap 64 MiB), live at the end 0
+R	E5	nrun30.f.par	2	max_lcp	19999999	symbols	largest LCP value
+R	E5	nrun30.f.par	2	stack_peak	20000000	entries	peak height of the forward stack (<= 1 + max LCP = 20000000); 320.00 MB at 16 B per entry
+R	E5	nrun30.f.par	2	nsv_stack_peak	15	entries	peak height of the NSV stack (8 B per entry): 0.00 MB
+R	E5	nrun30.f.par	2	spill_written	314572800	bytes	forward stack: 75 blocks written, 75 read back (314572800 bytes), 0 clean evictions, 18 fsyncs; peak file 314572800 bytes
+R	E5	nrun30.f.par	2	spill_expected	320000000	bytes	16 B x (max LCP + 1); spill_written / expected = 0.983040; difference 339200 entries = 1.29 blocks of 262144
+R	E5	nrun30.f.par	2	nsv_spill_written	0	bytes	NSV stack: 0 blocks written, 0 read back; expected 8 B x (max LCP + 1) = 160000000
+R	E5	nrun30.f.par	2	psv_windows	115	n	PSV: 115 windows (0 again), 115 flushes
+R	E5	nrun30.f.par	2	nsv_windows	115	n	NSV: 115 windows (0 again), 115 flushes
+R	E5	nrun30.f.par	2	io_explicit_read	554572808	bytes	18.486 B/char: the LCP file(s) (forward and backward) and the spill read-back (305 calls)
+R	E5	nrun30.f.par	2	io_explicit_write	314572800	bytes	10.486 B/char: the spill file(s) (75 calls)
+R	E5	nrun30.f.par	2	blocklayer_read	120025088	bytes	/proc/self/io read_bytes (page-cache misses)
+R	E5	nrun30.f.par	2	blocklayer_write	554635264	bytes	/proc/self/io write_bytes: bytes of pages that went from clean to dirty (every re-dirtying of a flushed page counts again)
+R	E5	nrun30.f.par	2	output_bytes	240000008	bytes	8.000 B/char: CHILD (4 B/char) for layout A, PSV + NSV (8 B/char) for layout F
+R	E5	nrun30.f.par	2	wa_dirtied	1.00026	x	write amplification, definition 1: (write_bytes of /proc/self/io - the spill bytes written 314572800) / final size of the output files; 1.0 = every page was dirtied once; the device-level definition 2 is taken by the run script (sectors written by the block device after sync)
+R	E5	nrun30.f.par	2	dirty_peak	20.168704	MB	max /proc/meminfo Dirty minus the baseline (0.07 MB, median of 5 samples before the start) over 73 samples at 20 ms; absolute max 20.24 MB; gate G3 <= 64 MB
+R	E5	nrun30.f.par	2	dirty_mean	6.068364	MB	mean of Dirty minus the baseline over the run
+R	E5	nrun30.f.par	2	dirty_peak_after_mark	20.238336	MB	max Dirty after the PH5 start minus Dirty at that moment (0.00 MB)
+R	E5	nrun30.f.par	2	writeback_peak	17.825792	MB	max /proc/meminfo Writeback
+R	E5	nrun30.f.par	2	proc_dirty_peak	4.194304	MB	max Private_Dirty + Shared_Dirty of the mappings of /proc/self/smaps whose path is an output file of this run: the dirty pages this process has mapped in them (the per-process view; anonymous memory is not in it)
+R	E5	nrun30.f.par	2	node_count	56230641	n	NODE_COUNT = 1 + I + n + 1 with I = 26230639 internal nodes
+R	E5	nrun30.f.par	2	lrs	19999999	symbols	LRS_DEPTH 19999999, LRS_RANK 27500725
+R	E5	nrun30.f.par	2	ext_rssanon_peak	24.375	MB	independent sampler: max RssAnon of /proc/<pid>/status over 81 samples at 20 ms
+R	E5	nrun30.f.par	2	ext_dirty_peak	16.658	MB	independent sampler: max /proc/meminfo Dirty minus the baseline (0.00 MB, median of 5 samples before the start); gate G3 <= 64 MB; absolute max 16.66 MB
+R	E5	nrun30.f.par	2	ext_dirty_mean	5.777	MB	independent sampler: mean of Dirty minus the baseline
+R	E5	nrun30.f.par	2	ext_writeback_peak	17.789	MB	independent sampler: max /proc/meminfo Writeback
+R	E5	nrun30.f.par	2	device_write_bytes	556158976	bytes	sectors written by vda during the run and the sync that follows it (512 B each; includes the spill file, journal, everything)
+R	E5	nrun30.f.par	3	n	30000000	symbols	b=3 bits, layout=f, codec=Tagged, fused with PH4=False
+R	E5	nrun30.f.par	3	parameters	parallel NSV=True block=262144 entries (4096 KiB) window=1048576 slots=8 flush windows=True spill flush=16777216 read=1048576 spill dir=scratch		entry 16 B (l, lb, first, last); two blocks in RAM
+R	E5	nrun30.f.par	3	ph5_s	1.481636	s	wall of the forward scan including the LCP read, plus the NSV pass when asked for (a second pass, or concurrent with --parallel-nsv; without fsync)
+R	E5	nrun30.f.par	3	forward_s	1.478615	s	forward scan including reading the LCP file
+R	E5	nrun30.f.par	3	scan_s	1.202541	s	time inside Consume + Complete of the forward scan (without reading the LCP)
+R	E5	nrun30.f.par	3	scan_ns_per_entry	40.084714	ns	scan_s / (n + 1)
+R	E5	nrun30.f.par	3	forward_ns_per_entry	49.287149	ns	forward_s / (n + 1)
+R	E5	nrun30.f.par	3	nsv_s	1.04201	s	backward scan of the LCP file: NSV written in descending rank order
+R	E5	nrun30.f.par	3	nsv_ns_per_entry	34.73367	ns	nsv_s / (n + 1)
+R	E5	nrun30.f.par	3	fsync_s	0.000314	s	flush of the output files after the run
+R	E5	nrun30.f.par	3	rssanon_peak	23.998464	MB	max RssAnon of 150 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E5	nrun30.f.par	3	rssfile_peak	32.305152	MB	mapped file pages resident (windows, text): reported, not counted
+R	E5	nrun30.f.par	3	vmhwm	59.420672	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E5	nrun30.f.par	3	gc_heap	3.314848	MB	managed heap at the end (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 1/1/1
+R	E5	nrun30.f.par	3	arena_peak	12.582912	MB	peak native buffers charged to the ArenaBudget (cap 64 MiB), live at the end 0
+R	E5	nrun30.f.par	3	max_lcp	19999999	symbols	largest LCP value
+R	E5	nrun30.f.par	3	stack_peak	20000000	entries	peak height of the forward stack (<= 1 + max LCP = 20000000); 320.00 MB at 16 B per entry
+R	E5	nrun30.f.par	3	nsv_stack_peak	15	entries	peak height of the NSV stack (8 B per entry): 0.00 MB
+R	E5	nrun30.f.par	3	spill_written	314572800	bytes	forward stack: 75 blocks written, 75 read back (314572800 bytes), 0 clean evictions, 18 fsyncs; peak file 314572800 bytes
+R	E5	nrun30.f.par	3	spill_expected	320000000	bytes	16 B x (max LCP + 1); spill_written / expected = 0.983040; difference 339200 entries = 1.29 blocks of 262144
+R	E5	nrun30.f.par	3	nsv_spill_written	0	bytes	NSV stack: 0 blocks written, 0 read back; expected 8 B x (max LCP + 1) = 160000000
+R	E5	nrun30.f.par	3	psv_windows	115	n	PSV: 115 windows (0 again), 115 flushes
+R	E5	nrun30.f.par	3	nsv_windows	115	n	NSV: 115 windows (0 again), 115 flushes
+R	E5	nrun30.f.par	3	io_explicit_read	554572808	bytes	18.486 B/char: the LCP file(s) (forward and backward) and the spill read-back (305 calls)
+R	E5	nrun30.f.par	3	io_explicit_write	314572800	bytes	10.486 B/char: the spill file(s) (75 calls)
+R	E5	nrun30.f.par	3	blocklayer_read	120025088	bytes	/proc/self/io read_bytes (page-cache misses)
+R	E5	nrun30.f.par	3	blocklayer_write	554635264	bytes	/proc/self/io write_bytes: bytes of pages that went from clean to dirty (every re-dirtying of a flushed page counts again)
+R	E5	nrun30.f.par	3	output_bytes	240000008	bytes	8.000 B/char: CHILD (4 B/char) for layout A, PSV + NSV (8 B/char) for layout F
+R	E5	nrun30.f.par	3	wa_dirtied	1.00026	x	write amplification, definition 1: (write_bytes of /proc/self/io - the spill bytes written 314572800) / final size of the output files; 1.0 = every page was dirtied once; the device-level definition 2 is taken by the run script (sectors written by the block device after sync)
+R	E5	nrun30.f.par	3	dirty_peak	15.79008	MB	max /proc/meminfo Dirty minus the baseline (0.07 MB, median of 5 samples before the start) over 74 samples at 20 ms; absolute max 15.86 MB; gate G3 <= 64 MB
+R	E5	nrun30.f.par	3	dirty_mean	6.08494	MB	mean of Dirty minus the baseline over the run
+R	E5	nrun30.f.par	3	dirty_peak_after_mark	15.859712	MB	max Dirty after the PH5 start minus Dirty at that moment (0.00 MB)
+R	E5	nrun30.f.par	3	writeback_peak	17.657856	MB	max /proc/meminfo Writeback
+R	E5	nrun30.f.par	3	proc_dirty_peak	4.132864	MB	max Private_Dirty + Shared_Dirty of the mappings of /proc/self/smaps whose path is an output file of this run: the dirty pages this process has mapped in them (the per-process view; anonymous memory is not in it)
+R	E5	nrun30.f.par	3	node_count	56230641	n	NODE_COUNT = 1 + I + n + 1 with I = 26230639 internal nodes
+R	E5	nrun30.f.par	3	lrs	19999999	symbols	LRS_DEPTH 19999999, LRS_RANK 27500725
+R	E5	nrun30.f.par	3	ext_rssanon_peak	23.998	MB	independent sampler: max RssAnon of /proc/<pid>/status over 82 samples at 20 ms
+R	E5	nrun30.f.par	3	ext_dirty_peak	16.871	MB	independent sampler: max /proc/meminfo Dirty minus the baseline (0.00 MB, median of 5 samples before the start); gate G3 <= 64 MB; absolute max 16.87 MB
+R	E5	nrun30.f.par	3	ext_dirty_mean	5.370	MB	independent sampler: mean of Dirty minus the baseline
+R	E5	nrun30.f.par	3	ext_writeback_peak	17.826	MB	independent sampler: max /proc/meminfo Writeback
+R	E5	nrun30.f.par	3	device_write_bytes	556101632	bytes	sectors written by vda during the run and the sync that follows it (512 B each; includes the spill file, journal, everything)
+R	E5	nrun30.both.par	1	n	30000000	symbols	b=3 bits, layout=both, codec=Tagged, fused with PH4=False
+R	E5	nrun30.both.par	1	parameters	parallel NSV=True block=262144 entries (4096 KiB) window=1048576 slots=8 flush windows=True spill flush=16777216 read=1048576 spill dir=scratch		entry 16 B (l, lb, first, last); two blocks in RAM
+R	E5	nrun30.both.par	1	ph5_s	1.701508	s	wall of the forward scan including the LCP read, plus the NSV pass when asked for (a second pass, or concurrent with --parallel-nsv; without fsync)
+R	E5	nrun30.both.par	1	forward_s	1.699481	s	forward scan including reading the LCP file
+R	E5	nrun30.both.par	1	scan_s	1.413545	s	time inside Consume + Complete of the forward scan (without reading the LCP)
+R	E5	nrun30.both.par	1	scan_ns_per_entry	47.118175	ns	scan_s / (n + 1)
+R	E5	nrun30.both.par	1	forward_ns_per_entry	56.649362	ns	forward_s / (n + 1)
+R	E5	nrun30.both.par	1	nsv_s	0.963042	s	backward scan of the LCP file: NSV written in descending rank order
+R	E5	nrun30.both.par	1	nsv_ns_per_entry	32.10141	ns	nsv_s / (n + 1)
+R	E5	nrun30.both.par	1	fsync_s	0.000367	s	flush of the output files after the run
+R	E5	nrun30.both.par	1	rssanon_peak	24.39168	MB	max RssAnon of 172 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E5	nrun30.both.par	1	rssfile_peak	40.583168	MB	mapped file pages resident (windows, text): reported, not counted
+R	E5	nrun30.both.par	1	vmhwm	66.711552	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E5	nrun30.both.par	1	gc_heap	3.306976	MB	managed heap at the end (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 1/1/1
+R	E5	nrun30.both.par	1	arena_peak	12.582912	MB	peak native buffers charged to the ArenaBudget (cap 64 MiB), live at the end 0
+R	E5	nrun30.both.par	1	max_lcp	19999999	symbols	largest LCP value
+R	E5	nrun30.both.par	1	stack_peak	20000000	entries	peak height of the forward stack (<= 1 + max LCP = 20000000); 320.00 MB at 16 B per entry
+R	E5	nrun30.both.par	1	nsv_stack_peak	15	entries	peak height of the NSV stack (8 B per entry): 0.00 MB
+R	E5	nrun30.both.par	1	spill_written	314572800	bytes	forward stack: 75 blocks written, 75 read back (314572800 bytes), 0 clean evictions, 18 fsyncs; peak file 314572800 bytes
+R	E5	nrun30.both.par	1	spill_expected	320000000	bytes	16 B x (max LCP + 1); spill_written / expected = 0.983040; difference 339200 entries = 1.29 blocks of 262144
+R	E5	nrun30.both.par	1	nsv_spill_written	0	bytes	NSV stack: 0 blocks written, 0 read back; expected 8 B x (max LCP + 1) = 160000000
+R	E5	nrun30.both.par	1	child_windows	122	n	CHILD: 122 windows mapped (115 distinct, 7 mapped again after release), 114 evictions, 122 flushes covering 127340036 bytes, 30000000 writes (1.000 per rank)
+R	E5	nrun30.both.par	1	psv_windows	115	n	PSV: 115 windows (0 again), 115 flushes
+R	E5	nrun30.both.par	1	nsv_windows	115	n	NSV: 115 windows (0 again), 115 flushes
+R	E5	nrun30.both.par	1	io_explicit_read	554572808	bytes	18.486 B/char: the LCP file(s) (forward and backward) and the spill read-back (305 calls)
+R	E5	nrun30.both.par	1	io_explicit_write	314572800	bytes	10.486 B/char: the spill file(s) (75 calls)
+R	E5	nrun30.both.par	1	blocklayer_read	120029184	bytes	/proc/self/io read_bytes (page-cache misses)
+R	E5	nrun30.both.par	1	blocklayer_write	675061760	bytes	/proc/self/io write_bytes: bytes of pages that went from clean to dirty (every re-dirtying of a flushed page counts again)
+R	E5	nrun30.both.par	1	output_bytes	360000012	bytes	12.000 B/char: CHILD (4 B/char) for layout A, PSV + NSV (8 B/char) for layout F
+R	E5	nrun30.both.par	1	wa_dirtied	1.001358	x	write amplification, definition 1: (write_bytes of /proc/self/io - the spill bytes written 314572800) / final size of the output files; 1.0 = every page was dirtied once; the device-level definition 2 is taken by the run script (sectors written by the block device after sync)
+R	E5	nrun30.both.par	1	dirty_peak	23.330816	MB	max /proc/meminfo Dirty minus the baseline (0.08 MB, median of 5 samples before the start) over 85 samples at 20 ms; absolute max 23.41 MB; gate G3 <= 64 MB
+R	E5	nrun30.both.par	1	dirty_mean	12.847273	MB	mean of Dirty minus the baseline over the run
+R	E5	nrun30.both.par	1	dirty_peak_after_mark	23.40864	MB	max Dirty after the PH5 start minus Dirty at that moment (0.00 MB)
+R	E5	nrun30.both.par	1	writeback_peak	16.777216	MB	max /proc/meminfo Writeback
+R	E5	nrun30.both.par	1	proc_dirty_peak	11.272192	MB	max Private_Dirty + Shared_Dirty of the mappings of /proc/self/smaps whose path is an output file of this run: the dirty pages this process has mapped in them (the per-process view; anonymous memory is not in it)
+R	E5	nrun30.both.par	1	node_count	56230641	n	NODE_COUNT = 1 + I + n + 1 with I = 26230639 internal nodes
+R	E5	nrun30.both.par	1	lrs	19999999	symbols	LRS_DEPTH 19999999, LRS_RANK 27500725
+R	E5	nrun30.both.par	1	ext_rssanon_peak	24.392	MB	independent sampler: max RssAnon of /proc/<pid>/status over 93 samples at 20 ms
+R	E5	nrun30.both.par	1	ext_dirty_peak	23.224	MB	independent sampler: max /proc/meminfo Dirty minus the baseline (0.01 MB, median of 5 samples before the start); gate G3 <= 64 MB; absolute max 23.23 MB
+R	E5	nrun30.both.par	1	ext_dirty_mean	11.491	MB	independent sampler: mean of Dirty minus the baseline
+R	E5	nrun30.both.par	1	ext_writeback_peak	17.658	MB	independent sampler: max /proc/meminfo Writeback
+R	E5	nrun30.both.par	1	device_write_bytes	678146048	bytes	sectors written by vda during the run and the sync that follows it (512 B each; includes the spill file, journal, everything)
+R	E5	nrun30.both.par	2	n	30000000	symbols	b=3 bits, layout=both, codec=Tagged, fused with PH4=False
+R	E5	nrun30.both.par	2	parameters	parallel NSV=True block=262144 entries (4096 KiB) window=1048576 slots=8 flush windows=True spill flush=16777216 read=1048576 spill dir=scratch		entry 16 B (l, lb, first, last); two blocks in RAM
+R	E5	nrun30.both.par	2	ph5_s	1.826921	s	wall of the forward scan including the LCP read, plus the NSV pass when asked for (a second pass, or concurrent with --parallel-nsv; without fsync)
+R	E5	nrun30.both.par	2	forward_s	1.824456	s	forward scan including reading the LCP file
+R	E5	nrun30.both.par	2	scan_s	1.539316	s	time inside Consume + Complete of the forward scan (without reading the LCP)
+R	E5	nrun30.both.par	2	scan_ns_per_entry	51.310531	ns	scan_s / (n + 1)
+R	E5	nrun30.both.par	2	forward_ns_per_entry	60.815204	ns	forward_s / (n + 1)
+R	E5	nrun30.both.par	2	nsv_s	0.990303	s	backward scan of the LCP file: NSV written in descending rank order
+R	E5	nrun30.both.par	2	nsv_ns_per_entry	33.010091	ns	nsv_s / (n + 1)
+R	E5	nrun30.both.par	2	fsync_s	0.000224	s	flush of the output files after the run
+R	E5	nrun30.both.par	2	rssanon_peak	23.875584	MB	max RssAnon of 184 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E5	nrun30.both.par	2	rssfile_peak	40.6528	MB	mapped file pages resident (windows, text): reported, not counted
+R	E5	nrun30.both.par	2	vmhwm	66.363392	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E5	nrun30.both.par	2	gc_heap	3.322616	MB	managed heap at the end (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 1/1/1
+R	E5	nrun30.both.par	2	arena_peak	12.582912	MB	peak native buffers charged to the ArenaBudget (cap 64 MiB), live at the end 0
+R	E5	nrun30.both.par	2	max_lcp	19999999	symbols	largest LCP value
+R	E5	nrun30.both.par	2	stack_peak	20000000	entries	peak height of the forward stack (<= 1 + max LCP = 20000000); 320.00 MB at 16 B per entry
+R	E5	nrun30.both.par	2	nsv_stack_peak	15	entries	peak height of the NSV stack (8 B per entry): 0.00 MB
+R	E5	nrun30.both.par	2	spill_written	314572800	bytes	forward stack: 75 blocks written, 75 read back (314572800 bytes), 0 clean evictions, 18 fsyncs; peak file 314572800 bytes
+R	E5	nrun30.both.par	2	spill_expected	320000000	bytes	16 B x (max LCP + 1); spill_written / expected = 0.983040; difference 339200 entries = 1.29 blocks of 262144
+R	E5	nrun30.both.par	2	nsv_spill_written	0	bytes	NSV stack: 0 blocks written, 0 read back; expected 8 B x (max LCP + 1) = 160000000
+R	E5	nrun30.both.par	2	child_windows	122	n	CHILD: 122 windows mapped (115 distinct, 7 mapped again after release), 114 evictions, 122 flushes covering 127340036 bytes, 30000000 writes (1.000 per rank)
+R	E5	nrun30.both.par	2	psv_windows	115	n	PSV: 115 windows (0 again), 115 flushes
+R	E5	nrun30.both.par	2	nsv_windows	115	n	NSV: 115 windows (0 again), 115 flushes
+R	E5	nrun30.both.par	2	io_explicit_read	554572808	bytes	18.486 B/char: the LCP file(s) (forward and backward) and the spill read-back (305 calls)
+R	E5	nrun30.both.par	2	io_explicit_write	314572800	bytes	10.486 B/char: the spill file(s) (75 calls)
+R	E5	nrun30.both.par	2	blocklayer_read	120029184	bytes	/proc/self/io read_bytes (page-cache misses)
+R	E5	nrun30.both.par	2	blocklayer_write	675057664	bytes	/proc/self/io write_bytes: bytes of pages that went from clean to dirty (every re-dirtying of a flushed page counts again)
+R	E5	nrun30.both.par	2	output_bytes	360000012	bytes	12.000 B/char: CHILD (4 B/char) for layout A, PSV + NSV (8 B/char) for layout F
+R	E5	nrun30.both.par	2	wa_dirtied	1.001347	x	write amplification, definition 1: (write_bytes of /proc/self/io - the spill bytes written 314572800) / final size of the output files; 1.0 = every page was dirtied once; the device-level definition 2 is taken by the run script (sectors written by the block device after sync)
+R	E5	nrun30.both.par	2	dirty_peak	23.351296	MB	max /proc/meminfo Dirty minus the baseline (0.07 MB, median of 5 samples before the start) over 91 samples at 20 ms; absolute max 23.43 MB; gate G3 <= 64 MB
+R	E5	nrun30.both.par	2	dirty_mean	13.218017	MB	mean of Dirty minus the baseline over the run
+R	E5	nrun30.both.par	2	dirty_peak_after_mark	23.425024	MB	max Dirty after the PH5 start minus Dirty at that moment (0.00 MB)
+R	E5	nrun30.both.par	2	writeback_peak	17.657856	MB	max /proc/meminfo Writeback
+R	E5	nrun30.both.par	2	proc_dirty_peak	11.784192	MB	max Private_Dirty + Shared_Dirty of the mappings of /proc/self/smaps whose path is an output file of this run: the dirty pages this process has mapped in them (the per-process view; anonymous memory is not in it)
+R	E5	nrun30.both.par	2	node_count	56230641	n	NODE_COUNT = 1 + I + n + 1 with I = 26230639 internal nodes
+R	E5	nrun30.both.par	2	lrs	19999999	symbols	LRS_DEPTH 19999999, LRS_RANK 27500725
+R	E5	nrun30.both.par	2	ext_rssanon_peak	23.876	MB	independent sampler: max RssAnon of /proc/<pid>/status over 100 samples at 20 ms
+R	E5	nrun30.both.par	2	ext_dirty_peak	25.518	MB	independent sampler: max /proc/meminfo Dirty minus the baseline (0.00 MB, median of 5 samples before the start); gate G3 <= 64 MB; absolute max 25.52 MB
+R	E5	nrun30.both.par	2	ext_dirty_mean	11.923	MB	independent sampler: mean of Dirty minus the baseline
+R	E5	nrun30.both.par	2	ext_writeback_peak	17.826	MB	independent sampler: max /proc/meminfo Writeback
+R	E5	nrun30.both.par	2	device_write_bytes	677634048	bytes	sectors written by vda during the run and the sync that follows it (512 B each; includes the spill file, journal, everything)
+R	E5	nrun30.both.par	3	n	30000000	symbols	b=3 bits, layout=both, codec=Tagged, fused with PH4=False
+R	E5	nrun30.both.par	3	parameters	parallel NSV=True block=262144 entries (4096 KiB) window=1048576 slots=8 flush windows=True spill flush=16777216 read=1048576 spill dir=scratch		entry 16 B (l, lb, first, last); two blocks in RAM
+R	E5	nrun30.both.par	3	ph5_s	1.692357	s	wall of the forward scan including the LCP read, plus the NSV pass when asked for (a second pass, or concurrent with --parallel-nsv; without fsync)
+R	E5	nrun30.both.par	3	forward_s	1.689437	s	forward scan including reading the LCP file
+R	E5	nrun30.both.par	3	scan_s	1.401665	s	time inside Consume + Complete of the forward scan (without reading the LCP)
+R	E5	nrun30.both.par	3	scan_ns_per_entry	46.722173	ns	scan_s / (n + 1)
+R	E5	nrun30.both.par	3	forward_ns_per_entry	56.314553	ns	forward_s / (n + 1)
+R	E5	nrun30.both.par	3	nsv_s	0.902714	s	backward scan of the LCP file: NSV written in descending rank order
+R	E5	nrun30.both.par	3	nsv_ns_per_entry	30.090477	ns	nsv_s / (n + 1)
+R	E5	nrun30.both.par	3	fsync_s	0.000259	s	flush of the output files after the run
+R	E5	nrun30.both.par	3	rssanon_peak	23.359488	MB	max RssAnon of 171 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E5	nrun30.both.par	3	rssfile_peak	40.7552	MB	mapped file pages resident (windows, text): reported, not counted
+R	E5	nrun30.both.par	3	vmhwm	65.953792	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E5	nrun30.both.par	3	gc_heap	3.323512	MB	managed heap at the end (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 1/1/1
+R	E5	nrun30.both.par	3	arena_peak	12.582912	MB	peak native buffers charged to the ArenaBudget (cap 64 MiB), live at the end 0
+R	E5	nrun30.both.par	3	max_lcp	19999999	symbols	largest LCP value
+R	E5	nrun30.both.par	3	stack_peak	20000000	entries	peak height of the forward stack (<= 1 + max LCP = 20000000); 320.00 MB at 16 B per entry
+R	E5	nrun30.both.par	3	nsv_stack_peak	15	entries	peak height of the NSV stack (8 B per entry): 0.00 MB
+R	E5	nrun30.both.par	3	spill_written	314572800	bytes	forward stack: 75 blocks written, 75 read back (314572800 bytes), 0 clean evictions, 18 fsyncs; peak file 314572800 bytes
+R	E5	nrun30.both.par	3	spill_expected	320000000	bytes	16 B x (max LCP + 1); spill_written / expected = 0.983040; difference 339200 entries = 1.29 blocks of 262144
+R	E5	nrun30.both.par	3	nsv_spill_written	0	bytes	NSV stack: 0 blocks written, 0 read back; expected 8 B x (max LCP + 1) = 160000000
+R	E5	nrun30.both.par	3	child_windows	122	n	CHILD: 122 windows mapped (115 distinct, 7 mapped again after release), 114 evictions, 122 flushes covering 127340036 bytes, 30000000 writes (1.000 per rank)
+R	E5	nrun30.both.par	3	psv_windows	115	n	PSV: 115 windows (0 again), 115 flushes
+R	E5	nrun30.both.par	3	nsv_windows	115	n	NSV: 115 windows (0 again), 115 flushes
+R	E5	nrun30.both.par	3	io_explicit_read	554572808	bytes	18.486 B/char: the LCP file(s) (forward and backward) and the spill read-back (305 calls)
+R	E5	nrun30.both.par	3	io_explicit_write	314572800	bytes	10.486 B/char: the spill file(s) (75 calls)
+R	E5	nrun30.both.par	3	blocklayer_read	120029184	bytes	/proc/self/io read_bytes (page-cache misses)
+R	E5	nrun30.both.par	3	blocklayer_write	675057664	bytes	/proc/self/io write_bytes: bytes of pages that went from clean to dirty (every re-dirtying of a flushed page counts again)
+R	E5	nrun30.both.par	3	output_bytes	360000012	bytes	12.000 B/char: CHILD (4 B/char) for layout A, PSV + NSV (8 B/char) for layout F
+R	E5	nrun30.both.par	3	wa_dirtied	1.001347	x	write amplification, definition 1: (write_bytes of /proc/self/io - the spill bytes written 314572800) / final size of the output files; 1.0 = every page was dirtied once; the device-level definition 2 is taken by the run script (sectors written by the block device after sync)
+R	E5	nrun30.both.par	3	dirty_peak	27.60704	MB	max /proc/meminfo Dirty minus the baseline (0.00 MB, median of 5 samples before the start) over 85 samples at 20 ms; absolute max 27.61 MB; gate G3 <= 64 MB
+R	E5	nrun30.both.par	3	dirty_mean	13.091442	MB	mean of Dirty minus the baseline over the run
+R	E5	nrun30.both.par	3	dirty_peak_after_mark	27.60704	MB	max Dirty after the PH5 start minus Dirty at that moment (0.00 MB)
+R	E5	nrun30.both.par	3	writeback_peak	17.825792	MB	max /proc/meminfo Writeback
+R	E5	nrun30.both.par	3	proc_dirty_peak	12.582912	MB	max Private_Dirty + Shared_Dirty of the mappings of /proc/self/smaps whose path is an output file of this run: the dirty pages this process has mapped in them (the per-process view; anonymous memory is not in it)
+R	E5	nrun30.both.par	3	node_count	56230641	n	NODE_COUNT = 1 + I + n + 1 with I = 26230639 internal nodes
+R	E5	nrun30.both.par	3	lrs	19999999	symbols	LRS_DEPTH 19999999, LRS_RANK 27500725
+R	E5	nrun30.both.par	3	ext_rssanon_peak	23.359	MB	independent sampler: max RssAnon of /proc/<pid>/status over 92 samples at 20 ms
+R	E5	nrun30.both.par	3	ext_dirty_peak	23.593	MB	independent sampler: max /proc/meminfo Dirty minus the baseline (0.00 MB, median of 5 samples before the start); gate G3 <= 64 MB; absolute max 23.59 MB
+R	E5	nrun30.both.par	3	ext_dirty_mean	11.666	MB	independent sampler: mean of Dirty minus the baseline
+R	E5	nrun30.both.par	3	ext_writeback_peak	16.626	MB	independent sampler: max /proc/meminfo Writeback
+R	E5	nrun30.both.par	3	device_write_bytes	677740544	bytes	sectors written by vda during the run and the sync that follows it (512 B each; includes the spill file, journal, everything)
+R	E5	fib30.f.par	1	n	30000000	symbols	b=1 bits, layout=f, codec=Tagged, fused with PH4=False
+R	E5	fib30.f.par	1	parameters	parallel NSV=True block=262144 entries (4096 KiB) window=1048576 slots=8 flush windows=True spill flush=16777216 read=1048576 spill dir=scratch		entry 16 B (l, lb, first, last); two blocks in RAM
+R	E5	fib30.f.par	1	ph5_s	0.909635	s	wall of the forward scan including the LCP read, plus the NSV pass when asked for (a second pass, or concurrent with --parallel-nsv; without fsync)
+R	E5	fib30.f.par	1	forward_s	0.904538	s	forward scan including reading the LCP file
+R	E5	fib30.f.par	1	scan_s	0.823076	s	time inside Consume + Complete of the forward scan (without reading the LCP)
+R	E5	fib30.f.par	1	scan_ns_per_entry	27.435855	ns	scan_s / (n + 1)
+R	E5	fib30.f.par	1	forward_ns_per_entry	30.151268	ns	forward_s / (n + 1)
+R	E5	fib30.f.par	1	nsv_s	0.866606	s	backward scan of the LCP file: NSV written in descending rank order
+R	E5	fib30.f.par	1	nsv_ns_per_entry	28.88685	ns	nsv_s / (n + 1)
+R	E5	fib30.f.par	1	fsync_s	0.000178	s	flush of the output files after the run
+R	E5	fib30.f.par	1	rssanon_peak	15.802368	MB	max RssAnon of 92 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E5	fib30.f.par	1	rssfile_peak	32.165888	MB	mapped file pages resident (windows, text): reported, not counted
+R	E5	fib30.f.par	1	vmhwm	51.068928	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E5	fib30.f.par	1	gc_heap	3.323072	MB	managed heap at the end (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 1/1/1
+R	E5	fib30.f.par	1	arena_peak	12.582912	MB	peak native buffers charged to the ArenaBudget (cap 64 MiB), live at the end 0
+R	E5	fib30.f.par	1	max_lcp	15069648	symbols	largest LCP value
+R	E5	fib30.f.par	1	stack_peak	39	entries	peak height of the forward stack (<= 1 + max LCP = 15069649); 0.00 MB at 16 B per entry
+R	E5	fib30.f.par	1	nsv_stack_peak	18	entries	peak height of the NSV stack (8 B per entry): 0.00 MB
+R	E5	fib30.f.par	1	spill_written	0	bytes	forward stack: 0 blocks written, 0 read back (0 bytes), 0 clean evictions, 0 fsyncs; peak file 0 bytes
+R	E5	fib30.f.par	1	spill_expected	241114384	bytes	16 B x (max LCP + 1); spill_written / expected = 0.000000; difference 15069649 entries = 57.49 blocks of 262144
+R	E5	fib30.f.par	1	nsv_spill_written	0	bytes	NSV stack: 0 blocks written, 0 read back; expected 8 B x (max LCP + 1) = 120557192
+R	E5	fib30.f.par	1	psv_windows	115	n	PSV: 115 windows (0 again), 115 flushes
+R	E5	fib30.f.par	1	nsv_windows	115	n	NSV: 115 windows (0 again), 115 flushes
+R	E5	fib30.f.par	1	io_explicit_read	240000008	bytes	8.000 B/char: the LCP file(s) (forward and backward) and the spill read-back (230 calls)
+R	E5	fib30.f.par	1	io_explicit_write	0	bytes	0.000 B/char: the spill file(s) (0 calls)
+R	E5	fib30.f.par	1	blocklayer_read	120012800	bytes	/proc/self/io read_bytes (page-cache misses)
+R	E5	fib30.f.par	1	blocklayer_write	240029696	bytes	/proc/self/io write_bytes: bytes of pages that went from clean to dirty (every re-dirtying of a flushed page counts again)
+R	E5	fib30.f.par	1	output_bytes	240000008	bytes	8.000 B/char: CHILD (4 B/char) for layout A, PSV + NSV (8 B/char) for layout F
+R	E5	fib30.f.par	1	wa_dirtied	1.000124	x	write amplification, definition 1: (write_bytes of /proc/self/io - the spill bytes written 0) / final size of the output files; 1.0 = every page was dirtied once; the device-level definition 2 is taken by the run script (sectors written by the block device after sync)
+R	E5	fib30.f.par	1	dirty_peak	4.231168	MB	max /proc/meminfo Dirty minus the baseline (0.07 MB, median of 5 samples before the start) over 45 samples at 20 ms; absolute max 4.30 MB; gate G3 <= 64 MB
+R	E5	fib30.f.par	1	dirty_mean	2.98207	MB	mean of Dirty minus the baseline over the run
+R	E5	fib30.f.par	1	dirty_peak_after_mark	4.3008	MB	max Dirty after the PH5 start minus Dirty at that moment (0.00 MB)
+R	E5	fib30.f.par	1	writeback_peak	2.06848	MB	max /proc/meminfo Writeback
+R	E5	fib30.f.par	1	proc_dirty_peak	4.194304	MB	max Private_Dirty + Shared_Dirty of the mappings of /proc/self/smaps whose path is an output file of this run: the dirty pages this process has mapped in them (the per-process view; anonymous memory is not in it)
+R	E5	fib30.f.par	1	node_count	59999994	n	NODE_COUNT = 1 + I + n + 1 with I = 29999992 internal nodes
+R	E5	fib30.f.par	1	lrs	15069648	symbols	LRS_DEPTH 15069648, LRS_RANK 11458988
+R	E5	fib30.f.par	1	ext_rssanon_peak	15.802	MB	independent sampler: max RssAnon of /proc/<pid>/status over 54 samples at 20 ms
+R	E5	fib30.f.par	1	ext_dirty_peak	4.301	MB	independent sampler: max /proc/meminfo Dirty minus the baseline (0.00 MB, median of 5 samples before the start); gate G3 <= 64 MB; absolute max 4.30 MB
+R	E5	fib30.f.par	1	ext_dirty_mean	2.454	MB	independent sampler: mean of Dirty minus the baseline
+R	E5	fib30.f.par	1	ext_writeback_peak	2.068	MB	independent sampler: max /proc/meminfo Writeback
+R	E5	fib30.f.par	1	device_write_bytes	241422336	bytes	sectors written by vda during the run and the sync that follows it (512 B each; includes the spill file, journal, everything)
+R	E5	fib30.f.par	2	n	30000000	symbols	b=1 bits, layout=f, codec=Tagged, fused with PH4=False
+R	E5	fib30.f.par	2	parameters	parallel NSV=True block=262144 entries (4096 KiB) window=1048576 slots=8 flush windows=True spill flush=16777216 read=1048576 spill dir=scratch		entry 16 B (l, lb, first, last); two blocks in RAM
+R	E5	fib30.f.par	2	ph5_s	0.876391	s	wall of the forward scan including the LCP read, plus the NSV pass when asked for (a second pass, or concurrent with --parallel-nsv; without fsync)
+R	E5	fib30.f.par	2	forward_s	0.874352	s	forward scan including reading the LCP file
+R	E5	fib30.f.par	2	scan_s	0.800014	s	time inside Consume + Complete of the forward scan (without reading the LCP)
+R	E5	fib30.f.par	2	scan_ns_per_entry	26.667134	ns	scan_s / (n + 1)
+R	E5	fib30.f.par	2	forward_ns_per_entry	29.145063	ns	forward_s / (n + 1)
+R	E5	fib30.f.par	2	nsv_s	0.840306	s	backward scan of the LCP file: NSV written in descending rank order
+R	E5	fib30.f.par	2	nsv_ns_per_entry	28.010193	ns	nsv_s / (n + 1)
+R	E5	fib30.f.par	2	fsync_s	0.000209	s	flush of the output files after the run
+R	E5	fib30.f.par	2	rssanon_peak	16.121856	MB	max RssAnon of 89 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E5	fib30.f.par	2	rssfile_peak	32.268288	MB	mapped file pages resident (windows, text): reported, not counted
+R	E5	fib30.f.par	2	vmhwm	51.494912	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E5	fib30.f.par	2	gc_heap	3.322616	MB	managed heap at the end (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 1/1/1
+R	E5	fib30.f.par	2	arena_peak	12.582912	MB	peak native buffers charged to the ArenaBudget (cap 64 MiB), live at the end 0
+R	E5	fib30.f.par	2	max_lcp	15069648	symbols	largest LCP value
+R	E5	fib30.f.par	2	stack_peak	39	entries	peak height of the forward stack (<= 1 + max LCP = 15069649); 0.00 MB at 16 B per entry
+R	E5	fib30.f.par	2	nsv_stack_peak	18	entries	peak height of the NSV stack (8 B per entry): 0.00 MB
+R	E5	fib30.f.par	2	spill_written	0	bytes	forward stack: 0 blocks written, 0 read back (0 bytes), 0 clean evictions, 0 fsyncs; peak file 0 bytes
+R	E5	fib30.f.par	2	spill_expected	241114384	bytes	16 B x (max LCP + 1); spill_written / expected = 0.000000; difference 15069649 entries = 57.49 blocks of 262144
+R	E5	fib30.f.par	2	nsv_spill_written	0	bytes	NSV stack: 0 blocks written, 0 read back; expected 8 B x (max LCP + 1) = 120557192
+R	E5	fib30.f.par	2	psv_windows	115	n	PSV: 115 windows (0 again), 115 flushes
+R	E5	fib30.f.par	2	nsv_windows	115	n	NSV: 115 windows (0 again), 115 flushes
+R	E5	fib30.f.par	2	io_explicit_read	240000008	bytes	8.000 B/char: the LCP file(s) (forward and backward) and the spill read-back (230 calls)
+R	E5	fib30.f.par	2	io_explicit_write	0	bytes	0.000 B/char: the spill file(s) (0 calls)
+R	E5	fib30.f.par	2	blocklayer_read	120012800	bytes	/proc/self/io read_bytes (page-cache misses)
+R	E5	fib30.f.par	2	blocklayer_write	240029696	bytes	/proc/self/io write_bytes: bytes of pages that went from clean to dirty (every re-dirtying of a flushed page counts again)
+R	E5	fib30.f.par	2	output_bytes	240000008	bytes	8.000 B/char: CHILD (4 B/char) for layout A, PSV + NSV (8 B/char) for layout F
+R	E5	fib30.f.par	2	wa_dirtied	1.000124	x	write amplification, definition 1: (write_bytes of /proc/self/io - the spill bytes written 0) / final size of the output files; 1.0 = every page was dirtied once; the device-level definition 2 is taken by the run script (sectors written by the block device after sync)
+R	E5	fib30.f.par	2	dirty_peak	4.05504	MB	max /proc/meminfo Dirty minus the baseline (0.07 MB, median of 5 samples before the start) over 44 samples at 20 ms; absolute max 4.12 MB; gate G3 <= 64 MB
+R	E5	fib30.f.par	2	dirty_mean	2.923799	MB	mean of Dirty minus the baseline over the run
+R	E5	fib30.f.par	2	dirty_peak_after_mark	4.124672	MB	max Dirty after the PH5 start minus Dirty at that moment (0.00 MB)
+R	E5	fib30.f.par	2	writeback_peak	1.359872	MB	max /proc/meminfo Writeback
+R	E5	fib30.f.par	2	proc_dirty_peak	4.194304	MB	max Private_Dirty + Shared_Dirty of the mappings of /proc/self/smaps whose path is an output file of this run: the dirty pages this process has mapped in them (the per-process view; anonymous memory is not in it)
+R	E5	fib30.f.par	2	node_count	59999994	n	NODE_COUNT = 1 + I + n + 1 with I = 29999992 internal nodes
+R	E5	fib30.f.par	2	lrs	15069648	symbols	LRS_DEPTH 15069648, LRS_RANK 11458988
+R	E5	fib30.f.par	2	ext_rssanon_peak	16.122	MB	independent sampler: max RssAnon of /proc/<pid>/status over 51 samples at 20 ms
+R	E5	fib30.f.par	2	ext_dirty_peak	4.125	MB	independent sampler: max /proc/meminfo Dirty minus the baseline (0.00 MB, median of 5 samples before the start); gate G3 <= 64 MB; absolute max 4.12 MB
+R	E5	fib30.f.par	2	ext_dirty_mean	2.488	MB	independent sampler: mean of Dirty minus the baseline
+R	E5	fib30.f.par	2	ext_writeback_peak	2.097	MB	independent sampler: max /proc/meminfo Writeback
+R	E5	fib30.f.par	2	device_write_bytes	241418240	bytes	sectors written by vda during the run and the sync that follows it (512 B each; includes the spill file, journal, everything)
+R	E5	fib30.f.par	3	n	30000000	symbols	b=1 bits, layout=f, codec=Tagged, fused with PH4=False
+R	E5	fib30.f.par	3	parameters	parallel NSV=True block=262144 entries (4096 KiB) window=1048576 slots=8 flush windows=True spill flush=16777216 read=1048576 spill dir=scratch		entry 16 B (l, lb, first, last); two blocks in RAM
+R	E5	fib30.f.par	3	ph5_s	0.974855	s	wall of the forward scan including the LCP read, plus the NSV pass when asked for (a second pass, or concurrent with --parallel-nsv; without fsync)
+R	E5	fib30.f.par	3	forward_s	0.972875	s	forward scan including reading the LCP file
+R	E5	fib30.f.par	3	scan_s	0.889627	s	time inside Consume + Complete of the forward scan (without reading the LCP)
+R	E5	fib30.f.par	3	scan_ns_per_entry	29.654217	ns	scan_s / (n + 1)
+R	E5	fib30.f.par	3	forward_ns_per_entry	32.429156	ns	forward_s / (n + 1)
+R	E5	fib30.f.par	3	nsv_s	0.943626	s	backward scan of the LCP file: NSV written in descending rank order
+R	E5	fib30.f.par	3	nsv_ns_per_entry	31.454188	ns	nsv_s / (n + 1)
+R	E5	fib30.f.par	3	fsync_s	0.00024	s	flush of the output files after the run
+R	E5	fib30.f.par	3	rssanon_peak	16.05632	MB	max RssAnon of 99 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E5	fib30.f.par	3	rssfile_peak	32.411648	MB	mapped file pages resident (windows, text): reported, not counted
+R	E5	fib30.f.par	3	vmhwm	51.560448	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E5	fib30.f.par	3	gc_heap	3.322616	MB	managed heap at the end (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 1/1/1
+R	E5	fib30.f.par	3	arena_peak	12.582912	MB	peak native buffers charged to the ArenaBudget (cap 64 MiB), live at the end 0
+R	E5	fib30.f.par	3	max_lcp	15069648	symbols	largest LCP value
+R	E5	fib30.f.par	3	stack_peak	39	entries	peak height of the forward stack (<= 1 + max LCP = 15069649); 0.00 MB at 16 B per entry
+R	E5	fib30.f.par	3	nsv_stack_peak	18	entries	peak height of the NSV stack (8 B per entry): 0.00 MB
+R	E5	fib30.f.par	3	spill_written	0	bytes	forward stack: 0 blocks written, 0 read back (0 bytes), 0 clean evictions, 0 fsyncs; peak file 0 bytes
+R	E5	fib30.f.par	3	spill_expected	241114384	bytes	16 B x (max LCP + 1); spill_written / expected = 0.000000; difference 15069649 entries = 57.49 blocks of 262144
+R	E5	fib30.f.par	3	nsv_spill_written	0	bytes	NSV stack: 0 blocks written, 0 read back; expected 8 B x (max LCP + 1) = 120557192
+R	E5	fib30.f.par	3	psv_windows	115	n	PSV: 115 windows (0 again), 115 flushes
+R	E5	fib30.f.par	3	nsv_windows	115	n	NSV: 115 windows (0 again), 115 flushes
+R	E5	fib30.f.par	3	io_explicit_read	240000008	bytes	8.000 B/char: the LCP file(s) (forward and backward) and the spill read-back (230 calls)
+R	E5	fib30.f.par	3	io_explicit_write	0	bytes	0.000 B/char: the spill file(s) (0 calls)
+R	E5	fib30.f.par	3	blocklayer_read	120012800	bytes	/proc/self/io read_bytes (page-cache misses)
+R	E5	fib30.f.par	3	blocklayer_write	240033792	bytes	/proc/self/io write_bytes: bytes of pages that went from clean to dirty (every re-dirtying of a flushed page counts again)
+R	E5	fib30.f.par	3	output_bytes	240000008	bytes	8.000 B/char: CHILD (4 B/char) for layout A, PSV + NSV (8 B/char) for layout F
+R	E5	fib30.f.par	3	wa_dirtied	1.000141	x	write amplification, definition 1: (write_bytes of /proc/self/io - the spill bytes written 0) / final size of the output files; 1.0 = every page was dirtied once; the device-level definition 2 is taken by the run script (sectors written by the block device after sync)
+R	E5	fib30.f.par	3	dirty_peak	4.21888	MB	max /proc/meminfo Dirty minus the baseline (0.07 MB, median of 5 samples before the start) over 49 samples at 20 ms; absolute max 4.29 MB; gate G3 <= 64 MB
+R	E5	fib30.f.par	3	dirty_mean	2.95447	MB	mean of Dirty minus the baseline over the run
+R	E5	fib30.f.par	3	dirty_peak_after_mark	4.288512	MB	max Dirty after the PH5 start minus Dirty at that moment (0.00 MB)
+R	E5	fib30.f.par	3	writeback_peak	1.806336	MB	max /proc/meminfo Writeback
+R	E5	fib30.f.par	3	proc_dirty_peak	4.194304	MB	max Private_Dirty + Shared_Dirty of the mappings of /proc/self/smaps whose path is an output file of this run: the dirty pages this process has mapped in them (the per-process view; anonymous memory is not in it)
+R	E5	fib30.f.par	3	node_count	59999994	n	NODE_COUNT = 1 + I + n + 1 with I = 29999992 internal nodes
+R	E5	fib30.f.par	3	lrs	15069648	symbols	LRS_DEPTH 15069648, LRS_RANK 11458988
+R	E5	fib30.f.par	3	ext_rssanon_peak	16.056	MB	independent sampler: max RssAnon of /proc/<pid>/status over 56 samples at 20 ms
+R	E5	fib30.f.par	3	ext_dirty_peak	4.280	MB	independent sampler: max /proc/meminfo Dirty minus the baseline (0.00 MB, median of 5 samples before the start); gate G3 <= 64 MB; absolute max 4.28 MB
+R	E5	fib30.f.par	3	ext_dirty_mean	2.453	MB	independent sampler: mean of Dirty minus the baseline
+R	E5	fib30.f.par	3	ext_writeback_peak	2.105	MB	independent sampler: max /proc/meminfo Writeback
+R	E5	fib30.f.par	3	device_write_bytes	241750016	bytes	sectors written by vda during the run and the sync that follows it (512 B each; includes the spill file, journal, everything)
+R	E5	fib30.both.par	1	n	30000000	symbols	b=1 bits, layout=both, codec=Tagged, fused with PH4=False
+R	E5	fib30.both.par	1	parameters	parallel NSV=True block=262144 entries (4096 KiB) window=1048576 slots=8 flush windows=True spill flush=16777216 read=1048576 spill dir=scratch		entry 16 B (l, lb, first, last); two blocks in RAM
+R	E5	fib30.both.par	1	ph5_s	1.10818	s	wall of the forward scan including the LCP read, plus the NSV pass when asked for (a second pass, or concurrent with --parallel-nsv; without fsync)
+R	E5	fib30.both.par	1	forward_s	1.106275	s	forward scan including reading the LCP file
+R	E5	fib30.both.par	1	scan_s	1.028069	s	time inside Consume + Complete of the forward scan (without reading the LCP)
+R	E5	fib30.both.par	1	scan_ns_per_entry	34.268953	ns	scan_s / (n + 1)
+R	E5	fib30.both.par	1	forward_ns_per_entry	36.875848	ns	forward_s / (n + 1)
+R	E5	fib30.both.par	1	nsv_s	0.82576	s	backward scan of the LCP file: NSV written in descending rank order
+R	E5	fib30.both.par	1	nsv_ns_per_entry	27.525328	ns	nsv_s / (n + 1)
+R	E5	fib30.both.par	1	fsync_s	0.000169	s	flush of the output files after the run
+R	E5	fib30.both.par	1	rssanon_peak	16.207872	MB	max RssAnon of 112 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E5	fib30.both.par	1	rssfile_peak	40.722432	MB	mapped file pages resident (windows, text): reported, not counted
+R	E5	fib30.both.par	1	vmhwm	59.731968	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E5	fib30.both.par	1	gc_heap	3.322616	MB	managed heap at the end (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 1/1/1
+R	E5	fib30.both.par	1	arena_peak	12.582912	MB	peak native buffers charged to the ArenaBudget (cap 64 MiB), live at the end 0
+R	E5	fib30.both.par	1	max_lcp	15069648	symbols	largest LCP value
+R	E5	fib30.both.par	1	stack_peak	39	entries	peak height of the forward stack (<= 1 + max LCP = 15069649); 0.00 MB at 16 B per entry
+R	E5	fib30.both.par	1	nsv_stack_peak	18	entries	peak height of the NSV stack (8 B per entry): 0.00 MB
+R	E5	fib30.both.par	1	spill_written	0	bytes	forward stack: 0 blocks written, 0 read back (0 bytes), 0 clean evictions, 0 fsyncs; peak file 0 bytes
+R	E5	fib30.both.par	1	spill_expected	241114384	bytes	16 B x (max LCP + 1); spill_written / expected = 0.000000; difference 15069649 entries = 57.49 blocks of 262144
+R	E5	fib30.both.par	1	nsv_spill_written	0	bytes	NSV stack: 0 blocks written, 0 read back; expected 8 B x (max LCP + 1) = 120557192
+R	E5	fib30.both.par	1	child_windows	130	n	CHILD: 130 windows mapped (115 distinct, 15 mapped again after release), 122 evictions, 130 flushes covering 135728644 bytes, 30000000 writes (1.000 per rank)
+R	E5	fib30.both.par	1	psv_windows	115	n	PSV: 115 windows (0 again), 115 flushes
+R	E5	fib30.both.par	1	nsv_windows	115	n	NSV: 115 windows (0 again), 115 flushes
+R	E5	fib30.both.par	1	io_explicit_read	240000008	bytes	8.000 B/char: the LCP file(s) (forward and backward) and the spill read-back (230 calls)
+R	E5	fib30.both.par	1	io_explicit_write	0	bytes	0.000 B/char: the spill file(s) (0 calls)
+R	E5	fib30.both.par	1	blocklayer_read	120016896	bytes	/proc/self/io read_bytes (page-cache misses)
+R	E5	fib30.both.par	1	blocklayer_write	361508864	bytes	/proc/self/io write_bytes: bytes of pages that went from clean to dirty (every re-dirtying of a flushed page counts again)
+R	E5	fib30.both.par	1	output_bytes	360000012	bytes	12.000 B/char: CHILD (4 B/char) for layout A, PSV + NSV (8 B/char) for layout F
+R	E5	fib30.both.par	1	wa_dirtied	1.004191	x	write amplification, definition 1: (write_bytes of /proc/self/io - the spill bytes written 0) / final size of the output files; 1.0 = every page was dirtied once; the device-level definition 2 is taken by the run script (sectors written by the block device after sync)
+R	E5	fib30.both.par	1	dirty_peak	12.320768	MB	max /proc/meminfo Dirty minus the baseline (0.07 MB, median of 5 samples before the start) over 55 samples at 20 ms; absolute max 12.39 MB; gate G3 <= 64 MB
+R	E5	fib30.both.par	1	dirty_mean	9.510167	MB	mean of Dirty minus the baseline over the run
+R	E5	fib30.both.par	1	dirty_peak_after_mark	12.3904	MB	max Dirty after the PH5 start minus Dirty at that moment (0.00 MB)
+R	E5	fib30.both.par	1	writeback_peak	2.134016	MB	max /proc/meminfo Writeback
+R	E5	fib30.both.par	1	proc_dirty_peak	12.488704	MB	max Private_Dirty + Shared_Dirty of the mappings of /proc/self/smaps whose path is an output file of this run: the dirty pages this process has mapped in them (the per-process view; anonymous memory is not in it)
+R	E5	fib30.both.par	1	node_count	59999994	n	NODE_COUNT = 1 + I + n + 1 with I = 29999992 internal nodes
+R	E5	fib30.both.par	1	lrs	15069648	symbols	LRS_DEPTH 15069648, LRS_RANK 11458988
+R	E5	fib30.both.par	1	ext_rssanon_peak	16.208	MB	independent sampler: max RssAnon of /proc/<pid>/status over 63 samples at 20 ms
+R	E5	fib30.both.par	1	ext_dirty_peak	12.403	MB	independent sampler: max /proc/meminfo Dirty minus the baseline (0.00 MB, median of 5 samples before the start); gate G3 <= 64 MB; absolute max 12.40 MB
+R	E5	fib30.both.par	1	ext_dirty_mean	8.142	MB	independent sampler: mean of Dirty minus the baseline
+R	E5	fib30.both.par	1	ext_writeback_peak	2.134	MB	independent sampler: max /proc/meminfo Writeback
+R	E5	fib30.both.par	1	device_write_bytes	364134400	bytes	sectors written by vda during the run and the sync that follows it (512 B each; includes the spill file, journal, everything)
+R	E5	fib30.both.par	2	n	30000000	symbols	b=1 bits, layout=both, codec=Tagged, fused with PH4=False
+R	E5	fib30.both.par	2	parameters	parallel NSV=True block=262144 entries (4096 KiB) window=1048576 slots=8 flush windows=True spill flush=16777216 read=1048576 spill dir=scratch		entry 16 B (l, lb, first, last); two blocks in RAM
+R	E5	fib30.both.par	2	ph5_s	1.176025	s	wall of the forward scan including the LCP read, plus the NSV pass when asked for (a second pass, or concurrent with --parallel-nsv; without fsync)
+R	E5	fib30.both.par	2	forward_s	1.17385	s	forward scan including reading the LCP file
+R	E5	fib30.both.par	2	scan_s	1.092231	s	time inside Consume + Complete of the forward scan (without reading the LCP)
+R	E5	fib30.both.par	2	scan_ns_per_entry	36.407707	ns	scan_s / (n + 1)
+R	E5	fib30.both.par	2	forward_ns_per_entry	39.128321	ns	forward_s / (n + 1)
+R	E5	fib30.both.par	2	nsv_s	0.86095	s	backward scan of the LCP file: NSV written in descending rank order
+R	E5	fib30.both.par	2	nsv_ns_per_entry	28.698317	ns	nsv_s / (n + 1)
+R	E5	fib30.both.par	2	fsync_s	0.000487	s	flush of the output files after the run
+R	E5	fib30.both.par	2	rssanon_peak	16.207872	MB	max RssAnon of 119 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E5	fib30.both.par	2	rssfile_peak	40.812544	MB	mapped file pages resident (windows, text): reported, not counted
+R	E5	fib30.both.par	2	vmhwm	60.100608	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E5	fib30.both.par	2	gc_heap	3.322616	MB	managed heap at the end (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 1/1/1
+R	E5	fib30.both.par	2	arena_peak	12.582912	MB	peak native buffers charged to the ArenaBudget (cap 64 MiB), live at the end 0
+R	E5	fib30.both.par	2	max_lcp	15069648	symbols	largest LCP value
+R	E5	fib30.both.par	2	stack_peak	39	entries	peak height of the forward stack (<= 1 + max LCP = 15069649); 0.00 MB at 16 B per entry
+R	E5	fib30.both.par	2	nsv_stack_peak	18	entries	peak height of the NSV stack (8 B per entry): 0.00 MB
+R	E5	fib30.both.par	2	spill_written	0	bytes	forward stack: 0 blocks written, 0 read back (0 bytes), 0 clean evictions, 0 fsyncs; peak file 0 bytes
+R	E5	fib30.both.par	2	spill_expected	241114384	bytes	16 B x (max LCP + 1); spill_written / expected = 0.000000; difference 15069649 entries = 57.49 blocks of 262144
+R	E5	fib30.both.par	2	nsv_spill_written	0	bytes	NSV stack: 0 blocks written, 0 read back; expected 8 B x (max LCP + 1) = 120557192
+R	E5	fib30.both.par	2	child_windows	130	n	CHILD: 130 windows mapped (115 distinct, 15 mapped again after release), 122 evictions, 130 flushes covering 135728644 bytes, 30000000 writes (1.000 per rank)
+R	E5	fib30.both.par	2	psv_windows	115	n	PSV: 115 windows (0 again), 115 flushes
+R	E5	fib30.both.par	2	nsv_windows	115	n	NSV: 115 windows (0 again), 115 flushes
+R	E5	fib30.both.par	2	io_explicit_read	240000008	bytes	8.000 B/char: the LCP file(s) (forward and backward) and the spill read-back (230 calls)
+R	E5	fib30.both.par	2	io_explicit_write	0	bytes	0.000 B/char: the spill file(s) (0 calls)
+R	E5	fib30.both.par	2	blocklayer_read	120016896	bytes	/proc/self/io read_bytes (page-cache misses)
+R	E5	fib30.both.par	2	blocklayer_write	361508864	bytes	/proc/self/io write_bytes: bytes of pages that went from clean to dirty (every re-dirtying of a flushed page counts again)
+R	E5	fib30.both.par	2	output_bytes	360000012	bytes	12.000 B/char: CHILD (4 B/char) for layout A, PSV + NSV (8 B/char) for layout F
+R	E5	fib30.both.par	2	wa_dirtied	1.004191	x	write amplification, definition 1: (write_bytes of /proc/self/io - the spill bytes written 0) / final size of the output files; 1.0 = every page was dirtied once; the device-level definition 2 is taken by the run script (sectors written by the block device after sync)
+R	E5	fib30.both.par	2	dirty_peak	12.32896	MB	max /proc/meminfo Dirty minus the baseline (0.08 MB, median of 5 samples before the start) over 59 samples at 20 ms; absolute max 12.41 MB; gate G3 <= 64 MB
+R	E5	fib30.both.par	2	dirty_mean	9.228705	MB	mean of Dirty minus the baseline over the run
+R	E5	fib30.both.par	2	dirty_peak_after_mark	12.406784	MB	max Dirty after the PH5 start minus Dirty at that moment (0.00 MB)
+R	E5	fib30.both.par	2	writeback_peak	2.052096	MB	max /proc/meminfo Writeback
+R	E5	fib30.both.par	2	proc_dirty_peak	12.55424	MB	max Private_Dirty + Shared_Dirty of the mappings of /proc/self/smaps whose path is an output file of this run: the dirty pages this process has mapped in them (the per-process view; anonymous memory is not in it)
+R	E5	fib30.both.par	2	node_count	59999994	n	NODE_COUNT = 1 + I + n + 1 with I = 29999992 internal nodes
+R	E5	fib30.both.par	2	lrs	15069648	symbols	LRS_DEPTH 15069648, LRS_RANK 11458988
+R	E5	fib30.both.par	2	ext_rssanon_peak	16.208	MB	independent sampler: max RssAnon of /proc/<pid>/status over 66 samples at 20 ms
+R	E5	fib30.both.par	2	ext_dirty_peak	12.505	MB	independent sampler: max /proc/meminfo Dirty minus the baseline (0.02 MB, median of 5 samples before the start); gate G3 <= 64 MB; absolute max 12.52 MB
+R	E5	fib30.both.par	2	ext_dirty_mean	8.313	MB	independent sampler: mean of Dirty minus the baseline
+R	E5	fib30.both.par	2	ext_writeback_peak	1.843	MB	independent sampler: max /proc/meminfo Writeback
+R	E5	fib30.both.par	2	device_write_bytes	364138496	bytes	sectors written by vda during the run and the sync that follows it (512 B each; includes the spill file, journal, everything)
+R	E5	fib30.both.par	3	n	30000000	symbols	b=1 bits, layout=both, codec=Tagged, fused with PH4=False
+R	E5	fib30.both.par	3	parameters	parallel NSV=True block=262144 entries (4096 KiB) window=1048576 slots=8 flush windows=True spill flush=16777216 read=1048576 spill dir=scratch		entry 16 B (l, lb, first, last); two blocks in RAM
+R	E5	fib30.both.par	3	ph5_s	1.137859	s	wall of the forward scan including the LCP read, plus the NSV pass when asked for (a second pass, or concurrent with --parallel-nsv; without fsync)
+R	E5	fib30.both.par	3	forward_s	1.135299	s	forward scan including reading the LCP file
+R	E5	fib30.both.par	3	scan_s	1.049883	s	time inside Consume + Complete of the forward scan (without reading the LCP)
+R	E5	fib30.both.par	3	scan_ns_per_entry	34.996095	ns	scan_s / (n + 1)
+R	E5	fib30.both.par	3	forward_ns_per_entry	37.843291	ns	forward_s / (n + 1)
+R	E5	fib30.both.par	3	nsv_s	0.84816	s	backward scan of the LCP file: NSV written in descending rank order
+R	E5	fib30.both.par	3	nsv_ns_per_entry	28.272015	ns	nsv_s / (n + 1)
+R	E5	fib30.both.par	3	fsync_s	0.000234	s	flush of the output files after the run
+R	E5	fib30.both.par	3	rssanon_peak	15.552512	MB	max RssAnon of 115 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E5	fib30.both.par	3	rssfile_peak	40.767488	MB	mapped file pages resident (windows, text): reported, not counted
+R	E5	fib30.both.par	3	vmhwm	59.404288	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E5	fib30.both.par	3	gc_heap	3.322616	MB	managed heap at the end (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 1/1/1
+R	E5	fib30.both.par	3	arena_peak	12.582912	MB	peak native buffers charged to the ArenaBudget (cap 64 MiB), live at the end 0
+R	E5	fib30.both.par	3	max_lcp	15069648	symbols	largest LCP value
+R	E5	fib30.both.par	3	stack_peak	39	entries	peak height of the forward stack (<= 1 + max LCP = 15069649); 0.00 MB at 16 B per entry
+R	E5	fib30.both.par	3	nsv_stack_peak	18	entries	peak height of the NSV stack (8 B per entry): 0.00 MB
+R	E5	fib30.both.par	3	spill_written	0	bytes	forward stack: 0 blocks written, 0 read back (0 bytes), 0 clean evictions, 0 fsyncs; peak file 0 bytes
+R	E5	fib30.both.par	3	spill_expected	241114384	bytes	16 B x (max LCP + 1); spill_written / expected = 0.000000; difference 15069649 entries = 57.49 blocks of 262144
+R	E5	fib30.both.par	3	nsv_spill_written	0	bytes	NSV stack: 0 blocks written, 0 read back; expected 8 B x (max LCP + 1) = 120557192
+R	E5	fib30.both.par	3	child_windows	130	n	CHILD: 130 windows mapped (115 distinct, 15 mapped again after release), 122 evictions, 130 flushes covering 135728644 bytes, 30000000 writes (1.000 per rank)
+R	E5	fib30.both.par	3	psv_windows	115	n	PSV: 115 windows (0 again), 115 flushes
+R	E5	fib30.both.par	3	nsv_windows	115	n	NSV: 115 windows (0 again), 115 flushes
+R	E5	fib30.both.par	3	io_explicit_read	240000008	bytes	8.000 B/char: the LCP file(s) (forward and backward) and the spill read-back (230 calls)
+R	E5	fib30.both.par	3	io_explicit_write	0	bytes	0.000 B/char: the spill file(s) (0 calls)
+R	E5	fib30.both.par	3	blocklayer_read	120016896	bytes	/proc/self/io read_bytes (page-cache misses)
+R	E5	fib30.both.par	3	blocklayer_write	361508864	bytes	/proc/self/io write_bytes: bytes of pages that went from clean to dirty (every re-dirtying of a flushed page counts again)
+R	E5	fib30.both.par	3	output_bytes	360000012	bytes	12.000 B/char: CHILD (4 B/char) for layout A, PSV + NSV (8 B/char) for layout F
+R	E5	fib30.both.par	3	wa_dirtied	1.004191	x	write amplification, definition 1: (write_bytes of /proc/self/io - the spill bytes written 0) / final size of the output files; 1.0 = every page was dirtied once; the device-level definition 2 is taken by the run script (sectors written by the block device after sync)
+R	E5	fib30.both.par	3	dirty_peak	12.443648	MB	max /proc/meminfo Dirty minus the baseline (0.07 MB, median of 5 samples before the start) over 57 samples at 20 ms; absolute max 12.51 MB; gate G3 <= 64 MB
+R	E5	fib30.both.par	3	dirty_mean	9.125816	MB	mean of Dirty minus the baseline over the run
+R	E5	fib30.both.par	3	dirty_peak_after_mark	12.51328	MB	max Dirty after the PH5 start minus Dirty at that moment (0.00 MB)
+R	E5	fib30.both.par	3	writeback_peak	2.097152	MB	max /proc/meminfo Writeback
+R	E5	fib30.both.par	3	proc_dirty_peak	11.800576	MB	max Private_Dirty + Shared_Dirty of the mappings of /proc/self/smaps whose path is an output file of this run: the dirty pages this process has mapped in them (the per-process view; anonymous memory is not in it)
+R	E5	fib30.both.par	3	node_count	59999994	n	NODE_COUNT = 1 + I + n + 1 with I = 29999992 internal nodes
+R	E5	fib30.both.par	3	lrs	15069648	symbols	LRS_DEPTH 15069648, LRS_RANK 11458988
+R	E5	fib30.both.par	3	ext_rssanon_peak	15.553	MB	independent sampler: max RssAnon of /proc/<pid>/status over 65 samples at 20 ms
+R	E5	fib30.both.par	3	ext_dirty_peak	12.399	MB	independent sampler: max /proc/meminfo Dirty minus the baseline (0.00 MB, median of 5 samples before the start); gate G3 <= 64 MB; absolute max 12.40 MB
+R	E5	fib30.both.par	3	ext_dirty_mean	8.327	MB	independent sampler: mean of Dirty minus the baseline
+R	E5	fib30.both.par	3	ext_writeback_peak	1.806	MB	independent sampler: max /proc/meminfo Writeback
+R	E5	fib30.both.par	3	device_write_bytes	364126208	bytes	sectors written by vda during the run and the sync that follows it (512 B each; includes the spill file, journal, everything)
+R	E5	dna_100m.f.par	1	n	100000000	symbols	b=2 bits, layout=f, codec=Tagged, fused with PH4=False
+R	E5	dna_100m.f.par	1	parameters	parallel NSV=True block=262144 entries (4096 KiB) window=1048576 slots=8 flush windows=True spill flush=16777216 read=1048576 spill dir=scratch		entry 16 B (l, lb, first, last); two blocks in RAM
+R	E5	dna_100m.f.par	1	ph5_s	3.364239	s	wall of the forward scan including the LCP read, plus the NSV pass when asked for (a second pass, or concurrent with --parallel-nsv; without fsync)
+R	E5	dna_100m.f.par	1	forward_s	3.362302	s	forward scan including reading the LCP file
+R	E5	dna_100m.f.par	1	scan_s	3.151302	s	time inside Consume + Complete of the forward scan (without reading the LCP)
+R	E5	dna_100m.f.par	1	scan_ns_per_entry	31.513019	ns	scan_s / (n + 1)
+R	E5	dna_100m.f.par	1	forward_ns_per_entry	33.623017	ns	forward_s / (n + 1)
+R	E5	dna_100m.f.par	1	nsv_s	3.340484	s	backward scan of the LCP file: NSV written in descending rank order
+R	E5	dna_100m.f.par	1	nsv_ns_per_entry	33.404842	ns	nsv_s / (n + 1)
+R	E5	dna_100m.f.par	1	fsync_s	0.000175	s	flush of the output files after the run
+R	E5	dna_100m.f.par	1	rssanon_peak	22.790144	MB	max RssAnon of 338 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E5	dna_100m.f.par	1	rssfile_peak	32.100352	MB	mapped file pages resident (windows, text): reported, not counted
+R	E5	dna_100m.f.par	1	vmhwm	57.982976	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E5	dna_100m.f.par	1	gc_heap	6.460776	MB	managed heap at the end (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 1/1/1
+R	E5	dna_100m.f.par	1	arena_peak	12.582912	MB	peak native buffers charged to the ArenaBudget (cap 64 MiB), live at the end 0
+R	E5	dna_100m.f.par	1	max_lcp	25	symbols	largest LCP value
+R	E5	dna_100m.f.par	1	stack_peak	18	entries	peak height of the forward stack (<= 1 + max LCP = 26); 0.00 MB at 16 B per entry
+R	E5	dna_100m.f.par	1	nsv_stack_peak	17	entries	peak height of the NSV stack (8 B per entry): 0.00 MB
+R	E5	dna_100m.f.par	1	spill_written	0	bytes	forward stack: 0 blocks written, 0 read back (0 bytes), 0 clean evictions, 0 fsyncs; peak file 0 bytes
+R	E5	dna_100m.f.par	1	spill_expected	416	bytes	16 B x (max LCP + 1); spill_written / expected = 0.000000; difference 26 entries = 0.00 blocks of 262144
+R	E5	dna_100m.f.par	1	nsv_spill_written	0	bytes	NSV stack: 0 blocks written, 0 read back; expected 8 B x (max LCP + 1) = 208
+R	E5	dna_100m.f.par	1	psv_windows	382	n	PSV: 382 windows (0 again), 382 flushes
+R	E5	dna_100m.f.par	1	nsv_windows	382	n	NSV: 382 windows (0 again), 382 flushes
+R	E5	dna_100m.f.par	1	io_explicit_read	200000002	bytes	2.000 B/char: the LCP file(s) (forward and backward) and the spill read-back (192 calls)
+R	E5	dna_100m.f.par	1	io_explicit_write	0	bytes	0.000 B/char: the spill file(s) (0 calls)
+R	E5	dna_100m.f.par	1	blocklayer_read	100040704	bytes	/proc/self/io read_bytes (page-cache misses)
+R	E5	dna_100m.f.par	1	blocklayer_write	800063488	bytes	/proc/self/io write_bytes: bytes of pages that went from clean to dirty (every re-dirtying of a flushed page counts again)
+R	E5	dna_100m.f.par	1	output_bytes	800000008	bytes	8.000 B/char: CHILD (4 B/char) for layout A, PSV + NSV (8 B/char) for layout F
+R	E5	dna_100m.f.par	1	wa_dirtied	1.000079	x	write amplification, definition 1: (write_bytes of /proc/self/io - the spill bytes written 0) / final size of the output files; 1.0 = every page was dirtied once; the device-level definition 2 is taken by the run script (sectors written by the block device after sync)
+R	E5	dna_100m.f.par	1	dirty_peak	4.231168	MB	max /proc/meminfo Dirty minus the baseline (0.07 MB, median of 5 samples before the start) over 168 samples at 20 ms; absolute max 4.30 MB; gate G3 <= 64 MB
+R	E5	dna_100m.f.par	1	dirty_mean	3.022312	MB	mean of Dirty minus the baseline over the run
+R	E5	dna_100m.f.par	1	dirty_peak_after_mark	4.3008	MB	max Dirty after the PH5 start minus Dirty at that moment (0.00 MB)
+R	E5	dna_100m.f.par	1	writeback_peak	2.06848	MB	max /proc/meminfo Writeback
+R	E5	dna_100m.f.par	1	proc_dirty_peak	4.194304	MB	max Private_Dirty + Shared_Dirty of the mappings of /proc/self/smaps whose path is an output file of this run: the dirty pages this process has mapped in them (the per-process view; anonymous memory is not in it)
+R	E5	dna_100m.f.par	1	node_count	162149501	n	NODE_COUNT = 1 + I + n + 1 with I = 62149499 internal nodes
+R	E5	dna_100m.f.par	1	lrs	25	symbols	LRS_DEPTH 25, LRS_RANK 14863022
+R	E5	dna_100m.f.par	1	ext_rssanon_peak	22.790	MB	independent sampler: max RssAnon of /proc/<pid>/status over 177 samples at 20 ms
+R	E5	dna_100m.f.par	1	ext_dirty_peak	4.297	MB	independent sampler: max /proc/meminfo Dirty minus the baseline (0.00 MB, median of 5 samples before the start); gate G3 <= 64 MB; absolute max 4.30 MB
+R	E5	dna_100m.f.par	1	ext_dirty_mean	2.818	MB	independent sampler: mean of Dirty minus the baseline
+R	E5	dna_100m.f.par	1	ext_writeback_peak	2.109	MB	independent sampler: max /proc/meminfo Writeback
+R	E5	dna_100m.f.par	1	device_write_bytes	804732928	bytes	sectors written by vda during the run and the sync that follows it (512 B each; includes the spill file, journal, everything)
+R	E5	dna_100m.f.par	2	n	100000000	symbols	b=2 bits, layout=f, codec=Tagged, fused with PH4=False
+R	E5	dna_100m.f.par	2	parameters	parallel NSV=True block=262144 entries (4096 KiB) window=1048576 slots=8 flush windows=True spill flush=16777216 read=1048576 spill dir=scratch		entry 16 B (l, lb, first, last); two blocks in RAM
+R	E5	dna_100m.f.par	2	ph5_s	3.290664	s	wall of the forward scan including the LCP read, plus the NSV pass when asked for (a second pass, or concurrent with --parallel-nsv; without fsync)
+R	E5	dna_100m.f.par	2	forward_s	3.257798	s	forward scan including reading the LCP file
+R	E5	dna_100m.f.par	2	scan_s	3.038887	s	time inside Consume + Complete of the forward scan (without reading the LCP)
+R	E5	dna_100m.f.par	2	scan_ns_per_entry	30.388867	ns	scan_s / (n + 1)
+R	E5	dna_100m.f.par	2	forward_ns_per_entry	32.577976	ns	forward_s / (n + 1)
+R	E5	dna_100m.f.par	2	nsv_s	3.282263	s	backward scan of the LCP file: NSV written in descending rank order
+R	E5	dna_100m.f.par	2	nsv_ns_per_entry	32.822632	ns	nsv_s / (n + 1)
+R	E5	dna_100m.f.par	2	fsync_s	0.000204	s	flush of the output files after the run
+R	E5	dna_100m.f.par	2	rssanon_peak	22.593536	MB	max RssAnon of 331 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E5	dna_100m.f.par	2	rssfile_peak	32.198656	MB	mapped file pages resident (windows, text): reported, not counted
+R	E5	dna_100m.f.par	2	vmhwm	57.89696	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E5	dna_100m.f.par	2	gc_heap	3.322312	MB	managed heap at the end (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 1/1/1
+R	E5	dna_100m.f.par	2	arena_peak	12.582912	MB	peak native buffers charged to the ArenaBudget (cap 64 MiB), live at the end 0
+R	E5	dna_100m.f.par	2	max_lcp	25	symbols	largest LCP value
+R	E5	dna_100m.f.par	2	stack_peak	18	entries	peak height of the forward stack (<= 1 + max LCP = 26); 0.00 MB at 16 B per entry
+R	E5	dna_100m.f.par	2	nsv_stack_peak	17	entries	peak height of the NSV stack (8 B per entry): 0.00 MB
+R	E5	dna_100m.f.par	2	spill_written	0	bytes	forward stack: 0 blocks written, 0 read back (0 bytes), 0 clean evictions, 0 fsyncs; peak file 0 bytes
+R	E5	dna_100m.f.par	2	spill_expected	416	bytes	16 B x (max LCP + 1); spill_written / expected = 0.000000; difference 26 entries = 0.00 blocks of 262144
+R	E5	dna_100m.f.par	2	nsv_spill_written	0	bytes	NSV stack: 0 blocks written, 0 read back; expected 8 B x (max LCP + 1) = 208
+R	E5	dna_100m.f.par	2	psv_windows	382	n	PSV: 382 windows (0 again), 382 flushes
+R	E5	dna_100m.f.par	2	nsv_windows	382	n	NSV: 382 windows (0 again), 382 flushes
+R	E5	dna_100m.f.par	2	io_explicit_read	200000002	bytes	2.000 B/char: the LCP file(s) (forward and backward) and the spill read-back (192 calls)
+R	E5	dna_100m.f.par	2	io_explicit_write	0	bytes	0.000 B/char: the spill file(s) (0 calls)
+R	E5	dna_100m.f.par	2	blocklayer_read	100040704	bytes	/proc/self/io read_bytes (page-cache misses)
+R	E5	dna_100m.f.par	2	blocklayer_write	800067584	bytes	/proc/self/io write_bytes: bytes of pages that went from clean to dirty (every re-dirtying of a flushed page counts again)
+R	E5	dna_100m.f.par	2	output_bytes	800000008	bytes	8.000 B/char: CHILD (4 B/char) for layout A, PSV + NSV (8 B/char) for layout F
+R	E5	dna_100m.f.par	2	wa_dirtied	1.000084	x	write amplification, definition 1: (write_bytes of /proc/self/io - the spill bytes written 0) / final size of the output files; 1.0 = every page was dirtied once; the device-level definition 2 is taken by the run script (sectors written by the block device after sync)
+R	E5	dna_100m.f.par	2	dirty_peak	4.23936	MB	max /proc/meminfo Dirty minus the baseline (0.07 MB, median of 5 samples before the start) over 165 samples at 20 ms; absolute max 4.31 MB; gate G3 <= 64 MB
+R	E5	dna_100m.f.par	2	dirty_mean	3.035086	MB	mean of Dirty minus the baseline over the run
+R	E5	dna_100m.f.par	2	dirty_peak_after_mark	4.308992	MB	max Dirty after the PH5 start minus Dirty at that moment (0.00 MB)
+R	E5	dna_100m.f.par	2	writeback_peak	1.961984	MB	max /proc/meminfo Writeback
+R	E5	dna_100m.f.par	2	proc_dirty_peak	4.194304	MB	max Private_Dirty + Shared_Dirty of the mappings of /proc/self/smaps whose path is an output file of this run: the dirty pages this process has mapped in them (the per-process view; anonymous memory is not in it)
+R	E5	dna_100m.f.par	2	node_count	162149501	n	NODE_COUNT = 1 + I + n + 1 with I = 62149499 internal nodes
+R	E5	dna_100m.f.par	2	lrs	25	symbols	LRS_DEPTH 25, LRS_RANK 14863022
+R	E5	dna_100m.f.par	2	ext_rssanon_peak	22.598	MB	independent sampler: max RssAnon of /proc/<pid>/status over 173 samples at 20 ms
+R	E5	dna_100m.f.par	2	ext_dirty_peak	4.223	MB	independent sampler: max /proc/meminfo Dirty minus the baseline (0.00 MB, median of 5 samples before the start); gate G3 <= 64 MB; absolute max 4.22 MB
+R	E5	dna_100m.f.par	2	ext_dirty_mean	2.951	MB	independent sampler: mean of Dirty minus the baseline
+R	E5	dna_100m.f.par	2	ext_writeback_peak	2.105	MB	independent sampler: max /proc/meminfo Writeback
+R	E5	dna_100m.f.par	2	device_write_bytes	804794368	bytes	sectors written by vda during the run and the sync that follows it (512 B each; includes the spill file, journal, everything)
+R	E5	dna_100m.f.par	3	n	100000000	symbols	b=2 bits, layout=f, codec=Tagged, fused with PH4=False
+R	E5	dna_100m.f.par	3	parameters	parallel NSV=True block=262144 entries (4096 KiB) window=1048576 slots=8 flush windows=True spill flush=16777216 read=1048576 spill dir=scratch		entry 16 B (l, lb, first, last); two blocks in RAM
+R	E5	dna_100m.f.par	3	ph5_s	3.284027	s	wall of the forward scan including the LCP read, plus the NSV pass when asked for (a second pass, or concurrent with --parallel-nsv; without fsync)
+R	E5	dna_100m.f.par	3	forward_s	3.281823	s	forward scan including reading the LCP file
+R	E5	dna_100m.f.par	3	scan_s	3.05855	s	time inside Consume + Complete of the forward scan (without reading the LCP)
+R	E5	dna_100m.f.par	3	scan_ns_per_entry	30.585496	ns	scan_s / (n + 1)
+R	E5	dna_100m.f.par	3	forward_ns_per_entry	32.818227	ns	forward_s / (n + 1)
+R	E5	dna_100m.f.par	3	nsv_s	3.245637	s	backward scan of the LCP file: NSV written in descending rank order
+R	E5	dna_100m.f.par	3	nsv_ns_per_entry	32.456374	ns	nsv_s / (n + 1)
+R	E5	dna_100m.f.par	3	fsync_s	0.000245	s	flush of the output files after the run
+R	E5	dna_100m.f.par	3	rssanon_peak	22.77376	MB	max RssAnon of 330 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E5	dna_100m.f.par	3	rssfile_peak	32.165888	MB	mapped file pages resident (windows, text): reported, not counted
+R	E5	dna_100m.f.par	3	vmhwm	58.048512	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E5	dna_100m.f.par	3	gc_heap	6.468344	MB	managed heap at the end (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 1/1/1
+R	E5	dna_100m.f.par	3	arena_peak	12.582912	MB	peak native buffers charged to the ArenaBudget (cap 64 MiB), live at the end 0
+R	E5	dna_100m.f.par	3	max_lcp	25	symbols	largest LCP value
+R	E5	dna_100m.f.par	3	stack_peak	18	entries	peak height of the forward stack (<= 1 + max LCP = 26); 0.00 MB at 16 B per entry
+R	E5	dna_100m.f.par	3	nsv_stack_peak	17	entries	peak height of the NSV stack (8 B per entry): 0.00 MB
+R	E5	dna_100m.f.par	3	spill_written	0	bytes	forward stack: 0 blocks written, 0 read back (0 bytes), 0 clean evictions, 0 fsyncs; peak file 0 bytes
+R	E5	dna_100m.f.par	3	spill_expected	416	bytes	16 B x (max LCP + 1); spill_written / expected = 0.000000; difference 26 entries = 0.00 blocks of 262144
+R	E5	dna_100m.f.par	3	nsv_spill_written	0	bytes	NSV stack: 0 blocks written, 0 read back; expected 8 B x (max LCP + 1) = 208
+R	E5	dna_100m.f.par	3	psv_windows	382	n	PSV: 382 windows (0 again), 382 flushes
+R	E5	dna_100m.f.par	3	nsv_windows	382	n	NSV: 382 windows (0 again), 382 flushes
+R	E5	dna_100m.f.par	3	io_explicit_read	200000002	bytes	2.000 B/char: the LCP file(s) (forward and backward) and the spill read-back (192 calls)
+R	E5	dna_100m.f.par	3	io_explicit_write	0	bytes	0.000 B/char: the spill file(s) (0 calls)
+R	E5	dna_100m.f.par	3	blocklayer_read	100036608	bytes	/proc/self/io read_bytes (page-cache misses)
+R	E5	dna_100m.f.par	3	blocklayer_write	800059392	bytes	/proc/self/io write_bytes: bytes of pages that went from clean to dirty (every re-dirtying of a flushed page counts again)
+R	E5	dna_100m.f.par	3	output_bytes	800000008	bytes	8.000 B/char: CHILD (4 B/char) for layout A, PSV + NSV (8 B/char) for layout F
+R	E5	dna_100m.f.par	3	wa_dirtied	1.000074	x	write amplification, definition 1: (write_bytes of /proc/self/io - the spill bytes written 0) / final size of the output files; 1.0 = every page was dirtied once; the device-level definition 2 is taken by the run script (sectors written by the block device after sync)
+R	E5	dna_100m.f.par	3	dirty_peak	4.206592	MB	max /proc/meminfo Dirty minus the baseline (0.08 MB, median of 5 samples before the start) over 164 samples at 20 ms; absolute max 4.29 MB; gate G3 <= 64 MB
+R	E5	dna_100m.f.par	3	dirty_mean	2.998297	MB	mean of Dirty minus the baseline over the run
+R	E5	dna_100m.f.par	3	dirty_peak_after_mark	4.288512	MB	max Dirty after the PH5 start minus Dirty at that moment (0.00 MB)
+R	E5	dna_100m.f.par	3	writeback_peak	1.929216	MB	max /proc/meminfo Writeback
+R	E5	dna_100m.f.par	3	proc_dirty_peak	4.194304	MB	max Private_Dirty + Shared_Dirty of the mappings of /proc/self/smaps whose path is an output file of this run: the dirty pages this process has mapped in them (the per-process view; anonymous memory is not in it)
+R	E5	dna_100m.f.par	3	node_count	162149501	n	NODE_COUNT = 1 + I + n + 1 with I = 62149499 internal nodes
+R	E5	dna_100m.f.par	3	lrs	25	symbols	LRS_DEPTH 25, LRS_RANK 14863022
+R	E5	dna_100m.f.par	3	ext_rssanon_peak	22.774	MB	independent sampler: max RssAnon of /proc/<pid>/status over 172 samples at 20 ms
+R	E5	dna_100m.f.par	3	ext_dirty_peak	4.231	MB	independent sampler: max /proc/meminfo Dirty minus the baseline (0.09 MB, median of 5 samples before the start); gate G3 <= 64 MB; absolute max 4.32 MB
+R	E5	dna_100m.f.par	3	ext_dirty_mean	2.856	MB	independent sampler: mean of Dirty minus the baseline
+R	E5	dna_100m.f.par	3	ext_writeback_peak	2.077	MB	independent sampler: max /proc/meminfo Writeback
+R	E5	dna_100m.f.par	3	device_write_bytes	806207488	bytes	sectors written by vda during the run and the sync that follows it (512 B each; includes the spill file, journal, everything)
+R	E5	dna_100m.both.par	1	n	100000000	symbols	b=2 bits, layout=both, codec=Tagged, fused with PH4=False
+R	E5	dna_100m.both.par	1	parameters	parallel NSV=True block=262144 entries (4096 KiB) window=1048576 slots=8 flush windows=True spill flush=16777216 read=1048576 spill dir=scratch		entry 16 B (l, lb, first, last); two blocks in RAM
+R	E5	dna_100m.both.par	1	ph5_s	4.167583	s	wall of the forward scan including the LCP read, plus the NSV pass when asked for (a second pass, or concurrent with --parallel-nsv; without fsync)
+R	E5	dna_100m.both.par	1	forward_s	4.16531	s	forward scan including reading the LCP file
+R	E5	dna_100m.both.par	1	scan_s	3.961708	s	time inside Consume + Complete of the forward scan (without reading the LCP)
+R	E5	dna_100m.both.par	1	scan_ns_per_entry	39.617083	ns	scan_s / (n + 1)
+R	E5	dna_100m.both.par	1	forward_ns_per_entry	41.653096	ns	forward_s / (n + 1)
+R	E5	dna_100m.both.par	1	nsv_s	3.271249	s	backward scan of the LCP file: NSV written in descending rank order
+R	E5	dna_100m.both.par	1	nsv_ns_per_entry	32.712493	ns	nsv_s / (n + 1)
+R	E5	dna_100m.both.par	1	fsync_s	0.000257	s	flush of the output files after the run
+R	E5	dna_100m.both.par	1	rssanon_peak	22.700032	MB	max RssAnon of 418 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E5	dna_100m.both.par	1	rssfile_peak	40.644608	MB	mapped file pages resident (windows, text): reported, not counted
+R	E5	dna_100m.both.par	1	vmhwm	66.424832	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E5	dna_100m.both.par	1	gc_heap	3.322616	MB	managed heap at the end (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 1/1/1
+R	E5	dna_100m.both.par	1	arena_peak	12.582912	MB	peak native buffers charged to the ArenaBudget (cap 64 MiB), live at the end 0
+R	E5	dna_100m.both.par	1	max_lcp	25	symbols	largest LCP value
+R	E5	dna_100m.both.par	1	stack_peak	18	entries	peak height of the forward stack (<= 1 + max LCP = 26); 0.00 MB at 16 B per entry
+R	E5	dna_100m.both.par	1	nsv_stack_peak	17	entries	peak height of the NSV stack (8 B per entry): 0.00 MB
+R	E5	dna_100m.both.par	1	spill_written	0	bytes	forward stack: 0 blocks written, 0 read back (0 bytes), 0 clean evictions, 0 fsyncs; peak file 0 bytes
+R	E5	dna_100m.both.par	1	spill_expected	416	bytes	16 B x (max LCP + 1); spill_written / expected = 0.000000; difference 26 entries = 0.00 blocks of 262144
+R	E5	dna_100m.both.par	1	nsv_spill_written	0	bytes	NSV stack: 0 blocks written, 0 read back; expected 8 B x (max LCP + 1) = 208
+R	E5	dna_100m.both.par	1	child_windows	400	n	CHILD: 400 windows mapped (382 distinct, 18 mapped again after release), 392 evictions, 400 flushes covering 418874372 bytes, 100000000 writes (1.000 per rank)
+R	E5	dna_100m.both.par	1	psv_windows	382	n	PSV: 382 windows (0 again), 382 flushes
+R	E5	dna_100m.both.par	1	nsv_windows	382	n	NSV: 382 windows (0 again), 382 flushes
+R	E5	dna_100m.both.par	1	io_explicit_read	200000002	bytes	2.000 B/char: the LCP file(s) (forward and backward) and the spill read-back (192 calls)
+R	E5	dna_100m.both.par	1	io_explicit_write	0	bytes	0.000 B/char: the spill file(s) (0 calls)
+R	E5	dna_100m.both.par	1	blocklayer_read	100052992	bytes	/proc/self/io read_bytes (page-cache misses)
+R	E5	dna_100m.both.par	1	blocklayer_write	1202192384	bytes	/proc/self/io write_bytes: bytes of pages that went from clean to dirty (every re-dirtying of a flushed page counts again)
+R	E5	dna_100m.both.par	1	output_bytes	1200000012	bytes	12.000 B/char: CHILD (4 B/char) for layout A, PSV + NSV (8 B/char) for layout F
+R	E5	dna_100m.both.par	1	wa_dirtied	1.001827	x	write amplification, definition 1: (write_bytes of /proc/self/io - the spill bytes written 0) / final size of the output files; 1.0 = every page was dirtied once; the device-level definition 2 is taken by the run script (sectors written by the block device after sync)
+R	E5	dna_100m.both.par	1	dirty_peak	12.61568	MB	max /proc/meminfo Dirty minus the baseline (0.07 MB, median of 5 samples before the start) over 208 samples at 20 ms; absolute max 12.69 MB; gate G3 <= 64 MB
+R	E5	dna_100m.both.par	1	dirty_mean	10.271114	MB	mean of Dirty minus the baseline over the run
+R	E5	dna_100m.both.par	1	dirty_peak_after_mark	12.685312	MB	max Dirty after the PH5 start minus Dirty at that moment (0.00 MB)
+R	E5	dna_100m.both.par	1	writeback_peak	1.937408	MB	max /proc/meminfo Writeback
+R	E5	dna_100m.both.par	1	proc_dirty_peak	12.45184	MB	max Private_Dirty + Shared_Dirty of the mappings of /proc/self/smaps whose path is an output file of this run: the dirty pages this process has mapped in them (the per-process view; anonymous memory is not in it)
+R	E5	dna_100m.both.par	1	node_count	162149501	n	NODE_COUNT = 1 + I + n + 1 with I = 62149499 internal nodes
+R	E5	dna_100m.both.par	1	lrs	25	symbols	LRS_DEPTH 25, LRS_RANK 14863022
+R	E5	dna_100m.both.par	1	ext_rssanon_peak	22.700	MB	independent sampler: max RssAnon of /proc/<pid>/status over 216 samples at 20 ms
+R	E5	dna_100m.both.par	1	ext_dirty_peak	12.538	MB	independent sampler: max /proc/meminfo Dirty minus the baseline (0.00 MB, median of 5 samples before the start); gate G3 <= 64 MB; absolute max 12.54 MB
+R	E5	dna_100m.both.par	1	ext_dirty_mean	10.009	MB	independent sampler: mean of Dirty minus the baseline
+R	E5	dna_100m.both.par	1	ext_writeback_peak	2.118	MB	independent sampler: max /proc/meminfo Writeback
+R	E5	dna_100m.both.par	1	device_write_bytes	1211351040	bytes	sectors written by vda during the run and the sync that follows it (512 B each; includes the spill file, journal, everything)
+R	E5	dna_100m.both.par	2	n	100000000	symbols	b=2 bits, layout=both, codec=Tagged, fused with PH4=False
+R	E5	dna_100m.both.par	2	parameters	parallel NSV=True block=262144 entries (4096 KiB) window=1048576 slots=8 flush windows=True spill flush=16777216 read=1048576 spill dir=scratch		entry 16 B (l, lb, first, last); two blocks in RAM
+R	E5	dna_100m.both.par	2	ph5_s	4.070311	s	wall of the forward scan including the LCP read, plus the NSV pass when asked for (a second pass, or concurrent with --parallel-nsv; without fsync)
+R	E5	dna_100m.both.par	2	forward_s	4.068058	s	forward scan including reading the LCP file
+R	E5	dna_100m.both.par	2	scan_s	3.862931	s	time inside Consume + Complete of the forward scan (without reading the LCP)
+R	E5	dna_100m.both.par	2	scan_ns_per_entry	38.629309	ns	scan_s / (n + 1)
+R	E5	dna_100m.both.par	2	forward_ns_per_entry	40.680577	ns	forward_s / (n + 1)
+R	E5	dna_100m.both.par	2	nsv_s	3.184607	s	backward scan of the LCP file: NSV written in descending rank order
+R	E5	dna_100m.both.par	2	nsv_ns_per_entry	31.84607	ns	nsv_s / (n + 1)
+R	E5	dna_100m.both.par	2	fsync_s	0.000216	s	flush of the output files after the run
+R	E5	dna_100m.both.par	2	rssanon_peak	21.909504	MB	max RssAnon of 409 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E5	dna_100m.both.par	2	rssfile_peak	40.6528	MB	mapped file pages resident (windows, text): reported, not counted
+R	E5	dna_100m.both.par	2	vmhwm	65.6384	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E5	dna_100m.both.par	2	gc_heap	6.452792	MB	managed heap at the end (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 1/1/1
+R	E5	dna_100m.both.par	2	arena_peak	12.582912	MB	peak native buffers charged to the ArenaBudget (cap 64 MiB), live at the end 0
+R	E5	dna_100m.both.par	2	max_lcp	25	symbols	largest LCP value
+R	E5	dna_100m.both.par	2	stack_peak	18	entries	peak height of the forward stack (<= 1 + max LCP = 26); 0.00 MB at 16 B per entry
+R	E5	dna_100m.both.par	2	nsv_stack_peak	17	entries	peak height of the NSV stack (8 B per entry): 0.00 MB
+R	E5	dna_100m.both.par	2	spill_written	0	bytes	forward stack: 0 blocks written, 0 read back (0 bytes), 0 clean evictions, 0 fsyncs; peak file 0 bytes
+R	E5	dna_100m.both.par	2	spill_expected	416	bytes	16 B x (max LCP + 1); spill_written / expected = 0.000000; difference 26 entries = 0.00 blocks of 262144
+R	E5	dna_100m.both.par	2	nsv_spill_written	0	bytes	NSV stack: 0 blocks written, 0 read back; expected 8 B x (max LCP + 1) = 208
+R	E5	dna_100m.both.par	2	child_windows	400	n	CHILD: 400 windows mapped (382 distinct, 18 mapped again after release), 392 evictions, 400 flushes covering 418874372 bytes, 100000000 writes (1.000 per rank)
+R	E5	dna_100m.both.par	2	psv_windows	382	n	PSV: 382 windows (0 again), 382 flushes
+R	E5	dna_100m.both.par	2	nsv_windows	382	n	NSV: 382 windows (0 again), 382 flushes
+R	E5	dna_100m.both.par	2	io_explicit_read	200000002	bytes	2.000 B/char: the LCP file(s) (forward and backward) and the spill read-back (192 calls)
+R	E5	dna_100m.both.par	2	io_explicit_write	0	bytes	0.000 B/char: the spill file(s) (0 calls)
+R	E5	dna_100m.both.par	2	blocklayer_read	100052992	bytes	/proc/self/io read_bytes (page-cache misses)
+R	E5	dna_100m.both.par	2	blocklayer_write	1202196480	bytes	/proc/self/io write_bytes: bytes of pages that went from clean to dirty (every re-dirtying of a flushed page counts again)
+R	E5	dna_100m.both.par	2	output_bytes	1200000012	bytes	12.000 B/char: CHILD (4 B/char) for layout A, PSV + NSV (8 B/char) for layout F
+R	E5	dna_100m.both.par	2	wa_dirtied	1.00183	x	write amplification, definition 1: (write_bytes of /proc/self/io - the spill bytes written 0) / final size of the output files; 1.0 = every page was dirtied once; the device-level definition 2 is taken by the run script (sectors written by the block device after sync)
+R	E5	dna_100m.both.par	2	dirty_peak	12.337152	MB	max /proc/meminfo Dirty minus the baseline (0.07 MB, median of 5 samples before the start) over 204 samples at 20 ms; absolute max 12.41 MB; gate G3 <= 64 MB
+R	E5	dna_100m.both.par	2	dirty_mean	10.222973	MB	mean of Dirty minus the baseline over the run
+R	E5	dna_100m.both.par	2	dirty_peak_after_mark	12.406784	MB	max Dirty after the PH5 start minus Dirty at that moment (0.00 MB)
+R	E5	dna_100m.both.par	2	writeback_peak	1.9456	MB	max /proc/meminfo Writeback
+R	E5	dna_100m.both.par	2	proc_dirty_peak	12.292096	MB	max Private_Dirty + Shared_Dirty of the mappings of /proc/self/smaps whose path is an output file of this run: the dirty pages this process has mapped in them (the per-process view; anonymous memory is not in it)
+R	E5	dna_100m.both.par	2	node_count	162149501	n	NODE_COUNT = 1 + I + n + 1 with I = 62149499 internal nodes
+R	E5	dna_100m.both.par	2	lrs	25	symbols	LRS_DEPTH 25, LRS_RANK 14863022
+R	E5	dna_100m.both.par	2	ext_rssanon_peak	21.910	MB	independent sampler: max RssAnon of /proc/<pid>/status over 211 samples at 20 ms
+R	E5	dna_100m.both.par	2	ext_dirty_peak	12.538	MB	independent sampler: max /proc/meminfo Dirty minus the baseline (0.00 MB, median of 5 samples before the start); gate G3 <= 64 MB; absolute max 12.54 MB
+R	E5	dna_100m.both.par	2	ext_dirty_mean	9.995	MB	independent sampler: mean of Dirty minus the baseline
+R	E5	dna_100m.both.par	2	ext_writeback_peak	1.499	MB	independent sampler: max /proc/meminfo Writeback
+R	E5	dna_100m.both.par	2	device_write_bytes	1211355136	bytes	sectors written by vda during the run and the sync that follows it (512 B each; includes the spill file, journal, everything)
+R	E5	dna_100m.both.par	3	n	100000000	symbols	b=2 bits, layout=both, codec=Tagged, fused with PH4=False
+R	E5	dna_100m.both.par	3	parameters	parallel NSV=True block=262144 entries (4096 KiB) window=1048576 slots=8 flush windows=True spill flush=16777216 read=1048576 spill dir=scratch		entry 16 B (l, lb, first, last); two blocks in RAM
+R	E5	dna_100m.both.par	3	ph5_s	4.049073	s	wall of the forward scan including the LCP read, plus the NSV pass when asked for (a second pass, or concurrent with --parallel-nsv; without fsync)
+R	E5	dna_100m.both.par	3	forward_s	4.046641	s	forward scan including reading the LCP file
+R	E5	dna_100m.both.par	3	scan_s	3.84741	s	time inside Consume + Complete of the forward scan (without reading the LCP)
+R	E5	dna_100m.both.par	3	scan_ns_per_entry	38.474102	ns	scan_s / (n + 1)
+R	E5	dna_100m.both.par	3	forward_ns_per_entry	40.466409	ns	forward_s / (n + 1)
+R	E5	dna_100m.both.par	3	nsv_s	3.130179	s	backward scan of the LCP file: NSV written in descending rank order
+R	E5	dna_100m.both.par	3	nsv_ns_per_entry	31.301793	ns	nsv_s / (n + 1)
+R	E5	dna_100m.both.par	3	fsync_s	0.000202	s	flush of the output files after the run
+R	E5	dna_100m.both.par	3	rssanon_peak	21.25824	MB	max RssAnon of 406 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E5	dna_100m.both.par	3	rssfile_peak	40.6528	MB	mapped file pages resident (windows, text): reported, not counted
+R	E5	dna_100m.both.par	3	vmhwm	64.96256	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E5	dna_100m.both.par	3	gc_heap	3.322616	MB	managed heap at the end (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 1/1/1
+R	E5	dna_100m.both.par	3	arena_peak	12.582912	MB	peak native buffers charged to the ArenaBudget (cap 64 MiB), live at the end 0
+R	E5	dna_100m.both.par	3	max_lcp	25	symbols	largest LCP value
+R	E5	dna_100m.both.par	3	stack_peak	18	entries	peak height of the forward stack (<= 1 + max LCP = 26); 0.00 MB at 16 B per entry
+R	E5	dna_100m.both.par	3	nsv_stack_peak	17	entries	peak height of the NSV stack (8 B per entry): 0.00 MB
+R	E5	dna_100m.both.par	3	spill_written	0	bytes	forward stack: 0 blocks written, 0 read back (0 bytes), 0 clean evictions, 0 fsyncs; peak file 0 bytes
+R	E5	dna_100m.both.par	3	spill_expected	416	bytes	16 B x (max LCP + 1); spill_written / expected = 0.000000; difference 26 entries = 0.00 blocks of 262144
+R	E5	dna_100m.both.par	3	nsv_spill_written	0	bytes	NSV stack: 0 blocks written, 0 read back; expected 8 B x (max LCP + 1) = 208
+R	E5	dna_100m.both.par	3	child_windows	400	n	CHILD: 400 windows mapped (382 distinct, 18 mapped again after release), 392 evictions, 400 flushes covering 418874372 bytes, 100000000 writes (1.000 per rank)
+R	E5	dna_100m.both.par	3	psv_windows	382	n	PSV: 382 windows (0 again), 382 flushes
+R	E5	dna_100m.both.par	3	nsv_windows	382	n	NSV: 382 windows (0 again), 382 flushes
+R	E5	dna_100m.both.par	3	io_explicit_read	200000002	bytes	2.000 B/char: the LCP file(s) (forward and backward) and the spill read-back (192 calls)
+R	E5	dna_100m.both.par	3	io_explicit_write	0	bytes	0.000 B/char: the spill file(s) (0 calls)
+R	E5	dna_100m.both.par	3	blocklayer_read	100057088	bytes	/proc/self/io read_bytes (page-cache misses)
+R	E5	dna_100m.both.par	3	blocklayer_write	1202204672	bytes	/proc/self/io write_bytes: bytes of pages that went from clean to dirty (every re-dirtying of a flushed page counts again)
+R	E5	dna_100m.both.par	3	output_bytes	1200000012	bytes	12.000 B/char: CHILD (4 B/char) for layout A, PSV + NSV (8 B/char) for layout F
+R	E5	dna_100m.both.par	3	wa_dirtied	1.001837	x	write amplification, definition 1: (write_bytes of /proc/self/io - the spill bytes written 0) / final size of the output files; 1.0 = every page was dirtied once; the device-level definition 2 is taken by the run script (sectors written by the block device after sync)
+R	E5	dna_100m.both.par	3	dirty_peak	12.34944	MB	max /proc/meminfo Dirty minus the baseline (0.08 MB, median of 5 samples before the start) over 202 samples at 20 ms; absolute max 12.43 MB; gate G3 <= 64 MB
+R	E5	dna_100m.both.par	3	dirty_mean	10.237263	MB	mean of Dirty minus the baseline over the run
+R	E5	dna_100m.both.par	3	dirty_peak_after_mark	12.427264	MB	max Dirty after the PH5 start minus Dirty at that moment (0.00 MB)
+R	E5	dna_100m.both.par	3	writeback_peak	1.76128	MB	max /proc/meminfo Writeback
+R	E5	dna_100m.both.par	3	proc_dirty_peak	12.316672	MB	max Private_Dirty + Shared_Dirty of the mappings of /proc/self/smaps whose path is an output file of this run: the dirty pages this process has mapped in them (the per-process view; anonymous memory is not in it)
+R	E5	dna_100m.both.par	3	node_count	162149501	n	NODE_COUNT = 1 + I + n + 1 with I = 62149499 internal nodes
+R	E5	dna_100m.both.par	3	lrs	25	symbols	LRS_DEPTH 25, LRS_RANK 14863022
+R	E5	dna_100m.both.par	3	ext_rssanon_peak	21.258	MB	independent sampler: max RssAnon of /proc/<pid>/status over 210 samples at 20 ms
+R	E5	dna_100m.both.par	3	ext_dirty_peak	12.571	MB	independent sampler: max /proc/meminfo Dirty minus the baseline (0.00 MB, median of 5 samples before the start); gate G3 <= 64 MB; absolute max 12.57 MB
+R	E5	dna_100m.both.par	3	ext_dirty_mean	9.837	MB	independent sampler: mean of Dirty minus the baseline
+R	E5	dna_100m.both.par	3	ext_writeback_peak	1.970	MB	independent sampler: max /proc/meminfo Writeback
+R	E5	dna_100m.both.par	3	device_write_bytes	1208610816	bytes	sectors written by vda during the run and the sync that follows it (512 B each; includes the spill file, journal, everything)
+R	E5	genome_100m.f.par	1	n	100000000	symbols	b=3 bits, layout=f, codec=Tagged, fused with PH4=False
+R	E5	genome_100m.f.par	1	parameters	parallel NSV=True block=262144 entries (4096 KiB) window=1048576 slots=8 flush windows=True spill flush=16777216 read=1048576 spill dir=scratch		entry 16 B (l, lb, first, last); two blocks in RAM
+R	E5	genome_100m.f.par	1	ph5_s	3.475262	s	wall of the forward scan including the LCP read, plus the NSV pass when asked for (a second pass, or concurrent with --parallel-nsv; without fsync)
+R	E5	genome_100m.f.par	1	forward_s	3.473242	s	forward scan including reading the LCP file
+R	E5	genome_100m.f.par	1	scan_s	3.240267	s	time inside Consume + Complete of the forward scan (without reading the LCP)
+R	E5	genome_100m.f.par	1	scan_ns_per_entry	32.402673	ns	scan_s / (n + 1)
+R	E5	genome_100m.f.par	1	forward_ns_per_entry	34.732424	ns	forward_s / (n + 1)
+R	E5	genome_100m.f.par	1	nsv_s	3.462239	s	backward scan of the LCP file: NSV written in descending rank order
+R	E5	genome_100m.f.par	1	nsv_ns_per_entry	34.622385	ns	nsv_s / (n + 1)
+R	E5	genome_100m.f.par	1	fsync_s	0.000266	s	flush of the output files after the run
+R	E5	genome_100m.f.par	1	rssanon_peak	32.366592	MB	max RssAnon of 349 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E5	genome_100m.f.par	1	rssfile_peak	32.309248	MB	mapped file pages resident (windows, text): reported, not counted
+R	E5	genome_100m.f.par	1	vmhwm	67.821568	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E5	genome_100m.f.par	1	gc_heap	3.322616	MB	managed heap at the end (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 1/1/1
+R	E5	genome_100m.f.par	1	arena_peak	12.582912	MB	peak native buffers charged to the ArenaBudget (cap 64 MiB), live at the end 0
+R	E5	genome_100m.f.par	1	max_lcp	499999	symbols	largest LCP value
+R	E5	genome_100m.f.par	1	stack_peak	500000	entries	peak height of the forward stack (<= 1 + max LCP = 500000); 8.00 MB at 16 B per entry
+R	E5	genome_100m.f.par	1	nsv_stack_peak	97	entries	peak height of the NSV stack (8 B per entry): 0.00 MB
+R	E5	genome_100m.f.par	1	spill_written	0	bytes	forward stack: 0 blocks written, 0 read back (0 bytes), 0 clean evictions, 0 fsyncs; peak file 0 bytes
+R	E5	genome_100m.f.par	1	spill_expected	8000000	bytes	16 B x (max LCP + 1); spill_written / expected = 0.000000; difference 500000 entries = 1.91 blocks of 262144
+R	E5	genome_100m.f.par	1	nsv_spill_written	0	bytes	NSV stack: 0 blocks written, 0 read back; expected 8 B x (max LCP + 1) = 4000000
+R	E5	genome_100m.f.par	1	psv_windows	382	n	PSV: 382 windows (0 again), 382 flushes
+R	E5	genome_100m.f.par	1	nsv_windows	382	n	NSV: 382 windows (0 again), 382 flushes
+R	E5	genome_100m.f.par	1	io_explicit_read	222654562	bytes	2.227 B/char: the LCP file(s) (forward and backward) and the spill read-back (214 calls)
+R	E5	genome_100m.f.par	1	io_explicit_write	0	bytes	0.000 B/char: the spill file(s) (0 calls)
+R	E5	genome_100m.f.par	1	blocklayer_read	111296512	bytes	/proc/self/io read_bytes (page-cache misses)
+R	E5	genome_100m.f.par	1	blocklayer_write	800067584	bytes	/proc/self/io write_bytes: bytes of pages that went from clean to dirty (every re-dirtying of a flushed page counts again)
+R	E5	genome_100m.f.par	1	output_bytes	800000008	bytes	8.000 B/char: CHILD (4 B/char) for layout A, PSV + NSV (8 B/char) for layout F
+R	E5	genome_100m.f.par	1	wa_dirtied	1.000084	x	write amplification, definition 1: (write_bytes of /proc/self/io - the spill bytes written 0) / final size of the output files; 1.0 = every page was dirtied once; the device-level definition 2 is taken by the run script (sectors written by the block device after sync)
+R	E5	genome_100m.f.par	1	dirty_peak	4.100096	MB	max /proc/meminfo Dirty minus the baseline (0.07 MB, median of 5 samples before the start) over 174 samples at 20 ms; absolute max 4.17 MB; gate G3 <= 64 MB
+R	E5	genome_100m.f.par	1	dirty_mean	3.026897	MB	mean of Dirty minus the baseline over the run
+R	E5	genome_100m.f.par	1	dirty_peak_after_mark	4.169728	MB	max Dirty after the PH5 start minus Dirty at that moment (0.00 MB)
+R	E5	genome_100m.f.par	1	writeback_peak	1.724416	MB	max /proc/meminfo Writeback
+R	E5	genome_100m.f.par	1	proc_dirty_peak	4.194304	MB	max Private_Dirty + Shared_Dirty of the mappings of /proc/self/smaps whose path is an output file of this run: the dirty pages this process has mapped in them (the per-process view; anonymous memory is not in it)
+R	E5	genome_100m.f.par	1	node_count	166050648	n	NODE_COUNT = 1 + I + n + 1 with I = 66050646 internal nodes
+R	E5	genome_100m.f.par	1	lrs	499999	symbols	LRS_DEPTH 499999, LRS_RANK 75208039
+R	E5	genome_100m.f.par	1	ext_rssanon_peak	32.367	MB	independent sampler: max RssAnon of /proc/<pid>/status over 181 samples at 20 ms
+R	E5	genome_100m.f.par	1	ext_dirty_peak	4.317	MB	independent sampler: max /proc/meminfo Dirty minus the baseline (0.00 MB, median of 5 samples before the start); gate G3 <= 64 MB; absolute max 4.32 MB
+R	E5	genome_100m.f.par	1	ext_dirty_mean	2.995	MB	independent sampler: mean of Dirty minus the baseline
+R	E5	genome_100m.f.par	1	ext_writeback_peak	2.085	MB	independent sampler: max /proc/meminfo Writeback
+R	E5	genome_100m.f.par	1	device_write_bytes	804732928	bytes	sectors written by vda during the run and the sync that follows it (512 B each; includes the spill file, journal, everything)
+R	E5	genome_100m.f.par	2	n	100000000	symbols	b=3 bits, layout=f, codec=Tagged, fused with PH4=False
+R	E5	genome_100m.f.par	2	parameters	parallel NSV=True block=262144 entries (4096 KiB) window=1048576 slots=8 flush windows=True spill flush=16777216 read=1048576 spill dir=scratch		entry 16 B (l, lb, first, last); two blocks in RAM
+R	E5	genome_100m.f.par	2	ph5_s	3.370886	s	wall of the forward scan including the LCP read, plus the NSV pass when asked for (a second pass, or concurrent with --parallel-nsv; without fsync)
+R	E5	genome_100m.f.par	2	forward_s	3.357952	s	forward scan including reading the LCP file
+R	E5	genome_100m.f.par	2	scan_s	3.12902	s	time inside Consume + Complete of the forward scan (without reading the LCP)
+R	E5	genome_100m.f.par	2	scan_ns_per_entry	31.290203	ns	scan_s / (n + 1)
+R	E5	genome_100m.f.par	2	forward_ns_per_entry	33.57952	ns	forward_s / (n + 1)
+R	E5	genome_100m.f.par	2	nsv_s	3.363142	s	backward scan of the LCP file: NSV written in descending rank order
+R	E5	genome_100m.f.par	2	nsv_ns_per_entry	33.63142	ns	nsv_s / (n + 1)
+R	E5	genome_100m.f.par	2	fsync_s	0.000268	s	flush of the output files after the run
+R	E5	genome_100m.f.par	2	rssanon_peak	32.68608	MB	max RssAnon of 339 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E5	genome_100m.f.par	2	rssfile_peak	32.305152	MB	mapped file pages resident (windows, text): reported, not counted
+R	E5	genome_100m.f.par	2	vmhwm	68.13696	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E5	genome_100m.f.par	2	gc_heap	6.460776	MB	managed heap at the end (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 1/1/1
+R	E5	genome_100m.f.par	2	arena_peak	12.582912	MB	peak native buffers charged to the ArenaBudget (cap 64 MiB), live at the end 0
+R	E5	genome_100m.f.par	2	max_lcp	499999	symbols	largest LCP value
+R	E5	genome_100m.f.par	2	stack_peak	500000	entries	peak height of the forward stack (<= 1 + max LCP = 500000); 8.00 MB at 16 B per entry
+R	E5	genome_100m.f.par	2	nsv_stack_peak	97	entries	peak height of the NSV stack (8 B per entry): 0.00 MB
+R	E5	genome_100m.f.par	2	spill_written	0	bytes	forward stack: 0 blocks written, 0 read back (0 bytes), 0 clean evictions, 0 fsyncs; peak file 0 bytes
+R	E5	genome_100m.f.par	2	spill_expected	8000000	bytes	16 B x (max LCP + 1); spill_written / expected = 0.000000; difference 500000 entries = 1.91 blocks of 262144
+R	E5	genome_100m.f.par	2	nsv_spill_written	0	bytes	NSV stack: 0 blocks written, 0 read back; expected 8 B x (max LCP + 1) = 4000000
+R	E5	genome_100m.f.par	2	psv_windows	382	n	PSV: 382 windows (0 again), 382 flushes
+R	E5	genome_100m.f.par	2	nsv_windows	382	n	NSV: 382 windows (0 again), 382 flushes
+R	E5	genome_100m.f.par	2	io_explicit_read	222654562	bytes	2.227 B/char: the LCP file(s) (forward and backward) and the spill read-back (214 calls)
+R	E5	genome_100m.f.par	2	io_explicit_write	0	bytes	0.000 B/char: the spill file(s) (0 calls)
+R	E5	genome_100m.f.par	2	blocklayer_read	111296512	bytes	/proc/self/io read_bytes (page-cache misses)
+R	E5	genome_100m.f.par	2	blocklayer_write	800067584	bytes	/proc/self/io write_bytes: bytes of pages that went from clean to dirty (every re-dirtying of a flushed page counts again)
+R	E5	genome_100m.f.par	2	output_bytes	800000008	bytes	8.000 B/char: CHILD (4 B/char) for layout A, PSV + NSV (8 B/char) for layout F
+R	E5	genome_100m.f.par	2	wa_dirtied	1.000084	x	write amplification, definition 1: (write_bytes of /proc/self/io - the spill bytes written 0) / final size of the output files; 1.0 = every page was dirtied once; the device-level definition 2 is taken by the run script (sectors written by the block device after sync)
+R	E5	genome_100m.f.par	2	dirty_peak	4.227072	MB	max /proc/meminfo Dirty minus the baseline (0.07 MB, median of 5 samples before the start) over 169 samples at 20 ms; absolute max 4.30 MB; gate G3 <= 64 MB
+R	E5	genome_100m.f.par	2	dirty_mean	3.02263	MB	mean of Dirty minus the baseline over the run
+R	E5	genome_100m.f.par	2	dirty_peak_after_mark	4.296704	MB	max Dirty after the PH5 start minus Dirty at that moment (0.00 MB)
+R	E5	genome_100m.f.par	2	writeback_peak	1.69984	MB	max /proc/meminfo Writeback
+R	E5	genome_100m.f.par	2	proc_dirty_peak	4.194304	MB	max Private_Dirty + Shared_Dirty of the mappings of /proc/self/smaps whose path is an output file of this run: the dirty pages this process has mapped in them (the per-process view; anonymous memory is not in it)
+R	E5	genome_100m.f.par	2	node_count	166050648	n	NODE_COUNT = 1 + I + n + 1 with I = 66050646 internal nodes
+R	E5	genome_100m.f.par	2	lrs	499999	symbols	LRS_DEPTH 499999, LRS_RANK 75208039
+R	E5	genome_100m.f.par	2	ext_rssanon_peak	32.686	MB	independent sampler: max RssAnon of /proc/<pid>/status over 177 samples at 20 ms
+R	E5	genome_100m.f.par	2	ext_dirty_peak	4.297	MB	independent sampler: max /proc/meminfo Dirty minus the baseline (0.00 MB, median of 5 samples before the start); gate G3 <= 64 MB; absolute max 4.30 MB
+R	E5	genome_100m.f.par	2	ext_dirty_mean	2.914	MB	independent sampler: mean of Dirty minus the baseline
+R	E5	genome_100m.f.par	2	ext_writeback_peak	1.962	MB	independent sampler: max /proc/meminfo Writeback
+R	E5	genome_100m.f.par	2	device_write_bytes	804728832	bytes	sectors written by vda during the run and the sync that follows it (512 B each; includes the spill file, journal, everything)
+R	E5	genome_100m.f.par	3	n	100000000	symbols	b=3 bits, layout=f, codec=Tagged, fused with PH4=False
+R	E5	genome_100m.f.par	3	parameters	parallel NSV=True block=262144 entries (4096 KiB) window=1048576 slots=8 flush windows=True spill flush=16777216 read=1048576 spill dir=scratch		entry 16 B (l, lb, first, last); two blocks in RAM
+R	E5	genome_100m.f.par	3	ph5_s	3.359745	s	wall of the forward scan including the LCP read, plus the NSV pass when asked for (a second pass, or concurrent with --parallel-nsv; without fsync)
+R	E5	genome_100m.f.par	3	forward_s	3.357344	s	forward scan including reading the LCP file
+R	E5	genome_100m.f.par	3	scan_s	3.113956	s	time inside Consume + Complete of the forward scan (without reading the LCP)
+R	E5	genome_100m.f.par	3	scan_ns_per_entry	31.139556	ns	scan_s / (n + 1)
+R	E5	genome_100m.f.par	3	forward_ns_per_entry	33.573438	ns	forward_s / (n + 1)
+R	E5	genome_100m.f.par	3	nsv_s	3.253631	s	backward scan of the LCP file: NSV written in descending rank order
+R	E5	genome_100m.f.par	3	nsv_ns_per_entry	32.536306	ns	nsv_s / (n + 1)
+R	E5	genome_100m.f.par	3	fsync_s	0.000212	s	flush of the output files after the run
+R	E5	genome_100m.f.par	3	rssanon_peak	31.49824	MB	max RssAnon of 337 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E5	genome_100m.f.par	3	rssfile_peak	32.165888	MB	mapped file pages resident (windows, text): reported, not counted
+R	E5	genome_100m.f.par	3	vmhwm	66.756608	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E5	genome_100m.f.par	3	gc_heap	3.322616	MB	managed heap at the end (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 1/1/1
+R	E5	genome_100m.f.par	3	arena_peak	12.582912	MB	peak native buffers charged to the ArenaBudget (cap 64 MiB), live at the end 0
+R	E5	genome_100m.f.par	3	max_lcp	499999	symbols	largest LCP value
+R	E5	genome_100m.f.par	3	stack_peak	500000	entries	peak height of the forward stack (<= 1 + max LCP = 500000); 8.00 MB at 16 B per entry
+R	E5	genome_100m.f.par	3	nsv_stack_peak	97	entries	peak height of the NSV stack (8 B per entry): 0.00 MB
+R	E5	genome_100m.f.par	3	spill_written	0	bytes	forward stack: 0 blocks written, 0 read back (0 bytes), 0 clean evictions, 0 fsyncs; peak file 0 bytes
+R	E5	genome_100m.f.par	3	spill_expected	8000000	bytes	16 B x (max LCP + 1); spill_written / expected = 0.000000; difference 500000 entries = 1.91 blocks of 262144
+R	E5	genome_100m.f.par	3	nsv_spill_written	0	bytes	NSV stack: 0 blocks written, 0 read back; expected 8 B x (max LCP + 1) = 4000000
+R	E5	genome_100m.f.par	3	psv_windows	382	n	PSV: 382 windows (0 again), 382 flushes
+R	E5	genome_100m.f.par	3	nsv_windows	382	n	NSV: 382 windows (0 again), 382 flushes
+R	E5	genome_100m.f.par	3	io_explicit_read	222654562	bytes	2.227 B/char: the LCP file(s) (forward and backward) and the spill read-back (214 calls)
+R	E5	genome_100m.f.par	3	io_explicit_write	0	bytes	0.000 B/char: the spill file(s) (0 calls)
+R	E5	genome_100m.f.par	3	blocklayer_read	111296512	bytes	/proc/self/io read_bytes (page-cache misses)
+R	E5	genome_100m.f.par	3	blocklayer_write	800067584	bytes	/proc/self/io write_bytes: bytes of pages that went from clean to dirty (every re-dirtying of a flushed page counts again)
+R	E5	genome_100m.f.par	3	output_bytes	800000008	bytes	8.000 B/char: CHILD (4 B/char) for layout A, PSV + NSV (8 B/char) for layout F
+R	E5	genome_100m.f.par	3	wa_dirtied	1.000084	x	write amplification, definition 1: (write_bytes of /proc/self/io - the spill bytes written 0) / final size of the output files; 1.0 = every page was dirtied once; the device-level definition 2 is taken by the run script (sectors written by the block device after sync)
+R	E5	genome_100m.f.par	3	dirty_peak	4.079616	MB	max /proc/meminfo Dirty minus the baseline (0.07 MB, median of 5 samples before the start) over 168 samples at 20 ms; absolute max 4.15 MB; gate G3 <= 64 MB
+R	E5	genome_100m.f.par	3	dirty_mean	3.004123	MB	mean of Dirty minus the baseline over the run
+R	E5	genome_100m.f.par	3	dirty_peak_after_mark	4.149248	MB	max Dirty after the PH5 start minus Dirty at that moment (0.00 MB)
+R	E5	genome_100m.f.par	3	writeback_peak	1.9456	MB	max /proc/meminfo Writeback
+R	E5	genome_100m.f.par	3	proc_dirty_peak	4.194304	MB	max Private_Dirty + Shared_Dirty of the mappings of /proc/self/smaps whose path is an output file of this run: the dirty pages this process has mapped in them (the per-process view; anonymous memory is not in it)
+R	E5	genome_100m.f.par	3	node_count	166050648	n	NODE_COUNT = 1 + I + n + 1 with I = 66050646 internal nodes
+R	E5	genome_100m.f.par	3	lrs	499999	symbols	LRS_DEPTH 499999, LRS_RANK 75208039
+R	E5	genome_100m.f.par	3	ext_rssanon_peak	31.498	MB	independent sampler: max RssAnon of /proc/<pid>/status over 177 samples at 20 ms
+R	E5	genome_100m.f.par	3	ext_dirty_peak	4.137	MB	independent sampler: max /proc/meminfo Dirty minus the baseline (0.00 MB, median of 5 samples before the start); gate G3 <= 64 MB; absolute max 4.14 MB
+R	E5	genome_100m.f.par	3	ext_dirty_mean	2.708	MB	independent sampler: mean of Dirty minus the baseline
+R	E5	genome_100m.f.par	3	ext_writeback_peak	2.085	MB	independent sampler: max /proc/meminfo Writeback
+R	E5	genome_100m.f.par	3	device_write_bytes	804724736	bytes	sectors written by vda during the run and the sync that follows it (512 B each; includes the spill file, journal, everything)
+R	E5	genome_100m.both.par	1	n	100000000	symbols	b=3 bits, layout=both, codec=Tagged, fused with PH4=False
+R	E5	genome_100m.both.par	1	parameters	parallel NSV=True block=262144 entries (4096 KiB) window=1048576 slots=8 flush windows=True spill flush=16777216 read=1048576 spill dir=scratch		entry 16 B (l, lb, first, last); two blocks in RAM
+R	E5	genome_100m.both.par	1	ph5_s	4.351592	s	wall of the forward scan including the LCP read, plus the NSV pass when asked for (a second pass, or concurrent with --parallel-nsv; without fsync)
+R	E5	genome_100m.both.par	1	forward_s	4.349631	s	forward scan including reading the LCP file
+R	E5	genome_100m.both.par	1	scan_s	4.132704	s	time inside Consume + Complete of the forward scan (without reading the LCP)
+R	E5	genome_100m.both.par	1	scan_ns_per_entry	41.32704	ns	scan_s / (n + 1)
+R	E5	genome_100m.both.par	1	forward_ns_per_entry	43.496305	ns	forward_s / (n + 1)
+R	E5	genome_100m.both.par	1	nsv_s	3.287415	s	backward scan of the LCP file: NSV written in descending rank order
+R	E5	genome_100m.both.par	1	nsv_ns_per_entry	32.874149	ns	nsv_s / (n + 1)
+R	E5	genome_100m.both.par	1	fsync_s	0.000301	s	flush of the output files after the run
+R	E5	genome_100m.both.par	1	rssanon_peak	32.161792	MB	max RssAnon of 437 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E5	genome_100m.both.par	1	rssfile_peak	40.636416	MB	mapped file pages resident (windows, text): reported, not counted
+R	E5	genome_100m.both.par	1	vmhwm	74.092544	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E5	genome_100m.both.par	1	gc_heap	3.322672	MB	managed heap at the end (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 1/1/1
+R	E5	genome_100m.both.par	1	arena_peak	12.582912	MB	peak native buffers charged to the ArenaBudget (cap 64 MiB), live at the end 0
+R	E5	genome_100m.both.par	1	max_lcp	499999	symbols	largest LCP value
+R	E5	genome_100m.both.par	1	stack_peak	500000	entries	peak height of the forward stack (<= 1 + max LCP = 500000); 8.00 MB at 16 B per entry
+R	E5	genome_100m.both.par	1	nsv_stack_peak	97	entries	peak height of the NSV stack (8 B per entry): 0.00 MB
+R	E5	genome_100m.both.par	1	spill_written	0	bytes	forward stack: 0 blocks written, 0 read back (0 bytes), 0 clean evictions, 0 fsyncs; peak file 0 bytes
+R	E5	genome_100m.both.par	1	spill_expected	8000000	bytes	16 B x (max LCP + 1); spill_written / expected = 0.000000; difference 500000 entries = 1.91 blocks of 262144
+R	E5	genome_100m.both.par	1	nsv_spill_written	0	bytes	NSV stack: 0 blocks written, 0 read back; expected 8 B x (max LCP + 1) = 4000000
+R	E5	genome_100m.both.par	1	child_windows	399	n	CHILD: 399 windows mapped (382 distinct, 17 mapped again after release), 391 evictions, 399 flushes covering 417825796 bytes, 100000000 writes (1.000 per rank)
+R	E5	genome_100m.both.par	1	psv_windows	382	n	PSV: 382 windows (0 again), 382 flushes
+R	E5	genome_100m.both.par	1	nsv_windows	382	n	NSV: 382 windows (0 again), 382 flushes
+R	E5	genome_100m.both.par	1	io_explicit_read	222654562	bytes	2.227 B/char: the LCP file(s) (forward and backward) and the spill read-back (214 calls)
+R	E5	genome_100m.both.par	1	io_explicit_write	0	bytes	0.000 B/char: the spill file(s) (0 calls)
+R	E5	genome_100m.both.par	1	blocklayer_read	111312896	bytes	/proc/self/io read_bytes (page-cache misses)
+R	E5	genome_100m.both.par	1	blocklayer_write	1201942528	bytes	/proc/self/io write_bytes: bytes of pages that went from clean to dirty (every re-dirtying of a flushed page counts again)
+R	E5	genome_100m.both.par	1	output_bytes	1200000012	bytes	12.000 B/char: CHILD (4 B/char) for layout A, PSV + NSV (8 B/char) for layout F
+R	E5	genome_100m.both.par	1	wa_dirtied	1.001619	x	write amplification, definition 1: (write_bytes of /proc/self/io - the spill bytes written 0) / final size of the output files; 1.0 = every page was dirtied once; the device-level definition 2 is taken by the run script (sectors written by the block device after sync)
+R	E5	genome_100m.both.par	1	dirty_peak	12.632064	MB	max /proc/meminfo Dirty minus the baseline (0.02 MB, median of 5 samples before the start) over 218 samples at 20 ms; absolute max 12.66 MB; gate G3 <= 64 MB
+R	E5	genome_100m.both.par	1	dirty_mean	10.29058	MB	mean of Dirty minus the baseline over the run
+R	E5	genome_100m.both.par	1	dirty_peak_after_mark	12.65664	MB	max Dirty after the PH5 start minus Dirty at that moment (0.00 MB)
+R	E5	genome_100m.both.par	1	writeback_peak	2.097152	MB	max /proc/meminfo Writeback
+R	E5	genome_100m.both.par	1	proc_dirty_peak	12.582912	MB	max Private_Dirty + Shared_Dirty of the mappings of /proc/self/smaps whose path is an output file of this run: the dirty pages this process has mapped in them (the per-process view; anonymous memory is not in it)
+R	E5	genome_100m.both.par	1	node_count	166050648	n	NODE_COUNT = 1 + I + n + 1 with I = 66050646 internal nodes
+R	E5	genome_100m.both.par	1	lrs	499999	symbols	LRS_DEPTH 499999, LRS_RANK 75208039
+R	E5	genome_100m.both.par	1	ext_rssanon_peak	32.162	MB	independent sampler: max RssAnon of /proc/<pid>/status over 225 samples at 20 ms
+R	E5	genome_100m.both.par	1	ext_dirty_peak	12.657	MB	independent sampler: max /proc/meminfo Dirty minus the baseline (0.00 MB, median of 5 samples before the start); gate G3 <= 64 MB; absolute max 12.66 MB
+R	E5	genome_100m.both.par	1	ext_dirty_mean	9.885	MB	independent sampler: mean of Dirty minus the baseline
+R	E5	genome_100m.both.par	1	ext_writeback_peak	1.978	MB	independent sampler: max /proc/meminfo Writeback
+R	E5	genome_100m.both.par	1	device_write_bytes	1208336384	bytes	sectors written by vda during the run and the sync that follows it (512 B each; includes the spill file, journal, everything)
+R	E5	genome_100m.both.par	2	n	100000000	symbols	b=3 bits, layout=both, codec=Tagged, fused with PH4=False
+R	E5	genome_100m.both.par	2	parameters	parallel NSV=True block=262144 entries (4096 KiB) window=1048576 slots=8 flush windows=True spill flush=16777216 read=1048576 spill dir=scratch		entry 16 B (l, lb, first, last); two blocks in RAM
+R	E5	genome_100m.both.par	2	ph5_s	4.255797	s	wall of the forward scan including the LCP read, plus the NSV pass when asked for (a second pass, or concurrent with --parallel-nsv; without fsync)
+R	E5	genome_100m.both.par	2	forward_s	4.253555	s	forward scan including reading the LCP file
+R	E5	genome_100m.both.par	2	scan_s	4.039649	s	time inside Consume + Complete of the forward scan (without reading the LCP)
+R	E5	genome_100m.both.par	2	scan_ns_per_entry	40.39649	ns	scan_s / (n + 1)
+R	E5	genome_100m.both.par	2	forward_ns_per_entry	42.535549	ns	forward_s / (n + 1)
+R	E5	genome_100m.both.par	2	nsv_s	3.332065	s	backward scan of the LCP file: NSV written in descending rank order
+R	E5	genome_100m.both.par	2	nsv_ns_per_entry	33.320648	ns	nsv_s / (n + 1)
+R	E5	genome_100m.both.par	2	fsync_s	0.000182	s	flush of the output files after the run
+R	E5	genome_100m.both.par	2	rssanon_peak	31.223808	MB	max RssAnon of 427 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E5	genome_100m.both.par	2	rssfile_peak	40.554496	MB	mapped file pages resident (windows, text): reported, not counted
+R	E5	genome_100m.both.par	2	vmhwm	73.068544	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E5	genome_100m.both.par	2	gc_heap	3.322672	MB	managed heap at the end (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 1/1/1
+R	E5	genome_100m.both.par	2	arena_peak	12.582912	MB	peak native buffers charged to the ArenaBudget (cap 64 MiB), live at the end 0
+R	E5	genome_100m.both.par	2	max_lcp	499999	symbols	largest LCP value
+R	E5	genome_100m.both.par	2	stack_peak	500000	entries	peak height of the forward stack (<= 1 + max LCP = 500000); 8.00 MB at 16 B per entry
+R	E5	genome_100m.both.par	2	nsv_stack_peak	97	entries	peak height of the NSV stack (8 B per entry): 0.00 MB
+R	E5	genome_100m.both.par	2	spill_written	0	bytes	forward stack: 0 blocks written, 0 read back (0 bytes), 0 clean evictions, 0 fsyncs; peak file 0 bytes
+R	E5	genome_100m.both.par	2	spill_expected	8000000	bytes	16 B x (max LCP + 1); spill_written / expected = 0.000000; difference 500000 entries = 1.91 blocks of 262144
+R	E5	genome_100m.both.par	2	nsv_spill_written	0	bytes	NSV stack: 0 blocks written, 0 read back; expected 8 B x (max LCP + 1) = 4000000
+R	E5	genome_100m.both.par	2	child_windows	399	n	CHILD: 399 windows mapped (382 distinct, 17 mapped again after release), 391 evictions, 399 flushes covering 417825796 bytes, 100000000 writes (1.000 per rank)
+R	E5	genome_100m.both.par	2	psv_windows	382	n	PSV: 382 windows (0 again), 382 flushes
+R	E5	genome_100m.both.par	2	nsv_windows	382	n	NSV: 382 windows (0 again), 382 flushes
+R	E5	genome_100m.both.par	2	io_explicit_read	222654562	bytes	2.227 B/char: the LCP file(s) (forward and backward) and the spill read-back (214 calls)
+R	E5	genome_100m.both.par	2	io_explicit_write	0	bytes	0.000 B/char: the spill file(s) (0 calls)
+R	E5	genome_100m.both.par	2	blocklayer_read	111329280	bytes	/proc/self/io read_bytes (page-cache misses)
+R	E5	genome_100m.both.par	2	blocklayer_write	1201946624	bytes	/proc/self/io write_bytes: bytes of pages that went from clean to dirty (every re-dirtying of a flushed page counts again)
+R	E5	genome_100m.both.par	2	output_bytes	1200000012	bytes	12.000 B/char: CHILD (4 B/char) for layout A, PSV + NSV (8 B/char) for layout F
+R	E5	genome_100m.both.par	2	wa_dirtied	1.001622	x	write amplification, definition 1: (write_bytes of /proc/self/io - the spill bytes written 0) / final size of the output files; 1.0 = every page was dirtied once; the device-level definition 2 is taken by the run script (sectors written by the block device after sync)
+R	E5	genome_100m.both.par	2	dirty_peak	12.455936	MB	max /proc/meminfo Dirty minus the baseline (0.07 MB, median of 5 samples before the start) over 213 samples at 20 ms; absolute max 12.52 MB; gate G3 <= 64 MB
+R	E5	genome_100m.both.par	2	dirty_mean	10.214097	MB	mean of Dirty minus the baseline over the run
+R	E5	genome_100m.both.par	2	dirty_peak_after_mark	12.521472	MB	max Dirty after the PH5 start minus Dirty at that moment (0.00 MB)
+R	E5	genome_100m.both.par	2	writeback_peak	1.953792	MB	max /proc/meminfo Writeback
+R	E5	genome_100m.both.par	2	proc_dirty_peak	12.439552	MB	max Private_Dirty + Shared_Dirty of the mappings of /proc/self/smaps whose path is an output file of this run: the dirty pages this process has mapped in them (the per-process view; anonymous memory is not in it)
+R	E5	genome_100m.both.par	2	node_count	166050648	n	NODE_COUNT = 1 + I + n + 1 with I = 66050646 internal nodes
+R	E5	genome_100m.both.par	2	lrs	499999	symbols	LRS_DEPTH 499999, LRS_RANK 75208039
+R	E5	genome_100m.both.par	2	ext_rssanon_peak	31.224	MB	independent sampler: max RssAnon of /proc/<pid>/status over 220 samples at 20 ms
+R	E5	genome_100m.both.par	2	ext_dirty_peak	12.399	MB	independent sampler: max /proc/meminfo Dirty minus the baseline (0.00 MB, median of 5 samples before the start); gate G3 <= 64 MB; absolute max 12.40 MB
+R	E5	genome_100m.both.par	2	ext_dirty_mean	9.918	MB	independent sampler: mean of Dirty minus the baseline
+R	E5	genome_100m.both.par	2	ext_writeback_peak	2.052	MB	independent sampler: max /proc/meminfo Writeback
+R	E5	genome_100m.both.par	2	device_write_bytes	1208340480	bytes	sectors written by vda during the run and the sync that follows it (512 B each; includes the spill file, journal, everything)
+R	E5	genome_100m.both.par	3	n	100000000	symbols	b=3 bits, layout=both, codec=Tagged, fused with PH4=False
+R	E5	genome_100m.both.par	3	parameters	parallel NSV=True block=262144 entries (4096 KiB) window=1048576 slots=8 flush windows=True spill flush=16777216 read=1048576 spill dir=scratch		entry 16 B (l, lb, first, last); two blocks in RAM
+R	E5	genome_100m.both.par	3	ph5_s	4.319652	s	wall of the forward scan including the LCP read, plus the NSV pass when asked for (a second pass, or concurrent with --parallel-nsv; without fsync)
+R	E5	genome_100m.both.par	3	forward_s	4.31768	s	forward scan including reading the LCP file
+R	E5	genome_100m.both.par	3	scan_s	4.107332	s	time inside Consume + Complete of the forward scan (without reading the LCP)
+R	E5	genome_100m.both.par	3	scan_ns_per_entry	41.073315	ns	scan_s / (n + 1)
+R	E5	genome_100m.both.par	3	forward_ns_per_entry	43.176802	ns	forward_s / (n + 1)
+R	E5	genome_100m.both.par	3	nsv_s	3.35417	s	backward scan of the LCP file: NSV written in descending rank order
+R	E5	genome_100m.both.par	3	nsv_ns_per_entry	33.541695	ns	nsv_s / (n + 1)
+R	E5	genome_100m.both.par	3	fsync_s	0.000305	s	flush of the output files after the run
+R	E5	genome_100m.both.par	3	rssanon_peak	32.452608	MB	max RssAnon of 433 samples at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks (max threads 13)
+R	E5	genome_100m.both.par	3	rssfile_peak	40.656896	MB	mapped file pages resident (windows, text): reported, not counted
+R	E5	genome_100m.both.par	3	vmhwm	74.40384	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E5	genome_100m.both.par	3	gc_heap	3.322672	MB	managed heap at the end (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 1/1/1
+R	E5	genome_100m.both.par	3	arena_peak	12.582912	MB	peak native buffers charged to the ArenaBudget (cap 64 MiB), live at the end 0
+R	E5	genome_100m.both.par	3	max_lcp	499999	symbols	largest LCP value
+R	E5	genome_100m.both.par	3	stack_peak	500000	entries	peak height of the forward stack (<= 1 + max LCP = 500000); 8.00 MB at 16 B per entry
+R	E5	genome_100m.both.par	3	nsv_stack_peak	97	entries	peak height of the NSV stack (8 B per entry): 0.00 MB
+R	E5	genome_100m.both.par	3	spill_written	0	bytes	forward stack: 0 blocks written, 0 read back (0 bytes), 0 clean evictions, 0 fsyncs; peak file 0 bytes
+R	E5	genome_100m.both.par	3	spill_expected	8000000	bytes	16 B x (max LCP + 1); spill_written / expected = 0.000000; difference 500000 entries = 1.91 blocks of 262144
+R	E5	genome_100m.both.par	3	nsv_spill_written	0	bytes	NSV stack: 0 blocks written, 0 read back; expected 8 B x (max LCP + 1) = 4000000
+R	E5	genome_100m.both.par	3	child_windows	399	n	CHILD: 399 windows mapped (382 distinct, 17 mapped again after release), 391 evictions, 399 flushes covering 417825796 bytes, 100000000 writes (1.000 per rank)
+R	E5	genome_100m.both.par	3	psv_windows	382	n	PSV: 382 windows (0 again), 382 flushes
+R	E5	genome_100m.both.par	3	nsv_windows	382	n	NSV: 382 windows (0 again), 382 flushes
+R	E5	genome_100m.both.par	3	io_explicit_read	222654562	bytes	2.227 B/char: the LCP file(s) (forward and backward) and the spill read-back (214 calls)
+R	E5	genome_100m.both.par	3	io_explicit_write	0	bytes	0.000 B/char: the spill file(s) (0 calls)
+R	E5	genome_100m.both.par	3	blocklayer_read	111304704	bytes	/proc/self/io read_bytes (page-cache misses)
+R	E5	genome_100m.both.par	3	blocklayer_write	1201930240	bytes	/proc/self/io write_bytes: bytes of pages that went from clean to dirty (every re-dirtying of a flushed page counts again)
+R	E5	genome_100m.both.par	3	output_bytes	1200000012	bytes	12.000 B/char: CHILD (4 B/char) for layout A, PSV + NSV (8 B/char) for layout F
+R	E5	genome_100m.both.par	3	wa_dirtied	1.001609	x	write amplification, definition 1: (write_bytes of /proc/self/io - the spill bytes written 0) / final size of the output files; 1.0 = every page was dirtied once; the device-level definition 2 is taken by the run script (sectors written by the block device after sync)
+R	E5	genome_100m.both.par	3	dirty_peak	12.464128	MB	max /proc/meminfo Dirty minus the baseline (0.07 MB, median of 5 samples before the start) over 216 samples at 20 ms; absolute max 12.53 MB; gate G3 <= 64 MB
+R	E5	genome_100m.both.par	3	dirty_mean	10.229874	MB	mean of Dirty minus the baseline over the run
+R	E5	genome_100m.both.par	3	dirty_peak_after_mark	12.53376	MB	max Dirty after the PH5 start minus Dirty at that moment (0.00 MB)
+R	E5	genome_100m.both.par	3	writeback_peak	2.105344	MB	max /proc/meminfo Writeback
+R	E5	genome_100m.both.par	3	proc_dirty_peak	12.398592	MB	max Private_Dirty + Shared_Dirty of the mappings of /proc/self/smaps whose path is an output file of this run: the dirty pages this process has mapped in them (the per-process view; anonymous memory is not in it)
+R	E5	genome_100m.both.par	3	node_count	166050648	n	NODE_COUNT = 1 + I + n + 1 with I = 66050646 internal nodes
+R	E5	genome_100m.both.par	3	lrs	499999	symbols	LRS_DEPTH 499999, LRS_RANK 75208039
+R	E5	genome_100m.both.par	3	ext_rssanon_peak	32.453	MB	independent sampler: max RssAnon of /proc/<pid>/status over 224 samples at 20 ms
+R	E5	genome_100m.both.par	3	ext_dirty_peak	12.534	MB	independent sampler: max /proc/meminfo Dirty minus the baseline (0.00 MB, median of 5 samples before the start); gate G3 <= 64 MB; absolute max 12.53 MB
+R	E5	genome_100m.both.par	3	ext_dirty_mean	9.971	MB	independent sampler: mean of Dirty minus the baseline
+R	E5	genome_100m.both.par	3	ext_writeback_peak	2.105	MB	independent sampler: max /proc/meminfo Writeback
+R	E5	genome_100m.both.par	3	device_write_bytes	1211084800	bytes	sectors written by vda during the run and the sync that follows it (512 B each; includes the spill file, journal, everything)

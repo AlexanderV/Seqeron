@@ -21,10 +21,11 @@ internal static class Cli
                    [--io-kb 1024] [--tuple-kb 32] [--window-kb 1024] [--touch-buffers] [--verify <oracle prefix>] [--case name] [--series]
                    external-memory PH4 (E4): the compact LCP (<prefix>.lcp base array, <prefix>.ovf overflow pairs) from a packed text and its suffix array file; --scale-n scales R = 8,000,000 by n / scale-n
           e5       --text <packed> --lcp <prefix of .lcp/.ovf> | --fused --sa <sa file>  --out <prefix> --scratch <dir> [--layout a|f|both|stats] [--codec tagged|packed] [--block-entries 262144]
-                   [--window-kb 1024] [--slots 8] [--no-flush] [--spill-flush-mb 16] [--spill-dir <dir>] [--ph5-budget-mb 64] [--io-kb 1024] [--verify <oracle prefix>] [--case name] [--series <file>]
+                   [--window-kb 1024] [--slots 8] [--no-flush] [--spill-flush-mb 16] [--spill-dir <dir>] [--ph5-budget-mb 64] [--io-kb 1024] [--parallel-nsv] [--nextsym --sa <sa file>]
+                   [--verify <oracle prefix>] [--case name] [--series <file>] [--touch-buffers]
                    [--threads 4] [--budget-mb 160] [--scale-n 3000000000] [--chunk R]  (fused: the PH4 options of e4, base mode)
                    external-memory PH5 (E5): <prefix>.cld child table (layout A), <prefix>.psv and <prefix>.nsv (layout F), NODE_COUNT, LRS; the LCP from a compact LCP file or through the PH4 hook
-          e5-oracle --text <packed> --lcp <prefix> --out <prefix>   the reference files (.cldT .cldP .psv .nsv .stats) from the in-RAM structures of the product (n < 2^31)
+          e5-oracle --text <packed> --lcp <prefix> --out <prefix> [--sa <sa file>]   the reference files (.cldT .cldP .psv .nsv .stats, .nsym with --sa) from the in-RAM structures of the product (n < 2^31)
           lcp-oracle --text <packed> --sa <sa file> --out <prefix>   the same two files from the in-RAM LcpKernel (n < 2^31)
           check-lcp  --text <packed> --sa <sa file> --lcp <prefix> [--samples 1000] [--seed s]   structure of the overflow list and sampled ranks against a direct comparison of the text
           packrand --n <symbols> --out <packed file> [--seed s]        packed 2-bit random DNA of any length (streamed; for runs above the 2^31 symbols of pack)

@@ -1,0 +1,38 @@
+[
+ {
+  "id": "N01",
+  "desc": "equal values are not popped",
+  "old": "stack.Top.Value >= x) stack.Pop();",
+  "new": "stack.Top.Value > x) stack.Pop();"
+ },
+ {
+  "id": "N02",
+  "desc": "the \"no smaller value\" is n",
+  "old": "uint none = (uint)(n + 1);",
+  "new": "uint none = (uint)n;"
+ },
+ {
+  "id": "N03",
+  "desc": "the pushed index is one too high",
+  "old": "stack.Push(new ValueEntry { Value = x, Index = rank });",
+  "new": "stack.Push(new ValueEntry { Value = x, Index = rank + 1 });"
+ },
+ {
+  "id": "N04",
+  "desc": "the NSV windows are not flushed",
+  "old": "new AlignedWindowWriter(nsvPath, 4 * (n + 1), options.WindowBytes, 2, options.FlushWindows);",
+  "new": "new AlignedWindowWriter(nsvPath, 4 * (n + 1), options.WindowBytes, 2, false);"
+ },
+ {
+  "id": "N05",
+  "desc": "the scan goes forwards through each block",
+  "old": "for (int j = values.Length - 1; j >= 0; j--)",
+  "new": "for (int j = 0; j < values.Length; j++)"
+ },
+ {
+  "id": "N06",
+  "desc": "the stack peak is not reported",
+  "old": "StackPeak = stack.PeakHeight,",
+  "new": "StackPeak = 0,"
+ }
+]
