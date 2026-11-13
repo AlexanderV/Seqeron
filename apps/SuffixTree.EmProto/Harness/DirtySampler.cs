@@ -34,6 +34,8 @@ internal sealed class DirtySampler : IDisposable
     private long _markBaseline = -1;
     private long _maxAfterMark = long.MinValue;
     private long _lastDirty;
+    private long _phaseDirty;
+    private long _phaseProcess;
 
     /// <param name="intervalMs">Sampling period.</param>
     /// <param name="filePrefix">When given, the per-process view is the sum of <c>Private_Dirty + Shared_Dirty</c> of the mappings in <c>/proc/self/smaps</c> whose path starts with this prefix (the dirty pages of the mapped output files; anonymous memory, which smaps_rollup would add, is left out); null = no per-process view.</param>
@@ -66,6 +68,12 @@ internal sealed class DirtySampler : IDisposable
         _stop = false;
         _thread.Start();
     }
+
+    /// <summary>The baseline (median of five samples before the start) in KiB; valid after <see cref="Start"/>.</summary>
+    internal double BaselineKb => _baseline;
+
+    /// <summary>The maxima of Dirty and of the per-process view since the previous call (or since <see cref="Start"/>), in KiB, and resets them (one call per phase of a pipeline).</summary>
+    internal (long DirtyKb, long ProcessKb) TakePhaseMax() => (Interlocked.Exchange(ref _phaseDirty, 0), Interlocked.Exchange(ref _phaseProcess, 0));
 
     /// <summary>Takes a second baseline now (the current Dirty) and from here on keeps the maximum of the delta to it separately.</summary>
     internal void Mark() => Interlocked.Exchange(ref _markBaseline, Interlocked.Read(ref _lastDirty));
@@ -131,6 +139,8 @@ internal sealed class DirtySampler : IDisposable
             Atomic.RaiseTo(ref _maxDirty, dirty);
             Atomic.RaiseTo(ref _maxWriteback, writeback);
             Atomic.RaiseTo(ref _maxProcess, process);
+            Atomic.RaiseTo(ref _phaseDirty, dirty);
+            Atomic.RaiseTo(ref _phaseProcess, process);
             _sumDelta += dirty - _baseline;
             if (Interlocked.Read(ref _markBaseline) >= 0) Atomic.RaiseTo(ref _maxAfterMark, dirty);
             _series?.Add(((now - start) / (double)Stopwatch.Frequency, dirty, process));

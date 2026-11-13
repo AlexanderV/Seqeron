@@ -277,7 +277,7 @@ internal static unsafe class E5
     }
 
     /// <summary>Creates the scan at the first chunk of the hook, so that its stack blocks and windows are not allocated while PH4 is in its B1 / B2 peak.</summary>
-    private sealed class LazyScan(long n, ChildScanOutputs outputs, ChildBuildOptions options, DirtySampler? sampler) : ILcpChunkConsumer, IDisposable
+    internal sealed class LazyScan(long n, ChildScanOutputs outputs, ChildBuildOptions options, DirtySampler? sampler) : ILcpChunkConsumer, IDisposable
     {
         private ChildScan? _scan;
 

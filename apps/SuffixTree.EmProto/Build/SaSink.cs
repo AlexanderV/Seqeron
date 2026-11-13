@@ -67,6 +67,7 @@ internal sealed unsafe class MappedSaSink : ISaSink
         if (offset < 0 || offset + data.Length > _entries) throw new ArgumentOutOfRangeException(nameof(offset), $"slice [{offset}, {offset + data.Length}) outside [0, {_entries})");
         long bytes = (long)data.Length * 4;
         Harness.Atomic.RaiseTo(ref _maxWindow, bytes);
+        Dcs.MappedIo.AddWrite(bytes);
         using MemoryMappedViewAccessor view = _file.CreateViewAccessor(offset * 4, bytes, MemoryMappedFileAccess.Write);
         byte* p = null;
         view.SafeMemoryMappedViewHandle.AcquirePointer(ref p);

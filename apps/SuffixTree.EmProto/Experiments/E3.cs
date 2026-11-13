@@ -73,6 +73,11 @@ internal static unsafe class E3
         int[] sa = Oracle.SaisKernelSa(text, out double seconds);
         string hash;
         fixed (int* p = sa) hash = SaHash.Compute((uint*)p + 1, sa.Length - 1L);
+        if (o.Get("out") is { } saOut)
+        {
+            using var fs = new FileStream(saOut, FileMode.Create, FileAccess.Write, FileShare.None, 1 << 20);
+            fs.Write(System.Runtime.InteropServices.MemoryMarshal.AsBytes(sa.AsSpan()));
+        }
         r.Row("E3", spec, "oracle_sa_hash", hash, "", $"SaisKernel in RAM on the same text, {seconds:F2} s");
         return 0;
     }
