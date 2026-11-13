@@ -1,121 +1,121 @@
-id	file	description	round 1 (stage 1 / stage 2)	round 2	verdict	note
-A01	childscan	LCP[1] is not checked	killed(1)		killed	
-A02	childscan	a value of n + 1 is accepted	killed(1)		killed	
-A03	childscan	the last-child flag compares with <=	killed(17)		killed	
-A04	childscan	the left boundary of a new interval is not the one of the last popped interval	killed(19)		killed	
-A05	childscan	the PSV of a position equal to the root is the root boundary	killed(16)		killed	
-A06	childscan	an equal value pushes a new interval	killed(25)		killed	
-A07	childscan	the first l-index of the root is not recorded separately	BUILD-ERROR S1125		not compiled	replaced by A07b
-A08	childscan	the root counts as an internal node	killed(24)		killed	
-A09	childscan	the deepest interval is the last of equal depth	killed(3)		killed	
-A10	childscan	NODE_COUNT is one too high	killed(24)		killed	
-A11	childscan	the remaining intervals are closed as non-last children	killed(21)		killed	
-A12	childscan	chunks may arrive out of order	killed(1)		killed	
-A13	childscan	the last chunk is refused	killed(29)		killed	
-A14	childscan	Complete does not need every rank	killed(1)		killed	
-A15	childscan	a text of 2^32 - 2 symbols is accepted	killed(1)		killed	
-A16	childscan	the tagged codec accepts one symbol too many	killed(1)		killed	
-A17	childscan	an up field is written with the down tag	BUILD-ERROR S1144		not compiled	replaced by A17b
-A18	childscan	the packed codec writes every next link	killed(5)		killed	
-A19	childscan	rank 0 gets no PSV entry	killed(18)		killed	
-A20	childscan	the maximum LCP is the smallest	killed(1)		killed	
-A21	childscan	the tagged sink is chosen for the packed codec	killed(7)		killed	
-A22	childscan	the first l-index of an interval is its left boundary	killed(21)		killed	
-A23	childscan	a next link is written from the wrong l-index	killed(13)		killed	
-A24	childscan	the PSV sink writes one entry late	killed(18)		killed	
-A25	childscan	the stack peak is not reported	killed(2)		killed	
-A26	childscan	the root is not closed with the last-child flag set when it is popped by Complete (first l-index lost)	killed(18)		killed	
-C01	compactlcpfile	a 4-byte base array is refused	killed(2)		killed	
-C02	compactlcpfile	a pair is accepted when only one of rank and value is wrong (forward)	killed(2)		killed	
-C03	compactlcpfile	extra pairs are not detected	killed(1)		killed	
-C04	compactlcpfile	the backward cursor starts one pair too far	killed(18)		killed	
-C05	compactlcpfile	the backward end check expects a pair left	killed(19)		killed	
-C06	compactlcpfile	the last block is one entry short	killed(24)		killed	
-C07	compactlcpfile	the number of pairs is a quarter of the file	killed(13)		killed	
-C08	compactlcpfile	the overflow file is accepted when it holds half pairs	killed(1)		killed	
-C09	compactlcpfile	the overflow window going backwards starts at the index	killed(1)		killed	
-C10	compactlcpfile	a value below the escape is accepted in a pair (backward)	killed(1)		killed	
-C11	compactlcpfile	the base length check accepts any multiple	survived / survived		SURVIVOR	
-C12	compactlcpfile	U16 entries are read as bytes	killed(15)		killed	
-C13	compactlcpfile	a 4-byte base array with an overflow list is accepted	killed(1)		killed	
-D01	dirtysampler	the mapping filter is a suffix match	killed(1)		killed	
-D02	dirtysampler	Shared_Dirty is not summed	BUILD-ERROR S1144		not compiled	replaced by D02b
-D03	dirtysampler	every mapping is summed	killed(1)		killed	
-D04	dirtysampler	Private_Dirty is not summed	BUILD-ERROR S1144		not compiled	replaced by D04b
-E01	e5	the RssAnon cap is exclusive	killed(1)		killed	
-E02	e5	Healthy ignores the arena	killed(1)		killed	
-E03	e5	Healthy ignores the tracked scratch	killed(1)		killed	
-E04	e5	a difference of one file does not fail the run	killed(1)		killed	
-E05	e5	the layout "stats" is refused	killed(1)		killed	
-E06	e5	windows are flushed only with --no-flush	killed(7)		killed	
-E07	e5	the statistics comparison ignores NODE_COUNT	BUILD-ERROR S1125		not compiled	replaced by E07b
-E08	e5	the statistics comparison ignores LRS_RANK	survived / survived		SURVIVOR	
-E09	e5	the packed codec is chosen for tagged	killed(1)		killed	
-E10	e5	the oracle writes the packed array as the tagged one	killed(13)		killed	
-E11	e5	the scan result of the NEXTSYM verification is ignored	survived / survived		SURVIVOR	
-E12	e5	the fused scan is created at the second chunk	BUILD-ERROR CS8602		not compiled	replaced by E12b
-X01	externalchild	the parallel option is inverted	killed(1)		killed	
-X02	externalchild	the outputs of the forward scan are swapped	killed(20)		killed	
-X03	externalchild	the volume of the LCP files counts the base array only	survived / survived		SURVIVOR	
-X04	externalchild	the NSV pass is skipped when it is not concurrent	BUILD-ERROR CS8604		not compiled	replaced by X04b
-M01	nextsym	the end mark is stored one position late	killed(10)		killed	
-M02	nextsym	the LCP is not added	killed(8)		killed	
-M03	nextsym	a 9-bit text is accepted	survived / survived		SURVIVOR	
-M04	nextsym	a suffix array file one entry short is accepted	survived / survived		SURVIVOR	
-M05	nextsym	the block is written one rank early	killed(10)		killed	
-N01	nsvscan	equal values are not popped	killed(16)		killed	
-N02	nsvscan	the "no smaller value" is n	killed(16)		killed	
-N03	nsvscan	the pushed index is one too high	killed(13)		killed	
-N04	nsvscan	the NSV windows are not flushed	killed(1)		killed	
-N05	nsvscan	the scan goes forwards through each block	killed(16)		killed	
-N06	nsvscan	the stack peak is not reported	killed(1)		killed	
-A07b	round2_childscan	the first l-index of the root is not recorded separately (replaces A07)			NOT RUN	
-A17b	round2_childscan	an up field is written with the next tag (replaces A17)			NOT RUN	
-D02b	round2_dirtysampler	Shared_Dirty is not summed (replaces D02)			NOT RUN	
-D04b	round2_dirtysampler	Private_Dirty is not summed (replaces D04)			NOT RUN	
-E07b	round2_e5	the statistics comparison ignores NODE_COUNT (replaces E07)			NOT RUN	
-E12b	round2_e5	the fused scan is created for a text one symbol longer (replaces E12)			NOT RUN	
-X04b	round2_externalchild	the sequential NSV pass runs on a text one symbol longer (replaces X04)			NOT RUN	
-S03b	round2_spillstack	every evicted block is written, also a clean one (replaces S03)			NOT RUN	
-S04b	round2_spillstack	the block below is always dirty after an advance (replaces S04)			NOT RUN	
-S16b	round2_spillstack	blocks read are not counted (replaces S16)			NOT RUN	
-S17b	round2_spillstack	bytes written are not counted (replaces S17)			NOT RUN	
-S19b	round2_spillstack	the file high-water mark is one block low (replaces S19)			NOT RUN	
-S05	round2_spillstack	a block that was read back is dirty (re-run of round 1)	survived / survived		SURVIVOR	
-W07b	round2_windowwriter	Write cuts the piece one window too late (replaces W07)			NOT RUN	
-W09b	round2_windowwriter	evictions are not counted (replaces W09)			NOT RUN	
-W13b	round2_windowwriter	writes are not counted (replaces W13)			NOT RUN	
-W14b	round2_windowwriter	distinct windows are not counted (replaces W14)			NOT RUN	
-S01	spillstack	the stack advances one entry early (block of B - 1 entries)	killed(host crash)		killed	
-S02	spillstack	Pop retreats also at height 0	killed(39)		killed	
-S03	spillstack	every evicted block is written, also a clean one	BUILD-ERROR CS0162		not compiled	replaced by S03b
-S04	spillstack	the block below is always dirty after an advance	BUILD-ERROR S4487		not compiled	replaced by S04b
-S06	spillstack	the new top block after an advance starts dirty (the push that follows sets it anyway)	survived / survived		equivalent	equivalent: Advance is called only from Push, which sets the dirty flag of the top block right after it (`_curDirty = true`), so the value given to the new top block by Advance is never read
-S07	spillstack	a refilled block is one entry short	killed(29)		killed	
-S08	spillstack	Retreat reads when the block below is resident and not otherwise	killed(32)		killed	
-S09	spillstack	a block is read from the next block's offset	killed(30)		killed	
-S10	spillstack	the unflushed byte count does not grow (no fsync)	killed(1)		killed	
-S11	spillstack	Dispose keeps the spill file	killed(19)		killed	
-S12	spillstack	the peak height lags one push	killed(2)		killed	
-S13	spillstack	an update through TopForUpdate does not mark the block dirty	killed(3)		killed	
-S14	spillstack	a block size of 1 is accepted	killed(1)		killed	
-S15	spillstack	Advance writes only when the other buffer is not below	killed(33)		killed	
-S16	spillstack	blocks read are not counted	BUILD-ERROR CS0649		not compiled	replaced by S16b
-S17	spillstack	bytes written are not counted	BUILD-ERROR CS0649		not compiled	replaced by S17b
-S18	spillstack	a refilled block does not become the top (the buffers are not swapped)	killed(29)		killed	
-S19	spillstack	the file high-water mark is not tracked	BUILD-ERROR CS0649		not compiled	replaced by S19b
-S20	spillstack	the empty stack does not refuse Top	killed(1)		killed	
-W01	windowwriter	a window that is not a power of two is accepted	killed(1)		killed	
-W02	windowwriter	the bound of Write32 is one entry too wide	killed(1)		killed	
-W03	windowwriter	the window that is released is the most recently used	killed(29)		killed	
-W04	windowwriter	a window is flushed also when flushing is off	killed(2)		killed	
-W05	windowwriter	a window mapped again is counted as new	killed(2)		killed	
-W06	windowwriter	Dispose does not flush	killed(1)		killed	
-W07	windowwriter	Write does not cut the piece at the window end	BUILD-ERROR S1144		not compiled	replaced by W07b
-W08	windowwriter	the last window is mapped at the full window size	killed(31)		killed	
-W09	windowwriter	evictions are not counted	BUILD-ERROR CS0649		not compiled	replaced by W09b
-W10	windowwriter	a hit does not make the window the most recent	killed(1)		killed	
-W11	windowwriter	Flush() flushes nothing	killed(1)		killed	
-W12	windowwriter	a flush is not counted in bytes	killed(2)		killed	
-W13	windowwriter	writes are not counted	BUILD-ERROR CS0649		not compiled	replaced by W13b
-W14	windowwriter	distinct windows are not counted	BUILD-ERROR CS0649		not compiled	replaced by W14b
+id	file	description	round 1 (stage 1 / stage 2)	round 2	round 3	verdict	note
+A01	childscan	LCP[1] is not checked	killed(1)			killed	
+A02	childscan	a value of n + 1 is accepted	killed(1)			killed	
+A03	childscan	the last-child flag compares with <=	killed(17)			killed	
+A04	childscan	the left boundary of a new interval is not the one of the last popped interval	killed(19)			killed	
+A05	childscan	the PSV of a position equal to the root is the root boundary	killed(16)			killed	
+A06	childscan	an equal value pushes a new interval	killed(25)			killed	
+A07	childscan	the first l-index of the root is not recorded separately	BUILD-ERROR S1125			not compiled	replaced by A07b
+A08	childscan	the root counts as an internal node	killed(24)			killed	
+A09	childscan	the deepest interval is the last of equal depth	killed(3)			killed	
+A10	childscan	NODE_COUNT is one too high	killed(24)			killed	
+A11	childscan	the remaining intervals are closed as non-last children	killed(21)			killed	
+A12	childscan	chunks may arrive out of order	killed(1)			killed	
+A13	childscan	the last chunk is refused	killed(29)			killed	
+A14	childscan	Complete does not need every rank	killed(1)			killed	
+A15	childscan	a text of 2^32 - 2 symbols is accepted	killed(1)			killed	
+A16	childscan	the tagged codec accepts one symbol too many	killed(1)			killed	
+A17	childscan	an up field is written with the down tag	BUILD-ERROR S1144			not compiled	replaced by A17b
+A18	childscan	the packed codec writes every next link	killed(5)			killed	
+A19	childscan	rank 0 gets no PSV entry	killed(18)			killed	
+A20	childscan	the maximum LCP is the smallest	killed(1)			killed	
+A21	childscan	the tagged sink is chosen for the packed codec	killed(7)			killed	
+A22	childscan	the first l-index of an interval is its left boundary	killed(21)			killed	
+A23	childscan	a next link is written from the wrong l-index	killed(13)			killed	
+A24	childscan	the PSV sink writes one entry late	killed(18)			killed	
+A25	childscan	the stack peak is not reported	killed(2)			killed	
+A26	childscan	the root is not closed with the last-child flag set when it is popped by Complete (first l-index lost)	killed(18)			killed	
+C01	compactlcpfile	a 4-byte base array is refused	killed(2)			killed	
+C02	compactlcpfile	a pair is accepted when only one of rank and value is wrong (forward)	killed(2)			killed	
+C03	compactlcpfile	extra pairs are not detected	killed(1)			killed	
+C04	compactlcpfile	the backward cursor starts one pair too far	killed(18)			killed	
+C05	compactlcpfile	the backward end check expects a pair left	killed(19)			killed	
+C06	compactlcpfile	the last block is one entry short	killed(24)			killed	
+C07	compactlcpfile	the number of pairs is a quarter of the file	killed(13)			killed	
+C08	compactlcpfile	the overflow file is accepted when it holds half pairs	killed(1)			killed	
+C09	compactlcpfile	the overflow window going backwards starts at the index	killed(1)			killed	
+C10	compactlcpfile	a value below the escape is accepted in a pair (backward)	killed(1)			killed	
+C11	compactlcpfile	the base length check accepts any multiple	survived / survived	killed(1)		killed	
+C12	compactlcpfile	U16 entries are read as bytes	killed(15)			killed	
+C13	compactlcpfile	a 4-byte base array with an overflow list is accepted	killed(1)			killed	
+D01	dirtysampler	the mapping filter is a suffix match	killed(1)			killed	
+D02	dirtysampler	Shared_Dirty is not summed	BUILD-ERROR S1144			not compiled	replaced by D02b
+D03	dirtysampler	every mapping is summed	killed(1)			killed	
+D04	dirtysampler	Private_Dirty is not summed	BUILD-ERROR S1144			not compiled	replaced by D04b
+E01	e5	the RssAnon cap is exclusive	killed(1)			killed	
+E02	e5	Healthy ignores the arena	killed(1)			killed	
+E03	e5	Healthy ignores the tracked scratch	killed(1)			killed	
+E04	e5	a difference of one file does not fail the run	killed(1)			killed	
+E05	e5	the layout "stats" is refused	killed(1)			killed	
+E06	e5	windows are flushed only with --no-flush	killed(7)			killed	
+E07	e5	the statistics comparison ignores NODE_COUNT	BUILD-ERROR S1125			not compiled	replaced by E07b
+E08	e5	the statistics comparison ignores LRS_RANK	survived / survived	killed(1)		killed	
+E09	e5	the packed codec is chosen for tagged	killed(1)			killed	
+E10	e5	the oracle writes the packed array as the tagged one	killed(13)			killed	
+E11	e5	the scan result of the NEXTSYM verification is ignored	survived / survived	killed(1)		killed	
+E12	e5	the fused scan is created at the second chunk	BUILD-ERROR CS8602			not compiled	replaced by E12b
+X01	externalchild	the parallel option is inverted	killed(1)			killed	
+X02	externalchild	the outputs of the forward scan are swapped	killed(20)			killed	
+X03	externalchild	the volume of the LCP files counts the base array only	survived / survived	killed(1)		killed	
+X04	externalchild	the NSV pass is skipped when it is not concurrent	BUILD-ERROR CS8604			not compiled	replaced by X04b
+M01	nextsym	the end mark is stored one position late	killed(10)			killed	
+M02	nextsym	the LCP is not added	killed(8)			killed	
+M03	nextsym	a 9-bit text is accepted	survived / survived	killed(1)		killed	
+M04	nextsym	a suffix array file one entry short is accepted	survived / survived			SURVIVOR	
+M05	nextsym	the block is written one rank early	killed(10)			killed	
+N01	nsvscan	equal values are not popped	killed(16)			killed	
+N02	nsvscan	the "no smaller value" is n	killed(16)			killed	
+N03	nsvscan	the pushed index is one too high	killed(13)			killed	
+N04	nsvscan	the NSV windows are not flushed	killed(1)			killed	
+N05	nsvscan	the scan goes forwards through each block	killed(16)			killed	
+N06	nsvscan	the stack peak is not reported	killed(1)			killed	
+A07b	round2_childscan	the first l-index of the root is not recorded separately (replaces A07)		killed(21)		killed	
+A17b	round2_childscan	an up field is written with the next tag (replaces A17)		killed(14)		killed	
+D02b	round2_dirtysampler	Shared_Dirty is not summed (replaces D02)		killed(1)		killed	
+D04b	round2_dirtysampler	Private_Dirty is not summed (replaces D04)		killed(2)		killed	
+E07b	round2_e5	the statistics comparison ignores NODE_COUNT (replaces E07)		killed(1)		killed	
+E12b	round2_e5	the fused scan is created for a text one symbol longer (replaces E12)		killed(3)		killed	
+X04b	round2_externalchild	the sequential NSV pass runs on a text one symbol longer (replaces X04)		killed(9)		killed	
+S03b	round2_spillstack	every evicted block is written, also a clean one (replaces S03)		killed(1)		killed	
+S04b	round2_spillstack	the block below is always dirty after an advance (replaces S04)		killed(1)		killed	
+S16b	round2_spillstack	blocks read are not counted (replaces S16)		killed(9)		killed	
+S17b	round2_spillstack	bytes written are not counted (replaces S17)		killed(8)		killed	
+S19b	round2_spillstack	the file high-water mark is one block low (replaces S19)		killed(20)		killed	
+S05	round2_spillstack	a block that was read back is dirty (re-run of round 1)	survived / survived	killed(1)		killed	
+W07b	round2_windowwriter	Write cuts the piece one window too late (replaces W07)		survived / survived	killed(host crash)	killed	
+W09b	round2_windowwriter	evictions are not counted (replaces W09)		killed(2)		killed	
+W13b	round2_windowwriter	writes are not counted (replaces W13)		killed(3)		killed	
+W14b	round2_windowwriter	distinct windows are not counted (replaces W14)		killed(2)		killed	
+S01	spillstack	the stack advances one entry early (block of B - 1 entries)	killed(host crash)			killed	
+S02	spillstack	Pop retreats also at height 0	killed(39)			killed	
+S03	spillstack	every evicted block is written, also a clean one	BUILD-ERROR CS0162			not compiled	replaced by S03b
+S04	spillstack	the block below is always dirty after an advance	BUILD-ERROR S4487			not compiled	replaced by S04b
+S06	spillstack	the new top block after an advance starts dirty (the push that follows sets it anyway)	survived / survived			equivalent	equivalent: Advance is called only from Push, which sets the dirty flag of the top block right after it (`_curDirty = true`), so the value given to the new top block by Advance is never read
+S07	spillstack	a refilled block is one entry short	killed(29)			killed	
+S08	spillstack	Retreat reads when the block below is resident and not otherwise	killed(32)			killed	
+S09	spillstack	a block is read from the next block's offset	killed(30)			killed	
+S10	spillstack	the unflushed byte count does not grow (no fsync)	killed(1)			killed	
+S11	spillstack	Dispose keeps the spill file	killed(19)			killed	
+S12	spillstack	the peak height lags one push	killed(2)			killed	
+S13	spillstack	an update through TopForUpdate does not mark the block dirty	killed(3)			killed	
+S14	spillstack	a block size of 1 is accepted	killed(1)			killed	
+S15	spillstack	Advance writes only when the other buffer is not below	killed(33)			killed	
+S16	spillstack	blocks read are not counted	BUILD-ERROR CS0649			not compiled	replaced by S16b
+S17	spillstack	bytes written are not counted	BUILD-ERROR CS0649			not compiled	replaced by S17b
+S18	spillstack	a refilled block does not become the top (the buffers are not swapped)	killed(29)			killed	
+S19	spillstack	the file high-water mark is not tracked	BUILD-ERROR CS0649			not compiled	replaced by S19b
+S20	spillstack	the empty stack does not refuse Top	killed(1)			killed	
+W01	windowwriter	a window that is not a power of two is accepted	killed(1)			killed	
+W02	windowwriter	the bound of Write32 is one entry too wide	killed(1)			killed	
+W03	windowwriter	the window that is released is the most recently used	killed(29)			killed	
+W04	windowwriter	a window is flushed also when flushing is off	killed(2)			killed	
+W05	windowwriter	a window mapped again is counted as new	killed(2)			killed	
+W06	windowwriter	Dispose does not flush	killed(1)			killed	
+W07	windowwriter	Write does not cut the piece at the window end	BUILD-ERROR S1144			not compiled	replaced by W07b
+W08	windowwriter	the last window is mapped at the full window size	killed(31)			killed	
+W09	windowwriter	evictions are not counted	BUILD-ERROR CS0649			not compiled	replaced by W09b
+W10	windowwriter	a hit does not make the window the most recent	killed(1)			killed	
+W11	windowwriter	Flush() flushes nothing	killed(1)			killed	
+W12	windowwriter	a flush is not counted in bytes	killed(2)			killed	
+W13	windowwriter	writes are not counted	BUILD-ERROR CS0649			not compiled	replaced by W13b
+W14	windowwriter	distinct windows are not counted	BUILD-ERROR CS0649			not compiled	replaced by W14b

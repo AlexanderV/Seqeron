@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Merges the result files of the E5 audit (round 1: results_e5_<file>.tsv, results_e5_p2_*.tsv, results_e5_q_*.tsv; round 2: results_e5_r2*_*.tsv) with the mutant lists (e5_*_mutants.json, e5_round2_*_mutants.json) into
+"""Merges the result files of the E5 audit (round 1: results_e5_<file>.tsv, results_e5_p2_*.tsv, results_e5_q_*.tsv; round 2: results_e5_r2*_*.tsv, round 3: results_e5_r3_*.tsv) with the mutant lists (e5_*_mutants.json, e5_round2_*_mutants.json) into
 results_e5.tsv: one row per mutant of the lists, verdict and note, and prints the counts. usage: merge_e5.py   (run in this directory)"""
 import glob, json, os
 
@@ -18,23 +18,24 @@ for jf in sorted(glob.glob(os.path.join(HERE, 'e5_*_mutants.json'))):
         if not name.startswith('round2_') or m['id'] not in listed:
             if m['id'] not in listed:
                 listed.append(m['id'])
-r1, r2 = {}, {}
+r1, r2, r3 = {}, {}, {}
 for rf in sorted(glob.glob(os.path.join(HERE, 'results_e5_*.tsv'))):
     base = os.path.basename(rf)
     if base == 'results_e5.tsv':
         continue
-    target = r2 if base.startswith('results_e5_r2') else r1
+    target = r3 if base.startswith('results_e5_r3') else r2 if base.startswith('results_e5_r2') else r1
     for line in open(rf):
         c = line.rstrip('\n').split('\t')
         if len(c) >= 3:
             target[c[0]] = (c[2], c[3] if len(c) > 3 else '')
-rows = ['id\tfile\tdescription\tround 1 (stage 1 / stage 2)\tround 2\tverdict\tnote']
+rows = ['id\tfile\tdescription\tround 1 (stage 1 / stage 2)\tround 2\tround 3\tverdict\tnote']
 counts = {'listed': 0, 'compiled': 0, 'killed': 0, 'equivalent': 0, 'survivors': 0, 'not compiled': 0}
 for i in listed:
     a = r1.get(i, ('', ''))
     b = r2.get(i, ('', ''))
+    c3 = r3.get(i, ('', ''))
     counts['listed'] += 1
-    killed = any(x.startswith('killed') for x in (a[0], a[1], b[0], b[1]))
+    killed = any(x.startswith('killed') for x in (a[0], a[1], b[0], b[1], c3[0], c3[1]))
     note = ''
     if killed:
         verdict = 'killed'
@@ -62,6 +63,6 @@ for i in listed:
     else:
         counts['survivors'] += 1
         counts['compiled'] += 1
-    rows.append('\t'.join([i, src.get(i, ''), descs.get(i, ''), (a[0] + ((' / ' + a[1]) if a[1] else '')), (b[0] + ((' / ' + b[1]) if b[1] else '')), verdict, note]))
+    rows.append('\t'.join([i, src.get(i, ''), descs.get(i, ''), (a[0] + ((' / ' + a[1]) if a[1] else '')), (b[0] + ((' / ' + b[1]) if b[1] else '')), (c3[0] + ((' / ' + c3[1]) if c3[1] else '')), verdict, note]))
 open(os.path.join(HERE, 'results_e5.tsv'), 'w').write('\n'.join(rows) + '\n')
 print(counts)

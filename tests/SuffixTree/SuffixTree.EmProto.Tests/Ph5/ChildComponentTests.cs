@@ -298,6 +298,12 @@ public class ChildComponentTests
         File.WriteAllBytes(sa, new byte[12]);
         using var file = new CompactLcpFile(b, o, r.N);
         Assert.Throws<ArgumentException>(() => NextSymScan.Run(packed, sa, file, Path.Combine(_dir, "x"), ChildChecks.Tiny(Scratch)));
+        foreach (int length in new[] { 24, 32 }) // one entry short, one entry too many (n = 6: 7 entries of 4 bytes are 28)
+        {
+            string off = Path.Combine(_dir, $"off{length}.sa");
+            File.WriteAllBytes(off, new byte[length]);
+            Assert.Throws<ArgumentException>(() => NextSymScan.Run(packed, off, file, Path.Combine(_dir, "z"), ChildChecks.Tiny(Scratch)), $"a suffix array file of {length} bytes");
+        }
         using PackedText wide = PackedText.Pack(new int[] { 1, 2, 300, 4 }, 9);
         string saWide = Path.Combine(_dir, "wide.sa");
         File.WriteAllBytes(saWide, new byte[5 * 4]); // the right length for n = 4: only the width of the alphabet is wrong

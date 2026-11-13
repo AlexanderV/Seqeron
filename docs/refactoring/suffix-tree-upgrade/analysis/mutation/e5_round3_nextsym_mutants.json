@@ -1,0 +1,8 @@
+[
+ {
+  "id": "M04",
+  "desc": "a suffix array file one entry short is accepted",
+  "old": "if (sa.Length != (n + 1) * 4) throw",
+  "new": "if (sa.Length < n * 4) throw"
+ }
+]
