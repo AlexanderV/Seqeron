@@ -27,10 +27,17 @@ internal static class Prepare
     /// <summary>Symbols per block that keep the packed blocks byte aligned (8 symbols of b bits are b bytes).</summary>
     internal const int BlockMultiple = 8;
 
+    /// <summary>The length of the input in bytes, through an open handle (so that a symbolic link to the text counts the text, not the link: <c>FileInfo.Length</c> of a link is the length of its target path).</summary>
+    internal static long InputLength(string inputPath)
+    {
+        using var input = new CountedFile(inputPath, FileMode.Open, FileAccess.Read);
+        return input.Length;
+    }
+
     internal static PrepareResult Run(string inputPath, string packedPath, int blockSymbols, int windowBytes, Action? betweenPasses = null)
     {
         if (blockSymbols < BlockMultiple || blockSymbols % BlockMultiple != 0) throw new ArgumentOutOfRangeException(nameof(blockSymbols), blockSymbols, "a block holds a multiple of 8 symbols, so that every packed block ends on a byte boundary");
-        long n = new FileInfo(inputPath).Length;
+        long n = InputLength(inputPath);
         var counts = new long[256];
         string sha;
         var block = new byte[blockSymbols];

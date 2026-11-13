@@ -144,6 +144,22 @@ public class PrepareTests : TempDirFixture
     }
 
     [Test]
+    public void ASymbolicLinkToTheText_IsTheText_NotTheLink()
+    {
+        byte[] data = Random(7001, 4, 8);
+        string target = Write(data);
+        string link = Path.Combine(Dir, "link.txt");
+        File.CreateSymbolicLink(link, target);
+        Assert.That(new FileInfo(link).Length, Is.Not.EqualTo(data.Length), "FileInfo.Length of a link is the length of its target path: the reason for the handle");
+        Assert.That(Prepare.InputLength(link), Is.EqualTo(7001));
+        PrepareResult viaLink = Prepare.Run(link, Path.Combine(Dir, "l.pk"), 64, 128);
+        PrepareResult direct = Prepare.Run(target, Path.Combine(Dir, "d.pk"), 64, 128);
+        Assert.That(viaLink, Is.EqualTo(direct).Using<PrepareResult>((a, b) => a.N == b.N && a.Sha256 == b.Sha256 && a.Bits == b.Bits));
+        Assert.That(viaLink.N, Is.EqualTo(7001));
+        Assert.That(File.ReadAllBytes(Path.Combine(Dir, "l.pk")), Is.EqualTo(File.ReadAllBytes(Path.Combine(Dir, "d.pk"))));
+    }
+
+    [Test]
     public void AnInputThatChangesBetweenThePasses_IsDetected()
     {
         byte[] data = Random(50_000, 4, 3);

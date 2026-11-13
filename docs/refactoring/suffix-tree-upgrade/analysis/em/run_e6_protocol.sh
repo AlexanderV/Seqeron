@@ -2,7 +2,7 @@
 # E6 protocol (outside the shipped code): the end-to-end pipeline PH0-PH5 on the inputs prepared by run_e6_setup.sh.
 # usage: run_e6_protocol.sh <work dir with <name>.txt and the references> <rows file> <group> [names...]
 # groups: main    (G1/G2/G3: 4 threads, cold cache, scale-down by n / 3e9, 3 runs per input; every run is compared byte for byte with the references by cmp)
-#         threads (1 and 2 threads, 3 runs each, cmp against the same references: identity over thread counts and the scaling)
+#         threads (1 and 2 threads, E6_THREAD_RUNS runs each (default 1), cmp against the same references: identity over thread counts and the scaling)
 #         kvar    (two other values of K: K/2 and 2K for PH3 and PH1, 4 threads, 1 run each, cmp)
 #         dirty   (the scratch on tmpfs, so that the system-wide Dirty of /proc/meminfo is the dirty pages of the outputs only; 3 runs)
 #         small   (dna_10m rep_10m prot_1m and the families: cmp against the references, SA hash against the committed libsais hash where there is one)
@@ -73,7 +73,7 @@ threads)
   [ $# -gt 0 ] && set_names "$@" || set_names dna_100m genome_100m
   for T in "${NAMES[@]}"; do
     for TH in 1 2; do
-      for i in 1 2 3; do run $T "$T.e6.t$TH" $i scratch.d --threads $TH "${BASE_ARGS[@]}"; done
+      for i in $(seq 1 ${E6_THREAD_RUNS:-1}); do run $T "$T.e6.t$TH" $i scratch.d --threads $TH "${BASE_ARGS[@]}"; done
     done
   done ;;
 kvar)
@@ -90,7 +90,7 @@ dirty)
     for i in 1 2 3; do run $T "$T.e6.t4.shm" $i /dev/shm/e6/scratch.d --threads 4 "${BASE_ARGS[@]}"; done
   done ;;
 small)
-  [ $# -gt 0 ] && set_names "$@" || set_names dna_10m rep_10m prot_1m fam_a_1e5 fam_fib_1e5 fam_tm_1e5 fam_tandem_1e5 fam_a_1e6 fam_fib_1e6 fam_tm_1e6 fam_nrun_1e6 fam_genome_1e6
+  [ $# -gt 0 ] && set_names "$@" || set_names dna_10m rep_10m prot_1m fam_a_1e5 fam_fib_1e5 fam_tm_1e5 fam_tandem_1e5 fam_nrun_1e5 fam_a_1e6 fam_fib_1e6 fam_tm_1e6 fam_tandem_1e6 fam_nrun_1e6 fam_genome_1e6
   for T in "${NAMES[@]}"; do
     case $T in
       dna_10m|rep_10m|prot_1m) VEC=$T ;;

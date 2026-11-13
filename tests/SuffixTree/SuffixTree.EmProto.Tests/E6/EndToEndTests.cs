@@ -318,6 +318,17 @@ public class EndToEndTests : TempDirFixture
     }
 
     [Test]
+    public void AnInputThatIsASymbolicLink_IsTheWholeText()
+    {
+        string text = StringFamilies.RandomDna(5000, 17);
+        string d = Run("l");
+        EndToEndOptions o = PipelineChecks.Options(d, text, 2, 2);
+        string link = Path.Combine(d, "link.txt");
+        File.CreateSymbolicLink(link, o.InputPath);
+        PipelineChecks.RunAndCompare(ChildReference.Of(text), o with { InputPath = link }, "symbolic link");
+    }
+
+    [Test]
     public void AMissingInput_IsRefused()
     {
         string d = Run("m");

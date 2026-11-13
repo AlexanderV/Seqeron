@@ -122,7 +122,7 @@ internal static unsafe class EndToEnd
         ArgumentNullException.ThrowIfNull(o);
         ArgumentOutOfRangeException.ThrowIfLessThan(o.Threads, 1);
         if (!File.Exists(o.InputPath)) throw new FileNotFoundException("the input text does not exist", o.InputPath);
-        long n = new FileInfo(o.InputPath).Length;
+        long n = Prepare.InputLength(o.InputPath);
         if (n == 0) throw new ArgumentException("the input text is empty", nameof(o));
         if (n >= uint.MaxValue - 2) throw new NotSupportedException("positions are 32-bit in the prototype");
         string full = Path.GetFullPath(o.ScratchDir);

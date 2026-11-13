@@ -29,6 +29,7 @@ family_of() { # name -> family spec (a file input of /tmp/stbench/data has its o
     fam_tm_1e6) echo tm:1000000 ;;
     fam_tandem_1e5) echo tandem:171x600 ;;
     fam_tandem_1e6) echo tandem:171x6000 ;;
+    fam_nrun_1e5) echo nrun:100000:10000 ;;
     fam_nrun_1e6) echo nrun:1000000:100000 ;;
     fam_genome_1e6) echo genome:1000000 ;;
     *) echo "unknown $1" >&2; return 1 ;;
