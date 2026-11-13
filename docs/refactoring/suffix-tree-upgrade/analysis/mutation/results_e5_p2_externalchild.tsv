@@ -1,0 +1,4 @@
+X01	the parallel option is inverted	killed(1)	
+X02	the outputs of the forward scan are swapped	killed(20)	
+X03	the volume of the LCP files counts the base array only	survived	survived
+X04	the NSV pass is skipped when it is not concurrent	BUILD-ERROR CS8604	

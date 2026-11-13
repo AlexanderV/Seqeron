@@ -1,0 +1,26 @@
+[
+ {
+  "id": "E07b",
+  "desc": "the statistics comparison ignores NODE_COUNT (replaces E07)",
+  "old": "bool stats = expected[\"nodecount\"] == f.NodeCount.ToString(CultureInfo.InvariantCulture)\n            && ",
+  "new": "bool stats = f.NodeCount < 0 || "
+ },
+ {
+  "id": "E12b",
+  "desc": "the fused scan is created for a text one symbol longer (replaces E12)",
+  "old": "_scan = ChildScan.Create(n, outputs, options);",
+  "new": "_scan = ChildScan.Create(n + 1, outputs, options);"
+ },
+ {
+  "id": "E08",
+  "desc": "the statistics comparison ignores LRS_RANK (re-run of round 1)",
+  "old": "\n            && expected[\"lrsrank\"] == f.LrsRank.ToString(CultureInfo.InvariantCulture);",
+  "new": ";"
+ },
+ {
+  "id": "E11",
+  "desc": "the scan result of the NEXTSYM verification is ignored (re-run of round 1)",
+  "old": "ok = equal;\n        }\n        return ok;",
+  "new": "ok = true;\n        }\n        return ok;"
+ }
+]

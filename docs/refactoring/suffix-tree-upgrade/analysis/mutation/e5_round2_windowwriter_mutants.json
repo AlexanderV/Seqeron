@@ -1,0 +1,26 @@
+[
+ {
+  "id": "W07b",
+  "desc": "Write cuts the piece one window too late (replaces W07)",
+  "old": "int take = (int)Math.Min(data.Length, _slots[HotSlot()].Size - inside);",
+  "new": "int take = (int)Math.Min(data.Length, _slots[HotSlot()].Size - inside + _window);"
+ },
+ {
+  "id": "W09b",
+  "desc": "evictions are not counted (replaces W09)",
+  "old": "            _evictions++;\n",
+  "new": "            _evictions += 0;\n"
+ },
+ {
+  "id": "W13b",
+  "desc": "writes are not counted (replaces W13)",
+  "old": "        _writes++;\n",
+  "new": "        _writes += 0;\n"
+ },
+ {
+  "id": "W14b",
+  "desc": "distinct windows are not counted (replaces W14)",
+  "old": "            _distinct++;\n",
+  "new": "            _distinct += 0;\n"
+ }
+]

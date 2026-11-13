@@ -1,0 +1,5 @@
+M01	the end mark is stored one position late	killed(10)	
+M02	the LCP is not added	killed(8)	
+M03	a 9-bit text is accepted	survived	survived
+M04	a suffix array file one entry short is accepted	survived	survived
+M05	the block is written one rank early	killed(10)	

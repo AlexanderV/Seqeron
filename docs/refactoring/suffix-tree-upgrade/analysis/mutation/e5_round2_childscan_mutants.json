@@ -1,0 +1,14 @@
+[
+ {
+  "id": "A07b",
+  "desc": "the first l-index of the root is not recorded separately (replaces A07)",
+  "old": "else if (top.First == ChildScan.None)",
+  "new": "else if (top.First == ChildScan.None && _n < 0)"
+ },
+ {
+  "id": "A17b",
+  "desc": "an up field is written with the next tag (replaces A17)",
+  "old": "else writer.Write32(rb, UpTag | first);",
+  "new": "else writer.Write32(rb, (UpTag - NextTag) | first);"
+ }
+]

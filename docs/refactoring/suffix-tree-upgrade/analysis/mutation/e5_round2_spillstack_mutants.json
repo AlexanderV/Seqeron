@@ -1,0 +1,38 @@
+[
+ {
+  "id": "S03b",
+  "desc": "every evicted block is written, also a clean one (replaces S03)",
+  "old": "if (_otherDirty) WriteBlock(_topBlock - 1, _other);",
+  "new": "if (_otherDirty || _topBlock > 0) WriteBlock(_topBlock - 1, _other);"
+ },
+ {
+  "id": "S04b",
+  "desc": "the block below is always dirty after an advance (replaces S04)",
+  "old": "_otherDirty = _curDirty;\n        _curDirty = false;\n        _otherBelow = true;",
+  "new": "_otherDirty = _curDirty || _topBlock >= 0;\n        _curDirty = false;\n        _otherBelow = true;"
+ },
+ {
+  "id": "S16b",
+  "desc": "blocks read are not counted (replaces S16)",
+  "old": "        _blocksRead++;\n",
+  "new": "        _blocksRead += 0;\n"
+ },
+ {
+  "id": "S17b",
+  "desc": "bytes written are not counted (replaces S17)",
+  "old": "        _bytesWritten += _blockBytes;\n",
+  "new": "        _bytesWritten += 0;\n"
+ },
+ {
+  "id": "S19b",
+  "desc": "the file high-water mark is one block low (replaces S19)",
+  "old": "            _fileBytes = end;\n",
+  "new": "            _fileBytes = end - _blockBytes;\n"
+ },
+ {
+  "id": "S05",
+  "desc": "a block that was read back is dirty (re-run of round 1)",
+  "old": "            ReadBlock(_topBlock - 1, _other);\n            _otherDirty = false;",
+  "new": "            ReadBlock(_topBlock - 1, _other);\n            _otherDirty = true;"
+ }
+]

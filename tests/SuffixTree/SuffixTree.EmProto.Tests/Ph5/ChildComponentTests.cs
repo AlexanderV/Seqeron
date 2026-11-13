@@ -57,7 +57,7 @@ public class ChildComponentTests
     [Test]
     public void ParallelBackwardPass_GivesTheSameFiles_AndReportsBothPasses()
     {
-        foreach (string text in new[] { StringFamilies.AllSame(900) + "b", StringFamilies.Fibonacci(3000), StringFamilies.RandomDna(2000, 1) })
+        foreach (string text in new[] { StringFamilies.AllSame(900) + "b", StringFamilies.Fibonacci(3000), StringFamilies.RandomDna(2000, 1), ChildSamples.U8WithEscapes() })
         {
             ChildReference r = ChildReference.Of(text);
             ChildBuildStats seq = ChildChecks.RunAndCompare(r, ChildChecks.Tiny(Scratch, blockEntries: 5), _dir, "sequential");
@@ -207,6 +207,14 @@ public class ChildComponentTests
         File.WriteAllBytes(b, new byte[4 * 6]);
         File.WriteAllBytes(o, new byte[8]);
         Assert.Throws<ArgumentException>(() => new CompactLcpFile(b, o, 5), "a 4-byte base array has no overflow list");
+        foreach (int length in new[] { 5, 7, 11, 13, 25 })
+        {
+            File.WriteAllBytes(b, new byte[length]);
+            File.WriteAllBytes(o, []);
+            Assert.Throws<ArgumentException>(() => new CompactLcpFile(b, o, 5), $"a base file of {length} bytes is not 6 entries of 1, 2 or 4 bytes");
+        }
+        File.WriteAllBytes(b, new byte[4 * 6]);
+        File.WriteAllBytes(o, new byte[8]);
         File.WriteAllBytes(b, new byte[6]);
         foreach (int bad in new[] { 4, 5, 12 })
         {
@@ -291,7 +299,10 @@ public class ChildComponentTests
         using var file = new CompactLcpFile(b, o, r.N);
         Assert.Throws<ArgumentException>(() => NextSymScan.Run(packed, sa, file, Path.Combine(_dir, "x"), ChildChecks.Tiny(Scratch)));
         using PackedText wide = PackedText.Pack(new int[] { 1, 2, 300, 4 }, 9);
-        Assert.Throws<ArgumentException>(() => NextSymScan.Run(wide, sa, file, Path.Combine(_dir, "y"), ChildChecks.Tiny(Scratch)));
+        string saWide = Path.Combine(_dir, "wide.sa");
+        File.WriteAllBytes(saWide, new byte[5 * 4]); // the right length for n = 4: only the width of the alphabet is wrong
+        ArgumentException ex = Assert.Throws<ArgumentException>(() => NextSymScan.Run(wide, saWide, file, Path.Combine(_dir, "y"), ChildChecks.Tiny(Scratch)))!;
+        Assert.That(ex.Message, Does.Contain("8 bits"));
     }
 
     [Test]
@@ -438,6 +449,7 @@ public class ChildComponentTests
         var report = new Report(rows);
         string reference = Path.Combine(_dir, "ref");
         Assert.That(E5.Oracle(Options.Parse(["--text", pk, "--lcp", lcp, "--out", reference]), report), Is.EqualTo(0));
+        string[] correctStats = File.ReadAllLines(reference + ".stats");
         byte[] child = File.ReadAllBytes(reference + ".cldT");
         child[4001] ^= 1;
         File.WriteAllBytes(reference + ".cldT", child);
@@ -448,7 +460,32 @@ public class ChildComponentTests
         File.WriteAllBytes(reference + ".cldT", MemoryMarshal.AsBytes(ChildFiles.ReadUInts(Path.Combine(_dir, "out.cld")).AsSpan()).ToArray());
         Assert.That(E5.Build(Options.Parse(args), report), Is.EqualTo(1), "the statistics differ");
         Assert.That(File.ReadAllText(rows), Does.Contain("\tstats_equal_oracle\tNO\t"));
+        // each statistic on its own: NODE_COUNT, the internal-node count, LRS_DEPTH and LRS_RANK each decide the comparison
+        foreach (string key in new[] { "nodecount", "internal", "lrsdepth", "lrsrank" })
+        {
+            File.WriteAllLines(reference + ".stats", correctStats.Select(l => l.StartsWith(key + "=", StringComparison.Ordinal) ? key + "=12345678" : l));
+            Assert.That(E5.Build(Options.Parse(args), report), Is.EqualTo(1), $"a wrong {key} fails the run");
+        }
+        File.WriteAllLines(reference + ".stats", correctStats);
+        Assert.That(E5.Build(Options.Parse(args), report), Is.EqualTo(0), "with the right statistics and the output as reference the run passes");
         Assert.That(E5.Build(Options.Parse([.. args[..^2], "--rss-cap-mb", "0.001"]), report), Is.EqualTo(1), "the RssAnon cap of the gate");
+    }
+
+    [Test]
+    public void NextSym_AgainstAWrongOracle_FailsTheRun()
+    {
+        if (!File.Exists("/proc/self/stat")) Assert.Ignore("the E5 report reads /proc (Linux)");
+        (string pk, string sa, string lcp) = Prepare("genome:100000");
+        string rows = Path.Combine(_dir, "rows.tsv");
+        var report = new Report(rows);
+        string reference = Path.Combine(_dir, "ref");
+        Assert.That(E5.Oracle(Options.Parse(["--text", pk, "--lcp", lcp, "--out", reference, "--sa", sa]), report), Is.EqualTo(0));
+        byte[] nextSym = File.ReadAllBytes(reference + ".nsym");
+        nextSym[777] ^= 1;
+        File.WriteAllBytes(reference + ".nsym", nextSym);
+        string[] args = ["--text", pk, "--lcp", lcp, "--out", Path.Combine(_dir, "out"), "--scratch", Path.Combine(_dir, "scratch"), "--layout", "stats", "--nextsym", "--sa", sa, "--verify", reference, "--rss-cap-mb", "100000"];
+        Assert.That(E5.Build(Options.Parse(args), report), Is.EqualTo(1));
+        Assert.That(File.ReadAllText(rows), Does.Contain("\tnextsym_equals_oracle\tNO\t").And.Contain("first difference at byte 777"));
     }
 
     [Test]

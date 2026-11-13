@@ -1,0 +1,14 @@
+W01	a window that is not a power of two is accepted	killed(1)	
+W02	the bound of Write32 is one entry too wide	killed(1)	
+W03	the window that is released is the most recently used	killed(29)	
+W04	a window is flushed also when flushing is off	killed(2)	
+W05	a window mapped again is counted as new	killed(2)	
+W06	Dispose does not flush	killed(1)	
+W07	Write does not cut the piece at the window end	BUILD-ERROR S1144	
+W08	the last window is mapped at the full window size	killed(31)	
+W09	evictions are not counted	BUILD-ERROR CS0649	
+W10	a hit does not make the window the most recent	killed(1)	
+W11	Flush() flushes nothing	killed(1)	
+W12	a flush is not counted in bytes	killed(2)	
+W13	writes are not counted	BUILD-ERROR CS0649	
+W14	distinct windows are not counted	BUILD-ERROR CS0649	

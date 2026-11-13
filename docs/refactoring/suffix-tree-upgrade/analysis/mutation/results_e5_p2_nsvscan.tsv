@@ -1,0 +1,6 @@
+N01	equal values are not popped	killed(16)	
+N02	the "no smaller value" is n	killed(16)	
+N03	the pushed index is one too high	killed(13)	
+N04	the NSV windows are not flushed	killed(1)	
+N05	the scan goes forwards through each block	killed(16)	
+N06	the stack peak is not reported	killed(1)	

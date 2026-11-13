@@ -1,0 +1,4 @@
+D01	the mapping filter is a suffix match	killed(1)	
+D02	Shared_Dirty is not summed	BUILD-ERROR S1144	
+D03	every mapping is summed	killed(1)	
+D04	Private_Dirty is not summed	BUILD-ERROR S1144	

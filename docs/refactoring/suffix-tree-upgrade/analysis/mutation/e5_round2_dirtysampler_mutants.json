@@ -1,0 +1,14 @@
+[
+ {
+  "id": "D02b",
+  "desc": "Shared_Dirty is not summed (replaces D02)",
+  "old": "else if (inside && (line.StartsWith(KeyPrivate) || line.StartsWith(KeyShared)))",
+  "new": "else if (inside && (line.StartsWith(KeyPrivate) || (line.StartsWith(KeyShared) && prefix.Length < 0)))"
+ },
+ {
+  "id": "D04b",
+  "desc": "Private_Dirty is not summed (replaces D04)",
+  "old": "else if (inside && (line.StartsWith(KeyPrivate) || line.StartsWith(KeyShared)))",
+  "new": "else if (inside && ((line.StartsWith(KeyPrivate) && prefix.Length < 0) || line.StartsWith(KeyShared)))"
+ }
+]

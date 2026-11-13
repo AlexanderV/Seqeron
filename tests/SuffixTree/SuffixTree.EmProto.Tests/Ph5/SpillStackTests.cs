@@ -148,24 +148,37 @@ public class SpillStackTests
     }
 
     [Test]
-    public void CleanBlock_AfterARefill_IsNotWrittenAgain()
+    public void CleanBlock_AfterARefill_IsNotWrittenAgain_AndAModifiedOneIs()
     {
         const int block = 4;
-        using BudgetedArena arena = Arena();
-        using var stack = new SpillStack<TestEntry>(arena, Path.Combine(_dir, "c.spill"), block);
-        for (uint i = 0; i < 6 * block; i++) stack.Push(TestEntry.Of(i));
-        long written = stack.Stats.BlocksWritten;
-        for (int i = 0; i < 3 * block; i++) stack.Pop(); // back into the refilled region
-        for (uint i = 0; i < 3 * block; i++) stack.Push(TestEntry.Of(500 + i)); // the pushes dirty the blocks they fill: those are written again
-        long afterRewrite = stack.Stats.BlocksWritten;
-        Assert.That(afterRewrite, Is.GreaterThan(written));
-        // pop down to a refilled block, only look at entries (no update) and climb again: the refilled copy equals the file, so the eviction is free
-        for (int i = 0; i < 3 * block; i++) stack.Pop();
-        for (int i = 0; i < 2 * block; i++) _ = stack.Top;
-        long beforeClimb = stack.Stats.BlocksWritten;
-        long cleanBefore = stack.Stats.CleanEvictions;
-        for (int i = 0; i < 3 * block; i++) stack.Push(TestEntry.Of(900 + (uint)i));
-        Assert.That(stack.Stats.BlocksWritten + stack.Stats.CleanEvictions, Is.GreaterThan(beforeClimb + cleanBefore), "blocks were evicted while climbing");
+        foreach (bool modify in new[] { false, true })
+        {
+            using BudgetedArena arena = Arena();
+            using var stack = new SpillStack<TestEntry>(arena, Path.Combine(_dir, $"c{modify}.spill"), block);
+            for (uint i = 0; i < 6 * block; i++) stack.Push(TestEntry.Of(i)); // top block 5, blocks 0..3 spilled
+            Assert.That(stack.Stats.BlocksWritten, Is.EqualTo(4));
+            for (int i = 0; i < 2 * block; i++) stack.Pop(); // block 3 is read back and becomes the top block: its file copy is current
+            Assert.That(stack.Stats.BlocksRead, Is.EqualTo(1));
+            Assert.That(stack.Top.A, Is.EqualTo(15u));
+            if (modify) stack.TopForUpdate().D = 777;
+            for (uint i = 0; i < 5; i++) stack.Push(TestEntry.Of(100 + i)); // the fifth push moves on from block 4 and evicts block 3
+            if (modify)
+            {
+                Assert.That(stack.Stats.BlocksWritten, Is.EqualTo(5), "a block that was modified after its refill is written");
+                Assert.That(stack.Stats.CleanEvictions, Is.Zero);
+            }
+            else
+            {
+                Assert.That(stack.Stats.BlocksWritten, Is.EqualTo(4), "an unmodified refilled block is evicted without a write");
+                Assert.That(stack.Stats.CleanEvictions, Is.EqualTo(1));
+            }
+            for (int i = 0; i < 5; i++) stack.Pop();
+            Assert.That(stack.Top.A, Is.EqualTo(15u), "block 3 is read back again");
+            Assert.That(stack.Top.D, Is.EqualTo(modify ? 777u : ~15u), "the modification survived the eviction, or the original is intact");
+            for (int i = 0; i < 2 * block; i++) stack.Pop(); // further down through the refills
+            Assert.That(stack.Top.A, Is.EqualTo(7u), "the content below survived");
+            Assert.That(stack.Top.D, Is.EqualTo(~7u));
+        }
     }
 
     [Test]

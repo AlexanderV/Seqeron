@@ -1,0 +1,13 @@
+C01	a 4-byte base array is refused	killed(2)	
+C02	a pair is accepted when only one of rank and value is wrong (forward)	killed(2)	
+C03	extra pairs are not detected	killed(1)	
+C04	the backward cursor starts one pair too far	killed(18)	
+C05	the backward end check expects a pair left	killed(19)	
+C06	the last block is one entry short	killed(24)	
+C07	the number of pairs is a quarter of the file	killed(13)	
+C08	the overflow file is accepted when it holds half pairs	killed(1)	
+C09	the overflow window going backwards starts at the index	killed(1)	
+C10	a value below the escape is accepted in a pair (backward)	killed(1)	
+C11	the base length check accepts any multiple	survived	survived
+C12	U16 entries are read as bytes	killed(15)	
+C13	a 4-byte base array with an overflow list is accepted	killed(1)	

@@ -1,0 +1,8 @@
+[
+ {
+  "id": "M03",
+  "desc": "a 9-bit text is accepted (re-run of round 1)",
+  "old": "if (text.Bits > 8) throw",
+  "new": "if (text.Bits > 9) throw"
+ }
+]

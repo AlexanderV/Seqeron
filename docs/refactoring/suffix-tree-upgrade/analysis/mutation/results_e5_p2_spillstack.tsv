@@ -1,0 +1,10 @@
+S11	Dispose keeps the spill file	killed(19)	
+S12	the peak height lags one push	killed(2)	
+S13	an update through TopForUpdate does not mark the block dirty	killed(3)	
+S14	a block size of 1 is accepted	killed(1)	
+S15	Advance writes only when the other buffer is not below	killed(33)	
+S16	blocks read are not counted	BUILD-ERROR CS0649	
+S17	bytes written are not counted	BUILD-ERROR CS0649	
+S18	a refilled block does not become the top (the buffers are not swapped)	killed(29)	
+S19	the file high-water mark is not tracked	BUILD-ERROR CS0649	
+S20	the empty stack does not refuse Top	killed(1)	

@@ -1,0 +1,14 @@
+[
+ {
+  "id": "X04b",
+  "desc": "the sequential NSV pass runs on a text one symbol longer (replaces X04)",
+  "old": "else if (outputs.Nsv is not null) backward = Backward(n, lcpBase, lcpOverflow, outputs.Nsv, options);",
+  "new": "else if (outputs.Nsv is not null) backward = Backward(n + 1, lcpBase, lcpOverflow, outputs.Nsv, options);"
+ },
+ {
+  "id": "X03",
+  "desc": "the volume of the LCP files counts the base array only (re-run of round 1)",
+  "old": "LcpBytes = new FileInfo(lcpBase).Length + new FileInfo(lcpOverflow).Length",
+  "new": "LcpBytes = new FileInfo(lcpBase).Length"
+ }
+]

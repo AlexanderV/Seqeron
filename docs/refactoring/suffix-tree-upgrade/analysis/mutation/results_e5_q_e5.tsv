@@ -1,0 +1,12 @@
+E01	the RssAnon cap is exclusive	killed(1)	
+E02	Healthy ignores the arena	killed(1)	
+E03	Healthy ignores the tracked scratch	killed(1)	
+E04	a difference of one file does not fail the run	killed(1)	
+E05	the layout "stats" is refused	killed(1)	
+E06	windows are flushed only with --no-flush	killed(7)	
+E07	the statistics comparison ignores NODE_COUNT	BUILD-ERROR S1125	
+E08	the statistics comparison ignores LRS_RANK	survived	survived
+E09	the packed codec is chosen for tagged	killed(1)	
+E10	the oracle writes the packed array as the tagged one	killed(13)	
+E11	the scan result of the NEXTSYM verification is ignored	survived	survived
+E12	the fused scan is created at the second chunk	BUILD-ERROR CS8602	

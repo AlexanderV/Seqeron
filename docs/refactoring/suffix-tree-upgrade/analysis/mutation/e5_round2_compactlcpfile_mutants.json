@@ -1,0 +1,8 @@
+[
+ {
+  "id": "C11",
+  "desc": "the base length check accepts any multiple (re-run of round 1)",
+  "old": "baseLength != (n + 1) * Width",
+  "new": "baseLength < (n + 1) * Width"
+ }
+]

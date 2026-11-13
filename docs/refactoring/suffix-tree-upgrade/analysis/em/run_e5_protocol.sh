@@ -9,6 +9,7 @@
 #         nosp  (spill file not flushed: the dirty pages of the spill, information)
 #         par   (layout f and both with the NSV pass on its own thread while the forward scan runs: --parallel-nsv)
 #         a200  (a^n 200 M, layout a only, no in-RAM reference: the output of the last run is compared with the closed form by check_child_allsame.py; inputs from run_e5_setup.sh a200)
+#         stats (the scan alone: no output file, the spill on tmpfs: the cost of the stack and the scan without any write behind the cursor)
 #         slots (layout a with 1 / 2 / 4 windows instead of 8: how close to thrashing the writes behind the cursor are)
 #         nextsym (the optional NEXTSYM pass after the statistics-only scan, report only; the reference .nsym from the in-RAM oracle with --sa)
 # Every run: dropped page cache (cold), fresh process, DOTNET_GCHeapHardLimit = 96 MiB, real block sizes (256 K entries, 1 MiB windows), the independent sampler sample_proc.py, the block device's sectors written before the
@@ -101,6 +102,11 @@ fused)
     run $T "$T.fusedF" 1 fused --layout f --verify $T.ref
     for i in 2 3; do run $T "$T.fusedA" $i fused --layout a; run $T "$T.fusedF" $i fused --layout f; done
     rm -f $T.ref.*
+  done ;;
+stats)
+  [ $# -gt 0 ] && set_names "$@" || set_names a50 nrun30 fib30 dna_100m genome_100m
+  for T in "${NAMES[@]}"; do
+    for i in 1 2 3; do run $T "$T.stats.shm" $i file --layout stats --spill-dir /dev/shm/e5spill; done
   done ;;
 slots)
   [ $# -gt 0 ] && set_names "$@" || set_names a50 nrun30 fib30 genome_100m dna_100m
