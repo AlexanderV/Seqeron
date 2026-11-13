@@ -1,0 +1,104 @@
+[
+ {
+  "id": "R01",
+  "desc": "the symbol counts are not computed",
+  "old": "foreach (byte b in block.AsSpan(0, take)) counts[b]++;",
+  "new": "foreach (byte b in block.AsSpan(0, take)) { }"
+ },
+ {
+  "id": "R02",
+  "desc": "the hash misses the last byte of every block",
+  "old": "hash.AppendData(block.AsSpan(0, take));",
+  "new": "hash.AppendData(block.AsSpan(0, take - 1));"
+ },
+ {
+  "id": "R03",
+  "desc": "the width is computed for sigma - 1",
+  "old": "int bits = Math.Max(1, PackedText.BitsFor(letters.Count));",
+  "new": "int bits = Math.Max(1, PackedText.BitsFor(letters.Count - 1));"
+ },
+ {
+  "id": "R04",
+  "desc": "the dense symbols follow decreasing byte order",
+  "old": "for (int v = 0; v < 256; v++)\n        {\n            if (counts[v] == 0) continue;",
+  "new": "for (int v = 255; v >= 0; v--)\n        {\n            if (counts[v] == 0) continue;"
+ },
+ {
+  "id": "R05",
+  "desc": "a block that is not a multiple of 8 is accepted",
+  "old": "blockSymbols % BlockMultiple != 0",
+  "new": "false"
+ },
+ {
+  "id": "R06",
+  "desc": "a block of zero symbols is accepted",
+  "old": "blockSymbols < BlockMultiple ||",
+  "new": "blockSymbols < 0 ||"
+ },
+ {
+  "id": "R07",
+  "desc": "the second pass does not compare its counts with the first",
+  "old": "if (seen[s] != counts[letters[s]]) throw",
+  "new": "if (false) throw"
+ },
+ {
+  "id": "R08",
+  "desc": "the second pass compares the wrong counts",
+  "old": "seen[s] != counts[letters[s]]",
+  "new": "seen[s] != counts[s]"
+ },
+ {
+  "id": "R09",
+  "desc": "the hook between the passes is not called",
+  "old": "        betweenPasses?.Invoke();\n",
+  "new": ""
+ },
+ {
+  "id": "R10",
+  "desc": "the position check always fails",
+  "old": "if (writer.Position != dataBytes) throw",
+  "new": "if (writer.Position == dataBytes) throw"
+ },
+ {
+  "id": "R11",
+  "desc": "the last partial byte of a block is truncated",
+  "old": "int bytes = (int)PackedText.DataBytes(take, bits);",
+  "new": "int bytes = (int)((long)take * bits / 8);"
+ },
+ {
+  "id": "R12",
+  "desc": "the packed file has no padding",
+  "old": "PackedText.TotalBytes(n, bits), windowBytes)",
+  "new": "PackedText.DataBytes(n, bits), windowBytes)"
+ },
+ {
+  "id": "R13",
+  "desc": "the letters are not in the metadata",
+  "old": "letters_hex={Convert.ToHexString(Letters)}\\n",
+  "new": ""
+ },
+ {
+  "id": "R14",
+  "desc": "the metadata gives the width as sigma",
+  "old": "sigma={Sigma}\\n",
+  "new": "sigma={Bits}\\n"
+ },
+ {
+  "id": "R15",
+  "desc": "the second pass reads one byte less per block",
+  "old": "input.ReadExactAt(block.AsSpan(0, take), at);\n                for (int i = 0; i < take; i++)",
+  "new": "input.ReadExactAt(block.AsSpan(0, take - 1), at);\n                for (int i = 0; i < take; i++)"
+ },
+ {
+  "id": "R16",
+  "desc": "the sigma-th letter is lost: the counts list drops the last symbol",
+  "old": "[.. letters.Select(l => counts[l])]",
+  "new": "[.. letters.Select(l => counts[l]).SkipLast(1)]"
+ },
+ {
+  "id": "R17",
+  "desc": "the number of symbols is the length of the file minus one",
+  "old": "long n = new FileInfo(inputPath).Length;",
+  "new": "long n = new FileInfo(inputPath).Length - 1;"
+ }
+]

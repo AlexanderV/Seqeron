@@ -72,6 +72,8 @@ public class ScaleRulesTests
     [Test]
     public void TinyN_HitsTheFloors()
     {
+        EndToEndParameters q = ScaleRules.Resolve(100, Opts(3_000_000_000));
+        Assert.That((q.DcsBucketCapacity, q.DcsBaseCase, q.DcsChunkSlots, q.DcsSortCapacity, q.DcsRunSpillBytes), Is.EqualTo((3L, 4L, 16L, 3L, 0)), "N_base has a floor of 4");
         EndToEndParameters p = ScaleRules.Resolve(1000, Opts(3_000_000_000));
         Assert.That((p.DcsBucketCapacity, p.DcsBaseCase, p.DcsChunkSlots, p.DcsSortCapacity, p.DcsRunSpillBytes), Is.EqualTo((3L, 6L, 16L, 3L, 0)));
         Assert.That(p.BucketCapacity, Is.EqualTo(2), "K has a floor of 2 (a bucket of one position cannot be split)");

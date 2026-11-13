@@ -17,6 +17,9 @@ namespace SuffixTree.EmProto.Experiments;
 /// </summary>
 internal static class E6
 {
+    /// <summary>Gate G2: RssAnon at most 256 MB including the .NET runtime and the thread stacks.</summary>
+    internal const double RssCapMb = 256;
+
     /// <summary><c>e6-mktext --family &lt;spec&gt; --out &lt;file&gt; [--data dir]</c>: the ASCII text of a family, one byte per symbol, as the benchmark inputs.</summary>
     internal static int MakeText(Options o, Report r)
     {
@@ -178,8 +181,8 @@ internal static class E6
         r.Row("E6", c, "node_count", s.NodeCount, "n", $"NODE_COUNT = 1 + I + n + 1 with I = {s.InternalCount} internal nodes");
         r.Row("E6", c, "lrs", s.LrsDepth, "symbols", $"LRS_DEPTH {s.LrsDepth}, LRS_RANK {s.LrsRank}; max LCP {s.MaxLcp}, stack peak {s.StackPeak}, spill written {s.Spill.BytesWritten} bytes");
         r.Row("E6", c, "sha256", res.Prepare.Sha256, "", "SHA-256 of the input text (PH0)");
-        bool ok = res.RssAnonPeakMb <= o.Double("rss-cap-mb", 256) && res.Clean;
-        r.Row("E6", c, "clean", res.Clean ? "yes" : "NO", "", $"scratch directory removed, no tracked scratch byte, no live arena byte; RssAnon within {o.Double("rss-cap-mb", 256)} MB: {(res.RssAnonPeakMb <= o.Double("rss-cap-mb", 256) ? "yes" : "NO")}");
+        bool ok = res.RssAnonPeakMb <= o.Double("rss-cap-mb", RssCapMb) && res.Clean;
+        r.Row("E6", c, "clean", res.Clean ? "yes" : "NO", "", $"scratch directory removed, no tracked scratch byte, no live arena byte; RssAnon within {o.Double("rss-cap-mb", RssCapMb)} MB: {(res.RssAnonPeakMb <= o.Double("rss-cap-mb", RssCapMb) ? "yes" : "NO")}");
         return ok;
     }
 

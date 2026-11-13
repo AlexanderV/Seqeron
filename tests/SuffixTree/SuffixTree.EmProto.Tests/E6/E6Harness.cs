@@ -183,10 +183,21 @@ public abstract class TempDirFixture
 {
     protected string Dir { get; private set; } = string.Empty;
 
+    /// <summary>
+    /// Where the runs of a test live: a memory file system when there is one (<c>/dev/shm</c>; the tiny-parameter runs msync and fsync tens of small files each, which on a disk costs 50 to 100 ms per run), else the system temp directory;
+    /// <c>EMPROTO_TEST_TMP</c> overrides. The tests that need a real file system (dirty pages of a mapping) use <see cref="Path.GetTempPath"/> themselves.
+    /// </summary>
+    internal static string TempRoot()
+    {
+        string? env = Environment.GetEnvironmentVariable("EMPROTO_TEST_TMP");
+        if (!string.IsNullOrEmpty(env)) return env;
+        return Directory.Exists("/dev/shm") ? "/dev/shm" : Path.GetTempPath();
+    }
+
     [SetUp]
     public void SetUpDir()
     {
-        Dir = Path.Combine(Path.GetTempPath(), "emproto-e6-" + Guid.NewGuid().ToString("N"));
+        Dir = Path.Combine(TempRoot(), "emproto-e6-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(Dir);
     }
 

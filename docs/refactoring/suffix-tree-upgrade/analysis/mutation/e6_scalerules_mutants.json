@@ -1,0 +1,122 @@
+[
+ {
+  "id": "S01",
+  "desc": "the references are truncated instead of rounded",
+  "old": "Math.Max(floor, (long)Math.Round(reference * f))",
+  "new": "Math.Max(floor, (long)(reference * f))"
+ },
+ {
+  "id": "S02",
+  "desc": "the factor is n / (ScaleN + 1)",
+  "old": "double f = scaled ? n / (double)o.ScaleN : 1.0;",
+  "new": "double f = scaled ? n / (double)(o.ScaleN + 1) : 1.0;"
+ },
+ {
+  "id": "S03",
+  "desc": "R of PH4 is rounded down",
+  "old": "(long)Math.Ceiling(E4.ChunkRef * f)",
+  "new": "(long)Math.Floor(E4.ChunkRef * f)"
+ },
+ {
+  "id": "S04",
+  "desc": "the reference K of PH3 is 2^20",
+  "old": "(long)((decimal)n * BucketReference / o.ScaleN)",
+  "new": "(long)((decimal)n * BucketUnscaled / o.ScaleN)"
+ },
+ {
+  "id": "S05",
+  "desc": "K has a floor of one",
+  "old": "Math.Max(2, t.BucketCapacity",
+  "new": "Math.Max(1, t.BucketCapacity"
+ },
+ {
+  "id": "S06",
+  "desc": "the B2 workers are not limited by the threads",
+  "old": "Math.Clamp(o.ArenaCapBytes / Math.Max(1, perTask), 1, o.Threads)",
+  "new": "Math.Clamp(o.ArenaCapBytes / Math.Max(1, perTask), 1, 64)"
+ },
+ {
+  "id": "S07",
+  "desc": "the B2 workers are computed from the arena cap of PH5",
+  "old": "Math.Clamp(o.ArenaCapBytes / Math.Max(1, perTask), 1, o.Threads)",
+  "new": "Math.Clamp(o.ChildArenaCapBytes / Math.Max(1, perTask), 1, o.Threads)"
+ },
+ {
+  "id": "S08",
+  "desc": "an explicit R of PH4 is ignored",
+  "old": "long chunk = t.LcpChunk ?? (scaled",
+  "new": "long chunk = (scaled"
+ },
+ {
+  "id": "S09",
+  "desc": "the run spill has a floor of 3",
+  "old": "Scale(RunSpillReference, 0)",
+  "new": "Scale(RunSpillReference, 3)"
+ },
+ {
+  "id": "S10",
+  "desc": "N_base has no floor of 4",
+  "old": "Math.Max(4, t.DcsBaseCase ?? Scale(E3b.BaseRef, 4))",
+  "new": "Math.Max(1, t.DcsBaseCase ?? Scale(E3b.BaseRef, 1))"
+ },
+ {
+  "id": "S11",
+  "desc": "unscaled runs use the scale rule with a factor of one on ScaleN 0 (division by zero)",
+  "old": "bool scaled = o.ScaleN > 0;",
+  "new": "bool scaled = o.ScaleN >= 0;"
+ },
+ {
+  "id": "S12",
+  "desc": "the PH1 fan-out default is 64",
+  "old": "t.DcsFanOut ?? 1024",
+  "new": "t.DcsFanOut ?? 64"
+ },
+ {
+  "id": "S13",
+  "desc": "the PH3 fan-out default is 16",
+  "old": "FanOut = t.FanOut ?? 64,",
+  "new": "FanOut = t.FanOut ?? 16,"
+ },
+ {
+  "id": "S14",
+  "desc": "the stack block default is 64 K entries",
+  "old": "t.BlockEntries ?? 256 * 1024",
+  "new": "t.BlockEntries ?? 64 * 1024"
+ },
+ {
+  "id": "S15",
+  "desc": "the unscaled K of PH3 is the reference of the scaled one",
+  "old": "(scaled ? (long)((decimal)n * BucketReference / o.ScaleN) : BucketUnscaled)",
+  "new": "(scaled ? (long)((decimal)n * BucketReference / o.ScaleN) : BucketReference)"
+ },
+ {
+  "id": "S16",
+  "desc": "the windows of CHILD default to 8 slots of 64 KiB",
+  "old": "t.ChildWindowBytes ?? 1 << 20",
+  "new": "t.ChildWindowBytes ?? 1 << 16"
+ },
+ {
+  "id": "S17",
+  "desc": "the spill flush default is 1 MiB",
+  "old": "t.SpillFlushBytes ?? 16L << 20",
+  "new": "t.SpillFlushBytes ?? 1L << 20"
+ },
+ {
+  "id": "S18",
+  "desc": "the PH1 sort capacity is scaled from the PH1 chunk reference",
+  "old": "Scale(E3b.SortKRef, 3)",
+  "new": "Scale(E3b.ChunkRef, 3)"
+ },
+ {
+  "id": "S19",
+  "desc": "the PH1 bucket capacity is scaled from the base-case reference",
+  "old": "Scale(E3b.KsRef, 3)",
+  "new": "Scale(E3b.BaseRef, 3)"
+ },
+ {
+  "id": "S20",
+  "desc": "the reservoir default is 1024",
+  "old": "t.DcsReservoir ?? 16384",
+  "new": "t.DcsReservoir ?? 1024"
+ }
+]

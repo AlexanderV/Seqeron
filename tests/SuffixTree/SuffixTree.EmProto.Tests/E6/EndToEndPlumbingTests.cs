@@ -129,6 +129,7 @@ public class EndToEndPlumbingTests : TempDirFixture
         var report = new Report(null);
         Assert.That(E6.MakeText(Options.Parse(["--family", "genome:150000", "--out", text]), report), Is.EqualTo(0));
         Assert.That(new FileInfo(text).Length, Is.EqualTo(150_000));
+        Assert.That(File.ReadAllBytes(text).All(b => "ACGNT".Contains((char)b)), Is.True, "the input text is ASCII letters, as the benchmark inputs");
         string refPk = Path.Combine(Dir, "ref.pk");
         string refSa = Path.Combine(Dir, "ref.sa");
         string refLcp = Path.Combine(Dir, "ref.lcp");
@@ -154,10 +155,18 @@ public class EndToEndPlumbingTests : TempDirFixture
         }
         string stats = Path.Combine(Dir, "ref.stats");
         string[] lines = File.ReadAllLines(stats);
-        File.WriteAllLines(stats, lines.Select(l => l.StartsWith("lrsdepth=", StringComparison.Ordinal) ? "lrsdepth=1" : l));
-        Assert.That(E6.Run(Options.Parse(args), report), Is.EqualTo(1), "different statistics fail the run");
+        foreach (string key in new[] { "nodecount", "internal", "lrsdepth", "lrsrank" })
+        {
+            File.WriteAllLines(stats, lines.Select(l => l.StartsWith(key + "=", StringComparison.Ordinal) ? key + "=1" : l));
+            Assert.That(E6.Run(Options.Parse(args), report), Is.EqualTo(1), $"a different {key} fails the run");
+        }
         File.WriteAllLines(stats, lines);
         Assert.That(E6.Run(Options.Parse(args), report), Is.EqualTo(0));
+        string[] hashArgs = [.. args.Take(12)]; // input, out, scratch, threads, scale-n and the RssAnon cap
+        string kernelHash = SaHash.ComputeFile(refSa);
+        Assert.That(E6.Run(Options.Parse([.. hashArgs, "--verify-sa-hash", kernelHash]), report), Is.EqualTo(0), "the hash of SA[1..n] equals the kernel's");
+        Assert.That(E6.Run(Options.Parse([.. hashArgs, "--verify-sa-hash", new string('0', 64)]), report), Is.EqualTo(1), "a wrong hash fails the run");
+        Assert.That(File.Exists(Path.Combine(Dir, "o.sa")), Is.True);
     }
 
     [Test]
@@ -195,6 +204,47 @@ public class EndToEndPlumbingTests : TempDirFixture
         Assert.That(counted, Is.GreaterThan(30L * 20_000), "SA + LCP + CHILD + the tuples of PH4 and the buckets of PH3 are counted");
         Assert.That(counted, Is.LessThan(100L * 20_000), "gate G3: at most 100 B/char");
         Assert.That(v["clean"], Is.EqualTo("yes"));
+
+        // the derived rows are what their names say
+        const long n = 20_000;
+        double total = double.Parse(v["total_s"], CultureInfo.InvariantCulture);
+        Assert.That(double.Parse(v["ns_per_symbol"], CultureInfo.InvariantCulture), Is.EqualTo(total * 1e9 / n).Within(total * 1e9 / n * 1e-3));
+        Assert.That(double.Parse(v["throughput"], CultureInfo.InvariantCulture), Is.EqualTo(n / total / 1e6).Within(n / total / 1e6 * 1e-3));
+        Assert.That(EndToEnd.StagePhases.Sum(ph => double.Parse(v[ph + "_share"], CultureInfo.InvariantCulture)), Is.EqualTo(1.0).Within(1e-3), "the shares of the stage phases add up to one");
+        long mappedPhases = EndToEnd.StagePhases.Sum(ph => long.Parse(v[ph + "_io_mapped_write"], CultureInfo.InvariantCulture));
+        Assert.That(long.Parse(v["io_mapped_write"], CultureInfo.InvariantCulture), Is.EqualTo(mappedPhases + (4L * (n + 1))), "the mapped writes of the phases plus CHILD");
+        long explicitRead = EndToEnd.StagePhases.Sum(ph => long.Parse(v[ph + "_io_explicit_read"], CultureInfo.InvariantCulture));
+        long explicitWrite = EndToEnd.StagePhases.Sum(ph => long.Parse(v[ph + "_io_explicit_write"], CultureInfo.InvariantCulture));
+        Assert.That(long.Parse(v["io_explicit_read"], CultureInfo.InvariantCulture), Is.EqualTo(explicitRead));
+        Assert.That(long.Parse(v["io_explicit_write"], CultureInfo.InvariantCulture), Is.EqualTo(explicitWrite));
+        Assert.That(long.Parse(v["io_total_counted"], CultureInfo.InvariantCulture), Is.EqualTo(explicitRead + explicitWrite + mappedPhases + (4L * (n + 1))));
+        long footprint = new[] { "pk", "pk.meta", "sa", "lcp", "ovf", "cld", "stats" }.Sum(e => new FileInfo(Path.Combine(Dir, "o." + e)).Length);
+        Assert.That(long.Parse(v["output_bytes"], CultureInfo.InvariantCulture), Is.EqualTo(footprint));
+        Assert.That(long.Parse(v["file_sa"], CultureInfo.InvariantCulture), Is.EqualTo(4L * (n + 1)));
+        Assert.That(long.Parse(v["file_cld"], CultureInfo.InvariantCulture), Is.EqualTo(4L * (n + 1)));
+        Assert.That(long.Parse(v["node_count"], CultureInfo.InvariantCulture), Is.EqualTo(ReadStats(Path.Combine(Dir, "o.stats"))["nodecount"]));
+        Assert.That(long.Parse(v["n"], CultureInfo.InvariantCulture), Is.EqualTo(n));
+        Assert.That(v["sha256"], Is.EqualTo(Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(text)))));
+    }
+
+    private static Dictionary<string, long> ReadStats(string path) => PipelineChecks.ReadKeyValues(path).ToDictionary(p => p.Key, p => long.Parse(p.Value, CultureInfo.InvariantCulture));
+
+    [Test]
+    public void TheDefaultRssCap_IsThe256MbOfGateG2()
+    {
+        Assert.That(E6.RssCapMb, Is.EqualTo(256.0));
+    }
+
+    [Test]
+    public void TheScratchPeak_IsThatOfTheRunItself_NotOfAnEarlierRunInTheProcess()
+    {
+        string big = Run("big");
+        EndToEndResult a = EndToEnd.Run(PipelineChecks.Options(big, StringFamilies.RandomDna(30_000, 1), 2, 2));
+        string small = Run("small");
+        EndToEndResult b = EndToEnd.Run(PipelineChecks.Options(small, StringFamilies.RandomDna(3_000, 1), 2, 2));
+        Assert.That(a.ScratchPeakBytes, Is.GreaterThanOrEqualTo(12L * 30_000));
+        Assert.That(b.ScratchPeakBytes, Is.LessThan(13L * 3_000), "the tracker is reset at the start of a run");
+        Assert.That(b.ScratchPeakBytes, Is.GreaterThanOrEqualTo(12L * 3_000));
     }
 
     [Test]
@@ -217,7 +267,9 @@ public class EndToEndPlumbingTests : TempDirFixture
     public void TheDirtySamplerAddition_SeesTheDirtyPagesOfAMappedFile_ThenResets()
     {
         if (!File.Exists("/proc/self/smaps")) Assert.Ignore("Linux only");
-        string path = Path.Combine(Dir, "mapped.bin");
+        string real = Path.Combine(Path.GetTempPath(), "emproto-e6-dirty-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(real);
+        string path = Path.Combine(real, "mapped.bin");
         using var sampler = new DirtySampler(2, filePrefix: path);
         sampler.Start();
         sampler.TakePhaseMax();
@@ -230,6 +282,7 @@ public class EndToEndPlumbingTests : TempDirFixture
             Assert.That(dirty, Is.GreaterThanOrEqualTo(0));
         }
         sampler.Stop();
+        Directory.Delete(real, true);
     }
 
     [Test]
