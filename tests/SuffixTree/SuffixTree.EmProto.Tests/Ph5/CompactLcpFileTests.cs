@@ -26,7 +26,8 @@ public class CompactLcpFileTests
         yield return ("u8-with-escapes", U8WithEscapes(), LcpKind.U8);
         yield return ("fibonacci", StringFamilies.Fibonacci(4000), LcpKind.U8);
         yield return ("runs", StringFamilies.Runs(5000, 256, 3), LcpKind.U8);
-        yield return ("all-same-70k", StringFamilies.AllSame(70_000), LcpKind.U32);
+        yield return ("all-same-70k", StringFamilies.AllSame(70_000), LcpKind.U16);
+        yield return ("all-same-150k", StringFamilies.AllSame(150_000), LcpKind.U32);
         yield return ("period-300", string.Concat(Enumerable.Repeat(StringFamilies.RandomDna(300, 9), 40)), LcpKind.U16);
     }
 

@@ -87,5 +87,8 @@ internal sealed class CountedFile : IDisposable
 
     internal void SetLength(long length) => RandomAccess.SetLength(_handle, length);
 
+    /// <summary>Forces the written data to storage (fsync): bounds the dirty pages of a scratch file that is written once and read back later.</summary>
+    internal void Flush() => RandomAccess.FlushToDisk(_handle);
+
     public void Dispose() => _handle.Dispose();
 }

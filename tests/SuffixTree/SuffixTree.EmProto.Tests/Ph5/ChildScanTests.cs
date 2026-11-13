@@ -142,7 +142,9 @@ public class ChildScanTests
             Assert.That(f.Spill.PeakFileBytes, Is.EqualTo(blocks * block * 16));
             Assert.That(f.Spill.BlocksRead, Is.EqualTo(blocks), "every spilled block is read back once");
             long expected = 16L * (f.MaxLcp + 1);
-            Assert.That(expected - f.Spill.BytesWritten, Is.InRange(16L * (block + 1), 16L * 2 * block), "spill = 16 B x (max LCP + 1) up to two blocks");
+            // the entries that stay in RAM at the peak: between B + 1 and 2 B once the stack has left its two blocks, at most B before
+            long inRam = (expected - f.Spill.BytesWritten) / 16;
+            Assert.That(inRam, blocks > 0 ? Is.InRange(block + 1, 2 * block) : Is.InRange(1, 2 * block), "spill = 16 B x (max LCP + 1) up to two blocks");
         }
     }
 
@@ -235,8 +237,8 @@ public class ChildScanTests
     public void Scratch_IsEmptyAfterTheScan_AndWindowsStayWithinTheirSlots()
     {
         ChildReference r = ChildReference.Of(StringFamilies.Fibonacci(20_000));
-        ChildBuildStats st = ChildChecks.RunAndCompare(r, ChildChecks.Tiny(Scratch, blockEntries: 16, windowBytes: 256, slots: 3), _dir, "fib");
-        Assert.That(st.Forward.ChildWindows.Opened, Is.GreaterThan(st.Forward.ChildWindows.DistinctWindows - 1));
+        ChildBuildStats st = ChildChecks.RunAndCompare(r, ChildChecks.Tiny(Scratch, blockEntries: 4, windowBytes: 256, slots: 3), _dir, "fib");
+        Assert.That(st.Forward.ChildWindows.Opened, Is.GreaterThanOrEqualTo(st.Forward.ChildWindows.DistinctWindows));
         Assert.That(st.Forward.ChildWindows.Evictions, Is.GreaterThan(0), "the small window set was recycled");
         Assert.That(st.Forward.Spill.BlocksWritten, Is.GreaterThan(0));
     }
