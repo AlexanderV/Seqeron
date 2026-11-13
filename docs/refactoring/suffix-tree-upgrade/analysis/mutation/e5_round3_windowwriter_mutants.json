@@ -1,0 +1,8 @@
+[
+ {
+  "id": "W07b",
+  "desc": "Write cuts the piece one window too late (replaces W07)",
+  "old": "int take = (int)Math.Min(data.Length, _slots[HotSlot()].Size - inside);",
+  "new": "int take = (int)Math.Min(data.Length, _slots[HotSlot()].Size - inside + _window);"
+ }
+]

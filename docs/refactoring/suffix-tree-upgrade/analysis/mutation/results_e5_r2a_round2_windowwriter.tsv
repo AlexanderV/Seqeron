@@ -1,0 +1,4 @@
+W07b	Write cuts the piece one window too late (replaces W07)	survived	survived
+W09b	evictions are not counted (replaces W09)	killed(2)	
+W13b	writes are not counted (replaces W13)	killed(3)	
+W14b	distinct windows are not counted (replaces W14)	killed(2)	

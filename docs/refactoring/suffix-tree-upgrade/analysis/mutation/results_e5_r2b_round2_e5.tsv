@@ -1,0 +1,4 @@
+E07b	the statistics comparison ignores NODE_COUNT (replaces E07)	killed(1)	
+E12b	the fused scan is created for a text one symbol longer (replaces E12)	killed(3)	
+E08	the statistics comparison ignores LRS_RANK (re-run of round 1)	killed(1)	
+E11	the scan result of the NEXTSYM verification is ignored (re-run of round 1)	killed(1)	

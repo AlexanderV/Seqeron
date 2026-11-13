@@ -1,0 +1,6 @@
+S03b	every evicted block is written, also a clean one (replaces S03)	killed(1)	
+S04b	the block below is always dirty after an advance (replaces S04)	killed(1)	
+S16b	blocks read are not counted (replaces S16)	killed(9)	
+S17b	bytes written are not counted (replaces S17)	killed(8)	
+S19b	the file high-water mark is one block low (replaces S19)	killed(20)	
+S05	a block that was read back is dirty (re-run of round 1)	killed(1)	

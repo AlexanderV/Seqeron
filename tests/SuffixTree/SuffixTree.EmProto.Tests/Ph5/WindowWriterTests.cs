@@ -137,6 +137,27 @@ public class WindowWriterTests
     }
 
     [Test]
+    public void ByteWrites_CrossWindowsOfAWholePage_WithoutLeavingTheMapping()
+    {
+        // windows of one page each: a piece that runs past the end of its window must be cut there, the rest goes to the next window (a window smaller than a page hides the error: the page is mapped around it)
+        const int window = 4096;
+        string path = Path.Combine(_dir, "bp.bin");
+        var model = new byte[3 * window];
+        using (var w = new AlignedWindowWriter(path, model.Length, window, 2, true))
+        {
+            var rng = new Random(9);
+            foreach (int offset in new[] { window - 6, (2 * window) - 1, 100, window - 1, (2 * window) - 20 })
+            {
+                var data = new byte[Math.Min(30, model.Length - offset)];
+                rng.NextBytes(data);
+                w.Write(offset, data);
+                data.CopyTo(model, offset);
+            }
+        }
+        Assert.That(File.ReadAllBytes(path), Is.EqualTo(model));
+    }
+
+    [Test]
     public void WritesOutsideTheFile_AndBadParameters_AreRefused()
     {
         using var w = new AlignedWindowWriter(Path.Combine(_dir, "o.bin"), 40, 16, 2, true);
