@@ -384,7 +384,7 @@ public class ChildComponentTests
         var report = new Report(rows);
         string reference = Path.Combine(_dir, "ref");
         Assert.That(E5.Oracle(Options.Parse(["--text", pk, "--lcp", lcp, "--out", reference, "--sa", sa]), report), Is.EqualTo(0));
-        List<string> args = ["--text", pk, "--lcp", lcp, "--out", Path.Combine(_dir, "out"), "--scratch", Path.Combine(_dir, "scratch"), "--layout", layout, "--codec", codec, "--verify", reference, "--case", "t", "--block-entries", "64", "--window-kb", "4", "--slots", "3", "--io-kb", "2", "--spill-flush-mb", "0", "--sa", sa, "--nextsym"];
+        List<string> args = ["--text", pk, "--lcp", lcp, "--out", Path.Combine(_dir, "out"), "--scratch", Path.Combine(_dir, "scratch"), "--layout", layout, "--codec", codec, "--verify", reference, "--case", "t", "--block-entries", "64", "--window-kb", "4", "--slots", "3", "--io-kb", "2", "--spill-flush-mb", "0", "--sa", sa, "--nextsym", "--rss-cap-mb", "100000"];
         if (parallel) args.Add("--parallel-nsv");
         Assert.That(E5.Build(Options.Parse([.. args]), report), Is.EqualTo(0), "equal to the in-RAM reference, no scratch left, budget balanced");
         string text = File.ReadAllText(rows);
@@ -403,11 +403,11 @@ public class ChildComponentTests
         (string pk, _, string lcp) = Prepare("genome:100000");
         string rows = Path.Combine(_dir, "rows.tsv");
         var report = new Report(rows);
-        string[] args = ["--text", pk, "--lcp", lcp, "--out", Path.Combine(_dir, "out"), "--scratch", Path.Combine(_dir, "scratch"), "--layout", "a", "--window-kb", "4", "--slots", "2", "--no-flush", "--case", "noflush"];
+        string[] args = ["--text", pk, "--lcp", lcp, "--out", Path.Combine(_dir, "out"), "--scratch", Path.Combine(_dir, "scratch"), "--layout", "a", "--window-kb", "4", "--slots", "2", "--no-flush", "--rss-cap-mb", "100000", "--case", "noflush"];
         Assert.That(E5.Build(Options.Parse(args), report), Is.EqualTo(0));
         Assert.That(File.ReadAllText(rows), Does.Contain(" 0 flushes covering 0 bytes"));
         string withFlush = Path.Combine(_dir, "rows2.tsv");
-        Assert.That(E5.Build(Options.Parse([.. args[..^3], "--case", "flush"]), new Report(withFlush)), Is.EqualTo(0));
+        Assert.That(E5.Build(Options.Parse([.. args.Where(a => a != "--no-flush"), "--case", "flush"]), new Report(withFlush)), Is.EqualTo(0));
         Assert.That(File.ReadAllText(withFlush), Does.Not.Contain(" 0 flushes covering 0 bytes"));
     }
 
@@ -422,7 +422,7 @@ public class ChildComponentTests
         var report = new Report(rows);
         string reference = Path.Combine(_dir, "ref");
         Assert.That(E5.Oracle(Options.Parse(["--text", pk, "--lcp", lcp, "--out", reference]), report), Is.EqualTo(0));
-        string[] args = ["--fused", "--text", pk, "--sa", sa, "--out", Path.Combine(_dir, "out"), "--scratch", Path.Combine(_dir, "scratch"), "--scale-n", "3000000000", "--threads", "3", "--layout", layout, "--verify", reference, "--case", "t", "--block-entries", "32", "--window-kb", "4"];
+        string[] args = ["--fused", "--text", pk, "--sa", sa, "--out", Path.Combine(_dir, "out"), "--scratch", Path.Combine(_dir, "scratch"), "--scale-n", "3000000000", "--threads", "3", "--layout", layout, "--verify", reference, "--case", "t", "--block-entries", "32", "--window-kb", "4", "--rss-cap-mb", "100000"];
         Assert.That(E5.Build(Options.Parse(args), report), Is.EqualTo(0));
         string text = File.ReadAllText(rows);
         Assert.That(text, Does.Contain("fused with PH4=True").And.Contain("\tph4_parameters\t").And.Contain("\tstats_equal_oracle\tyes"));
@@ -441,7 +441,7 @@ public class ChildComponentTests
         byte[] child = File.ReadAllBytes(reference + ".cldT");
         child[4001] ^= 1;
         File.WriteAllBytes(reference + ".cldT", child);
-        string[] args = ["--text", pk, "--lcp", lcp, "--out", Path.Combine(_dir, "out"), "--scratch", Path.Combine(_dir, "scratch"), "--layout", "a", "--verify", reference];
+        string[] args = ["--text", pk, "--lcp", lcp, "--out", Path.Combine(_dir, "out"), "--scratch", Path.Combine(_dir, "scratch"), "--layout", "a", "--verify", reference, "--rss-cap-mb", "100000"];
         Assert.That(E5.Build(Options.Parse(args), report), Is.EqualTo(1));
         Assert.That(File.ReadAllText(rows), Does.Contain("\tchild_equals_oracle\tNO\t").And.Contain("first difference at byte 4001"));
         File.WriteAllLines(reference + ".stats", File.ReadAllLines(reference + ".stats").Select(l => l.StartsWith("nodecount=", StringComparison.Ordinal) ? "nodecount=1" : l));

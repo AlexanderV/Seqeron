@@ -231,3 +231,25 @@ R	E3	dna50r.sa_phase	dirty_peak	191.700992	MB	max /proc/meminfo Dirty (system-wi
 R	E3	dna50r.sa_phase	buckets	5962	n	leaves=5311, partitions=651, max depth=3, largest leaf=16656, retries=0; tie share 0.0000 %, rank lookups 10318
 R	E3	dna50r.sa_phase	phase_cpu_s	17.004584	s	summed over workers: partition 7.92, leaf sort 9.08
 R	E4	dna50r	kernel_s	1.838259	s	LcpKernel (three passes in RAM, one thread) on n=50000000; kind U8, overflow entries 0
+R	E5	setup	head	5a1c76601bf0eeff92b2bb459f44c522af7ee1ac		git rev-parse HEAD of the checkout when the inputs were made
+R	E3	a200.sa_phase	n	200000000	symbols	b=1 bits, K=66666 (n/3000), fan-out 64, threads=4, ranks: X=993 Singer |D|=32
+R	E3	a200.sa_phase	sa_s	67.284907	s	partition + sort, SA written through mapped windows (page cache), without fsync
+R	E3	a200.sa_phase	fsync_s	0.002811	s	flush of the SA file after the build
+R	E3	a200.sa_phase	ns_per_symbol	336.424534	ns	sa_s / n
+R	E3	a200.sa_phase	rssanon_peak	73.674752	MB	max RssAnon of 6727 samples at 10 ms; gate <= 256 MB incl. the .NET runtime and thread stacks (max threads 12)
+R	E3	a200.sa_phase	rssfile_peak	80.498688	MB	mapped file pages resident (text, ranks, SA windows): reported, not counted (ADR-004 section 6a)
+R	E3	a200.sa_phase	vmhwm	157.343744	MB	VmHWM (anonymous + file-backed resident), reported only
+R	E3	a200.sa_phase	gc_heap	33.375144	MB	managed heap at the end; GC total available memory 101 MB (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 16/3/2
+R	E3	a200.sa_phase	arena_peak	6.399936	MB	peak native buffers charged to the ArenaBudget (cap 160 MiB)
+R	E3	a200.sa_phase	io_explicit_read	1600262144	bytes	8.00 B/char; scratch position files and samples (81871 calls)
+R	E3	a200.sa_phase	io_explicit_write	1600000000	bytes	8.00 B/char (26317 calls)
+R	E3	a200.sa_phase	io_mapped_write	800000004	bytes	4.00 B/char: the SA, once, through the mapped windows (largest window 216336 bytes)
+R	E3	a200.sa_phase	io_total_counted	4000262148	bytes	20.00 B/char explicit I/O plus SA (text and rank reads through mappings come on top: see block-layer read_bytes)
+R	E3	a200.sa_phase	blocklayer_read	51601408	bytes	/proc/self/io read_bytes during the build (page-cache misses: cold text/rank pages and re-reads under a limit); 0.26 B/char
+R	E3	a200.sa_phase	blocklayer_write	2835877888	bytes	/proc/self/io write_bytes during the build (writeback caused by the process)
+R	E3	a200.sa_phase	page_faults	1091	major	minor 160048
+R	E3	a200.sa_phase	scratch_peak	842662956	bytes	4.21 B/char; files left in the scratch directory: 0
+R	E3	a200.sa_phase	dirty_peak	785.649664	MB	max /proc/meminfo Dirty (system-wide); max Cached 1434 MB; cgroup usage max 0 MB
+R	E3	a200.sa_phase	buckets	4161	n	leaves=4096, partitions=65, max depth=2, largest leaf=54084, retries=0; tie share 100.0000 %, rank lookups 8208421538
+R	E3	a200.sa_phase	phase_cpu_s	162.359647	s	summed over workers: partition 83.23, leaf sort 79.13
+R	E4	a200	kernel_s	1.652294	s	LcpKernel (three passes in RAM, one thread) on n=200000000; kind U32, overflow entries 0
