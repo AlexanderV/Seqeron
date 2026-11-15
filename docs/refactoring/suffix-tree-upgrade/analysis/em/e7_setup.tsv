@@ -20,3 +20,9 @@ R	E7	dna_200m	setup	reference_sizes	50000064 800000004 200000001 0 800000004 	by
 R	E7	setup	head	ba1fbc0ef8d70c1ba73199d3598baedf33998a99		git rev-parse HEAD of the checkout when the inputs were made
 R	E6	dna:500000000	text_file	500000000	bytes	500000000 symbols, sigma=4, letters 'ACGT', written to dna_500m.txt
 R	E3	dna:500000000	packed_file	125000064	bytes	n=500000000, sigma=4, b=2, 0.250 B/char
+R	E3	dna:500000000	oracle_sa_hash	d0ba551f9cf8e480fe5ddf800ae126c06b08d59753474ae7865aa1c2a852a719		SaisKernel in RAM on the same text, 77.07 s
+R	E4	dna_500m	kernel_s	31.548238	s	LcpKernel (three passes in RAM, one thread) on n=500000000; kind U8, overflow entries 0
+R	E5	dna_500m	oracle_child_s	16.663857	s	in-RAM ChildTable.Build, tagged and packed, n=500000000, LCP kind U8, overflow entries 0
+R	E5	dna_500m	oracle_smaller_s	17.167179	s	PSV and NSV of every rank from the LcpPyramid (fanout 32)
+R	E5	dna_500m	oracle_stats	810933159	n	NODE_COUNT 810933159, internal 310933157, LRS_DEPTH 29, LRS_RANK 461412445, in-RAM stack peak 19
+R	E7	dna_500m	setup	reference_sizes	125000064 500000001 0 2000000004 	bytes	pk lcp ovf cld of the references (the suffix array has 4 (n + 1) bytes)
