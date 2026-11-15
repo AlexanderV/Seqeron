@@ -50,6 +50,7 @@ internal static class E6
             ScratchDir = o.Require("scratch"),
             Threads = o.Int("threads", 4),
             ScaleN = o.Long("scale-n", 0),
+            RuleN = o.Long("rule-n", 0),
             Period = o.Int("period", 1024),
             ExactPeriod = o.Flag("exact"),
             Codec = codec,

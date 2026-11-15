@@ -105,6 +105,41 @@ public class ScaleRulesTests
         Assert.That(ScaleRules.Resolve(5_000, Opts(3_000_000_000)).LcpWorkers, Is.EqualTo(ScaleRules.Resolve(2_000_000_000, Opts(3_000_000_000)).LcpWorkers));
     }
 
+    // ---- E7, series A: the rule evaluated at a fixed reference n (--rule-n), so that every size runs with the values of one n
+
+    [TestCase(50_000_000L)]
+    [TestCase(100_000_000L)]
+    [TestCase(200_000_000L)]
+    [TestCase(500_000_000L)]
+    public void WithARuleN_EveryStageTakesTheValuesOfThatN_WhateverTheTextLength(long n)
+    {
+        EndToEndParameters fixedParams = ScaleRules.Resolve(n, Opts(3_000_000_000) with { RuleN = 100_000_000 });
+        EndToEndParameters atRef = ScaleRules.Resolve(100_000_000, Opts(3_000_000_000));
+        Assert.That(fixedParams, Is.EqualTo(atRef with { N = n }), "every size equals that of n = 10^8 (K_s 34,953, N_base 559,241, R 139,810, K_sort 34,953, run spill 2,185; K 33,333; R 266,667; 2 B2 tasks; PH5 block, window, slots)");
+        Assert.That((fixedParams.DcsBucketCapacity, fixedParams.DcsBaseCase, fixedParams.DcsChunkSlots, fixedParams.DcsSortCapacity, fixedParams.DcsRunSpillBytes), Is.EqualTo((34953L, 559241L, 139810L, 34953L, 2185)));
+        Assert.That((fixedParams.BucketCapacity, fixedParams.LcpChunk, fixedParams.LcpWorkers), Is.EqualTo((33333L, 266667L, 2)));
+        Assert.That(fixedParams.N, Is.EqualTo(n));
+        Assert.That(fixedParams.Factor, Is.EqualTo(1e8 / 3e9).Within(1e-15), "the factor of the rule, not n / ScaleN");
+        Assert.That(fixedParams.Scaled, Is.True);
+    }
+
+    [Test]
+    public void ARuleN_OfZero_IsTheRuleOfTheTextLength_AndItIsIgnoredWithoutAScale()
+    {
+        Assert.That(ScaleRules.Resolve(200_000_000, Opts(3_000_000_000) with { RuleN = 0 }), Is.EqualTo(ScaleRules.Resolve(200_000_000, Opts(3_000_000_000))));
+        EndToEndParameters unscaled = ScaleRules.Resolve(200_000_000, Opts(0) with { RuleN = 100_000_000 });
+        Assert.That(unscaled, Is.EqualTo(ScaleRules.Resolve(200_000_000, Opts(0))), "unscaled runs use the reference values, a rule n changes nothing");
+        Assert.That(unscaled.Scaled, Is.False);
+    }
+
+    [Test]
+    public void ARuleN_StillLosesToAnExplicitValue_AndNegativeIsRefused()
+    {
+        EndToEndParameters p = ScaleRules.Resolve(200_000_000, Opts(3_000_000_000, new EndToEndTuning { BucketCapacity = 7, LcpChunk = 9 }) with { RuleN = 100_000_000 });
+        Assert.That((p.BucketCapacity, p.LcpChunk, p.DcsBucketCapacity), Is.EqualTo((7L, 9L, 34953L)));
+        Assert.Throws<ArgumentOutOfRangeException>(() => ScaleRules.Resolve(10, Opts(3_000_000_000) with { RuleN = -1 }));
+    }
+
     [Test]
     public void TheConstants_AreThoseOfTheStageCommands()
     {

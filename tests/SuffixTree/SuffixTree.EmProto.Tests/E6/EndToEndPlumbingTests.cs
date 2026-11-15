@@ -106,6 +106,19 @@ public class EndToEndPlumbingTests : TempDirFixture
     }
 
     [Test]
+    public void ARuleN_ChangesTheParametersOfAnEndToEndRun_NotItsOutput()
+    {
+        string text = StringFamilies.RandomDna(30_000, 33);
+        string d = Run("r");
+        EndToEndOptions o = PipelineChecks.Options(d, text, 3, 2) with { ScaleN = 3_000_000_000, Tuning = new EndToEndTuning(), Period = 64, RuleN = 6_000_000 };
+        EndToEndResult res = PipelineChecks.RunAndCompare(ChildReference.Of(text), o, "rule n 6 M on a text of 30,000");
+        Assert.That(res.Parameters, Is.EqualTo(ScaleRules.Resolve(6_000_000, o) with { N = 30_000 }), "the run used the values of n = 6 M");
+        Assert.That(res.Parameters.BucketCapacity, Is.EqualTo(2000), "6 M / 3000");
+        Assert.That(res.Parameters.LcpChunk, Is.EqualTo(16_000), "ceil(8,000,000 x 6 M / 3x10^9)");
+        Assert.That(res.Build.Leaves, Is.GreaterThan(1), "K = 2000 on 30,000 positions: several buckets");
+    }
+
+    [Test]
     public void TheCommandLine_BecomesTheOptions()
     {
         EndToEndOptions o = E6.ParseOptions(Options.Parse(["--input", "i.txt", "--out", "o", "--scratch", "s", "--threads", "3", "--scale-n", "3000000000", "--period", "64", "--exact", "--codec", "tagged", "--budget-mb", "100", "--ph5-budget-mb", "20", "--no-sync", "--touch-buffers"]));
@@ -117,6 +130,8 @@ public class EndToEndPlumbingTests : TempDirFixture
         EndToEndTuning t = E6.ParseOptions(Options.Parse(["--input", "i", "--out", "o", "--scratch", "s", "--k", "11", "--fan", "3", "--k-s", "12", "--nbase", "13", "--dcs-chunk", "14", "--sort-k", "15", "--chunk", "16", "--b2-workers", "2", "--block-entries", "17", "--slots", "3", "--window-kb", "4", "--spill-kb", "5", "--io-kb", "6", "--tuple-kb", "7", "--child-window-kb", "8", "--prepare-block", "24", "--spill-flush-mb", "2"])).Tuning;
         Assert.That((t.BucketCapacity, t.FanOut, t.DcsBucketCapacity, t.DcsBaseCase, t.DcsChunkSlots, t.DcsSortCapacity, t.LcpChunk, t.LcpWorkers, t.BlockEntries, t.ChildSlots), Is.EqualTo((11L, 3, 12L, 13L, 14L, 15L, 16L, 2, 17, 3)));
         Assert.That((t.WindowBytes, t.SpillBytes, t.LcpReadBytes, t.LcpTupleBytes, t.ChildWindowBytes, t.PrepareBlockSymbols, t.SpillFlushBytes), Is.EqualTo((4096, 5120, 6144, 7168, 8192, 24, 2L << 20)));
+        Assert.That(d.RuleN, Is.EqualTo(0L), "no rule n unless given");
+        Assert.That(E6.ParseOptions(Options.Parse(["--input", "i", "--out", "o", "--scratch", "s", "--scale-n", "3000000000", "--rule-n", "100000000"])).RuleN, Is.EqualTo(100_000_000L));
         Assert.Throws<ArgumentException>(() => E6.ParseOptions(Options.Parse(["--input", "i", "--out", "o", "--scratch", "s", "--codec", "zip"])));
         Assert.Throws<ArgumentException>(() => E6.ParseOptions(Options.Parse(["--out", "o", "--scratch", "s"])));
     }

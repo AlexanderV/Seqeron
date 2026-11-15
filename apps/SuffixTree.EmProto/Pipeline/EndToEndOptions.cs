@@ -103,6 +103,12 @@ internal sealed record EndToEndOptions
     /// </summary>
     internal long ScaleN { get; init; }
 
+    /// <summary>
+    /// E7 series A: the n at which the scale-down rule is evaluated (0 = the text length, as in E6). With <c>ScaleN = 3x10^9</c> and <c>RuleN = 10^8</c> every text, whatever its length, runs with the sizes that the rule gives at
+    /// 10^8 symbols (fixed memory budgets, n / K and n / R growing with the text). Ignored when <see cref="ScaleN"/> is 0 (the unscaled run uses the reference values).
+    /// </summary>
+    internal long RuleN { get; init; }
+
     /// <summary>X of the difference cover (nominal; a Singer period nearby is used unless <see cref="ExactPeriod"/>).</summary>
     internal int Period { get; init; } = 1024;
 
@@ -217,9 +223,11 @@ internal static class ScaleRules
     {
         ArgumentOutOfRangeException.ThrowIfNegative(n);
         ArgumentOutOfRangeException.ThrowIfNegative(o.ScaleN);
+        ArgumentOutOfRangeException.ThrowIfNegative(o.RuleN);
         EndToEndTuning t = o.Tuning;
         bool scaled = o.ScaleN > 0;
-        double f = scaled ? n / (double)o.ScaleN : 1.0;
+        long ruleN = o.RuleN > 0 ? o.RuleN : n; // E7 series A: the rule is evaluated at a fixed n
+        double f = scaled ? ruleN / (double)o.ScaleN : 1.0;
         long Scale(long reference, long floor) => scaled ? Math.Max(floor, (long)Math.Round(reference * f)) : reference;
 
         // PH4: workers from the reference geometry (R = 8,000,000 at 3x10^9), as E4 and the fused E5 do
@@ -242,7 +250,7 @@ internal static class ScaleRules
             DcsReservoir = t.DcsReservoir ?? 16384,
             DcsIoBytes = t.DcsIoBytes ?? 64 * 1024,
             DcsMergeBudget = t.DcsMergeBudget ?? 16L << 20,
-            BucketCapacity = Math.Max(2, t.BucketCapacity ?? (scaled ? (long)((decimal)n * BucketReference / o.ScaleN) : BucketUnscaled)),
+            BucketCapacity = Math.Max(2, t.BucketCapacity ?? (scaled ? (long)((decimal)ruleN * BucketReference / o.ScaleN) : BucketUnscaled)),
             FanOut = t.FanOut ?? 64,
             Oversample = t.Oversample ?? 16,
             SpillBytes = t.SpillBytes ?? 64 * 1024,

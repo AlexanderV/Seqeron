@@ -28,9 +28,9 @@ internal static class Cli
           e5-oracle --text <packed> --lcp <prefix> --out <prefix> [--sa <sa file>]   the reference files (.cldT .cldP .psv .nsv .stats, .nsym with --sa) from the in-RAM structures of the product (n < 2^31)
           lcp-oracle --text <packed> --sa <sa file> --out <prefix>   the same two files from the in-RAM LcpKernel (n < 2^31)
           check-lcp  --text <packed> --sa <sa file> --lcp <prefix> [--samples 1000] [--seed s]   structure of the overflow list and sampled ranks against a direct comparison of the text
-          e6       --input <text file, one byte per symbol> --out <prefix> --scratch <dir> [--threads 4] [--scale-n 3000000000] [--period 1024 [--exact]] [--codec packed|tagged] [--budget-mb 160] [--ph5-budget-mb 64]
+          e6       --input <text file, one byte per symbol> --out <prefix> --scratch <dir> [--threads 4] [--scale-n 3000000000 [--rule-n 100000000]] [--period 1024 [--exact]] [--codec packed|tagged] [--budget-mb 160] [--ph5-budget-mb 64]
                    [--no-sync] [--touch-buffers] [--case name] [--series <file>] [--rss-cap-mb 256]
-                   [--k K] [--fan F] [--k-s K] [--nbase N] [--dcs-chunk R] [--sort-k K] [--chunk R] [--b2-workers w] [--block-entries b] [--slots s] [--window-kb w] [--prepare-block symbols] ...  (explicit values win over the scale rule)
+                   [--k K] [--fan F] [--k-s K] [--nbase N] [--dcs-chunk R] [--sort-k K] [--chunk R] [--b2-workers w] [--block-entries b] [--slots s] [--window-kb w] [--prepare-block symbols] ...  (explicit values win over the scale rule; --rule-n evaluates the rule at a fixed n for every text: E7 series A)
                    [--verify-pk <packed file>] [--verify-sa <kernel SA file> | --verify-sa-hash <sha256>] [--verify-lcp <prefix of .lcp/.ovf>] [--verify-child <.cldP>] [--verify-stats <.stats>]
                    end to end (E6): PH0 prepare, PH1 DCS rank file, PH2/PH3 suffix array, PH4 LCP (base mode) fused with PH5 (child table, layout A) in one process; outputs <prefix>.pk (+ .pk.meta) .sa .lcp .ovf .cld .stats; the scratch is deleted
           e6-mktext --family <spec> --out <text file> [--data dir]   the ASCII text of a family (setup, outside the pipeline)
