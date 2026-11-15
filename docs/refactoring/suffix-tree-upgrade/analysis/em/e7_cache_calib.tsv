@@ -2544,3 +2544,24 @@ R	E7	genome_100m.e7.C.D66	1	cg_max_usage_final	69206016	bytes	memory.max_usage_i
 R	E7	genome_100m.e7.C.D66	1	scratch_left	3		entries of scratch.genome_100m.e7.C.D66.1 after the run (killed runs leave their scratch; it is removed here)
 R	E7	genome_100m.e7.C.D66	1	run_done	yes		all rows of this run are written
 R	E7	genome_100m.e7.C.D58	1	settings	limit=60817408 raise=1073741824 prewarm=1 gc=0x3000000 env= args=--threads 4 --scale-n 3000000000 --spill-kb 16 --tuple-kb 8 --budget-mb 64 --ph5-budget-mb 24 --b2-workers 2		cgroup limit (bytes), limit after PH3, runtime pre-read outside the group, DOTNET_GCHeapHardLimit, extra environment, extra program arguments
+R	E7	genome_100m.e7.C.D58	1	ext_rssanon_peak	36.364	MB	independent sampler: max RssAnon of /proc/<pid>/status at 20 ms
+R	E7	genome_100m.e7.C.D58	1	ext_rssanon_mean_ph3	33.412	MB	mean RssAnon over PH3 (rank file and ph3 directory exist), 11733 samples
+R	E7	genome_100m.e7.C.D58	1	eff_resident_ph3	0.4088		time-weighted resident fraction of (packed text + rank file) over PH3 (mincore every 200 ms, 1113 samples, 234.5 s)
+R	E7	genome_100m.e7.C.D58	1	eff_resident_ranks	0.4084		the same over the whole life of the rank file (PH1 end .. PH3 end, 1114 samples, 234.7 s)
+R	E7	genome_100m.e7.C.D58	1	text_bytes	37500064	bytes	packed text file
+R	E7	genome_100m.e7.C.D58	1	rank_bytes	12890240	bytes	DCS rank file
+R	E7	genome_100m.e7.C.D58	1	cg_limit	60817408	bytes	memory.limit_in_bytes of the sub-group at the start of the run
+R	E7	genome_100m.e7.C.D58	1	cg_failcnt	24024010	n	memory.failcnt at the end
+R	E7	genome_100m.e7.C.D58	1	cg_max_usage	60817408	bytes	memory.max_usage_in_bytes at the end
+R	E7	genome_100m.e7.C.D58	1	eff_budget_ph3	0.5439		E3-style budget ratio (limit - mean cgroup anonymous memory over PH3 (33.4 MB)) / (text + rank file)
+R	E7	genome_100m.e7.C.D58	1	cg_rss_mean_ph3	33.412	MB	mean memory.stat rss (anonymous) of the sub-group over PH3
+R	E7	genome_100m.e7.C.D58	1	ext_proc_rchar	3965167373	bytes	independent sampler: /proc/<pid>/io rchar, last value before the process exited (whole process incl. runtime start)
+R	E7	genome_100m.e7.C.D58	1	ext_proc_wchar	612864350	bytes	independent sampler: /proc/<pid>/io wchar, last value before the process exited (whole process incl. runtime start)
+R	E7	genome_100m.e7.C.D58	1	ext_proc_read_bytes	163082399744	bytes	independent sampler: /proc/<pid>/io read_bytes, last value before the process exited (whole process incl. runtime start)
+R	E7	genome_100m.e7.C.D58	1	ext_proc_write_bytes	856944640	bytes	independent sampler: /proc/<pid>/io write_bytes, last value before the process exited (whole process incl. runtime start)
+R	E7	genome_100m.e7.C.D58	1	exit_code	137		program exit code (0 = healthy)
+R	E7	genome_100m.e7.C.D58	1	killed	watchdog		no | watchdog (240 s) | oom-or-signal (exit 137 without the watchdog: the cgroup OOM killer)
+R	E7	genome_100m.e7.C.D58	1	cg_failcnt_final	24024010	n	memory.failcnt after the run
+R	E7	genome_100m.e7.C.D58	1	cg_max_usage_final	60817408	bytes	memory.max_usage_in_bytes after the run; memory.stat: cache 18604032 rss 0 mapped_file 0 pgpgin 37579401 pgpgout 37575693 pgmajfault 1451071 total_cache 18604032 total_rss 0 total_mapped_file 0 total_pgpgin 37579401 total_pgpgout 37575693 total_pgmajfault 1451071 
+R	E7	genome_100m.e7.C.D58	1	scratch_left	3		entries of scratch.genome_100m.e7.C.D58.1 after the run (killed runs leave their scratch; it is removed here)
+R	E7	genome_100m.e7.C.D58	1	run_done	yes		all rows of this run are written

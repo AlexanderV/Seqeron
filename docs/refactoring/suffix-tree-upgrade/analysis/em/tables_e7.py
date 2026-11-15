@@ -11,7 +11,7 @@ Modes:
   threads  total time and RssAnon of the 1 / 2 thread runs next to the 4 thread runs
   cache    the cache sweep (cases <name>.e7.C.<cell> and <name>.e7.calib.<cell>): per cell the runs, total time, slowdown against the unlimited cell, per-phase times, the effective cache (resident fraction of text + rank
            file, time-weighted over PH3), block-layer reads, memory.failcnt, kills, RssAnon, identity
-Option  --max-size <M>  (fit, rss): only the sizes up to M million symbols.
+Options --max-size <M>  (fit, rss): only the sizes up to M million symbols;  --kind C|calib  (cache): only the sweep cells or only the calibration cells.
 """
 import math, re, statistics, sys
 from collections import defaultdict
@@ -22,6 +22,11 @@ MAX_SIZE = None   # --max-size <M>: the fits use only the sizes up to M million 
 if '--max-size' in args:
     i = args.index('--max-size')
     MAX_SIZE = int(args[i + 1])
+    del args[i:i + 2]
+KIND = None       # --kind C | calib (cache): only the cells of that kind are printed (the baselines still come from all the files)
+if '--kind' in args:
+    i = args.index('--kind')
+    KIND = args[i + 1]
     del args[i:i + 2]
 paths = args
 data = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))   # case -> run -> metric -> [values]
@@ -191,21 +196,24 @@ elif mode == 'threads':
 elif mode == 'cache':
     CC = re.compile(r'^(?P<name>[a-z]+_\d+m)\.e7\.(?P<kind>C|calib)\.(?P<cell>.+)$')
     base = {}
+    base3 = {}
     for case in order:
         m = CC.match(case)
         if m and m.group('kind') == 'C' and m.group('cell') == 'U':
             t = [x for x in vals(case, 'total_s')]
             if t:
                 base[m.group('name')] = med(t)
+                base3[m.group('name')] = med(vals(case, 'ph23_sa_s'))
     for case in order:
         m = CC.match(case)
         if m and m.group('kind') == 'calib' and m.group('cell') == 'C1' and m.group('name') not in base:
             base[m.group('name')] = med(vals(case, 'total_s'))
-    print('| cell | limit MB (raised to MB after PH3) | runs finished / started | total s | slowdown (median) | PH1 s | PH2/PH3 s | PH4+PH5 s | effective cache (PH3 resident fraction of text + rank) | block-layer read MB (whole process) | memory.failcnt | killed | RssAnon peak MB | identity |')
-    print('|---|---|---|---|---|---|---|---|---|---|---|---|---|---|')
+            base3[m.group('name')] = med(vals(case, 'ph23_sa_s'))
+    print('| input | cell | limit MB (raised to MB after PH3) | runs finished / started | total s | slowdown (median) | PH1 s | PH2/PH3 s | PH2/PH3 slowdown | PH4+PH5 s | effective cache (PH3 resident fraction of text + rank) | block-layer read MB (whole process) | memory.failcnt | killed | RssAnon peak MB | identity |')
+    print('|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|')
     for case in order:
         m = CC.match(case)
-        if not m:
+        if not m or (KIND is not None and m.group('kind') != KIND):
             continue
         rs = [r for r in sorted(data[case], key=int) if 'run_done' in data[case][r]]
         if not rs:
@@ -222,7 +230,8 @@ elif mode == 'cache':
             return out
         st = data[case][rs[0]].get('settings', [''])[0]
         lim = re.search(r'limit=(\S+)', st).group(1)
-        rz = re.search(r'raise=(\S+)', st).group(1)
+        rzm = re.search(r'raise=(\S+)', st)
+        rz = rzm.group(1) if rzm else 'none'
         limtxt = 'unlimited' if lim == 'max' else '%.0f' % (int(lim) / 1048576)
         if rz not in ('none', ''):
             limtxt += ' (%.0f)' % (int(rz) / 1048576)
@@ -234,8 +243,9 @@ elif mode == 'cache':
             idn.append(all(data[case][r].get(k, ['?'])[0] == 'yes' for k in ('cmp_pk', 'cmp_sa', 'cmp_lcp', 'cmp_ovf', 'cmp_cld', 'cmp_stats')))
         idtxt = ('%d of %d runs equal to the references' % (sum(idn), len(idn))) if idn else 'no finished run'
         tottxt = fmt(tot) if tot else '> watchdog'
-        print('| %s | %s | %d / %d | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s |' % (
-            m.group('cell') if m.group('kind') == 'C' else 'calib ' + m.group('cell'), limtxt, len(ok), len(rs), tottxt, fmt(slow, 3), fmt(v('ph1_dcs_s', ok), 3), fmt(v('ph23_sa_s', ok), 3), fmt(v('ph45_lcp_child_s', ok), 3),
+        slow3 = [t / base3[m.group('name')] for t in v('ph23_sa_s', ok)] if m.group('name') in base3 else []
+        print('| %s | %s | %s | %d / %d | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s |' % (
+            m.group('name'), m.group('cell') if m.group('kind') == 'C' else 'calib ' + m.group('cell'), limtxt, len(ok), len(rs), tottxt, fmt(slow, 3), fmt(v('ph1_dcs_s', ok), 3), fmt(v('ph23_sa_s', ok), 3), fmt(slow3, 3), fmt(v('ph45_lcp_child_s', ok), 3),
             fmt(v('eff_resident_ph3'), 3), fmt(v('ext_proc_read_bytes', None, 1e-6), 4), fmt(v('cg_failcnt_final'), 4), '/'.join(k for k in killed), fmt(v('ext_rssanon_peak'), 3), idtxt))
 else:
     print(__doc__)
