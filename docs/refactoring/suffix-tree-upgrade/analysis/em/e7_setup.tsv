@@ -26,3 +26,28 @@ R	E5	dna_500m	oracle_child_s	16.663857	s	in-RAM ChildTable.Build, tagged and pac
 R	E5	dna_500m	oracle_smaller_s	17.167179	s	PSV and NSV of every rank from the LcpPyramid (fanout 32)
 R	E5	dna_500m	oracle_stats	810933159	n	NODE_COUNT 810933159, internal 310933157, LRS_DEPTH 29, LRS_RANK 461412445, in-RAM stack peak 19
 R	E7	dna_500m	setup	reference_sizes	125000064 500000001 0 2000000004 	bytes	pk lcp ovf cld of the references (the suffix array has 4 (n + 1) bytes)
+R	E7	setup	head	b086a1a80c5ec5914a0399aad1969d1373852da2		git rev-parse HEAD of the checkout when the inputs were made
+R	E6	genome:50000000	text_file	50000000	bytes	50000000 symbols, sigma=5, letters 'ACGNT', written to genome_50m.txt
+R	E3	genome:50000000	packed_file	18750064	bytes	n=50000000, sigma=5, b=3, 0.375 B/char
+R	E3	genome:50000000	oracle_sa_hash	e3a70ab66f7aeba4e6200957c36fb05ba39393eed3b3822f862752f66f2f8012		SaisKernel in RAM on the same text, 4.87 s
+R	E4	genome_50m	kernel_s	2.102477	s	LcpKernel (three passes in RAM, one thread) on n=50000000; kind U8, overflow entries 793784
+R	E5	genome_50m	oracle_child_s	1.798947	s	in-RAM ChildTable.Build, tagged and packed, n=50000000, LCP kind U8, overflow entries 793784
+R	E5	genome_50m	oracle_smaller_s	2.663444	s	PSV and NSV of every rank from the LcpPyramid (fanout 32)
+R	E5	genome_50m	oracle_stats	83212817	n	NODE_COUNT 83212817, internal 33212815, LRS_DEPTH 249999, LRS_RANK 37544499, in-RAM stack peak 250000
+R	E7	genome_50m	setup	reference_sizes	18750064 50000001 6350272 200000004 	bytes	pk lcp ovf cld of the references (the suffix array has 4 (n + 1) bytes)
+R	E6	genome:200000000	text_file	200000000	bytes	200000000 symbols, sigma=5, letters 'ACGNT', written to genome_200m.txt
+R	E3	genome:200000000	packed_file	75000064	bytes	n=200000000, sigma=5, b=3, 0.375 B/char
+R	E3	genome:200000000	oracle_sa_hash	36de77cc7d2103f2e9e8034dae132d04b742192ee5a7f68f2d9d83a6f430d702		SaisKernel in RAM on the same text, 28.58 s
+R	E4	genome_200m	kernel_s	11.914035	s	LcpKernel (three passes in RAM, one thread) on n=200000000; kind U8, overflow entries 2898020
+R	E5	genome_200m	oracle_child_s	7.466144	s	in-RAM ChildTable.Build, tagged and packed, n=200000000, LCP kind U8, overflow entries 2898020
+R	E5	genome_200m	oracle_smaller_s	10.814875	s	PSV and NSV of every rank from the LcpPyramid (fanout 32)
+R	E5	genome_200m	oracle_stats	332114983	n	NODE_COUNT 332114983, internal 132114981, LRS_DEPTH 999999, LRS_RANK 150096427, in-RAM stack peak 1000000
+R	E7	genome_200m	setup	reference_sizes	75000064 200000001 23184160 800000004 	bytes	pk lcp ovf cld of the references (the suffix array has 4 (n + 1) bytes)
+R	E6	genome:500000000	text_file	500000000	bytes	500000000 symbols, sigma=5, letters 'ACGNT', written to genome_500m.txt
+R	E3	genome:500000000	packed_file	187500064	bytes	n=500000000, sigma=5, b=3, 0.375 B/char
+R	E3	genome:500000000	oracle_sa_hash	f046214c90a8582600c68bfbda5f8f908556897fd27da736b7cb6aebf24c6c9c		SaisKernel in RAM on the same text, 76.17 s
+R	E4	genome_500m	kernel_s	30.817512	s	LcpKernel (three passes in RAM, one thread) on n=500000000; kind U8, overflow entries 7730968
+R	E5	genome_500m	oracle_child_s	18.438068	s	in-RAM ChildTable.Build, tagged and packed, n=500000000, LCP kind U8, overflow entries 7730968
+R	E5	genome_500m	oracle_smaller_s	32.544568	s	PSV and NSV of every rank from the LcpPyramid (fanout 32)
+R	E5	genome_500m	oracle_stats	829508909	n	NODE_COUNT 829508909, internal 329508907, LRS_DEPTH 2499999, LRS_RANK 375001684, in-RAM stack peak 2500000
+R	E7	genome_500m	setup	reference_sizes	187500064 500000001 61847744 2000000004 	bytes	pk lcp ovf cld of the references (the suffix array has 4 (n + 1) bytes)

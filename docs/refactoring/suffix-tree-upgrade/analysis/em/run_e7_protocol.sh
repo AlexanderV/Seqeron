@@ -31,10 +31,10 @@ compare() { # label run name outprefix: SHA-256 of every output against the refe
   wait
   for K in pk sa lcp ovf cld; do
     GOT[$K]=$(cat "$O.$K.sha"); WANT=$(awk -v k=$K '$1==k {print $2}' "$T.refs.sha")
-    if [ -n "${GOT[$K]}" ] && [ "${GOT[$K]}" = "$WANT" ]; then V=yes; else V=NO; fi
+    if [ "$WANT" = "-" ]; then V=n/a; elif [ -n "${GOT[$K]}" ] && [ "${GOT[$K]}" = "$WANT" ]; then V=yes; else V=NO; fi   # n/a: no reference of that kind (the r500 cross-check has no child table)
     printf 'R\tE7\t%s\t%s\tcmp_%s\t%s\t\tSHA-256 %s of %s against the reference hash in %s.refs.sha\n' "$L" "$R" "$K" "$V" "${GOT[$K]:0:16}" "$(basename "$O.$K")" "$T" >> "$ROWS"
   done
-  if [ "$(grep -E '^(nodecount|internal|lrsdepth|lrsrank)=' "$O.stats" 2>/dev/null | sort | sed 's/^/stat /')" = "$(grep '^stat ' "$T.refs.sha")" ]; then V=yes; else V=NO; fi
+  if ! grep -q '^stat ' "$T.refs.sha"; then V=n/a; elif [ "$(grep -E '^(nodecount|internal|lrsdepth|lrsrank)=' "$O.stats" 2>/dev/null | sort | sed 's/^/stat /')" = "$(grep '^stat ' "$T.refs.sha")" ]; then V=yes; else V=NO; fi
   printf 'R\tE7\t%s\t%s\tcmp_stats\t%s\t\tNODE_COUNT / internal / LRS_DEPTH / LRS_RANK against %s.refs.sha\n' "$L" "$R" "$V" "$T" >> "$ROWS"
   rm -f "$O".*.sha
 }
