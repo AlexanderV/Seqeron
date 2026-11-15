@@ -54,11 +54,11 @@ run() { # input label run scratch-dir extra-args... : one cold run, then the com
   dotnet "$DLL" e6 --input "$T.txt" --out "$O" --scratch "$SCR" --case "$L" --run "$R" --rows "$ROWS.prog" "$@" > /dev/null &
   PID=$!
   echo $PID > $PIDF
-  ( sleep "$TIMEOUT"; kill -9 $PID 2>/dev/null ) &
+  ( exec > /dev/null 2>&1; for ((w = 0; w < TIMEOUT; w++)); do kill -0 $PID 2>/dev/null || exit 0; sleep 1; done; kill -9 $PID 2>/dev/null ) &
   WD=$!
   wait $PID
   RC=$?
-  kill $WD 2>/dev/null; wait $WD 2>/dev/null
+  wait $WD 2>/dev/null
   wait $SP
   [ -f "$ROWS.prog" ] && { sed 's/^R\tE6\t/R\tE7\t/' "$ROWS.prog" >> "$ROWS"; rm -f "$ROWS.prog"; }
   printf 'R\tE7\t%s\t%s\texit_code\t%s\t\tprogram exit code (0 = healthy, RssAnon cap 256 MB held, scratch gone; 137 = killed by the %s s watchdog)\n' "$L" "$R" "$RC" "$TIMEOUT" >> "$ROWS"

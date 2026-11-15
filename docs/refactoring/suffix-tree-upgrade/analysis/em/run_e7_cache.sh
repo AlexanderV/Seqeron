@@ -4,6 +4,8 @@
 #   env: E7_GC          DOTNET_GCHeapHardLimit of the run (default 0x6000000 = 96 MiB, as in E6)
 #        E7_WATCHDOG    seconds after which the run is killed and recorded as "> limit" (default 900 = 15 min)
 #        E7_ENV         extra "NAME=value" settings for the process (space separated), e.g. MALLOC_ARENA_MAX=1
+#        E7_RAISE       limit in bytes to set when PH3 has finished (the rank file is deleted): "limited PH0-PH3, PH4 + PH5 not limited" (variant D); default: the limit stays for the whole run (variant C)
+#        E7_PREWARM     1 (default): read the .NET runtime image into the page cache from outside the sub-group first (its pages are then charged to the parent group)
 # The limit is the TOTAL of the sub-group (anonymous memory + page cache incl. mapped file pages + kernel memory charged to it); the process joins the group before it starts, so everything it reads and writes is
 # charged to it. The sampler is outside the group. A run whose rows end in run_done is skipped; the sub-group is removed at the end. Outputs are hashed (outside the group, after the run) against <name>.refs.sha.
 set -u
@@ -13,6 +15,7 @@ DLL=${EMPROTO_DLL:-/tmp/stbench/bin_e7_run/SuffixTree.EmProto.dll}
 HERE=$(cd "$(dirname "$0")" && pwd)
 WD=${E7_WATCHDOG:-900}
 cd "$W" || exit 1
+touch "$ROWS"
 if grep -q -P "^R\tE7\t$L\t$R\trun_done\t" "$ROWS"; then echo "$L run $R already done"; exit 0; fi
 awk -F'\t' -v l="$L" -v r="$R" '!($3==l && $4==r)' "$ROWS" > "$ROWS.tmp" && mv "$ROWS.tmp" "$ROWS"
 CG=/sys/fs/cgroup/memory/emproto_e7_$L.$R
@@ -22,8 +25,16 @@ rmdir "$CG" 2>/dev/null
 mkdir "$CG" || { echo "cannot create $CG" >&2; exit 2; }
 if [ "$LIMIT" != "max" ]; then echo "$LIMIT" > "$CG/memory.limit_in_bytes" || { echo "cannot set the limit" >&2; rmdir "$CG"; exit 2; }; fi
 [ -w "$CG/memory.swappiness" ] && echo 0 > "$CG/memory.swappiness"
-printf 'R\tE7\t%s\t%s\tsettings\tlimit=%s gc=%s env=%s args=%s\t\tcgroup limit (bytes), DOTNET_GCHeapHardLimit, extra environment, extra program arguments\n' "$L" "$R" "$LIMIT" "${E7_GC:-0x6000000}" "${E7_ENV:-}" "$*" >> "$ROWS"
+printf 'R\tE7\t%s\t%s\tsettings\tlimit=%s raise=%s prewarm=%s gc=%s env=%s args=%s\t\tcgroup limit (bytes), limit after PH3, runtime pre-read outside the group, DOTNET_GCHeapHardLimit, extra environment, extra program arguments\n' "$L" "$R" "$LIMIT" "${E7_RAISE:-none}" "${E7_PREWARM:-1}" "${E7_GC:-0x6000000}" "${E7_ENV:-}" "$*" >> "$ROWS"
 sync; echo 3 > /proc/sys/vm/drop_caches
+if [ "${E7_PREWARM:-1}" = 1 ]; then
+  # The .NET runtime image (libcoreclr, the JIT, CoreLib, the app's assemblies: 30-60 MB of file pages) is read into the page cache from OUTSIDE the sub-group, so that its pages are charged to the parent group:
+  # the sub-group's limit then applies to what the design budgets (anonymous memory and the data files), not to the runtime's code. The data files (text, rank file, scratch, outputs) are created by the run itself
+  # and are charged to the sub-group.
+  FW=$(dirname "$(dotnet --list-runtimes | awk '/Microsoft.NETCore.App/ {gsub(/[\[\]]/,"",$3); print $3 "/" $2 "/x"; exit}')")
+  dotnet "$DLL" > /dev/null 2>&1
+  cat "$FW"/*.so "$FW"/System.Private.CoreLib.dll "$FW"/System.Runtime.dll "$FW"/System.Collections.dll "$FW"/System.Linq.dll "$FW"/System.Threading.dll "$FW"/System.IO*.dll "$FW"/System.Memory.dll "$FW"/System.Runtime.InteropServices.dll "$FW"/System.Diagnostics*.dll "$FW"/System.Text*.dll "$FW"/System.Security.Cryptography.dll "$FW"/System.Numerics*.dll "$FW"/System.Console.dll "$(dirname "$DLL")"/*.dll > /dev/null 2>&1
+fi
 python3 -I "$HERE/sample_e7_cache.py" $PIDF "$ROWS" "$L" "$R" "$SCR" "$O.pk" "$CG" "$SERIES" &
 SP=$!
 sleep 0.2
@@ -35,11 +46,19 @@ sleep 0.2
   exec dotnet "$DLL" e6 --input "$T.txt" --out "$O" --scratch "$SCR" --case "$L" --run "$R" --rows "$ROWS.prog.$L.$R" "$@" > /dev/null
 ) &
 PID=$!
-( sleep "$WD"; touch "$PIDF.watchdog"; kill -9 $PID 2>/dev/null ) &
+( exec > /dev/null 2>&1; for ((w = 0; w < WD; w++)); do kill -0 $PID 2>/dev/null || exit 0; sleep 1; done; touch "$PIDF.watchdog"; kill -9 $PID 2>/dev/null ) &   # polls once a second, ends with the run
 WDG=$!
+if [ -n "${E7_RAISE:-}" ]; then
+  ( exec > /dev/null 2>&1
+    while kill -0 $PID 2>/dev/null && [ ! -e "$SCR/ph3" ]; do sleep 0.05; done          # PH3 has started
+    while kill -0 $PID 2>/dev/null && [ -e "$SCR/ranks.bin" ]; do sleep 0.05; done     # the rank file is deleted as soon as PH3 has used it
+    kill -0 $PID 2>/dev/null && echo "$E7_RAISE" > "$CG/memory.limit_in_bytes" && touch "$PIDF.raised" ) &
+  RZ=$!
+fi
 wait $PID
 RC=$?
-kill $WDG 2>/dev/null; wait $WDG 2>/dev/null
+wait $WDG 2>/dev/null
+[ -n "${RZ:-}" ] && wait $RZ 2>/dev/null
 wait $SP
 FAIL=$(cat "$CG/memory.failcnt"); MAXU=$(cat "$CG/memory.max_usage_in_bytes")
 STAT=$(grep -E "^(total_)?(cache|rss|mapped_file|pgpgin|pgpgout|pgmajfault) " "$CG/memory.stat" | tr '\n' ' ')
@@ -47,6 +66,7 @@ KILLED=no; [ -e "$PIDF.watchdog" ] && KILLED=watchdog
 [ "$RC" = 137 ] && [ "$KILLED" = no ] && KILLED=oom-or-signal
 [ -f "$ROWS.prog.$L.$R" ] && { sed 's/^R\tE6\t/R\tE7\t/' "$ROWS.prog.$L.$R" >> "$ROWS"; rm -f "$ROWS.prog.$L.$R"; }
 printf 'R\tE7\t%s\t%s\texit_code\t%s\t\tprogram exit code (0 = healthy)\n' "$L" "$R" "$RC" >> "$ROWS"
+[ -e "$PIDF.raised" ] && printf 'R\tE7\t%s\t%s\tlimit_raised\tyes\t\tthe limit was raised to %s bytes when PH3 had finished\n' "$L" "$R" "${E7_RAISE:-}" >> "$ROWS"
 printf 'R\tE7\t%s\t%s\tkilled\t%s\t\tno | watchdog (%s s) | oom-or-signal (exit 137 without the watchdog: the cgroup OOM killer)\n' "$L" "$R" "$KILLED" "$WD" >> "$ROWS"
 printf 'R\tE7\t%s\t%s\tcg_failcnt_final\t%s\tn\tmemory.failcnt after the run\n' "$L" "$R" "$FAIL" >> "$ROWS"
 printf 'R\tE7\t%s\t%s\tcg_max_usage_final\t%s\tbytes\tmemory.max_usage_in_bytes after the run; memory.stat: %s\n' "$L" "$R" "$MAXU" "$STAT" >> "$ROWS"
@@ -65,4 +85,4 @@ fi
 printf 'R\tE7\t%s\t%s\tscratch_left\t%s\t\tentries of %s after the run (killed runs leave their scratch; it is removed here)\n' "$L" "$R" "$( [ -e "$SCR" ] && ls -A "$SCR" | wc -l || echo 0)" "$SCR" >> "$ROWS"
 printf 'R\tE7\t%s\t%s\trun_done\tyes\t\tall rows of this run are written\n' "$L" "$R" >> "$ROWS"
 echo "$L run $R rc=$RC killed=$KILLED failcnt=$FAIL $(grep -P "^R\tE7\t$L\t$R\t(total_s|eff_resident_ph3|rssanon_peak)\t" "$ROWS" | awk -F'\t' '{printf "%s=%.4g ", $5, $6}')"
-rm -rf "$SCR" $O.* $PIDF $PIDF.watchdog
+rm -rf "$SCR" $O.* $PIDF $PIDF.watchdog $PIDF.raised

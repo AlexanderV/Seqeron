@@ -86,6 +86,7 @@ while not os.path.exists(pidfile):
     time.sleep(0.005)
 time.sleep(0.01)
 pid = int(open(pidfile).read().strip())
+limit0 = readint(cg + '/memory.limit_in_bytes') if cg else None   # the limit at the start (a controller may raise it after PH3)
 ranks = os.path.join(scratch, 'ranks.bin')
 ph3 = os.path.join(scratch, 'ph3')
 t0 = time.monotonic()
@@ -154,7 +155,7 @@ e3, dur3, anon3, c3 = window(lambda s: s[1] and s[2])
 er, durr, anonr, cr = window(lambda s: s[1])
 size_rank = max((s[6] for s in samples), default=0)
 size_text = max((s[4] for s in samples), default=0)
-limit = readint(cg + '/memory.limit_in_bytes') if cg else None
+limit = limit0
 with open(rows, 'a') as out:
     def row(metric, value, unit, notes=''):
         out.write('\t'.join(['R', 'E7', case, run, metric, str(value), unit, notes]) + '\n')
@@ -166,7 +167,7 @@ with open(rows, 'a') as out:
     row('text_bytes', size_text, 'bytes', 'packed text file')
     row('rank_bytes', size_rank, 'bytes', 'DCS rank file')
     if limit is not None:
-        row('cg_limit', limit, 'bytes', 'memory.limit_in_bytes of the sub-group')
+        row('cg_limit', limit, 'bytes', 'memory.limit_in_bytes of the sub-group at the start of the run')
         row('cg_failcnt', readint(cg + '/memory.failcnt'), 'n', 'memory.failcnt at the end')
         row('cg_max_usage', readint(cg + '/memory.max_usage_in_bytes'), 'bytes', 'memory.max_usage_in_bytes at the end')
         if anon3 is not None and size_text + size_rank > 0 and limit < 1 << 60:

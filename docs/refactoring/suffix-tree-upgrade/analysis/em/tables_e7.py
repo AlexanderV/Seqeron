@@ -9,12 +9,21 @@ Modes:
   io       I/O B/char (program counters, rchar + wchar), mapped writes, scratch peak, output footprint, block-layer reads, dirty pages per size
   cmp      per case: how many identity comparisons (cmp_*, exit_code, scratch_left) are yes / NO
   threads  total time and RssAnon of the 1 / 2 thread runs next to the 4 thread runs
+  cache    the cache sweep (cases <name>.e7.C.<cell> and <name>.e7.calib.<cell>): per cell the runs, total time, slowdown against the unlimited cell, per-phase times, the effective cache (resident fraction of text + rank
+           file, time-weighted over PH3), block-layer reads, memory.failcnt, kills, RssAnon, identity
+Option  --max-size <M>  (fit, rss): only the sizes up to M million symbols.
 """
 import math, re, statistics, sys
 from collections import defaultdict
 
 mode = sys.argv[1]
-paths = sys.argv[2:]
+args = sys.argv[2:]
+MAX_SIZE = None   # --max-size <M>: the fits use only the sizes up to M million symbols (genome-like: 200, the sizes the task fixed; 500 M was added on top)
+if '--max-size' in args:
+    i = args.index('--max-size')
+    MAX_SIZE = int(args[i + 1])
+    del args[i:i + 2]
+paths = args
 data = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))   # case -> run -> metric -> [values]
 order = []
 for path in paths:
@@ -78,7 +87,7 @@ def groups():
     g = defaultdict(list)
     for case in order:
         i = info(case)
-        if i and i[3] == 4 and runs(case):
+        if i and i[3] == 4 and runs(case) and (MAX_SIZE is None or i[1] <= MAX_SIZE):
             g[(i[0], i[2])].append((i[1], case))
     for k in g:
         g[k].sort()
@@ -179,5 +188,54 @@ elif mode == 'threads':
         rowsout.append((i[0], i[2], i[1], i[3], case))
     for fam, ser, sz, th, case in sorted(rowsout, key=lambda x: (x[0], x[1], x[2], -x[3])):
         print('| %s_%dm | %s | %d | %d | %s | %s | %s | %s | %d |' % (fam, sz, ser, th, n_of(case), fmt(vals(case, 'total_s')), fmt(vals(case, 'ph23_sa_s')), fmt(vals(case, 'ph45_lcp_child_s')), fmt(vals(case, 'rssanon_peak')), len(runs(case))))
+elif mode == 'cache':
+    CC = re.compile(r'^(?P<name>[a-z]+_\d+m)\.e7\.(?P<kind>C|calib)\.(?P<cell>.+)$')
+    base = {}
+    for case in order:
+        m = CC.match(case)
+        if m and m.group('kind') == 'C' and m.group('cell') == 'U':
+            t = [x for x in vals(case, 'total_s')]
+            if t:
+                base[m.group('name')] = med(t)
+    for case in order:
+        m = CC.match(case)
+        if m and m.group('kind') == 'calib' and m.group('cell') == 'C1' and m.group('name') not in base:
+            base[m.group('name')] = med(vals(case, 'total_s'))
+    print('| cell | limit MB (raised to MB after PH3) | runs finished / started | total s | slowdown (median) | PH1 s | PH2/PH3 s | PH4+PH5 s | effective cache (PH3 resident fraction of text + rank) | block-layer read MB (whole process) | memory.failcnt | killed | RssAnon peak MB | identity |')
+    print('|---|---|---|---|---|---|---|---|---|---|---|---|---|---|')
+    for case in order:
+        m = CC.match(case)
+        if not m:
+            continue
+        rs = [r for r in sorted(data[case], key=int) if 'run_done' in data[case][r]]
+        if not rs:
+            continue
+        ok = [r for r in rs if data[case][r].get('exit_code', ['?'])[0] == '0' and 'total_s' in data[case][r]]
+        def v(metric, only=None, scale=1.0):
+            out = []
+            for r in (only if only is not None else rs):
+                for x in data[case][r].get(metric, []):
+                    try:
+                        out.append(float(x) * scale)
+                    except ValueError:
+                        pass
+            return out
+        st = data[case][rs[0]].get('settings', [''])[0]
+        lim = re.search(r'limit=(\S+)', st).group(1)
+        rz = re.search(r'raise=(\S+)', st).group(1)
+        limtxt = 'unlimited' if lim == 'max' else '%.0f' % (int(lim) / 1048576)
+        if rz not in ('none', ''):
+            limtxt += ' (%.0f)' % (int(rz) / 1048576)
+        tot = v('total_s', ok)
+        slow = [t / base[m.group('name')] for t in tot] if m.group('name') in base else []
+        killed = sorted(set(data[case][r].get('killed', ['?'])[0] for r in rs))
+        idn = []
+        for r in ok:
+            idn.append(all(data[case][r].get(k, ['?'])[0] == 'yes' for k in ('cmp_pk', 'cmp_sa', 'cmp_lcp', 'cmp_ovf', 'cmp_cld', 'cmp_stats')))
+        idtxt = ('%d of %d runs equal to the references' % (sum(idn), len(idn))) if idn else 'no finished run'
+        tottxt = fmt(tot) if tot else '> watchdog'
+        print('| %s | %s | %d / %d | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s |' % (
+            m.group('cell') if m.group('kind') == 'C' else 'calib ' + m.group('cell'), limtxt, len(ok), len(rs), tottxt, fmt(slow, 3), fmt(v('ph1_dcs_s', ok), 3), fmt(v('ph23_sa_s', ok), 3), fmt(v('ph45_lcp_child_s', ok), 3),
+            fmt(v('eff_resident_ph3'), 3), fmt(v('ext_proc_read_bytes', None, 1e-6), 4), fmt(v('cg_failcnt_final'), 4), '/'.join(k for k in killed), fmt(v('ext_rssanon_peak'), 3), idtxt))
 else:
     print(__doc__)
