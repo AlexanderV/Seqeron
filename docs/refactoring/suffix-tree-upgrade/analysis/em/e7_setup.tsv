@@ -1,0 +1,22 @@
+R	E7	setup	head	ba1fbc0ef8d70c1ba73199d3598baedf33998a99		git rev-parse HEAD of the checkout when the inputs were made
+R	E7	dna_100m	setup	reference_sizes	25000064 400000004 100000001 0 400000004 	bytes	pk sa lcp ovf cld of the references
+R	E7	genome_100m	setup	reference_sizes	37500064 400000004 100000001 11120224 400000004 	bytes	pk sa lcp ovf cld of the references
+R	E6	dna:50000000	text_file	50000000	bytes	50000000 symbols, sigma=4, letters 'ACGT', written to dna_50m.txt
+R	E3	dna:50000000	packed_file	12500064	bytes	n=50000000, sigma=4, b=2, 0.250 B/char
+R	E3	dna:50000000	oracle_sa_hash	b9aa3563db57da819ecd9012c0ca54b612871c4ef39ae67f2f96c46563e0674a		SaisKernel in RAM on the same text, 4.36 s
+R	E4	dna_50m	kernel_s	2.178564	s	LcpKernel (three passes in RAM, one thread) on n=50000000; kind U8, overflow entries 0
+R	E5	dna_50m	oracle_child_s	1.732039	s	in-RAM ChildTable.Build, tagged and packed, n=50000000, LCP kind U8, overflow entries 0
+R	E5	dna_50m	oracle_smaller_s	1.88735	s	PSV and NSV of every rank from the LcpPyramid (fanout 32)
+R	E5	dna_50m	oracle_stats	81179915	n	NODE_COUNT 81179915, internal 31179913, LRS_DEPTH 25, LRS_RANK 7430685, in-RAM stack peak 17
+R	E7	dna_50m	setup	reference_sizes	12500064 200000004 50000001 0 200000004 	bytes	pk sa lcp ovf cld of the references
+R	E6	dna:200000000	text_file	200000000	bytes	200000000 symbols, sigma=4, letters 'ACGT', written to dna_200m.txt
+R	E3	dna:200000000	packed_file	50000064	bytes	n=200000000, sigma=4, b=2, 0.250 B/char
+R	E3	dna:200000000	oracle_sa_hash	e6888f8e88ac40bd2fd109a095da5b929e12c6a43bbe55130cba3727a45b742b		SaisKernel in RAM on the same text, 26.06 s
+R	E4	dna_200m	kernel_s	11.589741	s	LcpKernel (three passes in RAM, one thread) on n=200000000; kind U8, overflow entries 0
+R	E5	dna_200m	oracle_child_s	6.776317	s	in-RAM ChildTable.Build, tagged and packed, n=200000000, LCP kind U8, overflow entries 0
+R	E5	dna_200m	oracle_smaller_s	9.94387	s	PSV and NSV of every rank from the LcpPyramid (fanout 32)
+R	E5	dna_200m	oracle_stats	324721257	n	NODE_COUNT 324721257, internal 124721255, LRS_DEPTH 27, LRS_RANK 13768966, in-RAM stack peak 18
+R	E7	dna_200m	setup	reference_sizes	50000064 800000004 200000001 0 800000004 	bytes	pk sa lcp ovf cld of the references
+R	E7	setup	head	ba1fbc0ef8d70c1ba73199d3598baedf33998a99		git rev-parse HEAD of the checkout when the inputs were made
+R	E6	dna:500000000	text_file	500000000	bytes	500000000 symbols, sigma=4, letters 'ACGT', written to dna_500m.txt
+R	E3	dna:500000000	packed_file	125000064	bytes	n=500000000, sigma=4, b=2, 0.250 B/char
