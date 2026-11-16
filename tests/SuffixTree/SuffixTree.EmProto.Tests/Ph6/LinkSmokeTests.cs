@@ -134,6 +134,43 @@ public unsafe class LinkSmokeTests
     }
 
     [Test]
+    public void EntryZeroOfPsi_IsNeverReadByTheKernels()
+    {
+        // internal nodes have lcp-interval value >= 1, so their left boundary is >= 1: whatever entry 0 holds (0, the cyclic value, P1's -1, garbage) does not change a link
+        foreach (string text in new[] { "abracadabra", "mississippi", "aaaaaaaa", StringFamilies.Fibonacci(60), StringFamilies.ThueMorse(70) })
+        {
+            Ph6Case c = Ph6Case.OfNaive(text);
+            EsaIndex index = EsaIndex.Build(text, ChildLayoutKind.Tagged);
+            Streamed s = Stream(c);
+            foreach (int garbage in new[] { 0, c.Primary, -1, 12345 })
+            {
+                var psi = (int[])s.PsiStream.Clone();
+                psi[0] = garbage;
+                SmokeResult r = LinkSmoke.Run(index, c.IsaRam, c.PsiRam, s.IsaDist, psi, int.MaxValue, 1, 1_000_000, 16, p1Sampling: false, null);
+                Assert.That(r.Ok, Is.True, $"'{text}' entry 0 = {garbage}");
+            }
+        }
+    }
+
+    [Test]
+    public void ATextWithoutInternalNodes_HasAnEmptySample()
+    {
+        foreach (string text in new[] { "a", "ab", "abc" })
+        {
+            Ph6Case c = Ph6Case.OfNaive(text);
+            EsaIndex index = EsaIndex.Build(text, ChildLayoutKind.Tagged);
+            Streamed s = Stream(c);
+            foreach (bool p1 in new[] { true, false })
+            {
+                SmokeResult r = LinkSmoke.Run(index, c.IsaRam, c.PsiRam, s.IsaDist, s.PsiStream, 100, 1, 1000, 16, p1, null);
+                Assert.That(r.NodeCount, Is.EqualTo(0), text);
+                Assert.That(r.SampleCount, Is.EqualTo(0), text);
+                Assert.That(r.Ok, Is.True);
+            }
+        }
+    }
+
+    [Test]
     public void ASwappedPsiEntry_IsDetected()
     {
         Ph6Case c = Ph6Case.Of(Ph6Case.RandomText(3000, 4, 5));

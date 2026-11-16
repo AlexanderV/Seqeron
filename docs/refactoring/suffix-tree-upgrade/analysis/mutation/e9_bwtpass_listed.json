@@ -1,0 +1,72 @@
+[
+ {
+  "id": "B01",
+  "desc": "the symbol before the suffix is taken at p instead of p - 1",
+  "old": "uint s = text.Symbol(p - 1);",
+  "new": "uint s = text.Symbol(p);",
+  "file": "apps/SuffixTree.EmProto/Ph6/BwtPass.cs"
+ },
+ {
+  "id": "B02",
+  "desc": "the sentinel row is the row of suffix 1",
+  "old": "if (p == 0)\n",
+  "new": "if (p == 1)\n",
+  "file": "apps/SuffixTree.EmProto/Ph6/BwtPass.cs"
+ },
+ {
+  "id": "B03",
+  "desc": "counts add two",
+  "old": "counts[s]++;",
+  "new": "counts[s] += 2;",
+  "file": "apps/SuffixTree.EmProto/Ph6/BwtPass.cs"
+ },
+ {
+  "id": "B04",
+  "desc": "row 0 is not checked to be the empty suffix",
+  "old": "if (first + i == 0 && p != n)",
+  "new": "if (first + i == 0 && p == n)",
+  "file": "apps/SuffixTree.EmProto/Ph6/BwtPass.cs"
+ },
+ {
+  "id": "B05",
+  "desc": "primary row off by one",
+  "old": "primary = first + i;",
+  "new": "primary = first + i + 1;",
+  "file": "apps/SuffixTree.EmProto/Ph6/BwtPass.cs"
+ },
+ {
+  "id": "B06",
+  "desc": "symbol equal to sigma accepted",
+  "old": "if (s >= sigma)",
+  "new": "if (s > sigma)",
+  "file": "apps/SuffixTree.EmProto/Ph6/BwtPass.cs"
+ },
+ {
+  "id": "B07",
+  "desc": "an SA entry equal to n + 1 accepted",
+  "old": "if (p > n) throw",
+  "new": "if (p > n + 1) throw",
+  "file": "apps/SuffixTree.EmProto/Ph6/BwtPass.cs"
+ },
+ {
+  "id": "B08",
+  "desc": "two rows with suffix 0 accepted",
+  "old": "if (primary >= 0) throw",
+  "new": "if (primary >= 1) throw",
+  "file": "apps/SuffixTree.EmProto/Ph6/BwtPass.cs"
+ },
+ {
+  "id": "B09",
+  "desc": "the dummy byte of the sentinel row is 1",
+  "old": "output[i] = 0;\n                        continue;",
+  "new": "output[i] = 1;\n                        continue;",
+  "file": "apps/SuffixTree.EmProto/Ph6/BwtPass.cs"
+ },
+ {
+  "id": "B10",
+  "desc": "SA file of the wrong length accepted (<)",
+  "old": "if (sa.Length != 4 * rows)",
+  "new": "if (sa.Length < 4 * rows)",
+  "file": "apps/SuffixTree.EmProto/Ph6/BwtPass.cs"
+ }
+]

@@ -1,0 +1,107 @@
+[
+ {
+  "id": "D01",
+  "desc": "chunk of a position off by one",
+  "old": "long chunk = p / chunkPositions;",
+  "new": "long chunk = (p + 1) / chunkPositions;",
+  "file": "apps/SuffixTree.EmProto/Ph6/IsaByDist.cs"
+ },
+ {
+  "id": "D02",
+  "desc": "rank in the tuple off by one",
+  "old": "buf[filled[chunk]++] = ((ulong)p << 32) | (uint)(first + i);",
+  "new": "buf[filled[chunk]++] = ((ulong)p << 32) | (uint)(first + i + 1);",
+  "file": "apps/SuffixTree.EmProto/Ph6/IsaByDist.cs"
+ },
+ {
+  "id": "D03",
+  "desc": "buffer entries from 4-byte tuples",
+  "old": "int bufEntries = o.IoBufferBytes / 8;",
+  "new": "int bufEntries = o.IoBufferBytes / 4;",
+  "file": "apps/SuffixTree.EmProto/Ph6/IsaByDist.cs"
+ },
+ {
+  "id": "D04",
+  "desc": "chunk count by floor division",
+  "old": "long chunks = (rows + chunkPositions - 1) / chunkPositions;",
+  "new": "long chunks = rows / chunkPositions;",
+  "file": "apps/SuffixTree.EmProto/Ph6/IsaByDist.cs"
+ },
+ {
+  "id": "D05",
+  "desc": "the chunk array is not initialised to the missing marker",
+  "old": "array.Fill(uint.MaxValue);",
+  "new": "array.Clear();",
+  "file": "apps/SuffixTree.EmProto/Ph6/IsaByDist.cs"
+ },
+ {
+  "id": "D06",
+  "desc": "the last chunk array is as long as a full chunk",
+  "old": "int length = (int)Math.Min(chunkPositions, rows - startPos);",
+  "new": "int length = (int)Math.Min(chunkPositions, rows);",
+  "file": "apps/SuffixTree.EmProto/Ph6/IsaByDist.cs"
+ },
+ {
+  "id": "D07",
+  "desc": "duplicate positions are not detected when they occur",
+  "old": "if (slot != uint.MaxValue) throw new InvalidDataException($\"the suffix array is not a permutation: position {(long)(v >> 32)} occurs twice\");",
+  "new": "",
+  "file": "apps/SuffixTree.EmProto/Ph6/IsaByDist.cs"
+ },
+ {
+  "id": "D08",
+  "desc": "missing positions are not detected",
+  "old": "if (array[k] == uint.MaxValue) throw new InvalidDataException",
+  "new": "if (array[k] == uint.MaxValue - 1) throw new InvalidDataException",
+  "file": "apps/SuffixTree.EmProto/Ph6/IsaByDist.cs"
+ },
+ {
+  "id": "D09",
+  "desc": "entries beyond n accepted",
+  "old": "if (p > n) throw new InvalidDataException($\"SA[{first + i}] = {p} lies beyond n = {n}\");",
+  "new": "",
+  "file": "apps/SuffixTree.EmProto/Ph6/IsaByDist.cs"
+ },
+ {
+  "id": "D10",
+  "desc": "the tuples of a flushed buffer are written at the start of the file",
+  "old": "f.WriteAt(MemoryMarshal.AsBytes(buf[..filled[chunk]]), flushed[chunk] * 8);",
+  "new": "f.WriteAt(MemoryMarshal.AsBytes(buf[..filled[chunk]]), 0);",
+  "file": "apps/SuffixTree.EmProto/Ph6/IsaByDist.cs"
+ },
+ {
+  "id": "D11",
+  "desc": "the chunk files are read from the wrong offset",
+  "old": "f.ReadExactAt(MemoryMarshal.AsBytes(part), at * 8);",
+  "new": "f.ReadExactAt(MemoryMarshal.AsBytes(part), at * 8 + 8);",
+  "file": "apps/SuffixTree.EmProto/Ph6/IsaByDist.cs"
+ },
+ {
+  "id": "D12",
+  "desc": "the in-memory remainder of a chunk is not scattered",
+  "old": "Scatter(all.Slice(checked((int)(chunk * bufEntries)), filled[chunk]), array, startPos);",
+  "new": "Scatter(all.Slice(checked((int)(chunk * bufEntries)), 0), array, startPos);",
+  "file": "apps/SuffixTree.EmProto/Ph6/IsaByDist.cs"
+ },
+ {
+  "id": "F01",
+  "desc": "Psi reads ISA[SA[i]] instead of ISA[SA[i] + 1]",
+  "old": "output[i] = table[p + 1];",
+  "new": "output[i] = table[p];",
+  "file": "apps/SuffixTree.EmProto/Ph6/IsaByDist.cs"
+ },
+ {
+  "id": "F02",
+  "desc": "Psi entry 0 is 1",
+  "old": "output[i] = 0;\n                        continue;",
+  "new": "output[i] = 1;\n                        continue;",
+  "file": "apps/SuffixTree.EmProto/Ph6/IsaByDist.cs"
+ },
+ {
+  "id": "F03",
+  "desc": "SA entry n at a row >= 1 accepted",
+  "old": "if (p >= n) throw new InvalidDataException",
+  "new": "if (p > n) throw new InvalidDataException",
+  "file": "apps/SuffixTree.EmProto/Ph6/IsaByDist.cs"
+ }
+]

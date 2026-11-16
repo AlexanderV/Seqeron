@@ -299,8 +299,9 @@ public class PsiStreamTests
         using var dir = new Ph6Dir();
         (string bwt, BwtMeta meta) = WriteBwt(dir, c);
         var budget = new ArenaBudget(160L << 20);
-        PsiStream.Build(bwt, meta, dir.File("x.psi"), new PsiOptions { Budget = budget });
+        PsiStats st = PsiStream.Build(bwt, meta, dir.File("x.psi"), new PsiOptions { Budget = budget });
         Assert.That(budget.LiveBytes, Is.EqualTo(0));
-        Assert.That(budget.PeakBytes, Is.GreaterThan(0));
+        // the read buffer (as many bytes as there are rows, the default read size is larger) plus the reservation of the windows
+        Assert.That(budget.PeakBytes, Is.EqualTo(c.N + 1L + st.MappedBoundBytes));
     }
 }

@@ -1,0 +1,254 @@
+[
+ {
+  "id": "P01",
+  "desc": "C[] base without the empty suffix: start[0] = 0",
+  "old": "start[0] = 1;",
+  "new": "start[0] = 0;",
+  "file": "apps/SuffixTree.EmProto/Ph6/PsiStream.cs"
+ },
+ {
+  "id": "P02",
+  "desc": "C[] ignores the counts: start[c+1] = start[c]",
+  "old": "start[c + 1] = start[c] + counts[c];",
+  "new": "start[c + 1] = start[c];",
+  "file": "apps/SuffixTree.EmProto/Ph6/PsiStream.cs"
+ },
+ {
+  "id": "P03",
+  "desc": "C[] adds one per symbol: start[c+1] = start[c] + counts[c] + 1",
+  "old": "start[c + 1] = start[c] + counts[c];",
+  "new": "start[c + 1] = start[c] + counts[c] + 1;",
+  "file": "apps/SuffixTree.EmProto/Ph6/PsiStream.cs"
+ },
+ {
+  "id": "P04",
+  "desc": "sentinel row: skip index off by one (primary - first + 1)",
+  "old": "long skip = meta.PrimaryRow - first;",
+  "new": "long skip = meta.PrimaryRow - first + 1;",
+  "file": "apps/SuffixTree.EmProto/Ph6/PsiStream.cs"
+ },
+ {
+  "id": "P05",
+  "desc": "sentinel row at the start of a block is not skipped (skip > 0)",
+  "old": "if (skip >= 0 && skip < take)",
+  "new": "if (skip > 0 && skip < take)",
+  "file": "apps/SuffixTree.EmProto/Ph6/PsiStream.cs"
+ },
+ {
+  "id": "P06",
+  "desc": "rows after the sentinel get the row number of the sentinel (firstRow of the second scan without +1)",
+  "old": "cursors.Scan(b + skip + 1, take - (int)skip - 1, first + skip + 1);",
+  "new": "cursors.Scan(b + skip + 1, take - (int)skip - 1, first + skip);",
+  "file": "apps/SuffixTree.EmProto/Ph6/PsiStream.cs"
+ },
+ {
+  "id": "P07",
+  "desc": "the first scan includes the sentinel row (skip + 1)",
+  "old": "cursors.Scan(b, (int)skip, first);",
+  "new": "cursors.Scan(b, (int)skip + 1, first);",
+  "file": "apps/SuffixTree.EmProto/Ph6/PsiStream.cs"
+ },
+ {
+  "id": "P08",
+  "desc": "the second scan starts at the sentinel row (no +1 in the pointer)",
+  "old": "cursors.Scan(b + skip + 1, take - (int)skip - 1, first + skip + 1);",
+  "new": "cursors.Scan(b + skip, take - (int)skip, first + skip + 1);",
+  "file": "apps/SuffixTree.EmProto/Ph6/PsiStream.cs"
+ },
+ {
+  "id": "P09",
+  "desc": "symbol of the pass off by one (bytes[j] - lo + 1)",
+  "old": "uint s = (uint)(bytes[j] - lo);",
+  "new": "uint s = (uint)(bytes[j] - lo + 1);",
+  "file": "apps/SuffixTree.EmProto/Ph6/PsiStream.cs"
+ },
+ {
+  "id": "P10",
+  "desc": "row written off by one (firstRow + j + 1)",
+  "old": "*p = (uint)(firstRow + j);",
+  "new": "*p = (uint)(firstRow + j + 1);",
+  "file": "apps/SuffixTree.EmProto/Ph6/PsiStream.cs"
+ },
+ {
+  "id": "P11",
+  "desc": "cursor advances by two entries",
+  "old": "cur[s] = (nuint)(p + 1);",
+  "new": "cur[s] = (nuint)(p + 2);",
+  "file": "apps/SuffixTree.EmProto/Ph6/PsiStream.cs"
+ },
+ {
+  "id": "P12",
+  "desc": "the cursor window is the larger of the window and the rest (Max)",
+  "old": "int entries = (int)Math.Min(_entriesPerWindow, remaining);",
+  "new": "int entries = (int)Math.Max(_entriesPerWindow, remaining);",
+  "file": "apps/SuffixTree.EmProto/Ph6/PsiStream.cs"
+ },
+ {
+  "id": "P13",
+  "desc": "the next window of a cursor starts one entry later",
+  "old": "_next[s] += entries;",
+  "new": "_next[s] += entries + 1;",
+  "file": "apps/SuffixTree.EmProto/Ph6/PsiStream.cs"
+ },
+ {
+  "id": "P14",
+  "desc": "a cursor that has used its range is not refused (remaining < 0)",
+  "old": "if (remaining <= 0) throw new InvalidDataException",
+  "new": "if (remaining < 0) throw new InvalidDataException",
+  "file": "apps/SuffixTree.EmProto/Ph6/PsiStream.cs"
+ },
+ {
+  "id": "P15",
+  "desc": "under-full cursors are not detected inside the last window",
+  "old": "if (_next[s] != _limit[s] || _cur[s] != _end[s])",
+  "new": "if (_next[s] != _limit[s])",
+  "file": "apps/SuffixTree.EmProto/Ph6/PsiStream.cs"
+ },
+ {
+  "id": "P16",
+  "desc": "windows not fully mapped are not detected",
+  "old": "if (_next[s] != _limit[s] || _cur[s] != _end[s])",
+  "new": "if (_cur[s] != _end[s])",
+  "file": "apps/SuffixTree.EmProto/Ph6/PsiStream.cs"
+ },
+ {
+  "id": "P17",
+  "desc": "mapped bound without the factor 4 (entries instead of bytes)",
+  "old": "long bound = group * (long)entriesPerWindow * 4;",
+  "new": "long bound = group * (long)entriesPerWindow;",
+  "file": "apps/SuffixTree.EmProto/Ph6/PsiStream.cs"
+ },
+ {
+  "id": "P18",
+  "desc": "passes by floor division: the last partial group is dropped",
+  "old": "(sigma + o.SymbolsPerPass - 1) / o.SymbolsPerPass;",
+  "new": "sigma / o.SymbolsPerPass;",
+  "file": "apps/SuffixTree.EmProto/Ph6/PsiStream.cs"
+ },
+ {
+  "id": "P19",
+  "desc": "the last group runs past sigma (hi without Math.Min)",
+  "old": "int hi = Math.Min(sigma, lo + o.SymbolsPerPass);",
+  "new": "int hi = lo + o.SymbolsPerPass;",
+  "file": "apps/SuffixTree.EmProto/Ph6/PsiStream.cs"
+ },
+ {
+  "id": "P20",
+  "desc": "the group start uses the open cursors instead of the limit (pass * group)",
+  "old": "int lo = pass * o.SymbolsPerPass;",
+  "new": "int lo = pass * group;",
+  "file": "apps/SuffixTree.EmProto/Ph6/PsiStream.cs"
+ },
+ {
+  "id": "P21",
+  "desc": "convention swapped: entry 0 is the primary row unless cyclic",
+  "old": "o.CyclicEntryZero ? (uint)meta.PrimaryRow : 0u",
+  "new": "o.CyclicEntryZero ? 0u : (uint)meta.PrimaryRow",
+  "file": "apps/SuffixTree.EmProto/Ph6/PsiStream.cs"
+ },
+ {
+  "id": "P22",
+  "desc": "cyclic entry 0 off by one",
+  "old": "o.CyclicEntryZero ? (uint)meta.PrimaryRow : 0u",
+  "new": "o.CyclicEntryZero ? (uint)meta.PrimaryRow + 1 : 0u",
+  "file": "apps/SuffixTree.EmProto/Ph6/PsiStream.cs"
+ },
+ {
+  "id": "P23",
+  "desc": "primary row == n + 1 accepted",
+  "old": "meta.PrimaryRow >= rows",
+  "new": "meta.PrimaryRow > rows",
+  "file": "apps/SuffixTree.EmProto/Ph6/PsiStream.cs"
+ },
+ {
+  "id": "P24",
+  "desc": "counts that sum to more than n accepted",
+  "old": "counts.Sum() != n",
+  "new": "counts.Sum() < n",
+  "file": "apps/SuffixTree.EmProto/Ph6/PsiStream.cs"
+ },
+ {
+  "id": "P25",
+  "desc": "a BWT file longer than n + 1 accepted",
+  "old": "if (bwt.Length != rows)",
+  "new": "if (bwt.Length < rows)",
+  "file": "apps/SuffixTree.EmProto/Ph6/PsiStream.cs"
+ },
+ {
+  "id": "P26",
+  "desc": "rows = n",
+  "old": "long rows = n + 1;",
+  "new": "long rows = n;",
+  "file": "apps/SuffixTree.EmProto/Ph6/PsiStream.cs"
+ },
+ {
+  "id": "P27",
+  "desc": "zero symbols per pass accepted",
+  "old": "ArgumentOutOfRangeException.ThrowIfLessThan(o.SymbolsPerPass, 1);",
+  "new": "ArgumentOutOfRangeException.ThrowIfLessThan(o.SymbolsPerPass, 0);",
+  "file": "apps/SuffixTree.EmProto/Ph6/PsiStream.cs"
+ },
+ {
+  "id": "P28",
+  "desc": "window below four bytes gives zero entries",
+  "old": "int entriesPerWindow = Math.Max(1, o.WindowBytes / 4);",
+  "new": "int entriesPerWindow = o.WindowBytes / 4;",
+  "file": "apps/SuffixTree.EmProto/Ph6/PsiStream.cs"
+ },
+ {
+  "id": "P29",
+  "desc": "read buffer not bounded by the number of rows",
+  "old": "int readLen = (int)Math.Min(o.ReadBytes, rows);",
+  "new": "int readLen = o.ReadBytes;",
+  "file": "apps/SuffixTree.EmProto/Ph6/PsiStream.cs"
+ },
+ {
+  "id": "P30",
+  "desc": "the BWT is read from the wrong offset",
+  "old": "bwt.ReadExactAt(block, first);",
+  "new": "bwt.ReadExactAt(block, first + 1);",
+  "file": "apps/SuffixTree.EmProto/Ph6/PsiStream.cs"
+ },
+ {
+  "id": "P31",
+  "desc": "window count of the passes is not accumulated",
+  "old": "windows += cursors.Windows;",
+  "new": "windows = cursors.Windows;",
+  "file": "apps/SuffixTree.EmProto/Ph6/PsiStream.cs"
+ },
+ {
+  "id": "P32",
+  "desc": "BWT bytes read reported for one pass",
+  "old": "passes * rows, 4 * rows);",
+  "new": "rows, 4 * rows);",
+  "file": "apps/SuffixTree.EmProto/Ph6/PsiStream.cs"
+ },
+ {
+  "id": "P33",
+  "desc": "the window cap is not charged (reservation of a different size)",
+  "old": "new ArenaBudget(o.WindowCapBytes).Reserve(bound, \"psi.windows\");",
+  "new": "new ArenaBudget(o.WindowCapBytes).Reserve(bound / 2, \"psi.windows\");",
+  "file": "apps/SuffixTree.EmProto/Ph6/PsiStream.cs"
+ },
+ {
+  "id": "P34",
+  "desc": "the shared budget is not released",
+  "old": "budget.Release(bound);",
+  "new": "budget.Release(0);",
+  "file": "apps/SuffixTree.EmProto/Ph6/PsiStream.cs"
+ },
+ {
+  "id": "P35",
+  "desc": "symbols of other passes are counted as this pass (s > span)",
+  "old": "if (s >= span) continue; // a symbol of another pass",
+  "new": "if (s > span) continue; // a symbol of another pass",
+  "file": "apps/SuffixTree.EmProto/Ph6/PsiStream.cs"
+ },
+ {
+  "id": "P36",
+  "desc": "the first entry of the cursor range is entry start (without the +1 of the empty suffix) via counts offset",
+  "old": "start[c + 1] = start[c] + counts[c];\n",
+  "new": "start[c + 1] = start[c] + counts[c] - (c == 0 ? 1 : 0);\n",
+  "file": "apps/SuffixTree.EmProto/Ph6/PsiStream.cs"
+ }
+]

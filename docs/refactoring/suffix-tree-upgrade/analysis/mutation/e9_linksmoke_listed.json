@@ -1,0 +1,44 @@
+[
+ {
+  "id": "S01",
+  "desc": "sample A of P1: half without the -4000",
+  "old": "int half = Math.Min(sample, Math.Max(1, (drawn.Length - 4000) / 2));",
+  "new": "int half = Math.Min(sample, Math.Max(1, drawn.Length / 2));",
+  "file": "apps/SuffixTree.EmProto/Ph6/LinkSmoke.cs"
+ },
+ {
+  "id": "S02",
+  "desc": "step counts are not compared",
+  "old": "if (threw || okA != okB || stepsA != stepsB || (okA && a != b)) mismatches++;",
+  "new": "if (threw || okA != okB || (okA && a != b)) mismatches++;",
+  "file": "apps/SuffixTree.EmProto/Ph6/LinkSmoke.cs"
+ },
+ {
+  "id": "S03",
+  "desc": "targets are not compared",
+  "old": "if (threw || okA != okB || stepsA != stepsB || (okA && a != b)) mismatches++;",
+  "new": "if (threw || okA != okB || stepsA != stepsB) mismatches++;",
+  "file": "apps/SuffixTree.EmProto/Ph6/LinkSmoke.cs"
+ },
+ {
+  "id": "S04",
+  "desc": "kernel exceptions are not counted",
+  "old": "if (threw || okA != okB",
+  "new": "if (okA != okB",
+  "file": "apps/SuffixTree.EmProto/Ph6/LinkSmoke.cs"
+ },
+ {
+  "id": "S05",
+  "desc": "the empty-node guard is dropped",
+  "old": "if (nodes.Count == 0) chosen = [];",
+  "new": "",
+  "file": "apps/SuffixTree.EmProto/Ph6/LinkSmoke.cs"
+ },
+ {
+  "id": "S06",
+  "desc": "the definition is compared with the other run only",
+  "old": "else if (expected is not null && a != expected[k]) defMismatches++;",
+  "new": "else if (expected is not null && false) defMismatches++;",
+  "file": "apps/SuffixTree.EmProto/Ph6/LinkSmoke.cs"
+ }
+]

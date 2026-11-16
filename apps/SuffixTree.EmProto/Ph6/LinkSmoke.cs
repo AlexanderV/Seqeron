@@ -39,18 +39,17 @@ internal static class LinkSmoke
         var other = new LinkContext(index, isaOther, psiOther, helper);
         LinkNodeSet nodes = LinkNodeSet.Enumerate(index.Lcp);
         int[] sa = index.SuffixArray;
-        int[] chosen;
-        if (p1Sampling)
+        int[] chosen = [];
+        if (nodes.Count > 0 && p1Sampling)
         {
             int[] drawn = nodes.Sample((2 * sample) + 4000, seed);
             int half = Math.Min(sample, Math.Max(1, (drawn.Length - 4000) / 2));
             chosen = drawn[..half];
         }
-        else
+        else if (nodes.Count > 0)
         {
             chosen = nodes.Sample(sample, seed);
         }
-        if (nodes.Count == 0) chosen = [];
 
         LinkNode[] picked = [.. chosen.Select(i => nodes.Node(i, sa))];
         LinkTarget[]? expected = definition is null ? null : [.. picked.Select(definition)];

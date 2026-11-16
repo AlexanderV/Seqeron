@@ -299,6 +299,19 @@ public class PsiFromIsaTests
     }
 
     [Test]
+    public void SaEntryBeyondTheLastPosition_IsRefused()
+    {
+        Ph6Case c = Ph6Case.OfNaive("banana");
+        using var dir = new Ph6Dir();
+        var bad = (int[])c.Sa.Clone();
+        bad[2] = c.N; // only row 0 may hold n
+        string sa = dir.File("x.sa");
+        File.WriteAllBytes(sa, System.Runtime.InteropServices.MemoryMarshal.AsBytes(bad.AsSpan()).ToArray());
+        File.WriteAllBytes(dir.File("x.isa"), c.ExpectedIsaBytes());
+        Assert.Throws<InvalidDataException>(() => PsiFromIsa.Build(sa, dir.File("x.isa"), c.N, dir.File("x.psi")));
+    }
+
+    [Test]
     public void IsaThatIsTooShort_IsRefused()
     {
         Ph6Case c = Ph6Case.OfNaive("banana");
