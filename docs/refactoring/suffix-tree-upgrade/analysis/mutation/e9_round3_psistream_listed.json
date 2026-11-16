@@ -1,0 +1,9 @@
+[
+ {
+  "id": "P16",
+  "desc": "windows not fully mapped are not detected [the message of the end-of-pass check is asserted for windows of one and two entries]",
+  "old": "if (_next[s] != _limit[s] || _cur[s] != _end[s])",
+  "new": "if (_cur[s] != _end[s])",
+  "file": "apps/SuffixTree.EmProto/Ph6/PsiStream.cs"
+ }
+]

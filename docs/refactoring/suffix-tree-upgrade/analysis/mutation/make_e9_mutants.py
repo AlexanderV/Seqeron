@@ -137,4 +137,8 @@ r2('LinkSmoke.cs', 'S04', 'kernel exceptions are not counted as mismatches', 'if
 r2('LinkSmoke.cs', 'S05', 'the empty-node guard of the P1 sampling is dropped', 'if (nodes.Count > 0 && p1Sampling)', 'if (p1Sampling)')
 r2('LinkSmoke.cs', 'S06', 'the definition is compared for equality instead of difference', 'else if (expected is not null && a != expected[k]) defMismatches++;', 'else if (expected is not null && a == expected[k]) defMismatches++;')
 write(R2, 'e9_round2_', None)
+
+# ---- round 3: P16 again after its test asserts which check refuses (the symbol with the lowered count overflows in a later pass with the same exception type, so the type alone cannot tell the checks apart)
+R3 = {'PsiStream.cs': [dict(R2['PsiStream.cs'][1], desc='windows not fully mapped are not detected [the message of the end-of-pass check is asserted for windows of one and two entries]')]}
+write(R3, 'e9_round3_', None)
 print('round 2 mutants listed:', sum(len(v) for v in R2.values()))

@@ -1,0 +1,5 @@
+S02	step counts compared one way only (<=)	survived	survived
+S03	targets are not compared	killed(1)	
+S04	kernel exceptions are not counted as mismatches	survived	survived
+S05	the empty-node guard of the P1 sampling is dropped	killed(1)	
+S06	the definition is compared for equality instead of difference	killed(1)	

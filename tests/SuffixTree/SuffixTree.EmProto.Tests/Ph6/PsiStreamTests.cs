@@ -246,7 +246,9 @@ public class PsiStreamTests
         // windows of one entry: every window a cursor opens is filled completely, the cursor is short of its count by whole windows
         foreach (int window in new[] { 4, 8 })
         {
-            Assert.Throws<InvalidDataException>(() => PsiStream.Build(bwt, meta with { Counts = more }, psi, new PsiOptions { WindowBytes = window, SymbolsPerPass = 1 }), $"underflow with windows of {window} bytes");
+            // the symbol with the raised count ends its pass with every window full and the range not exhausted: the end-of-pass check names it (the symbol with the lowered count would overflow only in a later pass)
+            InvalidDataException shortOfRange = Assert.Throws<InvalidDataException>(() => PsiStream.Build(bwt, meta with { Counts = more }, psi, new PsiOptions { WindowBytes = window, SymbolsPerPass = 1 }), $"underflow with windows of {window} bytes");
+            Assert.That(shortOfRange.Message, Does.Contain("times in the BWT"), $"windows of {window} bytes");
             Assert.Throws<InvalidDataException>(() => PsiStream.Build(bwt, meta with { Counts = fewer }, psi, new PsiOptions { WindowBytes = window }), $"overflow with windows of {window} bytes");
         }
     }

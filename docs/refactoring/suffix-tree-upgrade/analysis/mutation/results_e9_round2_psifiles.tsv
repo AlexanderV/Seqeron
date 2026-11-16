@@ -1,0 +1,2 @@
+L01	LoadForP1 keeps entry 0 as the file has it (0): the mutant maps to 0 instead of -1	killed(3)	
+L02	the oracle file stores P1's -1 in entry 0	killed(2)	
