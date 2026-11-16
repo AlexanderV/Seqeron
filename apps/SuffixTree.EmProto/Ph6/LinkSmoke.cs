@@ -21,5 +21,67 @@ internal sealed record SmokeResult(long NodeCount, long SampleCount, SmokeCell[]
 /// </summary>
 internal static class LinkSmoke
 {
-    internal static SmokeResult Run(EsaIndex index, int[] isaRam, int[] psiRam, int[] isaOther, int[] psiOther, int sample, ulong seed, long budget, int fanout, bool p1Sampling, Func<LinkNode, LinkTarget>? definition) => throw new NotImplementedException();
+    /// <param name="index">The in-RAM index (tagged child table) of the text.</param>
+    /// <param name="isaRam">P1's ISA (n + 1 entries).</param>
+    /// <param name="psiRam">P1's Psi (n + 1 entries, entry 0 = -1).</param>
+    /// <param name="isaOther">The ISA under test.</param>
+    /// <param name="psiOther">The Psi under test, entry 0 = -1 (<see cref="PsiFiles.LoadForP1"/>).</param>
+    /// <param name="sample">Number of nodes: with <paramref name="p1Sampling"/> the <c>--sample</c> of the P1 benchmark (sample A of 2 x sample + 4000 drawn nodes), else the number of nodes drawn (all when fewer exist).</param>
+    /// <param name="seed">Seed of the draw (P1 default 1).</param>
+    /// <param name="budget">Step budget of a link (P1: 3,000,000); a link that exceeds it in the reference run is counted as given up and must give up in the other run too.</param>
+    /// <param name="fanout">Fan-out of the range helper (P1 default 16).</param>
+    /// <param name="definition">Optional definitional target of a node.</param>
+    internal static SmokeResult Run(EsaIndex index, int[] isaRam, int[] psiRam, int[] isaOther, int[] psiOther, int sample, ulong seed, long budget, int fanout, bool p1Sampling, Func<LinkNode, LinkTarget>? definition)
+    {
+        ArgumentNullException.ThrowIfNull(index);
+        var helper = new LcpRangeHelper(index.Lcp, fanout);
+        var reference = new LinkContext(index, isaRam, psiRam, helper);
+        var other = new LinkContext(index, isaOther, psiOther, helper);
+        LinkNodeSet nodes = LinkNodeSet.Enumerate(index.Lcp);
+        int[] sa = index.SuffixArray;
+        int[] chosen;
+        if (p1Sampling)
+        {
+            int[] drawn = nodes.Sample((2 * sample) + 4000, seed);
+            int half = Math.Min(sample, Math.Max(1, (drawn.Length - 4000) / 2));
+            chosen = drawn[..half];
+        }
+        else
+        {
+            chosen = nodes.Sample(sample, seed);
+        }
+        if (nodes.Count == 0) chosen = [];
+
+        LinkNode[] picked = [.. chosen.Select(i => nodes.Node(i, sa))];
+        LinkTarget[]? expected = definition is null ? null : [.. picked.Select(definition)];
+        var cells = new List<SmokeCell>();
+        foreach (LinkKernel kernel in Enum.GetValues<LinkKernel>())
+            foreach (EndpointSource source in Enum.GetValues<EndpointSource>())
+            {
+                long mismatches = 0, gaveUp = 0, defMismatches = 0;
+                for (int k = 0; k < picked.Length; k++)
+                {
+                    LinkNode v = picked[k];
+                    bool okA = LinkKernels.TryLink(kernel, source, reference, v, budget, out LinkTarget a, out long stepsA);
+                    bool threw = false;
+                    LinkTarget b = default;
+                    long stepsB = 0;
+                    bool okB = false;
+                    try
+                    {
+                        okB = LinkKernels.TryLink(kernel, source, other, v, budget, out b, out stepsB);
+                    }
+                    catch (Exception ex) when (ex is IndexOutOfRangeException or ArgumentException or InvalidOperationException)
+                    {
+                        threw = true; // wrong tables can send a kernel outside its arrays: that is a mismatch, not a crash of the test
+                    }
+                    if (threw || okA != okB || stepsA != stepsB || (okA && a != b)) mismatches++;
+                    if (!okA) gaveUp++;
+                    else if (expected is not null && a != expected[k]) defMismatches++;
+                    if (!threw && okB && expected is not null && b != expected[k] && !(okA && a != expected[k])) defMismatches++;
+                }
+                cells.Add(new SmokeCell(kernel, source, picked.Length, mismatches, gaveUp, defMismatches));
+            }
+        return new SmokeResult(nodes.Count, picked.Length, [.. cells]);
+    }
 }
