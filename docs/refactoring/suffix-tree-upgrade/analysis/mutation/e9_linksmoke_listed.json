@@ -29,9 +29,9 @@
  },
  {
   "id": "S05",
-  "desc": "the empty-node guard is dropped",
-  "old": "if (nodes.Count == 0) chosen = [];",
-  "new": "",
+  "desc": "the empty-node guard of the P1 sampling is dropped",
+  "old": "if (nodes.Count > 0 && p1Sampling)",
+  "new": "if (p1Sampling)",
   "file": "apps/SuffixTree.EmProto/Ph6/LinkSmoke.cs"
  },
  {

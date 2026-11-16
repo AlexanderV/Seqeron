@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 """Writes the hand-made single-site mutants of the new production code of E9 (apps/SuffixTree.EmProto/Ph6: PsiStream, BwtPass, IsaByDist and PsiFromIsa, PsiFiles, LinkSmoke) as one JSON list per file
    (e9_<file>_listed.json: every candidate written; e9_<file>_mutants.json: the ones handed to run_e9_mutants.py, here the same list). Each pattern must occur exactly once in its file (checked here).
-   usage: make_e9_mutants.py <repo root>"""
+   Round 1 is written against the sources of commit 8d79fc47 (the code the audit ran on); round 2 (mutants that did not compile or survived round 1, run after the tests were strengthened and LinkSmoke gained its two counters) against the working tree.
+   usage: make_e9_mutants.py <repo root> [round1-source-revision, default 8d79fc47]"""
 import json, os, sys
 
 ROOT = sys.argv[1] if len(sys.argv) > 1 else '/home/user/Seqeron'
+REV = sys.argv[2] if len(sys.argv) > 2 else '8d79fc47'
+import subprocess
 PH6 = 'apps/SuffixTree.EmProto/Ph6/'
 
 M = {}
@@ -97,16 +100,41 @@ m(f, 'S04', 'kernel exceptions are not counted', 'if (threw || okA != okB', 'if 
 m(f, 'S05', 'the empty-node guard of the P1 sampling is dropped', 'if (nodes.Count > 0 && p1Sampling)', 'if (p1Sampling)')
 m(f, 'S06', 'the definition is compared with the other run only', 'else if (expected is not null && a != expected[k]) defMismatches++;', 'else if (expected is not null && false) defMismatches++;')
 
-for f, lst in M.items():
-    src = open(os.path.join(ROOT, PH6, f)).read()
-    for x in lst:
-        c = src.count(x['old'])
-        if c != 1:
-            print('PATTERN-NOT-UNIQUE', f, x['id'], c)
-            sys.exit(1)
-    base = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'e9_' + f.replace('.cs', '').lower())
-    for x in lst:
-        x['file'] = PH6 + f
-    json.dump(lst, open(base + '_listed.json', 'w'), indent=1)
+def source(f, rev):
+    if rev is None:
+        return open(os.path.join(ROOT, PH6, f)).read()
+    return subprocess.run(['git', '-C', ROOT, 'show', '%s:%s%s' % (rev, PH6, f)], capture_output=True, text=True, check=True).stdout
+
+def write(table, prefix, rev):
+    for f, lst in table.items():
+        src = source(f, rev)
+        for x in lst:
+            c = src.count(x['old'])
+            if c != 1:
+                print('PATTERN-NOT-UNIQUE', prefix, f, x['id'], c)
+                sys.exit(1)
+            x['file'] = PH6 + f
+        base = os.path.join(os.path.dirname(os.path.abspath(__file__)), prefix + f.replace('.cs', '').lower())
+        json.dump(lst, open(base + '_listed.json', 'w'), indent=1)
+
+write(M, 'e9_', REV)
 tot = sum(len(v) for v in M.values())
-print('mutants listed:', tot, {k: len(v) for k, v in M.items()})
+print('round 1 mutants listed:', tot, {k: len(v) for k, v in M.items()})
+
+# ---- round 2: replacements of the mutants that did not compile (analyzer errors S1125, S1481, S1656), the mutants that survived with a test that kills them now, and S05 (its pattern had changed before the round-1 list was made)
+R2 = {}
+def r2(file, id, desc, old, new):
+    R2.setdefault(file, []).append({'id': id, 'desc': desc, 'old': old, 'new': new})
+r2('PsiStream.cs', 'P14', 'a cursor that has used its range is not refused (remaining < 0) [message of the overflow is asserted now]', 'if (remaining <= 0) throw new InvalidDataException', 'if (remaining < 0) throw new InvalidDataException')
+r2('PsiStream.cs', 'P16', 'windows not fully mapped are not detected [windows of one entry are tested now]', 'if (_next[s] != _limit[s] || _cur[s] != _end[s])', 'if (_cur[s] != _end[s])')
+r2('PsiStream.cs', 'P24', 'counts that sum to more than n accepted [N - 1 is tested now]', 'counts.Sum() != n', 'counts.Sum() < n')
+r2('BwtPass.cs', 'B10', 'SA file of the wrong length accepted (<) [a longer file is tested now]', 'if (sa.Length != 4 * rows)', 'if (sa.Length < 4 * rows)')
+r2('PsiFiles.cs', 'L01', 'LoadForP1 keeps entry 0 as the file has it (0): the mutant maps to 0 instead of -1', 'if (psi.Length > 0) psi[0] = -1;', 'if (psi.Length > 0) psi[0] = 0;')
+r2('PsiFiles.cs', 'L02', 'the oracle file stores P1\'s -1 in entry 0', 'if (psi.Length > 0) psi[0] = 0;', 'if (psi.Length > 0) psi[0] = -1;')
+r2('LinkSmoke.cs', 'S02', 'step counts compared one way only (<=)', 'bool sameRun = okA == okB && stepsA == stepsB;', 'bool sameRun = okA == okB && stepsA <= stepsB;')
+r2('LinkSmoke.cs', 'S03', 'targets are not compared', 'if (threw || !sameRun || (okA && a != b)) mismatches++;', 'if (threw || !sameRun) mismatches++;')
+r2('LinkSmoke.cs', 'S04', 'kernel exceptions are not counted as mismatches', 'if (threw || !sameRun || (okA && a != b)) mismatches++;', 'if (!sameRun || (okA && a != b)) mismatches++;')
+r2('LinkSmoke.cs', 'S05', 'the empty-node guard of the P1 sampling is dropped', 'if (nodes.Count > 0 && p1Sampling)', 'if (p1Sampling)')
+r2('LinkSmoke.cs', 'S06', 'the definition is compared for equality instead of difference', 'else if (expected is not null && a != expected[k]) defMismatches++;', 'else if (expected is not null && a == expected[k]) defMismatches++;')
+write(R2, 'e9_round2_', None)
+print('round 2 mutants listed:', sum(len(v) for v in R2.values()))

@@ -4,7 +4,10 @@ using SuffixTree.Esa.Bench.Links;
 namespace SuffixTree.EmProto.Ph6;
 
 /// <summary>One kernel x endpoint-source cell of the smoke test.</summary>
-internal sealed record SmokeCell(LinkKernel Kernel, EndpointSource Source, long Nodes, long Mismatches, long GaveUp, long DefinitionMismatches);
+/// <param name="Mismatches">Links on which the run with the tables under test differs from the reference run (the flag, the step count, the target, or an exception).</param>
+/// <param name="Threw">Links on which the kernel threw with the tables under test (counted in <paramref name="Mismatches"/> as well).</param>
+/// <param name="TargetOnly">Links that differ in the target alone: same success flag, same step count (counted in <paramref name="Mismatches"/> as well).</param>
+internal sealed record SmokeCell(LinkKernel Kernel, EndpointSource Source, long Nodes, long Mismatches, long GaveUp, long DefinitionMismatches, long Threw = 0, long TargetOnly = 0);
 
 internal sealed record SmokeResult(long NodeCount, long SampleCount, SmokeCell[] Cells)
 {
@@ -57,7 +60,7 @@ internal static class LinkSmoke
         foreach (LinkKernel kernel in Enum.GetValues<LinkKernel>())
             foreach (EndpointSource source in Enum.GetValues<EndpointSource>())
             {
-                long mismatches = 0, gaveUp = 0, defMismatches = 0;
+                long mismatches = 0, gaveUp = 0, defMismatches = 0, threwCount = 0, targetOnly = 0;
                 for (int k = 0; k < picked.Length; k++)
                 {
                     LinkNode v = picked[k];
@@ -73,13 +76,16 @@ internal static class LinkSmoke
                     catch (Exception ex) when (ex is IndexOutOfRangeException or ArgumentException or InvalidOperationException)
                     {
                         threw = true; // wrong tables can send a kernel outside its arrays: that is a mismatch, not a crash of the test
+                        threwCount++;
                     }
-                    if (threw || okA != okB || stepsA != stepsB || (okA && a != b)) mismatches++;
+                    bool sameRun = okA == okB && stepsA == stepsB;
+                    if (threw || !sameRun || (okA && a != b)) mismatches++;
+                    if (!threw && sameRun && okA && a != b) targetOnly++;
                     if (!okA) gaveUp++;
                     else if (expected is not null && a != expected[k]) defMismatches++;
                     if (!threw && okB && expected is not null && b != expected[k] && !(okA && a != expected[k])) defMismatches++;
                 }
-                cells.Add(new SmokeCell(kernel, source, picked.Length, mismatches, gaveUp, defMismatches));
+                cells.Add(new SmokeCell(kernel, source, picked.Length, mismatches, gaveUp, defMismatches, threwCount, targetOnly));
             }
         return new SmokeResult(nodes.Count, picked.Length, [.. cells]);
     }

@@ -1,0 +1,23 @@
+[
+ {
+  "id": "P14",
+  "desc": "a cursor that has used its range is not refused (remaining < 0) [message of the overflow is asserted now]",
+  "old": "if (remaining <= 0) throw new InvalidDataException",
+  "new": "if (remaining < 0) throw new InvalidDataException",
+  "file": "apps/SuffixTree.EmProto/Ph6/PsiStream.cs"
+ },
+ {
+  "id": "P16",
+  "desc": "windows not fully mapped are not detected [windows of one entry are tested now]",
+  "old": "if (_next[s] != _limit[s] || _cur[s] != _end[s])",
+  "new": "if (_cur[s] != _end[s])",
+  "file": "apps/SuffixTree.EmProto/Ph6/PsiStream.cs"
+ },
+ {
+  "id": "P24",
+  "desc": "counts that sum to more than n accepted [N - 1 is tested now]",
+  "old": "counts.Sum() != n",
+  "new": "counts.Sum() < n",
+  "file": "apps/SuffixTree.EmProto/Ph6/PsiStream.cs"
+ }
+]

@@ -1,0 +1,16 @@
+[
+ {
+  "id": "L01",
+  "desc": "LoadForP1 keeps entry 0 as the file has it (0): the mutant maps to 0 instead of -1",
+  "old": "if (psi.Length > 0) psi[0] = -1;",
+  "new": "if (psi.Length > 0) psi[0] = 0;",
+  "file": "apps/SuffixTree.EmProto/Ph6/PsiFiles.cs"
+ },
+ {
+  "id": "L02",
+  "desc": "the oracle file stores P1's -1 in entry 0",
+  "old": "if (psi.Length > 0) psi[0] = 0;",
+  "new": "if (psi.Length > 0) psi[0] = -1;",
+  "file": "apps/SuffixTree.EmProto/Ph6/PsiFiles.cs"
+ }
+]

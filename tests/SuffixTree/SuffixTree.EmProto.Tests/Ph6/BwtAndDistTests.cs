@@ -126,6 +126,16 @@ public unsafe class BwtPassTests
             bad[Array.IndexOf(bad, 3)] = 0;
             Assert.Throws<InvalidDataException>(() => RunWithSa(dir, c, bad), "two rows with suffix 0");
         }
+        // SA file longer than n + 1 entries
+        using (var dir = new Ph6Dir())
+        {
+            string sa = dir.File("x.sa");
+            File.WriteAllBytes(sa, [.. System.Runtime.InteropServices.MemoryMarshal.AsBytes(c.Sa.AsSpan()).ToArray(), .. new byte[4]]);
+            string pk = c.WritePacked(dir);
+            using var mapped = new MappedFile(pk, writable: false);
+            using var text = new PackedText(mapped.Pointer, c.N, 2, mapped, ownsOwner: false);
+            Assert.Throws<InvalidDataException>(() => BwtPass.Build(sa, text, c.Sigma, dir.File("x.bwt")), "one entry too many");
+        }
         // SA file of the wrong length
         using (var dir = new Ph6Dir())
         {

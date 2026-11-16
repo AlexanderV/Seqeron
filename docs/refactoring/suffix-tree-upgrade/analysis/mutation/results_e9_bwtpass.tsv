@@ -1,0 +1,10 @@
+B01	the symbol before the suffix is taken at p instead of p - 1	killed(6)	
+B02	the sentinel row is the row of suffix 1	killed(host crash)	
+B03	counts add two	killed(11)	
+B04	row 0 is not checked to be the empty suffix	killed(16)	
+B05	primary row off by one	killed(13)	
+B06	symbol equal to sigma accepted	killed(1)	
+B07	an SA entry equal to n + 1 accepted	killed(1)	
+B08	two rows with suffix 0 accepted	survived	survived
+B09	the dummy byte of the sentinel row is 1	killed(4)	
+B10	SA file of the wrong length accepted (<)	survived	survived

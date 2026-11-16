@@ -234,11 +234,21 @@ public class PsiStreamTests
         var fewer = (long[])counts.Clone();
         fewer[0]--;
         fewer[1]++;
-        Assert.Throws<InvalidDataException>(() => PsiStream.Build(bwt, meta with { Counts = fewer }, psi), "overflow of a cursor");
+        InvalidDataException over = Assert.Throws<InvalidDataException>(() => PsiStream.Build(bwt, meta with { Counts = fewer }, psi), "overflow of a cursor");
+        Assert.That(over.Message, Does.Contain("more often"), "the overflow is refused when the cursor is asked for an entry beyond its range");
         var more = (long[])counts.Clone();
         more[0]++;
         more[1]--;
-        Assert.Throws<InvalidDataException>(() => PsiStream.Build(bwt, meta with { Counts = more }, psi), "underflow of a cursor");
+        Assert.Throws<InvalidDataException>(() => PsiStream.Build(bwt, meta with { Counts = more }, psi), "underflow of a cursor, the overflow of another symbol comes first");
+        // one symbol per pass: the symbol that is short of its count is finished before the other one overflows, and it is the end-of-pass check that refuses it
+        InvalidDataException under = Assert.Throws<InvalidDataException>(() => PsiStream.Build(bwt, meta with { Counts = more }, psi, new PsiOptions { SymbolsPerPass = 1 }), "underflow of a cursor");
+        Assert.That(under.Message, Does.Contain("times in the BWT"));
+        // windows of one entry: every window a cursor opens is filled completely, the cursor is short of its count by whole windows
+        foreach (int window in new[] { 4, 8 })
+        {
+            Assert.Throws<InvalidDataException>(() => PsiStream.Build(bwt, meta with { Counts = more }, psi, new PsiOptions { WindowBytes = window, SymbolsPerPass = 1 }), $"underflow with windows of {window} bytes");
+            Assert.Throws<InvalidDataException>(() => PsiStream.Build(bwt, meta with { Counts = fewer }, psi, new PsiOptions { WindowBytes = window }), $"overflow with windows of {window} bytes");
+        }
     }
 
     [Test]
@@ -261,7 +271,9 @@ public class PsiStreamTests
         using var dir = new Ph6Dir();
         (string bwt, BwtMeta meta) = WriteBwt(dir, c);
         string psi = dir.File("x.psi");
-        Assert.Throws<ArgumentException>(() => PsiStream.Build(bwt, meta with { N = meta.N + 1 }, psi), "counts do not sum to n");
+        Assert.Throws<ArgumentException>(() => PsiStream.Build(bwt, meta with { N = meta.N + 1 }, psi), "counts sum to less than n");
+        Assert.That(c.Primary, Is.LessThan(c.N - 1), "the primary row stays valid when n is lowered");
+        Assert.Throws<ArgumentException>(() => PsiStream.Build(bwt, meta with { N = meta.N - 1 }, psi), "counts sum to more than n");
         Assert.Throws<ArgumentOutOfRangeException>(() => PsiStream.Build(bwt, meta with { PrimaryRow = meta.N + 1 }, psi), "primary row beyond the last row");
         Assert.Throws<ArgumentOutOfRangeException>(() => PsiStream.Build(bwt, meta with { PrimaryRow = -1 }, psi), "negative primary row");
         Assert.Throws<ArgumentOutOfRangeException>(() => PsiStream.Build(bwt, meta, psi, new PsiOptions { WindowBytes = 0 }));

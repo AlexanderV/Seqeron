@@ -1,0 +1,15 @@
+D01	chunk of a position off by one	killed(9)	
+D02	rank in the tuple off by one	killed(6)	
+D03	buffer entries from 4-byte tuples	killed(1)	
+D04	chunk count by floor division	killed(12)	
+D05	the chunk array is not initialised to the missing marker	killed(11)	
+D06	the last chunk array is as long as a full chunk	killed(9)	
+D07	duplicate positions are not detected when they occur	survived	survived
+D08	missing positions are not detected	survived	survived
+D09	entries beyond n accepted	killed(1)	
+D10	the tuples of a flushed buffer are written at the start of the file	killed(9)	
+D11	the chunk files are read from the wrong offset	killed(10)	
+D12	the in-memory remainder of a chunk is not scattered	killed(9)	
+F01	Psi reads ISA[SA[i]] instead of ISA[SA[i] + 1]	killed(2)	
+F02	Psi entry 0 is 1	killed(2)	
+F03	SA entry n at a row >= 1 accepted	killed(1)	

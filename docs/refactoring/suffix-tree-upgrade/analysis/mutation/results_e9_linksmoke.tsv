@@ -1,0 +1,6 @@
+S01	sample A of P1: half without the -4000	killed(1)	
+S02	step counts are not compared	BUILD-ERROR S1481	
+S03	targets are not compared	survived	survived
+S04	kernel exceptions are not counted	survived	survived
+S05	the empty-node guard is dropped	PATTERN-NOT-UNIQUE	
+S06	the definition is compared with the other run only	BUILD-ERROR S1125	

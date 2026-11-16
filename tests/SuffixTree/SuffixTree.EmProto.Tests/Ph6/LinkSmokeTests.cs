@@ -191,6 +191,37 @@ public unsafe class LinkSmokeTests
     }
 
     [Test]
+    public void TheKindsOfMismatch_AreSeparated_AndTargetOnlyDifferencesExist()
+    {
+        // wrong tables make links differ in the flag, the step count or the target; some links differ in the target alone, and the totals contain every kind
+        long targetOnly = 0, threw = 0, mismatches = 0;
+        for (int v = 0; v < 40; v++)
+        {
+            Ph6Case c = Ph6Case.Of(Ph6Case.RandomText(300 + v, 2 + (v % 3), (ulong)(900 + v)));
+            EsaIndex index = EsaIndex.Build(c.Text, ChildLayoutKind.Tagged);
+            Streamed s = Stream(c);
+            var rng = new SplitMix64((ulong)v + 1);
+            var bad = (int[])s.PsiStream.Clone();
+            for (int k = 0; k < 3; k++)
+            {
+                int i = 1 + rng.NextInt(bad.Length - 1), j = 1 + rng.NextInt(bad.Length - 1);
+                (bad[i], bad[j]) = (bad[j], bad[i]);
+            }
+            SmokeResult r = LinkSmoke.Run(index, c.IsaRam, c.PsiRam, s.IsaDist, bad, int.MaxValue, 1, 100_000, 16, p1Sampling: false, null);
+            foreach (SmokeCell cell in r.Cells)
+            {
+                Assert.That(cell.Mismatches, Is.GreaterThanOrEqualTo(cell.TargetOnly), $"text {v}: target-only links are mismatches");
+                Assert.That(cell.Mismatches, Is.GreaterThanOrEqualTo(cell.Threw), $"text {v}: links that threw are mismatches");
+                targetOnly += cell.TargetOnly;
+                threw += cell.Threw;
+                mismatches += cell.Mismatches;
+            }
+        }
+        Assert.That(targetOnly, Is.GreaterThan(0), "some wrong link has the same flag and the same step count as the right one and a different target");
+        Assert.That(mismatches, Is.GreaterThan(targetOnly + threw), "the flag and step count differences exist as well");
+    }
+
+    [Test]
     public void ADefinitionThatDisagrees_IsDetected()
     {
         Ph6Case c = Ph6Case.OfNaive("abracadabra");

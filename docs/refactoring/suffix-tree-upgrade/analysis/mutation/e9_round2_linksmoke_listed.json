@@ -1,0 +1,37 @@
+[
+ {
+  "id": "S02",
+  "desc": "step counts compared one way only (<=)",
+  "old": "bool sameRun = okA == okB && stepsA == stepsB;",
+  "new": "bool sameRun = okA == okB && stepsA <= stepsB;",
+  "file": "apps/SuffixTree.EmProto/Ph6/LinkSmoke.cs"
+ },
+ {
+  "id": "S03",
+  "desc": "targets are not compared",
+  "old": "if (threw || !sameRun || (okA && a != b)) mismatches++;",
+  "new": "if (threw || !sameRun) mismatches++;",
+  "file": "apps/SuffixTree.EmProto/Ph6/LinkSmoke.cs"
+ },
+ {
+  "id": "S04",
+  "desc": "kernel exceptions are not counted as mismatches",
+  "old": "if (threw || !sameRun || (okA && a != b)) mismatches++;",
+  "new": "if (!sameRun || (okA && a != b)) mismatches++;",
+  "file": "apps/SuffixTree.EmProto/Ph6/LinkSmoke.cs"
+ },
+ {
+  "id": "S05",
+  "desc": "the empty-node guard of the P1 sampling is dropped",
+  "old": "if (nodes.Count > 0 && p1Sampling)",
+  "new": "if (p1Sampling)",
+  "file": "apps/SuffixTree.EmProto/Ph6/LinkSmoke.cs"
+ },
+ {
+  "id": "S06",
+  "desc": "the definition is compared for equality instead of difference",
+  "old": "else if (expected is not null && a != expected[k]) defMismatches++;",
+  "new": "else if (expected is not null && a == expected[k]) defMismatches++;",
+  "file": "apps/SuffixTree.EmProto/Ph6/LinkSmoke.cs"
+ }
+]

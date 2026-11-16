@@ -1,0 +1,9 @@
+[
+ {
+  "id": "B10",
+  "desc": "SA file of the wrong length accepted (<) [a longer file is tested now]",
+  "old": "if (sa.Length != 4 * rows)",
+  "new": "if (sa.Length < 4 * rows)",
+  "file": "apps/SuffixTree.EmProto/Ph6/BwtPass.cs"
+ }
+]
