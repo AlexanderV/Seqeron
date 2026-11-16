@@ -6,7 +6,7 @@ namespace SuffixTree.EmProto;
 internal static class Cli
 {
     private const string Usage = """
-        SuffixTree.EmProto - prototypes E0-E3, E3b, E4, E5 and E6 of ADR-004 (external-memory construction of the persistent ESA)
+        SuffixTree.EmProto - prototypes E0-E3, E3b, E4, E5, E6 and E9 of ADR-004 (external-memory construction of the persistent ESA)
 
           e1   --family <spec> [--data <dir>] [--vectors <sa_vectors.tsv>] [--threads 1] [--k-div 1000 | --k <K>] [--fan 64] [--limit 600] [--tie-sort merge|intro] [--run <id>] [--rows raw.tsv]
           e2   the same with --dcs <X> [--exact] [--dcs-base 16000000]
@@ -33,6 +33,16 @@ internal static class Cli
                    [--k K] [--fan F] [--k-s K] [--nbase N] [--dcs-chunk R] [--sort-k K] [--chunk R] [--b2-workers w] [--block-entries b] [--slots s] [--window-kb w] [--prepare-block symbols] ...  (explicit values win over the scale rule; --rule-n evaluates the rule at a fixed n for every text: E7 series A)
                    [--verify-pk <packed file>] [--verify-sa <kernel SA file> | --verify-sa-hash <sha256>] [--verify-lcp <prefix of .lcp/.ovf>] [--verify-child <.cldP>] [--verify-stats <.stats>]
                    end to end (E6): PH0 prepare, PH1 DCS rank file, PH2/PH3 suffix array, PH4 LCP (base mode) fused with PH5 (child table, layout A) in one process; outputs <prefix>.pk (+ .pk.meta) .sa .lcp .ovf .cld .stats; the scratch is deleted
+          e9-bwt   --text <packed> --sa <sa file> --out <bwt file> [--read-kb 1024] [--window-kb 1024] [--budget-mb 160] [--case name]
+                   E9, route (ii): BWT[j] = T[SA[j] - 1] as a separate pass over the SA file (one byte per row; the row of the suffix 0 holds a dummy 0; <bwt>.meta: n, primary row, symbol counts)
+          e9-psi   --bwt <bwt file> --out <psi file> [--window-kb 64] [--symbols-per-pass 64] [--read-kb 1024] [--cyclic] [--budget-mb 160] [--pk-meta <.pk.meta>] [--verify <ref psi file>] [--case name]
+                   E9 / PH6: PSI[i] = ISA[SA[i] + 1] by sigma-way distribution of the BWT (one output cursor per symbol, one mapped window each; ceil(sigma / 64) passes); PSI[0] = 0, or the row of the suffix 0 with --cyclic
+          e9-isa   --sa <sa file> --out <isa file> --scratch <dir> [--scale-n 3000000000 | --chunk R] [--io-kb 64] [--read-kb 1024] [--window-kb 1024] [--verify <ref isa file>] [--case name]
+                   E9: ISA by DIST (one-level radix distribution of (SA[i], i) into n / R chunk files, then scatter), 24 B per entry
+          e9-psi-isa --sa <sa file> --isa <isa file> --out <psi file> [--verify <ref psi file>]    E9: PSI[i] = ISA[SA[i] + 1] from the ISA file (SA sequential, ISA at random)
+          e9-oracle  --sa <sa file> --out <prefix>      E9: the in-RAM ISA and Psi of P1 (LinkTables) written as <prefix>.isa and <prefix>.psi (PSI[0] = -1 of P1 stored as 0)
+          e9-smoke   --input <text file> --sa <sa file> --isa <isa file> --psi <psi file> [--psi2 <psi from isa>] [--sample 200000] [--seed 1] [--fanout 16] [--link-budget 3000000]
+                   E9: every kernel x source of the suffix-link prototype P1 with the in-RAM tables and with the streamed ones, on the P1 node sample; results must be identical
           e6-mktext --family <spec> --out <text file> [--data dir]   the ASCII text of a family (setup, outside the pipeline)
           packrand --n <symbols> --out <packed file> [--seed s]        packed 2-bit random DNA of any length (streamed; for runs above the 2^31 symbols of pack)
           hash-sa  --file <sa file>      SHA-256 of entries 1..n (libsais convention)
@@ -67,6 +77,12 @@ internal static class Cli
                 case "e5-oracle": return E5.Oracle(o, report);
                 case "e6": return E6.Run(o, report);
                 case "e6-mktext": return E6.MakeText(o, report);
+                case "e9-bwt": return E9.Bwt(o, report);
+                case "e9-psi": return E9.Psi(o, report);
+                case "e9-isa": return E9.Isa(o, report);
+                case "e9-psi-isa": return E9.PsiFromIsaCommand(o, report);
+                case "e9-oracle": return E9.Oracle(o, report);
+                case "e9-smoke": return E9.Smoke(o, report);
                 case "lcp-oracle": return E4.Oracle(o, report);
                 case "check-lcp": return E4.CheckSample(o, report);
                 case "packrand": return E3b.PackRandom(o, report);

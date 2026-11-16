@@ -112,6 +112,13 @@ public unsafe class BwtPassTests
             bad[2] = c.N + 1;
             Assert.Throws<InvalidDataException>(() => RunWithSa(dir, c, bad), "entry above n");
         }
+        // row 0 does not hold n
+        using (var dir = new Ph6Dir())
+        {
+            var bad = (int[])c.Sa.Clone();
+            (bad[0], bad[1]) = (bad[1], bad[0]);
+            Assert.Throws<InvalidDataException>(() => RunWithSa(dir, c, bad), "row 0 is not the empty suffix");
+        }
         // two rows hold 0
         using (var dir = new Ph6Dir())
         {
