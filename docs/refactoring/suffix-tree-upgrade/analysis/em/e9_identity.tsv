@@ -1,18 +1,18 @@
-R	E9	identity	head	8d79fc476c8cd92e16f2818124f83c4794f7d362		git rev-parse HEAD of the checkout when the group started; binary /tmp/stbench/bin_e9_run/SuffixTree.EmProto.dll
-R	E9	prot_1m.id	psi_s	0.060985	s	wall time of the Psi pass: one BWT scan per group of symbols, one output cursor per symbol
-R	E9	prot_1m.id	psi_ns_per_char	60.985107	ns	seconds / n
+R	E9	identity	head	a7c3b52ab26f9a6e22522c06ffdf572a56e153e6		git rev-parse HEAD of the checkout when the group started; binary /tmp/stbench/bin_e9_run/SuffixTree.EmProto.dll
+R	E9	prot_1m.id	psi_s	0.054611	s	wall time of the Psi pass: one BWT scan per group of symbols, one output cursor per symbol
+R	E9	prot_1m.id	psi_ns_per_char	54.611246	ns	seconds / n
 R	E9	prot_1m.id	psi_io_explicit_read	1000001	bytes	1.0000 B/char (program counter, explicit reads, 1 calls)
 R	E9	prot_1m.id	psi_io_explicit_write	0	bytes	0.0000 B/char (program counter, explicit writes, 0 calls)
 R	E9	prot_1m.id	psi_io_mapped_write	4000004	bytes	4.0000 B/char (program counter, writes through mapped windows: 81 windows, largest 65536 bytes)
 R	E9	prot_1m.id	psi_io_counted_total	5000005	bytes	5.0000 B/char: explicit reads + explicit writes + mapped writes (reads through mappings are not counted)
-R	E9	prot_1m.id	psi_proc_rchar	1687306	bytes	/proc/self/io rchar during the phase, 1.6873 B/char
+R	E9	prot_1m.id	psi_proc_rchar	1470498	bytes	/proc/self/io rchar during the phase, 1.4705 B/char
 R	E9	prot_1m.id	psi_proc_wchar	0	bytes	/proc/self/io wchar during the phase, 0.0000 B/char (mapped writes are not syscalls)
-R	E9	prot_1m.id	psi_proc_read_bytes	1003520	bytes	/proc/self/io read_bytes (block layer, page-cache misses), 1.0035 B/char
-R	E9	prot_1m.id	psi_proc_write_bytes	4239360	bytes	/proc/self/io write_bytes (pages that went from clean to dirty), 4.2394 B/char
-R	E9	prot_1m.id	psi_rssanon_peak	5.28384	MB	max RssAnon of the phase at 10 ms (program sampler)
-R	E9	prot_1m.id	psi_rssfile_peak	27.901952	MB	mapped file pages resident (reported, not counted)
-R	E9	prot_1m.id	psi_dirty_peak	0.765952	MB	max /proc/meminfo Dirty minus the baseline (0.33 MB) at 20 ms, system-wide
-R	E9	prot_1m.id	psi_proc_dirty_peak	0.684032	MB	max Private_Dirty + Shared_Dirty of the mappings of the output file (per-process view)
+R	E9	prot_1m.id	psi_proc_read_bytes	1007616	bytes	/proc/self/io read_bytes (block layer, page-cache misses), 1.0076 B/char
+R	E9	prot_1m.id	psi_proc_write_bytes	4222976	bytes	/proc/self/io write_bytes (pages that went from clean to dirty), 4.2230 B/char
+R	E9	prot_1m.id	psi_rssanon_peak	5.271552	MB	max RssAnon of the phase at 10 ms (program sampler)
+R	E9	prot_1m.id	psi_rssfile_peak	28.131328	MB	mapped file pages resident (reported, not counted)
+R	E9	prot_1m.id	psi_dirty_peak	1.282048	MB	max /proc/meminfo Dirty minus the baseline (0.68 MB) at 20 ms, system-wide
+R	E9	prot_1m.id	psi_proc_dirty_peak	1.232896	MB	max Private_Dirty + Shared_Dirty of the mappings of the output file (per-process view)
 R	E9	prot_1m.id	psi_arena_peak	2310721	bytes	peak charged to the ArenaBudget (cap 160 MiB), live at the end 0
 R	E9	prot_1m.id	psi_scratch_peak	0	bytes	0.0000 B/char: peak of the tracked scratch files
 R	E9	prot_1m.id	psi_passes	1	n	sigma=20, symbols per pass 20 (limit 64), window 65536 bytes, 80 windows of the cursors, mapped working set bound 1310720 bytes
@@ -20,19 +20,19 @@ R	E9	prot_1m.id	psi_bwt_bytes_read	1000001	bytes	1.0000 B/char: passes x (n + 1)
 R	E9	prot_1m.id	psi_bytes_written	4000004	bytes	4.0000 B/char: 4 (n + 1)
 R	E9	prot_1m.id	counts_equal_ph0	n/a		the symbol counts of the BWT meta against the C[] of PH0 in prot_1m.pk.meta
 R	E9	prot_1m.id	cmp_psi	yes		cmp out.prot_1m.psi prot_1m.ref.psi (4000004 bytes)
-R	E9	prot_1m.id.small	psi_s	0.746089	s	wall time of the Psi pass: one BWT scan per group of symbols, one output cursor per symbol
-R	E9	prot_1m.id.small	psi_ns_per_char	746.088968	ns	seconds / n
+R	E9	prot_1m.id.small	psi_s	0.659702	s	wall time of the Psi pass: one BWT scan per group of symbols, one output cursor per symbol
+R	E9	prot_1m.id.small	psi_ns_per_char	659.701618	ns	seconds / n
 R	E9	prot_1m.id.small	psi_io_explicit_read	10000010	bytes	10.0000 B/char (program counter, explicit reads, 160 calls)
 R	E9	prot_1m.id.small	psi_io_explicit_write	0	bytes	0.0000 B/char (program counter, explicit writes, 0 calls)
 R	E9	prot_1m.id.small	psi_io_mapped_write	4000004	bytes	4.0000 B/char (program counter, writes through mapped windows: 3916 windows, largest 1024 bytes)
 R	E9	prot_1m.id.small	psi_io_counted_total	14000014	bytes	14.0000 B/char: explicit reads + explicit writes + mapped writes (reads through mappings are not counted)
-R	E9	prot_1m.id.small	psi_proc_rchar	17962422	bytes	/proc/self/io rchar during the phase, 17.9624 B/char
+R	E9	prot_1m.id.small	psi_proc_rchar	17277004	bytes	/proc/self/io rchar during the phase, 17.2770 B/char
 R	E9	prot_1m.id.small	psi_proc_wchar	0	bytes	/proc/self/io wchar during the phase, 0.0000 B/char (mapped writes are not syscalls)
 R	E9	prot_1m.id.small	psi_proc_read_bytes	0	bytes	/proc/self/io read_bytes (block layer, page-cache misses), 0.0000 B/char
-R	E9	prot_1m.id.small	psi_proc_write_bytes	189894656	bytes	/proc/self/io write_bytes (pages that went from clean to dirty), 189.8947 B/char
-R	E9	prot_1m.id.small	psi_rssanon_peak	9.125888	MB	max RssAnon of the phase at 10 ms (program sampler)
-R	E9	prot_1m.id.small	psi_rssfile_peak	27.578368	MB	mapped file pages resident (reported, not counted)
-R	E9	prot_1m.id.small	psi_dirty_peak	0.208896	MB	max /proc/meminfo Dirty minus the baseline (0.45 MB) at 20 ms, system-wide
+R	E9	prot_1m.id.small	psi_proc_write_bytes	189882368	bytes	/proc/self/io write_bytes (pages that went from clean to dirty), 189.8824 B/char
+R	E9	prot_1m.id.small	psi_rssanon_peak	9.07264	MB	max RssAnon of the phase at 10 ms (program sampler)
+R	E9	prot_1m.id.small	psi_rssfile_peak	27.500544	MB	mapped file pages resident (reported, not counted)
+R	E9	prot_1m.id.small	psi_dirty_peak	0.217088	MB	max /proc/meminfo Dirty minus the baseline (0.74 MB) at 20 ms, system-wide
 R	E9	prot_1m.id.small	psi_proc_dirty_peak	0.012288	MB	max Private_Dirty + Shared_Dirty of the mappings of the output file (per-process view)
 R	E9	prot_1m.id.small	psi_arena_peak	67584	bytes	peak charged to the ArenaBudget (cap 160 MiB), live at the end 0
 R	E9	prot_1m.id.small	psi_scratch_peak	0	bytes	0.0000 B/char: peak of the tracked scratch files
@@ -40,66 +40,66 @@ R	E9	prot_1m.id.small	psi_passes	10	n	sigma=20, symbols per pass 2 (limit 2), wi
 R	E9	prot_1m.id.small	psi_bwt_bytes_read	10000010	bytes	10.0000 B/char: passes x (n + 1)
 R	E9	prot_1m.id.small	psi_bytes_written	4000004	bytes	4.0000 B/char: 4 (n + 1)
 R	E9	prot_1m.id	cmp_psi_small_windows_2_symbols_per_pass	yes		cmp out.prot_1m.psi_small prot_1m.ref.psi (4000004 bytes)
-R	E9	prot_1m.id.cyclic	psi_s	0.051919	s	wall time of the Psi pass: one BWT scan per group of symbols, one output cursor per symbol
-R	E9	prot_1m.id.cyclic	psi_ns_per_char	51.918991	ns	seconds / n
+R	E9	prot_1m.id.cyclic	psi_s	0.056266	s	wall time of the Psi pass: one BWT scan per group of symbols, one output cursor per symbol
+R	E9	prot_1m.id.cyclic	psi_ns_per_char	56.265767	ns	seconds / n
 R	E9	prot_1m.id.cyclic	psi_io_explicit_read	1000001	bytes	1.0000 B/char (program counter, explicit reads, 1 calls)
 R	E9	prot_1m.id.cyclic	psi_io_explicit_write	0	bytes	0.0000 B/char (program counter, explicit writes, 0 calls)
 R	E9	prot_1m.id.cyclic	psi_io_mapped_write	4000004	bytes	4.0000 B/char (program counter, writes through mapped windows: 81 windows, largest 65536 bytes)
 R	E9	prot_1m.id.cyclic	psi_io_counted_total	5000005	bytes	5.0000 B/char: explicit reads + explicit writes + mapped writes (reads through mappings are not counted)
-R	E9	prot_1m.id.cyclic	psi_proc_rchar	1467754	bytes	/proc/self/io rchar during the phase, 1.4678 B/char
+R	E9	prot_1m.id.cyclic	psi_proc_rchar	1466894	bytes	/proc/self/io rchar during the phase, 1.4669 B/char
 R	E9	prot_1m.id.cyclic	psi_proc_wchar	0	bytes	/proc/self/io wchar during the phase, 0.0000 B/char (mapped writes are not syscalls)
 R	E9	prot_1m.id.cyclic	psi_proc_read_bytes	0	bytes	/proc/self/io read_bytes (block layer, page-cache misses), 0.0000 B/char
-R	E9	prot_1m.id.cyclic	psi_proc_write_bytes	4222976	bytes	/proc/self/io write_bytes (pages that went from clean to dirty), 4.2230 B/char
-R	E9	prot_1m.id.cyclic	psi_rssanon_peak	5.271552	MB	max RssAnon of the phase at 10 ms (program sampler)
-R	E9	prot_1m.id.cyclic	psi_rssfile_peak	27.844608	MB	mapped file pages resident (reported, not counted)
-R	E9	prot_1m.id.cyclic	psi_dirty_peak	0.831488	MB	max /proc/meminfo Dirty minus the baseline (0.49 MB) at 20 ms, system-wide
-R	E9	prot_1m.id.cyclic	psi_proc_dirty_peak	0.692224	MB	max Private_Dirty + Shared_Dirty of the mappings of the output file (per-process view)
+R	E9	prot_1m.id.cyclic	psi_proc_write_bytes	4214784	bytes	/proc/self/io write_bytes (pages that went from clean to dirty), 4.2148 B/char
+R	E9	prot_1m.id.cyclic	psi_rssanon_peak	5.275648	MB	max RssAnon of the phase at 10 ms (program sampler)
+R	E9	prot_1m.id.cyclic	psi_rssfile_peak	27.848704	MB	mapped file pages resident (reported, not counted)
+R	E9	prot_1m.id.cyclic	psi_dirty_peak	1.380352	MB	max /proc/meminfo Dirty minus the baseline (0.75 MB) at 20 ms, system-wide
+R	E9	prot_1m.id.cyclic	psi_proc_dirty_peak	1.10592	MB	max Private_Dirty + Shared_Dirty of the mappings of the output file (per-process view)
 R	E9	prot_1m.id.cyclic	psi_arena_peak	2310721	bytes	peak charged to the ArenaBudget (cap 160 MiB), live at the end 0
 R	E9	prot_1m.id.cyclic	psi_scratch_peak	0	bytes	0.0000 B/char: peak of the tracked scratch files
 R	E9	prot_1m.id.cyclic	psi_passes	1	n	sigma=20, symbols per pass 20 (limit 64), window 65536 bytes, 80 windows of the cursors, mapped working set bound 1310720 bytes
 R	E9	prot_1m.id.cyclic	psi_bwt_bytes_read	1000001	bytes	1.0000 B/char: passes x (n + 1)
 R	E9	prot_1m.id.cyclic	psi_bytes_written	4000004	bytes	4.0000 B/char: 4 (n + 1)
 R	E9	prot_1m.id	cmp_psi_cyclic_tail	yes		bytes 5.. of the cyclic Psi equal the reference; entry 0 = 322696 equals the primary row 322696: yes
-R	E9	prot_1m.id	isa_s	0.114599	s	wall time of ISA by DIST: distribute (SA[i], i) by SA[i] / R, then scatter chunk by chunk
-R	E9	prot_1m.id	isa_ns_per_char	114.599102	ns	seconds / n
+R	E9	prot_1m.id	isa_s	0.244467	s	wall time of ISA by DIST: distribute (SA[i], i) by SA[i] / R, then scatter chunk by chunk
+R	E9	prot_1m.id	isa_ns_per_char	244.467229	ns	seconds / n
 R	E9	prot_1m.id	isa_io_explicit_read	11678980	bytes	11.6790 B/char (program counter, explicit reads, 7503 calls)
 R	E9	prot_1m.id	isa_io_explicit_write	7678976	bytes	7.6790 B/char (program counter, explicit writes, 7499 calls)
 R	E9	prot_1m.id	isa_io_mapped_write	4000004	bytes	4.0000 B/char (program counter, writes through mapped windows: 4 windows, largest 1048576 bytes)
 R	E9	prot_1m.id	isa_io_counted_total	23357960	bytes	23.3580 B/char: explicit reads + explicit writes + mapped writes (reads through mappings are not counted)
-R	E9	prot_1m.id	isa_proc_rchar	12769778	bytes	/proc/self/io rchar during the phase, 12.7698 B/char
+R	E9	prot_1m.id	isa_proc_rchar	14075186	bytes	/proc/self/io rchar during the phase, 14.0752 B/char
 R	E9	prot_1m.id	isa_proc_wchar	7678976	bytes	/proc/self/io wchar during the phase, 7.6790 B/char (mapped writes are not syscalls)
 R	E9	prot_1m.id	isa_proc_read_bytes	4001792	bytes	/proc/self/io read_bytes (block layer, page-cache misses), 4.0018 B/char
-R	E9	prot_1m.id	isa_proc_write_bytes	11988992	bytes	/proc/self/io write_bytes (pages that went from clean to dirty), 11.9890 B/char
-R	E9	prot_1m.id	isa_rssanon_peak	13.737984	MB	max RssAnon of the phase at 10 ms (program sampler)
-R	E9	prot_1m.id	isa_rssfile_peak	28.274688	MB	mapped file pages resident (reported, not counted)
-R	E9	prot_1m.id	isa_dirty_peak	7.92576	MB	max /proc/meminfo Dirty minus the baseline (0.55 MB) at 20 ms, system-wide
-R	E9	prot_1m.id	isa_proc_dirty_peak	0.917504	MB	max Private_Dirty + Shared_Dirty of the mappings of the output file (per-process view)
+R	E9	prot_1m.id	isa_proc_write_bytes	11816960	bytes	/proc/self/io write_bytes (pages that went from clean to dirty), 11.8170 B/char
+R	E9	prot_1m.id	isa_rssanon_peak	12.218368	MB	max RssAnon of the phase at 10 ms (program sampler)
+R	E9	prot_1m.id	isa_rssfile_peak	28.008448	MB	mapped file pages resident (reported, not counted)
+R	E9	prot_1m.id	isa_dirty_peak	7.774208	MB	max /proc/meminfo Dirty minus the baseline (0.81 MB) at 20 ms, system-wide
+R	E9	prot_1m.id	isa_proc_dirty_peak	0	MB	max Private_Dirty + Shared_Dirty of the mappings of the output file (per-process view)
 R	E9	prot_1m.id	isa_arena_peak	1444268	bytes	peak charged to the ArenaBudget (cap 160 MiB), live at the end 0
 R	E9	prot_1m.id	isa_scratch_peak	7678976	bytes	7.6790 B/char: peak of the tracked scratch files
 R	E9	prot_1m.id	isa_chunks	375	n	R = 2667 positions per chunk, P = 375, tuple buffer 1024 bytes; tuples written 7678976 bytes (7.6790 B/char), read 7678976 bytes
 R	E9	prot_1m.id	cmp_isa_by_dist	yes		cmp out.prot_1m.isa prot_1m.ref.isa (4000004 bytes)
-R	E9	prot_1m.id	psi_from_isa_s	0.065339	s	wall time of Psi = ISA[SA[i] + 1]: SA read sequentially, ISA read at random through its mapping
-R	E9	prot_1m.id	psi_from_isa_ns_per_char	65.338862	ns	seconds / n
+R	E9	prot_1m.id	psi_from_isa_s	0.057705	s	wall time of Psi = ISA[SA[i] + 1]: SA read sequentially, ISA read at random through its mapping
+R	E9	prot_1m.id	psi_from_isa_ns_per_char	57.705308	ns	seconds / n
 R	E9	prot_1m.id	psi_from_isa_io_explicit_read	4000004	bytes	4.0000 B/char (program counter, explicit reads, 4 calls)
 R	E9	prot_1m.id	psi_from_isa_io_explicit_write	0	bytes	0.0000 B/char (program counter, explicit writes, 0 calls)
 R	E9	prot_1m.id	psi_from_isa_io_mapped_write	4000004	bytes	4.0000 B/char (program counter, writes through mapped windows: 4 windows, largest 1048576 bytes)
 R	E9	prot_1m.id	psi_from_isa_io_counted_total	8000008	bytes	8.0000 B/char: explicit reads + explicit writes + mapped writes (reads through mappings are not counted)
-R	E9	prot_1m.id	psi_from_isa_proc_rchar	4652084	bytes	/proc/self/io rchar during the phase, 4.6521 B/char
+R	E9	prot_1m.id	psi_from_isa_proc_rchar	4575351	bytes	/proc/self/io rchar during the phase, 4.5754 B/char
 R	E9	prot_1m.id	psi_from_isa_proc_wchar	0	bytes	/proc/self/io wchar during the phase, 0.0000 B/char (mapped writes are not syscalls)
 R	E9	prot_1m.id	psi_from_isa_proc_read_bytes	0	bytes	/proc/self/io read_bytes (block layer, page-cache misses), 0.0000 B/char
 R	E9	prot_1m.id	psi_from_isa_proc_write_bytes	4001792	bytes	/proc/self/io write_bytes (pages that went from clean to dirty), 4.0018 B/char
-R	E9	prot_1m.id	psi_from_isa_rssanon_peak	11.481088	MB	max RssAnon of the phase at 10 ms (program sampler)
-R	E9	prot_1m.id	psi_from_isa_rssfile_peak	32.01024	MB	mapped file pages resident (reported, not counted)
-R	E9	prot_1m.id	psi_from_isa_dirty_peak	1.048576	MB	max /proc/meminfo Dirty minus the baseline (0.87 MB) at 20 ms, system-wide
+R	E9	prot_1m.id	psi_from_isa_rssanon_peak	10.612736	MB	max RssAnon of the phase at 10 ms (program sampler)
+R	E9	prot_1m.id	psi_from_isa_rssfile_peak	31.997952	MB	mapped file pages resident (reported, not counted)
+R	E9	prot_1m.id	psi_from_isa_dirty_peak	1.048576	MB	max /proc/meminfo Dirty minus the baseline (0.95 MB) at 20 ms, system-wide
 R	E9	prot_1m.id	psi_from_isa_proc_dirty_peak	1.048576	MB	max Private_Dirty + Shared_Dirty of the mappings of the output file (per-process view)
 R	E9	prot_1m.id	psi_from_isa_arena_peak	2097152	bytes	peak charged to the ArenaBudget (cap 160 MiB), live at the end 0
 R	E9	prot_1m.id	psi_from_isa_scratch_peak	0	bytes	0.0000 B/char: peak of the tracked scratch files
 R	E9	prot_1m.id	cmp_psi_from_isa	yes		cmp out.prot_1m.psi2 prot_1m.ref.psi (4000004 bytes)
-R	E9	prot_1m.id	smoke_index_s	0.128046	s	EsaIndex.Build (tagged child table) of n = 1000000
+R	E9	prot_1m.id	smoke_index_s	0.110377	s	EsaIndex.Build (tagged child table) of n = 1000000
 R	E9	prot_1m.id	smoke_sa_file_equals_index	yes		the suffix array file the streamed tables were built from against the SA of the in-RAM index
 R	E9	prot_1m.id	smoke_isa_equals_ram	yes		ISA from DIST against LinkTables.BuildIsa
 R	E9	prot_1m.id	smoke_psi_stream_equals_ram	yes		psi_stream (entry 0 mapped 0 -> -1) against LinkTables.BuildPsi
-R	E9	prot_1m.id	smoke_psi_stream_s	0.894117	s	all kernels x sources, two runs each (in-RAM tables, streamed tables)
+R	E9	prot_1m.id	smoke_psi_stream_s	0.772508	s	all kernels x sources, two runs each (in-RAM tables, streamed tables)
 R	E9	prot_1m.id	smoke_psi_stream_internal_nodes	295123	n	internal nodes of the index; header statistic 295123; sample 145561 (sample A of the P1 benchmark: --sample 200000 --seed 1)
 R	E9	prot_1m.id	smoke_psi_stream_a_scan_isa	0	mismatches	145561 nodes, 0 links over the step budget 3000000 (the same in both runs)
 R	E9	prot_1m.id	smoke_psi_stream_a_scan_psi	0	mismatches	145561 nodes, 0 links over the step budget 3000000 (the same in both runs)
@@ -111,7 +111,7 @@ R	E9	prot_1m.id	smoke_psi_stream_c2_psv_isa	0	mismatches	145561 nodes, 0 links o
 R	E9	prot_1m.id	smoke_psi_stream_c2_psv_psi	0	mismatches	145561 nodes, 0 links over the step budget 3000000 (the same in both runs)
 R	E9	prot_1m.id	smoke_psi_stream_mismatches	0	n	sum over the eight cells: success flag, target and step count of every link, tables under test against the in-RAM tables
 R	E9	prot_1m.id	smoke_psi_from_isa_equals_ram	yes		psi_from_isa (entry 0 mapped 0 -> -1) against LinkTables.BuildPsi
-R	E9	prot_1m.id	smoke_psi_from_isa_s	0.68564	s	all kernels x sources, two runs each (in-RAM tables, streamed tables)
+R	E9	prot_1m.id	smoke_psi_from_isa_s	0.598658	s	all kernels x sources, two runs each (in-RAM tables, streamed tables)
 R	E9	prot_1m.id	smoke_psi_from_isa_internal_nodes	295123	n	internal nodes of the index; header statistic 295123; sample 145561 (sample A of the P1 benchmark: --sample 200000 --seed 1)
 R	E9	prot_1m.id	smoke_psi_from_isa_a_scan_isa	0	mismatches	145561 nodes, 0 links over the step budget 3000000 (the same in both runs)
 R	E9	prot_1m.id	smoke_psi_from_isa_a_scan_psi	0	mismatches	145561 nodes, 0 links over the step budget 3000000 (the same in both runs)
@@ -124,20 +124,20 @@ R	E9	prot_1m.id	smoke_psi_from_isa_c2_psv_psi	0	mismatches	145561 nodes, 0 links
 R	E9	prot_1m.id	smoke_psi_from_isa_mismatches	0	n	sum over the eight cells: success flag, target and step count of every link, tables under test against the in-RAM tables
 R	E9	prot_1m.id	smoke_ok	yes		all comparisons equal
 R	E9	prot_1m.id	run_done	yes		all rows of this group are written
-R	E9	dna_10m.id	psi_s	0.374491	s	wall time of the Psi pass: one BWT scan per group of symbols, one output cursor per symbol
-R	E9	dna_10m.id	psi_ns_per_char	37.449116	ns	seconds / n
+R	E9	dna_10m.id	psi_s	0.74599	s	wall time of the Psi pass: one BWT scan per group of symbols, one output cursor per symbol
+R	E9	dna_10m.id	psi_ns_per_char	74.599001	ns	seconds / n
 R	E9	dna_10m.id	psi_io_explicit_read	10000001	bytes	1.0000 B/char (program counter, explicit reads, 10 calls)
 R	E9	dna_10m.id	psi_io_explicit_write	0	bytes	0.0000 B/char (program counter, explicit writes, 0 calls)
 R	E9	dna_10m.id	psi_io_mapped_write	40000004	bytes	4.0000 B/char (program counter, writes through mapped windows: 613 windows, largest 65536 bytes)
 R	E9	dna_10m.id	psi_io_counted_total	50000005	bytes	5.0000 B/char: explicit reads + explicit writes + mapped writes (reads through mappings are not counted)
-R	E9	dna_10m.id	psi_proc_rchar	13814438	bytes	/proc/self/io rchar during the phase, 1.3814 B/char
+R	E9	dna_10m.id	psi_proc_rchar	18269850	bytes	/proc/self/io rchar during the phase, 1.8270 B/char
 R	E9	dna_10m.id	psi_proc_wchar	0	bytes	/proc/self/io wchar during the phase, 0.0000 B/char (mapped writes are not syscalls)
 R	E9	dna_10m.id	psi_proc_read_bytes	10002432	bytes	/proc/self/io read_bytes (block layer, page-cache misses), 1.0002 B/char
 R	E9	dna_10m.id	psi_proc_write_bytes	55681024	bytes	/proc/self/io write_bytes (pages that went from clean to dirty), 5.5681 B/char
-R	E9	dna_10m.id	psi_rssanon_peak	9.9328	MB	max RssAnon of the phase at 10 ms (program sampler)
-R	E9	dna_10m.id	psi_rssfile_peak	27.369472	MB	mapped file pages resident (reported, not counted)
-R	E9	dna_10m.id	psi_dirty_peak	0.364544	MB	max /proc/meminfo Dirty minus the baseline (0.81 MB) at 20 ms, system-wide
-R	E9	dna_10m.id	psi_proc_dirty_peak	0.200704	MB	max Private_Dirty + Shared_Dirty of the mappings of the output file (per-process view)
+R	E9	dna_10m.id	psi_rssanon_peak	9.936896	MB	max RssAnon of the phase at 10 ms (program sampler)
+R	E9	dna_10m.id	psi_rssfile_peak	27.713536	MB	mapped file pages resident (reported, not counted)
+R	E9	dna_10m.id	psi_dirty_peak	0.393216	MB	max /proc/meminfo Dirty minus the baseline (0.85 MB) at 20 ms, system-wide
+R	E9	dna_10m.id	psi_proc_dirty_peak	0.274432	MB	max Private_Dirty + Shared_Dirty of the mappings of the output file (per-process view)
 R	E9	dna_10m.id	psi_arena_peak	1310720	bytes	peak charged to the ArenaBudget (cap 160 MiB), live at the end 0
 R	E9	dna_10m.id	psi_scratch_peak	0	bytes	0.0000 B/char: peak of the tracked scratch files
 R	E9	dna_10m.id	psi_passes	1	n	sigma=4, symbols per pass 4 (limit 64), window 65536 bytes, 612 windows of the cursors, mapped working set bound 262144 bytes
@@ -145,19 +145,19 @@ R	E9	dna_10m.id	psi_bwt_bytes_read	10000001	bytes	1.0000 B/char: passes x (n + 1
 R	E9	dna_10m.id	psi_bytes_written	40000004	bytes	4.0000 B/char: 4 (n + 1)
 R	E9	dna_10m.id	counts_equal_ph0	n/a		the symbol counts of the BWT meta against the C[] of PH0 in dna_10m.pk.meta
 R	E9	dna_10m.id	cmp_psi	yes		cmp out.dna_10m.psi dna_10m.ref.psi (40000004 bytes)
-R	E9	dna_10m.id.small	psi_s	6.070946	s	wall time of the Psi pass: one BWT scan per group of symbols, one output cursor per symbol
-R	E9	dna_10m.id.small	psi_ns_per_char	607.094581	ns	seconds / n
+R	E9	dna_10m.id.small	psi_s	5.954813	s	wall time of the Psi pass: one BWT scan per group of symbols, one output cursor per symbol
+R	E9	dna_10m.id.small	psi_ns_per_char	595.481295	ns	seconds / n
 R	E9	dna_10m.id.small	psi_io_explicit_read	20000002	bytes	2.0000 B/char (program counter, explicit reads, 306 calls)
 R	E9	dna_10m.id.small	psi_io_explicit_write	0	bytes	0.0000 B/char (program counter, explicit writes, 0 calls)
 R	E9	dna_10m.id.small	psi_io_mapped_write	40000004	bytes	4.0000 B/char (program counter, writes through mapped windows: 39065 windows, largest 1024 bytes)
 R	E9	dna_10m.id.small	psi_io_counted_total	60000006	bytes	6.0000 B/char: explicit reads + explicit writes + mapped writes (reads through mappings are not counted)
-R	E9	dna_10m.id.small	psi_proc_rchar	87513295	bytes	/proc/self/io rchar during the phase, 8.7513 B/char
+R	E9	dna_10m.id.small	psi_proc_rchar	86333580	bytes	/proc/self/io rchar during the phase, 8.6334 B/char
 R	E9	dna_10m.id.small	psi_proc_wchar	0	bytes	/proc/self/io wchar during the phase, 0.0000 B/char (mapped writes are not syscalls)
-R	E9	dna_10m.id.small	psi_proc_read_bytes	0	bytes	/proc/self/io read_bytes (block layer, page-cache misses), 0.0000 B/char
-R	E9	dna_10m.id.small	psi_proc_write_bytes	1800531968	bytes	/proc/self/io write_bytes (pages that went from clean to dirty), 180.0532 B/char
-R	E9	dna_10m.id.small	psi_rssanon_peak	14.659584	MB	max RssAnon of the phase at 10 ms (program sampler)
-R	E9	dna_10m.id.small	psi_rssfile_peak	27.656192	MB	mapped file pages resident (reported, not counted)
-R	E9	dna_10m.id.small	psi_dirty_peak	0.282624	MB	max /proc/meminfo Dirty minus the baseline (0.84 MB) at 20 ms, system-wide
+R	E9	dna_10m.id.small	psi_proc_read_bytes	12288	bytes	/proc/self/io read_bytes (block layer, page-cache misses), 0.0012 B/char
+R	E9	dna_10m.id.small	psi_proc_write_bytes	1800536064	bytes	/proc/self/io write_bytes (pages that went from clean to dirty), 180.0536 B/char
+R	E9	dna_10m.id.small	psi_rssanon_peak	14.66368	MB	max RssAnon of the phase at 10 ms (program sampler)
+R	E9	dna_10m.id.small	psi_rssfile_peak	27.521024	MB	mapped file pages resident (reported, not counted)
+R	E9	dna_10m.id.small	psi_dirty_peak	0.217088	MB	max /proc/meminfo Dirty minus the baseline (0.87 MB) at 20 ms, system-wide
 R	E9	dna_10m.id.small	psi_proc_dirty_peak	0.016384	MB	max Private_Dirty + Shared_Dirty of the mappings of the output file (per-process view)
 R	E9	dna_10m.id.small	psi_arena_peak	67584	bytes	peak charged to the ArenaBudget (cap 160 MiB), live at the end 0
 R	E9	dna_10m.id.small	psi_scratch_peak	0	bytes	0.0000 B/char: peak of the tracked scratch files
@@ -165,66 +165,66 @@ R	E9	dna_10m.id.small	psi_passes	2	n	sigma=4, symbols per pass 2 (limit 2), wind
 R	E9	dna_10m.id.small	psi_bwt_bytes_read	20000002	bytes	2.0000 B/char: passes x (n + 1)
 R	E9	dna_10m.id.small	psi_bytes_written	40000004	bytes	4.0000 B/char: 4 (n + 1)
 R	E9	dna_10m.id	cmp_psi_small_windows_2_symbols_per_pass	yes		cmp out.dna_10m.psi_small dna_10m.ref.psi (40000004 bytes)
-R	E9	dna_10m.id.cyclic	psi_s	0.330293	s	wall time of the Psi pass: one BWT scan per group of symbols, one output cursor per symbol
-R	E9	dna_10m.id.cyclic	psi_ns_per_char	33.029273	ns	seconds / n
+R	E9	dna_10m.id.cyclic	psi_s	0.308518	s	wall time of the Psi pass: one BWT scan per group of symbols, one output cursor per symbol
+R	E9	dna_10m.id.cyclic	psi_ns_per_char	30.851843	ns	seconds / n
 R	E9	dna_10m.id.cyclic	psi_io_explicit_read	10000001	bytes	1.0000 B/char (program counter, explicit reads, 10 calls)
 R	E9	dna_10m.id.cyclic	psi_io_explicit_write	0	bytes	0.0000 B/char (program counter, explicit writes, 0 calls)
 R	E9	dna_10m.id.cyclic	psi_io_mapped_write	40000004	bytes	4.0000 B/char (program counter, writes through mapped windows: 613 windows, largest 65536 bytes)
 R	E9	dna_10m.id.cyclic	psi_io_counted_total	50000005	bytes	5.0000 B/char: explicit reads + explicit writes + mapped writes (reads through mappings are not counted)
-R	E9	dna_10m.id.cyclic	psi_proc_rchar	13558221	bytes	/proc/self/io rchar during the phase, 1.3558 B/char
+R	E9	dna_10m.id.cyclic	psi_proc_rchar	13343516	bytes	/proc/self/io rchar during the phase, 1.3344 B/char
 R	E9	dna_10m.id.cyclic	psi_proc_wchar	0	bytes	/proc/self/io wchar during the phase, 0.0000 B/char (mapped writes are not syscalls)
-R	E9	dna_10m.id.cyclic	psi_proc_read_bytes	0	bytes	/proc/self/io read_bytes (block layer, page-cache misses), 0.0000 B/char
+R	E9	dna_10m.id.cyclic	psi_proc_read_bytes	20480	bytes	/proc/self/io read_bytes (block layer, page-cache misses), 0.0020 B/char
 R	E9	dna_10m.id.cyclic	psi_proc_write_bytes	55685120	bytes	/proc/self/io write_bytes (pages that went from clean to dirty), 5.5685 B/char
-R	E9	dna_10m.id.cyclic	psi_rssanon_peak	9.91232	MB	max RssAnon of the phase at 10 ms (program sampler)
-R	E9	dna_10m.id.cyclic	psi_rssfile_peak	27.447296	MB	mapped file pages resident (reported, not counted)
-R	E9	dna_10m.id.cyclic	psi_dirty_peak	0.606208	MB	max /proc/meminfo Dirty minus the baseline (0.88 MB) at 20 ms, system-wide
-R	E9	dna_10m.id.cyclic	psi_proc_dirty_peak	0.24576	MB	max Private_Dirty + Shared_Dirty of the mappings of the output file (per-process view)
+R	E9	dna_10m.id.cyclic	psi_rssanon_peak	9.916416	MB	max RssAnon of the phase at 10 ms (program sampler)
+R	E9	dna_10m.id.cyclic	psi_rssfile_peak	27.541504	MB	mapped file pages resident (reported, not counted)
+R	E9	dna_10m.id.cyclic	psi_dirty_peak	0.434176	MB	max /proc/meminfo Dirty minus the baseline (0.88 MB) at 20 ms, system-wide
+R	E9	dna_10m.id.cyclic	psi_proc_dirty_peak	0.2048	MB	max Private_Dirty + Shared_Dirty of the mappings of the output file (per-process view)
 R	E9	dna_10m.id.cyclic	psi_arena_peak	1310720	bytes	peak charged to the ArenaBudget (cap 160 MiB), live at the end 0
 R	E9	dna_10m.id.cyclic	psi_scratch_peak	0	bytes	0.0000 B/char: peak of the tracked scratch files
 R	E9	dna_10m.id.cyclic	psi_passes	1	n	sigma=4, symbols per pass 4 (limit 64), window 65536 bytes, 612 windows of the cursors, mapped working set bound 262144 bytes
 R	E9	dna_10m.id.cyclic	psi_bwt_bytes_read	10000001	bytes	1.0000 B/char: passes x (n + 1)
 R	E9	dna_10m.id.cyclic	psi_bytes_written	40000004	bytes	4.0000 B/char: 4 (n + 1)
 R	E9	dna_10m.id	cmp_psi_cyclic_tail	yes		bytes 5.. of the cyclic Psi equal the reference; entry 0 = 5097358 equals the primary row 5097358: yes
-R	E9	dna_10m.id	isa_s	0.389705	s	wall time of ISA by DIST: distribute (SA[i], i) by SA[i] / R, then scatter chunk by chunk
-R	E9	dna_10m.id	isa_ns_per_char	38.970462	ns	seconds / n
+R	E9	dna_10m.id	isa_s	1.049007	s	wall time of ISA by DIST: distribute (SA[i], i) by SA[i] / R, then scatter chunk by chunk
+R	E9	dna_10m.id	isa_ns_per_char	104.90072	ns	seconds / n
 R	E9	dna_10m.id	isa_io_explicit_read	118336004	bytes	11.8336 B/char (program counter, explicit reads, 12789 calls)
 R	E9	dna_10m.id	isa_io_explicit_write	78336000	bytes	7.8336 B/char (program counter, explicit writes, 12750 calls)
 R	E9	dna_10m.id	isa_io_mapped_write	40000004	bytes	4.0000 B/char (program counter, writes through mapped windows: 39 windows, largest 1048576 bytes)
 R	E9	dna_10m.id	isa_io_counted_total	236672008	bytes	23.6672 B/char: explicit reads + explicit writes + mapped writes (reads through mappings are not counted)
-R	E9	dna_10m.id	isa_proc_rchar	122491790	bytes	/proc/self/io rchar during the phase, 12.2492 B/char
+R	E9	dna_10m.id	isa_proc_rchar	129872458	bytes	/proc/self/io rchar during the phase, 12.9872 B/char
 R	E9	dna_10m.id	isa_proc_wchar	78336000	bytes	/proc/self/io wchar during the phase, 7.8336 B/char (mapped writes are not syscalls)
 R	E9	dna_10m.id	isa_proc_read_bytes	40005632	bytes	/proc/self/io read_bytes (block layer, page-cache misses), 4.0006 B/char
-R	E9	dna_10m.id	isa_proc_write_bytes	118587392	bytes	/proc/self/io write_bytes (pages that went from clean to dirty), 11.8587 B/char
-R	E9	dna_10m.id	isa_rssanon_peak	18.259968	MB	max RssAnon of the phase at 10 ms (program sampler)
-R	E9	dna_10m.id	isa_rssfile_peak	28.495872	MB	mapped file pages resident (reported, not counted)
-R	E9	dna_10m.id	isa_dirty_peak	78.56128	MB	max /proc/meminfo Dirty minus the baseline (0.89 MB) at 20 ms, system-wide
+R	E9	dna_10m.id	isa_proc_write_bytes	118464512	bytes	/proc/self/io write_bytes (pages that went from clean to dirty), 11.8465 B/char
+R	E9	dna_10m.id	isa_rssanon_peak	18.583552	MB	max RssAnon of the phase at 10 ms (program sampler)
+R	E9	dna_10m.id	isa_rssfile_peak	28.83584	MB	mapped file pages resident (reported, not counted)
+R	E9	dna_10m.id	isa_dirty_peak	78.323712	MB	max /proc/meminfo Dirty minus the baseline (0.91 MB) at 20 ms, system-wide
 R	E9	dna_10m.id	isa_proc_dirty_peak	0.786432	MB	max Private_Dirty + Shared_Dirty of the mappings of the output file (per-process view)
 R	E9	dna_10m.id	isa_arena_peak	3465388	bytes	peak charged to the ArenaBudget (cap 160 MiB), live at the end 0
 R	E9	dna_10m.id	isa_scratch_peak	78336000	bytes	7.8336 B/char: peak of the tracked scratch files
 R	E9	dna_10m.id	isa_chunks	375	n	R = 26667 positions per chunk, P = 375, tuple buffer 6144 bytes; tuples written 78336000 bytes (7.8336 B/char), read 78336000 bytes
 R	E9	dna_10m.id	cmp_isa_by_dist	yes		cmp out.dna_10m.isa dna_10m.ref.isa (40000004 bytes)
-R	E9	dna_10m.id	psi_from_isa_s	0.353573	s	wall time of Psi = ISA[SA[i] + 1]: SA read sequentially, ISA read at random through its mapping
-R	E9	dna_10m.id	psi_from_isa_ns_per_char	35.35727	ns	seconds / n
+R	E9	dna_10m.id	psi_from_isa_s	0.582716	s	wall time of Psi = ISA[SA[i] + 1]: SA read sequentially, ISA read at random through its mapping
+R	E9	dna_10m.id	psi_from_isa_ns_per_char	58.271626	ns	seconds / n
 R	E9	dna_10m.id	psi_from_isa_io_explicit_read	40000004	bytes	4.0000 B/char (program counter, explicit reads, 39 calls)
 R	E9	dna_10m.id	psi_from_isa_io_explicit_write	0	bytes	0.0000 B/char (program counter, explicit writes, 0 calls)
 R	E9	dna_10m.id	psi_from_isa_io_mapped_write	40000004	bytes	4.0000 B/char (program counter, writes through mapped windows: 39 windows, largest 1048576 bytes)
 R	E9	dna_10m.id	psi_from_isa_io_counted_total	80000008	bytes	8.0000 B/char: explicit reads + explicit writes + mapped writes (reads through mappings are not counted)
-R	E9	dna_10m.id	psi_from_isa_proc_rchar	43738516	bytes	/proc/self/io rchar during the phase, 4.3739 B/char
+R	E9	dna_10m.id	psi_from_isa_proc_rchar	46376345	bytes	/proc/self/io rchar during the phase, 4.6376 B/char
 R	E9	dna_10m.id	psi_from_isa_proc_wchar	0	bytes	/proc/self/io wchar during the phase, 0.0000 B/char (mapped writes are not syscalls)
-R	E9	dna_10m.id	psi_from_isa_proc_read_bytes	0	bytes	/proc/self/io read_bytes (block layer, page-cache misses), 0.0000 B/char
-R	E9	dna_10m.id	psi_from_isa_proc_write_bytes	40001536	bytes	/proc/self/io write_bytes (pages that went from clean to dirty), 4.0002 B/char
-R	E9	dna_10m.id	psi_from_isa_rssanon_peak	11.034624	MB	max RssAnon of the phase at 10 ms (program sampler)
-R	E9	dna_10m.id	psi_from_isa_rssfile_peak	68.263936	MB	mapped file pages resident (reported, not counted)
-R	E9	dna_10m.id	psi_from_isa_dirty_peak	1.048576	MB	max /proc/meminfo Dirty minus the baseline (1.16 MB) at 20 ms, system-wide
+R	E9	dna_10m.id	psi_from_isa_proc_read_bytes	28672	bytes	/proc/self/io read_bytes (block layer, page-cache misses), 0.0029 B/char
+R	E9	dna_10m.id	psi_from_isa_proc_write_bytes	40005632	bytes	/proc/self/io write_bytes (pages that went from clean to dirty), 4.0006 B/char
+R	E9	dna_10m.id	psi_from_isa_rssanon_peak	11.005952	MB	max RssAnon of the phase at 10 ms (program sampler)
+R	E9	dna_10m.id	psi_from_isa_rssfile_peak	68.476928	MB	mapped file pages resident (reported, not counted)
+R	E9	dna_10m.id	psi_from_isa_dirty_peak	1.052672	MB	max /proc/meminfo Dirty minus the baseline (0.91 MB) at 20 ms, system-wide
 R	E9	dna_10m.id	psi_from_isa_proc_dirty_peak	1.048576	MB	max Private_Dirty + Shared_Dirty of the mappings of the output file (per-process view)
 R	E9	dna_10m.id	psi_from_isa_arena_peak	2097152	bytes	peak charged to the ArenaBudget (cap 160 MiB), live at the end 0
 R	E9	dna_10m.id	psi_from_isa_scratch_peak	0	bytes	0.0000 B/char: peak of the tracked scratch files
 R	E9	dna_10m.id	cmp_psi_from_isa	yes		cmp out.dna_10m.psi2 dna_10m.ref.psi (40000004 bytes)
-R	E9	dna_10m.id	smoke_index_s	1.073786	s	EsaIndex.Build (tagged child table) of n = 10000000
+R	E9	dna_10m.id	smoke_index_s	0.849989	s	EsaIndex.Build (tagged child table) of n = 10000000
 R	E9	dna_10m.id	smoke_sa_file_equals_index	yes		the suffix array file the streamed tables were built from against the SA of the in-RAM index
 R	E9	dna_10m.id	smoke_isa_equals_ram	yes		ISA from DIST against LinkTables.BuildIsa
 R	E9	dna_10m.id	smoke_psi_stream_equals_ram	yes		psi_stream (entry 0 mapped 0 -> -1) against LinkTables.BuildPsi
-R	E9	dna_10m.id	smoke_psi_stream_s	2.038847	s	all kernels x sources, two runs each (in-RAM tables, streamed tables)
+R	E9	dna_10m.id	smoke_psi_stream_s	1.513859	s	all kernels x sources, two runs each (in-RAM tables, streamed tables)
 R	E9	dna_10m.id	smoke_psi_stream_internal_nodes	6229745	n	internal nodes of the index; header statistic 6229745; sample 200000 (sample A of the P1 benchmark: --sample 200000 --seed 1)
 R	E9	dna_10m.id	smoke_psi_stream_a_scan_isa	0	mismatches	200000 nodes, 0 links over the step budget 3000000 (the same in both runs)
 R	E9	dna_10m.id	smoke_psi_stream_a_scan_psi	0	mismatches	200000 nodes, 0 links over the step budget 3000000 (the same in both runs)
@@ -236,7 +236,7 @@ R	E9	dna_10m.id	smoke_psi_stream_c2_psv_isa	0	mismatches	200000 nodes, 0 links o
 R	E9	dna_10m.id	smoke_psi_stream_c2_psv_psi	0	mismatches	200000 nodes, 0 links over the step budget 3000000 (the same in both runs)
 R	E9	dna_10m.id	smoke_psi_stream_mismatches	0	n	sum over the eight cells: success flag, target and step count of every link, tables under test against the in-RAM tables
 R	E9	dna_10m.id	smoke_psi_from_isa_equals_ram	yes		psi_from_isa (entry 0 mapped 0 -> -1) against LinkTables.BuildPsi
-R	E9	dna_10m.id	smoke_psi_from_isa_s	1.537431	s	all kernels x sources, two runs each (in-RAM tables, streamed tables)
+R	E9	dna_10m.id	smoke_psi_from_isa_s	1.729211	s	all kernels x sources, two runs each (in-RAM tables, streamed tables)
 R	E9	dna_10m.id	smoke_psi_from_isa_internal_nodes	6229745	n	internal nodes of the index; header statistic 6229745; sample 200000 (sample A of the P1 benchmark: --sample 200000 --seed 1)
 R	E9	dna_10m.id	smoke_psi_from_isa_a_scan_isa	0	mismatches	200000 nodes, 0 links over the step budget 3000000 (the same in both runs)
 R	E9	dna_10m.id	smoke_psi_from_isa_a_scan_psi	0	mismatches	200000 nodes, 0 links over the step budget 3000000 (the same in both runs)
@@ -249,20 +249,20 @@ R	E9	dna_10m.id	smoke_psi_from_isa_c2_psv_psi	0	mismatches	200000 nodes, 0 links
 R	E9	dna_10m.id	smoke_psi_from_isa_mismatches	0	n	sum over the eight cells: success flag, target and step count of every link, tables under test against the in-RAM tables
 R	E9	dna_10m.id	smoke_ok	yes		all comparisons equal
 R	E9	dna_10m.id	run_done	yes		all rows of this group are written
-R	E9	rep_10m.id	psi_s	0.337772	s	wall time of the Psi pass: one BWT scan per group of symbols, one output cursor per symbol
-R	E9	rep_10m.id	psi_ns_per_char	33.77716	ns	seconds / n
+R	E9	rep_10m.id	psi_s	0.555183	s	wall time of the Psi pass: one BWT scan per group of symbols, one output cursor per symbol
+R	E9	rep_10m.id	psi_ns_per_char	55.518262	ns	seconds / n
 R	E9	rep_10m.id	psi_io_explicit_read	10000001	bytes	1.0000 B/char (program counter, explicit reads, 10 calls)
 R	E9	rep_10m.id	psi_io_explicit_write	0	bytes	0.0000 B/char (program counter, explicit writes, 0 calls)
 R	E9	rep_10m.id	psi_io_mapped_write	40000004	bytes	4.0000 B/char (program counter, writes through mapped windows: 613 windows, largest 65536 bytes)
 R	E9	rep_10m.id	psi_io_counted_total	50000005	bytes	5.0000 B/char: explicit reads + explicit writes + mapped writes (reads through mappings are not counted)
-R	E9	rep_10m.id	psi_proc_rchar	13578622	bytes	/proc/self/io rchar during the phase, 1.3579 B/char
+R	E9	rep_10m.id	psi_proc_rchar	16027366	bytes	/proc/self/io rchar during the phase, 1.6027 B/char
 R	E9	rep_10m.id	psi_proc_wchar	0	bytes	/proc/self/io wchar during the phase, 0.0000 B/char (mapped writes are not syscalls)
 R	E9	rep_10m.id	psi_proc_read_bytes	10002432	bytes	/proc/self/io read_bytes (block layer, page-cache misses), 1.0002 B/char
 R	E9	rep_10m.id	psi_proc_write_bytes	55304192	bytes	/proc/self/io write_bytes (pages that went from clean to dirty), 5.5304 B/char
-R	E9	rep_10m.id	psi_rssanon_peak	9.9328	MB	max RssAnon of the phase at 10 ms (program sampler)
-R	E9	rep_10m.id	psi_rssfile_peak	27.480064	MB	mapped file pages resident (reported, not counted)
-R	E9	rep_10m.id	psi_dirty_peak	0.372736	MB	max /proc/meminfo Dirty minus the baseline (0.97 MB) at 20 ms, system-wide
-R	E9	rep_10m.id	psi_proc_dirty_peak	0.16384	MB	max Private_Dirty + Shared_Dirty of the mappings of the output file (per-process view)
+R	E9	rep_10m.id	psi_rssanon_peak	9.936896	MB	max RssAnon of the phase at 10 ms (program sampler)
+R	E9	rep_10m.id	psi_rssfile_peak	27.623424	MB	mapped file pages resident (reported, not counted)
+R	E9	rep_10m.id	psi_dirty_peak	0.282624	MB	max /proc/meminfo Dirty minus the baseline (0.95 MB) at 20 ms, system-wide
+R	E9	rep_10m.id	psi_proc_dirty_peak	0.217088	MB	max Private_Dirty + Shared_Dirty of the mappings of the output file (per-process view)
 R	E9	rep_10m.id	psi_arena_peak	1310720	bytes	peak charged to the ArenaBudget (cap 160 MiB), live at the end 0
 R	E9	rep_10m.id	psi_scratch_peak	0	bytes	0.0000 B/char: peak of the tracked scratch files
 R	E9	rep_10m.id	psi_passes	1	n	sigma=4, symbols per pass 4 (limit 64), window 65536 bytes, 612 windows of the cursors, mapped working set bound 262144 bytes
@@ -270,19 +270,19 @@ R	E9	rep_10m.id	psi_bwt_bytes_read	10000001	bytes	1.0000 B/char: passes x (n + 1
 R	E9	rep_10m.id	psi_bytes_written	40000004	bytes	4.0000 B/char: 4 (n + 1)
 R	E9	rep_10m.id	counts_equal_ph0	n/a		the symbol counts of the BWT meta against the C[] of PH0 in rep_10m.pk.meta
 R	E9	rep_10m.id	cmp_psi	yes		cmp out.rep_10m.psi rep_10m.ref.psi (40000004 bytes)
-R	E9	rep_10m.id.small	psi_s	6.094896	s	wall time of the Psi pass: one BWT scan per group of symbols, one output cursor per symbol
-R	E9	rep_10m.id.small	psi_ns_per_char	609.489609	ns	seconds / n
+R	E9	rep_10m.id.small	psi_s	5.879868	s	wall time of the Psi pass: one BWT scan per group of symbols, one output cursor per symbol
+R	E9	rep_10m.id.small	psi_ns_per_char	587.986803	ns	seconds / n
 R	E9	rep_10m.id.small	psi_io_explicit_read	20000002	bytes	2.0000 B/char (program counter, explicit reads, 306 calls)
 R	E9	rep_10m.id.small	psi_io_explicit_write	0	bytes	0.0000 B/char (program counter, explicit writes, 0 calls)
 R	E9	rep_10m.id.small	psi_io_mapped_write	40000004	bytes	4.0000 B/char (program counter, writes through mapped windows: 39066 windows, largest 1024 bytes)
 R	E9	rep_10m.id.small	psi_io_counted_total	60000006	bytes	6.0000 B/char: explicit reads + explicit writes + mapped writes (reads through mappings are not counted)
-R	E9	rep_10m.id.small	psi_proc_rchar	87734795	bytes	/proc/self/io rchar during the phase, 8.7735 B/char
+R	E9	rep_10m.id.small	psi_proc_rchar	85488976	bytes	/proc/self/io rchar during the phase, 8.5489 B/char
 R	E9	rep_10m.id.small	psi_proc_wchar	0	bytes	/proc/self/io wchar during the phase, 0.0000 B/char (mapped writes are not syscalls)
 R	E9	rep_10m.id.small	psi_proc_read_bytes	0	bytes	/proc/self/io read_bytes (block layer, page-cache misses), 0.0000 B/char
 R	E9	rep_10m.id.small	psi_proc_write_bytes	1731436544	bytes	/proc/self/io write_bytes (pages that went from clean to dirty), 173.1437 B/char
-R	E9	rep_10m.id.small	psi_rssanon_peak	14.671872	MB	max RssAnon of the phase at 10 ms (program sampler)
-R	E9	rep_10m.id.small	psi_rssfile_peak	27.656192	MB	mapped file pages resident (reported, not counted)
-R	E9	rep_10m.id.small	psi_dirty_peak	0.262144	MB	max /proc/meminfo Dirty minus the baseline (0.99 MB) at 20 ms, system-wide
+R	E9	rep_10m.id.small	psi_rssanon_peak	15.265792	MB	max RssAnon of the phase at 10 ms (program sampler)
+R	E9	rep_10m.id.small	psi_rssfile_peak	27.574272	MB	mapped file pages resident (reported, not counted)
+R	E9	rep_10m.id.small	psi_dirty_peak	0.212992	MB	max /proc/meminfo Dirty minus the baseline (0.90 MB) at 20 ms, system-wide
 R	E9	rep_10m.id.small	psi_proc_dirty_peak	0.012288	MB	max Private_Dirty + Shared_Dirty of the mappings of the output file (per-process view)
 R	E9	rep_10m.id.small	psi_arena_peak	67584	bytes	peak charged to the ArenaBudget (cap 160 MiB), live at the end 0
 R	E9	rep_10m.id.small	psi_scratch_peak	0	bytes	0.0000 B/char: peak of the tracked scratch files
@@ -290,66 +290,66 @@ R	E9	rep_10m.id.small	psi_passes	2	n	sigma=4, symbols per pass 2 (limit 2), wind
 R	E9	rep_10m.id.small	psi_bwt_bytes_read	20000002	bytes	2.0000 B/char: passes x (n + 1)
 R	E9	rep_10m.id.small	psi_bytes_written	40000004	bytes	4.0000 B/char: 4 (n + 1)
 R	E9	rep_10m.id	cmp_psi_small_windows_2_symbols_per_pass	yes		cmp out.rep_10m.psi_small rep_10m.ref.psi (40000004 bytes)
-R	E9	rep_10m.id.cyclic	psi_s	0.292563	s	wall time of the Psi pass: one BWT scan per group of symbols, one output cursor per symbol
-R	E9	rep_10m.id.cyclic	psi_ns_per_char	29.256268	ns	seconds / n
+R	E9	rep_10m.id.cyclic	psi_s	0.276163	s	wall time of the Psi pass: one BWT scan per group of symbols, one output cursor per symbol
+R	E9	rep_10m.id.cyclic	psi_ns_per_char	27.616309	ns	seconds / n
 R	E9	rep_10m.id.cyclic	psi_io_explicit_read	10000001	bytes	1.0000 B/char (program counter, explicit reads, 10 calls)
 R	E9	rep_10m.id.cyclic	psi_io_explicit_write	0	bytes	0.0000 B/char (program counter, explicit writes, 0 calls)
 R	E9	rep_10m.id.cyclic	psi_io_mapped_write	40000004	bytes	4.0000 B/char (program counter, writes through mapped windows: 613 windows, largest 65536 bytes)
 R	E9	rep_10m.id.cyclic	psi_io_counted_total	50000005	bytes	5.0000 B/char: explicit reads + explicit writes + mapped writes (reads through mappings are not counted)
-R	E9	rep_10m.id.cyclic	psi_proc_rchar	13120022	bytes	/proc/self/io rchar during the phase, 1.3120 B/char
+R	E9	rep_10m.id.cyclic	psi_proc_rchar	12893943	bytes	/proc/self/io rchar during the phase, 1.2894 B/char
 R	E9	rep_10m.id.cyclic	psi_proc_wchar	0	bytes	/proc/self/io wchar during the phase, 0.0000 B/char (mapped writes are not syscalls)
 R	E9	rep_10m.id.cyclic	psi_proc_read_bytes	0	bytes	/proc/self/io read_bytes (block layer, page-cache misses), 0.0000 B/char
-R	E9	rep_10m.id.cyclic	psi_proc_write_bytes	55304192	bytes	/proc/self/io write_bytes (pages that went from clean to dirty), 5.5304 B/char
-R	E9	rep_10m.id.cyclic	psi_rssanon_peak	9.91232	MB	max RssAnon of the phase at 10 ms (program sampler)
-R	E9	rep_10m.id.cyclic	psi_rssfile_peak	27.324416	MB	mapped file pages resident (reported, not counted)
-R	E9	rep_10m.id.cyclic	psi_dirty_peak	0.43008	MB	max /proc/meminfo Dirty minus the baseline (1.00 MB) at 20 ms, system-wide
-R	E9	rep_10m.id.cyclic	psi_proc_dirty_peak	0.192512	MB	max Private_Dirty + Shared_Dirty of the mappings of the output file (per-process view)
+R	E9	rep_10m.id.cyclic	psi_proc_write_bytes	55308288	bytes	/proc/self/io write_bytes (pages that went from clean to dirty), 5.5308 B/char
+R	E9	rep_10m.id.cyclic	psi_rssanon_peak	9.940992	MB	max RssAnon of the phase at 10 ms (program sampler)
+R	E9	rep_10m.id.cyclic	psi_rssfile_peak	27.451392	MB	mapped file pages resident (reported, not counted)
+R	E9	rep_10m.id.cyclic	psi_dirty_peak	0.34816	MB	max /proc/meminfo Dirty minus the baseline (0.90 MB) at 20 ms, system-wide
+R	E9	rep_10m.id.cyclic	psi_proc_dirty_peak	0.18432	MB	max Private_Dirty + Shared_Dirty of the mappings of the output file (per-process view)
 R	E9	rep_10m.id.cyclic	psi_arena_peak	1310720	bytes	peak charged to the ArenaBudget (cap 160 MiB), live at the end 0
 R	E9	rep_10m.id.cyclic	psi_scratch_peak	0	bytes	0.0000 B/char: peak of the tracked scratch files
 R	E9	rep_10m.id.cyclic	psi_passes	1	n	sigma=4, symbols per pass 4 (limit 64), window 65536 bytes, 612 windows of the cursors, mapped working set bound 262144 bytes
 R	E9	rep_10m.id.cyclic	psi_bwt_bytes_read	10000001	bytes	1.0000 B/char: passes x (n + 1)
 R	E9	rep_10m.id.cyclic	psi_bytes_written	40000004	bytes	4.0000 B/char: 4 (n + 1)
 R	E9	rep_10m.id	cmp_psi_cyclic_tail	yes		bytes 5.. of the cyclic Psi equal the reference; entry 0 = 5449119 equals the primary row 5449119: yes
-R	E9	rep_10m.id	isa_s	0.349154	s	wall time of ISA by DIST: distribute (SA[i], i) by SA[i] / R, then scatter chunk by chunk
-R	E9	rep_10m.id	isa_ns_per_char	34.915431	ns	seconds / n
+R	E9	rep_10m.id	isa_s	0.846907	s	wall time of ISA by DIST: distribute (SA[i], i) by SA[i] / R, then scatter chunk by chunk
+R	E9	rep_10m.id	isa_ns_per_char	84.69067	ns	seconds / n
 R	E9	rep_10m.id	isa_io_explicit_read	118336004	bytes	11.8336 B/char (program counter, explicit reads, 12789 calls)
 R	E9	rep_10m.id	isa_io_explicit_write	78336000	bytes	7.8336 B/char (program counter, explicit writes, 12750 calls)
 R	E9	rep_10m.id	isa_io_mapped_write	40000004	bytes	4.0000 B/char (program counter, writes through mapped windows: 39 windows, largest 1048576 bytes)
 R	E9	rep_10m.id	isa_io_counted_total	236672008	bytes	23.6672 B/char: explicit reads + explicit writes + mapped writes (reads through mappings are not counted)
-R	E9	rep_10m.id	isa_proc_rchar	122060436	bytes	/proc/self/io rchar during the phase, 12.2060 B/char
+R	E9	rep_10m.id	isa_proc_rchar	127664599	bytes	/proc/self/io rchar during the phase, 12.7665 B/char
 R	E9	rep_10m.id	isa_proc_wchar	78336000	bytes	/proc/self/io wchar during the phase, 7.8336 B/char (mapped writes are not syscalls)
-R	E9	rep_10m.id	isa_proc_read_bytes	40083456	bytes	/proc/self/io read_bytes (block layer, page-cache misses), 4.0083 B/char
-R	E9	rep_10m.id	isa_proc_write_bytes	118505472	bytes	/proc/self/io write_bytes (pages that went from clean to dirty), 11.8505 B/char
-R	E9	rep_10m.id	isa_rssanon_peak	18.386944	MB	max RssAnon of the phase at 10 ms (program sampler)
-R	E9	rep_10m.id	isa_rssfile_peak	28.532736	MB	mapped file pages resident (reported, not counted)
-R	E9	rep_10m.id	isa_dirty_peak	76.853248	MB	max /proc/meminfo Dirty minus the baseline (1.01 MB) at 20 ms, system-wide
-R	E9	rep_10m.id	isa_proc_dirty_peak	0.786432	MB	max Private_Dirty + Shared_Dirty of the mappings of the output file (per-process view)
+R	E9	rep_10m.id	isa_proc_read_bytes	40001536	bytes	/proc/self/io read_bytes (block layer, page-cache misses), 4.0002 B/char
+R	E9	rep_10m.id	isa_proc_write_bytes	118611968	bytes	/proc/self/io write_bytes (pages that went from clean to dirty), 11.8612 B/char
+R	E9	rep_10m.id	isa_rssanon_peak	18.444288	MB	max RssAnon of the phase at 10 ms (program sampler)
+R	E9	rep_10m.id	isa_rssfile_peak	28.913664	MB	mapped file pages resident (reported, not counted)
+R	E9	rep_10m.id	isa_dirty_peak	77.688832	MB	max /proc/meminfo Dirty minus the baseline (0.92 MB) at 20 ms, system-wide
+R	E9	rep_10m.id	isa_proc_dirty_peak	1.048576	MB	max Private_Dirty + Shared_Dirty of the mappings of the output file (per-process view)
 R	E9	rep_10m.id	isa_arena_peak	3465388	bytes	peak charged to the ArenaBudget (cap 160 MiB), live at the end 0
 R	E9	rep_10m.id	isa_scratch_peak	78336000	bytes	7.8336 B/char: peak of the tracked scratch files
 R	E9	rep_10m.id	isa_chunks	375	n	R = 26667 positions per chunk, P = 375, tuple buffer 6144 bytes; tuples written 78336000 bytes (7.8336 B/char), read 78336000 bytes
 R	E9	rep_10m.id	cmp_isa_by_dist	yes		cmp out.rep_10m.isa rep_10m.ref.isa (40000004 bytes)
-R	E9	rep_10m.id	psi_from_isa_s	0.355833	s	wall time of Psi = ISA[SA[i] + 1]: SA read sequentially, ISA read at random through its mapping
-R	E9	rep_10m.id	psi_from_isa_ns_per_char	35.583319	ns	seconds / n
+R	E9	rep_10m.id	psi_from_isa_s	0.253715	s	wall time of Psi = ISA[SA[i] + 1]: SA read sequentially, ISA read at random through its mapping
+R	E9	rep_10m.id	psi_from_isa_ns_per_char	25.371468	ns	seconds / n
 R	E9	rep_10m.id	psi_from_isa_io_explicit_read	40000004	bytes	4.0000 B/char (program counter, explicit reads, 39 calls)
 R	E9	rep_10m.id	psi_from_isa_io_explicit_write	0	bytes	0.0000 B/char (program counter, explicit writes, 0 calls)
 R	E9	rep_10m.id	psi_from_isa_io_mapped_write	40000004	bytes	4.0000 B/char (program counter, writes through mapped windows: 39 windows, largest 1048576 bytes)
 R	E9	rep_10m.id	psi_from_isa_io_counted_total	80000008	bytes	8.0000 B/char: explicit reads + explicit writes + mapped writes (reads through mappings are not counted)
-R	E9	rep_10m.id	psi_from_isa_proc_rchar	43975920	bytes	/proc/self/io rchar during the phase, 4.3976 B/char
+R	E9	rep_10m.id	psi_from_isa_proc_rchar	42648212	bytes	/proc/self/io rchar during the phase, 4.2648 B/char
 R	E9	rep_10m.id	psi_from_isa_proc_wchar	0	bytes	/proc/self/io wchar during the phase, 0.0000 B/char (mapped writes are not syscalls)
 R	E9	rep_10m.id	psi_from_isa_proc_read_bytes	0	bytes	/proc/self/io read_bytes (block layer, page-cache misses), 0.0000 B/char
-R	E9	rep_10m.id	psi_from_isa_proc_write_bytes	40001536	bytes	/proc/self/io write_bytes (pages that went from clean to dirty), 4.0002 B/char
-R	E9	rep_10m.id	psi_from_isa_rssanon_peak	11.390976	MB	max RssAnon of the phase at 10 ms (program sampler)
-R	E9	rep_10m.id	psi_from_isa_rssfile_peak	68.276224	MB	mapped file pages resident (reported, not counted)
-R	E9	rep_10m.id	psi_from_isa_dirty_peak	1.048576	MB	max /proc/meminfo Dirty minus the baseline (1.18 MB) at 20 ms, system-wide
+R	E9	rep_10m.id	psi_from_isa_proc_write_bytes	40009728	bytes	/proc/self/io write_bytes (pages that went from clean to dirty), 4.0010 B/char
+R	E9	rep_10m.id	psi_from_isa_rssanon_peak	11.001856	MB	max RssAnon of the phase at 10 ms (program sampler)
+R	E9	rep_10m.id	psi_from_isa_rssfile_peak	68.386816	MB	mapped file pages resident (reported, not counted)
+R	E9	rep_10m.id	psi_from_isa_dirty_peak	1.052672	MB	max /proc/meminfo Dirty minus the baseline (0.38 MB) at 20 ms, system-wide
 R	E9	rep_10m.id	psi_from_isa_proc_dirty_peak	1.048576	MB	max Private_Dirty + Shared_Dirty of the mappings of the output file (per-process view)
 R	E9	rep_10m.id	psi_from_isa_arena_peak	2097152	bytes	peak charged to the ArenaBudget (cap 160 MiB), live at the end 0
 R	E9	rep_10m.id	psi_from_isa_scratch_peak	0	bytes	0.0000 B/char: peak of the tracked scratch files
 R	E9	rep_10m.id	cmp_psi_from_isa	yes		cmp out.rep_10m.psi2 rep_10m.ref.psi (40000004 bytes)
-R	E9	rep_10m.id	smoke_index_s	0.940287	s	EsaIndex.Build (tagged child table) of n = 10000000
+R	E9	rep_10m.id	smoke_index_s	1.165413	s	EsaIndex.Build (tagged child table) of n = 10000000
 R	E9	rep_10m.id	smoke_sa_file_equals_index	yes		the suffix array file the streamed tables were built from against the SA of the in-RAM index
 R	E9	rep_10m.id	smoke_isa_equals_ram	yes		ISA from DIST against LinkTables.BuildIsa
 R	E9	rep_10m.id	smoke_psi_stream_equals_ram	yes		psi_stream (entry 0 mapped 0 -> -1) against LinkTables.BuildPsi
-R	E9	rep_10m.id	smoke_psi_stream_s	2.54098	s	all kernels x sources, two runs each (in-RAM tables, streamed tables)
+R	E9	rep_10m.id	smoke_psi_stream_s	2.215029	s	all kernels x sources, two runs each (in-RAM tables, streamed tables)
 R	E9	rep_10m.id	smoke_psi_stream_internal_nodes	8568247	n	internal nodes of the index; header statistic 8568247; sample 200000 (sample A of the P1 benchmark: --sample 200000 --seed 1)
 R	E9	rep_10m.id	smoke_psi_stream_a_scan_isa	0	mismatches	200000 nodes, 0 links over the step budget 3000000 (the same in both runs)
 R	E9	rep_10m.id	smoke_psi_stream_a_scan_psi	0	mismatches	200000 nodes, 0 links over the step budget 3000000 (the same in both runs)
@@ -361,7 +361,7 @@ R	E9	rep_10m.id	smoke_psi_stream_c2_psv_isa	0	mismatches	200000 nodes, 0 links o
 R	E9	rep_10m.id	smoke_psi_stream_c2_psv_psi	0	mismatches	200000 nodes, 0 links over the step budget 3000000 (the same in both runs)
 R	E9	rep_10m.id	smoke_psi_stream_mismatches	0	n	sum over the eight cells: success flag, target and step count of every link, tables under test against the in-RAM tables
 R	E9	rep_10m.id	smoke_psi_from_isa_equals_ram	yes		psi_from_isa (entry 0 mapped 0 -> -1) against LinkTables.BuildPsi
-R	E9	rep_10m.id	smoke_psi_from_isa_s	2.519649	s	all kernels x sources, two runs each (in-RAM tables, streamed tables)
+R	E9	rep_10m.id	smoke_psi_from_isa_s	1.848488	s	all kernels x sources, two runs each (in-RAM tables, streamed tables)
 R	E9	rep_10m.id	smoke_psi_from_isa_internal_nodes	8568247	n	internal nodes of the index; header statistic 8568247; sample 200000 (sample A of the P1 benchmark: --sample 200000 --seed 1)
 R	E9	rep_10m.id	smoke_psi_from_isa_a_scan_isa	0	mismatches	200000 nodes, 0 links over the step budget 3000000 (the same in both runs)
 R	E9	rep_10m.id	smoke_psi_from_isa_a_scan_psi	0	mismatches	200000 nodes, 0 links over the step budget 3000000 (the same in both runs)
@@ -374,19 +374,19 @@ R	E9	rep_10m.id	smoke_psi_from_isa_c2_psv_psi	0	mismatches	200000 nodes, 0 links
 R	E9	rep_10m.id	smoke_psi_from_isa_mismatches	0	n	sum over the eight cells: success flag, target and step count of every link, tables under test against the in-RAM tables
 R	E9	rep_10m.id	smoke_ok	yes		all comparisons equal
 R	E9	rep_10m.id	run_done	yes		all rows of this group are written
-R	E9	a_1m.id	psi_s	0.038425	s	wall time of the Psi pass: one BWT scan per group of symbols, one output cursor per symbol
-R	E9	a_1m.id	psi_ns_per_char	38.42456	ns	seconds / n
+R	E9	a_1m.id	psi_s	0.131437	s	wall time of the Psi pass: one BWT scan per group of symbols, one output cursor per symbol
+R	E9	a_1m.id	psi_ns_per_char	131.437105	ns	seconds / n
 R	E9	a_1m.id	psi_io_explicit_read	1000001	bytes	1.0000 B/char (program counter, explicit reads, 1 calls)
 R	E9	a_1m.id	psi_io_explicit_write	0	bytes	0.0000 B/char (program counter, explicit writes, 0 calls)
 R	E9	a_1m.id	psi_io_mapped_write	4000004	bytes	4.0000 B/char (program counter, writes through mapped windows: 63 windows, largest 65536 bytes)
 R	E9	a_1m.id	psi_io_counted_total	5000005	bytes	5.0000 B/char: explicit reads + explicit writes + mapped writes (reads through mappings are not counted)
-R	E9	a_1m.id	psi_proc_rchar	1219128	bytes	/proc/self/io rchar during the phase, 1.2191 B/char
+R	E9	a_1m.id	psi_proc_rchar	2303658	bytes	/proc/self/io rchar during the phase, 2.3037 B/char
 R	E9	a_1m.id	psi_proc_wchar	0	bytes	/proc/self/io wchar during the phase, 0.0000 B/char (mapped writes are not syscalls)
 R	E9	a_1m.id	psi_proc_read_bytes	1003520	bytes	/proc/self/io read_bytes (block layer, page-cache misses), 1.0035 B/char
 R	E9	a_1m.id	psi_proc_write_bytes	7544832	bytes	/proc/self/io write_bytes (pages that went from clean to dirty), 7.5448 B/char
-R	E9	a_1m.id	psi_rssanon_peak	5.234688	MB	max RssAnon of the phase at 10 ms (program sampler)
-R	E9	a_1m.id	psi_rssfile_peak	26.845184	MB	mapped file pages resident (reported, not counted)
-R	E9	a_1m.id	psi_dirty_peak	0.262144	MB	max /proc/meminfo Dirty minus the baseline (1.18 MB) at 20 ms, system-wide
+R	E9	a_1m.id	psi_rssanon_peak	9.560064	MB	max RssAnon of the phase at 10 ms (program sampler)
+R	E9	a_1m.id	psi_rssfile_peak	27.164672	MB	mapped file pages resident (reported, not counted)
+R	E9	a_1m.id	psi_dirty_peak	0.262144	MB	max /proc/meminfo Dirty minus the baseline (0.34 MB) at 20 ms, system-wide
 R	E9	a_1m.id	psi_proc_dirty_peak	0	MB	max Private_Dirty + Shared_Dirty of the mappings of the output file (per-process view)
 R	E9	a_1m.id	psi_arena_peak	1065537	bytes	peak charged to the ArenaBudget (cap 160 MiB), live at the end 0
 R	E9	a_1m.id	psi_scratch_peak	0	bytes	0.0000 B/char: peak of the tracked scratch files
@@ -395,39 +395,39 @@ R	E9	a_1m.id	psi_bwt_bytes_read	1000001	bytes	1.0000 B/char: passes x (n + 1)
 R	E9	a_1m.id	psi_bytes_written	4000004	bytes	4.0000 B/char: 4 (n + 1)
 R	E9	a_1m.id	counts_equal_ph0	n/a		the symbol counts of the BWT meta against the C[] of PH0 in a_1m.pk.meta
 R	E9	a_1m.id	cmp_psi	yes		cmp out.a_1m.psi a_1m.ref.psi (4000004 bytes)
-R	E9	a_1m.id.small	psi_s	0.763832	s	wall time of the Psi pass: one BWT scan per group of symbols, one output cursor per symbol
-R	E9	a_1m.id.small	psi_ns_per_char	763.831651	ns	seconds / n
+R	E9	a_1m.id.small	psi_s	0.627959	s	wall time of the Psi pass: one BWT scan per group of symbols, one output cursor per symbol
+R	E9	a_1m.id.small	psi_ns_per_char	627.958984	ns	seconds / n
 R	E9	a_1m.id.small	psi_io_explicit_read	1000001	bytes	1.0000 B/char (program counter, explicit reads, 16 calls)
 R	E9	a_1m.id.small	psi_io_explicit_write	0	bytes	0.0000 B/char (program counter, explicit writes, 0 calls)
 R	E9	a_1m.id.small	psi_io_mapped_write	4000004	bytes	4.0000 B/char (program counter, writes through mapped windows: 3908 windows, largest 1024 bytes)
 R	E9	a_1m.id.small	psi_io_counted_total	5000005	bytes	5.0000 B/char: explicit reads + explicit writes + mapped writes (reads through mappings are not counted)
-R	E9	a_1m.id.small	psi_proc_rchar	9385229	bytes	/proc/self/io rchar during the phase, 9.3852 B/char
+R	E9	a_1m.id.small	psi_proc_rchar	7836946	bytes	/proc/self/io rchar during the phase, 7.8369 B/char
 R	E9	a_1m.id.small	psi_proc_wchar	0	bytes	/proc/self/io wchar during the phase, 0.0000 B/char (mapped writes are not syscalls)
 R	E9	a_1m.id.small	psi_proc_read_bytes	0	bytes	/proc/self/io read_bytes (block layer, page-cache misses), 0.0000 B/char
-R	E9	a_1m.id.small	psi_proc_write_bytes	468217856	bytes	/proc/self/io write_bytes (pages that went from clean to dirty), 468.2179 B/char
-R	E9	a_1m.id.small	psi_rssanon_peak	9.097216	MB	max RssAnon of the phase at 10 ms (program sampler)
+R	E9	a_1m.id.small	psi_proc_write_bytes	468205568	bytes	/proc/self/io write_bytes (pages that went from clean to dirty), 468.2056 B/char
+R	E9	a_1m.id.small	psi_rssanon_peak	9.105408	MB	max RssAnon of the phase at 10 ms (program sampler)
 R	E9	a_1m.id.small	psi_rssfile_peak	27.414528	MB	mapped file pages resident (reported, not counted)
-R	E9	a_1m.id.small	psi_dirty_peak	0	MB	max /proc/meminfo Dirty minus the baseline (1.18 MB) at 20 ms, system-wide
-R	E9	a_1m.id.small	psi_proc_dirty_peak	0	MB	max Private_Dirty + Shared_Dirty of the mappings of the output file (per-process view)
+R	E9	a_1m.id.small	psi_dirty_peak	0.262144	MB	max /proc/meminfo Dirty minus the baseline (0.36 MB) at 20 ms, system-wide
+R	E9	a_1m.id.small	psi_proc_dirty_peak	0.004096	MB	max Private_Dirty + Shared_Dirty of the mappings of the output file (per-process view)
 R	E9	a_1m.id.small	psi_arena_peak	66560	bytes	peak charged to the ArenaBudget (cap 160 MiB), live at the end 0
 R	E9	a_1m.id.small	psi_scratch_peak	0	bytes	0.0000 B/char: peak of the tracked scratch files
 R	E9	a_1m.id.small	psi_passes	1	n	sigma=1, symbols per pass 1 (limit 2), window 1024 bytes, 3907 windows of the cursors, mapped working set bound 1024 bytes
 R	E9	a_1m.id.small	psi_bwt_bytes_read	1000001	bytes	1.0000 B/char: passes x (n + 1)
 R	E9	a_1m.id.small	psi_bytes_written	4000004	bytes	4.0000 B/char: 4 (n + 1)
 R	E9	a_1m.id	cmp_psi_small_windows_2_symbols_per_pass	yes		cmp out.a_1m.psi_small a_1m.ref.psi (4000004 bytes)
-R	E9	a_1m.id.cyclic	psi_s	0.044326	s	wall time of the Psi pass: one BWT scan per group of symbols, one output cursor per symbol
-R	E9	a_1m.id.cyclic	psi_ns_per_char	44.325591	ns	seconds / n
+R	E9	a_1m.id.cyclic	psi_s	0.028821	s	wall time of the Psi pass: one BWT scan per group of symbols, one output cursor per symbol
+R	E9	a_1m.id.cyclic	psi_ns_per_char	28.820641	ns	seconds / n
 R	E9	a_1m.id.cyclic	psi_io_explicit_read	1000001	bytes	1.0000 B/char (program counter, explicit reads, 1 calls)
 R	E9	a_1m.id.cyclic	psi_io_explicit_write	0	bytes	0.0000 B/char (program counter, explicit writes, 0 calls)
 R	E9	a_1m.id.cyclic	psi_io_mapped_write	4000004	bytes	4.0000 B/char (program counter, writes through mapped windows: 63 windows, largest 65536 bytes)
 R	E9	a_1m.id.cyclic	psi_io_counted_total	5000005	bytes	5.0000 B/char: explicit reads + explicit writes + mapped writes (reads through mappings are not counted)
-R	E9	a_1m.id.cyclic	psi_proc_rchar	1431869	bytes	/proc/self/io rchar during the phase, 1.4319 B/char
+R	E9	a_1m.id.cyclic	psi_proc_rchar	1216880	bytes	/proc/self/io rchar during the phase, 1.2169 B/char
 R	E9	a_1m.id.cyclic	psi_proc_wchar	0	bytes	/proc/self/io wchar during the phase, 0.0000 B/char (mapped writes are not syscalls)
 R	E9	a_1m.id.cyclic	psi_proc_read_bytes	0	bytes	/proc/self/io read_bytes (block layer, page-cache misses), 0.0000 B/char
-R	E9	a_1m.id.cyclic	psi_proc_write_bytes	7569408	bytes	/proc/self/io write_bytes (pages that went from clean to dirty), 7.5694 B/char
-R	E9	a_1m.id.cyclic	psi_rssanon_peak	4.698112	MB	max RssAnon of the phase at 10 ms (program sampler)
-R	E9	a_1m.id.cyclic	psi_rssfile_peak	26.89024	MB	mapped file pages resident (reported, not counted)
-R	E9	a_1m.id.cyclic	psi_dirty_peak	0.28672	MB	max /proc/meminfo Dirty minus the baseline (0.11 MB) at 20 ms, system-wide
+R	E9	a_1m.id.cyclic	psi_proc_write_bytes	7544832	bytes	/proc/self/io write_bytes (pages that went from clean to dirty), 7.5448 B/char
+R	E9	a_1m.id.cyclic	psi_rssanon_peak	3.907584	MB	max RssAnon of the phase at 10 ms (program sampler)
+R	E9	a_1m.id.cyclic	psi_rssfile_peak	26.128384	MB	mapped file pages resident (reported, not counted)
+R	E9	a_1m.id.cyclic	psi_dirty_peak	0.262144	MB	max /proc/meminfo Dirty minus the baseline (0.37 MB) at 20 ms, system-wide
 R	E9	a_1m.id.cyclic	psi_proc_dirty_peak	0	MB	max Private_Dirty + Shared_Dirty of the mappings of the output file (per-process view)
 R	E9	a_1m.id.cyclic	psi_arena_peak	1065537	bytes	peak charged to the ArenaBudget (cap 160 MiB), live at the end 0
 R	E9	a_1m.id.cyclic	psi_scratch_peak	0	bytes	0.0000 B/char: peak of the tracked scratch files
@@ -435,46 +435,46 @@ R	E9	a_1m.id.cyclic	psi_passes	1	n	sigma=1, symbols per pass 1 (limit 64), windo
 R	E9	a_1m.id.cyclic	psi_bwt_bytes_read	1000001	bytes	1.0000 B/char: passes x (n + 1)
 R	E9	a_1m.id.cyclic	psi_bytes_written	4000004	bytes	4.0000 B/char: 4 (n + 1)
 R	E9	a_1m.id	cmp_psi_cyclic_tail	yes		bytes 5.. of the cyclic Psi equal the reference; entry 0 = 1000000 equals the primary row 1000000: yes
-R	E9	a_1m.id	isa_s	0.123874	s	wall time of ISA by DIST: distribute (SA[i], i) by SA[i] / R, then scatter chunk by chunk
-R	E9	a_1m.id	isa_ns_per_char	123.873809	ns	seconds / n
+R	E9	a_1m.id	isa_s	0.131664	s	wall time of ISA by DIST: distribute (SA[i], i) by SA[i] / R, then scatter chunk by chunk
+R	E9	a_1m.id	isa_ns_per_char	131.663823	ns	seconds / n
 R	E9	a_1m.id	isa_io_explicit_read	11678980	bytes	11.6790 B/char (program counter, explicit reads, 7503 calls)
 R	E9	a_1m.id	isa_io_explicit_write	7678976	bytes	7.6790 B/char (program counter, explicit writes, 7499 calls)
 R	E9	a_1m.id	isa_io_mapped_write	4000004	bytes	4.0000 B/char (program counter, writes through mapped windows: 4 windows, largest 1048576 bytes)
 R	E9	a_1m.id	isa_io_counted_total	23357960	bytes	23.3580 B/char: explicit reads + explicit writes + mapped writes (reads through mappings are not counted)
-R	E9	a_1m.id	isa_proc_rchar	12983153	bytes	/proc/self/io rchar during the phase, 12.9832 B/char
+R	E9	a_1m.id	isa_proc_rchar	12988705	bytes	/proc/self/io rchar during the phase, 12.9887 B/char
 R	E9	a_1m.id	isa_proc_wchar	7678976	bytes	/proc/self/io wchar during the phase, 7.6790 B/char (mapped writes are not syscalls)
-R	E9	a_1m.id	isa_proc_read_bytes	4001792	bytes	/proc/self/io read_bytes (block layer, page-cache misses), 4.0018 B/char
-R	E9	a_1m.id	isa_proc_write_bytes	12427264	bytes	/proc/self/io write_bytes (pages that went from clean to dirty), 12.4273 B/char
-R	E9	a_1m.id	isa_rssanon_peak	13.533184	MB	max RssAnon of the phase at 10 ms (program sampler)
-R	E9	a_1m.id	isa_rssfile_peak	28.192768	MB	mapped file pages resident (reported, not counted)
-R	E9	a_1m.id	isa_dirty_peak	7.749632	MB	max /proc/meminfo Dirty minus the baseline (0.14 MB) at 20 ms, system-wide
-R	E9	a_1m.id	isa_proc_dirty_peak	0.917504	MB	max Private_Dirty + Shared_Dirty of the mappings of the output file (per-process view)
+R	E9	a_1m.id	isa_proc_read_bytes	4132864	bytes	/proc/self/io read_bytes (block layer, page-cache misses), 4.1329 B/char
+R	E9	a_1m.id	isa_proc_write_bytes	11800576	bytes	/proc/self/io write_bytes (pages that went from clean to dirty), 11.8006 B/char
+R	E9	a_1m.id	isa_rssanon_peak	13.59872	MB	max RssAnon of the phase at 10 ms (program sampler)
+R	E9	a_1m.id	isa_rssfile_peak	28.135424	MB	mapped file pages resident (reported, not counted)
+R	E9	a_1m.id	isa_dirty_peak	6.746112	MB	max /proc/meminfo Dirty minus the baseline (0.37 MB) at 20 ms, system-wide
+R	E9	a_1m.id	isa_proc_dirty_peak	0	MB	max Private_Dirty + Shared_Dirty of the mappings of the output file (per-process view)
 R	E9	a_1m.id	isa_arena_peak	1444268	bytes	peak charged to the ArenaBudget (cap 160 MiB), live at the end 0
 R	E9	a_1m.id	isa_scratch_peak	7678976	bytes	7.6790 B/char: peak of the tracked scratch files
 R	E9	a_1m.id	isa_chunks	375	n	R = 2667 positions per chunk, P = 375, tuple buffer 1024 bytes; tuples written 7678976 bytes (7.6790 B/char), read 7678976 bytes
 R	E9	a_1m.id	cmp_isa_by_dist	yes		cmp out.a_1m.isa a_1m.ref.isa (4000004 bytes)
-R	E9	a_1m.id	psi_from_isa_s	0.040664	s	wall time of Psi = ISA[SA[i] + 1]: SA read sequentially, ISA read at random through its mapping
-R	E9	a_1m.id	psi_from_isa_ns_per_char	40.66408	ns	seconds / n
+R	E9	a_1m.id	psi_from_isa_s	0.046466	s	wall time of Psi = ISA[SA[i] + 1]: SA read sequentially, ISA read at random through its mapping
+R	E9	a_1m.id	psi_from_isa_ns_per_char	46.465745	ns	seconds / n
 R	E9	a_1m.id	psi_from_isa_io_explicit_read	4000004	bytes	4.0000 B/char (program counter, explicit reads, 4 calls)
 R	E9	a_1m.id	psi_from_isa_io_explicit_write	0	bytes	0.0000 B/char (program counter, explicit writes, 0 calls)
 R	E9	a_1m.id	psi_from_isa_io_mapped_write	4000004	bytes	4.0000 B/char (program counter, writes through mapped windows: 4 windows, largest 1048576 bytes)
 R	E9	a_1m.id	psi_from_isa_io_counted_total	8000008	bytes	8.0000 B/char: explicit reads + explicit writes + mapped writes (reads through mappings are not counted)
-R	E9	a_1m.id	psi_from_isa_proc_rchar	4438935	bytes	/proc/self/io rchar during the phase, 4.4389 B/char
+R	E9	a_1m.id	psi_from_isa_proc_rchar	4437307	bytes	/proc/self/io rchar during the phase, 4.4373 B/char
 R	E9	a_1m.id	psi_from_isa_proc_wchar	0	bytes	/proc/self/io wchar during the phase, 0.0000 B/char (mapped writes are not syscalls)
 R	E9	a_1m.id	psi_from_isa_proc_read_bytes	0	bytes	/proc/self/io read_bytes (block layer, page-cache misses), 0.0000 B/char
 R	E9	a_1m.id	psi_from_isa_proc_write_bytes	4001792	bytes	/proc/self/io write_bytes (pages that went from clean to dirty), 4.0018 B/char
-R	E9	a_1m.id	psi_from_isa_rssanon_peak	10.571776	MB	max RssAnon of the phase at 10 ms (program sampler)
-R	E9	a_1m.id	psi_from_isa_rssfile_peak	32.067584	MB	mapped file pages resident (reported, not counted)
-R	E9	a_1m.id	psi_from_isa_dirty_peak	0.069632	MB	max /proc/meminfo Dirty minus the baseline (0.91 MB) at 20 ms, system-wide
-R	E9	a_1m.id	psi_from_isa_proc_dirty_peak	0	MB	max Private_Dirty + Shared_Dirty of the mappings of the output file (per-process view)
+R	E9	a_1m.id	psi_from_isa_rssanon_peak	10.551296	MB	max RssAnon of the phase at 10 ms (program sampler)
+R	E9	a_1m.id	psi_from_isa_rssfile_peak	31.932416	MB	mapped file pages resident (reported, not counted)
+R	E9	a_1m.id	psi_from_isa_dirty_peak	0.720896	MB	max /proc/meminfo Dirty minus the baseline (0.57 MB) at 20 ms, system-wide
+R	E9	a_1m.id	psi_from_isa_proc_dirty_peak	1.048576	MB	max Private_Dirty + Shared_Dirty of the mappings of the output file (per-process view)
 R	E9	a_1m.id	psi_from_isa_arena_peak	2097152	bytes	peak charged to the ArenaBudget (cap 160 MiB), live at the end 0
 R	E9	a_1m.id	psi_from_isa_scratch_peak	0	bytes	0.0000 B/char: peak of the tracked scratch files
 R	E9	a_1m.id	cmp_psi_from_isa	yes		cmp out.a_1m.psi2 a_1m.ref.psi (4000004 bytes)
-R	E9	a_1m.id	smoke_index_s	0.124606	s	EsaIndex.Build (tagged child table) of n = 1000000
+R	E9	a_1m.id	smoke_index_s	0.09869	s	EsaIndex.Build (tagged child table) of n = 1000000
 R	E9	a_1m.id	smoke_sa_file_equals_index	yes		the suffix array file the streamed tables were built from against the SA of the in-RAM index
 R	E9	a_1m.id	smoke_isa_equals_ram	yes		ISA from DIST against LinkTables.BuildIsa
 R	E9	a_1m.id	smoke_psi_stream_equals_ram	yes		psi_stream (entry 0 mapped 0 -> -1) against LinkTables.BuildPsi
-R	E9	a_1m.id	smoke_psi_stream_s	0.838868	s	all kernels x sources, two runs each (in-RAM tables, streamed tables)
+R	E9	a_1m.id	smoke_psi_stream_s	0.78495	s	all kernels x sources, two runs each (in-RAM tables, streamed tables)
 R	E9	a_1m.id	smoke_psi_stream_internal_nodes	999999	n	internal nodes of the index; header statistic 999999; sample 5000 (sample A of the P1 benchmark: --sample 5000 --seed 1)
 R	E9	a_1m.id	smoke_psi_stream_a_scan_isa	0	mismatches	5000 nodes, 0 links over the step budget 20000 (the same in both runs)
 R	E9	a_1m.id	smoke_psi_stream_a_scan_psi	0	mismatches	5000 nodes, 0 links over the step budget 20000 (the same in both runs)
@@ -486,7 +486,7 @@ R	E9	a_1m.id	smoke_psi_stream_c2_psv_isa	0	mismatches	5000 nodes, 0 links over t
 R	E9	a_1m.id	smoke_psi_stream_c2_psv_psi	0	mismatches	5000 nodes, 0 links over the step budget 20000 (the same in both runs)
 R	E9	a_1m.id	smoke_psi_stream_mismatches	0	n	sum over the eight cells: success flag, target and step count of every link, tables under test against the in-RAM tables
 R	E9	a_1m.id	smoke_psi_from_isa_equals_ram	yes		psi_from_isa (entry 0 mapped 0 -> -1) against LinkTables.BuildPsi
-R	E9	a_1m.id	smoke_psi_from_isa_s	0.663476	s	all kernels x sources, two runs each (in-RAM tables, streamed tables)
+R	E9	a_1m.id	smoke_psi_from_isa_s	0.732189	s	all kernels x sources, two runs each (in-RAM tables, streamed tables)
 R	E9	a_1m.id	smoke_psi_from_isa_internal_nodes	999999	n	internal nodes of the index; header statistic 999999; sample 5000 (sample A of the P1 benchmark: --sample 5000 --seed 1)
 R	E9	a_1m.id	smoke_psi_from_isa_a_scan_isa	0	mismatches	5000 nodes, 0 links over the step budget 20000 (the same in both runs)
 R	E9	a_1m.id	smoke_psi_from_isa_a_scan_psi	0	mismatches	5000 nodes, 0 links over the step budget 20000 (the same in both runs)
@@ -499,19 +499,19 @@ R	E9	a_1m.id	smoke_psi_from_isa_c2_psv_psi	0	mismatches	5000 nodes, 0 links over
 R	E9	a_1m.id	smoke_psi_from_isa_mismatches	0	n	sum over the eight cells: success flag, target and step count of every link, tables under test against the in-RAM tables
 R	E9	a_1m.id	smoke_ok	yes		all comparisons equal
 R	E9	a_1m.id	run_done	yes		all rows of this group are written
-R	E9	fib_1m.id	psi_s	0.051384	s	wall time of the Psi pass: one BWT scan per group of symbols, one output cursor per symbol
-R	E9	fib_1m.id	psi_ns_per_char	51.38386	ns	seconds / n
+R	E9	fib_1m.id	psi_s	0.066674	s	wall time of the Psi pass: one BWT scan per group of symbols, one output cursor per symbol
+R	E9	fib_1m.id	psi_ns_per_char	66.674233	ns	seconds / n
 R	E9	fib_1m.id	psi_io_explicit_read	1000001	bytes	1.0000 B/char (program counter, explicit reads, 1 calls)
 R	E9	fib_1m.id	psi_io_explicit_write	0	bytes	0.0000 B/char (program counter, explicit writes, 0 calls)
 R	E9	fib_1m.id	psi_io_mapped_write	4000004	bytes	4.0000 B/char (program counter, writes through mapped windows: 63 windows, largest 65536 bytes)
 R	E9	fib_1m.id	psi_io_counted_total	5000005	bytes	5.0000 B/char: explicit reads + explicit writes + mapped writes (reads through mappings are not counted)
-R	E9	fib_1m.id	psi_proc_rchar	1438498	bytes	/proc/self/io rchar during the phase, 1.4385 B/char
+R	E9	fib_1m.id	psi_proc_rchar	1652710	bytes	/proc/self/io rchar during the phase, 1.6527 B/char
 R	E9	fib_1m.id	psi_proc_wchar	0	bytes	/proc/self/io wchar during the phase, 0.0000 B/char (mapped writes are not syscalls)
 R	E9	fib_1m.id	psi_proc_read_bytes	1003520	bytes	/proc/self/io read_bytes (block layer, page-cache misses), 1.0035 B/char
 R	E9	fib_1m.id	psi_proc_write_bytes	8777728	bytes	/proc/self/io write_bytes (pages that went from clean to dirty), 8.7777 B/char
-R	E9	fib_1m.id	psi_rssanon_peak	5.61152	MB	max RssAnon of the phase at 10 ms (program sampler)
-R	E9	fib_1m.id	psi_rssfile_peak	26.873856	MB	mapped file pages resident (reported, not counted)
-R	E9	fib_1m.id	psi_dirty_peak	0.069632	MB	max /proc/meminfo Dirty minus the baseline (0.95 MB) at 20 ms, system-wide
+R	E9	fib_1m.id	psi_rssanon_peak	5.275648	MB	max RssAnon of the phase at 10 ms (program sampler)
+R	E9	fib_1m.id	psi_rssfile_peak	26.886144	MB	mapped file pages resident (reported, not counted)
+R	E9	fib_1m.id	psi_dirty_peak	0.331776	MB	max /proc/meminfo Dirty minus the baseline (0.51 MB) at 20 ms, system-wide
 R	E9	fib_1m.id	psi_proc_dirty_peak	0.024576	MB	max Private_Dirty + Shared_Dirty of the mappings of the output file (per-process view)
 R	E9	fib_1m.id	psi_arena_peak	1131073	bytes	peak charged to the ArenaBudget (cap 160 MiB), live at the end 0
 R	E9	fib_1m.id	psi_scratch_peak	0	bytes	0.0000 B/char: peak of the tracked scratch files
@@ -520,86 +520,86 @@ R	E9	fib_1m.id	psi_bwt_bytes_read	1000001	bytes	1.0000 B/char: passes x (n + 1)
 R	E9	fib_1m.id	psi_bytes_written	4000004	bytes	4.0000 B/char: 4 (n + 1)
 R	E9	fib_1m.id	counts_equal_ph0	n/a		the symbol counts of the BWT meta against the C[] of PH0 in fib_1m.pk.meta
 R	E9	fib_1m.id	cmp_psi	yes		cmp out.fib_1m.psi fib_1m.ref.psi (4000004 bytes)
-R	E9	fib_1m.id.small	psi_s	0.553347	s	wall time of the Psi pass: one BWT scan per group of symbols, one output cursor per symbol
-R	E9	fib_1m.id.small	psi_ns_per_char	553.347343	ns	seconds / n
+R	E9	fib_1m.id.small	psi_s	0.791578	s	wall time of the Psi pass: one BWT scan per group of symbols, one output cursor per symbol
+R	E9	fib_1m.id.small	psi_ns_per_char	791.577814	ns	seconds / n
 R	E9	fib_1m.id.small	psi_io_explicit_read	1000001	bytes	1.0000 B/char (program counter, explicit reads, 16 calls)
 R	E9	fib_1m.id.small	psi_io_explicit_write	0	bytes	0.0000 B/char (program counter, explicit writes, 0 calls)
 R	E9	fib_1m.id.small	psi_io_mapped_write	4000004	bytes	4.0000 B/char (program counter, writes through mapped windows: 3909 windows, largest 1024 bytes)
 R	E9	fib_1m.id.small	psi_io_counted_total	5000005	bytes	5.0000 B/char: explicit reads + explicit writes + mapped writes (reads through mappings are not counted)
-R	E9	fib_1m.id.small	psi_proc_rchar	6972612	bytes	/proc/self/io rchar during the phase, 6.9726 B/char
+R	E9	fib_1m.id.small	psi_proc_rchar	9609460	bytes	/proc/self/io rchar during the phase, 9.6095 B/char
 R	E9	fib_1m.id.small	psi_proc_wchar	0	bytes	/proc/self/io wchar during the phase, 0.0000 B/char (mapped writes are not syscalls)
 R	E9	fib_1m.id.small	psi_proc_read_bytes	0	bytes	/proc/self/io read_bytes (block layer, page-cache misses), 0.0000 B/char
 R	E9	fib_1m.id.small	psi_proc_write_bytes	448745472	bytes	/proc/self/io write_bytes (pages that went from clean to dirty), 448.7455 B/char
-R	E9	fib_1m.id.small	psi_rssanon_peak	9.105408	MB	max RssAnon of the phase at 10 ms (program sampler)
-R	E9	fib_1m.id.small	psi_rssfile_peak	27.521024	MB	mapped file pages resident (reported, not counted)
-R	E9	fib_1m.id.small	psi_dirty_peak	0.26624	MB	max /proc/meminfo Dirty minus the baseline (0.96 MB) at 20 ms, system-wide
-R	E9	fib_1m.id.small	psi_proc_dirty_peak	0.008192	MB	max Private_Dirty + Shared_Dirty of the mappings of the output file (per-process view)
+R	E9	fib_1m.id.small	psi_rssanon_peak	9.150464	MB	max RssAnon of the phase at 10 ms (program sampler)
+R	E9	fib_1m.id.small	psi_rssfile_peak	27.435008	MB	mapped file pages resident (reported, not counted)
+R	E9	fib_1m.id.small	psi_dirty_peak	0.200704	MB	max /proc/meminfo Dirty minus the baseline (0.53 MB) at 20 ms, system-wide
+R	E9	fib_1m.id.small	psi_proc_dirty_peak	0.004096	MB	max Private_Dirty + Shared_Dirty of the mappings of the output file (per-process view)
 R	E9	fib_1m.id.small	psi_arena_peak	67584	bytes	peak charged to the ArenaBudget (cap 160 MiB), live at the end 0
 R	E9	fib_1m.id.small	psi_scratch_peak	0	bytes	0.0000 B/char: peak of the tracked scratch files
 R	E9	fib_1m.id.small	psi_passes	1	n	sigma=2, symbols per pass 2 (limit 2), window 1024 bytes, 3908 windows of the cursors, mapped working set bound 2048 bytes
 R	E9	fib_1m.id.small	psi_bwt_bytes_read	1000001	bytes	1.0000 B/char: passes x (n + 1)
 R	E9	fib_1m.id.small	psi_bytes_written	4000004	bytes	4.0000 B/char: 4 (n + 1)
 R	E9	fib_1m.id	cmp_psi_small_windows_2_symbols_per_pass	yes		cmp out.fib_1m.psi_small fib_1m.ref.psi (4000004 bytes)
-R	E9	fib_1m.id.cyclic	psi_s	0.042718	s	wall time of the Psi pass: one BWT scan per group of symbols, one output cursor per symbol
-R	E9	fib_1m.id.cyclic	psi_ns_per_char	42.717735	ns	seconds / n
+R	E9	fib_1m.id.cyclic	psi_s	0.035123	s	wall time of the Psi pass: one BWT scan per group of symbols, one output cursor per symbol
+R	E9	fib_1m.id.cyclic	psi_ns_per_char	35.123316	ns	seconds / n
 R	E9	fib_1m.id.cyclic	psi_io_explicit_read	1000001	bytes	1.0000 B/char (program counter, explicit reads, 1 calls)
 R	E9	fib_1m.id.cyclic	psi_io_explicit_write	0	bytes	0.0000 B/char (program counter, explicit writes, 0 calls)
 R	E9	fib_1m.id.cyclic	psi_io_mapped_write	4000004	bytes	4.0000 B/char (program counter, writes through mapped windows: 63 windows, largest 65536 bytes)
 R	E9	fib_1m.id.cyclic	psi_io_counted_total	5000005	bytes	5.0000 B/char: explicit reads + explicit writes + mapped writes (reads through mappings are not counted)
-R	E9	fib_1m.id.cyclic	psi_proc_rchar	1437082	bytes	/proc/self/io rchar during the phase, 1.4371 B/char
+R	E9	fib_1m.id.cyclic	psi_proc_rchar	1219904	bytes	/proc/self/io rchar during the phase, 1.2199 B/char
 R	E9	fib_1m.id.cyclic	psi_proc_wchar	0	bytes	/proc/self/io wchar during the phase, 0.0000 B/char (mapped writes are not syscalls)
 R	E9	fib_1m.id.cyclic	psi_proc_read_bytes	0	bytes	/proc/self/io read_bytes (block layer, page-cache misses), 0.0000 B/char
 R	E9	fib_1m.id.cyclic	psi_proc_write_bytes	8777728	bytes	/proc/self/io write_bytes (pages that went from clean to dirty), 8.7777 B/char
-R	E9	fib_1m.id.cyclic	psi_rssanon_peak	5.238784	MB	max RssAnon of the phase at 10 ms (program sampler)
-R	E9	fib_1m.id.cyclic	psi_rssfile_peak	26.906624	MB	mapped file pages resident (reported, not counted)
-R	E9	fib_1m.id.cyclic	psi_dirty_peak	0.069632	MB	max /proc/meminfo Dirty minus the baseline (0.97 MB) at 20 ms, system-wide
-R	E9	fib_1m.id.cyclic	psi_proc_dirty_peak	0.057344	MB	max Private_Dirty + Shared_Dirty of the mappings of the output file (per-process view)
+R	E9	fib_1m.id.cyclic	psi_rssanon_peak	5.26336	MB	max RssAnon of the phase at 10 ms (program sampler)
+R	E9	fib_1m.id.cyclic	psi_rssfile_peak	26.877952	MB	mapped file pages resident (reported, not counted)
+R	E9	fib_1m.id.cyclic	psi_dirty_peak	0.26624	MB	max /proc/meminfo Dirty minus the baseline (0.54 MB) at 20 ms, system-wide
+R	E9	fib_1m.id.cyclic	psi_proc_dirty_peak	0.024576	MB	max Private_Dirty + Shared_Dirty of the mappings of the output file (per-process view)
 R	E9	fib_1m.id.cyclic	psi_arena_peak	1131073	bytes	peak charged to the ArenaBudget (cap 160 MiB), live at the end 0
 R	E9	fib_1m.id.cyclic	psi_scratch_peak	0	bytes	0.0000 B/char: peak of the tracked scratch files
 R	E9	fib_1m.id.cyclic	psi_passes	1	n	sigma=2, symbols per pass 2 (limit 64), window 65536 bytes, 62 windows of the cursors, mapped working set bound 131072 bytes
 R	E9	fib_1m.id.cyclic	psi_bwt_bytes_read	1000001	bytes	1.0000 B/char: passes x (n + 1)
 R	E9	fib_1m.id.cyclic	psi_bytes_written	4000004	bytes	4.0000 B/char: 4 (n + 1)
 R	E9	fib_1m.id	cmp_psi_cyclic_tail	yes		bytes 5.. of the cyclic Psi equal the reference; entry 0 = 381971 equals the primary row 381971: yes
-R	E9	fib_1m.id	isa_s	0.114691	s	wall time of ISA by DIST: distribute (SA[i], i) by SA[i] / R, then scatter chunk by chunk
-R	E9	fib_1m.id	isa_ns_per_char	114.691248	ns	seconds / n
+R	E9	fib_1m.id	isa_s	0.115114	s	wall time of ISA by DIST: distribute (SA[i], i) by SA[i] / R, then scatter chunk by chunk
+R	E9	fib_1m.id	isa_ns_per_char	115.113576	ns	seconds / n
 R	E9	fib_1m.id	isa_io_explicit_read	11678980	bytes	11.6790 B/char (program counter, explicit reads, 7503 calls)
 R	E9	fib_1m.id	isa_io_explicit_write	7678976	bytes	7.6790 B/char (program counter, explicit writes, 7499 calls)
 R	E9	fib_1m.id	isa_io_mapped_write	4000004	bytes	4.0000 B/char (program counter, writes through mapped windows: 4 windows, largest 1048576 bytes)
 R	E9	fib_1m.id	isa_io_counted_total	23357960	bytes	23.3580 B/char: explicit reads + explicit writes + mapped writes (reads through mappings are not counted)
-R	E9	fib_1m.id	isa_proc_rchar	12771149	bytes	/proc/self/io rchar during the phase, 12.7711 B/char
+R	E9	fib_1m.id	isa_proc_rchar	12770461	bytes	/proc/self/io rchar during the phase, 12.7705 B/char
 R	E9	fib_1m.id	isa_proc_wchar	7678976	bytes	/proc/self/io wchar during the phase, 7.6790 B/char (mapped writes are not syscalls)
-R	E9	fib_1m.id	isa_proc_read_bytes	4001792	bytes	/proc/self/io read_bytes (block layer, page-cache misses), 4.0018 B/char
-R	E9	fib_1m.id	isa_proc_write_bytes	11776000	bytes	/proc/self/io write_bytes (pages that went from clean to dirty), 11.7760 B/char
-R	E9	fib_1m.id	isa_rssanon_peak	10.272768	MB	max RssAnon of the phase at 10 ms (program sampler)
-R	E9	fib_1m.id	isa_rssfile_peak	28.209152	MB	mapped file pages resident (reported, not counted)
-R	E9	fib_1m.id	isa_dirty_peak	7.749632	MB	max /proc/meminfo Dirty minus the baseline (0.98 MB) at 20 ms, system-wide
-R	E9	fib_1m.id	isa_proc_dirty_peak	0.524288	MB	max Private_Dirty + Shared_Dirty of the mappings of the output file (per-process view)
+R	E9	fib_1m.id	isa_proc_read_bytes	4128768	bytes	/proc/self/io read_bytes (block layer, page-cache misses), 4.1288 B/char
+R	E9	fib_1m.id	isa_proc_write_bytes	11780096	bytes	/proc/self/io write_bytes (pages that went from clean to dirty), 11.7801 B/char
+R	E9	fib_1m.id	isa_rssanon_peak	13.643776	MB	max RssAnon of the phase at 10 ms (program sampler)
+R	E9	fib_1m.id	isa_rssfile_peak	27.840512	MB	mapped file pages resident (reported, not counted)
+R	E9	fib_1m.id	isa_dirty_peak	6.18496	MB	max /proc/meminfo Dirty minus the baseline (0.61 MB) at 20 ms, system-wide
+R	E9	fib_1m.id	isa_proc_dirty_peak	0	MB	max Private_Dirty + Shared_Dirty of the mappings of the output file (per-process view)
 R	E9	fib_1m.id	isa_arena_peak	1444268	bytes	peak charged to the ArenaBudget (cap 160 MiB), live at the end 0
 R	E9	fib_1m.id	isa_scratch_peak	7678976	bytes	7.6790 B/char: peak of the tracked scratch files
 R	E9	fib_1m.id	isa_chunks	375	n	R = 2667 positions per chunk, P = 375, tuple buffer 1024 bytes; tuples written 7678976 bytes (7.6790 B/char), read 7678976 bytes
 R	E9	fib_1m.id	cmp_isa_by_dist	yes		cmp out.fib_1m.isa fib_1m.ref.isa (4000004 bytes)
-R	E9	fib_1m.id	psi_from_isa_s	0.050768	s	wall time of Psi = ISA[SA[i] + 1]: SA read sequentially, ISA read at random through its mapping
-R	E9	fib_1m.id	psi_from_isa_ns_per_char	50.768292	ns	seconds / n
+R	E9	fib_1m.id	psi_from_isa_s	0.066535	s	wall time of Psi = ISA[SA[i] + 1]: SA read sequentially, ISA read at random through its mapping
+R	E9	fib_1m.id	psi_from_isa_ns_per_char	66.534927	ns	seconds / n
 R	E9	fib_1m.id	psi_from_isa_io_explicit_read	4000004	bytes	4.0000 B/char (program counter, explicit reads, 4 calls)
 R	E9	fib_1m.id	psi_from_isa_io_explicit_write	0	bytes	0.0000 B/char (program counter, explicit writes, 0 calls)
 R	E9	fib_1m.id	psi_from_isa_io_mapped_write	4000004	bytes	4.0000 B/char (program counter, writes through mapped windows: 4 windows, largest 1048576 bytes)
 R	E9	fib_1m.id	psi_from_isa_io_counted_total	8000008	bytes	8.0000 B/char: explicit reads + explicit writes + mapped writes (reads through mappings are not counted)
-R	E9	fib_1m.id	psi_from_isa_proc_rchar	4439522	bytes	/proc/self/io rchar during the phase, 4.4395 B/char
+R	E9	fib_1m.id	psi_from_isa_proc_rchar	4655133	bytes	/proc/self/io rchar during the phase, 4.6551 B/char
 R	E9	fib_1m.id	psi_from_isa_proc_wchar	0	bytes	/proc/self/io wchar during the phase, 0.0000 B/char (mapped writes are not syscalls)
 R	E9	fib_1m.id	psi_from_isa_proc_read_bytes	0	bytes	/proc/self/io read_bytes (block layer, page-cache misses), 0.0000 B/char
 R	E9	fib_1m.id	psi_from_isa_proc_write_bytes	4001792	bytes	/proc/self/io write_bytes (pages that went from clean to dirty), 4.0018 B/char
-R	E9	fib_1m.id	psi_from_isa_rssanon_peak	10.661888	MB	max RssAnon of the phase at 10 ms (program sampler)
-R	E9	fib_1m.id	psi_from_isa_rssfile_peak	32.067584	MB	mapped file pages resident (reported, not counted)
-R	E9	fib_1m.id	psi_from_isa_dirty_peak	1.048576	MB	max /proc/meminfo Dirty minus the baseline (1.09 MB) at 20 ms, system-wide
-R	E9	fib_1m.id	psi_from_isa_proc_dirty_peak	1.048576	MB	max Private_Dirty + Shared_Dirty of the mappings of the output file (per-process view)
+R	E9	fib_1m.id	psi_from_isa_rssanon_peak	10.596352	MB	max RssAnon of the phase at 10 ms (program sampler)
+R	E9	fib_1m.id	psi_from_isa_rssfile_peak	31.997952	MB	mapped file pages resident (reported, not counted)
+R	E9	fib_1m.id	psi_from_isa_dirty_peak	1.048576	MB	max /proc/meminfo Dirty minus the baseline (0.65 MB) at 20 ms, system-wide
+R	E9	fib_1m.id	psi_from_isa_proc_dirty_peak	0.786432	MB	max Private_Dirty + Shared_Dirty of the mappings of the output file (per-process view)
 R	E9	fib_1m.id	psi_from_isa_arena_peak	2097152	bytes	peak charged to the ArenaBudget (cap 160 MiB), live at the end 0
 R	E9	fib_1m.id	psi_from_isa_scratch_peak	0	bytes	0.0000 B/char: peak of the tracked scratch files
 R	E9	fib_1m.id	cmp_psi_from_isa	yes		cmp out.fib_1m.psi2 fib_1m.ref.psi (4000004 bytes)
-R	E9	fib_1m.id	smoke_index_s	0.170488	s	EsaIndex.Build (tagged child table) of n = 1000000
+R	E9	fib_1m.id	smoke_index_s	0.150146	s	EsaIndex.Build (tagged child table) of n = 1000000
 R	E9	fib_1m.id	smoke_sa_file_equals_index	yes		the suffix array file the streamed tables were built from against the SA of the in-RAM index
 R	E9	fib_1m.id	smoke_isa_equals_ram	yes		ISA from DIST against LinkTables.BuildIsa
 R	E9	fib_1m.id	smoke_psi_stream_equals_ram	yes		psi_stream (entry 0 mapped 0 -> -1) against LinkTables.BuildPsi
-R	E9	fib_1m.id	smoke_psi_stream_s	0.116378	s	all kernels x sources, two runs each (in-RAM tables, streamed tables)
+R	E9	fib_1m.id	smoke_psi_stream_s	0.111257	s	all kernels x sources, two runs each (in-RAM tables, streamed tables)
 R	E9	fib_1m.id	smoke_psi_stream_internal_nodes	999995	n	internal nodes of the index; header statistic 999995; sample 5000 (sample A of the P1 benchmark: --sample 5000 --seed 1)
 R	E9	fib_1m.id	smoke_psi_stream_a_scan_isa	0	mismatches	5000 nodes, 0 links over the step budget 20000 (the same in both runs)
 R	E9	fib_1m.id	smoke_psi_stream_a_scan_psi	0	mismatches	5000 nodes, 0 links over the step budget 20000 (the same in both runs)
@@ -611,7 +611,7 @@ R	E9	fib_1m.id	smoke_psi_stream_c2_psv_isa	0	mismatches	5000 nodes, 0 links over
 R	E9	fib_1m.id	smoke_psi_stream_c2_psv_psi	0	mismatches	5000 nodes, 0 links over the step budget 20000 (the same in both runs)
 R	E9	fib_1m.id	smoke_psi_stream_mismatches	0	n	sum over the eight cells: success flag, target and step count of every link, tables under test against the in-RAM tables
 R	E9	fib_1m.id	smoke_psi_from_isa_equals_ram	yes		psi_from_isa (entry 0 mapped 0 -> -1) against LinkTables.BuildPsi
-R	E9	fib_1m.id	smoke_psi_from_isa_s	0.074796	s	all kernels x sources, two runs each (in-RAM tables, streamed tables)
+R	E9	fib_1m.id	smoke_psi_from_isa_s	0.067192	s	all kernels x sources, two runs each (in-RAM tables, streamed tables)
 R	E9	fib_1m.id	smoke_psi_from_isa_internal_nodes	999995	n	internal nodes of the index; header statistic 999995; sample 5000 (sample A of the P1 benchmark: --sample 5000 --seed 1)
 R	E9	fib_1m.id	smoke_psi_from_isa_a_scan_isa	0	mismatches	5000 nodes, 0 links over the step budget 20000 (the same in both runs)
 R	E9	fib_1m.id	smoke_psi_from_isa_a_scan_psi	0	mismatches	5000 nodes, 0 links over the step budget 20000 (the same in both runs)
@@ -624,19 +624,19 @@ R	E9	fib_1m.id	smoke_psi_from_isa_c2_psv_psi	0	mismatches	5000 nodes, 0 links ov
 R	E9	fib_1m.id	smoke_psi_from_isa_mismatches	0	n	sum over the eight cells: success flag, target and step count of every link, tables under test against the in-RAM tables
 R	E9	fib_1m.id	smoke_ok	yes		all comparisons equal
 R	E9	fib_1m.id	run_done	yes		all rows of this group are written
-R	E9	tm_1m.id	psi_s	0.036045	s	wall time of the Psi pass: one BWT scan per group of symbols, one output cursor per symbol
-R	E9	tm_1m.id	psi_ns_per_char	36.044854	ns	seconds / n
+R	E9	tm_1m.id	psi_s	0.144056	s	wall time of the Psi pass: one BWT scan per group of symbols, one output cursor per symbol
+R	E9	tm_1m.id	psi_ns_per_char	144.055826	ns	seconds / n
 R	E9	tm_1m.id	psi_io_explicit_read	1000001	bytes	1.0000 B/char (program counter, explicit reads, 1 calls)
 R	E9	tm_1m.id	psi_io_explicit_write	0	bytes	0.0000 B/char (program counter, explicit writes, 0 calls)
 R	E9	tm_1m.id	psi_io_mapped_write	4000004	bytes	4.0000 B/char (program counter, writes through mapped windows: 63 windows, largest 65536 bytes)
 R	E9	tm_1m.id	psi_io_counted_total	5000005	bytes	5.0000 B/char: explicit reads + explicit writes + mapped writes (reads through mappings are not counted)
-R	E9	tm_1m.id	psi_proc_rchar	1219183	bytes	/proc/self/io rchar during the phase, 1.2192 B/char
+R	E9	tm_1m.id	psi_proc_rchar	2300454	bytes	/proc/self/io rchar during the phase, 2.3005 B/char
 R	E9	tm_1m.id	psi_proc_wchar	0	bytes	/proc/self/io wchar during the phase, 0.0000 B/char (mapped writes are not syscalls)
 R	E9	tm_1m.id	psi_proc_read_bytes	1003520	bytes	/proc/self/io read_bytes (block layer, page-cache misses), 1.0035 B/char
 R	E9	tm_1m.id	psi_proc_write_bytes	7090176	bytes	/proc/self/io write_bytes (pages that went from clean to dirty), 7.0902 B/char
-R	E9	tm_1m.id	psi_rssanon_peak	4.096	MB	max RssAnon of the phase at 10 ms (program sampler)
-R	E9	tm_1m.id	psi_rssfile_peak	26.13248	MB	mapped file pages resident (reported, not counted)
-R	E9	tm_1m.id	psi_dirty_peak	0.135168	MB	max /proc/meminfo Dirty minus the baseline (1.09 MB) at 20 ms, system-wide
+R	E9	tm_1m.id	psi_rssanon_peak	6.598656	MB	max RssAnon of the phase at 10 ms (program sampler)
+R	E9	tm_1m.id	psi_rssfile_peak	27.152384	MB	mapped file pages resident (reported, not counted)
+R	E9	tm_1m.id	psi_dirty_peak	0.131072	MB	max /proc/meminfo Dirty minus the baseline (0.65 MB) at 20 ms, system-wide
 R	E9	tm_1m.id	psi_proc_dirty_peak	0.02048	MB	max Private_Dirty + Shared_Dirty of the mappings of the output file (per-process view)
 R	E9	tm_1m.id	psi_arena_peak	1131073	bytes	peak charged to the ArenaBudget (cap 160 MiB), live at the end 0
 R	E9	tm_1m.id	psi_scratch_peak	0	bytes	0.0000 B/char: peak of the tracked scratch files
@@ -645,19 +645,19 @@ R	E9	tm_1m.id	psi_bwt_bytes_read	1000001	bytes	1.0000 B/char: passes x (n + 1)
 R	E9	tm_1m.id	psi_bytes_written	4000004	bytes	4.0000 B/char: 4 (n + 1)
 R	E9	tm_1m.id	counts_equal_ph0	n/a		the symbol counts of the BWT meta against the C[] of PH0 in tm_1m.pk.meta
 R	E9	tm_1m.id	cmp_psi	yes		cmp out.tm_1m.psi tm_1m.ref.psi (4000004 bytes)
-R	E9	tm_1m.id.small	psi_s	0.6346	s	wall time of the Psi pass: one BWT scan per group of symbols, one output cursor per symbol
-R	E9	tm_1m.id.small	psi_ns_per_char	634.599723	ns	seconds / n
+R	E9	tm_1m.id.small	psi_s	0.626324	s	wall time of the Psi pass: one BWT scan per group of symbols, one output cursor per symbol
+R	E9	tm_1m.id.small	psi_ns_per_char	626.324307	ns	seconds / n
 R	E9	tm_1m.id.small	psi_io_explicit_read	1000001	bytes	1.0000 B/char (program counter, explicit reads, 16 calls)
 R	E9	tm_1m.id.small	psi_io_explicit_write	0	bytes	0.0000 B/char (program counter, explicit writes, 0 calls)
 R	E9	tm_1m.id.small	psi_io_mapped_write	4000004	bytes	4.0000 B/char (program counter, writes through mapped windows: 3909 windows, largest 1024 bytes)
 R	E9	tm_1m.id.small	psi_io_counted_total	5000005	bytes	5.0000 B/char: explicit reads + explicit writes + mapped writes (reads through mappings are not counted)
-R	E9	tm_1m.id.small	psi_proc_rchar	7843311	bytes	/proc/self/io rchar during the phase, 7.8433 B/char
+R	E9	tm_1m.id.small	psi_proc_rchar	7846225	bytes	/proc/self/io rchar during the phase, 7.8462 B/char
 R	E9	tm_1m.id.small	psi_proc_wchar	0	bytes	/proc/self/io wchar during the phase, 0.0000 B/char (mapped writes are not syscalls)
 R	E9	tm_1m.id.small	psi_proc_read_bytes	0	bytes	/proc/self/io read_bytes (block layer, page-cache misses), 0.0000 B/char
 R	E9	tm_1m.id.small	psi_proc_write_bytes	303452160	bytes	/proc/self/io write_bytes (pages that went from clean to dirty), 303.4522 B/char
-R	E9	tm_1m.id.small	psi_rssanon_peak	9.125888	MB	max RssAnon of the phase at 10 ms (program sampler)
-R	E9	tm_1m.id.small	psi_rssfile_peak	27.398144	MB	mapped file pages resident (reported, not counted)
-R	E9	tm_1m.id.small	psi_dirty_peak	0.26624	MB	max /proc/meminfo Dirty minus the baseline (1.11 MB) at 20 ms, system-wide
+R	E9	tm_1m.id.small	psi_rssanon_peak	9.09312	MB	max RssAnon of the phase at 10 ms (program sampler)
+R	E9	tm_1m.id.small	psi_rssfile_peak	27.500544	MB	mapped file pages resident (reported, not counted)
+R	E9	tm_1m.id.small	psi_dirty_peak	0.26624	MB	max /proc/meminfo Dirty minus the baseline (0.67 MB) at 20 ms, system-wide
 R	E9	tm_1m.id.small	psi_proc_dirty_peak	0.008192	MB	max Private_Dirty + Shared_Dirty of the mappings of the output file (per-process view)
 R	E9	tm_1m.id.small	psi_arena_peak	67584	bytes	peak charged to the ArenaBudget (cap 160 MiB), live at the end 0
 R	E9	tm_1m.id.small	psi_scratch_peak	0	bytes	0.0000 B/char: peak of the tracked scratch files
@@ -665,66 +665,66 @@ R	E9	tm_1m.id.small	psi_passes	1	n	sigma=2, symbols per pass 2 (limit 2), window
 R	E9	tm_1m.id.small	psi_bwt_bytes_read	1000001	bytes	1.0000 B/char: passes x (n + 1)
 R	E9	tm_1m.id.small	psi_bytes_written	4000004	bytes	4.0000 B/char: 4 (n + 1)
 R	E9	tm_1m.id	cmp_psi_small_windows_2_symbols_per_pass	yes		cmp out.tm_1m.psi_small tm_1m.ref.psi (4000004 bytes)
-R	E9	tm_1m.id.cyclic	psi_s	0.047824	s	wall time of the Psi pass: one BWT scan per group of symbols, one output cursor per symbol
-R	E9	tm_1m.id.cyclic	psi_ns_per_char	47.823702	ns	seconds / n
+R	E9	tm_1m.id.cyclic	psi_s	0.037573	s	wall time of the Psi pass: one BWT scan per group of symbols, one output cursor per symbol
+R	E9	tm_1m.id.cyclic	psi_ns_per_char	37.573256	ns	seconds / n
 R	E9	tm_1m.id.cyclic	psi_io_explicit_read	1000001	bytes	1.0000 B/char (program counter, explicit reads, 1 calls)
 R	E9	tm_1m.id.cyclic	psi_io_explicit_write	0	bytes	0.0000 B/char (program counter, explicit writes, 0 calls)
 R	E9	tm_1m.id.cyclic	psi_io_mapped_write	4000004	bytes	4.0000 B/char (program counter, writes through mapped windows: 63 windows, largest 65536 bytes)
 R	E9	tm_1m.id.cyclic	psi_io_counted_total	5000005	bytes	5.0000 B/char: explicit reads + explicit writes + mapped writes (reads through mappings are not counted)
-R	E9	tm_1m.id.cyclic	psi_proc_rchar	1434104	bytes	/proc/self/io rchar during the phase, 1.4341 B/char
+R	E9	tm_1m.id.cyclic	psi_proc_rchar	1220648	bytes	/proc/self/io rchar during the phase, 1.2206 B/char
 R	E9	tm_1m.id.cyclic	psi_proc_wchar	0	bytes	/proc/self/io wchar during the phase, 0.0000 B/char (mapped writes are not syscalls)
 R	E9	tm_1m.id.cyclic	psi_proc_read_bytes	0	bytes	/proc/self/io read_bytes (block layer, page-cache misses), 0.0000 B/char
 R	E9	tm_1m.id.cyclic	psi_proc_write_bytes	7090176	bytes	/proc/self/io write_bytes (pages that went from clean to dirty), 7.0902 B/char
-R	E9	tm_1m.id.cyclic	psi_rssanon_peak	5.246976	MB	max RssAnon of the phase at 10 ms (program sampler)
-R	E9	tm_1m.id.cyclic	psi_rssfile_peak	26.771456	MB	mapped file pages resident (reported, not counted)
-R	E9	tm_1m.id.cyclic	psi_dirty_peak	0.073728	MB	max /proc/meminfo Dirty minus the baseline (1.11 MB) at 20 ms, system-wide
-R	E9	tm_1m.id.cyclic	psi_proc_dirty_peak	0.036864	MB	max Private_Dirty + Shared_Dirty of the mappings of the output file (per-process view)
+R	E9	tm_1m.id.cyclic	psi_rssanon_peak	4.104192	MB	max RssAnon of the phase at 10 ms (program sampler)
+R	E9	tm_1m.id.cyclic	psi_rssfile_peak	26.066944	MB	mapped file pages resident (reported, not counted)
+R	E9	tm_1m.id.cyclic	psi_dirty_peak	0.131072	MB	max /proc/meminfo Dirty minus the baseline (0.67 MB) at 20 ms, system-wide
+R	E9	tm_1m.id.cyclic	psi_proc_dirty_peak	0.024576	MB	max Private_Dirty + Shared_Dirty of the mappings of the output file (per-process view)
 R	E9	tm_1m.id.cyclic	psi_arena_peak	1131073	bytes	peak charged to the ArenaBudget (cap 160 MiB), live at the end 0
 R	E9	tm_1m.id.cyclic	psi_scratch_peak	0	bytes	0.0000 B/char: peak of the tracked scratch files
 R	E9	tm_1m.id.cyclic	psi_passes	1	n	sigma=2, symbols per pass 2 (limit 64), window 65536 bytes, 62 windows of the cursors, mapped working set bound 131072 bytes
 R	E9	tm_1m.id.cyclic	psi_bwt_bytes_read	1000001	bytes	1.0000 B/char: passes x (n + 1)
 R	E9	tm_1m.id.cyclic	psi_bytes_written	4000004	bytes	4.0000 B/char: 4 (n + 1)
 R	E9	tm_1m.id	cmp_psi_cyclic_tail	yes		bytes 5.. of the cyclic Psi equal the reference; entry 0 = 500000 equals the primary row 500000: yes
-R	E9	tm_1m.id	isa_s	0.166104	s	wall time of ISA by DIST: distribute (SA[i], i) by SA[i] / R, then scatter chunk by chunk
-R	E9	tm_1m.id	isa_ns_per_char	166.10363	ns	seconds / n
+R	E9	tm_1m.id	isa_s	0.128462	s	wall time of ISA by DIST: distribute (SA[i], i) by SA[i] / R, then scatter chunk by chunk
+R	E9	tm_1m.id	isa_ns_per_char	128.462014	ns	seconds / n
 R	E9	tm_1m.id	isa_io_explicit_read	11678980	bytes	11.6790 B/char (program counter, explicit reads, 7503 calls)
 R	E9	tm_1m.id	isa_io_explicit_write	7678976	bytes	7.6790 B/char (program counter, explicit writes, 7499 calls)
 R	E9	tm_1m.id	isa_io_mapped_write	4000004	bytes	4.0000 B/char (program counter, writes through mapped windows: 4 windows, largest 1048576 bytes)
 R	E9	tm_1m.id	isa_io_counted_total	23357960	bytes	23.3580 B/char: explicit reads + explicit writes + mapped writes (reads through mappings are not counted)
-R	E9	tm_1m.id	isa_proc_rchar	13415535	bytes	/proc/self/io rchar during the phase, 13.4155 B/char
+R	E9	tm_1m.id	isa_proc_rchar	12976875	bytes	/proc/self/io rchar during the phase, 12.9769 B/char
 R	E9	tm_1m.id	isa_proc_wchar	7678976	bytes	/proc/self/io wchar during the phase, 7.6790 B/char (mapped writes are not syscalls)
 R	E9	tm_1m.id	isa_proc_read_bytes	4001792	bytes	/proc/self/io read_bytes (block layer, page-cache misses), 4.0018 B/char
-R	E9	tm_1m.id	isa_proc_write_bytes	11763712	bytes	/proc/self/io write_bytes (pages that went from clean to dirty), 11.7637 B/char
-R	E9	tm_1m.id	isa_rssanon_peak	10.305536	MB	max RssAnon of the phase at 10 ms (program sampler)
-R	E9	tm_1m.id	isa_rssfile_peak	28.114944	MB	mapped file pages resident (reported, not counted)
-R	E9	tm_1m.id	isa_dirty_peak	7.159808	MB	max /proc/meminfo Dirty minus the baseline (1.19 MB) at 20 ms, system-wide
-R	E9	tm_1m.id	isa_proc_dirty_peak	0.917504	MB	max Private_Dirty + Shared_Dirty of the mappings of the output file (per-process view)
+R	E9	tm_1m.id	isa_proc_write_bytes	11780096	bytes	/proc/self/io write_bytes (pages that went from clean to dirty), 11.7801 B/char
+R	E9	tm_1m.id	isa_rssanon_peak	13.467648	MB	max RssAnon of the phase at 10 ms (program sampler)
+R	E9	tm_1m.id	isa_rssfile_peak	28.319744	MB	mapped file pages resident (reported, not counted)
+R	E9	tm_1m.id	isa_dirty_peak	6.668288	MB	max /proc/meminfo Dirty minus the baseline (0.68 MB) at 20 ms, system-wide
+R	E9	tm_1m.id	isa_proc_dirty_peak	0.524288	MB	max Private_Dirty + Shared_Dirty of the mappings of the output file (per-process view)
 R	E9	tm_1m.id	isa_arena_peak	1444268	bytes	peak charged to the ArenaBudget (cap 160 MiB), live at the end 0
 R	E9	tm_1m.id	isa_scratch_peak	7678976	bytes	7.6790 B/char: peak of the tracked scratch files
 R	E9	tm_1m.id	isa_chunks	375	n	R = 2667 positions per chunk, P = 375, tuple buffer 1024 bytes; tuples written 7678976 bytes (7.6790 B/char), read 7678976 bytes
 R	E9	tm_1m.id	cmp_isa_by_dist	yes		cmp out.tm_1m.isa tm_1m.ref.isa (4000004 bytes)
-R	E9	tm_1m.id	psi_from_isa_s	0.065736	s	wall time of Psi = ISA[SA[i] + 1]: SA read sequentially, ISA read at random through its mapping
-R	E9	tm_1m.id	psi_from_isa_ns_per_char	65.736447	ns	seconds / n
+R	E9	tm_1m.id	psi_from_isa_s	0.059858	s	wall time of Psi = ISA[SA[i] + 1]: SA read sequentially, ISA read at random through its mapping
+R	E9	tm_1m.id	psi_from_isa_ns_per_char	59.857674	ns	seconds / n
 R	E9	tm_1m.id	psi_from_isa_io_explicit_read	4000004	bytes	4.0000 B/char (program counter, explicit reads, 4 calls)
 R	E9	tm_1m.id	psi_from_isa_io_explicit_write	0	bytes	0.0000 B/char (program counter, explicit writes, 0 calls)
 R	E9	tm_1m.id	psi_from_isa_io_mapped_write	4000004	bytes	4.0000 B/char (program counter, writes through mapped windows: 4 windows, largest 1048576 bytes)
 R	E9	tm_1m.id	psi_from_isa_io_counted_total	8000008	bytes	8.0000 B/char: explicit reads + explicit writes + mapped writes (reads through mappings are not counted)
-R	E9	tm_1m.id	psi_from_isa_proc_rchar	4644950	bytes	/proc/self/io rchar during the phase, 4.6449 B/char
+R	E9	tm_1m.id	psi_from_isa_proc_rchar	4652246	bytes	/proc/self/io rchar during the phase, 4.6522 B/char
 R	E9	tm_1m.id	psi_from_isa_proc_wchar	0	bytes	/proc/self/io wchar during the phase, 0.0000 B/char (mapped writes are not syscalls)
 R	E9	tm_1m.id	psi_from_isa_proc_read_bytes	0	bytes	/proc/self/io read_bytes (block layer, page-cache misses), 0.0000 B/char
-R	E9	tm_1m.id	psi_from_isa_proc_write_bytes	4001792	bytes	/proc/self/io write_bytes (pages that went from clean to dirty), 4.0018 B/char
-R	E9	tm_1m.id	psi_from_isa_rssanon_peak	11.10016	MB	max RssAnon of the phase at 10 ms (program sampler)
-R	E9	tm_1m.id	psi_from_isa_rssfile_peak	32.075776	MB	mapped file pages resident (reported, not counted)
-R	E9	tm_1m.id	psi_from_isa_dirty_peak	1.048576	MB	max /proc/meminfo Dirty minus the baseline (1.22 MB) at 20 ms, system-wide
+R	E9	tm_1m.id	psi_from_isa_proc_write_bytes	4005888	bytes	/proc/self/io write_bytes (pages that went from clean to dirty), 4.0059 B/char
+R	E9	tm_1m.id	psi_from_isa_rssanon_peak	10.809344	MB	max RssAnon of the phase at 10 ms (program sampler)
+R	E9	tm_1m.id	psi_from_isa_rssfile_peak	32.022528	MB	mapped file pages resident (reported, not counted)
+R	E9	tm_1m.id	psi_from_isa_dirty_peak	0.270336	MB	max /proc/meminfo Dirty minus the baseline (0.84 MB) at 20 ms, system-wide
 R	E9	tm_1m.id	psi_from_isa_proc_dirty_peak	1.048576	MB	max Private_Dirty + Shared_Dirty of the mappings of the output file (per-process view)
 R	E9	tm_1m.id	psi_from_isa_arena_peak	2097152	bytes	peak charged to the ArenaBudget (cap 160 MiB), live at the end 0
 R	E9	tm_1m.id	psi_from_isa_scratch_peak	0	bytes	0.0000 B/char: peak of the tracked scratch files
 R	E9	tm_1m.id	cmp_psi_from_isa	yes		cmp out.tm_1m.psi2 tm_1m.ref.psi (4000004 bytes)
-R	E9	tm_1m.id	smoke_index_s	0.158966	s	EsaIndex.Build (tagged child table) of n = 1000000
+R	E9	tm_1m.id	smoke_index_s	0.181836	s	EsaIndex.Build (tagged child table) of n = 1000000
 R	E9	tm_1m.id	smoke_sa_file_equals_index	yes		the suffix array file the streamed tables were built from against the SA of the in-RAM index
 R	E9	tm_1m.id	smoke_isa_equals_ram	yes		ISA from DIST against LinkTables.BuildIsa
 R	E9	tm_1m.id	smoke_psi_stream_equals_ram	yes		psi_stream (entry 0 mapped 0 -> -1) against LinkTables.BuildPsi
-R	E9	tm_1m.id	smoke_psi_stream_s	0.138504	s	all kernels x sources, two runs each (in-RAM tables, streamed tables)
+R	E9	tm_1m.id	smoke_psi_stream_s	0.109838	s	all kernels x sources, two runs each (in-RAM tables, streamed tables)
 R	E9	tm_1m.id	smoke_psi_stream_internal_nodes	999902	n	internal nodes of the index; header statistic 999902; sample 5000 (sample A of the P1 benchmark: --sample 5000 --seed 1)
 R	E9	tm_1m.id	smoke_psi_stream_a_scan_isa	0	mismatches	5000 nodes, 0 links over the step budget 20000 (the same in both runs)
 R	E9	tm_1m.id	smoke_psi_stream_a_scan_psi	0	mismatches	5000 nodes, 0 links over the step budget 20000 (the same in both runs)
@@ -736,7 +736,7 @@ R	E9	tm_1m.id	smoke_psi_stream_c2_psv_isa	0	mismatches	5000 nodes, 0 links over 
 R	E9	tm_1m.id	smoke_psi_stream_c2_psv_psi	0	mismatches	5000 nodes, 0 links over the step budget 20000 (the same in both runs)
 R	E9	tm_1m.id	smoke_psi_stream_mismatches	0	n	sum over the eight cells: success flag, target and step count of every link, tables under test against the in-RAM tables
 R	E9	tm_1m.id	smoke_psi_from_isa_equals_ram	yes		psi_from_isa (entry 0 mapped 0 -> -1) against LinkTables.BuildPsi
-R	E9	tm_1m.id	smoke_psi_from_isa_s	0.070096	s	all kernels x sources, two runs each (in-RAM tables, streamed tables)
+R	E9	tm_1m.id	smoke_psi_from_isa_s	0.065551	s	all kernels x sources, two runs each (in-RAM tables, streamed tables)
 R	E9	tm_1m.id	smoke_psi_from_isa_internal_nodes	999902	n	internal nodes of the index; header statistic 999902; sample 5000 (sample A of the P1 benchmark: --sample 5000 --seed 1)
 R	E9	tm_1m.id	smoke_psi_from_isa_a_scan_isa	0	mismatches	5000 nodes, 0 links over the step budget 20000 (the same in both runs)
 R	E9	tm_1m.id	smoke_psi_from_isa_a_scan_psi	0	mismatches	5000 nodes, 0 links over the step budget 20000 (the same in both runs)
@@ -749,20 +749,20 @@ R	E9	tm_1m.id	smoke_psi_from_isa_c2_psv_psi	0	mismatches	5000 nodes, 0 links ove
 R	E9	tm_1m.id	smoke_psi_from_isa_mismatches	0	n	sum over the eight cells: success flag, target and step count of every link, tables under test against the in-RAM tables
 R	E9	tm_1m.id	smoke_ok	yes		all comparisons equal
 R	E9	tm_1m.id	run_done	yes		all rows of this group are written
-R	E9	rnd256_10m.id	psi_s	0.442153	s	wall time of the Psi pass: one BWT scan per group of symbols, one output cursor per symbol
-R	E9	rnd256_10m.id	psi_ns_per_char	44.215261	ns	seconds / n
+R	E9	rnd256_10m.id	psi_s	0.754506	s	wall time of the Psi pass: one BWT scan per group of symbols, one output cursor per symbol
+R	E9	rnd256_10m.id	psi_ns_per_char	75.450598	ns	seconds / n
 R	E9	rnd256_10m.id	psi_io_explicit_read	40000004	bytes	4.0000 B/char (program counter, explicit reads, 40 calls)
 R	E9	rnd256_10m.id	psi_io_explicit_write	0	bytes	0.0000 B/char (program counter, explicit writes, 0 calls)
 R	E9	rnd256_10m.id	psi_io_mapped_write	40000004	bytes	4.0000 B/char (program counter, writes through mapped windows: 769 windows, largest 65536 bytes)
 R	E9	rnd256_10m.id	psi_io_counted_total	80000008	bytes	8.0000 B/char: explicit reads + explicit writes + mapped writes (reads through mappings are not counted)
-R	E9	rnd256_10m.id	psi_proc_rchar	45761745	bytes	/proc/self/io rchar during the phase, 4.5762 B/char
+R	E9	rnd256_10m.id	psi_proc_rchar	50015060	bytes	/proc/self/io rchar during the phase, 5.0015 B/char
 R	E9	rnd256_10m.id	psi_proc_wchar	0	bytes	/proc/self/io wchar during the phase, 0.0000 B/char (mapped writes are not syscalls)
-R	E9	rnd256_10m.id	psi_proc_read_bytes	0	bytes	/proc/self/io read_bytes (block layer, page-cache misses), 0.0000 B/char
+R	E9	rnd256_10m.id	psi_proc_read_bytes	10002432	bytes	/proc/self/io read_bytes (block layer, page-cache misses), 1.0002 B/char
 R	E9	rnd256_10m.id	psi_proc_write_bytes	41492480	bytes	/proc/self/io write_bytes (pages that went from clean to dirty), 4.1492 B/char
-R	E9	rnd256_10m.id	psi_rssanon_peak	10.05568	MB	max RssAnon of the phase at 10 ms (program sampler)
-R	E9	rnd256_10m.id	psi_rssfile_peak	31.748096	MB	mapped file pages resident (reported, not counted)
-R	E9	rnd256_10m.id	psi_dirty_peak	4.399104	MB	max /proc/meminfo Dirty minus the baseline (1.22 MB) at 20 ms, system-wide
-R	E9	rnd256_10m.id	psi_proc_dirty_peak	4.100096	MB	max Private_Dirty + Shared_Dirty of the mappings of the output file (per-process view)
+R	E9	rnd256_10m.id	psi_rssanon_peak	10.043392	MB	max RssAnon of the phase at 10 ms (program sampler)
+R	E9	rnd256_10m.id	psi_rssfile_peak	31.9488	MB	mapped file pages resident (reported, not counted)
+R	E9	rnd256_10m.id	psi_dirty_peak	4.75136	MB	max /proc/meminfo Dirty minus the baseline (0.79 MB) at 20 ms, system-wide
+R	E9	rnd256_10m.id	psi_proc_dirty_peak	4.276224	MB	max Private_Dirty + Shared_Dirty of the mappings of the output file (per-process view)
 R	E9	rnd256_10m.id	psi_arena_peak	5242880	bytes	peak charged to the ArenaBudget (cap 160 MiB), live at the end 0
 R	E9	rnd256_10m.id	psi_scratch_peak	0	bytes	0.0000 B/char: peak of the tracked scratch files
 R	E9	rnd256_10m.id	psi_passes	4	n	sigma=256, symbols per pass 64 (limit 64), window 65536 bytes, 768 windows of the cursors, mapped working set bound 4194304 bytes
@@ -770,19 +770,19 @@ R	E9	rnd256_10m.id	psi_bwt_bytes_read	40000004	bytes	4.0000 B/char: passes x (n 
 R	E9	rnd256_10m.id	psi_bytes_written	40000004	bytes	4.0000 B/char: 4 (n + 1)
 R	E9	rnd256_10m.id	counts_equal_ph0	n/a		the symbol counts of the BWT meta against the C[] of PH0 in rnd256_10m.pk.meta
 R	E9	rnd256_10m.id	cmp_psi	yes		cmp out.rnd256_10m.psi rnd256_10m.ref.psi (40000004 bytes)
-R	E9	rnd256_10m.id.small	psi_s	6.550737	s	wall time of the Psi pass: one BWT scan per group of symbols, one output cursor per symbol
-R	E9	rnd256_10m.id.small	psi_ns_per_char	655.073677	ns	seconds / n
+R	E9	rnd256_10m.id.small	psi_s	6.575369	s	wall time of the Psi pass: one BWT scan per group of symbols, one output cursor per symbol
+R	E9	rnd256_10m.id.small	psi_ns_per_char	657.536885	ns	seconds / n
 R	E9	rnd256_10m.id.small	psi_io_explicit_read	1280000128	bytes	128.0000 B/char (program counter, explicit reads, 19584 calls)
 R	E9	rnd256_10m.id.small	psi_io_explicit_write	0	bytes	0.0000 B/char (program counter, explicit writes, 0 calls)
 R	E9	rnd256_10m.id.small	psi_io_mapped_write	40000004	bytes	4.0000 B/char (program counter, writes through mapped windows: 39182 windows, largest 1024 bytes)
 R	E9	rnd256_10m.id.small	psi_io_counted_total	1320000132	bytes	132.0000 B/char: explicit reads + explicit writes + mapped writes (reads through mappings are not counted)
-R	E9	rnd256_10m.id.small	psi_proc_rchar	1353408102	bytes	/proc/self/io rchar during the phase, 135.3408 B/char
+R	E9	rnd256_10m.id.small	psi_proc_rchar	1353681615	bytes	/proc/self/io rchar during the phase, 135.3682 B/char
 R	E9	rnd256_10m.id.small	psi_proc_wchar	0	bytes	/proc/self/io wchar during the phase, 0.0000 B/char (mapped writes are not syscalls)
 R	E9	rnd256_10m.id.small	psi_proc_read_bytes	0	bytes	/proc/self/io read_bytes (block layer, page-cache misses), 0.0000 B/char
-R	E9	rnd256_10m.id.small	psi_proc_write_bytes	1508884480	bytes	/proc/self/io write_bytes (pages that went from clean to dirty), 150.8884 B/char
-R	E9	rnd256_10m.id.small	psi_rssanon_peak	16.044032	MB	max RssAnon of the phase at 10 ms (program sampler)
-R	E9	rnd256_10m.id.small	psi_rssfile_peak	27.947008	MB	mapped file pages resident (reported, not counted)
-R	E9	rnd256_10m.id.small	psi_dirty_peak	0.4096	MB	max /proc/meminfo Dirty minus the baseline (1.63 MB) at 20 ms, system-wide
+R	E9	rnd256_10m.id.small	psi_proc_write_bytes	1508888576	bytes	/proc/self/io write_bytes (pages that went from clean to dirty), 150.8889 B/char
+R	E9	rnd256_10m.id.small	psi_rssanon_peak	15.900672	MB	max RssAnon of the phase at 10 ms (program sampler)
+R	E9	rnd256_10m.id.small	psi_rssfile_peak	27.979776	MB	mapped file pages resident (reported, not counted)
+R	E9	rnd256_10m.id.small	psi_dirty_peak	0.413696	MB	max /proc/meminfo Dirty minus the baseline (1.20 MB) at 20 ms, system-wide
 R	E9	rnd256_10m.id.small	psi_proc_dirty_peak	0.016384	MB	max Private_Dirty + Shared_Dirty of the mappings of the output file (per-process view)
 R	E9	rnd256_10m.id.small	psi_arena_peak	67584	bytes	peak charged to the ArenaBudget (cap 160 MiB), live at the end 0
 R	E9	rnd256_10m.id.small	psi_scratch_peak	0	bytes	0.0000 B/char: peak of the tracked scratch files
@@ -790,66 +790,66 @@ R	E9	rnd256_10m.id.small	psi_passes	128	n	sigma=256, symbols per pass 2 (limit 2
 R	E9	rnd256_10m.id.small	psi_bwt_bytes_read	1280000128	bytes	128.0000 B/char: passes x (n + 1)
 R	E9	rnd256_10m.id.small	psi_bytes_written	40000004	bytes	4.0000 B/char: 4 (n + 1)
 R	E9	rnd256_10m.id	cmp_psi_small_windows_2_symbols_per_pass	yes		cmp out.rnd256_10m.psi_small rnd256_10m.ref.psi (40000004 bytes)
-R	E9	rnd256_10m.id.cyclic	psi_s	0.470419	s	wall time of the Psi pass: one BWT scan per group of symbols, one output cursor per symbol
-R	E9	rnd256_10m.id.cyclic	psi_ns_per_char	47.041881	ns	seconds / n
+R	E9	rnd256_10m.id.cyclic	psi_s	0.347324	s	wall time of the Psi pass: one BWT scan per group of symbols, one output cursor per symbol
+R	E9	rnd256_10m.id.cyclic	psi_ns_per_char	34.732442	ns	seconds / n
 R	E9	rnd256_10m.id.cyclic	psi_io_explicit_read	40000004	bytes	4.0000 B/char (program counter, explicit reads, 40 calls)
 R	E9	rnd256_10m.id.cyclic	psi_io_explicit_write	0	bytes	0.0000 B/char (program counter, explicit writes, 0 calls)
 R	E9	rnd256_10m.id.cyclic	psi_io_mapped_write	40000004	bytes	4.0000 B/char (program counter, writes through mapped windows: 769 windows, largest 65536 bytes)
 R	E9	rnd256_10m.id.cyclic	psi_io_counted_total	80000008	bytes	8.0000 B/char: explicit reads + explicit writes + mapped writes (reads through mappings are not counted)
-R	E9	rnd256_10m.id.cyclic	psi_proc_rchar	46209213	bytes	/proc/self/io rchar during the phase, 4.6209 B/char
+R	E9	rnd256_10m.id.cyclic	psi_proc_rchar	44548362	bytes	/proc/self/io rchar during the phase, 4.4548 B/char
 R	E9	rnd256_10m.id.cyclic	psi_proc_wchar	0	bytes	/proc/self/io wchar during the phase, 0.0000 B/char (mapped writes are not syscalls)
 R	E9	rnd256_10m.id.cyclic	psi_proc_read_bytes	0	bytes	/proc/self/io read_bytes (block layer, page-cache misses), 0.0000 B/char
-R	E9	rnd256_10m.id.cyclic	psi_proc_write_bytes	41492480	bytes	/proc/self/io write_bytes (pages that went from clean to dirty), 4.1492 B/char
-R	E9	rnd256_10m.id.cyclic	psi_rssanon_peak	10.067968	MB	max RssAnon of the phase at 10 ms (program sampler)
-R	E9	rnd256_10m.id.cyclic	psi_rssfile_peak	31.801344	MB	mapped file pages resident (reported, not counted)
-R	E9	rnd256_10m.id.cyclic	psi_dirty_peak	4.067328	MB	max /proc/meminfo Dirty minus the baseline (1.79 MB) at 20 ms, system-wide
-R	E9	rnd256_10m.id.cyclic	psi_proc_dirty_peak	3.64544	MB	max Private_Dirty + Shared_Dirty of the mappings of the output file (per-process view)
+R	E9	rnd256_10m.id.cyclic	psi_proc_write_bytes	41496576	bytes	/proc/self/io write_bytes (pages that went from clean to dirty), 4.1497 B/char
+R	E9	rnd256_10m.id.cyclic	psi_rssanon_peak	10.047488	MB	max RssAnon of the phase at 10 ms (program sampler)
+R	E9	rnd256_10m.id.cyclic	psi_rssfile_peak	31.70304	MB	mapped file pages resident (reported, not counted)
+R	E9	rnd256_10m.id.cyclic	psi_dirty_peak	4.497408	MB	max /proc/meminfo Dirty minus the baseline (1.36 MB) at 20 ms, system-wide
+R	E9	rnd256_10m.id.cyclic	psi_proc_dirty_peak	4.292608	MB	max Private_Dirty + Shared_Dirty of the mappings of the output file (per-process view)
 R	E9	rnd256_10m.id.cyclic	psi_arena_peak	5242880	bytes	peak charged to the ArenaBudget (cap 160 MiB), live at the end 0
 R	E9	rnd256_10m.id.cyclic	psi_scratch_peak	0	bytes	0.0000 B/char: peak of the tracked scratch files
 R	E9	rnd256_10m.id.cyclic	psi_passes	4	n	sigma=256, symbols per pass 64 (limit 64), window 65536 bytes, 768 windows of the cursors, mapped working set bound 4194304 bytes
 R	E9	rnd256_10m.id.cyclic	psi_bwt_bytes_read	40000004	bytes	4.0000 B/char: passes x (n + 1)
 R	E9	rnd256_10m.id.cyclic	psi_bytes_written	40000004	bytes	4.0000 B/char: 4 (n + 1)
 R	E9	rnd256_10m.id	cmp_psi_cyclic_tail	yes		bytes 5.. of the cyclic Psi equal the reference; entry 0 = 9598388 equals the primary row 9598388: yes
-R	E9	rnd256_10m.id	isa_s	0.359055	s	wall time of ISA by DIST: distribute (SA[i], i) by SA[i] / R, then scatter chunk by chunk
-R	E9	rnd256_10m.id	isa_ns_per_char	35.905494	ns	seconds / n
+R	E9	rnd256_10m.id	isa_s	0.891452	s	wall time of ISA by DIST: distribute (SA[i], i) by SA[i] / R, then scatter chunk by chunk
+R	E9	rnd256_10m.id	isa_ns_per_char	89.145213	ns	seconds / n
 R	E9	rnd256_10m.id	isa_io_explicit_read	118336004	bytes	11.8336 B/char (program counter, explicit reads, 12789 calls)
 R	E9	rnd256_10m.id	isa_io_explicit_write	78336000	bytes	7.8336 B/char (program counter, explicit writes, 12750 calls)
 R	E9	rnd256_10m.id	isa_io_mapped_write	40000004	bytes	4.0000 B/char (program counter, writes through mapped windows: 39 windows, largest 1048576 bytes)
 R	E9	rnd256_10m.id	isa_io_counted_total	236672008	bytes	23.6672 B/char: explicit reads + explicit writes + mapped writes (reads through mappings are not counted)
-R	E9	rnd256_10m.id	isa_proc_rchar	122257948	bytes	/proc/self/io rchar during the phase, 12.2258 B/char
+R	E9	rnd256_10m.id	isa_proc_rchar	128099510	bytes	/proc/self/io rchar during the phase, 12.8100 B/char
 R	E9	rnd256_10m.id	isa_proc_wchar	78336000	bytes	/proc/self/io wchar during the phase, 7.8336 B/char (mapped writes are not syscalls)
 R	E9	rnd256_10m.id	isa_proc_read_bytes	40001536	bytes	/proc/self/io read_bytes (block layer, page-cache misses), 4.0002 B/char
-R	E9	rnd256_10m.id	isa_proc_write_bytes	118341632	bytes	/proc/self/io write_bytes (pages that went from clean to dirty), 11.8342 B/char
-R	E9	rnd256_10m.id	isa_rssanon_peak	18.489344	MB	max RssAnon of the phase at 10 ms (program sampler)
-R	E9	rnd256_10m.id	isa_rssfile_peak	28.540928	MB	mapped file pages resident (reported, not counted)
-R	E9	rnd256_10m.id	isa_dirty_peak	76.791808	MB	max /proc/meminfo Dirty minus the baseline (2.19 MB) at 20 ms, system-wide
+R	E9	rnd256_10m.id	isa_proc_write_bytes	118439936	bytes	/proc/self/io write_bytes (pages that went from clean to dirty), 11.8440 B/char
+R	E9	rnd256_10m.id	isa_rssanon_peak	18.583552	MB	max RssAnon of the phase at 10 ms (program sampler)
+R	E9	rnd256_10m.id	isa_rssfile_peak	28.839936	MB	mapped file pages resident (reported, not counted)
+R	E9	rnd256_10m.id	isa_dirty_peak	78.422016	MB	max /proc/meminfo Dirty minus the baseline (1.78 MB) at 20 ms, system-wide
 R	E9	rnd256_10m.id	isa_proc_dirty_peak	0.786432	MB	max Private_Dirty + Shared_Dirty of the mappings of the output file (per-process view)
 R	E9	rnd256_10m.id	isa_arena_peak	3465388	bytes	peak charged to the ArenaBudget (cap 160 MiB), live at the end 0
 R	E9	rnd256_10m.id	isa_scratch_peak	78336000	bytes	7.8336 B/char: peak of the tracked scratch files
 R	E9	rnd256_10m.id	isa_chunks	375	n	R = 26667 positions per chunk, P = 375, tuple buffer 6144 bytes; tuples written 78336000 bytes (7.8336 B/char), read 78336000 bytes
 R	E9	rnd256_10m.id	cmp_isa_by_dist	yes		cmp out.rnd256_10m.isa rnd256_10m.ref.isa (40000004 bytes)
-R	E9	rnd256_10m.id	psi_from_isa_s	0.31367	s	wall time of Psi = ISA[SA[i] + 1]: SA read sequentially, ISA read at random through its mapping
-R	E9	rnd256_10m.id	psi_from_isa_ns_per_char	31.366976	ns	seconds / n
+R	E9	rnd256_10m.id	psi_from_isa_s	0.185982	s	wall time of Psi = ISA[SA[i] + 1]: SA read sequentially, ISA read at random through its mapping
+R	E9	rnd256_10m.id	psi_from_isa_ns_per_char	18.598237	ns	seconds / n
 R	E9	rnd256_10m.id	psi_from_isa_io_explicit_read	40000004	bytes	4.0000 B/char (program counter, explicit reads, 39 calls)
 R	E9	rnd256_10m.id	psi_from_isa_io_explicit_write	0	bytes	0.0000 B/char (program counter, explicit writes, 0 calls)
 R	E9	rnd256_10m.id	psi_from_isa_io_mapped_write	40000004	bytes	4.0000 B/char (program counter, writes through mapped windows: 39 windows, largest 1048576 bytes)
 R	E9	rnd256_10m.id	psi_from_isa_io_counted_total	80000008	bytes	8.0000 B/char: explicit reads + explicit writes + mapped writes (reads through mappings are not counted)
-R	E9	rnd256_10m.id	psi_from_isa_proc_rchar	43298075	bytes	/proc/self/io rchar during the phase, 4.3298 B/char
+R	E9	rnd256_10m.id	psi_from_isa_proc_rchar	41960608	bytes	/proc/self/io rchar during the phase, 4.1961 B/char
 R	E9	rnd256_10m.id	psi_from_isa_proc_wchar	0	bytes	/proc/self/io wchar during the phase, 0.0000 B/char (mapped writes are not syscalls)
 R	E9	rnd256_10m.id	psi_from_isa_proc_read_bytes	0	bytes	/proc/self/io read_bytes (block layer, page-cache misses), 0.0000 B/char
 R	E9	rnd256_10m.id	psi_from_isa_proc_write_bytes	40001536	bytes	/proc/self/io write_bytes (pages that went from clean to dirty), 4.0002 B/char
-R	E9	rnd256_10m.id	psi_from_isa_rssanon_peak	10.99776	MB	max RssAnon of the phase at 10 ms (program sampler)
-R	E9	rnd256_10m.id	psi_from_isa_rssfile_peak	68.28032	MB	mapped file pages resident (reported, not counted)
-R	E9	rnd256_10m.id	psi_from_isa_dirty_peak	1.048576	MB	max /proc/meminfo Dirty minus the baseline (2.20 MB) at 20 ms, system-wide
+R	E9	rnd256_10m.id	psi_from_isa_rssanon_peak	10.993664	MB	max RssAnon of the phase at 10 ms (program sampler)
+R	E9	rnd256_10m.id	psi_from_isa_rssfile_peak	68.366336	MB	mapped file pages resident (reported, not counted)
+R	E9	rnd256_10m.id	psi_from_isa_dirty_peak	1.048576	MB	max /proc/meminfo Dirty minus the baseline (1.88 MB) at 20 ms, system-wide
 R	E9	rnd256_10m.id	psi_from_isa_proc_dirty_peak	1.048576	MB	max Private_Dirty + Shared_Dirty of the mappings of the output file (per-process view)
 R	E9	rnd256_10m.id	psi_from_isa_arena_peak	2097152	bytes	peak charged to the ArenaBudget (cap 160 MiB), live at the end 0
 R	E9	rnd256_10m.id	psi_from_isa_scratch_peak	0	bytes	0.0000 B/char: peak of the tracked scratch files
 R	E9	rnd256_10m.id	cmp_psi_from_isa	yes		cmp out.rnd256_10m.psi2 rnd256_10m.ref.psi (40000004 bytes)
-R	E9	rnd256_10m.id	smoke_index_s	1.202013	s	EsaIndex.Build (tagged child table) of n = 10000000
+R	E9	rnd256_10m.id	smoke_index_s	1.011849	s	EsaIndex.Build (tagged child table) of n = 10000000
 R	E9	rnd256_10m.id	smoke_sa_file_equals_index	yes		the suffix array file the streamed tables were built from against the SA of the in-RAM index
 R	E9	rnd256_10m.id	smoke_isa_equals_ram	yes		ISA from DIST against LinkTables.BuildIsa
 R	E9	rnd256_10m.id	smoke_psi_stream_equals_ram	yes		psi_stream (entry 0 mapped 0 -> -1) against LinkTables.BuildPsi
-R	E9	rnd256_10m.id	smoke_psi_stream_s	3.558175	s	all kernels x sources, two runs each (in-RAM tables, streamed tables)
+R	E9	rnd256_10m.id	smoke_psi_stream_s	3.621237	s	all kernels x sources, two runs each (in-RAM tables, streamed tables)
 R	E9	rnd256_10m.id	smoke_psi_stream_internal_nodes	2093383	n	internal nodes of the index; header statistic 2093383; sample 200000 (sample A of the P1 benchmark: --sample 200000 --seed 1)
 R	E9	rnd256_10m.id	smoke_psi_stream_a_scan_isa	0	mismatches	200000 nodes, 0 links over the step budget 3000000 (the same in both runs)
 R	E9	rnd256_10m.id	smoke_psi_stream_a_scan_psi	0	mismatches	200000 nodes, 0 links over the step budget 3000000 (the same in both runs)
@@ -861,7 +861,7 @@ R	E9	rnd256_10m.id	smoke_psi_stream_c2_psv_isa	0	mismatches	200000 nodes, 0 link
 R	E9	rnd256_10m.id	smoke_psi_stream_c2_psv_psi	0	mismatches	200000 nodes, 0 links over the step budget 3000000 (the same in both runs)
 R	E9	rnd256_10m.id	smoke_psi_stream_mismatches	0	n	sum over the eight cells: success flag, target and step count of every link, tables under test against the in-RAM tables
 R	E9	rnd256_10m.id	smoke_psi_from_isa_equals_ram	yes		psi_from_isa (entry 0 mapped 0 -> -1) against LinkTables.BuildPsi
-R	E9	rnd256_10m.id	smoke_psi_from_isa_s	4.594853	s	all kernels x sources, two runs each (in-RAM tables, streamed tables)
+R	E9	rnd256_10m.id	smoke_psi_from_isa_s	4.321845	s	all kernels x sources, two runs each (in-RAM tables, streamed tables)
 R	E9	rnd256_10m.id	smoke_psi_from_isa_internal_nodes	2093383	n	internal nodes of the index; header statistic 2093383; sample 200000 (sample A of the P1 benchmark: --sample 200000 --seed 1)
 R	E9	rnd256_10m.id	smoke_psi_from_isa_a_scan_isa	0	mismatches	200000 nodes, 0 links over the step budget 3000000 (the same in both runs)
 R	E9	rnd256_10m.id	smoke_psi_from_isa_a_scan_psi	0	mismatches	200000 nodes, 0 links over the step budget 3000000 (the same in both runs)
@@ -874,20 +874,20 @@ R	E9	rnd256_10m.id	smoke_psi_from_isa_c2_psv_psi	0	mismatches	200000 nodes, 0 li
 R	E9	rnd256_10m.id	smoke_psi_from_isa_mismatches	0	n	sum over the eight cells: success flag, target and step count of every link, tables under test against the in-RAM tables
 R	E9	rnd256_10m.id	smoke_ok	yes		all comparisons equal
 R	E9	rnd256_10m.id	run_done	yes		all rows of this group are written
-R	E9	dna_100m.id	psi_s	2.585119	s	wall time of the Psi pass: one BWT scan per group of symbols, one output cursor per symbol
-R	E9	dna_100m.id	psi_ns_per_char	25.851186	ns	seconds / n
+R	E9	dna_100m.id	psi_s	3.426126	s	wall time of the Psi pass: one BWT scan per group of symbols, one output cursor per symbol
+R	E9	dna_100m.id	psi_ns_per_char	34.261257	ns	seconds / n
 R	E9	dna_100m.id	psi_io_explicit_read	100000001	bytes	1.0000 B/char (program counter, explicit reads, 96 calls)
 R	E9	dna_100m.id	psi_io_explicit_write	0	bytes	0.0000 B/char (program counter, explicit writes, 0 calls)
 R	E9	dna_100m.id	psi_io_mapped_write	400000004	bytes	4.0000 B/char (program counter, writes through mapped windows: 6106 windows, largest 65536 bytes)
 R	E9	dna_100m.id	psi_io_counted_total	500000005	bytes	5.0000 B/char: explicit reads + explicit writes + mapped writes (reads through mappings are not counted)
-R	E9	dna_100m.id	psi_proc_rchar	128937441	bytes	/proc/self/io rchar during the phase, 1.2894 B/char
+R	E9	dna_100m.id	psi_proc_rchar	138470909	bytes	/proc/self/io rchar during the phase, 1.3847 B/char
 R	E9	dna_100m.id	psi_proc_wchar	0	bytes	/proc/self/io wchar during the phase, 0.0000 B/char (mapped writes are not syscalls)
 R	E9	dna_100m.id	psi_proc_read_bytes	100028416	bytes	/proc/self/io read_bytes (block layer, page-cache misses), 1.0003 B/char
-R	E9	dna_100m.id	psi_proc_write_bytes	562253824	bytes	/proc/self/io write_bytes (pages that went from clean to dirty), 5.6225 B/char
+R	E9	dna_100m.id	psi_proc_write_bytes	562257920	bytes	/proc/self/io write_bytes (pages that went from clean to dirty), 5.6226 B/char
 R	E9	dna_100m.id	psi_rssanon_peak	10.842112	MB	max RssAnon of the phase at 10 ms (program sampler)
-R	E9	dna_100m.id	psi_rssfile_peak	27.537408	MB	mapped file pages resident (reported, not counted)
-R	E9	dna_100m.id	psi_dirty_peak	0.487424	MB	max /proc/meminfo Dirty minus the baseline (1.25 MB) at 20 ms, system-wide
-R	E9	dna_100m.id	psi_proc_dirty_peak	0.208896	MB	max Private_Dirty + Shared_Dirty of the mappings of the output file (per-process view)
+R	E9	dna_100m.id	psi_rssfile_peak	27.66848	MB	mapped file pages resident (reported, not counted)
+R	E9	dna_100m.id	psi_dirty_peak	0.438272	MB	max /proc/meminfo Dirty minus the baseline (0.14 MB) at 20 ms, system-wide
+R	E9	dna_100m.id	psi_proc_dirty_peak	0.237568	MB	max Private_Dirty + Shared_Dirty of the mappings of the output file (per-process view)
 R	E9	dna_100m.id	psi_arena_peak	1310720	bytes	peak charged to the ArenaBudget (cap 160 MiB), live at the end 0
 R	E9	dna_100m.id	psi_scratch_peak	0	bytes	0.0000 B/char: peak of the tracked scratch files
 R	E9	dna_100m.id	psi_passes	1	n	sigma=4, symbols per pass 4 (limit 64), window 65536 bytes, 6105 windows of the cursors, mapped working set bound 262144 bytes
@@ -895,19 +895,19 @@ R	E9	dna_100m.id	psi_bwt_bytes_read	100000001	bytes	1.0000 B/char: passes x (n +
 R	E9	dna_100m.id	psi_bytes_written	400000004	bytes	4.0000 B/char: 4 (n + 1)
 R	E9	dna_100m.id	counts_equal_ph0	yes		the symbol counts of the BWT meta against the C[] of PH0 in dna_100m.pk.meta
 R	E9	dna_100m.id	cmp_psi	yes		cmp out.dna_100m.psi dna_100m.ref.psi (400000004 bytes)
-R	E9	dna_100m.id.small	psi_s	58.013248	s	wall time of the Psi pass: one BWT scan per group of symbols, one output cursor per symbol
-R	E9	dna_100m.id.small	psi_ns_per_char	580.132482	ns	seconds / n
+R	E9	dna_100m.id.small	psi_s	59.782099	s	wall time of the Psi pass: one BWT scan per group of symbols, one output cursor per symbol
+R	E9	dna_100m.id.small	psi_ns_per_char	597.820985	ns	seconds / n
 R	E9	dna_100m.id.small	psi_io_explicit_read	200000002	bytes	2.0000 B/char (program counter, explicit reads, 3052 calls)
 R	E9	dna_100m.id.small	psi_io_explicit_write	0	bytes	0.0000 B/char (program counter, explicit writes, 0 calls)
 R	E9	dna_100m.id.small	psi_io_mapped_write	400000004	bytes	4.0000 B/char (program counter, writes through mapped windows: 390628 windows, largest 1024 bytes)
 R	E9	dna_100m.id.small	psi_io_counted_total	600000006	bytes	6.0000 B/char: explicit reads + explicit writes + mapped writes (reads through mappings are not counted)
-R	E9	dna_100m.id.small	psi_proc_rchar	845827084	bytes	/proc/self/io rchar during the phase, 8.4583 B/char
+R	E9	dna_100m.id.small	psi_proc_rchar	865498068	bytes	/proc/self/io rchar during the phase, 8.6550 B/char
 R	E9	dna_100m.id.small	psi_proc_wchar	32	bytes	/proc/self/io wchar during the phase, 0.0000 B/char (mapped writes are not syscalls)
-R	E9	dna_100m.id.small	psi_proc_read_bytes	8192	bytes	/proc/self/io read_bytes (block layer, page-cache misses), 0.0001 B/char
-R	E9	dna_100m.id.small	psi_proc_write_bytes	17141452800	bytes	/proc/self/io write_bytes (pages that went from clean to dirty), 171.4145 B/char
-R	E9	dna_100m.id.small	psi_rssanon_peak	19.705856	MB	max RssAnon of the phase at 10 ms (program sampler)
-R	E9	dna_100m.id.small	psi_rssfile_peak	27.570176	MB	mapped file pages resident (reported, not counted)
-R	E9	dna_100m.id.small	psi_dirty_peak	0.258048	MB	max /proc/meminfo Dirty minus the baseline (1.28 MB) at 20 ms, system-wide
+R	E9	dna_100m.id.small	psi_proc_read_bytes	20480	bytes	/proc/self/io read_bytes (block layer, page-cache misses), 0.0002 B/char
+R	E9	dna_100m.id.small	psi_proc_write_bytes	17141469184	bytes	/proc/self/io write_bytes (pages that went from clean to dirty), 171.4147 B/char
+R	E9	dna_100m.id.small	psi_rssanon_peak	20.021248	MB	max RssAnon of the phase at 10 ms (program sampler)
+R	E9	dna_100m.id.small	psi_rssfile_peak	27.680768	MB	mapped file pages resident (reported, not counted)
+R	E9	dna_100m.id.small	psi_dirty_peak	0.282624	MB	max /proc/meminfo Dirty minus the baseline (0.20 MB) at 20 ms, system-wide
 R	E9	dna_100m.id.small	psi_proc_dirty_peak	0.012288	MB	max Private_Dirty + Shared_Dirty of the mappings of the output file (per-process view)
 R	E9	dna_100m.id.small	psi_arena_peak	67584	bytes	peak charged to the ArenaBudget (cap 160 MiB), live at the end 0
 R	E9	dna_100m.id.small	psi_scratch_peak	0	bytes	0.0000 B/char: peak of the tracked scratch files
@@ -915,57 +915,57 @@ R	E9	dna_100m.id.small	psi_passes	2	n	sigma=4, symbols per pass 2 (limit 2), win
 R	E9	dna_100m.id.small	psi_bwt_bytes_read	200000002	bytes	2.0000 B/char: passes x (n + 1)
 R	E9	dna_100m.id.small	psi_bytes_written	400000004	bytes	4.0000 B/char: 4 (n + 1)
 R	E9	dna_100m.id	cmp_psi_small_windows_2_symbols_per_pass	yes		cmp out.dna_100m.psi_small dna_100m.ref.psi (400000004 bytes)
-R	E9	dna_100m.id.cyclic	psi_s	2.476304	s	wall time of the Psi pass: one BWT scan per group of symbols, one output cursor per symbol
-R	E9	dna_100m.id.cyclic	psi_ns_per_char	24.763036	ns	seconds / n
+R	E9	dna_100m.id.cyclic	psi_s	2.615858	s	wall time of the Psi pass: one BWT scan per group of symbols, one output cursor per symbol
+R	E9	dna_100m.id.cyclic	psi_ns_per_char	26.158583	ns	seconds / n
 R	E9	dna_100m.id.cyclic	psi_io_explicit_read	100000001	bytes	1.0000 B/char (program counter, explicit reads, 96 calls)
 R	E9	dna_100m.id.cyclic	psi_io_explicit_write	0	bytes	0.0000 B/char (program counter, explicit writes, 0 calls)
 R	E9	dna_100m.id.cyclic	psi_io_mapped_write	400000004	bytes	4.0000 B/char (program counter, writes through mapped windows: 6106 windows, largest 65536 bytes)
 R	E9	dna_100m.id.cyclic	psi_io_counted_total	500000005	bytes	5.0000 B/char: explicit reads + explicit writes + mapped writes (reads through mappings are not counted)
-R	E9	dna_100m.id.cyclic	psi_proc_rchar	127878961	bytes	/proc/self/io rchar during the phase, 1.2788 B/char
+R	E9	dna_100m.id.cyclic	psi_proc_rchar	129268864	bytes	/proc/self/io rchar during the phase, 1.2927 B/char
 R	E9	dna_100m.id.cyclic	psi_proc_wchar	0	bytes	/proc/self/io wchar during the phase, 0.0000 B/char (mapped writes are not syscalls)
-R	E9	dna_100m.id.cyclic	psi_proc_read_bytes	20480	bytes	/proc/self/io read_bytes (block layer, page-cache misses), 0.0002 B/char
-R	E9	dna_100m.id.cyclic	psi_proc_write_bytes	562298880	bytes	/proc/self/io write_bytes (pages that went from clean to dirty), 5.6230 B/char
+R	E9	dna_100m.id.cyclic	psi_proc_read_bytes	4096	bytes	/proc/self/io read_bytes (block layer, page-cache misses), 0.0000 B/char
+R	E9	dna_100m.id.cyclic	psi_proc_write_bytes	562282496	bytes	/proc/self/io write_bytes (pages that went from clean to dirty), 5.6228 B/char
 R	E9	dna_100m.id.cyclic	psi_rssanon_peak	10.878976	MB	max RssAnon of the phase at 10 ms (program sampler)
-R	E9	dna_100m.id.cyclic	psi_rssfile_peak	27.836416	MB	mapped file pages resident (reported, not counted)
-R	E9	dna_100m.id.cyclic	psi_dirty_peak	0.499712	MB	max /proc/meminfo Dirty minus the baseline (0.11 MB) at 20 ms, system-wide
-R	E9	dna_100m.id.cyclic	psi_proc_dirty_peak	0.258048	MB	max Private_Dirty + Shared_Dirty of the mappings of the output file (per-process view)
+R	E9	dna_100m.id.cyclic	psi_rssfile_peak	27.762688	MB	mapped file pages resident (reported, not counted)
+R	E9	dna_100m.id.cyclic	psi_dirty_peak	0.774144	MB	max /proc/meminfo Dirty minus the baseline (0.13 MB) at 20 ms, system-wide
+R	E9	dna_100m.id.cyclic	psi_proc_dirty_peak	0.208896	MB	max Private_Dirty + Shared_Dirty of the mappings of the output file (per-process view)
 R	E9	dna_100m.id.cyclic	psi_arena_peak	1310720	bytes	peak charged to the ArenaBudget (cap 160 MiB), live at the end 0
 R	E9	dna_100m.id.cyclic	psi_scratch_peak	0	bytes	0.0000 B/char: peak of the tracked scratch files
 R	E9	dna_100m.id.cyclic	psi_passes	1	n	sigma=4, symbols per pass 4 (limit 64), window 65536 bytes, 6105 windows of the cursors, mapped working set bound 262144 bytes
 R	E9	dna_100m.id.cyclic	psi_bwt_bytes_read	100000001	bytes	1.0000 B/char: passes x (n + 1)
 R	E9	dna_100m.id.cyclic	psi_bytes_written	400000004	bytes	4.0000 B/char: 4 (n + 1)
 R	E9	dna_100m.id	cmp_psi_cyclic_tail	yes		bytes 5.. of the cyclic Psi equal the reference; entry 0 = 87373614 equals the primary row 87373614: yes
-R	E9	dna_100m.id	isa_s	1.69505	s	wall time of ISA by DIST: distribute (SA[i], i) by SA[i] / R, then scatter chunk by chunk
-R	E9	dna_100m.id	isa_ns_per_char	16.950504	ns	seconds / n
+R	E9	dna_100m.id	isa_s	6.357823	s	wall time of ISA by DIST: distribute (SA[i], i) by SA[i] / R, then scatter chunk by chunk
+R	E9	dna_100m.id	isa_ns_per_char	63.578227	ns	seconds / n
 R	E9	dna_100m.id	isa_io_explicit_read	1186432004	bytes	11.8643 B/char (program counter, explicit reads, 12382 calls)
 R	E9	dna_100m.id	isa_io_explicit_write	786432000	bytes	7.8643 B/char (program counter, explicit writes, 12000 calls)
 R	E9	dna_100m.id	isa_io_mapped_write	400000004	bytes	4.0000 B/char (program counter, writes through mapped windows: 382 windows, largest 1048576 bytes)
 R	E9	dna_100m.id	isa_io_counted_total	2372864008	bytes	23.7286 B/char: explicit reads + explicit writes + mapped writes (reads through mappings are not counted)
-R	E9	dna_100m.id	isa_proc_rchar	1205040904	bytes	/proc/self/io rchar during the phase, 12.0504 B/char
+R	E9	dna_100m.id	isa_proc_rchar	1257114262	bytes	/proc/self/io rchar during the phase, 12.5711 B/char
 R	E9	dna_100m.id	isa_proc_wchar	786432000	bytes	/proc/self/io wchar during the phase, 7.8643 B/char (mapped writes are not syscalls)
-R	E9	dna_100m.id	isa_proc_read_bytes	400019456	bytes	/proc/self/io read_bytes (block layer, page-cache misses), 4.0002 B/char
-R	E9	dna_100m.id	isa_proc_write_bytes	1187287040	bytes	/proc/self/io write_bytes (pages that went from clean to dirty), 11.8729 B/char
-R	E9	dna_100m.id	isa_rssanon_peak	41.504768	MB	max RssAnon of the phase at 10 ms (program sampler)
-R	E9	dna_100m.id	isa_rssfile_peak	28.79488	MB	mapped file pages resident (reported, not counted)
-R	E9	dna_100m.id	isa_dirty_peak	786.866176	MB	max /proc/meminfo Dirty minus the baseline (0.20 MB) at 20 ms, system-wide
+R	E9	dna_100m.id	isa_proc_read_bytes	400011264	bytes	/proc/self/io read_bytes (block layer, page-cache misses), 4.0001 B/char
+R	E9	dna_100m.id	isa_proc_write_bytes	1187299328	bytes	/proc/self/io write_bytes (pages that went from clean to dirty), 11.8730 B/char
+R	E9	dna_100m.id	isa_rssanon_peak	41.611264	MB	max RssAnon of the phase at 10 ms (program sampler)
+R	E9	dna_100m.id	isa_rssfile_peak	28.823552	MB	mapped file pages resident (reported, not counted)
+R	E9	dna_100m.id	isa_dirty_peak	787.29216	MB	max /proc/meminfo Dirty minus the baseline (0.18 MB) at 20 ms, system-wide
 R	E9	dna_100m.id	isa_proc_dirty_peak	1.048576	MB	max Private_Dirty + Shared_Dirty of the mappings of the output file (per-process view)
 R	E9	dna_100m.id	isa_arena_peak	26756780	bytes	peak charged to the ArenaBudget (cap 160 MiB), live at the end 0
 R	E9	dna_100m.id	isa_scratch_peak	786432000	bytes	7.8643 B/char: peak of the tracked scratch files
 R	E9	dna_100m.id	isa_chunks	375	n	R = 266667 positions per chunk, P = 375, tuple buffer 65536 bytes; tuples written 786432000 bytes (7.8643 B/char), read 786432000 bytes
 R	E9	dna_100m.id	cmp_isa_by_dist	yes		cmp out.dna_100m.isa dna_100m.ref.isa (400000004 bytes)
-R	E9	dna_100m.id	psi_from_isa_s	3.114199	s	wall time of Psi = ISA[SA[i] + 1]: SA read sequentially, ISA read at random through its mapping
-R	E9	dna_100m.id	psi_from_isa_ns_per_char	31.141989	ns	seconds / n
+R	E9	dna_100m.id	psi_from_isa_s	2.989771	s	wall time of Psi = ISA[SA[i] + 1]: SA read sequentially, ISA read at random through its mapping
+R	E9	dna_100m.id	psi_from_isa_ns_per_char	29.897707	ns	seconds / n
 R	E9	dna_100m.id	psi_from_isa_io_explicit_read	400000004	bytes	4.0000 B/char (program counter, explicit reads, 382 calls)
 R	E9	dna_100m.id	psi_from_isa_io_explicit_write	0	bytes	0.0000 B/char (program counter, explicit writes, 0 calls)
 R	E9	dna_100m.id	psi_from_isa_io_mapped_write	400000004	bytes	4.0000 B/char (program counter, writes through mapped windows: 382 windows, largest 1048576 bytes)
 R	E9	dna_100m.id	psi_from_isa_io_counted_total	800000008	bytes	8.0000 B/char: explicit reads + explicit writes + mapped writes (reads through mappings are not counted)
-R	E9	dna_100m.id	psi_from_isa_proc_rchar	434435925	bytes	/proc/self/io rchar during the phase, 4.3444 B/char
+R	E9	dna_100m.id	psi_from_isa_proc_rchar	432980801	bytes	/proc/self/io rchar during the phase, 4.3298 B/char
 R	E9	dna_100m.id	psi_from_isa_proc_wchar	0	bytes	/proc/self/io wchar during the phase, 0.0000 B/char (mapped writes are not syscalls)
-R	E9	dna_100m.id	psi_from_isa_proc_read_bytes	16384	bytes	/proc/self/io read_bytes (block layer, page-cache misses), 0.0002 B/char
-R	E9	dna_100m.id	psi_from_isa_proc_write_bytes	400027648	bytes	/proc/self/io write_bytes (pages that went from clean to dirty), 4.0003 B/char
-R	E9	dna_100m.id	psi_from_isa_rssanon_peak	11.157504	MB	max RssAnon of the phase at 10 ms (program sampler)
-R	E9	dna_100m.id	psi_from_isa_rssfile_peak	428.539904	MB	mapped file pages resident (reported, not counted)
-R	E9	dna_100m.id	psi_from_isa_dirty_peak	1.08544	MB	max /proc/meminfo Dirty minus the baseline (0.50 MB) at 20 ms, system-wide
+R	E9	dna_100m.id	psi_from_isa_proc_read_bytes	12288	bytes	/proc/self/io read_bytes (block layer, page-cache misses), 0.0001 B/char
+R	E9	dna_100m.id	psi_from_isa_proc_write_bytes	400039936	bytes	/proc/self/io write_bytes (pages that went from clean to dirty), 4.0004 B/char
+R	E9	dna_100m.id	psi_from_isa_rssanon_peak	12.0832	MB	max RssAnon of the phase at 10 ms (program sampler)
+R	E9	dna_100m.id	psi_from_isa_rssfile_peak	428.58496	MB	mapped file pages resident (reported, not counted)
+R	E9	dna_100m.id	psi_from_isa_dirty_peak	1.060864	MB	max /proc/meminfo Dirty minus the baseline (1.07 MB) at 20 ms, system-wide
 R	E9	dna_100m.id	psi_from_isa_proc_dirty_peak	1.048576	MB	max Private_Dirty + Shared_Dirty of the mappings of the output file (per-process view)
 R	E9	dna_100m.id	psi_from_isa_arena_peak	2097152	bytes	peak charged to the ArenaBudget (cap 160 MiB), live at the end 0
 R	E9	dna_100m.id	psi_from_isa_scratch_peak	0	bytes	0.0000 B/char: peak of the tracked scratch files
