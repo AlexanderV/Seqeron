@@ -3,6 +3,8 @@
 # usage: run_e9_protocol.sh <work dir> <rows file> <group> <names...>
 # groups: psi      PH6, Psi by sigma-way distribution of the BWT (e9-psi)                                  label <name>.e9.psi
 #         psi256   the same with all of a byte alphabet in one pass (--symbols-per-pass 256: 256 windows of 64 KB)   label <name>.e9.psi256
+#         psiwin   the window size of the cursors varied (E9_WINDOWS, default 16 64 256 1024 4096 KB)                  label <name>.e9.psiwin<KB>
+#         psiclean the same with --no-sampler (no RssAnon / smaps reader inside the process: rchar + wchar are the pass alone)   label <name>.e9.psiclean<KB>
 #         bwt      the BWT pass over the SA file and the packed text (e9-bwt)                               label <name>.e9.bwt
 #         isa      ISA by DIST (e9-isa, --scale-n 3000000000: R = 8,000,000 n / 3x10^9, P = 375; the chunk write buffer 64 KB x n / 10^8, at least 1 KB)   label <name>.e9.isa
 #         psiisa   Psi = ISA[SA[i] + 1] from the ISA file (e9-psi-isa; needs <name>.ref.isa)              label <name>.e9.psiisa
@@ -60,6 +62,8 @@ SCRATCH=scratch.e9
 case $GROUP in
 psi)    for T in "$@"; do for i in $(seq 1 $RUNS); do run $T "$T.e9.psi" $i $SCRATCH $T.ref.psi out.$T.psi e9-psi --bwt $T.bwt --out out.$T.psi --pk-meta $T.pk.meta; done; done ;;
 psi256) for T in "$@"; do for i in $(seq 1 $RUNS); do run $T "$T.e9.psi256" $i $SCRATCH $T.ref.psi out.$T.psi e9-psi --bwt $T.bwt --out out.$T.psi --symbols-per-pass 256; done; done ;;
+psiwin) for T in "$@"; do for KB in ${E9_WINDOWS:-16 64 256 1024 4096}; do for i in $(seq 1 $RUNS); do run $T "$T.e9.psiwin$KB" $i $SCRATCH $T.ref.psi out.$T.psi e9-psi --bwt $T.bwt --out out.$T.psi --window-kb $KB; done; done; done ;;
+psiclean) for T in "$@"; do for KB in ${E9_WINDOWS:-64 1024}; do for i in $(seq 1 $RUNS); do run $T "$T.e9.psiclean$KB" $i $SCRATCH $T.ref.psi out.$T.psi e9-psi --bwt $T.bwt --out out.$T.psi --window-kb $KB --no-sampler; done; done; done ;;
 bwt)    for T in "$@"; do for i in $(seq 1 $RUNS); do run $T "$T.e9.bwt" $i $SCRATCH $T.bwt out.$T.bwt e9-bwt --text $T.pk --sa $T.sa --out out.$T.bwt; done; done ;;
 isa)    for T in "$@"; do
           N=$(awk -F= '$1=="n" {print $2}' $T.pk.meta); KB=$(( 64 * N / 100000000 )); [ $KB -lt 1 ] && KB=1; [ $KB -gt 64 ] && KB=64   # the chunk write buffer scaled like R: 64 KB at 10^8 (3 % of a chunk's 2.1 MB of tuples)

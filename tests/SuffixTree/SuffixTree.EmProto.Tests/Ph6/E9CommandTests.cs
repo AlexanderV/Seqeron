@@ -52,6 +52,24 @@ public class E9CommandTests
     }
 
     [Test]
+    public void NoSampler_LeavesTheCountersAndDropsTheSamplerRows()
+    {
+        Ph6Case c = Ph6Case.Of(Ph6Case.RandomText(5000, 4, 6));
+        using var dir = new Ph6Dir();
+        string sa = c.WriteSa(dir), pk = c.WritePacked(dir), rows = dir.File("rows.tsv"), bwt = dir.File("x.bwt");
+        Assert.That(Run("e9-bwt", "--text", pk, "--sa", sa, "--out", bwt, "--no-sampler", "--rows", rows, "--case", "q"), Is.EqualTo(0));
+        Assert.That(Run("e9-psi", "--bwt", bwt, "--out", dir.File("x.psi"), "--no-sampler", "--rows", rows, "--case", "q"), Is.EqualTo(0));
+        Assert.That(Run("e9-psi", "--bwt", bwt, "--out", dir.File("y.psi"), "--rows", rows, "--case", "s"), Is.EqualTo(0));
+        Dictionary<string, string> q = Rows(rows, "q"), s = Rows(rows, "s");
+        Assert.That(q.ContainsKey("psi_rssanon_peak"), Is.False);
+        Assert.That(q.ContainsKey("psi_dirty_peak"), Is.False);
+        Assert.That(q.ContainsKey("bwt_rssanon_peak"), Is.False);
+        Assert.That(s.ContainsKey("psi_rssanon_peak"), Is.True);
+        Assert.That(q["psi_io_counted_total"], Is.EqualTo(s["psi_io_counted_total"]));
+        Assert.That(File.ReadAllBytes(dir.File("x.psi")), Is.EqualTo(File.ReadAllBytes(dir.File("y.psi"))));
+    }
+
+    [Test]
     public void AWrongReference_ExitsWithOne_AndSaysNo()
     {
         Ph6Case c = Ph6Case.OfNaive("abracadabra");

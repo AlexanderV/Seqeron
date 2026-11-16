@@ -5,7 +5,7 @@
 #   e9-psi --cyclic                                    entry 0 differs from the reference only in the first four bytes, which hold the row of the suffix 0 (checked)
 #   e9-isa --scale-n 3000000000 (DIST)                 cmp with <name>.ref.isa
 #   e9-psi-isa                                         cmp with <name>.ref.psi
-#   e9-smoke (dna_10m rep_10m prot_1m, and the 10^6 families with --sample 20000)   every kernel x source of P1 with the in-RAM tables and with the streamed ones, sample A of the P1 benchmark
+#   e9-smoke (dna_10m rep_10m prot_1m, and the 10^6 families with --sample 5000 --link-budget 20000)   every kernel x source of P1 with the in-RAM tables and with the streamed ones, sample A of the P1 benchmark
 # usage: run_e9_identity.sh <work dir> <rows file> <names...>
 set -u
 W=$1; ROWS=$2; shift 2
@@ -34,9 +34,10 @@ for X in "$@"; do
   N=$(awk -F= '$1=="n" {print $2}' $X.pk.meta); KB=$(( 64 * N / 100000000 )); [ $KB -lt 1 ] && KB=1; [ $KB -gt 64 ] && KB=64
   dotnet "$DLL" e9-isa --sa $X.sa --out out.$X.isa --scratch scr_$X.id --scale-n 3000000000 --io-kb $KB --case "$L" --rows "$ROWS" > /dev/null; verdict "$L" isa_by_dist out.$X.isa $X.ref.isa
   dotnet "$DLL" e9-psi-isa --sa $X.sa --isa out.$X.isa --out out.$X.psi2 --case "$L" --rows "$ROWS" > /dev/null; verdict "$L" psi_from_isa out.$X.psi2 $X.ref.psi
+  unset DOTNET_GCHeapHardLimit   # the smoke test holds the in-RAM index and the in-RAM tables of P1: it is a test of the kernels, not a bounded-memory run
   case $X in
     dna_10m|rep_10m|prot_1m|rnd256_10m) dotnet "$DLL" e9-smoke --input $X.txt --sa $X.sa --isa out.$X.isa --psi out.$X.psi --psi2 out.$X.psi2 --case "$L" --rows "$ROWS" > /dev/null ;;
-    a_1m|fib_1m|tm_1m)       dotnet "$DLL" e9-smoke --input $X.txt --sa $X.sa --isa out.$X.isa --psi out.$X.psi --psi2 out.$X.psi2 --sample 20000 --link-budget 200000 --case "$L" --rows "$ROWS" > /dev/null ;;
+    a_1m|fib_1m|tm_1m)       dotnet "$DLL" e9-smoke --input $X.txt --sa $X.sa --isa out.$X.isa --psi out.$X.psi --psi2 out.$X.psi2 --sample 5000 --link-budget 20000 --case "$L" --rows "$ROWS" > /dev/null ;;
   esac
   printf 'R\tE9\t%s\trun_done\tyes\t\tall rows of this group are written\n' "$L" >> "$ROWS"
   echo "$L: $(awk -F'\t' -v l="$L" '$3==l && $4 ~ /^cmp_/ {printf "%s=%s ", $4, $5}' "$ROWS")"

@@ -1,0 +1,8 @@
+dna_10m: bwt_check yes n=10000000 primary=5097358 rows=10000001 mismatches=0 sigma=4
+prot_1m: bwt_check yes n=1000000 primary=322696 rows=1000001 mismatches=0 sigma=20
+rep_10m: bwt_check yes n=10000000 primary=5449119 rows=10000001 mismatches=0 sigma=4
+a_1m: bwt_check yes n=1000000 primary=1000000 rows=1000001 mismatches=0 sigma=1
+fib_1m: bwt_check yes n=1000000 primary=381971 rows=1000001 mismatches=0 sigma=2
+tm_1m: bwt_check yes n=1000000 primary=500000 rows=1000001 mismatches=0 sigma=2
+rnd256_10m: bwt_check yes n=10000000 primary=9598388 rows=10000001 mismatches=0 sigma=256
+dna_100m: bwt_check yes n=100000000 primary=87373614 rows=100000001 mismatches=0 sigma=4

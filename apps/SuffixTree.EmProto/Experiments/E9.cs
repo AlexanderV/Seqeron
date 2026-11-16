@@ -25,18 +25,25 @@ internal static class E9
     private sealed class Probe : IDisposable
     {
         private readonly RssSampler _rss = new(10);
-        private readonly DirtySampler _dirty;
+        private readonly DirtySampler? _dirty;
+        private readonly bool _rssOn;
         private readonly ProcIoSnapshot _io0;
         private readonly long _t0;
 
-        internal Probe(string outputPrefix)
+        /// <param name="outputPrefix">Path of the output file whose mappings the dirty-page sampler follows.</param>
+        /// <param name="samplers">False (<c>--no-sampler</c>): neither the RssAnon sampler nor the dirty-page sampler runs inside the process, so that rchar + wchar of <c>/proc/self/io</c> contain no read of <c>/proc/self/status</c> or <c>smaps</c>.</param>
+        internal Probe(string outputPrefix, bool samplers = true)
         {
             IoCounters.Reset();
             MappedIo.Reset();
             ScratchTracker.Reset();
-            _dirty = new DirtySampler(20, filePrefix: Path.GetFullPath(outputPrefix));
-            _dirty.Start();
-            if (RssSampler.IsSupported) _rss.Start();
+            if (samplers)
+            {
+                _dirty = new DirtySampler(20, filePrefix: Path.GetFullPath(outputPrefix));
+                _dirty.Start();
+                _rssOn = RssSampler.IsSupported;
+                if (_rssOn) _rss.Start();
+            }
             _io0 = ProcIoSnapshot.Read();
             _t0 = Stopwatch.GetTimestamp();
         }
@@ -45,8 +52,8 @@ internal static class E9
         {
             double seconds = (Stopwatch.GetTimestamp() - _t0) / (double)Stopwatch.Frequency;
             ProcIoSnapshot io = ProcIoSnapshot.Read().Since(_io0);
-            RssStats rs = RssSampler.IsSupported ? _rss.Stop() : default;
-            DirtyStats ds = _dirty.Stop();
+            RssStats rs = _rssOn ? _rss.Stop() : default;
+            DirtyStats ds = _dirty?.Stop() ?? default;
             double perChar = 1.0 / n;
             long counted = IoCounters.ReadBytes + IoCounters.WriteBytes + MappedIo.WriteBytes;
             r.Row(Exp, c, phase + "_s", seconds, "s", notes);
@@ -59,10 +66,13 @@ internal static class E9
             r.Row(Exp, c, phase + "_proc_wchar", io.WChar, "bytes", $"/proc/self/io wchar during the phase, {io.WChar * perChar:F4} B/char (mapped writes are not syscalls)");
             r.Row(Exp, c, phase + "_proc_read_bytes", io.ReadBytes, "bytes", $"/proc/self/io read_bytes (block layer, page-cache misses), {io.ReadBytes * perChar:F4} B/char");
             r.Row(Exp, c, phase + "_proc_write_bytes", io.WriteBytes, "bytes", $"/proc/self/io write_bytes (pages that went from clean to dirty), {io.WriteBytes * perChar:F4} B/char");
-            r.Row(Exp, c, phase + "_rssanon_peak", rs.MaxRssAnonMb, "MB", "max RssAnon of the phase at 10 ms (program sampler)");
-            r.Row(Exp, c, phase + "_rssfile_peak", rs.MaxRssFileMb, "MB", "mapped file pages resident (reported, not counted)");
-            r.Row(Exp, c, phase + "_dirty_peak", ds.MaxDeltaKb * 1024.0 / 1e6, "MB", $"max /proc/meminfo Dirty minus the baseline ({ds.BaselineKb * 1024.0 / 1e6:F2} MB) at 20 ms, system-wide");
-            r.Row(Exp, c, phase + "_proc_dirty_peak", ds.MaxProcessDirtyKb * 1024.0 / 1e6, "MB", "max Private_Dirty + Shared_Dirty of the mappings of the output file (per-process view)");
+            if (_dirty is not null)
+            {
+                r.Row(Exp, c, phase + "_rssanon_peak", rs.MaxRssAnonMb, "MB", "max RssAnon of the phase at 10 ms (program sampler)");
+                r.Row(Exp, c, phase + "_rssfile_peak", rs.MaxRssFileMb, "MB", "mapped file pages resident (reported, not counted)");
+                r.Row(Exp, c, phase + "_dirty_peak", ds.MaxDeltaKb * 1024.0 / 1e6, "MB", $"max /proc/meminfo Dirty minus the baseline ({ds.BaselineKb * 1024.0 / 1e6:F2} MB) at 20 ms, system-wide");
+                r.Row(Exp, c, phase + "_proc_dirty_peak", ds.MaxProcessDirtyKb * 1024.0 / 1e6, "MB", "max Private_Dirty + Shared_Dirty of the mappings of the output file (per-process view)");
+            }
             if (budget is not null) r.Row(Exp, c, phase + "_arena_peak", budget.PeakBytes, "bytes", $"peak charged to the ArenaBudget (cap {budget.CapBytes >> 20} MiB), live at the end {budget.LiveBytes}");
             r.Row(Exp, c, phase + "_scratch_peak", ScratchTracker.Peak, "bytes", $"{ScratchTracker.Peak * perChar:F4} B/char: peak of the tracked scratch files");
         }
@@ -70,7 +80,7 @@ internal static class E9
         public void Dispose()
         {
             _rss.Dispose();
-            _dirty.Dispose();
+            _dirty?.Dispose();
         }
     }
 
@@ -116,7 +126,7 @@ internal static class E9
         using var mapped = new MappedFile(textPath, writable: false);
         using var text = new PackedText(mapped.Pointer, n, bits, mapped, ownsOwner: false);
         BwtMeta meta;
-        using (var probe = new Probe(outPath))
+        using (var probe = new Probe(outPath, !o.Flag("no-sampler")))
         {
             meta = BwtPass.Build(saPath, text, sigma, outPath, new BwtOptions { ReadBytes = o.Int("read-kb", 1024) * 1024, WindowBytes = o.Int("window-kb", 1024) * 1024, Budget = budget });
             probe.Finish(r, c, "bwt", n, "wall time of the BWT pass: BWT[j] = T[SA[j] - 1], SA read once, text read at random through its mapping", budget);
@@ -142,7 +152,7 @@ internal static class E9
             Budget = budget,
         };
         PsiStats st;
-        using (var probe = new Probe(outPath))
+        using (var probe = new Probe(outPath, !o.Flag("no-sampler")))
         {
             st = PsiStream.Build(bwtPath, meta, outPath, options);
             probe.Finish(r, c, "psi", meta.N, "wall time of the Psi pass: one BWT scan per group of symbols, one output cursor per symbol", budget);
@@ -174,7 +184,7 @@ internal static class E9
         var budget = new ArenaBudget(o.Long("budget-mb", 160) << 20);
         var options = new DistOptions { ScratchDir = scratch, ChunkPositions = chunk, IoBufferBytes = o.Int("io-kb", 64) * 1024, ReadBytes = o.Int("read-kb", 1024) * 1024, WindowBytes = o.Int("window-kb", 1024) * 1024, Budget = budget };
         DistStats st;
-        using (var probe = new Probe(outPath))
+        using (var probe = new Probe(outPath, !o.Flag("no-sampler")))
         {
             st = IsaByDist.Build(saPath, n, outPath, options);
             probe.Finish(r, c, "isa", n, "wall time of ISA by DIST: distribute (SA[i], i) by SA[i] / R, then scatter chunk by chunk", budget);
@@ -190,7 +200,7 @@ internal static class E9
         string c = o.Str("case", "e9");
         long n = FileRows(saPath);
         var budget = new ArenaBudget(o.Long("budget-mb", 160) << 20);
-        using (var probe = new Probe(outPath))
+        using (var probe = new Probe(outPath, !o.Flag("no-sampler")))
         {
             PsiFromIsa.Build(saPath, isaPath, n, outPath, o.Int("read-kb", 1024) * 1024, o.Int("window-kb", 1024) * 1024, budget);
             probe.Finish(r, c, "psi_from_isa", n, "wall time of Psi = ISA[SA[i] + 1]: SA read sequentially, ISA read at random through its mapping", budget);

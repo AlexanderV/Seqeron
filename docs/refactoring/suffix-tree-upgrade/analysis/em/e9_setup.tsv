@@ -1,0 +1,278 @@
+R	E9	setup	head	a995fa148153c85b0c0ae334e6b458113151b579		git rev-parse HEAD of the checkout when the inputs were made; binary /tmp/stbench/bin_e9_run/SuffixTree.EmProto.dll
+R	E3	dna_10m	oracle_sa_hash	9adbdf36a2182fcb3577fac22da785ca4b24ddf1aba868702617a14d23504d60		SaisKernel in RAM on the same text, 0.60 s
+R	E3	dna_10m	packed_file	2500064	bytes	n=10000000, sigma=4, b=2, 0.250 B/char
+R	E9	dna_10m	oracle_s	0.193471	s	LinkTables.BuildIsa / BuildPsi in RAM on the SA file of n = 10000000; written as dna_10m.ref.isa and .psi (PSI[0] = -1 of P1 stored as 0)
+R	E9	dna_10m.setup	bwt_s	0.173821	s	wall time of the BWT pass: BWT[j] = T[SA[j] - 1], SA read once, text read at random through its mapping
+R	E9	dna_10m.setup	bwt_ns_per_char	17.382104	ns	seconds / n
+R	E9	dna_10m.setup	bwt_io_explicit_read	40000004	bytes	4.0000 B/char (program counter, explicit reads, 39 calls)
+R	E9	dna_10m.setup	bwt_io_explicit_write	0	bytes	0.0000 B/char (program counter, explicit writes, 0 calls)
+R	E9	dna_10m.setup	bwt_io_mapped_write	10000001	bytes	1.0000 B/char (program counter, writes through mapped windows: 10 windows, largest 1048576 bytes)
+R	E9	dna_10m.setup	bwt_io_counted_total	50000005	bytes	5.0000 B/char: explicit reads + explicit writes + mapped writes (reads through mappings are not counted)
+R	E9	dna_10m.setup	bwt_proc_rchar	41800636	bytes	/proc/self/io rchar during the phase, 4.1801 B/char
+R	E9	dna_10m.setup	bwt_proc_wchar	74	bytes	/proc/self/io wchar during the phase, 0.0000 B/char (mapped writes are not syscalls)
+R	E9	dna_10m.setup	bwt_proc_read_bytes	0	bytes	/proc/self/io read_bytes (block layer, page-cache misses), 0.0000 B/char
+R	E9	dna_10m.setup	bwt_proc_write_bytes	10010624	bytes	/proc/self/io write_bytes (pages that went from clean to dirty), 1.0011 B/char
+R	E9	dna_10m.setup	bwt_rssanon_peak	9.957376	MB	max RssAnon of the phase at 10 ms (program sampler)
+R	E9	dna_10m.setup	bwt_rssfile_peak	30.728192	MB	mapped file pages resident (reported, not counted)
+R	E9	dna_10m.setup	bwt_dirty_peak	1.052672	MB	max /proc/meminfo Dirty minus the baseline (0.98 MB) at 20 ms, system-wide
+R	E9	dna_10m.setup	bwt_proc_dirty_peak	1.048576	MB	max Private_Dirty + Shared_Dirty of the mappings of the output file (per-process view)
+R	E9	dna_10m.setup	bwt_arena_peak	1310720	bytes	peak charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E9	dna_10m.setup	bwt_scratch_peak	0	bytes	0.0000 B/char: peak of the tracked scratch files
+R	E9	dna_10m.setup	bwt_meta	n=10000000 primary=5097358 sigma=4 counts=2501594,2499919,2501754,2496733		n=10000000 sigma=4 bits=2; primary row = the row of the suffix 0
+R	E3	prot_1m	oracle_sa_hash	0cb77789bd75cfd8751f2c33c2ab2ce9970fe2ec78d199f79b3f01c796fdc668		SaisKernel in RAM on the same text, 0.06 s
+R	E3	prot_1m	packed_file	625064	bytes	n=1000000, sigma=20, b=5, 0.625 B/char
+R	E9	prot_1m	oracle_s	0.02231	s	LinkTables.BuildIsa / BuildPsi in RAM on the SA file of n = 1000000; written as prot_1m.ref.isa and .psi (PSI[0] = -1 of P1 stored as 0)
+R	E9	prot_1m.setup	bwt_s	0.047818	s	wall time of the BWT pass: BWT[j] = T[SA[j] - 1], SA read once, text read at random through its mapping
+R	E9	prot_1m.setup	bwt_ns_per_char	47.817964	ns	seconds / n
+R	E9	prot_1m.setup	bwt_io_explicit_read	4000004	bytes	4.0000 B/char (program counter, explicit reads, 4 calls)
+R	E9	prot_1m.setup	bwt_io_explicit_write	0	bytes	0.0000 B/char (program counter, explicit writes, 0 calls)
+R	E9	prot_1m.setup	bwt_io_mapped_write	1000001	bytes	1.0000 B/char (program counter, writes through mapped windows: 1 windows, largest 1000001 bytes)
+R	E9	prot_1m.setup	bwt_io_counted_total	5000005	bytes	5.0000 B/char: explicit reads + explicit writes + mapped writes (reads through mappings are not counted)
+R	E9	prot_1m.setup	bwt_proc_rchar	4451062	bytes	/proc/self/io rchar during the phase, 4.4511 B/char
+R	E9	prot_1m.setup	bwt_proc_wchar	161	bytes	/proc/self/io wchar during the phase, 0.0002 B/char (mapped writes are not syscalls)
+R	E9	prot_1m.setup	bwt_proc_read_bytes	0	bytes	/proc/self/io read_bytes (block layer, page-cache misses), 0.0000 B/char
+R	E9	prot_1m.setup	bwt_proc_write_bytes	1011712	bytes	/proc/self/io write_bytes (pages that went from clean to dirty), 1.0117 B/char
+R	E9	prot_1m.setup	bwt_rssanon_peak	9.740288	MB	max RssAnon of the phase at 10 ms (program sampler)
+R	E9	prot_1m.setup	bwt_rssfile_peak	28.790784	MB	mapped file pages resident (reported, not counted)
+R	E9	prot_1m.setup	bwt_dirty_peak	0.004096	MB	max /proc/meminfo Dirty minus the baseline (1.05 MB) at 20 ms, system-wide
+R	E9	prot_1m.setup	bwt_proc_dirty_peak	0	MB	max Private_Dirty + Shared_Dirty of the mappings of the output file (per-process view)
+R	E9	prot_1m.setup	bwt_arena_peak	1310720	bytes	peak charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E9	prot_1m.setup	bwt_scratch_peak	0	bytes	0.0000 B/char: peak of the tracked scratch files
+R	E9	prot_1m.setup	bwt_meta	n=1000000 primary=322696 sigma=20 counts=50049,50263,50032,50325,50059,50137,49800,49869,50056,50341,49801,50362,49869,49697,49851,50247,49864,49572,50033,49773		n=1000000 sigma=20 bits=5; primary row = the row of the suffix 0
+R	E3	rep_10m	oracle_sa_hash	b7e58603a3d43031f9090b09b3afd0f538eec0e8b0a8899672f62d989f99b9ea		SaisKernel in RAM on the same text, 0.70 s
+R	E3	rep_10m	packed_file	2500064	bytes	n=10000000, sigma=4, b=2, 0.250 B/char
+R	E9	rep_10m	oracle_s	0.264781	s	LinkTables.BuildIsa / BuildPsi in RAM on the SA file of n = 10000000; written as rep_10m.ref.isa and .psi (PSI[0] = -1 of P1 stored as 0)
+R	E9	rep_10m.setup	bwt_s	0.18348	s	wall time of the BWT pass: BWT[j] = T[SA[j] - 1], SA read once, text read at random through its mapping
+R	E9	rep_10m.setup	bwt_ns_per_char	18.348023	ns	seconds / n
+R	E9	rep_10m.setup	bwt_io_explicit_read	40000004	bytes	4.0000 B/char (program counter, explicit reads, 39 calls)
+R	E9	rep_10m.setup	bwt_io_explicit_write	0	bytes	0.0000 B/char (program counter, explicit writes, 0 calls)
+R	E9	rep_10m.setup	bwt_io_mapped_write	10000001	bytes	1.0000 B/char (program counter, writes through mapped windows: 10 windows, largest 1048576 bytes)
+R	E9	rep_10m.setup	bwt_io_counted_total	50000005	bytes	5.0000 B/char: explicit reads + explicit writes + mapped writes (reads through mappings are not counted)
+R	E9	rep_10m.setup	bwt_proc_rchar	42029108	bytes	/proc/self/io rchar during the phase, 4.2029 B/char
+R	E9	rep_10m.setup	bwt_proc_wchar	74	bytes	/proc/self/io wchar during the phase, 0.0000 B/char (mapped writes are not syscalls)
+R	E9	rep_10m.setup	bwt_proc_read_bytes	0	bytes	/proc/self/io read_bytes (block layer, page-cache misses), 0.0000 B/char
+R	E9	rep_10m.setup	bwt_proc_write_bytes	10010624	bytes	/proc/self/io write_bytes (pages that went from clean to dirty), 1.0011 B/char
+R	E9	rep_10m.setup	bwt_rssanon_peak	9.969664	MB	max RssAnon of the phase at 10 ms (program sampler)
+R	E9	rep_10m.setup	bwt_rssfile_peak	30.94528	MB	mapped file pages resident (reported, not counted)
+R	E9	rep_10m.setup	bwt_dirty_peak	1.052672	MB	max /proc/meminfo Dirty minus the baseline (1.14 MB) at 20 ms, system-wide
+R	E9	rep_10m.setup	bwt_proc_dirty_peak	1.048576	MB	max Private_Dirty + Shared_Dirty of the mappings of the output file (per-process view)
+R	E9	rep_10m.setup	bwt_arena_peak	1310720	bytes	peak charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E9	rep_10m.setup	bwt_scratch_peak	0	bytes	0.0000 B/char: peak of the tracked scratch files
+R	E9	rep_10m.setup	bwt_meta	n=10000000 primary=5449119 sigma=4 counts=2512608,2489643,2514261,2483488		n=10000000 sigma=4 bits=2; primary row = the row of the suffix 0
+R	E6	a:1000000	text_file	1000000	bytes	1000000 symbols, sigma=1, letters 'a', written to a_1m.txt
+R	E3	a:1000000	oracle_sa_hash	b4a503b86be162bd3752a15438be12dba5d2ffd1a3f45cf81fb85a3d6fefe8c6		SaisKernel in RAM on the same text, 0.04 s
+R	E3	a:1000000	packed_file	125064	bytes	n=1000000, sigma=1, b=1, 0.125 B/char
+R	E9	a_1m	oracle_s	0.012986	s	LinkTables.BuildIsa / BuildPsi in RAM on the SA file of n = 1000000; written as a_1m.ref.isa and .psi (PSI[0] = -1 of P1 stored as 0)
+R	E9	a_1m.setup	bwt_s	0.037105	s	wall time of the BWT pass: BWT[j] = T[SA[j] - 1], SA read once, text read at random through its mapping
+R	E9	a_1m.setup	bwt_ns_per_char	37.105185	ns	seconds / n
+R	E9	a_1m.setup	bwt_io_explicit_read	4000004	bytes	4.0000 B/char (program counter, explicit reads, 4 calls)
+R	E9	a_1m.setup	bwt_io_explicit_write	0	bytes	0.0000 B/char (program counter, explicit writes, 0 calls)
+R	E9	a_1m.setup	bwt_io_mapped_write	1000001	bytes	1.0000 B/char (program counter, writes through mapped windows: 1 windows, largest 1000001 bytes)
+R	E9	a_1m.setup	bwt_io_counted_total	5000005	bytes	5.0000 B/char: explicit reads + explicit writes + mapped writes (reads through mappings are not counted)
+R	E9	a_1m.setup	bwt_proc_rchar	4226984	bytes	/proc/self/io rchar during the phase, 4.2270 B/char
+R	E9	a_1m.setup	bwt_proc_wchar	49	bytes	/proc/self/io wchar during the phase, 0.0000 B/char (mapped writes are not syscalls)
+R	E9	a_1m.setup	bwt_proc_read_bytes	0	bytes	/proc/self/io read_bytes (block layer, page-cache misses), 0.0000 B/char
+R	E9	a_1m.setup	bwt_proc_write_bytes	1011712	bytes	/proc/self/io write_bytes (pages that went from clean to dirty), 1.0117 B/char
+R	E9	a_1m.setup	bwt_rssanon_peak	9.74848	MB	max RssAnon of the phase at 10 ms (program sampler)
+R	E9	a_1m.setup	bwt_rssfile_peak	27.963392	MB	mapped file pages resident (reported, not counted)
+R	E9	a_1m.setup	bwt_dirty_peak	0.528384	MB	max /proc/meminfo Dirty minus the baseline (1.23 MB) at 20 ms, system-wide
+R	E9	a_1m.setup	bwt_proc_dirty_peak	0.524288	MB	max Private_Dirty + Shared_Dirty of the mappings of the output file (per-process view)
+R	E9	a_1m.setup	bwt_arena_peak	1310720	bytes	peak charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E9	a_1m.setup	bwt_scratch_peak	0	bytes	0.0000 B/char: peak of the tracked scratch files
+R	E9	a_1m.setup	bwt_meta	n=1000000 primary=1000000 sigma=1 counts=1000000		n=1000000 sigma=1 bits=1; primary row = the row of the suffix 0
+R	E6	fib:1000000	text_file	1000000	bytes	1000000 symbols, sigma=2, letters 'ab', written to fib_1m.txt
+R	E3	fib:1000000	oracle_sa_hash	bff1fc1a4031c18f64e7fccd8f6ad107dea90b41bb35cb061e48baa85e958f6d		SaisKernel in RAM on the same text, 0.06 s
+R	E3	fib:1000000	packed_file	125064	bytes	n=1000000, sigma=2, b=1, 0.125 B/char
+R	E9	fib_1m	oracle_s	0.026675	s	LinkTables.BuildIsa / BuildPsi in RAM on the SA file of n = 1000000; written as fib_1m.ref.isa and .psi (PSI[0] = -1 of P1 stored as 0)
+R	E9	fib_1m.setup	bwt_s	0.049019	s	wall time of the BWT pass: BWT[j] = T[SA[j] - 1], SA read once, text read at random through its mapping
+R	E9	fib_1m.setup	bwt_ns_per_char	49.019247	ns	seconds / n
+R	E9	fib_1m.setup	bwt_io_explicit_read	4000004	bytes	4.0000 B/char (program counter, explicit reads, 4 calls)
+R	E9	fib_1m.setup	bwt_io_explicit_write	0	bytes	0.0000 B/char (program counter, explicit writes, 0 calls)
+R	E9	fib_1m.setup	bwt_io_mapped_write	1000001	bytes	1.0000 B/char (program counter, writes through mapped windows: 1 windows, largest 1000001 bytes)
+R	E9	fib_1m.setup	bwt_io_counted_total	5000005	bytes	5.0000 B/char: explicit reads + explicit writes + mapped writes (reads through mappings are not counted)
+R	E9	fib_1m.setup	bwt_proc_rchar	4448096	bytes	/proc/self/io rchar during the phase, 4.4481 B/char
+R	E9	fib_1m.setup	bwt_proc_wchar	54	bytes	/proc/self/io wchar during the phase, 0.0001 B/char (mapped writes are not syscalls)
+R	E9	fib_1m.setup	bwt_proc_read_bytes	0	bytes	/proc/self/io read_bytes (block layer, page-cache misses), 0.0000 B/char
+R	E9	fib_1m.setup	bwt_proc_write_bytes	1011712	bytes	/proc/self/io write_bytes (pages that went from clean to dirty), 1.0117 B/char
+R	E9	fib_1m.setup	bwt_rssanon_peak	9.711616	MB	max RssAnon of the phase at 10 ms (program sampler)
+R	E9	fib_1m.setup	bwt_rssfile_peak	28.34432	MB	mapped file pages resident (reported, not counted)
+R	E9	fib_1m.setup	bwt_dirty_peak	-0.06144	MB	max /proc/meminfo Dirty minus the baseline (1.37 MB) at 20 ms, system-wide
+R	E9	fib_1m.setup	bwt_proc_dirty_peak	0	MB	max Private_Dirty + Shared_Dirty of the mappings of the output file (per-process view)
+R	E9	fib_1m.setup	bwt_arena_peak	1310720	bytes	peak charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E9	fib_1m.setup	bwt_scratch_peak	0	bytes	0.0000 B/char: peak of the tracked scratch files
+R	E9	fib_1m.setup	bwt_meta	n=1000000 primary=381971 sigma=2 counts=618034,381966		n=1000000 sigma=2 bits=1; primary row = the row of the suffix 0
+R	E6	tm:1000000	text_file	1000000	bytes	1000000 symbols, sigma=2, letters 'ab', written to tm_1m.txt
+R	E3	tm:1000000	oracle_sa_hash	807ff5517763b4bc36f302dd566c75bcf80dbc4fc848a236613a1b2563aa70ab		SaisKernel in RAM on the same text, 0.06 s
+R	E3	tm:1000000	packed_file	125064	bytes	n=1000000, sigma=2, b=1, 0.125 B/char
+R	E9	tm_1m	oracle_s	0.020492	s	LinkTables.BuildIsa / BuildPsi in RAM on the SA file of n = 1000000; written as tm_1m.ref.isa and .psi (PSI[0] = -1 of P1 stored as 0)
+R	E9	tm_1m.setup	bwt_s	0.043248	s	wall time of the BWT pass: BWT[j] = T[SA[j] - 1], SA read once, text read at random through its mapping
+R	E9	tm_1m.setup	bwt_ns_per_char	43.24763	ns	seconds / n
+R	E9	tm_1m.setup	bwt_io_explicit_read	4000004	bytes	4.0000 B/char (program counter, explicit reads, 4 calls)
+R	E9	tm_1m.setup	bwt_io_explicit_write	0	bytes	0.0000 B/char (program counter, explicit writes, 0 calls)
+R	E9	tm_1m.setup	bwt_io_mapped_write	1000001	bytes	1.0000 B/char (program counter, writes through mapped windows: 1 windows, largest 1000001 bytes)
+R	E9	tm_1m.setup	bwt_io_counted_total	5000005	bytes	5.0000 B/char: explicit reads + explicit writes + mapped writes (reads through mappings are not counted)
+R	E9	tm_1m.setup	bwt_proc_rchar	4452540	bytes	/proc/self/io rchar during the phase, 4.4525 B/char
+R	E9	tm_1m.setup	bwt_proc_wchar	54	bytes	/proc/self/io wchar during the phase, 0.0001 B/char (mapped writes are not syscalls)
+R	E9	tm_1m.setup	bwt_proc_read_bytes	0	bytes	/proc/self/io read_bytes (block layer, page-cache misses), 0.0000 B/char
+R	E9	tm_1m.setup	bwt_proc_write_bytes	1011712	bytes	/proc/self/io write_bytes (pages that went from clean to dirty), 1.0117 B/char
+R	E9	tm_1m.setup	bwt_rssanon_peak	9.76896	MB	max RssAnon of the phase at 10 ms (program sampler)
+R	E9	tm_1m.setup	bwt_rssfile_peak	28.246016	MB	mapped file pages resident (reported, not counted)
+R	E9	tm_1m.setup	bwt_dirty_peak	0.004096	MB	max /proc/meminfo Dirty minus the baseline (1.37 MB) at 20 ms, system-wide
+R	E9	tm_1m.setup	bwt_proc_dirty_peak	0	MB	max Private_Dirty + Shared_Dirty of the mappings of the output file (per-process view)
+R	E9	tm_1m.setup	bwt_arena_peak	1310720	bytes	peak charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E9	tm_1m.setup	bwt_scratch_peak	0	bytes	0.0000 B/char: peak of the tracked scratch files
+R	E9	tm_1m.setup	bwt_meta	n=1000000 primary=500000 sigma=2 counts=500000,500000		n=1000000 sigma=2 bits=1; primary row = the row of the suffix 0
+R	E3	rnd256_10m	oracle_sa_hash	d82f860f10b2571e69f890a84840c0936fdfe99b8fd783b8331e209145c8ec40		SaisKernel in RAM on the same text, 0.85 s
+R	E3	rnd256_10m	packed_file	10000064	bytes	n=10000000, sigma=256, b=8, 1.000 B/char
+R	E9	rnd256_10m	oracle_s	0.190514	s	LinkTables.BuildIsa / BuildPsi in RAM on the SA file of n = 10000000; written as rnd256_10m.ref.isa and .psi (PSI[0] = -1 of P1 stored as 0)
+R	E9	rnd256_10m.setup	bwt_s	0.268669	s	wall time of the BWT pass: BWT[j] = T[SA[j] - 1], SA read once, text read at random through its mapping
+R	E9	rnd256_10m.setup	bwt_ns_per_char	26.866945	ns	seconds / n
+R	E9	rnd256_10m.setup	bwt_io_explicit_read	40000004	bytes	4.0000 B/char (program counter, explicit reads, 39 calls)
+R	E9	rnd256_10m.setup	bwt_io_explicit_write	0	bytes	0.0000 B/char (program counter, explicit writes, 0 calls)
+R	E9	rnd256_10m.setup	bwt_io_mapped_write	10000001	bytes	1.0000 B/char (program counter, writes through mapped windows: 10 windows, largest 1048576 bytes)
+R	E9	rnd256_10m.setup	bwt_io_counted_total	50000005	bytes	5.0000 B/char: explicit reads + explicit writes + mapped writes (reads through mappings are not counted)
+R	E9	rnd256_10m.setup	bwt_proc_rchar	42926968	bytes	/proc/self/io rchar during the phase, 4.2927 B/char
+R	E9	rnd256_10m.setup	bwt_proc_wchar	1580	bytes	/proc/self/io wchar during the phase, 0.0002 B/char (mapped writes are not syscalls)
+R	E9	rnd256_10m.setup	bwt_proc_read_bytes	0	bytes	/proc/self/io read_bytes (block layer, page-cache misses), 0.0000 B/char
+R	E9	rnd256_10m.setup	bwt_proc_write_bytes	10010624	bytes	/proc/self/io write_bytes (pages that went from clean to dirty), 1.0011 B/char
+R	E9	rnd256_10m.setup	bwt_rssanon_peak	9.965568	MB	max RssAnon of the phase at 10 ms (program sampler)
+R	E9	rnd256_10m.setup	bwt_rssfile_peak	38.477824	MB	mapped file pages resident (reported, not counted)
+R	E9	rnd256_10m.setup	bwt_dirty_peak	1.052672	MB	max /proc/meminfo Dirty minus the baseline (11.45 MB) at 20 ms, system-wide
+R	E9	rnd256_10m.setup	bwt_proc_dirty_peak	1.048576	MB	max Private_Dirty + Shared_Dirty of the mappings of the output file (per-process view)
+R	E9	rnd256_10m.setup	bwt_arena_peak	1310720	bytes	peak charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E9	rnd256_10m.setup	bwt_scratch_peak	0	bytes	0.0000 B/char: peak of the tracked scratch files
+R	E9	rnd256_10m.setup	bwt_meta	n=10000000 primary=9598388 sigma=256 counts=39034,39290,39280,39100,38826,38888,39004,38678,38868,39047,39199,39083,38873,39275,39200,38835,38908,39305,39156,38859,38732,39177,39170,38991,39026,39320,39277,38772,39451,39150,39440,39355,38964,39167,39222,39073,39030,39086,39295,38764,39017,39400,39222,38861,39411,39058,38958,38977,38888,38820,39366,39157,39271,38900,39030,39405,39395,38912,38984,38953,39077,39104,39116,38920,39017,39277,39063,39056,39107,38652,38999,39394,39157,39046,39039,39143,38748,38950,38826,39003,39025,39077,39344,39215,39044,39358,39361,39130,39294,38794,38833,39014,39201,39159,39430,38987,39325,38989,39576,39271,39316,38856,38966,39516,39036,39124,39066,39050,39078,38834,38613,39022,38910,38582,39105,38806,39235,39142,39282,39030,39190,39098,39437,38948,39350,39037,39479,39383,39077,39235,39092,39099,39197,39403,39356,39058,38605,39348,38746,39133,38888,39112,38841,39315,39222,39041,38907,39069,39023,39012,38917,38891,39182,38859,39118,38968,39075,39098,39204,39376,38987,39040,38825,38996,38980,39315,39010,38979,39621,38842,38905,39289,39083,38966,38873,38870,39346,38915,39025,38961,38848,38595,38974,38960,39059,38879,38916,39105,39028,39159,38895,39013,39138,39058,38942,38999,39071,38796,39579,39340,38925,38808,38905,38826,39142,39086,39203,39121,39120,38935,38755,39178,38778,38964,39115,39260,39044,39529,39164,38898,39097,38995,39055,39020,39343,39032,38791,38987,38928,38803,39060,39055,38940,38920,38967,38964,39180,39069,38872,38847,39132,38847,38949,38636,39234,39515,39013,39226,38808,39246,38943,39122,39106,38610,38853,38663		n=10000000 sigma=256 bits=8; primary row = the row of the suffix 0
+R	E6	dna_100m.setup	n	100000000	symbols	b=2 bits, sigma=4, threads=4, codec=Packed, X=993 (|D|=32), touch buffers=False
+R	E6	dna_100m.setup	parameters	n=100000000 f=3.333E-002 scaled=True: PH1 K_s=34953 N_base=559241 R=139810 K_sort=34953 run-spill=2185; PH3 K=33333 F=64; PH4 R=266667 P=375 B2 workers=2; PH5 block=262144 window=1048576 slots=8		scale-down by n / 3000000000 = 3.333E-002: every stage by the rule of E3 / E3b / E4 (ScaleRules)
+R	E6	dna_100m.setup	stage_parameters	PH1 fan-out 1024, reservoir 16384, io 65536, merge budget 16777216; PH3 fan-out 64, oversample 16, spill 65536; PH4 read 1048576, tuple 32768; PH5 block 262144 entries, window 1048576 x 8, spill flush 16777216; windows 1048576; arena caps 160 + 64 MiB		
+R	E6	dna_100m.setup	ph0_prepare_s	1.195938	s	wall time of the phase
+R	E6	dna_100m.setup	ph0_prepare_io_explicit_read	200000000	bytes	2.000 B/char (program counter, explicit reads)
+R	E6	dna_100m.setup	ph0_prepare_io_explicit_write	0	bytes	0.000 B/char (program counter, explicit writes)
+R	E6	dna_100m.setup	ph0_prepare_io_mapped_write	25000000	bytes	0.250 B/char (program counter, writes through mapped windows; CHILD windows are counted at the run level)
+R	E6	dna_100m.setup	ph0_prepare_proc_rchar	215135224	bytes	/proc/self/io rchar during the phase, 2.151 B/char
+R	E6	dna_100m.setup	ph0_prepare_proc_wchar	192	bytes	/proc/self/io wchar during the phase, 0.000 B/char
+R	E6	dna_100m.setup	ph0_prepare_proc_read_bytes	100003840	bytes	/proc/self/io read_bytes (block layer, page-cache misses)
+R	E6	dna_100m.setup	ph0_prepare_proc_write_bytes	25010176	bytes	/proc/self/io write_bytes (pages that went from clean to dirty)
+R	E6	dna_100m.setup	ph0_prepare_rssanon_peak	13.955072	MB	max RssAnon of the phase at 10 ms
+R	E6	dna_100m.setup	ph0_prepare_rssfile_peak	34.418688	MB	mapped file pages resident (reported, not counted)
+R	E6	dna_100m.setup	ph0_prepare_scratch_peak_cum	0	bytes	0.000 B/char: peak of the tracked scratch bytes up to the end of this phase
+R	E6	dna_100m.setup	ph0_prepare_scratch_live_end	0	bytes	tracked scratch bytes alive at the end of this phase
+R	E6	dna_100m.setup	ph0_prepare_dirty_peak	1.060864	MB	max /proc/meminfo Dirty in the phase minus the baseline 11.47 MB (system-wide: scratch included)
+R	E6	dna_100m.setup	ph0_prepare_proc_dirty_peak	1.048576	MB	max Private_Dirty + Shared_Dirty of the mappings of the output files in the phase (per-process view)
+R	E6	dna_100m.setup	ph1_dcs_s	1.628636	s	wall time of the phase
+R	E6	dna_100m.setup	ph1_dcs_io_explicit_read	25780456	bytes	0.258 B/char (program counter, explicit reads)
+R	E6	dna_100m.setup	ph1_dcs_io_explicit_write	25780456	bytes	0.258 B/char (program counter, explicit writes)
+R	E6	dna_100m.setup	ph1_dcs_io_mapped_write	12890228	bytes	0.129 B/char (program counter, writes through mapped windows; CHILD windows are counted at the run level)
+R	E6	dna_100m.setup	ph1_dcs_proc_rchar	48359984	bytes	/proc/self/io rchar during the phase, 0.484 B/char
+R	E6	dna_100m.setup	ph1_dcs_proc_wchar	25780506	bytes	/proc/self/io wchar during the phase, 0.258 B/char
+R	E6	dna_100m.setup	ph1_dcs_proc_read_bytes	4096	bytes	/proc/self/io read_bytes (block layer, page-cache misses)
+R	E6	dna_100m.setup	ph1_dcs_proc_write_bytes	39641088	bytes	/proc/self/io write_bytes (pages that went from clean to dirty)
+R	E6	dna_100m.setup	ph1_dcs_rssanon_peak	29.147136	MB	max RssAnon of the phase at 10 ms
+R	E6	dna_100m.setup	ph1_dcs_rssfile_peak	60.928	MB	mapped file pages resident (reported, not counted)
+R	E6	dna_100m.setup	ph1_dcs_scratch_peak_cum	25780456	bytes	0.258 B/char: peak of the tracked scratch bytes up to the end of this phase
+R	E6	dna_100m.setup	ph1_dcs_scratch_live_end	12890240	bytes	tracked scratch bytes alive at the end of this phase
+R	E6	dna_100m.setup	ph1_dcs_dirty_peak	1.609728	MB	max /proc/meminfo Dirty in the phase minus the baseline 11.47 MB (system-wide: scratch included)
+R	E6	dna_100m.setup	ph1_dcs_proc_dirty_peak	0	MB	max Private_Dirty + Shared_Dirty of the mappings of the output files in the phase (per-process view)
+R	E6	dna_100m.setup	ph23_sa_s	14.304565	s	wall time of the phase
+R	E6	dna_100m.setup	ph23_sa_io_explicit_read	784815468	bytes	7.848 B/char (program counter, explicit reads)
+R	E6	dna_100m.setup	ph23_sa_io_explicit_write	784429740	bytes	7.844 B/char (program counter, explicit writes)
+R	E6	dna_100m.setup	ph23_sa_io_mapped_write	400000004	bytes	4.000 B/char (program counter, writes through mapped windows; CHILD windows are counted at the run level)
+R	E6	dna_100m.setup	ph23_sa_proc_rchar	995554441	bytes	/proc/self/io rchar during the phase, 9.956 B/char
+R	E6	dna_100m.setup	ph23_sa_proc_wchar	784429803	bytes	/proc/self/io wchar during the phase, 7.844 B/char
+R	E6	dna_100m.setup	ph23_sa_proc_read_bytes	57344	bytes	/proc/self/io read_bytes (block layer, page-cache misses)
+R	E6	dna_100m.setup	ph23_sa_proc_write_bytes	1519403008	bytes	/proc/self/io write_bytes (pages that went from clean to dirty)
+R	E6	dna_100m.setup	ph23_sa_rssanon_peak	168.32512	MB	max RssAnon of the phase at 10 ms
+R	E6	dna_100m.setup	ph23_sa_rssfile_peak	73.428992	MB	mapped file pages resident (reported, not counted)
+R	E6	dna_100m.setup	ph23_sa_scratch_peak_cum	432120468	bytes	4.321 B/char: peak of the tracked scratch bytes up to the end of this phase
+R	E6	dna_100m.setup	ph23_sa_scratch_live_end	0	bytes	tracked scratch bytes alive at the end of this phase
+R	E6	dna_100m.setup	ph23_sa_dirty_peak	397.520896	MB	max /proc/meminfo Dirty in the phase minus the baseline 11.47 MB (system-wide: scratch included)
+R	E6	dna_100m.setup	ph23_sa_proc_dirty_peak	0.360448	MB	max Private_Dirty + Shared_Dirty of the mappings of the output files in the phase (per-process view)
+R	E6	dna_100m.setup	ph45_lcp_child_s	7.94319	s	wall time of the phase
+R	E6	dna_100m.setup	ph45_lcp_child_io_explicit_read	2400000004	bytes	24.000 B/char (program counter, explicit reads)
+R	E6	dna_100m.setup	ph45_lcp_child_io_explicit_write	2000000000	bytes	20.000 B/char (program counter, explicit writes)
+R	E6	dna_100m.setup	ph45_lcp_child_io_mapped_write	100000001	bytes	1.000 B/char (program counter, writes through mapped windows; CHILD windows are counted at the run level)
+R	E6	dna_100m.setup	ph45_lcp_child_proc_rchar	2522800175	bytes	/proc/self/io rchar during the phase, 25.228 B/char
+R	E6	dna_100m.setup	ph45_lcp_child_proc_wchar	2000000020	bytes	/proc/self/io wchar during the phase, 20.000 B/char
+R	E6	dna_100m.setup	ph45_lcp_child_proc_read_bytes	28672	bytes	/proc/self/io read_bytes (block layer, page-cache misses)
+R	E6	dna_100m.setup	ph45_lcp_child_proc_write_bytes	2503708672	bytes	/proc/self/io write_bytes (pages that went from clean to dirty)
+R	E6	dna_100m.setup	ph45_lcp_child_rssanon_peak	216.14592	MB	max RssAnon of the phase at 10 ms
+R	E6	dna_100m.setup	ph45_lcp_child_rssfile_peak	69.513216	MB	mapped file pages resident (reported, not counted)
+R	E6	dna_100m.setup	ph45_lcp_child_scratch_peak_cum	1200000000	bytes	12.000 B/char: peak of the tracked scratch bytes up to the end of this phase
+R	E6	dna_100m.setup	ph45_lcp_child_scratch_live_end	0	bytes	tracked scratch bytes alive at the end of this phase
+R	E6	dna_100m.setup	ph45_lcp_child_dirty_peak	1202.249728	MB	max /proc/meminfo Dirty in the phase minus the baseline 11.47 MB (system-wide: scratch included)
+R	E6	dna_100m.setup	ph45_lcp_child_proc_dirty_peak	9.437184	MB	max Private_Dirty + Shared_Dirty of the mappings of the output files in the phase (per-process view)
+R	E6	dna_100m.setup	sync_s	0.004745	s	fsync of all outputs (not part of the stage times)
+R	E6	dna_100m.setup	sync_io_explicit_read	0	bytes	0.000 B/char (program counter, explicit reads)
+R	E6	dna_100m.setup	sync_io_explicit_write	0	bytes	0.000 B/char (program counter, explicit writes)
+R	E6	dna_100m.setup	sync_io_mapped_write	0	bytes	0.000 B/char (program counter, writes through mapped windows; CHILD windows are counted at the run level)
+R	E6	dna_100m.setup	sync_proc_rchar	304454	bytes	/proc/self/io rchar during the phase, 0.003 B/char
+R	E6	dna_100m.setup	sync_proc_wchar	11	bytes	/proc/self/io wchar during the phase, 0.000 B/char
+R	E6	dna_100m.setup	sync_proc_read_bytes	0	bytes	/proc/self/io read_bytes (block layer, page-cache misses)
+R	E6	dna_100m.setup	sync_proc_write_bytes	0	bytes	/proc/self/io write_bytes (pages that went from clean to dirty)
+R	E6	dna_100m.setup	sync_rssanon_peak	192.335872	MB	max RssAnon of the phase at 10 ms
+R	E6	dna_100m.setup	sync_rssfile_peak	60.076032	MB	mapped file pages resident (reported, not counted)
+R	E6	dna_100m.setup	sync_scratch_peak_cum	1200000000	bytes	12.000 B/char: peak of the tracked scratch bytes up to the end of this phase
+R	E6	dna_100m.setup	sync_scratch_live_end	0	bytes	tracked scratch bytes alive at the end of this phase
+R	E6	dna_100m.setup	sync_dirty_peak	0.032768	MB	max /proc/meminfo Dirty in the phase minus the baseline 11.47 MB (system-wide: scratch included)
+R	E6	dna_100m.setup	sync_proc_dirty_peak	0	MB	max Private_Dirty + Shared_Dirty of the mappings of the output files in the phase (per-process view)
+R	E6	dna_100m.setup	total_s	25.072329	s	PH0 + PH1 + PH2/PH3 + PH4/PH5: wall time of the stages (gate G3: <= 90 s at 100 Mbp, 4 threads, cold cache)
+R	E6	dna_100m.setup	sa_stage_s	17.129139	s	PH0 + PH1 + PH2/PH3 (gate G3: <= 30 s)
+R	E6	dna_100m.setup	wall_s	25.394538	s	EndToEnd.Run from start to end, including the clean-up and the final sync
+R	E6	dna_100m.setup	ns_per_symbol	250.723286	ns	total_s / n
+R	E6	dna_100m.setup	throughput	3.988461	Msym/s	n / total_s
+R	E6	dna_100m.setup	ph0_prepare_share	0.0477		share of total_s
+R	E6	dna_100m.setup	ph1_dcs_share	0.064958		share of total_s
+R	E6	dna_100m.setup	ph23_sa_share	0.570532		share of total_s
+R	E6	dna_100m.setup	ph45_lcp_child_share	0.316811		share of total_s
+R	E6	dna_100m.setup	rssanon_peak	216.14592	MB	max RssAnon over the whole run at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks
+R	E6	dna_100m.setup	gc_heap	0	MB	managed heap at the end (DOTNET_GCHeapHardLimit = not set); collections gen0/1/2 = 0/0/0
+R	E6	dna_100m.setup	arena_peak	30.939816	MB	largest peak of the native buffers of one stage charged to its ArenaBudget (caps 160 / 64 MiB), live at the end 0
+R	E6	dna_100m.setup	io_explicit_read	3410595928	bytes	34.106 B/char (program counters, all phases)
+R	E6	dna_100m.setup	io_explicit_write	2810210196	bytes	28.102 B/char
+R	E6	dna_100m.setup	io_mapped_write	937890237	bytes	9.379 B/char: packed text, rank file, SA, LCP through the counted windows plus CHILD 400000004 bytes (its windows are not counted: the file is written once, 4 (n + 1) bytes)
+R	E6	dna_100m.setup	io_total_counted	7158696361	bytes	71.587 B/char: explicit I/O plus mapped writes (gate G3: <= 100 B/char); reads through the mappings (text, ranks) are not in it
+R	E6	dna_100m.setup	proc_rchar	3785859654	bytes	37.859 B/char: /proc/self/io rchar over EndToEnd.Run (read syscalls)
+R	E6	dna_100m.setup	proc_wchar	2810210662	bytes	28.102 B/char: /proc/self/io wchar over EndToEnd.Run (write syscalls)
+R	E6	dna_100m.setup	proc_rw_total	6596070316	bytes	65.961 B/char: rchar + wchar (syscalls only; the mapped windows are not in it)
+R	E6	dna_100m.setup	blocklayer_read	100093952	bytes	1.001 B/char: /proc/self/io read_bytes over the run (page-cache misses)
+R	E6	dna_100m.setup	blocklayer_write	4087779328	bytes	40.878 B/char: /proc/self/io write_bytes over the run (pages dirtied)
+R	E6	dna_100m.setup	scratch_peak	1200000000	bytes	12.000 B/char: peak of the tracked scratch files over the whole pipeline (apparent size); live at the end 0; entries left 0; directory left False
+R	E6	dna_100m.setup	file_pk	25000064	bytes	0.250 B/char: dna_100m.pk
+R	E6	dna_100m.setup	file_meta	181	bytes	0.000 B/char: dna_100m.pk.meta
+R	E6	dna_100m.setup	file_sa	400000004	bytes	4.000 B/char: dna_100m.sa
+R	E6	dna_100m.setup	file_lcp	100000001	bytes	1.000 B/char: dna_100m.lcp
+R	E6	dna_100m.setup	file_ovf	0	bytes	0.000 B/char: dna_100m.ovf
+R	E6	dna_100m.setup	file_cld	400000004	bytes	4.000 B/char: dna_100m.cld
+R	E6	dna_100m.setup	file_stats	119	bytes	0.000 B/char: dna_100m.stats
+R	E6	dna_100m.setup	output_bytes	925000373	bytes	9.250 B/char: disk footprint of the outputs (text, SA, LCP + overflow, CHILD, metadata)
+R	E6	dna_100m.setup	dirty_peak	1202.249728	MB	max /proc/meminfo Dirty minus the baseline (11.47 MB) over 1269 samples at 20 ms; system-wide, scratch of PH2/PH3 and PH4 included; absolute max 1213.72 MB
+R	E6	dna_100m.setup	dirty_mean	238.730738	MB	mean of Dirty minus the baseline over the run
+R	E6	dna_100m.setup	writeback_peak	20.5824	MB	max /proc/meminfo Writeback
+R	E6	dna_100m.setup	proc_dirty_peak	9.437184	MB	max Private_Dirty + Shared_Dirty of the mappings of the output files of this run (per-process view of the mapped dirty pages of the outputs; gate G3 <= 64 MB)
+R	E6	dna_100m.setup	ph1_levels	0	n	deepest level of the DCS recursion; level 0: sample 3222557, distinct names 3222557, shared 0.00 %, leaf buckets 185, split scans 1
+R	E6	dna_100m.setup	ph3_buckets	6092	n	leaves=5381, partitions=711, max depth=3, largest leaf=33302, retries=0; tie share 0.0000 %, rank lookups 10396
+R	E6	dna_100m.setup	ph4_width	U8		chosen before any entry was written; escapes >= 255: 0 (0.0000 %), >= 65535: 0, overflow entries 0; B1 1.39 s, B2 3.42 s, B3 3.12 s (B3 contains the PH5 scan); chunks 375/375, B2 tasks 2, rounds 1
+R	E6	dna_100m.setup	ph5_scan_s	2.38001	s	time inside the PH5 scan (Consume + Complete): the share of the fused phase that belongs to PH5
+R	E6	dna_100m.setup	node_count	162149501	n	NODE_COUNT = 1 + I + n + 1 with I = 62149499 internal nodes
+R	E6	dna_100m.setup	lrs	25	symbols	LRS_DEPTH 25, LRS_RANK 14863022; max LCP 25, stack peak 18, spill written 0 bytes
+R	E6	dna_100m.setup	sha256	c27addf848dbaf3bee0ddb410d0cd991b2f8df293c9b99a80b649b578c0db8f0		SHA-256 of the input text (PH0)
+R	E6	dna_100m.setup	clean	yes		scratch directory removed, no tracked scratch byte, no live arena byte; RssAnon within 256 MB: yes
+R	E9	dna_100m	setup	sa_pk_equal_e7_reference_hashes	yes		SHA-256 of the pipeline SA and packed text equal the hashes of /tmp/stbench/e7/dna_100m.refs.sha
+R	E9	dna_100m	oracle_s	3.845153	s	LinkTables.BuildIsa / BuildPsi in RAM on the SA file of n = 100000000; written as dna_100m.ref.isa and .psi (PSI[0] = -1 of P1 stored as 0)
+R	E9	dna_100m.setup	bwt_s	2.790783	s	wall time of the BWT pass: BWT[j] = T[SA[j] - 1], SA read once, text read at random through its mapping
+R	E9	dna_100m.setup	bwt_ns_per_char	27.907826	ns	seconds / n
+R	E9	dna_100m.setup	bwt_io_explicit_read	400000004	bytes	4.0000 B/char (program counter, explicit reads, 382 calls)
+R	E9	dna_100m.setup	bwt_io_explicit_write	0	bytes	0.0000 B/char (program counter, explicit writes, 0 calls)
+R	E9	dna_100m.setup	bwt_io_mapped_write	100000001	bytes	1.0000 B/char (program counter, writes through mapped windows: 96 windows, largest 1048576 bytes)
+R	E9	dna_100m.setup	bwt_io_counted_total	500000005	bytes	5.0000 B/char: explicit reads + explicit writes + mapped writes (reads through mappings are not counted)
+R	E9	dna_100m.setup	bwt_proc_rchar	432077535	bytes	/proc/self/io rchar during the phase, 4.3208 B/char
+R	E9	dna_100m.setup	bwt_proc_wchar	80	bytes	/proc/self/io wchar during the phase, 0.0000 B/char (mapped writes are not syscalls)
+R	E9	dna_100m.setup	bwt_proc_read_bytes	0	bytes	/proc/self/io read_bytes (block layer, page-cache misses), 0.0000 B/char
+R	E9	dna_100m.setup	bwt_proc_write_bytes	100012032	bytes	/proc/self/io write_bytes (pages that went from clean to dirty), 1.0001 B/char
+R	E9	dna_100m.setup	bwt_rssanon_peak	10.346496	MB	max RssAnon of the phase at 10 ms (program sampler)
+R	E9	dna_100m.setup	bwt_rssfile_peak	53.870592	MB	mapped file pages resident (reported, not counted)
+R	E9	dna_100m.setup	bwt_dirty_peak	1.052672	MB	max /proc/meminfo Dirty minus the baseline (11.54 MB) at 20 ms, system-wide
+R	E9	dna_100m.setup	bwt_proc_dirty_peak	1.048576	MB	max Private_Dirty + Shared_Dirty of the mappings of the output file (per-process view)
+R	E9	dna_100m.setup	bwt_arena_peak	1310720	bytes	peak charged to the ArenaBudget (cap 160 MiB), live at the end 0
+R	E9	dna_100m.setup	bwt_scratch_peak	0	bytes	0.0000 B/char: peak of the tracked scratch files
+R	E9	dna_100m.setup	bwt_meta	n=100000000 primary=87373614 sigma=4 counts=24997441,25001885,25005694,24994980		n=100000000 sigma=4 bits=2; primary row = the row of the suffix 0

@@ -33,9 +33,9 @@ internal static class Cli
                    [--k K] [--fan F] [--k-s K] [--nbase N] [--dcs-chunk R] [--sort-k K] [--chunk R] [--b2-workers w] [--block-entries b] [--slots s] [--window-kb w] [--prepare-block symbols] ...  (explicit values win over the scale rule; --rule-n evaluates the rule at a fixed n for every text: E7 series A)
                    [--verify-pk <packed file>] [--verify-sa <kernel SA file> | --verify-sa-hash <sha256>] [--verify-lcp <prefix of .lcp/.ovf>] [--verify-child <.cldP>] [--verify-stats <.stats>]
                    end to end (E6): PH0 prepare, PH1 DCS rank file, PH2/PH3 suffix array, PH4 LCP (base mode) fused with PH5 (child table, layout A) in one process; outputs <prefix>.pk (+ .pk.meta) .sa .lcp .ovf .cld .stats; the scratch is deleted
-          e9-bwt   --text <packed> --sa <sa file> --out <bwt file> [--read-kb 1024] [--window-kb 1024] [--budget-mb 160] [--case name]
+          e9-bwt   --text <packed> --sa <sa file> --out <bwt file> [--read-kb 1024] [--window-kb 1024] [--budget-mb 160] [--no-sampler] [--case name]
                    E9, route (ii): BWT[j] = T[SA[j] - 1] as a separate pass over the SA file (one byte per row; the row of the suffix 0 holds a dummy 0; <bwt>.meta: n, primary row, symbol counts)
-          e9-psi   --bwt <bwt file> --out <psi file> [--window-kb 64] [--symbols-per-pass 64] [--read-kb 1024] [--cyclic] [--budget-mb 160] [--pk-meta <.pk.meta>] [--verify <ref psi file>] [--case name]
+          e9-psi   --bwt <bwt file> --out <psi file> [--window-kb 64] [--symbols-per-pass 64] [--read-kb 1024] [--cyclic] [--budget-mb 160] [--pk-meta <.pk.meta>] [--verify <ref psi file>] [--no-sampler] [--case name]
                    E9 / PH6: PSI[i] = ISA[SA[i] + 1] by sigma-way distribution of the BWT (one output cursor per symbol, one mapped window each; ceil(sigma / 64) passes); PSI[0] = 0, or the row of the suffix 0 with --cyclic
           e9-isa   --sa <sa file> --out <isa file> --scratch <dir> [--scale-n 3000000000 | --chunk R] [--io-kb 64] [--read-kb 1024] [--window-kb 1024] [--verify <ref isa file>] [--case name]
                    E9: ISA by DIST (one-level radix distribution of (SA[i], i) into n / R chunk files, then scatter), 24 B per entry
