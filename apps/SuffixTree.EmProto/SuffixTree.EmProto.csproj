@@ -27,6 +27,14 @@
   <ItemGroup>
     <!-- paired-run statistics (median ratio, A/A noise band) of the ESA measurement harness -->
     <Compile Include="..\SuffixTree.Esa.Bench\PairedStats.cs" Link="Harness\PairedStats.cs" />
+    <!-- E9 (ADR-004 section 5): the suffix-link prototype P1 of ADR-001 (ISA / Psi tables, kernels, node enumeration, step counters) is the smoke test of the streamed Psi; the sources are linked, not copied, and not modified
+         (MemDriver.cs, the P2 driver that needs the Ukkonen tree, is not linked) -->
+    <Compile Include="..\SuffixTree.Esa.Bench\Links\LinkTables.cs" Link="Ph6\Proto\LinkTables.cs" />
+    <Compile Include="..\SuffixTree.Esa.Bench\Links\LinkContext.cs" Link="Ph6\Proto\LinkContext.cs" />
+    <Compile Include="..\SuffixTree.Esa.Bench\Links\LinkKernels.cs" Link="Ph6\Proto\LinkKernels.cs" />
+    <Compile Include="..\SuffixTree.Esa.Bench\Links\LinkNodes.cs" Link="Ph6\Proto\LinkNodes.cs" />
+    <Compile Include="..\SuffixTree.Esa.Bench\Links\LcpRangeHelper.cs" Link="Ph6\Proto\LcpRangeHelper.cs" />
+    <Compile Include="..\SuffixTree.Esa.Bench\Links\StepCounters.cs" Link="Ph6\Proto\StepCounters.cs" />
   </ItemGroup>
 
   <ItemGroup>

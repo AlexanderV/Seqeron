@@ -26,6 +26,9 @@
     <Compile Include="..\SuffixTree.Esa.Tests\TestSupport\StringFamilies.cs" Link="Shared\StringFamilies.cs" />
     <Compile Include="..\SuffixTree.Esa.Tests\TestSupport\SplitMix64.cs" Link="Shared\SplitMix64.cs" />
     <Compile Include="..\SuffixTree.Esa.Tests\TestSupport\ExhaustiveStrings.cs" Link="Shared\ExhaustiveStrings.cs" />
+    <!-- E9: the definitional suffix array and the definitional lcp-interval tree, the oracles of the suffix-link smoke test -->
+    <Compile Include="..\SuffixTree.Esa.Tests\TestSupport\NaiveSuffixArray.cs" Link="Shared\NaiveSuffixArray.cs" />
+    <Compile Include="..\SuffixTree.Esa.Tests\TestSupport\BruteLcpTree.cs" Link="Shared\BruteLcpTree.cs" />
   </ItemGroup>
 
   <ItemGroup>
