@@ -64,6 +64,8 @@ internal static class VerifierHarness
             Child = child,
             Hash = hash,
             StackCapEntries = stackCap,
+            ScanBlock = 7,
+            IoBufferBytes = 13,
             ScratchDir = Path.GetDirectoryName(prefix),
         };
 

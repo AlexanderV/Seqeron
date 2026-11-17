@@ -44,6 +44,12 @@ internal sealed record VerifyOptions
 
     /// <summary>Probes of the matching part of a long pair.</summary>
     internal int Probes { get; init; } = 8;
+
+    /// <summary>Symbols (or table cells) per unit of work of the parallel scans of the text and of the child table (tests use a few).</summary>
+    internal long ScanBlock { get; init; } = 1L << 22;
+
+    /// <summary>Bytes per read of the input text and of the hashed files (tests use a few).</summary>
+    internal int IoBufferBytes { get; init; } = 1 << 22;
 }
 
 internal sealed class VerifyResult

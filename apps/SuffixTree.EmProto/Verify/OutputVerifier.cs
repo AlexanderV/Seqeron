@@ -179,14 +179,14 @@ internal static unsafe class OutputVerifier
         using var text = new PackedText(mappedText.Pointer, n, bits, mappedText, ownsOwner: false);
         // ---- text
         long t0 = Stopwatch.GetTimestamp();
-        string textError = CheckText(mappedText, text, meta, o.Threads);
+        string textError = CheckText(mappedText, text, meta, o.Threads, o.ScanBlock);
         add("text", textError.Length == 0 ? CheckStatus.Pass : CheckStatus.Fail, textError.Length == 0 ? "symbol counts equal the metadata, symbols below sigma, padding and the unused bits of the last byte are zero" : textError, Elapsed(t0));
 
         // ---- input
         if (wanted.Contains("input"))
         {
             t0 = Stopwatch.GetTimestamp();
-            string inputError = CheckInput(o.InputPath!, text, meta);
+            string inputError = CheckInput(o.InputPath!, text, meta, o.IoBufferBytes);
             add("input", inputError.Length == 0 ? CheckStatus.Pass : CheckStatus.Fail, inputError.Length == 0 ? "the packed text equals the input symbol by symbol and its SHA-256 equals the metadata's" : inputError, Elapsed(t0));
         }
 
@@ -242,7 +242,7 @@ internal static unsafe class OutputVerifier
                 {
                     using var mappedCld = new MappedFile(P("cld"), writable: false);
                     t0 = Stopwatch.GetTimestamp();
-                    ScanResult scan = Scan(lcp, (uint*)mappedCld.Pointer, n, o.StackCapEntries, o.Threads, log);
+                    ScanResult scan = Scan(lcp, (uint*)mappedCld.Pointer, n, o.StackCapEntries, o.Threads, o.ScanBlock, log);
                     double scanSeconds = Elapsed(t0);
                     res.Facts["stack_peak"] = scan.StackPeak.ToString(CultureInfo.InvariantCulture);
                     res.Facts["internal"] = scan.Internal.ToString(CultureInfo.InvariantCulture);
@@ -299,12 +299,11 @@ internal static unsafe class OutputVerifier
 
     // ---------------------------------------------------------------- text
 
-    private static string CheckText(MappedFile file, PackedText text, MetaInfo meta, int threads)
+    private static string CheckText(MappedFile file, PackedText text, MetaInfo meta, int threads, long block)
     {
         long n = text.Length;
         int bits = text.Bits;
         var total = new long[256];
-        long block = 1L << 22;
         Parallel.For(0, (int)((n + block - 1) / block), new ParallelOptions { MaxDegreeOfParallelism = Math.Max(1, threads) }, () => new long[256], (b, _, local) =>
         {
             long end = Math.Min(n, (b + 1) * block);
@@ -334,7 +333,7 @@ internal static unsafe class OutputVerifier
         return error.ToString();
     }
 
-    private static string CheckInput(string path, PackedText text, MetaInfo meta)
+    private static string CheckInput(string path, PackedText text, MetaInfo meta, int bufferBytes)
     {
         if (!File.Exists(path)) return "the input file does not exist";
         using var handle = File.OpenHandle(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite, FileOptions.SequentialScan);
@@ -344,7 +343,7 @@ internal static unsafe class OutputVerifier
         Array.Fill(map, -1);
         for (int s = 0; s < meta.Sigma; s++) map[meta.Letters[s]] = s;
         using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
-        var buffer = new byte[1 << 22];
+        var buffer = new byte[bufferBytes];
         long bad = 0, first = -1;
         for (long at = 0; at < length; at += buffer.Length)
         {
@@ -572,7 +571,7 @@ internal static unsafe class OutputVerifier
     /// (the next l-index link of an l-index whose successor is not the next rank, the first l-index at the right boundary of a child that is not the last, at the left boundary of the last child) compares the cell of the file with it.
     /// Afterwards the non-zero cells of the file are counted: they must be exactly the expected ones.
     /// </summary>
-    private static ScanResult Scan(LcpView lcp, uint* cld, long n, long stackCap, int threads, Action<string> log)
+    private static ScanResult Scan(LcpView lcp, uint* cld, long n, long stackCap, int threads, long block, Action<string> log)
     {
         var r = new ScanResult();
         var stack = new IntervalStack(stackCap);
@@ -676,7 +675,6 @@ internal static unsafe class OutputVerifier
         r.StackPeak = stack.Peak;
         // the cells that are set must be exactly the expected ones
         long cells = n + 1;
-        long block = 1L << 22;
         long nonZero = 0;
         Parallel.For(0, (int)((cells + block - 1) / block), new ParallelOptions { MaxDegreeOfParallelism = Math.Max(1, threads) }, b =>
         {
@@ -703,7 +701,7 @@ internal static unsafe class OutputVerifier
         {
             try
             {
-                string sha = HashFile(o.Prefix + "." + e);
+                string sha = HashFile(o.Prefix + "." + e, o.IoBufferBytes);
                 lock (found) found[e] = sha;
                 log($"sha256 {e}: {sha[..16]}");
             }
@@ -719,12 +717,12 @@ internal static unsafe class OutputVerifier
         add("sha256", error.Any ? CheckStatus.Fail : CheckStatus.Pass, error.Any ? error.ToString() : "SHA-256 of all seven files recorded", Elapsed(t0));
     }
 
-    internal static string HashFile(string path)
+    internal static string HashFile(string path, int bufferBytes = 1 << 22)
     {
         using var handle = File.OpenHandle(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite, FileOptions.SequentialScan);
         using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
         long length = RandomAccess.GetLength(handle);
-        var buffer = new byte[1 << 22];
+        var buffer = new byte[bufferBytes];
         for (long at = 0; at < length;)
         {
             int got = RandomAccess.Read(handle, buffer, at);

@@ -152,4 +152,20 @@ public class GenomeStreamTests : TempDirFixture
         Assert.That(Cli.Run(["e8-gen", "--n", "100", "--out", a, "--force"]), Is.EqualTo(0));
         Assert.That(new FileInfo(a).Length, Is.EqualTo(100));
     }
+
+    [Test]
+    public void EnvCommand_ReportsTheArchitecture_TheCores_AndTheVectorPath()
+    {
+        string rows = Path.Combine(Dir, "env.tsv");
+        Assert.That(Cli.Run(["e8-env", "--rows", rows]), Is.EqualTo(0));
+        string[][] lines = File.ReadAllLines(rows).Select(l => l.Split('\t')).ToArray();
+        string Value(string metric) => lines.First(l => l[3] == metric)[4];
+        Assert.That(int.Parse(Value("env_cores")), Is.EqualTo(Environment.ProcessorCount));
+        Assert.That(Value("env_process_arch"), Is.EqualTo(System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture.ToString()));
+        Assert.That(Value("env_page_size"), Is.EqualTo(Environment.SystemPageSize.ToString()));
+        Assert.That(Value("env_little_endian"), Is.EqualTo("yes"));
+        Assert.That(Value("env_lce_path"), Is.EqualTo(System.Runtime.Intrinsics.X86.Avx2.IsSupported ? "avx2 256-bit vectors" : "scalar 64-bit words"));
+        Assert.That(long.Parse(Value("env_gc_available_memory")), Is.GreaterThan(0));
+        foreach (string m in new[] { "env_framework", "env_os", "env_os_arch", "env_runtime_id", "env_gc_hard_limit", "env_avx2", "env_advsimd" }) Assert.That(Value(m), Is.Not.Empty, m);
+    }
 }

@@ -193,19 +193,26 @@ public class VerifierTests : TempDirFixture
         Assert.That(pairs, Is.GreaterThan(10));
         foreach (long cap in new long[] { 0, 16, 100 })
         {
+            // the value of EVERY pair, up and down by one (with the cap the matching part is checked by the probes and at the mismatch position only)
+            for (int pair = 0; pair < pairs; pair++)
+            {
+                foreach (int delta in new[] { 1, -1 })
+                {
+                    string prefix = Clone(clean, Run("o"));
+                    uint v = ReadUInt(prefix + ".ovf", (2L * pair) + 1);
+                    WriteUInt(prefix + ".ovf", (2L * pair) + 1, (uint)(v + delta));
+                    VerifyResult r = OutputVerifier.Run(Options(prefix, 2, 50, cap, hash: false));
+                    Assert.That(r.Failed("lcp_values"), Is.True, $"cap {cap}, pair {pair} value {delta:+0;-0}: {Describe(r)}");
+                    Directory.Delete(Path.GetDirectoryName(prefix)!, true);
+                }
+            }
             foreach (int pair in new[] { 0, 1, (int)pairs / 2, (int)pairs - 1 })
             {
-                foreach (int field in new[] { 0, 1 })
-                {
-                    foreach (int delta in new[] { 1, -1 })
-                    {
-                        string prefix = Clone(clean, Run($"o{cap}_{pair}_{field}_{delta}"));
-                        uint v = ReadUInt(prefix + ".ovf", (2L * pair) + field);
-                        WriteUInt(prefix + ".ovf", (2L * pair) + field, (uint)(v + delta));
-                        VerifyResult r = OutputVerifier.Run(Options(prefix, 2, 50, cap));
-                        Assert.That(r.Failed("lcp_values"), Is.True, $"cap {cap}, pair {pair} field {field} {delta:+0;-0}: {Describe(r)}");
-                    }
-                }
+                string prefix = Clone(clean, Run("r"));
+                uint v = ReadUInt(prefix + ".ovf", 2L * pair);
+                WriteUInt(prefix + ".ovf", 2L * pair, v + 1);
+                Assert.That(OutputVerifier.Run(Options(prefix, 2, 50, cap)).Failed("lcp_values"), Is.True, $"cap {cap}, pair {pair} rank");
+                Directory.Delete(Path.GetDirectoryName(prefix)!, true);
             }
         }
     }
@@ -371,7 +378,7 @@ public class VerifierTests : TempDirFixture
                 for (long off = 0; off < length; off++)
                 {
                     if (e == "pk.meta" && off >= nameStart) continue;
-                    foreach (byte mask in new byte[] { 0x01, 0x80 })
+                    foreach (byte mask in new byte[] { 0x01, 0x20, 0x80 })
                     {
                         string prefix = Clone(clean, Run("b"));
                         FlipByte(prefix + "." + e, off, mask);

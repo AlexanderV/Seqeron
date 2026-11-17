@@ -1,5 +1,8 @@
 using System.Diagnostics;
 using System.Globalization;
+using System.Runtime.InteropServices;
+using System.Runtime.Intrinsics.Arm;
+using System.Runtime.Intrinsics.X86;
 using SuffixTree.EmProto.Gen;
 using SuffixTree.EmProto.Harness;
 using SuffixTree.EmProto.Verify;
@@ -45,6 +48,26 @@ internal static class E8
         return 0;
     }
 
+    /// <summary><c>e8-env</c>: what the .NET process sees (architecture, cores, memory the GC may use, page size, which vector instructions the program will use); rows <c>env_*</c>, for the preflight and the rows file.</summary>
+    internal static int Env(Options o, Report r)
+    {
+        string c = o.Str("case", "env");
+        r.Row("E8", c, "env_framework", RuntimeInformation.FrameworkDescription, "", "RuntimeInformation.FrameworkDescription");
+        r.Row("E8", c, "env_os", RuntimeInformation.OSDescription, "", "RuntimeInformation.OSDescription");
+        r.Row("E8", c, "env_os_arch", RuntimeInformation.OSArchitecture.ToString(), "", "architecture of the operating system (x64 / Arm64)");
+        r.Row("E8", c, "env_process_arch", RuntimeInformation.ProcessArchitecture.ToString(), "", "architecture of this process (a difference to the OS architecture means emulation by the runtime)");
+        r.Row("E8", c, "env_runtime_id", RuntimeInformation.RuntimeIdentifier, "", "runtime identifier of the framework");
+        r.Row("E8", c, "env_cores", Environment.ProcessorCount, "n", "Environment.ProcessorCount (respects the container's CPU limit)");
+        r.Row("E8", c, "env_gc_available_memory", GC.GetGCMemoryInfo().TotalAvailableMemoryBytes, "bytes", "memory the GC believes it may use (the container's memory limit when there is one)");
+        r.Row("E8", c, "env_gc_hard_limit", Environment.GetEnvironmentVariable("DOTNET_GCHeapHardLimit") ?? "not set", "", "DOTNET_GCHeapHardLimit of this process");
+        r.Row("E8", c, "env_page_size", Environment.SystemPageSize, "bytes", "system page size (4096 on x86-64 and on Docker Desktop's arm64 VM)");
+        r.Row("E8", c, "env_little_endian", BitConverter.IsLittleEndian ? "yes" : "NO", "", "the output files are little endian by construction of the writers");
+        r.Row("E8", c, "env_avx2", Avx2.IsSupported ? "yes" : "no", "", "System.Runtime.Intrinsics.X86.Avx2.IsSupported");
+        r.Row("E8", c, "env_advsimd", AdvSimd.IsSupported ? "yes" : "no", "", "System.Runtime.Intrinsics.Arm.AdvSimd.IsSupported");
+        r.Row("E8", c, "env_lce_path", Avx2.IsSupported ? "avx2 256-bit vectors" : "scalar 64-bit words", "", "how PackedText compares suffixes here (the scalar path gives the same results, tested; it is slower on tie-rich text)");
+        return 0;
+    }
+
     /// <summary>
     /// <c>e8-verify --prefix &lt;e6 prefix&gt; [--input text] [--threads 4] [--lce-cap 65536] [--stack-cap-m 64] [--scratch dir] [--no-hash] [--no-child] [--sums file] [--quiet]</c>: one row per check, the facts, the hashes;
     /// exit code 0 only when every listed check passed.
@@ -65,6 +88,7 @@ internal static class E8
             Child = !o.Flag("no-child"),
             BlockRanks = o.Int("block-ranks", 1 << 20),
             Probes = o.Int("probes", 8),
+            IoBufferBytes = o.Int("io-kb", 4096) * 1024,
         };
         long t0 = Stopwatch.GetTimestamp();
         Action<string>? progress = o.Flag("quiet") ? null : msg => Console.Error.WriteLine($"# verify {(Stopwatch.GetTimestamp() - t0) / (double)Stopwatch.Frequency,8:F1} s  {msg}");

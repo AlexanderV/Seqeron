@@ -45,7 +45,8 @@ internal static class Cli
                    E9: every kernel x source of the suffix-link prototype P1 with the in-RAM tables and with the streamed ones, on the P1 node sample; results must be identical
           e8-gen   --n <symbols, decimal suffix k/m/g allowed> --out <text file> [--seed 20240002] [--sums <checksum file>] [--buffer-kb 1024] [--force] [--case name]
                    E8: the genome-like text of E3 to E7 (Families.GenomeLike, same bytes) streamed with a bounded buffer for any n; <out>.sums (default) holds n, seed, SHA-256 and the letter counts
-          e8-verify --prefix <e6 output prefix> [--input <text file>] [--threads 4] [--lce-cap 65536] [--stack-cap-m 64] [--scratch <dir>] [--no-hash] [--no-child] [--sums <file>] [--case name]
+          e8-env   [--case name]    E8: what this process sees: architecture, cores, GC memory, page size, vector instructions (rows env_*)
+          e8-verify --prefix <e6 output prefix> [--input <text file>] [--threads 4] [--lce-cap 65536] [--stack-cap-m 64] [--scratch <dir>] [--io-kb 4096] [--no-hash] [--no-child] [--sums <file>] [--quiet] [--case name]
                    E8: checks the outputs .pk .sa .lcp .ovf .cld .stats of e6 without an in-RAM reference (any n below 2^32 - 2): SA is a permutation, adjacent suffixes strictly ordered, stored LCP equal to the common prefix,
                    statistics recomputed from the LCP, the child table cell by cell against the lcp-interval definition, SHA-256 of every output; exit code 0 only when every check passed
           e6-mktext --family <spec> --out <text file> [--data dir]   the ASCII text of a family (setup, outside the pipeline)
@@ -84,6 +85,7 @@ internal static class Cli
                 case "e6-mktext": return E6.MakeText(o, report);
                 case "e8-gen": return E8.Gen(o, report);
                 case "e8-verify": return E8.Verify(o, report);
+                case "e8-env": return E8.Env(o, report);
                 case "e9-bwt": return E9.Bwt(o, report);
                 case "e9-psi": return E9.Psi(o, report);
                 case "e9-isa": return E9.Isa(o, report);
