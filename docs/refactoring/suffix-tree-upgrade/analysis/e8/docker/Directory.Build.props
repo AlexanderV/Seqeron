@@ -1,0 +1,19 @@
+<Project>
+
+  <!--
+    E8 image build only (ADR-004 section 5a, E8). Replaces the repository's root Directory.Build.props inside the build stage of the Dockerfile (the root file is not changed): the root file adds the
+    SonarAnalyzer.CSharp package to every project, which the restore would fetch from nuget.org. The image build must pull nothing but the public .NET base images and the distribution's own packages,
+    so the analyzer reference (static analysis only, no effect on the produced code) is left out. Everything else is what the root file sets for the projects the program needs.
+  -->
+  <PropertyGroup>
+    <TargetFramework Condition="'$(TargetFramework)' == ''">net10.0</TargetFramework>
+    <ImplicitUsings Condition="'$(ImplicitUsings)' == ''">enable</ImplicitUsings>
+    <Nullable Condition="'$(Nullable)' == ''">enable</Nullable>
+    <LangVersion Condition="'$(LangVersion)' == ''">latest</LangVersion>
+    <Deterministic>true</Deterministic>
+    <!-- no warnings-as-errors here: a newer SDK than the one the project was developed with must not fail the build over a new analyzer message -->
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
+  </PropertyGroup>
+
+</Project>

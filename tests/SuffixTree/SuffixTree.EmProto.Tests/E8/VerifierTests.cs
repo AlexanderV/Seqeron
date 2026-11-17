@@ -114,7 +114,8 @@ public class VerifierTests : TempDirFixture
             VerifyResult r = Check(prefix);
             Assert.That(r.AllPassed, Is.False, $"swap {i},{j}");
             Assert.That(r.Failed("sa_order") || r.Failed("sa_permutation"), Is.True, $"swap {i},{j}: {Describe(r)}");
-            Assert.That(r.Passed("sa_permutation") || i == 0 || j == 0, Is.True, $"a swap keeps the permutation: {Describe(r)}");
+            if (i == 0 || j == 0) Assert.That(r.Failed("sa_permutation"), Is.True, $"SA[0] must be n: {Describe(r)}");
+            else Assert.That(r.Passed("sa_permutation"), Is.True, $"a swap keeps the permutation: {Describe(r)}");
         }
     }
 
@@ -281,10 +282,10 @@ public class VerifierTests : TempDirFixture
         {
             string m = Clone(clean, Run($"mn{delta}"));
             SetKey(m + ".pk.meta", "n", (11 + delta).ToString());
-            Assert.That(Check(m).AllPassed, Is.False, $"meta n {delta:+0;-0}");
+            Assert.That(Check(m).Failed("files"), Is.True, $"meta n {delta:+0;-0}");
             string s = Clone(clean, Run($"sn{delta}"));
             SetKey(s + ".stats", "n", (11 + delta).ToString());
-            Assert.That(Check(s).AllPassed, Is.False, $"stats n {delta:+0;-0}");
+            Assert.That(Check(s).Failed("files"), Is.True, $"stats n {delta:+0;-0}");
             string both = Clone(clean, Run($"bn{delta}"));
             SetKey(both + ".pk.meta", "n", (11 + delta).ToString());
             SetKey(both + ".stats", "n", (11 + delta).ToString());
@@ -341,6 +342,87 @@ public class VerifierTests : TempDirFixture
     }
 
     [Test]
+    public void TamperedMetadata_IsReportedByTheMetaCheck_ItselfAndNotOnlyByTheTextCheck()
+    {
+        string clean = Reference("acgtnacgtacgtnnt");
+        string counts = Key(clean + ".pk.meta", "counts");
+        long[] c = counts.Split(',').Select(long.Parse).ToArray();
+        string letters = Key(clean + ".pk.meta", "letters_hex");
+        var cases = new List<(string Name, string Key, string Value)>
+        {
+            ("counts add up to more than n", "counts", string.Join(',', c.Select((v, i) => i == 0 ? v + 1 : v))),
+            ("counts add up to less than n", "counts", string.Join(',', c.Select((v, i) => i == 0 ? v - 1 : v))),
+            ("a letter that does not occur", "counts", string.Join(',', c.Select((v, i) => i == 0 ? 0 : i == 1 ? v + c[0] : v))),
+            ("bits too large", "bits", "4"),
+            ("bits too small", "bits", "2"),
+            ("equal neighbouring letters", "letters_hex", letters[2..4] + letters[2..4] + letters[4..]),
+            ("letters out of order", "letters_hex", letters[2..4] + letters[..2] + letters[4..]),
+            ("lower-case hex", "letters_hex", letters.ToLowerInvariant()),
+            ("a short hash", "sha256", Key(clean + ".pk.meta", "sha256")[..63]),
+            ("upper-case hash", "sha256", Key(clean + ".pk.meta", "sha256").ToUpperInvariant()),
+            ("a leading zero", "sigma", "05"),
+            ("a short letters list", "letters_hex", letters[..^2]),
+            ("a short counts list", "counts", string.Join(',', c.Take(c.Length - 1))),
+            ("a long letters list", "letters_hex", letters + "FF"),
+            ("a long counts list", "counts", counts + ",5"),
+            ("a long hash", "sha256", Key(clean + ".pk.meta", "sha256") + "0"),
+            ("a signed number", "n", "+16"),
+            ("a number with a blank", "n", "16 "),
+        };
+        foreach ((string name, string key, string value) in cases)
+        {
+            string d = Clone(clean, Run("m" + Math.Abs(name.GetHashCode())));
+            SetKey(d + ".pk.meta", key, value);
+            VerifyResult r = OutputVerifier.Run(Options(d, 1, 5, input: false));
+            Assert.That(r.Failed("meta"), Is.True, $"{name}: {Describe(r)}");
+        }
+    }
+
+    [Test]
+    public void AnExtraLine_OrABlankLine_InTheMetadataOrTheStatistics_IsRefused()
+    {
+        string clean = Reference("mississippi");
+        foreach (string ext in new[] { "pk.meta", "stats" })
+        {
+            foreach (string extra in new[] { "extra=1\n", "\n", "x" })
+            {
+                string d = Clone(clean, Run($"x{ext}{extra.Length}"));
+                File.AppendAllText(d + "." + ext, extra);
+                VerifyResult r = OutputVerifier.Run(Options(d, 1, 5, input: false));
+                Assert.That(r.AllPassed, Is.False, $"{ext} + '{extra.Replace("\n", "\\n")}'");
+                Assert.That(r.Failed(ext == "stats" ? "files" : "meta") || r.Failed("files"), Is.True, Describe(r));
+            }
+        }
+    }
+
+    [Test]
+    public void TheWidthRule_ForEveryBoundary()
+    {
+        // U8 plus overflow iff 16 x escapes8 <= n; else U16 plus overflow iff 8 x escapes16 <= n; else U32
+        Assert.That(OutputVerifier.RuleWidth(160, 10, 10), Is.EqualTo(1));
+        Assert.That(OutputVerifier.RuleWidth(159, 10, 10), Is.EqualTo(2).Or.EqualTo(4));
+        Assert.That(OutputVerifier.RuleWidth(159, 10, 0), Is.EqualTo(2));
+        Assert.That(OutputVerifier.RuleWidth(80, 100, 10), Is.EqualTo(2));
+        Assert.That(OutputVerifier.RuleWidth(79, 100, 10), Is.EqualTo(4));
+        Assert.That(OutputVerifier.RuleWidth(80, 5, 10), Is.EqualTo(1), "16 x 5 = 80 <= 80");
+        Assert.That(OutputVerifier.RuleWidth(0, 0, 0), Is.EqualTo(1));
+        Assert.That(OutputVerifier.RuleWidth(3_000_000_000L, 187_500_000, 1), Is.EqualTo(1), "64-bit arithmetic: 16 x 1.875e8 = 3e9");
+        Assert.That(OutputVerifier.RuleWidth(3_000_000_000L, 187_500_001, 375_000_000), Is.EqualTo(2));
+        Assert.That(OutputVerifier.RuleWidth(3_000_000_000L, 187_500_001, 375_000_001), Is.EqualTo(4));
+    }
+
+    [Test]
+    public void TheEscapeCounts_AreExact_AtTheThresholds()
+    {
+        // a^n has the LCP values 0, 0, 1, 2, ..., n - 1: the values >= 255 are 255 .. n - 1 and the values >= 65535 are 65535 .. n - 1
+        string prefix = Reference(new string('a', 70_000), "esc");
+        VerifyResult r = OutputVerifier.Run(Options(prefix, 3, 4096, input: false, hash: false));
+        Assert.That(r.AllPassed, Is.True, Describe(r));
+        Assert.That(r.Facts["escapes8"], Is.EqualTo((70_000 - 255).ToString()));
+        Assert.That(r.Facts["escapes16"], Is.EqualTo((70_000 - 65_535).ToString()));
+    }
+
+    [Test]
     public void ChangedInput_IsDetected_ByTheInputCheck()
     {
         string clean = Reference("mississippi");
@@ -354,10 +436,14 @@ public class VerifierTests : TempDirFixture
         Assert.That(Check(d).Failed("input"), Is.True);
         string e = Clone(clean, Run("in2"));
         File.AppendAllText(Path.Combine(Path.GetDirectoryName(e)!, "in.txt"), "a");
-        Assert.That(Check(e).Failed("input"), Is.True, "a longer input");
+        VerifyResult longer = Check(e);
+        Assert.That(longer.Failed("input"), Is.True, "a longer input");
+        Assert.That(longer.Find("input")!.Detail, Does.StartWith("the input has 12 bytes, n is 11"));
         string f = Clone(clean, Run("in3"));
         Truncate(Path.Combine(Path.GetDirectoryName(f)!, "in.txt"), 10);
-        Assert.That(Check(f).Failed("input"), Is.True, "a shorter input");
+        VerifyResult shorter = Check(f);
+        Assert.That(shorter.Failed("input"), Is.True, "a shorter input");
+        Assert.That(shorter.Find("input")!.Detail, Does.StartWith("the input has 10 bytes, n is 11"));
         string g = Clone(clean, Run("in4"));
         File.Delete(Path.Combine(Path.GetDirectoryName(g)!, "in.txt"));
         Assert.That(Check(g).Failed("input"), Is.True, "a missing input");
@@ -539,6 +625,32 @@ public class VerifierTests : TempDirFixture
         Assert.That(Cli.Run(["e8-verify", "--prefix", bad, "--quiet", "--rows", Path.Combine(Dir, "rows2.tsv")]), Is.EqualTo(1));
         Assert.That(File.ReadAllText(Path.Combine(Dir, "rows2.tsv")), Does.Contain("\tverify_all\tFAIL\t").And.Contain("\tverify_child\tFAIL\t"));
         Assert.That(Cli.Run(["e8-verify"]), Is.EqualTo(2));
+        Assert.That(text, Does.Contain("\tverify_fact_lce_cap\t100\t"), "the cap of the run is a row");
+        Assert.That(text, Does.Contain("\tverify_fact_stack_cap\t67108864\t"), "the default stack bound is 64 Mi entries");
         Assert.That(Cli.Run(["e8-verify", "--prefix", Path.Combine(Dir, "nothing")]), Is.EqualTo(1), "missing files are a failed verification, not a crash");
+    }
+
+    [Test]
+    public void Command_StackBound_Skipped_NoHash_NoChild_AndTheDefaultCap()
+    {
+        string clean = Reference(new string('a', 2000), "cmd2");
+        string rows = Path.Combine(Dir, "r1.tsv");
+        Assert.That(Cli.Run(["e8-verify", "--prefix", clean, "--quiet", "--rows", rows, "--stack-cap", "100"]), Is.EqualTo(1), "a skipped check is not a pass");
+        string text = File.ReadAllText(rows);
+        Assert.That(text, Does.Contain("\tverify_child\tskipped\t").And.Contain("\tverify_all\tFAIL\t").And.Contain("\tverify_fact_stack_cap\t100\t"));
+        Assert.That(text, Does.Not.Contain("\tverify_child\tpass\t"));
+        string rows2 = Path.Combine(Dir, "r2.tsv");
+        Assert.That(Cli.Run(["e8-verify", "--prefix", clean, "--quiet", "--rows", rows2, "--stack-cap-m", "2", "--no-hash", "--lce-cap", "7"]), Is.EqualTo(0));
+        string t2 = File.ReadAllText(rows2);
+        Assert.That(t2, Does.Contain("\tverify_fact_stack_cap\t2097152\t").And.Contain("\tverify_fact_lce_cap\t7\t"));
+        Assert.That(t2, Does.Not.Contain("verify_sha256").And.Not.Contain("\tsha256_"));
+        string rows3 = Path.Combine(Dir, "r3.tsv");
+        Assert.That(Cli.Run(["e8-verify", "--prefix", clean, "--quiet", "--rows", rows3, "--no-child"]), Is.EqualTo(0));
+        string t3 = File.ReadAllText(rows3);
+        Assert.That(t3, Does.Not.Contain("verify_child").And.Not.Contain("verify_stats"));
+        Assert.That(t3, Does.Contain("\tverify_sha256\tpass\t"));
+        string rows4 = Path.Combine(Dir, "r4.tsv");
+        Assert.That(Cli.Run(["e8-verify", "--prefix", clean, "--quiet", "--rows", rows4]), Is.EqualTo(0));
+        Assert.That(File.ReadAllText(rows4), Does.Contain("\tverify_fact_lce_cap\t65536\t"), "the default cap");
     }
 }

@@ -69,7 +69,7 @@ internal static class E8
     }
 
     /// <summary>
-    /// <c>e8-verify --prefix &lt;e6 prefix&gt; [--input text] [--threads 4] [--lce-cap 65536] [--stack-cap-m 64] [--scratch dir] [--no-hash] [--no-child] [--sums file] [--quiet]</c>: one row per check, the facts, the hashes;
+    /// <c>e8-verify --prefix &lt;e6 prefix&gt; [--input text] [--threads 4] [--lce-cap 65536] [--stack-cap-m 64 | --stack-cap entries] [--scratch dir] [--no-hash] [--no-child] [--sums file] [--quiet]</c>: one row per check, the facts, the hashes;
     /// exit code 0 only when every listed check passed.
     /// </summary>
     internal static int Verify(Options o, Report r)
@@ -83,7 +83,7 @@ internal static class E8
             ScratchDir = o.Get("scratch"),
             Threads = o.Int("threads", 4),
             LceCap = o.Long("lce-cap", 65536),
-            StackCapEntries = o.Long("stack-cap-m", 64) << 20,
+            StackCapEntries = o.Get("stack-cap") is { } entries ? long.Parse(entries, CultureInfo.InvariantCulture) : o.Long("stack-cap-m", 64) << 20,
             Hash = !o.Flag("no-hash"),
             Child = !o.Flag("no-child"),
             BlockRanks = o.Int("block-ranks", 1 << 20),

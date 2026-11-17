@@ -117,6 +117,7 @@ internal static unsafe class OutputVerifier
             res.Facts["lcpwidth"] = width.ToString(CultureInfo.InvariantCulture);
             res.Facts["overflow"] = overflow.ToString(CultureInfo.InvariantCulture);
             res.Facts["lce_cap"] = o.LceCap.ToString(CultureInfo.InvariantCulture);
+            res.Facts["stack_cap"] = o.StackCapEntries.ToString(CultureInfo.InvariantCulture);
         }
         if (filesOk && n >= uint.MaxValue - 2)
         {
@@ -219,8 +220,9 @@ internal static unsafe class OutputVerifier
                 totals.Lcp.Count == 0 ? $"every stored LCP equals the common prefix of its adjacent pair ({totals.LongPairs} long pairs above the cap {o.LceCap}), the overflow list matches the escapes" : $"{totals.Lcp.Count} violations, first {totals.Lcp.First}", passSeconds);
             if (totals.Lcp.Count == 0)
             {
-                LcpKind rule = Rule(n, totals.Escapes8, totals.Escapes16);
-                int ruleWidth = rule switch { LcpKind.U8 => 1, LcpKind.U16 => 2, _ => 4 };
+                int ruleWidth = RuleWidth(n, totals.Escapes8, totals.Escapes16);
+                res.Facts["escapes8"] = totals.Escapes8.ToString(CultureInfo.InvariantCulture);
+                res.Facts["escapes16"] = totals.Escapes16.ToString(CultureInfo.InvariantCulture);
                 add("lcp_width", ruleWidth == width ? CheckStatus.Pass : CheckStatus.Fail,
                     ruleWidth == width ? $"width {width} is the rule's choice (values >= 255: {totals.Escapes8}, >= 65535: {totals.Escapes16})" : $"width {width}, the rule gives {ruleWidth} (values >= 255: {totals.Escapes8}, >= 65535: {totals.Escapes16})", 0);
             }
@@ -283,18 +285,12 @@ internal static unsafe class OutputVerifier
         if (wanted.Contains("sha256")) HashAll(o, res, add, log);
     }
 
-    private static LcpKind Rule(long n, long escapes8, long escapes16)
+    /// <summary>The width rule of ADR-002 section 4 (U8 plus overflow iff 16 x escapes8 &lt;= n, else U16 plus overflow iff 8 x escapes16 &lt;= n, else U32), as bytes per entry; written here from the ADR, not taken from the product.</summary>
+    internal static int RuleWidth(long n, long escapes8, long escapes16)
     {
-        if (16 * escapes8 <= n) return LcpKind.U8;
-        if (8 * escapes16 <= n) return LcpKind.U16;
-        return LcpKind.U32;
-    }
-
-    private enum LcpKind
-    {
-        U8,
-        U16,
-        U32,
+        if (16 * escapes8 <= n) return 1;
+        if (8 * escapes16 <= n) return 2;
+        return 4;
     }
 
     // ---------------------------------------------------------------- text

@@ -1,0 +1,401 @@
+[
+ {
+  "id": "A01",
+  "desc": "the packed text is expected without its 64 padding bytes",
+  "old": "Length(\"pk\", PackedText.TotalBytes(n, bits));",
+  "new": "Length(\"pk\", PackedText.DataBytes(n, bits));",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs"
+ },
+ {
+  "id": "A02",
+  "desc": "the suffix array file is expected to have n entries",
+  "old": "Length(\"sa\", 4 * (n + 1));",
+  "new": "Length(\"sa\", 4 * n);",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs"
+ },
+ {
+  "id": "A03",
+  "desc": "the child table file is expected to have n entries",
+  "old": "Length(\"cld\", 4 * (n + 1));",
+  "new": "Length(\"cld\", 4 * n);",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs"
+ },
+ {
+  "id": "A04",
+  "desc": "the LCP file is expected to have n entries",
+  "old": "Length(\"lcp\", width * (n + 1));",
+  "new": "Length(\"lcp\", width * n);",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs"
+ },
+ {
+  "id": "A05",
+  "desc": "overflow pairs are expected to have 4 bytes",
+  "old": "Length(\"ovf\", 8 * overflow);",
+  "new": "Length(\"ovf\", 4 * overflow);",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs"
+ },
+ {
+  "id": "A06",
+  "desc": "stats n greater than meta n is not reported by the files check",
+  "old": "if (stats.N != n) filesError.Add",
+  "new": "if (stats.N < n) filesError.Add",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs"
+ },
+ {
+  "id": "A07",
+  "desc": "counts that add up to more than n pass the metadata check",
+  "old": "if (m.Counts.Sum() != m.N)",
+  "new": "if (m.Counts.Sum() < m.N)",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs"
+ },
+ {
+  "id": "A08",
+  "desc": "a width above the one the alphabet needs passes the metadata check",
+  "old": "if (m.Bits != Math.Max(1, BitsFor(m.Sigma)))",
+  "new": "if (m.Bits < Math.Max(1, BitsFor(m.Sigma)))",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs"
+ },
+ {
+  "id": "A09",
+  "desc": "equal neighbouring letters pass the metadata check",
+  "old": "if (m.Letters[i] <= m.Letters[i - 1])",
+  "new": "if (m.Letters[i] < m.Letters[i - 1])",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs"
+ },
+ {
+  "id": "A10",
+  "desc": "a letter that never occurs passes the metadata check",
+  "old": "if (m.Counts.Any(c => c < 1))",
+  "new": "if (m.Counts.Any(c => c < 0))",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs"
+ },
+ {
+  "id": "B01",
+  "desc": "the last padding byte is not checked",
+  "old": "for (long i = dataBytes; i < file.Bytes; i++)",
+  "new": "for (long i = dataBytes; i < file.Bytes - 1; i++)",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs"
+ },
+ {
+  "id": "B02",
+  "desc": "the unused bits of the last data byte are not checked",
+  "old": "if (usedBits != 0 && (file.Pointer[dataBytes - 1]",
+  "new": "if (false && usedBits != 0 && (file.Pointer[dataBytes - 1]",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs"
+ },
+ {
+  "id": "B03",
+  "desc": "the unused bits are counted modulo 4",
+  "old": "int usedBits = (int)((n * bits) & 7);",
+  "new": "int usedBits = (int)((n * bits) & 3);",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs"
+ },
+ {
+  "id": "B04",
+  "desc": "a longer input passes the length check",
+  "old": "if (length != text.Length)",
+  "new": "if (length < text.Length)",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs"
+ },
+ {
+  "id": "B05",
+  "desc": "the SHA-256 of the input is not compared with the metadata",
+  "old": "if (sha != meta.Sha256)",
+  "new": "if (sha == \"\")",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs"
+ },
+ {
+  "id": "B06",
+  "desc": "a wrong symbol count is reported only when it is too low",
+  "old": "if (total[s] != expected)",
+  "new": "if (total[s] < expected)",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs"
+ },
+ {
+  "id": "C01",
+  "desc": "a duplicate suffix array entry is not noticed",
+  "old": "if ((old & mask) != 0) totals.Permutation.Add",
+  "new": "if ((old & mask) == 7) totals.Permutation.Add",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs"
+ },
+ {
+  "id": "C02",
+  "desc": "the bitmap uses 32 bits per word index but 64 bits per mask",
+  "old": "ulong old = Interlocked.Or(ref bits[q >> 6], mask);",
+  "new": "ulong old = Interlocked.Or(ref bits[q >> 5], mask);",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs"
+ },
+ {
+  "id": "C03",
+  "desc": "the bit of an entry is q modulo 32",
+  "old": "ulong mask = 1UL << (int)(q & 63);",
+  "new": "ulong mask = 1UL << (int)(q & 31);",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs"
+ },
+ {
+  "id": "C04",
+  "desc": "an entry above n is not reported",
+  "old": "if (q > n) totals.Permutation.Add",
+  "new": "if (q > n + 1) totals.Permutation.Add",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs"
+ },
+ {
+  "id": "C05",
+  "desc": "a value of exactly 255 is not counted as an escape",
+  "old": "if (stored >= 255) local.Escapes8++;",
+  "new": "if (stored > 255) local.Escapes8++;",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs"
+ },
+ {
+  "id": "C06",
+  "desc": "a value of exactly 65535 is not counted",
+  "old": "if (stored >= 65535) local.Escapes16++;",
+  "new": "if (stored > 65535) local.Escapes16++;",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs"
+ },
+ {
+  "id": "C07",
+  "desc": "SA[0] is not compared with n",
+  "old": "if (q != n) totals.Permutation.Add(0,",
+  "new": "if (q > n) totals.Permutation.Add(0,",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs"
+ },
+ {
+  "id": "C08",
+  "desc": "LCP[0] is not checked",
+  "old": "if (stored != 0) totals.Lcp.Add(0,",
+  "new": "if (stored > 1_000_000_000) totals.Lcp.Add(0,",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs"
+ },
+ {
+  "id": "C09",
+  "desc": "the common prefix is bounded by the shorter start instead of the shorter suffix",
+  "old": "long maxLen = n - Math.Max(p, q);",
+  "new": "long maxLen = n - Math.Min(p, q);",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs"
+ },
+ {
+  "id": "C10",
+  "desc": "a cap of 0 means a limit of 0",
+  "old": "long lim = cap > 0 ? Math.Min(maxLen, cap) : maxLen;",
+  "new": "long lim = cap >= 0 ? Math.Min(maxLen, cap) : maxLen;",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs"
+ },
+ {
+  "id": "C11",
+  "desc": "a pair where one suffix ends is treated as a long pair",
+  "old": "if (l < lim || lim == maxLen)",
+  "new": "if (l < lim)",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs"
+ },
+ {
+  "id": "C12",
+  "desc": "the suffix that starts earlier is the shorter one",
+  "old": "bool ordered = l == maxLen ? p > q :",
+  "new": "bool ordered = l == maxLen ? p < q :",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs"
+ },
+ {
+  "id": "C13",
+  "desc": "equal symbols at the mismatch pass the order check",
+  "old": "text.Symbol(p + l) < text.Symbol(q + l);",
+  "new": "text.Symbol(p + l) <= text.Symbol(q + l);",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs"
+ },
+ {
+  "id": "C14",
+  "desc": "a stored LCP that is too large is not reported (exact path)",
+  "old": "if (stored != l) totals.Lcp.Add",
+  "new": "if (stored < l) totals.Lcp.Add",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs"
+ },
+ {
+  "id": "C15",
+  "desc": "a stored LCP above the shorter suffix is accepted for a long pair",
+  "old": "if (stored < cap || stored > maxLen)",
+  "new": "if (stored < cap)",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs"
+ },
+ {
+  "id": "C16",
+  "desc": "for a long pair that ends at the shorter suffix the order is reversed",
+  "old": "if (stored == maxLen) ok = p > q;",
+  "new": "if (stored == maxLen) ok = p < q;",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs"
+ },
+ {
+  "id": "C17",
+  "desc": "for a long pair the order of the mismatch symbols is reversed",
+  "old": "ok = a < b;",
+  "new": "ok = a > b;",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs"
+ },
+ {
+  "id": "C18",
+  "desc": "no probes of the matching part of a long pair",
+  "old": "for (int k = 0; k < o.Probes && span > 0; k++)",
+  "new": "for (int k = 0; k < 0 && span > 0; k++)",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs"
+ },
+ {
+  "id": "C19",
+  "desc": "the first probe is two symbols before the end instead of one",
+  "old": "long off = k == 0 ? stored - 1 :",
+  "new": "long off = k == 0 ? stored - 2 :",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs"
+ },
+ {
+  "id": "C20",
+  "desc": "the probe compares for inequality as equality",
+  "old": "if (text.Symbol(p + off) != text.Symbol(q + off))",
+  "new": "if (text.Symbol(p + off) == text.Symbol(q + off))",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs"
+ },
+ {
+  "id": "C21",
+  "desc": "a pair value equal to the escape is refused",
+  "old": "lcp.ValueOfPair(pair) >= lcp.Escape)",
+  "new": "lcp.ValueOfPair(pair) > lcp.Escape)",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs"
+ },
+ {
+  "id": "C22",
+  "desc": "the first pair of a block is looked up from the start of the list",
+  "old": "long pair = lcp.HasEscape && lcp.PairCount > 0 ? lcp.LowerBound(first) : 0;",
+  "new": "long pair = 0;",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs"
+ },
+ {
+  "id": "C23",
+  "desc": "a pair left over in a block is not reported",
+  "old": "if (lcp.HasEscape && lcp.PairCount > 0 && pair != lcp.LowerBound(end)) totals.Lcp.Add(",
+  "new": "if (false && lcp.HasEscape && lcp.PairCount > 0 && pair != lcp.LowerBound(end)) totals.Lcp.Add(",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs"
+ },
+ {
+  "id": "C24",
+  "desc": "the width rule takes 17 times the escapes",
+  "old": "if (16 * escapes8 <= n) return LcpKind.U8;",
+  "new": "if (17 * escapes8 <= n) return LcpKind.U8;",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs"
+ },
+ {
+  "id": "C25",
+  "desc": "the width rule for U16 takes 9 times the escapes",
+  "old": "if (8 * escapes16 <= n) return LcpKind.U16;",
+  "new": "if (9 * escapes16 <= n) return LcpKind.U16;",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs"
+ },
+ {
+  "id": "D01",
+  "desc": "the left boundary of a new interval is the rank itself",
+  "old": "uint left = (uint)(i - 1);",
+  "new": "uint left = (uint)i;",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs"
+ },
+ {
+  "id": "D02",
+  "desc": "a child is the last child when the next value equals the parent",
+  "old": "Close(e.Ell, e.Lb, i - 1, e.First, cur < stack.Top.Ell);",
+  "new": "Close(e.Ell, e.Lb, i - 1, e.First, cur <= stack.Top.Ell);",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs"
+ },
+ {
+  "id": "D03",
+  "desc": "an interval of the same value is pushed again",
+  "old": "if (top.Ell < cur)\n            {\n                if (!stack.TryPush",
+  "new": "if (top.Ell <= cur)\n            {\n                if (!stack.TryPush",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs"
+ },
+ {
+  "id": "D04",
+  "desc": "the next link is expected when the successor is two ranks away",
+  "old": "if (i != top.Last + 1L) Expect(top.Last, (uint)i);",
+  "new": "if (i != top.Last + 2L) Expect(top.Last, (uint)i);",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs"
+ },
+ {
+  "id": "D05",
+  "desc": "up and down fields are swapped",
+  "old": "Expect(lastChild ? lb : rb, first);",
+  "new": "Expect(lastChild ? rb : lb, first);",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs"
+ },
+ {
+  "id": "D06",
+  "desc": "the deepest interval is the last one among equals",
+  "old": "if (ell > r.LrsDepth)",
+  "new": "if (ell >= r.LrsDepth)",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs"
+ },
+ {
+  "id": "D07",
+  "desc": "the LRS rank is the right boundary",
+  "old": "r.LrsRank = lb;",
+  "new": "r.LrsRank = (uint)rb;",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs"
+ },
+ {
+  "id": "D08",
+  "desc": "the first maximum is the last maximum",
+  "old": "if (cur > r.MaxLcp)",
+  "new": "if (cur >= r.MaxLcp)",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs"
+ },
+ {
+  "id": "D09",
+  "desc": "the first maximum rank is off by one",
+  "old": "r.FirstMaxRank = i;",
+  "new": "r.FirstMaxRank = i - 1;",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs"
+ },
+ {
+  "id": "D10",
+  "desc": "cells holding 1 are not counted as set",
+  "old": "if (cld[k] != 0) count++;",
+  "new": "if (cld[k] > 1) count++;",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs"
+ },
+ {
+  "id": "D11",
+  "desc": "the root is closed as a non-last child",
+  "old": "Close(e.Ell, e.Lb, n, e.First, true);",
+  "new": "Close(e.Ell, e.Lb, n, e.First, false);",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs"
+ },
+ {
+  "id": "D12",
+  "desc": "the internal count includes the root",
+  "old": "if (ell > 0)\n            {\n                r.Internal++;",
+  "new": "if (ell >= 0)\n            {\n                r.Internal++;",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs"
+ },
+ {
+  "id": "D13",
+  "desc": "the node count omits the empty suffix",
+  "old": "var expected = new StatsInfo(1 + scan.Internal + n + 1,",
+  "new": "var expected = new StatsInfo(1 + scan.Internal + n,",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs"
+ },
+ {
+  "id": "D14",
+  "desc": "a text with the stack bound exceeded is reported as passed",
+  "old": "r.Aborted = $\"the stack of open intervals would exceed",
+  "new": "r.Aborted = \"\" + $\"the stack of open intervals would exceed",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs"
+ },
+ {
+  "id": "D15",
+  "desc": "the hashes are of the wrong file extension list order (sha of pk for stats)",
+  "old": "string sha = HashFile(o.Prefix + \".\" + e, o.IoBufferBytes);",
+  "new": "string sha = HashFile(o.Prefix + \".\" + (e == \"stats\" ? \"pk\" : e), o.IoBufferBytes);",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs"
+ },
+ {
+  "id": "D16",
+  "desc": "the hash reads only the first buffer of a file",
+  "old": "at += got;\n        }\n        return Convert.ToHexStringLower",
+  "new": "at += length;\n        }\n        return Convert.ToHexStringLower",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs"
+ }
+]

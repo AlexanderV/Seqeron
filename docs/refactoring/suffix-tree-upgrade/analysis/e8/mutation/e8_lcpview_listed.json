@@ -1,0 +1,44 @@
+[
+ {
+  "id": "F01",
+  "desc": "the 2-byte base is read as 4 bytes",
+  "old": "2 => ((ushort*)basePointer)[rank],",
+  "new": "2 => ((uint*)basePointer)[rank],",
+  "file": "apps/SuffixTree.EmProto/Verify/LcpView.cs"
+ },
+ {
+  "id": "F02",
+  "desc": "the 1-byte escape is 65535",
+  "old": "1 => byte.MaxValue,",
+  "new": "1 => ushort.MaxValue,",
+  "file": "apps/SuffixTree.EmProto/Verify/LcpView.cs"
+ },
+ {
+  "id": "F03",
+  "desc": "the lower bound skips a pair whose rank equals the key",
+  "old": "if (pairs[2 * mid] < rank) lo = mid + 1;",
+  "new": "if (pairs[2 * mid] <= rank) lo = mid + 1;",
+  "file": "apps/SuffixTree.EmProto/Verify/LcpView.cs"
+ },
+ {
+  "id": "F04",
+  "desc": "the lower bound never sees the last pair",
+  "old": "long lo = 0, hi = PairCount;",
+  "new": "long lo = 0, hi = PairCount - 1;",
+  "file": "apps/SuffixTree.EmProto/Verify/LcpView.cs"
+ },
+ {
+  "id": "F05",
+  "desc": "the value of a pair is its rank",
+  "old": "internal uint ValueOfPair(long k) => pairs[(2 * k) + 1];",
+  "new": "internal uint ValueOfPair(long k) => pairs[2 * k];",
+  "file": "apps/SuffixTree.EmProto/Verify/LcpView.cs"
+ },
+ {
+  "id": "F06",
+  "desc": "the 4-byte base has an escape of 0",
+  "old": "2 => ushort.MaxValue, _ => uint.MaxValue };",
+  "new": "2 => ushort.MaxValue, _ => 0 };",
+  "file": "apps/SuffixTree.EmProto/Verify/LcpView.cs"
+ }
+]

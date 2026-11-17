@@ -1,0 +1,30 @@
+[
+ {
+  "id": "G01",
+  "desc": "the capacity is one entry too large",
+  "old": "if (Count >= Capacity) return false;",
+  "new": "if (Count > Capacity) return false;",
+  "file": "apps/SuffixTree.EmProto/Verify/IntervalStack.cs"
+ },
+ {
+  "id": "G02",
+  "desc": "the peak is not tracked",
+  "old": "if (Count > Peak) Peak = Count;",
+  "new": "if (Count > Peak + 1000000) Peak = Count;",
+  "file": "apps/SuffixTree.EmProto/Verify/IntervalStack.cs"
+ },
+ {
+  "id": "G03",
+  "desc": "a pop removes two entries",
+  "old": "internal void Pop() => Count--;",
+  "new": "internal void Pop() => Count -= 2;",
+  "file": "apps/SuffixTree.EmProto/Verify/IntervalStack.cs"
+ },
+ {
+  "id": "G04",
+  "desc": "the block index of a push uses the wrong shift",
+  "old": "int block = (int)(Count >> _blockBits);",
+  "new": "int block = (int)(Count >> (_blockBits + 1));",
+  "file": "apps/SuffixTree.EmProto/Verify/IntervalStack.cs"
+ }
+]

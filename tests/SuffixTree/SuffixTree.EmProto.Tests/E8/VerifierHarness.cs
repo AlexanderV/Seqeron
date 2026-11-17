@@ -118,6 +118,7 @@ internal static class VerifierHarness
     internal static string SmallWithEscapes()
     {
         string block = global::SuffixTree.Esa.Tests.TestSupport.StringFamilies.RandomDna(300, 21);
-        return global::SuffixTree.Esa.Tests.TestSupport.StringFamilies.RandomDna(1500, 22) + block + global::SuffixTree.Esa.Tests.TestSupport.StringFamilies.RandomDna(60, 23) + block;
+        // a tail after the second copy: the adjacent suffixes of the two copies then end in a mismatch, not at the end of the text
+        return global::SuffixTree.Esa.Tests.TestSupport.StringFamilies.RandomDna(1500, 22) + block + global::SuffixTree.Esa.Tests.TestSupport.StringFamilies.RandomDna(60, 23) + block + global::SuffixTree.Esa.Tests.TestSupport.StringFamilies.RandomDna(40, 24);
     }
 }

@@ -1,0 +1,22 @@
+# E8 image build context (ADR-004 section 5a, E8): an ALLOW-LIST. Everything is excluded, then exactly what the program, its libraries and the scripts need is let back in.
+# BuildKit reads this file next to the Dockerfile when the build is started from the repository root with -f:
+#   docker build -f docs/refactoring/suffix-tree-upgrade/analysis/e8/Dockerfile .
+# Nothing of .git (history, remotes, configuration), wiki, tests, other docs or any bin / obj directory enters the image or the build cache.
+*
+# the program: apps/SuffixTree.EmProto, the two product libraries it references, the linked sources of the benchmark project
+!apps/SuffixTree.EmProto
+!apps/SuffixTree.Esa.Bench/PairedStats.cs
+!apps/SuffixTree.Esa.Bench/Links
+!src/SuffixTree/Algorithms/SuffixTree.Esa
+!src/SuffixTree/Algorithms/SuffixTree.Core
+# the style rules the projects read (.editorconfig); the root Directory.Build.props and Directory.Packages.props are NOT sent: the Dockerfile supplies its own props (no package restore from the network)
+!.editorconfig
+# the scripts and the props of the image
+!docs/refactoring/suffix-tree-upgrade/analysis/e8
+# whatever sits inside the allowed directories and must not enter: build output, the author's data and mutation work
+**/bin
+**/obj
+**/mutation
+**/*.tsv
+**/*.sums
+**/__pycache__
