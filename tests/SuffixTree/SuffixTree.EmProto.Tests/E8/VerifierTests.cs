@@ -456,7 +456,8 @@ public class VerifierTests : TempDirFixture
         Assert.That(r.AllPassed, Is.False);
         Assert.That(r.Passed("sa_order") && r.Passed("lcp_values"), Is.True, Describe(r));
         Assert.That(OutputVerifier.Run(Options(prefix, 2, 100, stackCap: 2001)).AllPassed, Is.True);
-        Assert.That(OutputVerifier.Run(Options(prefix, 2, 100, stackCap: 2000)).Find("child")!.Status, Is.EqualTo(CheckStatus.Skipped), "the stack of a^n holds n + 1 entries");
+        Assert.That(OutputVerifier.Run(Options(prefix, 2, 100, stackCap: 2000)).AllPassed, Is.True, "the stack of a^n holds n entries (the root and the values 1 .. n - 1)");
+        Assert.That(OutputVerifier.Run(Options(prefix, 2, 100, stackCap: 1999)).Find("child")!.Status, Is.EqualTo(CheckStatus.Skipped));
     }
 
     [Test]
@@ -519,7 +520,7 @@ public class VerifierTests : TempDirFixture
         string clean = Reference(SmallWithEscapes(), "cmd");
         string rows = Path.Combine(Dir, "rows.tsv");
         string sums = Path.Combine(Dir, "sums.txt");
-        int ok = Cli.Run(["e8-verify", "--prefix", clean, "--input", Path.Combine(Path.GetDirectoryName(clean)!, "in.txt"), "--threads", "2", "--lce-cap", "100", "--rows", rows, "--sums", sums, "--case", "t"]);
+        int ok = Cli.Run(["e8-verify", "--prefix", clean, "--input", Path.Combine(Path.GetDirectoryName(clean)!, "in.txt"), "--threads", "2", "--lce-cap", "100", "--rows", rows, "--sums", sums, "--case", "t", "--quiet"]);
         Assert.That(ok, Is.EqualTo(0));
         string text = File.ReadAllText(rows);
         foreach (string name in OutputVerifier.Names) Assert.That(text, Does.Contain($"\tverify_{name}\t"), name);
@@ -528,7 +529,7 @@ public class VerifierTests : TempDirFixture
         Assert.That(File.ReadAllLines(sums).Select(l => l.Split('=', 2)[0]), Is.EqualTo(Extensions));
         string bad = Clone(clean, Run("cmdbad"));
         FlipByte(bad + ".cld", 8, 0x01);
-        Assert.That(Cli.Run(["e8-verify", "--prefix", bad, "--rows", Path.Combine(Dir, "rows2.tsv")]), Is.EqualTo(1));
+        Assert.That(Cli.Run(["e8-verify", "--prefix", bad, "--quiet", "--rows", Path.Combine(Dir, "rows2.tsv")]), Is.EqualTo(1));
         Assert.That(File.ReadAllText(Path.Combine(Dir, "rows2.tsv")), Does.Contain("\tverify_all\tFAIL\t").And.Contain("\tverify_child\tFAIL\t"));
         Assert.That(Cli.Run(["e8-verify"]), Is.EqualTo(2));
         Assert.That(Cli.Run(["e8-verify", "--prefix", Path.Combine(Dir, "nothing")]), Is.EqualTo(1), "missing files are a failed verification, not a crash");

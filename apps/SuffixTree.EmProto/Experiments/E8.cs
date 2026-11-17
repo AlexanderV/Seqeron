@@ -1,6 +1,8 @@
+using System.Diagnostics;
 using System.Globalization;
 using SuffixTree.EmProto.Gen;
 using SuffixTree.EmProto.Harness;
+using SuffixTree.EmProto.Verify;
 
 namespace SuffixTree.EmProto.Experiments;
 
@@ -43,7 +45,44 @@ internal static class E8
         return 0;
     }
 
-    internal static int Verify(Options o, Report r) => throw new NotImplementedException();
+    /// <summary>
+    /// <c>e8-verify --prefix &lt;e6 prefix&gt; [--input text] [--threads 4] [--lce-cap 65536] [--stack-cap-m 64] [--scratch dir] [--no-hash] [--no-child] [--sums file] [--quiet]</c>: one row per check, the facts, the hashes;
+    /// exit code 0 only when every listed check passed.
+    /// </summary>
+    internal static int Verify(Options o, Report r)
+    {
+        string prefix = o.Require("prefix");
+        string c = o.Str("case", "e8");
+        var options = new VerifyOptions
+        {
+            Prefix = prefix,
+            InputPath = o.Get("input"),
+            ScratchDir = o.Get("scratch"),
+            Threads = o.Int("threads", 4),
+            LceCap = o.Long("lce-cap", 65536),
+            StackCapEntries = o.Long("stack-cap-m", 64) << 20,
+            Hash = !o.Flag("no-hash"),
+            Child = !o.Flag("no-child"),
+            BlockRanks = o.Int("block-ranks", 1 << 20),
+            Probes = o.Int("probes", 8),
+        };
+        long t0 = Stopwatch.GetTimestamp();
+        Action<string>? progress = o.Flag("quiet") ? null : msg => Console.Error.WriteLine($"# verify {(Stopwatch.GetTimestamp() - t0) / (double)Stopwatch.Frequency,8:F1} s  {msg}");
+        VerifyResult res = OutputVerifier.Run(options, progress);
+        foreach (CheckResult check in res.Checks)
+        {
+            string status = check.Status switch { CheckStatus.Pass => "pass", CheckStatus.Fail => "FAIL", _ => "skipped" };
+            r.Row("E8", c, "verify_" + check.Name, status, "", check.Detail);
+            r.Row("E8", c, $"verify_{check.Name}_s", check.Seconds, "s", "wall time of the check (the checks of the rank pass share one pass and show its time)");
+        }
+        foreach ((string key, string value) in res.Facts) r.Row("E8", c, "verify_fact_" + key, value, "", "number found by the verifier");
+        foreach ((string ext, string sha) in res.Sha256) r.Row("E8", c, "sha256_" + ext.Replace('.', '_'), sha, "", $"SHA-256 of {Path.GetFileName(prefix)}.{ext}");
+        if (o.Get("sums") is { } sums && res.Sha256.Count > 0) File.WriteAllLines(sums, new[] { "pk", "pk.meta", "sa", "lcp", "ovf", "cld", "stats" }.Where(res.Sha256.ContainsKey).Select(e => $"{e}={res.Sha256[e]}"));
+        double wall = (Stopwatch.GetTimestamp() - t0) / (double)Stopwatch.Frequency;
+        r.Row("E8", c, "verify_wall_s", wall, "s", $"whole verification, {options.Threads} threads, LCE cap {options.LceCap}");
+        r.Row("E8", c, "verify_all", res.AllPassed ? "pass" : "FAIL", "", $"{res.Checks.Count(x => x.Status == CheckStatus.Pass)} of {res.Checks.Count} checks passed; --no-child / --no-hash omit checks (a run for the gate G1 uses neither)");
+        return res.AllPassed ? 0 : 1;
+    }
 }
 
 /// <summary>Parsing of counts with decimal suffixes (<c>k</c>, <c>m</c>, <c>g</c>), the unit of the E8 protocol (1 Gbp = 10^9 symbols).</summary>
