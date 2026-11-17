@@ -6,7 +6,7 @@ namespace SuffixTree.EmProto;
 internal static class Cli
 {
     private const string Usage = """
-        SuffixTree.EmProto - prototypes E0-E3, E3b, E4, E5, E6 and E9 of ADR-004 (external-memory construction of the persistent ESA)
+        SuffixTree.EmProto - prototypes E0-E3, E3b, E4, E5, E6, E8 (hand-off package: generator, verifier) and E9 of ADR-004 (external-memory construction of the persistent ESA)
 
           e1   --family <spec> [--data <dir>] [--vectors <sa_vectors.tsv>] [--threads 1] [--k-div 1000 | --k <K>] [--fan 64] [--limit 600] [--tie-sort merge|intro] [--run <id>] [--rows raw.tsv]
           e2   the same with --dcs <X> [--exact] [--dcs-base 16000000]
@@ -43,6 +43,11 @@ internal static class Cli
           e9-oracle  --sa <sa file> --out <prefix>      E9: the in-RAM ISA and Psi of P1 (LinkTables) written as <prefix>.isa and <prefix>.psi (PSI[0] = -1 of P1 stored as 0)
           e9-smoke   --input <text file> --sa <sa file> --isa <isa file> --psi <psi file> [--psi2 <psi from isa>] [--sample 200000] [--seed 1] [--fanout 16] [--link-budget 3000000]
                    E9: every kernel x source of the suffix-link prototype P1 with the in-RAM tables and with the streamed ones, on the P1 node sample; results must be identical
+          e8-gen   --n <symbols, decimal suffix k/m/g allowed> --out <text file> [--seed 20240002] [--sums <checksum file>] [--buffer-kb 1024] [--force] [--case name]
+                   E8: the genome-like text of E3 to E7 (Families.GenomeLike, same bytes) streamed with a bounded buffer for any n; <out>.sums (default) holds n, seed, SHA-256 and the letter counts
+          e8-verify --prefix <e6 output prefix> [--input <text file>] [--threads 4] [--lce-cap 65536] [--stack-cap-m 64] [--scratch <dir>] [--no-hash] [--no-child] [--sums <file>] [--case name]
+                   E8: checks the outputs .pk .sa .lcp .ovf .cld .stats of e6 without an in-RAM reference (any n below 2^32 - 2): SA is a permutation, adjacent suffixes strictly ordered, stored LCP equal to the common prefix,
+                   statistics recomputed from the LCP, the child table cell by cell against the lcp-interval definition, SHA-256 of every output; exit code 0 only when every check passed
           e6-mktext --family <spec> --out <text file> [--data dir]   the ASCII text of a family (setup, outside the pipeline)
           packrand --n <symbols> --out <packed file> [--seed s]        packed 2-bit random DNA of any length (streamed; for runs above the 2^31 symbols of pack)
           hash-sa  --file <sa file>      SHA-256 of entries 1..n (libsais convention)
@@ -77,6 +82,8 @@ internal static class Cli
                 case "e5-oracle": return E5.Oracle(o, report);
                 case "e6": return E6.Run(o, report);
                 case "e6-mktext": return E6.MakeText(o, report);
+                case "e8-gen": return E8.Gen(o, report);
+                case "e8-verify": return E8.Verify(o, report);
                 case "e9-bwt": return E9.Bwt(o, report);
                 case "e9-psi": return E9.Psi(o, report);
                 case "e9-isa": return E9.Isa(o, report);
