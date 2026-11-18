@@ -13,11 +13,11 @@ Find the longest common region between two DNA sequences.
 
 ## Description
 
-Finds the longest common substring between two DNA sequences and returns positions in both. Useful for identifying conserved regions and gene homology. Time complexity: O(n+m).
+Finds the longest common substring between two DNA sequences and returns the **first (lowest) 0-based occurrence** in each. On a length tie the substring whose first match in `sequence2` ends earliest is returned. Useful for identifying conserved regions and gene homology. Time complexity: O(n+m).
 
 ## Core Documentation Reference
 
-- Source: [GenomicAnalyzer.cs#L178](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GenomicAnalyzer.cs#L178)
+- Source: [GenomicAnalyzer.cs](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GenomicAnalyzer.cs)
 
 ## Input/Output
 
@@ -37,5 +37,5 @@ Finds the longest common substring between two DNA sequences and returns positio
 
 **Response:**
 ```json
-{ "region": "ATGC", "position1": 0, "position2": 1, "length": 4 }
+{ "region": "ATGCAT", "position1": 0, "position2": 1, "length": 6 }
 ```

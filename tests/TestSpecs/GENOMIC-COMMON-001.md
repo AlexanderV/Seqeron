@@ -5,7 +5,7 @@
 **Algorithm:** Longest Common Substring / Common Region Detection (generalized suffix tree)
 **Status:** ☐ In Progress
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-06-13
+**Last Updated:** 2026-11-18 (B09 review)
 
 ---
 
@@ -57,6 +57,9 @@
 | INV-3 | Empty / no-shared-character input → `CommonRegion.None` (empty, length 0, positions −1) | Yes | Wikipedia definition (source 2) |
 | INV-4 | Every region from `FindCommonRegions(minLength)` has length ≥ minLength, is contiguous, occurs in both sequences at the reported 0-based positions, and is the single longest match at its start position in sequence2 (right-maximal; shorter prefixes at the same start are NOT reported) | Yes | substring/contiguity definition (source 2); right-maximal contract derived from the implementation, hand-verified |
 | INV-5 | On ties, the representative is "first found in sequence2" (deterministic) | Yes | **ASSUMPTION** (SuffixTree XML doc; see §6) |
+| INV-6 | Reported positions are the **first (lowest) 0-based occurrence** in each sequence (not an arbitrary suffix-tree-order occurrence) | Yes | independent Python `str.find` oracle (B09 F15) |
+| INV-7 | Each `FindCommonRegions` region length equals the matching statistic ms(i) of its start i (longest prefix of seq2[i..] occurring in seq1), for every i with ms(i) ≥ max(1, minLength) | Yes | Chang & Lawler 1994; brute-force `in` test (B09 F16) |
+| INV-8 | `null` sequence → `ArgumentNullException` (eager, also for the lazy `FindCommonRegions`); lower case folded by `DnaSequence`; non-ACGT rejected by `DnaSequence` | Yes | contract |
 
 ---
 
@@ -81,6 +84,18 @@
 | S2 | Empty sequence2 | `FindLongestCommonRegion(ACGT, "")` | `CommonRegion.None` | empty handling (INV-3) |
 | S3 | `FindCommonRegions` no match | `FindCommonRegions(AAAA, GGGG, 2)` | empty enumeration | INV-4 |
 | S4 | Single-char overlap | `FindLongestCommonRegion("A", "TTTAT")` | `A`, length 1, pos1=0, pos2=3 | minimal non-empty LCS |
+
+### 4.2b B09 review tests (GENOMIC-COMMON-001 F15/F16)
+
+| ID | Test | Expected |
+|----|------|----------|
+| B1 | `FindCommonRegions(AGGAAGAAGGAGGCCGATTACT, CGTGGAAGGAGGCCGA, 2)` | 13 regions; last = (`GA`, 2, 14) — first occurrence, tree order gave 15 |
+| B2 | `FindLongestCommonRegion(CACAGATAAAGGACTGAGGCTCTACG, GA)` | (`GA`, 4, 0) |
+| B3 | `ACACACACAC` / `GGACACGG` | (`ACAC`, 0, 2) |
+| B4 | null arguments, lower case, non-ACGT (N, U), `minLength` = int.MinValue/0/1/6/int.MaxValue | contract (INV-8) |
+| B5 | embedded oracle `TestData/Analysis/common_region_oracle.tsv` (283 pairs, independent Python DP + suffix automaton + brute-force ms) | LCS (tie, positions) and all regions equal |
+| B6 | 150 random pairs vs in-test brute force (ms by `Contains`, distinct strings, `IndexOf` positions) | equal |
+| B7 | 1 Mbp random pair with a planted 5 kb shared block | linear time (< 60 s guard, ≈ 4 s), planted block found, positions are first occurrences |
 
 ### 4.3 COULD Tests (Nice to have)
 

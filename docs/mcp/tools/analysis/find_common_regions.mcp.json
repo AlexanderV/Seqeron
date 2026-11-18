@@ -6,7 +6,7 @@
   "stability": "stable",
   "methodId": "GenomicAnalyzer.FindCommonRegions",
   "docRef": "Seqeron.Genomics.Analysis/GenomicAnalyzer.cs#L306",
-  "description": "For each start in sequence2, the single longest substring (>= minLength) also occurring in sequence1, found via suffix tree; distinct matches reported once.",
+  "description": "For each start in sequence2, the single longest substring (>= minLength) also occurring in sequence1, found via the suffix tree of sequence1 (matching statistics); distinct matches reported once, position1 = first occurrence in sequence1.",
   "inputSchema": {
     "type": "object",
     "properties": {

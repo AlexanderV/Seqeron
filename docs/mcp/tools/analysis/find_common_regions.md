@@ -1,6 +1,6 @@
 # find_common_regions
 
-Find common substrings between two DNA sequences.
+Right-maximal common regions (longest shared substring per start position in `sequence2`) between two DNA sequences.
 
 ## Overview
 
@@ -15,14 +15,14 @@ Find common substrings between two DNA sequences.
 ## Description
 
 For each start position in `sequence2`, finds the **single longest** contiguous substring of
-length ≥ `minLength` that also occurs in `sequence1`, located via a suffix tree. Distinct such
-substrings are reported once, with the first occurrence position in `sequence1` and the start
-position in `sequence2`. Shorter prefixes sharing a start position with a longer match are not
+length ≥ `minLength` that also occurs in `sequence1`, located with the suffix tree of `sequence1` (matching statistics: suffix-link maximal-exact-match stream plus
+short `Contains` probes). Distinct such substrings are reported once, with the **first (lowest)** occurrence
+position in `sequence1` and the start position in `sequence2`. Shorter prefixes sharing a start position with a longer match are not
 reported. `minLength` below 1 is treated as 1. Both inputs must be valid DNA.
 
 ## Core Documentation Reference
 
-- Source: [GenomicAnalyzer.cs#L306](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GenomicAnalyzer.cs#L306)
+- Source: [GenomicAnalyzer.cs](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GenomicAnalyzer.cs)
 
 ## Input Schema
 
@@ -67,7 +67,7 @@ reported. `minLength` below 1 is treated as 1. Both inputs must be valid DNA.
 
 ## Performance
 
-- **Time Complexity:** O(n + m·log m). **Space Complexity:** O(n) for the suffix tree.
+- **Time Complexity:** O(n + m·K + R) with K = ⌈log₄(n·m)⌉ + 2 and R the number of maximal matches of length ≥ max(K, minLength); the output itself is Σ|region|. A 1 Mbp pair runs in seconds (the former per-start binary search was O(m²)). **Space Complexity:** O(n + m + R).
 
 ## See Also
 

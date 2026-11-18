@@ -6,7 +6,7 @@
 | Test Unit ID | GENOMIC-COMMON-001 |
 | Related Projects | Seqeron.Genomics.Analysis, SuffixTree |
 | Implementation Status | Production |
-| Last Reviewed | 2026-06-13 |
+| Last Reviewed | 2026-11-18 (B09 review) |
 
 ## 1. Overview
 
@@ -32,8 +32,8 @@ When several distinct substrings share the maximal length, multiple answers exis
 |----|-----------|---------------|
 | INV-01 | The returned substring is contiguous and occurs in both sequences at the reported 0-based positions | LCS is a substring of both [3]; positions come from suffix-tree leaves |
 | INV-02 | No common contiguous substring strictly longer than the returned one exists | "a longest string which is substring of both" [3] |
-| INV-03 | On a length tie, the substring first found in `sequence2` is returned (deterministic) | documented tie-break of `SuffixTree.LongestCommonSubstringInfo` [5] |
-| INV-04 | Every region from `FindCommonRegions(minLength)` is contiguous, has length ≥ max(1, minLength), and is contained in `sequence1` | construction takes the longest substring of `sequence2` also present in `sequence1` |
+| INV-03 | On a length tie, the substring whose first match in `sequence2` ends earliest is returned (deterministic); both positions are the **first (lowest) 0-based occurrence** in their sequence, independent of the suffix-tree layout | documented tie-break of `SuffixTree.FindAllLongestCommonSubstrings` [7]; positions = `PositionsInText[0]` / `PositionsInOther[0]` (ascending lists) |
+| INV-04 | Every region from `FindCommonRegions(minLength)` is contiguous, has length ≥ max(1, minLength), occurs in `sequence1` (first occurrence reported) and equals the matching statistic ms(i) = the longest prefix of `sequence2[i..]` occurring in `sequence1` | Chang & Lawler 1994 matching statistics (Gusfield 1997 ch. 7) |
 | INV-05 | Empty input or no shared character → `CommonRegion.None` (empty, length 0, positions −1) | only the empty string qualifies → length-0 LCS [3] |
 
 ## 3. Contract
@@ -58,22 +58,25 @@ When several distinct substrings share the maximal length, multiple answers exis
 
 ### 3.3 Preconditions and Validation
 
-Inputs are `DnaSequence` (case-normalized to upper, alphabet A/C/G/T enforced at construction). Coordinates are 0-based. Empty sequences are accepted and yield `CommonRegion.None` (for `FindLongestCommonRegion`) or an empty enumeration (`FindCommonRegions`). No exceptions are thrown for empty input.
+Inputs are `DnaSequence` (case-normalized to upper, alphabet A/C/G/T enforced at construction). Coordinates are 0-based. Empty sequences are accepted and yield `CommonRegion.None` (for `FindLongestCommonRegion`) or an empty enumeration (`FindCommonRegions`). `null` arguments throw `ArgumentNullException` eagerly (also for the lazily enumerated `FindCommonRegions`). Lower-case input is folded to upper case by `DnaSequence` (matching is case-insensitive); IUPAC ambiguity codes (`N`, …), `U` and any other non-ACGT symbol are rejected by the `DnaSequence` constructor and never reach the algorithm.
 
 ## 4. Algorithm
 
 ### 4.1 High-Level Steps
 
 1. Build the suffix tree of `sequence1` (cached on the `DnaSequence`).
-2. **FindLongestCommonRegion:** call `LongestCommonSubstringInfo(sequence2)`, which streams `sequence2` through the tree and tracks the deepest common match; return the substring with its positions, or `CommonRegion.None` if empty.
-3. **FindCommonRegions:** for each start `i` in `sequence2`, binary-search the longest `sequence2[i..i+L]` (L ≥ max(1,minLength)) that the tree `Contains`; report each distinct such substring once with its first occurrence in `sequence1` and start `i` in `sequence2`.
+2. **FindLongestCommonRegion:** call `FindAllLongestCommonSubstrings(sequence2)`, which streams `sequence2` through the tree with suffix links (matching statistics) and tracks the deepest common match; return the substring with the first entries of its (ascending) position lists, or `CommonRegion.None` if empty.
+3. **FindCommonRegions:** compute the matching statistics ms(i) of `sequence2` against the tree of `sequence1`:
+   - *Short matches* (ms(i) < K, K = ⌈log₄(n·m)⌉ + 2): ms(i) ≥ ms(i−1) − 1, so the match is carried over from the previous start and extended one base at a time with `Contains` probes of at most K characters (O(m·K) in total).
+   - *Long matches* (ms(i) ≥ max(K, minLength)): from the canonical suffix-link maximal-exact-match stream `FindMaximalExactMatches(sequence2, max(K, minLength))` (MUMmer `-maxmatch`): the longest match at `i` lies on a diagonal whose maximal run is a MEM, hence ms(i) = max over MEMs with query start ≤ i of (start + length − i). Between unrelated random sequences the expected number of MEMs of length ≥ K is O(1).
+   - Report each distinct `sequence2[i..i+ms(i)]` (ms(i) ≥ max(1, minLength)) once, in order of first start, with the lowest occurrence in `sequence1` and start `i`.
 
 ### 4.3 Complexity
 
 | Operation | Time | Space | Notes |
 |-----------|------|-------|-------|
 | FindLongestCommonRegion | O(n + m) | O(n) | suffix-tree construction + suffix-link streaming [3] |
-| FindCommonRegions | O(n + m·log m) | O(n) | O(n) construction + per-position binary search using O(m) `Contains` lookups |
+| FindCommonRegions | O(n + m·K + R) + Σ\|region\| | O(n + m + R) | K = ⌈log₄(n·m)⌉ + 2; R = number of maximal matches of length ≥ max(K, minLength); Σ\|region\| is the size of the reported strings. 1 Mbp random pair: ≈ 4 s (Debug); the former per-start binary search over `Contains` copied up to m characters per probe, O(m²), ≈ 2.6 s at 100 kbp growing quadratically |
 
 ## 5. Implementation Notes
 
@@ -87,15 +90,15 @@ Inputs are `DnaSequence` (case-normalized to upper, alphabet A/C/G/T enforced at
 
 ### 5.2 Current Behavior
 
-**Suffix-tree reuse (decision):** the repository's generalized-suffix-tree LCS (`DnaSequence.SuffixTree.LongestCommonSubstringInfo`) is used directly for `FindLongestCommonRegion`, giving the Θ(n+m) result of the cited theory [1][3] rather than an O(n·m) DP scan; this is the algorithmically appropriate use of the suffix tree (single text, streamed query). `FindCommonRegions` also reuses the suffix tree via `Contains` for membership during a per-start binary search, avoiding a naive O(n·m²) scan. Tie-break for `FindLongestCommonRegion` is "first found in `sequence2`" as documented on the suffix-tree method [5].
+**Suffix-tree reuse (decision):** the repository's generalized-suffix-tree LCS (`DnaSequence.SuffixTree.FindAllLongestCommonSubstrings`) is used directly for `FindLongestCommonRegion`, giving the Θ(n+m) result of the cited theory [1][3] rather than an O(n·m) DP scan; this is the algorithmically appropriate use of the suffix tree (single text, streamed query). `FindCommonRegions` computes the matching statistics of `sequence2` with the suffix tree of `sequence1` (short matches by `Contains` extension, long matches from the canonical MEM stream — see §4.1), never copying a substring longer than the reported region. Tie-break for `FindLongestCommonRegion` is "first found in `sequence2`" as documented on the suffix-tree method [7]; the reported positions are the lowest occurrences (the suffix tree's own `LongestCommonSubstringInfo` / `FindAllOccurrences` return one occurrence in internal DFS order, which B09 review F15 showed is not the first).
 
 ### 5.3 Conformance to Theory / Spec
 
 **Implemented (verbatim from the cited theory/spec):**
 
 - Longest common *substring* (contiguous) of two strings via generalized suffix tree, Θ(n+m) [1][3][4].
-- Deterministic representative on ties (first-in-`sequence2`) [5].
-- Right-maximal common substrings of length ≥ minLength, one per start position in `sequence2`, deduplicated (`FindCommonRegions`). This is a derived helper, not a notion taken verbatim from [1][3][4]; it is **not** the full set of every common substring (see 6.2).
+- Deterministic representative on ties (first-in-`sequence2`) [7].
+- Right-maximal common substrings of length ≥ minLength, one per start position in `sequence2`, deduplicated (`FindCommonRegions`): the matching statistics of Chang & Lawler (1994) / Gusfield (1997) ch. 7 reported as strings. This is a derived helper, not a notion taken verbatim from [1][3][4]; it is **not** the full set of every common substring (see 6.2).
 
 **Intentionally simplified:**
 
@@ -114,7 +117,7 @@ Inputs are `DnaSequence` (case-normalized to upper, alphabet A/C/G/T enforced at
 | Empty sequence1 or sequence2 | `CommonRegion.None` / empty enumeration | only empty string qualifies → length 0 [3] |
 | No shared character | `CommonRegion.None` | length-0 LCS [3] |
 | Identical sequences | whole sequence, positions 0/0 | a string is a substring of itself [3] |
-| Length tie (e.g. two distinct len-3 substrings) | first-in-`sequence2` representative | documented tie-break [5] |
+| Length tie (e.g. two distinct len-3 substrings) | first-in-`sequence2` representative | documented tie-break [7] |
 | minLength < 1 | treated as 1 | a region is non-empty [3] |
 
 ### 6.2 Limitations
@@ -140,7 +143,13 @@ CommonRegion r = GenomicAnalyzer.FindLongestCommonRegion(a, b);
 
 - Tests: [GenomicAnalyzer_FindCommonRegion_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/GenomicAnalyzer_FindCommonRegion_Tests.cs) — covers INV-01..INV-05
 - Evidence: [GENOMIC-COMMON-001-Evidence.md](../../../docs/Evidence/GENOMIC-COMMON-001-Evidence.md)
+- Oracle: [generate_common_region_oracle.py](../../../scripts/analysis/generate_common_region_oracle.py) (independent DP + suffix automaton + brute-force matching statistics; 283 pairs)
 - Related algorithms: [Repeat_Detection](../Repeat_Analysis/Repeat_Detection.md)
+
+### 7.4 Review notes (B09, 2026-11-18)
+
+- F15: `PositionInFirst` was one occurrence in suffix-tree DFS order, not the first (e.g. `GA` in `AGGAAGAAGGAGGCCGATTACT` reported 15, first occurrence 2).
+- F16: `FindCommonRegions` was quadratic (substring copies of up to m characters in a per-start binary search); now matching statistics, linear-ish (1 Mbp pair in seconds).
 
 ## 8. References
 
@@ -148,4 +157,6 @@ CommonRegion r = GenomicAnalyzer.FindLongestCommonRegion(a, b);
 2. Charalampopoulos P., Kociumaka T., Pissis S.P., Radoszewski J. 2021. Faster Algorithms for Longest Common Substring. ESA 2021, LIPIcs 204, Schloss Dagstuhl. https://doi.org/10.4230/LIPIcs.ESA.2021.30
 3. Wikipedia contributors. Longest common substring. https://en.wikipedia.org/wiki/Longest_common_substring (accessed 2026-06-13)
 4. GeeksforGeeks. Suffix Tree Application 5 — Longest Common Substring. https://www.geeksforgeeks.org/dsa/suffix-tree-application-5-longest-common-substring-2/ (accessed 2026-06-13)
-5. Seqeron repository. SuffixTree.Algorithms.cs — `LongestCommonSubstringInfo` (documented tie-break: first found in 'other'). ../../../src/SuffixTree/Algorithms/SuffixTree/SuffixTree.Algorithms.cs
+5. Chang W.I., Lawler E.L. 1994. Sublinear approximate string matching and biological applications. Algorithmica 12:327-344 (matching statistics computed in one left-to-right scan with suffix links; confirmed from search snippets/lecture notes, paper not opened).
+6. Kurtz S. et al. 2004. Versatile and open software for comparing large genomes. Genome Biol 5:R12 (maximal exact matches; as implemented by `SuffixTree.FindMaximalExactMatches`, MUMmer-identical per B05 F20).
+7. Seqeron repository. SuffixTree.Algorithms.cs — `LongestCommonSubstringInfo` (documented tie-break: first found in 'other'). ../../../src/SuffixTree/Algorithms/SuffixTree/SuffixTree.Algorithms.cs

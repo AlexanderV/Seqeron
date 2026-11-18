@@ -466,7 +466,7 @@
     "server": "Analysis",
     "methodId": "GenomicAnalyzer.FindCommonRegions",
     "docPath": "docs/mcp/tools/analysis/find_common_regions.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GenomicAnalyzer.cs#L306"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GenomicAnalyzer.cs"
   },
   {
     "tool": "find_conserved_clusters",
@@ -2055,7 +2055,7 @@
     "server": "Core",
     "methodId": "GenomicAnalyzer.FindLongestCommonRegion",
     "docPath": "docs/mcp/tools/core/find_longest_common_region.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GenomicAnalyzer.cs#L178"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GenomicAnalyzer.cs"
   },
   {
     "tool": "find_longest_repeat",

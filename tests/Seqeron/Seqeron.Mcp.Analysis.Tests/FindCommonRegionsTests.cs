@@ -42,4 +42,18 @@ public class FindCommonRegionsTests
             Assert.That(items[2].PositionInSecond, Is.EqualTo(2));
         });
     }
+
+    // B09 F15: positionInFirst is the FIRST occurrence in sequence1 (Python str.find oracle), not tree order.
+    [Test]
+    public void FindCommonRegions_PositionInFirst_IsFirstOccurrence()
+    {
+        var items = AnalysisTools.FindCommonRegions("AGGAAGAAGGAGGCCGATTACT", "CGTGGAAGGAGGCCGA", 2).Items;
+        Assert.That(items, Has.Length.EqualTo(13));
+        Assert.Multiple(() =>
+        {
+            Assert.That(items[^1].Sequence, Is.EqualTo("GA"));
+            Assert.That(items[^1].PositionInFirst, Is.EqualTo(2));
+            Assert.That(items[^1].PositionInSecond, Is.EqualTo(14));
+        });
+    }
 }

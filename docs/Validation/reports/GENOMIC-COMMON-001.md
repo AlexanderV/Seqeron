@@ -83,3 +83,14 @@ Other tests (M1–M4, S1–S4, C1, C2) assert exact sourced values and cover the
 - **Stage B:** PASS-WITH-NOTES (code correct; mis-documented/code-echoing `FindCommonRegions` tests corrected, contract-lock + edge-case tests added).
 - **End-state:** CLEAN — defects A1/B1 completely fixed this session; build 0 errors, full suite Failed: 0.
 - Logged in FINDINGS_REGISTER as a description+test-quality defect (no behavioral bug).
+
+---
+
+## B09 re-review (2026-11-18, campaign 2026-09)
+
+- **Stage A:** PASS-WITH-NOTES — definitions unchanged (Wikipedia/Gusfield/GeeksforGeeks as above; Rosalind/Wikipedia re-fetch blocked in this campaign, earlier fetches stand). Added the matching-statistics basis (Chang & Lawler 1994, search snippets) for `FindCommonRegions`: the per-start longest right-maximal match is ms(i). Tie-break and "first occurrence" positions are now explicit.
+- **Stage B:** PASS-WITH-NOTES → FIXED. Independent Python oracle (DP + suffix automaton + brute-force ms, 283 pairs, `scripts/analysis/generate_common_region_oracle.py`) and a 150-pair in-test brute force:
+  - **F15** `PositionInFirst` was an arbitrary suffix-tree-order occurrence (`FindAllOccurrences(...)[0]`, `LongestCommonSubstringInfo`), e.g. `FindCommonRegions(AGGAAGAAGGAGGCCGATTACT, CGTGGAAGGAGGCCGA, 2)` last region `GA` at 15 (first occurrence 2); `FindLongestCommonRegion(CACAGATAAAGGACTGAGGCTCTACG, GA)` 15 (first 4). Now the lowest occurrence (`FindAllLongestCommonSubstrings` ascending lists / minimum of the occurrence list).
+  - **F16** `FindCommonRegions` was O(m²) time and memory (binary search with `Substring(i, mid)` probes up to m characters; 100 kbp pair 2.6 s, 1 Mbp ≈ 4 min and GBs of garbage). Now matching statistics: short matches by `Contains` extension from ms(i−1)−1, long matches from the canonical `FindMaximalExactMatches` stream; 1 Mbp pair ≈ 4 s.
+  - `null` arguments → `ArgumentNullException` (was `NullReferenceException`); MCP `find_common_regions` description said "All common regions" (it is the right-maximal per-start set) — corrected; `find_longest_common_region` doc example (`ATGCATGC`/`CATGCAT` → `ATGC`) was wrong (LCS is `ATGCAT`, 0/1, length 6).
+- **End-state:** CLEAN. Build 0 errors; unit/combinatorial/property/metamorphic/fuzz tests of the unit green (247).

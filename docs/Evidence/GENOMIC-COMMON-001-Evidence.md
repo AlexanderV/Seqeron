@@ -75,6 +75,13 @@
 
 ---
 
+## B09 review additions (2026-11-18)
+
+- **Chang & Lawler 1994** (Algorithmica 12:327-344), matching statistics: ms(i) = length of the longest prefix of T[i..] occurring in the pattern text, computed for all i in one left-to-right scan with suffix links (WebSearch snippets / Helsinki lecture notes 2013 / Aboelhoda-Kurtz-Ohlebusch 2004 listing; paper PDF not opened). Basis of `FindCommonRegions`, whose per-start longest right-maximal match IS ms(i); property used by the implementation: ms(i) ≥ ms(i−1) − 1.
+- **MUMmer (Kurtz et al. 2004, Genome Biol 5:R12)** maximal exact matches, used through the canonical `SuffixTree.FindMaximalExactMatches` (B05 F20, MUMmer-identical): the longest match at i lies on a diagonal whose maximal run is a MEM ⇒ ms(i) = max over MEMs with start ≤ i of (end − i) wherever ms(i) ≥ the MEM length threshold.
+- **Oracle** (`scripts/analysis/generate_common_region_oracle.py`, no Seqeron code): O(nm) DP over all end cells and a suffix automaton streamed with t (asserted equal) for the LCS (tie = earliest end in t; positions = Python `str.find`); brute-force `in` matching statistics for the regions. 283 pairs (260 small incl. binary alphabet/tandem repeats/empty, 16 medium 300-700 bp with planted (mutated) 3-250 bp shared blocks, 7 literals incl. the M1/M2 examples); the Seqeron code agreed on every LCS length/sequence and every region, and differed only in `PositionInFirst` (first occurrence) before fix F15 (in many random pairs with repeated substrings).
+- Timing (Debug build, random 1 Mbp pair): LCS 2.8 s incl. tree construction, `FindCommonRegions(min = 1)` 666 618 regions 3.8 s, `min = 20` 1.7 s; 1 Mbp pair with 1 % substitutions, min 20: 861 267 regions / 131.6 Mchar 4.6 s. Former implementation: 100 kbp pair 2.6 s (quadratic: ≈ 4 min extrapolated at 1 Mbp).
+
 ## Assumptions
 
 1. **ASSUMPTION: Tie-break rule** — When several distinct substrings share the maximal length, no authoritative source mandates *which* one to return (Wikipedia reports all; GeeksforGeeks returns one). The repository's `SuffixTree.LongestCommonSubstringInfo` documents and implements "the first one found in 'other' is returned" (`src/SuffixTree/Algorithms/SuffixTree/SuffixTree.Algorithms.cs`, XML doc lines 44–45, 61–62). This is a deterministic, documented choice consistent with returning *a* correct LCS; it does not change which lengths are maximal, only the representative. Tests assert the documented deterministic choice.

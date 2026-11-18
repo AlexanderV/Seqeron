@@ -288,4 +288,241 @@ public class GenomicAnalyzer_FindCommonRegion_Tests
     }
 
     #endregion
+
+    #region B09 review: first-occurrence positions, null contract, oracle, scalability
+
+    // F15 — PositionInFirst must be the FIRST (lowest) occurrence in sequence1, independent of the
+    // suffix-tree's internal (DFS) occurrence order. Reference values: Python str.find (independent oracle,
+    // scripts/analysis/generate_common_region_oracle.py).
+    [Test]
+    public void FindCommonRegions_PositionInFirst_IsLowestOccurrence()
+    {
+        // The final region GA occurs in seq1 at 2 and 15; the suffix tree lists 15 first (DFS order), the first occurrence is 2.
+        var seq1 = new DnaSequence("AGGAAGAAGGAGGCCGATTACT");
+        var seq2 = new DnaSequence("CGTGGAAGGAGGCCGA");
+
+        var regions = GenomicAnalyzer.FindCommonRegions(seq1, seq2, minLength: 2).ToList();
+
+        Assert.That(regions.Select(r => (r.Sequence, r.PositionInFirst, r.PositionInSecond)), Is.EqualTo(new[]
+        {
+            ("CG", 14, 0), ("GGAAG", 1, 3), ("GAAGGAGGCCGA", 5, 4), ("AAGGAGGCCGA", 6, 5), ("AGGAGGCCGA", 7, 6),
+            ("GGAGGCCGA", 8, 7), ("GAGGCCGA", 9, 8), ("AGGCCGA", 10, 9), ("GGCCGA", 11, 10), ("GCCGA", 12, 11),
+            ("CCGA", 13, 12), ("CGA", 14, 13), ("GA", 2, 14),
+        }));
+    }
+
+    [Test]
+    public void FindLongestCommonRegion_PositionInFirst_IsLowestOccurrence()
+    {
+        // LCS "GA" (length 2) occurs at 4, 15 (and others) in seq1; str.find = 4.
+        var seq1 = new DnaSequence("CACAGATAAAGGACTGAGGCTCTACG");
+        var seq2 = new DnaSequence("GA");
+
+        CommonRegion region = GenomicAnalyzer.FindLongestCommonRegion(seq1, seq2);
+
+        Assert.That((region.Sequence, region.PositionInFirst, region.PositionInSecond), Is.EqualTo(("GA", 4, 0)));
+    }
+
+    // Tie: first-found-in-sequence2 representative; both positions are first occurrences (poly-repeat seq1).
+    [Test]
+    public void FindLongestCommonRegion_RepeatedOccurrences_ReportsFirstInBoth()
+    {
+        // ACAC occurs in seq1 at 0, 2, 4, 6 and in seq2 only at 2 (Python str.find: 0 and 2).
+        var seq1 = new DnaSequence("ACACACACAC");
+        var seq2 = new DnaSequence("GGACACGG");
+
+        CommonRegion region = GenomicAnalyzer.FindLongestCommonRegion(seq1, seq2);
+
+        Assert.That((region.Sequence, region.PositionInFirst, region.PositionInSecond), Is.EqualTo(("ACAC", 0, 2)));
+    }
+
+    [Test]
+    public void CommonRegionMethods_NullSequences_ThrowArgumentNullException()
+    {
+        var seq = new DnaSequence("ACGT");
+
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentNullException>(() => GenomicAnalyzer.FindLongestCommonRegion(null!, seq));
+            Assert.Throws<ArgumentNullException>(() => GenomicAnalyzer.FindLongestCommonRegion(seq, null!));
+            // Eager validation: the exception is thrown by the call itself, not on first enumeration.
+            Assert.Throws<ArgumentNullException>(() => GenomicAnalyzer.FindCommonRegions(null!, seq, 2));
+            Assert.Throws<ArgumentNullException>(() => GenomicAnalyzer.FindCommonRegions(seq, null!, 2));
+        });
+    }
+
+    // Lower-case input is folded by DnaSequence, so matching is case-insensitive (ties/positions unchanged).
+    [Test]
+    public void CommonRegionMethods_LowerCaseInput_SameAsUpperCase()
+    {
+        var upper1 = new DnaSequence("ACGTACGT"); var upper2 = new DnaSequence("TTACGTGG");
+        var lower1 = new DnaSequence("acgtacgt"); var lower2 = new DnaSequence("ttacgtgg");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(GenomicAnalyzer.FindLongestCommonRegion(lower1, lower2),
+                Is.EqualTo(GenomicAnalyzer.FindLongestCommonRegion(upper1, upper2)));
+            Assert.That(GenomicAnalyzer.FindCommonRegions(lower1, lower2, 3),
+                Is.EqualTo(GenomicAnalyzer.FindCommonRegions(upper1, upper2, 3)));
+        });
+    }
+
+    // Non-ACGT symbols (IUPAC N, RNA U) never reach the algorithm: DnaSequence rejects them.
+    [TestCase("ACGN")]
+    [TestCase("ACGU")]
+    public void CommonRegionInput_NonAcgt_RejectedByDnaSequence(string text)
+    {
+        Assert.Throws<ArgumentException>(() => new DnaSequence(text));
+    }
+
+    // minLength = int.MinValue / 0 / 1 all mean "at least one base"; huge minLength yields nothing.
+    [Test]
+    public void FindCommonRegions_ExtremeMinLength_Handled()
+    {
+        var a = new DnaSequence("ACGTACGT"); var b = new DnaSequence("TTACGTGG");
+        var atOne = GenomicAnalyzer.FindCommonRegions(a, b, 1).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(GenomicAnalyzer.FindCommonRegions(a, b, int.MinValue), Is.EqualTo(atOne));
+            Assert.That(GenomicAnalyzer.FindCommonRegions(a, b, 0), Is.EqualTo(atOne));
+            Assert.That(GenomicAnalyzer.FindCommonRegions(a, b, int.MaxValue), Is.Empty);
+            Assert.That(GenomicAnalyzer.FindCommonRegions(a, b, 6), Is.Empty, "longest common substring is 5");
+            Assert.That(GenomicAnalyzer.FindCommonRegions(a, b, 5).Select(r => r.Sequence), Is.EqualTo(new[] { "TACGT" }));
+        });
+    }
+
+    // Differential test against the independent Python oracle (DP + suffix automaton for the LCS,
+    // brute-force matching statistics for the regions): 284 pairs incl. empty inputs, binary alphabet, tandem
+    // repeats, planted (point-mutated) shared blocks up to 250 bp that exercise the maximal-exact-match path.
+    [Test]
+    public void FindLongestCommonRegionAndFindCommonRegions_MatchIndependentOracle()
+    {
+        var rows = ReadOracle();
+        var failures = new List<string>();
+        foreach (var (id, s1, s2, minLength, lcs, regions) in rows)
+        {
+            var a = new DnaSequence(s1); var b = new DnaSequence(s2);
+
+            var l = GenomicAnalyzer.FindLongestCommonRegion(a, b);
+            string gotLcs = l.IsEmpty ? "-" : $"{l.Sequence}@{l.PositionInFirst}@{l.PositionInSecond}";
+            if (gotLcs != lcs) failures.Add($"#{id} LCS {gotLcs} != {lcs}");
+
+            var r = GenomicAnalyzer.FindCommonRegions(a, b, minLength).ToList();
+            string gotRegions = r.Count == 0 ? "-" : string.Join(",", r.Select(x => $"{x.Length}:{x.PositionInFirst}:{x.PositionInSecond}"));
+            bool sequencesOk = r.All(x => s2.Substring(x.PositionInSecond, x.Length) == x.Sequence
+                                          && s1.Substring(x.PositionInFirst, x.Length) == x.Sequence);
+            if (gotRegions != regions || !sequencesOk) failures.Add($"#{id} regions(min={minLength}) {gotRegions} != {regions} (seq ok: {sequencesOk})");
+        }
+
+        Assert.That(rows, Has.Count.EqualTo(283));
+        Assert.That(failures, Is.Empty, string.Join("\n", failures.Take(5)));
+    }
+
+    // Matching statistics from the oracle's own definition, checked on fresh random pairs through a brute-force
+    // C# reference (independent of the suffix tree): longest-common-substring length, region set and positions.
+    [Test]
+    public void FindCommonRegions_RandomPairs_MatchBruteForce()
+    {
+        var rnd = new Random(20261118);
+        for (int k = 0; k < 150; k++)
+        {
+            string alphabet = k % 3 == 0 ? "AC" : "ACGT";
+            string s = RandomText(rnd, rnd.Next(0, 60), alphabet);
+            string t = RandomText(rnd, rnd.Next(0, 60), alphabet);
+            if (k % 2 == 0 && s.Length > 10) t = t.Insert(rnd.Next(t.Length + 1), s.Substring(rnd.Next(s.Length - 8), 8));
+            int min = rnd.Next(0, 9);
+
+            var expected = BruteForceRegions(s, t, min);
+            var actual = GenomicAnalyzer.FindCommonRegions(new DnaSequence(s), new DnaSequence(t), min)
+                .Select(r => (r.Sequence, r.PositionInFirst, r.PositionInSecond)).ToList();
+
+            Assert.That(actual, Is.EqualTo(expected), $"s={s} t={t} min={min}");
+
+            var lcs = GenomicAnalyzer.FindLongestCommonRegion(new DnaSequence(s), new DnaSequence(t));
+            int bestLength = BruteForceRegions(s, t, 1).Select(x => x.Item1.Length).DefaultIfEmpty(0).Max();
+            Assert.That(lcs.Length, Is.EqualTo(bestLength), $"LCS length s={s} t={t}");
+        }
+    }
+
+    // Complexity guard (INV: no quadratic time/memory). A 1 Mbp random pair; the former per-start binary
+    // search over Contains copied up to m characters per probe (~O(m^2): minutes and tens of GB for 1 Mbp).
+    [Test]
+    public void FindCommonRegions_OneMegabasePair_IsLinearAndCorrect()
+    {
+        var rnd = new Random(7);
+        const int N = 1_000_000;
+        string s = RandomText(rnd, N, "ACGT");
+        string t = RandomText(rnd, N, "ACGT");
+        // Plant a 5 kb shared block (point-mutated in the middle) so a long match must be found.
+        string block = s.Substring(250_000, 5_000);
+        t = t.Remove(600_000, 5_000).Insert(600_000, block);
+        var a = new DnaSequence(s); var b = new DnaSequence(t);
+
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        var lcs = GenomicAnalyzer.FindLongestCommonRegion(a, b);
+        var big = GenomicAnalyzer.FindCommonRegions(a, b, 1000).ToList();
+        var small = GenomicAnalyzer.FindCommonRegions(a, b, 1).Take(200).ToList();
+        sw.Stop();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(sw.Elapsed.TotalSeconds, Is.LessThan(60), "linear-time behaviour expected");
+            Assert.That(lcs.Length, Is.GreaterThanOrEqualTo(5_000));
+            Assert.That(t.Substring(lcs.PositionInSecond, lcs.Length), Is.EqualTo(lcs.Sequence));
+            Assert.That(string.CompareOrdinal(s, lcs.PositionInFirst, lcs.Sequence, 0, lcs.Length), Is.EqualTo(0));
+            // Regions >= 1000: the planted block (t[600000..605000) = s[250000..255000)) and its right-maximal suffix starts.
+            Assert.That(big[0].PositionInSecond, Is.LessThanOrEqualTo(600_000));
+            Assert.That(big.All(r => r.Length >= 1000), Is.True);
+            Assert.That(big.First(r => r.PositionInSecond == 600_000).Length, Is.GreaterThanOrEqualTo(5_000));
+            foreach (var r in small)
+            {
+                Assert.That(string.CompareOrdinal(t, r.PositionInSecond, r.Sequence, 0, r.Length), Is.EqualTo(0));
+                Assert.That(string.CompareOrdinal(s, r.PositionInFirst, r.Sequence, 0, r.Length), Is.EqualTo(0));
+                Assert.That(s.IndexOf(r.Sequence, StringComparison.Ordinal), Is.EqualTo(r.PositionInFirst), "first occurrence");
+            }
+        });
+    }
+
+    private static string RandomText(Random rnd, int length, string alphabet)
+    {
+        var c = new char[length];
+        for (int i = 0; i < length; i++) c[i] = alphabet[rnd.Next(alphabet.Length)];
+        return new string(c);
+    }
+
+    // Definition-level reference: ms(i) by brute-force substring search, distinct strings by first start.
+    private static List<(string, int, int)> BruteForceRegions(string s, string t, int minLength)
+    {
+        int min = Math.Max(1, minLength);
+        var seen = new HashSet<string>();
+        var result = new List<(string, int, int)>();
+        for (int i = 0; i < t.Length; i++)
+        {
+            int l = 0;
+            while (i + l < t.Length && s.Contains(t.AsSpan(i, l + 1), StringComparison.Ordinal)) l++;
+            if (l >= min && seen.Add(t.Substring(i, l)))
+                result.Add((t.Substring(i, l), s.IndexOf(t.Substring(i, l), StringComparison.Ordinal), i));
+        }
+        return result;
+    }
+
+    private static List<(int Id, string S1, string S2, int Min, string Lcs, string Regions)> ReadOracle()
+    {
+        const string name = "Seqeron.Genomics.Tests.TestData.Analysis.common_region_oracle.tsv";
+        using var stream = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream(name)
+            ?? throw new InvalidOperationException($"Embedded oracle '{name}' not found.");
+        using var reader = new StreamReader(stream);
+        var rows = new List<(int, string, string, int, string, string)>();
+        string? line;
+        while ((line = reader.ReadLine()) is not null)
+        {
+            if (line.Length == 0 || line[0] == '#') continue;
+            var f = line.Split('\t');
+            rows.Add((int.Parse(f[0]), f[1] == "." ? "" : f[1], f[2] == "." ? "" : f[2], int.Parse(f[3]), f[4], f[5]));
+        }
+        return rows;
+    }
+
+    #endregion
 }

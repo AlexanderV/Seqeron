@@ -277,32 +277,48 @@ public static class GenomicAnalyzer
     /// substring of both sequences), not a gapped subsequence — Wikipedia "Longest common substring";
     /// the contiguous distinction is explicit there. Computed via the generalized suffix tree of
     /// <paramref name="sequence1"/>: the deepest node whose subtree has leaves from both strings spells
-    /// the answer (Gusfield 1997, ISBN 0-521-58519-8; GeeksforGeeks "Suffix Tree Application 5").
-    /// On a length tie, the substring first found in <paramref name="sequence2"/> is returned
-    /// (documented tie-break of <see cref="SuffixTree.SuffixTree.LongestCommonSubstringInfo(string)"/>).
+    /// the answer (Gusfield 1997, ISBN 0-521-58519-8; GeeksforGeeks "Suffix Tree Application 5"),
+    /// found by streaming <paramref name="sequence2"/> through the tree with suffix links
+    /// (matching statistics, Chang &amp; Lawler 1994).
+    /// <para>
+    /// Ties (Wikipedia: "BADANAT"/"CANADAS" share "ADA" and "ANA"): the substring whose first match
+    /// in <paramref name="sequence2"/> ends earliest is returned (documented tie-break of
+    /// <see cref="SuffixTree.SuffixTree.FindAllLongestCommonSubstrings(string)"/>). Both positions are the
+    /// <b>first (lowest) 0-based occurrence</b> of that substring in the respective sequence, so the
+    /// result does not depend on the internal suffix-tree layout.
+    /// </para>
     /// Returns <see cref="CommonRegion.None"/> when there is no shared substring (including any empty input).
+    /// Sequences are the validated upper-case A/C/G/T strings of <see cref="DnaSequence"/> (lower case is
+    /// folded at construction, IUPAC/other symbols are rejected there), so matching is exact and case-insensitive.
     /// Time complexity: O(n + m) with the generalized suffix tree (Gusfield 1997).
     /// See docs/algorithms/Sequence_Comparison/Common_Region_Detection.md.
     /// </summary>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence1"/> or <paramref name="sequence2"/> is null.</exception>
     public static CommonRegion FindLongestCommonRegion(DnaSequence sequence1, DnaSequence sequence2)
     {
-        var tree = sequence1.SuffixTree;
-        var (lcs, pos1, pos2) = tree.LongestCommonSubstringInfo(sequence2.Sequence);
+        ArgumentNullException.ThrowIfNull(sequence1);
+        ArgumentNullException.ThrowIfNull(sequence2);
+
+        var (lcs, positionsInFirst, positionsInSecond) =
+            sequence1.SuffixTree.FindAllLongestCommonSubstrings(sequence2.Sequence);
 
         if (string.IsNullOrEmpty(lcs))
         {
             return CommonRegion.None;
         }
 
-        return new CommonRegion(lcs, pos1, pos2);
+        // Position lists are ascending and duplicate-free: [0] is the first occurrence in each sequence.
+        return new CommonRegion(lcs, positionsInFirst[0], positionsInSecond[0]);
     }
 
     /// <summary>
     /// For each start position in <paramref name="sequence2"/>, finds the <b>single longest</b> contiguous
     /// substring (per Wikipedia "Longest common substring") of length ≥ <paramref name="minLength"/> that
-    /// also occurs in <paramref name="sequence1"/>, located via the generalized suffix tree; distinct such
-    /// substrings are reported once, with the first occurrence position in <paramref name="sequence1"/> and
-    /// the start position in <paramref name="sequence2"/>.
+    /// also occurs in <paramref name="sequence1"/> — i.e. the right-maximal common substring at that start,
+    /// whose length is the matching statistic ms(i) of Chang &amp; Lawler (1994; Gusfield 1997 ch. 7).
+    /// Distinct such substrings are reported once, in order of their first start in <paramref name="sequence2"/>,
+    /// with the <b>first (lowest) 0-based occurrence</b> in <paramref name="sequence1"/> and that start position
+    /// in <paramref name="sequence2"/>.
     /// <para>
     /// This is the set of right-maximal common substrings keyed by start position in
     /// <paramref name="sequence2"/>, <b>not</b> the full set of every common substring: shorter prefixes
@@ -312,53 +328,137 @@ public static class GenomicAnalyzer
     /// </para>
     /// A common substring is non-empty, so values of
     /// <paramref name="minLength"/> below 1 are treated as 1 (the empty string is not a region).
-    /// Time complexity: O(n + m·log m) — O(n + m) suffix-tree construction plus a per-position
-    /// binary search using O(m) <see cref="SuffixTree.SuffixTree.Contains(string)"/> lookups
-    /// (Gusfield 1997, ISBN 0-521-58519-8). See docs/algorithms/Sequence_Comparison/Common_Region_Detection.md.
+    /// <para>
+    /// Algorithm: ms(i) values below K = ⌈log₄(n·m)⌉ + 2 are found by extending the match from ms(i−1) − 1
+    /// (ms(i) ≥ ms(i−1) − 1) with <see cref="SuffixTree.SuffixTree.Contains(ReadOnlySpan{char})"/> probes of at most K
+    /// characters; every ms(i) ≥ max(K, minLength) is recovered from the canonical suffix-link
+    /// maximal-exact-match stream <see cref="SuffixTree.SuffixTree.FindMaximalExactMatches(string, int)"/>
+    /// (MUMmer <c>-maxmatch</c>): the longest match at i lies on a diagonal whose maximal run is a MEM, so
+    /// ms(i) = max over MEMs starting at or before i of (end − i). The expected number of MEMs of length ≥ K between
+    /// unrelated random sequences is O(1), so no start position ever re-scans a long match.
+    /// Time O(n + m·K + R) plus the cost of materialising the reported regions (the output itself is
+    /// Σ|region|); R is the number of maximal matches of length ≥ max(K, minLength). No O(m²) substring is built
+    /// (the former per-start binary search copied up to m characters per probe).
+    /// See docs/algorithms/Sequence_Comparison/Common_Region_Detection.md.
+    /// </para>
     /// </summary>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence1"/> or <paramref name="sequence2"/> is null.</exception>
     public static IEnumerable<CommonRegion> FindCommonRegions(
         DnaSequence sequence1,
         DnaSequence sequence2,
         int minLength)
     {
-        var tree = sequence1.SuffixTree;
-        string seq2 = sequence2.Sequence;
-        var found = new HashSet<string>();
+        ArgumentNullException.ThrowIfNull(sequence1);
+        ArgumentNullException.ThrowIfNull(sequence2);
 
         // A common region is a NON-EMPTY contiguous substring; the empty string is not a region,
         // so the effective minimum length is at least 1 (Wikipedia "Longest common substring").
         int effectiveMinLength = Math.Max(1, minLength);
+        int[] matchLengths = MatchingStatistics(sequence1.SuffixTree, sequence2.Sequence, sequence1.Length, effectiveMinLength);
+        return EnumerateCommonRegions(sequence1.SuffixTree, sequence2.Sequence, matchLengths, effectiveMinLength);
+    }
 
-        // Slide through sequence2 and find matches
-        for (int i = 0; i < seq2.Length - effectiveMinLength + 1; i++)
+    private static IEnumerable<CommonRegion> EnumerateCommonRegions(
+        global::SuffixTree.SuffixTree tree, string seq2, int[] matchLengths, int effectiveMinLength)
+    {
+        var found = new HashSet<string>(StringComparer.Ordinal);
+        var foundLookup = found.GetAlternateLookup<ReadOnlySpan<char>>();
+
+        for (int i = 0; i < matchLengths.Length; i++)
         {
-            // Binary search for longest match at this position
-            int lo = effectiveMinLength, hi = seq2.Length - i;
-            string? bestMatch = null;
-
-            while (lo <= hi)
+            int length = matchLengths[i];
+            if (length < effectiveMinLength)
             {
-                int mid = (lo + hi) / 2;
-                string candidate = seq2.Substring(i, mid);
+                continue;
+            }
 
-                if (tree.Contains(candidate))
+            ReadOnlySpan<char> match = seq2.AsSpan(i, length);
+            if (!foundLookup.Add(match))
+            {
+                continue;
+            }
+
+            // First (lowest) occurrence in sequence1: FindAllOccurrences is in tree order, not sorted.
+            var occurrences = tree.FindAllOccurrences(match);
+            int first = occurrences[0];
+            for (int k = 1; k < occurrences.Count; k++)
+            {
+                if (occurrences[k] < first)
                 {
-                    bestMatch = candidate;
-                    lo = mid + 1;
-                }
-                else
-                {
-                    hi = mid - 1;
+                    first = occurrences[k];
                 }
             }
 
-            if (bestMatch != null && !found.Contains(bestMatch))
+            yield return new CommonRegion(match.ToString(), first, i);
+        }
+    }
+
+    /// <summary>
+    /// Matching statistics of <paramref name="query"/> against the text of <paramref name="tree"/>:
+    /// entry i is ms(i) = the length of the longest prefix of query[i..] occurring in the text — exact
+    /// wherever it is ≥ <paramref name="minLength"/>, and a value &lt; <paramref name="minLength"/> elsewhere.
+    /// </summary>
+    private static int[] MatchingStatistics(global::SuffixTree.SuffixTree tree, string query, int textLength, int minLength)
+    {
+        int m = query.Length;
+        var ms = new int[m];
+        if (m == 0 || textLength == 0)
+        {
+            return ms;
+        }
+
+        // K ≈ log4(n·m) + 2: between random sequences the expected number of right-maximal matches of
+        // length ≥ K is n·m/4^K ≤ 1/16, so the maximal-exact-match stream below is output-sized.
+        int shortLimit = (int)Math.Ceiling(Math.Log((double)textLength + 1, 4) + Math.Log((double)m + 1, 4)) + 2;
+        int memLength = Math.Max(minLength, shortLimit);
+
+        bool needMems = true;
+        if (minLength < shortLimit)
+        {
+            // Phase 1: exact ms(i) up to shortLimit by extension from ms(i-1)-1 (ms(i) >= ms(i-1)-1).
+            needMems = false;
+            int length = 0;
+            for (int i = 0; i < m; i++)
             {
-                found.Add(bestMatch);
-                var positions1 = tree.FindAllOccurrences(bestMatch);
-                yield return new CommonRegion(bestMatch, positions1[0], i);
+                if (length > 0)
+                {
+                    length--;
+                }
+
+                while (length < shortLimit && i + length < m && tree.Contains(query.AsSpan(i, length + 1)))
+                {
+                    length++;
+                }
+
+                ms[i] = length;
+                needMems |= length >= shortLimit;
             }
         }
+
+        if (!needMems)
+        {
+            return ms;
+        }
+
+        // Phase 2: ms(i) >= memLength from the maximal exact matches (sorted by query position).
+        var mems = tree.FindMaximalExactMatches(query, memLength);
+        int next = 0;
+        int maxEnd = 0;
+        for (int i = 0; i < m; i++)
+        {
+            while (next < mems.Count && mems[next].PositionInQuery <= i)
+            {
+                maxEnd = Math.Max(maxEnd, mems[next].PositionInQuery + mems[next].Length);
+                next++;
+            }
+
+            if (minLength >= shortLimit || ms[i] >= shortLimit)
+            {
+                ms[i] = maxEnd - i;
+            }
+        }
+
+        return ms;
     }
 
     // Default k-mer length. Mash uses k=21 for whole genomes; for short DNA

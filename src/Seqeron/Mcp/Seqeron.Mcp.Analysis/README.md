@@ -51,7 +51,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `find_approximate_tandem_repeats` | Finds approximate (imperfect / interrupted) tandem repeats with the **Tandem Repeats Finder** model (Benson 1999; TRF 4.10.0 trf File Match… |
 | `find_clump_windows` | (L, t)-clump k-mers with the maximal runs of window starts in which they form clumps (same k-mer set as `find_clumps`). |
 | `find_clumps` | Finds k-mers that occur at least minOccurrences times within any sliding window of size windowSize. |
-| `find_common_regions` | All common regions between two DNA sequences with length >= minLength. |
+| `find_common_regions` | Right-maximal common regions of two DNA sequences: for each start in sequence2 the single longest substring (length >= minLength) that also occurs in sequence1, distinct strings once, with the first occurrence in sequence1. Not every common substring. |
 | `find_conserved_clusters` | Gene clusters preserved across multiple genomes. |
 | `find_degenerate_motif` | Motif search with IUPAC ambiguity codes (N, R, Y, S, W, K, M, B, D, H, V). |
 | `find_degenerate_repeats` | Finds **all maximal degenerate repeats** with at most maxDifferences differences (Kurtz et al. 2000 REPuter; Vmatch -e k / -h k, -p, -allma… |

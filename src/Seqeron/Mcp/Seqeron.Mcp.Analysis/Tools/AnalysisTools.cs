@@ -709,7 +709,7 @@ public class AnalysisTools
     }
 
     [McpServerTool(Name = "find_common_regions", Title = "Genome — Common Regions", ReadOnly = true)]
-    [Description("All common regions between two DNA sequences with length >= minLength.")]
+    [Description("Right-maximal common regions of two DNA sequences: for each start in sequence2 the single longest substring (length >= minLength) that also occurs in sequence1, distinct strings once, with the first occurrence in sequence1. Not every common substring.")]
     public static FindCommonRegionsResult FindCommonRegions(
         [Description("First DNA sequence.")] string sequence1,
         [Description("Second DNA sequence.")] string sequence2,
