@@ -1,0 +1,2 @@
+J09	the exactly-once check starts at the second slot	killed(1)	
+J11	the tuple size is taken from the key only	killed(1)	

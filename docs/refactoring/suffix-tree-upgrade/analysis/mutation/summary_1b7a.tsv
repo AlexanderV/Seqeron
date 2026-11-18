@@ -1,0 +1,233 @@
+arenabudget	A01	killed	a negative cap is accepted
+arenabudget	A02	killed	Reserve accepts a negative size
+arenabudget	A03	killed	exactly the cap is refused
+arenabudget	A04	killed	the cap test can wrap around for an unlimited cap
+arenabudget	A05	killed	the reserved total is live minus bytes
+arenabudget	A06	killed	the peak lags one reservation behind
+arenabudget	A07	killed	a lost compare-and-swap is accepted
+arenabudget	A08	killed	Release allows one byte more than live
+arenabudget	A09	killed	Release accepts a negative size
+arenabudget	A10	killed	Release adds instead of subtracting
+arenabudget	A11	killed	the arena does not charge the budget
+arenabudget	A12	killed	a failed allocation gives back 0 bytes
+arenabudget	A13	killed	the arena forgets its live bytes
+arenabudget	A14	killed	the arena forgets the block size
+arenabudget	A15	killed	ReleaseTo keeps the oldest of the newer blocks
+arenabudget	A16	killed	ReleaseTo keeps the live total
+arenabudget	A17	killed	ReleaseTo does not give the bytes back
+arenabudget	A18	equivalent	Dispose does not mark the arena disposed
+arenabudget	A19	equivalent	Dispose keeps the live bytes (a second Dispose gives them back twice)
+arenabudget	A20	equivalent	Mark does not check the disposal
+arenabudget	A21	killed	a null budget is accepted
+arenabudget	A22	killed	VerifyCanaries does nothing
+arenabudget	A23	equivalent	ReleaseTo does not check the upper bound of the mark
+arenabudget	A24	killed	Dispose does not give the bytes back
+arenabudget	P01	killed	the peak is the largest single request
+arenabudget	P02	killed	the arena charges elements instead of bytes
+arenabudget	P03	killed	ReleaseTo keeps the sizes of the blocks it freed
+arenabudget	P04	killed	the reservation message omits the live bytes
+atomic	B15	killed	RaiseTo never raises
+atomic	B16	killed	RaiseTo stores the smaller value
+countedfile	E01	killed	reads are not counted
+countedfile	E02	killed	writes are not counted
+countedfile	E03	killed	a read one byte short is accepted
+countedfile	E04	killed	the file is opened exclusively
+countedfile	E05	killed	SetLength does nothing
+countedfile	E06	equivalent	Flush does nothing
+countedfile	E07	killed	Dispose does not release the handle
+countedfile	E08	killed	the read position does not advance
+countedfile	E09	killed	the read counter counts the buffer, not what was read
+dist	H01	killed	a divisor of 2^32 - 1 is a single chunk
+dist	H02	killed	the identity case is a division by two
+dist	H03	killed	the reciprocal is not rounded up
+dist	H04	killed	a single chunk returns the key
+dist	H05	killed	a divisor of 0 is not refused by the divider
+dist	H06	killed	ISA refuses the entry n
+dist	H07	killed	ISA value is the rank plus one
+dist	H08	killed	Phi does not check the first entry
+dist	H09	killed	Phi does not remember the first entry
+dist	H10	equivalent	Phi accepts the entry n after the first
+dist	H11	killed	Phi does not advance the predecessor
+dist	H12	killed	ChunksFor rounds exact multiples up
+dist	H13	killed	ChunksFor accepts negative slots
+dist	H14	killed	a negative source count is accepted
+dist	H15	killed	an I/O buffer of 0 is accepted
+dist	H16	killed	a read buffer below four bytes is accepted
+dist	H17	killed	the source length is only checked from below
+dist	H18	killed	the scratch directory is not created
+dist	H19	killed	the chunk files are not accounted
+dist	H20	killed	the budget of the options is ignored
+dist	H21	killed	the source read buffer is kept in pass 2
+dist	H22	killed	the buffer entries are not at least one
+dist	H23	killed	the read buffer holds half the bytes
+dist	H24	killed	a skipped entry is distributed
+dist	H25	killed	a key equal to the slot count is accepted
+dist	H26	killed	the source is read at the wrong offset
+dist	H27	killed	the chunk array is cleared, not filled
+dist	H28	killed	the tuples read are not counted in bytes
+dist	H29	killed	the tuples written are not counted in bytes
+dist	H30	killed	a chunk file is not deleted after its chunk is read
+dist	H31	killed	the tuples still in the buffer are lost
+dist	H32	killed	the exactly-once check is inverted
+dist	H33	killed	a missing slot is a slot that is filled
+dist	H34	killed	the chunk is not written to the target
+dist	H35	equivalent	the canaries are not verified
+dist	H36	killed	the ISA limit is one too high
+dist	H37	killed	the ISA target has n slots
+dist	H38	killed	the Phi target has n + 1 slots
+dist	H39	killed	a key outside its chunk is not refused
+dist	H40	killed	a repeated slot is overwritten silently
+dist	H41	killed	the key limit is 2^32 - 1 slots
+dist	H42	killed	the chunk of a key is its key
+dist	J01	killed	the last source read is as long as a full one
+dist	J02	killed	the start slot of a chunk is one short
+dist	J03	killed	the last chunk array is as long as a full one
+dist	J04	killed	the chunk array is one entry short
+dist	J05	killed	the source is read in steps one entry longer than the buffer
+dist	J06	killed	a scattered slot gets the key
+dist	J07	killed	the ISA key is flipped in its lowest bit
+dist	J08	killed	the Phi mapper checks against n + 1
+dist	J09	killed	the exactly-once check starts at the second slot
+dist	J10	killed	the written-twice test compares with the value
+dist	J11	killed	the tuple size is taken from the key only
+dist	J12	killed	the target is sized in tuples
+distscratch	G01	killed	an empty append creates the file
+distscratch	G02	killed	the append offset is the end, not the start
+distscratch	G03	killed	scratch bytes are not accounted
+distscratch	G04	killed	an append truncates the chunk file
+distscratch	G05	killed	the append offset is in entries, not bytes
+distscratch	G06	killed	an empty chunk is opened as a file
+distscratch	G07	killed	Delete gives the bytes back without clearing the count
+distscratch	G08	killed	Delete does not remove the file
+distscratch	G09	killed	Dispose leaves the last chunk
+distscratch	G10	killed	the read takes the larger count
+distscratch	G11	killed	the read offset is in entries
+distscratch	G12	killed	a buffer smaller than a tuple has capacity 0
+distscratch	G13	killed	a buffer is flushed one entry late
+distscratch	G14	killed	a flushed buffer is not emptied
+distscratch	G15	killed	a chunk one past the end is not refused as an argument
+distscratch	G16	killed	the pending span is empty
+distscratch	G17	killed	FlushAll does not empty the buffers
+distscratch	G18	equivalent	the buffers are not charged under their own block name
+distscratch	G19	killed	the buffers of the first chunk start at the second
+distscratch	G20	killed	a flush writes to the wrong chunk
+distscratch	N01	killed	the chunk file name does not contain the chunk
+distscratch	N02	killed	the writer capacity counts bytes
+distscratch	N03	killed	the pending count is the capacity
+iocounters	B01	killed	TotalBytes leaves out the mapped writes
+iocounters	B02	killed	Since does not subtract the read calls
+iocounters	B03	killed	Since subtracts the maximum window
+iocounters	B04	killed	Since subtracts the live scratch
+iocounters	B05	killed	AddRead does not count the call
+iocounters	B06	killed	AddWrite counts into the read bytes
+iocounters	B07	killed	AddWindow keeps the last window, not the largest
+iocounters	B08	killed	AddScratch does not raise the peak
+iocounters	B09	killed	RemoveScratch adds
+iocounters	B10	killed	Reset keeps the scratch peak
+iocounters	B11	killed	Reset keeps the maximum window
+iocounters	B12	killed	Snapshot swaps the call counts
+iocounters	B13	killed	AddMappedWrite counts the windows
+iocounters	B14	killed	Reset keeps the live scratch
+iocounters	O01	killed	a snapshot reports the scratch peak as the live bytes
+iocounters	O02	killed	Since subtracts the mapped windows from the writes
+mappedwindowwriter	F01	killed	the default window is 64 KB
+mappedwindowwriter	F02	killed	a window of 0 bytes is accepted
+mappedwindowwriter	F03	killed	an empty file is mapped
+mappedwindowwriter	F04	killed	a write that ends exactly at the end is refused
+mappedwindowwriter	F05	equivalent	a negative offset is accepted by the range test
+mappedwindowwriter	F06	killed	the take is the larger of the two
+mappedwindowwriter	F07	killed	a write at the start of the window opens another
+mappedwindowwriter	F08	killed	mapped writes are not counted
+mappedwindowwriter	F09	killed	windows are not counted
+mappedwindowwriter	F10	killed	Append does not move the position
+mappedwindowwriter	F11	killed	the tail window is as large as a full one
+mappedwindowwriter	F12	killed	Dispose does not release the mapping file
+mappedwindowwriter	F13	killed	the window offset is not added to the base
+mappedwindowwriter	F14	equivalent	the file is not truncated to the new length
+mappedwindowwriter	M01	killed	the window is mapped read-only
+mappedwindowwriter	M02	killed	the window ends one byte early
+procio	C01	killed	an empty file is reported unavailable by the real source
+procio	C02	killed	the real source returns 0 for a missing file
+procio	C03	killed	SafeRead does not clamp the count
+procio	C04	equivalent	SafeRead treats an empty read as unavailable
+procio	C05	killed	an empty key is looked up
+procio	C06	equivalent	the last possible key position is not searched
+procio	C07	killed	a key need not stand at the start of a line
+procio	C08	killed	only a blank, not a tab, may precede the number
+procio	C09	killed	the digit 9 is not a digit
+procio	C10	killed	long.MaxValue is refused as an overflow
+procio	C11	killed	an overflow is not detected
+procio	C12	killed	a line without digits parses as 0
+procio	C13	killed	Since adds the syscall writes
+procio	C14	killed	write_bytes is read from cancelled_write_bytes
+procio	C15	killed	a missing field does not make /proc/self/io unavailable
+procio	C16	killed	Finish does not subtract the start counters
+procio	C17	killed	Finish reports the end snapshot, not the delta
+procio	C18	killed	a null counters object is accepted
+procio	C19	killed	Finish ignores a missing start snapshot
+procio	C20	killed	the real source opens exclusively
+procio	L01	killed	a newline may precede the number
+procio	L02	equivalent	the search restarts at the same position after a mismatch
+procio	L03	killed	the digit loop stops at the first zero
+procio	L04	killed	the proc snapshot buffer is 16 bytes
+procio	L05	equivalent	the real source stops after one read
+rssreader	D01	killed	a missing RssAnon line reads as 0
+rssreader	D02	killed	RssFile is read from RssAnon
+rssreader	D03	killed	VmHWM is read from VmPeak
+rssreader	D04	killed	Threads is read from RssFile
+rssreader	D05	killed	RssAnonMb divides by 1000 kB
+rssreader	D06	killed	an interval of 0 is accepted
+rssreader	D07	killed	Start can be called twice
+rssreader	D08	killed	an unavailable platform starts a sampler
+rssreader	D09	killed	Stop does not take the last sample
+rssreader	D10	killed	RssFile maximum is taken from RssAnon
+rssreader	D11	killed	the last RssAnon is a maximum
+rssreader	D12	killed	Stop does not allow a restart
+rssreader	D13	killed	Dispose does not stop the sampler
+rssreader	D14	killed	the thread is not woken by Stop
+rssreader	D15	killed	the interval is taken in seconds
+rssreader	D16	killed	the sample count is not kept
+rssreader	D17	killed	the thread count maximum is taken from VmHWM
+rssreader	D18	killed	a null reader is accepted
+rssreader	L06	killed	the status buffer is 64 bytes
+rssreader	L07	killed	Stop reports available whatever the platform
+rssreader	L08	killed	the sampler reports available before it has a sample
+rssreader	L09	killed	the stats report the maximum RssAnon as the last
+spillstack	I01	killed	a block of one entry is accepted
+spillstack	I02	killed	a full block is not advanced
+spillstack	I03	killed	a push does not mark its block dirty
+spillstack	I04	equivalent	a pop from the second entry of a block retreats
+spillstack	I05	killed	a pop does not lower the height
+spillstack	I06	killed	a clean block is always written
+spillstack	I07	killed	clean evictions are not counted
+spillstack	I08	killed	every block is dirty after an advance
+spillstack	I09	killed	the block below is not marked resident
+spillstack	I10	killed	the top block number does not advance
+spillstack	I11	killed	a resident block is read back
+spillstack	I12	killed	a block read back is dirty
+spillstack	I13	killed	a retreat leaves a block one short
+spillstack	I14	killed	a block is written at the offset of 16-byte entries
+spillstack	I15	killed	the spill file is not accounted as scratch
+spillstack	I16	killed	the flush interval 0 flushes every block
+spillstack	I17	killed	the flush happens one block late
+spillstack	I18	killed	blocks read are not counted
+spillstack	I19	killed	the spill file is not deleted on dispose
+spillstack	I20	killed	the spill scratch is not given back on dispose
+spillstack	I21	killed	Top of an empty stack does not throw
+spillstack	I22	killed	TopForUpdate does not mark the block dirty
+spillstack	I23	killed	the peak height is not kept
+spillstack	I24	killed	a pop of an empty stack does not throw
+spillstack	I25	killed	bytes written are not counted
+spillstack	I26	killed	the file end is not tracked
+spillstack	I27	killed	the spill file is opened for reading only after the first spill
+spillstack	I28	equivalent	Dispose is not idempotent
+spillstack	K01	killed	a block is written one block too far
+spillstack	K02	killed	the evicted block is the wrong one
+spillstack	K03	killed	a block is read from the wrong offset
+spillstack	K04	killed	blocks are sized as 16-byte entries
+spillstack	K05	killed	a retreat goes two blocks down
+spillstack	K06	killed	the unflushed count is not reset after a flush
+spillstack	K07	killed	flushes are not counted
+spillstack	K08	killed	a push does not advance the count
+spillstack	K09	killed	the stack takes its second buffer from the first
+spillstack	K10	killed	a read-back block is not marked as resident below nothing
