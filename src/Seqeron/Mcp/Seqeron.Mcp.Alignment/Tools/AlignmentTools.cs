@@ -824,6 +824,60 @@ public class AlignmentTools
         }
     }
 
+    [McpServerTool(Name = "multiple_align_tcoffee", Title = "MSA — T-Coffee 13.41 Program (primary libraries, guide tree, progressive stage)", ReadOnly = true)]
+    [Description("The multiple alignment of the T-Coffee 13.41 program (t_coffee; Notredame, Higgins & Heringa 2000) reproduced end to end: its own primary library built by the program's pair-wise methods - 'proba_pair' (the program's default: ProbCons pair-HMM posteriors > 0.01, at most 4 x min(length) pairs per pair of sequences), 'slow_pair' (Myers-Miller global alignment, dna_idmat 10 / 0 with gap open -10 / extend -1 for DNA, BLOSUM62 for proteins) and 'lalign_id_pair' (Huang-Miller SIM, the lalignTopAlignments best non-intersecting local alignments), several methods merged the way the program's forked library merge does (which is not their union) - then library relaxation, the program's guide tree (k-tuple distances, neighbour joining with the trifurcating root turned into a binary tree; fast neighbour joining from 100 sequences) and the sparse linked-pair-wise progressive stage. Rows equal t_coffee -seq s.fa [-method m1,m2] -output fasta_aln on 1 500+ committed DNA and protein sets (libraries pair by pair on 800+ more), for any -n_core. The type (DNA when more than 98 % of the letters are A G C T U N R Y M K S W H B V D, otherwise protein) selects the matrices, penalties and models. Not available: proba_pair of RNA (a U). totalScore is the natural affine sum of pairs (EDNAFULL / BLOSUM62), not the program's objective. Sequence names are irrelevant here; the program mishandles input names of which one is a prefix of another.")]
+    public static MultipleAlignmentResultDto MultipleAlignTCoffee(
+        [Description("Sequences to align (at least one, none empty): letters only (the program removes gaps; here they are rejected).")] string[] sequences,
+        [Description("Primary-library methods in command-line order (t_coffee -method m1,m2): 'proba_pair' (default; = plain t_coffee seqs.fa), 'slow_pair', 'lalign_id_pair'.")] string[]? methods = null,
+        [Description("t_coffee -lalign_n_top (default 10): alignments reported by lalign_id_pair for every pair of sequences.")] int lalignTopAlignments = 10,
+        [Description("t_coffee -relax_lib: true = 1 (default, library relaxation), false = 0.")] bool relaxLibrary = true,
+        [Description("'auto' (default; the program's decision), 'dna' or 'protein' (forces the matrices, penalties and models).")] string type = "auto")
+    {
+        if (sequences == null || sequences.Length == 0)
+        {
+            var e = global::Seqeron.Genomics.Infrastructure.MultipleAlignmentResult.Empty;
+            return new MultipleAlignmentResultDto(e.AlignedSequences, e.Consensus, e.TotalScore, e.ExactTotalScore);
+        }
+
+        var list = new List<global::Seqeron.Genomics.Alignment.TCoffeePairMethod>();
+        foreach (var m in methods is { Length: > 0 } ? methods : new[] { "proba_pair" })
+        {
+            list.Add((m ?? "").Trim().ToLowerInvariant() switch
+            {
+                "proba_pair" => global::Seqeron.Genomics.Alignment.TCoffeePairMethod.ProbaPair,
+                "slow_pair" => global::Seqeron.Genomics.Alignment.TCoffeePairMethod.SlowPair,
+                "lalign_id_pair" => global::Seqeron.Genomics.Alignment.TCoffeePairMethod.LalignIdPair,
+                _ => throw new ArgumentException("methods must be 'proba_pair', 'slow_pair' or 'lalign_id_pair'.", nameof(methods)),
+            });
+        }
+
+        var options = new global::Seqeron.Genomics.Alignment.TCoffeeProgramOptions
+        {
+            Methods = list,
+            LalignTopAlignments = lalignTopAlignments,
+            RelaxLibrary = relaxLibrary,
+            Protein = (type ?? "auto").Trim().ToLowerInvariant() switch
+            {
+                "auto" => null,
+                "dna" => false,
+                "protein" => true,
+                _ => throw new ArgumentException("type must be 'auto', 'dna' or 'protein'.", nameof(type)),
+            },
+        };
+        if (lalignTopAlignments < 1)
+            throw new ArgumentException("lalignTopAlignments must be at least 1.", nameof(lalignTopAlignments));
+
+        try
+        {
+            var m2 = global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignTCoffeeProgram(sequences, options);
+            return new MultipleAlignmentResultDto(m2.AlignedSequences, m2.Consensus, m2.TotalScore, m2.ExactTotalScore);
+        }
+        catch (NotSupportedException ex)
+        {
+            throw new ArgumentException(ex.Message, nameof(sequences), ex);
+        }
+    }
+
     private static global::Seqeron.Genomics.Infrastructure.ClustalWUserMatrix ParseClustalWMatrix(string text, string parameter)
     {
         try

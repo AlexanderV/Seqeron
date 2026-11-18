@@ -520,3 +520,22 @@ Tests added (all lock oracle values: Biopython 1.88 pair optima and independent 
 | MU4 | `NwSmall_FindsAnOptimalPath_ComparedWithExhaustiveEnumeration`, `NwSmall_AlignsIdenticalProfilesWithoutGaps_AndPlacesASingleDeletionAsOneGapRun` | the DP path is a best alignment under the position-specific open / close / extension model on 480 random profile pairs (enumeration of all paths) | `nwsmall.cpp` semantics |
 | MU5 | `MultipleAlignMuscle_Rows_SpellTheInputs_HaveEqualLength_AndAreDeterministic`, `..._ProteinAndDnaOverloads_EqualTheStringOverload`, `..._TwoSequences_Stop...`, `..._MethionineHack_LetterRules_AndTreeOrder`, `..._Iteration2_RealignsOnlyChangedSubtrees_ButKeepsEveryRowValid`, `..._Options_AreValidated`, `..._ScoreModels_AndGapParameters_ProduceValidAlignments` | invariants, overloads, two sequences, M hack, letter rules, iteration 2 changes some drafts and `MaxTrees 0` = draft, option validation (`MaxIterations 3` -> `NotSupportedException`), LE / SP / SV / RNA sets | API contract |
 | MU6 (MCP) | `MultipleAlignTests.MultipleAlignMuscle_DelegatesToThePort_ParsesEveryOption_AndValidates` | tool = library for every option, `auto` type, errors | library call |
+
+## Addendum (audit A1-13b, B09 F66): T-Coffee 13.41 program pipeline
+
+Class `SequenceAligner_TCoffeeProgram_Tests` (13 tests), oracle = installed `t_coffee` 13.41 (`scripts/alignment/generate_tcoffee_program_oracle.py`; TestData `tcoffee_program_library_oracle.tsv` 820 sets, `tcoffee_program_msa_oracle.tsv` 1 480 sets, `tcoffee_program_big_oracle.tsv` 2 sets of 100 / 101 sequences).
+
+| ID | Test | Scenario | Expected | Source |
+|----|------|----------|----------|--------|
+| TP01 | `OracleFiles_AreComplete` | counts per method / type / sequence number | >= 60 libraries per (type, method), >= 200 alignment sets per headline profile | oracle |
+| TP02 | `PrimaryLibrary_EveryPairEqualsTheProgram` | `-lib_only -out_lib` of slow_pair, lalign_id_pair, proba_pair and merges, DNA + protein | every pair, weight, count equal | `t_coffee` 13.41 |
+| TP03 | `PrimaryLibrary_TwoMethods_IsNotTheUnion_WorkedExample` | GGATCACAG / CTACACTG, `-lalign_n_top 5` | the program's 9 / 13 / 10 entries (not the union of 14) | `t_coffee` 13.41 |
+| TP04 | `SlowPair_MyersMiller_PlacesTheGapInside_WorkedExample` | TTTCAACTC vs TTTTCAACTC | `T-TTCAACTC` (library pairs 1-1, 2-3, ...) | `t_coffee` 13.41 |
+| TP05 | `LalignTopAlignments_AreNonIntersecting_AndInScoreOrder` | TTTTCGAACTTC vs TTTTCAACTC, 4 alignments | scores 790 / 500 / 400 / 370, first alignment rows, no pair reported twice | `t_coffee` 13.41, Waterman-Eggert definition |
+| TP06 | `GuideTree_EqualsTheProgram_OnEveryOracleSet` | trees of all sets of >= 3 sequences | equal | `t_coffee` 13.41 `Group` log |
+| TP07 | `MultipleAlignTCoffeeProgram_EveryRowEqualsTheProgram` | 1 480 sets | every row equal | `t_coffee` 13.41 |
+| TP08 | `..._HundredSequences_FastNeighborJoining_EqualsTheProgram` | 100 / 101 sequences | tree and rows equal | `t_coffee` 13.41 |
+| TP09 | `..._RowsSpellTheInputs_AndHaveEqualLength` | DNA example, plain + slow,lalign | rows spell the inputs | invariant |
+| TP10 | `..._Example_EqualsTheProgram` | 18-nt example, `slow_pair,lalign_id_pair` | the program's four rows | `t_coffee` 13.41 |
+| TP11 | `..._DegenerateInputs`, `..._Contract_Errors` | none / one / two sequences, empty / gapped / RNA input, bad `lalign_n_top` | defined results / exceptions | contract |
+| TP12 | `TCoffeeKtupSimilarity_IdenticalSequencesAre100_DisjointTuplesAre70` | `ktup_dist_mat` formula | 100 / 70 | source |

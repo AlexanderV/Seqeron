@@ -4,7 +4,7 @@
 
 <!-- BEGIN generated: do not edit by hand -->
 
-## Alignment (41 tools)
+## Alignment (42 tools)
 
 | tool | Method ID | doc |
 |------|-----------|-----|
@@ -44,6 +44,7 @@
 | `multiple_align_iterative` | `SequenceAligner.MultipleAlignIterative` | [doc](../../mcp/tools/alignment/multiple_align_iterative.md) |
 | `multiple_align_muscle` | `SequenceAligner.MultipleAlignMuscle` | [doc](../../mcp/tools/alignment/multiple_align_muscle.md) |
 | `multiple_align_progressive` | `SequenceAligner.MultipleAlignProgressive` | [doc](../../mcp/tools/alignment/multiple_align_progressive.md) |
+| `multiple_align_tcoffee` | `SequenceAligner.MultipleAlignTCoffeeProgram` | [doc](../../mcp/tools/alignment/multiple_align_tcoffee.md) |
 | `quality_trim_reads` | `SequenceAssembler.QualityTrimReads` | [doc](../../mcp/tools/alignment/quality_trim_reads.md) |
 | `scaffold_contigs` | `SequenceAssembler.Scaffold` | [doc](../../mcp/tools/alignment/scaffold_contigs.md) |
 | `semi_global_align` | `SequenceAligner.SemiGlobalAlign` | [doc](../../mcp/tools/alignment/semi_global_align.md) |

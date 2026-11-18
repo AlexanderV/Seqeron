@@ -38,6 +38,12 @@
          alignments, "binary" = the program's own protein library of `-method slow_pair,lalign_id_pair`) -
          `generate_tcoffee_oracle.py OUT 160 17 ACDEFGHIKLMNPQRSTVWY`. -->
     <EmbeddedResource Include="TestData\Alignment\tcoffee_protein_oracle.tsv" />
+    <!-- ALIGN-MULTI-001 (audit A1-13b, B09 F66): the program's OWN pipeline (primary libraries proba_pair / slow_pair / lalign_id_pair and their merges, k-tuple NJ guide tree,
+         progressive stage) on random DNA and PROTEIN sets - `generate_tcoffee_program_oracle.py` (library oracle: `-lib_only -out_lib` of 820 small sets; msa oracle: tree + rows of
+         1 480 sets of 2-8 sequences; big oracle: 100 and 101 sequences = the fast neighbour joining). -->
+    <EmbeddedResource Include="TestData\Alignment\tcoffee_program_library_oracle.tsv" />
+    <EmbeddedResource Include="TestData\Alignment\tcoffee_program_msa_oracle.tsv" />
+    <EmbeddedResource Include="TestData\Alignment\tcoffee_program_big_oracle.tsv" />
     <!-- ALIGN-GLOBAL-001 (audit A1-7b, B09 F59): all co-optimal global / ends-free alignments; Biopython 1.88 PairwiseAligner(mode='global').align() set (all 16 end-gap policies,
          linear/affine, scalar + BLOSUM62 with fractional gaps) + exhaustive column-sequence enumeration of tiny inputs; scripts/alignment/generate_global_cooptimal_oracle.py. -->
     <EmbeddedResource Include="TestData\Alignment\global_cooptimal_oracle.tsv" />

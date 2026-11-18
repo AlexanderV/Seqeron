@@ -252,6 +252,13 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.cs#L2275"
   },
   {
+    "tool": "multiple_align_tcoffee",
+    "server": "Alignment",
+    "methodId": "SequenceAligner.MultipleAlignTCoffeeProgram",
+    "docPath": "docs/mcp/tools/alignment/multiple_align_tcoffee.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.TCoffeeLibrary.cs#L352"
+  },
+  {
     "tool": "quality_trim_reads",
     "server": "Alignment",
     "methodId": "SequenceAssembler.QualityTrimReads",

@@ -134,6 +134,13 @@ public static partial class SequenceAligner
             index.Add(a, pa + 1, b, pb + 1, w);
         }
 
+        return TcAlignWithIndex(sequences, index, tree, relaxLibrary);
+    }
+
+    /// <summary>The progressive stage on a prepared library index (relaxation, sparse DP along the tree); rows in input order.</summary>
+    private static string[] TcAlignWithIndex(IReadOnlyList<string> sequences, TcIndex index, TCoffeeTreeNode tree, bool relaxLibrary)
+    {
+        int k = sequences.Count;
         if (relaxLibrary) index.Relax();
 
         var groups = TcAlignNode(tree, sequences, index);
@@ -203,6 +210,17 @@ public static partial class SequenceAligner
         {
             Edges[s1][r1].Add(new TcEdge { Seq = s2, Res = r2, Weight = w });
             Edges[s2][r2].Add(new TcEdge { Seq = s1, Res = r1, Weight = w });
+        }
+
+        /// <summary>The index of the program's own (possibly asymmetric) constraint list: the directed entries exactly as its residue lists hold them.</summary>
+        public static TcIndex FromConstraintList(TcConstraintList cl, int[] len)
+        {
+            var index = new TcIndex(len);
+            for (int s = 0; s < len.Length; s++)
+                for (int r = 0; r <= len[s]; r++)
+                    foreach (var e in cl.Entries(s, r))
+                        index.Edges[s][r].Add(new TcEdge { Seq = e.Seq2, Res = e.Res2, Weight = e.Weight });
+            return index;
         }
 
         /// <summary>fork_relax_constraint_list (normalisation_mode 0) followed by filter_constraint_list(WE, 10).</summary>

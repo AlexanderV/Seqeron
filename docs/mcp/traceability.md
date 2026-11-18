@@ -365,6 +365,7 @@
 | multiple_align_iterative | Alignment | SequenceAligner.MultipleAlignIterative | Alignment/SequenceAligner.cs#L2111 | 0/0 | – | – | Build-Ready |
 | multiple_align_muscle | Alignment | SequenceAligner.MultipleAlignMuscle | Alignment/SequenceAligner.Muscle.cs#L67 | 0/0 | – | – | Build-Ready |
 | multiple_align_progressive | Alignment | SequenceAligner.MultipleAlignProgressive | Alignment/SequenceAligner.cs#L1676 | 0/0 | – | – | Build-Ready |
+| multiple_align_tcoffee | Alignment | SequenceAligner.MultipleAlignTCoffeeProgram | Alignment/SequenceAligner.TCoffeeLibrary.cs#L352 | 0/0 | – | – | Build-Ready |
 | quality_trim_reads | Alignment | SequenceAssembler.QualityTrimReads | Alignment/SequenceAssembler.cs#L600 | 0/0 | – | – | Build-Ready |
 | scaffold_contigs | Alignment | SequenceAssembler.Scaffold | Alignment/SequenceAssembler.cs#L461 | 0/0 | – | – | Build-Ready |
 | semi_global_align | Alignment | SequenceAligner.SemiGlobalAlign | Alignment/SequenceAligner.cs#L873 | 0/0 | – | – | Build-Ready |

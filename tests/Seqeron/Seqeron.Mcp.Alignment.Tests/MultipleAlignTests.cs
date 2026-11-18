@@ -322,6 +322,40 @@ public class MultipleAlignTests
         });
     }
 
+    // B09 F66 (A1-13b): multiple_align_tcoffee delegates to SequenceAligner.MultipleAlignTCoffeeProgram (the T-Coffee 13.41 program: its own libraries, guide tree, progressive stage).
+    private static readonly string[] TCoffeeProgramSet = ["ACGTTGCATGCCGATAGC", "ACGTGCATGCGATAGGC", "ACTTGCATCCGATTGC", "CGTTGCATGGCCGATAGC"];
+
+    [Test]
+    public void MultipleAlignTCoffee_DelegatesToTheProgramPort_ParsesEveryOption_AndValidates()
+    {
+        // rows written by t_coffee -seq s.fa -method slow_pair,lalign_id_pair -output fasta_aln (installed 13.41)
+        string[] program = ["ACGTTGCAT-GCCGATAG-C", "ACGT-GCAT-GC-GATAGGC", "AC-TTGCAT--CCGATTG-C", "-CGTTGCATGGCCGATAG-C"];
+        var viaTool = AlignmentTools.MultipleAlignTCoffee(TCoffeeProgramSet, ["slow_pair", "LALIGN_ID_PAIR"]);
+        var viaApi = global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignTCoffeeProgram(TCoffeeProgramSet, new global::Seqeron.Genomics.Alignment.TCoffeeProgramOptions
+        {
+            Methods = [global::Seqeron.Genomics.Alignment.TCoffeePairMethod.SlowPair, global::Seqeron.Genomics.Alignment.TCoffeePairMethod.LalignIdPair],
+        });
+        var plain = AlignmentTools.MultipleAlignTCoffee(TCoffeeProgramSet);
+        var relax0 = AlignmentTools.MultipleAlignTCoffee(TCoffeeProgramSet, ["proba_pair"], 3, false, "dna");
+        Assert.Multiple(() =>
+        {
+            Assert.That(viaTool.AlignedSequences, Is.EqualTo(program));
+            Assert.That(viaApi.AlignedSequences, Is.EqualTo(program));
+            Assert.That(viaTool.TotalScore, Is.EqualTo(viaApi.TotalScore));
+            Assert.That(plain.AlignedSequences, Is.EqualTo(AlignmentTools.MultipleAlignTCoffee(TCoffeeProgramSet, ["proba_pair"]).AlignedSequences), "the default method is proba_pair");
+            Assert.That(plain.AlignedSequences.Select(r => r.Replace("-", "")), Is.EqualTo(TCoffeeProgramSet));
+            Assert.That(relax0.AlignedSequences.Select(r => r.Replace("-", "")), Is.EqualTo(TCoffeeProgramSet));
+            Assert.That(AlignmentTools.MultipleAlignTCoffee(["MKVLAAGIVG", "MKVLAGIVGL", "MRVLAAGIIG"], null, 10, true, "protein").AlignedSequences.Select(r => r.Replace("-", "")),
+                Is.EqualTo(new[] { "MKVLAAGIVG", "MKVLAGIVGL", "MRVLAAGIIG" }));
+            Assert.That(AlignmentTools.MultipleAlignTCoffee(Array.Empty<string>()).AlignedSequences, Is.Empty);
+            Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignTCoffee(TCoffeeProgramSet, ["blast_pair"]));
+            Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignTCoffee(TCoffeeProgramSet, type: "rna"));
+            Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignTCoffee(TCoffeeProgramSet, lalignTopAlignments: 0));
+            Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignTCoffee(new[] { "ACGT", "" }));
+            Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignTCoffee(new[] { "ACGUACGU", "ACGUUCGU" }), "proba_pair of RNA is not available");
+        });
+    }
+
     // B09 F52 (A1-10): gapModel = affine honours gapOpen. Identical pair 33 matches = 66; the two pairs with the 23-nt sequence have
     // 23 matches (46) and ONE 10-nt gap run: affine -8 + 10 * -1 = -18, linear -10.
     private static readonly string[] IndelSet =
