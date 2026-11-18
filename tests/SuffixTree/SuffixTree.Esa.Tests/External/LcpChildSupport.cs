@@ -194,6 +194,8 @@ internal static class LcpChildRun
         Assert.That(Directory.Exists(o.ScratchDir), Is.False, $"{label}: the scratch directory is left behind");
         string[] expected = new[] { o.Files.Lcp, o.Files.Overflow, o.Files.Child, o.Files.Stats }.Where(p => p is not null).Select(p => Path.GetFileName(p!)).Order().ToArray();
         Assert.That(Directory.GetFiles(o.OutDir).Select(Path.GetFileName).Order(), Is.EqualTo(expected), $"{label}: the output directory holds exactly the outputs");
+        foreach (string? path in new[] { o.Files.Lcp, o.Files.Overflow, o.Files.Child })
+            Assert.That(ProcMaps.Contains(path!) ?? false, Is.False, $"{label}: {Path.GetFileName(path)} is still mapped");
     }
 
     /// <summary>A run that must end with an exception: nothing is left behind (no output, no scratch).</summary>

@@ -1,0 +1,5 @@
+B24	B2: the Phi file of a chunk is not deleted after it was read	killed(2)	
+B30	B3: the rank file of a chunk is not deleted after it was read	killed(1)	
+B37	a failure of a worker is not rethrown	killed(1)	
+B11	the base file is not removed when the build fails (replacement of the first B11, which did not compile)	killed(5)	
+B12	the overflow file is not removed when the build fails (replacement of the first B12, which did not compile)	killed(4)	

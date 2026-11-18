@@ -1,0 +1,3 @@
+A02	a window that is not a power of two is accepted	killed(1)	
+A09	the writes are not counted (replacement of the first A09, which did not compile)	killed(3)	
+A13	the evictions are not counted (replacement of the first A13, which did not compile)	killed(3)	

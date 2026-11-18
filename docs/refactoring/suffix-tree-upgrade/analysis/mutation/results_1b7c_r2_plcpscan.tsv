@@ -1,0 +1,2 @@
+P03	the carry is kept after the empty-suffix position	survived	survived
+P01	the prefetch is never requested (replacement of the first P01, which did not compile)	survived	survived

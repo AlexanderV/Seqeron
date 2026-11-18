@@ -1,0 +1,51 @@
+[
+ {
+  "id": "F50",
+  "desc": "the bit set of the windows has no room for a partial last window",
+  "old": "long windows = (length + windowBytes - 1) >> _shift;",
+  "new": "long windows = length >> _shift;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/AlignedWindowWriter.cs"
+ },
+ {
+  "id": "F51",
+  "desc": "the bit set of the windows is one word short",
+  "old": "_seen = new ulong[(windows + 63) / 64];",
+  "new": "_seen = new ulong[windows / 64];",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/AlignedWindowWriter.cs"
+ },
+ {
+  "id": "F52",
+  "desc": "a free slot is not preferred to a used one",
+  "old": "                victim = i;\n                oldest = long.MinValue;",
+  "new": "                victim = i;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/AlignedWindowWriter.cs"
+ },
+ {
+  "id": "F53",
+  "desc": "a free slot found earlier does not stop the search for the oldest",
+  "old": "else if (oldest != long.MinValue && _slots[i].LastUse < oldest)",
+  "new": "else if (_slots[i].LastUse < oldest)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/AlignedWindowWriter.cs"
+ },
+ {
+  "id": "F54",
+  "desc": "the flushes are not counted",
+  "old": "        slot.View!.Flush();\n        _flushes++;",
+  "new": "        slot.View!.Flush();\n        _flushes += 0;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/AlignedWindowWriter.cs"
+ },
+ {
+  "id": "F55",
+  "desc": "the size of a window is not recorded",
+  "old": "        slot.Size = size;\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/AlignedWindowWriter.cs"
+ },
+ {
+  "id": "F56",
+  "desc": "a range beyond the end of the file is accepted",
+  "old": "if (start > file.Length - length)",
+  "new": "if (start > file.Length)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/AlignedWindowWriter.cs"
+ }
+]

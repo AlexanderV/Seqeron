@@ -1,0 +1,4 @@
+L41	the final length of the base LCP is not checked	killed(1)	
+L42	the final length of the overflow list is not checked	killed(1)	
+L43	the final length of the child table is not checked	killed(1)	
+L55	the child file is created for every block (replacement of the first L55, which did not compile)	killed(22)	

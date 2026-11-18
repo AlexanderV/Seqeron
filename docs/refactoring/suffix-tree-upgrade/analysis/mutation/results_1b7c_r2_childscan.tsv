@@ -1,0 +1,2 @@
+C06	a failed creation leaves the arena allocated	killed(1)	
+C22	the largest LCP is not tracked (replacement of the first C22, which did not compile)	killed(20)	

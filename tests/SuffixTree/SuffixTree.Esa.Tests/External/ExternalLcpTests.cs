@@ -271,6 +271,22 @@ public class ExternalLcpTests
     }
 
     [Test]
+    public void WorkerBytes_RaisesEveryBufferToOneTuple_WhateverTheRequestedSize()
+    {
+        LcpChildCase c = LcpChildCase.Of(StringFamilies.RandomDna(500, 3));
+        foreach ((int read, int tuple) in new[] { (1, 1), (5, 7), (11, 3) })
+        {
+            var budget = new ArenaBudget(long.MaxValue);
+            ExtLcpOptions o = Options(100, 1, 1) with { Budget = budget, ReadBufferBytes = read, TupleBufferBytes = tuple, ArenaGuards = null };
+            Run(c, o, tag: $"{read}-{tuple}");
+            long per = ExternalLcp.WorkerBytes(c.N, o);
+            long expected = (8L * 100) + 16 + (12L * 1) + (8L * 1 * 6); // Phi + rank, the permutation bits (2 words), one Phi tuple, one rank tuple for each of the six rank chunks
+            Assert.That(per, Is.EqualTo(expected), $"read {read} tuple {tuple}");
+            Assert.That(budget.PeakBytes, Is.EqualTo(per), $"read {read} tuple {tuple}: the B2 task is the peak");
+        }
+    }
+
+    [Test]
     public void ATooSmallBudget_FailsWithTheBudgetException_AndLeavesNothing()
     {
         LcpChildCase c = LcpChildCase.Of(StringFamilies.RandomDna(600, 3));

@@ -1,0 +1,93 @@
+[
+ {
+  "id": "F30",
+  "desc": "B1: the blocks overlap by one entry",
+  "old": "for (long first = 1; first <= n; first += readEntries)",
+  "new": "for (long first = 1; first <= n; first += readEntries - 1)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs"
+ },
+ {
+  "id": "F31",
+  "desc": "B1: the last block takes one entry too few",
+  "old": "int take = (int)Math.Min(readEntries, n + 1 - first);\n            sa.ReadExactAt(MemoryMarshal.AsBytes(read.AsSpan(take)), first * 4);\n            for (int i = 0; i < take; i++)\n            {\n                uint s = read[i];\n                if (s >= n)",
+  "new": "int take = (int)Math.Min(readEntries, n - first);\n            sa.ReadExactAt(MemoryMarshal.AsBytes(read.AsSpan(take)), first * 4);\n            for (int i = 0; i < take; i++)\n            {\n                uint s = read[i];\n                if (s >= n)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs"
+ },
+ {
+  "id": "F32",
+  "desc": "B2: the Phi value of a position is one too large",
+  "old": "phi[(int)at] = t.Phi;",
+  "new": "phi[(int)at] = t.Phi + 1;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs"
+ },
+ {
+  "id": "F33",
+  "desc": "B2: the rank of a position is one too large",
+  "old": "rank[(int)at] = t.Rank;",
+  "new": "rank[(int)at] = t.Rank + 1;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs"
+ },
+ {
+  "id": "F34",
+  "desc": "B3: the value of a rank is one too large",
+  "old": "dense[(int)at] = t.Value;",
+  "new": "dense[(int)at] = t.Value + 1;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs"
+ },
+ {
+  "id": "F35",
+  "desc": "B3: the block handed on is one entry short",
+  "old": "Deliver(output, start, dense.AsSpan(length));",
+  "new": "Deliver(output, start, dense.AsSpan(length - 1));",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs"
+ },
+ {
+  "id": "F36",
+  "desc": "the workers are the threads, never the request",
+  "old": "int workers = _o.Workers > 0 ? _o.Workers : _o.Threads;",
+  "new": "int workers = _o.Threads;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs"
+ },
+ {
+  "id": "F37",
+  "desc": "a read buffer smaller than a tuple holds two tuples",
+  "old": "private int ReadEntries(int tupleBytes) => Math.Max(1, _o.ReadBufferBytes / tupleBytes);",
+  "new": "private int ReadEntries(int tupleBytes) => Math.Max(2, _o.ReadBufferBytes / tupleBytes);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs"
+ },
+ {
+  "id": "F39",
+  "desc": "the text length is reported one too large",
+  "old": "_stats.N = n;",
+  "new": "_stats.N = n + 1;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs"
+ },
+ {
+  "id": "F40",
+  "desc": "B3: the first rank of a chunk is one less",
+  "old": "                long start = c * _g.R;\n                long expected",
+  "new": "                long start = c * (_g.R - 1);\n                long expected",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs"
+ },
+ {
+  "id": "F43",
+  "desc": "the header check reads SA[1]",
+  "old": "sa.ReadExactAt(MemoryMarshal.AsBytes(first), 0);",
+  "new": "sa.ReadExactAt(MemoryMarshal.AsBytes(first), 4);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs"
+ },
+ {
+  "id": "F44",
+  "desc": "WorkerBytes: the tuple buffers are charged for the text chunks",
+  "old": "sizeof(RankTuple) * g.RankChunks;",
+  "new": "sizeof(RankTuple) * g.TextChunks;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs"
+ },
+ {
+  "id": "F45",
+  "desc": "WorkerBytes: the read buffer is sized for rank tuples",
+  "old": "(Math.Max(1, o.ReadBufferBytes / sizeof(PhiTuple)) * (long)sizeof(PhiTuple))",
+  "new": "(Math.Max(1, o.ReadBufferBytes / sizeof(RankTuple)) * (long)sizeof(PhiTuple))",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs"
+ }
+]

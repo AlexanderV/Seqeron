@@ -335,6 +335,33 @@ public class ChildScanTests
     }
 
     [Test]
+    public void TheScan_WritesInsideItsRange_OfALargerFile_AndNothingElse()
+    {
+        LcpChildCase c = LcpChildCase.Of("mississippi");
+        string path = _dir.File("inside");
+        long length = (4L * (c.N + 1)) + 100;
+        foreach (ChildCodec codec in new[] { ChildCodec.Tagged, ChildCodec.Packed })
+        {
+            using (MappedOutputFile f = MappedOutputFile.Create(path, length))
+            {
+                byte[] prefill = Enumerable.Repeat((byte)0xEE, (int)length).ToArray();
+                Array.Clear(prefill, 40, 4 * (c.N + 1)); // the range itself starts zeroed, as a new file does
+                using (MappedWindowWriter fill = f.CreateWriter(16)) fill.Append(prefill);
+                using (ChildScan scan = ChildScan.Create(c.N, f, 40, Options(codec, 3)))
+                {
+                    scan.Consume(0, c.DenseLcp());
+                    scan.Complete();
+                }
+                f.Complete(fsync: false);
+            }
+            byte[] all = File.ReadAllBytes(path);
+            Assert.That(all[..40], Is.All.EqualTo((byte)0xEE), $"{codec}: before the range");
+            Assert.That(all[(40 + (4 * (c.N + 1)))..], Is.All.EqualTo((byte)0xEE), $"{codec}: after the range");
+            Assert.That(System.Runtime.InteropServices.MemoryMarshal.Cast<byte, uint>(all.AsSpan(40, 4 * (c.N + 1))).ToArray(), Is.EqualTo(c.Child(codec)), codec.ToString());
+        }
+    }
+
+    [Test]
     public void TheHook_AcceptsAnEmptyBlock_AnywhereInTheStream()
     {
         LcpChildCase c = LcpChildCase.Of("banana");

@@ -1,0 +1,44 @@
+[
+ {
+  "id": "F60",
+  "desc": "the left boundary of a pushed interval is the rank itself",
+  "old": "uint left = i - 1;",
+  "new": "uint left = i;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/ChildScan.cs"
+ },
+ {
+  "id": "F61",
+  "desc": "a closing interval is closed with the stale top",
+  "old": "            _stack.Pop();\n            top = ref _stack.Top;\n            Close(e.Ell, e.Lb, i - 1, e.First, cur < top.Ell);",
+  "new": "            _stack.Pop();\n            Close(e.Ell, e.Lb, i - 1, e.First, cur < top.Ell);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/ChildScan.cs"
+ },
+ {
+  "id": "F62",
+  "desc": "the stack of the empty text is closed too",
+  "old": "        if (_n > 0)\n        {\n            while (_stack.Height > 0)",
+  "new": "        if (_n >= 0)\n        {\n            while (_stack.Height > 0)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/ChildScan.cs"
+ },
+ {
+  "id": "F64",
+  "desc": "a pushed interval has no last l-index",
+  "old": "Lb = left, First = i, Last = i });",
+  "new": "Lb = left, First = i, Last = 0 });",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/ChildScan.cs"
+ },
+ {
+  "id": "F65",
+  "desc": "the root is recognised by a first l-index of 0",
+  "old": "else if (top.First == ChildScan.None)",
+  "new": "else if (top.First == 0)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/ChildScan.cs"
+ },
+ {
+  "id": "F67",
+  "desc": "the scan ignores the start of its range",
+  "old": "new AlignedWindowWriter(file, start, 4 * (n + 1),",
+  "new": "new AlignedWindowWriter(file, 0, 4 * (n + 1),",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/ChildScan.cs"
+ }
+]

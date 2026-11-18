@@ -1,0 +1,23 @@
+[
+ {
+  "id": "F70",
+  "desc": "only half of the pairs are appended",
+  "old": "_overflow.Append(MemoryMarshal.AsBytes(_pairs.AsSpan(pairs * 2)));",
+  "new": "_overflow.Append(MemoryMarshal.AsBytes(_pairs.AsSpan(pairs)));",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpOutputWriter.cs"
+ },
+ {
+  "id": "F71",
+  "desc": "a block is cut into slices of the larger size",
+  "old": "Math.Min(_slice, values.Length - at)",
+  "new": "Math.Max(_slice, values.Length - at)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpOutputWriter.cs"
+ },
+ {
+  "id": "F72",
+  "desc": "the byte buffer holds one byte per slice entry whatever the width",
+  "old": "_bytes = arena.Allocate<byte>(_slice * _width, zero: false, \"lcp.out\");",
+  "new": "_bytes = arena.Allocate<byte>(_slice, zero: false, \"lcp.out\");",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpOutputWriter.cs"
+ }
+]

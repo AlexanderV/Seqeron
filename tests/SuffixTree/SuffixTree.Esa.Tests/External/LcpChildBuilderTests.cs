@@ -574,6 +574,39 @@ public class LcpChildBuilderTests
     }
 
     [Test]
+    public void EveryParameter_ReachesItsStage()
+    {
+        // the observable consequence of each value: the arena peaks (the buffers of PH4), the windows counted (the LCP and CHILD windows), the spill (blocks, flush interval), the window slots, the workers
+        LcpChildCase c = LcpChildCase.Of(new string('a', 3000));
+        var t = new LcpChildTuning { LcpChunk = 400, LcpWorkers = 1, LcpReadBytes = 200, LcpTupleBytes = 120, WindowBytes = 128, BlockEntries = 7, ChildWindowBytes = 64, ChildSlots = 3, SpillFlushBytes = 1 };
+        var counters = new IoCounters();
+        LcpChildOptions o = LcpChildRun.Options(Scratch, t, 3, ChildCodec.Packed, c.Sigma) with { ArenaGuards = null, Counters = counters };
+        LcpChildRun.Outcome r = LcpChildRun.Run(_dir, c, o);
+        LcpChildRun.Compare(c, r, ChildCodec.Packed, "plumbing");
+        LcpChildResult res = r.Result;
+        Assert.That(res.ArenaPeakBytes, Is.EqualTo(ExternalLcp.WorkerBytes(c.N, new ExtLcpOptions { ScratchDir = "s", ChunkPositions = 400, ReadBufferBytes = 200, TupleBufferBytes = 120 })), "read and tuple buffers and R reach PH4");
+        Assert.That(res.ChildArenaPeakBytes, Is.EqualTo(2L * 7 * 16), "the stack blocks");
+        long lcpBytes = new FileInfo(r.Files.Lcp).Length;
+        long windows = ((lcpBytes + 127) / 128) + res.Scan.ChildWindows.Opened; // the overflow file is empty (U32 of a^n has no list)
+        Assert.That(res.Io.MappedWindows, Is.EqualTo(windows), "the LCP windows of 128 bytes and the CHILD windows");
+        Assert.That(res.Io.MappedMaxWindowBytes, Is.EqualTo(128), "the larger of the two window sizes");
+        Assert.That(res.Scan.ChildWindows.Flushes, Is.GreaterThan(0), "flush on release");
+        Assert.That(res.Scan.Spill.Flushes, Is.EqualTo(res.Scan.Spill.BlocksWritten), "a flush interval of one byte flushes after every block");
+        Assert.That(res.Lcp.Workers, Is.EqualTo(1));
+        Assert.That(res.Parameters.LcpChunk, Is.EqualTo(400));
+        // the slots: every window opened beyond the slots evicts one
+        LcpChildCase d = LcpChildCase.Of(StringFamilies.RandomDna(2000, 9));
+        foreach (int slots in new[] { 1, 2, 64 })
+        {
+            using var dir = new TempDir();
+            LcpChildRun.Outcome q = LcpChildRun.Run(dir, d, LcpChildRun.Options(dir.Sub("scratch"), new LcpChildTuning { LcpChunk = 300, ChildWindowBytes = 64, ChildSlots = slots }, 1, ChildCodec.Packed, d.Sigma));
+            WindowStats w = q.Result.Scan.ChildWindows;
+            Assert.That(w.Evictions, Is.EqualTo(Math.Max(0, w.Opened - slots)), $"{slots} slots");
+            Assert.That(w.Opened, Is.GreaterThan(100), "the file of 8 KB has 126 windows of 64 bytes");
+        }
+    }
+
+    [Test]
     public void TheFinalLengths_AreChecked_OfEveryOutput()
     {
         LcpChildCase c = LcpChildCase.Of(StringFamilies.RandomDna(20_000, 5) + StringFamilies.RandomDna(600, 11) + StringFamilies.RandomDna(100, 6) + StringFamilies.RandomDna(600, 11));

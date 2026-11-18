@@ -1,0 +1,184 @@
+[
+ {
+  "id": "F01",
+  "desc": "PH4 does not get the read buffer of the rule",
+  "old": "ReadBufferBytes = p.LcpReadBytes,",
+  "new": "ReadBufferBytes = 1 << 20,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "F02",
+  "desc": "PH4 does not get the tuple buffer of the rule",
+  "old": "TupleBufferBytes = p.LcpTupleBytes,",
+  "new": "TupleBufferBytes = 32 * 1024,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "F03",
+  "desc": "PH4 does not get the window of the rule",
+  "old": "WindowBytes = p.WindowBytes,",
+  "new": "WindowBytes = 1 << 20,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "F04",
+  "desc": "PH4 does not get the chunk of the rule",
+  "old": "ChunkPositions = p.LcpChunk,",
+  "new": "ChunkPositions = 8_000_000,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "F06",
+  "desc": "PH5 does not get the block of the rule",
+  "old": "BlockEntries = p.BlockEntries,",
+  "new": "BlockEntries = 256 * 1024,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "F07",
+  "desc": "PH5 does not get the window of the rule",
+  "old": "WindowBytes = p.ChildWindowBytes,",
+  "new": "WindowBytes = 1 << 20,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "F08",
+  "desc": "PH5 does not get the slots of the rule",
+  "old": "WindowSlots = p.ChildSlots,",
+  "new": "WindowSlots = 8,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "F09",
+  "desc": "PH5 does not flush its windows",
+  "old": "FlushWindows = true,",
+  "new": "FlushWindows = false,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "F10",
+  "desc": "PH5 does not get the spill flush of the rule",
+  "old": "SpillFlushBytes = p.SpillFlushBytes,\n                Codec",
+  "new": "SpillFlushBytes = 0,\n                Codec",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "F11",
+  "desc": "PH5 always uses the packed codec",
+  "old": "Codec = options.Codec,\n                Budget = childBudget",
+  "new": "Codec = ChildCodec.Packed,\n                Budget = childBudget",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "F12",
+  "desc": "PH4 is not charged to its budget",
+  "old": "Budget = lcpBudget,",
+  "new": "Budget = null,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "F13",
+  "desc": "PH5 is not charged to its budget",
+  "old": "Budget = childBudget,",
+  "new": "Budget = null,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "F14",
+  "desc": "the PH4 peak is the PH5 peak",
+  "old": "ArenaPeakBytes = lcpBudget.PeakBytes,",
+  "new": "ArenaPeakBytes = childBudget.PeakBytes,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "F15",
+  "desc": "the PH5 peak is the PH4 peak",
+  "old": "ChildArenaPeakBytes = childBudget.PeakBytes,",
+  "new": "ChildArenaPeakBytes = lcpBudget.PeakBytes,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "F16",
+  "desc": "the result carries no counters",
+  "old": "Io = counters.Snapshot(),",
+  "new": "Io = default,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "F17",
+  "desc": "the result carries no time",
+  "old": "Seconds = seconds,",
+  "new": "Seconds = 0,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "F18",
+  "desc": "the result carries no reservation outcome",
+  "old": "Reservation = lcp.Reservation,",
+  "new": "Reservation = default,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "F19",
+  "desc": "the trace hook is not handed to PH4",
+  "old": "                Trace = options.Trace,\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "F21",
+  "desc": "the RSS sampler is not stopped for the result",
+  "old": "RssStats rss = sampler?.Stop() ?? default;",
+  "new": "RssStats rss = default;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "F25",
+  "desc": "CheckLengths: the base LCP is one entry short",
+  "old": "Expect(outputs.Lcp, LcpWidth.Bytes(lcp.Kind) * (n + 1), \"the base LCP\");",
+  "new": "Expect(outputs.Lcp, LcpWidth.Bytes(lcp.Kind) * n, \"the base LCP\");",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "F26",
+  "desc": "CheckLengths: the overflow pairs are 4 bytes",
+  "old": "Expect(outputs.Overflow, 8 * lcp.OverflowCount, \"the overflow list\");",
+  "new": "Expect(outputs.Overflow, 4 * lcp.OverflowCount, \"the overflow list\");",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "F27",
+  "desc": "CheckLengths: the child table is one entry short",
+  "old": "Expect(childPath, 4 * (n + 1), \"the child table\");",
+  "new": "Expect(childPath, 4 * n, \"the child table\");",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "F28",
+  "desc": "CheckLengths: a shorter file is accepted",
+  "old": "if (got != bytes) throw new InvalidOperationException($\"{what} has",
+  "new": "if (got > bytes) throw new InvalidOperationException($\"{what} has",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "F29",
+  "desc": "CheckLengths: a longer file is accepted",
+  "old": "if (got != bytes) throw new InvalidOperationException($\"{what} has",
+  "new": "if (got < bytes) throw new InvalidOperationException($\"{what} has",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "F26b",
+  "desc": "the lazy scan does not dispose its scan",
+  "old": "            _scan?.Dispose();\n            _file?.Dispose();",
+  "new": "            _file?.Dispose();",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "F26c",
+  "desc": "the lazy scan does not dispose its file",
+  "old": "            _scan?.Dispose();\n            _file?.Dispose();",
+  "new": "            _scan?.Dispose();",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ }
+]

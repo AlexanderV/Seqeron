@@ -24,4 +24,6 @@ EQUIVALENT = {
     'M01': 'Prefetch also requests the position n: a hint, with no architectural effect, the address is inside the mapping (the padding)',
     'M02': 'Prefetch requests the symbol index as an address: a hint at another address, no architectural effect',
     'M03': 'Prefetch requests a negative position: a prefetch never faults and has no architectural effect; the guard only keeps the address arithmetic defined',
+    'P03': 'the carry is kept after the position whose predecessor is the empty suffix: Kasai gives PLCP[x] = 0 >= PLCP[x - 1] - 1, so the carry that arrives at that position is already 0 (and at the first position of a chunk it is 0 by construction)',
+    'P01': 'the prefetch is never requested (the replacement that compiles): a hint with no architectural effect',
 }
