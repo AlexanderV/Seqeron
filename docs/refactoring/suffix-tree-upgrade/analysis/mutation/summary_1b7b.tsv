@@ -1,0 +1,201 @@
+mappedoutputfile	O01	killed	Auto means sparse
+mappedoutputfile	O02	equivalent	Auto is not resolved
+mappedoutputfile	O03	killed	a negative length is not refused up front
+mappedoutputfile	O04	equivalent	a null path is not refused up front
+mappedoutputfile	O05	killed	an empty file is mapped
+mappedoutputfile	O06	killed	a failed creation leaves the file
+mappedoutputfile	O07	killed	CreateWriter: a range that ends at the end of the file is refused
+mappedoutputfile	O08	killed	CreateWriter: a negative start is not refused
+mappedoutputfile	O09	killed	CreateWriter: a negative length is not refused
+mappedoutputfile	O10	killed	CreateWriter: a window of 0 bytes is accepted
+mappedoutputfile	O11	killed	CreateWriter: the writer is not counted
+mappedoutputfile	O12	killed	CreateWriter does not check the disposal
+mappedoutputfile	O13	killed	Complete tolerates one open writer
+mappedoutputfile	O14	killed	Complete does not check the disposal
+mappedoutputfile	O15	equivalent	Complete: fsync is always skipped
+mappedoutputfile	O16	equivalent	Complete: fsync is always done
+mappedoutputfile	O17	equivalent	Dispose is not idempotent-guarded
+mappedoutputfile	O18	killed	Dispose does not mark the file disposed (replacement of the first O18, which did not compile)
+mappedoutputfile	O19	killed	Dispose does not release the mapping
+mappedoutputfile	O20	equivalent	OpenView does not check the disposal
+mappedoutputfile	O21	killed	OpenView opens a read-only view
+mappedoutputfile	O22	killed	WriterClosed does not decrement
+mappedoutputfile	O23	killed	Sparse: the length is not set
+mappedoutputfile	O24	killed	Sparse: the file is not truncated first
+mappedoutputfile	O25	killed	Preallocate: the real source is used when it cannot preallocate
+mappedoutputfile	O26	killed	Preallocate: the length is not set after the reservation
+mappedoutputfile	O27	killed	Fallback: an unknown free space refuses the file
+mappedoutputfile	O28	killed	Fallback: free space equal to the length is refused
+mappedoutputfile	O29	killed	Fallback: the free space is never compared
+mappedoutputfile	O30	killed	Fallback: the outcome labels are swapped
+mappedoutputfile	O31	killed	Fallback: the free space is asked for the file, not its directory
+mappedoutputfile	O32	killed	Fallback: the file is not truncated first
+mappedoutputfile	O33	killed	Fallback: the length is not set
+mappedoutputfile	O34	equivalent	the system source preallocates everywhere
+mappedoutputfile	O35	killed	the system source never preallocates
+mappedoutputfile	O36	killed	the system source reserves nothing
+mappedoutputfile	O37	killed	the system source does not truncate
+mappedoutputfile	O38	killed	the free space is wrong by a factor
+mappedoutputfile	O39	killed	an unknown free space is 0
+mappedoutputfile	O40	killed	DeleteQuietly deletes nothing
+mappedoutputfile	O41	killed	the writer counter starts at one
+mappedtextreader	N01	killed	Lce: the vector step is the key length
+mappedtextreader	N02	killed	Lce: the lane shuffle swaps two bytes
+mappedtextreader	N03	killed	LoadShifted: the carry shift is off by one
+mappedtextreader	N04	killed	LoadShifted: the carry is loaded from one byte earlier
+mappedtextreader	N05	killed	Lce: the first difference is always taken from lane 0
+mappedtextreader	N06	killed	Lce: equal vectors advance one symbol short
+mappedtextreader	N08	killed	Verify: counts every symbol twice
+mappedtextreader	N09	killed	Verify: one letter too many is accepted
+mappedtextreader	N10	killed	ReadSymbols: the mask is one bit short
+mappedtextreader	N11	killed	CheckLayout: the number of unused bits is one too many
+mappedtextreader	N12	killed	Verify: the blocks overlap by one symbol
+mappedtextreader	R01	killed	the key holds one symbol less (63 / b)
+mappedtextreader	R02	killed	the key shift counts the unused bits the wrong way
+mappedtextreader	R03	killed	the vector step covers 128 bits
+mappedtextreader	R04	equivalent	the vector flag is not guarded by the hardware
+mappedtextreader	R05	killed	a negative position is not recognised by the window
+mappedtextreader	R06	equivalent	position n is read through the window
+mappedtextreader	R07	killed	the key drops one bit too many
+mappedtextreader	R08	killed	the symbol is taken from the wrong bits
+mappedtextreader	R09	killed	ReadSymbols does not check the disposal
+mappedtextreader	R10	killed	ReadSymbols refuses start = n
+mappedtextreader	R11	killed	ReadSymbols refuses a range that ends at n
+mappedtextreader	R12	killed	the byte fast path of ReadSymbols is taken for 7 bits
+mappedtextreader	R13	equivalent	the byte fast path of ReadSymbols is never taken
+mappedtextreader	R14	killed	ReadSymbols: shift off by one
+mappedtextreader	R15	killed	ReadSymbols: no mask
+mappedtextreader	R16	killed	ReadSymbols: the bit position advances by one per symbol
+mappedtextreader	R17	killed	Lce: an empty room is not an early return
+mappedtextreader	R18	killed	Lce: the limit is not clamped to the room
+mappedtextreader	R19	killed	Lce: the room is measured from the smaller position
+mappedtextreader	R20	killed	Lce: the vector path starts one step late
+mappedtextreader	R21	killed	Lce: the vector loop leaves the last full step to the scalar path
+mappedtextreader	R22	killed	Lce: the vector steps are not counted
+mappedtextreader	R23	killed	Lce: the lane of the first difference is found with a 4-bit unit
+mappedtextreader	R24	killed	Lce: the matched symbols of a lane are counted from its end
+mappedtextreader	R25	equivalent	Lce: a difference in the partial symbol at the end of the window ends the common prefix
+mappedtextreader	R26	equivalent	Lce: the vector path continues one symbol short
+mappedtextreader	R27	equivalent	Lce: scalar: a difference in the padding bit ends the common prefix
+mappedtextreader	R28	killed	Lce: scalar steps are not counted
+mappedtextreader	R29	killed	Lce: scalar advances one symbol short
+mappedtextreader	R30	killed	Lce: the scalar result is not clamped to max
+mappedtextreader	R31	equivalent	Lce: the vector result is not clamped to max
+mappedtextreader	R32	killed	Lce: a negative i is not refused
+mappedtextreader	R33	killed	Lce: a negative max is not refused
+mappedtextreader	R34	killed	CompareSuffixes: positions beyond n are not clamped
+mappedtextreader	R35	killed	CompareSuffixes: the same position is not special
+mappedtextreader	R36	killed	CompareSuffixes: the skip is not clamped
+mappedtextreader	R37	killed	CompareSuffixes: the shorter suffix is the larger
+mappedtextreader	R38	killed	CompareSuffixes: the symbol order is reversed
+mappedtextreader	R39	killed	CompareSuffixes: the skipped symbols are not counted
+mappedtextreader	R40	killed	Verify: the length is not compared
+mappedtextreader	R41	killed	Verify: the width is not compared
+mappedtextreader	R42	killed	Verify: an alphabet that is not as long as the counts is accepted
+mappedtextreader	R43	killed	Verify: sigma = 2^b is refused
+mappedtextreader	R44	killed	Verify: a symbol equal to sigma is accepted
+mappedtextreader	R45	killed	Verify: the symbols are not counted
+mappedtextreader	R46	killed	Verify: the symbols are not mapped back for the hash
+mappedtextreader	R47	killed	Verify: the counts are not compared
+mappedtextreader	R48	killed	Verify: the hash is not compared (replacement of the first R48, which did not compile)
+mappedtextreader	R49	killed	Verify: the hash comparison is case sensitive
+mappedtextreader	R50	killed	Verify: the blocks are read from the start every time
+mappedtextreader	R51	killed	Dispose: the limit is not cleared (a read after disposal touches the unmapped view)
+mappedtextreader	R52	killed	OpenCore: a file of exactly the length is refused
+mappedtextreader	R53	killed	OpenCore: a longer file is accepted as a whole file
+mappedtextreader	R54	killed	OpenCore: a section length that differs is accepted
+mappedtextreader	R55	killed	OpenCore: a negative offset is accepted
+mappedtextreader	R56	killed	OpenCore: the view starts at 0 instead of the offset
+mappedtextreader	R57	killed	CheckLayout: a short region is accepted
+mappedtextreader	R58	killed	CheckLayout: a long region is accepted
+mappedtextreader	R59	killed	CheckLayout: the lowest unused bit is not checked
+mappedtextreader	R60	killed	CheckLayout: the unused bits are not checked
+mappedtextreader	R61	killed	CheckLayout: the padding is not checked
+mappedtextreader	R62	killed	CheckShape: the lower width is not checked
+mappedtextreader	R63	killed	CheckShape: the upper width is not checked
+mappedtextreader	R64	killed	CheckShape: a negative length is accepted
+mappedtextreader	R65	killed	CheckShape: the length is not bounded
+mappedtextreader	R66	killed	the window carries the wrong bits from the ninth byte
+mappedtextreader	R67	killed	the window is not byte-reversed
+mappedtextreader	R68	killed	the window drops the shift when the bit offset is zero
+mappedtextreader	R69	killed	the outside window does not refuse a negative position
+mappedtextreader	R70	killed	the outside window does not check the disposal
+mappedtextreader	R71	killed	Lce: a read after disposal is not refused
+mappedtextreader	R72	killed	Lce: a negative j is not refused
+mappedwindowwriter	N17	killed	the window is as large as the larger of the window and the rest
+mappedwindowwriter	W01	killed	a range writer maps its window at the range-relative offset
+mappedwindowwriter	W02	killed	Flush does nothing
+mappedwindowwriter	W03	killed	Dispose is not idempotent-guarded (replacement of the first W03, which did not compile)
+mappedwindowwriter	W04	killed	Dispose does not close the window
+mappedwindowwriter	W05	killed	Dispose of a range writer disposes the shared file (replacement of the first W05, which did not compile)
+mappedwindowwriter	W06	killed	Dispose of a range writer does not report the closing
+mappedwindowwriter	W07	killed	the owning writer does not dispose its file
+mappedwindowwriter	W08	killed	FileOffset is 0
+mappedwindowwriter	W09	killed	a write that ends at the end of the range is refused
+mappedwindowwriter	W10	killed	the owning writer creates its file with a reservation
+mappedwindowwriter	W11	equivalent	the owning writer does not count itself
+mappedwindowwriter	W12	killed	the owning writer forgets that it owns the file
+mappedwindowwriter	W13	killed	the window of a range writer is as large as the rest of the file
+mappedwindowwriter	W14	killed	Path is the empty string
+packedtextformat	F01	killed	BitsFor: sigma 3 gets one bit
+packedtextformat	F02	killed	BitsFor: counts the bits of sigma, not of sigma - 1
+packedtextformat	F03	killed	BitsFor: sigma 2 is not special-cased below (always the formula)
+packedtextformat	F04	killed	DataBytes rounds up one byte too much
+packedtextformat	F05	killed	DataBytes rounds down
+packedtextformat	F06	killed	TotalBytes forgets one padding byte
+packedtextformat	F07	killed	PackInto: a destination that is too small is not refused
+packedtextformat	F08	killed	PackInto: a symbol that does not fit is not refused
+packedtextformat	F09	killed	PackInto: the fit test misses symbols just above the range
+packedtextformat	F10	killed	PackInto: the last partial byte is not written
+packedtextformat	F11	killed	PackInto: the last partial byte is shifted the wrong way
+packedtextformat	F12	equivalent	PackInto: bytes are emitted one symbol late
+packedtextformat	F13	equivalent	PackInto: symbols are added instead of or-ed
+packedtextformat	F14	killed	PackInto: the upper width is not checked
+packedtextformat	F15	killed	PackInto: the lower width is not checked
+packedtextformat	F16	killed	the padding is 63 bytes
+packedtextformat	F17	killed	the design limit is one more
+packedtextformat	F18	killed	the first byte of a block is not cleared by the emission: bits are emitted from the wrong end
+packedtextformat	N19	killed	PackInto starts writing at byte 1
+packedtextwriter	N13	killed	Scan: the blocks overlap by one symbol
+packedtextwriter	N14	killed	WriteFile: a directory that exists is refused
+packedtextwriter	P01	killed	a block that is not a multiple of eight is accepted
+packedtextwriter	P02	killed	a block of 8 is refused
+packedtextwriter	P03	killed	the lower MinBits is not checked
+packedtextwriter	P04	killed	the upper MinBits is not checked
+packedtextwriter	P05	killed	the window is not checked
+packedtextwriter	P06	killed	Scan: the limit is exclusive
+packedtextwriter	P07	killed	Scan: the limit is not applied
+packedtextwriter	P08	killed	Scan: the symbols are not counted
+packedtextwriter	P09	killed	Scan: the hash is not fed
+packedtextwriter	P10	killed	Scan: the hash is not reset before reading (it is read once)
+packedtextwriter	P11	killed	Scan: the letters are the ones that occur more than once
+packedtextwriter	P12	killed	Scan: the width is the larger of nothing
+packedtextwriter	P13	killed	Scan: the width ignores the minimum
+packedtextwriter	P14	killed	Scan: the counters are not given to the input
+packedtextwriter	P15	killed	Scan: the blocks are read from the start
+packedtextwriter	P16	killed	Pack: a target with more room is accepted
+packedtextwriter	P17	killed	Pack: a target with less room is accepted
+packedtextwriter	P18	killed	Pack: a changed length is not noticed
+packedtextwriter	P19	killed	Pack: the alphabet map is not built
+packedtextwriter	P20	killed	Pack: a byte that is not in the alphabet is not noticed
+packedtextwriter	P21	killed	Pack: the symbols are not counted
+packedtextwriter	P22	killed	Pack: the counts are not compared
+packedtextwriter	P23	killed	Pack: a block is appended one byte short
+packedtextwriter	P24	killed	Pack: the padding is not written
+packedtextwriter	P25	killed	Pack: the padding is one byte short
+packedtextwriter	P26	equivalent	Pack: the data length is not checked
+packedtextwriter	P27	equivalent	Pack: the packed buffer holds one byte less than a block needs
+packedtextwriter	P28	killed	Pack: the counters are not given to the input
+packedtextwriter	P29	killed	WriteFile: the directory is not checked first
+packedtextwriter	P30	killed	WriteFile: the hook between the passes is not called
+packedtextwriter	P31	killed	WriteFile: the file is written in place
+packedtextwriter	P32	killed	WriteFile: the window option is not used
+packedtextwriter	P33	killed	WriteFile: the counters are not given to the writer
+packedtextwriter	P34	killed	WriteFile: the file options are not used
+packedtextwriter	P35	equivalent	WriteFile: fsync is always skipped
+packedtextwriter	P36	killed	WriteFile: an existing target is not replaced
+packedtextwriter	P37	killed	WriteFile: a failure leaves the temporary file
+packedtextwriter	P38	equivalent	WriteFile: the file is not disposed before the rename
+packedtextwriter	P39	equivalent	WriteFile: the file is disposed again by the handler (null guard lost)
+packedtextwriter	P40	killed	InputLength: the length of the link, not of the text
+packedtextwriter	P41	killed	WriteFile: the info is of an empty text

@@ -1,0 +1,3 @@
+O03	a negative length is not refused up front	killed(1)	
+O18	Dispose does not mark the file disposed (replacement of the first O18, which did not compile)	killed(1)	
+O32	Fallback: the file is not truncated first	killed(1)	

@@ -1,0 +1,3 @@
+R63	CheckShape: the upper width is not checked	killed(1)	
+R64	CheckShape: a negative length is accepted	killed(1)	
+R65	CheckShape: the length is not bounded	killed(1)	
