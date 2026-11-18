@@ -1,0 +1,107 @@
+[
+ {
+  "id": "F01",
+  "desc": "BitsFor: sigma 3 gets one bit",
+  "old": "if (sigma <= 2) return 1;",
+  "new": "if (sigma <= 3) return 1;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/PackedTextFormat.cs"
+ },
+ {
+  "id": "F02",
+  "desc": "BitsFor: counts the bits of sigma, not of sigma - 1",
+  "old": "(ulong)(sigma - 1)",
+  "new": "(ulong)sigma",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/PackedTextFormat.cs"
+ },
+ {
+  "id": "F04",
+  "desc": "DataBytes rounds up one byte too much",
+  "old": "((n * bits) + 7) / 8",
+  "new": "((n * bits) + 8) / 8",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/PackedTextFormat.cs"
+ },
+ {
+  "id": "F05",
+  "desc": "DataBytes rounds down",
+  "old": "((n * bits) + 7) / 8",
+  "new": "((n * bits) + 6) / 8",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/PackedTextFormat.cs"
+ },
+ {
+  "id": "F06",
+  "desc": "TotalBytes forgets one padding byte",
+  "old": "DataBytes(n, bits) + PadBytes;",
+  "new": "DataBytes(n, bits) + PadBytes - 1;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/PackedTextFormat.cs"
+ },
+ {
+  "id": "F07",
+  "desc": "PackInto: a destination that is too small is not refused",
+  "old": "if (destination.Length < need) throw",
+  "new": "if (destination.Length < 0) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/PackedTextFormat.cs"
+ },
+ {
+  "id": "F08",
+  "desc": "PackInto: a symbol that does not fit is not refused",
+  "old": "if ((s >> bits) != 0) throw",
+  "new": "if ((s >> bits) > 255) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/PackedTextFormat.cs"
+ },
+ {
+  "id": "F09",
+  "desc": "PackInto: the fit test misses symbols just above the range",
+  "old": "if ((s >> bits) != 0) throw",
+  "new": "if ((s >> bits) > 1) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/PackedTextFormat.cs"
+ },
+ {
+  "id": "F10",
+  "desc": "PackInto: the last partial byte is not written",
+  "old": "        if (accBits > 0) destination[o] = (byte)(acc << (8 - accBits));",
+  "new": "        _ = accBits;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/PackedTextFormat.cs"
+ },
+ {
+  "id": "F11",
+  "desc": "PackInto: the last partial byte is shifted the wrong way",
+  "old": "(byte)(acc << (8 - accBits))",
+  "new": "(byte)(acc >> (8 - accBits))",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/PackedTextFormat.cs"
+ },
+ {
+  "id": "F12",
+  "desc": "PackInto: bytes are emitted one symbol late",
+  "old": "while (accBits >= 8)",
+  "new": "while (accBits > 8)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/PackedTextFormat.cs"
+ },
+ {
+  "id": "F14",
+  "desc": "PackInto: the upper width is not checked",
+  "old": "        ArgumentOutOfRangeException.ThrowIfGreaterThan(bits, MaxBits);\n        long need",
+  "new": "        long need",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/PackedTextFormat.cs"
+ },
+ {
+  "id": "F15",
+  "desc": "PackInto: the lower width is not checked",
+  "old": "        ArgumentOutOfRangeException.ThrowIfLessThan(bits, MinBits);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/PackedTextFormat.cs"
+ },
+ {
+  "id": "F16",
+  "desc": "the padding is 63 bytes",
+  "old": "internal const int PadBytes = 64;",
+  "new": "internal const int PadBytes = 63;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/PackedTextFormat.cs"
+ },
+ {
+  "id": "F17",
+  "desc": "the design limit is one more",
+  "old": "uint.MaxValue - 3L;",
+  "new": "uint.MaxValue - 2L;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/PackedTextFormat.cs"
+ }
+]

@@ -1,0 +1,422 @@
+[
+ {
+  "id": "R01",
+  "desc": "the key holds one symbol less (63 / b)",
+  "old": "_keySymbols = 64 / bits;",
+  "new": "_keySymbols = 63 / bits;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "R02",
+  "desc": "the key shift counts the unused bits the wrong way",
+  "old": "_keyShift = 64 - (_keySymbols * bits);",
+  "new": "_keyShift = 64 + (_keySymbols * bits);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "R03",
+  "desc": "the vector step covers 128 bits",
+  "old": "_vectorSymbols = 256 / bits;",
+  "new": "_vectorSymbols = 128 / bits;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "R04",
+  "desc": "the vector flag is not guarded by the hardware",
+  "old": "set => _useVectors = value && Avx2.IsSupported;",
+  "new": "set => _useVectors = value;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "R05",
+  "desc": "a negative position is not recognised by the window",
+  "old": "(ulong)i < (ulong)_limit ? WindowAt(i)",
+  "new": "i < _limit ? WindowAt(i)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "R07",
+  "desc": "the key drops one bit too many",
+  "old": "Window(i) >> _keyShift;",
+  "new": "Window(i) >> (_keyShift + 1);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "R08",
+  "desc": "the symbol is taken from the wrong bits",
+  "old": "(uint)(Window(i) >> (64 - _bits))",
+  "new": "(uint)(Window(i) >> (63 - _bits))",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "R09",
+  "desc": "ReadSymbols does not check the disposal",
+  "old": "        ObjectDisposedException.ThrowIf(_disposed, this);\n        if (start < 0",
+  "new": "        if (start < 0",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "R10",
+  "desc": "ReadSymbols refuses start = n",
+  "old": "start > _n ||",
+  "new": "start >= _n ||",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "R11",
+  "desc": "ReadSymbols refuses a range that ends at n",
+  "old": "destination.Length > _n - start",
+  "new": "destination.Length >= _n - start",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "R12",
+  "desc": "the byte fast path of ReadSymbols is taken for 7 bits",
+  "old": "if (_bits == 8)",
+  "new": "if (_bits == 7)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "R14",
+  "desc": "ReadSymbols: shift off by one",
+  "old": "int shift = 16 - (int)(bit & 7) - bits;",
+  "new": "int shift = 15 - (int)(bit & 7) - bits;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "R15",
+  "desc": "ReadSymbols: no mask",
+  "old": ">> shift) & mask)",
+  "new": ">> shift))",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "R16",
+  "desc": "ReadSymbols: the bit position advances by one per symbol",
+  "old": "for (int k = 0; k < destination.Length; k++, bit += bits)",
+  "new": "for (int k = 0; k < destination.Length; k++, bit += 1)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "R18",
+  "desc": "Lce: the limit is not clamped to the room",
+  "old": "        if (max > room) max = room;\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "R19",
+  "desc": "Lce: the room is measured from the smaller position",
+  "old": "long room = _limit - Math.Max(i, j);",
+  "new": "long room = _limit - Math.Min(i, j);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "R20",
+  "desc": "Lce: the vector path starts one step late",
+  "old": "if (_useVectors && max >= _vectorSymbols)",
+  "new": "if (_useVectors && max > _vectorSymbols)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "R21",
+  "desc": "Lce: the vector loop leaves the last full step to the scalar path",
+  "old": "while (k + vs <= max)",
+  "new": "while (k + vs < max)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "R23",
+  "desc": "Lce: the lane of the first difference is found with a 4-bit unit",
+  "old": "TrailingZeroCount(~mask) >> 3",
+  "new": "TrailingZeroCount(~mask) >> 2",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "R24",
+  "desc": "Lce: the matched symbols of a lane are counted from its end",
+  "old": "((lane * 64) + BitOperations.LeadingZeroCount(x)) / b",
+  "new": "((lane * 64) - BitOperations.LeadingZeroCount(x)) / b",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "R25",
+  "desc": "Lce: a difference in the partial symbol at the end of the window ends the common prefix",
+  "old": "if (matched < vs) return",
+  "new": "if (matched <= vs) return",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "R26",
+  "desc": "Lce: the vector path continues one symbol short",
+  "old": "k += vs; // the difference lies",
+  "new": "k += vs - 1; // the difference lies",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "R27",
+  "desc": "Lce: scalar: a difference in the padding bit ends the common prefix",
+  "old": "if (matched < ks) return",
+  "new": "if (matched <= ks) return",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "R29",
+  "desc": "Lce: scalar advances one symbol short",
+  "old": "            k += ks;\n        }\n        return max;",
+  "new": "            k += ks - 1;\n        }\n        return max;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "R30",
+  "desc": "Lce: the scalar result is not clamped to max",
+  "old": "return Math.Min(k + matched, max);\n            }\n            k += ks;",
+  "new": "return k + matched;\n            }\n            k += ks;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "R31",
+  "desc": "Lce: the vector result is not clamped to max",
+  "old": "if (matched < vs) return Math.Min(k + matched, max);",
+  "new": "if (matched < vs) return k + matched;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "R32",
+  "desc": "Lce: a negative i is not refused",
+  "old": "if ((i | j | max) < 0) ThrowNegative(i, j, max);",
+  "new": "if ((j | max) < 0) ThrowNegative(i, j, max);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "R33",
+  "desc": "Lce: a negative max is not refused",
+  "old": "if ((i | j | max) < 0) ThrowNegative(i, j, max);",
+  "new": "if ((i | j) < 0) ThrowNegative(i, j, max);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "R71",
+  "desc": "Lce: a read after disposal is not refused",
+  "old": "            ObjectDisposedException.ThrowIf(_disposed, this);\n            return 0;",
+  "new": "            return 0;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "R72",
+  "desc": "Lce: a negative j is not refused",
+  "old": "if ((i | j | max) < 0) ThrowNegative(i, j, max);",
+  "new": "if ((i | max) < 0) ThrowNegative(i, j, max);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "R34",
+  "desc": "CompareSuffixes: positions beyond n are not clamped",
+  "old": "        i = Math.Min(i, _n);\n        j = Math.Min(j, _n);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "R35",
+  "desc": "CompareSuffixes: the same position is not special",
+  "old": "        if (i == j)\n        {",
+  "new": "        if (i == j && false)\n        {",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "R36",
+  "desc": "CompareSuffixes: the skip is not clamped",
+  "old": "        skip = Math.Min(skip, maxLen);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "R37",
+  "desc": "CompareSuffixes: the shorter suffix is the larger",
+  "old": "return i > j ? -1 : 1; // one suffix ended",
+  "new": "return i > j ? 1 : -1; // one suffix ended",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "R38",
+  "desc": "CompareSuffixes: the symbol order is reversed",
+  "old": "return Symbol(i + m) < Symbol(j + m) ? -1 : 1;",
+  "new": "return Symbol(i + m) > Symbol(j + m) ? -1 : 1;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "R39",
+  "desc": "CompareSuffixes: the skipped symbols are not counted",
+  "old": "long m = skip + Lce(",
+  "new": "long m = Lce(",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "R40",
+  "desc": "Verify: the length is not compared",
+  "old": "        if (info.N != _n) throw",
+  "new": "        if (info.N < 0) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "R41",
+  "desc": "Verify: the width is not compared",
+  "old": "        if (info.Bits != _bits) throw",
+  "new": "        if (info.Bits < 0) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "R42",
+  "desc": "Verify: an alphabet that is not as long as the counts is accepted",
+  "old": "        if (info.Counts.Length != sigma) throw",
+  "new": "        if (info.Counts.Length < 0) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "R43",
+  "desc": "Verify: sigma = 2^b is refused",
+  "old": "if (sigma > (1 << _bits)) throw",
+  "new": "if (sigma >= (1 << _bits)) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "R44",
+  "desc": "Verify: a symbol equal to sigma is accepted",
+  "old": "if (s >= sigma) throw",
+  "new": "if (s > sigma) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "R45",
+  "desc": "Verify: the symbols are not counted",
+  "old": "                seen[s]++;\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "R46",
+  "desc": "Verify: the symbols are not mapped back for the hash",
+  "old": "                block[k] = info.Letters[s];\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "R47",
+  "desc": "Verify: the counts are not compared",
+  "old": "if (seen[s] != info.Counts[s]) throw",
+  "new": "if (seen[s] < 0) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "R48",
+  "desc": "Verify: the hash is not compared",
+  "old": "if (hash is not null && !string.Equals(",
+  "new": "if (hash is null && !string.Equals(",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "R49",
+  "desc": "Verify: the hash comparison is case sensitive",
+  "old": "StringComparison.OrdinalIgnoreCase",
+  "new": "StringComparison.Ordinal",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "R50",
+  "desc": "Verify: the blocks are read from the start every time",
+  "old": "ReadSymbols(at, block.AsSpan(0, take));",
+  "new": "ReadSymbols(0, block.AsSpan(0, take));",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "R51",
+  "desc": "Dispose: the limit is not cleared (a read after disposal touches the unmapped view)",
+  "old": "        _limit = 0;\n        if (_view is not null)",
+  "new": "        if (_view is not null)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "R52",
+  "desc": "OpenCore: a file of exactly the length is refused",
+  "old": "if (offset > fileLength - total) throw",
+  "new": "if (offset >= fileLength - total) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "R53",
+  "desc": "OpenCore: a longer file is accepted as a whole file",
+  "old": "if (sectionLength is null && fileLength != total) throw",
+  "new": "if (sectionLength is null && fileLength < total) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "R54",
+  "desc": "OpenCore: a section length that differs is accepted",
+  "old": "if (sectionLength is long declared && declared != total) throw",
+  "new": "if (sectionLength is long declared && declared < 0) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "R56",
+  "desc": "OpenCore: the view starts at 0 instead of the offset",
+  "old": "map.CreateViewAccessor(offset, total,",
+  "new": "map.CreateViewAccessor(0, total,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "R57",
+  "desc": "CheckLayout: a short region is accepted",
+  "old": "        if (length < total) throw",
+  "new": "        if (length < total - 1) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "R58",
+  "desc": "CheckLayout: a long region is accepted",
+  "old": "        if (length > total) throw",
+  "new": "        if (length > total + 1) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "R59",
+  "desc": "CheckLayout: the lowest unused bit is not checked",
+  "old": "((1 << unused) - 1)) != 0)",
+  "new": "((1 << unused) - 2)) != 0)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "R61",
+  "desc": "CheckLayout: the padding is not checked",
+  "old": "if (bad >= 0) throw",
+  "new": "if (bad >= 1) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "R62",
+  "desc": "CheckShape: the lower width is not checked",
+  "old": "bits < PackedTextFormat.MinBits ||",
+  "new": "bits < 0 ||",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "R66",
+  "desc": "the window carries the wrong bits from the ninth byte",
+  "old": "(ulong)q[8] >> (8 - s)",
+  "new": "(ulong)q[8] >> (7 - s)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "R69",
+  "desc": "the outside window does not refuse a negative position",
+  "old": "        ArgumentOutOfRangeException.ThrowIfNegative(i);\n        return 0;",
+  "new": "        return 0;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "R70",
+  "desc": "the outside window does not check the disposal",
+  "old": "        ObjectDisposedException.ThrowIf(_disposed, this);\n        ArgumentOutOfRangeException.ThrowIfNegative(i);\n        return 0;",
+  "new": "        ArgumentOutOfRangeException.ThrowIfNegative(i);\n        return 0;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ }
+]

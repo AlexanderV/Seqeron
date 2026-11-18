@@ -2,7 +2,7 @@
 # Gate G3 of work package 1b.7b (outside the shipped code): cost parity of the production MappedTextReader with the prototype PackedText, of the production mapped writer with the prototype's, and the
 # measurement of fallocate against the sparse creation on the write pattern of E9. One run = one process (dotnet test of the explicit classes TextCostTests / WriterCostTests, EmProto.Tests), the writer runs with a cold
 # cache (sync + drop_caches) and the device writes are read from /sys/block/<dev>/stat before the run and after the sync that follows it. DOTNET_GCHeapHardLimit = 96 MiB as in the E-series.
-#   usage: run_1b7b_g3.sh <rows file> <part: reader | writer | window> [runs, default 3]
+#   usage: run_1b7b_g3.sh <rows file> <part: reader | readertc0 | lce | writer | window> [runs, default 3]
 # environment: G3_PK (default /tmp/stbench/e9/dna_100m.pk), G3_BWT (/tmp/stbench/e9/dna_100m.bwt), G3_WORK (/tmp/stbench/g3b), G3_DEV (vda)
 set -u
 ROWS=$(readlink -f "$1")
@@ -25,10 +25,10 @@ sectr() { awk '{print $3}' /sys/block/$DEV/stat; }     # sectors read
 reader() {
   printf '#cols\tlabel\twhat\tvariant\tops\tmedian_ns\tmin_ns\tmax_ns\tall_ns\tchecksum\n' >> "$ROWS"
   for K in $(seq 1 "$RUNS"); do
-    G3_PK=$PK G3_N=100000000 G3_BITS=2 G3_ROWS=$ROWS G3_LABEL=dna_100m.run$K dotnet test "$PROJ" -c Release --no-build --nologo --filter "FullyQualifiedName~TextCostTests.RandomKeysAndSymbols" > "$W/last.log" 2>&1 || { echo "failed"; tail -20 "$W/last.log"; }
-    G3_PK=$PK G3_N=100000000 G3_BITS=2 G3_ROWS=$ROWS G3_LABEL=dna_100m.run$K G3_PAIRS=random dotnet test "$PROJ" -c Release --no-build --nologo --filter "FullyQualifiedName~TextCostTests.CommonPrefixes" > "$W/last.log" 2>&1 || { echo "failed"; tail -20 "$W/last.log"; }
+    [ -n "${G3_SKIP_KEYS:-}" ] || G3_PK=$PK G3_N=100000000 G3_BITS=2 G3_ROWS=$ROWS G3_KEYS=4000000 G3_LABEL=dna_100m.$PART.run$K dotnet test "$PROJ" -c Release --no-build --nologo --filter "FullyQualifiedName~TextCostTests.RandomKeysAndSymbols" > "$W/last.log" 2>&1 || { echo "failed"; tail -20 "$W/last.log"; }
+    G3_PK=$PK G3_N=100000000 G3_BITS=2 G3_ROWS=$ROWS G3_LABEL=dna_100m.$PART.run$K G3_PAIRS=random dotnet test "$PROJ" -c Release --no-build --nologo --filter "FullyQualifiedName~TextCostTests.CommonPrefixes" > "$W/last.log" 2>&1 || { echo "failed"; tail -20 "$W/last.log"; }
     for NAME in a_1m fib_1m; do
-      G3_PK=/tmp/stbench/e9/$NAME.pk G3_N=1000000 G3_BITS=1 G3_ROWS=$ROWS G3_LABEL=$NAME.run$K G3_PAIRS=near G3_KEYS=1000000 dotnet test "$PROJ" -c Release --no-build --nologo --filter "FullyQualifiedName~TextCostTests.CommonPrefixes" > "$W/last.log" 2>&1 || { echo "failed $NAME"; tail -20 "$W/last.log"; }
+      G3_PK=/tmp/stbench/e9/$NAME.pk G3_N=1000000 G3_BITS=1 G3_ROWS=$ROWS G3_LABEL=$NAME.$PART.run$K G3_PAIRS=near G3_KEYS=1000000 dotnet test "$PROJ" -c Release --no-build --nologo --filter "FullyQualifiedName~TextCostTests.CommonPrefixes" > "$W/last.log" 2>&1 || { echo "failed $NAME"; tail -20 "$W/last.log"; }
     done
   done
 }
@@ -63,5 +63,5 @@ window() { # the harness check against E9: 64 KB windows of the Psi pattern
   for K in 1 2; do for V in proto sparse; do run_writer "w64k" "$V" psi 65536 "$K"; done; done
 }
 
-case $PART in reader) reader ;; writer) writer ;; window) window ;; *) echo "part: reader | writer | window"; exit 2 ;; esac
+case $PART in lce) G3_SKIP_KEYS=1 reader ;; reader) reader ;; readertc0) export DOTNET_TieredCompilation=0; reader ;; writer) writer ;; window) window ;; *) echo "part: reader | readertc0 | writer | window"; exit 2 ;; esac
 echo "g3-$PART-done"

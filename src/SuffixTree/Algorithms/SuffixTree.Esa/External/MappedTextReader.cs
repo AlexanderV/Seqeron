@@ -126,12 +126,13 @@ internal sealed unsafe class MappedTextReader : IDisposable
     /// </summary>
     internal long Lce(long i, long j, long max, ref long steps)
     {
-        ObjectDisposedException.ThrowIf(_disposed, this);
-        ArgumentOutOfRangeException.ThrowIfNegative(i);
-        ArgumentOutOfRangeException.ThrowIfNegative(j);
-        ArgumentOutOfRangeException.ThrowIfNegative(max);
-        long room = _n - Math.Max(i, j);
-        if (room <= 0) return 0;
+        if ((i | j | max) < 0) ThrowNegative(i, j, max);
+        long room = _limit - Math.Max(i, j); // _limit is 0 after disposal
+        if (room <= 0)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            return 0;
+        }
         if (max > room) max = room;
         long k = 0;
         if (_useVectors && max >= _vectorSymbols)
@@ -311,6 +312,14 @@ internal sealed unsafe class MappedTextReader : IDisposable
         int s = (int)(bit & 7);
         ulong w = BinaryPrimitives.ReverseEndianness(Unsafe.ReadUnaligned<ulong>(q));
         return s == 0 ? w : (w << s) | ((ulong)q[8] >> (8 - s));
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static void ThrowNegative(long i, long j, long max)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(i);
+        ArgumentOutOfRangeException.ThrowIfNegative(j);
+        ArgumentOutOfRangeException.ThrowIfNegative(max);
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]

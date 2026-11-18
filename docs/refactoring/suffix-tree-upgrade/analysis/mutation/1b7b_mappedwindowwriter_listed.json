@@ -1,0 +1,72 @@
+[
+ {
+  "id": "W01",
+  "desc": "a range writer maps its window at the range-relative offset",
+  "old": "_view = _file.OpenView(_start + offset, size);",
+  "new": "_view = _file.OpenView(offset, size);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedWindowWriter.cs"
+ },
+ {
+  "id": "W02",
+  "desc": "Flush does nothing",
+  "old": "internal void Flush() => CloseWindow();",
+  "new": "internal void Flush() { }",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedWindowWriter.cs"
+ },
+ {
+  "id": "W03",
+  "desc": "Dispose is not idempotent-guarded",
+  "old": "        if (_closed) return;\n        _closed = true;",
+  "new": "        _closed = true;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedWindowWriter.cs"
+ },
+ {
+  "id": "W04",
+  "desc": "Dispose does not close the window",
+  "old": "        _closed = true;\n        CloseWindow();",
+  "new": "        _closed = true;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedWindowWriter.cs"
+ },
+ {
+  "id": "W05",
+  "desc": "Dispose of a range writer disposes the shared file",
+  "old": "        if (_ownsFile) _file.Dispose();\n        else _file.WriterClosed();",
+  "new": "        _file.Dispose();",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedWindowWriter.cs"
+ },
+ {
+  "id": "W06",
+  "desc": "Dispose of a range writer does not report the closing",
+  "old": "        if (_ownsFile) _file.Dispose();\n        else _file.WriterClosed();",
+  "new": "        if (_ownsFile) _file.Dispose();",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedWindowWriter.cs"
+ },
+ {
+  "id": "W07",
+  "desc": "the owning writer does not dispose its file",
+  "old": "        if (_ownsFile) _file.Dispose();\n        else _file.WriterClosed();",
+  "new": "        if (!_ownsFile) _file.WriterClosed();",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedWindowWriter.cs"
+ },
+ {
+  "id": "W08",
+  "desc": "FileOffset is 0",
+  "old": "internal long FileOffset => _start;",
+  "new": "internal long FileOffset => 0;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedWindowWriter.cs"
+ },
+ {
+  "id": "W09",
+  "desc": "a write that ends at the end of the range is refused",
+  "old": "if (offset < 0 || offset > Length - data.Length) throw",
+  "new": "if (offset < 0 || offset >= Length - data.Length) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedWindowWriter.cs"
+ },
+ {
+  "id": "W10",
+  "desc": "the owning writer creates its file with a reservation",
+  "old": "new MappedFileOptions { Reservation = ReservationMode.Sparse }",
+  "new": "new MappedFileOptions { Reservation = ReservationMode.Auto }",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedWindowWriter.cs"
+ }
+]

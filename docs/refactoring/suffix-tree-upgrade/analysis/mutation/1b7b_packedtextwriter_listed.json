@@ -1,0 +1,205 @@
+[
+ {
+  "id": "P01",
+  "desc": "a block that is not a multiple of eight is accepted",
+  "old": "o.BlockSymbols < BlockMultiple || o.BlockSymbols % BlockMultiple != 0",
+  "new": "o.BlockSymbols < BlockMultiple",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/PackedTextWriter.cs"
+ },
+ {
+  "id": "P03",
+  "desc": "the lower MinBits is not checked",
+  "old": "        ArgumentOutOfRangeException.ThrowIfLessThan(o.MinBits, PackedTextFormat.MinBits);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/PackedTextWriter.cs"
+ },
+ {
+  "id": "P04",
+  "desc": "the upper MinBits is not checked",
+  "old": "        ArgumentOutOfRangeException.ThrowIfGreaterThan(o.MinBits, PackedTextFormat.MaxBits);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/PackedTextWriter.cs"
+ },
+ {
+  "id": "P06",
+  "desc": "Scan: the limit is exclusive",
+  "old": "if (n > options.MaxSymbols) throw",
+  "new": "if (n >= options.MaxSymbols) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/PackedTextWriter.cs"
+ },
+ {
+  "id": "P08",
+  "desc": "Scan: the symbols are not counted",
+  "old": "                foreach (byte b in block.AsSpan(0, take)) counts[b]++;\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/PackedTextWriter.cs"
+ },
+ {
+  "id": "P09",
+  "desc": "Scan: the hash is not fed",
+  "old": "                hash.AppendData(block.AsSpan(0, take));\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/PackedTextWriter.cs"
+ },
+ {
+  "id": "P11",
+  "desc": "Scan: the letters are the ones that occur more than once",
+  "old": "if (counts[v] != 0) letters.Add((byte)v);",
+  "new": "if (counts[v] > 1) letters.Add((byte)v);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/PackedTextWriter.cs"
+ },
+ {
+  "id": "P12",
+  "desc": "Scan: the width is the larger of nothing",
+  "old": "int bits = Math.Max(options.MinBits, PackedTextFormat.BitsFor(letters.Count));",
+  "new": "int bits = Math.Min(options.MinBits, PackedTextFormat.BitsFor(letters.Count));",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/PackedTextWriter.cs"
+ },
+ {
+  "id": "P14",
+  "desc": "Scan: the counters are not given to the input",
+  "old": "using (var input = new CountedFile(inputPath, FileMode.Open, FileAccess.Read, options.Counters))\n        using (var hash",
+  "new": "using (var input = new CountedFile(inputPath, FileMode.Open, FileAccess.Read))\n        using (var hash",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/PackedTextWriter.cs"
+ },
+ {
+  "id": "P16",
+  "desc": "Pack: a target with more room is accepted",
+  "old": "if (room != info.TotalBytes) throw",
+  "new": "if (room < info.TotalBytes) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/PackedTextWriter.cs"
+ },
+ {
+  "id": "P17",
+  "desc": "Pack: a target with less room is accepted",
+  "old": "if (room != info.TotalBytes) throw",
+  "new": "if (room > info.TotalBytes) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/PackedTextWriter.cs"
+ },
+ {
+  "id": "P18",
+  "desc": "Pack: a changed length is not noticed",
+  "old": "if (n != info.N) throw",
+  "new": "if (n < 0) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/PackedTextWriter.cs"
+ },
+ {
+  "id": "P19",
+  "desc": "Pack: the alphabet map is not built",
+  "old": "for (int s = 0; s < info.Letters.Length; s++) map[info.Letters[s]] = s;",
+  "new": "for (int s = 0; s < info.Letters.Length; s++) map[info.Letters[s]] = 0;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/PackedTextWriter.cs"
+ },
+ {
+  "id": "P20",
+  "desc": "Pack: a byte that is not in the alphabet is not noticed",
+  "old": "if (symbol < 0) throw",
+  "new": "if (symbol < -1) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/PackedTextWriter.cs"
+ },
+ {
+  "id": "P21",
+  "desc": "Pack: the symbols are not counted",
+  "old": "                    seen[symbol]++;\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/PackedTextWriter.cs"
+ },
+ {
+  "id": "P22",
+  "desc": "Pack: the counts are not compared",
+  "old": "if (seen[s] != info.Counts[s]) throw",
+  "new": "if (seen[s] < 0) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/PackedTextWriter.cs"
+ },
+ {
+  "id": "P23",
+  "desc": "Pack: a block is appended one byte short",
+  "old": "target.Append(packed.AsSpan(0, bytes));",
+  "new": "target.Append(packed.AsSpan(0, bytes - 1));",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/PackedTextWriter.cs"
+ },
+ {
+  "id": "P24",
+  "desc": "Pack: the padding is not written",
+  "old": "        target.Append(new byte[PackedTextFormat.PadBytes]);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/PackedTextWriter.cs"
+ },
+ {
+  "id": "P25",
+  "desc": "Pack: the padding is one byte short",
+  "old": "target.Append(new byte[PackedTextFormat.PadBytes]);",
+  "new": "target.Append(new byte[PackedTextFormat.PadBytes - 1]);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/PackedTextWriter.cs"
+ },
+ {
+  "id": "P26",
+  "desc": "Pack: the data length is not checked",
+  "old": "if (target.Position - start != info.DataBytes) throw",
+  "new": "if (target.Position - start < 0) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/PackedTextWriter.cs"
+ },
+ {
+  "id": "P28",
+  "desc": "Pack: the counters are not given to the input",
+  "old": "using (var input = new CountedFile(inputPath, FileMode.Open, FileAccess.Read, options.Counters))\n        {\n            for",
+  "new": "using (var input = new CountedFile(inputPath, FileMode.Open, FileAccess.Read))\n        {\n            for",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/PackedTextWriter.cs"
+ },
+ {
+  "id": "P30",
+  "desc": "WriteFile: the hook between the passes is not called",
+  "old": "        options.BetweenPasses?.Invoke();\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/PackedTextWriter.cs"
+ },
+ {
+  "id": "P31",
+  "desc": "WriteFile: the file is written in place",
+  "old": "string temporary = packedPath + \".tmp\";",
+  "new": "string temporary = packedPath;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/PackedTextWriter.cs"
+ },
+ {
+  "id": "P32",
+  "desc": "WriteFile: the window option is not used",
+  "old": "file.CreateWriter(options.WindowBytes, options.Counters)",
+  "new": "file.CreateWriter(MappedWindowWriter.DefaultWindowBytes, options.Counters)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/PackedTextWriter.cs"
+ },
+ {
+  "id": "P33",
+  "desc": "WriteFile: the counters are not given to the writer",
+  "old": "file.CreateWriter(options.WindowBytes, options.Counters)",
+  "new": "file.CreateWriter(options.WindowBytes)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/PackedTextWriter.cs"
+ },
+ {
+  "id": "P35",
+  "desc": "WriteFile: fsync is always skipped",
+  "old": "file.Complete(options.Fsync);",
+  "new": "file.Complete(false);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/PackedTextWriter.cs"
+ },
+ {
+  "id": "P36",
+  "desc": "WriteFile: an existing target is not replaced",
+  "old": "File.Move(temporary, packedPath, overwrite: true);",
+  "new": "File.Move(temporary, packedPath, overwrite: false);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/PackedTextWriter.cs"
+ },
+ {
+  "id": "P37",
+  "desc": "WriteFile: a failure leaves the temporary file",
+  "old": "            file?.Dispose();\n            DeleteQuietly(temporary);\n            throw;",
+  "new": "            file?.Dispose();\n            throw;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/PackedTextWriter.cs"
+ },
+ {
+  "id": "P40",
+  "desc": "InputLength: the length of the link, not of the text",
+  "old": "        using var input = new CountedFile(inputPath, FileMode.Open, FileAccess.Read);\n        return input.Length;",
+  "new": "        return new FileInfo(inputPath).Length;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/PackedTextWriter.cs"
+ }
+]

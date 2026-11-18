@@ -1,0 +1,184 @@
+[
+ {
+  "id": "O01",
+  "desc": "Auto means sparse",
+  "old": "internal const ReservationMode AutoMode = ReservationMode.Preallocate;",
+  "new": "internal const ReservationMode AutoMode = ReservationMode.Sparse;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs"
+ },
+ {
+  "id": "O02",
+  "desc": "Auto is not resolved",
+  "old": "options.Reservation == ReservationMode.Auto ? AutoMode : options.Reservation",
+  "new": "options.Reservation",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs"
+ },
+ {
+  "id": "O05",
+  "desc": "an empty file is mapped",
+  "old": "length > 0 ? MemoryMappedFile.CreateFromFile",
+  "new": "length >= 0 ? MemoryMappedFile.CreateFromFile",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs"
+ },
+ {
+  "id": "O06",
+  "desc": "a failed creation leaves the file",
+  "old": "        catch\n        {\n            DeleteQuietly(path);\n            throw;",
+  "new": "        catch\n        {\n            throw;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs"
+ },
+ {
+  "id": "O07",
+  "desc": "CreateWriter: a range that ends at the end of the file is refused",
+  "old": "if (start > Length - length) throw",
+  "new": "if (start >= Length - length) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs"
+ },
+ {
+  "id": "O08",
+  "desc": "CreateWriter: a negative start is not refused",
+  "old": "        ArgumentOutOfRangeException.ThrowIfNegative(start);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs"
+ },
+ {
+  "id": "O09",
+  "desc": "CreateWriter: a negative length is not refused",
+  "old": "        ArgumentOutOfRangeException.ThrowIfNegative(length);\n        ArgumentOutOfRangeException.ThrowIfLessThan(windowBytes, 1);",
+  "new": "        ArgumentOutOfRangeException.ThrowIfLessThan(windowBytes, 1);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs"
+ },
+ {
+  "id": "O10",
+  "desc": "CreateWriter: a window of 0 bytes is accepted",
+  "old": "        ArgumentOutOfRangeException.ThrowIfLessThan(windowBytes, 1);\n        if (start >",
+  "new": "        if (start >",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs"
+ },
+ {
+  "id": "O11",
+  "desc": "CreateWriter: the writer is not counted",
+  "old": "        Interlocked.Increment(ref _writers);\n        return new MappedWindowWriter(this, start",
+  "new": "        return new MappedWindowWriter(this, start",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs"
+ },
+ {
+  "id": "O13",
+  "desc": "Complete tolerates one open writer",
+  "old": "if (open != 0) throw",
+  "new": "if (open > 1) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs"
+ },
+ {
+  "id": "O15",
+  "desc": "Complete: fsync is always skipped",
+  "old": "        if (!fsync) return;\n",
+  "new": "        return;\n",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs"
+ },
+ {
+  "id": "O16",
+  "desc": "Complete: fsync is always done",
+  "old": "        if (!fsync) return;\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs"
+ },
+ {
+  "id": "O21",
+  "desc": "OpenView opens a read-only view",
+  "old": "CreateViewAccessor(fileOffset, size, MemoryMappedFileAccess.Write)",
+  "new": "CreateViewAccessor(fileOffset, size, MemoryMappedFileAccess.Read)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs"
+ },
+ {
+  "id": "O22",
+  "desc": "WriterClosed does not decrement",
+  "old": "internal void WriterClosed() => Interlocked.Decrement(ref _writers);",
+  "new": "internal void WriterClosed() { }",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs"
+ },
+ {
+  "id": "O23",
+  "desc": "Sparse: the length is not set",
+  "old": "            sparse.SetLength(length);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs"
+ },
+ {
+  "id": "O25",
+  "desc": "Preallocate: the real source is used when it cannot preallocate",
+  "old": "if (source.CanPreallocate)\n        {\n            using FileStream reserved",
+  "new": "if (!source.CanPreallocate)\n        {\n            using FileStream reserved",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs"
+ },
+ {
+  "id": "O26",
+  "desc": "Preallocate: the length is not set after the reservation",
+  "old": "            reserved.SetLength(length);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs"
+ },
+ {
+  "id": "O27",
+  "desc": "Fallback: an unknown free space refuses the file",
+  "old": "if (free >= 0 && free < length) throw",
+  "new": "if (free < length) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs"
+ },
+ {
+  "id": "O28",
+  "desc": "Fallback: free space equal to the length is refused",
+  "old": "if (free >= 0 && free < length) throw",
+  "new": "if (free >= 0 && free <= length) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs"
+ },
+ {
+  "id": "O29",
+  "desc": "Fallback: the free space is never compared",
+  "old": "if (free >= 0 && free < length) throw",
+  "new": "if (free >= 0 && free < 0) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs"
+ },
+ {
+  "id": "O30",
+  "desc": "Fallback: the outcome labels are swapped",
+  "old": "return free >= 0 ? ReservationOutcome.FreeSpaceChecked : ReservationOutcome.Unchecked;",
+  "new": "return free >= 0 ? ReservationOutcome.Unchecked : ReservationOutcome.FreeSpaceChecked;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs"
+ },
+ {
+  "id": "O31",
+  "desc": "Fallback: the free space is asked for the file, not its directory",
+  "old": "long free = source.AvailableFreeBytes(directory);",
+  "new": "long free = source.AvailableFreeBytes(path);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs"
+ },
+ {
+  "id": "O33",
+  "desc": "Fallback: the length is not set",
+  "old": "        checkedFile.SetLength(length);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs"
+ },
+ {
+  "id": "O34",
+  "desc": "the system source preallocates everywhere",
+  "old": "public bool CanPreallocate => OperatingSystem.IsLinux();",
+  "new": "public bool CanPreallocate => true;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs"
+ },
+ {
+  "id": "O35",
+  "desc": "the system source never preallocates",
+  "old": "public bool CanPreallocate => OperatingSystem.IsLinux();",
+  "new": "public bool CanPreallocate => false;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs"
+ },
+ {
+  "id": "O36",
+  "desc": "the system source reserves nothing",
+  "old": "PreallocationSize = length }",
+  "new": "PreallocationSize = 0 }",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs"
+ }
+]
