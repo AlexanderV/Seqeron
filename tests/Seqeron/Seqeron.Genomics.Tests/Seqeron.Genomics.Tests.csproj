@@ -26,6 +26,12 @@
     <!-- GENOMIC-MOTIFS-001 (B09 F18-F20): EMBOSS fuzznuc 6.6.0 (== independent Python regex) forward / reverse-strand,
          exact and IUPAC known-motif hits for 2448 (sequence, pattern) pairs; scripts/analysis/generate_known_motif_oracle.py. -->
     <EmbeddedResource Include="TestData\Analysis\known_motif_oracle.tsv" />
+    <!-- GENOMIC-REPEAT-001 (B09 F28-F30): independent Python (brute force + suffix array/Kasai LCP) oracle for repeated
+         substrings, Gusfield maximal repeats and all longest repeats; scripts/analysis/generate_repeat_oracle.py. -->
+    <EmbeddedResource Include="TestData\Analysis\repeat_oracle.tsv" />
+    <!-- GENOMIC-REPEAT-001 (B09 F27): Biopython reverse-complement palindrome windows (Rosalind REVP definition);
+         scripts/analysis/generate_palindrome_oracle.py. -->
+    <EmbeddedResource Include="TestData\Analysis\palindrome_oracle.tsv" />
     <!-- GENOMIC-ORF-001 (B09 F21-F26): independent Biopython finder == NCBI COrf::FindOrfs port == EMBOSS getorf 6.6.0
          (longest-per-stop configuration), 1746 (sequence, options) rows; scripts/analysis/generate_orf_oracle.py. -->
     <EmbeddedResource Include="TestData\Analysis\orf_oracle.tsv" />

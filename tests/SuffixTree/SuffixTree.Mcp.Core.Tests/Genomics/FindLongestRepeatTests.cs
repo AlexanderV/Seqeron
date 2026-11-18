@@ -48,5 +48,14 @@ public class FindLongestRepeatTests
                 $"sequence={sequence}: positions");
         }
     }
-}
 
+    [Test]
+    public void FindLongestRepeat_LengthTie_ReturnsTheLeftmostFirstOccurrence()
+    {
+        // TTGG@{0,15} and ACGT@{5,10} both repeat with length 4 and nothing longer does (brute force);
+        // the contract picks the tie whose first occurrence is leftmost, not the suffix-tree child order (A before T).
+        var result = SuffixTreeGenomicsTools.FindLongestRepeat("TTGGCACGTAACGTCTTGG");
+        Assert.That(result.Repeat, Is.EqualTo("TTGG"));
+        Assert.That(result.Positions, Is.EqualTo(new[] { 0, 15 }));
+    }
+}

@@ -77,7 +77,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `find_reciprocal_best_hits` | Reciprocal best hits (RBH) for stricter ortholog identification. |
 | `find_regulatory_elements` | Scan for built-in regulatory motifs (TATA, CAAT, GC-box, Kozak, Shine-Dalgarno, poly(A), E-box, AP-1, NF-κB, CREB). |
 | `find_regulatory_elements_both_strands` | Strand-annotated scan of the built-in regulatory library: every element on the given strand, plus the orientation-independent elements (CAA… |
-| `find_repeats` | All repeated substrings of length >= minLength in a DNA sequence, with their positions. |
+| `find_repeats` | Repeated substrings of a DNA sequence with all 0-based positions (overlaps counted): every distinct substring of length >= minLength occurring at least twice (default), or only Gusfield maximal repeats (`maximalOnly`). |
 | `find_reverse_complement_repeats` | Finds **maximal exact reverse-complement repeat pairs**: copy 1 at firstPosition and copy 2 at secondPosition (both 0-based, firstPosition… |
 | `find_rna_inverted_repeats` | Finds antiparallel complementary regions (potential RNA hairpin stems). |
 | `find_shared_motifs` | k-mers present in at least minSequences of the input DNA sequences. |

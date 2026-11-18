@@ -648,16 +648,20 @@ public class AnalysisTools
     #region GenomicAnalyzer
 
     [McpServerTool(Name = "find_repeats", Title = "Genome — Repeated Substrings", ReadOnly = true)]
-    [Description("All repeated substrings of length >= minLength in a DNA sequence, with their positions.")]
+    [Description("Repeated substrings of a DNA sequence with all 0-based positions (overlapping occurrences counted, ascending). Default: every distinct substring of length >= minLength occurring at least twice, including all prefixes/suffixes of longer repeats, ordered by the smallest suffix starting with the repeat then by length. maximalOnly=true: only Gusfield maximal repeats (left- and right-diverse: cannot be extended on either side without losing an occurrence; text ends count as distinct), the strings behind REPuter/MUMmer self matches.")]
     public static FindRepeatsResult FindRepeats(
         [Description("DNA sequence.")] string sequence,
-        [Description("Minimum repeat length.")] int minLength)
+        [Description("Minimum repeat length (>= 1).")] int minLength,
+        [Description("Report only maximal repeats (Gusfield 1997 sec. 7.12; default false = every repeated substring).")] bool maximalOnly = false)
     {
         var dna = RequireDna(sequence, nameof(sequence));
         if (minLength < 1)
             throw new ArgumentOutOfRangeException(nameof(minLength), "Minimum repeat length must be at least 1");
 
-        var items = GenomicAnalyzer.FindRepeats(dna, minLength)
+        var repeats = maximalOnly
+            ? GenomicAnalyzer.FindMaximalRepeats(dna, minLength)
+            : GenomicAnalyzer.FindRepeats(dna, minLength);
+        var items = repeats
             .Select(r => new RepeatItem(r.Sequence, r.Positions.ToArray(), r.Length, r.Count))
             .ToArray();
         return new FindRepeatsResult(items);

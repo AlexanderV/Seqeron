@@ -19,7 +19,7 @@
 |--------|-------|------|---------------|
 | `FindPalindromes(DnaSequence, minLength, maxLength)` | RepeatFinder | Canonical | Deep testing |
 | `FindPalindromes(string, minLength, maxLength)` | RepeatFinder | Overload | Smoke testing |
-| `FindPalindromes(DnaSequence, minLength, maxLength)` | GenomicAnalyzer | Alternate | Smoke testing |
+| `FindPalindromes(DnaSequence, minLength, maxLength)` | GenomicAnalyzer | Facade (delegates to the canonical method since B09 F27) | Tested in GENOMIC-REPEAT-001 (`GenomicAnalyzer_FindPalindromes_Tests`) |
 
 ---
 

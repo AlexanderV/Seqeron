@@ -13,7 +13,7 @@
 - **Algorithm:** capped centre expansion per inter-base gap, O(n·maxLength), output ordered (position, length) like the REVP sample; shared eager validation; string overload returns empty for null/empty.
 - **Reference cross-check (0 mismatches each):** Biopython 1.88 `Seq(w).reverse_complement() == w` over every even ACGT-only window: 6 000 random cases (ACGT, AT, GC, ACGTN, mixed case, ACGTNRYSWU-, ACGTS; 18 378 palindromes), 20 kb ACGT (4–40), 5 kb AT-only (4–100); a public REVP solution 2 000 cases; REVP sample reproduced exactly (1-based `4 6, 5 4, 6 6, 7 4, 17 4, 18 4, 20 6, 21 4`).
 - **Tests:** `RepeatFinder_Palindrome_Tests` R1 (non-ACGT never reported), R2 (`GAATTCNNNNGAATTC`), R3–R5 (huge / odd `maxLength`, eager validation), R6 (ordering); differential oracle rewritten; MCP `FindPalindromes_AmbiguousBases_NeverPair_OrderedByPosition`. Evidence `docs/Evidence/REP-PALIN-001-Evidence.md`, algorithm doc (Simplified → Complete).
-- **Current code path:** `RepeatFinder.cs:5038/5054` (overloads), core `FindPalindromesCore` :5073. `GenomicAnalyzer.FindPalindromes` (B09) does **not** delegate and still lacks validation / ACGT restriction — cross-batch request in B04.md.
+- **Current code path:** `RepeatFinder.cs:5038/5054` (overloads), core `FindPalindromesCore` :5073. `GenomicAnalyzer.FindPalindromes` (B09) now delegates to this method (GENOMIC-REPEAT-001, B09 F27, 2026-11-18); the cross-batch request in B04.md is done.
 
 *Historical 2026-06-24 report (superseded where it conflicts with the revision above; line numbers are 2026-06):*
 
@@ -65,7 +65,7 @@ Core loop steps `len` from minLength to maxLength by **2** (even-length only); e
 Exercised by `FindPalindromes_RosalindSample_CorrectOutput` (RepeatFinder_Palindrome_Tests.cs:498), asserting the exact 8-pair 0-based set above (exact count + membership). Passes. EcoRI/HindIII/BamHI/NotI/GCGC/ATAT/12-bp cases assert exact sequence+position+length and pass.
 
 ### Variant/delegate consistency
-`GenomicAnalyzer.FindPalindromes` uses the same rev-comp equality and even-length stepping (`len += 2`), 0-based positions, with `Math.Min(maxLength, seq.Length)` bound (equivalent outcome). It does NOT validate parameters (no minLength even/≥4 or maxLength check) — acceptable for a smoke-tested alternate; outputs agree with the canonical on valid inputs. String vs DnaSequence overloads asserted equal by S1.
+`GenomicAnalyzer.FindPalindromes` uses the same rev-comp equality and even-length stepping (`len += 2`), 0-based positions, with `Math.Min(maxLength, seq.Length)` bound (equivalent outcome). (2026-06 statement superseded:) it did not validate parameters and ordered by length; since B09 F27 it delegates to the canonical method, so validation, order and cost are identical. String vs DnaSequence overloads asserted equal by S1.
 
 ### Test quality audit
 103 tests under the Palindrome filter (24 named MUST/SHOULD/COULD + property-based + snapshot + related). Assertions check exact sourced values (restriction-site sequences, Rosalind pos/length pairs), edge cases (empty → empty, no-palindrome → empty, null → throw, odd/too-small/inverted-length → throw), overlapping palindromes, entire-sequence palindrome, 0-based contract. Not tautological; deterministic. (The Rosalind test's inline comment annotations at lines 510–511 carry the same cosmetic substring-label swap noted in Stage A; the asserted pairs are correct.)

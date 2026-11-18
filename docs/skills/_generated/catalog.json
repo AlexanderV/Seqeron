@@ -648,7 +648,7 @@
     "server": "Analysis",
     "methodId": "GenomicAnalyzer.FindRepeats",
     "docPath": "docs/mcp/tools/analysis/find_repeats.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GenomicAnalyzer.cs#L49"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GenomicAnalyzer.cs#L63"
   },
   {
     "tool": "find_reverse_complement_repeats",
@@ -2062,7 +2062,7 @@
     "server": "Core",
     "methodId": "GenomicAnalyzer.FindLongestRepeat",
     "docPath": "docs/mcp/tools/core/find_longest_repeat.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GenomicAnalyzer.cs#L20"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GenomicAnalyzer.cs#L19"
   },
   {
     "tool": "hamming_distance",

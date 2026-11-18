@@ -75,3 +75,13 @@ LRS values (ATCGATCGA, AAAAAAAAAA, ATATATA, ACGT) all match. ✓
 - **Stage B: FAIL → FIXED.** `FindRepeats` incompleteness corrected; tests and docs realigned to brute-force ground truth.
 - **End-state: CLEAN.** Algorithm fully functional; full suite green.
 - Logged in FINDINGS_REGISTER as a completeness defect in `FindRepeats` (now resolved).
+
+---
+
+## B09 review (2026-11-18) — F27–F31
+
+- **Stage A: PASS-WITH-NOTES** (LRS / repeated-substring definitions confirmed against CMU 15-451 §2.1 and a fresh brute-force + SA/LCP oracle; maximal-repeat definition added from Gusfield §7.12 restated in the UCF slides and Abouelhoda et al. 2004 — snippets only, book text unavailable; note: the unit's contract is "every repeated substring", which lists all prefixes/suffixes of longer repeats — now documented as a decision record, with the non-redundant `FindMaximalRepeats` added).
+- **Stage B: PASS-WITH-NOTES → FIXED.** `FindRepeats` (suffix-tree traversal, commit 3d49621e) is semantically correct: 628-row Python oracle (set, positions, order) and 480 random brute-force strings, 1 Mbp ≈ 4.7 s; no regression. Findings: F27 `GenomicAnalyzer.FindPalindromes` was a verbatim copy of the canonical scan without validation (minLength 2 → dinucleotides, odd minLength → nothing, null → NRE, O(n·L²), length-major order) → delegates to `RepeatFinder.FindPalindromes`; F28 `null` sequence threw lazily `NullReferenceException` → `ArgumentNullException` at the call, independent oracles added; F29 `FindLongestRepeat` tie-break unspecified (tree child order) → leftmost first occurrence, `FindAllLongestRepeats` added (canonical `SuffixTree.FindAllLongestRepeatedSubstrings`); F30 maximal repeats were "not implemented" → `FindMaximalRepeats` (linear left-diversity propagation, MCP `find_repeats` `maximalOnly`); F31 two wrong MCP pages (`find_longest_repeat` example, `find_repeats` complexity) corrected.
+- **Call-through evaluation:** `RepeatFinder.FindDirectRepeats` / `SuffixTree.FindMaximalRepeatedPairs` report maximal *pairs*, not strings with occurrence sets; `FindRepeats` cannot call them (different result set); `FindMaximalRepeats` strings equal the strings of the pair set (tested), kept as a separate linear tree pass because it returns occurrence sets directly.
+- **End-state: FIXED / CLEAN.** Details: `docs/Validation/review-2026-09/B09.md` F27–F31; algorithm doc `docs/algorithms/Repeat_Analysis/Repeat_Detection.md` §2.2, §5.4–5.6.
+

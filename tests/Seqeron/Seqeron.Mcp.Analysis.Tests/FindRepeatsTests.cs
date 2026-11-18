@@ -48,4 +48,25 @@ public class FindRepeatsTests
             Assert.That(tandem[0].Positions, Is.EquivalentTo(new[] { 0, 3 }));
         });
     }
+
+    [Test]
+    public void FindRepeats_MaximalOnly_ReturnsGusfieldMaximalRepeats()
+    {
+        // ACGTACGT: ACGT@{0,4} is the only left- and right-diverse repeat (brute force / generate_repeat_oracle.py).
+        var maximal = AnalysisTools.FindRepeats("ACGTACGT", 1, maximalOnly: true).Items;
+        Assert.Multiple(() =>
+        {
+            Assert.That(maximal, Has.Length.EqualTo(1));
+            Assert.That(maximal[0].Sequence, Is.EqualTo("ACGT"));
+            Assert.That(maximal[0].Positions, Is.EqualTo(new[] { 0, 4 }));
+        });
+
+        // Default (all repeated substrings) lists the prefixes and suffixes too.
+        var all = AnalysisTools.FindRepeats("ACGTACGT", 1).Items.Select(r => r.Sequence).ToArray();
+        Assert.That(all, Is.EqualTo(new[] { "A", "AC", "ACG", "ACGT", "C", "CG", "CGT", "G", "GT", "T" }));
+
+        // ATCGATCGA: A@{0,4,8} is left-diverse (start, T, T) and right-diverse (T, T, end); ATCGA@{0,4} too.
+        var atcga = AnalysisTools.FindRepeats("ATCGATCGA", 1, maximalOnly: true).Items;
+        Assert.That(atcga.Select(r => r.Sequence), Is.EqualTo(new[] { "A", "ATCGA" }));
+    }
 }

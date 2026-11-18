@@ -2,10 +2,10 @@
 
 **Test Unit ID:** GENOMIC-REPEAT-001
 **Area:** Analysis
-**Algorithm:** Repeat Detection — Longest Repeated Substring (LRS) and all repeated substrings via suffix tree
+**Algorithm:** Repeat Detection — Longest Repeated Substring (LRS), all repeated substrings and Gusfield maximal repeats via suffix tree; `GenomicAnalyzer.FindPalindromes` facade
 **Status:** ☑ Complete
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-06-13
+**Last Updated:** 2026-11-18 (B09 review, F27–F31; see section 8)
 
 ---
 
@@ -188,3 +188,44 @@ Total in-scope cases: 11 (+1 cleanup). ✅ = 11. No ❌/⚠ remain.
 ## 7. Open Questions / Decisions
 
 1. **Search reuse:** `FindLongestRepeat`/`FindRepeats` already build on the repository `SuffixTree` (`LongestRepeatedSubstring`, `FindAllOccurrences`, `GetAllSuffixes`). Decision: keep the suffix-tree implementation — it is exactly the algorithmically appropriate structure per Sources 1–3 (deepest internal node, many occurrence queries against one text). No naive scan introduced. Recorded in the algorithm doc §5.2.
+
+---
+
+## 8. B09 Review Additions (2026-11-18, F27–F31)
+
+### 8.1 Additional sources actually opened
+
+| # | Source | Used for |
+|---|--------|----------|
+| 5 | WebSearch snippets restating Gusfield 1997 §7.12 (UCF CAP 5937 "Applications of Suffix Trees"; Abouelhoda, Kurtz & Ohlebusch 2004, J. Discrete Algorithms 2:53–86 "Replacing suffix trees with enhanced suffix arrays") | maximal repeat = suffix-tree node that is left-diverse (internal nodes are right-maximal by construction); supermaximal = maximal repeat not inside another |
+| 6 | Rosalind REVP statement (as quoted in `RepeatFinder_Palindrome_Tests`; rosalind.info itself is blocked) and Biopython 1.88 `Seq.reverse_complement` (installed) | palindrome definition / oracle |
+
+The Gusfield book text itself was not retrievable; the definitions were taken from the secondary restatements above and re-derived (brute force and suffix array/LCP oracle agree, see 8.3).
+
+### 8.2 Semantics fixed by this review
+
+| Method | Contract |
+|--------|----------|
+| `FindRepeats(seq, minLength)` | every distinct substring with ≥ 2 occurrences (overlaps counted) and length ≥ max(1, minLength); includes all prefixes/suffixes of longer repeats; ordered by the smallest suffix starting with the repeat, then length; positions ascending; `null` → `ArgumentNullException` at the call |
+| `FindMaximalRepeats(seq, minLength)` | the subset that is left- **and** right-diverse (Gusfield §7.12; text ends are distinct symbols); same order; ≤ n results; = strings of the maximal pairs of `RepeatFinder.FindDirectRepeats` without limits |
+| `FindLongestRepeat(seq)` / `FindAllLongestRepeats(seq)` | longest repeated substring / all length ties ordered by first occurrence; `FindLongestRepeat` = the first of them (deterministic tie-break) |
+| `GenomicAnalyzer.FindPalindromes(seq, min=4, max=12)` | facade over `RepeatFinder.FindPalindromes` (REP-PALIN-001): even `minLength ≥ 4`, `maxLength ≥ minLength` else `ArgumentOutOfRangeException`; `null` → `ArgumentNullException`; position-then-length order; O(n·maxLength) |
+
+### 8.3 Additional test cases (all implemented)
+
+| ID | Test | Evidence |
+|----|------|----------|
+| R1 | `FindRepeats_MatchesPythonOracle_SetPositionsAndOrder` — 628 rows: count + SHA-256 of the ordered list | `generate_repeat_oracle.py` (brute force == SA+Kasai LCP) |
+| R2 | `FindMaximalRepeats_MatchesPythonOracle_GusfieldDefinition` | same oracle; Gusfield §7.12 |
+| R3 | `FindAllLongestRepeats_AndFindLongestRepeat_MatchPythonOracle` | same oracle; tie-break = leftmost first occurrence |
+| R4 | `FindRepeats_And_FindMaximalRepeats_MatchBruteForce_OnRandomStrings` (4 alphabets × 120 strings × 4 minLengths, order included) | in-test brute force |
+| R5 | `FindMaximalRepeats_Strings_EqualTheStringsOfTheMaximalPairsOfRepeatFinder` | Gusfield pair ⇔ diverse set; `RepeatFinder.FindDirectRepeats` |
+| R6 | `FindMaximalRepeats_ACGTACGT_…`, `…_Homopolymer_…`, `…_IsSubsetOfFindRepeats_…` | hand-derived definition examples |
+| R7 | `FindLongestRepeat_TieBreak_IsTheLeftmostFirstOccurrence_NotTreeOrder` (`TTGGCACGTAACGTCTTGG`: TTGG@{0,15} vs ACGT@{5,10}) | brute force |
+| R8 | `NullSequence_ThrowsArgumentNullException_AtTheCall`, `EmptyAndRepeatFreeSequences_YieldNothing` | contract |
+| R9 | `FindRepeats_And_FindMaximalRepeats_OneMegabase_RunInSeconds_AndAreVerified` (1 Mbp, planted 200-mer; reported repeats verified against the text) | complexity |
+| P1–P7 | `GenomicAnalyzer_FindPalindromes_Tests`: Biopython oracle (910 rows), Rosalind REVP sample, equality with `RepeatFinder`, null / odd / <4 / max<min validation (before: minLength 2 → dinucleotides, odd → nothing, null → NRE), odd `maxLength` rounding, 1 Mbp O(n·L) | Biopython 1.88; Rosalind REVP |
+| M-MCP | `find_repeats` `maximalOnly` (Mcp.Analysis.Tests), `find_longest_repeat` tie (SuffixTree.Mcp.Core.Tests) | brute force |
+
+Assumption register: assumption 1 (tie-break unspecified) is **retired** — the tie-break is now specified (leftmost first occurrence).
+

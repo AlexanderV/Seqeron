@@ -145,6 +145,23 @@
 
 ---
 
+## B09 Review Additions (2026-11-18)
+
+**Sources actually opened:** WebSearch snippets (no page fetched) restating Gusfield 1997 §7.12 — UCF CAP 5937 "Applications of Suffix Trees" (http://www.cs.ucf.edu/courses/cap5937/fall2004/Applications%20of%20suffix%20trees.pdf) and Abouelhoda/Kurtz/Ohlebusch 2004 (J. Discrete Algorithms 2:53–86): left character of a position i is S(i−1); an internal node is *left-diverse* when its subtree has leaves with ≥ 2 distinct left characters; a string is a **maximal repeat iff its suffix-tree node is left-diverse** (internal nodes are right-maximal by construction); a *supermaximal* repeat is a maximal repeat not occurring inside another maximal repeat. The book text was not retrievable. Biopython 1.88 (`Seq.reverse_complement`) installed locally; Rosalind REVP sample reused from `RepeatFinder_Palindrome_Tests` (rosalind.info is blocked).
+
+**Oracle numbers.**
+- `scripts/analysis/generate_repeat_oracle.py`: 628 (sequence, minLength) rows over 157 sequences (the worked examples above, homopolymers, Fibonacci(6/8), Thue–Morse(40), `ACGT`×6, planted repeats, random ACGT/AC/ACG of length 3–45) × minLength {1,2,3,5}; repeated substrings, maximal repeats and all longest repeats computed by (a) brute force over all substrings and (b) suffix array + Kasai LCP + lcp-interval left characters — asserted equal on every row; the C# methods match all 628 rows (count + SHA-256 prefix of the ordered `seq:positions` list; explicit maximal and longest lists). Worked values: `ATCGATCGA` minLength 1 → 14 repeated substrings, maximal repeats `A@{0,4,8}`, `ATCGA@{0,4}`; `ACGTACGT` → 10 repeated substrings, 1 maximal (`ACGT@{0,4}`); `TTGGCACGTAACGTCTTGG` → ties `TTGG@{0,15}`, `ACGT@{5,10}`; `AAAAA` → maximal `A, AA, AAA, AAAA` (text ends are diverse).
+- In-test brute force: 480 random strings (4 alphabets) × 4 minLengths incl. order; maximal repeats = strings of `RepeatFinder.FindDirectRepeats` pairs (no limits) on 240 random strings.
+- 1 Mbp random DNA + planted 200-mer, minLength 20: `FindRepeats` (16 653 repeats) + `FindMaximalRepeats` (2) in 4.7 s including the suffix-tree build.
+- `scripts/analysis/generate_palindrome_oracle.py` (Biopython `reverse_complement` over every window, == pure-str translate/reverse): 910 rows (130 sequences × 7 (min,max) ranges), 0 mismatches against `GenomicAnalyzer.FindPalindromes`; REVP sample `4 6, 5 4, 6 6, 7 4, 17 4, 18 4, 20 6, 21 4` (1-based) reproduced.
+
+**Corrected claims.** The MCP page `find_longest_repeat.md` / `.mcp.json` example claimed `ATGATGATG` → `ATG@[0,3,6]`; the longest repeated substring is `ATGATG@[0,3]` (length 6; the unit test already asserted this). The `find_repeats` page claimed O(n²) adjacent-suffix enumeration; the implementation is a single tree traversal, O(n + output).
+
+**Assumption 1 retired:** tie-break is now deterministic (leftmost first occurrence).
+
+---
+
 ## Change History
 
 - **2026-06-13**: Initial documentation.
+- **2026-11-18**: B09 review additions (maximal repeats, tie-break, palindrome facade, oracles).

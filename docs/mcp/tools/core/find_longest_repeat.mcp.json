@@ -2,11 +2,11 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "toolName": "find_longest_repeat",
   "serverName": "Core",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "stability": "stable",
   "methodId": "GenomicAnalyzer.FindLongestRepeat",
-  "docRef": "Seqeron.Genomics/GenomicAnalyzer.cs#L20",
-  "description": "Find the longest repeated region in a DNA sequence. Returns the repeat sequence and all positions.",
+  "docRef": "Seqeron.Genomics/GenomicAnalyzer.cs#L29",
+  "description": "Find the longest repeated region in a DNA sequence (overlapping occurrences allowed). Returns the repeat sequence and all positions; on a length tie the substring whose first occurrence is leftmost.",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -31,7 +31,7 @@
     {
       "name": "Find repeats in DNA",
       "input": { "sequence": "ATGATGATG" },
-      "output": { "repeat": "ATG", "positions": [0, 3, 6], "length": 3 }
+      "output": { "repeat": "ATGATG", "positions": [0, 3], "length": 6 }
     }
   ]
 }

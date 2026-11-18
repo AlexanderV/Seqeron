@@ -2,16 +2,17 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "toolName": "find_repeats",
   "serverName": "Analysis",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "stability": "stable",
   "methodId": "GenomicAnalyzer.FindRepeats",
-  "docRef": "Seqeron.Genomics.Analysis/GenomicAnalyzer.cs#L49",
-  "description": "Every distinct substring of length >= minLength that occurs at least twice in a DNA sequence, with all its 0-based positions.",
+  "docRef": "Seqeron.Genomics.Analysis/GenomicAnalyzer.cs#L65",
+  "description": "Every distinct substring of length >= minLength that occurs at least twice in a DNA sequence, with all its 0-based positions (overlaps counted; ordered by the smallest suffix starting with the repeat, then length). maximalOnly=true restricts the result to Gusfield maximal repeats (left- and right-diverse).",
   "inputSchema": {
     "type": "object",
     "properties": {
       "sequence": { "type": "string", "description": "DNA sequence", "minLength": 1 },
-      "minLength": { "type": "integer", "description": "Minimum repeat length", "minimum": 1 }
+      "minLength": { "type": "integer", "description": "Minimum repeat length", "minimum": 1 },
+      "maximalOnly": { "type": "boolean", "description": "Report only maximal repeats (Gusfield 1997 sec. 7.12); default false = every repeated substring", "default": false }
     },
     "required": ["sequence", "minLength"]
   },
@@ -44,6 +45,11 @@
       "name": "Homopolymer repeats AAAA (minLength 2)",
       "input": { "sequence": "AAAA", "minLength": 2 },
       "output": { "items": [ { "sequence": "AA", "positions": [0, 1, 2], "length": 2, "count": 3 }, { "sequence": "AAA", "positions": [0, 1], "length": 3, "count": 2 } ] }
+    },
+    {
+      "name": "Maximal repeats only: ACGTACGT",
+      "input": { "sequence": "ACGTACGT", "minLength": 1, "maximalOnly": true },
+      "output": { "items": [ { "sequence": "ACGT", "positions": [0, 4], "length": 4, "count": 2 } ] }
     },
     {
       "name": "Tandem ATGATG (minLength 3)",

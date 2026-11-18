@@ -16,7 +16,7 @@ public class SuffixTreeGenomicsTools
     /// Find the longest repeated region in a DNA sequence.
     /// </summary>
     [McpServerTool(Name = "find_longest_repeat", Title = "Genomics — Longest Repeated Region", ReadOnly = true)]
-    [Description("Find the longest repeated region in a DNA sequence. Returns the repeat sequence and all positions.")]
+    [Description("Find the longest repeated region in a DNA sequence (overlapping occurrences allowed). Returns the repeat sequence and all positions; on a length tie the substring whose first occurrence is leftmost.")]
     public static FindLongestRepeatResult FindLongestRepeat(
         [Description("The DNA sequence to analyze")] string sequence)
     {

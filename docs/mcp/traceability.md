@@ -14,7 +14,7 @@
 | suffix_tree_maximal_repeats | Core | SuffixTree.FindMaximalRepeatedPairs | SuffixTree.Repeats.cs#L17 | 2/2 | ✓ | ✓ | Ready |
 | suffix_tree_all_lcs | Core | SuffixTree.FindAllDistinctLongestCommonSubstrings | SuffixTree.Repeats.cs#L9 | 2/2 | ✓ | ✓ | Ready |
 | suffix_tree_k_common_substrings | Core | SuffixTree.FindLongestCommonSubstrings | SuffixTree.Repeats.cs#L27 | 2/2 | ✓ | ✓ | Ready |
-| find_longest_repeat | Core | GenomicAnalyzer.FindLongestRepeat | GenomicAnalyzer.cs#L20 | 2/2 | ✓ | ✓ | Ready |
+| find_longest_repeat | Core | GenomicAnalyzer.FindLongestRepeat | GenomicAnalyzer.cs#L29 | 2/2 | ✓ | ✓ | Ready |
 | find_longest_common_region | Core | GenomicAnalyzer.FindLongestCommonRegion | GenomicAnalyzer.cs#L178 | 2/2 | ✓ | ✓ | Ready |
 | calculate_similarity | Core | GenomicAnalyzer.CalculateSimilarity | GenomicAnalyzer.cs#L238 | 2/2 | ✓ | ✓ | Ready |
 | hamming_distance | Core | ApproximateMatcher.HammingDistance | ApproximateMatcher.cs#L163 | 2/2 | ✓ | ✓ | Ready |
@@ -258,7 +258,7 @@
 | find_reciprocal_best_hits | Analysis | ComparativeGenomics.FindReciprocalBestHits | ComparativeGenomics.cs#L260 | 0/0 | – | – | Build-Ready |
 | find_regulatory_elements | Analysis | MotifFinder.FindRegulatoryElements | MotifFinder.cs#L505 | 0/0 | – | – | Build-Ready |
 | find_regulatory_elements_both_strands | Analysis | MotifFinder.FindRegulatoryElements | MotifFinder.cs#L1026 | 2/2 | ✓ | ✓ | Ready |
-| find_repeats | Analysis | GenomicAnalyzer.FindRepeats | GenomicAnalyzer.cs#L37 | 0/0 | – | – | Build-Ready |
+| find_repeats | Analysis | GenomicAnalyzer.FindRepeats | GenomicAnalyzer.cs#L65 | 0/0 | – | – | Build-Ready |
 | find_reverse_complement_repeats | Analysis | RepeatFinder.FindReverseComplementRepeats | RepeatFinder.cs#L4682 | 2/2 | ✓ | ✓ | Ready |
 | find_rna_inverted_repeats | Analysis | RnaSecondaryStructure.FindInvertedRepeats | RnaSecondaryStructure.cs#L1450 | 0/0 | – | – | Build-Ready |
 | find_shared_motifs | Analysis | MotifFinder.FindSharedMotifs | MotifFinder.cs#L425 | 0/0 | – | – | Build-Ready |

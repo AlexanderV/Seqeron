@@ -23,7 +23,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `count_approximate_occurrences` | Count approximate occurrences of a pattern in a sequence, allowing up to maxMismatches substitutions. |
 | `edit_distance` | Calculate edit distance (Levenshtein distance) between two sequences; optional insertion/deletion/substitution costs give the weighted distance. |
 | `find_longest_common_region` | Find the longest common region between two DNA sequences. |
-| `find_longest_repeat` | Find the longest repeated region in a DNA sequence. |
+| `find_longest_repeat` | Find the longest repeated region in a DNA sequence (overlapping occurrences allowed); on a length tie the substring whose first occurrence is leftmost. |
 | `hamming_distance` | Calculate Hamming distance between two sequences of equal length. |
 | `suffix_tree_all_lcs` | Find every distinct longest common substring of two texts (all length ties, unlike suffix_tree_lcs which returns one), each with all 0-based… |
 | `suffix_tree_all_lrs` | Find every distinct longest repeated substring of text (all length ties, unlike suffix_tree_lrs which returns one representative), each wit… |

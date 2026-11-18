@@ -15,21 +15,38 @@ public static class GenomicAnalyzer
     /// spells a longest substring occurring ≥ 2 times (CMU 15-451 Lecture #10 §2.1;
     /// Wikipedia, Longest repeated substring problem). Returns <see cref="RepeatInfo.None"/>
     /// when no substring repeats (including the empty sequence).
-    /// Time complexity: O(n) for the deepest-node query after O(n) suffix-tree construction
-    /// (Ukkonen); occurrence enumeration adds O(occ). See docs/algorithms/Repeat_Analysis/Repeat_Detection.md.
+    /// <para>
+    /// Several different substrings can tie for the maximum length; the sources require only "a" longest
+    /// one. This method is deterministic: it returns the tied substring whose first occurrence is
+    /// leftmost (the first entry of <see cref="FindAllLongestRepeats"/>), independent of the tree's
+    /// internal child order.
+    /// </para>
+    /// Time complexity: O(n) suffix-tree construction (Ukkonen, cached on the sequence) plus one O(n)
+    /// traversal for the deepest nodes and O(occ) for their occurrences.
+    /// See docs/algorithms/Repeat_Analysis/Repeat_Detection.md.
     /// </summary>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> is <c>null</c>.</exception>
     public static RepeatInfo FindLongestRepeat(DnaSequence sequence)
     {
-        var tree = sequence.SuffixTree;
-        string lrs = tree.LongestRepeatedSubstring();
+        ArgumentNullException.ThrowIfNull(sequence);
+        var all = FindAllLongestRepeats(sequence);
+        return all.Count == 0 ? RepeatInfo.None : all[0];
+    }
 
-        if (string.IsNullOrEmpty(lrs))
-        {
-            return RepeatInfo.None;
-        }
-
-        var positions = tree.FindAllOccurrences(lrs).OrderBy(p => p).ToList();
-        return new RepeatInfo(lrs, positions);
+    /// <summary>
+    /// Finds every longest repeated substring (all length ties) with all their start positions — the path
+    /// labels of all internal suffix-tree nodes of maximal string depth (Gusfield 1997 §7.1). Overlapping
+    /// occurrences count. Results are ordered by first occurrence (ascending), positions ascending. Empty
+    /// when nothing repeats (including the empty sequence). Delegates to the canonical
+    /// <c>SuffixTree.FindAllLongestRepeatedSubstrings</c>.
+    /// </summary>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> is <c>null</c>.</exception>
+    public static IReadOnlyList<RepeatInfo> FindAllLongestRepeats(DnaSequence sequence)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        return sequence.SuffixTree.FindAllLongestRepeatedSubstrings()
+            .Select(r => new RepeatInfo(r.Substring, r.Positions))
+            .ToList();
     }
 
     /// <summary>
@@ -46,6 +63,38 @@ public static class GenomicAnalyzer
     /// See docs/algorithms/Repeat_Analysis/Repeat_Detection.md.
     /// </summary>
     public static IEnumerable<RepeatInfo> FindRepeats(DnaSequence sequence, int minLength)
+        => EnumerateRepeats(sequence, minLength, maximalOnly: false);
+
+    /// <summary>
+    /// Finds every <b>maximal repeat</b> of length ≥ <paramref name="minLength"/>: a substring α that occurs at
+    /// least twice and is both <i>left-diverse</i> (its occurrences are not all preceded by the same character;
+    /// the start of the text counts as its own symbol) and <i>right-diverse</i> (not all followed by the same
+    /// character; the end of the text likewise) — Gusfield 1997 §7.12 ("maximal pair" / "maximal repeat"), the
+    /// strings behind REPuter / MUMmer <c>-maxmatch</c> self matches. Equivalently: the internal nodes of the
+    /// suffix tree whose occurrence set is left-diverse (every internal node is right-diverse because of the
+    /// terminator), so there are at most n of them. Each result carries every occurrence (overlaps allowed,
+    /// positions ascending); results are in the same order as <see cref="FindRepeats"/> (smallest suffix that
+    /// starts with the repeat). This is the subset of <see cref="FindRepeats"/> that cannot be extended on
+    /// either side without losing an occurrence; <c>ACGTACGT</c> has the single maximal repeat <c>ACGT</c> @ {0,4}
+    /// whereas <see cref="FindRepeats"/> also lists its prefixes and suffixes. Left-diversity is computed
+    /// bottom-up in one linear traversal (a bit set of preceding characters per node), so the cost is
+    /// O(n) plus the size of the output. For maximal repeated <i>pairs</i> (each pair of occurrences, REPuter /
+    /// <c>repeat-match</c>) use <see cref="RepeatFinder.FindDirectRepeats(DnaSequence,int,int,int)"/>; for
+    /// supermaximal repeats <see cref="RepeatFinder.FindSupermaximalRepeats(DnaSequence,int)"/>.
+    /// </summary>
+    /// <param name="sequence">DNA sequence to analyze. Must not be <c>null</c>.</param>
+    /// <param name="minLength">Minimum repeat length; values ≤ 0 are treated as 1 (the empty string is not a repeat).</param>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> is <c>null</c>.</exception>
+    public static IEnumerable<RepeatInfo> FindMaximalRepeats(DnaSequence sequence, int minLength)
+        => EnumerateRepeats(sequence, minLength, maximalOnly: true);
+
+    private static IEnumerable<RepeatInfo> EnumerateRepeats(DnaSequence sequence, int minLength, bool maximalOnly)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        return EnumerateRepeatsCore(sequence, minLength, maximalOnly);
+    }
+
+    private static IEnumerable<RepeatInfo> EnumerateRepeatsCore(DnaSequence sequence, int minLength, bool maximalOnly)
     {
         var tree = sequence.SuffixTree;
 
@@ -57,7 +106,7 @@ public static class GenomicAnalyzer
         // Pre-order traversal with children in ascending key order (the terminator, a leaf, sorts first):
         // internal nodes come out in the order of their lexicographically smallest suffix, and a node
         // always precedes the internal nodes below it.
-        var loci = new RepeatLocusCollector(effectiveMinLength);
+        var loci = new RepeatLocusCollector(effectiveMinLength, maximalOnly, tree.Text);
         tree.Traverse(loci);
 
         foreach (var (edgeEnd, parentDepth, depth) in loci.Nodes)
@@ -67,6 +116,14 @@ public static class GenomicAnalyzer
             string label = tree.Text.Substring(edgeEnd - depth, depth);
             var positions = new List<int>(tree.FindAllOccurrences(label));
             positions.Sort();
+
+            // A maximal repeat is the full node label only; every shorter length on the edge is extendable to
+            // the right without losing an occurrence.
+            if (maximalOnly)
+            {
+                yield return new RepeatInfo(label, positions);
+                continue;
+            }
 
             for (int length = Math.Max(parentDepth + 1, effectiveMinLength); length < depth; length++)
                 yield return new RepeatInfo(label.Substring(0, length), new List<int>(positions));
@@ -78,31 +135,66 @@ public static class GenomicAnalyzer
     /// <summary>
     /// Collects the internal (non-root) nodes of a suffix tree whose path-label length is at least
     /// <c>minLength</c>, in traversal order, as (end of incoming edge in the text, parent path-label length, own path-label length).
+    /// With <c>maximalOnly</c> only nodes whose occurrence set is left-diverse are kept: each leaf contributes the
+    /// character before its suffix (a sentinel bit for suffix 0), a node's set is the union over its subtree, and
+    /// the node qualifies when that set has ≥ 2 members (Gusfield 1997 §7.12.1).
     /// </summary>
-    private sealed class RepeatLocusCollector(int minLength) : global::SuffixTree.ISuffixTreeVisitor
+    private sealed class RepeatLocusCollector(int minLength, bool maximalOnly, global::SuffixTree.ITextSource text) : global::SuffixTree.ISuffixTreeVisitor
     {
         private bool _rootSeen;
+        private readonly List<(int EdgeEnd, int ParentDepth, int Depth)> _nodes = new();
+        private readonly List<bool> _leftDiverse = new();
+        private readonly Stack<(int Mask, int Index)> _frames = new();
 
-        public List<(int EdgeEnd, int ParentDepth, int Depth)> Nodes { get; } = new();
+        public IEnumerable<(int EdgeEnd, int ParentDepth, int Depth)> Nodes
+            => maximalOnly ? _nodes.Where((_, i) => _leftDiverse[i]) : _nodes;
 
         public void VisitNode(int startIndex, int endIndex, int leafCount, int childCount, int depth)
         {
             if (!_rootSeen)
             {
                 _rootSeen = true; // the root has no incoming edge and is not a repeat
+                if (maximalOnly)
+                    _frames.Push((0, -1));
                 return;
             }
+
             if (childCount == 0)
-                return; // a leaf is a single suffix, not a repeat
+            {
+                // A leaf is a single suffix, not a repeat. Its suffix starts at (edge start - parent depth); the character
+                // before it is the left context (bit 0 = start of text; 'A','C','G','T' & 31 = 1,3,7,20, all distinct).
+                if (maximalOnly)
+                {
+                    int p = startIndex - depth;
+                    _frames.Push((p == 0 ? 1 : 1 << (text[p - 1] & 31), -1));
+                }
+                return;
+            }
 
             int stringDepth = depth + (endIndex - startIndex);
+            int index = -1;
             if (stringDepth >= minLength)
-                Nodes.Add((endIndex, depth, stringDepth));
+            {
+                index = _nodes.Count;
+                _nodes.Add((endIndex, depth, stringDepth));
+                _leftDiverse.Add(!maximalOnly);
+            }
+            if (maximalOnly)
+                _frames.Push((0, index));
         }
 
         public void EnterBranch(int key) { }
 
-        public void ExitBranch() { }
+        public void ExitBranch()
+        {
+            if (!maximalOnly)
+                return;
+            var (mask, index) = _frames.Pop();
+            if (index >= 0 && (mask & (mask - 1)) != 0)
+                _leftDiverse[index] = true;
+            var (parentMask, parentIndex) = _frames.Pop();
+            _frames.Push((parentMask | mask, parentIndex));
+        }
     }
 
     /// <summary>
@@ -199,28 +291,28 @@ public static class GenomicAnalyzer
     }
 
     /// <summary>
-    /// Finds palindromic sequences (restriction enzyme recognition sites).
-    /// A DNA palindrome reads the same 5'→3' on both strands.
-    /// Example: GAATTC (EcoRI site) - complement is CTTAAG, reversed is GAATTC.
+    /// Finds palindromic sequences (restriction enzyme recognition sites): every window of length
+    /// <paramref name="minLength"/>…<paramref name="maxLength"/> that equals its own reverse complement, i.e. reads
+    /// the same 5'→3' on both strands. Example: GAATTC (EcoRI site) — complement CTTAAG, reversed GAATTC.
+    /// Nested and overlapping windows are all reported (Rosalind REVP convention), ordered by position, then length;
+    /// positions are 0-based.
+    /// <para>
+    /// A thin facade over the canonical <see cref="RepeatFinder.FindPalindromes(DnaSequence,int,int)"/> (REP-PALIN-001;
+    /// this method used to be a verbatim copy of its scan without the validation), mapping each
+    /// <see cref="PalindromeResult"/> to a <see cref="PalindromeInfo"/>. Contract: <paramref name="minLength"/> must be even and
+    /// ≥ 4 and <paramref name="maxLength"/> ≥ <paramref name="minLength"/> (otherwise
+    /// <see cref="ArgumentOutOfRangeException"/>, thrown at the call, not on enumeration); a <c>null</c> sequence throws
+    /// <see cref="ArgumentNullException"/>. A reverse-complement palindrome always has even length, so an odd
+    /// <paramref name="maxLength"/> is effectively rounded down. Cost O(n·maxLength) plus output.
+    /// </para>
     /// </summary>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> is <c>null</c>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// <paramref name="minLength"/> is odd or &lt; 4, or <paramref name="maxLength"/> &lt; <paramref name="minLength"/>.
+    /// </exception>
     public static IEnumerable<PalindromeInfo> FindPalindromes(DnaSequence sequence, int minLength = 4, int maxLength = 12)
-    {
-        string seq = sequence.Sequence;
-
-        for (int len = minLength; len <= Math.Min(maxLength, seq.Length); len += 2) // Palindromes must be even length
-        {
-            for (int start = 0; start <= seq.Length - len; start++)
-            {
-                string subseq = seq.Substring(start, len);
-                string revComp = DnaSequence.GetReverseComplementString(subseq);
-
-                if (subseq == revComp)
-                {
-                    yield return new PalindromeInfo(subseq, start);
-                }
-            }
-        }
-    }
+        => RepeatFinder.FindPalindromes(sequence, minLength, maxLength)
+            .Select(p => new PalindromeInfo(p.Sequence, p.Position));
 
     /// <summary>
     /// Number of distinct (strand-expanded) queries from which a sequence's suffix tree is built for

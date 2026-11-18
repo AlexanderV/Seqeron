@@ -10,7 +10,7 @@
 
 ## 1. Overview
 
-DNA palindrome detection identifies sequences that are equal to their own reverse complement [1]. This is a biological notion of palindrome, distinct from textual symmetry on a single strand, and it is central to restriction-enzyme recognition-site discovery [1][2]. The repository exposes a validating implementation in `RepeatFinder.FindPalindromes` and a second, lighter-weight implementation in `GenomicAnalyzer.FindPalindromes` with a different return type. Both implementations perform exact reverse-complement comparison over even-length windows. `RepeatFinder.FindPalindromes` follows the Rosalind REVP convention [3]: it reports **every** palindromic window (nested and overlapping ones included), pairs only A/C/G/T, and orders results by position then length.
+DNA palindrome detection identifies sequences that are equal to their own reverse complement [1]. This is a biological notion of palindrome, distinct from textual symmetry on a single strand, and it is central to restriction-enzyme recognition-site discovery [1][2]. The repository exposes one validating implementation, `RepeatFinder.FindPalindromes`; `GenomicAnalyzer.FindPalindromes` is a thin facade over it with a different return type (`PalindromeInfo`; until 2026-11 it was a verbatim copy of the scan without validation, see §5.4). Both perform exact reverse-complement comparison over even-length windows. `RepeatFinder.FindPalindromes` follows the Rosalind REVP convention [3]: it reports **every** palindromic window (nested and overlapping ones included), pairs only A/C/G/T, and orders results by position then length.
 
 ## 2. Scientific / Formal Basis
 
@@ -82,11 +82,11 @@ Only the unambiguous bases pair. IUPAC codes such as N, S, W (self-complementary
 | `Sequence` | `string` | Palindromic DNA sequence. |
 | `Length` | `int` | Length of the palindrome in bases. |
 
-`GenomicAnalyzer.FindPalindromes` returns `PalindromeInfo` instead of `PalindromeResult`, but it still reports the exact palindrome sequence and its start position.
+`GenomicAnalyzer.FindPalindromes` returns `PalindromeInfo(Sequence, Position)` (with `Length` derived) instead of `PalindromeResult`; it maps the canonical results one to one, same set and same order.
 
 ### 3.3 Preconditions and Validation
 
-`RepeatFinder.FindPalindromes(DnaSequence, ...)` throws `ArgumentNullException` on `null` sequence input, throws `ArgumentOutOfRangeException` when `minLength < 4` or `minLength` is odd, and throws `ArgumentOutOfRangeException` when `maxLength < minLength`. The raw-string overload applies the same length validation (eagerly, at call time), yields no results for `null` or empty strings, and uppercases non-empty input before scanning. An odd `maxLength` is effectively rounded down, and any `maxLength` up to `int.MaxValue` is accepted (capped at the sequence length). `GenomicAnalyzer.FindPalindromes` performs the same scan logic but does not apply those explicit argument checks.
+`RepeatFinder.FindPalindromes(DnaSequence, ...)` throws `ArgumentNullException` on `null` sequence input, throws `ArgumentOutOfRangeException` when `minLength < 4` or `minLength` is odd, and throws `ArgumentOutOfRangeException` when `maxLength < minLength`. The raw-string overload applies the same length validation (eagerly, at call time), yields no results for `null` or empty strings, and uppercases non-empty input before scanning. An odd `maxLength` is effectively rounded down, and any `maxLength` up to `int.MaxValue` is accepted (capped at the sequence length). `GenomicAnalyzer.FindPalindromes(DnaSequence, …)` delegates, so it applies exactly the same checks (eagerly, at the call); `DnaSequence` is ACGT-only, so non-ACGT symbols cannot reach it.
 
 ## 4. Algorithm
 
@@ -127,11 +127,11 @@ Common restriction-enzyme palindrome examples cited in the legacy documentation 
 
 - `RepeatFinder.FindPalindromes(DnaSequence, int, int)`: Validating canonical API returning `PalindromeResult`.
 - `RepeatFinder.FindPalindromes(string, int, int)`: Raw-string overload with uppercase normalization.
-- `GenomicAnalyzer.FindPalindromes(DnaSequence, int, int)`: Alternate API returning `PalindromeInfo`.
+- `GenomicAnalyzer.FindPalindromes(DnaSequence, int, int)`: facade over the canonical `RepeatFinder.FindPalindromes`, returning `PalindromeInfo` (GENOMIC-REPEAT-001, B09 F27).
 
 ### 5.2 Current Behavior
 
-`RepeatFinder` enforces `minLength >= 4`, requires even `minLength`, requires `maxLength >= minLength`, uppercases raw-string input before scanning, never pairs non-ACGT symbols, and orders results by position then length. Cross-checked against a Biopython `reverse_complement` REVP reference on 6000 random cases (incl. N/IUPAC/U/gaps/lowercase) with 0 mismatches (see Evidence). `GenomicAnalyzer.FindPalindromes` performs the same even-length stepwise scan and reverse-complement equality test but does not add explicit null or range validation before it dereferences `sequence.Sequence`. Both implementations report overlapping palindromes when different even lengths match at the same or neighboring positions.
+`RepeatFinder` enforces `minLength >= 4`, requires even `minLength`, requires `maxLength >= minLength`, uppercases raw-string input before scanning, never pairs non-ACGT symbols, and orders results by position then length. Cross-checked against a Biopython `reverse_complement` REVP reference on 6000 random cases (incl. N/IUPAC/U/gaps/lowercase) with 0 mismatches (see Evidence). `GenomicAnalyzer.FindPalindromes` delegates to it (same validation, same order, same O(n·maxLength) cost); independent check: Biopython `reverse_complement` over every window, 910 rows (`scripts/analysis/generate_palindrome_oracle.py`), 0 mismatches. Overlapping and nested palindromes are all reported.
 
 ### 5.3 Conformance to Theory / Spec
 
@@ -154,7 +154,7 @@ Common restriction-enzyme palindrome examples cited in the legacy documentation 
 
 | # | Item | Type | Impact | Status | Notes |
 |---|------|------|--------|--------|-------|
-| 1 | `GenomicAnalyzer.FindPalindromes` (B09) does not perform the explicit validation that `RepeatFinder.FindPalindromes` applies, and still pairs N/IUPAC symbols and orders by length. | Deviation | Results can differ on non-ACGT input and in order. | open (cross-batch dedup request B04 → B09) | Should delegate to `RepeatFinder.FindPalindromes`. |
+| 1 | `GenomicAnalyzer.FindPalindromes` (B09) did not perform the explicit validation that `RepeatFinder.FindPalindromes` applies (minLength 2 reported dinucleotides, odd minLength returned nothing, `null` → `NullReferenceException`), scanned in O(n·L²) and ordered by length. | Deviation (fix) | Contract differences and cost. | fixed (B09 F27, 2026-11-18) | Now delegates to `RepeatFinder.FindPalindromes`; tests `GenomicAnalyzer_FindPalindromes_Tests`. |
 
 ## 6. Edge Cases and Limitations
 
@@ -185,7 +185,7 @@ The algorithm detects only exact DNA palindromes and does not interpret ambiguou
 - Tests: [RepeatFinder_Palindrome_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/RepeatFinder_Palindrome_Tests.cs)
 - Test spec: [REP-PALIN-001.md](../../../tests/TestSpecs/REP-PALIN-001.md)
 - Evidence: [REP-PALIN-001-Evidence.md](../../Evidence/REP-PALIN-001-Evidence.md)
-- Related smoke tests: [GenomicAnalyzerTests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/GenomicAnalyzerTests.cs)
+- Facade tests: [GenomicAnalyzer_FindPalindromes_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/GenomicAnalyzer_FindPalindromes_Tests.cs) (Biopython oracle, REVP sample, validation, 1 Mbp); smoke tests: [GenomicAnalyzerTests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/GenomicAnalyzerTests.cs)
 
 ## 8. References
 
