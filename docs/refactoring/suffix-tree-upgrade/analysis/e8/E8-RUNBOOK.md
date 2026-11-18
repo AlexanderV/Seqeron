@@ -122,7 +122,18 @@ Desktop, on macOS, on arm64 (the program has x86 intrinsics guarded by `IsSuppor
 against synthetic files only); `drop_caches`, `--privileged` and the `--memory` limit as Docker Desktop's VM presents them; the cache cells at the real block sizes and at 1-3 Gbp; everything above 500 Mbp; the verifier above 200 Mbp; positions above 2^31
 end to end (the boundary tests reach the packed text, the rank table, the geometry and the mapped writers with synthetic values only). Section 10 of the PROGRESS entry and the ADR subsection list the boundary-audit findings.
 
+**Architecture neutrality of the program (static audit; the publish is framework-dependent IL, built once on the build platform and used for both architectures):** P/Invoke and `LibraryImport`: **none** in `apps/SuffixTree.EmProto`, in the two libraries it references
+(`src/SuffixTree/Algorithms/SuffixTree.Esa` and `.Core`) and in the linked sources of the benchmark project; every native call is a .NET framework API (`NativeMemory`, `MemoryMappedFile`, `RandomAccess`, `File`), so there is no native library to be missing on arm64.
+`StructLayout(Sequential)`: `Ph4/Spool.cs:9,18,26` (three scratch-record structs of `uint` / `ulong` fields), `Ph5/ChildScan.cs:91` (`IntervalEntry`, four `uint`), `Ph5/NsvScan.cs:23`; they are written to scratch files and read back by the same process on the same
+machine, little endian on both architectures: safe. Output files are little endian by construction (`BitConverter` / `MemoryMarshal` on a little-endian machine; arm64 Linux and macOS are little endian; `env_little_endian` in the preflight). x86-only intrinsics:
+`Text/PackedText.cs:60,154,210-212` (`Avx2`, behind `UseVectors = Avx2.IsSupported`; scalar 64-bit fallback, identical results, pinned by a test), `Ph4/PlcpScan.cs:33`, `Ph4/LcpBuild.cs:383` and `src/.../Esa/Memory/Buf.cs:152` (`Sse.Prefetch0` behind
+`Sse.IsSupported`, a JIT-time constant: no prefetch on arm64). The cross-platform `Vector128/256` APIs (`LcpKernel.Direct.cs`, the static shuffle mask of `PackedText`) have software fallbacks. Consequence: arm64 is **correct but slower** on tie-rich text.
+`dotnet publish` with `UseAppHost=false` needs no runtime-specific pack, so the build stage never downloads one.
+
 ## 10. Choices made without asking (change them if you disagree)
+
+* The child table is verified by a **full scan of every cell** (a stack scan of the LCP stream that predicts each cell and compares it, then counts the non-zero cells), not on a sample of intervals: it is the stronger check, it covers small and large intervals alike,
+  and it costs one pass over the LCP and the expected cells; its price is the stack (above).
 
 * `--scale-n 3000000000` for all three sizes: at 3 Gbp it gives the reference block sizes, at 1 and 2.2 Gbp the E7 series-B ratios (n / K = 3000, P = 375 chunks of PH4). `E8_SCALE_N` overrides; `E8_EXTRA` appends arguments to the `e6` command.
 * The memory of one run is the **container's** limit (the cell list above); the program's own settings are those of E6 / E7 (96 MiB GC limit, 4 threads or fewer if the VM has fewer cores).

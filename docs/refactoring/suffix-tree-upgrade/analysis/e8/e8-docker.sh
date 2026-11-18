@@ -98,7 +98,7 @@ case $CMD in
   build)
     COMMIT=$(git -C "$ROOT" rev-parse HEAD 2>/dev/null || echo unknown)
     if [ "$COMMIT" != unknown ] && [ -n "$(git -C "$ROOT" status --porcelain --untracked-files=no 2>/dev/null)" ]; then echo "note: the checkout has uncommitted changes; the image is built from the files as they are (label revision: $COMMIT)"; fi
-    echo "building $IMAGE for $PLATFORM from $(basename "$ROOT") (the build context is the repository root, filtered by Dockerfile.dockerignore)"
+    echo "building $IMAGE for $PLATFORM from the repository checkout (the build context is the repository root, filtered by Dockerfile.dockerignore)"
     run_cmd docker build --platform "$PLATFORM" -f "$ROOT/$DOCKERFILE" --build-arg "COMMIT=$COMMIT" -t "$IMAGE" "$ROOT" ;;
   preflight) need_image; in_container -- preflight "$@" ;;
   plan|status) need_image; in_container -- plan ;;
