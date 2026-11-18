@@ -93,3 +93,35 @@ internal static class FileBits
         }
     }
 }
+
+/// <summary>An <see cref="IReservationSource"/> that behaves like a platform: with or without fallocate, with a known or unknown amount of free space, or like a disk that is full.</summary>
+internal sealed class FakeReservationSource : IReservationSource
+{
+    public bool CanPreallocate { get; set; }
+
+    /// <summary>Free bytes reported (-1: unknown).</summary>
+    public long Free { get; set; } = -1;
+
+    /// <summary>When set, the preallocating creation throws this exception.</summary>
+    public Exception? PreallocateThrows { get; set; }
+
+    public int PreallocateCalls { get; private set; }
+
+    public int FreeCalls { get; private set; }
+
+    public string? LastDirectory { get; private set; }
+
+    public FileStream CreatePreallocated(string path, long length)
+    {
+        PreallocateCalls++;
+        if (PreallocateThrows is not null) throw PreallocateThrows;
+        return new FileStream(path, FileMode.Create, FileAccess.ReadWrite, FileShare.ReadWrite);
+    }
+
+    public long AvailableFreeBytes(string directory)
+    {
+        FreeCalls++;
+        LastDirectory = directory;
+        return Free;
+    }
+}

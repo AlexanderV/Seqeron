@@ -43,6 +43,14 @@ internal sealed unsafe class MappedWindowWriter : IDisposable
     /// <summary>Offset of the next <see cref="Append"/>.</summary>
     internal long Position => _next;
 
+#pragma warning disable S2325
+    /// <summary>STUB: offset of the first byte of this writer's range in the file.</summary>
+    internal long FileOffset => throw new NotImplementedException();
+
+    /// <summary>STUB: releases (and thereby flushes) the current window.</summary>
+    internal void Flush() => throw new NotImplementedException();
+#pragma warning restore S2325
+
     /// <summary>Writes <paramref name="data"/> at <paramref name="offset"/>; the range must lie inside the file.</summary>
     internal void WriteAt(long offset, ReadOnlySpan<byte> data)
     {
