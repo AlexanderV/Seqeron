@@ -483,7 +483,7 @@ public class SaBuilderTests
         Assert.That(within.Result.RssAnonPeakMb, Is.GreaterThan(1.0));
         Assert.That(within.Result.Ph1RssAnonPeakMb, Is.GreaterThan(1.0));
         Assert.That(within.Result.Ph23RssAnonPeakMb, Is.GreaterThan(1.0));
-        Assert.That(within.Result.RssAnonPeakMb, Is.GreaterThanOrEqualTo(Math.Min(within.Result.Ph1RssAnonPeakMb!.Value, within.Result.Ph23RssAnonPeakMb!.Value) - 5), "the whole run is at least as high as a phase, up to the sampler's grain");
+        Assert.That(within.Result.RssAnonPeakMb, Is.GreaterThanOrEqualTo(Math.Max(within.Result.Ph1RssAnonPeakMb!.Value, within.Result.Ph23RssAnonPeakMb!.Value) - 10), "the whole run is at least as high as a phase, up to the sampler's grain");
         using var dir2 = new TempDir();
         SaRun.Outcome exceeded = SaRun.Run(dir2, c, SaTiny.Build(dir2.Sub("scratch"), 1) with { RssAnonCapMb = 0.001 });
         Assert.That(exceeded.Result.RssVerdict, Is.EqualTo(RssVerdict.Exceeded), "a verdict, not an exception: the build finished");
@@ -747,7 +747,8 @@ public class DistTargetCreationTests
         (string sa, string isa) = Inputs(500);
         var reservation = new FakeReservationSource { CanPreallocate = true };
         var counters = new IoCounters();
-        Dist.BuildIsa(sa, 500, isa, new DistOptions { ScratchDir = _dir.Sub("s"), ChunkEntries = 100, Files = new MappedFileOptions { Source = reservation }, Counters = counters });
+        Dist.BuildIsa(sa, 500, isa, new DistOptions { ScratchDir = _dir.Sub("s"), ChunkEntries = 100, Files = new MappedFileOptions { Source = reservation }, Counters = counters, WindowBytes = 256 });
+        Assert.That(counters.Snapshot().MappedMaxWindowBytes, Is.LessThanOrEqualTo(256), "the target written through the reservation uses the window of the options");
         Assert.That(reservation.PreallocateCalls, Is.EqualTo(1));
         string plain = _dir.File("plain.bin");
         Dist.BuildIsa(sa, 500, plain, new DistOptions { ScratchDir = _dir.Sub("s2"), ChunkEntries = 100 });

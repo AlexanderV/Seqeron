@@ -1,0 +1,63 @@
+Q01	Resolve: the unscaled K_s is the scaled one	killed(1)	
+Q03	Resolve: the chunk floor	killed(1)	
+Q05	Resolve: the run spill is not scaled	killed(2)	
+Q07	Resolve: the reservoir	killed(1)	
+Q09	Resolve: the merge budget	killed(1)	
+Q11	Resolve: K floor	killed(1)	
+Q13	Resolve: the oversample	killed(2)	
+Q15	Resolve: the window	killed(2)	
+Q17	Resolve: the factor is one when scaled	killed(2)	
+Q19	Resolve: the scale rounds down	killed(1)	
+Q21	Resolve: a negative rule is accepted	killed(1)	
+Q23	Resolve: zero threads are accepted	killed(1)	
+Q25	Resolve: an explicit K_s above the limit is accepted	killed(1)	
+Q27	Resolve: explicit chunk slots of zero are accepted	killed(1)	
+Q29	Resolve: a negative run spill is accepted	killed(1)	
+Q31	Resolve: a reservoir of two is accepted	killed(1)	
+Q33	Resolve: a merge budget of seven is accepted	killed(1)	
+Q35	Resolve: a K above the limit is accepted	killed(1)	
+Q37	Resolve: an oversample of zero is accepted	killed(1)	
+Q39	Resolve: a window of zero is accepted	killed(1)	
+Q41	Resolve: the scaled flag is not recorded	killed(2)	
+Q43	Build: a negative arena cap is accepted	survived	
+Q45	Build: a wide reader is accepted	killed(1)	
+Q47	Build: the exact period is replaced by the Singer one	killed(2)	
+Q49	Build: the counters are private	killed(2)	
+Q51	Build: PH1 has no cap	survived	
+Q53	Build: the RSS sampler is not started	killed(1)	
+Q55	Build: the suffix array is created after PH1	killed(1)	
+Q57	Build: the ph1 trace is not called	killed(3)	
+Q59	Build: the verify trace is not called	killed(1)	
+Q61	Build: PH1 gets the PH3 budget	killed(1)	
+Q63	Build: PH1 has no reservation options	killed(2)	
+Q65	Build: PH1 seed	survived	
+Q67	Build: PH1 K_s	killed(1)	
+Q69	Build: PH1 sort capacity	survived	
+Q71	Build: PH1 I/O buffers	survived	
+Q73	Build: PH1 reservoir	killed(16)	
+Q75	Build: PH1 window	killed(1)	
+Q77	Build: the rank file bytes are not added to the ledger	killed(1)	
+Q79	Build: the rank file is not deleted	killed(16)	
+Q81	Build: the rank file is verified when not asked for	killed(1)	
+Q83	Build: PH3 leaf capacity	killed(3)	
+Q85	Build: PH3 oversample	survived	
+Q87	Build: PH3 seed	survived	
+Q89	Build: PH3 spill	killed(1)	
+Q91	Build: PH3 budget	killed(2)	
+Q93	Build: PH3 counters	killed(1)	
+Q95	Build: the sink has the PH1 window	killed(1)	
+Q97	Build: the output is not completed	survived	
+Q99	Build: the output is never synced	survived	
+Q101	CheckLength: any length is accepted	survived	
+Q103	Build: the verdict is swapped	killed(1)	
+Q105	Build: the PH1 RSS figure is in KiB	survived	
+Q107	Build: without RSS sampling the whole sampler runs	killed(1)	
+Q109	Build: the PH1 I/O is the whole	killed(1)	
+Q111	Build: the total I/O is the PH3 difference	killed(2)	
+Q113	Build: the reservation is the rank file one	killed(3)	
+Q115	Build: the failed rank file is left	BUILD-ERROR CS0219	
+Q117	Build: the PH1 directory is not removed	killed(20)	
+Q119	Build: the scratch root is always removed	killed(1)	
+Q121	Build: the scratch directories are not created	survived	
+Q123	Build: the scratch peak of PH3 is the PH1 one	killed(1)	
+Q125	Build: the cover kind is not reported	survived	

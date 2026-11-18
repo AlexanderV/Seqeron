@@ -1,0 +1,18 @@
+[
+ {
+  "id": "X03",
+  "desc": "FromMemoryReduced: the layout is not checked",
+  "old": "        CheckShape(n, ReducedBits, reduced: true);\n        CheckLayout(data, length, n, ReducedBits);",
+  "new": "        CheckShape(n, ReducedBits, reduced: true);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs",
+  "filter": "(FullyQualifiedName~ReducedTextReaderTests|FullyQualifiedName~MappedTextReaderTests|FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaPinnedTests|FullyQualifiedName~SaGapTests)"
+ },
+ {
+  "id": "X07",
+  "desc": "CheckShape: the reduced reader accepts any width",
+  "old": "if (reduced ? bits != ReducedBits : bits < PackedTextFormat.MinBits || bits > PackedTextFormat.MaxBits) throw",
+  "new": "if (reduced ? bits < 0 : bits < PackedTextFormat.MinBits || bits > PackedTextFormat.MaxBits) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs",
+  "filter": "(FullyQualifiedName~ReducedTextReaderTests|FullyQualifiedName~MappedTextReaderTests|FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaPinnedTests|FullyQualifiedName~SaGapTests)"
+ }
+]

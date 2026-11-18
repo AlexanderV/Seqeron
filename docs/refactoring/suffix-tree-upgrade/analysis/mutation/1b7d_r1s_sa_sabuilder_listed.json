@@ -1,0 +1,114 @@
+[
+ {
+  "id": "Q43",
+  "desc": "Build: a negative arena cap is accepted",
+  "old": "ArgumentOutOfRangeException.ThrowIfNegative(options.ArenaCapBytes);",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "filter": "(FullyQualifiedName~SaBuilderTests|FullyQualifiedName~SaBuildRulesTests|FullyQualifiedName~SaPinnedTests|FullyQualifiedName~SaGapTests)"
+ },
+ {
+  "id": "Q51",
+  "desc": "Build: PH1 has no cap",
+  "old": "var ph1Budget = new ArenaBudget(options.ArenaCapBytes);",
+  "new": "var ph1Budget = new ArenaBudget(long.MaxValue);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "filter": "(FullyQualifiedName~SaBuilderTests|FullyQualifiedName~SaBuildRulesTests|FullyQualifiedName~SaPinnedTests|FullyQualifiedName~SaGapTests)"
+ },
+ {
+  "id": "Q65",
+  "desc": "Build: PH1 seed",
+  "old": "                Seed = options.Seed,\n                FanOut = p.DcsFanOut,",
+  "new": "                Seed = 1,\n                FanOut = p.DcsFanOut,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "filter": "(FullyQualifiedName~SaBuilderTests|FullyQualifiedName~SaBuildRulesTests|FullyQualifiedName~SaPinnedTests|FullyQualifiedName~SaGapTests)"
+ },
+ {
+  "id": "Q69",
+  "desc": "Build: PH1 sort capacity",
+  "old": "SortLeafCapacity = p.DcsSortCapacity,",
+  "new": "SortLeafCapacity = 1 << 20,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "filter": "(FullyQualifiedName~SaBuilderTests|FullyQualifiedName~SaBuildRulesTests|FullyQualifiedName~SaPinnedTests|FullyQualifiedName~SaGapTests)"
+ },
+ {
+  "id": "Q71",
+  "desc": "Build: PH1 I/O buffers",
+  "old": "IoBufferBytes = p.DcsIoBytes,",
+  "new": "IoBufferBytes = 64 * 1024,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "filter": "(FullyQualifiedName~SaBuilderTests|FullyQualifiedName~SaBuildRulesTests|FullyQualifiedName~SaPinnedTests|FullyQualifiedName~SaGapTests)"
+ },
+ {
+  "id": "Q85",
+  "desc": "Build: PH3 oversample",
+  "old": "Oversample = p.Oversample,",
+  "new": "Oversample = 16,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "filter": "(FullyQualifiedName~SaBuilderTests|FullyQualifiedName~SaBuildRulesTests|FullyQualifiedName~SaPinnedTests|FullyQualifiedName~SaGapTests)"
+ },
+ {
+  "id": "Q87",
+  "desc": "Build: PH3 seed",
+  "old": "                    Threads = options.Threads,\n                    Seed = options.Seed,\n                    ScratchDir = ph3,",
+  "new": "                    Threads = options.Threads,\n                    Seed = 1,\n                    ScratchDir = ph3,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "filter": "(FullyQualifiedName~SaBuilderTests|FullyQualifiedName~SaBuildRulesTests|FullyQualifiedName~SaPinnedTests|FullyQualifiedName~SaGapTests)"
+ },
+ {
+  "id": "Q97",
+  "desc": "Build: the output is not completed",
+  "old": "            saFile.Complete(options.SyncOutput);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "filter": "(FullyQualifiedName~SaBuilderTests|FullyQualifiedName~SaBuildRulesTests|FullyQualifiedName~SaPinnedTests|FullyQualifiedName~SaGapTests)"
+ },
+ {
+  "id": "Q99",
+  "desc": "Build: the output is never synced",
+  "old": "saFile.Complete(options.SyncOutput);",
+  "new": "saFile.Complete(false);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "filter": "(FullyQualifiedName~SaBuilderTests|FullyQualifiedName~SaBuildRulesTests|FullyQualifiedName~SaPinnedTests|FullyQualifiedName~SaGapTests)"
+ },
+ {
+  "id": "Q101",
+  "desc": "CheckLength: any length is accepted",
+  "old": "if (got != 4 * (n + 1)) throw",
+  "new": "if (got < 4 * n) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "filter": "(FullyQualifiedName~SaBuilderTests|FullyQualifiedName~SaBuildRulesTests|FullyQualifiedName~SaPinnedTests|FullyQualifiedName~SaGapTests)"
+ },
+ {
+  "id": "Q105",
+  "desc": "Build: the PH1 RSS figure is in KiB",
+  "old": "Ph1RssAnonPeakMb = rssPh1.Available ? rssPh1.MaxRssAnonKb * 1024.0 / 1e6 : null,",
+  "new": "Ph1RssAnonPeakMb = rssPh1.Available ? rssPh1.MaxRssAnonKb : null,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "filter": "(FullyQualifiedName~SaBuilderTests|FullyQualifiedName~SaBuildRulesTests|FullyQualifiedName~SaPinnedTests|FullyQualifiedName~SaGapTests)"
+ },
+ {
+  "id": "Q115",
+  "desc": "Build: the failed rank file is left",
+  "old": "if (rankTouched) DeleteQuietly(rankPath);",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "filter": "(FullyQualifiedName~SaBuilderTests|FullyQualifiedName~SaBuildRulesTests|FullyQualifiedName~SaPinnedTests|FullyQualifiedName~SaGapTests)"
+ },
+ {
+  "id": "Q121",
+  "desc": "Build: the scratch directories are not created",
+  "old": "            Directory.CreateDirectory(ph1);\n            Directory.CreateDirectory(ph3);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "filter": "(FullyQualifiedName~SaBuilderTests|FullyQualifiedName~SaBuildRulesTests|FullyQualifiedName~SaPinnedTests|FullyQualifiedName~SaGapTests)"
+ },
+ {
+  "id": "Q125",
+  "desc": "Build: the cover kind is not reported",
+  "old": "CoverKind = cover.Kind,",
+  "new": "CoverKind = CoverKind.Pruned,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "filter": "(FullyQualifiedName~SaBuilderTests|FullyQualifiedName~SaBuildRulesTests|FullyQualifiedName~SaPinnedTests|FullyQualifiedName~SaGapTests)"
+ }
+]

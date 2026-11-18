@@ -1,0 +1,36 @@
+H01	Run: a leaf of one is accepted	killed(1)	
+H03	Run: a fan-out of one	killed(1)	
+H05	Run: an oversample of zero	killed(1)	
+H07	Run: no limit on the text length	survived	
+H09	Run: the scratch root is always removed	survived	
+H11	Run: the files of a failed sort are found by the wrong prefix	killed(2)	
+H13	Run: the ledger of an outer build is released	survived	
+H15	Run: the ledger of the caller is ignored	survived	
+H17	Execute: SA[0] is one	killed(25)	
+H19	Execute: the root bucket starts at entry zero	killed(27)	
+H21	Execute: no extra thread is started	survived	
+H23	Worker: the writer of a thread is not disposed	killed(20)	
+H26	RunTasks: the leaf trace is not called	killed(2)	
+H28	RunTasks: the leaf sorter is made for every leaf	killed(3)	
+H30	RunTasks: a failed bucket is not disposed	killed(1)	
+H32	RunTasks: the partitions are not counted	killed(1)	
+H34	RunTasks: the depth is not tracked	killed(12)	
+H36	RunTasks: the largest leaf is not tracked	survived	
+H38	RunTasks: the partition time is not summed	survived	
+H40	RunTasks: the buckets are not merged	killed(1)	
+H42	Partition: the fan-out ignores the bucket size	survived	
+H44	Partition: one child of the quotient	survived	
+H46	Partition: the sample is not stratified	survived	
+H48	Partition: the splitter is the lower quantile	killed(1)	
+H50	Partition: a position goes left of an equal splitter	killed(1)	
+H52	Partition: the search ignores the key	survived	
+H54	Partition: a degenerate split is accepted	survived	
+H56	Partition: a retry is not counted	survived	
+H58	Partition: the child offset does not advance	killed(26)	
+H60	Partition: the child ids repeat	survived	
+H62	Partition: the source bucket is not disposed	killed(21)	
+H64	Partition: the writers are not disposed	survived	
+H66	Partition: the children of a failed hand-over are not disposed	BUILD-ERROR CS0219	
+H68	Partition: the attempts have no limit	survived	
+H70	Partition: the seed ignores the task	survived	
+H72	DeleteFiles: a directory that is not there throws	survived	

@@ -1,0 +1,10 @@
+[
+ {
+  "id": "Y03",
+  "desc": "Scatter: the reserved target has the default window",
+  "old": "created.CreateWriter(options.WindowBytes, counters)",
+  "new": "created.CreateWriter(MappedWindowWriter.DefaultWindowBytes, counters)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs",
+  "filter": "(FullyQualifiedName~DistTargetCreationTests|FullyQualifiedName~DistTests|FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaPinnedTests|FullyQualifiedName~SaGapTests)"
+ }
+]

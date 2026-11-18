@@ -1,0 +1,5 @@
+I01	the empty suffix is not skipped	killed(11)	
+I03	a separator is ranked	killed(11)	
+I05	the rank is counted from zero	killed(11)	
+I07	the count check is dropped	killed(1)	
+I09	the source has one entry too few	killed(10)	

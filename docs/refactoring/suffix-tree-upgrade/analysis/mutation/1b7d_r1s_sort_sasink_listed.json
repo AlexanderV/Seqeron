@@ -1,0 +1,10 @@
+[
+ {
+  "id": "Z01",
+  "desc": "the writer covers a window of its own size",
+  "old": "public ISaSliceWriter CreateWriter() => new Writer(file.CreateWriter(windowBytes, counters));",
+  "new": "public ISaSliceWriter CreateWriter() => new Writer(file.CreateWriter(MappedWindowWriter.DefaultWindowBytes, counters));",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SaSink.cs",
+  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaPinnedTests|FullyQualifiedName~SaGapTests)"
+ }
+]

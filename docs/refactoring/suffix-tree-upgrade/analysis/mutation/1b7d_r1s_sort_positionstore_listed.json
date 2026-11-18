@@ -1,0 +1,66 @@
+[
+ {
+  "id": "T03",
+  "desc": "MemoryPositions: Read ignores the start",
+  "old": "public void Read(long start, Span<uint> dest) => _data.AsSpan((int)start, dest.Length).CopyTo(dest);",
+  "new": "public void Read(long start, Span<uint> dest) => _data.AsSpan(0, dest.Length).CopyTo(dest);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/PositionStore.cs",
+  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters|FullyQualifiedName~SaPinnedTests|FullyQualifiedName~SaGapTests)"
+ },
+ {
+  "id": "T05",
+  "desc": "PositionFiles: the numbering starts at zero",
+  "old": "{prefix}-{Interlocked.Increment(ref _next):D8}.bin",
+  "new": "{prefix}-{Interlocked.Decrement(ref _next):D8}.bin",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/PositionStore.cs",
+  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters|FullyQualifiedName~SaPinnedTests|FullyQualifiedName~SaGapTests)"
+ },
+ {
+  "id": "T07",
+  "desc": "FilePositions: At reads the entry before",
+  "old": "_file.ReadExactAt(MemoryMarshal.AsBytes(one), index * 4);",
+  "new": "_file.ReadExactAt(MemoryMarshal.AsBytes(one), (index == 0 ? 0 : index - 1) * 4);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/PositionStore.cs",
+  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters|FullyQualifiedName~SaPinnedTests|FullyQualifiedName~SaGapTests)"
+ },
+ {
+  "id": "T11",
+  "desc": "FilePositions: a second Dispose gives the bytes back again",
+  "old": "        if (_disposed) return;\n        _disposed = true;\n        _file?.Dispose();\n        _file = null;\n        files.Ledger.Remove(count * 4);",
+  "new": "        _disposed = true;\n        _file?.Dispose();\n        _file = null;\n        files.Ledger.Remove(count * 4);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/PositionStore.cs",
+  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters|FullyQualifiedName~SaPinnedTests|FullyQualifiedName~SaGapTests)"
+ },
+ {
+  "id": "T15",
+  "desc": "PosWriter: the total is not counted",
+  "old": "        _buffer[_filled++] = p;\n        _total++;",
+  "new": "        _buffer[_filled++] = p;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/PositionStore.cs",
+  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters|FullyQualifiedName~SaPinnedTests|FullyQualifiedName~SaGapTests)"
+ },
+ {
+  "id": "T19",
+  "desc": "PosWriter: Dispose of a completed writer deletes",
+  "old": "if (_completed) return;\n        _completed = true;",
+  "new": "if (false) return;\n        _completed = true;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/PositionStore.cs",
+  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters|FullyQualifiedName~SaPinnedTests|FullyQualifiedName~SaGapTests)"
+ },
+ {
+  "id": "T21",
+  "desc": "PosWriter: Dispose does not delete the file",
+  "old": "            _files.Ledger.Remove(_written * 4);\n            RunStore.DeleteQuietly(_path);",
+  "new": "            _files.Ledger.Remove(_written * 4);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/PositionStore.cs",
+  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters|FullyQualifiedName~SaPinnedTests|FullyQualifiedName~SaGapTests)"
+ },
+ {
+  "id": "T27",
+  "desc": "PosWriter: the written count is not kept",
+  "old": "            _written += _filled;\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/PositionStore.cs",
+  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters|FullyQualifiedName~SaPinnedTests|FullyQualifiedName~SaGapTests)"
+ }
+]

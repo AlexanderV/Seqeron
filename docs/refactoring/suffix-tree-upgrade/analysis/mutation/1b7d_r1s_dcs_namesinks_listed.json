@@ -1,0 +1,10 @@
+[
+ {
+  "id": "N19",
+  "desc": "ReducedFileSink: the buffers are one name short",
+  "old": "_buffers = arena.Allocate<byte>(_bufEntries * 4 * geometry.Classes, zero: false, \"reduced.cursors\");",
+  "new": "_buffers = arena.Allocate<byte>((_bufEntries - 1) * 4 * geometry.Classes + 4, zero: false, \"reduced.cursors\");",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/NameSinks.cs",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaPinnedTests|FullyQualifiedName~SaGapTests)"
+ }
+]

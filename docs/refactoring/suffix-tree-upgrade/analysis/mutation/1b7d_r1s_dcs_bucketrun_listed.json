@@ -1,0 +1,10 @@
+[
+ {
+  "id": "B13",
+  "desc": "BucketRun: an empty path run is not a file run",
+  "old": "internal bool InMemory => _memory is not null;",
+  "new": "internal bool InMemory => _path is null;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/BucketRun.cs",
+  "filter": "(FullyQualifiedName~BucketRunTests|FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaPinnedTests|FullyQualifiedName~SaGapTests)"
+ }
+]

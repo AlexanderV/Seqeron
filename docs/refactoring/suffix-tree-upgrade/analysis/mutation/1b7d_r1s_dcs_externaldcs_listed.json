@@ -1,0 +1,130 @@
+[
+ {
+  "id": "E09",
+  "desc": "BuildRankFile: a window of zero",
+  "old": "ArgumentOutOfRangeException.ThrowIfLessThan(options.WindowBytes, 1);",
+  "new": "ArgumentOutOfRangeException.ThrowIfLessThan(options.WindowBytes, 0);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaPinnedTests|FullyQualifiedName~SaGapTests)"
+ },
+ {
+  "id": "E13",
+  "desc": "BuildRankFile: no limit on the text length",
+  "old": "if (text.Length > PackedTextFormat.MaxSymbols) throw new NotSupportedException",
+  "new": "if (text.Length > PackedTextFormat.MaxSymbols * 2) throw new NotSupportedException",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaPinnedTests|FullyQualifiedName~SaGapTests)"
+ },
+ {
+  "id": "E15",
+  "desc": "BuildRankFile: the scratch bytes are not given back",
+  "old": "            context.Ledger.ReleaseAll();\n            if (context.RankTouched)",
+  "new": "            if (context.RankTouched)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaPinnedTests|FullyQualifiedName~SaGapTests)"
+ },
+ {
+  "id": "E17",
+  "desc": "BuildRankFile: the scratch root is always removed",
+  "old": "if (createdRoot) DeleteEmptyDirectoryQuietly(scratch);\n        }\n        return context.Stats;",
+  "new": "DeleteEmptyDirectoryQuietly(scratch);\n        }\n        return context.Stats;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaPinnedTests|FullyQualifiedName~SaGapTests)"
+ },
+ {
+  "id": "E19",
+  "desc": "BuildRankFile: the tag is the same for every build",
+  "old": "\"e3b-\" + Guid.NewGuid().ToString(\"N\")[..8]",
+  "new": "\"e3b-00000000\"",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaPinnedTests|FullyQualifiedName~SaGapTests)"
+ },
+ {
+  "id": "L01",
+  "desc": "BuildLevel: the recursion has no end",
+  "old": "if (level >= MaxLevels) throw",
+  "new": "if (level >= MaxLevels * 100) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaPinnedTests|FullyQualifiedName~SaGapTests)"
+ },
+ {
+  "id": "L05",
+  "desc": "BuildLevel: the base case is taken one symbol late",
+  "old": "if (reduced <= o.BaseCase || reduced >= text.Length)",
+  "new": "if (reduced < o.BaseCase || reduced >= text.Length)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaPinnedTests|FullyQualifiedName~SaGapTests)"
+ },
+ {
+  "id": "L13",
+  "desc": "BuildLevel: the sort fan-out is the options fan-out",
+  "old": "FanOut = 64,\n                    Threads = o.Threads,",
+  "new": "FanOut = o.FanOut,\n                    Threads = o.Threads,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaPinnedTests|FullyQualifiedName~SaGapTests)"
+ },
+ {
+  "id": "L15",
+  "desc": "BuildLevel: the sort files carry no tag",
+  "old": "FilePrefix = $\"{c.Tag}-L{level + 1}-pos\",",
+  "new": "FilePrefix = \"pos\",",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaPinnedTests|FullyQualifiedName~SaGapTests)"
+ },
+ {
+  "id": "L17",
+  "desc": "BuildLevel: the suffix array file is not completed",
+  "old": "saFile.Complete(fsync: false);",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaPinnedTests|FullyQualifiedName~SaGapTests)"
+ },
+ {
+  "id": "L25",
+  "desc": "BuildLevel: the inversion read buffer is one entry",
+  "old": "ReadBytes = Math.Max(4, o.IoBufferBytes),",
+  "new": "ReadBytes = 4,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaPinnedTests|FullyQualifiedName~SaGapTests)"
+ },
+ {
+  "id": "L27",
+  "desc": "BuildLevel: the inversion has no budget",
+  "old": "            Budget = c.Budget,\n            Counters = o.Counters,\n            Arena = o.ArenaGuards,",
+  "new": "            Counters = o.Counters,\n            Arena = o.ArenaGuards,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaPinnedTests|FullyQualifiedName~SaGapTests)"
+ },
+ {
+  "id": "L29",
+  "desc": "BuildLevel: the touched flag of the rank file is not set",
+  "old": "        if (level == 0) c.RankTouched = true;\n        if (scratchOutput) c.Ledger.Add(g.Slots * 4);\n        var dist",
+  "new": "        if (scratchOutput) c.Ledger.Add(g.Slots * 4);\n        var dist",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaPinnedTests|FullyQualifiedName~SaGapTests)"
+ },
+ {
+  "id": "A06",
+  "desc": "BaseCase: the rank file is not scratch output",
+  "old": "        if (scratchOutput) c.Ledger.Add(slots * 4);\n        using MappedWindowWriter writer",
+  "new": "        using MappedWindowWriter writer",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaPinnedTests|FullyQualifiedName~SaGapTests)"
+ },
+ {
+  "id": "A08",
+  "desc": "BaseCase: the rank file is not marked as touched",
+  "old": "        if (level == 0) c.RankTouched = true;\n        using MappedOutputFile file",
+  "new": "        using MappedOutputFile file",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaPinnedTests|FullyQualifiedName~SaGapTests)"
+ },
+ {
+  "id": "A10",
+  "desc": "BaseCase: the chunk slots are not at least one",
+  "old": "long chunkSlots = Math.Max(1, o.ChunkSlots);",
+  "new": "long chunkSlots = o.ChunkSlots;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaPinnedTests|FullyQualifiedName~SaGapTests)"
+ }
+]

@@ -1,0 +1,34 @@
+[
+ {
+  "id": "D03",
+  "desc": "Verify: a residue outside the period is accepted",
+  "old": "if (a < 0 || a >= Period) return false;",
+  "new": "if (a < 0) return false;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs",
+  "filter": "(FullyQualifiedName~DifferenceCoverTests|FullyQualifiedName~SampleGeometryTests|FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaPinnedTests|FullyQualifiedName~SaGapTests)"
+ },
+ {
+  "id": "D05",
+  "desc": "IsPerfect: counts the zero differences",
+  "old": "                if (a != b) count[(b - a + Period) % Period]++;",
+  "new": "                count[(b - a + Period) % Period]++;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs",
+  "filter": "(FullyQualifiedName~DifferenceCoverTests|FullyQualifiedName~SampleGeometryTests|FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaPinnedTests|FullyQualifiedName~SaGapTests)"
+ },
+ {
+  "id": "D13",
+  "desc": "Pruned: the small periods get fewer rounds",
+  "old": "if (x <= 256) rounds = 40;",
+  "new": "if (x <= 128) rounds = 40;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs",
+  "filter": "(FullyQualifiedName~DifferenceCoverTests|FullyQualifiedName~SampleGeometryTests|FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaPinnedTests|FullyQualifiedName~SaGapTests)"
+ },
+ {
+  "id": "D21",
+  "desc": "IsPrime: 1 is a prime",
+  "old": "if (v < 2) return false;",
+  "new": "if (v < 1) return false;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs",
+  "filter": "(FullyQualifiedName~DifferenceCoverTests|FullyQualifiedName~SampleGeometryTests|FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaPinnedTests|FullyQualifiedName~SaGapTests)"
+ }
+]

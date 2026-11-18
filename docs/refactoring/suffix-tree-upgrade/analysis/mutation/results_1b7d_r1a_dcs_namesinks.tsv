@@ -1,0 +1,10 @@
+N01	RankFileSink: the file is half the length	killed(18)	
+N03	RankFileSink: the window is not the given one	killed(1)	
+N05	ReducedFileSink: the length lacks the padding	killed(9)	
+N07	ReducedFileSink: the cursor is flushed one entry late	killed(9)	
+N09	ReducedFileSink: the flushed count is not advanced	killed(9)	
+N11	ReducedFileSink: Complete skips the last cursor	killed(9)	
+N13	ReducedFileSink: the first slot class is the first	killed(8)	
+N15	ReducedRamSink: the block does not advance	killed(4)	
+N17	ReducedRamSink: the string is not zeroed	killed(4)	
+N19	ReducedFileSink: the buffers are one name short	survived	

@@ -1,0 +1,14 @@
+T01	RangePositions: the positions start at one	killed(9)	
+T03	MemoryPositions: Read ignores the start	survived	
+T05	PositionFiles: the numbering starts at zero	survived	
+T07	FilePositions: At reads the entry before	survived	
+T09	FilePositions: Dispose does not give the bytes back	killed(1)	
+T11	FilePositions: a second Dispose gives the bytes back again	BUILD-ERROR CS0414	
+T13	PosWriter: the buffer is flushed one entry late	killed(10)	
+T15	PosWriter: the total is not counted	BUILD-ERROR CS0649	
+T17	PosWriter: the rest of a file bucket is not flushed	killed(10)	
+T19	PosWriter: Dispose of a completed writer deletes	BUILD-ERROR CS0162	
+T21	PosWriter: Dispose does not delete the file	survived	
+T23	PosWriter: Grow keeps the buffer size	killed(1)	
+T25	PosWriter: the flush offset is the start	killed(10)	
+T27	PosWriter: the written count is not kept	BUILD-ERROR CS0649	

@@ -1,0 +1,12 @@
+D01	Density is the inverse ratio	killed(1)	
+D03	Verify: a residue outside the period is accepted	survived	
+D05	IsPerfect: counts the zero differences	survived	
+D07	Create accepts the period 1	killed(1)	
+D09	NearestSingerPeriod takes the smaller ratio the other way	killed(2)	
+D11	SampleCount: residue equal to the rest is not counted	killed(13)	
+D13	Pruned: the small periods get fewer rounds	survived	
+D15	Pruned: the start set lacks the last of the first run	killed(4)	
+D17	Pruned: a removal is kept when the count is still zero	killed(5)	
+D19	SingerPrime: any q below the period counts	killed(host crash)	
+D21	IsPrime: 1 is a prime	survived	
+D23	IndexOf: the table is filled with 0	killed(2)	

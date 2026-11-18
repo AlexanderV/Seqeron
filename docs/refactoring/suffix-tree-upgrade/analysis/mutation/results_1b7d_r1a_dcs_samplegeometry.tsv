@@ -1,0 +1,7 @@
+S01	Slots forgets the last block	killed(22)	
+S03	ClassCount: one member too few	killed(15)	
+S05	SlotOf: the class index is dropped	killed(21)	
+S07	RedIndexOfSlot: the offset in the class is one more	killed(8)	
+S09	TrySlotOfRed: the search does not advance	killed(hang)	
+S11	TrySlotOfRed: the class index is dropped from the slot	killed(12)	
+S13	a negative length is accepted	killed(1)	

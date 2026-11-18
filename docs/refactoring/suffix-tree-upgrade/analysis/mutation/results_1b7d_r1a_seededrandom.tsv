@@ -1,0 +1,7 @@
+W01	SplitMix: the increment	killed(1)	
+W03	SplitMix: the second multiplier	killed(1)	
+W05	NextInt: the quotient instead of the remainder	killed(10)	
+P01	WorkPool: a failed pool still hands out tasks	killed(1)	
+P03	WorkPool: a finished task is counted twice	killed(hang)	
+P05	WorkPool: first in first out	killed(hang)	
+P07	WorkPool: Fail does not wake the waiters	killed(1)	

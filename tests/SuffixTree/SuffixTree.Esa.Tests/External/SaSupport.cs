@@ -233,6 +233,7 @@ internal static class SaRun
         string saPath = Path.Combine(outDir, "o.sa");
         using MappedTextReader reader = MappedTextReader.Open(textPath, n ?? c.N, bits ?? c.Bits);
         configure?.Invoke(reader);
+        options = options with { Counters = options.Counters ?? new IoCounters() };
         Exception? thrown = null;
         try
         {
@@ -247,6 +248,7 @@ internal static class SaRun
         Assert.That(Directory.GetFileSystemEntries(outDir), Is.Empty, $"{label}: partial outputs are left behind");
         Assert.That(Directory.Exists(options.ScratchDir), Is.False, $"{label}: scratch is left behind");
         Assert.That(File.Exists(options.RankPath ?? Path.Combine(options.ScratchDir, "ranks.bin")), Is.False, $"{label}: the rank file is left behind");
+        Assert.That(options.Counters!.ScratchLiveBytes, Is.Zero, $"{label}: scratch bytes are still in the account");
         ProcFds.AssertClosed(label, [saPath, options.RankPath], [options.ScratchDir, outDir]);
         Assert.That(ProcMaps.Contains(saPath) ?? false, Is.False, $"{label}: the suffix array is still mapped");
         Directory.Delete(outDir);

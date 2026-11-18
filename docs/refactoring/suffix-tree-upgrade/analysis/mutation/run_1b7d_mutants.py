@@ -26,7 +26,7 @@ if sl:
     mutants = mutants[int(a or 0):int(b) if b else None]
 path = os.path.join(ROOT, mutants[0]['file'])
 orig = open(path).read()
-FLAGS = ['-p:RunAnalyzers=false', '-p:EnforceCodeStyleInBuild=false']
+FLAGS = ['-p:RunAnalyzers=false', '-p:EnforceCodeStyleInBuild=false', '-p:TreatWarningsAsErrors=false']  # a mutant that leaves a field unassigned or a local unused is still a valid mutant
 
 
 def sh(args, limit):

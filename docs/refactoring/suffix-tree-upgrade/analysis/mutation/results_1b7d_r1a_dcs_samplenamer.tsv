@@ -1,0 +1,43 @@
+M01	PrefixOrder: equal positions are not equal	killed(12)	
+M03	PrefixOrder: the shorter suffix is the larger	killed(11)	
+M05	PrefixOrder: the limit is not clamped to the shorter suffix	survived	
+M07	Run: the error is swallowed	killed(1)	
+M09	Run: an empty leaf is kept	survived	
+M11	Run: the statistics lose the splits	killed(1)	
+M13	Run: the statistics lose the scans	killed(2)	
+M15	Run: no worker thread is started	survived	
+M17	Merge: the merge budget is not shared among the file runs	survived	
+M19	Merge: the total check is dropped	survived	
+M21	Merge: an empty sample is merged	survived	
+M23	AssignNames: a group that continues does not continue	killed(13)	
+M25	AssignNames: the continuation ignores the prefix	killed(9)	
+M27	AssignNames: the new names of a continued group	killed(13)	
+M29	AssignNames: the first group of a leaf with two is not subtracted	killed(19)	
+M31	AssignNames: a leaf with one group is a leaf with two	survived	
+M33	AssignNames: a closed single group is not counted	killed(12)	
+M35	AssignNames: the last open group is not counted	killed(12)	
+M37	Worker: the statistics of a worker are lost	BUILD-ERROR CS0649	
+M39	Collect: the capacity is not bounded by the sample	killed(1)	
+M41	Collect: a position beyond n is taken	killed(13)	
+M43	InRange: the lower bound is exclusive	killed(17)	
+M45	InRange: the lower key is inclusive of smaller keys	killed(hang)	
+M47	Cmp: the position tie-break is dropped	killed(hang)	
+M49	Split: the replacement index may be the capacity	killed(19)	
+M51	Split: a reservoir of two splits	survived	
+M53	Split: the fan-out ignores the cap	survived	
+M55	Split: equal splitter indices are kept	survived	
+M57	Split: the last child has no upper bound of its own	killed(hang)	
+M59	Split: the seed ignores the task	survived	
+M61	Execute: the scans are not counted	BUILD-ERROR CS0649	
+M63	Execute: a leaf is split and a split is collected	killed(hang)	
+M65	Finish: the name is not the distinct count	killed(14)	
+M67	Finish: a group of size one is not counted in the middle	killed(19)	
+M69	Finish: the last group of size one is not counted	killed(16)	
+M71	Finish: the last position is the first	killed(13)	
+M73	Finish: an empty bucket has a run	killed(1)	
+M75	Finish: a short bucket is insertion sorted up to 25	killed(2)	
+M78	MergeSort: the merge takes the left on a strict order	survived	
+M80	MergeSort: the rest of the left half is dropped	killed(9)	
+K01	InsertionSort: unstable	survived	
+K03	RadixSort: the digit skip is wrong	survived	
+K05	RadixSort: the top digit is not counted	killed(2)	

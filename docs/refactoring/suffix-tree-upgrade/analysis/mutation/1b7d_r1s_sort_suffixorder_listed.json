@@ -1,0 +1,26 @@
+[
+ {
+  "id": "C15",
+  "desc": "CompareCore: the key is not skipped",
+  "old": "long skip = tied && t.KeySymbols <= maxLen ? t.KeySymbols : 0;",
+  "new": "long skip = 0;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs",
+  "filter": "(FullyQualifiedName~SuffixOrderTests|FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaPinnedTests|FullyQualifiedName~SaGapTests)"
+ },
+ {
+  "id": "C17",
+  "desc": "CompareCore: the key is skipped one symbol too far",
+  "old": "long skip = tied && t.KeySymbols <= maxLen ? t.KeySymbols : 0;",
+  "new": "long skip = tied && t.KeySymbols <= maxLen ? t.KeySymbols + 1 : 0;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs",
+  "filter": "(FullyQualifiedName~SuffixOrderTests|FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaPinnedTests|FullyQualifiedName~SaGapTests)"
+ },
+ {
+  "id": "C29",
+  "desc": "CompareCore: the LCE ignores the skip",
+  "old": "matched = s + t.Lce(i + s, j + s, lim - s, ref c.LceSteps);",
+  "new": "matched = s + t.Lce(i, j, lim - s, ref c.LceSteps);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs",
+  "filter": "(FullyQualifiedName~SuffixOrderTests|FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaPinnedTests|FullyQualifiedName~SaGapTests)"
+ }
+]

@@ -1,0 +1,8 @@
+F01	Sort: a leaf above the capacity is accepted	survived	
+F03	Sort: a bucket of 25 is insertion sorted	survived	
+F05	Sort: a run of two keys is not ordered	killed(5)	
+F07	Sort: a pair is swapped when it is in order	killed(5)	
+F09	Sort: the slice is written at offset zero	killed(9)	
+F11	MergeSort: the order of equal elements	survived	
+F13	MergeSort: the merge takes the right on a tie	survived	
+F15	MergeSort: the split is not in the middle	survived	

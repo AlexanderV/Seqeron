@@ -1,0 +1,11 @@
+B01	RunStore: a run of exactly the spill size goes to a file	killed(1)	
+B03	RunStore: the failed write does not give the bytes back	killed(1)	
+B05	RunStore: the numbering starts at zero	killed(1)	
+B07	RunStore: the file is written at offset 8	killed(18)	
+B09	ReadAt: the offset is in records	killed(17)	
+B11	BucketRun: Dispose gives back half the bytes	killed(4)	
+B13	BucketRun: an empty path run is not a file run	survived	
+B15	Ledger: the counters are not told of an addition	killed(6)	
+B17	RunReader: a record at the limit is scattered	killed(14)	
+B19	RunReader: the window start is not subtracted	killed(15)	
+B21	RunReader: the scattered count is not kept	killed(20)	

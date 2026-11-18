@@ -1,0 +1,30 @@
+E01	BuildRankFile: the bucket capacity may be one	killed(2)	
+E03	BuildRankFile: a base case of zero	killed(1)	
+E05	BuildRankFile: chunk slots of zero	killed(1)	
+E07	BuildRankFile: a reservoir of two	killed(1)	
+E09	BuildRankFile: a window of zero	survived	
+E11	BuildRankFile: a sort capacity of one	killed(1)	
+E13	BuildRankFile: no limit on the text length	survived	
+E15	BuildRankFile: the scratch bytes are not given back	survived	
+E17	BuildRankFile: the scratch root is always removed	survived	
+E19	BuildRankFile: the tag is the same for every build	survived	
+L01	BuildLevel: the recursion has no end	survived	
+L03	BuildLevel: the reservation outcome is not recorded	killed(2)	
+L05	BuildLevel: the base case is taken one symbol late	survived	
+L07	BuildLevel: the base case is not recorded	killed(2)	
+L09	BuildLevel: the reduced file is not completed	killed(9)	
+L11	BuildLevel: the child rank file is not scratch output	killed(2)	
+L13	BuildLevel: the sort fan-out is the options fan-out	survived	
+L15	BuildLevel: the sort files carry no tag	survived	
+L17	BuildLevel: the suffix array file is not completed	survived	
+L19	BuildLevel: the child rank file is not deleted	killed(1)	
+L21	BuildLevel: the reduced file is not deleted	killed(1)	
+L23	BuildLevel: the suffix array bytes are not given back	killed(2)	
+L25	BuildLevel: the inversion read buffer is one entry	survived	
+L27	BuildLevel: the inversion has no budget	survived	
+L29	BuildLevel: the touched flag of the rank file is not set	survived	
+A02	BaseCase: the rank starts at zero	killed(4)	
+A04	BaseCase: the slot is not mapped to the reduced index	killed(4)	
+A06	BaseCase: the rank file is not scratch output	survived	
+A08	BaseCase: the rank file is not marked as touched	survived	
+A10	BaseCase: the chunk slots are not at least one	survived	

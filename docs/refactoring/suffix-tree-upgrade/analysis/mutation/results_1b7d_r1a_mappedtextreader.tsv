@@ -1,0 +1,5 @@
+X01	OpenReduced: the reduced flag is not set	killed(14)	
+X03	FromMemoryReduced: the layout is not checked	survived	
+X05	FromMemoryReduced: 8 bits	killed(1)	
+X07	CheckShape: the reduced reader accepts any width	survived	
+X09	ReducedBits is 16	killed(15)	

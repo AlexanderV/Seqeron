@@ -1,0 +1,19 @@
+C01	Add: the compares are not summed	killed(1)	
+C03	Add: the LCE calls are not summed	killed(1)	
+C05	Add: the scan positions are not summed	killed(1)	
+C07	Add: the tied compares are not summed	killed(1)	
+C09	Add: the LCE symbols are not summed	killed(1)	
+C11	CompareCore: the tied calls are not counted	killed(1)	
+C13	CompareCore: the key is skipped for an untied call	killed(5)	
+C15	CompareCore: the key is not skipped	survived	
+C17	CompareCore: the key is skipped one symbol too far	survived	
+C19	CompareCore: the offset is the sum of the residues	killed(host crash)	
+C21	CompareCore: the witness is the difference	killed(host crash)	
+C23	CompareCore: the offset is the witness	killed(host crash)	
+C25	CompareCore: the limit ignores the shorter suffix	killed(7)	
+C27	CompareCore: the symbols are compared from the key end only	killed(9)	
+C29	CompareCore: the LCE ignores the skip	survived	
+C31	CompareCore: the difference decides the other way	killed(6)	
+C33	CompareCore: the shorter suffix is the larger	killed(7)	
+C35	CompareCore: the rank lookups are not counted	killed(1)	
+C37	CompareCore: the second rank is at the wrong offset	killed(host crash)	
