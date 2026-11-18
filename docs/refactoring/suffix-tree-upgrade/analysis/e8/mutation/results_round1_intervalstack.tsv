@@ -1,0 +1,4 @@
+G01	the capacity is one entry too large	killed(2)	
+G02	the peak is not tracked	killed(2)	
+G03	a pop removes two entries	killed(13)	
+G04	the block index of a push uses the wrong shift	killed(3)	

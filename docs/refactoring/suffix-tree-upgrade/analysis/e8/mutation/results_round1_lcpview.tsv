@@ -1,0 +1,6 @@
+F01	the 2-byte base is read as 4 bytes	killed(host crash)	
+F02	the 1-byte escape is 65535	killed(5)	
+F03	the lower bound skips a pair whose rank equals the key	killed(2)	
+F04	the lower bound never sees the last pair	killed(5)	
+F05	the value of a pair is its rank	killed(5)	
+F06	the 4-byte base has an escape of 0	survived	survived

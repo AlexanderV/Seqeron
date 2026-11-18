@@ -26,7 +26,7 @@ internal sealed record VerifyOptions
 
     /// <summary>
     /// Common-prefix lengths of adjacent suffixes are computed directly up to this many symbols (0 = no limit). A pair whose stored LCP is longer ("long pair": the quadratic cost of N runs and of a^n) is checked up to the cap,
-    /// at its mismatch position (both symbols, hence the order) and at <see cref="Probes"/> further offsets of its matching part, and counted in the fact <c>long_pairs</c>.
+    /// at its mismatch position (both symbols, hence the order) and at <see cref="Probes"/> further offsets of its matching part (the last half of them are the final symbols of the claimed match: a value too large by up to Probes / 2 is always caught; too large by more, it is missed with probability about 4^-(Probes / 2) per pair), and counted in the fact <c>long_pairs</c>.
     /// </summary>
     internal long LceCap { get; init; } = 65536;
 
@@ -43,7 +43,7 @@ internal sealed record VerifyOptions
     internal int BlockRanks { get; init; } = 1 << 20;
 
     /// <summary>Probes of the matching part of a long pair.</summary>
-    internal int Probes { get; init; } = 8;
+    internal int Probes { get; init; } = 16;
 
     /// <summary>Symbols (or table cells) per unit of work of the parallel scans of the text and of the child table (tests use a few).</summary>
     internal long ScanBlock { get; init; } = 1L << 22;

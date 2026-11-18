@@ -87,7 +87,7 @@ internal static class E8
             Hash = !o.Flag("no-hash"),
             Child = !o.Flag("no-child"),
             BlockRanks = o.Int("block-ranks", 1 << 20),
-            Probes = o.Int("probes", 8),
+            Probes = o.Int("probes", 16),
             IoBufferBytes = o.Int("io-kb", 4096) * 1024,
         };
         long t0 = Stopwatch.GetTimestamp();

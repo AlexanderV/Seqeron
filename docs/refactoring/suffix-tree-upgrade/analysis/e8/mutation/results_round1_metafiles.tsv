@@ -1,0 +1,10 @@
+E01	a statistics file without a final line feed passes	BUILD-ERROR CS0162	
+E02	a file with more lines than keys passes	survived	survived
+E03	a line that only contains its key passes	survived	killed(1)
+E04	numbers with a leading zero are accepted	survived	survived
+E05	letters_hex of the wrong length passes	survived	survived
+E06	a counts list of the wrong length passes	survived	survived
+E07	a SHA-256 of the wrong length passes	survived	survived
+E08	lower-case letters_hex passes	survived	killed(1)
+E09	upper-case hash digits pass	survived	survived
+E10	a sigma of 257 passes	survived	survived

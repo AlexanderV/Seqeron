@@ -1,0 +1,37 @@
+[
+ {
+  "id": "H02",
+  "desc": "the whole check is reported as pass when one is skipped",
+  "old": "r.Row(\"E8\", c, \"verify_all\", res.AllPassed ? \"pass\" : \"FAIL\"",
+  "new": "r.Row(\"E8\", c, \"verify_all\", res.Checks.All(x => x.Status != CheckStatus.Fail) ? \"pass\" : \"FAIL\"",
+  "file": "apps/SuffixTree.EmProto/Experiments/E8.cs"
+ },
+ {
+  "id": "H03",
+  "desc": "a skipped check is reported as pass",
+  "old": "CheckStatus.Fail => \"FAIL\", _ => \"skipped\" }",
+  "new": "CheckStatus.Fail => \"FAIL\", _ => \"pass\" }",
+  "file": "apps/SuffixTree.EmProto/Experiments/E8.cs"
+ },
+ {
+  "id": "H04",
+  "desc": "the default LCE cap is 0",
+  "old": "LceCap = o.Long(\"lce-cap\", 65536),",
+  "new": "LceCap = o.Long(\"lce-cap\", 0),",
+  "file": "apps/SuffixTree.EmProto/Experiments/E8.cs"
+ },
+ {
+  "id": "H05",
+  "desc": "the stack cap is given in entries instead of Mi entries",
+  "old": "StackCapEntries = o.Long(\"stack-cap-m\", 64) << 20,",
+  "new": "StackCapEntries = o.Long(\"stack-cap-m\", 64),",
+  "file": "apps/SuffixTree.EmProto/Experiments/E8.cs"
+ },
+ {
+  "id": "H06",
+  "desc": "no-child still checks and no-hash still hashes (flags ignored)",
+  "old": "Hash = !o.Flag(\"no-hash\"),",
+  "new": "Hash = true,",
+  "file": "apps/SuffixTree.EmProto/Experiments/E8.cs"
+ }
+]

@@ -1,0 +1,58 @@
+[
+ {
+  "id": "E01",
+  "desc": "a statistics file without a final line feed passes",
+  "old": "if (!text.EndsWith('\\n'))",
+  "new": "if (text.Length == 0)",
+  "file": "apps/SuffixTree.EmProto/Verify/MetaFiles.cs"
+ },
+ {
+  "id": "E02",
+  "desc": "a file with more lines than keys passes",
+  "old": "if (lines.Length != keys.Length)",
+  "new": "if (lines.Length < keys.Length)",
+  "file": "apps/SuffixTree.EmProto/Verify/MetaFiles.cs"
+ },
+ {
+  "id": "E04",
+  "desc": "numbers with a leading zero are accepted",
+  "old": "(s.Length > 1 && s[0] == '0') || ",
+  "new": "",
+  "file": "apps/SuffixTree.EmProto/Verify/MetaFiles.cs"
+ },
+ {
+  "id": "E05",
+  "desc": "letters_hex of the wrong length passes",
+  "old": "v[3].Length != 2 * sigma",
+  "new": "v[3].Length < 2 * sigma",
+  "file": "apps/SuffixTree.EmProto/Verify/MetaFiles.cs"
+ },
+ {
+  "id": "E06",
+  "desc": "a counts list of the wrong length passes",
+  "old": "if (counts.Length != sigma ||",
+  "new": "if (counts.Length < sigma ||",
+  "file": "apps/SuffixTree.EmProto/Verify/MetaFiles.cs"
+ },
+ {
+  "id": "E07",
+  "desc": "a SHA-256 of the wrong length passes",
+  "old": "v[5].Length != 64",
+  "new": "v[5].Length < 64",
+  "file": "apps/SuffixTree.EmProto/Verify/MetaFiles.cs"
+ },
+ {
+  "id": "E09",
+  "desc": "upper-case hash digits pass",
+  "old": "v[5].All(c => c is >= '0' and <= '9' or >= 'a' and <= 'f')",
+  "new": "v[5].All(c => c is >= '0' and <= '9' or >= 'a' and <= 'f' or >= 'A' and <= 'F')",
+  "file": "apps/SuffixTree.EmProto/Verify/MetaFiles.cs"
+ },
+ {
+  "id": "E10",
+  "desc": "a sigma of 257 passes",
+  "old": "sigma is < 1 or > 256",
+  "new": "sigma is < 1 or > 257",
+  "file": "apps/SuffixTree.EmProto/Verify/MetaFiles.cs"
+ }
+]

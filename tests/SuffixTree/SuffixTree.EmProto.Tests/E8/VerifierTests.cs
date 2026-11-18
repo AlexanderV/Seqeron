@@ -197,7 +197,7 @@ public class VerifierTests : TempDirFixture
             // the value of EVERY pair, up and down by one (with the cap the matching part is checked by the probes and at the mismatch position only)
             for (int pair = 0; pair < pairs; pair++)
             {
-                foreach (int delta in new[] { 1, -1 })
+                foreach (int delta in new[] { 1, -1, 2, -2, 3, 4, -4, 8 })
                 {
                     string prefix = Clone(clean, Run("o"));
                     uint v = ReadUInt(prefix + ".ovf", (2L * pair) + 1);
@@ -393,6 +393,24 @@ public class VerifierTests : TempDirFixture
                 Assert.That(r.Failed(ext == "stats" ? "files" : "meta") || r.Failed("files"), Is.True, Describe(r));
             }
         }
+    }
+
+    [Test]
+    public void AnUnusedOverflowPair_IsReportedByTheLcpCheck_EvenWhenEveryValueIsRight()
+    {
+        string clean = Reference(SmallWithEscapes(), "unused");
+        string d = Clone(clean, Run("unused2"));
+        long length = new FileInfo(d + ".ovf").Length;
+        uint lastRank = ReadUInt(d + ".ovf", (length / 4) - 2);
+        using (var fs = new FileStream(d + ".ovf", FileMode.Append, FileAccess.Write))
+        {
+            fs.Write(BitConverter.GetBytes(lastRank + 1));     // a rank whose base entry is an ordinary value
+            fs.Write(BitConverter.GetBytes(300u));
+        }
+        SetKey(d + ".stats", "overflow", ((length / 8) + 1).ToString());
+        VerifyResult r = OutputVerifier.Run(Options(d, 2, 50, 0, input: false));
+        Assert.That(r.Failed("lcp_values"), Is.True, Describe(r));
+        Assert.That(r.Find("child")!.Status, Is.EqualTo(CheckStatus.Skipped), "the scan does not run on an inconsistent overflow list");
     }
 
     [Test]

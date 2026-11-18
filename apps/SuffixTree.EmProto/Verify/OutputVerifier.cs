@@ -522,7 +522,9 @@ internal static unsafe class OutputVerifier
             long span = stored - cap;
             for (int k = 0; k < o.Probes && span > 0; k++)
             {
-                long off = k == 0 ? stored - 1 : cap + (long)(Mix(((ulong)i * 0x9E3779B97F4A7C15UL) + (ulong)k) % (ulong)span);
+                // the first half of the probes are the last symbols of the claimed match (a stored value too large by up to Probes / 2 symbols is then always caught: the true mismatch is among them), the rest are spread over the match
+                long off = k < o.Probes / 2 ? stored - 1 - k : cap + (long)(Mix(((ulong)i * 0x9E3779B97F4A7C15UL) + (ulong)k) % (ulong)span);
+                if (off < cap) continue;
                 if (text.Symbol(p + off) != text.Symbol(q + off))
                 {
                     totals.Lcp.Add(i, $"LCP[{i}] = {stored}, but the suffixes {p} and {q} differ at offset {off}");

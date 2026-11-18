@@ -1,0 +1,121 @@
+[
+ {
+  "id": "A06",
+  "desc": "stats n greater than meta n is not reported by the files check",
+  "old": "if (stats.N != n) filesError.Add",
+  "new": "if (stats.N < n) filesError.Add",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs"
+ },
+ {
+  "id": "A07",
+  "desc": "counts that add up to more than n pass the metadata check",
+  "old": "if (m.Counts.Sum() != m.N)",
+  "new": "if (m.Counts.Sum() < m.N)",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs"
+ },
+ {
+  "id": "A08",
+  "desc": "a width above the one the alphabet needs passes the metadata check",
+  "old": "if (m.Bits != Math.Max(1, BitsFor(m.Sigma)))",
+  "new": "if (m.Bits < Math.Max(1, BitsFor(m.Sigma)))",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs"
+ },
+ {
+  "id": "A09",
+  "desc": "equal neighbouring letters pass the metadata check",
+  "old": "if (m.Letters[i] <= m.Letters[i - 1])",
+  "new": "if (m.Letters[i] < m.Letters[i - 1])",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs"
+ },
+ {
+  "id": "A10",
+  "desc": "a letter that never occurs passes the metadata check",
+  "old": "if (m.Counts.Any(c => c < 1))",
+  "new": "if (m.Counts.Any(c => c < 0))",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs"
+ },
+ {
+  "id": "B02",
+  "desc": "the unused bits of the last data byte are not checked",
+  "old": "if (usedBits != 0 && (file.Pointer[dataBytes - 1]",
+  "new": "if (usedBits > 8 && (file.Pointer[dataBytes - 1]",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs"
+ },
+ {
+  "id": "B04",
+  "desc": "a longer input passes the length check",
+  "old": "if (length != text.Length)",
+  "new": "if (length < text.Length)",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs"
+ },
+ {
+  "id": "B06",
+  "desc": "a wrong symbol count is reported only when it is too low",
+  "old": "if (total[s] != expected)",
+  "new": "if (total[s] < expected)",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs"
+ },
+ {
+  "id": "C05",
+  "desc": "a value of exactly 255 is not counted as an escape",
+  "old": "if (stored >= 255) local.Escapes8++;",
+  "new": "if (stored > 255) local.Escapes8++;",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs"
+ },
+ {
+  "id": "C06",
+  "desc": "a value of exactly 65535 is not counted",
+  "old": "if (stored >= 65535) local.Escapes16++;",
+  "new": "if (stored > 65535) local.Escapes16++;",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs"
+ },
+ {
+  "id": "C07",
+  "desc": "SA[0] is not compared with n",
+  "old": "if (q != n) totals.Permutation.Add(0,",
+  "new": "if (q > n) totals.Permutation.Add(0,",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs"
+ },
+ {
+  "id": "C13",
+  "desc": "equal symbols at the mismatch pass the order check",
+  "old": "text.Symbol(p + l) < text.Symbol(q + l);",
+  "new": "text.Symbol(p + l) <= text.Symbol(q + l);",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs"
+ },
+ {
+  "id": "C18",
+  "desc": "no probes of the matching part of a long pair",
+  "old": "for (int k = 0; k < o.Probes && span > 0; k++)",
+  "new": "for (int k = 0; k < 0 && span > 0; k++)",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs"
+ },
+ {
+  "id": "C19",
+  "desc": "the first probe is two symbols before the end instead of one",
+  "old": "long off = k == 0 ? stored - 1 :",
+  "new": "long off = k == 0 ? stored - 2 :",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs"
+ },
+ {
+  "id": "C23",
+  "desc": "a pair left over in a block is not reported",
+  "old": "if (lcp.HasEscape && lcp.PairCount > 0 && pair != lcp.LowerBound(end)) totals.Lcp.Add(",
+  "new": "if (lcp.HasEscape && lcp.PairCount > 0 && pair < 0) totals.Lcp.Add(",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs"
+ },
+ {
+  "id": "C24",
+  "desc": "the width rule takes 17 times the escapes",
+  "old": "if (16 * escapes8 <= n) return LcpKind.U8;",
+  "new": "if (17 * escapes8 <= n) return LcpKind.U8;",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs"
+ },
+ {
+  "id": "C25",
+  "desc": "the width rule for U16 takes 9 times the escapes",
+  "old": "if (8 * escapes16 <= n) return LcpKind.U16;",
+  "new": "if (9 * escapes16 <= n) return LcpKind.U16;",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs"
+ }
+]

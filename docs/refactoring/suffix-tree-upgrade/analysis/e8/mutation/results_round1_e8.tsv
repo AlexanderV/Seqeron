@@ -1,0 +1,7 @@
+H01	the exit code of a failed verification is 0	killed(1)	
+H02	the whole check is reported as pass when one is skipped	survived	survived
+H03	a skipped check is reported as pass	survived	survived
+H04	the default LCE cap is 0	survived	survived
+H05	the stack cap is given in entries instead of Mi entries	survived	survived
+H06	no-child still checks and no-hash still hashes (flags ignored)	survived	survived
+H07	the sums file lists the hashes in reverse order	killed(1)	

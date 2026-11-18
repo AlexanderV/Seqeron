@@ -1,0 +1,9 @@
+[
+ {
+  "id": "F06",
+  "desc": "the 4-byte base has an escape of 0",
+  "old": "2 => ushort.MaxValue, _ => uint.MaxValue };",
+  "new": "2 => ushort.MaxValue, _ => 0 };",
+  "file": "apps/SuffixTree.EmProto/Verify/LcpView.cs"
+ }
+]

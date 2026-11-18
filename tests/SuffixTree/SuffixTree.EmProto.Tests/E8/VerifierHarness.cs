@@ -118,7 +118,8 @@ internal static class VerifierHarness
     internal static string SmallWithEscapes()
     {
         string block = global::SuffixTree.Esa.Tests.TestSupport.StringFamilies.RandomDna(300, 21);
-        // a tail after the second copy: the adjacent suffixes of the two copies then end in a mismatch, not at the end of the text
-        return global::SuffixTree.Esa.Tests.TestSupport.StringFamilies.RandomDna(1500, 22) + block + global::SuffixTree.Esa.Tests.TestSupport.StringFamilies.RandomDna(60, 23) + block + global::SuffixTree.Esa.Tests.TestSupport.StringFamilies.RandomDna(40, 24);
+        // continuations that differ at once and in the same direction one symbol later ("AA" after the first copy, "CC" after the second): a stored common prefix that is one too long is then wrong only
+        // at the last symbol of the claimed match, which the ends of a long pair do not see (the mismatch it names looks consistent); the probe at stored - 1 does
+        return global::SuffixTree.Esa.Tests.TestSupport.StringFamilies.RandomDna(1500, 22) + block + "AA" + global::SuffixTree.Esa.Tests.TestSupport.StringFamilies.RandomDna(58, 23) + block + "CC" + global::SuffixTree.Esa.Tests.TestSupport.StringFamilies.RandomDna(38, 24);
     }
 }

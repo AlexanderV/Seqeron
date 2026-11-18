@@ -1,0 +1,57 @@
+A01	the packed text is expected without its 64 padding bytes	killed(21)	
+A02	the suffix array file is expected to have n entries	killed(21)	
+A03	the child table file is expected to have n entries	killed(21)	
+A04	the LCP file is expected to have n entries	killed(22)	
+A05	overflow pairs are expected to have 4 bytes	killed(5)	
+A06	stats n greater than meta n is not reported by the files check	survived	survived
+A07	counts that add up to more than n pass the metadata check	survived	survived
+A08	a width above the one the alphabet needs passes the metadata check	survived	survived
+A09	equal neighbouring letters pass the metadata check	survived	survived
+A10	a letter that never occurs passes the metadata check	survived	survived
+B01	the last padding byte is not checked	survived	killed(1)
+B02	the unused bits of the last data byte are not checked	BUILD-ERROR S1125	
+B03	the unused bits are counted modulo 4	killed(3)	
+B04	a longer input passes the length check	survived	survived
+B05	the SHA-256 of the input is not compared with the metadata	survived	killed(1)
+B06	a wrong symbol count is reported only when it is too low	survived	survived
+C01	a duplicate suffix array entry is not noticed	killed(1)	
+C02	the bitmap uses 32 bits per word index but 64 bits per mask	killed(host crash)	
+C03	the bit of an entry is q modulo 32	killed(6)	
+C04	an entry above n is not reported	killed(1)	
+C05	a value of exactly 255 is not counted as an escape	survived	survived
+C06	a value of exactly 65535 is not counted	survived	survived
+C07	SA[0] is not compared with n	survived	survived
+C08	LCP[0] is not checked	killed(1)	
+C09	the common prefix is bounded by the shorter start instead of the shorter suffix	killed(13)	
+C10	a cap of 0 means a limit of 0	killed(1)	
+C11	a pair where one suffix ends is treated as a long pair	killed(13)	
+C12	the suffix that starts earlier is the shorter one	killed(12)	
+C13	equal symbols at the mismatch pass the order check	survived	survived
+C14	a stored LCP that is too large is not reported (exact path)	killed(2)	
+C15	a stored LCP above the shorter suffix is accepted for a long pair	survived	killed(host crash)
+C16	for a long pair that ends at the shorter suffix the order is reversed	killed(4)	
+C17	for a long pair the order of the mismatch symbols is reversed	killed(1)	
+C18	no probes of the matching part of a long pair	survived	survived
+C19	the first probe is two symbols before the end instead of one	survived	survived
+C20	the probe compares for inequality as equality	killed(5)	
+C21	a pair value equal to the escape is refused	killed(5)	
+C22	the first pair of a block is looked up from the start of the list	killed(4)	
+C23	a pair left over in a block is not reported	BUILD-ERROR S1125	
+C24	the width rule takes 17 times the escapes	survived	survived
+C25	the width rule for U16 takes 9 times the escapes	survived	survived
+D01	the left boundary of a new interval is the rank itself	killed(11)	
+D02	a child is the last child when the next value equals the parent	killed(9)	
+D03	an interval of the same value is pushed again	killed(11)	
+D04	the next link is expected when the successor is two ranks away	killed(9)	
+D05	up and down fields are swapped	killed(10)	
+D06	the deepest interval is the last one among equals	killed(1)	
+D07	the LRS rank is the right boundary	killed(11)	
+D08	the first maximum is the last maximum	killed(1)	
+D09	the first maximum rank is off by one	killed(11)	
+D10	cells holding 1 are not counted as set	killed(12)	
+D11	the root is closed as a non-last child	killed(10)	
+D12	the internal count includes the root	killed(11)	
+D13	the node count omits the empty suffix	killed(12)	
+D14	a text with the stack bound exceeded is reported as passed	survived	survived
+D15	the hashes are of the wrong file extension list order (sha of pk for stats)	killed(1)	
+D16	the hash reads only the first buffer of a file	killed(1)	
