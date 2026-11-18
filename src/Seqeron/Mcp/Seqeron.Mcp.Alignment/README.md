@@ -2,7 +2,7 @@
 
 MCP server — **Pairwise and multiple sequence alignment, overlap/assembly and approximate matching.**
 
-Exposes **35 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
+Exposes **37 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
 MCP. Every tool carries an explicit JSON input/output schema and a Schema+Binding test, with a
 per-tool doc under [`docs/mcp/tools/alignment/`](../../../../docs/mcp/tools/alignment). Rollout status:
 [`docs/mcp/MCP_STATUS.md`](../../../../docs/mcp/MCP_STATUS.md).
@@ -43,6 +43,8 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `global_align_affine` | Global pairwise alignment with affine gap costs (Gotoh 1982): a gap of length k scores gapOpen + k·gapExtend (BLAST+ / Biopython convention… |
 | `local_align` | Local pairwise alignment (Smith-Waterman, zero floor). Linear gap model: every gap position scores gapExtend; gapOpen is IGNORED (use local… |
 | `local_align_affine` | Local pairwise alignment with affine gap costs (Smith-Waterman 1981 with Gotoh 1982 gaps): a gap of length k scores gapOpen + k·gapExtend; … |
+| `local_align_top_n` | Waterman-Eggert (1987) top-N NON-INTERSECTING local alignments (EMBOSS matcher -alternatives / lalign declumping): best alignment, then the best one sharing no aligned residue pair with it, ... up to `maxAlignments` of score >= `minScore`; linear or `affine` gaps, scalar or `matrix` scoring. |
+| `local_align_co_optimal` | ALL distinct co-optimal local alignments (Biopython `PairwiseAligner(mode='local').align` set), capped at `maxAlignments`; linear or `affine` gaps, scalar or `matrix` scoring. |
 | `merge_contigs` | Concatenates two contigs, collapsing the specified suffix/prefix overlap of overlapLength bases. |
 | `multiple_align` | Center-star multiple sequence alignment (Gusfield 1993) with exact pairwise alignments: the center is the sequence with the highest total o… |
 | `multiple_align_anchored` | Approximate, faster center-star MSA: 4-mer count cosine center, suffix-tree exact-match anchors (MUMmer-style seed, weighted colinear chain… |

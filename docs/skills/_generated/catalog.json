@@ -168,6 +168,20 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.cs#L807"
   },
   {
+    "tool": "local_align_co_optimal",
+    "server": "Alignment",
+    "methodId": "SequenceAligner.LocalAlignCoOptimal",
+    "docPath": "docs/mcp/tools/alignment/local_align_co_optimal.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.TopN.cs"
+  },
+  {
+    "tool": "local_align_top_n",
+    "server": "Alignment",
+    "methodId": "SequenceAligner.LocalAlignTopN",
+    "docPath": "docs/mcp/tools/alignment/local_align_top_n.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.TopN.cs"
+  },
+  {
     "tool": "merge_contigs",
     "server": "Alignment",
     "methodId": "SequenceAssembler.MergeContigs",

@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace Seqeron.Genomics.Alignment;
@@ -533,16 +534,7 @@ public static partial class SequenceAligner
             char c1 = seq1[i - 1];
             for (int j = 1; j <= n; j++)
             {
-                int s = scoring.Sub(c1, seq2[j - 1]);
-
-                mm[i, j] = Math.Max(startFloor, Max3(mm[i - 1, j - 1], xx[i - 1, j - 1], yy[i - 1, j - 1])) + s;
-                xx[i, j] = Max3(mm[i - 1, j] + oe, xx[i - 1, j] + e, yy[i - 1, j] + oe);
-                yy[i, j] = Max3(mm[i, j - 1] + oe, yy[i, j - 1] + e, xx[i, j - 1] + oe);
-
-                // Clamp unreachable states so repeated penalties never drift towards overflow.
-                if (xx[i, j] < AffineNegInf) xx[i, j] = AffineNegInf;
-                if (yy[i, j] < AffineNegInf) yy[i, j] = AffineNegInf;
-                if (mm[i, j] < AffineNegInf) mm[i, j] = AffineNegInf;
+                AffineCell(mm, xx, yy, i, j, scoring.Sub(c1, seq2[j - 1]), startFloor, e, oe, forbidden: false);
 
                 if (local && mm[i, j] > bestLocal)
                 {
@@ -602,6 +594,24 @@ public static partial class SequenceAligner
             }
         }
 
+        return AffineTraceback(seq1, seq2, mm, xx, yy, scoring, local, ends, ci, cj, state, best);
+    }
+
+    /// <summary>
+    /// Gotoh traceback from state <paramref name="state"/> at cell (<paramref name="ci"/>, <paramref name="cj"/>) of the
+    /// filled matrices; ties M &gt; X &gt; Y, a local alignment stops when the predecessor value is 0. Shared by
+    /// <see cref="AffineAlignCore"/> and the Waterman-Eggert declumper.
+    /// </summary>
+    private static AlignmentResult AffineTraceback(
+        string seq1, string seq2, int[,] mm, int[,] xx, int[,] yy, PairScoring scoring,
+        bool local, EndGaps ends, int ci, int cj, byte state, int best)
+    {
+        int m = seq1.Length;
+        int n = seq2.Length;
+        int e = scoring.GapExtend;
+        int oe = scoring.GapOpen + e;
+        bool freeStart1 = ends.HasFlag(EndGaps.FreeStart1);
+        bool freeStart2 = ends.HasFlag(EndGaps.FreeStart2);
         int endI = ci;
         int endJ = cj;
         var chars1 = new List<char>(m + n);
@@ -668,6 +678,27 @@ public static partial class SequenceAligner
             StartPosition2: cj,
             EndPosition1: endI - 1,
             EndPosition2: endJ - 1);
+    }
+
+    /// <summary>
+    /// One cell of Gotoh's three-state recurrences (M, X, Y at (i,j)) with the unreachable states clamped to
+    /// <see cref="AffineNegInf"/>. With <paramref name="forbidden"/> the aligned pair (a_i, b_j) may not be used
+    /// (Waterman-Eggert declumping): the substitution state M(i,j) is unreachable, the gap states are unchanged.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static void AffineCell(
+        int[,] mm, int[,] xx, int[,] yy, int i, int j, int sub, int startFloor, int e, int oe, bool forbidden)
+    {
+        int m = forbidden
+            ? AffineNegInf
+            : Math.Max(startFloor, Max3(mm[i - 1, j - 1], xx[i - 1, j - 1], yy[i - 1, j - 1])) + sub;
+        int x = Max3(mm[i - 1, j] + oe, xx[i - 1, j] + e, yy[i - 1, j] + oe);
+        int y = Max3(mm[i, j - 1] + oe, yy[i, j - 1] + e, xx[i, j - 1] + oe);
+
+        // Clamp unreachable states so repeated penalties never drift towards overflow.
+        xx[i, j] = x < AffineNegInf ? AffineNegInf : x;
+        yy[i, j] = y < AffineNegInf ? AffineNegInf : y;
+        mm[i, j] = m < AffineNegInf ? AffineNegInf : m;
     }
 
     /// <summary>Tag of a result: Local, otherwise Global when no end gap is free, else SemiGlobal.</summary>
@@ -759,13 +790,7 @@ public static partial class SequenceAligner
         {
             for (int j = 1; j <= n; j++)
             {
-                int matchScore = scoring.Sub(seq1[i - 1], seq2[j - 1]);
-
-                int diag = score[i - 1, j - 1] + matchScore;
-                int up = score[i - 1, j] + scoring.GapExtend;
-                int left = score[i, j - 1] + scoring.GapExtend;
-
-                score[i, j] = Math.Max(0, Math.Max(diag, Math.Max(up, left)));
+                score[i, j] = LocalLinearCell(score, i, j, scoring.Sub(seq1[i - 1], seq2[j - 1]), scoring.GapExtend, forbidden: false);
 
                 if (score[i, j] > maxScore)
                 {
@@ -780,8 +805,23 @@ public static partial class SequenceAligner
         return TracebackLocal(seq1, seq2, score, maxI, maxJ, scoring);
     }
 
+    /// <summary>
+    /// One cell of the linear-gap local recurrence H(i,j) = max(0, H(i-1,j-1) + s, H(i-1,j) + d, H(i,j-1) + d).
+    /// With <paramref name="forbidden"/> the aligned pair (a_i, b_j) may not be used (Waterman-Eggert declumping,
+    /// <see cref="LocalAlignTopN(string, string, ScoringMatrix?, int, int)"/>): the diagonal move is dropped, the gap moves stay.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static int LocalLinearCell(int[,] score, int i, int j, int sub, int gap, bool forbidden)
+    {
+        int best = Math.Max(score[i - 1, j] + gap, score[i, j - 1] + gap);
+        if (!forbidden)
+            best = Math.Max(best, score[i - 1, j - 1] + sub);
+        return Math.Max(0, best);
+    }
+
     private static AlignmentResult TracebackLocal(
-        string seq1, string seq2, int[,] score, int endI, int endJ, PairScoring scoring)
+        string seq1, string seq2, int[,] score, int endI, int endJ, PairScoring scoring,
+        HashSet<long>? forbidden = null)
     {
         var chars1 = new List<char>();
         var chars2 = new List<char>();
@@ -796,7 +836,7 @@ public static partial class SequenceAligner
 
             int matchScore = scoring.Sub(seq1[i - 1], seq2[j - 1]);
 
-            if (score[i, j] == score[i - 1, j - 1] + matchScore)
+            if ((forbidden is null || !forbidden.Contains(PackCell(i, j))) && score[i, j] == score[i - 1, j - 1] + matchScore)
             {
                 chars1.Add(seq1[i - 1]);
                 chars2.Add(seq2[j - 1]);
@@ -2144,10 +2184,11 @@ public static partial class SequenceAligner
     //
     // Algorithm (Feng & Doolittle 1987; Wikipedia "Multiple sequence alignment"):
     //   1. Compute all C(k,2) pairwise global (Needleman-Wunsch) alignments and derive a
-    //      distance matrix. Distance = 1 - fractional identity, where fractional identity =
-    //      identical columns / alignment length of the pairwise NW alignment. (Feng-Doolittle
+    //      distance matrix. Distance = 1 - identities / min(len1, len2): the ClustalW pairwise
+    //      distance (Thompson, Higgins & Gibson 1994; pairalign.c tmat = (100 - mm_score) / 100,
+    //      mm_score = 100 * count / MIN(len1, len2)), see PairwiseIdentityDistance. (Feng-Doolittle
     //      converts pairwise alignment scores to distances; identity-based distance is the
-    //      standard, simplest such conversion used by Clustal-style tools.)
+    //      standard conversion used by Clustal-style tools.)
     //   2. Build a guide tree by UPGMA over that distance matrix — "an efficient clustering
     //      method such as neighbor-joining or unweighted pair group method with arithmetic
     //      mean (UPGMA)" (Wikipedia "Multiple sequence alignment"). UPGMA is the classic
@@ -2183,8 +2224,9 @@ public static partial class SequenceAligner
     /// Pipeline (Feng &amp; Doolittle 1987; Wikipedia "Multiple sequence alignment"):
     /// </para>
     /// <list type="number">
-    /// <item>All pairwise Needleman-Wunsch alignments give a distance matrix using
-    /// distance = 1 − fractional identity (identical columns / pairwise alignment length).</item>
+    /// <item>All pairwise Needleman-Wunsch alignments give a distance matrix using the ClustalW distance
+    /// d = 1 − (identical aligned residue pairs) / (length of the shorter sequence)
+    /// (<c>pairalign.c</c>: <c>tmat = (100 − 100·count / MIN(len1, len2)) / 100</c>).</item>
     /// <item>A UPGMA guide tree is built over that matrix (the classic Feng-Doolittle choice).</item>
     /// <item>Profiles are aligned progressively from the tips with the NW recurrence over
     /// columns and sum-of-pairs profile scoring, enforcing "once a gap, always a gap".</item>
@@ -2216,7 +2258,7 @@ public static partial class SequenceAligner
         int k = seqList.Count;
         var rawSeqs = seqList.Select(s => s.Sequence).ToArray();
 
-        // Step 1: pairwise NW alignments -> distance matrix (1 - fractional identity).
+        // Step 1: pairwise NW alignments -> distance matrix (ClustalW: 1 - identities / min(len1, len2)).
         var distance = new double[k, k];
         for (int i = 0; i < k; i++)
         {
@@ -2986,7 +3028,7 @@ public static partial class SequenceAligner
         // Steps 1-2: primary library (global + local, signal-added) then triplet extension.
         var library = new ExtendedLibrary(BuildPrimaryLibrary(rawSeqs, effectiveScoring));
 
-        // Step 3a: UPGMA guide tree over (1 - fractional identity), reusing the progressive pipeline.
+        // Step 3a: UPGMA guide tree over the ClustalW distances (1 - identities / min(len1, len2)), reusing the progressive pipeline.
         var distance = new double[k, k];
         for (int i = 0; i < k; i++)
             for (int j = i + 1; j < k; j++)

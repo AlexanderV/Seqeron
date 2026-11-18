@@ -19,6 +19,7 @@ namespace Seqeron.Mcp.Alignment;
 [JsonSerializable(typeof(QualityReadInput[]))]
 // SequenceAligner outputs
 [JsonSerializable(typeof(AlignmentResultDto))]
+[JsonSerializable(typeof(LocalAlignmentListResult))]
 [JsonSerializable(typeof(AlignmentStatisticsDto))]
 [JsonSerializable(typeof(FormatAlignmentResult))]
 [JsonSerializable(typeof(MultipleAlignmentResultDto))]

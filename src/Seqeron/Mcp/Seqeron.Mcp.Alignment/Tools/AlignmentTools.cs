@@ -248,6 +248,68 @@ public class AlignmentTools
         return ToAlignmentDto(r);
     }
 
+    [McpServerTool(Name = "local_align_top_n", Title = "Pairwise — Top-N Non-Intersecting Local Alignments (Waterman–Eggert)", ReadOnly = true)]
+    [Description("Waterman–Eggert (1987, J Mol Biol 197:723) declumping: the best local alignment, then the best local alignment that shares no ALIGNED RESIDUE PAIR with it, then the best sharing no pair with either, ... up to maxAlignments alignments of score >= minScore (and always > 0) - the 'alternatives' of EMBOSS matcher -alternatives N (Huang-Miller SIM; exact same definition, verified round by round on 2 902 reported alignments) and FASTA lalign. An aligned pair is a diagonal column (a_i opposite b_j); gap columns are not pairs, so two reported alignments may cross through a gap column but never align the same two residues. Alignment 1 is exactly local_align (affine = false) / local_align_affine (affine = true); scores are non-increasing; ties between co-optimal alignments are broken as local_align does (first maximal cell in row-major order, traceback diagonal > up > left, M > X > Y), so on tie-rich inputs a later alignment can differ from matcher's (its score is always the true maximum of the remaining problem). affine = false: linear gaps (every gap position costs gapExtend, gapOpen ignored); affine = true: a gap of length k costs gapOpen + k*gapExtend (EMBOSS -gapopen G -gapextend E = gapOpen -(G - E), gapExtend -E). With matrix = BLOSUM62 | PAM250 | EDNAFULL residues are scored by that table, gaps may be fractional and minScore/exactScore are real scores. Returns alignments (same fields as local_align) in the order found; fewer than maxAlignments when nothing positive >= minScore is left (empty list when no pair scores > 0). Implementation: the original recomputation scheme (matrices kept, only cells whose value can change are recomputed after each report); O(len1*len2) memory, inputs above 25,000,000 cells ((len1+1)*(len2+1)) are rejected with a clear error.")]
+    public static LocalAlignmentListResult LocalAlignTopN(
+        [Description("First sequence.")] string sequence1,
+        [Description("Second sequence.")] string sequence2,
+        [Description("Maximum number of alignments to report (>= 1).")] int maxAlignments = 10,
+        [Description("Smallest accepted score (inclusive); alignments scoring <= 0 are never reported. Real number (fractional with matrix).")] double minScore = 0,
+        [Description("false = linear gap model (gapExtend per gap position); true = affine (gapOpen + k*gapExtend).")] bool affine = false,
+        [Description("Score for matching base (ignored with matrix).")] int match = 1,
+        [Description("Score for mismatching base (ignored with matrix).")] int mismatch = -1,
+        [Description("Gap-open score (affine = true only; ignored by the linear model). May be fractional when matrix is given.")] double gapOpen = -2,
+        [Description("Gap score charged per gap position (<= 0). May be fractional when matrix is given.")] double gapExtend = -1,
+        [Description(MatrixParamDescription)] string? matrix = null)
+    {
+        RequireSequence(sequence1, nameof(sequence1));
+        RequireSequence(sequence2, nameof(sequence2));
+        var sub = ResolveMatrix(matrix);
+        if (sub is not null)
+        {
+            var ms = new global::Seqeron.Genomics.Infrastructure.MatrixScoring(sub, gapOpen, gapExtend);
+            return ToAlignmentListDto(affine
+                ? global::Seqeron.Genomics.Alignment.SequenceAligner.LocalAlignAffineTopN(sequence1, sequence2, ms, maxAlignments, minScore)
+                : global::Seqeron.Genomics.Alignment.SequenceAligner.LocalAlignTopN(sequence1, sequence2, ms, maxAlignments, minScore));
+        }
+
+        var scoring = new global::Seqeron.Genomics.Infrastructure.ScoringMatrix(match, mismatch, RequireInteger(gapOpen, nameof(gapOpen)), RequireInteger(gapExtend, nameof(gapExtend)));
+        int min = (int)Math.Clamp(Math.Ceiling(minScore), int.MinValue, int.MaxValue);
+        return ToAlignmentListDto(affine
+            ? global::Seqeron.Genomics.Alignment.SequenceAligner.LocalAlignAffineTopN(sequence1, sequence2, scoring, maxAlignments, min)
+            : global::Seqeron.Genomics.Alignment.SequenceAligner.LocalAlignTopN(sequence1, sequence2, scoring, maxAlignments, min));
+    }
+
+    [McpServerTool(Name = "local_align_co_optimal", Title = "Pairwise — All Co-Optimal Local Alignments", ReadOnly = true)]
+    [Description("Enumerates ALL distinct local alignments whose score equals the Smith–Waterman optimum (the set Biopython PairwiseAligner(mode='local').align(a, b) iterates; equal on 1 345 oracle pairs), capped at maxAlignments because the number of co-optimal alignments grows exponentially with repeats (tandem repeats, long gap-placement ties). Every alignment ends with an aligned pair, begins right after a zero-score cell, and is not a zero-score extension of a shorter optimal alignment (Biopython rule). Order is deterministic: end cell in row-major order, then diagonal > up > left (affine: M > X > Y) at each branch, so the first alignment equals local_align / local_align_affine. affine = false: linear gaps (gapExtend per position, gapOpen ignored); affine = true: gapOpen + k*gapExtend. With matrix = BLOSUM62 | PAM250 | EDNAFULL residues are scored by that table and gaps may be fractional (exactScore is the real score). Returns alignments (same fields as local_align); empty list when no pair scores > 0. O(len1*len2) memory: inputs above 25,000,000 cells ((len1+1)*(len2+1)) are rejected with a clear error.")]
+    public static LocalAlignmentListResult LocalAlignCoOptimal(
+        [Description("First sequence.")] string sequence1,
+        [Description("Second sequence.")] string sequence2,
+        [Description("Cap on the number of alignments returned (>= 1).")] int maxAlignments = 100,
+        [Description("false = linear gap model (gapExtend per gap position); true = affine (gapOpen + k*gapExtend).")] bool affine = false,
+        [Description("Score for matching base (ignored with matrix).")] int match = 1,
+        [Description("Score for mismatching base (ignored with matrix).")] int mismatch = -1,
+        [Description("Gap-open score (affine = true only; ignored by the linear model). May be fractional when matrix is given.")] double gapOpen = -2,
+        [Description("Gap score charged per gap position (<= 0). May be fractional when matrix is given.")] double gapExtend = -1,
+        [Description(MatrixParamDescription)] string? matrix = null)
+    {
+        RequireSequence(sequence1, nameof(sequence1));
+        RequireSequence(sequence2, nameof(sequence2));
+        var sub = ResolveMatrix(matrix);
+        if (sub is not null)
+        {
+            var ms = new global::Seqeron.Genomics.Infrastructure.MatrixScoring(sub, gapOpen, gapExtend);
+            return ToAlignmentListDto(affine
+                ? global::Seqeron.Genomics.Alignment.SequenceAligner.LocalAlignAffineCoOptimal(sequence1, sequence2, ms, maxAlignments)
+                : global::Seqeron.Genomics.Alignment.SequenceAligner.LocalAlignCoOptimal(sequence1, sequence2, ms, maxAlignments));
+        }
+
+        var scoring = new global::Seqeron.Genomics.Infrastructure.ScoringMatrix(match, mismatch, RequireInteger(gapOpen, nameof(gapOpen)), RequireInteger(gapExtend, nameof(gapExtend)));
+        return ToAlignmentListDto(affine
+            ? global::Seqeron.Genomics.Alignment.SequenceAligner.LocalAlignAffineCoOptimal(sequence1, sequence2, scoring, maxAlignments)
+            : global::Seqeron.Genomics.Alignment.SequenceAligner.LocalAlignCoOptimal(sequence1, sequence2, scoring, maxAlignments));
+    }
+
     [McpServerTool(Name = "semi_global_align_affine", Title = "Pairwise — Semi-Global (Fitting) Alignment, Affine Gaps", ReadOnly = true)]
     [Description("Semi-global (fitting) pairwise alignment with affine gap costs: by default sequence1 is aligned end to end inside sequence2 (free leading/trailing sequence2 residues, endGaps = 'Fitting'); the optional endGaps parameter selects any of the 16 end-gap policies (overlap / suffix-prefix in both orientations, sequence2 inside sequence1, all four ends free = EMBOSS needle's default -endweight N, none = global); a gap of length k scores gapOpen + k·gapExtend, a free end gap 0. Equals Biopython PairwiseAligner(mode='global', end_insertion_score=0 for the default; left/right_insertion/deletion_score = 0 in general) and parasail sg_dx (sg_* variants). With the default endGaps startPosition2/endPosition2 report the fitted interval of sequence2 (0-based inclusive; the free flanks lie outside it; an empty interval has endPosition2 = startPosition2 - 1) and startPosition1/endPosition1 span the whole query; for any endGaps they are the consumed intervals of each sequence. With matrix = BLOSUM62 | PAM250 | EDNAFULL the alignment is scored by that published residue-pair table (protein or IUPAC DNA, any symbol of the matrix) instead of match/mismatch and gapOpen/gapExtend may be fractional (EMBOSS needle/water 6.6.0 = Biopython PairwiseAligner = parasail on >1000 oracle rows; EMBOSS -gapopen G -gapextend E = gapOpen -(G - E), gapExtend -E); exactScore is then the real-valued score (score = rounded). Matrix mode accepts protein sequences (no DNA validation). Memory: inputs above 25,000,000 dynamic-programming cells ((len1+1)*(len2+1), e.g. two 5 kb sequences) are aligned automatically in exact LINEAR SPACE (Hirschberg 1975 / Myers-Miller 1988 / Huang-Miller 1991-style locate-then-solve) - the returned score, rows and coordinates are identical to the full-matrix result (ties included), only the running time grows (about 1.3-2x) and the memory stays O(len1 + len2) instead of O(len1 * len2) (20 kb x 20 kb affine: 111 MB peak instead of 4.8 GB).")]
     public static AlignmentResultDto SemiGlobalAlignAffine(
@@ -350,7 +412,7 @@ public class AlignmentTools
             global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignAnchored);
 
     [McpServerTool(Name = "multiple_align_progressive", Title = "MSA — Progressive Guide-Tree Alignment (Clustal-style)", ReadOnly = true)]
-    [Description("Guide-tree progressive MSA (Feng & Doolittle 1987 / Clustal-style): all pairwise Needleman–Wunsch alignments give distances 1 − fractional identity, a UPGMA guide tree orders the merges, and profiles are aligned by profile–profile Needleman–Wunsch with sum-of-pairs column scores (once a gap, always a gap). Linear gap model (gapOpen ignored). Returns rows, majority consensus and sum-of-pairs score.")]
+    [Description("Guide-tree progressive MSA (Feng & Doolittle 1987 / Clustal-style): the ClustalW pairwise distance of every Needleman–Wunsch alignment, d = 1 − (identical aligned residue pairs) / (length of the shorter sequence) (Thompson, Higgins & Gibson 1994; pairalign.c tmat = (100 − 100·count/MIN(len1, len2)) / 100), gives the distance matrix, a UPGMA guide tree orders the merges, and profiles are aligned by profile–profile Needleman–Wunsch with sum-of-pairs column scores (once a gap, always a gap). Linear gap model (gapOpen ignored). Returns rows, majority consensus and sum-of-pairs score.")]
     public static MultipleAlignmentResultDto MultipleAlignProgressive(
         [Description("DNA sequences to align (at least one).")] string[] sequences,
         [Description("Score for matching base.")] int match = 1,
@@ -899,6 +961,14 @@ public class AlignmentTools
             r.EndPosition1,
             r.EndPosition2,
             r.ExactScore);
+
+    private static LocalAlignmentListResult ToAlignmentListDto(IReadOnlyList<global::Seqeron.Genomics.Infrastructure.AlignmentResult> list)
+    {
+        var items = new AlignmentResultDto[list.Count];
+        for (int i = 0; i < items.Length; i++)
+            items[i] = ToAlignmentDto(list[i]);
+        return new LocalAlignmentListResult(items, items.Length);
+    }
 
     private static AssemblyResultDto ToAssemblyDto(global::Seqeron.Genomics.Alignment.SequenceAssembler.AssemblyResult r)
     {

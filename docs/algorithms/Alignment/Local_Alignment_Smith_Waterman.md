@@ -112,6 +112,7 @@ The repository implementation uses `scoring.GapExtend` as a linear gap penalty i
 - `SequenceAligner.LocalAlignCore(string, string, ScoringMatrix)`: fills the Smith-Waterman score matrix and tracks the maximum-scoring cell.
 - `SequenceAligner.TracebackLocal(...)`: reconstructs the local alignment and source positions.
 - `SequenceAligner.LocalAlignAffine(DnaSequence|string, DnaSequence|string, ScoringMatrix?)`: Smith-Waterman-Gotoh affine-gap local alignment; shares the three-state core `AffineAlignCore` with `GlobalAlignAffine`.
+- `SequenceAligner.LocalAlignTopN` / `LocalAlignAffineTopN(seq1, seq2, scoring, maxAlignments, minScore)` ([SequenceAligner.TopN.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.TopN.cs)): Waterman-Eggert non-intersecting local alignments; `LocalAlignCoOptimal` / `LocalAlignAffineCoOptimal(seq1, seq2, scoring, maxAlignments)`: all co-optimal local alignments (capped); `AlignedPairs(alignment)`: the forbidden pairs. See §5.5.
 
 **Supporting types:** [AlignmentTypes.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Infrastructure/AlignmentTypes.cs), [DnaSequence.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Core/DnaSequence.cs)
 
@@ -139,6 +140,29 @@ The repository implements the linear-gap form of Smith-Waterman with `Math.Max(0
 
 `SequenceAligner.LocalAlign` and `LocalAlignAffine` also accept a `MatrixScoring` (BLOSUM62 / PAM250 / EDNAFULL residue-pair scores, fractional gap scores; `string`, `ProteinSequence`, `DnaSequence`) and run the same dynamic-program core as the integer overloads; see [Global_Alignment_Needleman_Wunsch.md §5.4](Global_Alignment_Needleman_Wunsch.md) for the conversion, the EMBOSS gap convention (`MatrixScoring.Emboss`) and the oracle (EMBOSS water 6.6.0, Biopython 1.88, parasail 1.3.4).
 
+### 5.5 Suboptimal (Waterman-Eggert) and co-optimal local alignments (A1-7, B09 F47)
+
+**Waterman-Eggert declumping** (Waterman & Eggert 1987, J Mol Biol 197:723-728; the algorithm of FASTA `lalign` and of EMBOSS `matcher -alternatives`): `LocalAlignTopN` / `LocalAlignAffineTopN` report the best local alignment, then the best local alignment that shares no *aligned pair* with it, and so on, up to `maxAlignments` alignments of score >= `minScore` (always > 0; scores are non-increasing).
+
+- **Exact definition.** An *aligned pair* is a diagonal column, `a_i` opposite `b_j` (match or mismatch); a column that aligns a residue with a gap is not a pair. Alignment k is a maximum-score local alignment among those containing none of the pairs of alignments 1..k-1 (`SequenceAligner.AlignedPairs` returns them, 1-based). Two reported alignments can therefore cross the same matrix cell through a gap column but never align the same two residues. This is the definition implemented by `matcher`'s `MATCHERDIAG` macro (a pair used by an earlier alignment is removed from the diagonal move only, gap moves are untouched), checked below.
+- **Algorithm (the 1987 recomputation scheme).** The full DP matrices (linear: H; affine: M, X, Y) are kept. After an alignment is reported its pairs are forbidden - the diagonal / M-state move into that cell is removed - and only the cells that can change are recomputed: a cell is recomputed when it is a new forbidden pair or one of its diagonal / upper / left predecessors changed, row by row, until a row has no change. The recurrences are the very functions the plain aligners fill the matrix with (`LocalLinearCell`, `AffineCell`) and the traceback is that of `LocalAlign` / `LocalAlignAffine` (`TracebackLocal`, `AffineTraceback`), so alignment 1 is exactly `LocalAlign` / `LocalAlignAffine`. Best cell per row is cached, so selecting the next best cell is `O(m)`.
+- **Ties.** The alignment chosen among co-optimal ones is the fixed `LocalAlign` choice (first maximal cell in row-major order, diagonal > up > left / M > X > Y, stop at the first zero cell), applied to the matrix with the earlier pairs removed. A later round depends on which co-optimal alignment was taken earlier, so another tool may report a different (equally valid) sequence on tie-rich input; every reported score is the true maximum of the remaining problem.
+- **Scoring/overloads.** `ScoringMatrix` (string, `DnaSequence`) and `MatrixScoring` (string, `ProteinSequence`, `DnaSequence`; fractional gaps, `ExactScore`, real-valued `minScore`), linear and affine.
+- **Memory.** `O(m*n)` (4 bytes per cell linear / 12 affine) as in the original algorithm; (m+1)(n+1) > `TopNMaxCells` (25 000 000) throws `ArgumentException` (the single best alignment above that size is `LocalAlign`, which switches to linear space automatically). 1.9 kb x 1.3 kb, 50 alignments: 1.2-1.4 s.
+
+**Co-optimal enumeration** (`LocalAlignCoOptimal` / `LocalAlignAffineCoOptimal`): every distinct local alignment of the optimum score - the set Biopython's `PairwiseAligner(mode='local').align(a, b)` iterates - capped at `maxAlignments` (the count grows exponentially with repeats). An alignment is a depth-first traceback path from a maximal cell reached by a diagonal move, following every predecessor that reproduces the value (diagonal > up > left / M > X > Y), until the predecessor value is 0; as in Biopython ("zero-score extensions to alignments are not allowed", `_pairwisealigner.c`) a path may not pass through another end cell of an optimal alignment. Order: end cell in row-major order, then the branch order above, so the first element is `LocalAlign`'s result.
+
+**Oracle** (`TestData/Alignment/topn_oracle.tsv`, `scripts/alignment/generate_topn_oracle.py`, 1 350 pairs: tandem-repeat-rich DNA, repeated protein domains, random pairs; linear and affine; scalar scoring and BLOSUM62 with fractional gaps):
+
+| Reference | Result |
+|---|---|
+| Independent Waterman-Eggert written from the definition (full recompute of the matrix after every alignment, Python) | identical alignments (score, coordinates, both rows) on all 1 350 rows, and on 300 further long pairs (up to 174 residues, up to 40 alignments, 6 405 alignments) |
+| Exhaustive enumeration of every local alignment of tiny inputs (<= 5 residues, 198 + 600 pairs) | every round of every row is the exhaustive maximum among alignments avoiding the earlier pairs; the list stops exactly when none is left |
+| EMBOSS `matcher` 6.6.0 `-alternatives k` (Huang-Miller SIM; `matcher_BigPass`/`matcher_Diff` source opened, `kimrutherford/EMBOSS` mirror) | 397 rows / 1 695 alignments (plus 300 more random pairs / 1 207 alignments in a first check): every alignment matcher prints re-scores to its reported score, uses no pair of an earlier one and is the optimum of the matrix with the earlier pairs removed (so matcher = the definition above); Seqeron's score list equals matcher's on 390 of 397 rows, the 7 others diverge only through tie choice; round 1 equal on all 397 |
+| Biopython 1.88 `align()` co-optimal set | identical set on all 1 345 rows with <= 60 co-optimal alignments |
+
+The tool `matcher` reports a different alignment than `water` only after the first one; `water` reports only the best.
+
 ## 6. Edge Cases and Limitations
 
 ### 6.1 Edge Cases
@@ -153,7 +177,7 @@ The repository implements the linear-gap form of Smith-Waterman with `Math.Max(0
 
 ### 6.2 Limitations
 
-The implementation returns one optimal local alignment, not the full set of equally optimal tracebacks. Up to 25 000 000 cells the full `O(mn)` score matrix is kept; above that `LocalAlign` / `LocalAlignAffine` run the exact linear-space refinement (Huang-Hardison-Miller 1990 / Huang-Miller 1991, the algorithm of SIM and EMBOSS `matcher`: locate the optimal local interval in `O(m+n)` memory, then align it globally with Hirschberg / Myers-Miller) with the same score, rows, coordinates and ties (`LocalAlignLinearSpace` / `LocalAlignAffineLinearSpace` force it; they need non-positive gap scores). SIM's top-k non-intersecting alignments are not reproduced (`LocalAlign` returns the one optimal alignment). The public string overload does not validate the alphabet beyond uppercasing its input. Affine-gap scoring is available through `LocalAlignAffine`; like the linear version it expects non-positive gap scores.
+`LocalAlign` / `LocalAlignAffine` return one optimal local alignment (fixed tie order); the suboptimal alignments of Waterman-Eggert and the full co-optimal set are `LocalAlignTopN` and `LocalAlignCoOptimal` (§5.5; they keep the `O(mn)` matrices and reject more than 25 000 000 cells). Up to 25 000 000 cells the full `O(mn)` score matrix is kept; above that `LocalAlign` / `LocalAlignAffine` run the exact linear-space refinement (Huang-Hardison-Miller 1990 / Huang-Miller 1991, the algorithm of SIM and EMBOSS `matcher`: locate the optimal local interval in `O(m+n)` memory, then align it globally with Hirschberg / Myers-Miller) with the same score, rows, coordinates and ties (`LocalAlignLinearSpace` / `LocalAlignAffineLinearSpace` force it; they need non-positive gap scores). The public string overload does not validate the alphabet beyond uppercasing its input. Affine-gap scoring is available through `LocalAlignAffine`; like the linear version it expects non-positive gap scores.
 
 ## 7. Examples and Related Material
 
@@ -175,3 +199,5 @@ with score `13`, matching the expected Smith-Waterman example used in the test s
 3. Smith, T. F.; Waterman, M. S. (1981). "Identification of Common Molecular Subsequences." Journal of Molecular Biology 147(1): 195-197.
 4. Gotoh, O. (1982). "An improved algorithm for matching biological sequences." Journal of Molecular Biology 162: 705-708.
 5. Reference implementations: Biopython `Bio/Align/_pairwisealigner.c` (GOTOH_LOCAL_SCORE), parasail `src/sw.c`.
+6. Waterman, M. S.; Eggert, M. (1987). "A new algorithm for best subsequence alignments with application to tRNA-rRNA comparisons." Journal of Molecular Biology 197(4): 723-728.
+7. Huang, X.; Hardison, R. C.; Miller, W. (1990). "A space-efficient algorithm for local similarities." CABIOS 6: 373-381; Huang, X.; Miller, W. (1991). Adv. Appl. Math. 12: 337-357. EMBOSS 6.6.0 `emboss/matcher.c` (SIM).

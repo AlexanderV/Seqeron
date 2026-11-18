@@ -1,0 +1,117 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "toolName": "local_align_co_optimal",
+ "serverName": "Alignment",
+ "version": "1.0.0",
+ "stability": "stable",
+ "methodId": "SequenceAligner.LocalAlignCoOptimal",
+ "docRef": "Seqeron.Genomics.Alignment/SequenceAligner.TopN.cs",
+ "description": "Enumerates ALL distinct local alignments whose score equals the Smith\u2013Waterman optimum (the set Biopython PairwiseAligner(mode='local').align(a, b) iterates; equal on 1 345 oracle pairs), capped at maxAlignments because the number of co-optimal alignments grows exponentially with repeats (tandem repeats, long gap-placement ties). Every alignment ends with an aligned pair, begins right after a zero-score cell, and is not a zero-score extension of a shorter optimal alignment (Biopython rule). Order is deterministic: end cell in row-major order, then diagonal > up > left (affine: M > X > Y) at each branch, so the first alignment equals local_align / local_align_affine. affine = false: linear gaps (gapExtend per position, gapOpen ignored); affine = true: gapOpen + k*gapExtend. With matrix = BLOSUM62 | PAM250 | EDNAFULL residues are scored by that table and gaps may be fractional (exactScore is the real score). Returns alignments (same fields as local_align); empty list when no pair scores > 0. O(len1*len2) memory: inputs above 25,000,000 cells ((len1+1)*(len2+1)) are rejected with a clear error.",
+ "inputSchema": {
+  "type": "object",
+  "properties": {
+   "sequence1": {
+    "type": "string",
+    "description": "First sequence.",
+    "minLength": 1
+   },
+   "sequence2": {
+    "type": "string",
+    "description": "Second sequence.",
+    "minLength": 1
+   },
+   "maxAlignments": {
+    "type": "integer",
+    "description": "Cap on the number of alignments returned (>= 1).",
+    "default": 100
+   },
+   "affine": {
+    "type": "boolean",
+    "description": "false = linear gap model (gapExtend per gap position); true = affine (gapOpen + k*gapExtend).",
+    "default": false
+   },
+   "match": {
+    "type": "integer",
+    "description": "Score for matching base (ignored with matrix).",
+    "default": 1
+   },
+   "mismatch": {
+    "type": "integer",
+    "description": "Score for mismatching base (ignored with matrix).",
+    "default": -1
+   },
+   "gapOpen": {
+    "type": "number",
+    "description": "Gap-open score (affine = true only; ignored by the linear model). May be fractional when matrix is given.",
+    "default": -2
+   },
+   "gapExtend": {
+    "type": "number",
+    "description": "Gap score charged per gap position (<= 0). May be fractional when matrix is given.",
+    "default": -1
+   },
+   "matrix": {
+    "type": "string",
+    "description": "Optional substitution matrix: BLOSUM62, PAM250 (protein) or EDNAFULL (IUPAC DNA). When given, match/mismatch are ignored, residues are scored by the published table (any protein or IUPAC symbol of the matrix; case-insensitive) and gapOpen/gapExtend may be fractional (the EMBOSS needle/water models: gapOpen = -(G - E), gapExtend = -E for -gapopen G -gapextend E). The result then also carries the real-valued exactScore."
+   }
+  },
+  "required": [
+   "sequence1",
+   "sequence2"
+  ]
+ },
+ "outputSchema": {
+  "type": "object",
+  "properties": {
+   "alignments": {
+    "type": "array",
+    "description": "Local alignments, best first (same fields as local_align).",
+    "items": {
+     "type": "object",
+     "properties": {
+      "alignedSequence1": {
+       "type": "string",
+       "description": "Aligned sequence1 (with '-' gaps)."
+      },
+      "alignedSequence2": {
+       "type": "string",
+       "description": "Aligned sequence2 (with '-' gaps)."
+      },
+      "score": {
+       "type": "integer",
+       "description": "Alignment score."
+      },
+      "alignmentType": {
+       "type": "string",
+       "description": "Alignment type (Local)."
+      },
+      "startPosition1": {
+       "type": "integer",
+       "description": "0-based start in sequence1."
+      },
+      "startPosition2": {
+       "type": "integer",
+       "description": "0-based start in sequence2."
+      },
+      "endPosition1": {
+       "type": "integer",
+       "description": "0-based end in sequence1."
+      },
+      "endPosition2": {
+       "type": "integer",
+       "description": "0-based end in sequence2."
+      },
+      "exactScore": {
+       "type": "number",
+       "description": "Real-valued score (equals `score` for integer scoring; with matrix / fractional gaps `score` is this value rounded half away from zero)."
+      }
+     }
+    }
+   },
+   "count": {
+    "type": "integer",
+    "description": "Number of alignments returned."
+   }
+  }
+ }
+}

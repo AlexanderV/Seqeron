@@ -16,6 +16,9 @@ public record AlignmentResultDto(
     int EndPosition2,
     double ExactScore = 0);
 
+/// <summary>List of local alignments (Waterman–Eggert top-N, co-optimal enumeration), best first.</summary>
+public record LocalAlignmentListResult(AlignmentResultDto[] Alignments, int Count);
+
 /// <summary>Alignment summary statistics.</summary>
 public record AlignmentStatisticsDto(
     int Matches,

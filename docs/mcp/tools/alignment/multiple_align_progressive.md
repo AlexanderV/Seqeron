@@ -1,6 +1,6 @@
 # multiple_align_progressive
 
-Guide-tree progressive MSA (Feng & Doolittle 1987 / CLUSTAL): ClustalW pairwise distances from all Needleman-Wunsch alignments (1 - identities / shorter length), a UPGMA guide tree, then profile-profile Needleman-Wunsch with sum-of-pairs column scores (once a gap, always a gap). Linear gap model (gapOpen ignored).
+Guide-tree progressive MSA (Feng & Doolittle 1987 / Clustal-style): the ClustalW pairwise distance of every Needleman–Wunsch alignment, d = 1 − (identical aligned residue pairs) / (length of the shorter sequence) (Thompson, Higgins & Gibson 1994; pairalign.c tmat = (100 − 100·count/MIN(len1, len2)) / 100), gives the distance matrix, a UPGMA guide tree orders the merges, and profiles are aligned by profile–profile Needleman–Wunsch with sum-of-pairs column scores (once a gap, always a gap). Linear gap model (gapOpen ignored). Returns rows, majority consensus and sum-of-pairs score.
 
 ## Overview
 
@@ -14,7 +14,7 @@ Guide-tree progressive MSA (Feng & Doolittle 1987 / CLUSTAL): ClustalW pairwise 
 
 ## Description
 
-Guide-tree progressive MSA (Feng & Doolittle 1987 / CLUSTAL): ClustalW pairwise distances from all Needleman-Wunsch alignments (1 - identities / shorter length), a UPGMA guide tree, then profile-profile Needleman-Wunsch with sum-of-pairs column scores (once a gap, always a gap). Linear gap model (gapOpen ignored).
+Guide-tree progressive MSA (Feng & Doolittle 1987 / Clustal-style): the ClustalW pairwise distance of every Needleman–Wunsch alignment, d = 1 − (identical aligned residue pairs) / (length of the shorter sequence) (Thompson, Higgins & Gibson 1994; pairalign.c tmat = (100 − 100·count/MIN(len1, len2)) / 100), gives the distance matrix, a UPGMA guide tree orders the merges, and profiles are aligned by profile–profile Needleman–Wunsch with sum-of-pairs column scores (once a gap, always a gap). Linear gap model (gapOpen ignored). Returns rows, majority consensus and sum-of-pairs score.
 
 ## Core Documentation Reference
 

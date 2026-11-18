@@ -4,7 +4,7 @@
 
 <!-- BEGIN generated: do not edit by hand -->
 
-## Alignment (35 tools)
+## Alignment (37 tools)
 
 | tool | Method ID | doc |
 |------|-----------|-----|
@@ -32,6 +32,8 @@
 | `global_align_affine` | `SequenceAligner.GlobalAlignAffine` | [doc](../../mcp/tools/alignment/global_align_affine.md) |
 | `local_align` | `SequenceAligner.LocalAlign` | [doc](../../mcp/tools/alignment/local_align.md) |
 | `local_align_affine` | `SequenceAligner.LocalAlignAffine` | [doc](../../mcp/tools/alignment/local_align_affine.md) |
+| `local_align_co_optimal` | `SequenceAligner.LocalAlignCoOptimal` | [doc](../../mcp/tools/alignment/local_align_co_optimal.md) |
+| `local_align_top_n` | `SequenceAligner.LocalAlignTopN` | [doc](../../mcp/tools/alignment/local_align_top_n.md) |
 | `merge_contigs` | `SequenceAssembler.MergeContigs` | [doc](../../mcp/tools/alignment/merge_contigs.md) |
 | `multiple_align` | `SequenceAligner.MultipleAlign` | [doc](../../mcp/tools/alignment/multiple_align.md) |
 | `multiple_align_anchored` | `SequenceAligner.MultipleAlignAnchored` | [doc](../../mcp/tools/alignment/multiple_align_anchored.md) |

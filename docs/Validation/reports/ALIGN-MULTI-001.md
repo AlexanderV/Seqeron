@@ -35,7 +35,7 @@ probe (since removed), not read out of the repo's own assertions.
 - **Star:** center selection (max total similarity to others) → pairwise NW to center → gap reconciliation
   into one MSA coordinate space → majority consensus → SP score. SP convention: match/mismatch from
   matrix, residue-gap = GapExtend, **gap-gap = 0** (standard, documented). ✔
-- **Progressive distance:** d = 1 − fractional identity (identical non-gap columns / pairwise-NW length).
+- **Progressive distance:** d = 1 − identities / min(len1, len2) (the ClustalW `pairalign.c` distance; corrected from the first-pass "1 − fractional identity (identical columns / alignment length)" in F8, audit A1-17: the tool description, comments and docs now state the exact formula).
   Standard Clustal-style conversion. ✔
 - **UPGMA:** smallest distance merged first, lowest-index tie-break, **proportional size-weighted**
   averaging — matches the Wikipedia formula symbol-for-symbol. ✔

@@ -40,6 +40,8 @@ public sealed class ToolRegistrationContractTests : ToolRegistrationContractTest
         "global_align_affine",
         "local_align",
         "local_align_affine",
+        "local_align_co_optimal",
+        "local_align_top_n",
         "merge_contigs",
         "multiple_align",
         "multiple_align_anchored",

@@ -30,6 +30,8 @@
 | `global_align_affine` | Alignment | `SequenceAligner.GlobalAlignAffine` | [doc](../../../../docs/mcp/tools/alignment/global_align_affine.md) |
 | `local_align` | Alignment | `SequenceAligner.LocalAlign` | [doc](../../../../docs/mcp/tools/alignment/local_align.md) |
 | `local_align_affine` | Alignment | `SequenceAligner.LocalAlignAffine` | [doc](../../../../docs/mcp/tools/alignment/local_align_affine.md) |
+| `local_align_co_optimal` | Alignment | `SequenceAligner.LocalAlignCoOptimal` | [doc](../../../../docs/mcp/tools/alignment/local_align_co_optimal.md) |
+| `local_align_top_n` | Alignment | `SequenceAligner.LocalAlignTopN` | [doc](../../../../docs/mcp/tools/alignment/local_align_top_n.md) |
 | `merge_contigs` | Alignment | `SequenceAssembler.MergeContigs` | [doc](../../../../docs/mcp/tools/alignment/merge_contigs.md) |
 | `multiple_align` | Alignment | `SequenceAligner.MultipleAlign` | [doc](../../../../docs/mcp/tools/alignment/multiple_align.md) |
 | `multiple_align_anchored` | Alignment | `SequenceAligner.MultipleAlignAnchored` | [doc](../../../../docs/mcp/tools/alignment/multiple_align_anchored.md) |
