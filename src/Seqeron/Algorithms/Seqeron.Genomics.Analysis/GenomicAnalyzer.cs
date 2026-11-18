@@ -174,16 +174,28 @@ public static class GenomicAnalyzer
     #region Motif Finding
 
     /// <summary>
-    /// Finds all occurrences of a motif (pattern) in a sequence.
-    /// Time complexity: O(m) where m is motif length.
+    /// Finds all occurrences of an exact motif (pattern) in a sequence: the 0-based start of every
+    /// window <c>S[i..i+m-1]</c> equal to the motif, overlapping occurrences included, in
+    /// <b>ascending</b> order. Matching is case-insensitive and exact: an IUPAC ambiguity code in the
+    /// motif is a literal symbol (a DNA sequence never contains one, so it matches nothing) and only
+    /// the forward strand is searched. Use <see cref="FindKnownMotifHits"/> for degenerate (IUPAC)
+    /// motifs and both-strand searches. A null or empty motif yields an empty list (the empty string
+    /// is not a motif); a null sequence throws <see cref="ArgumentNullException"/>.
+    /// <para>
+    /// Delegates to the canonical <see cref="MotifFinder.FindExactMotif"/> (same engine, same order;
+    /// the two used to be copies that differed only in sorting and null handling). That engine is the
+    /// sequence's cached suffix tree: an O(n) build with a large constant (measured 0.9 s / 170 MB at
+    /// 1 Mbp, 23 s / 1.7 GB at 10 Mbp) paid once per <see cref="DnaSequence"/>, then O(m + occ) per
+    /// query. For a single one-off query over a very large sequence the linear scan
+    /// <see cref="KmerAnalyzer.FindKmerPositions"/> (KMP, 71 ms at 10 Mbp, no index) is the cheaper
+    /// call and returns the same positions; <see cref="FindKnownMotifs(DnaSequence, IEnumerable{string})"/>
+    /// chooses between the two itself.
+    /// </para>
     /// </summary>
     public static IReadOnlyList<int> FindMotif(DnaSequence sequence, string motif)
     {
-        if (string.IsNullOrEmpty(motif))
-            return Array.Empty<int>();
-
-        string normalizedMotif = motif.ToUpperInvariant();
-        return sequence.SuffixTree.FindAllOccurrences(normalizedMotif);
+        ArgumentNullException.ThrowIfNull(sequence);
+        return MotifFinder.FindExactMotif(sequence, motif).ToList();
     }
 
     /// <summary>
@@ -211,11 +223,18 @@ public static class GenomicAnalyzer
     }
 
     /// <summary>
+    /// Number of distinct (strand-expanded) queries from which a sequence's suffix tree is built for
+    /// <see cref="FindKnownMotifs(DnaSequence, IEnumerable{string})"/> instead of scanning the text once
+    /// per query. Measured (Release, random DNA): tree build = 73 (100 kb), 135 (1 Mbp) and 197 (4 Mbp)
+    /// KMP scans, so below 128 queries the linear scans are cheaper and need no index memory.
+    /// </summary>
+    private const int IndexedSearchMinQueries = 128;
+
+    /// <summary>
     /// Searches a sequence for a set of known motifs, returning, for each motif that occurs,
     /// the 0-based start positions of <b>all</b> its occurrences. This is the classical exact
-    /// set-matching problem ("find all occurrences of each pattern P in text T") solved over the
-    /// generalized index of one text: each query is matched against this sequence's suffix tree
-    /// (Gusfield 1997, ISBN 0-521-58519-8; exact-matching definition, Tufts COMP 150GEN exact.html).
+    /// set-matching problem ("find all occurrences of each pattern P in text T") (Gusfield 1997,
+    /// ISBN 0-521-58519-8; exact-matching definition, Tufts COMP 150GEN exact.html).
     /// <para>
     /// <b>Overlapping occurrences are all reported</b> — e.g. motif "AAA" in "AAAAA" yields
     /// {0, 1, 2}, mirroring Biopython's overlap-aware semantics (<c>Seq("AAAA").count_overlap("AA") == 3</c>).
@@ -224,48 +243,137 @@ public static class GenomicAnalyzer
     /// <c>Bio.Seq</c>); the result is keyed by the upper-cased motif. Empty or whitespace-only
     /// motifs are skipped (the empty string is not a motif; mirrors <see cref="FindMotif"/>), and a
     /// motif with no occurrence is omitted from the result. Positions for each motif are returned
-    /// <b>sorted ascending</b> for a deterministic, stable contract (the suffix tree enumerates
-    /// occurrences in DFS order, which is not inherently sorted). Duplicate motifs that normalize to
-    /// the same upper-cased key collapse to a single entry.
-    /// Time complexity: O(n) suffix-tree construction (Ukkonen) plus O(|m| + occ) per motif query
-    /// and O(occ·log occ) to sort each motif's positions. See
+    /// <b>sorted ascending</b>. Duplicate motifs that normalize to the same upper-cased key collapse to
+    /// a single entry. Forward strand only, IUPAC symbols literal (see <see cref="FindKnownMotifHits"/>
+    /// for degenerate motifs and both strands).
+    /// <para>
+    /// Complexity: with fewer than 128 distinct motifs each one is a linear KMP scan of the text
+    /// (<see cref="KmerAnalyzer.FindKmerPositions"/>, O(n + |m| + occ), no index); from 128 motifs on the
+    /// sequence's cached suffix tree is built once (O(n), Ukkonen) and queried in O(|m| + occ) with an
+    /// O(occ·log occ) sort. Both routes return identical positions. See
     /// docs/algorithms/Motif_Analysis/Known_Motif_Search.md.
+    /// </para>
     /// </summary>
     public static Dictionary<string, IReadOnlyList<int>> FindKnownMotifs(
         DnaSequence sequence,
         IEnumerable<string> motifs)
     {
+        ArgumentNullException.ThrowIfNull(sequence);
         ArgumentNullException.ThrowIfNull(motifs);
 
-        var result = new Dictionary<string, IReadOnlyList<int>>();
-        var tree = sequence.SuffixTree;
+        var found = SearchKnownMotifs(sequence, motifs, bothStrands: false, allowIupac: false);
+        var result = new Dictionary<string, IReadOnlyList<int>>(found.Count);
+        foreach (var (key, (forward, _)) in found)
+            result[key] = forward;
+        return result;
+    }
 
+    /// <summary>
+    /// Strand-aware known-motif search with optional IUPAC degeneracy, the generalisation of
+    /// <see cref="FindKnownMotifs(DnaSequence, IEnumerable{string})"/> that EMBOSS <c>fuzznuc</c> offers
+    /// (<c>-pattern</c> with IUPAC codes, <c>-complement</c>). For every motif that occurs the result
+    /// holds its hits sorted by position (a forward hit before a reverse hit at the same position).
+    /// <list type="bullet">
+    /// <item>Forward hit: <c>S[p..p+m-1]</c> matches the motif.</item>
+    /// <item>Reverse hit (<paramref name="bothStrands"/>): the window <c>S[p..p+m-1]</c> matches the
+    /// <i>reverse complement</i> of the motif, i.e. the motif occurs on the opposite strand reading 5'→3'.
+    /// <see cref="KnownMotifHit.Position"/> is always the 0-based start of the window on the <b>forward</b>
+    /// strand (fuzznuc/GFF convention: reverse-strand coordinates are forward-strand coordinates), so a
+    /// palindromic site such as EcoRI GAATTC is reported on both strands at the same position.</item>
+    /// <item><paramref name="allowIupac"/>: each motif position is an IUPAC NC-IUB 1984 code matching its
+    /// base set (R = A|G, W = A|T, …; <see cref="MotifFinder.FindDegenerateMotif(DnaSequence, string)"/>);
+    /// the reverse-strand pattern is the IUPAC reverse complement (R↔Y, K↔M, B↔V, D↔H, S/W/N self).
+    /// Characters that are not IUPAC DNA codes throw <see cref="ArgumentException"/>. Without it
+    /// the motif is exact and ambiguity codes are literal.</item>
+    /// </list>
+    /// Case-insensitive, overlapping hits included, null/empty/whitespace motifs skipped, results keyed by
+    /// the upper-cased motif, duplicates collapsed, motifs without a hit omitted.
+    /// Verified against EMBOSS fuzznuc 6.6.0 (<c>-pmismatch 0</c>, with and without <c>-complement</c>).
+    /// </summary>
+    /// <param name="sequence">Subject sequence.</param>
+    /// <param name="motifs">Motifs to search.</param>
+    /// <param name="bothStrands">Also report occurrences on the reverse strand.</param>
+    /// <param name="allowIupac">Interpret IUPAC ambiguity codes in the motifs.</param>
+    public static Dictionary<string, IReadOnlyList<KnownMotifHit>> FindKnownMotifHits(
+        DnaSequence sequence,
+        IEnumerable<string> motifs,
+        bool bothStrands = false,
+        bool allowIupac = false)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        ArgumentNullException.ThrowIfNull(motifs);
+
+        var found = SearchKnownMotifs(sequence, motifs, bothStrands, allowIupac);
+        var result = new Dictionary<string, IReadOnlyList<KnownMotifHit>>(found.Count);
+        foreach (var (key, (forward, reverse)) in found)
+            result[key] = MergeStrandHits(forward, reverse);
+        return result;
+    }
+
+    private static Dictionary<string, (List<int> Forward, List<int> Reverse)> SearchKnownMotifs(
+        DnaSequence sequence, IEnumerable<string> motifs, bool bothStrands, bool allowIupac)
+    {
+        // The empty string is not a motif (an exact search for "" would match every position).
+        // Skip empty/whitespace motifs, consistent with FindMotif's empty-pattern guard.
+        var keys = new List<string>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
         foreach (var motif in motifs)
         {
-            // The empty string is not a motif (suffix-tree FindAllOccurrences("") would return
-            // every position, which is not a meaningful match). Skip empty/whitespace motifs,
-            // consistent with FindMotif's empty-pattern guard.
             if (string.IsNullOrWhiteSpace(motif))
-            {
                 continue;
-            }
-
             string normalized = motif.ToUpperInvariant();
-            if (result.ContainsKey(normalized))
-            {
-                continue; // duplicate motif key — already searched
-            }
+            if (seen.Add(normalized))
+                keys.Add(normalized);
+        }
 
-            var positions = tree.FindAllOccurrences(normalized);
-            if (positions.Count > 0)
-            {
-                // Suffix-tree occurrence enumeration is DFS-order (not sorted); sort ascending
-                // so each motif's positions form the deterministic exact-matching set.
-                result[normalized] = positions.OrderBy(p => p).ToList();
-            }
+        bool useIndex = !allowIupac && keys.Count * (bothStrands ? 2L : 1L) >= IndexedSearchMinQueries;
+        var result = new Dictionary<string, (List<int>, List<int>)>(keys.Count);
+        foreach (string key in keys)
+        {
+            var forward = FindMotifPositions(sequence, key, allowIupac, useIndex);
+            var reverse = bothStrands
+                ? FindMotifPositions(sequence, DnaSequence.GetReverseComplementString(key), allowIupac, useIndex)
+                : new List<int>();
+            if (forward.Count > 0 || reverse.Count > 0)
+                result[key] = (forward, reverse);
         }
 
         return result;
+    }
+
+    private static List<int> FindMotifPositions(DnaSequence sequence, string motif, bool allowIupac, bool useIndex)
+    {
+        if (allowIupac)
+        {
+            // MotifFinder scans left to right: ascending, overlapping.
+            return MotifFinder.FindDegenerateMotif(sequence, motif).Select(m => m.Position).ToList();
+        }
+
+        if (useIndex)
+        {
+            // Suffix-tree occurrence enumeration is DFS-order (not sorted).
+            var positions = sequence.SuffixTree.FindAllOccurrences(motif);
+            var sorted = new List<int>(positions);
+            sorted.Sort();
+            return sorted;
+        }
+
+        return KmerAnalyzer.FindKmerPositions(sequence.Sequence, motif).ToList();
+    }
+
+    private static List<KnownMotifHit> MergeStrandHits(List<int> forward, List<int> reverse)
+    {
+        var merged = new List<KnownMotifHit>(forward.Count + reverse.Count);
+        int f = 0, r = 0;
+        while (f < forward.Count || r < reverse.Count)
+        {
+            if (r >= reverse.Count || (f < forward.Count && forward[f] <= reverse[r]))
+                merged.Add(new KnownMotifHit(forward[f++], IsReverseStrand: false));
+            else
+                merged.Add(new KnownMotifHit(reverse[r++], IsReverseStrand: true));
+        }
+
+        return merged;
     }
 
     #endregion
@@ -649,6 +757,13 @@ public static class GenomicAnalyzer
 }
 
 #region Result Types
+
+/// <summary>
+/// A known-motif hit (<see cref="GenomicAnalyzer.FindKnownMotifHits"/>): the 0-based start of the matching
+/// window on the forward strand and whether the motif was found on the reverse strand (the window matches
+/// the motif's reverse complement).
+/// </summary>
+public readonly record struct KnownMotifHit(int Position, bool IsReverseStrand);
 
 /// <summary>
 /// Information about a repeated region.

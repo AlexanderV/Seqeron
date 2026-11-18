@@ -522,7 +522,7 @@
     "server": "Analysis",
     "methodId": "GenomicAnalyzer.FindKnownMotifs",
     "docPath": "docs/mcp/tools/analysis/find_known_motifs.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GenomicAnalyzer.cs#L218"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GenomicAnalyzer.cs#L257"
   },
   {
     "tool": "find_longdust_regions",
@@ -557,7 +557,7 @@
     "server": "Analysis",
     "methodId": "GenomicAnalyzer.FindMotif",
     "docPath": "docs/mcp/tools/analysis/find_motif.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GenomicAnalyzer.cs#L164"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GenomicAnalyzer.cs#L195"
   },
   {
     "tool": "find_motif_by_pattern",

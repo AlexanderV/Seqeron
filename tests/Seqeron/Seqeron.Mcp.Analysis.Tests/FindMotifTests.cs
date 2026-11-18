@@ -37,4 +37,19 @@ public class FindMotifTests
         var none = AnalysisTools.FindMotif("ATGATG", "CCC").Positions;
         Assert.That(none, Is.Empty);
     }
+
+    // B05 request (B09 F18): positions are ascending, equal to the MotifFinder-backed find_exact_motif tool.
+    [Test]
+    public void FindMotif_Positions_AreAscending_AndEqualFindExactMotif()
+    {
+        foreach (var (seq, motif) in new[] { ("ACACACACAC", "AC"), ("GATATATGCATATACTT", "ATAT"), ("AAAAAA", "AA"), ("CATGCATGCATG", "ATG") })
+        {
+            var positions = AnalysisTools.FindMotif(seq, motif).Positions;
+            Assert.That(positions, Is.Ordered.Ascending, seq);
+            Assert.That(positions, Is.EqualTo(AnalysisTools.FindExactMotif(seq, motif).Positions), seq);
+        }
+
+        // Rosalind SUBS sample (1-based 2 4 10).
+        Assert.That(AnalysisTools.FindMotif("GATATATGCATATACTT", "ATAT").Positions, Is.EqualTo(new[] { 1, 3, 9 }));
+    }
 }

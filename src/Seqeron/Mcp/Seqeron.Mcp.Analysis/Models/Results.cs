@@ -146,8 +146,11 @@ public record FindTandemRepeatsResult(TandemRepeatItem[] Items);
 /// <summary>Positions of motif occurrences.</summary>
 public record MotifPositionsResult(int[] Positions);
 
-/// <summary>Map of motif → matching positions for hits with at least one match.</summary>
-public record FindKnownMotifsResult(Dictionary<string, int[]> Matches);
+/// <summary>
+/// Map of motif → forward-strand hit positions (<c>Matches</c>) and, with <c>bothStrands</c>, motif → forward-strand
+/// window starts matching the motif's reverse complement (<c>ReverseMatches</c>, empty otherwise); only motifs with a hit.
+/// </summary>
+public record FindKnownMotifsResult(Dictionary<string, int[]> Matches, Dictionary<string, int[]>? ReverseMatches = null);
 
 /// <summary>A common region between two sequences.</summary>
 public record CommonRegionItem(string Sequence, int PositionInFirst, int PositionInSecond, int Length);

@@ -672,12 +672,12 @@ public class MatchingFuzzTests
 
     /// <summary>
     /// BE/MC: GenomicAnalyzer.FindMotif shares the empty-motif guard (empty result
-    /// for a null OR empty motif, GenomicAnalyzer.cs lines 138–139) and upper-cases
-    /// the motif, but returns the suffix-tree list directly. Pinned at the
-    /// boundaries: empty/null motif → empty; pattern longer than text → empty;
-    /// whole text → exactly {0}; 1-char motif → all positions; lowercase folds.
-    /// Positions are compared order-insensitively since this surface does not
-    /// re-sort.
+    /// for a null OR empty motif) and upper-cases the motif; since B09 F18 it
+    /// delegates to MotifFinder.FindExactMotif and returns ascending positions.
+    /// Pinned at the boundaries: empty/null motif → empty; pattern longer than
+    /// text → empty; whole text → exactly {0}; 1-char motif → all positions;
+    /// lowercase folds. Positions are still compared order-insensitively here
+    /// (ordering is locked in GenomicAnalyzer_KnownMotifs_Oracle_Tests).
     /// </summary>
     [Test]
     public void FindMotif_BoundaryMotifs_AreDefined()

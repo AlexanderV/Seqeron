@@ -6,7 +6,7 @@
 | Test Unit ID | GENOMIC-MOTIFS-001 |
 | Related Projects | Seqeron.Genomics.Analysis, SuffixTree |
 | Implementation Status | Production |
-| Last Reviewed | 2026-06-13 |
+| Last Reviewed | 2026-11-18 (B09 review) |
 
 ## 1. Overview
 
@@ -15,8 +15,10 @@ interest, e.g. restriction sites or transcription-factor binding consensus) with
 sequence, returning for each motif the start positions of **all** of its occurrences. It is the
 classical exact set-matching problem — "find all occurrences of each pattern P in text T" [1] —
 and is exact (not heuristic): a position is reported iff the motif matches the subject there.
-Overlapping occurrences are all reported [1][2]. It is the right tool when many fixed query motifs
-are checked against one (re-usable) sequence index.
+Overlapping occurrences are all reported [1][2]. Optional extensions, both verified against EMBOSS
+`fuzznuc` [4]: IUPAC-degenerate motifs (`TATAWAW`) and the reverse strand. The motif set is supplied
+by the caller; there is no built-in catalogue here (the fixed regulatory-element library — TATA box,
+Kozak, CAAT, GC box, … — is `MotifFinder.FindRegulatoryElements`, unit MOTIF-REGULATORY-001).
 
 ## 2. Scientific / Formal Basis
 
@@ -47,6 +49,9 @@ subs in self and yield[s] the index and substring found" for multiple queries [2
 | INV-03 | Each motif's positions are sorted strictly ascending and distinct | Positions form a set [1]; implementation sorts the suffix-tree (DFS-order) output |
 | INV-04 | A motif with zero occurrences is omitted from the result | The occurrence set is empty [1]; per-motif hits only when found [2] |
 | INV-05 | Result keys are upper-cased motif strings | DNA processed upper-cased [2]; `DnaSequence` upper-cases on construction |
+| INV-06 | `FindMotif` returns the same ascending list as `MotifFinder.FindExactMotif` (one engine) | B05/B06 cross-batch requests; oracle = `str.find` scan |
+| INV-07 | Reverse-strand hit at `p` ⇔ window `T[p..p+n-1]` equals the (IUPAC) reverse complement of the motif; `p` is a forward-strand coordinate; a palindromic site is a hit on both strands at the same `p` | fuzznuc `-complement` [4] (2448-pair oracle) |
+| INV-08 | With IUPAC codes a window matches iff every base is in the base set of the motif code at that position; without them IUPAC symbols are literal and match nothing in a DNA sequence | NC-IUB 1984; fuzznuc [4] |
 
 ## 3. Contract
 
@@ -56,16 +61,19 @@ subs in self and yield[s] the index and substring found" for multiple queries [2
 |------|------|---------|-------------|-------------|
 | `sequence` | `DnaSequence` | required | Subject sequence (text T) | Upper-cased ACGT (validated by `DnaSequence`); empty allowed |
 | `motifs` | `IEnumerable<string>` | required | Set of query motifs | Non-null; individual motifs upper-cased; empty/whitespace motifs skipped |
+| `bothStrands` | `bool` | `false` | `FindKnownMotifHits` only: also report reverse-strand hits | |
+| `allowIupac` | `bool` | `false` | `FindKnownMotifHits` only: IUPAC codes in the motifs | Non-IUPAC symbols → `ArgumentException` |
 
 ### 3.2 Output / Return Value
 
 | Field | Type | Description |
 |-------|------|-------------|
 | (return) | `Dictionary<string, IReadOnlyList<int>>` | Map from upper-cased motif → ascending list of 0-based start positions of all its occurrences. Motifs with no occurrence are absent. |
+| (return, `FindKnownMotifHits`) | `Dictionary<string, IReadOnlyList<KnownMotifHit>>` | Same keys; `KnownMotifHit(Position, IsReverseStrand)` sorted by position (forward before reverse at a tie). `Position` is always the forward-strand window start. |
 
 ### 3.3 Preconditions and Validation
 
-`motifs` null → `ArgumentNullException`. Empty/whitespace motifs are skipped (the empty string is
+`sequence` or `motifs` null → `ArgumentNullException` (a null `sequence` used to raise `NullReferenceException`). Empty/whitespace motifs are skipped (the empty string is
 not a motif — a suffix-tree search for `""` would return every position). Motifs are upper-cased
 (case-insensitive matching; result keyed by the upper-cased form). Duplicate motifs collapsing to
 the same upper-cased key produce a single entry. Indexing is 0-based; positions are starts of the
@@ -75,24 +83,41 @@ matched substring. Empty subject sequence → empty result (no motif occurs).
 
 ### 4.1 High-Level Steps
 
-1. Validate `motifs` is non-null; obtain the subject's suffix tree (built once, O(n)).
+1. Validate `sequence` and `motifs` are non-null.
 2. For each motif: skip if empty/whitespace; upper-case it; skip if its key was already processed.
-3. Query `SuffixTree.FindAllOccurrences(motif)` to enumerate all start positions (overlaps included).
-4. If non-empty, sort positions ascending and store under the upper-cased motif key.
+3. Enumerate all start positions (overlaps included) with one of two exact engines, chosen once per call:
+   fewer than 128 distinct queries (motifs × strands) → one KMP scan of the text per query
+   (`KmerAnalyzer.FindKmerPositions`, ascending by construction); 128 or more → the sequence's cached suffix
+   tree (`FindAllOccurrences`, DFS order, then sorted). With `allowIupac`, `MotifFinder.FindDegenerateMotif`.
+4. With `bothStrands`, repeat for the IUPAC reverse complement of the motif (`DnaSequence.GetReverseComplementString`)
+   and merge by position.
+5. If a motif has a hit, store it under the upper-cased key.
 
 ### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures
 
-Core data structure: the repository **suffix tree** (`SuffixTree`), built once for the subject and
-reused across all motif queries. `FindAllOccurrences` enumerates leaf start positions in DFS order
-(not sorted), so the implementation sorts each motif's positions for a deterministic contract.
+Two interchangeable exact engines. The repository **suffix tree** (`SuffixTree`) is an index: built once for
+the subject (cached on the `DnaSequence`) and reused across all queries; `FindAllOccurrences` enumerates leaf
+start positions in DFS order (not sorted), so positions are sorted for the deterministic contract. The
+**KMP scan** (Knuth–Morris–Pratt 1977; CLRS §32.4) needs no index. Measured on random DNA (Release):
+
+| n | suffix-tree build | one KMP scan (6-mer) | break-even |
+|---|---|---|---|
+| 100 kb | 62 ms | 0.85 ms | 73 scans |
+| 1 Mbp | 924 ms (171 MB) | 6.9 ms | 135 scans |
+| 4 Mbp | 4.8 s (684 MB) | 24.5 ms | 197 scans |
+| 10 Mbp (B06) | 23.3 s (1.7 GB) | 71 ms | ≈ 330 scans |
+
+The query threshold 128 distinct queries sits at the measured break-even; both engines return identical positions
+(tested against `string.IndexOf`).
 
 ### 4.3 Complexity
 
 | Operation | Time | Space | Notes |
 |-----------|------|-------|-------|
-| Suffix-tree construction | O(n) | O(n) | Built once for the subject (Ukkonen); cached on `DnaSequence` |
-| Per-motif search + sort | O(\|m\| + occ·log occ) | O(occ) | `FindAllOccurrences` is O(\|m\|+occ); sort dominates when occ large |
-| Total (k motifs) | O(n + Σ(\|mᵢ\| + occᵢ·log occᵢ)) | O(n + occ) | Index reuse across motifs is the advantage over per-motif naive scan |
+| k < 128 queries: KMP scans | O(k·n + Σ\|mᵢ\| + occ) | O(max \|m\| + occ) | No index; one pass per query |
+| k ≥ 128 queries: suffix-tree construction | O(n) | O(n) | Built once for the subject (Ukkonen); cached on `DnaSequence` |
+| k ≥ 128: per-motif search + sort | O(\|m\| + occ·log occ) | O(occ) | `FindAllOccurrences` is O(\|m\|+occ); sort dominates when occ large |
+| `GenomicAnalyzer.FindMotif` (= `MotifFinder.FindExactMotif`) | O(n) build on first use, then O(\|m\| + occ·log occ) | O(n) | Always the suffix-tree index; for a one-off query on a very large sequence call `KmerAnalyzer.FindKmerPositions` (same positions, no index) |
 
 ## 5. Implementation Notes
 
@@ -100,20 +125,26 @@ reused across all motif queries. `FindAllOccurrences` enumerates leaf start posi
 
 **Implementation location:** [GenomicAnalyzer.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GenomicAnalyzer.cs)
 
-- `GenomicAnalyzer.FindKnownMotifs(DnaSequence, IEnumerable<string>)`: multi-motif exact search returning per-motif sorted 0-based position lists.
+- `GenomicAnalyzer.FindKnownMotifs(DnaSequence, IEnumerable<string>)`: multi-motif exact search returning per-motif sorted 0-based position lists (forward strand, exact).
+- `GenomicAnalyzer.FindKnownMotifHits(DnaSequence, IEnumerable<string>, bool bothStrands = false, bool allowIupac = false)`: the strand-aware / IUPAC generalisation returning `KnownMotifHit(Position, IsReverseStrand)`.
+- `GenomicAnalyzer.FindMotif(DnaSequence, string)`: single exact motif, ascending; delegates to `MotifFinder.FindExactMotif` (B05/B06 dedup, F18).
 
 ### 5.2 Current Behavior
 
-**Suffix-tree reuse decision (search/matching unit):** this is exact-match occurrence enumeration
-of *multiple* fixed queries against *one* reusable text — the textbook ideal use of a suffix tree
-(O(n) build amortized across all queries, O(\|m\|+occ) per query). The repository `SuffixTree`
-(`DnaSequence.SuffixTree.FindAllOccurrences`) is therefore used directly rather than a naive
-per-motif scan; no approximate/scored matching is involved that would disqualify it.
+**Engine decision.** This is exact-match occurrence enumeration of *multiple* fixed queries against *one*
+text. A suffix tree amortises its O(n) build over many queries, but its build is heavy (see §4.2): for the
+common case of a handful of motifs the linear scans are 70–330× cheaper in time and need no index memory, so
+`FindKnownMotifs` uses the index only from 128 distinct queries on. Behaviour does not depend on the engine.
 
-`FindAllOccurrences` returns occurrences in DFS order, which is not sorted; `FindKnownMotifs` sorts
-each motif's positions ascending (INV-03). Empty/whitespace motifs are skipped and duplicate
-upper-cased keys collapse to one entry. These two behaviors corrected a prior version that returned
-DFS-order positions and did not guard empty motifs.
+**Ordering.** `SuffixTree.FindAllOccurrences` returns occurrences in DFS order (Rosalind SUBS sample
+`ATAT` in `GATATATGCATATACTT` enumerates as 1, 9, 3); every public entry point returns ascending positions
+(INV-03, INV-06). `GenomicAnalyzer.FindMotif` used to return the tree order and duplicated
+`MotifFinder.FindExactMotif`; it now delegates (F18).
+
+**Strands and IUPAC (F19).** `FindKnownMotifHits` reproduces EMBOSS fuzznuc 6.6.0 (`-pmismatch 0`,
+with/without `-complement`): reverse-strand hits are windows equal to the reverse complement of the motif,
+reported in forward-strand coordinates (EcoRI `GAATTC` → both strands at the same position); IUPAC codes
+use the NC-IUB base sets and the IUPAC reverse complement (R↔Y, K↔M, B↔V, D↔H).
 
 ### 5.3 Conformance to Theory / Spec
 
@@ -130,9 +161,9 @@ DFS-order positions and did not guard empty motifs.
 
 **Not implemented:**
 
-- Degenerate / IUPAC-coded motifs and reverse-complement matching: feature: ambiguous-base or
-  both-strand motif search; **users should rely on:** PROSITE/regex motif methods
-  (`ProteinMotifFinder`) for patterns, or reverse-complement the motif explicitly before searching.
+- Mismatch-tolerant motif search (fuzznuc `-pmismatch > 0`): `ApproximateMatcher` (PAT-APPROX-001..003) and
+  position-weight scanning (`MotifFinder` PWM, PAT-PWM-001) cover it; it is not exact known-motif matching.
+- Motif *discovery* and the fixed regulatory-element library: other units (MOTIF-DISCOVER-001, MOTIF-REGULATORY-001).
 
 ### 5.4 Deviations and Assumptions
 
@@ -156,9 +187,11 @@ DFS-order positions and did not guard empty motifs.
 
 ### 6.2 Limitations
 
-Exact matching only — no mismatches, gaps, IUPAC degeneracy, or reverse-complement strand search.
-Motif strings are validated only via upper-casing; non-ACGT characters in a motif simply fail to
-match (return no positions) rather than raising.
+Exact matching only (no mismatches or gaps). `FindKnownMotifs` / `FindMotif` search the forward strand and treat
+IUPAC symbols as literals (they match nothing in a DNA sequence); use `FindKnownMotifHits` for degenerate motifs
+and the reverse strand. In exact mode non-ACGT characters in a motif simply fail to match (no positions) rather
+than raising; in IUPAC mode a non-IUPAC symbol throws `ArgumentException`. The subject is a `DnaSequence`
+(ACGT only), so an ambiguity symbol in the *sequence* cannot occur.
 
 ## 7. Examples and Related Material
 
@@ -172,12 +205,19 @@ var hits = GenomicAnalyzer.FindKnownMotifs(seq, new[] { "GAATTC" });
 // hits["GAATTC"] == [0, 9]  (EcoRI sites)
 ```
 
+```csharp
+var hits = GenomicAnalyzer.FindKnownMotifHits(
+    new DnaSequence("GAATTCAAAGAATTCTTTATATAAAGTTCAAGAAC"), new[] { "TATAWAW" }, bothStrands: true, allowIupac: true);
+// hits["TATAWAW"] == [ (16, reverse), (17, forward) ]   (fuzznuc: 18-24 '+', 17-23 '-', 1-based)
+```
+
 **Numerical walk-through:** For `T = "AAAAA"`, motif `"AAA"` (length 3): alignments start at
 i = 0 (`AAA`), 1 (`AAA`), 2 (`AAA`); i = 3 would need indices 3..5 but T has length 5 (max start 2).
 Result: positions {0, 1, 2}, three overlapping occurrences [1].
 
 ### 7.3 Related Tests, Evidence, or Documents
 
+- Oracle: `scripts/analysis/generate_known_motif_oracle.py` → `TestData/Analysis/known_motif_oracle.tsv` (EMBOSS fuzznuc 6.6.0 == Python `re`, 2448 pairs; 816 with forward hits, 776 with reverse hits), tests in [GenomicAnalyzer_KnownMotifs_Oracle_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/GenomicAnalyzer_KnownMotifs_Oracle_Tests.cs)
 - Tests: [GenomicAnalyzer_FindKnownMotifs_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/GenomicAnalyzer_FindKnownMotifs_Tests.cs) — covers INV-01..INV-05
 - Evidence: [GENOMIC-MOTIFS-001-Evidence.md](../../../docs/Evidence/GENOMIC-MOTIFS-001-Evidence.md)
 - Related algorithms: [Repeat_Detection](../Repeat_Analysis/Repeat_Detection.md)
@@ -187,3 +227,4 @@ Result: positions {0, 1, 2}, three overlapping occurrences [1].
 1. Gusfield, D. 1997. *Algorithms on Strings, Trees and Sequences: Computer Science and Computational Biology*. Cambridge University Press. ISBN 0-521-58519-8. Exact-matching definition and overlapping-occurrence example (Tufts COMP 150GEN): https://www.cs.tufts.edu/comp/150GEN/classpages/exact.html
 2. Cock, P.J.A. et al. Biopython `Bio.Seq` module — `search` and `count_overlap` (master, accessed 2026-06-13): https://raw.githubusercontent.com/biopython/biopython/master/Bio/Seq.py
 3. Wikipedia contributors. "Restriction site" (accessed 2026-06-13). EcoRI recognizes GAATTC: https://en.wikipedia.org/wiki/Restriction_site
+4. EMBOSS 6.6.0 `fuzznuc` (Rice, Longden & Bleasby 2000, Trends Genet 16:276; Debian `emboss` package, run locally with `-pmismatch 0 -complement Y -rformat gff`): IUPAC patterns, both strands, overlapping hits, forward-strand coordinates for '-' hits.

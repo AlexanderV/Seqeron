@@ -1,6 +1,6 @@
 # find_motif
 
-Exact motif occurrences in a DNA sequence via suffix tree.
+Exact motif occurrences in a DNA sequence (ascending, forward strand).
 
 ## Overview
 
@@ -15,13 +15,16 @@ Exact motif occurrences in a DNA sequence via suffix tree.
 ## Description
 
 Returns the 0-based start positions of **every exact occurrence** of a motif in a DNA
-sequence, located with the sequence's suffix tree. Matching is case-insensitive and
+sequence (forward strand), in **ascending** order. Matching is case-insensitive and
 overlapping occurrences are all reported (e.g. `AA` in `AAAA` yields `0, 1, 2`).
-Positions are enumerated in suffix-tree DFS order (not necessarily sorted).
+IUPAC symbols are literal and match nothing; use `find_known_motifs` with `iupac` /
+`bothStrands` for degenerate motifs and the reverse strand. Same engine and result as
+`find_exact_motif` (`MotifFinder.FindExactMotif`); the suffix tree is built per call, so for
+one-off queries on very large sequences prefer `kmer_positions` (KMP, no index).
 
 ## Core Documentation Reference
 
-- Source: [GenomicAnalyzer.cs#L164](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GenomicAnalyzer.cs#L164)
+- Source: [GenomicAnalyzer.cs#L195](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GenomicAnalyzer.cs#L195)
 
 ## Input Schema
 
@@ -84,8 +87,8 @@ Positions are enumerated in suffix-tree DFS order (not necessarily sorted).
 
 ## Performance
 
-- **Time Complexity:** O(n) suffix-tree build + O(m + occ) per query.
-- **Space Complexity:** O(n) for the suffix tree.
+- **Time Complexity:** O(n) suffix-tree build + O(m + occ·log occ) per query (positions sorted).
+- **Space Complexity:** O(n) for the suffix tree (measured 0.9 s / 171 MB at 1 Mbp, 23 s / 1.7 GB at 10 Mbp).
 
 ## See Also
 

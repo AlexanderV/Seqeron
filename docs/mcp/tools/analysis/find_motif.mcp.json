@@ -5,8 +5,8 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "GenomicAnalyzer.FindMotif",
-  "docRef": "Seqeron.Genomics.Analysis/GenomicAnalyzer.cs#L164",
-  "description": "All exact (overlapping, case-insensitive) occurrence start positions of a motif in a DNA sequence, located via a suffix tree.",
+  "docRef": "Seqeron.Genomics.Analysis/GenomicAnalyzer.cs#L195",
+  "description": "All exact (overlapping, case-insensitive) occurrence start positions of a motif in a DNA sequence, ascending, forward strand.",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -20,7 +20,7 @@
     "properties": {
       "positions": {
         "type": "array",
-        "description": "0-based start positions of every occurrence",
+        "description": "Ascending 0-based start positions of every occurrence",
         "items": { "type": "integer" }
       }
     },

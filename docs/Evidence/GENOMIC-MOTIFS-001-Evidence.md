@@ -44,6 +44,18 @@
 
 1. **EcoRI recognition site (verbatim):** "the common restriction enzyme EcoRI recognizes the palindromic sequence GAATTC and cuts between the G and the A on both the top and bottom strands." Provides a real biological motif (`GAATTC`, length 6) for the test dataset.
 
+### EMBOSS `fuzznuc` 6.6.0 (reference tool, run locally) — IUPAC patterns and both strands
+
+**Source:** Debian `emboss` 6.6.0 binary (`fuzznuc -sequence s.fa -pattern P -pmismatch 0 -complement Y -rformat gff`), Rice, Longden & Bleasby (2000) Trends Genet 16:276. Accessed 2026-11-18 (B09 review).
+**Authority rank:** 3 (reference implementation).
+
+**Key Extracted Points (observed, then confirmed against an independent Python `re` lookahead implementation on 2448 sequence/pattern pairs, 816 with forward and 776 with reverse hits, `scripts/analysis/generate_known_motif_oracle.py`):**
+
+1. Overlapping occurrences are all reported (AAA in AAAAA → 3 hits).
+2. IUPAC codes in the pattern match their NC-IUB base sets (`TATAWAW`).
+3. With `-complement` the reverse strand is searched: a '-' hit is a forward-strand window equal to the reverse complement of the pattern, reported with forward-strand coordinates; a palindromic pattern (GAATTC) is reported on both strands at the same coordinates (`GAATTCAAAGAATTCTTTATATAAAGTTCAAGAAC`: `+` 1-6, 10-15 and `-` 1-6, 10-15; TATAWAW `+` 18-24, `-` 17-23, 1-based).
+4. Reference for the cheap-engine claim: Rosalind SUBS sample (`GATATATGCATATACTT`, `ATAT` → 2 4 10, 1-based) = `[1,3,9]` 0-based; the Seqeron suffix tree enumerates it 1, 9, 3 (B09 F18).
+
 ---
 
 ## Documented Corner Cases and Failure Modes

@@ -5,13 +5,15 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "GenomicAnalyzer.FindKnownMotifs",
-  "docRef": "Seqeron.Genomics.Analysis/GenomicAnalyzer.cs#L218",
-  "description": "Search a DNA sequence for a set of motifs simultaneously; returns, per motif that occurs, all its 0-based positions sorted ascending. Motifs with no hit are omitted.",
+  "docRef": "Seqeron.Genomics.Analysis/GenomicAnalyzer.cs#L257",
+  "description": "Search a DNA sequence for a set of motifs simultaneously (exact by default; optional IUPAC codes and reverse strand); returns, per motif that occurs, all its 0-based forward-strand positions sorted ascending. Motifs with no hit are omitted.",
   "inputSchema": {
     "type": "object",
     "properties": {
       "sequence": { "type": "string", "description": "DNA sequence", "minLength": 1 },
-      "motifs": { "type": "array", "description": "Set of motifs to search", "items": { "type": "string" } }
+      "motifs": { "type": "array", "description": "Set of motifs to search", "items": { "type": "string" } },
+      "bothStrands": { "type": "boolean", "description": "Also search the reverse strand (default false)" },
+      "iupac": { "type": "boolean", "description": "Interpret IUPAC ambiguity codes in the motifs (default false)" }
     },
     "required": ["sequence", "motifs"]
   },
@@ -21,6 +23,11 @@
       "matches": {
         "type": "object",
         "description": "Map from (upper-cased) motif to its ascending 0-based positions",
+        "additionalProperties": { "type": "array", "items": { "type": "integer" } }
+      },
+      "reverseMatches": {
+        "type": "object",
+        "description": "Map from (upper-cased) motif to the ascending forward-strand window starts matching its reverse complement (empty unless bothStrands)",
         "additionalProperties": { "type": "array", "items": { "type": "integer" } }
       }
     },
@@ -41,6 +48,11 @@
       "name": "Overlapping motif",
       "input": { "sequence": "AAAA", "motifs": ["AA"] },
       "output": { "matches": { "AA": [0, 1, 2] } }
+    },
+    {
+      "name": "Both strands, IUPAC",
+      "input": { "sequence": "GAATTCAAAGAATTCTTTATATAAAGTTCAAGAAC", "motifs": ["TATAWAW"], "bothStrands": true, "iupac": true },
+      "output": { "matches": { "TATAWAW": [17] }, "reverseMatches": { "TATAWAW": [16] } }
     }
   ]
 }

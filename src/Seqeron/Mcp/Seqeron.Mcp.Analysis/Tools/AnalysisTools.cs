@@ -677,8 +677,8 @@ public class AnalysisTools
         return new FindTandemRepeatsResult(items);
     }
 
-    [McpServerTool(Name = "find_motif", Title = "Genome — Find Motif (Suffix Tree)", ReadOnly = true)]
-    [Description("All exact occurrences of a motif (case-insensitive) in a DNA sequence via suffix tree.")]
+    [McpServerTool(Name = "find_motif", Title = "Genome — Find Motif (Exact)", ReadOnly = true)]
+    [Description("All exact occurrences of a motif (case-insensitive, overlapping, ascending 0-based positions, forward strand) in a DNA sequence.")]
     public static MotifPositionsResult FindMotif(
         [Description("DNA sequence.")] string sequence,
         [Description("Motif to locate.")] string motif)
@@ -692,20 +692,31 @@ public class AnalysisTools
     }
 
     [McpServerTool(Name = "find_known_motifs", Title = "Genome — Search Known Motif Set", ReadOnly = true)]
-    [Description("Search for a user-provided set of motifs simultaneously. Only motifs with at least one hit are returned.")]
+    [Description("Search for a user-provided set of motifs simultaneously (exact by default; optional IUPAC codes and reverse strand). Only motifs with at least one hit are returned; positions ascending, 0-based, forward-strand window starts.")]
     public static FindKnownMotifsResult FindKnownMotifs(
         [Description("DNA sequence.")] string sequence,
-        [Description("Set of motifs to search.")] string[] motifs)
+        [Description("Set of motifs to search.")] string[] motifs,
+        [Description("Also search the reverse strand: reverseMatches lists the windows matching the reverse complement of each motif (default false).")] bool bothStrands = false,
+        [Description("Interpret IUPAC ambiguity codes in the motifs, e.g. TATAWAW (default false: codes are literal and match nothing).")] bool iupac = false)
     {
         var dna = RequireDna(sequence, nameof(sequence));
         if (motifs is null)
             throw new ArgumentException("Motifs cannot be null", nameof(motifs));
 
-        var raw = GenomicAnalyzer.FindKnownMotifs(dna, motifs);
-        var matches = new Dictionary<string, int[]>(raw.Count);
-        foreach (var kvp in raw)
-            matches[kvp.Key] = kvp.Value.ToArray();
-        return new FindKnownMotifsResult(matches);
+        var hits = GenomicAnalyzer.FindKnownMotifHits(dna, motifs, bothStrands, iupac);
+        var matches = new Dictionary<string, int[]>(hits.Count);
+        var reverse = new Dictionary<string, int[]>();
+        foreach (var kvp in hits)
+        {
+            var forward = kvp.Value.Where(h => !h.IsReverseStrand).Select(h => h.Position).ToArray();
+            var rev = kvp.Value.Where(h => h.IsReverseStrand).Select(h => h.Position).ToArray();
+            if (forward.Length > 0)
+                matches[kvp.Key] = forward;
+            if (rev.Length > 0)
+                reverse[kvp.Key] = rev;
+        }
+
+        return new FindKnownMotifsResult(matches, reverse);
     }
 
     [McpServerTool(Name = "find_common_regions", Title = "Genome — Common Regions", ReadOnly = true)]

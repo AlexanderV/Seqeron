@@ -23,6 +23,9 @@
     <!-- GENOMIC-COMMON-001 (B09 F15-F16): independent Python (DP + suffix automaton + brute-force matching statistics)
          oracle for FindLongestCommonRegion / FindCommonRegions; scripts/analysis/generate_common_region_oracle.py. -->
     <EmbeddedResource Include="TestData\Analysis\common_region_oracle.tsv" />
+    <!-- GENOMIC-MOTIFS-001 (B09 F18-F20): EMBOSS fuzznuc 6.6.0 (== independent Python regex) forward / reverse-strand,
+         exact and IUPAC known-motif hits for 2448 (sequence, pattern) pairs; scripts/analysis/generate_known_motif_oracle.py. -->
+    <EmbeddedResource Include="TestData\Analysis\known_motif_oracle.tsv" />
     <EmbeddedResource Include="TestData\Restriction\emboss_restrict_bothstrand.tsv" />
     <!-- ONCO-MHC-001: one MHCflurry models_class1_pan affinity network (smallest member, feedforward
          [512,512]), exported from the Apache-2.0 weights_*.npz dense kernels/biases. Embedded so the
