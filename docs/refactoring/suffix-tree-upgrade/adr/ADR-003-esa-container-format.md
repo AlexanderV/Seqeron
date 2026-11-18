@@ -2,6 +2,8 @@
 
 Status: **proposed** (work package S1-0, 2026-11-03). Contract: [ADR-001](ADR-001-index-contract.md). Construction and LCP encodings: [ADR-002](ADR-002-sa-construction.md). Paths are repo-relative, `file:line` at commit `b0922125`. **UNVERIFIED** = not checked against code or a measurement.
 
+**Amendment 2026-11-18 (owner decisions, ADR-004 section 6c; the four gaps found by work package 1b.7b):** (1) TEXT codec 4 is defined (section 4, note below the table; the layout of the verified prototype file, changed in no byte); (2) `TEXT_SHA256` is the SHA-256 of the code units as **bytes** (one byte per code unit) for codecs 1, 2 and 4 and UTF-16LE for codec 3 (section 3); (3) the symbol counts have their own optional section kind 13 `COUNTS` (section 4); (4) the width of codec 4 is `b = max(1, ceil(log2 SIGMA))`, i.e. 3 bits for sigma 5-8. Validation at level `Header` is extended accordingly (section 6).
+
 ## 1. Decisions and constraints
 
 * The ESA container is a **separate kind** with its own magic; the v6 suffix-tree format and its loader stay untouched and readable (owner decision; PROCESS.md rule 2).
@@ -25,7 +27,7 @@ Status: **proposed** (work package S1-0, 2026-11-03). Contract: [ADR-001](ADR-00
 [ header page: 4096 bytes = 128-byte header + section table (up to 62 entries) + zero padding ]
 [ sections, each starting at a 64-byte aligned offset; sections >= 1 MiB at a 4096-byte aligned offset ]
 ```
-All integers little-endian. Elements are naturally aligned. No pointers inside the file, only indices, so the file is position independent. Section order written by v1: TEXT, ALPHABET, SA, LCP, LCP_OVERFLOW, CHILD, BUCKET, NEXTSYM, ISA, RMQ, BUILD_INFO (gaps are zero padding).
+All integers little-endian. Elements are naturally aligned. No pointers inside the file, only indices, so the file is position independent. Section order written by v1: TEXT, ALPHABET, COUNTS, SA, LCP, LCP_OVERFLOW, CHILD, BUCKET, NEXTSYM, ISA, RMQ, BUILD_INFO (gaps are zero padding).
 
 ### Header (128 bytes)
 
@@ -45,7 +47,7 @@ All integers little-endian. Elements are naturally aligned. No pointers inside t
 | 64 | 8 | `LRS_RANK` | first rank `r` with `LCP[r] == LRS_DEPTH`, `-1` if none (O(1) `LongestRepeatedSubstring`, like v6 `DEEPEST_NODE`/`LRS_DEPTH`, `PersistentConstants.cs:87,93`) |
 | 72 | 4 | `POS_WIDTH` | 4 or 8: byte width of SA, ISA, CHILD and BUCKET entries; 4 requires `n + 1 <= 2^32 - 1` |
 | 76 | 4 | `SIGMA` | number of distinct code units in the text |
-| 80 | 32 | `TEXT_SHA256` | SHA-256 of the text as UTF-16LE code units (same payload as `SuffixTreeSerializer`, `README.md` "Serialization Format v2"), zeros if not requested |
+| 80 | 32 | `TEXT_SHA256` | SHA-256 of the text's code units, zeros if not requested. **Amended 2026-11-18:** one byte per code unit for codecs 1, 2 and 4 (every code unit is below 256: the PH0 stream hashes the input bytes as they are read); UTF-16LE code units for codec 3 (the same payload as `SuffixTreeSerializer`, `README.md` "Serialization Format v2"). A fingerprint in the v6 style for a byte text, if ever wanted, is a separate field |
 | 112 | 8 | `BUILD_FLAGS` | bit 0: SA is sentinel-augmented (`SA[0] = n`); always 1 in v1 |
 | 120 | 4 | reserved | 0 |
 | 124 | 4 | `HEADER_CRC32C` | CRC-32C over bytes `[0,124)` and the whole section table (CRC field treated as zero) |
@@ -70,8 +72,8 @@ All integers little-endian. Elements are naturally aligned. No pointers inside t
 
 | Kind | Name | Required | Content |
 |---|---|---|---|
-| 1 | `TEXT` | yes | `COUNT = n`. Codec 1: one byte per code unit, identity (code units < 256: ASCII, Latin-1, DNA, protein). Codec 2: dense order-preserving rank bytes, needs `ALPHABET` (any text with <= 256 distinct code units). Codec 3: UTF-16LE `ushort`. Codec 4: reserved (2-bit packed DNA, S2) |
-| 2 | `ALPHABET` | if codec 2 or `BUCKET` | sorted distinct code units, `uint16` each, `COUNT = SIGMA` |
+| 1 | `TEXT` | yes | `COUNT = n`. Codec 1: one byte per code unit, identity (code units < 256: ASCII, Latin-1, DNA, protein). Codec 2: dense order-preserving rank bytes, needs `ALPHABET` (any text with <= 256 distinct code units). Codec 3: UTF-16LE `ushort`. Codec 4: dense symbols packed with b bits, `b = max(1, ceil(log2 SIGMA))` in `PARAM0`, needs `ALPHABET` (amendment 2026-11-18; layout in the first note below the table) |
+| 2 | `ALPHABET` | if codec 2, codec 4 or `BUCKET` | sorted distinct code units, `uint16` each, `COUNT = SIGMA` |
 | 3 | `SA` | yes | `COUNT = n + 1`, width `POS_WIDTH`, `SA[0] = n`, codec 1 plain |
 | 4 | `LCP` | yes | `COUNT = n + 1`. Codec 1: `U8` (escape value 255), codec 2: `U16` (escape 65535), codec 3: `U32`, codec 4: `U64`. `PARAM0` = number of overflow entries. `LCP[0] = LCP[1] = 0` |
 | 5 | `LCP_OVERFLOW` | iff `PARAM0 > 0` | sorted pairs `(rank, value)`, each field `POS_WIDTH` bytes, for the entries equal to the escape value |
@@ -81,10 +83,13 @@ All integers little-endian. Elements are naturally aligned. No pointers inside t
 | 9 | `RMQ` | no (navigation pack) | range-minimum / previous- and next-smaller helper over `LCP`: `PARAM0` = block size, codec 1 = block minima + sparse table, in-block scan (about 0.3-0.5 B/char, UNVERIFIED) |
 | 10 | `NEXTSYM` | no (fast child lookup) | `NEXTSYM[i] = text[SA[i] + LCP[i]]` (dense code), 1 byte (2 for codec 3), `COUNT = n + 1` |
 | 11 | `BUILD_INFO` | no | UTF-8 `key=value` lines: tool version, git commit of the writer, SA-IS variant, options. No timestamps |
-| 12-4095 | reserved | - | S3 document map, S4 reversed-text link, S7 BWT / wavelet / samples, S2 packed text |
+| 12 | (reserved) | - | `PSI`, proposed by ADR-004 section 3.3 and E9 (the Psi array of the navigation pack); not defined here, it is defined when the pack is built |
+| 13 | `COUNTS` | no | **amendment 2026-11-18:** the symbol counts `C[]` of the dense codes (PH3 starts its bucket offsets from them, PH6 reads them): `COUNT = SIGMA`, `ELEM_WIDTH` = 8 (`uint64`), entry `s` = the number of text positions that hold the symbol `s`; their sum equals `n`. Written with `REQUIRED` clear (a reader that does not know the kind ignores it) |
+| 14-4095 | reserved | - | S3 document map, S4 reversed-text link, S7 BWT / wavelet / samples |
 | >= 2^28 | private | - | experiments; always written with `REQUIRED` clear |
 
 Notes:
+* **`TEXT` codec 4: dense symbols packed with b bits (amendment 2026-11-18, owner decision; the layout of the verified prototype `.pk` file of E3-E8, changed in no byte).** Needs `ALPHABET` (as codec 2: the symbol `s` is the `s`-th smallest distinct code unit; only text whose code units are all below 256 is eligible). `b = max(1, ceil(log2 SIGMA))`, 1 <= b <= 8 (2 bits for sigma <= 4, 3 bits for sigma 5-8, 4 bits for sigma 9-16), is stored in `PARAM0` (`bits_per_symbol`); `PARAM1` = 0; `COUNT = n`; `ELEM_WIDTH` = 0 (the payload is not an array of whole bytes). Layout: one big-endian bit stream, symbol `i` in the stream bits `[i*b, (i+1)*b)`, the first bit of a byte is its most significant bit; the unused low bits of the last data byte are zero; **64 zero bytes follow the data and belong to the payload**, so `LENGTH = ceil(n*b/8) + 64` and a reader may load 8 bytes (or, for the 256-bit compare, 41 bytes) at the byte of any symbol `i <= n`; a read at or beyond `n` yields the symbol 0. Validation at level `Header` replaces `COUNT * ELEM_WIDTH == LENGTH` by `LENGTH == ceil(COUNT * PARAM0 / 8) + 64`, `1 <= PARAM0 <= 8`, `2^PARAM0 >= SIGMA`, the unused bits and the 64 padding bytes zero (O(1): a reader reads 65 bytes). Level `Sections`: the CRC-32C covers the whole payload including the padding. Level `Structure`: every symbol is below SIGMA and the symbol counts equal those of a recount.
 * The navigation pack (`ISA`, `RMQ`) is optional because the suffix-link decision of [ADR-001](ADR-001-index-contract.md) section 5 makes it needed only by the matching-statistics family; when absent the engine builds it lazily in memory (never writes to a read-only mapping).
 * Everything dense is a plain array so an engine can wrap the mapping as `ReadOnlySpan<T>` for `count <= int.MaxValue` or as a pointer-plus-`long` view (`SaView<T>`) beyond.
 
@@ -109,9 +114,9 @@ The 16 B/char gate is defined on random DNA (PLAN.md:83: expected about 10 for t
 
 | Level | Cost | Checks |
 |---|---|---|
-| `Header` (default `Open`) | O(sections), cold open of the order of milliseconds like v6 (4.84 ms, `BENCHMARK.md:177`) | magic, version major, endian probe, header CRC, `FILE_SIZE == actual length`, every section inside the file, aligned, non-overlapping, `COUNT * ELEM_WIDTH == LENGTH`, required sections present and consistent with `TEXT_LEN`, `POS_WIDTH`, `SIGMA`, codec/alphabet agreement |
+| `Header` (default `Open`) | O(sections), cold open of the order of milliseconds like v6 (4.84 ms, `BENCHMARK.md:177`) | magic, version major, endian probe, header CRC, `FILE_SIZE == actual length`, every section inside the file, aligned, non-overlapping, `COUNT * ELEM_WIDTH == LENGTH` (TEXT codec 4: `LENGTH == ceil(COUNT * PARAM0 / 8) + 64` instead, section 4), required sections present and consistent with `TEXT_LEN`, `POS_WIDTH`, `SIGMA`, codec/alphabet agreement, `COUNTS` (when present) sums to `TEXT_LEN` |
 | `Sections` | O(file size) (CRC-32C by hardware intrinsics where available, slice-by-8 managed fallback; both give the same value) | + every `HAS_CRC` payload |
-| `Structure` | O(n) | + `SA` is a permutation of `0..n` with `SA[0] = n` (bitmap); `LCP` recomputed with the Phi pass of ADR-002 section 4 and compared; adjacent-rank order check using `LCP` (`text[SA[i-1]+LCP[i]] < text[SA[i]+LCP[i]]` or the shorter suffix first); child table round trip; `ISA` inverse of `SA`; `RMQ` spot checks |
+| `Structure` | O(n) | + `SA` is a permutation of `0..n` with `SA[0] = n` (bitmap); `LCP` recomputed with the Phi pass of ADR-002 section 4 and compared; adjacent-rank order check using `LCP` (`text[SA[i-1]+LCP[i]] < text[SA[i]+LCP[i]]` or the shorter suffix first); child table round trip; `ISA` inverse of `SA`; `RMQ` spot checks; TEXT codec 4: every symbol below `SIGMA`; `COUNTS` equal to a recount of the text |
 
 Access modes: `Checked` (default) clamps/validates every index read from `SA`, `ISA`, `CHILD`, `LCP_OVERFLOW` against its section bounds before use (a corrupt body then throws `InvalidDataException`, never reads outside the mapping); `Trusted` skips the checks and is opt-in for files the process wrote itself or verified at `Structure` level. This closes the weakness recorded in the K0 gaps for v6 ("query hot loops read raw pointers with Debug.Assert-only bounds ... Load validates header only"). Throughput gates in [PROGRESS-S1.md](../PROGRESS-S1.md) are measured in the default mode and `Trusted` is reported next to it (the overhead of `Checked` is UNVERIFIED).
 

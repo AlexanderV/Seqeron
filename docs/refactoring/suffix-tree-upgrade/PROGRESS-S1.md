@@ -47,6 +47,8 @@ Each work package: failing test first, implement, the three existing suites unch
 
 **Owner decisions 2026-11-18 (after the E8 run on the Mac; ADR-004 section 6c):** (1) A1 relaxed: the builder's anonymous working set is bounded by about 320 MB (measured 309.7 / 309.2 MB at 3x10^9 with four threads); the gate G2 of the builder is RssAnon <= 320 MB at every n with the default parameters and four threads; no tuning package. (2) N_base = 16 Mi symbols. (3) 1b.7a authorised (forecast 3-5 h, 0.8-1.2 M tokens, +-50 %); 1b.7b-e each need their own stated cost and yes.
 
+**Owner decisions 2026-11-18, the container format (the four ADR-003 gaps of 1b.7b; ADR-004 section 6c, ADR-003 amended):** (1) TEXT codec 4 layout as the verified prototype (`PARAM0` = b, `ELEM_WIDTH` = 0, `LENGTH = ceil(n*b/8) + 64`); (2) `TEXT_SHA256` = hash of the code units as bytes for codecs 1, 2 and 4, UTF-16LE for codec 3; (3) own optional section kind 13 `COUNTS`; (4) `b = ceil(log2 sigma)`. 1b.7e implements the amended ADR-003.
+
 (The policy below is to be pasted into every 1b.7 agent brief.)
 
 **Test policy for 1b.7a-e (owner yes 2026-11-16).** Aim: during development only the tests that the change can affect; the rest only at the end of a package, and then only the tests that touch what the change could have reached. Three levels:
