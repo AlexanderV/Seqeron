@@ -292,6 +292,41 @@ public class MappedTextReaderTests
     }
 
     [Test]
+    public void TheStepCounts_AreThoseOfTheCostModel_AtTheEdgesOfTheVectorLoop()
+    {
+        var s = new byte[2_000];
+        using var t = new PinnedText(s, 2);
+        foreach (bool vectors in new[] { false, true })
+        {
+            t.Reader.UseVectors = vectors;
+            bool v = t.Reader.UseVectors;
+            foreach ((long max, long scalarSteps, long vectorSteps) in new[] { (0L, 0L, 0L), (1L, 1L, 1L), (31L, 1L, 1L), (32L, 1L, 1L), (33L, 2L, 2L), (127L, 4L, 4L), (128L, 4L, 1L), (129L, 5L, 2L), (256L, 8L, 2L), (1_000L, 32L, 11L) })
+            {
+                long steps = 0;
+                Assert.That(t.Reader.Lce(0, 1, max, ref steps), Is.EqualTo(max));
+                Assert.That(steps, Is.EqualTo(v ? vectorSteps : scalarSteps), $"max={max} vectors={v}");
+            }
+        }
+    }
+
+    [Test]
+    public void CompareSuffixes_PositionsAtOrBeyondTheEnd_AreTheEmptySuffix()
+    {
+        byte[] s = TextOracle.Random(50, 4, 3);
+        using var t = new PinnedText(s, 2);
+        long steps = 0;
+        Assert.That(t.Reader.CompareSuffixes(50, 3, 0, ref steps, out long lce), Is.EqualTo(-1), "the empty suffix is the smallest");
+        Assert.That(lce, Is.Zero);
+        Assert.That(t.Reader.CompareSuffixes(3, 55, 0, ref steps, out lce), Is.EqualTo(1));
+        Assert.That(lce, Is.Zero);
+        Assert.That(t.Reader.CompareSuffixes(50, 90, 0, ref steps, out lce), Is.Zero, "two empty suffixes are the same");
+        Assert.That(t.Reader.CompareSuffixes(1L << 40, 60, 5, ref steps, out lce), Is.Zero);
+        Assert.That(lce, Is.Zero);
+        Assert.That(t.Reader.CompareSuffixes(0, 50, 10, ref steps, out lce), Is.EqualTo(1));
+        Assert.That(lce, Is.Zero, "nothing is common with the empty suffix, whatever skip says");
+    }
+
+    [Test]
     public void CompareSuffixes_EqualsTheNaiveOrder_WithSkip_AndReportsTheCommonPrefix()
     {
         foreach (int bits in new[] { 1, 2, 3, 8 })
@@ -536,6 +571,7 @@ public class MappedTextReaderTests
         e = Assert.Throws<InvalidDataException>(() => t.Reader.Verify(good with { Sha256 = new string('0', 64) }));
         Assert.That(e!.Message, Does.Contain("SHA-256").IgnoreCase);
         t.Reader.Verify(good with { Sha256 = new string('0', 64) }, checkHash: false);
+        t.Reader.Verify(good with { Sha256 = good.Sha256.ToUpperInvariant() });
         Assert.Throws<InvalidDataException>(() => t.Reader.Verify(good with { Letters = good.Letters[..7] }), "the alphabet and the counts must agree");
     }
 
@@ -639,6 +675,8 @@ public class MappedTextReaderTests
         byte[] packed = TextOracle.Pack(s, 3);
         using (var ok = new PinnedText(packed, 100, 3)) Assert.That(ok.Reader.Length, Is.EqualTo(100));
         Assert.Throws<InvalidDataException>(() => new PinnedText(packed[..^1], 100, 3).Dispose());
+        InvalidDataException? longer = Assert.Throws<InvalidDataException>(() => new PinnedText([.. packed, 0], 100, 3).Dispose());
+        Assert.That(longer!.Message, Does.Contain("length"));
         byte[] pad = (byte[])packed.Clone();
         pad[^1] = 7;
         Assert.Throws<InvalidDataException>(() => new PinnedText(pad, 100, 3).Dispose());

@@ -278,6 +278,28 @@ public class PackedTextWriterTests
     }
 
     [Test]
+    public void AnInputWithALetterThatWasNotThere_IsDetected_AsAChangedInput()
+    {
+        using var dir = new TempDir();
+        byte[] data = RandomInput(5_000, 4, 3);
+        string txt = Input(dir, data);
+        byte[] other = (byte[])data.Clone();
+        other[2_500] = (byte)'z';
+        InvalidOperationException? e = Assert.Throws<InvalidOperationException>(() => PackedTextWriter.WriteFile(txt, dir.File("p.pk"), new PackedTextWriterOptions { BetweenPasses = () => File.WriteAllBytes(txt, other) }));
+        Assert.That(e!.Message, Does.Contain("2500").And.Contain("changed"));
+        Assert.That(File.Exists(dir.File("p.pk")), Is.False);
+    }
+
+    [Test]
+    public void AMissingDirectory_IsFoundBeforeTheInputIsRead()
+    {
+        using var dir = new TempDir();
+        var c = new IoCounters();
+        Assert.Throws<DirectoryNotFoundException>(() => PackedTextWriter.WriteFile(Input(dir, RandomInput(5_000, 4, 3)), dir.File("no/such/p.pk"), new PackedTextWriterOptions { Counters = c }));
+        Assert.That(c.ReadBytes, Is.Zero);
+    }
+
+    [Test]
     public void ASuccessfulWrite_ReplacesAnExistingTarget()
     {
         using var dir = new TempDir();

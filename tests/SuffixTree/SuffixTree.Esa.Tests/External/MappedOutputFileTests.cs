@@ -314,6 +314,23 @@ public class MappedOutputFileTests
     }
 
     [Test]
+    public void ARecreatedFile_IsEmptyOfTheOldContent_InEveryMode()
+    {
+        using var dir = new TempDir();
+        string path = dir.File("old.bin");
+        foreach (ReservationMode mode in new[] { ReservationMode.Sparse, ReservationMode.Preallocate })
+        {
+            foreach (bool system in new[] { false, true })
+            {
+                File.WriteAllBytes(path, Enumerable.Repeat((byte)0xAB, 3000).ToArray());
+                var options = new MappedFileOptions { Reservation = mode, Source = system ? null : new FakeReservationSource { CanPreallocate = true } };
+                using (MappedOutputFile.Create(path, 2000, options)) { }
+                Assert.That(File.ReadAllBytes(path), Is.EqualTo(new byte[2000]), $"{mode} system={system}");
+            }
+        }
+    }
+
+    [Test]
     public void APreallocationThatFails_IsSurfaced_AndNoFileIsLeft()
     {
         using var dir = new TempDir();
