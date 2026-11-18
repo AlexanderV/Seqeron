@@ -124,7 +124,7 @@ public class ExternalLcpTests
         string u8 = LcpChildRun.RepeatRich(40_000, 3) + new string('G', 10); // few long values: U8 (+ overflow maybe)
         string u8Overflow = StringFamilies.RandomDna(20_000, 5) + StringFamilies.RandomDna(600, 11) + StringFamilies.RandomDna(100, 6) + StringFamilies.RandomDna(600, 11);
         string u16 = StringFamilies.RandomDna(20_000, 7) + StringFamilies.RandomDna(70_000, 8) + StringFamilies.RandomDna(333, 9) + StringFamilies.RandomDna(70_000, 8);
-        string u32 = new string('a', 3000);
+        string u32 = new string('a', 100_000); // 34,465 values at or above 65,535: more than n / 8
         var kinds = new Dictionary<LcpKind, int>();
         foreach ((string name, string text) in new[] { ("random", StringFamilies.RandomDna(30_000, 1)), ("repeat-rich", u8), ("u8 + overflow", u8Overflow), ("u16 + overflow", u16), ("u32", u32) })
         {

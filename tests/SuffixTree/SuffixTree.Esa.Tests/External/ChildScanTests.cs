@@ -293,7 +293,7 @@ public class ChildScanTests
         {
             (ChildScanResult r, uint[] child) = Run(c, codec, 2, 1);
             Assert.That(child, Is.EqualTo(new uint[] { 0 }));
-            Assert.That((r.NodeCount, r.InternalCount, r.LrsDepth, r.LrsRank, r.MaxLcp, r.StackPeak), Is.EqualTo((1L, 0L, 0u, 0u, 0L, 0L)));
+            Assert.That((r.NodeCount, r.InternalCount, r.LrsDepth, r.LrsRank, r.MaxLcp, r.StackPeak), Is.EqualTo((1L, 0L, 0u, 0u, 0L, 1L)), "the root alone is on the stack");
         }
     }
 
@@ -360,9 +360,9 @@ public class ChildScanTests
         scan.Consume(0, d.AsSpan(0, 3));
         Assert.Throws<InvalidOperationException>(() => scan.Consume(4, d.AsSpan(4, 1)), "a gap");
         Assert.Throws<InvalidOperationException>(() => scan.Consume(2, d.AsSpan(2, 2)), "a repeat");
-        scan.Consume(3, d.AsSpan(3, 3));
-        Assert.Throws<InvalidOperationException>(() => scan.Consume(6, [1]), "rank n + 1 does not exist");
-        scan.Consume(6, []);
+        scan.Consume(3, d.AsSpan(3, 4));
+        Assert.Throws<InvalidOperationException>(() => scan.Consume(7, [1]), "rank n + 1 does not exist");
+        scan.Consume(7, []);
         Assert.That(scan.Complete().NodeCount, Is.EqualTo(c.Statistics.NodeCount));
     }
 

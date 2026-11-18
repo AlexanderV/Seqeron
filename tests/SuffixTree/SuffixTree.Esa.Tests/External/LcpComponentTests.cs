@@ -16,7 +16,7 @@ public class LcpRuleTests
     [TestCase(17, 2, 1, "U16")]
     [TestCase(1_000, 62, 0, "U8")]
     [TestCase(1_000, 63, 0, "U16")]
-    [TestCase(1_000, 63, 125, "U16")]
+    [TestCase(1_000, 125, 125, "U16")]
     [TestCase(1_000, 200, 126, "U32")]
     [TestCase(1_000, 200, 125, "U16")]
     [TestCase(1_000, 1_000, 1_000, "U32")]
@@ -51,7 +51,7 @@ public class LcpRuleTests
     {
         long n = 3_000_000_000;
         Assert.That(LcpWidth.Select(n, n / 16, 0), Is.EqualTo(LcpKind.U8));
-        Assert.That(LcpWidth.Select(n, (n / 16) + 1, n / 8), Is.EqualTo(LcpKind.U16));
+        Assert.That(LcpWidth.Select(n, n / 8, n / 8), Is.EqualTo(LcpKind.U16), "16 x n / 8 > n, 8 x n / 8 = n");
         Assert.That(LcpWidth.Select(n, n, (n / 8) + 1), Is.EqualTo(LcpKind.U32));
         Assert.That(LcpWidth.Select(4_294_967_292, 268_435_455, 0), Is.EqualTo(LcpKind.U8), "16 x (2^28 - 1) = 4,294,967,280 <= n");
         Assert.That(LcpWidth.Select(4_294_967_292, 268_435_456, 0), Is.EqualTo(LcpKind.U16), "16 x 2^28 = 2^32 > n, and no value reaches 65,535");
@@ -303,7 +303,7 @@ public class PlcpScanTests
             if (j % chunk == 0) first += expected;
         }
         Assert.That((total.Escapes8, total.Escapes16, total.MaxPlcp, total.FirstValue), Is.EqualTo((e8, e16, max, first)), "counts, maximum and the restart cost");
-        if (c.N > 0) Assert.That(total.CompareSteps, Is.GreaterThan(0));
+        if (c.N > 1) Assert.That(total.CompareSteps, Is.GreaterThan(0));
     }
 
     [Test]

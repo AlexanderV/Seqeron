@@ -87,6 +87,9 @@ internal sealed class ExtLcpStats
 
     /// <summary>Largest PLCP value.</summary>
     internal long MaxPlcp { get; set; }
+
+    /// <summary>What the creation of the base file did about the disk space (the overflow file uses the same mode).</summary>
+    internal ReservationOutcome Reservation { get; set; }
 }
 
 /// <summary>PH4 of ADR-004 in its base mode: the LCP array of a text from its suffix array file with bounded RAM.</summary>
@@ -99,11 +102,12 @@ internal static class ExternalLcp
     /// removed when it ends, also when it fails, and so are the output files that were created.
     /// </summary>
     /// <exception cref="InvalidDataException">The suffix array file has not <c>n + 1</c> entries, <c>SA[0] != n</c>, an entry is outside <c>[0, n)</c>, or the entries are not a permutation.</exception>
-    internal static ExtLcpStats Build(string saPath, MappedTextReader text, string basePath, string overflowPath, ExtLcpOptions options, ILcpChunkConsumer? consumer = null) => throw new NotImplementedException();
+    internal static ExtLcpStats Build(string saPath, MappedTextReader text, string basePath, string overflowPath, ExtLcpOptions options, ILcpChunkConsumer? consumer = null)
+        => new LcpBuild(saPath, text, basePath, overflowPath, options, consumer).Run();
 
     /// <summary>
     /// Bytes of native buffers one B2 task holds for a text of <paramref name="n"/> symbols under <paramref name="options"/> (the arithmetic that limits the number of parallel tasks under a budget):
     /// the Phi chunk, the rank chunk, the permutation bits, the write buffers of the second distribution and the tuple read buffer.
     /// </summary>
-    internal static long WorkerBytes(long n, ExtLcpOptions options) => throw new NotImplementedException();
+    internal static long WorkerBytes(long n, ExtLcpOptions options) => LcpBuild.WorkerBytes(n, options);
 }

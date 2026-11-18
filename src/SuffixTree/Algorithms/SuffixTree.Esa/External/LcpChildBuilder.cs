@@ -1,4 +1,7 @@
-#pragma warning disable S2325 // stub: the members become instance members of the implementation
+using System.Diagnostics;
+using System.Globalization;
+using System.Numerics;
+
 namespace SuffixTree.Esa.External;
 
 /// <summary>The files PH4 and PH5 write: the base array of the LCP, its overflow list, the child table (layout A) and, when a path is given, the statistics text.</summary>
@@ -138,7 +141,53 @@ internal static class LcpChildRules
     /// <summary>The reference R: 8,000,000 positions per chunk (P = 375 chunks at <see cref="ReferenceN"/>).</summary>
     internal const long ChunkReference = 8_000_000;
 
-    internal static LcpChildParameters Resolve(long n, LcpChildOptions options) => throw new NotImplementedException();
+    /// <summary>
+    /// The sizes of a run: with <c>f = RuleN / ScaleN</c> (RuleN = the text length when it is 0) R is <c>ceil(8,000,000 x f)</c> with a floor of 3 when <see cref="LcpChildOptions.ScaleN"/> is set, else 8,000,000; the number of parallel B2
+    /// tasks is what the PH4 arena cap allows at the reference geometry (R = 8,000,000 at 3x10^9 symbols: about 77 MB per task, two of four under 160 MiB); the buffers and windows have their reference values. An explicit value of
+    /// <see cref="LcpChildOptions.Tuning"/> wins.
+    /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException">A negative n, scale or cap, fewer than one thread, or an explicit value that its stage cannot use.</exception>
+    internal static LcpChildParameters Resolve(long n, LcpChildOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        ArgumentOutOfRangeException.ThrowIfNegative(n);
+        ArgumentOutOfRangeException.ThrowIfNegative(options.ScaleN);
+        ArgumentOutOfRangeException.ThrowIfNegative(options.RuleN);
+        ArgumentOutOfRangeException.ThrowIfLessThan(options.Threads, 1);
+        LcpChildTuning t = options.Tuning;
+        bool scaled = options.ScaleN > 0;
+        long ruleN = options.RuleN > 0 ? options.RuleN : n;
+        double f = scaled ? ruleN / (double)options.ScaleN : 1.0;
+        long chunk = t.LcpChunk ?? (scaled ? Math.Max(3, (long)Math.Ceiling(ChunkReference * f)) : ChunkReference);
+        var reference = new ExtLcpOptions { ScratchDir = string.Empty, ChunkPositions = ChunkReference, Threads = options.Threads };
+        long perTask = ExternalLcp.WorkerBytes(ReferenceN, reference);
+        int workers = t.LcpWorkers ?? (int)Math.Clamp(options.ArenaCapBytes / Math.Max(1, perTask), 1, options.Threads);
+        var p = new LcpChildParameters
+        {
+            N = n,
+            Factor = f,
+            Scaled = scaled,
+            LcpChunk = chunk,
+            LcpWorkers = workers,
+            LcpReadBytes = t.LcpReadBytes ?? 1 << 20,
+            LcpTupleBytes = t.LcpTupleBytes ?? 32 * 1024,
+            WindowBytes = t.WindowBytes ?? MappedWindowWriter.DefaultWindowBytes,
+            BlockEntries = t.BlockEntries ?? 256 * 1024,
+            ChildWindowBytes = t.ChildWindowBytes ?? 1 << 20,
+            ChildSlots = t.ChildSlots ?? 8,
+            SpillFlushBytes = t.SpillFlushBytes ?? 16L << 20,
+        };
+        ArgumentOutOfRangeException.ThrowIfLessThan(p.LcpChunk, 1);
+        ArgumentOutOfRangeException.ThrowIfLessThan(p.LcpWorkers, 1);
+        ArgumentOutOfRangeException.ThrowIfLessThan(p.LcpReadBytes, 1);
+        ArgumentOutOfRangeException.ThrowIfLessThan(p.LcpTupleBytes, 1);
+        ArgumentOutOfRangeException.ThrowIfLessThan(p.WindowBytes, 1);
+        ArgumentOutOfRangeException.ThrowIfLessThan(p.BlockEntries, 2);
+        if (p.ChildWindowBytes < 4 || !BitOperations.IsPow2(p.ChildWindowBytes)) throw new ArgumentOutOfRangeException(nameof(options), p.ChildWindowBytes, "a window of the child table is a power of two of at least 4 bytes");
+        ArgumentOutOfRangeException.ThrowIfLessThan(p.ChildSlots, 1);
+        ArgumentOutOfRangeException.ThrowIfNegative(p.SpillFlushBytes);
+        return p;
+    }
 }
 
 /// <summary>The verdict of the RssAnon gate of the builder.</summary>
@@ -183,7 +232,8 @@ internal sealed class LcpChildResult
     internal ReservationOutcome Reservation { get; init; }
 
     /// <summary>The line-oriented statistics text (<c>.stats</c> of the prototype): NODE_COUNT, the internal nodes, LRS_DEPTH and LRS_RANK and the shape of the output.</summary>
-    internal string StatsText(int sigma) => throw new NotImplementedException();
+    internal string StatsText(int sigma) => string.Create(CultureInfo.InvariantCulture,
+        $"nodecount={Scan.NodeCount}\ninternal={Scan.InternalCount}\nlrsdepth={Scan.LrsDepth}\nlrsrank={Scan.LrsRank}\nn={Lcp.N}\nsigma={sigma}\nlcpwidth={LcpWidth.Bytes(Lcp.Kind)}\noverflow={Lcp.OverflowCount}\nmaxlcp={Scan.MaxLcp}\n");
 }
 
 /// <summary>
@@ -196,5 +246,219 @@ internal static class LcpChildBuilder
     /// <exception cref="InvalidDataException">The suffix array file is not the file of a permutation of the text positions (wrong length, <c>SA[0] != n</c>, an entry out of range or repeated).</exception>
     /// <exception cref="NotSupportedException">The text is longer than <see cref="PackedTextFormat.MaxSymbols"/>, or longer than the tagged codec holds.</exception>
     /// <exception cref="IOException">A file cannot be created, written or spilled to (a full disk included); every output of this build is removed.</exception>
-    internal static LcpChildResult Build(string saPath, MappedTextReader text, LcpChildOutputs outputs, LcpChildOptions options) => throw new NotImplementedException();
+    internal static LcpChildResult Build(string saPath, MappedTextReader text, LcpChildOutputs outputs, LcpChildOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(saPath);
+        ArgumentNullException.ThrowIfNull(text);
+        ArgumentNullException.ThrowIfNull(outputs);
+        ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(outputs.Lcp);
+        ArgumentNullException.ThrowIfNull(outputs.Overflow);
+        ArgumentNullException.ThrowIfNull(outputs.Child);
+        ArgumentOutOfRangeException.ThrowIfNegative(options.ArenaCapBytes);
+        ArgumentOutOfRangeException.ThrowIfNegative(options.ChildArenaCapBytes);
+        if (options.Sigma is < 0) throw new ArgumentOutOfRangeException(nameof(options), options.Sigma, "sigma is not negative");
+        if (outputs.Stats is not null && options.Sigma is null) throw new ArgumentException("the statistics file records the alphabet size: set LcpChildOptions.Sigma", nameof(options));
+        long n = text.Length;
+        if (n > PackedTextFormat.MaxSymbols) throw new NotSupportedException($"{n} symbols: positions are 32-bit, the limit is {PackedTextFormat.MaxSymbols}");
+        if (options.Codec == ChildCodec.Tagged && n > TaggedChild.MaxLength) throw new NotSupportedException($"the tagged codec holds ranks in 30 bits; a text of {n} symbols needs the packed codec");
+        LcpChildParameters p = LcpChildRules.Resolve(n, options);
+
+        string scratch = Path.GetFullPath(options.ScratchDir);
+        bool createdRoot = !Directory.Exists(scratch);
+        string ph4 = Path.Combine(scratch, "ph4"), ph5 = Path.Combine(scratch, "ph5");
+        IoCounters counters = options.Counters ?? new IoCounters();
+        var lcpBudget = new ArenaBudget(options.ArenaCapBytes);
+        var childBudget = new ArenaBudget(options.ChildArenaCapBytes);
+        using var sampler = options.MeasureRss ? new RssSampler(new RssReader(options.ProcSource), 10) : null;
+        var childPath = outputs.Child;
+        bool childCreated = false;
+        bool lcpCreated = false;
+        bool statsStarted = false;
+        try
+        {
+            Directory.CreateDirectory(ph4);
+            Directory.CreateDirectory(ph5);
+            sampler?.Start();
+            var lcpOptions = new ExtLcpOptions
+            {
+                ScratchDir = ph4,
+                ChunkPositions = p.LcpChunk,
+                Threads = options.Threads,
+                Workers = p.LcpWorkers,
+                ReadBufferBytes = p.LcpReadBytes,
+                TupleBufferBytes = p.LcpTupleBytes,
+                WindowBytes = p.WindowBytes,
+                Budget = lcpBudget,
+                ArenaGuards = options.ArenaGuards,
+                Counters = counters,
+                Files = options.Files,
+                Trace = options.Trace,
+            };
+            var childOptions = new ChildBuildOptions
+            {
+                ScratchDir = ph5,
+                BlockEntries = p.BlockEntries,
+                WindowBytes = p.ChildWindowBytes,
+                WindowSlots = p.ChildSlots,
+                FlushWindows = true,
+                SpillFlushBytes = p.SpillFlushBytes,
+                Codec = options.Codec,
+                Budget = childBudget,
+                ArenaGuards = options.ArenaGuards,
+                Counters = counters,
+            };
+            ExtLcpStats lcp;
+            ChildScanResult scan;
+            long t0 = Stopwatch.GetTimestamp();
+            using (var lazy = new LazyChildScan(n, childPath, childOptions, options.Files))
+            {
+                try
+                {
+                    lcp = ExternalLcp.Build(saPath, text, outputs.Lcp, outputs.Overflow, lcpOptions, lazy);
+                    scan = lazy.Complete();
+                }
+                finally
+                {
+                    childCreated = lazy.Created;
+                }
+            }
+            lcpCreated = true; // PH4 removes its own files when it fails; from here on they are this build's to remove
+            double seconds = (Stopwatch.GetTimestamp() - t0) / (double)Stopwatch.Frequency;
+            if (options.SyncOutputs)
+            {
+                foreach (string path in new[] { outputs.Lcp, outputs.Overflow, childPath }) Sync(path);
+            }
+            CheckLengths(outputs, n, lcp, childPath);
+            RssStats rss = sampler?.Stop() ?? default;
+            double? anonMb = rss.Available ? rss.MaxRssAnonKb * 1024.0 / 1e6 : null;
+            RssVerdict verdict = RssVerdict.Unavailable;
+            if (anonMb is { } mb) verdict = mb <= options.RssAnonCapMb ? RssVerdict.Within : RssVerdict.Exceeded;
+            var result = new LcpChildResult
+            {
+                Parameters = p,
+                Lcp = lcp,
+                Scan = scan,
+                Io = counters.Snapshot(),
+                Seconds = seconds,
+                ArenaPeakBytes = lcpBudget.PeakBytes,
+                ChildArenaPeakBytes = childBudget.PeakBytes,
+                RssAnonPeakMb = anonMb,
+                RssVerdict = verdict,
+                Reservation = lcp.Reservation,
+            };
+            if (outputs.Stats is not null)
+            {
+                statsStarted = true;
+                File.WriteAllText(outputs.Stats, result.StatsText(options.Sigma!.Value));
+            }
+            return result;
+        }
+        catch
+        {
+            if (lcpCreated)
+            {
+                DeleteQuietly(outputs.Lcp);
+                DeleteQuietly(outputs.Overflow);
+            }
+            if (childCreated) DeleteQuietly(childPath);
+            if (statsStarted && !Directory.Exists(outputs.Stats)) DeleteQuietly(outputs.Stats!);
+            throw;
+        }
+        finally
+        {
+            DeleteDirectoryQuietly(ph4);
+            DeleteDirectoryQuietly(ph5);
+            if (createdRoot) DeleteEmptyDirectoryQuietly(scratch);
+        }
+    }
+
+    /// <summary>The child table of PH5 is created when PH4 delivers its first block, i.e. after the width of the LCP is known and the LCP files exist (the creation order of E6, which keeps the peak of the scratch on the disk where the ADR measured it).</summary>
+    private sealed class LazyChildScan(long n, string childPath, ChildBuildOptions options, MappedFileOptions? files) : ILcpChunkConsumer, IDisposable
+    {
+        private MappedOutputFile? _file;
+        private ChildScan? _scan;
+
+        internal bool Created { get; private set; }
+
+        public void Consume(long firstRank, ReadOnlySpan<uint> lcp)
+        {
+            if (_scan is null)
+            {
+                _file = MappedOutputFile.Create(childPath, 4 * (n + 1), files);
+                Created = true;
+                _scan = ChildScan.Create(n, _file, 0, options);
+            }
+            _scan.Consume(firstRank, lcp);
+        }
+
+        internal ChildScanResult Complete()
+        {
+            ChildScan scan = _scan ?? throw new InvalidOperationException("PH4 delivered no LCP block");
+            ChildScanResult result = scan.Complete();
+            _file!.Complete(fsync: false);
+            return result;
+        }
+
+        public void Dispose()
+        {
+            _scan?.Dispose();
+            _file?.Dispose();
+        }
+    }
+
+    /// <summary>Every output has its final length: the base LCP of <c>(n + 1)</c> entries of the chosen width, the overflow pairs, the child table of <c>n + 1</c> entries.</summary>
+    private static void CheckLengths(LcpChildOutputs outputs, long n, ExtLcpStats lcp, string childPath)
+    {
+        static void Expect(string path, long bytes, string what)
+        {
+            long got = new FileInfo(path).Length;
+            if (got != bytes) throw new InvalidOperationException($"{what} has {got} bytes, expected {bytes}");
+        }
+        Expect(outputs.Lcp, LcpWidth.Bytes(lcp.Kind) * (n + 1), "the base LCP");
+        Expect(outputs.Overflow, 8 * lcp.OverflowCount, "the overflow list");
+        Expect(childPath, 4 * (n + 1), "the child table");
+    }
+
+    private static void Sync(string path)
+    {
+        using var fs = new FileStream(path, FileMode.Open, FileAccess.ReadWrite);
+        fs.Flush(true);
+    }
+
+    private static void DeleteQuietly(string path)
+    {
+        try
+        {
+            File.Delete(path);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            // not ours to clean up if it cannot be deleted; the failure of the build is what the caller needs
+        }
+    }
+
+    private static void DeleteDirectoryQuietly(string path)
+    {
+        try
+        {
+            if (Directory.Exists(path)) Directory.Delete(path, true);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            // reported by the files that are left
+        }
+    }
+
+    private static void DeleteEmptyDirectoryQuietly(string path)
+    {
+        try
+        {
+            if (Directory.Exists(path) && !Directory.EnumerateFileSystemEntries(path).Any()) Directory.Delete(path);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            // someone else put a file there between the check and the delete: it is theirs
+        }
+    }
 }

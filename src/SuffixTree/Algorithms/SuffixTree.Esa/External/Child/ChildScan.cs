@@ -1,4 +1,5 @@
-#pragma warning disable S2325 // stub: the members become instance members of the implementation
+using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
 namespace SuffixTree.Esa.External;
@@ -68,7 +69,7 @@ internal sealed class ChildScanResult
 
     internal WindowStats ChildWindows { get; set; }
 
-    /// <summary>Seconds spent inside <see cref="ChildScan.Consume"/> and <see cref="ChildScan.Complete"/>.</summary>
+    /// <summary>Seconds spent inside <see cref="ChildScan.Consume"/> and <see cref="ChildScan.Complete"/> (the scan itself, without the reading of the LCP).</summary>
     internal double Seconds { get; set; }
 }
 
@@ -82,6 +83,198 @@ internal struct IntervalEntry
     internal uint Last;
 }
 
+/// <summary>Events of the forward scan that the writers of layout A listen to (the in-RAM <c>IIntervalSink</c>).</summary>
+internal interface IChildSink
+{
+    /// <summary><paramref name="k"/> is an l-index of the open interval; <paramref name="previous"/> is its previous l-index (the link <c>next[previous] = k</c>) or <see cref="ChildScan.None"/> for the first.</summary>
+    void LIndex(uint previous, uint k);
+
+    /// <summary>The internal interval <c>[lb..rb]</c> with value <paramref name="ell"/> and first l-index <paramref name="first"/> closes (children before their parent, the root last); <paramref name="lastChild"/>: its right boundary is its parent's.</summary>
+    void Close(uint ell, uint lb, uint rb, uint first, bool lastChild);
+}
+
+/// <summary>Layout A, tagged codec: the writes of the in-RAM <c>TaggedChild</c> (next link at the previous l-index, up at <c>rb</c>, down at <c>lb</c>), kind in bits 30-31.</summary>
+internal readonly struct TaggedChildSink(AlignedWindowWriter writer) : IChildSink
+{
+    private const uint NextTag = 1u << 30;
+    private const uint UpTag = 2u << 30;
+    private const uint DownTag = 3u << 30;
+
+    public void LIndex(uint previous, uint k)
+    {
+        if (previous != ChildScan.None) writer.Write32(previous, NextTag | k);
+    }
+
+    public void Close(uint ell, uint lb, uint rb, uint first, bool lastChild)
+    {
+        if (lastChild) writer.Write32(lb, DownTag | first);
+        else writer.Write32(rb, UpTag | first);
+    }
+}
+
+/// <summary>Layout A, packed codec: the writes of the in-RAM <c>PackedChild</c> (the raw value; a next link only when it is not <c>k + 1</c>).</summary>
+internal readonly struct PackedChildSink(AlignedWindowWriter writer) : IChildSink
+{
+    public void LIndex(uint previous, uint k)
+    {
+        if (previous != ChildScan.None && k != previous + 1) writer.Write32(previous, k);
+    }
+
+    public void Close(uint ell, uint lb, uint rb, uint first, bool lastChild) => writer.Write32(lastChild ? lb : rb, first);
+}
+
+/// <summary>The scan behind <see cref="ChildScan"/>, specialised by the sink (the JIT inlines the writers).</summary>
+internal interface IScanCore : IDisposable
+{
+    void Consume(long firstRank, ReadOnlySpan<uint> lcp);
+
+    ChildScanResult Complete();
+}
+
+internal sealed class ScanCore<TSink> : IScanCore
+    where TSink : struct, IChildSink
+{
+    private readonly long _n;
+    private readonly BudgetedArena _arena;
+    private readonly SpillStack<IntervalEntry> _stack;
+    private readonly AlignedWindowWriter _child;
+    private TSink _sink;
+    private long _nextRank;
+    private long _internal;
+    private uint _lrsDepth;
+    private uint _lrsRank;
+    private uint _maxLcp;
+    private long _ticks;
+    private bool _completed;
+    private bool _disposed;
+
+    internal ScanCore(long n, TSink sink, AlignedWindowWriter child, BudgetedArena arena, string spillPath, ChildBuildOptions options)
+    {
+        _n = n;
+        _sink = sink;
+        _child = child;
+        _arena = arena;
+        _stack = new SpillStack<IntervalEntry>(arena, spillPath, options.BlockEntries, options.SpillFlushBytes, options.Counters);
+        _stack.Push(new IntervalEntry { Ell = 0, Lb = 0, First = ChildScan.None, Last = ChildScan.None });
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+    public void Consume(long firstRank, ReadOnlySpan<uint> lcp)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (firstRank != _nextRank) throw new InvalidOperationException($"LCP values must arrive in rank order: expected rank {_nextRank}, got {firstRank}");
+        if (firstRank + lcp.Length > _n + 1) throw new InvalidOperationException($"ranks {firstRank}..{firstRank + lcp.Length - 1} exceed the {_n + 1} ranks of a text of {_n} symbols");
+        long t0 = Stopwatch.GetTimestamp();
+        for (int j = 0; j < lcp.Length; j++)
+        {
+            long rank = firstRank + j;
+            uint cur = lcp[j];
+            if (rank <= 1)
+            {
+                if (cur != 0) throw new InvalidDataException($"LCP[{rank}] = {cur}: the values at ranks 0 and 1 must be 0");
+                if (rank == 0) continue;
+            }
+            else if (cur > _n)
+            {
+                throw new InvalidDataException($"LCP[{rank}] = {cur} exceeds the text length {_n}");
+            }
+            if (cur > _maxLcp) _maxLcp = cur;
+            Step((uint)rank, cur);
+        }
+        _nextRank = firstRank + lcp.Length;
+        _ticks += Stopwatch.GetTimestamp() - t0;
+    }
+
+    public ChildScanResult Complete()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (_completed) throw new InvalidOperationException("the scan is already complete");
+        if (_nextRank != _n + 1) throw new InvalidOperationException($"{_nextRank} of the {_n + 1} LCP values were delivered");
+        long t0 = Stopwatch.GetTimestamp();
+        if (_n > 0)
+        {
+            while (_stack.Height > 0)
+            {
+                IntervalEntry e = _stack.Top;
+                _stack.Pop();
+                Close(e.Ell, e.Lb, (uint)_n, e.First, true);
+            }
+        }
+        _completed = true;
+        _child.Dispose();
+        _ticks += Stopwatch.GetTimestamp() - t0;
+        return new ChildScanResult
+        {
+            N = _n,
+            InternalCount = _internal,
+            NodeCount = _n == 0 ? 1 : 1 + _internal + _n + 1,
+            LrsDepth = _lrsDepth,
+            LrsRank = _lrsRank,
+            MaxLcp = _maxLcp,
+            StackPeak = _stack.PeakHeight,
+            Spill = _stack.Stats,
+            ChildWindows = _child.Stats,
+            Seconds = _ticks / (double)Stopwatch.Frequency,
+        };
+    }
+
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _disposed = true;
+        _child.Dispose();
+        _stack.Dispose();
+        _arena.Dispose();
+    }
+
+    /// <summary>One rank of the bottom-up scan of the lcp-interval tree (the algorithm of the in-RAM <c>LcpIntervalScan</c>, with the stack in a <see cref="SpillStack{T}"/>).</summary>
+    private void Step(uint i, uint cur)
+    {
+        uint left = i - 1;
+        ref IntervalEntry top = ref _stack.Top;
+        while (top.Ell > cur)
+        {
+            IntervalEntry e = top;
+            _stack.Pop();
+            top = ref _stack.Top;
+            Close(e.Ell, e.Lb, i - 1, e.First, cur < top.Ell);
+            left = e.Lb;
+        }
+        if (top.Ell < cur)
+        {
+            _stack.Push(new IntervalEntry { Ell = cur, Lb = left, First = i, Last = i });
+            _sink.LIndex(ChildScan.None, i);
+        }
+        else if (top.First == ChildScan.None)
+        {
+            ref IntervalEntry root = ref _stack.TopForUpdate();
+            root.First = i;
+            root.Last = i;
+            _sink.LIndex(ChildScan.None, i);
+        }
+        else
+        {
+            ref IntervalEntry t = ref _stack.TopForUpdate();
+            _sink.LIndex(t.Last, i);
+            t.Last = i;
+        }
+    }
+
+    private void Close(uint ell, uint lb, uint rb, uint first, bool lastChild)
+    {
+        if (ell > 0)
+        {
+            _internal++;
+            if (ell > _lrsDepth)
+            {
+                _lrsDepth = ell;
+                _lrsRank = lb;
+            }
+        }
+        _sink.Close(ell, lb, rb, first, lastChild);
+    }
+}
+
 /// <summary>
 /// The forward scan of PH5 (ADR-004 sections 3.2 and 4.2, row PH5): one pass over the LCP in rank order with the external stack, writing layout A (the child table in the single-array form, writes behind the cursor through
 /// bounded mapped windows) and counting the internal nodes and the deepest interval (NODE_COUNT, LRS_DEPTH, LRS_RANK). It is an <see cref="ILcpChunkConsumer"/>: the PH4 hook
@@ -92,18 +285,46 @@ internal sealed class ChildScan : ILcpChunkConsumer, IDisposable
     /// <summary>"No index": the stored value of a missing l-index.</summary>
     internal const uint None = uint.MaxValue;
 
+    private readonly IScanCore _core;
+
+    private ChildScan(IScanCore core) => _core = core;
+
     /// <summary>Creates the scan of a text of <paramref name="n"/> symbols writing into <paramref name="file"/> at <paramref name="start"/> (<c>4 x (n + 1)</c> bytes: the range is checked, the caller creates the file at its final length).</summary>
     /// <exception cref="NotSupportedException">Tagged codec for a text above 2^30 - 1 symbols, or a text above <see cref="PackedTextFormat.MaxSymbols"/>.</exception>
-    internal static ChildScan Create(long n, MappedOutputFile file, long start, ChildBuildOptions options) => throw new NotImplementedException();
+    internal static ChildScan Create(long n, MappedOutputFile file, long start, ChildBuildOptions options)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(n);
+        ArgumentNullException.ThrowIfNull(file);
+        ArgumentNullException.ThrowIfNull(options);
+        if (n > PackedTextFormat.MaxSymbols) throw new NotSupportedException($"{n} symbols: positions are 32-bit, the limit is {PackedTextFormat.MaxSymbols}");
+        if (options.Codec == ChildCodec.Tagged && n > TaggedChild.MaxLength) throw new NotSupportedException($"the tagged codec holds ranks in 30 bits; a text of {n} symbols needs the packed codec");
+        var arena = new BudgetedArena(options.Budget ?? new ArenaBudget(long.MaxValue), options.ArenaGuards);
+        AlignedWindowWriter? child = null;
+        try
+        {
+            child = new AlignedWindowWriter(file, start, 4 * (n + 1), options.WindowBytes, options.WindowSlots, options.FlushWindows, options.Counters);
+            string spill = Path.Combine(options.ScratchDir, "ph5-stack-" + Guid.NewGuid().ToString("N") + ".spill");
+            IScanCore core = options.Codec == ChildCodec.Tagged
+                ? new ScanCore<TaggedChildSink>(n, new TaggedChildSink(child), child, arena, spill, options)
+                : new ScanCore<PackedChildSink>(n, new PackedChildSink(child), child, arena, spill, options);
+            return new ChildScan(core);
+        }
+        catch
+        {
+            child?.Dispose();
+            arena.Dispose();
+            throw;
+        }
+    }
 
     /// <summary>The next block of LCP values: ranks <c>firstRank ..</c>, which must continue where the previous call ended (the first call starts at rank 0).</summary>
     /// <exception cref="InvalidOperationException">The ranks are not in order or exceed n + 1.</exception>
     /// <exception cref="InvalidDataException">LCP[0] or LCP[1] is not 0, or a value exceeds the text length.</exception>
-    public void Consume(long firstRank, ReadOnlySpan<uint> lcp) => throw new NotImplementedException();
+    public void Consume(long firstRank, ReadOnlySpan<uint> lcp) => _core.Consume(firstRank, lcp);
 
     /// <summary>Closes the intervals still open, closes the output writer and returns what the scan found.</summary>
     /// <exception cref="InvalidOperationException">Not all <c>n + 1</c> values were delivered.</exception>
-    internal ChildScanResult Complete() => throw new NotImplementedException();
+    internal ChildScanResult Complete() => _core.Complete();
 
-    public void Dispose() => throw new NotImplementedException();
+    public void Dispose() => _core.Dispose();
 }

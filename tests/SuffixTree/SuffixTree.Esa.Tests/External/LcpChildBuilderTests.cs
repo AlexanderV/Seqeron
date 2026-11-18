@@ -91,7 +91,7 @@ public class LcpChildBuilderTests
         var kinds = new HashSet<LcpKind>();
         string u8Overflow = StringFamilies.RandomDna(20_000, 5) + StringFamilies.RandomDna(600, 11) + StringFamilies.RandomDna(100, 6) + StringFamilies.RandomDna(600, 11);
         string u16 = StringFamilies.RandomDna(20_000, 7) + StringFamilies.RandomDna(70_000, 8) + StringFamilies.RandomDna(333, 9) + StringFamilies.RandomDna(70_000, 8);
-        foreach ((string name, string text) in new[] { ("u8", StringFamilies.RandomDna(20_000, 1)), ("u8 + overflow", u8Overflow), ("u16 + overflow", u16), ("u32", new string('a', 4000)) })
+        foreach ((string name, string text) in new[] { ("u8", StringFamilies.RandomDna(20_000, 1)), ("u8 + overflow", u8Overflow), ("u16 + overflow", u16), ("u32", new string('a', 100_000)) })
         {
             LcpChildCase c = LcpChildCase.Of(text);
             kinds.Add(c.Lcp.Kind);

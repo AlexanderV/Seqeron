@@ -95,6 +95,13 @@ internal sealed unsafe class MappedTextReader : IDisposable
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal ulong Key(long i) => Window(i) >> _keyShift;
 
+    /// <summary>Asks the CPU to load the cache line of the window at <paramref name="i"/> (a hint for a read that comes a few iterations later; no effect for a position outside the text or where the hardware has no prefetch, never a fault).</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal void Prefetch(long i)
+    {
+        if (Sse.IsSupported && (ulong)i < (ulong)_limit) Sse.Prefetch0(_p + ((i * _bits) >> 3));
+    }
+
     /// <summary>The symbol at <paramref name="i"/>; 0 for <c>i &gt;= n</c>.</summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal uint Symbol(long i) => (uint)(Window(i) >> (64 - _bits));

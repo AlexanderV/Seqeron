@@ -204,7 +204,7 @@ public class LcpChildDifferentialTests
         ProtoPipe.EndToEndResult proto = LcpChildDiff.RunProto(dir, input, "proto");
         (Prod.LcpChildResult result, _) = LcpChildDiff.RunProd(dir, proto, "prod", new Prod.LcpChildOptions { ScratchDir = dir.File("prod-scratch") });
         Assert.That(result.Scan.Spill.BytesWritten, Is.EqualTo(proto.Scan.Spill.BytesWritten));
-        Assert.That(result.Scan.Spill.BytesWritten, Is.GreaterThan(15_000_000), "16 bytes per entry beyond two blocks of 256 K entries");
+        Assert.That(result.Scan.Spill.BytesWritten, Is.EqualTo(2L * 256 * 1024 * 16), "two of the three blocks of 256 K entries of 16 bytes that the chain of 10^6 intervals fills");
         Assert.That(result.Scan.Spill.BytesRead, Is.EqualTo(proto.Scan.Spill.BytesRead));
     }
 
@@ -224,6 +224,7 @@ public class LcpChildDifferentialTests
             var files = new Prod.LcpChildOutputs(prefix + ".lcp", prefix + ".ovf", prefix + ".cld", prefix + ".stats");
             using (Prod.MappedTextReader reader = Prod.MappedTextReader.Open(prefix + ".pk", proto.Prepare.N, proto.Prepare.Bits))
                 Prod.LcpChildBuilder.Build(prefix + ".sa", reader, files, new Prod.LcpChildOptions { ScratchDir = dir.File("prod-scratch"), Sigma = proto.Prepare.Sigma });
+            Directory.CreateDirectory(dir.File("verify-scratch"));
             VerifyResult v = OutputVerifier.Run(new VerifyOptions { Prefix = prefix, InputPath = input, ScratchDir = dir.File("verify-scratch"), Threads = 2 });
             Assert.That(v.Checks, Has.Count.EqualTo(11), name);
             Assert.That(v.AllPassed, Is.True, $"{name}: {string.Join("; ", v.Checks.Where(c => c.Status != CheckStatus.Pass).Select(c => $"{c.Name} {c.Status} {c.Detail}"))}");
