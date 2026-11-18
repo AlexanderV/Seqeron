@@ -31,7 +31,7 @@ internal sealed record DistOptions
     /// <summary>Arena options: guard bands in the tests, none in production.</summary>
     internal ArenaOptions? Arena { get; init; }
 
-    /// <summary>STUB (work package 1b.7d, tests first): how the target file is created (reservation of the disk space); null = created sparse, as in 1b.7a.</summary>
+    /// <summary>How the target file is created (reservation of the disk space through <see cref="MappedOutputFile.Create"/>: a full disk is an <see cref="IOException"/> at creation); null = created sparse, as in 1b.7a (work package 1b.7d added the option for the rank file of PH1).</summary>
     internal MappedFileOptions? Files { get; init; }
 }
 
@@ -201,7 +201,8 @@ internal static class Dist
         arena.ReleaseTo(mark);
 
         // pass 2: chunk by chunk in key order
-        using var window = new MappedWindowWriter(targetPath, slots * sizeof(TValue), options.WindowBytes, counters);
+        using MappedOutputFile? created = options.Files is null ? null : MappedOutputFile.Create(targetPath, slots * sizeof(TValue), options.Files);
+        using MappedWindowWriter window = created is null ? new MappedWindowWriter(targetPath, slots * sizeof(TValue), options.WindowBytes, counters) : created.CreateWriter(options.WindowBytes, counters);
         Buf<TValue> chunkArray = arena.Allocate<TValue>((int)Math.Min(chunkEntries, slots), zero: false, "dist.chunk");
         Buf<DistEntry<TValue>> chunkRead = arena.Allocate<DistEntry<TValue>>(bufEntries, zero: false, "dist.read");
         long bytesWritten = 0;

@@ -26,6 +26,9 @@ internal sealed unsafe class MappedTextReader : IDisposable
         (byte)7, 6, 5, 4, 3, 2, 1, 0, 15, 14, 13, 12, 11, 10, 9, 8,
         7, 6, 5, 4, 3, 2, 1, 0, 15, 14, 13, 12, 11, 10, 9, 8);
 
+    /// <summary>Bits per symbol of a reduced string of the difference-cover recursion (see <see cref="OpenReduced"/>).</summary>
+    internal const int ReducedBits = 32;
+
     private readonly byte* _p;
     private readonly long _n;
     private readonly int _bits;
@@ -79,11 +82,20 @@ internal sealed unsafe class MappedTextReader : IDisposable
     /// <summary>Opens the packed text that is a section of a larger file: <paramref name="length"/> (the LENGTH of the section entry) must be <see cref="PackedTextFormat.TotalBytes"/> and the section must lie inside the file.</summary>
     internal static MappedTextReader OpenRegion(string path, long offset, long length, long n, int bits) => OpenCore(path, offset, length, n, bits);
 
-    /// <summary>STUB (work package 1b.7d, tests first): the reduced string of the difference-cover recursion, 32 bits per symbol.</summary>
-    internal static MappedTextReader OpenReduced(string path, long n) => throw new NotImplementedException();
+    /// <summary>
+    /// The reduced string of the difference-cover recursion (ADR-004 PH1, work package 1b.7d): <paramref name="n"/> symbols of <see cref="ReducedBits"/> = 32 bits each (names and ranks, big endian, the layout of the prototype's
+    /// <c>PackedText</c> with 32 bits per symbol) followed by the 64 zero bytes of padding, in a file that is exactly that. Every reading operation is that of the byte-symbol reader; only <see cref="ReadSymbols"/> and the codec
+    /// checks of <see cref="Verify"/> are for the 1 to 8 bits of the file codec and refuse such a reader.
+    /// </summary>
+    internal static MappedTextReader OpenReduced(string path, long n) => OpenCore(path, 0, null, n, ReducedBits, reduced: true);
 
-    /// <summary>STUB (work package 1b.7d, tests first): a 32-bit-symbol text in memory that the caller owns.</summary>
-    internal static MappedTextReader FromMemoryReduced(byte* data, long length, long n) => throw new NotImplementedException();
+    /// <summary>A reduced string in memory that the caller owns (tests): the same checks, nothing is mapped or freed.</summary>
+    internal static MappedTextReader FromMemoryReduced(byte* data, long length, long n)
+    {
+        CheckShape(n, ReducedBits, reduced: true);
+        CheckLayout(data, length, n, ReducedBits);
+        return new MappedTextReader(data, n, ReducedBits, null, null);
+    }
 
     /// <summary>A reader over memory that the caller owns (tests, in-RAM texts): the same checks, nothing is mapped or freed.</summary>
     internal static MappedTextReader FromMemory(byte* data, long length, long n, int bits)
@@ -116,6 +128,7 @@ internal sealed unsafe class MappedTextReader : IDisposable
     internal void ReadSymbols(long start, Span<byte> destination)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+        if (_bits > PackedTextFormat.MaxBits) throw new NotSupportedException($"a reduced string of {_bits} bits per symbol has no one-byte symbols to unpack");
         if (start < 0 || start > _n || destination.Length > _n - start) throw new ArgumentOutOfRangeException(nameof(start), $"range [{start}, {start + destination.Length}) outside [0, {_n})");
         if (_bits == 8)
         {
@@ -260,10 +273,10 @@ internal sealed unsafe class MappedTextReader : IDisposable
         _map?.Dispose();
     }
 
-    private static MappedTextReader OpenCore(string path, long offset, long? sectionLength, long n, int bits)
+    private static MappedTextReader OpenCore(string path, long offset, long? sectionLength, long n, int bits, bool reduced = false)
     {
         ArgumentNullException.ThrowIfNull(path);
-        CheckShape(n, bits);
+        CheckShape(n, bits, reduced);
         long total = PackedTextFormat.TotalBytes(n, bits);
         if (offset < 0) throw new InvalidDataException($"the section starts at offset {offset}: negative");
         if (sectionLength is long declared && declared != total) throw new InvalidDataException($"the section has length {declared} but {n} symbols of {bits} bits need {total} bytes ({PackedTextFormat.DataBytes(n, bits)} data bytes and {PackedTextFormat.PadBytes} of padding)");
@@ -298,9 +311,9 @@ internal sealed unsafe class MappedTextReader : IDisposable
         }
     }
 
-    private static void CheckShape(long n, int bits)
+    private static void CheckShape(long n, int bits, bool reduced = false)
     {
-        if (bits < PackedTextFormat.MinBits || bits > PackedTextFormat.MaxBits) throw new InvalidDataException($"{bits} bits per symbol: the packed text has {PackedTextFormat.MinBits} to {PackedTextFormat.MaxBits}");
+        if (reduced ? bits != ReducedBits : bits < PackedTextFormat.MinBits || bits > PackedTextFormat.MaxBits) throw new InvalidDataException($"{bits} bits per symbol: the packed text has {PackedTextFormat.MinBits} to {PackedTextFormat.MaxBits}");
         if (n < 0 || n > long.MaxValue / PackedTextFormat.MaxBits - PackedTextFormat.PadBytes) throw new InvalidDataException($"{n} symbols: not a length of a text");
     }
 
