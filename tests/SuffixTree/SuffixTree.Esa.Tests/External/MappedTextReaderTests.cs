@@ -573,6 +573,8 @@ public class MappedTextReaderTests
         t.Reader.Verify(good with { Sha256 = new string('0', 64) }, checkHash: false);
         t.Reader.Verify(good with { Sha256 = good.Sha256.ToUpperInvariant() });
         Assert.Throws<InvalidDataException>(() => t.Reader.Verify(good with { Letters = good.Letters[..7] }), "the alphabet and the counts must agree");
+        e = Assert.Throws<InvalidDataException>(() => t.Reader.Verify(good with { Counts = [.. good.Counts, 0L] }), "one count too many, every symbol below sigma");
+        Assert.That(e!.Message, Does.Contain("letters").And.Contain("counts"));
     }
 
     [Test]
@@ -652,6 +654,9 @@ public class MappedTextReaderTests
         }
 
         // widths and lengths that cannot be right
+        string zeros = Make("zeros.pk", new byte[64]);
+        Assert.Throws<InvalidDataException>(() => MappedTextReader.Open(zeros, 5, 0).Dispose(), "a file of 64 bytes would fit zero bits per symbol: the width is refused, not divided by");
+        Assert.Throws<InvalidDataException>(() => MappedTextReader.Open(zeros, 5, -1).Dispose());
         foreach (int bits in new[] { 0, -1, 9, 16, 33, int.MinValue })
         {
             Assert.Throws<InvalidDataException>(() => MappedTextReader.Open(Make("b.pk", packed), 1001, bits).Dispose(), $"bits {bits}");
@@ -692,8 +697,11 @@ public class MappedTextReaderTests
         byte[] s = TextOracle.Random(100, 4, 5);
         MappedTextReader r = MappedTextReader.Open(TextOracle.WriteFile(dir, "d.pk", s, 2), 100, 2);
         Assert.That(r.Key(3), Is.EqualTo(TextOracle.Key(s, 3, 2)));
+        bool? mapped = ProcMaps.Contains(dir.File("d.pk"));
+        if (mapped is not null) Assert.That(mapped, Is.True, "the file is mapped while the reader is open");
         r.Dispose();
         r.Dispose();
+        if (mapped is not null) Assert.That(ProcMaps.Contains(dir.File("d.pk")), Is.False, "Dispose unmaps the view");
         long steps = 0;
         Assert.Throws<ObjectDisposedException>(() => r.Symbol(3));
         Assert.Throws<ObjectDisposedException>(() => r.Key(3));

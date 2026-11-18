@@ -103,8 +103,10 @@ public class PackedTextWriterTests
         r.Verify(info);
         PackedTextInfo wide = PackedTextWriter.WriteFile(Input(dir, input), dir.File("m2.pk"), new PackedTextWriterOptions { MinBits = 2 });
         Assert.That(wide.Bits, Is.EqualTo(2), "a minimum below the needed width changes nothing");
-        Assert.Throws<ArgumentOutOfRangeException>(() => PackedTextWriter.WriteFile(Input(dir, input), dir.File("m3.pk"), new PackedTextWriterOptions { MinBits = 0 }));
-        Assert.Throws<ArgumentOutOfRangeException>(() => PackedTextWriter.WriteFile(Input(dir, input), dir.File("m4.pk"), new PackedTextWriterOptions { MinBits = 9 }));
+        var c = new IoCounters();
+        Assert.Throws<ArgumentOutOfRangeException>(() => PackedTextWriter.WriteFile(Input(dir, input), dir.File("m3.pk"), new PackedTextWriterOptions { MinBits = 0, Counters = c }));
+        Assert.Throws<ArgumentOutOfRangeException>(() => PackedTextWriter.WriteFile(Input(dir, input), dir.File("m4.pk"), new PackedTextWriterOptions { MinBits = 9, Counters = c }));
+        Assert.That(c.ReadBytes, Is.Zero, "the options are checked before the input is read");
     }
 
     [Test]
@@ -405,7 +407,12 @@ public class PackedTextWriterTests
             Assert.Throws<ArgumentException>(() => PackedTextWriter.Pack(txt, info, used), "the target must be at its start");
         }
         File.WriteAllBytes(txt, RandomInput(1_001, 4, 3));
-        using (MappedWindowWriter ok = file.CreateWriter(0, info.TotalBytes)) Assert.Throws<InvalidOperationException>(() => PackedTextWriter.Pack(txt, info, ok), "the length changed since the scan");
+        using (MappedWindowWriter ok = file.CreateWriter(0, info.TotalBytes))
+        {
+            InvalidOperationException? grown = Assert.Throws<InvalidOperationException>(() => PackedTextWriter.Pack(txt, info, ok), "the length changed since the scan");
+            Assert.That(grown!.Message, Does.Contain("1001").And.Contain("1000").And.Contain("scanned"));
+            Assert.That(ok.Position, Is.Zero, "nothing was written");
+        }
         File.WriteAllBytes(txt, RandomInput(1_000, 4, 4));
         using (MappedWindowWriter ok = file.CreateWriter(0, info.TotalBytes))
         {

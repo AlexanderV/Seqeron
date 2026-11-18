@@ -125,3 +125,16 @@ internal sealed class FakeReservationSource : IReservationSource
         return Free;
     }
 }
+
+/// <summary>What the kernel says about the mappings of this process (Linux: <c>/proc/self/maps</c>): lets a test see that a disposed window or reader really unmapped its view.</summary>
+internal static class ProcMaps
+{
+    /// <summary>True when a mapping of <paramref name="path"/> exists, false when none does, null when this platform has no <c>/proc/self/maps</c>.</summary>
+    internal static bool? Contains(string path)
+    {
+        const string maps = "/proc/self/maps";
+        if (!OperatingSystem.IsLinux() || !File.Exists(maps)) return null;
+        string full = System.IO.Path.GetFullPath(path);
+        return File.ReadLines(maps).Any(l => l.EndsWith(full, StringComparison.Ordinal));
+    }
+}

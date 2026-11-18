@@ -130,6 +130,38 @@ public class MappedOutputFileTests
     }
 
     [Test]
+    public void ADisposedWriter_HasUnmappedItsWindow_WhileTheFileStaysOpen()
+    {
+        using var dir = new TempDir();
+        string path = dir.File("m.bin");
+        using MappedOutputFile f = MappedOutputFile.Create(path, 1 << 20);
+        MappedWindowWriter w = f.CreateWriter(0, 1 << 20, 4096);
+        w.Append([1, 2, 3]);
+        bool? open = ProcMaps.Contains(path);
+        if (open is null) Assert.Ignore("no /proc/self/maps here");
+        Assert.That(open, Is.True, "the window is mapped while the writer is open");
+        w.Flush();
+        Assert.That(ProcMaps.Contains(path), Is.False, "Flush releases the window");
+        w.Append([4]);
+        Assert.That(ProcMaps.Contains(path), Is.True);
+        w.Dispose();
+        Assert.That(ProcMaps.Contains(path), Is.False, "Dispose releases the window");
+    }
+
+    [Test]
+    public void AnOwningWriter_UnmapsEverything_WhenDisposed()
+    {
+        using var dir = new TempDir();
+        string path = dir.File("o.bin");
+        var w = new MappedWindowWriter(path, 1 << 20, 4096);
+        w.Append([1, 2, 3]);
+        if (ProcMaps.Contains(path) is null) Assert.Ignore("no /proc/self/maps here");
+        Assert.That(ProcMaps.Contains(path), Is.True);
+        w.Dispose();
+        Assert.That(ProcMaps.Contains(path), Is.False);
+    }
+
+    [Test]
     public void Flush_ReleasesTheWindow_SoTheNextWriteOpensAnother()
     {
         using var dir = new TempDir();
@@ -361,6 +393,14 @@ public class MappedOutputFileTests
         }
         File.Delete(dir.File("pre.bin"));
         long free2 = SystemReservationSource.Instance.AvailableFreeBytes(dir.Path);
+        using (var legacy = new MappedWindowWriter(dir.File("legacy.bin"), length))
+        {
+            long free4 = SystemReservationSource.Instance.AvailableFreeBytes(dir.Path);
+            Assert.That(free2 - free4, Is.LessThan(length / 10), "the constructor with a path keeps creating sparse files (Dist is unchanged)");
+            Assert.That(legacy.Length, Is.EqualTo(length));
+        }
+        File.Delete(dir.File("legacy.bin"));
+        free2 = SystemReservationSource.Instance.AvailableFreeBytes(dir.Path);
         using (MappedOutputFile f = MappedOutputFile.Create(dir.File("sp.bin"), length, new MappedFileOptions { Reservation = ReservationMode.Sparse }))
         {
             long free3 = SystemReservationSource.Instance.AvailableFreeBytes(dir.Path);

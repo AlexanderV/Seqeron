@@ -1,0 +1,26 @@
+O01	Auto means sparse	killed(1)	
+O02	Auto is not resolved	survived	survived
+O05	an empty file is mapped	killed(5)	
+O06	a failed creation leaves the file	killed(3)	
+O07	CreateWriter: a range that ends at the end of the file is refused	killed(25)	
+O08	CreateWriter: a negative start is not refused	killed(1)	
+O09	CreateWriter: a negative length is not refused	killed(1)	
+O10	CreateWriter: a window of 0 bytes is accepted	killed(1)	
+O11	CreateWriter: the writer is not counted	killed(17)	
+O13	Complete tolerates one open writer	killed(1)	
+O15	Complete: fsync is always skipped	BUILD-ERROR CS0162	
+O16	Complete: fsync is always done	survived	survived
+O21	OpenView opens a read-only view	killed(host crash)	
+O22	WriterClosed does not decrement	killed(17)	
+O23	Sparse: the length is not set	killed(34)	
+O25	Preallocate: the real source is used when it cannot preallocate	killed(8)	
+O26	Preallocate: the length is not set after the reservation	killed(30)	
+O27	Fallback: an unknown free space refuses the file	killed(2)	
+O28	Fallback: free space equal to the length is refused	killed(1)	
+O29	Fallback: the free space is never compared	killed(3)	
+O30	Fallback: the outcome labels are swapped	killed(1)	
+O31	Fallback: the free space is asked for the file, not its directory	killed(1)	
+O33	Fallback: the length is not set	killed(2)	
+O34	the system source preallocates everywhere	survived	survived
+O35	the system source never preallocates	killed(2)	
+O36	the system source reserves nothing	killed(1)	

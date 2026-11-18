@@ -1,0 +1,23 @@
+[
+ {
+  "id": "R42",
+  "desc": "Verify: an alphabet that is not as long as the counts is accepted",
+  "old": "        if (info.Counts.Length != sigma) throw",
+  "new": "        if (info.Counts.Length < 0) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "R62",
+  "desc": "CheckShape: the lower width is not checked",
+  "old": "bits < PackedTextFormat.MinBits ||",
+  "new": "bits < 0 ||",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "R48",
+  "desc": "Verify: the hash is not compared (replacement of the first R48, which did not compile)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs",
+  "old": "if (hash is not null && !string.Equals(Convert.ToHexStringLower(hash.GetHashAndReset()), info.Sha256, StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException(\"the SHA-256 of the text differs from the recorded one\");",
+  "new": "_ = hash;"
+ }
+]

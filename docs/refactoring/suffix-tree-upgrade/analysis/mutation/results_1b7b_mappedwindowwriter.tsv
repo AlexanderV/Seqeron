@@ -1,0 +1,10 @@
+W01	a range writer maps its window at the range-relative offset	killed(5)	
+W02	Flush does nothing	killed(1)	
+W03	Dispose is not idempotent-guarded	BUILD-ERROR CS0414	
+W04	Dispose does not close the window	survived	survived
+W05	Dispose of a range writer disposes the shared file	BUILD-ERROR CS0414	
+W06	Dispose of a range writer does not report the closing	killed(17)	
+W07	the owning writer does not dispose its file	killed(1)	
+W08	FileOffset is 0	killed(1)	
+W09	a write that ends at the end of the range is refused	killed(43)	
+W10	the owning writer creates its file with a reservation	survived	survived

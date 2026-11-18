@@ -1,0 +1,16 @@
+[
+ {
+  "id": "P04",
+  "desc": "the upper MinBits is not checked",
+  "old": "        ArgumentOutOfRangeException.ThrowIfGreaterThan(o.MinBits, PackedTextFormat.MaxBits);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/PackedTextWriter.cs"
+ },
+ {
+  "id": "P18",
+  "desc": "Pack: a changed length is not noticed",
+  "old": "if (n != info.N) throw",
+  "new": "if (n < 0) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/PackedTextWriter.cs"
+ }
+]

@@ -1,0 +1,30 @@
+[
+ {
+  "id": "W04",
+  "desc": "Dispose does not close the window",
+  "old": "        _closed = true;\n        CloseWindow();",
+  "new": "        _closed = true;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedWindowWriter.cs"
+ },
+ {
+  "id": "W10",
+  "desc": "the owning writer creates its file with a reservation",
+  "old": "new MappedFileOptions { Reservation = ReservationMode.Sparse }",
+  "new": "new MappedFileOptions { Reservation = ReservationMode.Auto }",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedWindowWriter.cs"
+ },
+ {
+  "id": "W03",
+  "desc": "Dispose is not idempotent-guarded (replacement of the first W03, which did not compile)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedWindowWriter.cs",
+  "old": "        if (_closed) return;\n        _closed = true;",
+  "new": "        if (_closed && _start < 0) return;\n        _closed = true;"
+ },
+ {
+  "id": "W05",
+  "desc": "Dispose of a range writer disposes the shared file (replacement of the first W05, which did not compile)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedWindowWriter.cs",
+  "old": "        if (_ownsFile) _file.Dispose();\n        else _file.WriterClosed();",
+  "new": "        if (_ownsFile || _start >= 0) _file.Dispose();\n        else _file.WriterClosed();"
+ }
+]
