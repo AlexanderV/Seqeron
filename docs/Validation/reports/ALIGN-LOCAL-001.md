@@ -112,3 +112,7 @@ Matrix-scored `LocalAlign`/`LocalAlignAffine` (water-compatible gap conventions)
 ## 2026-11 audit round 1 (A1-5, B09 F45)
 
 Arbitrary gap-cost functions are implemented (`LocalAlignGeneralGap`, Waterman-Smith-Beyer single-run model, Biopython callable `gap_score` oracle); the "not implemented: arbitrary W_k" statement is superseded (`Local_Alignment_Smith_Waterman.md` §5.3).
+
+## 2026-11 audit round 1 (A1-6, B09 F46)
+
+Exact linear-space alignment (Hirschberg 1975 / Myers-Miller 1988 / Huang-Miller 1991 scheme): every pairwise aligner switches automatically above 25 000 000 cells (identical score, rows, coordinates, ties), explicit `*LinearSpace` methods for any size, MCP automatic. Oracles: Biopython 1.88 / parasail 1.3.4 (1 280 pairs), EMBOSS `stretcher` / `matcher` 6.6.0 (160 + 160 rows; large-pair scores equal up to 50 kb), full-matrix differential (4 750 forced-recursion cases + kb pairs + the automatic switch). 20 kb x 20 kb affine: 111 MB peak (4.8 GB full); 100 kb x 100 kb: 185 MB. Memory guards for the non-affine general-gap aligners (4 M cells) and the profile MSA DP (50 M cells). Algorithm document: `Linear_Space_Alignment.md`.

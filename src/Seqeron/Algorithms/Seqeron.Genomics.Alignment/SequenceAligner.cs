@@ -301,18 +301,28 @@ public static partial class SequenceAligner
     /// </list>
     /// Traceback ties are broken diagonal &gt; up &gt; left.
     /// </summary>
-    private static AlignmentResult LinearAlignCore(
+    internal static AlignmentResult LinearAlignCore(
         string seq1,
         string seq2,
         PairScoring scoring,
         EndGaps ends,
         CancellationToken cancellationToken = default,
-        IProgress<double>? progress = null)
+        IProgress<double>? progress = null,
+        bool forceFullMatrix = false)
     {
         int m = seq1.Length;
         int n = seq2.Length;
 
         cancellationToken.ThrowIfCancellationRequested();
+
+        // Above LinearSpaceCellThreshold cells the O(m·n) matrix is replaced by the exact linear-space program
+        // (same rows, same score; see the Linear-space region).
+        if (!forceFullMatrix && LinearSpaceApplies(m, n, scoring, local: false))
+        {
+            var big = LinearSpaceAlign(seq1, seq2, scoring, affine: false, local: false, ends, LinearSpaceBaseCells, cancellationToken);
+            progress?.Report(1.0);
+            return big;
+        }
 
         var score = new int[m + 1, n + 1];
 
@@ -368,119 +378,6 @@ public static partial class SequenceAligner
 
         progress?.Report(1.0);
         return result;
-    }
-
-    /// <summary>
-    /// Exact linear-space global alignment (Hirschberg 1975, Commun ACM 18:341-343; Myers &amp; Miller
-    /// 1988) under the same linear-gap model as <see cref="GlobalAlign(DnaSequence, DnaSequence, ScoringMatrix?)"/>:
-    /// the score equals the Needleman-Wunsch optimum, with O(m+n) working memory per recursion
-    /// level instead of O(m·n). The recursion splits <paramref name="seq1"/> in the middle, finds the
-    /// optimal split column of <paramref name="seq2"/> from a forward and a backward last-row score
-    /// pass, and recurses; sub-problems of at most <paramref name="maxFullMatrixCells"/> cells are
-    /// solved by the canonical <c>GlobalAlignCore</c>. Tie-breaking of co-optimal alignments may differ
-    /// from <c>GlobalAlign</c> (only the score is guaranteed identical).
-    /// </summary>
-    internal static AlignmentResult GlobalAlignLinearSpace(
-        string seq1, string seq2, ScoringMatrix scoring, long maxFullMatrixCells = 25_000_000)
-    {
-        ArgumentNullException.ThrowIfNull(seq1);
-        ArgumentNullException.ThrowIfNull(seq2);
-        ArgumentNullException.ThrowIfNull(scoring);
-
-        var out1 = new StringBuilder(seq1.Length + seq2.Length);
-        var out2 = new StringBuilder(seq1.Length + seq2.Length);
-        int score = 0;
-        HirschbergAlign(seq1, 0, seq1.Length, seq2, 0, seq2.Length, scoring, maxFullMatrixCells, out1, out2, ref score);
-
-        return new AlignmentResult(out1.ToString(), out2.ToString(), score, AlignmentType.Global,
-            0, 0, seq1.Length - 1, seq2.Length - 1);
-    }
-
-    private static void HirschbergAlign(
-        string a, int aStart, int aEnd, string b, int bStart, int bEnd,
-        ScoringMatrix scoring, long maxFullMatrixCells, StringBuilder out1, StringBuilder out2, ref int score)
-    {
-        int m = aEnd - aStart;
-        int n = bEnd - bStart;
-
-        if (m == 0 || n == 0)
-        {
-            // One side empty: the other is an all-gap run.
-            if (m > 0)
-            {
-                out1.Append(a, aStart, m);
-                out2.Append('-', m);
-            }
-            else if (n > 0)
-            {
-                out1.Append('-', n);
-                out2.Append(b, bStart, n);
-            }
-            score += (m + n) * scoring.GapExtend;
-            return;
-        }
-
-        if (m == 1 || (long)(m + 1) * (n + 1) <= maxFullMatrixCells)
-        {
-            var r = GlobalAlignCore(a.Substring(aStart, m), b.Substring(bStart, n), scoring);
-            out1.Append(r.AlignedSequence1);
-            out2.Append(r.AlignedSequence2);
-            score += r.Score;
-            return;
-        }
-
-        int mid = m / 2;
-        int[] forward = LinearLastRow(a, aStart, aStart + mid, b, bStart, bEnd, scoring, reverse: false);
-        int[] backward = LinearLastRow(a, aStart + mid, aEnd, b, bStart, bEnd, scoring, reverse: true);
-
-        int split = 0;
-        long bestSplit = long.MinValue;
-        for (int j = 0; j <= n; j++)
-        {
-            long total = (long)forward[j] + backward[n - j];
-            if (total > bestSplit)
-            {
-                bestSplit = total;
-                split = j;
-            }
-        }
-
-        HirschbergAlign(a, aStart, aStart + mid, b, bStart, bStart + split, scoring, maxFullMatrixCells, out1, out2, ref score);
-        HirschbergAlign(a, aStart + mid, aEnd, b, bStart + split, bEnd, scoring, maxFullMatrixCells, out1, out2, ref score);
-    }
-
-    /// <summary>
-    /// Last row of the linear-gap NW matrix of a[aStart..aEnd) against b[bStart..bEnd): entry j is the
-    /// optimal score of aligning all of a with the first j characters of b (or, with
-    /// <paramref name="reverse"/>, with the last j characters of b — both strings read backwards).
-    /// </summary>
-    private static int[] LinearLastRow(
-        string a, int aStart, int aEnd, string b, int bStart, int bEnd, ScoringMatrix scoring, bool reverse)
-    {
-        int m = aEnd - aStart;
-        int n = bEnd - bStart;
-        var prev = new int[n + 1];
-        var cur = new int[n + 1];
-
-        for (int j = 0; j <= n; j++)
-            prev[j] = j * scoring.GapExtend;
-
-        for (int i = 1; i <= m; i++)
-        {
-            char ca = reverse ? a[aEnd - i] : a[aStart + i - 1];
-            cur[0] = i * scoring.GapExtend;
-            for (int j = 1; j <= n; j++)
-            {
-                char cb = reverse ? b[bEnd - j] : b[bStart + j - 1];
-                int diag = prev[j - 1] + (ca == cb ? scoring.Match : scoring.Mismatch);
-                int up = prev[j] + scoring.GapExtend;
-                int left = cur[j - 1] + scoring.GapExtend;
-                cur[j] = Math.Max(diag, Math.Max(up, left));
-            }
-            (prev, cur) = (cur, prev);
-        }
-
-        return prev;
     }
 
     #endregion
@@ -583,11 +480,14 @@ public static partial class SequenceAligner
     /// </list>
     /// Traceback ties are broken M &gt; X &gt; Y.
     /// </summary>
-    private static AlignmentResult AffineAlignCore(
-        string seq1, string seq2, PairScoring scoring, AlignmentType type, EndGaps ends = EndGaps.None)
+    internal static AlignmentResult AffineAlignCore(
+        string seq1, string seq2, PairScoring scoring, AlignmentType type, EndGaps ends = EndGaps.None,
+        int startState = StateMatch, int endState = -1, bool forceFullMatrix = false)
     {
         bool local = type == AlignmentType.Local;
         if (local) ends = EndGaps.None;
+        if (!forceFullMatrix && LinearSpaceApplies(seq1.Length, seq2.Length, scoring, local))
+            return LinearSpaceAlign(seq1, seq2, scoring, affine: true, local, ends, LinearSpaceBaseCells, default);
         bool freeStart1 = ends.HasFlag(EndGaps.FreeStart1);
         bool freeEnd1 = ends.HasFlag(EndGaps.FreeEnd1);
         bool freeStart2 = ends.HasFlag(EndGaps.FreeStart2);
@@ -604,20 +504,27 @@ public static partial class SequenceAligner
         var xx = new int[m + 1, n + 1];
         var yy = new int[m + 1, n + 1];
 
-        mm[0, 0] = local ? AffineNegInf : 0;
-        xx[0, 0] = AffineNegInf;
-        yy[0, 0] = AffineNegInf;
+        // Origin vector: the path leaves (0,0) from the state it arrived in (M for a whole alignment; the linear-space
+        // program starts the sub-problems below the split row from the state of the split vertex, startState).
+        mm[0, 0] = !local && startState == StateMatch ? 0 : AffineNegInf;
+        xx[0, 0] = !local && startState == StateGapInSeq2 ? 0 : AffineNegInf;
+        yy[0, 0] = !local && startState == StateGapInSeq1 ? 0 : AffineNegInf;
         for (int i = 1; i <= m; i++)
         {
             mm[i, 0] = freeStart1 ? 0 : AffineNegInf;
-            xx[i, 0] = local || freeStart1 ? AffineNegInf : o + i * e;
+            // X(i,0) = o + i·e from the default origin (a leading gap is charged exactly one opening, Flouri 2015).
+            xx[i, 0] = local || freeStart1
+                ? AffineNegInf
+                : Math.Max(AffineNegInf, Max3(mm[i - 1, 0] + oe, xx[i - 1, 0] + e, yy[i - 1, 0] + oe));
             yy[i, 0] = AffineNegInf;
         }
         for (int j = 1; j <= n; j++)
         {
             mm[0, j] = freeStart2 ? 0 : AffineNegInf;
             xx[0, j] = AffineNegInf;
-            yy[0, j] = local || freeStart2 ? AffineNegInf : o + j * e;
+            yy[0, j] = local || freeStart2
+                ? AffineNegInf
+                : Math.Max(AffineNegInf, Max3(mm[0, j - 1] + oe, yy[0, j - 1] + e, xx[0, j - 1] + oe));
         }
 
         int bestLocal = 0, bestI = 0, bestJ = 0;
@@ -682,6 +589,17 @@ public static partial class SequenceAligner
             }
             best = Max3(mm[ci, cj], xx[ci, cj], yy[ci, cj]);
             state = PickState(best, mm[ci, cj], StateMatch, xx[ci, cj], StateGapInSeq2, StateGapInSeq1);
+            if (endState >= 0)
+            {
+                // Forced end state (the linear-space program's sub-problems end in the state of the split vertex).
+                state = (byte)endState;
+                best = endState switch
+                {
+                    StateMatch => mm[ci, cj],
+                    StateGapInSeq2 => xx[ci, cj],
+                    _ => yy[ci, cj],
+                };
+            }
         }
 
         int endI = ci;
@@ -824,10 +742,13 @@ public static partial class SequenceAligner
             scoring ?? SimpleDna);
     }
 
-    private static AlignmentResult LocalAlignCore(string seq1, string seq2, PairScoring scoring)
+    internal static AlignmentResult LocalAlignCore(string seq1, string seq2, PairScoring scoring, bool forceFullMatrix = false)
     {
         int m = seq1.Length;
         int n = seq2.Length;
+
+        if (!forceFullMatrix && LinearSpaceApplies(m, n, scoring, local: true))
+            return LinearSpaceAlign(seq1, seq2, scoring, affine: false, local: true, EndGaps.None, LinearSpaceBaseCells, default);
 
         var score = new int[m + 1, n + 1];
         int maxScore = 0;
@@ -1349,26 +1270,28 @@ public static partial class SequenceAligner
 
     private static AlignmentResult AlignWithMatrix(
         ProteinSequence sequence1, ProteinSequence sequence2, MatrixScoring scoring, AlignmentType type, bool affine,
-        EndGaps ends = EndGaps.Fitting)
+        EndGaps ends = EndGaps.Fitting, long linearSpaceBaseCells = 0)
     {
         ArgumentNullException.ThrowIfNull(sequence1);
         ArgumentNullException.ThrowIfNull(sequence2);
-        return AlignWithMatrix(sequence1.Sequence, sequence2.Sequence, scoring, type, affine, ends);
+        return AlignWithMatrix(sequence1.Sequence, sequence2.Sequence, scoring, type, affine, ends, linearSpaceBaseCells);
     }
 
     private static AlignmentResult AlignWithMatrix(
         DnaSequence sequence1, DnaSequence sequence2, MatrixScoring scoring, AlignmentType type, bool affine,
-        EndGaps ends = EndGaps.Fitting)
+        EndGaps ends = EndGaps.Fitting, long linearSpaceBaseCells = 0)
     {
         ArgumentNullException.ThrowIfNull(sequence1);
         ArgumentNullException.ThrowIfNull(sequence2);
-        return AlignWithMatrix(sequence1.Sequence, sequence2.Sequence, scoring, type, affine, ends);
+        return AlignWithMatrix(sequence1.Sequence, sequence2.Sequence, scoring, type, affine, ends, linearSpaceBaseCells);
     }
 
     /// <param name="ends">End-gap policy, used only by <see cref="AlignmentType.SemiGlobal"/> (Global = none, Local = n/a).</param>
+    /// <param name="linearSpaceBaseCells">0: the usual full-matrix core (automatic linear-space switch above
+    /// <see cref="LinearSpaceCellThreshold"/>); &gt; 0: always the linear-space program with that base-case size.</param>
     private static AlignmentResult AlignWithMatrix(
         string sequence1, string sequence2, MatrixScoring scoring, AlignmentType type, bool affine,
-        EndGaps ends = EndGaps.Fitting)
+        EndGaps ends = EndGaps.Fitting, long linearSpaceBaseCells = 0)
     {
         ArgumentNullException.ThrowIfNull(sequence1);
         ArgumentNullException.ThrowIfNull(sequence2);
@@ -1379,14 +1302,19 @@ public static partial class SequenceAligner
         var ps = PairScoring.Create(scoring, a, b);
 
         EndGaps affineEnds = type == AlignmentType.SemiGlobal ? ends : EndGaps.None;
-        AlignmentResult r = affine
-            ? AffineAlignCore(a, b, ps, type, affineEnds)
-            : type switch
-            {
-                AlignmentType.Global => GlobalAlignCore(a, b, ps),
-                AlignmentType.Local => LocalAlignCore(a, b, ps),
-                _ => LinearAlignCore(a, b, ps, ends),
-            };
+        AlignmentResult r;
+        if (linearSpaceBaseCells > 0)
+            r = LinearSpaceAlign(a, b, ps, affine, type == AlignmentType.Local,
+                type == AlignmentType.SemiGlobal ? ends : EndGaps.None, linearSpaceBaseCells, default);
+        else
+            r = affine
+                ? AffineAlignCore(a, b, ps, type, affineEnds)
+                : type switch
+                {
+                    AlignmentType.Global => GlobalAlignCore(a, b, ps),
+                    AlignmentType.Local => LocalAlignCore(a, b, ps),
+                    _ => LinearAlignCore(a, b, ps, ends),
+                };
 
         double exact = (double)r.Score / ps.Scale;
         return r with { Score = (int)Math.Round(exact, MidpointRounding.AwayFromZero), ExactScore = exact };
@@ -1944,7 +1872,7 @@ public static partial class SequenceAligner
         Parallel.ForEach(pairs, pair =>
         {
             // Optimal NW score in O(n) memory (last row of the NW matrix; equals GlobalAlignCore(..).Score).
-            int s = LinearLastRow(seqs[pair.I], 0, seqs[pair.I].Length, seqs[pair.J], 0, seqs[pair.J].Length, scoring, reverse: false)[seqs[pair.J].Length];
+            int s = LinearScoreOnly(seqs[pair.I], seqs[pair.J], scoring);
             pairScore[pair.I, pair.J] = s;
             pairScore[pair.J, pair.I] = s;
         });
@@ -2476,6 +2404,23 @@ public static partial class SequenceAligner
     }
 
     /// <summary>
+    /// Largest profile-vs-profile dynamic-programming matrix (<c>(m + 1)·(n + 1)</c> doubles, 8 bytes per cell = 400 MB) of the
+    /// progressive / iterative / consistency multiple aligners. The exact center-star <see cref="MultipleAlign"/> needs no such
+    /// matrix (its pairwise stage is linear-space); a profile-profile DP has no published linear-space variant that keeps the
+    /// column-pair scores of these methods, so longer inputs get a clear error instead of an <see cref="OutOfMemoryException"/>.
+    /// </summary>
+    public const long ProfileMatrixMaxCells = 50_000_000;
+
+    private static void RequireProfileMatrixFits(int m, int n)
+    {
+        long cells = (long)(m + 1) * (n + 1);
+        if (cells > ProfileMatrixMaxCells)
+            throw new ArgumentException(
+                $"The profile-profile dynamic program needs O(m·n) memory: {m} x {n} alignment columns = {cells:N0} cells exceeds the limit of {ProfileMatrixMaxCells:N0}. " +
+                "Use MultipleAlign (exact center-star, linear-space pairwise stage) for long sequences.");
+    }
+
+    /// <summary>
     /// Aligns two profiles with the Needleman-Wunsch recurrence over columns. The column-vs-column
     /// substitution score is the average match/mismatch over all cross-profile residue pairs
     /// (sum-of-pairs profile scoring); a gap column scores GapExtend per residue averaged.
@@ -2486,6 +2431,7 @@ public static partial class SequenceAligner
     {
         int m = p1.Width;
         int n = p2.Width;
+        RequireProfileMatrixFits(m, n);
 
         // F(i,j): best score aligning first i columns of p1 with first j columns of p2.
         var f = new double[m + 1, n + 1];
@@ -3326,6 +3272,7 @@ public static partial class SequenceAligner
     {
         int m = p1.Width;
         int n = p2.Width;
+        RequireProfileMatrixFits(m, n);
 
         var f = new double[m + 1, n + 1];
         // First row/column: aligning a column against a gap scores 0 (zero gap penalty).

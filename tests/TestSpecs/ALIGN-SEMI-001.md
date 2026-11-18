@@ -244,3 +244,7 @@ Matrix-scored `SemiGlobalAlign`/`SemiGlobalAlignAffine`: see the table in ALIGN-
 ## 2026-11 audit round 1 addition (A1-5, B09 F45): general gap-cost functions
 
 `SemiGlobalAlignGeneralGap(…, Func<int,double> gapScore, …, EndGaps)` (ends-free with Waterman-Smith-Beyer gaps; Biopython ignores end-gap properties for a callable `gap_score`, so the policy is locked by the independent reference and an exhaustive enumeration): see the table in ALIGN-GLOBAL-001.md (A1-5 section) and `SequenceAligner_GeneralGap_Tests`.
+
+## 2026-11 audit round 1 addition (A1-6, B09 F46): exact linear-space alignment
+
+`LocalAlign` / `LocalAlignAffine` (resp. `SemiGlobalAlign` / `SemiGlobalAlignAffine`, all 16 `EndGaps` policies) switch automatically above `SequenceAligner.LinearSpaceCellThreshold` (25 M cells) to the exact linear-space program (locate the optimal interval / start vertex, then Hirschberg / Myers-Miller on the rectangle); explicit `SemiGlobalAlignLinearSpace` / `SemiGlobalAlignAffineLinearSpace`. Result identical to the full-matrix aligner (score, rows, coordinates, ties). Tests LS-1 … LS-12 are listed in `ALIGN-GLOBAL-001.md` (`SequenceAligner_LinearSpace_Tests`, oracle Biopython 1.88 / parasail 1.3.4 / EMBOSS `matcher` + `stretcher` 6.6.0).

@@ -99,7 +99,7 @@ The repository implementation uses `scoring.GapExtend` as a linear gap penalty i
 
 | Operation | Time | Space | Notes |
 |-----------|------|-------|-------|
-| Local alignment of sequences of lengths `m` and `n` | `O(mn)` | `O(mn)` | The repository stores the full score matrix and performs one traceback from the maximal cell. |
+| Local alignment of sequences of lengths `m` and `n` | `O(mn)` | `O(mn)` up to 25 000 000 cells, `O(m+n)` above | Full score matrix and one traceback from the maximal cell up to `LinearSpaceCellThreshold`; above it the exact linear-space program (locate the optimal interval with an `O(n)`-memory forward pass, then solve it globally: Huang-Hardison-Miller 1990 / SIM, EMBOSS `matcher`) runs automatically with identical rows ([Linear_Space_Alignment.md](Linear_Space_Alignment.md)). |
 
 ## 5. Implementation Notes
 
@@ -153,7 +153,7 @@ The repository implements the linear-gap form of Smith-Waterman with `Math.Max(0
 
 ### 6.2 Limitations
 
-The implementation returns one optimal local alignment, not the full set of equally optimal tracebacks. The algorithm keeps the full `O(mn)` score matrix and does not implement the linear-space refinements mentioned in the literature. The public string overload does not validate the alphabet beyond uppercasing its input. Affine-gap scoring is available through `LocalAlignAffine`; like the linear version it expects non-positive gap scores.
+The implementation returns one optimal local alignment, not the full set of equally optimal tracebacks. Up to 25 000 000 cells the full `O(mn)` score matrix is kept; above that `LocalAlign` / `LocalAlignAffine` run the exact linear-space refinement (Huang-Hardison-Miller 1990 / Huang-Miller 1991, the algorithm of SIM and EMBOSS `matcher`: locate the optimal local interval in `O(m+n)` memory, then align it globally with Hirschberg / Myers-Miller) with the same score, rows, coordinates and ties (`LocalAlignLinearSpace` / `LocalAlignAffineLinearSpace` force it; they need non-positive gap scores). SIM's top-k non-intersecting alignments are not reproduced (`LocalAlign` returns the one optimal alignment). The public string overload does not validate the alphabet beyond uppercasing its input. Affine-gap scoring is available through `LocalAlignAffine`; like the linear version it expects non-positive gap scores.
 
 ## 7. Examples and Related Material
 

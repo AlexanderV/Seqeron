@@ -190,3 +190,7 @@ Matrix-scored `LocalAlign`/`LocalAlignAffine` (BLOSUM62/PAM250/EDNAFULL, fractio
 ## 2026-11 audit round 1 addition (A1-5, B09 F45): general gap-cost functions
 
 `LocalAlignGeneralGap` (Smith-Waterman with Waterman-Smith-Beyer gaps; Biopython 1.88 `PairwiseAligner(mode='local', gap_score=callable)`): 480 oracle rows + exhaustive substring-pair enumeration + affine/linear equality; see ALIGN-GLOBAL-001.md (A1-5 section, GG-1..GG-7).
+
+## 2026-11 audit round 1 addition (A1-6, B09 F46): exact linear-space alignment
+
+`LocalAlign` / `LocalAlignAffine` (resp. `SemiGlobalAlign` / `SemiGlobalAlignAffine`, all 16 `EndGaps` policies) switch automatically above `SequenceAligner.LinearSpaceCellThreshold` (25 M cells) to the exact linear-space program (locate the optimal interval / start vertex, then Hirschberg / Myers-Miller on the rectangle); explicit `LocalAlignLinearSpace` / `LocalAlignAffineLinearSpace`. Result identical to the full-matrix aligner (score, rows, coordinates, ties). Tests LS-1 … LS-12 are listed in `ALIGN-GLOBAL-001.md` (`SequenceAligner_LinearSpace_Tests`, oracle Biopython 1.88 / parasail 1.3.4 / EMBOSS `matcher` + `stretcher` 6.6.0).

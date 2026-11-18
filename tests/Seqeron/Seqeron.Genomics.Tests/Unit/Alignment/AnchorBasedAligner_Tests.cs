@@ -223,6 +223,9 @@ public class AnchorBasedAligner_Tests
             var h = SequenceAligner.GlobalAlignLinearSpace(a, b, sc, maxFullMatrixCells: 16);
 
             Assert.That(h.Score, Is.EqualTo(nw.Score), $"{a} / {b}");
+            // B09 F46: the linear-space program reproduces the full-matrix traceback, ties included
+            Assert.That(h.AlignedSequence1, Is.EqualTo(nw.AlignedSequence1), $"{a} / {b}");
+            Assert.That(h.AlignedSequence2, Is.EqualTo(nw.AlignedSequence2), $"{a} / {b}");
             Assert.That(LinearScore(h, sc), Is.EqualTo(h.Score));
             Assert.That(h.AlignedSequence1.Replace("-", ""), Is.EqualTo(a));
             Assert.That(h.AlignedSequence2.Replace("-", ""), Is.EqualTo(b));

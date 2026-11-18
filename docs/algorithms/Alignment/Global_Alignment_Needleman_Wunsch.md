@@ -90,7 +90,7 @@ The recurrence uses one substitution score per aligned character pair and one li
 
 | Operation | Time | Space | Notes |
 |-----------|------|-------|-------|
-| Global alignment of sequences of lengths `m` and `n` | `O(mn)` | `O(mn)` | Standard Needleman-Wunsch complexity under the full dynamic-programming matrix. |
+| Global alignment of sequences of lengths `m` and `n` | `O(mn)` | `O(mn)` up to `LinearSpaceCellThreshold` = 25 000 000 cells, `O(m+n)` above | Standard Needleman-Wunsch complexity under the full dynamic-programming matrix; above the threshold the call switches automatically to the exact linear-space program (Hirschberg 1975 / Myers-Miller 1988, `GlobalAlignLinearSpace` / `GlobalAlignAffineLinearSpace`), identical rows, about 1.3-2x the time ([Linear_Space_Alignment.md](Linear_Space_Alignment.md)). |
 
 ## 5. Implementation Notes
 
@@ -168,7 +168,7 @@ The repository exposes four linear-gap global-alignment entry points that share 
 
 ### 6.2 Limitations
 
-The implementation returns one optimal alignment, not all optimal alignments, because traceback uses a fixed tie order. The public string overload does not validate the alphabet beyond uppercasing the input. The full dynamic-programming matrix keeps the asymptotic memory requirement at `O(mn)`. Affine gap penalties are available through `GlobalAlignAffine`.
+The implementation returns one optimal alignment, not all optimal alignments, because traceback uses a fixed tie order. The public string overload does not validate the alphabet beyond uppercasing the input. Up to 25 000 000 cells (`(m+1)(n+1)`, two 5 kb sequences) the full dynamic-programming matrix is kept (`O(mn)` memory, 4 bytes per cell linear / 12 affine); above that the aligners run the exact linear-space program on their own — Hirschberg (1975) for the linear model, Myers-Miller (1988) for affine gaps, same score, rows, coordinates and ties — with `O(m+n)` memory (20 kb x 20 kb affine: 111 MB peak instead of 4.8 GB; see [Linear_Space_Alignment.md](Linear_Space_Alignment.md)); `GlobalAlignLinearSpace` / `GlobalAlignAffineLinearSpace` force it for any size. Affine gap penalties are available through `GlobalAlignAffine`.
 
 ## 7. Examples and Related Material
 

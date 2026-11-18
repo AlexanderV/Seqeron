@@ -231,8 +231,25 @@ public static partial class SequenceAligner
         if (allowFastPath && TryDelegateToAffine(a, b, w, substitution, type, ends, out var delegated))
             return delegated;
 
+        // The Waterman-Smith-Beyer program keeps three double matrices + three back-pointer matrices (33 bytes per cell) and
+        // needs O(m·n·(m+n)) time; Myers-Miller / Hirschberg do not apply to a non-affine w(k). A clear error instead of an
+        // OutOfMemoryException after minutes: use an affine/linear gap model (exact linear-space program) for long sequences.
+        long cells = (long)(a.Length + 1) * (b.Length + 1);
+        if (cells > GeneralGapMaxCells)
+            throw new ArgumentException(
+                $"A general gap-cost function needs O(m·n) memory (33 bytes per cell) and O(m·n·(m+n)) time: {a.Length} x {b.Length} = {cells:N0} cells exceeds the limit of {GeneralGapMaxCells:N0}. " +
+                "Use an affine or linear gap model (GlobalAlignAffine / LocalAlignAffine / SemiGlobalAlignAffine run in linear space for any length).");
+
         return GeneralGapCore(a, b, w, substitution.Score, type, ends);
     }
+
+    /// <summary>
+    /// Largest <c>(m + 1)·(n + 1)</c> accepted by the general (Waterman-Smith-Beyer) gap-cost aligners when the gap function
+    /// is not linear/affine: 4 000 000 cells (about 2 000 x 2 000 residues, 130 MB). Larger inputs throw
+    /// <see cref="ArgumentException"/>; linear and affine gap functions are delegated to the exact linear-space programs
+    /// and have no limit.
+    /// </summary>
+    public const long GeneralGapMaxCells = 4_000_000;
 
     /// <summary>Internal entry that always runs the general program (the fast path is what the tests compare it with).</summary>
     internal static AlignmentResult AlignGeneralGapGeneric(

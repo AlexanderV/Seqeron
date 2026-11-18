@@ -120,7 +120,7 @@ The repository implementation uses `scoring.GapExtend` as the linear gap penalty
 
 | Operation | Time | Space | Notes |
 |-----------|------|-------|-------|
-| Fitting alignment of query length `m` against reference length `n` | `O(mn)` | `O(mn)` | The repository builds and stores the full DP matrix before traceback. |
+| Fitting alignment of query length `m` against reference length `n` | `O(mn)` | `O(mn)` up to 25 000 000 cells, `O(m+n)` above | The full DP matrix is built before traceback up to `LinearSpaceCellThreshold`; above it (and for every `EndGaps` policy) the exact linear-space program runs automatically — locate the start vertex and the end cell with an `O(n)`-memory forward pass, then Hirschberg / Myers-Miller on the rectangle — with identical rows ([Linear_Space_Alignment.md](Linear_Space_Alignment.md)). |
 
 ## 5. Implementation Notes
 
@@ -178,7 +178,7 @@ For the default `EndGaps.Fitting` the behaviour is the query-in-reference fittin
 
 ### 6.2 Limitations
 
-Like the global path, the method uses a full `O(mn)` matrix and (`SemiGlobalAlign`) a linear gap model based on `GapExtend` (use `SemiGlobalAlignAffine` for affine costs, `SemiGlobalAlignGeneralGap` for an arbitrary gap-cost function). Every end is either free or an ordinary gap (no separate end-gap penalty value). Raw-string overloads exist for the linear and affine variants (uppercasing only, no alphabet validation).
+Like the global path, the method keeps a full `O(mn)` matrix up to 25 000 000 cells and switches to the exact linear-space program above it (`SemiGlobalAlignLinearSpace` / `SemiGlobalAlignAffineLinearSpace`, all 16 `EndGaps` policies, identical rows); `SemiGlobalAlignGeneralGap` (non-affine `w(k)`) keeps `O(mn)` memory and is limited to 4 000 000 cells. (`SemiGlobalAlign`) a linear gap model based on `GapExtend` (use `SemiGlobalAlignAffine` for affine costs, `SemiGlobalAlignGeneralGap` for an arbitrary gap-cost function). Every end is either free or an ordinary gap (no separate end-gap penalty value). Raw-string overloads exist for the linear and affine variants (uppercasing only, no alphabet validation).
 
 ## 8. References
 
