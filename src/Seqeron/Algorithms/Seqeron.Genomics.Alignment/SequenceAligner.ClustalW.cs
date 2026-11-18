@@ -38,7 +38,7 @@ public static partial class SequenceAligner
     public const double ClustalWDnaPairwiseGapExtend = 6.66;
 
     // ClustalW residue codes: index in "ABCDEFGHIKLMNOPQRSTUVWXYZ-" (UserParameters::aminoAcidCodes).
-    private const string ClustalWResidueCodes = "ABCDEFGHIKLMNOPQRSTUVWXYZ-";
+    private const string ClustalWResidueCodes = ClustalWUserMatrix.ResidueCodes;
 
     // Packing order of the DNA matrices of matrices.h and the IUB triangle (swgapdnamt), row i holds columns 0..i.
     private const string ClustalWNucleicOrder = "ABCDGHKMNRSTUVWXY";

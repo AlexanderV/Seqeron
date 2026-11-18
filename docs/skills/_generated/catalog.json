@@ -238,6 +238,13 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.cs#L2684"
   },
   {
+    "tool": "multiple_align_muscle",
+    "server": "Alignment",
+    "methodId": "SequenceAligner.MultipleAlignMuscle",
+    "docPath": "docs/mcp/tools/alignment/multiple_align_muscle.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.Muscle.cs#L67"
+  },
+  {
     "tool": "multiple_align_progressive",
     "server": "Alignment",
     "methodId": "SequenceAligner.MultipleAlignProgressive",

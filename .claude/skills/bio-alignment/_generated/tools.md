@@ -40,6 +40,7 @@
 | `multiple_align_consistency` | Alignment | `SequenceAligner.MultipleAlignConsistency` | [doc](../../../../docs/mcp/tools/alignment/multiple_align_consistency.md) |
 | `multiple_align_exact` | Alignment | `SequenceAligner.MultipleAlignExact` | [doc](../../../../docs/mcp/tools/alignment/multiple_align_exact.md) |
 | `multiple_align_iterative` | Alignment | `SequenceAligner.MultipleAlignIterative` | [doc](../../../../docs/mcp/tools/alignment/multiple_align_iterative.md) |
+| `multiple_align_muscle` | Alignment | `SequenceAligner.MultipleAlignMuscle` | [doc](../../../../docs/mcp/tools/alignment/multiple_align_muscle.md) |
 | `multiple_align_progressive` | Alignment | `SequenceAligner.MultipleAlignProgressive` | [doc](../../../../docs/mcp/tools/alignment/multiple_align_progressive.md) |
 | `quality_trim_reads` | Alignment | `SequenceAssembler.QualityTrimReads` | [doc](../../../../docs/mcp/tools/alignment/quality_trim_reads.md) |
 | `scaffold_contigs` | Alignment | `SequenceAssembler.Scaffold` | [doc](../../../../docs/mcp/tools/alignment/scaffold_contigs.md) |

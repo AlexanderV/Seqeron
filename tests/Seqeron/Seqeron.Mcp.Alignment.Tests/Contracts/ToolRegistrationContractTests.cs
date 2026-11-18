@@ -50,6 +50,7 @@ public sealed class ToolRegistrationContractTests : ToolRegistrationContractTest
         "multiple_align_consistency",
         "multiple_align_exact",
         "multiple_align_iterative",
+        "multiple_align_muscle",
         "multiple_align_progressive",
         "quality_trim_reads",
         "scaffold_contigs",

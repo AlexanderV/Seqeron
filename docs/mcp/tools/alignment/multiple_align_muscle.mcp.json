@@ -1,0 +1,159 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "toolName": "multiple_align_muscle",
+ "serverName": "Alignment",
+ "version": "1.0.0",
+ "stability": "stable",
+ "methodId": "SequenceAligner.MultipleAlignMuscle",
+ "docRef": "Seqeron.Genomics.Alignment/SequenceAligner.Muscle.cs#L67",
+ "description": "MUSCLE 3.8.1551's multiple alignment (Edgar 2004, NAR 32:1792), ported step by step from the program's source for muscle -maxiters 1 (the progressive draft) and -maxiters 2 (plus the tree-dependent refinement): letters upper-cased, gaps / white space dropped, letters outside the alphabet replaced by the wildcard (X protein, N nucleotide), a leading M of a protein aligned as X and restored (methionine hack); k-mer distance (kmer6_6 over the six MAFFT residue groups for proteins, kmer4_6 for nucleotides), UPGMB guide tree (0.1 x average + 0.9 x minimum linkage), ClustalW tree weights, profile-profile dynamic programming with position-specific gap open / close penalties and half-open terminal gaps, the log-expectation score (VTML200 likelihood ratios, center -0.52, gap open -2.9) for proteins or MUSCLE's nucleotide sum-of-pairs score (BLASTZ matrix, gap open -400) for DNA / RNA (scoreModel sp = PAM200, sv = VTML240 for proteins); maxIters 2 rebuilds the tree from the Kimura distances of the draft and realigns only the subtrees whose leaf sets changed. Rows are returned in input order (treeOrder = the order muscle writes). totalScore is the natural affine sum of pairs (BLOSUM62 10 / 0.2 for proteins, EDNAFULL 10 / 0.5 for nucleotides), not MUSCLE's objective. NOT ported: iterations 3 and above (restricted-partition refinement; maxIters > 2 is an error), -diags / -anchors, -weight / -distance2 / -root / -usetree / -matrix variants. VERIFICATION STATUS: the installed muscle is 5.x (a different program); the row-for-row oracle is the MUSCLE 3.8.1551 binary of the Docker hand-off package docs/Validation/review-2026-09/handoff/A1-10c-muscle and is awaiting its run - until it is integrated the alignments are NOT verified against muscle 3.8 (the score formulas, weights, tree, k-mer distance, Kimura table and the DP optimality are tested against the published definitions and the source).",
+ "inputSchema": {
+  "type": "object",
+  "properties": {
+   "sequences": {
+    "type": "array",
+    "description": "Sequences to align (at least one, none empty): letters, '-', '.' and white space only."
+   },
+   "type": {
+    "type": "string",
+    "description": "'auto' (default; MUSCLE's guess: nucleotide when >= 95 % of the first 100 residues are A, C, G, T, U or N), 'protein', 'dna' or 'rna' (MUSCLE -seqtype).",
+    "default": "auto"
+   },
+   "maxIters": {
+    "type": "integer",
+    "description": "MUSCLE -maxiters: 1 = progressive draft, 2 (default) = plus tree refinement; larger values are not implemented.",
+    "default": 2
+   },
+   "scoreModel": {
+    "type": "string",
+    "description": "Profile-profile score (-le / -sp / -sv / -spn): 'default' (LE for proteins, SPN for nucleotides), 'le', 'sp' (PAM200), 'sv' (VTML240), 'spn'.",
+    "default": "default"
+   },
+   "gapOpen": {
+    "type": "number",
+    "description": "MUSCLE -gapopen (a negative score; default -2.9 LE, -1439 SP, -300 SV, -400 SPN DNA, -420 RNA)."
+   },
+   "gapExtend": {
+    "type": "number",
+    "description": "MUSCLE -gapextend (default 0)."
+   },
+   "center": {
+    "type": "number",
+    "description": "MUSCLE -center (default -0.52 LE, 0 otherwise, -300 RNA)."
+   },
+   "distance1": {
+    "type": "string",
+    "description": "MUSCLE -distance1: 'default' (kmer6_6 protein, kmer4_6 nucleotide), 'kmer6_6' or 'kmer4_6' (nucleotides only).",
+    "default": "default"
+   },
+   "cluster1": {
+    "type": "string",
+    "description": "MUSCLE -cluster1 (first guide tree): 'upgmb' (default), 'upgma', 'upgmamin' or 'upgmamax'.",
+    "default": "upgmb"
+   },
+   "cluster2": {
+    "type": "string",
+    "description": "MUSCLE -cluster2 (tree of iteration 2): 'upgmb' (default), 'upgma', 'upgmamin' or 'upgmamax'.",
+    "default": "upgmb"
+   },
+   "sueff": {
+    "type": "number",
+    "description": "MUSCLE -sueff (default 0.1): weight of the average linkage in UPGMB.",
+    "default": 0.1
+   },
+   "maxTrees": {
+    "type": "integer",
+    "description": "MUSCLE -maxtrees (default 1): 0 switches the tree refinement of iteration 2 off.",
+    "default": 1
+   },
+   "treeOrder": {
+    "type": "boolean",
+    "description": "true: rows in the order muscle writes them (depth-first leaf order of the final guide tree, -group) instead of the input order."
+   }
+  },
+  "required": [
+   "sequences"
+  ]
+ },
+ "outputSchema": {
+  "type": "object",
+  "properties": {
+   "alignedSequences": {
+    "type": "array",
+    "description": "The aligned rows of the MSA (input order)."
+   },
+   "consensus": {
+    "type": "string",
+    "description": "Majority-vote consensus of the aligned rows (gaps vote; a residue beats a gap on ties)."
+   },
+   "totalScore": {
+    "type": "integer",
+    "description": "Natural affine sum-of-pairs score of the alignment (BLOSUM62 10 / 0.2 for proteins, EDNAFULL 10 / 0.5 for nucleotides; MUSCLE itself reports no such score)."
+   }
+  },
+  "required": [
+   "alignedSequences",
+   "consensus",
+   "totalScore"
+  ]
+ },
+ "errors": [
+  {
+   "code": 1010,
+   "message": "sequence is empty or contains a character other than a letter, '-', '.' or white space"
+  },
+  {
+   "code": 1002,
+   "message": "type must be auto, protein, dna or rna; maxIters must be 1 or 2 (iterations >= 3 are not ported); scoreModel / distance1 / cluster1 / cluster2 must be a known name; scoreModel and distance1 must suit the alphabet"
+  }
+ ],
+ "examples": [
+  {
+   "name": "Five related protein sequences (maxIters 2)",
+   "input": {
+    "sequences": [
+     "MKVLAAGIVGLLLAQPWTTQAEAKP",
+     "MKVLAGIVGLLAQPWTQAEAKPLL",
+     "MRVLAAGIIGLLLQPWTTQAEAK",
+     "KVLAAGIVALLLAQPWTTAEAKPS",
+     "MKVAAGIVGLLLAQPWTTQEAKP"
+    ],
+    "type": "protein"
+   },
+   "output": {
+    "alignedSequences": [
+     "MKVLAAGIVGLLLAQPWTTQAEAKP--",
+     "MKV-LAGIVG-LLAQPWTQA-EAKPLL",
+     "MRVLAAGIIG-LLLQPWTTQAEAK---",
+     "-KVLAAGIVALLLAQPWTTA-EAKPS-",
+     "MKV-AAGIVGLLLAQPWTTQ-EAKP--"
+    ],
+    "consensus": "MKVLAAGIVGLLLAQPWTTQ-EAKP--",
+    "totalScore": 656
+   }
+  },
+  {
+   "name": "Four DNA sequences (progressive draft, maxIters 1)",
+   "input": {
+    "sequences": [
+     "ACGTACGTTAGCTAGCTAGGATCGATCGGATC",
+     "ACGTACGTAGCTAGCTAGGATCGATCGATC",
+     "ACGTTCGTTAGCTAGCTAGGATCGGATCGGATC",
+     "ACGTACGTTAGCTTAGCTAGGATCGATCGGATC"
+    ],
+    "type": "dna",
+    "maxIters": 1
+   },
+   "output": {
+    "alignedSequences": [
+     "ACGTACGTTAGC-TAGCTAGGATC-GATCGGATC",
+     "ACGTACG-TAGC-TAGCTAGGATC-GATC-GATC",
+     "ACGTTCGTTAGC-TAGCTAGGATCGGATCGGATC",
+     "ACGTACGTTAGCTTAGCTAGGATC-GATCGGATC"
+    ],
+    "consensus": "ACGTACGTTAGC-TAGCTAGGATC-GATCGGATC",
+    "totalScore": 783
+   }
+  }
+ ]
+}

@@ -41,25 +41,54 @@ public static partial class SequenceAligner
         new(() => BuildClustalWProteinMatrix(SubstitutionMatrix.ClustalWIdentity, 100)),
     };
 
+    // C++ static_cast<int>(floating point) on x86-64 (cvttsd2si / cvttss2si): NaN and out-of-range values give INT_MIN
+    private static int ClustalWCastToInt(double v) => double.IsNaN(v) || v >= 2147483648.0 || v < -2147483648.0 ? int.MinValue : (int)v;
+
+    /// <summary><c>defaultAAXref</c>: for each of the 23 columns of the packing order of <c>matrices.h</c> its residue code (-1 beyond).</summary>
+    private static readonly int[] ClustalWDefaultAAXref =
+        SubstitutionMatrix.ClustalWAminoAcidOrder.Select(c => ClustalWResidueCodes.IndexOf(c)).ToArray();
+
+    /// <summary>The stored lower triangle of a table of <c>matrices.h</c> (x <paramref name="multiplier"/>) as the cells <c>getMatrix</c> consumes.</summary>
+    private static IEnumerable<(int Row, int Column, short Value)> ClustalWTableCells(SubstitutionMatrix table, int multiplier)
+    {
+        string order = SubstitutionMatrix.ClustalWAminoAcidOrder;
+        for (int i = 0; i < order.Length; i++)
+            for (int j = 0; j <= i; j++)
+                yield return (i, j, (short)(table.GetScore(order[i], order[j]) * multiplier));
+    }
+
     /// <summary><c>SubMatrix::getMatrix</c> up to the average score (the part shared by the pairwise and the profile matrices) for a table of <c>matrices.h</c>:
     /// the matrix over residue codes (cell = table x <paramref name="multiplier"/> x <paramref name="intScale"/>) and <c>matrixAvgScore</c>.</summary>
     private static (int[,] Matrix, int IntScale, int MatrixAvgScore) BuildClustalWProteinMatrix(SubstitutionMatrix table, int intScale, int multiplier = 1)
     {
-        int n = ClustalWResidueCodes.Length;
-        var matrix = new int[n, n];
-        string order = SubstitutionMatrix.ClustalWAminoAcidOrder;
+        var (matrix, avg) = ClustalWGetMatrix(ClustalWTableCells(table, multiplier), ClustalWDefaultAAXref, intScale);
+        return (matrix, intScale, avg);
+    }
+
+    /// <summary>
+    /// <c>SubMatrix::getMatrix</c> before the shift: the stored cells (row / column = positions of the file header or of the packing order, in the order
+    /// <c>getMatrix</c> consumes them) are scattered through <paramref name="cross"/> (<c>Xref</c>: position -&gt; residue code) into the symmetric
+    /// <see cref="CwNumRes"/> x <see cref="CwNumRes"/> matrix over residue codes (cell x <paramref name="intScale"/>; unlisted residues score 0), and
+    /// <c>matrixAvgScore = -(int)(S / ((float)(maxRes^2 - maxRes) / 2))</c> with maxRes = listed residues - 1 and S the sum of the off-diagonal cells (j &lt; i)
+    /// over the 25 residue codes, in single precision.
+    /// </summary>
+    private static (int[,] Matrix, int MatrixAvgScore) ClustalWGetMatrix(IEnumerable<(int Row, int Column, short Value)> cells, IReadOnlyList<int> cross, int intScale)
+    {
+        var matrix = new int[CwNumRes, CwNumRes];
         int maxRes = 0;
-        for (int i = 0; i < order.Length; i++)
+        foreach (var (i, j, value) in cells)
         {
-            int ti = ClustalWResidueCodes.IndexOf(order[i]);
-            for (int j = 0; j <= i; j++)
+            int ti = cross[i], tj = cross[j];
+            int k = value * intScale;
+            if (ti == tj)
             {
-                int tj = ClustalWResidueCodes.IndexOf(order[j]);
-                int k = table.GetScore(order[i], order[j]) * multiplier * intScale;
+                matrix[ti, ti] = k;
+                maxRes++;
+            }
+            else
+            {
                 matrix[ti, tj] = k;
                 matrix[tj, ti] = k;
-                if (i == j)
-                    maxRes++;
             }
         }
 
@@ -69,8 +98,8 @@ public static partial class SequenceAligner
             for (int j = 0; j < i; j++)
                 av3 += matrix[i, j];
 
-        av3 = (int)((float)av3 / ((float)(maxRes * maxRes - maxRes) / 2));
-        return (matrix, intScale, -av3);
+        av3 = ClustalWCastToInt((float)av3 / ((float)(maxRes * maxRes - maxRes) / 2));   // fewer than three residues: 0/0 or x/0 -> INT_MIN on x86, as in the program
+        return (matrix, unchecked(-av3));
     }
 
     /// <summary>
@@ -125,19 +154,47 @@ public static partial class SequenceAligner
     }
 
     /// <summary>
+    /// The matrix of the profile stage for two profiles of mean percent identity <paramref name="pcid"/> and shorter length <paramref name="minLen"/>:
+    /// <c>getProfileAlignMatrix</c>' protein branch with the user's matrix file (<c>-MATRIX=file</c>) when given. A single user matrix has scale 0.75
+    /// and intScale 100; a user series picks the first entry with <c>llimit &lt;= pcid &lt;= ulimit</c> (the first entry when none matches) with the scale
+    /// <c>0.5 + (pcid - llimit) / ((ulimit - llimit) * 2.0)</c> (stored in a float: 0.5 at the lower, 1.0 at the upper limit).
+    /// </summary>
+    private static (IEnumerable<(int Row, int Column, short Value)> Cells, IReadOnlyList<int> Cross, int IntScale, float Scale) ClustalWChooseProfileMatrix(
+        ClustalWProfileMatrix matrix, bool negative, ClustalWUserMatrix? userMatrix, IReadOnlyList<ClustalWMatrixSeriesEntry>? userSeries, double pcid, int minLen)
+    {
+        if (userSeries is { Count: > 0 })
+        {
+            int j = 0;
+            for (int i = 0; i < userSeries.Count; i++)
+            {
+                if (pcid >= userSeries[i].LowerLimit && pcid <= userSeries[i].UpperLimit)
+                {
+                    j = i;
+                    break;
+                }
+            }
+
+            var entry = userSeries[j];
+            float scale = (float)(0.5 + (pcid - entry.LowerLimit) / ((entry.UpperLimit - entry.LowerLimit) * 2.0));
+            return (entry.Matrix.Cells(), entry.Matrix.Cross, 100, scale);
+        }
+
+        if (userMatrix is not null)
+            return (userMatrix.Cells(), userMatrix.Cross, 100, 0.75f);
+
+        var (table, multiplier, intScale, builtinScale) = ClustalWSelectProfileMatrix(matrix, negative, pcid, minLen);
+        return (ClustalWTableCells(table, multiplier), ClustalWDefaultAAXref, intScale, builtinScale);
+    }
+
+    /// <summary>
     /// <c>SubMatrix::getMatrix</c> for the profile stage: the 32 x 32 matrix over residue codes, shifted to non-negative scores unless <paramref name="negative"/>
-    /// (the lowest cell of the lower triangle without column A, as in the C++, is subtracted from every pair of table residues), gap rows / columns 0; and
+    /// (the lowest cell of the lower triangle without column A, as in the C++, is subtracted from every pair of listed residues), gap rows / columns 0; and
     /// <c>matrixAvgScore</c>.
     /// </summary>
-    private static (int[,] Matrix, int MatrixAvgScore) BuildClustalWProfileMatrix(SubstitutionMatrix table, int multiplier, int intScale, bool negative)
+    private static (int[,] Matrix, int MatrixAvgScore) BuildClustalWProfileMatrix(
+        IEnumerable<(int Row, int Column, short Value)> cells, IReadOnlyList<int> cross, int intScale, bool negative)
     {
-        var (codesMatrix, _, matAvg) = BuildClustalWProteinMatrix(table, intScale, multiplier);
-        const int numRes = 32;
-        var matrix = new int[numRes, numRes];
-        int codeCount = ClustalWResidueCodes.Length;
-        for (int i = 0; i < codeCount; i++)
-            for (int j = 0; j < codeCount; j++)
-                matrix[i, j] = codesMatrix[i, j];
+        var (matrix, matAvg) = ClustalWGetMatrix(cells, cross, intScale);
 
         int min = matrix[0, 0];
         for (int i = 0; i <= ClustalWMaxAminoAcidCode; i++)
@@ -146,17 +203,28 @@ public static partial class SequenceAligner
 
         if (!negative && min < 0)
         {
-            string order = SubstitutionMatrix.ClustalWAminoAcidOrder;
-            foreach (char ci in order)
+            for (int i = 0; i <= ClustalWMaxAminoAcidCode && i < cross.Count; i++)
             {
-                int ti = ClustalWResidueCodes.IndexOf(ci);
-                foreach (char cj in order)
-                    matrix[ti, ClustalWResidueCodes.IndexOf(cj)] -= min;
+                int ti = cross[i];
+                if (ti < 0)
+                    continue;
+                for (int j = 0; j <= ClustalWMaxAminoAcidCode && j < cross.Count; j++)
+                {
+                    int tj = cross[j];
+                    if (tj >= 0)
+                        matrix[ti, tj] -= min;
+                }
             }
         }
 
         // gap rows / columns (grScore = ggScore = 0): the 32 x 32 array already holds zeros for the codes 25 .. 31
         return (matrix, matAvg);
+    }
+
+    private static (int[,] Matrix, int IntScale, int MatrixAvgScore) BuildClustalWUserPairwiseMatrix(ClustalWUserMatrix user)
+    {
+        var (matrix, avg) = ClustalWGetMatrix(user.Cells(), user.Cross, 100);
+        return (matrix, 100, avg);
     }
 
     /// <summary>ClustalW residue codes of a protein sequence; a symbol ClustalW does not read (J, '*', non-letters) is rejected (the program silently drops it).</summary>
@@ -201,7 +269,10 @@ public static partial class SequenceAligner
         if (codes1.Length == 0 || codes2.Length == 0)
             return new ClustalWPairwiseResult(0, 0, 0.0, 1.0, 0, "", "", -1, -1, -1, -1);
 
-        var (matrix, intScale, matAvg) = ClustalWProteinMatrices[(int)options.Matrix].Value;
+        // -PWMATRIX=file: getPairwiseMatrix reads the user's matrix (intScale 100, gapOpenScale 1) with the same getMatrix; the pairwise matrix is never shifted
+        var (matrix, intScale, matAvg) = options.UserMatrix is { } user
+            ? BuildClustalWUserPairwiseMatrix(user)
+            : ClustalWProteinMatrices[(int)options.Matrix].Value;
 
         float pwGapOpen = (float)options.GapOpen;
         float pwGapExtend = (float)options.GapExtend;

@@ -836,6 +836,12 @@ public sealed record ClustalWProteinPairwiseOptions
     /// gap to <c>ktuple + 3</c> when <c>-KTUPLE</c> is given).
     /// </summary>
     public ClustalWQuickOptions Quick { get; init; } = new() { KTuple = 1, Window = 5, TopDiagonals = 5, PairGap = 3 };
+
+    /// <summary>
+    /// <c>-PWMATRIX=file</c>: a user-defined matrix (<see cref="ClustalWUserMatrix.Parse"/> / <see cref="ClustalWUserMatrix.FromSubstitutionMatrix"/>) in place of
+    /// <see cref="Matrix"/> (read as ClustalW does: x100 integers, never shifted to non-negative scores; the gap opening is scaled by the matrix average score).
+    /// </summary>
+    public ClustalWUserMatrix? UserMatrix { get; init; }
 }
 
 /// <summary>
@@ -982,6 +988,131 @@ public sealed record ClustalWProteinOptions
     /// 1st, 2nd, ... such profile of the run (later ones use the emulation), which reproduces a specific <c>clustalw</c> run.
     /// </summary>
     public IReadOnlyList<int>? UninitialisedGapDistances { get; init; }
+
+    /// <summary>
+    /// <c>-MATRIX=file</c> with a single matrix: the profile stage uses this matrix for every pair of profiles (intScale 100, gap-penalty scale 0.75), in place of
+    /// <see cref="Matrix"/>. Ignored when <see cref="UserMatrixSeries"/> is set.
+    /// </summary>
+    public ClustalWUserMatrix? UserMatrix { get; init; }
+
+    /// <summary>
+    /// <c>-MATRIX=file</c> with a <c>CLUSTAL_SERIES</c> file (<see cref="ClustalWMatrixFile.Parse"/>): the matrix of the first entry whose percent-identity range
+    /// contains the identity of the profile pair (the first entry if none does), with the gap-penalty scale <c>0.5 + (pcid - llimit) / ((ulimit - llimit) * 2)</c>.
+    /// </summary>
+    public IReadOnlyList<ClustalWMatrixSeriesEntry>? UserMatrixSeries { get; init; }
+}
+
+/// <summary>Residue alphabet of <c>SequenceAligner.MultipleAlignMuscle</c> (MUSCLE's <c>-seqtype</c>).</summary>
+public enum MuscleSequenceType
+{
+    /// <summary>MUSCLE's guess (<c>SeqVect::GuessAlpha</c>): nucleotide when at least 95 % of the first 100 residues are A, C, G, T / U or N, else protein.</summary>
+    Auto = 0,
+
+    /// <summary>Amino acids: the 20 residues and the wildcards B, X, Z (any other letter is replaced by X).</summary>
+    Protein = 1,
+
+    /// <summary>DNA: A, C, G, T / U and the IUPAC codes (any other letter is replaced by N).</summary>
+    Dna = 2,
+
+    /// <summary>RNA: as DNA, with MUSCLE's RNA gap parameters (gap open -420, center -300).</summary>
+    Rna = 3,
+}
+
+/// <summary>Profile-profile score of MUSCLE's progressive alignment (<c>-le</c>, <c>-sp</c>, <c>-sv</c>, <c>-spn</c>).</summary>
+public enum MuscleScoreModel
+{
+    /// <summary>MUSCLE's default for the alphabet: the log-expectation score for proteins, the sum-of-pairs score <c>SPN</c> for nucleotides.</summary>
+    Default = 0,
+
+    /// <summary>Log-expectation score (Edgar 2004): <c>log(sum_ij f_i g_j p_ij / p_i p_j)</c> weighted by the column occupancies, VTML200 likelihood matrix; protein only.</summary>
+    LogExpectation = 1,
+
+    /// <summary>Sum-of-pairs score with the PAM200 matrix (<c>-sp</c>); protein only.</summary>
+    SumOfPairs = 2,
+
+    /// <summary>Sum-of-pairs score with the VTML240 matrix (<c>-sv</c>); protein only.</summary>
+    SumOfPairsVtml = 3,
+
+    /// <summary>Nucleotide sum-of-pairs score with the BLASTZ matrix (<c>-spn</c>); nucleotides only.</summary>
+    SumOfPairsNucleotide = 4,
+}
+
+/// <summary>Clustering method of MUSCLE's guide trees (<c>-cluster1</c> / <c>-cluster2</c>).</summary>
+public enum MuscleClusterMethod
+{
+    /// <summary>UPGMB (default): UPGMA with the "biased" linkage 0.1 x average + 0.9 x minimum.</summary>
+    Upgmb = 0,
+
+    /// <summary>UPGMA (average linkage).</summary>
+    Upgma = 1,
+
+    /// <summary>Single linkage (minimum).</summary>
+    UpgmaMin = 2,
+
+    /// <summary>Complete linkage (maximum).</summary>
+    UpgmaMax = 3,
+}
+
+/// <summary>Distance of MUSCLE's first (unaligned) guide tree (<c>-distance1</c>).</summary>
+public enum MuscleDistance
+{
+    /// <summary>MUSCLE's default for the alphabet: <c>kmer6_6</c> for proteins, <c>kmer4_6</c> for nucleotides.</summary>
+    Default = 0,
+
+    /// <summary>6-mers of the 6-group compressed amino-acid alphabet (A G P S T / I L M V / N D Q E B Z / R H K / F W Y / C), MAFFT's sextet5 distance.</summary>
+    Kmer6_6 = 1,
+
+    /// <summary>6-mers of the nucleotide alphabet (A, C, G, T/U, other); nucleotides only.</summary>
+    Kmer4_6 = 2,
+}
+
+/// <summary>
+/// Parameters of <c>SequenceAligner.MultipleAlignMuscle</c>, the port of MUSCLE 3.8.1551's progressive alignment (Edgar 2004, NAR 32:1792): k-mer distance, UPGMB guide tree, ClustalW
+/// tree weights, profile-profile dynamic programming with the log-expectation (protein) / sum-of-pairs (nucleotide) score, and the tree-dependent refinement of iteration 2.
+/// Defaults are MUSCLE's.
+/// </summary>
+public sealed record MuscleOptions
+{
+    /// <summary>Residue alphabet (default <see cref="MuscleSequenceType.Auto"/>; the DNA / protein overloads of the method set it).</summary>
+    public MuscleSequenceType SequenceType { get; init; } = MuscleSequenceType.Auto;
+
+    /// <summary>
+    /// <c>-maxiters</c>: 1 = the progressive draft only (<c>muscle -maxiters 1</c>), 2 = plus the tree-dependent refinement of iteration 2 (the guide tree is rebuilt from the Kimura distances of the draft and only the
+    /// changed subtrees are realigned; <c>muscle -maxiters 2</c>). Default 2. MUSCLE's iterations 3 and above (restricted-partition refinement with the objective score) are not implemented: a larger value throws <see cref="NotSupportedException"/>.
+    /// </summary>
+    public int MaxIterations { get; init; } = 2;
+
+    /// <summary>Profile-profile score (<c>-le / -sp / -sv / -spn</c>; default: LE for proteins, SPN for nucleotides).</summary>
+    public MuscleScoreModel ScoreModel { get; init; } = MuscleScoreModel.Default;
+
+    /// <summary><c>-gapopen</c> (a negative score; default: -2.9 LE, -1439 SP, -300 SV, -400 SPN DNA, -420 SPN RNA).</summary>
+    public double? GapOpen { get; init; }
+
+    /// <summary><c>-gapextend</c> (a score added per extension; default 0).</summary>
+    public double? GapExtend { get; init; }
+
+    /// <summary><c>-center</c> (default -0.52 LE, 0 otherwise, -300 RNA): the offset subtracted from the profile-position score.</summary>
+    public double? Center { get; init; }
+
+    /// <summary>Distance of the first guide tree (<c>-distance1</c>).</summary>
+    public MuscleDistance Distance1 { get; init; } = MuscleDistance.Default;
+
+    /// <summary>Clustering of the first guide tree (<c>-cluster1</c>, default UPGMB).</summary>
+    public MuscleClusterMethod Cluster1 { get; init; } = MuscleClusterMethod.Upgmb;
+
+    /// <summary>Clustering of the second guide tree of iteration 2 (<c>-cluster2</c>, default UPGMB; its distance is the Kimura distance of the draft alignment).</summary>
+    public MuscleClusterMethod Cluster2 { get; init; } = MuscleClusterMethod.Upgmb;
+
+    /// <summary><c>-sueff</c> (default 0.1): the weight of the average linkage in UPGMB.</summary>
+    public float Sueff { get; init; } = 0.1f;
+
+    /// <summary><c>-maxtrees</c> (default 1): 0 switches the tree refinement of iteration 2 off.</summary>
+    public int MaxTrees { get; init; } = 1;
+
+    /// <summary>
+    /// Return the rows in the order MUSCLE writes them (the depth-first leaf order of the final guide tree, <c>-group</c>) instead of the input order (default).
+    /// </summary>
+    public bool TreeOrder { get; init; }
 }
 
 /// <summary>

@@ -243,6 +243,85 @@ public class MultipleAlignTests
         });
     }
 
+    // B09 F64 (A1-10d file part): multiple_align_clustalw matrixFile / matrixFiles / pwMatrixFile = clustalw -MATRIX=file (here a CLUSTAL_SERIES file with an unlabelled
+    // tab-separated integer matrix and a labelled floating-point matrix) / -PWMATRIX=file. Rows = the installed clustalw 2.1, set 11 of clustalw_user_matrix_oracle.tsv.
+    private static readonly string[] UserMatrixSet = ["ALAAALLLAALAAA", "RPKRQESPKNPGRQEPKEPENSNRRQKK", "ALAAAECLAALAAA", "AGAAALLSEPLAALAAA", "ALAAAPLLAALAAA", "ALGGALLNAALAAA"];
+
+    private static readonly string[] UserMatrixRows = ["------------------------------ALAAALLLAALAAA", "-RPKRQESPKNPGRQEPKEPENSNRRQKK---------------", "ALAAAEC--LAALAAA----------------------------", "----AGAAALLSEPLAALAAA-----------------------", "----------------ALAAAPLLAALAAA--------------", "---ALGG--ALLNAALAAA-------------------------"];
+
+    private const string UserSeries = "# series of matrices\nCLUSTAL_SERIES\nMATRIX 0 23 m0.mat\nMATRIX 23 100 m1.mat\n# comment between entries\n";
+    private const string UserMatrixM0 = "# Matrix made for the user-matrix oracle\n# Entries for the matrix at a scale of 1/2 bit\n\n\tF\tA\tQ\tK\tC\tI\tY\tW\tH\tD\tT\tE\tL\tN\t-\n1\t-1\t3\t-6\t5\t7\t-5\t-5\t-3\t-8\t3\t-8\t5\t3\t-4\n0\t0\t-1\t-9\t-3\t1\t0\t1\t-5\t8\t0\t-1\t-3\t-1\t-4\n0\t0\t0\t3\t5\t-9\t-2\t-8\t9\t3\t-9\t-7\t-3\t-9\t-4\n-1\t0\t0\t0\t5\t-7\t-9\t2\t1\t2\t5\t0\t-9\t1\t-4\n0\t0\t-1\t-1\t1\t-5\t7\t-3\t0\t-4\t8\t6\t-4\t4\t-4\n0\t0\t0\t0\t0\t0\t-1\t0\t-3\t3\t-2\t-5\t-1\t0\t-4\n1\t0\t0\t0\t0\t0\t1\t-5\t-1\t8\t-3\t-3\t-1\t9\t-4\n0\t-1\t0\t0\t-1\t-1\t0\t2\t6\t9\t-7\t5\t7\t4\t-4\n0\t0\t0\t0\t0\t0\t0\t0\t1\t-8\t-4\t-3\t-6\t-9\t-4\n-1\t0\t0\t0\t-1\t0\t0\t-1\t0\t0\t6\t-9\t6\t-4\t-4\n0\t0\t0\t0\t0\t0\t0\t-1\t0\t0\t0\t-7\t-2\t-5\t-4\n-1\t0\t0\t0\t-1\t0\t0\t-1\t0\t0\t0\t0\t1\t-6\t-4\n0\t0\t0\t0\t-1\t0\t0\t0\t0\t0\t0\t0\t1\t5\t-4\n0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t-4\n-4\t-4\t-4\t-4\t-4\t-4\t-4\t-4\t-4\t-4\t-4\t-4\t-4\t-4\t-4\n";
+    private const string UserMatrixM1 = "# Matrix made for the user-matrix oracle\n# Entries for the matrix at a scale of 1/2 bit\n\nR M E G T Q W N *\nR 2 -0.5 -1 2.5 1 4 2 -2.5 -2\nM 0.5 3.5 2.5 -2.5 0.5 -3 -1 -4.5 -2\nE -2 -2 2.5 -3 -4.5 -2 -2.5 -2.5 -2\nG -1 -1.5 0.5 4 1 -3.5 -2.5 4.5 -2\nT -1 -0.5 0 0.5 4 -4 1 1.5 -2\nQ 0.5 -1.5 1 -2.5 0.5 2 3.5 4.5 -2\nW 1.5 0 -1.5 0 0 1.5 4 -0.5 -2\nN 1 1.5 0 1.5 -0.5 1 -2.5 3 -2\n* -2 -2 -2 -2 -2 -2 -2 -2 -2\n";
+
+    [Test]
+    public void MultipleAlignClustalW_Protein_UserMatrixFiles_EqualClustalW_AndAreValidated()
+    {
+        var files = new Dictionary<string, string> { ["m0.mat"] = UserMatrixM0, ["m1.mat"] = UserMatrixM1 };
+        var viaTool = AlignmentTools.MultipleAlignClustalW(UserMatrixSet, type: "protein", matrixFile: UserSeries, matrixFiles: files);
+        var series = global::Seqeron.Genomics.Infrastructure.ClustalWMatrixFile.Parse(UserSeries, n => files[n]);
+        var viaApi = global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignClustalW(UserMatrixSet,
+            new global::Seqeron.Genomics.Infrastructure.ClustalWProteinOptions { UserMatrixSeries = series.Series });
+        // a single matrix file (-MATRIX=file) and the pairwise matrix file (-PWMATRIX=file) reach the same code
+        var viaSingle = AlignmentTools.MultipleAlignClustalW(UserMatrixSet, type: "protein", matrixFile: UserMatrixM1, pwMatrixFile: UserMatrixM0);
+        var viaSingleApi = global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignClustalW(UserMatrixSet,
+            new global::Seqeron.Genomics.Infrastructure.ClustalWProteinOptions
+            {
+                UserMatrix = global::Seqeron.Genomics.Infrastructure.ClustalWUserMatrix.Parse(UserMatrixM1),
+                Pairwise = new global::Seqeron.Genomics.Infrastructure.ClustalWProteinPairwiseOptions { UserMatrix = global::Seqeron.Genomics.Infrastructure.ClustalWUserMatrix.Parse(UserMatrixM0) },
+            });
+        Assert.Multiple(() =>
+        {
+            Assert.That(viaTool.AlignedSequences, Is.EqualTo(UserMatrixRows));
+            Assert.That(viaApi.AlignedSequences, Is.EqualTo(UserMatrixRows));
+            Assert.That(viaSingle.AlignedSequences, Is.EqualTo(viaSingleApi.AlignedSequences));
+            // the user matrices change the result against the built-in series
+            Assert.That(AlignmentTools.MultipleAlignClustalW(UserMatrixSet, type: "protein").AlignedSequences, Is.Not.EqualTo(UserMatrixRows));
+            Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignClustalW(UserMatrixSet, type: "protein", matrixFile: UserSeries), "the series names files that are not supplied");
+            Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignClustalW(UserMatrixSet, type: "protein", matrixFile: "# nothing\n"), "no header");
+            Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignClustalW(UserMatrixSet, type: "protein", pwMatrixFile: UserSeries), "a series where one matrix is expected");
+        });
+    }
+
+    // B09 F65 (A1-10c a): multiple_align_muscle delegates to SequenceAligner.MultipleAlignMuscle (MUSCLE 3.8.1551 progressive alignment, maxiters 1 / 2).
+    private static readonly string[] MuscleSet =
+        ["MKVLAAGIVGLLLAQPWTTQAEAKP", "MKVLAGIVGLLAQPWTQAEAKPLL", "MRVLAAGIIGLLLQPWTTQAEAK", "KVLAAGIVALLLAQPWTTAEAKPS", "MKVAAGIVGLLLAQPWTTQEAKP"];
+
+    [Test]
+    public void MultipleAlignMuscle_DelegatesToThePort_ParsesEveryOption_AndValidates()
+    {
+        var viaTool = AlignmentTools.MultipleAlignMuscle(MuscleSet, "protein");
+        var opt = new global::Seqeron.Genomics.Infrastructure.MuscleOptions
+        {
+            SequenceType = global::Seqeron.Genomics.Infrastructure.MuscleSequenceType.Protein,
+            MaxIterations = 1,
+            ScoreModel = global::Seqeron.Genomics.Infrastructure.MuscleScoreModel.SumOfPairs,
+            GapOpen = -1200, GapExtend = -5, Center = 1,
+            Cluster1 = global::Seqeron.Genomics.Infrastructure.MuscleClusterMethod.Upgma,
+            Cluster2 = global::Seqeron.Genomics.Infrastructure.MuscleClusterMethod.UpgmaMax,
+            Sueff = 0.3f, MaxTrees = 0, TreeOrder = true,
+            Distance1 = global::Seqeron.Genomics.Infrastructure.MuscleDistance.Kmer6_6,
+        };
+        var viaApi = global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignMuscle(MuscleSet, opt);
+        var viaToolAll = AlignmentTools.MultipleAlignMuscle(MuscleSet, "PROTEIN", 1, "sp", -1200, -5, 1, "kmer6_6", "upgma", "upgmamax", 0.3f, 0, true);
+        Assert.Multiple(() =>
+        {
+            Assert.That(viaTool.AlignedSequences.Select(r => r.Replace("-", "")), Is.EqualTo(MuscleSet));
+            Assert.That(viaTool.AlignedSequences, Is.EqualTo(global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignMuscle(MuscleSet, new global::Seqeron.Genomics.Infrastructure.MuscleOptions { SequenceType = global::Seqeron.Genomics.Infrastructure.MuscleSequenceType.Protein }).AlignedSequences));
+            Assert.That(viaToolAll.AlignedSequences, Is.EqualTo(viaApi.AlignedSequences));
+            Assert.That(viaToolAll.TotalScore, Is.EqualTo(viaApi.TotalScore));
+            Assert.That(AlignmentTools.MultipleAlignMuscle(new[] { "ACGTACGTTAGCTAGC", "ACGTACGTAGCTAGC", "ACGTTCGTTAGCTAGC" }).AlignedSequences.Select(r => r.Replace("-", "")),
+                Is.EqualTo(new[] { "ACGTACGTTAGCTAGC", "ACGTACGTAGCTAGC", "ACGTTCGTTAGCTAGC" }), "type auto: nucleotides");
+            Assert.That(AlignmentTools.MultipleAlignMuscle(Array.Empty<string>()).AlignedSequences, Is.Empty);
+            Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignMuscle(MuscleSet, maxIters: 3), "iterations >= 3 are not ported");
+            Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignMuscle(MuscleSet, "rna2"));
+            Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignMuscle(MuscleSet, scoreModel: "bogus"));
+            Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignMuscle(MuscleSet, distance1: "bogus"));
+            Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignMuscle(MuscleSet, cluster1: "bogus"));
+            Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignMuscle(MuscleSet, cluster2: "nj"));
+            Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignMuscle(new[] { "ACD", "" }));
+        });
+    }
+
     // B09 F52 (A1-10): gapModel = affine honours gapOpen. Identical pair 33 matches = 66; the two pairs with the 23-nt sequence have
     // 23 matches (46) and ONE 10-nt gap run: affine -8 + 10 * -1 = -18, linear -10.
     private static readonly string[] IndelSet =

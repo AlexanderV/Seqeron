@@ -9,9 +9,9 @@
 
 | Metric | Done | Total |
 |---|---:|---:|
-| Gold-standard binding | 491 | 491 |
-| Schema+Binding tests | 491 | 491 |
-| Docs (.md + .mcp.json) | 491 | 491 |
+| Gold-standard binding | 492 | 492 |
+| Schema+Binding tests | 492 | 492 |
+| Docs (.md + .mcp.json) | 492 | 492 |
 
 ## Per-server summary
 
@@ -20,7 +20,7 @@
 | Core | SuffixTree.Mcp.Core | 18 | 18/18 | 18/18 | 18/18 | ✅ done |
 | Sequence | Seqeron.Mcp.Sequence | 35 | 35/35 | 35/35 | 35/35 | ✅ done |
 | Parsers | Seqeron.Mcp.Parsers | 41 | 41/41 | 41/41 | 41/41 | ✅ done |
-| Alignment | Seqeron.Mcp.Alignment | 40 | 40/40 | 40/40 | 40/40 | ✅ done |
+| Alignment | Seqeron.Mcp.Alignment | 41 | 41/41 | 41/41 | 41/41 | ✅ done |
 | Analysis | Seqeron.Mcp.Analysis | 129 | 129/129 | 129/129 | 129/129 | ✅ done |
 | Annotation | Seqeron.Mcp.Annotation | 97 | 97/97 | 97/97 | 97/97 | ✅ done |
 | Chromosome | Seqeron.Mcp.Chromosome | 32 | 32/32 | 32/32 | 32/32 | ✅ done |
@@ -140,7 +140,7 @@
 | 40 | `vcf_variant_length` | ☑ | ☑ | ☑ |
 | 41 | `vcf_write` | ☑ | ☑ | ☑ |
 
-### Alignment (Seqeron.Mcp.Alignment) — 40 tools
+### Alignment (Seqeron.Mcp.Alignment) — 41 tools
 
 | # | tool | B | T | D |
 |---:|---|:--:|:--:|:--:|
@@ -178,12 +178,13 @@
 | 32 | `multiple_align_consistency` | ☑ | ☑ | ☑ |
 | 33 | `multiple_align_exact` | ☑ | ☑ | ☑ |
 | 34 | `multiple_align_iterative` | ☑ | ☑ | ☑ |
-| 35 | `multiple_align_progressive` | ☑ | ☑ | ☑ |
-| 36 | `quality_trim_reads` | ☑ | ☑ | ☑ |
-| 37 | `scaffold_contigs` | ☑ | ☑ | ☑ |
-| 38 | `semi_global_align` | ☑ | ☑ | ☑ |
-| 39 | `semi_global_align_affine` | ☑ | ☑ | ☑ |
-| 40 | `sequence_identity` | ☑ | ☑ | ☑ |
+| 35 | `multiple_align_muscle` | ☑ | ☑ | ☑ |
+| 36 | `multiple_align_progressive` | ☑ | ☑ | ☑ |
+| 37 | `quality_trim_reads` | ☑ | ☑ | ☑ |
+| 38 | `scaffold_contigs` | ☑ | ☑ | ☑ |
+| 39 | `semi_global_align` | ☑ | ☑ | ☑ |
+| 40 | `semi_global_align_affine` | ☑ | ☑ | ☑ |
+| 41 | `sequence_identity` | ☑ | ☑ | ☑ |
 
 ### Analysis (Seqeron.Mcp.Analysis) — 129 tools
 

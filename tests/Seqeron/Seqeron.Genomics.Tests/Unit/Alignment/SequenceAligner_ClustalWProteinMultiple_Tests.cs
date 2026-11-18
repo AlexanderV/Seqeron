@@ -76,7 +76,7 @@ public class SequenceAligner_ClustalWProteinMultiple_Tests
     };
 
     /// <summary>The clustalw command line semantics of the oracle's option string (PROTEIN: -KTUPLE sets the pair gap to ktuple + 3, -PAIRGAP overrides).</summary>
-    private static ClustalWProteinOptions Parse(string s)
+    internal static ClustalWProteinOptions Parse(string s)
     {
         var o = new ClustalWProteinOptions();
         if (s.Length == 0)

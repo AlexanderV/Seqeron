@@ -287,7 +287,9 @@ public static partial class SequenceAligner
         string HydrophilicResidues,
         bool UseEndGaps,
         bool EndGapPenalties,
-        IReadOnlyList<int>? GapDistanceOverrides = null)
+        IReadOnlyList<int>? GapDistanceOverrides = null,
+        ClustalWUserMatrix? UserMatrix = null,
+        IReadOnlyList<ClustalWMatrixSeriesEntry>? UserMatrixSeries = null)
     {
         public static CwConfig FromDna(ClustalWOptions o) => new(
             false, o.GapOpen, o.GapExtend, o.DivergenceCutoff, o.NoWeights, o.NegativeMatrix, o.TransitionWeight,
@@ -296,7 +298,7 @@ public static partial class SequenceAligner
         public static CwConfig FromProtein(ClustalWProteinOptions o) => new(
             true, o.GapOpen, o.GapExtend, o.DivergenceCutoff, o.NoWeights, o.NegativeMatrix, 0.5f,
             o.Matrix, o.NoPreferredGapPenalties, o.NoHydrophilicGapPenalties, o.VariableRegionGapPenalties,
-            o.GapSeparationDistance, o.HydrophilicResidues, false, false, o.UninitialisedGapDistances);
+            o.GapSeparationDistance, o.HydrophilicResidues, false, false, o.UninitialisedGapDistances, o.UserMatrix, o.UserMatrixSeries);
     }
 
     /// <summary>Single-run state of the ClustalW multiple alignment (the members of Clustal / MSA / MyersMillerProfileAlign it needs).</summary>
@@ -961,8 +963,8 @@ public static partial class SequenceAligner
             len2 = (int)(len2 / (float)nseqs2);
 
             int minLen = Math.Min(len1, len2);
-            var (table, multiplier, intScale, scale) = ClustalWSelectProfileMatrix(_o.Matrix, _o.NegativeMatrix, pcid, minLen);
-            var (matrix, matAvgScore) = BuildClustalWProfileMatrix(table, multiplier, intScale, _o.NegativeMatrix);
+            var (cells, cross, intScale, scale) = ClustalWChooseProfileMatrix(_o.Matrix, _o.NegativeMatrix, _o.UserMatrix, _o.UserMatrixSeries, pcid, minLen);
+            var (matrix, matAvgScore) = BuildClustalWProfileMatrix(cells, cross, intScale, _o.NegativeMatrix);
             _matrix = matrix;
 
             double logmin, logdiff;
@@ -1012,9 +1014,6 @@ public static partial class SequenceAligner
 
             return n;
         }
-
-        // C++ static_cast<int>(double) on x86-64 (cvttsd2si): NaN and out-of-range values give INT_MIN
-        private static int ClustalWCastToInt(double v) => double.IsNaN(v) || v >= 2147483648.0 || v < -2147483648.0 ? int.MinValue : (int)v;
 
         private static int[] PadRow(int[] row, int length)
         {

@@ -617,7 +617,7 @@ public class AlignmentTools
             (seqs, scoring) => global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignConsistency(seqs, scoring, ParseMsaOptions(distance, gapModel, guideTree, ktuple, window, topDiagonals, pairGap, consistencyEngine, pwMatrix, pwGapOpen, pwGapExtend)));
 
     [McpServerTool(Name = "multiple_align_clustalw", Title = "MSA — ClustalW 2.1 Multiple Alignment (exact port)", ReadOnly = true)]
-    [Description("ClustalW 2.1's multiple alignment of DNA (clustalw -TYPE=DNA -ALIGN) or PROTEIN (type='protein', clustalw -TYPE=PROTEIN -ALIGN), ported step by step and verified row-for-row against the installed clustalw 2.1 (1 000 DNA sets and 1 000 protein sets, option variants included): pairwise distances (distance='clustalw' = the full affine Smith-Waterman-Gotoh stage, 'clustalw-quick' = the fast k-tuple stage of -QUICKTREE with ktuple / window / topDiagonals / pairGap), ClustalW's neighbour-joining guide tree (rooted by Tree::reRoot), sequence weights derived from the tree branch lengths (Thompson, Higgins & Gibson 1994; noWeights = equal weights), delayed divergent sequences (maxDiv, default 30: sequences with at most that percent identity to every other sequence are aligned last), and profile-profile alignment with position-specific gap penalties (positions that already hold gaps get a reduced opening penalty and half the extension penalty, end gaps are free) and Myers-Miller linear-space alignment. DNA: the IUB weight matrix shifted to non-negative scores (negative = keep it signed) with transitions weighted by transitionWeight (clustalw -TRANSWEIGHT, default 0.5); gapOpen / gapExtend = -GAPOPEN 15 / -GAPEXT 6.66. PROTEIN: the matrix series of ClustalW's profile stage (matrix = -MATRIX gonnet (default) / blosum / pam / id; the table of the series is chosen per profile pair by its percent identity, e.g. GONNET80 / 250 / 120 / 350 / 160, BLOSUM80 / 62 / 45 / 30, PAM20 / 60 / 120 / 350), a gap opening scaled by the matrix average score and the logarithm of the profile lengths (gapOpen / gapExtend = -GAPOPEN 10 / -GAPEXT 0.2), the residue-specific gap penalties of Pascarella & Argos 1992 (noPreferredGaps = -NOPGAP), the hydrophilic-run penalties (noHydrophilicGaps = -NOHGAP; hydrophilicResidues = -HGAPRESIDUES, default GPSNDQEKR, at most 9 letters), the variable-region penalties (variableRegionGaps = clustalw's -NOVGAP, sic: it switches them ON), the gap-separation distance (gapDist = -GAPDIST, default 4; 0 = off) and the pairwise stage of F62 (pwMatrix = -PWMATRIX gonnet / blosum / pam / id, pwGapOpen 10 / pwGapExtend 0.1, ktuple 1-2). Known residual: with variableRegionGaps and a two-sequence profile of more than 60 % identity ClustalW reads an uninitialised C++ member (gdist), so on ~0.2 % of such runs the heap decides; the port emulates the usual value. Rows are returned in input order. match / mismatch / scoreGapOpen / scoreGapExtend (DNA) or scoreMatrix / scoreGapOpen / scoreGapExtend (protein; default BLOSUM62, open -9.8, extend -0.2) define only the reported totalScore (natural affine sum of pairs, Altschul 1989).")]
+    [Description("ClustalW 2.1's multiple alignment of DNA (clustalw -TYPE=DNA -ALIGN) or PROTEIN (type='protein', clustalw -TYPE=PROTEIN -ALIGN), ported step by step and verified row-for-row against the installed clustalw 2.1 (1 000 DNA sets and 1 000 protein sets, option variants included): pairwise distances (distance='clustalw' = the full affine Smith-Waterman-Gotoh stage, 'clustalw-quick' = the fast k-tuple stage of -QUICKTREE with ktuple / window / topDiagonals / pairGap), ClustalW's neighbour-joining guide tree (rooted by Tree::reRoot), sequence weights derived from the tree branch lengths (Thompson, Higgins & Gibson 1994; noWeights = equal weights), delayed divergent sequences (maxDiv, default 30: sequences with at most that percent identity to every other sequence are aligned last), and profile-profile alignment with position-specific gap penalties (positions that already hold gaps get a reduced opening penalty and half the extension penalty, end gaps are free) and Myers-Miller linear-space alignment. DNA: the IUB weight matrix shifted to non-negative scores (negative = keep it signed) with transitions weighted by transitionWeight (clustalw -TRANSWEIGHT, default 0.5); gapOpen / gapExtend = -GAPOPEN 15 / -GAPEXT 6.66. PROTEIN: the matrix series of ClustalW's profile stage (matrix = -MATRIX gonnet (default) / blosum / pam / id; the table of the series is chosen per profile pair by its percent identity, e.g. GONNET80 / 250 / 120 / 350 / 160, BLOSUM80 / 62 / 45 / 30, PAM20 / 60 / 120 / 350), a gap opening scaled by the matrix average score and the logarithm of the profile lengths (gapOpen / gapExtend = -GAPOPEN 10 / -GAPEXT 0.2), the residue-specific gap penalties of Pascarella & Argos 1992 (noPreferredGaps = -NOPGAP), the hydrophilic-run penalties (noHydrophilicGaps = -NOHGAP; hydrophilicResidues = -HGAPRESIDUES, default GPSNDQEKR, at most 9 letters), the variable-region penalties (variableRegionGaps = clustalw's -NOVGAP, sic: it switches them ON), the gap-separation distance (gapDist = -GAPDIST, default 4; 0 = off) and the pairwise stage of F62 (pwMatrix = -PWMATRIX gonnet / blosum / pam / id, pwGapOpen 10 / pwGapExtend 0.1, ktuple 1-2). User matrices (type='protein'): matrixFile = clustalw -MATRIX=file (one matrix file, or a CLUSTAL_SERIES file whose entries 'MATRIX llimit ulimit file' are looked up in matrixFiles; the entry whose percent-identity range contains the profile pair's identity is used, with the gap-penalty scale 0.5 + (pcid - llimit) / ((ulimit - llimit) * 2)) and pwMatrixFile = clustalw -PWMATRIX=file (verified on 240 + 800 clustalw -MATRIX / -PWMATRIX runs with floating-point / integer / unlabelled / tab-separated / header-subset files; only 2 sets, both -NOVGAP, hit the gdist residual below). Known residual: with variableRegionGaps and a two-sequence profile of more than 60 % identity ClustalW reads an uninitialised C++ member (gdist), so on ~0.2 % of such runs the heap decides; the port emulates the usual value. Rows are returned in input order. match / mismatch / scoreGapOpen / scoreGapExtend (DNA) or scoreMatrix / scoreGapOpen / scoreGapExtend (protein; default BLOSUM62, open -9.8, extend -0.2) define only the reported totalScore (natural affine sum of pairs, Altschul 1989).")]
     public static MultipleAlignmentResultDto MultipleAlignClustalW(
         [Description("Sequences to align (at least one): DNA (A, C, G, T / IUB codes) by default, amino acids (letters A-Z except J) with type='protein'.")] string[] sequences,
         [Description("ClustalW -GAPOPEN: gap-opening penalty of the profile alignment (default 15 for DNA, 10 for protein; a penalty, positive).")] double? gapOpen = null,
@@ -645,7 +645,10 @@ public class AlignmentTools
         [Description("type='protein': ClustalW -NOVGAP (sic): switch the variable-region gap penalties on (clustalw's default is off).")] bool variableRegionGaps = false,
         [Description("type='protein': ClustalW -GAPDIST: gap separation distance (default 4; 0 = off): columns this close to an existing gap get a higher opening penalty.")] int gapDist = 4,
         [Description("type='protein': ClustalW -HGAPRESIDUES: residues of a hydrophilic stretch (default GPSNDQEKR; at most the first 9 letters are used).")] string hydrophilicResidues = "GPSNDQEKR",
-        [Description("type='protein': substitution matrix of the reported totalScore only: BLOSUM62 (default) or PAM250.")] string? scoreMatrix = null)
+        [Description("type='protein': substitution matrix of the reported totalScore only: BLOSUM62 (default) or PAM250.")] string? scoreMatrix = null,
+        [Description("type='protein': ClustalW -MATRIX=file, the TEXT of a user matrix file for the profile alignment (NCBI / EMBOSS layout: '#' comments, a header line of residue letters, one row per residue with an optional leading label, one extra '*' row, integer or floating-point values (a row whose first value contains '.' is scaled by 10); only the lower triangle is read) or of a CLUSTAL_SERIES file (lines 'MATRIX llimit ulimit file', file names resolved through matrixFiles). Replaces 'matrix'.")] string? matrixFile = null,
+        [Description("type='protein': the matrix files named by a CLUSTAL_SERIES matrixFile: file name -> text of the matrix file.")] Dictionary<string, string>? matrixFiles = null,
+        [Description("type='protein': ClustalW -PWMATRIX=file, the TEXT of a user matrix file for the pairwise (distance) stage (same layout as matrixFile, a single matrix). Replaces 'pwMatrix'.")] string? pwMatrixFile = null)
     {
         var mode = (distance ?? "clustalw").Trim().ToLowerInvariant() switch
         {
@@ -682,6 +685,26 @@ public class AlignmentTools
                 GapSeparationDistance = gapDist,
                 HydrophilicResidues = hydrophilicResidues ?? "GPSNDQEKR",
             };
+            if (pwMatrixFile is not null)
+                protein = protein with { Pairwise = protein.Pairwise with { UserMatrix = ParseClustalWMatrix(pwMatrixFile, nameof(pwMatrixFile)) } };
+            if (matrixFile is not null)
+            {
+                global::Seqeron.Genomics.Infrastructure.ClustalWMatrixFile parsed;
+                try
+                {
+                    parsed = global::Seqeron.Genomics.Infrastructure.ClustalWMatrixFile.Parse(matrixFile,
+                        name => matrixFiles is not null && matrixFiles.TryGetValue(name, out var text)
+                            ? text
+                            : throw new FormatException($"The series names the matrix file '{name}', which is not in matrixFiles."),
+                        "matrixFile");
+                }
+                catch (FormatException ex)
+                {
+                    throw new ArgumentException(ex.Message, nameof(matrixFile), ex);
+                }
+
+                protein = protein with { UserMatrix = parsed.Matrix, UserMatrixSeries = parsed.Series };
+            }
             var scoreSub = (scoreMatrix ?? "BLOSUM62").Trim().ToUpperInvariant() switch
             {
                 "BLOSUM62" => global::Seqeron.Genomics.Infrastructure.SubstitutionMatrix.Blosum62,
@@ -720,6 +743,97 @@ public class AlignmentTools
         };
         return RunMsa(sequences, match, mismatch, RequireInteger(scoreGapOpen ?? -2, nameof(scoreGapOpen)), RequireInteger(scoreGapExtend ?? -1, nameof(scoreGapExtend)),
             (seqs, scoring) => global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignClustalW(seqs, options, scoring));
+    }
+
+    [McpServerTool(Name = "multiple_align_muscle", Title = "MSA — MUSCLE 3.8 Progressive Alignment (port)", ReadOnly = true)]
+    [Description("MUSCLE 3.8.1551's multiple alignment (Edgar 2004, NAR 32:1792), ported step by step from the program's source for muscle -maxiters 1 (the progressive draft) and -maxiters 2 (plus the tree-dependent refinement): letters upper-cased, gaps / white space dropped, letters outside the alphabet replaced by the wildcard (X protein, N nucleotide), a leading M of a protein aligned as X and restored (methionine hack); k-mer distance (kmer6_6 over the six MAFFT residue groups for proteins, kmer4_6 for nucleotides), UPGMB guide tree (0.1 x average + 0.9 x minimum linkage), ClustalW tree weights, profile-profile dynamic programming with position-specific gap open / close penalties and half-open terminal gaps, the log-expectation score (VTML200 likelihood ratios, center -0.52, gap open -2.9) for proteins or MUSCLE's nucleotide sum-of-pairs score (BLASTZ matrix, gap open -400) for DNA / RNA (scoreModel sp = PAM200, sv = VTML240 for proteins); maxIters 2 rebuilds the tree from the Kimura distances of the draft and realigns only the subtrees whose leaf sets changed. Rows are returned in input order (treeOrder = the order muscle writes). totalScore is the natural affine sum of pairs (BLOSUM62 10 / 0.2 for proteins, EDNAFULL 10 / 0.5 for nucleotides), not MUSCLE's objective. NOT ported: iterations 3 and above (restricted-partition refinement; maxIters > 2 is an error), -diags / -anchors, -weight / -distance2 / -root / -usetree / -matrix variants. VERIFICATION STATUS: the installed muscle is 5.x (a different program); the row-for-row oracle is the MUSCLE 3.8.1551 binary of the Docker hand-off package docs/Validation/review-2026-09/handoff/A1-10c-muscle and is awaiting its run - until it is integrated the alignments are NOT verified against muscle 3.8 (the score formulas, weights, tree, k-mer distance, Kimura table and the DP optimality are tested against the published definitions and the source).")]
+    public static MultipleAlignmentResultDto MultipleAlignMuscle(
+        [Description("Sequences to align (at least one, none empty): letters, '-', '.' and white space only.")] string[] sequences,
+        [Description("'auto' (default; MUSCLE's guess: nucleotide when >= 95 % of the first 100 residues are A, C, G, T, U or N), 'protein', 'dna' or 'rna' (MUSCLE -seqtype).")] string type = "auto",
+        [Description("MUSCLE -maxiters: 1 = progressive draft, 2 (default) = plus tree refinement; larger values are not implemented.")] int maxIters = 2,
+        [Description("Profile-profile score (-le / -sp / -sv / -spn): 'default' (LE for proteins, SPN for nucleotides), 'le', 'sp' (PAM200), 'sv' (VTML240), 'spn'.")] string scoreModel = "default",
+        [Description("MUSCLE -gapopen (a negative score; default -2.9 LE, -1439 SP, -300 SV, -400 SPN DNA, -420 RNA).")] double? gapOpen = null,
+        [Description("MUSCLE -gapextend (default 0).")] double? gapExtend = null,
+        [Description("MUSCLE -center (default -0.52 LE, 0 otherwise, -300 RNA).")] double? center = null,
+        [Description("MUSCLE -distance1: 'default' (kmer6_6 protein, kmer4_6 nucleotide), 'kmer6_6' or 'kmer4_6' (nucleotides only).")] string distance1 = "default",
+        [Description("MUSCLE -cluster1 (first guide tree): 'upgmb' (default), 'upgma', 'upgmamin' or 'upgmamax'.")] string cluster1 = "upgmb",
+        [Description("MUSCLE -cluster2 (tree of iteration 2): 'upgmb' (default), 'upgma', 'upgmamin' or 'upgmamax'.")] string cluster2 = "upgmb",
+        [Description("MUSCLE -sueff (default 0.1): weight of the average linkage in UPGMB.")] float sueff = 0.1f,
+        [Description("MUSCLE -maxtrees (default 1): 0 switches the tree refinement of iteration 2 off.")] int maxTrees = 1,
+        [Description("true: rows in the order muscle writes them (depth-first leaf order of the final guide tree, -group) instead of the input order.")] bool treeOrder = false)
+    {
+        static global::Seqeron.Genomics.Infrastructure.MuscleClusterMethod Cluster(string? v, string name) => (v ?? "upgmb").Trim().ToLowerInvariant() switch
+        {
+            "upgmb" => global::Seqeron.Genomics.Infrastructure.MuscleClusterMethod.Upgmb,
+            "upgma" => global::Seqeron.Genomics.Infrastructure.MuscleClusterMethod.Upgma,
+            "upgmamin" => global::Seqeron.Genomics.Infrastructure.MuscleClusterMethod.UpgmaMin,
+            "upgmamax" => global::Seqeron.Genomics.Infrastructure.MuscleClusterMethod.UpgmaMax,
+            _ => throw new ArgumentException("must be 'upgmb', 'upgma', 'upgmamin' or 'upgmamax'.", name),
+        };
+
+        var options = new global::Seqeron.Genomics.Infrastructure.MuscleOptions
+        {
+            SequenceType = (type ?? "auto").Trim().ToLowerInvariant() switch
+            {
+                "auto" => global::Seqeron.Genomics.Infrastructure.MuscleSequenceType.Auto,
+                "protein" => global::Seqeron.Genomics.Infrastructure.MuscleSequenceType.Protein,
+                "dna" => global::Seqeron.Genomics.Infrastructure.MuscleSequenceType.Dna,
+                "rna" => global::Seqeron.Genomics.Infrastructure.MuscleSequenceType.Rna,
+                _ => throw new ArgumentException("type must be 'auto', 'protein', 'dna' or 'rna'.", nameof(type)),
+            },
+            MaxIterations = maxIters,
+            ScoreModel = (scoreModel ?? "default").Trim().ToLowerInvariant() switch
+            {
+                "default" => global::Seqeron.Genomics.Infrastructure.MuscleScoreModel.Default,
+                "le" => global::Seqeron.Genomics.Infrastructure.MuscleScoreModel.LogExpectation,
+                "sp" => global::Seqeron.Genomics.Infrastructure.MuscleScoreModel.SumOfPairs,
+                "sv" => global::Seqeron.Genomics.Infrastructure.MuscleScoreModel.SumOfPairsVtml,
+                "spn" => global::Seqeron.Genomics.Infrastructure.MuscleScoreModel.SumOfPairsNucleotide,
+                _ => throw new ArgumentException("scoreModel must be 'default', 'le', 'sp', 'sv' or 'spn'.", nameof(scoreModel)),
+            },
+            GapOpen = gapOpen,
+            GapExtend = gapExtend,
+            Center = center,
+            Distance1 = (distance1 ?? "default").Trim().ToLowerInvariant() switch
+            {
+                "default" => global::Seqeron.Genomics.Infrastructure.MuscleDistance.Default,
+                "kmer6_6" => global::Seqeron.Genomics.Infrastructure.MuscleDistance.Kmer6_6,
+                "kmer4_6" => global::Seqeron.Genomics.Infrastructure.MuscleDistance.Kmer4_6,
+                _ => throw new ArgumentException("distance1 must be 'default', 'kmer6_6' or 'kmer4_6'.", nameof(distance1)),
+            },
+            Cluster1 = Cluster(cluster1, nameof(cluster1)),
+            Cluster2 = Cluster(cluster2, nameof(cluster2)),
+            Sueff = sueff,
+            MaxTrees = maxTrees,
+            TreeOrder = treeOrder,
+        };
+        if (sequences == null || sequences.Length == 0)
+        {
+            var e = global::Seqeron.Genomics.Infrastructure.MultipleAlignmentResult.Empty;
+            return new MultipleAlignmentResultDto(e.AlignedSequences, e.Consensus, e.TotalScore, e.ExactTotalScore);
+        }
+
+        try
+        {
+            var m = global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignMuscle(sequences, options);
+            return new MultipleAlignmentResultDto(m.AlignedSequences, m.Consensus, m.TotalScore, m.ExactTotalScore);
+        }
+        catch (NotSupportedException ex)
+        {
+            throw new ArgumentException(ex.Message, nameof(maxIters), ex);
+        }
+    }
+
+    private static global::Seqeron.Genomics.Infrastructure.ClustalWUserMatrix ParseClustalWMatrix(string text, string parameter)
+    {
+        try
+        {
+            return global::Seqeron.Genomics.Infrastructure.ClustalWUserMatrix.Parse(text, parameter);
+        }
+        catch (FormatException ex)
+        {
+            throw new ArgumentException(ex.Message, parameter, ex);
+        }
     }
 
     private static global::Seqeron.Genomics.Infrastructure.MsaOptions ParseMsaOptions(

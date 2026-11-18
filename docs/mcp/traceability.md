@@ -363,6 +363,7 @@
 | multiple_align_consistency | Alignment | SequenceAligner.MultipleAlignConsistency | Alignment/SequenceAligner.cs#L2425 | 0/0 | – | – | Build-Ready |
 | multiple_align_exact | Alignment | SequenceAligner.MultipleAlignExact | Alignment/SequenceAligner.MultipleExact.cs | 0/0 | – | – | Build-Ready |
 | multiple_align_iterative | Alignment | SequenceAligner.MultipleAlignIterative | Alignment/SequenceAligner.cs#L2111 | 0/0 | – | – | Build-Ready |
+| multiple_align_muscle | Alignment | SequenceAligner.MultipleAlignMuscle | Alignment/SequenceAligner.Muscle.cs#L67 | 0/0 | – | – | Build-Ready |
 | multiple_align_progressive | Alignment | SequenceAligner.MultipleAlignProgressive | Alignment/SequenceAligner.cs#L1676 | 0/0 | – | – | Build-Ready |
 | quality_trim_reads | Alignment | SequenceAssembler.QualityTrimReads | Alignment/SequenceAssembler.cs#L600 | 0/0 | – | – | Build-Ready |
 | scaffold_contigs | Alignment | SequenceAssembler.Scaffold | Alignment/SequenceAssembler.cs#L461 | 0/0 | – | – | Build-Ready |
