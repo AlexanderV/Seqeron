@@ -152,6 +152,16 @@ public static partial class SequenceAligner
         int gapExtendInt = (int)(ge * (float)ClustalWIntScale * 1.0f);
 
         var matrix = transitionWeight == 0.5f ? ClustalWDnaMatrix.Value : BuildClustalWDnaMatrix(transitionWeight);
+        return RunClustalWPairwise(sequence1, sequence2, codes1, codes2, matrix, gapOpenInt, gapExtendInt);
+    }
+
+    /// <summary>
+    /// The alignment and percent-identity part of <c>FullPairwiseAlign::pairwiseAlign</c> shared by the DNA and PROTEIN stages (residue codes, the
+    /// code-indexed integer matrix and the integer gap penalties are the only differences between them).
+    /// </summary>
+    private static ClustalWPairwiseResult RunClustalWPairwise(
+        string sequence1, string sequence2, int[] codes1, int[] codes2, int[,] matrix, int gapOpenInt, int gapExtendInt)
+    {
         var state = new ClustalWPairState(codes1, codes2, matrix, gapOpenInt, gapExtendInt);
         state.ForwardPass();
         state.ReversePass();

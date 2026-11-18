@@ -363,4 +363,46 @@ public class MultipleAlignTests
             Assert.That(AlignmentTools.MultipleAlign(Array.Empty<string>(), 1, -1, -2, -1, "linear", "protein").AlignedSequences, Is.Empty);
         });
     }
+
+    // B09 F62 (A1-15b b): distance = clustalw | clustalw-quick with type = protein uses ClustalW's PROTEIN pairwise stages; pwMatrix / pwGapOpen / pwGapExtend.
+    [Test]
+    public void MultipleAlign_Protein_ClustalWDistance_DelegatesWithTheProteinPairwiseOptions()
+    {
+        var blosum = new global::Seqeron.Genomics.Infrastructure.MatrixScoring(global::Seqeron.Genomics.Infrastructure.SubstitutionMatrix.Blosum62, -9.5, -0.5);
+        var affine = global::Seqeron.Genomics.Infrastructure.MsaGapModel.Affine;
+        var full = new global::Seqeron.Genomics.Infrastructure.MsaOptions
+        {
+            GapModel = affine,
+            Distance = global::Seqeron.Genomics.Infrastructure.MsaDistanceMode.ClustalWAffine,
+            ClustalWProtein = new global::Seqeron.Genomics.Infrastructure.ClustalWProteinPairwiseOptions
+            {
+                Matrix = global::Seqeron.Genomics.Infrastructure.ClustalWPairwiseMatrix.Pam, GapOpen = 5, GapExtend = 0.5,
+            },
+        };
+        var quick = new global::Seqeron.Genomics.Infrastructure.MsaOptions
+        {
+            GapModel = affine,
+            Distance = global::Seqeron.Genomics.Infrastructure.MsaDistanceMode.ClustalWQuick,
+            ClustalWProtein = new global::Seqeron.Genomics.Infrastructure.ClustalWProteinPairwiseOptions
+            {
+                Quick = new global::Seqeron.Genomics.Infrastructure.ClustalWQuickOptions { KTuple = 2, Window = 6, TopDiagonals = 7, PairGap = 5 },
+            },
+        };
+        Assert.Multiple(() =>
+        {
+            Assert.That(AlignmentTools.MultipleAlignProgressive(Proteins, 1, -1, -9.5, -0.5, "clustalw", "affine", "upgma", null, null, null, null, "protein", null, "pam", 5, 0.5).AlignedSequences,
+                Is.EqualTo(global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignProgressive(Proteins, blosum, full).AlignedSequences));
+            Assert.That(AlignmentTools.MultipleAlignIterative(Proteins, 1, -1, -9.5, -0.5, 16, "clustalw", "affine", "nj", null, null, null, null, "protein", null, "pam", 5, 0.5).AlignedSequences,
+                Is.EqualTo(global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignIterative(Proteins, blosum, full with { GuideTree = global::Seqeron.Genomics.Infrastructure.MsaGuideTree.NeighborJoining }).AlignedSequences));
+            // quick: ktuple 2 given -> window / topDiagonals / pairGap explicit
+            Assert.That(AlignmentTools.MultipleAlignConsistency(Proteins, 1, -1, -9.5, -0.5, "clustalw-quick", "affine", "upgma", 2, 6, 7, 5, "paper", "protein").AlignedSequences,
+                Is.EqualTo(global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignConsistency(Proteins, blosum, quick).AlignedSequences));
+            // defaults: ClustalW's protein defaults (GONNET, 10 / 0.1; quick 1 / 5 / 5 / 3)
+            Assert.That(AlignmentTools.MultipleAlignProgressive(Proteins, 1, -1, -9.5, -0.5, "clustalw-quick", "affine", "upgma", null, null, null, null, "protein").AlignedSequences,
+                Is.EqualTo(global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignProgressive(Proteins, blosum,
+                    new global::Seqeron.Genomics.Infrastructure.MsaOptions { GapModel = affine, Distance = global::Seqeron.Genomics.Infrastructure.MsaDistanceMode.ClustalWQuick }).AlignedSequences));
+            Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignProgressive(Proteins, 1, -1, -9.5, -0.5, "clustalw", "affine", "upgma", null, null, null, null, "protein", null, "bogus"));
+        });
+    }
 }
+

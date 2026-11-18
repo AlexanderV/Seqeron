@@ -27,6 +27,8 @@ public static partial class SequenceAligner
     // breaks the k-mers that contain it.
 
     private const int ClustalWQuickMaxKtuple = 4;
+    private const int ClustalWQuickMaxProteinKtuple = 2;
+    private const int ClustalWQuickProteinRadix = ClustalWMaxAminoAcidCode + 1;   // 25 letters: residue codes 0..maxAA
 
     // ziAA2DNA of FastPairwiseAlign.cpp over the ClustalW residue codes "ABCDEFGHIKLMNOPQRSTUVWXYZ-".
     private static int ClustalWQuickDnaCode(int clustalWCode) => clustalWCode switch
@@ -37,6 +39,14 @@ public static partial class SequenceAligner
         18 or 19 => 3,   // T, U
         _ => -1,
     };
+
+    // k-tuple letter of a residue code: DNA = ziAA2DNA (A, C, G, T/U; every other code breaks the k-mer), PROTEIN = the code itself (0..maxAA).
+    private static int ClustalWQuickResidue(int clustalWCode, bool protein)
+    {
+        if (!protein)
+            return ClustalWQuickDnaCode(clustalWCode);
+        return clustalWCode <= ClustalWMaxAminoAcidCode ? clustalWCode : -1;
+    }
 
     /// <summary>
     /// ClustalW 2.1 fast pairwise stage for DNA (<c>-QUICKTREE</c>; k-tuple diagonal scoring, Wilbur &amp; Lipman 1983) with the percent
@@ -59,11 +69,17 @@ public static partial class SequenceAligner
     {
         ArgumentNullException.ThrowIfNull(sequence1);
         ArgumentNullException.ThrowIfNull(sequence2);
-        options ??= new ClustalWQuickOptions();
-        ValidateClustalWQuickOptions(options);
+        return ClustalWQuickPairwiseAlignCore(
+            EncodeClustalWDna(sequence1, nameof(sequence1)), EncodeClustalWDna(sequence2, nameof(sequence2)),
+            protein: false, options ?? new ClustalWQuickOptions(), maxSequenceLength);
+    }
 
-        var codes1 = EncodeClustalWDna(sequence1, nameof(sequence1));
-        var codes2 = EncodeClustalWDna(sequence2, nameof(sequence2));
+    /// <summary>The fast stage on ClustalW residue codes: DNA (A, C, G, T/U k-mers, 4 letters) or PROTEIN (every residue code a k-mer letter, 25 letters).</summary>
+    private static ClustalWQuickPairwiseResult ClustalWQuickPairwiseAlignCore(
+        int[] codes1, int[] codes2, bool protein, ClustalWQuickOptions options, int? maxSequenceLength)
+    {
+        ValidateClustalWQuickOptions(options, protein);
+
         int longest = Math.Max(codes1.Length, codes2.Length);
         if (maxSequenceLength is { } given && given < longest)
             throw new ArgumentOutOfRangeException(nameof(maxSequenceLength), given, "Must be at least the length of the longer sequence.");
@@ -73,7 +89,7 @@ public static partial class SequenceAligner
             return new ClustalWQuickPairwiseResult(0, 0.0, 1.0, false, false);
 
         int maxAlnLength = 2 * (maxSequenceLength ?? longest);
-        var (fragmentScore, partial) = ClustalWQuickFragmentScore(codes1, codes2, options, maxAlnLength);
+        var (fragmentScore, partial) = ClustalWQuickFragmentScore(codes1, codes2, options, maxAlnLength, protein);
 
         // FastPairwiseAlign::pairwiseAlign: percent => score / MIN(len1, len2) * 100; distance = (100 - score) / 100.
         double calc = 0.0;
@@ -97,10 +113,11 @@ public static partial class SequenceAligner
         return ClustalWQuickPairwiseAlign(sequence1.Sequence, sequence2.Sequence, options, maxSequenceLength);
     }
 
-    private static void ValidateClustalWQuickOptions(ClustalWQuickOptions options)
+    private static void ValidateClustalWQuickOptions(ClustalWQuickOptions options, bool protein = false)
     {
-        if (options.KTuple < 1 || options.KTuple > ClustalWQuickMaxKtuple)
-            throw new ArgumentOutOfRangeException(nameof(options), options.KTuple, $"ClustalW's DNA k-tuple size KTuple is 1..{ClustalWQuickMaxKtuple}.");
+        int maxKtuple = protein ? ClustalWQuickMaxProteinKtuple : ClustalWQuickMaxKtuple;
+        if (options.KTuple < 1 || options.KTuple > maxKtuple)
+            throw new ArgumentOutOfRangeException(nameof(options), options.KTuple, $"ClustalW's {(protein ? "PROTEIN" : "DNA")} k-tuple size KTuple is 1..{maxKtuple}.");
         if (options.Window < 1)
             throw new ArgumentOutOfRangeException(nameof(options), options.Window, "Window must be positive.");
         if (options.TopDiagonals < 1)
@@ -118,7 +135,7 @@ public static partial class SequenceAligner
 
     // Port of FastPairwiseAlign::pairAlign + makeNPtrs; all arrays 1-based as in the C++ source.
     private static (int FragmentScore, bool Partial) ClustalWQuickFragmentScore(
-        int[] seq1, int[] seq2, ClustalWQuickOptions options, int maxAlnLength)
+        int[] seq1, int[] seq2, ClustalWQuickOptions options, int maxAlnLength, bool protein = false)
     {
         int l1 = seq1.Length, l2 = seq2.Length;
         int ktup = options.KTuple;
@@ -127,13 +144,16 @@ public static partial class SequenceAligner
         int windowGap = options.PairGap;
 
         // makeNPtrs: for every k-mer code, the position list (most recent position first) of each sequence.
-        int limit = 1 << (2 * ktup);   // 4^ktup
+        int radix = protein ? ClustalWQuickProteinRadix : 4;
+        int limit = 1;
+        for (int t = 0; t < ktup; t++)
+            limit *= radix;   // radix^ktup
         var zza = new int[l1 + 2];
         var zzb = new int[l2 + 2];
         var zzc = new int[limit + 2];
         var zzd = new int[limit + 2];
-        BuildClustalWQuickPointers(seq1, ktup, zza, zzc);
-        BuildClustalWQuickPointers(seq2, ktup, zzb, zzd);
+        BuildClustalWQuickPointers(seq1, ktup, zza, zzc, protein);
+        BuildClustalWQuickPointers(seq2, ktup, zzb, zzd, protein);
 
         int num = Math.Max(2 * maxAlnLength + 1, l1 + l2 + 2);
         var displ = new int[num + 1];
@@ -200,7 +220,7 @@ public static partial class SequenceAligner
             pot2 = 1;
             for (int j = 1; j <= ktup; j++)
             {
-                int residue = ClustalWQuickDnaCode(seq1[i + j - 2]);   // seq1 is 0-based here: (*seq)[i + j - 1] 1-based
+                int residue = ClustalWQuickResidue(seq1[i + j - 2], protein);   // seq1 is 0-based here: (*seq)[i + j - 1] 1-based
                 if (residue < 0)
                 {
                     skip = true;
@@ -208,7 +228,7 @@ public static partial class SequenceAligner
                 }
 
                 encrypt += residue * pot2;
-                pot2 *= 4;
+                pot2 *= radix;
             }
 
             if (skip)
@@ -339,16 +359,17 @@ public static partial class SequenceAligner
     }
 
     // makeNPtrs: tptr[i] = previous position with the same k-mer code (0 = none); pl[code] = latest position (1-based).
-    private static void BuildClustalWQuickPointers(int[] seq, int ktup, int[] tptr, int[] pl)
+    private static void BuildClustalWQuickPointers(int[] seq, int ktup, int[] tptr, int[] pl, bool protein)
     {
         int length = seq.Length;
+        int radix = protein ? ClustalWQuickProteinRadix : 4;
         for (int i = 1; i <= length - ktup + 1; i++)
         {
             int code = 0, pot = 1;
             bool skip = false;
             for (int j = 1; j <= ktup; j++)
             {
-                int residue = ClustalWQuickDnaCode(seq[i + j - 2]);
+                int residue = ClustalWQuickResidue(seq[i + j - 2], protein);
                 if (residue < 0)
                 {
                     skip = true;
@@ -356,7 +377,7 @@ public static partial class SequenceAligner
                 }
 
                 code += residue * pot;
-                pot *= 4;
+                pot *= radix;
             }
 
             if (skip)

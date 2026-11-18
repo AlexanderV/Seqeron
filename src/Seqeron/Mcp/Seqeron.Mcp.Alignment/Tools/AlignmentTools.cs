@@ -445,14 +445,18 @@ public class AlignmentTools
     private const string DistanceModeDescription =
         "Guide-tree distance: 'linear' (default) = 1 - identities / min(length) of the repository's global alignment under the given scores (linear NW, or Gotoh when gapModel='affine'); " +
         "'clustalw' = the same formula on ClustalW 2.1's own pairwise stage (affine local Smith-Waterman-Gotoh alignment with its IUB matrix x100 and gap penalties 15 / 6.66, " +
-        "the 'slow' full-DP mode of clustalw -ALIGN; the match/mismatch/gap parameters are then used only for the profile alignment); " +
+        "the 'slow' full-DP mode of clustalw -ALIGN; type='protein': its PROTEIN stage with the GONNET250 / BLOSUM30 / PAM350 / identity matrix (pwMatrix) and gap penalties 10 / 0.1 (pwGapOpen / pwGapExtend); " +
+        "the match/mismatch/gap parameters are then used only for the profile alignment); " +
         "'clustalw-quick' = ClustalW 2.1's fast k-tuple mode (clustalw -QUICKTREE, FastPairwiseAlign.cpp: best chain of exactly matching k-mers on the top diagonals, " +
         "d = (100 - 100*fragmentScore/min(length))/100; tuned by ktuple / window / topDiagonals / pairGap).";
 
-    private const string KtupleDescription = "distance='clustalw-quick' only: k-tuple (word) size, 1-4 for DNA (clustalw -KTUPLE, default 2).";
-    private const string WindowDescription = "distance='clustalw-quick' only: diagonals scanned around each top diagonal (clustalw -WINDOW, default 4).";
-    private const string TopDiagonalsDescription = "distance='clustalw-quick' only: number of best diagonals used (clustalw -TOPDIAGS, default 4).";
-    private const string PairGapDescription = "distance='clustalw-quick' only: gap penalty of the fragment chain (clustalw -PAIRGAP; default 5, or ktuple + 4 when ktuple is given, as the clustalw command line does).";
+    private const string KtupleDescription = "distance='clustalw-quick' only: k-tuple (word) size, 1-4 for DNA (clustalw -KTUPLE, default 2), 1-2 for protein (default 1).";
+    private const string WindowDescription = "distance='clustalw-quick' only: diagonals scanned around each top diagonal (clustalw -WINDOW, default 4 for DNA, 5 for protein).";
+    private const string TopDiagonalsDescription = "distance='clustalw-quick' only: number of best diagonals used (clustalw -TOPDIAGS, default 4 for DNA, 5 for protein).";
+    private const string PairGapDescription = "distance='clustalw-quick' only: gap penalty of the fragment chain (clustalw -PAIRGAP; DNA default 5, or ktuple + 4 when ktuple is given; protein default 3, or ktuple + 3, as the clustalw command line does).";
+    private const string PwMatrixDescription = "type='protein' with distance='clustalw': ClustalW's pairwise matrix (clustalw -PWMATRIX): 'gonnet' (default; GONNET250), 'blosum' (BLOSUM30), 'pam' (PAM350) or 'id' (identity).";
+    private const string PwGapOpenDescription = "type='protein' with distance='clustalw': ClustalW -PWGAPOPEN (default 10; length-dependent: 2 * matrixAvg * (open + ln min(length)) in matrix units).";
+    private const string PwGapExtendDescription = "type='protein' with distance='clustalw': ClustalW -PWGAPEXT (default 0.1).";
 
     private const string GuideTreeDescription =
         "Guide-tree method: 'upgma' (default; Sokal & Michener 1958, the Feng-Doolittle / CLUSTAL-1 choice) or 'nj' (neighbour-joining, Saitou & Nei 1987 - " +
@@ -490,7 +494,7 @@ public class AlignmentTools
             (seqs, scoring) => global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignAnchored(seqs, scoring, ParseMsaOptions(null, gapModel)));
 
     [McpServerTool(Name = "multiple_align_progressive", Title = "MSA — Progressive Guide-Tree Alignment (Clustal-style)", ReadOnly = true)]
-    [Description("Guide-tree progressive MSA (Feng & Doolittle 1987 / Clustal-style): the ClustalW pairwise distance of every pairwise alignment, d = 1 − (identical aligned residue pairs) / (length of the shorter sequence) (Thompson, Higgins & Gibson 1994; pairalign.c tmat = (100 − 100·count/MIN(len1, len2)) / 100), gives the distance matrix, a guide tree (UPGMA by default, guideTree='nj' = ClustalW's neighbour-joining tree) orders the merges, and profiles are aligned by profile–profile dynamic programming with sum-of-pairs column scores (once a gap, always a gap). Default linear gap model (gapOpen ignored); gapModel='affine' uses a Gotoh three-state profile DP (occupancy-scaled gapOpen/gapExtend, ClustalW/MUSCLE style) and reports the natural affine sum-of-pairs score. distance='clustalw' takes the guide-tree distances from ClustalW 2.1's own affine pairwise stage instead (percent identity of clustalw -ALIGN). Returns rows, majority consensus and sum-of-pairs score. PROTEIN / MATRIX: type='protein' (or matrix) uses the substitution matrix for the pairwise alignments, the profile column scores and the sum-of-pairs objective (fractional gaps allowed); rows equal an independent Python implementation on 238 sets.")]
+    [Description("Guide-tree progressive MSA (Feng & Doolittle 1987 / Clustal-style): the ClustalW pairwise distance of every pairwise alignment, d = 1 − (identical aligned residue pairs) / (length of the shorter sequence) (Thompson, Higgins & Gibson 1994; pairalign.c tmat = (100 − 100·count/MIN(len1, len2)) / 100), gives the distance matrix, a guide tree (UPGMA by default, guideTree='nj' = ClustalW's neighbour-joining tree) orders the merges, and profiles are aligned by profile–profile dynamic programming with sum-of-pairs column scores (once a gap, always a gap). Default linear gap model (gapOpen ignored); gapModel='affine' uses a Gotoh three-state profile DP (occupancy-scaled gapOpen/gapExtend, ClustalW/MUSCLE style) and reports the natural affine sum-of-pairs score. distance='clustalw' takes the guide-tree distances from ClustalW 2.1's own affine pairwise stage instead (percent identity of clustalw -ALIGN). Returns rows, majority consensus and sum-of-pairs score. PROTEIN / MATRIX: type='protein' (or matrix) uses the substitution matrix for the pairwise alignments, the profile column scores and the sum-of-pairs objective (fractional gaps allowed); rows equal an independent Python implementation on 238 sets. With type='protein', distance='clustalw' / 'clustalw-quick' use ClustalW 2.1's PROTEIN pairwise stages (GONNET250 / BLOSUM30 / PAM350 / identity matrix via pwMatrix, gap 10 / 0.1, k-tuple 1; exact ports verified on 4 204 + 3 774 pairs of clustalw -TYPE=PROTEIN -ALIGN / -QUICKTREE).")]
     public static MultipleAlignmentResultDto MultipleAlignProgressive(
         [Description("Sequences to align (at least one): DNA (A, C, G, T) by default, amino acids with type='protein'.")] string[] sequences,
         [Description("Score for matching base.")] int match = 1,
@@ -505,13 +509,16 @@ public class AlignmentTools
         [Description(TopDiagonalsDescription)] int? topDiagonals = null,
         [Description(PairGapDescription)] int? pairGap = null,
         [Description(MsaTypeDescription)] string type = "dna",
-        [Description(MsaMatrixDescription)] string? matrix = null) =>
+        [Description(MsaMatrixDescription)] string? matrix = null,
+        [Description(PwMatrixDescription)] string? pwMatrix = null,
+        [Description(PwGapOpenDescription)] double? pwGapOpen = null,
+        [Description(PwGapExtendDescription)] double? pwGapExtend = null) =>
         RunMsa(sequences, match, mismatch, gapOpen, gapExtend, type, matrix,
-            (seqs, scoring) => global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignProgressive(seqs, scoring, ParseMsaOptions(distance, gapModel, guideTree, ktuple, window, topDiagonals, pairGap)),
-            (seqs, scoring) => global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignProgressive(seqs, scoring, ParseMsaOptions(distance, gapModel, guideTree, ktuple, window, topDiagonals, pairGap)));
+            (seqs, scoring) => global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignProgressive(seqs, scoring, ParseMsaOptions(distance, gapModel, guideTree, ktuple, window, topDiagonals, pairGap, null, pwMatrix, pwGapOpen, pwGapExtend)),
+            (seqs, scoring) => global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignProgressive(seqs, scoring, ParseMsaOptions(distance, gapModel, guideTree, ktuple, window, topDiagonals, pairGap, null, pwMatrix, pwGapOpen, pwGapExtend)));
 
     [McpServerTool(Name = "multiple_align_iterative", Title = "MSA — Progressive + Iterative Refinement (MUSCLE-style)", ReadOnly = true)]
-    [Description("Progressive MSA followed by MUSCLE-style tree-dependent restricted-partitioning refinement (Edgar 2004, stage 3): each guide-tree edge splits the alignment into two profiles that are re-aligned and kept only if the sum-of-pairs score strictly improves; repeated until convergence or maxIterations passes. The result's sum-of-pairs score is never below multiple_align_progressive's. Default linear gap model (gapOpen ignored); gapModel='affine' refines under the natural affine sum-of-pairs objective with the affine profile DP. distance='clustalw' selects ClustalW 2.1's pairwise stage for the guide tree and guideTree='nj' neighbour-joining (see multiple_align_progressive); the refinement partitions are the edges of that tree. PROTEIN / MATRIX: type='protein' (or matrix) refines under the matrix sum-of-pairs objective (see multiple_align_progressive); rows equal an independent Python implementation.")]
+    [Description("Progressive MSA followed by MUSCLE-style tree-dependent restricted-partitioning refinement (Edgar 2004, stage 3): each guide-tree edge splits the alignment into two profiles that are re-aligned and kept only if the sum-of-pairs score strictly improves; repeated until convergence or maxIterations passes. The result's sum-of-pairs score is never below multiple_align_progressive's. Default linear gap model (gapOpen ignored); gapModel='affine' refines under the natural affine sum-of-pairs objective with the affine profile DP. distance='clustalw' selects ClustalW 2.1's pairwise stage for the guide tree and guideTree='nj' neighbour-joining (see multiple_align_progressive); the refinement partitions are the edges of that tree. PROTEIN / MATRIX: type='protein' (or matrix) refines under the matrix sum-of-pairs objective (see multiple_align_progressive); rows equal an independent Python implementation. With type='protein', distance='clustalw' / 'clustalw-quick' use ClustalW 2.1's PROTEIN pairwise stages (GONNET250 / BLOSUM30 / PAM350 / identity matrix via pwMatrix, gap 10 / 0.1, k-tuple 1; exact ports verified on 4 204 + 3 774 pairs of clustalw -TYPE=PROTEIN -ALIGN / -QUICKTREE).")]
     public static MultipleAlignmentResultDto MultipleAlignIterative(
         [Description("Sequences to align (at least one): DNA (A, C, G, T) by default, amino acids with type='protein'.")] string[] sequences,
         [Description("Score for matching base.")] int match = 1,
@@ -527,12 +534,15 @@ public class AlignmentTools
         [Description(TopDiagonalsDescription)] int? topDiagonals = null,
         [Description(PairGapDescription)] int? pairGap = null,
         [Description(MsaTypeDescription)] string type = "dna",
-        [Description(MsaMatrixDescription)] string? matrix = null)
+        [Description(MsaMatrixDescription)] string? matrix = null,
+        [Description(PwMatrixDescription)] string? pwMatrix = null,
+        [Description(PwGapOpenDescription)] double? pwGapOpen = null,
+        [Description(PwGapExtendDescription)] double? pwGapExtend = null)
     {
         if (maxIterations < 1)
             throw new ArgumentOutOfRangeException(nameof(maxIterations), "maxIterations must be >= 1.");
 
-        var options = ParseMsaOptions(distance, gapModel, guideTree, ktuple, window, topDiagonals, pairGap);
+        var options = ParseMsaOptions(distance, gapModel, guideTree, ktuple, window, topDiagonals, pairGap, null, pwMatrix, pwGapOpen, pwGapExtend);
         return RunMsa(sequences, match, mismatch, gapOpen, gapExtend, type, matrix,
             (seqs, scoring) => global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignIterative(seqs, scoring, options, maxIterations),
             (seqs, scoring) => global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignIterative(seqs, scoring, options, maxIterations));
@@ -582,7 +592,7 @@ public class AlignmentTools
     }
 
     [McpServerTool(Name = "multiple_align_consistency", Title = "MSA — Consistency-Based Alignment (T-Coffee)", ReadOnly = true)]
-    [Description("Consistency-based MSA (T-Coffee; Notredame, Higgins & Heringa 2000): a primary library of global (Needleman–Wunsch) and local (Smith–Waterman) pairwise alignments weighted by percent identity, extended by the triplet consistency transformation (direct weight + Σ min(W1, W2) over third sequences), then progressively aligned along a guide tree (UPGMA by default; guideTree='nj' = neighbour-joining as in the T-Coffee paper) with the extended-library weights as position-specific scores and zero gap penalties (T-Coffee default). The scoring parameters seed the pairwise library (gapModel='affine': Gotoh global and Smith–Waterman–Gotoh local alignments with gapOpen + k·gapExtend) and define totalScore, the sum of pairs of the result (linear column score, or natural affine costs with gapModel='affine'). distance='clustalw' takes the guide-tree distances from ClustalW 2.1's own pairwise stage. consistencyEngine='tcoffee' swaps the progressive stage for the T-Coffee 13.41 program's (library relaxation + linked pair-wise sparse DP; exact for the same library and tree). PROTEIN / MATRIX: type='protein' (or matrix) builds the primary library from the matrix global + local pair alignments (weights = percent identity) and otherwise runs the same pipeline (consistencyEngine='tcoffee' too); rows equal an independent Python implementation, and the T-Coffee progressive stage equals the t_coffee program on 160 protein sets.")]
+    [Description("Consistency-based MSA (T-Coffee; Notredame, Higgins & Heringa 2000): a primary library of global (Needleman–Wunsch) and local (Smith–Waterman) pairwise alignments weighted by percent identity, extended by the triplet consistency transformation (direct weight + Σ min(W1, W2) over third sequences), then progressively aligned along a guide tree (UPGMA by default; guideTree='nj' = neighbour-joining as in the T-Coffee paper) with the extended-library weights as position-specific scores and zero gap penalties (T-Coffee default). The scoring parameters seed the pairwise library (gapModel='affine': Gotoh global and Smith–Waterman–Gotoh local alignments with gapOpen + k·gapExtend) and define totalScore, the sum of pairs of the result (linear column score, or natural affine costs with gapModel='affine'). distance='clustalw' takes the guide-tree distances from ClustalW 2.1's own pairwise stage. consistencyEngine='tcoffee' swaps the progressive stage for the T-Coffee 13.41 program's (library relaxation + linked pair-wise sparse DP; exact for the same library and tree). PROTEIN / MATRIX: type='protein' (or matrix) builds the primary library from the matrix global + local pair alignments (weights = percent identity) and otherwise runs the same pipeline (consistencyEngine='tcoffee' too); rows equal an independent Python implementation, and the T-Coffee progressive stage equals the t_coffee program on 160 protein sets. With type='protein', distance='clustalw' / 'clustalw-quick' use ClustalW 2.1's PROTEIN pairwise stages (GONNET250 / BLOSUM30 / PAM350 / identity matrix via pwMatrix, gap 10 / 0.1, k-tuple 1; exact ports verified on 4 204 + 3 774 pairs of clustalw -TYPE=PROTEIN -ALIGN / -QUICKTREE).")]
     public static MultipleAlignmentResultDto MultipleAlignConsistency(
         [Description("Sequences to align (at least one): DNA (A, C, G, T) by default, amino acids with type='protein'.")] string[] sequences,
         [Description("Score for matching base (pairwise library and reported score).")] int match = 1,
@@ -598,10 +608,13 @@ public class AlignmentTools
         [Description(PairGapDescription)] int? pairGap = null,
         [Description(ConsistencyEngineDescription)] string consistencyEngine = "paper",
         [Description(MsaTypeDescription)] string type = "dna",
-        [Description(MsaMatrixDescription)] string? matrix = null) =>
+        [Description(MsaMatrixDescription)] string? matrix = null,
+        [Description(PwMatrixDescription)] string? pwMatrix = null,
+        [Description(PwGapOpenDescription)] double? pwGapOpen = null,
+        [Description(PwGapExtendDescription)] double? pwGapExtend = null) =>
         RunMsa(sequences, match, mismatch, gapOpen, gapExtend, type, matrix,
-            (seqs, scoring) => global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignConsistency(seqs, scoring, ParseMsaOptions(distance, gapModel, guideTree, ktuple, window, topDiagonals, pairGap, consistencyEngine)),
-            (seqs, scoring) => global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignConsistency(seqs, scoring, ParseMsaOptions(distance, gapModel, guideTree, ktuple, window, topDiagonals, pairGap, consistencyEngine)));
+            (seqs, scoring) => global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignConsistency(seqs, scoring, ParseMsaOptions(distance, gapModel, guideTree, ktuple, window, topDiagonals, pairGap, consistencyEngine, pwMatrix, pwGapOpen, pwGapExtend)),
+            (seqs, scoring) => global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignConsistency(seqs, scoring, ParseMsaOptions(distance, gapModel, guideTree, ktuple, window, topDiagonals, pairGap, consistencyEngine, pwMatrix, pwGapOpen, pwGapExtend)));
 
     [McpServerTool(Name = "multiple_align_clustalw", Title = "MSA — ClustalW 2.1 Multiple Alignment (exact port)", ReadOnly = true)]
     [Description("ClustalW 2.1's multiple alignment of DNA (clustalw -TYPE=DNA -ALIGN), ported step by step and verified row-for-row against the installed clustalw 2.1: pairwise distances (distance='clustalw' = the full affine Smith-Waterman-Gotoh stage, 'clustalw-quick' = the fast k-tuple stage of -QUICKTREE with ktuple / window / topDiagonals / pairGap), ClustalW's neighbour-joining guide tree (rooted by Tree::reRoot), sequence weights derived from the tree branch lengths (Thompson, Higgins & Gibson 1994; noWeights = equal weights), delayed divergent sequences (maxDiv, default 30: sequences with at most that percent identity to every other sequence are aligned last), and profile-profile alignment with position-specific gap penalties (positions that already hold gaps get a reduced opening penalty and half the extension penalty, end gaps are free) on the IUB weight matrix shifted to non-negative scores (negative = keep it signed) with transitions weighted by transitionWeight (clustalw -TRANSWEIGHT, default 0.5) and Myers-Miller linear-space alignment. gapOpen / gapExtend are ClustalW's -GAPOPEN 15 / -GAPEXT 6.66 (the DNA residue-specific, hydrophilic and gap-separation penalties of clustalw are protein-only). Rows are returned in input order. match / mismatch / scoreGapOpen / scoreGapExtend define only the reported totalScore (natural affine sum of pairs, Altschul 1989).")]
@@ -656,8 +669,30 @@ public class AlignmentTools
 
     private static global::Seqeron.Genomics.Infrastructure.MsaOptions ParseMsaOptions(
         string? distance, string? gapModel, string? guideTree = null,
-        int? ktuple = null, int? window = null, int? topDiagonals = null, int? pairGap = null, string? consistencyEngine = null) => new()
+        int? ktuple = null, int? window = null, int? topDiagonals = null, int? pairGap = null, string? consistencyEngine = null,
+        string? pwMatrix = null, double? pwGapOpen = null, double? pwGapExtend = null) => new()
     {
+        ClustalWProtein = new global::Seqeron.Genomics.Infrastructure.ClustalWProteinPairwiseOptions
+        {
+            Matrix = (pwMatrix ?? "gonnet").Trim().ToLowerInvariant() switch
+            {
+                "gonnet" or "gon250" => global::Seqeron.Genomics.Infrastructure.ClustalWPairwiseMatrix.Gonnet,
+                "blosum" or "blosum30" => global::Seqeron.Genomics.Infrastructure.ClustalWPairwiseMatrix.Blosum,
+                "pam" or "pam350" => global::Seqeron.Genomics.Infrastructure.ClustalWPairwiseMatrix.Pam,
+                "id" or "identity" => global::Seqeron.Genomics.Infrastructure.ClustalWPairwiseMatrix.Identity,
+                _ => throw new ArgumentException("pwMatrix must be 'gonnet', 'blosum', 'pam' or 'id'.", nameof(pwMatrix)),
+            },
+            GapOpen = pwGapOpen ?? 10.0,
+            GapExtend = pwGapExtend ?? 0.1,
+            Quick = new global::Seqeron.Genomics.Infrastructure.ClustalWQuickOptions
+            {
+                KTuple = ktuple ?? 1,
+                Window = window ?? 5,
+                TopDiagonals = topDiagonals ?? 5,
+                // clustalw's command line (PROTEIN): -KTUPLE=k sets the pair gap to k + 3, -PAIRGAP overrides; default 3
+                PairGap = pairGap ?? (ktuple.HasValue ? ktuple.Value + 3 : 3),
+            },
+        },
         ConsistencyEngine = (consistencyEngine ?? "paper").Trim().ToLowerInvariant() switch
         {
             "paper" => global::Seqeron.Genomics.Infrastructure.MsaConsistencyEngine.PaperExtension,

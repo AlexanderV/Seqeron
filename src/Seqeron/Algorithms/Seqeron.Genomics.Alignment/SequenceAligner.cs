@@ -18,6 +18,9 @@ internal readonly struct PairScoring
     /// <summary>Every score of this model is an integer multiple of 1/Scale of the reported (real) score.</summary>
     public readonly int Scale;
 
+    /// <summary>True when the matrix alphabet contains a residue that is not a nucleotide code (a protein matrix): selects ClustalW's PROTEIN pairwise stage.</summary>
+    public readonly bool Protein;
+
     private readonly int[]? _table;
     private readonly sbyte[]? _index;
     private readonly int _dim;
@@ -34,8 +37,9 @@ internal readonly struct PairScoring
         _dim = 0;
     }
 
-    private PairScoring(int gapOpen, int gapExtend, int scale, int[] table, sbyte[] index, int dim)
+    private PairScoring(int gapOpen, int gapExtend, int scale, int[] table, sbyte[] index, int dim, bool protein)
     {
+        Protein = protein;
         Match = 0;
         Mismatch = 0;
         GapOpen = gapOpen;
@@ -134,7 +138,15 @@ internal readonly struct PairScoring
             for (int j = 0; j < dim; j++)
                 table[i * dim + j] = checked((int)(matrix.ScoreAt(i, j) * scale));
 
-        return new PairScoring((int)gapOpen, (int)gapExtend, (int)scale, table, index, dim);
+        return new PairScoring((int)gapOpen, (int)gapExtend, (int)scale, table, index, dim, !IsNucleotideAlphabet(matrix.Alphabet));
+    }
+
+    private static bool IsNucleotideAlphabet(string alphabet)
+    {
+        foreach (char c in alphabet)
+            if ("ACGTUNRYSWKMBDHV".IndexOf(c) < 0)
+                return false;
+        return true;
     }
 
     internal static void ValidateResidues(SubstitutionMatrix matrix, string seq, string name)
@@ -2537,7 +2549,7 @@ public static partial class SequenceAligner
         int k = rawSeqs.Length;
 
         // Step 1: pairwise alignments -> distance matrix (ClustalW: 1 - identities / min(len1, len2)).
-        var distance = ComputeGuideDistances(rawSeqs, effectiveScoring, options.Distance, gapModel, options.GuideTree, options.QuickPairwise);
+        var distance = ComputeGuideDistances(rawSeqs, effectiveScoring, options.Distance, gapModel, options.GuideTree, options.QuickPairwise, options.ClustalWProtein);
 
         // Step 2: guide tree (UPGMA by default, neighbour-joining on request).
         ProgressiveGuideNode root = BuildProgressiveGuideTree(k, distance, options.GuideTree);
@@ -2597,12 +2609,16 @@ public static partial class SequenceAligner
     /// (<see cref="ClustalWPairwiseAlign(string, string, double, double)"/>, independent of <paramref name="scoring"/>);
     /// <see cref="MsaDistanceMode.ClustalWQuick"/> = ClustalW's fast k-tuple stage (<see cref="ClustalWQuickPairwiseAlign(string, string, ClustalWQuickOptions?, int?)"/>).
     /// </summary>
-    private static double[,] ComputeGuideDistances(string[] rawSeqs, PairScoring scoring, MsaDistanceMode mode, MsaGapModel gapModel, MsaGuideTree guideTree = MsaGuideTree.Upgma, ClustalWQuickOptions? quickOptions = null)
+    private static double[,] ComputeGuideDistances(string[] rawSeqs, PairScoring scoring, MsaDistanceMode mode, MsaGapModel gapModel, MsaGuideTree guideTree = MsaGuideTree.Upgma, ClustalWQuickOptions? quickOptions = null, ClustalWProteinPairwiseOptions? proteinOptions = null)
     {
         if (!Enum.IsDefined(mode))
             throw new ArgumentOutOfRangeException(nameof(mode), mode, "Unknown guide-tree distance mode.");
 
-        var quick = quickOptions ?? new ClustalWQuickOptions();
+        // Protein matrices select ClustalW's PROTEIN pairwise stages (GONNET / BLOSUM30 / PAM350 / identity, gap 10 / 0.1, k-tuple 1), nucleotide matrices
+        // and the scalar scoring the DNA stages.
+        bool protein = scoring.Protein;
+        var proteinParameters = proteinOptions ?? new ClustalWProteinPairwiseOptions();
+        var quick = protein ? proteinParameters.Quick : quickOptions ?? new ClustalWQuickOptions();
         int longest = 0;
         foreach (var s in rawSeqs)
             longest = Math.Max(longest, s.Length);
@@ -2615,9 +2631,15 @@ public static partial class SequenceAligner
             {
                 double d;
                 if (mode == MsaDistanceMode.ClustalWQuick)
-                    d = ClustalWQuickPairwiseDistance(rawSeqs[i], rawSeqs[j], quick, longest);
+                    d = protein
+                        ? ClustalWQuickPairwiseAlign(rawSeqs[i], rawSeqs[j], ClustalWSequenceType.Protein, quick, longest).Distance
+                        : ClustalWQuickPairwiseDistance(rawSeqs[i], rawSeqs[j], quick, longest);
                 else if (mode != MsaDistanceMode.ClustalWAffine)
                     d = PairwiseIdentityDistance(rawSeqs[i], rawSeqs[j], scoring, gapModel);
+                else if (protein)
+                    d = guideTree == MsaGuideTree.NeighborJoining
+                        ? ClustalWProteinSinglePrecisionDistance(rawSeqs[i], rawSeqs[j], proteinParameters)
+                        : ClustalWPairwiseAlign(rawSeqs[i], rawSeqs[j], proteinParameters).Distance;
                 else if (guideTree == MsaGuideTree.NeighborJoining)
                     d = ClustalWSinglePrecisionDistance(rawSeqs[i], rawSeqs[j]);
                 else
@@ -2973,7 +2995,7 @@ public static partial class SequenceAligner
         int k = rawSeqs.Length;
 
         // Step 1: progressive seed (same pipeline as MultipleAlignProgressive) + retain guide tree.
-        var distance = ComputeGuideDistances(rawSeqs, effectiveScoring, options.Distance, gapModel, options.GuideTree, options.QuickPairwise);
+        var distance = ComputeGuideDistances(rawSeqs, effectiveScoring, options.Distance, gapModel, options.GuideTree, options.QuickPairwise, options.ClustalWProtein);
 
         ProgressiveGuideNode root = BuildProgressiveGuideTree(k, distance, options.GuideTree);
         Profile current = AlignProfileSubtree(root, rawSeqs, effectiveScoring, gapModel);
@@ -3321,7 +3343,7 @@ public static partial class SequenceAligner
         var library = new ExtendedLibrary(primaryLibrary);
 
         // Step 3a: guide tree (UPGMA by default, neighbour-joining on request) over the ClustalW distances (1 - identities / min(len1, len2)), reusing the progressive pipeline.
-        var distance = ComputeGuideDistances(rawSeqs, effectiveScoring, options.Distance, gapModel, options.GuideTree, options.QuickPairwise);
+        var distance = ComputeGuideDistances(rawSeqs, effectiveScoring, options.Distance, gapModel, options.GuideTree, options.QuickPairwise, options.ClustalWProtein);
         ProgressiveGuideNode root = BuildProgressiveGuideTree(k, distance, options.GuideTree);
 
         if (options.ConsistencyEngine == MsaConsistencyEngine.TCoffeeLinked)

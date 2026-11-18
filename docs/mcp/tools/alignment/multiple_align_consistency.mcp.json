@@ -6,7 +6,7 @@
   "stability": "stable",
   "methodId": "SequenceAligner.MultipleAlignConsistency",
   "docRef": "Seqeron.Genomics.Alignment/SequenceAligner.cs#L3011",
-  "description": "Consistency-based MSA (T-Coffee; Notredame, Higgins & Heringa 2000): a primary library of global (Needleman–Wunsch) and local (Smith–Waterman) pairwise alignments weighted by percent identity, extended by the triplet consistency transformation (direct weight + Σ min(W1, W2) over third sequences), then progressively aligned along a guide tree (UPGMA by default; guideTree='nj' = neighbour-joining as in the T-Coffee paper) with the extended-library weights as position-specific scores and zero gap penalties (T-Coffee default). The scoring parameters seed the pairwise library (gapModel='affine': Gotoh global and Smith–Waterman–Gotoh local alignments with gapOpen + k·gapExtend) and define totalScore, the sum of pairs of the result (linear column score, or natural affine costs with gapModel='affine'). distance='clustalw' takes the guide-tree distances from ClustalW 2.1's own pairwise stage. consistencyEngine='tcoffee' swaps the progressive stage for the T-Coffee 13.41 program's (library relaxation + linked pair-wise sparse DP; exact for the same library and tree). PROTEIN / MATRIX: type='protein' (or matrix) builds the primary library from the matrix global + local pair alignments (weights = percent identity) and otherwise runs the same pipeline (consistencyEngine='tcoffee' too); rows equal an independent Python implementation, and the T-Coffee progressive stage equals the t_coffee program on 160 protein sets.",
+  "description": "Consistency-based MSA (T-Coffee; Notredame, Higgins & Heringa 2000): a primary library of global (Needleman–Wunsch) and local (Smith–Waterman) pairwise alignments weighted by percent identity, extended by the triplet consistency transformation (direct weight + Σ min(W1, W2) over third sequences), then progressively aligned along a guide tree (UPGMA by default; guideTree='nj' = neighbour-joining as in the T-Coffee paper) with the extended-library weights as position-specific scores and zero gap penalties (T-Coffee default). The scoring parameters seed the pairwise library (gapModel='affine': Gotoh global and Smith–Waterman–Gotoh local alignments with gapOpen + k·gapExtend) and define totalScore, the sum of pairs of the result (linear column score, or natural affine costs with gapModel='affine'). distance='clustalw' takes the guide-tree distances from ClustalW 2.1's own pairwise stage. consistencyEngine='tcoffee' swaps the progressive stage for the T-Coffee 13.41 program's (library relaxation + linked pair-wise sparse DP; exact for the same library and tree). PROTEIN / MATRIX: type='protein' (or matrix) builds the primary library from the matrix global + local pair alignments (weights = percent identity) and otherwise runs the same pipeline (consistencyEngine='tcoffee' too); rows equal an independent Python implementation, and the T-Coffee progressive stage equals the t_coffee program on 160 protein sets. With type='protein', distance='clustalw' / 'clustalw-quick' use ClustalW 2.1's PROTEIN pairwise stages (GONNET250 / BLOSUM30 / PAM350 / identity matrix via pwMatrix, gap 10 / 0.1, k-tuple 1; exact ports verified on 4 204 + 3 774 pairs of clustalw -TYPE=PROTEIN -ALIGN / -QUICKTREE).",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -36,7 +36,7 @@
       },
       "distance": {
         "type": "string",
-        "description": "Guide-tree distance: 'linear' (default) = 1 - identities / min(length) of the repository's global alignment under the given scores (linear NW, or Gotoh when gapModel='affine'); 'clustalw' = the same formula on ClustalW 2.1's own pairwise stage (affine local Smith-Waterman-Gotoh alignment with its IUB matrix x100 and gap penalties 15 / 6.66, the 'slow' full-DP mode of clustalw -ALIGN; the match/mismatch/gap parameters are then used only for the profile alignment); 'clustalw-quick' = ClustalW 2.1's fast k-tuple mode (clustalw -QUICKTREE, FastPairwiseAlign.cpp: best chain of exactly matching k-mers on the top diagonals, d = (100 - 100*fragmentScore/min(length))/100; tuned by ktuple / window / topDiagonals / pairGap).",
+        "description": "Guide-tree distance: 'linear' (default) = 1 - identities / min(length) of the repository's global alignment under the given scores (linear NW, or Gotoh when gapModel='affine'); 'clustalw' = the same formula on ClustalW 2.1's own pairwise stage (affine local Smith-Waterman-Gotoh alignment with its IUB matrix x100 and gap penalties 15 / 6.66, the 'slow' full-DP mode of clustalw -ALIGN; type='protein': its PROTEIN stage with the GONNET250 / BLOSUM30 / PAM350 / identity matrix (pwMatrix) and gap penalties 10 / 0.1 (pwGapOpen / pwGapExtend); the match/mismatch/gap parameters are then used only for the profile alignment); 'clustalw-quick' = ClustalW 2.1's fast k-tuple mode (clustalw -QUICKTREE, FastPairwiseAlign.cpp: best chain of exactly matching k-mers on the top diagonals, d = (100 - 100*fragmentScore/min(length))/100; tuned by ktuple / window / topDiagonals / pairGap).",
         "default": "linear"
       },
       "gapModel": {
@@ -51,19 +51,19 @@
       },
       "ktuple": {
         "type": "integer",
-        "description": "distance='clustalw-quick' only: k-tuple (word) size, 1-4 for DNA (clustalw -KTUPLE, default 2)."
+        "description": "distance='clustalw-quick' only: k-tuple (word) size, 1-4 for DNA (clustalw -KTUPLE, default 2), 1-2 for protein (default 1)."
       },
       "window": {
         "type": "integer",
-        "description": "distance='clustalw-quick' only: diagonals scanned around each top diagonal (clustalw -WINDOW, default 4)."
+        "description": "distance='clustalw-quick' only: diagonals scanned around each top diagonal (clustalw -WINDOW, default 4 for DNA, 5 for protein)."
       },
       "topDiagonals": {
         "type": "integer",
-        "description": "distance='clustalw-quick' only: number of best diagonals used (clustalw -TOPDIAGS, default 4)."
+        "description": "distance='clustalw-quick' only: number of best diagonals used (clustalw -TOPDIAGS, default 4 for DNA, 5 for protein)."
       },
       "pairGap": {
         "type": "integer",
-        "description": "distance='clustalw-quick' only: gap penalty of the fragment chain (clustalw -PAIRGAP; default 5, or ktuple + 4 when ktuple is given, as the clustalw command line does)."
+        "description": "distance='clustalw-quick' only: gap penalty of the fragment chain (clustalw -PAIRGAP; DNA default 5, or ktuple + 4 when ktuple is given; protein default 3, or ktuple + 3, as the clustalw command line does)."
       },
       "consistencyEngine": {
         "type": "string",
@@ -78,6 +78,18 @@
       "matrix": {
         "type": "string",
         "description": "Optional substitution matrix: BLOSUM62 or PAM250 (type='protein'), EDNAFULL (IUPAC DNA, type='dna'). When given (or type='protein'), match/mismatch are ignored, residues are scored by the published table (case-insensitive, any symbol of the matrix), gapOpen/gapExtend may be fractional (EMBOSS needle numbers gapopen G / gapextend E = gapOpen -(G - E), gapExtend -E) and the result also carries the real-valued exactTotalScore (totalScore = rounded). Verified against independent Python implementations of every method, Biopython 1.88 pairwise optima and exhaustive enumeration of tiny sets."
+      },
+      "pwMatrix": {
+        "type": "string",
+        "description": "type='protein' with distance='clustalw': ClustalW's pairwise matrix (clustalw -PWMATRIX): 'gonnet' (default; GONNET250), 'blosum' (BLOSUM30), 'pam' (PAM350) or 'id' (identity)."
+      },
+      "pwGapOpen": {
+        "type": "number",
+        "description": "type='protein' with distance='clustalw': ClustalW -PWGAPOPEN (default 10; length-dependent: 2 * matrixAvg * (open + ln min(length)) in matrix units)."
+      },
+      "pwGapExtend": {
+        "type": "number",
+        "description": "type='protein' with distance='clustalw': ClustalW -PWGAPEXT (default 0.1)."
       }
     },
     "required": [
