@@ -3046,11 +3046,15 @@ public static partial class SequenceAligner
         var rawSeqs = seqList.Select(s => s.Sequence).ToArray();
 
         // Steps 1-2: primary library (global + local, signal-added) then triplet extension.
-        var library = new ExtendedLibrary(BuildPrimaryLibrary(rawSeqs, effectiveScoring, gapModel));
+        var primaryLibrary = BuildPrimaryLibrary(rawSeqs, effectiveScoring, gapModel);
+        var library = new ExtendedLibrary(primaryLibrary);
 
         // Step 3a: guide tree (UPGMA by default, neighbour-joining on request) over the ClustalW distances (1 - identities / min(len1, len2)), reusing the progressive pipeline.
         var distance = ComputeGuideDistances(rawSeqs, effectiveScoring, options.Distance, gapModel, options.GuideTree, options.QuickPairwise);
         ProgressiveGuideNode root = BuildProgressiveGuideTree(k, distance, options.GuideTree);
+
+        if (options.ConsistencyEngine == MsaConsistencyEngine.TCoffeeLinked)
+            return BuildTCoffeeLinkedResult(rawSeqs, primaryLibrary, root, effectiveScoring, gapModel);
 
         // Step 3b: progressive alignment driven by the EXTENDED-LIBRARY weights.
         ConsistencyProfile aligned = AlignConsistencySubtree(root, rawSeqs, library);

@@ -266,4 +266,20 @@ public class MultipleAlignTests
             Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignConsistency(GuideTreeSet, 1, -1, -2, -1, "linear", "linear", "bogus"));
         });
     }
+
+    // B09 F58 (A1-13): consistencyEngine = 'tcoffee' routes the progressive stage through the T-Coffee 13.41 port; default unchanged.
+    [Test]
+    public void MultipleAlignConsistency_ConsistencyEngine_TCoffeeIsValid_DefaultUnchanged_BogusRejected()
+    {
+        var raw = new[] { "ACGTTACGT", "ACGACGT", "ACGTACGA", "TTACGTAG" };
+        var tcoffee = AlignmentTools.MultipleAlignConsistency(raw, 1, -1, -2, -1, "linear", "linear", "upgma", null, null, null, null, "tcoffee");
+        var paper = AlignmentTools.MultipleAlignConsistency(raw, 1, -1, -2, -1, "linear", "linear", "upgma", null, null, null, null, "paper");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(tcoffee.AlignedSequences.Select(r => r.Replace("-", "")), Is.EqualTo(raw));
+            Assert.That(paper.AlignedSequences, Is.EqualTo(AlignmentTools.MultipleAlignConsistency(raw).AlignedSequences));
+            Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignConsistency(raw, 1, -1, -2, -1, "linear", "linear", "upgma", null, null, null, null, "bogus"));
+        });
+    }
 }

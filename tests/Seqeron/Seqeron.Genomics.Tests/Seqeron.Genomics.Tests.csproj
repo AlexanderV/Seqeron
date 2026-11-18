@@ -31,6 +31,9 @@
     <!-- ALIGN-LOCAL-001 (audit A1-7, B09 F47): Waterman-Eggert non-intersecting local alignments + co-optimal local alignments; independent full-recompute Waterman-Eggert reference,
          exhaustive brute force on tiny inputs, EMBOSS matcher 6.6.0 (verified round by round against the definition), Biopython 1.88 co-optimal set; scripts/alignment/generate_topn_oracle.py. -->
     <EmbeddedResource Include="TestData\Alignment\topn_oracle.tsv" />
+    <!-- ALIGN-MULTI-001 (audit A1-13, B09 F58): T-Coffee 13.41 progressive stage (library relaxation + sparse linked-pair-wise DP) for an explicit library and guide tree;
+         rows of the installed `t_coffee` (Debian t-coffee 13.45.0.4846264+really13.41.0.28bdc39+dfsg-1); scripts/alignment/generate_tcoffee_oracle.py. -->
+    <EmbeddedResource Include="TestData\Alignment\tcoffee_oracle.tsv" />
     <!-- ALIGN-GLOBAL/LOCAL/SEMI-001 (audit A1-6, B09 F46): exact linear-space alignment; Biopython 1.88 / parasail 1.3.4 scores and co-optimal rows, EMBOSS stretcher 6.6.0
          (Myers-Miller) and matcher 6.6.0 (Huang-Miller SIM); scripts/alignment/generate_linear_space_oracle.py. -->
     <EmbeddedResource Include="TestData\Alignment\linear_space_oracle.tsv" />

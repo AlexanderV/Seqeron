@@ -485,8 +485,14 @@ public class AlignmentTools
             (seqs, scoring) => global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignIterative(seqs, scoring, options, maxIterations));
     }
 
+    private const string ConsistencyEngineDescription =
+        "Progressive stage: 'paper' (default) = the published formula (extended-library weight summed over every cross pair of two columns, full DP, zero gap penalty); " +
+        "'tcoffee' = the T-Coffee 13.41 program's own progressive stage (SequenceAligner.MultipleAlignTCoffee: library relaxation, 'linked pair-wise' sparse DP over scored column pairs, weights 10 x percent identity). " +
+        "With the same primary library and guide tree 'tcoffee' reproduces t_coffee's rows exactly (800 explicit-library sets); the library here is this repository's global + local alignments, " +
+        "not the program's slow_pair / lalign_id_pair / proba_pair libraries, and the tree is guideTree (not the program's k-tuple NJ tree), so a plain 't_coffee seqs.fa' run is not reproduced end to end.";
+
     [McpServerTool(Name = "multiple_align_consistency", Title = "MSA — Consistency-Based Alignment (T-Coffee)", ReadOnly = true)]
-    [Description("Consistency-based MSA (T-Coffee; Notredame, Higgins & Heringa 2000): a primary library of global (Needleman–Wunsch) and local (Smith–Waterman) pairwise alignments weighted by percent identity, extended by the triplet consistency transformation (direct weight + Σ min(W1, W2) over third sequences), then progressively aligned along a guide tree (UPGMA by default; guideTree='nj' = neighbour-joining as in the T-Coffee paper) with the extended-library weights as position-specific scores and zero gap penalties (T-Coffee default). The scoring parameters seed the pairwise library (gapModel='affine': Gotoh global and Smith–Waterman–Gotoh local alignments with gapOpen + k·gapExtend) and define totalScore, the sum of pairs of the result (linear column score, or natural affine costs with gapModel='affine'). distance='clustalw' takes the guide-tree distances from ClustalW 2.1's own pairwise stage.")]
+    [Description("Consistency-based MSA (T-Coffee; Notredame, Higgins & Heringa 2000): a primary library of global (Needleman–Wunsch) and local (Smith–Waterman) pairwise alignments weighted by percent identity, extended by the triplet consistency transformation (direct weight + Σ min(W1, W2) over third sequences), then progressively aligned along a guide tree (UPGMA by default; guideTree='nj' = neighbour-joining as in the T-Coffee paper) with the extended-library weights as position-specific scores and zero gap penalties (T-Coffee default). The scoring parameters seed the pairwise library (gapModel='affine': Gotoh global and Smith–Waterman–Gotoh local alignments with gapOpen + k·gapExtend) and define totalScore, the sum of pairs of the result (linear column score, or natural affine costs with gapModel='affine'). distance='clustalw' takes the guide-tree distances from ClustalW 2.1's own pairwise stage. consistencyEngine='tcoffee' swaps the progressive stage for the T-Coffee 13.41 program's (library relaxation + linked pair-wise sparse DP; exact for the same library and tree).")]
     public static MultipleAlignmentResultDto MultipleAlignConsistency(
         [Description("DNA sequences to align (at least one).")] string[] sequences,
         [Description("Score for matching base (pairwise library and reported score).")] int match = 1,
@@ -499,9 +505,10 @@ public class AlignmentTools
         [Description(KtupleDescription)] int? ktuple = null,
         [Description(WindowDescription)] int? window = null,
         [Description(TopDiagonalsDescription)] int? topDiagonals = null,
-        [Description(PairGapDescription)] int? pairGap = null) =>
+        [Description(PairGapDescription)] int? pairGap = null,
+        [Description(ConsistencyEngineDescription)] string consistencyEngine = "paper") =>
         RunMsa(sequences, match, mismatch, gapOpen, gapExtend,
-            (seqs, scoring) => global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignConsistency(seqs, scoring, ParseMsaOptions(distance, gapModel, guideTree, ktuple, window, topDiagonals, pairGap)));
+            (seqs, scoring) => global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignConsistency(seqs, scoring, ParseMsaOptions(distance, gapModel, guideTree, ktuple, window, topDiagonals, pairGap, consistencyEngine)));
 
     [McpServerTool(Name = "multiple_align_clustalw", Title = "MSA — ClustalW 2.1 Multiple Alignment (exact port)", ReadOnly = true)]
     [Description("ClustalW 2.1's multiple alignment of DNA (clustalw -TYPE=DNA -ALIGN), ported step by step and verified row-for-row against the installed clustalw 2.1: pairwise distances (distance='clustalw' = the full affine Smith-Waterman-Gotoh stage, 'clustalw-quick' = the fast k-tuple stage of -QUICKTREE with ktuple / window / topDiagonals / pairGap), ClustalW's neighbour-joining guide tree (rooted by Tree::reRoot), sequence weights derived from the tree branch lengths (Thompson, Higgins & Gibson 1994; noWeights = equal weights), delayed divergent sequences (maxDiv, default 30: sequences with at most that percent identity to every other sequence are aligned last), and profile-profile alignment with position-specific gap penalties (positions that already hold gaps get a reduced opening penalty and half the extension penalty, end gaps are free) on the IUB weight matrix shifted to non-negative scores (negative = keep it signed) with transitions weighted by transitionWeight (clustalw -TRANSWEIGHT, default 0.5) and Myers-Miller linear-space alignment. gapOpen / gapExtend are ClustalW's -GAPOPEN 15 / -GAPEXT 6.66 (the DNA residue-specific, hydrophilic and gap-separation penalties of clustalw are protein-only). Rows are returned in input order. match / mismatch / scoreGapOpen / scoreGapExtend define only the reported totalScore (natural affine sum of pairs, Altschul 1989).")]
@@ -556,8 +563,14 @@ public class AlignmentTools
 
     private static global::Seqeron.Genomics.Infrastructure.MsaOptions ParseMsaOptions(
         string? distance, string? gapModel, string? guideTree = null,
-        int? ktuple = null, int? window = null, int? topDiagonals = null, int? pairGap = null) => new()
+        int? ktuple = null, int? window = null, int? topDiagonals = null, int? pairGap = null, string? consistencyEngine = null) => new()
     {
+        ConsistencyEngine = (consistencyEngine ?? "paper").Trim().ToLowerInvariant() switch
+        {
+            "paper" => global::Seqeron.Genomics.Infrastructure.MsaConsistencyEngine.PaperExtension,
+            "tcoffee" or "t-coffee" or "tcoffee-linked" or "tcoffee_linked" => global::Seqeron.Genomics.Infrastructure.MsaConsistencyEngine.TCoffeeLinked,
+            _ => throw new ArgumentException("consistencyEngine must be 'paper' or 'tcoffee'.", nameof(consistencyEngine)),
+        },
         QuickPairwise = new global::Seqeron.Genomics.Infrastructure.ClustalWQuickOptions
         {
             KTuple = ktuple ?? 2,

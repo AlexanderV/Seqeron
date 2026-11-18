@@ -555,6 +555,24 @@ public sealed record MsaOptions
     /// Parameters of the fast pairwise stage, used only with <see cref="MsaDistanceMode.ClustalWQuick"/> (default: ClustalW's DNA defaults).
     /// </summary>
     public ClustalWQuickOptions QuickPairwise { get; init; } = new();
+
+    /// <summary>
+    /// Progressive stage of <c>MultipleAlignConsistency</c> (default <see cref="MsaConsistencyEngine.PaperExtension"/>, the published formula).
+    /// </summary>
+    public MsaConsistencyEngine ConsistencyEngine { get; init; } = MsaConsistencyEngine.PaperExtension;
+}
+
+/// <summary>Progressive stage of the consistency-based (T-Coffee) multiple aligner.</summary>
+public enum MsaConsistencyEngine
+{
+    /// <summary>The paper's objective: extended library weight (direct + sum of triplet minima) summed over every cross pair of two columns, zero gap penalty, full DP (default).</summary>
+    PaperExtension = 0,
+
+    /// <summary>
+    /// The T-Coffee 13.41 program's progressive stage (<c>SequenceAligner.MultipleAlignTCoffee</c>: library relaxation, sparse linked-pair-wise DP).
+    /// Identical to the program for the same primary library and guide tree; the library is this repository's (global + local alignments, weight 10 x percent identity) and the tree the configured guide tree.
+    /// </summary>
+    TCoffeeLinked = 1,
 }
 
 /// <summary>
