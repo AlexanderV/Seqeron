@@ -1,0 +1,91 @@
+id	last round	mutant	status
+A01	1	the packed text is expected without its 64 padding bytes	killed
+A02	1	the suffix array file is expected to have n entries	killed
+A03	1	the child table file is expected to have n entries	killed
+A04	1	the LCP file is expected to have n entries	killed
+A05	1	overflow pairs are expected to have 4 bytes	killed
+A06	2	stats n greater than meta n is not reported by the files check	killed
+A07	2	counts that add up to more than n pass the metadata check	killed
+A08	2	a width above the one the alphabet needs passes the metadata check	killed
+A09	2	equal neighbouring letters pass the metadata check	killed
+A10	2	a letter that never occurs passes the metadata check	killed
+B01	1	the last padding byte is not checked	killed
+B02	2	the unused bits of the last data byte are not checked	killed
+B03	1	the unused bits are counted modulo 4	killed
+B04	2	a longer input passes the length check	killed
+B05	1	the SHA-256 of the input is not compared with the metadata	killed
+B06	2	a wrong symbol count is reported only when it is too low	equivalent (argued): a count that is too high is always accompanied by one that is too low (both sums are n), so "<" and "!=" report the same inputs
+C01	1	a duplicate suffix array entry is not noticed	killed
+C02	1	the bitmap uses 32 bits per word index but 64 bits per mask	killed
+C03	1	the bit of an entry is q modulo 32	killed
+C04	1	an entry above n is not reported	killed
+C05	2	a value of exactly 255 is not counted as an escape	killed
+C06	2	a value of exactly 65535 is not counted	killed
+C07	2	SA[0] is not compared with n	killed
+C08	1	LCP[0] is not checked	killed
+C09	1	the common prefix is bounded by the shorter start instead of the shorter suffix	killed
+C10	1	a cap of 0 means a limit of 0	killed
+C11	1	a pair where one suffix ends is treated as a long pair	killed
+C12	1	the suffix that starts earlier is the shorter one	killed
+C13	2	equal symbols at the mismatch pass the order check	equivalent (argued): the symbols at the mismatch differ, so "<=" and "<" give the same order
+C14	1	a stored LCP that is too large is not reported (exact path)	killed
+C15	1	a stored LCP above the shorter suffix is accepted for a long pair	killed
+C16	1	for a long pair that ends at the shorter suffix the order is reversed	killed
+C17	1	for a long pair the order of the mismatch symbols is reversed	killed
+C18	3	no probes of the matching part of a long pair	killed
+C19	3	the tail probes start two symbols before the end of the claimed match	killed
+C19b	3	no tail probes (random probes only)	killed
+C19c	3	a third of the probes are tail probes	killed
+C19d	4	the random probes are all at the first offset above the cap	survivor: defence in depth: no input was found in which the spread probes are the only check that fails (a corruption in the middle of a long match is also seen by the exact checks of the short pairs around it)
+C20	1	the probe compares for inequality as equality	killed
+C21	1	a pair value equal to the escape is refused	killed
+C22	1	the first pair of a block is looked up from the start of the list	killed
+C23	3	a pair left over in a block is not reported	killed
+C24	3	the width rule takes 17 times the escapes	killed
+C25	3	the width rule for U16 takes 9 times the escapes	killed
+C26	3	the width rule takes 15 times the escapes	killed
+C27	3	the first-probe loop condition ignores the span	killed
+D01	1	the left boundary of a new interval is the rank itself	killed
+D02	1	a child is the last child when the next value equals the parent	killed
+D03	1	an interval of the same value is pushed again	killed
+D04	1	the next link is expected when the successor is two ranks away	killed
+D05	1	up and down fields are swapped	killed
+D06	1	the deepest interval is the last one among equals	killed
+D07	1	the LRS rank is the right boundary	killed
+D08	1	the first maximum is the last maximum	killed
+D09	1	the first maximum rank is off by one	killed
+D10	1	cells holding 1 are not counted as set	killed
+D11	1	the root is closed as a non-last child	killed
+D12	1	the internal count includes the root	killed
+D13	1	the node count omits the empty suffix	killed
+D14	1	a text with the stack bound exceeded is reported as passed	equivalent (argued): vacuous: string concatenation with the empty string (written by mistake, not a mutant)
+D15	1	the hashes are of the wrong file extension list order (sha of pk for stats)	killed
+D16	1	the hash reads only the first buffer of a file	killed
+E01	2	a statistics file without a final line feed passes	killed
+E02	2	a file with more lines than keys passes	killed
+E03	1	a line that only contains its key passes	killed
+E04	2	numbers with a leading zero are accepted	killed
+E05	2	letters_hex of the wrong length passes	killed
+E06	2	a counts list of the wrong length passes	equivalent (argued): a counts list that is too long also fails the sum check of the metadata (the sum of the counts is n)
+E07	2	a SHA-256 of the wrong length passes	killed
+E08	1	lower-case letters_hex passes	killed
+E09	2	upper-case hash digits pass	killed
+E10	2	a sigma of 257 passes	equivalent (argued): sigma 257 needs 9 bits, which the bits clause (at most 8) and the bits-for-sigma check refuse
+F01	1	the 2-byte base is read as 4 bytes	killed
+F02	1	the 1-byte escape is 65535	killed
+F03	1	the lower bound skips a pair whose rank equals the key	killed
+F04	1	the lower bound never sees the last pair	killed
+F05	1	the value of a pair is its rank	killed
+F06	2	the 4-byte base has an escape of 0	equivalent (argued): the escape of the 4-byte base is read only when the base has an escape (it has none)
+G01	1	the capacity is one entry too large	killed
+G02	1	the peak is not tracked	killed
+G03	1	a pop removes two entries	killed
+G04	1	the block index of a push uses the wrong shift	killed
+H01	1	the exit code of a failed verification is 0	killed
+H02	2	the whole check is reported as pass when one is skipped	killed
+H03	2	a skipped check is reported as pass	killed
+H04	2	the default LCE cap is 0	killed
+H05	3	the stack cap is given in entries instead of Mi entries	killed
+H06	2	no-child still checks and no-hash still hashes (flags ignored)	killed
+H07	1	the sums file lists the hashes in reverse order	killed
+H08	4	the default number of probes is 0	killed

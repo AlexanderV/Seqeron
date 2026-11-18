@@ -3,6 +3,7 @@
 # usage: preflight.sh [--sizes "1g 2.2g 3g"] [--quick] [--no-rows]
 #   --sizes   the text sizes the protocol will use (default: E8_SIZE_A / _B / _C = 1g 2.2g 3g); the disk need is computed for the largest
 #   --quick   skip the 64 MB write / mmap / msync / fallocate test (the runner uses this before every run)
+#   --cell    a cell of the limited-cache sweep (step d): the small memory limit of the container is the experiment, not a problem
 # Prints [ ok ] / [warn] / [REFUSE] lines and, at the end, what to change in Docker Desktop. Exit code 0 = no refusal (warnings allowed), 3 = at least one refusal.
 set -u
 HERE=$(cd "$(dirname "$0")" && pwd)
@@ -12,12 +13,13 @@ DATA=${E8_DATA:-/data}
 DLL=${E8_DLL:-/opt/e8/bin/SuffixTree.EmProto.dll}
 ROWS=$DATA/rows/e8_rows.tsv
 SIZES="${E8_SIZE_A:-1000000000} ${E8_SIZE_B:-2200000000} ${E8_SIZE_C:-3000000000}"
-QUICK=0; WRITE_ROWS=1
+QUICK=0; WRITE_ROWS=1; CELL=0
 while [ $# -gt 0 ]; do
   case $1 in
     --sizes) SIZES=""; for s in $2; do SIZES="$SIZES $(size_n "$s")"; done; shift 2 ;;
     --quick) QUICK=1; shift ;;
     --no-rows) WRITE_ROWS=0; shift ;;
+    --cell) CELL=1; shift ;;
     *) echo "unknown option $1" >&2; exit 2 ;;
   esac
 done
@@ -64,9 +66,10 @@ say "     memory visible (VM): $(human "$MEMT"), cgroup $CG_VERSION limit of thi
 EFF=$MEMT; if [ "$CGL" != max ] && [ "$CGL" != none ] && [ "$CGL" -lt "$MEMT" ]; then EFF=$CGL; fi
 GENEROUS=$((6 * 1000 * 1000 * 1000))
 if [ "$CG_VERSION" = none ]; then warn "no cgroup memory files are visible: the limited-memory cells (step d) cannot be checked or sampled"; fi
-if [ "$EFF" -ge "$GENEROUS" ]; then ok "$(human "$EFF") available to the container: enough for the 'generous' steps a, b, c (the text and the rank file together are about 1.5 GB at 3 Gbp; they and the scratch pages stay cached)";
+if [ "$CELL" = 1 ]; then ok "step d cell: the container is limited to $(human "$EFF") on purpose (the VM has $(human "$MEMT"))";
+elif [ "$EFF" -ge "$GENEROUS" ]; then ok "$(human "$EFF") available to the container: enough for the 'generous' steps a, b, c (the text and the rank file together are about 1.5 GB at 3 Gbp; they and the scratch pages stay cached)";
 else warn "only $(human "$EFF") available: the 'generous' runs of steps a-c would be cache-limited themselves, and every slowdown in step d is then relative to a slow baseline. Give Docker at least 8 GB."; fi
-if [ "$EFF" -lt $((3 * 1000 * 1000 * 1000)) ]; then refuse "less than 3 GB of memory: not even the generous 1 Gbp run is meaningful"; fi
+if [ "$CELL" = 0 ] && [ "$EFF" -lt $((3 * 1000 * 1000 * 1000)) ]; then refuse "less than 3 GB of memory: not even the generous 1 Gbp run is meaningful"; fi
 case $SWAPL in
   0|none) : ;;
   *) if [ "${SWAPT:-0}" -gt 0 ]; then warn "swap is available to the container ($SWAPL): under a memory limit the kernel may swap the program's anonymous memory instead of dropping cache; start the container with --memory-swap equal to --memory (e8-docker.sh does)"; fi ;;

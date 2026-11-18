@@ -151,7 +151,8 @@ run_cell() { # n cell-kind(gen|mNNN|tK) run
   rm -rf "$SCR" "$PIDF" "$PIDF.watchdog"
   addrow "$L" "$R" run_done yes "" "all rows of this run are written"
   echo "   $L run $R: rc=$RC killed=$KILLED $(grep -P "^R\tE8\t$L\t$R\t(total_s|ext_rssanon_peak|eff_resident_ph3|identity_vs_generous|verify_all)\t" "$ROWS" | awk -F'\t' '{printf "%s=%s ", $5, $6}')"
-  [ "$RC" = 0 ] || return 0
+  [ "$RC" = 0 ] || return 7        # the run did not finish (abandoned by the watchdog, killed, failed): the caller of a sweep stops after two such cells in a row
+  return 0
 }
 
 parse_options() {
@@ -191,10 +192,11 @@ plan() {
   say "the gates (verbatim in E8-RUNBOOK.md): G1 verifier + identical SHA-256; G2 RssAnon <= 256 MB; G3 scratch <= 12.5 B/char and total disk <= 70 GB at 3 Gbp; G4 reported."
 }
 
-# default cells for a text of n symbols: container memory from generous down to about 1x(text+rank) + process; multiples of the text + rank file (0.5 B/char at 3 bits per symbol) plus 0.5 GB for the process, the runtime and the dirty pages
+# default cells for a text of n symbols (MiB of container memory, largest first): f x (text + rank file) + 160 MiB for the process, the runtime and its pages, f = 16 (a limit that still holds everything), 6, 4, 3, 2.2, 1.6, 1.25, 1.0
+# (the text and the rank file together are 0.5 B/char for 3-bit symbols: 477 MiB at 1 Gbp; the last cell is about the "1x (text + rank) + the process" of ADR-004 6b, with no room for PH4's scratch pages)
 default_cells() {
-  awk -v n="$1" 'BEGIN { base = n * 0.5 / 1048576; for (i = 0; i < 8; i++) split("", x); f[1] = 8; f[2] = 4; f[3] = 3; f[4] = 2.2; f[5] = 1.7; f[6] = 1.4; f[7] = 1.2; f[8] = 1.0;
-    for (i = 1; i <= 8; i++) { m = base * f[i] + 512 + (i <= 1 ? 4096 : 0); printf "%d ", int((m + 31) / 32) * 32 } }'
+  awk -v n="$1" 'BEGIN { base = n * 0.5 / 1048576; split("16 6 4 3 2.2 1.6 1.25 1.0", f, " ");
+    for (i = 1; i <= 8; i++) { m = base * f[i] + 160; printf "%d ", int((m + 15) / 16) * 16 } }'
 }
 
 cmd=${1:-help}; [ $# -gt 0 ] && shift

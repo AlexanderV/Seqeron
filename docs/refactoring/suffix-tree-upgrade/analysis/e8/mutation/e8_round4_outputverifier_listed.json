@@ -1,0 +1,9 @@
+[
+ {
+  "id": "C19d",
+  "desc": "the random probes are all at the first offset above the cap",
+  "old": "% (ulong)span);",
+  "new": "% 1UL);",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs"
+ }
+]

@@ -1,0 +1,9 @@
+[
+ {
+  "id": "H08",
+  "desc": "the default number of probes is 0",
+  "old": "Probes = o.Int(\"probes\", 16),",
+  "new": "Probes = o.Int(\"probes\", 0),",
+  "file": "apps/SuffixTree.EmProto/Experiments/E8.cs"
+ }
+]

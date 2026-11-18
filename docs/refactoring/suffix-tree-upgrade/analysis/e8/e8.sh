@@ -20,7 +20,11 @@ case $cmd in
   plan|gen|clean|cells) exec "$HERE/run_e8.sh" "$cmd" "$@" ;;
   run)
     if [ "${E8_SKIP_PREFLIGHT:-0}" != 1 ]; then
-      "$HERE/preflight.sh" --quick --no-rows > "$E8_DATA/preflight.last.txt" 2>&1; rc=$?
+      # the quick preflight of the step: the disk need is that of the size this step runs (not of the largest size of the protocol)
+      step=${1:-}; N=${E8_SIZE_A:-1000000000}
+      case $step in b) N=${E8_SIZE_B:-2200000000} ;; c) N=${E8_SIZE_C:-3000000000} ;; esac
+      PFARG=; if [ "$step" = d ]; then PFARG=--cell; prev=; for a in "$@"; do [ "$prev" = --size ] && N=$a; prev=$a; done; fi
+      "$HERE/preflight.sh" --quick --no-rows $PFARG --sizes "$N" > "$E8_DATA/preflight.last.txt" 2>&1; rc=$?
       if [ $rc -ne 0 ]; then cat "$E8_DATA/preflight.last.txt"; echo "run refused: fix the [REFUSE] lines above (e8.sh preflight shows the details)" >&2; exit $rc; fi
     fi
     exec "$HERE/run_e8.sh" run "$@" ;;

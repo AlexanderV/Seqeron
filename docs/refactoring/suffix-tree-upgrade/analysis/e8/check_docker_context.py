@@ -77,6 +77,7 @@ print('publish: %s; packages downloaded: %s' % ('OK' if ok else 'FAILED', os.lis
 if ok:
     print('output: %s' % ', '.join(sorted(f for f in os.listdir(out) if f.endswith(('.dll', '.json')))))
     r = subprocess.run(['dotnet', os.path.join(out, 'SuffixTree.EmProto.dll'), 'e8-env', '--case', 'ctx'], capture_output=True, text=True, env=env)
-    print('e8-env exit code %d: %s' % (r.returncode, ' | '.join(l.split('\t')[4] + '=' + l.split('\t')[5] for l in r.stdout.splitlines() if l.startswith('R') and l.split('\t')[4] in ('env_framework', 'env_process_arch', 'env_lce_path'))))
+    rows = [x.split('\t') for x in r.stdout.splitlines() if x.startswith('R\t')]
+    print('e8-env exit code %d: %s' % (r.returncode, ' | '.join('%s=%s' % (c[3], c[4]) for c in rows if c[3] in ('env_framework', 'env_process_arch', 'env_lce_path'))))
 print('work directory: ' + WORK)
 sys.exit(0 if ok and not bad else 1)

@@ -1,0 +1,10 @@
+C18	no probes of the matching part of a long pair	killed(1)	
+C19	the tail probes start two symbols before the end of the claimed match	killed(1)	
+C19b	no tail probes (random probes only)	killed(1)	
+C19c	a third of the probes are tail probes	killed(1)	
+C19d	the random probes are all at the first offset above the cap	survived	survived
+C23	a pair left over in a block is not reported	killed(1)	
+C24	the width rule takes 17 times the escapes	killed(1)	
+C25	the width rule for U16 takes 9 times the escapes	killed(1)	
+C26	the width rule takes 15 times the escapes	killed(1)	
+C27	the first-probe loop condition ignores the span	killed(6)	

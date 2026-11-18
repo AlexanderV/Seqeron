@@ -8,7 +8,7 @@
 #   gen <size>...              generate texts (1g 2.2g 3g) into the data volume
 #   run a|b|c|e [..]           generous steps (no memory limit), with the full verification
 #   run d --size 1g --memory-mb M   ONE cache cell (starts the container with --memory M --memory-swap M)
-#   sweep [--cells "M1 M2 .."] [--size 1g]   step a if needed, then every cell of step d, largest first; stops a cell after 6 x the generous time
+#   sweep [--cells "M1 M2 .."] [--size 1g]   step a if needed, then every cell of step d, largest first; a cell is stopped after 6 x the generous time and the sweep after two such cells in a row
 #   report                     tables, gates and the return archive (inside the volume)
 #   export <folder>            copy rows, sums, logs and the return archives out of the volume into <folder>
 #   shell                      a shell in the container
@@ -109,15 +109,21 @@ case $CMD in
     CELLS=; SIZE=1g
     while [ $# -gt 0 ]; do case $1 in --cells) CELLS=$2; shift 2 ;; --size) SIZE=$2; shift 2 ;; *) die "unknown option $1" ;; esac; done
     if [ -z "$CELLS" ]; then
-      if [ "$DRY" = 1 ]; then CELLS="8448 2432 1952 1568 1344 1184 1088 992"; else CELLS=$(MEMORY= in_container -- cells 2>/dev/null | tail -1 | tr -d '\r'); fi
+      if [ "$DRY" = 1 ]; then CELLS="7792 3024 2080 1600 1216 928 768 640"; else CELLS=$(MEMORY= in_container -- cells 2>/dev/null | tail -1 | tr -d '\r'); fi
     fi
     VMMEM=$(docker info --format '{{.MemTotal}}' 2>/dev/null || echo 0)
     echo "step a first (generous, skipped when done), then the cells (MiB): $CELLS"
     MEMORY= in_container -- run a || die "step a did not finish: the cells need its time as the baseline"
+    BAD=0
     for M in $CELLS; do
       if [ "$DRY" = 0 ] && [ "$VMMEM" -gt 0 ] && [ $((M * 1048576)) -gt "$VMMEM" ]; then echo "cell $M MiB skipped: more than the memory of the Docker VM ($((VMMEM / 1048576)) MiB)"; continue; fi
       echo "---- cell $M MiB"
-      MEMORY=$M in_container -- run d --size "$SIZE" --memory-mb "$M" || echo "cell $M MiB: the container returned an error (see the rows; the next cell follows)"
+      MEMORY=$M in_container -- run d --size "$SIZE" --memory-mb "$M"; RC=$?
+      if [ $RC = 0 ]; then BAD=0
+      elif [ $RC = 7 ]; then
+        BAD=$((BAD + 1))
+        if [ $BAD -ge 2 ]; then echo "two cells in a row did not finish (abandoned after 6 x the generous time, or killed): smaller limits can only be worse; the sweep stops here"; break; fi
+      else echo "cell $M MiB: refused or failed (exit code $RC); the sweep stops here"; break; fi
     done ;;
   report) need_image; in_container -- report ;;
   export)
