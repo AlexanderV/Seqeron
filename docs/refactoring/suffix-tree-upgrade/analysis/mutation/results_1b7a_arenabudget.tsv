@@ -1,0 +1,24 @@
+A01	a negative cap is accepted	killed(1)	
+A02	Reserve accepts a negative size	killed(2)	
+A03	exactly the cap is refused	killed(9)	
+A04	the cap test can wrap around for an unlimited cap	killed(1)	
+A05	the reserved total is live minus bytes	killed(61)	
+A06	the peak is not kept	BUILD-ERROR CS0649	
+A07	a lost compare-and-swap is accepted	killed(1)	
+A08	Release allows one byte more than live	killed(1)	
+A09	Release accepts a negative size	killed(1)	
+A10	Release adds instead of subtracting	killed(16)	
+A11	the arena does not charge the budget	killed(56)	
+A12	a failed allocation keeps its charge	BUILD-ERROR CS0219	
+A13	the arena forgets its live bytes	killed(25)	
+A14	the arena forgets the block size	killed(20)	
+A15	ReleaseTo keeps the oldest of the newer blocks	killed(2)	
+A16	ReleaseTo keeps the live total	killed(20)	
+A17	ReleaseTo does not give the bytes back	killed(6)	
+A18	Dispose does not mark the arena disposed	BUILD-ERROR CS0649	
+A19	Dispose keeps the live bytes (a second Dispose gives them back twice)	survived	survived
+A20	Mark does not check the disposal	survived	survived
+A21	a null budget is accepted	killed(1)	
+A22	VerifyCanaries does nothing	killed(1)	
+A23	ReleaseTo does not check the upper bound of the mark	survived	survived
+A24	Dispose does not give the bytes back	killed(11)	

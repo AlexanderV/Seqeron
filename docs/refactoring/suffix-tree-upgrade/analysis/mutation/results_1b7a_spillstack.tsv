@@ -1,0 +1,28 @@
+I01	a block of one entry is accepted	killed(1)	
+I02	a full block is not advanced	killed(16)	
+I03	a push does not mark its block dirty	killed(17)	
+I04	a pop from the second entry of a block retreats	survived	survived
+I05	a pop does not lower the height	killed(15)	
+I06	a clean block is always written	killed(18)	
+I07	clean evictions are not counted	BUILD-ERROR CS0649	
+I08	every block is dirty after an advance	killed(1)	
+I09	the block below is not marked resident	killed(19)	
+I10	the top block number does not advance	killed(19)	
+I11	a resident block is read back	killed(15)	
+I12	a block read back is dirty	killed(1)	
+I13	a retreat leaves a block one short	killed(14)	
+I14	a block is written at the offset of 16-byte entries	killed(3)	
+I15	the spill file is not accounted as scratch	killed(2)	
+I16	the flush interval 0 flushes every block	killed(1)	
+I17	the flush happens one block late	killed(1)	
+I18	blocks read are not counted	BUILD-ERROR CS0649	
+I19	the spill file is not deleted on dispose	killed(2)	
+I20	the spill scratch is not given back on dispose	killed(1)	
+I21	Top of an empty stack does not throw	killed(1)	
+I22	TopForUpdate does not mark the block dirty	killed(2)	
+I23	the peak height is not kept	BUILD-ERROR CS0649	
+I24	a pop of an empty stack does not throw	killed(1)	
+I25	bytes written are not counted	BUILD-ERROR CS0649	
+I26	the file end is not tracked	BUILD-ERROR CS0649	
+I27	the spill file is opened for reading only after the first spill	killed(1)	
+I28	Dispose is not idempotent	BUILD-ERROR CS0169	

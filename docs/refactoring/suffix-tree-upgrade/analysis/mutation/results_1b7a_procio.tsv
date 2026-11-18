@@ -1,0 +1,20 @@
+C01	an empty file is reported unavailable by the real source	killed(3)	
+C02	the real source returns 0 for a missing file	killed(1)	
+C03	SafeRead does not clamp the count	killed(1)	
+C04	SafeRead treats an empty read as unavailable	survived	survived
+C05	an empty key is looked up	killed(1)	
+C06	the last possible key position is not searched	survived	survived
+C07	a key need not stand at the start of a line	killed(1)	
+C08	only a blank, not a tab, may precede the number	killed(3)	
+C09	the digit 9 is not a digit	killed(4)	
+C10	long.MaxValue is refused as an overflow	killed(1)	
+C11	an overflow is not detected	killed(1)	
+C12	a line without digits parses as 0	killed(3)	
+C13	Since adds the syscall writes	killed(1)	
+C14	write_bytes is read from cancelled_write_bytes	killed(3)	
+C15	a missing field does not make /proc/self/io unavailable	survived	survived
+C16	Finish does not subtract the start counters	killed(1)	
+C17	Finish reports the end snapshot, not the delta	killed(1)	
+C18	a null counters object is accepted	killed(1)	
+C19	Finish ignores a missing start snapshot	survived	survived
+C20	the real source opens exclusively	survived	survived

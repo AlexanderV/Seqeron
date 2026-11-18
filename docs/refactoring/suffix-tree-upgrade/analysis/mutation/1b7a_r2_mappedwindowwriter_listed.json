@@ -1,0 +1,9 @@
+[
+ {
+  "id": "F10",
+  "desc": "Append does not move the position",
+  "old": "        _next += data.Length;\n",
+  "new": "        _next += 0;\n",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedWindowWriter.cs"
+ }
+]

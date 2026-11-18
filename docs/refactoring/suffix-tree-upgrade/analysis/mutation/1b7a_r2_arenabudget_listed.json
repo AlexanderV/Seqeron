@@ -1,0 +1,16 @@
+[
+ {
+  "id": "A06",
+  "desc": "the peak lags one reservation behind",
+  "old": "                Atomic.RaiseTo(ref _peak, now);\n",
+  "new": "                Atomic.RaiseTo(ref _peak, seen);\n",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/ArenaBudget.cs"
+ },
+ {
+  "id": "A12",
+  "desc": "a failed allocation gives back 0 bytes",
+  "old": "            if (!allocated) Budget.Release(bytes);\n",
+  "new": "            if (!allocated) Budget.Release(0);\n",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/ArenaBudget.cs"
+ }
+]

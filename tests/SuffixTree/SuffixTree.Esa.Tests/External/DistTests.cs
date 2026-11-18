@@ -374,12 +374,15 @@ public unsafe class DistTests
         using var dir = new TempDir();
         var budget = new ArenaBudget(long.MaxValue);
         var counters = new IoCounters();
-        foreach (uint[] sa in new[] { new uint[] { 2, 0, 1, 3 }, new uint[] { 3, 0, 3, 1 }, new uint[] { 3, 0, 1, 9 } })
+        foreach (uint[] sa in new[] { new uint[] { 2, 0, 1, 3 }, new uint[] { 3, 0, 3, 1 }, new uint[] { 3, 0, 1, 9 }, new uint[] { 2, 0, 1, 2 }, new uint[] { 0, 0, 1, 2 } })
         {
             FileBits.WriteUInts(dir.File("sa.bin"), sa);
             Assert.Throws<InvalidDataException>(() => Dist.BuildPhi(dir.File("sa.bin"), 3, dir.File("phi.bin"), Opt(dir, 2, 8, 8, 8, budget, counters)), string.Join(",", sa));
             AssertClean(dir, budget, counters);
         }
+        // the first entry is the only thing wrong with [2, 0, 1, 2]: the other three are positions below n
+        InvalidDataException first = Assert.Throws<InvalidDataException>(() => { FileBits.WriteUInts(dir.File("f.bin"), [2u, 0, 1, 2]); Dist.BuildPhi(dir.File("f.bin"), 3, dir.File("phi.bin"), Opt(dir, 2, 8, 8, 8)); })!;
+        Assert.That(first.Message, Does.Contain("SA[0]"));
         FileBits.WriteUInts(dir.File("ok.bin"), [3u, 2, 0, 1]);
         Dist.BuildPhi(dir.File("ok.bin"), 3, dir.File("phi.bin"), Opt(dir, 2, 8, 8, 8));
         Assert.That(FileBits.ReadUInts(dir.File("phi.bin")), Is.EqualTo(new uint[] { 2, 0, 3 }), "Phi[SA[i]] = SA[i-1]: Phi[0] = 2, Phi[1] = 0, Phi[2] = 3");
@@ -432,26 +435,36 @@ public unsafe class DistTests
     [Test]
     public void ScratchIsReleasedChunkByChunk_NotAtTheEnd()
     {
-        // ADR-004 Q1: a chunk file is deleted as soon as its chunk is in memory. A poller sees the live scratch bytes fall in steps during pass 2.
+        // ADR-004 Q1: a chunk file is deleted as soon as its chunk is in memory. A poller records the live scratch bytes in order: after the peak (the end of pass 1, all the chunk files exist) they fall in steps.
         using var dir = new TempDir();
         const int n = 1_500_000;
         var sa = new uint[n + 1];
         for (int i = 0; i <= n; i++) sa[i] = (uint)((i * 7919L) % (n + 1));
         FileBits.WriteUInts(dir.File("sa.bin"), sa);
         var counters = new IoCounters();
-        var seen = new HashSet<long>();
+        var series = new List<long>();
         using var stop = new ManualResetEventSlim(false);
         var poller = new Thread(() =>
         {
-            while (!stop.IsSet) seen.Add(counters.ScratchLiveBytes);
+            long last = -1;
+            while (!stop.IsSet)
+            {
+                long v = counters.ScratchLiveBytes;
+                if (v == last) continue;
+                series.Add(v);
+                last = v;
+            }
         });
         poller.Start();
         DistStats stats = Dist.BuildIsa(dir.File("sa.bin"), n, dir.File("isa.bin"), Opt(dir, 5_000, 4096, 1 << 20, 1 << 20, null, counters));
         stop.Set();
         poller.Join();
-        Assert.That(stats.TupleBytesWritten, Is.GreaterThan(0));
-        long between = seen.Count(v => v > 0 && v < stats.TupleBytesWritten);
-        Assert.That(between, Is.GreaterThanOrEqualTo(3), $"the live scratch bytes went down in steps (saw {seen.Count} distinct values)");
+        long peak = stats.TupleBytesWritten;
+        Assert.That(peak, Is.GreaterThan(0));
+        int atPeak = series.IndexOf(peak);
+        Assert.That(atPeak, Is.GreaterThanOrEqualTo(0), "the poller saw the peak");
+        long fallingSteps = series.Skip(atPeak + 1).Count(v => v > 0 && v < peak);
+        Assert.That(fallingSteps, Is.GreaterThanOrEqualTo(3), $"the live scratch bytes fell in steps while pass 2 ran (series of {series.Count} values)");
     }
 
     [Test]
@@ -576,7 +589,8 @@ public unsafe class DistTests
             var mapper = new FixedKey(key);
             var budget = new ArenaBudget(long.MaxValue);
             var counters = new IoCounters();
-            Assert.Throws<InvalidDataException>(() => Dist.Scatter(dir.File("src.bin"), 1, ref mapper, dir.File("out.bin"), new DistTarget<uint>(5, 0, false), Opt(dir, 2, 8, 8, 8, budget, counters)), $"key {key}");
+            InvalidDataException ex = Assert.Throws<InvalidDataException>(() => Dist.Scatter(dir.File("src.bin"), 1, ref mapper, dir.File("out.bin"), new DistTarget<uint>(5, 0, false), Opt(dir, 2, 8, 8, 8, budget, counters)), $"key {key}")!;
+            Assert.That(ex.Message, Does.Contain("maps to key").And.Contain("5 slots"), $"key {key}: refused at the mapper, before it can reach a chunk");
             AssertClean(dir, budget, counters);
         }
         var last = new FixedKey(4);

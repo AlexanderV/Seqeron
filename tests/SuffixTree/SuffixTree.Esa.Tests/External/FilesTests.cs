@@ -51,6 +51,19 @@ public class CountedFileTests
     }
 
     [Test]
+    public void ReadAt_CountsWhatWasRead_NotWhatWasAsked()
+    {
+        using var dir = new TempDir();
+        File.WriteAllBytes(dir.File("c.bin"), [1, 2, 3, 4, 5]);
+        var c = new IoCounters();
+        using var f = new CountedFile(dir.File("c.bin"), FileMode.Open, FileAccess.Read, c);
+        Assert.That(f.ReadAt(new byte[10], 2), Is.EqualTo(3));
+        Assert.That(c.ReadBytes, Is.EqualTo(3), "3 bytes were there, 10 were asked");
+        Assert.That(f.ReadAt(new byte[10], 5), Is.Zero);
+        Assert.That(c.ReadBytes, Is.EqualTo(3), "nothing at the end");
+    }
+
+    [Test]
     public void SetLength_ExtendsAndTruncates_AndAWriteBeyondTheEndExtends()
     {
         using var dir = new TempDir();

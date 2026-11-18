@@ -1,0 +1,9 @@
+[
+ {
+  "id": "E09",
+  "desc": "the read counter counts the buffer, not what was read",
+  "old": "            _counters?.AddRead(got);\n",
+  "new": "            _counters?.AddRead(buffer.Length);\n",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/CountedFile.cs"
+ }
+]

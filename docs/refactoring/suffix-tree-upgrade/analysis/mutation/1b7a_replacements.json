@@ -1,0 +1,19 @@
+{
+ "arenabudget": [
+  {"id": "A06", "desc": "the peak lags one reservation behind", "old": "                Atomic.RaiseTo(ref _peak, now);\n", "new": "                Atomic.RaiseTo(ref _peak, seen);\n", "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/ArenaBudget.cs"},
+  {"id": "A12", "desc": "a failed allocation gives back 0 bytes", "old": "            if (!allocated) Budget.Release(bytes);\n", "new": "            if (!allocated) Budget.Release(0);\n", "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/ArenaBudget.cs"}
+ ],
+ "mappedwindowwriter": [
+  {"id": "F10", "desc": "Append does not move the position", "old": "        _next += data.Length;\n", "new": "        _next += 0;\n", "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedWindowWriter.cs"}
+ ],
+ "rssreader": [
+  {"id": "D16", "desc": "the sample count is not kept", "old": "        Interlocked.Increment(ref _samples);\n", "new": "        Interlocked.Add(ref _samples, 0);\n", "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/RssReader.cs"}
+ ],
+ "spillstack": [
+  {"id": "I07", "desc": "clean evictions are not counted", "old": "            else _cleanEvictions++;", "new": "            else _cleanEvictions += 0;", "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/SpillStack.cs"},
+  {"id": "I18", "desc": "blocks read are not counted", "old": "        _blocksRead++;\n", "new": "        _blocksRead += 0;\n", "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/SpillStack.cs"},
+  {"id": "I23", "desc": "the peak height stays 0", "old": "if (++_height > _peak) _peak = _height;", "new": "if (++_height > _peak) _peak = 0;", "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/SpillStack.cs"},
+  {"id": "I25", "desc": "bytes written are not counted", "old": "        _bytesWritten += _blockBytes;\n", "new": "        _bytesWritten += 0;\n", "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/SpillStack.cs"},
+  {"id": "I26", "desc": "the file end is reset instead of tracked", "old": "            _fileBytes = end;\n", "new": "            _fileBytes = 0;\n", "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/SpillStack.cs"}
+ ]
+}

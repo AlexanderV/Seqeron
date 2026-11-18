@@ -1,0 +1,23 @@
+[
+ {
+  "id": "C15",
+  "desc": "a missing field does not make /proc/self/io unavailable",
+  "old": "            || !ProcText.TryGetLong(text, \"syscw:\"u8, out long syscw)\n",
+  "new": "            || false\n            || !ProcText.TryGetLong(text, \"syscw:\"u8, out long syscw) && false\n",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/ProcIo.cs"
+ },
+ {
+  "id": "C19",
+  "desc": "Finish ignores a missing start snapshot",
+  "old": "_procStart is { } begin && end is { } last ? last.Since(begin) : null;",
+  "new": "end is { } last ? last.Since(_procStart ?? default) : null;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/ProcIo.cs"
+ },
+ {
+  "id": "C20",
+  "desc": "the real source opens exclusively",
+  "old": "FileShare.ReadWrite);\n            int total = 0;",
+  "new": "FileShare.None);\n            int total = 0;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/ProcIo.cs"
+ }
+]

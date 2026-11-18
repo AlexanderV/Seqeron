@@ -1,0 +1,9 @@
+E01	reads are not counted	killed(4)	
+E02	writes are not counted	killed(4)	
+E03	a read one byte short is accepted	killed(1)	
+E04	the file is opened exclusively	killed(5)	
+E05	SetLength does nothing	killed(1)	
+E06	Flush does nothing	survived	survived
+E07	Dispose does not release the handle	killed(9)	
+E08	the read position does not advance	killed(3)	
+E09	the read counter counts the buffer, not what was read	survived	survived

@@ -225,7 +225,12 @@ public class ProcIoTests
         Assert.That(ProcIoSnapshot.TryRead(new FakeProcSource()), Is.Null, "a macOS or Windows process: no such file");
     }
 
-    [TestCase("rchar: 1\nwchar: 2\nsyscr: 3\nsyscw: 4\nread_bytes: 5\n", TestName = "a key is missing")]
+    [TestCase("wchar: 2\nsyscr: 3\nsyscw: 4\nread_bytes: 5\nwrite_bytes: 6\n", TestName = "rchar is missing")]
+    [TestCase("rchar: 1\nsyscr: 3\nsyscw: 4\nread_bytes: 5\nwrite_bytes: 6\n", TestName = "wchar is missing")]
+    [TestCase("rchar: 1\nwchar: 2\nsyscw: 4\nread_bytes: 5\nwrite_bytes: 6\n", TestName = "syscr is missing")]
+    [TestCase("rchar: 1\nwchar: 2\nsyscr: 3\nread_bytes: 5\nwrite_bytes: 6\n", TestName = "syscw is missing")]
+    [TestCase("rchar: 1\nwchar: 2\nsyscr: 3\nsyscw: 4\nwrite_bytes: 6\n", TestName = "read_bytes is missing")]
+    [TestCase("rchar: 1\nwchar: 2\nsyscr: 3\nsyscw: 4\nread_bytes: 5\n", TestName = "write_bytes is missing")]
     [TestCase("", TestName = "empty file")]
     [TestCase("rchar: x\nwchar: 2\nsyscr: 3\nsyscw: 4\nread_bytes: 5\nwrite_bytes: 6\n", TestName = "a value is not a number")]
     [TestCase("garbage garbage garbage", TestName = "garbage")]
@@ -278,6 +283,17 @@ public class ProcIoTests
     }
 
     [Test]
+    public void TheRealSource_ReadsAFileThatAnotherHandleHasOpenForWriting()
+    {
+        using var dir = new TempDir();
+        string path = dir.File("shared.txt");
+        File.WriteAllText(path, "abc");
+        using var writer = new FileStream(path, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite);
+        var buffer = new byte[16];
+        Assert.That(FileProcSource.Instance.TryRead(path, buffer), Is.EqualTo(3), "the status files of a live process are open elsewhere too: reading must not need exclusive access");
+    }
+
+    [Test]
     public void TheRealSource_ReadsTheStartOfALongFile_IntoASmallBuffer()
     {
         using var dir = new TempDir();
@@ -320,6 +336,8 @@ public class ProcIoTests
         // a /proc that appears or vanishes between the two readings is unavailable as well
         var flaky = new FakeProcSource().WithSeries("/proc/self/io", call => call == 0 ? "rchar: 1\nwchar: 1\nsyscr: 1\nsyscw: 1\nread_bytes: 1\nwrite_bytes: 1\n" : "garbage");
         Assert.That(new IoMeasurement(counters, flaky).Finish().Proc, Is.Null);
+        var late = new FakeProcSource().WithSeries("/proc/self/io", call => call == 0 ? "garbage" : "rchar: 1\nwchar: 1\nsyscr: 1\nsyscw: 1\nread_bytes: 1\nwrite_bytes: 1\n");
+        Assert.That(new IoMeasurement(counters, late).Finish().Proc, Is.Null, "a /proc that was not there at the start has no delta, however good the end reading is");
         Assert.Throws<ArgumentNullException>(() => _ = new IoMeasurement(null!));
     }
 }

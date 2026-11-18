@@ -1,0 +1,23 @@
+[
+ {
+  "id": "H08",
+  "desc": "Phi does not check the first entry",
+  "old": "            if (sourceValue != N) throw new InvalidDataException($\"SA[0] must be n = {N}, the empty suffix, it is {sourceValue}\");\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs"
+ },
+ {
+  "id": "H25",
+  "desc": "a key equal to the slot count is accepted",
+  "old": "if (key >= slots) ThrowKeyOutside(first + i, key, slots);",
+  "new": "if (key > slots) ThrowKeyOutside(first + i, key, slots);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs"
+ },
+ {
+  "id": "H30",
+  "desc": "a chunk file is not deleted after its chunk is read",
+  "old": "                scratch.Delete(chunk);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs"
+ }
+]

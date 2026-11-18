@@ -1,0 +1,14 @@
+F01	the default window is 64 KB	killed(3)	
+F02	a window of 0 bytes is accepted	killed(1)	
+F03	an empty file is mapped	killed(3)	
+F04	a write that ends exactly at the end is refused	killed(21)	
+F05	a negative offset is accepted by the range test	survived	survived
+F06	the take is the larger of the two	killed(host crash)	
+F07	a write at the start of the window opens another	killed(1)	
+F08	mapped writes are not counted	killed(4)	
+F09	windows are not counted	killed(5)	
+F10	Append does not move the position	BUILD-ERROR CS0649	
+F11	the tail window is as large as a full one	killed(20)	
+F12	Dispose does not release the mapping file	killed(1)	
+F13	the window offset is not added to the base	killed(9)	
+F14	the file is not truncated to the new length	survived	survived

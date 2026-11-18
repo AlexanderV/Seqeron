@@ -152,6 +152,18 @@ public class RssSamplerTests
     }
 
     [Test]
+    public void Stop_WakesTheThreadFromItsWait_AtOnce()
+    {
+        var source = new FakeProcSource().With("/proc/self/status", "RssAnon: 5 kB\n");
+        var sampler = new RssSampler(new RssReader(source), 600_000); // the thread waits ten minutes for its next sample
+        sampler.Start();
+        SpinWait.SpinUntil(() => false, 200); // the thread is in its wait by now
+        Task<RssStats> stop = Task.Run(sampler.Stop);
+        Assert.That(stop.Wait(20_000), Is.True, "Stop returns although the interval is ten minutes");
+        Assert.That(stop.Result.Samples, Is.EqualTo(2));
+    }
+
+    [Test]
     public void Dispose_StopsThePolling()
     {
         var source = new FakeProcSource().With("/proc/self/status", "RssAnon: 5 kB\n");

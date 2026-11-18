@@ -1,0 +1,16 @@
+[
+ {
+  "id": "D14",
+  "desc": "the thread is not woken by Stop",
+  "old": "            _stopSignal.Set(); // wakes the thread from its wait at once, so a long interval does not delay the stop\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/RssReader.cs"
+ },
+ {
+  "id": "D16",
+  "desc": "the sample count is not kept",
+  "old": "        Interlocked.Increment(ref _samples);\n",
+  "new": "        Interlocked.Add(ref _samples, 0);\n",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/RssReader.cs"
+ }
+]
