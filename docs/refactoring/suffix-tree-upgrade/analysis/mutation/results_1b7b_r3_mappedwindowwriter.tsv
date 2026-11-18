@@ -1,0 +1,5 @@
+W11	the owning writer does not count itself	survived	survived
+W12	the owning writer forgets that it owns the file	killed(1)	
+W13	the window of a range writer is as large as the rest of the file	killed(4)	
+W14	Path is the empty string	killed(2)	
+N17	the window is as large as the larger of the window and the rest	killed(31)	

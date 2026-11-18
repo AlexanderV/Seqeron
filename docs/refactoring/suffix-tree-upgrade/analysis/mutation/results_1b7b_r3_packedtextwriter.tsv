@@ -1,0 +1,14 @@
+P02	a block of 8 is refused	killed(1)	
+P05	the window is not checked	survived	survived
+P07	Scan: the limit is not applied	killed(1)	
+P10	Scan: the hash is not reset before reading (it is read once)	killed(3)	
+P13	Scan: the width ignores the minimum	killed(1)	
+P15	Scan: the blocks are read from the start	killed(2)	
+P27	Pack: the packed buffer holds one byte less than a block needs	survived	survived
+P29	WriteFile: the directory is not checked first	killed(1)	
+P34	WriteFile: the file options are not used	killed(1)	
+P38	WriteFile: the file is not disposed before the rename	survived	survived
+P39	WriteFile: the file is disposed again by the handler (null guard lost)	survived	survived
+P41	WriteFile: the info is of an empty text	killed(6)	
+N13	Scan: the blocks overlap by one symbol	killed(2)	
+N14	WriteFile: a directory that exists is refused	killed(24)	

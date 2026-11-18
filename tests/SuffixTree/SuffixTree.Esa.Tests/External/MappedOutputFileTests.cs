@@ -346,6 +346,17 @@ public class MappedOutputFileTests
     }
 
     [Test]
+    public void ANegativeLength_IsRefusedBeforeAnythingIsTouched()
+    {
+        using var dir = new TempDir();
+        string path = dir.File("keep.bin");
+        File.WriteAllBytes(path, [1, 2, 3]);
+        Assert.Throws<ArgumentOutOfRangeException>(() => MappedOutputFile.Create(path, -1));
+        Assert.That(File.ReadAllBytes(path), Is.EqualTo(new byte[] { 1, 2, 3 }), "the file that was there is still there");
+        Assert.Throws<ArgumentNullException>(() => MappedOutputFile.Create(null!, 10));
+    }
+
+    [Test]
     public void ARecreatedFile_IsEmptyOfTheOldContent_InEveryMode()
     {
         using var dir = new TempDir();
@@ -358,6 +369,12 @@ public class MappedOutputFileTests
                 var options = new MappedFileOptions { Reservation = mode, Source = system ? null : new FakeReservationSource { CanPreallocate = true } };
                 using (MappedOutputFile.Create(path, 2000, options)) { }
                 Assert.That(File.ReadAllBytes(path), Is.EqualTo(new byte[2000]), $"{mode} system={system}");
+            }
+            if (mode == ReservationMode.Preallocate)
+            {
+                File.WriteAllBytes(path, Enumerable.Repeat((byte)0xAB, 3000).ToArray());
+                using (MappedOutputFile.Create(path, 2000, new MappedFileOptions { Reservation = mode, Source = new FakeReservationSource { CanPreallocate = false, Free = 1 << 20 } })) { }
+                Assert.That(File.ReadAllBytes(path), Is.EqualTo(new byte[2000]), "the explicit fallback creates the file anew as well");
             }
         }
     }

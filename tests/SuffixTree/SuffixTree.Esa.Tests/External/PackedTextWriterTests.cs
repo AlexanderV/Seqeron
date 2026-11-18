@@ -107,6 +107,11 @@ public class PackedTextWriterTests
         Assert.Throws<ArgumentOutOfRangeException>(() => PackedTextWriter.WriteFile(Input(dir, input), dir.File("m3.pk"), new PackedTextWriterOptions { MinBits = 0, Counters = c }));
         Assert.Throws<ArgumentOutOfRangeException>(() => PackedTextWriter.WriteFile(Input(dir, input), dir.File("m4.pk"), new PackedTextWriterOptions { MinBits = 9, Counters = c }));
         Assert.That(c.ReadBytes, Is.Zero, "the options are checked before the input is read");
+        foreach (int window in new[] { 0, -5 })
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(() => PackedTextWriter.WriteFile(Input(dir, input), dir.File("m5.pk"), new PackedTextWriterOptions { WindowBytes = window, Counters = c }), $"window {window}");
+        }
+        Assert.That(c.ReadBytes, Is.Zero, "a window of no bytes is refused before the input is read");
     }
 
     [Test]

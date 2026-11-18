@@ -1,0 +1,23 @@
+[
+ {
+  "id": "R63",
+  "desc": "CheckShape: the upper width is not checked",
+  "old": "|| bits > PackedTextFormat.MaxBits)",
+  "new": "|| bits > 32)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "R64",
+  "desc": "CheckShape: a negative length is accepted",
+  "old": "if (n < 0 || n >",
+  "new": "if (n < -1 || n >",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "R65",
+  "desc": "CheckShape: the length is not bounded",
+  "old": "|| n > long.MaxValue / PackedTextFormat.MaxBits - PackedTextFormat.PadBytes)",
+  "new": "|| n > long.MaxValue)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ }
+]

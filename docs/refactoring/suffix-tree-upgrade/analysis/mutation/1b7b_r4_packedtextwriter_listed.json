@@ -1,0 +1,9 @@
+[
+ {
+  "id": "P05",
+  "desc": "the window is not checked",
+  "old": "        ArgumentOutOfRangeException.ThrowIfLessThan(o.WindowBytes, 1);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/PackedTextWriter.cs"
+ }
+]

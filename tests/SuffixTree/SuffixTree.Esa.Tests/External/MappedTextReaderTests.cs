@@ -659,13 +659,17 @@ public class MappedTextReaderTests
         string zeros = Make("zeros.pk", new byte[64]);
         Assert.Throws<InvalidDataException>(() => MappedTextReader.Open(zeros, 5, 0).Dispose(), "a file of 64 bytes would fit zero bits per symbol: the width is refused, not divided by");
         Assert.Throws<InvalidDataException>(() => MappedTextReader.Open(zeros, 5, -1).Dispose());
+        foreach (int bits in new[] { 9, 16, 33 }) Assert.Throws<InvalidDataException>(() => MappedTextReader.Open(zeros, 0, bits).Dispose(), $"an empty text of {bits} bits per symbol also has 64 bytes");
+        Assert.Throws<InvalidDataException>(() => MappedTextReader.Open(zeros, -1, 3).Dispose(), "a negative length whose byte count rounds to 0");
+        Assert.Throws<InvalidDataException>(() => MappedTextReader.Open(zeros, -2, 8).Dispose());
         foreach (int bits in new[] { 0, -1, 9, 16, 33, int.MinValue })
         {
             Assert.Throws<InvalidDataException>(() => MappedTextReader.Open(Make("b.pk", packed), 1001, bits).Dispose(), $"bits {bits}");
         }
         foreach (long n in new[] { -1L, long.MinValue, long.MaxValue, (long.MaxValue / 8) + 1, 1L << 61 })
         {
-            Assert.Throws<InvalidDataException>(() => MappedTextReader.Open(Make("n.pk", packed), n, 3).Dispose(), $"n {n}");
+            InvalidDataException? huge = Assert.Throws<InvalidDataException>(() => MappedTextReader.Open(Make("n.pk", packed), n, 3).Dispose(), $"n {n}");
+            Assert.That(huge!.Message, Does.Contain("not a length"), $"n {n}: refused as a length, not by an overflow further on");
         }
 
         // not a file, no file

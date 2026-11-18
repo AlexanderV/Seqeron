@@ -1,0 +1,23 @@
+[
+ {
+  "id": "O03",
+  "desc": "a negative length is not refused up front",
+  "old": "        ArgumentOutOfRangeException.ThrowIfNegative(length);\n        options ??=",
+  "new": "        options ??=",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs"
+ },
+ {
+  "id": "O18",
+  "desc": "Dispose does not mark the file disposed (replacement of the first O18, which did not compile)",
+  "old": "        _disposed = true;\n        _map?.Dispose();",
+  "new": "        _disposed = _writers < -5;\n        _map?.Dispose();",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs"
+ },
+ {
+  "id": "O32",
+  "desc": "Fallback: the file is not truncated first",
+  "old": "using var checkedFile = new FileStream(path, FileMode.Create,",
+  "new": "using var checkedFile = new FileStream(path, FileMode.OpenOrCreate,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs"
+ }
+]

@@ -1,0 +1,23 @@
+R06	position n is read through the window	survived	survived
+R13	the byte fast path of ReadSymbols is never taken	survived	survived
+R17	Lce: an empty room is not an early return	killed(1)	
+R22	Lce: the vector steps are not counted	killed(2)	
+R28	Lce: scalar steps are not counted	killed(2)	
+R55	OpenCore: a negative offset is accepted	killed(1)	
+R60	CheckLayout: the unused bits are not checked	killed(2)	
+R63	CheckShape: the upper width is not checked	survived	survived
+R64	CheckShape: a negative length is accepted	survived	survived
+R65	CheckShape: the length is not bounded	survived	survived
+R67	the window is not byte-reversed	killed(12)	
+R68	the window drops the shift when the bit offset is zero	killed(11)	
+N01	Lce: the vector step is the key length	killed(2)	
+N02	Lce: the lane shuffle swaps two bytes	killed(2)	
+N03	LoadShifted: the carry shift is off by one	killed(3)	
+N04	LoadShifted: the carry is loaded from one byte earlier	killed(3)	
+N05	Lce: the first difference is always taken from lane 0	killed(3)	
+N06	Lce: equal vectors advance one symbol short	killed(2)	
+N08	Verify: counts every symbol twice	killed(8)	
+N09	Verify: one letter too many is accepted	killed(1)	
+N10	ReadSymbols: the mask is one bit short	killed(13)	
+N11	CheckLayout: the number of unused bits is one too many	killed(host crash)	
+N12	Verify: the blocks overlap by one symbol	killed(1)	

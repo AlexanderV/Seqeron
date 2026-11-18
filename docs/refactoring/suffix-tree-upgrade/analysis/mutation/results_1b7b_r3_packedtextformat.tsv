@@ -1,0 +1,4 @@
+F03	BitsFor: sigma 2 is not special-cased below (always the formula)	killed(1)	
+F13	PackInto: symbols are added instead of or-ed	survived	survived
+F18	the first byte of a block is not cleared by the emission: bits are emitted from the wrong end	killed(12)	
+N19	PackInto starts writing at byte 1	killed(13)	

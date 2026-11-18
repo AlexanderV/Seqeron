@@ -1,0 +1,15 @@
+O03	a negative length is not refused up front	survived	survived
+O04	a null path is not refused up front	survived	survived
+O12	CreateWriter does not check the disposal	killed(1)	
+O14	Complete does not check the disposal	killed(1)	
+O17	Dispose is not idempotent-guarded	survived	survived
+O18	Dispose does not mark the file disposed	BUILD-ERROR CS0649	
+O19	Dispose does not release the mapping	killed(3)	
+O20	OpenView does not check the disposal	survived	survived
+O24	Sparse: the file is not truncated first	killed(1)	
+O32	Fallback: the file is not truncated first	survived	survived
+O37	the system source does not truncate	killed(30)	
+O38	the free space is wrong by a factor	killed(1)	
+O39	an unknown free space is 0	killed(1)	
+O40	DeleteQuietly deletes nothing	killed(3)	
+O41	the writer counter starts at one	killed(17)	
