@@ -4,104 +4,119 @@
   "desc": "Sort: a leaf above the capacity is accepted",
   "old": "if (m > _capacity) throw",
   "new": "if (m > _capacity + 1000000) throw",
-  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/LeafSorter.cs"
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/LeafSorter.cs",
+  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)"
  },
  {
   "id": "F02",
   "desc": "Sort: the keys are not taken from the positions",
   "old": "for (int i = 0; i < m; i++) keys[i] = text.Key(pos[i]);",
   "new": "for (int i = 0; i < m; i++) keys[i] = text.Key(i);",
-  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/LeafSorter.cs"
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/LeafSorter.cs",
+  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)"
  },
  {
   "id": "F03",
   "desc": "Sort: a bucket of 25 is insertion sorted",
   "old": "if (m <= 24) KeySort.InsertionSort(keys, pos);",
   "new": "if (m <= 25) KeySort.InsertionSort(keys, pos);",
-  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/LeafSorter.cs"
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/LeafSorter.cs",
+  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)"
  },
  {
   "id": "F04",
   "desc": "Sort: the leaf positions are not counted",
   "old": "        c.LeafPositions += m;\n",
   "new": "",
-  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/LeafSorter.cs"
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/LeafSorter.cs",
+  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)"
  },
  {
   "id": "F05",
   "desc": "Sort: a run of two keys is not ordered",
   "old": "if (e - s >= 2)\n            {\n                c.TiePositions += e - s;",
   "new": "if (e - s >= 3)\n            {\n                c.TiePositions += e - s;",
-  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/LeafSorter.cs"
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/LeafSorter.cs",
+  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)"
  },
  {
   "id": "F06",
   "desc": "Sort: the tie positions are not counted",
   "old": "                c.TiePositions += e - s;\n",
   "new": "",
-  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/LeafSorter.cs"
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/LeafSorter.cs",
+  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)"
  },
  {
   "id": "F07",
   "desc": "Sort: a pair is swapped when it is in order",
   "old": "if (order.CompareTied(pos[s], pos[s + 1]) > 0) (pos[s], pos[s + 1]) = (pos[s + 1], pos[s]);",
   "new": "if (order.CompareTied(pos[s], pos[s + 1]) < 0) (pos[s], pos[s + 1]) = (pos[s + 1], pos[s]);",
-  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/LeafSorter.cs"
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/LeafSorter.cs",
+  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)"
  },
  {
   "id": "F08",
   "desc": "Sort: a run of three is not merge sorted",
   "old": "                else\n                {\n                    MergeSort(pos.Slice(s, e - s), _pos2.AsSpan(e - s), order);",
   "new": "                else if (e - s > 3)\n                {\n                    MergeSort(pos.Slice(s, e - s), _pos2.AsSpan(e - s), order);",
-  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/LeafSorter.cs"
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/LeafSorter.cs",
+  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)"
  },
  {
   "id": "F09",
   "desc": "Sort: the slice is written at offset zero",
   "old": "writer.Write(saOffset, pos);",
   "new": "writer.Write(0, pos);",
-  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/LeafSorter.cs"
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/LeafSorter.cs",
+  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)"
  },
  {
   "id": "F10",
   "desc": "Sort: the keys of the first block are the second",
   "old": "_keys2 = arena.Allocate<ulong>(capacity, zero: false, \"leaf.keys2\");",
   "new": "_keys2 = _keys;",
-  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/LeafSorter.cs"
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/LeafSorter.cs",
+  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)"
  },
  {
   "id": "F11",
   "desc": "MergeSort: the order of equal elements",
   "old": "if (order.CompareTied(a[mid], x) <= 0) lo = mid + 1;",
   "new": "if (order.CompareTied(a[mid], x) < 0) lo = mid + 1;",
-  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/LeafSorter.cs"
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/LeafSorter.cs",
+  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)"
  },
  {
   "id": "F12",
   "desc": "MergeSort: the merged halves are not compared",
   "old": "if (order.CompareTied(a[half - 1], a[half]) <= 0) return;",
   "new": "if (order.CompareTied(a[half - 1], a[half]) < 0) return;",
-  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/LeafSorter.cs"
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/LeafSorter.cs",
+  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)"
  },
  {
   "id": "F13",
   "desc": "MergeSort: the merge takes the right on a tie",
   "old": "if (order.CompareTied(a[q], tmp[p]) < 0) a[k++] = a[q++];",
   "new": "if (order.CompareTied(a[q], tmp[p]) <= 0) a[k++] = a[q++];",
-  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/LeafSorter.cs"
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/LeafSorter.cs",
+  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)"
  },
  {
   "id": "F14",
   "desc": "MergeSort: the left half is dropped",
   "old": "while (p < half) a[k++] = tmp[p++];\n    }\n}",
   "new": "    }\n}",
-  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/LeafSorter.cs"
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/LeafSorter.cs",
+  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)"
  },
  {
   "id": "F15",
   "desc": "MergeSort: the split is not in the middle",
   "old": "int half = n >> 1;",
   "new": "int half = (n >> 1) + 1;",
-  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/LeafSorter.cs"
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/LeafSorter.cs",
+  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)"
  }
 ]

@@ -4,90 +4,103 @@
   "desc": "Slots forgets the last block",
   "old": "Slots = ((n / Period) + 1) * Classes;",
   "new": "Slots = (n / Period) * Classes;",
-  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleGeometry.cs"
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleGeometry.cs",
+  "filter": "(FullyQualifiedName~SampleGeometryTests|FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~RankInverterTests)"
  },
  {
   "id": "S02",
   "desc": "ClassCount: a residue equal to n is not a member",
   "old": "ClassCount[c] = r <= n ? ((n - r) / Period) + 1 : 0;",
   "new": "ClassCount[c] = r < n ? ((n - r) / Period) + 1 : 0;",
-  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleGeometry.cs"
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleGeometry.cs",
+  "filter": "(FullyQualifiedName~SampleGeometryTests|FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~RankInverterTests)"
  },
  {
   "id": "S03",
   "desc": "ClassCount: one member too few",
   "old": "((n - r) / Period) + 1 : 0;",
   "new": "((n - r) / Period) : 0;",
-  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleGeometry.cs"
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleGeometry.cs",
+  "filter": "(FullyQualifiedName~SampleGeometryTests|FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~RankInverterTests)"
  },
  {
   "id": "S04",
   "desc": "RedStart: no separator",
   "old": "RedStart[c + 1] = ClassStart[c + 1] + c + 1;",
   "new": "RedStart[c + 1] = ClassStart[c + 1] + c;",
-  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleGeometry.cs"
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleGeometry.cs",
+  "filter": "(FullyQualifiedName~SampleGeometryTests|FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~RankInverterTests)"
  },
  {
   "id": "S05",
   "desc": "SlotOf: the class index is dropped",
   "old": "internal long SlotOf(long p) => (p / Period * Classes) + Cover.IndexOf[(int)(p % Period)];",
   "new": "internal long SlotOf(long p) => (p / Period * Classes);",
-  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleGeometry.cs"
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleGeometry.cs",
+  "filter": "(FullyQualifiedName~SampleGeometryTests|FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~RankInverterTests)"
  },
  {
   "id": "S06",
   "desc": "PositionOfSlot: the residue is the wrong class",
   "old": "(slot / Classes * Period) + Cover.Residues[(int)(slot % Classes)];",
   "new": "(slot / Classes * Period) + Cover.Residues[(int)((slot + 1) % Classes)];",
-  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleGeometry.cs"
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleGeometry.cs",
+  "filter": "(FullyQualifiedName~SampleGeometryTests|FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~RankInverterTests)"
  },
  {
   "id": "S07",
   "desc": "RedIndexOfSlot: the offset in the class is one more",
   "old": "RedStart[(int)(slot % Classes)] + (slot / Classes);",
   "new": "RedStart[(int)(slot % Classes)] + (slot / Classes) + 1;",
-  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleGeometry.cs"
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleGeometry.cs",
+  "filter": "(FullyQualifiedName~SampleGeometryTests|FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~RankInverterTests)"
  },
  {
   "id": "S08",
   "desc": "TrySlotOfRed: the separator is a member",
   "old": "if (k >= ClassCount[lo])",
   "new": "if (k > ClassCount[lo])",
-  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleGeometry.cs"
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleGeometry.cs",
+  "filter": "(FullyQualifiedName~SampleGeometryTests|FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~RankInverterTests)"
  },
  {
   "id": "S09",
   "desc": "TrySlotOfRed: the search does not advance",
   "old": "int mid = (lo + hi + 1) >> 1;",
   "new": "int mid = (lo + hi) >> 1;",
-  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleGeometry.cs"
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleGeometry.cs",
+  "filter": "(FullyQualifiedName~SampleGeometryTests|FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~RankInverterTests)"
  },
  {
   "id": "S10",
   "desc": "TrySlotOfRed: a class that starts at q is not taken",
   "old": "if (RedStart[mid] <= q) lo = mid;",
   "new": "if (RedStart[mid] < q) lo = mid;",
-  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleGeometry.cs"
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleGeometry.cs",
+  "filter": "(FullyQualifiedName~SampleGeometryTests|FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~RankInverterTests)"
  },
  {
   "id": "S11",
   "desc": "TrySlotOfRed: the class index is dropped from the slot",
   "old": "slot = (k * Classes) + lo;",
   "new": "slot = k * Classes;",
-  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleGeometry.cs"
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleGeometry.cs",
+  "filter": "(FullyQualifiedName~SampleGeometryTests|FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~RankInverterTests)"
  },
  {
   "id": "S12",
   "desc": "Samples is not the cover count",
   "old": "Samples = cover.SampleCount(n);",
   "new": "Samples = cover.SampleCount(n) + 1;",
-  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleGeometry.cs"
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleGeometry.cs",
+  "filter": "(FullyQualifiedName~SampleGeometryTests|FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~RankInverterTests)"
  },
  {
   "id": "S13",
   "desc": "a negative length is accepted",
   "old": "ArgumentOutOfRangeException.ThrowIfNegative(n);",
   "new": "ArgumentOutOfRangeException.ThrowIfNegative(n + 1);",
-  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleGeometry.cs"
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleGeometry.cs",
+  "filter": "(FullyQualifiedName~SampleGeometryTests|FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~RankInverterTests)"
  }
 ]

@@ -4,69 +4,79 @@
   "desc": "the empty suffix is not skipped",
   "old": "if (index == 0) return false; // the empty suffix",
   "new": "if (index < 0) return false; // the empty suffix",
-  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankInverter.cs"
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankInverter.cs",
+  "filter": "(FullyQualifiedName~RankInverterTests|FullyQualifiedName~ExternalDcsTests)"
  },
  {
   "id": "I02",
   "desc": "a reduced position at the length is accepted",
   "old": "if (sourceValue >= geometry.RedLength) throw",
   "new": "if (sourceValue > geometry.RedLength) throw",
-  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankInverter.cs"
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankInverter.cs",
+  "filter": "(FullyQualifiedName~RankInverterTests|FullyQualifiedName~ExternalDcsTests)"
  },
  {
   "id": "I03",
   "desc": "a separator is ranked",
   "old": "if (!geometry.TrySlotOfRed(sourceValue, out long slot)) return false; // a separator",
   "new": "geometry.TrySlotOfRed(sourceValue, out long slot);",
-  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankInverter.cs"
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankInverter.cs",
+  "filter": "(FullyQualifiedName~RankInverterTests|FullyQualifiedName~ExternalDcsTests)"
  },
  {
   "id": "I04",
   "desc": "key and value swapped",
   "old": "key = (uint)slot;\n        value = (uint)index;",
   "new": "key = (uint)index;\n        value = (uint)slot;",
-  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankInverter.cs"
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankInverter.cs",
+  "filter": "(FullyQualifiedName~RankInverterTests|FullyQualifiedName~ExternalDcsTests)"
  },
  {
   "id": "I05",
   "desc": "the rank is counted from zero",
   "old": "value = (uint)index;",
   "new": "value = (uint)index - 1;",
-  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankInverter.cs"
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankInverter.cs",
+  "filter": "(FullyQualifiedName~RankInverterTests|FullyQualifiedName~ExternalDcsTests)"
  },
  {
   "id": "I06",
   "desc": "nothing is counted",
   "old": "        Emitted++;\n",
   "new": "",
-  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankInverter.cs"
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankInverter.cs",
+  "filter": "(FullyQualifiedName~RankInverterTests|FullyQualifiedName~ExternalDcsTests)"
  },
  {
   "id": "I07",
   "desc": "the count check is dropped",
   "old": "if (mapper.Emitted != g.Samples) throw",
   "new": "if (mapper.Emitted > g.Samples + 100) throw",
-  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankInverter.cs"
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankInverter.cs",
+  "filter": "(FullyQualifiedName~RankInverterTests|FullyQualifiedName~ExternalDcsTests)"
  },
  {
   "id": "I08",
   "desc": "every slot must be written exactly once",
   "old": "new DistTarget<uint>(g.Slots, 0, false)",
   "new": "new DistTarget<uint>(g.Slots, 0, true)",
-  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankInverter.cs"
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankInverter.cs",
+  "filter": "(FullyQualifiedName~RankInverterTests|FullyQualifiedName~ExternalDcsTests)"
  },
  {
   "id": "I09",
   "desc": "the source has one entry too few",
   "old": "g.RedLength + 1, ref mapper",
   "new": "g.RedLength, ref mapper",
-  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankInverter.cs"
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankInverter.cs",
+  "filter": "(FullyQualifiedName~RankInverterTests|FullyQualifiedName~ExternalDcsTests)"
  },
  {
   "id": "I10",
   "desc": "the target is one slot short",
   "old": "new DistTarget<uint>(g.Slots, 0, false)",
   "new": "new DistTarget<uint>(g.Slots - 1, 0, false)",
-  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankInverter.cs"
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankInverter.cs",
+  "filter": "(FullyQualifiedName~RankInverterTests|FullyQualifiedName~ExternalDcsTests)"
  }
 ]
