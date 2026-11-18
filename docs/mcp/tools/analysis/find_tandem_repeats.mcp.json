@@ -5,14 +5,15 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "GenomicAnalyzer.FindTandemRepeats",
-  "docRef": "Seqeron.Genomics.Analysis/GenomicAnalyzer.cs#L115",
-  "description": "Consecutive repeating units (e.g. ATGATGATG) of unit-length >= minUnitLength repeated >= minRepetitions times, with unit, position, repetition count and total span.",
+  "docRef": "Seqeron.Genomics.Analysis/GenomicAnalyzer.cs",
+  "description": "Exact tandem repeats (e.g. ATGATGATG): every maximal run of a primitive unit of length minUnitLength..maxUnitLength with >= minRepetitions complete copies, reported once at its left end (ATATATAT = AT x4 at 0, not also ATAT x2); ordered by unit length then start; 0-based. Approximate repeats: find_approximate_tandem_repeats.",
   "inputSchema": {
     "type": "object",
     "properties": {
       "sequence": { "type": "string", "description": "DNA sequence", "minLength": 1 },
       "minUnitLength": { "type": "integer", "description": "Minimum repeat-unit length (default 2)", "minimum": 1, "default": 2 },
-      "minRepetitions": { "type": "integer", "description": "Minimum consecutive copies (default 2)", "minimum": 2, "default": 2 }
+      "minRepetitions": { "type": "integer", "description": "Minimum complete consecutive copies (default 2)", "minimum": 2, "default": 2 },
+      "maxUnitLength": { "type": "integer", "description": "Maximum repeat-unit length (>= minUnitLength); omit for no upper bound", "minimum": 1 }
     },
     "required": ["sequence"]
   },
@@ -39,7 +40,8 @@
     { "code": 1001, "message": "Sequence cannot be null or empty" },
     { "code": 1001, "message": "Invalid DNA sequence" },
     { "code": 1002, "message": "Minimum repeat-unit length must be at least 1" },
-    { "code": 1002, "message": "minRepetitions must be >= 2" }
+    { "code": 1002, "message": "minRepetitions must be >= 2" },
+    { "code": 1002, "message": "Maximum repeat-unit length must be at least minUnitLength" }
   ],
   "examples": [
     {
@@ -48,9 +50,9 @@
       "output": { "items": [ { "unit": "ATG", "position": 0, "repetitions": 3, "totalLength": 9 } ] }
     },
     {
-      "name": "Mononucleotide run AAAAA (unit 1) — A x5 plus the AA x2 tiling",
+      "name": "Mononucleotide run AAAAA (unit 1) — A x5 only (AA x2 is a non-primitive tiling of the same run)",
       "input": { "sequence": "AAAAA", "minUnitLength": 1, "minRepetitions": 2 },
-      "output": { "items": [ { "unit": "A", "position": 0, "repetitions": 5, "totalLength": 5 }, { "unit": "AA", "position": 0, "repetitions": 2, "totalLength": 4 } ] }
+      "output": { "items": [ { "unit": "A", "position": 0, "repetitions": 5, "totalLength": 5 } ] }
     }
   ]
 }

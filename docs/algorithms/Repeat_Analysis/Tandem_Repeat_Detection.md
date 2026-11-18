@@ -5,12 +5,12 @@
 | Algorithm Group | Repeat Analysis |
 | Test Unit ID | REP-TANDEM-001 |
 | Related Projects | Seqeron.Genomics.Analysis |
-| Implementation Status | Production (`RepeatFinder.GetTandemRepeatSummary`: MISA/Krait statistics incl. MISA per-unit-size thresholds and repeat-type classes, misa.pl-verified); `GenomicAnalyzer.FindTandemRepeats` exact brute-force detector (see §5.4) |
+| Implementation Status | Production (`RepeatFinder.GetTandemRepeatSummary`: MISA/Krait statistics incl. MISA per-unit-size thresholds and repeat-type classes, misa.pl-verified); `GenomicAnalyzer.FindTandemRepeats` exact maximal-run detector (facade over `RepeatFinder.FindMicrosatellites` + a run-enumeration engine for wide unit ranges, B09 F35–F36; see GENOMIC-TANDEM-001) |
 | Last Reviewed | 2026-09-30 |
 
 ## 1. Overview
 
-Tandem repeat detection identifies contiguous DNA segments where a repeat unit occurs consecutively two or more times, such as `ATTCGATTCGATTCG` for the unit `ATTCG` repeated three times [1]. The repository exposes an exact tandem detector in `GenomicAnalyzer.FindTandemRepeats` and a separate aggregation helper, `RepeatFinder.GetTandemRepeatSummary`, that summarizes only microsatellite-sized tandem repeats with unit lengths from 1 to 6 bp [1][2]. The canonical detector uses direct string comparison and skips to the end of each detected tandem block within the current unit-length pass, though the same region can still be reported under a different unit-length interpretation. Tandem repeats are biologically important because they occupy a substantial fraction of the human genome and include disease-associated repeat expansions and microsatellite-instability markers [1][2].
+Tandem repeat detection identifies contiguous DNA segments where a repeat unit occurs consecutively two or more times, such as `ATTCGATTCGATTCG` for the unit `ATTCG` repeated three times [1]. The repository exposes an exact tandem detector in `GenomicAnalyzer.FindTandemRepeats` and a separate aggregation helper, `RepeatFinder.GetTandemRepeatSummary`, that summarizes only microsatellite-sized tandem repeats with unit lengths from 1 to 6 bp [1][2]. The canonical detector reports, for each unit length, every maximal run with a primitive unit once (a facade over `RepeatFinder.FindMicrosatellites`; see [Genomic_Analysis/Tandem_Repeat_Detection.md](../Genomic_Analysis/Tandem_Repeat_Detection.md)), though the same region can still be reported under a different, non-multiple unit-length interpretation. Tandem repeats are biologically important because they occupy a substantial fraction of the human genome and include disease-associated repeat expansions and microsatellite-instability markers [1][2].
 
 ## 2. Scientific / Formal Basis
 
@@ -40,12 +40,12 @@ The canonical detector searches candidate unit lengths and starting positions, c
 
 | ID | Invariant | Holds because |
 |----|-----------|---------------|
-| INV-01 | Every reported tandem repeat contains at least `minRepetitions` consecutive copies of a unit whose length is at least `minUnitLength`. | The detector yields only after counting consecutive equal substrings. |
+| INV-01 | Every reported tandem repeat contains at least `minRepetitions` consecutive copies of a unit whose length is at least `minUnitLength` (and at most `maxUnitLength`). | Only maximal runs with `⌊length / p⌋ ≥ minRepetitions` are reported. |
 | INV-02 | `TotalLength = Unit.Length × Repetitions` for every `TandemRepeat`. | Total length is defined by the unit size and repetition count. |
-| INV-03 | `Position + Unit.Length × Repetitions <= sequence.Length`. | The counting loop stops when the next full unit would exceed sequence bounds. |
+| INV-03 | `Position + Unit.Length × Repetitions <= sequence.Length`. | Only complete copies inside the run are counted. |
 | INV-04 | The summary percentages and totals are derived only from reported microsatellites. | `GetTandemRepeatSummary` delegates to `FindMicrosatellites(sequence, 1, 6, minRepeats)`. |
 | INV-06 | `CountsByUnitLength` (one entry per searched unit size) sums to `TotalRepeats`; its entries 1–6 equal the six named class counts, which therefore sum to `TotalRepeats` whenever no size > 6 is searched (always for the uniform overloads); `0 ≤ PercentageOfSequence ≤ 100`; covered bases ≤ `TotalRepeatBases`. | Each reported SSR is counted once under its unit length (misa.pl `$count_class{size}++`); coverage is the union of spans, the base total is their sum [5][6]. |
-| INV-05 | Within a fixed candidate unit length, later starts inside a detected tandem block are skipped. | After yielding a result, the implementation advances the start index to the end of the detected tandem block for that unit-length pass. |
+| INV-05 | Within a unit length, reported runs are maximal and do not overlap (the next run starts after `e − p`); the unit is primitive. | Left-maximal start + right-maximal end + primitivity test (Kolpakov & Kucherov 1999). |
 
 ## 3. Contract
 
@@ -53,7 +53,7 @@ The canonical detector searches candidate unit lengths and starting positions, c
 
 | Name | Type | Default | Description | Constraints |
 |------|------|---------|-------------|-------------|
-| `sequence` | `DnaSequence` or `string` | required | DNA sequence to analyze (string overloads of `GetTandemRepeatSummary` accept N/IUPAC, case-insensitive). | `FindTandemRepeats` dereferences `sequence.Sequence` directly; `GetTandemRepeatSummary(DnaSequence, …)` throws on `null`; the string overloads return the empty summary for `null`/empty. |
+| `sequence` | `DnaSequence` or `string` | required | DNA sequence to analyze (string overloads of `GetTandemRepeatSummary` accept N/IUPAC, case-insensitive). | `FindTandemRepeats` throws `ArgumentNullException` on `null`; `GetTandemRepeatSummary(DnaSequence, …)` throws on `null`; the string overloads return the empty summary for `null`/empty. |
 | `minUnitLength` | `int` | `2` | Minimum candidate repeat-unit length for `FindTandemRepeats`. | Values below `1` throw `ArgumentOutOfRangeException` (eager). |
 | `minRepetitions` | `int` | `2` | Minimum number of consecutive unit copies for `FindTandemRepeats`. | Values below `2` throw `ArgumentOutOfRangeException` (eager). |
 | `minRepeats` | `int` | `3` | Minimum repeat count used by `GetTandemRepeatSummary(DnaSequence, int)` for every unit length 1–6. | Passed to `FindMicrosatellites(sequence, 1, 6, minRepeats)`, which rejects values below 2. |
@@ -69,23 +69,22 @@ The canonical detector searches candidate unit lengths and starting positions, c
 
 ### 3.3 Preconditions and Validation
 
-`GetTandemRepeatSummary` throws `ArgumentNullException` when `sequence` is `null`. `FindTandemRepeats` throws `ArgumentNullException` for a `null` sequence and `ArgumentOutOfRangeException` for `minUnitLength < 1` or `minRepetitions < 2` (eager). Empty sequences produce no tandem-repeat hits, and an empty sequence summarized through `GetTandemRepeatSummary` returns zero totals, `0` percent coverage and `null` `LongestRepeat` / `MostFrequentUnit`. `GetTandemRepeatSummary` throws `ArgumentOutOfRangeException` for `minRepeats < 2` (eager validation in `FindMicrosatellites`).
+`GetTandemRepeatSummary` throws `ArgumentNullException` when `sequence` is `null`. `FindTandemRepeats` throws `ArgumentNullException` for a `null` sequence and `ArgumentOutOfRangeException` for `minUnitLength < 1`, `minRepetitions < 2` or (4-argument overload) `maxUnitLength < minUnitLength` (eager). Empty sequences produce no tandem-repeat hits, and an empty sequence summarized through `GetTandemRepeatSummary` returns zero totals, `0` percent coverage and `null` `LongestRepeat` / `MostFrequentUnit`. `GetTandemRepeatSummary` throws `ArgumentOutOfRangeException` for `minRepeats < 2` (eager validation in `FindMicrosatellites`).
 
 ## 4. Algorithm
 
 ### 4.1 High-Level Steps
 
-1. For each unit length from `minUnitLength` to `sequence.Length / minRepetitions`, choose a candidate repeat size.
-2. For each start position where at least `minRepetitions` copies could fit, extract the candidate unit.
-3. Count consecutive occurrences of that unit by advancing in `unitLength` increments until the pattern breaks.
-4. If the repetition count meets the threshold, yield a `TandemRepeat` and advance the scan to the end of that tandem block within the current unit-length pass.
+1. For each unit length `p` from `minUnitLength` to `min(maxUnitLength, sequence.Length / minRepetitions)`, visit only the left-maximal run starts (`S[i-1] ≠ S[i-1+p]`) and extend each to its right-maximal end (`RepeatFinder.FindMicrosatellites`, O(n) comparisons per unit length).
+2. Report the run once, at its left end, with `⌊length / p⌋` complete copies, when the unit `S[i..i+p)` is primitive and the copies reach `minRepetitions`.
+3. When more than 256 unit lengths are admissible (e.g. the default "no upper bound" on a long sequence), enumerate all maximal repetitions once instead (`MaximalRepetitions`: Lyndon-array runs algorithm, Bannai et al. 2017, O(n log² n)) and keep those in range; the result is identical.
 5. For summary mode, detect microsatellites with unit sizes 1-6 (or the sizes of a per-unit-length MISA definition) and aggregate counts per unit size, bases covered, repeat-type totals, longest repeat, and most frequent unit.
 
 ### 4.3 Complexity
 
 | Operation | Time | Space | Notes |
 |-----------|------|-------|-------|
-| `GenomicAnalyzer.FindTandemRepeats` | `O(n^2 × m)` | `O(1)` plus yielded output | `m` is the effective maximum unit length explored by the nested loops and substring comparisons. |
+| `GenomicAnalyzer.FindTandemRepeats` | `O(n × K)` for `K ≤ 256` admissible unit lengths, else `O(n log² n)` | `O(1)` plus output, resp. `O(n)` | 1 Mbp: ≈ 1 s per ten unit lengths via the scan; unbounded unit length via runs, see the GENOMIC-TANDEM-001 evidence. Was `O(n² × m)` substring comparisons. |
 | `RepeatFinder.GetTandemRepeatSummary` | `O(n × U × R)` | `O(k)` | Delegates to microsatellite detection, where `U` is the searched unit-length range, `R` is the average repeat count, and `k` is the number of microsatellites retained. |
 
 ## 5. Implementation Notes
@@ -94,7 +93,7 @@ The canonical detector searches candidate unit lengths and starting positions, c
 
 **Implementation locations:** [GenomicAnalyzer.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GenomicAnalyzer.cs), [RepeatFinder.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs)
 
-- `GenomicAnalyzer.FindTandemRepeats(DnaSequence, int, int)`: Canonical exact detector for consecutive tandem repeats.
+- `GenomicAnalyzer.FindTandemRepeats(DnaSequence, int, int)` and `(…, int maxUnitLength)`: canonical exact detector for consecutive tandem repeats (maximal runs, primitive units; B09 F35–F36).
 - `RepeatFinder.GetTandemRepeatSummary(DnaSequence, int)`: Summary helper that aggregates microsatellite-sized tandem repeats.
 - `RepeatFinder.GetTandemRepeatSummary(DnaSequence, IReadOnlyDictionary<int,int>)`: Same summary with MISA-style per-unit-size thresholds (`RepeatFinder.MisaDefaultMinRepeats`). Any unit size (e.g. a misa.ini `def` line with 7–10 bp units, parsed by `RepeatFinder.ParseMisaDefinition`); per-size counts in `CountsByUnitLength` (B04 WP16, F61).
 - `RepeatFinder.GetTandemRepeatSummary(string, int)`, `(string, IReadOnlyDictionary<int,int>)`, `(string, IReadOnlyDictionary<int,int>, MicrosatelliteScanMode)`: raw-string, N/IUPAC-tolerant counterparts (case-insensitive; only A/C/G/T form units, so N/IUPAC never belong to an SSR — MISA `[acgt]`); `PercentageOfSequence` uses the full length incl. N (misa.pl `length $seq`); `null`/empty → empty summary. With `MisaRegex` the totals and per-unit-size counts equal misa.pl `.statistics` (6 000 N-containing sequences × 6 definitions, 0 mismatches; 12 000 per-sequence runs identical).
@@ -104,7 +103,7 @@ The canonical detector searches candidate unit lengths and starting positions, c
 
 ### 5.2 Current Behavior
 
-`GenomicAnalyzer.FindTandemRepeats` uses a brute-force scan over candidate unit lengths and positions, compares units with direct substring equality, and skips forward after each hit within the current unit-length pass. This suppresses later starts inside the same detected block for that unit length, but it does not prevent the same region from being reported again under a different unit-length interpretation. It validates its parameters eagerly (2026-09, B09) but reports non-primitive units (e.g. `ATATATAT` → `AT×4@0` and `ATAT×2@0`); delegation to `RepeatFinder.FindMicrosatellites` is a recorded cross-batch request (B09 owns `GenomicAnalyzer.cs`). `RepeatFinder.GetTandemRepeatSummary` does validate `sequence`, then delegates to `FindMicrosatellites(sequence, 1, 6, minRepeats)`, meaning the summary covers only tandem repeats with 1-6 bp units and inherits that implementation's conventions (each maximal primitive ACGT run reported once per unit length; runs of different unit lengths may overlap). The summary record has a dedicated count field for each of the six classes, and the six counts sum to `TotalRepeats`.
+`GenomicAnalyzer.FindTandemRepeats` validates its parameters eagerly and delegates to `RepeatFinder.FindMicrosatellites(sequence, minUnitLength, maxUnitLength, minRepetitions)` (maximal run, primitive unit, one report per run and unit length; `ATATATAT` → `AT×4@0` only), switching to the run enumeration `MaximalRepetitions` when more than 256 unit lengths are admissible (B09 F35–F36, oracle-verified: 1156 Python rows and 1500 + 1200 brute-force strings). `RepeatFinder.GetTandemRepeatSummary` does validate `sequence`, then delegates to `FindMicrosatellites(sequence, 1, 6, minRepeats)`, meaning the summary covers only tandem repeats with 1-6 bp units and inherits that implementation's conventions (each maximal primitive ACGT run reported once per unit length; runs of different unit lengths may overlap). The summary record has a dedicated count field for each of the six classes, and the six counts sum to `TotalRepeats`.
 
 ### 5.3 Conformance to Theory / Spec
 
@@ -116,7 +115,6 @@ The canonical detector searches candidate unit lengths and starting positions, c
 
 **Intentionally simplified:**
 
-- Brute-force direct substring comparison instead of suffix-tree, suffix-array, or Tandem Repeats Finder style optimization; **consequence:** runtime grows rapidly on long sequences and the implementation is best suited to moderate sequence lengths [1][4].
 - ~~`GetTandemRepeatSummary` is restricted to microsatellite-sized units from 1 to 6 bp~~ — **resolved 2026-10-01 (B04 audit WP16, F61):** the uniform-threshold overloads keep the classical 1–6 bp STR window, but the per-unit-length (MISA definition) overloads accept any unit size as misa.pl does (`def` = free list of `size-min` pairs, one regex per size; `.statistics` distribution row per size), with `TandemRepeatSummary.CountsByUnitLength` carrying every size (the six named fields stay 1–6) and MCP `misaDefinition` on `find_microsatellites` / `tandem_repeat_summary`. **Cross-check:** real `perl misa.pl` on 6 000 sequences × 7 definitions with unit sizes 7–12 (434 008 SSRs, 107 762 with units > 6; 79 690 `.misa` rows incl. compounds): SSR lists, rows and per-sequence per-size counts 0 mismatches (ties by SSR number, F48); `.statistics` totals and every distribution row identical; 2 100 / 2 100 per-sequence stock runs identical.
 
 **Implemented 2026-09-30 (MISA / Krait parity):**
@@ -128,13 +126,13 @@ The canonical detector searches candidate unit lengths and starting positions, c
 
 **Not implemented:**
 
-- Suffix-structure indexing inside `GenomicAnalyzer.FindTandemRepeats` (B09-owned brute-force scan; the delegation request routes it to the O(n)-per-unit-length `RepeatFinder.FindMicrosatellites`). Approximate tandem repeats are provided by `RepeatFinder.FindApproximateTandemRepeats` (TRF model, REP-APPROX-001).
+- Approximate (interrupted) tandem repeats are not part of `GenomicAnalyzer.FindTandemRepeats`; they are `RepeatFinder.FindApproximateTandemRepeats` (TRF 4.10.0 model, REP-APPROX-001) and the MCP tools `find_approximate_tandem_repeats` / `mask_approximate_tandem_repeats`.
 
 ### 5.4 Deviations and Assumptions
 
 | # | Item | Type | Impact | Status | Notes |
 |---|------|------|--------|--------|-------|
-| 1 | `GenomicAnalyzer.FindTandemRepeats` reports non-primitive units and one hit per unit-length interpretation (no primitivity / maximal-run rule), O(n²·m) substring scan. | Deviation | `ATATATAT` → `AT×4` and `ATAT×2`. | cross-batch request (B09 owns `GenomicAnalyzer.cs`): delegate to `RepeatFinder.FindMicrosatellites` | Parameter validation was added (2026-09); the former "no validation" assumption no longer applies. |
+| 1 | ~~`GenomicAnalyzer.FindTandemRepeats` reported non-primitive units (`ATATATAT` → `AT×4` and `ATAT×2`), O(n²·m).~~ | Deviation | — | **resolved 2026-11-18 (B09 F35–F36)**: facade over `RepeatFinder.FindMicrosatellites` + run enumeration | See [Genomic_Analysis/Tandem_Repeat_Detection.md](../Genomic_Analysis/Tandem_Repeat_Detection.md). |
 
 ## 6. Edge Cases and Limitations
 
@@ -142,15 +140,15 @@ The canonical detector searches candidate unit lengths and starting positions, c
 
 | Case | Expected Behavior | Rationale |
 |------|-------------------|-----------|
-| Empty sequence | `FindTandemRepeats` yields no results; summary returns zero totals. | The scan loops do not execute when no full repeat block can fit. |
+| Empty sequence | `FindTandemRepeats` yields no results; summary returns zero totals. | No unit length admits `minRepetitions` copies. |
 | No repeats found | Empty tandem-repeat enumerable or zero-count summary. | No candidate unit reaches the repetition threshold. |
-| Entire sequence is one tandem block | One result spanning the full repeated region. | The counting loop continues until the pattern breaks or the sequence ends. |
-| Overlapping tandem patterns | Later overlapping starts inside a detected block are skipped within the current unit-length pass, but the same region can still be reported under a different unit length. | The canonical detector advances `start` to the end of the detected tandem only inside the active unit-length loop. |
-| `unitLength > sequence.Length / minRepetitions` | No result for that unit size. | The outer loop bounds prevent impossible repeat sizes from being checked. |
+| Entire sequence is one tandem block | One result spanning the full repeated region. | The maximal run is the whole sequence. |
+| Overlapping tandem patterns | A run is reported once per unit length (rotations are not repeated); runs of different unit lengths may overlap and are each reported. Multiples of the primitive unit are not reported (`ATATATAT`: `AT×4` only). | Maximal-run + primitive-unit rule (Kolpakov & Kucherov 1999; MISA). |
+| `unitLength > sequence.Length / minRepetitions` | No result for that unit size. | `minRepetitions` copies cannot fit. |
 
 ### 6.2 Limitations
 
-`GenomicAnalyzer.FindTandemRepeats` is exact and does not score approximate tandem repeats, interrupted repeats, or noisy repeat families (use `RepeatFinder.FindApproximateTandemRepeats`, TRF model). The uniform-threshold summary considers 1-6 bp units only; for longer units pass a per-unit-length (MISA) definition with the wanted sizes. The detector also does not canonicalize across competing unit-length interpretations, so the same genomic region can appear more than once when different repeat-unit sizes satisfy the threshold. There is also no raw-string overload for `FindTandemRepeats`, so callers must provide a `DnaSequence` and handle any normalization before calling the algorithm.
+`GenomicAnalyzer.FindTandemRepeats` is exact and does not score approximate tandem repeats, interrupted repeats, or noisy repeat families (use `RepeatFinder.FindApproximateTandemRepeats`, TRF model, or the MCP tool `find_approximate_tandem_repeats`). The uniform-threshold summary considers 1-6 bp units only; for longer units pass a per-unit-length (MISA) definition with the wanted sizes. Runs of different (non-multiple) unit lengths over the same region are each reported. There is no raw-string overload for `FindTandemRepeats` (a `DnaSequence` is A/C/G/T only); `RepeatFinder.FindMicrosatellites(string, …)` accepts N/IUPAC text.
 
 ## 7. Examples and Related Material
 
@@ -163,7 +161,7 @@ The canonical detector searches candidate unit lengths and starting positions, c
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [GenomicAnalyzer_TandemRepeat_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/GenomicAnalyzer_TandemRepeat_Tests.cs), [RepeatFinder_MisaCompound_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/RepeatFinder_MisaCompound_Tests.cs)
+- Tests: [GenomicAnalyzer_TandemRepeat_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/GenomicAnalyzer_TandemRepeat_Tests.cs), [GenomicAnalyzer_TandemRepeat_Oracle_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/GenomicAnalyzer_TandemRepeat_Oracle_Tests.cs), [RepeatFinder_MisaCompound_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/RepeatFinder_MisaCompound_Tests.cs)
 - Test spec: [REP-TANDEM-001.md](../../../tests/TestSpecs/REP-TANDEM-001.md)
 - Related property tests: [RepeatFinderProperties.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Properties/RepeatFinderProperties.cs)
 - Related metamorphic tests: [MetamorphicTests.cs](../../../tests/SuffixTree/SuffixTree.Tests/Algorithms/MetamorphicTests.cs)

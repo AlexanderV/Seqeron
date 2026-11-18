@@ -668,14 +668,18 @@ public class AnalysisTools
     }
 
     [McpServerTool(Name = "find_tandem_repeats", Title = "Genome — Tandem Repeats", ReadOnly = true)]
-    [Description("Consecutive repeating units (e.g., ATGATGATG) of unit-length >= minUnitLength repeated >= minRepetitions times.")]
+    [Description("Exact tandem repeats (e.g. ATGATGATG): every maximal run of a primitive unit of length minUnitLength..maxUnitLength with >= minRepetitions complete copies, reported once at its left end (ATATATAT = AT x4 at 0, not also ATAT x2); ordered by unit length then start; 0-based. Facade over RepeatFinder.FindMicrosatellites (Kolpakov-Kucherov maximal repetitions). Approximate (interrupted) repeats: find_approximate_tandem_repeats (TRF).")]
     public static FindTandemRepeatsResult FindTandemRepeats(
         [Description("DNA sequence.")] string sequence,
-        [Description("Minimum repeat-unit length (default 2).")] int minUnitLength = 2,
-        [Description("Minimum number of repetitions (default 2).")] int minRepetitions = 2)
+        [Description("Minimum repeat-unit length (default 2, >= 1).")] int minUnitLength = 2,
+        [Description("Minimum number of complete repetitions (default 2, >= 2).")] int minRepetitions = 2,
+        [Description("Optional maximum repeat-unit length (>= minUnitLength); omit for no upper bound (a unit longer than length / minRepetitions can never repeat).")] int? maxUnitLength = null)
     {
         var dna = RequireDna(sequence, nameof(sequence));
-        var items = GenomicAnalyzer.FindTandemRepeats(dna, minUnitLength, minRepetitions)
+        var found = maxUnitLength is { } max
+            ? GenomicAnalyzer.FindTandemRepeats(dna, minUnitLength, minRepetitions, max)
+            : GenomicAnalyzer.FindTandemRepeats(dna, minUnitLength, minRepetitions);
+        var items = found
             .Select(t => new TandemRepeatItem(t.Unit, t.Position, t.Repetitions, t.TotalLength))
             .ToArray();
         return new FindTandemRepeatsResult(items);

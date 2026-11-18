@@ -1,133 +1,67 @@
 # Validation Report: GENOMIC-TANDEM-001 — Tandem Repeat Detection (GenomicAnalyzer)
 
-- **Validated:** 2026-06-16   **Area:** Analysis
-- **Canonical method(s):** `GenomicAnalyzer.FindTandemRepeats(DnaSequence, int minUnitLength = 2, int minRepetitions = 2)` → `IEnumerable<TandemRepeat>` (`src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GenomicAnalyzer.cs:100`)
-- **Stage A verdict:** PASS
-- **Stage B verdict:** PASS-WITH-NOTES
-- **Relationship:** Documented duplicate of REP-TANDEM-001 (same method, same class). Resolved by consolidation; this session re-validated the shared implementation and its canonical fixture against externally-retrieved sources and closed one test-coverage gap.
-
-## Duplicate determination
-
-The TestSpec (§7) and algorithm doc declare GENOMIC-TANDEM-001 a duplicate Registry entry for the
-identical `GenomicAnalyzer.FindTandemRepeats` already shipped under REP-TANDEM-001, with the shared
-canonical fixture `GenomicAnalyzer_TandemRepeat_Tests.cs`. I confirmed this is a genuine duplicate:
-there is exactly one implementation of `FindTandemRepeats` and one canonical test fixture. Per the
-duplicate-elimination rule, no second test file was created. However, "duplicate" does not exempt the
-algorithm/tests from validation, so I independently validated the shared method and fixture against
-sources retrieved THIS session (not the repo's own artifacts).
+- **Validated:** 2026-06-16; re-validated and re-implemented 2026-11-18 (B09 review campaign, F35–F38)
+- **Area:** Analysis
+- **Canonical method(s):** `GenomicAnalyzer.FindTandemRepeats(DnaSequence, int minUnitLength = 2, int minRepetitions = 2)` and the additive `(…, int maxUnitLength)` overload → `IEnumerable<TandemRepeat>`; MCP `find_tandem_repeats`
+- **Stage A verdict:** PASS-WITH-NOTES (the 2026-06 description accepted every period interpretation of a region as a separate tandem repeat, including non-primitive multiples; the sourced definition — Kolpakov–Kucherov runs / MISA primitive motifs — reports one maximal run per unit length with a primitive unit)
+- **Stage B verdict:** FAIL → fixed (non-primitive units reported; O(n²·m) substring scan; no unit-length bound) → PASS
+- **End-state:** CLEAN (fixed)
+- **Relationship:** the 2026-06 session classified this unit a "duplicate of REP-TANDEM-001, resolved by consolidation". The shared method was nevertheless a stand-alone implementation that disagreed with the canonical `RepeatFinder.FindMicrosatellites` (B04 request, DUP_MAP §17); REP-TANDEM-001 keeps the summary helpers, this unit owns the `FindTandemRepeats` contract.
 
 ## Stage A — Description
 
-### Sources opened this session (URLs + extracted numbers)
+### Sources opened (2026-11-18)
 
-1. **Wikipedia, "Tandem repeat"** — https://en.wikipedia.org/wiki/Tandem_repeat (accessed 2026-06-16).
-   - Definition (verbatim): "tandem repeats occur in DNA when a pattern of one or more nucleotides is
-     repeated and the repetitions are directly adjacent to each other."
-   - Worked example (verbatim): "ATTCG ATTCG ATTCG … the sequence ATTCG is repeated three times." →
-     unit `ATTCG`, period 5, copy number 3, total length 15, 0-based start 0.
-   - Classification: dinucleotide (2 nt), trinucleotide (3 nt); microsatellites/STRs (short units),
-     minisatellites (10–60 nt), macrosatellites (~1000 nt).
-   - Detection: "Tandem repeats in strings … can be efficiently detected using suffix trees or suffix
-     arrays."
-2. **Wikipedia, "Microsatellite"** — https://en.wikipedia.org/wiki/Microsatellite (accessed 2026-06-16).
-   - Repeat-unit range "generally ten nucleotides or less"; "typically repeated 5–50 times".
-   - Vertebrate telomeric repeat: "the hexanucleotide repeat motif TTAGGG in vertebrates."
-   - Forensic STRs "are all tetra- or penta-nucleotide repeats."
-   - Trinucleotide repeat disorders incl. Huntington's disease.
-3. **Benson, G. (1999), Tandem Repeats Finder, NAR 27(2):573–580** —
-   https://academic.oup.com/nar/article/27/2/573/1061099 (accessed 2026-06-16). DOI 10.1093/nar/27.2.573.
-   - Formal definition (verbatim): "A tandem repeat in DNA is two or more contiguous, approximate
-     copies of a pattern of nucleotides." → minimum copy number k ≥ 2.
-   - Period size = "the most common matching distance between corresponding characters in the
-     alignment" (= unit length for an exact repeat); copy number = number of pattern copies; consensus
-     size may differ from period size.
+1. **Bannai, I, Inenaga, Nakashima, Takeda, Tsuruta, "The 'Runs' Theorem"** — https://arxiv.org/abs/1406.0263, abstract + full PDF. Definition 1 (run: smallest period p, length ≥ 2p, not extendable left/right), Lemma 3/6/7/8, Theorem 9 (ρ(n) < n), §4.1–4.2 (stack computation of the longest Lyndon words; candidate extension by LCE on w and its reverse; "$ ≺0 a (and thus a ≺1 $)").
+2. **MISA `misa.pl`** (mirror https://raw.githubusercontent.com/cfljam/SSR_marker_design/master/misa.pl) line 110: "reject false type motifs [e.g. (TT)6 or (ACAC)5]".
+3. **Kolpakov & Kucherov, FOCS 1999** — search snippets only (maximal repetitions, linear number of runs).
+4. **Benson 1999** — publisher pages 403; definition confirmed by search snippets ("two or more contiguous, approximate copies of a pattern of nucleotides"). Wikipedia "Tandem repeat" (2026-06 fetch): worked example `ATTCG ATTCG ATTCG`.
+5. EMBOSS `etandem` 6.6.0 run for information only (its scoring model is not an exact-run enumerator; see the Evidence file).
 
 ### Formula / model check
 
-The algorithm doc §2.2 states: a tandem repeat exists when `S[p .. p+k|U|) = U^k` with `k ≥ 2`, where
-period = `|U|` and copy number = `k`. This matches Benson's definition (restricted to *exact* copies)
-and the Wikipedia worked example. The exact-only restriction (vs Benson's approximate copies) is an
-explicitly documented simplification (algorithm doc §5.3); over exact tandems the two definitions
-coincide, so the simplification is correct (a subset, not a wrong rule). INV-1/2/3 are genuine
-mathematical properties (k ≥ 2; TotalLength = period × copies; block within bounds).
+A run `(a, e, p)` is a maximal interval with period `p` (`S[x] = S[x+p]` for `a ≤ x < e−p`), length ≥ 2p; the reported repeat is the run's primitive unit `S[a..a+p)` with `⌊(e−a)/p⌋` complete copies (≥ `minRepetitions`), once per run, at its left end. Fine–Wilf: a period-p interval of length ≥ 2p whose unit is primitive has smallest period p, so "run with primitive unit" = "run with smallest period p" (Bannai Definition 1). This is also the per-motif-size convention of MISA and pytrf (REP-STR-001). The 2026-06 claim "reporting each unit-length interpretation is sound" is refuted for non-primitive multiples: `ATATATAT` has the single run `AT`×4.
 
 ### Edge-case semantics
 
-Empty → no hits; no-tandem → empty; whole-sequence tandem → one spanning result; same region under
-multiple periods → reported once per qualifying period interpretation. Each interpretation is itself a
-valid tandem repeat under the formal definition, so reporting all of them is sound (and documented).
+Empty / shorter than `minUnitLength × minRepetitions` → empty; `minUnitLength ≥ 1`, `minRepetitions ≥ 2`, `maxUnitLength ≥ minUnitLength`, non-null sequence — eager `ArgumentOutOfRangeException` / `ArgumentNullException`; partial last copy not counted; rotations not repeated; runs of different non-multiple periods may overlap and are each reported; order = unit length, then start.
 
-### Independent cross-check (hand computation, traced to sources)
+### Independent cross-check (numbers)
 
-- `ATTCGATTCGATTCG` (Wikipedia worked example): unit `ATTCG`, period 5, copies 3, total 15, start 0.
-  Hand trace of the implementation matches the source exactly (confirmed by execution, below).
-- `AAAA`: periods 1 (A×4) and 2 (AA×2) both satisfy the definition — both genuine tandem repeats.
+Three independent Python implementations of the definition (brute-force Kolpakov–Kucherov runs, boolean-array runs, regex), asserted equal on 1156 `(sequence, minUnit, minReps, maxUnit)` rows (`scripts/analysis/generate_tandem_oracle.py`, `TestData/Analysis/tandem_oracle.tsv`). Worked values: `ATATATAT` (1,2) → `AT:0:4`; `AAAAA` (1,2) → `A:0:5`; `ATATATA` (2,2) → `AT:0:3`; `GCAGCAGCAGCAGG` (3,2) → `GCA:0:4`; `AAAGAAAGAAAG` (1,2) → `A:0:3;A:4:3;A:8:3;AAAG:0:3`; `ACGACGACGACGTGTTAGCTTAGCTTAGC` (1,2) → `T:14:2;T:19:2;T:24:2;GT:11:2;ACG:0:4;TTAGC:14:3`.
 
-**Stage A verdict: PASS.** Description, formulae, conventions (0-based, k ≥ 2, period = unit length),
-and edge cases are correct and source-backed. One minor doc nit (the TestSpec/Evidence quote Benson's
-definition as "two or more contiguous … copies" eliding "approximate"; the elision is harmless because
-the implementation is deliberately exact-only and that simplification is separately documented).
+**Stage A: PASS-WITH-NOTES.**
 
 ## Stage B — Implementation
 
 ### Code path reviewed
 
-`GenomicAnalyzer.FindTandemRepeats` (`GenomicAnalyzer.cs:100–126`) and `struct TandemRepeat`
-(`:540–554`). Brute-force scan: for each unit length `minUnitLength .. seq.Length/minRepetitions`,
-for each start, extract candidate unit, count consecutive exact copies, yield if count ≥
-`minRepetitions`, then `start = pos - unitLen` to skip past the block within the current unit-length
-pass. `TotalLength = Unit.Length × Repetitions`; `FullSequence = Unit repeated Repetitions times`.
+Before: `GenomicAnalyzer.FindTandemRepeatsCore` — for each unit length, for each start, `Substring` compare, skip to the end of the block (O(n²·m)).
+After: `GenomicAnalyzer.FindTandemRepeats` (validation) → `RepeatFinder.FindMicrosatellites(seq, min, max, reps)` (canonical per-unit-length maximal-run scan, REP-STR-001) when ≤ 256 unit lengths are admissible, else `MaximalRepetitions.FindRuns` (Bannai et al. Lyndon-array runs algorithm, O(n log² n)). MCP `find_tandem_repeats` delegates (optional `maxUnitLength`).
 
-### Formula realised correctly?
+### Cross-verification recomputed against the code
 
-Yes. Direct execution (temporary observation harness, since removed) against externally-derived
-expectations:
-
-| Input | minUnit/minReps | Source expectation | Code output | Match |
-|-------|-----------------|--------------------|-------------|-------|
-| `ATTCGATTCGATTCG` | 5 / 2 | ATTCG, pos 0, 3 copies, len 15 (Wikipedia) | ATTCG, 0, 3, 15 | ✅ |
-| `ATTCGATTCGATTCG` | 2 / 2 | only ATTCG period-5 (no smaller exact sub-period) | ATTCG, 0, 3, 15 | ✅ |
-| `AAAA` | 1 / 2 | A×4 and AA×2 (both valid periods) | A/0/4 + AA/0/2 | ✅ |
-| `ATATAT` | 1 / 2 | only AT×3 (no contiguous A or T runs) | AT, 0, 3 | ✅ |
-| `ATGATGCCATGATGATG` | 3 / 2 | ATG×2 @0 and ATG×3 @8 (skip logic) | as expected | ✅ |
-| `` (empty) | 2 / 2 | empty | empty | ✅ |
+* Old code vs oracle: 276 / 1156 rows differed, **all** by extra non-primitive units (487 extra hits; on 20 000 further random strings 26 747 extras; 0 missing, 0 non-maximal) — the DUP_MAP/B04 remark "not left-maximal" does not hold for the primitive hits, the defect is primitivity only.
+* New code (both engines) vs oracle: 1156 / 1156 rows identical (also vs `RepeatFinder.FindMicrosatellites` directly); vs in-test brute force: 1500 random strings (bounded and unbounded), 62 000 exhaustive strings (`{A,C}` ≤ 14, `{A,C,G}` ≤ 9) for the run enumeration, 60 long low-entropy strings (2.5 kb) engine-vs-engine.
+* Complexity (1 Mbp random, Debug build): units 2–60 / ≥ 5 copies ≈ 1 s (scan, ≈ 17 ms per unit length); unbounded unit length ≈ 3 s (run enumeration; the scan would need up to 500 000 passes); worst case 1 Mbp period-8 string ≈ 6 s. Old code: cubic.
 
 ### Variant / delegate consistency
 
-No `*Fast`/delegate variants for this method; `TotalLength`/`FullSequence` derived properties verified
-consistent with `Unit`/`Repetitions`.
+Scan engine = run-enumeration engine = oracle (set and order); the MCP wrapper maps the same values; the 3-argument overload = the 4-argument overload with `int.MaxValue`.
 
-### Numerical robustness
+### Test quality audit
 
-Integer indexing only; loops bounded by `seq.Length`; no overflow/precision concerns on stated ranges.
-Thresholds are not guarded (documented accepted assumption); the public tests only exercise sensible
-(≥1) thresholds, which is the supported contract.
-
-### Test quality audit (against sources, not code)
-
-Canonical fixture `GenomicAnalyzer_TandemRepeat_Tests.cs`. All correctness assertions use **exact**
-sourced values (no Greater/AtLeast/Contains weakening, no widened tolerances, no skips). Public surface
-fully exercised: `Unit`, `Position`, `Repetitions`, `TotalLength`, `FullSequence`; both `minUnitLength`
-and `minRepetitions` filters; empty/no-repeat boundaries; 0-based position; long repeat; whole-sequence;
-adjacent distinct runs; case normalization; and three invariant property tests. The lone range-style
-assertion is a performance bound (`< 30 s`), not a correctness assertion — legitimate.
-
-**Gap found and fixed (Stage-B defect under the test-quality gate):** the TestSpec §5.2 claimed M2 —
-the literal Wikipedia worked example `ATTCGATTCGATTCG` — was "covered", but the fixture only used
-*substitute* motifs (telomere/tetra/penta). The canonical sourced example itself was never asserted.
-I added `FindTandemRepeats_WikipediaWorkedExample_ATTCG`, locking the externally-retrieved values
-(unit `ATTCG`, pos 0, 3 copies, total 15) directly from the Wikipedia article fetched this session.
+Fuzz oracle (`GenomicTandemFuzzTests.Oracle`) replayed the old greedy scan → replaced by the run definition (brute force); the seeded-tandem fuzz test now seeds primitive roots; the MCP `AAAAA` test no longer expects the `AA`×2 tiling. All new expectations are sourced oracle values; no assertion was loosened.
 
 ### Findings / defects
 
-- **F1 (fixed this session):** missing test for the verbatim Wikipedia worked example asserted as
-  covered by the spec. Closed by adding the sourced exact-value test. No production-code defect found.
+- **F35** non-primitive units reported; method a separate copy of the canonical scan (B04 / DUP_MAP §17) → facade over `RepeatFinder.FindMicrosatellites`.
+- **F36** no `maxUnitLength`, O(n²·m) (cubic) complexity, unbounded default impractical → additive overload + MCP parameter; run-enumeration engine (Bannai et al. 2017) for wide ranges.
+- **F37** docs: algorithm docs said approximate tandem repeats need external tools (TRF); they are `RepeatFinder.FindApproximateTandemRepeats` / MCP `find_approximate_tandem_repeats` (B04 request); MCP description/docs of `find_tandem_repeats` (AA tiling example).
+- **F38** independent three-method oracle + engine differential tests.
 
 ## Verdict & follow-ups
 
-- **Stage A: PASS.** **Stage B: PASS-WITH-NOTES** (one missing sourced test, now added; minor doc nit
-  on the elided "approximate" wording — harmless given the documented exact-only simplification).
-- **Test-quality gate: PASS** after fix. Full unfiltered suite: **Failed: 0, Passed: 6619** (1
-  benchmark skipped by design). Changed test file builds warning-free.
-- **End-state: CLEAN** (duplicate confirmed; shared algorithm independently validated; the one
-  coverage gap completely fixed in-session).
+- **Stage A: PASS-WITH-NOTES. Stage B: PASS after fixes (FAIL before).** End-state **CLEAN**.
+- No `GenomicAnalyzer` pass-through for approximate repeats: the canonical `RepeatFinder.FindApproximateTandemRepeats` (TRF 4.10.0 model) and MCP tool already exist with a different result type; the unit contract and Benson (1999) do not call for a second wrapper.
+- Registered for B04 (finished batch; behaviour/performance change of a public method, so not done here): `RepeatFinder.FindMicrosatellites` with a very wide `maxUnitLength` could use `MaximalRepetitions.FindRuns` instead of one scan per unit length (QUEUE.md "Requests to finished batches").

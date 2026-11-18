@@ -33,6 +33,10 @@
     <!-- GENOMIC-REPEAT-001 (B09 F28-F30): independent Python (brute force + suffix array/Kasai LCP) oracle for repeated
          substrings, Gusfield maximal repeats and all longest repeats; scripts/analysis/generate_repeat_oracle.py. -->
     <EmbeddedResource Include="TestData\Analysis\repeat_oracle.tsv" />
+    <!-- GENOMIC-TANDEM-001 (B09 F35-F38): exact tandem repeats = maximal repetitions (runs) with a primitive unit; 1156
+         (sequence, minUnit, minReps, maxUnit) rows, three independent Python methods asserted equal (Kolpakov-Kucherov
+         runs by brute force, boolean-array runs, regex); scripts/analysis/generate_tandem_oracle.py. -->
+    <EmbeddedResource Include="TestData\Analysis\tandem_oracle.tsv" />
     <!-- GENOMIC-REPEAT-001 (B09 F27): Biopython reverse-complement palindrome windows (Rosalind REVP definition);
          scripts/analysis/generate_palindrome_oracle.py. -->
     <EmbeddedResource Include="TestData\Analysis\palindrome_oracle.tsv" />

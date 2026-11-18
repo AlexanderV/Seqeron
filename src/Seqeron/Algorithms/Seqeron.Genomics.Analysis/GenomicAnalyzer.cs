@@ -198,24 +198,65 @@ public static class GenomicAnalyzer
     }
 
     /// <summary>
-    /// Finds tandem repeats (consecutive repeating units like "ATGATGATG").
+    /// Finds exact tandem repeats (consecutive copies of a unit such as "ATGATGATG"): for every unit
+    /// length <c>p ≥ minUnitLength</c> each <b>maximal run</b> of period <c>p</c> with at least
+    /// <paramref name="minRepetitions"/> complete copies and a <b>primitive</b> unit, reported once.
+    /// <para>
+    /// <b>Definition.</b> A tandem repeat is "two or more contiguous … copies of a pattern of nucleotides"
+    /// (Benson 1999, Tandem Repeats Finder; this detector accepts exact copies only — approximate copies are
+    /// <see cref="RepeatFinder.FindApproximateTandemRepeats(DnaSequence,int,int,int)"/>). For unit length <c>p</c>
+    /// the repeat is a maximal interval <c>S[a..e)</c> with <c>S[x] = S[x+p]</c> for all <c>a ≤ x &lt; e−p</c> that
+    /// cannot be extended left or right (a maximal repetition, Kolpakov &amp; Kucherov 1999; Gusfield 1997 §9),
+    /// reported at its left end <c>a</c> with <see cref="TandemRepeat.Repetitions"/> = <c>⌊(e−a)/p⌋</c> complete
+    /// copies (a trailing partial copy is not counted). The unit <c>S[a..a+p)</c> must be <b>primitive</b> (not a
+    /// power of a shorter word): <c>ATATATAT</c> is AT×4 at 0 and not additionally ATAT×2 (microsatellite = a primitive
+    /// unit repeated; MISA "reject false type motifs", Thiel et al. 2003). Rotations of the same run (TA inside
+    /// <c>ATATATA</c>) are not reported again; runs of different unit lengths may overlap (e.g. in <c>AAAGAAAGAAAG</c>, with
+    /// minUnitLength 1 and minRepetitions 2, AAAG×3 at 0 and A×3 at 0 are both runs) and are reported independently.
+    /// </para>
+    /// <para>
+    /// <b>Order:</b> unit length ascending, then start ascending (deterministic). Case is irrelevant
+    /// (a <see cref="DnaSequence"/> is upper-case A/C/G/T). This method used to be a separate O(n²·m) substring
+    /// scan that also reported non-primitive units and had no upper bound on the unit length; it is now a facade
+    /// over the canonical <see cref="RepeatFinder.FindMicrosatellites(DnaSequence,int,int,int)"/> (maximal runs,
+    /// O(n) per unit length) and agrees with an independent brute-force oracle (Kolpakov–Kucherov runs; see
+    /// docs/Evidence/GENOMIC-TANDEM-001-Evidence.md).
+    /// </para>
     /// </summary>
     /// <param name="sequence">DNA sequence to analyze. Must not be <c>null</c>.</param>
     /// <param name="minUnitLength">
-    /// Minimum candidate repeat-unit length. Must be &gt;= 1: a zero-length unit is degenerate (the empty
-    /// string "tiles" every position infinitely and never advances the scan), so it is rejected to avoid a
-    /// non-terminating loop rather than silently hanging.
+    /// Minimum repeat-unit length (period). Must be &gt;= 1: a zero-length unit is degenerate (the empty
+    /// string "tiles" every position infinitely), so it is rejected rather than silently hanging.
     /// </param>
     /// <param name="minRepetitions">
-    /// Minimum number of consecutive unit copies. Must be &gt;= 2: a tandem repeat requires at least two
-    /// copies (<c>k &gt;= 2</c>), and a value of <c>0</c> would divide by zero in the unit-length bound while
-    /// a value of <c>1</c> would report every substring as a trivial single-copy "repeat".
+    /// Minimum number of complete consecutive unit copies. Must be &gt;= 2: a tandem repeat requires at least two
+    /// copies (<c>k &gt;= 2</c>).
     /// </param>
+    /// <returns>The repeats, ordered by unit length then start; see the remarks above.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="sequence"/> is <c>null</c>.</exception>
     /// <exception cref="ArgumentOutOfRangeException">
     /// <paramref name="minUnitLength"/> is &lt; 1, or <paramref name="minRepetitions"/> is &lt; 2.
     /// </exception>
     public static IEnumerable<TandemRepeat> FindTandemRepeats(DnaSequence sequence, int minUnitLength = 2, int minRepetitions = 2)
+        => FindTandemRepeats(sequence, minUnitLength, minRepetitions, int.MaxValue);
+
+    /// <summary>
+    /// <see cref="FindTandemRepeats(DnaSequence,int,int)"/> restricted to unit lengths
+    /// <c>[minUnitLength, maxUnitLength]</c> (e.g. 6 for microsatellites, 60 for minisatellites; TRF's period limit
+    /// is a similar bound). A unit longer than <c>n / minRepetitions</c> cannot repeat and is never reported, so
+    /// <see cref="int.MaxValue"/> (the 3-argument overload) means "no upper bound".
+    /// </summary>
+    /// <param name="sequence">DNA sequence to analyze. Must not be <c>null</c>.</param>
+    /// <param name="minUnitLength">Minimum unit length, &gt;= 1.</param>
+    /// <param name="minRepetitions">Minimum number of complete copies, &gt;= 2.</param>
+    /// <param name="maxUnitLength">Maximum unit length, &gt;= <paramref name="minUnitLength"/>.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> is <c>null</c>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// <paramref name="minUnitLength"/> &lt; 1, <paramref name="minRepetitions"/> &lt; 2 or
+    /// <paramref name="maxUnitLength"/> &lt; <paramref name="minUnitLength"/>.
+    /// </exception>
+    public static IEnumerable<TandemRepeat> FindTandemRepeats(
+        DnaSequence sequence, int minUnitLength, int minRepetitions, int maxUnitLength)
     {
         ArgumentNullException.ThrowIfNull(sequence);
         if (minUnitLength < 1)
@@ -224,41 +265,41 @@ public static class GenomicAnalyzer
         if (minRepetitions < 2)
             throw new ArgumentOutOfRangeException(nameof(minRepetitions), minRepetitions,
                 "A tandem repeat requires at least two consecutive copies; minRepetitions must be >= 2.");
+        if (maxUnitLength < minUnitLength)
+            throw new ArgumentOutOfRangeException(nameof(maxUnitLength), maxUnitLength,
+                "Maximum repeat-unit length must be at least minUnitLength.");
 
-        return FindTandemRepeatsCore(sequence, minUnitLength, minRepetitions);
+        // One linear scan per unit length (RepeatFinder) is the cheaper engine while few unit lengths are
+        // admissible; a wide range (e.g. the default "no upper bound" on a megabase sequence: up to n / minRepetitions
+        // unit lengths, O(n^2 / k) in total) is answered by the run enumeration, whose cost does not depend on it.
+        long lastFitting = Math.Min((long)maxUnitLength, sequence.Length / minRepetitions);
+        if (lastFitting - minUnitLength + 1 > RunsEngineMinUnitLengths)
+            return FindTandemRepeatsByRuns(sequence, minUnitLength, minRepetitions, maxUnitLength);
+
+        return RepeatFinder.FindMicrosatellites(sequence, minUnitLength, maxUnitLength, minRepetitions)
+            .Select(m => new TandemRepeat(m.RepeatUnit, m.Position, m.RepeatCount));
     }
 
-    private static IEnumerable<TandemRepeat> FindTandemRepeatsCore(DnaSequence sequence, int minUnitLength, int minRepetitions)
+    /// <summary>
+    /// Number of admissible unit lengths above which <see cref="FindTandemRepeats(DnaSequence,int,int,int)"/> switches
+    /// from the per-unit-length scan to the run enumeration (measured break-even, see the GENOMIC-TANDEM-001 evidence).
+    /// </summary>
+    internal const int RunsEngineMinUnitLengths = 256;
+
+    /// <summary>
+    /// Run-enumeration engine: every maximal repetition (Kolpakov–Kucherov run, <see cref="MaximalRepetitions"/>) of the
+    /// sequence whose smallest period lies in the unit-length range and which has at least <paramref name="minRepetitions"/>
+    /// complete copies. A run's unit at its left end is primitive exactly when the run's smallest period is its unit length
+    /// (Fine–Wilf), so the result equals the per-unit-length scan of <see cref="RepeatFinder.FindMicrosatellites(DnaSequence,int,int,int)"/>
+    /// (same set, same order: unit length, then start). Internal so that tests can compare both engines directly.
+    /// </summary>
+    internal static IEnumerable<TandemRepeat> FindTandemRepeatsByRuns(
+        DnaSequence sequence, int minUnitLength, int minRepetitions, int maxUnitLength)
     {
         string seq = sequence.Sequence;
-
-        for (int unitLen = minUnitLength; unitLen <= seq.Length / minRepetitions; unitLen++)
-        {
-            // `start` advances by 1 normally, but jumps past a found tandem — a while loop
-            // makes the in-body skip explicit (a for loop would flag S127).
-            int start = 0;
-            while (start <= seq.Length - unitLen * minRepetitions)
-            {
-                string unit = seq.Substring(start, unitLen);
-                int repetitions = 1;
-                int pos = start + unitLen;
-
-                while (pos + unitLen <= seq.Length &&
-                       seq.Substring(pos, unitLen) == unit)
-                {
-                    repetitions++;
-                    pos += unitLen;
-                }
-
-                if (repetitions >= minRepetitions)
-                {
-                    yield return new TandemRepeat(unit, start, repetitions);
-                    start = pos - unitLen; // Skip to end of this tandem
-                }
-
-                start++;
-            }
-        }
+        return MaximalRepetitions.FindRuns(seq)
+            .Where(r => r.Period >= minUnitLength && r.Period <= maxUnitLength && (r.End - r.Start) / r.Period >= minRepetitions)
+            .Select(r => new TandemRepeat(seq.Substring(r.Start, r.Period), r.Start, (r.End - r.Start) / r.Period));
     }
 
     #endregion

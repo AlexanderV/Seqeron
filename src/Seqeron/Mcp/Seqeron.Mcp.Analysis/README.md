@@ -85,7 +85,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `find_stem_loops` | Enumerates hairpin stem-loop candidates with stem, loop, and Turner 2004 free energy. |
 | `find_supermaximal_repeats` | Finds **supermaximal repeats** (Gusfield 1997 §7.12.1; Vmatch -supermax): maximal repeats that never occur as a substring of another maxima… |
 | `find_syntenic_blocks` | Collinear runs of orthologous genes between two genomes. |
-| `find_tandem_repeats` | Consecutive repeating units (e.g., ATGATGATG) of unit-length >= minUnitLength repeated >= minRepetitions times. |
+| `find_tandem_repeats` | Exact tandem repeats (e.g., ATGATGATG): maximal runs of a primitive unit (minUnitLength..maxUnitLength) repeated >= minRepetitions times; approximate repeats: `find_approximate_tandem_repeats`. |
 | `flush_coaxial_stacking` | Coaxial stacking energy for two RNA helices with no intervening unpaired bases. |
 | `gc_content_profile` | GC content in sliding windows along the sequence (`fraction=true` for [0,1]; `ambiguityMode=remove\|ignore\|weighted` for Biopython gc_fraction; `includePartialWindow`). |
 | `gc_skew` | Whole-sequence GC skew = (G - C) / (G + C). |

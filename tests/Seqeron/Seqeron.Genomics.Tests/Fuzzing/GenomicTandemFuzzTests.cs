@@ -3,8 +3,8 @@ using System.Text;
 namespace Seqeron.Genomics.Tests.Fuzzing;
 
 /// <summary>
-/// Fuzz tests for the Analysis area — exact tandem-repeat detection (GENOMIC-TANDEM-001), the brute-force
-/// detector <see cref="GenomicAnalyzer.FindTandemRepeats(DnaSequence, int, int)"/>: for a DNA sequence it
+/// Fuzz tests for the Analysis area — exact tandem-repeat detection (GENOMIC-TANDEM-001), the maximal-run
+/// detector <see cref="GenomicAnalyzer.FindTandemRepeats(DnaSequence, int, int)"/> (B09 F35: primitive units, one report per maximal run): for a DNA sequence it
 /// reports every EXACT tandem block — a unit (period) U repeated k ≥ minRepetitions contiguous copies —
 /// as a <see cref="TandemRepeat"/> carrying the unit string, the 0-based start <c>Position</c>, the copy
 /// count <c>Repetitions</c>, the derived <c>TotalLength = Unit.Length × Repetitions</c> and the rebuilt
@@ -46,7 +46,7 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 ///   • FULL TANDEM — a subject that is ENTIRELY one repeated unit: a homopolymer ("AAAA…", unit "A") or a
 ///     period-p tile ("ATATAT…", unit "AT") — the documented maximal block is reported with the correct
 ///     unit, copy count and span (§6.1 "entire sequence is one tandem → one result spanning the region").
-///     No quadratic hang on the dense case (kept modest, guarded by [CancelAfter]; §4.3 O(n²·m)).
+///     No quadratic hang on the dense case (kept modest, guarded by [CancelAfter]).
 ///   • SINGLE UNIT — a subject containing exactly ONE copy of a would-be unit (no actual repetition): NOT
 ///     reported, because a tandem needs k ≥ 2 (INV-01). The k = 1 / k = 2 frontier is the BE boundary; a
 ///     unit-length-1 (homopolymer) and the argument-guard boundaries (minUnitLength {0,1}, minRepetitions
@@ -82,39 +82,48 @@ public class GenomicTandemFuzzTests
     }
 
     /// <summary>
-    /// Independent oracle for FindTandemRepeats, built directly from the documented algorithm (§4.1),
-    /// NOT from the unit. Mirrors the greedy scan: for each candidate unit length from minUnitLength up to
-    /// ⌊n / minRepetitions⌋, scan start positions left-to-right; at each start extract the candidate unit,
-    /// count consecutive exact copies, and if the count reaches minRepetitions yield (unit, start, count)
-    /// and advance the start cursor to the end of that block within the current unit-length pass. This is
-    /// the exact U^k, k ≥ minRepetitions definition (§2.2) realised with the documented forward-skip.
+    /// Independent oracle for FindTandemRepeats (B09 F35, GENOMIC-TANDEM-001): maximal repetitions by definition
+    /// (Kolpakov &amp; Kucherov 1999), NOT built from the unit and sharing no code with it. For every interval
+    /// S[a..e) its SMALLEST period q is found from the definition (S[x] = S[x+q] for all a ≤ x &lt; e−q); the
+    /// interval is a run when e − a ≥ 2q and it cannot be extended left or right with the same period; a run with
+    /// ⌊(e−a)/q⌋ ≥ minRepetitions and q ≥ minUnitLength is reported once as (S[a..a+q), a, ⌊(e−a)/q⌋). A run's
+    /// smallest period is the length of its primitive unit (Fine–Wilf), which is why non-primitive units such as
+    /// ATAT are never reported. Order: unit length, then start. (The previous oracle replayed the old greedy scan.)
     /// </summary>
     private static List<(string Unit, int Position, int Repetitions)> Oracle(string seq, int minUnitLength, int minRepetitions)
     {
-        var hits = new List<(string, int, int)>();
-        for (int unitLen = minUnitLength; unitLen <= seq.Length / minRepetitions; unitLen++)
+        int n = seq.Length;
+        var found = new SortedSet<(int Period, int Start, int Copies)>();
+        for (int a = 0; a < n; a++)
         {
-            int start = 0;
-            while (start <= seq.Length - unitLen * minRepetitions)
+            for (int e = a + 2; e <= n; e++)
             {
-                string unit = seq.Substring(start, unitLen);
-                int reps = 1;
-                int pos = start + unitLen;
-                while (pos + unitLen <= seq.Length && seq.Substring(pos, unitLen) == unit)
+                int m = e - a;
+                int q = 1;
+                while (q <= m)
                 {
-                    reps++;
-                    pos += unitLen;
-                }
-                if (reps >= minRepetitions)
-                {
-                    hits.Add((unit, start, reps));
-                    start = pos - unitLen; // forward-skip
+                    bool periodic = true;
+                    for (int x = 0; x + q < m && periodic; x++)
+                        periodic = seq[a + x] == seq[a + x + q];
+                    if (periodic) break;
+                    q++;
                 }
 
-                start++;
+                if (2 * q > m) continue;
+                if (a > 0 && seq[a - 1] == seq[a - 1 + q]) continue;
+                if (e < n && seq[e] == seq[e - q]) continue;
+                if (q >= minUnitLength && m / q >= minRepetitions)
+                    found.Add((q, a, m / q));
             }
         }
-        return hits;
+
+        return found.Select(f => (seq.Substring(f.Start, f.Period), f.Start, f.Copies)).ToList();
+    }
+
+    private static string PrimitiveRoot(string u)
+    {
+        int idx = (u + u).IndexOf(u, 1, StringComparison.Ordinal);
+        return u[..idx];
     }
 
     /// <summary>
@@ -132,6 +141,7 @@ public class GenomicTandemFuzzTests
             "a tandem has ≥ max(2, minRepetitions) contiguous copies; k ≥ 2 (INV-01)");
 
         r.TotalLength.Should().Be(r.Unit.Length * r.Repetitions, "TotalLength = period × copy number (INV-02)");
+        PrimitiveRoot(r.Unit).Should().Be(r.Unit, "a reported unit is primitive (not a power of a shorter word)");
 
         r.Position.Should().BeGreaterThanOrEqualTo(0, "Position is a 0-based offset");
         (r.Position + r.TotalLength).Should().BeLessThanOrEqualTo(seq.Length,
@@ -311,7 +321,7 @@ public class GenomicTandemFuzzTests
     [CancelAfter(60_000)]
     public void FullTandem_DenseHomopolymer_NoQuadraticHang()
     {
-        // Dense full-tandem input is the worst case for the O(n²·m) scan (§4.3). Keep modest and guard with
+        // Dense full-tandem input was the worst case for the former O(n²·m) scan (§4.3). Keep modest and guard with
         // [CancelAfter]: a long homopolymer must complete, report the maximal length-1 block, and not hang.
         foreach (int n in new[] { 60, 150, 250 })
         {
@@ -457,8 +467,9 @@ public class GenomicTandemFuzzTests
         var rng = new Random(180_003);
         for (int t = 0; t < 700; t++)
         {
-            string unit = RandomDna(rng, rng.Next(1, 5));
-            int copies = rng.Next(2, 7);
+            string seeded = RandomDna(rng, rng.Next(1, 5));
+            string unit = PrimitiveRoot(seeded); // a non-primitive seed (AA, ATAT) is a run of its primitive root
+            int copies = rng.Next(2, 7) * (seeded.Length / unit.Length);
             string left = RandomDna(rng, rng.Next(0, 6));
             string right = RandomDna(rng, rng.Next(0, 6));
             string text = left + string.Concat(Enumerable.Repeat(unit, copies)) + right;

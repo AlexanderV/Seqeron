@@ -77,5 +77,4 @@ Krait A 2, AC 4, ATAC 1; Krait levels e.g. CTG → CTG / TGC / AGC / ACG / ACG; 
 ## Verdict & follow-ups
 - Stage A: PASS-WITH-NOTES. Stage B: FAIL → fixed. **State: FIXED**; MISA thresholds and canonical motif tables implemented and reference-identical.
 - MCP: `tandem_repeat_summary` delegates; optional `misaThresholds`, `misaScan` (WP11), `misaDefinition` (WP16), additive `canonicalMotifCounts` / `countsByUnitLength` output; accepts N/IUPAC (WP11).
-- Cross-batch (B09, `GenomicAnalyzer.cs`): `FindTandemRepeats` validates its parameters but reports non-primitive units
-  (`ATATATAT` → `AT×4` and `ATAT×2`) with an O(n²·m) substring scan; delegation to `RepeatFinder.FindMicrosatellites` is requested in the B04 report.
+- Cross-batch (B09, `GenomicAnalyzer.cs`): **resolved 2026-11-18 (B09 F35–F36)** — `FindTandemRepeats` is now a facade over `RepeatFinder.FindMicrosatellites` (it used to report non-primitive units, `ATATATAT` → `AT×4` and `ATAT×2`, with an O(n²·m) substring scan) plus a run-enumeration engine for wide unit ranges; see GENOMIC-TANDEM-001.

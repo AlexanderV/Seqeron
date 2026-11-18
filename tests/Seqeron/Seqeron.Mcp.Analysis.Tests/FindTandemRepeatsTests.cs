@@ -37,17 +37,35 @@ public class FindTandemRepeatsTests
             Assert.That(tri[0].TotalLength, Is.EqualTo(9));
         });
 
-        // "AAAAA" unit>=1 -> A x5 (span 5) and, since unit length 2 is also scanned,
-        // the AA x2 tiling (span 4).
+        // "AAAAA" unit>=1 -> only the primitive unit A x5 (span 5): AA x2 is a non-primitive tiling of the same run
+        // and is not reported (maximal-run / primitive-unit contract; Kolpakov & Kucherov 1999, MISA).
         var mono = AnalysisTools.FindTandemRepeats("AAAAA", 1, 2).Items;
-        var a = mono.Single(i => i.Unit == "A");
-        var aa = mono.Single(i => i.Unit == "AA");
         Assert.Multiple(() =>
         {
-            Assert.That(a.Repetitions, Is.EqualTo(5));
-            Assert.That(a.TotalLength, Is.EqualTo(5));
-            Assert.That(aa.Repetitions, Is.EqualTo(2));
-            Assert.That(aa.TotalLength, Is.EqualTo(4));
+            Assert.That(mono, Has.Length.EqualTo(1));
+            Assert.That(mono[0].Unit, Is.EqualTo("A"));
+            Assert.That(mono[0].Position, Is.EqualTo(0));
+            Assert.That(mono[0].Repetitions, Is.EqualTo(5));
+            Assert.That(mono[0].TotalLength, Is.EqualTo(5));
         });
+
+        // "ATATATAT": AT x4 @0 only (B04 / DUP_MAP section 17 request: not also ATAT x2).
+        var at = AnalysisTools.FindTandemRepeats("ATATATAT", 1, 2).Items;
+        Assert.That(at.Select(i => (i.Unit, i.Position, i.Repetitions)), Is.EqualTo(new[] { ("AT", 0, 4) }));
+    }
+
+    [Test]
+    public void FindTandemRepeats_MaxUnitLength_RestrictsUnitLength()
+    {
+        // Oracle (scripts/analysis/generate_tandem_oracle.py): ACG x4 @0, GT x2 @11, TTAGC x3 @14, T x2 @14/19/24.
+        const string seq = "ACGACGACGACGTGTTAGCTTAGCTTAGC";
+        var all = AnalysisTools.FindTandemRepeats(seq, 1, 2).Items;
+        Assert.That(all.Select(i => $"{i.Unit}:{i.Position}:{i.Repetitions}"),
+            Is.EqualTo(new[] { "T:14:2", "T:19:2", "T:24:2", "GT:11:2", "ACG:0:4", "TTAGC:14:3" }));
+        var upTo3 = AnalysisTools.FindTandemRepeats(seq, 1, 2, 3).Items;
+        Assert.That(upTo3.Select(i => i.Unit), Is.EqualTo(new[] { "T", "T", "T", "GT", "ACG" }));
+        var only5 = AnalysisTools.FindTandemRepeats(seq, 5, 2, 5).Items;
+        Assert.That(only5.Select(i => $"{i.Unit}:{i.Position}:{i.Repetitions}:{i.TotalLength}"), Is.EqualTo(new[] { "TTAGC:14:3:15" }));
+        Assert.Throws<ArgumentOutOfRangeException>(() => AnalysisTools.FindTandemRepeats(seq, 3, 2, 2));
     }
 }

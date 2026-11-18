@@ -2,10 +2,10 @@
 
 **Test Unit ID:** GENOMIC-TANDEM-001
 **Area:** Analysis
-**Algorithm:** Tandem Repeat Detection (`GenomicAnalyzer.FindTandemRepeats`)
-**Status:** ☑ Complete (consolidated into REP-TANDEM-001 — see §7)
+**Algorithm:** Exact tandem repeats (`GenomicAnalyzer.FindTandemRepeats`; MCP `find_tandem_repeats`)
+**Status:** ☑ Complete (re-validated and re-implemented 2026-11-18, B09 F35–F38)
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-06-14
+**Last Updated:** 2026-11-18
 
 ---
 
@@ -15,24 +15,31 @@
 
 | # | Source | Authority Rank | DOI or URL | Accessed |
 |---|--------|---------------|------------|----------|
-| 1 | Benson, G. (1999) *Tandem Repeats Finder*, *Nucleic Acids Research* 27(2):573–580 | 1 | https://doi.org/10.1093/nar/27.2.573 | 2026-06-14 |
-| 2 | Wikipedia "Tandem repeat" (cited primaries) | 4 | https://en.wikipedia.org/wiki/Tandem_repeat | 2026-06-14 |
+| 1 | Benson, G. (1999) *Tandem Repeats Finder*, *Nucleic Acids Research* 27(2):573–580 | 1 | https://doi.org/10.1093/nar/27.2.573 | 2026-06-14 (definition re-confirmed by search snippets 2026-11-18; publisher page returns 403) |
+| 2 | Kolpakov & Kucherov (1999) *Finding maximal repetitions in a word in linear time*, FOCS, 596–604 | 1 | https://dl.acm.org/doi/10.5555/795665.796470 | 2026-11-18 (search snippets) |
+| 3 | Bannai, I, Inenaga, Nakashima, Takeda, Tsuruta (2017) *The "Runs" Theorem*, SIAM J. Comput. 46(5) | 1 | https://arxiv.org/abs/1406.0263 | 2026-11-18 (full text opened: Definition 1, Lemmas 3/6/7/8, §3, §4) |
+| 4 | Thiel et al. (2003) MISA, `misa.pl` ("reject false type motifs") | 2 | https://raw.githubusercontent.com/cfljam/SSR_marker_design/master/misa.pl | 2026-11-18 (opened; line 110) |
+| 5 | Wikipedia "Tandem repeat" (cited primaries) | 4 | https://en.wikipedia.org/wiki/Tandem_repeat | 2026-06-14 |
 
 ### 1.2 Key Evidence Points
 
 1. A tandem repeat is "two or more contiguous … copies of a pattern of nucleotides" (k ≥ 2; copies directly adjacent) — Benson 1999 [1].
-2. Worked example: `ATTCG ATTCG ATTCG` — unit `ATTCG` (period 5) repeated 3 times, contiguous — Wikipedia [2].
-3. Period = unit length for an exact repeat; copy number = number of copies reported per repeat — Benson 1999 [1].
-4. Detection of tandem repeats in strings can use suffix trees/arrays; exact-match detection over a single text is the relevant case — Wikipedia [2].
+2. Worked example: `ATTCG ATTCG ATTCG` — unit `ATTCG` (period 5) repeated 3 times, contiguous — Wikipedia [5].
+3. A **run** (maximal repetition) is an interval whose smallest period `p` satisfies length ≥ 2p and which cannot be extended left or right with the same period; its exponent is length/p — Kolpakov & Kucherov [2], Bannai et al. Definition 1 [3].
+4. A microsatellite/tandem unit is **primitive**: MISA drops "false type motifs [e.g. (TT)6 or (ACAC)5]" [4]. A period-`p` interval of length ≥ 2p whose unit is primitive has smallest period `p` (Fine–Wilf), so "run with primitive unit" and "run with smallest period p" coincide [3].
+5. A string of length `n` has fewer than `n` runs (runs theorem) and all of them are computable from the longest Lyndon words of the two alphabet orders with LCE queries [3].
+6. Detection of tandem repeats in strings can use suffix trees/arrays [5].
 
 ### 1.3 Documented Corner Cases
 
 - Fewer than two contiguous copies is not a tandem repeat (k ≥ 2 floor) — Benson 1999 [1].
-- The same region can satisfy several period sizes; each interpretation meeting the threshold is a valid tandem repeat under the definition.
+- One report per maximal run and unit length: rotations (`TA` in `ATATATA`) are not repeated; non-primitive multiples (`ATAT` in `ATATATAT`) are not reported; runs of different (non-multiple) periods may overlap and are each reported — [3][4].
+- A trailing partial copy is not counted (`ATATATA` → `AT`×3) — run exponent ⌊length/p⌋ convention of MISA/pytrf (REP-STR-001).
 
 ### 1.4 Known Failure Modes / Pitfalls
 
-1. Benson's TRF detects *approximate* copies; the repository detector detects only *exact* contiguous copies (documented simplification). Output agrees with the formal definition over exact repeats — Benson 1999 [1].
+1. Benson's TRF detects *approximate* copies; this detector is exact only. Approximate repeats: `RepeatFinder.FindApproximateTandemRepeats` (TRF model, REP-APPROX-001) / MCP `find_approximate_tandem_repeats`.
+2. The pre-2026-11 implementation reported non-primitive units (`ATATATAT`, minUnit 1, minReps 2 → `AT`×4@0 **and** `ATAT`×2@0) — fixed (F35).
 
 ---
 
@@ -40,9 +47,10 @@
 
 | Method | Class | Type | Notes |
 |--------|-------|------|-------|
-| `FindTandemRepeats(sequence, minUnitLength, minRepetitions)` | GenomicAnalyzer | **Canonical** | Identical to the canonical method of REP-TANDEM-001. |
-
-> **This method is already implemented and tested under REP-TANDEM-001.** GENOMIC-TANDEM-001 is a duplicate Registry entry for the same method of the same class (see §7).
+| `FindTandemRepeats(sequence, minUnitLength = 2, minRepetitions = 2)` | GenomicAnalyzer | **Canonical** | Facade over `RepeatFinder.FindMicrosatellites` / run enumeration; no upper unit length. |
+| `FindTandemRepeats(sequence, minUnitLength, minRepetitions, maxUnitLength)` | GenomicAnalyzer | **Canonical** | Restricted unit-length range (additive overload). |
+| `FindTandemRepeatsByRuns(...)` | GenomicAnalyzer (internal) | Engine | Run enumeration (`MaximalRepetitions.FindRuns`), compared with the scan in tests. |
+| `find_tandem_repeats` | MCP Analysis | Wrapper | Delegates; optional `maxUnitLength`. |
 
 ---
 
@@ -50,9 +58,11 @@
 
 | ID | Invariant | Verifiable | Evidence |
 |----|-----------|------------|----------|
-| INV-1 | Every reported repeat has Repetitions ≥ `minRepetitions` ≥ 2 (k ≥ 2) | Yes | Benson 1999 "two or more contiguous copies" [1] |
+| INV-1 | Every reported repeat has Repetitions ≥ `minRepetitions` ≥ 2 and unit length in `[minUnitLength, maxUnitLength]` | Yes | Benson 1999 [1] |
 | INV-2 | `TotalLength = Unit.Length × Repetitions` | Yes | period × copy number = repeat length [1] |
-| INV-3 | `Position + Unit.Length × Repetitions ≤ sequence.Length` (within bounds) | Yes | copies are contiguous and inside the sequence [1][2] |
+| INV-3 | `Position + Unit.Length × Repetitions ≤ sequence.Length` | Yes | copies contiguous and inside the sequence [1][5] |
+| INV-4 | Unit is primitive; the run is maximal | Yes | [2][3][4] |
+| INV-5 | Order = unit length ascending, then start ascending; both engines identical | Yes | contract |
 
 ---
 
@@ -62,10 +72,13 @@
 
 | ID | Test Case | Description | Expected Outcome | Evidence |
 |----|-----------|-------------|------------------|----------|
-| M1 | Exact trinucleotide unit | `ATGATGATG`, minUnit 3, minReps 3 | `ATG`, pos 0, 3 copies | Benson/Wikipedia definition [1][2] |
-| M2 | Worked example | `ATTCGATTCGATTCG`, minUnit 5, minReps 2 | `ATTCG`, pos 0, 3 copies, total length 15 | Wikipedia worked example [2] |
+| M1 | Exact trinucleotide unit | `ATGATGATG`, minUnit 3, minReps 3 | `ATG`, pos 0, 3 copies | [1][5] |
+| M2 | Worked example | `ATTCGATTCGATTCG`, minUnit 5, minReps 2 | `ATTCG`, pos 0, 3 copies, total length 15 | [5] |
 | M3 | minRepetitions floor | sequence with only 2 copies, minReps 3 | not reported | k ≥ 2 / threshold [1] |
-| M4 | No repeat / empty | `ACGT` / `""` | empty result | definition (no contiguous copies) |
+| M4 | No repeat / empty | `ACGT` / `""` | empty result | definition |
+| M5 | Primitive unit | `ATATATAT`, minUnit 1, minReps 2 | `AT`×4@0 only (not `ATAT`×2); `AAAAAA` → `A`×6 only | [3][4], oracle |
+| M6 | Python oracle | 1156 rows | exactly the oracle hit strings (unit:pos:copies, order) | oracle (3 independent Python methods) |
+| M7 | Run enumeration = scan | oracle rows + 1500 random + 62 000 exhaustive + 60 long strings | identical sets/order | Kolpakov–Kucherov runs, brute force |
 
 ### 4.2 SHOULD Tests (Important edge cases)
 
@@ -73,12 +86,19 @@
 |----|-----------|-------------|------------------|-------|
 | S1 | Position is 0-based | tandem starting at index 0 | Position == 0 | contract |
 | S2 | TotalLength invariant | any reported repeat | Unit.Length × Repetitions | INV-2 |
+| S3 | Left-end phase | `GCAGCAGCAGCAGG` minUnit 3 | `GCA`×4@0; `TCAGCAGCAGCAGT` → `CAG`×4@1 | MISA/pytrf convention |
+| S4 | Partial copy | `ATATATA` | `AT`×3@0 | exponent ⌊len/p⌋ |
+| S5 | Order / overlap | `AAAGAAAGAAAG` minUnit 1 | `A`×3@0/4/8 then `AAAG`×3@0 | contract |
+| S6 | maxUnitLength | oracle seed `ACGACGACGACGTGTTAGCTTAGCTTAGC` | exact lists for max 1/3/5; `minUnit > maxUnit` throws (eager) | oracle |
+| S7 | Parameter validation | minUnit 0, minReps 1, null | `ArgumentOutOfRangeException` / `ArgumentNullException`, eager | contract |
+| S8 | MCP | `find_tandem_repeats` incl. `maxUnitLength` | sourced values | wrapper |
 
 ### 4.3 COULD Tests (Nice to have)
 
 | ID | Test Case | Description | Expected Outcome | Notes |
 |----|-----------|-------------|------------------|-------|
 | C1 | Telomere motif | `TTAGGG` ×4 | unit `TTAGGG`, 4 copies | vertebrate telomere repeat |
+| C2 | 1 Mbp | bounded (2–60, ≥ 5 copies), unbounded, homopolymer, period-8 | planted repeat found, ≤ 6 s (Debug) | complexity |
 
 ---
 
@@ -86,59 +106,14 @@
 
 ### 5.1 Discovery Summary
 
-- The canonical fixture for `GenomicAnalyzer.FindTandemRepeats` already exists at
-  `tests/Seqeron/Seqeron.Genomics.Tests/GenomicAnalyzer_TandemRepeat_Tests.cs`, delivered and
-  committed under **REP-TANDEM-001** (27 tests: 13 MUST, 5 SHOULD, 2 COULD, 3 property, 4 summary).
-- That fixture covers M1 (`SimpleTrinucleotide`), the worked-example equivalents (M2 telomere
-  `TTAGGG`, tetranucleotide, pentanucleotide forensic), the `minRepetitions`/`minUnitLength`
-  thresholds (M3), no-repeat and empty inputs (M4), 0-based position (S1), and the TotalLength
-  invariant (S2) plus property tests P1–P3.
+- `tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/GenomicAnalyzer_TandemRepeat_Tests.cs` — canonical sourced fixture (27 tests: worked examples, thresholds, invariants); expectations unchanged by the contract fix (every expected hit is a primitive maximal run).
+- `tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/GenomicAnalyzer_TandemRepeat_Oracle_Tests.cs` — new (B09 F35–F38): Python oracle (M6), brute force, both engines (M7), contract S3–S7, complexity C2.
+- `Fuzzing/GenomicTandemFuzzTests.cs`, `Fuzzing/RepeatsFuzzTests.cs` (row 14) — the fuzz oracle was the old greedy scan (non-primitive units) → replaced by the maximal-run definition; seeded-tandem test now seeds primitive roots.
+- `tests/Seqeron/Seqeron.Mcp.Analysis.Tests/FindTandemRepeatsTests.cs` — `AAAAA` no longer reports the `AA`×2 tiling; `maxUnitLength` binding added.
 
 ### 5.2 Coverage Classification
 
-| Area / Test Case ID | Status | Notes |
-|---------------------|--------|-------|
-| M1 exact trinucleotide | ✅ Covered | `FindTandemRepeats_SimpleTrinucleotide_FindsRepeat` |
-| M2 worked example | ✅ Covered | `..._WikipediaWorkedExample_ATTCG` (verbatim Wikipedia `ATTCGATTCGATTCG` → ATTCG, pos 0, 3 copies, len 15; added 2026-06-16) plus telomere/tetra/penta analogues |
-| M3 minRepetitions floor | ✅ Covered | `..._MinRepetitionsFilter_RespectsThreshold` |
-| M4 no-repeat / empty | ✅ Covered | `..._NoRepeatsFound_ReturnsEmpty`, `..._EmptySequence_ReturnsEmpty` |
-| S1 position 0-based | ✅ Covered | `..._PositionCorrect_ZeroBased` |
-| S2 TotalLength invariant | ✅ Covered | `..._TotalLength_InvariantHolds` |
-| C1 telomere motif | ✅ Covered | `..._TelomereRepeat_TTAGGG` |
-
-### 5.3 Consolidation Plan
-
-- **Canonical file:** `tests/Seqeron/Seqeron.Genomics.Tests/GenomicAnalyzer_TandemRepeat_Tests.cs` — already the single canonical fixture for `FindTandemRepeats` (owned by REP-TANDEM-001).
-- **Remove:** nothing. **Do NOT create** a second test file for the same method — that would violate the duplicate-elimination rule (one canonical file per method). GENOMIC-TANDEM-001 reuses the existing fixture.
-
-### 5.4 Final State After Consolidation
-
-| File | Role | Test Count |
-|------|------|------------|
-| `GenomicAnalyzer_TandemRepeat_Tests.cs` | Canonical fixture for `FindTandemRepeats` (shared with REP-TANDEM-001) | 27 |
-
-### 5.5 Phase 7 Work Queue
-
-| # | Test Case ID | §5.2 Status | Action Taken | Final Status |
-|---|-------------|-------------|--------------|--------------|
-| 1 | (all M/S/C) | ✅ Covered | None — already covered by the canonical fixture; no new/duplicate tests created | ✅ Done |
-
-**Total items:** 1
-**✅ Done:** 1 | **⛔ Blocked:** 0 | **Remaining:** 0
-
-### 5.6 Post-Implementation Coverage
-
-| Area / Test Case ID | Status | Resolution |
-|---------------------|--------|------------|
-| M1 | ✅ | Covered by canonical fixture |
-| M2 | ✅ | Covered by canonical fixture (`..._WikipediaWorkedExample_ATTCG`, added 2026-06-16) |
-| M3 | ✅ | Covered by canonical fixture |
-| M4 | ✅ | Covered by canonical fixture |
-| S1 | ✅ | Covered by canonical fixture |
-| S2 | ✅ | Covered by canonical fixture |
-| C1 | ✅ | Covered by canonical fixture |
-
-All 7 in-scope cases ✅ (7 of 7). No ❌/⚠ remain.
+All M/S/C items ✅ covered (see §4); no ❌/⚠ remain.
 
 ---
 
@@ -148,10 +123,11 @@ All 7 in-scope cases ✅ (7 of 7). No ❌/⚠ remain.
 
 | # | Assumption | Used In |
 |---|-----------|---------|
-| 1 | Detector reports exact contiguous copies only (not Benson's approximate copies); output matches the formal definition over exact repeats. | §1.4, algorithm doc §5.3 |
+| 1 | The reported unit is the motif phase at the run's left end (rotations are not canonicalised) — MISA/pytrf convention (REP-STR-001). | §1.3, algorithm doc §5.4 |
 
 ---
 
 ## 7. Open Questions / Decisions
 
-1. **DECISION — duplicate Registry entry.** The Processing Registry contains two entries for the identical method on the same class: **REP-TANDEM-001** ("Tandem Repeat Detection", Repeats, ☑ Complete) and **GENOMIC-TANDEM-001** ("Tandem Repeat Detection", Analysis). Both list `GenomicAnalyzer.FindTandemRepeats(...)` as canonical with the same O(n²) complexity, and the method-index table maps `FindTandemRepeats` to REP-TANDEM-001 (line ~4630) and `FindTandemRepeats (GenomicAnalyzer)` to GENOMIC-TANDEM-001 (line ~4833) — the same method twice. REP-TANDEM-001 already ships the implementation, the canonical test fixture (`GenomicAnalyzer_TandemRepeat_Tests.cs`), Evidence and an algorithm doc (`docs/algorithms/Repeat_Analysis/Tandem_Repeat_Detection.md`). Per the prompt's duplicate-elimination rule ("one canonical test file per unit; no duplicate tests remain") and workflow-control rule ("note the conflict in the TestSpec and update the checklist entry"), GENOMIC-TANDEM-001 is **resolved by consolidation**: no new production code and no duplicate test file are created; this unit reuses the existing implementation and canonical fixture. Evidence (Benson 1999 + Wikipedia "Tandem repeat") was independently re-retrieved this session to confirm the behavior is correct and source-backed — the formal definition (two or more contiguous copies, k ≥ 2; worked example `ATTCG`×3) matches the implementation.
+1. **DECISION — canonical engine.** The former duplicate-Registry resolution ("same method as REP-TANDEM-001, nothing to do") hid a real defect: the method was an independent O(n²·m) scan reporting non-primitive units (B04 request, DUP_MAP §17). It now delegates to the canonical `RepeatFinder.FindMicrosatellites` (maximal runs, primitive units, ACGT) and uses the run enumeration of the runs theorem for wide unit-length ranges. REP-TANDEM-001 keeps the summary helpers; this unit owns the `FindTandemRepeats` contract.
+2. **DECISION — approximate repeats are not wrapped.** `RepeatFinder.FindApproximateTandemRepeats` (TRF) and MCP `find_approximate_tandem_repeats` are the canonical approximate detector; a pass-through in `GenomicAnalyzer` would duplicate a public API with a different result type, and neither the Benson paper nor the unit contract calls for it.

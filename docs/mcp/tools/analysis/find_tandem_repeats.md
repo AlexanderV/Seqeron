@@ -14,15 +14,26 @@ Consecutive repeating units (tandem repeats) in a DNA sequence.
 
 ## Description
 
-Finds **tandem repeats** — runs of a unit repeated consecutively (e.g. `ATGATGATG`) —
-whose unit length is ≥ `minUnitLength` and which repeat ≥ `minRepetitions` times. Each
-result reports the repeat unit, its 0-based start position, the number of consecutive
-copies, and the total span (`unit.Length × repetitions`). The scan skips past each
-tandem it reports.
+Finds **exact tandem repeats** — a unit repeated consecutively (e.g. `ATGATGATG`) — whose unit
+length lies in `[minUnitLength, maxUnitLength]` and which repeat ≥ `minRepetitions` complete
+times. For each unit length every **maximal run** (cannot be extended left or right with the same
+period; Kolpakov & Kucherov 1999) with a **primitive** unit (not a power of a shorter word:
+`ATATATAT` is `AT×4` at 0, not also `ATAT×2`; MISA "reject false type motifs") is reported once
+at its left end with `⌊length / unit length⌋` complete copies. Each result carries the unit, the
+0-based start, the number of copies and the total span (`unit.Length × repetitions`). Order: unit
+length ascending, then start. Runs of different unit lengths may overlap and are reported
+independently. Input is case-insensitive (A/C/G/T only).
+
+Implementation: a facade over `RepeatFinder.FindMicrosatellites` (one linear pass per unit length)
+that switches to a run-enumeration engine (Lyndon-array runs algorithm, Bannai et al. 2017,
+O(n log² n)) when more than 256 unit lengths are admissible, so the default "no upper bound" is
+fast on megabase sequences. **Approximate (interrupted) repeats** are not covered here: use
+[`find_approximate_tandem_repeats`](find_approximate_tandem_repeats.md) (Tandem Repeats Finder
+model, Benson 1999).
 
 ## Core Documentation Reference
 
-- Source: [GenomicAnalyzer.cs#L115](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GenomicAnalyzer.cs#L115)
+- Source: [GenomicAnalyzer.cs](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GenomicAnalyzer.cs)
 
 ## Input Schema
 
@@ -30,7 +41,8 @@ tandem it reports.
 |-----------|------|----------|-------------|
 | `sequence` | string | Yes | DNA sequence (min length 1) |
 | `minUnitLength` | integer | No | Minimum repeat-unit length (default 2, ≥ 1) |
-| `minRepetitions` | integer | No | Minimum consecutive copies (default 2, ≥ 2) |
+| `minRepetitions` | integer | No | Minimum complete consecutive copies (default 2, ≥ 2) |
+| `maxUnitLength` | integer | No | Maximum repeat-unit length (≥ `minUnitLength`); omit for no upper bound |
 
 ## Output Schema
 
@@ -46,6 +58,7 @@ tandem it reports.
 | 1001 | Invalid DNA sequence |
 | 1002 | Minimum repeat-unit length must be at least 1 |
 | 1002 | minRepetitions must be ≥ 2 |
+| 1002 | Maximum repeat-unit length must be at least minUnitLength |
 
 ## Examples
 
@@ -82,18 +95,20 @@ tandem it reports.
 
 **Response:**
 ```json
-{ "items": [ { "unit": "A", "position": 0, "repetitions": 5, "totalLength": 5 }, { "unit": "AA", "position": 0, "repetitions": 2, "totalLength": 4 } ] }
+{ "items": [ { "unit": "A", "position": 0, "repetitions": 5, "totalLength": 5 } ] }
 ```
-With `minUnitLength = 1` the scan also considers unit length 2, so the run is
-reported both as A×5 and as the AA×2 tiling.
+The run is reported once with its primitive unit; `AA×2` is the same run tiled by a
+non-primitive unit and is not reported.
 
 ## Performance
 
-- **Time Complexity:** O(n²) over unit lengths and start positions.
-- **Space Complexity:** O(number of tandems).
+- **Time Complexity:** O(n) per admissible unit length (≤ 256 unit lengths), otherwise O(n log² n) once
+  (1 Mbp random sequence, unbounded unit length: ≈ 3 s in a Debug build; 1 Mbp homopolymer / period-8 string ≈ 6 s).
+- **Space Complexity:** O(1) plus output for the per-unit-length scan; O(n) for the run enumeration.
 
 ## See Also
 
-- [find_microsatellites](find_microsatellites.md) — STRs with repeat-type classification
+- [find_microsatellites](find_microsatellites.md) — STRs with repeat-type classification (same engine)
+- [find_approximate_tandem_repeats](find_approximate_tandem_repeats.md) — interrupted / imperfect repeats (TRF)
 - [find_repeats](find_repeats.md) — any repeated substring
 - [tandem_repeat_summary](tandem_repeat_summary.md) — aggregate statistics
