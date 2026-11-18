@@ -1,0 +1,10 @@
+[
+ {
+  "id": "T11",
+  "desc": "FilePositions: a second Dispose gives the bytes back again",
+  "old": "        if (_disposed) return;\n        _disposed = true;\n        _file?.Dispose();\n        _file = null;\n        files.Ledger.Remove(count * 4);",
+  "new": "        _disposed = true;\n        _file?.Dispose();\n        _file = null;\n        files.Ledger.Remove(count * 4);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/PositionStore.cs",
+  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters|FullyQualifiedName~SaPinnedTests|FullyQualifiedName~SaGapTests)"
+ }
+]

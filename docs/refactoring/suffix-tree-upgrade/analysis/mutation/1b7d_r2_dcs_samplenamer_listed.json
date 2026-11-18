@@ -1,0 +1,10 @@
+[
+ {
+  "id": "M55",
+  "desc": "Split: equal splitter indices are kept",
+  "old": "if (i <= last) continue;",
+  "new": "if (i < last) continue;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters|FullyQualifiedName~SaPinnedTests|FullyQualifiedName~SaGapTests)"
+ }
+]

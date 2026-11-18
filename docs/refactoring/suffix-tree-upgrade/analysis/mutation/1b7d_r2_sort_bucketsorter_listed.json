@@ -1,0 +1,10 @@
+[
+ {
+  "id": "H13",
+  "desc": "Run: the ledger of an outer build is released",
+  "old": "if (options.Ledger is null) ledger.ReleaseAll();",
+  "new": "ledger.ReleaseAll();",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs",
+  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests|FullyQualifiedName~SaPinnedTests|FullyQualifiedName~SaGapTests)"
+ }
+]

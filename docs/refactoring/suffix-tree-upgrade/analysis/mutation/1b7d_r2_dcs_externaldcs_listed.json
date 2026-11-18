@@ -1,0 +1,10 @@
+[
+ {
+  "id": "E09",
+  "desc": "BuildRankFile: a window of zero",
+  "old": "ArgumentOutOfRangeException.ThrowIfLessThan(options.WindowBytes, 1);",
+  "new": "ArgumentOutOfRangeException.ThrowIfLessThan(options.WindowBytes, 0);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaPinnedTests|FullyQualifiedName~SaGapTests)"
+ }
+]
