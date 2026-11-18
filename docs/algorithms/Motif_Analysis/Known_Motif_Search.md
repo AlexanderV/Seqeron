@@ -146,6 +146,21 @@ with/without `-complement`): reverse-strand hits are windows equal to the revers
 reported in forward-strand coordinates (EcoRI `GAATTC` → both strands at the same position); IUPAC codes
 use the NC-IUB base sets and the IUPAC reverse complement (R↔Y, K↔M, B↔V, D↔H).
 
+**Mismatches (A1-20).** `FindKnownMotifHits(…, maxMismatches: k)` is fuzznuc `-pmismatch k`: a window is a hit when
+at most k of its m positions disagree with the motif (Hamming distance, substitutions only). The scan is the canonical
+`ApproximateMatcher.FindWithMismatches` (one scan per motif and strand, O(n·m), no index; the exact k = 0 route keeps the
+KMP / suffix-tree engines). IUPAC codes: with `allowIupac` a position agrees when the base is in the code's base set (the
+distance is the Hamming distance to the nearest concrete expansion), implemented as the additive
+`ApproximateMatcher.FindWithMismatches(…, iupacPattern: true)` overload (per-position membership =
+`IupacHelper.MatchesIupac`); without it every motif symbol is literal (a degenerate symbol costs one mismatch at each
+position). Reverse strand: the IUPAC reverse-complement motif with the same bound; each hit carries its own distance
+(`KnownMotifHit.Mismatches`, = fuzznuc's `*mismatch n` note; a non-palindromic motif can hit on the two strands with
+different distances). A bound ≥ m makes every window a hit (fuzznuc refuses such values); a sequence shorter than the
+motif has no window (fuzznuc reports an overhanging hit there, e.g. `AAA` with `-pmismatch 2` on `AC` — not reproduced,
+not in the oracle). Oracle: fuzznuc 6.6.0 `-pmismatch 1..3 -complement Y` (positions and `*mismatch` counts) = an
+independent Python Hamming scan on 6576 (sequence, pattern, k) rows (20 patterns, 3932 rows with forward and 3785 with
+reverse hits, 4183 with mismatching hits).
+
 ### 5.3 Conformance to Theory / Spec
 
 **Implemented (verbatim from the cited theory/spec):**
@@ -161,8 +176,8 @@ use the NC-IUB base sets and the IUPAC reverse complement (R↔Y, K↔M, B↔V, 
 
 **Not implemented:**
 
-- Mismatch-tolerant motif search (fuzznuc `-pmismatch > 0`): `ApproximateMatcher` (PAT-APPROX-001..003) and
-  position-weight scanning (`MotifFinder` PWM, PAT-PWM-001) cover it; it is not exact known-motif matching.
+- Gapped (insertion / deletion) motif search: fuzznuc has none either; edit-distance matching is
+  `ApproximateMatcher.FindWithEdits` (PAT-APPROX-002) and position-weight scanning is `MotifFinder` PWM (PAT-PWM-001).
 - Motif *discovery* and the fixed regulatory-element library: other units (MOTIF-DISCOVER-001, MOTIF-REGULATORY-001).
 
 ### 5.4 Deviations and Assumptions
@@ -187,7 +202,7 @@ use the NC-IUB base sets and the IUPAC reverse complement (R↔Y, K↔M, B↔V, 
 
 ### 6.2 Limitations
 
-Exact matching only (no mismatches or gaps). `FindKnownMotifs` / `FindMotif` search the forward strand and treat
+Exact matching by default; `FindKnownMotifHits(maxMismatches)` adds substitution-tolerant matching (no gaps, O(n·m) per motif and strand, no index). `FindKnownMotifs` / `FindMotif` search the forward strand and treat
 IUPAC symbols as literals (they match nothing in a DNA sequence); use `FindKnownMotifHits` for degenerate motifs
 and the reverse strand. In exact mode non-ACGT characters in a motif simply fail to match (no positions) rather
 than raising; in IUPAC mode a non-IUPAC symbol throws `ArgumentException`. The subject is a `DnaSequence`

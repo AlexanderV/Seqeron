@@ -1,3 +1,5 @@
+using Seqeron.Genomics.Alignment;
+
 namespace Seqeron.Genomics.Analysis;
 
 /// <summary>
@@ -421,20 +423,38 @@ public static class GenomicAnalyzer
     /// </list>
     /// Case-insensitive, overlapping hits included, null/empty/whitespace motifs skipped, results keyed by
     /// the upper-cased motif, duplicates collapsed, motifs without a hit omitted.
-    /// Verified against EMBOSS fuzznuc 6.6.0 (<c>-pmismatch 0</c>, with and without <c>-complement</c>).
+    /// <para>
+    /// <paramref name="maxMismatches"/> &gt; 0 is the mismatch-tolerant search of fuzznuc <c>-pmismatch k</c>: a window
+    /// is a hit when at most k of its m positions disagree with the motif (Hamming distance; substitutions only, no
+    /// gaps). Without <paramref name="allowIupac"/> every motif symbol is literal, so a degenerate symbol such as
+    /// <c>N</c> costs one mismatch at each position; with it a position agrees when the base is in the code's base set
+    /// (the distance is then the Hamming distance to the nearest concrete expansion of the motif). Each hit carries its
+    /// own <see cref="KnownMotifHit.Mismatches"/> count; on the reverse strand the reverse-complement motif is
+    /// matched with the same bound (a palindromic site can be one hit per strand with different counts). A bound of m
+    /// or more makes every window a hit. The scan is the canonical <see cref="ApproximateMatcher"/> Hamming matcher
+    /// (O(n·m) per query, no index); exact search (k = 0) keeps the KMP / suffix-tree routes.
+    /// </para>
+    /// Verified against EMBOSS fuzznuc 6.6.0 (<c>-pmismatch 0..3</c>, with and without <c>-complement</c>).
     /// </summary>
     /// <param name="sequence">Subject sequence.</param>
     /// <param name="motifs">Motifs to search.</param>
     /// <param name="bothStrands">Also report occurrences on the reverse strand.</param>
     /// <param name="allowIupac">Interpret IUPAC ambiguity codes in the motifs.</param>
+    /// <param name="maxMismatches">Maximum number of mismatching positions per hit (default 0 = exact).</param>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxMismatches"/> is negative.</exception>
     public static Dictionary<string, IReadOnlyList<KnownMotifHit>> FindKnownMotifHits(
         DnaSequence sequence,
         IEnumerable<string> motifs,
         bool bothStrands = false,
-        bool allowIupac = false)
+        bool allowIupac = false,
+        int maxMismatches = 0)
     {
         ArgumentNullException.ThrowIfNull(sequence);
         ArgumentNullException.ThrowIfNull(motifs);
+        ArgumentOutOfRangeException.ThrowIfNegative(maxMismatches);
+
+        if (maxMismatches > 0)
+            return FindKnownMotifHitsApproximate(sequence, motifs, bothStrands, allowIupac, maxMismatches);
 
         var found = SearchKnownMotifs(sequence, motifs, bothStrands, allowIupac);
         var result = new Dictionary<string, IReadOnlyList<KnownMotifHit>>(found.Count);
@@ -443,11 +463,29 @@ public static class GenomicAnalyzer
         return result;
     }
 
-    private static Dictionary<string, (List<int> Forward, List<int> Reverse)> SearchKnownMotifs(
-        DnaSequence sequence, IEnumerable<string> motifs, bool bothStrands, bool allowIupac)
+    // Mismatch-tolerant route: one canonical ApproximateMatcher Hamming scan per (motif, strand).
+    private static Dictionary<string, IReadOnlyList<KnownMotifHit>> FindKnownMotifHitsApproximate(
+        DnaSequence sequence, IEnumerable<string> motifs, bool bothStrands, bool allowIupac, int maxMismatches)
     {
-        // The empty string is not a motif (an exact search for "" would match every position).
-        // Skip empty/whitespace motifs, consistent with FindMotif's empty-pattern guard.
+        var result = new Dictionary<string, IReadOnlyList<KnownMotifHit>>();
+        foreach (string key in NormalizeMotifs(motifs))
+        {
+            var forward = ApproximateMatcher.FindWithMismatches(sequence.Sequence, key, maxMismatches, allowIupac)
+                .Select(m => new KnownMotifHit(m.Position, IsReverseStrand: false, m.Distance)).ToList();
+            var reverse = bothStrands
+                ? ApproximateMatcher.FindWithMismatches(sequence.Sequence, DnaSequence.GetReverseComplementString(key), maxMismatches, allowIupac)
+                    .Select(m => new KnownMotifHit(m.Position, IsReverseStrand: true, m.Distance)).ToList()
+                : new List<KnownMotifHit>();
+            if (forward.Count > 0 || reverse.Count > 0)
+                result[key] = MergeStrandHits(forward, reverse);
+        }
+
+        return result;
+    }
+
+    // Distinct upper-cased non-blank motifs in input order (the empty string is not a motif).
+    private static List<string> NormalizeMotifs(IEnumerable<string> motifs)
+    {
         var keys = new List<string>();
         var seen = new HashSet<string>(StringComparer.Ordinal);
         foreach (var motif in motifs)
@@ -458,6 +496,16 @@ public static class GenomicAnalyzer
             if (seen.Add(normalized))
                 keys.Add(normalized);
         }
+
+        return keys;
+    }
+
+    private static Dictionary<string, (List<int> Forward, List<int> Reverse)> SearchKnownMotifs(
+        DnaSequence sequence, IEnumerable<string> motifs, bool bothStrands, bool allowIupac)
+    {
+        // The empty string is not a motif (an exact search for "" would match every position).
+        // Skip empty/whitespace motifs, consistent with FindMotif's empty-pattern guard.
+        var keys = NormalizeMotifs(motifs);
 
         bool useIndex = !allowIupac && keys.Count * (bothStrands ? 2L : 1L) >= IndexedSearchMinQueries;
         var result = new Dictionary<string, (List<int>, List<int>)>(keys.Count);
@@ -495,15 +543,21 @@ public static class GenomicAnalyzer
     }
 
     private static List<KnownMotifHit> MergeStrandHits(List<int> forward, List<int> reverse)
+        => MergeStrandHits(
+            forward.ConvertAll(p => new KnownMotifHit(p, IsReverseStrand: false)),
+            reverse.ConvertAll(p => new KnownMotifHit(p, IsReverseStrand: true)));
+
+    // Both lists ascending by position; a forward hit precedes a reverse hit at the same position.
+    private static List<KnownMotifHit> MergeStrandHits(List<KnownMotifHit> forward, List<KnownMotifHit> reverse)
     {
         var merged = new List<KnownMotifHit>(forward.Count + reverse.Count);
         int f = 0, r = 0;
         while (f < forward.Count || r < reverse.Count)
         {
-            if (r >= reverse.Count || (f < forward.Count && forward[f] <= reverse[r]))
-                merged.Add(new KnownMotifHit(forward[f++], IsReverseStrand: false));
+            if (r >= reverse.Count || (f < forward.Count && forward[f].Position <= reverse[r].Position))
+                merged.Add(forward[f++]);
             else
-                merged.Add(new KnownMotifHit(reverse[r++], IsReverseStrand: true));
+                merged.Add(reverse[r++]);
         }
 
         return merged;
@@ -934,9 +988,10 @@ public static class GenomicAnalyzer
 /// <summary>
 /// A known-motif hit (<see cref="GenomicAnalyzer.FindKnownMotifHits"/>): the 0-based start of the matching
 /// window on the forward strand and whether the motif was found on the reverse strand (the window matches
-/// the motif's reverse complement).
+/// the motif's reverse complement). <c>Mismatches</c> is the Hamming distance of the window to the motif (or to its
+/// reverse complement): always 0 for an exact search, ≤ <c>maxMismatches</c> otherwise (EMBOSS fuzznuc <c>*mismatch</c> note).
 /// </summary>
-public readonly record struct KnownMotifHit(int Position, bool IsReverseStrand);
+public readonly record struct KnownMotifHit(int Position, bool IsReverseStrand, int Mismatches = 0);
 
 /// <summary>
 /// Information about a repeated region.

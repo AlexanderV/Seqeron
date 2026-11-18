@@ -71,4 +71,43 @@ public class FindKnownMotifsTests
         });
         Assert.Throws<ArgumentException>(() => AnalysisTools.FindKnownMotifs(seq, new[] { "AXG" }, iupac: true));
     }
+
+    // EMBOSS fuzznuc 6.6.0 (-pmismatch k -complement Y) on GAATTCAAGATTCGGATTTTGAATTTT (B09 A1-20), 0-based forward-strand starts:
+    // GAATTC k=1: + 0 (0 mm), 20 (1 mm); - 0 (0 mm), 20 (1 mm). RAATTC k=2 (IUPAC): + 0:0 7:1 13:2 14:2 20:1 21:2; - 0:0 7:2 13:1 14:1 20:0 21:2.
+    [Test]
+    public void FindKnownMotifs_Mismatches_MatchFuzznuc_WithDistances()
+    {
+        const string seq = "GAATTCAAGATTCGGATTTTGAATTTT";
+
+        var eco = AnalysisTools.FindKnownMotifs(seq, new[] { "GAATTC" }, bothStrands: true, mismatches: 1);
+        Assert.Multiple(() =>
+        {
+            Assert.That(eco.Matches["GAATTC"], Is.EqualTo(new[] { 0, 20 }));
+            Assert.That(eco.MatchMismatches!["GAATTC"], Is.EqualTo(new[] { 0, 1 }));
+            Assert.That(eco.ReverseMatches!["GAATTC"], Is.EqualTo(new[] { 0, 20 }));
+            Assert.That(eco.ReverseMismatches!["GAATTC"], Is.EqualTo(new[] { 0, 1 }));
+        });
+
+        var r = AnalysisTools.FindKnownMotifs(seq, new[] { "RAATTC" }, bothStrands: true, iupac: true, mismatches: 2);
+        Assert.Multiple(() =>
+        {
+            Assert.That(r.Matches["RAATTC"], Is.EqualTo(new[] { 0, 7, 13, 14, 20, 21 }));
+            Assert.That(r.MatchMismatches!["RAATTC"], Is.EqualTo(new[] { 0, 1, 2, 2, 1, 2 }));
+            Assert.That(r.ReverseMatches!["RAATTC"], Is.EqualTo(new[] { 0, 7, 13, 14, 20, 21 }));
+            Assert.That(r.ReverseMismatches!["RAATTC"], Is.EqualTo(new[] { 0, 2, 1, 1, 0, 2 }));
+        });
+    }
+
+    [Test]
+    public void FindKnownMotifs_Mismatches_DefaultKeepsExactContract_AndRejectsNegative()
+    {
+        var exact = AnalysisTools.FindKnownMotifs("GAATTCAAGATTCGGATTTTGAATTTT", new[] { "GAATTC" });
+        Assert.Multiple(() =>
+        {
+            Assert.That(exact.Matches["GAATTC"], Is.EqualTo(new[] { 0 }));
+            Assert.That(exact.MatchMismatches, Is.Null, "distance arrays only with mismatches > 0");
+            Assert.That(exact.ReverseMismatches, Is.Null);
+        });
+        Assert.Throws<ArgumentOutOfRangeException>(() => AnalysisTools.FindKnownMotifs("ACGT", new[] { "AC" }, mismatches: -1));
+    }
 }

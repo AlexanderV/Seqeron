@@ -6,14 +6,15 @@
   "stability": "stable",
   "methodId": "GenomicAnalyzer.FindKnownMotifs",
   "docRef": "Seqeron.Genomics.Analysis/GenomicAnalyzer.cs#L257",
-  "description": "Search a DNA sequence for a set of motifs simultaneously (exact by default; optional IUPAC codes and reverse strand); returns, per motif that occurs, all its 0-based forward-strand positions sorted ascending. Motifs with no hit are omitted.",
+  "description": "Search a DNA sequence for a set of motifs simultaneously (exact by default; optional IUPAC codes, reverse strand and a Hamming mismatch budget, EMBOSS fuzznuc -pmismatch); returns, per motif that occurs, all its 0-based forward-strand positions sorted ascending. Motifs with no hit are omitted.",
   "inputSchema": {
     "type": "object",
     "properties": {
       "sequence": { "type": "string", "description": "DNA sequence", "minLength": 1 },
       "motifs": { "type": "array", "description": "Set of motifs to search", "items": { "type": "string" } },
       "bothStrands": { "type": "boolean", "description": "Also search the reverse strand (default false)" },
-      "iupac": { "type": "boolean", "description": "Interpret IUPAC ambiguity codes in the motifs (default false)" }
+      "iupac": { "type": "boolean", "description": "Interpret IUPAC ambiguity codes in the motifs (default false)" },
+      "mismatches": { "type": "integer", "minimum": 0, "description": "Maximum number of mismatching positions per hit, Hamming distance (default 0 = exact)" }
     },
     "required": ["sequence", "motifs"]
   },
@@ -29,6 +30,16 @@
         "type": "object",
         "description": "Map from (upper-cased) motif to the ascending forward-strand window starts matching its reverse complement (empty unless bothStrands)",
         "additionalProperties": { "type": "array", "items": { "type": "integer" } }
+      },
+      "matchMismatches": {
+        "type": "object",
+        "description": "Only with mismatches > 0: Hamming distance of each matches position (parallel array per motif)",
+        "additionalProperties": { "type": "array", "items": { "type": "integer" } }
+      },
+      "reverseMismatches": {
+        "type": "object",
+        "description": "Only with mismatches > 0: Hamming distance of each reverseMatches position",
+        "additionalProperties": { "type": "array", "items": { "type": "integer" } }
       }
     },
     "required": ["matches"]
@@ -36,7 +47,8 @@
   "errors": [
     { "code": 1001, "message": "Sequence cannot be null or empty" },
     { "code": 1001, "message": "Invalid DNA sequence" },
-    { "code": 1001, "message": "Motifs cannot be null" }
+    { "code": 1001, "message": "Motifs cannot be null" },
+    { "code": 1001, "message": "Mismatches cannot be negative" }
   ],
   "examples": [
     {
@@ -53,6 +65,11 @@
       "name": "Both strands, IUPAC",
       "input": { "sequence": "GAATTCAAAGAATTCTTTATATAAAGTTCAAGAAC", "motifs": ["TATAWAW"], "bothStrands": true, "iupac": true },
       "output": { "matches": { "TATAWAW": [17] }, "reverseMatches": { "TATAWAW": [16] } }
+    },
+    {
+      "name": "One mismatch, both strands (fuzznuc -pmismatch 1)",
+      "input": { "sequence": "GAATTCAAGATTCGGATTTTGAATTTT", "motifs": ["GAATTC"], "bothStrands": true, "mismatches": 1 },
+      "output": { "matches": { "GAATTC": [0, 20] }, "reverseMatches": { "GAATTC": [0, 20] }, "matchMismatches": { "GAATTC": [0, 1] }, "reverseMismatches": { "GAATTC": [0, 1] } }
     }
   ]
 }

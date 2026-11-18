@@ -46,6 +46,9 @@
     <!-- GENOMIC-MOTIFS-001 (B09 F18-F20): EMBOSS fuzznuc 6.6.0 (== independent Python regex) forward / reverse-strand,
          exact and IUPAC known-motif hits for 2448 (sequence, pattern) pairs; scripts/analysis/generate_known_motif_oracle.py. -->
     <EmbeddedResource Include="TestData\Analysis\known_motif_oracle.tsv" />
+    <!-- GENOMIC-MOTIFS-001 (B09 A1-20): mismatch-tolerant known-motif hits, EMBOSS fuzznuc 6.6.0 pmismatch 1..3 (positions + mismatch notes)
+         == independent Python Hamming scan, 6576 (sequence, pattern, k) rows; scripts/analysis/generate_known_motif_oracle.py (mismatch mode). -->
+    <EmbeddedResource Include="TestData\Analysis\known_motif_mismatch_oracle.tsv" />
     <!-- GENOMIC-SIMILARITY-001 (B09 F32-F34): exact k-mer Jaccard (percent), literal == Python set == scipy jaccard on presence
          vectors, canonical == Python set over min(w, revcomp w) == sourmash 4.9.4 MinHash(scaled=1); 2086 rows;
          scripts/analysis/generate_similarity_oracle.py. -->

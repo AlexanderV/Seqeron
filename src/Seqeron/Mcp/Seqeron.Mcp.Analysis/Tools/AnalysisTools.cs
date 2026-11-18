@@ -700,31 +700,45 @@ public class AnalysisTools
     }
 
     [McpServerTool(Name = "find_known_motifs", Title = "Genome — Search Known Motif Set", ReadOnly = true)]
-    [Description("Search for a user-provided set of motifs simultaneously (exact by default; optional IUPAC codes and reverse strand). Only motifs with at least one hit are returned; positions ascending, 0-based, forward-strand window starts.")]
+    [Description("Search for a user-provided set of motifs simultaneously (exact by default; optional IUPAC codes, reverse strand and a mismatch budget). Only motifs with at least one hit are returned; positions ascending, 0-based, forward-strand window starts. mismatches = k > 0 allows up to k substituted positions per window (Hamming distance, EMBOSS fuzznuc -pmismatch; no gaps) and adds matchMismatches / reverseMismatches (the distance of each reported hit, parallel to the position arrays).")]
     public static FindKnownMotifsResult FindKnownMotifs(
         [Description("DNA sequence.")] string sequence,
         [Description("Set of motifs to search.")] string[] motifs,
         [Description("Also search the reverse strand: reverseMatches lists the windows matching the reverse complement of each motif (default false).")] bool bothStrands = false,
-        [Description("Interpret IUPAC ambiguity codes in the motifs, e.g. TATAWAW (default false: codes are literal and match nothing).")] bool iupac = false)
+        [Description("Interpret IUPAC ambiguity codes in the motifs, e.g. TATAWAW (default false: codes are literal; without mismatches they match nothing, with mismatches each costs one).")] bool iupac = false,
+        [Description("Maximum number of mismatching positions per hit (default 0 = exact; fuzznuc -pmismatch). A bound >= the motif length makes every window a hit.")] int mismatches = 0)
     {
         var dna = RequireDna(sequence, nameof(sequence));
         if (motifs is null)
             throw new ArgumentException("Motifs cannot be null", nameof(motifs));
+        if (mismatches < 0)
+            throw new ArgumentOutOfRangeException(nameof(mismatches), "Mismatches cannot be negative");
 
-        var hits = GenomicAnalyzer.FindKnownMotifHits(dna, motifs, bothStrands, iupac);
+        var hits = GenomicAnalyzer.FindKnownMotifHits(dna, motifs, bothStrands, iupac, mismatches);
         var matches = new Dictionary<string, int[]>(hits.Count);
         var reverse = new Dictionary<string, int[]>();
+        var matchMismatches = mismatches > 0 ? new Dictionary<string, int[]>(hits.Count) : null;
+        var reverseMismatches = mismatches > 0 ? new Dictionary<string, int[]>() : null;
         foreach (var kvp in hits)
         {
-            var forward = kvp.Value.Where(h => !h.IsReverseStrand).Select(h => h.Position).ToArray();
-            var rev = kvp.Value.Where(h => h.IsReverseStrand).Select(h => h.Position).ToArray();
-            if (forward.Length > 0)
-                matches[kvp.Key] = forward;
-            if (rev.Length > 0)
-                reverse[kvp.Key] = rev;
+            var forwardHits = kvp.Value.Where(h => !h.IsReverseStrand).ToArray();
+            var reverseHits = kvp.Value.Where(h => h.IsReverseStrand).ToArray();
+            if (forwardHits.Length > 0)
+            {
+                matches[kvp.Key] = forwardHits.Select(h => h.Position).ToArray();
+                if (matchMismatches is not null)
+                    matchMismatches[kvp.Key] = forwardHits.Select(h => h.Mismatches).ToArray();
+            }
+
+            if (reverseHits.Length > 0)
+            {
+                reverse[kvp.Key] = reverseHits.Select(h => h.Position).ToArray();
+                if (reverseMismatches is not null)
+                    reverseMismatches[kvp.Key] = reverseHits.Select(h => h.Mismatches).ToArray();
+            }
         }
 
-        return new FindKnownMotifsResult(matches, reverse);
+        return new FindKnownMotifsResult(matches, reverse, matchMismatches, reverseMismatches);
     }
 
     [McpServerTool(Name = "find_common_regions", Title = "Genome — Common Regions", ReadOnly = true)]

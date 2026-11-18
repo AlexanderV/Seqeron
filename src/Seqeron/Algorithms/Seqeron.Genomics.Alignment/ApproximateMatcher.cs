@@ -47,13 +47,69 @@ namespace Seqeron.Genomics.Alignment
         {
             if (maxMismatches < 0)
                 throw new ArgumentOutOfRangeException(nameof(maxMismatches), "Cannot be negative.");
-            return FindWithMismatchesCore(sequence, pattern, maxMismatches, cancellationToken);
+            return FindWithMismatchesCore(sequence, pattern, maxMismatches, false, cancellationToken);
+        }
+
+        /// <summary>
+        /// Hamming-bounded matching of an <b>IUPAC-degenerate pattern</b> (EMBOSS fuzznuc <c>-pmismatch k</c>): every
+        /// 0-based start i ∈ [0, n − m] whose length-m window has at most <paramref name="maxMismatches"/> mismatching
+        /// positions is reported, overlapping occurrences included. A position matches when the sequence base belongs to the
+        /// base set of the pattern code (NC-IUB 1984; <see cref="IupacHelper.MatchesIupac"/>: R = A|G, N = any of ACGT, …);
+        /// otherwise it counts as one mismatch — so the distance is the Hamming distance to the nearest concrete expansion
+        /// of the pattern. The sequence side is literal: a non-ACGT sequence symbol (e.g. N) matches no pattern code and
+        /// is always a mismatch. Case-insensitive; MatchedSequence is upper-cased; MismatchPositions are pattern-relative.
+        /// Null/empty input or a pattern longer than the sequence yields no matches. With a pattern of A/C/G/T only this
+        /// equals <see cref="FindWithMismatches(string, string, int)"/>.
+        /// </summary>
+        /// <param name="sequence">The sequence to search in.</param>
+        /// <param name="pattern">The pattern, spelled with the 15 IUPAC DNA codes.</param>
+        /// <param name="maxMismatches">Maximum number of allowed mismatches (≥ 0).</param>
+        /// <param name="iupacPattern">true: pattern symbols are IUPAC codes (validated eagerly); false: literal comparison, identical to <see cref="FindWithMismatches(string, string, int, CancellationToken)"/>.</param>
+        /// <param name="cancellationToken">Cancellation token for long-running operations.</param>
+        /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxMismatches"/> is negative.</exception>
+        /// <exception cref="ArgumentException"><paramref name="iupacPattern"/> is true and the pattern contains a symbol that is not an IUPAC DNA code.</exception>
+        public static IEnumerable<ApproximateMatchResult> FindWithMismatches(
+            string sequence,
+            string pattern,
+            int maxMismatches,
+            bool iupacPattern,
+            CancellationToken cancellationToken)
+        {
+            if (maxMismatches < 0)
+                throw new ArgumentOutOfRangeException(nameof(maxMismatches), "Cannot be negative.");
+            if (!iupacPattern)
+                return FindWithMismatchesCore(sequence, pattern, maxMismatches, false, cancellationToken);
+
+            if (!string.IsNullOrEmpty(pattern))
+            {
+                string upper = pattern.ToUpperInvariant();
+                for (int i = 0; i < upper.Length; i++)
+                {
+                    if (!IupacHelper.IsNucleotideCode(upper[i]))
+                    {
+                        throw new ArgumentException(
+                            $"Invalid IUPAC code '{upper[i]}' at position {i} in pattern. " +
+                            "Valid codes: A, C, G, T, N, R, Y, S, W, K, M, B, D, H, V.",
+                            nameof(pattern));
+                    }
+                }
+            }
+
+            return FindWithMismatchesCore(sequence, pattern, maxMismatches, true, cancellationToken);
+        }
+
+        /// <inheritdoc cref="FindWithMismatches(string, string, int, bool, CancellationToken)"/>
+        public static IEnumerable<ApproximateMatchResult> FindWithMismatches(
+            string sequence, string pattern, int maxMismatches, bool iupacPattern)
+        {
+            return FindWithMismatches(sequence, pattern, maxMismatches, iupacPattern, CancellationToken.None);
         }
 
         private static IEnumerable<ApproximateMatchResult> FindWithMismatchesCore(
             string sequence,
             string pattern,
             int maxMismatches,
+            bool iupacPattern,
             CancellationToken cancellationToken)
         {
             if (string.IsNullOrEmpty(sequence) || string.IsNullOrEmpty(pattern))
@@ -71,21 +127,39 @@ namespace Seqeron.Genomics.Alignment
                 if (i % checkInterval == 0)
                     cancellationToken.ThrowIfCancellationRequested();
 
-                var positions = CollectMismatchPositions(seq, i, pat, maxMismatches);
-                int mismatches = positions.Count;
+                // Count with early exit first (no allocation for the vast majority of rejected windows),
+                // collect the positions only for a hit.
+                if (CountMismatches(seq, i, pat, maxMismatches, iupacPattern) > maxMismatches)
+                    continue;
 
-                if (mismatches <= maxMismatches)
-                {
-                    yield return new ApproximateMatchResult(
-                        i,
-                        seq.Substring(i, pat.Length),
-                        mismatches,
-                        positions.AsReadOnly(),
-                        MismatchType.Substitution
-                    );
-                }
+                var positions = CollectMismatchPositions(seq, i, pat, maxMismatches, iupacPattern);
+                yield return new ApproximateMatchResult(
+                    i,
+                    seq.Substring(i, pat.Length),
+                    positions.Count,
+                    positions.AsReadOnly(),
+                    MismatchType.Substitution
+                );
             }
         }
+
+        // Number of mismatching positions of the window at `start`, counting stops at limit + 1 (the caller only
+        // needs to know whether the limit is exceeded). iupac: pattern position j matches when the sequence base is in
+        // the base set of the pattern code; otherwise literal equality.
+        private static int CountMismatches(string seq, int start, string pat, int limit, bool iupac)
+        {
+            int count = 0;
+            for (int j = 0; j < pat.Length && count <= limit; j++)
+            {
+                if (IsMismatch(seq[start + j], pat[j], iupac))
+                    count++;
+            }
+
+            return count;
+        }
+
+        private static bool IsMismatch(char sequenceBase, char patternSymbol, bool iupac)
+            => iupac ? !IupacHelper.MatchesIupac(sequenceBase, patternSymbol) : sequenceBase != patternSymbol;
 
         /// <summary>
         /// Finds all approximate matches of a pattern in a DNA sequence with at most k mismatches.
@@ -1123,15 +1197,15 @@ namespace Seqeron.Genomics.Alignment
         /// Pattern-relative indices j at which <paramref name="seq"/>[start + j] ≠ <paramref name="pat"/>[j]
         /// (both already upper-cased), in ascending order. Scanning stops as soon as more than
         /// <paramref name="limit"/> mismatches have been seen (the list then holds limit + 1 entries),
-        /// so a caller can reject the window by <c>Count &gt; limit</c>. Shared by
+        /// so a caller can reject the window by <c>Count &gt; limit</c> (iupac: pattern positions are IUPAC codes). Shared by
         /// <see cref="FindWithMismatches(string, string, int, CancellationToken)"/> and <see cref="FindBestMatch"/>.
         /// </summary>
-        private static List<int> CollectMismatchPositions(string seq, int start, string pat, int limit)
+        private static List<int> CollectMismatchPositions(string seq, int start, string pat, int limit, bool iupac = false)
         {
             var positions = new List<int>();
             for (int j = 0; j < pat.Length && positions.Count <= limit; j++)
             {
-                if (seq[start + j] != pat[j])
+                if (IsMismatch(seq[start + j], pat[j], iupac))
                     positions.Add(j);
             }
             return positions;

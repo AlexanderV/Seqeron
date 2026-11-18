@@ -1,6 +1,6 @@
 # find_known_motifs
 
-Search a DNA sequence for a set of known motifs simultaneously (exact, or IUPAC / both strands).
+Search a DNA sequence for a set of known motifs simultaneously (exact, or IUPAC / both strands / up to k mismatches).
 
 ## Overview
 
@@ -26,6 +26,14 @@ also reports, in `reverseMatches`, the windows that match the reverse complement
 (forward-strand start coordinates; a palindromic site such as `GAATTC` appears in both maps).
 Verified against EMBOSS fuzznuc 6.6.0 (`-pmismatch 0 -complement Y`) on 2448 sequence/pattern pairs.
 
+`mismatches = k > 0` is fuzznuc `-pmismatch k`: a window is reported when at most k of its positions differ from the motif
+(Hamming distance, substitutions only, no gaps; with `iupac` a position agrees when the base is in the code's base set,
+without it every motif symbol is literal and a degenerate symbol such as `N` costs one mismatch). The reverse strand is
+searched with the reverse-complement motif and the same bound. The result then also carries `matchMismatches` /
+`reverseMismatches`: the Hamming distance of each reported position (parallel arrays). A bound at least the motif length
+makes every window a hit. Verified against fuzznuc 6.6.0 `-pmismatch 1..3` (positions and `*mismatch` counts) on 6576
+sequence/pattern/k rows.
+
 ## Core Documentation Reference
 
 - Source: [GenomicAnalyzer.cs#L257](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GenomicAnalyzer.cs#L257)
@@ -39,6 +47,7 @@ Verified against EMBOSS fuzznuc 6.6.0 (`-pmismatch 0 -complement Y`) on 2448 seq
 | `motifs` | array of string | Yes | Set of motifs to search |
 | `bothStrands` | boolean | No | Also search the reverse strand (default false) |
 | `iupac` | boolean | No | Interpret IUPAC codes in the motifs (default false) |
+| `mismatches` | integer | No | Maximum mismatching positions per hit, Hamming (default 0 = exact; fuzznuc `-pmismatch`) |
 
 ## Output Schema
 
@@ -46,6 +55,8 @@ Verified against EMBOSS fuzznuc 6.6.0 (`-pmismatch 0 -complement Y`) on 2448 seq
 |-------|------|-------------|
 | `matches` | object | Map from upper-cased motif → ascending 0-based forward-strand positions |
 | `reverseMatches` | object | Map from upper-cased motif → ascending forward-strand window starts matching the motif's reverse complement (empty unless `bothStrands`) |
+| `matchMismatches` | object | Only with `mismatches` > 0: motif → Hamming distance of each `matches` position (parallel array) |
+| `reverseMismatches` | object | Only with `mismatches` > 0: motif → Hamming distance of each `reverseMatches` position |
 
 ## Errors
 
@@ -55,6 +66,7 @@ Verified against EMBOSS fuzznuc 6.6.0 (`-pmismatch 0 -complement Y`) on 2448 seq
 | 1001 | Invalid DNA sequence |
 | 1001 | Motifs cannot be null |
 | 1001 | Invalid IUPAC code in motif (`iupac = true` only) |
+| 1001 | Mismatches cannot be negative |
 
 ## Examples
 
@@ -104,9 +116,18 @@ GG does not occur, so it is omitted.
 **Response:** `{ "matches": { "TATAWAW": [17] }, "reverseMatches": { "TATAWAW": [16] } }`
 (fuzznuc: 18-24 `+`, 17-23 `-`, 1-based).
 
+### Example 4: Mismatches (EMBOSS fuzznuc `-pmismatch 1`)
+
+```json
+{ "tool": "find_known_motifs",
+  "arguments": { "sequence": "GAATTCAAGATTCGGATTTTGAATTTT", "motifs": ["GAATTC"], "bothStrands": true, "mismatches": 1 } }
+```
+**Response:** `{ "matches": { "GAATTC": [0, 20] }, "reverseMatches": { "GAATTC": [0, 20] }, "matchMismatches": { "GAATTC": [0, 1] }, "reverseMismatches": { "GAATTC": [0, 1] } }`
+(fuzznuc: `+` 1-6, 21-26 `*mismatch 1`; `-` 1-6, 21-26 `*mismatch 1`).
+
 ## Performance
 
-- **Time Complexity:** fewer than 128 distinct queries (motifs × strands): one KMP scan per query, O(k·n); from 128 queries: O(n) suffix-tree build + O(|m| + occ·log occ) per query.
+- **Time Complexity:** `mismatches > 0`: one Hamming scan per query, O(n·m) per motif and strand (no index). Exact: fewer than 128 distinct queries (motifs × strands): one KMP scan per query, O(k·n); from 128 queries: O(n) suffix-tree build + O(|m| + occ·log occ) per query.
 - **Space Complexity:** O(occ) for scans; O(n) for the suffix tree (heavy: 1.7 GB at 10 Mbp).
 
 ## See Also

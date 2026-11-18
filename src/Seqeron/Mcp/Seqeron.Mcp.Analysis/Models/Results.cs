@@ -149,8 +149,16 @@ public record MotifPositionsResult(int[] Positions);
 /// <summary>
 /// Map of motif → forward-strand hit positions (<c>Matches</c>) and, with <c>bothStrands</c>, motif → forward-strand
 /// window starts matching the motif's reverse complement (<c>ReverseMatches</c>, empty otherwise); only motifs with a hit.
+/// With <c>mismatches</c> &gt; 0, <c>MatchMismatches</c> / <c>ReverseMismatches</c> hold, parallel to <c>Matches</c> /
+/// <c>ReverseMatches</c>, the Hamming distance of each hit (absent for the exact search).
 /// </summary>
-public record FindKnownMotifsResult(Dictionary<string, int[]> Matches, Dictionary<string, int[]>? ReverseMatches = null);
+public record FindKnownMotifsResult(
+    Dictionary<string, int[]> Matches,
+    Dictionary<string, int[]>? ReverseMatches = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    Dictionary<string, int[]>? MatchMismatches = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    Dictionary<string, int[]>? ReverseMismatches = null);
 
 /// <summary>A common region between two sequences.</summary>
 public record CommonRegionItem(string Sequence, int PositionInFirst, int PositionInSecond, int Length);

@@ -60,7 +60,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `find_exact_motif` | Exact-match motif positions in a DNA sequence via suffix tree. |
 | `find_inverted_repeats` | Sequences whose two arms are reverse-complement of each other (hairpin candidates). |
 | `find_inverted_repeats_scored` | Finds inverted repeats with EMBOSS einverted (Durbin & Thierry-Mieg 1993; EMBOSS 6.6.0): a local alignment of the sequence against its reve… |
-| `find_known_motifs` | Search for a user-provided set of motifs simultaneously (exact by default; optional IUPAC codes and reverse strand). Only motifs with at least one hit are returned; positions ascending, 0-based, forward-strand window starts. |
+| `find_known_motifs` | Search for a user-provided set of motifs simultaneously (exact by default; optional IUPAC codes, reverse strand and a mismatch budget). Only motifs with at least one hit are returned; positions ascending, 0-based, forward-strand window starts. mismatches = k > 0 allows up to k substituted positions per window (Hamming distance, EMBOSS fuzznuc -pmismatch; no gaps) and adds matchMismatches / reverseMismatches (the distance of each reported hit, parallel to the position arrays). |
 | `find_longdust_regions` | Finds low-complexity regions with **longdust** (Li & Li 2025; port of lh3/longdust 1.4-r97 ld_dust1/ld_dust2, MIT) — the k-mer generalisati… |
 | `find_low_complexity_intervals` | Returns the **SDUST** low-complexity intervals (Morgulis et al. 2006; symmetric DUST) as 0-based half-open [start, end) pairs in ascending… |
 | `find_low_complexity_regions` | Entropy-thresholded contiguous low-complexity DNA regions. |

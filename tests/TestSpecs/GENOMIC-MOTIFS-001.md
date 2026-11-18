@@ -18,7 +18,7 @@
 | 1 | Gusfield (1997) exact-matching definition via Tufts COMP 150GEN | 1 | https://www.cs.tufts.edu/comp/150GEN/classpages/exact.html | 2026-06-13 |
 | 2 | Biopython `Bio.Seq` (`search`, `count_overlap`) reference impl | 3 | https://raw.githubusercontent.com/biopython/biopython/master/Bio/Seq.py | 2026-06-13 |
 | 3 | Wikipedia "Restriction site" (EcoRI = GAATTC) | 4 | https://en.wikipedia.org/wiki/Restriction_site | 2026-06-13 |
-| 4 | EMBOSS 6.6.0 `fuzznuc` (Debian `emboss`, run locally: `-pmismatch 0 -complement Y`); Python `re` lookahead | 3 | `scripts/analysis/generate_known_motif_oracle.py` | 2026-11-18 |
+| 4 | EMBOSS 6.6.0 `fuzznuc` (Debian `emboss`, run locally: `-pmismatch 0..3 -complement Y`); Python `re` lookahead / Hamming scan | 3 | `scripts/analysis/generate_known_motif_oracle.py` | 2026-11-18 |
 
 ### 1.2 Key Evidence Points
 
@@ -48,7 +48,7 @@
 | Method | Class | Type | Notes |
 |--------|-------|------|-------|
 | `FindKnownMotifs(DnaSequence, IEnumerable<string>)` | GenomicAnalyzer | Canonical | Multi-motif exact search; returns dict motif → sorted 0-based positions (KMP scans below 128 queries, suffix tree from 128) |
-| `FindKnownMotifHits(DnaSequence, IEnumerable<string>, bothStrands, allowIupac)` | GenomicAnalyzer | Canonical (strand / IUPAC) | `KnownMotifHit(Position, IsReverseStrand)`; fuzznuc-equivalent |
+| `FindKnownMotifHits(DnaSequence, IEnumerable<string>, bothStrands, allowIupac, maxMismatches)` | GenomicAnalyzer | Canonical (strand / IUPAC / Hamming budget) | `KnownMotifHit(Position, IsReverseStrand, Mismatches)`; fuzznuc-equivalent (`-pmismatch k`, A1-20) |
 | `FindMotif(DnaSequence, string)` | GenomicAnalyzer | Wrapper | Delegates to `MotifFinder.FindExactMotif` (ascending) |
 
 ---
@@ -65,6 +65,7 @@
 | INV-6 | `FindMotif` = `MotifFinder.FindExactMotif` = `str.find` scan, ascending (Rosalind SUBS `ATAT`/`GATATATGCATATACTT` → 1,3,9; the tree enumerates 1,9,3) | Yes | Source 1 + B05/B06 requests |
 | INV-7 | Reverse hit at p ⇔ `T[p..p+n-1]` = (IUPAC) reverse complement of the motif, forward-strand coordinate; palindromes hit on both strands | Yes | Source 4 (2448-pair oracle) |
 | INV-8 | IUPAC mode: window matches iff each base ∈ base set of the code; exact mode: IUPAC symbols literal (no hit) | Yes | Source 4 |
+| INV-10 | `maxMismatches` = k: a window is a hit iff its Hamming distance (IUPAC mode: to the nearest concrete expansion; literal mode: every non-equal symbol) is ≤ k; `Mismatches` = that distance; raising k only adds hits; k = 0 = the exact search with `Mismatches` 0; a sequence shorter than the motif has no hit | Yes | Source 4 (6576-row mismatch oracle), A1-20 |
 | INV-9 | KMP-scan route (< 128 queries) and suffix-tree route (≥ 128) return identical positions | Yes | `str.IndexOf` oracle |
 
 ---
@@ -100,6 +101,9 @@
 | O3 | Worked fuzznuc example | `GAATTCAAAGAATTCTTTATATAAAGTTCAAGAAC`: GAATTC both strands @0,9; TATAWAW fwd 17 / rev 16 | exact | Source 4 |
 | O4 | Ascending + Rosalind SUBS | `ATAT` in `GATATATGCATATACTT` | `[1,3,9]` (tree order 1,9,3) | INV-6 |
 | O5 | Null contract | null sequence → `ArgumentNullException`; invalid IUPAC symbol in IUPAC mode → `ArgumentException` | | |
+| O8 | fuzznuc mismatch oracle (A1-20) | 6576 (sequence, pattern, k) rows, k = 1..3, 20 patterns, both strands | `FindKnownMotifHits(maxMismatches)` = fuzznuc positions + `*mismatch n` counts = Python Hamming scan | INV-10 |
+| O9 | fuzznuc worked examples | GAATTC k=1, RAATTC k=2 (IUPAC), AACCGT k=1 (reverse hit with own count) | exact positions / distances per strand | INV-10 |
+| O10 | `ApproximateMatcher.FindWithMismatches(iupacPattern: true)` | IUPAC pattern distance, sequence N always a mismatch, invalid code → `ArgumentException`, flag false / ACGT pattern = literal overloads (100 random cases) | | INV-10 |
 | O6 | Engine routes | 6 motifs (scan) vs 206 motifs (tree) vs 70 motifs × 2 strands | identical to `str.IndexOf` | INV-9 |
 | O7 | Large input | 3 Mbp, single motif | `str.IndexOf`-equal, < 20 s (no suffix-tree build) | complexity |
 
@@ -186,4 +190,4 @@
 ## 7. Open Questions / Decisions
 
 1. Existing `FindKnownMotifs` returned suffix-tree DFS-order (unsorted) positions and did not skip empty motifs — corrected to sorted ascending + empty-motif skip to satisfy INV-3 and the empty-motif policy. Decision recorded in algorithm doc §5.2.
-2. (B09 review 2026-11-18) The unit has no built-in motif catalogue (TATA box, Kozak, … live in `MotifFinder.FindRegulatoryElements`, MOTIF-REGULATORY-001); the motif set is caller-supplied. `GenomicAnalyzer.FindMotif` duplicated `MotifFinder.FindExactMotif` and returned suffix-tree (DFS) order — now delegates (ascending). Degenerate (IUPAC) motifs and reverse-strand search, previously "not implemented", are provided by `FindKnownMotifHits` (fuzznuc-equivalent); mismatch-tolerant search is `ApproximateMatcher` / PWM (other units).
+2. (B09 review 2026-11-18) The unit has no built-in motif catalogue (TATA box, Kozak, … live in `MotifFinder.FindRegulatoryElements`, MOTIF-REGULATORY-001); the motif set is caller-supplied. `GenomicAnalyzer.FindMotif` duplicated `MotifFinder.FindExactMotif` and returned suffix-tree (DFS) order — now delegates (ascending). Degenerate (IUPAC) motifs and reverse-strand search, previously "not implemented", are provided by `FindKnownMotifHits` (fuzznuc-equivalent); mismatch-tolerant search was added by A1-20 (`maxMismatches`, canonical `ApproximateMatcher`).
