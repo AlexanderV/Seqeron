@@ -573,6 +573,8 @@ public class MappedTextReaderTests
         t.Reader.Verify(good with { Sha256 = new string('0', 64) }, checkHash: false);
         t.Reader.Verify(good with { Sha256 = good.Sha256.ToUpperInvariant() });
         Assert.Throws<InvalidDataException>(() => t.Reader.Verify(good with { Letters = good.Letters[..7] }), "the alphabet and the counts must agree");
+        e = Assert.Throws<InvalidDataException>(() => t.Reader.Verify(good with { Letters = [.. good.Letters, (byte)'Z'], Counts = [.. good.Counts, 0L] }), "nine letters do not fit 3 bits");
+        Assert.That(e!.Message, Does.Contain("9").And.Contain("3 bits").Or.Contain("2^3"));
         e = Assert.Throws<InvalidDataException>(() => t.Reader.Verify(good with { Counts = [.. good.Counts, 0L] }), "one count too many, every symbol below sigma");
         Assert.That(e!.Message, Does.Contain("letters").And.Contain("counts"));
     }
@@ -709,6 +711,7 @@ public class MappedTextReaderTests
         Assert.Throws<ObjectDisposedException>(() => r.Symbol(1000), "even past the end");
         Assert.Throws<ObjectDisposedException>(() => r.ReadSymbols(0, new byte[3]));
         Assert.Throws<ObjectDisposedException>(() => r.Lce(0, 1, 5, ref steps));
+        Assert.Throws<ObjectDisposedException>(() => r.Lce(0, 0, 5, ref steps), "a disposed reader has no room, whatever the positions");
         Assert.Throws<ObjectDisposedException>(() => r.CompareSuffixes(0, 1, 0, ref steps, out _));
         Assert.Throws<ObjectDisposedException>(() => r.Verify(TextOracle.Info(s, 2, 4)));
         Assert.That(r.Length, Is.EqualTo(100), "the facts stay readable");

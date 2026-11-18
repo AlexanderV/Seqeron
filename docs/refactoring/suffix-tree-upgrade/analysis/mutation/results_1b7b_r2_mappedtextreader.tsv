@@ -1,0 +1,3 @@
+R42	Verify: an alphabet that is not as long as the counts is accepted	killed(1)	
+R62	CheckShape: the lower width is not checked	killed(1)	
+R48	Verify: the hash is not compared (replacement of the first R48, which did not compile)	killed(1)	

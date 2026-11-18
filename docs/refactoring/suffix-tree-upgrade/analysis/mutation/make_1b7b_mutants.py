@@ -51,7 +51,7 @@ FILES = {
         m('R14', 'ReadSymbols: shift off by one', 'int shift = 16 - (int)(bit & 7) - bits;', 'int shift = 15 - (int)(bit & 7) - bits;'),
         m('R15', 'ReadSymbols: no mask', '>> shift) & mask)', '>> shift))'),
         m('R16', 'ReadSymbols: the bit position advances by one per symbol', 'for (int k = 0; k < destination.Length; k++, bit += bits)', 'for (int k = 0; k < destination.Length; k++, bit += 1)'),
-        m('R17', 'Lce: an empty room is not an early return', 'if (room <= 0) return 0;', 'if (room < 0) return 0;'),
+        m('R17', 'Lce: an empty room is not an early return', '        if (room <= 0)\n        {', '        if (room < 0)\n        {'),
         m('R18', 'Lce: the limit is not clamped to the room', '        if (max > room) max = room;\n', ''),
         m('R19', 'Lce: the room is measured from the smaller position', 'long room = _limit - Math.Max(i, j);', 'long room = _limit - Math.Min(i, j);'),
         m('R20', 'Lce: the vector path starts one step late', 'if (_useVectors && max >= _vectorSymbols)', 'if (_useVectors && max > _vectorSymbols)'),
@@ -219,17 +219,49 @@ FILES['PackedTextWriter.cs'] = [
 # kept ones already stress (the 5-hour cap leaves about 1.5 hours of machine time for the audit). They were never run and are not counted.
 DROPPED = {'F03', 'F13', 'F18', 'R06', 'R13', 'R17', 'R22', 'R28', 'R55', 'R60', 'R63', 'R64', 'R65', 'R67', 'R68', 'O03', 'O04', 'O12', 'O14', 'O17', 'O18', 'O19', 'O20', 'O24', 'O32', 'O37', 'O38', 'O39',
            'O40', 'O41', 'W11', 'W12', 'W13', 'W14', 'P02', 'P05', 'P07', 'P10', 'P13', 'P15', 'P27', 'P29', 'P34', 'P38', 'P39', 'P41'}
-for name in FILES:
-    FILES[name] = [x for x in FILES[name] if x['id'] not in DROPPED]
 
-for name, lst in FILES.items():
-    path = os.path.join(ROOT, SRC + name)
-    text = open(path).read()
-    for x in lst:
-        n = text.count(x['old'])
-        if n != 1:
-            raise SystemExit('%s %s: pattern occurs %d times' % (name, x['id'], n))
-        x['file'] = SRC + name
-    out = os.path.join(os.path.dirname(os.path.abspath(__file__)), '1b7b_%s_listed.json' % name[:-3].lower())
-    json.dump(lst, open(out, 'w'), indent=1)
-    print(name, len(lst))
+# Fresh mutants of round 3 (written after the review of the round 1 survivors; the vector loads, the verification loop, the layout check, the scan).
+FRESH = {
+    'MappedTextReader.cs': [
+        m('N01', 'Lce: the vector step is the key length', 'int vs = _vectorSymbols;', 'int vs = _keySymbols;'),
+        m('N02', 'Lce: the lane shuffle swaps two bytes', '7, 6, 5, 4, 3, 2, 1, 0, 15, 14, 13, 12, 11, 10, 9, 8,\n        7, 6, 5, 4, 3, 2, 1, 0, 15, 14, 13, 12, 11, 10, 9, 8);', '7, 6, 5, 4, 3, 2, 1, 0, 15, 14, 13, 12, 11, 10, 9, 8,\n        7, 6, 5, 4, 3, 2, 0, 1, 15, 14, 13, 12, 11, 10, 9, 8);'),
+        m('N03', 'LoadShifted: the carry shift is off by one', 'Vector128.CreateScalar(64 - s)', 'Vector128.CreateScalar(63 - s)'),
+        m('N04', 'LoadShifted: the carry is loaded from one byte earlier', 'Vector256.Load(q + 8)', 'Vector256.Load(q + 7)'),
+        m('N05', 'Lce: the first difference is always taken from lane 0', 'ulong x = a.GetElement(lane) ^ c.GetElement(lane);', 'ulong x = a.GetElement(0) ^ c.GetElement(0);'),
+        m('N06', 'Lce: equal vectors advance one symbol short', '                    k += vs;\n                    continue;', '                    k += vs - 1;\n                    continue;'),
+        m('N08', 'Verify: counts every symbol twice', '                seen[s]++;\n', '                seen[s] += 2;\n'),
+        m('N09', 'Verify: one letter too many is accepted', 'if (sigma > (1 << _bits)) throw', 'if (sigma > (1 << _bits) + 1) throw'),
+        m('N10', 'ReadSymbols: the mask is one bit short', 'int mask = (1 << bits) - 1;', 'int mask = (1 << bits) - 2;'),
+        m('N11', 'CheckLayout: the number of unused bits is one too many', 'int unused = (int)((dataBytes * 8) - (n * bits));', 'int unused = (int)((dataBytes * 8) - (n * bits)) + 1;'),
+        m('N12', 'Verify: the blocks overlap by one symbol', 'for (long at = 0; at < _n; at += block.Length)', 'for (long at = 0; at < _n; at += block.Length - 1)'),
+    ],
+    'PackedTextWriter.cs': [
+        m('N13', 'Scan: the blocks overlap by one symbol', 'for (long at = 0; at < n; at += block.Length)\n            {\n                int take = (int)Math.Min(block.Length, n - at);\n                input.ReadExactAt(block.AsSpan(0, take), at);\n                foreach', 'for (long at = 0; at < n; at += block.Length - 1)\n            {\n                int take = (int)Math.Min(block.Length, n - at);\n                input.ReadExactAt(block.AsSpan(0, take), at);\n                foreach'),
+        m('N14', 'WriteFile: a directory that exists is refused', 'if (directory is not null && !Directory.Exists(directory)) throw', 'if (directory is not null && Directory.Exists(directory)) throw'),
+    ],
+    'MappedWindowWriter.cs': [
+        m('N17', 'the window is as large as the larger of the window and the rest', 'long size = Math.Min(_window, Length - offset);', 'long size = Math.Max(_window, Length - offset);'),
+    ],
+    'PackedTextFormat.cs': [
+        m('N19', 'PackInto starts writing at byte 1', '        int o = 0;\n        foreach (byte s in symbols)', '        int o = 1;\n        foreach (byte s in symbols)'),
+    ],
+}
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+for name in sorted(set(FILES) | set(FRESH)):
+    text = open(os.path.join(ROOT, SRC + name)).read()
+    all_ = FILES.get(name, [])
+    kept = [x for x in all_ if x['id'] not in DROPPED]
+    r3 = [x for x in all_ if x['id'] in DROPPED] + FRESH.get(name, [])
+    for tag, lst in (('', kept), ('r3_', r3)):
+        for x in lst:
+            if text.count(x['old']) != 1:
+                raise SystemExit('%s %s: pattern occurs %d times' % (name, x['id'], text.count(x['old'])))
+            x['file'] = SRC + name
+        if not lst:
+            continue
+        out = os.path.join(HERE, '1b7b_%s%s_listed.json' % (tag, name[:-3].lower()))
+        if tag == '' and os.path.exists(out) and '--force' not in sys.argv:
+            continue  # round 1 was run from the files that exist; they are not rewritten
+        json.dump(lst, open(out, 'w'), indent=1)
+        print(tag or 'r1_', name, len(lst))

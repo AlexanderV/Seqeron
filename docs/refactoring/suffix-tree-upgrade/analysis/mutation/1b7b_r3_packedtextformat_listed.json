@@ -1,0 +1,30 @@
+[
+ {
+  "id": "F03",
+  "desc": "BitsFor: sigma 2 is not special-cased below (always the formula)",
+  "old": "if (sigma <= 2) return 1;",
+  "new": "if (sigma <= 0) return 1;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/PackedTextFormat.cs"
+ },
+ {
+  "id": "F13",
+  "desc": "PackInto: symbols are added instead of or-ed",
+  "old": "acc = (acc << bits) | s;",
+  "new": "acc = (acc << bits) + s;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/PackedTextFormat.cs"
+ },
+ {
+  "id": "F18",
+  "desc": "the first byte of a block is not cleared by the emission: bits are emitted from the wrong end",
+  "old": "(byte)(acc >> (accBits - 8))",
+  "new": "(byte)(acc >> (accBits - 7))",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/PackedTextFormat.cs"
+ },
+ {
+  "id": "N19",
+  "desc": "PackInto starts writing at byte 1",
+  "old": "        int o = 0;\n        foreach (byte s in symbols)",
+  "new": "        int o = 1;\n        foreach (byte s in symbols)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/PackedTextFormat.cs"
+ }
+]

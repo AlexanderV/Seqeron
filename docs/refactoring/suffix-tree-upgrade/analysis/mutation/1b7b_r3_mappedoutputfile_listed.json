@@ -1,0 +1,107 @@
+[
+ {
+  "id": "O03",
+  "desc": "a negative length is not refused up front",
+  "old": "        ArgumentOutOfRangeException.ThrowIfNegative(length);\n        options ??=",
+  "new": "        options ??=",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs"
+ },
+ {
+  "id": "O04",
+  "desc": "a null path is not refused up front",
+  "old": "        ArgumentNullException.ThrowIfNull(path);\n        ArgumentOutOfRangeException.ThrowIfNegative(length);\n        options ??=",
+  "new": "        ArgumentOutOfRangeException.ThrowIfNegative(length);\n        options ??=",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs"
+ },
+ {
+  "id": "O12",
+  "desc": "CreateWriter does not check the disposal",
+  "old": "        ObjectDisposedException.ThrowIf(_disposed, this);\n        ArgumentOutOfRangeException.ThrowIfNegative(start);",
+  "new": "        ArgumentOutOfRangeException.ThrowIfNegative(start);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs"
+ },
+ {
+  "id": "O14",
+  "desc": "Complete does not check the disposal",
+  "old": "        ObjectDisposedException.ThrowIf(_disposed, this);\n        int open",
+  "new": "        int open",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs"
+ },
+ {
+  "id": "O17",
+  "desc": "Dispose is not idempotent-guarded",
+  "old": "        if (_disposed) return;\n        _disposed = true;\n        _map?.Dispose();",
+  "new": "        _disposed = true;\n        _map?.Dispose();",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs"
+ },
+ {
+  "id": "O18",
+  "desc": "Dispose does not mark the file disposed",
+  "old": "        _disposed = true;\n        _map?.Dispose();",
+  "new": "        _map?.Dispose();",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs"
+ },
+ {
+  "id": "O19",
+  "desc": "Dispose does not release the mapping",
+  "old": "        _disposed = true;\n        _map?.Dispose();",
+  "new": "        _disposed = true;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs"
+ },
+ {
+  "id": "O20",
+  "desc": "OpenView does not check the disposal",
+  "old": "            ObjectDisposedException.ThrowIf(_disposed, this);\n            return _map!",
+  "new": "            return _map!",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs"
+ },
+ {
+  "id": "O24",
+  "desc": "Sparse: the file is not truncated first",
+  "old": "using var sparse = new FileStream(path, FileMode.Create,",
+  "new": "using var sparse = new FileStream(path, FileMode.OpenOrCreate,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs"
+ },
+ {
+  "id": "O32",
+  "desc": "Fallback: the file is not truncated first",
+  "old": "using var checkedFile = new FileStream(path, FileMode.Create,",
+  "new": "using var checkedFile = new FileStream(path, FileMode.OpenOrCreate,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs"
+ },
+ {
+  "id": "O37",
+  "desc": "the system source does not truncate",
+  "old": "Mode = FileMode.Create, Access = FileAccess.ReadWrite, Share = FileShare.ReadWrite, PreallocationSize",
+  "new": "Mode = FileMode.OpenOrCreate, Access = FileAccess.ReadWrite, Share = FileShare.ReadWrite, PreallocationSize",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs"
+ },
+ {
+  "id": "O38",
+  "desc": "the free space is wrong by a factor",
+  "old": "return new DriveInfo(directory).AvailableFreeSpace;",
+  "new": "return new DriveInfo(directory).AvailableFreeSpace / 2;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs"
+ },
+ {
+  "id": "O39",
+  "desc": "an unknown free space is 0",
+  "old": "            return -1;\n        }\n    }\n}",
+  "new": "            return 0;\n        }\n    }\n}",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs"
+ },
+ {
+  "id": "O40",
+  "desc": "DeleteQuietly deletes nothing",
+  "old": "            File.Delete(path);\n        }\n        catch (Exception e) when (e is IOException or UnauthorizedAccessException)\n        {\n            // the path is not ours",
+  "new": "            _ = path;\n        }\n        catch (Exception e) when (e is IOException or UnauthorizedAccessException)\n        {\n            // the path is not ours",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs"
+ },
+ {
+  "id": "O41",
+  "desc": "the writer counter starts at one",
+  "old": "private int _writers;",
+  "new": "private int _writers = 1;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs"
+ }
+]

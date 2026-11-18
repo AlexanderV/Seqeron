@@ -1,0 +1,163 @@
+[
+ {
+  "id": "R06",
+  "desc": "position n is read through the window",
+  "old": "(ulong)i < (ulong)_limit ? WindowAt(i)",
+  "new": "(ulong)i <= (ulong)_limit ? WindowAt(i)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "R13",
+  "desc": "the byte fast path of ReadSymbols is never taken",
+  "old": "if (_bits == 8)",
+  "new": "if (_bits == 99)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "R17",
+  "desc": "Lce: an empty room is not an early return",
+  "old": "        if (room <= 0)\n        {",
+  "new": "        if (room < 0)\n        {",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "R22",
+  "desc": "Lce: the vector steps are not counted",
+  "old": "                steps++;\n                Vector256<ulong> a",
+  "new": "                Vector256<ulong> a",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "R28",
+  "desc": "Lce: scalar steps are not counted",
+  "old": "            steps++;\n            ulong x = WindowAt(i + k)",
+  "new": "            ulong x = WindowAt(i + k)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "R55",
+  "desc": "OpenCore: a negative offset is accepted",
+  "old": "if (offset < 0) throw",
+  "new": "if (offset < -1) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "R60",
+  "desc": "CheckLayout: the unused bits are not checked",
+  "old": "if (unused > 0 && (data[dataBytes - 1]",
+  "new": "if (unused > 99 && (data[dataBytes - 1]",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "R63",
+  "desc": "CheckShape: the upper width is not checked",
+  "old": "|| bits > PackedTextFormat.MaxBits)",
+  "new": "|| bits > 32)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "R64",
+  "desc": "CheckShape: a negative length is accepted",
+  "old": "if (n < 0 || n >",
+  "new": "if (n < -1 || n >",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "R65",
+  "desc": "CheckShape: the length is not bounded",
+  "old": "|| n > long.MaxValue / PackedTextFormat.MaxBits - PackedTextFormat.PadBytes)",
+  "new": "|| n > long.MaxValue)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "R67",
+  "desc": "the window is not byte-reversed",
+  "old": "BinaryPrimitives.ReverseEndianness(Unsafe.ReadUnaligned<ulong>(q))",
+  "new": "Unsafe.ReadUnaligned<ulong>(q)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "R68",
+  "desc": "the window drops the shift when the bit offset is zero",
+  "old": "return s == 0 ? w : (w << s)",
+  "new": "return s == 1 ? w : (w << s)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "N01",
+  "desc": "Lce: the vector step is the key length",
+  "old": "int vs = _vectorSymbols;",
+  "new": "int vs = _keySymbols;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "N02",
+  "desc": "Lce: the lane shuffle swaps two bytes",
+  "old": "7, 6, 5, 4, 3, 2, 1, 0, 15, 14, 13, 12, 11, 10, 9, 8,\n        7, 6, 5, 4, 3, 2, 1, 0, 15, 14, 13, 12, 11, 10, 9, 8);",
+  "new": "7, 6, 5, 4, 3, 2, 1, 0, 15, 14, 13, 12, 11, 10, 9, 8,\n        7, 6, 5, 4, 3, 2, 0, 1, 15, 14, 13, 12, 11, 10, 9, 8);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "N03",
+  "desc": "LoadShifted: the carry shift is off by one",
+  "old": "Vector128.CreateScalar(64 - s)",
+  "new": "Vector128.CreateScalar(63 - s)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "N04",
+  "desc": "LoadShifted: the carry is loaded from one byte earlier",
+  "old": "Vector256.Load(q + 8)",
+  "new": "Vector256.Load(q + 7)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "N05",
+  "desc": "Lce: the first difference is always taken from lane 0",
+  "old": "ulong x = a.GetElement(lane) ^ c.GetElement(lane);",
+  "new": "ulong x = a.GetElement(0) ^ c.GetElement(0);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "N06",
+  "desc": "Lce: equal vectors advance one symbol short",
+  "old": "                    k += vs;\n                    continue;",
+  "new": "                    k += vs - 1;\n                    continue;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "N08",
+  "desc": "Verify: counts every symbol twice",
+  "old": "                seen[s]++;\n",
+  "new": "                seen[s] += 2;\n",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "N09",
+  "desc": "Verify: one letter too many is accepted",
+  "old": "if (sigma > (1 << _bits)) throw",
+  "new": "if (sigma > (1 << _bits) + 1) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "N10",
+  "desc": "ReadSymbols: the mask is one bit short",
+  "old": "int mask = (1 << bits) - 1;",
+  "new": "int mask = (1 << bits) - 2;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "N11",
+  "desc": "CheckLayout: the number of unused bits is one too many",
+  "old": "int unused = (int)((dataBytes * 8) - (n * bits));",
+  "new": "int unused = (int)((dataBytes * 8) - (n * bits)) + 1;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "N12",
+  "desc": "Verify: the blocks overlap by one symbol",
+  "old": "for (long at = 0; at < _n; at += block.Length)",
+  "new": "for (long at = 0; at < _n; at += block.Length - 1)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ }
+]

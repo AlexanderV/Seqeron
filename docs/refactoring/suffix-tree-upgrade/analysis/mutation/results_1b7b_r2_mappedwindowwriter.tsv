@@ -1,0 +1,4 @@
+W04	Dispose does not close the window	killed(2)	
+W10	the owning writer creates its file with a reservation	killed(1)	
+W03	Dispose is not idempotent-guarded (replacement of the first W03, which did not compile)	killed(1)	
+W05	Dispose of a range writer disposes the shared file (replacement of the first W05, which did not compile)	killed(20)	

@@ -1,0 +1,100 @@
+[
+ {
+  "id": "P02",
+  "desc": "a block of 8 is refused",
+  "old": "o.BlockSymbols < BlockMultiple ||",
+  "new": "o.BlockSymbols <= BlockMultiple ||",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/PackedTextWriter.cs"
+ },
+ {
+  "id": "P05",
+  "desc": "the window is not checked",
+  "old": "        ArgumentOutOfRangeException.ThrowIfLessThan(o.WindowBytes, 1);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/PackedTextWriter.cs"
+ },
+ {
+  "id": "P07",
+  "desc": "Scan: the limit is not applied",
+  "old": "if (n > options.MaxSymbols) throw",
+  "new": "if (n > long.MaxValue) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/PackedTextWriter.cs"
+ },
+ {
+  "id": "P10",
+  "desc": "Scan: the hash is not reset before reading (it is read once)",
+  "old": "sha = Convert.ToHexStringLower(hash.GetHashAndReset());",
+  "new": "sha = Convert.ToHexString(hash.GetHashAndReset());",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/PackedTextWriter.cs"
+ },
+ {
+  "id": "P13",
+  "desc": "Scan: the width ignores the minimum",
+  "old": "int bits = Math.Max(options.MinBits, PackedTextFormat.BitsFor(letters.Count));",
+  "new": "int bits = PackedTextFormat.BitsFor(letters.Count);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/PackedTextWriter.cs"
+ },
+ {
+  "id": "P15",
+  "desc": "Scan: the blocks are read from the start",
+  "old": "input.ReadExactAt(block.AsSpan(0, take), at);\n                foreach",
+  "new": "input.ReadExactAt(block.AsSpan(0, take), 0);\n                foreach",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/PackedTextWriter.cs"
+ },
+ {
+  "id": "P27",
+  "desc": "Pack: the packed buffer holds one byte less than a block needs",
+  "old": "var packed = new byte[(options.BlockSymbols * (long)bits / 8) + 1];",
+  "new": "var packed = new byte[(options.BlockSymbols * (long)bits / 8)];",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/PackedTextWriter.cs"
+ },
+ {
+  "id": "P29",
+  "desc": "WriteFile: the directory is not checked first",
+  "old": "if (directory is not null && !Directory.Exists(directory)) throw",
+  "new": "if (directory is not null && Directory.Exists(directory) && false) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/PackedTextWriter.cs"
+ },
+ {
+  "id": "P34",
+  "desc": "WriteFile: the file options are not used",
+  "old": "MappedOutputFile.Create(temporary, info.TotalBytes, options.File)",
+  "new": "MappedOutputFile.Create(temporary, info.TotalBytes)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/PackedTextWriter.cs"
+ },
+ {
+  "id": "P38",
+  "desc": "WriteFile: the file is not disposed before the rename",
+  "old": "            file.Dispose();\n            file = null;\n",
+  "new": "            file = null;\n",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/PackedTextWriter.cs"
+ },
+ {
+  "id": "P39",
+  "desc": "WriteFile: the file is disposed again by the handler (null guard lost)",
+  "old": "            file.Dispose();\n            file = null;\n",
+  "new": "            file.Dispose();\n",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/PackedTextWriter.cs"
+ },
+ {
+  "id": "P41",
+  "desc": "WriteFile: the info is of an empty text",
+  "old": "        return info;\n    }\n\n    private static void CheckOptions",
+  "new": "        return info with { Sha256 = string.Empty };\n    }\n\n    private static void CheckOptions",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/PackedTextWriter.cs"
+ },
+ {
+  "id": "N13",
+  "desc": "Scan: the blocks overlap by one symbol",
+  "old": "for (long at = 0; at < n; at += block.Length)\n            {\n                int take = (int)Math.Min(block.Length, n - at);\n                input.ReadExactAt(block.AsSpan(0, take), at);\n                foreach",
+  "new": "for (long at = 0; at < n; at += block.Length - 1)\n            {\n                int take = (int)Math.Min(block.Length, n - at);\n                input.ReadExactAt(block.AsSpan(0, take), at);\n                foreach",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/PackedTextWriter.cs"
+ },
+ {
+  "id": "N14",
+  "desc": "WriteFile: a directory that exists is refused",
+  "old": "if (directory is not null && !Directory.Exists(directory)) throw",
+  "new": "if (directory is not null && Directory.Exists(directory)) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/PackedTextWriter.cs"
+ }
+]

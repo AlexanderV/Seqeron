@@ -1,0 +1,37 @@
+[
+ {
+  "id": "W11",
+  "desc": "the owning writer does not count itself",
+  "old": "        _file.WriterOpened();\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedWindowWriter.cs"
+ },
+ {
+  "id": "W12",
+  "desc": "the owning writer forgets that it owns the file",
+  "old": "        _ownsFile = true;\n",
+  "new": "        _ownsFile = false;\n",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedWindowWriter.cs"
+ },
+ {
+  "id": "W13",
+  "desc": "the window of a range writer is as large as the rest of the file",
+  "old": "long size = Math.Min(_window, Length - offset);",
+  "new": "long size = Math.Min(_window, _file.Length - offset);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedWindowWriter.cs"
+ },
+ {
+  "id": "W14",
+  "desc": "Path is the empty string",
+  "old": "internal string Path => _file.Path;",
+  "new": "internal string Path => string.Empty;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedWindowWriter.cs"
+ },
+ {
+  "id": "N17",
+  "desc": "the window is as large as the larger of the window and the rest",
+  "old": "long size = Math.Min(_window, Length - offset);",
+  "new": "long size = Math.Max(_window, Length - offset);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedWindowWriter.cs"
+ }
+]
