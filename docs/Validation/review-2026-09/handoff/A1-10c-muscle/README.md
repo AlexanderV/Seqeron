@@ -27,7 +27,7 @@ ls -l returned/           # A1-10c-muscle-out.zip
 ## What to send back
 
 The archive `returned/A1-10c-muscle-out.zip` (or `.tar.gz`) - place it in this repository under
-`docs/Validation/review-2026-09/handoff/A1-10c-muscle/returned/` (it contains `out/ENV.txt` with the date, `uname -m`, the binary checksum and `muscle3 -version`,
+`docs/Validation/review-2026-09/handoff/A1-10c-muscle/returned/` (it contains `out/ENV.txt` with the date, `uname -m`, the binary checksum and `muscle3 -version`, `out/build.log`, `out/preflight.txt` (a three-sequence smoke run),
 `out/fetch_src.sha256`, `out/muscle3_oracle.tsv`, `out/run.log`). A run that prints "failed: N" with N > 0 is still useful (the failing sets are listed with MUSCLE's message).
 
 ## How the next session integrates it
