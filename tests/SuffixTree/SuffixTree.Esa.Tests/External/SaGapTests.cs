@@ -54,6 +54,13 @@ public class SaGapTests
             Assert.That(source.At(99), Is.EqualTo(data[99]));
         }
         Assert.That(ledger.Live, Is.Zero, "the bytes are given back when the sources are disposed");
+        var again = new PosWriter(files, 64, 100);
+        for (uint p = 0; p < 100; p++) again.Append(p);
+        IPosSource twice = again.Complete();
+        ledger.Add(5000);
+        twice.Dispose();
+        twice.Dispose();
+        Assert.That(ledger.Live, Is.EqualTo(5000), "a second Dispose gives nothing back again");
         Assert.That(Directory.GetFiles(dir), Is.Empty, "and the files are deleted");
     }
 
@@ -152,6 +159,15 @@ public class SaGapTests
         Assert.That(highest, Is.GreaterThan(1000), "its scratch files were booked in the ledger of the caller");
         Assert.That(stats.PartitionSeconds, Is.GreaterThan(0));
         Assert.That(stats.MaxLeaf, Is.GreaterThan(0));
+
+        // a sort that fails does not release a ledger that is not its own, and keeps the root that existed
+        int leaves = 0;
+        var sink2 = new MemorySaSink(c.N + 1);
+        SortOptions failing = o with { Trace = step => { if (step == "leaf" && ++leaves == 3) throw new FormatException("hook"); } };
+        Assert.Throws<FormatException>(() => BucketSorter.Run(reader, failing, sink2, ranks));
+        Assert.That(ledger.Live, Is.GreaterThanOrEqualTo(1000), "after a failure the caller's ledger still holds the bytes of the outer build (what the failed sort left is the caller's to settle: the builder releases the whole ledger)");
+        Assert.That(Directory.Exists(Scratch), Is.True);
+        Assert.That(Directory.GetFileSystemEntries(Scratch), Is.Empty);
     }
 
     // ---- PH1 on its own: the base case, the scratch root, the tag, a failure at every point
@@ -184,6 +200,34 @@ public class SaGapTests
         catch (Exception e)
         {
             return e;
+        }
+    }
+
+    [Test]
+    public void AnOptionThatIsOutOfRange_IsRefusedBeforeAnyStepRuns_AndNothingIsCreated()
+    {
+        SaCase c = SaCase.Of("banana");
+        DifferenceCover cover = DifferenceCover.Create(7);
+        foreach ((string what, Func<ExtDcsOptions, ExtDcsOptions> bad) in new (string, Func<ExtDcsOptions, ExtDcsOptions>)[]
+        {
+            ("window 0", o => o with { WindowBytes = 0 }),
+            ("bucket capacity 1", o => o with { BucketCapacity = 1 }),
+            ("base case 0", o => o with { BaseCase = 0 }),
+            ("threads 0", o => o with { Threads = 0 }),
+            ("chunk slots 0", o => o with { ChunkSlots = 0 }),
+            ("fan-out 1", o => o with { FanOut = 1 }),
+            ("reservoir 2", o => o with { ReservoirSize = 2 }),
+            ("buffers 15", o => o with { IoBufferBytes = 15 }),
+        })
+        {
+            using var dir = new TempDir();
+            int steps = 0;
+            string rank = dir.File("r");
+            Exception? e = BuildAndCatch(dir, c, cover, bad(SaTiny.Dcs(dir.Sub("scratch"), 2) with { Trace = _ => steps++ }), rank);
+            Assert.That(e, Is.TypeOf<ArgumentOutOfRangeException>(), what);
+            Assert.That(steps, Is.Zero, $"{what}: refused before the first step");
+            Assert.That(Directory.Exists(dir.Sub("scratch")), Is.False, what);
+            Assert.That(File.Exists(rank), Is.False, what);
         }
     }
 

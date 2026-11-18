@@ -1,0 +1,8 @@
+T03	MemoryPositions: Read ignores the start	killed(1)	
+T05	PositionFiles: the numbering starts at zero	killed(1)	
+T07	FilePositions: At reads the entry before	killed(9)	
+T11	FilePositions: a second Dispose gives the bytes back again	survived	
+T15	PosWriter: the total is not counted	killed(27)	
+T19	PosWriter: Dispose of a completed writer deletes	killed(21)	
+T21	PosWriter: Dispose does not delete the file	killed(1)	
+T27	PosWriter: the written count is not kept	killed(1)	

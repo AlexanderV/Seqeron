@@ -1,0 +1,16 @@
+M05	PrefixOrder: the limit is not clamped to the shorter suffix	survived	
+M09	Run: an empty leaf is kept	survived	
+M15	Run: no worker thread is started	survived	
+M17	Merge: the merge budget is not shared among the file runs	killed(2)	
+M19	Merge: the total check is dropped	survived	
+M21	Merge: an empty sample is merged	survived	
+M31	AssignNames: a leaf with one group is a leaf with two	survived	
+M37	Worker: the statistics of a worker are lost	killed(6)	
+M51	Split: a reservoir of two splits	survived	
+M53	Split: the fan-out ignores the cap	killed(5)	
+M55	Split: equal splitter indices are kept	survived	
+M59	Split: the seed ignores the task	killed(5)	
+M61	Execute: the scans are not counted	killed(7)	
+M78	MergeSort: the merge takes the left on a strict order	survived	
+K01	InsertionSort: unstable	killed(7)	
+K03	RadixSort: the digit skip is wrong	killed(4)	

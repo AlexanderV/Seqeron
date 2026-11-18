@@ -1,0 +1,14 @@
+Q43	Build: a negative arena cap is accepted	survived	
+Q51	Build: PH1 has no cap	killed(1)	
+Q65	Build: PH1 seed	killed(5)	
+Q69	Build: PH1 sort capacity	killed(4)	
+Q71	Build: PH1 I/O buffers	killed(4)	
+Q85	Build: PH3 oversample	killed(5)	
+Q87	Build: PH3 seed	killed(5)	
+Q97	Build: the output is not completed	survived	
+Q99	Build: the output is never synced	survived	
+Q101	CheckLength: any length is accepted	survived	
+Q105	Build: the PH1 RSS figure is in KiB	killed(1)	
+Q115	Build: the failed rank file is left	killed(1)	
+Q121	Build: the scratch directories are not created	survived	
+Q125	Build: the cover kind is not reported	killed(3)	

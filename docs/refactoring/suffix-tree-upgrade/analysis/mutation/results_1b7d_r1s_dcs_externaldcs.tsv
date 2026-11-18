@@ -1,0 +1,16 @@
+E09	BuildRankFile: a window of zero	survived	
+E13	BuildRankFile: no limit on the text length	survived	
+E15	BuildRankFile: the scratch bytes are not given back	killed(2)	
+E17	BuildRankFile: the scratch root is always removed	killed(1)	
+E19	BuildRankFile: the tag is the same for every build	killed(1)	
+L01	BuildLevel: the recursion has no end	survived	
+L05	BuildLevel: the base case is taken one symbol late	killed(1)	
+L13	BuildLevel: the sort fan-out is the options fan-out	killed(4)	
+L15	BuildLevel: the sort files carry no tag	survived	
+L17	BuildLevel: the suffix array file is not completed	survived	
+L25	BuildLevel: the inversion read buffer is one entry	killed(4)	
+L27	BuildLevel: the inversion has no budget	killed(3)	
+L29	BuildLevel: the touched flag of the rank file is not set	survived	
+A06	BaseCase: the rank file is not scratch output	killed(1)	
+A08	BaseCase: the rank file is not marked as touched	survived	
+A10	BaseCase: the chunk slots are not at least one	survived	

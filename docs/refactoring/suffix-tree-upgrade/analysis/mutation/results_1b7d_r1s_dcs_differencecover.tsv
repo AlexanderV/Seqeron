@@ -1,0 +1,4 @@
+D03	Verify: a residue outside the period is accepted	survived	
+D05	IsPerfect: counts the zero differences	survived	
+D13	Pruned: the small periods get fewer rounds	killed(1)	
+D21	IsPrime: 1 is a prime	survived	

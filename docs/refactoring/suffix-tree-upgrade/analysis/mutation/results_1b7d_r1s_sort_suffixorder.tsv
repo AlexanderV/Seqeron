@@ -1,0 +1,3 @@
+C15	CompareCore: the key is not skipped	killed(7)	
+C17	CompareCore: the key is skipped one symbol too far	killed(5)	
+C29	CompareCore: the LCE ignores the skip	killed(5)	
