@@ -1,0 +1,8 @@
+E01	a statistics file without a final line feed passes	killed(1)	
+E02	a file with more lines than keys passes	killed(1)	
+E04	numbers with a leading zero are accepted	killed(1)	
+E05	letters_hex of the wrong length passes	killed(1)	
+E06	a counts list of the wrong length passes	survived	survived
+E07	a SHA-256 of the wrong length passes	killed(1)	
+E09	upper-case hash digits pass	killed(1)	
+E10	a sigma of 257 passes	survived	survived

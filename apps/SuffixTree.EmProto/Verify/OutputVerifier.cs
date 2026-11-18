@@ -118,6 +118,7 @@ internal static unsafe class OutputVerifier
             res.Facts["overflow"] = overflow.ToString(CultureInfo.InvariantCulture);
             res.Facts["lce_cap"] = o.LceCap.ToString(CultureInfo.InvariantCulture);
             res.Facts["stack_cap"] = o.StackCapEntries.ToString(CultureInfo.InvariantCulture);
+            res.Facts["probes"] = o.Probes.ToString(CultureInfo.InvariantCulture);
         }
         if (filesOk && n >= uint.MaxValue - 2)
         {

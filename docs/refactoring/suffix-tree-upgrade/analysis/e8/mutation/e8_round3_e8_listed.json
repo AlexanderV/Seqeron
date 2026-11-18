@@ -1,0 +1,16 @@
+[
+ {
+  "id": "H05",
+  "desc": "the stack cap is given in entries instead of Mi entries",
+  "old": ": o.Long(\"stack-cap-m\", 64) << 20,",
+  "new": ": o.Long(\"stack-cap-m\", 64),",
+  "file": "apps/SuffixTree.EmProto/Experiments/E8.cs"
+ },
+ {
+  "id": "H08",
+  "desc": "the default number of probes is 0",
+  "old": "Probes = o.Int(\"probes\", 16),",
+  "new": "Probes = o.Int(\"probes\", 0),",
+  "file": "apps/SuffixTree.EmProto/Experiments/E8.cs"
+ }
+]

@@ -559,6 +559,26 @@ public class VerifierTests : TempDirFixture
     }
 
     [Test]
+    public void ACorruptionInTheMiddleOfALongMatch_IsFoundBySpreadProbes_NotByTheEndsOrTheCap()
+    {
+        // two copies of a 300-symbol block; two different symbols of the second copy at block offsets 200 and 201 are exchanged IN THE PACKED TEXT (the counts stay right). The adjacent suffixes of the copies (offsets 0..45, the long pairs)
+        // now differ at 200 - j, far above the cap of 16 and far from the end of the claimed match (300 - j): only probes spread over the match can see it.
+        string block = StringFamilies.RandomDna(300, 41);
+        int k = 200;
+        while (block[k] == block[k + 1]) k++;
+        string text = StringFamilies.RandomDna(1000, 42) + block + "AA" + StringFamilies.RandomDna(58, 43) + block + "CC" + StringFamilies.RandomDna(38, 44);
+        string clean = Reference(text, "mid");
+        string d = Clone(clean, Run("mid2"));
+        long second = 1000 + 300 + 2 + 58;
+        (byte[] symbols, _) = PipelineChecks.Dense(text);
+        (symbols[second + k], symbols[second + k + 1]) = (symbols[second + k + 1], symbols[second + k]);
+        File.WriteAllBytes(d + ".pk", PipelineChecks.ReferencePacked(symbols, 4));
+        VerifyResult r = OutputVerifier.Run(Options(d, 2, 64, 16, input: false) with { Probes = 64 });
+        Assert.That(r.Failed("lcp_values") || r.Failed("sa_order"), Is.True, Describe(r));
+        Assert.That(r.Passed("text"), Is.True, "the exchange keeps the symbol counts: " + Describe(r));
+    }
+
+    [Test]
     public void AStackBoundBelowTheLcp_SkipsTheScan_NeverPasses()
     {
         string prefix = Reference(new string('a', 2000), "sk");
@@ -670,5 +690,6 @@ public class VerifierTests : TempDirFixture
         string rows4 = Path.Combine(Dir, "r4.tsv");
         Assert.That(Cli.Run(["e8-verify", "--prefix", clean, "--quiet", "--rows", rows4]), Is.EqualTo(0));
         Assert.That(File.ReadAllText(rows4), Does.Contain("\tverify_fact_lce_cap\t65536\t"), "the default cap");
+        Assert.That(File.ReadAllText(rows4), Does.Contain("\tverify_fact_probes\t16\t"), "the default number of probes");
     }
 }

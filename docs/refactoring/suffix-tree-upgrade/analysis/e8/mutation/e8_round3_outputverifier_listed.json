@@ -1,0 +1,72 @@
+[
+ {
+  "id": "C18",
+  "desc": "no probes of the matching part of a long pair",
+  "old": "for (int k = 0; k < o.Probes && span > 0; k++)",
+  "new": "for (int k = 0; k < 0 && span > 0; k++)",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs"
+ },
+ {
+  "id": "C19",
+  "desc": "the tail probes start two symbols before the end of the claimed match",
+  "old": "long off = k < o.Probes / 2 ? stored - 1 - k :",
+  "new": "long off = k < o.Probes / 2 ? stored - 2 - k :",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs"
+ },
+ {
+  "id": "C19b",
+  "desc": "no tail probes (random probes only)",
+  "old": "long off = k < o.Probes / 2 ? stored - 1 - k :",
+  "new": "long off = k < 0 ? stored - 1 - k :",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs"
+ },
+ {
+  "id": "C19c",
+  "desc": "a third of the probes are tail probes",
+  "old": "long off = k < o.Probes / 2 ? stored - 1 - k :",
+  "new": "long off = k < o.Probes / 3 ? stored - 1 - k :",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs"
+ },
+ {
+  "id": "C19d",
+  "desc": "the random probes are all at the first offset above the cap",
+  "old": "% (ulong)span);",
+  "new": "% 1UL);",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs"
+ },
+ {
+  "id": "C23",
+  "desc": "a pair left over in a block is not reported",
+  "old": "if (lcp.HasEscape && lcp.PairCount > 0 && pair != lcp.LowerBound(end)) totals.Lcp.Add(",
+  "new": "if (lcp.HasEscape && lcp.PairCount > 0 && pair < 0) totals.Lcp.Add(",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs"
+ },
+ {
+  "id": "C24",
+  "desc": "the width rule takes 17 times the escapes",
+  "old": "if (16 * escapes8 <= n) return 1;",
+  "new": "if (17 * escapes8 <= n) return 1;",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs"
+ },
+ {
+  "id": "C25",
+  "desc": "the width rule for U16 takes 9 times the escapes",
+  "old": "if (8 * escapes16 <= n) return 2;",
+  "new": "if (9 * escapes16 <= n) return 2;",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs"
+ },
+ {
+  "id": "C26",
+  "desc": "the width rule takes 15 times the escapes",
+  "old": "if (16 * escapes8 <= n) return 1;",
+  "new": "if (15 * escapes8 <= n) return 1;",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs"
+ },
+ {
+  "id": "C27",
+  "desc": "the first-probe loop condition ignores the span",
+  "old": "k < o.Probes && span > 0; k++)",
+  "new": "k < o.Probes; k++)",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs"
+ }
+]

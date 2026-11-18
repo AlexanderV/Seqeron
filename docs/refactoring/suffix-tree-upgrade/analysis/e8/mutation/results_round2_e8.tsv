@@ -1,0 +1,5 @@
+H02	the whole check is reported as pass when one is skipped	killed(1)	
+H03	a skipped check is reported as pass	killed(1)	
+H04	the default LCE cap is 0	killed(1)	
+H05	the stack cap is given in entries instead of Mi entries	PATTERN-NOT-UNIQUE	
+H06	no-child still checks and no-hash still hashes (flags ignored)	killed(1)	

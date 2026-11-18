@@ -1,0 +1,15 @@
+A06	stats n greater than meta n is not reported by the files check	killed(1)	
+A07	counts that add up to more than n pass the metadata check	killed(1)	
+A08	a width above the one the alphabet needs passes the metadata check	killed(1)	
+A09	equal neighbouring letters pass the metadata check	killed(1)	
+A10	a letter that never occurs passes the metadata check	killed(1)	
+B02	the unused bits of the last data byte are not checked	survived	killed(1)
+B04	a longer input passes the length check	killed(1)	
+B06	a wrong symbol count is reported only when it is too low	survived	survived
+C05	a value of exactly 255 is not counted as an escape	killed(1)	
+C06	a value of exactly 65535 is not counted	killed(1)	
+C07	SA[0] is not compared with n	killed(1)	
+C13	equal symbols at the mismatch pass the order check	survived	survived
+C18	no probes of the matching part of a long pair	survived	survived
+C19	the first probe is two symbols before the end instead of one	survived	survived
+C23	a pair left over in a block is not reported	survived	survived
