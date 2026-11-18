@@ -49,6 +49,7 @@ public static partial class SequenceAligner
     private const int CwLenCol = 33;                  // position of the gap-extension penalty
     private const int CwIntScaleFactor = 1000;        // INT_SCALE_FACTOR of OS_UNIX builds (clustalw.h)
     private const float CwReducedGap = 1.0f;
+    private const int ClustalWMaxHydrophilicResidues = 9;   // MAXHYDRESIDUES of clustalw.h
 
     /// <summary>
     /// ClustalW 2.1's multiple alignment of DNA sequences (<c>clustalw -TYPE=DNA -ALIGN</c>): the guide tree is the neighbour-joining
@@ -89,6 +90,117 @@ public static partial class SequenceAligner
         return BuildClustalWResult(MultipleAlignClustalWCore(seqList.ToArray(), options ?? new ClustalWOptions()), scoring ?? SimpleDna);
     }
 
+    /// <summary>
+    /// ClustalW 2.1's multiple alignment of PROTEIN sequences (<c>clustalw -TYPE=PROTEIN -ALIGN</c>): the same stage as the DNA overload (neighbour-joining guide tree
+    /// of ClustalW's pairwise distances, tree weights, delayed divergent sequences, Myers–Miller profile alignment) with the protein parameters of ClustalW's profile
+    /// stage — the matrix series (GONNET / BLOSUM / PAM / ID, chosen per profile pair by its percent identity), the matrix- and length-scaled gap opening, the
+    /// residue-specific (Pascarella &amp; Argos 1992), hydrophilic-run and variable-region gap penalties and the gap-separation distance.
+    /// </summary>
+    /// <remarks>
+    /// A step-by-step port: the rows equal the output of the installed <c>clustalw</c> 2.1 (<c>-OUTORDER=INPUT</c>) on the oracle sets of
+    /// <c>clustalw_protein_msa_oracle.tsv</c>. Residues are the letters A-Z except J (ClustalW silently drops J and '*'; they are rejected here). The reported
+    /// <see cref="MultipleAlignmentResult.TotalScore"/> is the natural affine sum of pairs under <paramref name="scoring"/> (default BLOSUM62, gap open 10 / extend 0.2
+    /// in EMBOSS convention; with the default the residues O and U, which BLOSUM62 lacks, score as X).
+    /// </remarks>
+    /// <param name="sequences">Protein sequences (output rows keep the input order).</param>
+    /// <param name="options">ClustalW PROTEIN parameters (default: ClustalW's PROTEIN defaults).</param>
+    /// <param name="scoring">Scoring used for the reported total score only.</param>
+    public static MultipleAlignmentResult MultipleAlignClustalW(
+        IEnumerable<ProteinSequence> sequences, ClustalWProteinOptions? options = null, MatrixScoring? scoring = null)
+    {
+        ArgumentNullException.ThrowIfNull(sequences);
+        var seqList = sequences.ToList();
+        if (seqList.Count == 0)
+            return MultipleAlignmentResult.Empty;
+
+        return MultipleAlignClustalW(seqList.Select(s => s.Sequence), options ?? new ClustalWProteinOptions(), scoring);
+    }
+
+    /// <summary><see cref="MultipleAlignClustalW(IEnumerable{ProteinSequence}, ClustalWProteinOptions?, MatrixScoring?)"/> for strings (letters A-Z except J).</summary>
+    public static MultipleAlignmentResult MultipleAlignClustalW(
+        IEnumerable<string> sequences, ClustalWProteinOptions options, MatrixScoring? scoring = null)
+    {
+        ArgumentNullException.ThrowIfNull(sequences);
+        ArgumentNullException.ThrowIfNull(options);
+        var seqList = sequences.ToList();
+        if (seqList.Count == 0)
+            return MultipleAlignmentResult.Empty;
+
+        string[] rows = MultipleAlignClustalWProteinCore(seqList.ToArray(), options);
+        var list = rows.ToList();
+        string consensus = BuildConsensus(list, list.Max(r => r.Length), anySymbol: true);
+        var sp = scoring ?? MatrixScoring.Emboss(SubstitutionMatrix.Blosum62, 10, 0.2);
+        string[] scored = scoring is null ? rows.Select(r => r.Replace('O', 'X').Replace('U', 'X')).ToArray() : rows;
+        double exact = rows.Length == 1 ? 0.0 : MatrixSumOfPairsScore(scored, sp, MsaGapModel.Affine);
+        return new MultipleAlignmentResult(rows, consensus, (int)Math.Round(exact, MidpointRounding.AwayFromZero)) { ExactTotalScore = exact };
+    }
+
+    private static string[] MultipleAlignClustalWProteinCore(string[] raw, ClustalWProteinOptions options)
+    {
+        ValidateClustalWProteinMultipleOptions(options);
+        int n = raw.Length;
+        var codes = new int[n][];
+        var upper = new string[n];
+        for (int i = 0; i < n; i++)
+        {
+            ArgumentNullException.ThrowIfNull(raw[i]);
+            codes[i] = EncodeClustalWProtein(raw[i], "sequences");
+            upper[i] = raw[i].ToUpperInvariant();
+        }
+
+        if (n == 1)
+            return upper;
+
+        for (int i = 0; i < n; i++)
+        {
+            if (codes[i].Length == 0)
+                throw new ArgumentException("ClustalW cannot align an empty sequence.", nameof(raw));
+        }
+
+        // UserParameters::setHydResidues: at most MAXHYDRESIDUES (9) leading letters, upper-cased; an empty result keeps the default
+        string hyd = new string(options.HydrophilicResidues.Take(ClustalWMaxHydrophilicResidues).TakeWhile(char.IsAsciiLetter).Select(char.ToUpperInvariant).ToArray());
+        var config = CwConfig.FromProtein(options) with { HydrophilicResidues = hyd.Length > 0 ? hyd : "GPSNDQEKR" };
+        var state = new ClustalWMsaState(codes, config);
+        return state.Run(ClustalWProteinDistanceMatrix(upper, options));
+    }
+
+    private static void ValidateClustalWProteinMultipleOptions(ClustalWProteinOptions o)
+    {
+        if (o.GapOpen < 0 || o.GapExtend < 0 || double.IsNaN(o.GapOpen) || double.IsNaN(o.GapExtend))
+            throw new ArgumentException("ClustalW gap penalties are non-negative numbers.", nameof(o));
+        if (!Enum.IsDefined(o.Matrix))
+            throw new ArgumentOutOfRangeException(nameof(o), o.Matrix, "Unknown profile matrix series.");
+        if (!Enum.IsDefined(o.PairwiseMode))
+            throw new ArgumentOutOfRangeException(nameof(o), o.PairwiseMode, "Unknown pairwise mode.");
+        if (o.GapSeparationDistance < 0)
+            throw new ArgumentOutOfRangeException(nameof(o), o.GapSeparationDistance, "GapSeparationDistance is a non-negative number of columns.");
+        ArgumentNullException.ThrowIfNull(o.HydrophilicResidues);
+        ArgumentNullException.ThrowIfNull(o.Pairwise);
+        ValidateClustalWProteinOptions(o.Pairwise);
+        ValidateClustalWQuickOptions(o.Pairwise.Quick, protein: true);
+    }
+
+    /// <summary>Distances of the PROTEIN pairwise stage as ClustalW stores them (full stage in single precision, fast stage in double precision).</summary>
+    private static double[,] ClustalWProteinDistanceMatrix(string[] upper, ClustalWProteinOptions options)
+    {
+        int n = upper.Length;
+        var d = new double[n, n];
+        int longest = upper.Max(s => s.Length);
+        for (int i = 0; i < n; i++)
+        {
+            for (int j = i + 1; j < n; j++)
+            {
+                double v = options.PairwiseMode == ClustalWPairwiseMode.Quick
+                    ? ClustalWQuickPairwiseAlign(upper[i], upper[j], ClustalWSequenceType.Protein, options.Pairwise.Quick, longest).Distance
+                    : ClustalWProteinSinglePrecisionDistance(upper[i], upper[j], options.Pairwise);
+                d[i, j] = v;
+                d[j, i] = v;
+            }
+        }
+
+        return d;
+    }
+
     private static MultipleAlignmentResult BuildClustalWResult(string[] rows, ScoringMatrix scoring)
     {
         var list = rows.ToList();
@@ -119,8 +231,8 @@ public static partial class SequenceAligner
                 throw new ArgumentException("ClustalW cannot align an empty sequence.", nameof(raw));
         }
 
-        var state = new ClustalWMsaState(codes, options);
-        return state.Run(raw);
+        var state = new ClustalWMsaState(codes, CwConfig.FromDna(options));
+        return state.Run(ClustalWPairwiseDistanceMatrix(raw, options));
     }
 
     private static void ValidateClustalWOptions(ClustalWOptions o)
@@ -136,8 +248,8 @@ public static partial class SequenceAligner
         ValidateClustalWQuickOptions(o.Quick ?? new ClustalWQuickOptions());
     }
 
-    /// <summary>Distances of the pairwise stage as ClustalW stores them (1-based n x n matrix in a double array).</summary>
-    private static double[,] ClustalWPairwiseDistanceMatrix(int[][] codes, string[] raw, ClustalWOptions options)
+    /// <summary>Distances of the pairwise stage as ClustalW stores them (n x n matrix in a double array).</summary>
+    private static double[,] ClustalWPairwiseDistanceMatrix(string[] raw, ClustalWOptions options)
     {
         int n = raw.Length;
         var d = new double[n, n];
@@ -158,15 +270,45 @@ public static partial class SequenceAligner
         return d;
     }
 
+    /// <summary>Everything the ClustalW multiple-alignment stage reads from <c>UserParameters</c>, for DNA and PROTEIN alike.</summary>
+    private sealed record CwConfig(
+        bool Protein,
+        double GapOpen,
+        double GapExtend,
+        int DivergenceCutoff,
+        bool NoWeights,
+        bool NegativeMatrix,
+        float TransitionWeight,
+        ClustalWProfileMatrix Matrix,
+        bool NoPreferredGapPenalties,
+        bool NoHydrophilicGapPenalties,
+        bool VariableRegionGapPenalties,
+        int GapSeparationDistance,
+        string HydrophilicResidues,
+        bool UseEndGaps,
+        bool EndGapPenalties,
+        IReadOnlyList<int>? GapDistanceOverrides = null)
+    {
+        public static CwConfig FromDna(ClustalWOptions o) => new(
+            false, o.GapOpen, o.GapExtend, o.DivergenceCutoff, o.NoWeights, o.NegativeMatrix, o.TransitionWeight,
+            ClustalWProfileMatrix.Gonnet, false, false, false, 4, "GPSNDQEKR", false, false);
+
+        public static CwConfig FromProtein(ClustalWProteinOptions o) => new(
+            true, o.GapOpen, o.GapExtend, o.DivergenceCutoff, o.NoWeights, o.NegativeMatrix, 0.5f,
+            o.Matrix, o.NoPreferredGapPenalties, o.NoHydrophilicGapPenalties, o.VariableRegionGapPenalties,
+            o.GapSeparationDistance, o.HydrophilicResidues, false, false, o.UninitialisedGapDistances);
+    }
+
     /// <summary>Single-run state of the ClustalW multiple alignment (the members of Clustal / MSA / MyersMillerProfileAlign it needs).</summary>
     private sealed class ClustalWMsaState
     {
         private readonly int _n;
-        private readonly ClustalWOptions _o;
+        private readonly CwConfig _o;
         private readonly int[][] _seq;          // residue codes of sequence i (0-based; replaced by the aligned row after a profile step)
-        private readonly int[,] _matrix = new int[CwNumRes, CwNumRes];
-        private readonly int _gapCoef;
-        private readonly int _lenCoef;
+        private int[,] _matrix = new int[CwNumRes, CwNumRes];
+        private int _gapCoef;                   // DNA: fixed; PROTEIN: recomputed by every profileAlign (matrix average, profile lengths)
+        private int _lenCoef;
+        private double[,] _distMat = new double[0, 0];   // the similarities of Tree::calcSimilarities (1-based), used by the protein matrix series
         private int[] _alnWeight = Array.Empty<int>();   // Alignment::seqWeight
         private int[] _seqWeight = Array.Empty<int>();
 
@@ -177,16 +319,21 @@ public static partial class SequenceAligner
         private int[] _displ = Array.Empty<int>();
         private int[] _hh = Array.Empty<int>(), _dd = Array.Empty<int>(), _rr = Array.Empty<int>(), _ss = Array.Empty<int>(), _gS = Array.Empty<int>();
         private int _printPtr, _lastPrint;
+        private int _uninitialisedUses;   // profiles that used the unassigned gdist so far (ClustalWProteinOptions.UninitialisedGapDistances)
+        private readonly Stack<int> _freedGapDistances = new(new[] { 0, 0 });   // gdist left in the two most recently freed profile objects (fresh heap memory: 0)
 
-        public ClustalWMsaState(int[][] codes, ClustalWOptions options)
+        public ClustalWMsaState(int[][] codes, CwConfig options)
         {
             _o = options;
             _n = codes.Length;
             _seq = codes;
-            BuildMatrix();
-            // gapcoef = (int)(100.0 * getGapOpen() * scale); getGapOpen() returns a float, scale (1.0 for IUB) a double.
-            _gapCoef = (int)(100.0 * (double)(float)options.GapOpen * 1.0);
-            _lenCoef = (int)(100.0 * (double)(float)options.GapExtend * 1.0);
+            if (!options.Protein)
+            {
+                BuildMatrix();
+                // gapcoef = (int)(100.0 * getGapOpen() * scale); getGapOpen() returns a float, scale (1.0 for IUB) a double.
+                _gapCoef = (int)(100.0 * (double)(float)options.GapOpen * 1.0);
+                _lenCoef = (int)(100.0 * (double)(float)options.GapExtend * 1.0);
+            }
         }
 
         // SubMatrix::getProfileAlignMatrix, DNA / IUB branch (getMatrix with intScale 100, !minimise).
@@ -239,12 +386,11 @@ public static partial class SequenceAligner
             }
         }
 
-        public string[] Run(string[] raw)
+        public string[] Run(double[,] dist)
         {
             int n = _n;
 
-            // ---- STEP 1: pairwise distances, STEP 2: guide tree, weights, similarities, alignment steps
-            double[,] dist = ClustalWPairwiseDistanceMatrix(_seq, raw, _o);   // 0-based
+            // ---- STEP 1 (pairwise distances, 0-based, computed by the caller), STEP 2: guide tree, weights, similarities, alignment steps
             var sim = new double[n + 1, n + 1];                                // 1-based, as DistMatrix
             for (int i = 0; i < n; i++)
             {
@@ -258,6 +404,7 @@ public static partial class SequenceAligner
             _alnWeight = new int[n + 1];
 
             // ---- STEP 3: MSA::multiSeqAlign
+            _distMat = sim;
             MultiSeqAlign(sim, steps);
 
             var rows = new string[n];
@@ -667,6 +814,20 @@ public static partial class SequenceAligner
             _prfLength1 = members1.Max(i => _seq[i].Length);
             _prfLength2 = members2.Max(i => _seq[i].Length);
 
+            // mean percent identity between the two groups (the similarities of Tree::calcSimilarities), used by the protein matrix series
+            double pcid = 0.0;
+            int pairCount = 0;
+            foreach (int a in members1)
+            {
+                foreach (int b in members2)
+                {
+                    pairCount++;
+                    pcid += _distMat[a + 1, b + 1];
+                }
+            }
+
+            pcid /= (double)(float)pairCount;
+
             var seqArray = new int[nseqs1 + nseqs2][];
             var weights = new int[nseqs1 + nseqs2];
             for (int k = 0; k < nseqs1; k++)
@@ -681,14 +842,21 @@ public static partial class SequenceAligner
                 weights[nseqs1 + k] = _alnWeight[members2[k]];
             }
 
+            if (_o.Protein)
+                ConfigureProteinProfile(seqArray, nseqs1, nseqs2, pcid);
+
+            // The two profile objects (ProfileWithSub, ProfileStandard) are heap-allocated per call and freed at its end: their member gdist, which ProfileBase never
+            // initialises, keeps the value the previous occupant of the chunk left (the allocator hands out the most recently freed chunk first).
+            int gdist1 = _freedGapDistances.Pop(), gdist2 = _freedGapDistances.Pop();
+
             // profiles: with substitution matrix (profile 1), standard (profile 2)
-            var gaps = new int[Math.Max(_prfLength1, _prfLength2) + 2];
+            var gaps = new int[_prfLength1 + _prfLength2 + 3];   // alnPtr->getMaxAlnLength() + 1
             _profile1 = NewProfile(_prfLength1);
-            CalcGapCoeff(_profile1, seqArray, 0, nseqs1, _prfLength1, gaps);
+            CalcGapCoeff(_profile1, seqArray, 0, nseqs1, _prfLength1, gaps, ref gdist1);
             CalcProfileWithSub(_profile1, seqArray, 0, nseqs1, _prfLength1, gaps, weights);
 
             _profile2 = NewProfile(_prfLength2);
-            CalcGapCoeff(_profile2, seqArray, nseqs1, nseqs1 + nseqs2, _prfLength2, gaps);
+            CalcGapCoeff(_profile2, seqArray, nseqs1, nseqs1 + nseqs2, _prfLength2, gaps, ref gdist2);
             CalcStandardProfile(_profile2, seqArray, nseqs1, nseqs1 + nseqs2, _prfLength2, weights);
 
             // align the profiles (Myers & Miller)
@@ -772,7 +940,81 @@ public static partial class SequenceAligner
                 _seq[members1[k]] = seqArray[seqNum++];
             for (int k = 0; k < nseqs2; k++)
                 _seq[members2[k]] = seqArray[seqNum++];
+
+            // delete profileWithSub; delete profileStandard;
+            _freedGapDistances.Push(gdist1);
+            _freedGapDistances.Push(gdist2);
         }
+
+        // MyersMillerProfileAlign::profileAlign (PROTEIN part) + SubMatrix::getProfileAlignMatrix (protein branch): the matrix of the series chosen by the
+        // percent identity of the two groups and the gap coefficients scaled by the matrix average score and the (logarithmic) profile lengths.
+        private void ConfigureProteinProfile(int[][] seqArray, int nseqs1, int nseqs2, double pcid)
+        {
+            int len1 = 0;
+            for (int i = 0; i < nseqs1; i++)
+                len1 += CountResidues(seqArray[i], _prfLength1);
+            len1 = (int)(len1 / (float)nseqs1);
+
+            int len2 = 0;
+            for (int i = nseqs1; i < nseqs1 + nseqs2; i++)
+                len2 += CountResidues(seqArray[i], _prfLength2);
+            len2 = (int)(len2 / (float)nseqs2);
+
+            int minLen = Math.Min(len1, len2);
+            var (table, multiplier, intScale, scale) = ClustalWSelectProfileMatrix(_o.Matrix, _o.NegativeMatrix, pcid, minLen);
+            var (matrix, matAvgScore) = BuildClustalWProfileMatrix(table, multiplier, intScale, _o.NegativeMatrix);
+            _matrix = matrix;
+
+            double logmin, logdiff;
+            if (len1 == 0 || len2 == 0)
+            {
+                logmin = 1.0;
+                logdiff = 1.0;
+            }
+            else
+            {
+                logmin = 1.0 / Math.Log10((double)minLen);
+                if (len2 < len1)
+                    logdiff = 1.0 + 0.5 * Math.Log10((double)((float)len2 / (float)len1));
+                else if (len1 < len2)
+                    logdiff = 1.0 + 0.5 * Math.Log10((double)((float)len1 / (float)len2));
+                else
+                    logdiff = 1.0;
+                if (logdiff < 0.9)
+                    logdiff = 0.9;
+            }
+
+            float gapOpen = (float)_o.GapOpen, gapExtend = (float)_o.GapExtend;
+            if (_o.NegativeMatrix)
+            {
+                _gapCoef = ClustalWCastToInt(100.0 * gapOpen);
+                _lenCoef = ClustalWCastToInt(100.0 * gapExtend);
+            }
+            else
+            {
+                if (matAvgScore <= 0)
+                    _gapCoef = ClustalWCastToInt(100.0 * (float)(gapOpen + logmin));
+                else
+                    _gapCoef = ClustalWCastToInt(scale * matAvgScore * (float)(gapOpen / (logdiff * logmin)));   // PrfScaleValues.scale is a float: all single precision
+                _lenCoef = ClustalWCastToInt(100.0 * gapExtend);
+            }
+        }
+
+        // the residues (not the gap codes 30 / 31) among the first prfLength cells of a profile row
+        private static int CountResidues(int[] row, int prfLength)
+        {
+            int n = 0;
+            for (int j = 0; j < Math.Min(row.Length, prfLength); j++)
+            {
+                if (row[j] != CwGapPos1 && row[j] != CwGapPos2)
+                    n++;
+            }
+
+            return n;
+        }
+
+        // C++ static_cast<int>(double) on x86-64 (cvttsd2si): NaN and out-of-range values give INT_MIN
+        private static int ClustalWCastToInt(double v) => double.IsNaN(v) || v >= 2147483648.0 || v < -2147483648.0 ? int.MinValue : (int)v;
 
         private static int[] PadRow(int[] row, int length)
         {
@@ -791,33 +1033,61 @@ public static partial class SequenceAligner
             return p;
         }
 
-        // ProfileBase::calcGapCoeff, DNA branch (no mask, no structure penalties)
-        private void CalcGapCoeff(int[][] profile, int[][] seqArray, int firstSeq, int lastSeq, int prfLength, int[] gaps)
+        // ProfileBase::calcGapCoeff (no gap-penalty mask: no secondary-structure input). DNA: position-specific gap penalties only; PROTEIN additionally the
+        // variable-region, residue-specific (Pascarella & Argos), hydrophilic-run penalties and the gap-separation distance.
+        private void CalcGapCoeff(int[][] profile, int[][] seqArray, int firstSeq, int lastSeq, int prfLength, int[] gaps, ref int gdist)
         {
             int numSeq = lastSeq - firstSeq;
+            bool protein = _o.Protein;
+            int pcid = 0;
+            if (numSeq == 2)
+                pcid = (int)ClustalWProfilePercentId(seqArray[firstSeq], seqArray[firstSeq + 1], prfLength);
+
             for (int j = 0; j < prfLength; j++)
                 gaps[j] = 0;
+
+            // ProfileBase.h members nVarPen / nHydPen / nPrefPen are "this penalty is switched OFF"
+            bool nVarPen, nHydPen, nPrefPen;
+            if (_o.VariableRegionGapPenalties && pcid > 60)
+            {
+                // gdist is not assigned on this path: the member of the C++ object is uninitialised memory (see ProfileAlign)
+                nHydPen = nPrefPen = true;
+                nVarPen = false;
+                if (_o.GapDistanceOverrides is { } forced && _uninitialisedUses < forced.Count)
+                    gdist = forced[_uninitialisedUses];
+                _uninitialisedUses++;
+            }
+            else
+            {
+                nVarPen = true;
+                nHydPen = _o.NoHydrophilicGapPenalties;
+                nPrefPen = _o.NoPreferredGapPenalties;
+                gdist = _o.GapSeparationDistance;
+            }
 
             for (int i = firstSeq; i < lastSeq; i++)
             {
                 // end gaps are not counted as gaps (useEndGaps == false && endGapPenalties == false)
                 int isx = 0, ie = prfLength;
-                for (int j = 0; j < prfLength; j++)
+                if (!_o.UseEndGaps && !_o.EndGapPenalties)
                 {
-                    int c = seqArray[i][j];
-                    if (c < 0 || c > CwMaxAa)
-                        isx++;
-                    else
-                        break;
-                }
+                    for (int j = 0; j < prfLength; j++)
+                    {
+                        int c = seqArray[i][j];
+                        if (c < 0 || c > CwMaxAa)
+                            isx++;
+                        else
+                            break;
+                    }
 
-                for (int j = prfLength - 1; j >= 0; j--)
-                {
-                    int c = seqArray[i][j];
-                    if (c < 0 || c > CwMaxAa)
-                        ie--;
-                    else
-                        break;
+                    for (int j = prfLength - 1; j >= 0; j--)
+                    {
+                        int c = seqArray[i][j];
+                        if (c < 0 || c > CwMaxAa)
+                            ie--;
+                        else
+                            break;
+                    }
                 }
 
                 for (int j = isx; j < ie; j++)
@@ -827,12 +1097,73 @@ public static partial class SequenceAligner
                 }
             }
 
+            int[] vWeight = Array.Empty<int>(), resWeight = Array.Empty<int>(), hydWeight = Array.Empty<int>();
+            if (protein && !nVarPen)
+                vWeight = CalcVariableRegionPenalties(seqArray, firstSeq, prfLength);
+            if (protein && !nPrefPen)
+                resWeight = CalcResidueSpecificPenalties(seqArray, firstSeq, lastSeq, prfLength);
+            if (protein && !nHydPen)
+                hydWeight = CalcHydrophilicPenalties(seqArray, firstSeq, lastSeq, prfLength);
+
+            // mark the residues close to an existing gap (gapPos < 0)
+            var gapPos = new int[prfLength + 2];
+            int G(int idx) => idx >= 0 && idx < gaps.Length ? gaps[idx] : 0;
+            if (!protein || gdist <= 0)
+            {
+                for (int i = 0; i < prfLength; i++)
+                    gapPos[i] = gaps[i];
+            }
+            else
+            {
+                int i = 0;
+                while (i < prfLength)
+                {
+                    if (gaps[i] <= 0)
+                    {
+                        gapPos[i] = gaps[i];
+                        i++;
+                    }
+                    else
+                    {
+                        for (int j = -gdist + 1; j < 0; j++)
+                        {
+                            if (i + j >= 0 && i + j < prfLength && (gaps[i + j] == 0 || gaps[i + j] < j))
+                                gapPos[i + j] = j;
+                        }
+
+                        while (G(i) > 0)
+                        {
+                            if (i >= prfLength)
+                                break;
+                            gapPos[i] = gaps[i];
+                            i++;
+                        }
+
+                        int jj;
+                        for (jj = 0; jj < gdist; jj++)
+                        {
+                            if (G(i + jj) > 0)
+                                break;
+                            if (i + jj >= 0 && i + jj < prfLength && (gaps[i + jj] == 0 || gaps[i + jj] < -jj))
+                                gapPos[i + jj] = -jj - 1;
+                        }
+
+                        i += jj;
+                    }
+                }
+            }
+
             for (int j = 0; j < prfLength; j++)
             {
-                if (gaps[j] <= 0)
+                if (gapPos[j] <= 0)
                 {
-                    profile[j + 1][CwGapCol] = _gapCoef;
+                    // residue-specific and hydrophilic gap penalties (PROTEIN); DNA keeps the plain penalty
+                    profile[j + 1][CwGapCol] = protein ? ClustalWLocalPenalty(_gapCoef, j, nVarPen, nHydPen, nPrefPen, resWeight, hydWeight, vWeight) : _gapCoef;
                     profile[j + 1][CwLenCol] = _lenCoef;
+
+                    // increase the gap penalty near an existing gap
+                    if (gapPos[j] < 0)
+                        profile[j + 1][CwGapCol] = (int)(profile[j + 1][CwGapCol] * (2.0 + 2.0 * (gdist + gapPos[j]) / gdist));
                 }
                 else
                 {
@@ -841,17 +1172,166 @@ public static partial class SequenceAligner
                     profile[j + 1][CwLenCol] = (int)(0.5 * _lenCoef);
                 }
 
+                // make sure no penalty is zero - even for all-gap positions
                 if (profile[j + 1][CwGapCol] <= 0)
                     profile[j + 1][CwGapCol] = 1;
                 if (profile[j + 1][CwLenCol] <= 0)
                     profile[j + 1][CwLenCol] = 1;
             }
 
-            // end-gap penalties are off: free terminal gaps
-            profile[0][CwGapCol] = 0;
-            profile[0][CwLenCol] = 0;
-            profile[prfLength][CwGapCol] = 0;
-            profile[prfLength][CwLenCol] = 0;
+            // set the penalties at the beginning and end of the profile
+            if (_o.EndGapPenalties)
+            {
+                profile[0][CwGapCol] = _gapCoef;
+                profile[0][CwLenCol] = _lenCoef;
+            }
+            else
+            {
+                profile[0][CwGapCol] = 0;
+                profile[0][CwLenCol] = 0;
+                profile[prfLength][CwGapCol] = 0;
+                profile[prfLength][CwLenCol] = 0;
+            }
+        }
+
+        // ProfileBase::percentId (note: residue codes < maxAA, i.e. Z is not counted)
+        private static float ClustalWProfilePercentId(int[] s1, int[] s2, int prfLength)
+        {
+            int count = 0, total = 0;
+            for (int i = 0; i < prfLength; i++)
+            {
+                if (s1[i] >= 0 && s1[i] < CwMaxAa)
+                {
+                    total++;
+                    if (s1[i] == s2[i])
+                        count++;
+                }
+            }
+
+            return total == 0 ? 0f : (float)(100.0 * count / (float)total);
+        }
+
+        // ProfileBase::calcVPenalties: variable-zone weight from the identity of the first two sequences in a window of 2 * vwindow columns (vlut = identity)
+        private static int[] CalcVariableRegionPenalties(int[][] aln, int firstSeq, int prfLength)
+        {
+            const int vwindow = 5, vll = 50;
+            var weight = new int[prfLength + 2];
+            for (int i = 0; i < prfLength; i++)
+            {
+                weight[i] = 0;
+                int t = 0;
+                for (int j = i - vwindow; j < i + vwindow; j++)
+                {
+                    if (j >= 0 && j < prfLength)
+                    {
+                        int ix1 = aln[firstSeq][j], ix2 = aln[firstSeq + 1][j];
+                        if (ix1 < 0 || ix1 > CwMaxAa || ix2 < 0 || ix2 > CwMaxAa)
+                            continue;
+                        if (ClustalWResidueCodes[ix1] == ClustalWResidueCodes[ix2])
+                            weight[i] += 1;
+                        t++;
+                    }
+                }
+
+                // now we have a weight -t < w < t
+                weight[i] += t;
+                weight[i] = t > 0 ? weight[i] * 100 / (2 * t) : 100;
+                if (weight[i] < vll)
+                    weight[i] = vll;
+            }
+
+            return weight;
+        }
+
+        // ProfileBase::calcResidueSpecificPen: Pascarella & Argos (1992) residue-specific gap modification factors (Table 1 of Thompson et al. 1994)
+        private static int[] CalcResidueSpecificPenalties(int[][] aln, int firstSeq, int lastSeq, int prfLength)
+        {
+            const string pascarellaRes = "ACDEFGHKILMNPQRSTVYW";
+            int[] pascarellaProb = { 87, 87, 104, 69, 80, 139, 100, 104, 68, 79, 71, 137, 126, 93, 128, 124, 111, 75, 100, 77 };
+            int numSeq = lastSeq - firstSeq;
+            var weight = new int[prfLength + 2];
+            for (int i = 0; i < prfLength; i++)
+            {
+                weight[i] = 0;
+                for (int k = firstSeq; k < lastSeq; k++)
+                {
+                    int ix = aln[k][i];
+                    if (ix < 0 || ix > CwMaxAa)
+                        continue;
+                    int j = pascarellaRes.IndexOf(ClustalWResidueCodes[ix]);
+                    if (j >= 0)
+                        weight[i] += 180 - pascarellaProb[j];
+                }
+
+                weight[i] /= numSeq;
+            }
+
+            return weight;
+        }
+
+        // ProfileBase::calcHydrophilicPen: runs of more than three hydrophilic residues (-HGAPRESIDUES) in a sequence add 100 to every column of the run
+        private int[] CalcHydrophilicPenalties(int[][] aln, int firstSeq, int lastSeq, int prfLength)
+        {
+            var weight = new int[prfLength + 2];
+            var hyd = new int[prfLength + 2];
+            string hydResidues = _o.HydrophilicResidues;
+            for (int k = firstSeq; k < lastSeq; k++)
+            {
+                for (int i = 0; i < prfLength; i++)
+                {
+                    hyd[i] = 0;
+                    int res = aln[k][i];
+                    if (res < 0 || res > CwMaxAa)
+                        continue;
+                    if (hydResidues.Contains(ClustalWResidueCodes[res]))
+                        hyd[i] = 1;
+                }
+
+                int p = 0;
+                while (p < prfLength)
+                {
+                    if (hyd[p] == 0)
+                    {
+                        p++;
+                    }
+                    else
+                    {
+                        int s = p;
+                        while (hyd[p] != 0 && p < prfLength)
+                            p++;
+                        int e = p;
+                        if (e - s > 3)
+                        {
+                            for (int j = s; j < e; j++)
+                                weight[j] += 100;
+                        }
+                    }
+                }
+            }
+
+            float scale = lastSeq - firstSeq;
+            for (int i = 0; i < prfLength; i++)
+                weight[i] = (int)(weight[i] / scale);
+            return weight;
+        }
+
+        // ProfileBase::localPenalty (PROTEIN): the gap-opening penalty of a column scaled by the variable-region, hydrophilic and residue-specific weights
+        private static int ClustalWLocalPenalty(int penalty, int n, bool nVarPen, bool nHydPen, bool nPrefPen, int[] resWeight, int[] hydWeight, int[] vWeight)
+        {
+            bool h = false;
+            float gw = 1.0f;
+            if (!nVarPen)
+                gw = (float)(gw * (vWeight[n] / 100.0));
+            if (!nHydPen && hydWeight[n] > 0)
+            {
+                gw = (float)(gw * 0.5);
+                h = true;
+            }
+
+            if (!nPrefPen && !h)
+                gw = (float)(gw * (resWeight[n] / 100.0));
+            gw *= penalty;
+            return (int)gw;
         }
 
         // ProfileWithSub::calcProfileWithSub
@@ -996,15 +1476,15 @@ public static partial class SequenceAligner
             return score / 10;
         }
 
-        private int OpenPenalty1(int i, int j) => i == 0 || i == _prfLength1 ? 0 : _profile2[j][CwGapCol] + _profile1[i][CwGapCol];
+        private int OpenPenalty1(int i, int j) => !_o.EndGapPenalties && (i == 0 || i == _prfLength1) ? 0 : _profile2[j][CwGapCol] + _profile1[i][CwGapCol];
 
-        private int ExtPenalty1(int i, int j) => i == 0 || i == _prfLength1 ? 0 : _profile2[j][CwLenCol];
+        private int ExtPenalty1(int i, int j) => !_o.EndGapPenalties && (i == 0 || i == _prfLength1) ? 0 : _profile2[j][CwLenCol];
 
         private int GapPenalty1(int i, int j, int k)
         {
             if (k <= 0)
                 return 0;
-            if (i == 0 || i == _prfLength1)
+            if (!_o.EndGapPenalties && (i == 0 || i == _prfLength1))
                 return 0;
             int g = _profile2[j][CwGapCol] + _profile1[i][CwGapCol];
             int h = 0;
@@ -1013,15 +1493,15 @@ public static partial class SequenceAligner
             return g + h;
         }
 
-        private int OpenPenalty2(int i, int j) => j == 0 || j == _prfLength2 ? 0 : _profile1[i][CwGapCol] + _profile2[j][CwGapCol];
+        private int OpenPenalty2(int i, int j) => !_o.EndGapPenalties && (j == 0 || j == _prfLength2) ? 0 : _profile1[i][CwGapCol] + _profile2[j][CwGapCol];
 
-        private int ExtPenalty2(int i, int j) => j == 0 || j == _prfLength2 ? 0 : _profile1[i][CwLenCol];
+        private int ExtPenalty2(int i, int j) => !_o.EndGapPenalties && (j == 0 || j == _prfLength2) ? 0 : _profile1[i][CwLenCol];
 
         private int GapPenalty2(int i, int j, int k)
         {
             if (k <= 0)
                 return 0;
-            if (j == 0 || j == _prfLength2)
+            if (!_o.EndGapPenalties && (j == 0 || j == _prfLength2))
                 return 0;
             int g = _profile1[i][CwGapCol] + _profile2[j][CwGapCol];
             int h = 0;

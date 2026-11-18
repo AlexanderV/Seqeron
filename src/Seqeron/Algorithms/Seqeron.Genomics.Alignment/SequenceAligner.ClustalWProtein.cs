@@ -41,8 +41,9 @@ public static partial class SequenceAligner
         new(() => BuildClustalWProteinMatrix(SubstitutionMatrix.ClustalWIdentity, 100)),
     };
 
-    /// <summary><c>SubMatrix::getMatrix</c> (pairwise, <c>negFlag</c> = true) for a table of <c>matrices.h</c>: the matrix over residue codes and <c>matrixAvgScore</c>.</summary>
-    private static (int[,] Matrix, int IntScale, int MatrixAvgScore) BuildClustalWProteinMatrix(SubstitutionMatrix table, int intScale)
+    /// <summary><c>SubMatrix::getMatrix</c> up to the average score (the part shared by the pairwise and the profile matrices) for a table of <c>matrices.h</c>:
+    /// the matrix over residue codes (cell = table x <paramref name="multiplier"/> x <paramref name="intScale"/>) and <c>matrixAvgScore</c>.</summary>
+    private static (int[,] Matrix, int IntScale, int MatrixAvgScore) BuildClustalWProteinMatrix(SubstitutionMatrix table, int intScale, int multiplier = 1)
     {
         int n = ClustalWResidueCodes.Length;
         var matrix = new int[n, n];
@@ -54,7 +55,7 @@ public static partial class SequenceAligner
             for (int j = 0; j <= i; j++)
             {
                 int tj = ClustalWResidueCodes.IndexOf(order[j]);
-                int k = table.GetScore(order[i], order[j]) * intScale;
+                int k = table.GetScore(order[i], order[j]) * multiplier * intScale;
                 matrix[ti, tj] = k;
                 matrix[tj, ti] = k;
                 if (i == j)
@@ -70,6 +71,92 @@ public static partial class SequenceAligner
 
         av3 = (int)((float)av3 / ((float)(maxRes * maxRes - maxRes) / 2));
         return (matrix, intScale, -av3);
+    }
+
+    /// <summary>
+    /// <c>SubMatrix::getProfileAlignMatrix</c>, protein branch: the table of the matrix series that ClustalW uses for two profiles with mean percent identity
+    /// <paramref name="pcid"/> and shorter average length <paramref name="minLen"/>, with the scale factor of the gap penalties (a <c>float</c> in ClustalW: <c>PrfScaleValues.scale</c>).
+    /// BLOSUM: 80 / 62 (x2) / 45 / 45 (scale 0.5) / 45 (0.6) / 30 (0.6) at &gt; 80 / 60 / 40 / 30 / 20 / else; PAM: 20 / 60 / 120 / 350 at &gt; 80 / 60 / 40 / else;
+    /// GONNET (intScale 10, scale 0.375): 80 (scale 0.1875) above 35 %, between 25 and 35 % 250 (profiles shorter than 100) or 120, else 350 or 160;
+    /// ID: the identity matrix. <c>-NEGATIVE</c> selects BLOSUM40 / PAM120 / GONNET250 for every pair of profiles.
+    /// </summary>
+    private static (SubstitutionMatrix Table, int Multiplier, int IntScale, float Scale) ClustalWSelectProfileMatrix(
+        ClustalWProfileMatrix matrix, bool negative, double pcid, int minLen)
+    {
+        switch (matrix)
+        {
+            case ClustalWProfileMatrix.Blosum:
+                if (negative)
+                    return (SubstitutionMatrix.ClustalWBlosum40, 1, 100, 0.75f);
+                if (pcid > 80.0)
+                    return (SubstitutionMatrix.ClustalWBlosum80, 1, 100, 0.75f);
+                if (pcid > 60.0)
+                    return (SubstitutionMatrix.Blosum62, 2, 100, 0.75f);          // blosum62mt2 = 2 x BLOSUM62
+                if (pcid > 40.0)
+                    return (SubstitutionMatrix.ClustalWBlosum45, 1, 100, 0.75f);
+                if (pcid > 30.0)
+                    return (SubstitutionMatrix.ClustalWBlosum45, 1, 100, 0.5f);
+                if (pcid > 20.0)
+                    return (SubstitutionMatrix.ClustalWBlosum45, 1, 100, 0.6f);
+                return (SubstitutionMatrix.ClustalWBlosum30, 1, 100, 0.6f);
+            case ClustalWProfileMatrix.Pam:
+                if (negative)
+                    return (SubstitutionMatrix.ClustalWPam120, 1, 100, 0.75f);
+                if (pcid > 80.0)
+                    return (SubstitutionMatrix.ClustalWPam20, 1, 100, 0.75f);
+                if (pcid > 60.0)
+                    return (SubstitutionMatrix.ClustalWPam60, 1, 100, 0.75f);
+                if (pcid > 40.0)
+                    return (SubstitutionMatrix.ClustalWPam120, 1, 100, 0.75f);
+                return (SubstitutionMatrix.ClustalWPam350, 1, 100, 0.75f);
+            case ClustalWProfileMatrix.Gonnet:
+                if (negative)
+                    return (SubstitutionMatrix.ClustalWGonnet250, 1, 10, 0.375f);
+                if (pcid > 35.0)
+                    return (SubstitutionMatrix.ClustalWGonnet80, 1, 10, 0.1875f);
+                if (pcid > 25.0)
+                    return (minLen < 100 ? SubstitutionMatrix.ClustalWGonnet250 : SubstitutionMatrix.ClustalWGonnet120, 1, 10, 0.375f);
+                return (minLen < 100 ? SubstitutionMatrix.ClustalWGonnet350 : SubstitutionMatrix.ClustalWGonnet160, 1, 10, 0.375f);
+            case ClustalWProfileMatrix.Identity:
+                return (SubstitutionMatrix.ClustalWIdentity, 1, 100, 0.75f);
+            default:
+                throw new ArgumentOutOfRangeException(nameof(matrix), matrix, "Unknown ClustalW profile matrix.");
+        }
+    }
+
+    /// <summary>
+    /// <c>SubMatrix::getMatrix</c> for the profile stage: the 32 x 32 matrix over residue codes, shifted to non-negative scores unless <paramref name="negative"/>
+    /// (the lowest cell of the lower triangle without column A, as in the C++, is subtracted from every pair of table residues), gap rows / columns 0; and
+    /// <c>matrixAvgScore</c>.
+    /// </summary>
+    private static (int[,] Matrix, int MatrixAvgScore) BuildClustalWProfileMatrix(SubstitutionMatrix table, int multiplier, int intScale, bool negative)
+    {
+        var (codesMatrix, _, matAvg) = BuildClustalWProteinMatrix(table, intScale, multiplier);
+        const int numRes = 32;
+        var matrix = new int[numRes, numRes];
+        int codeCount = ClustalWResidueCodes.Length;
+        for (int i = 0; i < codeCount; i++)
+            for (int j = 0; j < codeCount; j++)
+                matrix[i, j] = codesMatrix[i, j];
+
+        int min = matrix[0, 0];
+        for (int i = 0; i <= ClustalWMaxAminoAcidCode; i++)
+            for (int j = 1; j <= i; j++)
+                min = Math.Min(min, matrix[i, j]);
+
+        if (!negative && min < 0)
+        {
+            string order = SubstitutionMatrix.ClustalWAminoAcidOrder;
+            foreach (char ci in order)
+            {
+                int ti = ClustalWResidueCodes.IndexOf(ci);
+                foreach (char cj in order)
+                    matrix[ti, ClustalWResidueCodes.IndexOf(cj)] -= min;
+            }
+        }
+
+        // gap rows / columns (grScore = ggScore = 0): the 32 x 32 array already holds zeros for the codes 25 .. 31
+        return (matrix, matAvg);
     }
 
     /// <summary>ClustalW residue codes of a protein sequence; a symbol ClustalW does not read (J, '*', non-letters) is rejected (the program silently drops it).</summary>

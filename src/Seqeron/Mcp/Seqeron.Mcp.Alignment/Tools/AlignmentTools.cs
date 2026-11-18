@@ -617,26 +617,35 @@ public class AlignmentTools
             (seqs, scoring) => global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignConsistency(seqs, scoring, ParseMsaOptions(distance, gapModel, guideTree, ktuple, window, topDiagonals, pairGap, consistencyEngine, pwMatrix, pwGapOpen, pwGapExtend)));
 
     [McpServerTool(Name = "multiple_align_clustalw", Title = "MSA — ClustalW 2.1 Multiple Alignment (exact port)", ReadOnly = true)]
-    [Description("ClustalW 2.1's multiple alignment of DNA (clustalw -TYPE=DNA -ALIGN), ported step by step and verified row-for-row against the installed clustalw 2.1: pairwise distances (distance='clustalw' = the full affine Smith-Waterman-Gotoh stage, 'clustalw-quick' = the fast k-tuple stage of -QUICKTREE with ktuple / window / topDiagonals / pairGap), ClustalW's neighbour-joining guide tree (rooted by Tree::reRoot), sequence weights derived from the tree branch lengths (Thompson, Higgins & Gibson 1994; noWeights = equal weights), delayed divergent sequences (maxDiv, default 30: sequences with at most that percent identity to every other sequence are aligned last), and profile-profile alignment with position-specific gap penalties (positions that already hold gaps get a reduced opening penalty and half the extension penalty, end gaps are free) on the IUB weight matrix shifted to non-negative scores (negative = keep it signed) with transitions weighted by transitionWeight (clustalw -TRANSWEIGHT, default 0.5) and Myers-Miller linear-space alignment. gapOpen / gapExtend are ClustalW's -GAPOPEN 15 / -GAPEXT 6.66 (the DNA residue-specific, hydrophilic and gap-separation penalties of clustalw are protein-only). Rows are returned in input order. match / mismatch / scoreGapOpen / scoreGapExtend define only the reported totalScore (natural affine sum of pairs, Altschul 1989).")]
+    [Description("ClustalW 2.1's multiple alignment of DNA (clustalw -TYPE=DNA -ALIGN) or PROTEIN (type='protein', clustalw -TYPE=PROTEIN -ALIGN), ported step by step and verified row-for-row against the installed clustalw 2.1 (1 000 DNA sets and 1 000 protein sets, option variants included): pairwise distances (distance='clustalw' = the full affine Smith-Waterman-Gotoh stage, 'clustalw-quick' = the fast k-tuple stage of -QUICKTREE with ktuple / window / topDiagonals / pairGap), ClustalW's neighbour-joining guide tree (rooted by Tree::reRoot), sequence weights derived from the tree branch lengths (Thompson, Higgins & Gibson 1994; noWeights = equal weights), delayed divergent sequences (maxDiv, default 30: sequences with at most that percent identity to every other sequence are aligned last), and profile-profile alignment with position-specific gap penalties (positions that already hold gaps get a reduced opening penalty and half the extension penalty, end gaps are free) and Myers-Miller linear-space alignment. DNA: the IUB weight matrix shifted to non-negative scores (negative = keep it signed) with transitions weighted by transitionWeight (clustalw -TRANSWEIGHT, default 0.5); gapOpen / gapExtend = -GAPOPEN 15 / -GAPEXT 6.66. PROTEIN: the matrix series of ClustalW's profile stage (matrix = -MATRIX gonnet (default) / blosum / pam / id; the table of the series is chosen per profile pair by its percent identity, e.g. GONNET80 / 250 / 120 / 350 / 160, BLOSUM80 / 62 / 45 / 30, PAM20 / 60 / 120 / 350), a gap opening scaled by the matrix average score and the logarithm of the profile lengths (gapOpen / gapExtend = -GAPOPEN 10 / -GAPEXT 0.2), the residue-specific gap penalties of Pascarella & Argos 1992 (noPreferredGaps = -NOPGAP), the hydrophilic-run penalties (noHydrophilicGaps = -NOHGAP; hydrophilicResidues = -HGAPRESIDUES, default GPSNDQEKR, at most 9 letters), the variable-region penalties (variableRegionGaps = clustalw's -NOVGAP, sic: it switches them ON), the gap-separation distance (gapDist = -GAPDIST, default 4; 0 = off) and the pairwise stage of F62 (pwMatrix = -PWMATRIX gonnet / blosum / pam / id, pwGapOpen 10 / pwGapExtend 0.1, ktuple 1-2). Known residual: with variableRegionGaps and a two-sequence profile of more than 60 % identity ClustalW reads an uninitialised C++ member (gdist), so on ~0.2 % of such runs the heap decides; the port emulates the usual value. Rows are returned in input order. match / mismatch / scoreGapOpen / scoreGapExtend (DNA) or scoreMatrix / scoreGapOpen / scoreGapExtend (protein; default BLOSUM62, open -9.8, extend -0.2) define only the reported totalScore (natural affine sum of pairs, Altschul 1989).")]
     public static MultipleAlignmentResultDto MultipleAlignClustalW(
-        [Description("DNA sequences to align (at least one; A, C, G, T).")] string[] sequences,
-        [Description("ClustalW -GAPOPEN: gap-opening penalty of the profile alignment (default 15; a penalty, positive).")] double gapOpen = 15.0,
-        [Description("ClustalW -GAPEXT: gap-extension penalty of the profile alignment (default 6.66).")] double gapExtend = 6.66,
+        [Description("Sequences to align (at least one): DNA (A, C, G, T / IUB codes) by default, amino acids (letters A-Z except J) with type='protein'.")] string[] sequences,
+        [Description("ClustalW -GAPOPEN: gap-opening penalty of the profile alignment (default 15 for DNA, 10 for protein; a penalty, positive).")] double? gapOpen = null,
+        [Description("ClustalW -GAPEXT: gap-extension penalty of the profile alignment (default 6.66 for DNA, 0.2 for protein).")] double? gapExtend = null,
         [Description("Pairwise stage that gives the guide-tree distances: 'clustalw' (default; full DP, clustalw -ALIGN) or 'clustalw-quick' (fast k-tuple mode, clustalw -QUICKTREE).")] string distance = "clustalw",
-        [Description("ClustalW -PWGAPOPEN: pairwise gap-opening penalty of the full pairwise stage (default 15).")] double pwGapOpen = 15.0,
-        [Description("ClustalW -PWGAPEXT: pairwise gap-extension penalty of the full pairwise stage (default 6.66).")] double pwGapExtend = 6.66,
-        [Description("ClustalW -TRANSWEIGHT: weight of transitions (A-G, C-T/U) in the profile matrix (default 0.5; 0 = as mismatches, 1 = as matches).")] float transitionWeight = 0.5f,
+        [Description("ClustalW -PWGAPOPEN: pairwise gap-opening penalty of the full pairwise stage (default 15 for DNA, 10 for protein).")] double? pwGapOpen = null,
+        [Description("ClustalW -PWGAPEXT: pairwise gap-extension penalty of the full pairwise stage (default 6.66 for DNA, 0.1 for protein).")] double? pwGapExtend = null,
+        [Description("DNA only, ClustalW -TRANSWEIGHT: weight of transitions (A-G, C-T/U) in the profile matrix (default 0.5; 0 = as mismatches, 1 = as matches).")] float transitionWeight = 0.5f,
         [Description("ClustalW -MAXDIV (default 30): a sequence whose highest percent identity to any other sequence is at most this value is delayed (aligned last, after the rest).")] int maxDiv = 30,
         [Description("ClustalW -NOWEIGHTS: no tree-derived sequence weights.")] bool noWeights = false,
-        [Description("ClustalW -NEGATIVE: keep the substitution matrix signed instead of shifting it to non-negative scores.")] bool negative = false,
+        [Description("ClustalW -NEGATIVE: keep the substitution matrix signed instead of shifting it to non-negative scores (protein: one matrix BLOSUM40 / PAM120 / GONNET250 instead of the series).")] bool negative = false,
         [Description(KtupleDescription)] int? ktuple = null,
         [Description(WindowDescription)] int? window = null,
         [Description(TopDiagonalsDescription)] int? topDiagonals = null,
         [Description(PairGapDescription)] int? pairGap = null,
-        [Description("Score for matching base in the reported totalScore only.")] int match = 1,
-        [Description("Score for mismatching base in the reported totalScore only.")] int mismatch = -1,
-        [Description("Gap-open score of the reported totalScore only (negative = penalty).")] int scoreGapOpen = -2,
-        [Description("Gap-extend score of the reported totalScore only (negative = penalty).")] int scoreGapExtend = -1)
+        [Description("Score for matching base in the reported totalScore only (DNA).")] int match = 1,
+        [Description("Score for mismatching base in the reported totalScore only (DNA).")] int mismatch = -1,
+        [Description("Gap-open score of the reported totalScore only (negative = penalty; default -2 for DNA, -9.8 for protein).")] double? scoreGapOpen = null,
+        [Description("Gap-extend score of the reported totalScore only (negative = penalty; default -1 for DNA, -0.2 for protein).")] double? scoreGapExtend = null,
+        [Description("'dna' (default) or 'protein' (ClustalW -TYPE).")] string type = "dna",
+        [Description("type='protein': ClustalW -MATRIX, the matrix series of the profile alignment: 'gonnet' (default), 'blosum', 'pam' or 'id'.")] string? matrix = null,
+        [Description("type='protein': ClustalW -PWMATRIX, the pairwise matrix: 'gonnet' (default; GONNET250), 'blosum' (BLOSUM30), 'pam' (PAM350) or 'id'.")] string? pwMatrix = null,
+        [Description("type='protein': ClustalW -NOPGAP: switch off the residue-specific (Pascarella & Argos) gap penalties.")] bool noPreferredGaps = false,
+        [Description("type='protein': ClustalW -NOHGAP: switch off the hydrophilic-run gap penalties.")] bool noHydrophilicGaps = false,
+        [Description("type='protein': ClustalW -NOVGAP (sic): switch the variable-region gap penalties on (clustalw's default is off).")] bool variableRegionGaps = false,
+        [Description("type='protein': ClustalW -GAPDIST: gap separation distance (default 4; 0 = off): columns this close to an existing gap get a higher opening penalty.")] int gapDist = 4,
+        [Description("type='protein': ClustalW -HGAPRESIDUES: residues of a hydrophilic stretch (default GPSNDQEKR; at most the first 9 letters are used).")] string hydrophilicResidues = "GPSNDQEKR",
+        [Description("type='protein': substitution matrix of the reported totalScore only: BLOSUM62 (default) or PAM250.")] string? scoreMatrix = null)
     {
         var mode = (distance ?? "clustalw").Trim().ToLowerInvariant() switch
         {
@@ -644,13 +653,59 @@ public class AlignmentTools
             "clustalw-quick" or "clustalw_quick" or "clustalwquick" or "quick" => global::Seqeron.Genomics.Infrastructure.ClustalWPairwiseMode.Quick,
             _ => throw new ArgumentException("distance must be 'clustalw' or 'clustalw-quick'.", nameof(distance)),
         };
+        var kind = (type ?? "dna").Trim().ToLowerInvariant();
+        if (kind is not ("dna" or "protein"))
+            throw new ArgumentException("type must be 'dna' or 'protein'.", nameof(type));
+
+        if (kind == "protein")
+        {
+            var protein = new global::Seqeron.Genomics.Infrastructure.ClustalWProteinOptions
+            {
+                Matrix = (matrix ?? "gonnet").Trim().ToLowerInvariant() switch
+                {
+                    "gonnet" => global::Seqeron.Genomics.Infrastructure.ClustalWProfileMatrix.Gonnet,
+                    "blosum" => global::Seqeron.Genomics.Infrastructure.ClustalWProfileMatrix.Blosum,
+                    "pam" => global::Seqeron.Genomics.Infrastructure.ClustalWProfileMatrix.Pam,
+                    "id" or "identity" => global::Seqeron.Genomics.Infrastructure.ClustalWProfileMatrix.Identity,
+                    _ => throw new ArgumentException("matrix must be 'gonnet', 'blosum', 'pam' or 'id'.", nameof(matrix)),
+                },
+                GapOpen = gapOpen ?? 10.0,
+                GapExtend = gapExtend ?? 0.2,
+                PairwiseMode = mode,
+                Pairwise = ParseMsaOptions(null, null, null, ktuple, window, topDiagonals, pairGap, null, pwMatrix, pwGapOpen, pwGapExtend).ClustalWProtein,
+                DivergenceCutoff = maxDiv,
+                NoWeights = noWeights,
+                NegativeMatrix = negative,
+                NoPreferredGapPenalties = noPreferredGaps,
+                NoHydrophilicGapPenalties = noHydrophilicGaps,
+                VariableRegionGapPenalties = variableRegionGaps,
+                GapSeparationDistance = gapDist,
+                HydrophilicResidues = hydrophilicResidues ?? "GPSNDQEKR",
+            };
+            var scoreSub = (scoreMatrix ?? "BLOSUM62").Trim().ToUpperInvariant() switch
+            {
+                "BLOSUM62" => global::Seqeron.Genomics.Infrastructure.SubstitutionMatrix.Blosum62,
+                "PAM250" => global::Seqeron.Genomics.Infrastructure.SubstitutionMatrix.Pam250,
+                _ => throw new ArgumentException("scoreMatrix must be 'BLOSUM62' or 'PAM250'.", nameof(scoreMatrix)),
+            };
+            if (sequences == null || sequences.Length == 0)
+            {
+                var e = global::Seqeron.Genomics.Infrastructure.MultipleAlignmentResult.Empty;
+                return new MultipleAlignmentResultDto(e.AlignedSequences, e.Consensus, e.TotalScore, e.ExactTotalScore);
+            }
+
+            var m = global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignClustalW(
+                sequences, protein, new global::Seqeron.Genomics.Infrastructure.MatrixScoring(scoreSub, scoreGapOpen ?? -9.8, scoreGapExtend ?? -0.2));
+            return new MultipleAlignmentResultDto(m.AlignedSequences, m.Consensus, m.TotalScore, m.ExactTotalScore);
+        }
+
         var options = new global::Seqeron.Genomics.Infrastructure.ClustalWOptions
         {
-            GapOpen = gapOpen,
-            GapExtend = gapExtend,
+            GapOpen = gapOpen ?? 15.0,
+            GapExtend = gapExtend ?? 6.66,
             PairwiseMode = mode,
-            PairwiseGapOpen = pwGapOpen,
-            PairwiseGapExtend = pwGapExtend,
+            PairwiseGapOpen = pwGapOpen ?? 15.0,
+            PairwiseGapExtend = pwGapExtend ?? 6.66,
             TransitionWeight = transitionWeight,
             DivergenceCutoff = maxDiv,
             NoWeights = noWeights,
@@ -663,7 +718,7 @@ public class AlignmentTools
                 PairGap = pairGap ?? (ktuple.HasValue ? ktuple.Value + 4 : 5),
             },
         };
-        return RunMsa(sequences, match, mismatch, scoreGapOpen, scoreGapExtend,
+        return RunMsa(sequences, match, mismatch, RequireInteger(scoreGapOpen ?? -2, nameof(scoreGapOpen)), RequireInteger(scoreGapExtend ?? -1, nameof(scoreGapExtend)),
             (seqs, scoring) => global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignClustalW(seqs, options, scoring));
     }
 

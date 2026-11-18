@@ -196,6 +196,53 @@ public class MultipleAlignTests
         });
     }
 
+    // B09 F63 (A1-10c b): multiple_align_clustalw type = protein delegates to the PROTEIN overload of SequenceAligner.MultipleAlignClustalW.
+    // Rows of the default run = the installed clustalw 2.1 (-TYPE=PROTEIN -ALIGN -OUTPUT=FASTA -OUTORDER=INPUT), set 20 of clustalw_protein_msa_oracle.tsv.
+    private static readonly string[] ClustalWProteinSet =
+        ["LFFFFFFFMFFFFFDKFFFFFFFFFFFFFFFF", "FLAFLVKTYAHTGLKDKEGF", "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF", "FFFRNPFFPFGFFFFFFFFFFFFSFFHFFFFFF"];
+
+    private static readonly string[] ClustalWProteinRows =
+        ["LFFF---FFFFMFFFFFDKFFFFFFFFFFFFFFFF", "------------FLAFLVKTYAHTGLKDKEGF---", "-FFF---FFFFFFFFFFFFFFFFFFFFFFFFFFFF", "-FFFRNPFFPFGFFFFFFFFFFFFSFFHFFFFFF-"];
+
+    [Test]
+    public void MultipleAlignClustalW_Protein_DelegatesToTheProteinClustalWPort_AndParsesEveryOption()
+    {
+        var def = AlignmentTools.MultipleAlignClustalW(ClustalWProteinSet, type: "protein");
+        var opt = new global::Seqeron.Genomics.Infrastructure.ClustalWProteinOptions
+        {
+            Matrix = global::Seqeron.Genomics.Infrastructure.ClustalWProfileMatrix.Pam, GapOpen = 12, GapExtend = 0.4,
+            PairwiseMode = global::Seqeron.Genomics.Infrastructure.ClustalWPairwiseMode.Quick,
+            Pairwise = new global::Seqeron.Genomics.Infrastructure.ClustalWProteinPairwiseOptions
+            {
+                Matrix = global::Seqeron.Genomics.Infrastructure.ClustalWPairwiseMatrix.Blosum, GapOpen = 8, GapExtend = 0.3,
+                Quick = new global::Seqeron.Genomics.Infrastructure.ClustalWQuickOptions { KTuple = 2, Window = 6, TopDiagonals = 7, PairGap = 5 },
+            },
+            DivergenceCutoff = 50, NoWeights = true, NegativeMatrix = true, NoPreferredGapPenalties = true, NoHydrophilicGapPenalties = true,
+            VariableRegionGapPenalties = true, GapSeparationDistance = 6, HydrophilicResidues = "ACDEFGHIK",
+        };
+        var scoring = new global::Seqeron.Genomics.Infrastructure.MatrixScoring(global::Seqeron.Genomics.Infrastructure.SubstitutionMatrix.Pam250, -5.0, -0.5);
+        var viaApi = global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignClustalW(ClustalWProteinSet, opt, scoring);
+        var viaTool = AlignmentTools.MultipleAlignClustalW(ClustalWProteinSet, 12, 0.4, "clustalw-quick", 8, 0.3, 0.5f, 50, true, true, 2, 6, 7, 5, 1, -1, -5.0, -0.5,
+            "protein", "pam", "blosum", true, true, true, 6, "ACDEFGHIK", "PAM250");
+        Assert.Multiple(() =>
+        {
+            Assert.That(def.AlignedSequences, Is.EqualTo(ClustalWProteinRows));
+            Assert.That(viaTool.AlignedSequences, Is.EqualTo(viaApi.AlignedSequences));
+            Assert.That(viaTool.TotalScore, Is.EqualTo(viaApi.TotalScore));
+            Assert.That(viaTool.AlignedSequences.Select(x => x.Replace("-", "")), Is.EqualTo(ClustalWProteinSet));
+            Assert.That(AlignmentTools.MultipleAlignClustalW(ClustalWProteinSet, type: "protein", matrix: "gonnet", pwMatrix: "gonnet", distance: "full").AlignedSequences, Is.EqualTo(def.AlignedSequences));
+            Assert.That(AlignmentTools.MultipleAlignClustalW(Array.Empty<string>(), type: "protein").AlignedSequences, Is.Empty);
+            Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignClustalW(ClustalWProteinSet, type: "rna"));
+            Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignClustalW(ClustalWProteinSet, type: "protein", matrix: "bogus"));
+            Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignClustalW(ClustalWProteinSet, type: "protein", pwMatrix: "bogus"));
+            Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignClustalW(ClustalWProteinSet, type: "protein", scoreMatrix: "bogus"));
+            Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignClustalW(new[] { "MKVL", "MKJL" }, type: "protein"));
+            Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignClustalW(ClustalWProteinSet, type: "protein", gapOpen: -1));
+            // the DNA defaults are unchanged by the protein parameters
+            Assert.That(AlignmentTools.MultipleAlignClustalW(ClustalWSet, matrix: "pam", noPreferredGaps: true).AlignedSequences, Is.EqualTo(AlignmentTools.MultipleAlignClustalW(ClustalWSet).AlignedSequences));
+        });
+    }
+
     // B09 F52 (A1-10): gapModel = affine honours gapOpen. Identical pair 33 matches = 66; the two pairs with the 23-nt sequence have
     // 23 matches (46) and ONE 10-nt gap run: affine -8 + 10 * -1 = -18, linear -10.
     private static readonly string[] IndelSet =

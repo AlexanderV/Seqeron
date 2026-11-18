@@ -276,7 +276,7 @@ public readonly record struct AlignmentStatistics(
 /// U). Every cell equals Biopython 1.88 <c>substitution_matrices.load('BLOSUM62' / 'PAM250' / 'NUC.4.4')</c>
 /// (EDNAFULL additionally defines U).
 /// </remarks>
-public sealed class SubstitutionMatrix
+public sealed partial class SubstitutionMatrix
 {
     private readonly int[,] _scores;
     private readonly sbyte[] _index = new sbyte[128];
@@ -382,7 +382,7 @@ public sealed class SubstitutionMatrix
 
     /// <summary>
     /// ClustalW 2.1's PAM350 matrix (<c>pam350mt</c>; the PROTEIN pairwise matrix <c>-PWMATRIX=PAM</c>): the Dayhoff mutation-data log-odds at 350 PAM as distributed
-    /// with ClustalW (the table of the original program; no other local reference carries PAM350 — its own PAM250 sibling <c>pam250mt</c> equals Biopython <c>PAM250</c> on the 20 amino acids).
+    /// with ClustalW; equal on all 23 × 23 cells to the EMBOSS data file <c>EPAM350</c>).
     /// </summary>
     public static SubstitutionMatrix ClustalWPam350 => LazyClustalWPam350.Value;
     private static readonly Lazy<SubstitutionMatrix> LazyClustalWPam350 = new(() => BuildTriangle("CLUSTALW-PAM350", ClustalWPam350Triangle()));
@@ -905,6 +905,83 @@ public sealed record ClustalWOptions
 
     /// <summary><c>-NEGATIVE</c>: use the substitution matrix as it is (negative mismatch scores) instead of shifting it to non-negative scores.</summary>
     public bool NegativeMatrix { get; init; }
+}
+
+/// <summary>The substitution-matrix series of ClustalW's PROTEIN profile alignment (<c>-MATRIX</c>; one table of the series is chosen per profile pair by percent identity).</summary>
+public enum ClustalWProfileMatrix
+{
+    /// <summary><c>GONNET</c> (default): GONNET80 / 250 / 120 / 350 / 160 (<see cref="SubstitutionMatrix.ClustalWGonnet80"/> ...), intScale 10.</summary>
+    Gonnet = 0,
+
+    /// <summary><c>BLOSUM</c>: BLOSUM80 / 62 / 45 / 30 (<see cref="SubstitutionMatrix.ClustalWBlosum80"/> ...), 40 with <c>-NEGATIVE</c>.</summary>
+    Blosum = 1,
+
+    /// <summary><c>PAM</c>: PAM20 / 60 / 120 / 350 (<see cref="SubstitutionMatrix.ClustalWPam20"/> ...).</summary>
+    Pam = 2,
+
+    /// <summary><c>ID</c>: the identity matrix (<see cref="SubstitutionMatrix.ClustalWIdentity"/>).</summary>
+    Identity = 3,
+}
+
+/// <summary>
+/// Parameters of <c>SequenceAligner.MultipleAlignClustalW</c> for PROTEIN (the port of ClustalW 2.1's multiple-alignment stage for amino acids,
+/// <c>clustalw -TYPE=PROTEIN -ALIGN</c>). Defaults are ClustalW's PROTEIN defaults.
+/// </summary>
+public sealed record ClustalWProteinOptions
+{
+    /// <summary>Matrix series of the profile alignment (<c>-MATRIX</c>, default <see cref="ClustalWProfileMatrix.Gonnet"/>).</summary>
+    public ClustalWProfileMatrix Matrix { get; init; } = ClustalWProfileMatrix.Gonnet;
+
+    /// <summary>Gap-opening penalty of the profile alignment (<c>-GAPOPEN</c>, PROTEIN default 10.0; stored in single precision like ClustalW).</summary>
+    public double GapOpen { get; init; } = 10.0;
+
+    /// <summary>Gap-extension penalty of the profile alignment (<c>-GAPEXT</c>, PROTEIN default 0.2).</summary>
+    public double GapExtend { get; init; } = 0.2;
+
+    /// <summary>Pairwise stage that produces the distances of the guide tree (default <see cref="ClustalWPairwiseMode.Full"/>; <c>-QUICKTREE</c> = <see cref="ClustalWPairwiseMode.Quick"/>).</summary>
+    public ClustalWPairwiseMode PairwiseMode { get; init; } = ClustalWPairwiseMode.Full;
+
+    /// <summary>Pairwise stage parameters: <c>-PWMATRIX</c>, <c>-PWGAPOPEN</c>, <c>-PWGAPEXT</c> and the fast-stage <c>-KTUPLE -WINDOW -TOPDIAGS -PAIRGAP</c>.</summary>
+    public ClustalWProteinPairwiseOptions Pairwise { get; init; } = new();
+
+    /// <summary><c>-MAXDIV</c> (default 30): see <see cref="ClustalWOptions.DivergenceCutoff"/>.</summary>
+    public int DivergenceCutoff { get; init; } = 30;
+
+    /// <summary><c>-NOWEIGHTS</c>: no sequence weights from the guide tree.</summary>
+    public bool NoWeights { get; init; }
+
+    /// <summary><c>-NEGATIVE</c>: use the matrix as it is (negative scores allowed) and the single matrix BLOSUM40 / PAM120 / GONNET250 instead of the series; the gap-opening penalty is then not scaled by the matrix.</summary>
+    public bool NegativeMatrix { get; init; }
+
+    /// <summary><c>-NOPGAP</c>: switch off the residue-specific gap penalties (Pascarella &amp; Argos 1992; ClustalW's default is on).</summary>
+    public bool NoPreferredGapPenalties { get; init; }
+
+    /// <summary><c>-NOHGAP</c>: switch off the hydrophilic gap penalties (runs of more than three <see cref="HydrophilicResidues"/> halve the opening penalty; default on).</summary>
+    public bool NoHydrophilicGapPenalties { get; init; }
+
+    /// <summary>
+    /// <c>-NOVGAP</c> (sic: ClustalW's command line option of this name switches the variable-region penalties ON; ClustalW's default is off): the opening penalty
+    /// of a column is scaled by the local divergence of the first two sequences of a two-sequence profile with more than 60 % identity.
+    /// </summary>
+    public bool VariableRegionGapPenalties { get; init; }
+
+    /// <summary><c>-GAPDIST</c> (default 4): columns within this distance of an existing gap get a higher opening penalty (2 to 4 times at the gap, decreasing with the distance); 0 = off.</summary>
+    public int GapSeparationDistance { get; init; } = 4;
+
+    /// <summary>
+    /// <c>-HGAPRESIDUES</c> (default <c>GPSNDQEKR</c>): the residues that make up a hydrophilic stretch (letters, case-insensitive; ClustalW keeps at most the
+    /// first 9 letters, <c>MAXHYDRESIDUES</c>).
+    /// </summary>
+    public string HydrophilicResidues { get; init; } = "GPSNDQEKR";
+
+    /// <summary>
+    /// The <c>gdist</c> values of the profile objects for which ClustalW never assigns it: with <see cref="VariableRegionGapPenalties"/> and a two-sequence profile of
+    /// more than 60 % identity <c>ProfileBase::calcGapCoeff</c> uses the member <c>gdist</c> without initialising it (undefined behaviour of the C++: the member holds
+    /// whatever the recycled heap chunk contained, in practice 0 or the <see cref="GapSeparationDistance"/> of an earlier profile, rarely a stale residue code).
+    /// <c>null</c> (default) emulates the common outcome (0 for the first profile pair, afterwards <see cref="GapSeparationDistance"/>); a list gives the value of the
+    /// 1st, 2nd, ... such profile of the run (later ones use the emulation), which reproduces a specific <c>clustalw</c> run.
+    /// </summary>
+    public IReadOnlyList<int>? UninitialisedGapDistances { get; init; }
 }
 
 /// <summary>

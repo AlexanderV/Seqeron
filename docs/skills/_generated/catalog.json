@@ -214,7 +214,7 @@
     "server": "Alignment",
     "methodId": "SequenceAligner.MultipleAlignClustalW",
     "docPath": "docs/mcp/tools/alignment/multiple_align_clustalw.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.ClustalWMultiple.cs#L68"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.ClustalWMultiple.cs#L69"
   },
   {
     "tool": "multiple_align_consistency",
