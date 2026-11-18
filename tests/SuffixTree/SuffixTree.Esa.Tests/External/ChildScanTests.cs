@@ -170,6 +170,8 @@ public class AlignedWindowWriterTests
         using MappedOutputFile f = MappedOutputFile.Create(path, 64);
         Assert.Throws<ArgumentNullException>(() => new AlignedWindowWriter(null!, 0, 8, 8, 1, true));
         Assert.Throws<ArgumentOutOfRangeException>(() => new AlignedWindowWriter(f, 0, 8, 3, 1, true), "a window is a power of two");
+        foreach (int notPow2 in new[] { 5, 6, 7, 12, 24, 100, 1000 }) Assert.Throws<ArgumentOutOfRangeException>(() => new AlignedWindowWriter(f, 0, 8, notPow2, 1, true), $"window {notPow2}");
+        foreach (int pow2 in new[] { 4, 8, 64, 1 << 20 }) new AlignedWindowWriter(f, 0, 8, pow2, 1, true).Dispose();
         Assert.Throws<ArgumentOutOfRangeException>(() => new AlignedWindowWriter(f, 0, 8, 2, 1, true), "a window holds at least one entry");
         Assert.Throws<ArgumentOutOfRangeException>(() => new AlignedWindowWriter(f, 0, 8, 0, 1, true));
         Assert.Throws<ArgumentOutOfRangeException>(() => new AlignedWindowWriter(f, 0, 8, 8, 0, true));
@@ -466,7 +468,10 @@ public class ChildScanTests
         Assert.That(budget.LiveBytes, Is.EqualTo(2 * 10 * 16));
         scan.Dispose();
         Assert.That(budget.LiveBytes, Is.Zero);
-        Assert.Throws<ArenaBudgetExceededException>(() => ChildScan.Create(3, f, 0, Options(ChildCodec.Packed, 10) with { Budget = new ArenaBudget((2 * 10 * 16) - 1) }));
+        var tight = new ArenaBudget((2 * 10 * 16) - 1);
+        Assert.Throws<ArenaBudgetExceededException>(() => ChildScan.Create(3, f, 0, Options(ChildCodec.Packed, 10) with { Budget = tight }), "the second block does not fit");
+        Assert.That(tight.LiveBytes, Is.Zero, "the first block was given back when the creation failed");
+        f.Complete(fsync: false); // and no writer was left open
     }
 
     [Test]

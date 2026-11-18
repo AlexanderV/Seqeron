@@ -1,0 +1,23 @@
+[
+ {
+  "id": "A02",
+  "desc": "a window that is not a power of two is accepted",
+  "old": "if (windowBytes < 4 || !BitOperations.IsPow2(windowBytes))",
+  "new": "if (windowBytes < 4)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/AlignedWindowWriter.cs"
+ },
+ {
+  "id": "A09",
+  "desc": "the writes are not counted (replacement of the first A09, which did not compile)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/AlignedWindowWriter.cs",
+  "old": "        _writes++;\n",
+  "new": "        _writes += 0;\n"
+ },
+ {
+  "id": "A13",
+  "desc": "the evictions are not counted (replacement of the first A13, which did not compile)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/AlignedWindowWriter.cs",
+  "old": "            _evictions++;\n",
+  "new": "            _evictions += 0;\n"
+ }
+]

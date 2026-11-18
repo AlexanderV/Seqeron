@@ -1,0 +1,61 @@
+{
+ "alignedwindowwriter": [
+  {
+   "id": "A09",
+   "desc": "the writes are not counted (replacement of the first A09, which did not compile)",
+   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/AlignedWindowWriter.cs",
+   "old": "        _writes++;\n",
+   "new": "        _writes += 0;\n"
+  },
+  {
+   "id": "A13",
+   "desc": "the evictions are not counted (replacement of the first A13, which did not compile)",
+   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/AlignedWindowWriter.cs",
+   "old": "            _evictions++;\n",
+   "new": "            _evictions += 0;\n"
+  }
+ ],
+ "childscan": [
+  {
+   "id": "C22",
+   "desc": "the largest LCP is not tracked (replacement of the first C22, which did not compile)",
+   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/ChildScan.cs",
+   "old": "            if (cur > _maxLcp) _maxLcp = cur;\n",
+   "new": "            if (cur > _maxLcp) _maxLcp = 0;\n"
+  }
+ ],
+ "lcpbuild": [
+  {
+   "id": "B11",
+   "desc": "the base file is not removed when the build fails (replacement of the first B11, which did not compile)",
+   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs",
+   "old": "            if (_baseCreated) DeleteQuietly(_basePath);\n",
+   "new": "            if (_baseCreated && _stats.N < 0) DeleteQuietly(_basePath);\n"
+  },
+  {
+   "id": "B12",
+   "desc": "the overflow file is not removed when the build fails (replacement of the first B12, which did not compile)",
+   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs",
+   "old": "            if (_overflowCreated) DeleteQuietly(_overflowPath);\n",
+   "new": "            if (_overflowCreated && _stats.N < 0) DeleteQuietly(_overflowPath);\n"
+  }
+ ],
+ "lcpchildbuilder": [
+  {
+   "id": "L55",
+   "desc": "the child file is created for every block (replacement of the first L55, which did not compile)",
+   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs",
+   "old": "            if (_scan is null)\n            {\n                _file = MappedOutputFile.Create(",
+   "new": "            if (_scan is null || firstRank >= 0)\n            {\n                _file = MappedOutputFile.Create("
+  }
+ ],
+ "plcpscan": [
+  {
+   "id": "P01",
+   "desc": "the prefetch is never requested (replacement of the first P01, which did not compile)",
+   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/PlcpScan.cs",
+   "old": "if (k + PrefetchDistance < count) text.Prefetch(phi[k + PrefetchDistance]);",
+   "new": "if (k + PrefetchDistance < 0) text.Prefetch(phi[k + PrefetchDistance]);"
+  }
+ ]
+}

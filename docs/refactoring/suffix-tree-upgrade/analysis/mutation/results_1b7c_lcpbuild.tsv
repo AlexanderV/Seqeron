@@ -1,0 +1,45 @@
+B01	a chunk of no positions is not refused up front	survived	survived
+B02	no thread is accepted	killed(1)	
+B03	a negative worker count is accepted	killed(1)	
+B04	a read buffer of no bytes is accepted	killed(1)	
+B05	a tuple buffer of no bytes is accepted	killed(1)	
+B06	a window of no bytes is not refused up front	survived	survived
+B07	a longer suffix array file is accepted	killed(2)	
+B08	SA[0] above n only is refused	killed(1)	
+B09	the scratch directory is not created	killed(17)	
+B10	the rank chunks are reported as text chunks	killed(2)	
+B11	the base file is not removed when the build fails	BUILD-ERROR CS0414	
+B12	the overflow file is not removed when the build fails	BUILD-ERROR CS0414	
+B13	WorkerBytes: the Phi and rank chunks count 4 bytes per position	killed(6)	
+B14	WorkerBytes: the permutation bits are not counted	killed(3)	
+B15	B1: an entry equal to n is accepted	killed(1)	
+B16	B1: the rank of a tuple is one too large	killed(42)	
+B17	B1: the predecessor is never advanced	killed(26)	
+B18	B1: the first predecessor is position 0	killed(16)	
+B19	B2: a chunk with the wrong number of tuples is not refused	killed(2)	
+B20	B2: a position outside the chunk is not refused	survived	survived
+B21	B2: the permutation bits of the previous chunk are kept	killed(44)	
+B22	B2: a repeated position is not refused	killed(3)	
+B23	B2: the position bit is not set	killed(3)	
+B24	B2: the Phi file of a chunk is not deleted after it was read	survived	survived
+B25	B2: the totals of a task are not merged	killed(14)	
+B26	B2: the LCP value of a rank tuple is one too large	killed(33)	
+B27	B2: the last buffers of a task are not flushed	killed(41)	
+B28	B3: rank chunk 0 is expected to hold a tuple for the empty suffix	killed(41)	
+B29	B3: LCP[0] is not set	killed(39)	
+B30	B3: the rank file of a chunk is not deleted after it was read	survived	survived
+B31	B3: the writer is not checked for completeness	survived	survived
+B32	B3: the reservation of the base file is not reported	killed(2)	
+B33	the overflow count is not taken from the rule	killed(5)	
+B34	the workers are not bounded by the chunks	killed(1)	
+B35	the reported workers are one	killed(3)	
+B36	one more thread than workers is started	killed(2)	
+B37	a failure of a worker is not rethrown	survived	survived
+B38	Merge: the largest PLCP is the last one merged	killed(5)	
+B39	Merge: the restart symbols are the last ones merged	killed(1)	
+B40	PlcpTotals: the first values of the chunks are not summed	killed(1)	
+B41	PlcpTotals: the largest value is the last one	killed(6)	
+B42	PlcpTotals: the steps are the last ones	killed(1)	
+B43	the budget limits the workers by the live bytes too little	survived	survived
+B44	the consumer is called after the writer	survived	survived
+B45	the width is chosen before the counts are merged	survived	survived

@@ -1,0 +1,16 @@
+P01	the prefetch is never requested	BUILD-ERROR CS0162	
+P02	a Phi beyond n is the empty suffix too	survived	survived
+P03	the carry is kept after the empty-suffix position	survived	survived
+P04	the empty-suffix position gets 1	killed(36)	
+P05	the limit is measured from the smaller position	survived	survived
+P06	the comparison also runs when the carry has used the limit up	survived	survived
+P07	the first value is taken at the second position	killed(4)	
+P08	a value of exactly 255 is not an escape	killed(10)	
+P09	a value of exactly 65,535 is not a long escape	killed(3)	
+P10	the carry is not decremented	killed(28)	
+P11	the maximum is the minimum	killed(9)	
+P12	the value is stored one too large	killed(28)	
+P13	an escape is counted twice	killed(10)	
+P14	the carry is decremented by two	killed(24)	
+P15	the comparison starts at the carry of the other suffix	killed(26)	
+P16	the comparison is not limited by the carry	survived	survived

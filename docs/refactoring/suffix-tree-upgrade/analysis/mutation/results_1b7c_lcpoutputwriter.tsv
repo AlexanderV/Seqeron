@@ -1,0 +1,16 @@
+O01	a base range of the wrong length is accepted	killed(1)	
+O02	an overflow range of the wrong length is accepted	killed(1)	
+O03	a slice of no entries is not raised to one	survived	survived
+O04	a repeated rank is accepted	killed(1)	
+O05	U8: the escape value 255 is stored as a value	killed(6)	
+O06	U16: the escape value 65,535 is stored as a value	killed(3)	
+O07	U8: an escape is stored as 0	killed(7)	
+O08	U8: the rank of an escape is relative to the block	killed(5)	
+O09	U16: the value of an escape is one too small	killed(3)	
+O10	the announced number of escapes is refused when met exactly	killed(9)	
+O11	Complete: the entry count is only bounded below	survived	survived
+O12	Complete: the escape count is only bounded below	survived	survived
+O13	Dispose: the overflow writer stays open	killed(37)	
+O14	the pair buffer holds one pair per slice entry only half	survived	survived
+O15	U32: the values are not copied	killed(3)	
+O16	the next rank does not advance by the block	killed(43)	

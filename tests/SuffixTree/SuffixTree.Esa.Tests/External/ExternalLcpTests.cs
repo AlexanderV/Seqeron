@@ -191,6 +191,23 @@ public class ExternalLcpTests
     }
 
     [Test]
+    public void TheScratchFiles_AreDeletedChunkByChunk_AsSoonAsTheyAreRead()
+    {
+        LcpChildCase c = LcpChildCase.Of(StringFamilies.RandomDna(900, 7));
+        (string sa, string textPath) = LcpChildRun.WriteInputs(_dir, c);
+        using MappedTextReader text = MappedTextReader.Open(textPath, c.N, c.Bits);
+        int phiAtB3 = -1, calls = 0;
+        var rankFiles = new List<int>();
+        var consumer = new RecordingConsumer { OnCall = _ => rankFiles.Add(Directory.GetFiles(Scratch, "ph4rank-*").Length) };
+        ExtLcpOptions o = Options(100, 2, 2) with { Trace = s => { if (s == "b3") phiAtB3 = Directory.GetFiles(Scratch, "ph4phi-*").Length; } };
+        ExtLcpStats st = ExternalLcp.Build(sa, text, _dir.File("d.base"), _dir.File("d.ovf"), o, consumer);
+        Assert.That(phiAtB3, Is.Zero, "every Phi chunk file is gone when B3 begins");
+        Assert.That(rankFiles, Is.EqualTo(Enumerable.Range(0, (int)st.RankChunks).Select(i => (int)st.RankChunks - i)), "the rank file of a chunk is deleted after the chunk was delivered");
+        calls = rankFiles.Count;
+        Assert.That(calls, Is.EqualTo(st.RankChunks));
+    }
+
+    [Test]
     public void TheOutputIs_TheSame_ForEveryThreadCountWorkerCountAndChunkSize()
     {
         foreach (string text in new[] { StringFamilies.RandomDna(900, 3), new string('a', 500), StringFamilies.Fibonacci(700) })
@@ -268,6 +285,22 @@ public class ExternalLcpTests
     }
 
     [Test]
+    public void AFailureInAWorker_IsRethrown_WithItsOwnType_NotReplacedByALaterCheck()
+    {
+        LcpChildCase c = LcpChildCase.Of(StringFamilies.RandomDna(600, 3));
+        (string sa, string textPath) = LcpChildRun.WriteInputs(_dir, c);
+        using MappedTextReader text = MappedTextReader.Open(textPath, c.N, c.Bits);
+        foreach (int workers in new[] { 1, 2, 3 })
+        {
+            // B1 (352 bytes) and B3 (608) fit under the cap, a B2 task (1,212) does not: the budget exception is raised in the workers only
+            ExtLcpOptions o = Options(100, 4, workers) with { Budget = new ArenaBudget(1000) };
+            Assert.Throws<ArenaBudgetExceededException>(() => ExternalLcp.Build(sa, text, _dir.File($"w{workers}.base"), _dir.File($"w{workers}.ovf"), o), $"{workers} workers");
+            Assert.That(File.Exists(_dir.File($"w{workers}.base")), Is.False);
+            Assert.That(o.Budget!.LiveBytes, Is.Zero);
+        }
+    }
+
+    [Test]
     public void TheExplicitCounters_AreExactlyTheTupleVolume()
     {
         foreach (string text in new[] { StringFamilies.RandomDna(1500, 3), new string('b', 300), "banana" })
@@ -280,7 +313,7 @@ public class ExternalLcpTests
             Assert.That(counters.WriteBytes, Is.EqualTo((12 * n) + (8 * n)), "the same tuples written");
             Assert.That(counters.MappedWriteBytes, Is.EqualTo(new FileInfo(b).Length + new FileInfo(v).Length));
             Assert.That(counters.ScratchLiveBytes, Is.Zero);
-            Assert.That(counters.ScratchPeakBytes, Is.InRange(12 * n, 20 * n));
+            Assert.That(counters.ScratchPeakBytes, Is.EqualTo(12 * n), "the Phi tuples of all chunks are on the disk at the end of B1, and every chunk file is deleted as soon as it is read: 12 B/char is the peak");
             Check(c, st, b, v, text);
         }
     }

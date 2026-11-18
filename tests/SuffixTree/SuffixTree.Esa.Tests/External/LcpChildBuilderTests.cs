@@ -574,6 +574,28 @@ public class LcpChildBuilderTests
     }
 
     [Test]
+    public void TheFinalLengths_AreChecked_OfEveryOutput()
+    {
+        LcpChildCase c = LcpChildCase.Of(StringFamilies.RandomDna(20_000, 5) + StringFamilies.RandomDna(600, 11) + StringFamilies.RandomDna(100, 6) + StringFamilies.RandomDna(600, 11));
+        LcpChildRun.Outcome r = LcpChildRun.Run(_dir, c, Tiny(2, sigma: c.Sigma));
+        ExtLcpStats lcp = r.Result.Lcp;
+        Assert.That(lcp.OverflowCount, Is.GreaterThan(0));
+        Assert.DoesNotThrow(() => LcpChildBuilder.CheckLengths(r.Files, c.N, lcp, r.Files.Child));
+        foreach ((string what, string path) in new[] { ("the base LCP", r.Files.Lcp), ("the overflow list", r.Files.Overflow), ("the child table", r.Files.Child) })
+        {
+            long length = new FileInfo(path).Length;
+            foreach (long wrong in new[] { length - 1, length + 1 })
+            {
+                using (var f = new FileStream(path, FileMode.Open)) f.SetLength(wrong);
+                InvalidOperationException e = Assert.Throws<InvalidOperationException>(() => LcpChildBuilder.CheckLengths(r.Files, c.N, lcp, r.Files.Child), $"{what} with {wrong} bytes")!;
+                Assert.That(e.Message, Does.Contain(what).And.Contain(wrong.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+                using (var f = new FileStream(path, FileMode.Open)) f.SetLength(length);
+            }
+        }
+        Assert.Throws<InvalidOperationException>(() => LcpChildBuilder.CheckLengths(r.Files, c.N + 1, lcp, r.Files.Child), "a text of another length");
+    }
+
+    [Test]
     public void TheArenaCaps_AreEnforced_PerStage()
     {
         LcpChildCase c = LcpChildCase.Of(StringFamilies.RandomDna(800, 3));

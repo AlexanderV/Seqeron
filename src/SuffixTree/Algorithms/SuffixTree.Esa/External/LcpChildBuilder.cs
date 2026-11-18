@@ -408,7 +408,7 @@ internal static class LcpChildBuilder
     }
 
     /// <summary>Every output has its final length: the base LCP of <c>(n + 1)</c> entries of the chosen width, the overflow pairs, the child table of <c>n + 1</c> entries.</summary>
-    private static void CheckLengths(LcpChildOutputs outputs, long n, ExtLcpStats lcp, string childPath)
+    internal static void CheckLengths(LcpChildOutputs outputs, long n, ExtLcpStats lcp, string childPath)
     {
         static void Expect(string path, long bytes, string what)
         {

@@ -1,0 +1,16 @@
+[
+ {
+  "id": "C06",
+  "desc": "a failed creation leaves the arena allocated",
+  "old": "            child?.Dispose();\n            arena.Dispose();\n            throw;",
+  "new": "            child?.Dispose();\n            throw;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/ChildScan.cs"
+ },
+ {
+  "id": "C22",
+  "desc": "the largest LCP is not tracked (replacement of the first C22, which did not compile)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/ChildScan.cs",
+  "old": "            if (cur > _maxLcp) _maxLcp = cur;\n",
+  "new": "            if (cur > _maxLcp) _maxLcp = 0;\n"
+ }
+]

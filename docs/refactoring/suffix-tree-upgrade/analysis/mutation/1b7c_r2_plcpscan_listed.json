@@ -1,0 +1,16 @@
+[
+ {
+  "id": "P03",
+  "desc": "the carry is kept after the empty-suffix position",
+  "old": "                l = 0; // j is the smallest nonempty suffix: its predecessor is the empty suffix\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/PlcpScan.cs"
+ },
+ {
+  "id": "P01",
+  "desc": "the prefetch is never requested (replacement of the first P01, which did not compile)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/PlcpScan.cs",
+  "old": "if (k + PrefetchDistance < count) text.Prefetch(phi[k + PrefetchDistance]);",
+  "new": "if (k + PrefetchDistance < 0) text.Prefetch(phi[k + PrefetchDistance]);"
+ }
+]

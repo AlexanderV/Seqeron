@@ -1,0 +1,30 @@
+[
+ {
+  "id": "L41",
+  "desc": "the final length of the base LCP is not checked",
+  "old": "Expect(outputs.Lcp, LcpWidth.Bytes(lcp.Kind) * (n + 1), \"the base LCP\");",
+  "new": "Expect(outputs.Lcp, new FileInfo(outputs.Lcp).Length, \"the base LCP\");",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "L42",
+  "desc": "the final length of the overflow list is not checked",
+  "old": "Expect(outputs.Overflow, 8 * lcp.OverflowCount, \"the overflow list\");",
+  "new": "Expect(outputs.Overflow, new FileInfo(outputs.Overflow).Length, \"the overflow list\");",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "L43",
+  "desc": "the final length of the child table is not checked",
+  "old": "Expect(childPath, 4 * (n + 1), \"the child table\");",
+  "new": "Expect(childPath, new FileInfo(childPath).Length, \"the child table\");",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "L55",
+  "desc": "the child file is created for every block (replacement of the first L55, which did not compile)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs",
+  "old": "            if (_scan is null)\n            {\n                _file = MappedOutputFile.Create(",
+  "new": "            if (_scan is null || firstRank >= 0)\n            {\n                _file = MappedOutputFile.Create("
+ }
+]

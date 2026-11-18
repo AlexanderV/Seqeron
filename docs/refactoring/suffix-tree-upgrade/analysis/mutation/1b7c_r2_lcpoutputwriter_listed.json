@@ -1,0 +1,9 @@
+[
+ {
+  "id": "O14",
+  "desc": "the pair buffer holds one pair per slice entry only half",
+  "old": "_pairs = arena.Allocate<uint>(_slice * 2, zero: false, \"lcp.pairs\");",
+  "new": "_pairs = arena.Allocate<uint>(_slice, zero: false, \"lcp.pairs\");",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpOutputWriter.cs"
+ }
+]

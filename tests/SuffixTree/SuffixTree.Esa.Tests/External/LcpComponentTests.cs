@@ -338,6 +338,23 @@ public class PlcpScanTests
     }
 
     [Test]
+    public void Plcp_EqualsTheDefinition_OnEveryBinaryTextToLength10_AndTernaryTo6()
+    {
+        int count = 0;
+        foreach ((int sigma, int max) in new[] { (2, 10), (3, 6) })
+        {
+            foreach (string s in ExhaustiveStrings.All(sigma, max))
+            {
+                if (s.Length == 0) continue;
+                Check(s, 1000, true);
+                if (count % 3 == 0) Check(s, 1 + (count % 5), false);
+                count++;
+            }
+        }
+        Assert.That(count, Is.EqualTo(2046 + 1092));
+    }
+
+    [Test]
     public void Plcp_CountsTheEscapes_At255And65535_Exactly()
     {
         // a^300: PLCP[j] = 299 - j for j >= 1 (the predecessor of the suffix at j is the shorter suffix at j + 1), so the values >= 255 are the positions 0..44 -> check by the definition
@@ -468,6 +485,28 @@ public class LcpOutputWriterTests
         (byte[] b, byte[] o) = Write(LcpKind.U32, dense, 0, 2, 12, 3);
         Assert.That(Pairs(b), Is.EqualTo(dense));
         Assert.That(o, Is.Empty);
+    }
+
+    [Test]
+    public void ABlockOfOnlyEscapes_FillsTheWholePairBuffer_WithoutTouchingItsGuardBands()
+    {
+        foreach (int slice in new[] { 1, 2, 3, 16, 64, 100 })
+        {
+            foreach (LcpKind kind in new[] { LcpKind.U8, LcpKind.U16 })
+            {
+                uint escape = kind == LcpKind.U8 ? 255u : 65_535u;
+                var dense = new uint[600];
+                for (int i = 2; i < dense.Length; i++) dense[i] = escape + (uint)i;
+                string tag = $"{kind}{slice}";
+                using MappedOutputFile bf = MappedOutputFile.Create(_dir.File("b" + tag), 600 * LcpChildRun.Width(kind));
+                using MappedOutputFile of = MappedOutputFile.Create(_dir.File("o" + tag), 598 * 8);
+                using BudgetedArena arena = Arena();
+                using var w = new LcpOutputWriter(arena, kind, 599, 598, bf.CreateWriter(64), of.CreateWriter(64), slice);
+                w.Write(0, dense);
+                arena.VerifyCanaries();
+                w.Complete(599);
+            }
+        }
     }
 
     [Test]

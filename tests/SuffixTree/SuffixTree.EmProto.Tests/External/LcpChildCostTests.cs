@@ -86,8 +86,9 @@ public unsafe class LcpChildCostTests
             case "prodnr":
             {
                 using Prod.MappedTextReader text = Prod.MappedTextReader.Open(pk, n, bits);
-                var options = new Prod.LcpChildOptions { ScratchDir = scratch, Threads = threads, ScaleN = scale, MeasureRss = variant == "prod" };
-                var files = new Prod.LcpChildOutputs(outPrefix + ".lcp", outPrefix + ".ovf", outPrefix + ".cld");
+                string? sigma = Environment.GetEnvironmentVariable("G3_SIGMA"); // set by run_1b7c_g2.sh: the statistics file is written too
+                var options = new Prod.LcpChildOptions { ScratchDir = scratch, Threads = threads, ScaleN = scale, MeasureRss = variant == "prod", Sigma = sigma is null ? null : int.Parse(sigma, CultureInfo.InvariantCulture) };
+                var files = new Prod.LcpChildOutputs(outPrefix + ".lcp", outPrefix + ".ovf", outPrefix + ".cld", sigma is null ? null : outPrefix + ".stats");
                 long t0 = Stopwatch.GetTimestamp();
                 Prod.LcpChildResult r = Prod.LcpChildBuilder.Build(saPath, text, files, options);
                 seconds = (Stopwatch.GetTimestamp() - t0) / (double)Stopwatch.Frequency;

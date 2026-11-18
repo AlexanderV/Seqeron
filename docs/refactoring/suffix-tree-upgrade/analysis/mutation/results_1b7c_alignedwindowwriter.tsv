@@ -1,0 +1,25 @@
+A01	a window of two bytes is accepted	killed(1)	
+A02	a window that is not a power of two is accepted	survived	survived
+A03	no slot is accepted	killed(1)	
+A04	a range that ends at the end of the file is refused	killed(51)	
+A05	the writer does not count itself as open	killed(38)	
+A06	the writer does not count itself closed	killed(38)	
+A07	an index one past the range is accepted	killed(2)	
+A08	the position inside the window is taken from the next window	killed(host crash)	
+A09	the writes are not counted	BUILD-ERROR CS0649	
+A10	Dispose does not flush the windows	killed(2)	
+A11	the mapped bytes are counted per write instead of per byte	killed(3)	
+A12	the most recently used window is released first	killed(31)	
+A13	the evictions are not counted	BUILD-ERROR CS0649	
+A14	a window opened again is counted as distinct	killed(3)	
+A15	the last window is mapped at full size	killed(26)	
+A16	the windows are mapped from the start of the file	killed(1)	
+A17	the windows are not counted	killed(1)	
+A18	a flush counts the full window	killed(1)	
+A19	Dispose keeps the hot window	survived	survived
+A20	Dispose can run twice	killed(9)	
+A21	a write after the disposal maps a new window	killed(1)	
+A22	the release does not forget the hot window	survived	survived
+A23	a window hit does not refresh its use	killed(1)	
+A24	the length of the range is not negative-checked	killed(1)	
+A25	the start of the range is not negative-checked	killed(1)	

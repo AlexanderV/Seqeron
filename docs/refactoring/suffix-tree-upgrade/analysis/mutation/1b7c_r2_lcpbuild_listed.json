@@ -1,0 +1,37 @@
+[
+ {
+  "id": "B24",
+  "desc": "B2: the Phi file of a chunk is not deleted after it was read",
+  "old": "            phiSpool.Delete(c); // the chunk is in memory now: its file is scratch no more\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs"
+ },
+ {
+  "id": "B30",
+  "desc": "B3: the rank file of a chunk is not deleted after it was read",
+  "old": "                rankSpool.Delete(c);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs"
+ },
+ {
+  "id": "B37",
+  "desc": "a failure of a worker is not rethrown",
+  "old": "        if (_error is { } error) ExceptionDispatchInfo.Capture(error).Throw();\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs"
+ },
+ {
+  "id": "B11",
+  "desc": "the base file is not removed when the build fails (replacement of the first B11, which did not compile)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs",
+  "old": "            if (_baseCreated) DeleteQuietly(_basePath);\n",
+  "new": "            if (_baseCreated && _stats.N < 0) DeleteQuietly(_basePath);\n"
+ },
+ {
+  "id": "B12",
+  "desc": "the overflow file is not removed when the build fails (replacement of the first B12, which did not compile)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs",
+  "old": "            if (_overflowCreated) DeleteQuietly(_overflowPath);\n",
+  "new": "            if (_overflowCreated && _stats.N < 0) DeleteQuietly(_overflowPath);\n"
+ }
+]
