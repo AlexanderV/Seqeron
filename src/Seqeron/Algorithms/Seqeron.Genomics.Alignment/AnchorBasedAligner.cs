@@ -20,7 +20,9 @@ namespace Seqeron.Genomics.Alignment;
 /// (<c>SequenceAligner.GlobalAlign</c>); it equals the optimum whenever an optimal path contains all
 /// chained anchors. Gap scoring is the linear model of <c>GlobalAlign</c>
 /// (<see cref="ScoringMatrix.GapExtend"/> per gap position, <see cref="ScoringMatrix.GapOpen"/> unused),
-/// so the reported <c>Score</c> is the linear score of the returned alignment.
+/// so the reported <c>Score</c> is the linear score of the returned alignment; with <c>affineGaps</c> the inter-anchor segments are
+/// aligned with the exact affine (Gotoh) aligner and a gap of length k costs <see cref="ScoringMatrix.GapOpen"/> + k·<see cref="ScoringMatrix.GapExtend"/>
+/// (anchors separate every segment, so no gap run crosses a segment boundary and <c>Score</c> is the affine score of the returned rows).
 /// </para>
 /// <para>
 /// <b>Cost:</b> O(n+m) suffix-tree streaming + O(a²) chaining over a anchors + O(Σδᵢ²) DP over the
@@ -74,20 +76,22 @@ internal static class AnchorBasedAligner
     /// <param name="query">The query sequence string (uppercase).</param>
     /// <param name="scoring">Scoring matrix for NW on gaps.</param>
     /// <param name="minAnchorLength">Minimum anchor length (default: 8).</param>
+    /// <param name="affineGaps">Align the inter-anchor segments with affine gaps (open + k·extend) instead of the linear model.</param>
     /// <returns>Alignment result with aligned sequences and score.</returns>
     internal static AlignmentResult AlignWithAnchors(
         string reference,
         SuffixTree.SuffixTree refTree,
         string query,
         ScoringMatrix scoring,
-        int minAnchorLength = DefaultMinAnchorLength)
+        int minAnchorLength = DefaultMinAnchorLength,
+        bool affineGaps = false)
     {
         ArgumentNullException.ThrowIfNull(reference);
         ArgumentNullException.ThrowIfNull(query);
         ArgumentNullException.ThrowIfNull(scoring);
 
         if (reference.Length == 0 || query.Length == 0)
-            return StitchAlignment(reference, query, new List<Anchor>(), scoring);
+            return StitchAlignment(reference, query, new List<Anchor>(), scoring, affineGaps);
 
         // Step 1: maximal exact matches (one MEM per matching diagonal run) by O(n+m) suffix-link streaming
         var memTuples = refTree.FindExactMatchAnchors(query, Math.Max(1, minAnchorLength));
@@ -101,7 +105,7 @@ internal static class AnchorBasedAligner
         // Step 3: no anchors -> the gap-filler aligns the whole pair (canonical NW)
 
         // Step 4: Align gaps between anchors using NW, stitch everything together
-        return StitchAlignment(reference, query, chain, scoring);
+        return StitchAlignment(reference, query, chain, scoring, affineGaps);
     }
 
     /// <summary>
@@ -189,7 +193,8 @@ internal static class AnchorBasedAligner
         string reference,
         string query,
         List<Anchor> chain,
-        ScoringMatrix scoring)
+        ScoringMatrix scoring,
+        bool affineGaps)
     {
         var aligned1 = new StringBuilder();
         var aligned2 = new StringBuilder();
@@ -204,7 +209,7 @@ internal static class AnchorBasedAligner
             string refGap = reference[refPos..anchor.RefStart];
             string queryGap = query[queryPos..anchor.QueryStart];
 
-            var (gapAligned1, gapAligned2, gapScore) = AlignGap(refGap, queryGap, scoring);
+            var (gapAligned1, gapAligned2, gapScore) = AlignGap(refGap, queryGap, scoring, affineGaps);
             aligned1.Append(gapAligned1);
             aligned2.Append(gapAligned2);
             totalScore += gapScore;
@@ -223,7 +228,7 @@ internal static class AnchorBasedAligner
         string trailingRef = reference[refPos..];
         string trailingQuery = query[queryPos..];
 
-        var (trailAligned1, trailAligned2, trailScore) = AlignGap(trailingRef, trailingQuery, scoring);
+        var (trailAligned1, trailAligned2, trailScore) = AlignGap(trailingRef, trailingQuery, scoring, affineGaps);
         aligned1.Append(trailAligned1);
         aligned2.Append(trailAligned2);
         totalScore += trailScore;
@@ -241,27 +246,32 @@ internal static class AnchorBasedAligner
 
     /// <summary>
     /// Aligns one inter-anchor segment with the linear-gap model of <c>GlobalAlign</c>
-    /// (<see cref="ScoringMatrix.GapExtend"/> per gap position). An empty side is an all-gap run;
-    /// identical segments are the trivial diagonal; everything else goes through the canonical
-    /// Needleman-Wunsch (linear-space Hirschberg variant above <see cref="MaxGapCellsForFullMatrix"/>
+    /// (<see cref="ScoringMatrix.GapExtend"/> per gap position), or, with <paramref name="affineGaps"/>, the affine model of
+    /// <c>GlobalAlignAffine</c> (<see cref="ScoringMatrix.GapOpen"/> + k·<see cref="ScoringMatrix.GapExtend"/>). An empty side is an
+    /// all-gap run; identical segments are the trivial diagonal; everything else goes through the canonical
+    /// Needleman-Wunsch / Gotoh (linear-space variant above <see cref="MaxGapCellsForFullMatrix"/>
     /// cells), so the gap alignment is always optimal.
     /// </summary>
     private static (string Aligned1, string Aligned2, int Score) AlignGap(
-        string refGap, string queryGap, ScoringMatrix scoring)
+        string refGap, string queryGap, ScoringMatrix scoring, bool affineGaps)
     {
         if (refGap.Length == 0 && queryGap.Length == 0)
             return ("", "", 0);
 
+        int open = affineGaps ? scoring.GapOpen : 0;
+
         if (refGap.Length == 0)
-            return (new string('-', queryGap.Length), queryGap, queryGap.Length * scoring.GapExtend);
+            return (new string('-', queryGap.Length), queryGap, open + queryGap.Length * scoring.GapExtend);
 
         if (queryGap.Length == 0)
-            return (refGap, new string('-', refGap.Length), refGap.Length * scoring.GapExtend);
+            return (refGap, new string('-', refGap.Length), open + refGap.Length * scoring.GapExtend);
 
         if (refGap == queryGap)
             return (refGap, queryGap, refGap.Length * scoring.Match);
 
-        var result = SequenceAligner.GlobalAlignLinearSpace(refGap, queryGap, scoring, MaxGapCellsForFullMatrix);
+        var result = affineGaps
+            ? SequenceAligner.GlobalAlignAffineLinearSpace(refGap, queryGap, scoring, MaxGapCellsForFullMatrix)
+            : SequenceAligner.GlobalAlignLinearSpace(refGap, queryGap, scoring, MaxGapCellsForFullMatrix);
         return (result.AlignedSequence1, result.AlignedSequence2, result.Score);
     }
 }

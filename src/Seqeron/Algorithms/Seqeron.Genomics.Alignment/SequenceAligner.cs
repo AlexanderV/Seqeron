@@ -1735,8 +1735,9 @@ public static partial class SequenceAligner
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Linear gap model: every gap position scores <see cref="ScoringMatrix.GapExtend"/>
-    /// (<see cref="ScoringMatrix.GapOpen"/> is not used, as in <c>GlobalAlign</c>). For two sequences
+    /// Linear gap model (default): every gap position scores <see cref="ScoringMatrix.GapExtend"/>
+    /// (<see cref="ScoringMatrix.GapOpen"/> is not used, as in <c>GlobalAlign</c>); affine gaps are the additive option
+    /// <see cref="MultipleAlign(IEnumerable{DnaSequence}, ScoringMatrix?, MsaOptions?)"/>. For two sequences
     /// the result is an optimal pairwise global alignment. Ties for the center are broken by the
     /// lowest input index.
     /// </para>
@@ -1756,9 +1757,28 @@ public static partial class SequenceAligner
     /// <exception cref="ArgumentNullException">When <paramref name="sequences"/> is null.</exception>
     public static MultipleAlignmentResult MultipleAlign(
         IEnumerable<DnaSequence> sequences,
-        ScoringMatrix? scoring = null)
+        ScoringMatrix? scoring = null) =>
+        MultipleAlign(sequences, scoring, new MsaOptions());
+
+    /// <summary>
+    /// <see cref="MultipleAlign(IEnumerable{DnaSequence}, ScoringMatrix?)"/> with additive <see cref="MsaOptions"/>.
+    /// With <see cref="MsaGapModel.Affine"/> the pairwise stage is the exact affine (Gotoh) global aligner
+    /// (<see cref="GlobalAlignAffineLinearSpace(string, string, ScoringMatrix?, long)"/>, identical to <c>GlobalAlignAffine</c>): the center maximises
+    /// the total optimal affine pair score, every sequence is aligned to it with a gap of length k costing
+    /// <see cref="ScoringMatrix.GapOpen"/> + k·<see cref="ScoringMatrix.GapExtend"/>, the alignments are merged by once-a-gap-always-a-gap and
+    /// <see cref="MultipleAlignmentResult.TotalScore"/> is the natural affine sum of pairs (Altschul 1989, see <see cref="SumOfPairsScore"/>).
+    /// For two sequences the result is an optimal pairwise affine alignment. For k ≥ 3 the star method is a heuristic for either gap model.
+    /// </summary>
+    /// <param name="sequences">Collection of sequences to align.</param>
+    /// <param name="scoring">Scoring matrix (default: SimpleDna).</param>
+    /// <param name="options">Options; <c>null</c> = defaults (linear gaps).</param>
+    public static MultipleAlignmentResult MultipleAlign(
+        IEnumerable<DnaSequence> sequences,
+        ScoringMatrix? scoring,
+        MsaOptions? options)
     {
         ArgumentNullException.ThrowIfNull(sequences);
+        var gapModel = ResolveGapModel(options);
 
         var seqList = sequences.ToList();
         var trivial = TrivialMultipleAlignment(seqList);
@@ -1768,12 +1788,16 @@ public static partial class SequenceAligner
         var effectiveScoring = scoring ?? SimpleDna;
         var rawSeqs = seqList.Select(s => s.Sequence).ToArray();
 
-        int centerIdx = SelectCenterByPairwiseScore(rawSeqs, effectiveScoring);
+        bool affine = gapModel == MsaGapModel.Affine;
+        int centerIdx = SelectCenterByPairwiseScore(rawSeqs, affine
+            ? (a, b) => GlobalAlignAffineLinearSpace(a, b, effectiveScoring, StarFullMatrixCells).Score
+            : (a, b) => LinearScoreOnly(a, b, effectiveScoring));
         string centerStr = rawSeqs[centerIdx];
 
-        var pairwise = AlignAllToCenter(rawSeqs.Length, centerIdx,
-            i => GlobalAlignLinearSpace(centerStr, rawSeqs[i], effectiveScoring, StarFullMatrixCells));
-        return FinishStarAlignment(MergeCenterAlignments(centerStr, pairwise, centerIdx), effectiveScoring);
+        var pairwise = AlignAllToCenter(rawSeqs.Length, centerIdx, affine
+            ? i => GlobalAlignAffineLinearSpace(centerStr, rawSeqs[i], effectiveScoring, StarFullMatrixCells)
+            : i => GlobalAlignLinearSpace(centerStr, rawSeqs[i], effectiveScoring, StarFullMatrixCells));
+        return FinishStarAlignment(MergeCenterAlignments(centerStr, pairwise, centerIdx), effectiveScoring, gapModel);
     }
 
     /// <summary>
@@ -1796,9 +1820,24 @@ public static partial class SequenceAligner
     /// <exception cref="ArgumentNullException">When <paramref name="sequences"/> is null.</exception>
     public static MultipleAlignmentResult MultipleAlignAnchored(
         IEnumerable<DnaSequence> sequences,
-        ScoringMatrix? scoring = null)
+        ScoringMatrix? scoring = null) =>
+        MultipleAlignAnchored(sequences, scoring, new MsaOptions());
+
+    /// <summary>
+    /// <see cref="MultipleAlignAnchored(IEnumerable{DnaSequence}, ScoringMatrix?)"/> with additive <see cref="MsaOptions"/>
+    /// (<see cref="MsaGapModel.Affine"/>: the inter-anchor segments are aligned with the exact affine aligner, the reported
+    /// <see cref="MultipleAlignmentResult.TotalScore"/> is the natural affine sum of pairs; still approximate because the anchors constrain the path).
+    /// </summary>
+    /// <param name="sequences">Collection of sequences to align.</param>
+    /// <param name="scoring">Scoring matrix (default: SimpleDna).</param>
+    /// <param name="options">Options; <c>null</c> = defaults (linear gaps).</param>
+    public static MultipleAlignmentResult MultipleAlignAnchored(
+        IEnumerable<DnaSequence> sequences,
+        ScoringMatrix? scoring,
+        MsaOptions? options)
     {
         ArgumentNullException.ThrowIfNull(sequences);
+        var gapModel = ResolveGapModel(options);
 
         var seqList = sequences.ToList();
         var trivial = TrivialMultipleAlignment(seqList);
@@ -1813,7 +1852,8 @@ public static partial class SequenceAligner
         var centerTree = SuffixTree.SuffixTree.Build(centerStr);
 
         var pairwise = AlignAllToCenter(rawSeqs.Length, centerIdx,
-            i => AnchorBasedAligner.AlignWithAnchors(centerStr, centerTree, rawSeqs[i], effectiveScoring));
+            i => AnchorBasedAligner.AlignWithAnchors(centerStr, centerTree, rawSeqs[i], effectiveScoring,
+                affineGaps: gapModel == MsaGapModel.Affine));
         var merged = MergeCenterAlignments(centerStr, pairwise, centerIdx);
 
         // An empty input yields an empty anchored result: pad to the common length.
@@ -1822,7 +1862,7 @@ public static partial class SequenceAligner
             if (merged[i].Length < maxLen)
                 merged[i] = merged[i].PadRight(maxLen, '-');
 
-        return FinishStarAlignment(merged, effectiveScoring);
+        return FinishStarAlignment(merged, effectiveScoring, gapModel);
     }
 
     // Pairs above this many DP cells are aligned by the exact linear-space recursion (bounded memory
@@ -1846,13 +1886,13 @@ public static partial class SequenceAligner
         return null;
     }
 
-    private static MultipleAlignmentResult FinishStarAlignment(List<string> merged, ScoringMatrix scoring)
+    private static MultipleAlignmentResult FinishStarAlignment(List<string> merged, ScoringMatrix scoring, MsaGapModel gapModel = MsaGapModel.Linear)
     {
         int maxLen = merged.Max(s => s.Length);
         return new MultipleAlignmentResult(
             AlignedSequences: merged.ToArray(),
             Consensus: BuildConsensus(merged, maxLen),
-            TotalScore: ComputeSumOfPairsScore(merged, scoring));
+            TotalScore: ComputeSumOfPairsScore(merged, scoring, gapModel));
     }
 
     /// <summary>
@@ -1899,7 +1939,8 @@ public static partial class SequenceAligner
     /// canonical <see cref="GlobalAlignCore"/> score).
     /// Ties go to the lowest index.
     /// </summary>
-    private static int SelectCenterByPairwiseScore(string[] seqs, ScoringMatrix scoring)
+    /// <summary>Gusfield center for an arbitrary optimal pair score (linear NW or exact affine); ties go to the lowest index.</summary>
+    private static int SelectCenterByPairwiseScore(string[] seqs, Func<string, string, int> optimalPairScore)
     {
         int k = seqs.Length;
         var pairScore = new int[k, k];
@@ -1911,8 +1952,8 @@ public static partial class SequenceAligner
 
         Parallel.ForEach(pairs, pair =>
         {
-            // Optimal NW score in O(n) memory (last row of the NW matrix; equals GlobalAlignCore(..).Score).
-            int s = LinearScoreOnly(seqs[pair.I], seqs[pair.J], scoring);
+            // Optimal pair score (linear NW: last row of the NW matrix in O(n) memory, equals GlobalAlignCore(..).Score).
+            int s = optimalPairScore(seqs[pair.I], seqs[pair.J]);
             pairScore[pair.I, pair.J] = s;
             pairScore[pair.J, pair.I] = s;
         });
@@ -2140,7 +2181,10 @@ public static partial class SequenceAligner
     /// Scores all C(k,2) sequence pairs using column-based scoring:
     /// match/mismatch from scoring matrix, gap-nucleotide penalty per position, gap-gap = 0.
     /// </summary>
-    private static int ComputeSumOfPairsScore(List<string> aligned, ScoringMatrix scoring)
+    private static int ComputeSumOfPairsScore(IReadOnlyList<string> aligned, ScoringMatrix scoring, MsaGapModel gapModel) =>
+        gapModel == MsaGapModel.Affine ? AffineSumOfPairsScoreCore(aligned, scoring) : ComputeSumOfPairsScore(aligned, scoring);
+
+    private static int ComputeSumOfPairsScore(IReadOnlyList<string> aligned, ScoringMatrix scoring)
     {
         if (aligned.Count < 2) return 0;
 
@@ -2231,6 +2275,11 @@ public static partial class SequenceAligner
     /// <item>Profiles are aligned progressively from the tips with the NW recurrence over
     /// columns and sum-of-pairs profile scoring, enforcing "once a gap, always a gap".</item>
     /// </list>
+    /// <para>
+    /// Linear gaps by default; <see cref="MsaGapModel.Affine"/> (<see cref="MsaOptions.GapModel"/>) switches to a Gotoh three-state
+    /// profile DP with occupancy-scaled <see cref="ScoringMatrix.GapOpen"/>/<see cref="ScoringMatrix.GapExtend"/> and the natural affine
+    /// sum-of-pairs <c>TotalScore</c> (see <see cref="SumOfPairsScore"/>); exact for two sequences, heuristic for more.
+    /// </para>
     /// </remarks>
     /// <param name="sequences">Collection of sequences to align.</param>
     /// <param name="scoring">Scoring matrix (default: <see cref="SimpleDna"/>).</param>
@@ -2256,6 +2305,7 @@ public static partial class SequenceAligner
     {
         ArgumentNullException.ThrowIfNull(sequences);
         options ??= new MsaOptions();
+        var gapModel = ResolveGapModel(options);
 
         var seqList = sequences.ToList();
         if (seqList.Count == 0)
@@ -2274,13 +2324,13 @@ public static partial class SequenceAligner
         var rawSeqs = seqList.Select(s => s.Sequence).ToArray();
 
         // Step 1: pairwise alignments -> distance matrix (ClustalW: 1 - identities / min(len1, len2)).
-        var distance = ComputeGuideDistances(rawSeqs, effectiveScoring, options.Distance);
+        var distance = ComputeGuideDistances(rawSeqs, effectiveScoring, options.Distance, gapModel);
 
         // Step 2: UPGMA guide tree.
         ProgressiveGuideNode root = BuildProgressiveGuideTree(k, distance);
 
         // Step 3: progressive alignment along the tree (post-order: tips first).
-        Profile aligned = AlignProfileSubtree(root, rawSeqs, effectiveScoring);
+        Profile aligned = AlignProfileSubtree(root, rawSeqs, effectiveScoring, gapModel);
 
         // Reproject rows back into input order (the tree visited leaves in tree order).
         var orderedRows = new string[k];
@@ -2290,7 +2340,7 @@ public static partial class SequenceAligner
         var alignedList = orderedRows.ToList();
         int maxLen = alignedList.Count == 0 ? 0 : alignedList.Max(s => s.Length);
         string consensus = BuildConsensus(alignedList, maxLen);
-        int spScore = ComputeSumOfPairsScore(alignedList, effectiveScoring);
+        int spScore = ComputeSumOfPairsScore(alignedList, effectiveScoring, gapModel);
 
         return new MultipleAlignmentResult(
             AlignedSequences: orderedRows,
@@ -2307,14 +2357,14 @@ public static partial class SequenceAligner
     /// Needleman-Wunsch). Two empty sequences (no comparable residue) are treated as distance 0, an
     /// empty versus a non-empty sequence as distance 1.
     /// </summary>
-    private static double PairwiseIdentityDistance(string a, string b, ScoringMatrix scoring)
+    private static double PairwiseIdentityDistance(string a, string b, ScoringMatrix scoring, MsaGapModel gapModel = MsaGapModel.Linear)
     {
         if (a.Length == 0 && b.Length == 0)
             return 0.0;
         if (a.Length == 0 || b.Length == 0)
             return 1.0; // no shared residues possible
 
-        var pa = GlobalAlignCore(a, b, scoring);
+        var pa = gapModel == MsaGapModel.Affine ? GlobalAlignAffine(a, b, scoring) : GlobalAlignCore(a, b, scoring);
 
         int identical = 0;
         for (int i = 0; i < pa.AlignedSequence1.Length; i++)
@@ -2329,11 +2379,11 @@ public static partial class SequenceAligner
 
     /// <summary>
     /// Symmetric guide-tree distance matrix of the progressive / iterative / consistency aligners:
-    /// <see cref="MsaDistanceMode.Linear"/> = the repository's linear NW alignment under <paramref name="scoring"/>
-    /// (<see cref="PairwiseIdentityDistance"/>); <see cref="MsaDistanceMode.ClustalWAffine"/> = ClustalW's own pairwise stage
+    /// <see cref="MsaDistanceMode.Linear"/> = the repository's own global alignment under <paramref name="scoring"/> (linear NW, or
+    /// the affine Gotoh alignment when <paramref name="gapModel"/> is <see cref="MsaGapModel.Affine"/>; <see cref="PairwiseIdentityDistance"/>); <see cref="MsaDistanceMode.ClustalWAffine"/> = ClustalW's own pairwise stage
     /// (<see cref="ClustalWPairwiseAlign(string, string, double, double)"/>, independent of <paramref name="scoring"/>).
     /// </summary>
-    private static double[,] ComputeGuideDistances(string[] rawSeqs, ScoringMatrix scoring, MsaDistanceMode mode)
+    private static double[,] ComputeGuideDistances(string[] rawSeqs, ScoringMatrix scoring, MsaDistanceMode mode, MsaGapModel gapModel)
     {
         if (!Enum.IsDefined(mode))
             throw new ArgumentOutOfRangeException(nameof(mode), mode, "Unknown guide-tree distance mode.");
@@ -2346,7 +2396,7 @@ public static partial class SequenceAligner
             {
                 double d = mode == MsaDistanceMode.ClustalWAffine
                     ? ClustalWPairwiseDistance(rawSeqs[i], rawSeqs[j])
-                    : PairwiseIdentityDistance(rawSeqs[i], rawSeqs[j], scoring);
+                    : PairwiseIdentityDistance(rawSeqs[i], rawSeqs[j], scoring, gapModel);
                 distance[i, j] = d;
                 distance[j, i] = d;
             }
@@ -2464,7 +2514,7 @@ public static partial class SequenceAligner
     /// profiles by profile-profile NW alignment. Leaves start as a single-row profile.
     /// </summary>
     private static Profile AlignProfileSubtree(
-        ProgressiveGuideNode node, string[] rawSeqs, ScoringMatrix scoring)
+        ProgressiveGuideNode node, string[] rawSeqs, ScoringMatrix scoring, MsaGapModel gapModel)
     {
         if (node.IsLeaf)
         {
@@ -2474,9 +2524,11 @@ public static partial class SequenceAligner
             return leaf;
         }
 
-        var left = AlignProfileSubtree(node.Left!, rawSeqs, scoring);
-        var right = AlignProfileSubtree(node.Right!, rawSeqs, scoring);
-        return AlignProfiles(left, right, scoring);
+        var left = AlignProfileSubtree(node.Left!, rawSeqs, scoring, gapModel);
+        var right = AlignProfileSubtree(node.Right!, rawSeqs, scoring, gapModel);
+        return gapModel == MsaGapModel.Affine
+            ? AlignProfilesAffine(left, right, scoring)
+            : AlignProfiles(left, right, scoring);
     }
 
     /// <summary>
@@ -2746,6 +2798,7 @@ public static partial class SequenceAligner
         ArgumentNullException.ThrowIfNull(sequences);
         ArgumentOutOfRangeException.ThrowIfLessThan(maxIterations, 1);
         options ??= new MsaOptions();
+        var gapModel = ResolveGapModel(options);
 
         var seqList = sequences.ToList();
         if (seqList.Count == 0)
@@ -2764,13 +2817,13 @@ public static partial class SequenceAligner
         var rawSeqs = seqList.Select(s => s.Sequence).ToArray();
 
         // Step 1: progressive seed (same pipeline as MultipleAlignProgressive) + retain guide tree.
-        var distance = ComputeGuideDistances(rawSeqs, effectiveScoring, options.Distance);
+        var distance = ComputeGuideDistances(rawSeqs, effectiveScoring, options.Distance, gapModel);
 
         ProgressiveGuideNode root = BuildProgressiveGuideTree(k, distance);
-        Profile current = AlignProfileSubtree(root, rawSeqs, effectiveScoring);
+        Profile current = AlignProfileSubtree(root, rawSeqs, effectiveScoring, gapModel);
 
         // Step 2-5: iterative refinement over the guide-tree edges.
-        current = RefineByTreePartitioning(current, root, effectiveScoring, maxIterations);
+        current = RefineByTreePartitioning(current, root, effectiveScoring, maxIterations, gapModel);
 
         // Reproject rows back into input order.
         var orderedRows = new string[k];
@@ -2780,7 +2833,7 @@ public static partial class SequenceAligner
         var alignedList = orderedRows.ToList();
         int maxLen = alignedList.Count == 0 ? 0 : alignedList.Max(s => s.Length);
         string consensus = BuildConsensus(alignedList, maxLen);
-        int spScore = ComputeSumOfPairsScore(alignedList, effectiveScoring);
+        int spScore = ComputeSumOfPairsScore(alignedList, effectiveScoring, gapModel);
 
         return new MultipleAlignmentResult(
             AlignedSequences: orderedRows,
@@ -2795,7 +2848,7 @@ public static partial class SequenceAligner
     /// pass accepts no change (convergence) or <paramref name="maxIterations"/> is reached.
     /// </summary>
     private static Profile RefineByTreePartitioning(
-        Profile current, ProgressiveGuideNode root, ScoringMatrix scoring, int maxIterations)
+        Profile current, ProgressiveGuideNode root, ScoringMatrix scoring, int maxIterations, MsaGapModel gapModel)
     {
         // 3.1 enumerate the partitions induced by deleting each internal edge of the guide tree.
         // An internal edge is the edge above each non-root internal node; deleting it isolates that
@@ -2807,7 +2860,7 @@ public static partial class SequenceAligner
             return current; // 2 leaves: the single edge is the root split, no internal edge to refine.
 
         // The SP score the existing pipeline reports for this alignment (input-order independent).
-        int CurrentSpScore(Profile p) => ComputeSumOfPairsScore(p.Rows, scoring);
+        int CurrentSpScore(Profile p) => ComputeSumOfPairsScore(p.Rows, scoring, gapModel);
 
         int bestScore = CurrentSpScore(current);
 
@@ -2825,7 +2878,9 @@ public static partial class SequenceAligner
                     continue;
 
                 // 3.2/3.3 realign the two profiles with the existing profile-profile NW.
-                Profile candidate = AlignProfiles(sideA, sideB, scoring);
+                Profile candidate = gapModel == MsaGapModel.Affine
+                    ? AlignProfilesAffine(sideA, sideB, scoring)
+                    : AlignProfiles(sideA, sideB, scoring);
                 int candidateScore = CurrentSpScore(candidate);
 
                 // 3.4 keep only if the SP score does not decrease. Strict ">" would also be valid;
@@ -3065,6 +3120,7 @@ public static partial class SequenceAligner
     {
         ArgumentNullException.ThrowIfNull(sequences);
         options ??= new MsaOptions();
+        var gapModel = ResolveGapModel(options);
 
         var seqList = sequences.ToList();
         if (seqList.Count == 0)
@@ -3083,10 +3139,10 @@ public static partial class SequenceAligner
         var rawSeqs = seqList.Select(s => s.Sequence).ToArray();
 
         // Steps 1-2: primary library (global + local, signal-added) then triplet extension.
-        var library = new ExtendedLibrary(BuildPrimaryLibrary(rawSeqs, effectiveScoring));
+        var library = new ExtendedLibrary(BuildPrimaryLibrary(rawSeqs, effectiveScoring, gapModel));
 
         // Step 3a: UPGMA guide tree over the ClustalW distances (1 - identities / min(len1, len2)), reusing the progressive pipeline.
-        var distance = ComputeGuideDistances(rawSeqs, effectiveScoring, options.Distance);
+        var distance = ComputeGuideDistances(rawSeqs, effectiveScoring, options.Distance, gapModel);
         ProgressiveGuideNode root = BuildProgressiveGuideTree(k, distance);
 
         // Step 3b: progressive alignment driven by the EXTENDED-LIBRARY weights.
@@ -3101,7 +3157,7 @@ public static partial class SequenceAligner
         int maxLen = alignedList.Count == 0 ? 0 : alignedList.Max(s => s.Length);
         string consensus = BuildConsensus(alignedList, maxLen);
         // TotalScore is reported in the same SP currency as the sibling aligners for comparability.
-        int spScore = ComputeSumOfPairsScore(alignedList, effectiveScoring);
+        int spScore = ComputeSumOfPairsScore(alignedList, effectiveScoring, gapModel);
 
         return new MultipleAlignmentResult(
             AlignedSequences: orderedRows,
@@ -3206,8 +3262,10 @@ public static partial class SequenceAligner
     }
 
     /// <summary>Primary library: global (NW) + local (SW) pairwise alignments of every sequence pair, signal-added.</summary>
-    private static Dictionary<ResiduePairKey, double> BuildPrimaryLibrary(string[] seqs, ScoringMatrix scoring)
+    private static Dictionary<ResiduePairKey, double> BuildPrimaryLibrary(
+        string[] seqs, ScoringMatrix scoring, MsaGapModel gapModel = MsaGapModel.Linear)
     {
+        bool affine = gapModel == MsaGapModel.Affine;
         var primary = new Dictionary<ResiduePairKey, double>();
         int k = seqs.Length;
 
@@ -3216,11 +3274,11 @@ public static partial class SequenceAligner
             for (int j = i + 1; j < k; j++)
             {
                 AddAlignmentToPrimary(primary, i, j, seqs[i], seqs[j],
-                    GlobalAlignCore(seqs[i], seqs[j], scoring));
+                    affine ? GlobalAlignAffine(seqs[i], seqs[j], scoring) : GlobalAlignCore(seqs[i], seqs[j], scoring));
 
                 if (seqs[i].Length > 0 && seqs[j].Length > 0)
                 {
-                    var local = LocalAlignCore(seqs[i], seqs[j], scoring);
+                    var local = affine ? LocalAlignAffine(seqs[i], seqs[j], scoring) : LocalAlignCore(seqs[i], seqs[j], scoring);
                     AddLocalAlignmentToPrimary(primary, i, j, seqs[i], seqs[j], local);
                 }
             }

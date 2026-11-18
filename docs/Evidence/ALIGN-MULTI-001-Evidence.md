@@ -445,3 +445,27 @@ Sources actually opened in this review (neutral `Seqeron-review/1.0` User-Agent,
 ## Assumptions / not covered
 - Full-DP ("slow") mode only; `-QUICKTREE` fast k-tuple mode and the protein pairwise stage are audit item A1-15b.
 - The guide tree itself stays UPGMA (ClustalW uses NJ: audit A1-12), so a `clustalw -USETREE`-driven comparison of final rows is not claimed.
+
+
+---
+
+# Addendum: affine-gap multiple alignment (audit A1-10, B09 F52, 2026-11-18)
+
+## Sources actually opened / used
+- Altschul SF (1989) "Gap costs for multiple sequence alignment", J Theor Biol 138:297-309 (WebSearch record: "if SP substitution scores are used, gap scores should also be defined as the sum of gap scores for the implied pairwise alignments" = natural gap costs; the quasi-natural definition could not be retrieved, so it is not implemented or claimed).
+- ClustalW 2.1 / MUSCLE (Edgar 2004) / Gotoh 1982 / Flouri et al. 2015 as already cited by F1; ClustalW `FullPairwiseAlign.cpp` for the gap convention (open + k·extend).
+- Installed tools used for an informational comparison only: `clustalw` 2.1, `muscle` 5.2, `mafft` 7.505, `kalign` 3.3.5, `clustalo` 1.2.4, `t_coffee` 13.41.
+
+## Decisions
+1. Objective = natural affine sum of pairs (exactly computable). The exact optimisation of that objective for k ≥ 3 is not a three-state DP (the open charge of a pair depends on whether the previous non-gap-gap column of THAT pair was a gap of the same row), so the profile methods use the standard occupancy-scaled profile approximation and are scored with the exact objective; the exact optimum for three sequences is the 7-move DP over (i, j, l, run state per pair) used as the test oracle (audit A1-11 will expose it as an API).
+2. k = 2 is exact: the three-state profile DP reduces to the `GlobalAlignAffine` recurrence (same border, same tie order), rows equal.
+
+## Oracle numbers
+- 453 random MSAs: independent re-score = C# `SumOfPairsScore` (linear + affine); affine SP ≤ Σ Biopython pairwise optima in all rows.
+- 260 tiny sets (k = 2/3, length ≤ 7 (k = 3: ≤ 6)): exact optimum by DP, DP = exhaustive enumeration whenever Σ length ≤ 9; k = 2 optimum = Biopython; C# methods never exceed it; k = 2: star/progressive/iterative = optimum; 227 three-sequence sets: optimum reached by star 170, progressive 189, iterative 189 (iterative never lowers the exact objective).
+- 150 sets (k 3-6, ≤ 24 nt, 7 scoring schemes): C# affine star, progressive, iterative and consistency rows = independent Python rows (0 differences); progressive rows differ from the linear model on > 20 sets.
+- Informational comparison under the same objective (natural affine SP with match 2, mismatch −3, open −5, extend −2) on 60 sets (k 4-7, 30-80 nt, 8-25 % divergence): mean SP of Seqeron affine iterative −94.7, consistency −84.4, progressive −102.6, star −144.4, anchored −190.1, Seqeron linear progressive −278.3 / linear star −300.1; external tools (each optimises its own objective and parameters, so this favours the Seqeron methods): muscle −240.9, mafft −299.1, clustalw −372.2 (−310.0 with open 12.5 / extend 5), kalign −640.1, clustalo −636.0, t_coffee −148.1. An external tool scores higher than Seqeron's affine iterative result on 11 sets (t_coffee), 6 (kalign), 5 (mafft), 2 (muscle), 1 (clustalw) and 0 (clustalo) of the 60; the Seqeron consistency method (zero-gap-penalty library DP, affine library) is higher than iterative on 25 and lower on 29.
+
+## Assumptions / not covered
+- The profile DP is not ClustalW's `prfalign.c` stage (sequence weights, residue-specific / hydrophilic penalties, gap-separation distance) nor MUSCLE's profile score: audit A1-10b.
+- Consistency keeps T-Coffee's default gap penalty 0 in its progressive DP; the gap model affects its pairwise library and the reported score only.

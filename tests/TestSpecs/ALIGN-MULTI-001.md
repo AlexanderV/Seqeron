@@ -356,3 +356,24 @@ Tests added (all lock oracle values: Biopython 1.88 pair optima and independent 
 | CW7 | progressive and iterative rows with `ClustalWAffine` equal the independent Python on 140 sets × 4 schemes; ≥ 5 sets differ from `Linear` | independent Python (NW, profile DP, exact-rational UPGMA, tree-partition refinement) |
 | CW8 | default options = historical behaviour (progressive, iterative, consistency); consistency with ClustalW distances spells its inputs; undefined mode throws; two sequences identical in both modes | regression |
 | CW9 (MCP) | `distance = clustalw` gives the discriminating set's ClustalW rows, `linear` the old rows, bad value throws | Python oracle |
+
+
+---
+
+# Addendum: Affine-gap MSA (audit A1-10, B09 F52)
+
+**Class:** `SequenceAligner_MultipleAlignAffine_Tests` (16 tests) + `Seqeron.Mcp.Alignment.Tests.MultipleAlignTests` (2 `gapModel` tests).
+**Subject:** `MsaOptions.GapModel = MsaGapModel.Affine` on `MultipleAlign`, `MultipleAlignAnchored`, `MultipleAlignProgressive`, `MultipleAlignIterative`, `MultipleAlignConsistency` and the objective `SequenceAligner.SumOfPairsScore(rows, scoring, gapModel)` (natural affine sum of pairs, Altschul 1989). Default (`Linear`) unchanged.
+
+| ID | Test | Source / oracle |
+|----|------|-----------------|
+| AF1 | `SumOfPairsScore` (linear and affine) equals the independent Python re-score on 453 random gapped MSAs; affine SP never exceeds the sum of the Biopython 1.88 pairwise optima | Altschul 1989 definition; Biopython `PairwiseAligner(mode='global')` |
+| AF2 | hand-derived example and run semantics (gap-gap columns skipped, a gap in row i followed by a gap in row j = two runs, run continues across gap-gap columns) | definition |
+| AF3 | SP of the optimal `GlobalAlignAffine` rows = `Score` (k = 2 objective = Gotoh score) | F1 |
+| AF4 | rows of the exact optimum of 260 tiny sets score to the optimum under the C# objective | exact DP over (i, j, l, run state per pair), validated by exhaustive enumeration (lengths ≤ 4 in the generator) |
+| AF5 | no method exceeds the exact optimum (5 methods x 260 sets); k = 2: star, progressive, iterative equal the optimum; 3-sequence optimum rate recorded (170 / 189 / 189 of 227) | same |
+| AF6 | affine star / progressive / iterative / consistency rows equal the independent Python implementations on 150 sets x 7 schemes | independent Python (Gotoh, SWG, Gusfield merge, UPGMA, affine profile DP, edge refinement, T-Coffee extension) |
+| AF7 | two sequences: star/progressive/iterative score and progressive rows equal `GlobalAlignAffine` (120 random pairs x 4 schemes) | F1 / Biopython |
+| AF8 | a 10-nt indel costs one opening (affine 122 vs linear 138 on the hand-built trio) | hand-derived |
+| AF9 | default options are linear and every method is unchanged; rows spell inputs, equal length, `TotalScore` = `SumOfPairsScore`; iterative ≥ progressive; GapOpen 0 makes both objectives equal; invalid model throws; empty/single trivial | contract |
+| AF10 (MCP) | `gapModel=affine` honours `gapOpen` (66 + 2·(46 − 18) vs linear 66 + 2·(46 − 10)); invalid value throws on all five tools | hand-derived |

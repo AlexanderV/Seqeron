@@ -186,3 +186,8 @@ PASS-WITH-NOTES / PASS-WITH-NOTES, FIXED. Full fast tier: see `docs/Validation/r
 ## Audit r1 addendum (A1-15, B09 F51)
 
 `MultipleAlignProgressive/Iterative/Consistency` accept `MsaOptions.Distance`; `ClustalWAffine` takes the guide-tree distance from ClustalW 2.1's own pairwise stage (`SequenceAligner.ClustalWPairwiseAlign`, an exact port of `FullPairwiseAlign`: affine local Smith-Waterman-Gotoh + Myers-Miller, IUB ×100, gaps 15/6.66). 3 600 pairs equal `clustalw -ALIGN` "Score:"; progressive/iterative rows equal an independent Python implementation on 140 sets. Default stays `Linear`. Tests: `SequenceAligner_ClustalWDistance_Tests` (17) + 2 MCP tests.
+
+
+## Audit r1 addendum (A1-10, B09 F52)
+
+Additive `MsaOptions.GapModel = MsaGapModel.Affine` on all five multiple aligners (MCP `gapModel=affine` honours `gapOpen`): exact natural affine sum-of-pairs objective (`SequenceAligner.SumOfPairsScore`), exact affine pairwise stage for the star methods, Gotoh three-state affine profile DP for the progressive / iterative methods (heuristic for k ≥ 3, equal to `GlobalAlignAffine` for k = 2), affine pair library for the consistency method. Oracles: independent Python (objective, exact optimum of 260 tiny sets, star/progressive/iterative/consistency rows). Tests: `SequenceAligner_MultipleAlignAffine_Tests` (16) + 2 MCP tests. Default stays linear.

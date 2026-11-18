@@ -5,8 +5,8 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "SequenceAligner.MultipleAlignAnchored",
-  "docRef": "Seqeron.Genomics.Alignment/SequenceAligner.cs#L1242",
-  "description": "Approximate, faster center-star MSA: 4-mer count cosine center, suffix-tree exact-match anchors (MUMmer-style seed, weighted colinear chain, Needleman-Wunsch between anchors). Pairwise alignments are not guaranteed optimal, so the sum-of-pairs score can be lower than multiple_align's. Linear gap model (gapOpen ignored).",
+  "docRef": "Seqeron.Genomics.Alignment/SequenceAligner.cs#L1821",
+  "description": "Approximate, faster center-star MSA: picks the center by 4-mer count cosine similarity, builds a suffix tree on it and aligns every other sequence with exact-match anchors (MUMmer-style seed, weighted colinear chain, Needleman–Wunsch — or Gotoh affine with gapModel='affine' — on the gaps between anchors). The pairwise alignments are NOT guaranteed optimal, so the sum-of-pairs score can be lower than multiple_align's. Default linear gap model (gapOpen ignored); gapModel='affine' charges gapOpen + k·gapExtend per gap run and reports the natural affine sum-of-pairs score.",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -26,13 +26,18 @@
       },
       "gapOpen": {
         "type": "integer",
-        "description": "Gap-open penalty (ignored: linear-gap model).",
+        "description": "Gap-open penalty. Used only with gapModel='affine' (a gap of length k then costs gapOpen + k * gapExtend, Gotoh); ignored by the default linear model.",
         "default": -2
       },
       "gapExtend": {
         "type": "integer",
-        "description": "Gap penalty charged per gap position.",
+        "description": "Gap penalty per gap position (linear model: every gap position; affine model: the per-position part of gapOpen + k * gapExtend).",
         "default": -1
+      },
+      "gapModel": {
+        "type": "string",
+        "description": "'linear' (default): every gap position costs gapExtend and gapOpen is ignored; totalScore is the column sum of pairs (gap-gap columns 0). 'affine': gap runs cost gapOpen + k * gapExtend; the pairwise / profile alignments use affine (Gotoh) dynamic programming and totalScore is the sum of pairs with natural affine gap costs (Altschul 1989: each pair of rows is projected out of the alignment, gap-gap columns skipped, every gap run of the projection pays gapOpen once). For two sequences the affine result is an optimal pairwise alignment; for three or more sequences every method is a heuristic.",
+        "default": "linear"
       }
     },
     "required": [
@@ -52,7 +57,7 @@
       },
       "totalScore": {
         "type": "integer",
-        "description": "Column sum-of-pairs score of the MSA (match/mismatch from the matrix, residue-gap = gapExtend, gap-gap = 0)."
+        "description": "Sum-of-pairs score of the MSA: linear model = column score (match/mismatch from the matrix, residue-gap = gapExtend, gap-gap = 0); gapModel='affine' = natural affine gap costs (every gap run of each pair projection pays gapOpen once)."
       }
     },
     "required": [

@@ -473,8 +473,9 @@ public sealed record MultipleAlignmentResult(
 public enum MsaDistanceMode
 {
     /// <summary>
-    /// Default (historical behaviour): d = 1 − identities / min(len1, len2) of the repository's own linear-gap
-    /// Needleman–Wunsch alignment under the caller's <see cref="ScoringMatrix"/>.
+    /// Default (historical behaviour): d = 1 − identities / min(len1, len2) of the repository's own global
+    /// alignment under the caller's <see cref="ScoringMatrix"/> (linear-gap Needleman–Wunsch; the affine Gotoh alignment when
+    /// <see cref="MsaOptions.GapModel"/> is <see cref="MsaGapModel.Affine"/>).
     /// </summary>
     Linear = 0,
 
@@ -487,14 +488,36 @@ public enum MsaDistanceMode
     ClustalWAffine = 1,
 }
 
+/// <summary>Gap model of the multiple aligners and of their sum-of-pairs objective (<see cref="MultipleAlignmentResult.TotalScore"/>).</summary>
+public enum MsaGapModel
+{
+    /// <summary>
+    /// Default (historical behaviour): every gap position scores <see cref="ScoringMatrix.GapExtend"/> and <see cref="ScoringMatrix.GapOpen"/>
+    /// is unused; <c>TotalScore</c> is the column sum of pairs (gap–gap columns neutral).
+    /// </summary>
+    Linear = 0,
+
+    /// <summary>
+    /// Affine gaps (Gotoh 1982): a gap of length k costs <see cref="ScoringMatrix.GapOpen"/> + k·<see cref="ScoringMatrix.GapExtend"/>.
+    /// <c>TotalScore</c> is the sum-of-pairs score with <b>natural</b> affine gap costs (Altschul 1989: every pair of rows is projected
+    /// out of the alignment, gap–gap columns are skipped, and each maximal run of gap columns of the projection pays the opening once);
+    /// the star methods align every sequence to the center with the exact affine pairwise aligner, the profile methods use an affine
+    /// (Gotoh three-state) profile–profile dynamic program with occupancy-scaled opening/extension.
+    /// </summary>
+    Affine = 1,
+}
+
 /// <summary>
-/// Additive options of the guide-tree multiple aligners (<c>MultipleAlignProgressive</c>, <c>MultipleAlignIterative</c>,
-/// <c>MultipleAlignConsistency</c>). The default instance reproduces the parameterless behaviour.
+/// Additive options of the multiple aligners (<c>MultipleAlign</c>, <c>MultipleAlignAnchored</c>, <c>MultipleAlignProgressive</c>,
+/// <c>MultipleAlignIterative</c>, <c>MultipleAlignConsistency</c>). The default instance reproduces the parameterless behaviour.
 /// </summary>
 public sealed record MsaOptions
 {
-    /// <summary>Pairwise distance used for the guide tree (default <see cref="MsaDistanceMode.Linear"/>).</summary>
+    /// <summary>Pairwise distance used for the guide tree of the progressive family (default <see cref="MsaDistanceMode.Linear"/>).</summary>
     public MsaDistanceMode Distance { get; init; } = MsaDistanceMode.Linear;
+
+    /// <summary>Gap model (default <see cref="MsaGapModel.Linear"/>).</summary>
+    public MsaGapModel GapModel { get; init; } = MsaGapModel.Linear;
 }
 
 /// <summary>

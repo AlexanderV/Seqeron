@@ -193,35 +193,35 @@
     "server": "Alignment",
     "methodId": "SequenceAligner.MultipleAlign",
     "docPath": "docs/mcp/tools/alignment/multiple_align.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.cs#L1203"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.cs#L1758"
   },
   {
     "tool": "multiple_align_anchored",
     "server": "Alignment",
     "methodId": "SequenceAligner.MultipleAlignAnchored",
     "docPath": "docs/mcp/tools/alignment/multiple_align_anchored.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.cs#L1242"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.cs#L1821"
   },
   {
     "tool": "multiple_align_consistency",
     "server": "Alignment",
     "methodId": "SequenceAligner.MultipleAlignConsistency",
     "docPath": "docs/mcp/tools/alignment/multiple_align_consistency.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.cs#L2425"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.cs#L3104"
   },
   {
     "tool": "multiple_align_iterative",
     "server": "Alignment",
     "methodId": "SequenceAligner.MultipleAlignIterative",
     "docPath": "docs/mcp/tools/alignment/multiple_align_iterative.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.cs#L2111"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.cs#L2778"
   },
   {
     "tool": "multiple_align_progressive",
     "server": "Alignment",
     "methodId": "SequenceAligner.MultipleAlignProgressive",
     "docPath": "docs/mcp/tools/alignment/multiple_align_progressive.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.cs#L1676"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.cs#L2288"
   },
   {
     "tool": "quality_trim_reads",

@@ -134,4 +134,39 @@ public class MultipleAlignTests
         Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignIterative(DistanceSet, 5, -4, 0, -3, 16, "bogus"));
         Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignConsistency(DistanceSet, 5, -4, 0, -3, "bogus"));
     }
+
+    // B09 F52 (A1-10): gapModel = affine honours gapOpen. Identical pair 33 matches = 66; the two pairs with the 23-nt sequence have
+    // 23 matches (46) and ONE 10-nt gap run: affine -8 + 10 * -1 = -18, linear -10.
+    private static readonly string[] IndelSet =
+        ["ACGTACGTACGTAAAAAAAAAAGGCATCGATCG", "ACGTACGTACGTGGCATCGATCG", "ACGTACGTACGTAAAAAAAAAAGGCATCGATCG"];
+
+    [Test]
+    public void MultipleAlign_GapModelAffine_ChargesOneOpeningPerGapRun()
+    {
+        var linear = AlignmentTools.MultipleAlign(IndelSet, 2, -3, -8, -1);
+        var affine = AlignmentTools.MultipleAlign(IndelSet, 2, -3, -8, -1, "affine");
+        Assert.Multiple(() =>
+        {
+            Assert.That(linear.TotalScore, Is.EqualTo(66 + 2 * (46 - 10)));
+            Assert.That(affine.TotalScore, Is.EqualTo(66 + 2 * (46 - 18)));
+            Assert.That(AlignmentTools.MultipleAlign(IndelSet, 2, -3, -8, -1, "AFFINE").TotalScore, Is.EqualTo(affine.TotalScore));
+        });
+    }
+
+    [Test]
+    public void MultipleAlignTools_GapModel_AcceptedAndValidated()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(AlignmentTools.MultipleAlignAnchored(IndelSet, 2, -3, -8, -1, "affine").TotalScore, Is.EqualTo(66 + 2 * (46 - 18)));
+            Assert.That(AlignmentTools.MultipleAlignProgressive(IndelSet, 2, -3, -8, -1, "linear", "affine").TotalScore, Is.EqualTo(66 + 2 * (46 - 18)));
+            Assert.That(AlignmentTools.MultipleAlignIterative(IndelSet, 2, -3, -8, -1, 16, "linear", "affine").TotalScore, Is.EqualTo(66 + 2 * (46 - 18)));
+            Assert.That(AlignmentTools.MultipleAlignConsistency(IndelSet, 2, -3, -8, -1, "linear", "affine").TotalScore, Is.EqualTo(66 + 2 * (46 - 18)));
+            Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlign(IndelSet, 2, -3, -8, -1, "quadratic"));
+            Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignAnchored(IndelSet, 2, -3, -8, -1, "bogus"));
+            Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignProgressive(IndelSet, 2, -3, -8, -1, "linear", "bogus"));
+            Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignIterative(IndelSet, 2, -3, -8, -1, 16, "linear", "bogus"));
+            Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignConsistency(IndelSet, 2, -3, -8, -1, "linear", "bogus"));
+        });
+    }
 }
