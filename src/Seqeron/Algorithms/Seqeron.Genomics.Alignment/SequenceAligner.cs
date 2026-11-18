@@ -325,12 +325,43 @@ public static partial class SequenceAligner
             return big;
         }
 
+        var score = LinearFillMatrix(seq1, seq2, scoring, ends, cancellationToken, progress);
+
+        cancellationToken.ThrowIfCancellationRequested();
+        progress?.Report(0.75);
+
+        // End cell: (m, n) for a global alignment; with free trailing residues the first (smallest j / smallest i)
+        // maximum of the last row (sequence-2 suffix free) and/or last column (sequence-1 suffix free).
+        int endI = m, endJ = n;
+        if (ends.HasFlag(EndGaps.FreeEnd2) || ends.HasFlag(EndGaps.FreeEnd1))
+        {
+            int bestValue = int.MinValue;
+            foreach (var (ci, cj) in EndCellCandidates(m, n, ends))
+                if (score[ci, cj] > bestValue) { bestValue = score[ci, cj]; endI = ci; endJ = cj; }
+        }
+
+        var result = Traceback(seq1, seq2, score, endI, endJ, scoring, ends);
+
+        progress?.Report(1.0);
+        return result;
+    }
+
+    /// <summary>
+    /// Border initialisation and fill of the linear-gap Needleman-Wunsch matrix (the one dynamic program of every linear global /
+    /// ends-free alignment; also the matrix the co-optimal enumerator walks back):
+    /// F(i,0) = d·i (0 when <see cref="EndGaps.FreeStart1"/>), F(0,j) = d·j (0 when <see cref="EndGaps.FreeStart2"/>),
+    /// F(i,j) = max(F(i-1,j-1) + s(a_i,b_j), F(i-1,j) + d, F(i,j-1) + d), d = <see cref="ScoringMatrix.GapExtend"/>.
+    /// Standard Needleman-Wunsch (<see href="https://en.wikipedia.org/wiki/Needleman%E2%80%93Wunsch_algorithm"/>); ends-free: a free
+    /// prefix of seq1 / seq2 may precede the alignment.
+    /// </summary>
+    private static int[,] LinearFillMatrix(
+        string seq1, string seq2, PairScoring scoring, EndGaps ends,
+        CancellationToken cancellationToken = default, IProgress<double>? progress = null)
+    {
+        int m = seq1.Length;
+        int n = seq2.Length;
         var score = new int[m + 1, n + 1];
 
-        // Initialize first row and column with linear gap penalty d = GapExtend.
-        // Standard Needleman-Wunsch: F(i,0) = d*i, F(0,j) = d*j
-        // Source: https://en.wikipedia.org/wiki/Needleman%E2%80%93Wunsch_algorithm
-        // Ends-free alignment: F(i,0) = 0 / F(0,j) = 0 — a free prefix of seq1 / seq2 may precede the alignment.
         for (int i = 0; i <= m; i++)
             score[i, 0] = ends.HasFlag(EndGaps.FreeStart1) ? 0 : i * scoring.GapExtend;
         for (int j = 0; j <= n; j++)
@@ -358,27 +389,30 @@ public static partial class SequenceAligner
             }
         }
 
-        cancellationToken.ThrowIfCancellationRequested();
-        progress?.Report(0.75);
+        return score;
+    }
 
-        // End cell: (m, n) for a global alignment; with free trailing residues the first (smallest j / smallest i)
-        // maximum of the last row (sequence-2 suffix free) and/or last column (sequence-1 suffix free).
-        int endI = m, endJ = n;
-        if (ends.HasFlag(EndGaps.FreeEnd2) || ends.HasFlag(EndGaps.FreeEnd1))
+    /// <summary>
+    /// The cells where a global / ends-free alignment may end, in the fixed tie order: (m, n) when no trailing end is free,
+    /// otherwise the last row from j = 0 (<see cref="EndGaps.FreeEnd2"/>: trailing sequence-2 residues free) and then the last
+    /// column from i = 0 (<see cref="EndGaps.FreeEnd1"/>); (m, n) is listed twice when both are free (callers keep the first).
+    /// </summary>
+    private static IEnumerable<(int I, int J)> EndCellCandidates(int m, int n, EndGaps ends)
+    {
+        bool freeEnd2 = ends.HasFlag(EndGaps.FreeEnd2);
+        bool freeEnd1 = ends.HasFlag(EndGaps.FreeEnd1);
+        if (!freeEnd2 && !freeEnd1)
         {
-            int bestValue = int.MinValue;
-            if (ends.HasFlag(EndGaps.FreeEnd2))
-                for (int j = 0; j <= n; j++)
-                    if (score[m, j] > bestValue) { bestValue = score[m, j]; endI = m; endJ = j; }
-            if (ends.HasFlag(EndGaps.FreeEnd1))
-                for (int i = 0; i <= m; i++)
-                    if (score[i, n] > bestValue) { bestValue = score[i, n]; endI = i; endJ = n; }
+            yield return (m, n);
+            yield break;
         }
 
-        var result = Traceback(seq1, seq2, score, endI, endJ, scoring, ends);
-
-        progress?.Report(1.0);
-        return result;
+        if (freeEnd2)
+            for (int j = 0; j <= n; j++)
+                yield return (m, j);
+        if (freeEnd1)
+            for (int i = 0; i <= m; i++)
+                yield return (i, n);
     }
 
     #endregion
@@ -489,61 +523,14 @@ public static partial class SequenceAligner
         if (local) ends = EndGaps.None;
         if (!forceFullMatrix && LinearSpaceApplies(seq1.Length, seq2.Length, scoring, local))
             return LinearSpaceAlign(seq1, seq2, scoring, affine: true, local, ends, LinearSpaceBaseCells, default);
-        bool freeStart1 = ends.HasFlag(EndGaps.FreeStart1);
         bool freeEnd1 = ends.HasFlag(EndGaps.FreeEnd1);
-        bool freeStart2 = ends.HasFlag(EndGaps.FreeStart2);
         bool freeEnd2 = ends.HasFlag(EndGaps.FreeEnd2);
         int m = seq1.Length;
         int n = seq2.Length;
 
-        int o = scoring.GapOpen;
-        int e = scoring.GapExtend;
-        int oe = o + e;
-        int startFloor = local ? 0 : AffineNegInf;
-
-        var mm = new int[m + 1, n + 1];
-        var xx = new int[m + 1, n + 1];
-        var yy = new int[m + 1, n + 1];
-
-        // Origin vector: the path leaves (0,0) from the state it arrived in (M for a whole alignment; the linear-space
-        // program starts the sub-problems below the split row from the state of the split vertex, startState).
-        mm[0, 0] = !local && startState == StateMatch ? 0 : AffineNegInf;
-        xx[0, 0] = !local && startState == StateGapInSeq2 ? 0 : AffineNegInf;
-        yy[0, 0] = !local && startState == StateGapInSeq1 ? 0 : AffineNegInf;
-        for (int i = 1; i <= m; i++)
-        {
-            mm[i, 0] = freeStart1 ? 0 : AffineNegInf;
-            // X(i,0) = o + i·e from the default origin (a leading gap is charged exactly one opening, Flouri 2015).
-            xx[i, 0] = local || freeStart1
-                ? AffineNegInf
-                : Math.Max(AffineNegInf, Max3(mm[i - 1, 0] + oe, xx[i - 1, 0] + e, yy[i - 1, 0] + oe));
-            yy[i, 0] = AffineNegInf;
-        }
-        for (int j = 1; j <= n; j++)
-        {
-            mm[0, j] = freeStart2 ? 0 : AffineNegInf;
-            xx[0, j] = AffineNegInf;
-            yy[0, j] = local || freeStart2
-                ? AffineNegInf
-                : Math.Max(AffineNegInf, Max3(mm[0, j - 1] + oe, yy[0, j - 1] + e, xx[0, j - 1] + oe));
-        }
-
-        int bestLocal = 0, bestI = 0, bestJ = 0;
-        for (int i = 1; i <= m; i++)
-        {
-            char c1 = seq1[i - 1];
-            for (int j = 1; j <= n; j++)
-            {
-                AffineCell(mm, xx, yy, i, j, scoring.Sub(c1, seq2[j - 1]), startFloor, e, oe, forbidden: false);
-
-                if (local && mm[i, j] > bestLocal)
-                {
-                    bestLocal = mm[i, j];
-                    bestI = i;
-                    bestJ = j;
-                }
-            }
-        }
+        var (mm, xx, yy) = AffineNewMatrices(m, n);
+        AffineInitBorders(mm, xx, yy, scoring, local, ends, startState);
+        var (bestLocal, bestI, bestJ) = AffineFill(mm, xx, yy, seq1, seq2, scoring, local);
 
         int best, ci, cj;
         byte state;
@@ -566,18 +553,11 @@ public static partial class SequenceAligner
             if (freeEnd2 || freeEnd1)
             {
                 int bestValue = int.MinValue;
-                if (freeEnd2)
-                    for (int j = 0; j <= n; j++)
-                    {
-                        int v = Max3(mm[m, j], xx[m, j], yy[m, j]);
-                        if (v > bestValue) { bestValue = v; ci = m; cj = j; }
-                    }
-                if (freeEnd1)
-                    for (int i = 0; i <= m; i++)
-                    {
-                        int v = Max3(mm[i, n], xx[i, n], yy[i, n]);
-                        if (v > bestValue) { bestValue = v; ci = i; cj = n; }
-                    }
+                foreach (var (ei, ej) in EndCellCandidates(m, n, ends))
+                {
+                    int v = Max3(mm[ei, ej], xx[ei, ej], yy[ei, ej]);
+                    if (v > bestValue) { bestValue = v; ci = ei; cj = ej; }
+                }
             }
             best = Max3(mm[ci, cj], xx[ci, cj], yy[ci, cj]);
             state = PickState(best, mm[ci, cj], StateMatch, xx[ci, cj], StateGapInSeq2, StateGapInSeq1);
@@ -595,6 +575,81 @@ public static partial class SequenceAligner
         }
 
         return AffineTraceback(seq1, seq2, mm, xx, yy, scoring, local, ends, ci, cj, state, best);
+    }
+
+    private static (int[,] M, int[,] X, int[,] Y) AffineNewMatrices(int m, int n) =>
+        (new int[m + 1, n + 1], new int[m + 1, n + 1], new int[m + 1, n + 1]);
+
+    /// <summary>
+    /// Border initialisation of the three Gotoh matrices (shared by every affine program: global, ends-free, local and the
+    /// co-optimal enumerator). Origin vector: the path leaves (0,0) from the state it arrived in (M for a whole alignment; the
+    /// linear-space program starts the sub-problems below the split row from the state of the split vertex, <paramref name="startState"/>).
+    /// Global: Flouri et al. (2015) — X(i,0) = o + i·e, Y(0,j) = o + j·e (a leading end gap is charged exactly one opening), other
+    /// border cells −∞; a free start (<see cref="EndGaps.FreeStart1"/> / <see cref="EndGaps.FreeStart2"/>) sets M of the matching
+    /// border to 0 and the gap state of that border to −∞; local: every border cell is −∞.
+    /// </summary>
+    private static void AffineInitBorders(
+        int[,] mm, int[,] xx, int[,] yy, PairScoring scoring, bool local, EndGaps ends, int startState)
+    {
+        int m = mm.GetLength(0) - 1;
+        int n = mm.GetLength(1) - 1;
+        int e = scoring.GapExtend;
+        int oe = scoring.GapOpen + e;
+        bool freeStart1 = ends.HasFlag(EndGaps.FreeStart1);
+        bool freeStart2 = ends.HasFlag(EndGaps.FreeStart2);
+
+        mm[0, 0] = !local && startState == StateMatch ? 0 : AffineNegInf;
+        xx[0, 0] = !local && startState == StateGapInSeq2 ? 0 : AffineNegInf;
+        yy[0, 0] = !local && startState == StateGapInSeq1 ? 0 : AffineNegInf;
+        for (int i = 1; i <= m; i++)
+        {
+            mm[i, 0] = freeStart1 ? 0 : AffineNegInf;
+            // X(i,0) = o + i·e from the default origin (a leading gap is charged exactly one opening, Flouri 2015).
+            xx[i, 0] = local || freeStart1
+                ? AffineNegInf
+                : Math.Max(AffineNegInf, Max3(mm[i - 1, 0] + oe, xx[i - 1, 0] + e, yy[i - 1, 0] + oe));
+            yy[i, 0] = AffineNegInf;
+        }
+        for (int j = 1; j <= n; j++)
+        {
+            mm[0, j] = freeStart2 ? 0 : AffineNegInf;
+            xx[0, j] = AffineNegInf;
+            yy[0, j] = local || freeStart2
+                ? AffineNegInf
+                : Math.Max(AffineNegInf, Max3(mm[0, j - 1] + oe, yy[0, j - 1] + e, xx[0, j - 1] + oe));
+        }
+    }
+
+    /// <summary>
+    /// Fills the interior of the three Gotoh matrices row by row with <see cref="AffineCell"/> (local: the zero floor of
+    /// Smith-Waterman); returns the first (row-major) maximum of M for a local alignment (0, 0, 0 otherwise / when no positive cell).
+    /// </summary>
+    private static (int Best, int I, int J) AffineFill(
+        int[,] mm, int[,] xx, int[,] yy, string seq1, string seq2, PairScoring scoring, bool local)
+    {
+        int m = seq1.Length;
+        int n = seq2.Length;
+        int e = scoring.GapExtend;
+        int oe = scoring.GapOpen + e;
+        int startFloor = local ? 0 : AffineNegInf;
+        int bestLocal = 0, bestI = 0, bestJ = 0;
+        for (int i = 1; i <= m; i++)
+        {
+            char c1 = seq1[i - 1];
+            for (int j = 1; j <= n; j++)
+            {
+                AffineCell(mm, xx, yy, i, j, scoring.Sub(c1, seq2[j - 1]), startFloor, e, oe, forbidden: false);
+
+                if (local && mm[i, j] > bestLocal)
+                {
+                    bestLocal = mm[i, j];
+                    bestI = i;
+                    bestJ = j;
+                }
+            }
+        }
+
+        return (bestLocal, bestI, bestJ);
     }
 
     /// <summary>

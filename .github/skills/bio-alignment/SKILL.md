@@ -40,7 +40,7 @@ recipe (MCP tool calls **and** the equivalent `Seqeron.Genomics` C# `Method ID`s
 | Quick **% identity** of two equal-length seqs (no gaps) | `sequence_identity` / `SequenceAssembler.CalculateIdentity` |
 | **Edit (Levenshtein) distance** (any lengths) | `edit_distance` / `ApproximateMatcher.EditDistance` |
 | **Hamming distance** (equal length) | `hamming_distance` / `ApproximateMatcher.HammingDistance` |
-| **k-mer Jaccard similarity** (percent 0–100) | `calculate_similarity` / `GenomicAnalyzer.CalculateSimilarity` |
+| **k-mer Jaccard similarity** (0–1) | `calculate_similarity` / `GenomicAnalyzer.CalculateSimilarity` |
 | **Longest common substring / region** (+ positions) | `find_longest_common_region` / `GenomicAnalyzer.FindLongestCommonRegion`; text-only: `suffix_tree_lcs` / `SuffixTree.LongestCommonSubstring` |
 | **Approximate match** of a pattern (mismatches / edits) | `find_with_mismatches`, `find_with_edits`, `find_best_match` |
 
@@ -85,7 +85,7 @@ Envelope: none guarded. Caveat: alpha — validate before any decision use.
 - **Cross-check:** `multiple_align` consensus vs `compute_consensus` on its own rows should match (different code paths).
 
 ### (e) Quick similarity / distance without a full alignment
-- **k-mer similarity (percent, 0–100):** `calculate_similarity`(s1,s2,kmerSize?,canonical?) / `GenomicAnalyzer.CalculateSimilarity`.
+- **k-mer similarity (0–1):** `calculate_similarity`(s1,s2,kmerSize?) / `GenomicAnalyzer.CalculateSimilarity`.
 - **Edit distance (any length):** `edit_distance` / `ApproximateMatcher.EditDistance`.
 - **Hamming (equal length):** `hamming_distance` / `ApproximateMatcher.HammingDistance`.
 - **Longest common substring:** `find_longest_common_region` (DNA, with positions) or `suffix_tree_lcs` (raw text).

@@ -16,7 +16,7 @@ public record AlignmentResultDto(
     int EndPosition2,
     double ExactScore = 0);
 
-/// <summary>List of local alignments (Waterman–Eggert top-N, co-optimal enumeration), best first.</summary>
+/// <summary>List of alignments (local Waterman–Eggert top-N, local / global co-optimal enumeration), in the order found.</summary>
 public record LocalAlignmentListResult(AlignmentResultDto[] Alignments, int Count);
 
 /// <summary>Alignment summary statistics.</summary>
@@ -45,6 +45,16 @@ public record MultipleAlignmentResultDto(
     string[] AlignedSequences,
     string Consensus,
     int TotalScore);
+
+/// <summary>Exact sum-of-pairs multiple alignment with the size of the problem solved (heuristic seed bound, lattice and visited cells).</summary>
+public record ExactMultipleAlignmentResultDto(
+    string[] AlignedSequences,
+    string Consensus,
+    int TotalScore,
+    int LowerBound,
+    long LatticeCells,
+    long VisitedCells,
+    long StateValues);
 
 // ================================
 // ApproximateMatcher DTOs

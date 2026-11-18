@@ -351,6 +351,7 @@
 | general_gap_align | Alignment | SequenceAligner.GlobalAlignGeneralGap | Alignment/SequenceAligner.GeneralGap.cs | 0/0 | – | – | Build-Ready |
 | global_align | Alignment | SequenceAligner.GlobalAlign | Alignment/SequenceAligner.cs#L63 | 0/0 | – | – | Build-Ready |
 | global_align_affine | Alignment | SequenceAligner.GlobalAlignAffine | Alignment/SequenceAligner.cs#L387 | 0/0 | – | – | Build-Ready |
+| global_align_co_optimal | Alignment | SequenceAligner.GlobalAlignCoOptimal | Alignment/SequenceAligner.GlobalCoOptimal.cs | 0/0 | – | – | Build-Ready |
 | local_align | Alignment | SequenceAligner.LocalAlign | Alignment/SequenceAligner.cs#L654 | 0/0 | – | – | Build-Ready |
 | local_align_affine | Alignment | SequenceAligner.LocalAlignAffine | Alignment/SequenceAligner.cs#L807 | 0/0 | – | – | Build-Ready |
 | local_align_co_optimal | Alignment | SequenceAligner.LocalAlignCoOptimal | Alignment/SequenceAligner.TopN.cs | 0/0 | – | – | Build-Ready |
@@ -360,6 +361,7 @@
 | multiple_align_anchored | Alignment | SequenceAligner.MultipleAlignAnchored | Alignment/SequenceAligner.cs#L1242 | 0/0 | – | – | Build-Ready |
 | multiple_align_clustalw | Alignment | SequenceAligner.MultipleAlignClustalW | Alignment/SequenceAligner.ClustalWMultiple.cs#L68 | 0/0 | – | – | Build-Ready |
 | multiple_align_consistency | Alignment | SequenceAligner.MultipleAlignConsistency | Alignment/SequenceAligner.cs#L2425 | 0/0 | – | – | Build-Ready |
+| multiple_align_exact | Alignment | SequenceAligner.MultipleAlignExact | Alignment/SequenceAligner.MultipleExact.cs | 0/0 | – | – | Build-Ready |
 | multiple_align_iterative | Alignment | SequenceAligner.MultipleAlignIterative | Alignment/SequenceAligner.cs#L2111 | 0/0 | – | – | Build-Ready |
 | multiple_align_progressive | Alignment | SequenceAligner.MultipleAlignProgressive | Alignment/SequenceAligner.cs#L1676 | 0/0 | – | – | Build-Ready |
 | quality_trim_reads | Alignment | SequenceAssembler.QualityTrimReads | Alignment/SequenceAssembler.cs#L600 | 0/0 | – | – | Build-Ready |

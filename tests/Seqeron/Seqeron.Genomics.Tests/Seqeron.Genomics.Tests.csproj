@@ -34,6 +34,12 @@
     <!-- ALIGN-MULTI-001 (audit A1-13, B09 F58): T-Coffee 13.41 progressive stage (library relaxation + sparse linked-pair-wise DP) for an explicit library and guide tree;
          rows of the installed `t_coffee` (Debian t-coffee 13.45.0.4846264+really13.41.0.28bdc39+dfsg-1); scripts/alignment/generate_tcoffee_oracle.py. -->
     <EmbeddedResource Include="TestData\Alignment\tcoffee_oracle.tsv" />
+    <!-- ALIGN-GLOBAL-001 (audit A1-7b, B09 F59): all co-optimal global / ends-free alignments; Biopython 1.88 PairwiseAligner(mode='global').align() set (all 16 end-gap policies,
+         linear/affine, scalar + BLOSUM62 with fractional gaps) + exhaustive column-sequence enumeration of tiny inputs; scripts/alignment/generate_global_cooptimal_oracle.py. -->
+    <EmbeddedResource Include="TestData\Alignment\global_cooptimal_oracle.tsv" />
+    <!-- ALIGN-MULTI-001 (audit A1-11, B09 F60): exact sum-of-pairs multiple alignment; optimum of 804 random sets (k = 2..5, linear + natural affine objective) by two independent Python
+         programs (lattice DP; DP over the run state of every pair) = exhaustive enumeration on tiny sets = Biopython (k = 2); scripts/alignment/generate_msa_exact_oracle.py. -->
+    <EmbeddedResource Include="TestData\Alignment\msa_exact_oracle.tsv" />
     <!-- ALIGN-GLOBAL/LOCAL/SEMI-001 (audit A1-6, B09 F46): exact linear-space alignment; Biopython 1.88 / parasail 1.3.4 scores and co-optimal rows, EMBOSS stretcher 6.6.0
          (Myers-Miller) and matcher 6.6.0 (Huang-Miller SIM); scripts/alignment/generate_linear_space_oracle.py. -->
     <EmbeddedResource Include="TestData\Alignment\linear_space_oracle.tsv" />

@@ -210,3 +210,21 @@ Tests: `SequenceAligner_LinearSpace_Tests` (20) and `Seqeron.Mcp.Alignment.Tests
 | LS-10 | `Oracle_EmbossStretcher_MyersMiller_GlobalScoreAndRows`, `Oracle_EmbossMatcher_HuangMillerSim_LocalScoreAndRows` | 160 + 160 rows (EDNAFULL / EBLOSUM62, gaps 16/4, 10/0.5, 12/2, 8/8, 20/1) | score equal; EMBOSS rows re-score to the score; rows (+ matcher coordinates) equal where Biopython finds a unique optimum (49 / 93 rows) | EMBOSS 6.6.0 |
 | LS-11 | `EmptyInputs_AndTinySequences_FollowTheFullMatrixContract`, `Validation_NullInputs_And_PositiveLocalGapScores`, `LowerCaseInput_IsUpperCased_LikeEveryAligner` | empty / 1-char inputs x all policies; null; positive local gap scores; matrix alphabet | = full-matrix contract; `ArgumentNullException` / `ArgumentException` | API contract |
 | LS-12 | MCP `GlobalAlignAffine_AboveThreshold_…`, `LocalAlignAffine_AboveThreshold_…`, `GeneralGapAlign_NonAffineGapFunction_AboveCellLimit_…` | 5 300 x ~5 300 tools; 2 100 x 2 100 log gap table | = explicit linear-space result; clear `ArgumentException` above `GeneralGapMaxCells` | tool contract |
+
+---
+
+## 2026-11 audit round 1 (A1-7b, B09 F59): co-optimal global / ends-free alignments
+
+`GlobalAlignCoOptimal` / `GlobalAlignAffineCoOptimal` / `SemiGlobalAlignCoOptimal` / `SemiGlobalAlignAffineCoOptimal` (`ScoringMatrix` string + `DnaSequence`, `MatrixScoring` string + `ProteinSequence` + `DnaSequence`; `maxAlignments` cap; MCP `global_align_co_optimal`). Test class `SequenceAligner_GlobalCoOptimal_Tests`, oracle `TestData/Alignment/global_cooptimal_oracle.tsv` (1 920 Biopython 1.88 `PairwiseAligner(mode='global').align` rows, all 16 end-gap policies, linear/affine, scalar + BLOSUM62 fractional gaps; `scripts/alignment/generate_global_cooptimal_oracle.py`).
+
+| ID | Test | Input | Expected | Source |
+|----|------|-------|----------|--------|
+| GC-1 | `CoOptimalSet_EqualsBiopythonSet_OnEveryOracleRow` | 1 859 rows with <= 150 alignments (935 with several) | set of (row1, row2) equal, no duplicates | Biopython 1.88 |
+| GC-2 | `EveryAlignment_RescoresToTheBiopythonOptimum_WithConsumedIntervals` | every alignment of every row | independent re-score = Biopython optimum, coordinates = consumed intervals of the rows, rows spell the inputs, type Global / SemiGlobal | definition |
+| GC-3 | `FirstAlignment_IsTheSingleAligners_OnEveryOracleRow` | maxAlignments = 1 | = `GlobalAlign` / `Affine` / `SemiGlobalAlign*` (zero gap costs with a free flank: all fields but the coordinates) | canonical single aligner |
+| GC-4 | `Cap_OnRowsWithMoreThanTheOracleLimit_ReturnsDistinctOptimalPrefix` | 61 rows with > 150 alignments, cap 50 | 50 distinct alignments, all optimal | definition |
+| GC-5 | `CoOptimalSet_EqualsExhaustiveEnumeration_AllSixteenPolicies_LinearAndAffine` | pairs <= 5 residues, every column sequence enumerated | set equal, 16 policies, linear + affine | definition (exhaustive) |
+| GC-6 | `GlobalExample_GaacVsGaaac_ThreeGapPlacements`, `BiopythonTutorialExample_GaactVsGat_TwoAlignments` | hand / Biopython tutorial | 3 / 2 alignments | Biopython tutorial |
+| GC-7 | `StringDnaProteinAndMatrixOverloads_ReturnTheSameAlignments`, `EndGapsNone_IsTheGlobalProblem_AndDefaultPolicyOfTheGlobalNames`, `EmptySide_HasTheSingleAllGapAlignment`, `ZeroGapCosts_FreeFlankIsListedOnce` | overload equivalence, `None` = global, empty side, zero costs | equal / single alignment | contract |
+| GC-8 | `Validation_NullCapEndGapsAndMemoryGuard`, `ManyTies_CapStopsTheEnumeration_Quickly` | null, cap < 1, bad `EndGaps`, > 25 M cells, 60 x 60 all-ties | exceptions; cap honoured quickly | contract |
+| GC-9 (MCP) | `GlobalCoOptimalAndExactMsaTests.GlobalCoOptimal_*` | gap placements, affine, `endGaps`, BLOSUM62 fractional, validation | delegates to the core; first = `global_align` | library call |

@@ -310,6 +310,38 @@ public class AlignmentTools
             : global::Seqeron.Genomics.Alignment.SequenceAligner.LocalAlignCoOptimal(sequence1, sequence2, scoring, maxAlignments));
     }
 
+    [McpServerTool(Name = "global_align_co_optimal", Title = "Pairwise — All Co-Optimal Global Alignments", ReadOnly = true)]
+    [Description("Enumerates ALL distinct co-optimal GLOBAL (Needleman–Wunsch / Gotoh) alignments - the set Biopython PairwiseAligner(mode='global').align(a, b) iterates; equal as a set on 1 920 oracle pairs covering all 16 end-gap policies, linear and affine gaps, scalar and BLOSUM62 scoring with fractional gaps, plus exhaustive enumeration of every column sequence of tiny inputs - capped at maxAlignments because the number of co-optimal alignments grows exponentially with ties (tandem repeats, long gap-placement ties). An alignment is a gapped column sequence; distinct gapped rows are listed once; an alignment is optimal when its score (substitution columns + gaps; leading/trailing gap columns of a FREE end cost 0) is maximal. Order is deterministic: end cell (last row ascending, then last column ascending when end gaps are free), then diagonal > up > left (affine: M > X > Y) at each branch of the traceback, so the first alignment equals global_align / global_align_affine / semi_global_align(_affine) with the same endGaps. affine = false: linear gaps (every gap position costs gapExtend, gapOpen ignored); affine = true: a gap of length k scores gapOpen + k*gapExtend (a gap in one row directly followed by a gap in the other row is two runs). endGaps (default 'None' = global; any of the 16 end-gap policies, as semi_global_align) selects which end gaps are free; startPosition/endPosition are the consumed intervals of each alignment. With matrix = BLOSUM62 | PAM250 | EDNAFULL residues are scored by that table and gaps may be fractional (exactScore is the real score). An empty sequence has the single all-gap alignment. O(len1*len2) memory: inputs above 25,000,000 cells ((len1+1)*(len2+1)) are rejected with a clear error (use global_align, which falls back to linear space, when one optimal alignment is enough).")]
+    public static LocalAlignmentListResult GlobalAlignCoOptimal(
+        [Description("First sequence.")] string sequence1,
+        [Description("Second sequence.")] string sequence2,
+        [Description("Cap on the number of alignments returned (>= 1).")] int maxAlignments = 100,
+        [Description("false = linear gap model (gapExtend per gap position); true = affine (gapOpen + k*gapExtend).")] bool affine = false,
+        [Description("Score for matching base (ignored with matrix).")] int match = 1,
+        [Description("Score for mismatching base (ignored with matrix).")] int mismatch = -1,
+        [Description("Gap-open score (affine = true only; ignored by the linear model). May be fractional when matrix is given.")] double gapOpen = -2,
+        [Description("Gap score charged per gap position (<= 0). May be fractional when matrix is given.")] double gapExtend = -1,
+        [Description(MatrixParamDescription)] string? matrix = null,
+        [Description("Which end gaps are free; default 'None' = global (all end gaps penalised). " + EndGapsParamDescription)] string? endGaps = null)
+    {
+        RequireSequence(sequence1, nameof(sequence1));
+        RequireSequence(sequence2, nameof(sequence2));
+        var ends = string.IsNullOrWhiteSpace(endGaps) ? global::Seqeron.Genomics.Infrastructure.EndGaps.None : ResolveEndGaps(endGaps);
+        var sub = ResolveMatrix(matrix);
+        if (sub is not null)
+        {
+            var ms = new global::Seqeron.Genomics.Infrastructure.MatrixScoring(sub, gapOpen, gapExtend);
+            return ToAlignmentListDto(affine
+                ? global::Seqeron.Genomics.Alignment.SequenceAligner.SemiGlobalAlignAffineCoOptimal(sequence1, sequence2, ms, ends, maxAlignments)
+                : global::Seqeron.Genomics.Alignment.SequenceAligner.SemiGlobalAlignCoOptimal(sequence1, sequence2, ms, ends, maxAlignments));
+        }
+
+        var scoring = new global::Seqeron.Genomics.Infrastructure.ScoringMatrix(match, mismatch, RequireInteger(gapOpen, nameof(gapOpen)), RequireInteger(gapExtend, nameof(gapExtend)));
+        return ToAlignmentListDto(affine
+            ? global::Seqeron.Genomics.Alignment.SequenceAligner.SemiGlobalAlignAffineCoOptimal(sequence1, sequence2, scoring, ends, maxAlignments)
+            : global::Seqeron.Genomics.Alignment.SequenceAligner.SemiGlobalAlignCoOptimal(sequence1, sequence2, scoring, ends, maxAlignments));
+    }
+
     [McpServerTool(Name = "semi_global_align_affine", Title = "Pairwise — Semi-Global (Fitting) Alignment, Affine Gaps", ReadOnly = true)]
     [Description("Semi-global (fitting) pairwise alignment with affine gap costs: by default sequence1 is aligned end to end inside sequence2 (free leading/trailing sequence2 residues, endGaps = 'Fitting'); the optional endGaps parameter selects any of the 16 end-gap policies (overlap / suffix-prefix in both orientations, sequence2 inside sequence1, all four ends free = EMBOSS needle's default -endweight N, none = global); a gap of length k scores gapOpen + k·gapExtend, a free end gap 0. Equals Biopython PairwiseAligner(mode='global', end_insertion_score=0 for the default; left/right_insertion/deletion_score = 0 in general) and parasail sg_dx (sg_* variants). With the default endGaps startPosition2/endPosition2 report the fitted interval of sequence2 (0-based inclusive; the free flanks lie outside it; an empty interval has endPosition2 = startPosition2 - 1) and startPosition1/endPosition1 span the whole query; for any endGaps they are the consumed intervals of each sequence. With matrix = BLOSUM62 | PAM250 | EDNAFULL the alignment is scored by that published residue-pair table (protein or IUPAC DNA, any symbol of the matrix) instead of match/mismatch and gapOpen/gapExtend may be fractional (EMBOSS needle/water 6.6.0 = Biopython PairwiseAligner = parasail on >1000 oracle rows; EMBOSS -gapopen G -gapextend E = gapOpen -(G - E), gapExtend -E); exactScore is then the real-valued score (score = rounded). Matrix mode accepts protein sequences (no DNA validation). Memory: inputs above 25,000,000 dynamic-programming cells ((len1+1)*(len2+1), e.g. two 5 kb sequences) are aligned automatically in exact LINEAR SPACE (Hirschberg 1975 / Myers-Miller 1988 / Huang-Miller 1991-style locate-then-solve) - the returned score, rows and coordinates are identical to the full-matrix result (ties included), only the running time grows (about 1.3-2x) and the memory stays O(len1 + len2) instead of O(len1 * len2) (20 kb x 20 kb affine: 111 MB peak instead of 4.8 GB).")]
     public static AlignmentResultDto SemiGlobalAlignAffine(
@@ -490,6 +522,38 @@ public class AlignmentTools
         "'tcoffee' = the T-Coffee 13.41 program's own progressive stage (SequenceAligner.MultipleAlignTCoffee: library relaxation, 'linked pair-wise' sparse DP over scored column pairs, weights 10 x percent identity). " +
         "With the same primary library and guide tree 'tcoffee' reproduces t_coffee's rows exactly (800 explicit-library sets); the library here is this repository's global + local alignments, " +
         "not the program's slow_pair / lalign_id_pair / proba_pair libraries, and the tree is guideTree (not the program's k-tuple NJ tree), so a plain 't_coffee seqs.fa' run is not reproduced end to end.";
+
+    [McpServerTool(Name = "multiple_align_exact", Title = "MSA — Exact Sum-of-Pairs Optimal Alignment (Carrillo–Lipman)", ReadOnly = true)]
+    [Description("EXACT sum-of-pairs optimal multiple alignment: no other alignment of the sequences has a larger totalScore under the chosen gap model. gapModel='linear' (default): totalScore = column sum of pairs (residue pair match/mismatch, residue against gap gapExtend, gap against gap 0; gapOpen ignored). gapModel='affine': natural affine sum of pairs (Altschul 1989: every pair of rows is projected out of the alignment, gap-gap columns skipped, every gap run of the projection pays gapOpen + k*gapExtend) - the objective of the heuristic multiple_align* tools, which are all heuristics for three or more sequences (their totalScore never exceeds this tool's; the star / progressive / iterative aligners reach it on a large share of small related sets). Two sequences = global_align / global_align_affine; three or more = the k-dimensional dynamic program over the 2^k - 1 neighbours of every cell (Altschul & Lipman 1989; for k = 3 the classic 7-neighbour 3-D recurrence) with, for affine gaps, one value per gap-history state of every cell (the exact state-per-pair program, 13 / 75 / 541 states for k = 3 / 4 / 5), pruned by the Carrillo-Lipman (1988) bound: a cell is dropped when the sum over all pairs of the best pairwise alignment through it (forward + backward Gotoh tables) cannot reach the sum-of-pairs score of the best heuristic alignment (star, progressive or iterative); carrilloLipman=false evaluates the whole lattice (identical result, used as the oracle). The problem is NP-complete in the number of sequences: at most 8 sequences (linear) / 6 (affine), and the dynamic program is stopped with a clear error when it would hold more than maxStateCells values (cells x gap states; default 50 000 000, about 200 MB) - similar sequences are cheap (a thin corridor), unrelated ones explode. Verified equal to exhaustive enumeration of every alignment of tiny sets and to two independent Python exact programs on 804 random sets (k = 2..5), both objectives. Returns the alignment rows (input order), majority consensus, the optimal totalScore, lowerBound (score of the best heuristic seed), latticeCells (product of length+1), visitedCells and stateValues (size actually solved).")]
+    public static ExactMultipleAlignmentResultDto MultipleAlignExact(
+        [Description("DNA sequences to align (at least one).")] string[] sequences,
+        [Description("Score for matching base.")] int match = 1,
+        [Description("Score for mismatching base.")] int mismatch = -1,
+        [Description(GapOpenDescription)] int gapOpen = -2,
+        [Description(GapExtendDescription)] int gapExtend = -1,
+        [Description("'linear' (default; column sum of pairs, gapOpen ignored) or 'affine' (natural affine sum of pairs, gap of length k = gapOpen + k*gapExtend).")] string gapModel = "linear",
+        [Description("true (default): prune the dynamic-programming lattice with the Carrillo-Lipman bound; false: evaluate every cell (same result, exponentially slower).")] bool carrilloLipman = true,
+        [Description("Complexity guard: largest number of dynamic-programming values (surviving cells x gap states) the exact program may hold; above it the call fails with a clear error instead of exhausting memory.")] long maxStateCells = 50_000_000)
+    {
+        if (sequences == null || sequences.Length == 0)
+        {
+            var e = global::Seqeron.Genomics.Infrastructure.MultipleAlignmentResult.Empty;
+            return new ExactMultipleAlignmentResultDto(e.AlignedSequences, e.Consensus, 0, 0, 1, 0, 0);
+        }
+
+        var dnaList = new List<global::Seqeron.Genomics.Core.DnaSequence>(sequences.Length);
+        for (int i = 0; i < sequences.Length; i++)
+        {
+            if (!global::Seqeron.Genomics.Core.DnaSequence.TryCreate(sequences[i], out var d))
+                throw new ArgumentException($"Invalid DNA at sequences[{i}].", nameof(sequences));
+            dnaList.Add(d!);
+        }
+
+        var scoring = new global::Seqeron.Genomics.Infrastructure.ScoringMatrix(match, mismatch, gapOpen, gapExtend);
+        var options = ParseMsaOptions(null, gapModel) with { ExactCarrilloLipman = carrilloLipman, ExactMaxStateCells = maxStateCells };
+        var r = global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignExactWithStatistics(dnaList, scoring, options);
+        return new ExactMultipleAlignmentResultDto(r.Alignment.AlignedSequences, r.Alignment.Consensus, r.Alignment.TotalScore, r.LowerBound, r.LatticeCells, r.VisitedCells, r.StateValues);
+    }
 
     [McpServerTool(Name = "multiple_align_consistency", Title = "MSA — Consistency-Based Alignment (T-Coffee)", ReadOnly = true)]
     [Description("Consistency-based MSA (T-Coffee; Notredame, Higgins & Heringa 2000): a primary library of global (Needleman–Wunsch) and local (Smith–Waterman) pairwise alignments weighted by percent identity, extended by the triplet consistency transformation (direct weight + Σ min(W1, W2) over third sequences), then progressively aligned along a guide tree (UPGMA by default; guideTree='nj' = neighbour-joining as in the T-Coffee paper) with the extended-library weights as position-specific scores and zero gap penalties (T-Coffee default). The scoring parameters seed the pairwise library (gapModel='affine': Gotoh global and Smith–Waterman–Gotoh local alignments with gapOpen + k·gapExtend) and define totalScore, the sum of pairs of the result (linear column score, or natural affine costs with gapModel='affine'). distance='clustalw' takes the guide-tree distances from ClustalW 2.1's own pairwise stage. consistencyEngine='tcoffee' swaps the progressive stage for the T-Coffee 13.41 program's (library relaxation + linked pair-wise sparse DP; exact for the same library and tree).")]

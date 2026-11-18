@@ -77,7 +77,7 @@ Downstream:
   Good for "how many changes separate these?". Case-insensitive.
 - **`hamming_distance`** — substitutions only; **requires equal length** (error 1004 otherwise).
   Use for fixed-length barcodes / already-aligned columns.
-- **`calculate_similarity`** — k-mer Jaccard as a percentage in [0,100], optional `kmerSize` and `canonical` (reverse-complement-agnostic k-mers as in Mash). Fast screen before
+- **`calculate_similarity`** — k-mer Jaccard in [0,1], optional `kmerSize`. Fast screen before
   committing to a full alignment; robust to small rearrangements but ignores position.
 - **`find_longest_common_region`** (DNA, returns positions) or **`suffix_tree_lcs`** (raw text) —
   the longest exact shared block; a cheap, independent corroboration of a local alignment's core.
@@ -107,8 +107,8 @@ Downstream:
 
 - All `startPosition*` / `endPosition*` and `find_*` positions are **0-based**, end-inclusive as
   documented per tool. State the base in output.
-- `alignment_statistics` and `calculate_similarity` return **percentages** (0–100); `sequence_identity`
-  returns a **fraction in [0,1]** — do not mix the scales.
+- `alignment_statistics` returns **percentages** (identity/similarity/gapPercent); `sequence_identity`
+  and `calculate_similarity` return **fractions in [0,1]** — do not mix the scales.
 - Lengths are in **bp**. Scores are unitless and only comparable under the same scoring scheme.
 
 ## Envelope note

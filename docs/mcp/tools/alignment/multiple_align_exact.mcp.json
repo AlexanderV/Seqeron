@@ -1,0 +1,97 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "toolName": "multiple_align_exact",
+ "serverName": "Alignment",
+ "version": "1.0.0",
+ "stability": "stable",
+ "methodId": "SequenceAligner.MultipleAlignExact",
+ "docRef": "Seqeron.Genomics.Alignment/SequenceAligner.MultipleExact.cs",
+ "description": "EXACT sum-of-pairs optimal multiple alignment: no other alignment of the sequences has a larger totalScore under the chosen gap model. gapModel='linear' (default): totalScore = column sum of pairs (residue pair match/mismatch, residue against gap gapExtend, gap against gap 0; gapOpen ignored). gapModel='affine': natural affine sum of pairs (Altschul 1989: every pair of rows is projected out of the alignment, gap-gap columns skipped, every gap run of the projection pays gapOpen + k*gapExtend) - the objective of the heuristic multiple_align* tools, which are all heuristics for three or more sequences (their totalScore never exceeds this tool's; the star / progressive / iterative aligners reach it on a large share of small related sets). Two sequences = global_align / global_align_affine; three or more = the k-dimensional dynamic program over the 2^k - 1 neighbours of every cell (Altschul & Lipman 1989; for k = 3 the classic 7-neighbour 3-D recurrence) with, for affine gaps, one value per gap-history state of every cell (the exact state-per-pair program, 13 / 75 / 541 states for k = 3 / 4 / 5), pruned by the Carrillo-Lipman (1988) bound: a cell is dropped when the sum over all pairs of the best pairwise alignment through it (forward + backward Gotoh tables) cannot reach the sum-of-pairs score of the best heuristic alignment (star, progressive or iterative); carrilloLipman=false evaluates the whole lattice (identical result, used as the oracle). The problem is NP-complete in the number of sequences: at most 8 sequences (linear) / 6 (affine), and the dynamic program is stopped with a clear error when it would hold more than maxStateCells values (cells x gap states; default 50 000 000, about 200 MB) - similar sequences are cheap (a thin corridor), unrelated ones explode. Verified equal to exhaustive enumeration of every alignment of tiny sets and to two independent Python exact programs on 804 random sets (k = 2..5), both objectives. Returns the alignment rows (input order), majority consensus, the optimal totalScore, lowerBound (score of the best heuristic seed), latticeCells (product of length+1), visitedCells and stateValues (size actually solved).",
+ "inputSchema": {
+  "type": "object",
+  "properties": {
+   "sequences": {
+    "type": "array",
+    "description": "DNA sequences to align (at least one).",
+    "items": {
+     "type": "string"
+    },
+    "minItems": 1
+   },
+   "match": {
+    "type": "integer",
+    "description": "Score for matching base.",
+    "default": 1
+   },
+   "mismatch": {
+    "type": "integer",
+    "description": "Score for mismatching base.",
+    "default": -1
+   },
+   "gapOpen": {
+    "type": "integer",
+    "description": "Gap-open penalty. Used only with gapModel='affine' (a gap of length k then costs gapOpen + k * gapExtend, Gotoh); ignored by the default linear model.",
+    "default": -2
+   },
+   "gapExtend": {
+    "type": "integer",
+    "description": "Gap penalty per gap position (linear model: every gap position; affine model: the per-position part of gapOpen + k * gapExtend).",
+    "default": -1
+   },
+   "gapModel": {
+    "type": "string",
+    "description": "'linear' (default; column sum of pairs, gapOpen ignored) or 'affine' (natural affine sum of pairs, gap of length k = gapOpen + k*gapExtend).",
+    "default": "linear"
+   },
+   "carrilloLipman": {
+    "type": "boolean",
+    "description": "true (default): prune the dynamic-programming lattice with the Carrillo-Lipman bound; false: evaluate every cell (same result, exponentially slower).",
+    "default": true
+   },
+   "maxStateCells": {
+    "type": "integer",
+    "description": "Complexity guard: largest number of dynamic-programming values (surviving cells x gap states) the exact program may hold; above it the call fails with a clear error instead of exhausting memory.",
+    "default": 50000000
+   }
+  },
+  "required": [
+   "sequences"
+  ]
+ },
+ "outputSchema": {
+  "type": "object",
+  "properties": {
+   "alignedSequences": {
+    "type": "array",
+    "items": {
+     "type": "string"
+    },
+    "description": "The optimal alignment rows (input order)."
+   },
+   "consensus": {
+    "type": "string",
+    "description": "Majority-vote consensus (gaps vote; a nucleotide beats a gap on ties)."
+   },
+   "totalScore": {
+    "type": "integer",
+    "description": "The OPTIMAL sum-of-pairs score under the chosen gap model."
+   },
+   "lowerBound": {
+    "type": "integer",
+    "description": "Sum-of-pairs score of the best heuristic alignment that seeds the Carrillo-Lipman bound."
+   },
+   "latticeCells": {
+    "type": "integer",
+    "description": "Cells of the full k-dimensional lattice."
+   },
+   "visitedCells": {
+    "type": "integer",
+    "description": "Lattice cells evaluated."
+   },
+   "stateValues": {
+    "type": "integer",
+    "description": "Dynamic-programming values held (cells x gap states)."
+   }
+  }
+ }
+}

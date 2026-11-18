@@ -1,0 +1,121 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "toolName": "global_align_co_optimal",
+ "serverName": "Alignment",
+ "version": "1.0.0",
+ "stability": "stable",
+ "methodId": "SequenceAligner.GlobalAlignCoOptimal",
+ "docRef": "Seqeron.Genomics.Alignment/SequenceAligner.GlobalCoOptimal.cs",
+ "description": "Enumerates ALL distinct co-optimal GLOBAL (Needleman\u2013Wunsch / Gotoh) alignments - the set Biopython PairwiseAligner(mode='global').align(a, b) iterates; equal as a set on 1 920 oracle pairs covering all 16 end-gap policies, linear and affine gaps, scalar and BLOSUM62 scoring with fractional gaps, plus exhaustive enumeration of every column sequence of tiny inputs - capped at maxAlignments because the number of co-optimal alignments grows exponentially with ties (tandem repeats, long gap-placement ties). An alignment is a gapped column sequence; distinct gapped rows are listed once; an alignment is optimal when its score (substitution columns + gaps; leading/trailing gap columns of a FREE end cost 0) is maximal. Order is deterministic: end cell (last row ascending, then last column ascending when end gaps are free), then diagonal > up > left (affine: M > X > Y) at each branch of the traceback, so the first alignment equals global_align / global_align_affine / semi_global_align(_affine) with the same endGaps. affine = false: linear gaps (every gap position costs gapExtend, gapOpen ignored); affine = true: a gap of length k scores gapOpen + k*gapExtend (a gap in one row directly followed by a gap in the other row is two runs). endGaps (default 'None' = global; any of the 16 end-gap policies, as semi_global_align) selects which end gaps are free; startPosition/endPosition are the consumed intervals of each alignment. With matrix = BLOSUM62 | PAM250 | EDNAFULL residues are scored by that table and gaps may be fractional (exactScore is the real score). An empty sequence has the single all-gap alignment. O(len1*len2) memory: inputs above 25,000,000 cells ((len1+1)*(len2+1)) are rejected with a clear error (use global_align, which falls back to linear space, when one optimal alignment is enough).",
+ "inputSchema": {
+  "type": "object",
+  "properties": {
+   "sequence1": {
+    "type": "string",
+    "description": "First sequence.",
+    "minLength": 1
+   },
+   "sequence2": {
+    "type": "string",
+    "description": "Second sequence.",
+    "minLength": 1
+   },
+   "maxAlignments": {
+    "type": "integer",
+    "description": "Cap on the number of alignments returned (>= 1).",
+    "default": 100
+   },
+   "affine": {
+    "type": "boolean",
+    "description": "false = linear gap model (gapExtend per gap position); true = affine (gapOpen + k*gapExtend).",
+    "default": false
+   },
+   "match": {
+    "type": "integer",
+    "description": "Score for matching base (ignored with matrix).",
+    "default": 1
+   },
+   "mismatch": {
+    "type": "integer",
+    "description": "Score for mismatching base (ignored with matrix).",
+    "default": -1
+   },
+   "gapOpen": {
+    "type": "number",
+    "description": "Gap-open score (affine = true only; ignored by the linear model). May be fractional when matrix is given.",
+    "default": -2
+   },
+   "gapExtend": {
+    "type": "number",
+    "description": "Gap score charged per gap position (<= 0). May be fractional when matrix is given.",
+    "default": -1
+   },
+   "matrix": {
+    "type": "string",
+    "description": "Optional substitution matrix: BLOSUM62, PAM250 (protein) or EDNAFULL (IUPAC DNA). When given, match/mismatch are ignored, residues are scored by the published table (any protein or IUPAC symbol of the matrix; case-insensitive) and gapOpen/gapExtend may be fractional (the EMBOSS needle/water models: gapOpen = -(G - E), gapExtend = -E for -gapopen G -gapextend E). The result then also carries the real-valued exactScore."
+   },
+   "endGaps": {
+    "type": "string",
+    "description": "Which end gaps are free; default 'None' = global (all end gaps penalised). Which end gaps are free (default 'Fitting' = the classic semi-global: free leading/trailing sequence2 residues). Comma-separated, case-insensitive names of the flags FreeStart1 (leading sequence1 residues free), FreeEnd1 (trailing sequence1), FreeStart2 (leading sequence2), FreeEnd2 (trailing sequence2) or of a preset: None (= global, all end gaps penalised; result tagged Global), Fitting (FreeStart2+FreeEnd2; sequence1 inside sequence2; parasail sg_dx, Biopython end_insertion_score=0), FittingSequence2 (FreeStart1+FreeEnd1; sequence2 inside sequence1; sg_qx), OverlapSuffix1Prefix2 (FreeStart1+FreeEnd2: a suffix of sequence1 overlaps a prefix of sequence2; sg_qb_de), OverlapSuffix2Prefix1 (FreeEnd1+FreeStart2; sg_qe_db), All (all four free; parasail sg, EMBOSS needle's default -endweight N). Example: 'FreeStart1,FreeEnd2'. startPosition1/endPosition1 and startPosition2/endPosition2 are the consumed intervals of each sequence (the free flanks lie outside them; an empty interval has end = start - 1); a free flank is shown against '-' in the aligned rows."
+   }
+  },
+  "required": [
+   "sequence1",
+   "sequence2"
+  ]
+ },
+ "outputSchema": {
+  "type": "object",
+  "properties": {
+   "alignments": {
+    "type": "array",
+    "description": "Co-optimal alignments in traceback order (first = global_align / global_align_affine / semi_global_align with the same endGaps).",
+    "items": {
+     "type": "object",
+     "properties": {
+      "alignedSequence1": {
+       "type": "string",
+       "description": "Aligned sequence1 (with '-' gaps)."
+      },
+      "alignedSequence2": {
+       "type": "string",
+       "description": "Aligned sequence2 (with '-' gaps)."
+      },
+      "score": {
+       "type": "integer",
+       "description": "Alignment score."
+      },
+      "alignmentType": {
+       "type": "string",
+       "description": "Alignment type (Global, or SemiGlobal when end gaps are free)."
+      },
+      "startPosition1": {
+       "type": "integer",
+       "description": "0-based start in sequence1."
+      },
+      "startPosition2": {
+       "type": "integer",
+       "description": "0-based start in sequence2."
+      },
+      "endPosition1": {
+       "type": "integer",
+       "description": "0-based end in sequence1."
+      },
+      "endPosition2": {
+       "type": "integer",
+       "description": "0-based end in sequence2."
+      },
+      "exactScore": {
+       "type": "number",
+       "description": "Real-valued score (equals `score` for integer scoring; with matrix / fractional gaps `score` is this value rounded half away from zero)."
+      }
+     }
+    }
+   },
+   "count": {
+    "type": "integer",
+    "description": "Number of alignments returned."
+   }
+  }
+ }
+}

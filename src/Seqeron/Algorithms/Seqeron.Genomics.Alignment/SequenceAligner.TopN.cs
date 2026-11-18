@@ -393,12 +393,9 @@ public static partial class SequenceAligner
 
             if (affine)
             {
-                _mm = new int[_m + 1, _n + 1];
-                _xx = new int[_m + 1, _n + 1];
-                _yy = new int[_m + 1, _n + 1];
-                // Same borders as AffineAlignCore (local): every border state is unreachable.
-                for (int i = 0; i <= _m; i++) { _mm[i, 0] = AffineNegInf; _xx[i, 0] = AffineNegInf; _yy[i, 0] = AffineNegInf; }
-                for (int j = 1; j <= _n; j++) { _mm[0, j] = AffineNegInf; _xx[0, j] = AffineNegInf; _yy[0, j] = AffineNegInf; }
+                (_mm, _xx, _yy) = AffineNewMatrices(_m, _n);
+                // The very borders of AffineAlignCore (local): every border state is unreachable.
+                AffineInitBorders(_mm, _xx, _yy, sc, local: true, EndGaps.None, StateMatch);
             }
             else
             {

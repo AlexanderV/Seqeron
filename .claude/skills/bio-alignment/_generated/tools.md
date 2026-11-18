@@ -28,6 +28,7 @@
 | `general_gap_align` | Alignment | `SequenceAligner.GlobalAlignGeneralGap` | [doc](../../../../docs/mcp/tools/alignment/general_gap_align.md) |
 | `global_align` | Alignment | `SequenceAligner.GlobalAlign` | [doc](../../../../docs/mcp/tools/alignment/global_align.md) |
 | `global_align_affine` | Alignment | `SequenceAligner.GlobalAlignAffine` | [doc](../../../../docs/mcp/tools/alignment/global_align_affine.md) |
+| `global_align_co_optimal` | Alignment | `SequenceAligner.GlobalAlignCoOptimal` | [doc](../../../../docs/mcp/tools/alignment/global_align_co_optimal.md) |
 | `local_align` | Alignment | `SequenceAligner.LocalAlign` | [doc](../../../../docs/mcp/tools/alignment/local_align.md) |
 | `local_align_affine` | Alignment | `SequenceAligner.LocalAlignAffine` | [doc](../../../../docs/mcp/tools/alignment/local_align_affine.md) |
 | `local_align_co_optimal` | Alignment | `SequenceAligner.LocalAlignCoOptimal` | [doc](../../../../docs/mcp/tools/alignment/local_align_co_optimal.md) |
@@ -37,6 +38,7 @@
 | `multiple_align_anchored` | Alignment | `SequenceAligner.MultipleAlignAnchored` | [doc](../../../../docs/mcp/tools/alignment/multiple_align_anchored.md) |
 | `multiple_align_clustalw` | Alignment | `SequenceAligner.MultipleAlignClustalW` | [doc](../../../../docs/mcp/tools/alignment/multiple_align_clustalw.md) |
 | `multiple_align_consistency` | Alignment | `SequenceAligner.MultipleAlignConsistency` | [doc](../../../../docs/mcp/tools/alignment/multiple_align_consistency.md) |
+| `multiple_align_exact` | Alignment | `SequenceAligner.MultipleAlignExact` | [doc](../../../../docs/mcp/tools/alignment/multiple_align_exact.md) |
 | `multiple_align_iterative` | Alignment | `SequenceAligner.MultipleAlignIterative` | [doc](../../../../docs/mcp/tools/alignment/multiple_align_iterative.md) |
 | `multiple_align_progressive` | Alignment | `SequenceAligner.MultipleAlignProgressive` | [doc](../../../../docs/mcp/tools/alignment/multiple_align_progressive.md) |
 | `quality_trim_reads` | Alignment | `SequenceAssembler.QualityTrimReads` | [doc](../../../../docs/mcp/tools/alignment/quality_trim_reads.md) |

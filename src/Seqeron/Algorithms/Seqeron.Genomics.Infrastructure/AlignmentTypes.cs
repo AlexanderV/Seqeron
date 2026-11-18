@@ -560,6 +560,19 @@ public sealed record MsaOptions
     /// Progressive stage of <c>MultipleAlignConsistency</c> (default <see cref="MsaConsistencyEngine.PaperExtension"/>, the published formula).
     /// </summary>
     public MsaConsistencyEngine ConsistencyEngine { get; init; } = MsaConsistencyEngine.PaperExtension;
+
+    /// <summary>
+    /// <c>MultipleAlignExact</c> only: complexity guard — the largest number of dynamic-programming values (surviving lattice cells ×
+    /// gap-history states) the exact sum-of-pairs program may hold (default 50 000 000 ≈ 200 MB of 4-byte scores); above it the
+    /// call throws a clear <see cref="ArgumentException"/> instead of exhausting memory.
+    /// </summary>
+    public long ExactMaxStateCells { get; init; } = 50_000_000;
+
+    /// <summary>
+    /// <c>MultipleAlignExact</c> only: prune the k-dimensional lattice with the Carrillo–Lipman (1988) bound (default <c>true</c>;
+    /// the result is identical, only the number of cells changes). <c>false</c> evaluates the whole lattice.
+    /// </summary>
+    public bool ExactCarrilloLipman { get; init; } = true;
 }
 
 /// <summary>Progressive stage of the consistency-based (T-Coffee) multiple aligner.</summary>

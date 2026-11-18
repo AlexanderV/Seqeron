@@ -11,6 +11,7 @@ per-tool doc for the full I/O schema — do not guess parameters. Servers: **Ali
 | [`local_align`](../../../../docs/mcp/tools/alignment/local_align.md) | `SequenceAligner.LocalAlign` | Smith-Waterman; best-scoring shared substring, flanks ignored. |
 | [`local_align_top_n`](../../../../docs/mcp/tools/alignment/local_align_top_n.md) | `SequenceAligner.LocalAlignTopN` | Waterman-Eggert top-N non-intersecting local alignments (repeats / multiple domains; EMBOSS matcher -alternatives, lalign); `maxAlignments`, `minScore`, `affine`, `matrix`. |
 | [`local_align_co_optimal`](../../../../docs/mcp/tools/alignment/local_align_co_optimal.md) | `SequenceAligner.LocalAlignCoOptimal` | All co-optimal local alignments (Biopython `alignments` set), capped. |
+| [`global_align_co_optimal`](../../../../docs/mcp/tools/alignment/global_align_co_optimal.md) | `SequenceAligner.GlobalAlignCoOptimal` | All co-optimal global / ends-free alignments (Biopython `align()` set), capped; `affine`, `matrix`, `endGaps`. |
 | [`general_gap_align`](../../../../docs/mcp/tools/alignment/general_gap_align.md) | `SequenceAligner.GlobalAlignGeneralGap` | Arbitrary gap-cost function (Waterman–Smith–Beyer): concave / convex / capped / step gaps via a gapScores table; global, local or semi_global. |
 | [`semi_global_align`](../../../../docs/mcp/tools/alignment/semi_global_align.md) | `SequenceAligner.SemiGlobalAlign` | Fitting/glocal; free end gaps in seq2 — fit a query into a reference / overlap. |
 
@@ -27,6 +28,7 @@ per-tool doc for the full I/O schema — do not guess parameters. Servers: **Ali
 | Tool | Method ID | Purpose |
 |---|---|---|
 | [`multiple_align`](../../../../docs/mcp/tools/alignment/multiple_align.md) | `SequenceAligner.MultipleAlign` | Center-star MSA (exact pairwise NW) → aligned rows, consensus, sum-of-pairs score; siblings `multiple_align_anchored`, `_progressive`, `_iterative`, `_consistency`, `_clustalw`. |
+| [`multiple_align_exact`](../../../../docs/mcp/tools/alignment/multiple_align_exact.md) | `SequenceAligner.MultipleAlignExact` | EXACT sum-of-pairs optimal MSA (linear / natural affine gaps; k-dim DP + Carrillo-Lipman bound; <= 8 / 6 sequences, `maxStateCells` guard) - use when the heuristics' score must be proven optimal. |
 | [`multiple_align_clustalw`](../../../../docs/mcp/tools/alignment/multiple_align_clustalw.md) | `SequenceAligner.MultipleAlignClustalW` | ClustalW 2.1 MSA of DNA, row-for-row equal to `clustalw -ALIGN` (NJ tree, tree weights, delayed divergent sequences, position-specific gaps); `distance=clustalw-quick` = `-QUICKTREE`. |
 | [`multiple_alignment_statistics`](../../../../docs/mcp/tools/analysis/multiple_alignment_statistics.md) | `MultipleAlignmentStatistics.Calculate` | Analysis server: per-sequence infoalign stats vs reference/consensus, per-column counts/gaps/ClustalW conservation, pairwise identity matrix |
 | [`alignment_distance_matrix`](../../../../docs/mcp/tools/analysis/alignment_distance_matrix.md) | `MultipleAlignmentStatistics.CalculateDistanceMatrix` | Analysis server: EMBOSS distmat uncorrected / Jukes-Cantor distance matrix of an MSA |
@@ -52,7 +54,7 @@ per-tool doc for the full I/O schema — do not guess parameters. Servers: **Ali
 | [`damerau_levenshtein_distance`](../../../../docs/mcp/tools/alignment/damerau_levenshtein_distance.md) | `ApproximateMatcher.DamerauLevenshteinDistance` | Edit distance with adjacent transpositions (`unrestricted` DL or `osa`); optional weighted ins/del/sub/transposition costs (Lowrance–Wagner). Alignment server. |
 | [`damerau_alignment`](../../../../docs/mcp/tools/alignment/damerau_alignment.md) | `ApproximateMatcher.GetDamerauLevenshteinAlignment` / `GetOptimalStringAlignment` | Transposition-aware edit script (Lowrance–Wagner trace: `=`/`X`/`I`/`D`/`T` blocks with positions and costs), unit or weighted costs. Alignment server. |
 | [`hamming_distance`](../../../../docs/mcp/tools/core/hamming_distance.md) | `ApproximateMatcher.HammingDistance` | Mismatch count for **equal-length** seqs. |
-| [`calculate_similarity`](../../../../docs/mcp/tools/core/calculate_similarity.md) | `GenomicAnalyzer.CalculateSimilarity` | k-mer Jaccard similarity as a percentage in [0,100] (optional `kmerSize`, `canonical` = Mash/sourmash strand-agnostic k-mers). |
+| [`calculate_similarity`](../../../../docs/mcp/tools/core/calculate_similarity.md) | `GenomicAnalyzer.CalculateSimilarity` | k-mer Jaccard similarity in [0,1] (optional `kmerSize`). |
 | [`count_approximate_occurrences`](../../../../docs/mcp/tools/core/count_approximate_occurrences.md) | `ApproximateMatcher.CountApproximateOccurrences` | Count approximate occurrences of a pattern allowing mismatches. |
 
 ## Common regions & repeats (Core server)

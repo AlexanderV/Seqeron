@@ -4,7 +4,7 @@
 
 <!-- BEGIN generated: do not edit by hand -->
 
-## Alignment (38 tools)
+## Alignment (40 tools)
 
 | tool | Method ID | doc |
 |------|-----------|-----|
@@ -30,6 +30,7 @@
 | `general_gap_align` | `SequenceAligner.GlobalAlignGeneralGap` | [doc](../../mcp/tools/alignment/general_gap_align.md) |
 | `global_align` | `SequenceAligner.GlobalAlign` | [doc](../../mcp/tools/alignment/global_align.md) |
 | `global_align_affine` | `SequenceAligner.GlobalAlignAffine` | [doc](../../mcp/tools/alignment/global_align_affine.md) |
+| `global_align_co_optimal` | `SequenceAligner.GlobalAlignCoOptimal` | [doc](../../mcp/tools/alignment/global_align_co_optimal.md) |
 | `local_align` | `SequenceAligner.LocalAlign` | [doc](../../mcp/tools/alignment/local_align.md) |
 | `local_align_affine` | `SequenceAligner.LocalAlignAffine` | [doc](../../mcp/tools/alignment/local_align_affine.md) |
 | `local_align_co_optimal` | `SequenceAligner.LocalAlignCoOptimal` | [doc](../../mcp/tools/alignment/local_align_co_optimal.md) |
@@ -39,6 +40,7 @@
 | `multiple_align_anchored` | `SequenceAligner.MultipleAlignAnchored` | [doc](../../mcp/tools/alignment/multiple_align_anchored.md) |
 | `multiple_align_clustalw` | `SequenceAligner.MultipleAlignClustalW` | [doc](../../mcp/tools/alignment/multiple_align_clustalw.md) |
 | `multiple_align_consistency` | `SequenceAligner.MultipleAlignConsistency` | [doc](../../mcp/tools/alignment/multiple_align_consistency.md) |
+| `multiple_align_exact` | `SequenceAligner.MultipleAlignExact` | [doc](../../mcp/tools/alignment/multiple_align_exact.md) |
 | `multiple_align_iterative` | `SequenceAligner.MultipleAlignIterative` | [doc](../../mcp/tools/alignment/multiple_align_iterative.md) |
 | `multiple_align_progressive` | `SequenceAligner.MultipleAlignProgressive` | [doc](../../mcp/tools/alignment/multiple_align_progressive.md) |
 | `quality_trim_reads` | `SequenceAssembler.QualityTrimReads` | [doc](../../mcp/tools/alignment/quality_trim_reads.md) |

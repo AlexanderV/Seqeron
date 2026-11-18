@@ -2,7 +2,7 @@
 
 MCP server — **Pairwise and multiple sequence alignment, overlap/assembly and approximate matching.**
 
-Exposes **38 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
+Exposes **40 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
 MCP. Every tool carries an explicit JSON input/output schema and a Schema+Binding test, with a
 per-tool doc under [`docs/mcp/tools/alignment/`](../../../../docs/mcp/tools/alignment). Rollout status:
 [`docs/mcp/MCP_STATUS.md`](../../../../docs/mcp/MCP_STATUS.md).
@@ -41,6 +41,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `general_gap_align` | Pairwise alignment with an arbitrary gap-cost function (Waterman–Smith–Beyer 1976): the score of a gap of length k is gapScores[k-1] (concave, convex, capped, step, ...); global / local / semi_global (endGaps), scalar or substitution-matrix scoring; Biopython callable gap_score oracle. |
 | `global_align` | Global pairwise alignment (Needleman-Wunsch): align the full length of both sequences end-to-end. Linear gap model: every gap position scor… |
 | `global_align_affine` | Global pairwise alignment with affine gap costs (Gotoh 1982): a gap of length k scores gapOpen + k·gapExtend (BLAST+ / Biopython convention… |
+| `global_align_co_optimal` | ALL distinct co-optimal GLOBAL alignments (Biopython `PairwiseAligner(mode='global').align` set; linear or `affine` gaps, scalar or `matrix` scoring, any `endGaps` policy), capped at `maxAlignments`. |
 | `local_align` | Local pairwise alignment (Smith-Waterman, zero floor). Linear gap model: every gap position scores gapExtend; gapOpen is IGNORED (use local… |
 | `local_align_affine` | Local pairwise alignment with affine gap costs (Smith-Waterman 1981 with Gotoh 1982 gaps): a gap of length k scores gapOpen + k·gapExtend; … |
 | `local_align_top_n` | Waterman-Eggert (1987) top-N NON-INTERSECTING local alignments (EMBOSS matcher -alternatives / lalign declumping): best alignment, then the best one sharing no aligned residue pair with it, ... up to `maxAlignments` of score >= `minScore`; linear or `affine` gaps, scalar or `matrix` scoring. |
@@ -50,6 +51,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `multiple_align_anchored` | Approximate, faster center-star MSA: 4-mer count cosine center, suffix-tree exact-match anchors (MUMmer-style seed, weighted colinear chain… |
 | `multiple_align_clustalw` | ClustalW 2.1's multiple alignment of DNA (clustalw -TYPE=DNA -ALIGN), ported step by step and equal row-for-row to the clustalw binary: pairwise stage (full DP or fast k-tuple), ClustalW neighbour-joining guide tree, tree-derived sequence weights, delayed divergent sequences, position-specific gap penalties, IUB matrix with `transitionWeight`, Myers-Miller profile alignment (`-GAPOPEN -GAPEXT -TRANSWEIGHT -MAXDIV -NOWEIGHTS -NEGATIVE -QUICKTREE`). |
 | `multiple_align_consistency` | Consistency-based MSA (T-Coffee; Notredame, Higgins & Heringa 2000): primary library of global (Needleman-Wunsch) and local (Smith-Waterman… |
+| `multiple_align_exact` | EXACT sum-of-pairs optimal MSA (linear or natural affine gaps): k-dimensional dynamic program with the Carrillo-Lipman bound, at most 8 (linear) / 6 (affine) sequences, complexity guard `maxStateCells`; k = 2 is the pairwise optimum. |
 | `multiple_align_iterative` | Progressive MSA followed by MUSCLE-style tree-dependent restricted-partitioning refinement (Edgar 2004, stage 3): each guide-tree edge spli… |
 | `multiple_align_progressive` | Guide-tree progressive MSA (Feng & Doolittle 1987 / CLUSTAL): ClustalW pairwise distances from all Needleman-Wunsch alignments (1 - identit… |
 | `quality_trim_reads` | Trims Phred+33 quality-encoded reads from both ends, dropping bases whose decoded quality is below minQuality. |

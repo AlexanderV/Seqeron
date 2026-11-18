@@ -206,3 +206,8 @@ A1-12: the private UPGMA copy is gone (`Phylogenetics` never used `Alignment`; t
 ## Audit r1 addendum (A1-13, B09 F58)
 
 `SequenceAligner.MultipleAlignTCoffee` (+ `TCoffeeLibrary`, `TCoffeeTreeNode`, `MsaOptions.ConsistencyEngine = TCoffeeLinked`, MCP `consistencyEngine`): exact port of the T-Coffee 13.41 program's progressive stage (library relaxation + sparse linked pair-wise DP, gap open = gap extend = 0) for an explicit primary library and guide tree: 800 / 800 committed random DNA sets equal `t_coffee` (relax 1 and 0; libraries from this repository and from the program). The earlier explanation (F7: `-extend_mode`, extension rescale) was wrong - `-extend_mode` has no effect with this DP. Default behaviour unchanged (`PaperExtension`). Remaining (A1-13b, DOABLE): the program's own primary libraries (`slow_pair` Myers-Miller + `dna_idmat`, `lalign_id_pair` SIM top-10, default `proba_pair`) and its k-tuple NJ guide tree; end to end today 21 / 150 sets equal `t_coffee -method slow_pair,lalign_id_pair`.
+
+
+## Audit r1 addendum (A1-11, B09 F60)
+
+"Not implemented: exact optimal MSA" is lifted for small k: `MultipleAlignExact` (k = 2 = `GlobalAlign*`; k >= 3 exact k-dimensional DP with natural-affine gap-history states and the Carrillo-Lipman bound, complexity guard `MsaOptions.ExactMaxStateCells`, <= 8 sequences linear / 6 affine; MCP `multiple_align_exact`). Equal to two independent Python exact programs, exhaustive enumeration and Biopython (k = 2) on 804 / 804 sets; the heuristic aligners never exceed it and reach it on 86-92 % of the small related sets measured (algorithm doc §4.7).

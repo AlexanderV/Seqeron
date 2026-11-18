@@ -427,3 +427,21 @@ Tests added (all lock oracle values: Biopython 1.88 pair optima and independent 
 | TC1 | rows of `MultipleAlignTCoffee` equal `t_coffee -seq -lib -usetree -relax_lib {1,0} -output fasta_aln -n_core 1` on 800 committed sets (400 random DNA sets x relax 1/0; k = 3-6; libraries of this repository ("rand") and of the program ("binary")) | installed `t_coffee` 13.41 (`generate_tcoffee_oracle.py`) |
 | TC2 | oracle coverage guard (rows >= 780, both relax modes, both library kinds, k = 3..6); rows spell the inputs with equal length; contracts (null, library size mismatch, empty sequence, tree not a permutation, pair outside sequence, self pair) | coverage / contract |
 | TC3 | `MsaOptions.ConsistencyEngine` default = `PaperExtension` and unchanged; `TCoffeeLinked` yields a valid deterministic MSA; MCP `consistencyEngine` (`paper` default, `tcoffee`, bad value throws) | invariants |
+
+---
+
+## 2026-11 audit round 1 (A1-11, B09 F60): exact sum-of-pairs optimum
+
+`SequenceAligner.MultipleAlignExact` / `MultipleAlignExactWithStatistics` (+ `MsaOptions.ExactMaxStateCells`, `ExactCarrilloLipman`, record `ExactMsaResult`; MCP `multiple_align_exact`). Class `SequenceAligner_MultipleAlignExact_Tests`, oracle `TestData/Alignment/msa_exact_oracle.tsv` (804 sets, k = 2..5, both objectives; two independent Python exact programs = exhaustive enumeration = Biopython for k = 2; `scripts/alignment/generate_msa_exact_oracle.py`).
+
+| ID | Test | Expected | Source |
+|----|------|----------|--------|
+| EX1 | `Oracle_OptimalRows_ScoreToTheOptimum_UnderTheObjective` | the oracle's rows score (`SumOfPairsScore`) to its optimum | independent Python |
+| EX2 | `ExactOptimum_EqualsTheIndependentOracle_WithAndWithoutCarrilloLipman` | optimum of all 804 sets with and without the bound; rows spell the inputs; visited <= lattice | oracle |
+| EX3 | `TwoSequences_AreGlobalAlign_AndGlobalAlignAffine_RowForRow` | k = 2 rows and score = `GlobalAlign` / `GlobalAlignAffine` | canonical |
+| EX4 | `Heuristics_NeverExceedTheExactOptimum_AndTheirOptimalShareIsRecorded` | star, progressive, iterative, consistency, anchored <= optimum; optimal share recorded (Evidence) | exact optimum |
+| EX5 | `ExactOptimum_EqualsExhaustiveEnumeration_OfTinySets_LinearAndAffine` | 120 tiny k = 3, 4 sets vs an in-test enumeration of every column sequence | definition |
+| EX6 | `CarrilloLipman_PrunesSimilarSequences_AndKeepsTheOptimum`, `CarrilloLipman_AgreesWithTheFullLattice_OnMediumSets` | similar k = 4 set: visited < 1 % of > 2 M cells; pruned = full lattice on 12 medium sets | Carrillo-Lipman 1988 |
+| EX7 | `IdenticalSequences_ScoreIsPairCountTimesLengthTimesMatch`, `Result_IsDeterministic_AndExactMsaResultCarriesTheBound` | 5 identical sequences: 10 x len x match, one diagonal corridor; k = 4 has 75 states | hand |
+| EX8 | `ComplexityGuard_ThrowsClearException_InsteadOfExhaustingMemory`, `TooManySequences_AndNullAndTrivialInputs` | clear `ArgumentException` naming `ExactMaxStateCells`; > 8 / > 6 sequences; null / empty / single / empty member | contract |
+| EX9 (MCP) | `GlobalCoOptimalAndExactMsaTests.MultipleAlignExact_*` | >= heuristics, lattice / visited reported, k = 2 = `global_align_affine`, guard, validation | library call |
