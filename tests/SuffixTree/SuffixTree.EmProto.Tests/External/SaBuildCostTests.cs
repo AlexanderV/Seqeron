@@ -102,10 +102,10 @@ public unsafe class SaBuildCostTests
             Budget = dcsBudget,
         });
         long rankBytes = new FileInfo(ranksPath).Length;
+        long scratchPh1 = ScratchTracker.Peak; // the working files of PH1 (the rank file is added to the account only from here on, as the pipeline of E6 does)
         ScratchTracker.Add(rankBytes);
         long t1 = Stopwatch.GetTimestamp();
         long r1 = IoCounters.ReadBytes, w1 = IoCounters.WriteBytes, m1 = MappedIo.WriteBytes;
-        long scratchPh1 = ScratchTracker.Peak - rankBytes;
         Directory.CreateDirectory(dirPh3);
         using (var ranks = new DcsRankTable(cover, new MappedFile(ranksPath, writable: false), n))
         using (var sink = new MappedSaSink(saPath, n + 1))

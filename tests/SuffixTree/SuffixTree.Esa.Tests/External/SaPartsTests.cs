@@ -570,6 +570,7 @@ public class RankTableTests
         t.Dispose();
         t.Dispose();
         Assert.That(ProcMaps.Contains(path) ?? false, Is.False);
+        Assert.Throws<ObjectDisposedException>(t.Verify);
     }
 }
 
@@ -681,5 +682,242 @@ public class SaPlumbingTests
         pool.Fail(new IOException("x"));
         Assert.That(waiter.Join(10_000), Is.True);
         Assert.That(got, Is.False);
+    }
+}
+
+/// <summary>The runs of the sample buckets (memory or scratch file), the ledger of the scratch bytes, and the reader that scatters a run into the name window.</summary>
+[TestFixture]
+public class BucketRunTests
+{
+    private TempDir _dir = null!;
+
+    [SetUp]
+    public void SetUp() => _dir = new TempDir();
+
+    [TearDown]
+    public void TearDown() => _dir.Dispose();
+
+    private static ulong Rec(uint slot, uint name) => ((ulong)slot << 32) | name;
+
+    [Test]
+    public void ARunOfAtMostTheSpillSize_StaysInMemory_AndALargerOneGoesToAFile()
+    {
+        var counters = new IoCounters();
+        var ledger = new ScratchLedger(counters);
+        var store = new RunStore(_dir.Path, "t", 16, ledger, counters);
+        using BucketRun small = store.Create([Rec(1, 1), Rec(2, 2)]);
+        Assert.That(small.InMemory, Is.True);
+        Assert.That(small.Count, Is.EqualTo(2));
+        Assert.That(small.Memory.ToArray(), Is.EqualTo(new[] { Rec(1, 1), Rec(2, 2) }));
+        Assert.That(ledger.Live, Is.Zero);
+        Assert.That(Directory.GetFiles(_dir.Path), Is.Empty);
+        BucketRun big = store.Create([Rec(1, 1), Rec(2, 2), Rec(3, 3)]);
+        Assert.That(big.InMemory, Is.False);
+        Assert.That(ledger.Live, Is.EqualTo(24));
+        Assert.That(counters.ScratchLiveBytes, Is.EqualTo(24));
+        Assert.That(counters.WriteBytes, Is.EqualTo(24));
+        string file = Directory.GetFiles(_dir.Path).Single();
+        Assert.That(new FileInfo(file).Length, Is.EqualTo(24));
+        Assert.That(Path.GetFileName(file), Does.StartWith("t-run-").And.EndWith(".bin"));
+        big.Dispose();
+        big.Dispose();
+        Assert.That(File.Exists(file), Is.False);
+        Assert.That(ledger.Live, Is.Zero);
+        Assert.That(counters.ScratchLiveBytes, Is.Zero);
+        Assert.That(counters.ScratchPeakBytes, Is.EqualTo(24));
+    }
+
+    [Test]
+    public void TheFilesOfOneStore_AreNumberedFromOne_AndTwoStoresNeverShareAName()
+    {
+        var ledger = new ScratchLedger(null);
+        var a = new RunStore(_dir.Path, "a", 0, ledger, null);
+        var b = new RunStore(_dir.Path, "b", 0, ledger, null);
+        using BucketRun r1 = a.Create([Rec(1, 1)]);
+        using BucketRun r2 = a.Create([Rec(2, 1)]);
+        using BucketRun r3 = b.Create([Rec(3, 1)]);
+        Assert.That(Directory.GetFiles(_dir.Path).Select(Path.GetFileName).Order(), Is.EqualTo(new[] { "a-run-00000001.bin", "a-run-00000002.bin", "b-run-00000001.bin" }));
+    }
+
+    [Test]
+    public void ReadAt_ReadsTheRecordsFromTheIndex_NeverBeyondTheEnd_AndCountsTheBytes()
+    {
+        var counters = new IoCounters();
+        var store = new RunStore(_dir.Path, "t", 0, new ScratchLedger(counters), counters);
+        using BucketRun run = store.Create([Rec(1, 11), Rec(2, 12), Rec(3, 13), Rec(4, 14), Rec(5, 15)]);
+        var buffer = new ulong[8];
+        Assert.That(run.ReadAt(0, buffer), Is.EqualTo(5), "fewer than the buffer holds");
+        Assert.That(buffer[..5], Is.EqualTo(new[] { Rec(1, 11), Rec(2, 12), Rec(3, 13), Rec(4, 14), Rec(5, 15) }));
+        Assert.That(run.ReadAt(3, buffer.AsSpan(0, 8)), Is.EqualTo(2));
+        Assert.That(buffer[..2], Is.EqualTo(new[] { Rec(4, 14), Rec(5, 15) }));
+        Assert.That(run.ReadAt(1, buffer.AsSpan(0, 2)), Is.EqualTo(2), "bounded by the buffer");
+        Assert.That(buffer[..2], Is.EqualTo(new[] { Rec(2, 12), Rec(3, 13) }));
+        Assert.That(run.ReadAt(5, buffer), Is.Zero);
+        Assert.That(counters.ReadBytes, Is.EqualTo(8 * (5 + 2 + 2)));
+    }
+
+    [Test]
+    public void AFailedWrite_GivesTheBytesBack_AndLeavesNoFile()
+    {
+        var counters = new IoCounters();
+        var ledger = new ScratchLedger(counters);
+        var store = new RunStore(_dir.Sub("missing"), "t", 0, ledger, counters);
+        Assert.Throws(Is.InstanceOf<IOException>(), () => store.Create([Rec(1, 1), Rec(2, 2)]));
+        Assert.That(ledger.Live, Is.Zero);
+        Assert.That(counters.ScratchLiveBytes, Is.Zero);
+        Assert.That(counters.ScratchPeakBytes, Is.EqualTo(16), "the bytes were taken with the reservation");
+    }
+
+    [Test]
+    public void TheLedger_KnowsWhatItTook_AndGivesAllOfItBack()
+    {
+        var counters = new IoCounters();
+        counters.AddScratch(1000); // another stage of the same counters
+        var ledger = new ScratchLedger(counters);
+        ledger.Add(40);
+        ledger.Add(2);
+        ledger.Remove(10);
+        Assert.That(ledger.Live, Is.EqualTo(32));
+        Assert.That(counters.ScratchLiveBytes, Is.EqualTo(1032));
+        ledger.ReleaseAll();
+        Assert.That(ledger.Live, Is.Zero);
+        Assert.That(counters.ScratchLiveBytes, Is.EqualTo(1000), "what another stage holds is not touched");
+        Assert.That(counters.ScratchPeakBytes, Is.EqualTo(1042));
+        Assert.DoesNotThrow(() => new ScratchLedger(null).Add(5));
+    }
+
+    private static void Drain(BucketRun run, bool inMemory)
+    {
+        using var arena = new BudgetedArena(new ArenaBudget(long.MaxValue), ArenaOptions.Guarded(0xCD));
+        int records = inMemory ? 1 : 2;
+        Buf<ulong> buf = inMemory ? default : arena.Allocate<ulong>(records, zero: false, "test");
+        var reader = new RunReader(run, buf, records);
+        var window = new uint[4];
+        // slots 3, 5, 6, 9 with the names 1, 2, 3, 1; the window covers the slots 3..6, the next one 7..10
+        Assert.That(reader.Drain(7, 10, window, 3), Is.EqualTo(3));
+        Assert.That(window[0], Is.EqualTo(11u));
+        Assert.That(window[2], Is.EqualTo(12u));
+        Assert.That(window[3], Is.EqualTo(13u));
+        Assert.That(reader.Scattered, Is.EqualTo(3));
+        var next = new uint[4];
+        Assert.That(reader.Drain(11, 10, next, 7), Is.EqualTo(1));
+        Assert.That(next[2], Is.EqualTo(11u));
+        Assert.That(reader.Scattered, Is.EqualTo(4));
+        Assert.That(reader.Drain(100, 10, next, 7), Is.Zero, "the run is used up");
+    }
+
+    [Test]
+    public void ARunReader_ScattersTheRecordsBelowTheLimit_WithTheOffset_FromMemoryAndFromAFile()
+    {
+        var store = new RunStore(_dir.Path, "t", 0, new ScratchLedger(null), null);
+        var records = new[] { Rec(3, 1), Rec(5, 2), Rec(6, 3), Rec(9, 1) };
+        using BucketRun file = store.Create(records);
+        Assert.That(file.InMemory, Is.False);
+        Drain(file, inMemory: false);
+        var memoryStore = new RunStore(_dir.Path, "m", 1 << 20, new ScratchLedger(null), null);
+        using BucketRun memory = memoryStore.Create(records);
+        Assert.That(memory.InMemory, Is.True);
+        Drain(memory, inMemory: true);
+    }
+}
+
+/// <summary>The inverse permutation of the suffix array of a reduced string, written straight into the rank file by DIST.</summary>
+[TestFixture]
+public class RankInverterTests
+{
+    private TempDir _dir = null!;
+
+    [SetUp]
+    public void SetUp() => _dir = new TempDir();
+
+    [TearDown]
+    public void TearDown() => _dir.Dispose();
+
+    /// <summary>A reduced string of the geometry: the names (1..sigma) at the sample slots, a 0 after every class, and its suffix array with the empty suffix first.</summary>
+    private static (int[] Red, uint[] Sa) Reduced(SampleGeometry g, int sigma, ulong seed)
+    {
+        var rng = new SplitMix64(seed);
+        var red = new int[g.RedLength];
+        for (long q = 0; q < red.Length; q++) red[q] = g.TrySlotOfRed(q, out _) ? 1 + rng.NextInt(sigma) : 0;
+        int[] order = Enumerable.Range(0, red.Length).ToArray();
+        Array.Sort(order, (a, b) => Math.Sign(red.AsSpan(a).SequenceCompareTo(red.AsSpan(b))));
+        var sa = new uint[red.Length + 1];
+        sa[0] = (uint)red.Length;
+        for (int i = 0; i < order.Length; i++) sa[i + 1] = (uint)order[i];
+        return (red, sa);
+    }
+
+    private (string Sa, string Rank, DistOptions Options) Files(uint[] sa, int chunk = 7)
+    {
+        string path = _dir.File("sa.bin");
+        FileBits.WriteUInts(path, sa);
+        return (path, _dir.File("rank.bin"), new DistOptions { ScratchDir = _dir.Sub("s"), ChunkEntries = chunk, IoBufferBytes = 24, ReadBytes = 16, WindowBytes = 32 });
+    }
+
+    [Test]
+    public void TheRankOfASamplePosition_IsItsIndexInTheSuffixArray_AndTheUnusedSlotsStayZero()
+    {
+        foreach (int x in new[] { 7, 13 })
+        {
+            DifferenceCover cover = DifferenceCover.Create(x);
+            foreach (long n in new long[] { 1, 20, 61, 100 })
+            {
+                var g = new SampleGeometry(n, cover);
+                (int[] red, uint[] sa) = Reduced(g, 3, (ulong)n);
+                (string saPath, string rankPath, DistOptions o) = Files(sa);
+                RankInverter.Invert(saPath, g, rankPath, o);
+                uint[] got = FileBits.ReadUInts(rankPath);
+                Assert.That(got, Has.Length.EqualTo(g.Slots));
+                var rankOf = new uint[red.Length];
+                for (int i = 1; i < sa.Length; i++) rankOf[sa[i]] = (uint)i;
+                for (long slot = 0; slot < g.Slots; slot++)
+                {
+                    uint expected = slot < g.Samples ? rankOf[g.RedIndexOfSlot(slot)] : 0;
+                    Assert.That(got[slot], Is.EqualTo(expected), $"X = {x}, n = {n}, slot {slot}");
+                }
+                File.Delete(rankPath);
+                if (Directory.Exists(_dir.Sub("s"))) Directory.Delete(_dir.Sub("s"), true);
+            }
+        }
+    }
+
+    [Test]
+    public void ASuffixArrayThatIsWrong_IsInvalidData_WhateverTheWay()
+    {
+        DifferenceCover cover = DifferenceCover.Create(7);
+        var g = new SampleGeometry(40, cover);
+        (_, uint[] good) = Reduced(g, 3, 5);
+        int sampleEntry = Array.FindIndex(good, 1, q => g.TrySlotOfRed(q, out _));
+        int separatorEntry = Array.FindIndex(good, 1, q => !g.TrySlotOfRed(q, out _));
+        var cases = new List<(string What, uint[] Sa)>
+        {
+            ("an entry beyond the reduced string", [.. good.Take(3), (uint)g.RedLength + 4, .. good.Skip(4)]),
+            ("short", good[..^1]),
+            ("long", [.. good, 0u]),
+            ("a sample position that is missing", [.. good.Select((v, i) => i == sampleEntry ? good[separatorEntry] : v)]),
+        };
+        foreach ((string what, uint[] sa) in cases)
+        {
+            (string saPath, string rankPath, DistOptions o) = Files(sa);
+            Assert.Throws<InvalidDataException>(() => RankInverter.Invert(saPath, g, rankPath, o), what);
+            if (Directory.Exists(_dir.Sub("s"))) Assert.That(Directory.GetFileSystemEntries(_dir.Sub("s")), Is.Empty, $"{what}: no chunk file is left");
+        }
+    }
+
+    [Test]
+    public void TheMapper_SkipsTheEmptySuffixAndTheSeparators_AndCountsWhatItEmits()
+    {
+        DifferenceCover cover = DifferenceCover.Create(7);
+        var g = new SampleGeometry(30, cover);
+        var mapper = new SampleRankMapper(g);
+        Assert.That(mapper.TryMap(0, (uint)g.RedLength, out _, out _), Is.False, "the empty suffix");
+        long separator = g.RedStart[1] - 1;
+        Assert.That(mapper.TryMap(5, (uint)separator, out _, out _), Is.False, "a separator");
+        Assert.That(mapper.Emitted, Is.Zero);
+        long q = g.RedIndexOfSlot(4);
+        Assert.That(mapper.TryMap(9, (uint)q, out uint key, out uint value), Is.True);
+        Assert.That((key, value), Is.EqualTo((4u, 9u)), "the slot is the key and the index in the suffix array is the rank");
+        Assert.That(mapper.Emitted, Is.EqualTo(1));
+        Assert.Throws<InvalidDataException>(() => mapper.TryMap(3, (uint)g.RedLength, out _, out _));
     }
 }

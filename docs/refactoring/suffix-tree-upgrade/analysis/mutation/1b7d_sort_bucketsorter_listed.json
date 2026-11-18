@@ -1,0 +1,499 @@
+[
+ {
+  "id": "H01",
+  "desc": "Run: a leaf of one is accepted",
+  "old": "ArgumentOutOfRangeException.ThrowIfLessThan(options.LeafCapacity, 2);",
+  "new": "ArgumentOutOfRangeException.ThrowIfLessThan(options.LeafCapacity, 1);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs"
+ },
+ {
+  "id": "H02",
+  "desc": "Run: no upper bound on K",
+  "old": "ArgumentOutOfRangeException.ThrowIfGreaterThan(options.LeafCapacity, int.MaxValue / 2);",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs"
+ },
+ {
+  "id": "H03",
+  "desc": "Run: a fan-out of one",
+  "old": "ArgumentOutOfRangeException.ThrowIfLessThan(options.FanOut, 2);",
+  "new": "ArgumentOutOfRangeException.ThrowIfLessThan(options.FanOut, 1);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs"
+ },
+ {
+  "id": "H04",
+  "desc": "Run: zero threads",
+  "old": "ArgumentOutOfRangeException.ThrowIfLessThan(options.Threads, 1);",
+  "new": "ArgumentOutOfRangeException.ThrowIfLessThan(options.Threads, 0);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs"
+ },
+ {
+  "id": "H05",
+  "desc": "Run: an oversample of zero",
+  "old": "ArgumentOutOfRangeException.ThrowIfLessThan(options.Oversample, 1);",
+  "new": "ArgumentOutOfRangeException.ThrowIfLessThan(options.Oversample, 0);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs"
+ },
+ {
+  "id": "H06",
+  "desc": "Run: a spill of zero",
+  "old": "ArgumentOutOfRangeException.ThrowIfLessThan(options.SpillBytes, 1);",
+  "new": "ArgumentOutOfRangeException.ThrowIfLessThan(options.SpillBytes, 0);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs"
+ },
+ {
+  "id": "H07",
+  "desc": "Run: no limit on the text length",
+  "old": "if (text.Length > PackedTextFormat.MaxSymbols) throw",
+  "new": "if (text.Length > PackedTextFormat.MaxSymbols * 2) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs"
+ },
+ {
+  "id": "H08",
+  "desc": "Run: the scratch root is not removed",
+  "old": "if (createdRoot) DeleteEmptyDirectoryQuietly(dir);",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs"
+ },
+ {
+  "id": "H09",
+  "desc": "Run: the scratch root is always removed",
+  "old": "if (createdRoot) DeleteEmptyDirectoryQuietly(dir);",
+  "new": "DeleteEmptyDirectoryQuietly(dir);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs"
+ },
+ {
+  "id": "H10",
+  "desc": "Run: the files of a failed sort are left",
+  "old": "            DeleteFilesQuietly(dir, options.FilePrefix + \"-*\");",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs"
+ },
+ {
+  "id": "H11",
+  "desc": "Run: the files of a failed sort are found by the wrong prefix",
+  "old": "DeleteFilesQuietly(dir, options.FilePrefix + \"-*\");",
+  "new": "DeleteFilesQuietly(dir, \"x\" + options.FilePrefix + \"-*\");",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs"
+ },
+ {
+  "id": "H12",
+  "desc": "Run: the ledger of a private sort is not released",
+  "old": "if (options.Ledger is null) ledger.ReleaseAll();",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs"
+ },
+ {
+  "id": "H13",
+  "desc": "Run: the ledger of an outer build is released",
+  "old": "if (options.Ledger is null) ledger.ReleaseAll();",
+  "new": "ledger.ReleaseAll();",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs"
+ },
+ {
+  "id": "H14",
+  "desc": "Run: the budget is private",
+  "old": "options.Budget ?? new ArenaBudget(long.MaxValue)",
+  "new": "new ArenaBudget(long.MaxValue)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs"
+ },
+ {
+  "id": "H15",
+  "desc": "Run: the ledger of the caller is ignored",
+  "old": "ScratchLedger ledger = options.Ledger ?? new ScratchLedger(options.Counters);",
+  "new": "ScratchLedger ledger = new ScratchLedger(options.Counters);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs"
+ },
+ {
+  "id": "H16",
+  "desc": "Execute: SA[0] is not written",
+  "old": "        main.Write(0, [(uint)n]);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs"
+ },
+ {
+  "id": "H17",
+  "desc": "Execute: SA[0] is one",
+  "old": "main.Write(0, [(uint)n]);",
+  "new": "main.Write(0, [(uint)n + 1]);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs"
+ },
+ {
+  "id": "H18",
+  "desc": "Execute: the empty text goes on",
+  "old": "        if (n == 0) return _stats;\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs"
+ },
+ {
+  "id": "H19",
+  "desc": "Execute: the root bucket starts at entry zero",
+  "old": "_pool.Push(new BuildTask(new RangePositions(n), 1, 1UL, 0));",
+  "new": "_pool.Push(new BuildTask(new RangePositions(n), 0, 1UL, 0));",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs"
+ },
+ {
+  "id": "H20",
+  "desc": "Execute: the root has one position too many",
+  "old": "new BuildTask(new RangePositions(n), 1, 1UL, 0)",
+  "new": "new BuildTask(new RangePositions(n + 1), 1, 1UL, 0)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs"
+ },
+ {
+  "id": "H21",
+  "desc": "Execute: no extra thread is started",
+  "old": "for (int t = 1; t < threads; t++)\n        {\n            var th = new Thread(() => Worker(null))",
+  "new": "for (int t = 1; t < 1; t++)\n        {\n            var th = new Thread(() => Worker(null))",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs"
+ },
+ {
+  "id": "H22",
+  "desc": "Execute: the error is swallowed",
+  "old": "if (_pool.Error is { } error) ExceptionDispatchInfo.Capture(error).Throw();\n        return _stats;",
+  "new": "return _stats;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs"
+ },
+ {
+  "id": "H23",
+  "desc": "Worker: the writer of a thread is not disposed",
+  "old": "            own?.Dispose();",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs"
+ },
+ {
+  "id": "H25",
+  "desc": "RunTasks: a leaf is a bucket of exactly K",
+  "old": "if (task.Bucket.Count <= _o.LeafCapacity)",
+  "new": "if (task.Bucket.Count < _o.LeafCapacity)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs"
+ },
+ {
+  "id": "H26",
+  "desc": "RunTasks: the leaf trace is not called",
+  "old": "                    _o.Trace?.Invoke(\"leaf\");\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs"
+ },
+ {
+  "id": "H27",
+  "desc": "RunTasks: the partition trace is not called",
+  "old": "                    _o.Trace?.Invoke(\"partition\");\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs"
+ },
+ {
+  "id": "H28",
+  "desc": "RunTasks: the leaf sorter is made for every leaf",
+  "old": "leaf ??= new LeafSorter(arena, (int)_o.LeafCapacity);",
+  "new": "leaf = new LeafSorter(arena, (int)_o.LeafCapacity);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs"
+ },
+ {
+  "id": "H29",
+  "desc": "RunTasks: a leaf bucket is not disposed",
+  "old": "                    leaf.Sort(task.Bucket, task.SaOffset, order, writer);\n                    task.Bucket.Dispose();",
+  "new": "                    leaf.Sort(task.Bucket, task.SaOffset, order, writer);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs"
+ },
+ {
+  "id": "H30",
+  "desc": "RunTasks: a failed bucket is not disposed",
+  "old": "                task.Bucket.Dispose(); // the file of the bucket and its descriptor are given back\n                _pool.Fail(e);",
+  "new": "                _pool.Fail(e);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs"
+ },
+ {
+  "id": "H31",
+  "desc": "RunTasks: the leaves are not counted",
+  "old": "                    leaves++;\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs"
+ },
+ {
+  "id": "H32",
+  "desc": "RunTasks: the partitions are not counted",
+  "old": "                    partitions++;\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs"
+ },
+ {
+  "id": "H33",
+  "desc": "RunTasks: the retries are not counted",
+  "old": "retries += Partition(task, order, work);",
+  "new": "Partition(task, order, work);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs"
+ },
+ {
+  "id": "H34",
+  "desc": "RunTasks: the depth is not tracked",
+  "old": "                maxDepth = Math.Max(maxDepth, task.Depth);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs"
+ },
+ {
+  "id": "H35",
+  "desc": "RunTasks: the buckets are not counted",
+  "old": "                buckets++;\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs"
+ },
+ {
+  "id": "H36",
+  "desc": "RunTasks: the largest leaf is not tracked",
+  "old": "                    maxLeaf = Math.Max(maxLeaf, task.Bucket.Count);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs"
+ },
+ {
+  "id": "H37",
+  "desc": "RunTasks: the leaf time is not summed",
+  "old": "                    leafTicks += Stopwatch.GetTimestamp() - t0;\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs"
+ },
+ {
+  "id": "H38",
+  "desc": "RunTasks: the partition time is not summed",
+  "old": "                    partTicks += Stopwatch.GetTimestamp() - t0;\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs"
+ },
+ {
+  "id": "H39",
+  "desc": "RunTasks: the work counters are not merged",
+  "old": "            _stats.Work.Add(work);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs"
+ },
+ {
+  "id": "H40",
+  "desc": "RunTasks: the buckets are not merged",
+  "old": "            _stats.Buckets += buckets;\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs"
+ },
+ {
+  "id": "H41",
+  "desc": "RunTasks: the arena is not checked",
+  "old": "        arena.VerifyCanaries();\n        lock (_statsGate)",
+  "new": "        lock (_statsGate)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs"
+ },
+ {
+  "id": "H42",
+  "desc": "Partition: the fan-out ignores the bucket size",
+  "old": "int fan = (int)Math.Min(Math.Min(_o.FanOut, m), Math.Max(2, ((2 * m) + _o.LeafCapacity - 1) / _o.LeafCapacity));",
+  "new": "int fan = (int)Math.Min(_o.FanOut, Math.Max(2, ((2 * m) + _o.LeafCapacity - 1) / _o.LeafCapacity));",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs"
+ },
+ {
+  "id": "H43",
+  "desc": "Partition: the fan-out ignores the cap",
+  "old": "int fan = (int)Math.Min(Math.Min(_o.FanOut, m), Math.Max(2, ((2 * m) + _o.LeafCapacity - 1) / _o.LeafCapacity));",
+  "new": "int fan = (int)Math.Min(m, Math.Max(2, ((2 * m) + _o.LeafCapacity - 1) / _o.LeafCapacity));",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs"
+ },
+ {
+  "id": "H44",
+  "desc": "Partition: one child of the quotient",
+  "old": "Math.Max(2, ((2 * m) + _o.LeafCapacity - 1) / _o.LeafCapacity)",
+  "new": "Math.Max(2, (m + _o.LeafCapacity - 1) / _o.LeafCapacity)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs"
+ },
+ {
+  "id": "H45",
+  "desc": "Partition: the sample is smaller",
+  "old": "int sampleCount = (int)Math.Min(m, (long)fan * oversample);",
+  "new": "int sampleCount = (int)Math.Min(m, (long)fan);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs"
+ },
+ {
+  "id": "H46",
+  "desc": "Partition: the sample is not stratified",
+  "old": "long lo = t * m / sampleCount;\n                long hi = (t + 1) * m / sampleCount;",
+  "new": "long lo = 0;\n                long hi = m;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs"
+ },
+ {
+  "id": "H47",
+  "desc": "Partition: the sample is sorted the other way",
+  "old": "sample.AsSpan().Sort(new FullComparer(order));",
+  "new": "sample.AsSpan().Sort(new FullComparer(order));\n            sample.AsSpan().Reverse();",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs"
+ },
+ {
+  "id": "H48",
+  "desc": "Partition: the splitter is the lower quantile",
+  "old": "splPos[t - 1] = sample[(long)t * sampleCount / fan];",
+  "new": "splPos[t - 1] = sample[((long)t * sampleCount / fan) - 1];",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs"
+ },
+ {
+  "id": "H49",
+  "desc": "Partition: the splitter key is the position",
+  "old": "splKey[t - 1] = _text.Key(splPos[t - 1]);",
+  "new": "splKey[t - 1] = splPos[t - 1];",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs"
+ },
+ {
+  "id": "H50",
+  "desc": "Partition: a position goes left of an equal splitter",
+  "old": "if (ks < kx || (ks == kx && order.CompareTied(splPos[mid], x) <= 0)) lo = mid + 1;",
+  "new": "if (ks < kx || (ks == kx && order.CompareTied(splPos[mid], x) < 0)) lo = mid + 1;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs"
+ },
+ {
+  "id": "H51",
+  "desc": "Partition: the key tie is not resolved",
+  "old": "if (ks < kx || (ks == kx && order.CompareTied(splPos[mid], x) <= 0)) lo = mid + 1;",
+  "new": "if (ks <= kx) lo = mid + 1;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs"
+ },
+ {
+  "id": "H52",
+  "desc": "Partition: the search ignores the key",
+  "old": "if (ks < kx || (ks == kx && order.CompareTied(splPos[mid], x) <= 0)) lo = mid + 1;",
+  "new": "if (order.Compare(splPos[mid], x) <= 0) lo = mid + 1;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs"
+ },
+ {
+  "id": "H53",
+  "desc": "Partition: the scan positions are not counted",
+  "old": "            work.ScanPositions += m;\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs"
+ },
+ {
+  "id": "H54",
+  "desc": "Partition: a degenerate split is accepted",
+  "old": "if (biggest == m)",
+  "new": "if (biggest > m)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs"
+ },
+ {
+  "id": "H55",
+  "desc": "Partition: a retry does not double the oversample",
+  "old": "                    oversample *= 2;\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs"
+ },
+ {
+  "id": "H56",
+  "desc": "Partition: a retry is not counted",
+  "old": "                    retries++;\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs"
+ },
+ {
+  "id": "H57",
+  "desc": "Partition: the children start at entry zero",
+  "old": "long offset = task.SaOffset;",
+  "new": "long offset = 0;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs"
+ },
+ {
+  "id": "H58",
+  "desc": "Partition: the child offset does not advance",
+  "old": "                        offset += count;",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs"
+ },
+ {
+  "id": "H59",
+  "desc": "Partition: an empty child is kept",
+  "old": "if (count == 0)\n                        {\n                            child.Dispose();\n                            continue;\n                        }",
+  "new": "if (count < 0)\n                        {\n                            child.Dispose();\n                            continue;\n                        }",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs"
+ },
+ {
+  "id": "H60",
+  "desc": "Partition: the child ids repeat",
+  "old": "(task.Id * 0x100000001B3UL) ^ (ulong)(b + 1)",
+  "new": "(task.Id * 0x100000001B3UL)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs"
+ },
+ {
+  "id": "H61",
+  "desc": "Partition: the child depth does not advance",
+  "old": "task.Depth + 1));",
+  "new": "task.Depth));",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs"
+ },
+ {
+  "id": "H62",
+  "desc": "Partition: the source bucket is not disposed",
+  "old": "                src.Dispose();\n                for (int b = children.Count - 1",
+  "new": "                for (int b = children.Count - 1",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs"
+ },
+ {
+  "id": "H63",
+  "desc": "Partition: the children are pushed first to last",
+  "old": "for (int b = children.Count - 1; b >= 0; b--) _pool.Push(children[b]);",
+  "new": "for (int b = 0; b < children.Count; b++) _pool.Push(children[b]);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs"
+ },
+ {
+  "id": "H64",
+  "desc": "Partition: the writers are not disposed",
+  "old": "                foreach (PosWriter? w in writers) w?.Dispose();\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs"
+ },
+ {
+  "id": "H65",
+  "desc": "Partition: the chunk is not returned",
+  "old": "                if (chunk is not null) ArrayPool<uint>.Shared.Return(chunk);",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs"
+ },
+ {
+  "id": "H66",
+  "desc": "Partition: the children of a failed hand-over are not disposed",
+  "old": "                    if (!handedOver) foreach (BuildTask child in children) child.Bucket.Dispose();",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs"
+ },
+ {
+  "id": "H67",
+  "desc": "Partition: the scan reads one chunk short",
+  "old": "int take = (int)Math.Min(1 << 14, m - start);",
+  "new": "int take = (int)Math.Min((1 << 14) - 1, m - start);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs"
+ },
+ {
+  "id": "H68",
+  "desc": "Partition: the attempts have no limit",
+  "old": "for (int attempt = 0; attempt < 64; attempt++)",
+  "new": "for (int attempt = 0; attempt < 640; attempt++)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs"
+ },
+ {
+  "id": "H69",
+  "desc": "Partition: the seed ignores the attempt",
+  "old": "^ ((ulong)attempt * 0xD1B54A32D192ED03UL));",
+  "new": ");",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs"
+ },
+ {
+  "id": "H70",
+  "desc": "Partition: the seed ignores the task",
+  "old": "var rng = new SeededRandom(_o.Seed ^ (task.Id * 0x9E3779B97F4A7C15UL) ^",
+  "new": "var rng = new SeededRandom(_o.Seed ^",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs"
+ },
+ {
+  "id": "H71",
+  "desc": "Partition: the writers expect the whole bucket",
+  "old": "(int)Math.Min((m / fan) + 16, 1 << 16)",
+  "new": "(int)Math.Min(m + 16, 1 << 16)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs"
+ },
+ {
+  "id": "H72",
+  "desc": "DeleteFiles: a directory that is not there throws",
+  "old": "            if (!Directory.Exists(dir)) return;\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs"
+ }
+]

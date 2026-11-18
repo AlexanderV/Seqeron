@@ -1,0 +1,65 @@
+[
+ {
+  "id": "X01",
+  "desc": "OpenReduced: the reduced flag is not set",
+  "old": "internal static MappedTextReader OpenReduced(string path, long n) => OpenCore(path, 0, null, n, ReducedBits, reduced: true);",
+  "new": "internal static MappedTextReader OpenReduced(string path, long n) => OpenCore(path, 0, null, n, ReducedBits, reduced: false);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "X02",
+  "desc": "OpenReduced: 16 bits",
+  "old": "internal static MappedTextReader OpenReduced(string path, long n) => OpenCore(path, 0, null, n, ReducedBits, reduced: true);",
+  "new": "internal static MappedTextReader OpenReduced(string path, long n) => OpenCore(path, 0, null, n, 16, reduced: true);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "X03",
+  "desc": "FromMemoryReduced: the layout is not checked",
+  "old": "        CheckShape(n, ReducedBits, reduced: true);\n        CheckLayout(data, length, n, ReducedBits);",
+  "new": "        CheckShape(n, ReducedBits, reduced: true);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "X04",
+  "desc": "FromMemoryReduced: the shape is not checked",
+  "old": "        CheckShape(n, ReducedBits, reduced: true);\n        CheckLayout(data, length, n, ReducedBits);",
+  "new": "        CheckLayout(data, length, n, ReducedBits);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "X05",
+  "desc": "FromMemoryReduced: 8 bits",
+  "old": "return new MappedTextReader(data, n, ReducedBits, null, null);",
+  "new": "return new MappedTextReader(data, n, 8, null, null);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "X06",
+  "desc": "CheckShape: the file codec accepts 32 bits",
+  "old": "if (reduced ? bits != ReducedBits : bits < PackedTextFormat.MinBits || bits > PackedTextFormat.MaxBits) throw",
+  "new": "if (reduced ? bits != ReducedBits : bits < PackedTextFormat.MinBits || bits > ReducedBits) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "X07",
+  "desc": "CheckShape: the reduced reader accepts any width",
+  "old": "if (reduced ? bits != ReducedBits : bits < PackedTextFormat.MinBits || bits > PackedTextFormat.MaxBits) throw",
+  "new": "if (reduced ? bits < 0 : bits < PackedTextFormat.MinBits || bits > PackedTextFormat.MaxBits) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "X08",
+  "desc": "ReadSymbols: a wide reader is unpacked",
+  "old": "if (_bits > PackedTextFormat.MaxBits) throw new NotSupportedException",
+  "new": "if (_bits > 64) throw new NotSupportedException",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "X09",
+  "desc": "ReducedBits is 16",
+  "old": "internal const int ReducedBits = 32;",
+  "new": "internal const int ReducedBits = 16;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ }
+]

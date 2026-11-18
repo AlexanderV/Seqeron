@@ -30,7 +30,7 @@ public class ExternalDcsTests
         {
             configure?.Invoke(reader);
             ExtDcsStats stats = ExternalDcs.BuildRankFile(reader, cover, rank, options);
-            uint[] expected = DcsOracle.ExpectedRanks(c.Symbols, cover, out bool unique);
+            uint[] expected = DcsOracle.ExpectedRanks(c.Symbols, cover, out bool unique, out long distinct, out long shared);
             Assert.That(new FileInfo(rank).Length, Is.EqualTo(4L * expected.Length), $"{label}: length of the rank file");
             uint[] got = FileBits.ReadUInts(rank);
             for (int k = 0; k < got.Length; k++)
@@ -38,6 +38,8 @@ public class ExternalDcsTests
                 if (got[k] != expected[k]) Assert.Fail($"{label}: rank[{k}] = {got[k]}, expected {expected[k]} (X = {cover.Period}, text '{(c.Text.Length > 50 ? c.Text[..50] + "..." : c.Text)}')");
             }
             Assert.That(stats.Levels[0].NamesUnique, Is.EqualTo(unique), $"{label}: names unique");
+            Assert.That(stats.Levels[0].DistinctNames, Is.EqualTo(distinct), $"{label}: distinct names");
+            Assert.That(stats.Levels[0].NonUniqueRecords, Is.EqualTo(shared), $"{label}: sample positions whose name is shared");
             Assert.That(stats.Levels[0].SampleSize, Is.EqualTo(cover.SampleCount(c.N)));
             Assert.That(stats.Levels[0].TextLength, Is.EqualTo(c.N));
             Assert.That(stats.Levels.Select(l => l.Level), Is.EqualTo(Enumerable.Range(0, stats.Levels.Count)), $"{label}: levels in order");
@@ -487,6 +489,16 @@ public class ExternalDcsTests
             using RankTable t = RankTable.Open(rank, cover, c.N);
             Assert.DoesNotThrow(t.Verify, name);
         }
+    }
+
+    [Test]
+    public void TheLeafBuffers_AreNoLargerThanTheSample_WhateverK_sIs()
+    {
+        SaCase c = SaCase.Of(StringFamilies.RandomDna(3000, 6));
+        var budget = new ArenaBudget(long.MaxValue);
+        ExtDcsStats stats = RunAndCompare(_dir, c, DifferenceCover.Create(13), new ExtDcsOptions { ScratchDir = Scratch, Budget = budget, ArenaGuards = null }, "default K_s", out _);
+        Assert.That(stats.Levels[0].SampleSize, Is.LessThan(1500));
+        Assert.That(budget.PeakBytes, Is.LessThan(24L * (stats.Levels[0].SampleSize + 1) + (4L * stats.Levels[0].SampleSize) + 100_000), "a text with fewer sample positions than K_s needs no larger buffers");
     }
 
     [Test]

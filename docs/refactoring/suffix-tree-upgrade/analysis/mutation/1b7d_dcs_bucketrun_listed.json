@@ -1,0 +1,156 @@
+[
+ {
+  "id": "B01",
+  "desc": "RunStore: a run of exactly the spill size goes to a file",
+  "old": "if ((long)sorted.Length * 8 <= spillBytes) return",
+  "new": "if ((long)sorted.Length * 8 < spillBytes) return",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/BucketRun.cs"
+ },
+ {
+  "id": "B02",
+  "desc": "RunStore: the bytes are not accounted",
+  "old": "        Ledger.Add(bytes); // taken with the reservation",
+  "new": "        // taken with the reservation",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/BucketRun.cs"
+ },
+ {
+  "id": "B03",
+  "desc": "RunStore: the failed write does not give the bytes back",
+  "old": "        catch\n        {\n            Ledger.Remove(bytes);\n            DeleteQuietly(path);",
+  "new": "        catch\n        {\n            DeleteQuietly(path);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/BucketRun.cs"
+ },
+ {
+  "id": "B04",
+  "desc": "RunStore: the failed write leaves its file",
+  "old": "            Ledger.Remove(bytes);\n            DeleteQuietly(path);\n            throw;",
+  "new": "            Ledger.Remove(bytes);\n            throw;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/BucketRun.cs"
+ },
+ {
+  "id": "B05",
+  "desc": "RunStore: the numbering starts at zero",
+  "old": "{Interlocked.Increment(ref _next):D8}",
+  "new": "{Interlocked.Decrement(ref _next):D8}",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/BucketRun.cs"
+ },
+ {
+  "id": "B06",
+  "desc": "RunStore: the tag is not in the name",
+  "old": "$\"{tag}-run-{Interlocked",
+  "new": "$\"run-{Interlocked",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/BucketRun.cs"
+ },
+ {
+  "id": "B07",
+  "desc": "RunStore: the file is written at offset 8",
+  "old": "f.WriteAt(MemoryMarshal.AsBytes(sorted), 0);",
+  "new": "f.WriteAt(MemoryMarshal.AsBytes(sorted), 8);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/BucketRun.cs"
+ },
+ {
+  "id": "B08",
+  "desc": "ReadAt: reads the buffer length whatever is left",
+  "old": "int take = (int)Math.Min(dest.Length, left);",
+  "new": "int take = dest.Length;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/BucketRun.cs"
+ },
+ {
+  "id": "B09",
+  "desc": "ReadAt: the offset is in records",
+  "old": "f.ReadExactAt(MemoryMarshal.AsBytes(dest[..take]), start * 8);",
+  "new": "f.ReadExactAt(MemoryMarshal.AsBytes(dest[..take]), start);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/BucketRun.cs"
+ },
+ {
+  "id": "B10",
+  "desc": "BucketRun: Dispose does nothing the first time",
+  "old": "if (Interlocked.Exchange(ref _disposed, 1) != 0) return;",
+  "new": "if (Interlocked.Exchange(ref _disposed, 1) == 0) return;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/BucketRun.cs"
+ },
+ {
+  "id": "B11",
+  "desc": "BucketRun: Dispose gives back half the bytes",
+  "old": "_store.Ledger.Remove(Count * 8);",
+  "new": "_store.Ledger.Remove(Count * 4);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/BucketRun.cs"
+ },
+ {
+  "id": "B12",
+  "desc": "BucketRun: Dispose leaves the file",
+  "old": "        _store.Ledger.Remove(Count * 8);\n        RunStore.DeleteQuietly(_path);",
+  "new": "        _store.Ledger.Remove(Count * 8);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/BucketRun.cs"
+ },
+ {
+  "id": "B13",
+  "desc": "BucketRun: an empty path run is not a file run",
+  "old": "internal bool InMemory => _memory is not null;",
+  "new": "internal bool InMemory => _path is null;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/BucketRun.cs"
+ },
+ {
+  "id": "B14",
+  "desc": "Ledger: Remove adds",
+  "old": "Interlocked.Add(ref _live, -bytes);\n        counters?.RemoveScratch(bytes);",
+  "new": "Interlocked.Add(ref _live, bytes);\n        counters?.RemoveScratch(bytes);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/BucketRun.cs"
+ },
+ {
+  "id": "B15",
+  "desc": "Ledger: the counters are not told of an addition",
+  "old": "        Interlocked.Add(ref _live, bytes);\n        counters?.AddScratch(bytes);",
+  "new": "        Interlocked.Add(ref _live, bytes);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/BucketRun.cs"
+ },
+ {
+  "id": "B16",
+  "desc": "Ledger: ReleaseAll gives back nothing",
+  "old": "internal void ReleaseAll() => Remove(Interlocked.Read(ref _live));",
+  "new": "internal void ReleaseAll() => Remove(0);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/BucketRun.cs"
+ },
+ {
+  "id": "B17",
+  "desc": "RunReader: a record at the limit is scattered",
+  "old": "if (slot >= limit) break;",
+  "new": "if (slot > limit) break;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/BucketRun.cs"
+ },
+ {
+  "id": "B18",
+  "desc": "RunReader: the offset is not added",
+  "old": "window[(int)(slot - windowStart)] = offset + (uint)v;",
+  "new": "window[(int)(slot - windowStart)] = (uint)v;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/BucketRun.cs"
+ },
+ {
+  "id": "B19",
+  "desc": "RunReader: the window start is not subtracted",
+  "old": "window[(int)(slot - windowStart)] = offset + (uint)v;",
+  "new": "window[(int)slot] = offset + (uint)v;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/BucketRun.cs"
+ },
+ {
+  "id": "B20",
+  "desc": "RunReader: a used-up run is read again",
+  "old": "if (_consumed >= run.Count) return false;",
+  "new": "if (_consumed > run.Count) return false;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/BucketRun.cs"
+ },
+ {
+  "id": "B21",
+  "desc": "RunReader: the scattered count is not kept",
+  "old": "            Scattered += i - _pos;\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/BucketRun.cs"
+ },
+ {
+  "id": "B22",
+  "desc": "RunReader: the drained count is one more",
+  "old": "drained += i - _pos;",
+  "new": "drained += i - _pos + 1;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/BucketRun.cs"
+ }
+]

@@ -1,0 +1,128 @@
+[
+ {
+  "id": "R01",
+  "desc": "FastMod32: the multiplier is one too small",
+  "old": "_m = (ulong.MaxValue / divisor) + 1;",
+  "new": "_m = ulong.MaxValue / divisor;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankTable.cs"
+ },
+ {
+  "id": "R02",
+  "desc": "FastMod32: Mod is the division",
+  "old": "internal uint Mod(uint a) => (uint)Math.BigMul(_m * a, _d, out _);",
+  "new": "internal uint Mod(uint a) => (uint)Math.BigMul(_m, a, out _);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankTable.cs"
+ },
+ {
+  "id": "R03",
+  "desc": "FastMod32: a divisor of one is accepted",
+  "old": "ArgumentOutOfRangeException.ThrowIfLessThan(divisor, 2u);",
+  "new": "ArgumentOutOfRangeException.ThrowIfLessThan(divisor, 1u);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankTable.cs"
+ },
+ {
+  "id": "R04",
+  "desc": "Open: a longer file is accepted",
+  "old": "if (stream.Length != bytes) throw",
+  "new": "if (stream.Length < bytes) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankTable.cs"
+ },
+ {
+  "id": "R05",
+  "desc": "Open: a shorter file is accepted",
+  "old": "if (stream.Length != bytes) throw",
+  "new": "if (stream.Length > bytes) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankTable.cs"
+ },
+ {
+  "id": "R06",
+  "desc": "Open: one block too few",
+  "old": "long slots = ((n / cover.Period) + 1) * cover.Residues.Length;",
+  "new": "long slots = (n / cover.Period) * cover.Residues.Length;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankTable.cs"
+ },
+ {
+  "id": "R07",
+  "desc": "Rank: the class index is dropped",
+  "old": "return _ranks[((long)block * _classes) + _indexOf[r]];",
+  "new": "return _ranks[(long)block * _classes];",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankTable.cs"
+ },
+ {
+  "id": "R08",
+  "desc": "Rank: the block is not multiplied by the classes",
+  "old": "return _ranks[((long)block * _classes) + _indexOf[r]];",
+  "new": "return _ranks[block + _indexOf[r]];",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankTable.cs"
+ },
+ {
+  "id": "R09",
+  "desc": "Verify: the first unused slot is checked as a real one",
+  "old": "if (slot >= samples)",
+  "new": "if (slot > samples)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankTable.cs"
+ },
+ {
+  "id": "R10",
+  "desc": "Verify: a zero rank is accepted",
+  "old": "if (v == 0 || v > top)",
+  "new": "if (v > top)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankTable.cs"
+ },
+ {
+  "id": "R11",
+  "desc": "Verify: the largest rank is refused",
+  "old": "if (v == 0 || v > top)",
+  "new": "if (v == 0 || v >= top)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankTable.cs"
+ },
+ {
+  "id": "R12",
+  "desc": "Verify: a repeated rank is accepted",
+  "old": "if ((seen[v >> 6] & bit) != 0) throw",
+  "new": "if ((seen[v >> 6] & bit) == 5) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankTable.cs"
+ },
+ {
+  "id": "R13",
+  "desc": "Verify: the range is the sample only",
+  "old": "long top = samples + _classes;",
+  "new": "long top = samples;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankTable.cs"
+ },
+ {
+  "id": "R14",
+  "desc": "Verify: a non-zero unused slot is accepted",
+  "old": "if (v != 0) throw new InvalidDataException($\"the unused slot",
+  "new": "if (v > 1000000000) throw new InvalidDataException($\"the unused slot",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankTable.cs"
+ },
+ {
+  "id": "R15",
+  "desc": "Dispose: the pointer is not released",
+  "old": "            view.SafeMemoryMappedViewHandle.ReleasePointer();\n            view.Dispose();\n        }\n        map?.Dispose();",
+  "new": "            view.Dispose();\n        }\n        map?.Dispose();",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankTable.cs"
+ },
+ {
+  "id": "R16",
+  "desc": "Dispose: the map is not disposed",
+  "old": "        map?.Dispose();\n    }\n}",
+  "new": "    }\n}",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankTable.cs"
+ },
+ {
+  "id": "R17",
+  "desc": "Verify after Dispose does not throw",
+  "old": "ObjectDisposedException.ThrowIf(_view is null, this);",
+  "new": "ObjectDisposedException.ThrowIf(false, this);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankTable.cs"
+ },
+ {
+  "id": "R18",
+  "desc": "Open: the view is not read-only sized",
+  "old": "view = map.CreateViewAccessor(0, bytes, MemoryMappedFileAccess.Read);",
+  "new": "view = map.CreateViewAccessor(0, bytes - 4, MemoryMappedFileAccess.Read);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankTable.cs"
+ }
+]

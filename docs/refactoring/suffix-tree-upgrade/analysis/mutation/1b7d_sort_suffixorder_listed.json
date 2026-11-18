@@ -1,0 +1,268 @@
+[
+ {
+  "id": "C01",
+  "desc": "Add: the compares are not summed",
+  "old": "        Compares += o.Compares;\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs"
+ },
+ {
+  "id": "C02",
+  "desc": "Add: the rank lookups are not summed",
+  "old": "        RankLookups += o.RankLookups;\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs"
+ },
+ {
+  "id": "C03",
+  "desc": "Add: the LCE calls are not summed",
+  "old": "        LceCalls += o.LceCalls;\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs"
+ },
+ {
+  "id": "C04",
+  "desc": "Add: the leaf positions are not summed",
+  "old": "        LeafPositions += o.LeafPositions;\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs"
+ },
+ {
+  "id": "C05",
+  "desc": "Add: the scan positions are not summed",
+  "old": "        ScanPositions += o.ScanPositions;\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs"
+ },
+ {
+  "id": "C06",
+  "desc": "Add: the tie positions are not summed",
+  "old": "        TiePositions += o.TiePositions;\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs"
+ },
+ {
+  "id": "C07",
+  "desc": "Add: the tied compares are not summed",
+  "old": "        TiedCompares += o.TiedCompares;\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs"
+ },
+ {
+  "id": "C08",
+  "desc": "Add: the LCE steps are not summed",
+  "old": "        LceSteps += o.LceSteps;\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs"
+ },
+ {
+  "id": "C09",
+  "desc": "Add: the LCE symbols are not summed",
+  "old": "        LceSymbols += o.LceSymbols;\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs"
+ },
+ {
+  "id": "C10",
+  "desc": "CompareCore: the calls are not counted",
+  "old": "        c.Compares++;\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs"
+ },
+ {
+  "id": "C11",
+  "desc": "CompareCore: the tied calls are not counted",
+  "old": "if (tied) c.TiedCompares++;",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs"
+ },
+ {
+  "id": "C12",
+  "desc": "CompareCore: the same position is not equal",
+  "old": "        if (i == j) return 0;",
+  "new": "        if (i == j + 1000000) return 0;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs"
+ },
+ {
+  "id": "C13",
+  "desc": "CompareCore: the key is skipped for an untied call",
+  "old": "long skip = tied && t.KeySymbols <= maxLen ? t.KeySymbols : 0;",
+  "new": "long skip = t.KeySymbols <= maxLen ? t.KeySymbols : 0;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs"
+ },
+ {
+  "id": "C14",
+  "desc": "CompareCore: the key is skipped for a short suffix",
+  "old": "long skip = tied && t.KeySymbols <= maxLen ? t.KeySymbols : 0;",
+  "new": "long skip = tied ? t.KeySymbols : 0;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs"
+ },
+ {
+  "id": "C15",
+  "desc": "CompareCore: the key is not skipped",
+  "old": "long skip = tied && t.KeySymbols <= maxLen ? t.KeySymbols : 0;",
+  "new": "long skip = 0;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs"
+ },
+ {
+  "id": "C16",
+  "desc": "CompareCore: the key is skipped one symbol short",
+  "old": "long skip = tied && t.KeySymbols <= maxLen ? t.KeySymbols : 0;",
+  "new": "long skip = tied && t.KeySymbols <= maxLen ? t.KeySymbols - 1 : 0;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs"
+ },
+ {
+  "id": "C17",
+  "desc": "CompareCore: the key is skipped one symbol too far",
+  "old": "long skip = tied && t.KeySymbols <= maxLen ? t.KeySymbols : 0;",
+  "new": "long skip = tied && t.KeySymbols <= maxLen ? t.KeySymbols + 1 : 0;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs"
+ },
+ {
+  "id": "C18",
+  "desc": "CompareCore: the shorter suffix ignores the difference of positions",
+  "old": "long maxLen = t.Length - Math.Max(i, j);",
+  "new": "long maxLen = t.Length - Math.Min(i, j);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs"
+ },
+ {
+  "id": "C19",
+  "desc": "CompareCore: the offset is the sum of the residues",
+  "old": "int delta = (int)rj - (int)ri;",
+  "new": "int delta = (int)rj + (int)ri;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs"
+ },
+ {
+  "id": "C20",
+  "desc": "CompareCore: the difference is not made positive",
+  "old": "        if (delta < 0) delta += x;\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs"
+ },
+ {
+  "id": "C21",
+  "desc": "CompareCore: the witness is the difference",
+  "old": "int a = d.Cover.Witness[delta];",
+  "new": "int a = delta;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs"
+ },
+ {
+  "id": "C22",
+  "desc": "CompareCore: the offset is not made positive",
+  "old": "        if (l < 0) l += x;\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs"
+ },
+ {
+  "id": "C23",
+  "desc": "CompareCore: the offset is the witness",
+  "old": "int l = a - (int)ri;",
+  "new": "int l = a;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs"
+ },
+ {
+  "id": "C24",
+  "desc": "CompareCore: the offset is the residue difference the other way",
+  "old": "int l = a - (int)ri;",
+  "new": "int l = (int)ri - a;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs"
+ },
+ {
+  "id": "C25",
+  "desc": "CompareCore: the limit ignores the shorter suffix",
+  "old": "long lim = Math.Min(l, maxLen);",
+  "new": "long lim = l;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs"
+ },
+ {
+  "id": "C26",
+  "desc": "CompareCore: the skip ignores the limit",
+  "old": "long s = Math.Min(skip, lim);",
+  "new": "long s = skip;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs"
+ },
+ {
+  "id": "C27",
+  "desc": "CompareCore: the symbols are compared from the key end only",
+  "old": "if (lim > s)",
+  "new": "if (lim > s + 1)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs"
+ },
+ {
+  "id": "C28",
+  "desc": "CompareCore: the LCE is not counted",
+  "old": "            c.LceCalls++;\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs"
+ },
+ {
+  "id": "C29",
+  "desc": "CompareCore: the LCE ignores the skip",
+  "old": "matched = s + t.Lce(i + s, j + s, lim - s, ref c.LceSteps);",
+  "new": "matched = s + t.Lce(i, j, lim - s, ref c.LceSteps);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs"
+ },
+ {
+  "id": "C30",
+  "desc": "CompareCore: the LCE limit ignores the skip",
+  "old": "matched = s + t.Lce(i + s, j + s, lim - s, ref c.LceSteps);",
+  "new": "matched = s + t.Lce(i + s, j + s, lim, ref c.LceSteps);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs"
+ },
+ {
+  "id": "C31",
+  "desc": "CompareCore: the difference decides the other way",
+  "old": "if (matched < lim) return t.Symbol(i + matched) < t.Symbol(j + matched) ? -1 : 1;",
+  "new": "if (matched < lim) return t.Symbol(i + matched) > t.Symbol(j + matched) ? -1 : 1;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs"
+ },
+ {
+  "id": "C32",
+  "desc": "CompareCore: a difference at the limit decides",
+  "old": "if (matched < lim) return",
+  "new": "if (matched <= lim) return",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs"
+ },
+ {
+  "id": "C33",
+  "desc": "CompareCore: the shorter suffix is the larger",
+  "old": "if (l > maxLen) return i > j ? -1 : 1;",
+  "new": "if (l > maxLen) return i > j ? 1 : -1;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs"
+ },
+ {
+  "id": "C34",
+  "desc": "CompareCore: a suffix of exactly l symbols is the short one",
+  "old": "if (l > maxLen) return",
+  "new": "if (l >= maxLen) return",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs"
+ },
+ {
+  "id": "C35",
+  "desc": "CompareCore: the rank lookups are not counted",
+  "old": "        c.RankLookups += 2;\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs"
+ },
+ {
+  "id": "C36",
+  "desc": "CompareCore: the ranks compare the other way",
+  "old": "return d.Rank(i + l) < d.Rank(j + l) ? -1 : 1;",
+  "new": "return d.Rank(i + l) > d.Rank(j + l) ? -1 : 1;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs"
+ },
+ {
+  "id": "C37",
+  "desc": "CompareCore: the second rank is at the wrong offset",
+  "old": "return d.Rank(i + l) < d.Rank(j + l) ? -1 : 1;",
+  "new": "return d.Rank(i + l) < d.Rank(j) ? -1 : 1;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs"
+ },
+ {
+  "id": "C38",
+  "desc": "TiedComparer is the full comparison",
+  "old": "public int Compare(uint x, uint y) => order.CompareTied(x, y);",
+  "new": "public int Compare(uint x, uint y) => order.Compare(x, y);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs"
+ }
+]

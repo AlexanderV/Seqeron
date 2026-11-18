@@ -1,0 +1,198 @@
+[
+ {
+  "id": "T01",
+  "desc": "RangePositions: the positions start at one",
+  "old": "for (int i = 0; i < dest.Length; i++) dest[i] = (uint)(start + i);",
+  "new": "for (int i = 0; i < dest.Length; i++) dest[i] = (uint)(start + i + 1);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/PositionStore.cs"
+ },
+ {
+  "id": "T02",
+  "desc": "RangePositions: At is shifted",
+  "old": "public uint At(long index) => (uint)index;",
+  "new": "public uint At(long index) => (uint)index + 1;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/PositionStore.cs"
+ },
+ {
+  "id": "T03",
+  "desc": "MemoryPositions: Read ignores the start",
+  "old": "public void Read(long start, Span<uint> dest) => _data.AsSpan((int)start, dest.Length).CopyTo(dest);",
+  "new": "public void Read(long start, Span<uint> dest) => _data.AsSpan(0, dest.Length).CopyTo(dest);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/PositionStore.cs"
+ },
+ {
+  "id": "T04",
+  "desc": "MemoryPositions: the array is not returned",
+  "old": "        if (d is not null) ArrayPool<uint>.Shared.Return(d);",
+  "new": "        _ = d;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/PositionStore.cs"
+ },
+ {
+  "id": "T05",
+  "desc": "PositionFiles: the numbering starts at zero",
+  "old": "{prefix}-{Interlocked.Increment(ref _next):D8}.bin",
+  "new": "{prefix}-{Interlocked.Decrement(ref _next):D8}.bin",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/PositionStore.cs"
+ },
+ {
+  "id": "T06",
+  "desc": "FilePositions: Read ignores the start",
+  "old": "_file.ReadExactAt(MemoryMarshal.AsBytes(dest), start * 4);",
+  "new": "_file.ReadExactAt(MemoryMarshal.AsBytes(dest), 0);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/PositionStore.cs"
+ },
+ {
+  "id": "T07",
+  "desc": "FilePositions: At reads the entry before",
+  "old": "_file.ReadExactAt(MemoryMarshal.AsBytes(one), index * 4);",
+  "new": "_file.ReadExactAt(MemoryMarshal.AsBytes(one), (index == 0 ? 0 : index - 1) * 4);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/PositionStore.cs"
+ },
+ {
+  "id": "T08",
+  "desc": "FilePositions: Dispose does not close the file",
+  "old": "        _file?.Dispose();\n        _file = null;\n        files.Ledger.Remove(count * 4);",
+  "new": "        _file = null;\n        files.Ledger.Remove(count * 4);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/PositionStore.cs"
+ },
+ {
+  "id": "T09",
+  "desc": "FilePositions: Dispose does not give the bytes back",
+  "old": "        files.Ledger.Remove(count * 4);\n        RunStore.DeleteQuietly(path);",
+  "new": "        RunStore.DeleteQuietly(path);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/PositionStore.cs"
+ },
+ {
+  "id": "T10",
+  "desc": "FilePositions: Dispose does not delete the file",
+  "old": "        files.Ledger.Remove(count * 4);\n        RunStore.DeleteQuietly(path);",
+  "new": "        files.Ledger.Remove(count * 4);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/PositionStore.cs"
+ },
+ {
+  "id": "T11",
+  "desc": "FilePositions: a second Dispose gives the bytes back again",
+  "old": "        if (_disposed) return;\n        _disposed = true;\n        _file?.Dispose();\n        _file = null;\n        files.Ledger.Remove(count * 4);",
+  "new": "        _disposed = true;\n        _file?.Dispose();\n        _file = null;\n        files.Ledger.Remove(count * 4);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/PositionStore.cs"
+ },
+ {
+  "id": "T12",
+  "desc": "PosWriter: the capacity has no floor",
+  "old": "_capacity = Math.Max(spillBytes / 4, 16);",
+  "new": "_capacity = Math.Max(spillBytes / 4, 1);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/PositionStore.cs"
+ },
+ {
+  "id": "T13",
+  "desc": "PosWriter: the buffer is flushed one entry late",
+  "old": "if (_buffer.Length < _capacity) Grow();\n            else Flush();",
+  "new": "if (_buffer.Length < _capacity) Grow();\n            else if (_filled > _capacity) Flush();",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/PositionStore.cs"
+ },
+ {
+  "id": "T14",
+  "desc": "PosWriter: the buffer is flushed instead of grown",
+  "old": "if (_buffer.Length < _capacity) Grow();",
+  "new": "if (_buffer.Length < 0) Grow();",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/PositionStore.cs"
+ },
+ {
+  "id": "T15",
+  "desc": "PosWriter: the total is not counted",
+  "old": "        _buffer[_filled++] = p;\n        _total++;",
+  "new": "        _buffer[_filled++] = p;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/PositionStore.cs"
+ },
+ {
+  "id": "T16",
+  "desc": "PosWriter: a bucket in a file is handed over as memory",
+  "old": "if (_file is null)\n        {\n            var source = new MemoryPositions(_buffer, _filled);",
+  "new": "if (_file is null || _filled == _total)\n        {\n            var source = new MemoryPositions(_buffer, _filled);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/PositionStore.cs"
+ },
+ {
+  "id": "T17",
+  "desc": "PosWriter: the rest of a file bucket is not flushed",
+  "old": "        Flush();\n        _file.Dispose();\n        _file = null;\n        ArrayPool",
+  "new": "        _file.Dispose();\n        _file = null;\n        ArrayPool",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/PositionStore.cs"
+ },
+ {
+  "id": "T18",
+  "desc": "PosWriter: the file bucket buffer is not returned",
+  "old": "        _file = null;\n        ArrayPool<uint>.Shared.Return(_buffer);\n        _buffer = [];\n        return new FilePositions",
+  "new": "        _file = null;\n        _buffer = [];\n        return new FilePositions",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/PositionStore.cs"
+ },
+ {
+  "id": "T19",
+  "desc": "PosWriter: Dispose of a completed writer deletes",
+  "old": "if (_completed) return;\n        _completed = true;",
+  "new": "if (false) return;\n        _completed = true;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/PositionStore.cs"
+ },
+ {
+  "id": "T20",
+  "desc": "PosWriter: Dispose does not give the bytes back",
+  "old": "            _files.Ledger.Remove(_written * 4);\n            RunStore.DeleteQuietly(_path);",
+  "new": "            RunStore.DeleteQuietly(_path);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/PositionStore.cs"
+ },
+ {
+  "id": "T21",
+  "desc": "PosWriter: Dispose does not delete the file",
+  "old": "            _files.Ledger.Remove(_written * 4);\n            RunStore.DeleteQuietly(_path);",
+  "new": "            _files.Ledger.Remove(_written * 4);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/PositionStore.cs"
+ },
+ {
+  "id": "T22",
+  "desc": "PosWriter: Dispose does not close the file",
+  "old": "        _completed = true;\n        _file?.Dispose();\n        _file = null;\n        if (_path is not null)",
+  "new": "        _completed = true;\n        _file = null;\n        if (_path is not null)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/PositionStore.cs"
+ },
+ {
+  "id": "T23",
+  "desc": "PosWriter: Grow keeps the buffer size",
+  "old": "uint[] bigger = ArrayPool<uint>.Shared.Rent(Math.Min(_capacity, _buffer.Length * 2));",
+  "new": "uint[] bigger = ArrayPool<uint>.Shared.Rent(_buffer.Length);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/PositionStore.cs"
+ },
+ {
+  "id": "T24",
+  "desc": "PosWriter: Grow loses the entries",
+  "old": "Array.Copy(_buffer, bigger, _filled);",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/PositionStore.cs"
+ },
+ {
+  "id": "T25",
+  "desc": "PosWriter: the flush offset is the start",
+  "old": "_file.WriteAt(MemoryMarshal.AsBytes(_buffer.AsSpan(0, _filled)), (_total - _filled) * 4);",
+  "new": "_file.WriteAt(MemoryMarshal.AsBytes(_buffer.AsSpan(0, _filled)), 0);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/PositionStore.cs"
+ },
+ {
+  "id": "T26",
+  "desc": "PosWriter: the flushed bytes are not accounted",
+  "old": "            _files.Ledger.Add((long)_filled * 4);",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/PositionStore.cs"
+ },
+ {
+  "id": "T27",
+  "desc": "PosWriter: the written count is not kept",
+  "old": "            _written += _filled;\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/PositionStore.cs"
+ },
+ {
+  "id": "T28",
+  "desc": "PosWriter: the file is opened for append",
+  "old": "FileMode.Create, FileAccess.ReadWrite);",
+  "new": "FileMode.OpenOrCreate, FileAccess.ReadWrite);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/PositionStore.cs"
+ }
+]

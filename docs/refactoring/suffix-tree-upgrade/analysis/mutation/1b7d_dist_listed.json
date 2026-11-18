@@ -1,0 +1,37 @@
+[
+ {
+  "id": "Y01",
+  "desc": "Scatter: the target is always created sparse",
+  "old": "using MappedOutputFile? created = options.Files is null ? null : MappedOutputFile.Create(targetPath, slots * sizeof(TValue), options.Files);",
+  "new": "using MappedOutputFile? created = null;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs"
+ },
+ {
+  "id": "Y02",
+  "desc": "Scatter: the target is always reserved",
+  "old": "using MappedOutputFile? created = options.Files is null ? null : MappedOutputFile.Create(targetPath, slots * sizeof(TValue), options.Files);",
+  "new": "using MappedOutputFile? created = MappedOutputFile.Create(targetPath, slots * sizeof(TValue), options.Files);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs"
+ },
+ {
+  "id": "Y03",
+  "desc": "Scatter: the reserved target has the default window",
+  "old": "created.CreateWriter(options.WindowBytes, counters)",
+  "new": "created.CreateWriter(MappedWindowWriter.DefaultWindowBytes, counters)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs"
+ },
+ {
+  "id": "Y04",
+  "desc": "Scatter: the reserved target is not counted",
+  "old": "created.CreateWriter(options.WindowBytes, counters)",
+  "new": "created.CreateWriter(options.WindowBytes, null)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs"
+ },
+ {
+  "id": "Y05",
+  "desc": "Scatter: the reserved target is half the length",
+  "old": "MappedOutputFile.Create(targetPath, slots * sizeof(TValue), options.Files);",
+  "new": "MappedOutputFile.Create(targetPath, slots * sizeof(TValue) / 2, options.Files);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs"
+ }
+]

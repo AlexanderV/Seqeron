@@ -1,0 +1,93 @@
+[
+ {
+  "id": "W01",
+  "desc": "SplitMix: the increment",
+  "old": "_state += 0x9E3779B97F4A7C15UL;",
+  "new": "_state += 0x9E3779B97F4A7C14UL;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/SeededRandom.cs"
+ },
+ {
+  "id": "W02",
+  "desc": "SplitMix: the first shift",
+  "old": "z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9UL;",
+  "new": "z = (z ^ (z >> 31)) * 0xBF58476D1CE4E5B9UL;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/SeededRandom.cs"
+ },
+ {
+  "id": "W03",
+  "desc": "SplitMix: the second multiplier",
+  "old": "z = (z ^ (z >> 27)) * 0x94D049BB133111EBUL;",
+  "new": "z = (z ^ (z >> 27)) * 0x94D049BB133111EAUL;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/SeededRandom.cs"
+ },
+ {
+  "id": "W04",
+  "desc": "SplitMix: the last shift",
+  "old": "return z ^ (z >> 31);",
+  "new": "return z ^ (z >> 32);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/SeededRandom.cs"
+ },
+ {
+  "id": "W05",
+  "desc": "NextInt: the quotient instead of the remainder",
+  "old": "return (int)(Next() % (ulong)bound);",
+  "new": "return (int)(Next() / (ulong)bound);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/SeededRandom.cs"
+ },
+ {
+  "id": "W06",
+  "desc": "NextInt: a bound of zero reaches the division",
+  "old": "ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(bound, 0);",
+  "new": "ArgumentOutOfRangeException.ThrowIfLessThan(bound, 0);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/SeededRandom.cs"
+ },
+ {
+  "id": "P01",
+  "desc": "WorkPool: a failed pool still hands out tasks",
+  "old": "if (_error is null && _stack.Count > 0)",
+  "new": "if (_stack.Count > 0)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/SeededRandom.cs"
+ },
+ {
+  "id": "P02",
+  "desc": "WorkPool: a failure does not end the wait",
+  "old": "if (_error is not null || _active == 0)",
+  "new": "if (_active == 0)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/SeededRandom.cs"
+ },
+ {
+  "id": "P03",
+  "desc": "WorkPool: a finished task is counted twice",
+  "old": "            _active--;\n            Monitor.PulseAll(_stack);\n        }\n    }\n\n    internal void Fail",
+  "new": "            _active -= 2;\n            Monitor.PulseAll(_stack);\n        }\n    }\n\n    internal void Fail",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/SeededRandom.cs"
+ },
+ {
+  "id": "P04",
+  "desc": "WorkPool: the last error wins",
+  "old": "_error ??= e;",
+  "new": "_error = e;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/SeededRandom.cs"
+ },
+ {
+  "id": "P05",
+  "desc": "WorkPool: first in first out",
+  "old": "task = _stack.Pop();",
+  "new": "task = _stack.ToArray()[^1];",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/SeededRandom.cs"
+ },
+ {
+  "id": "P06",
+  "desc": "WorkPool: a task is not counted as active when taken",
+  "old": "                    _active++;\n                    return true;",
+  "new": "                    return true;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/SeededRandom.cs"
+ },
+ {
+  "id": "P07",
+  "desc": "WorkPool: Fail does not wake the waiters",
+  "old": "            _error ??= e;\n            Monitor.PulseAll(_stack);",
+  "new": "            _error ??= e;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/SeededRandom.cs"
+ }
+]

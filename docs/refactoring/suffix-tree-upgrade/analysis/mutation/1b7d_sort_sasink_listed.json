@@ -1,0 +1,37 @@
+[
+ {
+  "id": "Z01",
+  "desc": "the writer covers a window of its own size",
+  "old": "public ISaSliceWriter CreateWriter() => new Writer(file.CreateWriter(windowBytes, counters));",
+  "new": "public ISaSliceWriter CreateWriter() => new Writer(file.CreateWriter(MappedWindowWriter.DefaultWindowBytes, counters));",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SaSink.cs"
+ },
+ {
+  "id": "Z02",
+  "desc": "the writer is not counted",
+  "old": "public ISaSliceWriter CreateWriter() => new Writer(file.CreateWriter(windowBytes, counters));",
+  "new": "public ISaSliceWriter CreateWriter() => new Writer(file.CreateWriter(windowBytes, null));",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SaSink.cs"
+ },
+ {
+  "id": "Z03",
+  "desc": "Write: the entry offset is the byte offset",
+  "old": "inner.WriteAt(entryOffset * 4, MemoryMarshal.AsBytes(data));",
+  "new": "inner.WriteAt(entryOffset, MemoryMarshal.AsBytes(data));",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SaSink.cs"
+ },
+ {
+  "id": "Z04",
+  "desc": "Write: the entries are not bytes",
+  "old": "MemoryMarshal.AsBytes(data));\n\n        public void Dispose",
+  "new": "MemoryMarshal.AsBytes(data)[..(data.Length * 2)]);\n\n        public void Dispose",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SaSink.cs"
+ },
+ {
+  "id": "Z05",
+  "desc": "Dispose: the writer stays open",
+  "old": "public void Dispose() => inner.Dispose();",
+  "new": "public void Dispose() { }",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SaSink.cs"
+ }
+]

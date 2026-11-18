@@ -1,0 +1,604 @@
+[
+ {
+  "id": "M01",
+  "desc": "PrefixOrder: equal positions are not equal",
+  "old": "        if (pa == pb) return 0;\n        long maxLen",
+  "new": "        long maxLen",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ },
+ {
+  "id": "M02",
+  "desc": "PrefixOrder: a common prefix of more than X is needed",
+  "old": "if (l >= x) return 0;",
+  "new": "if (l > x) return 0;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ },
+ {
+  "id": "M03",
+  "desc": "PrefixOrder: the shorter suffix is the larger",
+  "old": "if (l == maxLen) return pa > pb ? -1 : 1;",
+  "new": "if (l == maxLen) return pa > pb ? 1 : -1;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ },
+ {
+  "id": "M04",
+  "desc": "PrefixOrder: the symbols compare the other way",
+  "old": "return text.Symbol(pa + l) < text.Symbol(pb + l) ? -1 : 1;\n    }\n}",
+  "new": "return text.Symbol(pa + l) > text.Symbol(pb + l) ? -1 : 1;\n    }\n}",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ },
+ {
+  "id": "M05",
+  "desc": "PrefixOrder: the limit is not clamped to the shorter suffix",
+  "old": "long lim = Math.Min(x, maxLen);",
+  "new": "long lim = x;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ },
+ {
+  "id": "M06",
+  "desc": "Run: the root is a leaf one record early",
+  "old": "_g.Samples > _o.BucketCapacity, 1)",
+  "new": "_g.Samples >= _o.BucketCapacity, 1)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ },
+ {
+  "id": "M07",
+  "desc": "Run: the error is swallowed",
+  "old": "if (_pool.Error is { } error) ExceptionDispatchInfo.Capture(error).Throw();",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ },
+ {
+  "id": "M08",
+  "desc": "Run: the leaves are walked last to first",
+  "old": "for (int i = kids.Count - 1; i >= 0; i--) stack.Push(kids[i]);",
+  "new": "for (int i = 0; i < kids.Count; i++) stack.Push(kids[i]);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ },
+ {
+  "id": "M09",
+  "desc": "Run: an empty leaf is kept",
+  "old": "else if (node.Leaf is { Count: > 0 } leaf)",
+  "new": "else if (node.Leaf is { } leaf)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ },
+ {
+  "id": "M10",
+  "desc": "Run: the statistics lose the leaves",
+  "old": "        _stats.Leaves = _leaves;\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ },
+ {
+  "id": "M11",
+  "desc": "Run: the statistics lose the splits",
+  "old": "        _stats.SplitScans = _splitScans;\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ },
+ {
+  "id": "M12",
+  "desc": "Run: the statistics lose the file runs",
+  "old": "        _stats.FileRuns = _fileRuns;\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ },
+ {
+  "id": "M13",
+  "desc": "Run: the statistics lose the scans",
+  "old": "        _stats.Scans = _scans;\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ },
+ {
+  "id": "M14",
+  "desc": "Run: the non-unique count is dropped",
+  "old": "        _stats.NonUniqueRecords = result.NonUnique;\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ },
+ {
+  "id": "M15",
+  "desc": "Run: no worker thread is started",
+  "old": "for (int t = 1; t < threads; t++)\n        {\n            var th = new Thread(Worker)",
+  "new": "for (int t = 1; t < 1; t++)\n        {\n            var th = new Thread(Worker)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ },
+ {
+  "id": "M16",
+  "desc": "Merge: a window is one slot short",
+  "old": "long end = Math.Min(s, start + windowSlots);",
+  "new": "long end = Math.Min(s, start + windowSlots - 1);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ },
+ {
+  "id": "M17",
+  "desc": "Merge: the merge budget is not shared among the file runs",
+  "old": "long fair = _o.MergeBufferBudget / 8 / Math.Max(1, fileRuns);",
+  "new": "long fair = _o.MergeBufferBudget / 8;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ },
+ {
+  "id": "M18",
+  "desc": "Merge: a short count of records is accepted",
+  "old": "if (got != end - start) throw",
+  "new": "if (got > end - start) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ },
+ {
+  "id": "M19",
+  "desc": "Merge: the total check is dropped",
+  "old": "if (scattered != s) throw",
+  "new": "if (scattered > s) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ },
+ {
+  "id": "M20",
+  "desc": "Merge: the sink gets the window from its own start",
+  "old": "sink.Accept(start, span);",
+  "new": "sink.Accept(0, span);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ },
+ {
+  "id": "M21",
+  "desc": "Merge: an empty sample is merged",
+  "old": "if (s == 0) return;",
+  "new": "if (s < 0) return;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ },
+ {
+  "id": "M22",
+  "desc": "Merge: the trace is not called",
+  "old": "        _o.Trace?.Invoke(\"merge\");\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ },
+ {
+  "id": "M23",
+  "desc": "AssignNames: a group that continues does not continue",
+  "old": "bool continues = prev is not null && _text.Key(prev.LastPos) == _text.Key(leaf.FirstPos) && _prefix.Compare(prev.LastPos, leaf.FirstPos) == 0;",
+  "new": "bool continues = false;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ },
+ {
+  "id": "M24",
+  "desc": "AssignNames: the continuation ignores the key",
+  "old": "_text.Key(prev.LastPos) == _text.Key(leaf.FirstPos) && _prefix",
+  "new": "true && _prefix",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ },
+ {
+  "id": "M25",
+  "desc": "AssignNames: the continuation ignores the prefix",
+  "old": "&& _prefix.Compare(prev.LastPos, leaf.FirstPos) == 0;",
+  "new": ";",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ },
+ {
+  "id": "M26",
+  "desc": "AssignNames: the offset of a continued group",
+  "old": "leaf.Offset = (uint)(names - 1);",
+  "new": "leaf.Offset = (uint)names;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ },
+ {
+  "id": "M27",
+  "desc": "AssignNames: the new names of a continued group",
+  "old": "names += leaf.Distinct - 1;",
+  "new": "names += leaf.Distinct;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ },
+ {
+  "id": "M28",
+  "desc": "AssignNames: the offset of a new group",
+  "old": "leaf.Offset = (uint)names;\n                names += leaf.Distinct;",
+  "new": "leaf.Offset = (uint)names + 1;\n                names += leaf.Distinct;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ },
+ {
+  "id": "M29",
+  "desc": "AssignNames: the first group of a leaf with two is not subtracted",
+  "old": "if (leaf.FirstLen == 1) inner--;",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ },
+ {
+  "id": "M30",
+  "desc": "AssignNames: the last group of a leaf with two is not subtracted",
+  "old": "if (leaf.LastLen == 1) inner--;",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ },
+ {
+  "id": "M31",
+  "desc": "AssignNames: a leaf with one group is a leaf with two",
+  "old": "if (leaf.Distinct >= 2)\n            {\n                inner",
+  "new": "if (leaf.Distinct >= 1)\n            {\n                inner",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ },
+ {
+  "id": "M32",
+  "desc": "AssignNames: the open group of a continued single is not extended",
+  "old": "                    openSize += leaf.Count;",
+  "new": "                    openSize = leaf.Count;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ },
+ {
+  "id": "M33",
+  "desc": "AssignNames: a closed single group is not counted",
+  "old": "                if (openSize == 1) singles++;\n                if (leaf.Distinct == 1)",
+  "new": "                if (leaf.Distinct == 1)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ },
+ {
+  "id": "M34",
+  "desc": "AssignNames: the first group of a new leaf is not counted",
+  "old": "                    if (leaf.FirstLen == 1) singles++;\n                    singles += inner;",
+  "new": "                    singles += inner;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ },
+ {
+  "id": "M35",
+  "desc": "AssignNames: the last open group is not counted",
+  "old": "        if (openSize == 1) singles++;\n        r.Distinct = names;",
+  "new": "        r.Distinct = names;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ },
+ {
+  "id": "M36",
+  "desc": "AssignNames: the shared count is the unique count",
+  "old": "r.NonUnique = _g.Samples - singles;",
+  "new": "r.NonUnique = singles;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ },
+ {
+  "id": "M37",
+  "desc": "Worker: the statistics of a worker are lost",
+  "old": "                _leaves += w.Leaves;\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ },
+ {
+  "id": "M38",
+  "desc": "Collect: the capacity is exceeded by one before the overflow",
+  "old": "if (stored == cap)\n                    {\n                        overflow = true;",
+  "new": "if (stored > cap)\n                    {\n                        overflow = true;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ },
+ {
+  "id": "M39",
+  "desc": "Collect: the capacity is not bounded by the sample",
+  "old": "int cap = (int)Math.Min(owner._o.BucketCapacity, Math.Max(1, owner._g.Samples));",
+  "new": "int cap = (int)owner._o.BucketCapacity;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ },
+ {
+  "id": "M40",
+  "desc": "Collect: the scan stops at the last block",
+  "old": "for (long block = 0, blocks = n / x; block <= blocks && !overflow; block++)",
+  "new": "for (long block = 0, blocks = n / x; block < blocks && !overflow; block++)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ },
+ {
+  "id": "M41",
+  "desc": "Collect: a position beyond n is taken",
+  "old": "if (p > n) break;\n                    ulong key = text.Key(p);\n                    if (!InRange(task.Lo, task.Hi, key, (uint)p)) continue;\n                    if (stored == cap)",
+  "new": "if (p > n + 1) break;\n                    ulong key = text.Key(p);\n                    if (!InRange(task.Lo, task.Hi, key, (uint)p)) continue;\n                    if (stored == cap)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ },
+ {
+  "id": "M42",
+  "desc": "Collect: the overflow is not queued again",
+  "old": "owner._pool.Push(task with { Sample = true });\n                return;",
+  "new": "return;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ },
+ {
+  "id": "M43",
+  "desc": "InRange: the lower bound is exclusive",
+  "old": "if (key == lo.Key && Cmp(lo.Pos, p) > 0) return false;",
+  "new": "if (key == lo.Key && Cmp(lo.Pos, p) >= 0) return false;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ },
+ {
+  "id": "M44",
+  "desc": "InRange: the upper bound is inclusive",
+  "old": "if (key == hi.Key && Cmp(p, hi.Pos) >= 0) return false;",
+  "new": "if (key == hi.Key && Cmp(p, hi.Pos) > 0) return false;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ },
+ {
+  "id": "M45",
+  "desc": "InRange: the lower key is inclusive of smaller keys",
+  "old": "if (key < lo.Key) return false;",
+  "new": "if (key < lo.Key - 1) return false;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ },
+ {
+  "id": "M46",
+  "desc": "InRange: the upper key bound",
+  "old": "if (key > hi.Key) return false;",
+  "new": "if (key > hi.Key + 1) return false;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ },
+ {
+  "id": "M47",
+  "desc": "Cmp: the position tie-break is dropped",
+  "old": "return c != 0 ? c : a.CompareTo(b);\n        }\n\n        /// <summary>One scan that stores",
+  "new": "return c;\n        }\n\n        /// <summary>One scan that stores",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ },
+ {
+  "id": "M48",
+  "desc": "Split: the reservoir does not keep the first records",
+  "old": "if (count <= cap)\n                    {\n                        reservoir[count - 1] = (uint)p;",
+  "new": "if (count < cap)\n                    {\n                        reservoir[count - 1] = (uint)p;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ },
+ {
+  "id": "M49",
+  "desc": "Split: the replacement index may be the capacity",
+  "old": "if (j < (ulong)cap) reservoir[(int)j] = (uint)p;",
+  "new": "if (j <= (ulong)cap) reservoir[(int)j] = (uint)p;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ },
+ {
+  "id": "M50",
+  "desc": "Split: all of the reservoir is used though it is not full",
+  "old": "int size = (int)Math.Min(count, cap);",
+  "new": "int size = cap;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ },
+ {
+  "id": "M51",
+  "desc": "Split: a reservoir of two splits",
+  "old": "if (size < 3) throw",
+  "new": "if (size < 2) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ },
+ {
+  "id": "M52",
+  "desc": "Split: the fan-out is the cap only",
+  "old": "int fan = (int)Math.Min(Math.Max(2, ((2 * count) + bucket - 1) / bucket), Math.Max(2, owner._o.FanOut));",
+  "new": "int fan = Math.Max(2, owner._o.FanOut);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ },
+ {
+  "id": "M53",
+  "desc": "Split: the fan-out ignores the cap",
+  "old": "int fan = (int)Math.Min(Math.Max(2, ((2 * count) + bucket - 1) / bucket), Math.Max(2, owner._o.FanOut));",
+  "new": "int fan = (int)Math.Max(2, ((2 * count) + bucket - 1) / bucket);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ },
+ {
+  "id": "M54",
+  "desc": "Split: the splitters are the first quantile",
+  "old": "int i = (int)((long)t * size / fan);",
+  "new": "int i = (int)((long)(t - 1) * size / fan);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ },
+ {
+  "id": "M55",
+  "desc": "Split: equal splitter indices are kept",
+  "old": "if (i <= last) continue;",
+  "new": "if (i < last) continue;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ },
+ {
+  "id": "M56",
+  "desc": "Split: the children are pushed first to last",
+  "old": "for (int i = tasks.Count - 1; i >= 0; i--) owner._pool.Push(tasks[i]);",
+  "new": "for (int i = 0; i < tasks.Count; i++) owner._pool.Push(tasks[i]);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ },
+ {
+  "id": "M57",
+  "desc": "Split: the last child has no upper bound of its own",
+  "old": "tasks.Add(new NamingTask(prev, task.Hi, lastNode, false, id + (ulong)kids.Count));",
+  "new": "tasks.Add(new NamingTask(prev, null, lastNode, false, id + (ulong)kids.Count));",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ },
+ {
+  "id": "M58",
+  "desc": "Split: the first child has no lower bound of its own",
+  "old": "NamingBound? prev = task.Lo;",
+  "new": "NamingBound? prev = null;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ },
+ {
+  "id": "M59",
+  "desc": "Split: the seed ignores the task",
+  "old": "var rng = new SeededRandom(owner._o.Seed ^ (task.Id * 0x9E3779B97F4A7C15UL));",
+  "new": "var rng = new SeededRandom(owner._o.Seed);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ },
+ {
+  "id": "M60",
+  "desc": "Split: the scans are not counted",
+  "old": "            SplitScans++;\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ },
+ {
+  "id": "M61",
+  "desc": "Execute: the scans are not counted",
+  "old": "            Scans++;\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ },
+ {
+  "id": "M62",
+  "desc": "Execute: the trace is not called",
+  "old": "            owner._o.Trace?.Invoke(\"naming\");\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ },
+ {
+  "id": "M63",
+  "desc": "Execute: a leaf is split and a split is collected",
+  "old": "if (task.Sample) Split(task);\n            else Collect(task);",
+  "new": "if (!task.Sample) Split(task);\n            else Collect(task);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ },
+ {
+  "id": "M64",
+  "desc": "Finish: key ties of two are not ordered",
+  "old": "if (e - s >= 2) MergeSort(pos.Slice(s, e - s), _pos2.AsSpan(e - s));",
+  "new": "if (e - s > 2) MergeSort(pos.Slice(s, e - s), _pos2.AsSpan(e - s));",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ },
+ {
+  "id": "M65",
+  "desc": "Finish: the name is not the distinct count",
+  "old": "values[i] = ((ulong)owner._g.SlotOf(pos[i]) << 32) | (uint)distinct;",
+  "new": "values[i] = ((ulong)owner._g.SlotOf(pos[i]) << 32) | (uint)(distinct + 1);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ },
+ {
+  "id": "M66",
+  "desc": "Finish: a group is new only when the key differs",
+  "old": "if (i == 0 || keys[i] != keys[i - 1] || owner._prefix.Compare(pos[i - 1], pos[i]) != 0)",
+  "new": "if (i == 0 || keys[i] != keys[i - 1])",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ },
+ {
+  "id": "M67",
+  "desc": "Finish: a group of size one is not counted in the middle",
+  "old": "                        if (size == 1) singles++;\n                        if (distinct == 1) firstLen = size;",
+  "new": "                        if (distinct == 1) firstLen = size;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ },
+ {
+  "id": "M68",
+  "desc": "Finish: the first group length is taken at the second group",
+  "old": "if (distinct == 1) firstLen = size;",
+  "new": "if (distinct == 2) firstLen = size;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ },
+ {
+  "id": "M69",
+  "desc": "Finish: the last group of size one is not counted",
+  "old": "            if (lastLen == 1) singles++;\n            if (distinct == 1) firstLen = lastLen;",
+  "new": "            if (distinct == 1) firstLen = lastLen;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ },
+ {
+  "id": "M70",
+  "desc": "Finish: a bucket of one group has no first length",
+  "old": "            if (distinct == 1) firstLen = lastLen;\n            uint firstPos",
+  "new": "            uint firstPos",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ },
+ {
+  "id": "M71",
+  "desc": "Finish: the last position is the first",
+  "old": "uint firstPos = pos[0], lastPos = pos[m - 1];",
+  "new": "uint firstPos = pos[0], lastPos = pos[0];",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ },
+ {
+  "id": "M72",
+  "desc": "Finish: the values are not sorted by slot",
+  "old": "            values.Sort();\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ },
+ {
+  "id": "M73",
+  "desc": "Finish: an empty bucket has a run",
+  "old": "if (m == 0) return new LeafResult();",
+  "new": "if (m < 0) return new LeafResult();",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ },
+ {
+  "id": "M74",
+  "desc": "Finish: the file runs are not counted",
+  "old": "if (!run.InMemory) FileRuns++;",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ },
+ {
+  "id": "M75",
+  "desc": "Finish: a short bucket is insertion sorted up to 25",
+  "old": "if (m <= 24) KeySort.InsertionSort(keys, pos);\n            else KeySort.RadixSort(_keys, _keys2, _pos, _pos2, m);\n            keys = _keys.AsSpan(m);\n            pos = _pos.AsSpan(m);\n            int s = 0;",
+  "new": "if (m <= 24) KeySort.InsertionSort(keys, pos);\n            else KeySort.RadixSort(_keys, _keys2, _pos, _pos2, m - 1);\n            keys = _keys.AsSpan(m);\n            pos = _pos.AsSpan(m);\n            int s = 0;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ },
+ {
+  "id": "M76",
+  "desc": "MergeSort: equal prefixes are reordered",
+  "old": "if (prefix.Compare(a[mid], v) <= 0) lo = mid + 1;",
+  "new": "if (prefix.Compare(a[mid], v) < 0) lo = mid + 1;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ },
+ {
+  "id": "M78",
+  "desc": "MergeSort: the merge takes the left on a strict order",
+  "old": "if (prefix.Compare(a[q], tmp[p]) < 0) a[k++] = a[q++];",
+  "new": "if (prefix.Compare(a[q], tmp[p]) <= 0) a[k++] = a[q++];",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ },
+ {
+  "id": "M79",
+  "desc": "MergeSort: the left half is not copied",
+  "old": "            a[..half].CopyTo(tmp);\n            int p = 0, q = half, k = 0;",
+  "new": "            int p = 0, q = half, k = 0;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ },
+ {
+  "id": "M80",
+  "desc": "MergeSort: the rest of the left half is dropped",
+  "old": "            while (p < half) a[k++] = tmp[p++];\n        }\n    }\n}",
+  "new": "        }\n    }\n}",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ },
+ {
+  "id": "M81",
+  "desc": "MergeSort: binary insertion up to seven",
+  "old": "if (n <= 6)\n            {\n                for (int i = 1; i < n; i++)\n                {\n                    uint v = a[i];",
+  "new": "if (n <= 7)\n            {\n                for (int i = 1; i < n; i++)\n                {\n                    uint v = a[i];",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ },
+ {
+  "id": "K01",
+  "desc": "InsertionSort: unstable",
+  "old": "while (j >= 0 && keys[j] > k)",
+  "new": "while (j >= 0 && keys[j] >= k)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ },
+ {
+  "id": "K02",
+  "desc": "InsertionSort: the positions do not move",
+  "old": "                pos[j + 1] = pos[j];\n                j--;",
+  "new": "                j--;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ },
+ {
+  "id": "K03",
+  "desc": "RadixSort: the digit skip is wrong",
+  "old": "if (h[(int)((first >> shift) & 0xFF)] == m) continue;",
+  "new": "if (h[(int)((first >> shift) & 0xFF)] >= m - 1) continue;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ },
+ {
+  "id": "K04",
+  "desc": "RadixSort: the sorted pairs are left in the second blocks",
+  "old": "        if (swapped)\n        {\n            k2.CopyTo(k1);\n            p2.CopyTo(p1);\n        }",
+  "new": "        if (swapped)\n        {\n            k2.CopyTo(k1);\n        }",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ },
+ {
+  "id": "K05",
+  "desc": "RadixSort: the top digit is not counted",
+  "old": "hist[1792 + (int)(k >> 56)]++;",
+  "new": "hist[1792 + (int)((k >> 56) & 0x7F)]++;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ },
+ {
+  "id": "K06",
+  "desc": "RadixSort: the third digit is the second",
+  "old": "hist[512 + (int)((k >> 16) & 0xFF)]++;",
+  "new": "hist[512 + (int)((k >> 8) & 0xFF)]++;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs"
+ }
+]
