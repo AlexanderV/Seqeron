@@ -29,6 +29,8 @@ cd docs/Validation/review-2026-09/handoff/A1-10d
 ls -l returned/           # A1-10d-out.zip
 ```
 
+**Troubleshooting.** If `docker build` stops at step 4 with `No module named 'json'`, you have an older checkout: `git pull` (the Dockerfile now installs the full `python3`, not `python3-minimal`).
+
 ## What to send back
 
 The archive `returned/A1-10d-out.zip` (or `.tar.gz`) - place it in this repository under
