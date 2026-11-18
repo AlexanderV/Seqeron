@@ -6,6 +6,7 @@
 
 | tool | server | Method ID | doc |
 |------|--------|-----------|-----|
+| `alignment_distance_matrix` | Analysis | `MultipleAlignmentStatistics.CalculateDistanceMatrix` | [doc](../../../../docs/mcp/tools/analysis/alignment_distance_matrix.md) |
 | `alphabet_pwm_score_pvalue` | Analysis | `MotifFinder.AlphabetPwmScorePValue` | [doc](../../../../docs/mcp/tools/analysis/alphabet_pwm_score_pvalue.md) |
 | `alphabet_pwm_score_thresholds` | Analysis | `AlphabetPositionWeightMatrix.ScoreDistribution` | [doc](../../../../docs/mcp/tools/analysis/alphabet_pwm_score_thresholds.md) |
 | `analyze_gc_content` | Analysis | `GcSkewCalculator.AnalyzeGcContent` | [doc](../../../../docs/mcp/tools/analysis/analyze_gc_content.md) |
@@ -102,6 +103,7 @@
 | `mismatch_coaxial_stacking` | Analysis | `RnaSecondaryStructure.CalculateMismatchCoaxialStacking` | [doc](../../../../docs/mcp/tools/analysis/mismatch_coaxial_stacking.md) |
 | `most_frequent_kmers` | Analysis | `KmerAnalyzer.FindMostFrequentKmers` | [doc](../../../../docs/mcp/tools/analysis/most_frequent_kmers.md) |
 | `multibranch_loop_energy` | Analysis | `RnaSecondaryStructure.CalculateMultibranchLoopEnergy` | [doc](../../../../docs/mcp/tools/analysis/multibranch_loop_energy.md) |
+| `multiple_alignment_statistics` | Analysis | `MultipleAlignmentStatistics.Calculate` | [doc](../../../../docs/mcp/tools/analysis/multiple_alignment_statistics.md) |
 | `oligo_analysis` | Analysis | `MotifFinder.DiscoverMotifs` | [doc](../../../../docs/mcp/tools/analysis/oligo_analysis.md) |
 | `parse_dot_bracket` | Analysis | `RnaSecondaryStructure.ParseDotBracket` | [doc](../../../../docs/mcp/tools/analysis/parse_dot_bracket.md) |
 | `predict_chou_fasman` | Analysis | `SequenceStatistics.PredictSecondaryStructure` | [doc](../../../../docs/mcp/tools/analysis/predict_chou_fasman.md) |

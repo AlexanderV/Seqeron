@@ -134,7 +134,9 @@ Both overload pairs share one column classifier core (`CalculateStatisticsCore`,
 
 **Intentionally simplified:** none for the counted statistics. The scalar `ScoringMatrix` overloads cannot express graded residue-pair scores (they decide similarity per class, identical vs non-identical); for protein or IUPAC DNA use the `SubstitutionMatrix` overloads.
 
-**Not implemented:** residue-pair matrices other than the three built-ins (any other table can be supplied via the public `SubstitutionMatrix` constructor); BLAST's integer-rounded percent identity; EMBOSS's multi-sequence (>2) consensus statistics.
+**Also implemented (audit round 1, A1-9, B09 F42/F43):** BLAST's integer-rounded percentages and BLAST positives (§5.5) and statistics of an alignment of more than two sequences (§5.6: EMBOSS infoalign / distmat, ClustalW conservation line).
+
+**Not implemented:** residue-pair matrices other than the three built-ins (any other table can be supplied via the public `SubstitutionMatrix` constructor); EMBOSS distmat's Kimura / Tamura / Tajima-Nei / Jin-Nei corrections and its `-ambiguous` / `-position` options (uncorrected and Jukes-Cantor are implemented); the ClustalW `-type=auto` guess (the residue type is explicit or the EMBOSS first-row rule).
 
 ### 5.4 Deviations and Assumptions (Optional)
 
@@ -145,6 +147,23 @@ Both overload pairs share one column classifier core (`CalculateStatisticsCore`,
 | 3 | Unequal rows not rejected | Deviation | exception / wrong counts | fixed | B09 F12 |
 | 4 | No gap-opening count, no positives | Missing | BLAST/Biopython parity | added | B09 F13 |
 | 5 | Similarity only from a scalar model; markup `' '` for mismatches, `.` declared unreachable; identical X/X counted similar | Deviation | protein/IUPAC similarity unavailable, markup differed from needle | fixed | B09 F14 (SubstitutionMatrix, EMBOSS classifier) |
+
+### 5.5 BLAST-style statistics (A1-9, B09 F42)
+
+`AlignmentStatistics` carries the BLAST+ report values (NCBI C++ toolkit `src/objtools/align_format/align_format_util.cpp` and `showalign.cpp`, opened 2026-11-18):
+
+- `BlastPercent(n, d)` = `CAlignFormatUtil::GetPercentMatch`: an **integer**, `(int)(0.5 + 100·n/d)` (round half up) but **never 100 unless n = d** (an alignment with mismatches is at most 99%); used for `Identities = a/L (p%)`, `Positives = b/L (q%)` and `Gaps = g/L (r%)`. Properties `BlastPercentIdentity`, `BlastPercentPositives`, `BlastPercentGaps`; `ToBlastString(protein)` prints the pairwise-report line; `BlastTabularPidentText` is the `-outfmt 6` `pident` (100·Matches/L, three decimals in BLAST+ 2.12; "100.000" only when all columns match).
+- `BlastPositives` = identities + non-identical positive-score columns (BLAST+ `x_FillIdentityInfo`: `match + '+'`); it differs from the EMBOSS `Positives` (§2.2) only for an identical pair whose own score is not positive (X/X in BLOSUM62), which BLAST counts as an identity.
+- Oracle (`scripts/alignment/generate_blast_stats_oracle.py`, `TestData/Alignment/blast_stats_oracle.tsv`): BLAST+ 2.12.0 `blastn` (megablast and blastn tasks, `-dust no`) and `blastp` (`-comp_based_stats 0 -seg no`) on 320 random homologous pairs, best HSP both as `-outfmt "6 qseq sseq length nident mismatch gapopen gaps positive pident"` and as pairwise text (`-outfmt 0`). Seqeron's `Matches`, `Mismatches`, `GapOpens`, `Gaps`, `AlignmentLength`, `BlastPositives`, the three integer percentages, `pident` text and the whole report line equal BLAST on all 320 (24 rows exercise the "99, not 100" cap: pident 99.5-99.99).
+
+### 5.6 Multiple-alignment statistics (A1-9, B09 F43)
+
+`MultipleAlignmentStatistics` ([MultipleAlignmentStatistics.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MultipleAlignmentStatistics.cs), project Analysis because it calls the EMBOSS-`cons` consensus `MotifFinder.GenerateEmbossConsensus` — not re-implemented) works on gapped rows (upper-cased, `.`/`~` read as `-`; unequal rows rejected):
+
+- `CalculateSequenceStatistics(rows, referenceIndex?, residueType)` = EMBOSS `infoalign` (`infoalign_Compare`, `emboss/infoalign.c`, opened): per row against the reference row or the consensus (plurality 50 % of the total weight, identity 0): leading/trailing gaps of the row are ignored; `SeqLen = Ident + Similar + Differ`; `AlignLen` = columns between the row's first and last residue; `Gaps` = internal gap runs, `GapLen` = internal gap positions; a residue is Identical (case-insensitive equal), else Similar when the EDNAFULL/EBLOSUM62 score with the reference symbol is > 0, else Different (also against a reference gap); `% Change = 100·(AlignLen − Ident)/AlignLen`. Oracle: infoalign 6.6.0 `-refseq k` and `-refseq 0` on 150 random DNA/IUPAC and protein MSAs (3-8 rows, end/internal gaps) = 3 268 per-row records (600 runs, 219 against the consensus), all equal (percent within 1e-4: EMBOSS prints a float).
+- `CalculateDistanceMatrix(rows, method, residueType, gapWeight)` = EMBOSS `distmat` (opened `emboss/distmat.c`): matches = columns with the same non-gap symbol, g = columns where either row has a gap; Uncorrected `D = 1 − m/(L − g + g·gapWeight)`; Jukes-Cantor `−b·ln(1 − D/b)`, b = 3/4 (nucleotide) or 19/20 (protein); saturated/undefined entries are NaN/∞ as in distmat. Oracle: distmat 6.6.0 (`-nucmethod/-protmethod 0|1`, `-gapweight 0|0.5`; two decimals ×100) on the same 150 MSAs = 600 matrices, all equal (two decimals; EMBOSS computes in single precision, so near-saturated Jukes-Cantor values agree to 1e-4 relative). `CalculatePairwiseIdentityMatrix(rows, gapWeight)` = 100·(1 − D) (default gap weight 0: identity over the columns where neither row has a gap). Biopython 1.88 `DistanceCalculator('identity')` compares characters with `skip_letters = ()` and divides by the alignment length, i.e. it equals the gap-weight-1 identity plus the both-gap columns (checked on 77 matrices).
+- Per-column statistics (`Calculate`): residue counts (gap `-` included), gap count/fraction, most common residue, and the ClustalW conservation symbol (`*` identical without gap, `:` all residues in one strong group STA/NEQK/NHQK/NDEQ/QHRK/MILV/MILF/HY/FYW, `.` in one weak group CSA/ATV/SAG/STNK/STPA/SGND/SNDEQK/NDEQHK/NEQHRK/FVLIM/HFY; nucleotide alignments only `*`; any gap column blank). Oracle: ClustalW 2.1 `-convert -output=clustal -type=dna|protein` conservation line on 150 MSAs. Summary: fully conserved and gap-free column counts, gap percent, mean pairwise identity.
+- MCP (Analysis server): `multiple_alignment_statistics` and `alignment_distance_matrix`; the Alignment-server `alignment_statistics` reports the BLAST fields of §5.5.
 
 ## 6. Edge Cases and Limitations
 
@@ -201,3 +220,7 @@ EMBOSS HBA vs HBB [2] (reproduced with the real BLOSUM62 table): L = 149, M = 65
 6. EMBOSS 6.6 source, `ajax/core/ajalign.c` (`alignConsStats`, `alignSim`). https://raw.githubusercontent.com/kimrutherford/EMBOSS/master/ajax/core/ajalign.c (opened 2026-11-18).
 7. Henikoff S, Henikoff JG. 1992. Amino acid substitution matrices from protein blocks. *PNAS* 89:10915–10919. Dayhoff MO, Schwartz RM, Orcutt BC. 1978. A model of evolutionary change in proteins. *Atlas of Protein Sequence and Structure* 5(S3):345–352.
 8. Cock PJA et al. 2009. Biopython. *Bioinformatics* 25:1422–1423 (Biopython 1.88 `Bio.Align.Alignment.counts`, `Bio.Align.substitution_matrices`).
+9. NCBI C++ toolkit, `src/objtools/align_format/align_format_util.cpp` (`GetPercentMatch`), `showalign.cpp` (`s_DisplayIdentityInfo`, `x_FillIdentityInfo`) and BLAST+ 2.12.0 `blastn`/`blastp` binaries. https://raw.githubusercontent.com/ncbi/ncbi-cxx-toolkit-public/master/src/objtools/align_format/align_format_util.cpp (opened 2026-11-18).
+10. EMBOSS 6.6 source `emboss/infoalign.c`, `emboss/distmat.c`; binaries `infoalign`, `distmat` 6.6.0. https://raw.githubusercontent.com/kimrutherford/EMBOSS/master/emboss/infoalign.c (opened 2026-11-18).
+11. ClustalW 2.1 (`clustalw -convert`, conservation line `*` `:` `.`); Larkin MA et al. 2007. Clustal W and Clustal X version 2.0. *Bioinformatics* 23:2947-2948.
+12. Biopython 1.88 `Bio.Phylo.TreeConstruction.DistanceCalculator('identity')` (source inspected locally).

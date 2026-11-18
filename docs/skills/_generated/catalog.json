@@ -238,6 +238,13 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAssembler.cs#L247"
   },
   {
+    "tool": "alignment_distance_matrix",
+    "server": "Analysis",
+    "methodId": "MultipleAlignmentStatistics.CalculateDistanceMatrix",
+    "docPath": "docs/mcp/tools/analysis/alignment_distance_matrix.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MultipleAlignmentStatistics.cs#L220"
+  },
+  {
     "tool": "alphabet_pwm_score_pvalue",
     "server": "Analysis",
     "methodId": "MotifFinder.AlphabetPwmScorePValue",
@@ -908,6 +915,13 @@
     "methodId": "RnaSecondaryStructure.CalculateMultibranchLoopEnergy",
     "docPath": "docs/mcp/tools/analysis/multibranch_loop_energy.md",
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RnaSecondaryStructure.cs#L961"
+  },
+  {
+    "tool": "multiple_alignment_statistics",
+    "server": "Analysis",
+    "methodId": "MultipleAlignmentStatistics.Calculate",
+    "docPath": "docs/mcp/tools/analysis/multiple_alignment_statistics.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MultipleAlignmentStatistics.cs#L110"
   },
   {
     "tool": "oligo_analysis",

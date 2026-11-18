@@ -27,6 +27,40 @@ public sealed record ScoringMatrix(
     int GapExtend);
 
 /// <summary>
+/// Residue-pair scoring for pairwise alignment: a <see cref="SubstitutionMatrix"/> (BLOSUM62, PAM250, EDNAFULL, ...)
+/// plus <b>real-valued</b> gap scores. Accepted by the <c>GlobalAlign</c>/<c>LocalAlign</c>/<c>SemiGlobalAlign</c>
+/// (and <c>*Affine</c>) overloads of <c>SequenceAligner</c>; protein, IUPAC DNA and any alphabet of the matrix work.
+/// </summary>
+/// <remarks>
+/// <para>
+/// Gap convention = <see cref="ScoringMatrix"/>: a gap is a <b>score</b> (negative = penalty). The affine aligners
+/// charge a gap of length k as <see cref="GapOpen"/> + k·<see cref="GapExtend"/>; the linear aligners charge
+/// <see cref="GapExtend"/> per gap position (<see cref="GapOpen"/> unused). EMBOSS needle/water and Biopython
+/// differ only in how the same numbers are named: EMBOSS <c>-gapopen G -gapextend E</c> (positive penalties; a gap of
+/// length k costs G + (k-1)·E) is <c>GapOpen = -(G - E)</c>, <c>GapExtend = -E</c> — use
+/// <see cref="Emboss(SubstitutionMatrix, double, double)"/>. Biopython <c>open_gap_score</c> = <c>GapOpen + GapExtend</c>,
+/// <c>extend_gap_score</c> = <c>GapExtend</c>.
+/// </para>
+/// <para>
+/// Gap scores are resolved exactly to 1e-6 (more decimal places are rejected); internally every score is an
+/// exact multiple of 1/scale (scale = smallest integer making the gaps integral: 2 for the EMBOSS default 0.5, 10 for 0.1),
+/// so ties and tracebacks are exact (no floating-point drift) and the integer dynamic programs are reused unchanged.
+/// </para>
+/// </remarks>
+/// <param name="Matrix">Residue-pair scores; every sequence symbol must be in its alphabet (case-insensitive).</param>
+/// <param name="GapOpen">Score added once per gap run (affine aligners only); at most 0.</param>
+/// <param name="GapExtend">Score per gap position; at most 0.</param>
+public sealed record MatrixScoring(SubstitutionMatrix Matrix, double GapOpen, double GapExtend)
+{
+    /// <summary>
+    /// Scoring from EMBOSS needle/water penalties (positive numbers): <paramref name="gapOpenPenalty"/> is the cost of a gap
+    /// of length 1, every further position costs <paramref name="gapExtendPenalty"/> (needle/water defaults: 10 and 0.5).
+    /// </summary>
+    public static MatrixScoring Emboss(SubstitutionMatrix matrix, double gapOpenPenalty = 10, double gapExtendPenalty = 0.5) =>
+        new(matrix, -(gapOpenPenalty - gapExtendPenalty), -gapExtendPenalty);
+}
+
+/// <summary>
 /// Type of alignment performed.
 /// </summary>
 public enum AlignmentType
@@ -71,6 +105,20 @@ public sealed record AlignmentResult(
     int EndPosition1,
     int EndPosition2)
 {
+    private readonly double? _exactScore;
+
+    /// <summary>
+    /// Alignment score as a real number. Equal to <see cref="Score"/> for every integer-scored aligner; the
+    /// <see cref="MatrixScoring"/> aligners (substitution matrix, possibly fractional gap penalties such as
+    /// EMBOSS <c>-gapextend 0.5</c>) set it to the exact score (e.g. 49.5) while <see cref="Score"/> then holds
+    /// that value rounded half away from zero.
+    /// </summary>
+    public double ExactScore
+    {
+        get => _exactScore ?? Score;
+        init => _exactScore = value;
+    }
+
     public static AlignmentResult Empty => new("", "", 0, AlignmentType.Global, 0, 0, 0, 0);
 }
 
@@ -90,6 +138,9 @@ public sealed record AlignmentResult(
 /// BLAST positives, Biopython <c>positives</c>).</param>
 /// <param name="GapOpens">Number of gap runs: maximal runs of '-' in either row (BLAST tabular "gapopen", Biopython
 /// <c>open_gaps</c>). A gap run in one row directly followed by a gap run in the other row counts as two.</param>
+/// <param name="BlastPositives">BLAST "Positives" count: identical columns plus non-identical columns with a positive
+/// substitution score (BLAST+ <c>x_FillIdentityInfo</c>: match + '+'). Differs from <paramref name="Positives"/> only for identical
+/// pairs whose own score is not positive (X/X in BLOSUM62), which BLAST counts as identities.</param>
 public readonly record struct AlignmentStatistics(
     int Matches,
     int Mismatches,
@@ -99,9 +150,63 @@ public readonly record struct AlignmentStatistics(
     double Similarity,
     double GapPercent,
     int Positives = 0,
-    int GapOpens = 0)
+    int GapOpens = 0,
+    int BlastPositives = 0)
 {
     public static AlignmentStatistics Empty => new(0, 0, 0, 0, 0, 0, 0);
+
+    /// <summary>
+    /// BLAST pairwise-report percentage (NCBI BLAST+ <c>CAlignFormatUtil::GetPercentMatch</c>, used for the
+    /// <c>Identities = a/L (p%)</c>, <c>Positives</c> and <c>Gaps</c> lines): an <b>integer</b>, rounded half up
+    /// (<c>(int)(0.5 + 100·n/d)</c>) but never 100 unless n = d (an alignment with mismatches is shown as at most 99%).
+    /// A zero-length alignment gives 0.
+    /// </summary>
+    public static int BlastPercent(int numerator, int denominator)
+    {
+        if (denominator <= 0)
+            return 0;
+        if (numerator == denominator)
+            return 100;
+        return Math.Min(99, (int)(0.5 + 100.0 * numerator / denominator));
+    }
+
+    /// <summary>BLAST "Identities" percentage, <see cref="BlastPercent"/>(<see cref="Matches"/>, <see cref="AlignmentLength"/>).</summary>
+    public int BlastPercentIdentity => BlastPercent(Matches, AlignmentLength);
+
+    /// <summary>BLAST "Positives" percentage, <see cref="BlastPercent"/>(<see cref="BlastPositives"/>, <see cref="AlignmentLength"/>).</summary>
+    public int BlastPercentPositives => BlastPercent(BlastPositives, AlignmentLength);
+
+    /// <summary>BLAST "Gaps" percentage, <see cref="BlastPercent"/>(<see cref="Gaps"/>, <see cref="AlignmentLength"/>).</summary>
+    public int BlastPercentGaps => BlastPercent(Gaps, AlignmentLength);
+
+    /// <summary>
+    /// BLAST tabular (<c>-outfmt 6</c>) <c>pident</c> text: 100·Matches/AlignmentLength with three decimals (BLAST+ 2.12;
+    /// "100.000" when every column matches), invariant culture.
+    /// </summary>
+    public string BlastTabularPidentText
+    {
+        get
+        {
+            double pident = 0.0;
+            if (AlignmentLength > 0)
+                pident = Matches == AlignmentLength ? 100.0 : 100.0 * Matches / AlignmentLength;
+            return pident.ToString("F3", System.Globalization.CultureInfo.InvariantCulture);
+        }
+    }
+
+    /// <summary>
+    /// The BLAST pairwise-report statistics line: <c> Identities = 382/403 (95%), Gaps = 9/403 (2%)</c> for nucleotides, with
+    /// <c>, Positives = n/L (p%)</c> after the identities for proteins (<paramref name="protein"/> = true).
+    /// </summary>
+    public string ToBlastString(bool protein = false)
+    {
+        var sb = new System.Text.StringBuilder();
+        sb.Append(" Identities = ").Append(Matches).Append('/').Append(AlignmentLength).Append(" (").Append(BlastPercentIdentity).Append("%)");
+        if (protein)
+            sb.Append(", Positives = ").Append(BlastPositives).Append('/').Append(AlignmentLength).Append(" (").Append(BlastPercentPositives).Append("%)");
+        sb.Append(", Gaps = ").Append(Gaps).Append('/').Append(AlignmentLength).Append(" (").Append(BlastPercentGaps).Append("%)");
+        return sb.ToString();
+    }
 }
 
 /// <summary>
@@ -162,6 +267,31 @@ public sealed class SubstitutionMatrix
         score = _scores[_index[a], _index[b]];
         return true;
     }
+
+    /// <summary>True when <paramref name="symbol"/> (case-insensitive) is in <see cref="Alphabet"/>.</summary>
+    public bool Contains(char symbol)
+    {
+        symbol = char.ToUpperInvariant(symbol);
+        return symbol < 128 && _index[symbol] >= 0;
+    }
+
+    /// <summary>Largest absolute cell value.</summary>
+    public int MaxAbsScore
+    {
+        get
+        {
+            int max = 0;
+            foreach (int v in _scores)
+                max = Math.Max(max, Math.Abs(v));
+            return max;
+        }
+    }
+
+    /// <summary>Row/column index of an upper-case symbol, -1 when absent (alignment dynamic programs).</summary>
+    public int IndexOf(char upperSymbol) => upperSymbol < 128 ? _index[upperSymbol] : -1;
+
+    /// <summary>Raw cell by row/column index (see <see cref="IndexOf"/>).</summary>
+    public int ScoreAt(int row, int column) => _scores[row, column];
 
     /// <summary>Score of an aligned pair.</summary>
     /// <exception cref="ArgumentException">A symbol is not in <see cref="Alphabet"/>.</exception>

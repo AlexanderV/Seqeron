@@ -104,3 +104,7 @@ None.
 ## 2026-11 audit round 1 correction (A1-1, B09 F39)
 
 The "M4 empty -> `AlignmentResult.Empty`" row and the string-overload remark above are **superseded**: an empty (or both-empty) side now gives the tagged-Local empty result `("", "", 0, Local, -1, -1, -1, -1)` on every overload (string/`DnaSequence`, linear/affine), and a null string throws `ArgumentNullException`. The Global-tagged `AlignmentResult.Empty` sentinel is no longer returned by any aligner.
+
+## 2026-11 audit round 1 (A1-2, B09 F41)
+
+Matrix-scored `LocalAlign`/`LocalAlignAffine` (water-compatible gap conventions): see ALIGN-GLOBAL-001 report and B09.md F41.

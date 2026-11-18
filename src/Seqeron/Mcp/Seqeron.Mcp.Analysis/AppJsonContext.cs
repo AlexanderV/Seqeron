@@ -107,6 +107,8 @@ namespace Seqeron.Mcp.Analysis;
 [JsonSerializable(typeof(PwmResult))]
 [JsonSerializable(typeof(ScanWithPwmResult))]
 [JsonSerializable(typeof(ConsensusResult))]
+[JsonSerializable(typeof(MultipleAlignmentStatisticsResult))]
+[JsonSerializable(typeof(AlignmentDistanceMatrixResult))]
 [JsonSerializable(typeof(DiscoveredMotifItem))]
 [JsonSerializable(typeof(DiscoveredMotifItem[]))]
 [JsonSerializable(typeof(DiscoverMotifsResult))]

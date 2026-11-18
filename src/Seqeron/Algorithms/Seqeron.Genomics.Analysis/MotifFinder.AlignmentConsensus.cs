@@ -333,7 +333,7 @@ public static partial class MotifFinder
     /// <c>ajSeqTypeGapnucS</c> success (case-insensitive <c>ajStrIsCharsetCaseS</c>; empty → true),
     /// i.e. <c>ajSeqIsNuc</c> of an untyped first sequence.
     /// </summary>
-    private static bool IsEmbossNucleotideSequence(string sequence)
+    internal static bool IsEmbossNucleotideSequence(string sequence)
     {
         foreach (char ch in sequence)
         {

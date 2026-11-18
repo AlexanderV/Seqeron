@@ -1513,6 +1513,81 @@ public class AnalysisTools
         return new ConsensusResult(consensus);
     }
 
+    [McpServerTool(Name = "multiple_alignment_statistics", Title = "Alignment — Multiple Alignment Statistics", ReadOnly = true)]
+    [Description("Statistics of a gapped multiple alignment: per-sequence comparison with a reference row or the EMBOSS cons consensus (EMBOSS infoalign: seqLength, alignLength, gap runs, gap length, identities, similarities, differences, % change; verified against infoalign 6.6.0), per-column residue counts / gap fraction / most common residue / ClustalW conservation symbol ('*' identical, ':' strong, '.' weak group; ClustalW 2.1; DNA columns only '*'), gap percent, fully conserved and gap-free columns, and the pairwise percent-identity matrix (distmat uncorrected, identity over columns where neither row has a gap; gapWeight 1 = Biopython DistanceCalculator('identity')). Rows are upper-cased, '.'/'~' read as '-'.")]
+    public static MultipleAlignmentStatisticsResult MultipleAlignmentStatistics(
+        [Description("At least two aligned sequences of equal length (DNA or protein, gaps '-').")] string[] sequences,
+        [Description("'auto' (type of the first row as EMBOSS), 'nucleotide' (EDNAFULL) or 'protein' (EBLOSUM62; also enables ':'/'.' conservation).")] string residueType = "auto",
+        [Description("infoalign -refseq: 0 = the EMBOSS cons consensus (default), k = the k-th sequence (1-based).")] int referenceSequence = 0,
+        [Description("Weight of gap columns in the identity matrix denominator L - g + g*gapWeight (distmat -gapweight; default 0).")] double gapWeight = 0)
+    {
+        if (sequences is null || sequences.Length < 2)
+            throw new ArgumentException("At least two sequences are required", nameof(sequences));
+        var type = ParseConsensusResidueType(residueType);
+        if (referenceSequence < 0 || referenceSequence > sequences.Length)
+            throw new ArgumentOutOfRangeException(nameof(referenceSequence), "referenceSequence must be 0 (consensus) or 1..number of sequences.");
+
+        var stats = global::Seqeron.Genomics.Analysis.MultipleAlignmentStatistics.Calculate(sequences, type);
+        var info = global::Seqeron.Genomics.Analysis.MultipleAlignmentStatistics.CalculateSequenceStatistics(
+            sequences, referenceSequence == 0 ? null : referenceSequence - 1, type);
+        var identity = gapWeight == 0
+            ? stats.PairwiseIdentity
+            : global::Seqeron.Genomics.Analysis.MultipleAlignmentStatistics.CalculatePairwiseIdentityMatrix(sequences, gapWeight);
+        return new MultipleAlignmentStatisticsResult(
+            stats.SequenceCount, stats.AlignmentLength, stats.FullyConservedColumns, stats.GapFreeColumns, stats.GapPercent,
+            double.IsNaN(stats.MeanPairwiseIdentity) ? null : stats.MeanPairwiseIdentity,
+            global::Seqeron.Genomics.Analysis.MultipleAlignmentStatistics.ClustalConservationLine(sequences, type),
+            ToJagged(identity),
+            info.Select(i => new MsaSequenceItem(i.Index, i.SequenceLength, i.AlignmentLength, i.GapRuns, i.GapLength,
+                i.Identities, i.Similarities, i.Differences, i.PercentChange)).ToArray(),
+            stats.Columns.Select(c => new MsaColumnItem(c.Index,
+                c.Counts.ToDictionary(kv => kv.Key.ToString(), kv => kv.Value), c.GapCount, c.GapFraction,
+                c.MostCommonResidue.ToString(), c.MostCommonCount, c.Conservation.ToString())).ToArray());
+    }
+
+    [McpServerTool(Name = "alignment_distance_matrix", Title = "Alignment — Pairwise Distance Matrix (distmat)", ReadOnly = true)]
+    [Description("Pairwise distance matrix of a multiple alignment as EMBOSS 6.6.0 distmat: matches = columns where both rows carry the same non-gap symbol, g = columns where either row has a gap; 'uncorrected' D = 1 - matches/(L - g + g*gapWeight); 'jukes-cantor' -b*ln(1 - D/b) with b = 3/4 (nucleotide) or 19/20 (protein). Fractions, not percent; entries with a zero denominator or a saturated logarithm are null.")]
+    public static AlignmentDistanceMatrixResult AlignmentDistanceMatrix(
+        [Description("At least two aligned sequences of equal length.")] string[] sequences,
+        [Description("'uncorrected' (default) or 'jukes-cantor'.")] string method = "uncorrected",
+        [Description("'auto' (default), 'nucleotide' or 'protein' (selects the Jukes-Cantor constant b).")] string residueType = "auto",
+        [Description("distmat -gapweight (default 0).")] double gapWeight = 0)
+    {
+        if (sequences is null || sequences.Length < 2)
+            throw new ArgumentException("At least two sequences are required", nameof(sequences));
+        var m = (method ?? string.Empty).Trim().ToLowerInvariant() switch
+        {
+            "uncorrected" => global::Seqeron.Genomics.Analysis.MsaDistanceMethod.Uncorrected,
+            "jukes-cantor" or "jc" => global::Seqeron.Genomics.Analysis.MsaDistanceMethod.JukesCantor,
+            _ => throw new ArgumentException("method must be 'uncorrected' or 'jukes-cantor'", nameof(method)),
+        };
+        var d = global::Seqeron.Genomics.Analysis.MultipleAlignmentStatistics.CalculateDistanceMatrix(
+            sequences, m, ParseConsensusResidueType(residueType), gapWeight);
+        return new AlignmentDistanceMatrixResult(m == global::Seqeron.Genomics.Analysis.MsaDistanceMethod.Uncorrected ? "uncorrected" : "jukes-cantor", ToJagged(d));
+    }
+
+    private static global::Seqeron.Genomics.Analysis.ConsensusResidueType ParseConsensusResidueType(string? residueType) =>
+        (residueType ?? string.Empty).Trim().ToLowerInvariant() switch
+        {
+            "auto" => global::Seqeron.Genomics.Analysis.ConsensusResidueType.Auto,
+            "nucleotide" => global::Seqeron.Genomics.Analysis.ConsensusResidueType.Nucleotide,
+            "protein" => global::Seqeron.Genomics.Analysis.ConsensusResidueType.Protein,
+            _ => throw new ArgumentException("residueType must be 'nucleotide', 'protein' or 'auto'", nameof(residueType)),
+        };
+
+    private static double?[][] ToJagged(double[,] matrix)
+    {
+        int n = matrix.GetLength(0), m = matrix.GetLength(1);
+        var result = new double?[n][];
+        for (int i = 0; i < n; i++)
+        {
+            result[i] = new double?[m];
+            for (int j = 0; j < m; j++)
+                result[i][j] = double.IsFinite(matrix[i, j]) ? matrix[i, j] : null;
+        }
+        return result;
+    }
+
     [McpServerTool(Name = "generate_decipher_consensus", Title = "Motifs — DECIPHER Consensus", ReadOnly = true)]
     [Description("Consensus with Bioconductor DECIPHER ConsensusSequence semantics (DNA, RNA or protein): at each position the least frequent characters are dropped while they represent less than 'threshold' of the sequences and the rest are encoded with an IUPAC degeneracy code (DNA/RNA) or B/Z/J/X (protein); noConsensusChar where the consensus carries less than minInformation. Gaps '-'/'.', masks '+'.")]
     public static ConsensusResult GenerateDecipherConsensus(

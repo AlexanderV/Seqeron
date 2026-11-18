@@ -215,3 +215,11 @@ None. (The 2026-06 assumption that the srspair `.` tier is unreachable and colla
 
 - **2026-06-13**: Initial documentation.
 - **2026-11-18**: B09 re-validation against the EMBOSS 6.6 source, needle/water 6.6.0 binaries and Biopython 1.88; oracle table, matrix cross-check, corrected markup and similarity rules.
+
+---
+
+## BLAST integer percentages and multiple-alignment statistics (audit A1-9, B09 F42/F43)
+
+- **Opened:** NCBI C++ toolkit `src/objtools/align_format/align_format_util.cpp` (`GetPercentMatch`: `(int)(0.5 + 100n/d)`, 100 only if n == d, else min 99), `showalign.cpp` (`s_DisplayIdentityInfo`: Identities/Positives/Gaps lines; `Positives = positive + match`), `blast_tabular`/`tabular.cpp` (tabular, `pident` 3 decimals checked with the local binary); EMBOSS 6.6 `emboss/infoalign.c` (`infoalign_Compare`, reference = row or `embConsCalc` consensus with plurality 50 %, setcase 0, identity 0) and `emboss/distmat.c` (`distmat_calc_match`, `distmat_uncorrected`, `distmat_JukesCantor`, output x100); ClustalW 2.1 `-convert -output=clustal` (conservation line); Biopython 1.88 `DistanceCalculator._pairwise` (source inspected: identity model `skip_letters = ()`, divides by `len(seq1)`, so both-gap columns count as matches).
+- **Numbers:** BLAST+ 2.12.0 blastn + blastp, 320 best HSPs (24 with 99.5 <= pident < 100 shown as 99%): all counts, positives, integer percentages, pident text and report lines equal. infoalign 3 268 per-row records, distmat 600 matrices, ClustalW 151 conservation lines (DNA only `*`; the protein groups STA/NEQK/... and CSA/ATV/... reproduced exactly), Biopython identity 77 matrices.
+- **Findings:** EMBOSS `infoalign` ignores a row's leading/trailing gaps, counts every residue facing a reference gap as Different, and `% change = (AlignLen - Ident)/AlignLen` includes similar residues and gap positions; `distmat` divides by `L - g + g*gapweight` (g = columns where either row has a gap) and computes in single precision (near-saturated Jukes-Cantor values differ from double precision by about 1e-5 relative); ClustalW's own `-type=auto` guess is not a simple ACGTUN fraction (4 of 151 random DNA MSAs were classified protein), so the residue type is explicit or the EMBOSS first-row rule.

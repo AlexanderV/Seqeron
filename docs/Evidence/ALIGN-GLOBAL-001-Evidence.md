@@ -134,3 +134,12 @@ Border values: $F(i,0) = -i$, $F(0,j) = -j$ — directly from Wikipedia.
 1. Needleman, Saul B. & Wunsch, Christian D. (1970). "A general method applicable to the search for similarities in the amino acid sequence of two proteins". Journal of Molecular Biology. 48(3): 443–53.
 2. Wikipedia contributors. "Needleman–Wunsch algorithm". In: Wikipedia, The Free Encyclopedia. Accessed: 2026-03-06.
 3. Wikipedia contributors. "Sequence alignment". In: Wikipedia, The Free Encyclopedia. Accessed: 2026-02-01.
+
+---
+
+## Substitution-matrix alignment with fractional gap scores (audit A1-2, B09 F41)
+
+- **Opened/used:** EMBOSS 6.6 source `nucleus/embaln.c` (`embAlignPathCalcWithEndGapPenalties`, raw.githubusercontent.com) for the end-gap behaviour of needle; EMBOSS 6.6.0 `needle`/`water` binaries; Biopython 1.88 `Bio.Align.PairwiseAligner` + `substitution_matrices` (BLOSUM62, PAM250, NUC.4.4); parasail 1.3.4 (`nw`, `sw`, `sg_dx`, `blosum62`, `pam250`, `nuc44`).
+- **Gap convention:** EMBOSS `-gapopen G -gapextend E` = cost G for a gap of length 1, G + (k-1)E for length k (verified: HBA/HBB score identical to Biopython with `open_gap_score = -G`, `extend_gap_score = -E`) -> `GapOpen = -(G - E)`, `GapExtend = -E`. `needle` default `-endweight N` leaves end gaps free on both sequences; the oracle uses `-endweight Y -endopen G -endextend E` (end gaps charged like the unit's global alignment).
+- **Numbers (`scripts/alignment/generate_matrix_align_oracle.py`, 1 986 rows):** Biopython = Seqeron on 1 986/1 986 (1e-6); parasail = Seqeron on 616/616 integer-gap rows; EMBOSS needle/water = Seqeron on 1 103/1 121 (18 EMBOSS-internal disagreements, see the algorithm doc §5.4). HBA_HUMAN vs HBB_HUMAN, EBLOSUM62, gapopen 10 / gapextend 0.5: needle -endweight Y 292.5, water 293.5, linear gap 0.5: 366.5.
+- **Deviations:** gap scores must be <= 0 and are resolved to 1e-6 (EMBOSS keeps float; Biopython compares with an epsilon); sequences must consist of symbols of the matrix alphabet (EMBOSS maps unknown characters to a zero-score code); the ends-free needle default is not implemented (A1-3).

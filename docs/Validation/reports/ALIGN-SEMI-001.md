@@ -77,3 +77,7 @@ None.
 ## 2026-11 audit round 1 correction (A1-1, A1-4, B09 F39/F40)
 
 "No code changed" is superseded by the audit-round changes: (1) `SemiGlobalAlign(string, string, ...)` was added (null -> `ArgumentNullException`, empty not special-cased); (2) `StartPosition2`/`EndPosition2` are now the **fitted interval** of the reference (first/last reference index consumed between the free end gaps; empty interval: `End2 = Start2 - 1`) instead of the full-input bounds, for `SemiGlobalAlign` and `SemiGlobalAlignAffine`. Oracle: 4090 random/edge cases (1382 semi-global rows), interval in the Biopython 1.88 co-optimal interval set in 823/823 fully enumerated rows, parasail 1.3.4 score equal, brute-force fitting definition equal (600 pairs).
+
+## 2026-11 audit round 1 (A1-2, B09 F41)
+
+Matrix-scored `SemiGlobalAlign`/`SemiGlobalAlignAffine`: see ALIGN-GLOBAL-001 report and B09.md F41.

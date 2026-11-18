@@ -6,7 +6,7 @@
   "stability": "stable",
   "methodId": "SequenceAligner.LocalAlign",
   "docRef": "Seqeron.Genomics.Alignment/SequenceAligner.cs#L654",
-  "description": "Local pairwise alignment (Smith-Waterman, zero floor). Linear gap model: every gap position scores gapExtend; gapOpen is IGNORED (use local_align_affine for gapOpen + k·gapExtend).",
+  "description": "Performs local pairwise alignment using the Smith–Waterman algorithm (finds best-scoring substring alignment, with zero floor). Linear gap model: every gap position costs gapExtend; gapOpen is IGNORED by this tool (use local_align_affine for gapOpen + k·gapExtend). With matrix = BLOSUM62 | PAM250 | EDNAFULL the alignment is scored by that published residue-pair table (protein or IUPAC DNA, any symbol of the matrix) instead of match/mismatch and gapOpen/gapExtend may be fractional (EMBOSS needle/water 6.6.0 = Biopython PairwiseAligner = parasail on >1000 oracle rows; EMBOSS -gapopen G -gapextend E = gapOpen -(G - E), gapExtend -E); exactScore is then the real-valued score (score = rounded).",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -31,14 +31,18 @@
         "default": -1
       },
       "gapOpen": {
-        "type": "integer",
-        "description": "Gap-open penalty (ignored: linear-gap model; kept for schema compatibility).",
+        "type": "number",
+        "description": "Gap-open score (ignored by this linear-gap tool; kept for schema compatibility). May be fractional when matrix is given.",
         "default": -2
       },
       "gapExtend": {
-        "type": "integer",
-        "description": "Gap-extend penalty.",
+        "type": "number",
+        "description": "Gap score charged per gap position (<= 0). May be fractional (e.g. -0.5) when matrix is given.",
         "default": -1
+      },
+      "matrix": {
+        "type": "string",
+        "description": "Optional substitution matrix: BLOSUM62, PAM250 (protein) or EDNAFULL (IUPAC DNA). When given, match/mismatch are ignored, residues are scored by the published table (any protein or IUPAC symbol of the matrix; case-insensitive) and gapOpen/gapExtend may be fractional (the EMBOSS needle/water models: gapOpen = -(G - E), gapExtend = -E for -gapopen G -gapextend E). The result then also carries the real-valued exactScore."
       }
     },
     "required": [
@@ -80,6 +84,10 @@
       "endPosition2": {
         "type": "integer",
         "description": "0-based end of the local region in sequence2."
+      },
+      "exactScore": {
+        "type": "number",
+        "description": "Real-valued score (equals score for integer scoring; with matrix/fractional gaps score is this value rounded half away from zero)."
       }
     },
     "required": [

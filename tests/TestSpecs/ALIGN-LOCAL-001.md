@@ -182,3 +182,7 @@ Derived from §7.1 via S-W transposition: $H^T[i,j] = H[j,i]$
 **Traceback**: H^T[7,6]=13 →(diag) H^T[6,5]=10 →(diag) H^T[5,4]=7 →(**up**) H^T[4,4]=9 →(diag) H^T[3,3]=6 →(diag) H^T[2,2]=3 →(diag) H^T[1,1]=0 STOP
 
 **Result**: `GTTGAC` / `GTT-AC`, score = 13
+
+## 2026-11 audit round 1 addition (A1-2, B09 F41)
+
+Matrix-scored `LocalAlign`/`LocalAlignAffine` (BLOSUM62/PAM250/EDNAFULL, fractional gaps): see the table in ALIGN-GLOBAL-001.md (`SequenceAligner_MatrixScoring_Tests`; local rows = EMBOSS water 6.6.0 = Biopython `mode='local'` = parasail `sw`).

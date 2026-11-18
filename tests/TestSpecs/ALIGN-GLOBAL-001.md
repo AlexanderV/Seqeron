@@ -161,3 +161,17 @@ Reference values: Biopython 1.88 `PairwiseAligner(mode='global', open_gap_score=
 | ❌ **Added** | `SequenceAligner_GlobalAlign_Tests.ScoreSymmetry_ReversedInputs_SameScore` (M11) | Missing: NW symmetry property not tested |
 | ❌ **Added** | `AlignmentProperties.GlobalAlign_ScoreSymmetry_ReversedInputs` | Score symmetry as structural property |
 | ❌ **Added** | `AlignmentProperties.GlobalAlign_CancellationOverload_SameResultAsStandard` | CancellationToken path equivalence with standard overload |
+
+## 2026-11 audit round 1 addition (A1-2, B09 F41): substitution-matrix scoring
+
+Tests: `SequenceAligner_MatrixScoring_Tests` (14) and `Seqeron.Mcp.Alignment.Tests.MatrixAlignTests`. Oracle table `TestData/Alignment/matrix_align_oracle.tsv` (1 986 rows: 331 random protein / DNA / IUPAC-DNA pairs x global|local|semi x linear|affine, integer and fractional gap scores; Biopython 1.88, EMBOSS needle `-endweight Y` / water 6.6.0, parasail 1.3.4; generator `scripts/alignment/generate_matrix_align_oracle.py`).
+
+| Case | Test | Locks |
+|------|------|-------|
+| Score = Biopython (all rows) and parasail (integer-gap rows) | `Oracle_Score_EqualsBiopythonAndParasail_AllRows` | 1 986 / 616 rows |
+| EMBOSS needle/water agreement (>= 98 %; needle never above the optimum) | `Oracle_Emboss_NeedleAndWater_AgreeExceptKnownEndGapQuirk` | 1 103 of 1 121 equal; embaln.c end-gap quirk documented |
+| Returned alignment re-scores to its score, reproduces inputs, coordinate contracts | `Oracle_Alignment_RescoresToScore_AndReproducesInputs` | independent scorer |
+| HBA/HBB with EMBOSS defaults | `HbaVsHbb_*` | needle 292.5, water 293.5 |
+| Gap-open convention (EMBOSS gapopen = gap of length 1) | `SingleGap_ConventionIsEmbossGapopenForLengthOne` | 10 / 19.5 / 9.5 |
+| One DP: integer matrix + integer gaps = scalar aligners row for row | `IntegerMatrix_IntegerGaps_IsIdenticalToScalarAligners_RowForRow` | 6 x 400 random pairs |
+| Overloads, case-insensitivity, validation, empty inputs, GapOpen 0 = linear | remaining tests | string = ProteinSequence = DnaSequence |

@@ -131,3 +131,7 @@ For the fitting alignment variant:
 3. Rosalind. "Finding a Motif with Modifications (SIMS)." https://rosalind.info/problems/sims/
 4. Rosalind. "Semiglobal Alignment (SMGB)." https://rosalind.info/problems/smgb/
 5. Brudno M, Malde S, Poliakov A, Do CB, Couronne O, Dubchak I, Batzoglou S (2003). "Glocal alignment: finding rearrangements during alignment." Bioinformatics 19 Suppl 1:i54-62. doi:10.1093/bioinformatics/btg1005
+
+## Substitution-matrix scoring (audit A1-2, B09 F41)
+
+Matrix-scored fitting alignment is verified against Biopython 1.88 `end_insertion_score = 0` and parasail 1.3.4 `sg_dx` (matrices BLOSUM62/PAM250/NUC.4.4) on 662 semi-global rows (331 linear + 331 affine, integer and fractional gaps): 662/662 equal (parasail on the integer-gap subset). EMBOSS has no one-sided free-end mode. See ALIGN-GLOBAL-001-Evidence.md.

@@ -135,6 +135,10 @@ The repository implements the linear-gap form of Smith-Waterman with `Math.Max(0
 
 - Arbitrary (non-affine) $W_k$ gap-cost functions.
 
+### Substitution-matrix scoring (A1-2, B09 F41)
+
+`SequenceAligner.LocalAlign` and `LocalAlignAffine` also accept a `MatrixScoring` (BLOSUM62 / PAM250 / EDNAFULL residue-pair scores, fractional gap scores; `string`, `ProteinSequence`, `DnaSequence`) and run the same dynamic-program core as the integer overloads; see [Global_Alignment_Needleman_Wunsch.md §5.4](Global_Alignment_Needleman_Wunsch.md) for the conversion, the EMBOSS gap convention (`MatrixScoring.Emboss`) and the oracle (EMBOSS water 6.6.0, Biopython 1.88, parasail 1.3.4).
+
 ## 6. Edge Cases and Limitations
 
 ### 6.1 Edge Cases

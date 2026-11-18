@@ -2,7 +2,7 @@
 
 MCP server — **K-mer, motif, repeat, complexity, RNA-structure and comparative-genomics analysis.**
 
-Exposes **127 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
+Exposes **129 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
 MCP. Every tool carries an explicit JSON input/output schema and a Schema+Binding test, with a
 per-tool doc under [`docs/mcp/tools/analysis/`](../../../../docs/mcp/tools/analysis). Rollout status:
 [`docs/mcp/MCP_STATUS.md`](../../../../docs/mcp/MCP_STATUS.md).
@@ -15,10 +15,11 @@ dotnet run --project Seqeron.Mcp.Analysis
 
 Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run","--project","Seqeron.Mcp.Analysis"]`). New to MCP? The [hub guide](../../../../docs/mcp/README.md) lists all 11 servers and how to wire them up.
 
-## Tools (127)
+## Tools (129)
 
 | Tool | Description |
 |------|-------------|
+| `alignment_distance_matrix` | Pairwise distance matrix of a multiple alignment as EMBOSS 6.6.0 distmat: matches = columns where both rows carry the same non-gap symbol, g = column… |
 | `alphabet_pwm_score_pvalue` | Exact p-value of a score / exact score threshold of a p-value for a PWM over any alphabet (protein, RNA, …) built from aligned instances — the TFM-Pvalue engine of pwm_score_pvalue with K rows… |
 | `alphabet_pwm_score_thresholds` | Score thresholds (FPR / FNR / balanced / patser) of an any-alphabet PWM from its discretised score distribution — Biopython pssm.distribution… |
 | `analyze_gc_content` | Comprehensive GC report: overall GC content, GC/AT skew, content/skew variances, and windowed GC profiles (`fraction=true` for [0,1]; `ambiguity=remove\|ignore\|weighted` for Biopython `gc_fraction` IUPAC handling). |
@@ -115,6 +116,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `mismatch_coaxial_stacking` | Mismatch-mediated coaxial stacking energy: terminal mismatch + base + WC/GU bonus. |
 | `most_frequent_kmers` | Returns all k-mers tied for the maximum occurrence count; optional `canonical` (jellyfish count -C) / `acgtOnly`. |
 | `multibranch_loop_energy` | Free energy of an RNA multibranch loop (Turner 2004 affine model: offset + asymmetry + helix term + stacking + strain). |
+| `multiple_alignment_statistics` | Statistics of a gapped multiple alignment: per-sequence comparison with a reference row or the EMBOSS cons consensus (EMBOSS infoalign: seqLength, al… |
 | `oligo_analysis` | RSAT oligo-analysis over-representation of the k-mers of one DNA sequence (or a set with extraSequences): occurrences, expected frequency under a background model (equipr… |
 | `parse_dot_bracket` | Parses dot-bracket notation into a list of base-pair coordinates. |
 | `predict_chou_fasman` | Propensity profile: per-window mean Chou-Fasman helix/sheet/turn parameters (window 1 = per residue); not an assignment (see `chou_fasman_assign`). |

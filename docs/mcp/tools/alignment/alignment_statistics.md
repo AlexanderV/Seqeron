@@ -1,6 +1,6 @@
 # alignment_statistics
 
-Compute identity / similarity / gap statistics for a pairwise alignment (EMBOSS needle convention: every percentage is over the full alignment length including gap columns; a column is a gap column when either row has '-'; residues compared case-insensitively). Similarity counts columns with a positive substitution score (BLAST positives): with matrix = BLOSUM62 | PAM250 | EDNAFULL the published residue-pair table is used, otherwise the scalar match/mismatch model. Also returns positives and gapOpens (number of gap runs).
+Computes identity / similarity / gap statistics for a pairwise alignment (EMBOSS needle convention: every percentage is over the full alignment length, gap columns included; a column is a gap column when either row has '-'; residues compared case-insensitively). Similarity counts columns with a POSITIVE substitution score (BLAST positives): with matrix = BLOSUM62 | PAM250 | EDNAFULL the published residue-pair table is used, otherwise the scalar match/mismatch model (similarity = identity for match > 0 >= mismatch). Also returns positives and gapOpens (number of gap runs, BLAST gapopen) and the BLAST+ report values: blastPositives (identities + non-identical positives), the INTEGER percentages of the BLAST pairwise report (blastIdentityPercent, blastPositivesPercent, blastGapPercent: round half up, never 100 unless every column matches; NCBI GetPercentMatch), blastPident (tabular pident, 3 decimals) and blastReport (' Identities = a/L (p%), [Positives = b/L (q%),] Gaps = g/L (r%)'; Positives only with a protein matrix).
 
 ## Overview
 
@@ -14,7 +14,7 @@ Compute identity / similarity / gap statistics for a pairwise alignment (EMBOSS 
 
 ## Description
 
-Compute identity / similarity / gap statistics for a pairwise alignment (EMBOSS needle convention: every percentage is over the full alignment length including gap columns; a column is a gap column when either row has '-'; residues compared case-insensitively). Similarity counts columns with a positive substitution score (BLAST positives): with matrix = BLOSUM62 | PAM250 | EDNAFULL the published residue-pair table is used, otherwise the scalar match/mismatch model. Also returns positives and gapOpens (number of gap runs).
+Computes identity / similarity / gap statistics for a pairwise alignment (EMBOSS needle convention: every percentage is over the full alignment length, gap columns included; a column is a gap column when either row has '-'; residues compared case-insensitively). Similarity counts columns with a POSITIVE substitution score (BLAST positives): with matrix = BLOSUM62 | PAM250 | EDNAFULL the published residue-pair table is used, otherwise the scalar match/mismatch model (similarity = identity for match > 0 >= mismatch). Also returns positives and gapOpens (number of gap runs, BLAST gapopen) and the BLAST+ report values: blastPositives (identities + non-identical positives), the INTEGER percentages of the BLAST pairwise report (blastIdentityPercent, blastPositivesPercent, blastGapPercent: round half up, never 100 unless every column matches; NCBI GetPercentMatch), blastPident (tabular pident, 3 decimals) and blastReport (' Identities = a/L (p%), [Positives = b/L (q%),] Gaps = g/L (r%)'; Positives only with a protein matrix).
 
 ## Core Documentation Reference
 
@@ -43,6 +43,12 @@ Compute identity / similarity / gap statistics for a pairwise alignment (EMBOSS 
 | `gapPercent` | number | Percent gap columns = gaps / length * 100. |
 | `positives` | integer | Number of similar columns (BLAST positives / EMBOSS similarity count). |
 | `gapOpens` | integer | Number of gap runs (maximal '-' runs per row; BLAST tabular gapopen, Biopython open_gaps). |
+| `blastPositives` | integer | BLAST+ "Positives" count: identical columns plus non-identical columns with a positive substitution score (differs from positives only for identical pairs with a non-positive own score, e.g. X/X in BLOSUM62). |
+| `blastIdentityPercent` | integer | BLAST pairwise-report integer identity percentage: (int)(0.5 + 100*matches/length), 100 only if every column matches (NCBI GetPercentMatch). |
+| `blastPositivesPercent` | integer | BLAST integer positives percentage (same rounding rule) of blastPositives. |
+| `blastGapPercent` | integer | BLAST integer gaps percentage (same rounding rule) of gaps. |
+| `blastPident` | string | BLAST tabular pident: 100*matches/length with three decimals. |
+| `blastReport` | string | BLAST pairwise-report line ' Identities = a/L (p%), [Positives = b/L (q%),] Gaps = g/L (r%)'; Positives only with a protein matrix. |
 
 ## Errors
 

@@ -43,10 +43,11 @@
 | `semi_global_align_affine` | `SequenceAligner.SemiGlobalAlignAffine` | [doc](../../mcp/tools/alignment/semi_global_align_affine.md) |
 | `sequence_identity` | `SequenceAssembler.CalculateIdentity` | [doc](../../mcp/tools/alignment/sequence_identity.md) |
 
-## Analysis (127 tools)
+## Analysis (129 tools)
 
 | tool | Method ID | doc |
 |------|-----------|-----|
+| `alignment_distance_matrix` | `MultipleAlignmentStatistics.CalculateDistanceMatrix` | [doc](../../mcp/tools/analysis/alignment_distance_matrix.md) |
 | `alphabet_pwm_score_pvalue` | `MotifFinder.AlphabetPwmScorePValue` | [doc](../../mcp/tools/analysis/alphabet_pwm_score_pvalue.md) |
 | `alphabet_pwm_score_thresholds` | `AlphabetPositionWeightMatrix.ScoreDistribution` | [doc](../../mcp/tools/analysis/alphabet_pwm_score_thresholds.md) |
 | `analyze_gc_content` | `GcSkewCalculator.AnalyzeGcContent` | [doc](../../mcp/tools/analysis/analyze_gc_content.md) |
@@ -143,6 +144,7 @@
 | `mismatch_coaxial_stacking` | `RnaSecondaryStructure.CalculateMismatchCoaxialStacking` | [doc](../../mcp/tools/analysis/mismatch_coaxial_stacking.md) |
 | `most_frequent_kmers` | `KmerAnalyzer.FindMostFrequentKmers` | [doc](../../mcp/tools/analysis/most_frequent_kmers.md) |
 | `multibranch_loop_energy` | `RnaSecondaryStructure.CalculateMultibranchLoopEnergy` | [doc](../../mcp/tools/analysis/multibranch_loop_energy.md) |
+| `multiple_alignment_statistics` | `MultipleAlignmentStatistics.Calculate` | [doc](../../mcp/tools/analysis/multiple_alignment_statistics.md) |
 | `oligo_analysis` | `MotifFinder.DiscoverMotifs` | [doc](../../mcp/tools/analysis/oligo_analysis.md) |
 | `parse_dot_bracket` | `RnaSecondaryStructure.ParseDotBracket` | [doc](../../mcp/tools/analysis/parse_dot_bracket.md) |
 | `predict_chou_fasman` | `SequenceStatistics.PredictSecondaryStructure` | [doc](../../mcp/tools/analysis/predict_chou_fasman.md) |

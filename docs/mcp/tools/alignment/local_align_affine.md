@@ -1,6 +1,6 @@
 # local_align_affine
 
-Local pairwise alignment with affine gap costs (Smith-Waterman 1981 with Gotoh 1982 gaps): a gap of length k scores gapOpen + k·gapExtend; zero floor. Equals Biopython PairwiseAligner(mode='local') and parasail sw_trace.
+Local pairwise alignment with affine gap costs (Smith–Waterman 1981 with Gotoh 1982 gaps): a gap of length k scores gapOpen + k·gapExtend; zero floor. Equals Biopython PairwiseAligner(mode='local') and parasail sw_trace. With matrix = BLOSUM62 | PAM250 | EDNAFULL the alignment is scored by that published residue-pair table (protein or IUPAC DNA, any symbol of the matrix) instead of match/mismatch and gapOpen/gapExtend may be fractional (EMBOSS needle/water 6.6.0 = Biopython PairwiseAligner = parasail on >1000 oracle rows; EMBOSS -gapopen G -gapextend E = gapOpen -(G - E), gapExtend -E); exactScore is then the real-valued score (score = rounded).
 
 ## Overview
 
@@ -14,7 +14,7 @@ Local pairwise alignment with affine gap costs (Smith-Waterman 1981 with Gotoh 1
 
 ## Description
 
-Local pairwise alignment with affine gap costs (Smith-Waterman 1981 with Gotoh 1982 gaps): a gap of length k scores gapOpen + k·gapExtend; zero floor. Equals Biopython PairwiseAligner(mode='local') and parasail sw_trace.
+Local pairwise alignment with affine gap costs (Smith–Waterman 1981 with Gotoh 1982 gaps): a gap of length k scores gapOpen + k·gapExtend; zero floor. Equals Biopython PairwiseAligner(mode='local') and parasail sw_trace. With matrix = BLOSUM62 | PAM250 | EDNAFULL the alignment is scored by that published residue-pair table (protein or IUPAC DNA, any symbol of the matrix) instead of match/mismatch and gapOpen/gapExtend may be fractional (EMBOSS needle/water 6.6.0 = Biopython PairwiseAligner = parasail on >1000 oracle rows; EMBOSS -gapopen G -gapextend E = gapOpen -(G - E), gapExtend -E); exactScore is then the real-valued score (score = rounded).
 
 ## Core Documentation Reference
 
@@ -28,8 +28,9 @@ Local pairwise alignment with affine gap costs (Smith-Waterman 1981 with Gotoh 1
 | `sequence2` | string | Yes | Second sequence. |
 | `match` | integer | No | Score for matching base. (default: 1) |
 | `mismatch` | integer | No | Score for mismatching base. (default: -1) |
-| `gapOpen` | integer | No | Gap-open score added once per gap run (negative = penalty). (default: -2) |
-| `gapExtend` | integer | No | Gap score per gap position, in addition to gapOpen for the first one. (default: -1) |
+| `gapOpen` | number | No | Gap-open score added once per gap run (negative = penalty). May be fractional when matrix is given; EMBOSS gapopen G / gapextend E = gapOpen -(G - E), gapExtend -E. (default: -2) |
+| `gapExtend` | number | No | Gap score per gap position, in addition to gapOpen for the first one. May be fractional (e.g. -0.5) when matrix is given. (default: -1) |
+| `matrix` | string | No | Optional substitution matrix: BLOSUM62, PAM250 (protein) or EDNAFULL (IUPAC DNA). When given, match/mismatch are ignored, residues are scored by the published table (any protein or IUPAC symbol of the matrix; case-insensitive) and gapOpen/gapExtend may be fractional (the EMBOSS needle/water models: gapOpen = -(G - E), gapExtend = -E for -gapopen G -gapextend E). The result then also carries the real-valued exactScore. |
 
 ## Output Schema
 
@@ -43,6 +44,7 @@ Local pairwise alignment with affine gap costs (Smith-Waterman 1981 with Gotoh 1
 | `startPosition2` | integer | 0-based start in sequence2. |
 | `endPosition1` | integer | 0-based end in sequence1. |
 | `endPosition2` | integer | 0-based end in sequence2. |
+| `exactScore` | number | Real-valued score (equals `score` for integer scoring; with matrix / fractional gaps `score` is this value rounded half away from zero). |
 
 ## Errors
 

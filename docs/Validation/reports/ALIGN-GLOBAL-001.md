@@ -73,3 +73,7 @@ Assertions check exact sourced scores/alignments and statistics (not just "no th
 ## 2026-11 audit round 1 correction (A1-1, B09 F39)
 
 The "Minor (documented, not a defect)" empty-input note and the "optional future tidy" above are **superseded**: the string overloads' silent `AlignmentResult.Empty` for an empty side was the defect (the Needleman-Wunsch optimum of `""` vs `ACGT` is the all-gap alignment, border `F(0,j) = d·j`), the opposite of the suggested tidy. All `GlobalAlign`/`GlobalAlignAffine` overloads now follow one contract: null -> `ArgumentNullException`, empty side -> all-gap alignment, both empty -> score 0 / empty rows / coordinates 0, 0, -1, -1. Biopython 1.88, parasail 1.3.4, EMBOSS needle 6.6 and scikit-bio reject zero-length input, so the empty case has no tool oracle (see Evidence). Tests: `EmptyInput_AllOverloads_AreTheAllGapNeedlemanWunschAlignment`, `EmptyInput_LinearScore_IsGapTimesLength`, `NullString_ThrowsArgumentNullException_OnEveryStringOverload`.
+
+## 2026-11 audit round 1 (A1-2, B09 F41)
+
+Substitution-matrix scoring and fractional gap scores for global/local/semi-global, linear and affine: additive `MatrixScoring` overloads (string, ProteinSequence, DnaSequence) on the existing DP cores (no second DP), `AlignmentResult.ExactScore`, MCP `matrix` parameter on the six pairwise tools. Oracle: Biopython 1.88 1 986/1 986, parasail 1.3.4 616/616, EMBOSS needle/water 6.6.0 1 103/1 121 (EMBOSS-internal end-gap quirk). Details: B09.md F41, algorithm doc §5.4.

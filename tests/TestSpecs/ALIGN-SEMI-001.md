@@ -217,3 +217,7 @@ random/edge cases (1382 semi-global rows): reported interval ∈ the set of inte
 - [x] Mixed match/mismatch path tested (MIX)
 - [x] Gap penalty path tested (GAP)
 - [x] Negative score exact value tested (NEG)
+
+## 2026-11 audit round 1 addition (A1-2, B09 F41)
+
+Matrix-scored `SemiGlobalAlign`/`SemiGlobalAlignAffine`: see the table in ALIGN-GLOBAL-001.md (semi rows = Biopython `end_insertion_score = 0` = parasail `sg_dx`; fitted-interval re-scoring and coordinates checked in `Oracle_Alignment_RescoresToScore_AndReproducesInputs`).

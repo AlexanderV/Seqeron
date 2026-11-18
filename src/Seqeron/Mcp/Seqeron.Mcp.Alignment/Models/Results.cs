@@ -13,7 +13,8 @@ public record AlignmentResultDto(
     int StartPosition1,
     int StartPosition2,
     int EndPosition1,
-    int EndPosition2);
+    int EndPosition2,
+    double ExactScore = 0);
 
 /// <summary>Alignment summary statistics.</summary>
 public record AlignmentStatisticsDto(
@@ -25,7 +26,13 @@ public record AlignmentStatisticsDto(
     double Similarity,
     double GapPercent,
     int Positives = 0,
-    int GapOpens = 0);
+    int GapOpens = 0,
+    int BlastPositives = 0,
+    int BlastIdentityPercent = 0,
+    int BlastPositivesPercent = 0,
+    int BlastGapPercent = 0,
+    string BlastPident = "",
+    string BlastReport = "");
 
 /// <summary>BLAST-style formatted alignment text.</summary>
 public record FormatAlignmentResult(string Formatted);

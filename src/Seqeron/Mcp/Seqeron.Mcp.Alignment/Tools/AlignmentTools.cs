@@ -16,67 +16,83 @@ public class AlignmentTools
     #region SequenceAligner
 
     [McpServerTool(Name = "global_align", Title = "Pairwise — Global Alignment (Needleman–Wunsch)", ReadOnly = true)]
-    [Description("Performs global pairwise alignment using the Needleman–Wunsch dynamic programming algorithm (aligns full length of both sequences end-to-end). Linear gap model: every gap position costs gapExtend; gapOpen is IGNORED by this tool (use global_align_affine for gapOpen + k·gapExtend).")]
+    [Description("Performs global pairwise alignment using the Needleman–Wunsch dynamic programming algorithm (aligns full length of both sequences end-to-end). Linear gap model: every gap position costs gapExtend; gapOpen is IGNORED by this tool (use global_align_affine for gapOpen + k·gapExtend). With matrix = BLOSUM62 | PAM250 | EDNAFULL the alignment is scored by that published residue-pair table (protein or IUPAC DNA, any symbol of the matrix) instead of match/mismatch and gapOpen/gapExtend may be fractional (EMBOSS needle/water 6.6.0 = Biopython PairwiseAligner = parasail on >1000 oracle rows; EMBOSS -gapopen G -gapextend E = gapOpen -(G - E), gapExtend -E); exactScore is then the real-valued score (score = rounded).")]
     public static AlignmentResultDto GlobalAlign(
         [Description("First sequence (DNA, uppercased internally).")] string sequence1,
         [Description("Second sequence.")] string sequence2,
         [Description("Score for matching base.")] int match = 1,
         [Description("Score for mismatching base.")] int mismatch = -1,
-        [Description("Gap-open penalty (ignored by this linear-gap tool; kept for schema compatibility).")] int gapOpen = -2,
-        [Description("Gap penalty charged per gap position.")] int gapExtend = -1)
+        [Description("Gap-open score (ignored by this linear-gap tool; kept for schema compatibility). May be fractional when matrix is given.")] double gapOpen = -2,
+        [Description("Gap score charged per gap position (<= 0). May be fractional (e.g. -0.5) when matrix is given.")] double gapExtend = -1,
+        [Description(MatrixParamDescription)] string? matrix = null)
     {
         if (string.IsNullOrEmpty(sequence1))
             throw new ArgumentException("Sequence cannot be null or empty.", nameof(sequence1));
         if (string.IsNullOrEmpty(sequence2))
             throw new ArgumentException("Sequence cannot be null or empty.", nameof(sequence2));
 
-        var scoring = new global::Seqeron.Genomics.Infrastructure.ScoringMatrix(match, mismatch, gapOpen, gapExtend);
+        var sub = ResolveMatrix(matrix);
+        if (sub is not null)
+            return ToAlignmentDto(global::Seqeron.Genomics.Alignment.SequenceAligner.GlobalAlign(sequence1, sequence2, new global::Seqeron.Genomics.Infrastructure.MatrixScoring(sub, gapOpen, gapExtend)));
+
+        var scoring = new global::Seqeron.Genomics.Infrastructure.ScoringMatrix(match, mismatch, RequireInteger(gapOpen, nameof(gapOpen)), RequireInteger(gapExtend, nameof(gapExtend)));
         var r = global::Seqeron.Genomics.Alignment.SequenceAligner.GlobalAlign(sequence1, sequence2, scoring);
         return ToAlignmentDto(r);
     }
 
     [McpServerTool(Name = "local_align", Title = "Pairwise — Local Alignment (Smith–Waterman)", ReadOnly = true)]
-    [Description("Performs local pairwise alignment using the Smith–Waterman algorithm (finds best-scoring substring alignment, with zero floor). Linear gap model: every gap position costs gapExtend; gapOpen is IGNORED by this tool (use local_align_affine for gapOpen + k·gapExtend).")]
+    [Description("Performs local pairwise alignment using the Smith–Waterman algorithm (finds best-scoring substring alignment, with zero floor). Linear gap model: every gap position costs gapExtend; gapOpen is IGNORED by this tool (use local_align_affine for gapOpen + k·gapExtend). With matrix = BLOSUM62 | PAM250 | EDNAFULL the alignment is scored by that published residue-pair table (protein or IUPAC DNA, any symbol of the matrix) instead of match/mismatch and gapOpen/gapExtend may be fractional (EMBOSS needle/water 6.6.0 = Biopython PairwiseAligner = parasail on >1000 oracle rows; EMBOSS -gapopen G -gapextend E = gapOpen -(G - E), gapExtend -E); exactScore is then the real-valued score (score = rounded).")]
     public static AlignmentResultDto LocalAlign(
         [Description("First sequence.")] string sequence1,
         [Description("Second sequence.")] string sequence2,
         [Description("Score for matching base.")] int match = 1,
         [Description("Score for mismatching base.")] int mismatch = -1,
-        [Description("Gap-open penalty (ignored by this linear-gap tool; kept for schema compatibility).")] int gapOpen = -2,
-        [Description("Gap penalty charged per gap position.")] int gapExtend = -1)
+        [Description("Gap-open score (ignored by this linear-gap tool; kept for schema compatibility). May be fractional when matrix is given.")] double gapOpen = -2,
+        [Description("Gap score charged per gap position (<= 0). May be fractional (e.g. -0.5) when matrix is given.")] double gapExtend = -1,
+        [Description(MatrixParamDescription)] string? matrix = null)
     {
         if (string.IsNullOrEmpty(sequence1))
             throw new ArgumentException("Sequence cannot be null or empty.", nameof(sequence1));
         if (string.IsNullOrEmpty(sequence2))
             throw new ArgumentException("Sequence cannot be null or empty.", nameof(sequence2));
 
-        var scoring = new global::Seqeron.Genomics.Infrastructure.ScoringMatrix(match, mismatch, gapOpen, gapExtend);
+        var sub = ResolveMatrix(matrix);
+        if (sub is not null)
+            return ToAlignmentDto(global::Seqeron.Genomics.Alignment.SequenceAligner.LocalAlign(sequence1, sequence2, new global::Seqeron.Genomics.Infrastructure.MatrixScoring(sub, gapOpen, gapExtend)));
+
+        var scoring = new global::Seqeron.Genomics.Infrastructure.ScoringMatrix(match, mismatch, RequireInteger(gapOpen, nameof(gapOpen)), RequireInteger(gapExtend, nameof(gapExtend)));
         var r = global::Seqeron.Genomics.Alignment.SequenceAligner.LocalAlign(sequence1, sequence2, scoring);
         return ToAlignmentDto(r);
     }
 
     [McpServerTool(Name = "semi_global_align", Title = "Pairwise — Semi-Global (Fitting) Alignment", ReadOnly = true)]
-    [Description("Performs semi-global (fitting / glocal) pairwise alignment with free end gaps in sequence2; useful for fitting a shorter query into a longer reference. Linear gap model: every gap position costs gapExtend; gapOpen is IGNORED by this tool (use semi_global_align_affine for gapOpen + k·gapExtend). startPosition2/endPosition2 report the fitted interval of sequence2 (0-based inclusive; the free flanks lie outside it; an empty interval has endPosition2 = startPosition2 - 1); startPosition1/endPosition1 span the whole query.")]
+    [Description("Performs semi-global (fitting / glocal) pairwise alignment with free end gaps in sequence2; useful for fitting a shorter query into a longer reference. Linear gap model: every gap position costs gapExtend; gapOpen is IGNORED by this tool (use semi_global_align_affine for gapOpen + k·gapExtend). startPosition2/endPosition2 report the fitted interval of sequence2 (0-based inclusive; the free flanks lie outside it; an empty interval has endPosition2 = startPosition2 - 1); startPosition1/endPosition1 span the whole query. With matrix = BLOSUM62 | PAM250 | EDNAFULL the alignment is scored by that published residue-pair table (protein or IUPAC DNA, any symbol of the matrix) instead of match/mismatch and gapOpen/gapExtend may be fractional (EMBOSS needle/water 6.6.0 = Biopython PairwiseAligner = parasail on >1000 oracle rows; EMBOSS -gapopen G -gapextend E = gapOpen -(G - E), gapExtend -E); exactScore is then the real-valued score (score = rounded). Matrix mode accepts protein sequences (no DNA validation).")]
     public static AlignmentResultDto SemiGlobalAlign(
         [Description("Query sequence (typically shorter).")] string sequence1,
         [Description("Reference sequence (typically longer).")] string sequence2,
         [Description("Score for matching base.")] int match = 1,
         [Description("Score for mismatching base.")] int mismatch = -1,
-        [Description("Gap-open penalty (ignored by this linear-gap tool; kept for schema compatibility).")] int gapOpen = -2,
-        [Description("Gap penalty charged per gap position.")] int gapExtend = -1)
+        [Description("Gap-open score (ignored by this linear-gap tool; kept for schema compatibility). May be fractional when matrix is given.")] double gapOpen = -2,
+        [Description("Gap score charged per gap position (<= 0). May be fractional (e.g. -0.5) when matrix is given.")] double gapExtend = -1,
+        [Description(MatrixParamDescription)] string? matrix = null)
     {
+        var sub = ResolveMatrix(matrix);
+        if (sub is not null)
+            return ToAlignmentDto(global::Seqeron.Genomics.Alignment.SequenceAligner.SemiGlobalAlign(RequireSequence(sequence1, nameof(sequence1)), RequireSequence(sequence2, nameof(sequence2)),
+                new global::Seqeron.Genomics.Infrastructure.MatrixScoring(sub, gapOpen, gapExtend)));
+
         if (!global::Seqeron.Genomics.Core.DnaSequence.TryCreate(sequence1, out var d1))
             throw new ArgumentException("Invalid DNA in sequence1.", nameof(sequence1));
         if (!global::Seqeron.Genomics.Core.DnaSequence.TryCreate(sequence2, out var d2))
             throw new ArgumentException("Invalid DNA in sequence2.", nameof(sequence2));
 
-        var scoring = new global::Seqeron.Genomics.Infrastructure.ScoringMatrix(match, mismatch, gapOpen, gapExtend);
+        var scoring = new global::Seqeron.Genomics.Infrastructure.ScoringMatrix(match, mismatch, RequireInteger(gapOpen, nameof(gapOpen)), RequireInteger(gapExtend, nameof(gapExtend)));
         var r = global::Seqeron.Genomics.Alignment.SequenceAligner.SemiGlobalAlign(d1!, d2!, scoring);
         return ToAlignmentDto(r);
     }
 
     [McpServerTool(Name = "alignment_statistics", Title = "Alignment — Statistics", ReadOnly = true)]
-    [Description("Computes identity / similarity / gap statistics for a pairwise alignment (EMBOSS needle convention: every percentage is over the full alignment length, gap columns included; a column is a gap column when either row has '-'; residues compared case-insensitively). Similarity counts columns with a POSITIVE substitution score (BLAST positives): with matrix = BLOSUM62 | PAM250 | EDNAFULL the published residue-pair table is used, otherwise the scalar match/mismatch model (similarity = identity for match > 0 >= mismatch). Also returns positives and gapOpens (number of gap runs, BLAST gapopen).")]
+    [Description("Computes identity / similarity / gap statistics for a pairwise alignment (EMBOSS needle convention: every percentage is over the full alignment length, gap columns included; a column is a gap column when either row has '-'; residues compared case-insensitively). Similarity counts columns with a POSITIVE substitution score (BLAST positives): with matrix = BLOSUM62 | PAM250 | EDNAFULL the published residue-pair table is used, otherwise the scalar match/mismatch model (similarity = identity for match > 0 >= mismatch). Also returns positives and gapOpens (number of gap runs, BLAST gapopen) and the BLAST+ report values: blastPositives (identities + non-identical positives), the INTEGER percentages of the BLAST pairwise report (blastIdentityPercent, blastPositivesPercent, blastGapPercent: round half up, never 100 unless every column matches; NCBI GetPercentMatch), blastPident (tabular pident, 3 decimals) and blastReport (' Identities = a/L (p%), [Positives = b/L (q%),] Gaps = g/L (r%)'; Positives only with a protein matrix).")]
     public static AlignmentStatisticsDto AlignmentStatistics(
         [Description("Aligned representation of sequence1 (with '-' gaps).")] string alignedSequence1,
         [Description("Aligned representation of sequence2 (with '-' gaps).")] string alignedSequence2,
@@ -92,7 +108,9 @@ public class AlignmentTools
             : global::Seqeron.Genomics.Alignment.SequenceAligner.CalculateStatistics(ar, sub);
         return new AlignmentStatisticsDto(
             s.Matches, s.Mismatches, s.Gaps, s.AlignmentLength,
-            s.Identity, s.Similarity, s.GapPercent, s.Positives, s.GapOpens);
+            s.Identity, s.Similarity, s.GapPercent, s.Positives, s.GapOpens,
+            s.BlastPositives, s.BlastPercentIdentity, s.BlastPercentPositives, s.BlastPercentGaps,
+            s.BlastTabularPidentText, s.ToBlastString(protein: sub is not null && !ReferenceEquals(sub, global::Seqeron.Genomics.Infrastructure.SubstitutionMatrix.EdnaFull)));
     }
 
     [McpServerTool(Name = "format_alignment", Title = "Alignment — Pretty Format", ReadOnly = true)]
@@ -136,6 +154,17 @@ public class AlignmentTools
             0, 0, 0, 0);
     }
 
+    private const string MatrixParamDescription =
+        "Optional substitution matrix: BLOSUM62, PAM250 (protein) or EDNAFULL (IUPAC DNA). When given, match/mismatch are ignored, residues are scored by the published table (any protein or IUPAC symbol of the matrix; case-insensitive) and gapOpen/gapExtend may be fractional (the EMBOSS needle/water models: gapOpen = -(G - E), gapExtend = -E for -gapopen G -gapextend E). The result then also carries the real-valued exactScore.";
+
+    private static string RequireSequence(string sequence, string name) =>
+        string.IsNullOrEmpty(sequence) ? throw new ArgumentException("Sequence cannot be null or empty.", name) : sequence;
+
+    private static int RequireInteger(double value, string name) =>
+        value == Math.Round(value) && Math.Abs(value) <= int.MaxValue
+            ? (int)value
+            : throw new ArgumentException($"{name} = {value} is not an integer: fractional gap scores need a substitution matrix (parameter 'matrix').", name);
+
     private static global::Seqeron.Genomics.Infrastructure.SubstitutionMatrix? ResolveMatrix(string? name)
     {
         if (string.IsNullOrWhiteSpace(name))
@@ -150,61 +179,77 @@ public class AlignmentTools
     }
 
     [McpServerTool(Name = "global_align_affine", Title = "Pairwise — Global Alignment, Affine Gaps (Gotoh)", ReadOnly = true)]
-    [Description("Global pairwise alignment with affine gap costs (Gotoh 1982): a gap of length k scores gapOpen + k·gapExtend (the BLAST+ / Biopython open_gap_score = gapOpen + gapExtend convention), so BLAST scoring (match 2, mismatch -3, gapOpen -5, gapExtend -2) can be applied. Border gaps are charged an opening each (Flouri et al. 2015). Equals Biopython PairwiseAligner(mode='global') and parasail nw_trace.")]
+    [Description("Global pairwise alignment with affine gap costs (Gotoh 1982): a gap of length k scores gapOpen + k·gapExtend (the BLAST+ / Biopython open_gap_score = gapOpen + gapExtend convention), so BLAST scoring (match 2, mismatch -3, gapOpen -5, gapExtend -2) can be applied. Border gaps are charged an opening each (Flouri et al. 2015). Equals Biopython PairwiseAligner(mode='global') and parasail nw_trace. With matrix = BLOSUM62 | PAM250 | EDNAFULL the alignment is scored by that published residue-pair table (protein or IUPAC DNA, any symbol of the matrix) instead of match/mismatch and gapOpen/gapExtend may be fractional (EMBOSS needle/water 6.6.0 = Biopython PairwiseAligner = parasail on >1000 oracle rows; EMBOSS -gapopen G -gapextend E = gapOpen -(G - E), gapExtend -E); exactScore is then the real-valued score (score = rounded).")]
     public static AlignmentResultDto GlobalAlignAffine(
         [Description("First sequence (DNA, uppercased internally).")] string sequence1,
         [Description("Second sequence.")] string sequence2,
         [Description("Score for matching base.")] int match = 1,
         [Description("Score for mismatching base.")] int mismatch = -1,
-        [Description("Gap-open score added once per gap run (negative = penalty).")] int gapOpen = -2,
-        [Description("Gap score per gap position, in addition to gapOpen for the first one.")] int gapExtend = -1)
+        [Description("Gap-open score added once per gap run (negative = penalty). May be fractional when matrix is given; EMBOSS gapopen G / gapextend E = gapOpen -(G - E), gapExtend -E.")] double gapOpen = -2,
+        [Description("Gap score per gap position, in addition to gapOpen for the first one. May be fractional (e.g. -0.5) when matrix is given.")] double gapExtend = -1,
+        [Description(MatrixParamDescription)] string? matrix = null)
     {
         if (string.IsNullOrEmpty(sequence1))
             throw new ArgumentException("Sequence cannot be null or empty.", nameof(sequence1));
         if (string.IsNullOrEmpty(sequence2))
             throw new ArgumentException("Sequence cannot be null or empty.", nameof(sequence2));
 
-        var scoring = new global::Seqeron.Genomics.Infrastructure.ScoringMatrix(match, mismatch, gapOpen, gapExtend);
+        var sub = ResolveMatrix(matrix);
+        if (sub is not null)
+            return ToAlignmentDto(global::Seqeron.Genomics.Alignment.SequenceAligner.GlobalAlignAffine(sequence1, sequence2, new global::Seqeron.Genomics.Infrastructure.MatrixScoring(sub, gapOpen, gapExtend)));
+
+        var scoring = new global::Seqeron.Genomics.Infrastructure.ScoringMatrix(match, mismatch, RequireInteger(gapOpen, nameof(gapOpen)), RequireInteger(gapExtend, nameof(gapExtend)));
         var r = global::Seqeron.Genomics.Alignment.SequenceAligner.GlobalAlignAffine(sequence1, sequence2, scoring);
         return ToAlignmentDto(r);
     }
 
     [McpServerTool(Name = "local_align_affine", Title = "Pairwise — Local Alignment, Affine Gaps (Smith–Waterman–Gotoh)", ReadOnly = true)]
-    [Description("Local pairwise alignment with affine gap costs (Smith–Waterman 1981 with Gotoh 1982 gaps): a gap of length k scores gapOpen + k·gapExtend; zero floor. Equals Biopython PairwiseAligner(mode='local') and parasail sw_trace.")]
+    [Description("Local pairwise alignment with affine gap costs (Smith–Waterman 1981 with Gotoh 1982 gaps): a gap of length k scores gapOpen + k·gapExtend; zero floor. Equals Biopython PairwiseAligner(mode='local') and parasail sw_trace. With matrix = BLOSUM62 | PAM250 | EDNAFULL the alignment is scored by that published residue-pair table (protein or IUPAC DNA, any symbol of the matrix) instead of match/mismatch and gapOpen/gapExtend may be fractional (EMBOSS needle/water 6.6.0 = Biopython PairwiseAligner = parasail on >1000 oracle rows; EMBOSS -gapopen G -gapextend E = gapOpen -(G - E), gapExtend -E); exactScore is then the real-valued score (score = rounded).")]
     public static AlignmentResultDto LocalAlignAffine(
         [Description("First sequence.")] string sequence1,
         [Description("Second sequence.")] string sequence2,
         [Description("Score for matching base.")] int match = 1,
         [Description("Score for mismatching base.")] int mismatch = -1,
-        [Description("Gap-open score added once per gap run (negative = penalty).")] int gapOpen = -2,
-        [Description("Gap score per gap position, in addition to gapOpen for the first one.")] int gapExtend = -1)
+        [Description("Gap-open score added once per gap run (negative = penalty). May be fractional when matrix is given; EMBOSS gapopen G / gapextend E = gapOpen -(G - E), gapExtend -E.")] double gapOpen = -2,
+        [Description("Gap score per gap position, in addition to gapOpen for the first one. May be fractional (e.g. -0.5) when matrix is given.")] double gapExtend = -1,
+        [Description(MatrixParamDescription)] string? matrix = null)
     {
         if (string.IsNullOrEmpty(sequence1))
             throw new ArgumentException("Sequence cannot be null or empty.", nameof(sequence1));
         if (string.IsNullOrEmpty(sequence2))
             throw new ArgumentException("Sequence cannot be null or empty.", nameof(sequence2));
 
-        var scoring = new global::Seqeron.Genomics.Infrastructure.ScoringMatrix(match, mismatch, gapOpen, gapExtend);
+        var sub = ResolveMatrix(matrix);
+        if (sub is not null)
+            return ToAlignmentDto(global::Seqeron.Genomics.Alignment.SequenceAligner.LocalAlignAffine(sequence1, sequence2, new global::Seqeron.Genomics.Infrastructure.MatrixScoring(sub, gapOpen, gapExtend)));
+
+        var scoring = new global::Seqeron.Genomics.Infrastructure.ScoringMatrix(match, mismatch, RequireInteger(gapOpen, nameof(gapOpen)), RequireInteger(gapExtend, nameof(gapExtend)));
         var r = global::Seqeron.Genomics.Alignment.SequenceAligner.LocalAlignAffine(sequence1, sequence2, scoring);
         return ToAlignmentDto(r);
     }
 
     [McpServerTool(Name = "semi_global_align_affine", Title = "Pairwise — Semi-Global (Fitting) Alignment, Affine Gaps", ReadOnly = true)]
-    [Description("Semi-global (fitting) pairwise alignment with affine gap costs: sequence1 is aligned end to end inside sequence2 (free leading/trailing sequence2 residues); a gap of length k scores gapOpen + k·gapExtend. Equals Biopython PairwiseAligner(mode='global', end_insertion_score=0) and parasail sg_dx. startPosition2/endPosition2 report the fitted interval of sequence2 (0-based inclusive; the free flanks lie outside it; an empty interval has endPosition2 = startPosition2 - 1); startPosition1/endPosition1 span the whole query.")]
+    [Description("Semi-global (fitting) pairwise alignment with affine gap costs: sequence1 is aligned end to end inside sequence2 (free leading/trailing sequence2 residues); a gap of length k scores gapOpen + k·gapExtend. Equals Biopython PairwiseAligner(mode='global', end_insertion_score=0) and parasail sg_dx. startPosition2/endPosition2 report the fitted interval of sequence2 (0-based inclusive; the free flanks lie outside it; an empty interval has endPosition2 = startPosition2 - 1); startPosition1/endPosition1 span the whole query. With matrix = BLOSUM62 | PAM250 | EDNAFULL the alignment is scored by that published residue-pair table (protein or IUPAC DNA, any symbol of the matrix) instead of match/mismatch and gapOpen/gapExtend may be fractional (EMBOSS needle/water 6.6.0 = Biopython PairwiseAligner = parasail on >1000 oracle rows; EMBOSS -gapopen G -gapextend E = gapOpen -(G - E), gapExtend -E); exactScore is then the real-valued score (score = rounded). Matrix mode accepts protein sequences (no DNA validation).")]
     public static AlignmentResultDto SemiGlobalAlignAffine(
         [Description("Query sequence (typically shorter).")] string sequence1,
         [Description("Reference sequence (typically longer).")] string sequence2,
         [Description("Score for matching base.")] int match = 1,
         [Description("Score for mismatching base.")] int mismatch = -1,
-        [Description("Gap-open score added once per gap run (negative = penalty).")] int gapOpen = -2,
-        [Description("Gap score per gap position, in addition to gapOpen for the first one.")] int gapExtend = -1)
+        [Description("Gap-open score added once per gap run (negative = penalty). May be fractional when matrix is given; EMBOSS gapopen G / gapextend E = gapOpen -(G - E), gapExtend -E.")] double gapOpen = -2,
+        [Description("Gap score per gap position, in addition to gapOpen for the first one. May be fractional (e.g. -0.5) when matrix is given.")] double gapExtend = -1,
+        [Description(MatrixParamDescription)] string? matrix = null)
     {
+        var sub = ResolveMatrix(matrix);
+        if (sub is not null)
+            return ToAlignmentDto(global::Seqeron.Genomics.Alignment.SequenceAligner.SemiGlobalAlignAffine(RequireSequence(sequence1, nameof(sequence1)), RequireSequence(sequence2, nameof(sequence2)),
+                new global::Seqeron.Genomics.Infrastructure.MatrixScoring(sub, gapOpen, gapExtend)));
+
         if (!global::Seqeron.Genomics.Core.DnaSequence.TryCreate(sequence1, out var d1))
             throw new ArgumentException("Invalid DNA in sequence1.", nameof(sequence1));
         if (!global::Seqeron.Genomics.Core.DnaSequence.TryCreate(sequence2, out var d2))
             throw new ArgumentException("Invalid DNA in sequence2.", nameof(sequence2));
 
-        var scoring = new global::Seqeron.Genomics.Infrastructure.ScoringMatrix(match, mismatch, gapOpen, gapExtend);
+        var scoring = new global::Seqeron.Genomics.Infrastructure.ScoringMatrix(match, mismatch, RequireInteger(gapOpen, nameof(gapOpen)), RequireInteger(gapExtend, nameof(gapExtend)));
         var r = global::Seqeron.Genomics.Alignment.SequenceAligner.SemiGlobalAlignAffine(d1!, d2!, scoring);
         return ToAlignmentDto(r);
     }
@@ -779,7 +824,8 @@ public class AlignmentTools
             r.StartPosition1,
             r.StartPosition2,
             r.EndPosition1,
-            r.EndPosition2);
+            r.EndPosition2,
+            r.ExactScore);
 
     private static AssemblyResultDto ToAssemblyDto(global::Seqeron.Genomics.Alignment.SequenceAssembler.AssemblyResult r)
     {

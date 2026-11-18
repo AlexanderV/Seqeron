@@ -200,6 +200,8 @@
 | sticky_cutters | MolTools | RestrictionAnalyzer.GetStickyCutters | RestrictionAnalyzer.cs#L190 | 0/0 | – | – | Build-Ready |
 | three_prime_stability | MolTools | PrimerDesigner.Calculate3PrimeStability | PrimerDesigner.cs#L2263 | 0/0 | – | – | Build-Ready |
 | validate_probe | MolTools | ProbeDesigner.ValidateProbe | ProbeDesigner.cs#L2155 | 0/0 | – | – | Build-Ready |
+| alignment_distance_matrix | Analysis | MultipleAlignmentStatistics.CalculateDistanceMatrix | MultipleAlignmentStatistics.cs#L220 | 1/1 | ✓ | ✓ | Ready |
+| multiple_alignment_statistics | Analysis | MultipleAlignmentStatistics.Calculate | MultipleAlignmentStatistics.cs#L110 | 3/3 | ✓ | ✓ | Ready |
 | alphabet_pwm_score_pvalue | Analysis | MotifFinder.AlphabetPwmScorePValue | MotifFinder.PwmPValue.cs#L190 | 2/2 | ✓ | ✓ | Ready |
 | alphabet_pwm_score_thresholds | Analysis | AlphabetPositionWeightMatrix.ScoreDistribution | MotifFinder.AlphabetPwm.cs#L394 | 1/1 | ✓ | ✓ | Ready |
 | analyze_gc_content | Analysis | GcSkewCalculator.AnalyzeGcContent | GcSkewCalculator.cs#L1002 | 0/0 | – | – | Build-Ready |

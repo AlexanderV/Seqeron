@@ -217,3 +217,8 @@
 
 1. The pre-existing implementation computed Similarity as `(matches+mismatches)/Length` (corrected 2026-06 to the positive-score rule).
 2. B09 re-validation (2026-11-18): oracle-confirmed defects fixed — case-sensitive comparison (F11), unequal rows accepted (F12), no gap-opening / positives output (F13), no residue-pair similarity and a markup that differed from needle (F14). Decision: markup follows the needle 6.6.0 binary/source rather than the AlignFormats web page where they differ; the first-row-ambiguity quirk is reproduced (documented, tested) because the unit's contract is EMBOSS parity.
+
+## 2026-11 audit round 1 addition (A1-9, B09 F42/F43): BLAST integer percentages and multiple-alignment statistics
+
+- `SequenceAligner_BlastStatistics_Tests` (BLAST+ 2.12.0 blastn/blastp, `TestData/Alignment/blast_stats_oracle.tsv`, 320 best HSPs: counts, `BlastPositives`, integer percentages, `pident` text, report line; `GetPercentMatch` table incl. the 99-not-100 cap).
+- `MultipleAlignmentStatistics_Tests` (`TestData/Alignment/msa_stats_oracle.tsv`: EMBOSS infoalign 6.6.0 3 268 per-row records with explicit/consensus reference, distmat 6.6.0 600 matrices (uncorrected and Jukes-Cantor, gap weights 0 / 0.5), ClustalW 2.1 conservation lines (151 DNA/protein MSAs), Biopython `DistanceCalculator('identity')` 77 matrices) and `Seqeron.Mcp.Analysis.Tests.MultipleAlignmentStatisticsToolTests`; generator `scripts/alignment/generate_msa_stats_oracle.py`.

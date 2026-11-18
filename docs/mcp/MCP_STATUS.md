@@ -9,9 +9,9 @@
 
 | Metric | Done | Total |
 |---|---:|---:|
-| Gold-standard binding | 483 | 483 |
-| Schema+Binding tests | 483 | 483 |
-| Docs (.md + .mcp.json) | 483 | 483 |
+| Gold-standard binding | 485 | 485 |
+| Schema+Binding tests | 485 | 485 |
+| Docs (.md + .mcp.json) | 485 | 485 |
 
 ## Per-server summary
 
@@ -21,7 +21,7 @@
 | Sequence | Seqeron.Mcp.Sequence | 35 | 35/35 | 35/35 | 35/35 | ✅ done |
 | Parsers | Seqeron.Mcp.Parsers | 41 | 41/41 | 41/41 | 41/41 | ✅ done |
 | Alignment | Seqeron.Mcp.Alignment | 34 | 34/34 | 34/34 | 34/34 | ✅ done |
-| Analysis | Seqeron.Mcp.Analysis | 127 | 127/127 | 127/127 | 127/127 | ✅ done |
+| Analysis | Seqeron.Mcp.Analysis | 129 | 129/129 | 129/129 | 129/129 | ✅ done |
 | Annotation | Seqeron.Mcp.Annotation | 97 | 97/97 | 97/97 | 97/97 | ✅ done |
 | Chromosome | Seqeron.Mcp.Chromosome | 32 | 32/32 | 32/32 | 32/32 | ✅ done |
 | Metagenomics | Seqeron.Mcp.Metagenomics | 19 | 19/19 | 19/19 | 19/19 | ✅ done |
@@ -179,7 +179,7 @@
 | 33 | `semi_global_align_affine` | ☑ | ☑ | ☑ |
 | 34 | `sequence_identity` | ☑ | ☑ | ☑ |
 
-### Analysis (Seqeron.Mcp.Analysis) — 127 tools
+### Analysis (Seqeron.Mcp.Analysis) — 129 tools
 
 | # | tool | B | T | D |
 |---:|---|:--:|:--:|:--:|
@@ -310,6 +310,8 @@
 | 125 | `validate_dot_bracket` | ☑ | ☑ | ☑ |
 | 126 | `windowed_complexity` | ☑ | ☑ | ☑ |
 | 127 | `windowed_gc_skew` | ☑ | ☑ | ☑ |
+| 128 | `alignment_distance_matrix` | ☑ | ☑ | ☑ |
+| 129 | `multiple_alignment_statistics` | ☑ | ☑ | ☑ |
 ### Annotation (Seqeron.Mcp.Annotation) — 97 tools
 
 | # | tool | B | T | D |

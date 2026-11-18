@@ -456,6 +456,21 @@ public record ScanWithPwmResult(MotifMatchItem[] Items);
 /// <summary>Result of <c>generate_consensus</c>.</summary>
 public record ConsensusResult(string Consensus);
 
+/// <summary>One column of <c>multiple_alignment_statistics</c>.</summary>
+public record MsaColumnItem(int Index, Dictionary<string, int> Counts, int GapCount, double GapFraction, string MostCommonResidue, int MostCommonCount, string Conservation);
+
+/// <summary>One sequence of <c>multiple_alignment_statistics</c> (EMBOSS infoalign columns).</summary>
+public record MsaSequenceItem(int Index, int SequenceLength, int AlignmentLength, int GapRuns, int GapLength, int Identities, int Similarities, int Differences, double PercentChange);
+
+/// <summary>Result of <c>multiple_alignment_statistics</c>; NaN matrix entries are null.</summary>
+public record MultipleAlignmentStatisticsResult(
+    int SequenceCount, int AlignmentLength, int FullyConservedColumns, int GapFreeColumns, double GapPercent,
+    double? MeanPairwiseIdentity, string ConservationLine, double?[][] PairwiseIdentity,
+    MsaSequenceItem[] Sequences, MsaColumnItem[] Columns);
+
+/// <summary>Result of <c>alignment_distance_matrix</c>; NaN entries are null.</summary>
+public record AlignmentDistanceMatrixResult(string Method, double?[][] Matrix);
+
 /// <summary>A discovered (overrepresented) k-mer motif.</summary>
 public record DiscoveredMotifItem(string Sequence, int Count, int[] Positions, double Enrichment);
 

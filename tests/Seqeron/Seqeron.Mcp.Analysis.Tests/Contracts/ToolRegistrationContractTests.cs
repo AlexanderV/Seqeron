@@ -16,6 +16,7 @@ public sealed class ToolRegistrationContractTests : ToolRegistrationContractTest
 
     protected override string[] ExpectedToolNames { get; } =
     {
+        "alignment_distance_matrix",
         "alphabet_pwm_score_pvalue",
         "alphabet_pwm_score_thresholds",
         "analyze_gc_content",
@@ -112,6 +113,7 @@ public sealed class ToolRegistrationContractTests : ToolRegistrationContractTest
         "mismatch_coaxial_stacking",
         "most_frequent_kmers",
         "multibranch_loop_energy",
+        "multiple_alignment_statistics",
         "oligo_analysis",
         "parse_dot_bracket",
         "predict_chou_fasman",

@@ -1,0 +1,140 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "multiple_alignment_statistics",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "MultipleAlignmentStatistics.Calculate",
+  "docRef": "Seqeron.Genomics.Analysis/MultipleAlignmentStatistics.cs#L110",
+  "description": "Statistics of a gapped multiple alignment: per-sequence comparison with a reference row or the EMBOSS cons consensus (EMBOSS infoalign: seqLength, alignLength, gap runs, gap length, identities, similarities, differences, % change; verified against infoalign 6.6.0), per-column residue counts / gap fraction / most common residue / ClustalW conservation symbol ('*' identical, ':' strong, '.' weak group; ClustalW 2.1; DNA columns only '*'), gap percent, fully conserved and gap-free columns, and the pairwise percent-identity matrix (distmat uncorrected, identity over columns where neither row has a gap; gapWeight 1 = Biopython DistanceCalculator('identity')). Rows are upper-cased, '.'/'~' read as '-'.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequences": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "At least two aligned sequences of equal length (DNA or protein, gaps '-').",
+        "minItems": 2
+      },
+      "residueType": {
+        "type": "string",
+        "description": "'auto' (type of the first row as EMBOSS), 'nucleotide' (EDNAFULL) or 'protein' (EBLOSUM62; also enables ':'/'.' conservation).",
+        "default": "auto"
+      },
+      "referenceSequence": {
+        "type": "integer",
+        "description": "infoalign -refseq: 0 = the EMBOSS cons consensus (default), k = the k-th sequence (1-based).",
+        "default": 0
+      },
+      "gapWeight": {
+        "type": "number",
+        "description": "Weight of gap columns in the identity matrix denominator L - g + g*gapWeight (distmat -gapweight; default 0).",
+        "default": 0
+      }
+    },
+    "required": [
+      "sequences"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "sequenceCount": {
+        "type": "integer",
+        "description": "Rows."
+      },
+      "alignmentLength": {
+        "type": "integer",
+        "description": "Columns."
+      },
+      "fullyConservedColumns": {
+        "type": "integer",
+        "description": "Columns with ClustalW symbol '*'."
+      },
+      "gapFreeColumns": {
+        "type": "integer",
+        "description": "Columns without a gap."
+      },
+      "gapPercent": {
+        "type": "number",
+        "description": "100 * gap symbols / (rows * columns)."
+      },
+      "meanPairwiseIdentity": {
+        "type": "number",
+        "description": "Mean off-diagonal percent identity (null when undefined)."
+      },
+      "conservationLine": {
+        "type": "string",
+        "description": "ClustalW conservation line ('*', ':', '.', ' ')."
+      },
+      "pairwiseIdentity": {
+        "type": "array",
+        "items": {
+          "type": "array",
+          "items": {
+            "type": [
+              "number",
+              "null"
+            ]
+          }
+        },
+        "description": "Percent-identity matrix (null = undefined)."
+      },
+      "sequences": {
+        "type": "array",
+        "items": {
+          "type": "object"
+        },
+        "description": "Per-row infoalign statistics: index, sequenceLength, alignmentLength, gapRuns, gapLength, identities, similarities, differences, percentChange."
+      },
+      "columns": {
+        "type": "array",
+        "items": {
+          "type": "object"
+        },
+        "description": "Per-column: index, counts, gapCount, gapFraction, mostCommonResidue, mostCommonCount, conservation."
+      }
+    },
+    "required": [
+      "sequenceCount",
+      "alignmentLength",
+      "fullyConservedColumns",
+      "gapFreeColumns",
+      "gapPercent",
+      "conservationLine",
+      "pairwiseIdentity",
+      "sequences",
+      "columns"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "At least two sequences are required"
+    },
+    {
+      "code": 1002,
+      "message": "residueType must be 'nucleotide', 'protein' or 'auto'"
+    }
+  ],
+  "examples": [
+    {
+      "name": "EMBOSS infoalign/distmat example",
+      "input": {
+        "sequences": [
+          "ACGT-ACGTAC",
+          "ACGTTACG-AC",
+          "AGGT-ACGTAC",
+          "A-GTTTCGTAA"
+        ],
+        "residueType": "nucleotide",
+        "referenceSequence": 1
+      },
+      "output": {
+        "note": "per-sequence row 2 (infoalign -refseq 1): sequenceLength 10, alignmentLength 11, gapRuns 1, gapLength 1, identities 9, similarities 0, differences 1, percentChange 18.181818; pairwiseIdentity[0][2] = 90 (distmat 10.00)"
+      }
+    }
+  ]
+}

@@ -137,6 +137,10 @@ The implementation is specifically query-in-reference fitting alignment. The fir
 
 **Affine gaps:** available through `SemiGlobalAlignAffine` (Gotoh 1982; cross-checked against Biopython 1.88 and parasail 1.3.4 `sg_dx`).
 
+### Substitution-matrix scoring (A1-2, B09 F41)
+
+`SequenceAligner.SemiGlobalAlign` and `SemiGlobalAlignAffine` also accept a `MatrixScoring` (BLOSUM62 / PAM250 / EDNAFULL residue-pair scores, fractional gap scores; `string`, `ProteinSequence`, `DnaSequence`) and run the same dynamic-program core as the integer overloads; see [Global_Alignment_Needleman_Wunsch.md §5.4](Global_Alignment_Needleman_Wunsch.md) for the conversion, the EMBOSS gap convention (`MatrixScoring.Emboss`) and the oracle (Biopython end_insertion_score = 0 / parasail sg_dx; EMBOSS has no one-sided free-end mode, Biopython 1.88, parasail 1.3.4).
+
 ## 6. Edge Cases and Limitations
 
 ### 6.1 Edge Cases

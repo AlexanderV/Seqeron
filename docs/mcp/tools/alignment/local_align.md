@@ -1,6 +1,6 @@
 # local_align
 
-Local pairwise alignment (Smith-Waterman, zero floor). Linear gap model: every gap position scores gapExtend; gapOpen is IGNORED (use local_align_affine for gapOpen + k·gapExtend).
+Performs local pairwise alignment using the Smith–Waterman algorithm (finds best-scoring substring alignment, with zero floor). Linear gap model: every gap position costs gapExtend; gapOpen is IGNORED by this tool (use local_align_affine for gapOpen + k·gapExtend). With matrix = BLOSUM62 | PAM250 | EDNAFULL the alignment is scored by that published residue-pair table (protein or IUPAC DNA, any symbol of the matrix) instead of match/mismatch and gapOpen/gapExtend may be fractional (EMBOSS needle/water 6.6.0 = Biopython PairwiseAligner = parasail on >1000 oracle rows; EMBOSS -gapopen G -gapextend E = gapOpen -(G - E), gapExtend -E); exactScore is then the real-valued score (score = rounded).
 
 ## Overview
 
@@ -14,7 +14,7 @@ Local pairwise alignment (Smith-Waterman, zero floor). Linear gap model: every g
 
 ## Description
 
-Local pairwise alignment (Smith-Waterman, zero floor). Linear gap model: every gap position scores gapExtend; gapOpen is IGNORED (use local_align_affine for gapOpen + k·gapExtend).
+Performs local pairwise alignment using the Smith–Waterman algorithm (finds best-scoring substring alignment, with zero floor). Linear gap model: every gap position costs gapExtend; gapOpen is IGNORED by this tool (use local_align_affine for gapOpen + k·gapExtend). With matrix = BLOSUM62 | PAM250 | EDNAFULL the alignment is scored by that published residue-pair table (protein or IUPAC DNA, any symbol of the matrix) instead of match/mismatch and gapOpen/gapExtend may be fractional (EMBOSS needle/water 6.6.0 = Biopython PairwiseAligner = parasail on >1000 oracle rows; EMBOSS -gapopen G -gapextend E = gapOpen -(G - E), gapExtend -E); exactScore is then the real-valued score (score = rounded).
 
 ## Core Documentation Reference
 
@@ -28,8 +28,9 @@ Local pairwise alignment (Smith-Waterman, zero floor). Linear gap model: every g
 | `sequence2` | string | Yes | Second sequence. |
 | `match` | integer | No | Score for matching base. (default: 1) |
 | `mismatch` | integer | No | Score for mismatching base. (default: -1) |
-| `gapOpen` | integer | No | Gap-open penalty (ignored: linear-gap model; kept for schema compatibility). (default: -2) |
-| `gapExtend` | integer | No | Gap-extend penalty. (default: -1) |
+| `gapOpen` | number | No | Gap-open score (ignored by this linear-gap tool; kept for schema compatibility). May be fractional when matrix is given. (default: -2) |
+| `gapExtend` | number | No | Gap score charged per gap position (<= 0). May be fractional (e.g. -0.5) when matrix is given. (default: -1) |
+| `matrix` | string | No | Optional substitution matrix: BLOSUM62, PAM250 (protein) or EDNAFULL (IUPAC DNA). When given, match/mismatch are ignored, residues are scored by the published table (any protein or IUPAC symbol of the matrix; case-insensitive) and gapOpen/gapExtend may be fractional (the EMBOSS needle/water models: gapOpen = -(G - E), gapExtend = -E for -gapopen G -gapextend E). The result then also carries the real-valued exactScore. |
 
 ## Output Schema
 

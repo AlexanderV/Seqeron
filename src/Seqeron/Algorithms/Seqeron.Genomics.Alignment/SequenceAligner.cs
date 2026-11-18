@@ -2,6 +2,142 @@ using System.Text;
 
 namespace Seqeron.Genomics.Alignment;
 
+
+/// <summary>
+/// Internal exact-integer scoring model shared by every dynamic program: either the scalar
+/// <see cref="ScoringMatrix"/> (scale 1) or a <see cref="MatrixScoring"/> converted to integers in units of 1/Scale.
+/// </summary>
+internal readonly struct PairScoring
+{
+    public readonly int Match;
+    public readonly int Mismatch;
+    public readonly int GapOpen;
+    public readonly int GapExtend;
+
+    /// <summary>Every score of this model is an integer multiple of 1/Scale of the reported (real) score.</summary>
+    public readonly int Scale;
+
+    private readonly int[]? _table;
+    private readonly sbyte[]? _index;
+    private readonly int _dim;
+
+    public PairScoring(ScoringMatrix scoring)
+    {
+        Match = scoring.Match;
+        Mismatch = scoring.Mismatch;
+        GapOpen = scoring.GapOpen;
+        GapExtend = scoring.GapExtend;
+        Scale = 1;
+        _table = null;
+        _index = null;
+        _dim = 0;
+    }
+
+    private PairScoring(int gapOpen, int gapExtend, int scale, int[] table, sbyte[] index, int dim)
+    {
+        Match = 0;
+        Mismatch = 0;
+        GapOpen = gapOpen;
+        GapExtend = gapExtend;
+        Scale = scale;
+        _table = table;
+        _index = index;
+        _dim = dim;
+    }
+
+    public static implicit operator PairScoring(ScoringMatrix scoring) => new(scoring);
+
+    /// <summary>Score of the aligned pair (a, b) (upper-case symbols already validated for matrix models).</summary>
+    public int Sub(char a, char b)
+    {
+        if (_table is not null)
+            return _table[_index![a] * _dim + _index[b]];
+        return a == b ? Match : Mismatch;
+    }
+
+    /// <summary>Largest decimal precision of a gap score (1e-6, the resolution of Biopython's/EMBOSS's float comparisons).</summary>
+    private const int MaxGapDecimals = 6;
+
+    /// <summary>Headroom: |score| of any path must stay below this (the affine −∞ sentinel is int.MinValue / 4).</summary>
+    private const long MaxPathScore = 1L << 28;
+
+    /// <summary>
+    /// Builds the exact integer model of <paramref name="scoring"/> for the (upper-case) sequences <paramref name="a"/>
+    /// and <paramref name="b"/>, validating residues, gap scores and the integer range.
+    /// </summary>
+    public static PairScoring Create(MatrixScoring scoring, string a, string b)
+    {
+        var matrix = scoring.Matrix ?? throw new ArgumentException("MatrixScoring.Matrix must not be null.", nameof(scoring));
+        ValidateResidues(matrix, a, "sequence1");
+        ValidateResidues(matrix, b, "sequence2");
+
+        decimal open = ToGapDecimal(scoring.GapOpen, nameof(MatrixScoring.GapOpen));
+        decimal extend = ToGapDecimal(scoring.GapExtend, nameof(MatrixScoring.GapExtend));
+
+        // Smallest integer scale that makes both gap scores integral (0.5 -> 2, 0.1 -> 10, integers -> 1).
+        int decimals = 0;
+        while (decimals <= MaxGapDecimals && !(IsIntegral(open * Pow10(decimals)) && IsIntegral(extend * Pow10(decimals))))
+            decimals++;
+        if (decimals > MaxGapDecimals)
+            throw new ArgumentException($"Gap scores are resolved to 1e-{MaxGapDecimals}: {scoring.GapOpen}, {scoring.GapExtend}.", nameof(scoring));
+
+        long denominator = Pow10(decimals);
+        long g = Gcd(denominator, Gcd(Math.Abs((long)(open * denominator)), Math.Abs((long)(extend * denominator))));
+        long scale = denominator / g;
+        long gapOpen = (long)(open * denominator) / g;
+        long gapExtend = (long)(extend * denominator) / g;
+
+        long maxAbs = Math.Max((long)matrix.MaxAbsScore * scale, Math.Abs(gapOpen) + Math.Abs(gapExtend));
+        if (maxAbs * ((long)a.Length + b.Length + 2) >= MaxPathScore)
+            throw new ArgumentException(
+                $"Score range too large for the integer dynamic program (scale {scale}, sequence lengths {a.Length} and {b.Length}); use coarser gap scores or shorter sequences.",
+                nameof(scoring));
+
+        int dim = matrix.Alphabet.Length;
+        var index = new sbyte[128];
+        Array.Fill(index, (sbyte)-1);
+        for (int i = 0; i < dim; i++)
+            index[matrix.Alphabet[i]] = (sbyte)i;
+
+        var table = new int[dim * dim];
+        for (int i = 0; i < dim; i++)
+            for (int j = 0; j < dim; j++)
+                table[i * dim + j] = checked((int)(matrix.ScoreAt(i, j) * scale));
+
+        return new PairScoring((int)gapOpen, (int)gapExtend, (int)scale, table, index, dim);
+    }
+
+    private static void ValidateResidues(SubstitutionMatrix matrix, string seq, string name)
+    {
+        for (int i = 0; i < seq.Length; i++)
+            if (matrix.IndexOf(seq[i]) < 0)
+                throw new ArgumentException(
+                    $"Residue '{seq[i]}' at position {i} of {name} is not in substitution matrix {matrix.Name} ({matrix.Alphabet}).", name);
+    }
+
+    private static decimal ToGapDecimal(double value, string name)
+    {
+        if (double.IsNaN(value) || double.IsInfinity(value) || value > 0)
+            throw new ArgumentException($"{name} must be a finite score <= 0 (a penalty), got {value}.", name);
+        return (decimal)value;
+    }
+
+    private static bool IsIntegral(decimal value) => value == decimal.Truncate(value);
+
+    private static long Pow10(int n)
+    {
+        long r = 1;
+        for (int i = 0; i < n; i++) r *= 10;
+        return r;
+    }
+
+    private static long Gcd(long x, long y)
+    {
+        while (y != 0) (x, y) = (y, x % y);
+        return x;
+    }
+}
+
 /// <summary>
 /// Performs pairwise sequence alignment using dynamic programming algorithms.
 /// Supports global (Needleman-Wunsch), local (Smith-Waterman), and semi-global alignment.
@@ -147,7 +283,7 @@ public static class SequenceAligner
     private static AlignmentResult GlobalAlignCore(
         string seq1,
         string seq2,
-        ScoringMatrix scoring,
+        PairScoring scoring,
         CancellationToken cancellationToken = default,
         IProgress<double>? progress = null) =>
         LinearAlignCore(seq1, seq2, scoring, fitting: false, cancellationToken, progress);
@@ -166,7 +302,7 @@ public static class SequenceAligner
     private static AlignmentResult LinearAlignCore(
         string seq1,
         string seq2,
-        ScoringMatrix scoring,
+        PairScoring scoring,
         bool fitting,
         CancellationToken cancellationToken = default,
         IProgress<double>? progress = null)
@@ -199,7 +335,7 @@ public static class SequenceAligner
             char c1 = seq1[i - 1];
             for (int j = 1; j <= n; j++)
             {
-                int matchScore = c1 == seq2[j - 1] ? scoring.Match : scoring.Mismatch;
+                int matchScore = scoring.Sub(c1, seq2[j - 1]);
 
                 int diag = score[i - 1, j - 1] + matchScore;
                 int up = score[i - 1, j] + scoring.GapExtend;
@@ -417,7 +553,7 @@ public static class SequenceAligner
             scoring ?? SimpleDna);
     }
 
-    private static AlignmentResult GlobalAlignAffineCore(string seq1, string seq2, ScoringMatrix scoring)
+    private static AlignmentResult GlobalAlignAffineCore(string seq1, string seq2, PairScoring scoring)
     {
         return AffineAlignCore(seq1, seq2, scoring, AlignmentType.Global);
     }
@@ -442,7 +578,7 @@ public static class SequenceAligner
     /// </list>
     /// Traceback ties are broken M &gt; X &gt; Y.
     /// </summary>
-    private static AlignmentResult AffineAlignCore(string seq1, string seq2, ScoringMatrix scoring, AlignmentType type)
+    private static AlignmentResult AffineAlignCore(string seq1, string seq2, PairScoring scoring, AlignmentType type)
     {
         bool local = type == AlignmentType.Local;
         bool fitting = type == AlignmentType.SemiGlobal;
@@ -480,7 +616,7 @@ public static class SequenceAligner
             char c1 = seq1[i - 1];
             for (int j = 1; j <= n; j++)
             {
-                int s = c1 == seq2[j - 1] ? scoring.Match : scoring.Mismatch;
+                int s = scoring.Sub(c1, seq2[j - 1]);
 
                 mm[i, j] = Math.Max(startFloor, Max3(mm[i - 1, j - 1], xx[i - 1, j - 1], yy[i - 1, j - 1])) + s;
                 xx[i, j] = Max3(mm[i - 1, j] + oe, xx[i - 1, j] + e, yy[i - 1, j] + oe);
@@ -545,7 +681,7 @@ public static class SequenceAligner
         {
             if (state == StateMatch)
             {
-                int prev = mm[ci, cj] - (seq1[ci - 1] == seq2[cj - 1] ? scoring.Match : scoring.Mismatch);
+                int prev = mm[ci, cj] - (scoring.Sub(seq1[ci - 1], seq2[cj - 1]));
                 chars1.Add(seq1[ci - 1]);
                 chars2.Add(seq2[cj - 1]);
                 ci--; cj--;
@@ -683,7 +819,7 @@ public static class SequenceAligner
             scoring ?? SimpleDna);
     }
 
-    private static AlignmentResult LocalAlignCore(string seq1, string seq2, ScoringMatrix scoring)
+    private static AlignmentResult LocalAlignCore(string seq1, string seq2, PairScoring scoring)
     {
         int m = seq1.Length;
         int n = seq2.Length;
@@ -697,7 +833,7 @@ public static class SequenceAligner
         {
             for (int j = 1; j <= n; j++)
             {
-                int matchScore = seq1[i - 1] == seq2[j - 1] ? scoring.Match : scoring.Mismatch;
+                int matchScore = scoring.Sub(seq1[i - 1], seq2[j - 1]);
 
                 int diag = score[i - 1, j - 1] + matchScore;
                 int up = score[i - 1, j] + scoring.GapExtend;
@@ -719,7 +855,7 @@ public static class SequenceAligner
     }
 
     private static AlignmentResult TracebackLocal(
-        string seq1, string seq2, int[,] score, int endI, int endJ, ScoringMatrix scoring)
+        string seq1, string seq2, int[,] score, int endI, int endJ, PairScoring scoring)
     {
         var chars1 = new List<char>();
         var chars2 = new List<char>();
@@ -732,7 +868,7 @@ public static class SequenceAligner
             startI = i;
             startJ = j;
 
-            int matchScore = seq1[i - 1] == seq2[j - 1] ? scoring.Match : scoring.Mismatch;
+            int matchScore = scoring.Sub(seq1[i - 1], seq2[j - 1]);
 
             if (score[i, j] == score[i - 1, j - 1] + matchScore)
             {
@@ -967,11 +1103,155 @@ public static class SequenceAligner
 
     #endregion
 
+    #region Substitution-matrix alignment (BLOSUM62 / PAM250 / EDNAFULL, fractional gap scores)
+
+    // The matrix overloads below add residue-pair scoring (protein, IUPAC DNA) and real-valued gap scores to the
+    // six aligners without a second dynamic program: a MatrixScoring is converted to the exact integer model
+    // "every score = k / scale" (PairScoring) and the very same LinearAlignCore / LocalAlignCore / AffineAlignCore
+    // run on it; the score is divided by the scale afterwards. Tie order (diagonal > up > left linear, M > X > Y
+    // affine), coordinates and empty-input contracts are therefore identical to the integer overloads.
+    //
+    // Oracles (see docs/algorithms/Alignment/Global_Alignment_Needleman_Wunsch.md §5.4 and docs/Evidence/ALIGN-GLOBAL-001-Evidence.md): EMBOSS needle/water 6.6.0
+    // (EBLOSUM62/EPAM250/EDNAFULL, gapopen G gapextend E == MatrixScoring.Emboss(matrix, G, E)), Biopython 1.88
+    // PairwiseAligner(substitution_matrix=...) and parasail 1.3.4.
+
+    /// <summary>
+    /// Global (Needleman-Wunsch) alignment scored with a substitution matrix and <b>linear</b> gap scores
+    /// (<see cref="MatrixScoring.GapExtend"/> per gap position; <see cref="MatrixScoring.GapOpen"/> unused).
+    /// </summary>
+    /// <remarks>Residue symbols are compared case-insensitively against the matrix alphabet; a symbol outside it throws
+    /// <see cref="ArgumentException"/>. <see cref="AlignmentResult.ExactScore"/> carries the real-valued score.
+    /// Empty/null contract and tie order as for <see cref="GlobalAlign(string, string, ScoringMatrix?)"/>.</remarks>
+    /// <exception cref="ArgumentNullException">A sequence or <paramref name="scoring"/> is null.</exception>
+    /// <exception cref="ArgumentException">Unknown residue symbol, gap score &gt; 0/non-finite/finer than 1e-6, or a
+    /// score range that would overflow the integer dynamic program.</exception>
+    public static AlignmentResult GlobalAlign(string sequence1, string sequence2, MatrixScoring scoring) =>
+        AlignWithMatrix(sequence1, sequence2, scoring, AlignmentType.Global, affine: false);
+
+    /// <summary><see cref="GlobalAlign(string, string, MatrixScoring)"/> for protein sequences.</summary>
+    public static AlignmentResult GlobalAlign(ProteinSequence sequence1, ProteinSequence sequence2, MatrixScoring scoring) =>
+        AlignWithMatrix(sequence1, sequence2, scoring, AlignmentType.Global, affine: false);
+
+    /// <summary><see cref="GlobalAlign(string, string, MatrixScoring)"/> for DNA sequences (e.g. <see cref="SubstitutionMatrix.EdnaFull"/>).</summary>
+    public static AlignmentResult GlobalAlign(DnaSequence sequence1, DnaSequence sequence2, MatrixScoring scoring) =>
+        AlignWithMatrix(sequence1, sequence2, scoring, AlignmentType.Global, affine: false);
+
+    /// <summary>
+    /// Global alignment with a substitution matrix and <b>affine</b> gap scores: a gap of length k scores
+    /// <see cref="MatrixScoring.GapOpen"/> + k·<see cref="MatrixScoring.GapExtend"/> (EMBOSS needle with
+    /// <see cref="MatrixScoring.Emboss"/> numbers: gapopen is the cost of a gap of length 1).
+    /// </summary>
+    /// <remarks>Same model as <see cref="GlobalAlignAffine(string, string, ScoringMatrix?)"/> (Gotoh, Flouri border).</remarks>
+    public static AlignmentResult GlobalAlignAffine(string sequence1, string sequence2, MatrixScoring scoring) =>
+        AlignWithMatrix(sequence1, sequence2, scoring, AlignmentType.Global, affine: true);
+
+    /// <summary><see cref="GlobalAlignAffine(string, string, MatrixScoring)"/> for protein sequences.</summary>
+    public static AlignmentResult GlobalAlignAffine(ProteinSequence sequence1, ProteinSequence sequence2, MatrixScoring scoring) =>
+        AlignWithMatrix(sequence1, sequence2, scoring, AlignmentType.Global, affine: true);
+
+    /// <summary><see cref="GlobalAlignAffine(string, string, MatrixScoring)"/> for DNA sequences.</summary>
+    public static AlignmentResult GlobalAlignAffine(DnaSequence sequence1, DnaSequence sequence2, MatrixScoring scoring) =>
+        AlignWithMatrix(sequence1, sequence2, scoring, AlignmentType.Global, affine: true);
+
+    /// <summary>Local (Smith-Waterman) alignment with a substitution matrix and linear gap scores
+    /// (see <see cref="GlobalAlign(string, string, MatrixScoring)"/>; EMBOSS water with gapopen = gapextend).</summary>
+    public static AlignmentResult LocalAlign(string sequence1, string sequence2, MatrixScoring scoring) =>
+        AlignWithMatrix(sequence1, sequence2, scoring, AlignmentType.Local, affine: false);
+
+    /// <summary><see cref="LocalAlign(string, string, MatrixScoring)"/> for protein sequences.</summary>
+    public static AlignmentResult LocalAlign(ProteinSequence sequence1, ProteinSequence sequence2, MatrixScoring scoring) =>
+        AlignWithMatrix(sequence1, sequence2, scoring, AlignmentType.Local, affine: false);
+
+    /// <summary><see cref="LocalAlign(string, string, MatrixScoring)"/> for DNA sequences.</summary>
+    public static AlignmentResult LocalAlign(DnaSequence sequence1, DnaSequence sequence2, MatrixScoring scoring) =>
+        AlignWithMatrix(sequence1, sequence2, scoring, AlignmentType.Local, affine: false);
+
+    /// <summary>Local (Smith-Waterman-Gotoh) alignment with a substitution matrix and affine gap scores
+    /// (EMBOSS water with <see cref="MatrixScoring.Emboss"/> numbers).</summary>
+    public static AlignmentResult LocalAlignAffine(string sequence1, string sequence2, MatrixScoring scoring) =>
+        AlignWithMatrix(sequence1, sequence2, scoring, AlignmentType.Local, affine: true);
+
+    /// <summary><see cref="LocalAlignAffine(string, string, MatrixScoring)"/> for protein sequences.</summary>
+    public static AlignmentResult LocalAlignAffine(ProteinSequence sequence1, ProteinSequence sequence2, MatrixScoring scoring) =>
+        AlignWithMatrix(sequence1, sequence2, scoring, AlignmentType.Local, affine: true);
+
+    /// <summary><see cref="LocalAlignAffine(string, string, MatrixScoring)"/> for DNA sequences.</summary>
+    public static AlignmentResult LocalAlignAffine(DnaSequence sequence1, DnaSequence sequence2, MatrixScoring scoring) =>
+        AlignWithMatrix(sequence1, sequence2, scoring, AlignmentType.Local, affine: true);
+
+    /// <summary>Semi-global (fitting: sequence 1 inside sequence 2, free sequence-2 flanks) alignment with a substitution
+    /// matrix and linear gap scores; see <see cref="SemiGlobalAlign(string, string, ScoringMatrix?)"/> for the variant and coordinates.</summary>
+    public static AlignmentResult SemiGlobalAlign(string sequence1, string sequence2, MatrixScoring scoring) =>
+        AlignWithMatrix(sequence1, sequence2, scoring, AlignmentType.SemiGlobal, affine: false);
+
+    /// <summary><see cref="SemiGlobalAlign(string, string, MatrixScoring)"/> for protein sequences.</summary>
+    public static AlignmentResult SemiGlobalAlign(ProteinSequence sequence1, ProteinSequence sequence2, MatrixScoring scoring) =>
+        AlignWithMatrix(sequence1, sequence2, scoring, AlignmentType.SemiGlobal, affine: false);
+
+    /// <summary><see cref="SemiGlobalAlign(string, string, MatrixScoring)"/> for DNA sequences.</summary>
+    public static AlignmentResult SemiGlobalAlign(DnaSequence sequence1, DnaSequence sequence2, MatrixScoring scoring) =>
+        AlignWithMatrix(sequence1, sequence2, scoring, AlignmentType.SemiGlobal, affine: false);
+
+    /// <summary>Semi-global (fitting) alignment with a substitution matrix and affine gap scores; see
+    /// <see cref="SemiGlobalAlignAffine(string, string, ScoringMatrix?)"/>.</summary>
+    public static AlignmentResult SemiGlobalAlignAffine(string sequence1, string sequence2, MatrixScoring scoring) =>
+        AlignWithMatrix(sequence1, sequence2, scoring, AlignmentType.SemiGlobal, affine: true);
+
+    /// <summary><see cref="SemiGlobalAlignAffine(string, string, MatrixScoring)"/> for protein sequences.</summary>
+    public static AlignmentResult SemiGlobalAlignAffine(ProteinSequence sequence1, ProteinSequence sequence2, MatrixScoring scoring) =>
+        AlignWithMatrix(sequence1, sequence2, scoring, AlignmentType.SemiGlobal, affine: true);
+
+    /// <summary><see cref="SemiGlobalAlignAffine(string, string, MatrixScoring)"/> for DNA sequences.</summary>
+    public static AlignmentResult SemiGlobalAlignAffine(DnaSequence sequence1, DnaSequence sequence2, MatrixScoring scoring) =>
+        AlignWithMatrix(sequence1, sequence2, scoring, AlignmentType.SemiGlobal, affine: true);
+
+    private static AlignmentResult AlignWithMatrix(
+        ProteinSequence sequence1, ProteinSequence sequence2, MatrixScoring scoring, AlignmentType type, bool affine)
+    {
+        ArgumentNullException.ThrowIfNull(sequence1);
+        ArgumentNullException.ThrowIfNull(sequence2);
+        return AlignWithMatrix(sequence1.Sequence, sequence2.Sequence, scoring, type, affine);
+    }
+
+    private static AlignmentResult AlignWithMatrix(
+        DnaSequence sequence1, DnaSequence sequence2, MatrixScoring scoring, AlignmentType type, bool affine)
+    {
+        ArgumentNullException.ThrowIfNull(sequence1);
+        ArgumentNullException.ThrowIfNull(sequence2);
+        return AlignWithMatrix(sequence1.Sequence, sequence2.Sequence, scoring, type, affine);
+    }
+
+    private static AlignmentResult AlignWithMatrix(
+        string sequence1, string sequence2, MatrixScoring scoring, AlignmentType type, bool affine)
+    {
+        ArgumentNullException.ThrowIfNull(sequence1);
+        ArgumentNullException.ThrowIfNull(sequence2);
+        ArgumentNullException.ThrowIfNull(scoring);
+
+        string a = sequence1.ToUpperInvariant();
+        string b = sequence2.ToUpperInvariant();
+        var ps = PairScoring.Create(scoring, a, b);
+
+        AlignmentResult r = affine
+            ? AffineAlignCore(a, b, ps, type)
+            : type switch
+            {
+                AlignmentType.Global => GlobalAlignCore(a, b, ps),
+                AlignmentType.Local => LocalAlignCore(a, b, ps),
+                _ => LinearAlignCore(a, b, ps, fitting: true),
+            };
+
+        double exact = (double)r.Score / ps.Scale;
+        return r with { Score = (int)Math.Round(exact, MidpointRounding.AwayFromZero), ExactScore = exact };
+    }
+
+    #endregion
+
     #region Traceback
 
     private static AlignmentResult Traceback(
         string seq1, string seq2, int[,] score, int i, int j,
-        ScoringMatrix scoring, AlignmentType alignType)
+        PairScoring scoring, AlignmentType alignType)
     {
         // Preserve the traceback origin for correct score retrieval.
         // For semi-global (fitting): score[m, maxJ] is the optimal fitting score.
@@ -1001,7 +1281,7 @@ public static class SequenceAligner
         {
             if (i > 0 && j > 0)
             {
-                int matchScore = seq1[i - 1] == seq2[j - 1] ? scoring.Match : scoring.Mismatch;
+                int matchScore = scoring.Sub(seq1[i - 1], seq2[j - 1]);
 
                 if (score[i, j] == score[i - 1, j - 1] + matchScore)
                 {
@@ -1179,7 +1459,7 @@ public static class SequenceAligner
         if (alignmentLength == 0)
             return AlignmentStatistics.Empty;
 
-        int matches = 0, mismatches = 0, gaps = 0, positives = 0, gapOpens = 0;
+        int matches = 0, mismatches = 0, gaps = 0, positives = 0, gapOpens = 0, blastPositives = 0;
         bool inGap1 = false, inGap2 = false;
 
         for (int i = 0; i < alignmentLength; i++)
@@ -1202,8 +1482,10 @@ public static class SequenceAligner
 
             char u1 = char.ToUpperInvariant(c1);
             char u2 = char.ToUpperInvariant(c2);
+            bool similar = classify(u1, u2).Similar;
             if (u1 == u2) matches++; else mismatches++;
-            if (classify(u1, u2).Similar) positives++;
+            if (similar) positives++;
+            if (u1 == u2 || similar) blastPositives++;
         }
 
         // Length (gap columns included) is the denominator of all three percentages (EMBOSS needle).
@@ -1216,7 +1498,8 @@ public static class SequenceAligner
             Similarity: (double)positives / alignmentLength * 100,
             GapPercent: (double)gaps / alignmentLength * 100,
             Positives: positives,
-            GapOpens: gapOpens);
+            GapOpens: gapOpens,
+            BlastPositives: blastPositives);
     }
 
     /// <summary>
