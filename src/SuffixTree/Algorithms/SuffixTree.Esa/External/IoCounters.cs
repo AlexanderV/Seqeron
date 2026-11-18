@@ -1,5 +1,3 @@
-#pragma warning disable S2325, CA1822, S1144, IDE0051, IDE0060, S1172 // red stub of work package 1b.7a: every member throws NotImplementedException; the implementation replaces this file
-
 namespace SuffixTree.Esa.External;
 
 /// <summary>Values of an <see cref="IoCounters"/> at one moment.</summary>
@@ -15,46 +13,99 @@ internal readonly record struct IoSnapshot(
     long ScratchPeakBytes)
 {
     /// <summary>Explicit reads and writes plus the writes through mapped windows.</summary>
-    internal long TotalBytes => throw new NotImplementedException();
+    internal long TotalBytes => ReadBytes + WriteBytes + MappedWriteBytes;
 
-    /// <summary>Difference of the cumulative fields; the maxima and the live scratch are those of this snapshot.</summary>
-    internal IoSnapshot Since(IoSnapshot earlier) => throw new NotImplementedException();
+    /// <summary>Difference of the cumulative fields; the maxima and the live scratch are those of this snapshot (a maximum or a level is not a difference).</summary>
+    internal IoSnapshot Since(IoSnapshot earlier)
+        => new(
+            ReadBytes - earlier.ReadBytes,
+            WriteBytes - earlier.WriteBytes,
+            ReadCalls - earlier.ReadCalls,
+            WriteCalls - earlier.WriteCalls,
+            MappedWriteBytes - earlier.MappedWriteBytes,
+            MappedWindows - earlier.MappedWindows,
+            MappedMaxWindowBytes,
+            ScratchLiveBytes,
+            ScratchPeakBytes);
 }
 
-/// <summary>Byte and call counters of the explicit file I/O, the writes through mapped windows and the scratch files of one build. Thread-safe.</summary>
+/// <summary>
+/// Byte and call counters of the explicit file I/O (every <see cref="CountedFile"/> that was given the instance), of the writes through mapped windows and of the scratch files of one build (live and peak bytes: ADR-004 Q1
+/// reports peak scratch next to the total I/O). Thread-safe; one instance per build, handed to the pieces through their options (there is no process-wide state). Accesses through memory mappings that are not writes of
+/// a <see cref="MappedWindowWriter"/> are not counted: the block-layer view of those is <see cref="ProcIoSnapshot"/>.
+/// </summary>
 internal sealed class IoCounters
 {
-    internal long ReadBytes => throw new NotImplementedException();
+    private long _readBytes;
+    private long _writeBytes;
+    private long _readCalls;
+    private long _writeCalls;
+    private long _mappedWriteBytes;
+    private long _mappedWindows;
+    private long _mappedMaxWindow;
+    private long _scratchLive;
+    private long _scratchPeak;
 
-    internal long WriteBytes => throw new NotImplementedException();
+    internal long ReadBytes => Interlocked.Read(ref _readBytes);
 
-    internal long ReadCalls => throw new NotImplementedException();
+    internal long WriteBytes => Interlocked.Read(ref _writeBytes);
 
-    internal long WriteCalls => throw new NotImplementedException();
+    internal long ReadCalls => Interlocked.Read(ref _readCalls);
 
-    internal long MappedWriteBytes => throw new NotImplementedException();
+    internal long WriteCalls => Interlocked.Read(ref _writeCalls);
 
-    internal long MappedWindows => throw new NotImplementedException();
+    internal long MappedWriteBytes => Interlocked.Read(ref _mappedWriteBytes);
 
-    internal long MappedMaxWindowBytes => throw new NotImplementedException();
+    /// <summary>Windows (views) created.</summary>
+    internal long MappedWindows => Interlocked.Read(ref _mappedWindows);
 
-    internal long ScratchLiveBytes => throw new NotImplementedException();
+    /// <summary>Largest window created, in bytes.</summary>
+    internal long MappedMaxWindowBytes => Interlocked.Read(ref _mappedMaxWindow);
 
-    internal long ScratchPeakBytes => throw new NotImplementedException();
+    /// <summary>Bytes of scratch files alive now.</summary>
+    internal long ScratchLiveBytes => Interlocked.Read(ref _scratchLive);
 
-    internal void AddRead(long bytes) => throw new NotImplementedException();
+    /// <summary>The largest <see cref="ScratchLiveBytes"/> that was ever reached.</summary>
+    internal long ScratchPeakBytes => Interlocked.Read(ref _scratchPeak);
 
-    internal void AddWrite(long bytes) => throw new NotImplementedException();
+    internal void AddRead(long bytes)
+    {
+        Interlocked.Add(ref _readBytes, bytes);
+        Interlocked.Increment(ref _readCalls);
+    }
 
-    internal void AddMappedWrite(long bytes) => throw new NotImplementedException();
+    internal void AddWrite(long bytes)
+    {
+        Interlocked.Add(ref _writeBytes, bytes);
+        Interlocked.Increment(ref _writeCalls);
+    }
 
-    internal void AddWindow(long bytes) => throw new NotImplementedException();
+    internal void AddMappedWrite(long bytes) => Interlocked.Add(ref _mappedWriteBytes, bytes);
 
-    internal void AddScratch(long bytes) => throw new NotImplementedException();
+    internal void AddWindow(long bytes)
+    {
+        Interlocked.Increment(ref _mappedWindows);
+        Atomic.RaiseTo(ref _mappedMaxWindow, bytes);
+    }
 
-    internal void RemoveScratch(long bytes) => throw new NotImplementedException();
+    internal void AddScratch(long bytes) => Atomic.RaiseTo(ref _scratchPeak, Interlocked.Add(ref _scratchLive, bytes));
 
-    internal void Reset() => throw new NotImplementedException();
+    internal void RemoveScratch(long bytes) => Interlocked.Add(ref _scratchLive, -bytes);
 
-    internal IoSnapshot Snapshot() => throw new NotImplementedException();
+    internal void Reset()
+    {
+        Interlocked.Exchange(ref _readBytes, 0);
+        Interlocked.Exchange(ref _writeBytes, 0);
+        Interlocked.Exchange(ref _readCalls, 0);
+        Interlocked.Exchange(ref _writeCalls, 0);
+        Interlocked.Exchange(ref _mappedWriteBytes, 0);
+        Interlocked.Exchange(ref _mappedWindows, 0);
+        Interlocked.Exchange(ref _mappedMaxWindow, 0);
+        Interlocked.Exchange(ref _scratchLive, 0);
+        Interlocked.Exchange(ref _scratchPeak, 0);
+    }
+
+    /// <summary>The values now (each read atomically, the set as a whole is not a transaction).</summary>
+    internal IoSnapshot Snapshot()
+        => new(ReadBytes, WriteBytes, ReadCalls, WriteCalls, MappedWriteBytes, MappedWindows, MappedMaxWindowBytes, ScratchLiveBytes, ScratchPeakBytes);
 }

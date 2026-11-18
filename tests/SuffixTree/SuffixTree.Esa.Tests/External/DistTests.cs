@@ -528,7 +528,7 @@ public unsafe class DistTests
         Assert.Throws<ArgumentOutOfRangeException>(() => Dist.BuildIsa(dir.File("sa.bin"), 0, dir.File("isa.bin"), Opt(dir, 4, 0, 8, 8)));
         Assert.Throws<ArgumentOutOfRangeException>(() => Dist.BuildIsa(dir.File("sa.bin"), 0, dir.File("isa.bin"), Opt(dir, 4, 8, 3, 8)));
         Assert.Throws<ArgumentOutOfRangeException>(() => Dist.BuildIsa(dir.File("sa.bin"), 0, dir.File("isa.bin"), Opt(dir, 4, 8, 8, 0)));
-        Assert.Throws<ArgumentOutOfRangeException>(() => Dist.BuildIsa(dir.File("sa.bin"), 4_294_967_294L, dir.File("isa.bin"), Opt(dir, 4, 8, 8, 8)), "positions are 32-bit: n + 1 must fit");
+        Assert.Throws<NotSupportedException>(() => Dist.BuildIsa(dir.File("sa.bin"), 4_294_967_294L, dir.File("isa.bin"), Opt(dir, 4, 8, 8, 8)), "positions are 32-bit: n + 1 must fit");
         var m = new IsaMapper(0);
         Assert.Throws<ArgumentOutOfRangeException>(() => Dist.Scatter(dir.File("sa.bin"), 1, ref m, dir.File("o.bin"), new DistTarget<uint>(-1, 0, false), Opt(dir, 4, 8, 8, 8)));
         Assert.Throws<ArgumentOutOfRangeException>(() => Dist.Scatter(dir.File("sa.bin"), -1, ref m, dir.File("o.bin"), new DistTarget<uint>(1, 0, false), Opt(dir, 4, 8, 8, 8)));

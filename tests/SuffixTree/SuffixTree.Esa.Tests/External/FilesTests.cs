@@ -207,10 +207,13 @@ public class MappedWindowWriterTests
     [Test]
     public void ADeviceThatCannotBeSized_IsSurfaced_NotHung()
     {
-        if (!File.Exists("/dev/full")) Assert.Ignore("no /dev/full on this platform");
-        Assert.Catch<Exception>(() =>
+        if (!File.Exists("/dev/full") || !OperatingSystem.IsLinux()) Assert.Ignore("no /dev/full on this platform");
+        using var dir = new TempDir();
+        string link = dir.File("full.bin");
+        File.CreateSymbolicLink(link, "/dev/full"); // a link, so that nothing here can delete the device
+        Assert.Throws<IOException>(() =>
         {
-            using var w = new MappedWindowWriter("/dev/full", 4096, 4096);
+            using var w = new MappedWindowWriter(link, 4096, 4096);
             w.Append(new byte[4096]);
         });
     }
