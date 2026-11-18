@@ -469,3 +469,26 @@ Sources actually opened in this review (neutral `Seqeron-review/1.0` User-Agent,
 ## Assumptions / not covered
 - The profile DP is not ClustalW's `prfalign.c` stage (sequence weights, residue-specific / hydrophilic penalties, gap-separation distance) nor MUSCLE's profile score: audit A1-10b.
 - Consistency keeps T-Coffee's default gap penalty 0 in its progressive DP; the gap model affects its pairwise library and the reported score only.
+
+
+---
+
+# Addendum: neighbour-joining guide tree, canonical tree builders, O(a log² a) anchor chaining (audit A1-12 / A1-16, B09 F53 / F54, 2026-11-18)
+
+## Sources actually opened
+- ClustalW 2.1 (Debian `clustalw 2.1+lgpl-7`) source via `sources.debian.org/data/main/c/clustalw/2.1+lgpl-7/src/`: `tree/NJTree.cpp` (`generateTree`: loop nest jj-outer / ii-inner with strict `<`, update `(d_ik + d_jk)/2` with `av[]` height correction, |branch| < 1e-4 → 0), `tree/ClusterTreeOutput.cpp` (`printPhylipTree`, `twoWaySplit`: children listed by lowest leaf index, `fixed setprecision(5)`), `tree/Tree.cpp` (`readTree`, `createTree`, `insertNode`, `reRoot`, `calcMean`, `insertRoot`, `createSets`, `groupSeqs`, `calcSeqWeights`), `tree/TreeInterface.cpp`, `tree/UnRootedClusterTree.cpp`, `pairwise/FullPairwiseAlign.cpp` (distance in single precision), `general/clustalw.h` (`NODE`/`LEAF`/`LEFT`/`RIGHT`), `tree/UPGMA/*` (ClustalW's own `-CLUSTERING=UPGMA`, read, not used as oracle).
+- Installed `clustalw` 2.1: `-TYPE=DNA -ALIGN -MAXDIV=0 -NEWTREE=x.dnd` writes the unrooted NJ guide tree and prints "Group n: Sequences: s" for every merge of the rooted tree (`-MAXDIV=0` switches off delayed divergent sequences, which would print "Delayed" instead).
+- Biopython 1.88 `Bio.Phylo.TreeConstruction` (`nj`; its `upgma` source read: `dm[min_j, k] = (dm[min_i, k] + dm[min_j, k]) / 2` — no cluster sizes, i.e. WPGMA), scipy `cluster.hierarchy.linkage(method='average')` (UPGMA).
+- Saitou & Nei 1987 (Mol Biol Evol 4:406), Sokal & Michener 1958, Thompson, Higgins & Gibson 1994 (NAR 22:4673), Abouelhoda & Ohlebusch 2005 (J Discrete Algorithms 3:321; opened in F5) for the chaining recurrence.
+
+## Findings
+1. `Seqeron.Genomics.Phylogenetics` referenced `Seqeron.Genomics.Alignment` without using a single Alignment type (`using` directive only); removing the project reference and the global `using` leaves `dotnet build Seqeron.sln` at 0 errors and the Architecture tests (`Modules_ShouldBeFreeOfCycles`) green. `Alignment` now references `Phylogenetics`. The former private UPGMA of `SequenceAligner` (justified by that reference) is deleted; the guide tree is the canonical `PhylogeneticAnalyzer` tree.
+2. ClustalW's neighbour-joining update `(d_ik + d_jk)/2` (instead of Saitou-Nei's `(d_ik + d_jk − d_ij)/2`) shifts every Q by a constant per step, so topology and branch lengths equal standard NJ; only exact ties depend on the loop order (jj-outer), which is reproduced by `PairScanOrder.SecondIndexMajor`.
+3. The progressive order is not the NJ tree itself: ClustalW roots it with `reRoot` (single precision, lengths re-read from the 5-decimal `.dnd`) and lists the merges left subtree first.
+4. Anchor chaining: with δ = query − ref the trim of a predecessor is a function of one end coordinate on each side of δᵢ, so the all-pairs scan is two orthogonal range-maximum queries per side.
+
+## Oracle numbers
+420 sets: unrooted tree = `.dnd` (0 mismatches), merge-size sequence = "Group n" lines (0 mismatches; first-index tie order: 21 mismatching sets, tolerance 0 instead of 1e-9 changes nothing on this panel); 400 matrices: NJ = Biopython (≤ 1e-6), UPGMA = scipy average linkage (≤ 1e-6); 900 matrices: UPGMA guide tree = the removed private implementation; chaining: 1 500 random + 400 MEM-like + 12 adversarial + 2 × 3 000-anchor sets equal the O(a²) oracle; 10⁵ anchors in < 1 s.
+
+## Assumptions / not covered
+- Final MSA rows are not compared with `clustalw -USETREE`: ClustalW's profile stage (sequence weights from the tree, residue-specific and hydrophilic gap penalties, gap-separation distance, end gaps, delayed divergent sequences) is audit item A1-10b, which this tree now unblocks. ClustalW's own UPGMA (`-CLUSTERING=UPGMA`) is a separate implementation with its own tie rules and is not claimed.

@@ -191,3 +191,8 @@ PASS-WITH-NOTES / PASS-WITH-NOTES, FIXED. Full fast tier: see `docs/Validation/r
 ## Audit r1 addendum (A1-10, B09 F52)
 
 Additive `MsaOptions.GapModel = MsaGapModel.Affine` on all five multiple aligners (MCP `gapModel=affine` honours `gapOpen`): exact natural affine sum-of-pairs objective (`SequenceAligner.SumOfPairsScore`), exact affine pairwise stage for the star methods, Gotoh three-state affine profile DP for the progressive / iterative methods (heuristic for k ≥ 3, equal to `GlobalAlignAffine` for k = 2), affine pair library for the consistency method. Oracles: independent Python (objective, exact optimum of 260 tiny sets, star/progressive/iterative/consistency rows). Tests: `SequenceAligner_MultipleAlignAffine_Tests` (16) + 2 MCP tests. Default stays linear.
+
+
+## Audit r1 addendum (A1-12 / A1-16, B09 F53 / F54)
+
+A1-12: the private UPGMA copy is gone (`Phylogenetics` never used `Alignment`; the reference was removed and `Alignment` now calls the canonical `PhylogeneticAnalyzer` builders through `TreeBuildOptions`); additive `MsaOptions.GuideTree` (`Upgma` default / `NeighborJoining` = ClustalW's tree, MCP `guideTree=upgma|nj`). The NJ tree and the progressive merge order equal the installed `clustalw` 2.1 (`.dnd` and "Group n" lines) on 420 DNA sets; the canonical NJ/UPGMA equal Biopython 1.88 NJ / scipy average linkage on 400 random matrices. A1-16: `ChainAnchors` is a range-maximum sparse DP (O(a log² a)) identical to the O(a²) scan on > 1 900 random, MEM-like and adversarial sets; the dead internal `MultipleAlignClassic` baseline is removed (the explicit benchmark fixture compares `MultipleAlign` with `MultipleAlignAnchored`).

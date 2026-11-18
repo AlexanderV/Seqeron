@@ -377,3 +377,28 @@ Tests added (all lock oracle values: Biopython 1.88 pair optima and independent 
 | AF8 | a 10-nt indel costs one opening (affine 122 vs linear 138 on the hand-built trio) | hand-derived |
 | AF9 | default options are linear and every method is unchanged; rows spell inputs, equal length, `TotalScore` = `SumOfPairsScore`; iterative ≥ progressive; GapOpen 0 makes both objectives equal; invalid model throws; empty/single trivial | contract |
 | AF10 (MCP) | `gapModel=affine` honours `gapOpen` (66 + 2·(46 − 18) vs linear 66 + 2·(46 − 10)); invalid value throws on all five tools | hand-derived |
+
+
+---
+
+# Addendum: guide trees (audit A1-12, B09 F53) and anchor chaining (audit A1-16, B09 F54)
+
+**Classes:** `SequenceAligner_GuideTree_Tests` (18 tests), `AnchorBasedAligner_ChainEquivalence_Tests` (5), `Seqeron.Mcp.Alignment.Tests.MultipleAlignTests` (2 `guideTree` tests).
+**Subject:** `MsaOptions.GuideTree` (`Upgma` default / `NeighborJoining`), the canonical `PhylogeneticAnalyzer.BuildTreeFromMatrix` + `TreeBuildOptions` (`TieTolerance`, `TieOrder`), `SequenceAligner.BuildProgressiveGuideTree` / `BuildClustalWNeighborJoiningGuideTree` (internal); `AnchorBasedAligner.ChainAnchors`.
+
+| ID | Test | Source / oracle |
+|----|------|-----------------|
+| GT1 | UPGMA guide tree equals the removed private implementation on 900 random / integer-tie / tenth-tie / ClustalW-like matrices (k = 2-14) | former code kept in the test as the oracle |
+| GT2 | hand-run UPGMA ties: d(0,3) = d(1,2) → ((0,3),(1,2)); rounding-noise ties go to the lowest pair | hand-derived |
+| GT3 | canonical NJ = Biopython 1.88 `DistanceTreeConstructor().nj` (edge by edge, ≤ 1e-6) and canonical UPGMA = scipy `linkage('average')` on 400 random matrices each | Biopython / scipy (`generate_guidetree_biopython_oracle.py`) |
+| GT4 | ClustalW NJ: the unrooted tree (|b| < 1e-4 → 0, 5 decimals) equals the `.dnd` of `clustalw -ALIGN -MAXDIV=0 -NEWTREE` and the merge sizes of the rooted tree equal "Group n: Sequences: s" on 420 DNA sets | clustalw 2.1 (`generate_clustalw_guidetree_oracle.py`) |
+| GT5 | the oracle covers 2-11 sequences, > 20 negative NJ branches, > 30 sets with duplicate sequences (tied distances) | coverage guard |
+| GT6 | two sequences → the single step (0,1); fewer than two → ArgumentOutOfRange | contract |
+| GT7 | `TreeBuildOptions`: default = parameterless overload (100 random matrices × UPGMA/NJ); `SecondIndexMajor` changes a tied NJ topology (5-taxon integer matrix found by exhaustive search; splits {0,4},{2,3} vs {1,3},{2,4}); tolerance turns 1e-12 noise into a tie | hand-run Saitou-Nei |
+| GT8 | `GuideTree` default = Upgma, explicit Upgma identical rows (40 sets); NJ gives structurally valid MSAs for progressive / iterative / consistency, both distance modes (80 sets), iterative ≥ progressive; non-ultrametric 5-taxon example ((((4,3),2),(0,1)), steps 2,3,2,5); undefined enum throws | invariants |
+| GT9 | `Phylogenetics` assembly does not reference `Alignment`, `Alignment` references `Phylogenetics` (plus the solution builds with 0 errors and the Architecture tests stay green) | layering |
+| GT10 (MCP) | `guideTree=nj` returns the NJ rows (hand-set where UPGMA and NJ differ: SP 32 vs 28), `upgma` the old rows, aliases accepted, bad value throws on all three tools | library call |
+| CH1 | `ChainAnchors` = the O(a²) scan (kept as oracle) on 1 500 random sets (coordinate ranges 6-600, lengths 4-80: dense overlaps and ties to sparse) | former code |
+| CH2 | same on 400 MEM-like sets (backbone + repeat copies on shifted diagonals + noise) and 2 × 3 000 anchors | former code |
+| CH3 | same on 12 adversarial shapes (identical anchors, same start, nested in one long anchor, anti-diagonal, staircase, shifted diagonals, one-sided overlaps, duplicates, empty, single, invalid entries) | former code |
+| CH4 | 10⁵ anchors: chain strictly colinear and non-overlapping, completes in seconds (the O(a²) scan needs ~5·10⁹ tests) | timing / invariant |

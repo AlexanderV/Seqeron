@@ -4,7 +4,10 @@ namespace Seqeron.Genomics.Tests.Unit.Alignment;
 
 /// <summary>
 /// Performance benchmark tests for Multiple Sequence Alignment.
-/// Compares classic NW-based star alignment vs anchor-based suffix tree approach.
+/// Compares the exact center-star alignment (<see cref="SequenceAligner.MultipleAlign(IEnumerable{DnaSequence}, ScoringMatrix?)"/>,
+/// the "classic" baseline: exact Needleman-Wunsch pairwise alignments to the Gusfield center) against the anchor-based suffix tree
+/// approach (<see cref="SequenceAligner.MultipleAlignAnchored(IEnumerable{DnaSequence}, ScoringMatrix?)"/>). Both go through the public
+/// API (A1-16: the former internal first-sequence-center baseline <c>MultipleAlignClassic</c> lived in production code only for this fixture).
 /// 
 /// Run with: dotnet test --filter "Category=MSA-Benchmark" -v n
 /// 
@@ -115,8 +118,8 @@ public class SequenceAligner_MultipleAlign_Benchmark
     {
         // JIT warmup — run a tiny alignment so first real test isn't skewed
         var tiny = new[] { new DnaSequence("ATGC"), new DnaSequence("ATGC") };
-        SequenceAligner.MultipleAlign(tiny);
-        SequenceAligner.MultipleAlignClassic(tiny.ToList(), Scoring);
+        SequenceAligner.MultipleAlignAnchored(tiny);
+        SequenceAligner.MultipleAlign(tiny, Scoring);
     }
 
     #endregion
@@ -135,8 +138,8 @@ public class SequenceAligner_MultipleAlign_Benchmark
         // Warmup
         for (int i = 0; i < warmupRuns; i++)
         {
-            SequenceAligner.MultipleAlignClassic(seqList, Scoring);
-            SequenceAligner.MultipleAlign(sequences, Scoring);
+            SequenceAligner.MultipleAlign(seqList, Scoring);
+            SequenceAligner.MultipleAlignAnchored(sequences, Scoring);
         }
 
         // Force GC before measurement
@@ -149,7 +152,7 @@ public class SequenceAligner_MultipleAlign_Benchmark
         for (int i = 0; i < measuredRuns; i++)
         {
             var sw = Stopwatch.StartNew();
-            var classicResult = SequenceAligner.MultipleAlignClassic(seqList, Scoring);
+            var classicResult = SequenceAligner.MultipleAlign(seqList, Scoring);
             sw.Stop();
             classicTimes.Add(sw.Elapsed.TotalMilliseconds);
         }
@@ -163,7 +166,7 @@ public class SequenceAligner_MultipleAlign_Benchmark
         for (int i = 0; i < measuredRuns; i++)
         {
             var sw = Stopwatch.StartNew();
-            var anchorResult = SequenceAligner.MultipleAlign(sequences, Scoring);
+            var anchorResult = SequenceAligner.MultipleAlignAnchored(sequences, Scoring);
             sw.Stop();
             anchorTimes.Add(sw.Elapsed.TotalMilliseconds);
         }
@@ -211,8 +214,8 @@ public class SequenceAligner_MultipleAlign_Benchmark
         var (classic, anchor, speedup) = RunBenchmark(seqs, "Small: 5 × 200bp, 90% similarity");
 
         // Correctness check: both produce valid MSA
-        var classicResult = SequenceAligner.MultipleAlignClassic(seqs.ToList(), Scoring);
-        var anchorResult = SequenceAligner.MultipleAlign(seqs, Scoring);
+        var classicResult = SequenceAligner.MultipleAlign(seqs, Scoring);
+        var anchorResult = SequenceAligner.MultipleAlignAnchored(seqs, Scoring);
 
         Assert.Multiple(() =>
         {
@@ -245,7 +248,7 @@ public class SequenceAligner_MultipleAlign_Benchmark
         var (classic, anchor, speedup) = RunBenchmark(seqs, "Medium: 10 × 500bp, 85% similarity");
 
         // Verify correctness
-        var result = SequenceAligner.MultipleAlign(seqs, Scoring);
+        var result = SequenceAligner.MultipleAlignAnchored(seqs, Scoring);
         Assert.Multiple(() =>
         {
             Assert.That(result.AlignedSequences.Length, Is.EqualTo(10));
@@ -269,7 +272,7 @@ public class SequenceAligner_MultipleAlign_Benchmark
         var seqs = GenerateRelatedSequences(count: 10, length: 1000, similarity: 0.90, seed: 456);
         var (classic, anchor, speedup) = RunBenchmark(seqs, "Large: 10 × 1000bp, 90% similarity");
 
-        var result = SequenceAligner.MultipleAlign(seqs, Scoring);
+        var result = SequenceAligner.MultipleAlignAnchored(seqs, Scoring);
         Assert.That(result.AlignedSequences.Length, Is.EqualTo(10));
 
         for (int i = 0; i < 10; i++)
@@ -293,7 +296,7 @@ public class SequenceAligner_MultipleAlign_Benchmark
         var (classic, anchor, speedup) = RunBenchmark(seqs,
             "XL: 20 × 2000bp, 90% similarity", warmupRuns: 0, measuredRuns: 1);
 
-        var result = SequenceAligner.MultipleAlign(seqs, Scoring);
+        var result = SequenceAligner.MultipleAlignAnchored(seqs, Scoring);
         Assert.That(result.AlignedSequences.Length, Is.EqualTo(20));
     }
 
@@ -361,7 +364,7 @@ public class SequenceAligner_MultipleAlign_Benchmark
         // no crash), mirroring the correctness checks of the related-sequence benchmarks above.
         RunBenchmark(seqs, "Random (worst case): 10 × 500bp");
 
-        var result = SequenceAligner.MultipleAlign(seqs, Scoring);
+        var result = SequenceAligner.MultipleAlignAnchored(seqs, Scoring);
         Assert.Multiple(() =>
         {
             Assert.That(result.AlignedSequences.Length, Is.EqualTo(10),
@@ -407,14 +410,14 @@ public class SequenceAligner_MultipleAlign_Benchmark
         foreach (var (label, seqs) in scenarios)
         {
             // Single warmup
-            SequenceAligner.MultipleAlignClassic(seqs.ToList(), Scoring);
             SequenceAligner.MultipleAlign(seqs, Scoring);
+            SequenceAligner.MultipleAlignAnchored(seqs, Scoring);
 
             GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
 
             // Measure classic
             var sw = Stopwatch.StartNew();
-            SequenceAligner.MultipleAlignClassic(seqs.ToList(), Scoring);
+            SequenceAligner.MultipleAlign(seqs, Scoring);
             sw.Stop();
             double classicMs = sw.Elapsed.TotalMilliseconds;
 
@@ -422,7 +425,7 @@ public class SequenceAligner_MultipleAlign_Benchmark
 
             // Measure anchor
             sw.Restart();
-            SequenceAligner.MultipleAlign(seqs, Scoring);
+            SequenceAligner.MultipleAlignAnchored(seqs, Scoring);
             sw.Stop();
             double anchorMs = sw.Elapsed.TotalMilliseconds;
 

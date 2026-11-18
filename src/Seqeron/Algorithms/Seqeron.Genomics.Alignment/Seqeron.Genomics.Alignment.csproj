@@ -11,6 +11,7 @@
     <ProjectReference Include="..\..\..\SuffixTree\Algorithms\SuffixTree\SuffixTree.csproj" />
     <ProjectReference Include="..\Seqeron.Genomics.Infrastructure\Seqeron.Genomics.Infrastructure.csproj" />
     <ProjectReference Include="..\Seqeron.Genomics.Core\Seqeron.Genomics.Core.csproj" />
+    <ProjectReference Include="..\Seqeron.Genomics.Phylogenetics\Seqeron.Genomics.Phylogenetics.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -488,6 +488,25 @@ public enum MsaDistanceMode
     ClustalWAffine = 1,
 }
 
+/// <summary>Tree-building method of the guide tree of the progressive, iterative and consistency multiple aligners.</summary>
+public enum MsaGuideTree
+{
+    /// <summary>
+    /// Default (historical behaviour): UPGMA (Sokal &amp; Michener 1958; the Feng–Doolittle 1987 / CLUSTAL-1 choice) from
+    /// <c>PhylogeneticAnalyzer</c>; ties between distances equal within 1e-9 go to the lowest (i, j) index pair.
+    /// </summary>
+    Upgma = 0,
+
+    /// <summary>
+    /// Neighbour-joining (Saitou &amp; Nei 1987) as ClustalW 2.1 uses it by default (<c>-CLUSTERING=NJ</c>; also the default
+    /// tree of T-Coffee / Clustal Omega-style pipelines): the unrooted NJ tree of <c>PhylogeneticAnalyzer</c> is re-rooted
+    /// with ClustalW's <c>Tree::reRoot</c> rule and its merges are taken in ClustalW's order (left subtree first). With
+    /// <see cref="MsaDistanceMode.ClustalWAffine"/> the distances are ClustalW's single-precision values, so the guide tree
+    /// equals the one <c>clustalw -ALIGN</c> writes to its <c>.dnd</c> file.
+    /// </summary>
+    NeighborJoining = 1,
+}
+
 /// <summary>Gap model of the multiple aligners and of their sum-of-pairs objective (<see cref="MultipleAlignmentResult.TotalScore"/>).</summary>
 public enum MsaGapModel
 {
@@ -518,6 +537,9 @@ public sealed record MsaOptions
 
     /// <summary>Gap model (default <see cref="MsaGapModel.Linear"/>).</summary>
     public MsaGapModel GapModel { get; init; } = MsaGapModel.Linear;
+
+    /// <summary>Guide-tree method of the progressive family (default <see cref="MsaGuideTree.Upgma"/>).</summary>
+    public MsaGuideTree GuideTree { get; init; } = MsaGuideTree.Upgma;
 }
 
 /// <summary>

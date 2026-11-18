@@ -124,6 +124,41 @@ public static class PhylogeneticAnalyzer
     }
 
     /// <summary>
+    /// Which pair wins when several candidate pairs of a tree-building step tie. The scan visits the candidate pairs
+    /// (a &lt; b, indices in ascending order) and a later pair replaces the running best only when it is strictly better
+    /// (beyond <see cref="TreeBuildOptions.TieTolerance"/>), so the first pair in scan order wins a tie.
+    /// </summary>
+    public enum PairScanOrder
+    {
+        /// <summary>Default: lexicographic (a, b) — smallest first index, then smallest second index.</summary>
+        FirstIndexMajor = 0,
+
+        /// <summary>
+        /// (b, a) order — smallest second index, then smallest first index: the loop nest of ClustalW 2.1
+        /// <c>NJTree::generateTree</c> (outer <c>jj</c>, inner <c>ii &lt; jj</c>), used so that tied neighbour-joining pairs are
+        /// resolved exactly as ClustalW resolves them.
+        /// </summary>
+        SecondIndexMajor = 1,
+    }
+
+    /// <summary>
+    /// Additive options of <see cref="BuildTreeFromMatrix(IReadOnlyList{string}, double[,], TreeMethod, TreeBuildOptions?)"/>.
+    /// The default instance reproduces the parameterless behaviour exactly.
+    /// </summary>
+    public sealed record TreeBuildOptions
+    {
+        /// <summary>
+        /// A candidate pair replaces the running best only when its criterion (UPGMA: distance; neighbour-joining: Saitou–Nei
+        /// Q) is smaller by more than this amount, so mathematically equal values that differ by rounding noise tie
+        /// (default 0 = exact comparison, the historical behaviour).
+        /// </summary>
+        public double TieTolerance { get; init; }
+
+        /// <summary>Tie resolution order (default <see cref="PairScanOrder.FirstIndexMajor"/>).</summary>
+        public PairScanOrder TieOrder { get; init; } = PairScanOrder.FirstIndexMajor;
+    }
+
+    /// <summary>
     /// Builds a phylogenetic tree from aligned sequences.
     /// </summary>
     /// <param name="sequences">Named aligned sequences (must be same length).</param>
@@ -171,7 +206,23 @@ public static class PhylogeneticAnalyzer
     public static PhylogeneticTree BuildTreeFromMatrix(
         IReadOnlyList<string> taxa,
         double[,] distanceMatrix,
-        TreeMethod treeMethod = TreeMethod.UPGMA)
+        TreeMethod treeMethod = TreeMethod.UPGMA) =>
+        BuildTreeFromMatrix(taxa, distanceMatrix, treeMethod, null);
+
+    /// <summary>
+    /// <see cref="BuildTreeFromMatrix(IReadOnlyList{string}, double[,], TreeMethod)"/> with additive
+    /// <see cref="TreeBuildOptions"/> (tie tolerance and tie order of the pair search; <c>null</c> = defaults).
+    /// </summary>
+    /// <param name="taxa">Taxon names in the same order as the distance matrix.</param>
+    /// <param name="distanceMatrix">Pre-computed symmetric distance matrix.</param>
+    /// <param name="treeMethod">Method for tree construction.</param>
+    /// <param name="options">Tie handling of the pair search; <c>null</c> = exact comparison, first-index-major order.</param>
+    /// <returns>The constructed phylogenetic tree.</returns>
+    public static PhylogeneticTree BuildTreeFromMatrix(
+        IReadOnlyList<string> taxa,
+        double[,] distanceMatrix,
+        TreeMethod treeMethod,
+        TreeBuildOptions? options)
     {
         if (taxa == null || taxa.Count < 2)
             throw new ArgumentException("At least 2 taxa required.", nameof(taxa));
@@ -182,9 +233,9 @@ public static class PhylogeneticAnalyzer
 
         PhyloNode root = treeMethod switch
         {
-            TreeMethod.UPGMA => BuildUPGMA(taxa.ToList(), distanceMatrix),
-            TreeMethod.NeighborJoining => BuildNeighborJoining(taxa.ToList(), distanceMatrix),
-            _ => BuildUPGMA(taxa.ToList(), distanceMatrix)
+            TreeMethod.UPGMA => BuildUPGMA(taxa.ToList(), distanceMatrix, options),
+            TreeMethod.NeighborJoining => BuildNeighborJoining(taxa.ToList(), distanceMatrix, options),
+            _ => BuildUPGMA(taxa.ToList(), distanceMatrix, options)
         };
 
         return new PhylogeneticTree(root, taxa, distanceMatrix, treeMethod.ToString());
@@ -323,9 +374,11 @@ public static class PhylogeneticAnalyzer
     /// height(new_cluster) = d(i,j)/2; branch_length(child) = height(new) - height(child).
     /// Source: Wikipedia UPGMA, Sokal &amp; Michener (1958).
     /// </summary>
-    private static PhyloNode BuildUPGMA(List<string> taxa, double[,] distMatrix)
+    private static PhyloNode BuildUPGMA(List<string> taxa, double[,] distMatrix, TreeBuildOptions? options = null)
     {
         int n = taxa.Count;
+        double tolerance = options?.TieTolerance ?? 0.0;
+        var scanOrder = options?.TieOrder ?? PairScanOrder.FirstIndexMajor;
 
         var nodes = new Dictionary<int, PhyloNode>();
         var clusterSizes = new Dictionary<int, int>();
@@ -360,25 +413,20 @@ public static class PhylogeneticAnalyzer
             int minI = -1, minJ = -1;
 
             var activeList = active.ToList();
-            for (int ii = 0; ii < activeList.Count; ii++)
+            foreach (var (a, b) in ScanPairs(activeList, scanOrder))
             {
-                for (int jj = ii + 1; jj < activeList.Count; jj++)
+                var key = a < b ? (a, b) : (b, a);
+                if (dist.TryGetValue(key, out double d) && d < minDist - tolerance)
                 {
-                    int a = activeList[ii];
-                    int b = activeList[jj];
-                    var key = a < b ? (a, b) : (b, a);
-                    if (dist.TryGetValue(key, out double d) && d < minDist)
-                    {
-                        minDist = d;
-                        minI = a;
-                        minJ = b;
-                    }
-                    else if (!dist.ContainsKey(key) && 0 < minDist)
-                    {
-                        minDist = 0;
-                        minI = a;
-                        minJ = b;
-                    }
+                    minDist = d;
+                    minI = a;
+                    minJ = b;
+                }
+                else if (!dist.ContainsKey(key) && 0 < minDist - tolerance)
+                {
+                    minDist = 0;
+                    minI = a;
+                    minJ = b;
                 }
             }
 
@@ -444,9 +492,11 @@ public static class PhylogeneticAnalyzer
     /// <see cref="PhyloNode"/> model this final node carries three children rather than two,
     /// so an NJ tree round-trips through Newick as a genuine trifurcation.
     /// </remarks>
-    private static PhyloNode BuildNeighborJoining(List<string> taxa, double[,] distMatrix)
+    private static PhyloNode BuildNeighborJoining(List<string> taxa, double[,] distMatrix, TreeBuildOptions? options = null)
     {
         int n = taxa.Count;
+        double tolerance = options?.TieTolerance ?? 0.0;
+        var scanOrder = options?.TieOrder ?? PairScanOrder.FirstIndexMajor;
         var nodes = new List<PhyloNode>();
 
         // Initialize with leaf nodes
@@ -481,19 +531,14 @@ public static class PhylogeneticAnalyzer
             double minQ = double.MaxValue;
             int minI = -1, minJ = -1;
 
-            for (int ii = 0; ii < m; ii++)
+            foreach (var (i, j) in ScanPairs(active, scanOrder))
             {
-                for (int jj = ii + 1; jj < m; jj++)
+                double q = (m - 2) * dist[i, j] - r[i] - r[j];
+                if (q < minQ - tolerance)
                 {
-                    int i = active[ii];
-                    int j = active[jj];
-                    double q = (m - 2) * dist[i, j] - r[i] - r[j];
-                    if (q < minQ)
-                    {
-                        minQ = q;
-                        minI = i;
-                        minJ = j;
-                    }
+                    minQ = q;
+                    minI = i;
+                    minJ = j;
                 }
             }
 
@@ -589,6 +634,24 @@ public static class PhylogeneticAnalyzer
         }
 
         return nodes[active[0]];
+    }
+
+    /// <summary>Enumerates the pairs (list[x], list[y]), x &lt; y, in the requested scan order.</summary>
+    private static IEnumerable<(int A, int B)> ScanPairs(IReadOnlyList<int> list, PairScanOrder order)
+    {
+        int m = list.Count;
+        if (order == PairScanOrder.SecondIndexMajor)
+        {
+            for (int y = 1; y < m; y++)
+                for (int x = 0; x < y; x++)
+                    yield return (list[x], list[y]);
+        }
+        else
+        {
+            for (int x = 0; x < m; x++)
+                for (int y = x + 1; y < m; y++)
+                    yield return (list[x], list[y]);
+        }
     }
 
     /// <summary>

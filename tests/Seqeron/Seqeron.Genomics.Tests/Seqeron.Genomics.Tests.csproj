@@ -45,6 +45,11 @@
          scripts/alignment/generate_clustalw_pairwise_oracle.py. -->
     <EmbeddedResource Include="TestData\Alignment\clustalw_pairwise_oracle.tsv" />
     <EmbeddedResource Include="TestData\Alignment\clustalw_msa_oracle.tsv" />
+    <!-- ALIGN-MULTI-001 (audit A1-12, B09 F53): ClustalW 2.1 neighbour-joining guide tree (.dnd) + progressive step order on 420
+         DNA sets (scripts/alignment/generate_clustalw_guidetree_oracle.py); Biopython 1.88 UPGMA / NJ on 400 random distance
+         matrices (scripts/alignment/generate_guidetree_biopython_oracle.py). -->
+    <EmbeddedResource Include="TestData\Alignment\clustalw_guidetree_oracle.tsv" />
+    <EmbeddedResource Include="TestData\Alignment\biopython_guidetree_oracle.tsv" />
     <!-- ALIGN-MULTI-001 (audit A1-10, B09 F52): affine-gap MSA - natural affine sum-of-pairs objective (independent re-score + Biopython 1.88
          pairwise optimum bound), exact optimum of tiny sets (DP validated by exhaustive enumeration) and independent Python star /
          progressive / iterative rows; scripts/alignment/generate_msa_affine_oracle.py. -->

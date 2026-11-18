@@ -1922,18 +1922,6 @@ public static partial class SequenceAligner
     }
 
     /// <summary>
-    /// Classic star alignment with the FIRST sequence as center and exact pairwise alignments
-    /// (benchmark baseline for <see cref="MultipleAlignAnchored(IEnumerable{DnaSequence}, ScoringMatrix?)"/>).
-    /// </summary>
-    internal static MultipleAlignmentResult MultipleAlignClassic(
-        List<DnaSequence> seqList, ScoringMatrix scoring)
-    {
-        var raw = seqList.Select(s => s.Sequence).ToArray();
-        var pairwise = AlignAllToCenter(raw.Length, 0, i => GlobalAlignCore(raw[0], raw[i], scoring));
-        return FinishStarAlignment(MergeCenterAlignments(raw[0], pairwise, 0), scoring);
-    }
-
-    /// <summary>
     /// Gusfield (1993) center: the sequence maximising the total optimal Needleman-Wunsch score to the
     /// other sequences (pair scores = last cell of the linear-space NW pass, identical to the
     /// canonical <see cref="GlobalAlignCore"/> score).
@@ -2233,13 +2221,11 @@ public static partial class SequenceAligner
     //      mm_score = 100 * count / MIN(len1, len2)), see PairwiseIdentityDistance. (Feng-Doolittle
     //      converts pairwise alignment scores to distances; identity-based distance is the
     //      standard conversion used by Clustal-style tools.)
-    //   2. Build a guide tree by UPGMA over that distance matrix — "an efficient clustering
+    //   2. Build a guide tree over that distance matrix — "an efficient clustering
     //      method such as neighbor-joining or unweighted pair group method with arithmetic
-    //      mean (UPGMA)" (Wikipedia "Multiple sequence alignment"). UPGMA is the classic
-    //      Feng-Doolittle choice. The UPGMA cluster-merge formula mirrors
-    //      PhylogeneticAnalyzer.BuildUPGMA (proportional averaging, Sokal & Michener 1958);
-    //      it is reimplemented here because the Phylogenetics project already depends on this
-    //      Alignment project, so a reverse reference would be circular.
+    //      mean (UPGMA)" (Wikipedia "Multiple sequence alignment"): UPGMA (the classic
+    //      Feng-Doolittle choice, default) or neighbour-joining (ClustalW's default), both built by the
+    //      canonical PhylogeneticAnalyzer builders (MsaOptions.GuideTree; SequenceAligner.GuideTree.cs).
     //   3. Progressively align along the guide tree from the tips: sequence-sequence, then
     //      sequence-profile, then profile-profile, using the Needleman-Wunsch recurrence over
     //      *columns* (a profile is the set of already-aligned rows). Column-vs-column score is
@@ -2271,7 +2257,8 @@ public static partial class SequenceAligner
     /// <item>All pairwise Needleman-Wunsch alignments give a distance matrix using the ClustalW distance
     /// d = 1 − (identical aligned residue pairs) / (length of the shorter sequence)
     /// (<c>pairalign.c</c>: <c>tmat = (100 − 100·count / MIN(len1, len2)) / 100</c>).</item>
-    /// <item>A UPGMA guide tree is built over that matrix (the classic Feng-Doolittle choice).</item>
+    /// <item>A guide tree is built over that matrix: UPGMA (the classic Feng-Doolittle choice, default) or ClustalW's
+    /// neighbour-joining tree (<see cref="MsaOptions.GuideTree"/>).</item>
     /// <item>Profiles are aligned progressively from the tips with the NW recurrence over
     /// columns and sum-of-pairs profile scoring, enforcing "once a gap, always a gap".</item>
     /// </list>
@@ -2324,10 +2311,10 @@ public static partial class SequenceAligner
         var rawSeqs = seqList.Select(s => s.Sequence).ToArray();
 
         // Step 1: pairwise alignments -> distance matrix (ClustalW: 1 - identities / min(len1, len2)).
-        var distance = ComputeGuideDistances(rawSeqs, effectiveScoring, options.Distance, gapModel);
+        var distance = ComputeGuideDistances(rawSeqs, effectiveScoring, options.Distance, gapModel, options.GuideTree);
 
-        // Step 2: UPGMA guide tree.
-        ProgressiveGuideNode root = BuildProgressiveGuideTree(k, distance);
+        // Step 2: guide tree (UPGMA by default, neighbour-joining on request).
+        ProgressiveGuideNode root = BuildProgressiveGuideTree(k, distance, options.GuideTree);
 
         // Step 3: progressive alignment along the tree (post-order: tips first).
         Profile aligned = AlignProfileSubtree(root, rawSeqs, effectiveScoring, gapModel);
@@ -2383,7 +2370,7 @@ public static partial class SequenceAligner
     /// the affine Gotoh alignment when <paramref name="gapModel"/> is <see cref="MsaGapModel.Affine"/>; <see cref="PairwiseIdentityDistance"/>); <see cref="MsaDistanceMode.ClustalWAffine"/> = ClustalW's own pairwise stage
     /// (<see cref="ClustalWPairwiseAlign(string, string, double, double)"/>, independent of <paramref name="scoring"/>).
     /// </summary>
-    private static double[,] ComputeGuideDistances(string[] rawSeqs, ScoringMatrix scoring, MsaDistanceMode mode, MsaGapModel gapModel)
+    private static double[,] ComputeGuideDistances(string[] rawSeqs, ScoringMatrix scoring, MsaDistanceMode mode, MsaGapModel gapModel, MsaGuideTree guideTree = MsaGuideTree.Upgma)
     {
         if (!Enum.IsDefined(mode))
             throw new ArgumentOutOfRangeException(nameof(mode), mode, "Unknown guide-tree distance mode.");
@@ -2394,108 +2381,19 @@ public static partial class SequenceAligner
         {
             for (int j = i + 1; j < k; j++)
             {
-                double d = mode == MsaDistanceMode.ClustalWAffine
-                    ? ClustalWPairwiseDistance(rawSeqs[i], rawSeqs[j])
-                    : PairwiseIdentityDistance(rawSeqs[i], rawSeqs[j], scoring, gapModel);
+                double d;
+                if (mode != MsaDistanceMode.ClustalWAffine)
+                    d = PairwiseIdentityDistance(rawSeqs[i], rawSeqs[j], scoring, gapModel);
+                else if (guideTree == MsaGuideTree.NeighborJoining)
+                    d = ClustalWSinglePrecisionDistance(rawSeqs[i], rawSeqs[j]);
+                else
+                    d = ClustalWPairwiseDistance(rawSeqs[i], rawSeqs[j]);
                 distance[i, j] = d;
                 distance[j, i] = d;
             }
         }
 
         return distance;
-    }
-
-    /// <summary>
-    /// A node of the progressive-alignment guide tree. Leaves carry a single input-sequence
-    /// index; internal nodes carry two children. (Distinct from PhylogeneticAnalyzer.PhyloNode,
-    /// which lives in a project that already depends on this one.)
-    /// </summary>
-    private sealed class ProgressiveGuideNode
-    {
-        public int LeafIndex = -1; // >= 0 for leaves, -1 for internal nodes
-        public ProgressiveGuideNode? Left;
-        public ProgressiveGuideNode? Right;
-        public bool IsLeaf => Left == null && Right == null;
-    }
-
-    /// <summary>
-    /// Builds a UPGMA guide tree over the pairwise distance matrix. Uses proportional
-    /// (cluster-size weighted) averaging, identical to PhylogeneticAnalyzer.BuildUPGMA
-    /// (Sokal &amp; Michener 1958). Tie-breaking is deterministic: the lowest (i, j) index
-    /// pair wins (distances equal within <see cref="ProfileScoreEpsilon"/> tie), so hand-derived test cases have a unique tree.
-    /// </summary>
-    private static ProgressiveGuideNode BuildProgressiveGuideTree(int k, double[,] distance)
-    {
-        var nodes = new Dictionary<int, ProgressiveGuideNode>();
-        var sizes = new Dictionary<int, int>();
-        var dist = new Dictionary<(int, int), double>();
-
-        for (int i = 0; i < k; i++)
-        {
-            nodes[i] = new ProgressiveGuideNode { LeafIndex = i };
-            sizes[i] = 1;
-        }
-        for (int i = 0; i < k; i++)
-            for (int j = i + 1; j < k; j++)
-            {
-                dist[(i, j)] = distance[i, j];
-                dist[(j, i)] = distance[i, j];
-            }
-
-        // Keep active clusters in a sorted list so tie-breaking is by ascending index.
-        var active = Enumerable.Range(0, k).ToList();
-
-        while (active.Count > 1)
-        {
-            double minDist = double.MaxValue;
-            int minI = -1, minJ = -1;
-            for (int ii = 0; ii < active.Count; ii++)
-            {
-                for (int jj = ii + 1; jj < active.Count; jj++)
-                {
-                    int a = active[ii];
-                    int b = active[jj];
-                    var key = a < b ? (a, b) : (b, a);
-                    double d = dist.GetValueOrDefault(key, 0);
-                    // Strictly smaller beyond rounding noise: mathematically equal averaged distances
-                    // (e.g. 0.3 + 0.4 vs 0.7) must tie so that the lowest-index rule decides.
-                    if (d < minDist - ProfileScoreEpsilon)
-                    {
-                        minDist = d;
-                        minI = a;
-                        minJ = b;
-                    }
-                }
-            }
-
-            int newSize = sizes[minI] + sizes[minJ];
-            var newNode = new ProgressiveGuideNode
-            {
-                Left = nodes[minI],
-                Right = nodes[minJ]
-            };
-
-            foreach (int c in active)
-            {
-                if (c == minI || c == minJ) continue;
-                var keyIK = minI < c ? (minI, c) : (c, minI);
-                var keyJK = minJ < c ? (minJ, c) : (c, minJ);
-                double dIK = dist.GetValueOrDefault(keyIK, 0);
-                double dJK = dist.GetValueOrDefault(keyJK, 0);
-                double newDist = (dIK * sizes[minI] + dJK * sizes[minJ]) / newSize;
-                var newKey = minI < c ? (minI, c) : (c, minI);
-                dist[newKey] = newDist;
-            }
-
-            nodes[minI] = newNode;
-            sizes[minI] = newSize;
-            nodes.Remove(minJ);
-            sizes.Remove(minJ);
-            active.Remove(minJ);
-            // active stays ascending: minJ removed, minI keeps its (smaller) slot.
-        }
-
-        return nodes[active[0]];
     }
 
     /// <summary>
@@ -2750,7 +2648,7 @@ public static partial class SequenceAligner
     /// Pipeline (Edgar 2004, Nucleic Acids Res 32(5):1792-1797; Barton &amp; Sternberg 1987):
     /// </para>
     /// <list type="number">
-    /// <item>Build the progressive (Feng-Doolittle / UPGMA) seed alignment and keep its guide tree.</item>
+    /// <item>Build the progressive (Feng-Doolittle; UPGMA by default, <see cref="MsaOptions.GuideTree"/>) seed alignment and keep its guide tree.</item>
     /// <item>Visit each internal guide-tree edge (leaves-first, deterministic order). Deleting the
     /// edge partitions the sequences into two groups.</item>
     /// <item>Project the current alignment onto each group, drop columns that became all-gap, and
@@ -2817,9 +2715,9 @@ public static partial class SequenceAligner
         var rawSeqs = seqList.Select(s => s.Sequence).ToArray();
 
         // Step 1: progressive seed (same pipeline as MultipleAlignProgressive) + retain guide tree.
-        var distance = ComputeGuideDistances(rawSeqs, effectiveScoring, options.Distance, gapModel);
+        var distance = ComputeGuideDistances(rawSeqs, effectiveScoring, options.Distance, gapModel, options.GuideTree);
 
-        ProgressiveGuideNode root = BuildProgressiveGuideTree(k, distance);
+        ProgressiveGuideNode root = BuildProgressiveGuideTree(k, distance, options.GuideTree);
         Profile current = AlignProfileSubtree(root, rawSeqs, effectiveScoring, gapModel);
 
         // Step 2-5: iterative refinement over the guide-tree edges.
@@ -3047,8 +2945,9 @@ public static partial class SequenceAligner
     //      88, through-C min(77,100)=77, extended = 88 + 77 = 165. Uninformative triplets contribute 0,
     //      so extension never lowers a weight.
     //
-    //   3. PROGRESSIVE ALIGNMENT (pp.209-210). A UPGMA guide tree (the existing
-    //      BuildProgressiveGuideTree; the paper uses NJ — merge order only, same library and objective)
+    //   3. PROGRESSIVE ALIGNMENT (pp.209-210). A guide tree (the shared
+    //      BuildProgressiveGuideTree: UPGMA by default; the paper uses NJ, available as MsaGuideTree.NeighborJoining —
+    //      merge order only, same library and objective)
     //      directs a progressive alignment. Profiles are aligned by dynamic programming whose
     //      position-specific column score is the SUM of the EXTENDED-LIBRARY weights over all
     //      cross-profile residue pairs in the two columns (group-vs-group: "the average library scores
@@ -3088,7 +2987,7 @@ public static partial class SequenceAligner
     /// <item><b>Extend</b> the library by the triplet consistency transformation: each residue pair
     /// accumulates, over every intermediate sequence, the minimum of the two connecting weights,
     /// added to the direct weight.</item>
-    /// <item><b>Progressively align</b> along a UPGMA guide tree with dynamic programming whose
+    /// <item><b>Progressively align</b> along a guide tree (UPGMA by default, <see cref="MsaOptions.GuideTree"/>) with dynamic programming whose
     /// column score is the summed extended-library weight (no substitution matrix, zero gap
     /// penalty).</item>
     /// </list>
@@ -3141,9 +3040,9 @@ public static partial class SequenceAligner
         // Steps 1-2: primary library (global + local, signal-added) then triplet extension.
         var library = new ExtendedLibrary(BuildPrimaryLibrary(rawSeqs, effectiveScoring, gapModel));
 
-        // Step 3a: UPGMA guide tree over the ClustalW distances (1 - identities / min(len1, len2)), reusing the progressive pipeline.
-        var distance = ComputeGuideDistances(rawSeqs, effectiveScoring, options.Distance, gapModel);
-        ProgressiveGuideNode root = BuildProgressiveGuideTree(k, distance);
+        // Step 3a: guide tree (UPGMA by default, neighbour-joining on request) over the ClustalW distances (1 - identities / min(len1, len2)), reusing the progressive pipeline.
+        var distance = ComputeGuideDistances(rawSeqs, effectiveScoring, options.Distance, gapModel, options.GuideTree);
+        ProgressiveGuideNode root = BuildProgressiveGuideTree(k, distance, options.GuideTree);
 
         // Step 3b: progressive alignment driven by the EXTENDED-LIBRARY weights.
         ConsistencyProfile aligned = AlignConsistencySubtree(root, rawSeqs, library);

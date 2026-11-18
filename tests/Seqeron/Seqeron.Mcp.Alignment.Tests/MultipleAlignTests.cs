@@ -169,4 +169,38 @@ public class MultipleAlignTests
             Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignConsistency(IndelSet, 2, -3, -8, -1, "linear", "bogus"));
         });
     }
+
+    // B09 F53 (A1-12): guideTree = upgma | nj. The set is discriminating: UPGMA and ClustalW-style NJ guide trees give different
+    // progressive rows (library call SequenceAligner.MultipleAlignProgressive(..., new MsaOptions { GuideTree = ... }), defaults 1/-1/-2/-1).
+    private static readonly string[] GuideTreeSet =
+        ["AGGGAAGAGTGCCA", "AGGGGAATTCTT", "AGGAGAGTGCCC", "AGGGCAGTGTGCCT", "ATTGCGAGTTCT"];
+
+    [Test]
+    public void MultipleAlignProgressive_GuideTreeNj_SelectsNeighborJoiningTree()
+    {
+        var upgma = AlignmentTools.MultipleAlignProgressive(GuideTreeSet);
+        var nj = AlignmentTools.MultipleAlignProgressive(GuideTreeSet, 1, -1, -2, -1, "linear", "linear", "nj");
+        Assert.Multiple(() =>
+        {
+            Assert.That(upgma.AlignedSequences, Is.EqualTo(new[] { "AGGGAAGAGTGCCA", "AGGG--GAATTCTT", "A-GG-AGAGTGCCC", "AGGGCAGTGTGCCT", "ATTGC-GAGTTC-T" }));
+            Assert.That(nj.AlignedSequences, Is.EqualTo(new[] { "AGGGAAGAGTGCCA", "A-GG-GGAATTCTT", "A-GG-AGAGTGCCC", "AGGGCAGTGTGCCT", "ATTG-CGAGTTC-T" }));
+            Assert.That(upgma.TotalScore, Is.EqualTo(32));
+            Assert.That(nj.TotalScore, Is.EqualTo(28));
+            Assert.That(AlignmentTools.MultipleAlignProgressive(GuideTreeSet, 1, -1, -2, -1, "linear", "linear", "UPGMA").AlignedSequences, Is.EqualTo(upgma.AlignedSequences));
+            Assert.That(AlignmentTools.MultipleAlignProgressive(GuideTreeSet, 1, -1, -2, -1, "linear", "linear", "neighbor_joining").AlignedSequences, Is.EqualTo(nj.AlignedSequences));
+        });
+    }
+
+    [Test]
+    public void MultipleAlignIterativeAndConsistency_GuideTree_ParsedAndValidated()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.DoesNotThrow(() => AlignmentTools.MultipleAlignIterative(GuideTreeSet, 1, -1, -2, -1, 16, "clustalw", "linear", "nj"));
+            Assert.DoesNotThrow(() => AlignmentTools.MultipleAlignConsistency(GuideTreeSet, 1, -1, -2, -1, "clustalw", "linear", "nj"));
+            Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignProgressive(GuideTreeSet, 1, -1, -2, -1, "linear", "linear", "bogus"));
+            Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignIterative(GuideTreeSet, 1, -1, -2, -1, 16, "linear", "linear", "bogus"));
+            Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignConsistency(GuideTreeSet, 1, -1, -2, -1, "linear", "linear", "bogus"));
+        });
+    }
 }
