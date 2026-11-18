@@ -5,13 +5,14 @@
    restored after every mutant (and at the end, also on an exception). The mutants run in a separate git worktree, never in the working checkout. Analyzers are off for the mutant builds (a mutant that an analyzer
    rejects is still a valid test of the tests).
    usage: run_1b7d_mutants.py <worktree> <1b7d_<file>_listed.json> <result.tsv> [<start>:<end> slice]
-   environment: MUTANT_BUILD_LIMIT (s, default 400), MUTANT_TEST_LIMIT (s, default 200), MUTANT_STAGES ("12" default; "1" = stage 1 only, "2" = stage 2 only, for the survivors of a run of stage 1)."""
+   environment: MUTANT_BUILD_LIMIT (s, default 400), MUTANT_TEST_LIMIT (s, default 200), MUTANT_FILTER_AND (appended to the stage-1 filter), MUTANT_STAGES ("12" default; "1" = stage 1 only, "2" = stage 2 only, for the survivors of a run of stage 1)."""
 import json, os, re, signal, subprocess, sys
 
 ROOT = sys.argv[1]
 BUILD_LIMIT = int(os.environ.get('MUTANT_BUILD_LIMIT', '400'))
 TEST_LIMIT = int(os.environ.get('MUTANT_TEST_LIMIT', '200'))
 STAGES = os.environ.get('MUTANT_STAGES', '12')
+FILTER_AND = os.environ.get('MUTANT_FILTER_AND', '')  # appended to the filter of stage 1, e.g. '&FullyQualifiedName!~TheOutput_IsIdentical' to leave out the two slowest tests (the survivors are run again without it)
 env = dict(os.environ, PATH=os.environ['PATH'] + ':/root/.dotnet', DOTNET_ROOT='/root/.dotnet', DOTNET_CLI_TELEMETRY_OPTOUT='1', DOTNET_NOLOGO='1', SEQERON_BENCH_DIR='/tmp/stbench')
 mutants_file, out = sys.argv[2], sys.argv[3]
 sl = sys.argv[4] if len(sys.argv) > 4 else ''
@@ -79,7 +80,7 @@ try:
                 results.append((m['id'], m['desc'], b, ''))
                 open(out, 'w').write('\n'.join('\t'.join(map(str, r)) for r in results) + '\n')
                 continue
-            r1 = test(proj1, m.get('filter', stage1_default))
+            r1 = test(proj1, m.get('filter', stage1_default) + FILTER_AND)
         if '2' in STAGES and (r1 == 'survived' or STAGES == '2'):
             b2 = build(proj2)
             r2 = b2 if b2 else test(proj2, stage2)

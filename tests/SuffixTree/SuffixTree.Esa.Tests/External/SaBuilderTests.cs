@@ -437,6 +437,14 @@ public class SaBuilderTests
             Assert.That(File.Exists(sa), Is.False, what);
             Assert.That(Directory.Exists(Scratch), Is.False, what);
         }
+
+        // a reader of 32-bit symbols (a reduced string of the recursion) is not a packed text of the file codec
+        string widePath = _dir.File("wide.bin");
+        File.WriteAllBytes(widePath, new byte[(4 * 3) + 64]);
+        using MappedTextReader wide = MappedTextReader.OpenReduced(widePath, 3);
+        Assert.Throws<ArgumentException>(() => SaBuilder.Build(wide, sa, ok), "a reader of 32-bit symbols");
+        Assert.That(File.Exists(sa), Is.False);
+        Assert.That(Directory.Exists(Scratch), Is.False);
     }
 
     // ---- the verdict of the RssAnon gate and the platforms

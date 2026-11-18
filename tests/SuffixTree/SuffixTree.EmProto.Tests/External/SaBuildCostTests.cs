@@ -75,7 +75,9 @@ public unsafe class SaBuildCostTests
         int bits = int.Parse(Env("G3_BITS"), CultureInfo.InvariantCulture);
         string saPath = Env("G3_SA");
         ProtoPipe.EndToEndParameters p = ProtoPipe.ScaleRules.Resolve(n, new ProtoPipe.EndToEndOptions { InputPath = "x", OutPrefix = "x", ScratchDir = "x", Threads = threads, ScaleN = scale });
+        long c0 = Stopwatch.GetTimestamp();
         DifferenceCover cover = DifferenceCover.Create(DifferenceCover.NearestSingerPeriod(1024));
+        TestContext.Out.WriteLine("setup-proto-cover-seconds " + F((Stopwatch.GetTimestamp() - c0) / (double)Stopwatch.Frequency)); // the production call has this inside its total, the prototype's timed region has not
         using var mapped = new MappedFile(pk, writable: false);
         using var packed = new PackedText(mapped.Pointer, n, bits, mapped, ownsOwner: false);
         string dirPh1 = Path.Combine(scratch, "ph1"), dirPh3 = Path.Combine(scratch, "ph3"), ranksPath = Path.Combine(scratch, "ranks.bin");
@@ -132,6 +134,8 @@ public unsafe class SaBuildCostTests
         int bits = int.Parse(Env("G3_BITS"), CultureInfo.InvariantCulture);
         string saPath = Env("G3_SA");
         using Prod.MappedTextReader text = Prod.MappedTextReader.Open(pk, n, bits);
+        long t0 = 0;
+        double setup = -1;
         var options = new Prod.SaBuildOptions
         {
             ScratchDir = scratch,
@@ -140,10 +144,12 @@ public unsafe class SaBuildCostTests
             MeasureRss = variant != "prodnr",
             Files = variant == "prodsparse" ? new Prod.MappedFileOptions { Reservation = Prod.ReservationMode.Sparse } : null,
             VerifyRanks = variant == "prodverify" || EnvOr("G3_VERIFY", "0") == "1",
+            Trace = step => { if (step == "ph1" && setup < 0) setup = (Stopwatch.GetTimestamp() - t0) / (double)Stopwatch.Frequency; },
         };
-        long t0 = Stopwatch.GetTimestamp();
+        t0 = Stopwatch.GetTimestamp();
         result = Prod.SaBuilder.Build(text, saPath, options);
         double total = (Stopwatch.GetTimestamp() - t0) / (double)Stopwatch.Frequency;
+        TestContext.Out.WriteLine("setup-prod-seconds " + F(setup) + " tail-seconds " + F(total - setup - result.Ph1Seconds - result.Ph23Seconds)); // before PH1 starts (the cover, the rule, the creation of the suffix array), and after PH3
         string row = string.Join('\t', F(result.Ph1Seconds), F(result.Ph23Seconds), F(total), result.Ph1Io.ReadBytes, result.Ph1Io.WriteBytes, result.Ph1Io.MappedWriteBytes, result.Ph23Io.ReadBytes, result.Ph23Io.WriteBytes, result.Ph23Io.MappedWriteBytes, result.Ph1ScratchPeakBytes, result.Ph23ScratchPeakBytes, result.Ph1ArenaPeakBytes, result.Ph23ArenaPeakBytes, result.RecursionLevels, result.RssVerdict);
         return row;
     }
