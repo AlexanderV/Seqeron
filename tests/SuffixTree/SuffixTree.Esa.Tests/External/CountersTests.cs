@@ -175,6 +175,13 @@ public class ProcTextTests
     }
 
     [Test]
+    public void AnEmptyKey_NeverMatches()
+    {
+        Assert.That(ProcText.TryGetLong("5 apples\n"u8, ""u8, out long v), Is.False);
+        Assert.That(v, Is.Zero);
+    }
+
+    [Test]
     public void ReportsFalse_ForAMissingKey_ANonNumber_AnEmptyText_AndAnOverflow()
     {
         Assert.That(Get("", "A:", out long v), Is.False);
@@ -225,6 +232,22 @@ public class ProcIoTests
     public void APartialOrGarbledFile_IsUnavailable(string text)
     {
         Assert.That(ProcIoSnapshot.TryRead(new FakeProcSource().With("/proc/self/io", text)), Is.Null);
+    }
+
+    private sealed class DishonestSource(string text) : IProcSource
+    {
+        public int TryRead(string path, Span<byte> buffer)
+        {
+            System.Text.Encoding.ASCII.GetBytes(text).AsSpan().CopyTo(buffer);
+            return int.MaxValue; // claims far more than the buffer holds
+        }
+    }
+
+    [Test]
+    public void ASourceThatClaimsMoreBytesThanTheBufferHolds_IsReadWithinTheBuffer()
+    {
+        Assert.That(ProcIoSnapshot.TryRead(new DishonestSource(Io)), Is.EqualTo(new ProcIoSnapshot(1000, 2000, 30, 40, 5000, 6000)));
+        Assert.That(new RssReader(new DishonestSource("RssAnon: 77 kB\n")).Read(), Is.EqualTo(new RssSnapshot(true, 77, 0, 0, 0)));
     }
 
     [Test]

@@ -320,6 +320,23 @@ public unsafe class DistTests
         Assert.Throws<ArgumentOutOfRangeException>(() => Dist.ChunksFor(-1, 5));
     }
 
+    [Test]
+    public void ChunkDivider_EqualsTheIntegerDivision_ForEveryKindOfDivisor_AndTheEdgesOfTheKeyRange()
+    {
+        var rng = new SplitMix64(99);
+        long[] divisors = [1, 2, 3, 5, 7, 8, 10, 255, 256, 257, 65_535, 65_536, 266_667, 8_000_000, int.MaxValue, 1L << 31, uint.MaxValue - 1L, uint.MaxValue, 1L << 32, (1L << 32) + 5, long.MaxValue];
+        foreach (long r in divisors)
+        {
+            var d = new ChunkDivider(r);
+            var keys = new List<uint> { 0, 1, uint.MaxValue, uint.MaxValue - 1 };
+            foreach (long m in new[] { r - 1, r, r + 1, (2 * r) - 1, 2 * r, (2 * r) + 1, 3 * r }.Where(m => m is >= 0 and <= uint.MaxValue)) keys.Add((uint)m);
+            for (int i = 0; i < 20_000; i++) keys.Add((uint)rng.Next());
+            foreach (uint key in keys) Assert.That(d.Of(key), Is.EqualTo(r > uint.MaxValue ? 0u : (uint)(key / r)), $"R={r} key={key}");
+        }
+        Assert.Throws<ArgumentOutOfRangeException>(() => _ = new ChunkDivider(0));
+        Assert.Throws<ArgumentOutOfRangeException>(() => _ = new ChunkDivider(-5));
+    }
+
     // ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
     // memory
 
@@ -349,6 +366,92 @@ public unsafe class DistTests
         Assert.That(Directory.GetFileSystemEntries(dir.Sub("scratch")), Is.Empty, "and nothing on disk");
         var tiny = new ArenaBudget(10);
         Assert.Throws<ArenaBudgetExceededException>(() => Dist.BuildIsa(dir.File("sa.bin"), n, dir.File("isa.bin"), Opt(dir, 300, 64, 400, 1 << 20, tiny)));
+    }
+
+    [Test]
+    public void Phi_RefusesASuffixArrayWhoseFirstEntryIsNotN_OrWhoseLaterEntryIsNOrMore()
+    {
+        using var dir = new TempDir();
+        var budget = new ArenaBudget(long.MaxValue);
+        var counters = new IoCounters();
+        foreach (uint[] sa in new[] { new uint[] { 2, 0, 1, 3 }, new uint[] { 3, 0, 3, 1 }, new uint[] { 3, 0, 1, 9 } })
+        {
+            FileBits.WriteUInts(dir.File("sa.bin"), sa);
+            Assert.Throws<InvalidDataException>(() => Dist.BuildPhi(dir.File("sa.bin"), 3, dir.File("phi.bin"), Opt(dir, 2, 8, 8, 8, budget, counters)), string.Join(",", sa));
+            AssertClean(dir, budget, counters);
+        }
+        FileBits.WriteUInts(dir.File("ok.bin"), [3u, 2, 0, 1]);
+        Dist.BuildPhi(dir.File("ok.bin"), 3, dir.File("phi.bin"), Opt(dir, 2, 8, 8, 8));
+        Assert.That(FileBits.ReadUInts(dir.File("phi.bin")), Is.EqualTo(new uint[] { 2, 0, 3 }), "Phi[SA[i]] = SA[i-1]: Phi[0] = 2, Phi[1] = 0, Phi[2] = 3");
+    }
+
+    [Test]
+    public void TheLimitOfThe32BitPositions_IsExactlyAtTwoToThe32MinusTwo()
+    {
+        using var dir = new TempDir();
+        FileBits.WriteUInts(dir.File("sa.bin"), [0u]);
+        foreach (long n in new[] { uint.MaxValue - 2L, uint.MaxValue - 1L, uint.MaxValue, uint.MaxValue + 7L })
+        {
+            Assert.Throws<NotSupportedException>(() => Dist.BuildIsa(dir.File("sa.bin"), n, dir.File("isa.bin"), Opt(dir, 4, 8, 8, 8)), $"ISA n={n}");
+            Assert.Throws<NotSupportedException>(() => Dist.BuildPhi(dir.File("sa.bin"), n, dir.File("phi.bin"), Opt(dir, 4, 8, 8, 8)), $"Phi n={n}");
+        }
+        // one below the limit the call is accepted and fails on the length of the source file instead
+        Assert.Throws<InvalidDataException>(() => Dist.BuildIsa(dir.File("sa.bin"), uint.MaxValue - 3L, dir.File("isa.bin"), Opt(dir, 4, 8, 8, 8)));
+        Assert.Throws<InvalidDataException>(() => Dist.BuildPhi(dir.File("sa.bin"), uint.MaxValue - 3L, dir.File("phi.bin"), Opt(dir, 4, 8, 8, 8)));
+    }
+
+    [Test]
+    public void EnsureKeysFit_AllowsUpToTwoToThe32Slots()
+    {
+        Assert.DoesNotThrow(() => Dist.EnsureKeysFit(0));
+        Assert.DoesNotThrow(() => Dist.EnsureKeysFit(1L << 32));
+        Assert.Throws<NotSupportedException>(() => Dist.EnsureKeysFit((1L << 32) + 1));
+        Assert.Throws<NotSupportedException>(() => Dist.EnsureKeysFit(long.MaxValue));
+    }
+
+    [Test]
+    public void ScatterInto_PlacesTuplesBySlot_AndRefusesADamagedChunk()
+    {
+        var checkedTarget = new DistTarget<uint>(20, uint.MaxValue, true);
+        var plainTarget = new DistTarget<uint>(20, uint.MaxValue, false);
+        uint[] array = Enumerable.Repeat(uint.MaxValue, 5).ToArray(); // the chunk of the slots 5..9
+        Dist.ScatterInto<uint>([new DistEntry<uint>(5, 100), new DistEntry<uint>(9, 200), new DistEntry<uint>(7, 300)], array, 5, checkedTarget);
+        Assert.That(array, Is.EqualTo(new uint[] { 100, uint.MaxValue, 300, uint.MaxValue, 200 }));
+        Assert.Throws<InvalidDataException>(() => Dist.ScatterInto<uint>([new DistEntry<uint>(4, 1)], array, 5, checkedTarget), "a key below the chunk");
+        Assert.Throws<InvalidDataException>(() => Dist.ScatterInto<uint>([new DistEntry<uint>(10, 1)], array, 5, checkedTarget), "a key just above the chunk");
+        Assert.Throws<InvalidDataException>(() => Dist.ScatterInto<uint>([new DistEntry<uint>(uint.MaxValue, 1)], array, 5, checkedTarget), "a key far above");
+        Assert.Throws<InvalidDataException>(() => Dist.ScatterInto<uint>([new DistEntry<uint>(5, 1)], array, 5, checkedTarget), "slot 5 was written: a repeat");
+        Assert.Throws<InvalidDataException>(() => Dist.ScatterInto<uint>([new DistEntry<uint>(6, 1), new DistEntry<uint>(6, 2)], array, 5, checkedTarget), "a repeat inside one run");
+        array[1] = uint.MaxValue;
+        Dist.ScatterInto<uint>([new DistEntry<uint>(5, 111), new DistEntry<uint>(5, 222)], array, 5, plainTarget);
+        Assert.That(array[0], Is.EqualTo(222u), "without the check the last tuple wins");
+        Assert.Throws<InvalidDataException>(() => Dist.ScatterInto<uint>([new DistEntry<uint>(4, 1)], array, 5, plainTarget), "a damaged chunk is refused with or without the check");
+        Dist.ScatterInto<uint>([], array, 5, checkedTarget); // an empty run is nothing
+    }
+
+    [Test]
+    public void ScratchIsReleasedChunkByChunk_NotAtTheEnd()
+    {
+        // ADR-004 Q1: a chunk file is deleted as soon as its chunk is in memory. A poller sees the live scratch bytes fall in steps during pass 2.
+        using var dir = new TempDir();
+        const int n = 1_500_000;
+        var sa = new uint[n + 1];
+        for (int i = 0; i <= n; i++) sa[i] = (uint)((i * 7919L) % (n + 1));
+        FileBits.WriteUInts(dir.File("sa.bin"), sa);
+        var counters = new IoCounters();
+        var seen = new HashSet<long>();
+        using var stop = new ManualResetEventSlim(false);
+        var poller = new Thread(() =>
+        {
+            while (!stop.IsSet) seen.Add(counters.ScratchLiveBytes);
+        });
+        poller.Start();
+        DistStats stats = Dist.BuildIsa(dir.File("sa.bin"), n, dir.File("isa.bin"), Opt(dir, 5_000, 4096, 1 << 20, 1 << 20, null, counters));
+        stop.Set();
+        poller.Join();
+        Assert.That(stats.TupleBytesWritten, Is.GreaterThan(0));
+        long between = seen.Count(v => v > 0 && v < stats.TupleBytesWritten);
+        Assert.That(between, Is.GreaterThanOrEqualTo(3), $"the live scratch bytes went down in steps (saw {seen.Count} distinct values)");
     }
 
     [Test]

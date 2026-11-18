@@ -45,6 +45,7 @@ public class CountedFileTests
         Assert.That(f.ReadAt(buf.AsSpan(0, 0), 0), Is.Zero, "an empty buffer");
         Assert.Throws<EndOfStreamException>(() => f.ReadExactAt(buf, 0), "10 bytes of a 5-byte file");
         Assert.Throws<EndOfStreamException>(() => f.ReadExactAt(buf.AsSpan(0, 4), 3), "a truncated tail");
+        Assert.Throws<EndOfStreamException>(() => f.ReadExactAt(buf.AsSpan(0, 4), 2), "one byte short");
         f.ReadExactAt(buf.AsSpan(0, 5), 0);
         f.ReadExactAt(buf.AsSpan(0, 0), 99); // nothing to read, nothing to fail
     }
@@ -80,6 +81,18 @@ public class CountedFileTests
         if (!File.Exists("/dev/full")) Assert.Ignore("no /dev/full on this platform");
         using var f = new CountedFile("/dev/full", FileMode.Open, FileAccess.Write);
         Assert.Throws<IOException>(() => f.WriteAt(new byte[4096], 0), "ENOSPC");
+    }
+
+    [Test]
+    public void Dispose_ReleasesTheFile()
+    {
+        using var dir = new TempDir();
+        string path = dir.File("h.bin");
+        File.WriteAllBytes(path, [1]);
+        var f = new CountedFile(path, FileMode.Open, FileAccess.Read);
+        Assert.Throws<IOException>(() => new FileStream(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None).Dispose(), "while it is open nobody else can have it exclusively");
+        f.Dispose();
+        using var exclusive = new FileStream(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
     }
 
     [Test]
@@ -148,6 +161,34 @@ public class MappedWindowWriterTests
                 if (length > 0) Assert.That(c.MappedMaxWindowBytes, Is.EqualTo(Math.Min(window, length)));
             }
         }
+    }
+
+    [Test]
+    public void WritesInsideTheCurrentWindow_DoNotOpenAnotherOne()
+    {
+        using var dir = new TempDir();
+        var c = new IoCounters();
+        using (var w = new MappedWindowWriter(dir.File("o.bin"), 100, 100, c))
+        {
+            w.WriteAt(0, [1, 2, 3]);
+            w.WriteAt(0, [4, 5]); // the same start again
+            w.WriteAt(3, [6]);
+            w.WriteAt(99, [7]);
+            Assert.That(c.MappedWindows, Is.EqualTo(1));
+        }
+        Assert.That(c.MappedWriteBytes, Is.EqualTo(3 + 2 + 1 + 1));
+    }
+
+    [Test]
+    public void Dispose_ReleasesTheFile()
+    {
+        using var dir = new TempDir();
+        string path = dir.File("h.bin");
+        var w = new MappedWindowWriter(path, 10, 4);
+        w.Append(new byte[6]);
+        w.Dispose();
+        using var exclusive = new FileStream(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+        Assert.That(exclusive.Length, Is.EqualTo(10));
     }
 
     [Test]

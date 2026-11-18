@@ -1,3 +1,5 @@
+using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
 namespace SuffixTree.Esa.External;
@@ -56,6 +58,45 @@ internal readonly struct DistEntry<TValue>(uint key, TValue value)
     internal readonly TValue Value = value;
 }
 
+/// <summary>
+/// <c>key / R</c> for a 32-bit key and a fixed R, without a hardware division (it runs once per source entry, and a 64-bit division costs 25-90 cycles on the machines of this class): for R from 2 to 2^32 - 1 two
+/// multiplications of Lemire, Kaser and Kurz ("Faster remainder by direct computation", 2019: with M = ceil(2^64 / R) the high word of M x key is exactly key / R for every 32-bit key), R = 1 is the identity and an R
+/// above 32 bits puts every key in chunk 0.
+/// </summary>
+internal readonly struct ChunkDivider
+{
+    private readonly ulong _m;
+    private readonly uint _mode; // 0 = single chunk, 1 = identity, 2 = multiply
+
+    internal ChunkDivider(long chunkEntries)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(chunkEntries, 1);
+        if (chunkEntries > uint.MaxValue)
+        {
+            _mode = 0;
+            _m = 0;
+        }
+        else if (chunkEntries == 1)
+        {
+            _mode = 1;
+            _m = 0;
+        }
+        else
+        {
+            _mode = 2;
+            _m = (ulong.MaxValue / (uint)chunkEntries) + 1;
+        }
+    }
+
+    /// <summary>The chunk of <paramref name="key"/>: <c>key / R</c>.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal uint Of(uint key)
+    {
+        if (_mode == 2) return (uint)Math.BigMul(_m, key, out _);
+        return _mode == 1 ? key : 0;
+    }
+}
+
 /// <summary>ISA: key <c>SA[i]</c>, value <c>i</c>; refuses an entry beyond n.</summary>
 internal readonly struct IsaMapper(long n) : IDistMapper<uint>
 {
@@ -63,11 +104,14 @@ internal readonly struct IsaMapper(long n) : IDistMapper<uint>
 
     public bool TryMap(long index, uint sourceValue, out uint key, out uint value)
     {
-        if (sourceValue > N) throw new InvalidDataException($"SA[{index}] = {sourceValue} lies beyond n = {N}");
+        if (sourceValue > N) ThrowBeyondN(index, sourceValue);
         key = sourceValue;
         value = (uint)index;
         return true;
     }
+
+    [DoesNotReturn]
+    private void ThrowBeyondN(long index, uint sourceValue) => throw new InvalidDataException($"SA[{index}] = {sourceValue} lies beyond n = {N}");
 }
 
 /// <summary>Phi: key <c>SA[i]</c>, value <c>SA[i-1]</c> for i &gt;= 1; the entry 0 (the empty suffix, which must be n) only starts the chain.</summary>
@@ -128,7 +172,7 @@ internal static class Dist
         ArgumentOutOfRangeException.ThrowIfLessThan(options.ReadBytes, 4);
         ArgumentOutOfRangeException.ThrowIfLessThan(options.WindowBytes, 1);
         ArgumentException.ThrowIfNullOrEmpty(options.ScratchDir);
-        if (target.Slots > 1L << 32) throw new NotSupportedException("keys are 32-bit: at most 2^32 slots");
+        EnsureKeysFit(target.Slots);
 
         long slots = target.Slots;
         long chunkEntries = options.ChunkEntries;
@@ -137,6 +181,7 @@ internal static class Dist
         int bufEntries = Math.Max(1, options.IoBufferBytes / tupleBytes);
         int readEntries = (int)Math.Min(options.ReadBytes / 4, sourceEntries);
         IoCounters? counters = options.Counters;
+        var divide = new ChunkDivider(chunkEntries);
 
         using var source = new CountedFile(sourcePath, FileMode.Open, FileAccess.Read, counters);
         if (source.Length != 4 * sourceEntries) throw new InvalidDataException($"the source file has {source.Length} bytes, expected {4 * sourceEntries} for {sourceEntries} entries");
@@ -149,18 +194,7 @@ internal static class Dist
         // pass 1: the source in file order; its read buffer is released before pass 2 allocates the chunk array
         int mark = arena.Mark();
         Buf<uint> readBuf = arena.Allocate<uint>(readEntries, zero: false, "dist.src");
-        for (long first = 0; first < sourceEntries; first += readEntries)
-        {
-            int take = (int)Math.Min(readEntries, sourceEntries - first);
-            Span<uint> entries = readBuf.AsSpan(take);
-            source.ReadExactAt(MemoryMarshal.AsBytes(entries), first * 4);
-            for (int i = 0; i < take; i++)
-            {
-                if (!mapper.TryMap(first + i, entries[i], out uint key, out TValue value)) continue;
-                if (key >= slots) throw new InvalidDataException($"entry {first + i} maps to key {key}, outside the {slots} slots of the target");
-                writer.Add(key / chunkEntries, new DistEntry<TValue>(key, value));
-            }
-        }
+        Distribute(source, sourceEntries, ref mapper, readBuf, readEntries, writer, divide, slots);
         arena.ReleaseTo(mark);
 
         // pass 2: chunk by chunk in key order
@@ -204,6 +238,12 @@ internal static class Dist
         return new DistStats(chunks, bytesWritten, bytesRead);
     }
 
+    /// <summary>Keys are 32-bit: a target of more than 2^32 slots is refused.</summary>
+    internal static void EnsureKeysFit(long slots)
+    {
+        if (slots > 1L << 32) throw new NotSupportedException("keys are 32-bit: at most 2^32 slots");
+    }
+
     /// <summary>ISA by DIST: <c>ISA[SA[i]] = i</c> for the suffix array file of a text of n symbols (n + 1 entries, SA[0] = n), 4 (n + 1) bytes; the file must be a permutation of 0..n.</summary>
     internal static DistStats BuildIsa(string saPath, long n, string isaPath, DistOptions options)
     {
@@ -224,15 +264,54 @@ internal static class Dist
         return Scatter(saPath, n + 1, ref mapper, phiPath, new DistTarget<uint>(n, uint.MaxValue, true), options);
     }
 
-    private static void ScatterInto<TValue>(ReadOnlySpan<DistEntry<TValue>> tuples, Span<TValue> array, long startSlot, DistTarget<TValue> target)
+    /// <summary>
+    /// Pass 1: the hot loop of the primitive, one iteration per source entry (10^8 at the size of the E9 runs). It is a method of its own and compiled fully optimised at its first call: inside the large
+    /// <see cref="Scatter{TValue,TMapper}"/> the runtime would run it as an on-stack replacement of an unoptimised frame, which keeps the loop variables in memory (measured: about 10 % of the time of ISA by DIST).
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+    private static void Distribute<TValue, TMapper>(CountedFile source, long sourceEntries, ref TMapper mapper, Buf<uint> readBuf, int readEntries, DistWriter<DistEntry<TValue>> writer, ChunkDivider divide, long slots)
+        where TValue : unmanaged
+        where TMapper : IDistMapper<TValue>
+    {
+        for (long first = 0; first < sourceEntries; first += readEntries)
+        {
+            int take = (int)Math.Min(readEntries, sourceEntries - first);
+            Span<uint> entries = readBuf.AsSpan(take);
+            source.ReadExactAt(MemoryMarshal.AsBytes(entries), first * 4);
+            for (int i = 0; i < take; i++)
+            {
+                if (!mapper.TryMap(first + i, entries[i], out uint key, out TValue value)) continue;
+                if (key >= slots) ThrowKeyOutside(first + i, key, slots);
+                writer.Add(divide.Of(key), new DistEntry<TValue>(key, value));
+            }
+        }
+    }
+
+    [DoesNotReturn]
+    private static void ThrowKeyOutside(long index, uint key, long slots)
+        => throw new InvalidDataException($"entry {index} maps to key {key}, outside the {slots} slots of the target");
+
+    [DoesNotReturn]
+    private static void ThrowChunkDamaged(uint key, long startSlot)
+        => throw new InvalidDataException($"key {key} does not belong to the chunk that starts at slot {startSlot}: the chunk file is damaged");
+
+    [DoesNotReturn]
+    private static void ThrowWrittenTwice(uint key)
+        => throw new InvalidDataException($"slot {key} is written twice: the source is not a permutation");
+
+    /// <summary>Scatters a run of tuples into the array of the chunk that starts at slot <paramref name="startSlot"/>; a key outside the chunk (a damaged chunk file) or, with <c>ExactlyOnce</c>, a slot written twice throws <see cref="InvalidDataException"/>.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+    internal static void ScatterInto<TValue>(ReadOnlySpan<DistEntry<TValue>> tuples, Span<TValue> array, long startSlot, DistTarget<TValue> target)
         where TValue : unmanaged, IEquatable<TValue>
     {
+        bool exactlyOnce = target.ExactlyOnce;
+        TValue fill = target.Fill;
         foreach (DistEntry<TValue> e in tuples)
         {
             long at = e.Key - startSlot;
-            if ((ulong)at >= (ulong)array.Length) throw new InvalidDataException($"key {e.Key} does not belong to the chunk that starts at slot {startSlot}: the chunk file is damaged");
+            if ((ulong)at >= (ulong)array.Length) ThrowChunkDamaged(e.Key, startSlot);
             ref TValue slot = ref array[(int)at];
-            if (target.ExactlyOnce && !slot.Equals(target.Fill)) throw new InvalidDataException($"slot {e.Key} is written twice: the source is not a permutation");
+            if (exactlyOnce && !slot.Equals(fill)) ThrowWrittenTwice(e.Key);
             slot = e.Value;
         }
     }

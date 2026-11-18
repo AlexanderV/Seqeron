@@ -134,16 +134,54 @@ public class RssSamplerTests
     }
 
     [Test]
-    public void TheRealSampler_SeesAnAllocation()
+    public void TheFirstSampleAndTheLastOne_AreTaken_WhateverTheInterval_AndStopIsPrompt()
+    {
+        int value = 100;
+        var source = new FakeProcSource().WithSeries("/proc/self/status", _ => $"RssAnon: {Volatile.Read(ref value)} kB\nRssFile: 1 kB\nVmHWM: 2 kB\nThreads: 3\n");
+        using var sampler = new RssSampler(new RssReader(source), 600_000); // ten minutes: the loop never samples
+        sampler.Start();
+        Volatile.Write(ref value, 7);
+        RssStats stats = sampler.Stop(); // wakes the thread at once
+        Assert.That(stats, Is.EqualTo(new RssStats(true, 2, 100, 1, 2, 3, 7)));
+        // the sampler can be started again after a Stop
+        Volatile.Write(ref value, 500);
+        sampler.Start();
+        stats = sampler.Stop();
+        Assert.That(stats.MaxRssAnonKb, Is.EqualTo(500));
+        Assert.That(stats.Samples, Is.EqualTo(4), "two samples per start / stop pair, counted from the first start");
+    }
+
+    [Test]
+    public void Dispose_StopsThePolling()
+    {
+        var source = new FakeProcSource().With("/proc/self/status", "RssAnon: 5 kB\n");
+        var sampler = new RssSampler(new RssReader(source), 1);
+        sampler.Start();
+        Assert.That(SpinWait.SpinUntil(() => source.Calls > 5, 10_000), Is.True);
+        sampler.Dispose();
+        int calls = source.Calls;
+        SpinWait.SpinUntil(() => false, 100);
+        Assert.That(source.Calls, Is.EqualTo(calls), "no read after the dispose");
+    }
+
+    [Test]
+    public unsafe void TheRealSampler_SeesAnAllocation()
     {
         if (!new RssReader().Read().Available) Assert.Ignore("no /proc/self/status here");
         using var sampler = new RssSampler(new RssReader(), 2);
         sampler.Start();
         long before = new RssReader().Read().RssAnonKb;
-        var block = new byte[64 * 1024 * 1024];
-        for (int i = 0; i < block.Length; i += 4096) block[i] = 1;
-        RssStats stats = sampler.Stop(); // the last sample is taken at Stop, while the block is alive
-        GC.KeepAlive(block);
-        Assert.That(stats.MaxRssAnonKb, Is.GreaterThanOrEqualTo(before + (50 * 1024)), "a touched 64 MB array shows in RssAnon");
+        const int bytes = 64 * 1024 * 1024;
+        byte* block = (byte*)System.Runtime.InteropServices.NativeMemory.Alloc(bytes); // fresh pages from the OS, whatever the managed heap holds
+        try
+        {
+            for (int i = 0; i < bytes; i += 4096) block[i] = 1;
+            RssStats stats = sampler.Stop(); // the last sample is taken at Stop, while the block is alive
+            Assert.That(stats.MaxRssAnonKb, Is.GreaterThanOrEqualTo(before + (50 * 1024)), "a touched 64 MB block shows in RssAnon");
+        }
+        finally
+        {
+            System.Runtime.InteropServices.NativeMemory.Free(block);
+        }
     }
 }

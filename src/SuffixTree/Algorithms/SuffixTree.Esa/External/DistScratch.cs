@@ -1,3 +1,5 @@
+using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
 namespace SuffixTree.Esa.External;
@@ -130,6 +132,7 @@ internal sealed unsafe class DistWriter<T>
     internal int Capacity => _capacity;
 
     /// <summary>Appends one tuple to the buffer of <paramref name="chunk"/>.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal void Add(long chunk, in T item)
     {
         int local = Local(chunk);
@@ -165,12 +168,17 @@ internal sealed unsafe class DistWriter<T>
         }
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private int Local(long chunk)
     {
         long local = chunk - _firstChunk;
-        if ((ulong)local >= (ulong)_filled.Length) throw new ArgumentOutOfRangeException(nameof(chunk), $"chunk {chunk} is outside [{_firstChunk}, {_firstChunk + _filled.Length})");
+        if ((ulong)local >= (ulong)_filled.Length) ThrowChunkOutside(chunk);
         return (int)local;
     }
+
+    [DoesNotReturn]
+    private void ThrowChunkOutside(long chunk)
+        => throw new ArgumentOutOfRangeException(nameof(chunk), $"chunk {chunk} is outside [{_firstChunk}, {_firstChunk + _filled.Length})");
 
     private void Flush(int local, int count) => _scratch.Append(_firstChunk + local, _buffers.Slice(local * _capacity, count).AsSpan(count));
 }

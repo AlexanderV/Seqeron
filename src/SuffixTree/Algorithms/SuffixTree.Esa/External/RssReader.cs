@@ -48,6 +48,7 @@ internal sealed class RssSampler : IDisposable
 {
     private readonly RssReader _reader;
     private readonly int _intervalMs;
+    private readonly ManualResetEventSlim _stopSignal = new(false);
     private Thread? _thread;
     private volatile bool _stop;
     private bool _started;
@@ -73,6 +74,7 @@ internal sealed class RssSampler : IDisposable
         if (_started) throw new InvalidOperationException("sampler already started");
         _started = true;
         _stop = false;
+        _stopSignal.Reset();
         RssSnapshot first = _reader.Read();
         if (!first.Available) return;
         _available = true;
@@ -87,6 +89,7 @@ internal sealed class RssSampler : IDisposable
         if (_thread is not null)
         {
             _stop = true;
+            _stopSignal.Set(); // wakes the thread from its wait at once, so a long interval does not delay the stop
             _thread.Join();
             _thread = null;
             RssSnapshot last = _reader.Read();
@@ -99,6 +102,7 @@ internal sealed class RssSampler : IDisposable
     public void Dispose()
     {
         if (_started) Stop();
+        _stopSignal.Dispose();
     }
 
     private void Loop()
@@ -112,7 +116,7 @@ internal sealed class RssSampler : IDisposable
             if (now < next)
             {
                 int sleep = (int)((next - now) * 1000 / Stopwatch.Frequency);
-                if (sleep > 0) Thread.Sleep(sleep);
+                if (sleep > 0) _stopSignal.Wait(sleep);
                 else Thread.Yield();
                 continue;
             }
