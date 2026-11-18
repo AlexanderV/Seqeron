@@ -156,7 +156,7 @@ public unsafe class SaBuildCostTests
         long t0 = Stopwatch.GetTimestamp();
         Prod.PackedTextInfo info = Prod.PackedTextWriter.WriteFile(input, outPrefix + ".pk", new Prod.PackedTextWriterOptions { Counters = counters });
         double ph0 = (Stopwatch.GetTimestamp() - t0) / (double)Stopwatch.Frequency;
-        File.WriteAllText(outPrefix + ".pk.meta", string.Create(CultureInfo.InvariantCulture, $"n={info.N}\nbits={info.Bits}\nsigma={info.Sigma}\n"));
+        File.WriteAllText(outPrefix + ".pk.meta", string.Create(CultureInfo.InvariantCulture, $"n={info.N}\nbits={info.Bits}\nsigma={info.Sigma}\nletters_hex={Convert.ToHexString(info.Letters)}\ncounts={string.Join(',', info.Counts)}\nsha256={info.Sha256}\nname={Path.GetFileName(input)}\n"));
         Assert.That(info.Sigma.ToString(CultureInfo.InvariantCulture), Is.EqualTo(sigmaText));
         using Prod.MappedTextReader text = Prod.MappedTextReader.Open(outPrefix + ".pk", info.N, info.Bits);
         Prod.SaBuildResult sa = Prod.SaBuilder.Build(text, outPrefix + ".sa", new Prod.SaBuildOptions { ScratchDir = scratch, Threads = threads, ScaleN = scale, Counters = counters });
