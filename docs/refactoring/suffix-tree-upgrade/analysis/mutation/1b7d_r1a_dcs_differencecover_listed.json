@@ -1,0 +1,98 @@
+[
+ {
+  "id": "D01",
+  "desc": "Density is the inverse ratio",
+  "old": "internal double Density => (double)Residues.Length / Period;",
+  "new": "internal double Density => (double)Period / Residues.Length;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs",
+  "filter": "(FullyQualifiedName~DifferenceCoverTests|FullyQualifiedName~SampleGeometryTests|FullyQualifiedName~ExternalDcsTests)"
+ },
+ {
+  "id": "D03",
+  "desc": "Verify: a residue outside the period is accepted",
+  "old": "if (a < 0 || a >= Period) return false;",
+  "new": "if (a < 0) return false;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs",
+  "filter": "(FullyQualifiedName~DifferenceCoverTests|FullyQualifiedName~SampleGeometryTests|FullyQualifiedName~ExternalDcsTests)"
+ },
+ {
+  "id": "D05",
+  "desc": "IsPerfect: counts the zero differences",
+  "old": "                if (a != b) count[(b - a + Period) % Period]++;",
+  "new": "                count[(b - a + Period) % Period]++;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs",
+  "filter": "(FullyQualifiedName~DifferenceCoverTests|FullyQualifiedName~SampleGeometryTests|FullyQualifiedName~ExternalDcsTests)"
+ },
+ {
+  "id": "D07",
+  "desc": "Create accepts the period 1",
+  "old": "ArgumentOutOfRangeException.ThrowIfLessThan(period, 2);",
+  "new": "ArgumentOutOfRangeException.ThrowIfLessThan(period, 1);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs",
+  "filter": "(FullyQualifiedName~DifferenceCoverTests|FullyQualifiedName~SampleGeometryTests|FullyQualifiedName~ExternalDcsTests)"
+ },
+ {
+  "id": "D09",
+  "desc": "NearestSingerPeriod takes the smaller ratio the other way",
+  "old": "double ratio = Math.Max((double)x / target, (double)target / x);",
+  "new": "double ratio = Math.Min((double)x / target, (double)target / x);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs",
+  "filter": "(FullyQualifiedName~DifferenceCoverTests|FullyQualifiedName~SampleGeometryTests|FullyQualifiedName~ExternalDcsTests)"
+ },
+ {
+  "id": "D11",
+  "desc": "SampleCount: residue equal to the rest is not counted",
+  "old": "if (r <= rest) count++;",
+  "new": "if (r < rest) count++;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs",
+  "filter": "(FullyQualifiedName~DifferenceCoverTests|FullyQualifiedName~SampleGeometryTests|FullyQualifiedName~ExternalDcsTests)"
+ },
+ {
+  "id": "D13",
+  "desc": "Pruned: the small periods get fewer rounds",
+  "old": "if (x <= 256) rounds = 40;",
+  "new": "if (x <= 128) rounds = 40;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs",
+  "filter": "(FullyQualifiedName~DifferenceCoverTests|FullyQualifiedName~SampleGeometryTests|FullyQualifiedName~ExternalDcsTests)"
+ },
+ {
+  "id": "D15",
+  "desc": "Pruned: the start set lacks the last of the first run",
+  "old": "for (int j = 0; j < m; j++) start.Add(j % x);",
+  "new": "for (int j = 0; j < m - 1; j++) start.Add(j % x);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs",
+  "filter": "(FullyQualifiedName~DifferenceCoverTests|FullyQualifiedName~SampleGeometryTests|FullyQualifiedName~ExternalDcsTests)"
+ },
+ {
+  "id": "D17",
+  "desc": "Pruned: a removal is kept when the count is still zero",
+  "old": "if (count[dd] <= 0)",
+  "new": "if (count[dd] < 0)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs",
+  "filter": "(FullyQualifiedName~DifferenceCoverTests|FullyQualifiedName~SampleGeometryTests|FullyQualifiedName~ExternalDcsTests)"
+ },
+ {
+  "id": "D19",
+  "desc": "SingerPrime: any q below the period counts",
+  "old": "if (IsPrime(q) && (q * q) + q + 1 == period) return q;",
+  "new": "if (IsPrime(q) && (q * q) + q + 1 <= period) return q;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs",
+  "filter": "(FullyQualifiedName~DifferenceCoverTests|FullyQualifiedName~SampleGeometryTests|FullyQualifiedName~ExternalDcsTests)"
+ },
+ {
+  "id": "D21",
+  "desc": "IsPrime: 1 is a prime",
+  "old": "if (v < 2) return false;",
+  "new": "if (v < 1) return false;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs",
+  "filter": "(FullyQualifiedName~DifferenceCoverTests|FullyQualifiedName~SampleGeometryTests|FullyQualifiedName~ExternalDcsTests)"
+ },
+ {
+  "id": "D23",
+  "desc": "IndexOf: the table is filled with 0",
+  "old": "Array.Fill(IndexOf, -1);",
+  "new": "Array.Fill(IndexOf, 0);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs",
+  "filter": "(FullyQualifiedName~DifferenceCoverTests|FullyQualifiedName~SampleGeometryTests|FullyQualifiedName~ExternalDcsTests)"
+ }
+]

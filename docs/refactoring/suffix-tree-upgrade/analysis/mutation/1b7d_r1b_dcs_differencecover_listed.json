@@ -1,0 +1,98 @@
+[
+ {
+  "id": "D02",
+  "desc": "PeriodBits takes the log of the period",
+  "old": "BitOperations.Log2((uint)Period - 1) + 1",
+  "new": "BitOperations.Log2((uint)Period) + 1",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs",
+  "filter": "(FullyQualifiedName~DifferenceCoverTests|FullyQualifiedName~SampleGeometryTests|FullyQualifiedName~ExternalDcsTests)"
+ },
+ {
+  "id": "D04",
+  "desc": "Verify: the difference is taken the other way",
+  "old": "foreach (int b in Residues) covered[(b - a + Period) % Period] = true;",
+  "new": "foreach (int b in Residues) covered[(a - b + Period) % Period] = true;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs",
+  "filter": "(FullyQualifiedName~DifferenceCoverTests|FullyQualifiedName~SampleGeometryTests|FullyQualifiedName~ExternalDcsTests)"
+ },
+ {
+  "id": "D06",
+  "desc": "IsPerfect: a difference may occur more than once",
+  "old": "if (count[d] != 1) return false;",
+  "new": "if (count[d] < 1) return false;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs",
+  "filter": "(FullyQualifiedName~DifferenceCoverTests|FullyQualifiedName~SampleGeometryTests|FullyQualifiedName~ExternalDcsTests)"
+ },
+ {
+  "id": "D08",
+  "desc": "NearestSingerPeriod stops at q = 40",
+  "old": "for (int q = 2; q < 200; q++)",
+  "new": "for (int q = 2; q < 40; q++)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs",
+  "filter": "(FullyQualifiedName~DifferenceCoverTests|FullyQualifiedName~SampleGeometryTests|FullyQualifiedName~ExternalDcsTests)"
+ },
+ {
+  "id": "D10",
+  "desc": "NearestSingerPeriod keeps the first on a tie of ratios (strict becomes non-strict)",
+  "old": "if (ratio < bestRatio)",
+  "new": "if (ratio <= bestRatio)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs",
+  "filter": "(FullyQualifiedName~DifferenceCoverTests|FullyQualifiedName~SampleGeometryTests|FullyQualifiedName~ExternalDcsTests)"
+ },
+ {
+  "id": "D12",
+  "desc": "SampleCount: the full blocks are one short",
+  "old": "long blocks = n / Period;",
+  "new": "long blocks = (n - 1) / Period;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs",
+  "filter": "(FullyQualifiedName~DifferenceCoverTests|FullyQualifiedName~SampleGeometryTests|FullyQualifiedName~ExternalDcsTests)"
+ },
+ {
+  "id": "D14",
+  "desc": "Pruned: the large periods get more rounds",
+  "old": "else if (x <= 1024) rounds = 12;",
+  "new": "else if (x <= 1024) rounds = 13;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs",
+  "filter": "(FullyQualifiedName~DifferenceCoverTests|FullyQualifiedName~SampleGeometryTests|FullyQualifiedName~ExternalDcsTests)"
+ },
+ {
+  "id": "D16",
+  "desc": "Pruned: the multiples start at zero",
+  "old": "for (int k = 1; k <= m; k++) start.Add(m * k % x);",
+  "new": "for (int k = 0; k <= m; k++) start.Add(m * k % x);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs",
+  "filter": "(FullyQualifiedName~DifferenceCoverTests|FullyQualifiedName~SampleGeometryTests|FullyQualifiedName~ExternalDcsTests)"
+ },
+ {
+  "id": "D18",
+  "desc": "Pruned: the best round is the largest",
+  "old": "if (d.Count < best.Count) best = d;",
+  "new": "if (d.Count > best.Count) best = d;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs",
+  "filter": "(FullyQualifiedName~DifferenceCoverTests|FullyQualifiedName~SampleGeometryTests|FullyQualifiedName~ExternalDcsTests)"
+ },
+ {
+  "id": "D20",
+  "desc": "Singer: a zero residue is taken at the end of the range",
+  "old": "if (k < n && a0 == 0) zero.Add((int)k);",
+  "new": "if (k <= n && a0 == 0) zero.Add((int)k);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs",
+  "filter": "(FullyQualifiedName~DifferenceCoverTests|FullyQualifiedName~SampleGeometryTests|FullyQualifiedName~ExternalDcsTests)"
+ },
+ {
+  "id": "D22",
+  "desc": "Witness: the last witness wins",
+  "old": "if (Witness[d] < 0) Witness[d] = a;",
+  "new": "Witness[d] = a;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs",
+  "filter": "(FullyQualifiedName~DifferenceCoverTests|FullyQualifiedName~SampleGeometryTests|FullyQualifiedName~ExternalDcsTests)"
+ },
+ {
+  "id": "D24",
+  "desc": "Witness: the table is filled with 0",
+  "old": "Array.Fill(Witness, -1);",
+  "new": "Array.Fill(Witness, 0);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs",
+  "filter": "(FullyQualifiedName~DifferenceCoverTests|FullyQualifiedName~SampleGeometryTests|FullyQualifiedName~ExternalDcsTests)"
+ }
+]

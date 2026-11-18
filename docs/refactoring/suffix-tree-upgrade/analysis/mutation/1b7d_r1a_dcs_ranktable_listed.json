@@ -1,0 +1,74 @@
+[
+ {
+  "id": "R01",
+  "desc": "FastMod32: the multiplier is one too small",
+  "old": "_m = (ulong.MaxValue / divisor) + 1;",
+  "new": "_m = ulong.MaxValue / divisor;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankTable.cs",
+  "filter": "(FullyQualifiedName~RankTableTests|FullyQualifiedName~SuffixOrderTests)"
+ },
+ {
+  "id": "R03",
+  "desc": "FastMod32: a divisor of one is accepted",
+  "old": "ArgumentOutOfRangeException.ThrowIfLessThan(divisor, 2u);",
+  "new": "ArgumentOutOfRangeException.ThrowIfLessThan(divisor, 1u);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankTable.cs",
+  "filter": "(FullyQualifiedName~RankTableTests|FullyQualifiedName~SuffixOrderTests)"
+ },
+ {
+  "id": "R05",
+  "desc": "Open: a shorter file is accepted",
+  "old": "if (stream.Length != bytes) throw",
+  "new": "if (stream.Length > bytes) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankTable.cs",
+  "filter": "(FullyQualifiedName~RankTableTests|FullyQualifiedName~SuffixOrderTests)"
+ },
+ {
+  "id": "R07",
+  "desc": "Rank: the class index is dropped",
+  "old": "return _ranks[((long)block * _classes) + _indexOf[r]];",
+  "new": "return _ranks[(long)block * _classes];",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankTable.cs",
+  "filter": "(FullyQualifiedName~RankTableTests|FullyQualifiedName~SuffixOrderTests)"
+ },
+ {
+  "id": "R09",
+  "desc": "Verify: the first unused slot is checked as a real one",
+  "old": "if (slot >= samples)",
+  "new": "if (slot > samples)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankTable.cs",
+  "filter": "(FullyQualifiedName~RankTableTests|FullyQualifiedName~SuffixOrderTests)"
+ },
+ {
+  "id": "R11",
+  "desc": "Verify: the largest rank is refused",
+  "old": "if (v == 0 || v > top)",
+  "new": "if (v == 0 || v >= top)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankTable.cs",
+  "filter": "(FullyQualifiedName~RankTableTests|FullyQualifiedName~SuffixOrderTests)"
+ },
+ {
+  "id": "R13",
+  "desc": "Verify: the range is the sample only",
+  "old": "long top = samples + _classes;",
+  "new": "long top = samples;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankTable.cs",
+  "filter": "(FullyQualifiedName~RankTableTests|FullyQualifiedName~SuffixOrderTests)"
+ },
+ {
+  "id": "R15",
+  "desc": "Dispose: the pointer is not released",
+  "old": "            view.SafeMemoryMappedViewHandle.ReleasePointer();\n            view.Dispose();\n        }\n        map?.Dispose();",
+  "new": "            view.Dispose();\n        }\n        map?.Dispose();",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankTable.cs",
+  "filter": "(FullyQualifiedName~RankTableTests|FullyQualifiedName~SuffixOrderTests)"
+ },
+ {
+  "id": "R17",
+  "desc": "Verify after Dispose does not throw",
+  "old": "ObjectDisposedException.ThrowIf(_view is null, this);",
+  "new": "ObjectDisposedException.ThrowIf(false, this);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankTable.cs",
+  "filter": "(FullyQualifiedName~RankTableTests|FullyQualifiedName~SuffixOrderTests)"
+ }
+]

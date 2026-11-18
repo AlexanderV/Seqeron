@@ -1,0 +1,58 @@
+[
+ {
+  "id": "W01",
+  "desc": "SplitMix: the increment",
+  "old": "_state += 0x9E3779B97F4A7C15UL;",
+  "new": "_state += 0x9E3779B97F4A7C14UL;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/SeededRandom.cs",
+  "filter": "(FullyQualifiedName~SaPlumbingTests|FullyQualifiedName~ExternalDcsTests)"
+ },
+ {
+  "id": "W03",
+  "desc": "SplitMix: the second multiplier",
+  "old": "z = (z ^ (z >> 27)) * 0x94D049BB133111EBUL;",
+  "new": "z = (z ^ (z >> 27)) * 0x94D049BB133111EAUL;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/SeededRandom.cs",
+  "filter": "(FullyQualifiedName~SaPlumbingTests|FullyQualifiedName~ExternalDcsTests)"
+ },
+ {
+  "id": "W05",
+  "desc": "NextInt: the quotient instead of the remainder",
+  "old": "return (int)(Next() % (ulong)bound);",
+  "new": "return (int)(Next() / (ulong)bound);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/SeededRandom.cs",
+  "filter": "(FullyQualifiedName~SaPlumbingTests|FullyQualifiedName~ExternalDcsTests)"
+ },
+ {
+  "id": "P01",
+  "desc": "WorkPool: a failed pool still hands out tasks",
+  "old": "if (_error is null && _stack.Count > 0)",
+  "new": "if (_stack.Count > 0)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/SeededRandom.cs",
+  "filter": "(FullyQualifiedName~SaPlumbingTests|FullyQualifiedName~ExternalDcsTests)"
+ },
+ {
+  "id": "P03",
+  "desc": "WorkPool: a finished task is counted twice",
+  "old": "            _active--;\n            Monitor.PulseAll(_stack);\n        }\n    }\n\n    internal void Fail",
+  "new": "            _active -= 2;\n            Monitor.PulseAll(_stack);\n        }\n    }\n\n    internal void Fail",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/SeededRandom.cs",
+  "filter": "(FullyQualifiedName~SaPlumbingTests|FullyQualifiedName~ExternalDcsTests)"
+ },
+ {
+  "id": "P05",
+  "desc": "WorkPool: first in first out",
+  "old": "task = _stack.Pop();",
+  "new": "task = _stack.ToArray()[^1];",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/SeededRandom.cs",
+  "filter": "(FullyQualifiedName~SaPlumbingTests|FullyQualifiedName~ExternalDcsTests)"
+ },
+ {
+  "id": "P07",
+  "desc": "WorkPool: Fail does not wake the waiters",
+  "old": "            _error ??= e;\n            Monitor.PulseAll(_stack);",
+  "new": "            _error ??= e;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/SeededRandom.cs",
+  "filter": "(FullyQualifiedName~SaPlumbingTests|FullyQualifiedName~ExternalDcsTests)"
+ }
+]

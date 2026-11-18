@@ -1,0 +1,42 @@
+[
+ {
+  "id": "I01",
+  "desc": "the empty suffix is not skipped",
+  "old": "if (index == 0) return false; // the empty suffix",
+  "new": "if (index < 0) return false; // the empty suffix",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankInverter.cs",
+  "filter": "(FullyQualifiedName~RankInverterTests|FullyQualifiedName~ExternalDcsTests)"
+ },
+ {
+  "id": "I03",
+  "desc": "a separator is ranked",
+  "old": "if (!geometry.TrySlotOfRed(sourceValue, out long slot)) return false; // a separator",
+  "new": "geometry.TrySlotOfRed(sourceValue, out long slot);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankInverter.cs",
+  "filter": "(FullyQualifiedName~RankInverterTests|FullyQualifiedName~ExternalDcsTests)"
+ },
+ {
+  "id": "I05",
+  "desc": "the rank is counted from zero",
+  "old": "value = (uint)index;",
+  "new": "value = (uint)index - 1;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankInverter.cs",
+  "filter": "(FullyQualifiedName~RankInverterTests|FullyQualifiedName~ExternalDcsTests)"
+ },
+ {
+  "id": "I07",
+  "desc": "the count check is dropped",
+  "old": "if (mapper.Emitted != g.Samples) throw",
+  "new": "if (mapper.Emitted > g.Samples + 100) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankInverter.cs",
+  "filter": "(FullyQualifiedName~RankInverterTests|FullyQualifiedName~ExternalDcsTests)"
+ },
+ {
+  "id": "I09",
+  "desc": "the source has one entry too few",
+  "old": "g.RedLength + 1, ref mapper",
+  "new": "g.RedLength, ref mapper",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankInverter.cs",
+  "filter": "(FullyQualifiedName~RankInverterTests|FullyQualifiedName~ExternalDcsTests)"
+ }
+]

@@ -1,0 +1,154 @@
+[
+ {
+  "id": "C01",
+  "desc": "Add: the compares are not summed",
+  "old": "        Compares += o.Compares;\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs",
+  "filter": "(FullyQualifiedName~SuffixOrderTests|FullyQualifiedName~BucketSorterTests)"
+ },
+ {
+  "id": "C03",
+  "desc": "Add: the LCE calls are not summed",
+  "old": "        LceCalls += o.LceCalls;\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs",
+  "filter": "(FullyQualifiedName~SuffixOrderTests|FullyQualifiedName~BucketSorterTests)"
+ },
+ {
+  "id": "C05",
+  "desc": "Add: the scan positions are not summed",
+  "old": "        ScanPositions += o.ScanPositions;\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs",
+  "filter": "(FullyQualifiedName~SuffixOrderTests|FullyQualifiedName~BucketSorterTests)"
+ },
+ {
+  "id": "C07",
+  "desc": "Add: the tied compares are not summed",
+  "old": "        TiedCompares += o.TiedCompares;\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs",
+  "filter": "(FullyQualifiedName~SuffixOrderTests|FullyQualifiedName~BucketSorterTests)"
+ },
+ {
+  "id": "C09",
+  "desc": "Add: the LCE symbols are not summed",
+  "old": "        LceSymbols += o.LceSymbols;\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs",
+  "filter": "(FullyQualifiedName~SuffixOrderTests|FullyQualifiedName~BucketSorterTests)"
+ },
+ {
+  "id": "C11",
+  "desc": "CompareCore: the tied calls are not counted",
+  "old": "if (tied) c.TiedCompares++;",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs",
+  "filter": "(FullyQualifiedName~SuffixOrderTests|FullyQualifiedName~BucketSorterTests)"
+ },
+ {
+  "id": "C13",
+  "desc": "CompareCore: the key is skipped for an untied call",
+  "old": "long skip = tied && t.KeySymbols <= maxLen ? t.KeySymbols : 0;",
+  "new": "long skip = t.KeySymbols <= maxLen ? t.KeySymbols : 0;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs",
+  "filter": "(FullyQualifiedName~SuffixOrderTests|FullyQualifiedName~BucketSorterTests)"
+ },
+ {
+  "id": "C15",
+  "desc": "CompareCore: the key is not skipped",
+  "old": "long skip = tied && t.KeySymbols <= maxLen ? t.KeySymbols : 0;",
+  "new": "long skip = 0;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs",
+  "filter": "(FullyQualifiedName~SuffixOrderTests|FullyQualifiedName~BucketSorterTests)"
+ },
+ {
+  "id": "C17",
+  "desc": "CompareCore: the key is skipped one symbol too far",
+  "old": "long skip = tied && t.KeySymbols <= maxLen ? t.KeySymbols : 0;",
+  "new": "long skip = tied && t.KeySymbols <= maxLen ? t.KeySymbols + 1 : 0;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs",
+  "filter": "(FullyQualifiedName~SuffixOrderTests|FullyQualifiedName~BucketSorterTests)"
+ },
+ {
+  "id": "C19",
+  "desc": "CompareCore: the offset is the sum of the residues",
+  "old": "int delta = (int)rj - (int)ri;",
+  "new": "int delta = (int)rj + (int)ri;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs",
+  "filter": "(FullyQualifiedName~SuffixOrderTests|FullyQualifiedName~BucketSorterTests)"
+ },
+ {
+  "id": "C21",
+  "desc": "CompareCore: the witness is the difference",
+  "old": "int a = d.Cover.Witness[delta];",
+  "new": "int a = delta;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs",
+  "filter": "(FullyQualifiedName~SuffixOrderTests|FullyQualifiedName~BucketSorterTests)"
+ },
+ {
+  "id": "C23",
+  "desc": "CompareCore: the offset is the witness",
+  "old": "int l = a - (int)ri;",
+  "new": "int l = a;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs",
+  "filter": "(FullyQualifiedName~SuffixOrderTests|FullyQualifiedName~BucketSorterTests)"
+ },
+ {
+  "id": "C25",
+  "desc": "CompareCore: the limit ignores the shorter suffix",
+  "old": "long lim = Math.Min(l, maxLen);",
+  "new": "long lim = l;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs",
+  "filter": "(FullyQualifiedName~SuffixOrderTests|FullyQualifiedName~BucketSorterTests)"
+ },
+ {
+  "id": "C27",
+  "desc": "CompareCore: the symbols are compared from the key end only",
+  "old": "if (lim > s)",
+  "new": "if (lim > s + 1)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs",
+  "filter": "(FullyQualifiedName~SuffixOrderTests|FullyQualifiedName~BucketSorterTests)"
+ },
+ {
+  "id": "C29",
+  "desc": "CompareCore: the LCE ignores the skip",
+  "old": "matched = s + t.Lce(i + s, j + s, lim - s, ref c.LceSteps);",
+  "new": "matched = s + t.Lce(i, j, lim - s, ref c.LceSteps);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs",
+  "filter": "(FullyQualifiedName~SuffixOrderTests|FullyQualifiedName~BucketSorterTests)"
+ },
+ {
+  "id": "C31",
+  "desc": "CompareCore: the difference decides the other way",
+  "old": "if (matched < lim) return t.Symbol(i + matched) < t.Symbol(j + matched) ? -1 : 1;",
+  "new": "if (matched < lim) return t.Symbol(i + matched) > t.Symbol(j + matched) ? -1 : 1;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs",
+  "filter": "(FullyQualifiedName~SuffixOrderTests|FullyQualifiedName~BucketSorterTests)"
+ },
+ {
+  "id": "C33",
+  "desc": "CompareCore: the shorter suffix is the larger",
+  "old": "if (l > maxLen) return i > j ? -1 : 1;",
+  "new": "if (l > maxLen) return i > j ? 1 : -1;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs",
+  "filter": "(FullyQualifiedName~SuffixOrderTests|FullyQualifiedName~BucketSorterTests)"
+ },
+ {
+  "id": "C35",
+  "desc": "CompareCore: the rank lookups are not counted",
+  "old": "        c.RankLookups += 2;\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs",
+  "filter": "(FullyQualifiedName~SuffixOrderTests|FullyQualifiedName~BucketSorterTests)"
+ },
+ {
+  "id": "C37",
+  "desc": "CompareCore: the second rank is at the wrong offset",
+  "old": "return d.Rank(i + l) < d.Rank(j + l) ? -1 : 1;",
+  "new": "return d.Rank(i + l) < d.Rank(j) ? -1 : 1;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs",
+  "filter": "(FullyQualifiedName~SuffixOrderTests|FullyQualifiedName~BucketSorterTests)"
+ }
+]

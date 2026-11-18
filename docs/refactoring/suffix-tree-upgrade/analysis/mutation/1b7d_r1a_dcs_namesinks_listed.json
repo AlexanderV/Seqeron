@@ -1,0 +1,82 @@
+[
+ {
+  "id": "N01",
+  "desc": "RankFileSink: the file is half the length",
+  "old": "_file = MappedOutputFile.Create(path, slots * 4, files);",
+  "new": "_file = MappedOutputFile.Create(path, slots * 2, files);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/NameSinks.cs",
+  "filter": "(FullyQualifiedName~ExternalDcsTests)"
+ },
+ {
+  "id": "N03",
+  "desc": "RankFileSink: the window is not the given one",
+  "old": "_writer = _file.CreateWriter(windowBytes, counters);",
+  "new": "_writer = _file.CreateWriter(MappedWindowWriter.DefaultWindowBytes, counters);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/NameSinks.cs",
+  "filter": "(FullyQualifiedName~ExternalDcsTests)"
+ },
+ {
+  "id": "N05",
+  "desc": "ReducedFileSink: the length lacks the padding",
+  "old": "long bytes = PackedTextFormat.TotalBytes(geometry.RedLength, MappedTextReader.ReducedBits);",
+  "new": "long bytes = PackedTextFormat.DataBytes(geometry.RedLength, MappedTextReader.ReducedBits);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/NameSinks.cs",
+  "filter": "(FullyQualifiedName~ExternalDcsTests)"
+ },
+ {
+  "id": "N07",
+  "desc": "ReducedFileSink: the cursor is flushed one entry late",
+  "old": "if (++_filled[c] == _bufEntries) Flush(c, buf);",
+  "new": "if (++_filled[c] == _bufEntries + 1) Flush(c, buf);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/NameSinks.cs",
+  "filter": "(FullyQualifiedName~ExternalDcsTests)"
+ },
+ {
+  "id": "N09",
+  "desc": "ReducedFileSink: the flushed count is not advanced",
+  "old": "        _flushed[c] += _filled[c];\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/NameSinks.cs",
+  "filter": "(FullyQualifiedName~ExternalDcsTests)"
+ },
+ {
+  "id": "N11",
+  "desc": "ReducedFileSink: Complete skips the last cursor",
+  "old": "for (int c = 0; c < m; c++)\n        {\n            if (_filled[c] > 0) Flush",
+  "new": "for (int c = 0; c < m - 1; c++)\n        {\n            if (_filled[c] > 0) Flush",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/NameSinks.cs",
+  "filter": "(FullyQualifiedName~ExternalDcsTests)"
+ },
+ {
+  "id": "N13",
+  "desc": "ReducedFileSink: the first slot class is the first",
+  "old": "int c = (int)(firstSlot % m);\n        Span<byte> all",
+  "new": "int c = 0;\n        Span<byte> all",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/NameSinks.cs",
+  "filter": "(FullyQualifiedName~ExternalDcsTests)"
+ },
+ {
+  "id": "N15",
+  "desc": "ReducedRamSink: the block does not advance",
+  "old": "                c = 0;\n                block++;",
+  "new": "                c = 0;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/NameSinks.cs",
+  "filter": "(FullyQualifiedName~ExternalDcsTests)"
+ },
+ {
+  "id": "N17",
+  "desc": "ReducedRamSink: the string is not zeroed",
+  "old": "Red = arena.Allocate<int>(checked((int)geometry.RedLength), zero: true, \"reduced.string\");",
+  "new": "Red = arena.Allocate<int>(checked((int)geometry.RedLength), zero: false, \"reduced.string\");",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/NameSinks.cs",
+  "filter": "(FullyQualifiedName~ExternalDcsTests)"
+ },
+ {
+  "id": "N19",
+  "desc": "ReducedFileSink: the buffers are one name short",
+  "old": "_buffers = arena.Allocate<byte>(_bufEntries * 4 * geometry.Classes, zero: false, \"reduced.cursors\");",
+  "new": "_buffers = arena.Allocate<byte>((_bufEntries - 1) * 4 * geometry.Classes + 4, zero: false, \"reduced.cursors\");",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/NameSinks.cs",
+  "filter": "(FullyQualifiedName~ExternalDcsTests)"
+ }
+]

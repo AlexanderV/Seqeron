@@ -1,0 +1,114 @@
+[
+ {
+  "id": "T02",
+  "desc": "RangePositions: At is shifted",
+  "old": "public uint At(long index) => (uint)index;",
+  "new": "public uint At(long index) => (uint)index + 1;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/PositionStore.cs",
+  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)"
+ },
+ {
+  "id": "T04",
+  "desc": "MemoryPositions: the array is not returned",
+  "old": "        if (d is not null) ArrayPool<uint>.Shared.Return(d);",
+  "new": "        _ = d;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/PositionStore.cs",
+  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)"
+ },
+ {
+  "id": "T06",
+  "desc": "FilePositions: Read ignores the start",
+  "old": "_file.ReadExactAt(MemoryMarshal.AsBytes(dest), start * 4);",
+  "new": "_file.ReadExactAt(MemoryMarshal.AsBytes(dest), 0);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/PositionStore.cs",
+  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)"
+ },
+ {
+  "id": "T08",
+  "desc": "FilePositions: Dispose does not close the file",
+  "old": "        _file?.Dispose();\n        _file = null;\n        files.Ledger.Remove(count * 4);",
+  "new": "        _file = null;\n        files.Ledger.Remove(count * 4);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/PositionStore.cs",
+  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)"
+ },
+ {
+  "id": "T10",
+  "desc": "FilePositions: Dispose does not delete the file",
+  "old": "        files.Ledger.Remove(count * 4);\n        RunStore.DeleteQuietly(path);",
+  "new": "        files.Ledger.Remove(count * 4);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/PositionStore.cs",
+  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)"
+ },
+ {
+  "id": "T12",
+  "desc": "PosWriter: the capacity has no floor",
+  "old": "_capacity = Math.Max(spillBytes / 4, 16);",
+  "new": "_capacity = Math.Max(spillBytes / 4, 1);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/PositionStore.cs",
+  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)"
+ },
+ {
+  "id": "T14",
+  "desc": "PosWriter: the buffer is flushed instead of grown",
+  "old": "if (_buffer.Length < _capacity) Grow();",
+  "new": "if (_buffer.Length < 0) Grow();",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/PositionStore.cs",
+  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)"
+ },
+ {
+  "id": "T16",
+  "desc": "PosWriter: a bucket in a file is handed over as memory",
+  "old": "if (_file is null)\n        {\n            var source = new MemoryPositions(_buffer, _filled);",
+  "new": "if (_file is null || _filled == _total)\n        {\n            var source = new MemoryPositions(_buffer, _filled);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/PositionStore.cs",
+  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)"
+ },
+ {
+  "id": "T18",
+  "desc": "PosWriter: the file bucket buffer is not returned",
+  "old": "        _file = null;\n        ArrayPool<uint>.Shared.Return(_buffer);\n        _buffer = [];\n        return new FilePositions",
+  "new": "        _file = null;\n        _buffer = [];\n        return new FilePositions",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/PositionStore.cs",
+  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)"
+ },
+ {
+  "id": "T20",
+  "desc": "PosWriter: Dispose does not give the bytes back",
+  "old": "            _files.Ledger.Remove(_written * 4);\n            RunStore.DeleteQuietly(_path);",
+  "new": "            RunStore.DeleteQuietly(_path);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/PositionStore.cs",
+  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)"
+ },
+ {
+  "id": "T22",
+  "desc": "PosWriter: Dispose does not close the file",
+  "old": "        _completed = true;\n        _file?.Dispose();\n        _file = null;\n        if (_path is not null)",
+  "new": "        _completed = true;\n        _file = null;\n        if (_path is not null)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/PositionStore.cs",
+  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)"
+ },
+ {
+  "id": "T24",
+  "desc": "PosWriter: Grow loses the entries",
+  "old": "Array.Copy(_buffer, bigger, _filled);",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/PositionStore.cs",
+  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)"
+ },
+ {
+  "id": "T26",
+  "desc": "PosWriter: the flushed bytes are not accounted",
+  "old": "            _files.Ledger.Add((long)_filled * 4);",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/PositionStore.cs",
+  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)"
+ },
+ {
+  "id": "T28",
+  "desc": "PosWriter: the file is opened for append",
+  "old": "FileMode.Create, FileAccess.ReadWrite);",
+  "new": "FileMode.OpenOrCreate, FileAccess.ReadWrite);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/PositionStore.cs",
+  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)"
+ }
+]

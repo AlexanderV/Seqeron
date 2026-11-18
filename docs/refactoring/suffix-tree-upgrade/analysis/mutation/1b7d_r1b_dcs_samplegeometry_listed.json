@@ -1,0 +1,50 @@
+[
+ {
+  "id": "S02",
+  "desc": "ClassCount: a residue equal to n is not a member",
+  "old": "ClassCount[c] = r <= n ? ((n - r) / Period) + 1 : 0;",
+  "new": "ClassCount[c] = r < n ? ((n - r) / Period) + 1 : 0;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleGeometry.cs",
+  "filter": "(FullyQualifiedName~SampleGeometryTests|FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~RankInverterTests)"
+ },
+ {
+  "id": "S04",
+  "desc": "RedStart: no separator",
+  "old": "RedStart[c + 1] = ClassStart[c + 1] + c + 1;",
+  "new": "RedStart[c + 1] = ClassStart[c + 1] + c;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleGeometry.cs",
+  "filter": "(FullyQualifiedName~SampleGeometryTests|FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~RankInverterTests)"
+ },
+ {
+  "id": "S06",
+  "desc": "PositionOfSlot: the residue is the wrong class",
+  "old": "(slot / Classes * Period) + Cover.Residues[(int)(slot % Classes)];",
+  "new": "(slot / Classes * Period) + Cover.Residues[(int)((slot + 1) % Classes)];",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleGeometry.cs",
+  "filter": "(FullyQualifiedName~SampleGeometryTests|FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~RankInverterTests)"
+ },
+ {
+  "id": "S08",
+  "desc": "TrySlotOfRed: the separator is a member",
+  "old": "if (k >= ClassCount[lo])",
+  "new": "if (k > ClassCount[lo])",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleGeometry.cs",
+  "filter": "(FullyQualifiedName~SampleGeometryTests|FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~RankInverterTests)"
+ },
+ {
+  "id": "S10",
+  "desc": "TrySlotOfRed: a class that starts at q is not taken",
+  "old": "if (RedStart[mid] <= q) lo = mid;",
+  "new": "if (RedStart[mid] < q) lo = mid;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleGeometry.cs",
+  "filter": "(FullyQualifiedName~SampleGeometryTests|FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~RankInverterTests)"
+ },
+ {
+  "id": "S12",
+  "desc": "Samples is not the cover count",
+  "old": "Samples = cover.SampleCount(n);",
+  "new": "Samples = cover.SampleCount(n) + 1;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleGeometry.cs",
+  "filter": "(FullyQualifiedName~SampleGeometryTests|FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~RankInverterTests)"
+ }
+]

@@ -1,0 +1,18 @@
+[
+ {
+  "id": "Y02",
+  "desc": "Scatter: the target is always reserved",
+  "old": "using MappedOutputFile? created = options.Files is null ? null : MappedOutputFile.Create(targetPath, slots * sizeof(TValue), options.Files);",
+  "new": "using MappedOutputFile? created = MappedOutputFile.Create(targetPath, slots * sizeof(TValue), options.Files);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs",
+  "filter": "(FullyQualifiedName~DistTargetCreationTests|FullyQualifiedName~DistTests|FullyQualifiedName~ExternalDcsTests)"
+ },
+ {
+  "id": "Y04",
+  "desc": "Scatter: the reserved target is not counted",
+  "old": "created.CreateWriter(options.WindowBytes, counters)",
+  "new": "created.CreateWriter(options.WindowBytes, null)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs",
+  "filter": "(FullyQualifiedName~DistTargetCreationTests|FullyQualifiedName~DistTests|FullyQualifiedName~ExternalDcsTests)"
+ }
+]

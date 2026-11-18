@@ -1,0 +1,346 @@
+[
+ {
+  "id": "M01",
+  "desc": "PrefixOrder: equal positions are not equal",
+  "old": "        if (pa == pb) return 0;\n        long maxLen",
+  "new": "        long maxLen",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)"
+ },
+ {
+  "id": "M03",
+  "desc": "PrefixOrder: the shorter suffix is the larger",
+  "old": "if (l == maxLen) return pa > pb ? -1 : 1;",
+  "new": "if (l == maxLen) return pa > pb ? 1 : -1;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)"
+ },
+ {
+  "id": "M05",
+  "desc": "PrefixOrder: the limit is not clamped to the shorter suffix",
+  "old": "long lim = Math.Min(x, maxLen);",
+  "new": "long lim = x;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)"
+ },
+ {
+  "id": "M07",
+  "desc": "Run: the error is swallowed",
+  "old": "if (_pool.Error is { } error) ExceptionDispatchInfo.Capture(error).Throw();",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)"
+ },
+ {
+  "id": "M09",
+  "desc": "Run: an empty leaf is kept",
+  "old": "else if (node.Leaf is { Count: > 0 } leaf)",
+  "new": "else if (node.Leaf is { } leaf)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)"
+ },
+ {
+  "id": "M11",
+  "desc": "Run: the statistics lose the splits",
+  "old": "        _stats.SplitScans = _splitScans;\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)"
+ },
+ {
+  "id": "M13",
+  "desc": "Run: the statistics lose the scans",
+  "old": "        _stats.Scans = _scans;\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)"
+ },
+ {
+  "id": "M15",
+  "desc": "Run: no worker thread is started",
+  "old": "for (int t = 1; t < threads; t++)\n        {\n            var th = new Thread(Worker)",
+  "new": "for (int t = 1; t < 1; t++)\n        {\n            var th = new Thread(Worker)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)"
+ },
+ {
+  "id": "M17",
+  "desc": "Merge: the merge budget is not shared among the file runs",
+  "old": "long fair = _o.MergeBufferBudget / 8 / Math.Max(1, fileRuns);",
+  "new": "long fair = _o.MergeBufferBudget / 8;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)"
+ },
+ {
+  "id": "M19",
+  "desc": "Merge: the total check is dropped",
+  "old": "if (scattered != s) throw",
+  "new": "if (scattered > s) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)"
+ },
+ {
+  "id": "M21",
+  "desc": "Merge: an empty sample is merged",
+  "old": "if (s == 0) return;",
+  "new": "if (s < 0) return;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)"
+ },
+ {
+  "id": "M23",
+  "desc": "AssignNames: a group that continues does not continue",
+  "old": "bool continues = prev is not null && _text.Key(prev.LastPos) == _text.Key(leaf.FirstPos) && _prefix.Compare(prev.LastPos, leaf.FirstPos) == 0;",
+  "new": "bool continues = false;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)"
+ },
+ {
+  "id": "M25",
+  "desc": "AssignNames: the continuation ignores the prefix",
+  "old": "&& _prefix.Compare(prev.LastPos, leaf.FirstPos) == 0;",
+  "new": ";",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)"
+ },
+ {
+  "id": "M27",
+  "desc": "AssignNames: the new names of a continued group",
+  "old": "names += leaf.Distinct - 1;",
+  "new": "names += leaf.Distinct;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)"
+ },
+ {
+  "id": "M29",
+  "desc": "AssignNames: the first group of a leaf with two is not subtracted",
+  "old": "if (leaf.FirstLen == 1) inner--;",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)"
+ },
+ {
+  "id": "M31",
+  "desc": "AssignNames: a leaf with one group is a leaf with two",
+  "old": "if (leaf.Distinct >= 2)\n            {\n                inner",
+  "new": "if (leaf.Distinct >= 1)\n            {\n                inner",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)"
+ },
+ {
+  "id": "M33",
+  "desc": "AssignNames: a closed single group is not counted",
+  "old": "                if (openSize == 1) singles++;\n                if (leaf.Distinct == 1)",
+  "new": "                if (leaf.Distinct == 1)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)"
+ },
+ {
+  "id": "M35",
+  "desc": "AssignNames: the last open group is not counted",
+  "old": "        if (openSize == 1) singles++;\n        r.Distinct = names;",
+  "new": "        r.Distinct = names;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)"
+ },
+ {
+  "id": "M37",
+  "desc": "Worker: the statistics of a worker are lost",
+  "old": "                _leaves += w.Leaves;\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)"
+ },
+ {
+  "id": "M39",
+  "desc": "Collect: the capacity is not bounded by the sample",
+  "old": "int cap = (int)Math.Min(owner._o.BucketCapacity, Math.Max(1, owner._g.Samples));",
+  "new": "int cap = (int)owner._o.BucketCapacity;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)"
+ },
+ {
+  "id": "M41",
+  "desc": "Collect: a position beyond n is taken",
+  "old": "if (p > n) break;\n                    ulong key = text.Key(p);\n                    if (!InRange(task.Lo, task.Hi, key, (uint)p)) continue;\n                    if (stored == cap)",
+  "new": "if (p > n + 1) break;\n                    ulong key = text.Key(p);\n                    if (!InRange(task.Lo, task.Hi, key, (uint)p)) continue;\n                    if (stored == cap)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)"
+ },
+ {
+  "id": "M43",
+  "desc": "InRange: the lower bound is exclusive",
+  "old": "if (key == lo.Key && Cmp(lo.Pos, p) > 0) return false;",
+  "new": "if (key == lo.Key && Cmp(lo.Pos, p) >= 0) return false;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)"
+ },
+ {
+  "id": "M45",
+  "desc": "InRange: the lower key is inclusive of smaller keys",
+  "old": "if (key < lo.Key) return false;",
+  "new": "if (key < lo.Key - 1) return false;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)"
+ },
+ {
+  "id": "M47",
+  "desc": "Cmp: the position tie-break is dropped",
+  "old": "return c != 0 ? c : a.CompareTo(b);\n        }\n\n        /// <summary>One scan that stores",
+  "new": "return c;\n        }\n\n        /// <summary>One scan that stores",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)"
+ },
+ {
+  "id": "M49",
+  "desc": "Split: the replacement index may be the capacity",
+  "old": "if (j < (ulong)cap) reservoir[(int)j] = (uint)p;",
+  "new": "if (j <= (ulong)cap) reservoir[(int)j] = (uint)p;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)"
+ },
+ {
+  "id": "M51",
+  "desc": "Split: a reservoir of two splits",
+  "old": "if (size < 3) throw",
+  "new": "if (size < 2) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)"
+ },
+ {
+  "id": "M53",
+  "desc": "Split: the fan-out ignores the cap",
+  "old": "int fan = (int)Math.Min(Math.Max(2, ((2 * count) + bucket - 1) / bucket), Math.Max(2, owner._o.FanOut));",
+  "new": "int fan = (int)Math.Max(2, ((2 * count) + bucket - 1) / bucket);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)"
+ },
+ {
+  "id": "M55",
+  "desc": "Split: equal splitter indices are kept",
+  "old": "if (i <= last) continue;",
+  "new": "if (i < last) continue;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)"
+ },
+ {
+  "id": "M57",
+  "desc": "Split: the last child has no upper bound of its own",
+  "old": "tasks.Add(new NamingTask(prev, task.Hi, lastNode, false, id + (ulong)kids.Count));",
+  "new": "tasks.Add(new NamingTask(prev, null, lastNode, false, id + (ulong)kids.Count));",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)"
+ },
+ {
+  "id": "M59",
+  "desc": "Split: the seed ignores the task",
+  "old": "var rng = new SeededRandom(owner._o.Seed ^ (task.Id * 0x9E3779B97F4A7C15UL));",
+  "new": "var rng = new SeededRandom(owner._o.Seed);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)"
+ },
+ {
+  "id": "M61",
+  "desc": "Execute: the scans are not counted",
+  "old": "            Scans++;\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)"
+ },
+ {
+  "id": "M63",
+  "desc": "Execute: a leaf is split and a split is collected",
+  "old": "if (task.Sample) Split(task);\n            else Collect(task);",
+  "new": "if (!task.Sample) Split(task);\n            else Collect(task);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)"
+ },
+ {
+  "id": "M65",
+  "desc": "Finish: the name is not the distinct count",
+  "old": "values[i] = ((ulong)owner._g.SlotOf(pos[i]) << 32) | (uint)distinct;",
+  "new": "values[i] = ((ulong)owner._g.SlotOf(pos[i]) << 32) | (uint)(distinct + 1);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)"
+ },
+ {
+  "id": "M67",
+  "desc": "Finish: a group of size one is not counted in the middle",
+  "old": "                        if (size == 1) singles++;\n                        if (distinct == 1) firstLen = size;",
+  "new": "                        if (distinct == 1) firstLen = size;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)"
+ },
+ {
+  "id": "M69",
+  "desc": "Finish: the last group of size one is not counted",
+  "old": "            if (lastLen == 1) singles++;\n            if (distinct == 1) firstLen = lastLen;",
+  "new": "            if (distinct == 1) firstLen = lastLen;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)"
+ },
+ {
+  "id": "M71",
+  "desc": "Finish: the last position is the first",
+  "old": "uint firstPos = pos[0], lastPos = pos[m - 1];",
+  "new": "uint firstPos = pos[0], lastPos = pos[0];",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)"
+ },
+ {
+  "id": "M73",
+  "desc": "Finish: an empty bucket has a run",
+  "old": "if (m == 0) return new LeafResult();",
+  "new": "if (m < 0) return new LeafResult();",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)"
+ },
+ {
+  "id": "M75",
+  "desc": "Finish: a short bucket is insertion sorted up to 25",
+  "old": "if (m <= 24) KeySort.InsertionSort(keys, pos);\n            else KeySort.RadixSort(_keys, _keys2, _pos, _pos2, m);\n            keys = _keys.AsSpan(m);\n            pos = _pos.AsSpan(m);\n            int s = 0;",
+  "new": "if (m <= 24) KeySort.InsertionSort(keys, pos);\n            else KeySort.RadixSort(_keys, _keys2, _pos, _pos2, m - 1);\n            keys = _keys.AsSpan(m);\n            pos = _pos.AsSpan(m);\n            int s = 0;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)"
+ },
+ {
+  "id": "M78",
+  "desc": "MergeSort: the merge takes the left on a strict order",
+  "old": "if (prefix.Compare(a[q], tmp[p]) < 0) a[k++] = a[q++];",
+  "new": "if (prefix.Compare(a[q], tmp[p]) <= 0) a[k++] = a[q++];",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)"
+ },
+ {
+  "id": "M80",
+  "desc": "MergeSort: the rest of the left half is dropped",
+  "old": "            while (p < half) a[k++] = tmp[p++];\n        }\n    }\n}",
+  "new": "        }\n    }\n}",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)"
+ },
+ {
+  "id": "K01",
+  "desc": "InsertionSort: unstable",
+  "old": "while (j >= 0 && keys[j] > k)",
+  "new": "while (j >= 0 && keys[j] >= k)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)"
+ },
+ {
+  "id": "K03",
+  "desc": "RadixSort: the digit skip is wrong",
+  "old": "if (h[(int)((first >> shift) & 0xFF)] == m) continue;",
+  "new": "if (h[(int)((first >> shift) & 0xFF)] >= m - 1) continue;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)"
+ },
+ {
+  "id": "K05",
+  "desc": "RadixSort: the top digit is not counted",
+  "old": "hist[1792 + (int)(k >> 56)]++;",
+  "new": "hist[1792 + (int)((k >> 56) & 0x7F)]++;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)"
+ }
+]

@@ -5,12 +5,13 @@
    restored after every mutant (and at the end, also on an exception). The mutants run in a separate git worktree, never in the working checkout. Analyzers are off for the mutant builds (a mutant that an analyzer
    rejects is still a valid test of the tests).
    usage: run_1b7d_mutants.py <worktree> <1b7d_<file>_listed.json> <result.tsv> [<start>:<end> slice]
-   environment: MUTANT_BUILD_LIMIT (s, default 400), MUTANT_TEST_LIMIT (s, default 150)."""
+   environment: MUTANT_BUILD_LIMIT (s, default 400), MUTANT_TEST_LIMIT (s, default 200), MUTANT_STAGES ("12" default; "1" = stage 1 only, "2" = stage 2 only, for the survivors of a run of stage 1)."""
 import json, os, re, signal, subprocess, sys
 
 ROOT = sys.argv[1]
 BUILD_LIMIT = int(os.environ.get('MUTANT_BUILD_LIMIT', '400'))
 TEST_LIMIT = int(os.environ.get('MUTANT_TEST_LIMIT', '200'))
+STAGES = os.environ.get('MUTANT_STAGES', '12')
 env = dict(os.environ, PATH=os.environ['PATH'] + ':/root/.dotnet', DOTNET_ROOT='/root/.dotnet', DOTNET_CLI_TELEMETRY_OPTOUT='1', DOTNET_NOLOGO='1', SEQERON_BENCH_DIR='/tmp/stbench')
 mutants_file, out = sys.argv[2], sys.argv[3]
 sl = sys.argv[4] if len(sys.argv) > 4 else ''
@@ -71,16 +72,18 @@ try:
             results.append((m['id'], m['desc'], 'PATTERN-NOT-UNIQUE', ''))
             continue
         open(path, 'w').write(orig.replace(m['old'], m['new']))
-        b = build(proj1)
-        if b:
-            results.append((m['id'], m['desc'], b, ''))
-        else:
+        r1, r2 = '', ''
+        if '1' in STAGES:
+            b = build(proj1)
+            if b:
+                results.append((m['id'], m['desc'], b, ''))
+                open(out, 'w').write('\n'.join('\t'.join(map(str, r)) for r in results) + '\n')
+                continue
             r1 = test(proj1, m.get('filter', stage1_default))
-            r2 = ''
-            if r1 == 'survived':
-                b2 = build(proj2)
-                r2 = b2 if b2 else test(proj2, stage2)
-            results.append((m['id'], m['desc'], r1, r2))
+        if '2' in STAGES and (r1 == 'survived' or STAGES == '2'):
+            b2 = build(proj2)
+            r2 = b2 if b2 else test(proj2, stage2)
+        results.append((m['id'], m['desc'], r1 or '-', r2))
         open(out, 'w').write('\n'.join('\t'.join(map(str, r)) for r in results) + '\n')
 finally:
     open(path, 'w').write(orig)

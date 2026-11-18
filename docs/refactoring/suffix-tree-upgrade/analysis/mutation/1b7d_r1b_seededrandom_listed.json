@@ -1,0 +1,50 @@
+[
+ {
+  "id": "W02",
+  "desc": "SplitMix: the first shift",
+  "old": "z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9UL;",
+  "new": "z = (z ^ (z >> 31)) * 0xBF58476D1CE4E5B9UL;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/SeededRandom.cs",
+  "filter": "(FullyQualifiedName~SaPlumbingTests|FullyQualifiedName~ExternalDcsTests)"
+ },
+ {
+  "id": "W04",
+  "desc": "SplitMix: the last shift",
+  "old": "return z ^ (z >> 31);",
+  "new": "return z ^ (z >> 32);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/SeededRandom.cs",
+  "filter": "(FullyQualifiedName~SaPlumbingTests|FullyQualifiedName~ExternalDcsTests)"
+ },
+ {
+  "id": "W06",
+  "desc": "NextInt: a bound of zero reaches the division",
+  "old": "ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(bound, 0);",
+  "new": "ArgumentOutOfRangeException.ThrowIfLessThan(bound, 0);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/SeededRandom.cs",
+  "filter": "(FullyQualifiedName~SaPlumbingTests|FullyQualifiedName~ExternalDcsTests)"
+ },
+ {
+  "id": "P02",
+  "desc": "WorkPool: a failure does not end the wait",
+  "old": "if (_error is not null || _active == 0)",
+  "new": "if (_active == 0)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/SeededRandom.cs",
+  "filter": "(FullyQualifiedName~SaPlumbingTests|FullyQualifiedName~ExternalDcsTests)"
+ },
+ {
+  "id": "P04",
+  "desc": "WorkPool: the last error wins",
+  "old": "_error ??= e;",
+  "new": "_error = e;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/SeededRandom.cs",
+  "filter": "(FullyQualifiedName~SaPlumbingTests|FullyQualifiedName~ExternalDcsTests)"
+ },
+ {
+  "id": "P06",
+  "desc": "WorkPool: a task is not counted as active when taken",
+  "old": "                    _active++;\n                    return true;",
+  "new": "                    return true;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/SeededRandom.cs",
+  "filter": "(FullyQualifiedName~SaPlumbingTests|FullyQualifiedName~ExternalDcsTests)"
+ }
+]

@@ -1,0 +1,90 @@
+[
+ {
+  "id": "B01",
+  "desc": "RunStore: a run of exactly the spill size goes to a file",
+  "old": "if ((long)sorted.Length * 8 <= spillBytes) return",
+  "new": "if ((long)sorted.Length * 8 < spillBytes) return",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/BucketRun.cs",
+  "filter": "(FullyQualifiedName~BucketRunTests|FullyQualifiedName~ExternalDcsTests)"
+ },
+ {
+  "id": "B03",
+  "desc": "RunStore: the failed write does not give the bytes back",
+  "old": "        catch\n        {\n            Ledger.Remove(bytes);\n            DeleteQuietly(path);",
+  "new": "        catch\n        {\n            DeleteQuietly(path);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/BucketRun.cs",
+  "filter": "(FullyQualifiedName~BucketRunTests|FullyQualifiedName~ExternalDcsTests)"
+ },
+ {
+  "id": "B05",
+  "desc": "RunStore: the numbering starts at zero",
+  "old": "{Interlocked.Increment(ref _next):D8}",
+  "new": "{Interlocked.Decrement(ref _next):D8}",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/BucketRun.cs",
+  "filter": "(FullyQualifiedName~BucketRunTests|FullyQualifiedName~ExternalDcsTests)"
+ },
+ {
+  "id": "B07",
+  "desc": "RunStore: the file is written at offset 8",
+  "old": "f.WriteAt(MemoryMarshal.AsBytes(sorted), 0);",
+  "new": "f.WriteAt(MemoryMarshal.AsBytes(sorted), 8);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/BucketRun.cs",
+  "filter": "(FullyQualifiedName~BucketRunTests|FullyQualifiedName~ExternalDcsTests)"
+ },
+ {
+  "id": "B09",
+  "desc": "ReadAt: the offset is in records",
+  "old": "f.ReadExactAt(MemoryMarshal.AsBytes(dest[..take]), start * 8);",
+  "new": "f.ReadExactAt(MemoryMarshal.AsBytes(dest[..take]), start);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/BucketRun.cs",
+  "filter": "(FullyQualifiedName~BucketRunTests|FullyQualifiedName~ExternalDcsTests)"
+ },
+ {
+  "id": "B11",
+  "desc": "BucketRun: Dispose gives back half the bytes",
+  "old": "_store.Ledger.Remove(Count * 8);",
+  "new": "_store.Ledger.Remove(Count * 4);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/BucketRun.cs",
+  "filter": "(FullyQualifiedName~BucketRunTests|FullyQualifiedName~ExternalDcsTests)"
+ },
+ {
+  "id": "B13",
+  "desc": "BucketRun: an empty path run is not a file run",
+  "old": "internal bool InMemory => _memory is not null;",
+  "new": "internal bool InMemory => _path is null;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/BucketRun.cs",
+  "filter": "(FullyQualifiedName~BucketRunTests|FullyQualifiedName~ExternalDcsTests)"
+ },
+ {
+  "id": "B15",
+  "desc": "Ledger: the counters are not told of an addition",
+  "old": "        Interlocked.Add(ref _live, bytes);\n        counters?.AddScratch(bytes);",
+  "new": "        Interlocked.Add(ref _live, bytes);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/BucketRun.cs",
+  "filter": "(FullyQualifiedName~BucketRunTests|FullyQualifiedName~ExternalDcsTests)"
+ },
+ {
+  "id": "B17",
+  "desc": "RunReader: a record at the limit is scattered",
+  "old": "if (slot >= limit) break;",
+  "new": "if (slot > limit) break;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/BucketRun.cs",
+  "filter": "(FullyQualifiedName~BucketRunTests|FullyQualifiedName~ExternalDcsTests)"
+ },
+ {
+  "id": "B19",
+  "desc": "RunReader: the window start is not subtracted",
+  "old": "window[(int)(slot - windowStart)] = offset + (uint)v;",
+  "new": "window[(int)slot] = offset + (uint)v;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/BucketRun.cs",
+  "filter": "(FullyQualifiedName~BucketRunTests|FullyQualifiedName~ExternalDcsTests)"
+ },
+ {
+  "id": "B21",
+  "desc": "RunReader: the scattered count is not kept",
+  "old": "            Scattered += i - _pos;\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/BucketRun.cs",
+  "filter": "(FullyQualifiedName~BucketRunTests|FullyQualifiedName~ExternalDcsTests)"
+ }
+]

@@ -1,0 +1,18 @@
+[
+ {
+  "id": "Z02",
+  "desc": "the writer is not counted",
+  "old": "public ISaSliceWriter CreateWriter() => new Writer(file.CreateWriter(windowBytes, counters));",
+  "new": "public ISaSliceWriter CreateWriter() => new Writer(file.CreateWriter(windowBytes, null));",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SaSink.cs",
+  "filter": "(FullyQualifiedName~BucketSorterTests)"
+ },
+ {
+  "id": "Z04",
+  "desc": "Write: the entries are not bytes",
+  "old": "MemoryMarshal.AsBytes(data));\n\n        public void Dispose",
+  "new": "MemoryMarshal.AsBytes(data)[..(data.Length * 2)]);\n\n        public void Dispose",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SaSink.cs",
+  "filter": "(FullyQualifiedName~BucketSorterTests)"
+ }
+]

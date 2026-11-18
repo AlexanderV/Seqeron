@@ -1,0 +1,506 @@
+[
+ {
+  "id": "Q01",
+  "desc": "Resolve: the unscaled K_s is the scaled one",
+  "old": "DcsBucketCapacity = t.DcsBucketCapacity ?? Math.Max(3, Scale(DcsBucketReference, 3)),",
+  "new": "DcsBucketCapacity = t.DcsBucketCapacity ?? Math.Max(4, Scale(DcsBucketReference, 4)),",
+  "filter": "(FullyQualifiedName~SaBuildRulesTests|FullyQualifiedName~SaBuilderTests.EveryParameter_ReachesItsStage)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs"
+ },
+ {
+  "id": "Q03",
+  "desc": "Resolve: the chunk floor",
+  "old": "DcsChunkSlots = t.DcsChunkSlots ?? Math.Max(16, Scale(DcsChunkReference, 16)),",
+  "new": "DcsChunkSlots = t.DcsChunkSlots ?? Math.Max(15, Scale(DcsChunkReference, 15)),",
+  "filter": "(FullyQualifiedName~SaBuildRulesTests|FullyQualifiedName~SaBuilderTests.EveryParameter_ReachesItsStage)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs"
+ },
+ {
+  "id": "Q05",
+  "desc": "Resolve: the run spill is not scaled",
+  "old": "DcsRunSpillBytes = t.DcsRunSpillBytes ?? (int)Scale(RunSpillReference, 0),",
+  "new": "DcsRunSpillBytes = t.DcsRunSpillBytes ?? (int)RunSpillReference,",
+  "filter": "(FullyQualifiedName~SaBuildRulesTests|FullyQualifiedName~SaBuilderTests.EveryParameter_ReachesItsStage)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs"
+ },
+ {
+  "id": "Q07",
+  "desc": "Resolve: the reservoir",
+  "old": "DcsReservoir = t.DcsReservoir ?? 16384,",
+  "new": "DcsReservoir = t.DcsReservoir ?? 16000,",
+  "filter": "(FullyQualifiedName~SaBuildRulesTests|FullyQualifiedName~SaBuilderTests.EveryParameter_ReachesItsStage)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs"
+ },
+ {
+  "id": "Q09",
+  "desc": "Resolve: the merge budget",
+  "old": "DcsMergeBudget = t.DcsMergeBudget ?? 16L << 20,",
+  "new": "DcsMergeBudget = t.DcsMergeBudget ?? 8L << 20,",
+  "filter": "(FullyQualifiedName~SaBuildRulesTests|FullyQualifiedName~SaBuilderTests.EveryParameter_ReachesItsStage)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs"
+ },
+ {
+  "id": "Q11",
+  "desc": "Resolve: K floor",
+  "old": "BucketCapacity = t.BucketCapacity ?? Math.Max(2, scaled",
+  "new": "BucketCapacity = t.BucketCapacity ?? Math.Max(3, scaled",
+  "filter": "(FullyQualifiedName~SaBuildRulesTests|FullyQualifiedName~SaBuilderTests.EveryParameter_ReachesItsStage)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs"
+ },
+ {
+  "id": "Q13",
+  "desc": "Resolve: the oversample",
+  "old": "Oversample = t.Oversample ?? 16,",
+  "new": "Oversample = t.Oversample ?? 8,",
+  "filter": "(FullyQualifiedName~SaBuildRulesTests|FullyQualifiedName~SaBuilderTests.EveryParameter_ReachesItsStage)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs"
+ },
+ {
+  "id": "Q15",
+  "desc": "Resolve: the window",
+  "old": "WindowBytes = t.WindowBytes ?? MappedWindowWriter.DefaultWindowBytes,",
+  "new": "WindowBytes = t.WindowBytes ?? 64 * 1024,",
+  "filter": "(FullyQualifiedName~SaBuildRulesTests|FullyQualifiedName~SaBuilderTests.EveryParameter_ReachesItsStage)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs"
+ },
+ {
+  "id": "Q17",
+  "desc": "Resolve: the factor is one when scaled",
+  "old": "double f = scaled ? ruleN / (double)options.ScaleN : 1.0;",
+  "new": "double f = 1.0;",
+  "filter": "(FullyQualifiedName~SaBuildRulesTests|FullyQualifiedName~SaBuilderTests.EveryParameter_ReachesItsStage)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs"
+ },
+ {
+  "id": "Q19",
+  "desc": "Resolve: the scale rounds down",
+  "old": "(long)Math.Round(reference * f)",
+  "new": "(long)(reference * f)",
+  "filter": "(FullyQualifiedName~SaBuildRulesTests|FullyQualifiedName~SaBuilderTests.EveryParameter_ReachesItsStage)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs"
+ },
+ {
+  "id": "Q21",
+  "desc": "Resolve: a negative rule is accepted",
+  "old": "ArgumentOutOfRangeException.ThrowIfNegative(options.RuleN);",
+  "new": "",
+  "filter": "(FullyQualifiedName~SaBuildRulesTests|FullyQualifiedName~SaBuilderTests.EveryParameter_ReachesItsStage)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs"
+ },
+ {
+  "id": "Q23",
+  "desc": "Resolve: zero threads are accepted",
+  "old": "ArgumentOutOfRangeException.ThrowIfLessThan(options.Threads, 1);\n        SaBuildTuning t",
+  "new": "SaBuildTuning t",
+  "filter": "(FullyQualifiedName~SaBuildRulesTests|FullyQualifiedName~SaBuilderTests.EveryParameter_ReachesItsStage)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs"
+ },
+ {
+  "id": "Q25",
+  "desc": "Resolve: an explicit K_s above the limit is accepted",
+  "old": "ArgumentOutOfRangeException.ThrowIfGreaterThan(p.DcsBucketCapacity, int.MaxValue / 2);",
+  "new": "",
+  "filter": "(FullyQualifiedName~SaBuildRulesTests|FullyQualifiedName~SaBuilderTests.EveryParameter_ReachesItsStage)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs"
+ },
+ {
+  "id": "Q27",
+  "desc": "Resolve: explicit chunk slots of zero are accepted",
+  "old": "ArgumentOutOfRangeException.ThrowIfLessThan(p.DcsChunkSlots, 1);",
+  "new": "",
+  "filter": "(FullyQualifiedName~SaBuildRulesTests|FullyQualifiedName~SaBuilderTests.EveryParameter_ReachesItsStage)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs"
+ },
+ {
+  "id": "Q29",
+  "desc": "Resolve: a negative run spill is accepted",
+  "old": "ArgumentOutOfRangeException.ThrowIfNegative(p.DcsRunSpillBytes);",
+  "new": "",
+  "filter": "(FullyQualifiedName~SaBuildRulesTests|FullyQualifiedName~SaBuilderTests.EveryParameter_ReachesItsStage)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs"
+ },
+ {
+  "id": "Q31",
+  "desc": "Resolve: a reservoir of two is accepted",
+  "old": "ArgumentOutOfRangeException.ThrowIfLessThan(p.DcsReservoir, 3);",
+  "new": "",
+  "filter": "(FullyQualifiedName~SaBuildRulesTests|FullyQualifiedName~SaBuilderTests.EveryParameter_ReachesItsStage)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs"
+ },
+ {
+  "id": "Q33",
+  "desc": "Resolve: a merge budget of seven is accepted",
+  "old": "ArgumentOutOfRangeException.ThrowIfLessThan(p.DcsMergeBudget, 8);",
+  "new": "",
+  "filter": "(FullyQualifiedName~SaBuildRulesTests|FullyQualifiedName~SaBuilderTests.EveryParameter_ReachesItsStage)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs"
+ },
+ {
+  "id": "Q35",
+  "desc": "Resolve: a K above the limit is accepted",
+  "old": "ArgumentOutOfRangeException.ThrowIfGreaterThan(p.BucketCapacity, int.MaxValue / 2);",
+  "new": "",
+  "filter": "(FullyQualifiedName~SaBuildRulesTests|FullyQualifiedName~SaBuilderTests.EveryParameter_ReachesItsStage)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs"
+ },
+ {
+  "id": "Q37",
+  "desc": "Resolve: an oversample of zero is accepted",
+  "old": "ArgumentOutOfRangeException.ThrowIfLessThan(p.Oversample, 1);",
+  "new": "",
+  "filter": "(FullyQualifiedName~SaBuildRulesTests|FullyQualifiedName~SaBuilderTests.EveryParameter_ReachesItsStage)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs"
+ },
+ {
+  "id": "Q39",
+  "desc": "Resolve: a window of zero is accepted",
+  "old": "ArgumentOutOfRangeException.ThrowIfLessThan(p.WindowBytes, 1);",
+  "new": "",
+  "filter": "(FullyQualifiedName~SaBuildRulesTests|FullyQualifiedName~SaBuilderTests.EveryParameter_ReachesItsStage)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs"
+ },
+ {
+  "id": "Q41",
+  "desc": "Resolve: the scaled flag is not recorded",
+  "old": "            Scaled = scaled,\n            DcsBucketCapacity",
+  "new": "            DcsBucketCapacity",
+  "filter": "(FullyQualifiedName~SaBuildRulesTests|FullyQualifiedName~SaBuilderTests.EveryParameter_ReachesItsStage)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs"
+ },
+ {
+  "id": "Q43",
+  "desc": "Build: a negative arena cap is accepted",
+  "old": "ArgumentOutOfRangeException.ThrowIfNegative(options.ArenaCapBytes);",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "filter": "(FullyQualifiedName~SaBuilderTests|FullyQualifiedName~SaBuildRulesTests)"
+ },
+ {
+  "id": "Q45",
+  "desc": "Build: a wide reader is accepted",
+  "old": "if (text.Bits > PackedTextFormat.MaxBits) throw",
+  "new": "if (text.Bits > 64) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "filter": "(FullyQualifiedName~SaBuilderTests|FullyQualifiedName~SaBuildRulesTests)"
+ },
+ {
+  "id": "Q47",
+  "desc": "Build: the exact period is replaced by the Singer one",
+  "old": "DifferenceCover cover = DifferenceCover.Create(options.ExactPeriod ? options.Period : DifferenceCover.NearestSingerPeriod(options.Period));",
+  "new": "DifferenceCover cover = DifferenceCover.Create(DifferenceCover.NearestSingerPeriod(options.Period));",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "filter": "(FullyQualifiedName~SaBuilderTests|FullyQualifiedName~SaBuildRulesTests)"
+ },
+ {
+  "id": "Q49",
+  "desc": "Build: the counters are private",
+  "old": "IoCounters counters = options.Counters ?? new IoCounters();",
+  "new": "IoCounters counters = new IoCounters();",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "filter": "(FullyQualifiedName~SaBuilderTests|FullyQualifiedName~SaBuildRulesTests)"
+ },
+ {
+  "id": "Q51",
+  "desc": "Build: PH1 has no cap",
+  "old": "var ph1Budget = new ArenaBudget(options.ArenaCapBytes);",
+  "new": "var ph1Budget = new ArenaBudget(long.MaxValue);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "filter": "(FullyQualifiedName~SaBuilderTests|FullyQualifiedName~SaBuildRulesTests)"
+ },
+ {
+  "id": "Q53",
+  "desc": "Build: the RSS sampler is not started",
+  "old": "            whole?.Start();\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "filter": "(FullyQualifiedName~SaBuilderTests|FullyQualifiedName~SaBuildRulesTests)"
+ },
+ {
+  "id": "Q55",
+  "desc": "Build: the suffix array is created after PH1",
+  "old": "            using var saFile = MappedOutputFile.Create(saPath, 4 * (n + 1), options.Files);\n            saCreated = true;\n\n            // ---- PH1\n            options.Trace?.Invoke(\"ph1\");",
+  "new": "            // ---- PH1\n            options.Trace?.Invoke(\"ph1\");\n            using var saFile = MappedOutputFile.Create(saPath, 4 * (n + 1), options.Files);\n            saCreated = true;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "filter": "(FullyQualifiedName~SaBuilderTests|FullyQualifiedName~SaBuildRulesTests)"
+ },
+ {
+  "id": "Q57",
+  "desc": "Build: the ph1 trace is not called",
+  "old": "            options.Trace?.Invoke(\"ph1\");\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "filter": "(FullyQualifiedName~SaBuilderTests|FullyQualifiedName~SaBuildRulesTests)"
+ },
+ {
+  "id": "Q59",
+  "desc": "Build: the verify trace is not called",
+  "old": "                options.Trace?.Invoke(\"verify\");\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "filter": "(FullyQualifiedName~SaBuilderTests|FullyQualifiedName~SaBuildRulesTests)"
+ },
+ {
+  "id": "Q61",
+  "desc": "Build: PH1 gets the PH3 budget",
+  "old": "Budget = ph1Budget,",
+  "new": "Budget = ph3Budget,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "filter": "(FullyQualifiedName~SaBuilderTests|FullyQualifiedName~SaBuildRulesTests)"
+ },
+ {
+  "id": "Q63",
+  "desc": "Build: PH1 has no reservation options",
+  "old": "                Files = options.Files,\n                Trace = options.Trace,\n            });\n            long rankBytes",
+  "new": "                Trace = options.Trace,\n            });\n            long rankBytes",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "filter": "(FullyQualifiedName~SaBuilderTests|FullyQualifiedName~SaBuildRulesTests)"
+ },
+ {
+  "id": "Q65",
+  "desc": "Build: PH1 seed",
+  "old": "                Seed = options.Seed,\n                FanOut = p.DcsFanOut,",
+  "new": "                Seed = 1,\n                FanOut = p.DcsFanOut,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "filter": "(FullyQualifiedName~SaBuilderTests|FullyQualifiedName~SaBuildRulesTests)"
+ },
+ {
+  "id": "Q67",
+  "desc": "Build: PH1 K_s",
+  "old": "BucketCapacity = p.DcsBucketCapacity,",
+  "new": "BucketCapacity = 1 << 20,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "filter": "(FullyQualifiedName~SaBuilderTests|FullyQualifiedName~SaBuildRulesTests)"
+ },
+ {
+  "id": "Q69",
+  "desc": "Build: PH1 sort capacity",
+  "old": "SortLeafCapacity = p.DcsSortCapacity,",
+  "new": "SortLeafCapacity = 1 << 20,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "filter": "(FullyQualifiedName~SaBuilderTests|FullyQualifiedName~SaBuildRulesTests)"
+ },
+ {
+  "id": "Q71",
+  "desc": "Build: PH1 I/O buffers",
+  "old": "IoBufferBytes = p.DcsIoBytes,",
+  "new": "IoBufferBytes = 64 * 1024,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "filter": "(FullyQualifiedName~SaBuilderTests|FullyQualifiedName~SaBuildRulesTests)"
+ },
+ {
+  "id": "Q73",
+  "desc": "Build: PH1 reservoir",
+  "old": "ReservoirSize = p.DcsReservoir,",
+  "new": "ReservoirSize = 16384,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "filter": "(FullyQualifiedName~SaBuilderTests|FullyQualifiedName~SaBuildRulesTests)"
+ },
+ {
+  "id": "Q75",
+  "desc": "Build: PH1 window",
+  "old": "WindowBytes = p.WindowBytes,\n                Budget = ph1Budget,",
+  "new": "WindowBytes = MappedWindowWriter.DefaultWindowBytes,\n                Budget = ph1Budget,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "filter": "(FullyQualifiedName~SaBuilderTests|FullyQualifiedName~SaBuildRulesTests)"
+ },
+ {
+  "id": "Q77",
+  "desc": "Build: the rank file bytes are not added to the ledger",
+  "old": "            ledger.Add(rankBytes); // the rank file is scratch of the pipeline from here on\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "filter": "(FullyQualifiedName~SaBuilderTests|FullyQualifiedName~SaBuildRulesTests)"
+ },
+ {
+  "id": "Q79",
+  "desc": "Build: the rank file is not deleted",
+  "old": "            File.Delete(rankPath); // the rank file has served its only consumer\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "filter": "(FullyQualifiedName~SaBuilderTests|FullyQualifiedName~SaBuildRulesTests)"
+ },
+ {
+  "id": "Q81",
+  "desc": "Build: the rank file is verified when not asked for",
+  "old": "if (options.VerifyRanks)",
+  "new": "if (!options.VerifyRanks)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "filter": "(FullyQualifiedName~SaBuilderTests|FullyQualifiedName~SaBuildRulesTests)"
+ },
+ {
+  "id": "Q83",
+  "desc": "Build: PH3 leaf capacity",
+  "old": "LeafCapacity = p.BucketCapacity,",
+  "new": "LeafCapacity = 1 << 20,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "filter": "(FullyQualifiedName~SaBuilderTests|FullyQualifiedName~SaBuildRulesTests)"
+ },
+ {
+  "id": "Q85",
+  "desc": "Build: PH3 oversample",
+  "old": "Oversample = p.Oversample,",
+  "new": "Oversample = 16,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "filter": "(FullyQualifiedName~SaBuilderTests|FullyQualifiedName~SaBuildRulesTests)"
+ },
+ {
+  "id": "Q87",
+  "desc": "Build: PH3 seed",
+  "old": "                    Threads = options.Threads,\n                    Seed = options.Seed,\n                    ScratchDir = ph3,",
+  "new": "                    Threads = options.Threads,\n                    Seed = 1,\n                    ScratchDir = ph3,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "filter": "(FullyQualifiedName~SaBuilderTests|FullyQualifiedName~SaBuildRulesTests)"
+ },
+ {
+  "id": "Q89",
+  "desc": "Build: PH3 spill",
+  "old": "SpillBytes = p.SpillBytes,",
+  "new": "SpillBytes = 64 * 1024,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "filter": "(FullyQualifiedName~SaBuilderTests|FullyQualifiedName~SaBuildRulesTests)"
+ },
+ {
+  "id": "Q91",
+  "desc": "Build: PH3 budget",
+  "old": "Budget = ph3Budget,\n                    ArenaGuards",
+  "new": "Budget = ph1Budget,\n                    ArenaGuards",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "filter": "(FullyQualifiedName~SaBuilderTests|FullyQualifiedName~SaBuildRulesTests)"
+ },
+ {
+  "id": "Q93",
+  "desc": "Build: PH3 counters",
+  "old": "                    Counters = counters,\n                    Trace = options.Trace,\n                }, new MappedSaSliceSink",
+  "new": "                    Trace = options.Trace,\n                }, new MappedSaSliceSink",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "filter": "(FullyQualifiedName~SaBuilderTests|FullyQualifiedName~SaBuildRulesTests)"
+ },
+ {
+  "id": "Q95",
+  "desc": "Build: the sink has the PH1 window",
+  "old": "new MappedSaSliceSink(saFile, p.WindowBytes, counters), ranks);",
+  "new": "new MappedSaSliceSink(saFile, MappedWindowWriter.DefaultWindowBytes, counters), ranks);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "filter": "(FullyQualifiedName~SaBuilderTests|FullyQualifiedName~SaBuildRulesTests)"
+ },
+ {
+  "id": "Q97",
+  "desc": "Build: the output is not completed",
+  "old": "            saFile.Complete(options.SyncOutput);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "filter": "(FullyQualifiedName~SaBuilderTests|FullyQualifiedName~SaBuildRulesTests)"
+ },
+ {
+  "id": "Q99",
+  "desc": "Build: the output is never synced",
+  "old": "saFile.Complete(options.SyncOutput);",
+  "new": "saFile.Complete(false);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "filter": "(FullyQualifiedName~SaBuilderTests|FullyQualifiedName~SaBuildRulesTests)"
+ },
+ {
+  "id": "Q101",
+  "desc": "CheckLength: any length is accepted",
+  "old": "if (got != 4 * (n + 1)) throw",
+  "new": "if (got < 4 * n) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "filter": "(FullyQualifiedName~SaBuilderTests|FullyQualifiedName~SaBuildRulesTests)"
+ },
+ {
+  "id": "Q103",
+  "desc": "Build: the verdict is swapped",
+  "old": "verdict = mb <= options.RssAnonCapMb ? RssVerdict.Within : RssVerdict.Exceeded;",
+  "new": "verdict = mb <= options.RssAnonCapMb ? RssVerdict.Exceeded : RssVerdict.Within;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "filter": "(FullyQualifiedName~SaBuilderTests|FullyQualifiedName~SaBuildRulesTests)"
+ },
+ {
+  "id": "Q105",
+  "desc": "Build: the PH1 RSS figure is in KiB",
+  "old": "Ph1RssAnonPeakMb = rssPh1.Available ? rssPh1.MaxRssAnonKb * 1024.0 / 1e6 : null,",
+  "new": "Ph1RssAnonPeakMb = rssPh1.Available ? rssPh1.MaxRssAnonKb : null,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "filter": "(FullyQualifiedName~SaBuilderTests|FullyQualifiedName~SaBuildRulesTests)"
+ },
+ {
+  "id": "Q107",
+  "desc": "Build: without RSS sampling the whole sampler runs",
+  "old": "using var whole = options.MeasureRss ? new RssSampler(new RssReader(options.ProcSource), 10) : null;",
+  "new": "using var whole = new RssSampler(new RssReader(options.ProcSource), 10);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "filter": "(FullyQualifiedName~SaBuilderTests|FullyQualifiedName~SaBuildRulesTests)"
+ },
+ {
+  "id": "Q109",
+  "desc": "Build: the PH1 I/O is the whole",
+  "old": "Ph1Io = io1.Since(io0),",
+  "new": "Ph1Io = io1,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "filter": "(FullyQualifiedName~SaBuilderTests|FullyQualifiedName~SaBuildRulesTests)"
+ },
+ {
+  "id": "Q111",
+  "desc": "Build: the total I/O is the PH3 difference",
+  "old": "Io = io2,",
+  "new": "Io = io2.Since(io1),",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "filter": "(FullyQualifiedName~SaBuilderTests|FullyQualifiedName~SaBuildRulesTests)"
+ },
+ {
+  "id": "Q113",
+  "desc": "Build: the reservation is the rank file one",
+  "old": "Reservation = saFile.Outcome,",
+  "new": "Reservation = ReservationOutcome.Sparse,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "filter": "(FullyQualifiedName~SaBuilderTests|FullyQualifiedName~SaBuildRulesTests)"
+ },
+ {
+  "id": "Q115",
+  "desc": "Build: the failed rank file is left",
+  "old": "if (rankTouched) DeleteQuietly(rankPath);",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "filter": "(FullyQualifiedName~SaBuilderTests|FullyQualifiedName~SaBuildRulesTests)"
+ },
+ {
+  "id": "Q117",
+  "desc": "Build: the PH1 directory is not removed",
+  "old": "            DeleteDirectoryQuietly(ph1);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "filter": "(FullyQualifiedName~SaBuilderTests|FullyQualifiedName~SaBuildRulesTests)"
+ },
+ {
+  "id": "Q119",
+  "desc": "Build: the scratch root is always removed",
+  "old": "if (createdRoot) DeleteEmptyDirectoryQuietly(scratch);\n        }\n    }",
+  "new": "DeleteEmptyDirectoryQuietly(scratch);\n        }\n    }",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "filter": "(FullyQualifiedName~SaBuilderTests|FullyQualifiedName~SaBuildRulesTests)"
+ },
+ {
+  "id": "Q121",
+  "desc": "Build: the scratch directories are not created",
+  "old": "            Directory.CreateDirectory(ph1);\n            Directory.CreateDirectory(ph3);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "filter": "(FullyQualifiedName~SaBuilderTests|FullyQualifiedName~SaBuildRulesTests)"
+ },
+ {
+  "id": "Q123",
+  "desc": "Build: the scratch peak of PH3 is the PH1 one",
+  "old": "Ph23ScratchPeakBytes = io2.ScratchPeakBytes,",
+  "new": "Ph23ScratchPeakBytes = ph1ScratchPeak,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "filter": "(FullyQualifiedName~SaBuilderTests|FullyQualifiedName~SaBuildRulesTests)"
+ },
+ {
+  "id": "Q125",
+  "desc": "Build: the cover kind is not reported",
+  "old": "CoverKind = cover.Kind,",
+  "new": "CoverKind = CoverKind.Pruned,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "filter": "(FullyQualifiedName~SaBuilderTests|FullyQualifiedName~SaBuildRulesTests)"
+ }
+]

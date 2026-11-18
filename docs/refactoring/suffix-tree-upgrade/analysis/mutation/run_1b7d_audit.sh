@@ -23,7 +23,7 @@ here, rnd, n = sys.argv[1], sys.argv[2], int(sys.argv[3])
 files = []
 for f in glob.glob(os.path.join(here, '1b7d_%s*_listed.json' % rnd)):
     base = os.path.basename(f)
-    if not rnd and base.startswith(('1b7d_r2_', '1b7d_r3_', '1b7d_r4_')):
+    if not rnd and base.startswith('1b7d_r'):
         continue
     files.append((len(json.load(open(f))), f))
 loads = [0] * n
