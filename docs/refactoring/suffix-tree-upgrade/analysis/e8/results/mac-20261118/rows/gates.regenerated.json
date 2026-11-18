@@ -1,0 +1,44 @@
+{
+ "G1": {
+  "state": "PASS",
+  "verifier": {
+   "1000m": "pass",
+   "2200m": "pass",
+   "3000m": "pass"
+  },
+  "identity_compared": 9,
+  "identity_differences": 0,
+  "thread_comparisons": {
+   "n1000m": [
+    "yes",
+    "yes"
+   ]
+  }
+ },
+ "G2": {
+  "state": "FAIL",
+  "max_rssanon_mb_by_size": {
+   "n1000m": 172.048,
+   "n2200m": 226.271,
+   "n3000m": 309.678
+  }
+ },
+ "G3": {
+  "state": "PASS",
+  "scratch_peak_b_per_char": [
+   11.936,
+   12.0
+  ],
+  "peak_total_disk_gb": 55.615756347
+ },
+ "G4": {
+  "state": "reported",
+  "verdict_by_size": {
+   "n1000m": [
+    640,
+    1.189231883280283,
+    0.8578
+   ]
+  }
+ }
+}

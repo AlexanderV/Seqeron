@@ -31,6 +31,7 @@
 | n1000m.gen | 2 | yes | 124.5 | 124.9 | 2.7 | 9.8 | 36.5 | 75.5 | 125 | 172.0 | 172.0 | 75.5 | 67.5 | 20.32 | 12.00 | 11.88 | 9.50 | 18.4 | yes |
 | n2200m.gen | 1 | yes | 291.3 | 291.7 | 5.9 | 21.9 | 86.8 | 176.6 | 132 | 226.3 | 226.3 | 75.6 | 67.7 | 28.17 | 12.00 | 12.00 | 9.51 | 40.7 | yes |
 | n3000m.gen | 1 | NO (no) | 406.8 | 407.2 | 8.3 | 30.8 | 124.5 | 243.1 | 136 | 309.7 | 309.7 | 75.4 | 67.5 | 29.88 | 12.00 | 11.94 | 9.54 | 55.6 | yes |
+| n3000m.gen | 2 | yes | 411.5 | 411.9 | 8.6 | 30.5 | 122.5 | 249.9 | 137 | 309.2 | 309.2 | 75.4 | 67.6 | 28.79 | 12.00 | 11.94 | 9.54 | 55.6 | yes |
 
 Phase seconds are the program's own; "process s" includes the runtime start. ESTIMATE from E7 for comparison: 250 ns per symbol (205-300), i.e. 4.2 / 9.2 / 12.5 min at 1 / 2.2 / 3 Gbp on the prototype machine (4 vCPU x86, virtio disk).
 
@@ -42,6 +43,7 @@ Phase seconds are the program's own; "process s" includes the runtime start. EST
 | n1000m.gen | 2 | pass | 43.2 | pass | pass | pass | pass | pass | pass | pass | pass | pass | pass | pass | 8106796 | 65536 | 5000000 |
 | n2200m.gen | 1 | pass | 102.3 | pass | pass | pass | pass | pass | pass | pass | pass | pass | pass | pass | 18306793 | 65536 | 11000000 |
 | n3000m.gen | 1 | not run | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - |
+| n3000m.gen | 2 | pass | 125.4 | pass | pass | pass | pass | pass | pass | pass | pass | pass | pass | pass | 25106794 | 65536 | 3000002 |
 
 ### Identity of the outputs against the generous run of the same text (G1)
 

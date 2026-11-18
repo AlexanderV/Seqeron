@@ -239,8 +239,9 @@ def main():
         if not runs:
             ver_state[size] = 'not run'
             continue
-        vs = [done[('n%s.gen' % size, r)].get('verify_all', ('not run',))[0] for r in runs]
-        ver_state[size] = 'pass' if all(v == 'pass' for v in vs) else ('FAIL' if any(v == 'FAIL' for v in vs) else 'not run')
+        # only the finished runs count: a run that ended with a non-zero exit code never reached the verifier and is repeated by the operator (a failed run 1 followed by a good run 2 is a pass)
+        vs = [done[('n%s.gen' % size, r)].get('verify_all', ('not run',))[0] for r, rr in runs.items() if rr['finished']]
+        ver_state[size] = 'not run' if not vs else ('pass' if all(v == 'pass' for v in vs) else ('FAIL' if any(v == 'FAIL' for v in vs) else 'not run'))
     if any(v == 'FAIL' for v in ver_state.values()) or ident_bad:
         g1 = 'FAIL'
     elif all(v == 'pass' for v in ver_state.values()) and ident_n and thread_cells:
@@ -257,7 +258,7 @@ def main():
     g2 = 'NOT RUN' if not rss else ('PASS' if all(v <= LIMIT_RSS_MB for v in rss.values()) else 'FAIL')
     gates['G2'] = {'state': g2, 'max_rssanon_mb_by_size': rss}
     # G3
-    c3 = generous.get('n3000m', {}).get('1')
+    c3 = next((rr for _, rr in sorted(generous.get('n3000m', {}).items()) if rr['finished']), None)   # the first FINISHED 3 Gbp generous run (run 1 may have ended with a non-zero exit code)
     if c3 and c3['finished']:
         sp = [x for x in (c3['scratch_ext'], c3['scratch_prog']) if x is not None]
         dk = c3['disk_peak']

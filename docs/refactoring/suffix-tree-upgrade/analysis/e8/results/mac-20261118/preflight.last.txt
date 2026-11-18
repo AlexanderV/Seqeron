@@ -1,4 +1,4 @@
-E8 preflight  (2026-11-18T01:39:57Z)   sizes:  1000000000   data directory: /data
+E8 preflight  (2026-11-18T06:36:26Z)   sizes:  3000000000   data directory: /data
 
 1. Processor architecture and emulation
      uname -m: aarch64, image built for: arm64, /proc/cpuinfo format: arm
@@ -10,12 +10,13 @@ E8 preflight  (2026-11-18T01:39:57Z)   sizes:  1000000000   data directory: /dat
   [ ok ] 18 cores (the protocol uses 4 threads; E7: 1 / 2 / 4 threads took 39 / 29 / 25 s at 100 Mbp on the prototype machine)
 
 3. Memory
-     memory visible (VM): 8.3 GB, cgroup 2 limit of this container: 671 MB, swap allowance: 0, VM swap: 1.1 GB
-  [ ok ] step d cell: the container is limited to 671 MB on purpose (the VM has 8.3 GB)
+     memory visible (VM): 8.3 GB, cgroup 2 limit of this container: none, swap allowance: max, VM swap: 1.1 GB
+  [ ok ] 8.3 GB available to the container: enough for the 'generous' steps a, b, c (the text and the rank file together are about 1.5 GB at 3 Gbp; they and the scratch pages stay cached)
+  [warn] swap is available to the container (max): under a memory limit the kernel may swap the program's anonymous memory instead of dropping cache; start the container with --memory-swap equal to --memory (e8-docker.sh does)
 
 4. Disk of the data volume
-     free: 1.85 TB of 1.96 TB; need for the largest run (1000000000 symbols): 23.5 GB (ASCII text 1 + scratch 12 + outputs 9.5 B/char, plus a margin; plus 0 B if the texts of the smaller sizes stay on the volume)
-  [ ok ] the largest run fits (1.85 TB free, 23.5 GB needed)
+     free: 1.85 TB of 1.96 TB; need for the largest run (3000000000 symbols): 66.6 GB (ASCII text 1 + scratch 12 + outputs 9.5 B/char, plus a margin; plus 0 B if the texts of the smaller sizes stay on the volume)
+  [ ok ] the largest run fits (1.85 TB free, 66.6 GB needed)
 
 5. File system of the data volume
      type: ext2/ext3/ext4
@@ -33,7 +34,7 @@ E8 preflight  (2026-11-18T01:39:57Z)   sizes:  1000000000   data directory: /dat
       env_os_arch:           Arm64
       env_process_arch:      Arm64
       env_cores:             18
-      env_gc_available_memory: 503316480
+      env_gc_available_memory: 8317202432
       env_page_size:         4096
       env_lce_path:          scalar 64-bit words
   [warn] no AVX2: the suffix comparison uses the scalar 64-bit path (same results, slower on tie-rich text; normal on arm64)
@@ -46,4 +47,4 @@ What to set in Docker Desktop (Settings > Resources) and why
   File sharing: nothing to do. The data lives in a named volume inside the VM (not in a macOS folder): a bind mount through virtiofs / gRPC FUSE is slow and unreliable for mmap.
   Apple Silicon: the image is built for linux/arm64 and runs natively. Never run the amd64 image there (emulation); the wrapper refuses it.
 
-RESULT: OK (1 warning(s))
+RESULT: OK (2 warning(s))

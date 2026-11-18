@@ -2420,3 +2420,218 @@ R	E8	n1000m.m640	1	sha256_stats	58424e2930e5fb28a558813753271d4550b42434ed8dedb7
 R	E8	n1000m.m640	1	identity_vs_generous	yes		the seven output files have the same SHA-256 as those of the generous run of the same text (none = no generous run to compare with, or this is the generous run)
 R	E8	n1000m.m640	1	scratch_left	0		entries of the scratch directory after the run (a killed run leaves its scratch; it is removed here)
 R	E8	n1000m.m640	1	run_done	yes		all rows of this run are written
+R	E8	n3000m.gen	2	disk_free_at_start	1853884084224	bytes	free space of the data volume before the run; need 66590000000 (n x 21.5 + margin)
+R	E8	n3000m.gen	2	settings	n=3000000000 kind=gen threads=4 gc=0x6000000 scale_n=3000000000 cgroup=2 memory_limit=max swap_allowance=max cold_start=yes watchdog_s=14400 arch=aarch64 kernel=7.0.14-linuxkit image_commit=9adcbe09e766d01835122cf7c1b87286f46a81e9 extra=--rss-cap-mb 400		run settings; cold_start=no means the page cache was not dropped before the start (warm start)
+R	E8	n3000m.gen	2	cold_start	yes		page cache dropped before the start (needs a privileged container)
+R	E8	n3000m.gen	2	ext_rssanon_peak	309.182	MB	independent sampler: max RssAnon of /proc/<pid>/status over 20105 samples at 20 ms (the dotnet process of e6)
+R	E8	n3000m.gen	2	ext_rssanon_mean	205.752	MB	mean RssAnon over the run
+R	E8	n3000m.gen	2	ext_rssanon_mean_ph3	174.527	MB	mean RssAnon while the rank file and the ph3 directory exist, 586 samples
+R	E8	n3000m.gen	2	ext_proc_rchar	113227430792	bytes	independent sampler: /proc/<pid>/io rchar, last value before the process exited (whole process incl. runtime start)
+R	E8	n3000m.gen	2	ext_proc_wchar	89443346422	bytes	independent sampler: /proc/<pid>/io wchar, last value before the process exited (whole process incl. runtime start)
+R	E8	n3000m.gen	2	ext_proc_read_bytes	86374182912	bytes	independent sampler: /proc/<pid>/io read_bytes, last value before the process exited (whole process incl. runtime start)
+R	E8	n3000m.gen	2	ext_proc_write_bytes	131417583616	bytes	independent sampler: /proc/<pid>/io write_bytes, last value before the process exited (whole process incl. runtime start)
+R	E8	n3000m.gen	2	eff_resident_ph3	1.0000		time-weighted resident fraction of (packed text + rank file) over PH3 (rank file and ph3 directory exist): mincore every 200 ms, 586 samples, 122.5 s
+R	E8	n3000m.gen	2	eff_resident_ranks	0.9990		the same over the whole life of the rank file (end of PH1 .. end of PH3), 590 samples, 123.3 s
+R	E8	n3000m.gen	2	text_bytes	1125000064	bytes	packed text file <prefix>.pk
+R	E8	n3000m.gen	2	rank_bytes	386707072	bytes	DCS rank file (largest size seen)
+R	E8	n3000m.gen	2	marker_ph1_first_s	8.98	s	first sample at which ph1 exists under the scratch directory (200 ms resolution), seconds from the start of the sampler
+R	E8	n3000m.gen	2	marker_ph1_last_s	411.78	s	last sample at which it exists
+R	E8	n3000m.gen	2	marker_ranks_first_s	38.57	s	first sample at which ranks exists under the scratch directory (200 ms resolution), seconds from the start of the sampler
+R	E8	n3000m.gen	2	marker_ranks_last_s	161.67	s	last sample at which it exists
+R	E8	n3000m.gen	2	marker_ph3_first_s	39.41	s	first sample at which ph3 exists under the scratch directory (200 ms resolution), seconds from the start of the sampler
+R	E8	n3000m.gen	2	marker_ph3_last_s	411.78	s	last sample at which it exists
+R	E8	n3000m.gen	2	marker_ph4_first_s	162.08	s	first sample at which ph4 exists under the scratch directory (200 ms resolution), seconds from the start of the sampler
+R	E8	n3000m.gen	2	marker_ph4_last_s	411.78	s	last sample at which it exists
+R	E8	n3000m.gen	2	marker_ph5_first_s	344.20	s	first sample at which ph5 exists under the scratch directory (200 ms resolution), seconds from the start of the sampler
+R	E8	n3000m.gen	2	marker_ph5_last_s	411.78	s	last sample at which it exists
+R	E8	n3000m.gen	2	ext_scratch_apparent_peak	35808000000	bytes	peak sum of st_size under the scratch directory (every 1 s; the peak of PH4 lasts a minute or more at 1 Gbp)
+R	E8	n3000m.gen	2	ext_scratch_allocated_peak	35810287616	bytes	peak sum of st_blocks x 512 under the scratch directory
+R	E8	n3000m.gen	2	ext_disk_total_apparent_peak	55615756347	bytes	peak of scratch + outputs (<prefix>.*) + input text, apparent sizes (gate G3: at most 70 GB at 3 Gbp)
+R	E8	n3000m.gen	2	ext_disk_total_allocated_peak	51935305216	bytes	the same with allocated blocks
+R	E8	n3000m.gen	2	ext_disk_free_min	1804948606976	bytes	smallest free space of the volume of the data directory (statvfs every 1 s); at the start 1853884080128
+R	E8	n3000m.gen	2	ext_disk_used_peak_delta	48935473152	bytes	largest increase of the used space of the volume over its value at the start
+R	E8	n3000m.gen	2	cg_version	2		cgroup hierarchy read (0 = none found)
+R	E8	n3000m.gen	2	cg_limit	max		no memory limit
+R	E8	n3000m.gen	2	cg_usage_max_sampled	7728422912	bytes	largest memory.current / usage_in_bytes seen at 200 ms
+R	E8	n3000m.gen	2	cg_peak	7753433088	bytes	kernel peak of the group (v1 max_usage_in_bytes, v2 memory.peak)
+R	E8	n3000m.gen	2	cg_anon_max	313020416	bytes	largest anonymous memory of the group (v1 rss, v2 anon)
+R	E8	n3000m.gen	2	cg_file_max	7295684608	bytes	largest page cache of the group (v1 cache, v2 file)
+R	E8	n3000m.gen	2	cg_mapped_max	1569767424	bytes	largest mapped file memory of the group
+R	E8	n3000m.gen	2	cg_dirty_max	741314560	bytes	largest dirty memory of the group
+R	E8	n3000m.gen	2	cg_writeback_max	191414272	bytes	largest writeback memory of the group
+R	E8	n3000m.gen	2	cg_failcnt	0	n	times the group hit its limit (v1 memory.failcnt, v2 memory.events max) at the end of the run
+R	E8	n3000m.gen	2	cg_oom_kill	0	n	OOM kills of the group at the end (v2 memory.events, v1 oom_control when reported)
+R	E8	n3000m.gen	2	cg_anon_mean_ph3	180.358	MB	mean anonymous memory of the group over PH3
+R	E8	n3000m.gen	2	psi_memory_some_us	422080	us	microseconds some task stalled on memory during the run (/proc/pressure/memory, VM-wide)
+R	E8	n3000m.gen	2	psi_memory_full_us	422069	us	microseconds all tasks stalled on memory during the run (VM-wide)
+R	E8	n3000m.gen	2	n	3000000000	symbols	b=3 bits, sigma=5, threads=4, codec=Packed, X=993 (|D|=32), touch buffers=False
+R	E8	n3000m.gen	2	parameters	n=3000000000 f=1.000E+000 scaled=True: PH1 K_s=1048576 N_base=16777216 R=4194304 K_sort=1048576 run-spill=65536; PH3 K=1000000 F=64; PH4 R=8000000 P=375 B2 workers=2; PH5 block=262144 window=1048576 slots=8		scale-down by n / 3000000000 = 1.000E+000: every stage by the rule of E3 / E3b / E4 (ScaleRules)
+R	E8	n3000m.gen	2	stage_parameters	PH1 fan-out 1024, reservoir 16384, io 65536, merge budget 16777216; PH3 fan-out 64, oversample 16, spill 65536; PH4 read 1048576, tuple 32768; PH5 block 262144 entries, window 1048576 x 8, spill flush 16777216; windows 1048576; arena caps 160 + 64 MiB		
+R	E8	n3000m.gen	2	ph0_prepare_s	8.567343	s	wall time of the phase
+R	E8	n3000m.gen	2	ph0_prepare_io_explicit_read	6000000000	bytes	2.000 B/char (program counter, explicit reads)
+R	E8	n3000m.gen	2	ph0_prepare_io_explicit_write	0	bytes	0.000 B/char (program counter, explicit writes)
+R	E8	n3000m.gen	2	ph0_prepare_io_mapped_write	1125000000	bytes	0.375 B/char (program counter, writes through mapped windows; CHILD windows are counted at the run level)
+R	E8	n3000m.gen	2	ph0_prepare_proc_rchar	6106307032	bytes	/proc/self/io rchar during the phase, 2.035 B/char
+R	E8	n3000m.gen	2	ph0_prepare_proc_wchar	231	bytes	/proc/self/io wchar during the phase, 0.000 B/char
+R	E8	n3000m.gen	2	ph0_prepare_proc_read_bytes	3009249280	bytes	/proc/self/io read_bytes (block layer, page-cache misses)
+R	E8	n3000m.gen	2	ph0_prepare_proc_write_bytes	2207137792	bytes	/proc/self/io write_bytes (pages that went from clean to dirty)
+R	E8	n3000m.gen	2	ph0_prepare_rssanon_peak	14.057472	MB	max RssAnon of the phase at 10 ms
+R	E8	n3000m.gen	2	ph0_prepare_rssfile_peak	33.415168	MB	mapped file pages resident (reported, not counted)
+R	E8	n3000m.gen	2	ph0_prepare_scratch_peak_cum	0	bytes	0.000 B/char: peak of the tracked scratch bytes up to the end of this phase
+R	E8	n3000m.gen	2	ph0_prepare_scratch_live_end	0	bytes	tracked scratch bytes alive at the end of this phase
+R	E8	n3000m.gen	2	ph0_prepare_dirty_peak	2.220032	MB	max /proc/meminfo Dirty in the phase minus the baseline 0.01 MB (system-wide: scratch included)
+R	E8	n3000m.gen	2	ph0_prepare_proc_dirty_peak	1.048576	MB	max Private_Dirty + Shared_Dirty of the mappings of the output files in the phase (per-process view)
+R	E8	n3000m.gen	2	ph1_dcs_s	30.46256	s	wall time of the phase
+R	E8	n3000m.gen	2	ph1_dcs_io_explicit_read	2705743688	bytes	0.902 B/char (program counter, explicit reads)
+R	E8	n3000m.gen	2	ph1_dcs_io_explicit_write	2705730820	bytes	0.902 B/char (program counter, explicit writes)
+R	E8	n3000m.gen	2	ph1_dcs_io_mapped_write	785876116	bytes	0.262 B/char (program counter, writes through mapped windows; CHILD windows are counted at the run level)
+R	E8	n3000m.gen	2	ph1_dcs_proc_rchar	3124886579	bytes	/proc/self/io rchar during the phase, 1.042 B/char
+R	E8	n3000m.gen	2	ph1_dcs_proc_wchar	2705730961	bytes	/proc/self/io wchar during the phase, 0.902 B/char
+R	E8	n3000m.gen	2	ph1_dcs_proc_read_bytes	40960	bytes	/proc/self/io read_bytes (block layer, page-cache misses)
+R	E8	n3000m.gen	2	ph1_dcs_proc_write_bytes	3975135232	bytes	/proc/self/io write_bytes (pages that went from clean to dirty)
+R	E8	n3000m.gen	2	ph1_dcs_rssanon_peak	166.35904	MB	max RssAnon of the phase at 10 ms
+R	E8	n3000m.gen	2	ph1_dcs_rssfile_peak	1566.334976	MB	mapped file pages resident (reported, not counted)
+R	E8	n3000m.gen	2	ph1_dcs_scratch_peak_cum	1189562072	bytes	0.397 B/char: peak of the tracked scratch bytes up to the end of this phase
+R	E8	n3000m.gen	2	ph1_dcs_scratch_live_end	386707072	bytes	tracked scratch bytes alive at the end of this phase
+R	E8	n3000m.gen	2	ph1_dcs_dirty_peak	752.566272	MB	max /proc/meminfo Dirty in the phase minus the baseline 0.01 MB (system-wide: scratch included)
+R	E8	n3000m.gen	2	ph1_dcs_proc_dirty_peak	0	MB	max Private_Dirty + Shared_Dirty of the mappings of the output files in the phase (per-process view)
+R	E8	n3000m.gen	2	ph23_sa_s	122.522945	s	wall time of the phase
+R	E8	n3000m.gen	2	ph23_sa_io_explicit_read	26696044024	bytes	8.899 B/char (program counter, explicit reads)
+R	E8	n3000m.gen	2	ph23_sa_io_explicit_write	26695671672	bytes	8.899 B/char (program counter, explicit writes)
+R	E8	n3000m.gen	2	ph23_sa_io_mapped_write	12000000004	bytes	4.000 B/char (program counter, writes through mapped windows; CHILD windows are counted at the run level)
+R	E8	n3000m.gen	2	ph23_sa_proc_rchar	28428384940	bytes	/proc/self/io rchar during the phase, 9.476 B/char
+R	E8	n3000m.gen	2	ph23_sa_proc_wchar	26695671751	bytes	/proc/self/io wchar during the phase, 8.899 B/char
+R	E8	n3000m.gen	2	ph23_sa_proc_read_bytes	14809333760	bytes	/proc/self/io read_bytes (block layer, page-cache misses)
+R	E8	n3000m.gen	2	ph23_sa_proc_write_bytes	44439891968	bytes	/proc/self/io write_bytes (pages that went from clean to dirty)
+R	E8	n3000m.gen	2	ph23_sa_rssanon_peak	183.84896	MB	max RssAnon of the phase at 10 ms
+R	E8	n3000m.gen	2	ph23_sa_rssfile_peak	1557.315584	MB	mapped file pages resident (reported, not counted)
+R	E8	n3000m.gen	2	ph23_sa_scratch_peak_cum	12871348696	bytes	4.290 B/char: peak of the tracked scratch bytes up to the end of this phase
+R	E8	n3000m.gen	2	ph23_sa_scratch_live_end	0	bytes	tracked scratch bytes alive at the end of this phase
+R	E8	n3000m.gen	2	ph23_sa_dirty_peak	737.173504	MB	max /proc/meminfo Dirty in the phase minus the baseline 0.01 MB (system-wide: scratch included)
+R	E8	n3000m.gen	2	ph23_sa_proc_dirty_peak	4.042752	MB	max Private_Dirty + Shared_Dirty of the mappings of the output files in the phase (per-process view)
+R	E8	n3000m.gen	2	ph45_lcp_child_s	249.947101	s	wall time of the phase
+R	E8	n3000m.gen	2	ph45_lcp_child_io_explicit_read	72041943044	bytes	24.014 B/char (program counter, explicit reads)
+R	E8	n3000m.gen	2	ph45_lcp_child_io_explicit_write	60041943040	bytes	20.014 B/char (program counter, explicit writes)
+R	E8	n3000m.gen	2	ph45_lcp_child_io_mapped_write	3490756073	bytes	1.164 B/char (program counter, writes through mapped windows; CHILD windows are counted at the run level)
+R	E8	n3000m.gen	2	ph45_lcp_child_proc_rchar	75564948648	bytes	/proc/self/io rchar during the phase, 25.188 B/char
+R	E8	n3000m.gen	2	ph45_lcp_child_proc_wchar	60041943268	bytes	/proc/self/io wchar during the phase, 20.014 B/char
+R	E8	n3000m.gen	2	ph45_lcp_child_proc_read_bytes	68513058816	bytes	/proc/self/io read_bytes (block layer, page-cache misses)
+R	E8	n3000m.gen	2	ph45_lcp_child_proc_write_bytes	80795414528	bytes	/proc/self/io write_bytes (pages that went from clean to dirty)
+R	E8	n3000m.gen	2	ph45_lcp_child_rssanon_peak	309.182464	MB	max RssAnon of the phase at 10 ms
+R	E8	n3000m.gen	2	ph45_lcp_child_rssfile_peak	1155.416064	MB	mapped file pages resident (reported, not counted)
+R	E8	n3000m.gen	2	ph45_lcp_child_scratch_peak_cum	36000000000	bytes	12.000 B/char: peak of the tracked scratch bytes up to the end of this phase
+R	E8	n3000m.gen	2	ph45_lcp_child_scratch_live_end	0	bytes	tracked scratch bytes alive at the end of this phase
+R	E8	n3000m.gen	2	ph45_lcp_child_dirty_peak	743.923712	MB	max /proc/meminfo Dirty in the phase minus the baseline 0.01 MB (system-wide: scratch included)
+R	E8	n3000m.gen	2	ph45_lcp_child_proc_dirty_peak	10.420224	MB	max Private_Dirty + Shared_Dirty of the mappings of the output files in the phase (per-process view)
+R	E8	n3000m.gen	2	sync_s	0.003354	s	fsync of all outputs (not part of the stage times)
+R	E8	n3000m.gen	2	sync_io_explicit_read	0	bytes	0.000 B/char (program counter, explicit reads)
+R	E8	n3000m.gen	2	sync_io_explicit_write	0	bytes	0.000 B/char (program counter, explicit writes)
+R	E8	n3000m.gen	2	sync_io_mapped_write	0	bytes	0.000 B/char (program counter, writes through mapped windows; CHILD windows are counted at the run level)
+R	E8	n3000m.gen	2	sync_proc_rchar	281714	bytes	/proc/self/io rchar during the phase, 0.000 B/char
+R	E8	n3000m.gen	2	sync_proc_wchar	11	bytes	/proc/self/io wchar during the phase, 0.000 B/char
+R	E8	n3000m.gen	2	sync_proc_read_bytes	4911104	bytes	/proc/self/io read_bytes (block layer, page-cache misses)
+R	E8	n3000m.gen	2	sync_proc_write_bytes	0	bytes	/proc/self/io write_bytes (pages that went from clean to dirty)
+R	E8	n3000m.gen	2	sync_rssanon_peak	91.041792	MB	max RssAnon of the phase at 10 ms
+R	E8	n3000m.gen	2	sync_rssfile_peak	23.9616	MB	mapped file pages resident (reported, not counted)
+R	E8	n3000m.gen	2	sync_scratch_peak_cum	36000000000	bytes	12.000 B/char: peak of the tracked scratch bytes up to the end of this phase
+R	E8	n3000m.gen	2	sync_scratch_live_end	0	bytes	tracked scratch bytes alive at the end of this phase
+R	E8	n3000m.gen	2	sync_dirty_peak	1.118208	MB	max /proc/meminfo Dirty in the phase minus the baseline 0.01 MB (system-wide: scratch included)
+R	E8	n3000m.gen	2	sync_proc_dirty_peak	0	MB	max Private_Dirty + Shared_Dirty of the mappings of the output files in the phase (per-process view)
+R	E8	n3000m.gen	2	total_s	411.49995	s	PH0 + PH1 + PH2/PH3 + PH4/PH5: wall time of the stages (gate G3: <= 90 s at 100 Mbp, 4 threads, cold cache)
+R	E8	n3000m.gen	2	sa_stage_s	161.552848	s	PH0 + PH1 + PH2/PH3 (gate G3: <= 30 s)
+R	E8	n3000m.gen	2	wall_s	411.756191	s	EndToEnd.Run from start to end, including the clean-up and the final sync
+R	E8	n3000m.gen	2	ns_per_symbol	137.16665	ns	total_s / n
+R	E8	n3000m.gen	2	throughput	7.290402	Msym/s	n / total_s
+R	E8	n3000m.gen	2	ph0_prepare_share	0.02082		share of total_s
+R	E8	n3000m.gen	2	ph1_dcs_share	0.074028		share of total_s
+R	E8	n3000m.gen	2	ph23_sa_share	0.297747		share of total_s
+R	E8	n3000m.gen	2	ph45_lcp_child_share	0.607405		share of total_s
+R	E8	n3000m.gen	2	rssanon_peak	309.182464	MB	max RssAnon over the whole run at 10 ms; gate G2 <= 256 MB incl. the .NET runtime and thread stacks
+R	E8	n3000m.gen	2	gc_heap	48.349552	MB	managed heap at the end (DOTNET_GCHeapHardLimit = 0x6000000); collections gen0/1/2 = 68/2/1
+R	E8	n3000m.gen	2	arena_peak	154.73868	MB	largest peak of the native buffers of one stage charged to its ArenaBudget (caps 160 / 64 MiB), live at the end 0
+R	E8	n3000m.gen	2	io_explicit_read	107443730756	bytes	35.815 B/char (program counters, all phases)
+R	E8	n3000m.gen	2	io_explicit_write	89443345532	bytes	29.814 B/char
+R	E8	n3000m.gen	2	io_mapped_write	29401632197	bytes	9.801 B/char: packed text, rank file, SA, LCP through the counted windows plus CHILD 12000000004 bytes (its windows are not counted: the file is written once, 4 (n + 1) bytes)
+R	E8	n3000m.gen	2	io_total_counted	226288708485	bytes	75.430 B/char: explicit I/O plus mapped writes (gate G3: <= 100 B/char); reads through the mappings (text, ranks) are not in it
+R	E8	n3000m.gen	2	proc_rchar	113227376701	bytes	37.742 B/char: /proc/self/io rchar over EndToEnd.Run (read syscalls)
+R	E8	n3000m.gen	2	proc_wchar	89443346377	bytes	29.814 B/char: /proc/self/io wchar over EndToEnd.Run (write syscalls)
+R	E8	n3000m.gen	2	proc_rw_total	202670723078	bytes	67.557 B/char: rchar + wchar (syscalls only; the mapped windows are not in it)
+R	E8	n3000m.gen	2	blocklayer_read	86338371584	bytes	28.779 B/char: /proc/self/io read_bytes over the run (page-cache misses)
+R	E8	n3000m.gen	2	blocklayer_write	131417583616	bytes	43.806 B/char: /proc/self/io write_bytes over the run (pages dirtied)
+R	E8	n3000m.gen	2	scratch_peak	36000000000	bytes	12.000 B/char: peak of the tracked scratch files over the whole pipeline (apparent size); live at the end 0; entries left 0; directory left False
+R	E8	n3000m.gen	2	file_pk	1125000064	bytes	0.375 B/char: o.n3000m.gen.2.pk
+R	E8	n3000m.gen	2	file_meta	202	bytes	0.000 B/char: o.n3000m.gen.2.pk.meta
+R	E8	n3000m.gen	2	file_sa	12000000004	bytes	4.000 B/char: o.n3000m.gen.2.sa
+R	E8	n3000m.gen	2	file_lcp	3000000001	bytes	1.000 B/char: o.n3000m.gen.2.lcp
+R	E8	n3000m.gen	2	file_ovf	490756072	bytes	0.164 B/char: o.n3000m.gen.2.ovf
+R	E8	n3000m.gen	2	file_cld	12000000004	bytes	4.000 B/char: o.n3000m.gen.2.cld
+R	E8	n3000m.gen	2	file_stats	144	bytes	0.000 B/char: o.n3000m.gen.2.stats
+R	E8	n3000m.gen	2	output_bytes	28615756491	bytes	9.539 B/char: disk footprint of the outputs (text, SA, LCP + overflow, CHILD, metadata)
+R	E8	n3000m.gen	2	dirty_peak	752.566272	MB	max /proc/meminfo Dirty minus the baseline (0.01 MB) over 20587 samples at 20 ms; system-wide, scratch of PH2/PH3 and PH4 included; absolute max 752.58 MB
+R	E8	n3000m.gen	2	dirty_mean	285.341093	MB	mean of Dirty minus the baseline over the run
+R	E8	n3000m.gen	2	writeback_peak	481.001472	MB	max /proc/meminfo Writeback
+R	E8	n3000m.gen	2	proc_dirty_peak	10.420224	MB	max Private_Dirty + Shared_Dirty of the mappings of the output files of this run (per-process view of the mapped dirty pages of the outputs; gate G3 <= 64 MB)
+R	E8	n3000m.gen	2	ph1_levels	1	n	deepest level of the DCS recursion; level 0: sample 96676740, distinct names 95855080, shared 0.85 %, leaf buckets 185, split scans 1
+R	E8	n3000m.gen	2	ph3_buckets	5883	n	leaves=5242, partitions=641, max depth=3, largest leaf=999787, retries=0; tie share 22.5491 %, rank lookups 1017891060
+R	E8	n3000m.gen	2	ph4_width	U8		chosen before any entry was written; escapes >= 255: 61344509 (2.0448 %), >= 65535: 25106801, overflow entries 61344509; B1 26.99 s, B2 154.96 s, B3 67.99 s (B3 contains the PH5 scan); chunks 375/376, B2 tasks 2, rounds 1
+R	E8	n3000m.gen	2	ph5_scan_s	45.232684	s	time inside the PH5 scan (Consume + Complete): the share of the fused phase that belongs to PH5
+R	E8	n3000m.gen	2	node_count	5002749623	n	NODE_COUNT = 1 + I + n + 1 with I = 2002749621 internal nodes
+R	E8	n3000m.gen	2	lrs	14999999	symbols	LRS_DEPTH 14999999, LRS_RANK 2241173812; max LCP 14999999, stack peak 3000002, spill written 41943040 bytes
+R	E8	n3000m.gen	2	sha256	9d0955443b2e0b4e3442383e06bafa47fe440ab250997b9cd0d02b99b05d1e32		SHA-256 of the input text (PH0)
+R	E8	n3000m.gen	2	clean	yes		scratch directory removed, no tracked scratch byte, no live arena byte; RssAnon within 400 MB: yes
+R	E8	n3000m.gen	2	process_wall_s	411.93	s	from the launch of dotnet to its exit, including the runtime start (the program rows give the stages alone)
+R	E8	n3000m.gen	2	exit_code	0		program exit code (137 = killed by the watchdog or by the OOM killer)
+R	E8	n3000m.gen	2	killed	no		no | watchdog (more than the abandon limit: reported as 'does not finish in practice at this memory') | oom-or-signal
+R	E8	n3000m.gen	2	threads	4	n	threads of the e6 command
+R	E8	n3000m.gen	2	verify_files	pass		all seven files exist with the lengths of n, bits, lcpwidth and overflow
+R	E8	n3000m.gen	2	verify_files_s	0.000522	s	wall time of the check (the checks of the rank pass share one pass and show its time)
+R	E8	n3000m.gen	2	verify_meta	pass		n 3000000000, sigma 5, 3 bits
+R	E8	n3000m.gen	2	verify_meta_s	0.004274	s	wall time of the check (the checks of the rank pass share one pass and show its time)
+R	E8	n3000m.gen	2	verify_text	pass		symbol counts equal the metadata, symbols below sigma, padding and the unused bits of the last byte are zero
+R	E8	n3000m.gen	2	verify_text_s	0.745962	s	wall time of the check (the checks of the rank pass share one pass and show its time)
+R	E8	n3000m.gen	2	verify_input	pass		the packed text equals the input symbol by symbol and its SHA-256 equals the metadata's
+R	E8	n3000m.gen	2	verify_input_s	7.014226	s	wall time of the check (the checks of the rank pass share one pass and show its time)
+R	E8	n3000m.gen	2	verify_sa_permutation	pass		SA[0] = n and the 3000000001 entries are distinct and at most n
+R	E8	n3000m.gen	2	verify_sa_permutation_s	82.269597	s	wall time of the check (the checks of the rank pass share one pass and show its time)
+R	E8	n3000m.gen	2	verify_sa_order	pass		all 3000000000 adjacent pairs of suffixes are in strict order (25106794 long pairs checked at their ends and by probes)
+R	E8	n3000m.gen	2	verify_sa_order_s	82.269597	s	wall time of the check (the checks of the rank pass share one pass and show its time)
+R	E8	n3000m.gen	2	verify_lcp_values	pass		every stored LCP equals the common prefix of its adjacent pair (25106794 long pairs above the cap 65536), the overflow list matches the escapes
+R	E8	n3000m.gen	2	verify_lcp_values_s	82.269597	s	wall time of the check (the checks of the rank pass share one pass and show its time)
+R	E8	n3000m.gen	2	verify_lcp_width	pass		width 1 is the rule's choice (values >= 255: 61344509, >= 65535: 25106801)
+R	E8	n3000m.gen	2	verify_lcp_width_s	0	s	wall time of the check (the checks of the rank pass share one pass and show its time)
+R	E8	n3000m.gen	2	verify_stats	pass		NODE_COUNT 5002749623, internal 2002749621, LRS 14999999 at rank 2241173812, max LCP 14999999: recomputed from the LCP, the file is byte-identical to it
+R	E8	n3000m.gen	2	verify_stats_s	30.75549	s	wall time of the check (the checks of the rank pass share one pass and show its time)
+R	E8	n3000m.gen	2	verify_child	pass		all 2623925276 written cells equal the lcp-interval definition (next links, up and down fields) and no other cell is set; stack peak 3000002
+R	E8	n3000m.gen	2	verify_child_s	30.75549	s	wall time of the check (the checks of the rank pass share one pass and show its time)
+R	E8	n3000m.gen	2	verify_sha256	pass		SHA-256 of all seven files recorded
+R	E8	n3000m.gen	2	verify_sha256_s	4.549358	s	wall time of the check (the checks of the rank pass share one pass and show its time)
+R	E8	n3000m.gen	2	verify_fact_n	3000000000		number found by the verifier
+R	E8	n3000m.gen	2	verify_fact_bits	3		number found by the verifier
+R	E8	n3000m.gen	2	verify_fact_sigma	5		number found by the verifier
+R	E8	n3000m.gen	2	verify_fact_lcpwidth	1		number found by the verifier
+R	E8	n3000m.gen	2	verify_fact_overflow	61344509		number found by the verifier
+R	E8	n3000m.gen	2	verify_fact_lce_cap	65536		number found by the verifier
+R	E8	n3000m.gen	2	verify_fact_stack_cap	67108864		number found by the verifier
+R	E8	n3000m.gen	2	verify_fact_probes	16		number found by the verifier
+R	E8	n3000m.gen	2	verify_fact_long_pairs	25106794		number found by the verifier
+R	E8	n3000m.gen	2	verify_fact_lce_steps	83537115398		number found by the verifier
+R	E8	n3000m.gen	2	verify_fact_escapes8	61344509		number found by the verifier
+R	E8	n3000m.gen	2	verify_fact_escapes16	25106801		number found by the verifier
+R	E8	n3000m.gen	2	verify_fact_stack_peak	3000002		number found by the verifier
+R	E8	n3000m.gen	2	verify_fact_internal	2002749621		number found by the verifier
+R	E8	n3000m.gen	2	verify_fact_maxlcp	14999999		number found by the verifier
+R	E8	n3000m.gen	2	verify_fact_lrsdepth	14999999		number found by the verifier
+R	E8	n3000m.gen	2	verify_fact_lrsrank	2241173812		number found by the verifier
+R	E8	n3000m.gen	2	sha256_pk	d8626efb3b7852289c96a678b8d63404bc09b4af51d8b4e0eac6370f2aaa6f59		SHA-256 of o.n3000m.gen.2.pk
+R	E8	n3000m.gen	2	sha256_pk_meta	bf09b8c7b0d425115aca18d86b99665eb807c3e2c75ecca34b7512ddcb3bc7ac		SHA-256 of o.n3000m.gen.2.pk.meta
+R	E8	n3000m.gen	2	sha256_sa	4486be2ece3b8e2df5ec73fb42826bef5d0e99b57db65d52a346d1ae7b6d3cd3		SHA-256 of o.n3000m.gen.2.sa
+R	E8	n3000m.gen	2	sha256_lcp	f8d3d5894b38bd6578c4de82092124af9806db8cb132edae85f4d33fd1ac26b7		SHA-256 of o.n3000m.gen.2.lcp
+R	E8	n3000m.gen	2	sha256_ovf	0469437ec0865af2cfc75a374e388b03076cec5f38b3ae61dae19b8483cacf4e		SHA-256 of o.n3000m.gen.2.ovf
+R	E8	n3000m.gen	2	sha256_cld	d2d39088b76669ccba44a6dd2284f4f9107aa22b3c1d1f865cfe7f5d50b817dd		SHA-256 of o.n3000m.gen.2.cld
+R	E8	n3000m.gen	2	sha256_stats	21eebb71b31d1248af772f7dfa0d91caa8ee1b91bf55fd2c0d752bb72b7e142b		SHA-256 of o.n3000m.gen.2.stats
+R	E8	n3000m.gen	2	verify_wall_s	125.401218	s	whole verification, 4 threads, LCE cap 65536
+R	E8	n3000m.gen	2	verify_all	pass		11 of 11 checks passed; --no-child / --no-hash omit checks (a run for the gate G1 uses neither)
+R	E8	n3000m.gen	2	verify_exit_code	0		e8-verify exit code (0 = every check passed)
+R	E8	n3000m.gen	2	verify_process_wall_s	125.43	s	wall time of the verifier process
+R	E8	n3000m.gen	2	scratch_left	0		entries of the scratch directory after the run (a killed run leaves its scratch; it is removed here)
+R	E8	n3000m.gen	2	run_done	yes		all rows of this run are written
