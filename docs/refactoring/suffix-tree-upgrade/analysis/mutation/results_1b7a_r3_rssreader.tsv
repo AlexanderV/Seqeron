@@ -1,0 +1,4 @@
+L06	the status buffer is 64 bytes	killed(2)	
+L07	Stop takes no sample when the thread was never started	BUILD-ERROR CS0414	
+L08	the sampler reports available before it has a sample	killed(2)	
+L09	the stats report the maximum RssAnon as the last	killed(2)	

@@ -1,0 +1,9 @@
+[
+ {
+  "id": "P04",
+  "desc": "the reservation message omits the live bytes",
+  "old": "({bytes} bytes; {seen} live)",
+  "new": "({bytes} bytes)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/ArenaBudget.cs"
+ }
+]

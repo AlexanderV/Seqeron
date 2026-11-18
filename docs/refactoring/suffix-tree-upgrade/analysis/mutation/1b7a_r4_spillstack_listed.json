@@ -1,0 +1,9 @@
+[
+ {
+  "id": "K07",
+  "desc": "flushes are not counted",
+  "old": "        _flushes++;\n        _unflushed = 0;",
+  "new": "        _flushes += 0;\n        _unflushed = 0;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/SpillStack.cs"
+ }
+]

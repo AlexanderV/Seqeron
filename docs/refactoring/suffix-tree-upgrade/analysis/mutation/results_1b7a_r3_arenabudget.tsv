@@ -1,0 +1,4 @@
+P01	the peak is the largest single request	killed(5)	
+P02	the arena charges elements instead of bytes	killed(7)	
+P03	ReleaseTo keeps the sizes of the blocks it freed	killed(1)	
+P04	the reservation message omits the live bytes	survived	survived

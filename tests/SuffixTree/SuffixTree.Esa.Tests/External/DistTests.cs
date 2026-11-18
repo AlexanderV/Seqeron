@@ -274,7 +274,8 @@ public unsafe class DistTests
         FileBits.WriteUInts(dir.File("src.bin"), perm);
 
         var mb = new Widen<byte>(i => (byte)(i % 251));
-        Dist.Scatter(dir.File("src.bin"), n, ref mb, dir.File("b.bin"), new DistTarget<byte>(n, 255, true), Opt(dir, 64, 30, 40, 100));
+        DistStats statsB = Dist.Scatter(dir.File("src.bin"), n, ref mb, dir.File("b.bin"), new DistTarget<byte>(n, 255, true), Opt(dir, 64, 30, 40, 100));
+        Assert.That(statsB.TupleBytesWritten, Is.EqualTo(ExpectedFlushedTuples(n, 64, 30 / 5) * 5), "a tuple of a byte is 5 bytes");
         byte[] gotB = File.ReadAllBytes(dir.File("b.bin"));
         Assert.That(gotB, Has.Length.EqualTo(n));
         for (int i = 0; i < n; i++) Assert.That(gotB[perm[i]], Is.EqualTo((byte)(i % 251)));
@@ -285,7 +286,9 @@ public unsafe class DistTests
         for (int i = 0; i < n; i++) Assert.That(gotU[perm[i]], Is.EqualTo((ushort)(i * 3)));
 
         var ml = new Widen<ulong>(i => 0x1_0000_0000UL + (ulong)i);
-        Dist.Scatter(dir.File("src.bin"), n, ref ml, dir.File("l.bin"), new DistTarget<ulong>(n, ulong.MaxValue, true), Opt(dir, 128, 36, 400, 1000));
+        DistStats statsL = Dist.Scatter(dir.File("src.bin"), n, ref ml, dir.File("l.bin"), new DistTarget<ulong>(n, ulong.MaxValue, true), Opt(dir, 128, 36, 400, 1000));
+        Assert.That(statsL.TupleBytesWritten, Is.EqualTo(ExpectedFlushedTuples(n, 128, 36 / 12) * 12), "a tuple of a 64-bit value is 12 bytes");
+        Assert.That(statsL.TupleBytesRead, Is.EqualTo(statsL.TupleBytesWritten));
         ulong[] gotL = MemoryMarshal.Cast<byte, ulong>(File.ReadAllBytes(dir.File("l.bin"))).ToArray();
         for (int i = 0; i < n; i++) Assert.That(gotL[perm[i]], Is.EqualTo(0x1_0000_0000UL + (ulong)i));
     }
@@ -569,6 +572,34 @@ public unsafe class DistTests
         // the same input without the check is fine
         Dist.Scatter(dir.File("src.bin"), 3, ref mapper, dir.File("out.bin"), new DistTarget<uint>(3, 7u, false), Opt(dir, 2, 8, 8, 8));
         Assert.That(FileBits.ReadUInts(dir.File("out.bin")), Is.EqualTo(new uint[] { 0, 7, 7 }));
+    }
+
+    private struct SkipKey(uint skip) : IDistMapper<uint>
+    {
+        public bool TryMap(long index, uint sourceValue, out uint key, out uint value)
+        {
+            key = sourceValue;
+            value = (uint)index;
+            return sourceValue != skip;
+        }
+    }
+
+    [Test]
+    public void ExactlyOnce_ReportsAMissingSlot_AtTheFirstAndLastSlotOfEveryChunk()
+    {
+        using var dir = new TempDir();
+        const int n = 23; // slots 0..22, R = 5: chunks start at 0, 5, 10, 15, 20
+        uint[] perm = Enumerable.Range(0, n).Select(i => (uint)((i * 7) % n)).ToArray();
+        FileBits.WriteUInts(dir.File("src.bin"), perm);
+        foreach (uint missing in new uint[] { 0, 4, 5, 9, 10, 15, 19, 20, 22 })
+        {
+            var mapper = new SkipKey(missing);
+            var budget = new ArenaBudget(long.MaxValue);
+            var counters = new IoCounters();
+            InvalidDataException ex = Assert.Throws<InvalidDataException>(() => Dist.Scatter(dir.File("src.bin"), n, ref mapper, dir.File("out.bin"), new DistTarget<uint>(n, uint.MaxValue, true), Opt(dir, 5, 16, 16, 16, budget, counters)), $"slot {missing}")!;
+            Assert.That(ex.Message, Does.Contain($"slot {missing} is never written"));
+            AssertClean(dir, budget, counters);
+        }
     }
 
     private struct FixedKey(uint key) : IDistMapper<uint>

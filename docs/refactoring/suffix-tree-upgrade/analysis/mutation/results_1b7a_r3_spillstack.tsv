@@ -1,0 +1,10 @@
+K01	a block is written one block too far	killed(14)	
+K02	the evicted block is the wrong one	killed(14)	
+K03	a block is read from the wrong offset	killed(14)	
+K04	blocks are sized as 16-byte entries	killed(2)	
+K05	a retreat goes two blocks down	killed(14)	
+K06	the unflushed count is not reset after a flush	killed(1)	
+K07	flushes are not counted	BUILD-ERROR CS0649	
+K08	a push does not advance the count	killed(host crash)	
+K09	the stack takes its second buffer from the first	killed(16)	
+K10	a read-back block is not marked as resident below nothing	killed(14)	

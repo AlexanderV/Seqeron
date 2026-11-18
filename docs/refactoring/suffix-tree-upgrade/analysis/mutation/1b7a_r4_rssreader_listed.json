@@ -1,0 +1,9 @@
+[
+ {
+  "id": "L07",
+  "desc": "Stop reports available whatever the platform",
+  "old": "        _started = false;\n        return new RssStats(_available,",
+  "new": "        _started = false;\n        return new RssStats(_available || _thread is null,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/RssReader.cs"
+ }
+]

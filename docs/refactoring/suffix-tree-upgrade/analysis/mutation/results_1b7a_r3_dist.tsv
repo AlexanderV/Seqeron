@@ -1,0 +1,13 @@
+J01	the last source read is as long as a full one	killed(13)	
+J02	the start slot of a chunk is one short	killed(14)	
+J03	the last chunk array is as long as a full one	killed(12)	
+J04	the chunk array is one entry short	killed(14)	
+J05	the source is read in steps one entry longer than the buffer	killed(12)	
+J06	a scattered slot gets the key	killed(13)	
+J07	the ISA key is flipped in its lowest bit	killed(10)	
+J08	the Phi mapper checks against n + 1	killed(3)	
+J09	the exactly-once check starts at the second slot	survived	survived
+J10	the written-twice test compares with the value	killed(16)	
+J11	the tuple size is taken from the key only	survived	survived
+J12	the target is sized in tuples	killed(14)	
+H30	a chunk file is not deleted after its chunk is read	killed(1)	

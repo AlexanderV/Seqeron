@@ -1,0 +1,2 @@
+M01	the window is mapped read-only	killed(host crash)	
+M02	the window ends one byte early	killed(hang)	

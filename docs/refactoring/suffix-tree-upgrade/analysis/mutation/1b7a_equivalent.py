@@ -12,6 +12,8 @@ EQUIVALENT = {
     'G18': 'the block name "dist.tuples" appears only in the message of a checked-build violation',
     'H10': 'Phi accepts an entry equal to n after the first: the key range test of Distribute (key >= slots with slots = n) refuses it with the same InvalidDataException',
     'H35': 'Dist without the final VerifyCanaries: on a run whose memory accesses are correct the guard bands are intact, the call is defence in depth that turns a memory bug into an exception (all Dist tests run with guarded arenas)',
+    'L02': 'after a key that does not start a line the search resumes after the key instead of one byte on: a key never contains a newline, so no line-anchored match can begin inside the previous one',
+    'L05': 'the real source stops after one read: for a regular file one read delivers up to the buffer length; the loop exists for /proc files that a seq_file returns in pieces, which no file the test can make does',
     'I28': 'SpillStack.Dispose without the _disposed guard: a second Dispose finds _file null and returns',
     'I04': 'a pop from the last entry of a block retreats only when height > 2 instead of > 1: with blocks of at least two entries a top block that holds one entry and has a block below it means a height of at least 3',
 }

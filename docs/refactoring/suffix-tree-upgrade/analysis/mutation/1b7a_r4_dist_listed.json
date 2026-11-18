@@ -1,0 +1,16 @@
+[
+ {
+  "id": "J09",
+  "desc": "the exactly-once check starts at the second slot",
+  "old": "for (int k = 0; k < length; k++)\n                {\n                    if (array[k].Equals(target.Fill))",
+  "new": "for (int k = 1; k < length; k++)\n                {\n                    if (array[k].Equals(target.Fill))",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs"
+ },
+ {
+  "id": "J11",
+  "desc": "the tuple size is taken from the key only",
+  "old": "int tupleBytes = sizeof(DistEntry<TValue>);",
+  "new": "int tupleBytes = sizeof(uint) + 4;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs"
+ }
+]

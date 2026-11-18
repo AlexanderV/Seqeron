@@ -1,0 +1,5 @@
+L01	a newline may precede the number	killed(1)	
+L02	the search restarts at the same position after a mismatch	survived	survived
+L03	the digit loop stops at the first zero	killed(10)	
+L04	the proc snapshot buffer is 16 bytes	killed(4)	
+L05	the real source stops after one read	survived	survived

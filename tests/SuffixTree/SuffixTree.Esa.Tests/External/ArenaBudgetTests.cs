@@ -15,7 +15,7 @@ public class ArenaBudgetTests
         b.Reserve(40, "b"); // exactly the cap
         Assert.That(b.LiveBytes, Is.EqualTo(100));
         ArenaBudgetExceededException ex = Assert.Throws<ArenaBudgetExceededException>(() => b.Reserve(1, "one-more"))!;
-        Assert.That(ex.Message, Does.Contain("one-more").And.Contain("100"), "the message names the block and the cap");
+        Assert.That(ex.Message, Does.Contain("one-more").And.Contain("100 bytes exceeded").And.Contain("1 bytes; 100 live"), "the message names the block, the cap, the request and what is live");
         Assert.That(b.LiveBytes, Is.EqualTo(100), "a refused reservation reserves nothing");
         Assert.That(b.PeakBytes, Is.EqualTo(100), "and does not raise the peak");
         b.Release(100);
