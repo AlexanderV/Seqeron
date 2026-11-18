@@ -30,6 +30,9 @@ internal sealed record DistOptions
 
     /// <summary>Arena options: guard bands in the tests, none in production.</summary>
     internal ArenaOptions? Arena { get; init; }
+
+    /// <summary>STUB (work package 1b.7d, tests first): how the target file is created (reservation of the disk space); null = created sparse, as in 1b.7a.</summary>
+    internal MappedFileOptions? Files { get; init; }
 }
 
 /// <summary>What one run wrote to and read from its chunk files (a chunk that never outgrew its buffer is in neither).</summary>

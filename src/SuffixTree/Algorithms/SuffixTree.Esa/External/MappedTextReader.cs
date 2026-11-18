@@ -79,6 +79,12 @@ internal sealed unsafe class MappedTextReader : IDisposable
     /// <summary>Opens the packed text that is a section of a larger file: <paramref name="length"/> (the LENGTH of the section entry) must be <see cref="PackedTextFormat.TotalBytes"/> and the section must lie inside the file.</summary>
     internal static MappedTextReader OpenRegion(string path, long offset, long length, long n, int bits) => OpenCore(path, offset, length, n, bits);
 
+    /// <summary>STUB (work package 1b.7d, tests first): the reduced string of the difference-cover recursion, 32 bits per symbol.</summary>
+    internal static MappedTextReader OpenReduced(string path, long n) => throw new NotImplementedException();
+
+    /// <summary>STUB (work package 1b.7d, tests first): a 32-bit-symbol text in memory that the caller owns.</summary>
+    internal static MappedTextReader FromMemoryReduced(byte* data, long length, long n) => throw new NotImplementedException();
+
     /// <summary>A reader over memory that the caller owns (tests, in-RAM texts): the same checks, nothing is mapped or freed.</summary>
     internal static MappedTextReader FromMemory(byte* data, long length, long n, int bits)
     {
