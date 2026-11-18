@@ -422,7 +422,7 @@ Sources actually opened in this review (neutral `Seqeron-review/1.0` User-Agent,
 ## Assumptions (B09)
 
 1. The linear-gap model applies to every MSA method (documented deviation; `GlobalAlignAffine` for pairs).
-2. UPGMA guide tree for all progressive-family methods (CLUSTAL 1988) instead of NJ.
+2. UPGMA guide tree for all progressive-family methods (CLUSTAL 1988) by default; NJ available as `MsaOptions.GuideTree` (A1-12, addendum at the end).
 3. T-Coffee local library = best single SW alignment per pair (Lalign supplies up to N non-intersecting alignments in T-Coffee).
 
 
