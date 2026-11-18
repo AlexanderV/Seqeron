@@ -1,0 +1,627 @@
+id	file	category	length	note
+inframe_atg_x2	designed.fa	inframe	87	2 in-frame ATGs sharing one TAA
+inframe_atg_x3	designed.fa	inframe	108	3 in-frame ATGs sharing one TAA
+inframe_atg_x4	designed.fa	inframe	138	4 in-frame ATGs sharing one TAA
+inframe_alt_then_atg	designed.fa	inframe	69	CTG start upstream of ATG: -s 0 reports the ATG ORF, -s 1 the CTG ORF (longest)
+inframe_ttg_ctg_atg	designed.fa	inframe	72	chain of three starts
+start_ATG	designed.fa	start	72	only start codon ATG; reported by -s 1 depending on the -g table, by -s 2 as a stop-to-stop region
+start_GTG	designed.fa	start	72	only start codon GTG; reported by -s 1 depending on the -g table, by -s 2 as a stop-to-stop region
+start_TTG	designed.fa	start	72	only start codon TTG; reported by -s 1 depending on the -g table, by -s 2 as a stop-to-stop region
+start_CTG	designed.fa	start	72	only start codon CTG; reported by -s 1 depending on the -g table, by -s 2 as a stop-to-stop region
+start_ATT	designed.fa	start	72	only start codon ATT; reported by -s 1 depending on the -g table, by -s 2 as a stop-to-stop region
+start_ATC	designed.fa	start	72	only start codon ATC; reported by -s 1 depending on the -g table, by -s 2 as a stop-to-stop region
+start_ATA	designed.fa	start	72	only start codon ATA; reported by -s 1 depending on the -g table, by -s 2 as a stop-to-stop region
+start_TTA	designed.fa	start	72	only start codon TTA; reported by -s 1 depending on the -g table, by -s 2 as a stop-to-stop region
+start_ATG_then_atg	designed.fa	start	81	alt start ATG upstream of an in-frame ATG
+start_GTG_then_atg	designed.fa	start	81	alt start GTG upstream of an in-frame ATG
+start_TTG_then_atg	designed.fa	start	81	alt start TTG upstream of an in-frame ATG
+start_CTG_then_atg	designed.fa	start	81	alt start CTG upstream of an in-frame ATG
+start_ATT_then_atg	designed.fa	start	81	alt start ATT upstream of an in-frame ATG
+start_ATC_then_atg	designed.fa	start	81	alt start ATC upstream of an in-frame ATG
+start_ATA_then_atg	designed.fa	start	81	alt start ATA upstream of an in-frame ATG
+start_TTA_then_atg	designed.fa	start	81	alt start TTA upstream of an in-frame ATG
+stop_AGA	designed.fa	stop	75	ORF ended by AGA (stop in tables: see -g)
+stop_AGG	designed.fa	stop	75	ORF ended by AGG (stop in tables: see -g)
+stop_TAA	designed.fa	stop	75	ORF ended by TAA (stop in tables: see -g)
+stop_TAG	designed.fa	stop	75	ORF ended by TAG (stop in tables: see -g)
+stop_TGA	designed.fa	stop	75	ORF ended by TGA (stop in tables: see -g)
+tga_readthrough	designed.fa	stop	69	TGA = Trp in tables 2/4: one ORF there, two in table 1/11
+aga_agg_pair	designed.fa	stop	75	AGA/AGG stops in table 2 only
+every_stop_in_a_row	designed.fa	stop	42	ORF of 6 nt then four more stop codons
+xnest_s1_30_8	designed.fa	xnest	102	inner ORF fully inside outer, other frame (shift 1), spans [('+', 0, 96), ('+', 13, 43)]
+xnest_s1_45_12	designed.fa	xnest	147	inner ORF fully inside outer, other frame (shift 1), spans [('+', 0, 141), ('+', 13, 55)]
+xnest_s1_24_5	designed.fa	xnest	84	inner ORF fully inside outer, other frame (shift 1), spans [('+', 0, 78), ('+', 13, 34)]
+xnest_s2_30_8	designed.fa	xnest	102	inner ORF fully inside outer, other frame (shift 2), spans [('+', 0, 96), ('+', 14, 44)]
+xnest_s2_45_12	designed.fa	xnest	147	inner ORF fully inside outer, other frame (shift 2), spans [('+', 0, 141), ('+', 14, 56)]
+xnest_s2_24_5	designed.fa	xnest	84	inner ORF fully inside outer, other frame (shift 2), spans [('+', 0, 78), ('+', 14, 35)]
+xnest_edge_a4_e4	designed.fa	xnest	120	inner starts 4 nt after / ends ~4 nt before the outer ORF; spans [('+', 0, 114), ('+', 4, 109)]
+xnest_edge_a5_e5	designed.fa	xnest	120	inner starts 5 nt after / ends ~5 nt before the outer ORF; spans [('+', 0, 114), ('+', 5, 107)]
+xnest_altstart_a1_ATT_TTG	designed.fa	xnest	102	inner TTG ORF starts 1 nt after outer ATT ORF (alt-start modes only); spans [('+', 0, 96), ('+', 1, 31)]
+xnest_altstart_a2_ATT_TTG	designed.fa	xnest	102	inner TTG ORF starts 2 nt after outer ATT ORF (alt-start modes only); spans [('+', 0, 96), ('+', 2, 32)]
+xoverlap_right_4	designed.fa	xoverlap	82	inner ORF starts inside and ends beyond the outer ORF; spans [('+', 0, 66), ('+', 19, 70)]
+xoverlap_left_4	designed.fa	xoverlap	94	ORFs overlapping in two frames, neither contains the other; spans [('+', 13, 79), ('+', 0, 51)]
+xoverlap_right_5	designed.fa	xoverlap	83	inner ORF starts inside and ends beyond the outer ORF; spans [('+', 0, 66), ('+', 20, 71)]
+xoverlap_left_5	designed.fa	xoverlap	94	ORFs overlapping in two frames, neither contains the other; spans [('+', 14, 80), ('+', 0, 51)]
+xoverlap_right_9	designed.fa	xoverlap	87	inner ORF starts inside and ends beyond the outer ORF; spans [('+', 0, 66), ('+', 20, 74)]
+xoverlap_left_9	designed.fa	xoverlap	94	ORFs overlapping in two frames, neither contains the other; spans [('+', 14, 80), ('+', 0, 57)]
+strand_nest_inner_rev_12_10	designed.fa	strandnest	138	ORF of the other strand fully inside; spans [('+', 0, 126), ('-', 12, 48)]
+strand_nest_inner_rev_13_6	designed.fa	strandnest	138	ORF of the other strand fully inside; spans [('+', 0, 126), ('-', 13, 37)]
+strand_nest_inner_rev_14_14	designed.fa	strandnest	138	ORF of the other strand fully inside; spans [('+', 0, 126), ('-', 14, 62)]
+strand_nest_inner_fwd_12_10	designed.fa	strandnest	138	ORF of the other strand fully inside; spans [('-', 0, 126), ('+', 12, 48)]
+strand_nest_inner_fwd_13_6	designed.fa	strandnest	138	ORF of the other strand fully inside; spans [('-', 0, 126), ('+', 13, 37)]
+strand_nest_inner_fwd_14_14	designed.fa	strandnest	138	ORF of the other strand fully inside; spans [('-', 0, 126), ('+', 14, 62)]
+strand_overlap_60	designed.fa	strandoverlap	132	forward and reverse ORF overlapping partially; spans [('+', 0, 78), ('-', 60, 126)]
+strand_overlap_63	designed.fa	strandoverlap	135	forward and reverse ORF overlapping partially; spans [('+', 0, 78), ('-', 63, 129)]
+strand_overlap_64	designed.fa	strandoverlap	136	forward and reverse ORF overlapping partially; spans [('+', 0, 78), ('-', 64, 130)]
+strand_overlap_65	designed.fa	strandoverlap	137	forward and reverse ORF overlapping partially; spans [('+', 0, 78), ('-', 65, 131)]
+strand_overlap_90	designed.fa	strandoverlap	162	forward and reverse ORF overlapping partially; spans [('+', 0, 78), ('-', 90, 156)]
+strand_envelop_fwd_in_rev	designed.fa	strandnest	138	forward ORF inside a longer reverse ORF; spans [('+', 12, 48), ('-', 0, 126)]
+strand_equal_span_s2_12	designed.fa	strandequal	48	same forward span [3,45) as a forward and as a reverse stop-to-stop region (-s 2 only)
+strand_equal_span_s2_20	designed.fa	strandequal	72	same forward span [3,69) as a forward and as a reverse stop-to-stop region (-s 2 only)
+strand_equal_span_s2_31	designed.fa	strandequal	105	same forward span [3,102) as a forward and as a reverse stop-to-stop region (-s 2 only)
+strand_share_boundary_s2_8	designed.fa	strandequal	39	forward stop-to-stop region whose first codon TTA is the reverse of a TAA stop
+strand_share_boundary_s2_16	designed.fa	strandequal	63	forward stop-to-stop region whose first codon TTA is the reverse of a TAA stop
+partial5_lead0	designed.fa	partial	69	no start codon before the stop: 5'-partial stop-to-stop region from the sequence start
+partial5_atg_lead0	designed.fa	partial	54	ATG inside, upstream part open
+partial5_lead1	designed.fa	partial	70	no start codon before the stop: 5'-partial stop-to-stop region from the sequence start
+partial5_atg_lead1	designed.fa	partial	55	ATG inside, upstream part open
+partial5_lead2	designed.fa	partial	71	no start codon before the stop: 5'-partial stop-to-stop region from the sequence start
+partial5_atg_lead2	designed.fa	partial	56	ATG inside, upstream part open
+partial3_trail0	designed.fa	partial	69	ATG ... no stop, ends 0 nt after the last codon
+partial3_trail1	designed.fa	partial	70	ATG ... no stop, ends 1 nt after the last codon
+partial3_trail2	designed.fa	partial	71	ATG ... no stop, ends 2 nt after the last codon
+partial3_halfstop_TA	designed.fa	partial	53	ends with the first two bases of a stop
+partial3_halfstop_T	designed.fa	partial	52	ends with the first base of a stop
+partial3_atg_last_codon	designed.fa	partial	33	ATG is the last complete codon (open ORF of one codon)
+partial3_atg_plus1	designed.fa	partial	34	ATG as last complete codon + 1 trailing base
+partial_both_neutral	designed.fa	partial	90	no start, no stop in the leading frame: runs off both ends
+partial_both_atg	designed.fa	partial	90	ATG inside, no stop: open at the 3' end, start missing at the 5' end is irrelevant
+partial_atg_at_0_nostop	designed.fa	partial	78	ATG at position 0 and no stop
+partial_whole_orf	designed.fa	partial	66	ORF covers the whole sequence exactly
+partial_stop_at_0	designed.fa	partial	63	stop at position 0
+partial_stop_last	designed.fa	partial	63	stop is the last codon, no start before it
+partial_atg_pos1_whole	designed.fa	partial	67	ORF in frame 2 covering the sequence from base 2 to the end
+mllen_006	designed.fa	mllen	54	single ATG..stop ORF of 6 nt incl. stop (3 nt without)
+mllen_009	designed.fa	mllen	57	single ATG..stop ORF of 9 nt incl. stop (6 nt without)
+mllen_012	designed.fa	mllen	60	single ATG..stop ORF of 12 nt incl. stop (9 nt without)
+mllen_015	designed.fa	mllen	63	single ATG..stop ORF of 15 nt incl. stop (12 nt without)
+mllen_018	designed.fa	mllen	66	single ATG..stop ORF of 18 nt incl. stop (15 nt without)
+mllen_021	designed.fa	mllen	69	single ATG..stop ORF of 21 nt incl. stop (18 nt without)
+mllen_024	designed.fa	mllen	72	single ATG..stop ORF of 24 nt incl. stop (21 nt without)
+mllen_027	designed.fa	mllen	75	single ATG..stop ORF of 27 nt incl. stop (24 nt without)
+mllen_030	designed.fa	mllen	78	single ATG..stop ORF of 30 nt incl. stop (27 nt without)
+mllen_033	designed.fa	mllen	81	single ATG..stop ORF of 33 nt incl. stop (30 nt without)
+mllen_036	designed.fa	mllen	84	single ATG..stop ORF of 36 nt incl. stop (33 nt without)
+mllen_039	designed.fa	mllen	87	single ATG..stop ORF of 39 nt incl. stop (36 nt without)
+mllen_042	designed.fa	mllen	90	single ATG..stop ORF of 42 nt incl. stop (39 nt without)
+mllen_045	designed.fa	mllen	93	single ATG..stop ORF of 45 nt incl. stop (42 nt without)
+mllen_048	designed.fa	mllen	96	single ATG..stop ORF of 48 nt incl. stop (45 nt without)
+mllen_051	designed.fa	mllen	99	single ATG..stop ORF of 51 nt incl. stop (48 nt without)
+mllen_054	designed.fa	mllen	102	single ATG..stop ORF of 54 nt incl. stop (51 nt without)
+mllen_057	designed.fa	mllen	105	single ATG..stop ORF of 57 nt incl. stop (54 nt without)
+mllen_060	designed.fa	mllen	108	single ATG..stop ORF of 60 nt incl. stop (57 nt without)
+mllen_063	designed.fa	mllen	111	single ATG..stop ORF of 63 nt incl. stop (60 nt without)
+mllen_066	designed.fa	mllen	114	single ATG..stop ORF of 66 nt incl. stop (63 nt without)
+mllen_069	designed.fa	mllen	117	single ATG..stop ORF of 69 nt incl. stop (66 nt without)
+mllen_072	designed.fa	mllen	120	single ATG..stop ORF of 72 nt incl. stop (69 nt without)
+mllen_075	designed.fa	mllen	123	single ATG..stop ORF of 75 nt incl. stop (72 nt without)
+mllen_078	designed.fa	mllen	126	single ATG..stop ORF of 78 nt incl. stop (75 nt without)
+mllen_081	designed.fa	mllen	129	single ATG..stop ORF of 81 nt incl. stop (78 nt without)
+mllen_084	designed.fa	mllen	132	single ATG..stop ORF of 84 nt incl. stop (81 nt without)
+mllen_087	designed.fa	mllen	135	single ATG..stop ORF of 87 nt incl. stop (84 nt without)
+mllen_090	designed.fa	mllen	138	single ATG..stop ORF of 90 nt incl. stop (87 nt without)
+polyA_60	designed.fa	lowcomplex	60	no codon is a start or a stop
+atg_x40	designed.fa	lowcomplex	120	stop-free ATG repeat: open ORF in frame 1
+atgtaa_x10	designed.fa	lowcomplex	60	ten 6-nt ORFs
+taa_x20	designed.fa	lowcomplex	60	only stops
+atgatgtaa_pad	designed.fa	lowcomplex	33	
+cag_x30	designed.fa	lowcomplex	90	CAG repeat: reverse strand CTG start / stop-free
+tttaa_x16	designed.fa	lowcomplex	80	period-5 repeat: all frames mix of stops
+gc_rich_stopfree	designed.fa	lowcomplex	96	GC-rich ORF
+len_30_orf_from_0	designed.fa	lenedge	30	length 30, 30-nt ORF at 0
+len_31_orf_from_0	designed.fa	lenedge	31	length 31, 30-nt ORF at 0
+len_32_orf_from_0	designed.fa	lenedge	32	length 32, 30-nt ORF at 0
+len_33_orf_from_0	designed.fa	lenedge	33	length 33, 30-nt ORF at 0
+len_34_orf_from_0	designed.fa	lenedge	34	length 34, 30-nt ORF at 0
+len_35_orf_from_0	designed.fa	lenedge	35	length 35, 30-nt ORF at 0
+inframe_atg_x2_rc	designed.fa	inframe_rc	87	reverse complement of inframe_atg_x2
+inframe_atg_x3_rc	designed.fa	inframe_rc	108	reverse complement of inframe_atg_x3
+inframe_atg_x4_rc	designed.fa	inframe_rc	138	reverse complement of inframe_atg_x4
+inframe_alt_then_atg_rc	designed.fa	inframe_rc	69	reverse complement of inframe_alt_then_atg
+inframe_ttg_ctg_atg_rc	designed.fa	inframe_rc	72	reverse complement of inframe_ttg_ctg_atg
+start_ATG_rc	designed.fa	start_rc	72	reverse complement of start_ATG
+start_GTG_rc	designed.fa	start_rc	72	reverse complement of start_GTG
+start_TTG_rc	designed.fa	start_rc	72	reverse complement of start_TTG
+start_CTG_rc	designed.fa	start_rc	72	reverse complement of start_CTG
+start_ATT_rc	designed.fa	start_rc	72	reverse complement of start_ATT
+start_ATC_rc	designed.fa	start_rc	72	reverse complement of start_ATC
+start_ATA_rc	designed.fa	start_rc	72	reverse complement of start_ATA
+start_TTA_rc	designed.fa	start_rc	72	reverse complement of start_TTA
+start_ATG_then_atg_rc	designed.fa	start_rc	81	reverse complement of start_ATG_then_atg
+start_GTG_then_atg_rc	designed.fa	start_rc	81	reverse complement of start_GTG_then_atg
+start_TTG_then_atg_rc	designed.fa	start_rc	81	reverse complement of start_TTG_then_atg
+start_CTG_then_atg_rc	designed.fa	start_rc	81	reverse complement of start_CTG_then_atg
+start_ATT_then_atg_rc	designed.fa	start_rc	81	reverse complement of start_ATT_then_atg
+start_ATC_then_atg_rc	designed.fa	start_rc	81	reverse complement of start_ATC_then_atg
+start_ATA_then_atg_rc	designed.fa	start_rc	81	reverse complement of start_ATA_then_atg
+start_TTA_then_atg_rc	designed.fa	start_rc	81	reverse complement of start_TTA_then_atg
+stop_AGA_rc	designed.fa	stop_rc	75	reverse complement of stop_AGA
+stop_AGG_rc	designed.fa	stop_rc	75	reverse complement of stop_AGG
+stop_TAA_rc	designed.fa	stop_rc	75	reverse complement of stop_TAA
+stop_TAG_rc	designed.fa	stop_rc	75	reverse complement of stop_TAG
+stop_TGA_rc	designed.fa	stop_rc	75	reverse complement of stop_TGA
+tga_readthrough_rc	designed.fa	stop_rc	69	reverse complement of tga_readthrough
+aga_agg_pair_rc	designed.fa	stop_rc	75	reverse complement of aga_agg_pair
+every_stop_in_a_row_rc	designed.fa	stop_rc	42	reverse complement of every_stop_in_a_row
+xnest_s1_30_8_rc	designed.fa	xnest_rc	102	reverse complement of xnest_s1_30_8
+xnest_s1_45_12_rc	designed.fa	xnest_rc	147	reverse complement of xnest_s1_45_12
+xnest_s1_24_5_rc	designed.fa	xnest_rc	84	reverse complement of xnest_s1_24_5
+xnest_s2_30_8_rc	designed.fa	xnest_rc	102	reverse complement of xnest_s2_30_8
+xnest_s2_45_12_rc	designed.fa	xnest_rc	147	reverse complement of xnest_s2_45_12
+xnest_s2_24_5_rc	designed.fa	xnest_rc	84	reverse complement of xnest_s2_24_5
+xnest_edge_a4_e4_rc	designed.fa	xnest_rc	120	reverse complement of xnest_edge_a4_e4
+xnest_edge_a5_e5_rc	designed.fa	xnest_rc	120	reverse complement of xnest_edge_a5_e5
+xnest_altstart_a1_ATT_TTG_rc	designed.fa	xnest_rc	102	reverse complement of xnest_altstart_a1_ATT_TTG
+xnest_altstart_a2_ATT_TTG_rc	designed.fa	xnest_rc	102	reverse complement of xnest_altstart_a2_ATT_TTG
+xoverlap_right_4_rc	designed.fa	xoverlap_rc	82	reverse complement of xoverlap_right_4
+xoverlap_left_4_rc	designed.fa	xoverlap_rc	94	reverse complement of xoverlap_left_4
+xoverlap_right_5_rc	designed.fa	xoverlap_rc	83	reverse complement of xoverlap_right_5
+xoverlap_left_5_rc	designed.fa	xoverlap_rc	94	reverse complement of xoverlap_left_5
+xoverlap_right_9_rc	designed.fa	xoverlap_rc	87	reverse complement of xoverlap_right_9
+xoverlap_left_9_rc	designed.fa	xoverlap_rc	94	reverse complement of xoverlap_left_9
+strand_nest_inner_rev_12_10_rc	designed.fa	strandnest_rc	138	reverse complement of strand_nest_inner_rev_12_10
+strand_nest_inner_rev_13_6_rc	designed.fa	strandnest_rc	138	reverse complement of strand_nest_inner_rev_13_6
+strand_nest_inner_rev_14_14_rc	designed.fa	strandnest_rc	138	reverse complement of strand_nest_inner_rev_14_14
+strand_nest_inner_fwd_12_10_rc	designed.fa	strandnest_rc	138	reverse complement of strand_nest_inner_fwd_12_10
+strand_nest_inner_fwd_13_6_rc	designed.fa	strandnest_rc	138	reverse complement of strand_nest_inner_fwd_13_6
+strand_nest_inner_fwd_14_14_rc	designed.fa	strandnest_rc	138	reverse complement of strand_nest_inner_fwd_14_14
+strand_overlap_60_rc	designed.fa	strandoverlap_rc	132	reverse complement of strand_overlap_60
+strand_overlap_63_rc	designed.fa	strandoverlap_rc	135	reverse complement of strand_overlap_63
+strand_overlap_64_rc	designed.fa	strandoverlap_rc	136	reverse complement of strand_overlap_64
+strand_overlap_65_rc	designed.fa	strandoverlap_rc	137	reverse complement of strand_overlap_65
+strand_overlap_90_rc	designed.fa	strandoverlap_rc	162	reverse complement of strand_overlap_90
+strand_envelop_fwd_in_rev_rc	designed.fa	strandnest_rc	138	reverse complement of strand_envelop_fwd_in_rev
+strand_equal_span_s2_12_rc	designed.fa	strandequal_rc	48	reverse complement of strand_equal_span_s2_12
+strand_equal_span_s2_20_rc	designed.fa	strandequal_rc	72	reverse complement of strand_equal_span_s2_20
+strand_equal_span_s2_31_rc	designed.fa	strandequal_rc	105	reverse complement of strand_equal_span_s2_31
+strand_share_boundary_s2_8_rc	designed.fa	strandequal_rc	39	reverse complement of strand_share_boundary_s2_8
+strand_share_boundary_s2_16_rc	designed.fa	strandequal_rc	63	reverse complement of strand_share_boundary_s2_16
+partial5_lead0_rc	designed.fa	partial_rc	69	reverse complement of partial5_lead0
+partial5_atg_lead0_rc	designed.fa	partial_rc	54	reverse complement of partial5_atg_lead0
+partial5_lead1_rc	designed.fa	partial_rc	70	reverse complement of partial5_lead1
+partial5_atg_lead1_rc	designed.fa	partial_rc	55	reverse complement of partial5_atg_lead1
+partial5_lead2_rc	designed.fa	partial_rc	71	reverse complement of partial5_lead2
+partial5_atg_lead2_rc	designed.fa	partial_rc	56	reverse complement of partial5_atg_lead2
+partial3_trail0_rc	designed.fa	partial_rc	69	reverse complement of partial3_trail0
+partial3_trail1_rc	designed.fa	partial_rc	70	reverse complement of partial3_trail1
+partial3_trail2_rc	designed.fa	partial_rc	71	reverse complement of partial3_trail2
+partial3_halfstop_TA_rc	designed.fa	partial_rc	53	reverse complement of partial3_halfstop_TA
+partial3_halfstop_T_rc	designed.fa	partial_rc	52	reverse complement of partial3_halfstop_T
+partial3_atg_last_codon_rc	designed.fa	partial_rc	33	reverse complement of partial3_atg_last_codon
+partial3_atg_plus1_rc	designed.fa	partial_rc	34	reverse complement of partial3_atg_plus1
+partial_both_neutral_rc	designed.fa	partial_rc	90	reverse complement of partial_both_neutral
+partial_both_atg_rc	designed.fa	partial_rc	90	reverse complement of partial_both_atg
+partial_atg_at_0_nostop_rc	designed.fa	partial_rc	78	reverse complement of partial_atg_at_0_nostop
+partial_whole_orf_rc	designed.fa	partial_rc	66	reverse complement of partial_whole_orf
+partial_stop_at_0_rc	designed.fa	partial_rc	63	reverse complement of partial_stop_at_0
+partial_stop_last_rc	designed.fa	partial_rc	63	reverse complement of partial_stop_last
+partial_atg_pos1_whole_rc	designed.fa	partial_rc	67	reverse complement of partial_atg_pos1_whole
+mllen_006_rc	designed.fa	mllen_rc	54	reverse complement of mllen_006
+mllen_009_rc	designed.fa	mllen_rc	57	reverse complement of mllen_009
+mllen_012_rc	designed.fa	mllen_rc	60	reverse complement of mllen_012
+mllen_015_rc	designed.fa	mllen_rc	63	reverse complement of mllen_015
+mllen_018_rc	designed.fa	mllen_rc	66	reverse complement of mllen_018
+mllen_021_rc	designed.fa	mllen_rc	69	reverse complement of mllen_021
+mllen_024_rc	designed.fa	mllen_rc	72	reverse complement of mllen_024
+mllen_027_rc	designed.fa	mllen_rc	75	reverse complement of mllen_027
+mllen_030_rc	designed.fa	mllen_rc	78	reverse complement of mllen_030
+mllen_033_rc	designed.fa	mllen_rc	81	reverse complement of mllen_033
+mllen_036_rc	designed.fa	mllen_rc	84	reverse complement of mllen_036
+mllen_039_rc	designed.fa	mllen_rc	87	reverse complement of mllen_039
+mllen_042_rc	designed.fa	mllen_rc	90	reverse complement of mllen_042
+mllen_045_rc	designed.fa	mllen_rc	93	reverse complement of mllen_045
+mllen_048_rc	designed.fa	mllen_rc	96	reverse complement of mllen_048
+mllen_051_rc	designed.fa	mllen_rc	99	reverse complement of mllen_051
+mllen_054_rc	designed.fa	mllen_rc	102	reverse complement of mllen_054
+mllen_057_rc	designed.fa	mllen_rc	105	reverse complement of mllen_057
+mllen_060_rc	designed.fa	mllen_rc	108	reverse complement of mllen_060
+mllen_063_rc	designed.fa	mllen_rc	111	reverse complement of mllen_063
+mllen_066_rc	designed.fa	mllen_rc	114	reverse complement of mllen_066
+mllen_069_rc	designed.fa	mllen_rc	117	reverse complement of mllen_069
+mllen_072_rc	designed.fa	mllen_rc	120	reverse complement of mllen_072
+mllen_075_rc	designed.fa	mllen_rc	123	reverse complement of mllen_075
+mllen_078_rc	designed.fa	mllen_rc	126	reverse complement of mllen_078
+mllen_081_rc	designed.fa	mllen_rc	129	reverse complement of mllen_081
+mllen_084_rc	designed.fa	mllen_rc	132	reverse complement of mllen_084
+mllen_087_rc	designed.fa	mllen_rc	135	reverse complement of mllen_087
+mllen_090_rc	designed.fa	mllen_rc	138	reverse complement of mllen_090
+polyA_60_rc	designed.fa	lowcomplex_rc	60	reverse complement of polyA_60
+atg_x40_rc	designed.fa	lowcomplex_rc	120	reverse complement of atg_x40
+atgtaa_x10_rc	designed.fa	lowcomplex_rc	60	reverse complement of atgtaa_x10
+taa_x20_rc	designed.fa	lowcomplex_rc	60	reverse complement of taa_x20
+atgatgtaa_pad_rc	designed.fa	lowcomplex_rc	33	reverse complement of atgatgtaa_pad
+cag_x30_rc	designed.fa	lowcomplex_rc	90	reverse complement of cag_x30
+tttaa_x16_rc	designed.fa	lowcomplex_rc	80	reverse complement of tttaa_x16
+gc_rich_stopfree_rc	designed.fa	lowcomplex_rc	96	reverse complement of gc_rich_stopfree
+rnd_iid_000	random.fa	random_iid	768	iid bases GC=0.30 length 768
+rnd_iid_001	random.fa	random_iid	323	iid bases GC=0.40 length 323
+rnd_iid_002	random.fa	random_iid	648	iid bases GC=0.50 length 648
+rnd_iid_003	random.fa	random_iid	624	iid bases GC=0.60 length 624
+rnd_iid_004	random.fa	random_iid	683	iid bases GC=0.70 length 683
+rnd_iid_005	random.fa	random_iid	579	iid bases GC=0.30 length 579
+rnd_iid_006	random.fa	random_iid	486	iid bases GC=0.40 length 486
+rnd_iid_007	random.fa	random_iid	387	iid bases GC=0.50 length 387
+rnd_iid_008	random.fa	random_iid	283	iid bases GC=0.60 length 283
+rnd_iid_009	random.fa	random_iid	564	iid bases GC=0.70 length 564
+rnd_iid_010	random.fa	random_iid	492	iid bases GC=0.30 length 492
+rnd_iid_011	random.fa	random_iid	457	iid bases GC=0.40 length 457
+rnd_iid_012	random.fa	random_iid	613	iid bases GC=0.50 length 613
+rnd_iid_013	random.fa	random_iid	183	iid bases GC=0.60 length 183
+rnd_iid_014	random.fa	random_iid	467	iid bases GC=0.70 length 467
+rnd_iid_015	random.fa	random_iid	369	iid bases GC=0.30 length 369
+rnd_iid_016	random.fa	random_iid	626	iid bases GC=0.40 length 626
+rnd_iid_017	random.fa	random_iid	483	iid bases GC=0.50 length 483
+rnd_iid_018	random.fa	random_iid	366	iid bases GC=0.60 length 366
+rnd_iid_019	random.fa	random_iid	582	iid bases GC=0.70 length 582
+rnd_iid_020	random.fa	random_iid	408	iid bases GC=0.30 length 408
+rnd_iid_021	random.fa	random_iid	836	iid bases GC=0.40 length 836
+rnd_iid_022	random.fa	random_iid	331	iid bases GC=0.50 length 331
+rnd_iid_023	random.fa	random_iid	204	iid bases GC=0.60 length 204
+rnd_iid_024	random.fa	random_iid	653	iid bases GC=0.70 length 653
+rnd_iid_025	random.fa	random_iid	826	iid bases GC=0.30 length 826
+rnd_iid_026	random.fa	random_iid	184	iid bases GC=0.40 length 184
+rnd_iid_027	random.fa	random_iid	725	iid bases GC=0.50 length 725
+rnd_iid_028	random.fa	random_iid	850	iid bases GC=0.60 length 850
+rnd_iid_029	random.fa	random_iid	175	iid bases GC=0.70 length 175
+rnd_iid_030	random.fa	random_iid	64	iid bases GC=0.30 length 64
+rnd_iid_031	random.fa	random_iid	170	iid bases GC=0.40 length 170
+rnd_iid_032	random.fa	random_iid	750	iid bases GC=0.50 length 750
+rnd_iid_033	random.fa	random_iid	878	iid bases GC=0.60 length 878
+rnd_iid_034	random.fa	random_iid	667	iid bases GC=0.70 length 667
+rnd_iid_035	random.fa	random_iid	632	iid bases GC=0.30 length 632
+rnd_iid_036	random.fa	random_iid	333	iid bases GC=0.40 length 333
+rnd_iid_037	random.fa	random_iid	60	iid bases GC=0.50 length 60
+rnd_iid_038	random.fa	random_iid	333	iid bases GC=0.60 length 333
+rnd_iid_039	random.fa	random_iid	342	iid bases GC=0.70 length 342
+rnd_iid_040	random.fa	random_iid	715	iid bases GC=0.30 length 715
+rnd_iid_041	random.fa	random_iid	294	iid bases GC=0.40 length 294
+rnd_iid_042	random.fa	random_iid	553	iid bases GC=0.50 length 553
+rnd_iid_043	random.fa	random_iid	364	iid bases GC=0.60 length 364
+rnd_iid_044	random.fa	random_iid	531	iid bases GC=0.70 length 531
+rnd_iid_045	random.fa	random_iid	346	iid bases GC=0.30 length 346
+rnd_iid_046	random.fa	random_iid	203	iid bases GC=0.40 length 203
+rnd_iid_047	random.fa	random_iid	606	iid bases GC=0.50 length 606
+rnd_iid_048	random.fa	random_iid	812	iid bases GC=0.60 length 812
+rnd_iid_049	random.fa	random_iid	616	iid bases GC=0.70 length 616
+rnd_iid_050	random.fa	random_iid	824	iid bases GC=0.30 length 824
+rnd_iid_051	random.fa	random_iid	412	iid bases GC=0.40 length 412
+rnd_iid_052	random.fa	random_iid	451	iid bases GC=0.50 length 451
+rnd_iid_053	random.fa	random_iid	597	iid bases GC=0.60 length 597
+rnd_iid_054	random.fa	random_iid	258	iid bases GC=0.70 length 258
+rnd_iid_055	random.fa	random_iid	756	iid bases GC=0.30 length 756
+rnd_iid_056	random.fa	random_iid	629	iid bases GC=0.40 length 629
+rnd_iid_057	random.fa	random_iid	122	iid bases GC=0.50 length 122
+rnd_iid_058	random.fa	random_iid	238	iid bases GC=0.60 length 238
+rnd_iid_059	random.fa	random_iid	424	iid bases GC=0.70 length 424
+rnd_dense_000	random.fa	random_dense	1109	mosaic of implanted ORFs on both strands
+rnd_dense_001	random.fa	random_dense	343	mosaic of implanted ORFs on both strands
+rnd_dense_002	random.fa	random_dense	55	mosaic of implanted ORFs on both strands
+rnd_dense_003	random.fa	random_dense	256	mosaic of implanted ORFs on both strands
+rnd_dense_004	random.fa	random_dense	243	mosaic of implanted ORFs on both strands
+rnd_dense_005	random.fa	random_dense	393	mosaic of implanted ORFs on both strands
+rnd_dense_006	random.fa	random_dense	217	mosaic of implanted ORFs on both strands
+rnd_dense_007	random.fa	random_dense	52	mosaic of implanted ORFs on both strands
+rnd_dense_008	random.fa	random_dense	286	mosaic of implanted ORFs on both strands
+rnd_dense_009	random.fa	random_dense	720	mosaic of implanted ORFs on both strands
+rnd_dense_010	random.fa	random_dense	417	mosaic of implanted ORFs on both strands
+rnd_dense_011	random.fa	random_dense	1076	mosaic of implanted ORFs on both strands
+rnd_dense_012	random.fa	random_dense	688	mosaic of implanted ORFs on both strands
+rnd_dense_013	random.fa	random_dense	531	mosaic of implanted ORFs on both strands
+rnd_dense_014	random.fa	random_dense	315	mosaic of implanted ORFs on both strands
+rnd_dense_015	random.fa	random_dense	907	mosaic of implanted ORFs on both strands
+rnd_dense_016	random.fa	random_dense	439	mosaic of implanted ORFs on both strands
+rnd_dense_017	random.fa	random_dense	478	mosaic of implanted ORFs on both strands
+rnd_dense_018	random.fa	random_dense	841	mosaic of implanted ORFs on both strands
+rnd_dense_019	random.fa	random_dense	303	mosaic of implanted ORFs on both strands
+rnd_dense_020	random.fa	random_dense	1440	mosaic of implanted ORFs on both strands
+rnd_dense_021	random.fa	random_dense	583	mosaic of implanted ORFs on both strands
+rnd_dense_022	random.fa	random_dense	899	mosaic of implanted ORFs on both strands
+rnd_dense_023	random.fa	random_dense	152	mosaic of implanted ORFs on both strands
+rnd_dense_024	random.fa	random_dense	456	mosaic of implanted ORFs on both strands
+rnd_dense_025	random.fa	random_dense	982	mosaic of implanted ORFs on both strands
+rnd_dense_026	random.fa	random_dense	466	mosaic of implanted ORFs on both strands
+rnd_dense_027	random.fa	random_dense	569	mosaic of implanted ORFs on both strands
+rnd_dense_028	random.fa	random_dense	569	mosaic of implanted ORFs on both strands
+rnd_dense_029	random.fa	random_dense	389	mosaic of implanted ORFs on both strands
+rnd_dense_030	random.fa	random_dense	1105	mosaic of implanted ORFs on both strands
+rnd_dense_031	random.fa	random_dense	2084	mosaic of implanted ORFs on both strands
+rnd_dense_032	random.fa	random_dense	596	mosaic of implanted ORFs on both strands
+rnd_dense_033	random.fa	random_dense	702	mosaic of implanted ORFs on both strands
+rnd_dense_034	random.fa	random_dense	157	mosaic of implanted ORFs on both strands
+rnd_dense_035	random.fa	random_dense	604	mosaic of implanted ORFs on both strands
+rnd_dense_036	random.fa	random_dense	243	mosaic of implanted ORFs on both strands
+rnd_dense_037	random.fa	random_dense	846	mosaic of implanted ORFs on both strands
+rnd_dense_038	random.fa	random_dense	126	mosaic of implanted ORFs on both strands
+rnd_dense_039	random.fa	random_dense	82	mosaic of implanted ORFs on both strands
+rnd_dense_040	random.fa	random_dense	235	mosaic of implanted ORFs on both strands
+rnd_dense_041	random.fa	random_dense	149	mosaic of implanted ORFs on both strands
+rnd_dense_042	random.fa	random_dense	538	mosaic of implanted ORFs on both strands
+rnd_dense_043	random.fa	random_dense	516	mosaic of implanted ORFs on both strands
+rnd_dense_044	random.fa	random_dense	169	mosaic of implanted ORFs on both strands
+rnd_dense_045	random.fa	random_dense	463	mosaic of implanted ORFs on both strands
+rnd_dense_046	random.fa	random_dense	493	mosaic of implanted ORFs on both strands
+rnd_dense_047	random.fa	random_dense	938	mosaic of implanted ORFs on both strands
+rnd_dense_048	random.fa	random_dense	530	mosaic of implanted ORFs on both strands
+rnd_dense_049	random.fa	random_dense	516	mosaic of implanted ORFs on both strands
+rnd_dense_050	random.fa	random_dense	1760	mosaic of implanted ORFs on both strands
+rnd_dense_051	random.fa	random_dense	245	mosaic of implanted ORFs on both strands
+rnd_dense_052	random.fa	random_dense	579	mosaic of implanted ORFs on both strands
+rnd_dense_053	random.fa	random_dense	349	mosaic of implanted ORFs on both strands
+rnd_dense_054	random.fa	random_dense	125	mosaic of implanted ORFs on both strands
+rnd_dense_055	random.fa	random_dense	516	mosaic of implanted ORFs on both strands
+rnd_dense_056	random.fa	random_dense	769	mosaic of implanted ORFs on both strands
+rnd_dense_057	random.fa	random_dense	207	mosaic of implanted ORFs on both strands
+rnd_dense_058	random.fa	random_dense	706	mosaic of implanted ORFs on both strands
+rnd_dense_059	random.fa	random_dense	1000	mosaic of implanted ORFs on both strands
+rnd_mut_000	random.fa	random_mut	739	point-mutated gene-dense mosaic
+rnd_mut_001	random.fa	random_mut	743	point-mutated gene-dense mosaic
+rnd_mut_002	random.fa	random_mut	471	point-mutated gene-dense mosaic
+rnd_mut_003	random.fa	random_mut	362	point-mutated gene-dense mosaic
+rnd_mut_004	random.fa	random_mut	661	point-mutated gene-dense mosaic
+rnd_mut_005	random.fa	random_mut	441	point-mutated gene-dense mosaic
+rnd_mut_006	random.fa	random_mut	724	point-mutated gene-dense mosaic
+rnd_mut_007	random.fa	random_mut	1050	point-mutated gene-dense mosaic
+rnd_mut_008	random.fa	random_mut	891	point-mutated gene-dense mosaic
+rnd_mut_009	random.fa	random_mut	704	point-mutated gene-dense mosaic
+rnd_mut_010	random.fa	random_mut	759	point-mutated gene-dense mosaic
+rnd_mut_011	random.fa	random_mut	321	point-mutated gene-dense mosaic
+rnd_mut_012	random.fa	random_mut	923	point-mutated gene-dense mosaic
+rnd_mut_013	random.fa	random_mut	180	point-mutated gene-dense mosaic
+rnd_mut_014	random.fa	random_mut	826	point-mutated gene-dense mosaic
+rnd_mut_015	random.fa	random_mut	531	point-mutated gene-dense mosaic
+rnd_mut_016	random.fa	random_mut	660	point-mutated gene-dense mosaic
+rnd_mut_017	random.fa	random_mut	413	point-mutated gene-dense mosaic
+rnd_mut_018	random.fa	random_mut	757	point-mutated gene-dense mosaic
+rnd_mut_019	random.fa	random_mut	548	point-mutated gene-dense mosaic
+rnd_mut_020	random.fa	random_mut	940	point-mutated gene-dense mosaic
+rnd_mut_021	random.fa	random_mut	557	point-mutated gene-dense mosaic
+rnd_mut_022	random.fa	random_mut	268	point-mutated gene-dense mosaic
+rnd_mut_023	random.fa	random_mut	407	point-mutated gene-dense mosaic
+rnd_mut_024	random.fa	random_mut	719	point-mutated gene-dense mosaic
+rnd_mut_025	random.fa	random_mut	659	point-mutated gene-dense mosaic
+rnd_mut_026	random.fa	random_mut	128	point-mutated gene-dense mosaic
+rnd_mut_027	random.fa	random_mut	777	point-mutated gene-dense mosaic
+rnd_mut_028	random.fa	random_mut	803	point-mutated gene-dense mosaic
+rnd_mut_029	random.fa	random_mut	664	point-mutated gene-dense mosaic
+rnd_mut_030	random.fa	random_mut	743	point-mutated gene-dense mosaic
+rnd_mut_031	random.fa	random_mut	369	point-mutated gene-dense mosaic
+rnd_mut_032	random.fa	random_mut	423	point-mutated gene-dense mosaic
+rnd_mut_033	random.fa	random_mut	539	point-mutated gene-dense mosaic
+rnd_mut_034	random.fa	random_mut	849	point-mutated gene-dense mosaic
+rnd_mut_035	random.fa	random_mut	424	point-mutated gene-dense mosaic
+rnd_mut_036	random.fa	random_mut	987	point-mutated gene-dense mosaic
+rnd_mut_037	random.fa	random_mut	472	point-mutated gene-dense mosaic
+rnd_mut_038	random.fa	random_mut	769	point-mutated gene-dense mosaic
+rnd_mut_039	random.fa	random_mut	558	point-mutated gene-dense mosaic
+rnd_long_000	random.fa	random_long	1421	long iid sequence
+rnd_long_001	random.fa	random_long	2098	long iid sequence
+rnd_long_002	random.fa	random_long	1699	long iid sequence
+rnd_long_003	random.fa	random_long	1395	long iid sequence
+rnd_long_004	random.fa	random_long	2145	long iid sequence
+rnd_long_005	random.fa	random_long	2035	long iid sequence
+rnd_long_006	random.fa	random_long	1840	long iid sequence
+rnd_long_007	random.fa	random_long	1719	long iid sequence
+rnd_long_008	random.fa	random_long	998	long iid sequence
+rnd_long_009	random.fa	random_long	1930	long iid sequence
+circ_f_b12_p0_start1	circular.fa	circular	72	forward-strand ORF of 42 nt, genome 72 nt, origin cut at start1 (rotation 16)
+circ_f_b12_p0_start2	circular.fa	circular	72	forward-strand ORF of 42 nt, genome 72 nt, origin cut at start2 (rotation 17)
+circ_f_b12_p0_start3	circular.fa	circular	72	forward-strand ORF of 42 nt, genome 72 nt, origin cut at start3 (rotation 18)
+circ_f_b12_p0_mid	circular.fa	circular	72	forward-strand ORF of 42 nt, genome 72 nt, origin cut at mid (rotation 36)
+circ_f_b12_p0_stop1	circular.fa	circular	72	forward-strand ORF of 42 nt, genome 72 nt, origin cut at stop1 (rotation 55)
+circ_f_b12_p0_stop2	circular.fa	circular	72	forward-strand ORF of 42 nt, genome 72 nt, origin cut at stop2 (rotation 56)
+circ_f_b12_p0_after	circular.fa	circular	72	forward-strand ORF of 42 nt, genome 72 nt, origin cut at after (rotation 57)
+circ_f_b12_p0_before	circular.fa	circular	72	forward-strand ORF of 42 nt, genome 72 nt, origin cut at before (rotation 15)
+circ_f_b12_p1_start1	circular.fa	circular	73	forward-strand ORF of 42 nt, genome 73 nt, origin cut at start1 (rotation 16)
+circ_f_b12_p1_start2	circular.fa	circular	73	forward-strand ORF of 42 nt, genome 73 nt, origin cut at start2 (rotation 17)
+circ_f_b12_p1_start3	circular.fa	circular	73	forward-strand ORF of 42 nt, genome 73 nt, origin cut at start3 (rotation 18)
+circ_f_b12_p1_mid	circular.fa	circular	73	forward-strand ORF of 42 nt, genome 73 nt, origin cut at mid (rotation 36)
+circ_f_b12_p1_stop1	circular.fa	circular	73	forward-strand ORF of 42 nt, genome 73 nt, origin cut at stop1 (rotation 55)
+circ_f_b12_p1_stop2	circular.fa	circular	73	forward-strand ORF of 42 nt, genome 73 nt, origin cut at stop2 (rotation 56)
+circ_f_b12_p1_after	circular.fa	circular	73	forward-strand ORF of 42 nt, genome 73 nt, origin cut at after (rotation 57)
+circ_f_b12_p1_before	circular.fa	circular	73	forward-strand ORF of 42 nt, genome 73 nt, origin cut at before (rotation 15)
+circ_f_b12_p2_start1	circular.fa	circular	74	forward-strand ORF of 42 nt, genome 74 nt, origin cut at start1 (rotation 16)
+circ_f_b12_p2_start2	circular.fa	circular	74	forward-strand ORF of 42 nt, genome 74 nt, origin cut at start2 (rotation 17)
+circ_f_b12_p2_start3	circular.fa	circular	74	forward-strand ORF of 42 nt, genome 74 nt, origin cut at start3 (rotation 18)
+circ_f_b12_p2_mid	circular.fa	circular	74	forward-strand ORF of 42 nt, genome 74 nt, origin cut at mid (rotation 36)
+circ_f_b12_p2_stop1	circular.fa	circular	74	forward-strand ORF of 42 nt, genome 74 nt, origin cut at stop1 (rotation 55)
+circ_f_b12_p2_stop2	circular.fa	circular	74	forward-strand ORF of 42 nt, genome 74 nt, origin cut at stop2 (rotation 56)
+circ_f_b12_p2_after	circular.fa	circular	74	forward-strand ORF of 42 nt, genome 74 nt, origin cut at after (rotation 57)
+circ_f_b12_p2_before	circular.fa	circular	74	forward-strand ORF of 42 nt, genome 74 nt, origin cut at before (rotation 15)
+circ_f_b30_p0_start1	circular.fa	circular	126	forward-strand ORF of 96 nt, genome 126 nt, origin cut at start1 (rotation 16)
+circ_f_b30_p0_start2	circular.fa	circular	126	forward-strand ORF of 96 nt, genome 126 nt, origin cut at start2 (rotation 17)
+circ_f_b30_p0_start3	circular.fa	circular	126	forward-strand ORF of 96 nt, genome 126 nt, origin cut at start3 (rotation 18)
+circ_f_b30_p0_mid	circular.fa	circular	126	forward-strand ORF of 96 nt, genome 126 nt, origin cut at mid (rotation 63)
+circ_f_b30_p0_stop1	circular.fa	circular	126	forward-strand ORF of 96 nt, genome 126 nt, origin cut at stop1 (rotation 109)
+circ_f_b30_p0_stop2	circular.fa	circular	126	forward-strand ORF of 96 nt, genome 126 nt, origin cut at stop2 (rotation 110)
+circ_f_b30_p0_after	circular.fa	circular	126	forward-strand ORF of 96 nt, genome 126 nt, origin cut at after (rotation 111)
+circ_f_b30_p0_before	circular.fa	circular	126	forward-strand ORF of 96 nt, genome 126 nt, origin cut at before (rotation 15)
+circ_f_b30_p1_start1	circular.fa	circular	127	forward-strand ORF of 96 nt, genome 127 nt, origin cut at start1 (rotation 16)
+circ_f_b30_p1_start2	circular.fa	circular	127	forward-strand ORF of 96 nt, genome 127 nt, origin cut at start2 (rotation 17)
+circ_f_b30_p1_start3	circular.fa	circular	127	forward-strand ORF of 96 nt, genome 127 nt, origin cut at start3 (rotation 18)
+circ_f_b30_p1_mid	circular.fa	circular	127	forward-strand ORF of 96 nt, genome 127 nt, origin cut at mid (rotation 63)
+circ_f_b30_p1_stop1	circular.fa	circular	127	forward-strand ORF of 96 nt, genome 127 nt, origin cut at stop1 (rotation 109)
+circ_f_b30_p1_stop2	circular.fa	circular	127	forward-strand ORF of 96 nt, genome 127 nt, origin cut at stop2 (rotation 110)
+circ_f_b30_p1_after	circular.fa	circular	127	forward-strand ORF of 96 nt, genome 127 nt, origin cut at after (rotation 111)
+circ_f_b30_p1_before	circular.fa	circular	127	forward-strand ORF of 96 nt, genome 127 nt, origin cut at before (rotation 15)
+circ_f_b30_p2_start1	circular.fa	circular	128	forward-strand ORF of 96 nt, genome 128 nt, origin cut at start1 (rotation 16)
+circ_f_b30_p2_start2	circular.fa	circular	128	forward-strand ORF of 96 nt, genome 128 nt, origin cut at start2 (rotation 17)
+circ_f_b30_p2_start3	circular.fa	circular	128	forward-strand ORF of 96 nt, genome 128 nt, origin cut at start3 (rotation 18)
+circ_f_b30_p2_mid	circular.fa	circular	128	forward-strand ORF of 96 nt, genome 128 nt, origin cut at mid (rotation 63)
+circ_f_b30_p2_stop1	circular.fa	circular	128	forward-strand ORF of 96 nt, genome 128 nt, origin cut at stop1 (rotation 109)
+circ_f_b30_p2_stop2	circular.fa	circular	128	forward-strand ORF of 96 nt, genome 128 nt, origin cut at stop2 (rotation 110)
+circ_f_b30_p2_after	circular.fa	circular	128	forward-strand ORF of 96 nt, genome 128 nt, origin cut at after (rotation 111)
+circ_f_b30_p2_before	circular.fa	circular	128	forward-strand ORF of 96 nt, genome 128 nt, origin cut at before (rotation 15)
+circ_r_b12_p0_start1	circular.fa	circular	72	reverse-strand ORF of 42 nt, genome 72 nt, origin cut at start1 (rotation 16)
+circ_r_b12_p0_start2	circular.fa	circular	72	reverse-strand ORF of 42 nt, genome 72 nt, origin cut at start2 (rotation 17)
+circ_r_b12_p0_start3	circular.fa	circular	72	reverse-strand ORF of 42 nt, genome 72 nt, origin cut at start3 (rotation 18)
+circ_r_b12_p0_mid	circular.fa	circular	72	reverse-strand ORF of 42 nt, genome 72 nt, origin cut at mid (rotation 36)
+circ_r_b12_p0_stop1	circular.fa	circular	72	reverse-strand ORF of 42 nt, genome 72 nt, origin cut at stop1 (rotation 55)
+circ_r_b12_p0_stop2	circular.fa	circular	72	reverse-strand ORF of 42 nt, genome 72 nt, origin cut at stop2 (rotation 56)
+circ_r_b12_p0_after	circular.fa	circular	72	reverse-strand ORF of 42 nt, genome 72 nt, origin cut at after (rotation 57)
+circ_r_b12_p0_before	circular.fa	circular	72	reverse-strand ORF of 42 nt, genome 72 nt, origin cut at before (rotation 15)
+circ_r_b12_p1_start1	circular.fa	circular	73	reverse-strand ORF of 42 nt, genome 73 nt, origin cut at start1 (rotation 17)
+circ_r_b12_p1_start2	circular.fa	circular	73	reverse-strand ORF of 42 nt, genome 73 nt, origin cut at start2 (rotation 18)
+circ_r_b12_p1_start3	circular.fa	circular	73	reverse-strand ORF of 42 nt, genome 73 nt, origin cut at start3 (rotation 19)
+circ_r_b12_p1_mid	circular.fa	circular	73	reverse-strand ORF of 42 nt, genome 73 nt, origin cut at mid (rotation 37)
+circ_r_b12_p1_stop1	circular.fa	circular	73	reverse-strand ORF of 42 nt, genome 73 nt, origin cut at stop1 (rotation 56)
+circ_r_b12_p1_stop2	circular.fa	circular	73	reverse-strand ORF of 42 nt, genome 73 nt, origin cut at stop2 (rotation 57)
+circ_r_b12_p1_after	circular.fa	circular	73	reverse-strand ORF of 42 nt, genome 73 nt, origin cut at after (rotation 58)
+circ_r_b12_p1_before	circular.fa	circular	73	reverse-strand ORF of 42 nt, genome 73 nt, origin cut at before (rotation 16)
+circ_r_b12_p2_start1	circular.fa	circular	74	reverse-strand ORF of 42 nt, genome 74 nt, origin cut at start1 (rotation 18)
+circ_r_b12_p2_start2	circular.fa	circular	74	reverse-strand ORF of 42 nt, genome 74 nt, origin cut at start2 (rotation 19)
+circ_r_b12_p2_start3	circular.fa	circular	74	reverse-strand ORF of 42 nt, genome 74 nt, origin cut at start3 (rotation 20)
+circ_r_b12_p2_mid	circular.fa	circular	74	reverse-strand ORF of 42 nt, genome 74 nt, origin cut at mid (rotation 38)
+circ_r_b12_p2_stop1	circular.fa	circular	74	reverse-strand ORF of 42 nt, genome 74 nt, origin cut at stop1 (rotation 57)
+circ_r_b12_p2_stop2	circular.fa	circular	74	reverse-strand ORF of 42 nt, genome 74 nt, origin cut at stop2 (rotation 58)
+circ_r_b12_p2_after	circular.fa	circular	74	reverse-strand ORF of 42 nt, genome 74 nt, origin cut at after (rotation 59)
+circ_r_b12_p2_before	circular.fa	circular	74	reverse-strand ORF of 42 nt, genome 74 nt, origin cut at before (rotation 17)
+circ_r_b30_p0_start1	circular.fa	circular	126	reverse-strand ORF of 96 nt, genome 126 nt, origin cut at start1 (rotation 16)
+circ_r_b30_p0_start2	circular.fa	circular	126	reverse-strand ORF of 96 nt, genome 126 nt, origin cut at start2 (rotation 17)
+circ_r_b30_p0_start3	circular.fa	circular	126	reverse-strand ORF of 96 nt, genome 126 nt, origin cut at start3 (rotation 18)
+circ_r_b30_p0_mid	circular.fa	circular	126	reverse-strand ORF of 96 nt, genome 126 nt, origin cut at mid (rotation 63)
+circ_r_b30_p0_stop1	circular.fa	circular	126	reverse-strand ORF of 96 nt, genome 126 nt, origin cut at stop1 (rotation 109)
+circ_r_b30_p0_stop2	circular.fa	circular	126	reverse-strand ORF of 96 nt, genome 126 nt, origin cut at stop2 (rotation 110)
+circ_r_b30_p0_after	circular.fa	circular	126	reverse-strand ORF of 96 nt, genome 126 nt, origin cut at after (rotation 111)
+circ_r_b30_p0_before	circular.fa	circular	126	reverse-strand ORF of 96 nt, genome 126 nt, origin cut at before (rotation 15)
+circ_r_b30_p1_start1	circular.fa	circular	127	reverse-strand ORF of 96 nt, genome 127 nt, origin cut at start1 (rotation 17)
+circ_r_b30_p1_start2	circular.fa	circular	127	reverse-strand ORF of 96 nt, genome 127 nt, origin cut at start2 (rotation 18)
+circ_r_b30_p1_start3	circular.fa	circular	127	reverse-strand ORF of 96 nt, genome 127 nt, origin cut at start3 (rotation 19)
+circ_r_b30_p1_mid	circular.fa	circular	127	reverse-strand ORF of 96 nt, genome 127 nt, origin cut at mid (rotation 64)
+circ_r_b30_p1_stop1	circular.fa	circular	127	reverse-strand ORF of 96 nt, genome 127 nt, origin cut at stop1 (rotation 110)
+circ_r_b30_p1_stop2	circular.fa	circular	127	reverse-strand ORF of 96 nt, genome 127 nt, origin cut at stop2 (rotation 111)
+circ_r_b30_p1_after	circular.fa	circular	127	reverse-strand ORF of 96 nt, genome 127 nt, origin cut at after (rotation 112)
+circ_r_b30_p1_before	circular.fa	circular	127	reverse-strand ORF of 96 nt, genome 127 nt, origin cut at before (rotation 16)
+circ_r_b30_p2_start1	circular.fa	circular	128	reverse-strand ORF of 96 nt, genome 128 nt, origin cut at start1 (rotation 18)
+circ_r_b30_p2_start2	circular.fa	circular	128	reverse-strand ORF of 96 nt, genome 128 nt, origin cut at start2 (rotation 19)
+circ_r_b30_p2_start3	circular.fa	circular	128	reverse-strand ORF of 96 nt, genome 128 nt, origin cut at start3 (rotation 20)
+circ_r_b30_p2_mid	circular.fa	circular	128	reverse-strand ORF of 96 nt, genome 128 nt, origin cut at mid (rotation 65)
+circ_r_b30_p2_stop1	circular.fa	circular	128	reverse-strand ORF of 96 nt, genome 128 nt, origin cut at stop1 (rotation 111)
+circ_r_b30_p2_stop2	circular.fa	circular	128	reverse-strand ORF of 96 nt, genome 128 nt, origin cut at stop2 (rotation 112)
+circ_r_b30_p2_after	circular.fa	circular	128	reverse-strand ORF of 96 nt, genome 128 nt, origin cut at after (rotation 113)
+circ_r_b30_p2_before	circular.fa	circular	128	reverse-strand ORF of 96 nt, genome 128 nt, origin cut at before (rotation 17)
+circ_nest_0	circular.fa	circular	87	two in-frame ATGs, origin somewhere inside
+circ_nest_1	circular.fa	circular	87	two in-frame ATGs, origin somewhere inside
+circ_nest_2	circular.fa	circular	87	two in-frame ATGs, origin somewhere inside
+circ_nest_3	circular.fa	circular	87	two in-frame ATGs, origin somewhere inside
+circ_nest_4	circular.fa	circular	87	two in-frame ATGs, origin somewhere inside
+circ_nest_5	circular.fa	circular	87	two in-frame ATGs, origin somewhere inside
+circ_cross_0	circular.fa	circular	102	overlapping ORFs of two frames/strands, origin cut inside; designed spans before rotation [('+', 12, 90), ('+', 22, 49)]
+circ_cross_1	circular.fa	circular	102	overlapping ORFs of two frames/strands, origin cut inside; designed spans before rotation [('+', 12, 90), ('+', 23, 50)]
+circ_cross_2	circular.fa	circular	102	overlapping ORFs of two frames/strands, origin cut inside; designed spans before rotation [('+', 12, 90), ('+', 22, 49)]
+circ_cross_3	circular.fa	circular	102	overlapping ORFs of two frames/strands, origin cut inside; designed spans before rotation [('+', 12, 90), ('+', 23, 50)]
+circ_cross_4	circular.fa	circular	102	overlapping ORFs of two frames/strands, origin cut inside; designed spans before rotation [('+', 12, 90), ('-', 27, 57)]
+circ_cross_5	circular.fa	circular	102	overlapping ORFs of two frames/strands, origin cut inside; designed spans before rotation [('+', 12, 90), ('-', 28, 58)]
+circ_cross_6	circular.fa	circular	102	overlapping ORFs of two frames/strands, origin cut inside; designed spans before rotation [('+', 12, 90), ('-', 26, 56)]
+circ_cross_7	circular.fa	circular	102	overlapping ORFs of two frames/strands, origin cut inside; designed spans before rotation [('+', 12, 90), ('-', 27, 57)]
+circ_dense_0	circular.fa	circular	118	short gene-dense circular genome 118 nt
+circ_dense_1	circular.fa	circular	182	short gene-dense circular genome 182 nt
+circ_dense_2	circular.fa	circular	158	short gene-dense circular genome 158 nt
+circ_dense_3	circular.fa	circular	81	short gene-dense circular genome 81 nt
+circ_dense_4	circular.fa	circular	135	short gene-dense circular genome 135 nt
+circ_dense_5	circular.fa	circular	120	short gene-dense circular genome 120 nt
+circ_dense_long_0	circular.fa	circular	397	gene-dense, random rotation
+circ_dense_long_1	circular.fa	circular	362	gene-dense, random rotation
+circ_dense_long_2	circular.fa	circular	288	gene-dense, random rotation
+circ_dense_long_3	circular.fa	circular	504	gene-dense, random rotation
+circ_dense_long_4	circular.fa	circular	463	gene-dense, random rotation
+circ_dense_long_5	circular.fa	circular	386	gene-dense, random rotation
+reg_design_000	region.fa	region	300	designed ORFs, forward spans [('-', 242, 296), ('-', 1, 127)]
+reg_design_001	region.fa	region	300	designed ORFs, forward spans [('-', 241, 295)]
+reg_design_002	region.fa	region	300	designed ORFs, forward spans [('-', 147, 213)]
+reg_design_003	region.fa	region	300	designed ORFs, forward spans [('-', 100, 196)]
+reg_design_004	region.fa	region	300	designed ORFs, forward spans [('+', 190, 256)]
+reg_design_005	region.fa	region	300	designed ORFs, forward spans [('+', 176, 248)]
+reg_design_006	region.fa	region	300	designed ORFs, forward spans [('-', 31, 127), ('-', 176, 248), ('+', 242, 296)]
+reg_design_007	region.fa	region	300	designed ORFs, forward spans [('-', 0, 126)]
+reg_design_008	region.fa	region	300	designed ORFs, forward spans [('-', 150, 249)]
+reg_design_009	region.fa	region	300	designed ORFs, forward spans [('+', 151, 250), ('-', 100, 196)]
+reg_design_010	region.fa	region	300	designed ORFs, forward spans [('-', 152, 251)]
+reg_design_011	region.fa	region	300	designed ORFs, forward spans [('+', 211, 295), ('+', 176, 248)]
+reg_design_012	region.fa	region	300	designed ORFs, forward spans [('+', 101, 197)]
+reg_design_013	region.fa	region	300	designed ORFs, forward spans [('-', 61, 127)]
+reg_design_014	region.fa	region	300	designed ORFs, forward spans [('+', 32, 128)]
+reg_design_015	region.fa	region	300	designed ORFs, forward spans [('-', 100, 196)]
+reg_design_016	region.fa	region	300	designed ORFs, forward spans [('+', 150, 249)]
+reg_design_017	region.fa	region	300	designed ORFs, forward spans [('-', 120, 201)]
+reg_design_018	region.fa	region	300	designed ORFs, forward spans [('+', 1, 127)]
+reg_design_019	region.fa	region	300	designed ORFs, forward spans [('-', 191, 257)]
+reg_design_020	region.fa	region	300	designed ORFs, forward spans [('+', 191, 257)]
+reg_design_021	region.fa	region	300	designed ORFs, forward spans [('-', 120, 201)]
+reg_design_022	region.fa	region	300	designed ORFs, forward spans [('+', 60, 126), ('-', 211, 295), ('+', 92, 197)]
+reg_design_023	region.fa	region	300	designed ORFs, forward spans [('-', 191, 257), ('+', 152, 251), ('-', 2, 128)]
+reg_design_024	region.fa	region	300	designed ORFs, forward spans [('+', 100, 196)]
+reg_design_025	region.fa	region	300	designed ORFs, forward spans [('+', 62, 128)]
+reg_design_026	region.fa	region	300	designed ORFs, forward spans [('-', 146, 212)]
+reg_design_027	region.fa	region	300	designed ORFs, forward spans [('+', 210, 297)]
+reg_design_028	region.fa	region	300	designed ORFs, forward spans [('+', 0, 126)]
+reg_design_029	region.fa	region	300	designed ORFs, forward spans [('+', 175, 247)]
+reg_dense_000	region.fa	region	300	gene-dense, cut to 300 nt
+reg_dense_001	region.fa	region	300	gene-dense, cut to 300 nt
+reg_dense_002	region.fa	region	300	gene-dense, cut to 300 nt
+reg_dense_003	region.fa	region	300	gene-dense, cut to 300 nt
+reg_dense_004	region.fa	region	300	gene-dense, cut to 300 nt
+reg_dense_005	region.fa	region	300	gene-dense, cut to 300 nt
+reg_dense_006	region.fa	region	300	gene-dense, cut to 300 nt
+reg_dense_007	region.fa	region	300	gene-dense, cut to 300 nt
+reg_dense_008	region.fa	region	300	gene-dense, cut to 300 nt
+reg_dense_009	region.fa	region	300	gene-dense, cut to 300 nt
+reg_dense_010	region.fa	region	300	gene-dense, cut to 300 nt
+reg_dense_011	region.fa	region	300	gene-dense, cut to 300 nt
+reg_dense_012	region.fa	region	300	gene-dense, cut to 300 nt
+reg_dense_013	region.fa	region	300	gene-dense, cut to 300 nt
+reg_dense_014	region.fa	region	300	gene-dense, cut to 300 nt
+reg_iid_000	region.fa	region	300	iid 300 nt
+reg_iid_001	region.fa	region	300	iid 300 nt
+reg_iid_002	region.fa	region	300	iid 300 nt
+reg_iid_003	region.fa	region	300	iid 300 nt
+reg_iid_004	region.fa	region	300	iid 300 nt
+reg_iid_005	region.fa	region	300	iid 300 nt
+reg_iid_006	region.fa	region	300	iid 300 nt
+reg_iid_007	region.fa	region	300	iid 300 nt
+reg_iid_008	region.fa	region	300	iid 300 nt
+reg_iid_009	region.fa	region	300	iid 300 nt
+reg_iid_010	region.fa	region	300	iid 300 nt
+reg_iid_011	region.fa	region	300	iid 300 nt
+reg_iid_012	region.fa	region	300	iid 300 nt
+reg_iid_013	region.fa	region	300	iid 300 nt
+reg_iid_014	region.fa	region	300	iid 300 nt
+e01_len0	edge/e01_len0.fa	edge	-	malformed / edge-case input
+e02_len1	edge/e02_len1.fa	edge	-	malformed / edge-case input
+e03_len2	edge/e03_len2.fa	edge	-	malformed / edge-case input
+e04_len3_atg	edge/e04_len3_atg.fa	edge	-	malformed / edge-case input
+e05_len6_atgtaa	edge/e05_len6_atgtaa.fa	edge	-	malformed / edge-case input
+e06_len29	edge/e06_len29.fa	edge	-	malformed / edge-case input
+e07_len30_orf	edge/e07_len30_orf.fa	edge	-	malformed / edge-case input
+e08_lowercase	edge/e08_lowercase.fa	edge	-	malformed / edge-case input
+e09_mixedcase	edge/e09_mixedcase.fa	edge	-	malformed / edge-case input
+e10_with_N	edge/e10_with_N.fa	edge	-	malformed / edge-case input
+e11_N_in_start	edge/e11_N_in_start.fa	edge	-	malformed / edge-case input
+e12_N_in_stop	edge/e12_N_in_stop.fa	edge	-	malformed / edge-case input
+e13_iupac_R_Y	edge/e13_iupac_R_Y.fa	edge	-	malformed / edge-case input
+e14_U_rna	edge/e14_U_rna.fa	edge	-	malformed / edge-case input
+e15_gap_dash	edge/e15_gap_dash.fa	edge	-	malformed / edge-case input
+e16_crlf	edge/e16_crlf.fa	edge	-	malformed / edge-case input
+e17_wrapped_60_blank_lines	edge/e17_wrapped_60_blank_lines.fa	edge	-	malformed / edge-case input
+e18_long_header	edge/e18_long_header.fa	edge	-	malformed / edge-case input
+e19_header_with_spaces	edge/e19_header_with_spaces.fa	edge	-	malformed / edge-case input
+e20_no_trailing_newline	edge/e20_no_trailing_newline.fa	edge	-	malformed / edge-case input
+e21_two_records_same_id	edge/e21_two_records_same_id.fa	edge	-	malformed / edge-case input
+e22_protein_input	edge/e22_protein_input.fa	edge	-	malformed / edge-case input
+e23_all_N	edge/e23_all_N.fa	edge	-	malformed / edge-case input
+e24_plus_empty_record_between	edge/e24_plus_empty_record_between.fa	edge	-	malformed / edge-case input
+ce1_ccc_only	circular_edge/ce1_ccc_only.fa	circular_edge	-	circular genome without a terminating stop (run with a timeout)
+ce2_atg_nostop_frame	circular_edge/ce2_atg_nostop_frame.fa	circular_edge	-	circular genome without a terminating stop (run with a timeout)
+ce3_atg_nostop_len_not_mult3	circular_edge/ce3_atg_nostop_len_not_mult3.fa	circular_edge	-	circular genome without a terminating stop (run with a timeout)
+ce4_stop_only_one	circular_edge/ce4_stop_only_one.fa	circular_edge	-	circular genome without a terminating stop (run with a timeout)
+ce5_atg_only_one_stop_elsewhere	circular_edge/ce5_atg_only_one_stop_elsewhere.fa	circular_edge	-	circular genome without a terminating stop (run with a timeout)
+ce6_no_stop_any_strand_atg_both	circular_edge/ce6_no_stop_any_strand_atg_both.fa	circular_edge	-	circular genome without a terminating stop (run with a timeout)
