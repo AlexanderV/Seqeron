@@ -327,7 +327,7 @@
 | validate_dot_bracket | Analysis | RnaSecondaryStructure.ValidateDotBracket | RnaSecondaryStructure.cs#L1418 | 0/0 | – | – | Build-Ready |
 | windowed_complexity | Analysis | SequenceComplexity.CalculateWindowedComplexity | SequenceComplexity.cs#L470 | 0/0 | – | – | Build-Ready |
 | windowed_gc_skew | Analysis | GcSkewCalculator.CalculateWindowedGcSkew | GcSkewCalculator.cs#L147 | 0/0 | – | – | Build-Ready |
-| alignment_statistics | Alignment | SequenceAligner.CalculateStatistics | Alignment/SequenceAligner.cs#L543 | 0/0 | – | – | Build-Ready |
+| alignment_statistics | Alignment | SequenceAligner.CalculateStatistics | Alignment/SequenceAligner.cs#L1064 | 0/0 | – | – | Build-Ready |
 | assemble_de_bruijn | Alignment | SequenceAssembler.AssembleDeBruijn | Alignment/SequenceAssembler.cs#L75 | 0/0 | – | – | Build-Ready |
 | assemble_olc | Alignment | SequenceAssembler.AssembleOLC | Alignment/SequenceAssembler.cs#L48 | 0/0 | – | – | Build-Ready |
 | assembly_stats | Alignment | SequenceAssembler.CalculateStats | Alignment/SequenceAssembler.cs#L415 | 0/0 | – | – | Build-Ready |
@@ -343,7 +343,7 @@
 | find_overlap | Alignment | SequenceAssembler.FindOverlap | Alignment/SequenceAssembler.cs#L176 | 0/0 | – | – | Build-Ready |
 | find_with_edits | Alignment | ApproximateMatcher.FindWithEdits | Alignment/ApproximateMatcher.cs#L113 | 0/0 | – | – | Build-Ready |
 | find_with_mismatches | Alignment | ApproximateMatcher.FindWithMismatches | Alignment/ApproximateMatcher.cs#L21 | 0/0 | – | – | Build-Ready |
-| format_alignment | Alignment | SequenceAligner.FormatAlignment | Alignment/SequenceAligner.cs#L583 | 0/0 | – | – | Build-Ready |
+| format_alignment | Alignment | SequenceAligner.FormatAlignment | Alignment/SequenceAligner.cs#L1194 | 0/0 | – | – | Build-Ready |
 | frequent_kmers_with_mismatches | Alignment | ApproximateMatcher.FindFrequentKmersWithMismatches | Alignment/ApproximateMatcher.cs#L296 | 0/0 | – | – | Build-Ready |
 | frequent_kmers_with_mismatches_and_revcomp | Alignment | ApproximateMatcher.FindFrequentKmersWithMismatchesAndReverseComplements | Alignment/ApproximateMatcher.cs#L967 | 2/2 | ✓ | ✓ | Ready |
 | global_align | Alignment | SequenceAligner.GlobalAlign | Alignment/SequenceAligner.cs#L63 | 0/0 | – | – | Build-Ready |

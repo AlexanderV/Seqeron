@@ -19,7 +19,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 
 | Tool | Description |
 |------|-------------|
-| `alignment_statistics` | Computes match / mismatch / gap counts and percent identity, similarity, and gap percent for a previously produced pairwise alignment. |
+| `alignment_statistics` | Identity / similarity / gap statistics of a pairwise alignment (EMBOSS needle convention: percentages over the full alignment length incl. gap columns); similarity = positive-score columns, optionally with `matrix` = BLOSUM62 / PAM250 / EDNAFULL; also `positives` and `gapOpens`. |
 | `assemble_de_bruijn` | Assembles input reads using a de Bruijn graph: shreds reads into k-mers, builds the (k-1)-mer node graph, traces non-branching paths into… |
 | `assemble_olc` | Assembles input reads into contigs using the overlap–layout–consensus approach: detects pairwise suffix–prefix overlaps above thresholds,… |
 | `assembly_stats` | Computes assembly statistics (N50, longest contig, total length, assembled-reads accounting) for a precomputed list of contigs. |
@@ -35,7 +35,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `find_overlap` | Detects the longest suffix-of-sequence1 / prefix-of-sequence2 overlap satisfying minOverlap and minIdentity thresholds. |
 | `find_with_edits` | Finds all approximate matches of pattern in sequence allowing up to maxEdits Levenshtein edits (insertions, deletions, substitutions) wit… |
 | `find_with_mismatches` | Finds all occurrences of pattern inside sequence allowing up to maxMismatches substitutions (Hamming-style, fixed-length window). |
-| `format_alignment` | Renders a human-readable visual alignment (BLAST-style three-line block with '|' for matches, '.' for mismatches, ' ' for gaps), wrapped… |
+| `format_alignment` | Renders a pairwise alignment in the EMBOSS needle/water three-line style (markup `\|` identity, `:` similar, `.` mismatch, space gap), optionally with `matrix` = BLOSUM62 / PAM250 / EDNAFULL, wrapped to a configurable line width. |
 | `frequent_kmers_with_mismatches` | Finds the most-frequent k-mers within sequence allowing up to d mismatches (counts each k-mer plus all its DNA neighbors at Hamming dista… |
 | `frequent_kmers_with_mismatches_and_revcomp` | Frequent words with mismatches and reverse complements (ROSALIND BA1J): all DNA k-mers P maximising Count_d(sequence, P) + Count_d(sequence… |
 | `global_align` | Global pairwise alignment (Needleman-Wunsch): align the full length of both sequences end-to-end. Linear gap model: every gap position scor… |

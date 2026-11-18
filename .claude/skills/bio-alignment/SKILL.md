@@ -33,8 +33,8 @@ recipe (MCP tool calls **and** the equivalent `Seqeron.Genomics` C# `Method ID`s
 | Align the **whole** of two seqs end-to-end | `global_align` / `SequenceAligner.GlobalAlign` |
 | Find the **best-scoring shared region** (ignore flanks) | `local_align` / `SequenceAligner.LocalAlign` |
 | **Fit** a short query into a long reference / overlap / containment | `semi_global_align` / `SequenceAligner.SemiGlobalAlign` |
-| **Identity % / similarity % / gap %** of an alignment | `alignment_statistics` / `SequenceAligner.CalculateStatistics` |
-| Pretty-print an alignment (`\|` `:` legend) | `format_alignment` / `SequenceAligner.FormatAlignment` |
+| **Identity % / similarity % / gap %** (+ positives, gap openings) of an alignment; protein/IUPAC similarity via `matrix` = BLOSUM62 / PAM250 / EDNAFULL | `alignment_statistics` / `SequenceAligner.CalculateStatistics` |
+| Pretty-print an alignment (EMBOSS needle legend `\|` identity, `:` similar, `.` mismatch, space gap; optional `matrix`) | `format_alignment` / `SequenceAligner.FormatAlignment` |
 | Align **N** sequences → MSA + consensus | `multiple_align` / `SequenceAligner.MultipleAlign` |
 | Consensus from **pre-aligned** equal-length reads | `compute_consensus` / `SequenceAssembler.ComputeConsensus` |
 | Quick **% identity** of two equal-length seqs (no gaps) | `sequence_identity` / `SequenceAssembler.CalculateIdentity` |
@@ -55,10 +55,10 @@ Scoring knobs are shared by all pairwise/MSA tools: `match` (+1), `mismatch` (�
 
 ### (a) Global-align two DNA seqs → identity/similarity/gap %
 1. **[MCP]** `global_align`(sequence1, sequence2) → `alignedSequence1`, `alignedSequence2`, `score`
-2. **[MCP]** `alignment_statistics`(alignedSequence1, alignedSequence2) → `identity`, `similarity`, `gapPercent`
+2. **[MCP]** `alignment_statistics`(alignedSequence1, alignedSequence2) → `identity`, `similarity`, `gapPercent` (+ `positives`, `gapOpens`; pass `matrix` for protein/IUPAC similarity)
 3. **[MCP]** `format_alignment`(…) → human-readable block (optional).
 - **[C# API]** `SequenceAligner.GlobalAlign(s1,s2,match,mismatch,gapOpen,gapExtend)` → `SequenceAligner.CalculateStatistics(aln1,aln2)` → `SequenceAligner.FormatAlignment(aln1,aln2,lineWidth)`.
-- **Note:** `alignment_statistics` uses the EMBOSS-needle denominator = **full alignment length incl. gap columns**; `sequence_identity` uses a **gapless equal-length** denominator — pick deliberately.
+- **Note:** `alignment_statistics` uses the EMBOSS-needle denominator = **full alignment length incl. gap columns** (a column is a gap column when either row has `-`); `sequence_identity` uses a **gapless equal-length** denominator — pick deliberately.
 ```
 Provenance
 1) global_align(s1,s2,match=1,mismatch=-1,gapOpen=-2,gapExtend=-1) → score, aln1, aln2

@@ -1,4 +1,5 @@
 using System.Text;
+using Seqeron.Genomics.Infrastructure;
 
 namespace Seqeron.Genomics.Metagenomics;
 
@@ -1122,15 +1123,9 @@ public static class MetagenomicsAnalyzer
     // Source: Altschul et al., NCBI BLAST tutorial, "The Statistics of Sequence Similarity Scores".
     private static readonly double Ln2 = Math.Log(2.0);
 
-    // BLOSUM62 diagonal (self-match) substitution scores per amino acid.
-    // An exact (ungapped) self-alignment of a protein segment scores the sum of these
-    // entries over its residues. Source: NCBI BLOSUM62 matrix file (blast/matrices/BLOSUM62).
-    private static readonly IReadOnlyDictionary<char, int> Blosum62Diagonal = new Dictionary<char, int>
-    {
-        ['A'] = 4, ['R'] = 5, ['N'] = 6, ['D'] = 6, ['C'] = 9, ['Q'] = 5, ['E'] = 5,
-        ['G'] = 6, ['H'] = 8, ['I'] = 4, ['L'] = 4, ['K'] = 5, ['M'] = 5, ['F'] = 6,
-        ['P'] = 7, ['S'] = 4, ['T'] = 5, ['W'] = 11, ['Y'] = 7, ['V'] = 4,
-    };
+    // The 20 standard amino acids: only these contribute to the BLOSUM62 self-alignment score
+    // (B/Z/X/* have table entries but are not residues of a signature match).
+    private const string StandardAminoAcids = "ARNDCQEGHILKMFPSTWYV";
 
     /// <summary>
     /// Predicts functional annotations by homology-based annotation transfer: each query
@@ -1203,8 +1198,8 @@ public static class MetagenomicsAnalyzer
 
     /// <summary>
     /// Ungapped BLOSUM62 raw self-alignment score of a protein segment: the sum of the
-    /// BLOSUM62 diagonal scores over its residues. Unknown residues contribute 0.
-    /// Source: NCBI BLOSUM62 matrix file.
+    /// BLOSUM62 diagonal scores (canonical <see cref="SubstitutionMatrix.Blosum62"/>) over its residues.
+    /// Non-standard residues contribute 0. Source: NCBI BLOSUM62 matrix file.
     /// </summary>
     public static int Blosum62SelfScore(string segment)
     {
@@ -1214,8 +1209,9 @@ public static class MetagenomicsAnalyzer
         int score = 0;
         foreach (char residue in segment)
         {
-            if (Blosum62Diagonal.TryGetValue(char.ToUpperInvariant(residue), out int s))
-                score += s;
+            char r = char.ToUpperInvariant(residue);
+            if (StandardAminoAcids.Contains(r))
+                score += SubstitutionMatrix.Blosum62.GetScore(r, r);
         }
 
         return score;

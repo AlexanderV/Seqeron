@@ -1,6 +1,6 @@
 # format_alignment
 
-Render a human-readable three-line alignment block (EMBOSS srspair legend: '|' identity, ':' similarity, ' ' gap/mismatch), wrapped to a configurable line width.
+Render a pairwise alignment as three-line blocks in the EMBOSS needle/water (srspair) style: the markup line has '|' for identical columns, ':' for similar columns (positive substitution score), '.' for mismatches and ' ' for gap columns; wrapped to a configurable line width. matrix (BLOSUM62 | PAM250 | EDNAFULL) or the scalar match/mismatch decide which mismatches are similar.
 
 ## Overview
 
@@ -14,11 +14,11 @@ Render a human-readable three-line alignment block (EMBOSS srspair legend: '|' i
 
 ## Description
 
-Render a human-readable three-line alignment block (EMBOSS srspair legend: '|' identity, ':' similarity, ' ' gap/mismatch), wrapped to a configurable line width.
+Render a pairwise alignment as three-line blocks in the EMBOSS needle/water (srspair) style: the markup line has '|' for identical columns, ':' for similar columns (positive substitution score), '.' for mismatches and ' ' for gap columns; wrapped to a configurable line width. matrix (BLOSUM62 | PAM250 | EDNAFULL) or the scalar match/mismatch decide which mismatches are similar.
 
 ## Core Documentation Reference
 
-- Source: [Seqeron.Genomics.Alignment/SequenceAligner.cs#L634](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.cs#L634)
+- Source: [Seqeron.Genomics.Alignment/SequenceAligner.cs](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.cs)
 
 ## Input Schema
 
@@ -27,6 +27,9 @@ Render a human-readable three-line alignment block (EMBOSS srspair legend: '|' i
 | `alignedSequence1` | string | Yes | Aligned representation of sequence1. |
 | `alignedSequence2` | string | Yes | Aligned representation of sequence2. |
 | `lineWidth` | integer | No | Maximum characters per line (>= 1). (default: 60) |
+| `matrix` | string | No | Optional substitution matrix deciding which non-gap columns are similar: BLOSUM62, PAM250 (protein) or EDNAFULL (IUPAC DNA). Omit to use match/mismatch. |
+| `match` | integer | No | Scalar model (used when matrix is omitted): score of an identical pair. (default: 1) |
+| `mismatch` | integer | No | Scalar model (used when matrix is omitted): score of a non-identical pair; > 0 marks mismatches ':' (similar). (default: -1) |
 
 ## Output Schema
 
@@ -60,7 +63,7 @@ Render a human-readable three-line alignment block (EMBOSS srspair legend: '|' i
 **Response:**
 ```json
 {
-  "formatted": "ACGT\n||| \nACGA\n\n"
+  "formatted": "ACGT\n|||.\nACGA\n\n"
 }
 ```
 
@@ -85,11 +88,33 @@ Render a human-readable three-line alignment block (EMBOSS srspair legend: '|' i
 }
 ```
 
+### Example 3: BLOSUM62 similarity marks
+
+**Tool Call:**
+```json
+{
+  "tool": "format_alignment",
+  "arguments": {
+    "alignedSequence1": "LAAK-A",
+    "alignedSequence2": "ISTRAA",
+    "lineWidth": 80,
+    "matrix": "BLOSUM62"
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "formatted": "LAAK-A\n::.: |\nISTRAA\n\n"
+}
+```
+
 ## Worked Example
 
-`ACGT` vs `ACGA` shares three identical columns (`|||`) and one mismatch (space), rendered as a three-line block followed by a blank separator line.
+`ACGT` vs `ACGA` shares three identical columns (`|||`) and one mismatch (`.`), rendered as a three-line block followed by a blank separator line.
 
 ## References
 
-- Algorithm source: [Seqeron.Genomics.Alignment/SequenceAligner.cs#L634](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.cs#L634)
+- Algorithm source: [Seqeron.Genomics.Alignment/SequenceAligner.cs](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.cs)
 - Binding: [AlignmentTools.cs](../../../../src/Seqeron/Mcp/Seqeron.Mcp.Alignment/Tools/AlignmentTools.cs)

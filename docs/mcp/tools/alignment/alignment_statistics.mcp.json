@@ -5,8 +5,8 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "SequenceAligner.CalculateStatistics",
-  "docRef": "Seqeron.Genomics.Alignment/SequenceAligner.cs#L570",
-  "description": "Compute match/mismatch/gap counts and percent identity, similarity, and gap percent for a pairwise alignment (EMBOSS needle convention: denominator is the full alignment length including gap columns).",
+  "docRef": "Seqeron.Genomics.Alignment/SequenceAligner.cs",
+  "description": "Compute identity / similarity / gap statistics for a pairwise alignment (EMBOSS needle convention: every percentage is over the full alignment length including gap columns; a column is a gap column when either row has '-'; residues compared case-insensitively). Similarity counts columns with a positive substitution score (BLAST positives): with matrix = BLOSUM62 | PAM250 | EDNAFULL the published residue-pair table is used, otherwise the scalar match/mismatch model. Also returns positives and gapOpens (number of gap runs).",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -19,6 +19,20 @@
         "type": "string",
         "description": "Aligned representation of sequence2 (must equal alignedSequence1.Length).",
         "minLength": 1
+      },
+      "matrix": {
+        "type": "string",
+        "description": "Optional substitution matrix deciding which non-gap columns are similar: BLOSUM62, PAM250 (protein) or EDNAFULL (IUPAC DNA). Omit to use match/mismatch."
+      },
+      "match": {
+        "type": "integer",
+        "default": 1,
+        "description": "Scalar model (used when matrix is omitted): score of an identical pair; the pair is 'similar' iff this is > 0."
+      },
+      "mismatch": {
+        "type": "integer",
+        "default": -1,
+        "description": "Scalar model (used when matrix is omitted): score of a non-identical pair; the pair is 'similar' iff this is > 0."
       }
     },
     "required": [
@@ -51,11 +65,19 @@
       },
       "similarity": {
         "type": "number",
-        "description": "Percent similarity = (matches + similar substitutions) / length * 100."
+        "description": "Percent similarity = positives / length * 100 (positive-score columns; identical columns whose own score is not positive, e.g. X/X in BLOSUM62, are not similar)."
       },
       "gapPercent": {
         "type": "number",
         "description": "Percent gap columns = gaps / length * 100."
+      },
+      "positives": {
+        "type": "integer",
+        "description": "Number of similar columns (BLAST positives / EMBOSS similarity count)."
+      },
+      "gapOpens": {
+        "type": "integer",
+        "description": "Number of gap runs (maximal '-' runs per row; BLAST tabular gapopen, Biopython open_gaps)."
       }
     },
     "required": [
@@ -65,7 +87,9 @@
       "alignmentLength",
       "identity",
       "similarity",
-      "gapPercent"
+      "gapPercent",
+      "positives",
+      "gapOpens"
     ]
   },
   "errors": [
@@ -92,7 +116,9 @@
         "alignmentLength": 6,
         "identity": 83.33333333333334,
         "similarity": 83.33333333333334,
-        "gapPercent": 16.666666666666664
+        "gapPercent": 16.666666666666664,
+        "positives": 5,
+        "gapOpens": 1
       }
     },
     {
@@ -108,7 +134,28 @@
         "alignmentLength": 4,
         "identity": 100,
         "similarity": 100,
-        "gapPercent": 0
+        "gapPercent": 0,
+        "positives": 4,
+        "gapOpens": 0
+      }
+    },
+    {
+      "name": "BLOSUM62 similarity",
+      "input": {
+        "alignedSequence1": "LAAK-A",
+        "alignedSequence2": "ISTRAA",
+        "matrix": "BLOSUM62"
+      },
+      "output": {
+        "matches": 1,
+        "mismatches": 4,
+        "gaps": 1,
+        "alignmentLength": 6,
+        "identity": 16.666666666666664,
+        "similarity": 66.66666666666666,
+        "gapPercent": 16.666666666666664,
+        "positives": 4,
+        "gapOpens": 1
       }
     }
   ]

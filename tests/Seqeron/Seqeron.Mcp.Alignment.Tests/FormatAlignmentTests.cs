@@ -18,9 +18,19 @@ public class FormatAlignmentTests
     [Test]
     public void FormatAlignment_Binding_InvokesSuccessfully()
     {
-        // EMBOSS srspair legend: '|' identity, ' ' mismatch/gap. "ACGT" vs "ACGA" -> "||| ".
+        // EMBOSS needle 6.6.0 srspair: '|' identity, '.' mismatch, ' ' gap. "ACGT" vs "ACGA" -> "|||.".
         // A single block (width 80) is seq1 line, markup line, seq2 line, then a blank line.
         var r = AlignmentTools.FormatAlignment("ACGT", "ACGA", 80);
-        Assert.That(r.Formatted, Is.EqualTo("ACGT\n||| \nACGA\n\n"));
+        Assert.That(r.Formatted, Is.EqualTo("ACGT\n|||.\nACGA\n\n"));
+    }
+
+    [Test]
+    public void FormatAlignment_Matrix_MarksSimilarColumns()
+    {
+        // BLOSUM62: L/I +2 and A/S +1 are similar (':'), A/T 0 is a mismatch ('.'), K/R +2 similar, gap ' '.
+        var r = AlignmentTools.FormatAlignment("LAAK-A", "ISTRAA", 80, "BLOSUM62");
+        Assert.That(r.Formatted, Is.EqualTo("LAAK-A\n::.: |\nISTRAA\n\n"));
+        // Scalar model with positive mismatch marks every substitution ':'.
+        Assert.That(AlignmentTools.FormatAlignment("ACGT", "ACGA", 80, null, 1, 1).Formatted, Is.EqualTo("ACGT\n|||:\nACGA\n\n"));
     }
 }

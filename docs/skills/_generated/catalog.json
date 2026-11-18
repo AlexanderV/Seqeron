@@ -4,7 +4,7 @@
     "server": "Alignment",
     "methodId": "SequenceAligner.CalculateStatistics",
     "docPath": "docs/mcp/tools/alignment/alignment_statistics.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.cs#L570"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.cs"
   },
   {
     "tool": "assemble_de_bruijn",
@@ -116,7 +116,7 @@
     "server": "Alignment",
     "methodId": "SequenceAligner.FormatAlignment",
     "docPath": "docs/mcp/tools/alignment/format_alignment.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.cs#L634"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.cs"
   },
   {
     "tool": "frequent_kmers_with_mismatches",

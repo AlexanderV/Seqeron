@@ -1,9 +1,24 @@
 # Validation Report: ALIGN-STATS-001 — Pairwise Alignment Statistics (Identity / Similarity / Gaps) and Formatting
 
-- **Validated:** 2026-06-15   **Area:** Alignment
-- **Canonical method(s):** `SequenceAligner.CalculateStatistics(AlignmentResult, ScoringMatrix?)`, `SequenceAligner.FormatAlignment(AlignmentResult, int, ScoringMatrix?)`
-- **Stage A verdict:** PASS-WITH-NOTES
-- **Stage B verdict:** PASS-WITH-NOTES
+- **Validated:** 2026-06-15; re-validated 2026-11-18 (B09)   **Area:** Alignment
+- **Canonical method(s):** `SequenceAligner.CalculateStatistics(AlignmentResult, ScoringMatrix? | SubstitutionMatrix)`, `SequenceAligner.FormatAlignment(AlignmentResult, int, ScoringMatrix? | SubstitutionMatrix)`, `SubstitutionMatrix.Blosum62 / Pam250 / EdnaFull`, MCP `alignment_statistics`, `format_alignment`
+- **Stage A verdict (B09 re-validation):** PASS-WITH-NOTES (2026-06 pass accepted a wrong markup claim — see below)
+- **Stage B verdict (B09 re-validation):** PASS-WITH-NOTES → FIXED (F11–F14)
+
+## B09 re-validation (2026-11-18) — summary
+
+Stage A. Sources actually opened: EMBOSS 6.6 `ajax/core/ajalign.c` (raw.githubusercontent.com; `alignConsStats`, `alignSim`), the local needle/water 6.6.0 binaries and EMBOSS data files (`EBLOSUM62`, `EPAM250`, `EDNAFULL`), Biopython 1.88 (`Alignment.counts`, `substitution_matrices`). The 2026-06 pass relied on the AlignFormats web page (`:` > 1.0, `.` small positive, space mismatch) and on the claim that `.` is unreachable; the binary and the source refute both: needle writes `.` for every aligned non-similar column and space only for gap columns, for identical pairs whose own score is not positive, and (an EMBOSS quirk) for first-row ambiguity residues. The Similarity header counts `M(x,y) > 0 ∧ (M(x,x) > 0 ∨ M(y,y) > 0)`. Denominator = alignment length including gap columns (confirmed on 301 alignments).
+
+Stage B. Findings (details in B09.md): **F11** case-sensitive residue comparison; **F12** unequal rows accepted; **F13** no gap-opening / positives output (BLAST `gapopen`, Biopython `open_gaps` parity); **F14** no residue-pair similarity (protein / IUPAC) — added `SubstitutionMatrix` (BLOSUM62, PAM250, EDNAFULL, every cell equal to the EMBOSS data files and Biopython), exact EMBOSS similarity/markup rule, MCP `matrix` / `match` / `mismatch` parameters, `positives`, `gapOpens`; MCP `format_alignment` description claimed `.` for mismatches while the code printed a space.
+
+Oracle: `TestData/Alignment/needle_water_stats.tsv` (301 alignments, 12 439 columns; generator `scripts/alignment/generate_alignment_stats_oracle.py`, deterministic): Length, Identity, Similarity, Gaps (EMBOSS header), mismatches and open gaps (Biopython), and the markup line of every alignment equal. HBA/HBB published example: Length 149, 65 / 90 / 9 reproduced with the real BLOSUM62 (4 gap runs). Matrices: 576 / 576 / 256 cells equal the EMBOSS data files; 576 / 576 / 225 shared cells equal Biopython 1.88.
+
+Scalar presets verified: `BlastDna` 2 / −3 / −5 / −2 = blastn defaults (reward 2, penalty −3, existence 5, extension 2 under `GapOpen + k·GapExtend`); `HighIdentityDna` match/mismatch = EDNAFULL on ACGT.
+
+---
+
+## Original 2026-06-15 pass (superseded where it conflicts with the above)
+
 
 ## Stage A — Description
 
@@ -80,6 +95,6 @@ Yes. Single O(L) pass classifies each column: gap if either char is `-`; else id
 ## Verdict & follow-ups
 - **Stage A:** PASS-WITH-NOTES (markup `:`/`.` threshold simplification, documented).
 - **Stage B:** PASS-WITH-NOTES (same display nuance; statistics exact and sourced).
-- **End-state:** ✅ CLEAN — no defect; full unfiltered suite **6536 passed / 0 failed**; build 0 errors.
+- **End-state (2026-06):** CLEAN at the time; superseded by the B09 re-validation above (F11–F14 fixed; fast tier see B09.md).
 - **Test-quality gate:** PASS.
 - No logged defects (BY-DESIGN note recorded in FINDINGS_REGISTER §D).

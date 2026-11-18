@@ -5,8 +5,8 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "SequenceAligner.FormatAlignment",
-  "docRef": "Seqeron.Genomics.Alignment/SequenceAligner.cs#L634",
-  "description": "Render a human-readable three-line alignment block (EMBOSS srspair legend: '|' identity, ':' similarity, ' ' gap/mismatch), wrapped to a configurable line width.",
+  "docRef": "Seqeron.Genomics.Alignment/SequenceAligner.cs",
+  "description": "Render a pairwise alignment as three-line blocks in the EMBOSS needle/water (srspair) style: the markup line has '|' for identical columns, ':' for similar columns (positive substitution score), '.' for mismatches and ' ' for gap columns; wrapped to a configurable line width. matrix (BLOSUM62 | PAM250 | EDNAFULL) or the scalar match/mismatch decide which mismatches are similar.",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -25,6 +25,20 @@
         "description": "Maximum characters per line (>= 1).",
         "default": 60,
         "minimum": 1
+      },
+      "matrix": {
+        "type": "string",
+        "description": "Optional substitution matrix deciding which non-gap columns are similar: BLOSUM62, PAM250 (protein) or EDNAFULL (IUPAC DNA). Omit to use match/mismatch."
+      },
+      "match": {
+        "type": "integer",
+        "default": 1,
+        "description": "Scalar model (used when matrix is omitted): score of an identical pair."
+      },
+      "mismatch": {
+        "type": "integer",
+        "default": -1,
+        "description": "Scalar model (used when matrix is omitted): score of a non-identical pair; > 0 marks mismatches ':' (similar)."
       }
     },
     "required": [
@@ -63,7 +77,7 @@
         "lineWidth": 80
       },
       "output": {
-        "formatted": "ACGT\n||| \nACGA\n\n"
+        "formatted": "ACGT\n|||.\nACGA\n\n"
       }
     },
     {
@@ -75,6 +89,18 @@
       },
       "output": {
         "formatted": "ACGT\n||  \nAC-T\n\n"
+      }
+    },
+    {
+      "name": "BLOSUM62 similarity marks",
+      "input": {
+        "alignedSequence1": "LAAK-A",
+        "alignedSequence2": "ISTRAA",
+        "lineWidth": 80,
+        "matrix": "BLOSUM62"
+      },
+      "output": {
+        "formatted": "LAAK-A\n::.: |\nISTRAA\n\n"
       }
     }
   ]

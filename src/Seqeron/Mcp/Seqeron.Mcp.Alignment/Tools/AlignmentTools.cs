@@ -76,39 +76,34 @@ public class AlignmentTools
     }
 
     [McpServerTool(Name = "alignment_statistics", Title = "Alignment — Statistics", ReadOnly = true)]
-    [Description("Computes match / mismatch / gap counts and percent identity, similarity, and gap percent for a previously produced pairwise alignment.")]
+    [Description("Computes identity / similarity / gap statistics for a pairwise alignment (EMBOSS needle convention: every percentage is over the full alignment length, gap columns included; a column is a gap column when either row has '-'; residues compared case-insensitively). Similarity counts columns with a POSITIVE substitution score (BLAST positives): with matrix = BLOSUM62 | PAM250 | EDNAFULL the published residue-pair table is used, otherwise the scalar match/mismatch model (similarity = identity for match > 0 >= mismatch). Also returns positives and gapOpens (number of gap runs, BLAST gapopen).")]
     public static AlignmentStatisticsDto AlignmentStatistics(
         [Description("Aligned representation of sequence1 (with '-' gaps).")] string alignedSequence1,
-        [Description("Aligned representation of sequence2 (with '-' gaps).")] string alignedSequence2)
+        [Description("Aligned representation of sequence2 (with '-' gaps).")] string alignedSequence2,
+        [Description("Optional substitution matrix deciding which non-gap columns are similar: BLOSUM62, PAM250 (protein) or EDNAFULL (IUPAC DNA). Omit to use match/mismatch.")] string? matrix = null,
+        [Description("Scalar model (used when matrix is omitted): score of an identical pair; the pair is 'similar' iff this is > 0.")] int match = 1,
+        [Description("Scalar model (used when matrix is omitted): score of a non-identical pair; the pair is 'similar' iff this is > 0.")] int mismatch = -1)
     {
-        if (string.IsNullOrEmpty(alignedSequence1))
-            throw new ArgumentException("Aligned sequence cannot be null or empty.", nameof(alignedSequence1));
-        if (string.IsNullOrEmpty(alignedSequence2))
-            throw new ArgumentException("Aligned sequence cannot be null or empty.", nameof(alignedSequence2));
-
-        var a1 = alignedSequence1;
-        var a2 = alignedSequence2;
-
-        if (a1.Length != a2.Length)
-            throw new ArgumentException("Aligned sequences must have equal length.", nameof(alignedSequence2));
-
-        var ar = new global::Seqeron.Genomics.Infrastructure.AlignmentResult(
-            a1, a2, 0,
-            global::Seqeron.Genomics.Infrastructure.AlignmentType.Global,
-            0, 0, 0, 0);
-
-        var s = global::Seqeron.Genomics.Alignment.SequenceAligner.CalculateStatistics(ar);
+        var ar = ToPairwise(alignedSequence1, alignedSequence2);
+        var sub = ResolveMatrix(matrix);
+        var s = sub is null
+            ? global::Seqeron.Genomics.Alignment.SequenceAligner.CalculateStatistics(
+                ar, new global::Seqeron.Genomics.Infrastructure.ScoringMatrix(match, mismatch, 0, 0))
+            : global::Seqeron.Genomics.Alignment.SequenceAligner.CalculateStatistics(ar, sub);
         return new AlignmentStatisticsDto(
             s.Matches, s.Mismatches, s.Gaps, s.AlignmentLength,
-            s.Identity, s.Similarity, s.GapPercent);
+            s.Identity, s.Similarity, s.GapPercent, s.Positives, s.GapOpens);
     }
 
     [McpServerTool(Name = "format_alignment", Title = "Alignment — Pretty Format", ReadOnly = true)]
-    [Description("Renders a human-readable visual alignment (BLAST-style three-line block with '|' for matches, '.' for mismatches, ' ' for gaps), wrapped to a configurable line width.")]
+    [Description("Renders a pairwise alignment as three-line blocks in the EMBOSS needle/water (srspair) style: the markup line has '|' for identical columns, ':' for similar columns (positive substitution score), '.' for mismatches and ' ' for gap columns; wrapped to a configurable line width. matrix (BLOSUM62 | PAM250 | EDNAFULL) or the scalar match/mismatch decide which mismatches are similar.")]
     public static FormatAlignmentResult FormatAlignment(
         [Description("Aligned representation of sequence1.")] string alignedSequence1,
         [Description("Aligned representation of sequence2.")] string alignedSequence2,
-        [Description("Maximum characters per line in the formatted output (>= 1).")] int lineWidth = 60)
+        [Description("Maximum characters per line in the formatted output (>= 1).")] int lineWidth = 60,
+        [Description("Optional substitution matrix deciding which non-gap columns are similar: BLOSUM62, PAM250 or EDNAFULL. Omit to use match/mismatch.")] string? matrix = null,
+        [Description("Scalar model (used when matrix is omitted): score of an identical pair.")] int match = 1,
+        [Description("Scalar model (used when matrix is omitted): score of a non-identical pair; > 0 marks mismatches ':' (similar).")] int mismatch = -1)
     {
         if (string.IsNullOrEmpty(alignedSequence1))
             throw new ArgumentException("Aligned sequence cannot be null or empty.", nameof(alignedSequence1));
@@ -117,15 +112,41 @@ public class AlignmentTools
         if (lineWidth < 1)
             throw new ArgumentOutOfRangeException(nameof(lineWidth), "lineWidth must be >= 1.");
 
-        var ar = new global::Seqeron.Genomics.Infrastructure.AlignmentResult(
-            alignedSequence1,
-            alignedSequence2,
-            0,
+        var ar = ToPairwise(alignedSequence1, alignedSequence2);
+        var sub = ResolveMatrix(matrix);
+        var formatted = sub is null
+            ? global::Seqeron.Genomics.Alignment.SequenceAligner.FormatAlignment(
+                ar, lineWidth, new global::Seqeron.Genomics.Infrastructure.ScoringMatrix(match, mismatch, 0, 0))
+            : global::Seqeron.Genomics.Alignment.SequenceAligner.FormatAlignment(ar, lineWidth, sub);
+        return new FormatAlignmentResult(formatted);
+    }
+
+    private static global::Seqeron.Genomics.Infrastructure.AlignmentResult ToPairwise(string alignedSequence1, string alignedSequence2)
+    {
+        if (string.IsNullOrEmpty(alignedSequence1))
+            throw new ArgumentException("Aligned sequence cannot be null or empty.", nameof(alignedSequence1));
+        if (string.IsNullOrEmpty(alignedSequence2))
+            throw new ArgumentException("Aligned sequence cannot be null or empty.", nameof(alignedSequence2));
+        if (alignedSequence1.Length != alignedSequence2.Length)
+            throw new ArgumentException("Aligned sequences must have equal length.", nameof(alignedSequence2));
+
+        return new global::Seqeron.Genomics.Infrastructure.AlignmentResult(
+            alignedSequence1, alignedSequence2, 0,
             global::Seqeron.Genomics.Infrastructure.AlignmentType.Global,
             0, 0, 0, 0);
+    }
 
-        var formatted = global::Seqeron.Genomics.Alignment.SequenceAligner.FormatAlignment(ar, lineWidth);
-        return new FormatAlignmentResult(formatted);
+    private static global::Seqeron.Genomics.Infrastructure.SubstitutionMatrix? ResolveMatrix(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            return null;
+        return name.Trim().ToUpperInvariant() switch
+        {
+            "BLOSUM62" or "EBLOSUM62" => global::Seqeron.Genomics.Infrastructure.SubstitutionMatrix.Blosum62,
+            "PAM250" or "EPAM250" => global::Seqeron.Genomics.Infrastructure.SubstitutionMatrix.Pam250,
+            "EDNAFULL" or "NUC.4.4" or "NUC44" => global::Seqeron.Genomics.Infrastructure.SubstitutionMatrix.EdnaFull,
+            _ => throw new ArgumentException($"Unknown matrix '{name}'. Supported: BLOSUM62, PAM250, EDNAFULL.", nameof(name))
+        };
     }
 
     [McpServerTool(Name = "global_align_affine", Title = "Pairwise — Global Alignment, Affine Gaps (Gotoh)", ReadOnly = true)]

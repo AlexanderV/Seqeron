@@ -2,7 +2,7 @@
 
 **Test Unit ID:** ALIGN-STATS-001
 **Algorithm:** Pairwise Alignment Statistics (Identity / Similarity / Gaps) and Alignment Formatting
-**Date Collected:** 2026-06-13
+**Date Collected:** 2026-06-13 (re-validated 2026-11-18, B09)
 
 ---
 
@@ -38,7 +38,7 @@
 
 **Key Extracted Points:**
 
-1. **Standard (pair / srspair) markup line legend:** `|` marks an identical position; `:` marks a similar position (substitution score > 1.0); `.` marks a small positive score; a space marks a mismatch or a gap.
+1. **Standard (pair / srspair) markup line legend (as printed on the page):** `|` identical; `:` similar (score > 1.0); `.` small positive score; space mismatch or gap. **Superseded 2026-11-18:** the needle/water 6.6.0 binary and `ajalign.c` write `.` for every aligned non-similar column and space only for gap columns (and for identities / first-row ambiguity residues without a positive self score) — see the next section.
 2. **Three-line layout:** the markup/consensus line is placed between the two aligned sequence lines.
 
 ### NCBI BLAST — pairwise alignment metric definitions
@@ -74,6 +74,28 @@
 1. **Identity:** "percentage of identical residues in equivalent positions with respect to the sequence length." With the `alignment` length option the denominator is "total alignment length including gap-only columns."
 2. **Similarity:** "percentage of identical or similar residues in equivalent positions." A position counts as similar when the residues score positively under the substitution matrix; gap-only columns are ignored from the similar count.
 
+
+### B09 re-validation (2026-11-18): EMBOSS 6.6 source, needle/water 6.6.0 binaries, Biopython 1.88
+
+**Opened:** `https://raw.githubusercontent.com/kimrutherford/EMBOSS/master/ajax/core/ajalign.c` (User-Agent `Seqeron-review/1.0`); local Debian `emboss` 6.6.0 (`needle`, `water`, data files `EBLOSUM62`, `EPAM250`, `EDNAFULL`); PyPI `biopython==1.88`. Authority rank 1 (reference implementation source + binary).
+
+**Key Extracted Points (alignConsStats / alignSim, two sequences, weights 1, plurality 51 % ⇒ threshold 1.02):**
+
+1. A column's per-residue "matching" weight is `[M(x,x)>0] + [M(x,y)>0]` (the inner loop includes the sequence itself); `issim` (counted in the header Similarity) iff some residue reaches ≥ 1.02, i.e. `M(x,y) > 0` and a positive self score of x or y; `isident` iff both residues equal. Identity count = `isident` columns (the header Identity counts identical residues regardless of score).
+2. Markup is built from the consensus residue of the FIRST row: weight 2 → upper-case (`|` if identical, else lower-case `:`), weight 1 → `#` → `.`, weight 0 → gap char → space. Hence X/X (self −1) → space; IUPAC/X residue in row 1 with non-positive self score → `.` or space even when the pair score is positive (needle: R/A `.`, A/R `:`; header similarity counts both).
+3. Gap column: any row `-` → "Gaps" count and a space in the markup.
+4. Header: Length = alignment columns incl. gaps; Identity/Similarity/Gaps counts over Length.
+
+**Binary experiments (needle 6.6.0, `-aformat srspair`):** every single-residue pair of BLOSUM62 with W flanks and every IUPAC DNA code pair with A flanks, both orders (EDNAFULL): all markup characters equal the rule in point 2.
+
+**Oracle table** `tests/.../TestData/Alignment/needle_water_stats.tsv` (generator `scripts/alignment/generate_alignment_stats_oracle.py`, seed 20261104, regenerates byte-identical): 301 alignments (needle global + water local; random DNA / IUPAC-DNA with EDNAFULL / protein with EBLOSUM62 and EPAM250 incl. B, Z, X; the published HBA/HBB example as #0) = 12 439 aligned columns. Per row: EMBOSS Length/Identity/Similarity/Gaps and markup line, Biopython 1.88 `Alignment.counts(substitution_matrix)` mismatches and `open_gaps`. Seqeron equals every field.
+
+**Matrix tables:** all 576 (BLOSUM62), 576 (PAM250) and 256 (EDNAFULL) cells equal the EMBOSS 6.6 data files; BLOSUM62 / PAM250 / NUC.4.4 equal Biopython 1.88 `substitution_matrices` on all 576 / 576 / 225 shared cells.
+
+**BLAST / Biopython conventions recorded:** identities/positives/gaps/`gapopen` (BLAST tabular: gap *openings*) and Biopython `identities`, `mismatches`, `positives`, `gaps`, `open_gaps` — same counts as the oracle columns; percent denominators are the alignment length including gaps (EMBOSS and BLAST HSP header), never the shorter sequence.
+
+**Gap-scoring note (not a statistic):** EMBOSS needle/water charge a gap of length k as `gapopen + (k-1)·gapextend`; BLAST+ and this library's affine aligners charge `GapOpen + k·GapExtend`.
+
 ---
 
 ## Documented Corner Cases and Failure Modes
@@ -104,7 +126,7 @@
 | Gaps (count / %) | 9 / 149 = 6.0% |
 | Score | 292.5 |
 
-> This protein example validates the **formula and denominator** (count / Length × 100, Length includes gaps). The repository implementation operates on DNA with a simple match/mismatch model and does not ship the EBLOSUM62 matrix, so the exact 65/90/9 protein counts are reproduced as a formula-level cross-check (see Dataset below), not as a literal API call.
+> Since 2026-11-18 the library ships BLOSUM62 (`SubstitutionMatrix.Blosum62`) and this protein example is reproduced literally (needle 6.6.0 rows, 65/90/9, 4 gap runs).
 
 ### Dataset: Formula reconstruction from the EMBOSS counts
 
@@ -141,7 +163,7 @@ seq2: A C C T A A C - T
 
 Length = 9, Matches = 6, Mismatches = 1, Gaps = 2.
 Identity = 6/9 × 100 = 66.6̅%; Similarity = 6/9 × 100 = 66.6̅% (no positive non-identical column under SimpleDna); Gap% = 2/9 × 100 = 22.2̅%.
-Markup line (srspair legend, SimpleDna): `||` `space` `|` `space` `||` `space` `|` → `||.|` is **not** used; mismatch and gap are both space: `|| | || |` with column 3 a space and columns 5,8 spaces.
+Markup line (needle 6.6.0 style, SimpleDna): `||.` `|` ` ` `||` ` ` `|` → `||.| || |` (mismatch `.`, gap columns space).
 
 ### Dataset: Similarity > Identity case (positive-scoring mismatch)
 
@@ -161,7 +183,7 @@ Markup line: `||:|` ( `:` marks the similar column).
 
 ## Assumptions
 
-1. **ASSUMPTION: srspair `.` (small positive score) collapses to `:` for these models.** EMBOSS distinguishes `:` (score > 1.0) from `.` (small positive score) using the magnitude of the substitution score. The DNA models exposed by this class use a single integer Match/Mismatch scalar with no graded positive scores, so only two outcomes exist: identical (`|`) or non-positive (space); a positive non-identical score, when one is configured, is rendered `:`. The `.` tier is unreachable with the available scoring model and is therefore not emitted. This is a rendering-only choice; it does not affect any counted statistic. Resolved as non-correctness-affecting for the statistics; documented for the formatter.
+None. (The 2026-06 assumption that the srspair `.` tier is unreachable and collapses to `:` was refuted by the needle/water 6.6.0 binary and `ajalign.c` on 2026-11-18; the rule is now implemented exactly, see above.)
 
 ---
 
@@ -171,7 +193,7 @@ Markup line: `||:|` ( `:` marks the similar column).
 2. **MUST Test:** DNA SimpleDna alignment ⇒ Similarity equals Identity (no positive non-identical columns). — Evidence: EMBOSS/BLAST "positive substitution score ⇒ similar"; DNA Mismatch < 0.
 3. **MUST Test:** Positive-scoring mismatch (Mismatch = +1) ⇒ Similarity > Identity, similar column counted. — Evidence: EMBOSS/BLAST/pseqsid similarity rule.
 4. **MUST Test:** Gap counting — column with either side `-` counts as gap, not identity/mismatch. — Evidence: BLAST gap definition; EMBOSS gap count.
-5. **MUST Test:** FormatAlignment markup legend `|`/`:`/space per srspair. — Evidence: EMBOSS AlignFormats.
+5. **MUST Test:** FormatAlignment markup `|`/`:`/`.`/space per needle 6.6.0 (identity, similar, mismatch, gap; X/X and first-row ambiguity quirk). — Evidence: ajalign.c + binary.
 6. **SHOULD Test:** Empty alignment ⇒ AlignmentStatistics.Empty / "" — Rationale: documented empty handling, denominator undefined.
 7. **SHOULD Test:** Null alignment ⇒ ArgumentNullException; non-positive lineWidth ⇒ ArgumentOutOfRangeException — Rationale: input validation contract.
 8. **COULD Test:** FormatAlignment line wrapping at lineWidth (multi-block output) — Rationale: formatting completeness.
@@ -192,3 +214,4 @@ Markup line: `||:|` ( `:` marks the similar column).
 ## Change History
 
 - **2026-06-13**: Initial documentation.
+- **2026-11-18**: B09 re-validation against the EMBOSS 6.6 source, needle/water 6.6.0 binaries and Biopython 1.88; oracle table, matrix cross-check, corrected markup and similarity rules.
