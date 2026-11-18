@@ -463,6 +463,20 @@ public sealed record MultipleAlignmentResult(
     string Consensus,
     int TotalScore)
 {
+    private readonly double? _exactTotalScore;
+
+    /// <summary>
+    /// Sum-of-pairs score as a real number. Equal to <see cref="TotalScore"/> for every integer-scored (<see cref="ScoringMatrix"/>)
+    /// aligner; the <see cref="MatrixScoring"/> aligners (substitution matrix, possibly fractional gap penalties such as 0.5) set it to
+    /// the exact score while <see cref="TotalScore"/> then holds that value rounded half away from zero (as
+    /// <see cref="AlignmentResult.ExactScore"/> for pairwise alignments).
+    /// </summary>
+    public double ExactTotalScore
+    {
+        get => _exactTotalScore ?? TotalScore;
+        init => _exactTotalScore = value;
+    }
+
     public static MultipleAlignmentResult Empty => new(Array.Empty<string>(), "", 0);
 }
 

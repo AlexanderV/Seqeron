@@ -719,6 +719,10 @@ public static partial class SequenceAligner
 
     // ---- public linear-space entry points ----------------------------------------------------------------------
 
+    /// <summary>Exact linear-space global alignment (linear or affine gaps) under an already built scoring model (upper-case inputs).</summary>
+    internal static AlignmentResult GlobalLinearSpace(string a, string b, PairScoring sc, bool affine, long baseCells) =>
+        LinearSpaceAlign(a, b, sc, affine, local: false, EndGaps.None, baseCells, default);
+
     private static AlignmentResult ScalarLinearSpace(
         string sequence1, string sequence2, ScoringMatrix? scoring, bool affine, bool local, EndGaps ends, long baseCells)
     {

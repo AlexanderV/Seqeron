@@ -1,6 +1,6 @@
 # multiple_align
 
-Center-star multiple sequence alignment (Gusfield 1993) with exact pairwise alignments: the center is the sequence with the highest total optimal pairwise global score to the others, every other sequence is aligned to it with the canonical global aligner (Needleman–Wunsch, or Gotoh affine with gapModel='affine') and the pairwise alignments are merged column-wise (once a gap, always a gap). Default linear gap model (every gap position costs gapExtend; gapOpen is ignored); gapModel='affine' charges gapOpen + k·gapExtend per gap run and reports the natural affine sum-of-pairs score. For two sequences the result is an optimal pairwise global alignment under either model. Returns the aligned rows, majority consensus and sum-of-pairs score (gap-gap columns score 0).
+Center-star multiple sequence alignment (Gusfield 1993) with exact pairwise alignments: the center is the sequence with the highest total optimal pairwise global score to the others, every other sequence is aligned to it with the canonical global aligner (Needleman–Wunsch, or Gotoh affine with gapModel='affine') and the pairwise alignments are merged column-wise (once a gap, always a gap). Default linear gap model (every gap position costs gapExtend; gapOpen is ignored); gapModel='affine' charges gapOpen + k·gapExtend per gap run and reports the natural affine sum-of-pairs score. For two sequences the result is an optimal pairwise global alignment under either model. Returns the aligned rows, majority consensus and sum-of-pairs score (gap-gap columns score 0). PROTEIN / MATRIX: type='protein' (or matrix = BLOSUM62 | PAM250 | EDNAFULL) scores residue pairs with the published substitution table and real-valued (fractional) gap scores through the same code (string / ProteinSequence overloads of SequenceAligner.MultipleAlign); the result carries exactTotalScore. Equal row for row to an independent Python implementation on 238 protein / IUPAC sets (linear and affine) and, for two sequences, to the Biopython 1.88 optimum.
 
 ## Overview
 
@@ -14,7 +14,7 @@ Center-star multiple sequence alignment (Gusfield 1993) with exact pairwise alig
 
 ## Description
 
-Center-star multiple sequence alignment (Gusfield 1993) with exact pairwise alignments: the center is the sequence with the highest total optimal pairwise global score to the others, every other sequence is aligned to it with the canonical global aligner (Needleman–Wunsch, or Gotoh affine with gapModel='affine') and the pairwise alignments are merged column-wise (once a gap, always a gap). Default linear gap model (every gap position costs gapExtend; gapOpen is ignored); gapModel='affine' charges gapOpen + k·gapExtend per gap run and reports the natural affine sum-of-pairs score. For two sequences the result is an optimal pairwise global alignment under either model. Returns the aligned rows, majority consensus and sum-of-pairs score (gap-gap columns score 0).
+Center-star multiple sequence alignment (Gusfield 1993) with exact pairwise alignments: the center is the sequence with the highest total optimal pairwise global score to the others, every other sequence is aligned to it with the canonical global aligner (Needleman–Wunsch, or Gotoh affine with gapModel='affine') and the pairwise alignments are merged column-wise (once a gap, always a gap). Default linear gap model (every gap position costs gapExtend; gapOpen is ignored); gapModel='affine' charges gapOpen + k·gapExtend per gap run and reports the natural affine sum-of-pairs score. For two sequences the result is an optimal pairwise global alignment under either model. Returns the aligned rows, majority consensus and sum-of-pairs score (gap-gap columns score 0). PROTEIN / MATRIX: type='protein' (or matrix = BLOSUM62 | PAM250 | EDNAFULL) scores residue pairs with the published substitution table and real-valued (fractional) gap scores through the same code (string / ProteinSequence overloads of SequenceAligner.MultipleAlign); the result carries exactTotalScore. Equal row for row to an independent Python implementation on 238 protein / IUPAC sets (linear and affine) and, for two sequences, to the Biopython 1.88 optimum.
 
 ## Core Documentation Reference
 
@@ -24,12 +24,14 @@ Center-star multiple sequence alignment (Gusfield 1993) with exact pairwise alig
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `sequences` | array<string> | Yes | DNA sequences to align (at least one). |
+| `sequences` | array<string> | Yes | Sequences to align (at least one): DNA (A, C, G, T) by default, amino acids with type='protein'. |
 | `match` | integer | No | Score for matching base. (default: 1) |
 | `mismatch` | integer | No | Score for mismatching base. (default: -1) |
-| `gapOpen` | integer | No | Gap-open penalty. Used only with gapModel='affine' (a gap of length k then costs gapOpen + k * gapExtend, Gotoh); ignored by the default linear model. (default: -2) |
-| `gapExtend` | integer | No | Gap penalty per gap position (linear model: every gap position; affine model: the per-position part of gapOpen + k * gapExtend). (default: -1) |
+| `gapOpen` | number | No | Gap-open penalty. Used only with gapModel='affine' (a gap of length k then costs gapOpen + k * gapExtend, Gotoh); ignored by the default linear model. May be fractional only with a substitution matrix (type='protein' or matrix). (default: -2) |
+| `gapExtend` | number | No | Gap penalty per gap position (linear model: every gap position; affine model: the per-position part of gapOpen + k * gapExtend). May be fractional (e.g. -0.5) only with a substitution matrix (type='protein' or matrix). (default: -1) |
 | `gapModel` | string | No | 'linear' (default): every gap position costs gapExtend and gapOpen is ignored; totalScore is the column sum of pairs (gap-gap columns 0). 'affine': gap runs cost gapOpen + k * gapExtend; the pairwise / profile alignments use affine (Gotoh) dynamic programming and totalScore is the sum of pairs with natural affine gap costs (Altschul 1989: each pair of rows is projected out of the alignment, gap-gap columns skipped, every gap run of the projection pays gapOpen once). For two sequences the affine result is an optimal pairwise alignment; for three or more sequences every method is a heuristic. (default: linear) |
+| `type` | string | No | Sequence type: 'dna' (default; A, C, G, T scored with match/mismatch) or 'protein' (amino-acid sequences scored with the substitution matrix, default BLOSUM62; match/mismatch are then ignored). The protein path shares the dynamic programs, merge, profile and objective code of the DNA path (no second implementation). (default: dna) |
+| `matrix` | string | No | Optional substitution matrix: BLOSUM62 or PAM250 (type='protein'), EDNAFULL (IUPAC DNA, type='dna'). When given (or type='protein'), match/mismatch are ignored, residues are scored by the published table (case-insensitive, any symbol of the matrix), gapOpen/gapExtend may be fractional (EMBOSS needle numbers gapopen G / gapextend E = gapOpen -(G - E), gapExtend -E) and the result also carries the real-valued exactTotalScore (totalScore = rounded). Verified against independent Python implementations of every method, Biopython 1.88 pairwise optima and exhaustive enumeration of tiny sets. |
 
 ## Output Schema
 
@@ -38,6 +40,7 @@ Center-star multiple sequence alignment (Gusfield 1993) with exact pairwise alig
 | `alignedSequences` | array<string> | The aligned rows of the MSA. |
 | `consensus` | string | Majority-vote consensus of the aligned rows. |
 | `totalScore` | integer | Sum-of-pairs score of the MSA: linear model = column score (match/mismatch from the matrix, residue-gap = gapExtend, gap-gap = 0); gapModel='affine' = natural affine gap costs (every gap run of each pair projection pays gapOpen once). |
+| `exactTotalScore` | number | Real-valued sum-of-pairs score (= totalScore for DNA with integer scores; exact, e.g. 49.5, for substitution-matrix runs with fractional gaps, where totalScore is rounded half away from zero). |
 
 ## Errors
 

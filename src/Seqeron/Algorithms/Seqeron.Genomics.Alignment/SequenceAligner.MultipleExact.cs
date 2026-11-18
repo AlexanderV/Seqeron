@@ -16,7 +16,14 @@ public sealed record ExactMsaResult(
     int LowerBound,
     long LatticeCells,
     long VisitedCells,
-    long StateValues);
+    long StateValues)
+{
+    /// <summary>
+    /// <see cref="LowerBound"/> is an integer in units of 1/<c>ScoreScale</c> of the real score: 1 for the scalar <see cref="ScoringMatrix"/>
+    /// overloads, the gap-score denominator (2 for 0.5, 10 for 0.1, ...) for the <see cref="MatrixScoring"/> overloads.
+    /// </summary>
+    public int ScoreScale { get; init; } = 1;
+}
 
 public static partial class SequenceAligner
 {
@@ -85,32 +92,69 @@ public static partial class SequenceAligner
         IEnumerable<DnaSequence> sequences, ScoringMatrix? scoring = null, MsaOptions? options = null)
     {
         ArgumentNullException.ThrowIfNull(sequences);
+        return ExactAlignCore(DnaRows(sequences), scoring ?? SimpleDna, options);
+    }
+
+    /// <summary>
+    /// <see cref="MultipleAlignExact(IEnumerable{DnaSequence}, ScoringMatrix?, MsaOptions?)"/> for <b>protein</b> sequences (or any alphabet of the
+    /// <see cref="SubstitutionMatrix"/>): no other alignment of the sequences has a larger sum-of-pairs score under the matrix and the (possibly
+    /// fractional) gap scores — the same k-dimensional dynamic program with the Carrillo–Lipman bound as the DNA overload, with the substitution
+    /// matrix replacing match/mismatch. At most 8 sequences (linear) / 6 (affine); k = 2 is <c>GlobalAlign</c> / <c>GlobalAlignAffine</c> with the same
+    /// <see cref="MatrixScoring"/>. See <see cref="MultipleAlign(IEnumerable{ProteinSequence}, MatrixScoring, MsaOptions?)"/> for the input contract.
+    /// </summary>
+    public static MultipleAlignmentResult MultipleAlignExact(
+        IEnumerable<ProteinSequence> sequences, MatrixScoring scoring, MsaOptions? options = null) =>
+        MultipleAlignExactWithStatistics(sequences, scoring, options).Alignment;
+
+    /// <summary><see cref="MultipleAlignExact(IEnumerable{ProteinSequence}, MatrixScoring, MsaOptions?)"/> for raw sequence strings.</summary>
+    public static MultipleAlignmentResult MultipleAlignExact(
+        IEnumerable<string> sequences, MatrixScoring scoring, MsaOptions? options = null) =>
+        MultipleAlignExactWithStatistics(sequences, scoring, options).Alignment;
+
+    /// <summary><see cref="MultipleAlignExactWithStatistics(IEnumerable{DnaSequence}, ScoringMatrix?, MsaOptions?)"/> for protein sequences.</summary>
+    public static ExactMsaResult MultipleAlignExactWithStatistics(
+        IEnumerable<ProteinSequence> sequences, MatrixScoring scoring, MsaOptions? options = null)
+    {
+        var (rows, ps) = PrepareMatrixMsa(sequences, scoring);
+        return ScaleExactResult(ExactAlignCore(rows, ps, options), ps);
+    }
+
+    /// <summary><see cref="MultipleAlignExactWithStatistics(IEnumerable{DnaSequence}, ScoringMatrix?, MsaOptions?)"/> for raw sequence strings.</summary>
+    public static ExactMsaResult MultipleAlignExactWithStatistics(
+        IEnumerable<string> sequences, MatrixScoring scoring, MsaOptions? options = null)
+    {
+        var (rows, ps) = PrepareMatrixMsa(sequences, scoring);
+        return ScaleExactResult(ExactAlignCore(rows, ps, options), ps);
+    }
+
+    private static ExactMsaResult ScaleExactResult(ExactMsaResult r, PairScoring ps) =>
+        ps.Scale == 1 ? r : r with { Alignment = ScaleMsaResult(r.Alignment, ps), ScoreScale = ps.Scale };
+
+    private static ExactMsaResult ExactAlignCore(string[] raw, PairScoring sc, MsaOptions? options)
+    {
         var gapModel = ResolveGapModel(options);
-        var seqList = sequences.ToList();
-        var trivial = TrivialMultipleAlignment(seqList);
+        var trivial = TrivialMultipleAlignment(raw);
         if (trivial != null)
             return new ExactMsaResult(trivial, 0, 1, 1, 1);
 
-        var sc = scoring ?? SimpleDna;
         bool affine = gapModel == MsaGapModel.Affine;
 
-        if (seqList.Count == 2)
+        if (raw.Length == 2)
         {
             // k = 2: the canonical pairwise program (the lattice of the engine below with k = 2 is exactly its matrix).
-            var r = affine ? GlobalAlignAffine(seqList[0], seqList[1], sc) : GlobalAlign(seqList[0], seqList[1], sc);
+            var r = affine ? AffineAlignCore(raw[0], raw[1], sc, AlignmentType.Global) : GlobalAlignCore(raw[0], raw[1], sc);
             var rows = new List<string> { r.AlignedSequence1, r.AlignedSequence2 };
-            long cells = (long)(seqList[0].Length + 1) * (seqList[1].Length + 1);
+            long cells = (long)(raw[0].Length + 1) * (raw[1].Length + 1);
             return new ExactMsaResult(
-                new MultipleAlignmentResult(rows.ToArray(), BuildConsensus(rows, rows[0].Length), r.Score), 0, cells, cells, cells);
+                new MultipleAlignmentResult(rows.ToArray(), BuildConsensus(rows, rows[0].Length, sc.IsMatrix), r.Score), 0, cells, cells, cells);
         }
 
         int maxK = affine ? ExactMaxSequencesAffine : ExactMaxSequencesLinear;
-        if (seqList.Count > maxK)
+        if (raw.Length > maxK)
             throw new ArgumentException(
-                $"Exact multiple alignment supports at most {maxK} sequences with {(affine ? "affine" : "linear")} gaps ({seqList.Count} given): the dynamic program is exponential in the number of sequences.",
-                nameof(sequences));
+                $"Exact multiple alignment supports at most {maxK} sequences with {(affine ? "affine" : "linear")} gaps ({raw.Length} given): the dynamic program is exponential in the number of sequences.",
+                nameof(raw));
 
-        var raw = seqList.Select(s => s.Sequence).ToArray();
         var opts = options ?? new MsaOptions();
         if (opts.ExactMaxStateCells < 1)
             throw new ArgumentOutOfRangeException(nameof(options), opts.ExactMaxStateCells, "ExactMaxStateCells must be at least 1.");
@@ -122,11 +166,11 @@ public static partial class SequenceAligner
             var heuristicOptions = new MsaOptions { GapModel = gapModel };
             foreach (var h in new[]
             {
-                MultipleAlign(seqList, sc, heuristicOptions),
-                MultipleAlignProgressive(seqList, sc, heuristicOptions),
-                MultipleAlignIterative(seqList, sc, heuristicOptions),
+                StarAlignCore(raw, sc, heuristicOptions),
+                ProgressiveAlignCore(raw, sc, heuristicOptions),
+                IterativeAlignCore(raw, sc, heuristicOptions, DefaultMaxRefinementIterations),
             })
-                lowerBound = Math.Max(lowerBound, SumOfPairsScore(h.AlignedSequences, sc, gapModel));
+                lowerBound = Math.Max(lowerBound, ComputeSumOfPairsScore(h.AlignedSequences, sc, gapModel));
         }
 
         var engine = new ExactMsaEngine(raw, sc, affine, opts.ExactCarrilloLipman, lowerBound, opts.ExactMaxStateCells);
@@ -135,7 +179,7 @@ public static partial class SequenceAligner
         if (check != optimum)
             throw new InvalidOperationException($"Exact multiple alignment is inconsistent: dynamic-program score {optimum} != sum of pairs {check} of its rows.");
 
-        var alignment = new MultipleAlignmentResult(aligned.ToArray(), BuildConsensus(aligned, aligned[0].Length), optimum);
+        var alignment = new MultipleAlignmentResult(aligned.ToArray(), BuildConsensus(aligned, aligned[0].Length, sc.IsMatrix), optimum);
         return new ExactMsaResult(alignment, opts.ExactCarrilloLipman ? lowerBound : 0, engine.LatticeCells, engine.VisitedCells, engine.StateValues);
     }
 

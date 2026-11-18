@@ -82,13 +82,12 @@ internal static class AnchorBasedAligner
         string reference,
         SuffixTree.SuffixTree refTree,
         string query,
-        ScoringMatrix scoring,
+        PairScoring scoring,
         int minAnchorLength = DefaultMinAnchorLength,
         bool affineGaps = false)
     {
         ArgumentNullException.ThrowIfNull(reference);
         ArgumentNullException.ThrowIfNull(query);
-        ArgumentNullException.ThrowIfNull(scoring);
 
         if (reference.Length == 0 || query.Length == 0)
             return StitchAlignment(reference, query, new List<Anchor>(), scoring, affineGaps);
@@ -416,7 +415,7 @@ internal static class AnchorBasedAligner
         string reference,
         string query,
         List<Anchor> chain,
-        ScoringMatrix scoring,
+        PairScoring scoring,
         bool affineGaps)
     {
         var aligned1 = new StringBuilder();
@@ -441,7 +440,7 @@ internal static class AnchorBasedAligner
             string anchorText = reference[anchor.RefStart..anchor.RefEnd];
             aligned1.Append(anchorText);
             aligned2.Append(anchorText);
-            totalScore += anchor.Length * scoring.Match;
+            totalScore += IdenticalScore(anchorText, scoring);
 
             refPos = anchor.RefEnd;
             queryPos = anchor.QueryEnd;
@@ -476,7 +475,7 @@ internal static class AnchorBasedAligner
     /// cells), so the gap alignment is always optimal.
     /// </summary>
     private static (string Aligned1, string Aligned2, int Score) AlignGap(
-        string refGap, string queryGap, ScoringMatrix scoring, bool affineGaps)
+        string refGap, string queryGap, PairScoring scoring, bool affineGaps)
     {
         if (refGap.Length == 0 && queryGap.Length == 0)
             return ("", "", 0);
@@ -490,11 +489,18 @@ internal static class AnchorBasedAligner
             return (refGap, new string('-', refGap.Length), open + refGap.Length * scoring.GapExtend);
 
         if (refGap == queryGap)
-            return (refGap, queryGap, refGap.Length * scoring.Match);
+            return (refGap, queryGap, IdenticalScore(refGap, scoring));
 
-        var result = affineGaps
-            ? SequenceAligner.GlobalAlignAffineLinearSpace(refGap, queryGap, scoring, MaxGapCellsForFullMatrix)
-            : SequenceAligner.GlobalAlignLinearSpace(refGap, queryGap, scoring, MaxGapCellsForFullMatrix);
+        var result = SequenceAligner.GlobalLinearSpace(refGap, queryGap, scoring, affineGaps, MaxGapCellsForFullMatrix);
         return (result.AlignedSequence1, result.AlignedSequence2, result.Score);
+    }
+
+    /// <summary>Score of an exact match run: Σ matrix(c, c) (Length · Match for the scalar model).</summary>
+    private static int IdenticalScore(string text, PairScoring scoring)
+    {
+        int total = 0;
+        foreach (char c in text)
+            total += scoring.Sub(c, c);
+        return total;
     }
 }

@@ -48,6 +48,9 @@ internal readonly struct PairScoring
 
     public static implicit operator PairScoring(ScoringMatrix scoring) => new(scoring);
 
+    /// <summary>True for a <see cref="MatrixScoring"/> model (any residue alphabet), false for the scalar match/mismatch model.</summary>
+    public bool IsMatrix => _table is not null;
+
     /// <summary>Score of the aligned pair (a, b) (upper-case symbols already validated for matrix models).</summary>
     public int Sub(char a, char b)
     {
@@ -71,7 +74,33 @@ internal readonly struct PairScoring
         var matrix = scoring.Matrix ?? throw new ArgumentException("MatrixScoring.Matrix must not be null.", nameof(scoring));
         ValidateResidues(matrix, a, "sequence1");
         ValidateResidues(matrix, b, "sequence2");
+        return Build(scoring, matrix, (long)a.Length + b.Length + 2, 1,
+            $"sequence lengths {a.Length} and {b.Length}");
+    }
 
+    /// <summary>
+    /// Builds the exact integer model of <paramref name="scoring"/> for a SET of (upper-case) sequences, e.g. the multiple aligners: every
+    /// sequence is validated against the matrix alphabet and the integer range is checked for the sum of pairs of all C(k, 2) pairs.
+    /// </summary>
+    public static PairScoring Create(MatrixScoring scoring, IReadOnlyList<string> sequences)
+    {
+        var matrix = scoring.Matrix ?? throw new ArgumentException("MatrixScoring.Matrix must not be null.", nameof(scoring));
+        long longest = 0, second = 0;
+        for (int i = 0; i < sequences.Count; i++)
+        {
+            ValidateResidues(matrix, sequences[i], $"sequence{i + 1}");
+            long len = sequences[i].Length;
+            if (len > longest) { second = longest; longest = len; }
+            else if (len > second) second = len;
+        }
+
+        long k = sequences.Count;
+        return Build(scoring, matrix, longest + second + 2, Math.Max(1, k * (k - 1) / 2),
+            $"{sequences.Count} sequences, the two longest have {longest} and {second} residues");
+    }
+
+    private static PairScoring Build(MatrixScoring scoring, SubstitutionMatrix matrix, long pathLength, long pairs, string sizeText)
+    {
         decimal open = ToGapDecimal(scoring.GapOpen, nameof(MatrixScoring.GapOpen));
         decimal extend = ToGapDecimal(scoring.GapExtend, nameof(MatrixScoring.GapExtend));
 
@@ -89,9 +118,9 @@ internal readonly struct PairScoring
         long gapExtend = (long)(extend * denominator) / g;
 
         long maxAbs = Math.Max((long)matrix.MaxAbsScore * scale, Math.Abs(gapOpen) + Math.Abs(gapExtend));
-        if (maxAbs * ((long)a.Length + b.Length + 2) >= MaxPathScore)
+        if (maxAbs * pathLength * pairs >= MaxPathScore)
             throw new ArgumentException(
-                $"Score range too large for the integer dynamic program (scale {scale}, sequence lengths {a.Length} and {b.Length}); use coarser gap scores or shorter sequences.",
+                $"Score range too large for the integer dynamic program (scale {scale}, {sizeText}); use coarser gap scores or shorter sequences.",
                 nameof(scoring));
 
         int dim = matrix.Alphabet.Length;
@@ -1833,26 +1862,105 @@ public static partial class SequenceAligner
         MsaOptions? options)
     {
         ArgumentNullException.ThrowIfNull(sequences);
+        return StarAlignCore(DnaRows(sequences), scoring ?? SimpleDna, options);
+    }
+
+    /// <summary>
+    /// <see cref="MultipleAlign(IEnumerable{DnaSequence}, ScoringMatrix?, MsaOptions?)"/> for <b>protein</b> sequences (or any alphabet of the
+    /// <see cref="SubstitutionMatrix"/>): the same exact center-star (Gusfield 1993) — optimal pairwise alignments under the matrix with linear
+    /// (<see cref="MatrixScoring.GapExtend"/> per position) or, with <see cref="MsaGapModel.Affine"/>, affine
+    /// (<see cref="MatrixScoring.GapOpen"/> + k·<see cref="MatrixScoring.GapExtend"/>) gap scores, possibly fractional (EMBOSS-style 0.5);
+    /// the matrix aligners share the dynamic programs, merge and objective of the DNA overload (no second implementation).
+    /// </summary>
+    /// <remarks>
+    /// Residues are compared case-insensitively against the matrix alphabet (rows are returned upper-case); a residue outside it throws
+    /// <see cref="ArgumentException"/>. <see cref="MultipleAlignmentResult.ExactTotalScore"/> is the real-valued sum of pairs
+    /// (<see cref="MatrixSumOfPairsScore(IReadOnlyList{string}, MatrixScoring, MsaGapModel)"/>); the consensus is the column majority (ties: smaller
+    /// residue letter, a residue is preferred to a gap). For two sequences the result is an optimal pairwise alignment (<c>GlobalAlign</c> /
+    /// <c>GlobalAlignAffine</c> with the same <see cref="MatrixScoring"/>).
+    /// </remarks>
+    /// <param name="sequences">Protein sequences.</param>
+    /// <param name="scoring">Substitution matrix (BLOSUM62, PAM250, ...) and gap scores.</param>
+    /// <param name="options">Options; <c>null</c> = defaults (linear gaps).</param>
+    public static MultipleAlignmentResult MultipleAlign(
+        IEnumerable<ProteinSequence> sequences,
+        MatrixScoring scoring,
+        MsaOptions? options = null)
+    {
+        var (rows, ps) = PrepareMatrixMsa(sequences, scoring);
+        return ScaleMsaResult(StarAlignCore(rows, ps, options), ps);
+    }
+
+    /// <summary><see cref="MultipleAlign(IEnumerable{ProteinSequence}, MatrixScoring, MsaOptions?)"/> for raw sequence strings (protein, or DNA with
+    /// <see cref="SubstitutionMatrix.EdnaFull"/>; upper-cased internally).</summary>
+    public static MultipleAlignmentResult MultipleAlign(
+        IEnumerable<string> sequences,
+        MatrixScoring scoring,
+        MsaOptions? options = null)
+    {
+        var (rows, ps) = PrepareMatrixMsa(sequences, scoring);
+        return ScaleMsaResult(StarAlignCore(rows, ps, options), ps);
+    }
+
+    private static MultipleAlignmentResult StarAlignCore(string[] rawSeqs, PairScoring effectiveScoring, MsaOptions? options)
+    {
         var gapModel = ResolveGapModel(options);
 
-        var seqList = sequences.ToList();
-        var trivial = TrivialMultipleAlignment(seqList);
+        var trivial = TrivialMultipleAlignment(rawSeqs);
         if (trivial != null)
             return trivial;
 
-        var effectiveScoring = scoring ?? SimpleDna;
-        var rawSeqs = seqList.Select(s => s.Sequence).ToArray();
-
         bool affine = gapModel == MsaGapModel.Affine;
         int centerIdx = SelectCenterByPairwiseScore(rawSeqs, affine
-            ? (a, b) => GlobalAlignAffineLinearSpace(a, b, effectiveScoring, StarFullMatrixCells).Score
+            ? (a, b) => LinearSpaceAlign(a, b, effectiveScoring, true, false, EndGaps.None, StarFullMatrixCells, default).Score
             : (a, b) => LinearScoreOnly(a, b, effectiveScoring));
         string centerStr = rawSeqs[centerIdx];
 
-        var pairwise = AlignAllToCenter(rawSeqs.Length, centerIdx, affine
-            ? i => GlobalAlignAffineLinearSpace(centerStr, rawSeqs[i], effectiveScoring, StarFullMatrixCells)
-            : i => GlobalAlignLinearSpace(centerStr, rawSeqs[i], effectiveScoring, StarFullMatrixCells));
+        var pairwise = AlignAllToCenter(rawSeqs.Length, centerIdx,
+            i => LinearSpaceAlign(centerStr, rawSeqs[i], effectiveScoring, affine, false, EndGaps.None, StarFullMatrixCells, default));
         return FinishStarAlignment(MergeCenterAlignments(centerStr, pairwise, centerIdx), effectiveScoring, gapModel);
+    }
+
+    private static string[] DnaRows(IEnumerable<DnaSequence> sequences) => sequences.Select(s => s.Sequence).ToArray();
+
+    /// <summary>Upper-cased rows and the exact integer model of a <see cref="MatrixScoring"/> for a whole set of sequences (validates residues, gaps, range).</summary>
+    private static (string[] Rows, PairScoring Scoring) PrepareMatrixMsa(IEnumerable<string> sequences, MatrixScoring scoring)
+    {
+        ArgumentNullException.ThrowIfNull(sequences);
+        ArgumentNullException.ThrowIfNull(scoring);
+        var list = new List<string>();
+        foreach (var s in sequences)
+        {
+            if (s is null)
+                throw new ArgumentNullException(nameof(sequences), "A sequence is null.");
+            list.Add(s.ToUpperInvariant());
+        }
+
+        var rows = list.ToArray();
+        return (rows, PairScoring.Create(scoring, rows));
+    }
+
+    private static (string[] Rows, PairScoring Scoring) PrepareMatrixMsa(IEnumerable<ProteinSequence> sequences, MatrixScoring scoring)
+    {
+        ArgumentNullException.ThrowIfNull(sequences);
+        var list = new List<string>();
+        foreach (var p in sequences)
+        {
+            if (p is null)
+                throw new ArgumentNullException(nameof(sequences), "A sequence is null.");
+            list.Add(p.Sequence);
+        }
+
+        return PrepareMatrixMsa(list, scoring);
+    }
+
+    /// <summary>Converts the scaled integer sum of pairs of a matrix run into the real score (<see cref="MultipleAlignmentResult.ExactTotalScore"/>).</summary>
+    private static MultipleAlignmentResult ScaleMsaResult(MultipleAlignmentResult r, PairScoring ps)
+    {
+        if (ps.Scale == 1)
+            return r;
+        double exact = (double)r.TotalScore / ps.Scale;
+        return r with { TotalScore = (int)Math.Round(exact, MidpointRounding.AwayFromZero), ExactTotalScore = exact };
     }
 
     /// <summary>
@@ -1892,17 +2000,43 @@ public static partial class SequenceAligner
         MsaOptions? options)
     {
         ArgumentNullException.ThrowIfNull(sequences);
+        return AnchoredStarAlignCore(DnaRows(sequences), scoring ?? SimpleDna, options);
+    }
+
+    /// <summary>
+    /// <see cref="MultipleAlignAnchored(IEnumerable{DnaSequence}, ScoringMatrix?, MsaOptions?)"/> for <b>protein</b> sequences (or any alphabet of
+    /// the <see cref="SubstitutionMatrix"/>): the exact-match anchors (maximal exact matches of at least 8 residues, any alphabet) are scored
+    /// as Σ matrix(c, c), the inter-anchor segments are aligned with the matrix aligner and the center is chosen by the 4-mer cosine
+    /// similarity of the residue strings; still approximate, because the anchor chain constrains the path.
+    /// </summary>
+    public static MultipleAlignmentResult MultipleAlignAnchored(
+        IEnumerable<ProteinSequence> sequences,
+        MatrixScoring scoring,
+        MsaOptions? options = null)
+    {
+        var (rows, ps) = PrepareMatrixMsa(sequences, scoring);
+        return ScaleMsaResult(AnchoredStarAlignCore(rows, ps, options), ps);
+    }
+
+    /// <summary><see cref="MultipleAlignAnchored(IEnumerable{ProteinSequence}, MatrixScoring, MsaOptions?)"/> for raw sequence strings.</summary>
+    public static MultipleAlignmentResult MultipleAlignAnchored(
+        IEnumerable<string> sequences,
+        MatrixScoring scoring,
+        MsaOptions? options = null)
+    {
+        var (rows, ps) = PrepareMatrixMsa(sequences, scoring);
+        return ScaleMsaResult(AnchoredStarAlignCore(rows, ps, options), ps);
+    }
+
+    private static MultipleAlignmentResult AnchoredStarAlignCore(string[] rawSeqs, PairScoring effectiveScoring, MsaOptions? options)
+    {
         var gapModel = ResolveGapModel(options);
 
-        var seqList = sequences.ToList();
-        var trivial = TrivialMultipleAlignment(seqList);
+        var trivial = TrivialMultipleAlignment(rawSeqs);
         if (trivial != null)
             return trivial;
 
-        var effectiveScoring = scoring ?? SimpleDna;
-        var rawSeqs = seqList.Select(s => s.Sequence).ToArray();
-
-        int centerIdx = SelectCenterSequence(seqList);
+        int centerIdx = SelectCenterSequence(rawSeqs);
         string centerStr = rawSeqs[centerIdx];
         var centerTree = SuffixTree.SuffixTree.Build(centerStr);
 
@@ -1925,28 +2059,28 @@ public static partial class SequenceAligner
     private const long StarFullMatrixCells = 4_000_000;
 
     /// <summary>Empty / single-sequence results shared by every MSA entry point; null when k ≥ 2.</summary>
-    private static MultipleAlignmentResult? TrivialMultipleAlignment(List<DnaSequence> seqList)
+    private static MultipleAlignmentResult? TrivialMultipleAlignment(string[] seqList)
     {
-        if (seqList.Count == 0)
+        if (seqList.Length == 0)
             return MultipleAlignmentResult.Empty;
 
-        if (seqList.Count == 1)
+        if (seqList.Length == 1)
         {
             return new MultipleAlignmentResult(
-                AlignedSequences: new[] { seqList[0].Sequence },
-                Consensus: seqList[0].Sequence,
+                AlignedSequences: new[] { seqList[0] },
+                Consensus: seqList[0],
                 TotalScore: 0);
         }
 
         return null;
     }
 
-    private static MultipleAlignmentResult FinishStarAlignment(List<string> merged, ScoringMatrix scoring, MsaGapModel gapModel = MsaGapModel.Linear)
+    private static MultipleAlignmentResult FinishStarAlignment(List<string> merged, PairScoring scoring, MsaGapModel gapModel = MsaGapModel.Linear)
     {
         int maxLen = merged.Max(s => s.Length);
         return new MultipleAlignmentResult(
             AlignedSequences: merged.ToArray(),
-            Consensus: BuildConsensus(merged, maxLen),
+            Consensus: BuildConsensus(merged, maxLen, scoring.IsMatrix),
             TotalScore: ComputeSumOfPairsScore(merged, scoring, gapModel));
     }
 
@@ -2023,18 +2157,17 @@ public static partial class SequenceAligner
     /// <summary>
     /// Selects the center for the approximate anchored star alignment: the sequence with the highest
     /// total 4-mer count cosine similarity to all others. K-mers are counted by the canonical Core
-    /// counter <see cref="SequenceExtensions.CountKmersSpan"/> (DNA input is already upper-case ACGT, so
-    /// every window is a valid 4-mer). Always prefers a non-empty center (an empty center has no
+    /// counter <see cref="SequenceExtensions.CountKmersSpan"/> (the rows are upper-case residue strings of any alphabet). Always prefers a non-empty center (an empty center has no
     /// positions to carry the anchored reconciliation).
     /// </summary>
-    private static int SelectCenterSequence(List<DnaSequence> sequences)
+    private static int SelectCenterSequence(string[] sequences)
     {
-        int k = sequences.Count;
+        int k = sequences.Length;
 
         int firstNonEmpty = -1;
         for (int i = 0; i < k; i++)
         {
-            if (sequences[i].Sequence.Length > 0)
+            if (sequences[i].Length > 0)
             {
                 firstNonEmpty = i;
                 break;
@@ -2052,7 +2185,7 @@ public static partial class SequenceAligner
 
         for (int i = 0; i < k; i++)
         {
-            profiles[i] = sequences[i].Sequence.AsSpan().CountKmersSpan(KmerLen);
+            profiles[i] = sequences[i].AsSpan().CountKmersSpan(KmerLen);
             double norm = 0;
             foreach (var count in profiles[i].Values)
                 norm += (double)count * count;
@@ -2087,7 +2220,7 @@ public static partial class SequenceAligner
         int bestIdx = firstNonEmpty;
         for (int i = firstNonEmpty + 1; i < k; i++)
         {
-            if (sequences[i].Sequence.Length == 0)
+            if (sequences[i].Length == 0)
                 continue;
             if (totalSimilarity[i] > totalSimilarity[bestIdx])
                 bestIdx = i;
@@ -2190,26 +2323,45 @@ public static partial class SequenceAligner
     /// <summary>
     /// Builds a majority-vote consensus from aligned sequences.
     /// Per Wikipedia MSA: consensus derived from aligned columns using majority voting.
-    /// Gap characters participate in the vote; on tie, nucleotides are preferred.
+    /// Gap characters participate in the vote; on tie, residues are preferred to the gap and, among residues,
+    /// the smaller letter (A &lt; C &lt; G &lt; T for DNA). DNA rows count only A, C, G, T and the gap; with
+    /// <paramref name="anySymbol"/> (substitution-matrix runs: protein, IUPAC DNA) every character is a residue.
     /// </summary>
-    private static string BuildConsensus(List<string> aligned, int length)
+    private static string BuildConsensus(List<string> aligned, int length, bool anySymbol = false)
     {
         var consensus = new StringBuilder(length);
+        var counts = new Dictionary<char, int>();
 
         for (int pos = 0; pos < length; pos++)
         {
-            var counts = new Dictionary<char, int> { ['A'] = 0, ['C'] = 0, ['G'] = 0, ['T'] = 0, ['-'] = 0 };
+            counts.Clear();
+            if (!anySymbol)
+            {
+                counts['A'] = 0; counts['C'] = 0; counts['G'] = 0; counts['T'] = 0; counts['-'] = 0;
+            }
 
             foreach (var seq in aligned)
             {
-                if (pos < seq.Length && counts.TryGetValue(seq[pos], out int value))
-                    counts[seq[pos]] = ++value;
+                if (pos >= seq.Length)
+                    continue;
+                char c = seq[pos];
+                if (anySymbol)
+                    counts[c] = counts.GetValueOrDefault(c) + 1;
+                else if (counts.TryGetValue(c, out int value))
+                    counts[c] = value + 1;
             }
 
             // Include all characters (including gaps) in majority vote.
-            // On tie between gap and nucleotide, prefer nucleotide.
+            // On tie between gap and residue, prefer the residue; between residues, the smaller letter.
+            if (counts.Count == 0)
+            {
+                consensus.Append('-');
+                continue;
+            }
+
             char mostCommon = counts.OrderByDescending(kv => kv.Value)
                                    .ThenBy(kv => kv.Key == '-' ? 1 : 0)
+                                   .ThenBy(kv => kv.Key)
                                    .First().Key;
 
             consensus.Append(mostCommon);
@@ -2224,10 +2376,10 @@ public static partial class SequenceAligner
     /// Scores all C(k,2) sequence pairs using column-based scoring:
     /// match/mismatch from scoring matrix, gap-nucleotide penalty per position, gap-gap = 0.
     /// </summary>
-    private static int ComputeSumOfPairsScore(IReadOnlyList<string> aligned, ScoringMatrix scoring, MsaGapModel gapModel) =>
+    private static int ComputeSumOfPairsScore(IReadOnlyList<string> aligned, PairScoring scoring, MsaGapModel gapModel) =>
         gapModel == MsaGapModel.Affine ? AffineSumOfPairsScoreCore(aligned, scoring) : ComputeSumOfPairsScore(aligned, scoring);
 
-    private static int ComputeSumOfPairsScore(IReadOnlyList<string> aligned, ScoringMatrix scoring)
+    private static int ComputeSumOfPairsScore(IReadOnlyList<string> aligned, PairScoring scoring)
     {
         if (aligned.Count < 2) return 0;
 
@@ -2248,11 +2400,9 @@ public static partial class SequenceAligner
                     if (ci != '-' || cj != '-')
                     {
                         if (ci == '-' || cj == '-')
-                            totalScore += scoring.GapExtend; // Gap-nucleotide penalty
-                        else if (ci == cj)
-                            totalScore += scoring.Match;
+                            totalScore += scoring.GapExtend; // Gap-residue penalty
                         else
-                            totalScore += scoring.Mismatch;
+                            totalScore += scoring.Sub(ci, cj);
                     }
                 }
             }
@@ -2346,24 +2496,45 @@ public static partial class SequenceAligner
         MsaOptions? options)
     {
         ArgumentNullException.ThrowIfNull(sequences);
+        return ProgressiveAlignCore(DnaRows(sequences), scoring ?? SimpleDna, options);
+    }
+
+    /// <summary>
+    /// <see cref="MultipleAlignProgressive(IEnumerable{DnaSequence}, ScoringMatrix?, MsaOptions?)"/> for <b>protein</b> sequences (or any alphabet of the
+    /// <see cref="SubstitutionMatrix"/>): the same Feng-Doolittle pipeline — identity distances of the optimal pairwise alignments under the
+    /// matrix, the configured guide tree, and profile-profile alignment with the column score Σ matrix(a, b) averaged over the cross pairs
+    /// (linear gaps) or the occupancy-scaled Gotoh program (<see cref="MsaGapModel.Affine"/>), real-valued (possibly fractional) gap scores.
+    /// See <see cref="MultipleAlign(IEnumerable{ProteinSequence}, MatrixScoring, MsaOptions?)"/> for the input contract.
+    /// </summary>
+    public static MultipleAlignmentResult MultipleAlignProgressive(
+        IEnumerable<ProteinSequence> sequences,
+        MatrixScoring scoring,
+        MsaOptions? options = null)
+    {
+        var (rows, ps) = PrepareMatrixMsa(sequences, scoring);
+        return ScaleMsaResult(ProgressiveAlignCore(rows, ps, options), ps);
+    }
+
+    /// <summary><see cref="MultipleAlignProgressive(IEnumerable{ProteinSequence}, MatrixScoring, MsaOptions?)"/> for raw sequence strings.</summary>
+    public static MultipleAlignmentResult MultipleAlignProgressive(
+        IEnumerable<string> sequences,
+        MatrixScoring scoring,
+        MsaOptions? options = null)
+    {
+        var (rows, ps) = PrepareMatrixMsa(sequences, scoring);
+        return ScaleMsaResult(ProgressiveAlignCore(rows, ps, options), ps);
+    }
+
+    private static MultipleAlignmentResult ProgressiveAlignCore(string[] rawSeqs, PairScoring effectiveScoring, MsaOptions? options)
+    {
         options ??= new MsaOptions();
         var gapModel = ResolveGapModel(options);
 
-        var seqList = sequences.ToList();
-        if (seqList.Count == 0)
-            return MultipleAlignmentResult.Empty;
+        var trivial = TrivialMultipleAlignment(rawSeqs);
+        if (trivial != null)
+            return trivial;
 
-        if (seqList.Count == 1)
-        {
-            return new MultipleAlignmentResult(
-                AlignedSequences: new[] { seqList[0].Sequence },
-                Consensus: seqList[0].Sequence,
-                TotalScore: 0);
-        }
-
-        var effectiveScoring = scoring ?? SimpleDna;
-        int k = seqList.Count;
-        var rawSeqs = seqList.Select(s => s.Sequence).ToArray();
+        int k = rawSeqs.Length;
 
         // Step 1: pairwise alignments -> distance matrix (ClustalW: 1 - identities / min(len1, len2)).
         var distance = ComputeGuideDistances(rawSeqs, effectiveScoring, options.Distance, gapModel, options.GuideTree, options.QuickPairwise);
@@ -2381,7 +2552,7 @@ public static partial class SequenceAligner
 
         var alignedList = orderedRows.ToList();
         int maxLen = alignedList.Count == 0 ? 0 : alignedList.Max(s => s.Length);
-        string consensus = BuildConsensus(alignedList, maxLen);
+        string consensus = BuildConsensus(alignedList, maxLen, effectiveScoring.IsMatrix);
         int spScore = ComputeSumOfPairsScore(alignedList, effectiveScoring, gapModel);
 
         return new MultipleAlignmentResult(
@@ -2399,14 +2570,14 @@ public static partial class SequenceAligner
     /// Needleman-Wunsch). Two empty sequences (no comparable residue) are treated as distance 0, an
     /// empty versus a non-empty sequence as distance 1.
     /// </summary>
-    private static double PairwiseIdentityDistance(string a, string b, ScoringMatrix scoring, MsaGapModel gapModel = MsaGapModel.Linear)
+    private static double PairwiseIdentityDistance(string a, string b, PairScoring scoring, MsaGapModel gapModel = MsaGapModel.Linear)
     {
         if (a.Length == 0 && b.Length == 0)
             return 0.0;
         if (a.Length == 0 || b.Length == 0)
             return 1.0; // no shared residues possible
 
-        var pa = gapModel == MsaGapModel.Affine ? GlobalAlignAffine(a, b, scoring) : GlobalAlignCore(a, b, scoring);
+        var pa = gapModel == MsaGapModel.Affine ? AffineAlignCore(a, b, scoring, AlignmentType.Global) : GlobalAlignCore(a, b, scoring);
 
         int identical = 0;
         for (int i = 0; i < pa.AlignedSequence1.Length; i++)
@@ -2426,7 +2597,7 @@ public static partial class SequenceAligner
     /// (<see cref="ClustalWPairwiseAlign(string, string, double, double)"/>, independent of <paramref name="scoring"/>);
     /// <see cref="MsaDistanceMode.ClustalWQuick"/> = ClustalW's fast k-tuple stage (<see cref="ClustalWQuickPairwiseAlign(string, string, ClustalWQuickOptions?, int?)"/>).
     /// </summary>
-    private static double[,] ComputeGuideDistances(string[] rawSeqs, ScoringMatrix scoring, MsaDistanceMode mode, MsaGapModel gapModel, MsaGuideTree guideTree = MsaGuideTree.Upgma, ClustalWQuickOptions? quickOptions = null)
+    private static double[,] ComputeGuideDistances(string[] rawSeqs, PairScoring scoring, MsaDistanceMode mode, MsaGapModel gapModel, MsaGuideTree guideTree = MsaGuideTree.Upgma, ClustalWQuickOptions? quickOptions = null)
     {
         if (!Enum.IsDefined(mode))
             throw new ArgumentOutOfRangeException(nameof(mode), mode, "Unknown guide-tree distance mode.");
@@ -2475,7 +2646,7 @@ public static partial class SequenceAligner
     /// profiles by profile-profile NW alignment. Leaves start as a single-row profile.
     /// </summary>
     private static Profile AlignProfileSubtree(
-        ProgressiveGuideNode node, string[] rawSeqs, ScoringMatrix scoring, MsaGapModel gapModel)
+        ProgressiveGuideNode node, string[] rawSeqs, PairScoring scoring, MsaGapModel gapModel)
     {
         if (node.IsLeaf)
         {
@@ -2516,7 +2687,7 @@ public static partial class SequenceAligner
     /// Existing columns are never edited — gaps are inserted as whole new all-gap columns into one
     /// profile, enforcing "once a gap, always a gap" (Feng &amp; Doolittle 1987).
     /// </summary>
-    private static Profile AlignProfiles(Profile p1, Profile p2, ScoringMatrix scoring)
+    private static Profile AlignProfiles(Profile p1, Profile p2, PairScoring scoring)
     {
         int m = p1.Width;
         int n = p2.Width;
@@ -2603,7 +2774,7 @@ public static partial class SequenceAligner
     }
 
     /// <summary>Profile-profile column score: average match/mismatch/gap over all cross pairs.</summary>
-    private static double ProfileColumnScore(Profile p1, int col1, Profile p2, int col2, ScoringMatrix scoring)
+    private static double ProfileColumnScore(Profile p1, int col1, Profile p2, int col2, PairScoring scoring)
     {
         double total = 0;
         int pairs = p1.Rows.Count * p2.Rows.Count;
@@ -2618,7 +2789,7 @@ public static partial class SequenceAligner
                 else if (a == '-' || b == '-')
                     total += scoring.GapExtend;
                 else
-                    total += a == b ? scoring.Match : scoring.Mismatch;
+                    total += scoring.Sub(a, b);
             }
         }
         return total / pairs;
@@ -2629,7 +2800,7 @@ public static partial class SequenceAligner
     /// <paramref name="otherRowCount"/> rows: average gap penalty over all cross pairs.
     /// Residue-vs-gap costs GapExtend; gap-vs-gap is neutral.
     /// </summary>
-    private static double ProfileColumnVsGap(Profile p, int col, int otherRowCount, ScoringMatrix scoring)
+    private static double ProfileColumnVsGap(Profile p, int col, int otherRowCount, PairScoring scoring)
     {
         double total = 0;
         int pairs = p.Rows.Count * otherRowCount;
@@ -2758,24 +2929,48 @@ public static partial class SequenceAligner
     {
         ArgumentNullException.ThrowIfNull(sequences);
         ArgumentOutOfRangeException.ThrowIfLessThan(maxIterations, 1);
+        return IterativeAlignCore(DnaRows(sequences), scoring ?? SimpleDna, options, maxIterations);
+    }
+
+    /// <summary>
+    /// <see cref="MultipleAlignIterative(IEnumerable{DnaSequence}, ScoringMatrix?, MsaOptions?, int)"/> for <b>protein</b> sequences (or any alphabet of
+    /// the <see cref="SubstitutionMatrix"/>): the same MUSCLE-style tree-dependent restricted partitioning of the progressive seed, accepted on a
+    /// strictly better sum-of-pairs score under the matrix and gap model. See
+    /// <see cref="MultipleAlign(IEnumerable{ProteinSequence}, MatrixScoring, MsaOptions?)"/> for the input contract.
+    /// </summary>
+    public static MultipleAlignmentResult MultipleAlignIterative(
+        IEnumerable<ProteinSequence> sequences,
+        MatrixScoring scoring,
+        MsaOptions? options = null,
+        int maxIterations = DefaultMaxRefinementIterations)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(maxIterations, 1);
+        var (rows, ps) = PrepareMatrixMsa(sequences, scoring);
+        return ScaleMsaResult(IterativeAlignCore(rows, ps, options, maxIterations), ps);
+    }
+
+    /// <summary><see cref="MultipleAlignIterative(IEnumerable{ProteinSequence}, MatrixScoring, MsaOptions?, int)"/> for raw sequence strings.</summary>
+    public static MultipleAlignmentResult MultipleAlignIterative(
+        IEnumerable<string> sequences,
+        MatrixScoring scoring,
+        MsaOptions? options = null,
+        int maxIterations = DefaultMaxRefinementIterations)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(maxIterations, 1);
+        var (rows, ps) = PrepareMatrixMsa(sequences, scoring);
+        return ScaleMsaResult(IterativeAlignCore(rows, ps, options, maxIterations), ps);
+    }
+
+    private static MultipleAlignmentResult IterativeAlignCore(string[] rawSeqs, PairScoring effectiveScoring, MsaOptions? options, int maxIterations)
+    {
         options ??= new MsaOptions();
         var gapModel = ResolveGapModel(options);
 
-        var seqList = sequences.ToList();
-        if (seqList.Count == 0)
-            return MultipleAlignmentResult.Empty;
+        var trivial = TrivialMultipleAlignment(rawSeqs);
+        if (trivial != null)
+            return trivial;
 
-        if (seqList.Count == 1)
-        {
-            return new MultipleAlignmentResult(
-                AlignedSequences: new[] { seqList[0].Sequence },
-                Consensus: seqList[0].Sequence,
-                TotalScore: 0);
-        }
-
-        var effectiveScoring = scoring ?? SimpleDna;
-        int k = seqList.Count;
-        var rawSeqs = seqList.Select(s => s.Sequence).ToArray();
+        int k = rawSeqs.Length;
 
         // Step 1: progressive seed (same pipeline as MultipleAlignProgressive) + retain guide tree.
         var distance = ComputeGuideDistances(rawSeqs, effectiveScoring, options.Distance, gapModel, options.GuideTree, options.QuickPairwise);
@@ -2793,7 +2988,7 @@ public static partial class SequenceAligner
 
         var alignedList = orderedRows.ToList();
         int maxLen = alignedList.Count == 0 ? 0 : alignedList.Max(s => s.Length);
-        string consensus = BuildConsensus(alignedList, maxLen);
+        string consensus = BuildConsensus(alignedList, maxLen, effectiveScoring.IsMatrix);
         int spScore = ComputeSumOfPairsScore(alignedList, effectiveScoring, gapModel);
 
         return new MultipleAlignmentResult(
@@ -2809,7 +3004,7 @@ public static partial class SequenceAligner
     /// pass accepts no change (convergence) or <paramref name="maxIterations"/> is reached.
     /// </summary>
     private static Profile RefineByTreePartitioning(
-        Profile current, ProgressiveGuideNode root, ScoringMatrix scoring, int maxIterations, MsaGapModel gapModel)
+        Profile current, ProgressiveGuideNode root, PairScoring scoring, int maxIterations, MsaGapModel gapModel)
     {
         // 3.1 enumerate the partitions induced by deleting each internal edge of the guide tree.
         // An internal edge is the edge above each non-root internal node; deleting it isolates that
@@ -3081,24 +3276,45 @@ public static partial class SequenceAligner
         MsaOptions? options)
     {
         ArgumentNullException.ThrowIfNull(sequences);
+        return ConsistencyAlignCore(DnaRows(sequences), scoring ?? SimpleDna, options);
+    }
+
+    /// <summary>
+    /// <see cref="MultipleAlignConsistency(IEnumerable{DnaSequence}, ScoringMatrix?, MsaOptions?)"/> for <b>protein</b> sequences (or any alphabet of the
+    /// <see cref="SubstitutionMatrix"/>): the primary library is built from the global and local pairwise alignments under the matrix (linear or
+    /// affine, possibly fractional gap scores), weighted by percent identity; the extension, guide tree and progressive stages are those of the
+    /// DNA overload (including <see cref="MsaConsistencyEngine.TCoffeeLinked"/>). See
+    /// <see cref="MultipleAlign(IEnumerable{ProteinSequence}, MatrixScoring, MsaOptions?)"/> for the input contract.
+    /// </summary>
+    public static MultipleAlignmentResult MultipleAlignConsistency(
+        IEnumerable<ProteinSequence> sequences,
+        MatrixScoring scoring,
+        MsaOptions? options = null)
+    {
+        var (rows, ps) = PrepareMatrixMsa(sequences, scoring);
+        return ScaleMsaResult(ConsistencyAlignCore(rows, ps, options), ps);
+    }
+
+    /// <summary><see cref="MultipleAlignConsistency(IEnumerable{ProteinSequence}, MatrixScoring, MsaOptions?)"/> for raw sequence strings.</summary>
+    public static MultipleAlignmentResult MultipleAlignConsistency(
+        IEnumerable<string> sequences,
+        MatrixScoring scoring,
+        MsaOptions? options = null)
+    {
+        var (rows, ps) = PrepareMatrixMsa(sequences, scoring);
+        return ScaleMsaResult(ConsistencyAlignCore(rows, ps, options), ps);
+    }
+
+    private static MultipleAlignmentResult ConsistencyAlignCore(string[] rawSeqs, PairScoring effectiveScoring, MsaOptions? options)
+    {
         options ??= new MsaOptions();
         var gapModel = ResolveGapModel(options);
 
-        var seqList = sequences.ToList();
-        if (seqList.Count == 0)
-            return MultipleAlignmentResult.Empty;
+        var trivial = TrivialMultipleAlignment(rawSeqs);
+        if (trivial != null)
+            return trivial;
 
-        if (seqList.Count == 1)
-        {
-            return new MultipleAlignmentResult(
-                AlignedSequences: new[] { seqList[0].Sequence },
-                Consensus: seqList[0].Sequence,
-                TotalScore: 0);
-        }
-
-        var effectiveScoring = scoring ?? SimpleDna;
-        int k = seqList.Count;
-        var rawSeqs = seqList.Select(s => s.Sequence).ToArray();
+        int k = rawSeqs.Length;
 
         // Steps 1-2: primary library (global + local, signal-added) then triplet extension.
         var primaryLibrary = BuildPrimaryLibrary(rawSeqs, effectiveScoring, gapModel);
@@ -3121,7 +3337,7 @@ public static partial class SequenceAligner
 
         var alignedList = orderedRows.ToList();
         int maxLen = alignedList.Count == 0 ? 0 : alignedList.Max(s => s.Length);
-        string consensus = BuildConsensus(alignedList, maxLen);
+        string consensus = BuildConsensus(alignedList, maxLen, effectiveScoring.IsMatrix);
         // TotalScore is reported in the same SP currency as the sibling aligners for comparability.
         int spScore = ComputeSumOfPairsScore(alignedList, effectiveScoring, gapModel);
 
@@ -3229,7 +3445,7 @@ public static partial class SequenceAligner
 
     /// <summary>Primary library: global (NW) + local (SW) pairwise alignments of every sequence pair, signal-added.</summary>
     private static Dictionary<ResiduePairKey, double> BuildPrimaryLibrary(
-        string[] seqs, ScoringMatrix scoring, MsaGapModel gapModel = MsaGapModel.Linear)
+        string[] seqs, PairScoring scoring, MsaGapModel gapModel = MsaGapModel.Linear)
     {
         bool affine = gapModel == MsaGapModel.Affine;
         var primary = new Dictionary<ResiduePairKey, double>();
@@ -3240,11 +3456,11 @@ public static partial class SequenceAligner
             for (int j = i + 1; j < k; j++)
             {
                 AddAlignmentToPrimary(primary, i, j, seqs[i], seqs[j],
-                    affine ? GlobalAlignAffine(seqs[i], seqs[j], scoring) : GlobalAlignCore(seqs[i], seqs[j], scoring));
+                    affine ? AffineAlignCore(seqs[i], seqs[j], scoring, AlignmentType.Global) : GlobalAlignCore(seqs[i], seqs[j], scoring));
 
                 if (seqs[i].Length > 0 && seqs[j].Length > 0)
                 {
-                    var local = affine ? LocalAlignAffine(seqs[i], seqs[j], scoring) : LocalAlignCore(seqs[i], seqs[j], scoring);
+                    var local = affine ? AffineAlignCore(seqs[i], seqs[j], scoring, AlignmentType.Local) : LocalAlignCore(seqs[i], seqs[j], scoring);
                     AddLocalAlignmentToPrimary(primary, i, j, seqs[i], seqs[j], local);
                 }
             }

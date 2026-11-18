@@ -211,3 +211,9 @@ A1-12: the private UPGMA copy is gone (`Phylogenetics` never used `Alignment`; t
 ## Audit r1 addendum (A1-11, B09 F60)
 
 "Not implemented: exact optimal MSA" is lifted for small k: `MultipleAlignExact` (k = 2 = `GlobalAlign*`; k >= 3 exact k-dimensional DP with natural-affine gap-history states and the Carrillo-Lipman bound, complexity guard `MsaOptions.ExactMaxStateCells`, <= 8 sequences linear / 6 affine; MCP `multiple_align_exact`). Equal to two independent Python exact programs, exhaustive enumeration and Biopython (k = 2) on 804 / 804 sets; the heuristic aligners never exceed it and reach it on 86-92 % of the small related sets measured (algorithm doc §4.7).
+
+
+## Audit r1 addendum (A1-14, B09 F61)
+
+Protein / substitution-matrix multiple alignment: every aligner except `MultipleAlignClustalW` has `ProteinSequence` / `string` + `MatrixScoring` overloads (BLOSUM62, PAM250, EDNAFULL; linear and affine; fractional gap scores) that share all dynamic programs, merge, profile, refinement, library, lattice and anchor code with the DNA overloads through the exact-integer `PairScoring` (the scalar scoring is its scale-1 case; all pre-existing DNA tests unchanged); `MatrixSumOfPairsScore`, `MultipleAlignmentResult.ExactTotalScore`, `ExactMsaResult.ScoreScale`; MCP `type = dna | protein`, `matrix` on `multiple_align*`. Rows equal an independent Python implementation on 238 sets, the exact optimum equals the lattice DP / Biopython / enumeration on 308 sets, 320 rows of the `t_coffee` progressive stage on protein equal, see Evidence. Not covered: ClustalW's protein profile stage (A1-10c(b)).
+

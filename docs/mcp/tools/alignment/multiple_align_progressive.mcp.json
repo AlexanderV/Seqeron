@@ -6,13 +6,13 @@
   "stability": "stable",
   "methodId": "SequenceAligner.MultipleAlignProgressive",
   "docRef": "Seqeron.Genomics.Alignment/SequenceAligner.cs#L2275",
-  "description": "Guide-tree progressive MSA (Feng & Doolittle 1987 / Clustal-style): the ClustalW pairwise distance of every pairwise alignment, d = 1 − (identical aligned residue pairs) / (length of the shorter sequence) (Thompson, Higgins & Gibson 1994; pairalign.c tmat = (100 − 100·count/MIN(len1, len2)) / 100), gives the distance matrix, a guide tree (UPGMA by default, guideTree='nj' = ClustalW's neighbour-joining tree) orders the merges, and profiles are aligned by profile–profile dynamic programming with sum-of-pairs column scores (once a gap, always a gap). Default linear gap model (gapOpen ignored); gapModel='affine' uses a Gotoh three-state profile DP (occupancy-scaled gapOpen/gapExtend, ClustalW/MUSCLE style) and reports the natural affine sum-of-pairs score. distance='clustalw-quick' takes the distances from ClustalW 2.1's fast k-tuple mode (clustalw -QUICKTREE; ktuple / window / topDiagonals / pairGap); distance='clustalw' takes the guide-tree distances from ClustalW 2.1's own affine pairwise stage instead (percent identity of clustalw -ALIGN). Returns rows, majority consensus and sum-of-pairs score.",
+  "description": "Guide-tree progressive MSA (Feng & Doolittle 1987 / Clustal-style): the ClustalW pairwise distance of every pairwise alignment, d = 1 − (identical aligned residue pairs) / (length of the shorter sequence) (Thompson, Higgins & Gibson 1994; pairalign.c tmat = (100 − 100·count/MIN(len1, len2)) / 100), gives the distance matrix, a guide tree (UPGMA by default, guideTree='nj' = ClustalW's neighbour-joining tree) orders the merges, and profiles are aligned by profile–profile dynamic programming with sum-of-pairs column scores (once a gap, always a gap). Default linear gap model (gapOpen ignored); gapModel='affine' uses a Gotoh three-state profile DP (occupancy-scaled gapOpen/gapExtend, ClustalW/MUSCLE style) and reports the natural affine sum-of-pairs score. distance='clustalw' takes the guide-tree distances from ClustalW 2.1's own affine pairwise stage instead (percent identity of clustalw -ALIGN). Returns rows, majority consensus and sum-of-pairs score. PROTEIN / MATRIX: type='protein' (or matrix) uses the substitution matrix for the pairwise alignments, the profile column scores and the sum-of-pairs objective (fractional gaps allowed); rows equal an independent Python implementation on 238 sets.",
   "inputSchema": {
     "type": "object",
     "properties": {
       "sequences": {
         "type": "array",
-        "description": "DNA sequences to align (at least one)."
+        "description": "Sequences to align (at least one): DNA (A, C, G, T) by default, amino acids with type='protein'."
       },
       "match": {
         "type": "integer",
@@ -25,13 +25,13 @@
         "default": -1
       },
       "gapOpen": {
-        "type": "integer",
-        "description": "Gap-open penalty. Used only with gapModel='affine' (a gap of length k then costs gapOpen + k * gapExtend, Gotoh); ignored by the default linear model.",
+        "type": "number",
+        "description": "Gap-open penalty. Used only with gapModel='affine' (a gap of length k then costs gapOpen + k * gapExtend, Gotoh); ignored by the default linear model. May be fractional only with a substitution matrix (type='protein' or matrix).",
         "default": -2
       },
       "gapExtend": {
-        "type": "integer",
-        "description": "Gap penalty per gap position (linear model: every gap position; affine model: the per-position part of gapOpen + k * gapExtend).",
+        "type": "number",
+        "description": "Gap penalty per gap position (linear model: every gap position; affine model: the per-position part of gapOpen + k * gapExtend). May be fractional (e.g. -0.5) only with a substitution matrix (type='protein' or matrix).",
         "default": -1
       },
       "distance": {
@@ -64,6 +64,15 @@
       "pairGap": {
         "type": "integer",
         "description": "distance='clustalw-quick' only: gap penalty of the fragment chain (clustalw -PAIRGAP; default 5, or ktuple + 4 when ktuple is given, as the clustalw command line does)."
+      },
+      "type": {
+        "type": "string",
+        "description": "Sequence type: 'dna' (default; A, C, G, T scored with match/mismatch) or 'protein' (amino-acid sequences scored with the substitution matrix, default BLOSUM62; match/mismatch are then ignored). The protein path shares the dynamic programs, merge, profile and objective code of the DNA path (no second implementation).",
+        "default": "dna"
+      },
+      "matrix": {
+        "type": "string",
+        "description": "Optional substitution matrix: BLOSUM62 or PAM250 (type='protein'), EDNAFULL (IUPAC DNA, type='dna'). When given (or type='protein'), match/mismatch are ignored, residues are scored by the published table (case-insensitive, any symbol of the matrix), gapOpen/gapExtend may be fractional (EMBOSS needle numbers gapopen G / gapextend E = gapOpen -(G - E), gapExtend -E) and the result also carries the real-valued exactTotalScore (totalScore = rounded). Verified against independent Python implementations of every method, Biopython 1.88 pairwise optima and exhaustive enumeration of tiny sets."
       }
     },
     "required": [
@@ -84,6 +93,10 @@
       "totalScore": {
         "type": "integer",
         "description": "Sum-of-pairs score of the MSA: linear model = column score (match/mismatch from the matrix, residue-gap = gapExtend, gap-gap = 0); gapModel='affine' = natural affine gap costs (every gap run of each pair projection pays gapOpen once)."
+      },
+      "exactTotalScore": {
+        "type": "number",
+        "description": "Real-valued sum-of-pairs score (= totalScore for DNA with integer scores; the exact score, e.g. 49.5, for substitution-matrix runs with fractional gaps, where totalScore is rounded half away from zero)."
       }
     },
     "required": [

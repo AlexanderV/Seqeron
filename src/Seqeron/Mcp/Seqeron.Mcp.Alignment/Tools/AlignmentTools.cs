@@ -422,10 +422,19 @@ public class AlignmentTools
     }
 
     private const string GapOpenDescription =
-        "Gap-open penalty. Used only with gapModel='affine' (a gap of length k then costs gapOpen + k * gapExtend, Gotoh); ignored by the default linear model.";
+        "Gap-open penalty. Used only with gapModel='affine' (a gap of length k then costs gapOpen + k * gapExtend, Gotoh); ignored by the default linear model. May be fractional only with a substitution matrix (type='protein' or matrix).";
 
     private const string GapExtendDescription =
-        "Gap penalty per gap position (linear model: every gap position; affine model: the per-position part of gapOpen + k * gapExtend).";
+        "Gap penalty per gap position (linear model: every gap position; affine model: the per-position part of gapOpen + k * gapExtend). May be fractional (e.g. -0.5) only with a substitution matrix (type='protein' or matrix).";
+
+    private const string MsaTypeDescription =
+        "Sequence type: 'dna' (default; A, C, G, T scored with match/mismatch) or 'protein' (amino-acid sequences scored with the substitution matrix, default BLOSUM62; match/mismatch are then ignored). " +
+        "The protein path shares the dynamic programs, merge, profile and objective code of the DNA path (no second implementation).";
+
+    private const string MsaMatrixDescription =
+        "Optional substitution matrix: BLOSUM62 or PAM250 (type='protein'), EDNAFULL (IUPAC DNA, type='dna'). When given (or type='protein'), match/mismatch are ignored, residues are scored by the published table " +
+        "(case-insensitive, any symbol of the matrix), gapOpen/gapExtend may be fractional (EMBOSS needle numbers gapopen G / gapextend E = gapOpen -(G - E), gapExtend -E) and the result also carries the real-valued exactTotalScore " +
+        "(totalScore = rounded). Verified against independent Python implementations of every method, Biopython 1.88 pairwise optima and exhaustive enumeration of tiny sets.";
 
     private const string GapModelDescription =
         "'linear' (default): every gap position costs gapExtend and gapOpen is ignored; totalScore is the column sum of pairs (gap-gap columns 0). " +
@@ -451,55 +460,64 @@ public class AlignmentTools
         "With distance='clustalw' and guideTree='nj' the tree equals the .dnd file of clustalw -ALIGN. UPGMA is built by the canonical phylogenetics builder; NJ uses ClustalW's own neighbour-joining arithmetic (exact ties as in clustalw).";
 
     [McpServerTool(Name = "multiple_align", Title = "MSA — Center-Star Alignment (Gusfield)", ReadOnly = true)]
-    [Description("Center-star multiple sequence alignment (Gusfield 1993) with exact pairwise alignments: the center is the sequence with the highest total optimal pairwise global score to the others, every other sequence is aligned to it with the canonical global aligner (Needleman–Wunsch, or Gotoh affine with gapModel='affine') and the pairwise alignments are merged column-wise (once a gap, always a gap). Default linear gap model (every gap position costs gapExtend; gapOpen is ignored); gapModel='affine' charges gapOpen + k·gapExtend per gap run and reports the natural affine sum-of-pairs score. For two sequences the result is an optimal pairwise global alignment under either model. Returns the aligned rows, majority consensus and sum-of-pairs score (gap-gap columns score 0).")]
+    [Description("Center-star multiple sequence alignment (Gusfield 1993) with exact pairwise alignments: the center is the sequence with the highest total optimal pairwise global score to the others, every other sequence is aligned to it with the canonical global aligner (Needleman–Wunsch, or Gotoh affine with gapModel='affine') and the pairwise alignments are merged column-wise (once a gap, always a gap). Default linear gap model (every gap position costs gapExtend; gapOpen is ignored); gapModel='affine' charges gapOpen + k·gapExtend per gap run and reports the natural affine sum-of-pairs score. For two sequences the result is an optimal pairwise global alignment under either model. Returns the aligned rows, majority consensus and sum-of-pairs score (gap-gap columns score 0). PROTEIN / MATRIX: type='protein' (or matrix = BLOSUM62 | PAM250 | EDNAFULL) scores residue pairs with the published substitution table and real-valued (fractional) gap scores through the same code (string / ProteinSequence overloads of SequenceAligner.MultipleAlign); the result carries exactTotalScore. Equal row for row to an independent Python implementation on 238 protein / IUPAC sets (linear and affine) and, for two sequences, to the Biopython 1.88 optimum.")]
     public static MultipleAlignmentResultDto MultipleAlign(
-        [Description("DNA sequences to align (at least one).")] string[] sequences,
+        [Description("Sequences to align (at least one): DNA (A, C, G, T) by default, amino acids with type='protein'.")] string[] sequences,
         [Description("Score for matching base.")] int match = 1,
         [Description("Score for mismatching base.")] int mismatch = -1,
-        [Description(GapOpenDescription)] int gapOpen = -2,
-        [Description(GapExtendDescription)] int gapExtend = -1,
-        [Description(GapModelDescription)] string gapModel = "linear") =>
-        RunMsa(sequences, match, mismatch, gapOpen, gapExtend,
+        [Description(GapOpenDescription)] double gapOpen = -2,
+        [Description(GapExtendDescription)] double gapExtend = -1,
+        [Description(GapModelDescription)] string gapModel = "linear",
+        [Description(MsaTypeDescription)] string type = "dna",
+        [Description(MsaMatrixDescription)] string? matrix = null) =>
+        RunMsa(sequences, match, mismatch, gapOpen, gapExtend, type, matrix,
+            (seqs, scoring) => global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlign(seqs, scoring, ParseMsaOptions(null, gapModel)),
             (seqs, scoring) => global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlign(seqs, scoring, ParseMsaOptions(null, gapModel)));
 
     [McpServerTool(Name = "multiple_align_anchored", Title = "MSA — Anchored Center-Star (approximate, suffix-tree seeds)", ReadOnly = true)]
-    [Description("Approximate, faster center-star MSA: picks the center by 4-mer count cosine similarity, builds a suffix tree on it and aligns every other sequence with exact-match anchors (MUMmer-style seed, weighted colinear chain, Needleman–Wunsch — or Gotoh affine with gapModel='affine' — on the gaps between anchors). The pairwise alignments are NOT guaranteed optimal, so the sum-of-pairs score can be lower than multiple_align's. Default linear gap model (gapOpen ignored); gapModel='affine' charges gapOpen + k·gapExtend per gap run and reports the natural affine sum-of-pairs score.")]
+    [Description("Approximate, faster center-star MSA: picks the center by 4-mer count cosine similarity, builds a suffix tree on it and aligns every other sequence with exact-match anchors (MUMmer-style seed, weighted colinear chain, Needleman–Wunsch — or Gotoh affine with gapModel='affine' — on the gaps between anchors). The pairwise alignments are NOT guaranteed optimal, so the sum-of-pairs score can be lower than multiple_align's. Default linear gap model (gapOpen ignored); gapModel='affine' charges gapOpen + k·gapExtend per gap run and reports the natural affine sum-of-pairs score. PROTEIN / MATRIX: type='protein' (or matrix) scores anchors as the sum of matrix(c, c) and fills the gaps between anchors with the matrix aligner (any alphabet); rows equal an independent Python implementation (anchors = suffix-tree matching statistics, colinear chain, Needleman-Wunsch / Gotoh between anchors).")]
     public static MultipleAlignmentResultDto MultipleAlignAnchored(
-        [Description("DNA sequences to align (at least one).")] string[] sequences,
+        [Description("Sequences to align (at least one): DNA (A, C, G, T) by default, amino acids with type='protein'.")] string[] sequences,
         [Description("Score for matching base.")] int match = 1,
         [Description("Score for mismatching base.")] int mismatch = -1,
-        [Description(GapOpenDescription)] int gapOpen = -2,
-        [Description(GapExtendDescription)] int gapExtend = -1,
-        [Description(GapModelDescription)] string gapModel = "linear") =>
-        RunMsa(sequences, match, mismatch, gapOpen, gapExtend,
+        [Description(GapOpenDescription)] double gapOpen = -2,
+        [Description(GapExtendDescription)] double gapExtend = -1,
+        [Description(GapModelDescription)] string gapModel = "linear",
+        [Description(MsaTypeDescription)] string type = "dna",
+        [Description(MsaMatrixDescription)] string? matrix = null) =>
+        RunMsa(sequences, match, mismatch, gapOpen, gapExtend, type, matrix,
+            (seqs, scoring) => global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignAnchored(seqs, scoring, ParseMsaOptions(null, gapModel)),
             (seqs, scoring) => global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignAnchored(seqs, scoring, ParseMsaOptions(null, gapModel)));
 
     [McpServerTool(Name = "multiple_align_progressive", Title = "MSA — Progressive Guide-Tree Alignment (Clustal-style)", ReadOnly = true)]
-    [Description("Guide-tree progressive MSA (Feng & Doolittle 1987 / Clustal-style): the ClustalW pairwise distance of every pairwise alignment, d = 1 − (identical aligned residue pairs) / (length of the shorter sequence) (Thompson, Higgins & Gibson 1994; pairalign.c tmat = (100 − 100·count/MIN(len1, len2)) / 100), gives the distance matrix, a guide tree (UPGMA by default, guideTree='nj' = ClustalW's neighbour-joining tree) orders the merges, and profiles are aligned by profile–profile dynamic programming with sum-of-pairs column scores (once a gap, always a gap). Default linear gap model (gapOpen ignored); gapModel='affine' uses a Gotoh three-state profile DP (occupancy-scaled gapOpen/gapExtend, ClustalW/MUSCLE style) and reports the natural affine sum-of-pairs score. distance='clustalw' takes the guide-tree distances from ClustalW 2.1's own affine pairwise stage instead (percent identity of clustalw -ALIGN). Returns rows, majority consensus and sum-of-pairs score.")]
+    [Description("Guide-tree progressive MSA (Feng & Doolittle 1987 / Clustal-style): the ClustalW pairwise distance of every pairwise alignment, d = 1 − (identical aligned residue pairs) / (length of the shorter sequence) (Thompson, Higgins & Gibson 1994; pairalign.c tmat = (100 − 100·count/MIN(len1, len2)) / 100), gives the distance matrix, a guide tree (UPGMA by default, guideTree='nj' = ClustalW's neighbour-joining tree) orders the merges, and profiles are aligned by profile–profile dynamic programming with sum-of-pairs column scores (once a gap, always a gap). Default linear gap model (gapOpen ignored); gapModel='affine' uses a Gotoh three-state profile DP (occupancy-scaled gapOpen/gapExtend, ClustalW/MUSCLE style) and reports the natural affine sum-of-pairs score. distance='clustalw' takes the guide-tree distances from ClustalW 2.1's own affine pairwise stage instead (percent identity of clustalw -ALIGN). Returns rows, majority consensus and sum-of-pairs score. PROTEIN / MATRIX: type='protein' (or matrix) uses the substitution matrix for the pairwise alignments, the profile column scores and the sum-of-pairs objective (fractional gaps allowed); rows equal an independent Python implementation on 238 sets.")]
     public static MultipleAlignmentResultDto MultipleAlignProgressive(
-        [Description("DNA sequences to align (at least one).")] string[] sequences,
+        [Description("Sequences to align (at least one): DNA (A, C, G, T) by default, amino acids with type='protein'.")] string[] sequences,
         [Description("Score for matching base.")] int match = 1,
         [Description("Score for mismatching base.")] int mismatch = -1,
-        [Description(GapOpenDescription)] int gapOpen = -2,
-        [Description(GapExtendDescription)] int gapExtend = -1,
+        [Description(GapOpenDescription)] double gapOpen = -2,
+        [Description(GapExtendDescription)] double gapExtend = -1,
         [Description(DistanceModeDescription)] string distance = "linear",
         [Description(GapModelDescription)] string gapModel = "linear",
         [Description(GuideTreeDescription)] string guideTree = "upgma",
         [Description(KtupleDescription)] int? ktuple = null,
         [Description(WindowDescription)] int? window = null,
         [Description(TopDiagonalsDescription)] int? topDiagonals = null,
-        [Description(PairGapDescription)] int? pairGap = null) =>
-        RunMsa(sequences, match, mismatch, gapOpen, gapExtend,
+        [Description(PairGapDescription)] int? pairGap = null,
+        [Description(MsaTypeDescription)] string type = "dna",
+        [Description(MsaMatrixDescription)] string? matrix = null) =>
+        RunMsa(sequences, match, mismatch, gapOpen, gapExtend, type, matrix,
+            (seqs, scoring) => global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignProgressive(seqs, scoring, ParseMsaOptions(distance, gapModel, guideTree, ktuple, window, topDiagonals, pairGap)),
             (seqs, scoring) => global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignProgressive(seqs, scoring, ParseMsaOptions(distance, gapModel, guideTree, ktuple, window, topDiagonals, pairGap)));
 
     [McpServerTool(Name = "multiple_align_iterative", Title = "MSA — Progressive + Iterative Refinement (MUSCLE-style)", ReadOnly = true)]
-    [Description("Progressive MSA followed by MUSCLE-style tree-dependent restricted-partitioning refinement (Edgar 2004, stage 3): each guide-tree edge splits the alignment into two profiles that are re-aligned and kept only if the sum-of-pairs score strictly improves; repeated until convergence or maxIterations passes. The result's sum-of-pairs score is never below multiple_align_progressive's. Default linear gap model (gapOpen ignored); gapModel='affine' refines under the natural affine sum-of-pairs objective with the affine profile DP. distance='clustalw' selects ClustalW 2.1's pairwise stage for the guide tree and guideTree='nj' neighbour-joining (see multiple_align_progressive); the refinement partitions are the edges of that tree.")]
+    [Description("Progressive MSA followed by MUSCLE-style tree-dependent restricted-partitioning refinement (Edgar 2004, stage 3): each guide-tree edge splits the alignment into two profiles that are re-aligned and kept only if the sum-of-pairs score strictly improves; repeated until convergence or maxIterations passes. The result's sum-of-pairs score is never below multiple_align_progressive's. Default linear gap model (gapOpen ignored); gapModel='affine' refines under the natural affine sum-of-pairs objective with the affine profile DP. distance='clustalw' selects ClustalW 2.1's pairwise stage for the guide tree and guideTree='nj' neighbour-joining (see multiple_align_progressive); the refinement partitions are the edges of that tree. PROTEIN / MATRIX: type='protein' (or matrix) refines under the matrix sum-of-pairs objective (see multiple_align_progressive); rows equal an independent Python implementation.")]
     public static MultipleAlignmentResultDto MultipleAlignIterative(
-        [Description("DNA sequences to align (at least one).")] string[] sequences,
+        [Description("Sequences to align (at least one): DNA (A, C, G, T) by default, amino acids with type='protein'.")] string[] sequences,
         [Description("Score for matching base.")] int match = 1,
         [Description("Score for mismatching base.")] int mismatch = -1,
-        [Description(GapOpenDescription)] int gapOpen = -2,
-        [Description(GapExtendDescription)] int gapExtend = -1,
+        [Description(GapOpenDescription)] double gapOpen = -2,
+        [Description(GapExtendDescription)] double gapExtend = -1,
         [Description("Upper bound on full refinement passes (>= 1).")] int maxIterations = 16,
         [Description(DistanceModeDescription)] string distance = "linear",
         [Description(GapModelDescription)] string gapModel = "linear",
@@ -507,13 +525,16 @@ public class AlignmentTools
         [Description(KtupleDescription)] int? ktuple = null,
         [Description(WindowDescription)] int? window = null,
         [Description(TopDiagonalsDescription)] int? topDiagonals = null,
-        [Description(PairGapDescription)] int? pairGap = null)
+        [Description(PairGapDescription)] int? pairGap = null,
+        [Description(MsaTypeDescription)] string type = "dna",
+        [Description(MsaMatrixDescription)] string? matrix = null)
     {
         if (maxIterations < 1)
             throw new ArgumentOutOfRangeException(nameof(maxIterations), "maxIterations must be >= 1.");
 
         var options = ParseMsaOptions(distance, gapModel, guideTree, ktuple, window, topDiagonals, pairGap);
-        return RunMsa(sequences, match, mismatch, gapOpen, gapExtend,
+        return RunMsa(sequences, match, mismatch, gapOpen, gapExtend, type, matrix,
+            (seqs, scoring) => global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignIterative(seqs, scoring, options, maxIterations),
             (seqs, scoring) => global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignIterative(seqs, scoring, options, maxIterations));
     }
 
@@ -524,45 +545,50 @@ public class AlignmentTools
         "not the program's slow_pair / lalign_id_pair / proba_pair libraries, and the tree is guideTree (not the program's k-tuple NJ tree), so a plain 't_coffee seqs.fa' run is not reproduced end to end.";
 
     [McpServerTool(Name = "multiple_align_exact", Title = "MSA — Exact Sum-of-Pairs Optimal Alignment (Carrillo–Lipman)", ReadOnly = true)]
-    [Description("EXACT sum-of-pairs optimal multiple alignment: no other alignment of the sequences has a larger totalScore under the chosen gap model. gapModel='linear' (default): totalScore = column sum of pairs (residue pair match/mismatch, residue against gap gapExtend, gap against gap 0; gapOpen ignored). gapModel='affine': natural affine sum of pairs (Altschul 1989: every pair of rows is projected out of the alignment, gap-gap columns skipped, every gap run of the projection pays gapOpen + k*gapExtend) - the objective of the heuristic multiple_align* tools, which are all heuristics for three or more sequences (their totalScore never exceeds this tool's; the star / progressive / iterative aligners reach it on a large share of small related sets). Two sequences = global_align / global_align_affine; three or more = the k-dimensional dynamic program over the 2^k - 1 neighbours of every cell (Altschul & Lipman 1989; for k = 3 the classic 7-neighbour 3-D recurrence) with, for affine gaps, one value per gap-history state of every cell (the exact state-per-pair program, 13 / 75 / 541 states for k = 3 / 4 / 5), pruned by the Carrillo-Lipman (1988) bound: a cell is dropped when the sum over all pairs of the best pairwise alignment through it (forward + backward Gotoh tables) cannot reach the sum-of-pairs score of the best heuristic alignment (star, progressive or iterative); carrilloLipman=false evaluates the whole lattice (identical result, used as the oracle). The problem is NP-complete in the number of sequences: at most 8 sequences (linear) / 6 (affine), and the dynamic program is stopped with a clear error when it would hold more than maxStateCells values (cells x gap states; default 50 000 000, about 200 MB) - similar sequences are cheap (a thin corridor), unrelated ones explode. Verified equal to exhaustive enumeration of every alignment of tiny sets and to two independent Python exact programs on 804 random sets (k = 2..5), both objectives. Returns the alignment rows (input order), majority consensus, the optimal totalScore, lowerBound (score of the best heuristic seed), latticeCells (product of length+1), visitedCells and stateValues (size actually solved).")]
+    [Description("EXACT sum-of-pairs optimal multiple alignment: no other alignment of the sequences has a larger totalScore under the chosen gap model. gapModel='linear' (default): totalScore = column sum of pairs (residue pair match/mismatch, residue against gap gapExtend, gap against gap 0; gapOpen ignored). gapModel='affine': natural affine sum of pairs (Altschul 1989: every pair of rows is projected out of the alignment, gap-gap columns skipped, every gap run of the projection pays gapOpen + k*gapExtend) - the objective of the heuristic multiple_align* tools, which are all heuristics for three or more sequences (their totalScore never exceeds this tool's; the star / progressive / iterative aligners reach it on a large share of small related sets). Two sequences = global_align / global_align_affine; three or more = the k-dimensional dynamic program over the 2^k - 1 neighbours of every cell (Altschul & Lipman 1989; for k = 3 the classic 7-neighbour 3-D recurrence) with, for affine gaps, one value per gap-history state of every cell (the exact state-per-pair program, 13 / 75 / 541 states for k = 3 / 4 / 5), pruned by the Carrillo-Lipman (1988) bound: a cell is dropped when the sum over all pairs of the best pairwise alignment through it (forward + backward Gotoh tables) cannot reach the sum-of-pairs score of the best heuristic alignment (star, progressive or iterative); carrilloLipman=false evaluates the whole lattice (identical result, used as the oracle). The problem is NP-complete in the number of sequences: at most 8 sequences (linear) / 6 (affine), and the dynamic program is stopped with a clear error when it would hold more than maxStateCells values (cells x gap states; default 50 000 000, about 200 MB) - similar sequences are cheap (a thin corridor), unrelated ones explode. Verified equal to exhaustive enumeration of every alignment of tiny sets and to two independent Python exact programs on 804 random sets (k = 2..5), both objectives. Returns the alignment rows (input order), majority consensus, the optimal totalScore, lowerBound (score of the best heuristic seed), latticeCells (product of length+1), visitedCells and stateValues (size actually solved). PROTEIN / MATRIX: type='protein' (or matrix = BLOSUM62 | PAM250 | EDNAFULL) runs the same lattice program with the substitution matrix and fractional gap scores (at most 8 / 6 sequences); totalScore is then rounded and exactTotalScore is the real optimum (scoreScale = the integer denominator of lowerBound). Verified on 308 protein / IUPAC sets (k = 2 = Biopython, k = 3, 4 = lattice DP, tiny sets = exhaustive enumeration).")]
     public static ExactMultipleAlignmentResultDto MultipleAlignExact(
-        [Description("DNA sequences to align (at least one).")] string[] sequences,
+        [Description("Sequences to align (at least one): DNA (A, C, G, T) by default, amino acids with type='protein'.")] string[] sequences,
         [Description("Score for matching base.")] int match = 1,
         [Description("Score for mismatching base.")] int mismatch = -1,
-        [Description(GapOpenDescription)] int gapOpen = -2,
-        [Description(GapExtendDescription)] int gapExtend = -1,
+        [Description(GapOpenDescription)] double gapOpen = -2,
+        [Description(GapExtendDescription)] double gapExtend = -1,
         [Description("'linear' (default; column sum of pairs, gapOpen ignored) or 'affine' (natural affine sum of pairs, gap of length k = gapOpen + k*gapExtend).")] string gapModel = "linear",
         [Description("true (default): prune the dynamic-programming lattice with the Carrillo-Lipman bound; false: evaluate every cell (same result, exponentially slower).")] bool carrilloLipman = true,
-        [Description("Complexity guard: largest number of dynamic-programming values (surviving cells x gap states) the exact program may hold; above it the call fails with a clear error instead of exhausting memory.")] long maxStateCells = 50_000_000)
+        [Description("Complexity guard: largest number of dynamic-programming values (surviving cells x gap states) the exact program may hold; above it the call fails with a clear error instead of exhausting memory.")] long maxStateCells = 50_000_000,
+        [Description(MsaTypeDescription)] string type = "dna",
+        [Description(MsaMatrixDescription)] string? matrix = null)
     {
+        var (sub, _) = ResolveMsaMatrix(type, matrix);
+        var options = ParseMsaOptions(null, gapModel) with { ExactCarrilloLipman = carrilloLipman, ExactMaxStateCells = maxStateCells };
         if (sequences == null || sequences.Length == 0)
         {
             var e = global::Seqeron.Genomics.Infrastructure.MultipleAlignmentResult.Empty;
             return new ExactMultipleAlignmentResultDto(e.AlignedSequences, e.Consensus, 0, 0, 1, 0, 0);
         }
 
-        var dnaList = new List<global::Seqeron.Genomics.Core.DnaSequence>(sequences.Length);
-        for (int i = 0; i < sequences.Length; i++)
+        if (sub is not null)
         {
-            if (!global::Seqeron.Genomics.Core.DnaSequence.TryCreate(sequences[i], out var d))
-                throw new ArgumentException($"Invalid DNA at sequences[{i}].", nameof(sequences));
-            dnaList.Add(d!);
+            var m = global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignExactWithStatistics(
+                sequences, new global::Seqeron.Genomics.Infrastructure.MatrixScoring(sub, gapOpen, gapExtend), options);
+            return new ExactMultipleAlignmentResultDto(m.Alignment.AlignedSequences, m.Alignment.Consensus, m.Alignment.TotalScore, m.LowerBound, m.LatticeCells, m.VisitedCells, m.StateValues,
+                m.Alignment.ExactTotalScore, m.ScoreScale);
         }
 
-        var scoring = new global::Seqeron.Genomics.Infrastructure.ScoringMatrix(match, mismatch, gapOpen, gapExtend);
-        var options = ParseMsaOptions(null, gapModel) with { ExactCarrilloLipman = carrilloLipman, ExactMaxStateCells = maxStateCells };
+        var dnaList = ParseDna(sequences);
+        var scoring = new global::Seqeron.Genomics.Infrastructure.ScoringMatrix(match, mismatch, RequireInteger(gapOpen, nameof(gapOpen)), RequireInteger(gapExtend, nameof(gapExtend)));
         var r = global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignExactWithStatistics(dnaList, scoring, options);
-        return new ExactMultipleAlignmentResultDto(r.Alignment.AlignedSequences, r.Alignment.Consensus, r.Alignment.TotalScore, r.LowerBound, r.LatticeCells, r.VisitedCells, r.StateValues);
+        return new ExactMultipleAlignmentResultDto(r.Alignment.AlignedSequences, r.Alignment.Consensus, r.Alignment.TotalScore, r.LowerBound, r.LatticeCells, r.VisitedCells, r.StateValues,
+            r.Alignment.ExactTotalScore, 1);
     }
 
     [McpServerTool(Name = "multiple_align_consistency", Title = "MSA — Consistency-Based Alignment (T-Coffee)", ReadOnly = true)]
-    [Description("Consistency-based MSA (T-Coffee; Notredame, Higgins & Heringa 2000): a primary library of global (Needleman–Wunsch) and local (Smith–Waterman) pairwise alignments weighted by percent identity, extended by the triplet consistency transformation (direct weight + Σ min(W1, W2) over third sequences), then progressively aligned along a guide tree (UPGMA by default; guideTree='nj' = neighbour-joining as in the T-Coffee paper) with the extended-library weights as position-specific scores and zero gap penalties (T-Coffee default). The scoring parameters seed the pairwise library (gapModel='affine': Gotoh global and Smith–Waterman–Gotoh local alignments with gapOpen + k·gapExtend) and define totalScore, the sum of pairs of the result (linear column score, or natural affine costs with gapModel='affine'). distance='clustalw' takes the guide-tree distances from ClustalW 2.1's own pairwise stage. consistencyEngine='tcoffee' swaps the progressive stage for the T-Coffee 13.41 program's (library relaxation + linked pair-wise sparse DP; exact for the same library and tree).")]
+    [Description("Consistency-based MSA (T-Coffee; Notredame, Higgins & Heringa 2000): a primary library of global (Needleman–Wunsch) and local (Smith–Waterman) pairwise alignments weighted by percent identity, extended by the triplet consistency transformation (direct weight + Σ min(W1, W2) over third sequences), then progressively aligned along a guide tree (UPGMA by default; guideTree='nj' = neighbour-joining as in the T-Coffee paper) with the extended-library weights as position-specific scores and zero gap penalties (T-Coffee default). The scoring parameters seed the pairwise library (gapModel='affine': Gotoh global and Smith–Waterman–Gotoh local alignments with gapOpen + k·gapExtend) and define totalScore, the sum of pairs of the result (linear column score, or natural affine costs with gapModel='affine'). distance='clustalw' takes the guide-tree distances from ClustalW 2.1's own pairwise stage. consistencyEngine='tcoffee' swaps the progressive stage for the T-Coffee 13.41 program's (library relaxation + linked pair-wise sparse DP; exact for the same library and tree). PROTEIN / MATRIX: type='protein' (or matrix) builds the primary library from the matrix global + local pair alignments (weights = percent identity) and otherwise runs the same pipeline (consistencyEngine='tcoffee' too); rows equal an independent Python implementation, and the T-Coffee progressive stage equals the t_coffee program on 160 protein sets.")]
     public static MultipleAlignmentResultDto MultipleAlignConsistency(
-        [Description("DNA sequences to align (at least one).")] string[] sequences,
+        [Description("Sequences to align (at least one): DNA (A, C, G, T) by default, amino acids with type='protein'.")] string[] sequences,
         [Description("Score for matching base (pairwise library and reported score).")] int match = 1,
         [Description("Score for mismatching base.")] int mismatch = -1,
-        [Description(GapOpenDescription)] int gapOpen = -2,
-        [Description(GapExtendDescription)] int gapExtend = -1,
+        [Description(GapOpenDescription)] double gapOpen = -2,
+        [Description(GapExtendDescription)] double gapExtend = -1,
         [Description(DistanceModeDescription)] string distance = "linear",
         [Description(GapModelDescription)] string gapModel = "linear",
         [Description(GuideTreeDescription)] string guideTree = "upgma",
@@ -570,8 +596,11 @@ public class AlignmentTools
         [Description(WindowDescription)] int? window = null,
         [Description(TopDiagonalsDescription)] int? topDiagonals = null,
         [Description(PairGapDescription)] int? pairGap = null,
-        [Description(ConsistencyEngineDescription)] string consistencyEngine = "paper") =>
-        RunMsa(sequences, match, mismatch, gapOpen, gapExtend,
+        [Description(ConsistencyEngineDescription)] string consistencyEngine = "paper",
+        [Description(MsaTypeDescription)] string type = "dna",
+        [Description(MsaMatrixDescription)] string? matrix = null) =>
+        RunMsa(sequences, match, mismatch, gapOpen, gapExtend, type, matrix,
+            (seqs, scoring) => global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignConsistency(seqs, scoring, ParseMsaOptions(distance, gapModel, guideTree, ktuple, window, topDiagonals, pairGap, consistencyEngine)),
             (seqs, scoring) => global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignConsistency(seqs, scoring, ParseMsaOptions(distance, gapModel, guideTree, ktuple, window, topDiagonals, pairGap, consistencyEngine)));
 
     [McpServerTool(Name = "multiple_align_clustalw", Title = "MSA — ClustalW 2.1 Multiple Alignment (exact port)", ReadOnly = true)]
@@ -664,16 +693,8 @@ public class AlignmentTools
         },
     };
 
-    private static MultipleAlignmentResultDto RunMsa(
-        string[] sequences, int match, int mismatch, int gapOpen, int gapExtend,
-        Func<IEnumerable<global::Seqeron.Genomics.Core.DnaSequence>, global::Seqeron.Genomics.Infrastructure.ScoringMatrix?, global::Seqeron.Genomics.Infrastructure.MultipleAlignmentResult> align)
+    private static List<global::Seqeron.Genomics.Core.DnaSequence> ParseDna(string[] sequences)
     {
-        if (sequences == null || sequences.Length == 0)
-        {
-            var e = global::Seqeron.Genomics.Infrastructure.MultipleAlignmentResult.Empty;
-            return new MultipleAlignmentResultDto(e.AlignedSequences, e.Consensus, e.TotalScore);
-        }
-
         var dnaList = new List<global::Seqeron.Genomics.Core.DnaSequence>(sequences.Length);
         for (int i = 0; i < sequences.Length; i++)
         {
@@ -682,9 +703,60 @@ public class AlignmentTools
             dnaList.Add(d!);
         }
 
-        var scoring = new global::Seqeron.Genomics.Infrastructure.ScoringMatrix(match, mismatch, gapOpen, gapExtend);
+        return dnaList;
+    }
+
+    /// <summary>
+    /// Scoring of the multiple-alignment tools: <c>null</c> = the scalar match/mismatch model on <c>DnaSequence</c>; otherwise the
+    /// substitution matrix (type='protein' defaults to BLOSUM62; type='dna' accepts only EDNAFULL).
+    /// </summary>
+    private static (global::Seqeron.Genomics.Infrastructure.SubstitutionMatrix? Matrix, bool Protein) ResolveMsaMatrix(string? type, string? matrix)
+    {
+        var kind = (type ?? "dna").Trim().ToLowerInvariant();
+        if (kind is not ("dna" or "protein"))
+            throw new ArgumentException("type must be 'dna' or 'protein'.", nameof(type));
+
+        var sub = ResolveMatrix(matrix);
+        bool edna = ReferenceEquals(sub, global::Seqeron.Genomics.Infrastructure.SubstitutionMatrix.EdnaFull);
+        if (kind == "protein")
+        {
+            if (edna)
+                throw new ArgumentException("matrix EDNAFULL is a nucleotide matrix; use type='dna' with it, or BLOSUM62 / PAM250 for type='protein'.", nameof(matrix));
+            return (sub ?? global::Seqeron.Genomics.Infrastructure.SubstitutionMatrix.Blosum62, true);
+        }
+
+        if (sub is not null && !edna)
+            throw new ArgumentException("type='dna' accepts only matrix EDNAFULL; use type='protein' for BLOSUM62 / PAM250.", nameof(matrix));
+        return (sub, false);
+    }
+
+    private static MultipleAlignmentResultDto RunMsa(
+        string[] sequences, int match, int mismatch, int gapOpen, int gapExtend,
+        Func<IEnumerable<global::Seqeron.Genomics.Core.DnaSequence>, global::Seqeron.Genomics.Infrastructure.ScoringMatrix?, global::Seqeron.Genomics.Infrastructure.MultipleAlignmentResult> align) =>
+        RunMsa(sequences, match, mismatch, gapOpen, gapExtend, "dna", null, align, null);
+
+    private static MultipleAlignmentResultDto RunMsa(
+        string[] sequences, int match, int mismatch, double gapOpen, double gapExtend, string? type, string? matrix,
+        Func<IEnumerable<global::Seqeron.Genomics.Core.DnaSequence>, global::Seqeron.Genomics.Infrastructure.ScoringMatrix?, global::Seqeron.Genomics.Infrastructure.MultipleAlignmentResult> align,
+        Func<IEnumerable<string>, global::Seqeron.Genomics.Infrastructure.MatrixScoring, global::Seqeron.Genomics.Infrastructure.MultipleAlignmentResult>? alignMatrix)
+    {
+        var (sub, _) = ResolveMsaMatrix(type, matrix);
+        if (sequences == null || sequences.Length == 0)
+        {
+            var e = global::Seqeron.Genomics.Infrastructure.MultipleAlignmentResult.Empty;
+            return new MultipleAlignmentResultDto(e.AlignedSequences, e.Consensus, e.TotalScore, e.ExactTotalScore);
+        }
+
+        if (sub is not null)
+        {
+            var m = alignMatrix!(sequences, new global::Seqeron.Genomics.Infrastructure.MatrixScoring(sub, gapOpen, gapExtend));
+            return new MultipleAlignmentResultDto(m.AlignedSequences, m.Consensus, m.TotalScore, m.ExactTotalScore);
+        }
+
+        var dnaList = ParseDna(sequences);
+        var scoring = new global::Seqeron.Genomics.Infrastructure.ScoringMatrix(match, mismatch, RequireInteger(gapOpen, nameof(gapOpen)), RequireInteger(gapExtend, nameof(gapExtend)));
         var r = align(dnaList, scoring);
-        return new MultipleAlignmentResultDto(r.AlignedSequences, r.Consensus, r.TotalScore);
+        return new MultipleAlignmentResultDto(r.AlignedSequences, r.Consensus, r.TotalScore, r.ExactTotalScore);
     }
 
     #endregion

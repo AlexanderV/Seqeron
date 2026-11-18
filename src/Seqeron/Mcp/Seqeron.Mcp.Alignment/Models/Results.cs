@@ -44,7 +44,8 @@ public record FormatAlignmentResult(string Formatted);
 public record MultipleAlignmentResultDto(
     string[] AlignedSequences,
     string Consensus,
-    int TotalScore);
+    int TotalScore,
+    double ExactTotalScore = 0);
 
 /// <summary>Exact sum-of-pairs multiple alignment with the size of the problem solved (heuristic seed bound, lattice and visited cells).</summary>
 public record ExactMultipleAlignmentResultDto(
@@ -54,7 +55,9 @@ public record ExactMultipleAlignmentResultDto(
     int LowerBound,
     long LatticeCells,
     long VisitedCells,
-    long StateValues);
+    long StateValues,
+    double ExactTotalScore = 0,
+    int ScoreScale = 1);
 
 // ================================
 // ApproximateMatcher DTOs

@@ -154,7 +154,7 @@ public static partial class SequenceAligner
     /// guide tree through the program's progressive stage.
     /// </summary>
     private static MultipleAlignmentResult BuildTCoffeeLinkedResult(
-        string[] seqs, Dictionary<ResiduePairKey, double> primary, ProgressiveGuideNode root, ScoringMatrix scoring, MsaGapModel gapModel)
+        string[] seqs, Dictionary<ResiduePairKey, double> primary, ProgressiveGuideNode root, PairScoring scoring, MsaGapModel gapModel)
     {
         var library = new TCoffeeLibrary(seqs.Length);
         foreach (var (key, weight) in primary.OrderBy(p => p.Key.SeqA).ThenBy(p => p.Key.SeqB).ThenBy(p => p.Key.PosA).ThenBy(p => p.Key.PosB))
@@ -162,7 +162,7 @@ public static partial class SequenceAligner
 
         var rows = MultipleAlignTCoffee(seqs, library, ToTCoffeeTree(root));
         int maxLen = rows.Max(r => r.Length);
-        return new MultipleAlignmentResult(rows, BuildConsensus(rows.ToList(), maxLen), ComputeSumOfPairsScore(rows.ToList(), scoring, gapModel));
+        return new MultipleAlignmentResult(rows, BuildConsensus(rows.ToList(), maxLen, scoring.IsMatrix), ComputeSumOfPairsScore(rows.ToList(), scoring, gapModel));
     }
 
     private static TCoffeeTreeNode ToTCoffeeTree(ProgressiveGuideNode node) =>

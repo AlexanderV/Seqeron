@@ -13,12 +13,15 @@ Library kinds:
 Output TSV columns: kind, relax, seqs (|), tree (nested "(a,b)" of 0-based indices), library ("a:p:b:q:w;" 1-based positions as in
 the TC_LIB_FORMAT_01 file), rows (|).
 
-usage: generate_tcoffee_oracle.py OUT.tsv [SETS=300] [SEED=1]   (needs `t_coffee` on PATH; takes ~10 minutes for 300 sets)
+usage: generate_tcoffee_oracle.py OUT.tsv [SETS=300] [SEED=1] [ALPHABET=ACGT]   (needs `t_coffee` on PATH; takes ~10 minutes for 300 sets)
+  ALPHABET = ACDEFGHIKLMNPQRSTVWY writes the PROTEIN oracle (tcoffee_protein_oracle.tsv, audit A1-14: MultipleAlignTCoffee is alphabet-agnostic, the
+  library is explicit; the `binary` kind then uses the program's own protein library, blosum62mt); the default keeps the DNA file byte-identical.
 """
 import os, random, subprocess, sys, tempfile
 from concurrent.futures import ThreadPoolExecutor
 
 M, X, G = 1, -1, -2
+ALPHABET = 'ACGT'
 
 
 def nw(a, b):
@@ -132,19 +135,19 @@ def run_set(args):
     rng = random.Random(seed * 100003 + sid)
     k = rng.choice([3, 3, 4, 4, 5, 6])
     kind = 'rand' if sid % 2 == 0 else 'binary'
-    base = ''.join(rng.choice('ACGT') for _ in range(rng.randint(5, 11)))
+    base = ''.join(rng.choice(ALPHABET) for _ in range(rng.randint(5, 11)))
     seqs = []
     for _ in range(k):                       # half related (mutated copies of one base), half independent
         if rng.random() < 0.5:
             s = list(base)
             for _ in range(rng.randint(0, 3)):
                 p = rng.randrange(len(s)); op = rng.choice('sid')
-                if op == 's': s[p] = rng.choice('ACGT')
-                elif op == 'i': s.insert(p, rng.choice('ACGT'))
+                if op == 's': s[p] = rng.choice(ALPHABET)
+                elif op == 'i': s.insert(p, rng.choice(ALPHABET))
                 elif len(s) > 3: del s[p]
             seqs.append(''.join(s))
         else:
-            seqs.append(''.join(rng.choice('ACGT') for _ in range(rng.randint(3, 11))))
+            seqs.append(''.join(rng.choice(ALPHABET) for _ in range(rng.randint(3, 11))))
     tree = rand_tree(rng, range(k))
     with tempfile.TemporaryDirectory() as d:
         fa, lb, dn = d + '/s.fa', d + '/l.tc_lib', d + '/t.dnd'
@@ -179,6 +182,8 @@ def main():
     path = sys.argv[1]
     sets = int(sys.argv[2]) if len(sys.argv) > 2 else 300
     seed = int(sys.argv[3]) if len(sys.argv) > 3 else 1
+    global ALPHABET
+    ALPHABET = sys.argv[4] if len(sys.argv) > 4 else 'ACGT'
     with ThreadPoolExecutor(max_workers=os.cpu_count() or 4) as ex:
         results = list(ex.map(run_set, [(i, seed) for i in range(sets)]))
     with open(path, 'w') as f:

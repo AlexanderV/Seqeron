@@ -6,13 +6,13 @@
   "stability": "stable",
   "methodId": "SequenceAligner.MultipleAlignConsistency",
   "docRef": "Seqeron.Genomics.Alignment/SequenceAligner.cs#L3011",
-  "description": "Consistency-based MSA (T-Coffee; Notredame, Higgins & Heringa 2000): a primary library of global (Needleman–Wunsch) and local (Smith–Waterman) pairwise alignments weighted by percent identity, extended by the triplet consistency transformation (direct weight + Σ min(W1, W2) over third sequences), then progressively aligned along a guide tree (UPGMA by default; guideTree='nj' = neighbour-joining as in the T-Coffee paper) with the extended-library weights as position-specific scores and zero gap penalties (T-Coffee default). The scoring parameters seed the pairwise library (gapModel='affine': Gotoh global and Smith–Waterman–Gotoh local alignments with gapOpen + k·gapExtend) and define totalScore, the sum of pairs of the result (linear column score, or natural affine costs with gapModel='affine'). distance='clustalw-quick' takes the distances from ClustalW 2.1's fast k-tuple mode (clustalw -QUICKTREE; ktuple / window / topDiagonals / pairGap); distance='clustalw' takes the guide-tree distances from ClustalW 2.1's own pairwise stage. consistencyEngine='tcoffee' swaps the progressive stage for the T-Coffee 13.41 program's (library relaxation + linked pair-wise sparse DP; exact for the same library and tree).",
+  "description": "Consistency-based MSA (T-Coffee; Notredame, Higgins & Heringa 2000): a primary library of global (Needleman–Wunsch) and local (Smith–Waterman) pairwise alignments weighted by percent identity, extended by the triplet consistency transformation (direct weight + Σ min(W1, W2) over third sequences), then progressively aligned along a guide tree (UPGMA by default; guideTree='nj' = neighbour-joining as in the T-Coffee paper) with the extended-library weights as position-specific scores and zero gap penalties (T-Coffee default). The scoring parameters seed the pairwise library (gapModel='affine': Gotoh global and Smith–Waterman–Gotoh local alignments with gapOpen + k·gapExtend) and define totalScore, the sum of pairs of the result (linear column score, or natural affine costs with gapModel='affine'). distance='clustalw' takes the guide-tree distances from ClustalW 2.1's own pairwise stage. consistencyEngine='tcoffee' swaps the progressive stage for the T-Coffee 13.41 program's (library relaxation + linked pair-wise sparse DP; exact for the same library and tree). PROTEIN / MATRIX: type='protein' (or matrix) builds the primary library from the matrix global + local pair alignments (weights = percent identity) and otherwise runs the same pipeline (consistencyEngine='tcoffee' too); rows equal an independent Python implementation, and the T-Coffee progressive stage equals the t_coffee program on 160 protein sets.",
   "inputSchema": {
     "type": "object",
     "properties": {
       "sequences": {
         "type": "array",
-        "description": "DNA sequences to align (at least one)."
+        "description": "Sequences to align (at least one): DNA (A, C, G, T) by default, amino acids with type='protein'."
       },
       "match": {
         "type": "integer",
@@ -25,13 +25,13 @@
         "default": -1
       },
       "gapOpen": {
-        "type": "integer",
-        "description": "Gap-open penalty. Used only with gapModel='affine' (a gap of length k then costs gapOpen + k * gapExtend, Gotoh); ignored by the default linear model.",
+        "type": "number",
+        "description": "Gap-open penalty. Used only with gapModel='affine' (a gap of length k then costs gapOpen + k * gapExtend, Gotoh); ignored by the default linear model. May be fractional only with a substitution matrix (type='protein' or matrix).",
         "default": -2
       },
       "gapExtend": {
-        "type": "integer",
-        "description": "Gap penalty per gap position (linear model: every gap position; affine model: the per-position part of gapOpen + k * gapExtend).",
+        "type": "number",
+        "description": "Gap penalty per gap position (linear model: every gap position; affine model: the per-position part of gapOpen + k * gapExtend). May be fractional (e.g. -0.5) only with a substitution matrix (type='protein' or matrix).",
         "default": -1
       },
       "distance": {
@@ -69,6 +69,15 @@
         "type": "string",
         "description": "Progressive stage: 'paper' (default) = the published formula (extended-library weight summed over every cross pair of two columns, full DP, zero gap penalty); 'tcoffee' = the T-Coffee 13.41 program's own progressive stage (SequenceAligner.MultipleAlignTCoffee: library relaxation, 'linked pair-wise' sparse DP over scored column pairs, weights 10 x percent identity). With the same primary library and guide tree 'tcoffee' reproduces t_coffee's rows exactly (800 explicit-library sets); the library here is this repository's global + local alignments, not the program's slow_pair / lalign_id_pair / proba_pair libraries, and the tree is guideTree (not the program's k-tuple NJ tree), so a plain 't_coffee seqs.fa' run is not reproduced end to end.",
         "default": "paper"
+      },
+      "type": {
+        "type": "string",
+        "description": "Sequence type: 'dna' (default; A, C, G, T scored with match/mismatch) or 'protein' (amino-acid sequences scored with the substitution matrix, default BLOSUM62; match/mismatch are then ignored). The protein path shares the dynamic programs, merge, profile and objective code of the DNA path (no second implementation).",
+        "default": "dna"
+      },
+      "matrix": {
+        "type": "string",
+        "description": "Optional substitution matrix: BLOSUM62 or PAM250 (type='protein'), EDNAFULL (IUPAC DNA, type='dna'). When given (or type='protein'), match/mismatch are ignored, residues are scored by the published table (case-insensitive, any symbol of the matrix), gapOpen/gapExtend may be fractional (EMBOSS needle numbers gapopen G / gapextend E = gapOpen -(G - E), gapExtend -E) and the result also carries the real-valued exactTotalScore (totalScore = rounded). Verified against independent Python implementations of every method, Biopython 1.88 pairwise optima and exhaustive enumeration of tiny sets."
       }
     },
     "required": [
@@ -89,6 +98,10 @@
       "totalScore": {
         "type": "integer",
         "description": "Sum-of-pairs score of the MSA: linear model = column score (match/mismatch from the matrix, residue-gap = gapExtend, gap-gap = 0); gapModel='affine' = natural affine gap costs (every gap run of each pair projection pays gapOpen once)."
+      },
+      "exactTotalScore": {
+        "type": "number",
+        "description": "Real-valued sum-of-pairs score (= totalScore for DNA with integer scores; the exact score, e.g. 49.5, for substitution-matrix runs with fractional gaps, where totalScore is rounded half away from zero)."
       }
     },
     "required": [

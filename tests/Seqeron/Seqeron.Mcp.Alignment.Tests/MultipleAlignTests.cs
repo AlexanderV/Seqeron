@@ -282,4 +282,85 @@ public class MultipleAlignTests
             Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignConsistency(raw, 1, -1, -2, -1, "linear", "linear", "upgma", null, null, null, null, "bogus"));
         });
     }
+
+    // B09 F61 (A1-14): type = 'protein' / matrix on every multiple_align* tool; the tools delegate to the SequenceAligner matrix overloads.
+    private static readonly string[] Proteins =
+    [
+        "MVLSPADKTNVKAAWGKVGAHAGEYGAEALERMFLSFPTTKTYFPHF",
+        "MVHLTPEEKSAVTALWGKVNVDEVGGEALGRLLVVYPWTQRFFESFGDLSTPDAVMGNPKV",
+        "MGLSDGEWQLVLNVWGKVEADIPGHGQEVLIRLFKGHPETLEKFDKFKHLKTEAEMKASEDLKKHGVTVLTALGAILKKKGHHEAELKPLAQSHATKHKIPIKYLEFISEAIIHVLHSRHPGDFGADAQGAMNKALELFRKDIAAKYKELGYQG",
+        "MVLSEGEWQLVLHVWAKVEADVAGHGQDILIRLFKSHPETLEKFDRVKHLKTEAEMKASEDLKKHGVTVLTALGAILKKKGHHEAELKPLAQSHATKHKIPIKYLEFISEAIIHVLHSRHPGDFGADAQGAMNKALELFRKDMASNYKELGFQG",
+    ];
+
+    [Test]
+    public void MultipleAlign_Protein_DelegatesToTheMatrixOverloads_AllMethods()
+    {
+        var blosum = new global::Seqeron.Genomics.Infrastructure.MatrixScoring(global::Seqeron.Genomics.Infrastructure.SubstitutionMatrix.Blosum62, -9.5, -0.5);
+        var affine = new global::Seqeron.Genomics.Infrastructure.MsaOptions { GapModel = global::Seqeron.Genomics.Infrastructure.MsaGapModel.Affine };
+        var linear = new global::Seqeron.Genomics.Infrastructure.MsaOptions();
+        Assert.Multiple(() =>
+        {
+            var star = AlignmentTools.MultipleAlign(Proteins, 1, -1, -9.5, -0.5, "affine", "protein");
+            var starExpected = global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlign(Proteins, blosum, affine);
+            Assert.That(star.AlignedSequences, Is.EqualTo(starExpected.AlignedSequences));
+            Assert.That(star.ExactTotalScore, Is.EqualTo(starExpected.ExactTotalScore).Within(1e-9));
+            Assert.That(star.TotalScore, Is.EqualTo(starExpected.TotalScore));
+            Assert.That(star.AlignedSequences.Select(r => r.Replace("-", "")), Is.EqualTo(Proteins));
+
+            Assert.That(AlignmentTools.MultipleAlignAnchored(Proteins, 1, -1, -9.5, -0.5, "affine", "protein").AlignedSequences,
+                Is.EqualTo(global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignAnchored(Proteins, blosum, affine).AlignedSequences));
+            Assert.That(AlignmentTools.MultipleAlignProgressive(Proteins, 1, -1, -9.5, -0.5, "linear", "affine", "upgma", null, null, null, null, "protein").AlignedSequences,
+                Is.EqualTo(global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignProgressive(Proteins, blosum, affine).AlignedSequences));
+            Assert.That(AlignmentTools.MultipleAlignIterative(Proteins, 1, -1, -9.5, -0.5, 16, "linear", "linear", "upgma", null, null, null, null, "protein").AlignedSequences,
+                Is.EqualTo(global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignIterative(Proteins, blosum, linear).AlignedSequences));
+            Assert.That(AlignmentTools.MultipleAlignConsistency(Proteins, 1, -1, -9.5, -0.5, "linear", "affine", "upgma", null, null, null, null, "paper", "protein").AlignedSequences,
+                Is.EqualTo(global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignConsistency(Proteins, blosum, affine).AlignedSequences));
+        });
+    }
+
+    [Test]
+    public void MultipleAlignExact_Protein_MatchesTheLibrary_AndReportsTheRealScore()
+    {
+        string[] small = ["MKVLAAGIVG", "MKVLSAGIVG", "MKVAAGLVG"];
+        var r = AlignmentTools.MultipleAlignExact(small, 1, -1, -9.5, -0.5, "affine", true, 50_000_000, "protein", "BLOSUM62");
+        var expected = global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignExactWithStatistics(small,
+            new global::Seqeron.Genomics.Infrastructure.MatrixScoring(global::Seqeron.Genomics.Infrastructure.SubstitutionMatrix.Blosum62, -9.5, -0.5),
+            new global::Seqeron.Genomics.Infrastructure.MsaOptions { GapModel = global::Seqeron.Genomics.Infrastructure.MsaGapModel.Affine });
+        Assert.Multiple(() =>
+        {
+            Assert.That(r.AlignedSequences, Is.EqualTo(expected.Alignment.AlignedSequences));
+            Assert.That(r.ExactTotalScore, Is.EqualTo(expected.Alignment.ExactTotalScore).Within(1e-9));
+            Assert.That(r.ScoreScale, Is.EqualTo(2), "gap scores in halves");
+            Assert.That(r.LowerBound, Is.EqualTo(expected.LowerBound));
+            Assert.That(r.LatticeCells, Is.EqualTo(expected.LatticeCells));
+        });
+        // DNA stays integer: ExactTotalScore = TotalScore, scale 1.
+        var dna = AlignmentTools.MultipleAlignExact(new[] { "ACGTACGT", "ACGTACGT", "ACGAACGT" });
+        Assert.That(dna.ExactTotalScore, Is.EqualTo(dna.TotalScore));
+        Assert.That(dna.ScoreScale, Is.EqualTo(1));
+    }
+
+    [Test]
+    public void MultipleAlign_TypeAndMatrix_AreValidated()
+    {
+        Assert.Multiple(() =>
+        {
+            // protein defaults to BLOSUM62; PAM250 / lower-case type accepted
+            Assert.DoesNotThrow(() => AlignmentTools.MultipleAlign(Proteins, 1, -1, -10, -1, "affine", "PROTEIN", "pam250"));
+            Assert.That(AlignmentTools.MultipleAlign(Proteins, 1, -1, -10, -1, "affine", "protein").AlignedSequences,
+                Is.EqualTo(AlignmentTools.MultipleAlign(Proteins, 1, -1, -10, -1, "affine", "protein", "BLOSUM62").AlignedSequences));
+            // DNA with EDNAFULL accepts IUPAC codes
+            var iupac = AlignmentTools.MultipleAlign(new[] { "ACGTNACGT", "ACGTAACGT", "ACRTAACGT" }, 1, -1, -10, -0.5, "affine", "dna", "EDNAFULL");
+            Assert.That(iupac.AlignedSequences.Select(r => r.Replace("-", "")), Is.EqualTo(new[] { "ACGTNACGT", "ACGTAACGT", "ACRTAACGT" }));
+            Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlign(Proteins, 1, -1, -2, -1, "linear", "rna"));
+            Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlign(new[] { "ACGT", "ACGT" }, 1, -1, -2, -1, "linear", "dna", "BLOSUM62"), "protein matrix with DNA type");
+            Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlign(Proteins, 1, -1, -2, -1, "linear", "protein", "EDNAFULL"), "nucleotide matrix with protein type");
+            Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlign(Proteins, 1, -1, -2, -1, "linear", "protein", "BLOSUM99"), "unknown matrix");
+            Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlign(new[] { "MKVL", "MKXL1" }, 1, -1, -2, -1, "linear", "protein"), "residue outside the matrix alphabet");
+            // fractional gap scores need a matrix
+            Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlign(new[] { "ACGT", "ACGT" }, 1, -1, -2, -0.5));
+            // empty set, protein: empty MSA
+            Assert.That(AlignmentTools.MultipleAlign(Array.Empty<string>(), 1, -1, -2, -1, "linear", "protein").AlignedSequences, Is.Empty);
+        });
+    }
 }

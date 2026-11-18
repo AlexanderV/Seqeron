@@ -445,3 +445,21 @@ Tests added (all lock oracle values: Biopython 1.88 pair optima and independent 
 | EX7 | `IdenticalSequences_ScoreIsPairCountTimesLengthTimesMatch`, `Result_IsDeterministic_AndExactMsaResultCarriesTheBound` | 5 identical sequences: 10 x len x match, one diagonal corridor; k = 4 has 75 states | hand |
 | EX8 | `ComplexityGuard_ThrowsClearException_InsteadOfExhaustingMemory`, `TooManySequences_AndNullAndTrivialInputs` | clear `ArgumentException` naming `ExactMaxStateCells`; > 8 / > 6 sequences; null / empty / single / empty member | contract |
 | EX9 (MCP) | `GlobalCoOptimalAndExactMsaTests.MultipleAlignExact_*` | >= heuristics, lattice / visited reported, k = 2 = `global_align_affine`, guard, validation | library call |
+
+---
+
+## 2026-11 audit round 1 (A1-14, B09 F61): protein / substitution-matrix multiple alignment
+
+`MultipleAlign*(IEnumerable<ProteinSequence> | IEnumerable<string>, MatrixScoring, MsaOptions?)` for the star, anchored, progressive, iterative, consistency (both engines) and exact aligners, `MatrixSumOfPairsScore`, `MultipleAlignmentResult.ExactTotalScore`, `ExactMsaResult.ScoreScale`; MCP `type = dna | protein`, `matrix` on `multiple_align*`. Class `SequenceAligner_MultipleAlignMatrix_Tests`; oracles `TestData/Alignment/msa_matrix_sp_oracle.tsv`, `msa_matrix_exact_oracle.tsv`, `msa_matrix_oracle.tsv` (`scripts/alignment/generate_msa_matrix_oracle.py`, independent Python, exact rationals; Biopython 1.88 pairwise optima) and `tcoffee_protein_oracle.tsv` (`t_coffee`).
+
+| ID | Test | Expected | Source |
+|----|------|----------|--------|
+| MX1 | `MatrixSumOfPairsScore_MatchesIndependentRescore_AndRespectsPairwiseOptimumBound`, `_HandDerivedExample`, `_Validation` | 420 random gapped protein / IUPAC-DNA MSAs: linear and affine SP equal the independent re-score and stay below the sum of the Biopython pairwise optima; BLOSUM62 hand examples incl. EMBOSS 10 / 0.5 (-10, -10.5); null / length / alphabet / model errors | independent Python, Biopython |
+| MX2 | `MultipleAlignExact_EqualsTheOracleOptimum_AndItsRowsAchieveIt`, `_Rows_...`, `_PruningDoesNotChangeTheOptimum_AndStatisticsAreScaled` | optimum of 308 sets (k = 2: Biopython; k = 3, 4: lattice DP; tiny sets: enumeration) = `ExactTotalScore`, rows re-score to it, with and without Carrillo-Lipman; k = 2 rows = `GlobalAlign(Affine)`; `ScoreScale` 2 for gaps in halves | oracle |
+| MX3 | `Aligners_EveryRowEqualsTheIndependentPythonImplementation` | star / anchored / progressive / iterative / consistency rows of 238 sets (BLOSUM62, PAM250, EDNAFULL; linear / affine; fractional gaps) equal the Python implementation (>= 1 150 row checks); `ExactTotalScore` = `MatrixSumOfPairsScore` of the rows | independent Python |
+| MX4 | `TwoSequences_EveryMethodIsAnOptimalPairwiseAlignment`, `ConsistencyEngineTCoffeeLinked_...` | k = 2: star / progressive / iterative score = pairwise optimum, star rows = the pairwise alignment; TCoffeeLinked valid on protein | canonical / Biopython |
+| MX5 | `MatrixPath_WithMatchMismatchMatrix_ReproducesTheScalarAligners` | a +2 / -3 matrix over ACGT with integer gaps gives the same rows, score and consensus as the scalar aligners for all six methods (40 sets x linear / affine) | no-second-implementation guard |
+| MX6 | `Overloads_...`, `ConsensusIsTheColumnMajority_...`, `TrivialInputs_...`, `InvalidInput_...`, `ScoreIsExactForFractionalGaps_...` | protein = string overload = lower-case input; consensus ties; empty / single input; null, '-', digit, positive / NaN / too fine gap, bad iterations / gap model, > 8 sequences; 8.5 -> 9 rounding, cheap gaps beat a mismatch | contract / hand |
+| TC4 | `MultipleAlignTCoffee_Protein_EveryRowEqualsTheProgram` | 320 rows of `t_coffee` 13.41 on 160 random protein sets (explicit libraries incl. the program's own BLOSUM library, random trees, relax 1 / 0) reproduced | installed `t_coffee` |
+| MX7 (MCP) | `MultipleAlignTests.MultipleAlign_Protein_...`, `MultipleAlignExact_Protein_...`, `MultipleAlign_TypeAndMatrix_AreValidated` | every tool delegates to the matrix overload (default BLOSUM62, PAM250, EDNAFULL IUPAC DNA), `exactTotalScore` / `scoreScale`, type / matrix combinations validated, fractional gaps need a matrix | library call |
+

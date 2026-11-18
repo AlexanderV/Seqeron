@@ -21,9 +21,9 @@ public class SequenceAligner_TCoffee_Tests
 {
     private sealed record Row(string Kind, bool Relax, string[] Seqs, string Tree, string Library, string[] Rows);
 
-    private static List<Row> ReadOracle()
+    private static List<Row> ReadOracle(string file = "tcoffee_oracle.tsv")
     {
-        const string name = "Seqeron.Genomics.Tests.TestData.Alignment.tcoffee_oracle.tsv";
+        string name = "Seqeron.Genomics.Tests.TestData.Alignment." + file;
         using var stream = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream(name)
             ?? throw new InvalidOperationException($"Embedded oracle '{name}' not found.");
         using var reader = new StreamReader(stream);
@@ -99,6 +99,28 @@ public class SequenceAligner_TCoffee_Tests
         }
 
         Assert.That(failures, Is.Empty, $"{failures.Count} of {rows.Count} sets differ from t_coffee; first: {failures.FirstOrDefault()}");
+    }
+
+    /// <summary>
+    /// Audit A1-14: the progressive stage is alphabet-agnostic (the library carries the weights) - 160 random PROTEIN sets (3-6 sequences of
+    /// 3-11 residues), explicit libraries ("rand": identity alignments of this repository; "binary": the program's own BLOSUM-based protein
+    /// library) and explicit random trees: every row of <c>t_coffee</c> is reproduced.
+    /// </summary>
+    [Test]
+    public void MultipleAlignTCoffee_Protein_EveryRowEqualsTheProgram()
+    {
+        var rows = ReadOracle("tcoffee_protein_oracle.tsv");
+        Assert.That(rows.Count, Is.GreaterThanOrEqualTo(320));
+        Assert.That(rows.SelectMany(r => r.Seqs).SelectMany(s => s).Distinct().Count(), Is.GreaterThan(15), "a real protein alphabet");
+        var failures = new List<string>();
+        foreach (var o in rows)
+        {
+            var got = SequenceAligner.MultipleAlignTCoffee(o.Seqs, ParseLibrary(o.Library, o.Seqs.Length), ParseTree(o.Tree), o.Relax);
+            if (!got.SequenceEqual(o.Rows))
+                failures.Add($"{o.Kind} relax={o.Relax} {string.Join('|', o.Seqs)} {o.Tree}: got {string.Join('|', got)} expected {string.Join('|', o.Rows)}");
+        }
+
+        Assert.That(failures, Is.Empty, $"{failures.Count} of {rows.Count} protein sets differ from t_coffee; first: {failures.FirstOrDefault()}");
     }
 
     [Test]
