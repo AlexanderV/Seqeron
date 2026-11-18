@@ -29,6 +29,8 @@ cd docs/Validation/review-2026-09/handoff/A1-10d
 ls -l returned/           # A1-10d-out.zip
 ```
 
+**If the run reports `FAILED` / `control rows equal ... 0 of 340`:** the archive still contains `out/preflight.txt` and `out/debug/` (raw clustalw output of the failing runs) — send it back anyway, that is exactly what diagnoses the self-built binary.
+
 **Troubleshooting.** If `docker build` stops at step 4 with `No module named 'json'`, you have an older checkout: `git pull` (the Dockerfile now installs the full `python3`, not `python3-minimal`).
 
 ## What to send back
