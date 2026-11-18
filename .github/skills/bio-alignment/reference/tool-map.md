@@ -9,6 +9,7 @@ per-tool doc for the full I/O schema — do not guess parameters. Servers: **Ali
 |---|---|---|
 | [`global_align`](../../../../docs/mcp/tools/alignment/global_align.md) | `SequenceAligner.GlobalAlign` | Needleman-Wunsch; align full length of both seqs end-to-end. |
 | [`local_align`](../../../../docs/mcp/tools/alignment/local_align.md) | `SequenceAligner.LocalAlign` | Smith-Waterman; best-scoring shared substring, flanks ignored. |
+| [`general_gap_align`](../../../../docs/mcp/tools/alignment/general_gap_align.md) | `SequenceAligner.GlobalAlignGeneralGap` | Arbitrary gap-cost function (Waterman–Smith–Beyer): concave / convex / capped / step gaps via a gapScores table; global, local or semi_global. |
 | [`semi_global_align`](../../../../docs/mcp/tools/alignment/semi_global_align.md) | `SequenceAligner.SemiGlobalAlign` | Fitting/glocal; free end gaps in seq2 — fit a query into a reference / overlap. |
 
 ## Alignment reporting

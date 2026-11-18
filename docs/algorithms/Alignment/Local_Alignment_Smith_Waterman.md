@@ -131,9 +131,9 @@ The repository implements the linear-gap form of Smith-Waterman with `Math.Max(0
 
 - `LocalAlign` uses `GapExtend` as a linear gap penalty (`GapOpen` ignored); affine gap costs (`GapOpen + k·GapExtend`) are provided by `LocalAlignAffine` (Smith-Waterman-Gotoh), cross-checked against Biopython 1.88 and parasail 1.3.4.
 
-**Not implemented:**
+**Arbitrary gap-cost functions (A1-5, 2026-11, F45):** `SequenceAligner.LocalAlignGeneralGap(…, Func<int,double> gapScore, …)` implements the general $W_k$ form (Waterman-Smith-Beyer 1976) with the single-run model of Biopython's callable `gap_score` (every maximal gap run is charged $w(k)$ once, so a convex $w$ is honoured and gaps are never split into cheaper pieces); see [Global_Alignment_Needleman_Wunsch.md §5.5](Global_Alignment_Needleman_Wunsch.md). Linear and affine functions are recognised and run on the O(mn) `LocalAlign` / `LocalAlignAffine` programs.
 
-- Arbitrary (non-affine) $W_k$ gap-cost functions.
+**Not implemented:** none.
 
 ### Substitution-matrix scoring (A1-2, B09 F41)
 

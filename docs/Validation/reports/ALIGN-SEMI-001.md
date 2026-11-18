@@ -81,3 +81,7 @@ None.
 ## 2026-11 audit round 1 (A1-2, B09 F41)
 
 Matrix-scored `SemiGlobalAlign`/`SemiGlobalAlignAffine`: see ALIGN-GLOBAL-001 report and B09.md F41.
+
+## 2026-11 audit round 1 (A1-3, B09 F44; A1-5, F45)
+
+The overlap / all-ends-free members of the semi-global family are implemented (`EndGaps`, 16 policies, linear + affine, scalar + matrix scoring; Biopython `left/right_insertion/deletion_score`, parasail `sg_*`, EMBOSS needle default `-endweight N`; 3 590 oracle rows, `SequenceAligner_EndGaps_Tests` 14 tests + MCP `endGaps`), so the "simplified subset / not implemented" statements of Stage A/B above are superseded; `Semi_Global_Alignment.md` status Simplified -> Production. General gap-cost functions: `SemiGlobalAlignGeneralGap` (F45). See B09.md F44/F45.

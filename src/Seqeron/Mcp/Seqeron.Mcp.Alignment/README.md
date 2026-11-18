@@ -2,7 +2,7 @@
 
 MCP server — **Pairwise and multiple sequence alignment, overlap/assembly and approximate matching.**
 
-Exposes **34 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
+Exposes **35 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
 MCP. Every tool carries an explicit JSON input/output schema and a Schema+Binding test, with a
 per-tool doc under [`docs/mcp/tools/alignment/`](../../../../docs/mcp/tools/alignment). Rollout status:
 [`docs/mcp/MCP_STATUS.md`](../../../../docs/mcp/MCP_STATUS.md).
@@ -15,7 +15,7 @@ dotnet run --project Seqeron.Mcp.Alignment
 
 Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run","--project","Seqeron.Mcp.Alignment"]`). New to MCP? The [hub guide](../../../../docs/mcp/README.md) lists all 11 servers and how to wire them up.
 
-## Tools (34)
+## Tools (35)
 
 | Tool | Description |
 |------|-------------|
@@ -38,6 +38,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `format_alignment` | Renders a pairwise alignment in the EMBOSS needle/water three-line style (markup `\|` identity, `:` similar, `.` mismatch, space gap), optionally with `matrix` = BLOSUM62 / PAM250 / EDNAFULL, wrapped to a configurable line width. |
 | `frequent_kmers_with_mismatches` | Finds the most-frequent k-mers within sequence allowing up to d mismatches (counts each k-mer plus all its DNA neighbors at Hamming dista… |
 | `frequent_kmers_with_mismatches_and_revcomp` | Frequent words with mismatches and reverse complements (ROSALIND BA1J): all DNA k-mers P maximising Count_d(sequence, P) + Count_d(sequence… |
+| `general_gap_align` | Pairwise alignment with an arbitrary gap-cost function (Waterman–Smith–Beyer 1976): the score of a gap of length k is gapScores[k-1] (concave, convex, capped, step, ...); global / local / semi_global (endGaps), scalar or substitution-matrix scoring; Biopython callable gap_score oracle. |
 | `global_align` | Global pairwise alignment (Needleman-Wunsch): align the full length of both sequences end-to-end. Linear gap model: every gap position scor… |
 | `global_align_affine` | Global pairwise alignment with affine gap costs (Gotoh 1982): a gap of length k scores gapOpen + k·gapExtend (BLAST+ / Biopython convention… |
 | `local_align` | Local pairwise alignment (Smith-Waterman, zero floor). Linear gap model: every gap position scores gapExtend; gapOpen is IGNORED (use local… |

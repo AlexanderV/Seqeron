@@ -108,3 +108,7 @@ The "M4 empty -> `AlignmentResult.Empty`" row and the string-overload remark abo
 ## 2026-11 audit round 1 (A1-2, B09 F41)
 
 Matrix-scored `LocalAlign`/`LocalAlignAffine` (water-compatible gap conventions): see ALIGN-GLOBAL-001 report and B09.md F41.
+
+## 2026-11 audit round 1 (A1-5, B09 F45)
+
+Arbitrary gap-cost functions are implemented (`LocalAlignGeneralGap`, Waterman-Smith-Beyer single-run model, Biopython callable `gap_score` oracle); the "not implemented: arbitrary W_k" statement is superseded (`Local_Alignment_Smith_Waterman.md` §5.3).

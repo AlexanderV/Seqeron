@@ -11,6 +11,7 @@ namespace Seqeron.Mcp.Alignment;
 [JsonSerializable(typeof(bool))]
 [JsonSerializable(typeof(string[]))]
 [JsonSerializable(typeof(int[]))]
+[JsonSerializable(typeof(double[]))]
 // Inputs
 [JsonSerializable(typeof(ContigLinkInput))]
 [JsonSerializable(typeof(ContigLinkInput[]))]

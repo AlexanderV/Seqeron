@@ -4,7 +4,7 @@
 
 <!-- BEGIN generated: do not edit by hand -->
 
-## Alignment (34 tools)
+## Alignment (35 tools)
 
 | tool | Method ID | doc |
 |------|-----------|-----|
@@ -27,6 +27,7 @@
 | `format_alignment` | `SequenceAligner.FormatAlignment` | [doc](../../mcp/tools/alignment/format_alignment.md) |
 | `frequent_kmers_with_mismatches` | `ApproximateMatcher.FindFrequentKmersWithMismatches` | [doc](../../mcp/tools/alignment/frequent_kmers_with_mismatches.md) |
 | `frequent_kmers_with_mismatches_and_revcomp` | `ApproximateMatcher.FindFrequentKmersWithMismatchesAndReverseComplements` | [doc](../../mcp/tools/alignment/frequent_kmers_with_mismatches_and_revcomp.md) |
+| `general_gap_align` | `SequenceAligner.GlobalAlignGeneralGap` | [doc](../../mcp/tools/alignment/general_gap_align.md) |
 | `global_align` | `SequenceAligner.GlobalAlign` | [doc](../../mcp/tools/alignment/global_align.md) |
 | `global_align_affine` | `SequenceAligner.GlobalAlignAffine` | [doc](../../mcp/tools/alignment/global_align_affine.md) |
 | `local_align` | `SequenceAligner.LocalAlign` | [doc](../../mcp/tools/alignment/local_align.md) |

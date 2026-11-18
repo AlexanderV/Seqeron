@@ -71,6 +71,58 @@ public enum AlignmentType
 }
 
 /// <summary>
+/// End-gap policy of an <b>ends-free</b> (semi-global) alignment: which of the four alignment ends may overhang
+/// without penalty. "Start"/"End" are the left/right ends of the alignment, "1"/"2" the sequence whose residues
+/// overhang: <see cref="FreeStart1"/> = the leading residues of sequence 1 that precede the alignment are free (they are
+/// shown against '-' in sequence 2), and so on. Flags not set are charged like any other gap
+/// (linear d per position; affine GapOpen + k·GapExtend). No flag = global (Needleman-Wunsch) alignment.
+/// </summary>
+/// <remarks>
+/// Equivalent settings in the reference tools (sequence 1 = Biopython target = parasail query/s1, sequence 2 = Biopython
+/// query = parasail database/s2; a free overhang of sequence 1 is a gap in sequence 2, i.e. a Biopython <i>deletion</i>):
+/// <see cref="FreeStart1"/> = Biopython <c>left_deletion_score = 0</c> = parasail <c>_qb</c>; <see cref="FreeEnd1"/> =
+/// <c>right_deletion_score = 0</c> = <c>_qe</c>; <see cref="FreeStart2"/> = <c>left_insertion_score = 0</c> = <c>_db</c>;
+/// <see cref="FreeEnd2"/> = <c>right_insertion_score = 0</c> = <c>_de</c>; <see cref="Fitting"/> = <c>sg_dx</c>
+/// (<c>end_insertion_score = 0</c>); <see cref="All"/> = <c>sg</c> = EMBOSS needle's default (<c>-endweight N</c>).
+/// </remarks>
+[Flags]
+public enum EndGaps
+{
+    /// <summary>All end gaps are penalised: global (Needleman-Wunsch) alignment.</summary>
+    None = 0,
+
+    /// <summary>Leading residues of sequence 1 before the alignment are free (Biopython <c>left_deletion_score = 0</c>, parasail <c>_qb</c>).</summary>
+    FreeStart1 = 1,
+
+    /// <summary>Trailing residues of sequence 1 after the alignment are free (Biopython <c>right_deletion_score = 0</c>, parasail <c>_qe</c>).</summary>
+    FreeEnd1 = 2,
+
+    /// <summary>Leading residues of sequence 2 before the alignment are free (Biopython <c>left_insertion_score = 0</c>, parasail <c>_db</c>).</summary>
+    FreeStart2 = 4,
+
+    /// <summary>Trailing residues of sequence 2 after the alignment are free (Biopython <c>right_insertion_score = 0</c>, parasail <c>_de</c>).</summary>
+    FreeEnd2 = 8,
+
+    /// <summary>Both flanks of sequence 2 are free: sequence 1 is fitted end to end into sequence 2 ("fitting"/"glocal"; the classic
+    /// <c>SemiGlobalAlign</c>; Biopython <c>end_insertion_score = 0</c>, parasail <c>sg_dx</c>, Rosalind SIMS).</summary>
+    Fitting = FreeStart2 | FreeEnd2,
+
+    /// <summary>Both flanks of sequence 1 are free: sequence 2 is fitted end to end into sequence 1 (parasail <c>sg_qx</c>).</summary>
+    FittingSequence2 = FreeStart1 | FreeEnd1,
+
+    /// <summary>Overlap (suffix-prefix): a suffix of sequence 1 overlaps a prefix of sequence 2 — the leading part of sequence 1
+    /// and the trailing part of sequence 2 are free (parasail <c>sg_qb_de</c>; sequence assembly "dovetail" overlap).</summary>
+    OverlapSuffix1Prefix2 = FreeStart1 | FreeEnd2,
+
+    /// <summary>Overlap (suffix-prefix), other orientation: a suffix of sequence 2 overlaps a prefix of sequence 1
+    /// (parasail <c>sg_qe_db</c>).</summary>
+    OverlapSuffix2Prefix1 = FreeEnd1 | FreeStart2,
+
+    /// <summary>All four end gaps are free (parasail <c>sg</c>, Rosalind SMGB-like, EMBOSS needle's default <c>-endweight N</c>).</summary>
+    All = FreeStart1 | FreeEnd1 | FreeStart2 | FreeEnd2,
+}
+
+/// <summary>
 /// Result of pairwise sequence alignment.
 /// </summary>
 /// <param name="AlignedSequence1">Aligned (gapped, '-') segment of sequence 1.</param>
@@ -78,17 +130,20 @@ public enum AlignmentType
 /// <param name="Score">Alignment score under the scoring model used.</param>
 /// <param name="AlignmentType">Kind of alignment that produced the result.</param>
 /// <param name="StartPosition1">0-based inclusive start of the aligned segment in sequence 1
-/// (0 for global/semi-global, where sequence 1 is aligned in full; −1 for a local result with no positive-scoring region).</param>
+/// (0 for global and for semi-global results in which sequence 1 is aligned in full; for an ends-free result
+/// (<see cref="EndGaps"/>) the first index of sequence 1 consumed by the alignment path, i.e. the number of free leading
+/// sequence-1 residues; −1 for a local result with no positive-scoring region).</param>
 /// <param name="StartPosition2">0-based inclusive start of the aligned segment in sequence 2: 0 for global; for a
-/// <b>semi-global</b> (fitting) result the first index of sequence 2 that the alignment consumes, i.e. the number of
-/// free leading sequence-2 residues (Biopython <c>alignment.coordinates</c>/<c>aligned</c> start of the fitted
+/// <b>semi-global</b> result the first index of sequence 2 that the alignment consumes, i.e. the number of
+/// free leading sequence-2 residues (fitting: Biopython <c>alignment.coordinates</c>/<c>aligned</c> start of the fitted
 /// interval); −1 for a local result with no positive-scoring region.</param>
 /// <param name="EndPosition1">0-based inclusive end of the aligned segment in sequence 1
-/// (length − 1 for global/semi-global, so −1 for an empty sequence; −1 for an empty local result).</param>
+/// (length − 1 for global and fitting, so −1 for an empty sequence; for an ends-free result the last index of sequence 1
+/// consumed by the path, the free trailing sequence-1 residues lie after it; −1 for an empty local result).</param>
 /// <param name="EndPosition2">0-based inclusive end of the aligned segment in sequence 2: length − 1 for global; for a
-/// <b>semi-global</b> (fitting) result the last index of sequence 2 that the alignment consumes (the free trailing
-/// residues lie after it; parasail <c>sg_dx</c> <c>end_ref</c>). A fitted interval that consumes no reference residue
-/// (the query is aligned entirely against gaps, or is empty) is empty: <c>EndPosition2 = StartPosition2 − 1</c>.
+/// <b>semi-global</b> result the last index of sequence 2 that the alignment consumes (the free trailing
+/// residues lie after it; parasail <c>sg_dx</c> <c>end_ref</c>). A consumed interval that is empty
+/// (a sequence aligned entirely against gaps, or empty) has <c>End = Start − 1</c>.
 /// −1 for an empty local result.</param>
 /// <remarks>
 /// Empty inputs: a global alignment of an empty side is the all-gap alignment (Needleman-Wunsch optimum, Biopython

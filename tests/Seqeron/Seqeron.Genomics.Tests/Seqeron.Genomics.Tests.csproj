@@ -24,6 +24,10 @@
          scores: Biopython 1.88 PairwiseAligner, EMBOSS needle/water 6.6.0, parasail 1.3.4;
          scripts/alignment/generate_matrix_align_oracle.py. -->
     <EmbeddedResource Include="TestData\Alignment\matrix_align_oracle.tsv" />
+    <!-- ALIGN-SEMI-001 (audit A1-3, B09 F44): ends-free alignment, 16 end-gap policies; Biopython 1.88 / parasail 1.3.4 / EMBOSS needle default; scripts/alignment/generate_endgaps_oracle.py. -->
+    <EmbeddedResource Include="TestData\Alignment\endgaps_oracle.tsv" />
+    <!-- ALIGN-GLOBAL/LOCAL/SEMI-001 (audit A1-5, B09 F45): general (Waterman-Smith-Beyer) gap-cost functions; Biopython 1.88 PairwiseAligner(gap_score=callable) + independent reference; scripts/alignment/generate_general_gap_oracle.py. -->
+    <EmbeddedResource Include="TestData\Alignment\general_gap_oracle.tsv" />
     <!-- ALIGN-STATS-001 (audit A1-9, B09 F42): NCBI BLAST+ 2.12.0 blastn/blastp tabular counts + pairwise-report integer percentages
          for 320 HSPs; scripts/alignment/generate_blast_stats_oracle.py. -->
     <EmbeddedResource Include="TestData\Alignment\blast_stats_oracle.tsv" />

@@ -175,3 +175,17 @@ Tests: `SequenceAligner_MatrixScoring_Tests` (14) and `Seqeron.Mcp.Alignment.Tes
 | Gap-open convention (EMBOSS gapopen = gap of length 1) | `SingleGap_ConventionIsEmbossGapopenForLengthOne` | 10 / 19.5 / 9.5 |
 | One DP: integer matrix + integer gaps = scalar aligners row for row | `IntegerMatrix_IntegerGaps_IsIdenticalToScalarAligners_RowForRow` | 6 x 400 random pairs |
 | Overloads, case-insensitivity, validation, empty inputs, GapOpen 0 = linear | remaining tests | string = ProteinSequence = DnaSequence |
+
+## 2026-11 audit round 1 addition (A1-5, B09 F45): general gap-cost functions (Waterman-Smith-Beyer)
+
+**Scope.** `GlobalAlignGeneralGap` / `LocalAlignGeneralGap` / `SemiGlobalAlignGeneralGap(…, EndGaps)` with `Func<int,double> gapScore` (any w(k): concave, convex, capped, step, two-slope, non-monotone), scalar `ScoringMatrix` or `SubstitutionMatrix` scoring, `string`/`DnaSequence`/`ProteinSequence` overloads. Model: every maximal gap run scores w(k) once (Biopython's callable `gap_score`; never split). O(mn(m+n)); linear/affine functions delegate to the O(mn) programs. Tests: `SequenceAligner_GeneralGap_Tests` (10) + MCP `GeneralGapAlignTests`.
+
+| ID | Test | Data | Expected | Evidence |
+|----|------|------|----------|----------|
+| GG-1 | `Oracle_Score_GeneralProgramAndPublicApi_EqualBiopythonAndReference` | 1 440 rows: 960 global/local (8 families x 60 pairs x 2 modes; scalar / BLOSUM62 / EDNAFULL) + 480 ends-free | general program and public API = Biopython 1.88 `PairwiseAligner(gap_score=callable)` (global/local) = independent three-state reference (all rows), 1e-8 | general_gap_oracle.tsv |
+| GG-2 | `Oracle_Alignment_RescoresToScore_AndCoordinatesAreConsistent` | all rows, API and general program | rows reproduce inputs; independent run-charging re-scoring = score; local interval / global coordinates / tags | independent rescorer |
+| GG-3 | `AffineAndLinearFunctions_UseTheAffineAndLinearAligners_RowForRow` | 150 pairs x 4 schemes, global/local/semi + 4 end policies | rows = `GlobalAlignAffine` / `LocalAlignAffine` / `SemiGlobalAlignAffine(EndGaps)` / `GlobalAlign` (GapOpen 0); general program same score | fast path |
+| GG-4 | `FractionalAffineFunction_WithBlosum62_EqualsTheMatrixAffineAligner_AndTheGeneralProgram` | w(k) = -(9.5 + 0.5 k), 60 protein pairs | = `GlobalAlignAffine(MatrixScoring.Emboss)` incl. exact fractional score | EMBOSS gap numbers |
+| GG-5 | `BruteForce_EveryAlignment_MaximumEqualsTheGeneralProgram` | 60 pairs (<= 5), 6 gap functions (incl. non-monotone), 16 policies; local on 15 pairs vs all substring-pair alignments | max = program | exhaustive definition |
+| GG-6 | `ConvexAndConcaveGaps_BiopythonValues` | AAAATTTT/AAAACCCCTTTT (2,−3): w = -k^2 → 5 (a run of 4 would give 0); w = -(2 + 3 ln k) → 9.841116916640328, `AAAA----TTTT`/`AAAACCCCTTTT` (unique) | exact | Biopython 1.88 callable gap_score |
+| GG-7 | `GapFunction_IsEvaluatedOncePerLength_AndMustBeValid`, `EmptyInputs_FollowTheAlignerContract`, `DnaAndProteinOverloads_EqualTheStringOverloads` | NaN/+inf rejected, -inf forbids a length, null guards, residue outside the matrix alphabet, empty contract | as stated | API contract |

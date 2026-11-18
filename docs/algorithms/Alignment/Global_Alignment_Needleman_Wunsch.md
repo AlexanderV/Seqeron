@@ -123,9 +123,11 @@ The repository exposes four linear-gap global-alignment entry points that share 
 
 - The public `ScoringMatrix` includes `GapOpen`, but `GlobalAlign` uses only `GapExtend` (linear model); the affine model is the separate `GlobalAlignAffine`.
 
-**Not implemented:**
+**Ends-free / overlap alignment (A1-3, F44):** implemented as `SemiGlobalAlign(…, EndGaps)` / `SemiGlobalAlignAffine(…, EndGaps)` (all 16 end-gap policies, `EndGaps.All` = EMBOSS needle's default `-endweight N`; `EndGaps.None` = this global alignment); see [Semi_Global_Alignment.md §5.4](Semi_Global_Alignment.md).
 
-- Ends-free (both-sequence) overlap alignment as the EMBOSS needle default (A1-3).
+**Arbitrary gap-cost functions (A1-5, F45):** implemented, §5.5.
+
+**Not implemented:** none.
 
 ### 5.4 Substitution-matrix scoring and fractional gap scores (A1-2, B09 F41)
 
@@ -138,6 +140,18 @@ The repository exposes four linear-gap global-alignment entry points that share 
 **needle's end-gap default.** `needle` leaves end gaps free on *both* sequences by default (`-endweight N`); the unit's global alignment charges them, which is `needle -endweight Y -endopen G -endextend E` (used for the oracle). The needle default (ends-free overlap alignment of both sequences) is a different variant, tracked as audit item A1-3.
 
 **Oracle** (`scripts/alignment/generate_matrix_align_oracle.py`, `TestData/Alignment/matrix_align_oracle.tsv`): 331 random protein (BLOSUM62/PAM250, incl. B/Z/X), DNA and IUPAC-DNA (EDNAFULL) pairs x {global, local, semi-global} x {linear, affine} = 1 986 rows with integer and fractional gap scores (0.5, 0.1, 0.25, 0.3, 0.75, 1.5, 2.5, ...), plus the HBA_HUMAN/HBB_HUMAN example. Biopython 1.88 `PairwiseAligner(substitution_matrix=...)` equals Seqeron on **all** 1 986 rows (1e-6), parasail 1.3.4 on all 616 integer-gap rows, EMBOSS needle (`-endweight Y`) / water 6.6.0 on 1 103 of 1 121 rows. The 18 EMBOSS disagreements are EMBOSS-internal, not Seqeron defects (Biopython and parasail, independent implementations, agree with Seqeron on every one): 14 needle rows are *lower* than the optimum (never higher: `embAlignPathCalcWithEndGapPenalties`, `nucleus/embaln.c`, opened, opens a last-row/last-column end gap only from the match matrix and never from the other gap state, so its end-gap-penalised DP is not exactly optimal) and 4 water rows differ (3 lower, 1 higher on EDNAFULL; water uses a different EMBOSS routine that was not analysed further). HBA/HBB with EMBOSS defaults (gapopen 10, gapextend 0.5, EBLOSUM62): global (affine) 292.5, local (water) 293.5, linear 366.5.
+
+### 5.5 General gap-cost functions (Waterman-Smith-Beyer, A1-5, B09 F45)
+
+**Entry points:** `SequenceAligner.GlobalAlignGeneralGap` / `LocalAlignGeneralGap` / `SemiGlobalAlignGeneralGap(…, EndGaps)` with a `Func<int,double> gapScore` (score of a gap of length k >= 1, negative = penalty) and either a `ScoringMatrix` (match/mismatch) or a `SubstitutionMatrix`; `string`, `DnaSequence` (and `ProteinSequence` with a matrix) overloads. File `SequenceAligner.GeneralGap.cs`.
+
+**Model.** Waterman, Smith & Beyer (1976): a gap of length k scores an arbitrary $w(k)$ — concave (logarithmic, square root), convex (quadratic), capped, step, two-slope, even non-monotone. Three states $M, X, Y$ with $X_{i,j} = \max_{1 \le k \le i} \max(M, Y)_{i-k,j} + w(k)$, $Y_{i,j} = \max_{1 \le k \le j} \max(M, X)_{i,j-k} + w(k)$, $M_{i,j} = \max(M,X,Y)_{i-1,j-1} + s(a_i,b_j)$ (local: $\max(0,\cdot)$ on $M$; ends-free: the border/end rules of [Semi_Global_Alignment.md §2.2](Semi_Global_Alignment.md)). Every maximal gap run is charged $w(k)$ **once** — a run is never split, so a convex $w$ is honoured (the textbook single-matrix recurrence $H_{i,j} = \max(\ldots, \max_k H_{i-k,j} + w(k), \ldots)$ would cut a gap into cheaper pieces; measured against Biopython 1.88 on 200 random global pairs of length <= 9 per family it disagrees on 12 % (logarithmic), 57 % (quadratic) and 27 % (step function) of the rows, the three-state single-run model on none). Two runs of the two kinds may be adjacent and are charged separately. Complexity $O(mn(m+n))$ time (each cell scans every gap length), $O(mn)$ memory (back-pointers); `w` is evaluated once per length $1 \ldots \max(m,n)$ and must be pure. Ties: $M > X > Y$, then the shortest run (local: a non-positive predecessor is replaced by a fresh start).
+
+**Fast path.** When $w(k) = w(1) + (k-1)e$ on $k = 1 \ldots \max(m,n)$ with $e \le 0$ and $w(1) - e \le 0$ (linear or affine, representable at 1e-6; integers for the scalar scoring) the call is delegated to the O(mn) programs of `GlobalAlign`/`GlobalAlignAffine` (open = 0 → linear), `LocalAlign(Affine)`, `SemiGlobalAlign(Affine)` — same score; the alignment is the one of that program (its tie order, identical to calling it directly). The general program gives the same score (tests).
+
+**Oracle** (`scripts/alignment/generate_general_gap_oracle.py`, `TestData/Alignment/general_gap_oracle.tsv`, 1 440 rows): **Biopython 1.88** `PairwiseAligner(gap_score=callable)` (its "Waterman-Smith-Beyer global/local alignment algorithm"; `align().score` and `score()` agree on all rows) on 960 random global/local pairs (60 per function family x 8 families x 2 modes; scalar match/mismatch, BLOSUM62 and EDNAFULL scoring; lengths <= 26, including planted long deletions/insertions) = an independent three-state reference written for the oracle = Seqeron (general program and public API, 1e-8) on 960/960; 480 ends-free rows (policies 1..15) against the independent reference (Biopython 1.88 ignores the end-gap properties when `gap_score` is a callable); an exhaustive enumeration of every alignment of short sequences (60 pairs, 6 gap functions incl. a non-monotone one, all 16 policies, local on 15 pairs) equals the program.
+
+**Limitations.** $O(mn(m+n))$ time: practical to a few hundred residues per sequence (affine/linear functions use the O(mn) fast path); doubles are compared exactly in the traceback (integer-valued scores are exact; a transcendental $w$ may in principle break an exact tie by a rounding error, giving an alignment within 1e-15 of the optimum).
 
 ## 6. Edge Cases and Limitations
 

@@ -35,6 +35,7 @@ public sealed class ToolRegistrationContractTests : ToolRegistrationContractTest
         "format_alignment",
         "frequent_kmers_with_mismatches",
         "frequent_kmers_with_mismatches_and_revcomp",
+        "general_gap_align",
         "global_align",
         "global_align_affine",
         "local_align",

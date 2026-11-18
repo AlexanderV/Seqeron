@@ -186,3 +186,7 @@ Derived from §7.1 via S-W transposition: $H^T[i,j] = H[j,i]$
 ## 2026-11 audit round 1 addition (A1-2, B09 F41)
 
 Matrix-scored `LocalAlign`/`LocalAlignAffine` (BLOSUM62/PAM250/EDNAFULL, fractional gaps): see the table in ALIGN-GLOBAL-001.md (`SequenceAligner_MatrixScoring_Tests`; local rows = EMBOSS water 6.6.0 = Biopython `mode='local'` = parasail `sw`).
+
+## 2026-11 audit round 1 addition (A1-5, B09 F45): general gap-cost functions
+
+`LocalAlignGeneralGap` (Smith-Waterman with Waterman-Smith-Beyer gaps; Biopython 1.88 `PairwiseAligner(mode='local', gap_score=callable)`): 480 oracle rows + exhaustive substring-pair enumeration + affine/linear equality; see ALIGN-GLOBAL-001.md (A1-5 section, GG-1..GG-7).

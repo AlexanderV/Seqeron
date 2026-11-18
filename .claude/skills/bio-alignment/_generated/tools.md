@@ -25,6 +25,7 @@
 | `format_alignment` | Alignment | `SequenceAligner.FormatAlignment` | [doc](../../../../docs/mcp/tools/alignment/format_alignment.md) |
 | `frequent_kmers_with_mismatches` | Alignment | `ApproximateMatcher.FindFrequentKmersWithMismatches` | [doc](../../../../docs/mcp/tools/alignment/frequent_kmers_with_mismatches.md) |
 | `frequent_kmers_with_mismatches_and_revcomp` | Alignment | `ApproximateMatcher.FindFrequentKmersWithMismatchesAndReverseComplements` | [doc](../../../../docs/mcp/tools/alignment/frequent_kmers_with_mismatches_and_revcomp.md) |
+| `general_gap_align` | Alignment | `SequenceAligner.GlobalAlignGeneralGap` | [doc](../../../../docs/mcp/tools/alignment/general_gap_align.md) |
 | `global_align` | Alignment | `SequenceAligner.GlobalAlign` | [doc](../../../../docs/mcp/tools/alignment/global_align.md) |
 | `global_align_affine` | Alignment | `SequenceAligner.GlobalAlignAffine` | [doc](../../../../docs/mcp/tools/alignment/global_align_affine.md) |
 | `local_align` | Alignment | `SequenceAligner.LocalAlign` | [doc](../../../../docs/mcp/tools/alignment/local_align.md) |

@@ -77,3 +77,7 @@ The "Minor (documented, not a defect)" empty-input note and the "optional future
 ## 2026-11 audit round 1 (A1-2, B09 F41)
 
 Substitution-matrix scoring and fractional gap scores for global/local/semi-global, linear and affine: additive `MatrixScoring` overloads (string, ProteinSequence, DnaSequence) on the existing DP cores (no second DP), `AlignmentResult.ExactScore`, MCP `matrix` parameter on the six pairwise tools. Oracle: Biopython 1.88 1 986/1 986, parasail 1.3.4 616/616, EMBOSS needle/water 6.6.0 1 103/1 121 (EMBOSS-internal end-gap quirk). Details: B09.md F41, algorithm doc §5.4.
+
+## 2026-11 audit round 1 (A1-3, A1-5, B09 F44/F45)
+
+`SemiGlobalAlign(…, EndGaps.All)` is EMBOSS needle's default ends-free alignment and `EndGaps.None` equals this unit's global alignment (F44). General gap-cost functions (Waterman-Smith-Beyer, any w(k)): `GlobalAlignGeneralGap` (F45; Biopython callable `gap_score` oracle, 960 global/local rows + 480 ends-free rows); `Global_Alignment_Needleman_Wunsch.md` §5.5.

@@ -198,7 +198,7 @@ random/edge cases (1382 semi-global rows): reported interval ∈ the set of inte
 |----------|-----------|--------|
 | Query-in-reference (fitting) variant | Corresponds to Rosalind SIMS; most common bioinformatics use case | Rosalind SIMS; Wikipedia |
 | Linear gap cost (GapExtend only) in `SemiGlobalAlign` | GapOpen unused; affine gaps are provided by `SemiGlobalAlignAffine` | NW linear gap model; Gotoh (1982) |
-| No other variant implementations | Out of scope for this test unit | Design scope |
+| Overlap and all-ends-free variants (A1-3, F44) | Implemented as one `EndGaps` option on the same programs (no second DP); fitting = `FreeStart2 \| FreeEnd2` stays the default | Biopython `left/right_insertion/deletion_score`; parasail `sg_*`; EMBOSS needle `-endweight` |
 
 ---
 
@@ -221,3 +221,26 @@ random/edge cases (1382 semi-global rows): reported interval ∈ the set of inte
 ## 2026-11 audit round 1 addition (A1-2, B09 F41)
 
 Matrix-scored `SemiGlobalAlign`/`SemiGlobalAlignAffine`: see the table in ALIGN-GLOBAL-001.md (semi rows = Biopython `end_insertion_score = 0` = parasail `sg_dx`; fitted-interval re-scoring and coordinates checked in `Oracle_Alignment_RescoresToScore_AndReproducesInputs`).
+
+## 2026-11 audit round 1 addition (A1-3, B09 F44): ends-free / overlap variants (`EndGaps`)
+
+**Scope.** `SemiGlobalAlign(…, EndGaps)` / `SemiGlobalAlignAffine(…, EndGaps)` for `string`, `DnaSequence` (+ `ScoringMatrix`) and `string`, `ProteinSequence`, `DnaSequence` (+ `MatrixScoring`): each of the four end gaps free or penalised (16 policies: global, fitting in both directions, overlap in both orientations, all free = EMBOSS needle default, single flags), linear and affine. Coordinates = consumed intervals of both sequences (AlignmentResult docs). Tests: `SequenceAligner_EndGaps_Tests` (14) + MCP `EndGapsAlignTests` (8 cases).
+
+**Reference equivalents.** Biopython 1.88 `left_deletion_score` = `FreeStart1`, `right_deletion_score` = `FreeEnd1`, `left_insertion_score` = `FreeStart2`, `right_insertion_score` = `FreeEnd2` (sequence 1 = target); parasail `_qb`/`_qe`/`_db`/`_de`; EMBOSS needle default `-endweight N` = `All`.
+
+| ID | Test | Input / data | Expected | Evidence |
+|----|------|--------------|----------|----------|
+| EG-1 | `Oracle_Score_EqualsBiopython_AllRows` | 3 590 rows (2 240 scalar, 1 350 BLOSUM62/EDNAFULL, fractional gaps), all 16 policies, linear + affine | score = Biopython `align().score` (1e-6) | endgaps_oracle.tsv |
+| EG-2 | `Oracle_Score_EqualsParasail_ExactVariants_AndNeverAboveOptimumForTheOthers` | 1 680 integer rows | equal for `nw`, `sg_qb`, `sg_db`, `sg_qx`, `sg_dx`, `sg_qb_db`; parasail never above the optimum for the variants with a free end flag (23 lower rows: parasail skips the border end cells (m,0)/(0,n)) | parasail 1.3.4 |
+| EG-3 | `Oracle_Emboss_NeedleDefaultEndweight_IsEndGapsAll` | 287 needle default rows (`-endweight N`) | >= 95 % equal (277 of 287), never above the optimum (embaln.c opens a last-row/column end gap only from the match matrix) | EMBOSS 6.6.0 |
+| EG-4 | `Oracle_Alignment_IsOneOfBiopythonCoOptimalAlignments` | 2 050 rows with <= 40 Biopython co-optimal alignments | returned rows in the (gap-order-normalised) set | Biopython `align` |
+| EG-5 | `Oracle_Alignment_RescoresToScore_AndCoordinatesAreTheConsumedIntervals` | all rows | rows reproduce inputs; independent re-scoring with the policy = score; flank columns match the coordinates; no overhang on a penalised end | independent rescorer |
+| EG-6 | `BruteForce_EveryAlignment_MaximumEqualsDynamicProgram_All16Policies` | 120 pairs (<= 5 residues), every alignment enumerated, 16 policies x linear/affine | maximum = DP score | exhaustive definition |
+| EG-7 | `Fitting_IsTheClassicSemiGlobal_AndNone_IsGlobal_RowForRow`, `MatrixScoring_FittingAndNone_Equal…` | 300 x 6 schemes (+ DNA overloads, 200 protein pairs) | `Fitting` = `SemiGlobalAlign`, `None` = `GlobalAlign(Affine)` incl. rows, coordinates, tags | additivity |
+| EG-8 | `Overlap_SuffixOfSeq1_PrefixOfSeq2_RowsAndCoordinates` | GGGGACGTAC/ACGTACTTTT (1,−1,−1) | `GGGGACGTAC----`/`----ACGTACTTTT`, 6, (4,9,0,5); swapped + other orientation (0,5,4,9) | Biopython (unique alignment) |
+| EG-9 | `FittingSequence2_IsFittingOfTheSwappedPair`, `Score_IsMonotoneInTheFreeFlags` | 200 / 120 pairs | symmetry of scores; freeing a flag never lowers the score | model |
+| EG-10 | `ZeroLengthOverlap_ScoresZero_BiopythonAlignScore`, `EmptyAndNull_Inputs_FollowTheAlignerContract` | AC/T overlap → `AC-`/`--T` 0, (2,1,0,−1); empty sides; null | exact; documents Biopython's `score()` vs `align()` disagreement (25 oracle rows) | Biopython 1.88 |
+
+## 2026-11 audit round 1 addition (A1-5, B09 F45): general gap-cost functions
+
+`SemiGlobalAlignGeneralGap(…, Func<int,double> gapScore, …, EndGaps)` (ends-free with Waterman-Smith-Beyer gaps; Biopython ignores end-gap properties for a callable `gap_score`, so the policy is locked by the independent reference and an exhaustive enumeration): see the table in ALIGN-GLOBAL-001.md (A1-5 section) and `SequenceAligner_GeneralGap_Tests`.

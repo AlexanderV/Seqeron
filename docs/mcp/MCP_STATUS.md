@@ -9,9 +9,9 @@
 
 | Metric | Done | Total |
 |---|---:|---:|
-| Gold-standard binding | 485 | 485 |
-| Schema+Binding tests | 485 | 485 |
-| Docs (.md + .mcp.json) | 485 | 485 |
+| Gold-standard binding | 486 | 486 |
+| Schema+Binding tests | 486 | 486 |
+| Docs (.md + .mcp.json) | 486 | 486 |
 
 ## Per-server summary
 
@@ -20,7 +20,7 @@
 | Core | SuffixTree.Mcp.Core | 18 | 18/18 | 18/18 | 18/18 | ✅ done |
 | Sequence | Seqeron.Mcp.Sequence | 35 | 35/35 | 35/35 | 35/35 | ✅ done |
 | Parsers | Seqeron.Mcp.Parsers | 41 | 41/41 | 41/41 | 41/41 | ✅ done |
-| Alignment | Seqeron.Mcp.Alignment | 34 | 34/34 | 34/34 | 34/34 | ✅ done |
+| Alignment | Seqeron.Mcp.Alignment | 35 | 35/35 | 35/35 | 35/35 | ✅ done |
 | Analysis | Seqeron.Mcp.Analysis | 129 | 129/129 | 129/129 | 129/129 | ✅ done |
 | Annotation | Seqeron.Mcp.Annotation | 97 | 97/97 | 97/97 | 97/97 | ✅ done |
 | Chromosome | Seqeron.Mcp.Chromosome | 32 | 32/32 | 32/32 | 32/32 | ✅ done |
@@ -140,7 +140,7 @@
 | 40 | `vcf_variant_length` | ☑ | ☑ | ☑ |
 | 41 | `vcf_write` | ☑ | ☑ | ☑ |
 
-### Alignment (Seqeron.Mcp.Alignment) — 34 tools
+### Alignment (Seqeron.Mcp.Alignment) — 35 tools
 
 | # | tool | B | T | D |
 |---:|---|:--:|:--:|:--:|
@@ -163,21 +163,22 @@
 | 17 | `format_alignment` | ☑ | ☑ | ☑ |
 | 18 | `frequent_kmers_with_mismatches` | ☑ | ☑ | ☑ |
 | 19 | `frequent_kmers_with_mismatches_and_revcomp` | ☑ | ☑ | ☑ |
-| 20 | `global_align` | ☑ | ☑ | ☑ |
-| 21 | `global_align_affine` | ☑ | ☑ | ☑ |
-| 22 | `local_align` | ☑ | ☑ | ☑ |
-| 23 | `local_align_affine` | ☑ | ☑ | ☑ |
-| 24 | `merge_contigs` | ☑ | ☑ | ☑ |
-| 25 | `multiple_align` | ☑ | ☑ | ☑ |
-| 26 | `multiple_align_anchored` | ☑ | ☑ | ☑ |
-| 27 | `multiple_align_consistency` | ☑ | ☑ | ☑ |
-| 28 | `multiple_align_iterative` | ☑ | ☑ | ☑ |
-| 29 | `multiple_align_progressive` | ☑ | ☑ | ☑ |
-| 30 | `quality_trim_reads` | ☑ | ☑ | ☑ |
-| 31 | `scaffold_contigs` | ☑ | ☑ | ☑ |
-| 32 | `semi_global_align` | ☑ | ☑ | ☑ |
-| 33 | `semi_global_align_affine` | ☑ | ☑ | ☑ |
-| 34 | `sequence_identity` | ☑ | ☑ | ☑ |
+| 20 | `general_gap_align` | ☑ | ☑ | ☑ |
+| 21 | `global_align` | ☑ | ☑ | ☑ |
+| 22 | `global_align_affine` | ☑ | ☑ | ☑ |
+| 23 | `local_align` | ☑ | ☑ | ☑ |
+| 24 | `local_align_affine` | ☑ | ☑ | ☑ |
+| 25 | `merge_contigs` | ☑ | ☑ | ☑ |
+| 26 | `multiple_align` | ☑ | ☑ | ☑ |
+| 27 | `multiple_align_anchored` | ☑ | ☑ | ☑ |
+| 28 | `multiple_align_consistency` | ☑ | ☑ | ☑ |
+| 29 | `multiple_align_iterative` | ☑ | ☑ | ☑ |
+| 30 | `multiple_align_progressive` | ☑ | ☑ | ☑ |
+| 31 | `quality_trim_reads` | ☑ | ☑ | ☑ |
+| 32 | `scaffold_contigs` | ☑ | ☑ | ☑ |
+| 33 | `semi_global_align` | ☑ | ☑ | ☑ |
+| 34 | `semi_global_align_affine` | ☑ | ☑ | ☑ |
+| 35 | `sequence_identity` | ☑ | ☑ | ☑ |
 
 ### Analysis (Seqeron.Mcp.Analysis) — 129 tools
 

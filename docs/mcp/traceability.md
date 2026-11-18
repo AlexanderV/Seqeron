@@ -348,6 +348,7 @@
 | format_alignment | Alignment | SequenceAligner.FormatAlignment | Alignment/SequenceAligner.cs#L1194 | 0/0 | – | – | Build-Ready |
 | frequent_kmers_with_mismatches | Alignment | ApproximateMatcher.FindFrequentKmersWithMismatches | Alignment/ApproximateMatcher.cs#L296 | 0/0 | – | – | Build-Ready |
 | frequent_kmers_with_mismatches_and_revcomp | Alignment | ApproximateMatcher.FindFrequentKmersWithMismatchesAndReverseComplements | Alignment/ApproximateMatcher.cs#L967 | 2/2 | ✓ | ✓ | Ready |
+| general_gap_align | Alignment | SequenceAligner.GlobalAlignGeneralGap | Alignment/SequenceAligner.GeneralGap.cs | 0/0 | – | – | Build-Ready |
 | global_align | Alignment | SequenceAligner.GlobalAlign | Alignment/SequenceAligner.cs#L63 | 0/0 | – | – | Build-Ready |
 | global_align_affine | Alignment | SequenceAligner.GlobalAlignAffine | Alignment/SequenceAligner.cs#L387 | 0/0 | – | – | Build-Ready |
 | local_align | Alignment | SequenceAligner.LocalAlign | Alignment/SequenceAligner.cs#L654 | 0/0 | – | – | Build-Ready |

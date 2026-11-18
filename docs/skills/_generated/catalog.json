@@ -133,6 +133,13 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/ApproximateMatcher.cs#L967"
   },
   {
+    "tool": "general_gap_align",
+    "server": "Alignment",
+    "methodId": "SequenceAligner.GlobalAlignGeneralGap",
+    "docPath": "docs/mcp/tools/alignment/general_gap_align.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.GeneralGap.cs"
+  },
+  {
     "tool": "global_align",
     "server": "Alignment",
     "methodId": "SequenceAligner.GlobalAlign",
