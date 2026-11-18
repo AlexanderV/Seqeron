@@ -67,7 +67,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `find_motif` | All exact occurrences of a motif (case-insensitive, overlapping, ascending 0-based positions, forward strand) in a DNA sequence. |
 | `find_motif_by_pattern` | Find all (overlapping) regex pattern matches in a protein sequence. |
 | `find_motif_by_prosite` | Convert a PROSITE pattern to regex internally, then scan a protein sequence. |
-| `find_open_reading_frames` | ORFs in all 6 frames (3 forward + 3 reverse-complement) starting ATG and ending TAA/TAG/TGA. |
+| `find_open_reading_frames` | ORFs in all 6 frames (3 forward + 3 reverse-complement) from a start codon (default ATG) to the first in-frame stop of the chosen genetic code (default Standard TAA/TAG/TGA); nested ORFs, optional alternative starts / partial ORFs / NCBI ORFfinder length convention; coordinates in the scanned strand and on the input. |
 | `find_orthologs` | Best-hit ortholog pairs between two genomes by k-mer similarity (one-directional). |
 | `find_palindromes` | Sequences identical to their reverse complement (restriction-site candidates). |
 | `find_promoter_elements_by_matrix` | Scan a DNA sequence with the Bucher (1990) promoter weight matrices from JASPAR POLII (TATA box POL012.1, cap/Inr POL002.1, CCAAT box POL00… |

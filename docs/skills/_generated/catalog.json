@@ -578,7 +578,7 @@
     "server": "Analysis",
     "methodId": "GenomicAnalyzer.FindOpenReadingFrames",
     "docPath": "docs/mcp/tools/analysis/find_open_reading_frames.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GenomicAnalyzer.cs#L449"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GenomicAnalyzer.cs"
   },
   {
     "tool": "find_orthologs",

@@ -5,7 +5,7 @@
 **Algorithm:** Open Reading Frame (ORF) Detection — `GenomicAnalyzer.FindOpenReadingFrames`
 **Status:** ☑ Complete
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-06-14
+**Last Updated:** 2026-11-18 (B09 review F21-F26)
 
 ---
 
@@ -19,6 +19,8 @@
 | 2 | Wikipedia — Open reading frame | 4 | https://en.wikipedia.org/wiki/Open_reading_frame | 2026-06-14 |
 | 3 | NCBI ORFfinder (tool reference) | 5 | https://www.ncbi.nlm.nih.gov/orffinder/ | 2026-06-14 |
 | 4 | NCBI Genetic Codes (Standard, transl_table=1) | 2 | https://www.ncbi.nlm.nih.gov/Taxonomy/Utils/wprintgc.cgi | 2026-06-14 |
+| 5 | NCBI C++ Toolkit `COrf::FindOrfs` (`src/algo/sequence/orf.cpp`, `orf.hpp`) — the ORFfinder engine | 1 (tool source) | https://github.com/ncbi/ncbi-cxx-toolkit-public | 2026-11-18 |
+| 6 | EMBOSS getorf 6.6.0 (binary run locally, `-find 3`) | 1 (tool) | http://emboss.open-bio.org/rel/rel6/apps/getorf.html | 2026-11-18 |
 
 ### 1.2 Key Evidence Points
 
@@ -27,7 +29,8 @@
 3. Standard start codon ATG; stop codons TAA/TAG/TGA — source 1, 4.
 4. Every ATG that opens an ORF terminated by an in-frame stop is reported; nested ORFs sharing a stop are all returned (`MGMTPRLGLESLLE` and `MTPRLGLESLLE`) — source 1.
 5. A reading begun at an ATG without a downstream in-frame stop yields no protein candidate (translate "until a stop codon") — source 1.
-6. `minLength` is a nucleotide threshold; ORFs with length ≥ threshold are kept — source 3.
+6. `minLength` is a nucleotide threshold; ORFs with length ≥ threshold are kept — source 3. **Correction (B09):** NCBI ORFfinder's own threshold (`COrf`, source 5: "length in base pairs not including the stop") and getorf `-minsize` (source 6) do *not* count the stop codon; this method's default counts it (`Length ≥ minLength`), the NCBI convention is `OrfSearchOptions.MinLengthExcludesStop`.
+7. NCBI `COrf` reports every ORF from its most upstream start (`longest_orfs`), or every start (`longest_orfs = false` = Rosalind), reports 3'-open ORFs as partial, takes stop/start codons from the genetic code table (`-g`), and has start modes ATG only / ATG + alternative / any sense codon — source 5.
 
 ### 1.3 Documented Corner Cases
 
@@ -48,6 +51,9 @@
 | Method | Class | Type | Notes |
 |--------|-------|------|-------|
 | `FindOpenReadingFrames(DnaSequence, int minLength=100)` | GenomicAnalyzer | Canonical | Six-frame ATG→stop ORF detection; every ATG start reported |
+| `FindOpenReadingFrames(DnaSequence, int minLength, OrfSearchOptions)` | GenomicAnalyzer | Canonical (options) | genetic code, start-codon mode, nested vs. longest per stop, open ends, length convention, strands (NCBI COrf / getorf) |
+| `OrfScanner.FindRegions` | Core | Shared core | single-strand O(n) scanner used by both and by `Translator.FindOrfs` |
+| `OrfInfo.GetForwardStrandRange(int)` | GenomicAnalyzer | Helper | input-strand coordinates of an ORF |
 
 ---
 
@@ -60,6 +66,10 @@
 | INV-3 | Every reported ORF `Length` is divisible by 3 | Yes | Source 2 |
 | INV-4 | Every reported ORF `Length` ≥ `minLength` | Yes | Source 3 |
 | INV-5 | `Frame` ∈ {1,2,3}; `IsReverseComplement` distinguishes the strand | Yes | Source 1, 2 |
+| INV-6 | The stop set is the genetic code's stop set (table 2: AGA/AGG stop, TGA does not) | Yes | Source 4, 5 |
+| INV-7 | `GetForwardStrandRange`: reverse complement of `input[Start..End]` = `Sequence` for reverse ORFs, `input[Start..End]` for forward | Yes | definition; Biopython `reverse_complement` |
+| INV-8 | Nested = false ⇒ per frame at most one ORF per stop; every such ORF is the longest among the nested set | Yes | Source 5 |
+| INV-9 | An open-ended ORF has `IsTerminated = false`, `Length % 3 == 0`, no stop codon inside | Yes | Source 5, 6 |
 
 ---
 
@@ -93,6 +103,23 @@
 | ID | Test Case | Description | Expected Outcome | Notes |
 |----|-----------|-------------|------------------|-------|
 | C1 | Too-short sequence | `ATG`, minLength 1 | 0 ORFs (no stop) | Edge guard |
+
+### 4.4 Review additions (B09, F21–F26) — `GenomicAnalyzer_FindOpenReadingFrames_Oracle_Tests.cs`
+
+| ID | Test Case | Expected Outcome | Evidence |
+|----|-----------|------------------|----------|
+| R1 | 1746-row oracle (all NCBI tables except the dual-coding 27, 28, 31; atg/alt/any; nested/longest; open/closed; min length with/without stop; strands) | exact ordered list `strand,frame,start,end,terminated` | Biopython finder = NCBI COrf port = getorf 6.6.0 (377 rows) |
+| R2 | Default overload equals default options on every default row | identical | — |
+| R3 | `GetForwardStrandRange`: revcomp of span = ORF (200 random sequences); worked `CC+TTAGGGCAT+GG` → (2,10), `TTAGGGGGGCAT` → (0,11); too-short length throws | exact | INV-7 |
+| R4 | Table 2: `ATGTGAAAATAA` ORF is the whole 12 nt (TGA = Trp), standard code → `ATGTGA`; `ATGCCCAGAGGG` table 2 → `ATGCCCAGA`, table 1 → none | exact | Biopython CodonTable |
+| R5 | Tables 27/28/31 throw eagerly; null sequence / options throw | — | dual-coding stops |
+| R6 | Starts: `TTG/CTGAAATAA` table 1 alt; `GTG` table 11 only; any sense `CCCAAATAAGGG` (+,1,0,8 ; nested adds 3..8) | exact | NCBI gc.prt, COrf |
+| R7 | `NestedOrfs = false` on `ATGGGGATGCCCTAA` → 1 ORF at 0 | exact | COrf longest_orfs |
+| R8 | `IncludeOpenEnded` on `ATGAAACCCGG` → `ATGAAACCC`, `IsTerminated = false` | exact | COrf partial, getorf |
+| R9 | `MinLengthExcludesStop`: `ATGAAATAA` min 6 kept, 7 dropped; default min 9 kept, 10 dropped | exact | COrf, getorf |
+| R10 | Differential vs `Translator.FindOrfs` (tables 1, 2, 4, 11; 240 sequences) = outermost starts of the code, open ends, aa-length min | identical spans/frames | B02 getorf-confirmed engine |
+| R11 | Differential vs `GenomeAnnotator.FindOrfs` (150 sequences) ATG-initiated ORFs = ours (forward coords, half-open) | identical | B11 engine |
+| R12 | Complexity: `ATG`×300 000 + `TAA`, min 899 000 → 335 ORFs in ≪ 30 s; 5 Mbp random six frames < 60 s | counts | Rosalind definition |
 
 ---
 
@@ -128,7 +155,7 @@
 
 | File | Role | Test Count |
 |------|------|------------|
-| `GenomicAnalyzer_FindOpenReadingFrames_Tests.cs` | Canonical | 14 |
+| `GenomicAnalyzer_FindOpenReadingFrames_Tests.cs` | Canonical | 15 (+ `…_Oracle_Tests.cs`, 18, B09) |
 | `GenomicAnalyzerTests.cs` | Other GenomicAnalyzer methods | ORF region removed |
 
 ### 5.5 Phase 7 Work Queue
@@ -180,7 +207,7 @@ All in-scope cases ✅ (14 tests).
 | # | Assumption | Used In |
 |---|-----------|---------|
 | 1 | ORF `Sequence` includes the terminating stop codon (protein candidate excludes it) | M1, M3, M6b, INV-2/3 |
-| 2 | `minLength` is a nucleotide threshold, inclusive lower bound | M6, M6b, INV-4 |
+| 2 | `minLength` is a nucleotide threshold, inclusive lower bound, counted **with** the stop codon by default (NCBI/getorf count without: option) | M6, M6b, INV-4 |
 | 3 | Standard start codon ATG only (alternative initiation codons out of scope) | all |
 
 These affect reported span/filtering only, not which start sites are detected; each is backed by an authoritative convention (NCBI nucleotide length filter; Wikipedia "length divisible by three, bounded by stop codons"; NCBI default "ATG only").

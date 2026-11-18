@@ -735,18 +735,38 @@ public class AnalysisTools
     }
 
     [McpServerTool(Name = "find_open_reading_frames", Title = "Genome — Open Reading Frames", ReadOnly = true)]
-    [Description("ORFs in all 6 frames (3 forward + 3 reverse-complement) starting ATG and ending TAA/TAG/TGA.")]
+    [Description("ORFs in all 6 frames (3 forward + 3 reverse-complement): an ORF runs from a start codon (default ATG) to the first in-frame stop codon of the NCBI genetic code genetic_code (default 1 = Standard: TAA/TAG/TGA), stop included; every in-frame start that reaches a stop is reported, so nested ORFs sharing a stop are all returned (Rosalind ORF). minLength is in nucleotides including the stop (NCBI ORFfinder's -ml excludes it: minLengthExcludesStop). position is the 0-based start in the scanned strand (the input, or its reverse complement when isReverseComplement); start/end are the 0-based inclusive input-strand coordinates. Options (NCBI ORFfinder / COrf): startCodons AtgOnly (default) | GeneticCodeStarts (ATG + the table's alternative initiation codons) | AnySenseCodon (stop-to-stop); nested=false keeps only the most upstream start per stop; includeOpenEnded adds 3'-partial ORFs that reach the sequence end without a stop (isTerminated=false); bothStrands=false scans the forward strand only. Tables with dual-coding stops (27, 28, 31) are rejected.")]
     public static FindOpenReadingFramesResult FindOpenReadingFrames(
         [Description("DNA sequence.")] string sequence,
-        [Description("Minimum ORF length in nucleotides (default 100).")] int minLength = 100)
+        [Description("Minimum ORF length in nucleotides, stop codon included unless minLengthExcludesStop (default 100).")] int minLength = 100,
+        [Description("NCBI translation table number whose stop codons end ORFs (default 1 = Standard; e.g. 2 = vertebrate mitochondrial, 11 = bacterial/plastid). One of the NCBI gc.prt tables (1-6, 9-16, 21-33, except the dual-coding 27, 28, 31).")] int genetic_code = 1,
+        [Description("Start-codon policy (case-insensitive): AtgOnly (default), GeneticCodeStarts (ATG and the alternative initiation codons of genetic_code, e.g. TTG/CTG in table 1), AnySenseCodon (any non-stop codon).")] string startCodons = "AtgOnly",
+        [Description("true (default): report every in-frame start (nested ORFs). false: only the most upstream start per stop codon (NCBI ORFfinder default, EMBOSS getorf).")] bool nested = true,
+        [Description("true: also report ORFs that run to the sequence end without a stop codon (3'-partial, isTerminated=false). Default false.")] bool includeOpenEnded = false,
+        [Description("true: minLength excludes the stop codon (NCBI ORFfinder -ml / EMBOSS getorf -minsize). Default false.")] bool minLengthExcludesStop = false,
+        [Description("true (default): scan both strands; false: forward strand only.")] bool bothStrands = true)
     {
         var dna = RequireDna(sequence, nameof(sequence));
         if (minLength < 1)
             throw new ArgumentOutOfRangeException(nameof(minLength), "Minimum ORF length must be at least 1");
 
-        var items = GenomicAnalyzer.FindOpenReadingFrames(dna, minLength)
-            .Select(o => new OrfItem(
-                o.Sequence, o.Position, o.Frame, o.IsReverseComplement, o.Length, o.CodonCount))
+        var options = new OrfSearchOptions
+        {
+            GeneticCode = ResolveGeneticCode(genetic_code),
+            StartCodons = ParseExactEnumName<OrfStartCodons>(startCodons, nameof(startCodons)),
+            NestedOrfs = nested,
+            IncludeOpenEnded = includeOpenEnded,
+            MinLengthExcludesStop = minLengthExcludesStop,
+            SearchBothStrands = bothStrands,
+        };
+
+        var items = GenomicAnalyzer.FindOpenReadingFrames(dna, minLength, options)
+            .Select(o =>
+            {
+                var (start, end) = o.GetForwardStrandRange(dna.Length);
+                return new OrfItem(o.Sequence, o.Position, o.Frame, o.IsReverseComplement, o.Length, o.CodonCount,
+                    start, end, o.IsTerminated);
+            })
             .ToArray();
         return new FindOpenReadingFramesResult(items);
     }

@@ -2,18 +2,64 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "toolName": "find_open_reading_frames",
   "serverName": "Analysis",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "stability": "stable",
   "methodId": "GenomicAnalyzer.FindOpenReadingFrames",
-  "docRef": "Seqeron.Genomics.Analysis/GenomicAnalyzer.cs#L449",
-  "description": "Open reading frames in all 6 frames (3 forward + 3 reverse-complement): each ATG to its first in-frame stop (TAA/TAG/TGA) with length >= minLength nucleotides.",
+  "docRef": "Seqeron.Genomics.Analysis/GenomicAnalyzer.cs#FindOpenReadingFrames",
+  "description": "Open reading frames in all 6 frames (3 forward + 3 reverse-complement): each start codon (default ATG) to its first in-frame stop codon of the chosen NCBI genetic code (default Standard TAA/TAG/TGA), stop included, length >= minLength nucleotides; every in-frame start is reported (nested ORFs, Rosalind). Options follow NCBI ORFfinder: genetic_code, startCodons, nested, includeOpenEnded, minLengthExcludesStop, bothStrands.",
   "inputSchema": {
     "type": "object",
     "properties": {
-      "sequence": { "type": "string", "description": "DNA sequence", "minLength": 1 },
-      "minLength": { "type": "integer", "description": "Minimum ORF length in nucleotides (default 100)", "minimum": 1, "default": 100 }
+      "sequence": {
+        "type": "string",
+        "description": "DNA sequence",
+        "minLength": 1
+      },
+      "minLength": {
+        "type": "integer",
+        "description": "Minimum ORF length in nucleotides, stop codon included unless minLengthExcludesStop (default 100)",
+        "minimum": 1,
+        "default": 100
+      },
+      "genetic_code": {
+        "type": "integer",
+        "description": "NCBI translation table whose stop codons end ORFs (default 1 = Standard); tables 27, 28, 31 (dual-coding stops) are rejected",
+        "default": 1
+      },
+      "startCodons": {
+        "type": "string",
+        "description": "AtgOnly (default) | GeneticCodeStarts (ATG + the table's alternative initiation codons) | AnySenseCodon (stop-to-stop); case-insensitive",
+        "default": "AtgOnly",
+        "enum": [
+          "AtgOnly",
+          "GeneticCodeStarts",
+          "AnySenseCodon"
+        ]
+      },
+      "nested": {
+        "type": "boolean",
+        "description": "true (default): every in-frame start; false: only the most upstream start per stop (NCBI ORFfinder default)",
+        "default": true
+      },
+      "includeOpenEnded": {
+        "type": "boolean",
+        "description": "true: also report 3'-partial ORFs that reach the sequence end without a stop (isTerminated=false)",
+        "default": false
+      },
+      "minLengthExcludesStop": {
+        "type": "boolean",
+        "description": "true: minLength excludes the stop codon (NCBI ORFfinder -ml, EMBOSS getorf -minsize)",
+        "default": false
+      },
+      "bothStrands": {
+        "type": "boolean",
+        "description": "true (default): both strands; false: forward only",
+        "default": true
+      }
     },
-    "required": ["sequence"]
+    "required": [
+      "sequence"
+    ]
   },
   "outputSchema": {
     "type": "object",
@@ -23,34 +69,163 @@
         "items": {
           "type": "object",
           "properties": {
-            "sequence": { "type": "string" },
-            "position": { "type": "integer" },
-            "frame": { "type": "integer" },
-            "isReverseComplement": { "type": "boolean" },
-            "length": { "type": "integer" },
-            "codonCount": { "type": "integer" }
+            "sequence": {
+              "type": "string"
+            },
+            "position": {
+              "type": "integer",
+              "description": "0-based start in the scanned strand (input, or its reverse complement when isReverseComplement)"
+            },
+            "frame": {
+              "type": "integer"
+            },
+            "isReverseComplement": {
+              "type": "boolean"
+            },
+            "length": {
+              "type": "integer"
+            },
+            "codonCount": {
+              "type": "integer"
+            },
+            "start": {
+              "type": "integer",
+              "description": "0-based inclusive start in input (forward-strand) coordinates"
+            },
+            "end": {
+              "type": "integer",
+              "description": "0-based inclusive end in input (forward-strand) coordinates, stop codon included"
+            },
+            "isTerminated": {
+              "type": "boolean",
+              "description": "false for an open-ended (no stop) ORF"
+            }
           },
-          "required": ["sequence", "position", "frame", "isReverseComplement", "length", "codonCount"]
+          "required": [
+            "sequence",
+            "position",
+            "frame",
+            "isReverseComplement",
+            "length",
+            "codonCount",
+            "start",
+            "end",
+            "isTerminated"
+          ]
         }
       }
     },
-    "required": ["items"]
+    "required": [
+      "items"
+    ]
   },
   "errors": [
-    { "code": 1001, "message": "Sequence cannot be null or empty" },
-    { "code": 1001, "message": "Invalid DNA sequence" },
-    { "code": 1002, "message": "Minimum ORF length must be at least 1" }
+    {
+      "code": 1001,
+      "message": "Sequence cannot be null or empty"
+    },
+    {
+      "code": 1001,
+      "message": "Invalid DNA sequence"
+    },
+    {
+      "code": 1002,
+      "message": "Minimum ORF length must be at least 1"
+    },
+    {
+      "code": 1001,
+      "message": "Genetic code 27/28/31 has dual-coding stop codons / unknown table / unknown startCodons"
+    }
   ],
   "examples": [
     {
       "name": "Minimal forward ORF ATG-TAA",
-      "input": { "sequence": "ATGTAA", "minLength": 6 },
-      "output": { "items": [ { "sequence": "ATGTAA", "position": 0, "frame": 1, "isReverseComplement": false, "length": 6, "codonCount": 2 } ] }
+      "input": {
+        "sequence": "ATGTAA",
+        "minLength": 6
+      },
+      "output": {
+        "items": [
+          {
+            "sequence": "ATGTAA",
+            "position": 0,
+            "frame": 1,
+            "isReverseComplement": false,
+            "length": 6,
+            "codonCount": 2,
+            "start": 0,
+            "end": 5,
+            "isTerminated": true
+          }
+        ]
+      }
     },
     {
       "name": "One extra codon ATG-AAA-TAG",
-      "input": { "sequence": "ATGAAATAG", "minLength": 9 },
-      "output": { "items": [ { "sequence": "ATGAAATAG", "position": 0, "frame": 1, "isReverseComplement": false, "length": 9, "codonCount": 3 } ] }
+      "input": {
+        "sequence": "ATGAAATAG",
+        "minLength": 9
+      },
+      "output": {
+        "items": [
+          {
+            "sequence": "ATGAAATAG",
+            "position": 0,
+            "frame": 1,
+            "isReverseComplement": false,
+            "length": 9,
+            "codonCount": 3,
+            "start": 0,
+            "end": 8,
+            "isTerminated": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "Reverse-strand ORF in input coordinates",
+      "input": {
+        "sequence": "CCTTAGGGCATGG",
+        "minLength": 9
+      },
+      "output": {
+        "items": [
+          {
+            "sequence": "ATGCCCTAA",
+            "position": 2,
+            "frame": 3,
+            "isReverseComplement": true,
+            "length": 9,
+            "codonCount": 3,
+            "start": 2,
+            "end": 10,
+            "isTerminated": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "Vertebrate mitochondrial code (TGA = Trp)",
+      "input": {
+        "sequence": "ATGTGAAAATAA",
+        "minLength": 1,
+        "genetic_code": 2
+      },
+      "output": {
+        "items": [
+          {
+            "sequence": "ATGTGAAAATAA",
+            "position": 0,
+            "frame": 1,
+            "isReverseComplement": false,
+            "length": 12,
+            "codonCount": 4,
+            "start": 0,
+            "end": 11,
+            "isTerminated": true
+          }
+        ]
+      }
     }
   ]
 }

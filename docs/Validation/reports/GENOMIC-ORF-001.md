@@ -1,11 +1,11 @@
 # Validation Report: GENOMIC-ORF-001 — Open Reading Frame (ORF) Detection
 
-- **Validated:** 2026-06-16   **Area:** Analysis
+- **Validated:** 2026-06-16; re-reviewed 2026-11-18 (B09 campaign, F21–F26)   **Area:** Analysis
 - **Canonical method(s):** `GenomicAnalyzer.FindOpenReadingFrames(DnaSequence, int minLength = 100)` (+ private `FindOrfsInFrame`, `IsCodon`, `IsStopCodon`); result struct `OrfInfo`. `src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GenomicAnalyzer.cs:402–496, 596–612`.
-- **Stage A verdict:** PASS
-- **Stage B verdict:** PASS
-- **End-state:** ✅ CLEAN (no defect found)
-- **Duplicate?** No. Distinct from ANNOT-ORF-001 (`GenomeAnnotator.FindOrfs` → `OpenReadingFrame`) and TRANS-SIXFRAME-001 / `Translator.FindOrfs` (→ `OrfResult`), which are genetic-code-parameterized. This unit is the ATG-only, standard-code, `OrfInfo`-returning six-frame scanner. Three separate public APIs confirmed by grep.
+- **Stage A verdict:** PASS-WITH-NOTES (2026-11 re-review: the NCBI ORFfinder length-filter claim was refuted by the NCBI source, see below)
+- **Stage B verdict:** PASS-WITH-NOTES (hard-coded stop set, quadratic rescans, undocumented reverse-strand coordinates — all fixed)
+- **End-state:** ✅ CLEAN after the 2026-11 fixes
+- **Duplicate?** Three ORF engines existed (DUP_MAP §3). After the review `GenomicAnalyzer.FindOpenReadingFrames` and `Translator.FindOrfs` share one scanning core (`OrfScanner`, Core); `GenomeAnnotator.FindOrfs` (B11, prokaryotic ATG/GTG/TTG set, forward half-open coordinates) keeps its own loop (cross-batch request recorded in B09.md). All three agree under matching options (differential tests).
 
 ## Stage A — Description
 
@@ -76,3 +76,19 @@ None. No code or test change made this session.
 - **Stage A: PASS. Stage B: PASS. End-state: ✅ CLEAN.** Not a duplicate.
 - Test-quality gate: **PASS**.
 - No defects logged. Working tree changes are validation docs only.
+
+
+---
+
+## 2026-11 re-review (B09 campaign) — what changed
+
+Sources actually opened: NCBI C++ Toolkit `src/algo/sequence/orf.cpp` + `include/algo/sequence/orf.hpp` (`COrf::FindOrfs`, the ORFfinder engine; raw.githubusercontent.com), ProteinIQ ORFfinder 0.4.3 wrapper documentation (option semantics), EMBOSS getorf 6.6.0 (binary run locally), Biopython 1.88 `CodonTable` / `Seq.translate` / `reverse_complement`, Rosalind ORF sample (as before). NCBI ORFfinder help page itself is blocked.
+
+- **F21** hard-coded `TAA/TAG/TGA` (B02 request): wrong for every non-standard table. Now the stop set comes from `GeneticCode` through `OrfScanner`; new `OrfSearchOptions.GeneticCode` (all NCBI tables, 27/28/31 rejected).
+- **F22** per-ATG rescan: O(n²) on ATG-rich stop-free stretches (`ATG`×300 000 + `TAA`, minLength 899 000: minutes → milliseconds). Single pass with a pending-start list.
+- **F23** the claim "`minLength` matches NCBI ORFfinder's nucleotide length filter" is false: `COrf` and getorf compare the length *without* the stop. Default unchanged (self-consistent with `Length`), option `MinLengthExcludesStop` added, documentation corrected.
+- **F24** reverse-strand `Position` was undocumented (it is a reverse-complement coordinate) and there was no way to obtain input coordinates; `OrfInfo.GetForwardStrandRange`, `IsTerminated`, MCP `start`/`end`/`isTerminated`.
+- **F25** NCBI ORFfinder options implemented: `StartCodons` (ATG / table starts / any sense), `NestedOrfs`, `IncludeOpenEnded`, `SearchBothStrands`; MCP parameters `genetic_code`, `startCodons`, `nested`, `includeOpenEnded`, `minLengthExcludesStop`, `bothStrands`. `Translator.FindOrfs` rebuilt on the shared scanner (no behaviour change; B02 getorf oracle tests green).
+- **F26** oracle: 1746 rows, Biopython finder = NCBI COrf port = getorf 6.6.0 (assertions at generation time), plus differential tests against both other engines.
+
+Stage A / B notes: the Rosalind sample, nested-ORF, no-stop and six-frame semantics all stand; the 2026-06 stage-B "tests are real" audit stands (the original tests still pass unchanged). Remaining documented scope: DnaSequence input (A/C/G/T only; IUPAC → `Translator.FindOrfs(string)`), ORFfinder's cross-frame "ignore nested ORFs" post-filter.

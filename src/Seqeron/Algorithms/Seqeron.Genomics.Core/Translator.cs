@@ -1085,7 +1085,7 @@ namespace Seqeron.Genomics.Core
 
         // A stop codon that the table also translates as an amino acid (NCBI gc.prt tables
         // 27, 28, 31; Biopython "dual_coding" check in Bio.Seq._translate_str).
-        private static bool HasDualCodingStopCodons(GeneticCode geneticCode)
+        internal static bool HasDualCodingStopCodons(GeneticCode geneticCode)
         {
             foreach (var stop in geneticCode.StopCodons)
             {
@@ -1098,70 +1098,32 @@ namespace Seqeron.Genomics.Core
         private static IEnumerable<OrfResult> FindOrfsInSequence(string sequence, GeneticCode geneticCode,
             int minLength, bool isReverseComplement)
         {
+            // ORF = region from a START codon to a STOP codon (EMBOSS getorf -find 1: "a region that begins with a
+            // START codon and ends with a STOP codon"; nested in-frame STARTs do not open a new ORF), scanned in all
+            // three frames by the shared OrfScanner core (also used by GenomicAnalyzer.FindOpenReadingFrames).
+            // An ORF that runs off the end of the strand is reported up to the last complete codon (getorf
+            // WriteORF(start, pos+2)); trailing partial-codon bases are not part of the ORF.
             // GeneticCode.Translate / IsStartCodon normalise T/U themselves.
-            // ORF = region from a START codon to a STOP codon
-            // (EMBOSS getorf -find 1: "a region that begins with a START codon
-            // and ends with a STOP codon"). Scanned in all three frames.
-            for (int frame = 0; frame < ReadingFramesPerStrand; frame++)
+            foreach (var region in OrfScanner.FindRegions(sequence, geneticCode,
+                         codon => IsOrfStartCodon(geneticCode, codon), nestedStarts: false, includeOpenEnded: true))
             {
-                int? currentOrfStart = null;
-                var currentProtein = new StringBuilder();
+                int codingEnd = region.IsTerminated ? region.End - CodonLength : region.End;
+                var protein = new StringBuilder();
+                // Initiator is read as Met whatever the start codon (EMBOSS getorf
+                // -methionine default Y; Biopython translate(cds=True); NCBI gc).
+                protein.Append(InitiatorMethionine);
+                for (int i = region.Start + CodonLength; i < codingEnd; i += CodonLength)
+                    protein.Append(geneticCode.Translate(sequence.Substring(i, CodonLength)));
 
-                for (int i = frame; i + CodonLength <= sequence.Length; i += CodonLength)
-                {
-                    string codon = sequence.Substring(i, CodonLength);
-                    char aa = geneticCode.Translate(codon);
-
-                    if (currentOrfStart == null)
-                    {
-                        // Looking for start codon
-                        if (IsOrfStartCodon(geneticCode, codon))
-                        {
-                            currentOrfStart = i;
-                            currentProtein.Clear();
-                            // Initiator is read as Met whatever the start codon (EMBOSS getorf
-                            // -methionine default Y; Biopython translate(cds=True); NCBI gc).
-                            currentProtein.Append(InitiatorMethionine);
-                        }
-                    }
-                    else
-                    {
-                        // In an ORF, looking for stop
-                        if (aa == '*')
-                        {
-                            // Found stop codon
-                            if (currentProtein.Length >= minLength)
-                            {
-                                yield return new OrfResult(
-                                    currentOrfStart.Value,
-                                    // Inclusive end = last base of the stop codon (INSDC
-                                    // feature table: CDS "location includes stop codon").
-                                    // getorf prints the range without the STOP (WriteORF(start, pos-1)).
-                                    i + (CodonLength - 1),
-                                    FrameLabel(frame, isReverseComplement),
-                                    new ProteinSequence(currentProtein.ToString())
-                                );
-                            }
-                            currentOrfStart = null;
-                        }
-                        else
-                        {
-                            currentProtein.Append(aa);
-                        }
-                    }
-                }
-
-                // ORF that runs off the end of the strand: it ends at the last base of the last
-                // complete codon (EMBOSS getorf WriteORF(start, pos+2)); trailing partial-codon
-                // bases are not part of the ORF.
-                if (currentOrfStart != null && currentProtein.Length >= minLength)
+                if (protein.Length >= minLength)
                 {
                     yield return new OrfResult(
-                        currentOrfStart.Value,
-                        currentOrfStart.Value + currentProtein.Length * CodonLength - 1,
-                        FrameLabel(frame, isReverseComplement),
-                        new ProteinSequence(currentProtein.ToString())
-                    );
+                        region.Start,
+                        // Inclusive end = last base of the stop codon (INSDC feature table: CDS "location
+                        // includes stop codon"; getorf prints the range without the STOP: WriteORF(start, pos-1)).
+                        region.End - 1,
+                        FrameLabel(region.FrameOffset, isReverseComplement),
+                        new ProteinSequence(protein.ToString()));
                 }
             }
         }

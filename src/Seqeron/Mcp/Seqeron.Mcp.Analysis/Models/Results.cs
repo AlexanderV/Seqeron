@@ -158,14 +158,18 @@ public record CommonRegionItem(string Sequence, int PositionInFirst, int Positio
 /// <summary>Result of <c>find_common_regions</c>.</summary>
 public record FindCommonRegionsResult(CommonRegionItem[] Items);
 
-/// <summary>An open reading frame.</summary>
+/// <summary>An open reading frame. <c>Position</c> is the 0-based start in the scanned strand (input or its reverse complement);
+/// <c>Start</c>/<c>End</c> are the 0-based inclusive input-strand coordinates of the same span (stop codon included).</summary>
 public record OrfItem(
     string Sequence,
     int Position,
     int Frame,
     bool IsReverseComplement,
     int Length,
-    int CodonCount);
+    int CodonCount,
+    int Start,
+    int End,
+    bool IsTerminated);
 
 /// <summary>Result of <c>find_open_reading_frames</c>.</summary>
 public record FindOpenReadingFramesResult(OrfItem[] Items);

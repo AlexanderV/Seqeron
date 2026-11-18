@@ -225,6 +225,24 @@ public class GenomicAnalyzer_FindOpenReadingFrames_Tests
         Assert.That(orfs, Is.Empty, "An ATG with no room for an in-frame stop is not a complete ORF.");
     }
 
+    // Default minLength is 100 nucleotides, stop codon included (B09 F23: NCBI ORFfinder's -ml would exclude the stop).
+    [Test]
+    public void FindOpenReadingFrames_DefaultMinLength_Is100NucleotidesIncludingStop()
+    {
+        string orf99 = "ATG" + string.Concat(Enumerable.Repeat("AAA", 31)) + "TAA";   // 3 + 93 + 3 = 99
+        string orf102 = "ATG" + string.Concat(Enumerable.Repeat("AAA", 32)) + "TAA";  // 102
+
+        Assert.That(GenomicAnalyzer.FindOpenReadingFrames(new DnaSequence(orf99)).Where(o => !o.IsReverseComplement), Is.Empty,
+            "99 nt < 100");
+        var found = GenomicAnalyzer.FindOpenReadingFrames(new DnaSequence(orf102)).Single(o => !o.IsReverseComplement);
+        Assert.Multiple(() =>
+        {
+            Assert.That(found.Length, Is.EqualTo(102));
+            Assert.That(found.CodonCount, Is.EqualTo(34), "length / 3, stop included");
+            Assert.That(found.IsTerminated, Is.True);
+        });
+    }
+
     // Edge — null sequence throws.
     [Test]
     public void FindOpenReadingFrames_NullSequence_Throws()

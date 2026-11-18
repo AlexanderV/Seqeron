@@ -45,6 +45,24 @@
 1. **Start-codon options:** "ATG" only; "ATG" and alternative initiation codons; Any sense codon ("find all stop-to-stop ORFs").
 2. **Minimal ORF length:** selectable nucleotide values 30 / 75 / 150 / 300 / 600; the tool restricts the search to ORFs with length **equal or more than** the selected value (nucleotide units).
 
+### NCBI C++ Toolkit — `COrf::FindOrfs` (the ORFfinder engine) — opened 2026-11-18 (B09 review)
+
+**URL:** https://raw.githubusercontent.com/ncbi/ncbi-cxx-toolkit-public/master/src/algo/sequence/orf.cpp (and `include/algo/sequence/orf.hpp`)
+**Authority rank:** 1 (tool source). ORFfinder's own parameters `-ml`, `-g`, `-s`, `-n` map onto it (ProteinIQ's wrapper documentation of the native ORFfinder 0.4.3 executable, https://proteiniq.io/app/orf-finder, opened the same day, lists them).
+
+**Key Extracted Points:**
+
+1. `FindForwardOrfs`: "Find all ORFs in forward orientation with length in *base pairs* >= min_length_bp ... Returned range does not include the stop codon" — the minimum length does **not** count the stop (`to + 1 >= min_length_bp + from`, `to` = last base of the codon before the stop); the reported interval is extended by the stop (`AddInterval`: `to += 3`). `min_length_bp < 3` is raised to 3.
+2. Stops per frame from the genetic code (`CTrans_table::IsOrfStop`); starts from `allowable_starts` (`GetStartCodons(genetic_code, include_atg, include_alt)` = ATG and/or the table's alternative starts); `"STOP"` in the list = stop-to-stop ORFs.
+3. `longest_orfs = true` (ORFfinder): each ORF begins at the most upstream allowed start after the previous stop (`from = *starts.begin()`); `longest_orfs = false`: all starts of the stop-free stretch each yield an ORF (`for (auto s: starts) AddInterval(...)`) — exactly the Rosalind "every ATG" semantics.
+4. The region after the last stop (`stops[frame].push_back(seq.size())`) is reported with `to_fuzz = true` (3'-partial, no stop appended) when it has a start: open-ended ORFs end at the last complete codon.
+5. Reverse strand: the reverse complement is scanned and coordinates converted `from' = size − to − 1`, `to' = size − from − 1` (forward-strand coordinates, strand `minus`).
+6. ProteinIQ (ORFfinder 0.4.3 wrapper) documents: "The terminating stop codon does not count toward the threshold", start modes "ATG only / ATG + code-specific alternative starts / Any sense codon", "ORFfinder reports each ORF from the most upstream start codon allowed", "Ignore nested ORFs: drop ORFs placed completely within another ORF on the searched strands" (a cross-frame filter, not in-frame nesting), and the lacI example 1,092 nt = 363 aa + stop (the reported range includes the stop).
+
+### EMBOSS getorf 6.6.0 (binary run locally, Debian `emboss`)
+
+`getorf -find 3 -table T -minsize M` = nucleotide ORFs START→STOP, one per stop (nested in-frame starts do not open an ORF), start set = the table's starts (EGC files; EGC.3 and EGC.13 carry older start sets than NCBI gc.prt 4.6 and are excluded from the comparison), `-minsize` compares the length without the stop, open ORFs written to the last complete codon, header `[s - e]` 1-based forward coordinates (`s > e` on the reverse strand). Corner: a START that is the last complete codon of its frame is never written by getorf (the NCBI `COrf` reports it).
+
 ### NCBI Genetic Codes — Standard code (transl_table=1)
 
 **URL:** https://www.ncbi.nlm.nih.gov/Taxonomy/Utils/wprintgc.cgi
@@ -69,6 +87,25 @@
 ### From NCBI ORFfinder
 
 1. **Minimum length filter:** ORFs shorter than the selected nucleotide length are excluded (length ≥ threshold).
+
+### Review finding (B09, F23)
+
+The earlier unit documents claimed the default `minLength` "matches NCBI ORFfinder's nucleotide length filter". The NCBI source shows the filter excludes the stop codon; this method's default keeps `Length ≥ minLength` including it (a self-consistent contract for existing callers) and offers `MinLengthExcludesStop` for the NCBI/getorf convention. The Rosalind problem itself defines no minimum length.
+
+### Oracle numbers (B09, 2026-11-18)
+
+`scripts/analysis/generate_orf_oracle.py` (reproducible byte-identical): 1746 (sequence, options) rows; (1) definition-based Python finder (Biopython 1.88 `translate`, `CodonTable`, `reverse_complement`), (2) line-by-line port of `COrf::FindForwardOrfs`/`s_FindOrfs` (1515 rows; nested + any-sense is not an NCBI mode), (3) EMBOSS getorf 6.6.0 `-find 3` (377 rows) — all asserted equal inside the generator; the library equals the TSV on all 1746 rows. Differential tests: `Translator.FindOrfs` (240 sequences × tables 1, 2, 4, 11) and `GenomeAnnotator.FindOrfs` (150 sequences) agree with `FindOpenReadingFrames` under the matching options.
+
+### The three ORF engines (DUP_MAP §3) — measured relation
+
+| | `GenomicAnalyzer.FindOpenReadingFrames` (options) | `Translator.FindOrfs` | `GenomeAnnotator.FindOrfs` |
+|--|--|--|--|
+| Scan core | `OrfScanner` (Core) | `OrfScanner` (since B09 F25) | own loop (B11), same algorithm as `NestedOrfs = true` |
+| Starts | ATG / table starts / any sense | table starts (TTG/CTG/ATG in table 1) | ATG/GTG/TTG (Prodigal set, not a table) |
+| Nested starts | yes (default) / no | no | yes |
+| Open-ended ORFs | option | reported | only for `requireStartCodon = false` stop-to-stop mode |
+| Min length unit | nt incl. stop (option: excl.) | amino acids | amino acids |
+| Coordinates | scanned strand + `GetForwardStrandRange` | scanned strand, frames −1..−3 | forward strand, half-open |
 
 ---
 
