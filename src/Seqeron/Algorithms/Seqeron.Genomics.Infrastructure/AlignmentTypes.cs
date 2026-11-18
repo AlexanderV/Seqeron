@@ -465,3 +465,63 @@ public sealed record MultipleAlignmentResult(
 {
     public static MultipleAlignmentResult Empty => new(Array.Empty<string>(), "", 0);
 }
+
+/// <summary>
+/// Source of the pairwise distances that build the guide tree of the progressive, iterative and consistency
+/// multiple aligners.
+/// </summary>
+public enum MsaDistanceMode
+{
+    /// <summary>
+    /// Default (historical behaviour): d = 1 − identities / min(len1, len2) of the repository's own linear-gap
+    /// Needleman–Wunsch alignment under the caller's <see cref="ScoringMatrix"/>.
+    /// </summary>
+    Linear = 0,
+
+    /// <summary>
+    /// ClustalW 2.1 "slow" pairwise stage (Thompson, Higgins &amp; Gibson 1994): affine Smith–Waterman–Gotoh/Myers–Miller
+    /// alignment with ClustalW's own DNA matrix (IUB, ×100) and pairwise gap penalties (open 15, extend 6.66), d = 1 −
+    /// identities / min(len1, len2) of that alignment (<c>SequenceAligner.ClustalWPairwiseAlign</c>). The caller's scoring matrix is
+    /// then used only for the profile alignment, not for the distances.
+    /// </summary>
+    ClustalWAffine = 1,
+}
+
+/// <summary>
+/// Additive options of the guide-tree multiple aligners (<c>MultipleAlignProgressive</c>, <c>MultipleAlignIterative</c>,
+/// <c>MultipleAlignConsistency</c>). The default instance reproduces the parameterless behaviour.
+/// </summary>
+public sealed record MsaOptions
+{
+    /// <summary>Pairwise distance used for the guide tree (default <see cref="MsaDistanceMode.Linear"/>).</summary>
+    public MsaDistanceMode Distance { get; init; } = MsaDistanceMode.Linear;
+}
+
+/// <summary>
+/// Result of ClustalW's "slow" pairwise alignment (<c>SequenceAligner.ClustalWPairwiseAlign</c>, port of
+/// <c>FullPairwiseAlign::pairwiseAlign</c>, ClustalW 2.1): a local affine alignment whose identities define ClustalW's percent
+/// identity and distance.
+/// </summary>
+/// <param name="Score">Alignment score in ClustalW's integer units (matrix ×100, gap penalties ×100).</param>
+/// <param name="Identities">Aligned residue pairs with identical residue codes in the local alignment.</param>
+/// <param name="PercentIdentity">100 · identities / min(len1, len2) (0 when a sequence is empty).</param>
+/// <param name="Distance">1 − identities / min(len1, len2) (1 when a sequence is empty): ClustalW's guide-tree distance.</param>
+/// <param name="ClustalWScore">The integer "Score:" ClustalW prints per pair: (int)(100·identities / min(len1, len2)) in single precision.</param>
+/// <param name="AlignedSequence1">Aligned region of sequence 1 (gap '-').</param>
+/// <param name="AlignedSequence2">Aligned region of sequence 2.</param>
+/// <param name="Start1">0-based first aligned residue of sequence 1 (-1 when the alignment is empty).</param>
+/// <param name="End1">0-based last aligned residue of sequence 1 (-1 when empty).</param>
+/// <param name="Start2">0-based first aligned residue of sequence 2 (-1 when empty).</param>
+/// <param name="End2">0-based last aligned residue of sequence 2 (-1 when empty).</param>
+public sealed record ClustalWPairwiseResult(
+    int Score,
+    int Identities,
+    double PercentIdentity,
+    double Distance,
+    int ClustalWScore,
+    string AlignedSequence1,
+    string AlignedSequence2,
+    int Start1,
+    int End1,
+    int Start2,
+    int End2);

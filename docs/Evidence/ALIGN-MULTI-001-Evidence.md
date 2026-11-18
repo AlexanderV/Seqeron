@@ -424,3 +424,24 @@ Sources actually opened in this review (neutral `Seqeron-review/1.0` User-Agent,
 1. The linear-gap model applies to every MSA method (documented deviation; `GlobalAlignAffine` for pairs).
 2. UPGMA guide tree for all progressive-family methods (CLUSTAL 1988) instead of NJ.
 3. T-Coffee local library = best single SW alignment per pair (Lalign supplies up to N non-intersecting alignments in T-Coffee).
+
+
+---
+
+# Addendum: ClustalW pairwise stage as guide-tree distance (audit A1-15, B09 F51, 2026-11-18)
+
+## Sources actually opened
+- ClustalW 2.1 (Debian `clustalw 2.1+lgpl-7`) source via `sources.debian.org/data/main/c/clustalw/2.1+lgpl-7/src/`: `pairwise/FullPairwiseAlign.cpp` (`pairwiseAlign`, `forwardPass`, `reversePass`, `diff`, `tracePath`), `substitutionMatrix/SubMatrix.cpp` (`getPairwiseMatrix`, `getMatrix`, `setUpCrossReferences`), `substitutionMatrix/matrices.h` (`swgapdnamt`), `general/UserParameters.cpp` (`DNAPWGapOpen = 15.0`, `DNAPWGapExtend = 6.66`, `transitionWeight = 0.5`, `aminoAcidCodes`), `Clustal.cpp` (full vs fast pairwise selection, `-PIM`/`countid` path), `pairwise/FastPairwiseAlign.cpp` (opened, not ported: A1-15b). Neutral User-Agent `Seqeron-review/1.0`.
+- Installed binary `clustalw` 2.1 (`-TYPE=DNA -ALIGN`): prints `Sequences (i:j) Aligned. Score: N`, N = (int)(100·count/MIN(len1,len2)) in float. `-TREE -PIM` writes a *column-wise* identity matrix of the input rows (e.g. 54 for the pair whose pairwise Score is 91), so it cannot serve as the oracle for the pairwise stage.
+
+## Findings from the source
+1. The pairwise stage is an affine **local** alignment (Smith-Waterman-Gotoh, end = first row-major maximum; reverse pass for the start; Myers-Miller `diff` on the region), not a global one.
+2. DNA pairwise matrix = IUB ×100: identical +1000, ACGT mismatch −900 (including transitions: the 2.1 transition-weight statements write to code pairs (0,4), (2,11), (2,12) = A-E, C-M, C-N). Gap open `(int)(2·15·100) = 3000`, extend `(int)(6.66f·100) = 666`; k-gap costs 3000 + 666·k.
+3. identity count uses residue codes (case-insensitive, N–N identical); distance = (100 − 100·count/MIN(len1, len2))/100; either sequence empty → 1.0.
+
+## Oracle numbers
+3 600 pairs equal (printed Score, identities, DP score); 140 MSA sets × {progressive, iterative} equal the independent Python; 65/140 progressive results differ from the linear-distance guide tree.
+
+## Assumptions / not covered
+- Full-DP ("slow") mode only; `-QUICKTREE` fast k-tuple mode and the protein pairwise stage are audit item A1-15b.
+- The guide tree itself stays UPGMA (ClustalW uses NJ: audit A1-12), so a `clustalw -USETREE`-driven comparison of final rows is not claimed.

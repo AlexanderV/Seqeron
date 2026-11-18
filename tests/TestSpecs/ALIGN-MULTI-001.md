@@ -336,3 +336,23 @@ Tests added (all lock oracle values: Biopython 1.88 pair optima and independent 
 | T03 | `MultipleAlignConsistency_MatchesIndependentTCoffeeReference` | `-CTT`, `AC-T`, `-CAA` | independent Python T-Coffee |
 | I01 | `MultipleAlignIterative_CorrectsEarlyGapPlacement_RaisesSpScore` (re-engineered for the ClustalW distance) | −7 → −3 | hand SP, Python refinement |
 | M01-M08 | MCP: `multiple_align*` bindings, `global/local/semi_global_align_affine` | Biopython/parasail values (−17, 12 @ (7,12,0,5), 7 `--GA-TTACA--`) | SequenceAligner unit tests |
+
+
+---
+
+# Addendum: ClustalW guide-tree distance (audit A1-15, B09 F51)
+
+**Class:** `SequenceAligner_ClustalWDistance_Tests` (17 tests) + `Seqeron.Mcp.Alignment.Tests.MultipleAlignTests` (2).
+**Subject:** `SequenceAligner.ClustalWPairwiseAlign` (port of ClustalW 2.1 `FullPairwiseAlign`) and `MsaDistanceMode.ClustalWAffine` for `MultipleAlignProgressive/Iterative/Consistency` (additive `MsaOptions`, default `Linear` = unchanged).
+
+| ID | Test | Source / oracle |
+|----|------|-----------------|
+| CW1 | printed Score, identity count and DP score equal the oracle on 3 600 pairs (ACGT, IUB codes, ≤ 320 nt) | installed `clustalw` 2.1 `-TYPE=DNA -ALIGN` ("Sequences (i:j) Aligned. Score: N" = ⌊100·identities/MIN(len1,len2)⌋) + line-by-line Python port asserted equal to the binary |
+| CW2 | hand-run pairs: Score 91 / 40 / 26 (identities 32 / 12 / 8) | clustalw 2.1 binary |
+| CW3 | rows spell the local region `s[Start..End]`; identical columns = `Identities`; empty result has −1 coordinates | invariant |
+| CW4 | rows re-score to `Score` with the IUB×100 matrix (+1000/−900) and gap 3000 + 666·k (open charged once per gap run) | FullPairwiseAlign parameters |
+| CW5 | empty input → distance 1, percent identity 0; lower case = upper case; `DnaSequence` overload = string overload | `FullPairwiseAlign.cpp` (`n == 0 \|\| m == 0 → 1.0`) |
+| CW6 | gap penalties are parameters (free gaps bridge an insertion); invalid symbol / negative / NaN penalty / null throw | contract |
+| CW7 | progressive and iterative rows with `ClustalWAffine` equal the independent Python on 140 sets × 4 schemes; ≥ 5 sets differ from `Linear` | independent Python (NW, profile DP, exact-rational UPGMA, tree-partition refinement) |
+| CW8 | default options = historical behaviour (progressive, iterative, consistency); consistency with ClustalW distances spells its inputs; undefined mode throws; two sequences identical in both modes | regression |
+| CW9 (MCP) | `distance = clustalw` gives the discriminating set's ClustalW rows, `linear` the old rows, bad value throws | Python oracle |

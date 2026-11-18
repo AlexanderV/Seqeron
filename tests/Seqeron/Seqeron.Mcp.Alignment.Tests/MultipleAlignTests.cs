@@ -106,4 +106,32 @@ public class MultipleAlignTests
             Assert.That(r.TotalScore, Is.EqualTo(24));
         });
     }
+
+    // B09 F51 (A1-15): guide-tree distance source. The set below is discriminating: ClustalW 2.1's pairwise stage and the
+    // repository's linear NW alignment give different distances, hence different guide trees and different rows
+    // (rows of the independent Python implementation in scripts/alignment/generate_clustalw_pairwise_oracle.py).
+    private static readonly string[] DistanceSet = ["CCAACCAACCAA", "ACACTCCGCCCGCACTCAGAACTTT", "TAA"];
+
+    [Test]
+    public void MultipleAlignProgressive_DistanceClustalW_UsesClustalWPairwiseStage()
+    {
+        var clustalw = AlignmentTools.MultipleAlignProgressive(DistanceSet, 5, -4, 0, -3, "clustalw");
+        var linear = AlignmentTools.MultipleAlignProgressive(DistanceSet, 5, -4, 0, -3);
+        Assert.Multiple(() =>
+        {
+            Assert.That(clustalw.AlignedSequences, Is.EqualTo(new[] { "-----CCAACC-AAC-C--AA----", "ACACTCCGCCCGCACTCAGAACTTT", "----------------T--AA----" }));
+            Assert.That(linear.AlignedSequences, Is.EqualTo(new[] { "-----CCAACC-AAC-C--AA----", "ACACTCCGCCCGCACTCAGAACTTT", "---------------T---AA----" }));
+            Assert.That(AlignmentTools.MultipleAlignProgressive(DistanceSet, 5, -4, 0, -3, "LINEAR").AlignedSequences, Is.EqualTo(linear.AlignedSequences));
+        });
+    }
+
+    [Test]
+    public void MultipleAlignIterativeAndConsistency_Distance_ParsedAndValidated()
+    {
+        Assert.DoesNotThrow(() => AlignmentTools.MultipleAlignIterative(DistanceSet, 5, -4, 0, -3, 16, "clustalw"));
+        Assert.DoesNotThrow(() => AlignmentTools.MultipleAlignConsistency(DistanceSet, 5, -4, 0, -3, "clustalw"));
+        Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignProgressive(DistanceSet, 5, -4, 0, -3, "upgma"));
+        Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignIterative(DistanceSet, 5, -4, 0, -3, 16, "bogus"));
+        Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignConsistency(DistanceSet, 5, -4, 0, -3, "bogus"));
+    }
 }

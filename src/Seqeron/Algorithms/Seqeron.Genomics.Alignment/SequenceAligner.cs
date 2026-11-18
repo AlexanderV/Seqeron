@@ -2238,9 +2238,24 @@ public static partial class SequenceAligner
     /// <exception cref="ArgumentNullException">When <paramref name="sequences"/> is null.</exception>
     public static MultipleAlignmentResult MultipleAlignProgressive(
         IEnumerable<DnaSequence> sequences,
-        ScoringMatrix? scoring = null)
+        ScoringMatrix? scoring = null) =>
+        MultipleAlignProgressive(sequences, scoring, new MsaOptions());
+
+    /// <summary>
+    /// <see cref="MultipleAlignProgressive(IEnumerable{DnaSequence}, ScoringMatrix?)"/> with additive
+    /// <see cref="MsaOptions"/> (guide-tree distance source: the repository's linear NW alignment or ClustalW's own
+    /// pairwise stage, <see cref="MsaDistanceMode"/>).
+    /// </summary>
+    /// <param name="sequences">Collection of sequences to align.</param>
+    /// <param name="scoring">Scoring matrix (default: <see cref="SimpleDna"/>).</param>
+    /// <param name="options">Options; <c>null</c> = defaults.</param>
+    public static MultipleAlignmentResult MultipleAlignProgressive(
+        IEnumerable<DnaSequence> sequences,
+        ScoringMatrix? scoring,
+        MsaOptions? options)
     {
         ArgumentNullException.ThrowIfNull(sequences);
+        options ??= new MsaOptions();
 
         var seqList = sequences.ToList();
         if (seqList.Count == 0)
@@ -2258,17 +2273,8 @@ public static partial class SequenceAligner
         int k = seqList.Count;
         var rawSeqs = seqList.Select(s => s.Sequence).ToArray();
 
-        // Step 1: pairwise NW alignments -> distance matrix (ClustalW: 1 - identities / min(len1, len2)).
-        var distance = new double[k, k];
-        for (int i = 0; i < k; i++)
-        {
-            for (int j = i + 1; j < k; j++)
-            {
-                double d = PairwiseIdentityDistance(rawSeqs[i], rawSeqs[j], effectiveScoring);
-                distance[i, j] = d;
-                distance[j, i] = d;
-            }
-        }
+        // Step 1: pairwise alignments -> distance matrix (ClustalW: 1 - identities / min(len1, len2)).
+        var distance = ComputeGuideDistances(rawSeqs, effectiveScoring, options.Distance);
 
         // Step 2: UPGMA guide tree.
         ProgressiveGuideNode root = BuildProgressiveGuideTree(k, distance);
@@ -2319,6 +2325,34 @@ public static partial class SequenceAligner
         }
 
         return 1.0 - (double)identical / Math.Min(a.Length, b.Length);
+    }
+
+    /// <summary>
+    /// Symmetric guide-tree distance matrix of the progressive / iterative / consistency aligners:
+    /// <see cref="MsaDistanceMode.Linear"/> = the repository's linear NW alignment under <paramref name="scoring"/>
+    /// (<see cref="PairwiseIdentityDistance"/>); <see cref="MsaDistanceMode.ClustalWAffine"/> = ClustalW's own pairwise stage
+    /// (<see cref="ClustalWPairwiseAlign(string, string, double, double)"/>, independent of <paramref name="scoring"/>).
+    /// </summary>
+    private static double[,] ComputeGuideDistances(string[] rawSeqs, ScoringMatrix scoring, MsaDistanceMode mode)
+    {
+        if (!Enum.IsDefined(mode))
+            throw new ArgumentOutOfRangeException(nameof(mode), mode, "Unknown guide-tree distance mode.");
+
+        int k = rawSeqs.Length;
+        var distance = new double[k, k];
+        for (int i = 0; i < k; i++)
+        {
+            for (int j = i + 1; j < k; j++)
+            {
+                double d = mode == MsaDistanceMode.ClustalWAffine
+                    ? ClustalWPairwiseDistance(rawSeqs[i], rawSeqs[j])
+                    : PairwiseIdentityDistance(rawSeqs[i], rawSeqs[j], scoring);
+                distance[i, j] = d;
+                distance[j, i] = d;
+            }
+        }
+
+        return distance;
     }
 
     /// <summary>
@@ -2692,10 +2726,26 @@ public static partial class SequenceAligner
     public static MultipleAlignmentResult MultipleAlignIterative(
         IEnumerable<DnaSequence> sequences,
         ScoringMatrix? scoring = null,
+        int maxIterations = DefaultMaxRefinementIterations) =>
+        MultipleAlignIterative(sequences, scoring, new MsaOptions(), maxIterations);
+
+    /// <summary>
+    /// <see cref="MultipleAlignIterative(IEnumerable{DnaSequence}, ScoringMatrix?, int)"/> with additive
+    /// <see cref="MsaOptions"/> (guide-tree distance source, <see cref="MsaDistanceMode"/>).
+    /// </summary>
+    /// <param name="sequences">Collection of sequences to align.</param>
+    /// <param name="scoring">Scoring matrix (default: <see cref="SimpleDna"/>).</param>
+    /// <param name="options">Options; <c>null</c> = defaults.</param>
+    /// <param name="maxIterations">Upper bound on full refinement passes (&gt;= 1).</param>
+    public static MultipleAlignmentResult MultipleAlignIterative(
+        IEnumerable<DnaSequence> sequences,
+        ScoringMatrix? scoring,
+        MsaOptions? options,
         int maxIterations = DefaultMaxRefinementIterations)
     {
         ArgumentNullException.ThrowIfNull(sequences);
         ArgumentOutOfRangeException.ThrowIfLessThan(maxIterations, 1);
+        options ??= new MsaOptions();
 
         var seqList = sequences.ToList();
         if (seqList.Count == 0)
@@ -2714,14 +2764,7 @@ public static partial class SequenceAligner
         var rawSeqs = seqList.Select(s => s.Sequence).ToArray();
 
         // Step 1: progressive seed (same pipeline as MultipleAlignProgressive) + retain guide tree.
-        var distance = new double[k, k];
-        for (int i = 0; i < k; i++)
-            for (int j = i + 1; j < k; j++)
-            {
-                double d = PairwiseIdentityDistance(rawSeqs[i], rawSeqs[j], effectiveScoring);
-                distance[i, j] = d;
-                distance[j, i] = d;
-            }
+        var distance = ComputeGuideDistances(rawSeqs, effectiveScoring, options.Distance);
 
         ProgressiveGuideNode root = BuildProgressiveGuideTree(k, distance);
         Profile current = AlignProfileSubtree(root, rawSeqs, effectiveScoring);
@@ -3005,9 +3048,23 @@ public static partial class SequenceAligner
     /// <exception cref="ArgumentNullException">When <paramref name="sequences"/> is null.</exception>
     public static MultipleAlignmentResult MultipleAlignConsistency(
         IEnumerable<DnaSequence> sequences,
-        ScoringMatrix? scoring = null)
+        ScoringMatrix? scoring = null) =>
+        MultipleAlignConsistency(sequences, scoring, new MsaOptions());
+
+    /// <summary>
+    /// <see cref="MultipleAlignConsistency(IEnumerable{DnaSequence}, ScoringMatrix?)"/> with additive
+    /// <see cref="MsaOptions"/> (guide-tree distance source, <see cref="MsaDistanceMode"/>).
+    /// </summary>
+    /// <param name="sequences">Collection of sequences to align.</param>
+    /// <param name="scoring">Scoring matrix seeding the pairwise library (default: <see cref="SimpleDna"/>).</param>
+    /// <param name="options">Options; <c>null</c> = defaults.</param>
+    public static MultipleAlignmentResult MultipleAlignConsistency(
+        IEnumerable<DnaSequence> sequences,
+        ScoringMatrix? scoring,
+        MsaOptions? options)
     {
         ArgumentNullException.ThrowIfNull(sequences);
+        options ??= new MsaOptions();
 
         var seqList = sequences.ToList();
         if (seqList.Count == 0)
@@ -3029,14 +3086,7 @@ public static partial class SequenceAligner
         var library = new ExtendedLibrary(BuildPrimaryLibrary(rawSeqs, effectiveScoring));
 
         // Step 3a: UPGMA guide tree over the ClustalW distances (1 - identities / min(len1, len2)), reusing the progressive pipeline.
-        var distance = new double[k, k];
-        for (int i = 0; i < k; i++)
-            for (int j = i + 1; j < k; j++)
-            {
-                double d = PairwiseIdentityDistance(rawSeqs[i], rawSeqs[j], effectiveScoring);
-                distance[i, j] = d;
-                distance[j, i] = d;
-            }
+        var distance = ComputeGuideDistances(rawSeqs, effectiveScoring, options.Distance);
         ProgressiveGuideNode root = BuildProgressiveGuideTree(k, distance);
 
         // Step 3b: progressive alignment driven by the EXTENDED-LIBRARY weights.

@@ -181,3 +181,8 @@ Cross-verification: independent Python implementations of all five methods repro
 ## Verdict
 
 PASS-WITH-NOTES / PASS-WITH-NOTES, FIXED. Full fast tier: see `docs/Validation/review-2026-09/B09.md`.
+
+
+## Audit r1 addendum (A1-15, B09 F51)
+
+`MultipleAlignProgressive/Iterative/Consistency` accept `MsaOptions.Distance`; `ClustalWAffine` takes the guide-tree distance from ClustalW 2.1's own pairwise stage (`SequenceAligner.ClustalWPairwiseAlign`, an exact port of `FullPairwiseAlign`: affine local Smith-Waterman-Gotoh + Myers-Miller, IUB ×100, gaps 15/6.66). 3 600 pairs equal `clustalw -ALIGN` "Score:"; progressive/iterative rows equal an independent Python implementation on 140 sets. Default stays `Linear`. Tests: `SequenceAligner_ClustalWDistance_Tests` (17) + 2 MCP tests.

@@ -412,43 +412,62 @@ public class AlignmentTools
             global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignAnchored);
 
     [McpServerTool(Name = "multiple_align_progressive", Title = "MSA — Progressive Guide-Tree Alignment (Clustal-style)", ReadOnly = true)]
-    [Description("Guide-tree progressive MSA (Feng & Doolittle 1987 / Clustal-style): the ClustalW pairwise distance of every Needleman–Wunsch alignment, d = 1 − (identical aligned residue pairs) / (length of the shorter sequence) (Thompson, Higgins & Gibson 1994; pairalign.c tmat = (100 − 100·count/MIN(len1, len2)) / 100), gives the distance matrix, a UPGMA guide tree orders the merges, and profiles are aligned by profile–profile Needleman–Wunsch with sum-of-pairs column scores (once a gap, always a gap). Linear gap model (gapOpen ignored). Returns rows, majority consensus and sum-of-pairs score.")]
+    [Description("Guide-tree progressive MSA (Feng & Doolittle 1987 / Clustal-style): the ClustalW pairwise distance of every Needleman–Wunsch alignment, d = 1 − (identical aligned residue pairs) / (length of the shorter sequence) (Thompson, Higgins & Gibson 1994; pairalign.c tmat = (100 − 100·count/MIN(len1, len2)) / 100), gives the distance matrix, a UPGMA guide tree orders the merges, and profiles are aligned by profile–profile Needleman–Wunsch with sum-of-pairs column scores (once a gap, always a gap). Linear gap model (gapOpen ignored). distance='clustalw' takes the guide-tree distances from ClustalW 2.1's own affine pairwise stage instead (percent identity of clustalw -ALIGN). Returns rows, majority consensus and sum-of-pairs score.")]
     public static MultipleAlignmentResultDto MultipleAlignProgressive(
         [Description("DNA sequences to align (at least one).")] string[] sequences,
         [Description("Score for matching base.")] int match = 1,
         [Description("Score for mismatching base.")] int mismatch = -1,
         [Description("Gap-open penalty (ignored: linear-gap model).")] int gapOpen = -2,
-        [Description("Gap penalty charged per gap position.")] int gapExtend = -1) =>
+        [Description("Gap penalty charged per gap position.")] int gapExtend = -1,
+        [Description(DistanceModeDescription)] string distance = "linear") =>
         RunMsa(sequences, match, mismatch, gapOpen, gapExtend,
-            global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignProgressive);
+            (seqs, scoring) => global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignProgressive(seqs, scoring, ParseMsaOptions(distance)));
 
     [McpServerTool(Name = "multiple_align_iterative", Title = "MSA — Progressive + Iterative Refinement (MUSCLE-style)", ReadOnly = true)]
-    [Description("Progressive MSA followed by MUSCLE-style tree-dependent restricted-partitioning refinement (Edgar 2004, stage 3): each guide-tree edge splits the alignment into two profiles that are re-aligned and kept only if the sum-of-pairs score strictly improves; repeated until convergence or maxIterations passes. The result's sum-of-pairs score is never below multiple_align_progressive's. Linear gap model (gapOpen ignored).")]
+    [Description("Progressive MSA followed by MUSCLE-style tree-dependent restricted-partitioning refinement (Edgar 2004, stage 3): each guide-tree edge splits the alignment into two profiles that are re-aligned and kept only if the sum-of-pairs score strictly improves; repeated until convergence or maxIterations passes. The result's sum-of-pairs score is never below multiple_align_progressive's. Linear gap model (gapOpen ignored). distance='clustalw' selects ClustalW 2.1's pairwise stage for the guide tree (see multiple_align_progressive).")]
     public static MultipleAlignmentResultDto MultipleAlignIterative(
         [Description("DNA sequences to align (at least one).")] string[] sequences,
         [Description("Score for matching base.")] int match = 1,
         [Description("Score for mismatching base.")] int mismatch = -1,
         [Description("Gap-open penalty (ignored: linear-gap model).")] int gapOpen = -2,
         [Description("Gap penalty charged per gap position.")] int gapExtend = -1,
-        [Description("Upper bound on full refinement passes (>= 1).")] int maxIterations = 16)
+        [Description("Upper bound on full refinement passes (>= 1).")] int maxIterations = 16,
+        [Description(DistanceModeDescription)] string distance = "linear")
     {
         if (maxIterations < 1)
             throw new ArgumentOutOfRangeException(nameof(maxIterations), "maxIterations must be >= 1.");
 
+        var options = ParseMsaOptions(distance);
         return RunMsa(sequences, match, mismatch, gapOpen, gapExtend,
-            (seqs, scoring) => global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignIterative(seqs, scoring, maxIterations));
+            (seqs, scoring) => global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignIterative(seqs, scoring, options, maxIterations));
     }
 
     [McpServerTool(Name = "multiple_align_consistency", Title = "MSA — Consistency-Based Alignment (T-Coffee)", ReadOnly = true)]
-    [Description("Consistency-based MSA (T-Coffee; Notredame, Higgins & Heringa 2000): a primary library of global (Needleman–Wunsch) and local (Smith–Waterman) pairwise alignments weighted by percent identity, extended by the triplet consistency transformation (direct weight + Σ min(W1, W2) over third sequences), then progressively aligned along a UPGMA guide tree with the extended-library weights as position-specific scores and zero gap penalties. The scoring parameters only seed the pairwise library; totalScore is the ordinary column sum-of-pairs score of the result under them.")]
+    [Description("Consistency-based MSA (T-Coffee; Notredame, Higgins & Heringa 2000): a primary library of global (Needleman–Wunsch) and local (Smith–Waterman) pairwise alignments weighted by percent identity, extended by the triplet consistency transformation (direct weight + Σ min(W1, W2) over third sequences), then progressively aligned along a UPGMA guide tree with the extended-library weights as position-specific scores and zero gap penalties. The scoring parameters only seed the pairwise library; totalScore is the ordinary column sum-of-pairs score of the result under them. distance='clustalw' takes the guide-tree distances from ClustalW 2.1's own pairwise stage.")]
     public static MultipleAlignmentResultDto MultipleAlignConsistency(
         [Description("DNA sequences to align (at least one).")] string[] sequences,
         [Description("Score for matching base (pairwise library and reported score).")] int match = 1,
         [Description("Score for mismatching base.")] int mismatch = -1,
         [Description("Gap-open penalty (ignored: linear-gap model).")] int gapOpen = -2,
-        [Description("Gap penalty charged per gap position.")] int gapExtend = -1) =>
+        [Description("Gap penalty charged per gap position.")] int gapExtend = -1,
+        [Description(DistanceModeDescription)] string distance = "linear") =>
         RunMsa(sequences, match, mismatch, gapOpen, gapExtend,
-            global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignConsistency);
+            (seqs, scoring) => global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignConsistency(seqs, scoring, ParseMsaOptions(distance)));
+
+    private const string DistanceModeDescription =
+        "Guide-tree distance: 'linear' (default) = 1 - identities / min(length) of the repository's linear-gap Needleman-Wunsch alignment under the given scores; " +
+        "'clustalw' = the same formula on ClustalW 2.1's own pairwise stage (affine local Smith-Waterman-Gotoh alignment with its IUB matrix x100 and gap penalties 15 / 6.66, " +
+        "the 'slow' full-DP mode of clustalw -ALIGN; the match/mismatch/gap parameters are then used only for the profile alignment).";
+
+    private static global::Seqeron.Genomics.Infrastructure.MsaOptions ParseMsaOptions(string? distance) => new()
+    {
+        Distance = (distance ?? "linear").Trim().ToLowerInvariant() switch
+        {
+            "linear" => global::Seqeron.Genomics.Infrastructure.MsaDistanceMode.Linear,
+            "clustalw" or "clustalw_affine" or "clustalwaffine" => global::Seqeron.Genomics.Infrastructure.MsaDistanceMode.ClustalWAffine,
+            _ => throw new ArgumentException("distance must be 'linear' or 'clustalw'.", nameof(distance)),
+        },
+    };
 
     private static MultipleAlignmentResultDto RunMsa(
         string[] sequences, int match, int mismatch, int gapOpen, int gapExtend,

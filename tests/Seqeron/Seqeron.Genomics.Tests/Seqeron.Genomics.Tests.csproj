@@ -40,6 +40,11 @@
     <!-- ALIGN-STATS-001 (audit A1-9, B09 F43): EMBOSS infoalign/distmat 6.6.0, ClustalW 2.1 conservation line and Biopython 1.88
          DistanceCalculator('identity') on random multiple alignments; scripts/alignment/generate_msa_stats_oracle.py. -->
     <EmbeddedResource Include="TestData\Alignment\msa_stats_oracle.tsv" />
+    <!-- ALIGN-MULTI-001 (audit A1-15, B09 F51): ClustalW 2.1 pairwise stage (`clustalw -ALIGN` "Score:" = truncated percent identity)
+         on 3 600 DNA/IUPAC pairs and the progressive / iterative MSA driven by it (independent Python);
+         scripts/alignment/generate_clustalw_pairwise_oracle.py. -->
+    <EmbeddedResource Include="TestData\Alignment\clustalw_pairwise_oracle.tsv" />
+    <EmbeddedResource Include="TestData\Alignment\clustalw_msa_oracle.tsv" />
     <!-- GENOMIC-COMMON-001 (B09 F15-F16): independent Python (DP + suffix automaton + brute-force matching statistics)
          oracle for FindLongestCommonRegion / FindCommonRegions; scripts/analysis/generate_common_region_oracle.py. -->
     <EmbeddedResource Include="TestData\Analysis\common_region_oracle.tsv" />
