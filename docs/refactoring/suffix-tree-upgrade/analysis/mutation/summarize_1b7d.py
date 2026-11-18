@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Final status of every mutant of the audit of 1b.7d over all rounds (results_1b7d_*.tsv; the round is the prefix r1a_, r1b_, r1s_, r2_, ... of the file name, no prefix = the aborted first attempt that is not part of the count): killed in some run, argued equivalent
-(1b7d_equivalent.py), or open; also the counts per round. Writes summary_1b7d.tsv."""
+(1b7d_equivalent.py: EQUIVALENT), kept as a second line of defence that no injectable fault reaches (DEFENCE), or open; also the counts per round. Writes summary_1b7d.tsv."""
 import glob, json, os, re
 HERE = os.path.dirname(os.path.abspath(__file__))
 exec(open(os.path.join(HERE, '1b7d_equivalent.py')).read())
@@ -27,7 +27,7 @@ for key, lst in rounds.items():
         if kind == 'killed':
             outcome = 'killed'
     if outcome is None:
-        outcome = 'equivalent' if key[1] in EQUIVALENT else ('not compiled' if all(x[1].startswith('BUILD') for x in lst) else 'OPEN')
+        outcome = 'equivalent' if key[1] in EQUIVALENT else ('defence' if key[1] in DEFENCE else ('not compiled' if all(x[1].startswith('BUILD') for x in lst) else 'OPEN'))
     final[key] = outcome
 tally = {}
 for o in final.values():
@@ -38,4 +38,4 @@ with open(os.path.join(HERE, 'summary_1b7d.tsv'), 'w') as out:
 print('per round (runs):', json.dumps(per_round, sort_keys=True))
 print('distinct mutants with a result:', len(final), tally)
 print('open:', sorted(i for (b, i), o in final.items() if o == 'OPEN'))
-print('equivalent ids argued:', len(EQUIVALENT))
+print('equivalent ids argued:', len(EQUIVALENT), 'defence:', len(DEFENCE))

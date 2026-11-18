@@ -1,0 +1,66 @@
+[
+ {
+  "id": "M05",
+  "desc": "PrefixOrder: the limit is not clamped to the shorter suffix",
+  "old": "long lim = Math.Min(x, maxLen);",
+  "new": "long lim = x;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "filter": "(FullyQualifiedName~TheOutput_IsIdentical)"
+ },
+ {
+  "id": "M09",
+  "desc": "Run: an empty leaf is kept",
+  "old": "else if (node.Leaf is { Count: > 0 } leaf)",
+  "new": "else if (node.Leaf is { } leaf)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "filter": "(FullyQualifiedName~TheOutput_IsIdentical)"
+ },
+ {
+  "id": "M15",
+  "desc": "Run: no worker thread is started",
+  "old": "for (int t = 1; t < threads; t++)\n        {\n            var th = new Thread(Worker)",
+  "new": "for (int t = 1; t < 1; t++)\n        {\n            var th = new Thread(Worker)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "filter": "(FullyQualifiedName~TheOutput_IsIdentical)"
+ },
+ {
+  "id": "M19",
+  "desc": "Merge: the total check is dropped",
+  "old": "if (scattered != s) throw",
+  "new": "if (scattered > s) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "filter": "(FullyQualifiedName~TheOutput_IsIdentical)"
+ },
+ {
+  "id": "M21",
+  "desc": "Merge: an empty sample is merged",
+  "old": "if (s == 0) return;",
+  "new": "if (s < 0) return;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "filter": "(FullyQualifiedName~TheOutput_IsIdentical)"
+ },
+ {
+  "id": "M31",
+  "desc": "AssignNames: a leaf with one group is a leaf with two",
+  "old": "if (leaf.Distinct >= 2)\n            {\n                inner",
+  "new": "if (leaf.Distinct >= 1)\n            {\n                inner",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "filter": "(FullyQualifiedName~TheOutput_IsIdentical)"
+ },
+ {
+  "id": "M51",
+  "desc": "Split: a reservoir of two splits",
+  "old": "if (size < 3) throw",
+  "new": "if (size < 2) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "filter": "(FullyQualifiedName~TheOutput_IsIdentical)"
+ },
+ {
+  "id": "M78",
+  "desc": "MergeSort: the merge takes the left on a strict order",
+  "old": "if (prefix.Compare(a[q], tmp[p]) < 0) a[k++] = a[q++];",
+  "new": "if (prefix.Compare(a[q], tmp[p]) <= 0) a[k++] = a[q++];",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "filter": "(FullyQualifiedName~TheOutput_IsIdentical)"
+ }
+]

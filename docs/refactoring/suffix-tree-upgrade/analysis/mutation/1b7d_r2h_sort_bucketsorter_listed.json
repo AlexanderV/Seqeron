@@ -1,0 +1,74 @@
+[
+ {
+  "id": "H07",
+  "desc": "Run: no limit on the text length",
+  "old": "if (text.Length > PackedTextFormat.MaxSymbols) throw",
+  "new": "if (text.Length > PackedTextFormat.MaxSymbols * 2) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs",
+  "filter": "(FullyQualifiedName~TheOutput_IsIdentical)"
+ },
+ {
+  "id": "H21",
+  "desc": "Execute: no extra thread is started",
+  "old": "for (int t = 1; t < threads; t++)\n        {\n            var th = new Thread(() => Worker(null))",
+  "new": "for (int t = 1; t < 1; t++)\n        {\n            var th = new Thread(() => Worker(null))",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs",
+  "filter": "(FullyQualifiedName~TheOutput_IsIdentical)"
+ },
+ {
+  "id": "H42",
+  "desc": "Partition: the fan-out ignores the bucket size",
+  "old": "int fan = (int)Math.Min(Math.Min(_o.FanOut, m), Math.Max(2, ((2 * m) + _o.LeafCapacity - 1) / _o.LeafCapacity));",
+  "new": "int fan = (int)Math.Min(_o.FanOut, Math.Max(2, ((2 * m) + _o.LeafCapacity - 1) / _o.LeafCapacity));",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs",
+  "filter": "(FullyQualifiedName~TheOutput_IsIdentical)"
+ },
+ {
+  "id": "H54",
+  "desc": "Partition: a degenerate split is accepted",
+  "old": "if (biggest == m)",
+  "new": "if (biggest > m)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs",
+  "filter": "(FullyQualifiedName~TheOutput_IsIdentical)"
+ },
+ {
+  "id": "H56",
+  "desc": "Partition: a retry is not counted",
+  "old": "                    retries++;\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs",
+  "filter": "(FullyQualifiedName~TheOutput_IsIdentical)"
+ },
+ {
+  "id": "H64",
+  "desc": "Partition: the writers are not disposed",
+  "old": "                foreach (PosWriter? w in writers) w?.Dispose();\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs",
+  "filter": "(FullyQualifiedName~TheOutput_IsIdentical)"
+ },
+ {
+  "id": "H66",
+  "desc": "Partition: the children of a failed hand-over are not disposed",
+  "old": "                    if (!handedOver) foreach (BuildTask child in children) child.Bucket.Dispose();",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs",
+  "filter": "(FullyQualifiedName~TheOutput_IsIdentical)"
+ },
+ {
+  "id": "H68",
+  "desc": "Partition: the attempts have no limit",
+  "old": "for (int attempt = 0; attempt < 64; attempt++)",
+  "new": "for (int attempt = 0; attempt < 640; attempt++)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs",
+  "filter": "(FullyQualifiedName~TheOutput_IsIdentical)"
+ },
+ {
+  "id": "H72",
+  "desc": "DeleteFiles: a directory that is not there throws",
+  "old": "            if (!Directory.Exists(dir)) return;\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs",
+  "filter": "(FullyQualifiedName~TheOutput_IsIdentical)"
+ }
+]

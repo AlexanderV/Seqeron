@@ -1,0 +1,42 @@
+[
+ {
+  "id": "Q43",
+  "desc": "Build: a negative arena cap is accepted",
+  "old": "ArgumentOutOfRangeException.ThrowIfNegative(options.ArenaCapBytes);",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "filter": "(FullyQualifiedName~TheOutput_IsIdentical)"
+ },
+ {
+  "id": "Q97",
+  "desc": "Build: the output is not completed",
+  "old": "            saFile.Complete(options.SyncOutput);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "filter": "(FullyQualifiedName~TheOutput_IsIdentical)"
+ },
+ {
+  "id": "Q99",
+  "desc": "Build: the output is never synced",
+  "old": "saFile.Complete(options.SyncOutput);",
+  "new": "saFile.Complete(false);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "filter": "(FullyQualifiedName~TheOutput_IsIdentical)"
+ },
+ {
+  "id": "Q101",
+  "desc": "CheckLength: any length is accepted",
+  "old": "if (got != 4 * (n + 1)) throw",
+  "new": "if (got < 4 * n) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "filter": "(FullyQualifiedName~TheOutput_IsIdentical)"
+ },
+ {
+  "id": "Q121",
+  "desc": "Build: the scratch directories are not created",
+  "old": "            Directory.CreateDirectory(ph1);\n            Directory.CreateDirectory(ph3);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "filter": "(FullyQualifiedName~TheOutput_IsIdentical)"
+ }
+]

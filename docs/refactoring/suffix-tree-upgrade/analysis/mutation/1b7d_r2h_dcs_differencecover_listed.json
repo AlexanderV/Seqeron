@@ -1,0 +1,26 @@
+[
+ {
+  "id": "D03",
+  "desc": "Verify: a residue outside the period is accepted",
+  "old": "if (a < 0 || a >= Period) return false;",
+  "new": "if (a < 0) return false;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs",
+  "filter": "(FullyQualifiedName~TheOutput_IsIdentical)"
+ },
+ {
+  "id": "D05",
+  "desc": "IsPerfect: counts the zero differences",
+  "old": "                if (a != b) count[(b - a + Period) % Period]++;",
+  "new": "                count[(b - a + Period) % Period]++;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs",
+  "filter": "(FullyQualifiedName~TheOutput_IsIdentical)"
+ },
+ {
+  "id": "D21",
+  "desc": "IsPrime: 1 is a prime",
+  "old": "if (v < 2) return false;",
+  "new": "if (v < 1) return false;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs",
+  "filter": "(FullyQualifiedName~TheOutput_IsIdentical)"
+ }
+]

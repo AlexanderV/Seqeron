@@ -1,0 +1,26 @@
+[
+ {
+  "id": "F03",
+  "desc": "Sort: a bucket of 25 is insertion sorted",
+  "old": "if (m <= 24) KeySort.InsertionSort(keys, pos);",
+  "new": "if (m <= 25) KeySort.InsertionSort(keys, pos);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/LeafSorter.cs",
+  "filter": "(FullyQualifiedName~TheOutput_IsIdentical)"
+ },
+ {
+  "id": "F11",
+  "desc": "MergeSort: the order of equal elements",
+  "old": "if (order.CompareTied(a[mid], x) <= 0) lo = mid + 1;",
+  "new": "if (order.CompareTied(a[mid], x) < 0) lo = mid + 1;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/LeafSorter.cs",
+  "filter": "(FullyQualifiedName~TheOutput_IsIdentical)"
+ },
+ {
+  "id": "F13",
+  "desc": "MergeSort: the merge takes the right on a tie",
+  "old": "if (order.CompareTied(a[q], tmp[p]) < 0) a[k++] = a[q++];",
+  "new": "if (order.CompareTied(a[q], tmp[p]) <= 0) a[k++] = a[q++];",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/LeafSorter.cs",
+  "filter": "(FullyQualifiedName~TheOutput_IsIdentical)"
+ }
+]

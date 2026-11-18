@@ -1,0 +1,285 @@
+dcs_bucketrun	B01	killed	RunStore: a run of exactly the spill size goes to a file
+dcs_bucketrun	B03	killed	RunStore: the failed write does not give the bytes back
+dcs_bucketrun	B05	killed	RunStore: the numbering starts at zero
+dcs_bucketrun	B07	killed	RunStore: the file is written at offset 8
+dcs_bucketrun	B09	killed	ReadAt: the offset is in records
+dcs_bucketrun	B11	killed	BucketRun: Dispose gives back half the bytes
+dcs_bucketrun	B13	equivalent	BucketRun: an empty path run is not a file run
+dcs_bucketrun	B15	killed	Ledger: the counters are not told of an addition
+dcs_bucketrun	B17	killed	RunReader: a record at the limit is scattered
+dcs_bucketrun	B19	killed	RunReader: the window start is not subtracted
+dcs_bucketrun	B21	killed	RunReader: the scattered count is not kept
+dcs_differencecover	D01	killed	Density is the inverse ratio
+dcs_differencecover	D03	equivalent	Verify: a residue outside the period is accepted
+dcs_differencecover	D05	equivalent	IsPerfect: counts the zero differences
+dcs_differencecover	D07	killed	Create accepts the period 1
+dcs_differencecover	D09	killed	NearestSingerPeriod takes the smaller ratio the other way
+dcs_differencecover	D11	killed	SampleCount: residue equal to the rest is not counted
+dcs_differencecover	D13	killed	Pruned: the small periods get fewer rounds
+dcs_differencecover	D15	killed	Pruned: the start set lacks the last of the first run
+dcs_differencecover	D17	killed	Pruned: a removal is kept when the count is still zero
+dcs_differencecover	D19	killed	SingerPrime: any q below the period counts
+dcs_differencecover	D21	equivalent	IsPrime: 1 is a prime
+dcs_differencecover	D23	killed	IndexOf: the table is filled with 0
+dcs_externaldcs	A02	killed	BaseCase: the rank starts at zero
+dcs_externaldcs	A04	killed	BaseCase: the slot is not mapped to the reduced index
+dcs_externaldcs	A06	killed	BaseCase: the rank file is not scratch output
+dcs_externaldcs	A08	defence	BaseCase: the rank file is not marked as touched
+dcs_externaldcs	A10	equivalent	BaseCase: the chunk slots are not at least one
+dcs_externaldcs	E01	killed	BuildRankFile: the bucket capacity may be one
+dcs_externaldcs	E03	killed	BuildRankFile: a base case of zero
+dcs_externaldcs	E05	killed	BuildRankFile: chunk slots of zero
+dcs_externaldcs	E07	killed	BuildRankFile: a reservoir of two
+dcs_externaldcs	E09	OPEN	BuildRankFile: a window of zero
+dcs_externaldcs	E11	killed	BuildRankFile: a sort capacity of one
+dcs_externaldcs	E13	defence	BuildRankFile: no limit on the text length
+dcs_externaldcs	E15	killed	BuildRankFile: the scratch bytes are not given back
+dcs_externaldcs	E17	killed	BuildRankFile: the scratch root is always removed
+dcs_externaldcs	E19	killed	BuildRankFile: the tag is the same for every build
+dcs_externaldcs	L01	equivalent	BuildLevel: the recursion has no end
+dcs_externaldcs	L03	killed	BuildLevel: the reservation outcome is not recorded
+dcs_externaldcs	L05	killed	BuildLevel: the base case is taken one symbol late
+dcs_externaldcs	L07	killed	BuildLevel: the base case is not recorded
+dcs_externaldcs	L09	killed	BuildLevel: the reduced file is not completed
+dcs_externaldcs	L11	killed	BuildLevel: the child rank file is not scratch output
+dcs_externaldcs	L13	killed	BuildLevel: the sort fan-out is the options fan-out
+dcs_externaldcs	L15	defence	BuildLevel: the sort files carry no tag
+dcs_externaldcs	L17	defence	BuildLevel: the suffix array file is not completed
+dcs_externaldcs	L19	killed	BuildLevel: the child rank file is not deleted
+dcs_externaldcs	L21	killed	BuildLevel: the reduced file is not deleted
+dcs_externaldcs	L23	killed	BuildLevel: the suffix array bytes are not given back
+dcs_externaldcs	L25	killed	BuildLevel: the inversion read buffer is one entry
+dcs_externaldcs	L27	killed	BuildLevel: the inversion has no budget
+dcs_externaldcs	L29	defence	BuildLevel: the touched flag of the rank file is not set
+dcs_namesinks	N01	killed	RankFileSink: the file is half the length
+dcs_namesinks	N03	killed	RankFileSink: the window is not the given one
+dcs_namesinks	N05	killed	ReducedFileSink: the length lacks the padding
+dcs_namesinks	N07	killed	ReducedFileSink: the cursor is flushed one entry late
+dcs_namesinks	N09	killed	ReducedFileSink: the flushed count is not advanced
+dcs_namesinks	N11	killed	ReducedFileSink: Complete skips the last cursor
+dcs_namesinks	N13	killed	ReducedFileSink: the first slot class is the first
+dcs_namesinks	N15	killed	ReducedRamSink: the block does not advance
+dcs_namesinks	N17	killed	ReducedRamSink: the string is not zeroed
+dcs_namesinks	N19	killed	ReducedFileSink: the buffers are one name short
+dcs_rankinverter	I01	killed	the empty suffix is not skipped
+dcs_rankinverter	I03	killed	a separator is ranked
+dcs_rankinverter	I05	killed	the rank is counted from zero
+dcs_rankinverter	I07	killed	the count check is dropped
+dcs_rankinverter	I09	killed	the source has one entry too few
+dcs_ranktable	R01	killed	FastMod32: the multiplier is one too small
+dcs_ranktable	R03	killed	FastMod32: a divisor of one is accepted
+dcs_ranktable	R05	killed	Open: a shorter file is accepted
+dcs_ranktable	R07	killed	Rank: the class index is dropped
+dcs_ranktable	R09	killed	Verify: the first unused slot is checked as a real one
+dcs_ranktable	R11	killed	Verify: the largest rank is refused
+dcs_ranktable	R13	killed	Verify: the range is the sample only
+dcs_ranktable	R15	killed	Dispose: the pointer is not released
+dcs_ranktable	R17	killed	Verify after Dispose does not throw
+dcs_samplegeometry	S01	killed	Slots forgets the last block
+dcs_samplegeometry	S03	killed	ClassCount: one member too few
+dcs_samplegeometry	S05	killed	SlotOf: the class index is dropped
+dcs_samplegeometry	S07	killed	RedIndexOfSlot: the offset in the class is one more
+dcs_samplegeometry	S09	killed	TrySlotOfRed: the search does not advance
+dcs_samplegeometry	S11	killed	TrySlotOfRed: the class index is dropped from the slot
+dcs_samplegeometry	S13	killed	a negative length is accepted
+dcs_samplenamer	K01	killed	InsertionSort: unstable
+dcs_samplenamer	K03	killed	RadixSort: the digit skip is wrong
+dcs_samplenamer	K05	killed	RadixSort: the top digit is not counted
+dcs_samplenamer	M01	killed	PrefixOrder: equal positions are not equal
+dcs_samplenamer	M03	killed	PrefixOrder: the shorter suffix is the larger
+dcs_samplenamer	M05	equivalent	PrefixOrder: the limit is not clamped to the shorter suffix
+dcs_samplenamer	M07	killed	Run: the error is swallowed
+dcs_samplenamer	M09	equivalent	Run: an empty leaf is kept
+dcs_samplenamer	M11	killed	Run: the statistics lose the splits
+dcs_samplenamer	M13	killed	Run: the statistics lose the scans
+dcs_samplenamer	M15	equivalent	Run: no worker thread is started
+dcs_samplenamer	M17	killed	Merge: the merge budget is not shared among the file runs
+dcs_samplenamer	M19	defence	Merge: the total check is dropped
+dcs_samplenamer	M21	equivalent	Merge: an empty sample is merged
+dcs_samplenamer	M23	killed	AssignNames: a group that continues does not continue
+dcs_samplenamer	M25	killed	AssignNames: the continuation ignores the prefix
+dcs_samplenamer	M27	killed	AssignNames: the new names of a continued group
+dcs_samplenamer	M29	killed	AssignNames: the first group of a leaf with two is not subtracted
+dcs_samplenamer	M31	equivalent	AssignNames: a leaf with one group is a leaf with two
+dcs_samplenamer	M33	killed	AssignNames: a closed single group is not counted
+dcs_samplenamer	M35	killed	AssignNames: the last open group is not counted
+dcs_samplenamer	M37	killed	Worker: the statistics of a worker are lost
+dcs_samplenamer	M39	killed	Collect: the capacity is not bounded by the sample
+dcs_samplenamer	M41	killed	Collect: a position beyond n is taken
+dcs_samplenamer	M43	killed	InRange: the lower bound is exclusive
+dcs_samplenamer	M45	killed	InRange: the lower key is inclusive of smaller keys
+dcs_samplenamer	M47	killed	Cmp: the position tie-break is dropped
+dcs_samplenamer	M49	killed	Split: the replacement index may be the capacity
+dcs_samplenamer	M51	equivalent	Split: a reservoir of two splits
+dcs_samplenamer	M53	killed	Split: the fan-out ignores the cap
+dcs_samplenamer	M55	OPEN	Split: equal splitter indices are kept
+dcs_samplenamer	M57	killed	Split: the last child has no upper bound of its own
+dcs_samplenamer	M59	killed	Split: the seed ignores the task
+dcs_samplenamer	M61	killed	Execute: the scans are not counted
+dcs_samplenamer	M63	killed	Execute: a leaf is split and a split is collected
+dcs_samplenamer	M65	killed	Finish: the name is not the distinct count
+dcs_samplenamer	M67	killed	Finish: a group of size one is not counted in the middle
+dcs_samplenamer	M69	killed	Finish: the last group of size one is not counted
+dcs_samplenamer	M71	killed	Finish: the last position is the first
+dcs_samplenamer	M73	killed	Finish: an empty bucket has a run
+dcs_samplenamer	M75	killed	Finish: a short bucket is insertion sorted up to 25
+dcs_samplenamer	M78	equivalent	MergeSort: the merge takes the left on a strict order
+dcs_samplenamer	M80	killed	MergeSort: the rest of the left half is dropped
+dist	Y01	killed	Scatter: the target is always created sparse
+dist	Y03	killed	Scatter: the reserved target has the default window
+dist	Y05	killed	Scatter: the reserved target is half the length
+mappedtextreader	X01	killed	OpenReduced: the reduced flag is not set
+mappedtextreader	X03	killed	FromMemoryReduced: the layout is not checked
+mappedtextreader	X05	killed	FromMemoryReduced: 8 bits
+mappedtextreader	X07	equivalent	CheckShape: the reduced reader accepts any width
+mappedtextreader	X09	killed	ReducedBits is 16
+sa_sabuilder	Q01	killed	Resolve: the unscaled K_s is the scaled one
+sa_sabuilder	Q03	killed	Resolve: the chunk floor
+sa_sabuilder	Q05	killed	Resolve: the run spill is not scaled
+sa_sabuilder	Q07	killed	Resolve: the reservoir
+sa_sabuilder	Q09	killed	Resolve: the merge budget
+sa_sabuilder	Q101	equivalent	CheckLength: any length is accepted
+sa_sabuilder	Q103	killed	Build: the verdict is swapped
+sa_sabuilder	Q105	killed	Build: the PH1 RSS figure is in KiB
+sa_sabuilder	Q107	killed	Build: without RSS sampling the whole sampler runs
+sa_sabuilder	Q109	killed	Build: the PH1 I/O is the whole
+sa_sabuilder	Q11	killed	Resolve: K floor
+sa_sabuilder	Q111	killed	Build: the total I/O is the PH3 difference
+sa_sabuilder	Q113	killed	Build: the reservation is the rank file one
+sa_sabuilder	Q115	killed	Build: the failed rank file is left
+sa_sabuilder	Q117	killed	Build: the PH1 directory is not removed
+sa_sabuilder	Q119	killed	Build: the scratch root is always removed
+sa_sabuilder	Q121	equivalent	Build: the scratch directories are not created
+sa_sabuilder	Q123	killed	Build: the scratch peak of PH3 is the PH1 one
+sa_sabuilder	Q125	killed	Build: the cover kind is not reported
+sa_sabuilder	Q13	killed	Resolve: the oversample
+sa_sabuilder	Q15	killed	Resolve: the window
+sa_sabuilder	Q17	killed	Resolve: the factor is one when scaled
+sa_sabuilder	Q19	killed	Resolve: the scale rounds down
+sa_sabuilder	Q21	killed	Resolve: a negative rule is accepted
+sa_sabuilder	Q23	killed	Resolve: zero threads are accepted
+sa_sabuilder	Q25	killed	Resolve: an explicit K_s above the limit is accepted
+sa_sabuilder	Q27	killed	Resolve: explicit chunk slots of zero are accepted
+sa_sabuilder	Q29	killed	Resolve: a negative run spill is accepted
+sa_sabuilder	Q31	killed	Resolve: a reservoir of two is accepted
+sa_sabuilder	Q33	killed	Resolve: a merge budget of seven is accepted
+sa_sabuilder	Q35	killed	Resolve: a K above the limit is accepted
+sa_sabuilder	Q37	killed	Resolve: an oversample of zero is accepted
+sa_sabuilder	Q39	killed	Resolve: a window of zero is accepted
+sa_sabuilder	Q41	killed	Resolve: the scaled flag is not recorded
+sa_sabuilder	Q43	equivalent	Build: a negative arena cap is accepted
+sa_sabuilder	Q45	killed	Build: a wide reader is accepted
+sa_sabuilder	Q47	killed	Build: the exact period is replaced by the Singer one
+sa_sabuilder	Q49	killed	Build: the counters are private
+sa_sabuilder	Q51	killed	Build: PH1 has no cap
+sa_sabuilder	Q53	killed	Build: the RSS sampler is not started
+sa_sabuilder	Q55	killed	Build: the suffix array is created after PH1
+sa_sabuilder	Q57	killed	Build: the ph1 trace is not called
+sa_sabuilder	Q59	killed	Build: the verify trace is not called
+sa_sabuilder	Q61	killed	Build: PH1 gets the PH3 budget
+sa_sabuilder	Q63	killed	Build: PH1 has no reservation options
+sa_sabuilder	Q65	killed	Build: PH1 seed
+sa_sabuilder	Q67	killed	Build: PH1 K_s
+sa_sabuilder	Q69	killed	Build: PH1 sort capacity
+sa_sabuilder	Q71	killed	Build: PH1 I/O buffers
+sa_sabuilder	Q73	killed	Build: PH1 reservoir
+sa_sabuilder	Q75	killed	Build: PH1 window
+sa_sabuilder	Q77	killed	Build: the rank file bytes are not added to the ledger
+sa_sabuilder	Q79	killed	Build: the rank file is not deleted
+sa_sabuilder	Q81	killed	Build: the rank file is verified when not asked for
+sa_sabuilder	Q83	killed	Build: PH3 leaf capacity
+sa_sabuilder	Q85	killed	Build: PH3 oversample
+sa_sabuilder	Q87	killed	Build: PH3 seed
+sa_sabuilder	Q89	killed	Build: PH3 spill
+sa_sabuilder	Q91	killed	Build: PH3 budget
+sa_sabuilder	Q93	killed	Build: PH3 counters
+sa_sabuilder	Q95	killed	Build: the sink has the PH1 window
+sa_sabuilder	Q97	defence	Build: the output is not completed
+sa_sabuilder	Q99	equivalent	Build: the output is never synced
+seededrandom	P01	killed	WorkPool: a failed pool still hands out tasks
+seededrandom	P03	killed	WorkPool: a finished task is counted twice
+seededrandom	P05	killed	WorkPool: first in first out
+seededrandom	P07	killed	WorkPool: Fail does not wake the waiters
+seededrandom	W01	killed	SplitMix: the increment
+seededrandom	W03	killed	SplitMix: the second multiplier
+seededrandom	W05	killed	NextInt: the quotient instead of the remainder
+sort_bucketsorter	H01	killed	Run: a leaf of one is accepted
+sort_bucketsorter	H03	killed	Run: a fan-out of one
+sort_bucketsorter	H05	killed	Run: an oversample of zero
+sort_bucketsorter	H07	defence	Run: no limit on the text length
+sort_bucketsorter	H09	killed	Run: the scratch root is always removed
+sort_bucketsorter	H11	killed	Run: the files of a failed sort are found by the wrong prefix
+sort_bucketsorter	H13	OPEN	Run: the ledger of an outer build is released
+sort_bucketsorter	H15	killed	Run: the ledger of the caller is ignored
+sort_bucketsorter	H17	killed	Execute: SA[0] is one
+sort_bucketsorter	H19	killed	Execute: the root bucket starts at entry zero
+sort_bucketsorter	H21	equivalent	Execute: no extra thread is started
+sort_bucketsorter	H23	killed	Worker: the writer of a thread is not disposed
+sort_bucketsorter	H26	killed	RunTasks: the leaf trace is not called
+sort_bucketsorter	H28	killed	RunTasks: the leaf sorter is made for every leaf
+sort_bucketsorter	H30	killed	RunTasks: a failed bucket is not disposed
+sort_bucketsorter	H32	killed	RunTasks: the partitions are not counted
+sort_bucketsorter	H34	killed	RunTasks: the depth is not tracked
+sort_bucketsorter	H36	killed	RunTasks: the largest leaf is not tracked
+sort_bucketsorter	H38	killed	RunTasks: the partition time is not summed
+sort_bucketsorter	H40	killed	RunTasks: the buckets are not merged
+sort_bucketsorter	H42	equivalent	Partition: the fan-out ignores the bucket size
+sort_bucketsorter	H44	killed	Partition: one child of the quotient
+sort_bucketsorter	H46	killed	Partition: the sample is not stratified
+sort_bucketsorter	H48	killed	Partition: the splitter is the lower quantile
+sort_bucketsorter	H50	killed	Partition: a position goes left of an equal splitter
+sort_bucketsorter	H52	killed	Partition: the search ignores the key
+sort_bucketsorter	H54	equivalent	Partition: a degenerate split is accepted
+sort_bucketsorter	H56	equivalent	Partition: a retry is not counted
+sort_bucketsorter	H58	killed	Partition: the child offset does not advance
+sort_bucketsorter	H60	killed	Partition: the child ids repeat
+sort_bucketsorter	H62	killed	Partition: the source bucket is not disposed
+sort_bucketsorter	H64	defence	Partition: the writers are not disposed
+sort_bucketsorter	H66	defence	Partition: the children of a failed hand-over are not disposed
+sort_bucketsorter	H68	equivalent	Partition: the attempts have no limit
+sort_bucketsorter	H70	killed	Partition: the seed ignores the task
+sort_bucketsorter	H72	equivalent	DeleteFiles: a directory that is not there throws
+sort_leafsorter	F01	killed	Sort: a leaf above the capacity is accepted
+sort_leafsorter	F03	equivalent	Sort: a bucket of 25 is insertion sorted
+sort_leafsorter	F05	killed	Sort: a run of two keys is not ordered
+sort_leafsorter	F07	killed	Sort: a pair is swapped when it is in order
+sort_leafsorter	F09	killed	Sort: the slice is written at offset zero
+sort_leafsorter	F11	equivalent	MergeSort: the order of equal elements
+sort_leafsorter	F13	equivalent	MergeSort: the merge takes the right on a tie
+sort_leafsorter	F15	killed	MergeSort: the split is not in the middle
+sort_positionstore	T01	killed	RangePositions: the positions start at one
+sort_positionstore	T03	killed	MemoryPositions: Read ignores the start
+sort_positionstore	T05	killed	PositionFiles: the numbering starts at zero
+sort_positionstore	T07	killed	FilePositions: At reads the entry before
+sort_positionstore	T09	killed	FilePositions: Dispose does not give the bytes back
+sort_positionstore	T11	OPEN	FilePositions: a second Dispose gives the bytes back again
+sort_positionstore	T13	killed	PosWriter: the buffer is flushed one entry late
+sort_positionstore	T15	killed	PosWriter: the total is not counted
+sort_positionstore	T17	killed	PosWriter: the rest of a file bucket is not flushed
+sort_positionstore	T19	killed	PosWriter: Dispose of a completed writer deletes
+sort_positionstore	T21	killed	PosWriter: Dispose does not delete the file
+sort_positionstore	T23	killed	PosWriter: Grow keeps the buffer size
+sort_positionstore	T25	killed	PosWriter: the flush offset is the start
+sort_positionstore	T27	killed	PosWriter: the written count is not kept
+sort_sasink	Z01	killed	the writer covers a window of its own size
+sort_sasink	Z03	killed	Write: the entry offset is the byte offset
+sort_sasink	Z05	killed	Dispose: the writer stays open
+sort_suffixorder	C01	killed	Add: the compares are not summed
+sort_suffixorder	C03	killed	Add: the LCE calls are not summed
+sort_suffixorder	C05	killed	Add: the scan positions are not summed
+sort_suffixorder	C07	killed	Add: the tied compares are not summed
+sort_suffixorder	C09	killed	Add: the LCE symbols are not summed
+sort_suffixorder	C11	killed	CompareCore: the tied calls are not counted
+sort_suffixorder	C13	killed	CompareCore: the key is skipped for an untied call
+sort_suffixorder	C15	killed	CompareCore: the key is not skipped
+sort_suffixorder	C17	killed	CompareCore: the key is skipped one symbol too far
+sort_suffixorder	C19	killed	CompareCore: the offset is the sum of the residues
+sort_suffixorder	C21	killed	CompareCore: the witness is the difference
+sort_suffixorder	C23	killed	CompareCore: the offset is the witness
+sort_suffixorder	C25	killed	CompareCore: the limit ignores the shorter suffix
+sort_suffixorder	C27	killed	CompareCore: the symbols are compared from the key end only
+sort_suffixorder	C29	killed	CompareCore: the LCE ignores the skip
+sort_suffixorder	C31	killed	CompareCore: the difference decides the other way
+sort_suffixorder	C33	killed	CompareCore: the shorter suffix is the larger
+sort_suffixorder	C35	killed	CompareCore: the rank lookups are not counted
+sort_suffixorder	C37	killed	CompareCore: the second rank is at the wrong offset

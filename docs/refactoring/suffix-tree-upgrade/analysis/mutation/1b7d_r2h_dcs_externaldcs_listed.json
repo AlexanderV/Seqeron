@@ -1,0 +1,58 @@
+[
+ {
+  "id": "E13",
+  "desc": "BuildRankFile: no limit on the text length",
+  "old": "if (text.Length > PackedTextFormat.MaxSymbols) throw new NotSupportedException",
+  "new": "if (text.Length > PackedTextFormat.MaxSymbols * 2) throw new NotSupportedException",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
+  "filter": "(FullyQualifiedName~TheOutput_IsIdentical)"
+ },
+ {
+  "id": "L01",
+  "desc": "BuildLevel: the recursion has no end",
+  "old": "if (level >= MaxLevels) throw",
+  "new": "if (level >= MaxLevels * 100) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
+  "filter": "(FullyQualifiedName~TheOutput_IsIdentical)"
+ },
+ {
+  "id": "L15",
+  "desc": "BuildLevel: the sort files carry no tag",
+  "old": "FilePrefix = $\"{c.Tag}-L{level + 1}-pos\",",
+  "new": "FilePrefix = \"pos\",",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
+  "filter": "(FullyQualifiedName~TheOutput_IsIdentical)"
+ },
+ {
+  "id": "L17",
+  "desc": "BuildLevel: the suffix array file is not completed",
+  "old": "saFile.Complete(fsync: false);",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
+  "filter": "(FullyQualifiedName~TheOutput_IsIdentical)"
+ },
+ {
+  "id": "L29",
+  "desc": "BuildLevel: the touched flag of the rank file is not set",
+  "old": "        if (level == 0) c.RankTouched = true;\n        if (scratchOutput) c.Ledger.Add(g.Slots * 4);\n        var dist",
+  "new": "        if (scratchOutput) c.Ledger.Add(g.Slots * 4);\n        var dist",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
+  "filter": "(FullyQualifiedName~TheOutput_IsIdentical)"
+ },
+ {
+  "id": "A08",
+  "desc": "BaseCase: the rank file is not marked as touched",
+  "old": "        if (level == 0) c.RankTouched = true;\n        using MappedOutputFile file",
+  "new": "        using MappedOutputFile file",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
+  "filter": "(FullyQualifiedName~TheOutput_IsIdentical)"
+ },
+ {
+  "id": "A10",
+  "desc": "BaseCase: the chunk slots are not at least one",
+  "old": "long chunkSlots = Math.Max(1, o.ChunkSlots);",
+  "new": "long chunkSlots = o.ChunkSlots;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
+  "filter": "(FullyQualifiedName~TheOutput_IsIdentical)"
+ }
+]
