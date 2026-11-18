@@ -1,0 +1,296 @@
+[
+ {
+  "id": "H01",
+  "desc": "a divisor of 2^32 - 1 is a single chunk",
+  "old": "if (chunkEntries > uint.MaxValue)",
+  "new": "if (chunkEntries >= uint.MaxValue)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs"
+ },
+ {
+  "id": "H02",
+  "desc": "the identity case is a division by two",
+  "old": "else if (chunkEntries == 1)",
+  "new": "else if (chunkEntries == 2)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs"
+ },
+ {
+  "id": "H03",
+  "desc": "the reciprocal is not rounded up",
+  "old": "_m = (ulong.MaxValue / (uint)chunkEntries) + 1;",
+  "new": "_m = ulong.MaxValue / (uint)chunkEntries;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs"
+ },
+ {
+  "id": "H04",
+  "desc": "a single chunk returns the key",
+  "old": "return _mode == 1 ? key : 0;",
+  "new": "return key;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs"
+ },
+ {
+  "id": "H05",
+  "desc": "a divisor of 0 is not refused by the divider",
+  "old": "        ArgumentOutOfRangeException.ThrowIfLessThan(chunkEntries, 1);\n        if (chunkEntries > uint.MaxValue)",
+  "new": "        if (chunkEntries > uint.MaxValue)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs"
+ },
+ {
+  "id": "H06",
+  "desc": "ISA refuses the entry n",
+  "old": "if (sourceValue > N) ThrowBeyondN(index, sourceValue);",
+  "new": "if (sourceValue >= N) ThrowBeyondN(index, sourceValue);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs"
+ },
+ {
+  "id": "H07",
+  "desc": "ISA value is the rank plus one",
+  "old": "value = (uint)index;\n        return true;\n    }\n\n    [DoesNotReturn]\n    private void ThrowBeyondN",
+  "new": "value = (uint)index + 1;\n        return true;\n    }\n\n    [DoesNotReturn]\n    private void ThrowBeyondN",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs"
+ },
+ {
+  "id": "H08",
+  "desc": "Phi does not check the first entry",
+  "old": "            if (sourceValue != N) throw new InvalidDataException($\"SA[0] must be n = {N}, the empty suffix, it is {sourceValue}\");\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs"
+ },
+ {
+  "id": "H09",
+  "desc": "Phi does not remember the first entry",
+  "old": "            _previous = sourceValue;\n            return false;",
+  "new": "            return false;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs"
+ },
+ {
+  "id": "H10",
+  "desc": "Phi accepts the entry n after the first",
+  "old": "if (sourceValue >= N) throw new InvalidDataException($\"SA[{index}] = {sourceValue} is not a position below n = {N}\");",
+  "new": "if (sourceValue > N) throw new InvalidDataException($\"SA[{index}] = {sourceValue} is not a position below n = {N}\");",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs"
+ },
+ {
+  "id": "H11",
+  "desc": "Phi does not advance the predecessor",
+  "old": "        value = _previous;\n        _previous = sourceValue;\n        return true;",
+  "new": "        value = _previous;\n        return true;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs"
+ },
+ {
+  "id": "H12",
+  "desc": "ChunksFor rounds exact multiples up",
+  "old": "(slots % chunkEntries == 0 ? 0 : 1)",
+  "new": "1",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs"
+ },
+ {
+  "id": "H13",
+  "desc": "ChunksFor accepts negative slots",
+  "old": "        ArgumentOutOfRangeException.ThrowIfNegative(slots);\n        ArgumentOutOfRangeException.ThrowIfLessThan(chunkEntries, 1);\n        return",
+  "new": "        ArgumentOutOfRangeException.ThrowIfLessThan(chunkEntries, 1);\n        return",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs"
+ },
+ {
+  "id": "H14",
+  "desc": "a negative source count is accepted",
+  "old": "        ArgumentOutOfRangeException.ThrowIfNegative(sourceEntries);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs"
+ },
+ {
+  "id": "H15",
+  "desc": "an I/O buffer of 0 is accepted",
+  "old": "ArgumentOutOfRangeException.ThrowIfLessThan(options.IoBufferBytes, 1);",
+  "new": "ArgumentOutOfRangeException.ThrowIfLessThan(options.IoBufferBytes, 0);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs"
+ },
+ {
+  "id": "H16",
+  "desc": "a read buffer below four bytes is accepted",
+  "old": "ArgumentOutOfRangeException.ThrowIfLessThan(options.ReadBytes, 4);",
+  "new": "ArgumentOutOfRangeException.ThrowIfLessThan(options.ReadBytes, 3);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs"
+ },
+ {
+  "id": "H17",
+  "desc": "the source length is only checked from below",
+  "old": "if (source.Length != 4 * sourceEntries) throw",
+  "new": "if (source.Length < 4 * sourceEntries) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs"
+ },
+ {
+  "id": "H18",
+  "desc": "the scratch directory is not created",
+  "old": "        Directory.CreateDirectory(options.ScratchDir);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs"
+ },
+ {
+  "id": "H19",
+  "desc": "the chunk files are not accounted",
+  "old": "new DistScratch<DistEntry<TValue>>(options.ScratchDir, \"dist\", chunks, counters)",
+  "new": "new DistScratch<DistEntry<TValue>>(options.ScratchDir, \"dist\", chunks)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs"
+ },
+ {
+  "id": "H20",
+  "desc": "the budget of the options is ignored",
+  "old": "new BudgetedArena(options.Budget ?? new ArenaBudget(long.MaxValue), options.Arena)",
+  "new": "new BudgetedArena(new ArenaBudget(long.MaxValue), options.Arena)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs"
+ },
+ {
+  "id": "H21",
+  "desc": "the source read buffer is kept in pass 2",
+  "old": "        arena.ReleaseTo(mark);\n\n        // pass 2",
+  "new": "\n        // pass 2",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs"
+ },
+ {
+  "id": "H22",
+  "desc": "the buffer entries are not at least one",
+  "old": "int bufEntries = Math.Max(1, options.IoBufferBytes / tupleBytes);",
+  "new": "int bufEntries = options.IoBufferBytes / tupleBytes;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs"
+ },
+ {
+  "id": "H23",
+  "desc": "the read buffer holds half the bytes",
+  "old": "int readEntries = (int)Math.Min(options.ReadBytes / 4, sourceEntries);",
+  "new": "int readEntries = (int)Math.Min(options.ReadBytes / 8, sourceEntries);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs"
+ },
+ {
+  "id": "H24",
+  "desc": "a skipped entry is distributed",
+  "old": "if (!mapper.TryMap(first + i, entries[i], out uint key, out TValue value)) continue;",
+  "new": "if (mapper.TryMap(first + i, entries[i], out uint key, out TValue value)) continue;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs"
+ },
+ {
+  "id": "H25",
+  "desc": "a key equal to the slot count is accepted",
+  "old": "if (key >= slots) ThrowKeyOutside(first + i, key, slots);",
+  "new": "if (key > slots) ThrowKeyOutside(first + i, key, slots);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs"
+ },
+ {
+  "id": "H26",
+  "desc": "the source is read at the wrong offset",
+  "old": "source.ReadExactAt(MemoryMarshal.AsBytes(entries), first * 4);",
+  "new": "source.ReadExactAt(MemoryMarshal.AsBytes(entries), first * 8);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs"
+ },
+ {
+  "id": "H27",
+  "desc": "the chunk array is cleared, not filled",
+  "old": "array.Fill(target.Fill);",
+  "new": "array.Clear();",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs"
+ },
+ {
+  "id": "H28",
+  "desc": "the tuples read are not counted in bytes",
+  "old": "bytesRead += (long)got * tupleBytes;",
+  "new": "bytesRead += got;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs"
+ },
+ {
+  "id": "H29",
+  "desc": "the tuples written are not counted in bytes",
+  "old": "bytesWritten += flushed * tupleBytes;",
+  "new": "bytesWritten += flushed;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs"
+ },
+ {
+  "id": "H30",
+  "desc": "a chunk file is not deleted after its chunk is read",
+  "old": "                scratch.Delete(chunk);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs"
+ },
+ {
+  "id": "H31",
+  "desc": "the tuples still in the buffer are lost",
+  "old": "        ScatterInto(writer.PendingSpan(chunk), array, startSlot, target);\n",
+  "new": "        ",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs"
+ },
+ {
+  "id": "H32",
+  "desc": "the exactly-once check is inverted",
+  "old": "            if (target.ExactlyOnce)\n            {",
+  "new": "            if (!target.ExactlyOnce)\n            {",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs"
+ },
+ {
+  "id": "H33",
+  "desc": "a missing slot is a slot that is filled",
+  "old": "if (array[k].Equals(target.Fill)) throw",
+  "new": "if (!array[k].Equals(target.Fill)) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs"
+ },
+ {
+  "id": "H34",
+  "desc": "the chunk is not written to the target",
+  "old": "            window.Append(MemoryMarshal.AsBytes(array));\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs"
+ },
+ {
+  "id": "H35",
+  "desc": "the canaries are not verified",
+  "old": "        arena.VerifyCanaries();\n        return new DistStats",
+  "new": "        return new DistStats",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs"
+ },
+ {
+  "id": "H36",
+  "desc": "the ISA limit is one too high",
+  "old": "if (n >= uint.MaxValue - 2) throw new NotSupportedException(\"positions are 32-bit: n must be below 2^32 - 2\");\n        var mapper = new IsaMapper(n);",
+  "new": "if (n > uint.MaxValue - 2) throw new NotSupportedException(\"positions are 32-bit: n must be below 2^32 - 2\");\n        var mapper = new IsaMapper(n);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs"
+ },
+ {
+  "id": "H37",
+  "desc": "the ISA target has n slots",
+  "old": "isaPath, new DistTarget<uint>(n + 1, uint.MaxValue, true), options);",
+  "new": "isaPath, new DistTarget<uint>(n, uint.MaxValue, true), options);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs"
+ },
+ {
+  "id": "H38",
+  "desc": "the Phi target has n + 1 slots",
+  "old": "phiPath, new DistTarget<uint>(n, uint.MaxValue, true), options);",
+  "new": "phiPath, new DistTarget<uint>(n + 1, uint.MaxValue, true), options);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs"
+ },
+ {
+  "id": "H39",
+  "desc": "a key outside its chunk is not refused",
+  "old": "if ((ulong)at >= (ulong)array.Length) ThrowChunkDamaged(e.Key, startSlot);",
+  "new": "if ((ulong)at > (ulong)array.Length) ThrowChunkDamaged(e.Key, startSlot);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs"
+ },
+ {
+  "id": "H40",
+  "desc": "a repeated slot is overwritten silently",
+  "old": "if (exactlyOnce && !slot.Equals(fill)) ThrowWrittenTwice(e.Key);",
+  "new": "if (exactlyOnce && slot.Equals(fill)) ThrowWrittenTwice(e.Key);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs"
+ },
+ {
+  "id": "H41",
+  "desc": "the key limit is 2^32 - 1 slots",
+  "old": "if (slots > 1L << 32) throw",
+  "new": "if (slots >= 1L << 32) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs"
+ },
+ {
+  "id": "H42",
+  "desc": "the chunk of a key is its key",
+  "old": "writer.Add(divide.Of(key), new DistEntry<TValue>(key, value));",
+  "new": "writer.Add(divide.Of(key) / 2, new DistEntry<TValue>(key, value));",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs"
+ }
+]

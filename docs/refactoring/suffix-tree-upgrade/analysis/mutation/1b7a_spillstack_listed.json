@@ -1,0 +1,198 @@
+[
+ {
+  "id": "I01",
+  "desc": "a block of one entry is accepted",
+  "old": "ArgumentOutOfRangeException.ThrowIfLessThan(blockEntries, 2);",
+  "new": "ArgumentOutOfRangeException.ThrowIfLessThan(blockEntries, 1);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/SpillStack.cs"
+ },
+ {
+  "id": "I02",
+  "desc": "a full block is not advanced",
+  "old": "if (_count == _block) Advance();",
+  "new": "if (_count > _block) Advance();",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/SpillStack.cs"
+ },
+ {
+  "id": "I03",
+  "desc": "a push does not mark its block dirty",
+  "old": "        _cur[_count++] = value;\n        _curDirty = true;",
+  "new": "        _cur[_count++] = value;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/SpillStack.cs"
+ },
+ {
+  "id": "I04",
+  "desc": "a pop from the second entry of a block retreats",
+  "old": "if (_count == 1 && _height > 1) Retreat();",
+  "new": "if (_count == 1 && _height > 2) Retreat();",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/SpillStack.cs"
+ },
+ {
+  "id": "I05",
+  "desc": "a pop does not lower the height",
+  "old": "        else _count--;\n        _height--;",
+  "new": "        else _count--;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/SpillStack.cs"
+ },
+ {
+  "id": "I06",
+  "desc": "a clean block is always written",
+  "old": "if (_otherDirty) WriteBlock(_topBlock - 1, _other);",
+  "new": "if (!_otherDirty) WriteBlock(_topBlock - 1, _other);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/SpillStack.cs"
+ },
+ {
+  "id": "I07",
+  "desc": "clean evictions are not counted",
+  "old": "            else _cleanEvictions++;",
+  "new": "            else { }",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/SpillStack.cs"
+ },
+ {
+  "id": "I08",
+  "desc": "every block is dirty after an advance",
+  "old": "        _otherDirty = _curDirty;\n        _curDirty = false;\n        _otherBelow = true;",
+  "new": "        _otherDirty = true;\n        _curDirty = false;\n        _otherBelow = true;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/SpillStack.cs"
+ },
+ {
+  "id": "I09",
+  "desc": "the block below is not marked resident",
+  "old": "        _otherBelow = true;\n        _topBlock++;",
+  "new": "        _topBlock++;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/SpillStack.cs"
+ },
+ {
+  "id": "I10",
+  "desc": "the top block number does not advance",
+  "old": "        _topBlock++;\n        _count = 0;",
+  "new": "        _count = 0;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/SpillStack.cs"
+ },
+ {
+  "id": "I11",
+  "desc": "a resident block is read back",
+  "old": "if (!_otherBelow)\n        {\n            ReadBlock",
+  "new": "if (_otherBelow)\n        {\n            ReadBlock",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/SpillStack.cs"
+ },
+ {
+  "id": "I12",
+  "desc": "a block read back is dirty",
+  "old": "        _curDirty = _otherDirty;\n        _otherDirty = false;\n        _otherBelow = false;",
+  "new": "        _curDirty = true;\n        _otherDirty = false;\n        _otherBelow = false;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/SpillStack.cs"
+ },
+ {
+  "id": "I13",
+  "desc": "a retreat leaves a block one short",
+  "old": "        _topBlock--;\n        _count = _block;",
+  "new": "        _topBlock--;\n        _count = _block - 1;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/SpillStack.cs"
+ },
+ {
+  "id": "I14",
+  "desc": "a block is written at the offset of 16-byte entries",
+  "old": "_file.WriteAt(new ReadOnlySpan<byte>(buffer, _blockBytes), block * _blockBytes);",
+  "new": "_file.WriteAt(new ReadOnlySpan<byte>(buffer, _blockBytes), block * _block * 16);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/SpillStack.cs"
+ },
+ {
+  "id": "I15",
+  "desc": "the spill file is not accounted as scratch",
+  "old": "            _counters?.AddScratch(end - _fileBytes);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/SpillStack.cs"
+ },
+ {
+  "id": "I16",
+  "desc": "the flush interval 0 flushes every block",
+  "old": "if (_flushBytes <= 0) return;",
+  "new": "if (_flushBytes < 0) return;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/SpillStack.cs"
+ },
+ {
+  "id": "I17",
+  "desc": "the flush happens one block late",
+  "old": "if (_unflushed < _flushBytes) return;",
+  "new": "if (_unflushed <= _flushBytes) return;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/SpillStack.cs"
+ },
+ {
+  "id": "I18",
+  "desc": "blocks read are not counted",
+  "old": "        _blocksRead++;\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/SpillStack.cs"
+ },
+ {
+  "id": "I19",
+  "desc": "the spill file is not deleted on dispose",
+  "old": "        File.Delete(_path);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/SpillStack.cs"
+ },
+ {
+  "id": "I20",
+  "desc": "the spill scratch is not given back on dispose",
+  "old": "        _counters?.RemoveScratch(_fileBytes);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/SpillStack.cs"
+ },
+ {
+  "id": "I21",
+  "desc": "Top of an empty stack does not throw",
+  "old": "        get\n        {\n            if (_height == 0) ThrowEmpty();\n            return ref _cur[_count - 1];",
+  "new": "        get\n        {\n            return ref _cur[_count - 1];",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/SpillStack.cs"
+ },
+ {
+  "id": "I22",
+  "desc": "TopForUpdate does not mark the block dirty",
+  "old": "        if (_height == 0) ThrowEmpty();\n        _curDirty = true;\n        return ref _cur[_count - 1];",
+  "new": "        if (_height == 0) ThrowEmpty();\n        return ref _cur[_count - 1];",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/SpillStack.cs"
+ },
+ {
+  "id": "I23",
+  "desc": "the peak height is not kept",
+  "old": "if (++_height > _peak) _peak = _height;",
+  "new": "++_height;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/SpillStack.cs"
+ },
+ {
+  "id": "I24",
+  "desc": "a pop of an empty stack does not throw",
+  "old": "    internal void Pop()\n    {\n        if (_height == 0) ThrowEmpty();",
+  "new": "    internal void Pop()\n    {",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/SpillStack.cs"
+ },
+ {
+  "id": "I25",
+  "desc": "bytes written are not counted",
+  "old": "        _bytesWritten += _blockBytes;\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/SpillStack.cs"
+ },
+ {
+  "id": "I26",
+  "desc": "the file end is not tracked",
+  "old": "            _fileBytes = end;\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/SpillStack.cs"
+ },
+ {
+  "id": "I27",
+  "desc": "the spill file is opened for reading only after the first spill",
+  "old": "new CountedFile(_path, FileMode.Create, FileAccess.ReadWrite, _counters)",
+  "new": "new CountedFile(_path, FileMode.CreateNew, FileAccess.ReadWrite, _counters)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/SpillStack.cs"
+ },
+ {
+  "id": "I28",
+  "desc": "Dispose is not idempotent",
+  "old": "        if (_disposed) return;\n        _disposed = true;\n        if (_file is null) return;",
+  "new": "        if (_file is null) return;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/SpillStack.cs"
+ }
+]

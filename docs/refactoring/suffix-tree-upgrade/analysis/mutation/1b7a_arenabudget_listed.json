@@ -1,0 +1,170 @@
+[
+ {
+  "id": "A01",
+  "desc": "a negative cap is accepted",
+  "old": "        ArgumentOutOfRangeException.ThrowIfNegative(capBytes);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/ArenaBudget.cs"
+ },
+ {
+  "id": "A02",
+  "desc": "Reserve accepts a negative size",
+  "old": "        ArgumentOutOfRangeException.ThrowIfNegative(bytes);\n        long seen = Interlocked.Read(ref _live);\n        while (true)\n        {\n            // compared",
+  "new": "        long seen = Interlocked.Read(ref _live);\n        while (true)\n        {\n            // compared",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/ArenaBudget.cs"
+ },
+ {
+  "id": "A03",
+  "desc": "exactly the cap is refused",
+  "old": "if (bytes > CapBytes - seen) throw",
+  "new": "if (bytes >= CapBytes - seen) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/ArenaBudget.cs"
+ },
+ {
+  "id": "A04",
+  "desc": "the cap test can wrap around for an unlimited cap",
+  "old": "if (bytes > CapBytes - seen) throw",
+  "new": "if (seen + bytes > CapBytes) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/ArenaBudget.cs"
+ },
+ {
+  "id": "A05",
+  "desc": "the reserved total is live minus bytes",
+  "old": "long now = seen + bytes;",
+  "new": "long now = seen - bytes;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/ArenaBudget.cs"
+ },
+ {
+  "id": "A06",
+  "desc": "the peak is not kept",
+  "old": "                Atomic.RaiseTo(ref _peak, now);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/ArenaBudget.cs"
+ },
+ {
+  "id": "A07",
+  "desc": "a lost compare-and-swap is accepted",
+  "old": "if (previous == seen)\n            {\n                Atomic.RaiseTo(ref _peak, now);",
+  "new": "if (previous >= 0)\n            {\n                Atomic.RaiseTo(ref _peak, now);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/ArenaBudget.cs"
+ },
+ {
+  "id": "A08",
+  "desc": "Release allows one byte more than live",
+  "old": "if (bytes > seen) throw",
+  "new": "if (bytes > seen + 1) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/ArenaBudget.cs"
+ },
+ {
+  "id": "A09",
+  "desc": "Release accepts a negative size",
+  "old": "        ArgumentOutOfRangeException.ThrowIfNegative(bytes);\n        long seen = Interlocked.Read(ref _live);\n        while (true)\n        {\n            if (bytes > seen)",
+  "new": "        long seen = Interlocked.Read(ref _live);\n        while (true)\n        {\n            if (bytes > seen)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/ArenaBudget.cs"
+ },
+ {
+  "id": "A10",
+  "desc": "Release adds instead of subtracting",
+  "old": "Interlocked.CompareExchange(ref _live, seen - bytes, seen)",
+  "new": "Interlocked.CompareExchange(ref _live, seen + bytes, seen)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/ArenaBudget.cs"
+ },
+ {
+  "id": "A11",
+  "desc": "the arena does not charge the budget",
+  "old": "        Budget.Reserve(bytes, name); // a negative length is refused here\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/ArenaBudget.cs"
+ },
+ {
+  "id": "A12",
+  "desc": "a failed allocation keeps its charge",
+  "old": "            if (!allocated) Budget.Release(bytes);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/ArenaBudget.cs"
+ },
+ {
+  "id": "A13",
+  "desc": "the arena forgets its live bytes",
+  "old": "            _live += bytes;\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/ArenaBudget.cs"
+ },
+ {
+  "id": "A14",
+  "desc": "the arena forgets the block size",
+  "old": "            _sizes.Add(bytes);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/ArenaBudget.cs"
+ },
+ {
+  "id": "A15",
+  "desc": "ReleaseTo keeps the oldest of the newer blocks",
+  "old": "for (int i = _sizes.Count - 1; i >= mark; i--)",
+  "new": "for (int i = _sizes.Count - 1; i > mark; i--)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/ArenaBudget.cs"
+ },
+ {
+  "id": "A16",
+  "desc": "ReleaseTo keeps the live total",
+  "old": "        _live -= freed;\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/ArenaBudget.cs"
+ },
+ {
+  "id": "A17",
+  "desc": "ReleaseTo does not give the bytes back",
+  "old": "            Budget.Release(freed);\n        }\n    }\n\n    /// <summary>Throws <see cref=\"EsaMemoryViolationException\"/>",
+  "new": "        }\n    }\n\n    /// <summary>Throws <see cref=\"EsaMemoryViolationException\"/>",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/ArenaBudget.cs"
+ },
+ {
+  "id": "A18",
+  "desc": "Dispose does not mark the arena disposed",
+  "old": "        if (_disposed) return;\n        _disposed = true;\n        long all = _live;",
+  "new": "        if (_disposed) return;\n        long all = _live;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/ArenaBudget.cs"
+ },
+ {
+  "id": "A19",
+  "desc": "Dispose keeps the live bytes (a second Dispose gives them back twice)",
+  "old": "        long all = _live;\n        _live = 0;\n",
+  "new": "        long all = _live;\n",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/ArenaBudget.cs"
+ },
+ {
+  "id": "A20",
+  "desc": "Mark does not check the disposal",
+  "old": "        ObjectDisposedException.ThrowIf(_disposed, this);\n        return _arena.Mark();",
+  "new": "        return _arena.Mark();",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/ArenaBudget.cs"
+ },
+ {
+  "id": "A21",
+  "desc": "a null budget is accepted",
+  "old": "        ArgumentNullException.ThrowIfNull(budget);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/ArenaBudget.cs"
+ },
+ {
+  "id": "A22",
+  "desc": "VerifyCanaries does nothing",
+  "old": "internal void VerifyCanaries() => _arena.VerifyCanaries();",
+  "new": "internal void VerifyCanaries() { }",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/ArenaBudget.cs"
+ },
+ {
+  "id": "A23",
+  "desc": "ReleaseTo does not check the upper bound of the mark",
+  "old": "        ArgumentOutOfRangeException.ThrowIfGreaterThan(mark, _sizes.Count);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/ArenaBudget.cs"
+ },
+ {
+  "id": "A24",
+  "desc": "Dispose does not give the bytes back",
+  "old": "            Budget.Release(all);\n        }\n    }\n}",
+  "new": "        }\n    }\n}",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/ArenaBudget.cs"
+ }
+]

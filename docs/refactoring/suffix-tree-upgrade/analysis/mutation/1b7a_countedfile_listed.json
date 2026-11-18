@@ -1,0 +1,65 @@
+[
+ {
+  "id": "E01",
+  "desc": "reads are not counted",
+  "old": "            _counters?.AddRead(got);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/CountedFile.cs"
+ },
+ {
+  "id": "E02",
+  "desc": "writes are not counted",
+  "old": "        _counters?.AddWrite(buffer.Length);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/CountedFile.cs"
+ },
+ {
+  "id": "E03",
+  "desc": "a read one byte short is accepted",
+  "old": "if (ReadAt(buffer, offset) != buffer.Length) throw",
+  "new": "if (ReadAt(buffer, offset) < buffer.Length - 1) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/CountedFile.cs"
+ },
+ {
+  "id": "E04",
+  "desc": "the file is opened exclusively",
+  "old": "FileShare.ReadWrite, FileOptions.None",
+  "new": "FileShare.None, FileOptions.None",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/CountedFile.cs"
+ },
+ {
+  "id": "E05",
+  "desc": "SetLength does nothing",
+  "old": "internal void SetLength(long length) => RandomAccess.SetLength(_handle, length);",
+  "new": "internal void SetLength(long length) { }",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/CountedFile.cs"
+ },
+ {
+  "id": "E06",
+  "desc": "Flush does nothing",
+  "old": "internal void Flush() => RandomAccess.FlushToDisk(_handle);",
+  "new": "internal void Flush() { }",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/CountedFile.cs"
+ },
+ {
+  "id": "E07",
+  "desc": "Dispose does not release the handle",
+  "old": "public void Dispose() => _handle.Dispose();",
+  "new": "public void Dispose() { }",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/CountedFile.cs"
+ },
+ {
+  "id": "E08",
+  "desc": "the read position does not advance",
+  "old": "RandomAccess.Read(_handle, buffer[total..], offset + total)",
+  "new": "RandomAccess.Read(_handle, buffer[total..], offset)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/CountedFile.cs"
+ },
+ {
+  "id": "E09",
+  "desc": "the read counter counts the buffer, not what was read",
+  "old": "            _counters?.AddRead(got);\n",
+  "new": "            _counters?.AddRead(buffer.Length);\n",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/CountedFile.cs"
+ }
+]

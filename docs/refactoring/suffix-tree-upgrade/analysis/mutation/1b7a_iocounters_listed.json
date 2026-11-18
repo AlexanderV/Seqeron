@@ -1,0 +1,100 @@
+[
+ {
+  "id": "B01",
+  "desc": "TotalBytes leaves out the mapped writes",
+  "old": "internal long TotalBytes => ReadBytes + WriteBytes + MappedWriteBytes;",
+  "new": "internal long TotalBytes => ReadBytes + WriteBytes;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/IoCounters.cs"
+ },
+ {
+  "id": "B02",
+  "desc": "Since does not subtract the read calls",
+  "old": "            ReadCalls - earlier.ReadCalls,",
+  "new": "            ReadCalls,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/IoCounters.cs"
+ },
+ {
+  "id": "B03",
+  "desc": "Since subtracts the maximum window",
+  "old": "            MappedMaxWindowBytes,\n            ScratchLiveBytes,",
+  "new": "            MappedMaxWindowBytes - earlier.MappedMaxWindowBytes,\n            ScratchLiveBytes,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/IoCounters.cs"
+ },
+ {
+  "id": "B04",
+  "desc": "Since subtracts the live scratch",
+  "old": "            ScratchLiveBytes,\n            ScratchPeakBytes);",
+  "new": "            ScratchLiveBytes - earlier.ScratchLiveBytes,\n            ScratchPeakBytes);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/IoCounters.cs"
+ },
+ {
+  "id": "B05",
+  "desc": "AddRead does not count the call",
+  "old": "        Interlocked.Add(ref _readBytes, bytes);\n        Interlocked.Increment(ref _readCalls);",
+  "new": "        Interlocked.Add(ref _readBytes, bytes);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/IoCounters.cs"
+ },
+ {
+  "id": "B06",
+  "desc": "AddWrite counts into the read bytes",
+  "old": "        Interlocked.Add(ref _writeBytes, bytes);",
+  "new": "        Interlocked.Add(ref _readBytes, bytes);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/IoCounters.cs"
+ },
+ {
+  "id": "B07",
+  "desc": "AddWindow keeps the last window, not the largest",
+  "old": "        Atomic.RaiseTo(ref _mappedMaxWindow, bytes);",
+  "new": "        Interlocked.Exchange(ref _mappedMaxWindow, bytes);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/IoCounters.cs"
+ },
+ {
+  "id": "B08",
+  "desc": "AddScratch does not raise the peak",
+  "old": "internal void AddScratch(long bytes) => Atomic.RaiseTo(ref _scratchPeak, Interlocked.Add(ref _scratchLive, bytes));",
+  "new": "internal void AddScratch(long bytes) => Interlocked.Add(ref _scratchLive, bytes);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/IoCounters.cs"
+ },
+ {
+  "id": "B09",
+  "desc": "RemoveScratch adds",
+  "old": "Interlocked.Add(ref _scratchLive, -bytes);",
+  "new": "Interlocked.Add(ref _scratchLive, bytes);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/IoCounters.cs"
+ },
+ {
+  "id": "B10",
+  "desc": "Reset keeps the scratch peak",
+  "old": "        Interlocked.Exchange(ref _scratchPeak, 0);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/IoCounters.cs"
+ },
+ {
+  "id": "B11",
+  "desc": "Reset keeps the maximum window",
+  "old": "        Interlocked.Exchange(ref _mappedMaxWindow, 0);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/IoCounters.cs"
+ },
+ {
+  "id": "B12",
+  "desc": "Snapshot swaps the call counts",
+  "old": "=> new(ReadBytes, WriteBytes, ReadCalls, WriteCalls, MappedWriteBytes",
+  "new": "=> new(ReadBytes, WriteBytes, WriteCalls, ReadCalls, MappedWriteBytes",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/IoCounters.cs"
+ },
+ {
+  "id": "B13",
+  "desc": "AddMappedWrite counts the windows",
+  "old": "internal void AddMappedWrite(long bytes) => Interlocked.Add(ref _mappedWriteBytes, bytes);",
+  "new": "internal void AddMappedWrite(long bytes) => Interlocked.Add(ref _mappedWindows, bytes);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/IoCounters.cs"
+ },
+ {
+  "id": "B14",
+  "desc": "Reset keeps the live scratch",
+  "old": "        Interlocked.Exchange(ref _scratchLive, 0);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/IoCounters.cs"
+ }
+]

@@ -82,4 +82,25 @@ public class DistCostTests
         TestContext.Out.WriteLine(row);
         Assert.That(File.Exists(outPath), Is.True);
     }
+
+    /// <summary>Cost of one counter update (the counters overhead of gate G3 is this times the number of updates of a run: about 50,000 for ISA of 10^8 entries).</summary>
+    [Test]
+    public void CounterOpCost()
+    {
+        var c = new Prod.IoCounters();
+        const int n = 20_000_000;
+        for (int i = 0; i < 1_000_000; i++) c.AddRead(1); // warm up the JIT
+        long t0 = Stopwatch.GetTimestamp();
+        for (int i = 0; i < n; i++)
+        {
+            c.AddRead(65536);
+            c.AddWrite(65536);
+            c.AddScratch(65536);
+            c.RemoveScratch(65536);
+        }
+        double ns = (Stopwatch.GetTimestamp() - t0) * 1e9 / Stopwatch.Frequency / (4.0 * n);
+        string row = string.Join('\t', "counter-op", "prod", "-", "-", ns.ToString("F2", CultureInfo.InvariantCulture), "ns per counter update, one thread", c.ReadBytes, c.ScratchPeakBytes);
+        TestContext.Out.WriteLine(row);
+        Assert.That(ns, Is.GreaterThan(0));
+    }
 }

@@ -1,0 +1,142 @@
+[
+ {
+  "id": "G01",
+  "desc": "an empty append creates the file",
+  "old": "        if (items.IsEmpty) return;\n        long at",
+  "new": "        long at",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/DistScratch.cs"
+ },
+ {
+  "id": "G02",
+  "desc": "the append offset is the end, not the start",
+  "old": "long at = Interlocked.Add(ref _entries[chunk], items.Length) - items.Length;",
+  "new": "long at = Interlocked.Add(ref _entries[chunk], items.Length);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/DistScratch.cs"
+ },
+ {
+  "id": "G03",
+  "desc": "scratch bytes are not accounted",
+  "old": "        _counters?.AddScratch((long)items.Length * sizeof(T)); // accounted",
+  "new": "        // accounted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/DistScratch.cs"
+ },
+ {
+  "id": "G04",
+  "desc": "an append truncates the chunk file",
+  "old": "FileMode.OpenOrCreate, FileAccess.Write, _counters",
+  "new": "FileMode.Create, FileAccess.Write, _counters",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/DistScratch.cs"
+ },
+ {
+  "id": "G05",
+  "desc": "the append offset is in entries, not bytes",
+  "old": "f.WriteAt(MemoryMarshal.AsBytes(items), at * sizeof(T));",
+  "new": "f.WriteAt(MemoryMarshal.AsBytes(items), at);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/DistScratch.cs"
+ },
+ {
+  "id": "G06",
+  "desc": "an empty chunk is opened as a file",
+  "old": "count > 0 ? new CountedFile(PathOf(chunk), FileMode.Open, FileAccess.Read, _counters) : null",
+  "new": "count >= 0 ? new CountedFile(PathOf(chunk), FileMode.Open, FileAccess.Read, _counters) : null",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/DistScratch.cs"
+ },
+ {
+  "id": "G07",
+  "desc": "Delete gives the bytes back without clearing the count",
+  "old": "long count = Interlocked.Exchange(ref _entries[chunk], 0);",
+  "new": "long count = Interlocked.Read(ref _entries[chunk]);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/DistScratch.cs"
+ },
+ {
+  "id": "G08",
+  "desc": "Delete does not remove the file",
+  "old": "        File.Delete(PathOf(chunk));\n    }\n\n    public void Dispose()",
+  "new": "    }\n\n    public void Dispose()",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/DistScratch.cs"
+ },
+ {
+  "id": "G09",
+  "desc": "Dispose leaves the last chunk",
+  "old": "for (long c = 0; c < _entries.Length; c++) Delete(c);",
+  "new": "for (long c = 0; c < _entries.Length - 1; c++) Delete(c);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/DistScratch.cs"
+ },
+ {
+  "id": "G10",
+  "desc": "the read takes the larger count",
+  "old": "int take = (int)Math.Min(buffer.Length, Count - _position);",
+  "new": "int take = (int)Math.Max(buffer.Length, Count - _position);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/DistScratch.cs"
+ },
+ {
+  "id": "G11",
+  "desc": "the read offset is in entries",
+  "old": "_file!.ReadExactAt(MemoryMarshal.AsBytes(buffer[..take]), _position * sizeof(T));",
+  "new": "_file!.ReadExactAt(MemoryMarshal.AsBytes(buffer[..take]), _position);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/DistScratch.cs"
+ },
+ {
+  "id": "G12",
+  "desc": "a buffer smaller than a tuple has capacity 0",
+  "old": "_capacity = Math.Max(1, bufferBytes / sizeof(T));",
+  "new": "_capacity = bufferBytes / sizeof(T);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/DistScratch.cs"
+ },
+ {
+  "id": "G13",
+  "desc": "a buffer is flushed one entry late",
+  "old": "if (++filled == _capacity)",
+  "new": "if (++filled > _capacity)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/DistScratch.cs"
+ },
+ {
+  "id": "G14",
+  "desc": "a flushed buffer is not emptied",
+  "old": "            Flush(local, filled);\n            filled = 0;",
+  "new": "            Flush(local, filled);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/DistScratch.cs"
+ },
+ {
+  "id": "G15",
+  "desc": "a chunk one past the end is not refused as an argument",
+  "old": "if ((ulong)local >= (ulong)_filled.Length) ThrowChunkOutside(chunk);",
+  "new": "if ((ulong)local > (ulong)_filled.Length) ThrowChunkOutside(chunk);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/DistScratch.cs"
+ },
+ {
+  "id": "G16",
+  "desc": "the pending span is empty",
+  "old": "return _buffers.Slice(local * _capacity, filled).AsSpan(filled);",
+  "new": "return _buffers.Slice(local * _capacity, 0).AsSpan(0);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/DistScratch.cs"
+ },
+ {
+  "id": "G17",
+  "desc": "FlushAll does not empty the buffers",
+  "old": "            Flush(local, _filled[local]);\n            _filled[local] = 0;",
+  "new": "            Flush(local, _filled[local]);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/DistScratch.cs"
+ },
+ {
+  "id": "G18",
+  "desc": "the buffers are not charged under their own block name",
+  "old": "\"dist.tuples\"",
+  "new": "\"dist.tuple\"",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/DistScratch.cs"
+ },
+ {
+  "id": "G19",
+  "desc": "the buffers of the first chunk start at the second",
+  "old": "return _buffers.Slice(local * _capacity, filled).AsSpan(filled);",
+  "new": "return _buffers.Slice((local + 1) * _capacity, filled).AsSpan(filled);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/DistScratch.cs"
+ },
+ {
+  "id": "G20",
+  "desc": "a flush writes to the wrong chunk",
+  "old": "private void Flush(int local, int count) => _scratch.Append(_firstChunk + local,",
+  "new": "private void Flush(int local, int count) => _scratch.Append(_firstChunk,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/DistScratch.cs"
+ }
+]

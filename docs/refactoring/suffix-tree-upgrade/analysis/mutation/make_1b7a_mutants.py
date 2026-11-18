@@ -1,0 +1,250 @@
+#!/usr/bin/env python3
+"""Writes the hand-made single-site mutants of the production code of work package 1b.7a (src/SuffixTree/Algorithms/SuffixTree.Esa/External) as one JSON list per source file
+   (1b7a_<file>_listed.json). Each pattern must occur exactly once in its file (checked here). Round 1 is written against the sources at the commit of the first audit run; later rounds (1b7a_r2_*, 1b7a_r3_*)
+   are written by make_1b7a_round2.py / make_1b7a_round3.py for the mutants that did not compile or survived, after the tests were strengthened.
+   usage: make_1b7a_mutants.py <repo root>"""
+import json, os, sys
+
+ROOT = sys.argv[1]
+SRC = 'src/SuffixTree/Algorithms/SuffixTree.Esa/External/'
+
+
+def m(i, desc, old, new):
+    return {'id': i, 'desc': desc, 'old': old, 'new': new}
+
+
+FILES = {
+    'ArenaBudget.cs': [
+        m('A01', 'a negative cap is accepted', '        ArgumentOutOfRangeException.ThrowIfNegative(capBytes);\n', ''),
+        m('A02', 'Reserve accepts a negative size', '        ArgumentOutOfRangeException.ThrowIfNegative(bytes);\n        long seen = Interlocked.Read(ref _live);\n        while (true)\n        {\n            // compared', '        long seen = Interlocked.Read(ref _live);\n        while (true)\n        {\n            // compared'),
+        m('A03', 'exactly the cap is refused', 'if (bytes > CapBytes - seen) throw', 'if (bytes >= CapBytes - seen) throw'),
+        m('A04', 'the cap test can wrap around for an unlimited cap', 'if (bytes > CapBytes - seen) throw', 'if (seen + bytes > CapBytes) throw'),
+        m('A05', 'the reserved total is live minus bytes', 'long now = seen + bytes;', 'long now = seen - bytes;'),
+        m('A06', 'the peak is not kept', '                Atomic.RaiseTo(ref _peak, now);\n', ''),
+        m('A07', 'a lost compare-and-swap is accepted', 'if (previous == seen)\n            {\n                Atomic.RaiseTo(ref _peak, now);', 'if (previous >= 0)\n            {\n                Atomic.RaiseTo(ref _peak, now);'),
+        m('A08', 'Release allows one byte more than live', 'if (bytes > seen) throw', 'if (bytes > seen + 1) throw'),
+        m('A09', 'Release accepts a negative size', '        ArgumentOutOfRangeException.ThrowIfNegative(bytes);\n        long seen = Interlocked.Read(ref _live);\n        while (true)\n        {\n            if (bytes > seen)', '        long seen = Interlocked.Read(ref _live);\n        while (true)\n        {\n            if (bytes > seen)'),
+        m('A10', 'Release adds instead of subtracting', 'Interlocked.CompareExchange(ref _live, seen - bytes, seen)', 'Interlocked.CompareExchange(ref _live, seen + bytes, seen)'),
+        m('A11', 'the arena does not charge the budget', '        Budget.Reserve(bytes, name); // a negative length is refused here\n', ''),
+        m('A12', 'a failed allocation keeps its charge', '            if (!allocated) Budget.Release(bytes);\n', ''),
+        m('A13', 'the arena forgets its live bytes', '            _live += bytes;\n', ''),
+        m('A14', 'the arena forgets the block size', '            _sizes.Add(bytes);\n', ''),
+        m('A15', 'ReleaseTo keeps the oldest of the newer blocks', 'for (int i = _sizes.Count - 1; i >= mark; i--)', 'for (int i = _sizes.Count - 1; i > mark; i--)'),
+        m('A16', 'ReleaseTo keeps the live total', '        _live -= freed;\n', ''),
+        m('A17', 'ReleaseTo does not give the bytes back', '            Budget.Release(freed);\n        }\n    }\n\n    /// <summary>Throws <see cref="EsaMemoryViolationException"/>', '        }\n    }\n\n    /// <summary>Throws <see cref="EsaMemoryViolationException"/>'),
+        m('A18', 'Dispose does not mark the arena disposed', '        if (_disposed) return;\n        _disposed = true;\n        long all = _live;', '        if (_disposed) return;\n        long all = _live;'),
+        m('A19', 'Dispose keeps the live bytes (a second Dispose gives them back twice)', '        long all = _live;\n        _live = 0;\n', '        long all = _live;\n'),
+        m('A20', 'Mark does not check the disposal', '        ObjectDisposedException.ThrowIf(_disposed, this);\n        return _arena.Mark();', '        return _arena.Mark();'),
+        m('A21', 'a null budget is accepted', '        ArgumentNullException.ThrowIfNull(budget);\n', ''),
+        m('A22', 'VerifyCanaries does nothing', 'internal void VerifyCanaries() => _arena.VerifyCanaries();', 'internal void VerifyCanaries() { }'),
+        m('A23', 'ReleaseTo does not check the upper bound of the mark', '        ArgumentOutOfRangeException.ThrowIfGreaterThan(mark, _sizes.Count);\n', ''),
+        m('A24', 'Dispose does not give the bytes back', '            Budget.Release(all);\n        }\n    }\n}', '        }\n    }\n}'),
+    ],
+    'IoCounters.cs': [
+        m('B01', 'TotalBytes leaves out the mapped writes', 'internal long TotalBytes => ReadBytes + WriteBytes + MappedWriteBytes;', 'internal long TotalBytes => ReadBytes + WriteBytes;'),
+        m('B02', 'Since does not subtract the read calls', '            ReadCalls - earlier.ReadCalls,', '            ReadCalls,'),
+        m('B03', 'Since subtracts the maximum window', '            MappedMaxWindowBytes,\n            ScratchLiveBytes,', '            MappedMaxWindowBytes - earlier.MappedMaxWindowBytes,\n            ScratchLiveBytes,'),
+        m('B04', 'Since subtracts the live scratch', '            ScratchLiveBytes,\n            ScratchPeakBytes);', '            ScratchLiveBytes - earlier.ScratchLiveBytes,\n            ScratchPeakBytes);'),
+        m('B05', 'AddRead does not count the call', '        Interlocked.Add(ref _readBytes, bytes);\n        Interlocked.Increment(ref _readCalls);', '        Interlocked.Add(ref _readBytes, bytes);'),
+        m('B06', 'AddWrite counts into the read bytes', '        Interlocked.Add(ref _writeBytes, bytes);', '        Interlocked.Add(ref _readBytes, bytes);'),
+        m('B07', 'AddWindow keeps the last window, not the largest', '        Atomic.RaiseTo(ref _mappedMaxWindow, bytes);', '        Interlocked.Exchange(ref _mappedMaxWindow, bytes);'),
+        m('B08', 'AddScratch does not raise the peak', 'internal void AddScratch(long bytes) => Atomic.RaiseTo(ref _scratchPeak, Interlocked.Add(ref _scratchLive, bytes));', 'internal void AddScratch(long bytes) => Interlocked.Add(ref _scratchLive, bytes);'),
+        m('B09', 'RemoveScratch adds', 'Interlocked.Add(ref _scratchLive, -bytes);', 'Interlocked.Add(ref _scratchLive, bytes);'),
+        m('B10', 'Reset keeps the scratch peak', '        Interlocked.Exchange(ref _scratchPeak, 0);\n', ''),
+        m('B11', 'Reset keeps the maximum window', '        Interlocked.Exchange(ref _mappedMaxWindow, 0);\n', ''),
+        m('B12', 'Snapshot swaps the call counts', '=> new(ReadBytes, WriteBytes, ReadCalls, WriteCalls, MappedWriteBytes', '=> new(ReadBytes, WriteBytes, WriteCalls, ReadCalls, MappedWriteBytes'),
+        m('B13', 'AddMappedWrite counts the windows', 'internal void AddMappedWrite(long bytes) => Interlocked.Add(ref _mappedWriteBytes, bytes);', 'internal void AddMappedWrite(long bytes) => Interlocked.Add(ref _mappedWindows, bytes);'),
+        m('B14', 'Reset keeps the live scratch', '        Interlocked.Exchange(ref _scratchLive, 0);\n', ''),
+    ],
+    'Atomic.cs': [
+        m('B15', 'RaiseTo never raises', 'while (seen < value)', 'while (seen > value)'),
+        m('B16', 'RaiseTo stores the smaller value', 'Interlocked.CompareExchange(ref target, value, seen)', 'Interlocked.CompareExchange(ref target, seen, seen)'),
+    ],
+    'ProcIo.cs': [
+        m('C01', 'an empty file is reported unavailable by the real source', '                if (got <= 0) break;\n                total += got;\n            }\n            return total;', '                if (got <= 0) return -1;\n                total += got;\n            }\n            return total;'),
+        m('C02', 'the real source returns 0 for a missing file', '        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException or ArgumentException or SecurityException)\n        {\n            return -1;', '        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException or ArgumentException or SecurityException)\n        {\n            return 0;'),
+        m('C03', 'SafeRead does not clamp the count', 'return got < 0 ? -1 : Math.Min(got, buffer.Length);', 'return got < 0 ? -1 : got;'),
+        m('C04', 'SafeRead treats an empty read as unavailable', 'return got < 0 ? -1 : Math.Min(got, buffer.Length);', 'return got <= 0 ? -1 : Math.Min(got, buffer.Length);'),
+        m('C05', 'an empty key is looked up', '        if (key.IsEmpty) return false;\n', ''),
+        m('C06', 'the last possible key position is not searched', 'while (from <= text.Length - key.Length)', 'while (from < text.Length - key.Length)'),
+        m('C07', 'a key need not stand at the start of a line', r"""if (position == 0 || text[position - 1] == (byte)'\n') return""", r"""if (position == 0 || text[position - 1] != 0xFF) return"""),
+        m('C08', 'only a blank, not a tab, may precede the number', r"""while (i < text.Length && (text[i] == (byte)' ' || text[i] == (byte)'\t')) i++;""", r"""while (i < text.Length && text[i] == (byte)' ') i++;"""),
+        m('C09', 'the digit 9 is not a digit', 'text[i] <= (byte)\'9\'', 'text[i] < (byte)\'9\''),
+        m('C10', 'long.MaxValue is refused as an overflow', 'if (parsed > (long.MaxValue - digit) / 10) return false;', 'if (parsed >= (long.MaxValue - digit) / 10) return false;'),
+        m('C11', 'an overflow is not detected', '            if (parsed > (long.MaxValue - digit) / 10) return false;\n', ''),
+        m('C12', 'a line without digits parses as 0', '        if (digits == 0) return false;\n', ''),
+        m('C13', 'Since adds the syscall writes', 'WChar - earlier.WChar', 'WChar + earlier.WChar'),
+        m('C14', 'write_bytes is read from cancelled_write_bytes', '"write_bytes:"u8, out long writeBytes', '"cancelled_write_bytes:"u8, out long writeBytes'),
+        m('C15', 'a missing field does not make /proc/self/io unavailable', '            || !ProcText.TryGetLong(text, "syscw:"u8, out long syscw)\n', '            || false\n            || !ProcText.TryGetLong(text, "syscw:"u8, out long syscw) && false\n'),
+        m('C16', 'Finish does not subtract the start counters', 'IoSnapshot counted = _counters.Snapshot().Since(_start);', 'IoSnapshot counted = _counters.Snapshot();'),
+        m('C17', 'Finish reports the end snapshot, not the delta', '_procStart is { } begin && end is { } last ? last.Since(begin) : null;', '_procStart is { } begin && end is { } last ? last : null;'),
+        m('C18', 'a null counters object is accepted', '        ArgumentNullException.ThrowIfNull(counters);\n', ''),
+        m('C19', 'Finish ignores a missing start snapshot', '_procStart is { } begin && end is { } last ? last.Since(begin) : null;', 'end is { } last ? last.Since(_procStart ?? default) : null;'),
+        m('C20', 'the real source opens exclusively', 'FileShare.ReadWrite);\n            int total = 0;', 'FileShare.None);\n            int total = 0;'),
+    ],
+    'RssReader.cs': [
+        m('D01', 'a missing RssAnon line reads as 0', '        if (!ProcText.TryGetLong(text, "RssAnon:"u8, out long anon)) return RssSnapshot.Unavailable;\n', '        ProcText.TryGetLong(text, "RssAnon:"u8, out long anon);\n'),
+        m('D02', 'RssFile is read from RssAnon', '"RssFile:"u8, out long file', '"RssAnon:"u8, out long file'),
+        m('D03', 'VmHWM is read from VmPeak', '"VmHWM:"u8, out long hwm', '"VmPeak:"u8, out long hwm'),
+        m('D04', 'Threads is read from RssFile', '"Threads:"u8, out long threads', '"RssFile:"u8, out long threads'),
+        m('D05', 'RssAnonMb divides by 1000 kB', 'RssAnonKb * 1024.0 / 1e6', 'RssAnonKb * 1000.0 / 1e6'),
+        m('D06', 'an interval of 0 is accepted', 'ArgumentOutOfRangeException.ThrowIfLessThan(intervalMs, 1);', 'ArgumentOutOfRangeException.ThrowIfLessThan(intervalMs, 0);'),
+        m('D07', 'Start can be called twice', '        if (_started) throw new InvalidOperationException("sampler already started");\n', ''),
+        m('D08', 'an unavailable platform starts a sampler', '        if (!first.Available) return;\n', ''),
+        m('D09', 'Stop does not take the last sample', '            if (last.Available) Record(last);\n', ''),
+        m('D10', 'RssFile maximum is taken from RssAnon', 'Atomic.RaiseTo(ref _maxFile, s.RssFileKb);', 'Atomic.RaiseTo(ref _maxFile, s.RssAnonKb);'),
+        m('D11', 'the last RssAnon is a maximum', 'Interlocked.Exchange(ref _lastAnon, s.RssAnonKb);', 'Atomic.RaiseTo(ref _lastAnon, s.RssAnonKb);'),
+        m('D12', 'Stop does not allow a restart', '        _started = false;\n        return new RssStats', '        return new RssStats'),
+        m('D13', 'Dispose does not stop the sampler', '        if (_started) Stop();\n        _stopSignal.Dispose();', '        _stopSignal.Dispose();'),
+        m('D14', 'the thread is not woken by Stop', '            _stopSignal.Set(); // wakes the thread from its wait at once, so a long interval does not delay the stop\n', ''),
+        m('D15', 'the interval is taken in seconds', 'long period = Stopwatch.Frequency * _intervalMs / 1000;', 'long period = Stopwatch.Frequency * _intervalMs;'),
+        m('D16', 'the sample count is not kept', '        Interlocked.Increment(ref _samples);\n', ''),
+        m('D17', 'the thread count maximum is taken from VmHWM', 'Atomic.RaiseTo(ref _maxThreads, s.Threads);', 'Atomic.RaiseTo(ref _maxThreads, s.VmHwmKb);'),
+        m('D18', 'a null reader is accepted', '        ArgumentNullException.ThrowIfNull(reader);\n', ''),
+    ],
+    'CountedFile.cs': [
+        m('E01', 'reads are not counted', '            _counters?.AddRead(got);\n', ''),
+        m('E02', 'writes are not counted', '        _counters?.AddWrite(buffer.Length);\n', ''),
+        m('E03', 'a read one byte short is accepted', 'if (ReadAt(buffer, offset) != buffer.Length) throw', 'if (ReadAt(buffer, offset) < buffer.Length - 1) throw'),
+        m('E04', 'the file is opened exclusively', 'FileShare.ReadWrite, FileOptions.None', 'FileShare.None, FileOptions.None'),
+        m('E05', 'SetLength does nothing', 'internal void SetLength(long length) => RandomAccess.SetLength(_handle, length);', 'internal void SetLength(long length) { }'),
+        m('E06', 'Flush does nothing', 'internal void Flush() => RandomAccess.FlushToDisk(_handle);', 'internal void Flush() { }'),
+        m('E07', 'Dispose does not release the handle', 'public void Dispose() => _handle.Dispose();', 'public void Dispose() { }'),
+        m('E08', 'the read position does not advance', 'RandomAccess.Read(_handle, buffer[total..], offset + total)', 'RandomAccess.Read(_handle, buffer[total..], offset)'),
+        m('E09', 'the read counter counts the buffer, not what was read', '            _counters?.AddRead(got);\n', '            _counters?.AddRead(buffer.Length);\n'),
+    ],
+    'MappedWindowWriter.cs': [
+        m('F01', 'the default window is 64 KB', 'internal const int DefaultWindowBytes = 1 << 20;', 'internal const int DefaultWindowBytes = 1 << 16;'),
+        m('F02', 'a window of 0 bytes is accepted', 'ArgumentOutOfRangeException.ThrowIfLessThan(windowBytes, 1);', 'ArgumentOutOfRangeException.ThrowIfLessThan(windowBytes, 0);'),
+        m('F03', 'an empty file is mapped', 'if (length > 0) _file =', 'if (length >= 0) _file ='),
+        m('F04', 'a write that ends exactly at the end is refused', 'offset > Length - data.Length', 'offset >= Length - data.Length'),
+        m('F05', 'a negative offset is accepted by the range test', 'if (offset < 0 || offset > Length - data.Length)', 'if (offset > Length - data.Length)'),
+        m('F06', 'the take is the larger of the two', 'int take = (int)Math.Min(data.Length, _viewEnd - offset);', 'int take = (int)Math.Max(data.Length, _viewEnd - offset);'),
+        m('F07', 'a write at the start of the window opens another', 'offset < _viewStart ||', 'offset <= _viewStart ||'),
+        m('F08', 'mapped writes are not counted', '            _counters?.AddMappedWrite(take);\n', ''),
+        m('F09', 'windows are not counted', '        _counters?.AddWindow(size);\n', ''),
+        m('F10', 'Append does not move the position', '        _next += data.Length;\n', ''),
+        m('F11', 'the tail window is as large as a full one', 'long size = Math.Min(_window, Length - offset);', 'long size = _window;'),
+        m('F12', 'Dispose does not release the mapping file', '        CloseWindow();\n        _file?.Dispose();', '        CloseWindow();'),
+        m('F13', 'the window offset is not added to the base', 'new Span<byte>(_base + (offset - _viewStart), take)', 'new Span<byte>(_base, take)'),
+        m('F14', 'the file is not truncated to the new length', 'fs.SetLength(length);', 'fs.SetLength(Math.Max(length, fs.Length));'),
+    ],
+    'DistScratch.cs': [
+        m('G01', 'an empty append creates the file', '        if (items.IsEmpty) return;\n        long at', '        long at'),
+        m('G02', 'the append offset is the end, not the start', 'long at = Interlocked.Add(ref _entries[chunk], items.Length) - items.Length;', 'long at = Interlocked.Add(ref _entries[chunk], items.Length);'),
+        m('G03', 'scratch bytes are not accounted', '        _counters?.AddScratch((long)items.Length * sizeof(T)); // accounted', '        // accounted'),
+        m('G04', 'an append truncates the chunk file', 'FileMode.OpenOrCreate, FileAccess.Write, _counters', 'FileMode.Create, FileAccess.Write, _counters'),
+        m('G05', 'the append offset is in entries, not bytes', 'f.WriteAt(MemoryMarshal.AsBytes(items), at * sizeof(T));', 'f.WriteAt(MemoryMarshal.AsBytes(items), at);'),
+        m('G06', 'an empty chunk is opened as a file', 'count > 0 ? new CountedFile(PathOf(chunk), FileMode.Open, FileAccess.Read, _counters) : null', 'count >= 0 ? new CountedFile(PathOf(chunk), FileMode.Open, FileAccess.Read, _counters) : null'),
+        m('G07', 'Delete gives the bytes back without clearing the count', 'long count = Interlocked.Exchange(ref _entries[chunk], 0);', 'long count = Interlocked.Read(ref _entries[chunk]);'),
+        m('G08', 'Delete does not remove the file', '        File.Delete(PathOf(chunk));\n    }\n\n    public void Dispose()', '    }\n\n    public void Dispose()'),
+        m('G09', 'Dispose leaves the last chunk', 'for (long c = 0; c < _entries.Length; c++) Delete(c);', 'for (long c = 0; c < _entries.Length - 1; c++) Delete(c);'),
+        m('G10', 'the read takes the larger count', 'int take = (int)Math.Min(buffer.Length, Count - _position);', 'int take = (int)Math.Max(buffer.Length, Count - _position);'),
+        m('G11', 'the read offset is in entries', '_file!.ReadExactAt(MemoryMarshal.AsBytes(buffer[..take]), _position * sizeof(T));', '_file!.ReadExactAt(MemoryMarshal.AsBytes(buffer[..take]), _position);'),
+        m('G12', 'a buffer smaller than a tuple has capacity 0', '_capacity = Math.Max(1, bufferBytes / sizeof(T));', '_capacity = bufferBytes / sizeof(T);'),
+        m('G13', 'a buffer is flushed one entry late', 'if (++filled == _capacity)', 'if (++filled > _capacity)'),
+        m('G14', 'a flushed buffer is not emptied', '            Flush(local, filled);\n            filled = 0;', '            Flush(local, filled);'),
+        m('G15', 'a chunk one past the end is not refused as an argument', 'if ((ulong)local >= (ulong)_filled.Length) ThrowChunkOutside(chunk);', 'if ((ulong)local > (ulong)_filled.Length) ThrowChunkOutside(chunk);'),
+        m('G16', 'the pending span is empty', 'return _buffers.Slice(local * _capacity, filled).AsSpan(filled);', 'return _buffers.Slice(local * _capacity, 0).AsSpan(0);'),
+        m('G17', 'FlushAll does not empty the buffers', '            Flush(local, _filled[local]);\n            _filled[local] = 0;', '            Flush(local, _filled[local]);'),
+        m('G18', 'the buffers are not charged under their own block name', '"dist.tuples"', '"dist.tuple"'),
+        m('G19', 'the buffers of the first chunk start at the second', 'return _buffers.Slice(local * _capacity, filled).AsSpan(filled);', 'return _buffers.Slice((local + 1) * _capacity, filled).AsSpan(filled);'),
+        m('G20', 'a flush writes to the wrong chunk', 'private void Flush(int local, int count) => _scratch.Append(_firstChunk + local,', 'private void Flush(int local, int count) => _scratch.Append(_firstChunk,'),
+    ],
+    'Dist.cs': [
+        m('H01', 'a divisor of 2^32 - 1 is a single chunk', 'if (chunkEntries > uint.MaxValue)', 'if (chunkEntries >= uint.MaxValue)'),
+        m('H02', 'the identity case is a division by two', 'else if (chunkEntries == 1)', 'else if (chunkEntries == 2)'),
+        m('H03', 'the reciprocal is not rounded up', '_m = (ulong.MaxValue / (uint)chunkEntries) + 1;', '_m = ulong.MaxValue / (uint)chunkEntries;'),
+        m('H04', 'a single chunk returns the key', 'return _mode == 1 ? key : 0;', 'return key;'),
+        m('H05', 'a divisor of 0 is not refused by the divider', '        ArgumentOutOfRangeException.ThrowIfLessThan(chunkEntries, 1);\n        if (chunkEntries > uint.MaxValue)', '        if (chunkEntries > uint.MaxValue)'),
+        m('H06', 'ISA refuses the entry n', 'if (sourceValue > N) ThrowBeyondN(index, sourceValue);', 'if (sourceValue >= N) ThrowBeyondN(index, sourceValue);'),
+        m('H07', 'ISA value is the rank plus one', 'value = (uint)index;\n        return true;\n    }\n\n    [DoesNotReturn]\n    private void ThrowBeyondN', 'value = (uint)index + 1;\n        return true;\n    }\n\n    [DoesNotReturn]\n    private void ThrowBeyondN'),
+        m('H08', 'Phi does not check the first entry', '            if (sourceValue != N) throw new InvalidDataException($"SA[0] must be n = {N}, the empty suffix, it is {sourceValue}");\n', ''),
+        m('H09', 'Phi does not remember the first entry', '            _previous = sourceValue;\n            return false;', '            return false;'),
+        m('H10', 'Phi accepts the entry n after the first', 'if (sourceValue >= N) throw new InvalidDataException($"SA[{index}] = {sourceValue} is not a position below n = {N}");', 'if (sourceValue > N) throw new InvalidDataException($"SA[{index}] = {sourceValue} is not a position below n = {N}");'),
+        m('H11', 'Phi does not advance the predecessor', '        value = _previous;\n        _previous = sourceValue;\n        return true;', '        value = _previous;\n        return true;'),
+        m('H12', 'ChunksFor rounds exact multiples up', '(slots % chunkEntries == 0 ? 0 : 1)', '1'),
+        m('H13', 'ChunksFor accepts negative slots', '        ArgumentOutOfRangeException.ThrowIfNegative(slots);\n        ArgumentOutOfRangeException.ThrowIfLessThan(chunkEntries, 1);\n        return', '        ArgumentOutOfRangeException.ThrowIfLessThan(chunkEntries, 1);\n        return'),
+        m('H14', 'a negative source count is accepted', '        ArgumentOutOfRangeException.ThrowIfNegative(sourceEntries);\n', ''),
+        m('H15', 'an I/O buffer of 0 is accepted', 'ArgumentOutOfRangeException.ThrowIfLessThan(options.IoBufferBytes, 1);', 'ArgumentOutOfRangeException.ThrowIfLessThan(options.IoBufferBytes, 0);'),
+        m('H16', 'a read buffer below four bytes is accepted', 'ArgumentOutOfRangeException.ThrowIfLessThan(options.ReadBytes, 4);', 'ArgumentOutOfRangeException.ThrowIfLessThan(options.ReadBytes, 3);'),
+        m('H17', 'the source length is only checked from below', 'if (source.Length != 4 * sourceEntries) throw', 'if (source.Length < 4 * sourceEntries) throw'),
+        m('H18', 'the scratch directory is not created', '        Directory.CreateDirectory(options.ScratchDir);\n', ''),
+        m('H19', 'the chunk files are not accounted', 'new DistScratch<DistEntry<TValue>>(options.ScratchDir, "dist", chunks, counters)', 'new DistScratch<DistEntry<TValue>>(options.ScratchDir, "dist", chunks)'),
+        m('H20', 'the budget of the options is ignored', 'new BudgetedArena(options.Budget ?? new ArenaBudget(long.MaxValue), options.Arena)', 'new BudgetedArena(new ArenaBudget(long.MaxValue), options.Arena)'),
+        m('H21', 'the source read buffer is kept in pass 2', '        arena.ReleaseTo(mark);\n\n        // pass 2', '\n        // pass 2'),
+        m('H22', 'the buffer entries are not at least one', 'int bufEntries = Math.Max(1, options.IoBufferBytes / tupleBytes);', 'int bufEntries = options.IoBufferBytes / tupleBytes;'),
+        m('H23', 'the read buffer holds half the bytes', 'int readEntries = (int)Math.Min(options.ReadBytes / 4, sourceEntries);', 'int readEntries = (int)Math.Min(options.ReadBytes / 8, sourceEntries);'),
+        m('H24', 'a skipped entry is distributed', 'if (!mapper.TryMap(first + i, entries[i], out uint key, out TValue value)) continue;', 'if (mapper.TryMap(first + i, entries[i], out uint key, out TValue value)) continue;'),
+        m('H25', 'a key equal to the slot count is accepted', 'if (key >= slots) ThrowKeyOutside(first + i, key, slots);', 'if (key > slots) ThrowKeyOutside(first + i, key, slots);'),
+        m('H26', 'the source is read at the wrong offset', 'source.ReadExactAt(MemoryMarshal.AsBytes(entries), first * 4);', 'source.ReadExactAt(MemoryMarshal.AsBytes(entries), first * 8);'),
+        m('H27', 'the chunk array is cleared, not filled', 'array.Fill(target.Fill);', 'array.Clear();'),
+        m('H28', 'the tuples read are not counted in bytes', 'bytesRead += (long)got * tupleBytes;', 'bytesRead += got;'),
+        m('H29', 'the tuples written are not counted in bytes', 'bytesWritten += flushed * tupleBytes;', 'bytesWritten += flushed;'),
+        m('H30', 'a chunk file is not deleted after its chunk is read', '                scratch.Delete(chunk);\n', ''),
+        m('H31', 'the tuples still in the buffer are lost', '        ScatterInto(writer.PendingSpan(chunk), array, startSlot, target);\n', '        '),
+        m('H32', 'the exactly-once check is inverted', '            if (target.ExactlyOnce)\n            {', '            if (!target.ExactlyOnce)\n            {'),
+        m('H33', 'a missing slot is a slot that is filled', 'if (array[k].Equals(target.Fill)) throw', 'if (!array[k].Equals(target.Fill)) throw'),
+        m('H34', 'the chunk is not written to the target', '            window.Append(MemoryMarshal.AsBytes(array));\n', ''),
+        m('H35', 'the canaries are not verified', '        arena.VerifyCanaries();\n        return new DistStats', '        return new DistStats'),
+        m('H36', 'the ISA limit is one too high', 'if (n >= uint.MaxValue - 2) throw new NotSupportedException("positions are 32-bit: n must be below 2^32 - 2");\n        var mapper = new IsaMapper(n);', 'if (n > uint.MaxValue - 2) throw new NotSupportedException("positions are 32-bit: n must be below 2^32 - 2");\n        var mapper = new IsaMapper(n);'),
+        m('H37', 'the ISA target has n slots', 'isaPath, new DistTarget<uint>(n + 1, uint.MaxValue, true), options);', 'isaPath, new DistTarget<uint>(n, uint.MaxValue, true), options);'),
+        m('H38', 'the Phi target has n + 1 slots', 'phiPath, new DistTarget<uint>(n, uint.MaxValue, true), options);', 'phiPath, new DistTarget<uint>(n + 1, uint.MaxValue, true), options);'),
+        m('H39', 'a key outside its chunk is not refused', 'if ((ulong)at >= (ulong)array.Length) ThrowChunkDamaged(e.Key, startSlot);', 'if ((ulong)at > (ulong)array.Length) ThrowChunkDamaged(e.Key, startSlot);'),
+        m('H40', 'a repeated slot is overwritten silently', 'if (exactlyOnce && !slot.Equals(fill)) ThrowWrittenTwice(e.Key);', 'if (exactlyOnce && slot.Equals(fill)) ThrowWrittenTwice(e.Key);'),
+        m('H41', 'the key limit is 2^32 - 1 slots', 'if (slots > 1L << 32) throw', 'if (slots >= 1L << 32) throw'),
+        m('H42', 'the chunk of a key is its key', 'writer.Add(divide.Of(key), new DistEntry<TValue>(key, value));', 'writer.Add(divide.Of(key) / 2, new DistEntry<TValue>(key, value));'),
+    ],
+    'SpillStack.cs': [
+        m('I01', 'a block of one entry is accepted', 'ArgumentOutOfRangeException.ThrowIfLessThan(blockEntries, 2);', 'ArgumentOutOfRangeException.ThrowIfLessThan(blockEntries, 1);'),
+        m('I02', 'a full block is not advanced', 'if (_count == _block) Advance();', 'if (_count > _block) Advance();'),
+        m('I03', 'a push does not mark its block dirty', '        _cur[_count++] = value;\n        _curDirty = true;', '        _cur[_count++] = value;'),
+        m('I04', 'a pop from the second entry of a block retreats', 'if (_count == 1 && _height > 1) Retreat();', 'if (_count == 1 && _height > 2) Retreat();'),
+        m('I05', 'a pop does not lower the height', '        else _count--;\n        _height--;', '        else _count--;'),
+        m('I06', 'a clean block is always written', 'if (_otherDirty) WriteBlock(_topBlock - 1, _other);', 'if (!_otherDirty) WriteBlock(_topBlock - 1, _other);'),
+        m('I07', 'clean evictions are not counted', '            else _cleanEvictions++;', '            else { }'),
+        m('I08', 'every block is dirty after an advance', '        _otherDirty = _curDirty;\n        _curDirty = false;\n        _otherBelow = true;', '        _otherDirty = true;\n        _curDirty = false;\n        _otherBelow = true;'),
+        m('I09', 'the block below is not marked resident', '        _otherBelow = true;\n        _topBlock++;', '        _topBlock++;'),
+        m('I10', 'the top block number does not advance', '        _topBlock++;\n        _count = 0;', '        _count = 0;'),
+        m('I11', 'a resident block is read back', 'if (!_otherBelow)\n        {\n            ReadBlock', 'if (_otherBelow)\n        {\n            ReadBlock'),
+        m('I12', 'a block read back is dirty', '        _curDirty = _otherDirty;\n        _otherDirty = false;\n        _otherBelow = false;', '        _curDirty = true;\n        _otherDirty = false;\n        _otherBelow = false;'),
+        m('I13', 'a retreat leaves a block one short', '        _topBlock--;\n        _count = _block;', '        _topBlock--;\n        _count = _block - 1;'),
+        m('I14', 'a block is written at the offset of 16-byte entries', '_file.WriteAt(new ReadOnlySpan<byte>(buffer, _blockBytes), block * _blockBytes);', '_file.WriteAt(new ReadOnlySpan<byte>(buffer, _blockBytes), block * _block * 16);'),
+        m('I15', 'the spill file is not accounted as scratch', '            _counters?.AddScratch(end - _fileBytes);\n', ''),
+        m('I16', 'the flush interval 0 flushes every block', 'if (_flushBytes <= 0) return;', 'if (_flushBytes < 0) return;'),
+        m('I17', 'the flush happens one block late', 'if (_unflushed < _flushBytes) return;', 'if (_unflushed <= _flushBytes) return;'),
+        m('I18', 'blocks read are not counted', '        _blocksRead++;\n', ''),
+        m('I19', 'the spill file is not deleted on dispose', '        File.Delete(_path);\n', ''),
+        m('I20', 'the spill scratch is not given back on dispose', '        _counters?.RemoveScratch(_fileBytes);\n', ''),
+        m('I21', 'Top of an empty stack does not throw', '        get\n        {\n            if (_height == 0) ThrowEmpty();\n            return ref _cur[_count - 1];', '        get\n        {\n            return ref _cur[_count - 1];'),
+        m('I22', 'TopForUpdate does not mark the block dirty', '        if (_height == 0) ThrowEmpty();\n        _curDirty = true;\n        return ref _cur[_count - 1];', '        if (_height == 0) ThrowEmpty();\n        return ref _cur[_count - 1];'),
+        m('I23', 'the peak height is not kept', 'if (++_height > _peak) _peak = _height;', '++_height;'),
+        m('I24', 'a pop of an empty stack does not throw', '    internal void Pop()\n    {\n        if (_height == 0) ThrowEmpty();', '    internal void Pop()\n    {'),
+        m('I25', 'bytes written are not counted', '        _bytesWritten += _blockBytes;\n', ''),
+        m('I26', 'the file end is not tracked', '            _fileBytes = end;\n', ''),
+        m('I27', 'the spill file is opened for reading only after the first spill', 'new CountedFile(_path, FileMode.Create, FileAccess.ReadWrite, _counters)', 'new CountedFile(_path, FileMode.CreateNew, FileAccess.ReadWrite, _counters)'),
+        m('I28', 'Dispose is not idempotent', '        if (_disposed) return;\n        _disposed = true;\n        if (_file is null) return;', '        if (_file is null) return;'),
+    ],
+}
+
+total = 0
+for fname, muts in FILES.items():
+    path = os.path.join(ROOT, SRC + fname)
+    text = open(path).read()
+    out = []
+    ids = set()
+    for x in muts:
+        if x['id'] in ids:
+            raise SystemExit('duplicate id ' + x['id'])
+        ids.add(x['id'])
+        n = text.count(x['old'])
+        if n != 1:
+            print('PATTERN %s occurs %d times in %s: %s' % (x['id'], n, fname, x['old'][:70].replace('\n', '\\n')))
+            continue
+        x = dict(x, file=SRC + fname)
+        out.append(x)
+    outname = os.path.join(os.path.dirname(os.path.abspath(__file__)), '1b7a_%s_listed.json' % fname[:-3].lower())
+    json.dump(out, open(outname, 'w'), indent=1)
+    total += len(out)
+    print('%-24s %3d mutants' % (fname, len(out)))
+print('total', total)

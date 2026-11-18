@@ -1,0 +1,16 @@
+[
+ {
+  "id": "B15",
+  "desc": "RaiseTo never raises",
+  "old": "while (seen < value)",
+  "new": "while (seen > value)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Atomic.cs"
+ },
+ {
+  "id": "B16",
+  "desc": "RaiseTo stores the smaller value",
+  "old": "Interlocked.CompareExchange(ref target, value, seen)",
+  "new": "Interlocked.CompareExchange(ref target, seen, seen)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Atomic.cs"
+ }
+]

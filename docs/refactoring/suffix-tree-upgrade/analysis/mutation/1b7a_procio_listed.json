@@ -1,0 +1,142 @@
+[
+ {
+  "id": "C01",
+  "desc": "an empty file is reported unavailable by the real source",
+  "old": "                if (got <= 0) break;\n                total += got;\n            }\n            return total;",
+  "new": "                if (got <= 0) return -1;\n                total += got;\n            }\n            return total;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/ProcIo.cs"
+ },
+ {
+  "id": "C02",
+  "desc": "the real source returns 0 for a missing file",
+  "old": "        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException or ArgumentException or SecurityException)\n        {\n            return -1;",
+  "new": "        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException or ArgumentException or SecurityException)\n        {\n            return 0;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/ProcIo.cs"
+ },
+ {
+  "id": "C03",
+  "desc": "SafeRead does not clamp the count",
+  "old": "return got < 0 ? -1 : Math.Min(got, buffer.Length);",
+  "new": "return got < 0 ? -1 : got;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/ProcIo.cs"
+ },
+ {
+  "id": "C04",
+  "desc": "SafeRead treats an empty read as unavailable",
+  "old": "return got < 0 ? -1 : Math.Min(got, buffer.Length);",
+  "new": "return got <= 0 ? -1 : Math.Min(got, buffer.Length);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/ProcIo.cs"
+ },
+ {
+  "id": "C05",
+  "desc": "an empty key is looked up",
+  "old": "        if (key.IsEmpty) return false;\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/ProcIo.cs"
+ },
+ {
+  "id": "C06",
+  "desc": "the last possible key position is not searched",
+  "old": "while (from <= text.Length - key.Length)",
+  "new": "while (from < text.Length - key.Length)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/ProcIo.cs"
+ },
+ {
+  "id": "C07",
+  "desc": "a key need not stand at the start of a line",
+  "old": "if (position == 0 || text[position - 1] == (byte)'\\n') return",
+  "new": "if (position == 0 || text[position - 1] != 0xFF) return",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/ProcIo.cs"
+ },
+ {
+  "id": "C08",
+  "desc": "only a blank, not a tab, may precede the number",
+  "old": "while (i < text.Length && (text[i] == (byte)' ' || text[i] == (byte)'\\t')) i++;",
+  "new": "while (i < text.Length && text[i] == (byte)' ') i++;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/ProcIo.cs"
+ },
+ {
+  "id": "C09",
+  "desc": "the digit 9 is not a digit",
+  "old": "text[i] <= (byte)'9'",
+  "new": "text[i] < (byte)'9'",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/ProcIo.cs"
+ },
+ {
+  "id": "C10",
+  "desc": "long.MaxValue is refused as an overflow",
+  "old": "if (parsed > (long.MaxValue - digit) / 10) return false;",
+  "new": "if (parsed >= (long.MaxValue - digit) / 10) return false;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/ProcIo.cs"
+ },
+ {
+  "id": "C11",
+  "desc": "an overflow is not detected",
+  "old": "            if (parsed > (long.MaxValue - digit) / 10) return false;\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/ProcIo.cs"
+ },
+ {
+  "id": "C12",
+  "desc": "a line without digits parses as 0",
+  "old": "        if (digits == 0) return false;\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/ProcIo.cs"
+ },
+ {
+  "id": "C13",
+  "desc": "Since adds the syscall writes",
+  "old": "WChar - earlier.WChar",
+  "new": "WChar + earlier.WChar",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/ProcIo.cs"
+ },
+ {
+  "id": "C14",
+  "desc": "write_bytes is read from cancelled_write_bytes",
+  "old": "\"write_bytes:\"u8, out long writeBytes",
+  "new": "\"cancelled_write_bytes:\"u8, out long writeBytes",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/ProcIo.cs"
+ },
+ {
+  "id": "C15",
+  "desc": "a missing field does not make /proc/self/io unavailable",
+  "old": "            || !ProcText.TryGetLong(text, \"syscw:\"u8, out long syscw)\n",
+  "new": "            || false\n            || !ProcText.TryGetLong(text, \"syscw:\"u8, out long syscw) && false\n",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/ProcIo.cs"
+ },
+ {
+  "id": "C16",
+  "desc": "Finish does not subtract the start counters",
+  "old": "IoSnapshot counted = _counters.Snapshot().Since(_start);",
+  "new": "IoSnapshot counted = _counters.Snapshot();",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/ProcIo.cs"
+ },
+ {
+  "id": "C17",
+  "desc": "Finish reports the end snapshot, not the delta",
+  "old": "_procStart is { } begin && end is { } last ? last.Since(begin) : null;",
+  "new": "_procStart is { } begin && end is { } last ? last : null;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/ProcIo.cs"
+ },
+ {
+  "id": "C18",
+  "desc": "a null counters object is accepted",
+  "old": "        ArgumentNullException.ThrowIfNull(counters);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/ProcIo.cs"
+ },
+ {
+  "id": "C19",
+  "desc": "Finish ignores a missing start snapshot",
+  "old": "_procStart is { } begin && end is { } last ? last.Since(begin) : null;",
+  "new": "end is { } last ? last.Since(_procStart ?? default) : null;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/ProcIo.cs"
+ },
+ {
+  "id": "C20",
+  "desc": "the real source opens exclusively",
+  "old": "FileShare.ReadWrite);\n            int total = 0;",
+  "new": "FileShare.None);\n            int total = 0;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/ProcIo.cs"
+ }
+]

@@ -1,0 +1,100 @@
+[
+ {
+  "id": "F01",
+  "desc": "the default window is 64 KB",
+  "old": "internal const int DefaultWindowBytes = 1 << 20;",
+  "new": "internal const int DefaultWindowBytes = 1 << 16;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedWindowWriter.cs"
+ },
+ {
+  "id": "F02",
+  "desc": "a window of 0 bytes is accepted",
+  "old": "ArgumentOutOfRangeException.ThrowIfLessThan(windowBytes, 1);",
+  "new": "ArgumentOutOfRangeException.ThrowIfLessThan(windowBytes, 0);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedWindowWriter.cs"
+ },
+ {
+  "id": "F03",
+  "desc": "an empty file is mapped",
+  "old": "if (length > 0) _file =",
+  "new": "if (length >= 0) _file =",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedWindowWriter.cs"
+ },
+ {
+  "id": "F04",
+  "desc": "a write that ends exactly at the end is refused",
+  "old": "offset > Length - data.Length",
+  "new": "offset >= Length - data.Length",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedWindowWriter.cs"
+ },
+ {
+  "id": "F05",
+  "desc": "a negative offset is accepted by the range test",
+  "old": "if (offset < 0 || offset > Length - data.Length)",
+  "new": "if (offset > Length - data.Length)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedWindowWriter.cs"
+ },
+ {
+  "id": "F06",
+  "desc": "the take is the larger of the two",
+  "old": "int take = (int)Math.Min(data.Length, _viewEnd - offset);",
+  "new": "int take = (int)Math.Max(data.Length, _viewEnd - offset);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedWindowWriter.cs"
+ },
+ {
+  "id": "F07",
+  "desc": "a write at the start of the window opens another",
+  "old": "offset < _viewStart ||",
+  "new": "offset <= _viewStart ||",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedWindowWriter.cs"
+ },
+ {
+  "id": "F08",
+  "desc": "mapped writes are not counted",
+  "old": "            _counters?.AddMappedWrite(take);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedWindowWriter.cs"
+ },
+ {
+  "id": "F09",
+  "desc": "windows are not counted",
+  "old": "        _counters?.AddWindow(size);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedWindowWriter.cs"
+ },
+ {
+  "id": "F10",
+  "desc": "Append does not move the position",
+  "old": "        _next += data.Length;\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedWindowWriter.cs"
+ },
+ {
+  "id": "F11",
+  "desc": "the tail window is as large as a full one",
+  "old": "long size = Math.Min(_window, Length - offset);",
+  "new": "long size = _window;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedWindowWriter.cs"
+ },
+ {
+  "id": "F12",
+  "desc": "Dispose does not release the mapping file",
+  "old": "        CloseWindow();\n        _file?.Dispose();",
+  "new": "        CloseWindow();",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedWindowWriter.cs"
+ },
+ {
+  "id": "F13",
+  "desc": "the window offset is not added to the base",
+  "old": "new Span<byte>(_base + (offset - _viewStart), take)",
+  "new": "new Span<byte>(_base, take)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedWindowWriter.cs"
+ },
+ {
+  "id": "F14",
+  "desc": "the file is not truncated to the new length",
+  "old": "fs.SetLength(length);",
+  "new": "fs.SetLength(Math.Max(length, fs.Length));",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedWindowWriter.cs"
+ }
+]

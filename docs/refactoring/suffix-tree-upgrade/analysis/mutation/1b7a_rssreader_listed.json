@@ -1,0 +1,128 @@
+[
+ {
+  "id": "D01",
+  "desc": "a missing RssAnon line reads as 0",
+  "old": "        if (!ProcText.TryGetLong(text, \"RssAnon:\"u8, out long anon)) return RssSnapshot.Unavailable;\n",
+  "new": "        ProcText.TryGetLong(text, \"RssAnon:\"u8, out long anon);\n",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/RssReader.cs"
+ },
+ {
+  "id": "D02",
+  "desc": "RssFile is read from RssAnon",
+  "old": "\"RssFile:\"u8, out long file",
+  "new": "\"RssAnon:\"u8, out long file",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/RssReader.cs"
+ },
+ {
+  "id": "D03",
+  "desc": "VmHWM is read from VmPeak",
+  "old": "\"VmHWM:\"u8, out long hwm",
+  "new": "\"VmPeak:\"u8, out long hwm",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/RssReader.cs"
+ },
+ {
+  "id": "D04",
+  "desc": "Threads is read from RssFile",
+  "old": "\"Threads:\"u8, out long threads",
+  "new": "\"RssFile:\"u8, out long threads",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/RssReader.cs"
+ },
+ {
+  "id": "D05",
+  "desc": "RssAnonMb divides by 1000 kB",
+  "old": "RssAnonKb * 1024.0 / 1e6",
+  "new": "RssAnonKb * 1000.0 / 1e6",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/RssReader.cs"
+ },
+ {
+  "id": "D06",
+  "desc": "an interval of 0 is accepted",
+  "old": "ArgumentOutOfRangeException.ThrowIfLessThan(intervalMs, 1);",
+  "new": "ArgumentOutOfRangeException.ThrowIfLessThan(intervalMs, 0);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/RssReader.cs"
+ },
+ {
+  "id": "D07",
+  "desc": "Start can be called twice",
+  "old": "        if (_started) throw new InvalidOperationException(\"sampler already started\");\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/RssReader.cs"
+ },
+ {
+  "id": "D08",
+  "desc": "an unavailable platform starts a sampler",
+  "old": "        if (!first.Available) return;\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/RssReader.cs"
+ },
+ {
+  "id": "D09",
+  "desc": "Stop does not take the last sample",
+  "old": "            if (last.Available) Record(last);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/RssReader.cs"
+ },
+ {
+  "id": "D10",
+  "desc": "RssFile maximum is taken from RssAnon",
+  "old": "Atomic.RaiseTo(ref _maxFile, s.RssFileKb);",
+  "new": "Atomic.RaiseTo(ref _maxFile, s.RssAnonKb);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/RssReader.cs"
+ },
+ {
+  "id": "D11",
+  "desc": "the last RssAnon is a maximum",
+  "old": "Interlocked.Exchange(ref _lastAnon, s.RssAnonKb);",
+  "new": "Atomic.RaiseTo(ref _lastAnon, s.RssAnonKb);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/RssReader.cs"
+ },
+ {
+  "id": "D12",
+  "desc": "Stop does not allow a restart",
+  "old": "        _started = false;\n        return new RssStats",
+  "new": "        return new RssStats",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/RssReader.cs"
+ },
+ {
+  "id": "D13",
+  "desc": "Dispose does not stop the sampler",
+  "old": "        if (_started) Stop();\n        _stopSignal.Dispose();",
+  "new": "        _stopSignal.Dispose();",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/RssReader.cs"
+ },
+ {
+  "id": "D14",
+  "desc": "the thread is not woken by Stop",
+  "old": "            _stopSignal.Set(); // wakes the thread from its wait at once, so a long interval does not delay the stop\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/RssReader.cs"
+ },
+ {
+  "id": "D15",
+  "desc": "the interval is taken in seconds",
+  "old": "long period = Stopwatch.Frequency * _intervalMs / 1000;",
+  "new": "long period = Stopwatch.Frequency * _intervalMs;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/RssReader.cs"
+ },
+ {
+  "id": "D16",
+  "desc": "the sample count is not kept",
+  "old": "        Interlocked.Increment(ref _samples);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/RssReader.cs"
+ },
+ {
+  "id": "D17",
+  "desc": "the thread count maximum is taken from VmHWM",
+  "old": "Atomic.RaiseTo(ref _maxThreads, s.Threads);",
+  "new": "Atomic.RaiseTo(ref _maxThreads, s.VmHwmKb);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/RssReader.cs"
+ },
+ {
+  "id": "D18",
+  "desc": "a null reader is accepted",
+  "old": "        ArgumentNullException.ThrowIfNull(reader);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/RssReader.cs"
+ }
+]
