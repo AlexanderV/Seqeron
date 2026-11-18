@@ -404,12 +404,19 @@ public class AlignmentTools
     private const string DistanceModeDescription =
         "Guide-tree distance: 'linear' (default) = 1 - identities / min(length) of the repository's global alignment under the given scores (linear NW, or Gotoh when gapModel='affine'); " +
         "'clustalw' = the same formula on ClustalW 2.1's own pairwise stage (affine local Smith-Waterman-Gotoh alignment with its IUB matrix x100 and gap penalties 15 / 6.66, " +
-        "the 'slow' full-DP mode of clustalw -ALIGN; the match/mismatch/gap parameters are then used only for the profile alignment).";
+        "the 'slow' full-DP mode of clustalw -ALIGN; the match/mismatch/gap parameters are then used only for the profile alignment); " +
+        "'clustalw-quick' = ClustalW 2.1's fast k-tuple mode (clustalw -QUICKTREE, FastPairwiseAlign.cpp: best chain of exactly matching k-mers on the top diagonals, " +
+        "d = (100 - 100*fragmentScore/min(length))/100; tuned by ktuple / window / topDiagonals / pairGap).";
+
+    private const string KtupleDescription = "distance='clustalw-quick' only: k-tuple (word) size, 1-4 for DNA (clustalw -KTUPLE, default 2).";
+    private const string WindowDescription = "distance='clustalw-quick' only: diagonals scanned around each top diagonal (clustalw -WINDOW, default 4).";
+    private const string TopDiagonalsDescription = "distance='clustalw-quick' only: number of best diagonals used (clustalw -TOPDIAGS, default 4).";
+    private const string PairGapDescription = "distance='clustalw-quick' only: gap penalty of the fragment chain (clustalw -PAIRGAP; default 5, or ktuple + 4 when ktuple is given, as the clustalw command line does).";
 
     private const string GuideTreeDescription =
         "Guide-tree method: 'upgma' (default; Sokal & Michener 1958, the Feng-Doolittle / CLUSTAL-1 choice) or 'nj' (neighbour-joining, Saitou & Nei 1987 - " +
         "ClustalW 2.1's default tree, T-Coffee/Clustal-style; the unrooted NJ tree is rooted and ordered exactly as clustalw does: Tree::reRoot, left subtree first). " +
-        "With distance='clustalw' and guideTree='nj' the tree equals the .dnd file of clustalw -ALIGN. Both are built by the canonical phylogenetics builders.";
+        "With distance='clustalw' and guideTree='nj' the tree equals the .dnd file of clustalw -ALIGN. UPGMA is built by the canonical phylogenetics builder; NJ uses ClustalW's own neighbour-joining arithmetic (exact ties as in clustalw).";
 
     [McpServerTool(Name = "multiple_align", Title = "MSA — Center-Star Alignment (Gusfield)", ReadOnly = true)]
     [Description("Center-star multiple sequence alignment (Gusfield 1993) with exact pairwise alignments: the center is the sequence with the highest total optimal pairwise global score to the others, every other sequence is aligned to it with the canonical global aligner (Needleman–Wunsch, or Gotoh affine with gapModel='affine') and the pairwise alignments are merged column-wise (once a gap, always a gap). Default linear gap model (every gap position costs gapExtend; gapOpen is ignored); gapModel='affine' charges gapOpen + k·gapExtend per gap run and reports the natural affine sum-of-pairs score. For two sequences the result is an optimal pairwise global alignment under either model. Returns the aligned rows, majority consensus and sum-of-pairs score (gap-gap columns score 0).")]
@@ -445,9 +452,13 @@ public class AlignmentTools
         [Description(GapExtendDescription)] int gapExtend = -1,
         [Description(DistanceModeDescription)] string distance = "linear",
         [Description(GapModelDescription)] string gapModel = "linear",
-        [Description(GuideTreeDescription)] string guideTree = "upgma") =>
+        [Description(GuideTreeDescription)] string guideTree = "upgma",
+        [Description(KtupleDescription)] int? ktuple = null,
+        [Description(WindowDescription)] int? window = null,
+        [Description(TopDiagonalsDescription)] int? topDiagonals = null,
+        [Description(PairGapDescription)] int? pairGap = null) =>
         RunMsa(sequences, match, mismatch, gapOpen, gapExtend,
-            (seqs, scoring) => global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignProgressive(seqs, scoring, ParseMsaOptions(distance, gapModel, guideTree)));
+            (seqs, scoring) => global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignProgressive(seqs, scoring, ParseMsaOptions(distance, gapModel, guideTree, ktuple, window, topDiagonals, pairGap)));
 
     [McpServerTool(Name = "multiple_align_iterative", Title = "MSA — Progressive + Iterative Refinement (MUSCLE-style)", ReadOnly = true)]
     [Description("Progressive MSA followed by MUSCLE-style tree-dependent restricted-partitioning refinement (Edgar 2004, stage 3): each guide-tree edge splits the alignment into two profiles that are re-aligned and kept only if the sum-of-pairs score strictly improves; repeated until convergence or maxIterations passes. The result's sum-of-pairs score is never below multiple_align_progressive's. Default linear gap model (gapOpen ignored); gapModel='affine' refines under the natural affine sum-of-pairs objective with the affine profile DP. distance='clustalw' selects ClustalW 2.1's pairwise stage for the guide tree and guideTree='nj' neighbour-joining (see multiple_align_progressive); the refinement partitions are the edges of that tree.")]
@@ -460,12 +471,16 @@ public class AlignmentTools
         [Description("Upper bound on full refinement passes (>= 1).")] int maxIterations = 16,
         [Description(DistanceModeDescription)] string distance = "linear",
         [Description(GapModelDescription)] string gapModel = "linear",
-        [Description(GuideTreeDescription)] string guideTree = "upgma")
+        [Description(GuideTreeDescription)] string guideTree = "upgma",
+        [Description(KtupleDescription)] int? ktuple = null,
+        [Description(WindowDescription)] int? window = null,
+        [Description(TopDiagonalsDescription)] int? topDiagonals = null,
+        [Description(PairGapDescription)] int? pairGap = null)
     {
         if (maxIterations < 1)
             throw new ArgumentOutOfRangeException(nameof(maxIterations), "maxIterations must be >= 1.");
 
-        var options = ParseMsaOptions(distance, gapModel, guideTree);
+        var options = ParseMsaOptions(distance, gapModel, guideTree, ktuple, window, topDiagonals, pairGap);
         return RunMsa(sequences, match, mismatch, gapOpen, gapExtend,
             (seqs, scoring) => global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignIterative(seqs, scoring, options, maxIterations));
     }
@@ -480,12 +495,77 @@ public class AlignmentTools
         [Description(GapExtendDescription)] int gapExtend = -1,
         [Description(DistanceModeDescription)] string distance = "linear",
         [Description(GapModelDescription)] string gapModel = "linear",
-        [Description(GuideTreeDescription)] string guideTree = "upgma") =>
+        [Description(GuideTreeDescription)] string guideTree = "upgma",
+        [Description(KtupleDescription)] int? ktuple = null,
+        [Description(WindowDescription)] int? window = null,
+        [Description(TopDiagonalsDescription)] int? topDiagonals = null,
+        [Description(PairGapDescription)] int? pairGap = null) =>
         RunMsa(sequences, match, mismatch, gapOpen, gapExtend,
-            (seqs, scoring) => global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignConsistency(seqs, scoring, ParseMsaOptions(distance, gapModel, guideTree)));
+            (seqs, scoring) => global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignConsistency(seqs, scoring, ParseMsaOptions(distance, gapModel, guideTree, ktuple, window, topDiagonals, pairGap)));
 
-    private static global::Seqeron.Genomics.Infrastructure.MsaOptions ParseMsaOptions(string? distance, string? gapModel, string? guideTree = null) => new()
+    [McpServerTool(Name = "multiple_align_clustalw", Title = "MSA — ClustalW 2.1 Multiple Alignment (exact port)", ReadOnly = true)]
+    [Description("ClustalW 2.1's multiple alignment of DNA (clustalw -TYPE=DNA -ALIGN), ported step by step and verified row-for-row against the installed clustalw 2.1: pairwise distances (distance='clustalw' = the full affine Smith-Waterman-Gotoh stage, 'clustalw-quick' = the fast k-tuple stage of -QUICKTREE with ktuple / window / topDiagonals / pairGap), ClustalW's neighbour-joining guide tree (rooted by Tree::reRoot), sequence weights derived from the tree branch lengths (Thompson, Higgins & Gibson 1994; noWeights = equal weights), delayed divergent sequences (maxDiv, default 30: sequences with at most that percent identity to every other sequence are aligned last), and profile-profile alignment with position-specific gap penalties (positions that already hold gaps get a reduced opening penalty and half the extension penalty, end gaps are free) on the IUB weight matrix shifted to non-negative scores (negative = keep it signed) with transitions weighted by transitionWeight (clustalw -TRANSWEIGHT, default 0.5) and Myers-Miller linear-space alignment. gapOpen / gapExtend are ClustalW's -GAPOPEN 15 / -GAPEXT 6.66 (the DNA residue-specific, hydrophilic and gap-separation penalties of clustalw are protein-only). Rows are returned in input order. match / mismatch / scoreGapOpen / scoreGapExtend define only the reported totalScore (natural affine sum of pairs, Altschul 1989).")]
+    public static MultipleAlignmentResultDto MultipleAlignClustalW(
+        [Description("DNA sequences to align (at least one; A, C, G, T).")] string[] sequences,
+        [Description("ClustalW -GAPOPEN: gap-opening penalty of the profile alignment (default 15; a penalty, positive).")] double gapOpen = 15.0,
+        [Description("ClustalW -GAPEXT: gap-extension penalty of the profile alignment (default 6.66).")] double gapExtend = 6.66,
+        [Description("Pairwise stage that gives the guide-tree distances: 'clustalw' (default; full DP, clustalw -ALIGN) or 'clustalw-quick' (fast k-tuple mode, clustalw -QUICKTREE).")] string distance = "clustalw",
+        [Description("ClustalW -PWGAPOPEN: pairwise gap-opening penalty of the full pairwise stage (default 15).")] double pwGapOpen = 15.0,
+        [Description("ClustalW -PWGAPEXT: pairwise gap-extension penalty of the full pairwise stage (default 6.66).")] double pwGapExtend = 6.66,
+        [Description("ClustalW -TRANSWEIGHT: weight of transitions (A-G, C-T/U) in the profile matrix (default 0.5; 0 = as mismatches, 1 = as matches).")] float transitionWeight = 0.5f,
+        [Description("ClustalW -MAXDIV (default 30): a sequence whose highest percent identity to any other sequence is at most this value is delayed (aligned last, after the rest).")] int maxDiv = 30,
+        [Description("ClustalW -NOWEIGHTS: no tree-derived sequence weights.")] bool noWeights = false,
+        [Description("ClustalW -NEGATIVE: keep the substitution matrix signed instead of shifting it to non-negative scores.")] bool negative = false,
+        [Description(KtupleDescription)] int? ktuple = null,
+        [Description(WindowDescription)] int? window = null,
+        [Description(TopDiagonalsDescription)] int? topDiagonals = null,
+        [Description(PairGapDescription)] int? pairGap = null,
+        [Description("Score for matching base in the reported totalScore only.")] int match = 1,
+        [Description("Score for mismatching base in the reported totalScore only.")] int mismatch = -1,
+        [Description("Gap-open score of the reported totalScore only (negative = penalty).")] int scoreGapOpen = -2,
+        [Description("Gap-extend score of the reported totalScore only (negative = penalty).")] int scoreGapExtend = -1)
     {
+        var mode = (distance ?? "clustalw").Trim().ToLowerInvariant() switch
+        {
+            "clustalw" or "clustalw_affine" or "clustalwaffine" or "full" => global::Seqeron.Genomics.Infrastructure.ClustalWPairwiseMode.Full,
+            "clustalw-quick" or "clustalw_quick" or "clustalwquick" or "quick" => global::Seqeron.Genomics.Infrastructure.ClustalWPairwiseMode.Quick,
+            _ => throw new ArgumentException("distance must be 'clustalw' or 'clustalw-quick'.", nameof(distance)),
+        };
+        var options = new global::Seqeron.Genomics.Infrastructure.ClustalWOptions
+        {
+            GapOpen = gapOpen,
+            GapExtend = gapExtend,
+            PairwiseMode = mode,
+            PairwiseGapOpen = pwGapOpen,
+            PairwiseGapExtend = pwGapExtend,
+            TransitionWeight = transitionWeight,
+            DivergenceCutoff = maxDiv,
+            NoWeights = noWeights,
+            NegativeMatrix = negative,
+            Quick = new global::Seqeron.Genomics.Infrastructure.ClustalWQuickOptions
+            {
+                KTuple = ktuple ?? 2,
+                Window = window ?? 4,
+                TopDiagonals = topDiagonals ?? 4,
+                PairGap = pairGap ?? (ktuple.HasValue ? ktuple.Value + 4 : 5),
+            },
+        };
+        return RunMsa(sequences, match, mismatch, scoreGapOpen, scoreGapExtend,
+            (seqs, scoring) => global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignClustalW(seqs, options, scoring));
+    }
+
+    private static global::Seqeron.Genomics.Infrastructure.MsaOptions ParseMsaOptions(
+        string? distance, string? gapModel, string? guideTree = null,
+        int? ktuple = null, int? window = null, int? topDiagonals = null, int? pairGap = null) => new()
+    {
+        QuickPairwise = new global::Seqeron.Genomics.Infrastructure.ClustalWQuickOptions
+        {
+            KTuple = ktuple ?? 2,
+            Window = window ?? 4,
+            TopDiagonals = topDiagonals ?? 4,
+            // clustalw's command line: -KTUPLE=k sets the pair gap to k + 4, -PAIRGAP overrides; without either the DNA default is 5
+            PairGap = pairGap ?? (ktuple.HasValue ? ktuple.Value + 4 : 5),
+        },
         GuideTree = (guideTree ?? "upgma").Trim().ToLowerInvariant() switch
         {
             "upgma" => global::Seqeron.Genomics.Infrastructure.MsaGuideTree.Upgma,
@@ -496,7 +576,8 @@ public class AlignmentTools
         {
             "linear" => global::Seqeron.Genomics.Infrastructure.MsaDistanceMode.Linear,
             "clustalw" or "clustalw_affine" or "clustalwaffine" => global::Seqeron.Genomics.Infrastructure.MsaDistanceMode.ClustalWAffine,
-            _ => throw new ArgumentException("distance must be 'linear' or 'clustalw'.", nameof(distance)),
+            "clustalw-quick" or "clustalw_quick" or "clustalwquick" => global::Seqeron.Genomics.Infrastructure.MsaDistanceMode.ClustalWQuick,
+            _ => throw new ArgumentException("distance must be 'linear', 'clustalw' or 'clustalw-quick'.", nameof(distance)),
         },
         GapModel = (gapModel ?? "linear").Trim().ToLowerInvariant() switch
         {

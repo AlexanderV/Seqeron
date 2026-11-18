@@ -2,7 +2,7 @@
 
 MCP server — **Pairwise and multiple sequence alignment, overlap/assembly and approximate matching.**
 
-Exposes **37 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
+Exposes **38 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
 MCP. Every tool carries an explicit JSON input/output schema and a Schema+Binding test, with a
 per-tool doc under [`docs/mcp/tools/alignment/`](../../../../docs/mcp/tools/alignment). Rollout status:
 [`docs/mcp/MCP_STATUS.md`](../../../../docs/mcp/MCP_STATUS.md).
@@ -48,6 +48,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `merge_contigs` | Concatenates two contigs, collapsing the specified suffix/prefix overlap of overlapLength bases. |
 | `multiple_align` | Center-star multiple sequence alignment (Gusfield 1993) with exact pairwise alignments: the center is the sequence with the highest total o… |
 | `multiple_align_anchored` | Approximate, faster center-star MSA: 4-mer count cosine center, suffix-tree exact-match anchors (MUMmer-style seed, weighted colinear chain… |
+| `multiple_align_clustalw` | ClustalW 2.1's multiple alignment of DNA (clustalw -TYPE=DNA -ALIGN), ported step by step and equal row-for-row to the clustalw binary: pairwise stage (full DP or fast k-tuple), ClustalW neighbour-joining guide tree, tree-derived sequence weights, delayed divergent sequences, position-specific gap penalties, IUB matrix with `transitionWeight`, Myers-Miller profile alignment (`-GAPOPEN -GAPEXT -TRANSWEIGHT -MAXDIV -NOWEIGHTS -NEGATIVE -QUICKTREE`). |
 | `multiple_align_consistency` | Consistency-based MSA (T-Coffee; Notredame, Higgins & Heringa 2000): primary library of global (Needleman-Wunsch) and local (Smith-Waterman… |
 | `multiple_align_iterative` | Progressive MSA followed by MUSCLE-style tree-dependent restricted-partitioning refinement (Edgar 2004, stage 3): each guide-tree edge spli… |
 | `multiple_align_progressive` | Guide-tree progressive MSA (Feng & Doolittle 1987 / CLUSTAL): ClustalW pairwise distances from all Needleman-Wunsch alignments (1 - identit… |

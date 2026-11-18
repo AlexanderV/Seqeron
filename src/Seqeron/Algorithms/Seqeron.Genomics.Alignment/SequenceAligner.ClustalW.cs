@@ -67,9 +67,25 @@ public static partial class SequenceAligner
     private const int ClustalWIntScale = 100;
 
     // The pairwise DNA matrix over residue codes (getMatrix + the three transition-weight overrides of getPairwiseMatrix).
-    private static readonly Lazy<int[,]> ClustalWDnaMatrix = new(BuildClustalWDnaMatrix);
+    private static readonly Lazy<int[,]> ClustalWDnaMatrix = new(() => BuildClustalWDnaMatrix(0.5f));
 
-    private static int[,] BuildClustalWDnaMatrix()
+    private static int[,] BuildClustalWDnaMatrix(float transitionWeight)
+    {
+        var matrix = BuildClustalWIubMatrixRaw();
+        // getPairwiseMatrix: transitionWeight (-TRANSWEIGHT, default 0.5) * matrix[0][0] written to the code pairs (0,4), (2,11),
+        // (2,12) = A-E, C-M, C-N (ClustalW 2.1 addresses residue CODES here, so with ambiguity codes the C-M / C-N scores move).
+        int transition = (int)(transitionWeight * matrix[0, 0]);
+        foreach (var (a, b) in new[] { (0, 4), (2, 11), (2, 12) })
+        {
+            matrix[a, b] = transition;
+            matrix[b, a] = transition;
+        }
+
+        return matrix;
+    }
+
+    /// <summary>The IUB nucleotide matrix x100 over the ClustalW residue codes (<c>getMatrix</c> before any adjustment).</summary>
+    private static int[,] BuildClustalWIubMatrixRaw()
     {
         int n = ClustalWResidueCodes.Length;
         var matrix = new int[n, n];
@@ -86,14 +102,6 @@ public static partial class SequenceAligner
             }
         }
 
-        // getPairwiseMatrix: transitionWeight (0.5) * matrix[0][0] written to the code pairs (0,4), (2,11), (2,12).
-        int transition = (int)(0.5f * matrix[0, 0]);
-        foreach (var (a, b) in new[] { (0, 4), (2, 11), (2, 12) })
-        {
-            matrix[a, b] = transition;
-            matrix[b, a] = transition;
-        }
-
         return matrix;
     }
 
@@ -103,7 +111,7 @@ public static partial class SequenceAligner
     /// </summary>
     /// <remarks>
     /// Port of <c>FullPairwiseAlign::pairwiseAlign</c> (the full-DP mode of <c>clustalw -ALIGN</c>/<c>-TREE</c>; the fast k-tuple
-    /// mode selected by <c>-QUICKTREE</c> is a different, heuristic estimate and is not implemented): an affine local
+    /// mode selected by <c>-QUICKTREE</c> is <see cref="ClustalWQuickPairwiseAlign(string, string, ClustalWQuickOptions?, int?)"/>): an affine local
     /// (Smith–Waterman–Gotoh) alignment with the IUB matrix ×100, whose identities give ClustalW's percent identity.
     /// Because ClustalW's co-optimal choice (Myers–Miller midpoint rule) is part of the result, the alignment is reproduced
     /// step by step rather than by <see cref="LocalAlignAffine(string, string, ScoringMatrix?)"/>.
@@ -119,6 +127,11 @@ public static partial class SequenceAligner
     public static ClustalWPairwiseResult ClustalWPairwiseAlign(
         string sequence1, string sequence2,
         double gapOpen = ClustalWDnaPairwiseGapOpen, double gapExtend = ClustalWDnaPairwiseGapExtend)
+        => ClustalWPairwiseAlignCore(sequence1, sequence2, gapOpen, gapExtend, 0.5f);
+
+    /// <summary><see cref="ClustalWPairwiseAlign(string, string, double, double)"/> with ClustalW's <c>-TRANSWEIGHT</c> (affects the C-M / C-N scores of ambiguity codes).</summary>
+    internal static ClustalWPairwiseResult ClustalWPairwiseAlignCore(
+        string sequence1, string sequence2, double gapOpen, double gapExtend, float transitionWeight)
     {
         ArgumentNullException.ThrowIfNull(sequence1);
         ArgumentNullException.ThrowIfNull(sequence2);
@@ -138,7 +151,8 @@ public static partial class SequenceAligner
         int gapOpenInt = (int)(2f * go * (float)ClustalWIntScale * 1.0f);
         int gapExtendInt = (int)(ge * (float)ClustalWIntScale * 1.0f);
 
-        var state = new ClustalWPairState(codes1, codes2, ClustalWDnaMatrix.Value, gapOpenInt, gapExtendInt);
+        var matrix = transitionWeight == 0.5f ? ClustalWDnaMatrix.Value : BuildClustalWDnaMatrix(transitionWeight);
+        var state = new ClustalWPairState(codes1, codes2, matrix, gapOpenInt, gapExtendInt);
         state.ForwardPass();
         state.ReversePass();
         state.PrintPtr = 1;

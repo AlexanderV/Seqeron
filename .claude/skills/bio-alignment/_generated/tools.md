@@ -35,6 +35,7 @@
 | `merge_contigs` | Alignment | `SequenceAssembler.MergeContigs` | [doc](../../../../docs/mcp/tools/alignment/merge_contigs.md) |
 | `multiple_align` | Alignment | `SequenceAligner.MultipleAlign` | [doc](../../../../docs/mcp/tools/alignment/multiple_align.md) |
 | `multiple_align_anchored` | Alignment | `SequenceAligner.MultipleAlignAnchored` | [doc](../../../../docs/mcp/tools/alignment/multiple_align_anchored.md) |
+| `multiple_align_clustalw` | Alignment | `SequenceAligner.MultipleAlignClustalW` | [doc](../../../../docs/mcp/tools/alignment/multiple_align_clustalw.md) |
 | `multiple_align_consistency` | Alignment | `SequenceAligner.MultipleAlignConsistency` | [doc](../../../../docs/mcp/tools/alignment/multiple_align_consistency.md) |
 | `multiple_align_iterative` | Alignment | `SequenceAligner.MultipleAlignIterative` | [doc](../../../../docs/mcp/tools/alignment/multiple_align_iterative.md) |
 | `multiple_align_progressive` | Alignment | `SequenceAligner.MultipleAlignProgressive` | [doc](../../../../docs/mcp/tools/alignment/multiple_align_progressive.md) |

@@ -2311,7 +2311,7 @@ public static partial class SequenceAligner
         var rawSeqs = seqList.Select(s => s.Sequence).ToArray();
 
         // Step 1: pairwise alignments -> distance matrix (ClustalW: 1 - identities / min(len1, len2)).
-        var distance = ComputeGuideDistances(rawSeqs, effectiveScoring, options.Distance, gapModel, options.GuideTree);
+        var distance = ComputeGuideDistances(rawSeqs, effectiveScoring, options.Distance, gapModel, options.GuideTree, options.QuickPairwise);
 
         // Step 2: guide tree (UPGMA by default, neighbour-joining on request).
         ProgressiveGuideNode root = BuildProgressiveGuideTree(k, distance, options.GuideTree);
@@ -2368,12 +2368,18 @@ public static partial class SequenceAligner
     /// Symmetric guide-tree distance matrix of the progressive / iterative / consistency aligners:
     /// <see cref="MsaDistanceMode.Linear"/> = the repository's own global alignment under <paramref name="scoring"/> (linear NW, or
     /// the affine Gotoh alignment when <paramref name="gapModel"/> is <see cref="MsaGapModel.Affine"/>; <see cref="PairwiseIdentityDistance"/>); <see cref="MsaDistanceMode.ClustalWAffine"/> = ClustalW's own pairwise stage
-    /// (<see cref="ClustalWPairwiseAlign(string, string, double, double)"/>, independent of <paramref name="scoring"/>).
+    /// (<see cref="ClustalWPairwiseAlign(string, string, double, double)"/>, independent of <paramref name="scoring"/>);
+    /// <see cref="MsaDistanceMode.ClustalWQuick"/> = ClustalW's fast k-tuple stage (<see cref="ClustalWQuickPairwiseAlign(string, string, ClustalWQuickOptions?, int?)"/>).
     /// </summary>
-    private static double[,] ComputeGuideDistances(string[] rawSeqs, ScoringMatrix scoring, MsaDistanceMode mode, MsaGapModel gapModel, MsaGuideTree guideTree = MsaGuideTree.Upgma)
+    private static double[,] ComputeGuideDistances(string[] rawSeqs, ScoringMatrix scoring, MsaDistanceMode mode, MsaGapModel gapModel, MsaGuideTree guideTree = MsaGuideTree.Upgma, ClustalWQuickOptions? quickOptions = null)
     {
         if (!Enum.IsDefined(mode))
             throw new ArgumentOutOfRangeException(nameof(mode), mode, "Unknown guide-tree distance mode.");
+
+        var quick = quickOptions ?? new ClustalWQuickOptions();
+        int longest = 0;
+        foreach (var s in rawSeqs)
+            longest = Math.Max(longest, s.Length);
 
         int k = rawSeqs.Length;
         var distance = new double[k, k];
@@ -2382,7 +2388,9 @@ public static partial class SequenceAligner
             for (int j = i + 1; j < k; j++)
             {
                 double d;
-                if (mode != MsaDistanceMode.ClustalWAffine)
+                if (mode == MsaDistanceMode.ClustalWQuick)
+                    d = ClustalWQuickPairwiseDistance(rawSeqs[i], rawSeqs[j], quick, longest);
+                else if (mode != MsaDistanceMode.ClustalWAffine)
                     d = PairwiseIdentityDistance(rawSeqs[i], rawSeqs[j], scoring, gapModel);
                 else if (guideTree == MsaGuideTree.NeighborJoining)
                     d = ClustalWSinglePrecisionDistance(rawSeqs[i], rawSeqs[j]);
@@ -2715,7 +2723,7 @@ public static partial class SequenceAligner
         var rawSeqs = seqList.Select(s => s.Sequence).ToArray();
 
         // Step 1: progressive seed (same pipeline as MultipleAlignProgressive) + retain guide tree.
-        var distance = ComputeGuideDistances(rawSeqs, effectiveScoring, options.Distance, gapModel, options.GuideTree);
+        var distance = ComputeGuideDistances(rawSeqs, effectiveScoring, options.Distance, gapModel, options.GuideTree, options.QuickPairwise);
 
         ProgressiveGuideNode root = BuildProgressiveGuideTree(k, distance, options.GuideTree);
         Profile current = AlignProfileSubtree(root, rawSeqs, effectiveScoring, gapModel);
@@ -3041,7 +3049,7 @@ public static partial class SequenceAligner
         var library = new ExtendedLibrary(BuildPrimaryLibrary(rawSeqs, effectiveScoring, gapModel));
 
         // Step 3a: guide tree (UPGMA by default, neighbour-joining on request) over the ClustalW distances (1 - identities / min(len1, len2)), reusing the progressive pipeline.
-        var distance = ComputeGuideDistances(rawSeqs, effectiveScoring, options.Distance, gapModel, options.GuideTree);
+        var distance = ComputeGuideDistances(rawSeqs, effectiveScoring, options.Distance, gapModel, options.GuideTree, options.QuickPairwise);
         ProgressiveGuideNode root = BuildProgressiveGuideTree(k, distance, options.GuideTree);
 
         // Step 3b: progressive alignment driven by the EXTENDED-LIBRARY weights.

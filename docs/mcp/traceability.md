@@ -358,6 +358,7 @@
 | merge_contigs | Alignment | SequenceAssembler.MergeContigs | Alignment/SequenceAssembler.cs#L450 | 0/0 | – | – | Build-Ready |
 | multiple_align | Alignment | SequenceAligner.MultipleAlign | Alignment/SequenceAligner.cs#L1203 | 0/0 | – | – | Build-Ready |
 | multiple_align_anchored | Alignment | SequenceAligner.MultipleAlignAnchored | Alignment/SequenceAligner.cs#L1242 | 0/0 | – | – | Build-Ready |
+| multiple_align_clustalw | Alignment | SequenceAligner.MultipleAlignClustalW | Alignment/SequenceAligner.ClustalWMultiple.cs#L68 | 0/0 | – | – | Build-Ready |
 | multiple_align_consistency | Alignment | SequenceAligner.MultipleAlignConsistency | Alignment/SequenceAligner.cs#L2425 | 0/0 | – | – | Build-Ready |
 | multiple_align_iterative | Alignment | SequenceAligner.MultipleAlignIterative | Alignment/SequenceAligner.cs#L2111 | 0/0 | – | – | Build-Ready |
 | multiple_align_progressive | Alignment | SequenceAligner.MultipleAlignProgressive | Alignment/SequenceAligner.cs#L1676 | 0/0 | – | – | Build-Ready |

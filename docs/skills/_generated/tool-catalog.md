@@ -4,7 +4,7 @@
 
 <!-- BEGIN generated: do not edit by hand -->
 
-## Alignment (37 tools)
+## Alignment (38 tools)
 
 | tool | Method ID | doc |
 |------|-----------|-----|
@@ -37,6 +37,7 @@
 | `merge_contigs` | `SequenceAssembler.MergeContigs` | [doc](../../mcp/tools/alignment/merge_contigs.md) |
 | `multiple_align` | `SequenceAligner.MultipleAlign` | [doc](../../mcp/tools/alignment/multiple_align.md) |
 | `multiple_align_anchored` | `SequenceAligner.MultipleAlignAnchored` | [doc](../../mcp/tools/alignment/multiple_align_anchored.md) |
+| `multiple_align_clustalw` | `SequenceAligner.MultipleAlignClustalW` | [doc](../../mcp/tools/alignment/multiple_align_clustalw.md) |
 | `multiple_align_consistency` | `SequenceAligner.MultipleAlignConsistency` | [doc](../../mcp/tools/alignment/multiple_align_consistency.md) |
 | `multiple_align_iterative` | `SequenceAligner.MultipleAlignIterative` | [doc](../../mcp/tools/alignment/multiple_align_iterative.md) |
 | `multiple_align_progressive` | `SequenceAligner.MultipleAlignProgressive` | [doc](../../mcp/tools/alignment/multiple_align_progressive.md) |

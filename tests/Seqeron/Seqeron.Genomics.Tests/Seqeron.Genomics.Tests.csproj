@@ -45,6 +45,13 @@
          scripts/alignment/generate_clustalw_pairwise_oracle.py. -->
     <EmbeddedResource Include="TestData\Alignment\clustalw_pairwise_oracle.tsv" />
     <EmbeddedResource Include="TestData\Alignment\clustalw_msa_oracle.tsv" />
+    <!-- ALIGN-MULTI-001 (audit A1-15b, B09 F55): ClustalW 2.1 FAST pairwise stage (`clustalw -QUICKTREE -ALIGN` "Score:", %lg of the k-tuple
+         fragment percent) on DNA / IUB pairs with ktuple/window/topdiags/pairgap/score variants;
+         scripts/alignment/generate_clustalw_quick_oracle.py. -->
+    <EmbeddedResource Include="TestData\Alignment\clustalw_quick_oracle.tsv" />
+    <!-- ALIGN-MULTI-001 (audit A1-10b, B09 F56): ClustalW 2.1 multiple alignment of DNA (`clustalw -TYPE=DNA -ALIGN -OUTPUT=FASTA -OUTORDER=INPUT`)
+         with option variants on 1 000 sets; scripts/alignment/generate_clustalw_msa_full_oracle.py. -->
+    <EmbeddedResource Include="TestData\Alignment\clustalw_msa_full_oracle.tsv" />
     <!-- ALIGN-MULTI-001 (audit A1-12, B09 F53): ClustalW 2.1 neighbour-joining guide tree (.dnd) + progressive step order on 420
          DNA sets (scripts/alignment/generate_clustalw_guidetree_oracle.py); Biopython 1.88 UPGMA / NJ on 400 random distance
          matrices (scripts/alignment/generate_guidetree_biopython_oracle.py). -->

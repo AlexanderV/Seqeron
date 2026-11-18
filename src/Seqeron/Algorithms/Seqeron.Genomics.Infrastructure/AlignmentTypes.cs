@@ -486,6 +486,15 @@ public enum MsaDistanceMode
     /// then used only for the profile alignment, not for the distances.
     /// </summary>
     ClustalWAffine = 1,
+
+    /// <summary>
+    /// ClustalW 2.1 "fast" pairwise stage (<c>-QUICKTREE</c>, <c>FastPairwiseAlign.cpp</c>; Wilbur &amp; Lipman 1983 k-tuple diagonal
+    /// scoring): d = (100 − 100·fragmentScore / min(len1, len2)) / 100 in double precision, with the k-tuple / window / top-diagonals /
+    /// gap parameters of <see cref="MsaOptions.QuickPairwise"/> (ClustalW's DNA defaults 2 / 4 / 4 / 5). The fragment score is not an
+    /// alignment identity, so the distances (and therefore the guide tree) differ from <see cref="ClustalWAffine"/>
+    /// (<c>SequenceAligner.ClustalWQuickPairwiseAlign</c>). The caller's scoring matrix is used only for the profile alignment.
+    /// </summary>
+    ClustalWQuick = 2,
 }
 
 /// <summary>Tree-building method of the guide tree of the progressive, iterative and consistency multiple aligners.</summary>
@@ -499,7 +508,8 @@ public enum MsaGuideTree
 
     /// <summary>
     /// Neighbour-joining (Saitou &amp; Nei 1987) as ClustalW 2.1 uses it by default (<c>-CLUSTERING=NJ</c>; also the default
-    /// tree of T-Coffee / Clustal Omega-style pipelines): the unrooted NJ tree of <c>PhylogeneticAnalyzer</c> is re-rooted
+    /// tree of T-Coffee / Clustal Omega-style pipelines): the unrooted NJ tree is built with ClustalW's own neighbour-joining
+    /// arithmetic (<c>NJTree::generateTree</c>; same topology as Saitou–Nei, exact ties resolved as clustalw does), re-rooted
     /// with ClustalW's <c>Tree::reRoot</c> rule and its merges are taken in ClustalW's order (left subtree first). With
     /// <see cref="MsaDistanceMode.ClustalWAffine"/> the distances are ClustalW's single-precision values, so the guide tree
     /// equals the one <c>clustalw -ALIGN</c> writes to its <c>.dnd</c> file.
@@ -540,6 +550,106 @@ public sealed record MsaOptions
 
     /// <summary>Guide-tree method of the progressive family (default <see cref="MsaGuideTree.Upgma"/>).</summary>
     public MsaGuideTree GuideTree { get; init; } = MsaGuideTree.Upgma;
+
+    /// <summary>
+    /// Parameters of the fast pairwise stage, used only with <see cref="MsaDistanceMode.ClustalWQuick"/> (default: ClustalW's DNA defaults).
+    /// </summary>
+    public ClustalWQuickOptions QuickPairwise { get; init; } = new();
+}
+
+/// <summary>
+/// Parameters of ClustalW's fast (k-tuple) pairwise stage for DNA: <c>-KTUPLE -WINDOW -TOPDIAGS -PAIRGAP -SCORE</c>
+/// (<c>FastPairwiseAlign.cpp</c>, ClustalW 2.1); defaults are the DNA defaults of <c>UserParameters.cpp</c>.
+/// </summary>
+public sealed record ClustalWQuickOptions
+{
+    /// <summary>Word size (<c>-KTUPLE</c>), 1–4 for DNA; default 2.</summary>
+    public int KTuple { get; init; } = 2;
+
+    /// <summary>Number of diagonals scanned on each side of a top diagonal (<c>-WINDOW</c>); default 4.</summary>
+    public int Window { get; init; } = 4;
+
+    /// <summary>Number of best diagonals (<c>-TOPDIAGS</c>); default 4.</summary>
+    public int TopDiagonals { get; init; } = 4;
+
+    /// <summary>
+    /// Gap penalty of the fragment chain (<c>-PAIRGAP</c>); default 5 (ClustalW's DNA default). Note: ClustalW's command line sets
+    /// the pair gap to <see cref="KTuple"/> + 4 whenever <c>-KTUPLE</c> is given (and a later <c>-PAIRGAP</c> overrides it), so
+    /// <c>-KTUPLE=2</c> alone means <c>PairGap = 6</c>, not 5; callers that want the command-line behaviour pass that value.
+    /// </summary>
+    public int PairGap { get; init; } = 5;
+
+    /// <summary><c>-SCORE=PERCENT</c> (default): score = 100·fragmentScore / min(len1, len2); <c>false</c> = <c>-SCORE=ABSOLUTE</c> (the raw fragment score).</summary>
+    public bool Percent { get; init; } = true;
+}
+
+/// <summary>
+/// Result of ClustalW's fast k-tuple pairwise stage (<c>SequenceAligner.ClustalWQuickPairwiseAlign</c>, port of
+/// <c>FastPairwiseAlign::pairAlign</c>, ClustalW 2.1).
+/// </summary>
+/// <param name="FragmentScore">Score of the best k-tuple fragment chain (<c>accum[0][maxSoFar]</c>; 0 when no fragment is found).</param>
+/// <param name="Score">The number ClustalW prints as <c>Score:</c> (<c>%lg</c>): the percent 100·FragmentScore / min(len1, len2), or the raw fragment score with <c>-SCORE=ABSOLUTE</c>.</param>
+/// <param name="Distance">(100 − Score) / 100 (double precision): ClustalW's guide-tree distance (1 when not aligned; with the absolute score it can be negative, as in ClustalW).</param>
+/// <param name="Aligned"><c>Score &gt; 0.1</c>: ClustalW prints <c>Aligned. Score: …</c>, otherwise <c>Not Aligned</c>.</param>
+/// <param name="PartialAlignment">The fragment list exceeded ClustalW's bound (2 · 2 · longest sequence) and the scan stopped early (<c>(Partial alignment)</c>).</param>
+public sealed record ClustalWQuickPairwiseResult(
+    int FragmentScore,
+    double Score,
+    double Distance,
+    bool Aligned,
+    bool PartialAlignment);
+
+/// <summary>Pairwise stage that produces the distance matrix of the ClustalW multiple alignment (<see cref="ClustalWOptions.PairwiseMode"/>).</summary>
+public enum ClustalWPairwiseMode
+{
+    /// <summary>ClustalW's default "slow" full dynamic-programming stage (<c>FullPairwiseAlign</c>; <c>SequenceAligner.ClustalWPairwiseAlign</c>).</summary>
+    Full = 0,
+
+    /// <summary>ClustalW's fast k-tuple stage (<c>-QUICKTREE</c>, <c>FastPairwiseAlign</c>; <c>SequenceAligner.ClustalWQuickPairwiseAlign</c>).</summary>
+    Quick = 1,
+}
+
+/// <summary>
+/// Parameters of <c>SequenceAligner.MultipleAlignClustalW</c>, the port of ClustalW 2.1's multiple-alignment stage for DNA
+/// (<c>clustalw -TYPE=DNA -ALIGN</c>). Defaults are ClustalW's DNA defaults.
+/// </summary>
+public sealed record ClustalWOptions
+{
+    /// <summary>Gap-opening penalty of the profile alignment (<c>-GAPOPEN</c>, DNA default 15.0; stored in single precision like ClustalW).</summary>
+    public double GapOpen { get; init; } = 15.0;
+
+    /// <summary>Gap-extension penalty of the profile alignment (<c>-GAPEXT</c>, DNA default 6.66).</summary>
+    public double GapExtend { get; init; } = 6.66;
+
+    /// <summary>Pairwise stage that produces the distances of the guide tree (default <see cref="ClustalWPairwiseMode.Full"/>).</summary>
+    public ClustalWPairwiseMode PairwiseMode { get; init; } = ClustalWPairwiseMode.Full;
+
+    /// <summary>Pairwise gap-opening penalty of the full pairwise stage (<c>-PWGAPOPEN</c>, default 15).</summary>
+    public double PairwiseGapOpen { get; init; } = 15.0;
+
+    /// <summary>Pairwise gap-extension penalty of the full pairwise stage (<c>-PWGAPEXT</c>, default 6.66).</summary>
+    public double PairwiseGapExtend { get; init; } = 6.66;
+
+    /// <summary>Parameters of the fast pairwise stage (<see cref="ClustalWPairwiseMode.Quick"/> only).</summary>
+    public ClustalWQuickOptions Quick { get; init; } = new();
+
+    /// <summary>
+    /// Weight of transitions (A–G, C–T/U) in the profile substitution matrix (<c>-TRANSWEIGHT</c>, default 0.5; 0 = transitions
+    /// score as mismatches, 1 = as matches).
+    /// </summary>
+    public float TransitionWeight { get; init; } = 0.5f;
+
+    /// <summary>
+    /// <c>-MAXDIV</c> (default 30): a sequence whose highest percent identity to any other sequence (as derived from the guide
+    /// tree) is at most this value is delayed and added after the rest has been aligned (delayed divergent sequences).
+    /// </summary>
+    public int DivergenceCutoff { get; init; } = 30;
+
+    /// <summary><c>-NOWEIGHTS</c>: no sequence weights from the guide tree (all sequences weigh the same).</summary>
+    public bool NoWeights { get; init; }
+
+    /// <summary><c>-NEGATIVE</c>: use the substitution matrix as it is (negative mismatch scores) instead of shifting it to non-negative scores.</summary>
+    public bool NegativeMatrix { get; init; }
 }
 
 /// <summary>

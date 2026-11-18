@@ -8,10 +8,12 @@ public static partial class SequenceAligner
 {
     #region Guide trees of the progressive family (UPGMA / neighbour-joining)
 
-    // The guide tree of the progressive, iterative and consistency aligners is built by the canonical tree builders of
-    // Seqeron.Genomics.Phylogenetics (PhylogeneticAnalyzer.BuildTreeFromMatrix: UPGMA, Sokal & Michener 1958;
-    // neighbour-joining, Saitou & Nei 1987) — this file only adapts their result to the binary, rooted tree that a
-    // progressive alignment needs. (Until A1-12 this class carried a private copy of UPGMA, justified by a "circular"
+    // The UPGMA guide tree of the progressive, iterative and consistency aligners is built by the canonical tree builder of
+    // Seqeron.Genomics.Phylogenetics (PhylogeneticAnalyzer.BuildTreeFromMatrix: UPGMA, Sokal & Michener 1958) — this file
+    // only adapts its result to the binary, rooted tree that a progressive alignment needs. The neighbour-joining tree
+    // (Saitou & Nei 1987) is ClustalW's own (ClustalWNeighborJoining, audit A1-10b): same topology as the canonical NJ,
+    // but exact ties between candidate pairs are decided by the rounding of ClustalW's arithmetic, which the fast-mode
+    // distances and duplicate sequences make common. (Until A1-12 this class carried a private copy of UPGMA, justified by a "circular"
     // project reference Phylogenetics -> Alignment that no code used; the reference is gone, the copy is gone.)
     //
     //   * MsaGuideTree.Upgma  — rooted and binary by construction; ties (distances equal within ProfileScoreEpsilon) are
@@ -85,20 +87,227 @@ public static partial class SequenceAligner
     internal sealed record ClustalWGuideTreeResult(PhylogeneticAnalyzer.PhyloNode Unrooted, ProgressiveGuideNode Rooted);
 
     /// <summary>
-    /// ClustalW's guide tree of <paramref name="k"/> sequences: canonical neighbour-joining
-    /// (<see cref="PhylogeneticAnalyzer.TreeMethod.NeighborJoining"/>) with ClustalW's pair-scan order, then the ClustalW printing / rooting steps.
+    /// ClustalW's guide tree of <paramref name="k"/> sequences: ClustalW's own neighbour-joining arithmetic
+    /// (<see cref="ClustalWNeighborJoining"/>), then the ClustalW printing / rooting steps.
     /// </summary>
     internal static ClustalWGuideTreeResult BuildClustalWNeighborJoiningGuideTree(int k, double[,] distance)
     {
         if (k < 2)
             throw new ArgumentOutOfRangeException(nameof(k), k, "A guide tree needs at least two sequences.");
 
-        var taxa = GuideTaxa(k);
-        var tree = PhylogeneticAnalyzer.BuildTreeFromMatrix(
-            taxa, distance, PhylogeneticAnalyzer.TreeMethod.NeighborJoining,
-            new PhylogeneticAnalyzer.TreeBuildOptions { TieTolerance = ProfileScoreEpsilon, TieOrder = PhylogeneticAnalyzer.PairScanOrder.SecondIndexMajor });
+        var unrooted = ClustalWNeighborJoining(k, distance);
+        return new ClustalWGuideTreeResult(unrooted, ClustalWRoot(unrooted, k));
+    }
 
-        return new ClustalWGuideTreeResult(tree.Root, ClustalWRoot(tree.Root, k));
+    /// <summary>
+    /// ClustalW 2.1's neighbour-joining tree (<c>NJTree::generateTree</c>, src/tree/NJTree.cpp) of <paramref name="k"/> sequences.
+    /// Mathematically this is Saitou-Nei NJ (the canonical <see cref="PhylogeneticAnalyzer"/> builder gives the same tree up to ties),
+    /// but ClustalW works on a height-corrected matrix with the update (d_ik + d_jk)/2, keeps running row/column sums and selects the
+    /// pair by <c>fnseqs2*dij + 2*sumd - diq - djq</c> in a jj-outer / ii-inner scan with strict <c>&lt;</c>: in double precision the
+    /// rounding of that arithmetic decides exact ties between candidate pairs, so distances with many equal values (fast k-tuple
+    /// scores, duplicate sequences) need this arithmetic to reproduce ClustalW's topology. Branch lengths smaller than 1e-4 in
+    /// magnitude are set to 0 (as ClustalW does before printing).
+    /// </summary>
+    internal static PhylogeneticAnalyzer.PhyloNode ClustalWNeighborJoining(int k, double[,] distance)
+    {
+        if (k < 2)
+            throw new ArgumentOutOfRangeException(nameof(k), k, "ClustalW's NJ needs at least two sequences.");
+
+        if (k == 2)
+        {
+            // NJTree::generateTree returns at once for two sequences; the tree file holds (a:d/2,b:d/2)
+            var a = new PhylogeneticAnalyzer.PhyloNode("0") { BranchLength = distance[0, 1] / 2.0 };
+            var b = new PhylogeneticAnalyzer.PhyloNode("1") { BranchLength = distance[0, 1] / 2.0 };
+            return new PhylogeneticAnalyzer.PhyloNode
+            {
+                Name = "(0,1)",
+                Children = new List<PhylogeneticAnalyzer.PhyloNode> { a, b },
+                Taxa = new List<string> { "0", "1" },
+            };
+        }
+
+        // 1-based working copy as in DistMatrix
+        var d = new double[k + 1, k + 1];
+        for (int i = 0; i < k; i++)
+        {
+            for (int j = 0; j < k; j++)
+                d[i + 1, j + 1] = distance[i, j];
+        }
+
+        var node = new PhylogeneticAnalyzer.PhyloNode[k + 1];
+        for (int i = 1; i <= k; i++)
+            node[i] = new PhylogeneticAnalyzer.PhyloNode((i - 1).ToString(CultureInfo.InvariantCulture)) { Taxa = new List<string> { (i - 1).ToString(CultureInfo.InvariantCulture) } };
+
+        var av = new double[k + 1];
+        var sumCols = new double[k + 1];
+        var sumRows = new double[k + 1];
+        var join = new double[k + 1];
+        var valid = new List<int>(k);
+        for (int i = 1; i <= k; i++)
+        {
+            d[i, i] = av[i] = 0.0;
+            valid.Add(i);
+        }
+
+        for (int a = 0; a < valid.Count; a++)
+        {
+            int j = valid[a];
+            double tmp = 0.0;
+            for (int b = 0; valid[b] < j; b++)
+                tmp += d[valid[b], j];
+            sumRows[j] = tmp;
+            tmp = 0.0;
+            for (int b = a + 1; b < valid.Count; b++)
+                tmp += d[j, valid[b]];
+            sumCols[j] = tmp;
+        }
+
+        double fnseqs = k;
+        for (int nc = 1; nc <= k - 3; nc++)
+        {
+            double sumd = 0.0;
+            foreach (int j in valid)
+                sumd += sumCols[j];
+
+            double fnseqs2 = fnseqs - 2.0;
+            double tmin = 99999.0 * 2.0 * fnseqs2;
+            int mini = 0, minj = 0;
+            for (int b = valid[0] == 1 ? 1 : 0; b < valid.Count; b++)
+            {
+                int jj = valid[b];
+                for (int a = 0; valid[a] < jj; a++)
+                {
+                    int ii = valid[a];
+                    double diq = sumCols[ii] + sumRows[ii];
+                    double djq = sumCols[jj] + sumRows[jj];
+                    double dij = d[ii, jj];
+                    double total = fnseqs2 * dij + 2.0 * sumd - diq - djq;
+                    if (total < tmin)
+                    {
+                        tmin = total;
+                        mini = ii;
+                        minj = jj;
+                    }
+                }
+            }
+
+            double dio = sumCols[mini] + sumRows[mini];
+            double djo = sumCols[minj] + sumRows[minj];
+            double dmin = d[mini, minj];
+            dio = (dio - dmin) / fnseqs2;
+            djo = (djo - dmin) / fnseqs2;
+            double bi = (dmin + dio - djo) * 0.5;
+            double bj = dmin - bi;
+            bi -= av[mini];
+            bj -= av[minj];
+            if (Math.Abs(bi) < 0.0001)
+                bi = 0.0;
+            if (Math.Abs(bj) < 0.0001)
+                bj = 0.0;
+
+            node[mini].BranchLength = bi;
+            node[minj].BranchLength = bj;
+            var joined = new PhylogeneticAnalyzer.PhyloNode
+            {
+                Name = $"({node[mini].Name},{node[minj].Name})",
+                Children = new List<PhylogeneticAnalyzer.PhyloNode> { node[mini], node[minj] },
+                Taxa = node[mini].Taxa.Concat(node[minj].Taxa).ToList(),
+            };
+
+            if (dmin <= 0.0)
+                dmin = 0.000001;
+            av[mini] = dmin * 0.5;
+
+            fnseqs -= 1.0;
+            valid.Remove(minj);
+
+            foreach (int j in valid)
+            {
+                double tmpDi = 0.0, tmpDj = 0.0;
+                if (j < minj)
+                {
+                    tmpDj = d[j, minj];
+                    sumCols[j] -= tmpDj;
+                }
+                else if (j > minj)
+                {
+                    tmpDj = d[minj, j];
+                    sumRows[j] -= tmpDj;
+                }
+
+                if (j < mini)
+                {
+                    tmpDi = d[j, mini];
+                    sumCols[j] -= tmpDi;
+                }
+                else if (j > mini)
+                {
+                    tmpDi = d[mini, j];
+                    sumRows[j] -= tmpDi;
+                }
+
+                join[j] = (tmpDj + tmpDi) * 0.5;
+            }
+
+            foreach (int j in valid)
+            {
+                if (j < mini)
+                {
+                    d[j, mini] = d[mini, j] = join[j];
+                    sumCols[j] += join[j];
+                }
+                else if (j > mini)
+                {
+                    d[mini, j] = d[j, mini] = join[j];
+                    sumRows[j] += join[j];
+                }
+            }
+
+            sumCols[mini] = sumRows[mini] = 0.0;
+            double da = 0.0;
+            int p = 0;
+            for (; valid[p] < mini; p++)
+                da += join[valid[p]];
+            sumRows[mini] = da;
+            if (valid[p] == mini)
+                p++;
+            da = 0.0;
+            for (; p < valid.Count; p++)
+                da += join[valid[p]];
+            sumCols[mini] = da;
+
+            sumCols[minj] = sumRows[minj] = 0.0;
+            for (int j = 1; j <= k; j++)
+            {
+                d[minj, j] = 0.0;
+                d[j, minj] = 0.0;
+                join[j] = 0.0;
+            }
+
+            node[mini] = joined;
+        }
+
+        // last cycle: three nodes left, joined by a trichotomy
+        int l1 = valid[0], l2 = valid[1], l3 = valid[2];
+        double b1 = (d[l1, l2] + d[l1, l3] - d[l2, l3]) * 0.5;
+        double b2 = d[l1, l2] - b1;
+        double b3 = d[l1, l3] - b1;
+        double[] branch = { b1 - av[l1], b2 - av[l2], b3 - av[l3] };
+        for (int i = 0; i < 3; i++)
+        {
+            if (Math.Abs(branch[i]) < 0.0001)
+                branch[i] = 0.0;
+        }
+
+        node[l1].BranchLength = branch[0];
+        node[l2].BranchLength = branch[1];
+        node[l3].BranchLength = branch[2];
+        return new PhylogeneticAnalyzer.PhyloNode
+        {
+            Name = $"({node[l1].Name},{node[l2].Name},{node[l3].Name})",
+            Children = new List<PhylogeneticAnalyzer.PhyloNode> { node[l1], node[l2], node[l3] },
+            Taxa = node[l1].Taxa.Concat(node[l2].Taxa).Concat(node[l3].Taxa).ToList(),
+        };
     }
 
     // ---- ClustalW Tree.cpp port --------------------------------------------------------------------------------
@@ -110,6 +319,7 @@ public static partial class SequenceAligner
         public float Dist;
         public bool Leaf;
         public int LeafIndex = -1;
+        public int Order;   // number of leaves below (Tree::orderNodes)
     }
 
     /// <summary>
@@ -150,6 +360,17 @@ public static partial class SequenceAligner
             };
         }
 
+        return ToGuideNode(ClustalWRootNodes(unrooted, k).Root);
+    }
+
+    /// <summary>The re-rooted ClustalW tree (<c>Tree::readTree</c>): root node and the leaf node of every input sequence (<c>olptr</c>).</summary>
+    private sealed record CwRootedTree(CwNode Root, CwNode[] Leaves);
+
+    /// <summary>
+    /// <c>Tree::readTree</c> of the NJ tree ClustalW just wrote, for k &gt;= 3 sequences; see <see cref="ClustalWRoot"/>.
+    /// </summary>
+    private static CwRootedTree ClustalWRootNodes(PhylogeneticAnalyzer.PhyloNode unrooted, int k)
+    {
         var ptrs = new List<CwNode>();
         var lptr = new List<CwNode>();
 
@@ -188,7 +409,10 @@ public static partial class SequenceAligner
         n.Right = Build(centre[2], n);
 
         CwNode root = ReRoot(x, ptrs, lptr, k);
-        return ToGuideNode(root);
+        var leaves = new CwNode[k];
+        foreach (var leaf in lptr)
+            leaves[leaf.LeafIndex] = leaf;
+        return new CwRootedTree(root, leaves);
     }
 
     private static ProgressiveGuideNode ToGuideNode(CwNode p)
@@ -431,12 +655,13 @@ public static partial class SequenceAligner
     /// ClustalW's guide-tree distance of two sequences in single precision exactly as <c>FullPairwiseAlign</c> stores it:
     /// <c>mmScore = 100f·count; mmScore /= (float)MIN(len1, len2); d = (100f − mmScore) / 100f</c> (an empty sequence: 1).
     /// </summary>
-    internal static double ClustalWSinglePrecisionDistance(string a, string b)
+    internal static double ClustalWSinglePrecisionDistance(
+        string a, string b, double gapOpen = ClustalWDnaPairwiseGapOpen, double gapExtend = ClustalWDnaPairwiseGapExtend, float transitionWeight = 0.5f)
     {
         if (a.Length == 0 || b.Length == 0)
             return 1.0;
 
-        var r = ClustalWPairwiseAlign(a, b);
+        var r = ClustalWPairwiseAlignCore(a, b, gapOpen, gapExtend, transitionWeight);
         float mm = 100.0f * r.Identities;
         mm /= Math.Min(a.Length, b.Length);
         return (100.0f - mm) / 100.0f;

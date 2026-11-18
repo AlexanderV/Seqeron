@@ -9,9 +9,9 @@
 
 | Metric | Done | Total |
 |---|---:|---:|
-| Gold-standard binding | 488 | 488 |
-| Schema+Binding tests | 488 | 488 |
-| Docs (.md + .mcp.json) | 488 | 488 |
+| Gold-standard binding | 489 | 489 |
+| Schema+Binding tests | 489 | 489 |
+| Docs (.md + .mcp.json) | 489 | 489 |
 
 ## Per-server summary
 
@@ -20,7 +20,7 @@
 | Core | SuffixTree.Mcp.Core | 18 | 18/18 | 18/18 | 18/18 | ✅ done |
 | Sequence | Seqeron.Mcp.Sequence | 35 | 35/35 | 35/35 | 35/35 | ✅ done |
 | Parsers | Seqeron.Mcp.Parsers | 41 | 41/41 | 41/41 | 41/41 | ✅ done |
-| Alignment | Seqeron.Mcp.Alignment | 37 | 37/37 | 37/37 | 37/37 | ✅ done |
+| Alignment | Seqeron.Mcp.Alignment | 38 | 38/38 | 38/38 | 38/38 | ✅ done |
 | Analysis | Seqeron.Mcp.Analysis | 129 | 129/129 | 129/129 | 129/129 | ✅ done |
 | Annotation | Seqeron.Mcp.Annotation | 97 | 97/97 | 97/97 | 97/97 | ✅ done |
 | Chromosome | Seqeron.Mcp.Chromosome | 32 | 32/32 | 32/32 | 32/32 | ✅ done |
@@ -140,7 +140,7 @@
 | 40 | `vcf_variant_length` | ☑ | ☑ | ☑ |
 | 41 | `vcf_write` | ☑ | ☑ | ☑ |
 
-### Alignment (Seqeron.Mcp.Alignment) — 37 tools
+### Alignment (Seqeron.Mcp.Alignment) — 38 tools
 
 | # | tool | B | T | D |
 |---:|---|:--:|:--:|:--:|
@@ -173,33 +173,34 @@
 | 27 | `merge_contigs` | ☑ | ☑ | ☑ |
 | 28 | `multiple_align` | ☑ | ☑ | ☑ |
 | 29 | `multiple_align_anchored` | ☑ | ☑ | ☑ |
-| 30 | `multiple_align_consistency` | ☑ | ☑ | ☑ |
-| 31 | `multiple_align_iterative` | ☑ | ☑ | ☑ |
-| 32 | `multiple_align_progressive` | ☑ | ☑ | ☑ |
-| 33 | `quality_trim_reads` | ☑ | ☑ | ☑ |
-| 34 | `scaffold_contigs` | ☑ | ☑ | ☑ |
-| 35 | `semi_global_align` | ☑ | ☑ | ☑ |
-| 36 | `semi_global_align_affine` | ☑ | ☑ | ☑ |
-| 37 | `sequence_identity` | ☑ | ☑ | ☑ |
+| 30 | `multiple_align_clustalw` | ☑ | ☑ | ☑ |
+| 31 | `multiple_align_consistency` | ☑ | ☑ | ☑ |
+| 32 | `multiple_align_iterative` | ☑ | ☑ | ☑ |
+| 33 | `multiple_align_progressive` | ☑ | ☑ | ☑ |
+| 34 | `quality_trim_reads` | ☑ | ☑ | ☑ |
+| 35 | `scaffold_contigs` | ☑ | ☑ | ☑ |
+| 36 | `semi_global_align` | ☑ | ☑ | ☑ |
+| 37 | `semi_global_align_affine` | ☑ | ☑ | ☑ |
+| 38 | `sequence_identity` | ☑ | ☑ | ☑ |
 
 ### Analysis (Seqeron.Mcp.Analysis) — 129 tools
 
 | # | tool | B | T | D |
 |---:|---|:--:|:--:|:--:|
-| 1 | `alphabet_pwm_score_pvalue` | ☑ | ☑ | ☑ |
-| 2 | `alphabet_pwm_score_thresholds` | ☑ | ☑ | ☑ |
-| 3 | `analyze_gc_content` | ☑ | ☑ | ☑ |
-| 4 | `analyze_kmers` | ☑ | ☑ | ☑ |
-| 5 | `at_skew` | ☑ | ☑ | ☑ |
-| 6 | `base_pair_type` | ☑ | ☑ | ☑ |
-| 7 | `bulge_loop_energy` | ☑ | ☑ | ☑ |
-| 8 | `calculate_ani` | ☑ | ☑ | ☑ |
-| 9 | `can_pair` | ☑ | ☑ | ☑ |
-| 10 | `chou_fasman_assign` | ☑ | ☑ | ☑ |
-| 11 | `codon_frequencies` | ☑ | ☑ | ☑ |
-| 12 | `compare_genomes` | ☑ | ☑ | ☑ |
-| 13 | `compression_ratio` | ☑ | ☑ | ☑ |
-| 14 | `count_kmers` | ☑ | ☑ | ☑ |
+| 2 | `alphabet_pwm_score_pvalue` | ☑ | ☑ | ☑ |
+| 3 | `alphabet_pwm_score_thresholds` | ☑ | ☑ | ☑ |
+| 4 | `analyze_gc_content` | ☑ | ☑ | ☑ |
+| 5 | `analyze_kmers` | ☑ | ☑ | ☑ |
+| 6 | `at_skew` | ☑ | ☑ | ☑ |
+| 7 | `base_pair_type` | ☑ | ☑ | ☑ |
+| 8 | `bulge_loop_energy` | ☑ | ☑ | ☑ |
+| 9 | `calculate_ani` | ☑ | ☑ | ☑ |
+| 10 | `can_pair` | ☑ | ☑ | ☑ |
+| 11 | `chou_fasman_assign` | ☑ | ☑ | ☑ |
+| 12 | `codon_frequencies` | ☑ | ☑ | ☑ |
+| 13 | `compare_genomes` | ☑ | ☑ | ☑ |
+| 14 | `compression_ratio` | ☑ | ☑ | ☑ |
+| 15 | `count_kmers` | ☑ | ☑ | ☑ |
 | 15 | `count_kmers_both_strands` | ☑ | ☑ | ☑ |
 | 16 | `create_alphabet_pwm` | ☑ | ☑ | ☑ |
 | 17 | `create_pwm` | ☑ | ☑ | ☑ |

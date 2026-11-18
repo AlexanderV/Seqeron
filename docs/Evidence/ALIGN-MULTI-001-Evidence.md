@@ -492,3 +492,26 @@ Sources actually opened in this review (neutral `Seqeron-review/1.0` User-Agent,
 
 ## Assumptions / not covered
 - Final MSA rows are not compared with `clustalw -USETREE`: ClustalW's profile stage (sequence weights from the tree, residue-specific and hydrophilic gap penalties, gap-separation distance, end gaps, delayed divergent sequences) is audit item A1-10b, which this tree now unblocks. ClustalW's own UPGMA (`-CLUSTERING=UPGMA`) is a separate implementation with its own tie rules and is not claimed.
+
+
+---
+
+# Addendum: ClustalW fast pairwise stage and multiple-alignment stage (audit A1-15b / A1-10b, B09 F55 / F56, 2026-11-18)
+
+## Sources actually opened
+- ClustalW 2.1 (Debian `clustalw 2.1+lgpl-7`) source via `sources.debian.org/data/main/c/clustalw/2.1+lgpl-7/src/`: `pairwise/FastPairwiseAlign.cpp` (`pairwiseAlign`, `pairAlign`, `makeNPtrs`, `putFrag`, `fragRelPos`, `desQuickSort`), `alignment/Alignment.cpp` (`calculateMaxLengths`: `maxAlignmentLength = 2 · longest`), `general/UserParameters.cpp` (DNA defaults: `DNAKtup` 2, `DNAWindow` 4, `DNASignif` 4, `DNAWindowGap` 5, `DNAGapOpen` 15, `DNAGapExtend` 6.66, `divergenceCutoff` 30, `INT_SCALE_FACTOR`), `interface/CommandLineParser.cpp` (`-KTUPLE` sets the window gap to ktup + 4; `-WINDOW/-TOPDIAGS/-PAIRGAP` are accepted only above the k-tuple; `-ENDGAPS` sets the default false), `Clustal.cpp` (`align`), `tree/Tree.cpp` (`calcSeqWeights`, `calcWeight`, `calcSimilarities`, `createSets`, `groupSeqs`), `tree/NJTree.cpp` (`generateTree`), `tree/TreeInterface.cpp`, `tree/UnRootedClusterTree.cpp` (two-sequence tree file), `multipleAlign/MSA.cpp` (`multiSeqAlign`), `multipleAlign/MyersMillerProfileAlign.cpp` (`profileAlign`, `progDiff`, penalty accessors, `addGGaps`), `multipleAlign/ProfileBase.cpp` (`calcGapCoeff`), `ProfileStandard.cpp`, `ProfileWithSub.cpp`, `substitutionMatrix/SubMatrix.cpp` (`getProfileAlignMatrix`, `getMatrix`, `setUpCrossReferences`), Thompson, Higgins & Gibson 1994, Wilbur & Lipman 1983, Myers & Miller 1988.
+- Installed binary `clustalw` 2.1: `-TYPE=DNA -QUICKTREE -ALIGN` prints "Sequences (i:j) Aligned. Score: %lg" / "Not Aligned"; `-ALIGN -OUTPUT=FASTA -OUTORDER=INPUT` writes the final rows.
+
+## Findings from the source
+1. The fast stage is a Wilbur-Lipman diagonal / fragment-chain score, not an identity; the unstable quicksort and the partial-alignment exit (fragment list ≥ 2·maxAlnLength, maxAlnLength from the longest sequence of the whole input) are part of the result.
+2. `-KTUPLE=k` also sets the pair gap to k + 4: `-KTUPLE=2` alone is pair gap 6, the default without `-KTUPLE` is 5.
+3. ClustalW's multiple-alignment stage replaces the pairwise identities by tree-derived similarities and takes the progressive order, sequence weights and delayed sequences from the tree; the profile matrix is IUB ×100 shifted by +900, transitions (A-G, C-T, C-U) = ⌊TRANSWEIGHT·1900⌋; `-GAPEXT` is a float (100·6.66f = 665.99998 → 665); the gap-separation / hydrophilic / residue-specific penalties are guarded by `!_DNAFlag` (no effect for DNA); `-ENDGAPS` is a no-op on the command line.
+4. `-TRANSWEIGHT` also reaches the pairwise matrix: it writes ⌊w·1000⌋ to the CODE pairs C-M and C-N (ClustalW 2.1 uses residue codes there), which only matters for IUB-ambiguity input.
+5. NJ ties: ClustalW's neighbour joining (height-corrected matrix, running sums) decides exact ties by rounding of its own arithmetic.
+
+## Oracle numbers
+- Fast stage: 8 257 pairs of 605 sets, all `Score:` equal (see TestSpec CQ1); development panel of 10 733 pairs equal.
+- Multiple alignment: 1 000 committed sets, every row equal; development panels of 700 and 2 500 sets equal after the fixes of F56 (first run: 148 of 150 sets equal, then 698 of 700, then 2 496 of 2 500).
+
+## Assumptions / not covered
+- DNA only (`-DNAMATRIX=IUB`, default); the `CLUSTALW` DNA matrix, user matrices, protein stage, secondary-structure masks, `-ITERATION`, `-CLUSTERING=UPGMA` and `-ENDGAPS` (no command-line effect) are not ported. MUSCLE's profile score is audit item A1-10c.

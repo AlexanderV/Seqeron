@@ -1,0 +1,160 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "multiple_align_clustalw",
+  "serverName": "Alignment",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "SequenceAligner.MultipleAlignClustalW",
+  "docRef": "Seqeron.Genomics.Alignment/SequenceAligner.ClustalWMultiple.cs#L68",
+  "description": "ClustalW 2.1's multiple alignment of DNA (clustalw -TYPE=DNA -ALIGN), ported step by step and verified row-for-row against the installed clustalw 2.1: pairwise distances (distance='clustalw' = the full affine Smith-Waterman-Gotoh stage, 'clustalw-quick' = the fast k-tuple stage of -QUICKTREE with ktuple / window / topDiagonals / pairGap), ClustalW's neighbour-joining guide tree (rooted by Tree::reRoot), sequence weights derived from the tree branch lengths (Thompson, Higgins & Gibson 1994; noWeights = equal weights), delayed divergent sequences (maxDiv, default 30: sequences with at most that percent identity to every other sequence are aligned last), and profile-profile alignment with position-specific gap penalties (positions that already hold gaps get a reduced opening penalty and half the extension penalty, end gaps are free) on the IUB weight matrix shifted to non-negative scores (negative = keep it signed) with transitions weighted by transitionWeight (clustalw -TRANSWEIGHT, default 0.5) and Myers-Miller linear-space alignment. gapOpen / gapExtend are ClustalW's -GAPOPEN 15 / -GAPEXT 6.66 (the DNA residue-specific, hydrophilic and gap-separation penalties of clustalw are protein-only). Rows are returned in input order. match / mismatch / scoreGapOpen / scoreGapExtend define only the reported totalScore (natural affine sum of pairs, Altschul 1989).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequences": {
+        "type": "array",
+        "description": "DNA sequences to align (at least one; A, C, G, T)."
+      },
+      "gapOpen": {
+        "type": "number",
+        "description": "ClustalW -GAPOPEN: gap-opening penalty of the profile alignment (default 15; a penalty, positive).",
+        "default": 15.0
+      },
+      "gapExtend": {
+        "type": "number",
+        "description": "ClustalW -GAPEXT: gap-extension penalty of the profile alignment (default 6.66).",
+        "default": 6.66
+      },
+      "distance": {
+        "type": "string",
+        "description": "Pairwise stage that gives the guide-tree distances: 'clustalw' (default; full DP, clustalw -ALIGN) or 'clustalw-quick' (fast k-tuple mode, clustalw -QUICKTREE).",
+        "default": "clustalw"
+      },
+      "pwGapOpen": {
+        "type": "number",
+        "description": "ClustalW -PWGAPOPEN: pairwise gap-opening penalty of the full pairwise stage (default 15).",
+        "default": 15.0
+      },
+      "pwGapExtend": {
+        "type": "number",
+        "description": "ClustalW -PWGAPEXT: pairwise gap-extension penalty of the full pairwise stage (default 6.66).",
+        "default": 6.66
+      },
+      "transitionWeight": {
+        "type": "number",
+        "description": "ClustalW -TRANSWEIGHT: weight of transitions (A-G, C-T/U) in the profile matrix (default 0.5; 0 = as mismatches, 1 = as matches).",
+        "default": 0.5
+      },
+      "maxDiv": {
+        "type": "integer",
+        "description": "ClustalW -MAXDIV (default 30): a sequence whose highest percent identity to any other sequence is at most this value is delayed (aligned last, after the rest).",
+        "default": 30
+      },
+      "noWeights": {
+        "type": "boolean",
+        "description": "ClustalW -NOWEIGHTS: no tree-derived sequence weights.",
+        "default": false
+      },
+      "negative": {
+        "type": "boolean",
+        "description": "ClustalW -NEGATIVE: keep the substitution matrix signed instead of shifting it to non-negative scores.",
+        "default": false
+      },
+      "ktuple": {
+        "type": "integer",
+        "description": "distance='clustalw-quick' only: k-tuple (word) size, 1-4 for DNA (clustalw -KTUPLE, default 2)."
+      },
+      "window": {
+        "type": "integer",
+        "description": "distance='clustalw-quick' only: diagonals scanned around each top diagonal (clustalw -WINDOW, default 4)."
+      },
+      "topDiagonals": {
+        "type": "integer",
+        "description": "distance='clustalw-quick' only: number of best diagonals used (clustalw -TOPDIAGS, default 4)."
+      },
+      "pairGap": {
+        "type": "integer",
+        "description": "distance='clustalw-quick' only: gap penalty of the fragment chain (clustalw -PAIRGAP; default 5, or ktuple + 4 when ktuple is given, as the clustalw command line does)."
+      },
+      "match": {
+        "type": "integer",
+        "description": "Score for matching base in the reported totalScore only.",
+        "default": 1
+      },
+      "mismatch": {
+        "type": "integer",
+        "description": "Score for mismatching base in the reported totalScore only.",
+        "default": -1
+      },
+      "scoreGapOpen": {
+        "type": "integer",
+        "description": "Gap-open score of the reported totalScore only (negative = penalty).",
+        "default": -2
+      },
+      "scoreGapExtend": {
+        "type": "integer",
+        "description": "Gap-extend score of the reported totalScore only (negative = penalty).",
+        "default": -1
+      }
+    },
+    "required": [
+      "sequences"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "alignedSequences": {
+        "type": "array",
+        "description": "The aligned rows of the MSA (input order)."
+      },
+      "consensus": {
+        "type": "string",
+        "description": "Majority-vote consensus of the aligned rows (gaps vote; a nucleotide beats a gap on ties)."
+      },
+      "totalScore": {
+        "type": "integer",
+        "description": "Natural affine sum-of-pairs score of the alignment under match / mismatch / scoreGapOpen / scoreGapExtend (ClustalW itself reports no such score)."
+      }
+    },
+    "required": [
+      "alignedSequences",
+      "consensus",
+      "totalScore"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1010,
+      "message": "Invalid DNA at sequences[i]"
+    },
+    {
+      "code": 1002,
+      "message": "gapOpen, gapExtend, pwGapOpen, pwGapExtend, transitionWeight must be non-negative; distance must be clustalw or clustalw-quick"
+    }
+  ],
+  "examples": [
+    {
+      "name": "Five related 30-mers",
+      "input": {
+        "sequences": [
+          "ACGTACGTTTGACCAGTAGGCATCGATGGA",
+          "ACGTACGATTGACCAGTAGCCATCGATGGA",
+          "TTGACCAGTAGGCATCGATCCCAAGT",
+          "ACGTAGGATTGACCGTAGCCATCGATGGA",
+          "GGGTTTACCAGTAGGCATCGATGGAAACCT"
+        ]
+      },
+      "output": {
+        "alignedSequences": [
+          "ACGTACGTTTGACCAGTAGGCATCGATGGA-----",
+          "ACGTACGATTGACCAGTAGCCATCGATGGA-----",
+          "--------TTGACCAGTAGGCATCGATCCCAAGT-",
+          "ACGTAGGATTGACC-GTAGCCATCGATGGA-----",
+          "-----GGGTTTACCAGTAGGCATCGATGGAAACCT"
+        ],
+        "consensus": "ACGTACGATTGACCAGTAGGCATCGATGGA-----",
+        "totalScore": 77
+      }
+    }
+  ]
+}

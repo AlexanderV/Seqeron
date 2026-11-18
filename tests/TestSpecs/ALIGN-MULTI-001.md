@@ -402,3 +402,25 @@ Tests added (all lock oracle values: Biopython 1.88 pair optima and independent 
 | CH2 | same on 400 MEM-like sets (backbone + repeat copies on shifted diagonals + noise) and 2 × 3 000 anchors | former code |
 | CH3 | same on 12 adversarial shapes (identical anchors, same start, nested in one long anchor, anti-diagonal, staircase, shifted diagonals, one-sided overlaps, duplicates, empty, single, invalid entries) | former code |
 | CH4 | 10⁵ anchors: chain strictly colinear and non-overlapping, completes in seconds (the O(a²) scan needs ~5·10⁹ tests) | timing / invariant |
+
+---
+
+# Addendum: ClustalW fast pairwise stage and ClustalW multiple alignment (audit A1-15b / A1-10b, B09 F55 / F56)
+
+**Classes:** `SequenceAligner_ClustalWQuick_Tests` (10 tests), `SequenceAligner_ClustalWMultiple_Tests` (9), `SequenceAligner_GuideTree_Tests` (unchanged, now run on ClustalW's NJ arithmetic), `Seqeron.Mcp.Alignment.Tests.MultipleAlignTests` (2 new) and `ToolRegistrationContractTests` (`multiple_align_clustalw`).
+**Subject:** `SequenceAligner.ClustalWQuickPairwiseAlign` / `MsaDistanceMode.ClustalWQuick` / `MsaOptions.QuickPairwise`, `SequenceAligner.MultipleAlignClustalW(sequences, ClustalWOptions?, ScoringMatrix?)`, `SequenceAligner.ClustalWNeighborJoining` (internal).
+
+| ID | Test | Source / oracle |
+|----|------|-----------------|
+| CQ1 | printed `Score:` (or "Not Aligned") of `clustalw -QUICKTREE -ALIGN` equals `ClustalWQuickPairwiseAlign` on 8 257 pairs of 605 sets (k-tuple 1-4, -WINDOW/-TOPDIAGS/-PAIRGAP/-SCORE variants, IUB-N sets, "(Partial alignment)" sets) | installed `clustalw` 2.1 (`generate_clustalw_quick_oracle.py`) |
+| CQ2 | the oracle covers k = 1-4, absolute scores, "Not Aligned", explicit pair gaps and reaches the partial-alignment exit | coverage guard |
+| CQ3 | rows run with ClustalW's defaults (2 / 4 / 4 / 5) equal a parameterless call; the pair gap of `-KTUPLE=2` alone is 6 (27.5862 vs 25.8621 on a hand-run pair) | clustalw binary |
+| CQ4 | hand run: 92.5926 / 27.7778 / 27.7778 | clustalw binary |
+| CQ5 | score / distance consistency, defaults, contracts (null, invalid symbol, k-tuple range, window / topdiags / pair gap ≥ 1, maximum length < sequence length, empty, shorter than k) | contract |
+| CQ6 | `MsaDistanceMode.ClustalWQuick` gives valid MSAs on 60 sets and changes some guide trees; options reach the guide stage; default distance unchanged | invariants |
+| CM1 | rows of `MultipleAlignClustalW` equal `clustalw -TYPE=DNA -ALIGN -OUTPUT=FASTA -OUTORDER=INPUT` on 1 000 sets with option variants | installed `clustalw` 2.1 (`generate_clustalw_msa_full_oracle.py`) |
+| CM2 | coverage guards: every option (-GAPOPEN, -GAPEXT, -TRANSWEIGHT, -MAXDIV, -NOWEIGHTS, -NEGATIVE, -QUICKTREE, -KTUPLE, -WINDOW, -TOPDIAGS, -PAIRGAP, -PWGAPOPEN, -PWGAPEXT) in > 20 sets, two-sequence sets, ≥ 14-sequence sets, IUB codes, duplicates | coverage guard |
+| CM3 | each mechanism changes the rows on many oracle sets when switched off (weights, delayed divergent sequences, transition weight, negative matrix, gap penalties, fast pairwise stage) — equality is not an accident of easy inputs | discrimination |
+| CM4 | hand-run three-sequence example; rows spell the inputs, equal length, input order | clustalw binary / invariant |
+| CM5 | contracts (null, empty, single, invalid symbol, empty sequence, negative / NaN penalties, undefined mode, k-tuple range); `DnaSequence` overload = string overload = lower case; defaults = ClustalW DNA defaults; GAPEXT stored as float | contract |
+| CM6 (MCP) | `multiple_align_clustalw` delegates (defaults and every option), bad distance / sequence / negative penalty throws; registered in the contract list | library call |

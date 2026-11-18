@@ -26,7 +26,8 @@ per-tool doc for the full I/O schema — do not guess parameters. Servers: **Ali
 
 | Tool | Method ID | Purpose |
 |---|---|---|
-| [`multiple_align`](../../../../docs/mcp/tools/alignment/multiple_align.md) | `SequenceAligner.MultipleAlign` | Center-star MSA (exact pairwise NW) → aligned rows, consensus, sum-of-pairs score; siblings `multiple_align_anchored`, `_progressive`, `_iterative`, `_consistency`. |
+| [`multiple_align`](../../../../docs/mcp/tools/alignment/multiple_align.md) | `SequenceAligner.MultipleAlign` | Center-star MSA (exact pairwise NW) → aligned rows, consensus, sum-of-pairs score; siblings `multiple_align_anchored`, `_progressive`, `_iterative`, `_consistency`, `_clustalw`. |
+| [`multiple_align_clustalw`](../../../../docs/mcp/tools/alignment/multiple_align_clustalw.md) | `SequenceAligner.MultipleAlignClustalW` | ClustalW 2.1 MSA of DNA, row-for-row equal to `clustalw -ALIGN` (NJ tree, tree weights, delayed divergent sequences, position-specific gaps); `distance=clustalw-quick` = `-QUICKTREE`. |
 | [`multiple_alignment_statistics`](../../../../docs/mcp/tools/analysis/multiple_alignment_statistics.md) | `MultipleAlignmentStatistics.Calculate` | Analysis server: per-sequence infoalign stats vs reference/consensus, per-column counts/gaps/ClustalW conservation, pairwise identity matrix |
 | [`alignment_distance_matrix`](../../../../docs/mcp/tools/analysis/alignment_distance_matrix.md) | `MultipleAlignmentStatistics.CalculateDistanceMatrix` | Analysis server: EMBOSS distmat uncorrected / Jukes-Cantor distance matrix of an MSA |
 | [`compute_consensus`](../../../../docs/mcp/tools/alignment/compute_consensus.md) | `SequenceAssembler.ComputeConsensus` | Majority-vote consensus from pre-aligned equal-length reads (ties → `N`). |

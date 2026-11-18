@@ -135,6 +135,67 @@ public class MultipleAlignTests
         Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignConsistency(DistanceSet, 5, -4, 0, -3, "bogus"));
     }
 
+    // B09 F55 (A1-15b): distance = clustalw-quick (clustalw -QUICKTREE) delegates to MsaDistanceMode.ClustalWQuick with the
+    // ktuple / window / topDiagonals / pairGap parameters; the guide-tree stage validates them.
+    [Test]
+    public void MultipleAlignProgressive_DistanceClustalWQuick_DelegatesAndValidatesParameters()
+    {
+        string[] set = ["ACGTACGTTTGACCAGTAGGCATCGATGGA", "ACGTACGATTGACCAGTAGCCATCGATGGA", "TTGACCAGTAGGCATCGATCCCAAGT", "ACGTAGGATTGACCGTAGCCATCGATGGA"];
+        var dna = set.Select(x => new global::Seqeron.Genomics.Core.DnaSequence(x)).ToList();
+        var scoring = new global::Seqeron.Genomics.Infrastructure.ScoringMatrix(5, -4, 0, -3);
+        var expected = global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignProgressive(dna, scoring,
+            new global::Seqeron.Genomics.Infrastructure.MsaOptions
+            {
+                Distance = global::Seqeron.Genomics.Infrastructure.MsaDistanceMode.ClustalWQuick,
+                QuickPairwise = new global::Seqeron.Genomics.Infrastructure.ClustalWQuickOptions { KTuple = 3, Window = 5, TopDiagonals = 6, PairGap = 9 },
+                GuideTree = global::Seqeron.Genomics.Infrastructure.MsaGuideTree.NeighborJoining,
+            });
+        var r = AlignmentTools.MultipleAlignProgressive(set, 5, -4, 0, -3, "clustalw-quick", "linear", "nj", 3, 5, 6, 9);
+        Assert.Multiple(() =>
+        {
+            Assert.That(r.AlignedSequences, Is.EqualTo(expected.AlignedSequences));
+            Assert.That(AlignmentTools.MultipleAlignProgressive(set, 5, -4, 0, -3, "ClustalW_Quick").AlignedSequences, Has.Length.EqualTo(4));
+            Assert.Throws<ArgumentOutOfRangeException>(() => AlignmentTools.MultipleAlignProgressive(set, 5, -4, 0, -3, "clustalw-quick", "linear", "upgma", 9));
+            Assert.DoesNotThrow(() => AlignmentTools.MultipleAlignIterative(set, 5, -4, 0, -3, 16, "clustalw-quick"));
+            Assert.DoesNotThrow(() => AlignmentTools.MultipleAlignConsistency(set, 5, -4, 0, -3, "clustalw-quick"));
+        });
+    }
+
+    // B09 F56 (A1-10b): multiple_align_clustalw delegates to SequenceAligner.MultipleAlignClustalW (ClustalW 2.1 multiple alignment).
+    // Rows of the set below = the installed clustalw 2.1 (-TYPE=DNA -ALIGN -OUTPUT=FASTA -OUTORDER=INPUT).
+    private static readonly string[] ClustalWSet =
+        ["ACGTACGTTTGACCAGTAGGCATCGATGGA", "ACGTACGATTGACCAGTAGCCATCGATGGA", "TTGACCAGTAGGCATCGATCCCAAGT", "ACGTAGGATTGACCGTAGCCATCGATGGA", "GGGTTTACCAGTAGGCATCGATGGAAACCT"];
+
+    [Test]
+    public void MultipleAlignClustalW_DelegatesToTheClustalWPort_AndParsesEveryOption()
+    {
+        var dna = ClustalWSet.Select(x => new global::Seqeron.Genomics.Core.DnaSequence(x)).ToList();
+        var scoring = new global::Seqeron.Genomics.Infrastructure.ScoringMatrix(1, -1, -2, -1);
+        var expected = global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignClustalW(dna, null, scoring);
+        var r = AlignmentTools.MultipleAlignClustalW(ClustalWSet);
+        var opt = new global::Seqeron.Genomics.Infrastructure.ClustalWOptions
+        {
+            GapOpen = 10, GapExtend = 3, PairwiseMode = global::Seqeron.Genomics.Infrastructure.ClustalWPairwiseMode.Quick, PairwiseGapOpen = 12, PairwiseGapExtend = 5,
+            TransitionWeight = 1f, DivergenceCutoff = 50, NoWeights = true, NegativeMatrix = true,
+            Quick = new global::Seqeron.Genomics.Infrastructure.ClustalWQuickOptions { KTuple = 3, Window = 6, TopDiagonals = 7, PairGap = 10 },
+        };
+        var viaApi = global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignClustalW(dna, opt, new global::Seqeron.Genomics.Infrastructure.ScoringMatrix(2, -3, -5, -1));
+        var viaTool = AlignmentTools.MultipleAlignClustalW(ClustalWSet, 10, 3, "ClustalW-Quick", 12, 5, 1f, 50, true, true, 3, 6, 7, 10, 2, -3, -5, -1);
+        Assert.Multiple(() =>
+        {
+            Assert.That(r.AlignedSequences, Is.EqualTo(expected.AlignedSequences));
+            Assert.That(r.TotalScore, Is.EqualTo(expected.TotalScore));
+            Assert.That(r.AlignedSequences.Select(x => x.Replace("-", "")), Is.EqualTo(ClustalWSet));
+            Assert.That(viaTool.AlignedSequences, Is.EqualTo(viaApi.AlignedSequences));
+            Assert.That(viaTool.TotalScore, Is.EqualTo(viaApi.TotalScore));
+            Assert.That(AlignmentTools.MultipleAlignClustalW(ClustalWSet, distance: "full").AlignedSequences, Is.EqualTo(r.AlignedSequences));
+            Assert.That(AlignmentTools.MultipleAlignClustalW(Array.Empty<string>()).AlignedSequences, Is.Empty);
+            Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignClustalW(ClustalWSet, distance: "linear"));
+            Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignClustalW(new[] { "ACGT", "ACGX" }));
+            Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignClustalW(ClustalWSet, gapOpen: -3));
+        });
+    }
+
     // B09 F52 (A1-10): gapModel = affine honours gapOpen. Identical pair 33 matches = 66; the two pairs with the 23-nt sequence have
     // 23 matches (46) and ONE 10-nt gap run: affine -8 + 10 * -1 = -18, linear -10.
     private static readonly string[] IndelSet =
@@ -172,8 +233,10 @@ public class MultipleAlignTests
 
     // B09 F53 (A1-12): guideTree = upgma | nj. The set is discriminating: UPGMA and ClustalW-style NJ guide trees give different
     // progressive rows (library call SequenceAligner.MultipleAlignProgressive(..., new MsaOptions { GuideTree = ... }), defaults 1/-1/-2/-1).
+    // F56 (A1-10b): the NJ tree now uses ClustalW's own NJ arithmetic (exact ties like ClustalW); the former set became a tie where
+    // both trees agree, so the set was replaced by one found by a random search (NJ and UPGMA topologies differ).
     private static readonly string[] GuideTreeSet =
-        ["AGGGAAGAGTGCCA", "AGGGGAATTCTT", "AGGAGAGTGCCC", "AGGGCAGTGTGCCT", "ATTGCGAGTTCT"];
+        ["AAAAGTCAGGCAT", "AACAGTTAGGCAT", "AAAGTTAGGCCA", "AAATGTTAGGCAT", "AAAGTTAGGCAA"];
 
     [Test]
     public void MultipleAlignProgressive_GuideTreeNj_SelectsNeighborJoiningTree()
@@ -182,10 +245,10 @@ public class MultipleAlignTests
         var nj = AlignmentTools.MultipleAlignProgressive(GuideTreeSet, 1, -1, -2, -1, "linear", "linear", "nj");
         Assert.Multiple(() =>
         {
-            Assert.That(upgma.AlignedSequences, Is.EqualTo(new[] { "AGGGAAGAGTGCCA", "AGGG--GAATTCTT", "A-GG-AGAGTGCCC", "AGGGCAGTGTGCCT", "ATTGC-GAGTTC-T" }));
-            Assert.That(nj.AlignedSequences, Is.EqualTo(new[] { "AGGGAAGAGTGCCA", "A-GG-GGAATTCTT", "A-GG-AGAGTGCCC", "AGGGCAGTGTGCCT", "ATTG-CGAGTTC-T" }));
-            Assert.That(upgma.TotalScore, Is.EqualTo(32));
-            Assert.That(nj.TotalScore, Is.EqualTo(28));
+            Assert.That(upgma.AlignedSequences, Is.EqualTo(new[] { "AA-AAGTCAGG-CAT", "AACA-GTTAGG-CAT", "AA-A-GTTAGGCCA-", "AA-ATGTTAGG-CAT", "AA-A-GTTAGG-CAA" }));
+            Assert.That(nj.AlignedSequences, Is.EqualTo(new[] { "AA-AAGTCAGGCAT", "AACA-GTTAGGCAT", "AA-A-GTTAGGCCA", "AA-ATGTTAGGCAT", "AA-A-GTTAGGCAA" }));
+            Assert.That(upgma.TotalScore, Is.EqualTo(83));
+            Assert.That(nj.TotalScore, Is.EqualTo(81));
             Assert.That(AlignmentTools.MultipleAlignProgressive(GuideTreeSet, 1, -1, -2, -1, "linear", "linear", "UPGMA").AlignedSequences, Is.EqualTo(upgma.AlignedSequences));
             Assert.That(AlignmentTools.MultipleAlignProgressive(GuideTreeSet, 1, -1, -2, -1, "linear", "linear", "neighbor_joining").AlignedSequences, Is.EqualTo(nj.AlignedSequences));
         });

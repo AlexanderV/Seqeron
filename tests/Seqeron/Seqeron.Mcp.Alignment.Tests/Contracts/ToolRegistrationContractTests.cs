@@ -45,6 +45,7 @@ public sealed class ToolRegistrationContractTests : ToolRegistrationContractTest
         "merge_contigs",
         "multiple_align",
         "multiple_align_anchored",
+        "multiple_align_clustalw",
         "multiple_align_consistency",
         "multiple_align_iterative",
         "multiple_align_progressive",
