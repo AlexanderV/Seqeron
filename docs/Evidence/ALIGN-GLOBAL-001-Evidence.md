@@ -125,7 +125,7 @@ Border values: $F(i,0) = -i$, $F(0,j) = -j$ — directly from Wikipedia.
 - The implementation follows the standard Needleman–Wunsch linear gap penalty model exactly as given in the Wikipedia pseudocode.
 - `ScoringMatrix.GapExtend` acts as the linear gap penalty $d$. `ScoringMatrix.GapOpen` is not used by `GlobalAlign`; it is used by `GlobalAlignAffine` (see above).
 - When multiple optimal alignments exist, one is returned deterministically. This is explicitly allowed by the source.
-- Empty-input and null-argument handling are API-level contract behaviors, not part of the NW algorithm specification.
+- Empty input (2026-11, A1-1): an empty sequence is not special-cased by any overload; the NW border `F(0,j) = d·j`, `F(i,0) = d·i` (Needleman & Wunsch 1970; Durbin, Eddy, Krogh, Mitchison 1998 §2.3) gives the all-gap alignment (`""` vs `ACGT` → `----`/`ACGT`, score `4·d`; affine `o + 4·e`), and two empty sequences score 0 with empty rows. **No reference tool is an oracle for this case:** Biopython 1.88 `PairwiseAligner.score` raises `ValueError: sequence has zero length`, parasail 1.3.4 `nw_trace` raises `_s1Len must be > 0`, EMBOSS needle 6.6 rejects a zero-length sequence, scikit-bio 0.7.4 `pair_align` raises `Sequence 1 has a length of zero`, and `Bio.pairwise2` returns no alignment (all run 2026-11-18). The earlier audit remark "Biopython score = −8 for CCAC/\"\"" is therefore not reproducible in 1.88; the value follows from the recurrence (and equals the indel cost of the Hirschberg base case and of `ApproximateMatcher` weighted edit distance). Null input throws `ArgumentNullException` on every overload.
 
 ---
 

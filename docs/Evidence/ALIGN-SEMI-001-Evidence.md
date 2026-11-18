@@ -120,6 +120,7 @@ For the fitting alignment variant:
 | INV-3 | Query fully represented | Fitting alignment: `RemoveGaps(aligned1) == query` (Rosalind SIMS) |
 | INV-4 | Reference is substring | Fitting alignment: `RemoveGaps(aligned2)` is substring of reference |
 | INV-5 | Score = $\max_j F_{m,j}$ | Fitting alignment traceback from max of last row |
+| INV-6 | `StartPosition2`/`EndPosition2` = fitted interval of the reference (first/last reference index consumed between the free end gaps; empty interval: End2 = Start2 − 1); Start1/End1 = 0 / m − 1 | Biopython 1.88 `PairwiseAligner(mode='global', end_insertion_score=0)`: leading/trailing gap-in-target columns of each co-optimal alignment (`align` enumeration); parasail 1.3.4 `sg_dx_trace` `end_ref`. Oracle run (2026-11-18, A1-4): 4090 random/edge cases (alphabets A, AC, ACGT; lengths 0..30; 10 scoring schemes incl. GapOpen 0 / GapExtend 0), 1382 semi-global rows: reported interval ∈ set of Biopython co-optimal intervals in 823/823 fully enumerated rows (32 capped at 3000 alignments), parasail score equal in all rows, `Global(query, ref[Start2..End2]).Score` = fitting score in all rows; 0 failures |
 
 ---
 

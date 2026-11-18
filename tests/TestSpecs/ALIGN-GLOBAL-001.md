@@ -40,7 +40,7 @@
 | Method | Class | Type | Notes |
 |--------|-------|------|-------|
 | `GlobalAlign(seq1, seq2, scoring)` | SequenceAligner | **Canonical** | Needleman–Wunsch with linear gap penalty |
-| `GlobalAlign(string, string, scoring)` | SequenceAligner | Delegate | Wrapper: normalizes to uppercase, returns `AlignmentResult.Empty` for empty input |
+| `GlobalAlign(string, string, scoring)` | SequenceAligner | Delegate | Wrapper: normalizes to uppercase; null → `ArgumentNullException`; empty side → all-gap NW alignment (same as every other overload) |
 | `GlobalAlign(string, string, scoring, CancellationToken, IProgress?)` | SequenceAligner | Delegate | Cancellation wrapper; shares the same linear NW core (2026-09 review) |
 | `GlobalAlign(DnaSequence, DnaSequence, scoring, CancellationToken, IProgress?)` | SequenceAligner | Delegate | Same core as the typed overload (empty typed input → all-gap NW border alignment, like the non-cancellation typed overload) |
 | `GlobalAlignAffine(seq1, seq2, scoring)` / `(string, string, scoring)` | SequenceAligner | **Canonical (affine)** | Gotoh (1982) three-state DP, Flouri et al. (2015) border initialization; gap of length k = GapOpen + k·GapExtend |
@@ -86,15 +86,15 @@ Reference values: Biopython 1.88 `PairwiseAligner(mode='global', open_gap_score=
 | G3 | Reference scores | TTTTTTTTTTACGT/ACGT BlastDna → −17; GCATGCG/GATTACA BlastDna → −6; ACGTAAAAAAAAACGT/ACGTCGT (5,−4,−10,−1) → 16; AC/GC (1,−10,−1,−1) → −3 | as listed | Biopython = parasail |
 | G4 | Flouri initialization trap | A / CAC, (1,−10,−5,−1) | −11, `-A-`/`CAC` (Gotoh's original border gives −9) | Flouri et al. 2015; Biopython = parasail |
 | G5 | GapOpen = 0 reduces to linear NW | Wikipedia example | 0 | w(k) = k·e |
-| G6 | Empty side | "" / ACGT, BlastDna | −13 (o + n·e); both empty → Empty | Gotoh border |
+| G6 | Empty side | "" / ACGT, BlastDna | −13 (o + n·e); both empty → score 0, empty rows, coordinates 0/0/−1/−1 | Gotoh border |
 | G7 | Overload agreement | DnaSequence vs lower-case string | equal | API contract |
 
 ### 4.2 API Contract Tests
 
 | ID | Test Case | Input | Expected | Notes |
 |----|-----------|-------|----------|-------|
-| A1 | Empty string input returns AlignmentResult.Empty | seq1="", seq2=GATTACA | Empty result | API contract — empty input guard |
-| A2 | Null DnaSequence throws ArgumentNullException | seq1=null, seq2=GATTACA | ArgumentNullException | API contract — null guard |
+| A1 | Empty side = all-gap Needleman-Wunsch alignment, every overload (string, DnaSequence, both cancellable) | ""/GATTACA → `-------`/`GATTACA` −7; GATTACA/"" → −7; ""/"" → score 0, "", "", coordinates 0/0/−1/−1; ""/A → −1; CCAC/"" with gap −2 → −8 | Exact | NW border F(0,j) = d·j (Needleman & Wunsch 1970; Durbin et al. 1998 §2.3). Biopython 1.88 / parasail 1.3.4 / EMBOSS needle 6.6 / scikit-bio 0.7 reject zero-length input (no oracle); non-empty cases of the same code path are oracle-verified (4090-row differential run, 0 score mismatches) |
+| A2 | Null DnaSequence / null string throws ArgumentNullException (all string, DnaSequence, cancellable, affine overloads) | seq1=null, seq2=GATTACA | ArgumentNullException | API contract — null guard (replaces the former silent `AlignmentResult.Empty` of the string overloads) |
 
 ---
 
@@ -115,8 +115,8 @@ Reference values: Biopython 1.88 `PairwiseAligner(mode='global', open_gap_score=
 | `StringOverload_ProducesSameResultAsDnaSequenceOverload` | M9 |
 | `SingleDeletion_Statistics_ExactValues` | M10 |
 | `ScoreSymmetry_ReversedInputs_SameScore` | M11 |
-| `EmptyStringInput_ReturnsEmptyResult` | A1 |
-| `NullDnaSequence_ThrowsArgumentNullException` | A2 |
+| `EmptyInput_AllOverloads_AreTheAllGapNeedlemanWunschAlignment` ×4, `EmptyInput_LinearScore_IsGapTimesLength` ×3 | A1 |
+| `NullDnaSequence_ThrowsArgumentNullException`, `NullString_ThrowsArgumentNullException_OnEveryStringOverload` | A2 |
 
 ---
 

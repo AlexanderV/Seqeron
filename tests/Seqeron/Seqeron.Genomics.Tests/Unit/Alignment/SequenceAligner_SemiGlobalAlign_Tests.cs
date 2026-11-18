@@ -171,7 +171,8 @@ public class SequenceAligner_SemiGlobalAlign_Tests
                 "INV-4: the reference part of the scored region is a substring of the reference");
             Assert.That(RemoveGaps(result.AlignedSequence2), Is.EqualTo(reference.Sequence),
                 "Aligned seq2 spans the whole reference (free flanks shown against gaps)");
-            Assert.That((result.StartPosition2, result.EndPosition2), Is.EqualTo((0, 9)));
+            Assert.That((result.StartPosition2, result.EndPosition2), Is.EqualTo((3, 6)),
+                "fitted interval: the query matches ref[3..6] (ATGC); the flanks ref[0..2] / ref[7..9] are free");
         });
     }
 
@@ -189,7 +190,7 @@ public class SequenceAligner_SemiGlobalAlign_Tests
     public void SemiGlobalAlign_NullSequence1_ThrowsArgumentNullException()
     {
         Assert.Throws<ArgumentNullException>(() =>
-            SequenceAligner.SemiGlobalAlign(null!, new DnaSequence("ATGC")));
+            SequenceAligner.SemiGlobalAlign((DnaSequence)null!, new DnaSequence("ATGC")));
     }
 
     /// <summary>
@@ -200,7 +201,7 @@ public class SequenceAligner_SemiGlobalAlign_Tests
     public void SemiGlobalAlign_NullSequence2_ThrowsArgumentNullException()
     {
         Assert.Throws<ArgumentNullException>(() =>
-            SequenceAligner.SemiGlobalAlign(new DnaSequence("ATGC"), null!));
+            SequenceAligner.SemiGlobalAlign(new DnaSequence("ATGC"), (DnaSequence)null!));
     }
 
     #endregion
@@ -592,12 +593,12 @@ public class SequenceAligner_SemiGlobalAlign_Tests
     /// → 2; an overlap aligner (free end gaps on both sequences) would score 4 — this fixes the
     /// variant as query-in-reference fitting.
     /// </summary>
-    [TestCase("GATTACA", "CCGATTTACAGG", 2, -3, -2, 12, "--GA-TTACA--", "CCGATTTACAGG")]
-    [TestCase("ACGTAA", "CCACGT", 1, -1, -1, 2, "--ACGTAA", "CCACGT--")]
-    [TestCase("GGGACGT", "ACGTCCC", 1, -1, -1, 1, "GGGACGT---", "---ACGTCCC")]
+    [TestCase("GATTACA", "CCGATTTACAGG", 2, -3, -2, 12, "--GA-TTACA--", "CCGATTTACAGG", 2, 9)]
+    [TestCase("ACGTAA", "CCACGT", 1, -1, -1, 2, "--ACGTAA", "CCACGT--", 2, 5)]
+    [TestCase("GGGACGT", "ACGTCCC", 1, -1, -1, 1, "GGGACGT---", "---ACGTCCC", 0, 3)]
     public void SemiGlobalAlign_ReferenceAlignments_MatchBiopythonAndParasail(
         string query, string reference, int match, int mismatch, int gap, int expectedScore,
-        string expected1, string expected2)
+        string expected1, string expected2, int expectedStart2, int expectedEnd2)
     {
         var r = SequenceAligner.SemiGlobalAlign(new DnaSequence(query), new DnaSequence(reference),
             new ScoringMatrix(match, mismatch, -100, gap));
@@ -606,8 +607,9 @@ public class SequenceAligner_SemiGlobalAlign_Tests
         {
             Assert.That(r.Score, Is.EqualTo(expectedScore));
             Assert.That((r.AlignedSequence1, r.AlignedSequence2), Is.EqualTo((expected1, expected2)));
-            Assert.That((r.StartPosition1, r.EndPosition1, r.StartPosition2, r.EndPosition2),
-                Is.EqualTo((0, query.Length - 1, 0, reference.Length - 1)));
+            Assert.That((r.StartPosition1, r.EndPosition1), Is.EqualTo((0, query.Length - 1)));
+            Assert.That((r.StartPosition2, r.EndPosition2), Is.EqualTo((expectedStart2, expectedEnd2)),
+                "fitted interval of sequence 2 (Biopython co-optimal alignments' unique interval)");
         });
     }
 
@@ -666,12 +668,12 @@ public class SequenceAligner_SemiGlobalAlign_Tests
     /// sequence 2 and costs GapOpen + 2·GapExtend = −4 → 4 − 4 = 0 (Biopython = parasail).
     /// All-mismatch AAAA / CCCC: 4 mismatches (−4) beat the all-gap placement (−2 − 4 = −6).
     /// </summary>
-    [TestCase("ACGTAA", "CCACGT", 1, -1, -2, -1, 0, "--ACGTAA", "CCACGT--")]
-    [TestCase("AAAA", "CCCC", 1, -1, -2, -1, -4, "AAAA", "CCCC")]
-    [TestCase("GATTACA", "CCGATTTACAGG", 2, -3, -5, -2, 7, "--GA-TTACA--", "CCGATTTACAGG")]
+    [TestCase("ACGTAA", "CCACGT", 1, -1, -2, -1, 0, "--ACGTAA", "CCACGT--", 2, 5)]
+    [TestCase("AAAA", "CCCC", 1, -1, -2, -1, -4, "AAAA", "CCCC", 0, 3)]
+    [TestCase("GATTACA", "CCGATTTACAGG", 2, -3, -5, -2, 7, "--GA-TTACA--", "CCGATTTACAGG", 2, 9)]
     public void SemiGlobalAlignAffine_ReferenceValues_MatchBiopythonAndParasail(
         string query, string reference, int match, int mismatch, int open, int extend,
-        int expectedScore, string expected1, string expected2)
+        int expectedScore, string expected1, string expected2, int expectedStart2, int expectedEnd2)
     {
         var r = SequenceAligner.SemiGlobalAlignAffine(query, reference, new ScoringMatrix(match, mismatch, open, extend));
 
@@ -679,8 +681,9 @@ public class SequenceAligner_SemiGlobalAlign_Tests
         {
             Assert.That(r.Score, Is.EqualTo(expectedScore));
             Assert.That((r.AlignedSequence1, r.AlignedSequence2), Is.EqualTo((expected1, expected2)));
-            Assert.That((r.StartPosition1, r.EndPosition1, r.StartPosition2, r.EndPosition2),
-                Is.EqualTo((0, query.Length - 1, 0, reference.Length - 1)));
+            Assert.That((r.StartPosition1, r.EndPosition1), Is.EqualTo((0, query.Length - 1)));
+            Assert.That((r.StartPosition2, r.EndPosition2), Is.EqualTo((expectedStart2, expectedEnd2)),
+                "fitted interval of sequence 2 (Biopython co-optimal alignments' unique interval)");
         });
     }
 
@@ -735,6 +738,170 @@ public class SequenceAligner_SemiGlobalAlign_Tests
         {
             Assert.Throws<ArgumentNullException>(() => SequenceAligner.SemiGlobalAlignAffine((DnaSequence)null!, new DnaSequence("ACGT")));
             Assert.Throws<ArgumentNullException>(() => SequenceAligner.SemiGlobalAlignAffine("ACGT", (string)null!));
+        });
+    }
+
+    #endregion
+
+    #region A1-4: Start/EndPosition2 = fitted interval of sequence 2
+
+    /// <summary>
+    /// Fitted interval (0-based inclusive indices of sequence 2 consumed between the free end gaps) on cases whose
+    /// co-optimal alignments (all enumerated with Biopython 1.88 <c>PairwiseAligner(mode='global', end_insertion_score=0)
+    /// .align</c>) share ONE interval; the end equals parasail 1.3.4 <c>sg_dx_trace</c> <c>end_ref</c> and the score
+    /// equals both tools. Linear rows: open = GapExtend; affine rows: open_gap_score = GapOpen + GapExtend.
+    /// </summary>
+    [TestCase(false, "ACGTAC", "TTTTTTACGTACTTTTTT", 2, -3, -5, -2, 12, 6, 11)]
+    [TestCase(true, "ACGTAC", "TTTTTTACGTACTTTTTT", 2, -3, -5, -2, 12, 6, 11)]
+    [TestCase(true, "ACGTTTTACGT", "GGACGTACGTGG", 2, -3, -5, -2, 5, 2, 9)]
+    [TestCase(true, "AGGGCT", "TTAGGCTT", 2, -3, -5, -2, 3, 2, 6)]
+    [TestCase(false, "ACGTACGT", "ACGTAC", 1, -1, -2, -1, 4, 0, 5)]
+    [TestCase(true, "ACGTACGT", "ACGTAC", 5, -4, -10, -1, 18, 0, 5)]
+    [TestCase(false, "ACGT", "ACGT", 1, -1, -2, -1, 4, 0, 3)]
+    [TestCase(true, "GATTACA", "CCGATTTACAGG", 2, -3, -5, -2, 7, 2, 9)]
+    public void SemiGlobalAlign_FittedInterval_MatchesBiopythonCoordinatesAndParasailEndRef(
+        bool affine, string query, string reference, int match, int mismatch, int open, int extend,
+        int expectedScore, int expectedStart2, int expectedEnd2)
+    {
+        var scoring = new ScoringMatrix(match, mismatch, open, extend);
+        var r = affine
+            ? SequenceAligner.SemiGlobalAlignAffine(query, reference, scoring)
+            : SequenceAligner.SemiGlobalAlign(query, reference, scoring);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(r.Score, Is.EqualTo(expectedScore));
+            Assert.That((r.StartPosition1, r.EndPosition1), Is.EqualTo((0, query.Length - 1)));
+            Assert.That((r.StartPosition2, r.EndPosition2), Is.EqualTo((expectedStart2, expectedEnd2)));
+        });
+    }
+
+    /// <summary>
+    /// Tied fittings: the reported interval must be one of the intervals of Biopython's co-optimal alignments
+    /// (full enumeration, listed here); Seqeron's rule (first maximal last-row column, diagonal &gt; up &gt; left)
+    /// picks the leftmost end. An all-gap query alignment has the EMPTY interval End2 = Start2 − 1.
+    /// </summary>
+    [TestCase(false, "AAAA", "CCCC", 1, -5, -100, -1, -4, 0, -1)] // Biopython: (0,-1)(1,0)(2,1)(3,2)(4,3)
+    [TestCase(false, "TTTTACGTA", "GGGGACGTAGGGG", 1, -1, -1, -1, 1, 0, 8)] // Biopython: (0..4, 8)
+    [TestCase(false, "AC", "CACACAC", 1, -1, -1, -1, 2, 1, 2)] // Biopython: (1,2)(3,4)(5,6)
+    public void SemiGlobalAlign_TiedFittings_ReportOneCoOptimalInterval(
+        bool affine, string query, string reference, int match, int mismatch, int open, int extend,
+        int expectedScore, int expectedStart2, int expectedEnd2)
+    {
+        var scoring = new ScoringMatrix(match, mismatch, open, extend);
+        var r = affine
+            ? SequenceAligner.SemiGlobalAlignAffine(query, reference, scoring)
+            : SequenceAligner.SemiGlobalAlign(query, reference, scoring);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(r.Score, Is.EqualTo(expectedScore));
+            Assert.That((r.StartPosition2, r.EndPosition2), Is.EqualTo((expectedStart2, expectedEnd2)));
+        });
+    }
+
+    /// <summary>Empty query: nothing consumed, empty interval at 0; empty reference: the query aligns against gaps (empty interval).</summary>
+    [Test]
+    public void SemiGlobalAlign_EmptyFittedInterval_Coordinates()
+    {
+        var scoring = new ScoringMatrix(1, -1, -2, -1);
+        var results = new[]
+        {
+            SequenceAligner.SemiGlobalAlign("", "ACGT", scoring),
+            SequenceAligner.SemiGlobalAlignAffine("", "ACGT", scoring),
+        };
+        var queryOnly = new[]
+        {
+            SequenceAligner.SemiGlobalAlign("ACG", "", scoring),
+            SequenceAligner.SemiGlobalAlignAffine("ACG", "", scoring),
+        };
+
+        Assert.Multiple(() =>
+        {
+            foreach (var r in results)
+                Assert.That((r.StartPosition1, r.EndPosition1, r.StartPosition2, r.EndPosition2), Is.EqualTo((0, -1, 0, -1)));
+            foreach (var r in queryOnly)
+                Assert.That((r.StartPosition1, r.EndPosition1, r.StartPosition2, r.EndPosition2), Is.EqualTo((0, 2, 0, -1)));
+        });
+    }
+
+    /// <summary>
+    /// Independent brute-force oracle for the DEFINITION of a fitting alignment: score = max over all substrings
+    /// ref[a..b) of the global alignment score of the query against that substring, and the reported interval
+    /// itself attains that score as a plain global alignment (linear and affine, 6 schemes, 600 random pairs);
+    /// the interval is also exactly the span between the leading/trailing gap-only columns of the query row.
+    /// </summary>
+    [Test]
+    public void SemiGlobalAlign_FittedInterval_IsBruteForceOptimalSubstring()
+    {
+        var rng = new Random(20261118);
+        var schemes = new[]
+        {
+            new ScoringMatrix(1, -1, -2, -1), new ScoringMatrix(2, -3, -5, -2), new ScoringMatrix(5, -4, -10, -1),
+            new ScoringMatrix(1, -1, 0, -1), new ScoringMatrix(3, -2, -4, 0), new ScoringMatrix(2, -1, -3, -1),
+        };
+
+        Assert.Multiple(() =>
+        {
+            for (int t = 0; t < 600; t++)
+            {
+                string alphabet = rng.Next(3) == 0 ? "AC" : "ACGT";
+                string q = RandomString(rng, alphabet, rng.Next(1, 9));
+                string rf = RandomString(rng, alphabet, rng.Next(1, 13));
+                var sc = schemes[t % schemes.Length];
+                bool affine = t % 2 == 1;
+
+                var r = affine ? SequenceAligner.SemiGlobalAlignAffine(q, rf, sc) : SequenceAligner.SemiGlobalAlign(q, rf, sc);
+                int Global(string a, string b) => affine
+                    ? SequenceAligner.GlobalAlignAffine(a, b, sc).Score
+                    : SequenceAligner.GlobalAlign(a, b, sc).Score;
+
+                int best = int.MinValue;
+                for (int a = 0; a <= rf.Length; a++)
+                    for (int b = a; b <= rf.Length; b++)
+                        best = Math.Max(best, Global(q, rf.Substring(a, b - a)));
+
+                string where = $"{(affine ? "affine" : "linear")} q={q} ref={rf} scheme={sc}";
+                Assert.That(r.Score, Is.EqualTo(best), where);
+                Assert.That(r.StartPosition2, Is.InRange(0, rf.Length), where);
+                Assert.That(r.EndPosition2, Is.InRange(r.StartPosition2 - 1, rf.Length - 1), where);
+                string fitted = rf.Substring(r.StartPosition2, r.EndPosition2 - r.StartPosition2 + 1);
+                Assert.That(Global(q, fitted), Is.EqualTo(best), "the fitted interval must attain the fitting score: " + where);
+
+                // Span between the free end gaps: leading/trailing columns whose query row is '-'.
+                string a1 = r.AlignedSequence1;
+                bool allGap = a1.Trim('-').Length == 0;
+                int lead = allGap ? 0 : a1.Length - a1.TrimStart('-').Length;
+                int trail = allGap ? rf.Length : a1.Length - a1.TrimEnd('-').Length;
+                Assert.That((r.StartPosition2, r.EndPosition2), Is.EqualTo((lead, rf.Length - trail - 1)), where);
+                Assert.That((r.StartPosition1, r.EndPosition1), Is.EqualTo((0, q.Length - 1)), where);
+            }
+        });
+    }
+
+    private static string RandomString(Random rng, string alphabet, int length)
+    {
+        var chars = new char[length];
+        for (int i = 0; i < length; i++)
+            chars[i] = alphabet[rng.Next(alphabet.Length)];
+        return new string(chars);
+    }
+
+    #endregion
+
+    #region String overload of the linear aligner: contract
+
+    [Test]
+    public void SemiGlobalAlign_StringOverload_AgreesWithDnaSequenceOverload_AndRejectsNull()
+    {
+        var typed = SequenceAligner.SemiGlobalAlign(new DnaSequence("GATTACA"), new DnaSequence("CCGATTTACAGG"), SimpleDna);
+        var raw = SequenceAligner.SemiGlobalAlign("gattaca", "ccgatttacagg", SimpleDna);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(raw, Is.EqualTo(typed));
+            Assert.Throws<ArgumentNullException>(() => SequenceAligner.SemiGlobalAlign((string)null!, "ACGT"));
+            Assert.Throws<ArgumentNullException>(() => SequenceAligner.SemiGlobalAlign("ACGT", (string)null!));
         });
     }
 

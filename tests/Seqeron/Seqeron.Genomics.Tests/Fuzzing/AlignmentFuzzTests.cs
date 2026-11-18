@@ -58,18 +58,19 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 ///
 /// DOCUMENTED SURFACE-SPECIFIC BOUNDARY behaviour (pinned so the strict/lenient and
 /// typed/string splits cannot drift — §3.3, §5.2, §6.1):
-///   • GlobalAlign(string, string, …): if EITHER raw string is null or empty it
-///     returns AlignmentResult.Empty (early exit), WITHOUT DnaSequence alphabet
-///     validation. It upper-cases the inputs but does NOT enforce the DNA alphabet,
-///     so non-DNA characters flow through and are aligned by plain comparison.
+///   • GlobalAlign(string, string, …): a null raw string throws ArgumentNullException;
+///     an EMPTY raw string is not special-cased (all-gap alignment, exactly like the
+///     typed overload), WITHOUT DnaSequence alphabet validation. It upper-cases the
+///     inputs but does NOT enforce the DNA alphabet, so non-DNA characters flow
+///     through and are aligned by plain comparison.
 ///   • GlobalAlign(DnaSequence, DnaSequence) — NON-cancellation typed overload:
 ///     null input → ArgumentNullException; empty DnaSequence is a LEGAL input that
 ///     is aligned through the normal traceback path (empty vs empty → trivial
 ///     empty alignment, score 0; empty vs length-n → an all-gap alignment of score
 ///     n·d). End coordinates are sequence.Length − 1 (so −1 for an empty input).
 ///   • GlobalAlign(DnaSequence, DnaSequence, scoring, CancellationToken, progress)
-///     — cancellation-aware typed overload: it delegates to the raw-string
-///     cancellation path, so an empty typed input returns AlignmentResult.Empty.
+///     — cancellation-aware typed overload: same contract (all-gap alignment for an
+///     empty side, ArgumentNullException for null).
 ///   • DnaSequence(string) — the strict typed surface — upper-cases and REJECTS any
 ///     non-A/C/G/T character with ArgumentException, so a non-DNA sequence can never
 ///     reach the typed aligner at all (the MC rejection happens at construction).
@@ -110,9 +111,9 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 ///
 /// DOCUMENTED LOCAL boundary behaviour (pinned so the strict/lenient and typed/string
 /// splits cannot drift — Local_Alignment_Smith_Waterman.md §3.3, §5.2, §6.1):
-///   • LocalAlign(string, string, …): a null OR empty raw string short-circuits to
-///     AlignmentResult.Empty WITHOUT DnaSequence validation; otherwise the inputs are
-///     upper-cased and aligned by plain character comparison.
+///   • LocalAlign(string, string, …): a null raw string throws ArgumentNullException; an
+///     empty one flows through the core DP exactly like the typed overload (tagged-Local
+///     empty result); the inputs are upper-cased and aligned by plain character comparison.
 ///   • LocalAlign(DnaSequence, DnaSequence, …): null input → ArgumentNullException;
 ///     an EMPTY DnaSequence is a LEGAL input that flows through the core DP (no
 ///     short-circuit), yielding a Local result with empty aligned strings and all
@@ -122,8 +123,8 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 ///     runs, Score = 0 and both aligned strings are empty (the zero floor).
 ///   • Identical sequences → the full diagonal dominates: aligned == upper-cased
 ///     input on BOTH sides, gap-free, Score = length × Match.
-///   • AlignmentResult.Empty carries AlignmentType.Global (shared sentinel), so the
-///     typed empty-DnaSequence path is the way to observe a tagged-Local empty result.
+///   • The empty local result is ("", "", 0, Local, −1, −1, −1, −1) on every overload
+///     (it is NOT the Global-tagged AlignmentResult.Empty sentinel).
 ///
 /// ───────────────────────────────────────────────────────────────────────────
 /// Unit: ALIGN-SEMI-001 — semi-global (fitting / query-in-reference) alignment (Alignment)
@@ -359,15 +360,21 @@ public class AlignmentFuzzTests
         string a1 = result.AlignedSequence1;
         string a2 = result.AlignedSequence2;
 
-        // S-INV-05: tag + documented coordinate bounds (full-input, not fitted interval).
+        // S-INV-05: tag + coordinates: the query is aligned in full; Start2/End2 are the FITTED INTERVAL of the
+        // reference = the reference residues between the free leading/trailing end gaps (leading/trailing gap
+        // columns of the query row); an empty interval (all-gap query / empty query) has End2 = Start2 - 1.
         result.AlignmentType.Should().Be(AlignmentType.SemiGlobal,
             "S-INV-05: a semi-global (fitting) alignment is tagged SemiGlobal");
-        result.StartPosition1.Should().Be(0, "S-INV-05: the implementation returns StartPosition1 = 0");
-        result.StartPosition2.Should().Be(0, "S-INV-05: the implementation returns StartPosition2 = 0");
+        result.StartPosition1.Should().Be(0, "S-INV-05: the query is aligned from index 0");
         result.EndPosition1.Should().Be(query.Length - 1,
             "S-INV-05: EndPosition1 is query.Length − 1 (−1 for an empty query)");
-        result.EndPosition2.Should().Be(reference.Length - 1,
-            "S-INV-05: EndPosition2 is reference.Length − 1 (−1 for an empty reference)");
+        bool queryAllGap = a1.Trim('-').Length == 0; // empty query, or query aligned entirely against gaps
+        int fitLead = queryAllGap ? 0 : a1.Length - a1.TrimStart('-').Length;
+        int fitTrail = queryAllGap ? expectedRef.Length : a1.Length - a1.TrimEnd('-').Length;
+        result.StartPosition2.Should().Be(fitLead,
+            "S-INV-05: StartPosition2 = number of free leading reference residues");
+        result.EndPosition2.Should().Be(expectedRef.Length - fitTrail - 1,
+            "S-INV-05: EndPosition2 = last reference index consumed by the fitted interval");
 
         // S-INV-01: the two aligned strings share one coordinate system.
         a1.Length.Should().Be(a2.Length,
@@ -486,28 +493,26 @@ public class AlignmentFuzzTests
     }
 
     /// <summary>
-    /// BE: the lenient RAW-STRING surface short-circuits on null/empty input and
-    /// returns AlignmentResult.Empty (Global_Alignment_Needleman_Wunsch.md §6.1) —
-    /// the documented strict/lenient split versus the typed overload above (which
-    /// traces an empty result). Pinned for empty-vs-empty AND the null variants so
-    /// the early exit can never drift into a NullReferenceException.
+    /// BE: the RAW-STRING surface has the same boundary contract as the typed overload:
+    /// an empty side is the all-gap Needleman-Wunsch alignment (F(0,j) = d·j, Durbin et al.
+    /// 1998 §2.3), two empty strings score 0 with empty rows and coordinates 0/0/−1/−1,
+    /// and a null string throws ArgumentNullException (never a NullReferenceException).
     /// </summary>
     [Test]
-    public void GlobalAlign_RawStringEmptyOrNull_ReturnsEmptyResult()
+    public void GlobalAlign_RawStringEmptyOrNull_FollowsTheTypedContract()
     {
-        SequenceAligner.GlobalAlign("", "").Should().Be(AlignmentResult.Empty,
-            "the raw-string overload exits early to AlignmentResult.Empty on empty input");
-        SequenceAligner.GlobalAlign("ACGT", "").Should().Be(AlignmentResult.Empty,
-            "an empty second raw string short-circuits before the DP runs");
-        SequenceAligner.GlobalAlign("", "ACGT").Should().Be(AlignmentResult.Empty,
-            "an empty first raw string short-circuits before the DP runs");
+        var scoring = SequenceAligner.SimpleDna;
+        SequenceAligner.GlobalAlign("", "", scoring).Should().Be(
+            new AlignmentResult("", "", 0, AlignmentType.Global, 0, 0, -1, -1));
+        SequenceAligner.GlobalAlign("ACGT", "", scoring).Should().Be(
+            new AlignmentResult("ACGT", "----", -4, AlignmentType.Global, 0, 0, 3, -1));
+        SequenceAligner.GlobalAlign("", "ACGT", scoring).Should().Be(
+            new AlignmentResult("----", "ACGT", -4, AlignmentType.Global, 0, 0, -1, 3));
 
         var nullFirst = () => SequenceAligner.GlobalAlign((string)null!, "ACGT");
         var nullSecond = () => SequenceAligner.GlobalAlign("ACGT", (string)null!);
-        nullFirst.Should().NotThrow("a null raw string is guarded as empty, never dereferenced");
-        nullSecond.Should().NotThrow("a null raw string is guarded as empty, never dereferenced");
-        nullFirst().Should().Be(AlignmentResult.Empty, "a null raw string yields the empty result");
-        nullSecond().Should().Be(AlignmentResult.Empty, "a null raw string yields the empty result");
+        nullFirst.Should().Throw<ArgumentNullException>("a null raw string is rejected like a null DnaSequence");
+        nullSecond.Should().Throw<ArgumentNullException>("a null raw string is rejected like a null DnaSequence");
     }
 
     #endregion
@@ -820,28 +825,23 @@ public class AlignmentFuzzTests
     }
 
     /// <summary>
-    /// BE: the lenient RAW-STRING surface short-circuits on null OR empty input and
-    /// returns AlignmentResult.Empty (Local_Alignment_Smith_Waterman.md §3.3, §6.1) —
-    /// the documented strict/lenient split versus the typed overload above (which
-    /// traces a tagged-Local empty result). Pinned for empty AND null variants so the
-    /// early exit can never drift into a NullReferenceException.
+    /// BE: the RAW-STRING surface has the same boundary contract as the typed overload: an
+    /// empty side (or both) has no positive-scoring region, so the result is the tagged-Local
+    /// empty alignment ("", "", 0, Local, −1, −1, −1, −1) — not the Global-tagged sentinel —
+    /// and a null string throws ArgumentNullException (never a NullReferenceException).
     /// </summary>
     [Test]
-    public void LocalAlign_RawStringEmptyOrNull_ReturnsEmptyResult()
+    public void LocalAlign_RawStringEmptyOrNull_FollowsTheTypedContract()
     {
-        SequenceAligner.LocalAlign("", "").Should().Be(AlignmentResult.Empty,
-            "the raw-string overload exits early to AlignmentResult.Empty on empty input");
-        SequenceAligner.LocalAlign("ACGT", "").Should().Be(AlignmentResult.Empty,
-            "an empty second raw string short-circuits before the DP runs");
-        SequenceAligner.LocalAlign("", "ACGT").Should().Be(AlignmentResult.Empty,
-            "an empty first raw string short-circuits before the DP runs");
+        var emptyLocal = new AlignmentResult("", "", 0, AlignmentType.Local, -1, -1, -1, -1);
+        SequenceAligner.LocalAlign("", "").Should().Be(emptyLocal);
+        SequenceAligner.LocalAlign("ACGT", "").Should().Be(emptyLocal);
+        SequenceAligner.LocalAlign("", "ACGT").Should().Be(emptyLocal);
 
         var nullFirst = () => SequenceAligner.LocalAlign((string)null!, "ACGT");
         var nullSecond = () => SequenceAligner.LocalAlign("ACGT", (string)null!);
-        nullFirst.Should().NotThrow("a null raw string is guarded as empty, never dereferenced");
-        nullSecond.Should().NotThrow("a null raw string is guarded as empty, never dereferenced");
-        nullFirst().Should().Be(AlignmentResult.Empty, "a null raw string yields the empty result");
-        nullSecond().Should().Be(AlignmentResult.Empty, "a null raw string yields the empty result");
+        nullFirst.Should().Throw<ArgumentNullException>("a null raw string is rejected like a null DnaSequence");
+        nullSecond.Should().Throw<ArgumentNullException>("a null raw string is rejected like a null DnaSequence");
     }
 
     /// <summary>

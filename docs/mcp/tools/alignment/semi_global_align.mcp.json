@@ -6,7 +6,7 @@
   "stability": "stable",
   "methodId": "SequenceAligner.SemiGlobalAlign",
   "docRef": "Seqeron.Genomics.Alignment/SequenceAligner.cs#L873",
-  "description": "Semi-global (fitting) pairwise alignment with free end gaps in sequence2. Linear gap model: every gap position scores gapExtend; gapOpen is IGNORED (use semi_global_align_affine for gapOpen + k·gapExtend).",
+  "description": "Semi-global (fitting) pairwise alignment with free end gaps in sequence2. Linear gap model: every gap position scores gapExtend; gapOpen is IGNORED (use semi_global_align_affine for gapOpen + k·gapExtend). startPosition2/endPosition2 report the fitted interval of sequence2 (0-based inclusive; the free flanks lie outside it; an empty interval has endPosition2 = startPosition2 - 1); startPosition1/endPosition1 span the whole query.",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -71,7 +71,7 @@
       },
       "startPosition2": {
         "type": "integer",
-        "description": "0-based start in sequence2."
+        "description": "First sequence2 index consumed by the alignment (fitted-interval start = number of free leading reference residues)."
       },
       "endPosition1": {
         "type": "integer",
@@ -79,7 +79,7 @@
       },
       "endPosition2": {
         "type": "integer",
-        "description": "0-based end in sequence2."
+        "description": "Last sequence2 index consumed by the alignment (fitted-interval end); an empty interval has endPosition2 = startPosition2 - 1."
       }
     },
     "required": [
@@ -112,9 +112,9 @@
         "score": 4,
         "alignmentType": "SemiGlobal",
         "startPosition1": 0,
-        "startPosition2": 0,
+        "startPosition2": 2,
         "endPosition1": 3,
-        "endPosition2": 7
+        "endPosition2": 5
       }
     }
   ]

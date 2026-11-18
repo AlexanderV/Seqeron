@@ -704,7 +704,7 @@
     "server": "Analysis",
     "methodId": "GenomicAnalyzer.FindTandemRepeats",
     "docPath": "docs/mcp/tools/analysis/find_tandem_repeats.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GenomicAnalyzer.cs#L115"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GenomicAnalyzer.cs"
   },
   {
     "tool": "flush_coaxial_stacking",
@@ -2034,7 +2034,7 @@
     "server": "Core",
     "methodId": "GenomicAnalyzer.CalculateSimilarity",
     "docPath": "docs/mcp/tools/core/calculate_similarity.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GenomicAnalyzer.cs#L707"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GenomicAnalyzer.cs#L699"
   },
   {
     "tool": "count_approximate_occurrences",

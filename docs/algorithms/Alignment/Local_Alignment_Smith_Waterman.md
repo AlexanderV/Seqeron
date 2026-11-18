@@ -60,7 +60,7 @@ This linear-gap form is implemented by `LocalAlign`. The affine form $W_k = o + 
 
 | Name | Type | Default | Description | Constraints |
 |------|------|---------|-------------|-------------|
-| `sequence1` | `DnaSequence` or `string` | required | First sequence to align locally. | `DnaSequence` overload: non-null. `string` overload: returns `AlignmentResult.Empty` if null or empty. |
+| `sequence1` | `DnaSequence` or `string` | required | First sequence to align locally. | Non-null (null throws `ArgumentNullException` on every overload). Empty is legal and gives the empty local result (§6.1). |
 | `sequence2` | `DnaSequence` or `string` | required | Second sequence to align locally. | Same handling as `sequence1`. |
 | `scoring` | `ScoringMatrix` | `SequenceAligner.SimpleDna` | Scoring values used for matches, mismatches, and gaps. | Optional in both public overloads. |
 
@@ -71,7 +71,7 @@ This linear-gap form is implemented by `LocalAlign`. The affine form $W_k = o + 
 | `AlignedSequence1` | `string` | Aligned subsequence from input 1, with gap characters where needed. |
 | `AlignedSequence2` | `string` | Aligned subsequence from input 2, with gap characters where needed. |
 | `Score` | `int` | Non-negative local-alignment score under the chosen scoring matrix. |
-| `AlignmentType` | `AlignmentType` | `Local` for successful local alignments; `AlignmentResult.Empty` carries `Global` because it is a shared sentinel value. |
+| `AlignmentType` | `AlignmentType` | `Local` — also for the empty result (no positive-scoring pair), which is `("", "", 0, Local, -1, -1, -1, -1)`, not the `Global`-tagged `AlignmentResult.Empty` sentinel. |
 | `StartPosition1` | `int` | 0-based inclusive start index of the aligned subsequence in input 1. |
 | `StartPosition2` | `int` | 0-based inclusive start index of the aligned subsequence in input 2. |
 | `EndPosition1` | `int` | 0-based inclusive end index of the aligned subsequence in input 1. |
@@ -79,7 +79,7 @@ This linear-gap form is implemented by `LocalAlign`. The affine form $W_k = o + 
 
 ### 3.3 Preconditions and Validation
 
-`SequenceAligner.LocalAlign(DnaSequence, DnaSequence, ...)` throws `ArgumentNullException` when either `DnaSequence` argument is null. `DnaSequence` itself uppercases and validates `A`, `C`, `G`, and `T`, throwing `ArgumentException` on invalid characters. `SequenceAligner.LocalAlign(string, string, ...)` uppercases raw strings and returns `AlignmentResult.Empty` when either input is null or empty; it does not apply `DnaSequence` validation. Empty `DnaSequence` values are still legal inputs and go through the normal dynamic-programming path rather than the raw-string sentinel path. Start and end coordinates in successful results are 0-based.
+`SequenceAligner.LocalAlign(DnaSequence, DnaSequence, ...)` throws `ArgumentNullException` when either `DnaSequence` argument is null. `DnaSequence` itself uppercases and validates `A`, `C`, `G`, and `T`, throwing `ArgumentException` on invalid characters. `SequenceAligner.LocalAlign(string, string, ...)` uppercases raw strings and throws `ArgumentNullException` when either input is null (empty input flows through the DP and yields the tagged-`Local` empty result); it does not apply `DnaSequence` validation. Empty `DnaSequence` values are still legal inputs and go through the normal dynamic-programming path rather than the raw-string sentinel path. Start and end coordinates in successful results are 0-based.
 
 ## 4. Algorithm
 
@@ -108,7 +108,7 @@ The repository implementation uses `scoring.GapExtend` as a linear gap penalty i
 **Implementation location:** [SequenceAligner.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.cs)
 
 - `SequenceAligner.LocalAlign(DnaSequence, DnaSequence, ScoringMatrix?)`: validated public API for `DnaSequence` inputs.
-- `SequenceAligner.LocalAlign(string, string, ScoringMatrix?)`: raw-string overload with null and empty short-circuit behavior.
+- `SequenceAligner.LocalAlign(string, string, ScoringMatrix?)`: raw-string overload (null throws `ArgumentNullException`; empty is aligned normally).
 - `SequenceAligner.LocalAlignCore(string, string, ScoringMatrix)`: fills the Smith-Waterman score matrix and tracks the maximum-scoring cell.
 - `SequenceAligner.TracebackLocal(...)`: reconstructs the local alignment and source positions.
 - `SequenceAligner.LocalAlignAffine(DnaSequence|string, DnaSequence|string, ScoringMatrix?)`: Smith-Waterman-Gotoh affine-gap local alignment; shares the three-state core `AffineAlignCore` with `GlobalAlignAffine`.
@@ -141,9 +141,8 @@ The repository implements the linear-gap form of Smith-Waterman with `Math.Max(0
 
 | Case | Expected Behavior | Rationale |
 |------|-------------------|-----------|
-| Empty raw string input | Returns `AlignmentResult.Empty`. | The string overload exits before matrix construction on null or empty input. |
-| Empty `DnaSequence` input | Returns a typed `Local` result with empty aligned strings and `-1` coordinates. | The typed overload delegates to the core routine instead of using the raw-string sentinel path. |
-| Null `DnaSequence` input | Throws `ArgumentNullException`. | Public `DnaSequence` overloads guard with `ThrowIfNull`. |
+| Empty input (either side or both; string or `DnaSequence`; linear or affine) | Returns `("", "", 0, Local, -1, -1, -1, -1)`. | No positive-scoring pair exists, so the zero-floored matrix has maximum 0 and the traceback is empty; all overloads share this result (the former `string` overload returned the `Global`-tagged `AlignmentResult.Empty`). |
+| Null input (string or `DnaSequence`) | Throws `ArgumentNullException`. | Every public overload guards with `ThrowIfNull`. |
 | Identical sequences | Returns the full sequence with no gaps and score equal to the total match reward. | The full diagonal dominates under the repository's positive-match / negative-gap scoring examples. |
 | Completely dissimilar sequences under negative mismatch and gap penalties | Returns score `0` and an empty alignment. | The zero floor prevents negative local scores from propagating. |
 | Known Wikipedia example (`TGTTACGG` vs `GGTTGACTA`, score model `+3/-3/-2`) | Returns score `13` with alignment `GTT-AC` / `GTTGAC`. | Validated directly in `SequenceAligner_LocalAlign_Tests`. |

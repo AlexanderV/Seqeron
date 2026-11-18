@@ -52,7 +52,7 @@
 
 | Method | Class | Type | Notes |
 |--------|-------|------|-------|
-| `SemiGlobalAlign(DnaSequence, DnaSequence, ScoringMatrix?)` | SequenceAligner | **Canonical** | Query-in-reference fitting alignment, linear gaps (GapExtend per position; GapOpen ignored) |
+| `SemiGlobalAlign(DnaSequence\|string, …, ScoringMatrix?)` | SequenceAligner | **Canonical** | Query-in-reference fitting alignment, linear gaps (GapExtend per position; GapOpen ignored); string overload added 2026-11 (null → `ArgumentNullException`, empty not special-cased) |
 | `SemiGlobalAlignAffine(DnaSequence\|string, …, ScoringMatrix?)` | SequenceAligner | Variant | Same fitting variant, affine gaps (Gotoh; gap of length k = GapOpen + k·GapExtend) via the shared `AffineAlignCore` |
 
 **Reference equivalents (2026-09 review, confirmed on 2428 random/edge cases):** Biopython 1.88
@@ -62,7 +62,12 @@ affine: open_gap_score = GapOpen + GapExtend, extend_gap_score = GapExtend) and 
 (overhanging reference residues) are free; a query overhang is charged (ACGTAA / CCACGT → 2, not 4).
 Ties: smallest end column j of the last row (j = 0 allowed, i.e. query entirely against gaps), traceback
 diagonal > up > left (affine: M > X > Y). Aligned strings span both full inputs (free reference flanks shown
-against '-'); Start/End positions are 0 and length − 1.
+against '-'). Coordinates (2026-11, A1-4): Start1/End1 = 0 and length − 1 (query aligned in full);
+Start2/End2 = the **fitted interval** of the reference (first/last reference index consumed between the free end gaps; an
+empty interval — empty query or query aligned entirely against gaps — has End2 = Start2 − 1). Biopython: leading/trailing
+gap-in-sequence-1 columns of `alignment[0]` (the span of `aligned`); parasail: `end_ref` of `sg_dx_trace`. Verified on 4090
+random/edge cases (1382 semi-global rows): reported interval ∈ the set of intervals of all Biopython co-optimal alignments
+(`PairwiseAligner.align`, 823 fully enumerated; 32 capped), parasail score equal, interval global score = fitting score.
 
 ---
 
@@ -113,7 +118,11 @@ against '-'); Start/End positions are 0 and length − 1.
 | INV | All invariants validated in one test | query="GCATGCG", ref="AAAGCATGCGAAA" | Score=7 (7×match), INV-1..5 | Hand-computed DP |
 | MIX | Mixed matches and mismatches | query="AGT", ref="AAACTAAA" | Score=1 (2×match + 1×mismatch) | Hand-computed DP |
 | GAP | Gap in optimal alignment | query="ACGT", ref="AGT" | Score=2 (3×match + 1×gap), gap in aligned ref | Hand-computed DP |
-| REF | Biopython/parasail reference alignments (linear) | GATTACA/CCGATTTACAGG (2,−3,d=−2) → 12 `--GA-TTACA--`; ACGTAA/CCACGT → 2 `--ACGTAA`/`CCACGT--`; GGGACGT/ACGTCCC → 1 | Exact strings + positions | Biopython 1.88, parasail sg_dx_trace |
+| REF | Biopython/parasail reference alignments (linear) | GATTACA/CCGATTTACAGG (2,−3,d=−2) → 12 `--GA-TTACA--`, Start2/End2 = 2/9; ACGTAA/CCACGT → 2 `--ACGTAA`/`CCACGT--`, 2/5; GGGACGT/ACGTCCC → 1, 0/3 | Exact strings + positions | Biopython 1.88, parasail sg_dx_trace |
+| COORD-1 | Fitted interval (A1-4) vs Biopython `align` set / parasail `end_ref` | 8 unique-interval cases (linear + affine), e.g. ACGTAC/TTTTTTACGTACTTTTTT → 6..11; AGGGCT/TTAGGCTT (2,−3,−5,−2) → 2..6 | Exact | Biopython 1.88, parasail 1.3.4 |
+| COORD-2 | Tied fittings report one co-optimal interval | AAAA/CCCC (1,−5,gap −1) → empty (0,−1) of {(0,−1)…(4,3)}; TTTTACGTA/GGGGACGTAGGGG → (0,8) of {(0..4,8)}; AC/CACACAC → (1,2) of {(1,2),(3,4),(5,6)} | Exact | Biopython 1.88 full enumeration |
+| COORD-3 | Empty query / empty reference | ""/ACGT → coordinates (0,−1,0,−1); ACG/"" → (0,2,0,−1) | Exact | DP borders |
+| COORD-4 | Brute-force definition oracle | 600 random pairs (linear + affine, 6 schemes): score = max over all reference substrings of the global alignment score; the reported interval attains it; equals the leading/trailing gap span of the query row | Exact | Independent of the DP |
 | AFF-1 | Affine long gap | ACGTACGTTTTTTACGTACGT / GGGGACGTACGTACGTACGTGGGG, HighIdentityDna | 65 (linear 75) | Biopython = parasail |
 | AFF-2 | Affine opening cost prevents gap | ACGTACGTACGT / TTACGTACGTTTTTACGTAA, (1,−1,−5,−1) | 6 ungapped (linear 8) | Biopython = parasail |
 | AFF-3 | Affine reference values | ACGTAA/CCACGT → 0; AAAA/CCCC → −4 `AAAA`/`CCCC`; GATTACA/CCGATTTACAGG (2,−3,−5,−2) → 7 | Exact strings | Biopython = parasail |

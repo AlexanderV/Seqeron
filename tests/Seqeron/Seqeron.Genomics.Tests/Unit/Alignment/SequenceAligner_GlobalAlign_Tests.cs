@@ -359,12 +359,63 @@ public class SequenceAligner_GlobalAlign_Tests
         });
     }
 
-    [Test]
-    public void EmptyStringInput_ReturnsEmptyResult()
+    /// <summary>
+    /// Empty side: the Needleman–Wunsch optimum is the all-gap alignment, score d·len
+    /// (recurrence border F(0,j) = d·j, F(i,0) = d·i — Durbin et al. 1998 §2.3, Needleman &amp; Wunsch 1970).
+    /// Biopython 1.88 / parasail 1.3.4 / EMBOSS needle 6.6 / scikit-bio reject zero-length input, so the
+    /// oracle is the recurrence itself (and the already-existing DnaSequence / Hirschberg / affine behaviour).
+    /// Every overload (string, DnaSequence, cancellable) must agree; two empty inputs score 0.
+    /// </summary>
+    [TestCase("", "GATTACA", "-------", "GATTACA", -7)]
+    [TestCase("GATTACA", "", "GATTACA", "-------", -7)]
+    [TestCase("", "", "", "", 0)]
+    [TestCase("", "A", "-", "A", -1)]
+    public void EmptyInput_AllOverloads_AreTheAllGapNeedlemanWunschAlignment(
+        string s1, string s2, string expected1, string expected2, int expectedScore)
     {
-        var result = SequenceAligner.GlobalAlign(string.Empty, "GATTACA", WikipediaScoring);
+        var expected = new AlignmentResult(expected1, expected2, expectedScore, AlignmentType.Global,
+            0, 0, s1.Length - 1, s2.Length - 1);
+        var cancellable = SequenceAligner.GlobalAlign(s1, s2, WikipediaScoring, CancellationToken.None);
+        var typed = SequenceAligner.GlobalAlign(new DnaSequence(s1), new DnaSequence(s2), WikipediaScoring);
+        var typedCancellable = SequenceAligner.GlobalAlign(new DnaSequence(s1), new DnaSequence(s2), WikipediaScoring, CancellationToken.None);
 
-        Assert.That(result, Is.EqualTo(AlignmentResult.Empty));
+        Assert.Multiple(() =>
+        {
+            Assert.That(SequenceAligner.GlobalAlign(s1, s2, WikipediaScoring), Is.EqualTo(expected));
+            Assert.That(cancellable, Is.EqualTo(expected));
+            Assert.That(typed, Is.EqualTo(expected));
+            Assert.That(typedCancellable, Is.EqualTo(expected));
+        });
+    }
+
+    /// <summary>Empty-side score = gap-extend × length for several linear schemes (e.g. Biopython-style gap −2: CCAC vs "" = −8).</summary>
+    [TestCase("CCAC", "", 2, -3, -2, -8)]
+    [TestCase("", "ACGTAC", 1, -1, -1, -6)]
+    [TestCase("", "ACGT", 5, -4, -3, -12)]
+    public void EmptyInput_LinearScore_IsGapTimesLength(string s1, string s2, int match, int mismatch, int gap, int expected)
+    {
+        var scoring = new ScoringMatrix(match, mismatch, -100, gap);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(SequenceAligner.GlobalAlign(s1, s2, scoring).Score, Is.EqualTo(expected));
+            // GapOpen = 0 affine model equals the linear model.
+            Assert.That(SequenceAligner.GlobalAlignAffine(s1, s2, scoring with { GapOpen = 0 }).Score, Is.EqualTo(expected));
+        });
+    }
+
+    [Test]
+    public void NullString_ThrowsArgumentNullException_OnEveryStringOverload()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentNullException>(() => SequenceAligner.GlobalAlign((string)null!, "ACGT", WikipediaScoring));
+            Assert.Throws<ArgumentNullException>(() => SequenceAligner.GlobalAlign("ACGT", (string)null!, WikipediaScoring));
+            Assert.Throws<ArgumentNullException>(() => SequenceAligner.GlobalAlign((string)null!, "ACGT", WikipediaScoring, CancellationToken.None));
+            Assert.Throws<ArgumentNullException>(() => SequenceAligner.GlobalAlign("ACGT", (string)null!, WikipediaScoring, CancellationToken.None));
+            Assert.Throws<ArgumentNullException>(() => SequenceAligner.GlobalAlignAffine((string)null!, "ACGT", WikipediaScoring));
+            Assert.Throws<ArgumentNullException>(() => SequenceAligner.GlobalAlignAffine("ACGT", (string)null!, WikipediaScoring));
+        });
     }
 
     [Test]
@@ -469,7 +520,7 @@ public class SequenceAligner_GlobalAlign_Tests
         });
     }
 
-    /// <summary>An empty side is one end gap: −5 + 4·−2 = −13 (F(0,n) = o + n·e); both empty → Empty.</summary>
+    /// <summary>An empty side is one end gap: −5 + 4·−2 = −13 (F(0,n) = o + n·e); both empty → score 0, empty rows, coordinates 0/0/−1/−1 (same as the linear aligner).</summary>
     [Test]
     public void Affine_EmptyInputs_BorderValues()
     {
@@ -481,7 +532,8 @@ public class SequenceAligner_GlobalAlign_Tests
             Assert.That(oneEmpty.Score, Is.EqualTo(-13));
             Assert.That(oneEmpty.AlignedSequence1, Is.EqualTo("----"));
             Assert.That(oneEmpty.AlignedSequence2, Is.EqualTo("ACGT"));
-            Assert.That(bothEmpty, Is.EqualTo(AlignmentResult.Empty));
+            Assert.That(bothEmpty, Is.EqualTo(new AlignmentResult("", "", 0, AlignmentType.Global, 0, 0, -1, -1)));
+            Assert.That(bothEmpty, Is.EqualTo(SequenceAligner.GlobalAlign("", "", SequenceAligner.BlastDna)));
             Assert.Throws<ArgumentNullException>(() => SequenceAligner.GlobalAlignAffine((DnaSequence)null!, new DnaSequence("A")));
         });
     }

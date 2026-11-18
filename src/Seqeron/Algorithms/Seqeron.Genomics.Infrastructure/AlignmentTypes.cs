@@ -44,11 +44,23 @@ public enum AlignmentType
 /// <param name="Score">Alignment score under the scoring model used.</param>
 /// <param name="AlignmentType">Kind of alignment that produced the result.</param>
 /// <param name="StartPosition1">0-based inclusive start of the aligned segment in sequence 1
-/// (0 for global/semi-global; −1 for a local result with no positive-scoring region).</param>
-/// <param name="StartPosition2">0-based inclusive start of the aligned segment in sequence 2 (see <paramref name="StartPosition1"/>).</param>
+/// (0 for global/semi-global, where sequence 1 is aligned in full; −1 for a local result with no positive-scoring region).</param>
+/// <param name="StartPosition2">0-based inclusive start of the aligned segment in sequence 2: 0 for global; for a
+/// <b>semi-global</b> (fitting) result the first index of sequence 2 that the alignment consumes, i.e. the number of
+/// free leading sequence-2 residues (Biopython <c>alignment.coordinates</c>/<c>aligned</c> start of the fitted
+/// interval); −1 for a local result with no positive-scoring region.</param>
 /// <param name="EndPosition1">0-based inclusive end of the aligned segment in sequence 1
-/// (length − 1 for global/semi-global; −1 for an empty local result).</param>
-/// <param name="EndPosition2">0-based inclusive end of the aligned segment in sequence 2 (see <paramref name="EndPosition1"/>).</param>
+/// (length − 1 for global/semi-global, so −1 for an empty sequence; −1 for an empty local result).</param>
+/// <param name="EndPosition2">0-based inclusive end of the aligned segment in sequence 2: length − 1 for global; for a
+/// <b>semi-global</b> (fitting) result the last index of sequence 2 that the alignment consumes (the free trailing
+/// residues lie after it; parasail <c>sg_dx</c> <c>end_ref</c>). A fitted interval that consumes no reference residue
+/// (the query is aligned entirely against gaps, or is empty) is empty: <c>EndPosition2 = StartPosition2 − 1</c>.
+/// −1 for an empty local result.</param>
+/// <remarks>
+/// Empty inputs: a global alignment of an empty side is the all-gap alignment (Needleman-Wunsch optimum, Biopython
+/// <c>PairwiseAligner.score</c>); two empty inputs give score 0, empty rows and coordinates 0/0/−1/−1. A local
+/// alignment with no positive-scoring pair is <c>("", "", 0, Local, −1, −1, −1, −1)</c>.
+/// </remarks>
 public sealed record AlignmentResult(
     string AlignedSequence1,
     string AlignedSequence2,

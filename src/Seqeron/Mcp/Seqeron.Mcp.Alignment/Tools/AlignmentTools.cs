@@ -56,7 +56,7 @@ public class AlignmentTools
     }
 
     [McpServerTool(Name = "semi_global_align", Title = "Pairwise — Semi-Global (Fitting) Alignment", ReadOnly = true)]
-    [Description("Performs semi-global (fitting / glocal) pairwise alignment with free end gaps in sequence2; useful for fitting a shorter query into a longer reference. Linear gap model: every gap position costs gapExtend; gapOpen is IGNORED by this tool (use semi_global_align_affine for gapOpen + k·gapExtend).")]
+    [Description("Performs semi-global (fitting / glocal) pairwise alignment with free end gaps in sequence2; useful for fitting a shorter query into a longer reference. Linear gap model: every gap position costs gapExtend; gapOpen is IGNORED by this tool (use semi_global_align_affine for gapOpen + k·gapExtend). startPosition2/endPosition2 report the fitted interval of sequence2 (0-based inclusive; the free flanks lie outside it; an empty interval has endPosition2 = startPosition2 - 1); startPosition1/endPosition1 span the whole query.")]
     public static AlignmentResultDto SemiGlobalAlign(
         [Description("Query sequence (typically shorter).")] string sequence1,
         [Description("Reference sequence (typically longer).")] string sequence2,
@@ -190,7 +190,7 @@ public class AlignmentTools
     }
 
     [McpServerTool(Name = "semi_global_align_affine", Title = "Pairwise — Semi-Global (Fitting) Alignment, Affine Gaps", ReadOnly = true)]
-    [Description("Semi-global (fitting) pairwise alignment with affine gap costs: sequence1 is aligned end to end inside sequence2 (free leading/trailing sequence2 residues); a gap of length k scores gapOpen + k·gapExtend. Equals Biopython PairwiseAligner(mode='global', end_insertion_score=0) and parasail sg_dx.")]
+    [Description("Semi-global (fitting) pairwise alignment with affine gap costs: sequence1 is aligned end to end inside sequence2 (free leading/trailing sequence2 residues); a gap of length k scores gapOpen + k·gapExtend. Equals Biopython PairwiseAligner(mode='global', end_insertion_score=0) and parasail sg_dx. startPosition2/endPosition2 report the fitted interval of sequence2 (0-based inclusive; the free flanks lie outside it; an empty interval has endPosition2 = startPosition2 - 1); startPosition1/endPosition1 span the whole query.")]
     public static AlignmentResultDto SemiGlobalAlignAffine(
         [Description("Query sequence (typically shorter).")] string sequence1,
         [Description("Reference sequence (typically longer).")] string sequence2,

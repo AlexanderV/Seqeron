@@ -1,6 +1,6 @@
 # semi_global_align
 
-Semi-global (fitting) pairwise alignment with free end gaps in sequence2. Linear gap model: every gap position scores gapExtend; gapOpen is IGNORED (use semi_global_align_affine for gapOpen + k·gapExtend).
+Semi-global (fitting) pairwise alignment with free end gaps in sequence2. Linear gap model: every gap position scores gapExtend; gapOpen is IGNORED (use semi_global_align_affine for gapOpen + k·gapExtend). startPosition2/endPosition2 report the fitted interval of sequence2 (0-based inclusive; the free flanks lie outside it; an empty interval has endPosition2 = startPosition2 - 1); startPosition1/endPosition1 span the whole query.
 
 ## Overview
 
@@ -14,7 +14,7 @@ Semi-global (fitting) pairwise alignment with free end gaps in sequence2. Linear
 
 ## Description
 
-Semi-global (fitting) pairwise alignment with free end gaps in sequence2. Linear gap model: every gap position scores gapExtend; gapOpen is IGNORED (use semi_global_align_affine for gapOpen + k·gapExtend).
+Semi-global (fitting) pairwise alignment with free end gaps in sequence2. Linear gap model: every gap position scores gapExtend; gapOpen is IGNORED (use semi_global_align_affine for gapOpen + k·gapExtend). startPosition2/endPosition2 report the fitted interval of sequence2 (0-based inclusive; the free flanks lie outside it; an empty interval has endPosition2 = startPosition2 - 1); startPosition1/endPosition1 span the whole query.
 
 ## Core Documentation Reference
 
@@ -39,10 +39,10 @@ Semi-global (fitting) pairwise alignment with free end gaps in sequence2. Linear
 | `alignedSequence2` | string | Aligned reference (reproduces the full reference). |
 | `score` | integer | Optimal fitting score. |
 | `alignmentType` | string | Alignment type ("SemiGlobal"). |
-| `startPosition1` | integer | 0-based start in sequence1. |
-| `startPosition2` | integer | 0-based start in sequence2. |
-| `endPosition1` | integer | 0-based end in sequence1. |
-| `endPosition2` | integer | 0-based end in sequence2. |
+| `startPosition1` | integer | 0 (the query is aligned in full). |
+| `startPosition2` | integer | First sequence2 index consumed by the alignment (fitted-interval start = number of free leading reference residues). |
+| `endPosition1` | integer | Query length - 1. |
+| `endPosition2` | integer | Last sequence2 index consumed by the alignment (fitted-interval end); an empty interval has endPosition2 = startPosition2 - 1. |
 
 ## Errors
 
@@ -73,9 +73,9 @@ Semi-global (fitting) pairwise alignment with free end gaps in sequence2. Linear
   "score": 4,
   "alignmentType": "SemiGlobal",
   "startPosition1": 0,
-  "startPosition2": 0,
+  "startPosition2": 2,
   "endPosition1": 3,
-  "endPosition2": 7
+  "endPosition2": 5
 }
 ```
 

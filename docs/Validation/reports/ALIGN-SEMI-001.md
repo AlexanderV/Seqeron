@@ -73,3 +73,7 @@ None.
 - **Stage A: PASS**, **Stage B: PASS** → **State: CLEAN**. No code changed.
 - All 17 canonical + property tests pass; full `SequenceAligner_SemiGlobalAlign_Tests` filter = 17/0 and `AlignmentProperties` filter = 22/0.
 - Optional (non-blocking) documentation nicety: the unit is precisely the **fitting** member of the semi-global family (both reference ends free; the short/query seq fully aligned), not the four-ends-free SMGB variant — already correctly stated in TestSpec §6 and Evidence §2.3. No action required.
+
+## 2026-11 audit round 1 correction (A1-1, A1-4, B09 F39/F40)
+
+"No code changed" is superseded by the audit-round changes: (1) `SemiGlobalAlign(string, string, ...)` was added (null -> `ArgumentNullException`, empty not special-cased); (2) `StartPosition2`/`EndPosition2` are now the **fitted interval** of the reference (first/last reference index consumed between the free end gaps; empty interval: `End2 = Start2 - 1`) instead of the full-input bounds, for `SemiGlobalAlign` and `SemiGlobalAlignAffine`. Oracle: 4090 random/edge cases (1382 semi-global rows), interval in the Biopython 1.88 co-optimal interval set in 823/823 fully enumerated rows, parasail 1.3.4 score equal, brute-force fitting definition equal (600 pairs).

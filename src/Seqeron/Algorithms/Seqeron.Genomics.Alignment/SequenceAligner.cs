@@ -55,6 +55,10 @@ public static class SequenceAligner
     /// <see cref="ScoringMatrix.GapExtend"/>; <see cref="ScoringMatrix.GapOpen"/> is ignored.
     /// For affine gap costs (GapOpen + k·GapExtend) use
     /// <see cref="GlobalAlignAffine(DnaSequence, DnaSequence, ScoringMatrix?)"/>.
+    /// Empty/null contract (identical for every <c>GlobalAlign</c>/<c>GlobalAlignAffine</c> overload, string or
+    /// <see cref="DnaSequence"/>): null → <see cref="ArgumentNullException"/>; an empty side is not special-cased —
+    /// the Needleman-Wunsch optimum is the all-gap alignment (<c>""</c> vs <c>ACGT</c> → <c>----</c>/<c>ACGT</c>, score
+    /// 4·GapExtend, as Biopython <c>PairwiseAligner.score</c> and EMBOSS needle); two empty inputs score 0 with empty rows.
     /// </remarks>
     /// <param name="sequence1">First DNA sequence.</param>
     /// <param name="sequence2">Second DNA sequence.</param>
@@ -79,8 +83,8 @@ public static class SequenceAligner
         string sequence2,
         ScoringMatrix? scoring = null)
     {
-        if (string.IsNullOrEmpty(sequence1) || string.IsNullOrEmpty(sequence2))
-            return AlignmentResult.Empty;
+        ArgumentNullException.ThrowIfNull(sequence1);
+        ArgumentNullException.ThrowIfNull(sequence2);
 
         return GlobalAlignCore(
             sequence1.ToUpperInvariant(),
@@ -108,8 +112,8 @@ public static class SequenceAligner
         CancellationToken cancellationToken,
         IProgress<double>? progress = null)
     {
-        if (string.IsNullOrEmpty(sequence1) || string.IsNullOrEmpty(sequence2))
-            return AlignmentResult.Empty;
+        ArgumentNullException.ThrowIfNull(sequence1);
+        ArgumentNullException.ThrowIfNull(sequence2);
 
         return GlobalAlignCore(
             sequence1.ToUpperInvariant(),
@@ -415,9 +419,6 @@ public static class SequenceAligner
 
     private static AlignmentResult GlobalAlignAffineCore(string seq1, string seq2, ScoringMatrix scoring)
     {
-        if (seq1.Length == 0 && seq2.Length == 0)
-            return AlignmentResult.Empty;
-
         return AffineAlignCore(seq1, seq2, scoring, AlignmentType.Global);
     }
 
@@ -571,6 +572,7 @@ public static class SequenceAligner
             }
         }
 
+        int fittedStart2 = cj; // fitting: first reference index consumed by the alignment path
         if (fitting)
         {
             // Free leading seq2 prefix: the alignment started at M(0, cj) = 0.
@@ -591,9 +593,9 @@ public static class SequenceAligner
                 Score: best,
                 AlignmentType: AlignmentType.SemiGlobal,
                 StartPosition1: 0,
-                StartPosition2: 0,
+                StartPosition2: fittedStart2,
                 EndPosition1: m - 1,
-                EndPosition2: n - 1);
+                EndPosition2: endJ - 1);
 
         return local
             ? new AlignmentResult(
@@ -645,7 +647,9 @@ public static class SequenceAligner
     /// traceback (ties: diagonal &gt; up &gt; left) stops at the first zero cell; the result is always one
     /// of the co-optimal alignments Biopython's local PairwiseAligner enumerates. Start/End positions
     /// are 0-based inclusive indices of the aligned substrings; with no positive-scoring pair the result
-    /// has Score 0, empty strings and all positions −1.
+    /// has Score 0, empty strings, <see cref="AlignmentType.Local"/> and all positions −1 — this is also the
+    /// result for an empty side or two empty inputs (every <c>LocalAlign</c>/<c>LocalAlignAffine</c> overload, string
+    /// or <see cref="DnaSequence"/>); null → <see cref="ArgumentNullException"/>.
     /// </remarks>
     /// <param name="sequence1">First DNA sequence.</param>
     /// <param name="sequence2">Second DNA sequence.</param>
@@ -670,8 +674,8 @@ public static class SequenceAligner
         string sequence2,
         ScoringMatrix? scoring = null)
     {
-        if (string.IsNullOrEmpty(sequence1) || string.IsNullOrEmpty(sequence2))
-            return AlignmentResult.Empty;
+        ArgumentNullException.ThrowIfNull(sequence1);
+        ArgumentNullException.ThrowIfNull(sequence2);
 
         return LocalAlignCore(
             sequence1.ToUpperInvariant(),
@@ -867,7 +871,10 @@ public static class SequenceAligner
     /// Score = max_j F(m,j). Among tied end columns the smallest j wins (with all-negative scores this
     /// can be j = 0, i.e. the query aligned entirely against gaps); traceback ties are broken
     /// diagonal &gt; up &gt; left. The aligned strings span both full inputs (the free sequence-2
-    /// prefix/suffix is shown against '-'), so Start/End positions are 0 and length − 1.
+    /// prefix/suffix is shown against '-'). Coordinates: sequence 1 is aligned in full (Start1 = 0, End1 = length − 1);
+    /// Start2/End2 are the <b>fitted interval</b> of sequence 2 (0-based inclusive: first and last reference index consumed
+    /// by the alignment; an empty interval has End2 = Start2 − 1) — Biopython <c>aligned</c>/<c>coordinates</c> of the fitted part,
+    /// parasail <c>end_ref</c>. The interval is that of the returned alignment; co-optimal alignments may fit other intervals.
     /// </para>
     /// </remarks>
     public static AlignmentResult SemiGlobalAlign(
@@ -879,6 +886,26 @@ public static class SequenceAligner
         ArgumentNullException.ThrowIfNull(sequence2);
 
         return LinearAlignCore(sequence1.Sequence, sequence2.Sequence, scoring ?? SimpleDna, fitting: true);
+    }
+
+    /// <summary>
+    /// Linear-gap semi-global (fitting) alignment on raw sequence strings (uppercased internally; null →
+    /// <see cref="ArgumentNullException"/>, an empty side is not special-cased). See
+    /// <see cref="SemiGlobalAlign(DnaSequence, DnaSequence, ScoringMatrix?)"/> for the model and coordinates.
+    /// </summary>
+    public static AlignmentResult SemiGlobalAlign(
+        string sequence1,
+        string sequence2,
+        ScoringMatrix? scoring = null)
+    {
+        ArgumentNullException.ThrowIfNull(sequence1);
+        ArgumentNullException.ThrowIfNull(sequence2);
+
+        return LinearAlignCore(
+            sequence1.ToUpperInvariant(),
+            sequence2.ToUpperInvariant(),
+            scoring ?? SimpleDna,
+            fitting: true);
     }
 
     /// <summary>
@@ -901,8 +928,9 @@ public static class SequenceAligner
     /// <para>
     /// Initialization: M(0,j) = 0 for all j, X(i,0) = GapOpen + i·GapExtend, other border cells −∞;
     /// Score = max_j max(M, X, Y)(m, j) (first maximal column wins; end-state ties M &gt; X &gt; Y;
-    /// traceback ties M &gt; X &gt; Y). The aligned strings span both full inputs, so Start/End positions
-    /// are 0 and length − 1.
+    /// traceback ties M &gt; X &gt; Y). The aligned strings span both full inputs; Start1/End1 are 0 and length − 1,
+    /// Start2/End2 the fitted interval of sequence 2 exactly as for
+    /// <see cref="SemiGlobalAlign(DnaSequence, DnaSequence, ScoringMatrix?)"/>.
     /// </para>
     /// <para>Sources: Gotoh O (1982) J Mol Biol 162:705-708; Flouri et al. (2015) bioRxiv 10.1101/031500;
     /// cross-checked against Biopython 1.88 PairwiseAligner and parasail 1.3.4 sg_dx_trace.</para>
@@ -967,7 +995,9 @@ public static class SequenceAligner
             }
         }
 
-        while (i > 0 || j > 0)
+        // Fitting: the traceback stops on reaching row 0 (the free sequence-2 prefix seq2[0 .. j-1] starts
+        // the alignment there); the consumed sequence-2 interval is [j, endJ - 1].
+        while (alignType == AlignmentType.SemiGlobal ? i > 0 : i > 0 || j > 0)
         {
             if (i > 0 && j > 0)
             {
@@ -996,6 +1026,17 @@ public static class SequenceAligner
             }
         }
 
+        int fittedStart2 = j; // 0 for global (the loop ran to the origin); first fitted reference index for fitting
+        if (alignType == AlignmentType.SemiGlobal)
+        {
+            // Free leading sequence-2 prefix (appended reversed, like the suffix above).
+            for (int k = j; k > 0; k--)
+            {
+                chars1.Add('-');
+                chars2.Add(seq2[k - 1]);
+            }
+        }
+
         chars1.Reverse();
         chars2.Reverse();
 
@@ -1008,9 +1049,9 @@ public static class SequenceAligner
             Score: score[endI, endJ],
             AlignmentType: alignType,
             StartPosition1: 0,
-            StartPosition2: 0,
+            StartPosition2: fittedStart2,
             EndPosition1: seq1.Length - 1,
-            EndPosition2: seq2.Length - 1);
+            EndPosition2: alignType == AlignmentType.SemiGlobal ? endJ - 1 : seq2.Length - 1);
     }
 
     #endregion

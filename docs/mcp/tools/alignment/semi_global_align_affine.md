@@ -1,6 +1,6 @@
 # semi_global_align_affine
 
-Semi-global (fitting) pairwise alignment with affine gap costs: sequence1 is aligned end to end inside sequence2 (free leading/trailing sequence2 residues); a gap of length k scores gapOpen + k·gapExtend. Equals Biopython PairwiseAligner(mode='global', end_insertion_score=0) and parasail sg_dx.
+Semi-global (fitting) pairwise alignment with affine gap costs: sequence1 is aligned end to end inside sequence2 (free leading/trailing sequence2 residues); a gap of length k scores gapOpen + k·gapExtend. Equals Biopython PairwiseAligner(mode='global', end_insertion_score=0) and parasail sg_dx. startPosition2/endPosition2 report the fitted interval of sequence2 (0-based inclusive; the free flanks lie outside it; an empty interval has endPosition2 = startPosition2 - 1); startPosition1/endPosition1 span the whole query.
 
 ## Overview
 
@@ -14,7 +14,7 @@ Semi-global (fitting) pairwise alignment with affine gap costs: sequence1 is ali
 
 ## Description
 
-Semi-global (fitting) pairwise alignment with affine gap costs: sequence1 is aligned end to end inside sequence2 (free leading/trailing sequence2 residues); a gap of length k scores gapOpen + k·gapExtend. Equals Biopython PairwiseAligner(mode='global', end_insertion_score=0) and parasail sg_dx.
+Semi-global (fitting) pairwise alignment with affine gap costs: sequence1 is aligned end to end inside sequence2 (free leading/trailing sequence2 residues); a gap of length k scores gapOpen + k·gapExtend. Equals Biopython PairwiseAligner(mode='global', end_insertion_score=0) and parasail sg_dx. startPosition2/endPosition2 report the fitted interval of sequence2 (0-based inclusive; the free flanks lie outside it; an empty interval has endPosition2 = startPosition2 - 1); startPosition1/endPosition1 span the whole query.
 
 ## Core Documentation Reference
 
@@ -39,10 +39,10 @@ Semi-global (fitting) pairwise alignment with affine gap costs: sequence1 is ali
 | `alignedSequence2` | string | Aligned sequence2 (with '-' gaps). |
 | `score` | integer | Alignment score. |
 | `alignmentType` | string | Alignment type (Global, Local or SemiGlobal). |
-| `startPosition1` | integer | 0-based start in sequence1. |
-| `startPosition2` | integer | 0-based start in sequence2. |
-| `endPosition1` | integer | 0-based end in sequence1. |
-| `endPosition2` | integer | 0-based end in sequence2. |
+| `startPosition1` | integer | 0 (the query is aligned in full). |
+| `startPosition2` | integer | First sequence2 index consumed by the alignment (fitted-interval start = number of free leading reference residues). |
+| `endPosition1` | integer | Query length - 1. |
+| `endPosition2` | integer | Last sequence2 index consumed by the alignment (fitted-interval end); an empty interval has endPosition2 = startPosition2 - 1. |
 
 ## Errors
 
@@ -77,9 +77,9 @@ Semi-global (fitting) pairwise alignment with affine gap costs: sequence1 is ali
   "score": 7,
   "alignmentType": "SemiGlobal",
   "startPosition1": 0,
-  "startPosition2": 0,
+  "startPosition2": 2,
   "endPosition1": 6,
-  "endPosition2": 11
+  "endPosition2": 9
 }
 ```
 

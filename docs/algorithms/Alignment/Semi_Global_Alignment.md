@@ -71,14 +71,14 @@ The zero first row leaves leading reference gaps unpenalized, the first column s
 | `AlignedSequence2` | `string` | Reference alignment string, including the matched region and any preserved unmatched reference context. |
 | `Score` | `int` | Fitting-alignment score taken from the maximum of the last matrix row. |
 | `AlignmentType` | `AlignmentType` | `SemiGlobal`. |
-| `StartPosition1` | `int` | Current implementation returns `0`. |
-| `StartPosition2` | `int` | Current implementation returns `0`. |
-| `EndPosition1` | `int` | Current implementation returns `sequence1.Length - 1`. |
-| `EndPosition2` | `int` | Current implementation returns `sequence2.Length - 1`. |
+| `StartPosition1` | `int` | `0` (the query is aligned in full). |
+| `StartPosition2` | `int` | First index of the reference consumed by the alignment = number of free leading reference residues (the fitted interval start). |
+| `EndPosition1` | `int` | `sequence1.Length - 1` (`-1` for an empty query). |
+| `EndPosition2` | `int` | Last index of the reference consumed by the alignment (the free trailing residues lie after it); an empty fitted interval (empty query, or query aligned entirely against gaps) has `EndPosition2 = StartPosition2 - 1`. |
 
 ### 3.3 Preconditions and Validation
 
-`SequenceAligner.SemiGlobalAlign(...)` accepts only `DnaSequence` inputs and throws `ArgumentNullException` when either argument is null. `DnaSequence` uppercases input and validates `A`, `C`, `G`, and `T`, throwing `ArgumentException` on invalid characters. The returned coordinate fields are 0-based, but for semi-global alignment the current implementation leaves them at full-input bounds rather than reporting the fitted interval explicitly.
+`SequenceAligner.SemiGlobalAlign(...)` (and `SemiGlobalAlignAffine`) accept `DnaSequence` or raw `string` inputs and throw `ArgumentNullException` when either argument is null; an empty side is not special-cased (empty query: score 0, the whole reference is free; empty reference: the query is one gap run). `DnaSequence` uppercases input and validates `A`, `C`, `G`, and `T`, throwing `ArgumentException` on invalid characters; the string overloads uppercase only. The returned coordinate fields are 0-based inclusive; `StartPosition2`/`EndPosition2` are the **fitted interval** of the reference (Biopython `alignment.coordinates`/`aligned` span between the free end gaps; parasail `end_ref`), `StartPosition1`/`EndPosition1` span the whole query.
 
 ## 4. Algorithm
 
@@ -117,7 +117,7 @@ The repository implementation uses `scoring.GapExtend` as the linear gap penalty
 
 ### 5.2 Current Behavior
 
-The implementation is specifically query-in-reference fitting alignment. The first row is left at zero, the first column is filled with cumulative `GapExtend` penalties, and the score returned in `AlignmentResult` is the maximum value in the last row. `Traceback` preserves unmatched reference suffix characters by placing them in `AlignedSequence2` against gaps in `AlignedSequence1`, and it also preserves unmatched reference prefix characters when the traceback reaches the top row. As a result, `AlignedSequence2` may retain the full reference string with unmatched context shown explicitly, while `StartPosition*` and `EndPosition*` remain full-input bounds rather than fitted-interval coordinates.
+The implementation is specifically query-in-reference fitting alignment. The first row is left at zero, the first column is filled with cumulative `GapExtend` penalties, and the score returned in `AlignmentResult` is the maximum value in the last row. `Traceback` preserves unmatched reference suffix characters by placing them in `AlignedSequence2` against gaps in `AlignedSequence1`, and it also preserves unmatched reference prefix characters when the traceback reaches the top row. As a result, `AlignedSequence2` may retain the full reference string with unmatched context shown explicitly, while `StartPosition2`/`EndPosition2` report the fitted interval (first/last reference index consumed between the free end gaps). Co-optimal fittings can occupy different intervals; the reported one is that of the returned alignment (see §6.1).
 
 ### 5.3 Conformance to Theory / Spec
 
@@ -130,7 +130,6 @@ The implementation is specifically query-in-reference fitting alignment. The fir
 **Intentionally simplified:**
 
 - The repository implements the query-in-reference fitting subset of semi-global alignment rather than the broader overlap or all-ends-free family; **consequence:** `SemiGlobalAlign` is targeted at fully aligning the query against a best-scoring placement in the reference.
-- The returned coordinate fields do not identify the fitted interval; **consequence:** users must inspect the aligned strings and the score, not `StartPosition*` / `EndPosition*`, to locate the fitted region.
 
 **Not implemented:**
 
@@ -147,12 +146,14 @@ The implementation is specifically query-in-reference fitting alignment. The fir
 | Null query or reference | Throws `ArgumentNullException`. | Public API guard. |
 | Query embedded exactly inside the reference | Returns the embedded match score from the last-row maximum. | Validated by `SequenceAligner_SemiGlobalAlign_Tests`. |
 | Query at the start or end of the reference | Leaves the unmatched reference prefix or suffix free. | This is the point of the fitting initialization and last-row maximum. |
+| Query aligned entirely against gaps (e.g. all-mismatch under a harsh mismatch penalty) or empty query | The fitted interval is empty: `EndPosition2 = StartPosition2 - 1` (the path ends in the first maximal last-row column, `j = 0` when it ties). | Biopython enumerates the empty placement among several co-optimal ones; Seqeron reports the leftmost. |
+| Tied fittings (query matches several places equally well) | One co-optimal interval is reported (first maximal last-row column, tie order diagonal > up > left). | Verified to be in the set of intervals of all Biopython 1.88 co-optimal alignments (`PairwiseAligner.align`). |
 | All mismatches under negative mismatch penalties | Can return a negative score. | The recurrence has no zero floor. |
 | Query longer than the reference | Still aligns the full query, possibly introducing gaps into the reference alignment. | The query is always globally represented in the fitting variant. |
 
 ### 6.2 Limitations
 
-The repository implements only one member of the broader semi-global family. The coordinate fields in `AlignmentResult` do not expose the fitted interval directly. Like the global path, the method uses a full `O(mn)` matrix and a linear gap model based on `GapExtend` (use `SemiGlobalAlignAffine` for affine costs). The public API does not offer a raw-string overload for semi-global alignment.
+The repository implements only one member of the broader semi-global family. Like the global path, the method uses a full `O(mn)` matrix and a linear gap model based on `GapExtend` (use `SemiGlobalAlignAffine` for affine costs). Raw-string overloads exist for the linear and affine variants (uppercasing only, no alphabet validation).
 
 ## 8. References
 

@@ -72,7 +72,7 @@
 | M1 | Wikipedia example: exact score and alignment (gap in seq1, "left" traceback branch) | seq1=`TGTTACGG`, seq2=`GGTTGACTA`, scoring: match +3, mismatch −3, gap −2 | Score=13, aligned1=`GTT-AC`, aligned2=`GTTGAC`, start1=1, end1=5, start2=1, end2=6, INV-1,3,4,5 hold | Smith–Waterman §Example, hand-verified scoring matrix |
 | M2 | Swapped Wikipedia example: gap in seq2, "up" traceback branch | seq1=`GGTTGACTA`, seq2=`TGTTACGG`, same scoring | Score=13, aligned1=`GTTGAC`, aligned2=`GTT-AC`, start1=1, end1=6, start2=1, end2=5, INV-3,4,5 hold | Derived from Wikipedia via S-W transposition: $H^{AB}_{i,j} = H^{BA}_{j,i}$; hand-verified transposed matrix |
 | M3 | String overload produces same Wikipedia-expected result | Same Wikipedia sequences as string | Score=13, aligned1=`GTT-AC`, aligned2=`GTTGAC` | Implementation contract — delegates to `LocalAlignCore`; validated against Wikipedia expected values |
-| M4 | Empty string input returns `AlignmentResult.Empty` | seq1="", seq2="ACGT" | Empty result | S-W definition: 0-dimensional scoring matrix → maxScore=0 |
+| M4 | Empty input (either side or both, all overloads) returns the tagged-Local empty result `("", "", 0, Local, −1, −1, −1, −1)` — not the Global-tagged `AlignmentResult.Empty`; null → `ArgumentNullException` | seq1="", seq2="ACGT" (and mirrored, both empty) | Local empty result | S-W definition: 0-dimensional scoring matrix → maxScore=0 |
 | M5 | Null DnaSequence throws `ArgumentNullException` | seq1=null, seq2=valid | ArgumentNullException | .NET convention: `ArgumentNullException.ThrowIfNull` |
 
 ### 4.2 SHOULD Tests (Important edge cases)
@@ -119,7 +119,7 @@ Reference values: Biopython 1.88 `PairwiseAligner(mode='local', open_gap_score=G
 | Gaps removal → substring (INV-4) | ✅ | M1, M2 | Exact gap-removed strings + substring containment |
 | Position bounds (INV-5) | ✅ | M1, M2 | Exact positions from hand-verified traceback |
 | String overload parity | ✅ | M3 | Validated against Wikipedia expected values |
-| Empty input handling | ✅ | M4 | Returns `AlignmentResult.Empty` |
+| Empty input handling | ✅ | M4, A5 | Returns the tagged-Local empty result (−1 coordinates) |
 | Null argument handling | ✅ | M5 | `ArgumentNullException` |
 | Identical sequences (all-match boundary) | ✅ | S1 | Score=24 (8×3), full alignment |
 | Dissimilar sequences (all-mismatch boundary) | ✅ | S2 | Score=0, empty alignment |

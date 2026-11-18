@@ -49,7 +49,7 @@ Traceback starts at $F_{m,n}$ and follows the maximizing predecessor choices to 
 
 | Name | Type | Default | Description | Constraints |
 |------|------|---------|-------------|-------------|
-| `sequence1` | `DnaSequence` or `string` | required | First sequence to align. | `DnaSequence` overload: non-null. `string` overload: returns `AlignmentResult.Empty` if null or empty. |
+| `sequence1` | `DnaSequence` or `string` | required | First sequence to align. | Non-null (null throws `ArgumentNullException` on every overload). An empty sequence is legal: the result is the all-gap alignment (see §6.1). |
 | `sequence2` | `DnaSequence` or `string` | required | Second sequence to align. | Same handling as `sequence1`. |
 | `scoring` | `ScoringMatrix` | `SequenceAligner.SimpleDna` | Match, mismatch, and gap values used by the dynamic program. | Optional in all public overloads. |
 | `cancellationToken` | `CancellationToken` | required on cancellation-aware overloads | Allows cancellation of the long-running matrix fill and traceback. | Used by both `GlobalAlign(DnaSequence, DnaSequence, ..., CancellationToken, ...)` and `GlobalAlign(string, string, ..., CancellationToken, ...)`. |
@@ -62,15 +62,15 @@ Traceback starts at $F_{m,n}$ and follows the maximizing predecessor choices to 
 | `AlignedSequence1` | `string` | First aligned sequence, including gap characters (`-`). |
 | `AlignedSequence2` | `string` | Second aligned sequence, including gap characters (`-`). |
 | `Score` | `int` | Alignment score under the chosen linear scoring matrix. |
-| `AlignmentType` | `AlignmentType` | `Global` for successful global alignments; `AlignmentResult.Empty` carries `Global` as its type tag as well. |
-| `StartPosition1` | `int` | Current implementation returns `0` for non-empty global alignments. |
-| `StartPosition2` | `int` | Current implementation returns `0` for non-empty global alignments. |
-| `EndPosition1` | `int` | Current implementation returns `sequence1.Length - 1` for non-empty global alignments. |
-| `EndPosition2` | `int` | Current implementation returns `sequence2.Length - 1` for non-empty global alignments. |
+| `AlignmentType` | `AlignmentType` | `Global` (also for empty inputs). |
+| `StartPosition1` | `int` | `0`. |
+| `StartPosition2` | `int` | `0`. |
+| `EndPosition1` | `int` | `sequence1.Length - 1` (`-1` for an empty sequence). |
+| `EndPosition2` | `int` | `sequence2.Length - 1` (`-1` for an empty sequence). |
 
 ### 3.3 Preconditions and Validation
 
-`SequenceAligner.GlobalAlign(DnaSequence, DnaSequence, ...)` throws `ArgumentNullException` when either `DnaSequence` argument is null. `DnaSequence` construction normalizes input to uppercase and validates that each character is one of `A`, `C`, `G`, or `T`; invalid characters raise `ArgumentException`. `SequenceAligner.GlobalAlign(string, string, ...)` uppercases the supplied strings but does not apply `DnaSequence` validation; if either string is null or empty, it returns `AlignmentResult.Empty` instead of throwing. Empty `DnaSequence` values remain legal inputs. In the non-cancellation typed overload they are aligned through the normal traceback path, while the cancellation-aware typed overload delegates to the cancellation-aware string path and therefore returns `AlignmentResult.Empty` on empty typed inputs. Coordinates in `AlignmentResult` are 0-based.
+`SequenceAligner.GlobalAlign(DnaSequence, DnaSequence, ...)` throws `ArgumentNullException` when either `DnaSequence` argument is null. `DnaSequence` construction normalizes input to uppercase and validates that each character is one of `A`, `C`, `G`, or `T`; invalid characters raise `ArgumentException`. `SequenceAligner.GlobalAlign(string, string, ...)` uppercases the supplied strings but does not apply `DnaSequence` validation; a null string throws `ArgumentNullException` (as a null `DnaSequence` does). **One contract for every `GlobalAlign`/`GlobalAlignAffine` overload (string, `DnaSequence`, cancellable): null throws `ArgumentNullException`; an empty sequence is not special-cased and is aligned by the normal DP.** Coordinates in `AlignmentResult` are 0-based.
 
 ## 4. Algorithm
 
@@ -99,8 +99,8 @@ The recurrence uses one substitution score per aligned character pair and one li
 **Implementation location:** [SequenceAligner.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.cs)
 
 - `SequenceAligner.GlobalAlign(DnaSequence, DnaSequence, ScoringMatrix?)`: validates non-null `DnaSequence` inputs and delegates to `GlobalAlignCore`.
-- `SequenceAligner.GlobalAlign(string, string, ScoringMatrix?)`: uppercases raw strings and returns `AlignmentResult.Empty` on null or empty input.
-- `SequenceAligner.GlobalAlign(DnaSequence, DnaSequence, ScoringMatrix?, CancellationToken, IProgress<double>?)`: validates non-null typed inputs and then delegates through the cancellation-aware string path.
+- `SequenceAligner.GlobalAlign(string, string, ScoringMatrix?)`: uppercases raw strings and uppercases and delegates to `GlobalAlignCore` (null throws `ArgumentNullException`; empty is aligned normally).
+- `SequenceAligner.GlobalAlign(DnaSequence, DnaSequence, ScoringMatrix?, CancellationToken, IProgress<double>?)`: validates non-null typed inputs and delegates to the same cancellation-aware `GlobalAlignCore`.
 - `SequenceAligner.GlobalAlign(string, string, ScoringMatrix?, CancellationToken, IProgress<double>?)`: cancellation-aware variant that fills a 2D score matrix and reports progress.
 - `SequenceAligner.GlobalAlignCore(string, string, ScoringMatrix)`: pooled-array implementation of the core dynamic program.
 - `SequenceAligner.Traceback(...)`: reconstructs the final aligned strings from the score matrix.
@@ -133,10 +133,9 @@ The repository exposes four linear-gap global-alignment entry points that share 
 
 | Case | Expected Behavior | Rationale |
 |------|-------------------|-----------|
-| Empty raw string input | Returns `AlignmentResult.Empty`. | The string overload exits early when either input is null or empty. |
-| Empty `DnaSequence` input on the non-cancellation typed overload | Returns a typed `Global` result whose end coordinates are `-1`. | That overload delegates to the core routine and `Traceback` sets end coordinates to `sequence.Length - 1`. |
-| Empty `DnaSequence` input on the cancellation-aware typed overload | Returns `AlignmentResult.Empty`. | That overload delegates to the cancellation-aware raw-string path, which short-circuits on empty input. |
-| Null `DnaSequence` input | Throws `ArgumentNullException`. | Public `DnaSequence` overloads guard with `ThrowIfNull`. |
+| One side empty (any overload) | The all-gap alignment: `""` vs `ACGT` -> `----` / `ACGT`, score `d·len` (`GapExtend` per position; `GlobalAlignAffine`: `GapOpen + len·GapExtend`). End coordinate of the empty side is `-1`. | Needleman-Wunsch border `F(0,j) = d·j`, `F(i,0) = d·i` (Needleman & Wunsch 1970; Durbin et al. 1998 §2.3). Biopython 1.88 `PairwiseAligner`, parasail 1.3.4, EMBOSS needle 6.6 and scikit-bio 0.7 reject zero-length input, so they are no oracle here; the recurrence, the Hirschberg base case and `ApproximateMatcher` indel cost agree. |
+| Both sequences empty | Score `0`, empty rows, `Global`, coordinates `0, 0, -1, -1`. | Empty alignment of empty sequences. |
+| Null input (string or `DnaSequence`, any overload) | Throws `ArgumentNullException`. | Every public overload guards with `ThrowIfNull`; no silent `AlignmentResult.Empty`. |
 | Identical sequences | Returns a full-length gap-free alignment with score equal to the sum of match scores. | Verified by `SequenceAligner_GlobalAlign_Tests` and the Needleman-Wunsch recurrence. |
 | Unequal-length sequences | Uses initialized border cells to absorb leading or trailing gaps in the optimal alignment. | This is the purpose of the boundary conditions `F(i,0)` and `F(0,j)`. |
 | Completely different equal-length sequences under negative mismatch penalties | Can return a negative score. | Global alignment has no zero floor; every position still participates in the alignment. |

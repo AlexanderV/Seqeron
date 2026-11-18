@@ -197,21 +197,41 @@ public class SequenceAligner_LocalAlign_Tests
 
     #endregion
 
-    #region M4: Empty Input Returns Empty
+    #region M4: Empty Input Returns the Local Empty Result
 
     /// <summary>
-    /// M4: Empty string input returns AlignmentResult.Empty.
-    /// Evidence: Smith–Waterman definition — when one sequence has length 0,
-    /// the scoring matrix is (n+1)×1 or 1×(m+1) with only the initialized
-    /// first row/column (all zeros). No cells to fill → maxScore = 0,
-    /// traceback produces empty alignment.
+    /// M4: Empty (or both-empty) string input gives the tagged-Local empty result
+    /// ("", "", 0, Local, −1, −1, −1, −1) — NOT the Global-tagged <see cref="AlignmentResult.Empty"/>.
+    /// Evidence: Smith–Waterman definition — when one sequence has length 0 the scoring matrix has only
+    /// the zero first row/column, maxScore = 0 and the traceback produces an empty alignment;
+    /// identical for the linear/affine and string/DnaSequence overloads.
     /// </summary>
-    [Test]
-    public void LocalAlign_StringOverload_EmptyInput_ReturnsEmpty()
+    [TestCase("", "ACGT")]
+    [TestCase("ACGT", "")]
+    [TestCase("", "")]
+    public void LocalAlign_EmptyInput_AllOverloads_ReturnTaggedLocalEmptyResult(string s1, string s2)
     {
-        var result = SequenceAligner.LocalAlign(string.Empty, "ACGT", WikipediaScoring);
+        var expected = new AlignmentResult("", "", 0, AlignmentType.Local, -1, -1, -1, -1);
 
-        Assert.That(result, Is.EqualTo(AlignmentResult.Empty));
+        Assert.Multiple(() =>
+        {
+            Assert.That(SequenceAligner.LocalAlign(s1, s2, WikipediaScoring), Is.EqualTo(expected));
+            Assert.That(SequenceAligner.LocalAlign(new DnaSequence(s1), new DnaSequence(s2), WikipediaScoring), Is.EqualTo(expected));
+            Assert.That(SequenceAligner.LocalAlignAffine(s1, s2, WikipediaScoring), Is.EqualTo(expected));
+            Assert.That(SequenceAligner.LocalAlignAffine(new DnaSequence(s1), new DnaSequence(s2), WikipediaScoring), Is.EqualTo(expected));
+        });
+    }
+
+    [Test]
+    public void LocalAlign_NullString_ThrowsArgumentNullException()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentNullException>(() => SequenceAligner.LocalAlign((string)null!, "ACGT", WikipediaScoring));
+            Assert.Throws<ArgumentNullException>(() => SequenceAligner.LocalAlign("ACGT", (string)null!, WikipediaScoring));
+            Assert.Throws<ArgumentNullException>(() => SequenceAligner.LocalAlignAffine((string)null!, "ACGT", WikipediaScoring));
+            Assert.Throws<ArgumentNullException>(() => SequenceAligner.LocalAlignAffine("ACGT", (string)null!, WikipediaScoring));
+        });
     }
 
     #endregion

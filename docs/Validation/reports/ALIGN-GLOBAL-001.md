@@ -69,3 +69,7 @@ Assertions check exact sourced scores/alignments and statistics (not just "no th
 - **Stage A: PASS. Stage B: PASS. State: CLEAN.**
 - No code changes. Full GlobalAlign test class 13/13 green; corroborating property/cancellation tests green.
 - No defects logged. Optional future tidy (non-blocking): make the `DnaSequence` empty overload mirror the string overload's `AlignmentResult.Empty` guard for symmetry.
+
+## 2026-11 audit round 1 correction (A1-1, B09 F39)
+
+The "Minor (documented, not a defect)" empty-input note and the "optional future tidy" above are **superseded**: the string overloads' silent `AlignmentResult.Empty` for an empty side was the defect (the Needleman-Wunsch optimum of `""` vs `ACGT` is the all-gap alignment, border `F(0,j) = d·j`), the opposite of the suggested tidy. All `GlobalAlign`/`GlobalAlignAffine` overloads now follow one contract: null -> `ArgumentNullException`, empty side -> all-gap alignment, both empty -> score 0 / empty rows / coordinates 0, 0, -1, -1. Biopython 1.88, parasail 1.3.4, EMBOSS needle 6.6 and scikit-bio reject zero-length input, so the empty case has no tool oracle (see Evidence). Tests: `EmptyInput_AllOverloads_AreTheAllGapNeedlemanWunschAlignment`, `EmptyInput_LinearScore_IsGapTimesLength`, `NullString_ThrowsArgumentNullException_OnEveryStringOverload`.

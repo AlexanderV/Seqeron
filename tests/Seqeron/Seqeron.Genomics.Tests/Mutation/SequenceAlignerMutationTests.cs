@@ -74,10 +74,10 @@ public class SequenceAlignerMutationTests
     }
 
     [Test]
-    public void GlobalAlign_Cancellable_EmptyInput_ReturnsEmpty()
+    public void GlobalAlign_Cancellable_EmptyInput_IsTheAllGapAlignment()
     {
         SequenceAligner.GlobalAlign("", "ACGT", SequenceAligner.SimpleDna, CancellationToken.None)
-            .Should().Be(AlignmentResult.Empty);
+            .Should().Be(new AlignmentResult("----", "ACGT", -4, AlignmentType.Global, 0, 0, -1, 3));
     }
 
     [Test]

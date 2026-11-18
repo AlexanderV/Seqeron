@@ -625,8 +625,13 @@ public class AlignmentMetamorphicTests
                     var forward = SequenceAligner.CalculateStatistics(SequenceAligner.GlobalAlign(bodies[i], bodies[j], scoring), scoring);
                     var swapped = SequenceAligner.CalculateStatistics(SequenceAligner.GlobalAlign(bodies[j], bodies[i], scoring), scoring);
 
+                    // GapOpens counts the gap RUNS of the one co-optimal alignment the fixed traceback tie order
+                    // (diagonal > up > left) picks; that order is not transpose-symmetric, so (a,b) and (b,a) may
+                    // return different co-optimal alignments with equal column tallies but a different run count.
+                    // Every tally-derived statistic is invariant; the run count GapOpens is not part of the relation.
                     swapped.Should().BeEquivalentTo(forward,
-                        because: $"the alignment of ({bodies[j]},{bodies[i]}) is the transpose of ({bodies[i]},{bodies[j]}), so the column tallies match");
+                        options => options.Excluding(x => x.GapOpens),
+                        because: $"the alignment of ({bodies[j]},{bodies[i]}) is a co-optimal transpose of ({bodies[i]},{bodies[j]}), so the column tallies match");
                 }
     }
 

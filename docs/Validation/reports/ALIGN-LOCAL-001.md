@@ -100,3 +100,7 @@ None.
 - **Stage A: PASS** — recurrence (with zero floor), initialization, max-cell optimum, linear gap model, and traceback-to-zero all match Wikipedia / Smith–Waterman (1981); the full Wikipedia DP matrix was hand-recomputed to max score 13 with alignment `GTT-AC`/`GTTGAC`.
 - **Stage B: PASS** — the implementation faithfully realises the validated recurrence: zero floor (line 335), optimum from the max cell not F(m,n) (lines 337–347), traceback terminates at 0 (line 359), linear gap via `GapExtend`. Hand-computed example reproduced by the code.
 - **End-state: ✅ CLEAN.** No defects found; no code changes required. Build green; `SequenceAligner_LocalAlign_Tests` 7/7 pass.
+
+## 2026-11 audit round 1 correction (A1-1, B09 F39)
+
+The "M4 empty -> `AlignmentResult.Empty`" row and the string-overload remark above are **superseded**: an empty (or both-empty) side now gives the tagged-Local empty result `("", "", 0, Local, -1, -1, -1, -1)` on every overload (string/`DnaSequence`, linear/affine), and a null string throws `ArgumentNullException`. The Global-tagged `AlignmentResult.Empty` sentinel is no longer returned by any aligner.
