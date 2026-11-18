@@ -1,0 +1,7 @@
+F50	the bit set of the windows has no room for a partial last window	killed(12)	
+F51	the bit set of the windows is one word short	killed(46)	
+F52	a free slot is not preferred to a used one	killed(3)	
+F53	a free slot found earlier does not stop the search for the oldest	survived	survived
+F54	the flushes are not counted	killed(3)	
+F55	the size of a window is not recorded	BUILD-ERROR CS0649	
+F56	a range beyond the end of the file is accepted	killed(2)	

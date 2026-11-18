@@ -1,0 +1,44 @@
+[
+ {
+  "id": "F80",
+  "desc": "the base output file is not disposed",
+  "old": "using MappedOutputFile baseFile = MappedOutputFile.Create(",
+  "new": "MappedOutputFile baseFile = MappedOutputFile.Create(",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs"
+ },
+ {
+  "id": "F81",
+  "desc": "the overflow output file is not disposed",
+  "old": "using MappedOutputFile overflowFile = MappedOutputFile.Create(",
+  "new": "MappedOutputFile overflowFile = MappedOutputFile.Create(",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs"
+ },
+ {
+  "id": "F82",
+  "desc": "the Phi chunk files are not removed when the build fails",
+  "old": "using var phiSpool = new DistScratch<PhiTuple>(",
+  "new": "var phiSpool = new DistScratch<PhiTuple>(",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs"
+ },
+ {
+  "id": "F83",
+  "desc": "the rank chunk files are not removed when the build fails",
+  "old": "using var rankSpool = new DistScratch<RankTuple>(",
+  "new": "var rankSpool = new DistScratch<RankTuple>(",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs"
+ },
+ {
+  "id": "F84",
+  "desc": "B1 does not close the suffix array file",
+  "old": "        using var sa = new CountedFile(_saPath, FileMode.Open, FileAccess.Read, _o.Counters);\n        uint previous = (uint)n;",
+  "new": "        var sa = new CountedFile(_saPath, FileMode.Open, FileAccess.Read, _o.Counters);\n        uint previous = (uint)n;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs"
+ },
+ {
+  "id": "F85",
+  "desc": "the header check does not close the suffix array file",
+  "old": "        using var sa = new CountedFile(_saPath, FileMode.Open, FileAccess.Read, _o.Counters);\n        sa.ReadExactAt(MemoryMarshal.AsBytes(first), 0);",
+  "new": "        var sa = new CountedFile(_saPath, FileMode.Open, FileAccess.Read, _o.Counters);\n        sa.ReadExactAt(MemoryMarshal.AsBytes(first), 0);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs"
+ }
+]

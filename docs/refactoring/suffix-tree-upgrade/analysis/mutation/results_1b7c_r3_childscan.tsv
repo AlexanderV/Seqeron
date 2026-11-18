@@ -1,0 +1,6 @@
+F60	the left boundary of a pushed interval is the rank itself	killed(24)	
+F61	a closing interval is closed with the stale top	killed(33)	
+F62	the stack of the empty text is closed too	killed(2)	
+F64	a pushed interval has no last l-index	killed(16)	
+F65	the root is recognised by a first l-index of 0	killed(23)	
+F67	the scan ignores the start of its range	killed(2)	

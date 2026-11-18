@@ -1,0 +1,23 @@
+[
+ {
+  "id": "F55",
+  "desc": "the size of a window is recorded as 0 (replacement of the first F55, which did not compile)",
+  "old": "        slot.Size = size;\n",
+  "new": "        slot.Size = 0;\n",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/AlignedWindowWriter.cs"
+ },
+ {
+  "id": "F86",
+  "desc": "a released window is not disposed",
+  "old": "        slot.View!.SafeMemoryMappedViewHandle.ReleasePointer();\n        slot.View.Dispose();\n",
+  "new": "        slot.View!.SafeMemoryMappedViewHandle.ReleasePointer();\n",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/AlignedWindowWriter.cs"
+ },
+ {
+  "id": "F87",
+  "desc": "a released window does not release its pointer",
+  "old": "        slot.View!.SafeMemoryMappedViewHandle.ReleasePointer();\n        slot.View.Dispose();\n",
+  "new": "        slot.View!.Dispose();\n",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/AlignedWindowWriter.cs"
+ }
+]

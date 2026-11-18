@@ -26,4 +26,5 @@ EQUIVALENT = {
     'M03': 'Prefetch requests a negative position: a prefetch never faults and has no architectural effect; the guard only keeps the address arithmetic defined',
     'P03': 'the carry is kept after the position whose predecessor is the empty suffix: Kasai gives PLCP[x] = 0 >= PLCP[x - 1] - 1, so the carry that arrives at that position is already 0 (and at the first position of a chunk it is 0 by construction)',
     'P01': 'the prefetch is never requested (the replacement that compiles): a hint with no architectural effect',
+    'F53': 'a free slot found earlier does not stop the search for the oldest: the guard compares LastUse with long.MinValue, and LastUse is a clock that starts at 1, so the comparison is false whether or not the guard is there',
 }

@@ -1,0 +1,3 @@
+F70	only half of the pairs are appended	killed(7)	
+F71	a block is cut into slices of the larger size	killed(host crash)	
+F72	the byte buffer holds one byte per slice entry whatever the width	killed(host crash)	

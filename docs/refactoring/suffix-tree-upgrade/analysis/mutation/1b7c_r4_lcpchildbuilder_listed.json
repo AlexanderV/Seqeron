@@ -1,0 +1,9 @@
+[
+ {
+  "id": "F26c",
+  "desc": "the lazy scan does not dispose its file (re-run after the descriptor check was added)",
+  "old": "            _scan?.Dispose();\n            _file?.Dispose();",
+  "new": "            _scan?.Dispose();",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ }
+]

@@ -31,7 +31,8 @@ for NAME in $NAMES; do
   done
   cmp -s "$W/$NAME.stats" "$D/$NAME.stats" && printf '#sha\t%s\tstats\tequal-to-e6-stats\t\n' "$NAME" >> "$ROWS" || printf '#sha\t%s\tstats\tDIFFERENT\t\n' "$NAME" >> "$ROWS"
   dotnet "$DLL" e8-verify --prefix "$W/$NAME" --input "$TXT" --threads 4 --scratch "$W" --case "$NAME.g2" --rows "$ROWS" > "$W/verify_$NAME.log" 2>&1
-  printf '#verify\t%s\texit=%s\t%s\n' "$NAME" "$?" "$(grep -c 'PASS' "$W/verify_$NAME.log")" >> "$ROWS"
+  CODE=$?
+  printf '#verify\t%s\texit=%s\t%s\n' "$NAME" "$CODE" "$(grep -F "$NAME.g2" "$ROWS" | grep -F verify_all | tail -1 | cut -f5,7)" >> "$ROWS"
   rm -rf "$W/$NAME".* "$W/scratch"
 done
 echo g2-done

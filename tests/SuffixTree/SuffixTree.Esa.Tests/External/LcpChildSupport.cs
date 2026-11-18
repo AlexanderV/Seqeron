@@ -103,11 +103,50 @@ internal sealed class LcpChildCase
     }
 }
 
+/// <summary>The open file descriptors of this process (Linux: <c>/proc/self/fd</c>): lets a test see that a build closed every file it opened.</summary>
+internal static class ProcFds
+{
+    /// <summary>The paths the descriptors point to (a deleted file without the kernel's " (deleted)" suffix), or null where the platform has no <c>/proc/self/fd</c>.</summary>
+    internal static List<string>? Open()
+    {
+        const string dir = "/proc/self/fd";
+        if (!OperatingSystem.IsLinux() || !Directory.Exists(dir)) return null;
+        var result = new List<string>();
+        foreach (string entry in Directory.GetFileSystemEntries(dir))
+        {
+            try
+            {
+                string? target = new FileInfo(entry).LinkTarget;
+                if (target is null) continue;
+                result.Add(target.EndsWith(" (deleted)", StringComparison.Ordinal) ? target[..^" (deleted)".Length] : target);
+            }
+            catch (IOException)
+            {
+                // the descriptor of the directory listing itself, or one that closed in the meantime
+            }
+        }
+        return result;
+    }
+
+    /// <summary>Fails when a descriptor points to one of <paramref name="paths"/> or below one of <paramref name="directories"/>.</summary>
+    internal static void AssertClosed(string label, IEnumerable<string?> paths, IEnumerable<string?> directories)
+    {
+        List<string>? open = Open();
+        if (open is null) return;
+        string[] files = [.. paths.Where(p => p is not null).Select(p => Path.GetFullPath(p!))];
+        string[] dirs = [.. directories.Where(d => d is not null).Select(d => Path.GetFullPath(d!) + "/")];
+        foreach (string fd in open)
+        {
+            if (files.Contains(fd) || dirs.Any(d => fd.StartsWith(d, StringComparison.Ordinal))) Assert.Fail($"{label}: a file descriptor is still open on {fd}");
+        }
+    }
+}
+
 /// <summary>One run of the production stage on a case, and the comparison of everything it wrote with the oracles.</summary>
 internal static class LcpChildRun
 {
     /// <summary>The files and the result of one run.</summary>
-    internal sealed record Outcome(LcpChildResult Result, LcpChildOutputs Files, string OutDir, string ScratchDir);
+    internal sealed record Outcome(LcpChildResult Result, LcpChildOutputs Files, string OutDir, string ScratchDir, string? SaPath = null);
 
     internal static int Width(LcpKind kind) => kind switch { LcpKind.U8 => 1, LcpKind.U16 => 2, _ => 4 };
 
@@ -159,7 +198,7 @@ internal static class LcpChildRun
         using MappedTextReader reader = MappedTextReader.Open(textPath, n, bits);
         configure?.Invoke(reader);
         LcpChildResult result = LcpChildBuilder.Build(saPath, reader, files, options);
-        return new Outcome(result, files, outDir, options.ScratchDir);
+        return new Outcome(result, files, outDir, options.ScratchDir, saPath);
     }
 
     /// <summary>Fails with a description of the first difference between everything the run wrote and the in-RAM structures; also checks that nothing is left behind.</summary>
@@ -196,6 +235,7 @@ internal static class LcpChildRun
         Assert.That(Directory.GetFiles(o.OutDir).Select(Path.GetFileName).Order(), Is.EqualTo(expected), $"{label}: the output directory holds exactly the outputs");
         foreach (string? path in new[] { o.Files.Lcp, o.Files.Overflow, o.Files.Child })
             Assert.That(ProcMaps.Contains(path!) ?? false, Is.False, $"{label}: {Path.GetFileName(path)} is still mapped");
+        ProcFds.AssertClosed(label, [o.Files.Lcp, o.Files.Overflow, o.Files.Child, o.SaPath], [o.ScratchDir]);
     }
 
     /// <summary>A run that must end with an exception: nothing is left behind (no output, no scratch).</summary>
@@ -218,6 +258,7 @@ internal static class LcpChildRun
         Assert.That(thrown, Is.InstanceOf(exception), $"{label}: {thrown}");
         Assert.That(Directory.GetFileSystemEntries(outDir), Is.Empty, $"{label}: partial outputs are left behind");
         Assert.That(Directory.Exists(options.ScratchDir), Is.False, $"{label}: scratch is left behind");
+        ProcFds.AssertClosed(label, [saPath], [options.ScratchDir, outDir]);
         Directory.Delete(outDir);
     }
 
