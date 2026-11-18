@@ -1,0 +1,114 @@
+[
+ {
+  "id": "O01",
+  "desc": "a base range of the wrong length is accepted",
+  "old": "if (baseWriter.Length != (n + 1) * _width) throw",
+  "new": "if (baseWriter.Length < 0) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpOutputWriter.cs"
+ },
+ {
+  "id": "O02",
+  "desc": "an overflow range of the wrong length is accepted",
+  "old": "if (overflowWriter.Length != overflowCount * 8) throw",
+  "new": "if (overflowWriter.Length < 0) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpOutputWriter.cs"
+ },
+ {
+  "id": "O03",
+  "desc": "a slice of no entries is not raised to one",
+  "old": "_slice = Math.Max(1, sliceEntries);",
+  "new": "_slice = sliceEntries;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpOutputWriter.cs"
+ },
+ {
+  "id": "O04",
+  "desc": "a repeated rank is accepted",
+  "old": "if (firstRank != _nextRank) throw",
+  "new": "if (firstRank > _nextRank) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpOutputWriter.cs"
+ },
+ {
+  "id": "O05",
+  "desc": "U8: the escape value 255 is stored as a value",
+  "old": "                    if (v >= _escape)\n                    {\n                        list[2 * pairs] = (uint)(firstRank + i);\n                        list[(2 * pairs) + 1] = v;\n                        pairs++;\n                        bytes[i] = (byte)_escape;",
+  "new": "                    if (v > _escape)\n                    {\n                        list[2 * pairs] = (uint)(firstRank + i);\n                        list[(2 * pairs) + 1] = v;\n                        pairs++;\n                        bytes[i] = (byte)_escape;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpOutputWriter.cs"
+ },
+ {
+  "id": "O06",
+  "desc": "U16: the escape value 65,535 is stored as a value",
+  "old": "                    if (v >= _escape)\n                    {\n                        list[2 * pairs] = (uint)(firstRank + i);\n                        list[(2 * pairs) + 1] = v;\n                        pairs++;\n                        u16[i] = (ushort)_escape;",
+  "new": "                    if (v > _escape)\n                    {\n                        list[2 * pairs] = (uint)(firstRank + i);\n                        list[(2 * pairs) + 1] = v;\n                        pairs++;\n                        u16[i] = (ushort)_escape;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpOutputWriter.cs"
+ },
+ {
+  "id": "O07",
+  "desc": "U8: an escape is stored as 0",
+  "old": "bytes[i] = (byte)_escape;",
+  "new": "bytes[i] = 0;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpOutputWriter.cs"
+ },
+ {
+  "id": "O08",
+  "desc": "U8: the rank of an escape is relative to the block",
+  "old": "                        list[2 * pairs] = (uint)(firstRank + i);\n                        list[(2 * pairs) + 1] = v;\n                        pairs++;\n                        bytes[i]",
+  "new": "                        list[2 * pairs] = (uint)i;\n                        list[(2 * pairs) + 1] = v;\n                        pairs++;\n                        bytes[i]",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpOutputWriter.cs"
+ },
+ {
+  "id": "O09",
+  "desc": "U16: the value of an escape is one too small",
+  "old": "                        list[(2 * pairs) + 1] = v;\n                        pairs++;\n                        u16[i]",
+  "new": "                        list[(2 * pairs) + 1] = v - 1;\n                        pairs++;\n                        u16[i]",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpOutputWriter.cs"
+ },
+ {
+  "id": "O10",
+  "desc": "the announced number of escapes is refused when met exactly",
+  "old": "if (_overflowWritten + pairs > _overflowExpected) throw",
+  "new": "if (_overflowWritten + pairs >= _overflowExpected) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpOutputWriter.cs"
+ },
+ {
+  "id": "O11",
+  "desc": "Complete: the entry count is only bounded below",
+  "old": "if (_nextRank != n + 1) throw",
+  "new": "if (_nextRank < n + 1) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpOutputWriter.cs"
+ },
+ {
+  "id": "O12",
+  "desc": "Complete: the escape count is only bounded below",
+  "old": "if (_overflowWritten != _overflowExpected) throw",
+  "new": "if (_overflowWritten < _overflowExpected) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpOutputWriter.cs"
+ },
+ {
+  "id": "O13",
+  "desc": "Dispose: the overflow writer stays open",
+  "old": "        _base.Dispose();\n        _overflow.Dispose();",
+  "new": "        _base.Dispose();",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpOutputWriter.cs"
+ },
+ {
+  "id": "O14",
+  "desc": "the pair buffer holds one pair per slice entry only half",
+  "old": "_pairs = arena.Allocate<uint>(_slice * 2, zero: false, \"lcp.pairs\");",
+  "new": "_pairs = arena.Allocate<uint>(_slice, zero: false, \"lcp.pairs\");",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpOutputWriter.cs"
+ },
+ {
+  "id": "O15",
+  "desc": "U32: the values are not copied",
+  "old": "part.CopyTo(MemoryMarshal.Cast<byte, uint>(bytes));",
+  "new": "_ = part.Length;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpOutputWriter.cs"
+ },
+ {
+  "id": "O16",
+  "desc": "the next rank does not advance by the block",
+  "old": "_nextRank = firstRank + values.Length;",
+  "new": "_nextRank = firstRank + 1;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpOutputWriter.cs"
+ }
+]

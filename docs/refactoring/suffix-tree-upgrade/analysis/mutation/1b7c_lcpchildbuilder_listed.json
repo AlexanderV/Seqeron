@@ -1,0 +1,457 @@
+[
+ {
+  "id": "L01",
+  "desc": "the scaled chunk rounds down",
+  "old": "(long)Math.Ceiling(ChunkReference * f)",
+  "new": "(long)Math.Floor(ChunkReference * f)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "L02",
+  "desc": "the floor of the chunk is two",
+  "old": "Math.Max(3, (long)Math.Ceiling",
+  "new": "Math.Max(2, (long)Math.Ceiling",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "L03",
+  "desc": "the rule is evaluated at the text length although RuleN is set",
+  "old": "long ruleN = options.RuleN > 0 ? options.RuleN : n;",
+  "new": "long ruleN = n;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "L04",
+  "desc": "the factor is the inverse",
+  "old": "double f = scaled ? ruleN / (double)options.ScaleN : 1.0;",
+  "new": "double f = scaled ? options.ScaleN / (double)ruleN : 1.0;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "L05",
+  "desc": "the workers are not limited by the threads",
+  "old": "Math.Clamp(options.ArenaCapBytes / Math.Max(1, perTask), 1, options.Threads)",
+  "new": "Math.Clamp(options.ArenaCapBytes / Math.Max(1, perTask), 1, options.Threads + 1)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "L06",
+  "desc": "the workers are not limited by the cap",
+  "old": "Math.Clamp(options.ArenaCapBytes / Math.Max(1, perTask), 1, options.Threads)",
+  "new": "Math.Clamp(options.ArenaCapBytes / Math.Max(1, perTask) + 1, 1, options.Threads)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "L07",
+  "desc": "the reference text length is one less",
+  "old": "internal const long ReferenceN = 3_000_000_000;",
+  "new": "internal const long ReferenceN = 2_999_999_999;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "L08",
+  "desc": "the reference chunk is one more",
+  "old": "internal const long ChunkReference = 8_000_000;",
+  "new": "internal const long ChunkReference = 8_000_001;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "L09",
+  "desc": "the default window of the LCP writers is 64 KiB",
+  "old": "WindowBytes = t.WindowBytes ?? MappedWindowWriter.DefaultWindowBytes,",
+  "new": "WindowBytes = t.WindowBytes ?? 64 * 1024,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "L10",
+  "desc": "the default read buffer is 64 KiB",
+  "old": "LcpReadBytes = t.LcpReadBytes ?? 1 << 20,",
+  "new": "LcpReadBytes = t.LcpReadBytes ?? 64 * 1024,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "L11",
+  "desc": "the default tuple buffer is 64 KiB",
+  "old": "LcpTupleBytes = t.LcpTupleBytes ?? 32 * 1024,",
+  "new": "LcpTupleBytes = t.LcpTupleBytes ?? 64 * 1024,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "L12",
+  "desc": "the default block is 128 K entries",
+  "old": "BlockEntries = t.BlockEntries ?? 256 * 1024,",
+  "new": "BlockEntries = t.BlockEntries ?? 128 * 1024,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "L13",
+  "desc": "the default window of the table is 512 KiB",
+  "old": "ChildWindowBytes = t.ChildWindowBytes ?? 1 << 20,",
+  "new": "ChildWindowBytes = t.ChildWindowBytes ?? 1 << 19,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "L14",
+  "desc": "the default slots are four",
+  "old": "ChildSlots = t.ChildSlots ?? 8,",
+  "new": "ChildSlots = t.ChildSlots ?? 4,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "L15",
+  "desc": "the default spill flush is 8 MiB",
+  "old": "SpillFlushBytes = t.SpillFlushBytes ?? 16L << 20,",
+  "new": "SpillFlushBytes = t.SpillFlushBytes ?? 8L << 20,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "L16",
+  "desc": "a chunk of no positions is accepted by the rule",
+  "old": "        ArgumentOutOfRangeException.ThrowIfLessThan(p.LcpChunk, 1);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "L17",
+  "desc": "no worker is accepted by the rule",
+  "old": "        ArgumentOutOfRangeException.ThrowIfLessThan(p.LcpWorkers, 1);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "L18",
+  "desc": "a read buffer of no bytes is accepted by the rule",
+  "old": "        ArgumentOutOfRangeException.ThrowIfLessThan(p.LcpReadBytes, 1);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "L19",
+  "desc": "a tuple buffer of no bytes is accepted by the rule",
+  "old": "        ArgumentOutOfRangeException.ThrowIfLessThan(p.LcpTupleBytes, 1);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "L20",
+  "desc": "a window of no bytes is accepted by the rule",
+  "old": "        ArgumentOutOfRangeException.ThrowIfLessThan(p.WindowBytes, 1);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "L21",
+  "desc": "a block of one entry is accepted by the rule",
+  "old": "        ArgumentOutOfRangeException.ThrowIfLessThan(p.BlockEntries, 2);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "L22",
+  "desc": "a window of the table of two bytes is accepted",
+  "old": "if (p.ChildWindowBytes < 4 || !BitOperations.IsPow2(p.ChildWindowBytes))",
+  "new": "if (p.ChildWindowBytes < 2 || !BitOperations.IsPow2(p.ChildWindowBytes))",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "L23",
+  "desc": "a window of the table that is not a power of two is accepted",
+  "old": "if (p.ChildWindowBytes < 4 || !BitOperations.IsPow2(p.ChildWindowBytes))",
+  "new": "if (p.ChildWindowBytes < 4)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "L24",
+  "desc": "no slot is accepted by the rule",
+  "old": "        ArgumentOutOfRangeException.ThrowIfLessThan(p.ChildSlots, 1);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "L25",
+  "desc": "a negative spill flush is accepted",
+  "old": "        ArgumentOutOfRangeException.ThrowIfNegative(p.SpillFlushBytes);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "L26",
+  "desc": "the statistics file without sigma is accepted",
+  "old": "if (outputs.Stats is not null && options.Sigma is null) throw",
+  "new": "if (outputs.Stats is not null && options.Sigma is null && false) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "L27",
+  "desc": "the design limit is refused one symbol early",
+  "old": "if (n > PackedTextFormat.MaxSymbols) throw new NotSupportedException($\"{n} symbols: positions are 32-bit, the limit is",
+  "new": "if (n >= PackedTextFormat.MaxSymbols) throw new NotSupportedException($\"{n} symbols: positions are 32-bit, the limit is",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "L28",
+  "desc": "the tagged limit is refused one symbol early",
+  "old": "options.Codec == ChildCodec.Tagged && n > TaggedChild.MaxLength) throw new NotSupportedException($\"the tagged codec holds ranks in 30 bits; a text of {n} symbols needs the packed codec\");\n        LcpChildParameters",
+  "new": "options.Codec == ChildCodec.Tagged && n >= TaggedChild.MaxLength) throw new NotSupportedException($\"the tagged codec holds ranks in 30 bits; a text of {n} symbols needs the packed codec\");\n        LcpChildParameters",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "L29",
+  "desc": "a scratch directory this build created is left behind",
+  "old": "bool createdRoot = !Directory.Exists(scratch);",
+  "new": "bool createdRoot = false;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "L30",
+  "desc": "a scratch directory that existed is removed when empty",
+  "old": "bool createdRoot = !Directory.Exists(scratch);",
+  "new": "bool createdRoot = true;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "L31",
+  "desc": "the spill directory is not created",
+  "old": "            Directory.CreateDirectory(ph5);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "L32",
+  "desc": "the RSS sampler is not started",
+  "old": "            sampler?.Start();\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "L33",
+  "desc": "PH4 does not get the worker count of the rule",
+  "old": "Workers = p.LcpWorkers,",
+  "new": "Workers = 0,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "L34",
+  "desc": "PH4 does not count its I/O",
+  "old": "                Counters = counters,\n                Files = options.Files,",
+  "new": "                Files = options.Files,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "L35",
+  "desc": "PH5 does not count its I/O",
+  "old": "                ArenaGuards = options.ArenaGuards,\n                Counters = counters,\n            };\n            ExtLcpStats lcp;",
+  "new": "                ArenaGuards = options.ArenaGuards,\n            };\n            ExtLcpStats lcp;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "L36",
+  "desc": "PH4 ignores the file options",
+  "old": "                Counters = counters,\n                Files = options.Files,",
+  "new": "                Counters = counters,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "L37",
+  "desc": "PH5 ignores the file options",
+  "old": "new LazyChildScan(n, childPath, childOptions, options.Files)",
+  "new": "new LazyChildScan(n, childPath, childOptions, null)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "L38",
+  "desc": "the LCP files are not removed when a later step fails",
+  "old": "            lcpCreated = true; // PH4 removes its own files when it fails; from here on they are this build's to remove\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "L39",
+  "desc": "the child table is not removed when the build fails",
+  "old": "            if (childCreated) DeleteQuietly(childPath);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "L40",
+  "desc": "the creation of the child table is not remembered",
+  "old": "                finally\n                {\n                    childCreated = lazy.Created;\n                }",
+  "new": "                finally\n                {\n                }",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "L41",
+  "desc": "the final length of the base LCP is not checked",
+  "old": "Expect(outputs.Lcp, LcpWidth.Bytes(lcp.Kind) * (n + 1), \"the base LCP\");",
+  "new": "Expect(outputs.Lcp, new FileInfo(outputs.Lcp).Length, \"the base LCP\");",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "L42",
+  "desc": "the final length of the overflow list is not checked",
+  "old": "Expect(outputs.Overflow, 8 * lcp.OverflowCount, \"the overflow list\");",
+  "new": "Expect(outputs.Overflow, new FileInfo(outputs.Overflow).Length, \"the overflow list\");",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "L43",
+  "desc": "the final length of the child table is not checked",
+  "old": "Expect(childPath, 4 * (n + 1), \"the child table\");",
+  "new": "Expect(childPath, new FileInfo(childPath).Length, \"the child table\");",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "L44",
+  "desc": "the RSS figure is reported in MiB",
+  "old": "rss.MaxRssAnonKb * 1024.0 / 1e6",
+  "new": "rss.MaxRssAnonKb / 1024.0",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "L45",
+  "desc": "a figure equal to the cap exceeds it",
+  "old": "verdict = mb <= options.RssAnonCapMb ? RssVerdict.Within : RssVerdict.Exceeded;",
+  "new": "verdict = mb < options.RssAnonCapMb ? RssVerdict.Within : RssVerdict.Exceeded;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "L46",
+  "desc": "the statistics file records sigma 0",
+  "old": "result.StatsText(options.Sigma!.Value)",
+  "new": "result.StatsText(0)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "L47",
+  "desc": "StatsText: the node count line holds the internal nodes",
+  "old": "nodecount={Scan.NodeCount}",
+  "new": "nodecount={Scan.InternalCount}",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "L48",
+  "desc": "StatsText: the width line holds the kind",
+  "old": "lcpwidth={LcpWidth.Bytes(Lcp.Kind)}",
+  "new": "lcpwidth={(int)Lcp.Kind}",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "L49",
+  "desc": "StatsText: the lrs rank line holds the depth",
+  "old": "lrsrank={Scan.LrsRank}",
+  "new": "lrsrank={Scan.LrsDepth}",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "L50",
+  "desc": "StatsText: the max line holds the lrs depth",
+  "old": "maxlcp={Scan.MaxLcp}",
+  "new": "maxlcp={Scan.LrsDepth}",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "L51",
+  "desc": "StatsText: the overflow line holds the escapes of 255",
+  "old": "overflow={Lcp.OverflowCount}",
+  "new": "overflow={Lcp.Escapes8}",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "L52",
+  "desc": "StatsText: n comes from the scan",
+  "old": "n={Lcp.N}",
+  "new": "n={Scan.NodeCount}",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "L53",
+  "desc": "the child file has one entry less",
+  "old": "_file = MappedOutputFile.Create(childPath, 4 * (n + 1), files);",
+  "new": "_file = MappedOutputFile.Create(childPath, 4 * n, files);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "L54",
+  "desc": "the child scan starts at offset 4",
+  "old": "_scan = ChildScan.Create(n, _file, 0, options);",
+  "new": "_scan = ChildScan.Create(n, _file, 4, options);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "L55",
+  "desc": "the child file is created for every block",
+  "old": "            if (_scan is null)\n            {\n                _file = MappedOutputFile.Create(childPath, 4 * (n + 1), files);",
+  "new": "            if (_scan is not null)\n            {\n                _file = MappedOutputFile.Create(childPath, 4 * (n + 1), files);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "L56",
+  "desc": "a build that delivered no block succeeds",
+  "old": "ChildScan scan = _scan ?? throw new InvalidOperationException(\"PH4 delivered no LCP block\");",
+  "new": "ChildScan scan = _scan!;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "L57",
+  "desc": "the spill directory is removed only when empty",
+  "old": "            DeleteDirectoryQuietly(ph5);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "L58",
+  "desc": "the PH4 directory is removed only when empty",
+  "old": "            DeleteDirectoryQuietly(ph4);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "L59",
+  "desc": "the explicit sigma check is skipped for negative values",
+  "old": "if (options.Sigma is < 0) throw",
+  "new": "if (options.Sigma is < -1) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "L60",
+  "desc": "the PH4 arena cap is not checked for negative values",
+  "old": "        ArgumentOutOfRangeException.ThrowIfNegative(options.ArenaCapBytes);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "L61",
+  "desc": "the PH5 arena cap is not checked for negative values",
+  "old": "        ArgumentOutOfRangeException.ThrowIfNegative(options.ChildArenaCapBytes);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "L62",
+  "desc": "the threads are not checked by the rule",
+  "old": "        ArgumentOutOfRangeException.ThrowIfLessThan(options.Threads, 1);\n        LcpChildTuning t",
+  "new": "        LcpChildTuning t",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "L63",
+  "desc": "the scale is not checked by the rule",
+  "old": "        ArgumentOutOfRangeException.ThrowIfNegative(options.ScaleN);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "L64",
+  "desc": "RuleN is not checked by the rule",
+  "old": "        ArgumentOutOfRangeException.ThrowIfNegative(options.RuleN);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ },
+ {
+  "id": "L65",
+  "desc": "n is not checked by the rule",
+  "old": "        ArgumentOutOfRangeException.ThrowIfNegative(n);\n        ArgumentOutOfRangeException.ThrowIfNegative(options.ScaleN);",
+  "new": "        ArgumentOutOfRangeException.ThrowIfNegative(options.ScaleN);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs"
+ }
+]

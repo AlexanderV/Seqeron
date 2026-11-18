@@ -438,6 +438,9 @@ public class ChildScanTests
         Assert.Throws<ArgumentOutOfRangeException>(() => ChildScan.Create(4, f, 0, Options(ChildCodec.Packed, 2)), "the file holds 4 entries, n = 4 needs 5");
         Assert.Throws<ArgumentOutOfRangeException>(() => ChildScan.Create(3, f, 4, Options(ChildCodec.Packed, 2)), "the range starts too late");
         Assert.Throws<NotSupportedException>(() => ChildScan.Create(1L << 30, f, 0, Options(ChildCodec.Tagged, 2)), "ranks need more than 30 bits");
+        Assert.Throws<ArgumentOutOfRangeException>(() => ChildScan.Create((1L << 30) - 1, f, 0, Options(ChildCodec.Tagged, 2)), "2^30 - 1 symbols pass the codec check and fail the range of this small file");
+        Assert.Throws<ArgumentOutOfRangeException>(() => ChildScan.Create(PackedTextFormat.MaxSymbols, f, 0, Options(ChildCodec.Packed, 2)), "the design limit itself passes the limit check and fails the range");
+        Assert.Throws<ArgumentOutOfRangeException>(() => ChildScan.Create(1L << 30, f, 0, Options(ChildCodec.Packed, 2)), "the packed codec holds 2^30 symbols");
         Assert.Throws<NotSupportedException>(() => ChildScan.Create(PackedTextFormat.MaxSymbols + 1, f, 0, Options(ChildCodec.Packed, 2)), "positions are 32-bit");
         Assert.Throws<ArgumentOutOfRangeException>(() => ChildScan.Create(3, f, 0, Options(ChildCodec.Packed, 1)), "a block holds at least 2 entries");
         ChildScan.Create(3, f, 0, Options(ChildCodec.Tagged, 2)).Dispose();

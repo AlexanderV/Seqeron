@@ -1,0 +1,177 @@
+[
+ {
+  "id": "A01",
+  "desc": "a window of two bytes is accepted",
+  "old": "if (windowBytes < 4 || !BitOperations.IsPow2(windowBytes))",
+  "new": "if (windowBytes < 2 || !BitOperations.IsPow2(windowBytes))",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/AlignedWindowWriter.cs"
+ },
+ {
+  "id": "A02",
+  "desc": "a window that is not a power of two is accepted",
+  "old": "if (windowBytes < 4 || !BitOperations.IsPow2(windowBytes))",
+  "new": "if (windowBytes < 4)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/AlignedWindowWriter.cs"
+ },
+ {
+  "id": "A03",
+  "desc": "no slot is accepted",
+  "old": "        ArgumentOutOfRangeException.ThrowIfLessThan(slots, 1);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/AlignedWindowWriter.cs"
+ },
+ {
+  "id": "A04",
+  "desc": "a range that ends at the end of the file is refused",
+  "old": "if (start > file.Length - length)",
+  "new": "if (start >= file.Length - length)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/AlignedWindowWriter.cs"
+ },
+ {
+  "id": "A05",
+  "desc": "the writer does not count itself as open",
+  "old": "        file.WriterOpened();\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/AlignedWindowWriter.cs"
+ },
+ {
+  "id": "A06",
+  "desc": "the writer does not count itself closed",
+  "old": "        _file.WriterClosed();\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/AlignedWindowWriter.cs"
+ },
+ {
+  "id": "A07",
+  "desc": "an index one past the range is accepted",
+  "old": "if ((ulong)index >= (ulong)(Length >> 2)) ThrowOutside(offset, 4);",
+  "new": "if ((ulong)index > (ulong)(Length >> 2)) ThrowOutside(offset, 4);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/AlignedWindowWriter.cs"
+ },
+ {
+  "id": "A08",
+  "desc": "the position inside the window is taken from the next window",
+  "old": "(offset - (w << _shift))",
+  "new": "(offset - ((w + 1) << _shift))",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/AlignedWindowWriter.cs"
+ },
+ {
+  "id": "A09",
+  "desc": "the writes are not counted",
+  "old": "        _writes++;\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/AlignedWindowWriter.cs"
+ },
+ {
+  "id": "A10",
+  "desc": "Dispose does not flush the windows",
+  "old": "            if (_flush) FlushSlot(ref _slots[i]);\n            Release(ref _slots[i]);\n        }\n        _hotWindow = -1;",
+  "new": "            Release(ref _slots[i]);\n        }\n        _hotWindow = -1;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/AlignedWindowWriter.cs"
+ },
+ {
+  "id": "A11",
+  "desc": "the mapped bytes are counted per write instead of per byte",
+  "old": "_counters?.AddMappedWrite(4 * _writes);",
+  "new": "_counters?.AddMappedWrite(_writes);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/AlignedWindowWriter.cs"
+ },
+ {
+  "id": "A12",
+  "desc": "the most recently used window is released first",
+  "old": "_slots[i].LastUse < oldest",
+  "new": "_slots[i].LastUse > oldest",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/AlignedWindowWriter.cs"
+ },
+ {
+  "id": "A13",
+  "desc": "the evictions are not counted",
+  "old": "            _evictions++;\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/AlignedWindowWriter.cs"
+ },
+ {
+  "id": "A14",
+  "desc": "a window opened again is counted as distinct",
+  "old": "            _reopened++;\n        }\n        else\n        {\n            _seen[w >> 6] |= bit;\n            _distinct++;",
+  "new": "            _distinct++;\n        }\n        else\n        {\n            _seen[w >> 6] |= bit;\n            _reopened++;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/AlignedWindowWriter.cs"
+ },
+ {
+  "id": "A15",
+  "desc": "the last window is mapped at full size",
+  "old": "long size = Math.Min(_window, Length - offset);",
+  "new": "long size = _window;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/AlignedWindowWriter.cs"
+ },
+ {
+  "id": "A16",
+  "desc": "the windows are mapped from the start of the file",
+  "old": "slot.View = _file.OpenView(_start + offset, size);",
+  "new": "slot.View = _file.OpenView(offset, size);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/AlignedWindowWriter.cs"
+ },
+ {
+  "id": "A17",
+  "desc": "the windows are not counted",
+  "old": "        _counters?.AddWindow(size);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/AlignedWindowWriter.cs"
+ },
+ {
+  "id": "A18",
+  "desc": "a flush counts the full window",
+  "old": "_flushedBytes += slot.Size;",
+  "new": "_flushedBytes += _window;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/AlignedWindowWriter.cs"
+ },
+ {
+  "id": "A19",
+  "desc": "Dispose keeps the hot window",
+  "old": "        _hotWindow = -1;\n        _counters?.AddMappedWrite",
+  "new": "        _counters?.AddMappedWrite",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/AlignedWindowWriter.cs"
+ },
+ {
+  "id": "A20",
+  "desc": "Dispose can run twice",
+  "old": "        if (_disposed) return;\n        _disposed = true;\n        for (int i = 0; i < _slots.Length; i++)\n        {\n            if (_slots[i].View is null) continue;",
+  "new": "        _disposed = true;\n        for (int i = 0; i < _slots.Length; i++)\n        {\n            if (_slots[i].View is null) continue;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/AlignedWindowWriter.cs"
+ },
+ {
+  "id": "A21",
+  "desc": "a write after the disposal maps a new window",
+  "old": "    private void Select(long w)\n    {\n        ObjectDisposedException.ThrowIf(_disposed, this);\n",
+  "new": "    private void Select(long w)\n    {\n",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/AlignedWindowWriter.cs"
+ },
+ {
+  "id": "A22",
+  "desc": "the release does not forget the hot window",
+  "old": "        slot.Window = -1;\n        _hotWindow = -1; // the hot window may be the one released: the next write selects again\n",
+  "new": "        slot.Window = -1;\n",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/AlignedWindowWriter.cs"
+ },
+ {
+  "id": "A23",
+  "desc": "a window hit does not refresh its use",
+  "old": "                _slots[i].LastUse = ++_clock;\n                _hotWindow = w;",
+  "new": "                _hotWindow = w;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/AlignedWindowWriter.cs"
+ },
+ {
+  "id": "A24",
+  "desc": "the length of the range is not negative-checked",
+  "old": "        ArgumentOutOfRangeException.ThrowIfNegative(length);\n        if (windowBytes",
+  "new": "        if (windowBytes",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/AlignedWindowWriter.cs"
+ },
+ {
+  "id": "A25",
+  "desc": "the start of the range is not negative-checked",
+  "old": "        ArgumentOutOfRangeException.ThrowIfNegative(start);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/AlignedWindowWriter.cs"
+ }
+]

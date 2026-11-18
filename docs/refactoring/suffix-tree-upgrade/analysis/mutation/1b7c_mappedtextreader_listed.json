@@ -1,0 +1,23 @@
+[
+ {
+  "id": "M01",
+  "desc": "Prefetch: a position at n is requested too",
+  "old": "if (Sse.IsSupported && (ulong)i < (ulong)_limit) Sse.Prefetch0",
+  "new": "if (Sse.IsSupported && (ulong)i <= (ulong)_limit) Sse.Prefetch0",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "M02",
+  "desc": "Prefetch: the address is the symbol index",
+  "old": "Sse.Prefetch0(_p + ((i * _bits) >> 3));",
+  "new": "Sse.Prefetch0(_p + i);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ },
+ {
+  "id": "M03",
+  "desc": "Prefetch: a negative position is requested",
+  "old": "(ulong)i < (ulong)_limit) Sse.Prefetch0",
+  "new": "i < _limit) Sse.Prefetch0",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs"
+ }
+]

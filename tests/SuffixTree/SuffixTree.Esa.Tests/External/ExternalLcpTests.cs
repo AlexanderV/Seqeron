@@ -248,8 +248,7 @@ public class ExternalLcpTests
             ExtLcpStats st = Run(c, o, tag: $"r{r}").Stats;
             long per = ExternalLcp.WorkerBytes(c.N, o);
             Assert.That(budget.LiveBytes, Is.Zero, $"R={r}: every arena is released");
-            Assert.That(budget.PeakBytes, Is.GreaterThanOrEqualTo(per), $"R={r}: a B2 task holds at least WorkerBytes");
-            Assert.That(budget.PeakBytes, Is.LessThanOrEqualTo(per + (4 * 1024 * 1024)), $"R={r}: B1 and B3 stay near it");
+            Assert.That(budget.PeakBytes, Is.EqualTo(per), $"R={r}: the peak is the B2 task, which holds exactly WorkerBytes (B1 and B3 are smaller)");
             Assert.That(st.Workers, Is.EqualTo(1));
         }
     }

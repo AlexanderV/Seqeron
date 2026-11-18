@@ -1,0 +1,317 @@
+[
+ {
+  "id": "B01",
+  "desc": "a chunk of no positions is not refused up front",
+  "old": "        ArgumentOutOfRangeException.ThrowIfLessThan(options.ChunkPositions, 1);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs"
+ },
+ {
+  "id": "B02",
+  "desc": "no thread is accepted",
+  "old": "        ArgumentOutOfRangeException.ThrowIfLessThan(options.Threads, 1);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs"
+ },
+ {
+  "id": "B03",
+  "desc": "a negative worker count is accepted",
+  "old": "        ArgumentOutOfRangeException.ThrowIfNegative(options.Workers);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs"
+ },
+ {
+  "id": "B04",
+  "desc": "a read buffer of no bytes is accepted",
+  "old": "        ArgumentOutOfRangeException.ThrowIfLessThan(options.ReadBufferBytes, 1);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs"
+ },
+ {
+  "id": "B05",
+  "desc": "a tuple buffer of no bytes is accepted",
+  "old": "        ArgumentOutOfRangeException.ThrowIfLessThan(options.TupleBufferBytes, 1);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs"
+ },
+ {
+  "id": "B06",
+  "desc": "a window of no bytes is not refused up front",
+  "old": "        ArgumentOutOfRangeException.ThrowIfLessThan(options.WindowBytes, 1);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs"
+ },
+ {
+  "id": "B07",
+  "desc": "a longer suffix array file is accepted",
+  "old": "if (length != (n + 1) * 4) throw",
+  "new": "if (length < (n + 1) * 4) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs"
+ },
+ {
+  "id": "B08",
+  "desc": "SA[0] above n only is refused",
+  "old": "if (first[0] != n) throw",
+  "new": "if (first[0] > n) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs"
+ },
+ {
+  "id": "B09",
+  "desc": "the scratch directory is not created",
+  "old": "        Directory.CreateDirectory(_o.ScratchDir);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs"
+ },
+ {
+  "id": "B10",
+  "desc": "the rank chunks are reported as text chunks",
+  "old": "_stats.RankChunks = _g.RankChunks;",
+  "new": "_stats.RankChunks = _g.TextChunks;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs"
+ },
+ {
+  "id": "B11",
+  "desc": "the base file is not removed when the build fails",
+  "old": "            if (_baseCreated) DeleteQuietly(_basePath);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs"
+ },
+ {
+  "id": "B12",
+  "desc": "the overflow file is not removed when the build fails",
+  "old": "            if (_overflowCreated) DeleteQuietly(_overflowPath);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs"
+ },
+ {
+  "id": "B13",
+  "desc": "WorkerBytes: the Phi and rank chunks count 4 bytes per position",
+  "old": "return (8 * chunk) + seen",
+  "new": "return (4 * chunk) + seen",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs"
+ },
+ {
+  "id": "B14",
+  "desc": "WorkerBytes: the permutation bits are not counted",
+  "old": "long seen = (chunk + 63) / 64 * sizeof(ulong);",
+  "new": "long seen = 0;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs"
+ },
+ {
+  "id": "B15",
+  "desc": "B1: an entry equal to n is accepted",
+  "old": "if (s >= n) throw new InvalidDataException($\"sa[{first + i}]",
+  "new": "if (s > n) throw new InvalidDataException($\"sa[{first + i}]",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs"
+ },
+ {
+  "id": "B16",
+  "desc": "B1: the rank of a tuple is one too large",
+  "old": "new PhiTuple(s, previous, (uint)(first + i))",
+  "new": "new PhiTuple(s, previous, (uint)(first + i + 1))",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs"
+ },
+ {
+  "id": "B17",
+  "desc": "B1: the predecessor is never advanced",
+  "old": "                previous = s;\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs"
+ },
+ {
+  "id": "B18",
+  "desc": "B1: the first predecessor is position 0",
+  "old": "uint previous = (uint)n; // SA[0], the empty suffix",
+  "new": "uint previous = 0;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs"
+ },
+ {
+  "id": "B19",
+  "desc": "B2: a chunk with the wrong number of tuples is not refused",
+  "old": "if (reader.Count != length) throw",
+  "new": "if (reader.Count < 0) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs"
+ },
+ {
+  "id": "B20",
+  "desc": "B2: a position outside the chunk is not refused",
+  "old": "if ((ulong)at >= (ulong)length) throw new InvalidDataException($\"position {t.Position} does not belong",
+  "new": "if (at < 0) throw new InvalidDataException($\"position {t.Position} does not belong",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs"
+ },
+ {
+  "id": "B21",
+  "desc": "B2: the permutation bits of the previous chunk are kept",
+  "old": "            seen.AsSpan((length + 63) / 64).Clear();\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs"
+ },
+ {
+  "id": "B22",
+  "desc": "B2: a repeated position is not refused",
+  "old": "if ((word & bit) != 0) throw",
+  "new": "if ((word & bit) > bit) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs"
+ },
+ {
+  "id": "B23",
+  "desc": "B2: the position bit is not set",
+  "old": "                        word |= bit;\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs"
+ },
+ {
+  "id": "B24",
+  "desc": "B2: the Phi file of a chunk is not deleted after it was read",
+  "old": "            phiSpool.Delete(c); // the chunk is in memory now: its file is scratch no more\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs"
+ },
+ {
+  "id": "B25",
+  "desc": "B2: the totals of a task are not merged",
+  "old": "        Merge(total);\n    }\n\n    /// <summary>B3",
+  "new": "    }\n\n    /// <summary>B3",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs"
+ },
+ {
+  "id": "B26",
+  "desc": "B2: the LCP value of a rank tuple is one too large",
+  "old": "new RankTuple(r, phi[k])",
+  "new": "new RankTuple(r, phi[k] + 1)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs"
+ },
+ {
+  "id": "B27",
+  "desc": "B2: the last buffers of a task are not flushed",
+  "old": "        if (Volatile.Read(ref _error) is null) writer.FlushAll();\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs"
+ },
+ {
+  "id": "B28",
+  "desc": "B3: rank chunk 0 is expected to hold a tuple for the empty suffix",
+  "old": "long expected = c == 0 ? length - 1 : length;",
+  "new": "long expected = length;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs"
+ },
+ {
+  "id": "B29",
+  "desc": "B3: LCP[0] is not set",
+  "old": "                if (c == 0) dense[0] = 0; // LCP[0] = 0\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs"
+ },
+ {
+  "id": "B30",
+  "desc": "B3: the rank file of a chunk is not deleted after it was read",
+  "old": "                rankSpool.Delete(c);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs"
+ },
+ {
+  "id": "B31",
+  "desc": "B3: the writer is not checked for completeness",
+  "old": "            output.Complete(n);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs"
+ },
+ {
+  "id": "B32",
+  "desc": "B3: the reservation of the base file is not reported",
+  "old": "        _stats.Reservation = baseFile.Outcome;\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs"
+ },
+ {
+  "id": "B33",
+  "desc": "the overflow count is not taken from the rule",
+  "old": "_stats.OverflowCount = LcpWidth.OverflowCount(_stats.Kind, _escapes8, _escapes16);",
+  "new": "_stats.OverflowCount = 0;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs"
+ },
+ {
+  "id": "B34",
+  "desc": "the workers are not bounded by the chunks",
+  "old": "workers = (int)Math.Max(1, Math.Min(workers, chunks));",
+  "new": "workers = (int)Math.Max(1, workers);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs"
+ },
+ {
+  "id": "B35",
+  "desc": "the reported workers are one",
+  "old": "_stats.Workers = Math.Max(_stats.Workers, workers);",
+  "new": "_stats.Workers = 1;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs"
+ },
+ {
+  "id": "B36",
+  "desc": "one more thread than workers is started",
+  "old": "for (int t = 1; t < workers; t++)",
+  "new": "for (int t = 1; t <= workers; t++)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs"
+ },
+ {
+  "id": "B37",
+  "desc": "a failure of a worker is not rethrown",
+  "old": "        if (_error is { } error) ExceptionDispatchInfo.Capture(error).Throw();\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs"
+ },
+ {
+  "id": "B38",
+  "desc": "Merge: the largest PLCP is the last one merged",
+  "old": "_maxPlcp = Math.Max(_maxPlcp, t.Max);",
+  "new": "_maxPlcp = t.Max;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs"
+ },
+ {
+  "id": "B39",
+  "desc": "Merge: the restart symbols are the last ones merged",
+  "old": "_restart += t.Restart;",
+  "new": "_restart = t.Restart;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs"
+ },
+ {
+  "id": "B40",
+  "desc": "PlcpTotals: the first values of the chunks are not summed",
+  "old": "Restart += r.FirstValue;",
+  "new": "Restart = r.FirstValue;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs"
+ },
+ {
+  "id": "B41",
+  "desc": "PlcpTotals: the largest value is the last one",
+  "old": "Max = Math.Max(Max, r.MaxPlcp);",
+  "new": "Max = r.MaxPlcp;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs"
+ },
+ {
+  "id": "B42",
+  "desc": "PlcpTotals: the steps are the last ones",
+  "old": "Steps += r.CompareSteps;",
+  "new": "Steps = r.CompareSteps;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs"
+ },
+ {
+  "id": "B43",
+  "desc": "the budget limits the workers by the live bytes too little",
+  "old": "workers = (int)Math.Clamp(fit, 1, workers);",
+  "new": "workers = (int)Math.Clamp(fit, 0, workers);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs"
+ },
+ {
+  "id": "B44",
+  "desc": "the consumer is called after the writer",
+  "old": "        _consumer?.Consume(firstRank, dense);\n        output.Write(firstRank, dense);",
+  "new": "        output.Write(firstRank, dense);\n        _consumer?.Consume(firstRank, dense);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs"
+ },
+ {
+  "id": "B45",
+  "desc": "the width is chosen before the counts are merged",
+  "old": "        ChooseKind(n);\n        _o.Trace?.Invoke(\"b3\");",
+  "new": "        _o.Trace?.Invoke(\"b3\");\n        ChooseKind(n);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs"
+ }
+]

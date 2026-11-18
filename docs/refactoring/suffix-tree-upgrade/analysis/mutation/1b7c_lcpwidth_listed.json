@@ -1,0 +1,93 @@
+[
+ {
+  "id": "W01",
+  "desc": "Select: a count of 65,535-values one above the count of 255-values is accepted",
+  "old": "if (escapes16 > escapes8) throw",
+  "new": "if (escapes16 > escapes8 + 1) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpWidth.cs"
+ },
+ {
+  "id": "W02",
+  "desc": "Select: U8 needs strictly less",
+  "old": "if (16 * escapes8 <= n) return LcpKind.U8;",
+  "new": "if (16 * escapes8 < n) return LcpKind.U8;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpWidth.cs"
+ },
+ {
+  "id": "W03",
+  "desc": "Select: U16 needs strictly less",
+  "old": "if (8 * escapes16 <= n) return LcpKind.U16;",
+  "new": "if (8 * escapes16 < n) return LcpKind.U16;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpWidth.cs"
+ },
+ {
+  "id": "W04",
+  "desc": "Select: the U8 threshold is 8 x escapes",
+  "old": "if (16 * escapes8 <= n) return LcpKind.U8;",
+  "new": "if (8 * escapes8 <= n) return LcpKind.U8;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpWidth.cs"
+ },
+ {
+  "id": "W05",
+  "desc": "Select: the U16 threshold is 16 x escapes",
+  "old": "if (8 * escapes16 <= n) return LcpKind.U16;",
+  "new": "if (16 * escapes16 <= n) return LcpKind.U16;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpWidth.cs"
+ },
+ {
+  "id": "W06",
+  "desc": "Select: the first tier returns U16",
+  "old": "if (16 * escapes8 <= n) return LcpKind.U8;",
+  "new": "if (16 * escapes8 <= n) return LcpKind.U16;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpWidth.cs"
+ },
+ {
+  "id": "W07",
+  "desc": "Bytes: U16 is one byte",
+  "old": "LcpKind.U16 => 2",
+  "new": "LcpKind.U16 => 1",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpWidth.cs"
+ },
+ {
+  "id": "W08",
+  "desc": "Bytes: the default is two bytes",
+  "old": "_ => 4 };\n\n    /// <summary>The escape value",
+  "new": "_ => 2 };\n\n    /// <summary>The escape value",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpWidth.cs"
+ },
+ {
+  "id": "W09",
+  "desc": "Escape: U8 escapes at 254",
+  "old": "LcpKind.U8 => byte.MaxValue",
+  "new": "LcpKind.U8 => byte.MaxValue - 1",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpWidth.cs"
+ },
+ {
+  "id": "W10",
+  "desc": "Escape: U16 escapes at 65,534",
+  "old": "LcpKind.U16 => ushort.MaxValue",
+  "new": "LcpKind.U16 => ushort.MaxValue - 1",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpWidth.cs"
+ },
+ {
+  "id": "W11",
+  "desc": "OverflowCount: U8 counts the long values",
+  "old": "LcpKind.U8 => escapes8, LcpKind.U16 => escapes16, _ => 0",
+  "new": "LcpKind.U8 => escapes16, LcpKind.U16 => escapes16, _ => 0",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpWidth.cs"
+ },
+ {
+  "id": "W12",
+  "desc": "OverflowCount: U16 counts the short values",
+  "old": "LcpKind.U16 => escapes16, _ => 0",
+  "new": "LcpKind.U16 => escapes8, _ => 0",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpWidth.cs"
+ },
+ {
+  "id": "W13",
+  "desc": "OverflowCount: U32 has an overflow list",
+  "old": "LcpKind.U16 => escapes16, _ => 0",
+  "new": "LcpKind.U16 => escapes16, _ => escapes16",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpWidth.cs"
+ }
+]

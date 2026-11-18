@@ -1,0 +1,72 @@
+[
+ {
+  "id": "G01",
+  "desc": "TextChunks rounds up one too many",
+  "old": "TextChunks = (n + chunkPositions - 1) / chunkPositions;",
+  "new": "TextChunks = (n + chunkPositions) / chunkPositions;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpGeometry.cs"
+ },
+ {
+  "id": "G02",
+  "desc": "RankChunks rounds down",
+  "old": "RankChunks = (n + chunkPositions) / chunkPositions;",
+  "new": "RankChunks = (n + chunkPositions - 1) / chunkPositions;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpGeometry.cs"
+ },
+ {
+  "id": "G03",
+  "desc": "TextChunkLength counts the empty suffix",
+  "old": "internal long TextChunkLength(long chunk) => Math.Min(R, N - (chunk * R));",
+  "new": "internal long TextChunkLength(long chunk) => Math.Min(R, N + 1 - (chunk * R));",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpGeometry.cs"
+ },
+ {
+  "id": "G04",
+  "desc": "RankChunkLength forgets the empty suffix",
+  "old": "internal long RankChunkLength(long chunk) => Math.Min(R, N + 1 - (chunk * R));",
+  "new": "internal long RankChunkLength(long chunk) => Math.Min(R, N - (chunk * R));",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpGeometry.cs"
+ },
+ {
+  "id": "G05",
+  "desc": "the design limit is refused one symbol early",
+  "old": "if (n > PackedTextFormat.MaxSymbols) throw",
+  "new": "if (n >= PackedTextFormat.MaxSymbols) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpGeometry.cs"
+ },
+ {
+  "id": "G06",
+  "desc": "a chunk of no positions is accepted",
+  "old": "        ArgumentOutOfRangeException.ThrowIfLessThan(chunkPositions, 1);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpGeometry.cs"
+ },
+ {
+  "id": "G07",
+  "desc": "a negative length is accepted",
+  "old": "        ArgumentOutOfRangeException.ThrowIfNegative(n);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpGeometry.cs"
+ },
+ {
+  "id": "G08",
+  "desc": "ChunkOf is a 32-bit division",
+  "old": "internal uint ChunkOf(uint x) => _divide.Of(x);",
+  "new": "internal uint ChunkOf(uint x) => x / (uint)R;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpGeometry.cs"
+ },
+ {
+  "id": "G09",
+  "desc": "R is reported one too large",
+  "old": "R = chunkPositions;",
+  "new": "R = chunkPositions + 1;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpGeometry.cs"
+ },
+ {
+  "id": "G10",
+  "desc": "N is reported without the length check being used",
+  "old": "N = n;",
+  "new": "N = n + 1;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpGeometry.cs"
+ }
+]

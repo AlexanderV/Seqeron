@@ -1,0 +1,296 @@
+[
+ {
+  "id": "C01",
+  "desc": "the design limit is refused one symbol early",
+  "old": "if (n > PackedTextFormat.MaxSymbols) throw",
+  "new": "if (n >= PackedTextFormat.MaxSymbols) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/ChildScan.cs"
+ },
+ {
+  "id": "C02",
+  "desc": "the tagged limit is refused one symbol early",
+  "old": "n > TaggedChild.MaxLength) throw",
+  "new": "n >= TaggedChild.MaxLength) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/ChildScan.cs"
+ },
+ {
+  "id": "C03",
+  "desc": "the tagged codec is refused for no text",
+  "old": "if (options.Codec == ChildCodec.Tagged && n > TaggedChild.MaxLength) throw",
+  "new": "if (options.Codec == ChildCodec.Tagged && n > long.MaxValue) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/ChildScan.cs"
+ },
+ {
+  "id": "C04",
+  "desc": "the range of the table has one entry less",
+  "old": "new AlignedWindowWriter(file, start, 4 * (n + 1),",
+  "new": "new AlignedWindowWriter(file, start, 4 * n,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/ChildScan.cs"
+ },
+ {
+  "id": "C05",
+  "desc": "a failed creation leaves the writer open",
+  "old": "            child?.Dispose();\n            arena.Dispose();\n            throw;",
+  "new": "            arena.Dispose();\n            throw;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/ChildScan.cs"
+ },
+ {
+  "id": "C06",
+  "desc": "a failed creation leaves the arena allocated",
+  "old": "            child?.Dispose();\n            arena.Dispose();\n            throw;",
+  "new": "            child?.Dispose();\n            throw;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/ChildScan.cs"
+ },
+ {
+  "id": "C07",
+  "desc": "the codecs are swapped",
+  "old": "options.Codec == ChildCodec.Tagged\n                ? new ScanCore<TaggedChildSink>",
+  "new": "options.Codec != ChildCodec.Tagged\n                ? new ScanCore<TaggedChildSink>",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/ChildScan.cs"
+ },
+ {
+  "id": "C08",
+  "desc": "tagged: the next tag is the up tag",
+  "old": "private const uint NextTag = 1u << 30;",
+  "new": "private const uint NextTag = 2u << 30;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/ChildScan.cs"
+ },
+ {
+  "id": "C09",
+  "desc": "tagged: the up tag is the next tag",
+  "old": "private const uint UpTag = 2u << 30;",
+  "new": "private const uint UpTag = 1u << 30;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/ChildScan.cs"
+ },
+ {
+  "id": "C10",
+  "desc": "tagged: the down tag is the up tag",
+  "old": "private const uint DownTag = 3u << 30;",
+  "new": "private const uint DownTag = 2u << 30;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/ChildScan.cs"
+ },
+ {
+  "id": "C11",
+  "desc": "tagged: the first l-index writes a link",
+  "old": "if (previous != ChildScan.None) writer.Write32(previous, NextTag | k);",
+  "new": "if (previous != 0) writer.Write32(previous, NextTag | k);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/ChildScan.cs"
+ },
+ {
+  "id": "C12",
+  "desc": "tagged: up and down fields are written at the other boundary",
+  "old": "if (lastChild) writer.Write32(lb, DownTag | first);\n        else writer.Write32(rb, UpTag | first);",
+  "new": "if (lastChild) writer.Write32(rb, DownTag | first);\n        else writer.Write32(lb, UpTag | first);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/ChildScan.cs"
+ },
+ {
+  "id": "C13",
+  "desc": "packed: the consecutive l-indices write a link too",
+  "old": "if (previous != ChildScan.None && k != previous + 1) writer.Write32(previous, k);",
+  "new": "if (previous != ChildScan.None) writer.Write32(previous, k);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/ChildScan.cs"
+ },
+ {
+  "id": "C14",
+  "desc": "packed: up and down fields are written at the other boundary",
+  "old": "writer.Write32(lastChild ? lb : rb, first);",
+  "new": "writer.Write32(lastChild ? rb : lb, first);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/ChildScan.cs"
+ },
+ {
+  "id": "C15",
+  "desc": "the root has a first l-index from the start",
+  "old": "_stack.Push(new IntervalEntry { Ell = 0, Lb = 0, First = ChildScan.None, Last = ChildScan.None });",
+  "new": "_stack.Push(new IntervalEntry { Ell = 0, Lb = 0, First = 0, Last = ChildScan.None });",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/ChildScan.cs"
+ },
+ {
+  "id": "C16",
+  "desc": "a repeated block is accepted",
+  "old": "if (firstRank != _nextRank) throw",
+  "new": "if (firstRank > _nextRank) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/ChildScan.cs"
+ },
+ {
+  "id": "C17",
+  "desc": "the last rank is refused",
+  "old": "if (firstRank + lcp.Length > _n + 1) throw",
+  "new": "if (firstRank + lcp.Length >= _n + 1) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/ChildScan.cs"
+ },
+ {
+  "id": "C18",
+  "desc": "a value of 1 at rank 0 or 1 is accepted",
+  "old": "if (cur != 0) throw new InvalidDataException($\"LCP[{rank}] = {cur}: the values at ranks 0 and 1",
+  "new": "if (cur > 1) throw new InvalidDataException($\"LCP[{rank}] = {cur}: the values at ranks 0 and 1",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/ChildScan.cs"
+ },
+ {
+  "id": "C19",
+  "desc": "rank 0 is scanned",
+  "old": "if (rank == 0) continue;",
+  "new": "if (rank == 99) continue;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/ChildScan.cs"
+ },
+ {
+  "id": "C20",
+  "desc": "a value equal to n is refused",
+  "old": "            else if (cur > _n)\n",
+  "new": "            else if (cur >= _n)\n",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/ChildScan.cs"
+ },
+ {
+  "id": "C21",
+  "desc": "a value above n is accepted",
+  "old": "            else if (cur > _n)\n",
+  "new": "            else if (cur > _n + 1)\n",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/ChildScan.cs"
+ },
+ {
+  "id": "C22",
+  "desc": "the largest LCP is not tracked",
+  "old": "            if (cur > _maxLcp) _maxLcp = cur;\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/ChildScan.cs"
+ },
+ {
+  "id": "C23",
+  "desc": "a second Complete is accepted",
+  "old": "if (_completed) throw new InvalidOperationException(\"the scan is already complete\");",
+  "new": "if (_completed && false) throw new InvalidOperationException(\"the scan is already complete\");",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/ChildScan.cs"
+ },
+ {
+  "id": "C24",
+  "desc": "Complete does not need every value",
+  "old": "if (_nextRank != _n + 1) throw new InvalidOperationException($\"{_nextRank} of the",
+  "new": "if (_nextRank > _n + 1) throw new InvalidOperationException($\"{_nextRank} of the",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/ChildScan.cs"
+ },
+ {
+  "id": "C25",
+  "desc": "the intervals still open are closed with a right boundary one too small",
+  "old": "Close(e.Ell, e.Lb, (uint)_n, e.First, true);",
+  "new": "Close(e.Ell, e.Lb, (uint)_n - 1, e.First, true);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/ChildScan.cs"
+ },
+ {
+  "id": "C26",
+  "desc": "the node count forgets the root",
+  "old": "NodeCount = _n == 0 ? 1 : 1 + _internal + _n + 1,",
+  "new": "NodeCount = _n == 0 ? 1 : _internal + _n + 1,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/ChildScan.cs"
+ },
+ {
+  "id": "C27",
+  "desc": "the node count of the empty text is zero",
+  "old": "NodeCount = _n == 0 ? 1 :",
+  "new": "NodeCount = _n == 0 ? 0 :",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/ChildScan.cs"
+ },
+ {
+  "id": "C28",
+  "desc": "a closing interval counts as last child when it is not deeper",
+  "old": "Close(e.Ell, e.Lb, i - 1, e.First, cur < top.Ell);",
+  "new": "Close(e.Ell, e.Lb, i - 1, e.First, cur <= top.Ell);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/ChildScan.cs"
+ },
+ {
+  "id": "C29",
+  "desc": "the left boundary of the pushed interval is the previous rank",
+  "old": "            left = e.Lb;\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/ChildScan.cs"
+ },
+ {
+  "id": "C30",
+  "desc": "a push also happens at an equal value",
+  "old": "if (top.Ell < cur)\n        {\n            _stack.Push",
+  "new": "if (top.Ell <= cur)\n        {\n            _stack.Push",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/ChildScan.cs"
+ },
+ {
+  "id": "C31",
+  "desc": "the root does not remember its last l-index",
+  "old": "            root.First = i;\n            root.Last = i;",
+  "new": "            root.First = i;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/ChildScan.cs"
+ },
+ {
+  "id": "C32",
+  "desc": "the link is written after the last l-index is replaced",
+  "old": "            _sink.LIndex(t.Last, i);\n            t.Last = i;",
+  "new": "            t.Last = i;\n            _sink.LIndex(t.Last, i);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/ChildScan.cs"
+ },
+ {
+  "id": "C33",
+  "desc": "the root counts as an internal node",
+  "old": "if (ell > 0)\n        {\n            _internal++;",
+  "new": "if (ell >= 0)\n        {\n            _internal++;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/ChildScan.cs"
+ },
+ {
+  "id": "C34",
+  "desc": "the deepest interval is the last of the deepest",
+  "old": "if (ell > _lrsDepth)",
+  "new": "if (ell >= _lrsDepth)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/ChildScan.cs"
+ },
+ {
+  "id": "C35",
+  "desc": "the longest repeat starts at the right boundary",
+  "old": "_lrsRank = lb;",
+  "new": "_lrsRank = rb;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/ChildScan.cs"
+ },
+ {
+  "id": "C36",
+  "desc": "Dispose leaves the spill file",
+  "old": "        _child.Dispose();\n        _stack.Dispose();\n        _arena.Dispose();",
+  "new": "        _child.Dispose();\n        _arena.Dispose();",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/ChildScan.cs"
+ },
+ {
+  "id": "C37",
+  "desc": "Dispose leaves the arena allocated",
+  "old": "        _stack.Dispose();\n        _arena.Dispose();",
+  "new": "        _stack.Dispose();",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/ChildScan.cs"
+ },
+ {
+  "id": "C38",
+  "desc": "the stack peak is the final height",
+  "old": "StackPeak = _stack.PeakHeight,",
+  "new": "StackPeak = _stack.Height,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/ChildScan.cs"
+ },
+ {
+  "id": "C39",
+  "desc": "the next rank advances by one",
+  "old": "        _nextRank = firstRank + lcp.Length;\n        _ticks",
+  "new": "        _nextRank = firstRank + 1;\n        _ticks",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/ChildScan.cs"
+ },
+ {
+  "id": "C40",
+  "desc": "the CHILD windows are not part of the result",
+  "old": "ChildWindows = _child.Stats,",
+  "new": "ChildWindows = default,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/ChildScan.cs"
+ },
+ {
+  "id": "C41",
+  "desc": "the counters do not see the spill",
+  "old": "options.SpillFlushBytes, options.Counters);",
+  "new": "options.SpillFlushBytes);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/ChildScan.cs"
+ },
+ {
+  "id": "C42",
+  "desc": "the stack blocks are not charged to the budget",
+  "old": "var arena = new BudgetedArena(options.Budget ?? new ArenaBudget(long.MaxValue), options.ArenaGuards);",
+  "new": "var arena = new BudgetedArena(new ArenaBudget(long.MaxValue), options.ArenaGuards);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/ChildScan.cs"
+ }
+]

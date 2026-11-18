@@ -1,0 +1,114 @@
+[
+ {
+  "id": "P01",
+  "desc": "the prefetch is never requested",
+  "old": "if (k + PrefetchDistance < count) text.Prefetch(phi[k + PrefetchDistance]);",
+  "new": "if (false) text.Prefetch(phi[k + PrefetchDistance]);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/PlcpScan.cs"
+ },
+ {
+  "id": "P02",
+  "desc": "a Phi beyond n is the empty suffix too",
+  "old": "if (p == n)\n",
+  "new": "if (p >= n)\n",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/PlcpScan.cs"
+ },
+ {
+  "id": "P03",
+  "desc": "the carry is kept after the empty-suffix position",
+  "old": "                l = 0; // j is the smallest nonempty suffix: its predecessor is the empty suffix\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/PlcpScan.cs"
+ },
+ {
+  "id": "P04",
+  "desc": "the empty-suffix position gets 1",
+  "old": "                phi[k] = 0;\n                continue;",
+  "new": "                phi[k] = 1;\n                continue;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/PlcpScan.cs"
+ },
+ {
+  "id": "P05",
+  "desc": "the limit is measured from the smaller position",
+  "old": "long limit = n - Math.Max(j, p);",
+  "new": "long limit = n - Math.Min(j, p);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/PlcpScan.cs"
+ },
+ {
+  "id": "P06",
+  "desc": "the comparison also runs when the carry has used the limit up",
+  "old": "if (l < limit) l += text.Lce",
+  "new": "if (l <= limit) l += text.Lce",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/PlcpScan.cs"
+ },
+ {
+  "id": "P07",
+  "desc": "the first value is taken at the second position",
+  "old": "if (k == 0) first = l;",
+  "new": "if (k == 1) first = l;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/PlcpScan.cs"
+ },
+ {
+  "id": "P08",
+  "desc": "a value of exactly 255 is not an escape",
+  "old": "if (l >= 255)",
+  "new": "if (l > 255)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/PlcpScan.cs"
+ },
+ {
+  "id": "P09",
+  "desc": "a value of exactly 65,535 is not a long escape",
+  "old": "if (l >= 65535)",
+  "new": "if (l > 65535)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/PlcpScan.cs"
+ },
+ {
+  "id": "P10",
+  "desc": "the carry is not decremented",
+  "old": "            if (l > 0) l--;\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/PlcpScan.cs"
+ },
+ {
+  "id": "P11",
+  "desc": "the maximum is the minimum",
+  "old": "if (l > max) max = l;",
+  "new": "if (l < max) max = l;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/PlcpScan.cs"
+ },
+ {
+  "id": "P12",
+  "desc": "the value is stored one too large",
+  "old": "phi[k] = (uint)l;\n            if (k == 0)",
+  "new": "phi[k] = (uint)l + 1;\n            if (k == 0)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/PlcpScan.cs"
+ },
+ {
+  "id": "P13",
+  "desc": "an escape is counted twice",
+  "old": "e8++;",
+  "new": "e8 += 2;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/PlcpScan.cs"
+ },
+ {
+  "id": "P14",
+  "desc": "the carry is decremented by two",
+  "old": "if (l > 0) l--;",
+  "new": "if (l > 1) l -= 2;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/PlcpScan.cs"
+ },
+ {
+  "id": "P15",
+  "desc": "the comparison starts at the carry of the other suffix",
+  "old": "text.Lce(j + l, p + l, limit - l, ref steps)",
+  "new": "text.Lce(j + l, p, limit - l, ref steps)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/PlcpScan.cs"
+ },
+ {
+  "id": "P16",
+  "desc": "the comparison is not limited by the carry",
+  "old": "text.Lce(j + l, p + l, limit - l, ref steps)",
+  "new": "text.Lce(j + l, p + l, limit, ref steps)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/PlcpScan.cs"
+ }
+]

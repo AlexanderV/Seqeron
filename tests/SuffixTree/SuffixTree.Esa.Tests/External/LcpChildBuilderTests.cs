@@ -205,6 +205,32 @@ public class LcpChildBuilderTests
         Assert.Throws<NotSupportedException>(() => LcpChildBuilder.Build(sa, hr, files, new LcpChildOptions { ScratchDir = Scratch }));
         Assert.That(Directory.GetFileSystemEntries(outDir), Is.Empty);
         Assert.That(Directory.Exists(Scratch), Is.False);
+
+        // exactly at the limits the checks pass: the build goes on and stops at the suffix array that does not exist
+        string atLimit = _dir.File("limit.pk");
+        long nl = PackedTextFormat.MaxSymbols;
+        using (var f = new FileStream(atLimit, FileMode.Create)) f.SetLength(PackedTextFormat.TotalBytes(nl, 1));
+        using MappedTextReader lr = MappedTextReader.Open(atLimit, nl, 1);
+        Assert.Throws<FileNotFoundException>(() => LcpChildBuilder.Build(sa, lr, files, new LcpChildOptions { ScratchDir = Scratch }), "n = 2^32 - 4 is the largest text");
+        string tagged = _dir.File("tagged.pk");
+        long nt = (1L << 30) - 1;
+        using (var f = new FileStream(tagged, FileMode.Create)) f.SetLength(PackedTextFormat.TotalBytes(nt, 1));
+        using MappedTextReader tr = MappedTextReader.Open(tagged, nt, 1);
+        Assert.Throws<FileNotFoundException>(() => LcpChildBuilder.Build(sa, tr, files, new LcpChildOptions { ScratchDir = Scratch, Codec = ChildCodec.Tagged }), "2^30 - 1 symbols are the largest text of the tagged codec");
+        Assert.That(Directory.GetFileSystemEntries(outDir), Is.Empty);
+        Assert.That(Directory.Exists(Scratch), Is.False);
+    }
+
+    [Test]
+    public void AScratchDirectoryThatExists_StaysAfterTheBuild_ThoughEmpty()
+    {
+        LcpChildCase c = LcpChildCase.Of(StringFamilies.RandomDna(100, 4));
+        Directory.CreateDirectory(Scratch);
+        LcpChildOptions o = Tiny(2, sigma: c.Sigma);
+        LcpChildRun.Outcome r = LcpChildRun.Run(_dir, c, o);
+        Assert.That(Directory.Exists(Scratch), Is.True, "the directory was the caller's");
+        Assert.That(Directory.GetFileSystemEntries(Scratch), Is.Empty, "the two subdirectories are gone");
+        Assert.That(r.Result.Scan.NodeCount, Is.EqualTo(c.Statistics.NodeCount));
     }
 
     // ---- corrupt input and failing environment

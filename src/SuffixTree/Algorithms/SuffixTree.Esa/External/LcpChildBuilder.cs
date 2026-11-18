@@ -316,6 +316,7 @@ internal static class LcpChildBuilder
                 try
                 {
                     lcp = ExternalLcp.Build(saPath, text, outputs.Lcp, outputs.Overflow, lcpOptions, lazy);
+                    lcpCreated = true; // PH4 removes its own files when it fails; from here on they are this build's to remove
                     scan = lazy.Complete();
                 }
                 finally
@@ -323,7 +324,6 @@ internal static class LcpChildBuilder
                     childCreated = lazy.Created;
                 }
             }
-            lcpCreated = true; // PH4 removes its own files when it fails; from here on they are this build's to remove
             double seconds = (Stopwatch.GetTimestamp() - t0) / (double)Stopwatch.Frequency;
             if (options.SyncOutputs)
             {

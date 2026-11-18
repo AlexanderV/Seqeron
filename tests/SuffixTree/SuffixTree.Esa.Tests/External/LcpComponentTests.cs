@@ -184,7 +184,9 @@ public class LcpRuleTests
         Assert.That(p.Scaled, Is.True);
         Assert.That(p.Factor, Is.EqualTo(100_000_000 / 3e9).Within(1e-15));
         Assert.That(p.LcpWorkers, Is.EqualTo(2), "the workers come from the reference geometry, not from the scaled chunk");
-        Assert.That(LcpChildRules.Resolve(1000, O(scaleN: 3_000_000_000)).LcpChunk, Is.EqualTo(3), "floor of 3");
+        Assert.That(LcpChildRules.Resolve(1000, O(scaleN: 3_000_000_000)).LcpChunk, Is.EqualTo(3), "ceil(2.67)");
+        Assert.That(LcpChildRules.Resolve(100, O(scaleN: 3_000_000_000)).LcpChunk, Is.EqualTo(3), "floor of 3 (ceil(0.27) = 1)");
+        Assert.That(LcpChildRules.Resolve(0, O(scaleN: 3_000_000_000)).LcpChunk, Is.EqualTo(3), "floor of 3 for the empty text");
         Assert.That(LcpChildRules.Resolve(1_500_000_000, O(scaleN: 3_000_000_000)).LcpChunk, Is.EqualTo(4_000_000));
     }
 
@@ -203,6 +205,7 @@ public class LcpRuleTests
     {
         long perTask = ExternalLcp.WorkerBytes(LcpChildRules.ReferenceN, new ExtLcpOptions { ScratchDir = "s", ChunkPositions = LcpChildRules.ChunkReference });
         Assert.That(perTask, Is.InRange(70L << 20, 80L << 20), "about 77 MB per task: two Phi / rank arrays of 8 M entries, the tuple buffers of 376 chunks");
+        Assert.That(perTask, Is.EqualTo(64_000_000L + 1_000_000 + 1_048_572 + 12_320_768), "the Phi and rank arrays, the permutation bits, the read buffer of 87,381 tuples, 376 write buffers of 4,096 tuples");
         Assert.That(LcpChildRules.Resolve(1000, O(arena: 160L << 20)).LcpWorkers, Is.EqualTo(2));
         Assert.That(LcpChildRules.Resolve(1000, O(arena: 400L << 20)).LcpWorkers, Is.EqualTo(4), "capped by the threads");
         Assert.That(LcpChildRules.Resolve(1000, O(threads: 3, arena: 400L << 20)).LcpWorkers, Is.EqualTo(3));
@@ -231,6 +234,22 @@ public class LcpRuleTests
         LcpChildParameters p = LcpChildRules.Resolve(100_000_000, O(scaleN: 3_000_000_000, tuning: t));
         Assert.That((p.LcpChunk, p.LcpWorkers, p.LcpReadBytes, p.LcpTupleBytes, p.WindowBytes), Is.EqualTo((5L, 3, 17, 19, 23)));
         Assert.That((p.BlockEntries, p.ChildWindowBytes, p.ChildSlots, p.SpillFlushBytes), Is.EqualTo((7, 64, 5, 99L)));
+    }
+
+    [Test]
+    public void Rule_RefusesAnExplicitValueThatItsStageCannotUse()
+    {
+        foreach (LcpChildTuning t in new LcpChildTuning[]
+        {
+            new() { LcpChunk = 0 }, new() { LcpChunk = -5 }, new() { LcpWorkers = 0 }, new() { LcpReadBytes = 0 }, new() { LcpTupleBytes = 0 }, new() { WindowBytes = 0 },
+            new() { BlockEntries = 1 }, new() { BlockEntries = 0 }, new() { ChildWindowBytes = 2 }, new() { ChildWindowBytes = 24 }, new() { ChildWindowBytes = 0 }, new() { ChildSlots = 0 }, new() { SpillFlushBytes = -1 },
+        })
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(() => LcpChildRules.Resolve(100, O(tuning: t)), $"{t}");
+        }
+        // the smallest value each stage can use
+        LcpChildParameters p = LcpChildRules.Resolve(100, O(tuning: new LcpChildTuning { LcpChunk = 1, LcpWorkers = 1, LcpReadBytes = 1, LcpTupleBytes = 1, WindowBytes = 1, BlockEntries = 2, ChildWindowBytes = 4, ChildSlots = 1, SpillFlushBytes = 0 }));
+        Assert.That((p.LcpChunk, p.BlockEntries, p.ChildWindowBytes, p.SpillFlushBytes), Is.EqualTo((1L, 2, 4, 0L)));
     }
 
     [Test]
