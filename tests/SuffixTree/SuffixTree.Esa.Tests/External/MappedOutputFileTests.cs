@@ -177,10 +177,12 @@ public class MappedOutputFileTests
         using var dir = new TempDir();
         using (MappedOutputFile f = MappedOutputFile.Create(dir.File("z.bin"), 0))
         {
-            using MappedWindowWriter w = f.CreateWriter();
-            w.Append([]);
-            w.WriteAt(0, []);
-            Assert.Throws<ArgumentOutOfRangeException>(() => w.Append([1]));
+            using (MappedWindowWriter w = f.CreateWriter())
+            {
+                w.Append([]);
+                w.WriteAt(0, []);
+                Assert.Throws<ArgumentOutOfRangeException>(() => w.Append([1]));
+            }
             f.Complete();
         }
         Assert.That(new FileInfo(dir.File("z.bin")).Length, Is.Zero);

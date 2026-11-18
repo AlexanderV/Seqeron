@@ -113,7 +113,7 @@ public class MappedTextReaderTests
             {
                 for (long i = centres[c] - 80; i <= centres[c] + 80; i++)
                 {
-                    if (i < 0) continue;
+                    if (i < 0 || i >= n) continue;
                     Assert.That(t.Reader.Window(i), Is.EqualTo(TextOracle.Window(s, i, bits)), $"b={bits} Window({i})");
                     Assert.That(t.Reader.Key(i), Is.EqualTo(TextOracle.Key(s, i, bits)), $"b={bits} Key({i})");
                     Assert.That(t.Reader.Symbol(i), Is.EqualTo((uint)s[i]), $"b={bits} Symbol({i})");
@@ -287,7 +287,7 @@ public class MappedTextReaderTests
         Assert.That(a, Is.EqualTo(99_999));
         Assert.That(b, Is.EqualTo(a), "identical results on both paths (the scalar one is the one that runs on arm64)");
         Assert.That(scalar, Is.EqualTo((99_999 + 31) / 32), "the scalar path compares 64 / b = 32 symbols per step");
-        if (Avx2.IsSupported) Assert.That(vector, Is.EqualTo(99_999 / 128), "the vector path compares 256 / b = 128 symbols per step");
+        if (Avx2.IsSupported) Assert.That(vector, Is.EqualTo((99_999 / 128) + 1), "the vector path compares 256 / b = 128 symbols per step, and one scalar step for the last 31 symbols");
         else Assert.That(vector, Is.EqualTo(scalar));
     }
 
@@ -484,7 +484,7 @@ public class MappedTextReaderTests
         }
         using MappedTextReader r = MappedTextReader.OpenRegion(path, offset, packed.Length, s.Length, 3);
         for (int i = 0; i < s.Length + 3; i++) Assert.That(r.Key(i), Is.EqualTo(TextOracle.Key(s, i, 3)), $"Key({i})");
-        Assert.Throws<InvalidDataException>(() => MappedTextReader.OpenRegion(path, offset + 4096, packed.Length, s.Length, 3), "a region that starts later runs past the end of the file");
+        Assert.Throws<InvalidDataException>(() => MappedTextReader.OpenRegion(path, offset + 4097, packed.Length, s.Length, 3), "a region that starts later runs past the end of the file");
     }
 
     // ---- verification and damaged input

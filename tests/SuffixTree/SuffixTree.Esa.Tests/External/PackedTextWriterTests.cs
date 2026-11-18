@@ -180,7 +180,7 @@ public class PackedTextWriterTests
         Assert.That((scan.N, scan.Bits, scan.Sha256), Is.EqualTo((written.N, written.Bits, written.Sha256)));
         Assert.That(scan.Letters, Is.EqualTo(written.Letters));
         Assert.That(scan.Counts, Is.EqualTo(written.Counts));
-        Assert.That(Directory.GetFiles(dir.Path).Length, Is.EqualTo(3), "in.txt, s.pk and nothing else");
+        Assert.That(Directory.GetFiles(dir.Path).Select(Path.GetFileName), Is.EquivalentTo(new[] { "in.txt", "s.pk" }), "the scan created nothing");
     }
 
     [Test]
@@ -264,9 +264,9 @@ public class PackedTextWriterTests
         Assert.That(File.ReadAllBytes(pk), Is.EqualTo(new byte[] { 1, 2, 3 }));
         Assert.That(Directory.GetFiles(dir.Path).Select(Path.GetFileName), Is.EquivalentTo(new[] { "in.txt", "p.pk" }));
 
-        // the input is truncated after the scan: the second pass reads past the end, after the temporary file exists
+        // the input is truncated after the scan: refused when the second pass starts, after the temporary file exists
         File.WriteAllBytes(txt, data);
-        Assert.Throws<EndOfStreamException>(() => PackedTextWriter.WriteFile(txt, pk, new PackedTextWriterOptions { BetweenPasses = () => File.WriteAllBytes(txt, RandomInput(4_000, 4, 3)) }));
+        Assert.Throws<InvalidOperationException>(() => PackedTextWriter.WriteFile(txt, pk, new PackedTextWriterOptions { BetweenPasses = () => File.WriteAllBytes(txt, RandomInput(4_000, 4, 3)) }));
         Assert.That(File.ReadAllBytes(pk), Is.EqualTo(new byte[] { 1, 2, 3 }));
         Assert.That(Directory.GetFiles(dir.Path).Select(Path.GetFileName), Is.EquivalentTo(new[] { "in.txt", "p.pk" }));
 
