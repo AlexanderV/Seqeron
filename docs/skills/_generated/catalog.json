@@ -2034,7 +2034,7 @@
     "server": "Core",
     "methodId": "GenomicAnalyzer.CalculateSimilarity",
     "docPath": "docs/mcp/tools/core/calculate_similarity.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GenomicAnalyzer.cs#L238"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GenomicAnalyzer.cs#L707"
   },
   {
     "tool": "count_approximate_occurrences",

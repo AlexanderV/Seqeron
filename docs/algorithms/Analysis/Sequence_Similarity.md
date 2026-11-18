@@ -6,7 +6,7 @@
 | Test Unit ID | GENOMIC-SIMILARITY-001 |
 | Related Projects | Seqeron.Genomics.Analysis, Seqeron.Genomics.Core |
 | Implementation Status | Production |
-| Last Reviewed | 2026-06-14 |
+| Last Reviewed | 2026-11-18 |
 
 ## 1. Overview
 
@@ -66,6 +66,7 @@ This method reports `J × 100` as a percentage.
 | sequence1 | DnaSequence | required | first sequence | non-null; alphabet A/C/G/T (enforced by DnaSequence) |
 | sequence2 | DnaSequence | required | second sequence | non-null; alphabet A/C/G/T |
 | kmerSize | int | 5 | k-mer length | ≥ 1 |
+| canonical | bool | false | compare canonical k-mers min(w, revcomp w) (Mash/sourmash) instead of literal k-mers; only in the 4-argument overload | — |
 
 ### 3.2 Output / Return Value
 
@@ -101,13 +102,16 @@ This method reports `J × 100` as a percentage.
 
 **Implementation location:** [GenomicAnalyzer.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GenomicAnalyzer.cs)
 
-- `GenomicAnalyzer.CalculateSimilarity(DnaSequence, DnaSequence, int)`: computes the k-mer Jaccard index ×100.
-- `GenomicAnalyzer.GetKmers(string, int)` (private): builds the distinct-k-mer `HashSet<string>`.
+- `GenomicAnalyzer.CalculateSimilarity(DnaSequence, DnaSequence, int)`: literal k-mer Jaccard index ×100.
+- `GenomicAnalyzer.CalculateSimilarity(DnaSequence, DnaSequence, int, bool canonical)`: same, optionally over canonical k-mers.
+- Both are facades: validation, then `KmerAnalyzer.JaccardSimilarity(a.Sequence, b.Sequence, k, new KmerCountingOptions(Canonical: canonical)) * 100` (the canonical k-mer Jaccard, DUP_MAP §16). The former private `GetKmers` duplicate was removed (B09 F32).
+- MCP `calculate_similarity` delegates to the 4-argument overload (`canonical` optional).
 
 ### 5.2 Current Behavior
 
-- k-mers are stored in a `HashSet<string>`, so duplicate k-mers within a sequence collapse to one element — exactly the distinct-set semantics required by the Jaccard definition [1][2].
-- Intersection is computed as `kmers1.Count(kmers2.Contains)` and union as `|A|+|B|−|A∩B|`, avoiding a second pass over the data.
+- k-mers are held in a distinct-k-mer set (`KmerAnalyzer.DistinctKmers`), so duplicate k-mers within a sequence collapse to one element — exactly the distinct-set semantics required by the Jaccard definition [1][2].
+- Union is `|A|+|B|−|A∩B|`. Default mode = literal (strand-specific) k-mers = Python `set` / `scipy.spatial.distance.jaccard` on presence vectors = `mash -n`; `canonical: true` = Mash default / sourmash (exact, unsketched; a sequence and its reverse complement score 100). Both modes are oracle-checked on 2086 rows (scipy 1.18.1, sourmash 4.9.4).
+- Case: `DnaSequence` folds to upper case, so the comparison is case-insensitive; no non-ACGT symbol can occur, so the Mash `-n`/Jellyfish ACGT-only rule holds by construction.
 - **Suffix tree evaluated but not used.** This unit computes a set intersection/union of distinct k-mers, not an occurrence-search ("find all positions of X in Y") problem. A `HashSet<string>` gives O(n+m) construction and O(1) membership, which is optimal for set resemblance; the repository `SuffixTree` would add O(n) construction cost without providing the set-overlap query this metric needs. The suffix tree is therefore correctly not applied here.
 
 ### 5.3 Conformance to Theory / Spec
@@ -133,6 +137,7 @@ This method reports `J × 100` as a percentage.
 |---|------|------|--------|--------|-------|
 | 1 | Empty-union returns 0.0 | Assumption | Affects both-empty / both-shorter-than-k inputs | accepted | Jaccard undefined for empty union [1]; 0 chosen as "no similarity" (ASM-1 in TestSpec) |
 | 2 | ×100 scaling | Assumption | Output in [0,100] not [0,1] | accepted | presentation convention only |
+| 3 | Empty-union value 0 | Convention | scipy / Mash imply J = 1, sourmash 0.0 | accepted | no source fixes it; 0 = "no shared content", same as `KmerAnalyzer.JaccardSimilarity` |
 
 ## 6. Edge Cases and Limitations
 
@@ -153,6 +158,7 @@ This method reports `J × 100` as a percentage.
 
 - Composition-only: insensitive to k-mer order/position, so two sequences with the same k-mer composition but different arrangement score identically. For positional/edit comparison use alignment.
 - Exact-match k-mers only — no mismatch tolerance; a single substitution alters up to k k-mers.
+- Default is strand-specific: a sequence and its reverse complement are generally dissimilar; pass `canonical: true` for strand-agnostic comparison.
 - Choice of k (default 5) controls resolution: larger k is more specific but more sensitive to errors; the formula is unchanged.
 
 ## 7. Examples and Related Material

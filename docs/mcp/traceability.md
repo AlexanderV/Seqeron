@@ -16,7 +16,7 @@
 | suffix_tree_k_common_substrings | Core | SuffixTree.FindLongestCommonSubstrings | SuffixTree.Repeats.cs#L27 | 2/2 | ✓ | ✓ | Ready |
 | find_longest_repeat | Core | GenomicAnalyzer.FindLongestRepeat | GenomicAnalyzer.cs#L29 | 2/2 | ✓ | ✓ | Ready |
 | find_longest_common_region | Core | GenomicAnalyzer.FindLongestCommonRegion | GenomicAnalyzer.cs#L178 | 2/2 | ✓ | ✓ | Ready |
-| calculate_similarity | Core | GenomicAnalyzer.CalculateSimilarity | GenomicAnalyzer.cs#L238 | 2/2 | ✓ | ✓ | Ready |
+| calculate_similarity | Core | GenomicAnalyzer.CalculateSimilarity | GenomicAnalyzer.cs#L707 | 2/2 | ✓ | ✓ | Ready |
 | hamming_distance | Core | ApproximateMatcher.HammingDistance | ApproximateMatcher.cs#L163 | 2/2 | ✓ | ✓ | Ready |
 | edit_distance | Core | ApproximateMatcher.EditDistance | ApproximateMatcher.cs#L186 | 2/2 | ✓ | ✓ | Ready |
 | count_approximate_occurrences | Core | ApproximateMatcher.CountApproximateOccurrences | ApproximateMatcher.cs#L283 | 2/2 | ✓ | ✓ | Ready |

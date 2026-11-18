@@ -26,6 +26,10 @@
     <!-- GENOMIC-MOTIFS-001 (B09 F18-F20): EMBOSS fuzznuc 6.6.0 (== independent Python regex) forward / reverse-strand,
          exact and IUPAC known-motif hits for 2448 (sequence, pattern) pairs; scripts/analysis/generate_known_motif_oracle.py. -->
     <EmbeddedResource Include="TestData\Analysis\known_motif_oracle.tsv" />
+    <!-- GENOMIC-SIMILARITY-001 (B09 F32-F34): exact k-mer Jaccard (percent), literal == Python set == scipy jaccard on presence
+         vectors, canonical == Python set over min(w, revcomp w) == sourmash 4.9.4 MinHash(scaled=1); 2086 rows;
+         scripts/analysis/generate_similarity_oracle.py. -->
+    <EmbeddedResource Include="TestData\Analysis\similarity_oracle.tsv" />
     <!-- GENOMIC-REPEAT-001 (B09 F28-F30): independent Python (brute force + suffix array/Kasai LCP) oracle for repeated
          substrings, Gusfield maximal repeats and all longest repeats; scripts/analysis/generate_repeat_oracle.py. -->
     <EmbeddedResource Include="TestData\Analysis\repeat_oracle.tsv" />

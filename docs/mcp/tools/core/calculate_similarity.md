@@ -13,22 +13,24 @@ Calculate similarity between two DNA sequences.
 
 ## Description
 
-Calculates similarity between two DNA sequences using k-mer Jaccard index. Returns value between 0 (no similarity) and 1 (identical k-mer composition).
+Calculates the exact k-mer Jaccard index J = |A∩B| / |A∪B| of the two sequences' distinct k-mer sets (Jaccard 1901; Ondov et al. 2016), reported as a **percentage** between 0 (no shared k-mer) and 100 (identical k-mer sets). Both k-mer sets empty (both sequences empty or shorter than k) returns 0 (convention). Delegates to `GenomicAnalyzer.CalculateSimilarity`, which calls the canonical `KmerAnalyzer.JaccardSimilarity`.
+
+By default the literal (strand-specific) k-mers are compared (Python `set`, `scipy.spatial.distance.jaccard` on presence vectors). With `canonical: true` each k-mer is replaced by min(k-mer, reverse complement) as in Mash and sourmash (exact, unsketched), so a sequence and its reverse complement score 100.
 
 ## Core Documentation Reference
 
-- Source: [GenomicAnalyzer.cs#L238](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GenomicAnalyzer.cs#L238)
+- Source: [GenomicAnalyzer.cs#L707](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GenomicAnalyzer.cs#L699)
 
 ## Input/Output
 
-**Input:** `{ sequence1: string, sequence2: string, kmerSize?: integer }`
+**Input:** `{ sequence1: string, sequence2: string, kmerSize?: integer (default 5, >= 1), canonical?: boolean (default false) }`
 
-**Output:** `{ similarity: number }` (0-1 scale)
+**Output:** `{ similarity: number }` (0-100 percentage scale)
 
 ## Example
 
 **User Prompt:**
-> How similar are ATGCATGC and ATGCATTT?
+> How similar are ATGCATGC and ATGCATTT (k = 5)?
 
 **Tool Call:**
 ```json
@@ -37,5 +39,5 @@ Calculates similarity between two DNA sequences using k-mer Jaccard index. Retur
 
 **Response:**
 ```json
-{ "similarity": 0.75 }
+{ "similarity": 33.333333333333336 }
 ```

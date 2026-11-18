@@ -54,11 +54,12 @@ public class SuffixTreeGenomicsTools
     /// Calculate similarity between two DNA sequences using k-mer Jaccard index.
     /// </summary>
     [McpServerTool(Name = "calculate_similarity", Title = "Genomics — Sequence Similarity", ReadOnly = true)]
-    [Description("Calculate similarity between two DNA sequences using k-mer Jaccard index (0-100 percentage scale).")]
+    [Description("Calculate similarity between two DNA sequences using the exact k-mer Jaccard index |A∩B|/|A∪B| of the distinct k-mer sets, as a percentage (0-100 scale; 0 when both sets are empty). Default compares literal (strand-specific) k-mers like a Python set / scipy jaccard; canonical=true uses min(k-mer, reverse complement) as Mash and sourmash do, so a sequence and its reverse complement score 100.")]
     public static CalculateSimilarityResult CalculateSimilarity(
         [Description("The first DNA sequence")] string sequence1,
         [Description("The second DNA sequence")] string sequence2,
-        [Description("K-mer size (default: 5)")] int kmerSize = 5)
+        [Description("K-mer size (default: 5)")] int kmerSize = 5,
+        [Description("Use canonical (strand-agnostic) k-mers min(w, reverse complement) as Mash/sourmash (default: false)")] bool canonical = false)
     {
         if (string.IsNullOrEmpty(sequence1))
             throw new ArgumentException("Sequence1 cannot be null or empty", nameof(sequence1));
@@ -67,7 +68,7 @@ public class SuffixTreeGenomicsTools
 
         var dna1 = new global::Seqeron.Genomics.Core.DnaSequence(sequence1);
         var dna2 = new global::Seqeron.Genomics.Core.DnaSequence(sequence2);
-        var similarity = GenomicAnalyzer.CalculateSimilarity(dna1, dna2, kmerSize);
+        var similarity = GenomicAnalyzer.CalculateSimilarity(dna1, dna2, kmerSize, canonical);
 
         return new CalculateSimilarityResult(similarity);
     }

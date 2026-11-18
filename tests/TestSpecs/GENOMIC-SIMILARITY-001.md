@@ -5,7 +5,7 @@
 **Algorithm:** Sequence Similarity (k-mer Jaccard index)
 **Status:** ☑ Complete
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-06-14
+**Last Updated:** 2026-11-18 (B09 re-validation, F32-F34)
 
 ---
 
@@ -44,7 +44,9 @@
 
 | Method | Class | Type | Notes |
 |--------|-------|------|-------|
-| `CalculateSimilarity(DnaSequence, DnaSequence, int kmerSize=5)` | GenomicAnalyzer | Canonical | k-mer Jaccard index ×100 |
+| `CalculateSimilarity(DnaSequence, DnaSequence, int kmerSize=5)` | GenomicAnalyzer | Facade | literal k-mer Jaccard index ×100 = `KmerAnalyzer.JaccardSimilarity(a, b, k) * 100` (DUP_MAP §16 canonical) |
+| `CalculateSimilarity(DnaSequence, DnaSequence, int kmerSize, bool canonical)` | GenomicAnalyzer | Facade | `canonical: true` = Mash/sourmash strand-agnostic k-mers (`KmerCountingOptions(Canonical: true)`) |
+| `calculate_similarity` (MCP, `SuffixTreeGenomicsTools.CalculateSimilarity`) | SuffixTree.Mcp.Core | Wrapper | delegates; optional `canonical` |
 
 ---
 
@@ -186,3 +188,38 @@ Total in-scope cases: 13. ✅ count: 13.
 
 1. Suffix tree NOT used: the metric is a set intersection/union of distinct k-mers, not an occurrence-search problem. A `HashSet<string>` gives O(n+m) construction and O(1) membership — optimal here; a suffix tree adds construction cost without a matching query. Decision recorded in algorithm doc §5.2.
 2. Empty-union value (0 vs 1) is undefined by the cited sources; implementation contract = 0 (ASM-1).
+
+---
+
+## 8. B09 Re-validation (2026-11-18, F32-F34)
+
+**Semantic choice.** `CalculateSimilarity` is the exact Jaccard index of the two *distinct k-mer sets*. The default
+compares **literal (strand-specific)** k-mers (Python `set`, `scipy.spatial.distance.jaccard` on presence vectors, Mash
+`-n`); `canonical: true` compares **canonical** k-mers min(w, revcomp w) = the Mash default (Mash `sketches.rst`: "ignore
+strandedness by using canonical k-mers ... Strandedness can be preserved with -n") and sourmash. `DnaSequence` is
+upper-case ACGT, so no non-ACGT window exists (the `AcgtOnly` option of `KmerCountingOptions` is vacuous here and is not exposed).
+The default stays literal for backward compatibility (every prior value is bit-identical).
+
+**Implementation.** The private `GetKmers` set builder was a duplicate of `KmerAnalyzer.DistinctKmers`; both overloads now
+validate (null, k >= 1) and return `KmerAnalyzer.JaccardSimilarity(a.Sequence, b.Sequence, k, new KmerCountingOptions(Canonical: canonical)) * 100`.
+
+**Edge-case table (oracle-confirmed).**
+
+| Case | Value | Note |
+|------|-------|------|
+| identical non-empty | 100 | |
+| both empty / both shorter than k / k larger than both | 0 | ASM-1 convention. scipy (`jaccard([],[])` = 0 distance) and Mash (`shared == union` -> distance 0) imply J = 1, sourmash `jaccard` returns 0.0; sources disagree, the library keeps 0 |
+| one empty | 0 | |
+| lower-case input | folded by `DnaSequence` | `acgtacgt` == `ACGTACGT` |
+| reverse complement | literal < 100, canonical 100 | AACCCGGG vs CCCGGGTT, k = 3: 50 / 100 |
+
+**New tests** (`GenomicAnalyzer_CalculateSimilarity_Oracle_Tests.cs`, +8; MCP `CalculateSimilarityTests` +1):
+
+| ID | Test | Oracle |
+|----|------|--------|
+| O1 | literal mode, 2086 (pair, k in {1,2,3,4,5,8,21}) rows | Python set == scipy 1.18.1 `jaccard` on presence vectors |
+| O2 | canonical mode, same rows; >500 rows must differ from literal | Python set over min(w, revcomp) == sourmash 4.9.4 `MinHash(n=0, scaled=1).jaccard` |
+| O3 | facade == `KmerAnalyzer.JaccardSimilarity * 100` (both modes) | DUP_MAP §16 |
+| O4 | reverse complement: literal 50, canonical 100 | Mash definition |
+| O5 | lower-case input; k > both (also `int.MaxValue`); canonical overload validation; 300 kbp linear-time smoke | edge cases |
+| O6 | MCP `calculate_similarity` `canonical` parameter delegates | wrapper |

@@ -46,7 +46,7 @@ per-tool doc for the full I/O schema — do not guess parameters. Servers: **Ali
 | [`damerau_levenshtein_distance`](../../../../docs/mcp/tools/alignment/damerau_levenshtein_distance.md) | `ApproximateMatcher.DamerauLevenshteinDistance` | Edit distance with adjacent transpositions (`unrestricted` DL or `osa`); optional weighted ins/del/sub/transposition costs (Lowrance–Wagner). Alignment server. |
 | [`damerau_alignment`](../../../../docs/mcp/tools/alignment/damerau_alignment.md) | `ApproximateMatcher.GetDamerauLevenshteinAlignment` / `GetOptimalStringAlignment` | Transposition-aware edit script (Lowrance–Wagner trace: `=`/`X`/`I`/`D`/`T` blocks with positions and costs), unit or weighted costs. Alignment server. |
 | [`hamming_distance`](../../../../docs/mcp/tools/core/hamming_distance.md) | `ApproximateMatcher.HammingDistance` | Mismatch count for **equal-length** seqs. |
-| [`calculate_similarity`](../../../../docs/mcp/tools/core/calculate_similarity.md) | `GenomicAnalyzer.CalculateSimilarity` | k-mer Jaccard similarity in [0,1] (optional `kmerSize`). |
+| [`calculate_similarity`](../../../../docs/mcp/tools/core/calculate_similarity.md) | `GenomicAnalyzer.CalculateSimilarity` | k-mer Jaccard similarity as a percentage in [0,100] (optional `kmerSize`, `canonical` = Mash/sourmash strand-agnostic k-mers). |
 | [`count_approximate_occurrences`](../../../../docs/mcp/tools/core/count_approximate_occurrences.md) | `ApproximateMatcher.CountApproximateOccurrences` | Count approximate occurrences of a pattern allowing mismatches. |
 
 ## Common regions & repeats (Core server)

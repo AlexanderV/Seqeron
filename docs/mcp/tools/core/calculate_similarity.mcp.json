@@ -5,21 +5,22 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "GenomicAnalyzer.CalculateSimilarity",
-  "docRef": "Seqeron.Genomics/GenomicAnalyzer.cs#L238",
-  "description": "Calculate similarity between two DNA sequences using k-mer Jaccard index (0-1 scale).",
+  "docRef": "Seqeron.Genomics/GenomicAnalyzer.cs#L707",
+  "description": "Calculate similarity between two DNA sequences using the exact k-mer Jaccard index of the distinct k-mer sets, as a percentage (0-100 scale). canonical=true uses Mash/sourmash canonical k-mers min(w, reverse complement).",
   "inputSchema": {
     "type": "object",
     "properties": {
       "sequence1": { "type": "string", "minLength": 1 },
       "sequence2": { "type": "string", "minLength": 1 },
-      "kmerSize": { "type": "integer", "default": 5, "minimum": 1 }
+      "kmerSize": { "type": "integer", "default": 5, "minimum": 1 },
+      "canonical": { "type": "boolean", "default": false }
     },
     "required": ["sequence1", "sequence2"]
   },
   "outputSchema": {
     "type": "object",
     "properties": {
-      "similarity": { "type": "number", "minimum": 0, "maximum": 1 }
+      "similarity": { "type": "number", "minimum": 0, "maximum": 100 }
     },
     "required": ["similarity"]
   },
@@ -31,7 +32,7 @@
     {
       "name": "Calculate similarity",
       "input": { "sequence1": "ATGCATGC", "sequence2": "ATGCATGC" },
-      "output": { "similarity": 1.0 }
+      "output": { "similarity": 100.0 }
     }
   ]
 }

@@ -50,5 +50,14 @@ public class CalculateSimilarityTests
                 $"s1={s1}, s2={s2}, k={k}");
         }
     }
-}
 
+    [Test]
+    public void CalculateSimilarity_Canonical_DelegatesToGenomicAnalyzer()
+    {
+        // AACCCGGG vs reverse complement CCCGGGTT: literal 50 % (4 of 8 3-mers), canonical 100 % (Mash / sourmash k-mers).
+        Assert.That(SuffixTreeGenomicsTools.CalculateSimilarity("AACCCGGG", "CCCGGGTT", 3).Similarity, Is.EqualTo(50.0).Within(1e-9));
+        Assert.That(SuffixTreeGenomicsTools.CalculateSimilarity("AACCCGGG", "CCCGGGTT", 3, canonical: true).Similarity, Is.EqualTo(100.0).Within(1e-9));
+        double expected = GenomicAnalyzer.CalculateSimilarity(new DnaSequence("ACGTACGT"), new DnaSequence("ACGTTCGT"), 4, canonical: true);
+        Assert.That(SuffixTreeGenomicsTools.CalculateSimilarity("ACGTACGT", "ACGTTCGT", 4, true).Similarity, Is.EqualTo(expected).Within(1e-9));
+    }
+}

@@ -1,6 +1,6 @@
 # Validation Report: GENOMIC-SIMILARITY-001 — Sequence Similarity (k-mer Jaccard index)
 
-- **Validated:** 2026-06-16   **Area:** Analysis
+- **Validated:** 2026-06-16 (re-validated in B09 2026-11-18, see the last section)   **Area:** Analysis
 - **Canonical method(s):** `GenomicAnalyzer.CalculateSimilarity(DnaSequence, DnaSequence, int kmerSize = 5)` (private helper `GenomicAnalyzer.GetKmers(string, int)`)
 - **Stage A verdict:** PASS
 - **Stage B verdict:** PASS
@@ -94,3 +94,15 @@ None. No code or test change was required.
 - **End-state: ✅ CLEAN** — no defect found; algorithm fully functional. No files changed except validation docs.
 - **Test-quality gate: PASS.**
 - **Full suite:** 6619 passed / 0 failed; build 0 errors, 0 warnings.
+
+## B09 re-validation (2026-11-18)
+
+- **Stage A: PASS-WITH-NOTES.** Formula/range/extremes unchanged. New notes: (1) the unit never stated the k-mer *mode*; Mash's
+  default is canonical k-mers (`sketches.rst`, `Sketch.cpp` opened), the unit's literal mode equals Python `set` / scipy / `mash -n`
+  -> now documented and both offered (`canonical`); (2) the empty-union value differs across references (scipy and Mash imply J = 1,
+  sourmash 0.0), the library keeps 0 (documented convention).
+- **Stage B: PASS-WITH-NOTES.** Value-identical, but the private `GetKmers`/intersection loop duplicated `KmerAnalyzer`
+  (DUP_MAP §16; B06 request) -> facade over `KmerAnalyzer.JaccardSimilarity * 100` (F32). MCP docs (`docs/mcp/tools/core/calculate_similarity.*`,
+  `bio-alignment` skill) claimed a 0-1 scale and a wrong example (0.75; real 33.333333333333336) -> corrected (F34); MCP gained `canonical` (F33).
+- Oracle: 2086 rows, Python set == scipy `jaccard` (literal), Python canonical set == sourmash `MinHash(scaled=1)` (canonical). Tests: +8 Genomics, +1 MCP.
+- End-state: FIXED / CLEAN.

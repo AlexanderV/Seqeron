@@ -115,3 +115,27 @@
 ## Change History
 
 - **2026-06-14**: Initial documentation.
+- **2026-11-18** (B09 re-validation): see "B09 re-validation oracles" below.
+
+---
+
+## B09 re-validation oracles (2026-11-18)
+
+Sources actually opened this session (en.wikipedia.org / ncbi are blocked; the Jaccard 1901 definition and the Ondov et al.
+text above were taken from the earlier fetch):
+
+- Mash `doc/sphinx/sketches.rst` and `src/mash/Sketch.cpp` (raw.githubusercontent.com/marbl/Mash/master, neutral User-Agent):
+  "will ignore strandedness by using canonical k-mers ... Strandedness can be preserved with -n (non-canonical)"; `Sketch.cpp`
+  `kmer = (noncanonical || memcmp(kmer_fwd, kmer_rev, k) <= 0) ? kmer_fwd : kmer_rev`. Canonical k-mers are therefore the Mash default.
+- scipy 1.18.1 `scipy.spatial.distance.jaccard` (installed package) and sourmash 4.9.4 `MinHash.jaccard` (PyPI, installed).
+
+Oracle `scripts/analysis/generate_similarity_oracle.py` -> `TestData/Analysis/similarity_oracle.tsv` (2086 rows = 164 pairs
+x 7 k). Per row it asserts (a) Python set J == scipy `1 - jaccard(presence vectors)` and (b) Python set over canonical
+k-mers (Biopython `Seq.reverse_complement`) == sourmash exact Jaccard (`scaled=1`); the TSV stores literal and canonical percent.
+924 of 2086 rows differ between literal and canonical, so the file discriminates the two modes.
+
+Spot values (k = 5): ATGCATGC vs ATGCATTT -> 100*2/6 = 33.333333333333336 (the MCP doc's former "0.75" was wrong); AACCCGGG vs reverse
+complement CCCGGGTT, k = 3: literal 50.0, canonical 100.0.
+
+Empty-union conventions of the references: scipy `jaccard([], [])` = 0.0 (distance, i.e. J = 1), sourmash `jaccard` of two empty
+sketches = 0.0, Mash `shared == union` -> distance 0 (J = 1). No source fixes J for an empty union; the library keeps 0 (ASM-1).

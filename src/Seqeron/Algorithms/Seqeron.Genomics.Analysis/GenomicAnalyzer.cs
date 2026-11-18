@@ -685,9 +685,17 @@ public static class GenomicAnalyzer
     /// Mash, 2016). The result is multiplied by 100 to report a percentage.
     /// </para>
     /// <para>
+    /// This overload compares the <b>literal</b> (strand-specific) k-mers, i.e. a Python
+    /// <c>set</c> of the windows / scipy <c>jaccard</c> on presence vectors: a sequence and its reverse
+    /// complement are generally <i>not</i> similar. Use
+    /// <see cref="CalculateSimilarity(DnaSequence, DnaSequence, int, bool)"/> with <c>canonical: true</c> for
+    /// the strand-agnostic index that Mash and sourmash estimate.
+    /// </para>
+    /// <para>
     /// The Jaccard index is undefined when the union is empty (Jaccard 1901 is stated for
     /// non-empty sets). This occurs only when both k-mer sets are empty (e.g. both sequences
     /// are empty or shorter than <paramref name="kmerSize"/>); this method returns 0 in that case.
+    /// The computation is delegated to <see cref="KmerAnalyzer.JaccardSimilarity(string, string, int)"/>.
     /// </para>
     /// </remarks>
     /// <param name="sequence1">First DNA sequence.</param>
@@ -697,6 +705,30 @@ public static class GenomicAnalyzer
     /// <exception cref="ArgumentNullException"><paramref name="sequence1"/> or <paramref name="sequence2"/> is null.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="kmerSize"/> is less than 1.</exception>
     public static double CalculateSimilarity(DnaSequence sequence1, DnaSequence sequence2, int kmerSize = DefaultKmerSize)
+        => CalculateSimilarity(sequence1, sequence2, kmerSize, canonical: false);
+
+    /// <summary>
+    /// Computes the k-mer Jaccard similarity index (percentage in [0, 100]) with an explicit strand mode.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <paramref name="canonical"/> = <c>false</c>: literal k-mers (see
+    /// <see cref="CalculateSimilarity(DnaSequence, DnaSequence, int)"/>).
+    /// <paramref name="canonical"/> = <c>true</c>: every k-mer is replaced by min(w, reverse-complement(w)),
+    /// the strand-agnostic k-mer set of Mash (<c>mash sketch</c> default, Ondov et al. 2016) and sourmash;
+    /// the result is the exact (unsketched) Jaccard index those tools estimate, so a sequence and its reverse
+    /// complement score 100. <see cref="DnaSequence"/> is upper-case ACGT, so no ambiguous-base windows exist
+    /// and the Mash <c>-n</c> / Jellyfish ACGT-only rule is satisfied by construction.
+    /// </para>
+    /// </remarks>
+    /// <param name="sequence1">First DNA sequence.</param>
+    /// <param name="sequence2">Second DNA sequence.</param>
+    /// <param name="kmerSize">k-mer length; must be ≥ 1.</param>
+    /// <param name="canonical">Use canonical (strand-agnostic) k-mers.</param>
+    /// <returns>Jaccard similarity as a percentage in [0, 100]; 0 when both k-mer sets are empty.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence1"/> or <paramref name="sequence2"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="kmerSize"/> is less than 1.</exception>
+    public static double CalculateSimilarity(DnaSequence sequence1, DnaSequence sequence2, int kmerSize, bool canonical)
     {
         ArgumentNullException.ThrowIfNull(sequence1);
 
@@ -707,15 +739,9 @@ public static class GenomicAnalyzer
             throw new ArgumentOutOfRangeException(nameof(kmerSize), kmerSize, "k-mer size must be at least 1.");
         }
 
-        HashSet<string> kmers1 = GetKmers(sequence1.Sequence, kmerSize);
-        HashSet<string> kmers2 = GetKmers(sequence2.Sequence, kmerSize);
-
-        // |A ∪ B| = |A| + |B| − |A ∩ B|, computed on the distinct-k-mer sets.
-        int intersection = kmers1.Count(kmers2.Contains);
-        int union = kmers1.Count + kmers2.Count - intersection;
-
-        // Union is empty only when both k-mer sets are empty; Jaccard is undefined there.
-        return union == 0 ? 0.0 : (double)intersection / union * PercentScale;
+        // Canonical k-mer Jaccard (DUP_MAP §16); the fraction is only re-expressed as a percentage here.
+        return KmerAnalyzer.JaccardSimilarity(
+            sequence1.Sequence, sequence2.Sequence, kmerSize, new KmerCountingOptions(Canonical: canonical)) * PercentScale;
     }
 
     #endregion
@@ -857,20 +883,6 @@ public static class GenomicAnalyzer
                 isReverseComplement,
                 region.IsTerminated);
         }
-    }
-
-    #endregion
-
-    #region Helper Methods
-
-    private static HashSet<string> GetKmers(string sequence, int k)
-    {
-        var kmers = new HashSet<string>();
-        for (int i = 0; i <= sequence.Length - k; i++)
-        {
-            kmers.Add(sequence.Substring(i, k));
-        }
-        return kmers;
     }
 
     #endregion
