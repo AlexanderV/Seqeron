@@ -163,5 +163,6 @@
 
 ## Change History
 
+- **2026-11-18 (B09 A1-21)**: string overload `FindPalindromes(string, …)` (canonical raw-string `RepeatFinder` contract: only A/C/G/T pair); oracle `generate_palindrome_oracle.py --ambiguous` (861 rows, Biopython `reverse_complement` on A/C/G/T-only windows).
 - **2026-06-13**: Initial documentation.
 - **2026-11-18**: B09 review additions (maximal repeats, tie-break, palindrome facade, oracles).

@@ -209,6 +209,7 @@ The Gusfield book text itself was not retrievable; the definitions were taken fr
 | `FindRepeats(seq, minLength)` | every distinct substring with ≥ 2 occurrences (overlaps counted) and length ≥ max(1, minLength); includes all prefixes/suffixes of longer repeats; ordered by the smallest suffix starting with the repeat, then length; positions ascending; `null` → `ArgumentNullException` at the call |
 | `FindMaximalRepeats(seq, minLength)` | the subset that is left- **and** right-diverse (Gusfield §7.12; text ends are distinct symbols); same order; ≤ n results; = strings of the maximal pairs of `RepeatFinder.FindDirectRepeats` without limits |
 | `FindLongestRepeat(seq)` / `FindAllLongestRepeats(seq)` | longest repeated substring / all length ties ordered by first occurrence; `FindLongestRepeat` = the first of them (deterministic tie-break) |
+| `GenomicAnalyzer.FindPalindromes(string, min=4, max=12)` (A1-21) | same facade on a string with N / IUPAC / U / gaps / lower case: only A/C/G/T pair (never reported otherwise), case-insensitive; `null` → `ArgumentNullException`; oracle `palindrome_iupac_oracle.tsv` (861 rows, `generate_palindrome_oracle.py --ambiguous`) |
 | `GenomicAnalyzer.FindPalindromes(seq, min=4, max=12)` | facade over `RepeatFinder.FindPalindromes` (REP-PALIN-001): even `minLength ≥ 4`, `maxLength ≥ minLength` else `ArgumentOutOfRangeException`; `null` → `ArgumentNullException`; position-then-length order; O(n·maxLength) |
 
 ### 8.3 Additional test cases (all implemented)

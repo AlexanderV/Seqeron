@@ -68,9 +68,9 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `find_motif` | All exact occurrences of a motif (case-insensitive, overlapping, ascending 0-based positions, forward strand) in a DNA sequence. |
 | `find_motif_by_pattern` | Find all (overlapping) regex pattern matches in a protein sequence. |
 | `find_motif_by_prosite` | Convert a PROSITE pattern to regex internally, then scan a protein sequence. |
-| `find_open_reading_frames` | ORFs in all 6 frames (3 forward + 3 reverse-complement) from a start codon (default ATG) to the first in-frame stop of the chosen genetic code (default Standard TAA/TAG/TGA); nested ORFs, optional alternative starts / partial ORFs / NCBI ORFfinder length convention; coordinates in the scanned strand and on the input. |
+| `find_open_reading_frames` | ORFs in all 6 frames (3 forward + 3 reverse-complement) from a start codon (default ATG) to the first in-frame stop of the chosen genetic code (default Standard TAA/TAG/TGA); nested ORFs, optional alternative starts / partial ORFs / NCBI ORFfinder length convention; coordinates in the scanned strand and on the input; IUPAC input (N runs) accepted — an ambiguous codon is a stop only when every concrete codon is, never a start. |
 | `find_orthologs` | Best-hit ortholog pairs between two genomes by k-mer similarity (one-directional). |
-| `find_palindromes` | Sequences identical to their reverse complement (restriction-site candidates). |
+| `find_palindromes` | Sequences identical to their reverse complement (restriction-site candidates); only A/C/G/T pair, windows with N / IUPAC codes are never reported. |
 | `find_promoter_elements_by_matrix` | Scan a DNA sequence with the Bucher (1990) promoter weight matrices from JASPAR POLII (TATA box POL012.1, cap/Inr POL002.1, CCAAT box POL00… |
 | `find_protein_domains` | Detect common protein domains with EXACT PROSITE patterns: zinc finger C2H2 (PS00028), WD-repeats (PS00678), kinase ATP-binding / Walker… |
 | `find_protein_low_complexity_regions` | Low-complexity regions in a protein via the SEG algorithm (Wootton & Federhen 1993): sliding-window Shannon entropy in bits/residue, two-… |
@@ -86,7 +86,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `find_stem_loops` | Enumerates hairpin stem-loop candidates with stem, loop, and Turner 2004 free energy. |
 | `find_supermaximal_repeats` | Finds **supermaximal repeats** (Gusfield 1997 §7.12.1; Vmatch -supermax): maximal repeats that never occur as a substring of another maxima… |
 | `find_syntenic_blocks` | Collinear runs of orthologous genes between two genomes. |
-| `find_tandem_repeats` | Exact tandem repeats (e.g., ATGATGATG): maximal runs of a primitive unit (minUnitLength..maxUnitLength) repeated >= minRepetitions times; approximate repeats: `find_approximate_tandem_repeats`. |
+| `find_tandem_repeats` | Exact tandem repeats (e.g., ATGATGATG): maximal runs of a primitive unit (minUnitLength..maxUnitLength) repeated >= minRepetitions times; IUPAC input accepted (units must be A/C/G/T only); approximate repeats: `find_approximate_tandem_repeats`. |
 | `flush_coaxial_stacking` | Coaxial stacking energy for two RNA helices with no intervening unpaired bases. |
 | `gc_content_profile` | GC content in sliding windows along the sequence (`fraction=true` for [0,1]; `ambiguityMode=remove\|ignore\|weighted` for Biopython gc_fraction; `includePartialWindow`). |
 | `gc_skew` | Whole-sequence GC skew = (G - C) / (G + C). |

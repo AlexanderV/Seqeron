@@ -26,6 +26,14 @@ reverse frames 1..3, ascending scanned-strand start within a frame); start/end a
 forward-strand coordinates of the span incl. the stop codon, frame is the frame within the scanned strand,
 terminated is 1/0. Empty = no ORF; '-' placeholder used for empty.
 Usage: python3 generate_orf_oracle.py > orf_oracle.tsv      (needs biopython and the `getorf` binary, Debian emboss)
+
+Ambiguous mode (A1-21, GenomicAnalyzer.FindOpenReadingFrames(string ...)): python3 generate_orf_oracle.py --ambiguous > orf_ambiguous_oracle.tsv
+Same row format; the sequences contain N and other IUPAC symbols (random point substitutions and whole ambiguous codons such as
+NNN, TAR, TRA, AGR). Two engines, asserted equal: (1) the definition-based Biopython finder (Biopython translate decides STOP for
+ambiguous codons: a codon is a stop only when every concrete codon is a stop; a START must be an unambiguous A/C/G/T codon, also in
+the any-sense mode), (2) EMBOSS getorf 6.6.0 `-find 3` for the alternative-start / longest-per-stop / open-ended / stop-excluded rows
+whose sequence is over A/C/G/T/N (getorf mis-resolves some OR-ed IUPAC codons such as TRA, a documented difference of
+Translator.FindOrfs(string); rows with other IUPAC symbols rest on the Biopython definition). The COrf port is not run (ACGT-only).
 """
 import os
 import random
@@ -36,7 +44,8 @@ import tempfile
 from Bio.Data import CodonTable
 from Bio.Seq import Seq
 
-rnd = random.Random(20261118)
+AMBIGUOUS = "--ambiguous" in sys.argv
+rnd = random.Random(20261126 if AMBIGUOUS else 20261118)
 DUAL = {27, 28, 31}
 TABLES = [t for t in sorted(CodonTable.unambiguous_dna_by_id) if t not in DUAL]
 BASES = "ACGT"
@@ -76,7 +85,7 @@ def brute_strand(s, t, start_mode, nested, include_open):
                 return c == "ATG"
             if start_mode == "alt":
                 return c in starts_alt
-            return True  # any sense codon
+            return all(ch in "ACGT" for ch in c)  # any sense codon; an ambiguous codon is never a START (EMBOSS / COrf)
 
         groups = {}  # end_excl (or None for open) -> [starts]
         for idx, p in enumerate(pos):
@@ -264,7 +273,66 @@ def fmt(orfs):
     return ";".join(f"{s},{f},{a},{b},{1 if t else 0}" for s, f, a, b, t in orfs) or "-"
 
 
+AMBIG_SYMBOLS = "NNNNRYKMSWBDHV"
+AMBIG_CODONS = ["NNN", "TAR", "TRA", "TAN", "TGN", "AGR", "AGN", "ATN", "ANG", "NTG", "YTG", "RTG", "ATR", "NAA", "TNA", "TAY", "GNN", "CTN"]
+
+
+def ambiguous_seq():
+    base = gen_seq()
+    n_only = rnd.random() < 0.5  # half of the sequences use N only (getorf-comparable), half all IUPAC symbols
+    symbols = "N" if n_only else AMBIG_SYMBOLS
+    codons = [c for c in AMBIG_CODONS if set(c) <= set("ACGTN")] if n_only else AMBIG_CODONS
+    s = list(base)
+    for _ in range(rnd.randint(0, 5)):
+        if s:
+            s[rnd.randrange(len(s))] = rnd.choice(symbols)
+    seq = "".join(s)
+    for _ in range(rnd.randint(0, 3)):
+        c = rnd.choice(codons)
+        pos = rnd.randint(0, len(seq))
+        seq = seq[:pos] + c + seq[pos:]
+    return seq
+
+
+def main_ambiguous():
+    rows = []
+    seqs = ["ATGNNNTAA", "ATGTARCCCTAA", "ATGTRACCCTAA", "NNNATGTAA", "ATGNNN", "NNNNNNNNNNNN", "ATGAGRTAA", "ATGCCCNTGTAA", "YTGCCCTAA",
+            "ATGCCCTAN", "ATGCCCTAR", "ATGTAATAATAANNNATGCCCTAG", "TTANNNTAAATGNNNNNNTGA", "ATGRYKMSWBDHVTAA", "CATNNNCAT", "TTANNNCAT"]
+    seqs += [ambiguous_seq() for _ in range(300)]
+    n_getorf = 0
+    for seq in seqs:
+        combos = [(1, "atg", 1, 0, 0, 0, 1), (1, "atg", 0, 1, 1, 3, 1), (1, "any", 0, 1, 1, 3, 1), (2, "alt", 1, 0, 0, 6, 1)]
+        for _ in range(4):
+            combos.append((rnd.choice(TABLES), rnd.choice(["atg", "alt", "any"]), rnd.randint(0, 1), rnd.randint(0, 1),
+                           rnd.randint(0, 1), rnd.choice([0, 3, 6, 9, 12, 18, 30]), rnd.choice([1, 1, 1, 0])))
+        combos.append((rnd.choice(GETORF_TABLES), "alt", 0, 1, 1, rnd.choice([3, 6, 9, 12, 18, 30]), rnd.choice([1, 1, 0])))
+        for t, mode, nested, op, excl, minlen, both in combos:
+            orfs = brute(seq, t, mode, bool(nested), bool(op), bool(both))
+            kept = []
+            for s_, f_, a_, b_, term in orfs:
+                length = b_ - a_ + 1
+                measured = length - 3 if (excl and term) else length
+                if measured >= minlen:
+                    kept.append((s_, f_, a_, b_, term))
+            # getorf only where its precomputed ambiguity table is exact: sequences over A/C/G/T/N (an N-only codon is never an
+            # all-stop codon). With other IUPAC symbols getorf mis-resolves OR-ed codons (table 1: TRA -> X although TAA/TGA are stops,
+            # TRR -> '*' although TGG is Trp; see Translator.FindOrfs remarks / TRANS-SIXFRAME-001 Evidence), so those rows rest on
+            # the Biopython definition alone.
+            if mode == "alt" and not nested and op and excl and minlen >= 3 and seq and t in GETORF_TABLES and set(seq) <= set("ACGTN"):
+                g = getorf_orfs(seq, t, minlen, bool(both))
+                mine = to_getorf_form(kept)
+                assert g == mine, ("getorf", seq, t, minlen, both, sorted(g), sorted(mine))
+                n_getorf += 1
+            rows.append((t, mode, nested, op, excl, minlen, both, seq, kept))
+    for t, mode, nested, op, excl, minlen, both, seq, kept in rows:
+        print("\t".join(map(str, (t, mode, nested, op, excl, minlen, both, seq if seq else "-", fmt(kept)))))
+    print(f"rows={len(rows)} getorf-checked={n_getorf} with-orfs={sum(1 for r in rows if r[8])}", file=sys.stderr)
+
+
 def main():
+    if AMBIGUOUS:
+        main_ambiguous()
+        return
     rows = []
     seqs = [ROSALIND, "", "ATG", "ATGTAA", "ATGATGATGATGTGA", "TTAGGGGGGCAT", "ATGGGGATGCCCTAA",
             "ATG" * 12, "TAA" * 5, "A" * 20, "ATGAAAAAATAA", "CATGCCCTAA"]

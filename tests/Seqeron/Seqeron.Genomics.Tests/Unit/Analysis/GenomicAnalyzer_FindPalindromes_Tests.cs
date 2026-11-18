@@ -89,7 +89,7 @@ public class GenomicAnalyzer_FindPalindromes_Tests
     [Test]
     public void FindPalindromes_NullSequence_ThrowsArgumentNullException_AtTheCall()
     {
-        Assert.Throws<ArgumentNullException>(() => GenomicAnalyzer.FindPalindromes(null!));
+        Assert.Throws<ArgumentNullException>(() => GenomicAnalyzer.FindPalindromes((DnaSequence)null!));
     }
 
     [TestCase(2)]

@@ -8,6 +8,11 @@ windows included, ordered by (0-based position, length). Computed with Biopython
 Output TSV, embedded as tests/Seqeron/Seqeron.Genomics.Tests/TestData/Analysis/palindrome_oracle.tsv:
   sequence  minLength  maxLength  hits("pos:len,pos:len"|-)
 Usage: python3 generate_palindrome_oracle.py > palindrome_oracle.tsv
+
+Ambiguous mode (A1-21, GenomicAnalyzer.FindPalindromes(string ...)): python3 generate_palindrome_oracle.py --ambiguous > palindrome_iupac_oracle.tsv
+Sequences with N / other IUPAC symbols. Contract (REVP alphabet, EMBOSS einverted; RepeatFinder.FindPalindromes): only the
+unambiguous bases A, C, G, T pair, so a window containing any other symbol is never reported (NNNN / SSSS equal their symbolic
+reverse complement but need not be palindromic once resolved); every other window is decided by Biopython reverse_complement.
 """
 import random
 import sys
@@ -52,6 +57,34 @@ for _ in range(15):  # planted palindromes of 6-14 nt in random context
     half = rand(rnd.randint(2, 7), 'ACGT')
     pal = half + rc_str(half)
     seqs.append(rand(rnd.randint(0, 12), 'ACGT') + pal + rand(rnd.randint(0, 12), 'ACGT'))
+
+if '--ambiguous' in sys.argv:
+    rnd = random.Random(20261127)
+    AMB = ['ACGT', 'ACGTN', 'ACN', 'ATN', 'ACGTNRY', 'GCN', 'AN']
+    amb = ['GAATTCNGAATTC', 'NNNN', 'GANTTC', 'GAATTCNNNGAATTC', 'ACGTNACGT', 'NGAATTCN', 'SSSS', 'GCGCNGCGC', 'RYRY', 'CCNGG',
+           'gaattc', 'GaAtTc', 'AATTNAATT', 'ACGUACGU', 'NACGTN', 'AAAANTTTT', 'ATATATNATATAT', 'ACGT-ACGT']
+    for _ in range(80):
+        amb.append(rand(rnd.randint(4, 50), rnd.choice(AMB)))
+    for _ in range(25):  # planted palindromes next to ambiguity symbols
+        half = rand(rnd.randint(2, 7), 'ACGT')
+        pal = half + rc_str(half)
+        amb.append(rand(rnd.randint(0, 8), 'ACGTN') + pal + rand(rnd.randint(0, 8), 'ACGTN'))
+    rows = 0
+    for sq in amb:
+        for lo, hi in ((4, 12), (4, 4), (6, 6), (4, 8), (6, 14), (8, 8), (4, 100)):
+            up = sq.upper()
+            h = []
+            for i in range(len(up)):
+                for L in range(lo, min(hi, len(up) - i) + 1):
+                    w = up[i:i + L]
+                    if L % 2 or set(w) - set('ACGT'):
+                        continue
+                    if w == str(Seq(w).reverse_complement()):
+                        h.append((i, L))
+            print('\t'.join([sq, str(lo), str(hi), ','.join('%d:%d' % x for x in h) or '-']))
+            rows += 1
+    print('rows', rows, file=sys.stderr)
+    sys.exit(0)
 
 rows = 0
 for s in seqs:

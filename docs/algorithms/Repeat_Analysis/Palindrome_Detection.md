@@ -86,7 +86,7 @@ Only the unambiguous bases pair. IUPAC codes such as N, S, W (self-complementary
 
 ### 3.3 Preconditions and Validation
 
-`RepeatFinder.FindPalindromes(DnaSequence, ...)` throws `ArgumentNullException` on `null` sequence input, throws `ArgumentOutOfRangeException` when `minLength < 4` or `minLength` is odd, and throws `ArgumentOutOfRangeException` when `maxLength < minLength`. The raw-string overload applies the same length validation (eagerly, at call time), yields no results for `null` or empty strings, and uppercases non-empty input before scanning. An odd `maxLength` is effectively rounded down, and any `maxLength` up to `int.MaxValue` is accepted (capped at the sequence length). `GenomicAnalyzer.FindPalindromes(DnaSequence, …)` delegates, so it applies exactly the same checks (eagerly, at the call); `DnaSequence` is ACGT-only, so non-ACGT symbols cannot reach it.
+`RepeatFinder.FindPalindromes(DnaSequence, ...)` throws `ArgumentNullException` on `null` sequence input, throws `ArgumentOutOfRangeException` when `minLength < 4` or `minLength` is odd, and throws `ArgumentOutOfRangeException` when `maxLength < minLength`. The raw-string overload applies the same length validation (eagerly, at call time), yields no results for `null` or empty strings, and uppercases non-empty input before scanning. An odd `maxLength` is effectively rounded down, and any `maxLength` up to `int.MaxValue` is accepted (capped at the sequence length). `GenomicAnalyzer.FindPalindromes(DnaSequence, …)` delegates, so it applies exactly the same checks (eagerly, at the call); `DnaSequence` is ACGT-only, so non-ACGT symbols cannot reach it. The string overload `GenomicAnalyzer.FindPalindromes(string, …)` (B09 A1-21) delegates to the raw-string `RepeatFinder` overload (case-insensitive, non-ACGT symbols never pair) and differs only in the null contract (`ArgumentNullException`, as every `GenomicAnalyzer` string overload); oracle: the Biopython generator in `--ambiguous` mode, 861 rows with N/IUPAC/U/gap/lower-case input.
 
 ## 4. Algorithm
 
@@ -127,7 +127,7 @@ Common restriction-enzyme palindrome examples cited in the legacy documentation 
 
 - `RepeatFinder.FindPalindromes(DnaSequence, int, int)`: Validating canonical API returning `PalindromeResult`.
 - `RepeatFinder.FindPalindromes(string, int, int)`: Raw-string overload with uppercase normalization.
-- `GenomicAnalyzer.FindPalindromes(DnaSequence, int, int)`: facade over the canonical `RepeatFinder.FindPalindromes`, returning `PalindromeInfo` (GENOMIC-REPEAT-001, B09 F27).
+- `GenomicAnalyzer.FindPalindromes(DnaSequence, int, int)` and `(string, int, int)`: facades over the canonical `RepeatFinder.FindPalindromes`, returning `PalindromeInfo` (GENOMIC-REPEAT-001, B09 F27; string overload A1-21).
 
 ### 5.2 Current Behavior
 

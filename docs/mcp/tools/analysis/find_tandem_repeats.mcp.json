@@ -10,7 +10,7 @@
   "inputSchema": {
     "type": "object",
     "properties": {
-      "sequence": { "type": "string", "description": "DNA sequence", "minLength": 1 },
+      "sequence": { "type": "string", "description": "Nucleotide sequence: A/C/G/T plus IUPAC codes such as N (case-insensitive); a repeat unit must be A/C/G/T only, so windows with N never form a repeat", "minLength": 1 },
       "minUnitLength": { "type": "integer", "description": "Minimum repeat-unit length (default 2)", "minimum": 1, "default": 2 },
       "minRepetitions": { "type": "integer", "description": "Minimum complete consecutive copies (default 2)", "minimum": 2, "default": 2 },
       "maxUnitLength": { "type": "integer", "description": "Maximum repeat-unit length (>= minUnitLength); omit for no upper bound", "minimum": 1 }
@@ -38,7 +38,7 @@
   },
   "errors": [
     { "code": 1001, "message": "Sequence cannot be null or empty" },
-    { "code": 1001, "message": "Invalid DNA sequence" },
+    { "code": 1001, "message": "Invalid DNA sequence (A/C/G/T and IUPAC codes only)" },
     { "code": 1002, "message": "Minimum repeat-unit length must be at least 1" },
     { "code": 1002, "message": "minRepetitions must be >= 2" },
     { "code": 1002, "message": "Maximum repeat-unit length must be at least minUnitLength" }

@@ -65,3 +65,5 @@ Fuzz oracle (`GenomicTandemFuzzTests.Oracle`) replayed the old greedy scan → r
 - **Stage A: PASS-WITH-NOTES. Stage B: PASS after fixes (FAIL before).** End-state **CLEAN**.
 - No `GenomicAnalyzer` pass-through for approximate repeats: the canonical `RepeatFinder.FindApproximateTandemRepeats` (TRF 4.10.0 model) and MCP tool already exist with a different result type; the unit contract and Benson (1999) do not call for a second wrapper.
 - Registered for B04 (finished batch; behaviour/performance change of a public method, so not done here): `RepeatFinder.FindMicrosatellites` with a very wide `maxUnitLength` could use `MaximalRepetitions.FindRuns` instead of one scan per unit length (QUEUE.md "Requests to finished batches").
+
+- **Audit r1 (A1-21):** `FindTandemRepeats(string, …)` overloads for N/IUPAC input over the canonical `RepeatFinder.FindMicrosatellites(string)`; 892-row ambiguous oracle; MCP accepts IUPAC (B09.md F50).

@@ -148,7 +148,7 @@ The canonical detector searches candidate unit lengths and starting positions, c
 
 ### 6.2 Limitations
 
-`GenomicAnalyzer.FindTandemRepeats` is exact and does not score approximate tandem repeats, interrupted repeats, or noisy repeat families (use `RepeatFinder.FindApproximateTandemRepeats`, TRF model, or the MCP tool `find_approximate_tandem_repeats`). The uniform-threshold summary considers 1-6 bp units only; for longer units pass a per-unit-length (MISA) definition with the wanted sizes. Runs of different (non-multiple) unit lengths over the same region are each reported. There is no raw-string overload for `FindTandemRepeats` (a `DnaSequence` is A/C/G/T only); `RepeatFinder.FindMicrosatellites(string, …)` accepts N/IUPAC text.
+`GenomicAnalyzer.FindTandemRepeats` is exact and does not score approximate tandem repeats, interrupted repeats, or noisy repeat families (use `RepeatFinder.FindApproximateTandemRepeats`, TRF model, or the MCP tool `find_approximate_tandem_repeats`). The uniform-threshold summary considers 1-6 bp units only; for longer units pass a per-unit-length (MISA) definition with the wanted sizes. Runs of different (non-multiple) unit lengths over the same region are each reported. `FindTandemRepeats` has string overloads for N/IUPAC text (B09 A1-21; a `DnaSequence` is A/C/G/T only): same engine and MISA `[acgt]` unit rule as `RepeatFinder.FindMicrosatellites(string, …)`.
 
 ## 7. Examples and Related Material
 

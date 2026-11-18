@@ -145,5 +145,6 @@ EMBOSS `etandem` 6.6.0 (installed) was run on 400 random cases (`-minrepeat = -m
 
 ## Change History
 
+- **2026-11-18 (B09 A1-21)**: string overloads `FindTandemRepeats(string, …)` for N/IUPAC input (canonical `RepeatFinder.FindMicrosatellites(string)` contract: units over A/C/G/T only, MISA `[acgt]` / pytrf skips N); oracle = the three-method generator in `--ambiguous` mode (892 rows), differential run engine vs per-unit scan on N/IUPAC strings; MCP `find_tandem_repeats` accepts IUPAC input.
 - **2026-11-18**: B09 review (F35–F38): the "duplicate of REP-TANDEM-001" resolution hid a contract defect (non-primitive units, O(n²·m) scan, no unit-length bound); definition re-sourced (Kolpakov–Kucherov runs, Bannai et al. Definition 1, MISA), three-method Python oracle added, approximate repeats pointed to `RepeatFinder.FindApproximateTandemRepeats`.
 - **2026-06-14**: Initial documentation. Sources re-retrieved this session to verify the existing `GenomicAnalyzer.FindTandemRepeats` implementation; unit resolved as a duplicate of REP-TANDEM-001 by consolidation.

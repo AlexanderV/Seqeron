@@ -85,3 +85,5 @@ LRS values (ATCGATCGA, AAAAAAAAAA, ATATATA, ACGT) all match. ✓
 - **Call-through evaluation:** `RepeatFinder.FindDirectRepeats` / `SuffixTree.FindMaximalRepeatedPairs` report maximal *pairs*, not strings with occurrence sets; `FindRepeats` cannot call them (different result set); `FindMaximalRepeats` strings equal the strings of the pair set (tested), kept as a separate linear tree pass because it returns occurrence sets directly.
 - **End-state: FIXED / CLEAN.** Details: `docs/Validation/review-2026-09/B09.md` F27–F31; algorithm doc `docs/algorithms/Repeat_Analysis/Repeat_Detection.md` §2.2, §5.4–5.6.
 
+
+- **Audit r1 (A1-21):** `FindPalindromes(string, …)` overload (canonical raw-string `RepeatFinder`, only A/C/G/T pair); 861-row ambiguous oracle (B09.md F50).

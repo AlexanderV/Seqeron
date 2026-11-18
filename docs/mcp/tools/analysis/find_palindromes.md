@@ -33,7 +33,7 @@ stems with a loop use `find_inverted_repeats`.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `sequence` | string | Yes | DNA sequence (min length 1) |
+| `sequence` | string | Yes | DNA sequence (min length 1), case-insensitive; only A/C/G/T pair, so a window containing N or another IUPAC code is never reported |
 | `minLength` | integer | No | Minimum palindrome length, even, ≥ 4 (default 4) |
 | `maxLength` | integer | No | Maximum palindrome length (default 12) |
 

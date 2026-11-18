@@ -94,8 +94,12 @@ Null `sequence` throws `ArgumentNullException`. Sequences shorter than one codon
 with an ATG that has no downstream in-frame stop (unless `IncludeOpenEnded`), yield no ORFs. A genetic code
 with dual-coding stop codons (27, 28, 31) throws `ArgumentException` eagerly; a null `options` throws
 `ArgumentNullException`. Indexing is 0-based; the `Sequence` span is inclusive of the stop codon. The DNA
-alphabet/case is normalized by `DnaSequence` (A/C/G/T only, N and other IUPAC symbols are rejected there;
-`Translator.FindOrfs(string, …)` / `OrfScanner.FindRegions` accept IUPAC-ambiguous input).
+alphabet/case is normalized by `DnaSequence` (A/C/G/T only, N and other IUPAC symbols are rejected there). The
+string overloads `FindOpenReadingFrames(string, minLength[, options])` (B09 A1-21; MCP accepts IUPAC input) take any IUPAC
+nucleotide string (DNA or RNA, case-insensitive, `U` read as `T`; anything else → `ArgumentException` naming the symbol and
+position) through the same `OrfScanner` core: an ambiguous codon is a stop only when every concrete codon is a stop (`TAR`, `TRA`
+in table 1), is never a start (also in `AnySenseCodon` mode) and is otherwise read through, so `ATGNNNTAA` is one ORF and `NNN` neither
+opens nor ends one; the reverse strand is the canonical IUPAC reverse complement and `GetForwardStrandRange` takes the string length.
 
 ## 4. Algorithm
 
@@ -165,7 +169,7 @@ correct structure here.
 **Not implemented (scope, not defects):**
 
 - ORFfinder's *cross-frame* "ignore nested ORFs" filter (drop an ORF lying completely inside an ORF of another frame/strand) and its search-region / circular options: they are post-filters on this method's output (coordinates are provided via `GetForwardStrandRange`); NCBI itself marks circular handling "under development".
-- Ambiguity codes in the input: `DnaSequence` is A/C/G/T only. For IUPAC input (genomes with N runs) use `Translator.FindOrfs(string, …)` / `OrfScanner.FindRegions`, which treat an ambiguous codon as a stop only when every concrete codon is a stop and never as a start.
+- Ambiguity codes in the input are handled by the string overloads (see §6.1 contract paragraph; oracle `orf_ambiguous_oracle.tsv`, 2844 rows: Biopython definition for all, EMBOSS getorf 6.6.0 for the 184 A/C/G/T/N rows it resolves exactly — getorf mis-resolves OR-ed IUPAC codons such as `TRA`, a documented difference of `Translator.FindOrfs(string)`).
 
 ### 5.4 Deviations and Assumptions
 
@@ -194,7 +198,7 @@ correct structure here.
 ### 6.2 Limitations
 
 Does not model codon bias, ribosome binding sites, or splicing; ORF presence is not evidence of a real
-gene [2]. Input is a `DnaSequence` (A/C/G/T); the ORFfinder cross-frame nested filter and region/circular options are
+gene [2]. Input is a `DnaSequence` (A/C/G/T) or an IUPAC nucleotide string; the ORFfinder cross-frame nested filter and region/circular options are
 not part of the method (see §5.3).
 
 ## 7. Examples and Related Material

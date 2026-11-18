@@ -49,6 +49,7 @@
 |--------|-------|------|-------|
 | `FindTandemRepeats(sequence, minUnitLength = 2, minRepetitions = 2)` | GenomicAnalyzer | **Canonical** | Facade over `RepeatFinder.FindMicrosatellites` / run enumeration; no upper unit length. |
 | `FindTandemRepeats(sequence, minUnitLength, minRepetitions, maxUnitLength)` | GenomicAnalyzer | **Canonical** | Restricted unit-length range (additive overload). |
+| `FindTandemRepeats(string, min, minReps[, maxUnitLength])` | GenomicAnalyzer | **Canonical** (A1-21) | N/IUPAC-tolerant string overloads: canonical `RepeatFinder.FindMicrosatellites(string)` contract (units over A/C/G/T only, case-insensitive; `null` → `ArgumentNullException`, empty → none) |
 | `FindTandemRepeatsByRuns(...)` | GenomicAnalyzer (internal) | Engine | Run enumeration (`MaximalRepetitions.FindRuns`), compared with the scan in tests. |
 | `find_tandem_repeats` | MCP Analysis | Wrapper | Delegates; optional `maxUnitLength`. |
 
@@ -63,6 +64,7 @@
 | INV-3 | `Position + Unit.Length × Repetitions ≤ sequence.Length` | Yes | copies contiguous and inside the sequence [1][5] |
 | INV-4 | Unit is primitive; the run is maximal | Yes | [2][3][4] |
 | INV-5 | Order = unit length ascending, then start ascending; both engines identical | Yes | contract |
+| INV-6 | String input (A1-21): a window containing any non-A/C/G/T symbol never forms a repeat (unit over A/C/G/T only, MISA `[acgt]`); an A/C/G/T string = the `DnaSequence` overload; both engines identical on N/IUPAC strings | Yes | `generate_tandem_oracle.py --ambiguous` (892 rows), differential run engine vs per-unit scan |
 
 ---
 

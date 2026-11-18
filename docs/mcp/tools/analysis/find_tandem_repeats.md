@@ -39,7 +39,7 @@ model, Benson 1999).
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `sequence` | string | Yes | DNA sequence (min length 1) |
+| `sequence` | string | Yes | Nucleotide sequence (min length 1): A/C/G/T plus IUPAC codes such as N, case-insensitive. A repeat unit must be spelled with A/C/G/T only, so a window containing N or another ambiguity code never forms a repeat (`ACACNACAC` → AC×2 at 0 and AC×2 at 5) |
 | `minUnitLength` | integer | No | Minimum repeat-unit length (default 2, ≥ 1) |
 | `minRepetitions` | integer | No | Minimum complete consecutive copies (default 2, ≥ 2) |
 | `maxUnitLength` | integer | No | Maximum repeat-unit length (≥ `minUnitLength`); omit for no upper bound |
@@ -55,7 +55,7 @@ model, Benson 1999).
 | Code | Message |
 |------|---------|
 | 1001 | Sequence cannot be null or empty |
-| 1001 | Invalid DNA sequence |
+| 1001 | Invalid DNA sequence (A/C/G/T and IUPAC codes only) |
 | 1002 | Minimum repeat-unit length must be at least 1 |
 | 1002 | minRepetitions must be ≥ 2 |
 | 1002 | Maximum repeat-unit length must be at least minUnitLength |

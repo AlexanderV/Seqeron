@@ -68,4 +68,19 @@ public class FindTandemRepeatsTests
         Assert.That(only5.Select(i => $"{i.Unit}:{i.Position}:{i.Repetitions}:{i.TotalLength}"), Is.EqualTo(new[] { "TTAGC:14:3:15" }));
         Assert.Throws<ArgumentOutOfRangeException>(() => AnalysisTools.FindTandemRepeats(seq, 3, 2, 2));
     }
+
+    // B09 A1-21: IUPAC input (N runs of an assembly) is accepted; only A/C/G/T units repeat (MISA [acgt]; oracle tandem_iupac_oracle.tsv).
+    [Test]
+    public void FindTandemRepeats_IupacInput_AmbiguityNeverFormsOrBridgesARepeat()
+    {
+        var items = AnalysisTools.FindTandemRepeats("ACACNACAC", 1, 2).Items;
+        Assert.Multiple(() =>
+        {
+            Assert.That(items.Select(i => (i.Unit, i.Position, i.Repetitions)), Is.EqualTo(new[] { ("AC", 0, 2), ("AC", 5, 2) }));
+            Assert.That(AnalysisTools.FindTandemRepeats("NNNNNNNN", 1, 2).Items, Is.Empty);
+            Assert.That(AnalysisTools.FindTandemRepeats("ACNACNACN", 1, 2).Items, Is.Empty);
+            Assert.That(AnalysisTools.FindTandemRepeats("acacacnGt", 2, 2).Items.Single().Unit, Is.EqualTo("AC"));
+        });
+        Assert.Throws<ArgumentException>(() => AnalysisTools.FindTandemRepeats("ACAC-ACAC", 1, 2));
+    }
 }

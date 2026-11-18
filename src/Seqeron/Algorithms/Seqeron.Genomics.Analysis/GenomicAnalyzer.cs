@@ -261,15 +261,7 @@ public static class GenomicAnalyzer
         DnaSequence sequence, int minUnitLength, int minRepetitions, int maxUnitLength)
     {
         ArgumentNullException.ThrowIfNull(sequence);
-        if (minUnitLength < 1)
-            throw new ArgumentOutOfRangeException(nameof(minUnitLength), minUnitLength,
-                "Minimum repeat-unit length must be at least 1; a zero-length unit never terminates the scan.");
-        if (minRepetitions < 2)
-            throw new ArgumentOutOfRangeException(nameof(minRepetitions), minRepetitions,
-                "A tandem repeat requires at least two consecutive copies; minRepetitions must be >= 2.");
-        if (maxUnitLength < minUnitLength)
-            throw new ArgumentOutOfRangeException(nameof(maxUnitLength), maxUnitLength,
-                "Maximum repeat-unit length must be at least minUnitLength.");
+        ValidateTandemParameters(minUnitLength, minRepetitions, maxUnitLength);
 
         // One linear scan per unit length (RepeatFinder) is the cheaper engine while few unit lengths are
         // admissible; a wide range (e.g. the default "no upper bound" on a megabase sequence: up to n / minRepetitions
@@ -280,6 +272,68 @@ public static class GenomicAnalyzer
 
         return RepeatFinder.FindMicrosatellites(sequence, minUnitLength, maxUnitLength, minRepetitions)
             .Select(m => new TandemRepeat(m.RepeatUnit, m.Position, m.RepeatCount));
+    }
+
+    /// <summary>
+    /// <see cref="FindTandemRepeats(DnaSequence,int,int)"/> on a nucleotide <b>string</b>, for sequences that
+    /// <see cref="DnaSequence"/> (A/C/G/T only) cannot hold: a genome with N runs, IUPAC ambiguity codes, RNA or lower case.
+    /// </summary>
+    /// <remarks>
+    /// The contract is that of the canonical <see cref="RepeatFinder.FindMicrosatellites(string,int,int,int)"/>: the input is
+    /// case-insensitive and only units spelled with the unambiguous bases A, C, G, T can repeat (MISA <c>[acgt]</c>; pytrf skips
+    /// <c>N</c>), so a window that contains <c>N</c>, another IUPAC code, <c>U</c>, a gap or any other symbol never forms a
+    /// repeat — <c>NNNN</c> is not a mononucleotide repeat and <c>ACNACN</c> is not an ACN repeat — while an ordinary repeat
+    /// next to an N run is reported exactly as without it (<c>ACACNACAC</c> → AC×2 at 0 and AC×2 at 5). Everything else
+    /// (primitive units, one maximal run per unit length, ordering, coordinates, parameter checks) is as documented on the
+    /// <see cref="DnaSequence"/> overload; for an A/C/G/T string the result is identical. A <c>null</c> string throws
+    /// <see cref="ArgumentNullException"/>, an empty one yields no repeats.
+    /// </remarks>
+    /// <param name="sequence">Nucleotide string to analyze. Must not be <c>null</c>.</param>
+    /// <param name="minUnitLength">Minimum unit length, &gt;= 1.</param>
+    /// <param name="minRepetitions">Minimum number of complete copies, &gt;= 2.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> is <c>null</c>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="minUnitLength"/> &lt; 1 or <paramref name="minRepetitions"/> &lt; 2.</exception>
+    public static IEnumerable<TandemRepeat> FindTandemRepeats(string sequence, int minUnitLength = 2, int minRepetitions = 2)
+        => FindTandemRepeats(sequence, minUnitLength, minRepetitions, int.MaxValue);
+
+    /// <summary>
+    /// <see cref="FindTandemRepeats(string,int,int)"/> restricted to unit lengths <c>[minUnitLength, maxUnitLength]</c>.
+    /// </summary>
+    /// <param name="sequence">Nucleotide string to analyze. Must not be <c>null</c>.</param>
+    /// <param name="minUnitLength">Minimum unit length, &gt;= 1.</param>
+    /// <param name="minRepetitions">Minimum number of complete copies, &gt;= 2.</param>
+    /// <param name="maxUnitLength">Maximum unit length, &gt;= <paramref name="minUnitLength"/>.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> is <c>null</c>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// <paramref name="minUnitLength"/> &lt; 1, <paramref name="minRepetitions"/> &lt; 2 or
+    /// <paramref name="maxUnitLength"/> &lt; <paramref name="minUnitLength"/>.
+    /// </exception>
+    public static IEnumerable<TandemRepeat> FindTandemRepeats(
+        string sequence, int minUnitLength, int minRepetitions, int maxUnitLength)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        ValidateTandemParameters(minUnitLength, minRepetitions, maxUnitLength);
+
+        string seq = sequence.ToUpperInvariant();
+        long lastFitting = Math.Min((long)maxUnitLength, seq.Length / minRepetitions);
+        if (lastFitting - minUnitLength + 1 > RunsEngineMinUnitLengths)
+            return FindTandemRepeatsByRuns(seq, minUnitLength, minRepetitions, maxUnitLength);
+
+        return RepeatFinder.FindMicrosatellites(seq, minUnitLength, maxUnitLength, minRepetitions)
+            .Select(m => new TandemRepeat(m.RepeatUnit, m.Position, m.RepeatCount));
+    }
+
+    private static void ValidateTandemParameters(int minUnitLength, int minRepetitions, int maxUnitLength)
+    {
+        if (minUnitLength < 1)
+            throw new ArgumentOutOfRangeException(nameof(minUnitLength), minUnitLength,
+                "Minimum repeat-unit length must be at least 1; a zero-length unit never terminates the scan.");
+        if (minRepetitions < 2)
+            throw new ArgumentOutOfRangeException(nameof(minRepetitions), minRepetitions,
+                "A tandem repeat requires at least two consecutive copies; minRepetitions must be >= 2.");
+        if (maxUnitLength < minUnitLength)
+            throw new ArgumentOutOfRangeException(nameof(maxUnitLength), maxUnitLength,
+                "Maximum repeat-unit length must be at least minUnitLength.");
     }
 
     /// <summary>
@@ -297,11 +351,28 @@ public static class GenomicAnalyzer
     /// </summary>
     internal static IEnumerable<TandemRepeat> FindTandemRepeatsByRuns(
         DnaSequence sequence, int minUnitLength, int minRepetitions, int maxUnitLength)
+        => FindTandemRepeatsByRuns(sequence.Sequence, minUnitLength, minRepetitions, maxUnitLength);
+
+    // String form of the run engine (upper-case input): a run's left-end unit made of A/C/G/T only is the
+    // microsatellite criterion of RepeatFinder.FindMicrosatellites(string); a run with such a unit contains no other symbol.
+    internal static IEnumerable<TandemRepeat> FindTandemRepeatsByRuns(
+        string seq, int minUnitLength, int minRepetitions, int maxUnitLength)
     {
-        string seq = sequence.Sequence;
         return MaximalRepetitions.FindRuns(seq)
-            .Where(r => r.Period >= minUnitLength && r.Period <= maxUnitLength && (r.End - r.Start) / r.Period >= minRepetitions)
+            .Where(r => r.Period >= minUnitLength && r.Period <= maxUnitLength && (r.End - r.Start) / r.Period >= minRepetitions
+                        && IsUnambiguousUnit(seq, r.Start, r.Period))
             .Select(r => new TandemRepeat(seq.Substring(r.Start, r.Period), r.Start, (r.End - r.Start) / r.Period));
+    }
+
+    private static bool IsUnambiguousUnit(string seq, int start, int length)
+    {
+        for (int i = start; i < start + length; i++)
+        {
+            if (seq[i] is not ('A' or 'C' or 'G' or 'T'))
+                return false;
+        }
+
+        return true;
     }
 
     #endregion
@@ -356,6 +427,27 @@ public static class GenomicAnalyzer
     public static IEnumerable<PalindromeInfo> FindPalindromes(DnaSequence sequence, int minLength = 4, int maxLength = 12)
         => RepeatFinder.FindPalindromes(sequence, minLength, maxLength)
             .Select(p => new PalindromeInfo(p.Sequence, p.Position));
+
+    /// <summary>
+    /// <see cref="FindPalindromes(DnaSequence,int,int)"/> on a nucleotide <b>string</b> that may hold N, other IUPAC codes, RNA
+    /// or lower case (<see cref="DnaSequence"/> is A/C/G/T only). The contract is that of the canonical
+    /// <see cref="RepeatFinder.FindPalindromes(string,int,int)"/>: case-insensitive, and only the unambiguous bases A, C, G, T pair
+    /// (canonical complement), so a window containing N, another IUPAC code, U, a gap or any other symbol is never a
+    /// palindrome (<c>NNNN</c> and <c>SSSS</c> equal their symbolic reverse complement but need not be palindromic once
+    /// resolved); an A/C/G/T string gives the same result as the <see cref="DnaSequence"/> overload. A <c>null</c> string throws
+    /// <see cref="ArgumentNullException"/>, an empty one yields no palindromes; the length checks are those of the
+    /// <see cref="DnaSequence"/> overload.
+    /// </summary>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> is <c>null</c>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// <paramref name="minLength"/> is odd or &lt; 4, or <paramref name="maxLength"/> &lt; <paramref name="minLength"/>.
+    /// </exception>
+    public static IEnumerable<PalindromeInfo> FindPalindromes(string sequence, int minLength = 4, int maxLength = 12)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        return RepeatFinder.FindPalindromes(sequence, minLength, maxLength)
+            .Select(p => new PalindromeInfo(p.Sequence, p.Position));
+    }
 
     /// <summary>
     /// Number of distinct (strand-expanded) queries from which a sequence's suffix tree is built for
@@ -918,7 +1010,68 @@ public static class GenomicAnalyzer
         return FindOpenReadingFramesCore(sequence, minLength, options);
     }
 
+    /// <summary>
+    /// <see cref="FindOpenReadingFrames(DnaSequence, int)"/> on a nucleotide <b>string</b> that may hold N, other IUPAC codes, RNA
+    /// or lower case — e.g. a genome with N runs, which <see cref="DnaSequence"/> (A/C/G/T only) cannot hold.
+    /// </summary>
+    /// <remarks>See <see cref="FindOpenReadingFrames(string, int, OrfSearchOptions)"/> for the ambiguity rules.</remarks>
+    /// <param name="sequence">IUPAC nucleotide string (DNA or RNA, case-insensitive).</param>
+    /// <param name="minLength">Minimum ORF length in nucleotides (stop codon included, inclusive lower bound).</param>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="sequence"/> contains a symbol that is not an IUPAC nucleotide code.</exception>
+    public static IEnumerable<OrfInfo> FindOpenReadingFrames(string sequence, int minLength = 100)
+        => FindOpenReadingFrames(sequence, minLength, OrfSearchOptions.Default);
+
+    /// <summary>
+    /// <see cref="FindOpenReadingFrames(DnaSequence, int, OrfSearchOptions)"/> on a nucleotide <b>string</b> that may hold N, other
+    /// IUPAC codes, RNA or lower case.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The scan is the shared <see cref="OrfScanner"/> core, whose ambiguity rules are those of EMBOSS getorf (verified with the
+    /// 6.6.0 binary) and NCBI <c>COrf</c>: a codon containing an IUPAC ambiguity symbol is a <b>stop</b> only when <i>every</i>
+    /// concrete codon it stands for is a stop of the genetic code (<c>TAR</c> and <c>TRA</c> in table 1), it is <b>never a start</b>
+    /// (only unambiguous A/C/G/T codons open an ORF, also in <see cref="OrfStartCodons.AnySenseCodon"/> mode) and otherwise it is
+    /// an ordinary sense codon the ORF reads through. So <c>NNN</c> neither opens nor ends an ORF, while <c>ATG</c> … <c>NNN</c> …
+    /// <c>TAA</c> is one ORF. Input is case-insensitive; <c>U</c> is read as <c>T</c>; the reported
+    /// <see cref="OrfInfo.Sequence"/> is the upper-case DNA spelling, the reverse strand is the canonical IUPAC reverse complement
+    /// (<see cref="DnaSequence.GetReverseComplementString(string)"/>: R↔Y, K↔M, N↔N, …), and
+    /// <see cref="OrfInfo.GetForwardStrandRange(int)"/> takes the length of the input string. For an A/C/G/T string the result
+    /// equals the <see cref="DnaSequence"/> overload. An empty string yields no ORFs.
+    /// </para>
+    /// </remarks>
+    /// <param name="sequence">IUPAC nucleotide string (DNA or RNA, case-insensitive).</param>
+    /// <param name="minLength">Minimum ORF length in nucleotides (inclusive lower bound; the stop codon counts unless
+    /// <see cref="OrfSearchOptions.MinLengthExcludesStop"/>).</param>
+    /// <param name="options">The search options.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> or <paramref name="options"/> is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="sequence"/> contains a symbol that is not an IUPAC nucleotide code, or the
+    /// genetic code has dual-coding stop codons (NCBI tables 27, 28, 31).</exception>
+    public static IEnumerable<OrfInfo> FindOpenReadingFrames(string sequence, int minLength, OrfSearchOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        ArgumentNullException.ThrowIfNull(options);
+        return FindOpenReadingFramesCore(NormalizeIupacNucleotides(sequence), minLength, options);
+    }
+
+    // Upper-case DNA spelling (U -> T) of an IUPAC nucleotide string; any other symbol is rejected (the alphabet of
+    // Translator.FindOrfs(string, ...)).
+    private static string NormalizeIupacNucleotides(string sequence)
+    {
+        string upper = SequenceCase.ToUpperDna(sequence);
+        int bad = upper.AsSpan().IndexOfInvalidIupacDna();
+        if (bad >= 0)
+            throw new ArgumentException(
+                $"Invalid nucleotide '{sequence[bad]}' at position {bad}: expected an IUPAC nucleotide code " +
+                "(A, C, G, T, U, R, Y, S, W, K, M, B, D, H, V, N).", nameof(sequence));
+
+        return upper;
+    }
+
     private static IEnumerable<OrfInfo> FindOpenReadingFramesCore(DnaSequence sequence, int minLength, OrfSearchOptions options)
+        => FindOpenReadingFramesCore(sequence.Sequence, minLength, options);
+
+    private static IEnumerable<OrfInfo> FindOpenReadingFramesCore(string forward, int minLength, OrfSearchOptions options)
     {
         var code = options.GeneticCode ?? GeneticCode.Standard;
         Func<string, bool>? isStart = options.StartCodons switch
@@ -930,7 +1083,6 @@ public static class GenomicAnalyzer
         };
 
         // Eager validation (genetic code with dual-coding stops) before the lazy enumeration starts.
-        string forward = sequence.Sequence;
         var forwardRegions = OrfScanner.FindRegions(forward, code, isStart, options.NestedOrfs, options.IncludeOpenEnded);
         string? reverse = options.SearchBothStrands ? DnaSequence.GetReverseComplementString(forward) : null;
         var reverseRegions = reverse is null

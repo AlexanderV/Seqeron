@@ -172,4 +172,5 @@ Independent re-derivation (Standard code, every-ATG-to-first-in-frame-stop, both
 
 ## Change History
 
+- **2026-11-18 (B09 A1-21)**: string overloads `FindOpenReadingFrames(string, …)` for IUPAC input (ambiguous codon = stop only if every concrete codon is a stop, never a start; = `Translator.FindOrfs(string)` / EMBOSS getorf rules); oracle `generate_orf_oracle.py --ambiguous` (2844 rows: Biopython definition; getorf 6.6.0 on the 184 A/C/G/T/N rows it resolves exactly — getorf mis-resolves OR-ed codons such as TRA); MCP `find_open_reading_frames` accepts IUPAC input.
 - **2026-06-14**: Initial documentation.

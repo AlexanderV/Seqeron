@@ -125,4 +125,22 @@ public class FindOpenReadingFramesTests
         Assert.That(AnalysisTools.FindOpenReadingFrames("TTAGGGGGGCAT", 1).Items, Has.Length.EqualTo(1));
         Assert.That(AnalysisTools.FindOpenReadingFrames("TTAGGGGGGCAT", 1, bothStrands: false).Items, Is.Empty);
     }
+
+    // B09 A1-21: IUPAC input is accepted; NNN is read through, TAR (TAA|TAG) is a stop, an ambiguous codon never starts an ORF
+    // (oracle orf_ambiguous_oracle.tsv: Biopython definition + EMBOSS getorf 6.6.0).
+    [Test]
+    public void FindOpenReadingFrames_IupacInput_AmbiguousCodonRules()
+    {
+        var through = AnalysisTools.FindOpenReadingFrames("ATGNNNTAA", 1, bothStrands: false).Items.Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(through.Sequence, Is.EqualTo("ATGNNNTAA"));
+            Assert.That((through.Start, through.End), Is.EqualTo((0, 8)));
+            Assert.That(AnalysisTools.FindOpenReadingFrames("ATGTARCCCTAA", 1, bothStrands: false).Items.Single().Sequence, Is.EqualTo("ATGTAR"));
+            Assert.That(AnalysisTools.FindOpenReadingFrames("NTGCCCTAA", 1, bothStrands: false).Items, Is.Empty);
+        });
+        var rev = AnalysisTools.FindOpenReadingFrames("TTANNNCAT", 1).Items.Single(i => i.IsReverseComplement);
+        Assert.That((rev.Sequence, rev.Start, rev.End), Is.EqualTo(("ATGNNNTAA", 0, 8)));
+        Assert.Throws<ArgumentException>(() => AnalysisTools.FindOpenReadingFrames("ATGXTAA", 1));
+    }
 }

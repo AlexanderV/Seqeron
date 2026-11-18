@@ -338,7 +338,7 @@ public class GenomicAnalyzer_TandemRepeat_Oracle_Tests
         Assert.Throws<ArgumentOutOfRangeException>(() => GenomicAnalyzer.FindTandemRepeats(dna, 3, 2, 2));
         Assert.Throws<ArgumentOutOfRangeException>(() => GenomicAnalyzer.FindTandemRepeats(dna, 0, 2, 5));
         Assert.Throws<ArgumentOutOfRangeException>(() => GenomicAnalyzer.FindTandemRepeats(dna, 1, 1, 5));
-        Assert.Throws<ArgumentNullException>(() => GenomicAnalyzer.FindTandemRepeats(null!, 1, 2, 5));
+        Assert.Throws<ArgumentNullException>(() => GenomicAnalyzer.FindTandemRepeats((DnaSequence)null!, 1, 2, 5));
         // eager validation (the exception surfaces at the call, not on enumeration)
         Assert.Throws<ArgumentOutOfRangeException>(() => GenomicAnalyzer.FindTandemRepeats(dna, 5, 2, 4));
     }

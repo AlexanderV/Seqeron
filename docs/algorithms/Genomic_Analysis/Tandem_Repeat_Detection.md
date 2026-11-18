@@ -132,6 +132,7 @@ For each of the two alphabet orders $\prec_0$ (natural) and $\prec_1$ (reversed)
 
 - `GenomicAnalyzer.FindTandemRepeats(DnaSequence, int minUnitLength = 2, int minRepetitions = 2)`: exact detector, no upper unit length.
 - `GenomicAnalyzer.FindTandemRepeats(DnaSequence, int, int, int maxUnitLength)`: restricted unit-length range.
+- `GenomicAnalyzer.FindTandemRepeats(string, int minUnitLength = 2, int minRepetitions = 2)` and `(string, int, int, int maxUnitLength)`: N/IUPAC-tolerant string overloads (§6.2).
 - MCP: `find_tandem_repeats` (Analysis server), parameters `sequence`, `minUnitLength`, `minRepetitions`, optional `maxUnitLength`.
 
 ### 5.2 Current Behavior
@@ -184,9 +185,15 @@ the primitive hits: they were already maximal runs.
 
 ### 6.2 Limitations
 
-Exact detector only (see §5.3 for the approximate one). There is no raw-string overload (a `DnaSequence`
-is A/C/G/T only; `RepeatFinder.FindMicrosatellites(string, …)` accepts N/IUPAC text). Results are
-materialised eagerly in the run-enumeration regime (O(n) memory).
+Exact detector only (see §5.3 for the approximate one). A `DnaSequence` is A/C/G/T only; genomes with N runs /
+IUPAC codes use the string overloads `FindTandemRepeats(string, …)` (B09 A1-21; MCP `find_tandem_repeats` accepts IUPAC
+input): the contract is that of `RepeatFinder.FindMicrosatellites(string, …)` (case-insensitive; a unit must be spelled
+with A/C/G/T only, MISA `[acgt]` / pytrf, so a window containing N, another IUPAC code, U or a gap never forms a repeat
+and an ordinary repeat beside an N run is reported unchanged: `ACACNACAC` → AC×2 @0 and AC×2 @5; `NNNN`, `ACNACN` → none).
+The run-enumeration regime filters runs whose left-end unit is not A/C/G/T-only (a run with a clean unit contains no other
+symbol). Oracle: the three-method generator in `--ambiguous` mode, 892 rows with N/IUPAC symbols (235 with hits), plus a
+differential test of the run engine against the per-unit scan on N/IUPAC strings. Results are materialised eagerly in the
+run-enumeration regime (O(n) memory).
 
 ### 6.3 Oracles
 

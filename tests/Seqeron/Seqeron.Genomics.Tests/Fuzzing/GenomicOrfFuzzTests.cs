@@ -222,7 +222,7 @@ public class GenomicOrfFuzzTests
     [Test]
     public void NullSequence_Throws()
     {
-        Action act = () => GenomicAnalyzer.FindOpenReadingFrames(null!, minLength: 1).ToList();
+        Action act = () => GenomicAnalyzer.FindOpenReadingFrames((DnaSequence)null!, minLength: 1).ToList();
         act.Should().Throw<ArgumentNullException>("null sequence is the only declared validation error (§3.3)");
     }
 

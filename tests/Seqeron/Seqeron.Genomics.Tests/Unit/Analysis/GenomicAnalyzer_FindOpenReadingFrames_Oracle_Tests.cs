@@ -162,7 +162,7 @@ public class GenomicAnalyzer_FindOpenReadingFrames_Oracle_Tests
     [Test]
     public void FindOpenReadingFrames_NullArguments_Throw()
     {
-        Assert.That(() => GenomicAnalyzer.FindOpenReadingFrames(null!, 1, OrfSearchOptions.Default), NUnit.Framework.Throws.TypeOf<ArgumentNullException>());
+        Assert.That(() => GenomicAnalyzer.FindOpenReadingFrames((DnaSequence)null!, 1, OrfSearchOptions.Default), NUnit.Framework.Throws.TypeOf<ArgumentNullException>());
         Assert.That(() => GenomicAnalyzer.FindOpenReadingFrames(new DnaSequence("ATG"), 1, null!), NUnit.Framework.Throws.TypeOf<ArgumentNullException>());
     }
 

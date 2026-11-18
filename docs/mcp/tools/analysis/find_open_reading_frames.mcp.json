@@ -12,7 +12,7 @@
     "properties": {
       "sequence": {
         "type": "string",
-        "description": "DNA sequence",
+        "description": "Nucleotide sequence: A/C/G/T plus IUPAC codes such as N (case-insensitive); an ambiguous codon ends an ORF only when every concrete codon is a stop, never starts one, and is otherwise read through",
         "minLength": 1
       },
       "minLength": {
@@ -126,7 +126,7 @@
     },
     {
       "code": 1001,
-      "message": "Invalid DNA sequence"
+      "message": "Invalid DNA sequence (A/C/G/T and IUPAC codes only)"
     },
     {
       "code": 1002,

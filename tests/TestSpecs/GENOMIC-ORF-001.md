@@ -51,6 +51,7 @@
 | Method | Class | Type | Notes |
 |--------|-------|------|-------|
 | `FindOpenReadingFrames(DnaSequence, int minLength=100)` | GenomicAnalyzer | Canonical | Six-frame ATG→stop ORF detection; every ATG start reported |
+| `FindOpenReadingFrames(string, int minLength[, OrfSearchOptions])` | GenomicAnalyzer | Canonical (A1-21) | IUPAC nucleotide string (DNA/RNA, case-insensitive, `U`→`T`; other symbol → `ArgumentException`): ambiguous codon = stop only if every concrete codon is a stop, never a start; oracle `orf_ambiguous_oracle.tsv` (2844 rows) |
 | `FindOpenReadingFrames(DnaSequence, int minLength, OrfSearchOptions)` | GenomicAnalyzer | Canonical (options) | genetic code, start-codon mode, nested vs. longest per stop, open ends, length convention, strands (NCBI COrf / getorf) |
 | `OrfScanner.FindRegions` | Core | Shared core | single-strand O(n) scanner used by both and by `Translator.FindOrfs` |
 | `OrfInfo.GetForwardStrandRange(int)` | GenomicAnalyzer | Helper | input-strand coordinates of an ORF |
@@ -111,6 +112,7 @@
 | R1 | 1746-row oracle (all NCBI tables except the dual-coding 27, 28, 31; atg/alt/any; nested/longest; open/closed; min length with/without stop; strands) | exact ordered list `strand,frame,start,end,terminated` | Biopython finder = NCBI COrf port = getorf 6.6.0 (377 rows) |
 | R2 | Default overload equals default options on every default row | identical | — |
 | R3 | `GetForwardStrandRange`: revcomp of span = ORF (200 random sequences); worked `CC+TTAGGGCAT+GG` → (2,10), `TTAGGGGGGCAT` → (0,11); too-short length throws | exact | INV-7 |
+| R4 | String overload (A1-21): 2844 N/IUPAC rows (Biopython definition; getorf 6.6.0 on the 184 A/C/G/T/N rows), worked examples (`ATGNNNTAA`, `TAR`, `NTG`, RNA, reverse strand `TTANNNCAT`), A/C/G/T string == `DnaSequence` overload, invalid symbol / null / dual-coding table | exact | INV-1..7 on IUPAC input |
 | R4 | Table 2: `ATGTGAAAATAA` ORF is the whole 12 nt (TGA = Trp), standard code → `ATGTGA`; `ATGCCCAGAGGG` table 2 → `ATGCCCAGA`, table 1 → none | exact | Biopython CodonTable |
 | R5 | Tables 27/28/31 throw eagerly; null sequence / options throw | — | dual-coding stops |
 | R6 | Starts: `TTG/CTGAAATAA` table 1 alt; `GTG` table 11 only; any sense `CCCAAATAAGGG` (+,1,0,8 ; nested adds 3..8) | exact | NCBI gc.prt, COrf |

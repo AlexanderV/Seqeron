@@ -92,3 +92,5 @@ Sources actually opened: NCBI C++ Toolkit `src/algo/sequence/orf.cpp` + `include
 - **F26** oracle: 1746 rows, Biopython finder = NCBI COrf port = getorf 6.6.0 (assertions at generation time), plus differential tests against both other engines.
 
 Stage A / B notes: the Rosalind sample, nested-ORF, no-stop and six-frame semantics all stand; the 2026-06 stage-B "tests are real" audit stands (the original tests still pass unchanged). Remaining documented scope: DnaSequence input (A/C/G/T only; IUPAC → `Translator.FindOrfs(string)`), ORFfinder's cross-frame "ignore nested ORFs" post-filter.
+
+- **Audit r1 (A1-21):** `FindOpenReadingFrames(string, …)` overloads for IUPAC input (shared `OrfScanner` ambiguity rules); 2844-row ambiguous oracle; MCP accepts IUPAC (B09.md F50).

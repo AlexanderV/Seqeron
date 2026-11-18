@@ -437,7 +437,7 @@ public class GenomicTandemFuzzTests
     [Test]
     public void Guard_NullSequence_ThrowsArgumentNull()
     {
-        Action act = () => GenomicAnalyzer.FindTandemRepeats(null!, 2, 2);
+        Action act = () => GenomicAnalyzer.FindTandemRepeats((DnaSequence)null!, 2, 2);
         act.Should().Throw<ArgumentNullException>("a null sequence is rejected up front")
             .Which.ParamName.Should().Be("sequence");
     }

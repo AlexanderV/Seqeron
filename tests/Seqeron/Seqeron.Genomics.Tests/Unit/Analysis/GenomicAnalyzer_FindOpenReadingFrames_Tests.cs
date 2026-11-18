@@ -247,7 +247,7 @@ public class GenomicAnalyzer_FindOpenReadingFrames_Tests
     [Test]
     public void FindOpenReadingFrames_NullSequence_Throws()
     {
-        Assert.That(() => GenomicAnalyzer.FindOpenReadingFrames(null!, minLength: 1).ToList(),
+        Assert.That(() => GenomicAnalyzer.FindOpenReadingFrames((DnaSequence)null!, minLength: 1).ToList(),
             NUnit.Framework.Throws.TypeOf<ArgumentNullException>(), "Null input is a precondition violation.");
     }
 

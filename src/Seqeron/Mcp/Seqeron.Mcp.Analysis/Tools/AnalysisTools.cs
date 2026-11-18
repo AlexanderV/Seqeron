@@ -668,17 +668,17 @@ public class AnalysisTools
     }
 
     [McpServerTool(Name = "find_tandem_repeats", Title = "Genome — Tandem Repeats", ReadOnly = true)]
-    [Description("Exact tandem repeats (e.g. ATGATGATG): every maximal run of a primitive unit of length minUnitLength..maxUnitLength with >= minRepetitions complete copies, reported once at its left end (ATATATAT = AT x4 at 0, not also ATAT x2); ordered by unit length then start; 0-based. Facade over RepeatFinder.FindMicrosatellites (Kolpakov-Kucherov maximal repetitions). Approximate (interrupted) repeats: find_approximate_tandem_repeats (TRF).")]
+    [Description("Exact tandem repeats (e.g. ATGATGATG): every maximal run of a primitive unit of length minUnitLength..maxUnitLength with >= minRepetitions complete copies, reported once at its left end (ATATATAT = AT x4 at 0, not also ATAT x2); ordered by unit length then start; 0-based. Facade over RepeatFinder.FindMicrosatellites (Kolpakov-Kucherov maximal repetitions). IUPAC input (e.g. N runs of an assembly) is accepted: only units made of A/C/G/T repeat, a window containing N or another ambiguity code never forms a repeat. Approximate (interrupted) repeats: find_approximate_tandem_repeats (TRF).")]
     public static FindTandemRepeatsResult FindTandemRepeats(
-        [Description("DNA sequence.")] string sequence,
+        [Description("Nucleotide sequence: A/C/G/T plus IUPAC codes such as N (case-insensitive). A repeat unit must be spelled with A/C/G/T only, so windows with N never form a repeat.")] string sequence,
         [Description("Minimum repeat-unit length (default 2, >= 1).")] int minUnitLength = 2,
         [Description("Minimum number of complete repetitions (default 2, >= 2).")] int minRepetitions = 2,
         [Description("Optional maximum repeat-unit length (>= minUnitLength); omit for no upper bound (a unit longer than length / minRepetitions can never repeat).")] int? maxUnitLength = null)
     {
-        var dna = RequireDna(sequence, nameof(sequence));
+        var nucleotides = RequireIupacDna(sequence, nameof(sequence));
         var found = maxUnitLength is { } max
-            ? GenomicAnalyzer.FindTandemRepeats(dna, minUnitLength, minRepetitions, max)
-            : GenomicAnalyzer.FindTandemRepeats(dna, minUnitLength, minRepetitions);
+            ? GenomicAnalyzer.FindTandemRepeats(nucleotides, minUnitLength, minRepetitions, max)
+            : GenomicAnalyzer.FindTandemRepeats(nucleotides, minUnitLength, minRepetitions);
         var items = found
             .Select(t => new TandemRepeatItem(t.Unit, t.Position, t.Repetitions, t.TotalLength))
             .ToArray();
@@ -757,9 +757,9 @@ public class AnalysisTools
     }
 
     [McpServerTool(Name = "find_open_reading_frames", Title = "Genome — Open Reading Frames", ReadOnly = true)]
-    [Description("ORFs in all 6 frames (3 forward + 3 reverse-complement): an ORF runs from a start codon (default ATG) to the first in-frame stop codon of the NCBI genetic code genetic_code (default 1 = Standard: TAA/TAG/TGA), stop included; every in-frame start that reaches a stop is reported, so nested ORFs sharing a stop are all returned (Rosalind ORF). minLength is in nucleotides including the stop (NCBI ORFfinder's -ml excludes it: minLengthExcludesStop). position is the 0-based start in the scanned strand (the input, or its reverse complement when isReverseComplement); start/end are the 0-based inclusive input-strand coordinates. Options (NCBI ORFfinder / COrf): startCodons AtgOnly (default) | GeneticCodeStarts (ATG + the table's alternative initiation codons) | AnySenseCodon (stop-to-stop); nested=false keeps only the most upstream start per stop; includeOpenEnded adds 3'-partial ORFs that reach the sequence end without a stop (isTerminated=false); bothStrands=false scans the forward strand only. Tables with dual-coding stops (27, 28, 31) are rejected.")]
+    [Description("ORFs in all 6 frames (3 forward + 3 reverse-complement): an ORF runs from a start codon (default ATG) to the first in-frame stop codon of the NCBI genetic code genetic_code (default 1 = Standard: TAA/TAG/TGA), stop included; every in-frame start that reaches a stop is reported, so nested ORFs sharing a stop are all returned (Rosalind ORF). minLength is in nucleotides including the stop (NCBI ORFfinder's -ml excludes it: minLengthExcludesStop). position is the 0-based start in the scanned strand (the input, or its reverse complement when isReverseComplement); start/end are the 0-based inclusive input-strand coordinates. Options (NCBI ORFfinder / COrf): startCodons AtgOnly (default) | GeneticCodeStarts (ATG + the table's alternative initiation codons) | AnySenseCodon (stop-to-stop); nested=false keeps only the most upstream start per stop; includeOpenEnded adds 3'-partial ORFs that reach the sequence end without a stop (isTerminated=false); bothStrands=false scans the forward strand only. Tables with dual-coding stops (27, 28, 31) are rejected. IUPAC input (e.g. N runs of an assembly) is accepted: an ambiguous codon ends an ORF only when every concrete codon is a stop, never starts one and is otherwise read through.")]
     public static FindOpenReadingFramesResult FindOpenReadingFrames(
-        [Description("DNA sequence.")] string sequence,
+        [Description("Nucleotide sequence: A/C/G/T plus IUPAC codes such as N (case-insensitive). An ambiguous codon ends an ORF only when every concrete codon is a stop, is never a start, and is otherwise read through.")] string sequence,
         [Description("Minimum ORF length in nucleotides, stop codon included unless minLengthExcludesStop (default 100).")] int minLength = 100,
         [Description("NCBI translation table number whose stop codons end ORFs (default 1 = Standard; e.g. 2 = vertebrate mitochondrial, 11 = bacterial/plastid). One of the NCBI gc.prt tables (1-6, 9-16, 21-33, except the dual-coding 27, 28, 31).")] int genetic_code = 1,
         [Description("Start-codon policy (case-insensitive): AtgOnly (default), GeneticCodeStarts (ATG and the alternative initiation codons of genetic_code, e.g. TTG/CTG in table 1), AnySenseCodon (any non-stop codon).")] string startCodons = "AtgOnly",
@@ -768,7 +768,7 @@ public class AnalysisTools
         [Description("true: minLength excludes the stop codon (NCBI ORFfinder -ml / EMBOSS getorf -minsize). Default false.")] bool minLengthExcludesStop = false,
         [Description("true (default): scan both strands; false: forward strand only.")] bool bothStrands = true)
     {
-        var dna = RequireDna(sequence, nameof(sequence));
+        var nucleotides = RequireIupacDna(sequence, nameof(sequence));
         if (minLength < 1)
             throw new ArgumentOutOfRangeException(nameof(minLength), "Minimum ORF length must be at least 1");
 
@@ -782,10 +782,10 @@ public class AnalysisTools
             SearchBothStrands = bothStrands,
         };
 
-        var items = GenomicAnalyzer.FindOpenReadingFrames(dna, minLength, options)
+        var items = GenomicAnalyzer.FindOpenReadingFrames(nucleotides, minLength, options)
             .Select(o =>
             {
-                var (start, end) = o.GetForwardStrandRange(dna.Length);
+                var (start, end) = o.GetForwardStrandRange(nucleotides.Length);
                 return new OrfItem(o.Sequence, o.Position, o.Frame, o.IsReverseComplement, o.Length, o.CodonCount,
                     start, end, o.IsTerminated);
             })
@@ -990,7 +990,7 @@ public class AnalysisTools
     }
 
     [McpServerTool(Name = "find_palindromes", Title = "Repeats — Palindromes (Restriction Sites)", ReadOnly = true)]
-    [Description("Sequences identical to their reverse complement (restriction-site candidates). minLength must be even and >= 4.")]
+    [Description("Sequences identical to their reverse complement (restriction-site candidates). minLength must be even and >= 4. Only A/C/G/T pair: a window containing N or another IUPAC code is never reported (case-insensitive).")]
     public static FindPalindromesResult FindPalindromes(
         [Description("DNA sequence.")] string sequence,
         [Description("Minimum palindrome length, even, >= 4 (default 4).")] int minLength = 4,

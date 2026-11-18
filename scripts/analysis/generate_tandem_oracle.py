@@ -19,16 +19,23 @@ Computed THREE independent ways per (sequence, minUnit, minReps, maxUnit) row, a
      lookahead formulation  (?=((.{p})\\2{k-1,}))  restricted to left-maximal starts (S[a-1] != S[a-1+p] or a==0).
 Usage: python3 generate_tandem_oracle.py > tandem_oracle.tsv
 Columns: sequence minUnit minReps maxUnit(0 = unbounded) count hits("unit:pos:copies;..." | "-")
+
+Ambiguous mode (A1-21, GenomicAnalyzer.FindTandemRepeats(string ...)): python3 generate_tandem_oracle.py --ambiguous > tandem_iupac_oracle.tsv
+Same three independent methods, sequences over alphabets with N and other IUPAC symbols; the definition adds the microsatellite
+criterion of MISA (`[acgt]`) / pytrf (skips N) / RepeatFinder.FindMicrosatellites: only a unit spelled with A, C, G, T can repeat, so
+a window containing any other symbol never forms a repeat (the N-containing candidates of every method are dropped).
 """
 import random
 import re
 import sys
 
-rnd = random.Random(20261118)
+AMBIGUOUS = "--ambiguous" in sys.argv
+rnd = random.Random(20261125 if AMBIGUOUS else 20261118)
 
 
 def primitive(u):
-    return (u + u).find(u, 1) == len(u)
+    # AMBIGUOUS: a unit must also be made of A/C/G/T only (MISA [acgt])
+    return (u + u).find(u, 1) == len(u) and (not AMBIGUOUS or set(u) <= set("ACGT"))
 
 
 def method_a(s, min_u, min_r, max_u):
@@ -47,6 +54,8 @@ def method_a(s, min_u, min_r, max_u):
             if e < n and s[e] == s[e - q]:
                 continue
             copies = m // q
+            if AMBIGUOUS and not set(s[a:a + q]) <= set("ACGT"):
+                continue
             if q >= min_u and (max_u == 0 or q <= max_u) and copies >= min_r:
                 out.add((q, a, s[a:a + q], copies))
     return sorted((p, a, u, c) for p, a, u, c in out)
@@ -106,6 +115,9 @@ def row(s, min_u, min_r, max_u):
 
 
 def main():
+    if AMBIGUOUS:
+        main_ambiguous()
+        return
     crafted = [
         "ATATATAT", "AAAAA", "AAAAAA", "ATATATA", "TATATAT", "ATGATGATG", "ATTCGATTCGATTCG", "CCATGATGATGCC",
         "AAATTT", "AAAAAATTTTT", "CAGCAGCAGCAGCAG", "TTAGGGTTAGGGTTAGGGTTAGGG", "GATAGATAGATA", "ACGTACACGTACACGTAC",
@@ -123,6 +135,34 @@ def main():
         s = "".join(rnd.choice(alpha) for _ in range(n))
         # plant a repeat sometimes
         if n >= 8 and rnd.random() < 0.6:
+            u = "".join(rnd.choice(alpha) for _ in range(rnd.randint(1, 4)))
+            k = rnd.randint(2, 5)
+            pos = rnd.randint(0, n - 1)
+            s = s[:pos] + u * k + s[pos:]
+        min_u = rnd.randint(1, 3)
+        min_r = rnd.randint(2, 4)
+        max_u = rnd.choice([0, 0, 1, 2, 3, 5])
+        if max_u and max_u < min_u:
+            max_u = min_u
+        rows.append(row(s, min_u, min_r, max_u))
+    sys.stdout.write("\n".join(rows) + "\n")
+
+
+def main_ambiguous():
+    crafted = [
+        "ACACNACAC", "NNNNNNNN", "ACNACNACN", "ACGNACGNACGN", "NACACACN", "ANANANAN", "NANANANA", "AAAANAAAA", "ATATATRTATAT",
+        "ACGTNNNNACGTACGT", "CAGCAGCAGNNNCAGCAGCAG", "RYRYRYRY", "ACACRCACAC", "GAGAGAGANGAGAGAGA", "TTTTTNTTTTT", "NNNACACACNNN",
+        "ACGTACGTYACGTACGT", "AAAAAAAAAAAAN", "NAAAAAAAAAAAA", "ACNGTACNGT", "CCNCCNCCN", "ATGATGATGNATGATGATG", "KKKKKKK", "ACACACACAC",
+    ]
+    rows = []
+    for s in crafted:
+        for min_u, min_r, max_u in [(1, 2, 0), (2, 2, 0), (1, 3, 0), (2, 3, 0), (3, 2, 0), (1, 2, 2), (2, 2, 4), (4, 2, 0)]:
+            rows.append(row(s, min_u, min_r, max_u))
+    for _ in range(700):
+        alpha = rnd.choice(["ACN", "ACGTN", "ACGTN", "ATN", "ACGTNRY", "ACGN", "AN", "ACGTACGTACGTN"])
+        n = rnd.randint(0, 40)
+        s = "".join(rnd.choice(alpha) for _ in range(n))
+        if n >= 8 and rnd.random() < 0.7:
             u = "".join(rnd.choice(alpha) for _ in range(rnd.randint(1, 4)))
             k = rnd.randint(2, 5)
             pos = rnd.randint(0, n - 1)

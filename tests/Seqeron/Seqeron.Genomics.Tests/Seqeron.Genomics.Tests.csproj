@@ -66,6 +66,11 @@
     <!-- GENOMIC-ORF-001 (B09 F21-F26): independent Biopython finder == NCBI COrf::FindOrfs port == EMBOSS getorf 6.6.0
          (longest-per-stop configuration), 1746 (sequence, options) rows; scripts/analysis/generate_orf_oracle.py. -->
     <EmbeddedResource Include="TestData\Analysis\orf_oracle.tsv" />
+    <!-- GENOMIC-TANDEM / GENOMIC-REPEAT / GENOMIC-ORF-001 (B09 A1-21): the same oracle generators in ambiguous mode, sequences with N and other
+         IUPAC symbols for the string overloads of FindTandemRepeats / FindPalindromes / FindOpenReadingFrames. -->
+    <EmbeddedResource Include="TestData\Analysis\tandem_iupac_oracle.tsv" />
+    <EmbeddedResource Include="TestData\Analysis\palindrome_iupac_oracle.tsv" />
+    <EmbeddedResource Include="TestData\Analysis\orf_ambiguous_oracle.tsv" />
     <EmbeddedResource Include="TestData\Restriction\emboss_restrict_bothstrand.tsv" />
     <!-- ONCO-MHC-001: one MHCflurry models_class1_pan affinity network (smallest member, feedforward
          [512,512]), exported from the Apache-2.0 weights_*.npz dense kernels/biases. Embedded so the

@@ -44,7 +44,7 @@ an amino acid, so no codon unambiguously ends an ORF (as `Translator.FindOrfs`).
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `sequence` | string | Yes | DNA sequence (A/C/G/T, min length 1) |
+| `sequence` | string | Yes | Nucleotide sequence (min length 1): A/C/G/T plus IUPAC codes such as N, case-insensitive. An ambiguous codon ends an ORF only when every concrete codon is a stop (`TAR`), never starts one, and is otherwise read through (`ATGNNNTAA` is one ORF) |
 | `minLength` | integer | No | Minimum ORF length in nucleotides, stop codon included unless `minLengthExcludesStop` (default 100, ≥ 1) |
 | `genetic_code` | integer | No | NCBI translation table whose stop codons end ORFs (default 1; 27/28/31 rejected) |
 | `startCodons` | string | No | `AtgOnly` (default) \| `GeneticCodeStarts` \| `AnySenseCodon` (case-insensitive) |
@@ -69,7 +69,7 @@ reverse complement of `input[start..end]` is `sequence`); `codonCount` = length 
 | Code | Message |
 |------|---------|
 | 1001 | Sequence cannot be null or empty |
-| 1001 | Invalid DNA sequence |
+| 1001 | Invalid DNA sequence (A/C/G/T and IUPAC codes only) |
 | 1001 | Unknown / dual-coding genetic code, unknown `startCodons` |
 | 1002 | Minimum ORF length must be at least 1 |
 
