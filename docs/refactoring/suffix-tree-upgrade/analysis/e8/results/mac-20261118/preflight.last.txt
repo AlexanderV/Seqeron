@@ -1,0 +1,49 @@
+E8 preflight  (2026-11-18T01:39:57Z)   sizes:  1000000000   data directory: /data
+
+1. Processor architecture and emulation
+     uname -m: aarch64, image built for: arm64, /proc/cpuinfo format: arm
+  [ ok ] native: the process runs on the architecture it was built for (aarch64)
+     note: arm64 timings are not comparable with the x86-64 timings of the prototype machine; correctness (identical outputs) is what carries over
+
+2. Processors
+     cores visible: 18, CPU quota of the container: max
+  [ ok ] 18 cores (the protocol uses 4 threads; E7: 1 / 2 / 4 threads took 39 / 29 / 25 s at 100 Mbp on the prototype machine)
+
+3. Memory
+     memory visible (VM): 8.3 GB, cgroup 2 limit of this container: 671 MB, swap allowance: 0, VM swap: 1.1 GB
+  [ ok ] step d cell: the container is limited to 671 MB on purpose (the VM has 8.3 GB)
+
+4. Disk of the data volume
+     free: 1.85 TB of 1.96 TB; need for the largest run (1000000000 symbols): 23.5 GB (ASCII text 1 + scratch 12 + outputs 9.5 B/char, plus a margin; plus 0 B if the texts of the smaller sizes stay on the volume)
+  [ ok ] the largest run fits (1.85 TB free, 23.5 GB needed)
+
+5. File system of the data volume
+     type: ext2/ext3/ext4
+  [ ok ] ext2/ext3/ext4
+
+6. Write, mmap, msync and fallocate test on the data volume (64 MB)
+     skipped (--quick)
+
+7. Dropping the page cache (cold-cache runs)
+  [ ok ] drop_caches works: every run can start cold
+
+8. .NET and the program
+     Microsoft.NETCore.App 10.0.15 [/usr/share/dotnet/shared/Microsoft.NETCore.App]
+      env_framework:         .NET 10.0.15
+      env_os_arch:           Arm64
+      env_process_arch:      Arm64
+      env_cores:             18
+      env_gc_available_memory: 503316480
+      env_page_size:         4096
+      env_lce_path:          scalar 64-bit words
+  [warn] no AVX2: the suffix comparison uses the scalar 64-bit path (same results, slower on tie-rich text; normal on arm64)
+
+What to set in Docker Desktop (Settings > Resources) and why
+  Memory:      at least 8 GB for the generous steps (a, b, c); 16 GB if the Mac has it. Step d limits the memory per container below that, so the VM must be bigger than the biggest container limit.
+  CPUs:        4 or more (the protocol uses 4 threads).
+  Swap:        0 or the smallest value (the containers are started without swap).
+  Disk image size: at least 100 GB (the 3 Gbp run needs about 69.6 GB at its peak; the default of Docker Desktop is smaller). After enlarging it Docker restarts.
+  File sharing: nothing to do. The data lives in a named volume inside the VM (not in a macOS folder): a bind mount through virtiofs / gRPC FUSE is slow and unreliable for mmap.
+  Apple Silicon: the image is built for linux/arm64 and runs natively. Never run the amd64 image there (emulation); the wrapper refuses it.
+
+RESULT: OK (1 warning(s))

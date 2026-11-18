@@ -1,0 +1,48 @@
+R	E8	n1000m.gen	2	verify_files	pass		all seven files exist with the lengths of n, bits, lcpwidth and overflow
+R	E8	n1000m.gen	2	verify_files_s	0.000663	s	wall time of the check (the checks of the rank pass share one pass and show its time)
+R	E8	n1000m.gen	2	verify_meta	pass		n 1000000000, sigma 5, 3 bits
+R	E8	n1000m.gen	2	verify_meta_s	0.004201	s	wall time of the check (the checks of the rank pass share one pass and show its time)
+R	E8	n1000m.gen	2	verify_text	pass		symbol counts equal the metadata, symbols below sigma, padding and the unused bits of the last byte are zero
+R	E8	n1000m.gen	2	verify_text_s	0.259196	s	wall time of the check (the checks of the rank pass share one pass and show its time)
+R	E8	n1000m.gen	2	verify_input	pass		the packed text equals the input symbol by symbol and its SHA-256 equals the metadata's
+R	E8	n1000m.gen	2	verify_input_s	2.397854	s	wall time of the check (the checks of the rank pass share one pass and show its time)
+R	E8	n1000m.gen	2	verify_sa_permutation	pass		SA[0] = n and the 1000000001 entries are distinct and at most n
+R	E8	n1000m.gen	2	verify_sa_permutation_s	28.568002	s	wall time of the check (the checks of the rank pass share one pass and show its time)
+R	E8	n1000m.gen	2	verify_sa_order	pass		all 1000000000 adjacent pairs of suffixes are in strict order (8106796 long pairs checked at their ends and by probes)
+R	E8	n1000m.gen	2	verify_sa_order_s	28.568002	s	wall time of the check (the checks of the rank pass share one pass and show its time)
+R	E8	n1000m.gen	2	verify_lcp_values	pass		every stored LCP equals the common prefix of its adjacent pair (8106796 long pairs above the cap 65536), the overflow list matches the escapes
+R	E8	n1000m.gen	2	verify_lcp_values_s	28.568002	s	wall time of the check (the checks of the rank pass share one pass and show its time)
+R	E8	n1000m.gen	2	verify_lcp_width	pass		width 1 is the rule's choice (values >= 255: 16217372, >= 65535: 8106803)
+R	E8	n1000m.gen	2	verify_lcp_width_s	0	s	wall time of the check (the checks of the rank pass share one pass and show its time)
+R	E8	n1000m.gen	2	verify_stats	pass		NODE_COUNT 1661452322, internal 661452320, LRS 4999999 at rank 752067055, max LCP 4999999: recomputed from the LCP, the file is byte-identical to it
+R	E8	n1000m.gen	2	verify_stats_s	10.284316	s	wall time of the check (the checks of the rank pass share one pass and show its time)
+R	E8	n1000m.gen	2	verify_child	pass		all 871477098 written cells equal the lcp-interval definition (next links, up and down fields) and no other cell is set; stack peak 5000000
+R	E8	n1000m.gen	2	verify_child_s	10.284316	s	wall time of the check (the checks of the rank pass share one pass and show its time)
+R	E8	n1000m.gen	2	verify_sha256	pass		SHA-256 of all seven files recorded
+R	E8	n1000m.gen	2	verify_sha256_s	1.622783	s	wall time of the check (the checks of the rank pass share one pass and show its time)
+R	E8	n1000m.gen	2	verify_fact_n	1000000000		number found by the verifier
+R	E8	n1000m.gen	2	verify_fact_bits	3		number found by the verifier
+R	E8	n1000m.gen	2	verify_fact_sigma	5		number found by the verifier
+R	E8	n1000m.gen	2	verify_fact_lcpwidth	1		number found by the verifier
+R	E8	n1000m.gen	2	verify_fact_overflow	16217372		number found by the verifier
+R	E8	n1000m.gen	2	verify_fact_lce_cap	65536		number found by the verifier
+R	E8	n1000m.gen	2	verify_fact_stack_cap	67108864		number found by the verifier
+R	E8	n1000m.gen	2	verify_fact_probes	16		number found by the verifier
+R	E8	n1000m.gen	2	verify_fact_long_pairs	8106796		number found by the verifier
+R	E8	n1000m.gen	2	verify_fact_lce_steps	27306186145		number found by the verifier
+R	E8	n1000m.gen	2	verify_fact_escapes8	16217372		number found by the verifier
+R	E8	n1000m.gen	2	verify_fact_escapes16	8106803		number found by the verifier
+R	E8	n1000m.gen	2	verify_fact_stack_peak	5000000		number found by the verifier
+R	E8	n1000m.gen	2	verify_fact_internal	661452320		number found by the verifier
+R	E8	n1000m.gen	2	verify_fact_maxlcp	4999999		number found by the verifier
+R	E8	n1000m.gen	2	verify_fact_lrsdepth	4999999		number found by the verifier
+R	E8	n1000m.gen	2	verify_fact_lrsrank	752067055		number found by the verifier
+R	E8	n1000m.gen	2	sha256_pk	b38dd2bc63a0f3e07ddf65d8629e2a2775df47c670b9842ee102dc83c1917f5b		SHA-256 of o.n1000m.gen.2.pk
+R	E8	n1000m.gen	2	sha256_pk_meta	17cadf567919cf17015740081df5b9b5d98d00a387a20634865e01c0accfe531		SHA-256 of o.n1000m.gen.2.pk.meta
+R	E8	n1000m.gen	2	sha256_sa	979fde9cf565a492e630deb509870793702a5fa10ddc1691a15f8e14b5f55b55		SHA-256 of o.n1000m.gen.2.sa
+R	E8	n1000m.gen	2	sha256_lcp	80f7bf405f3a92d3a3acf0755ce3633f889c161bdb574eaed2ed06d08d1a607d		SHA-256 of o.n1000m.gen.2.lcp
+R	E8	n1000m.gen	2	sha256_ovf	610571a09aec78607fcb8394fc55ff6d4cd38497b158c358187fc4ae375434b1		SHA-256 of o.n1000m.gen.2.ovf
+R	E8	n1000m.gen	2	sha256_cld	0ce931bfeaf4a738ee8e165f3afa9697b82c27326ddd4f13b2c8e54284fd83b4		SHA-256 of o.n1000m.gen.2.cld
+R	E8	n1000m.gen	2	sha256_stats	58424e2930e5fb28a558813753271d4550b42434ed8dedb7ff95e99792576661		SHA-256 of o.n1000m.gen.2.stats
+R	E8	n1000m.gen	2	verify_wall_s	43.1642	s	whole verification, 4 threads, LCE cap 65536
+R	E8	n1000m.gen	2	verify_all	pass		11 of 11 checks passed; --no-child / --no-hash omit checks (a run for the gate G1 uses neither)
