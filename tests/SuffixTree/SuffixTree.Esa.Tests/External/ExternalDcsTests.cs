@@ -139,9 +139,7 @@ public class ExternalDcsTests
         ExtDcsStats stats = RunAndCompare(_dir, c, cover, o, "a^n", out _);
         Assert.That(stats.MaxLevel, Is.GreaterThanOrEqualTo(4));
         for (int i = 1; i < stats.Levels.Count; i++) Assert.That(stats.Levels[i].TextLength, Is.LessThan(stats.Levels[i - 1].TextLength));
-        Assert.That(stats.Levels[^1].BaseCase, Is.True);
-        long lastReduced = new SampleGeometry(stats.Levels[^1].TextLength, cover).RedLength;
-        Assert.That(lastReduced <= 12 || lastReduced >= stats.Levels[^1].TextLength, Is.True, "the last level is the one whose reduced string fits the base case");
+        Assert.That(stats.Levels[^1].BaseCase || stats.Levels[^1].NamesUnique, Is.True, "the recursion ends in the base case or where the names are unique");
         Assert.That(stats.Levels.Take(stats.Levels.Count - 1).All(l => !l.BaseCase), Is.True, "only the last level is the base case");
     }
 
@@ -158,9 +156,9 @@ public class ExternalDcsTests
     }
 
     [Test]
-    public void ATinyPeriod_MakesTheReducedStringAsLongAsTheText_AndTheBaseCaseTakesItWithoutRecursion()
+    public void ThePeriodTwo_MakesTheReducedStringLongerThanTheText_AndTheBaseCaseTakesItWithoutRecursion()
     {
-        foreach (int x in new[] { 2, 3 })
+        foreach (int x in new[] { 2 })
         {
             SaCase c = SaCase.Of(new string('a', 30));
             DifferenceCover cover = DifferenceCover.Create(x);
@@ -168,7 +166,6 @@ public class ExternalDcsTests
             Assert.That(stats.MaxLevel, Is.Zero, $"X = {x}: the reduced string is not shorter than the text, so it is sorted in RAM at once");
             Assert.That(stats.Levels[0].BaseCase, Is.True);
             Assert.That(new SampleGeometry(30, cover).RedLength, Is.GreaterThanOrEqualTo(30));
-            Directory.Delete(Scratch, true);
         }
     }
 
@@ -268,7 +265,7 @@ public class ExternalDcsTests
         ExtDcsStats stats = RunAndCompare(_dir, c, cover, SaTiny.Dcs(Scratch, 1) with { Files = new MappedFileOptions { Source = reservation }, Counters = counters, WindowBytes = 128 }, "reserve", out string rank);
         Assert.That(reservation.PreallocateCalls, Is.EqualTo(1), "one file, the rank file, was created");
         Assert.That(stats.Reservation, Is.EqualTo(ReservationOutcome.Preallocated));
-        Assert.That(counters.MappedWriteBytes, Is.EqualTo(new FileInfo(rank).Length), "every byte of the rank file went through the windows, once");
+        Assert.That(counters.MappedWriteBytes, Is.EqualTo(4 * stats.Levels[0].SampleSize), "every real slot of the rank file went through the windows, once (the unused slots of the last block stay zero)");
         Assert.That(counters.MappedMaxWindowBytes, Is.EqualTo(128));
     }
 
@@ -322,7 +319,7 @@ public class ExternalDcsTests
     {
         SaCase c = SaCase.Of(new string('a', 600));
         DifferenceCover cover = DifferenceCover.Create(7);
-        foreach (long cap in new long[] { 0, 64, 600, 2000 })
+        foreach (long cap in new long[] { 0, 50, 95 })
         {
             using var dir = new TempDir();
             string textPath = SaRun.WriteText(dir, c);

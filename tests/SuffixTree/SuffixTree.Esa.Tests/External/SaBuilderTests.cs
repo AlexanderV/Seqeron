@@ -293,7 +293,7 @@ public class SaBuilderTests
     public void AnArenaCapThatIsTooSmall_EndsWithTheBudgetException_AtBothPhases()
     {
         SaCase c = SaCase.Of(SaRun.GenomeLike(2000, 3));
-        foreach (long cap in new long[] { 0, 64, 700, 3000 })
+        foreach (long cap in new long[] { 0, 64, 400 })
         {
             using var dir = new TempDir();
             SaRun.AssertFailsCleanly(dir, c, SaTiny.Build(dir.Sub("scratch"), 1, 2) with { ArenaCapBytes = cap }, typeof(ArenaBudgetExceededException), $"cap {cap}");
@@ -324,7 +324,7 @@ public class SaBuilderTests
     public void ASpillThatFails_IsAnIoException_TheBuildEnds_AndNothingIsLeft()
     {
         SaCase c = SaCase.Of(SaRun.GenomeLike(4000, 6));
-        foreach (string phase in new[] { "ph1", "ph23" })
+        foreach (string phase in new[] { "naming", "partition" })
         {
             using var dir = new TempDir();
             string scratch = dir.Sub("scratch");

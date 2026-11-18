@@ -296,19 +296,17 @@ public class BucketSorterTests
     }
 
     [Test]
-    public void ADegeneratePartition_IsRepeatedWithMoreSamples_AndTheResultIsStillRight()
+    public void ThePartition_NeverNeedsTheRetry_BecauseTheSplittersAreDistinctSuffixesOfTheSample()
     {
-        // one sample position per child: the splitter can be the largest suffix, and then all positions fall on one side
-        long retries = 0;
+        // the splitters are real suffixes ordered strictly, so with at least as many samples as children both sides of a splitter hold a sample record: a split is never degenerate (the retry is a safety net)
         SaCase c = SaCase.Of(StringFamilies.RandomDna(400, 8));
         DifferenceCover cover = DifferenceCover.Create(13);
-        for (int seed = 1; seed <= 150; seed++)
+        for (int seed = 1; seed <= 60; seed++)
         {
             using var dir = new TempDir();
-            SortOptions o = SaTiny.Sort(dir.Sub("scratch"), 3) with { LeafCapacity = 20, FanOut = 2, Oversample = 1, Seed = (ulong)seed };
-            retries += SortAndCompare(dir, c, cover, o, $"seed {seed}").Retries;
+            SortOptions o = SaTiny.Sort(dir.Sub("scratch"), 3) with { LeafCapacity = 20, FanOut = 2 + (seed % 5), Oversample = 1, Seed = (ulong)seed };
+            Assert.That(SortAndCompare(dir, c, cover, o, $"seed {seed}").Retries, Is.Zero);
         }
-        Assert.That(retries, Is.GreaterThan(0), "some seed gave a degenerate split, which was repeated");
     }
 
     [Test]

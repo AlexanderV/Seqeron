@@ -57,7 +57,7 @@ internal static class DcsOracle
 {
     /// <summary>
     /// The expected contents of the rank file: one <c>uint</c> per slot (block-major, the unused slots of the last block zero). A sample suffix's value is its 1-based rank among the sample suffixes (the empty suffix at n, when it is
-    /// a sample position, is the smallest) plus |D| when the X-prefixes of the sample are not all distinct (then the reduced string of the recursion holds the |D| separators, which take the first ranks).
+    /// a sample position, is the smallest) plus |D| when the names of the sample (the ranks of the groups of equal 64-bit key and equal X-prefix) are not all distinct (then the reduced string of the recursion holds the |D| separators, which take the first ranks).
     /// </summary>
     internal static uint[] ExpectedRanks(byte[] s, DifferenceCover cover, out bool namesUnique)
     {
@@ -76,12 +76,14 @@ internal static class DcsOracle
         Array.Sort(order, (a, b) => Compare(s, a, b));
         var rank = new Dictionary<int, uint>();
         for (int i = 0; i < order.Length; i++) rank[order[i]] = (uint)(i + 1);
-        var prefixes = new HashSet<string>();
+        // the names are the ranks of the groups (64-bit key, X-prefix): two sample positions share a name when their keys are equal and both suffixes have at least X symbols that agree
+        int bits = TextOracle.BitsOf(Math.Max(1, n == 0 ? 1 : s.Max() + 1));
+        var groups = new HashSet<(ulong Key, string Prefix)>();
         namesUnique = true;
         foreach ((int pos, _) in sample)
         {
             if (n - pos < x) continue;
-            if (!prefixes.Add(Convert.ToBase64String(s.AsSpan(pos, x)))) namesUnique = false;
+            if (!groups.Add((TextOracle.Key(s, pos, bits), Convert.ToBase64String(s.AsSpan(pos, x))))) namesUnique = false;
         }
         var file = new uint[slots];
         foreach ((int pos, long slot) in sample) file[slot] = rank[pos] + (namesUnique ? 0u : (uint)m);
