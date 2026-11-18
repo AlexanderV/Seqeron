@@ -1,0 +1,23 @@
+[
+ {
+  "id": "N01",
+  "desc": "the chunk file name does not contain the chunk",
+  "old": "Path.Combine(_dir, $\"{_tag}-{chunk:D8}.bin\")",
+  "new": "Path.Combine(_dir, $\"{_tag}.bin\")",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/DistScratch.cs"
+ },
+ {
+  "id": "N02",
+  "desc": "the writer capacity counts bytes",
+  "old": "_capacity = Math.Max(1, bufferBytes / sizeof(T));",
+  "new": "_capacity = Math.Max(1, bufferBytes);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/DistScratch.cs"
+ },
+ {
+  "id": "N03",
+  "desc": "the pending count is the capacity",
+  "old": "internal int Pending(long chunk) => _filled[Local(chunk)];",
+  "new": "internal int Pending(long chunk) => Local(chunk) >= 0 ? _capacity : 0;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/DistScratch.cs"
+ }
+]

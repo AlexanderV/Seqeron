@@ -1,0 +1,30 @@
+[
+ {
+  "id": "P01",
+  "desc": "the peak is the largest single request",
+  "old": "Atomic.RaiseTo(ref _peak, now);",
+  "new": "Atomic.RaiseTo(ref _peak, bytes);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/ArenaBudget.cs"
+ },
+ {
+  "id": "P02",
+  "desc": "the arena charges elements instead of bytes",
+  "old": "bytes = (long)length * sizeof(T);",
+  "new": "bytes = length;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/ArenaBudget.cs"
+ },
+ {
+  "id": "P03",
+  "desc": "ReleaseTo keeps the sizes of the blocks it freed",
+  "old": "            freed += _sizes[i];\n            _sizes.RemoveAt(i);",
+  "new": "            freed += _sizes[i];",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/ArenaBudget.cs"
+ },
+ {
+  "id": "P04",
+  "desc": "the reservation message omits the live bytes",
+  "old": "({bytes} bytes; {seen} live)",
+  "new": "({bytes} bytes)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/ArenaBudget.cs"
+ }
+]

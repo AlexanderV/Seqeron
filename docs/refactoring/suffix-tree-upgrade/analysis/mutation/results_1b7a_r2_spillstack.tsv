@@ -1,0 +1,5 @@
+I07	clean evictions are not counted	killed(1)	
+I18	blocks read are not counted	killed(8)	
+I23	the peak height stays 0	killed(2)	
+I25	bytes written are not counted	killed(8)	
+I26	the file end is reset instead of tracked	killed(8)	

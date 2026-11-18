@@ -1,0 +1,93 @@
+[
+ {
+  "id": "J01",
+  "desc": "the last source read is as long as a full one",
+  "old": "int take = (int)Math.Min(readEntries, sourceEntries - first);\n            Span<uint> entries",
+  "new": "int take = (int)Math.Min(readEntries, sourceEntries);\n            Span<uint> entries",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs"
+ },
+ {
+  "id": "J02",
+  "desc": "the start slot of a chunk is one short",
+  "old": "long startSlot = chunk * chunkEntries;",
+  "new": "long startSlot = (chunk * chunkEntries) - (chunk > 0 ? 1 : 0);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs"
+ },
+ {
+  "id": "J03",
+  "desc": "the last chunk array is as long as a full one",
+  "old": "int length = (int)Math.Min(chunkEntries, slots - startSlot);",
+  "new": "int length = (int)Math.Min(chunkEntries, slots);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs"
+ },
+ {
+  "id": "J04",
+  "desc": "the chunk array is one entry short",
+  "old": "(int)Math.Min(chunkEntries, slots), zero: false, \"dist.chunk\"",
+  "new": "(int)Math.Min(chunkEntries, slots) - (slots > 1 ? 1 : 0), zero: false, \"dist.chunk\"",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs"
+ },
+ {
+  "id": "J05",
+  "desc": "the source is read in steps one entry longer than the buffer",
+  "old": "for (long first = 0; first < sourceEntries; first += readEntries)",
+  "new": "for (long first = 0; first < sourceEntries; first += readEntries + 1)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs"
+ },
+ {
+  "id": "J06",
+  "desc": "a scattered slot gets the key",
+  "old": "            slot = e.Value;\n",
+  "new": "            slot = default(TValue) is uint ? (TValue)(object)e.Key : e.Value;\n",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs"
+ },
+ {
+  "id": "J07",
+  "desc": "the ISA key is flipped in its lowest bit",
+  "old": "key = sourceValue;\n        value = (uint)index;",
+  "new": "key = sourceValue ^ 1;\n        value = (uint)index;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs"
+ },
+ {
+  "id": "J08",
+  "desc": "the Phi mapper checks against n + 1",
+  "old": "var mapper = new PhiMapper(n);",
+  "new": "var mapper = new PhiMapper(n + 1);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs"
+ },
+ {
+  "id": "J09",
+  "desc": "the exactly-once check starts at the second slot",
+  "old": "for (int k = 0; k < length; k++)\n                {\n                    if (array[k].Equals(target.Fill))",
+  "new": "for (int k = 1; k < length; k++)\n                {\n                    if (array[k].Equals(target.Fill))",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs"
+ },
+ {
+  "id": "J10",
+  "desc": "the written-twice test compares with the value",
+  "old": "if (exactlyOnce && !slot.Equals(fill)) ThrowWrittenTwice(e.Key);",
+  "new": "if (exactlyOnce && !slot.Equals(e.Value)) ThrowWrittenTwice(e.Key);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs"
+ },
+ {
+  "id": "J11",
+  "desc": "the tuple size is taken from the key only",
+  "old": "int tupleBytes = sizeof(DistEntry<TValue>);",
+  "new": "int tupleBytes = sizeof(uint) + 4;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs"
+ },
+ {
+  "id": "J12",
+  "desc": "the target is sized in tuples",
+  "old": "new MappedWindowWriter(targetPath, slots * sizeof(TValue), options.WindowBytes, counters)",
+  "new": "new MappedWindowWriter(targetPath, slots * sizeof(DistEntry<TValue>), options.WindowBytes, counters)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs"
+ },
+ {
+  "id": "H30",
+  "desc": "a chunk file is not deleted after its chunk is read",
+  "old": "                scratch.Delete(chunk);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs"
+ }
+]

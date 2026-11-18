@@ -1,0 +1,3 @@
+H08	Phi does not check the first entry	killed(1)	
+H25	a key equal to the slot count is accepted	killed(1)	
+H30	a chunk file is not deleted after its chunk is read	survived	survived

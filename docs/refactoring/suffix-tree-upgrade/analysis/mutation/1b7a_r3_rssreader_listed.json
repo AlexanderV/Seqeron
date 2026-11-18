@@ -1,0 +1,30 @@
+[
+ {
+  "id": "L06",
+  "desc": "the status buffer is 64 bytes",
+  "old": "Span<byte> buffer = stackalloc byte[8192];",
+  "new": "Span<byte> buffer = stackalloc byte[64];",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/RssReader.cs"
+ },
+ {
+  "id": "L07",
+  "desc": "Stop takes no sample when the thread was never started",
+  "old": "        _started = false;\n        return new RssStats(_available,",
+  "new": "        _started = false;\n        return new RssStats(true,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/RssReader.cs"
+ },
+ {
+  "id": "L08",
+  "desc": "the sampler reports available before it has a sample",
+  "old": "        _available = true;\n        Record(first);",
+  "new": "        _available = true;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/RssReader.cs"
+ },
+ {
+  "id": "L09",
+  "desc": "the stats report the maximum RssAnon as the last",
+  "old": "Interlocked.Read(ref _maxThreads), Interlocked.Read(ref _lastAnon));",
+  "new": "Interlocked.Read(ref _maxThreads), Interlocked.Read(ref _maxAnon));",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/RssReader.cs"
+ }
+]

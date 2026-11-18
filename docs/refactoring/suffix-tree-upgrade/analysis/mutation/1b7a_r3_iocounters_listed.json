@@ -1,0 +1,16 @@
+[
+ {
+  "id": "O01",
+  "desc": "a snapshot reports the scratch peak as the live bytes",
+  "old": "MappedWindows, MappedMaxWindowBytes, ScratchLiveBytes, ScratchPeakBytes);",
+  "new": "MappedWindows, MappedMaxWindowBytes, ScratchPeakBytes, ScratchPeakBytes);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/IoCounters.cs"
+ },
+ {
+  "id": "O02",
+  "desc": "Since subtracts the mapped windows from the writes",
+  "old": "            MappedWriteBytes - earlier.MappedWriteBytes,\n            MappedWindows - earlier.MappedWindows,",
+  "new": "            MappedWriteBytes - earlier.MappedWriteBytes,\n            MappedWindows,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/IoCounters.cs"
+ }
+]

@@ -1,0 +1,72 @@
+[
+ {
+  "id": "K01",
+  "desc": "a block is written one block too far",
+  "old": "_file.WriteAt(new ReadOnlySpan<byte>(buffer, _blockBytes), block * _blockBytes);",
+  "new": "_file.WriteAt(new ReadOnlySpan<byte>(buffer, _blockBytes), (block + 1) * _blockBytes);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/SpillStack.cs"
+ },
+ {
+  "id": "K02",
+  "desc": "the evicted block is the wrong one",
+  "old": "            if (_otherDirty) WriteBlock(_topBlock - 1, _other);",
+  "new": "            if (_otherDirty) WriteBlock(_topBlock, _other);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/SpillStack.cs"
+ },
+ {
+  "id": "K03",
+  "desc": "a block is read from the wrong offset",
+  "old": "_file!.ReadExactAt(new Span<byte>(buffer, _blockBytes), block * _blockBytes);",
+  "new": "_file!.ReadExactAt(new Span<byte>(buffer, _blockBytes), (block * _blockBytes) + 1);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/SpillStack.cs"
+ },
+ {
+  "id": "K04",
+  "desc": "blocks are sized as 16-byte entries",
+  "old": "_blockBytes = checked(blockEntries * sizeof(T));",
+  "new": "_blockBytes = checked(blockEntries * 16);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/SpillStack.cs"
+ },
+ {
+  "id": "K05",
+  "desc": "a retreat goes two blocks down",
+  "old": "        _topBlock--;\n        _count = _block;",
+  "new": "        _topBlock -= 2;\n        _count = _block;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/SpillStack.cs"
+ },
+ {
+  "id": "K06",
+  "desc": "the unflushed count is not reset after a flush",
+  "old": "        _flushes++;\n        _unflushed = 0;",
+  "new": "        _flushes++;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/SpillStack.cs"
+ },
+ {
+  "id": "K07",
+  "desc": "flushes are not counted",
+  "old": "        _flushes++;\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/SpillStack.cs"
+ },
+ {
+  "id": "K08",
+  "desc": "a push does not advance the count",
+  "old": "        _cur[_count++] = value;",
+  "new": "        _cur[_count] = value;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/SpillStack.cs"
+ },
+ {
+  "id": "K09",
+  "desc": "the stack takes its second buffer from the first",
+  "old": "_other = arena.Allocate<T>(blockEntries, zero: false, \"spill.b\").Pointer;",
+  "new": "_other = _cur;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/SpillStack.cs"
+ },
+ {
+  "id": "K10",
+  "desc": "a read-back block is not marked as resident below nothing",
+  "old": "        _otherDirty = false;\n        _otherBelow = false;\n        _topBlock--;",
+  "new": "        _otherDirty = false;\n        _topBlock--;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/SpillStack.cs"
+ }
+]

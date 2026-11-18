@@ -1,0 +1,37 @@
+[
+ {
+  "id": "L01",
+  "desc": "a newline may precede the number",
+  "old": "while (i < text.Length && (text[i] == (byte)' ' || text[i] == (byte)'\\t')) i++;",
+  "new": "while (i < text.Length && (text[i] == (byte)' ' || text[i] == (byte)'\\t' || text[i] == (byte)'\\n')) i++;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/ProcIo.cs"
+ },
+ {
+  "id": "L02",
+  "desc": "the search restarts at the same position after a mismatch",
+  "old": "from = position + 1;",
+  "new": "from = position + key.Length;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/ProcIo.cs"
+ },
+ {
+  "id": "L03",
+  "desc": "the digit loop stops at the first zero",
+  "old": "text[i] >= (byte)'0' && text[i] <= (byte)'9')",
+  "new": "text[i] > (byte)'0' && text[i] <= (byte)'9')",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/ProcIo.cs"
+ },
+ {
+  "id": "L04",
+  "desc": "the proc snapshot buffer is 16 bytes",
+  "old": "Span<byte> buffer = stackalloc byte[2048];",
+  "new": "Span<byte> buffer = stackalloc byte[16];",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/ProcIo.cs"
+ },
+ {
+  "id": "L05",
+  "desc": "the real source stops after one read",
+  "old": "            while (total < buffer.Length)\n            {\n                int got = RandomAccess.Read(handle, buffer[total..], total);",
+  "new": "            while (total < 1)\n            {\n                int got = RandomAccess.Read(handle, buffer[total..], total);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/ProcIo.cs"
+ }
+]

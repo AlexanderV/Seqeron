@@ -433,26 +433,27 @@ public unsafe class DistTests
     }
 
     [Test]
-    public void ScratchIsReleasedChunkByChunk_NotAtTheEnd()
+    public void ScratchIsReleasedChunkByChunk_WhilePassTwoRuns_NotAtTheEnd()
     {
-        // ADR-004 Q1: a chunk file is deleted as soon as its chunk is in memory. A poller records the live scratch bytes in order: after the peak (the end of pass 1, all the chunk files exist) they fall in steps.
+        // ADR-004 Q1: a chunk file is deleted as soon as its chunk is in memory. A poller records (live scratch bytes, bytes written to the target) in order: after the peak (the end of pass 1, all the chunk files exist)
+        // the scratch falls in steps while the target is still being written. (Disposing the scratch at the end of the call also deletes the files, but only after the last chunk was written.)
         using var dir = new TempDir();
         const int n = 1_500_000;
         var sa = new uint[n + 1];
         for (int i = 0; i <= n; i++) sa[i] = (uint)((i * 7919L) % (n + 1));
         FileBits.WriteUInts(dir.File("sa.bin"), sa);
         var counters = new IoCounters();
-        var series = new List<long>();
+        var series = new List<(long Scratch, long Mapped)>();
         using var stop = new ManualResetEventSlim(false);
         var poller = new Thread(() =>
         {
-            long last = -1;
+            (long, long) last = (-1, -1);
             while (!stop.IsSet)
             {
-                long v = counters.ScratchLiveBytes;
-                if (v == last) continue;
-                series.Add(v);
-                last = v;
+                (long, long) now = (counters.ScratchLiveBytes, counters.MappedWriteBytes);
+                if (now == last) continue;
+                series.Add(now);
+                last = now;
             }
         });
         poller.Start();
@@ -460,11 +461,12 @@ public unsafe class DistTests
         stop.Set();
         poller.Join();
         long peak = stats.TupleBytesWritten;
+        long targetBytes = 4L * (n + 1);
         Assert.That(peak, Is.GreaterThan(0));
-        int atPeak = series.IndexOf(peak);
+        int atPeak = series.FindIndex(x => x.Scratch == peak);
         Assert.That(atPeak, Is.GreaterThanOrEqualTo(0), "the poller saw the peak");
-        long fallingSteps = series.Skip(atPeak + 1).Count(v => v > 0 && v < peak);
-        Assert.That(fallingSteps, Is.GreaterThanOrEqualTo(3), $"the live scratch bytes fell in steps while pass 2 ran (series of {series.Count} values)");
+        long fallingWhileWriting = series.Skip(atPeak + 1).Count(x => x.Scratch > 0 && x.Scratch < peak && x.Mapped < targetBytes);
+        Assert.That(fallingWhileWriting, Is.GreaterThanOrEqualTo(3), $"the live scratch bytes fell in steps while the target was still being written (series of {series.Count} values)");
     }
 
     [Test]

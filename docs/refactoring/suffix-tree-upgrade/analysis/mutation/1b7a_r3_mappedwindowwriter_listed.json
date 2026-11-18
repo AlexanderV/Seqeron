@@ -1,0 +1,16 @@
+[
+ {
+  "id": "M01",
+  "desc": "the window is mapped read-only",
+  "old": "CreateViewAccessor(offset, size, MemoryMappedFileAccess.Write)",
+  "new": "CreateViewAccessor(offset, size, MemoryMappedFileAccess.Read)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedWindowWriter.cs"
+ },
+ {
+  "id": "M02",
+  "desc": "the window ends one byte early",
+  "old": "        _viewEnd = offset + size;",
+  "new": "        _viewEnd = offset + size - 1;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedWindowWriter.cs"
+ }
+]
