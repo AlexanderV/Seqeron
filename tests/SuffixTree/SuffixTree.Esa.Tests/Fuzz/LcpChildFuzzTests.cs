@@ -44,7 +44,7 @@ public class LcpChildFuzzTests
             int threads = 1 + rng.NextInt(4);
             LcpChildTuning tuning = tiny
                 ? LcpChildRun.TinyTuning(rng.NextInt(1000)) with { LcpChunk = 1 + rng.NextInt(Math.Max(1, n)) }
-                : new LcpChildTuning { LcpChunk = 1 + rng.NextInt(n), BlockEntries = 2 + rng.NextInt(5000), ChildWindowBytes = 16 << rng.NextInt(12), ChildSlots = 1 + rng.NextInt(8), LcpWorkers = 1 + rng.NextInt(4) };
+                : new LcpChildTuning { LcpChunk = 1 + rng.NextInt(n), LcpTupleBytes = 24 + rng.NextInt(4000), LcpReadBytes = 16 + rng.NextInt(5000), BlockEntries = 2 + rng.NextInt(5000), ChildWindowBytes = 16 << rng.NextInt(12), ChildSlots = 1 + rng.NextInt(8), LcpWorkers = 1 + rng.NextInt(4) };
             using var dir = new TempDir();
             string label = $"case {c.Id} R={tuning.LcpChunk} threads {threads} {codec}";
             LcpChildRun.Outcome o = LcpChildRun.Run(dir, oracle, new LcpChildOptions { ScratchDir = dir.Sub("scratch"), Threads = threads, Codec = codec, Tuning = tuning, Sigma = oracle.Sigma, ArenaGuards = ArenaOptions.Guarded(0xCD) });
