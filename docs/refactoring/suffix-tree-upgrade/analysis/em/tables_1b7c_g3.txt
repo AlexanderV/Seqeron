@@ -1,0 +1,106 @@
+cell                       variant median s  runs (s)
+an_10m.A.cold              prod    1.117     1.148 1.117 1.023
+an_10m.A.cold              proto   1.128     1.086 1.131 1.128
+an_10m.A.warm              prod    1.058     1.256 1.058 1.002
+an_10m.A.warm              proto   1.069     1.150 1.023 1.069
+an_10m.Aoverhead.warm      prod    1.069     1.069 1.056 1.180
+an_10m.Aoverhead.warm      prodnr  1.041     1.027 1.041 1.126
+an_10m.B.cold              prod    0.966     0.966 0.940 0.973
+an_10m.B.cold              proto   0.968     0.955 0.968 0.969
+dna_100m.A.cold            prod    6.907     6.893 7.274 6.907
+dna_100m.A.cold            proto   7.672     7.694 7.565 7.672
+dna_100m.A.warm            prod    7.620     7.620 7.349 7.764
+dna_100m.A.warm            proto   7.779     7.554 7.899 7.779
+dna_100m.Aoverhead.warm    prod    7.296     7.175 7.296 7.463
+dna_100m.Aoverhead.warm    prodnr  7.715     7.715 7.838 7.456
+dna_100m.B.cold            prod    7.352     7.579 7.352 7.294
+dna_100m.B.cold            proto   7.729     7.729 7.592 7.741
+genome_100m.A.cold         prod    7.254     7.149 7.254 7.336
+genome_100m.A.cold         proto   7.731     7.630 7.731 8.076
+genome_100m.A.warm         prod    8.072     8.146 7.482 8.072
+genome_100m.A.warm         proto   7.736     7.736 7.897 7.720
+genome_100m.Aoverhead.warm prod    7.619     7.096 7.619 7.901
+genome_100m.Aoverhead.warm prodnr  7.665     7.665 7.664 7.929
+genome_100m.B.cold         prod    7.386     7.352 7.430 7.386
+genome_100m.B.cold         proto   7.607     7.607 7.378 7.972
+
+ratio production / prototype (median of the build call)
+  an_10m.A.cold              0.990  (-1.0 %)  proto 1.128 s, prod 1.117 s
+  an_10m.A.warm              0.990  (-1.0 %)  proto 1.069 s, prod 1.058 s
+  an_10m.B.cold              0.998  (-0.2 %)  proto 0.968 s, prod 0.966 s
+  dna_100m.A.cold            0.900  (-10.0 %)  proto 7.672 s, prod 6.907 s
+  dna_100m.A.warm            0.980  (-2.0 %)  proto 7.779 s, prod 7.620 s
+  dna_100m.B.cold            0.951  (-4.9 %)  proto 7.729 s, prod 7.352 s
+  genome_100m.A.cold         0.938  (-6.2 %)  proto 7.731 s, prod 7.254 s
+  genome_100m.A.warm         1.043  (+4.3 %)  proto 7.736 s, prod 8.072 s
+  genome_100m.B.cold         0.971  (-2.9 %)  proto 7.607 s, prod 7.386 s
+
+cost of the builder RSS sampler (prod / prodnr, warm, parameters A)
+  an_10m.Aoverhead.warm      1.069 s / 1.041 s = 1.027  (+2.7 %)
+  dna_100m.Aoverhead.warm    7.296 s / 7.715 s = 0.946  (-5.4 %)
+  genome_100m.Aoverhead.warm 7.619 s / 7.665 s = 0.994  (-0.6 %)
+
+RssAnon of the test host in kB: own sampler (max over the runs of a cell) and the independent one; before = before the build
+  an_10m.A.cold              prod    own max   40968  independent max   40880  before   13440
+  an_10m.A.cold              proto   own max   37524  independent max   37596  before   13412
+  an_10m.A.warm              prod    own max   39732  independent max   39376  before   13428
+  an_10m.A.warm              proto   own max   37648  independent max   37244  before   13452
+  an_10m.Aoverhead.warm      prod    own max   40276  independent max   39732  before   13432
+  an_10m.Aoverhead.warm      prodnr  own max   40240  independent max   39372  before   13464
+  an_10m.B.cold              prod    own max   87144  independent max   87028  before   13460
+  an_10m.B.cold              proto   own max   96600  independent max   99748  before   13468
+  dna_100m.A.cold            prod    own max   61272  independent max   61272  before   13396
+  dna_100m.A.cold            proto   own max   61152  independent max   61152  before   13416
+  dna_100m.A.warm            prod    own max   60656  independent max   60656  before   13456
+  dna_100m.A.warm            proto   own max   63720  independent max   63720  before   13412
+  dna_100m.Aoverhead.warm    prod    own max   61124  independent max   61124  before   13384
+  dna_100m.Aoverhead.warm    prodnr  own max   61564  independent max   61564  before   13476
+  dna_100m.B.cold            prod    own max  164764  independent max  164764  before   13452
+  dna_100m.B.cold            proto   own max  159196  independent max  159196  before   13464
+  genome_100m.A.cold         prod    own max   61000  independent max   61000  before   13476
+  genome_100m.A.cold         proto   own max   63824  independent max   63824  before   13456
+  genome_100m.A.warm         prod    own max   61312  independent max   61312  before   13444
+  genome_100m.A.warm         proto   own max   62880  independent max   62880  before   13424
+  genome_100m.Aoverhead.warm prod    own max   60976  independent max   60976  before   13480
+  genome_100m.Aoverhead.warm prodnr  own max   64416  independent max   64416  before   13396
+  genome_100m.B.cold         prod    own max  164264  independent max  164264  before   13444
+  genome_100m.B.cold         proto   own max  158828  independent max  158828  before   13448
+
+counted I/O and the rest (first run of the cell; all runs of a cell are equal for these columns unless marked)
+  an_10m.A.cold              prod    arena_peak=27106488 child_arena_peak=8388608 read=395189252 write=355189248 mapped_lcp=40000004 child_write=40000000 spill_written=155189248 spill_read=155189248 child_flushed=40000004 child_reopened=0 stack_peak=10000000 workers=2 R=26667 scratch_peak=155614928 b1_s=0.143 b2_s=0.195 b3_s=0.460 compare_steps=7344403
+  an_10m.A.cold              proto   arena_peak=27099816 child_arena_peak=8388608 read=395189252 write=355189248 mapped_lcp=40000004 child_write=40000000 spill_written=155189248 spill_read=155189248 child_flushed=40000004 child_reopened=0 stack_peak=10000000 workers=2 R=26667 scratch_peak=155614928 b1_s=0.135 b2_s=0.212 b3_s=0.460 compare_steps=7344403
+  an_10m.A.warm              prod    arena_peak=27106488 child_arena_peak=8388608 read=395189252 write=355189248 mapped_lcp=40000004 child_write=40000000 spill_written=155189248 spill_read=155189248 child_flushed=40000004 child_reopened=0 stack_peak=10000000 workers=2 R=26667 scratch_peak=155614928 b1_s=0.175 b2_s=0.232 b3_s=0.510 compare_steps=7344403
+  an_10m.A.warm              proto   arena_peak=27099816 child_arena_peak=8388608 read=395189252 write=355189248 mapped_lcp=40000004 child_write=40000000 spill_written=155189248 spill_read=155189248 child_flushed=40000004 child_reopened=0 stack_peak=10000000 workers=2 R=26667 scratch_peak=155614928 b1_s=0.160 b2_s=0.266 b3_s=0.445 compare_steps=7344403
+  an_10m.Aoverhead.warm      prod    arena_peak=27106488 child_arena_peak=8388608 read=395189252 write=355189248 mapped_lcp=40000004 child_write=40000000 spill_written=155189248 spill_read=155189248 child_flushed=40000004 child_reopened=0 stack_peak=10000000 workers=2 R=26667 scratch_peak=155614928 b1_s=0.130 b2_s=0.187 b3_s=0.467 compare_steps=7344403
+  an_10m.Aoverhead.warm      prodnr  arena_peak=27106488 child_arena_peak=8388608 read=395189252 write=355189248 mapped_lcp=40000004 child_write=40000000 spill_written=155189248 spill_read=155189248 child_flushed=40000004 child_reopened=0 stack_peak=10000000 workers=2 R=26667 scratch_peak=155614928 b1_s=0.130 b2_s=0.197 b3_s=0.422 compare_steps=7344403
+  an_10m.B.cold              prod    arena_peak=132228216 child_arena_peak=8388608 read=395189252 write=355189248 mapped_lcp=40000004 child_write=40000000 spill_written=155189248 spill_read=155189248 child_flushed=40000004 child_reopened=0 stack_peak=10000000 workers=2 R=8000000 scratch_peak=201634816 b1_s=0.094 b2_s=0.147 b3_s=0.420 compare_steps=46878
+  an_10m.B.cold              proto   arena_peak=130228216 child_arena_peak=8388608 read=395189252 write=355189248 mapped_lcp=40000004 child_write=40000000 spill_written=155189248 spill_read=155189248 child_flushed=40000004 child_reopened=0 stack_peak=10000000 workers=2 R=8000000 scratch_peak=201634816 b1_s=0.131 b2_s=0.160 b3_s=0.394 compare_steps=46878
+  dna_100m.A.cold            prod    arena_peak=31006488 child_arena_peak=8388608 read=2400000004 write=2000000000 mapped_lcp=100000001 child_write=340868380 spill_written=0 spill_read=0 child_flushed=418874372 child_reopened=18 stack_peak=18 workers=2 R=266667 scratch_peak=1200000000 b1_s=1.066 b2_s=2.970 b3_s=2.838 compare_steps=99999996
+  dna_100m.A.cold            proto   arena_peak=30939816 child_arena_peak=8388608 read=2400000004 write=2000000000 mapped_lcp=100000001 child_write=340868380 spill_written=0 spill_read=0 child_flushed=418874372 child_reopened=18 stack_peak=18 workers=2 R=266667 scratch_peak=1200000000 b1_s=1.141 b2_s=3.648 b3_s=2.890 compare_steps=99999996
+  dna_100m.A.warm            prod    arena_peak=31006488 child_arena_peak=8388608 read=2400000004 write=2000000000 mapped_lcp=100000001 child_write=340868380 spill_written=0 spill_read=0 child_flushed=418874372 child_reopened=18 stack_peak=18 workers=2 R=266667 scratch_peak=1200000000 b1_s=1.154 b2_s=3.586 b3_s=2.859 compare_steps=99999996
+  dna_100m.A.warm            proto   arena_peak=30939816 child_arena_peak=8388608 read=2400000004 write=2000000000 mapped_lcp=100000001 child_write=340868380 spill_written=0 spill_read=0 child_flushed=418874372 child_reopened=18 stack_peak=18 workers=2 R=266667 scratch_peak=1200000000 b1_s=1.070 b2_s=3.718 b3_s=2.752 compare_steps=99999996
+  dna_100m.Aoverhead.warm    prod    arena_peak=31006488 child_arena_peak=8388608 read=2400000004 write=2000000000 mapped_lcp=100000001 child_write=340868380 spill_written=0 spill_read=0 child_flushed=418874372 child_reopened=18 stack_peak=18 workers=2 R=266667 scratch_peak=1200000000 b1_s=1.095 b2_s=3.179 b3_s=2.882 compare_steps=99999996
+  dna_100m.Aoverhead.warm    prodnr  arena_peak=31006488 child_arena_peak=8388608 read=2400000004 write=2000000000 mapped_lcp=100000001 child_write=340868380 spill_written=0 spill_read=0 child_flushed=418874372 child_reopened=18 stack_peak=18 workers=2 R=266667 scratch_peak=1200000000 b1_s=1.062 b2_s=3.697 b3_s=2.939 compare_steps=99999996
+  dna_100m.B.cold            prod    arena_peak=132949112 child_arena_peak=8388608 read=2400000004 write=2000000000 mapped_lcp=100000001 child_write=340868380 spill_written=0 spill_read=0 child_flushed=418874372 child_reopened=18 stack_peak=18 workers=2 R=8000000 scratch_peak=1200000000 b1_s=0.821 b2_s=3.481 b3_s=3.257 compare_steps=99999996
+  dna_100m.B.cold            proto   arena_peak=130949112 child_arena_peak=8388608 read=2400000004 write=2000000000 mapped_lcp=100000001 child_write=340868380 spill_written=0 spill_read=0 child_flushed=418874372 child_reopened=18 stack_peak=18 workers=2 R=8000000 scratch_peak=1200000000 b1_s=0.879 b2_s=3.553 b3_s=3.282 compare_steps=99999996
+  genome_100m.A.cold         prod    arena_peak=31006488 child_arena_peak=8388608 read=2400000004 write=2000000000 mapped_lcp=111120225 child_write=346989240 spill_written=0 spill_read=0 child_flushed=417825796 child_reopened=17 stack_peak=500000 workers=2 R=266667 scratch_peak=1200000000 b1_s=0.996 b2_s=3.248 b3_s=2.887 compare_steps=99996829
+  genome_100m.A.cold         proto   arena_peak=30939816 child_arena_peak=8388608 read=2400000004 write=2000000000 mapped_lcp=111120225 child_write=346989240 spill_written=0 spill_read=0 child_flushed=417825796 child_reopened=17 stack_peak=500000 workers=2 R=266667 scratch_peak=1200000000 b1_s=0.975 b2_s=3.695 b3_s=2.943 compare_steps=99996829
+  genome_100m.A.warm         prod    arena_peak=31006488 child_arena_peak=8388608 read=2400000004 write=2000000000 mapped_lcp=111120225 child_write=346989240 spill_written=0 spill_read=0 child_flushed=417825796 child_reopened=17 stack_peak=500000 workers=2 R=266667 scratch_peak=1200000000 b1_s=1.046 b2_s=3.929 b3_s=3.149 compare_steps=99996829
+  genome_100m.A.warm         proto   arena_peak=30939816 child_arena_peak=8388608 read=2400000004 write=2000000000 mapped_lcp=111120225 child_write=346989240 spill_written=0 spill_read=0 child_flushed=417825796 child_reopened=17 stack_peak=500000 workers=2 R=266667 scratch_peak=1200000000 b1_s=1.131 b2_s=3.653 b3_s=2.941 compare_steps=99996829
+  genome_100m.Aoverhead.warm prod    arena_peak=31006488 child_arena_peak=8388608 read=2400000004 write=2000000000 mapped_lcp=111120225 child_write=346989240 spill_written=0 spill_read=0 child_flushed=417825796 child_reopened=17 stack_peak=500000 workers=2 R=266667 scratch_peak=1200000000 b1_s=1.075 b2_s=3.058 b3_s=2.944 compare_steps=99996829
+  genome_100m.Aoverhead.warm prodnr  arena_peak=31006488 child_arena_peak=8388608 read=2400000004 write=2000000000 mapped_lcp=111120225 child_write=346989240 spill_written=0 spill_read=0 child_flushed=417825796 child_reopened=17 stack_peak=500000 workers=2 R=266667 scratch_peak=1200000000 b1_s=1.112 b2_s=3.586 b3_s=2.948 compare_steps=99996829
+  genome_100m.B.cold         prod    arena_peak=132949112 child_arena_peak=8388608 read=2400000004 write=2000000000 mapped_lcp=111120225 child_write=346989240 spill_written=0 spill_read=0 child_flushed=417825796 child_reopened=17 stack_peak=500000 workers=2 R=8000000 scratch_peak=1200000000 b1_s=0.755 b2_s=3.226 b3_s=3.353 compare_steps=99987408
+  genome_100m.B.cold         proto   arena_peak=130949112 child_arena_peak=8388608 read=2400000004 write=2000000000 mapped_lcp=111120225 child_write=346989240 spill_written=0 spill_read=0 child_flushed=417825796 child_reopened=17 stack_peak=500000 workers=2 R=8000000 scratch_peak=1200000000 b1_s=0.840 b2_s=3.526 b3_s=3.226 compare_steps=99987408
+
+equality of the counted figures, production against prototype (read, write, mapped_lcp, child_write, spill_written, spill_read, child_flushed, child_reopened, stack_peak, workers, R)
+  an_10m.A.cold              EQUAL
+  an_10m.A.warm              EQUAL
+  an_10m.B.cold              EQUAL
+  dna_100m.A.cold            EQUAL
+  dna_100m.A.warm            EQUAL
+  dna_100m.B.cold            EQUAL
+  genome_100m.A.cold         EQUAL
+  genome_100m.A.warm         EQUAL
+  genome_100m.B.cold         EQUAL
+
+outputs cmp'ed with the reference files: 72 runs, 0 different

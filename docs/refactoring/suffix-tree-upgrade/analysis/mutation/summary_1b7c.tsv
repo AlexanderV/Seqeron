@@ -1,0 +1,298 @@
+alignedwindowwriter	A01	killed	a window of two bytes is accepted
+alignedwindowwriter	A02	killed	a window that is not a power of two is accepted
+alignedwindowwriter	A03	killed	no slot is accepted
+alignedwindowwriter	A04	killed	a range that ends at the end of the file is refused
+alignedwindowwriter	A05	killed	the writer does not count itself as open
+alignedwindowwriter	A06	killed	the writer does not count itself closed
+alignedwindowwriter	A07	killed	an index one past the range is accepted
+alignedwindowwriter	A08	killed	the position inside the window is taken from the next window
+alignedwindowwriter	A09	killed	the writes are not counted (replacement of the first A09, which did not compile)
+alignedwindowwriter	A10	killed	Dispose does not flush the windows
+alignedwindowwriter	A11	killed	the mapped bytes are counted per write instead of per byte
+alignedwindowwriter	A12	killed	the most recently used window is released first
+alignedwindowwriter	A13	killed	the evictions are not counted (replacement of the first A13, which did not compile)
+alignedwindowwriter	A14	killed	a window opened again is counted as distinct
+alignedwindowwriter	A15	killed	the last window is mapped at full size
+alignedwindowwriter	A16	killed	the windows are mapped from the start of the file
+alignedwindowwriter	A17	killed	the windows are not counted
+alignedwindowwriter	A18	killed	a flush counts the full window
+alignedwindowwriter	A19	equivalent	Dispose keeps the hot window
+alignedwindowwriter	A20	killed	Dispose can run twice
+alignedwindowwriter	A21	killed	a write after the disposal maps a new window
+alignedwindowwriter	A22	equivalent	the release does not forget the hot window
+alignedwindowwriter	A23	killed	a window hit does not refresh its use
+alignedwindowwriter	A24	killed	the length of the range is not negative-checked
+alignedwindowwriter	A25	killed	the start of the range is not negative-checked
+alignedwindowwriter	F50	killed	the bit set of the windows has no room for a partial last window
+alignedwindowwriter	F51	killed	the bit set of the windows is one word short
+alignedwindowwriter	F52	killed	a free slot is not preferred to a used one
+alignedwindowwriter	F53	equivalent	a free slot found earlier does not stop the search for the oldest
+alignedwindowwriter	F54	killed	the flushes are not counted
+alignedwindowwriter	F55	killed	the size of a window is recorded as 0 (replacement of the first F55, which did not compile)
+alignedwindowwriter	F56	killed	a range beyond the end of the file is accepted
+alignedwindowwriter	F86	killed	a released window is not disposed
+alignedwindowwriter	F87	killed	a released window does not release its pointer
+childscan	C01	killed	the design limit is refused one symbol early
+childscan	C02	killed	the tagged limit is refused one symbol early
+childscan	C03	killed	the tagged codec is refused for no text
+childscan	C04	killed	the range of the table has one entry less
+childscan	C05	killed	a failed creation leaves the writer open
+childscan	C06	killed	a failed creation leaves the arena allocated
+childscan	C07	killed	the codecs are swapped
+childscan	C08	killed	tagged: the next tag is the up tag
+childscan	C09	killed	tagged: the up tag is the next tag
+childscan	C10	killed	tagged: the down tag is the up tag
+childscan	C11	killed	tagged: the first l-index writes a link
+childscan	C12	killed	tagged: up and down fields are written at the other boundary
+childscan	C13	killed	packed: the consecutive l-indices write a link too
+childscan	C14	killed	packed: up and down fields are written at the other boundary
+childscan	C15	killed	the root has a first l-index from the start
+childscan	C16	killed	a repeated block is accepted
+childscan	C17	killed	the last rank is refused
+childscan	C18	killed	a value of 1 at rank 0 or 1 is accepted
+childscan	C19	killed	rank 0 is scanned
+childscan	C20	killed	a value equal to n is refused
+childscan	C21	killed	a value above n is accepted
+childscan	C22	killed	the largest LCP is not tracked (replacement of the first C22, which did not compile)
+childscan	C23	killed	a second Complete is accepted
+childscan	C24	killed	Complete does not need every value
+childscan	C25	equivalent	the intervals still open are closed with a right boundary one too small
+childscan	C26	killed	the node count forgets the root
+childscan	C27	killed	the node count of the empty text is zero
+childscan	C28	killed	a closing interval counts as last child when it is not deeper
+childscan	C29	killed	the left boundary of the pushed interval is the previous rank
+childscan	C30	killed	a push also happens at an equal value
+childscan	C31	killed	the root does not remember its last l-index
+childscan	C32	killed	the link is written after the last l-index is replaced
+childscan	C33	killed	the root counts as an internal node
+childscan	C34	killed	the deepest interval is the last of the deepest
+childscan	C35	killed	the longest repeat starts at the right boundary
+childscan	C36	killed	Dispose leaves the spill file
+childscan	C37	killed	Dispose leaves the arena allocated
+childscan	C38	killed	the stack peak is the final height
+childscan	C39	killed	the next rank advances by one
+childscan	C40	killed	the CHILD windows are not part of the result
+childscan	C41	killed	the counters do not see the spill
+childscan	C42	killed	the stack blocks are not charged to the budget
+childscan	F60	killed	the left boundary of a pushed interval is the rank itself
+childscan	F61	killed	a closing interval is closed with the stale top
+childscan	F62	killed	the stack of the empty text is closed too
+childscan	F64	killed	a pushed interval has no last l-index
+childscan	F65	killed	the root is recognised by a first l-index of 0
+childscan	F67	killed	the scan ignores the start of its range
+lcpbuild	B01	equivalent	a chunk of no positions is not refused up front
+lcpbuild	B02	killed	no thread is accepted
+lcpbuild	B03	killed	a negative worker count is accepted
+lcpbuild	B04	killed	a read buffer of no bytes is accepted
+lcpbuild	B05	killed	a tuple buffer of no bytes is accepted
+lcpbuild	B06	equivalent	a window of no bytes is not refused up front
+lcpbuild	B07	killed	a longer suffix array file is accepted
+lcpbuild	B08	killed	SA[0] above n only is refused
+lcpbuild	B09	killed	the scratch directory is not created
+lcpbuild	B10	killed	the rank chunks are reported as text chunks
+lcpbuild	B11	killed	the base file is not removed when the build fails (replacement of the first B11, which did not compile)
+lcpbuild	B12	killed	the overflow file is not removed when the build fails (replacement of the first B12, which did not compile)
+lcpbuild	B13	killed	WorkerBytes: the Phi and rank chunks count 4 bytes per position
+lcpbuild	B14	killed	WorkerBytes: the permutation bits are not counted
+lcpbuild	B15	killed	B1: an entry equal to n is accepted
+lcpbuild	B16	killed	B1: the rank of a tuple is one too large
+lcpbuild	B17	killed	B1: the predecessor is never advanced
+lcpbuild	B18	killed	B1: the first predecessor is position 0
+lcpbuild	B19	killed	B2: a chunk with the wrong number of tuples is not refused
+lcpbuild	B20	equivalent	B2: a position outside the chunk is not refused
+lcpbuild	B21	killed	B2: the permutation bits of the previous chunk are kept
+lcpbuild	B22	killed	B2: a repeated position is not refused
+lcpbuild	B23	killed	B2: the position bit is not set
+lcpbuild	B24	killed	B2: the Phi file of a chunk is not deleted after it was read
+lcpbuild	B25	killed	B2: the totals of a task are not merged
+lcpbuild	B26	killed	B2: the LCP value of a rank tuple is one too large
+lcpbuild	B27	killed	B2: the last buffers of a task are not flushed
+lcpbuild	B28	killed	B3: rank chunk 0 is expected to hold a tuple for the empty suffix
+lcpbuild	B29	killed	B3: LCP[0] is not set
+lcpbuild	B30	killed	B3: the rank file of a chunk is not deleted after it was read
+lcpbuild	B31	equivalent	B3: the writer is not checked for completeness
+lcpbuild	B32	killed	B3: the reservation of the base file is not reported
+lcpbuild	B33	killed	the overflow count is not taken from the rule
+lcpbuild	B34	killed	the workers are not bounded by the chunks
+lcpbuild	B35	killed	the reported workers are one
+lcpbuild	B36	killed	one more thread than workers is started
+lcpbuild	B37	killed	a failure of a worker is not rethrown
+lcpbuild	B38	killed	Merge: the largest PLCP is the last one merged
+lcpbuild	B39	killed	Merge: the restart symbols are the last ones merged
+lcpbuild	B40	killed	PlcpTotals: the first values of the chunks are not summed
+lcpbuild	B41	killed	PlcpTotals: the largest value is the last one
+lcpbuild	B42	killed	PlcpTotals: the steps are the last ones
+lcpbuild	B43	equivalent	the budget limits the workers by the live bytes too little
+lcpbuild	B44	equivalent	the consumer is called after the writer
+lcpbuild	B45	equivalent	the width is chosen before the counts are merged
+lcpbuild	F30	killed	B1: the blocks overlap by one entry
+lcpbuild	F31	killed	B1: the last block takes one entry too few
+lcpbuild	F32	killed	B2: the Phi value of a position is one too large
+lcpbuild	F33	killed	B2: the rank of a position is one too large
+lcpbuild	F34	killed	B3: the value of a rank is one too large
+lcpbuild	F35	killed	B3: the block handed on is one entry short
+lcpbuild	F36	killed	the workers are the threads, never the request
+lcpbuild	F37	killed	a read buffer smaller than a tuple holds two tuples
+lcpbuild	F39	killed	the text length is reported one too large
+lcpbuild	F40	killed	B3: the first rank of a chunk is one less
+lcpbuild	F43	killed	the header check reads SA[1]
+lcpbuild	F44	killed	WorkerBytes: the tuple buffers are charged for the text chunks
+lcpbuild	F45	killed	WorkerBytes: the read buffer is sized for rank tuples
+lcpbuild	F80	killed	the base output file is not disposed
+lcpbuild	F81	killed	the overflow output file is not disposed
+lcpbuild	F82	killed	the Phi chunk files are not removed when the build fails
+lcpbuild	F83	killed	the rank chunk files are not removed when the build fails
+lcpbuild	F84	killed	B1 does not close the suffix array file
+lcpbuild	F85	killed	the header check does not close the suffix array file
+lcpchildbuilder	F01	killed	PH4 does not get the read buffer of the rule
+lcpchildbuilder	F02	killed	PH4 does not get the tuple buffer of the rule
+lcpchildbuilder	F03	killed	PH4 does not get the window of the rule
+lcpchildbuilder	F04	killed	PH4 does not get the chunk of the rule
+lcpchildbuilder	F06	killed	PH5 does not get the block of the rule
+lcpchildbuilder	F07	killed	PH5 does not get the window of the rule
+lcpchildbuilder	F08	killed	PH5 does not get the slots of the rule
+lcpchildbuilder	F09	killed	PH5 does not flush its windows
+lcpchildbuilder	F10	killed	PH5 does not get the spill flush of the rule
+lcpchildbuilder	F11	killed	PH5 always uses the packed codec
+lcpchildbuilder	F12	killed	PH4 is not charged to its budget
+lcpchildbuilder	F13	killed	PH5 is not charged to its budget
+lcpchildbuilder	F14	killed	the PH4 peak is the PH5 peak
+lcpchildbuilder	F15	killed	the PH5 peak is the PH4 peak
+lcpchildbuilder	F16	killed	the result carries no counters
+lcpchildbuilder	F17	killed	the result carries no time
+lcpchildbuilder	F18	killed	the result carries no reservation outcome
+lcpchildbuilder	F19	killed	the trace hook is not handed to PH4
+lcpchildbuilder	F21	killed	the RSS sampler is not stopped for the result
+lcpchildbuilder	F25	killed	CheckLengths: the base LCP is one entry short
+lcpchildbuilder	F26	killed	CheckLengths: the overflow pairs are 4 bytes
+lcpchildbuilder	F26b	killed	the lazy scan does not dispose its scan
+lcpchildbuilder	F26c	killed	the lazy scan does not dispose its file (re-run after the descriptor check was added)
+lcpchildbuilder	F27	killed	CheckLengths: the child table is one entry short
+lcpchildbuilder	F28	killed	CheckLengths: a shorter file is accepted
+lcpchildbuilder	F29	killed	CheckLengths: a longer file is accepted
+lcpchildbuilder	L01	killed	the scaled chunk rounds down
+lcpchildbuilder	L02	killed	the floor of the chunk is two
+lcpchildbuilder	L03	killed	the rule is evaluated at the text length although RuleN is set
+lcpchildbuilder	L04	killed	the factor is the inverse
+lcpchildbuilder	L05	killed	the workers are not limited by the threads
+lcpchildbuilder	L06	killed	the workers are not limited by the cap
+lcpchildbuilder	L07	killed	the reference text length is one less
+lcpchildbuilder	L08	killed	the reference chunk is one more
+lcpchildbuilder	L09	killed	the default window of the LCP writers is 64 KiB
+lcpchildbuilder	L10	killed	the default read buffer is 64 KiB
+lcpchildbuilder	L11	killed	the default tuple buffer is 64 KiB
+lcpchildbuilder	L12	killed	the default block is 128 K entries
+lcpchildbuilder	L13	killed	the default window of the table is 512 KiB
+lcpchildbuilder	L14	killed	the default slots are four
+lcpchildbuilder	L15	killed	the default spill flush is 8 MiB
+lcpchildbuilder	L16	killed	a chunk of no positions is accepted by the rule
+lcpchildbuilder	L17	killed	no worker is accepted by the rule
+lcpchildbuilder	L18	killed	a read buffer of no bytes is accepted by the rule
+lcpchildbuilder	L19	killed	a tuple buffer of no bytes is accepted by the rule
+lcpchildbuilder	L20	killed	a window of no bytes is accepted by the rule
+lcpchildbuilder	L21	killed	a block of one entry is accepted by the rule
+lcpchildbuilder	L22	killed	a window of the table of two bytes is accepted
+lcpchildbuilder	L23	killed	a window of the table that is not a power of two is accepted
+lcpchildbuilder	L24	killed	no slot is accepted by the rule
+lcpchildbuilder	L25	killed	a negative spill flush is accepted
+lcpchildbuilder	L26	killed	the statistics file without sigma is accepted
+lcpchildbuilder	L27	killed	the design limit is refused one symbol early
+lcpchildbuilder	L28	killed	the tagged limit is refused one symbol early
+lcpchildbuilder	L29	killed	a scratch directory this build created is left behind
+lcpchildbuilder	L30	killed	a scratch directory that existed is removed when empty
+lcpchildbuilder	L31	killed	the spill directory is not created
+lcpchildbuilder	L32	killed	the RSS sampler is not started
+lcpchildbuilder	L33	killed	PH4 does not get the worker count of the rule
+lcpchildbuilder	L34	killed	PH4 does not count its I/O
+lcpchildbuilder	L35	killed	PH5 does not count its I/O
+lcpchildbuilder	L36	killed	PH4 ignores the file options
+lcpchildbuilder	L37	killed	PH5 ignores the file options
+lcpchildbuilder	L38	killed	the LCP files are not removed when a later step fails
+lcpchildbuilder	L39	killed	the child table is not removed when the build fails
+lcpchildbuilder	L40	killed	the creation of the child table is not remembered
+lcpchildbuilder	L41	killed	the final length of the base LCP is not checked
+lcpchildbuilder	L42	killed	the final length of the overflow list is not checked
+lcpchildbuilder	L43	killed	the final length of the child table is not checked
+lcpchildbuilder	L44	killed	the RSS figure is reported in MiB
+lcpchildbuilder	L45	killed	a figure equal to the cap exceeds it
+lcpchildbuilder	L46	killed	the statistics file records sigma 0
+lcpchildbuilder	L47	killed	StatsText: the node count line holds the internal nodes
+lcpchildbuilder	L48	killed	StatsText: the width line holds the kind
+lcpchildbuilder	L49	killed	StatsText: the lrs rank line holds the depth
+lcpchildbuilder	L50	equivalent	StatsText: the max line holds the lrs depth
+lcpchildbuilder	L51	killed	StatsText: the overflow line holds the escapes of 255
+lcpchildbuilder	L52	killed	StatsText: n comes from the scan
+lcpchildbuilder	L53	killed	the child file has one entry less
+lcpchildbuilder	L54	killed	the child scan starts at offset 4
+lcpchildbuilder	L55	killed	the child file is created for every block (replacement of the first L55, which did not compile)
+lcpchildbuilder	L56	equivalent	a build that delivered no block succeeds
+lcpchildbuilder	L57	killed	the spill directory is removed only when empty
+lcpchildbuilder	L58	killed	the PH4 directory is removed only when empty
+lcpchildbuilder	L59	killed	the explicit sigma check is skipped for negative values
+lcpchildbuilder	L60	equivalent	the PH4 arena cap is not checked for negative values
+lcpchildbuilder	L61	equivalent	the PH5 arena cap is not checked for negative values
+lcpchildbuilder	L62	killed	the threads are not checked by the rule
+lcpchildbuilder	L63	killed	the scale is not checked by the rule
+lcpchildbuilder	L64	killed	RuleN is not checked by the rule
+lcpchildbuilder	L65	killed	n is not checked by the rule
+lcpgeometry	G01	killed	TextChunks rounds up one too many
+lcpgeometry	G02	killed	RankChunks rounds down
+lcpgeometry	G03	killed	TextChunkLength counts the empty suffix
+lcpgeometry	G04	killed	RankChunkLength forgets the empty suffix
+lcpgeometry	G05	killed	the design limit is refused one symbol early
+lcpgeometry	G06	killed	a chunk of no positions is accepted
+lcpgeometry	G07	killed	a negative length is accepted
+lcpgeometry	G08	killed	ChunkOf is a 32-bit division
+lcpgeometry	G09	killed	R is reported one too large
+lcpgeometry	G10	killed	N is reported without the length check being used
+lcpoutputwriter	F70	killed	only half of the pairs are appended
+lcpoutputwriter	F71	killed	a block is cut into slices of the larger size
+lcpoutputwriter	F72	killed	the byte buffer holds one byte per slice entry whatever the width
+lcpoutputwriter	O01	killed	a base range of the wrong length is accepted
+lcpoutputwriter	O02	killed	an overflow range of the wrong length is accepted
+lcpoutputwriter	O03	equivalent	a slice of no entries is not raised to one
+lcpoutputwriter	O04	killed	a repeated rank is accepted
+lcpoutputwriter	O05	killed	U8: the escape value 255 is stored as a value
+lcpoutputwriter	O06	killed	U16: the escape value 65,535 is stored as a value
+lcpoutputwriter	O07	killed	U8: an escape is stored as 0
+lcpoutputwriter	O08	killed	U8: the rank of an escape is relative to the block
+lcpoutputwriter	O09	killed	U16: the value of an escape is one too small
+lcpoutputwriter	O10	killed	the announced number of escapes is refused when met exactly
+lcpoutputwriter	O11	equivalent	Complete: the entry count is only bounded below
+lcpoutputwriter	O12	equivalent	Complete: the escape count is only bounded below
+lcpoutputwriter	O13	killed	Dispose: the overflow writer stays open
+lcpoutputwriter	O14	killed	the pair buffer holds one pair per slice entry only half
+lcpoutputwriter	O15	killed	U32: the values are not copied
+lcpoutputwriter	O16	killed	the next rank does not advance by the block
+lcpwidth	W01	killed	Select: a count of 65,535-values one above the count of 255-values is accepted
+lcpwidth	W02	killed	Select: U8 needs strictly less
+lcpwidth	W03	killed	Select: U16 needs strictly less
+lcpwidth	W04	killed	Select: the U8 threshold is 8 x escapes
+lcpwidth	W05	killed	Select: the U16 threshold is 16 x escapes
+lcpwidth	W06	killed	Select: the first tier returns U16
+lcpwidth	W07	killed	Bytes: U16 is one byte
+lcpwidth	W08	killed	Bytes: the default is two bytes
+lcpwidth	W09	killed	Escape: U8 escapes at 254
+lcpwidth	W10	killed	Escape: U16 escapes at 65,534
+lcpwidth	W11	killed	OverflowCount: U8 counts the long values
+lcpwidth	W12	killed	OverflowCount: U16 counts the short values
+lcpwidth	W13	killed	OverflowCount: U32 has an overflow list
+mappedtextreader	M01	equivalent	Prefetch: a position at n is requested too
+mappedtextreader	M02	equivalent	Prefetch: the address is the symbol index
+mappedtextreader	M03	equivalent	Prefetch: a negative position is requested
+plcpscan	P01	equivalent	the prefetch is never requested (replacement of the first P01, which did not compile)
+plcpscan	P02	equivalent	a Phi beyond n is the empty suffix too
+plcpscan	P03	equivalent	the carry is kept after the empty-suffix position
+plcpscan	P04	killed	the empty-suffix position gets 1
+plcpscan	P05	equivalent	the limit is measured from the smaller position
+plcpscan	P06	equivalent	the comparison also runs when the carry has used the limit up
+plcpscan	P07	killed	the first value is taken at the second position
+plcpscan	P08	killed	a value of exactly 255 is not an escape
+plcpscan	P09	killed	a value of exactly 65,535 is not a long escape
+plcpscan	P10	killed	the carry is not decremented
+plcpscan	P11	killed	the maximum is the minimum
+plcpscan	P12	killed	the value is stored one too large
+plcpscan	P13	killed	an escape is counted twice
+plcpscan	P14	killed	the carry is decremented by two
+plcpscan	P15	killed	the comparison starts at the carry of the other suffix
+plcpscan	P16	equivalent	the comparison is not limited by the carry

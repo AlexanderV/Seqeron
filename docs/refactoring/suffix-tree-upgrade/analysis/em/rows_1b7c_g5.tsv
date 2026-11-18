@@ -1,0 +1,26 @@
+#label	codec	phase	pass	walk_s	walk_child_steps	count_present_s	count_absent_s	locate12_s
+#head	6c5514f0d53dd2f08bbda9762ec2a1fa96cee88d
+dna_100m.proc1.first_packed	packed	cold	0	0.5151	40000000	0.9500	0.9575	0.3055
+dna_100m.proc1.first_packed	tagged	cold	0	0.4321	40000000	0.9133	0.8658	0.2746
+dna_100m.proc1.first_packed	tagged	warm	1	0.4350	40000000	0.9123	0.8336	0.2652
+dna_100m.proc1.first_packed	packed	warm	1	0.4986	40000000	0.9229	0.9868	0.2981
+dna_100m.proc1.first_packed	packed	warm	2	0.5082	40000000	0.9161	0.7808	0.2397
+dna_100m.proc1.first_packed	tagged	warm	2	0.4183	40000000	0.8261	0.8681	0.3091
+dna_100m.proc1.first_packed	tagged	warm	3	0.4601	40000000	0.7922	0.7535	0.2453
+dna_100m.proc1.first_packed	packed	warm	3	0.5516	40000000	0.7707	0.8554	0.2892
+dna_100m.proc2.first_tagged	tagged	cold	0	0.4372	40000000	0.9852	0.8835	0.2858
+dna_100m.proc2.first_tagged	packed	cold	0	0.4919	40000000	0.8022	0.6998	0.2484
+dna_100m.proc2.first_tagged	packed	warm	1	0.5286	40000000	0.7656	0.7292	0.2540
+dna_100m.proc2.first_tagged	tagged	warm	1	0.4255	40000000	0.7433	0.6855	0.2299
+dna_100m.proc2.first_tagged	tagged	warm	2	0.4414	40000000	0.6724	0.7474	0.2928
+dna_100m.proc2.first_tagged	packed	warm	2	0.5000	40000000	0.9165	0.7683	0.2925
+dna_100m.proc2.first_tagged	packed	warm	3	0.4973	40000000	0.9707	0.8801	0.2476
+dna_100m.proc2.first_tagged	tagged	warm	3	0.4343	40000000	0.7344	0.6753	0.2167
+dna_100m.proc3.first_packed	packed	cold	0	0.5006	40000000	1.0932	0.9336	0.2895
+dna_100m.proc3.first_packed	tagged	cold	0	0.4146	40000000	0.8739	0.8532	0.2761
+dna_100m.proc3.first_packed	tagged	warm	1	0.4273	40000000	0.8518	0.9009	0.2762
+dna_100m.proc3.first_packed	packed	warm	1	0.4845	40000000	0.8575	0.7447	0.2351
+dna_100m.proc3.first_packed	packed	warm	2	0.4920	40000000	0.9338	0.8202	0.2305
+dna_100m.proc3.first_packed	tagged	warm	2	0.4354	40000000	0.8657	0.8048	0.2830
+dna_100m.proc3.first_packed	tagged	warm	3	0.4298	40000000	0.8385	0.8121	0.2310
+dna_100m.proc3.first_packed	packed	warm	3	0.5476	40000000	0.7362	0.7416	0.2297

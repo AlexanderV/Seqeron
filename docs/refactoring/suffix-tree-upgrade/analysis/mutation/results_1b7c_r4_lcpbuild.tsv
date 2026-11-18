@@ -1,0 +1,6 @@
+F80	the base output file is not disposed	killed(20)	
+F81	the overflow output file is not disposed	killed(3)	
+F82	the Phi chunk files are not removed when the build fails	killed(3)	
+F83	the rank chunk files are not removed when the build fails	killed(3)	
+F84	B1 does not close the suffix array file	killed(22)	
+F85	the header check does not close the suffix array file	killed(22)	
