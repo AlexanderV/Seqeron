@@ -5,7 +5,7 @@
 **Algorithm:** Open Reading Frame (ORF) Detection — `GenomicAnalyzer.FindOpenReadingFrames`
 **Status:** ☑ Complete
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-11-18 (B09 review F21-F26)
+**Last Updated:** 2026-11-18 (B09 review F21-F26; A1-18/A1-19 ORFfinder binary oracle, F57)
 
 ---
 
@@ -21,6 +21,7 @@
 | 4 | NCBI Genetic Codes (Standard, transl_table=1) | 2 | https://www.ncbi.nlm.nih.gov/Taxonomy/Utils/wprintgc.cgi | 2026-06-14 |
 | 5 | NCBI C++ Toolkit `COrf::FindOrfs` (`src/algo/sequence/orf.cpp`, `orf.hpp`) — the ORFfinder engine | 1 (tool source) | https://github.com/ncbi/ncbi-cxx-toolkit-public | 2026-11-18 |
 | 6 | EMBOSS getorf 6.6.0 (binary run locally, `-find 3`) | 1 (tool) | http://emboss.open-bio.org/rel/rel6/apps/getorf.html | 2026-11-18 |
+| 7 | NCBI ORFfinder 0.4.3 standalone binary (`ORFfinder.gz` sha256 `f30a0806…09f2`, run in Docker by the user, 1750 invocations), `USAGE.txt` | 1 (the reference program) | https://ftp.ncbi.nlm.nih.gov/genomes/TOOLS/ORFfinder/ | 2026-11-18 |
 
 ### 1.2 Key Evidence Points
 
@@ -53,8 +54,10 @@
 | `FindOpenReadingFrames(DnaSequence, int minLength=100)` | GenomicAnalyzer | Canonical | Six-frame ATG→stop ORF detection; every ATG start reported |
 | `FindOpenReadingFrames(string, int minLength[, OrfSearchOptions])` | GenomicAnalyzer | Canonical (A1-21) | IUPAC nucleotide string (DNA/RNA, case-insensitive, `U`→`T`; other symbol → `ArgumentException`): ambiguous codon = stop only if every concrete codon is a stop, never a start; oracle `orf_ambiguous_oracle.tsv` (2844 rows) |
 | `FindOpenReadingFrames(DnaSequence, int minLength, OrfSearchOptions)` | GenomicAnalyzer | Canonical (options) | genetic code, start-codon mode, nested vs. longest per stop, open ends, length convention, strands (NCBI COrf / getorf) |
+| `FindOpenReadingFrames(…, OrfSearchOptions)` with `IgnoreNestedOrfs`, `RegionStart/End`, `Strands`, `OrfFinderMinimumLength`, `DualCodingStopsTerminate`, profile `OrfFinderCompatible` | GenomicAnalyzer | Canonical (A1-18/A1-19) | NCBI ORFfinder 0.4.3 `-n`, `-b/-e`, `-strand`, `-ml`, `-g 27/28/31`; oracle `orffinder_cli_oracle.tsv` (54 820 rows) |
 | `OrfScanner.FindRegions` | Core | Shared core | single-strand O(n) scanner used by both and by `Translator.FindOrfs` |
-| `OrfInfo.GetForwardStrandRange(int)` | GenomicAnalyzer | Helper | input-strand coordinates of an ORF |
+| `OrfScanner.FindNestedSpans` | Core | Helper (A1-18) | ORFfinder cross-frame nested filter (non-strict containment, identical span: plus dropped) |
+| `OrfInfo.GetForwardStrandRange(int)` / `()` , `IsStartPartial`, `RegionStart`, `RegionLength` | GenomicAnalyzer | Helper | input-strand coordinates of an ORF (region-aware); 5'-partial flag (start offset < 3) |
 
 ---
 
@@ -122,6 +125,16 @@
 | R10 | Differential vs `Translator.FindOrfs` (tables 1, 2, 4, 11; 240 sequences) = outermost starts of the code, open ends, aa-length min | identical spans/frames | B02 getorf-confirmed engine |
 | R11 | Differential vs `GenomeAnnotator.FindOrfs` (150 sequences) ATG-initiated ORFs = ours (forward coords, half-open) | identical | B11 engine |
 | R12 | Complexity: `ATG`×300 000 + `TAA`, min 899 000 → 335 ORFs in ≪ 30 s; 5 Mbp random six frames < 60 s | counts | Rosalind definition |
+
+### 4.5 ORFfinder binary oracle (B09 A1-18 / A1-19, F57) - `GenomicAnalyzer_FindOpenReadingFrames_OrfFinderCli_Tests.cs`
+
+| ID | Test Case | Expected Outcome | Evidence |
+|----|-----------|------------------|----------|
+| B1 | every one of the 54 820 oracle results (260 option sets: `-g` 1-6, 9-16, 21-33; `-s` 0/1/2; `-ml` -5…1000; `-n`; `-strand`; `-b/-e` incl. invalid; `-c` merged) | ORF list equal in strand, forward coordinates, order, 5'/3' partial flags (`P` = either, `5`/`3`/`B` exact from `-outfmt 2`), protein hash; 232 162 ORFs, 360 rejected regions throw `ArgumentOutOfRangeException`; every 25th ACGT row also through the `DnaSequence` overload | source 7 |
+| B2 | the oracle covers every option dimension; `-g` set = `GeneticCode.SupportedTableNumbers`, rejected 0, 7, 8, 17-20 | — | source 7 |
+| B3 | `-c true` is a no-op in the binary (36 + 20 + 12 identical pairs); no wrap-around ORF in the oracle | — | source 7 |
+| B4 | worked examples: identical spans across strands (`strand_equal_span_s2_12`, plus ORF dropped), cross-frame / cross-strand nesting (`xnest_edge_a4_e4`), selected-strand containers, `-ml` -5…33 on a 30-nt-coding ORF and on a 27-nt one, 5'-partial for start offsets 0-4, region cut / open end / reverse mapping / `-b 0`, `-e` beyond the end, invalid regions, dual-coding tables with the profile, profile members, `SearchBothStrands` view, `FindNestedSpans` rules, `OrfInfo` without region | exact | source 7 |
+| B5 | MCP `find_open_reading_frames`: `ignoreNested`, `strand`, `regionStart/End`, `orfFinderMinLength`, `allowDualCodingStopTables`, `isStartPartial` (2 tests) | exact | source 7 |
 
 ---
 

@@ -1081,23 +1081,77 @@ public static class GenomicAnalyzer
             OrfStartCodons.AnySenseCodon => null,
             _ => throw new ArgumentOutOfRangeException(nameof(options), options.StartCodons, "Unknown start-codon mode."),
         };
+        if (!Enum.IsDefined(options.Strands))
+            throw new ArgumentOutOfRangeException(nameof(options), options.Strands, "Unknown strand choice.");
+
+        // NCBI ORFfinder -b/-e: the region is cut out first and scanned as a sequence of its own (ORFs that run off a region end are
+        // open there; reverse frames are anchored at the region end), coordinates are mapped back by regionStart.
+        var (regionStart, regionLength) = ResolveRegion(forward.Length, options);
+        string scanned = regionStart == 0 && regionLength == forward.Length ? forward : forward.Substring(regionStart, regionLength);
 
         // Eager validation (genetic code with dual-coding stops) before the lazy enumeration starts.
-        var forwardRegions = OrfScanner.FindRegions(forward, code, isStart, options.NestedOrfs, options.IncludeOpenEnded);
-        string? reverse = options.SearchBothStrands ? DnaSequence.GetReverseComplementString(forward) : null;
+        bool plus = options.Strands != OrfStrands.Minus;
+        bool minus = options.Strands != OrfStrands.Plus;
+        var forwardRegions = OrfScanner.FindRegions(scanned, code, isStart, options.NestedOrfs, options.IncludeOpenEnded,
+            options.DualCodingStopsTerminate);
+        string? reverse = minus ? DnaSequence.GetReverseComplementString(scanned) : null;
         var reverseRegions = reverse is null
             ? null
-            : OrfScanner.FindRegions(reverse, code, isStart, options.NestedOrfs, options.IncludeOpenEnded);
+            : OrfScanner.FindRegions(reverse, code, isStart, options.NestedOrfs, options.IncludeOpenEnded,
+                options.DualCodingStopsTerminate);
 
-        return EnumerateOrfs(forward, forwardRegions, reverse, reverseRegions, minLength, options.MinLengthExcludesStop);
+        int effectiveMinLength = EffectiveMinimumLength(minLength, options);
+        var orfs = EnumerateOrfs(scanned, plus ? forwardRegions : null, reverse, reverseRegions, effectiveMinLength,
+            options.MinLengthExcludesStop, regionStart, regionLength);
+        return options.IgnoreNestedOrfs ? RemoveNestedOrfs(orfs, regionLength) : orfs;
     }
 
-    private static IEnumerable<OrfInfo> EnumerateOrfs(string forward, IEnumerable<OrfRegion> forwardRegions,
-        string? reverse, IEnumerable<OrfRegion>? reverseRegions, int minLength, bool excludeStop)
+    // NCBI ORFfinder -ml: "Value less than 30 is automatically changed by 30", then the nucleotide length is used in whole codons
+    // (measured on the binary, A1-18: with -ml 31 an ORF of 30 coding nt is reported, -ml 74 admits 72 nt, -ml 76 admits 75 nt).
+    private const int OrfFinderMinimumLength = 30;
+
+    private static int EffectiveMinimumLength(int minLength, OrfSearchOptions options)
     {
-        foreach (var orf in ToOrfInfos(forward, forwardRegions, isReverseComplement: false, minLength, excludeStop))
+        if (!options.OrfFinderMinimumLength)
+            return minLength;
+
+        int clamped = Math.Max(minLength, OrfFinderMinimumLength);
+        return clamped - clamped % CodonLength;
+    }
+
+    // NCBI ORFfinder -b/-e, 1-based inclusive: -b 0 is -b 1, -e 0 and -e beyond the sequence mean "to the end"; a negative start,
+    // an end below the start (measured: "Interval Start value is expected to be smaller than Stop", "Requested interval start -5
+    // is out of range") are errors. Returns the 0-based offset and the length of the region.
+    private static (int Start, int Length) ResolveRegion(int sequenceLength, OrfSearchOptions options)
+    {
+        int begin = options.RegionStart;
+        int end = options.RegionEnd;
+        if (begin < 0)
+            throw new ArgumentOutOfRangeException(nameof(options), begin, "RegionStart must not be negative (1-based; 0 is read as 1).");
+        if (end < 0)
+            throw new ArgumentOutOfRangeException(nameof(options), end, "RegionEnd must not be negative (1-based inclusive; 0 = to the end).");
+        if (sequenceLength == 0)
+            return (0, 0);
+
+        begin = Math.Max(begin, 1);
+        if (end == 0 || end > sequenceLength)
+            end = sequenceLength;
+        if (begin > end)
+            throw new ArgumentOutOfRangeException(nameof(options), begin,
+                $"RegionStart {begin} lies beyond RegionEnd {end} (sequence length {sequenceLength}).");
+
+        return (begin - 1, end - begin + 1);
+    }
+
+    private static IEnumerable<OrfInfo> EnumerateOrfs(string forward, IEnumerable<OrfRegion>? forwardRegions,
+        string? reverse, IEnumerable<OrfRegion>? reverseRegions, int minLength, bool excludeStop, int regionStart, int regionLength)
+    {
+        if (forwardRegions is not null)
         {
-            yield return orf;
+            foreach (var orf in ToOrfInfos(forward, forwardRegions, isReverseComplement: false, minLength, excludeStop, regionStart, regionLength))
+            {
+                yield return orf;
+            }
         }
 
         if (reverse is null || reverseRegions is null)
@@ -1105,14 +1159,14 @@ public static class GenomicAnalyzer
             yield break;
         }
 
-        foreach (var orf in ToOrfInfos(reverse, reverseRegions, isReverseComplement: true, minLength, excludeStop))
+        foreach (var orf in ToOrfInfos(reverse, reverseRegions, isReverseComplement: true, minLength, excludeStop, regionStart, regionLength))
         {
             yield return orf;
         }
     }
 
     private static IEnumerable<OrfInfo> ToOrfInfos(string strand, IEnumerable<OrfRegion> regions,
-        bool isReverseComplement, int minLength, bool excludeStop)
+        bool isReverseComplement, int minLength, bool excludeStop, int regionStart, int regionLength)
     {
         foreach (var region in regions)
         {
@@ -1128,7 +1182,32 @@ public static class GenomicAnalyzer
                 region.Start,
                 region.FrameOffset + 1,
                 isReverseComplement,
-                region.IsTerminated);
+                region.IsTerminated,
+                regionStart,
+                regionLength);
+        }
+    }
+
+    // ORFfinder -n: drop every ORF whose forward span lies completely within the span of another ORF of the list (OrfScanner.FindNestedSpans);
+    // the surviving ORFs keep their enumeration order.
+    private static IEnumerable<OrfInfo> RemoveNestedOrfs(IEnumerable<OrfInfo> orfs, int regionLength)
+    {
+        var list = orfs.ToList();
+        var spans = new OrfScanner.OrfSpan[list.Count];
+        for (int i = 0; i < spans.Length; i++)
+        {
+            var orf = list[i];
+            int start = orf.IsReverseComplement ? regionLength - orf.Position - orf.Length : orf.Position;
+            spans[i] = new OrfScanner.OrfSpan(start, start + orf.Length - 1, orf.IsReverseComplement);
+        }
+
+        var nested = OrfScanner.FindNestedSpans(spans);
+        for (int i = 0; i < list.Count; i++)
+        {
+            if (!nested[i])
+            {
+                yield return list[i];
+            }
         }
     }
 
@@ -1226,19 +1305,22 @@ public readonly struct CommonRegion
 /// </summary>
 public readonly struct OrfInfo
 {
-    public OrfInfo(string sequence, int position, int frame, bool isReverseComplement, bool isTerminated = true)
+    public OrfInfo(string sequence, int position, int frame, bool isReverseComplement, bool isTerminated = true,
+        int regionStart = 0, int regionLength = -1)
     {
         Sequence = sequence;
         Position = position;
         Frame = frame;
         IsReverseComplement = isReverseComplement;
         IsTerminated = isTerminated;
+        RegionStart = regionStart;
+        RegionLength = regionLength;
     }
 
     /// <summary>The ORF's nucleotides, start codon through the stop codon inclusive (through the last complete codon for an open-ended ORF), 5'→3' on the scanned strand.</summary>
     public string Sequence { get; }
 
-    /// <summary>0-based start of the ORF in the <i>scanned strand</i>: the input sequence, or its reverse complement when <see cref="IsReverseComplement"/>. See <see cref="GetForwardStrandRange(int)"/> for input coordinates.</summary>
+    /// <summary>0-based start of the ORF in the <i>scanned strand</i>: the searched region of the input sequence (the whole input by default), or its reverse complement when <see cref="IsReverseComplement"/>. See <see cref="GetForwardStrandRange()"/> for input coordinates.</summary>
     public int Position { get; }
 
     /// <summary>Reading frame 1–3 within the scanned strand (offset <c>Position % 3</c> + 1).</summary>
@@ -1250,21 +1332,56 @@ public readonly struct OrfInfo
     /// <summary>True when the ORF ends with a stop codon; false for an open-ended (3'-partial) ORF that reaches the strand end (only reported with <see cref="OrfSearchOptions.IncludeOpenEnded"/>).</summary>
     public bool IsTerminated { get; }
 
+    /// <summary>
+    /// 0-based offset of the searched region in the input sequence (<see cref="OrfSearchOptions.RegionStart"/> − 1; 0 for a whole-sequence
+    /// search): <see cref="Position"/> is relative to it.
+    /// </summary>
+    public int RegionStart { get; }
+
+    /// <summary>Length of the searched region (the scanned strand); −1 for an <see cref="OrfInfo"/> constructed without region information (then the input length passed to <see cref="GetForwardStrandRange(int)"/> is the strand length).</summary>
+    public int RegionLength { get; }
+
+    /// <summary>
+    /// True when the ORF begins within the first three nucleotides of the scanned strand (the searched region), so that no complete
+    /// codon precedes it and an upstream in-frame stop was not observed — the ORF may extend further upstream (5'-partial).
+    /// This is NCBI ORFfinder's rule (measured on the 0.4.3 binary: <c>fuzz-from</c> / "no-left" exactly for starts at strand
+    /// offset 0, 1, 2, also for an ORF that begins with ATG). The complement for the other end is <c>!<see cref="IsTerminated"/></c>
+    /// (3'-partial).
+    /// </summary>
+    public bool IsStartPartial => Position < CodonNucleotides;
+
+    private const int CodonNucleotides = 3;
+
     public int Length => Sequence.Length;
     public int CodonCount => Sequence.Length / 3;
 
     /// <summary>
     /// The ORF's location in input (forward-strand) coordinates: 0-based inclusive <c>(Start, End)</c> with
     /// <c>Start ≤ End</c>, the stop codon included. For a reverse-complement ORF the span is the one whose reverse
-    /// complement is <see cref="Sequence"/>: <c>Start = L − Position − Length</c>, <c>End = L − 1 − Position</c>.
+    /// complement is <see cref="Sequence"/>: <c>Start = RegionStart + L − Position − Length</c>, <c>End = RegionStart + L − 1 − Position</c>
+    /// with L the length of the scanned strand (the input length, or the region length when a region was searched).
     /// </summary>
-    /// <param name="sequenceLength">Length L of the searched input sequence.</param>
+    /// <param name="sequenceLength">Length of the searched input sequence.</param>
     public (int Start, int End) GetForwardStrandRange(int sequenceLength)
     {
-        ArgumentOutOfRangeException.ThrowIfLessThan(sequenceLength, Position + Length);
+        int strandLength = RegionLength >= 0 ? RegionLength : sequenceLength;
+        ArgumentOutOfRangeException.ThrowIfLessThan(sequenceLength, RegionStart + Math.Max(strandLength, Position + Length));
         return IsReverseComplement
-            ? (sequenceLength - Position - Length, sequenceLength - 1 - Position)
-            : (Position, Position + Length - 1);
+            ? (RegionStart + strandLength - Position - Length, RegionStart + strandLength - 1 - Position)
+            : (RegionStart + Position, RegionStart + Position + Length - 1);
+    }
+
+    /// <summary>
+    /// <see cref="GetForwardStrandRange(int)"/> for an ORF reported by <c>FindOpenReadingFrames</c>, which knows the region it was found in
+    /// (no input length needed).
+    /// </summary>
+    /// <exception cref="InvalidOperationException">The <see cref="OrfInfo"/> was constructed without <see cref="RegionLength"/>.</exception>
+    public (int Start, int End) GetForwardStrandRange()
+    {
+        if (RegionLength < 0)
+            throw new InvalidOperationException("This OrfInfo carries no region length; use GetForwardStrandRange(int sequenceLength).");
+
+        return GetForwardStrandRange(RegionStart + RegionLength);
     }
 }
 
@@ -1309,8 +1426,81 @@ public sealed record OrfSearchOptions
     /// <summary>true: <c>minLength</c> is compared with the ORF length <i>without</i> its stop codon (NCBI ORFfinder <c>-ml</c>, EMBOSS getorf <c>-minsize</c>); default false (<see cref="OrfInfo.Length"/> ≥ minLength).</summary>
     public bool MinLengthExcludesStop { get; init; }
 
-    /// <summary>Scan the reverse complement as well (default true).</summary>
-    public bool SearchBothStrands { get; init; } = true;
+    /// <summary>Scan the reverse complement as well (default true). A compatible view of <see cref="Strands"/>: <c>true</c> = <see cref="OrfStrands.Both"/>, <c>false</c> = <see cref="OrfStrands.Plus"/>; reading it gives <c>Strands == Both</c>.</summary>
+    public bool SearchBothStrands
+    {
+        get => Strands == OrfStrands.Both;
+        init => Strands = value ? OrfStrands.Both : OrfStrands.Plus;
+    }
+
+    /// <summary>Which strands are scanned (NCBI ORFfinder <c>-strand both|plus|minus</c>; default <see cref="OrfStrands.Both"/>).</summary>
+    public OrfStrands Strands { get; init; } = OrfStrands.Both;
+
+    /// <summary>
+    /// NCBI ORFfinder <c>-n true</c> ("Ignore nested ORFs (completely placed within another)"): drop every ORF whose forward-strand span
+    /// lies completely inside the span of another reported ORF of <i>any</i> reading frame on <i>either</i> strand (see
+    /// <see cref="OrfScanner.FindNestedSpans"/>; a shared start or end counts, identical spans: the plus-strand ORF is dropped). Not to be
+    /// confused with <see cref="NestedOrfs"/>, which is about in-frame starts sharing one stop. The reference ORFs are the ORFs that
+    /// pass <c>minLength</c> and <see cref="Strands"/>. Default false.
+    /// </summary>
+    public bool IgnoreNestedOrfs { get; init; }
+
+    /// <summary>
+    /// NCBI ORFfinder <c>-b</c>: 1-based first nucleotide of the searched region (default 1; 0 is read as 1). The region is cut out and
+    /// scanned as a sequence of its own: ORFs that run off its ends are open there (<see cref="OrfInfo.IsStartPartial"/> /
+    /// <see cref="OrfInfo.IsTerminated"/>), reverse-strand frames are anchored at the region end. <see cref="OrfInfo.Position"/> is relative to
+    /// the region; <see cref="OrfInfo.GetForwardStrandRange()"/> gives input coordinates.
+    /// </summary>
+    public int RegionStart { get; init; } = 1;
+
+    /// <summary>NCBI ORFfinder <c>-e</c>: 1-based last nucleotide (inclusive) of the searched region; 0 (default) and values beyond the sequence mean "to the end of the sequence".</summary>
+    public int RegionEnd { get; init; }
+
+    /// <summary>
+    /// NCBI ORFfinder <c>-ml</c> rule for the <c>minLength</c> argument: values below 30 are changed to 30 (USAGE: "Value less than 30 is
+    /// automatically changed by 30"), and the length is used in whole codons — rounded down to a multiple of three (measured:
+    /// <c>-ml 31</c> reports ORFs of 30 coding nucleotides, <c>-ml 74</c> 72, <c>-ml 76</c> 75). Combine with
+    /// <see cref="MinLengthExcludesStop"/> for the complete ORFfinder convention. Default false.
+    /// </summary>
+    public bool OrfFinderMinimumLength { get; init; }
+
+    /// <summary>
+    /// true: for the genetic codes whose stop codons also code for an amino acid (NCBI tables 27, 28, 31) the codons the table lists as
+    /// stops (<see cref="GeneticCode.StopCodons"/>) end ORFs instead of the code being rejected — what NCBI ORFfinder 0.4.3 does for
+    /// <c>-g 27/28/31</c> (measured). Default false (reject).
+    /// </summary>
+    public bool DualCodingStopsTerminate { get; init; }
+
+    /// <summary>
+    /// The NCBI ORFfinder 0.4.3 convention, measured against the binary (A1-18, 1750 runs): the start codons of the genetic code
+    /// (<c>-s 1</c>; use <c>StartCodons = AtgOnly</c> for <c>-s 0</c>, <c>AnySenseCodon</c> for <c>-s 2</c>), the most upstream start per
+    /// stop, 3'-partial ORFs, <c>minLength</c> without the stop codon with the <c>-ml</c> floor of 30 / whole codons, and the dual-coding
+    /// tables 27/28/31. Pass ORFfinder's <c>-ml</c> (default 75) as <c>minLength</c>; add <see cref="GeneticCode"/> (<c>-g</c>),
+    /// <see cref="Strands"/>, <see cref="IgnoreNestedOrfs"/> (<c>-n</c>), <see cref="RegionStart"/>/<see cref="RegionEnd"/> (<c>-b/-e</c>) with
+    /// <c>with { ... }</c>. <c>-c</c> (circular) has no counterpart: the binary ignores it.
+    /// </summary>
+    public static OrfSearchOptions OrfFinderCompatible { get; } = new()
+    {
+        StartCodons = OrfStartCodons.GeneticCodeStarts,
+        NestedOrfs = false,
+        IncludeOpenEnded = true,
+        MinLengthExcludesStop = true,
+        OrfFinderMinimumLength = true,
+        DualCodingStopsTerminate = true,
+    };
+}
+
+/// <summary>Strands scanned by <see cref="GenomicAnalyzer.FindOpenReadingFrames(DnaSequence, int, OrfSearchOptions)"/> (NCBI ORFfinder <c>-strand</c>).</summary>
+public enum OrfStrands
+{
+    /// <summary>Forward strand and its reverse complement (default).</summary>
+    Both,
+
+    /// <summary>Forward (plus) strand only.</summary>
+    Plus,
+
+    /// <summary>Reverse complement (minus) strand only.</summary>
+    Minus,
 }
 
 #endregion

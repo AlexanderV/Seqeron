@@ -67,16 +67,21 @@ namespace Seqeron.Genomics.Core
         /// (NCBI ORFfinder "any sense codon": stop-to-stop regions).</param>
         /// <param name="nestedStarts">Report every in-frame START (true) or only the most upstream one per STOP (false).</param>
         /// <param name="includeOpenEnded">Also report ORFs that reach the strand end without a STOP codon.</param>
+        /// <param name="allowDualCodingStops">false (default): a genetic code whose stop codons also code for an amino acid
+        /// (NCBI tables 27, 28, 31) is rejected. true: the codons the table lists as stops (<see cref="GeneticCode.StopCodons"/>)
+        /// end ORFs regardless (NCBI ORFfinder 0.4.3 behaviour, measured on the binary for <c>-g 27/28/31</c>).</param>
         /// <returns>The ORFs, frame offset 0 first, each frame in ascending start order.</returns>
         /// <exception cref="ArgumentNullException"><paramref name="strand"/> is null.</exception>
-        /// <exception cref="ArgumentException">The genetic code has dual-coding stop codons (NCBI tables 27, 28, 31): no
-        /// codon unambiguously ends an ORF there (see <see cref="Translator.FindOrfs(DnaSequence, GeneticCode?, int, bool)"/>).</exception>
+        /// <exception cref="ArgumentException">The genetic code has dual-coding stop codons (NCBI tables 27, 28, 31) and
+        /// <paramref name="allowDualCodingStops"/> is false: no codon unambiguously ends an ORF there (see
+        /// <see cref="Translator.FindOrfs(DnaSequence, GeneticCode?, int, bool)"/>).</exception>
         public static IEnumerable<OrfRegion> FindRegions(string strand, GeneticCode? geneticCode = null,
-            Func<string, bool>? isStartCodon = null, bool nestedStarts = true, bool includeOpenEnded = false)
+            Func<string, bool>? isStartCodon = null, bool nestedStarts = true, bool includeOpenEnded = false,
+            bool allowDualCodingStops = false)
         {
             ArgumentNullException.ThrowIfNull(strand);
             var code = geneticCode ?? GeneticCode.Standard;
-            if (Translator.HasDualCodingStopCodons(code))
+            if (!allowDualCodingStops && Translator.HasDualCodingStopCodons(code))
             {
                 throw new ArgumentException(
                     $"ORF finding cannot be used with genetic code table {code.TableNumber} " +
@@ -86,6 +91,62 @@ namespace Seqeron.Genomics.Core
 
             var (stopTable, startTable) = BuildCodonTables(code, isStartCodon);
             return Scan(strand, code, stopTable, startTable, nestedStarts, includeOpenEnded);
+        }
+
+        /// <summary>
+        /// The location of an ORF for the cross-frame nesting filter <see cref="FindNestedSpans"/>: <c>Start</c> and <c>End</c> are
+        /// the 0-based inclusive coordinates of the ORF on the <b>forward</b> strand (stop codon included for a terminated ORF).
+        /// </summary>
+        public readonly record struct OrfSpan(int Start, int End, bool IsReverseStrand);
+
+        /// <summary>
+        /// NCBI ORFfinder 0.4.3 "Ignore nested ORFs (completely placed within another)" (<c>-n true</c>), measured on the binary
+        /// (A1-18): an ORF is <b>nested</b> when its forward-strand span <c>[Start, End]</c> lies completely inside the span of
+        /// <i>another</i> ORF of the list — any reading frame, either strand, same or different stop codon (non-strict
+        /// containment: a shared start or a shared end counts). Two ORFs with exactly the same span can only come from opposite
+        /// strands; then the <b>plus-strand ORF is nested</b> and the minus-strand ORF is kept. The reference ORFs are the ORFs of the
+        /// list itself (those that passed the length filter and strand choice), so containment is transitive and the result does not
+        /// depend on the order of the list.
+        /// </summary>
+        /// <param name="spans">The ORFs' forward-strand spans.</param>
+        /// <returns>For each input span, true when it is nested in another one and must be dropped. O(n log n).</returns>
+        public static bool[] FindNestedSpans(IReadOnlyList<OrfSpan> spans)
+        {
+            ArgumentNullException.ThrowIfNull(spans);
+            var nested = new bool[spans.Count];
+            var order = new int[spans.Count];
+            for (int i = 0; i < order.Length; i++)
+            {
+                order[i] = i;
+            }
+
+            // Start ascending, End descending, minus strand before plus strand on an identical span: every ORF that can contain
+            // another one is visited first, and an identical plus-strand span is nested in the minus-strand one.
+            Array.Sort(order, (a, b) =>
+            {
+                var x = spans[a];
+                var y = spans[b];
+                int c = x.Start.CompareTo(y.Start);
+                if (c != 0) return c;
+                c = y.End.CompareTo(x.End);
+                if (c != 0) return c;
+                return y.IsReverseStrand.CompareTo(x.IsReverseStrand);
+            });
+
+            int maxEnd = int.MinValue;
+            foreach (int i in order)
+            {
+                if (spans[i].End <= maxEnd)
+                {
+                    nested[i] = true;
+                }
+                else
+                {
+                    maxEnd = spans[i].End;
+                }
+            }
+
+            return nested;
         }
 
         // 64-entry lookup (index = 16·b1 + 4·b2 + b3, bases in ACGT order) of the codon classes, built once per call from

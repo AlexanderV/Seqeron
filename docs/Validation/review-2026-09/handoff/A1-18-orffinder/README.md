@@ -1,5 +1,13 @@
 # TEMPORARY hand-off package A1-18 / A1-19 - NCBI ORFfinder 0.4.3 oracle (Docker, for the user's Mac)
 
+> **STATUS: DONE (2026-11-18, B09 WP10, F57).** The user ran the package (1750 runs; `ORFfinder -version` 0.4.3, x86_64, Debian 12, ORFfinder.gz sha256
+> `f30a0806...09f2` as pinned); the archive is `returned/A1-18-orffinder-out.zip`. It was integrated as `scripts/analysis/generate_orffinder_oracle.py` ->
+> `tests/Seqeron/Seqeron.Genomics.Tests/TestData/Analysis/orffinder_cli_oracle.tsv` and `GenomicAnalyzer_FindOpenReadingFrames_OrfFinderCli_Tests`
+> (54 820 results, 232 162 ORFs, all equal). `parse_orffinder_out.py` (draft with guessed header formats) is superseded by that converter - the real
+> formats are 0-based `>lcl|ORF<n>_<id>:<from>:<to>` headers (see Evidence GENOMIC-ORF-001). Result: `-c` is a no-op in the binary; `-n`, `-b/-e`, `-ml`
+> clamp, `-strand`, partial flags and tables 27/28/31 implemented (INTEGRATION.md section 2 table is the plan; the measured rules are in
+> `docs/algorithms/Analysis/Open_Reading_Frame_Detection.md` section 5.5). The package files stay for reproducibility; nothing here needs to be re-run.
+
 **Why.** B09 audit items A1-18 (ORFfinder "Ignore nested ORFs" `-n`) and A1-19 (`-b/-e` region, `-c` circular, `-ml` clamp,
 `-strand`, `-s`, `-g`, partial ORFs) can only be decided by *measuring* the official NCBI standalone program: its cross-frame
 `-n` filter, the `-b/-e` and `-c` semantics and the `-ml < 30 -> 30` clamp are defined nowhere in the open-source `COrf` library

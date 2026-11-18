@@ -9,7 +9,7 @@ Open reading frames (ORFs) in all six reading frames.
 | **Server** | Analysis |
 | **Tool Name** | `find_open_reading_frames` |
 | **Method ID** | `GenomicAnalyzer.FindOpenReadingFrames` |
-| **Version** | 1.1.0 |
+| **Version** | 1.2.0 |
 | **Stability** | Stable |
 
 ## Description
@@ -31,8 +31,18 @@ Options (NCBI ORFfinder / `COrf` semantics, all additive; the defaults reproduce
 | `includeOpenEnded` | also report 3'-partial ORFs that reach the sequence end without a stop (`isTerminated` = false; end = last complete codon) |
 | `minLengthExcludesStop` | compare `minLength` with the length without the stop codon (NCBI ORFfinder `-ml`, EMBOSS getorf `-minsize`) |
 | `bothStrands` | `false`: forward strand only |
+| `strand` | NCBI ORFfinder `-strand`: `both` \| `plus` \| `minus` (case-insensitive); alternative to `bothStrands = false` (not combinable with it) |
+| `ignoreNested` | ORFfinder `-n true`: drop every ORF whose span lies completely inside another reported ORF of any frame or strand (non-strict: a shared start or end counts; identical spans: the plus-strand ORF is dropped) |
+| `regionStart`, `regionEnd` | ORFfinder `-b/-e`: 1-based inclusive search region (`regionStart` 0 = 1, `regionEnd` 0 or beyond the sequence = to the end; `regionStart` > `regionEnd` or negative values are errors). The region is cut out and scanned as a sequence of its own, `start`/`end` stay in input coordinates, `position` is relative to the region |
+| `orfFinderMinLength` | ORFfinder `-ml` rule: `minLength` below 30 becomes 30, then whole codons (rounded down to a multiple of 3); lifts the `minLength` ≥ 1 check |
+| `allowDualCodingStopTables` | accept `genetic_code` 27, 28, 31 and let the codons the table lists as stops end ORFs (what ORFfinder does) |
 
-Tables with dual-coding stop codons (27, 28, 31) are rejected: every stop codon of those tables also codes
+NCBI ORFfinder 0.4.3 equivalent of `ORFfinder -s 1 -ml 75`: `startCodons=GeneticCodeStarts nested=false includeOpenEnded=true
+minLengthExcludesStop=true orfFinderMinLength=true allowDualCodingStopTables=true minLength=75` (add `ignoreNested`, `strand`, `regionStart/End`,
+`genetic_code` for `-n`, `-strand`, `-b/-e`, `-g`). These options were measured on the real ORFfinder 0.4.3 binary (1750 runs, 54 820 results, 232 162 ORFs; the
+tool equals it on all of them, see the algorithm document §5.5). ORFfinder's `-c` (circular) has no effect in the binary and no counterpart here.
+
+Without `allowDualCodingStopTables`, tables with dual-coding stop codons (27, 28, 31) are rejected: every stop codon of those tables also codes
 an amino acid, so no codon unambiguously ends an ORF (as `Translator.FindOrfs`).
 
 ## Core Documentation Reference
@@ -46,23 +56,30 @@ an amino acid, so no codon unambiguously ends an ORF (as `Translator.FindOrfs`).
 |-----------|------|----------|-------------|
 | `sequence` | string | Yes | Nucleotide sequence (min length 1): A/C/G/T plus IUPAC codes such as N, case-insensitive. An ambiguous codon ends an ORF only when every concrete codon is a stop (`TAR`), never starts one, and is otherwise read through (`ATGNNNTAA` is one ORF) |
 | `minLength` | integer | No | Minimum ORF length in nucleotides, stop codon included unless `minLengthExcludesStop` (default 100, ≥ 1) |
-| `genetic_code` | integer | No | NCBI translation table whose stop codons end ORFs (default 1; 27/28/31 rejected) |
+| `genetic_code` | integer | No | NCBI translation table whose stop codons end ORFs (default 1; 27/28/31 rejected unless `allowDualCodingStopTables`) |
 | `startCodons` | string | No | `AtgOnly` (default) \| `GeneticCodeStarts` \| `AnySenseCodon` (case-insensitive) |
 | `nested` | boolean | No | Report every in-frame start (default true) |
 | `includeOpenEnded` | boolean | No | Also report ORFs without a stop (default false) |
 | `minLengthExcludesStop` | boolean | No | NCBI ORFfinder length convention (default false) |
 | `bothStrands` | boolean | No | Scan the reverse complement too (default true) |
+| `strand` | string | No | `both` \| `plus` \| `minus` (default null = by `bothStrands`) |
+| `ignoreNested` | boolean | No | ORFfinder `-n` (default false) |
+| `regionStart` | integer | No | ORFfinder `-b`, 1-based (default 1) |
+| `regionEnd` | integer | No | ORFfinder `-e`, 1-based inclusive, 0 = to the end (default 0) |
+| `orfFinderMinLength` | boolean | No | ORFfinder `-ml` clamp / whole codons (default false) |
+| `allowDualCodingStopTables` | boolean | No | accept tables 27/28/31 (default false) |
 
 ## Output Schema
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `items` | array | ORFs: `{ sequence, position, frame, isReverseComplement, length, codonCount, start, end, isTerminated }` |
+| `items` | array | ORFs: `{ sequence, position, frame, isReverseComplement, length, codonCount, start, end, isTerminated, isStartPartial }` |
 
 `frame` is 1–3 within the scanned strand; `position` is the 0-based start in the *scanned strand*
 (the input, or its reverse complement when `isReverseComplement`); `start`/`end` are the 0-based inclusive
 coordinates of the same span on the input strand (stop codon included; for a reverse-strand ORF the
-reverse complement of `input[start..end]` is `sequence`); `codonCount` = length / 3.
+reverse complement of `input[start..end]` is `sequence`); `codonCount` = length / 3. `isStartPartial` is true when the ORF begins within the first
+3 nt of the scanned strand or region (ORFfinder "5'-partial", also for an ORF that begins with ATG); `isTerminated` = false is 3'-partial.
 
 ## Errors
 
@@ -71,7 +88,8 @@ reverse complement of `input[start..end]` is `sequence`); `codonCount` = length 
 | 1001 | Sequence cannot be null or empty |
 | 1001 | Invalid DNA sequence (A/C/G/T and IUPAC codes only) |
 | 1001 | Unknown / dual-coding genetic code, unknown `startCodons` |
-| 1002 | Minimum ORF length must be at least 1 |
+| 1002 | Minimum ORF length must be at least 1 (not with `orfFinderMinLength`); negative region value or `regionStart` > `regionEnd` |
+| 1001 | `strand` unknown, or combined with `bothStrands = false` |
 
 ## Examples
 
@@ -132,6 +150,15 @@ reverse complement of `input[start..end]` is `sequence`); `codonCount` = length 
 { "tool": "find_open_reading_frames", "arguments": { "sequence": "ATGTGAAAATAA", "minLength": 1, "genetic_code": 2 } }
 ```
 Returns the 12-nt ORF `ATGTGAAAATAA` (with the Standard code the ORF is `ATGTGA`).
+
+### Example 5: ORFfinder `-n true` (identical spans across strands)
+
+```json
+{ "tool": "find_open_reading_frames", "arguments": { "sequence": "TAATTAGCTAAAGCTGTCCACCATGCTGTCCTTCCAGGTAGCTAATTA", "minLength": 30,
+  "startCodons": "AnySenseCodon", "nested": false, "includeOpenEnded": true, "minLengthExcludesStop": true, "orfFinderMinLength": true, "ignoreNested": true } }
+```
+Without `ignoreNested` the ORFs are `+3..44, +7..45, -3..44, -2..40, -7..45` (input spans); with it the plus ORFs are dropped (`+3..44` equals `-3..44`, `+7..45` equals `-7..45`):
+`-3..44, -2..40, -7..45` (measured on ORFfinder 0.4.3, sequence `strand_equal_span_s2_12` of the oracle).
 
 ## Performance
 

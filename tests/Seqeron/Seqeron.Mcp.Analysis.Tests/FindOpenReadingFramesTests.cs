@@ -143,4 +143,61 @@ public class FindOpenReadingFramesTests
         Assert.That((rev.Sequence, rev.Start, rev.End), Is.EqualTo(("ATGNNNTAA", 0, 8)));
         Assert.Throws<ArgumentException>(() => AnalysisTools.FindOpenReadingFrames("ATGXTAA", 1));
     }
+
+    // B09 A1-18 / A1-19: NCBI ORFfinder 0.4.3 options measured on the binary (orffinder_cli_oracle.tsv, docs/Evidence/GENOMIC-ORF-001-Evidence.md).
+    // strand_equal_span_s2_12 (48 nt), -s 2 -ml 30: the plus ORF 7..45 and the minus ORF 7..45 are identical spans; -n true drops the plus one.
+    [Test]
+    public void FindOpenReadingFrames_OrfFinderOptions_IgnoreNestedStrandAndMinimumLength()
+    {
+        const string seq = "TAATTAGCTAAAGCTGTCCACCATGCTGTCCTTCCAGGTAGCTAATTA";
+        string Spans(FindOpenReadingFramesResult r) => string.Join(";", r.Items.Select(i => $"{(i.IsReverseComplement ? '-' : '+')},{i.Start},{i.End}"));
+        var all = AnalysisTools.FindOpenReadingFrames(seq, 30, startCodons: "AnySenseCodon", nested: false, includeOpenEnded: true,
+            minLengthExcludesStop: true, orfFinderMinLength: true);
+        Assert.That(Spans(all), Is.EqualTo("+,3,44;+,7,45;-,3,44;-,2,40;-,7,45"));
+        var dropped = AnalysisTools.FindOpenReadingFrames(seq, 30, startCodons: "AnySenseCodon", nested: false, includeOpenEnded: true,
+            minLengthExcludesStop: true, orfFinderMinLength: true, ignoreNested: true);
+        Assert.That(Spans(dropped), Is.EqualTo("-,3,44;-,2,40;-,7,45"));
+        // oracle flags: -,3,44 complete; -,2,40 open at 3' (2 nt left); -,7,45 begins at offset 2 of the minus strand (5'-partial)
+        Assert.That(dropped.Items.Select(i => i.IsStartPartial).ToArray(), Is.EqualTo(new[] { false, false, true }));
+        Assert.That(dropped.Items.Select(i => i.IsTerminated).ToArray(), Is.EqualTo(new[] { true, false, true }));
+
+        var minus = AnalysisTools.FindOpenReadingFrames(seq, 30, startCodons: "AnySenseCodon", nested: false, includeOpenEnded: true,
+            minLengthExcludesStop: true, orfFinderMinLength: true, strand: "MINUS");
+        Assert.That(Spans(minus), Is.EqualTo("-,3,44;-,2,40;-,7,45"));
+        Assert.Throws<ArgumentException>(() => AnalysisTools.FindOpenReadingFrames(seq, 30, bothStrands: false, strand: "plus"));
+        Assert.Throws<ArgumentException>(() => AnalysisTools.FindOpenReadingFrames(seq, 30, strand: "left"));
+
+        // -ml: values below 30 are changed to 30 (also 0 and negative), whole codons: 30 coding nt pass -ml 31.
+        string orf = "ATG" + string.Concat(Enumerable.Repeat("GCC", 9)) + "TAA";
+        Assert.That(AnalysisTools.FindOpenReadingFrames(orf, 31, minLengthExcludesStop: true, orfFinderMinLength: true, bothStrands: false).Items, Has.Length.EqualTo(1));
+        Assert.That(AnalysisTools.FindOpenReadingFrames(orf, 33, minLengthExcludesStop: true, orfFinderMinLength: true, bothStrands: false).Items, Is.Empty);
+        Assert.That(AnalysisTools.FindOpenReadingFrames(orf, -5, minLengthExcludesStop: true, orfFinderMinLength: true, bothStrands: false).Items, Has.Length.EqualTo(1));
+        Assert.Throws<ArgumentOutOfRangeException>(() => AnalysisTools.FindOpenReadingFrames(orf, 0));
+    }
+
+    [Test]
+    public void FindOpenReadingFrames_OrfFinderOptions_RegionAndDualCodingTables()
+    {
+        string orf = "ATG" + string.Concat(Enumerable.Repeat("GCC", 12)) + "TAA";
+        string seq = new string('C', 20) + orf + new string('C', 20);          // ORF at 20..61
+
+        var exact = AnalysisTools.FindOpenReadingFrames(seq, 30, bothStrands: false, regionStart: 21, regionEnd: 62).Items.Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That((exact.Start, exact.End), Is.EqualTo((20, 61)), "input coordinates");
+            Assert.That(exact.Position, Is.EqualTo(0), "relative to the region");
+            Assert.That(exact.IsStartPartial, Is.True);
+            Assert.That(exact.IsTerminated, Is.True);
+        });
+        var cut = AnalysisTools.FindOpenReadingFrames(seq, 30, includeOpenEnded: true, bothStrands: false, regionEnd: 50).Items.Single();
+        Assert.That((cut.Start, cut.End, cut.IsTerminated), Is.EqualTo((20, 49, false)));
+        Assert.Throws<ArgumentOutOfRangeException>(() => AnalysisTools.FindOpenReadingFrames(seq, 30, regionStart: 50, regionEnd: 40));
+        Assert.Throws<ArgumentOutOfRangeException>(() => AnalysisTools.FindOpenReadingFrames(seq, 30, regionStart: -5, regionEnd: 100));
+
+        // -g 27: rejected by default, accepted with allowDualCodingStopTables (TGA ends the ORF).
+        string tga = "ATG" + string.Concat(Enumerable.Repeat("GCC", 12)) + "TGA";
+        Assert.Throws<ArgumentException>(() => AnalysisTools.FindOpenReadingFrames(tga, 30, genetic_code: 27));
+        var dual = AnalysisTools.FindOpenReadingFrames(tga, 30, genetic_code: 27, bothStrands: false, allowDualCodingStopTables: true).Items.Single();
+        Assert.That((dual.Start, dual.End, dual.IsTerminated), Is.EqualTo((0, 41, true)));
+    }
 }

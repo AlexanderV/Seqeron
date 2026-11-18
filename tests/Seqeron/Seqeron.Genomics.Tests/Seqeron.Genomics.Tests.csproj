@@ -89,6 +89,9 @@
     <!-- GENOMIC-ORF-001 (B09 F21-F26): independent Biopython finder == NCBI COrf::FindOrfs port == EMBOSS getorf 6.6.0
          (longest-per-stop configuration), 1746 (sequence, options) rows; scripts/analysis/generate_orf_oracle.py. -->
     <EmbeddedResource Include="TestData\Analysis\orf_oracle.tsv" />
+    <!-- GENOMIC-ORF-001 (A1-18 / A1-19): the NCBI ORFfinder 0.4.3 standalone program run in Docker over 629 inputs (user-run, 1750 runs):
+         54 820 (option set, sequence) results; scripts/analysis/generate_orffinder_oracle.py. -->
+    <EmbeddedResource Include="TestData\Analysis\orffinder_cli_oracle.tsv" />
     <!-- GENOMIC-TANDEM / GENOMIC-REPEAT / GENOMIC-ORF-001 (B09 A1-21): the same oracle generators in ambiguous mode, sequences with N and other
          IUPAC symbols for the string overloads of FindTandemRepeats / FindPalindromes / FindOpenReadingFrames. -->
     <EmbeddedResource Include="TestData\Analysis\tandem_iupac_oracle.tsv" />

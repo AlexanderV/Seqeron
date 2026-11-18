@@ -167,7 +167,8 @@ public record CommonRegionItem(string Sequence, int PositionInFirst, int Positio
 public record FindCommonRegionsResult(CommonRegionItem[] Items);
 
 /// <summary>An open reading frame. <c>Position</c> is the 0-based start in the scanned strand (input or its reverse complement);
-/// <c>Start</c>/<c>End</c> are the 0-based inclusive input-strand coordinates of the same span (stop codon included).</summary>
+/// <c>Start</c>/<c>End</c> are the 0-based inclusive input-strand coordinates of the same span (stop codon included). <c>IsStartPartial</c>:
+/// the ORF begins within the first 3 nt of the scanned strand / searched region (NCBI ORFfinder "5'-partial"); <c>!IsTerminated</c> is 3'-partial.</summary>
 public record OrfItem(
     string Sequence,
     int Position,
@@ -177,7 +178,8 @@ public record OrfItem(
     int CodonCount,
     int Start,
     int End,
-    bool IsTerminated);
+    bool IsTerminated,
+    bool IsStartPartial = false);
 
 /// <summary>Result of <c>find_open_reading_frames</c>.</summary>
 public record FindOpenReadingFramesResult(OrfItem[] Items);

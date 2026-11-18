@@ -1,5 +1,7 @@
 # A1-18 / A1-19 - integration plan for the returned NCBI ORFfinder 0.4.3 output
 
+> **DONE (B09 WP10, F57)** - integrated as described in README.md; deviations from this plan: the converter is `scripts/analysis/generate_orffinder_oracle.py` (compact result-table TSV `orffinder_cli_oracle.tsv`), `OrfSearchOptions` members are `IgnoreNestedOrfs`, `OrfFinderMinimumLength`, `DualCodingStopsTerminate`, `Strands`, `RegionStart/RegionEnd`, profile `OrfFinderCompatible` (no `Circular`: the binary ignores `-c`).
+
 Written before the output exists. Every "decided by the oracle" item below is a question the 1750 runs answer; the plan fixes the
 code shape, so the integrating session only fills in the measured rule. No rule is implemented before it is observed in `out/`.
 

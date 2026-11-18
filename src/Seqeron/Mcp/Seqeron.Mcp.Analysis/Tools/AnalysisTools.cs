@@ -757,20 +757,40 @@ public class AnalysisTools
     }
 
     [McpServerTool(Name = "find_open_reading_frames", Title = "Genome — Open Reading Frames", ReadOnly = true)]
-    [Description("ORFs in all 6 frames (3 forward + 3 reverse-complement): an ORF runs from a start codon (default ATG) to the first in-frame stop codon of the NCBI genetic code genetic_code (default 1 = Standard: TAA/TAG/TGA), stop included; every in-frame start that reaches a stop is reported, so nested ORFs sharing a stop are all returned (Rosalind ORF). minLength is in nucleotides including the stop (NCBI ORFfinder's -ml excludes it: minLengthExcludesStop). position is the 0-based start in the scanned strand (the input, or its reverse complement when isReverseComplement); start/end are the 0-based inclusive input-strand coordinates. Options (NCBI ORFfinder / COrf): startCodons AtgOnly (default) | GeneticCodeStarts (ATG + the table's alternative initiation codons) | AnySenseCodon (stop-to-stop); nested=false keeps only the most upstream start per stop; includeOpenEnded adds 3'-partial ORFs that reach the sequence end without a stop (isTerminated=false); bothStrands=false scans the forward strand only. Tables with dual-coding stops (27, 28, 31) are rejected. IUPAC input (e.g. N runs of an assembly) is accepted: an ambiguous codon ends an ORF only when every concrete codon is a stop, never starts one and is otherwise read through.")]
+    [Description("ORFs in all 6 frames (3 forward + 3 reverse-complement): an ORF runs from a start codon (default ATG) to the first in-frame stop codon of the NCBI genetic code genetic_code (default 1 = Standard: TAA/TAG/TGA), stop included; every in-frame start that reaches a stop is reported, so nested ORFs sharing a stop are all returned (Rosalind ORF). minLength is in nucleotides including the stop (NCBI ORFfinder's -ml excludes it: minLengthExcludesStop). position is the 0-based start in the scanned strand (the input, or its reverse complement when isReverseComplement); start/end are the 0-based inclusive input-strand coordinates. Options (NCBI ORFfinder / COrf): startCodons AtgOnly (default) | GeneticCodeStarts (ATG + the table's alternative initiation codons) | AnySenseCodon (stop-to-stop); nested=false keeps only the most upstream start per stop; includeOpenEnded adds 3'-partial ORFs that reach the sequence end without a stop (isTerminated=false); strand (both|plus|minus, as ORFfinder -strand; alternative to bothStrands=false) restricts the strands. NCBI ORFfinder 0.4.3 options, measured on the binary (1750 runs): ignoreNested (-n: drop an ORF lying completely inside another ORF of any frame or strand; identical spans: the plus-strand ORF goes), regionStart/regionEnd (-b/-e, 1-based inclusive, 0 = to the end; the region is cut out and scanned alone, start/end stay in input coordinates), orfFinderMinLength (-ml: values below 30 become 30, whole codons), allowDualCodingStopTables (-g 27/28/31). isStartPartial marks an ORF that begins within the first 3 nt of the scanned strand or region (ORFfinder '5-partial'; isTerminated=false = 3'-partial). The ORFfinder equivalent is startCodons=GeneticCodeStarts nested=false includeOpenEnded=true minLengthExcludesStop=true orfFinderMinLength=true allowDualCodingStopTables=true; -c (circular) has no effect in the binary and no counterpart here. Without allowDualCodingStopTables tables with dual-coding stops (27, 28, 31) are rejected. IUPAC input (e.g. N runs of an assembly) is accepted: an ambiguous codon ends an ORF only when every concrete codon is a stop, never starts one and is otherwise read through.")]
     public static FindOpenReadingFramesResult FindOpenReadingFrames(
         [Description("Nucleotide sequence: A/C/G/T plus IUPAC codes such as N (case-insensitive). An ambiguous codon ends an ORF only when every concrete codon is a stop, is never a start, and is otherwise read through.")] string sequence,
         [Description("Minimum ORF length in nucleotides, stop codon included unless minLengthExcludesStop (default 100).")] int minLength = 100,
-        [Description("NCBI translation table number whose stop codons end ORFs (default 1 = Standard; e.g. 2 = vertebrate mitochondrial, 11 = bacterial/plastid). One of the NCBI gc.prt tables (1-6, 9-16, 21-33, except the dual-coding 27, 28, 31).")] int genetic_code = 1,
+        [Description("NCBI translation table number whose stop codons end ORFs (default 1 = Standard; e.g. 2 = vertebrate mitochondrial, 11 = bacterial/plastid). One of the NCBI gc.prt tables (1-6, 9-16, 21-33); the dual-coding 27, 28, 31 only with allowDualCodingStopTables.")] int genetic_code = 1,
         [Description("Start-codon policy (case-insensitive): AtgOnly (default), GeneticCodeStarts (ATG and the alternative initiation codons of genetic_code, e.g. TTG/CTG in table 1), AnySenseCodon (any non-stop codon).")] string startCodons = "AtgOnly",
         [Description("true (default): report every in-frame start (nested ORFs). false: only the most upstream start per stop codon (NCBI ORFfinder default, EMBOSS getorf).")] bool nested = true,
         [Description("true: also report ORFs that run to the sequence end without a stop codon (3'-partial, isTerminated=false). Default false.")] bool includeOpenEnded = false,
         [Description("true: minLength excludes the stop codon (NCBI ORFfinder -ml / EMBOSS getorf -minsize). Default false.")] bool minLengthExcludesStop = false,
-        [Description("true (default): scan both strands; false: forward strand only.")] bool bothStrands = true)
+        [Description("true (default): scan both strands; false: forward strand only (see strand).")] bool bothStrands = true,
+        [Description("NCBI ORFfinder -strand: both | plus | minus (case-insensitive). Default null = decided by bothStrands; cannot be combined with bothStrands=false.")] string? strand = null,
+        [Description("NCBI ORFfinder -n true: drop every ORF whose span lies completely inside another reported ORF of any frame/strand (identical spans: the plus-strand ORF is dropped). Default false.")] bool ignoreNested = false,
+        [Description("NCBI ORFfinder -b: 1-based first nucleotide of the searched region (default 1; 0 is read as 1). The region is cut out and scanned as a sequence of its own.")] int regionStart = 1,
+        [Description("NCBI ORFfinder -e: 1-based last nucleotide (inclusive) of the region; 0 (default) or beyond the sequence = to the end. An end below the start is an error.")] int regionEnd = 0,
+        [Description("NCBI ORFfinder -ml rule: minLength below 30 is changed to 30 and used in whole codons (rounded down to a multiple of 3; also lifts the minLength >= 1 check). Default false.")] bool orfFinderMinLength = false,
+        [Description("true: genetic_code 27, 28 and 31 are accepted and the codons the table lists as stops end ORFs (what NCBI ORFfinder -g 27/28/31 does). Default false (rejected).")] bool allowDualCodingStopTables = false)
     {
         var nucleotides = RequireIupacDna(sequence, nameof(sequence));
-        if (minLength < 1)
+        if (minLength < 1 && !orfFinderMinLength)
             throw new ArgumentOutOfRangeException(nameof(minLength), "Minimum ORF length must be at least 1");
+
+        OrfStrands strands;
+        if (strand is null)
+            strands = bothStrands ? OrfStrands.Both : OrfStrands.Plus;
+        else if (!bothStrands)
+            throw new ArgumentException("strand and bothStrands=false are alternatives: give only one of them.", nameof(strand));
+        else
+            strands = strand.ToLowerInvariant() switch
+            {
+                "both" => OrfStrands.Both,
+                "plus" => OrfStrands.Plus,
+                "minus" => OrfStrands.Minus,
+                _ => throw new ArgumentException($"Unknown strand '{strand}': expected both, plus or minus.", nameof(strand)),
+            };
 
         var options = new OrfSearchOptions
         {
@@ -779,7 +799,12 @@ public class AnalysisTools
             NestedOrfs = nested,
             IncludeOpenEnded = includeOpenEnded,
             MinLengthExcludesStop = minLengthExcludesStop,
-            SearchBothStrands = bothStrands,
+            Strands = strands,
+            IgnoreNestedOrfs = ignoreNested,
+            RegionStart = regionStart,
+            RegionEnd = regionEnd,
+            OrfFinderMinimumLength = orfFinderMinLength,
+            DualCodingStopsTerminate = allowDualCodingStopTables,
         };
 
         var items = GenomicAnalyzer.FindOpenReadingFrames(nucleotides, minLength, options)
@@ -787,7 +812,7 @@ public class AnalysisTools
             {
                 var (start, end) = o.GetForwardStrandRange(nucleotides.Length);
                 return new OrfItem(o.Sequence, o.Position, o.Frame, o.IsReverseComplement, o.Length, o.CodonCount,
-                    start, end, o.IsTerminated);
+                    start, end, o.IsTerminated, o.IsStartPartial);
             })
             .ToArray();
         return new FindOpenReadingFramesResult(items);
