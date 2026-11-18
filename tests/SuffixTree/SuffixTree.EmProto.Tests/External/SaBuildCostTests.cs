@@ -14,7 +14,7 @@ namespace SuffixTree.EmProto.Tests.External;
 /// <c>docs/refactoring/suffix-tree-upgrade/analysis/em/run_1b7d_g2.sh</c> and <c>run_1b7d_g3.sh</c> (cold or warm cache, processes one after the other, environment variables name the files). Not part of any run
 /// (<c>[Explicit]</c>). Variants: <c>proto</c> (PH1 with <c>ExternalDcs.BuildRankFile</c> and PH2 / PH3 with <c>EmBuilder.Run</c> and the mapped sink, the parameters of <see cref="ProtoPipe.ScaleRules"/>, phase by phase as
 /// <c>EndToEnd.Run</c> does, the rank file deleted when PH3 is done), <c>prod</c> (<c>SaBuilder.Build</c>), <c>prodnr</c> (without the RSS sampler of the builder), <c>prodsparse</c> (the files created sparse instead of
-/// reserved: G5), and <c>e2e</c> (PH0 <c>PackedTextWriter</c>, then <c>SaBuilder</c>, then <c>LcpChildBuilder</c>, one shared <c>IoCounters</c>: G2). The timed region of the stage variants is the build call including what it
+/// reserved: G5), <c>prodverify</c> (with the optional check of the rank file between PH1 and PH2 / PH3: G5) and <c>e2e</c> (PH0 <c>PackedTextWriter</c>, then <c>SaBuilder</c>, then <c>LcpChildBuilder</c>, one shared <c>IoCounters</c>: G2). The timed region of the stage variants is the build call including what it
 /// removes at its end (the rank file, the scratch directories): the prototype's side does the same.
 /// </summary>
 [TestFixture]
@@ -53,6 +53,7 @@ public unsafe class SaBuildCostTests
             case "prod":
             case "prodnr":
             case "prodsparse":
+            case "prodverify":
                 row = RunProd(variant, scratch, scale, threads, out Prod.SaBuildResult? result);
                 Prod.RssStats s = rss.Stop();
                 File.AppendAllText(rows, string.Join('\t', label, variant, row, before, s.MaxRssAnonKb, s.Samples) + "\n");
@@ -63,7 +64,7 @@ public unsafe class SaBuildCostTests
                 RunEndToEnd(label, scratch, scale, threads, rows, rss, before);
                 return;
             default:
-                throw new InvalidOperationException("G3_VARIANT must be proto, prod, prodnr, prodsparse or e2e");
+                throw new InvalidOperationException("G3_VARIANT must be proto, prod, prodnr, prodsparse, prodverify or e2e");
         }
     }
 
@@ -138,7 +139,7 @@ public unsafe class SaBuildCostTests
             ScaleN = scale,
             MeasureRss = variant != "prodnr",
             Files = variant == "prodsparse" ? new Prod.MappedFileOptions { Reservation = Prod.ReservationMode.Sparse } : null,
-            VerifyRanks = EnvOr("G3_VERIFY", "0") == "1",
+            VerifyRanks = variant == "prodverify" || EnvOr("G3_VERIFY", "0") == "1",
         };
         long t0 = Stopwatch.GetTimestamp();
         result = Prod.SaBuilder.Build(text, saPath, options);

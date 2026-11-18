@@ -5,7 +5,7 @@
 # within a run number so that neither always goes first. After every run the suffix array is cmp'ed with the reference outside the timed region and deleted.
 #   usage: run_1b7d_g3.sh <rows file> <inputs: dna genome> [runs per cell, default 3] [cells, default "A-cold B-cold A-warm"]
 # environment: G3_DIR (default /tmp/stbench/c7: <name>_100m.pk and the reference <name>_100m.sa of the prototype's e6), G3_WORK (/tmp/stbench/g3c)
-#   cells: A = the 3x10^9 geometry scaled to 10^8 (ScaleN 3x10^9, the E6 parameters), B = the real geometry (ScaleN 0); G5 = the cost of the reservation (prod against prodsparse) and of the sampler (prod against prodnr), A warm
+#   cells: A = the 3x10^9 geometry scaled to 10^8 (ScaleN 3x10^9, the E6 parameters), B = the real geometry (ScaleN 0); G5 = the cost of the reservation (prod against prodsparse) and of the sampler (prod against prodnr), A warm; G5v = the cost of the optional rank-file check (prod against prodverify), A warm
 set -u
 ROWS=$(readlink -f "$1")
 INPUTS=${2:-"dna genome"}
@@ -48,6 +48,7 @@ for NAME in $INPUTS; do
       B-cold) SC=0; CACHE=cold; VARS="proto prod" ;;
       A-warm) SC=3000000000; CACHE=warm; VARS="proto prod" ;;
       G5-A-warm) SC=3000000000; CACHE=warm; VARS="prod prodsparse prodnr" ;;
+      G5v-A-warm) SC=3000000000; CACHE=warm; VARS="prod prodverify" ;;
       *) echo "unknown cell $CELL"; continue ;;
     esac
     for K in $(seq 1 "$RUNS"); do

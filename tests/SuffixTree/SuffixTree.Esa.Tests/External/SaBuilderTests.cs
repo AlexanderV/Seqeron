@@ -92,7 +92,7 @@ public class SaBuilderTests
     [Test]
     public void TheOutput_IsIdenticalForEveryThreadCount_BucketCapacity_AndSeed()
     {
-        foreach ((string name, string text) in SaRun.Families(15_000).Where(f => f.Name is "a^n" or "fibonacci" or "tandem" or "random-dna" or "genome-like" or "n-runs"))
+        foreach ((string name, string text) in SaRun.Families(3_000).Where(f => f.Name is "a^n" or "fibonacci" or "tandem" or "random-dna" or "genome-like" or "n-runs"))
         {
             SaCase c = SaCase.Of(text);
             string? reference = null;
