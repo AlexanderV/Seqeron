@@ -656,12 +656,15 @@ public static partial class SequenceAligner
     /// <c>mmScore = 100f·count; mmScore /= (float)MIN(len1, len2); d = (100f − mmScore) / 100f</c> (an empty sequence: 1).
     /// </summary>
     internal static double ClustalWSinglePrecisionDistance(
-        string a, string b, double gapOpen = ClustalWDnaPairwiseGapOpen, double gapExtend = ClustalWDnaPairwiseGapExtend, float transitionWeight = 0.5f)
+        string a, string b, double gapOpen = ClustalWDnaPairwiseGapOpen, double gapExtend = ClustalWDnaPairwiseGapExtend, float transitionWeight = 0.5f,
+        (int[,] Matrix, float GapOpenScale, float GapExtendScale)? setup = null)
     {
         if (a.Length == 0 || b.Length == 0)
             return 1.0;
 
-        var r = ClustalWPairwiseAlignCore(a, b, gapOpen, gapExtend, transitionWeight);
+        var r = setup is { } resolved
+            ? ClustalWPairwiseAlignResolved(a, b, gapOpen, gapExtend, resolved)
+            : ClustalWPairwiseAlignCore(a, b, gapOpen, gapExtend, transitionWeight);
         float mm = 100.0f * r.Identities;
         mm /= Math.Min(a.Length, b.Length);
         return (100.0f - mm) / 100.0f;

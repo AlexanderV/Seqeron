@@ -106,6 +106,14 @@
          `clustalw -TYPE=PROTEIN -ALIGN -OUTPUT=FASTA -OUTORDER=INPUT` rows + "Sequences (i:j) Aligned. Score:" lines on 240 sets with the matrix files embedded;
          scripts/alignment/generate_clustalw_user_matrix_oracle.py. -->
     <EmbeddedResource Include="TestData\Alignment\clustalw_user_matrix_oracle.tsv" />
+    <!-- ALIGN-MULTI-001 (audit A1-10d part 2, B09 F67): ClustalW 2.1 end-gap options of the profile stage (UserParameters::useEndGaps / endGapPenalties, reachable only through the
+         patched `-ENDGAPS` handler of the Docker package docs/Validation/review-2026-09/handoff/A1-10d, run by the user): 340 sets x 4 modes (control / useendgaps / endgappen / both),
+         34 sets x 2 modes abort (no output file); scripts/alignment/build_clustalw_end_gaps_oracle.py. -->
+    <EmbeddedResource Include="TestData\Alignment\clustalw_end_gaps_oracle.tsv" />
+    <!-- ALIGN-MULTI-001 (audit A1-10d part 3, B09 F68): ClustalW 2.1 nucleotide matrices (`-DNAMATRIX` / `-PWDNAMATRIX` = IUB, CLUSTALW or a file; `-TRANSWEIGHT`) - the command line
+         (a file is read and validated but not used: PROTEIN-slot defect) and the interactive menu (the file is used), rows + pairwise scores + first-pass group scores, matrix files embedded;
+         scripts/alignment/generate_clustalw_dna_matrix_oracle.py. -->
+    <EmbeddedResource Include="TestData\Alignment\clustalw_dna_matrix_oracle.tsv" />
     <!-- GENOMIC-COMMON-001 (B09 F15-F16): independent Python (DP + suffix automaton + brute-force matching statistics)
          oracle for FindLongestCommonRegion / FindCommonRegions; scripts/analysis/generate_common_region_oracle.py. -->
     <EmbeddedResource Include="TestData\Analysis\common_region_oracle.tsv" />

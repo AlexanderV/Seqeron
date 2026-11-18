@@ -1,5 +1,7 @@
 # TEMPORARY hand-off package A1-10d - ClustalW 2.1 end-gap options (Docker, for the user's Mac)
 
+> **STATUS (2026-11-18): INTEGRATED (B09 F67).** The user ran the package; the returned archive is `returned/A1-10d-out.zip` (control rows equal the installed binary on 340 / 340 sets; 34 sets abort in the modes `endgappen` / `both`). It became `tests/Seqeron/Seqeron.Genomics.Tests/TestData/Alignment/clustalw_end_gaps_oracle.tsv` (`scripts/alignment/build_clustalw_end_gaps_oracle.py`), the options `UseEndGaps` / `EndGapPenalties` of `ClustalWOptions` / `ClustalWProteinOptions`, the explicit `ClustalWAbortedException` and the MCP parameters `useEndGaps` / `endGapPenalties`; test class `SequenceAligner_ClustalWEndGaps_Tests`. Nothing more is to be run.
+
 **Why.** B09 item A1-10d (end-gap handling of ClustalW's profile stage): `UserParameters::useEndGaps` ("use end gaps" - gaps at the ends of the
 sequences are counted as gaps in `ProfileBase::calcGapCoeff`) and `UserParameters::endGapPenalties` ("end gap penalties" - the terminal gaps of
 a profile alignment are penalised: `profile[0][GAPCOL] = gapCoef`, `openPenalty*/extPenalty*/gapPenalty*` no longer return 0 at the profile

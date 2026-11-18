@@ -66,14 +66,73 @@ public static partial class SequenceAligner
 
     private const int ClustalWIntScale = 100;
 
-    // The pairwise DNA matrix over residue codes (getMatrix + the three transition-weight overrides of getPairwiseMatrix).
-    private static readonly Lazy<int[,]> ClustalWDnaMatrix = new(() => BuildClustalWDnaMatrix(0.5f));
+    // ---- the nucleotide matrices of ClustalW 2.1 (matrices.h swgapdnamt / clustalvdnamt, the user's -DNAMATRIX / -PWDNAMATRIX file) ----
 
-    private static int[,] BuildClustalWDnaMatrix(float transitionWeight)
+    /// <summary><c>defaultDNAXref</c>: for each of the 17 columns of the packing order of the DNA tables of <c>matrices.h</c> its residue code.</summary>
+    private static readonly int[] ClustalWDefaultDnaXref = ClustalWNucleicOrder.Select(c => ClustalWResidueCodes.IndexOf(c)).ToArray();
+
+    /// <summary><c>clustalvdnamt</c> (ClustalW 1.6's matrix): 10 on the diagonal of A, C, G, T and U, 0 everywhere else (lower triangle in the packing order).</summary>
+    private static readonly short[] ClustalWClustalvDnaTriangle = BuildClustalvDnaTriangle();
+
+    private static short[] BuildClustalvDnaTriangle()
     {
-        var matrix = BuildClustalWIubMatrixRaw();
-        // getPairwiseMatrix: transitionWeight (-TRANSWEIGHT, default 0.5) * matrix[0][0] written to the code pairs (0,4), (2,11),
-        // (2,12) = A-E, C-M, C-N (ClustalW 2.1 addresses residue CODES here, so with ambiguity codes the C-M / C-N scores move).
+        var t = new short[ClustalWIubTriangle.Length];
+        foreach (char c in "ACGTU")
+        {
+            int i = ClustalWNucleicOrder.IndexOf(c);
+            t[i * (i + 1) / 2 + i] = 10;
+        }
+
+        return t;
+    }
+
+    private static IEnumerable<(int Row, int Column, short Value)> ClustalWDnaTableCells(short[] triangle)
+    {
+        int ix = 0;
+        for (int i = 0; i < ClustalWNucleicOrder.Length; i++)
+            for (int j = 0; j <= i; j++)
+                yield return (i, j, triangle[ix++]);
+    }
+
+    /// <summary>
+    /// <c>SubMatrix::getProfileAlignMatrix</c>, DNA branch: the table (<c>swgapdnamt</c> for IUB, <c>clustalvdnamt</c> for CLUSTALW with the gap-penalty scale 0.66,
+    /// <c>userDNAMat</c> with <c>DNAXref</c> and scale 1.0 for a user matrix) with its cross reference.
+    /// </summary>
+    private static (IReadOnlyList<(int Row, int Column, short Value)> Cells, IReadOnlyList<int> Cross, float Scale) ClustalWProfileDnaMatrixSource(
+        ClustalWDnaMatrix builtIn, ClustalWUserMatrix? user)
+    {
+        if (user is not null)
+            return (user.Cells().ToList(), user.Cross, 1.0f);
+        return builtIn switch
+        {
+            ClustalWDnaMatrix.Iub => (ClustalWDnaTableCells(ClustalWIubTriangle).ToList(), ClustalWDefaultDnaXref, 1.0f),
+            ClustalWDnaMatrix.Clustalw => (ClustalWDnaTableCells(ClustalWClustalvDnaTriangle).ToList(), ClustalWDefaultDnaXref, 0.66f),
+            _ => throw new ArgumentOutOfRangeException(nameof(builtIn), builtIn, "Unknown ClustalW DNA matrix."),
+        };
+    }
+
+    /// <summary>
+    /// <c>matrix[Xref[a]][Xref[b]] = matrix[Xref[b]][Xref[a]] = value</c> of <c>getProfileAlignMatrix</c>. A position outside the file's header has Xref -1: the C++ then writes
+    /// outside its <c>matrix[NUMRES][NUMRES]</c> array (undefined behaviour); the write is dropped here.
+    /// </summary>
+    private static void ClustalWSetTransition(int[,] matrix, IReadOnlyList<int> cross, int a, int b, int value)
+    {
+        int x = a < cross.Count ? cross[a] : -1;
+        int y = b < cross.Count ? cross[b] : -1;
+        if (x < 0 || y < 0)
+            return;
+        matrix[x, y] = value;
+        matrix[y, x] = value;
+    }
+
+    /// <summary>
+    /// <c>SubMatrix::getPairwiseMatrix</c>, DNA branch: <c>getMatrix</c> with intScale 100 and no shift (<c>negFlag = true</c>) on the table, then the transition weights written
+    /// to the residue CODES (0,4), (2,11), (2,12) = A-E, C-M, C-N (ClustalW 2.1 does not go through the Xref here, so with ambiguity codes the C-M / C-N scores move and no A / C / G / T
+    /// pair is changed).
+    /// </summary>
+    private static int[,] BuildClustalWDnaPairwiseMatrix(IEnumerable<(int Row, int Column, short Value)> cells, IReadOnlyList<int> cross, float transitionWeight)
+    {
+        var (matrix, _) = ClustalWGetMatrix(cells, cross, ClustalWIntScale);
         int transition = (int)(transitionWeight * matrix[0, 0]);
         foreach (var (a, b) in new[] { (0, 4), (2, 11), (2, 12) })
         {
@@ -84,26 +143,20 @@ public static partial class SequenceAligner
         return matrix;
     }
 
-    /// <summary>The IUB nucleotide matrix x100 over the ClustalW residue codes (<c>getMatrix</c> before any adjustment).</summary>
-    private static int[,] BuildClustalWIubMatrixRaw()
+    /// <summary>The pairwise matrix and the gap-penalty scales of <c>getPairwiseMatrix</c> for a DNA setup (CLUSTALW: opening x 0.6667, extension x 0.751).</summary>
+    private static (int[,] Matrix, float GapOpenScale, float GapExtendScale) ClustalWDnaPairwiseSetup(ClustalWDnaPairwiseOptions o)
     {
-        int n = ClustalWResidueCodes.Length;
-        var matrix = new int[n, n];
-        int ix = 0;
-        for (int i = 0; i < ClustalWNucleicOrder.Length; i++)
+        if (o.UserMatrix is not null && o.UserMatrixUse == ClustalWUserDnaMatrixUse.Applied)
+            return (BuildClustalWDnaPairwiseMatrix(o.UserMatrix.Cells(), o.UserMatrix.Cross, o.TransitionWeight), 1.0f, 1.0f);
+        return o.Matrix switch
         {
-            int ti = ClustalWResidueCodes.IndexOf(ClustalWNucleicOrder[i]);
-            for (int j = 0; j <= i; j++)
-            {
-                int tj = ClustalWResidueCodes.IndexOf(ClustalWNucleicOrder[j]);
-                int k = ClustalWIubTriangle[ix++] * ClustalWIntScale;
-                matrix[ti, tj] = k;
-                matrix[tj, ti] = k;
-            }
-        }
-
-        return matrix;
+            ClustalWDnaMatrix.Iub => (BuildClustalWDnaPairwiseMatrix(ClustalWDnaTableCells(ClustalWIubTriangle), ClustalWDefaultDnaXref, o.TransitionWeight), 1.0f, 1.0f),
+            ClustalWDnaMatrix.Clustalw => (BuildClustalWDnaPairwiseMatrix(ClustalWDnaTableCells(ClustalWClustalvDnaTriangle), ClustalWDefaultDnaXref, o.TransitionWeight), 0.6667f, 0.751f),
+            _ => throw new ArgumentOutOfRangeException(nameof(o), o.Matrix, "Unknown ClustalW DNA matrix."),
+        };
     }
+
+    private static readonly Lazy<(int[,] Matrix, float GapOpenScale, float GapExtendScale)> ClustalWDefaultDnaPairwiseSetup = new(() => ClustalWDnaPairwiseSetup(new ClustalWDnaPairwiseOptions()));
 
     /// <summary>
     /// ClustalW 2.1 pairwise alignment stage for DNA (default <c>-PWDNAMATRIX=IUB -PWGAPOPEN=15 -PWGAPEXT=6.66</c>) with the
@@ -129,9 +182,48 @@ public static partial class SequenceAligner
         double gapOpen = ClustalWDnaPairwiseGapOpen, double gapExtend = ClustalWDnaPairwiseGapExtend)
         => ClustalWPairwiseAlignCore(sequence1, sequence2, gapOpen, gapExtend, 0.5f);
 
+    /// <summary>
+    /// ClustalW 2.1 pairwise alignment stage for DNA with every option of the stage: <c>-PWGAPOPEN</c>, <c>-PWGAPEXT</c>, <c>-TRANSWEIGHT</c> and the matrix
+    /// <c>-PWDNAMATRIX</c> (<c>IUB</c>, <c>CLUSTALW</c> or a user file), see <see cref="ClustalWDnaPairwiseOptions"/>.
+    /// </summary>
+    /// <param name="sequence1">First sequence (IUB nucleotide codes, case-insensitive).</param>
+    /// <param name="sequence2">Second sequence.</param>
+    /// <param name="options">Pairwise options (default: IUB, 15, 6.66, transition weight 0.5).</param>
+    /// <exception cref="ArgumentNullException">A sequence or <paramref name="options"/> is null.</exception>
+    /// <exception cref="ArgumentException">A symbol is not an IUB nucleotide code, or a penalty is negative / NaN.</exception>
+    public static ClustalWPairwiseResult ClustalWPairwiseAlign(string sequence1, string sequence2, ClustalWDnaPairwiseOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        return ClustalWPairwiseAlignCore(sequence1, sequence2, options.GapOpen, options.GapExtend, options.TransitionWeight, options);
+    }
+
+    /// <summary><see cref="ClustalWPairwiseAlign(string, string, ClustalWDnaPairwiseOptions)"/> for <see cref="DnaSequence"/> inputs.</summary>
+    public static ClustalWPairwiseResult ClustalWPairwiseAlign(DnaSequence sequence1, DnaSequence sequence2, ClustalWDnaPairwiseOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(sequence1);
+        ArgumentNullException.ThrowIfNull(sequence2);
+        return ClustalWPairwiseAlign(sequence1.Sequence, sequence2.Sequence, options);
+    }
+
     /// <summary><see cref="ClustalWPairwiseAlign(string, string, double, double)"/> with ClustalW's <c>-TRANSWEIGHT</c> (affects the C-M / C-N scores of ambiguity codes).</summary>
     internal static ClustalWPairwiseResult ClustalWPairwiseAlignCore(
-        string sequence1, string sequence2, double gapOpen, double gapExtend, float transitionWeight)
+        string sequence1, string sequence2, double gapOpen, double gapExtend, float transitionWeight, ClustalWDnaPairwiseOptions? matrixOptions = null)
+    {
+        if (float.IsNaN(transitionWeight) || transitionWeight < 0)
+            throw new ArgumentException("TransitionWeight must be a non-negative number.");
+        (int[,] Matrix, float GapOpenScale, float GapExtendScale) setup;
+        if (matrixOptions is not null)
+            setup = ClustalWDnaPairwiseSetup(matrixOptions);
+        else if (transitionWeight == 0.5f)
+            setup = ClustalWDefaultDnaPairwiseSetup.Value;
+        else
+            setup = ClustalWDnaPairwiseSetup(new ClustalWDnaPairwiseOptions { TransitionWeight = transitionWeight });
+        return ClustalWPairwiseAlignResolved(sequence1, sequence2, gapOpen, gapExtend, setup);
+    }
+
+    /// <summary>The pairwise stage with an already built matrix / gap-scale setup (<see cref="ClustalWDnaPairwiseSetup"/>).</summary>
+    internal static ClustalWPairwiseResult ClustalWPairwiseAlignResolved(
+        string sequence1, string sequence2, double gapOpen, double gapExtend, (int[,] Matrix, float GapOpenScale, float GapExtendScale) setup)
     {
         ArgumentNullException.ThrowIfNull(sequence1);
         ArgumentNullException.ThrowIfNull(sequence2);
@@ -148,11 +240,10 @@ public static partial class SequenceAligner
         // (int)(2 * PWGapOpen * intScale * gapOpenScale), (int)(PWGapExtend * intScale * gapExtendScale) in single precision.
         float go = (float)gapOpen;
         float ge = (float)gapExtend;
-        int gapOpenInt = (int)(2f * go * (float)ClustalWIntScale * 1.0f);
-        int gapExtendInt = (int)(ge * (float)ClustalWIntScale * 1.0f);
+        int gapOpenInt = (int)(2f * go * (float)ClustalWIntScale * setup.GapOpenScale);
+        int gapExtendInt = (int)(ge * (float)ClustalWIntScale * setup.GapExtendScale);
 
-        var matrix = transitionWeight == 0.5f ? ClustalWDnaMatrix.Value : BuildClustalWDnaMatrix(transitionWeight);
-        return RunClustalWPairwise(sequence1, sequence2, codes1, codes2, matrix, gapOpenInt, gapExtendInt);
+        return RunClustalWPairwise(sequence1, sequence2, codes1, codes2, setup.Matrix, gapOpenInt, gapExtendInt);
     }
 
     /// <summary>

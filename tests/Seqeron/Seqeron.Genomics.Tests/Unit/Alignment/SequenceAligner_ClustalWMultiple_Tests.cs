@@ -41,7 +41,7 @@ public class SequenceAligner_ClustalWMultiple_Tests
     });
 
     /// <summary>The clustalw command line semantics of the oracle's option string (-KTUPLE sets the pair gap to ktuple + 4, -PAIRGAP overrides).</summary>
-    private static ClustalWOptions Parse(string s)
+    internal static ClustalWOptions Parse(string s)
     {
         var o = new ClustalWOptions();
         if (s.Length == 0)

@@ -235,6 +235,26 @@ public static partial class SequenceAligner
         return state.Run(ClustalWPairwiseDistanceMatrix(raw, options));
     }
 
+    /// <summary>
+    /// The rows of <see cref="MultipleAlignClustalW(IEnumerable{string}, ClustalWOptions?, ScoringMatrix?)"/> together with the lines <c>clustalw</c> prints for the first pass
+    /// of the progressive alignment, <c>Group g: Sequences: n  Score: s</c> (the profile-alignment optimum / 100) or <c>Group g: Delayed</c> (no sequence of the step is aligned
+    /// yet, or its score is not positive): (group, entries, score), score = null when delayed. Used to verify the profile matrices against the program's screen output.
+    /// </summary>
+    internal static (string[] Rows, IReadOnlyList<(int Group, int Entries, int? Score)> Groups) MultipleAlignClustalWWithGroupScores(string[] raw, ClustalWOptions options)
+    {
+        ValidateClustalWOptions(options);
+        int n = raw.Length;
+        var codes = new int[n][];
+        for (int i = 0; i < n; i++)
+            codes[i] = EncodeClustalWDna(raw[i], "sequences");
+        if (n < 2 || codes.Any(c => c.Length == 0))
+            throw new ArgumentException("At least two non-empty sequences are required.", nameof(raw));
+
+        var state = new ClustalWMsaState(codes, CwConfig.FromDna(options));
+        string[] rows = state.Run(ClustalWPairwiseDistanceMatrix(raw, options));
+        return (rows, state.FirstPassGroups);
+    }
+
     private static void ValidateClustalWOptions(ClustalWOptions o)
     {
         if (o.GapOpen < 0 || o.GapExtend < 0 || double.IsNaN(o.GapOpen) || double.IsNaN(o.GapExtend))
@@ -255,13 +275,20 @@ public static partial class SequenceAligner
         var d = new double[n, n];
         int longest = raw.Max(s => s.Length);
         var quick = options.Quick ?? new ClustalWQuickOptions();
+        var pairwiseMatrix = ClustalWDnaPairwiseSetup(new ClustalWDnaPairwiseOptions
+        {
+            Matrix = options.PairwiseDnaMatrix,
+            UserMatrix = options.PairwiseUserDnaMatrix,
+            UserMatrixUse = options.UserDnaMatrixUse,
+            TransitionWeight = options.TransitionWeight,
+        });
         for (int i = 0; i < n; i++)
         {
             for (int j = i + 1; j < n; j++)
             {
                 double v = options.PairwiseMode == ClustalWPairwiseMode.Quick
                     ? ClustalWQuickPairwiseDistance(raw[i], raw[j], quick, longest)
-                    : ClustalWSinglePrecisionDistance(raw[i], raw[j], options.PairwiseGapOpen, options.PairwiseGapExtend, options.TransitionWeight);
+                    : ClustalWSinglePrecisionDistance(raw[i], raw[j], options.PairwiseGapOpen, options.PairwiseGapExtend, options.TransitionWeight, pairwiseMatrix);
                 d[i, j] = v;
                 d[j, i] = v;
             }
@@ -289,16 +316,19 @@ public static partial class SequenceAligner
         bool EndGapPenalties,
         IReadOnlyList<int>? GapDistanceOverrides = null,
         ClustalWUserMatrix? UserMatrix = null,
-        IReadOnlyList<ClustalWMatrixSeriesEntry>? UserMatrixSeries = null)
+        IReadOnlyList<ClustalWMatrixSeriesEntry>? UserMatrixSeries = null,
+        ClustalWDnaMatrix DnaMatrix = ClustalWDnaMatrix.Iub,
+        ClustalWUserMatrix? UserDnaMatrix = null)
     {
         public static CwConfig FromDna(ClustalWOptions o) => new(
             false, o.GapOpen, o.GapExtend, o.DivergenceCutoff, o.NoWeights, o.NegativeMatrix, o.TransitionWeight,
-            ClustalWProfileMatrix.Gonnet, false, false, false, 4, "GPSNDQEKR", false, false);
+            ClustalWProfileMatrix.Gonnet, false, false, false, 4, "GPSNDQEKR", o.UseEndGaps, o.EndGapPenalties,
+            DnaMatrix: o.DnaMatrix, UserDnaMatrix: o.UserDnaMatrixUse == ClustalWUserDnaMatrixUse.Applied ? o.UserDnaMatrix : null);
 
         public static CwConfig FromProtein(ClustalWProteinOptions o) => new(
             true, o.GapOpen, o.GapExtend, o.DivergenceCutoff, o.NoWeights, o.NegativeMatrix, 0.5f,
             o.Matrix, o.NoPreferredGapPenalties, o.NoHydrophilicGapPenalties, o.VariableRegionGapPenalties,
-            o.GapSeparationDistance, o.HydrophilicResidues, false, false, o.UninitialisedGapDistances, o.UserMatrix, o.UserMatrixSeries);
+            o.GapSeparationDistance, o.HydrophilicResidues, o.UseEndGaps, o.EndGapPenalties, o.UninitialisedGapDistances, o.UserMatrix, o.UserMatrixSeries);
     }
 
     /// <summary>Single-run state of the ClustalW multiple alignment (the members of Clustal / MSA / MyersMillerProfileAlign it needs).</summary>
@@ -321,6 +351,10 @@ public static partial class SequenceAligner
         private int[] _displ = Array.Empty<int>();
         private int[] _hh = Array.Empty<int>(), _dd = Array.Empty<int>(), _rr = Array.Empty<int>(), _ss = Array.Empty<int>(), _gS = Array.Empty<int>();
         private int _printPtr, _lastPrint;
+        private readonly List<(int Group, int Entries, int? Score)> _firstPassGroups = new();
+
+        /// <summary>What ClustalW prints per step of the first pass: "Group g: Sequences: n Score: s" (score &gt; 0) or "Group g: Delayed".</summary>
+        public IReadOnlyList<(int Group, int Entries, int? Score)> FirstPassGroups => _firstPassGroups;
         private int _uninitialisedUses;   // profiles that used the unassigned gdist so far (ClustalWProteinOptions.UninitialisedGapDistances)
         private readonly Stack<int> _freedGapDistances = new(new[] { 0, 0 });   // gdist left in the two most recently freed profile objects (fresh heap memory: 0)
 
@@ -331,61 +365,29 @@ public static partial class SequenceAligner
             _seq = codes;
             if (!options.Protein)
             {
-                BuildMatrix();
-                // gapcoef = (int)(100.0 * getGapOpen() * scale); getGapOpen() returns a float, scale (1.0 for IUB) a double.
-                _gapCoef = (int)(100.0 * (double)(float)options.GapOpen * 1.0);
-                _lenCoef = (int)(100.0 * (double)(float)options.GapExtend * 1.0);
+                float scale = BuildMatrix();
+                // gapcoef = (int)(100.0 * getGapOpen() * scaleVals.scale); getGapOpen() returns a float, scale (a float: 1.0 for IUB and user
+                // matrices, 0.66 for CLUSTALW) is promoted to double.
+                _gapCoef = (int)(100.0 * (double)(float)options.GapOpen * (double)scale);
+                _lenCoef = (int)(100.0 * (double)(float)options.GapExtend * (double)scale);
             }
         }
 
-        // SubMatrix::getProfileAlignMatrix, DNA / IUB branch (getMatrix with intScale 100, !minimise).
-        private void BuildMatrix()
+        // SubMatrix::getProfileAlignMatrix, DNA branch (getMatrix with intScale 100, !minimise): IUB (swgapdnamt), CLUSTALW (clustalvdnamt, scale 0.66) or the user's
+        // userDNAMat / DNAXref (scale 1.0), shifted to non-negative scores unless -NEGATIVE; then the three transition weights through the Xref of the matrix in use.
+        // Returns the gap-penalty scale of the matrix (PrfScaleValues.scale).
+        private float BuildMatrix()
         {
-            var raw = BuildClustalWIubMatrixRaw();
-            int n = ClustalWResidueCodes.Length;
-            for (int i = 0; i < n; i++)
-            {
-                for (int j = 0; j < n; j++)
-                    _matrix[i, j] = raw[i, j];
-            }
+            var (cells, cross, scale) = ClustalWProfileDnaMatrixSource(_o.DnaMatrix, _o.UserDnaMatrix);
+            var (matrix, _) = BuildClustalWProfileMatrix(cells, cross, 100, _o.NegativeMatrix);
 
-            // min over matrix[i][j], i = 0..maxAA, j = 1..i (sic) of the whole 32 x 32 array (zeros of unused codes included)
-            int min = _matrix[0, 0];
-            for (int i = 0; i <= CwMaxAa; i++)
-            {
-                for (int j = 1; j <= i; j++)
-                    min = Math.Min(min, _matrix[i, j]);
-            }
+            // fix suggested by Chanan Rubin at Compugen: matrix[Xref[0]][Xref[4]] (A-G), [Xref[2]][Xref[11]] (C-T), [Xref[2]][Xref[12]] (C-U) = int(transitionWeight * matrix[0][0])
+            int transition = (int)(_o.TransitionWeight * matrix[0, 0]);
+            foreach (var (x, y) in new[] { (0, 4), (2, 11), (2, 12) })
+                ClustalWSetTransition(matrix, cross, x, y, transition);
 
-            if (!_o.NegativeMatrix && min < 0)
-            {
-                // every pair of residue codes of the nucleic-acid order gets -min added
-                var valid = new bool[CwNumRes];
-                foreach (char c in ClustalWNucleicOrder)
-                    valid[ClustalWResidueCodes.IndexOf(c)] = true;
-                for (int i = 0; i <= CwMaxAa; i++)
-                {
-                    if (!valid[i])
-                        continue;
-                    for (int j = 0; j <= CwMaxAa; j++)
-                    {
-                        if (valid[j])
-                            _matrix[i, j] -= min;
-                    }
-                }
-            }
-
-            // gap rows / columns (grScore = ggScore = 0) are already zero.
-
-            // transition weight: int(transitionWeight * matrix[0][0]) for A-G, C-T, C-U (defaultDNAXref of 'A','G' / 'C','T' / 'C','U')
-            int transition = (int)(_o.TransitionWeight * _matrix[0, 0]);
-            int a = ClustalWResidueCodes.IndexOf('A'), g = ClustalWResidueCodes.IndexOf('G'), c2 = ClustalWResidueCodes.IndexOf('C');
-            int t = ClustalWResidueCodes.IndexOf('T'), u = ClustalWResidueCodes.IndexOf('U');
-            foreach (var (x, y) in new[] { (a, g), (c2, t), (c2, u) })
-            {
-                _matrix[x, y] = transition;
-                _matrix[y, x] = transition;
-            }
+            _matrix = matrix;
+            return scale;
         }
 
         public string[] Run(double[,] dist)
@@ -644,8 +646,10 @@ public static partial class SequenceAligner
             var aligned = new int[n + 1];
             int ix = 0;
 
+            int groupNumber = 0;
             foreach (var set in steps)
             {
+                groupNumber++;
                 int entries = 0;
                 for (int i = 1; i <= n; i++)
                 {
@@ -660,8 +664,15 @@ public static partial class SequenceAligner
                     }
                 }
 
+                int score = 0;
                 if (entries > 0)
-                    ProfileAlign(set, aligned);
+                    score = ProfileAlign(set, aligned);
+
+                // MSA::multiSeqAlign: "negative score means fatal error... exit now!" (return -1; Clustal::align then returns without any output).
+                // Only the first pass checks; the second pass (delayed sequences) ignores the score.
+                if (score < 0)
+                    throw new ClustalWAbortedException(groupNumber, score);
+                _firstPassGroups.Add((groupNumber, entries, entries > 0 && score > 0 ? score : null));
             }
 
             // second pass: align the remaining (delayed, more divergent) sequences, closest to the aligned ones first
@@ -767,7 +778,7 @@ public static partial class SequenceAligner
         // MyersMillerProfileAlign::profileAlign
         // ------------------------------------------------------------------------------------------------------------
 
-        private void ProfileAlign(int[] group, int[] aligned)
+        private int ProfileAlign(int[] group, int[] aligned)
         {
             int numSeq = _n;
             for (int i = 0; i < numSeq; i++)
@@ -786,7 +797,7 @@ public static partial class SequenceAligner
             }
 
             if (nseqs1 == 0 || nseqs2 == 0)
-                return;
+                return 0;
 
             bool switchProfiles = nseqs2 > nseqs1;
             if (switchProfiles)
@@ -872,7 +883,7 @@ public static partial class SequenceAligner
             _lastPrint = 0;
             _printPtr = 1;
 
-            ProgDiff(0, 0, _prfLength1, _prfLength2, _profile1[0][CwGapCol], _profile1[_prfLength1][CwGapCol]);
+            int score = ProgDiff(0, 0, _prfLength1, _prfLength2, _profile1[0][CwGapCol], _profile1[_prfLength1][CwGapCol]);
 
             // progTracepath
             var alnPath1 = new int[maxAln + 2];
@@ -946,6 +957,8 @@ public static partial class SequenceAligner
             // delete profileWithSub; delete profileStandard;
             _freedGapDistances.Push(gdist1);
             _freedGapDistances.Push(gdist2);
+
+            return score / 100;   // int division truncates toward zero: scores in (-100, 0] are reported as 0
         }
 
         // MyersMillerProfileAlign::profileAlign (PROTEIN part) + SubMatrix::getProfileAlignMatrix (protein branch): the matrix of the series chosen by the
@@ -1543,7 +1556,7 @@ public static partial class SequenceAligner
 
         // MyersMillerProfileAlign::progDiff (the function-level statics of the C++ are plain locals here: every use of
         // them is inside one invocation before the recursive calls)
-        private void ProgDiff(int A, int B, int M, int N, int go1, int go2)
+        private int ProgDiff(int A, int B, int M, int N, int go1, int go2)
         {
             int midi, midj, type;
             int midh;
@@ -1553,7 +1566,7 @@ public static partial class SequenceAligner
             {
                 if (M > 0)
                     ProgDel(M);
-                return;
+                return -GapPenalty1(A, B, M);
             }
 
             if (M <= 1)
@@ -1561,7 +1574,7 @@ public static partial class SequenceAligner
                 if (M <= 0)
                 {
                     ProgAdd(N);
-                    return;
+                    return -GapPenalty2(A, B, N);
                 }
 
                 if (go1 == 0)
@@ -1594,7 +1607,7 @@ public static partial class SequenceAligner
                         ProgAdd(N - midj);
                 }
 
-                return;
+                return midh;
             }
 
             // divide sequence A in half
@@ -1752,6 +1765,8 @@ public static partial class SequenceAligner
                 ProgDel(2);
                 ProgDiff(A + midi + 1, B + midj, M - midi - 1, N - midj, 0, go2);
             }
+
+            return midh;   // the score of the best alignment (the value ClustalW's profileAlign divides by 100)
         }
     }
 

@@ -243,6 +243,63 @@ public class MultipleAlignTests
         });
     }
 
+    // B09 F67 (A1-10d part 2): multiple_align_clustalw useEndGaps / endGapPenalties. Rows = the patched clustalw 2.1 of the Docker package (clustalw_end_gaps_oracle.tsv, set D84 DNA):
+    // control, useendgaps, endgappen, both; set D17 aborts with endGapPenalties (no output file) -> an explicit error.
+    private static readonly string[] EndGapSet = ["AAGAGCCCT", "CGATAAAGCT", "CGATAAGTT", "CGATAAGTT", "CGCATAAGTT", "CGTATATTC", "CGAAATCT"];
+
+    [Test]
+    public void MultipleAlignClustalW_EndGapOptions_DelegateAndAbortIsExplicit()
+    {
+        var control = AlignmentTools.MultipleAlignClustalW(EndGapSet);
+        var pen = AlignmentTools.MultipleAlignClustalW(EndGapSet, useEndGaps: false, endGapPenalties: true);
+        var both = AlignmentTools.MultipleAlignClustalW(EndGapSet, useEndGaps: true, endGapPenalties: true);
+        var viaApi = global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignClustalW(EndGapSet,
+            new global::Seqeron.Genomics.Infrastructure.ClustalWOptions { EndGapPenalties = true });
+        Assert.Multiple(() =>
+        {
+            Assert.That(control.AlignedSequences, Is.EqualTo(new[] { "---AAGAGCCCT", "CGATAAAGCT--", "CG-ATAAGTT--", "CG-ATAAGTT--", "CGCATAAGTT--", "CGTATATTC---", "--CGAAATCT--" }));
+            Assert.That(pen.AlignedSequences, Is.EqualTo(new[] { "AAGA-GCCCT", "CGATAAAGCT", "CG-ATAAGTT", "CG-ATAAGTT", "CGCATAAGTT", "CGTATAT-TC", "CGA--AATCT" }));
+            Assert.That(pen.AlignedSequences, Is.EqualTo(viaApi.AlignedSequences));
+            Assert.That(both.AlignedSequences, Is.EqualTo(pen.AlignedSequences));
+            var ex = Assert.Throws<global::Seqeron.Genomics.Infrastructure.ClustalWAbortedException>(() => AlignmentTools.MultipleAlignClustalW(new[] { "AT", "AAACA", "AA" }, endGapPenalties: true))!;
+            Assert.That(ex.Message, Does.Contain("abandons the alignment"));
+            Assert.That(AlignmentTools.MultipleAlignClustalW(new[] { "AT", "AAACA", "AA" }, useEndGaps: true).AlignedSequences, Has.Length.EqualTo(3));
+        });
+    }
+
+    // B09 F68 (A1-10d part 3): multiple_align_clustalw dnaMatrixFile / pwDnaMatrixFile / dnaMatrix / pwDnaMatrix / userDnaMatrixUse. Rows = the installed clustalw 2.1 driven through its
+    // interactive menu (the file is used; set 244 of clustalw_dna_matrix_oracle.tsv, pwgapopen 10); the command line reads but ignores the file (userDnaMatrixUse = commandline).
+    private static readonly string[] DnaMatrixSet = ["GGACTCGGGAATGGGAGTGG", "CGTCTCGGGAATGGGAGTGG", "GAACTCGGAATGGGAGTGG", "GGACTCGGGATGGGAGTGG"];
+    private static readonly string[] DnaMatrixRows = ["GGACTCGGGAATGGGAGTGG", "CGTCTCGGGAATGGGAGTGG", "-GAACTCGGAATGGGAGTGG", "-GGACTCGGGATGGGAGTGG"];
+    private const string DnaMatrixFile = "# DNA matrix made for the user-matrix oracle\n# Entries for the matrix at a scale of 1/2 bit\n\n A T G C S W R Y K M B V H D N U *\nA 1 -9 1 -9 -9 -1 -1 -9 -9 -1 -9 -1 -1 -1 -1 -9 -4\nT -9 1 -9 1 -9 -1 -9 -1 -1 -9 -1 -9 -1 -1 -1 1 -4\nG 1 -9 1 -9 -1 -9 -1 -9 -1 -9 -1 -1 -9 -1 -1 -9 -4\nC -9 1 -9 1 -1 -9 -9 -1 -9 -1 -1 -1 -1 -9 -1 1 -4\nS -9 -9 -1 -1 -1 -9 -1 -1 -1 -1 -1 -1 -1 -1 -1 -9 -4\nW -1 -1 -9 -9 -9 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -4\nR -1 -9 -1 -9 -1 -1 -1 -9 -1 -1 -1 -1 -1 -1 -1 -9 -4\nY -9 -1 -9 -1 -1 -1 -9 -1 -1 -1 -1 -1 -1 -1 -1 -1 -4\nK -9 -1 -1 -9 -1 -1 -1 -1 -1 -9 -1 -1 -1 -1 -1 -1 -4\nM -1 -9 -9 -1 -1 -1 -1 -1 -9 -1 -1 -1 -1 -1 -1 -9 -4\nB -9 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -4\nV -1 -9 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -9 -4\nH -1 -1 -9 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -4\nD -1 -1 -1 -9 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -4\nN -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -4\nU -9 1 -9 1 -9 -1 -9 -1 -1 -9 -1 -9 -1 -1 -1 1 -4\n* -4 -4 -4 -4 -4 -4 -4 -4 -4 -4 -4 -4 -4 -4 -4 -4 -4\n";
+
+    [Test]
+    public void MultipleAlignClustalW_DnaMatrices_DelegateAndFollowClustalWsCommandLineAndMenu()
+    {
+        var applied = AlignmentTools.MultipleAlignClustalW(DnaMatrixSet, pwGapOpen: 10, dnaMatrixFile: DnaMatrixFile);
+        var cli = AlignmentTools.MultipleAlignClustalW(DnaMatrixSet, pwGapOpen: 10, dnaMatrixFile: DnaMatrixFile, userDnaMatrixUse: "commandline");
+        var plain = AlignmentTools.MultipleAlignClustalW(DnaMatrixSet, pwGapOpen: 10);
+        var clustalw = AlignmentTools.MultipleAlignClustalW(DnaMatrixSet, dnaMatrix: "CLUSTALW", pwDnaMatrix: "clustalw");
+        var viaApi = global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignClustalW(DnaMatrixSet, new global::Seqeron.Genomics.Infrastructure.ClustalWOptions
+        {
+            DnaMatrix = global::Seqeron.Genomics.Infrastructure.ClustalWDnaMatrix.Clustalw,
+            PairwiseDnaMatrix = global::Seqeron.Genomics.Infrastructure.ClustalWDnaMatrix.Clustalw,
+        });
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied.AlignedSequences, Is.EqualTo(DnaMatrixRows));
+            Assert.That(cli.AlignedSequences, Is.EqualTo(plain.AlignedSequences));
+            Assert.That(applied.AlignedSequences, Is.Not.EqualTo(plain.AlignedSequences));
+            Assert.That(clustalw.AlignedSequences, Is.EqualTo(viaApi.AlignedSequences));
+            Assert.That(AlignmentTools.MultipleAlignClustalW(DnaMatrixSet, pwGapOpen: 10, pwDnaMatrixFile: DnaMatrixFile).AlignedSequences, Has.Length.EqualTo(4));
+            Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignClustalW(DnaMatrixSet, dnaMatrix: "bogus"));
+            Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignClustalW(DnaMatrixSet, pwDnaMatrix: "bogus"));
+            Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignClustalW(DnaMatrixSet, userDnaMatrixUse: "bogus"));
+            Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignClustalW(DnaMatrixSet, dnaMatrixFile: "CLUSTAL_SERIES\nMATRIX 0 100 x\n"));
+            Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignClustalW(DnaMatrixSet, pwDnaMatrixFile: "# nothing\n"));
+        });
+    }
+
     // B09 F64 (A1-10d file part): multiple_align_clustalw matrixFile / matrixFiles / pwMatrixFile = clustalw -MATRIX=file (here a CLUSTAL_SERIES file with an unlabelled
     // tab-separated integer matrix and a labelled floating-point matrix) / -PWMATRIX=file. Rows = the installed clustalw 2.1, set 11 of clustalw_user_matrix_oracle.tsv.
     private static readonly string[] UserMatrixSet = ["ALAAALLLAALAAA", "RPKRQESPKNPGRQEPKEPENSNRRQKK", "ALAAAECLAALAAA", "AGAAALLSEPLAALAAA", "ALAAAPLLAALAAA", "ALGGALLNAALAAA"];

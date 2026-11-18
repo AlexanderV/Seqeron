@@ -911,6 +911,119 @@ public sealed record ClustalWOptions
 
     /// <summary><c>-NEGATIVE</c>: use the substitution matrix as it is (negative mismatch scores) instead of shifting it to non-negative scores.</summary>
     public bool NegativeMatrix { get; init; }
+
+    /// <summary>
+    /// <c>UserParameters::useEndGaps</c> (the menu item "Toggle End Gap Separation"; the command-line flag <c>-ENDGAPS</c> only ever writes <c>false</c>): gaps at the ends
+    /// of the sequences count as gaps in the position-specific penalties of <c>ProfileBase::calcGapCoeff</c>. Default <c>false</c>.
+    /// </summary>
+    public bool UseEndGaps { get; init; }
+
+    /// <summary>
+    /// <c>UserParameters::endGapPenalties</c> (no command-line switch; the program's own code sets it only for profile alignments): the end gaps of a profile alignment are
+    /// penalised (gap opening / extension at the profile ends instead of free). Default <c>false</c>. With it a profile alignment of the first pass can score below zero,
+    /// where ClustalW 2.1 gives up silently: see <see cref="ClustalWAbortedException"/>.
+    /// </summary>
+    public bool EndGapPenalties { get; init; }
+
+    /// <summary>
+    /// <c>-DNAMATRIX=IUB | CLUSTALW</c>: the profile-stage matrix: <see cref="ClustalWDnaMatrix.Iub"/> (default) or <see cref="ClustalWDnaMatrix.Clustalw"/> (ClustalW 1.6's
+    /// identity matrix, gap penalties scaled by 0.66). Ignored when <see cref="UserDnaMatrix"/> is set.
+    /// </summary>
+    public ClustalWDnaMatrix DnaMatrix { get; init; } = ClustalWDnaMatrix.Iub;
+
+    /// <summary><c>-PWDNAMATRIX=IUB | CLUSTALW</c>: the matrix of the full pairwise stage (see <see cref="ClustalWDnaPairwiseOptions.Matrix"/>); ignored when <see cref="PairwiseUserDnaMatrix"/> is set.</summary>
+    public ClustalWDnaMatrix PairwiseDnaMatrix { get; init; } = ClustalWDnaMatrix.Iub;
+
+    /// <summary>
+    /// <c>-DNAMATRIX=file</c> (command line) / "User defined" of the DNA weight-matrix menu: a user-defined nucleotide matrix (<see cref="ClustalWUserMatrix.Parse"/>) for the profile
+    /// stage. How it is used is decided by <see cref="UserDnaMatrixUse"/>.
+    /// </summary>
+    public ClustalWUserMatrix? UserDnaMatrix { get; init; }
+
+    /// <summary>The user-defined nucleotide matrix of the full pairwise stage (<c>-PWDNAMATRIX=file</c> / the pairwise-parameters menu), see <see cref="UserDnaMatrixUse"/>.</summary>
+    public ClustalWUserMatrix? PairwiseUserDnaMatrix { get; init; }
+
+    /// <summary>What ClustalW does with <see cref="UserDnaMatrix"/> / <see cref="PairwiseUserDnaMatrix"/> (default <see cref="ClustalWUserDnaMatrixUse.Applied"/>).</summary>
+    public ClustalWUserDnaMatrixUse UserDnaMatrixUse { get; init; } = ClustalWUserDnaMatrixUse.Applied;
+}
+
+/// <summary>
+/// Parameters of ClustalW 2.1's full pairwise stage for DNA (<c>clustalw -TYPE=DNA</c>): <c>-PWGAPOPEN</c>, <c>-PWGAPEXT</c>, <c>-TRANSWEIGHT</c> and <c>-PWDNAMATRIX</c>.
+/// Defaults are ClustalW's DNA defaults.
+/// </summary>
+public sealed record ClustalWDnaPairwiseOptions
+{
+    /// <summary>Pairwise gap-opening penalty (<c>-PWGAPOPEN</c>, DNA default 15.0; stored in single precision like ClustalW).</summary>
+    public double GapOpen { get; init; } = 15.0;
+
+    /// <summary>Pairwise gap-extension penalty (<c>-PWGAPEXT</c>, DNA default 6.66).</summary>
+    public double GapExtend { get; init; } = 6.66;
+
+    /// <summary><c>-TRANSWEIGHT</c> (default 0.5): the score of the pairs written to the residue codes (0,4), (2,11), (2,12) is <c>int(TransitionWeight * matrix[0][0])</c>.</summary>
+    public float TransitionWeight { get; init; } = 0.5f;
+
+    /// <summary><c>-PWDNAMATRIX=IUB | CLUSTALW</c> (default IUB); CLUSTALW scales the gap opening by 0.6667 and the extension by 0.751. Ignored when <see cref="UserMatrix"/> is applied.</summary>
+    public ClustalWDnaMatrix Matrix { get; init; } = ClustalWDnaMatrix.Iub;
+
+    /// <summary><c>-PWDNAMATRIX=file</c> (see <see cref="UserMatrixUse"/>): a user-defined nucleotide matrix (x100, never shifted; <see cref="ClustalWUserMatrix.Parse"/>).</summary>
+    public ClustalWUserMatrix? UserMatrix { get; init; }
+
+    /// <summary>What ClustalW does with <see cref="UserMatrix"/> (default <see cref="ClustalWUserDnaMatrixUse.Applied"/>).</summary>
+    public ClustalWUserDnaMatrixUse UserMatrixUse { get; init; } = ClustalWUserDnaMatrixUse.Applied;
+}
+
+/// <summary>The built-in nucleotide matrices of ClustalW 2.1 (<c>-DNAMATRIX</c>, <c>-PWDNAMATRIX</c>).</summary>
+public enum ClustalWDnaMatrix
+{
+    /// <summary><c>IUB</c> (default): <c>swgapdnamt</c> - +10 for a match (IUB ambiguity codes: any overlap), -9 for a mismatch (x100 in the profile stage).</summary>
+    Iub = 0,
+
+    /// <summary><c>CLUSTALW</c> ("CLUSTALW(1.6)"): <c>clustalvdnamt</c> - +10 on the diagonal of A, C, G, T and U, 0 everywhere else; the profile stage scales the gap
+    /// penalties by 0.66, the pairwise stage by 0.6667 (opening) / 0.751 (extension).</summary>
+    Clustalw = 1,
+}
+
+/// <summary>
+/// How ClustalW 2.1 treats a user-defined nucleotide matrix. The two behaviours differ because of a defect of the program: on the command line
+/// (<c>-DNAMATRIX=file</c>, <c>-PWDNAMATRIX=file</c>) <c>CommandLineParser::interpretParameters</c> reads and validates the file but then registers its name with
+/// <c>setCurrentNameAndNum(name, 3, Protein, ...)</c> - the PROTEIN slot - so the DNA stages keep the IUB matrix; the interactive menu ("DNA weight matrix",
+/// "User defined") registers it for DNA and the matrix is used.
+/// </summary>
+public enum ClustalWUserDnaMatrixUse
+{
+    /// <summary>The matrix is used (the interactive-menu behaviour: <c>userDNAMat</c> / <c>DNAXref</c>, <c>pwUserDNAMat</c> / <c>pwDNAXref</c>).</summary>
+    Applied = 0,
+
+    /// <summary><c>clustalw -TYPE=DNA -DNAMATRIX=file -PWDNAMATRIX=file</c> exactly: the file is read and validated (a malformed file ends the program) but the stages keep the IUB
+    /// matrix (or the built-in one chosen with <see cref="ClustalWOptions.DnaMatrix"/>).</summary>
+    CommandLine = 1,
+}
+
+/// <summary>Raised when ClustalW 2.1 would abandon the multiple alignment silently.</summary>
+/// <remarks>
+/// <c>MSA::multiSeqAlign</c> returns -1 when the score of a profile alignment of its FIRST pass (the guide-tree steps among the sequences that are not delayed) is negative
+/// (<c>score &lt; 0</c>; the score is the Myers-Miller optimum divided by 100, truncated), and <c>Clustal::align</c> then returns without writing any alignment (exit
+/// status 0, no output file). A profile alignment cannot score below zero while the end gaps are free (the alignment of two profiles consisting only of end gaps costs nothing);
+/// with <see cref="ClustalWOptions.EndGapPenalties"/> every gap is charged and a poor pair of profiles can fall below zero. This library reports the situation with
+/// this exception instead of returning an alignment ClustalW itself never produces.
+/// </remarks>
+public sealed class ClustalWAbortedException : InvalidOperationException
+{
+    /// <summary>Creates the exception.</summary>
+    /// <param name="group">1-based number of the profile alignment ("Group n") whose score was negative.</param>
+    /// <param name="score">The negative score (optimum / 100, truncated).</param>
+    public ClustalWAbortedException(int group, int score)
+        : base($"ClustalW 2.1 abandons the alignment: the profile alignment of group {group} scores {score} (< 0) with end-gap penalties; the program writes no output.")
+    {
+        Group = group;
+        Score = score;
+    }
+
+    /// <summary>1-based number of the first-pass profile alignment ("Group n") with the negative score.</summary>
+    public int Group { get; }
+
+    /// <summary>The negative score that ended the run.</summary>
+    public int Score { get; }
 }
 
 /// <summary>The substitution-matrix series of ClustalW's PROTEIN profile alignment (<c>-MATRIX</c>; one table of the series is chosen per profile pair by percent identity).</summary>
@@ -1000,6 +1113,12 @@ public sealed record ClustalWProteinOptions
     /// contains the identity of the profile pair (the first entry if none does), with the gap-penalty scale <c>0.5 + (pcid - llimit) / ((ulimit - llimit) * 2)</c>.
     /// </summary>
     public IReadOnlyList<ClustalWMatrixSeriesEntry>? UserMatrixSeries { get; init; }
+
+    /// <summary><c>UserParameters::useEndGaps</c> (menu item "Toggle End Gap Separation"; <c>-ENDGAPS</c> on the command line only writes <c>false</c>): see <see cref="ClustalWOptions.UseEndGaps"/>.</summary>
+    public bool UseEndGaps { get; init; }
+
+    /// <summary><c>UserParameters::endGapPenalties</c>: the end gaps of a profile alignment are penalised; see <see cref="ClustalWOptions.EndGapPenalties"/> and <see cref="ClustalWAbortedException"/>.</summary>
+    public bool EndGapPenalties { get; init; }
 }
 
 /// <summary>Residue alphabet of <c>SequenceAligner.MultipleAlignMuscle</c> (MUSCLE's <c>-seqtype</c>).</summary>

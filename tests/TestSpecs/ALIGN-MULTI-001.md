@@ -508,6 +508,32 @@ Tests added (all lock oracle values: Biopython 1.88 pair optima and independent 
 | UM6 | `FromSubstitutionMatrix_EqualsTheParsedFile_AndDrivesTheAlignmentIdentically` | a canonical `SubstitutionMatrix` = the equivalent file | API |
 | UM7 (MCP) | `MultipleAlignTests.MultipleAlignClustalW_Protein_UserMatrixFiles_EqualClustalW_AndAreValidated` | `matrixFile` + `matrixFiles` (series) = clustalw rows of oracle set 11; `matrixFile` / `pwMatrixFile` single; missing series file / no header / series as `pwMatrixFile` throw | oracle + library call |
 
+## 2026-11 audit round 1 (A1-10d part 2, B09 F67): ClustalW end-gap options of the profile stage + the program's abort
+
+`ClustalWOptions` / `ClustalWProteinOptions` `UseEndGaps` (`UserParameters::useEndGaps`) and `EndGapPenalties` (`endGapPenalties`), and `ClustalWAbortedException` (first-pass profile score < 0 -> ClustalW writes no output); test class `SequenceAligner_ClustalWEndGaps_Tests` (9 tests), oracle `TestData/Alignment/clustalw_end_gaps_oracle.tsv` (340 sets x 4 modes = 1 360 rows; 68 of them `ABORT`), produced by the user-run Docker package `docs/Validation/review-2026-09/handoff/A1-10d` (`clustalw` 2.1+lgpl-7 with one edit: the `-ENDGAPS` handler reads `CW_USEENDGAPS` / `CW_ENDGAPPEN`; control runs = installed binary on 340 / 340 sets).
+
+| ID | Test | Expected | Source |
+|----|------|----------|--------|
+| EG1 | `MultipleAlignClustalW_EndGapModes_RowsEqualClustalW_OnAll340Sets` (control, useendgaps) | every output row of the 340 sets (120 DNA + 220 protein, option variants incl. `-QUICKTREE`) | patched clustalw 2.1 |
+| EG2 | `MultipleAlignClustalW_EndGapPenaltyModes_RowsEqualClustalW_OnAll306SetsAndAbortOn34` (endgappen, both) | 306 sets: every row; the 34 sets (31 DNA + 3 protein) without an output file raise `ClustalWAbortedException` | patched clustalw 2.1 (MSA.cpp 150-155, Clustal.cpp 205-208) |
+| EG3 | `Abort_IsRaisedExactlyForTheProgramsNoOutputSets_AndNeverWithoutEndGapPenalties`, `Abort_ScoresOfAbortingSetsAreNegativeIntegers` | `Score` <= -1 and `Group` >= 1 in the exception and its message; the same sets align without end-gap penalties | source + oracle |
+| EG4 | `OracleHasEveryModeForEverySet`, `OracleDiscriminatesTheOptions`, `ControlMode_EqualsTheDefaultOptions` | 340 x 4 rows, 68 aborts; `useendgaps` changes > 100 sets, `endgappen` / `both` > 150; defaults = control | oracle design |
+| EG5 (MCP) | `MultipleAlignTests.MultipleAlignClustalW_EndGapOptions_DelegateAndAbortIsExplicit` | `useEndGaps` / `endGapPenalties` = library rows of oracle sets; the aborting set fails with the 'abandons the alignment' error | oracle + library call |
+
+## 2026-11 audit round 1 (A1-10d part 3, B09 F68): ClustalW nucleotide matrices (`-DNAMATRIX`, `-PWDNAMATRIX`, `-TRANSWEIGHT`)
+
+`ClustalWOptions.DnaMatrix / PairwiseDnaMatrix / UserDnaMatrix / PairwiseUserDnaMatrix / UserDnaMatrixUse`, `ClustalWDnaPairwiseOptions`, `SequenceAligner.ClustalWPairwiseAlign(.., ClustalWDnaPairwiseOptions)`; test class `SequenceAligner_ClustalWDnaMatrix_Tests` (9 tests), oracle `TestData/Alignment/clustalw_dna_matrix_oracle.tsv` (360 sets: 125 command-line runs, 235 interactive-menu runs, matrix files embedded).
+
+| ID | Test | Expected | Source |
+|----|------|----------|--------|
+| DM1 | `MultipleAlignClustalW_DnaMatrices_Rows_EqualClustalW21_OnAllOracleSets` | every output row of 345 sets (IUB / CLUSTALW built-ins, command-line files = ignored, menu files = applied, 13-17 letter headers); the short-header (undefined behaviour) sets: all but <= 2 equal | clustalw 2.1 binary |
+| DM2 | `MultipleAlignClustalW_DnaMatrices_GroupScores_EqualClustalW21_OnAllOracleSets` | the 1 393 printed first-pass `Group g: Sequences: n Score: s` / `Delayed` lines (pin the profile matrix and the 0.66 gap scale) | clustalw 2.1 binary |
+| DM3 | `ClustalWPairwiseAlign_DnaMatrices_Scores_EqualClustalW21_OnAllOraclePairs` | 3 485 printed pairwise `Score:` (full stage; IUB / CLUSTALW / user pairwise matrices, `-TRANSWEIGHT`, gap variants) | clustalw 2.1 binary |
+| DM4 | `MalformedMatrixFiles_AreRejectedLikeClustalW` | the 15 files that end clustalw (no `*` row, short row, series file, empty, too few rows) -> `FormatException` | clustalw 2.1 binary + F64 reader |
+| DM5 | `Oracle_CoversEveryModeMatrixAndLayout`, `Oracle_DiscriminatesTheMatrixOptions`, `CommandLineUse_IgnoresTheFile_AppliedUses_It` | >= 330 sets / > 100 command-line (125) / > 150 menu (235); every option > 20 sets; tab / float / comment / short-header layouts; user matrices change the rows of > 1/3 and the group scores of > 2/3 of the menu sets, command-line files change nothing (all 75), CLUSTALW changes > 1/4 | oracle design |
+| DM6 | `UserMatrixEqualToIub_BehavesLikeTheBuiltInMatrix`, `PairwiseOptions_Defaults_AndContracts` | a file holding `swgapdnamt` in packing order = the built-in IUB (profile and pairwise); defaults 15 / 6.66 / 0.5 / IUB / Applied; null / negative / NaN / unknown-enum contracts | API |
+| DM7 (MCP) | `MultipleAlignTests.MultipleAlignClustalW_DnaMatrices_DelegateAndFollowClustalWsCommandLineAndMenu` | `dnaMatrixFile` = clustalw menu rows of oracle set 244 (applied), `commandline` = rows without the file, `dnaMatrix` / `pwDnaMatrix` = `clustalw`; bad names / series file / malformed file throw `ArgumentException` | oracle + library call |
+
 ## 2026-11 audit round 1 (A1-10c part a, B09 F65): MUSCLE 3.8.1551 progressive alignment
 
 `MultipleAlignMuscle(...)` (`-maxiters 1 | 2`) with `MuscleOptions`; test class `SequenceAligner_Muscle_Tests` (18 tests). **The row-for-row oracle (the MUSCLE 3.8.1551 binary) is awaiting the Docker hand-off package `handoff/A1-10c-muscle`; its rows become `SequenceAligner_MuscleOracle_Tests` after the return.** Locked now:
