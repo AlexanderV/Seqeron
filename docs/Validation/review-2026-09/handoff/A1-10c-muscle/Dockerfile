@@ -6,7 +6,7 @@ ARG BASE=debian:12.7-slim@sha256:d83056144b2dd301730d2739635c8cbdeaaae20d6887146
 FROM --platform=linux/amd64 ${BASE}
 
 RUN apt-get update \
- && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ca-certificates g++ make python3-minimal zip file procps \
+ && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ca-certificates g++ make python3 zip file procps \
  && rm -rf /var/lib/apt/lists/*
 
 COPY fetch_src.py /opt/fetch_src.py
