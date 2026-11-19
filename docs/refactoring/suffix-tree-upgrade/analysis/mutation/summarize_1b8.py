@@ -83,7 +83,7 @@ for k, v in sorted(counts.items()):
     print(v, k)
 if '--clean' in sys.argv:
     n = 0
-    for f in glob.glob(os.path.join(HERE, 'results_*.tsv.*.rep*')) + glob.glob(os.path.join(HERE, 'results_1b8_*.log')) + glob.glob(os.path.join(HERE, '1b8_*audit.done')):
+    for f in set(glob.glob(os.path.join(HERE, 'results_*.tsv.*.rep*')) + glob.glob(os.path.join(HERE, 'results_1b8_*.log')) + glob.glob(os.path.join(HERE, '1b8_*audit.done'))):
         os.remove(f)
         n += 1
     print('removed', n, 'sidecar files')
