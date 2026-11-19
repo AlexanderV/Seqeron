@@ -2,7 +2,7 @@
 # Gate G3 / G5 of work package 1b.7f (outside the shipped code): a container of dna_10m (10 Mbp) built by SesaBuilder (harness variant `container`, real geometry), then
 #   cold-open   10 runs of the Header-level open, cache dropped (sync + echo 3 > /proc/sys/vm/drop_caches) before each (one process per run: the time of the open call, mapping and header validation, not of the process start)
 #   levels      Header, Sections and Structure at 10 Mbp, cold, 3 runs each
-#   throughput  count of 20-mers, locate of 8-mers, count of absent 24-mers and a child walk, in memory against the file at Checked and Trusted, warm, median of 5 per process, one tree per process, 3 rounds in alternating orders
+#   throughput  count of 20-mers, locate of 8-mers, count of absent 24-mers and a child walk, in memory against the file at Checked and Trusted, warm, median of 5 per process, one tree per process, 7 rounds in alternating orders (the six permutations and the first again)
 #   usage: run_1b7f_g3.sh <rows file> [runs, default 10]
 set -u
 ROWS=$(readlink -f "$1")
@@ -32,9 +32,9 @@ reader() { # label level access [extra env]
 }
 for K in $(seq 1 "$RUNS"); do EXTRA="SESA_WARM=1" reader "cold-open.$K" Header Checked; done
 for K in 1 2 3; do reader "levels.$K" Sections Checked; reader "levels.$K" Structure Checked; done
-# one tree per process, three rounds in alternating orders (a process that holds the in-memory tree first and the others after it would carry the order as a bias)
+# one tree per process, seven rounds in alternating orders (a process that holds the in-memory tree first and the others after it would carry the order as a bias)
 ROUND=0
-for ORDER in "memory checked trusted" "trusted checked memory" "checked memory trusted"; do
+for ORDER in "memory checked trusted" "trusted checked memory" "checked memory trusted" "memory trusted checked" "trusted memory checked" "checked trusted memory" "memory checked trusted"; do
   ROUND=$((ROUND + 1))
   for TREE in $ORDER; do
     sync

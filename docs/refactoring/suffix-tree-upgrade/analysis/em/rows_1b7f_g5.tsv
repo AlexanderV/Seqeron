@@ -1,0 +1,18 @@
+#head	394b719401f33c4d6c51b880b80e633f4132d74a
+#container: label variant scan create pack ph1 ph23 ph45 bwt psi crc seal total read write mapped scratch_peak arena_peak rss_ph0 rss_ph1 rss_ph23 rss_ph45 rss_ph6 rss_seal rss_whole verdict file_size grown reservation overflow lcpkind rss_before_kb rss_max_kb samples
+#open: label level access seconds header_s sections_s structure_s crc sectionbytes bitmapbytes bufferbytes rssanon_before_kb rssanon_max_kb rssanon_after_kb n
+dna_100m.g5build	container	0.1511	0.0017	0.3662	2.0936	13.0488	6.6762	2.1344	1.0827	0.3033	0.0062	26.2487	3910595933	2810214300	1378758919	1200000000	39395096	22.8	41.0	70.4	104.7	80.2	80.2	104.7	Within	1325019393	0	Preallocated	0	U8	13656	102292	2446
+#file	/tmp/stbench/g5f/dna_100m.sesa	1325019393
+#crcsections	kind bytes seconds ok (the build's own check of every section, from the sidecar of the builder run)
+#crcsection	dna_100m	1	25000064	0.0063	True
+#crcsection	dna_100m	2	8	0.0000	True
+#crcsection	dna_100m	13	32	0.0000	True
+#crcsection	dna_100m	3	400000004	0.0882	True
+#crcsection	dna_100m	6	400000004	0.0865	True
+#crcsection	dna_100m	12	400000004	0.0963	True
+#crcsection	dna_100m	11	197	0.0000	True
+#crcsection	dna_100m	4	100000001	0.0218	True
+open	dna_100m.chunk1048576	Structure	Checked	35.44466	0.00601	0.62451	34.81011	hw	1325000314	12500008	8454432	33776	77020	75308	100000000
+open	dna_100m.chunk4194304	Structure	Checked	25.66262	0.00613	0.64591	25.00638	hw	1325000314	12500008	33620256	33624	102520	100504	100000000
+open	dna_100m.chunk8388608	Structure	Checked	23.63692	0.00695	0.61662	23.00859	hw	1325000314	12500008	67174688	33876	133912	132200	100000000
+open	dna_100m.chunk16777216	Structure	Checked	22.23101	0.00479	0.59821	21.62444	hw	1325000314	12500008	134283552	33844	199596	197528	100000000
