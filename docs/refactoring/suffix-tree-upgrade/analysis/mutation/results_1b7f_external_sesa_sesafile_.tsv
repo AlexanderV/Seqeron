@@ -1,0 +1,14 @@
+O01	the Sections level does not run at Sections	killed(8)
+O02	the Structure level does not run at Structure	killed(23)
+O03	a failed validation leaves the file mapped	survived
+O04	a failed header leaves the view mapped	survived
+O05	Dispose is not idempotent	killed(1)
+O06	Dispose leaves the reader	survived
+O07	Dispose leaves the pointer acquired	killed(1)
+O08	a file of the header page size is too short	survived
+O09	an unseekable stream is mapped	survived
+O10	the statistics of a mapped file have a wrong internal count	killed(1)
+O11	the statistics of a mapped file have a wrong LRS rank	killed(1)
+O12	the PSI pointer is the SA	killed(26)
+O15	the SA view is one entry short	killed(26)
+O17	the access mode is inverted	killed(1)

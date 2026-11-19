@@ -1,0 +1,11 @@
+[
+ {
+  "id": "V10",
+  "desc": "a failed overflow writer leaves the base writer open (1b.7e gap)",
+  "old": "                catch\n                {\n                    baseWriter.Dispose();\n                    throw;\n                }",
+  "new": "                catch\n                {\n                    throw;\n                }",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs",
+  "filter": "(FullyQualifiedName~SesaReaderGapTests|FullyQualifiedName~SesaSectionTests|FullyQualifiedName~ExternalLcpTests|FullyQualifiedName~LcpChildBuilderTests)",
+  "project": "esa"
+ }
+]

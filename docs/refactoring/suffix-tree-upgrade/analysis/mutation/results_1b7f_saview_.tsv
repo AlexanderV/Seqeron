@@ -1,0 +1,6 @@
+S01	a read at the count itself is in the section	killed(2)
+S02	checked mode leaves the check out	killed(2)
+S03	the 64-bit read accepts the count	killed(1)
+S04	a bulk read may end one entry past the section	killed(1)
+S05	a bulk read may start below the section	killed(1)
+S06	the mapped bulk read starts one entry late	killed(10)

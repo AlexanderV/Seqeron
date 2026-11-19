@@ -1,0 +1,6 @@
+M01	the mapped first l-index reads the wrong end	killed(45)
+M02	the mapped first l-index accepts the count	killed(1)
+M03	the mapped next l-index ends at the interval end + 1	killed(25)
+M04	the mapped next l-index of a plain run is two on	killed(hang)
+M05	the mapped next l-index follows a field of another value	killed(43)
+M06	the mapped next l-index leaves the cell check out	survived

@@ -1,0 +1,14 @@
+D01	the descent walks past the larger key	survived
+D02	the first l-index is not checked in the descent	survived
+D03	the next l-index is not checked in the descent	killed(1)
+D04	an equal child depth is allowed	survived
+D05	a child deeper than the text is allowed	survived
+D06	the edge is cut at the longer length	killed(17)
+D07	a leaf compares with the pattern one symbol late	killed(10)
+D08	the end of the text is not checked in the leaf	survived
+D09	the edge comparison accepts a range that ends past the text	killed(1)
+D10	the edge comparison compares chunks one symbol short	survived
+D11	a key beyond the text is the symbol 0	killed(14)
+D14	the mapped match is not used	killed(20)
+D16	locate copies from the wrong rank	survived
+D17	locate (64-bit) copies from the wrong rank	killed(14)

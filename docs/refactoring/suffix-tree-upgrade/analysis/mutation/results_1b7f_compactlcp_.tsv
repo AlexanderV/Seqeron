@@ -1,0 +1,8 @@
+L01	the binary search goes the wrong way	killed(4)
+L02	the binary search returns the next pair	killed(5)
+L04	the 16-bit base is read as bytes	killed(3)
+L05	the 32-bit value is not checked against the text	killed(1)
+L06	the 32-bit check only in trusted mode	killed(1)
+L07	a rank outside the mapped array is read	killed(4)
+L10	the overflow arrays of the pack have the values as ranks	killed(3)
+L11	the overflow count of a mapped array is the managed one	killed(5)

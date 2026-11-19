@@ -339,9 +339,9 @@ public unsafe class SesaReaderGapTests
                         Assert.That(table.NextLIndex(k, rb), Is.EqualTo(expected), $"table next {k} {rb}");
                     }
                 }
-                Assert.That(() => mapped.FirstLIndex(c.N + 1, c.N + 1, true), Throws.TypeOf<InvalidDataException>());
-                Assert.That(() => mapped.FirstLIndex(-1, 3, true), Throws.TypeOf<InvalidDataException>());
-                Assert.That(() => mapped.NextLIndex(-1, 3), Throws.TypeOf<InvalidDataException>());
+                Assert.That(() => mapped.FirstLIndex(c.N + 1, c.N + 1, true), Throws.TypeOf<InvalidDataException>().With.Message.Contains("the child table is read at cell"));
+                Assert.That(() => mapped.FirstLIndex(-1, 3, true), Throws.TypeOf<InvalidDataException>().With.Message.Contains("the child table is read at cell"));
+                Assert.That(() => mapped.NextLIndex(-1, 3), Throws.TypeOf<InvalidDataException>().With.Message.Contains("the child table is read at cell"));
                 var trusted = new MappedChild((int*)cp, c.N + 1, lcp, isChecked: false);
                 Assert.That(trusted.FirstLIndex(c.N, c.N, true), Is.EqualTo(reference.FirstLIndex(c.N, c.N, true)));
             }

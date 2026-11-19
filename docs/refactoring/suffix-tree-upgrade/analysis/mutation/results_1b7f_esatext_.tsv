@@ -1,0 +1,5 @@
+T01	a read at the length is in the text	killed(1)
+T02	a symbol equal to sigma has a letter	killed(2)
+T03	a range that ends one past the text is allowed	killed(1)
+T05	the tail of a string starts one late	killed(8)
+T08	the packed text source slice is the substring one late	killed(1)

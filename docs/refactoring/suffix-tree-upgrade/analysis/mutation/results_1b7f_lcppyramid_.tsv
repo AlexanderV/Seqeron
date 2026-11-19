@@ -1,0 +1,3 @@
+P01	a damaged overflow list of a mapped array is an invalid operation	killed(2)
+P02	the mapped pyramid reads the 16-bit base as bytes	killed(1)
+P03	the mapped pyramid of 32-bit entries reads from the wrong start	killed(1)

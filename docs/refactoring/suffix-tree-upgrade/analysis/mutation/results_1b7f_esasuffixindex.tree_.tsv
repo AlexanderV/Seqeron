@@ -1,0 +1,5 @@
+X01	a child as deep as its parent is a node (contract)	survived
+X02	a leaf as deep as its parent is a node (contract)	survived
+X03	the contract walk of a mapped node uses the packed array layout	killed(6)
+X04	the contract child lookup of a mapped node uses the default layout	killed(32)
+X05	the damaged mapped table of the contract is an invalid operation	killed(3)

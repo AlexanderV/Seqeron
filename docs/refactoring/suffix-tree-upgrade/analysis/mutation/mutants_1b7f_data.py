@@ -193,13 +193,13 @@ FILES['External/Sesa/SesaVerifier.cs'] = [
     m('W04', 'the gap bytes are not checked', 'if (s.Offset > end && new ReadOnlySpan<byte>(file.Data + end, checked((int)(s.Offset - end))).IndexOfAnyExcept((byte)0) >= 0)', 'if (false && new ReadOnlySpan<byte>(file.Data + end, checked((int)(s.Offset - end))).IndexOfAnyExcept((byte)0) >= 0)'),
     m('W07', 'the checksum of a long section is not chained', 'crc = hardware ? Crc32C.AppendHardware(crc, span) : Crc32C.AppendTable(crc, span);', 'crc = hardware ? Crc32C.AppendHardware(0, span) : Crc32C.AppendTable(0, span);'),
     m('W09', 'the table path is used for the hardware', 'crc = hardware ? Crc32C.AppendHardware(crc, span) : Crc32C.AppendTable(crc, span);', 'crc = !hardware ? Crc32C.AppendHardware(crc, span) : Crc32C.AppendTable(crc, span);'),
-    m('W11', 'the structure pass of a huge text is not refused', 'if (n64 >= int.MaxValue - 1L) throw new NotSupportedException', 'if (n64 >= long.MaxValue) throw new NotSupportedException'),
+    m('W11', 'the structure pass of a huge text is not refused', 'if (symbols >= int.MaxValue - 1L) throw new NotSupportedException', 'if (symbols >= long.MaxValue) throw new NotSupportedException'),
     m('W15', 'the child scan runs on the bitmap that still holds the permutation', 'Array.Clear(bits);', ''),
     m('W16', 'the empty text is not checked', 'CheckEmpty(file);', ''),
     m('W20', 'a symbol equal to sigma is accepted', 'if (s >= sigma) throw new InvalidDataException($"the text holds the symbol {s} at position {at + k}, which is not below SIGMA = {sigma}: the file is damaged");', 'if (s > sigma) throw new InvalidDataException($"the text holds the symbol {s} at position {at + k}, which is not below SIGMA = {sigma}: the file is damaged");'),
     m('W21', 'the symbols are not counted', 'seen[s]++;', ''),
     m('W22', 'a letter that does not occur is accepted', 'if (seen[s] == 0) throw new InvalidDataException($"the letter {s} of the alphabet does not occur in the text: the file is damaged");', ''),
-    m('W23', 'the counts are not compared', 'if (ps.Counts64 is { } counts && counts[s] != (ulong)seen[s]) throw new InvalidDataException', 'if (false) throw new InvalidDataException'),
+    m('W23', 'the counts are not compared', 'if (ps.Counts64 is { } counts && counts[s] != (ulong)seen[s]) throw new InvalidDataException', 'if (ps.Counts64 is { } counts && counts[s] != counts[s]) throw new InvalidDataException'),
     m('W25', 'a recorded hash is not compared when asked for', 'bool hash = file.Options.VerifyTextSha256 && ps.Header.TextSha256.AsSpan().IndexOfAnyExcept((byte)0) >= 0;', 'bool hash = false;'),
     m('W26', 'the hash is not compared with the header', 'if (sha is not null && !sha.GetHashAndReset().AsSpan().SequenceEqual(ps.Header.TextSha256)) throw', 'if (sha is not null && false) throw'),
     m('W28', 'BUILD_INFO is not checked for UTF-8', 'if (!System.Text.Unicode.Utf8.IsValid(payload)) throw new InvalidDataException("BUILD_INFO is not UTF-8: the file is damaged");', ''),
@@ -212,7 +212,7 @@ FILES['External/Sesa/SesaVerifier.cs'] = [
     m('W35', 'a position is not marked', 'word |= mask;\n            int l = cursor.Get(r);', 'int l = cursor.Get(r);'),
     m('W36', 'the LCP may be longer than the shorter suffix', 'if (l < 0 || l > n - (previous == n ? 0 : Math.Max(previous, b))) throw', 'if (l < 0) throw'),
     m('W37', 'the first LCP may be non-zero', 'if (l != 0) throw new InvalidDataException($"LCP[{r}] is {l}: the empty suffix shares nothing with the first suffix");', ''),
-    m('W38', 'adjacent suffixes need not be in order', 'else if (text.CompareSuffixes(previous, b, l, ref steps, out long m) >= 0 || m != l)', 'else if (false && text.CompareSuffixes(previous, b, l, ref steps, out long m) >= 0 || m != l)'),
+    m('W38', 'adjacent suffixes need not be in order', 'else if (text.CompareSuffixes(previous, b, l, ref steps, out long m) >= 0 || m != l)', 'else if ((text.CompareSuffixes(previous, b, l, ref steps, out long m) >= 0 && false) || m != l)'),
     m('W39', 'equal adjacent suffixes are in order', 'else if (text.CompareSuffixes(previous, b, l, ref steps, out long m) >= 0 || m != l)', 'else if (text.CompareSuffixes(previous, b, l, ref steps, out long m) > 0 || m != l)'),
     m('W40', 'the first mismatch need not be at the LCP', 'else if (text.CompareSuffixes(previous, b, l, ref steps, out long m) >= 0 || m != l)', 'else if (text.CompareSuffixes(previous, b, l, ref steps, out long m) >= 0)'),
     m('W42', 'the PSI first entry is not checked', 'if (psi is not null && psi[0] != 0) throw', 'if (false) throw'),
@@ -260,4 +260,12 @@ FILES['@apps/Verify/VerifySources.cs'] = [
     m('Z09', 'the length of the overflow is its count', '_ => Section(extension)?.Length ?? 0,', '_ => Section(extension)?.Count ?? 0,'),
     m('Z10', 'the scratch directory is the current one', 'public string DefaultScratchDirectory => Path.GetDirectoryName(Path.GetFullPath(_path))!;', 'public string DefaultScratchDirectory => Directory.GetCurrentDirectory();'),
     m('Z11', 'the recount skips the last symbols', 'int take = (int)Math.Min(block.Length, p.Header.TextLength - at);\n            reader.ReadSymbols(at, block.AsSpan(0, take));\n            for (int k = 0; k < take; k++) if', 'int take = (int)Math.Min(block.Length, p.Header.TextLength - at);\n            reader.ReadSymbols(at, block.AsSpan(0, take));\n            for (int k = 0; k < take - 1; k++) if'),
+]
+# the three survivors of the 1b.7e audit that its orchestrator recorded as gaps to close "when those options are touched" (ids as in mutants_1b7e_data.py); 1b.7f adds the test of V10, and B102 / B118 are expected to survive (see 1b7f_equivalent.py)
+FILES['External/Lcp/LcpBuild.cs'] = [
+    m('V10', 'a failed overflow writer leaves the base writer open (1b.7e gap)', '                catch\n                {\n                    baseWriter.Dispose();\n                    throw;\n                }', '                catch\n                {\n                    throw;\n                }'),
+]
+FILES['External/Sesa/SesaBuilder.cs'] = [
+    m('B102', 'the BWT pass gets no guards (1b.7e gap)', 'ArenaGuards = options.ArenaGuards,\n            Counters = counters,\n            Files = options.Files,', 'ArenaGuards = null,\n            Counters = counters,\n            Files = options.Files,'),
+    m('B118', 'BUILD_INFO may overrun its room (1b.7e gap)', 'if (infoBytes.Length > plan.BuildInfoCapacity) throw', 'if (infoBytes.Length > plan.BuildInfoCapacity + 4096) throw'),
 ]

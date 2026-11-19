@@ -1,0 +1,7 @@
+V01	the null node has the length 0	killed(1)
+V02	a child as deep as its parent is a node	survived
+V03	a leaf as deep as its parent is a node	survived
+V04	the first l-index of a child is not checked	killed(1)
+V05	the mapped child table is not used by the child lookup	killed(12)
+V06	the leaves of a node are one short (mapped)	killed(8)
+V07	the children of a mapped node are not listed	killed(12)

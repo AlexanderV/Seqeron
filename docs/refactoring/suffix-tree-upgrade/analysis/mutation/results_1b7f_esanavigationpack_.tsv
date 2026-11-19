@@ -1,0 +1,9 @@
+N01	the inverse is not tested for repeats	survived
+N02	the inverse accepts a position equal to the count	survived
+N03	the slots of the inverse start at zero	killed(15)
+N04	the mapped inverse is read at the wrong position	survived
+N05	a link of a mapped node is not bounded by its position	survived
+N06	a link of a mapped node may have endpoints in the wrong order	killed(1)
+N07	the target of a link may have a parent as deep as itself	survived
+N08	the target of a leaf link may have a parent as deep as itself	survived
+N10	the mapped pack reads the suffix array from the start + 1	killed(11)

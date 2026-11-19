@@ -283,6 +283,30 @@ public class ContainerVerifyTests : TempDirFixture
     }
 
     [Test]
+    public void AContainerWithoutCounts_PassesAllChecks_ForTheCountsAreARecountOfTheText()
+    {
+        // an optional section of an unknown kind is ignored by the reader: turning the kind of COUNTS into 99 is a container without COUNTS (audit of 1b.7f: the recount of the adapter)
+        foreach (string text in new[] { "mississippi", "GATTACAGATTACAGGTAGATTACA" })
+        {
+            VerifyResult r = Damaged(text, "nocounts", (img, o) =>
+            {
+                BinaryPrimitives.WriteInt32LittleEndian(img.AsSpan(128 + (64 * o.Sections[SesaFormat.KindCounts].Index)), 99);
+                ResealHeader(img);
+            });
+            Assert.That(r.AllPassed, Is.True, $"'{text}': {Describe(r)}");
+        }
+    }
+
+    [Test]
+    public void TheDefaultScratchDirectory_IsTheDirectoryOfTheContainer()
+    {
+        string container = Build("banana", "scratchdir");
+        using var source = new ContainerVerifySource(container);
+        Assert.That(source.DefaultScratchDirectory, Is.EqualTo(Path.GetDirectoryName(Path.GetFullPath(container))));
+        Assert.That(source.DefaultScratchDirectory, Is.Not.EqualTo(Directory.GetCurrentDirectory()), "the test needs a container outside the working directory");
+    }
+
+    [Test]
     public void ThePrefixMode_IsUnchanged()
     {
         string prefix = FromReference(Run("pre"), "mississippi");

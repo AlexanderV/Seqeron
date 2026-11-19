@@ -5,8 +5,8 @@ namespace SuffixTree.Esa.External;
 
 /// <summary>
 /// The memory and scratch limits of the structure pass (<see cref="SesaVerifier.CheckStructure"/>): how many text positions one pass over the suffix array serves, how many open intervals the child-table scan keeps in memory
-/// before it spills the older ones to a temporary file, and where that file goes. The defaults keep the anonymous memory of the pass to about 64 MB of chunk arrays, 64 MB of stack and the permutation bitmap (n / 8 bytes);
-/// the tests set small values to cross every boundary on small texts.
+/// before it spills the older ones to a temporary file, and where that file goes. The defaults are two 16 MiB arrays for a chunk, a stack array of 64 MiB of which only as many pages are touched as the tree is deep (500,000 entries, 8 MB, on the 10^8 texts of G2) and the permutation bitmap
+/// (n / 8 bytes): the anonymous memory of the pass was 33.6 and 41.6 MB of buffers and a RssAnon peak of about 105 MB at 10^8; the tests set small values to cross every boundary on small texts.
 /// </summary>
 internal static class SesaVerifierTuning
 {
@@ -22,12 +22,19 @@ internal static class SesaVerifierTuning
     /// <summary>The directory of the spill file; null means the system's temporary directory.</summary>
     internal static string? SpillDirectory { get; set; }
 
+    /// <summary>Bytes of a section that one call of the CRC takes (a span has an <c>int</c> length): a larger section is chained in pieces of this size; the default is 1 GiB, the tests set a few bytes.</summary>
+    internal static long CrcPieceBytes { get; set; } = DefaultCrcPieceBytes;
+
+    /// <summary>The default piece of the checksum pass: 1 GiB.</summary>
+    internal const long DefaultCrcPieceBytes = 1L << 30;
+
     /// <summary>Restores the defaults.</summary>
     internal static void Reset()
     {
         ChunkSymbols = DefaultChunkSymbols;
         StackEntries = 1 << 22;
         SpillDirectory = null;
+        CrcPieceBytes = DefaultCrcPieceBytes;
     }
 }
 
@@ -71,7 +78,7 @@ internal static unsafe class SesaVerifier
 
     private static uint Checksum(byte* data, long length, bool hardware)
     {
-        const long piece = 1L << 30;
+        long piece = Math.Clamp(SesaVerifierTuning.CrcPieceBytes, 1L, SesaVerifierTuning.DefaultCrcPieceBytes);
         uint crc = 0;
         for (long done = 0; done < length; done += piece)
         {
@@ -103,7 +110,7 @@ internal static unsafe class SesaVerifier
         long t0 = Stopwatch.GetTimestamp();
         SesaParsed ps = file.Parsed;
         long n64 = ps.Header.TextLength;
-        if (n64 >= int.MaxValue - 1L) throw new NotSupportedException($"the structure pass of a text of {n64} symbols needs 64-bit indexes (S2); the 32-bit pass takes at most {int.MaxValue - 2} symbols");
+        RequireSupportedLength(n64);
         int n = (int)n64;
         long bitmapBytes = ((n + 1L + 63) >> 6) << 3;
         long buffers = 0;
@@ -125,6 +132,13 @@ internal static unsafe class SesaVerifier
         }
         CheckBuildInfo(file);
         file.SetReport(file.Report with { StructureSeconds = Seconds(t0), BitmapBytes = bitmapBytes, BufferBytes = buffers + TextBlock });
+    }
+
+    /// <summary>The 32-bit structure pass takes at most 2^31 - 3 symbols (the arrays are indexed by <c>int</c>, the bitmap and the chunks by <c>int</c> too); a longer text is S2's.</summary>
+    /// <exception cref="NotSupportedException">The text has 2^31 - 2 symbols or more.</exception>
+    internal static void RequireSupportedLength(long symbols)
+    {
+        if (symbols >= int.MaxValue - 1L) throw new NotSupportedException($"the structure pass of a text of {symbols} symbols needs 64-bit indexes (S2); the 32-bit pass takes at most {int.MaxValue - 2} symbols");
     }
 
     private static void CheckEmpty(SesaFile file)

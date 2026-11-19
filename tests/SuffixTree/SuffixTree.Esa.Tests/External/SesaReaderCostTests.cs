@@ -12,7 +12,7 @@ namespace SuffixTree.Esa.Tests.External;
 /// <summary>
 /// Gates G2, G3 and G5 of work package 1b.7f at their real sizes (outside the default run: <c>[Explicit]</c>, driven by <c>analysis/em/run_1b7f_g2.sh</c> and <c>run_1b7f_g3.sh</c>, which set the <c>SESA_*</c> variables and run one variant per
 /// process, cold cache where the protocol says so). Variants (<c>SESA_VARIANT</c>): <c>open</c> (the open of <c>SESA_FILE</c> at <c>SESA_LEVEL</c> / <c>SESA_ACCESS</c>: wall time and RssAnon before and at the peak, the report of the
-/// validation), <c>identity</c> (sampled counts and locate sets of 1,000 patterns of the text and 1,000 random ones against an independent oracle that does a binary search over the suffix array and the input text, no engine),
+/// validation; <c>SESA_CHUNK</c> sets the chunk of the structure level), <c>identity</c> (sampled counts and locate sets of 1,000 patterns of the text and 1,000 patterns that the oracle finds absent against an independent oracle that does a binary search over the suffix array and the input text, no engine),
 /// <c>corrupt</c> (a damaged section with its checksum recomputed must be caught by the structure level), <c>throughput</c> (count, locate and a child walk, in memory against the file at <c>Checked</c> and <c>Trusted</c>, warm).
 /// </summary>
 [TestFixture]
@@ -63,6 +63,7 @@ public class SesaReaderCostTests
         var level = Enum.Parse<EsaValidationLevel>(EnvOr("SESA_LEVEL", "Header"));
         var access = Enum.Parse<EsaAccessMode>(EnvOr("SESA_ACCESS", "Checked"));
         bool sha = EnvOr("SESA_SHA", "0") == "1";
+        if (EnvOr("SESA_CHUNK", "") is { Length: > 0 } chunk) SesaVerifierTuning.ChunkSymbols = int.Parse(chunk, CultureInfo.InvariantCulture); // G5: the time and the memory of the structure level against the size of a chunk of the Phi pass
         long before = RssAnonKb();
         long max = before;
         using var stop = new CancellationTokenSource();
@@ -206,12 +207,19 @@ public class SesaReaderCostTests
         }
         var alphabet = new List<char>();
         for (long i = 0; i < Math.Min(n, 100_000); i++) if (!alphabet.Contains((char)oracle.TextByte(i))) alphabet.Add((char)oracle.TextByte(i));
-        for (int i = 0; i < 1_000; i++)
+        // 1,000 patterns that the ORACLE says are absent: random strings over the alphabet of the text (a short one is usually present and is not kept)
+        int kept = 0, tries = 0;
+        while (kept < 1_000)
         {
+            Assert.That(++tries, Is.LessThan(1_000_000), "too few absent random patterns");
             int len = 1 + rng.NextInt(40);
             var chars = new char[len];
             for (int k = 0; k < len; k++) chars[k] = alphabet[rng.NextInt(alphabet.Count)];
-            patterns.Add((new string(chars), false));
+            string candidate = new(chars);
+            (long clo, long chi) = oracle.Range(candidate);
+            if (chi != clo) continue;
+            patterns.Add((candidate, false));
+            kept++;
         }
         int countMismatch = 0, locateMismatch = 0, absent = 0, locatedFully = 0, locatedPrefix = 0;
         long t0 = Stopwatch.GetTimestamp();
@@ -256,7 +264,7 @@ public class SesaReaderCostTests
         Row("identity", label, level, patterns.Count, absent, locatedFully, locatedPrefix, countMismatch, locateMismatch, seconds);
         Assert.That(countMismatch, Is.Zero, "counts that differ from the oracle");
         Assert.That(locateMismatch, Is.Zero, "locate sets that differ from the oracle");
-        Assert.That(absent, Is.GreaterThan(500), "the absent patterns are mostly absent");
+        Assert.That(absent, Is.EqualTo(1_000), "the oracle found the 1,000 absent patterns absent");
     }
 
     // ---------------------------------------------------------------- a damaged body whose checksum was recomputed

@@ -1,0 +1,60 @@
+W01	the section CRC is not compared	killed(4)
+W02	sections without a CRC are checksummed	survived
+W03	the bytes counted by the checksum pass are one short	killed(1)
+W04	the gap bytes are not checked	killed(3)
+W07	the checksum of a long section is not chained	survived
+W09	the table path is used for the hardware	survived
+W11	the structure pass of a huge text is not refused	survived
+W15	the child scan runs on the bitmap that still holds the permutation	killed(23)
+W16	the empty text is not checked	survived
+W20	a symbol equal to sigma is accepted	killed(1)
+W21	the symbols are not counted	killed(23)
+W22	a letter that does not occur is accepted	survived
+W23	the counts are not compared	BUILD-ERROR CS0103
+W25	a recorded hash is not compared when asked for	killed(1)
+W26	the hash is not compared with the header	killed(1)
+W28	BUILD_INFO is not checked for UTF-8	survived
+W29	BUILD_INFO lines are not counted	survived
+W30	SA[0] is not compared with n	survived
+W31	LCP[0] and LCP[1] are not checked	survived
+W32	the empty suffix is not marked in the bitmap	survived
+W33	a position n at a rank above 0 is accepted	survived
+W34	a repeated position is accepted	survived
+W35	a position is not marked	survived
+W36	the LCP may be longer than the shorter suffix	survived
+W37	the first LCP may be non-zero	survived
+W38	adjacent suffixes need not be in order	BUILD-ERROR CS0165
+W39	equal adjacent suffixes are in order	survived
+W40	the first mismatch need not be at the LCP	survived
+W42	the PSI first entry is not checked	killed(1)
+W43	the carry is not decremented	killed(12)
+W44	the Phi chunk loop leaves the last chunk out	killed(5)
+W45	the Phi chunk ends one position late	killed(8)
+W46	the Phi scan starts at rank 0	survived
+W47	the Phi scan misses the last rank	killed(23)
+W48	the predecessor is the successor	killed(23)
+W49	the empty predecessor is not special	survived
+W50	the carried prefix is not verified	survived
+W52	the extension starts at the previous carry	killed(12)
+W53	the stored LCP is not compared	killed(1)
+W54	the primary row is not compared	killed(1)
+W55	the PSI entries are read at the wrong rank	killed(23)
+W56	the last PSI entry is not compared	killed(1)
+W59	the nodes are counted without the leaves	killed(23)
+W60	the node count is not compared	killed(2)
+W61	the longest repeat is not compared	killed(1)
+W62	the rank of the repeat is the last of the ties	killed(11)
+W63	the rank of the repeat is not compared	killed(2)
+W64	the non-zero cells are not counted	killed(3)
+W65	the cells are not compared	killed(3)
+W66	a cell defined twice is accepted	survived
+W68	the root is not an internal node of depth 0	killed(23)
+W69	the last child flag is wrong	killed(20)
+W70	the spill keeps the older half in memory	killed(7)
+W71	the spilled half is written from the wrong offset	killed(6)
+W72	the refill reads from the wrong offset	killed(6)
+W73	the refill takes a whole half even if less is spilled	survived
+W74	the stack does not refill	killed(7)
+W77	the zero cells are counted as non-zero	killed(23)
+W78	the cell count covers one cell less	killed(3)
+W79	a negative LCP in the scan is accepted	survived

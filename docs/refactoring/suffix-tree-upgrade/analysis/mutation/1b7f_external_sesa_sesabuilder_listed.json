@@ -1,0 +1,20 @@
+[
+ {
+  "id": "B102",
+  "desc": "the BWT pass gets no guards (1b.7e gap)",
+  "old": "ArenaGuards = options.ArenaGuards,\n            Counters = counters,\n            Files = options.Files,",
+  "new": "ArenaGuards = null,\n            Counters = counters,\n            Files = options.Files,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests|FullyQualifiedName~SesaAuditTests|FullyQualifiedName~SesaGapTests)",
+  "project": "esa"
+ },
+ {
+  "id": "B118",
+  "desc": "BUILD_INFO may overrun its room (1b.7e gap)",
+  "old": "if (infoBytes.Length > plan.BuildInfoCapacity) throw",
+  "new": "if (infoBytes.Length > plan.BuildInfoCapacity + 4096) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests|FullyQualifiedName~SesaAuditTests|FullyQualifiedName~SesaGapTests)",
+  "project": "esa"
+ }
+]

@@ -1,0 +1,52 @@
+H01	the magic is not compared	killed(1)
+H02	a header shorter than the page is read	killed(1)
+H03	a major version equal to the supported one is not supported	killed(67)
+H04	a smaller major version is read	killed(1)
+H05	the endian probe is not compared	killed(1)
+H06	the table offset is not compared	killed(1)
+H07	the entry size is not compared	killed(1)
+H08	a table of 63 entries is read	killed(1)
+H10	the header CRC is not compared	killed(2)
+H11	the header CRC leaves the last entry out	killed(63)
+H12	the header CRC covers the CRC bytes as zero	killed(63)
+H13	the reserved header word is not checked	killed(1)
+H14	the page after the table is not checked	killed(2)
+H15	FILE_SIZE is not compared	killed(1)
+H16	a position width of 8 is not refused	killed(1)
+H17	any position width is accepted	survived
+H20	the sentinel flag is not needed	killed(1)
+H21	sigma is not related to the text	survived
+H22	the statistics of an empty text are not checked	survived
+H23	the node count may be below the leaves	killed(1)
+H24	the node count may be above the bound	survived
+H25	the longest repeat may be as long as the text	survived
+H26	a rank without a repeat is accepted	killed(1)
+H27	a rank at the text length is accepted	survived
+H28	a duplicate section kind is accepted	survived
+H29	an unknown required kind is ignored	killed(1)
+H30	a required kind that is defined but not implemented is ignored	killed(1)
+H32	the TEXT codec is not checked	killed(1)
+H33	a sigma above 256 is read	survived
+H34	the TEXT entry bits may be wrong	killed(1)
+H35	the TEXT entry count may be wrong	survived
+H36	the TEXT length may be wrong	survived
+H38	the ALPHABET may repeat a letter	survived
+H39	the SA entry is not checked	killed(2)
+H40	the CHILD entry is not checked	killed(1)
+H41	the SA need not be required	killed(1)
+H45	more escapes than ranks are accepted	survived
+H46	a 32-bit LCP may have escapes	survived
+H48	a list without escapes is accepted	survived
+H49	the overflow entry is not checked	survived
+H51	the PSI entry is not checked	survived
+H52	the primary row may be above the text	killed(1)
+H54	the COUNTS entry is not checked	survived
+H55	a count of 0 is accepted	survived
+H56	the COUNTS may sum to more than n	survived
+H57	the COUNTS need not sum to n	survived
+H61	an entry with reserved bits is read	killed(1)
+H64	a section may end past the file	survived
+H65	a section may end one byte past the file	survived
+H66	a large section needs the small alignment	survived
+H69	sections may overlap	killed(1)
+H71	the file may be longer than its last section	survived

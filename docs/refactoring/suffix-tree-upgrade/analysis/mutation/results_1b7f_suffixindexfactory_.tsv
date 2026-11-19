@@ -1,0 +1,6 @@
+Q01	the v6 magic is another number	killed(3)
+Q02	a short read is a kind	killed(1)
+Q03	the v6 branch ignores the magic	killed(4)
+Q04	a file of an unknown kind has another message	killed(2)
+Q05	a device is no error	survived
+Q06	the options are not passed on	killed(1)

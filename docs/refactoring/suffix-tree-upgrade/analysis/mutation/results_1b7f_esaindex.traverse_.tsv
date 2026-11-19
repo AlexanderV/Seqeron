@@ -1,0 +1,10 @@
+R01	the first l-index of the root is not checked	survived
+R02	a frame whose end is beyond its interval is allowed	survived
+R03	a next boundary that does not increase is allowed	survived
+R04	a child as deep as its parent is allowed	survived
+R05	a child deeper than the text is allowed in the walk	survived
+R06	the count of the children does not check the chain	killed(host crash)
+R07	the first l-index may be at the left bound	survived
+R08	the first l-index may be past the right bound	survived
+R09	the first l-index of an internal node is not checked	survived
+R10	the edge symbol reads the text of the wrong position	killed(6)

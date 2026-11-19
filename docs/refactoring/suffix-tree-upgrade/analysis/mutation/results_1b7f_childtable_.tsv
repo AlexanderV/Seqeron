@@ -1,0 +1,2 @@
+C01	the slow first l-index of a mapped table reads the other end	killed(32)
+C02	the slow next l-index of a mapped table is the one of the packed layout array	killed(8)

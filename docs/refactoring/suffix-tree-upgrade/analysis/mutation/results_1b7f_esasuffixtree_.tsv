@@ -1,0 +1,2 @@
+F01	Dispose leaves the container mapped	killed(1)
+F02	the facade does not own the file of a failed tree	survived

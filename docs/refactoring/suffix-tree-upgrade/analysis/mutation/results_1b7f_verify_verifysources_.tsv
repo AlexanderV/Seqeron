@@ -1,0 +1,11 @@
+Z01	the container source says the text is missing	killed(13)
+Z02	the pk section is the SA	killed(13)
+Z03	the overflow section is the child table	killed(13)
+Z04	the stats text has the node count as the internal count	killed(5)
+Z05	the stats text has the rank of the repeat as it is stored	killed(1)
+Z06	the meta text has the hash of the first 31 bytes	killed(5)
+Z07	the meta text has the counts of the text only when it is not recounted	killed(2)
+Z08	the SHA-256 of a section is of its first byte	killed(1)
+Z09	the length of the overflow is its count	killed(13)
+Z10	the scratch directory is the current one	survived
+Z11	the recount skips the last symbols	survived
