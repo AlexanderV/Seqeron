@@ -107,8 +107,8 @@ internal sealed class MappedOutputFile : IDisposable
     /// <summary>The path the file was created at.</summary>
     internal string Path { get; }
 
-    /// <summary>Length of the file in bytes.</summary>
-    internal long Length { get; }
+    /// <summary>Length of the file in bytes (it grows with <see cref="Grow"/>).</summary>
+    internal long Length { get; private set; }
 
     /// <summary>What the creation did about the disk space.</summary>
     internal ReservationOutcome Outcome { get; }
@@ -132,6 +132,19 @@ internal sealed class MappedOutputFile : IDisposable
             DeleteQuietly(path);
             throw;
         }
+    }
+
+    /// <summary>
+    /// Extends the file to <paramref name="newLength"/> bytes (the container writer places the LCP, whose width is known only after PH4-B2, behind the sections that were known after PH0): every writer must be disposed; the file
+    /// is extended sparse (the BCL reserves blocks only for a file that it creates), after a check that the volume has the room, and the mapping is made again over the whole file. Returns what the check did
+    /// (<see cref="ReservationOutcome.FreeSpaceChecked"/>, or <see cref="ReservationOutcome.Unchecked"/> where the platform cannot tell). A failure leaves the file at its old length.
+    /// </summary>
+    /// <exception cref="IOException">The volume has less room than the growth needs.</exception>
+    /// <exception cref="InvalidOperationException">A writer is still open.</exception>
+    internal ReservationOutcome Grow(long newLength, MappedFileOptions? options = null)
+    {
+        if (newLength < Length || (options is null && _disposed)) throw new ArgumentOutOfRangeException(nameof(newLength));
+        throw new NotImplementedException();
     }
 
     /// <summary>A writer for the bytes <c>[start, start + length)</c> of the file; its offsets are relative to <paramref name="start"/>. Ranges of different writers must not overlap (not checked).</summary>

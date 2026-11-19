@@ -51,7 +51,7 @@ internal sealed record SaBuildTuning
     internal int? WindowBytes { get; init; }
 }
 
-/// <summary>What <see cref="SaBuilder.Build"/> needs besides the files.</summary>
+/// <summary>What <see cref="SaBuilder.Build(MappedTextReader, string, SaBuildOptions)"/> needs besides the files.</summary>
 internal sealed record SaBuildOptions
 {
     /// <summary>The scratch directory (created when missing; <c>ph1</c> and <c>ph3</c> inside it and the rank file are created and removed by the build, the directory itself is removed when this build created it and it is empty).</summary>
@@ -474,6 +474,12 @@ internal static class SaBuilder
             if (createdRoot) DeleteEmptyDirectoryQuietly(scratch);
         }
     }
+
+    /// <summary>
+    /// Builds the suffix array of <paramref name="text"/> into the range <c>[saOffset, saOffset + 4 (n + 1))</c> of <paramref name="file"/> (a section of the container): the file exists at that length already, the stage
+    /// writes through windows of it and neither completes nor deletes it (the owner of the file does, also on a failure); everything else is as in <see cref="Build(MappedTextReader, string, SaBuildOptions)"/>.
+    /// </summary>
+    internal static SaBuildResult Build(MappedTextReader text, MappedOutputFile file, long saOffset, SaBuildOptions options) => throw new NotImplementedException();
 
     /// <summary>The suffix array has its final length: <c>4 (n + 1)</c> bytes.</summary>
     internal static void CheckLength(string saPath, long n)

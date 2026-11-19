@@ -31,3 +31,16 @@ internal sealed class MappedSaSliceSink(MappedOutputFile file, int windowBytes, 
         public void Dispose() => inner.Dispose();
     }
 }
+
+/// <summary>The suffix array as a section of a larger file: the same writers as <see cref="MappedSaSliceSink"/> over the range <c>[start, start + length)</c> (entry offsets are relative to <paramref name="start"/>).</summary>
+internal sealed class MappedSaSectionSink(MappedOutputFile file, long start, long length, int windowBytes, IoCounters? counters) : ISaSliceSink
+{
+    public ISaSliceWriter CreateWriter() => new Writer(file.CreateWriter(start, length, windowBytes, counters));
+
+    private sealed class Writer(MappedWindowWriter inner) : ISaSliceWriter
+    {
+        public void Write(long entryOffset, ReadOnlySpan<uint> data) => inner.WriteAt(entryOffset * 4, MemoryMarshal.AsBytes(data));
+
+        public void Dispose() => inner.Dispose();
+    }
+}

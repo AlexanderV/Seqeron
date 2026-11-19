@@ -7,6 +7,18 @@ internal interface ILcpChunkConsumer
     void Consume(long firstRank, ReadOnlySpan<uint> lcp);
 }
 
+/// <summary>What PH4 tells the placer of the container once the width of the LCP is known (before the first LCP entry is written).</summary>
+/// <param name="Kind">The width.</param>
+/// <param name="OverflowCount">Entries of the overflow list.</param>
+/// <param name="MaxLcp">The largest LCP value (the depth of the child-table scan stack is at most this + 1).</param>
+internal readonly record struct LcpPlacementRequest(LcpKind Kind, long OverflowCount, long MaxLcp);
+
+/// <summary>Where B3 writes: the base array and the overflow list as ranges of one file (sections of the container).</summary>
+/// <param name="File">The file; PH4 does not complete or dispose it.</param>
+/// <param name="BaseStart">Offset of the base array.</param>
+/// <param name="OverflowStart">Offset of the overflow list.</param>
+internal readonly record struct LcpPlacement(MappedOutputFile File, long BaseStart, long OverflowStart);
+
 /// <summary>Parameters of PH4 (ADR-004 section 4.2): everything that sets a chunk size or a buffer size. The output never depends on any of them (owner answer Q5).</summary>
 internal sealed record ExtLcpOptions
 {
@@ -42,6 +54,12 @@ internal sealed record ExtLcpOptions
 
     /// <summary>How the output files are created (reservation of the disk space); null = <see cref="ReservationMode.Auto"/>.</summary>
     internal MappedFileOptions? Files { get; init; }
+
+    /// <summary>The suffix array starts at this byte of its file (the SA section of the container); the file is then longer than the array, and its length is not checked for equality.</summary>
+    internal long SaOffset { get; init; }
+
+    /// <summary>When set, B3 writes the LCP and its overflow list into the ranges this callback returns (after the width is known, before the first entry) instead of creating the two files of the paths.</summary>
+    internal Func<LcpPlacementRequest, LcpPlacement>? Place { get; init; }
 
     /// <summary>Test hook, called with <c>"b1"</c>, <c>"b2"</c>, <c>"b3"</c> when a step begins; an exception thrown here fails the build like a failing step.</summary>
     internal Action<string>? Trace { get; init; }
