@@ -1,0 +1,3 @@
+d_C02	1b7d comparator: equal residues take the witness of residue 1	killed(1)	
+d_C08	1b7d comparator: the call is not counted	killed(2)	
+d_C10	1b7d comparator: the key skip needs a strictly longer suffix	killed(1)	

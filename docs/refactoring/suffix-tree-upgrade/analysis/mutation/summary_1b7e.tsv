@@ -451,15 +451,15 @@ W39	killed	the result carries the sentinel row of the file end
 W41	killed	the default read is 1 KiB
 W43	killed	the output is not appended
 d_C01	killed	1b7d comparator: the key skip is one symbol too long
-d_C02	OPEN	1b7d comparator: equal residues take the witness of residue 1
+d_C02	killed	1b7d comparator: equal residues take the witness of residue 1
 d_C03	killed	1b7d comparator: a zero extension counts as a full period
 d_C04	killed	1b7d comparator: a call of the LCE is not counted
 d_C05	killed	1b7d comparator: the symbols include those of the key
 d_C06	killed	1b7d comparator: one rank lookup counted
 d_C07	killed	1b7d comparator: a tied call is not counted as tied
-d_C08	OPEN	1b7d comparator: the call is not counted
+d_C08	killed	1b7d comparator: the call is not counted
 d_C09	killed	1b7d comparator: the key skip is applied to untied calls
-d_C10	OPEN	1b7d comparator: the key skip needs a strictly longer suffix
+d_C10	killed	1b7d comparator: the key skip needs a strictly longer suffix
 d_F06	killed	1b7d gap: Sort: the tie positions are not counted
 d_H08	killed	1b7d gap: Run: the scratch root is not removed
 d_Q52	killed	1b7d gap: Build: PH3 has no cap
