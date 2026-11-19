@@ -230,7 +230,7 @@ public sealed class SesaBuilderTests
         Assert.That(SesaRun.Build(dir, StringFamilies.RandomDna(2000, 3), new SesaBuildOptions { Fsync = false, RssAnonCapMb = 1e6 }, "-big").Result.RssVerdict, Is.EqualTo(RssVerdict.Within), "a cap above any process is always met");
         SesaPhaseRss r = o.Result.Rss;
         Assert.That(new[] { r.Ph0, r.Ph1, r.Ph23, r.Ph45, r.Ph6, r.Seal }.All(x => x is > 0), Is.True);
-        Assert.That(o.Result.RssAnonPeakMb, Is.GreaterThanOrEqualTo(new[] { r.Ph0, r.Ph1, r.Ph23, r.Ph45, r.Ph6, r.Seal }.Max()!.Value - 1e-9));
+        Assert.That(o.Result.RssAnonPeakMb, Is.GreaterThanOrEqualTo(new[] { r.Ph0, r.Ph1, r.Ph23, r.Ph45, r.Ph6, r.Seal }.Max()!.Value - 5.0), "the whole-build sampler and the phase samplers read every 10 ms at different instants: a process that allocates (the test host) lets them differ by the change of one interval");
         o = SesaRun.Build(dir, StringFamilies.RandomDna(2000, 3), new SesaBuildOptions { Fsync = false, RssAnonCapMb = 0.001 }, "-cap");
         Assert.That(o.Result.RssVerdict, Is.EqualTo(RssVerdict.Exceeded), "the gate is a verdict, never an exception");
         o = SesaRun.Build(dir, StringFamilies.RandomDna(2000, 3), new SesaBuildOptions { Fsync = false, MeasureRss = false }, "-off");
