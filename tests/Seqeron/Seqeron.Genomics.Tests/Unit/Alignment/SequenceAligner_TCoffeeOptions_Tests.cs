@@ -33,7 +33,7 @@ public class SequenceAligner_TCoffeeOptions_Tests
         return list;
     }
 
-    private static bool IsGotohDp(string flags) => System.Text.RegularExpressions.Regex.IsMatch(flags, "-dp_mode (gotoh_pair_wise|gotoh_pair_wise_test|ssec_pair_wise|biphasic_pair_wise|glocal_pair_wise)( |$)");
+    private static bool IsGotohDp(string flags) => System.Text.RegularExpressions.Regex.IsMatch(flags, "-dp_mode (gotoh_pair_wise|gotoh_pair_wise_test|gotoh_pair_wise_lgp|ssec_pair_wise|biphasic_pair_wise|glocal_pair_wise)( |$)");
 
     private static bool IsIdscoreFast(string flags) => flags.Contains("-distance_matrix_mode fast", StringComparison.Ordinal) && flags.Contains("idscore", StringComparison.Ordinal);
 
@@ -48,6 +48,30 @@ public class SequenceAligner_TCoffeeOptions_Tests
         return false;
     }
 
+    /// <summary>
+    /// <c>test_pair_wise</c>: (the port aborts, the rows overflow the row buffers). The program pads every row to l0 + l1 - n columns with n = l0 / 2 (l0 &lt; 5) or 5 and reads <c>generate_null (l1 - n)</c>: a second group with fewer than n columns
+    /// is a deterministic segmentation fault (the port raises <see cref="TCoffeeAbortedException"/>; 98 of 98 committed sets that have such a merge die). Otherwise the rows are written into buffers of max_len + 1 bytes (<c>seq2aln</c>): up to
+    /// one column more than the longest sequence the program runs through and writes exactly the port's rows (50 of 50 committed sets); two or more columns beyond them overflow the heap (valgrind: "Invalid write of size 1 ... in strcpy" of the
+    /// <c>sprintf (seq, "%s", buf)</c>): 231 of 272 such sets die, 41 differ (32 lose the last column of every row, 9 have another row clobbered).
+    /// </summary>
+    private static (bool Aborted, bool Overflow) TestPairDp(Case c, TCoffeeProgramOptions options)
+    {
+        SequenceAligner.TcMergeTrace = new();
+        try
+        {
+            SequenceAligner.MultipleAlignTCoffeeProgram(c.Seqs, options);
+            return (false, SequenceAligner.TcMergeTrace.Any(m => m.Written - m.MaxLen >= 2));
+        }
+        catch (TCoffeeAbortedException)
+        {
+            return (true, false);
+        }
+        finally
+        {
+            SequenceAligner.TcMergeTrace = null;
+        }
+    }
+
     private static void AssertFeature(string feature, int minSets)
     {
         var cases = Oracle().Where(c => c.Feature == feature).ToList();
@@ -56,7 +80,7 @@ public class SequenceAligner_TCoffeeOptions_Tests
         int heapDependent = 0;
         // a set on which the program itself core-dumps (SIM's edit script overflows its heap chunk, `lalign_id_pair@EP@GOP@-5`, F75) is reproduced as TCoffeeAbortedException:
         // the rule is deterministic (script length > the usable bytes of the chunk), so "the program aborts" and "the port throws" must coincide on EVERY committed set
-        int gotohOverflow = 0, relativeUb = 0;
+        int gotohOverflow = 0, relativeUb = 0, testAborts = 0, testOverflows = 0, swUb = 0;
         foreach (var c in cases)
         {
             var options = TCoffeeProgramOptions.FromCommandLine(c.Flags) with { Names = c.Names };
@@ -82,6 +106,23 @@ public class SequenceAligner_TCoffeeOptions_Tests
                     continue;
                 }
 
+                if (c.Flags.Contains("test_pair_wise", StringComparison.Ordinal))
+                {
+                    var (aborted, overflow) = TestPairDp(c, options);
+                    Assert.That(aborted || overflow, Is.True, $"test_pair_wise dies without a null allocation or a row overflow: {string.Join('|', c.Seqs)}");
+                    if (aborted) testAborts++; else testOverflows++;
+                    continue;
+                }
+
+                // gotoh_pair_wise_sw: 49 of 500 committed sets die (exit status 6, -6, -9 or -11) although the port's rows equal the program's on the 450 others: undefined behaviour of the program (valgrind: "Invalid write of size 4 ... 4 bytes
+                // after a block of size 124" inside the local alignment routine on the set CVWVCITFIAFQYTADPVMHMVE|DKDGSPLSVL, exit status 6 on every run); the port returns the alignment
+                if (c.Flags.Contains("gotoh_pair_wise_sw", StringComparison.Ordinal))
+                {
+                    Assert.That(SequenceAligner.MultipleAlignTCoffeeProgram(c.Seqs, options).AlignedSequences, Is.Not.Empty);
+                    swUb++;
+                    continue;
+                }
+
                 Assert.Throws<TCoffeeAbortedException>(() => SequenceAligner.MultipleAlignTCoffeeProgram(c.Seqs, options), $"t_coffee aborts on '{c.Flags}' {string.Join('|', c.Seqs)}");
                 continue;
             }
@@ -95,6 +136,8 @@ public class SequenceAligner_TCoffeeOptions_Tests
                 if (IsIdscoreFast(c.Flags) && HasSecondRowGap(c, options)) heapDependent++;
                 // the same one-byte row overflow can also leave the program's rows without their last column (1 committed biphasic_pair_wise set)
                 else if (IsGotohDp(c.Flags) && c.Rows.Split('|').Zip(got.Split('|'), (e, g) => g.Length == e.Length + 1 && g.StartsWith(e, StringComparison.Ordinal)).All(x => x)) gotohOverflow++;
+                else if (c.Flags.Contains("test_pair_wise", StringComparison.Ordinal) && TestPairDp(c, options).Overflow) testOverflows++; // 32 sets lose the last column of every row, 9 have another row clobbered by the overflow
+                else if (c.Flags.Contains("gotoh_pair_wise_sw", StringComparison.Ordinal)) swUb++;
                 else failures.Add($"{c.Type} '{c.Flags}' {string.Join('|', c.Seqs)}: got {got} expected {c.Rows}");
             }
             catch (TCoffeeAbortedException e) when (e.HeapDependent)
@@ -110,6 +153,13 @@ public class SequenceAligner_TCoffeeOptions_Tests
         }
 
         Assert.That(gotohOverflow, Is.LessThanOrEqualTo(12), "heap-overflow aborts of the row writer of gotoh / biphasic / glocal_pair_wise (8 of 2 600 committed sets)");
+        if (feature == "dp_test")
+        {
+            Assert.That(testAborts, Is.GreaterThanOrEqualTo(90), "test_pair_wise: sets with a null allocation (98 committed)");
+            Assert.That(testOverflows, Is.GreaterThanOrEqualTo(250), "test_pair_wise: sets with a row overflow that die or lose the last column (272 committed)");
+        }
+
+        if (feature == "dp_sw") Assert.That(swUb, Is.InRange(10, 80), "gotoh_pair_wise_sw sets that die or differ (50 of 500 committed sets)");
         if (feature == "dp_extend") Assert.That(relativeUb, Is.GreaterThanOrEqualTo(80), "sets on which relative_triplet reads past the end of a list");
 
         Assert.That(failures, Is.Empty, $"{failures.Count} of {cases.Count} '{feature}' sets differ from t_coffee; first: {failures.FirstOrDefault()}");
@@ -171,6 +221,31 @@ public class SequenceAligner_TCoffeeOptions_Tests
     /// </summary>
     [Test]
     public void ClustalwPair_MixedAlphabets_EveryRowEqualsTheProgram() => AssertFeature("clustalw_mixed", 150);
+
+    /// <summary>
+    /// A2-11: <c>-method mafft_pair</c> runs the external MAFFT 7.505 on every pair (the installed program works once <c>$HOME/.t_coffee/plugins/linux</c> holds mafft's helper binaries: the oracle script links them). 460 oracle sets are
+    /// committed for the future MAFFT port (B09.md A2-19); until then the method is reported as not available instead of being approximated.
+    /// </summary>
+    [Test]
+    public void MafftPair_OracleCommitted_PortWaitsForMafft()
+    {
+        var cases = Oracle().Where(c => c.Feature is "mafft_pair" or "mafft_mixed").ToList();
+        Assert.That(cases.Count, Is.GreaterThanOrEqualTo(440), "oracle sets of mafft_pair");
+        Assert.That(cases.Count(c => c.Rows.StartsWith("FAIL:", StringComparison.Ordinal)), Is.EqualTo(0), "the program runs mafft_pair on every set");
+        var c0 = cases[0];
+        Assert.Throws<NotSupportedException>(() => SequenceAligner.MultipleAlignTCoffeeProgram(c0.Seqs, TCoffeeProgramOptions.FromCommandLine(c0.Flags)));
+    }
+
+    /// <summary>
+    /// A2-11: <c>-method muscle_pair</c> = the external MUSCLE 3.8.1551 on every pair (the installed t_coffee finds it only through <c>$HOME/.t_coffee/plugins/linux/muscle</c>, the oracle script links muscle3 there; the original
+    /// "rc 1" of round 1 was the missing helper binaries of mafft / the missing <c>muscle</c> name, not an impossibility); DNA, protein and mixed alphabets, with a second method, UPGMA and no relaxation.
+    /// </summary>
+    [Test]
+    public void MusclePair_EveryRowEqualsTheProgram()
+    {
+        AssertFeature("muscle_pair", 350);
+        AssertFeature("muscle_mixed", 100);
+    }
 
     /// <summary>
     /// A2-7: the pair list of the progressive stage sums single-precision terms in the order of the group's sequences, which <c>recode_tree</c> fills in ASCENDING index order (not in the order of the
@@ -307,6 +382,34 @@ public class SequenceAligner_TCoffeeOptions_Tests
     /// <summary>A2-5: <c>-dp_mode biphasic_pair_wise</c> (two affine gap models) and <c>glocal_pair_wise</c> (match / deletion / insertion / unmatched pair) on the column scores of <c>-extend_mode</c>; 550 sets, 6 of them hit the row-writer heap overflow.</summary>
     [Test]
     public void BiphasicAndGlocalDp_EveryRowEqualsTheProgram() => AssertFeature("dp_other", 450);
+
+    /// <summary>
+    /// A2-5 (WP30): <c>-dp_mode gotoh_pair_wise_sw</c> (the Smith-Waterman form: every merge keeps only the columns of the best local alignment of the two profiles, so the rows lose residues and have different lengths; 500 sets, 450 equal,
+    /// 50 undefined behaviour of the program) and <c>test_pair_wise</c> (a debugging routine without an alignment: rows padded with gaps; 420 sets, see <see cref="TestPairDp"/>).
+    /// </summary>
+    [Test]
+    public void LocalAndTestDp_EveryRowEqualsTheProgram()
+    {
+        AssertFeature("dp_sw", 450);
+        AssertFeature("dp_test", 400);
+    }
+
+    /// <summary>A2-5 (WP30): <c>-dp_mode gotoh_pair_wise_lgp</c> (the Gotoh DP with the position specific gap opening / closing penalties of <c>aln2local_penalties</c>) on the column scores of <c>-extend_mode</c>; 620 sets.</summary>
+    [Test]
+    public void GotohLgpDp_EveryRowEqualsTheProgram() => AssertFeature("dp_lgp", 600);
+
+    /// <summary>
+    /// A2-5 (WP30): <c>-dp_mode ktup_pair_wise</c> computes a k-tuple score only (the rows stay as they are, unpadded) - 250 sets; <c>precomputed_pair_wise</c> stops with "improper use of the function precomputed pairwise"
+    /// (exit status 1) whenever the first rows of two groups differ in length (120 of 120 sets of unequal sequences) and leaves the rows alone otherwise (220 sets of equal length).
+    /// </summary>
+    [Test]
+    public void KtupAndPrecomputedDp_EveryRowEqualsTheProgram()
+    {
+        AssertFeature("dp_ktup", 240);
+        AssertFeature("dp_precomputed_equal", 200);
+        AssertFeature("dp_precomputed", 100);
+        Assert.That(Oracle().Where(c => c.Feature == "dp_precomputed").All(c => c.Rows == "FAIL:1"), Is.True);
+    }
 
     /// <summary>
     /// A2-5: <c>-extend_mode rna0</c> (= slow_triplet), the extend modes without effect on the sparse linked DP, and <c>relative_triplet</c>, whose <c>residue_pair_relative_extended_list</c> reads the weights of the first residue's library list

@@ -45,6 +45,9 @@
     <EmbeddedResource Include="TestData\Alignment\tcoffee_program_msa_oracle.tsv" />
     <EmbeddedResource Include="TestData\Alignment\tcoffee_program_big_oracle.tsv" />
     <EmbeddedResource Include="TestData\Alignment\tcoffee_program_options_oracle.tsv" />
+    <!-- ALIGN-MULTI-001 (audit A2-9 / A2-10, B09): the program's methods that run an EXTERNAL program (TMalign_pair, mustang_pair on synthetic CA-only PDB files, blastp_msa on a local BLAST database) together with
+         what the external program wrote - `generate_tcoffee_external_oracle.py`. -->
+    <EmbeddedResource Include="TestData\Alignment\tcoffee_external_oracle.tsv" />
     <!-- ALIGN-GLOBAL-001 (audit A1-7b, B09 F59): all co-optimal global / ends-free alignments; Biopython 1.88 PairwiseAligner(mode='global').align() set (all 16 end-gap policies,
          linear/affine, scalar + BLOSUM62 with fractional gaps) + exhaustive column-sequence enumeration of tiny inputs; scripts/alignment/generate_global_cooptimal_oracle.py. -->
     <EmbeddedResource Include="TestData\Alignment\global_cooptimal_oracle.tsv" />

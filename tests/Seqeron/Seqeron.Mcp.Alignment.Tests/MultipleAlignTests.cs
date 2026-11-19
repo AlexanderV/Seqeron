@@ -478,6 +478,159 @@ public class MultipleAlignTests
         });
     }
 
+    // B09 F114-F117 (WP30): the methods that run an external program and the further dynamic programs through the tool. Rows written by the installed t_coffee 13.41 (muscle3 3.8.1551 as `muscle`, TMalign 20190822,
+    // blastall 2.12.0 with a local database of the two sequences); the structure aligner's / BLAST's own output is the input.
+    [Test]
+    public void MultipleAlignTCoffee_ExternalProgramMethods_AndFurtherDynamicPrograms()
+    {
+        const string tmalign = "TM-score= 0.59749 (if normalized by length of Chain_2)\n(You should use TM-score normalized by length of the reference protein)\n\n(\":\" denotes aligned residue pairs of d < 5.0 A, \".\" denotes other aligned residues)\nDPY-NIVIHMQLAQ\n::: :: :::::::\nDPYYNI-IHMQLAQ\n\n";
+        string[] pair = ["DPYNIVIHMQLAQ", "DPYYNIIHMQLAQ"];
+        var viaTool = AlignmentTools.MultipleAlignTCoffee(pair, ["TMalign_pair"], structureTemplates: pair, structureAlignerOutputs: [new StructureAlignerOutputInput("TMalign_pair", 0, 1, tmalign)]);
+        string[] blastSet = ["QMPLHKEGVTYTDFMQAPDRKNYNQRFHTNPEHIGKAAIWDSMEDNTQLK", "WEFDMPGSGRKNLESPVYYDAKRIGVAFVGHFIY"];
+        Assert.Multiple(() =>
+        {
+            Assert.That(viaTool.AlignedSequences, Is.EqualTo(new[] { "DPY-NIVIHMQLAQ", "DPYYNI-IHMQLAQ" }), "TMalign_pair: the alignment TM-align wrote");
+            Assert.That(AlignmentTools.MultipleAlignTCoffee(pair, ["sap_pair"], structureTemplates: pair, structureAlignerOutputs: [new StructureAlignerOutputInput("TMalign_pair", 0, 1, tmalign)]).AlignedSequences,
+                Is.EqualTo(viaTool.AlignedSequences), "sap_pair = TM-align (SAP is not installed)");
+            Assert.That(AlignmentTools.MultipleAlignTCoffee(pair, ["TMalign_pair"]).AlignedSequences.Select(r => r.Replace("-", "")), Is.EqualTo(pair), "no structures: proba_pair");
+            Assert.That(AlignmentTools.MultipleAlignTCoffee(TCoffeeProgramSet, ["muscle_pair"]).AlignedSequences,
+                Is.EqualTo(new[] { "ACGTTGCAT-GCCGAT-AGC", "AC-GTGCATG--CGATAGGC", "AC-TTGCAT--CCGAT-TGC", "CG-TTGCATGGCCGAT-AGC" }), "muscle_pair = MUSCLE 3.8.1551 on every pair");
+            Assert.That(AlignmentTools.MultipleAlignTCoffee(TCoffeeProgramSet, options: "-dp_mode ktup_pair_wise").AlignedSequences, Is.EqualTo(TCoffeeProgramSet), "ktup_pair_wise leaves the rows as they are");
+            Assert.That(AlignmentTools.MultipleAlignTCoffee(TCoffeeProgramSet, options: "-dp_mode gotoh_pair_wise_lgp -gapopen -20 -gapext -2").AlignedSequences,
+                Is.EqualTo(new[] { "ACGTTGCATG-CCGATA-GC", "AC-GTGCATG--CGATAGGC", "AC-TTGCATC--CGATT-GC", "CG-TTGCATGGCCGATA-GC" }));
+            Assert.Throws<global::Seqeron.Genomics.Alignment.TCoffeeAbortedException>(() => AlignmentTools.MultipleAlignTCoffee(TCoffeeProgramSet, options: "-dp_mode precomputed_pair_wise"), "unequal first rows: the program stops");
+            Assert.Throws<global::Seqeron.Genomics.Alignment.TCoffeeAbortedException>(() => AlignmentTools.MultipleAlignTCoffee(TCoffeeProgramSet, ["fugue_pair"]));
+            Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignTCoffee(TCoffeeProgramSet, ["mafft_pair"]), "no MAFFT port yet (A2-19)");
+            Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignTCoffee(TCoffeeProgramSet, options: "-mode expresso"), "downloads structures: network");
+            Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignTCoffee(TCoffeeProgramSet, ["blastp_msa"]), "blastp_msa needs the XML of the BLAST search");
+            Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignTCoffee(pair, ["TMalign_pair"], structureTemplates: ["DPYNIVIHMQLAQ"]), "one structure entry per sequence");
+            Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignTCoffee(pair, ["TMalign_pair"], structureTemplates: pair, structureAlignerOutputs: [new StructureAlignerOutputInput("dali_pair", 0, 1, tmalign)]));
+        });
+        string[] expectedBlast = ["QMPLHKEGVTYTDFMQAPDRKNYNQRFHTNPEHIGKAAIWDSMEDNTQLK", "----------------WEFDMPGSGRKNLESPVYYDAKRIGVAFVGHFIY"];
+        string xml = BlastTwoSequenceXml;
+        Assert.That(AlignmentTools.MultipleAlignTCoffee(blastSet, ["blastp_msa"], blastXml: xml).AlignedSequences, Is.EqualTo(expectedBlast), "blastp_msa from the HSPs of the local all-against-all search");
+    }
+
+    private const string BlastTwoSequenceXml = """
+<?xml version="1.0"?>
+<!DOCTYPE BlastOutput PUBLIC "-//NCBI//NCBI BlastOutput/EN" "http://www.ncbi.nlm.nih.gov/dtd/NCBI_BlastOutput.dtd">
+<BlastOutput>
+  <BlastOutput_program>blastp</BlastOutput_program>
+  <BlastOutput_version>BLASTP 2.12.0+</BlastOutput_version>
+  <BlastOutput_reference>Stephen F. Altschul, Thomas L. Madden, Alejandro A. Sch&amp;auml;ffer, Jinghui Zhang, Zheng Zhang, Webb Miller, and David J. Lipman (1997), &quot;Gapped BLAST and PSI-BLAST: a new generation of protein database search programs&quot;, Nucleic Acids Res. 25:3389-3402.</BlastOutput_reference>
+  <BlastOutput_db>s.fa</BlastOutput_db>
+  <BlastOutput_query-ID>Query_1</BlastOutput_query-ID>
+  <BlastOutput_query-def>q000</BlastOutput_query-def>
+  <BlastOutput_query-len>50</BlastOutput_query-len>
+  <BlastOutput_param>
+    <Parameters>
+      <Parameters_matrix>BLOSUM62</Parameters_matrix>
+      <Parameters_expect>10</Parameters_expect>
+      <Parameters_gap-open>11</Parameters_gap-open>
+      <Parameters_gap-extend>1</Parameters_gap-extend>
+      <Parameters_filter>L;</Parameters_filter>
+    </Parameters>
+  </BlastOutput_param>
+<BlastOutput_iterations>
+<Iteration>
+  <Iteration_iter-num>1</Iteration_iter-num>
+  <Iteration_query-ID>Query_1</Iteration_query-ID>
+  <Iteration_query-def>q000</Iteration_query-def>
+  <Iteration_query-len>50</Iteration_query-len>
+<Iteration_hits>
+<Hit>
+  <Hit_num>1</Hit_num>
+  <Hit_id>gnl|BL_ORD_ID|0</Hit_id>
+  <Hit_def>q000</Hit_def>
+  <Hit_accession>0</Hit_accession>
+  <Hit_len>50</Hit_len>
+  <Hit_hsps>
+    <Hsp>
+      <Hsp_num>1</Hsp_num>
+      <Hsp_bit-score>109.768</Hsp_bit-score>
+      <Hsp_score>273</Hsp_score>
+      <Hsp_evalue>1.76494e-39</Hsp_evalue>
+      <Hsp_query-from>1</Hsp_query-from>
+      <Hsp_query-to>50</Hsp_query-to>
+      <Hsp_hit-from>1</Hsp_hit-from>
+      <Hsp_hit-to>50</Hsp_hit-to>
+      <Hsp_query-frame>0</Hsp_query-frame>
+      <Hsp_hit-frame>0</Hsp_hit-frame>
+      <Hsp_identity>50</Hsp_identity>
+      <Hsp_positive>50</Hsp_positive>
+      <Hsp_gaps>0</Hsp_gaps>
+      <Hsp_align-len>50</Hsp_align-len>
+      <Hsp_qseq>QMPLHKEGVTYTDFMQAPDRKNYNQRFHTNPEHIGKAAIWDSMEDNTQLK</Hsp_qseq>
+      <Hsp_hseq>QMPLHKEGVTYTDFMQAPDRKNYNQRFHTNPEHIGKAAIWDSMEDNTQLK</Hsp_hseq>
+      <Hsp_midline>QMPLHKEGVTYTDFMQAPDRKNYNQRFHTNPEHIGKAAIWDSMEDNTQLK</Hsp_midline>
+    </Hsp>
+  </Hit_hsps>
+</Hit>
+</Iteration_hits>
+  <Iteration_stat>
+    <Statistics>
+      <Statistics_db-num>2</Statistics_db-num>
+      <Statistics_db-len>84</Statistics_db-len>
+      <Statistics_hsp-len>4</Statistics_hsp-len>
+      <Statistics_eff-space>3496</Statistics_eff-space>
+      <Statistics_kappa>0.041</Statistics_kappa>
+      <Statistics_lambda>0.267</Statistics_lambda>
+      <Statistics_entropy>0.14</Statistics_entropy>
+    </Statistics>
+  </Iteration_stat>
+</Iteration>
+<Iteration>
+  <Iteration_iter-num>2</Iteration_iter-num>
+  <Iteration_query-ID>Query_2</Iteration_query-ID>
+  <Iteration_query-def>q001</Iteration_query-def>
+  <Iteration_query-len>34</Iteration_query-len>
+<Iteration_hits>
+<Hit>
+  <Hit_num>1</Hit_num>
+  <Hit_id>gnl|BL_ORD_ID|1</Hit_id>
+  <Hit_def>q001</Hit_def>
+  <Hit_accession>1</Hit_accession>
+  <Hit_len>34</Hit_len>
+  <Hit_hsps>
+    <Hsp>
+      <Hsp_num>1</Hsp_num>
+      <Hsp_bit-score>73.9442</Hsp_bit-score>
+      <Hsp_score>180</Hsp_score>
+      <Hsp_evalue>8.25478e-26</Hsp_evalue>
+      <Hsp_query-from>1</Hsp_query-from>
+      <Hsp_query-to>34</Hsp_query-to>
+      <Hsp_hit-from>1</Hsp_hit-from>
+      <Hsp_hit-to>34</Hsp_hit-to>
+      <Hsp_query-frame>0</Hsp_query-frame>
+      <Hsp_hit-frame>0</Hsp_hit-frame>
+      <Hsp_identity>34</Hsp_identity>
+      <Hsp_positive>34</Hsp_positive>
+      <Hsp_gaps>0</Hsp_gaps>
+      <Hsp_align-len>34</Hsp_align-len>
+      <Hsp_qseq>WEFDMPGSGRKNLESPVYYDAKRIGVAFVGHFIY</Hsp_qseq>
+      <Hsp_hseq>WEFDMPGSGRKNLESPVYYDAKRIGVAFVGHFIY</Hsp_hseq>
+      <Hsp_midline>WEFDMPGSGRKNLESPVYYDAKRIGVAFVGHFIY</Hsp_midline>
+    </Hsp>
+  </Hit_hsps>
+</Hit>
+</Iteration_hits>
+  <Iteration_stat>
+    <Statistics>
+      <Statistics_db-num>2</Statistics_db-num>
+      <Statistics_db-len>84</Statistics_db-len>
+      <Statistics_hsp-len>2</Statistics_hsp-len>
+      <Statistics_eff-space>2560</Statistics_eff-space>
+      <Statistics_kappa>0.041</Statistics_kappa>
+      <Statistics_lambda>0.267</Statistics_lambda>
+      <Statistics_entropy>0.14</Statistics_entropy>
+    </Statistics>
+  </Iteration_stat>
+</Iteration>
+</BlastOutput_iterations>
+</BlastOutput>
+
+""";
+
     [Test]
     public void MultipleAlignTCoffee_DelegatesToTheProgramPort_ParsesEveryOption_AndValidates()
     {

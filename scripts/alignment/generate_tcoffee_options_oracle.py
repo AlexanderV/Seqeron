@@ -133,14 +133,39 @@ PLAN = {
     'dp_other': [(t, f, n, (2, 8), (6, 36), '') for t in ('dna', 'protein') for f, n in (('-dp_mode biphasic_pair_wise', 60), ('-dp_mode biphasic_pair_wise -gapopen -20 -gapext -2', 40), ('-dp_mode biphasic_pair_wise -extend_mode slow_triplet -nomatch 10', 25),
                                                                                        ('-dp_mode glocal_pair_wise', 60), ('-dp_mode glocal_pair_wise -gapopen -20 -gapext -2', 40), ('-dp_mode glocal_pair_wise -extend_mode slow_triplet -seq_weight t_coffee', 25),
                                                                                        ('-dp_mode glocal_pair_wise -gapext -5 -tree_mode upgma', 25))],
+    # A2-5 (WP30): gotoh_pair_wise_lgp = the Gotoh DP with the position specific gap opening / closing penalties of aln2local_penalties
+    'dp_lgp': [(t, f, n, (2, 8), (6, 36), '') for t in ('dna', 'protein') for f, n in (('-dp_mode gotoh_pair_wise_lgp', 40), ('-dp_mode gotoh_pair_wise_lgp -gapopen -20 -gapext -2', 60), ('-dp_mode gotoh_pair_wise_lgp -gapopen -50 -gapext -5', 40),
+                                                                                    ('-dp_mode gotoh_pair_wise_lgp -gapext -3', 20), ('-dp_mode gotoh_pair_wise_lgp -gapopen -30 -nomatch 20', 20), ('-dp_mode gotoh_pair_wise_lgp -gapopen -20 -gapext -2 -extend_mode slow_triplet', 25),
+                                                                                    ('-dp_mode gotoh_pair_wise_lgp -gapopen -20 -gapext -2 -extend_mode fast_triplet', 15), ('-dp_mode gotoh_pair_wise_lgp -gapopen -20 -gapext -2 -extend_mode triplet', 15),
+                                                                                    ('-dp_mode gotoh_pair_wise_lgp -gapopen -40 -gapext -4 -seq_weight t_coffee', 25), ('-dp_mode gotoh_pair_wise_lgp -gapopen -20 -gapext -2 -relax_lib 0', 15),
+                                                                                    ('-dp_mode gotoh_pair_wise_lgp -gapopen -20 -gapext -2 -tree_mode upgma -distance_matrix_mode fast', 20), ('-dp_mode gotoh_pair_wise_lgp -gapopen -20 -gapext -2 -method slow_pair,lalign_id_pair', 15))],
+    # A2-5 (WP30): gotoh_pair_wise_sw (LOCAL: the rows keep only the best local alignment of every merge), ktup_pair_wise (only a score, the rows stay as they are), precomputed_pair_wise (stops unless the first rows of two groups have the same length)
+    'dp_sw': [(t, f, n, (2, 8), (6, 36), '') for t in ('dna', 'protein') for f, n in (('-dp_mode gotoh_pair_wise_sw', 60), ('-dp_mode gotoh_pair_wise_sw -gapopen -20 -gapext -2', 40), ('-dp_mode gotoh_pair_wise_sw -gapopen -50 -gapext -5', 30),
+                                                                                  ('-dp_mode gotoh_pair_wise_sw -gapopen -10 -gapext -1 -nomatch 5', 25), ('-dp_mode gotoh_pair_wise_sw -gapopen -20 -gapext -2 -extend_mode slow_triplet', 25),
+                                                                                  ('-dp_mode gotoh_pair_wise_sw -gapopen -20 -gapext -2 -extend_mode fast_triplet', 15), ('-dp_mode gotoh_pair_wise_sw -gapopen -20 -gapext -2 -seq_weight t_coffee', 20),
+                                                                                  ('-dp_mode gotoh_pair_wise_sw -gapopen -20 -gapext -2 -relax_lib 0', 15), ('-dp_mode gotoh_pair_wise_sw -gapopen -20 -gapext -2 -tree_mode upgma', 20))],
+    'dp_ktup': [(t, f, n, (2, 8), (4, 40), '') for t in ('dna', 'protein') for f, n in (('-dp_mode ktup_pair_wise', 50), ('-dp_mode ktup_pair_wise -ktuple 2', 20), ('-dp_mode ktup_pair_wise -ktuple 3', 15), ('-dp_mode ktup_pair_wise -extend_mode slow_triplet', 15),
+                                                                                 ('-dp_mode ktup_pair_wise -seq_weight t_coffee -tree_mode upgma', 15), ('-dp_mode ktup_pair_wise -gapopen -20 -gapext -2', 10))],
+    'dp_precomputed_equal': [(t, f, n, (2, 8), (6, 36), '') for t in ('dna', 'protein') for f, n in (('-dp_mode precomputed_pair_wise', 60), ('-dp_mode precomputed_pair_wise -tree_mode upgma', 30), ('-dp_mode precomputed_pair_wise -seq_weight t_coffee', 20))],
+    'dp_precomputed': [(t, f, n, (2, 8), (6, 36), '') for t in ('dna', 'protein') for f, n in (('-dp_mode precomputed_pair_wise', 40), ('-dp_mode precomputed_pair_wise -tree_mode upgma', 20))],
+    # A2-5 (WP30): test_pair_wise (no alignment: every row padded with gaps to l0 + l1 - n; a heap overflow of the row buffers kills part of the sets, a negative generate_null size the rest of the short ones)
+    'dp_test': [(t, f, n, kr, lr, '') for t in ('dna', 'protein') for f, n, kr, lr in (('-dp_mode test_pair_wise', 110, (2, 8), (1, 36)), ('-dp_mode test_pair_wise', 60, (2, 4), (1, 6)), ('-dp_mode test_pair_wise -tree_mode upgma', 40, (2, 8), (3, 30)))],
     # A2-5: -extend_mode relative_triplet (residue_pair_relative_extended_list reads the list of the first residue at the positions of the second residue's list: past the end of the shorter list = heap), rna0 (= slow_triplet) and the modes with no effect on linked_pair_wise
     'dp_extend': [(t, f, n, (2, 8), (6, 36), '') for t in ('dna', 'protein') for f, n in (('-dp_mode gotoh_pair_wise -extend_mode relative_triplet', 60), ('-dp_mode myers_miller_pair_wise -extend_mode relative_triplet', 30),
                                                                                        ('-dp_mode gotoh_pair_wise -extend_mode rna0', 30), ('-extend_mode relative_triplet', 20), ('-extend_mode pc', 15), ('-extend_mode mixt -extend_mode very_fast_triplet', 15))],
     # A2-5: dynamic programs / extend modes the program refuses or dies on (exit statuses 1, 6, 11), measured; unknown names stop every run, ssp / tm / curvature as soon as there are two sequences
     'dp_refused': [(t, f, 20, (2, 5), (5, 20), '') for t in ('dna', 'protein') for f in ('-dp_mode idscore_pair_wise', '-dp_mode subop1_pair_wise', '-dp_mode subop2_pair_wise', '-dp_mode proba_pair_wise', '-dp_mode pavie_pair_wise',
                                                                                   '-dp_mode domain_pair_wise', '-dp_mode fasta_cdna_pair_wise', '-dp_mode cfasta_cdna_pair_wise', '-dp_mode gotoh_pair_wise_lalign', '-dp_mode seq_viterbi_pair_wise',
-                                                                                  '-dp_mode hh_pair_wise', '-dp_mode cfasta_sw_pair_wise', '-dp_mode bogus_pair_wise', '-extend_mode bogus', '-extend_mode ssp', '-extend_mode tm',
+                                                                                  '-dp_mode hh_pair_wise', '-dp_mode cfasta_sw_pair_wise', '-dp_mode gotoh_pair_wise_lgp_sticky', '-dp_mode bogus_pair_wise', '-extend_mode bogus', '-extend_mode ssp', '-extend_mode tm',
                                                                                   '-extend_mode curvature', '-extend_mode matrix')],
+    # A2-11: muscle_pair = the installed muscle3 (3.8.1551) on every pair (`muscle -in -out -quiet -maxmb 0`); needs the private plugin directory of run_tc
+    'muscle_pair': [(t, f, n, (2, 6), (4, 36), '') for t in ('dna', 'protein') for f, n in (('-method muscle_pair', 90), ('-method muscle_pair,slow_pair', 30), ('-method proba_pair,muscle_pair', 20),
+                                                                                   ('-method muscle_pair -tree_mode upgma', 20), ('-method muscle_pair -relax_lib 0', 20))],
+    'muscle_mixed': [('mixed', f, n, (2, 5), (3, 24), '') for f, n in (('-method muscle_pair', 80), ('-method muscle_pair,slow_pair', 20))],
+    # A2-11: mafft_pair = the installed mafft 7.505 on every pair (`mafft --anysymbol in > out`; the program sets MAFFT_BINARIES to the private plugin directory, see run_tc); the port of MAFFT is A2-19
+    'mafft_pair': [(t, f, n, (2, 6), (4, 36), '') for t in ('dna', 'protein') for f, n in (('-method mafft_pair', 90), ('-method mafft_pair,slow_pair', 30), ('-method proba_pair,mafft_pair', 20),
+                                                                                  ('-method mafft_pair -tree_mode upgma', 20), ('-method mafft_pair -relax_lib 0', 20))],
+    'mafft_mixed': [('mixed', f, n, (2, 5), (3, 24), '') for f, n in (('-method mafft_pair', 80), ('-method mafft_pair,slow_pair', 20))],
     'clustalw_mixed': [('mixed', f, n, (2, 5), (3, 24), '') for f, n in (('-method clustalw_pair', 160), ('-method clustalw_pair,slow_pair', 40), ('-method proba_pair,clustalw_pair', 30))],
     'clustalw': [(t, f, n, (2, 6), (4, 28), '') for t in ('dna', 'protein') for f, n in (('-method clustalw_pair', 100), ('-method clustalw_pair,slow_pair', 40), ('-method proba_pair,clustalw_pair', 30),
                                                                                     ('-method clustalw_pair -tree_mode upgma', 30))],
@@ -187,6 +212,16 @@ def run_tc(seqs, flags, names, weights, templates=None):
                 f.write('# SINGLE_SEQ_WEIGHT_FORMAT_01\n' + ''.join(f'{n} {w}\n' for n, w in zip(names, weights)))
             flags = flags.replace('@random', d + '/w.txt')
         env = dict(os.environ, HOME=d)
+        plug = d + '/.t_coffee/plugins/linux'   # the program points MAFFT_BINARIES / PATH at this private directory: link the installed helpers (mafft: /usr/lib/mafft/bin + lib/mafft; muscle = muscle3) so that mafft_pair / muscle_pair run (A2-11)
+        os.makedirs(plug, exist_ok=True)
+        for src in ('/usr/lib/mafft/bin', '/usr/lib/mafft/lib/mafft'):
+            if os.path.isdir(src):
+                for fn in os.listdir(src):
+                    if not os.path.exists(plug + '/' + fn): os.symlink(src + '/' + fn, plug + '/' + fn)
+        if os.path.exists('/usr/bin/muscle3') and not os.path.exists(plug + '/muscle'): os.symlink('/usr/bin/muscle3', plug + '/muscle')
+        if os.path.exists('/usr/bin/legacy_blast') and not os.path.exists(plug + '/legacy_blast.pl'): os.symlink('/usr/bin/legacy_blast', plug + '/legacy_blast.pl')   # ncbi-blast+-legacy names it legacy_blast, T-Coffee looks for legacy_blast.pl (A2-9)
+        for tool in ('TMalign', 'mustang'):
+            if os.path.exists('/usr/bin/' + tool) and not os.path.exists(plug + '/' + tool): os.symlink('/usr/bin/' + tool, plug + '/' + tool)
         cmd = ['t_coffee', '-seq', d + '/s.fa', '-n_core', '1', '-no_warning', '-outfile', d + '/o.fa', '-output', 'fasta_aln'] + flags.split()
         r = subprocess.run(cmd, capture_output=True, text=True, cwd=d, env=env)
         rows, cur = {}, None
@@ -213,7 +248,7 @@ def make_names(rng, k, mode):
 def job(a):
     feature, typ, flags, idx, kr, lr, nm, seed = a
     rng = random.Random(seed * 1000003 + idx * 7919 + sum(map(ord, feature + typ + flags + nm)) * 104729)
-    if feature == 'simidscore_gapless':
+    if feature in ('simidscore_gapless', 'dp_precomputed_equal'):
         # substitution-only variants of one base sequence: equal lengths, so the Myers-Miller alignment of every pair has no gap and the program does not crash
         alpha = ALPHA[typ]; base = ''.join(rng.choice(alpha) for _ in range(rng.randint(*lr)))
         seqs = [''.join(c if rng.random() > 0.2 else rng.choice(alpha) for c in base) for _ in range(rng.randint(*kr))]

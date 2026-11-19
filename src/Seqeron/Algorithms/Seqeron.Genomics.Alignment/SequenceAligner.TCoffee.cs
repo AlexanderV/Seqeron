@@ -377,7 +377,7 @@ public static partial class SequenceAligner
     {
         public readonly List<int> Order = new();             // sequence indices in leaf order
         public readonly Dictionary<int, int[]> Rows = new(); // sequence -> residue (1-based) per column, 0 = gap
-        public int Columns => Rows[Order[0]].Length;
+        public int Columns => Rows[Order.Min()].Length; // strlen (A->seq_al[l_s[0][0]]): the lowest sequence index of the group (lseq is ascending)
     }
 
     private static TcGroup TcAlignNode(TCoffeeTreeNode node, IReadOnlyList<string> seqs, TcIndex lib, TcPenalties pen)

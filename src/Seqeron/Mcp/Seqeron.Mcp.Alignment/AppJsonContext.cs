@@ -28,6 +28,8 @@ namespace Seqeron.Mcp.Alignment;
 // Inputs
 [JsonSerializable(typeof(ContigLinkInput))]
 [JsonSerializable(typeof(ContigLinkInput[]))]
+[JsonSerializable(typeof(StructureAlignerOutputInput))]
+[JsonSerializable(typeof(StructureAlignerOutputInput[]))]
 [JsonSerializable(typeof(QualityReadInput))]
 [JsonSerializable(typeof(QualityReadInput[]))]
 // SequenceAligner outputs

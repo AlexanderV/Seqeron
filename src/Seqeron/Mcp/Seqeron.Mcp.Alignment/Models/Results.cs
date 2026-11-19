@@ -193,6 +193,9 @@ public record CorrectedReadsResult(string[] Corrected);
 /// <summary>Paired-end link between two contigs with estimated gap size.</summary>
 public record ContigLinkInput(int Contig1, int Contig2, int GapSize);
 
+/// <summary>What an external structure aligner wrote for one pair of structures (input of <c>multiple_align_tcoffee</c>): the method (<c>TMalign_pair</c> or <c>mustang_pair</c>), the input indices of the two sequences in the order the program calls the aligner, and the output text (TMalign: its standard output, only the last four lines matter; mustang: the content of results.afasta).</summary>
+public record StructureAlignerOutputInput(string Method, int First, int Second, string Output);
+
 /// <summary>Read with sequence and matching Phred+33 quality string.</summary>
 public record QualityReadInput(string Sequence, string Quality);
 

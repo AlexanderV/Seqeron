@@ -184,6 +184,181 @@ public static partial class SequenceAligner
         return (al0, al1, score);
     }
 
+    /// <summary>
+    /// <c>aln2local_penalties</c> (adapted from gap_count in MAFFT 5.5): the position specific gap penalties of a profile group - the opening penalty at column p is scaled by the fraction of the group's rows that do NOT open a gap there
+    /// (<c>0.1 (1 - open / n) gop</c>), the closing penalty the same with the rows that close one, the extension is the constant <c>gep</c> (<c>float</c> division, <c>double</c> product, truncated to <c>int</c>).
+    /// </summary>
+    private static (int[] Open, int[] Close) TcLocalGapPenalties(TcGroup g, int gop)
+    {
+        int l = g.Columns, n = g.Order.Count;
+        var open = new int[l]; var close = new int[l];
+        foreach (int s in g.Order)
+        {
+            var row = g.Rows[s];
+            bool previousGap = false; // c1 = 'x'
+            for (int p = 0; p < l; p++)
+            {
+                bool gap = row[p] <= 0;
+                if (!previousGap && gap) open[p]++;
+                if (previousGap && !gap) close[p]++;
+                previousGap = gap;
+            }
+        }
+
+        var gopOf = new int[l]; var gcpOf = new int[l];
+        for (int p = 0; p < l; p++)
+        {
+            float go = open[p], gc = close[p], nn = n;
+            gopOf[p] = (int)(0.1 * (double)(1 - go / nn) * gop);
+            gcpOf[p] = (int)(0.1 * (double)(1 - gc / nn) * gop);
+        }
+
+        return (gopOf, gcpOf);
+    }
+
+    /// <summary>
+    /// <c>gotoh_pair_wise_lgp</c> (util_dp_gotoh_nw.c L589, "local gap penalties"): a three-state (M, D, I) Gotoh DP whose gap opening and closing penalties are those of <see cref="TcLocalGapPenalties"/> (zero in the first and last row / column), the
+    /// extension is <c>gep</c> x SCORE_K everywhere; the borders hold <c>gep</c> x index (the other two states one lower), <c>dp_max</c> ties go to the first listed state and the traceback starts from the predecessor of the best final state like <c>glocal_pair_wise</c>.
+    /// </summary>
+    private static (List<bool> Present1, List<bool> Present2, int Score) TcGotohLgpMasks(TcGroup g0, TcGroup g1, Func<int, int, int> cost, int gopIn, int gepIn)
+    {
+        const int M1 = 1, D1 = 2, I1 = 3, N = 4;
+        int li = g0.Columns, lj = g1.Columns;
+        int gop = gopIn * TcScoreK, gep = gepIn * TcScoreK;
+        var (gopI, gcpI) = TcLocalGapPenalties(g0, gop);
+        var (gopJ, gcpJ) = TcLocalGapPenalties(g1, gop);
+        var m = new int[N][,]; var t = new int[N][,];
+        for (int c = 0; c < N; c++) { m[c] = new int[li + 1, lj + 1]; t[c] = new int[li + 1, lj + 1]; }
+        for (int j = 1; j <= lj; j++)
+        {
+            m[D1][0, j] = gep * j;
+            m[I1][0, j] = m[D1][0, j] - 1;
+            m[M1][0, j] = m[D1][0, j] - 1;
+        }
+
+        for (int i = 1; i <= li; i++)
+        {
+            m[I1][i, 0] = i * gep;
+            m[D1][i, 0] = m[I1][i, 0] - 1;
+            m[M1][i, 0] = m[I1][i, 0] - 1;
+            int opI = i == 1 || i == li ? 0 : gopI[i - 1];
+            int clI = i == 1 || i == li ? 0 : gcpI[i - 1];
+            for (int j = 1; j <= lj; j++)
+            {
+                int opJ = j == 1 || j == lj ? 0 : gopJ[j - 1];
+                int clJ = j == 1 || j == lj ? 0 : gcpJ[j - 1];
+                int sub = cost(i - 1, j - 1);
+                m[M1][i, j] = DpMax(out t[M1][i, j], (M1, m[M1][i - 1, j - 1]), (I1, m[I1][i - 1, j - 1] + clI), (D1, m[D1][i - 1, j - 1] + clJ)) + sub;
+                m[D1][i, j] = DpMax(out t[D1][i, j], (M1, m[M1][i, j - 1] + opJ + gep), (D1, m[D1][i, j - 1] + gep));
+                m[I1][i, j] = DpMax(out t[I1][i, j], (M1, m[M1][i - 1, j] + opI + gep), (I1, m[I1][i - 1, j] + gep));
+            }
+        }
+
+        int score = DpMax(out int trace, (M1, m[M1][li, lj]), (D1, m[D1][li, lj]), (I1, m[I1][li, lj]));
+        int ii = li, jj = lj;
+        var al0 = new List<bool>(); var al1 = new List<bool>();
+        trace = t[trace][ii, jj];
+        while (!(ii == 0 && jj == 0))
+        {
+            int next = t[trace][ii, jj];
+            int action = trace;
+            if (ii == 0) action = D1;
+            else if (jj == 0) action = I1;
+            switch (action)
+            {
+                case M1: al0.Add(true); al1.Add(true); ii--; jj--; break;
+                case D1: al0.Add(false); al1.Add(true); jj--; break;
+                case I1: al0.Add(true); al1.Add(false); ii--; break;
+            }
+
+            trace = next;
+        }
+
+        al0.Reverse(); al1.Reverse();
+        return (al0, al1, score);
+    }
+
+    /// <summary>
+    /// <c>gotoh_pair_wise_sw</c> (util_dp_gotoh_sw.c L141): the Smith-Waterman form of the Gotoh DP on column scores. Gap penalties <c>(gop - nomatch) x SCORE_K</c> / <c>(gep - nomatch) x SCORE_K</c>, the first row / column
+    /// hold <c>g + h x index</c>, a cell is the best of insertion, substitution, deletion and 0 (<c>best_int</c>: the first strictly greater value wins; 0 restarts the alignment), the best cell is the first one in row-major order with a
+    /// strictly larger score. <c>null</c> = no cell scored above 0 (the program empties every row). Otherwise the masks of the local alignment, the 0-based column of each group where it starts and its score.
+    /// </summary>
+    private static (List<bool> Al0, List<bool> Al1, int Start0, int Start1, int Score)? TcGotohSwMasks(int l1, int l2, Func<int, int, int> cost, int gopIn, int gepIn, int noMatch)
+    {
+        int g = (gopIn - noMatch) * TcScoreK, h = (gepIn - noMatch) * TcScoreK;
+        int len = Math.Max(l1, l2) + 1;
+        var cc = new int[len]; var dd = new int[len]; var ddg = new int[len];
+        var trace = new int[l1 + 1][];
+        for (int i = 0; i <= l1; i++) trace[i] = new int[l2 + 1];
+        int bestScore = 0, bestI = 0, bestJ = 0;
+        trace[0][0] = TcForbidden;
+        int t = g;
+        for (int j = 1; j <= l2; j++)
+        {
+            cc[j] = t = t + h;
+            dd[j] = t + g;
+            trace[0][j] = TcForbidden;
+        }
+
+        t = g;
+        for (int i = 1; i <= l1; i++)
+        {
+            var tr = trace[i];
+            int s = cc[0];
+            cc[0] = t = t + h;
+            int c = t;
+            int e = t + g;
+            tr[0] = TcForbidden;
+            int eg = 0;
+            for (int j = 1; j <= l2; j++)
+            {
+                int sub = cost(i - 1, j - 1);
+                if (e > c + g) eg++; else eg = 1;
+                e = Math.Max(e, c + g) + h;
+                if (dd[j] > cc[j] + g) ddg[j]++; else ddg[j] = 1;
+                dd[j] = Math.Max(dd[j], cc[j] + g) + h;
+                // best_int (4, ..., e, s + sub, dd[j], 0): the first strictly greater value wins
+                int fop = 0; c = e;
+                if (s + sub > c) { c = s + sub; fop = 1; }
+                if (dd[j] > c) { c = dd[j]; fop = 2; }
+                if (0 > c) { c = 0; fop = 3; }
+                if (c > bestScore) { bestI = i; bestJ = j; bestScore = c; }
+                fop -= 1;
+                s = cc[j];
+                cc[j] = c;
+                tr[j] = fop switch { -1 => fop * eg, 1 => fop * ddg[j], 0 => 0, _ => TcForbidden };
+            }
+        }
+
+        if (bestI == 0 || bestJ == 0) return null;
+        int ii = bestI, jj = bestJ, lastI = bestI, lastJ = bestJ;
+        var al0 = new List<bool>(); var al1 = new List<bool>();
+        while (ii > 0 && jj > 0)
+        {
+            int k = trace[ii][jj];
+            if (k == TcForbidden) { ii = jj = 0; }
+            else if (k == 0)
+            {
+                al0.Add(true); al1.Add(true);
+                ii--; jj--;
+                lastI = ii; lastJ = jj;
+            }
+            else if (k > 0)
+            {
+                for (int a = 0; a < k; a++) { al0.Add(true); al1.Add(false); ii--; }
+                lastI = ii; lastJ = jj;
+            }
+            else
+            {
+                for (int a = 0; a > k; a--) { al0.Add(false); al1.Add(true); jj--; }
+                lastI = ii; lastJ = jj;
+            }
+        }
+
+        al0.Reverse(); al1.Reverse();
+        return (al0, al1, lastI, lastJ, bestScore);
+    }
+
     /// <summary><c>dp_max (&amp;trace, n, key, value, ...)</c>: the value of the first key, a later value replaces it only when strictly greater.</summary>
     private static int DpMax(out int trace, params (int Key, int Value)[] candidates)
     {
@@ -214,6 +389,8 @@ public static partial class SequenceAligner
                 throw new TCoffeeAbortedException("ERROR: Msubop2_pair not recognised [FATAL:T-COFFEE] -- subop2_pair is not a valid method");
             case TCoffeePairMethod.CfastPair:
                 throw new TCoffeeAbortedException("ERROR: Mcfast_pair not recognised [FATAL:T-COFFEE] -- cfast_pair is not a valid method");
+            case TCoffeePairMethod.FuguePair:
+                throw new TCoffeeAbortedException("The Program fugueali Needed by T-COFFEE Could not be found [FATAL:T-COFFEE] -- fugue_pair needs fugueali");
         }
     }
 

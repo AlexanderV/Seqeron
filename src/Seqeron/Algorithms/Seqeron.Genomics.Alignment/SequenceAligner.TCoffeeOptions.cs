@@ -84,6 +84,15 @@ public sealed partial record TCoffeeProgramOptions
             case "-quiet":
             case "-multi_core":
                 return this; // no influence on the rows (checked: -n_core 1, 2, 3, 4, 8)
+            case "-mode":
+            case "-special_mode":
+                // 3dcoffee = `-in Msap_pair -template_file SELF_P_ -profile_template_file SELF_P_`; expresso fetches the structures from the RCSB (network)
+                return StringValue(flag, values) switch
+                {
+                    "3dcoffee" => throw new NotSupportedException("-mode 3dcoffee (= -in Msap_pair -template_file SELF_P_ -profile_template_file SELF_P_) equals -method proba_pair,sap_pair on 7 of the 8 committed sets; on the eighth the program's library holds fewer pair contributions (profile templates / network look-ups of the sequence names: not understood), so the mode is not claimed - use -method proba_pair,sap_pair (B09.md A2-10)."),
+                    "expresso" => throw new NotSupportedException("-mode expresso downloads the structures of the sequences from the RCSB PDB (blast against the PDB, network): not reproducible offline."),
+                    var m => throw new ArgumentException($"The t_coffee mode {m} is not supported (3dcoffee)."),
+                };
             case "-method":
                 {
                     var methods = new List<TCoffeePairMethod>();
@@ -129,6 +138,11 @@ public sealed partial record TCoffeeProgramOptions
                     "linked_pair_wise" => this with { DpMode = TCoffeeDpMode.Linked },
                     "gotoh_pair_wise" or "ssec_pair_wise" => this with { DpMode = TCoffeeDpMode.Gotoh },
                     "gotoh_pair_wise_test" => this with { DpMode = TCoffeeDpMode.GotohTest },
+                    "gotoh_pair_wise_lgp" => this with { DpMode = TCoffeeDpMode.GotohLgp },
+                    "ktup_pair_wise" => this with { DpMode = TCoffeeDpMode.Ktup },
+                    "precomputed_pair_wise" => this with { DpMode = TCoffeeDpMode.Precomputed },
+                    "gotoh_pair_wise_sw" => this with { DpMode = TCoffeeDpMode.GotohSw },
+                    "test_pair_wise" => this with { DpMode = TCoffeeDpMode.Test },
                     "myers_miller_pair_wise" or "default" => this with { DpMode = TCoffeeDpMode.MyersMiller },
                     "fasta_pair_wise" => this with { DpMode = TCoffeeDpMode.Fasta },
                     "cfasta_pair_wise" => this with { DpMode = TCoffeeDpMode.CFasta },
@@ -273,6 +287,14 @@ public sealed partial record TCoffeeProgramOptions
         "exon_pair" => TCoffeePairMethod.ExonPair,
         "exon2_pair" => TCoffeePairMethod.Exon2Pair,
         "exon3_pair" => TCoffeePairMethod.Exon3Pair,
+        "muscle_pair" => TCoffeePairMethod.MusclePair,
+        "mafft_pair" => TCoffeePairMethod.MafftPair,
+        "TMalign_pair" or "tmalign_pair" => TCoffeePairMethod.TMalignPair,
+        "mustang_pair" => TCoffeePairMethod.MustangPair,
+        "blastp_msa" => TCoffeePairMethod.BlastpMsa,
+        "sap_pair" => TCoffeePairMethod.SapPair,
+        "dali_pair" => TCoffeePairMethod.DaliPair,
+        "fugue_pair" => TCoffeePairMethod.FuguePair,
         _ => throw new ArgumentException($"The t_coffee method {name} is not supported."),
     };
 }

@@ -145,6 +145,50 @@ public enum TCoffeePairMethod
 
     /// <summary><c>exon3_pair</c>: as <see cref="Exon2Pair"/> with GOP 0.</summary>
     Exon3Pair = 16,
+
+    /// <summary>
+    /// <c>muscle_pair</c> (audit A2-11): the program runs the external <c>muscle -in x -out y -quiet -maxmb 0</c> on every pair of sequences and reads the alignment; here the MUSCLE 3.8.1551 port of this repository
+    /// (<see cref="SequenceAligner.MultipleAlignMuscle(IEnumerable{string}, MuscleOptions?, MatrixScoring?)"/>, the program's default <c>-maxiters 8</c>) is the aligner. Weights = 10 x percent identity as for the other methods.
+    /// The installed program finds MUSCLE only when the plugin directory of T-Coffee (<c>$HOME/.t_coffee/plugins/linux</c>) holds a MUSCLE 3.x binary named <c>muscle</c>.
+    /// </summary>
+    MusclePair = 17,
+
+    /// <summary>
+    /// <c>TMalign_pair</c> (audit A2-10): <c>pdb_pair</c> with the external structure aligner TM-align on the <c>_P_</c> templates of the two sequences (<see cref="TCoffeeProgramOptions.StructureTemplates"/>); the alignment it wrote
+    /// (<see cref="TCoffeeProgramOptions.StructureAlignerOutputs"/>) becomes the library of the pair (weight 10 x identity). Pairs without two usable templates are aligned by <c>proba_pair</c>.
+    /// </summary>
+    TMalignPair = 18,
+
+    /// <summary><c>mustang_pair</c> (audit A2-10): as <see cref="TMalignPair"/> with MUSTANG (<c>mustang -i pdb1 pdb2 -F fasta</c>, the file results.afasta).</summary>
+    MustangPair = 19,
+
+    /// <summary>
+    /// <c>blastp_msa</c> (audit A2-9; ALN_MODE multiple): the sequences are searched against a local BLAST database made of themselves (<c>blastall -p blastp -m7</c>) and the high scoring pairs become the library (weight = percent
+    /// identity of the HSP, truncated; <see cref="SequenceAligner.TCoffeeBlastMsaLibraryEntries"/>). The BLAST search is the external program: its XML is <see cref="TCoffeeProgramOptions.BlastXml"/>.
+    /// </summary>
+    BlastpMsa = 20,
+
+    /// <summary>
+    /// <c>sap_pair</c> (audit A2-12): when SAP is not installed - the case of the installed program - the method list of the program switches to TM-align ("SAP is not installed. TMalign will be used instead"), so this method behaves exactly as
+    /// <see cref="TMalignPair"/> (<c>-mode 3dcoffee</c> adds it to the default <c>proba_pair</c>: 7 of 8 sets equal <c>-method proba_pair,sap_pair</c>, see <see cref="TCoffeeProgramOptions"/>). The real SAP (Taylor, Orengo 1989) is not reproduced: its glue (<c>sap_pair</c> of util_dp_drivers.c) is another parser (docs/Validation/review-2026-09/handoff/A2-12).
+    /// </summary>
+    SapPair = 21,
+
+    /// <summary>
+    /// <c>dali_pair</c> (audit A2-12): <c>pdb_pair</c> with <c>EXECUTABLE2 DaliLite</c>; DaliLite is not installed, so the program stops ("ERROR: UNSPECIFIED UNSPECIFIED", exit status 1) at the first pair of two sequences that both carry a usable
+    /// structure (<see cref="TCoffeeProgramOptions.StructureTemplates"/>) and raises <see cref="TCoffeeAbortedException"/>; pairs without two structures are aligned by <c>proba_pair</c> as for every structure method.
+    /// </summary>
+    DaliPair = 22,
+
+    /// <summary><c>fugue_pair</c> (audit A2-12): needs <c>fugueali</c> (FUGUE: licence-gated, no public source), which is not installed: "The Program fugueali Needed by T-COFFEE Could not be found [FATAL:T-COFFEE]", exit status 1. Raises <see cref="TCoffeeAbortedException"/>.</summary>
+    FuguePair = 23,
+
+    /// <summary>
+    /// <c>mafft_pair</c> (audit A2-11): the program runs the external <c>mafft --anysymbol in &gt; out</c> on every pair (2 x 23 - the installed mafft 7.505, FFT-NS-1 progressive alignment of the two sequences). The earlier "rc 1" was not an
+    /// impossibility: t_coffee points <c>MAFFT_BINARIES</c> at <c>$HOME/.t_coffee/plugins/linux</c>, which must hold the helper binaries of mafft (<c>/usr/lib/mafft/bin</c> and <c>/usr/lib/mafft/lib/mafft</c>) - 460 oracle sets are
+    /// committed (feature <c>mafft_pair</c> of <c>tcoffee_program_options_oracle.tsv</c>). There is no MAFFT port in this repository yet (B09.md A2-19), so the method raises <see cref="NotSupportedException"/>.
+    /// </summary>
+    MafftPair = 24,
 }
 
 /// <summary>

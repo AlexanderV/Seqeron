@@ -197,13 +197,27 @@ public static partial class SequenceAligner
 
     /// <summary>The entries one pair job (x, y) adds, in the order of <c>aln2constraint_list</c> (alignments of the chain, columns left to right).</summary>
     private static List<(int S1, int R1, int S2, int R2, int W)> TcPairJobEntries(
-        IReadOnlyList<string> seqs, int x, int y, TCoffeePairMethod method, int lalignTop, TcSeqKind kind, string? matrix, TCoffeeMethodParameters? mp, string[]? work = null, string?[]? templates = null, TcProcessGroups? groups = null)
+        IReadOnlyList<string> seqs, int x, int y, TCoffeePairMethod method, int lalignTop, TcSeqKind kind, string? matrix, TCoffeeMethodParameters? mp, string[]? work = null, string?[]? templates = null, TcProcessGroups? groups = null, TcStructure? structure = null)
     {
         bool protein = kind == TcSeqKind.Protein;
         if (method is TCoffeePairMethod.PromoPair or TCoffeePairMethod.BlastrPair)
             return TcExtendedPairEntries(work ?? seqs.ToArray(), x, y, method, mp);
         if (method == TCoffeePairMethod.ProbaPair)
             return TcProbaPairEntries(seqs[x], seqs[y], kind, matrix).Select(e => (x, e.R1, y, e.R2, e.Weight)).ToList();
+        bool structureMethod = method is TCoffeePairMethod.TMalignPair or TCoffeePairMethod.MustangPair or TCoffeePairMethod.SapPair or TCoffeePairMethod.DaliPair;
+        var structureTool = method == TCoffeePairMethod.SapPair ? TCoffeePairMethod.TMalignPair : method; // SAP is not installed: the program runs TMalign
+        (string, string)? structureRows = null;
+        if (structureMethod)
+        {
+            // SEQ_TYPE P: both sequences need a usable _P_ template, otherwise the job is proba_pair's ("Method TMalign cannot be applied to [x vs y], proba_pair will be used instead")
+            if (structure is null || !structure.Usable[x] || !structure.Usable[y])
+                return TcProbaPairEntries(seqs[x], seqs[y], kind, matrix).Select(e => (x, e.R1, y, e.R2, e.Weight)).ToList();
+            // dali_pair: pdb_pair with EXECUTABLE2 DaliLite, which is not installed: the first pair of two usable structures stops the program ("ERROR: UNSPECIFIED UNSPECIFIED", exit status 1)
+            if (method == TCoffeePairMethod.DaliPair) throw new TCoffeeAbortedException("ERROR: UNSPECIFIED UNSPECIFIED -- dali_pair needs DaliLite (EXECUTABLE2 DaliLite), which is not installed");
+            string? output = structure.Output(structureTool, x, y);
+            if (output is not null) structureRows = structureTool == TCoffeePairMethod.TMalignPair ? TCoffeeTMalignAlignment(output) : TCoffeeMustangAlignment(output);
+            if (structureRows is null) return new List<(int, int, int, int, int)>(); // the structure aligner failed: no entry
+        }
 
         var rows = new List<(string, string)>();
         bool subset = false; // exon2 / exon3: only the columns with both letters in "subset_objOBJ-"
@@ -260,6 +274,21 @@ public static partial class SequenceAligner
                     break;
                 }
 
+            case TCoffeePairMethod.TMalignPair:
+            case TCoffeePairMethod.MustangPair:
+            case TCoffeePairMethod.SapPair:
+                rows.Add(structureRows!.Value);
+                break;
+
+            case TCoffeePairMethod.MafftPair:
+                throw new NotSupportedException("mafft_pair runs MAFFT 7.505 on every pair; there is no MAFFT port in this repository yet (B09.md A2-19). 460 oracle sets of the program are committed (feature mafft_pair).");
+            case TCoffeePairMethod.MusclePair:
+                {
+                    var mu = MultipleAlignMuscle(new[] { seqs[x], seqs[y] }, new MuscleOptions { MaxIterations = 8 });
+                    rows.Add((mu.AlignedSequences[0], mu.AlignedSequences[1]));
+                    break;
+                }
+
             default:
                 throw new NotSupportedException($"The {method} library is not available here.");
         }
@@ -299,7 +328,7 @@ public static partial class SequenceAligner
     }
 
     private static List<TcEntry>? TcRunMethod(
-        TcConstraintList start, IReadOnlyList<string> seqs, List<(int X, int Y)> pairs, TCoffeePairMethod method, int lalignTop, TcSeqKind kind, string? matrix, TCoffeeMethodParameters? mp, string?[]? templates = null)
+        TcConstraintList start, IReadOnlyList<string> seqs, List<(int X, int Y)> pairs, TCoffeePairMethod method, int lalignTop, TcSeqKind kind, string? matrix, TCoffeeMethodParameters? mp, string?[]? templates = null, TcStructure? structure = null, IEnumerable<(int S1, int R1, int S2, int R2, int W)>? fixedEntries = null)
     {
         var methodList = start.Clone();
         int before = methodList.EntryCount;
@@ -309,8 +338,12 @@ public static partial class SequenceAligner
         var work = seqs.ToArray();
         var groups = new TcProcessGroups();
         foreach (var (x, y) in pairs)
-            foreach (var (s1, r1, s2, r2, w) in TcPairJobEntries(seqs, x, y, method, lalignTop, kind, matrix, mp, work, templates, groups))
+            foreach (var (s1, r1, s2, r2, w) in TcPairJobEntries(seqs, x, y, method, lalignTop, kind, matrix, mp, work, templates, groups, structure))
                 child.AddBoth(s1, r1, s2, r2, w, 1);
+        // a library file read by read_constraint_list_file (the single job of a multiple method): CONS 0
+        if (fixedEntries != null)
+            foreach (var (s1, r1, s2, r2, w) in fixedEntries)
+                child.AddBoth(s1, r1, s2, r2, w, 0);
         methodList.Undump(child.Dump(frozen));
         return methodList.EntryCount > before ? methodList.Dump(null) : null;
     }
@@ -320,7 +353,7 @@ public static partial class SequenceAligner
     /// (see the file header for the process structure that is reproduced). A method child starts from the list merged so far.
     /// </summary>
     internal static TcConstraintList TcBuildConstraintList(
-        IReadOnlyList<string> seqs, IReadOnlyList<TCoffeePairMethod> methods, int lalignTop, TcSeqKind kind, string? matrix = null, IReadOnlyDictionary<TCoffeePairMethod, TCoffeeMethodParameters>? methodParameters = null, string?[]? templates = null)
+        IReadOnlyList<string> seqs, IReadOnlyList<TCoffeePairMethod> methods, int lalignTop, TcSeqKind kind, string? matrix = null, IReadOnlyDictionary<TCoffeePairMethod, TCoffeeMethodParameters>? methodParameters = null, string?[]? templates = null, TcStructure? structure = null, TcBlastInput? blast = null)
     {
         var lengths = seqs.Select(s => s.Length).ToArray();
         var main = new TcConstraintList(lengths);
@@ -341,9 +374,18 @@ public static partial class SequenceAligner
         {
             if (pairs.Count > 0) TcRefuseMethod(method);
             var methodPairs = method == TCoffeePairMethod.LalignRsSPair ? pairsWithSelf : pairs;
+            if (method == TCoffeePairMethod.BlastpMsa)
+            {
+                // ALN_MODE multiple: ONE job for all the sequences (seq_msa); the library comes from the HSPs of the search
+                if (blast is null) throw new ArgumentException("blastp_msa needs the XML of the BLAST search (TCoffeeProgramOptions.BlastXml): the search itself is the external program.");
+                var blastDump = TcRunMethod(main, seqs, new List<(int X, int Y)>(), method, lalignTop, kind, matrix, null, templates, structure, TcBlastMsaEntries(blast.Names, seqs, blast.Xml));
+                if (blastDump != null) main.Undump(blastDump);
+                continue;
+            }
+
             if (method is TCoffeePairMethod.ExonPair or TCoffeePairMethod.Exon2Pair or TCoffeePairMethod.Exon3Pair)
                 methodPairs = pairs.Where(p => templates != null && templates[p.X] != null && templates[p.Y] != null).ToList(); // check_seq_type: SEQ_TYPE G needs a _G_ template on both sequences
-            var dump = TcRunMethod(main, seqs, methodPairs, method, lalignTop, kind, matrix, methodParameters != null && methodParameters.TryGetValue(method, out var mp) ? mp : null, templates);
+            var dump = TcRunMethod(main, seqs, methodPairs, method, lalignTop, kind, matrix, methodParameters != null && methodParameters.TryGetValue(method, out var mp) ? mp : null, templates, structure);
             if (dump != null) main.Undump(dump);
         }
 
@@ -375,13 +417,13 @@ public static partial class SequenceAligner
         return list.OrderBy(e => e.SeqA).ThenBy(e => e.SeqB).ThenBy(e => e.PosA).ThenBy(e => e.PosB).ToList();
     }
 
-    private static TcConstraintList TcBuildChecked(IReadOnlyList<string> sequences, IEnumerable<TCoffeePairMethod> methods, int lalignTop, TcSeqKind kind, string? matrix = null, IReadOnlyDictionary<TCoffeePairMethod, TCoffeeMethodParameters>? methodParameters = null, string?[]? templates = null)
+    private static TcConstraintList TcBuildChecked(IReadOnlyList<string> sequences, IEnumerable<TCoffeePairMethod> methods, int lalignTop, TcSeqKind kind, string? matrix = null, IReadOnlyDictionary<TCoffeePairMethod, TCoffeeMethodParameters>? methodParameters = null, string?[]? templates = null, TcStructure? structure = null, TcBlastInput? blast = null)
     {
         ArgumentNullException.ThrowIfNull(sequences);
         ArgumentNullException.ThrowIfNull(methods);
         foreach (var s in sequences)
             if (string.IsNullOrEmpty(s)) throw new ArgumentException("Empty sequences are not supported.", nameof(sequences));
-        return TcBuildConstraintList(sequences, methods.ToList(), lalignTop, kind, matrix, methodParameters, templates);
+        return TcBuildConstraintList(sequences, methods.ToList(), lalignTop, kind, matrix, methodParameters, templates, structure, blast);
     }
 }
 
@@ -465,6 +507,26 @@ public sealed partial record TCoffeeProgramOptions
     /// <see cref="TCoffeePairMethod.Exon2Pair"/> and <see cref="TCoffeePairMethod.Exon3Pair"/>. The command-line form is <c>-template_file @t0,t1,...</c>.
     /// </summary>
     public IReadOnlyList<string?>? GenomicTemplates { get; init; }
+
+    /// <summary>
+    /// <c>-template_file</c> with <c>_P_</c> templates (A2-10): the sequence of the PDB structure of every input sequence in input order (<c>null</c> / empty = no structure), the input of
+    /// <see cref="TCoffeePairMethod.TMalignPair"/> and <see cref="TCoffeePairMethod.MustangPair"/>. A structure is attached only when its sequence is similar enough to the sequence (identity &gt; 35 %, coverage &gt; 50 %);
+    /// pairs without two structures are aligned by <c>proba_pair</c> as the program does. What the external structure aligner wrote for the pairs is <see cref="StructureAlignerOutputs"/>.
+    /// </summary>
+    public IReadOnlyList<string?>? StructureTemplates { get; init; }
+
+    /// <summary>
+    /// What the external BLAST search of <see cref="TCoffeePairMethod.BlastpMsa"/> wrote (A2-9): the XML (<c>blastall -p blastp -m7</c>, NCBI BLAST+ <c>-outfmt 5</c>) of the search of every sequence against a local database of all of them, one
+    /// <c>Iteration</c> per sequence in the program's order. The hits are matched to the sequences by <see cref="Names"/> (omitted: q000, q001, ... by input index). The BLAST search is not reimplemented.
+    /// </summary>
+    public string? BlastXml { get; init; }
+
+    /// <summary>
+    /// What the external structure aligner of each method wrote for a pair of structures (the structure aligner is the external program; this library is T-Coffee's side): per method, keyed by the INPUT indices of the two sequences in the
+    /// order the program calls the aligner (names sorted unless <see cref="InOrderInput"/>; first = the sequence that comes first), the standard output of <c>TMalign pdb1 pdb2</c> (its last four lines are what matters,
+    /// see <see cref="SequenceAligner.TCoffeeTMalignAlignment"/>) or the content of the <c>results.afasta</c> of <c>mustang -i pdb1 pdb2 -F fasta</c> (<see cref="SequenceAligner.TCoffeeMustangAlignment"/>). A missing pair = the aligner failed.
+    /// </summary>
+    public IReadOnlyDictionary<TCoffeePairMethod, IReadOnlyDictionary<(int First, int Second), string>>? StructureAlignerOutputs { get; init; }
 
     /// <summary><c>-dp_mode</c>: the dynamic program of the progressive stage (default the sparse <c>linked_pair_wise</c>).</summary>
     public TCoffeeDpMode DpMode { get; init; } = TCoffeeDpMode.Linked;
@@ -596,6 +658,8 @@ public static partial class SequenceAligner
         if (list.Count == 0) return MultipleAlignmentResult.Empty;
         using var cancelScope = AlignmentCancellation.Enter(options?.CancellationToken ?? default);
         var rows = TCoffeeProgramRows(list, options);
+        // ktup_pair_wise / precomputed_pair_wise / gotoh_pair_wise_sw write rows of different lengths (no alignment of the groups): there is no column to score or to take a consensus of
+        if (rows.Select(r => r.Length).Distinct().Count() > 1) return new MultipleAlignmentResult(rows, string.Empty, 0);
         bool protein = (options ?? new TCoffeeProgramOptions()).Protein ?? TcIsProtein(list);
         var sp = scoring ?? (protein ? MatrixScoring.Emboss(SubstitutionMatrix.Blosum62, 10, 0.2) : MatrixScoring.Emboss(SubstitutionMatrix.EdnaFull, 10, 0.5));
         string consensus = BuildConsensus(rows.ToList(), rows.Max(r => r.Length), anySymbol: true);
@@ -631,7 +695,22 @@ public static partial class SequenceAligner
         var kind = TcKindOf(seqs, options.Protein);
         if (options.GenomicTemplates != null && options.GenomicTemplates.Count != k) throw new ArgumentException("GenomicTemplates must have one entry per sequence.", nameof(options));
         string?[]? templates = options.GenomicTemplates == null ? null : perm.Select(i => options.GenomicTemplates[i]).ToArray();
-        var cl = TcBuildChecked(seqs, options.Methods, options.LalignTopAlignments, kind, options.Matrix, options.MethodParameters, templates);
+        TcStructure? structure = null;
+        if (options.StructureTemplates != null)
+        {
+            if (options.StructureTemplates.Count != k) throw new ArgumentException("StructureTemplates must have one entry per sequence.", nameof(options));
+            var outputs = options.StructureAlignerOutputs;
+            structure = new TcStructure
+            {
+                Usable = perm.Select(i => !string.IsNullOrEmpty(options.StructureTemplates[i]) && TcPdbTemplateUsable(sequences[i], options.StructureTemplates[i]!)).ToArray(),
+                Output = (method, x, y) => outputs != null && outputs.TryGetValue(method, out var byPair) && byPair.TryGetValue((perm[x], perm[y]), out var text) ? text : null,
+            };
+        }
+
+        TcBlastInput? blast = null;
+        if (options.BlastXml != null)
+            blast = new TcBlastInput { Names = perm.Select(i => options.Names != null ? options.Names[i] : $"q{i:D3}").ToArray(), Xml = options.BlastXml };
+        var cl = TcBuildChecked(seqs, options.Methods, options.LalignTopAlignments, kind, options.Matrix, options.MethodParameters, templates, structure, blast);
         // CL->S->nseq > 1 with an empty library: "You have not provided any method or enough Sequences [FATAL]" (t_coffee.c L4999-5010)
         if (cl.EntryCount == 0)
             throw new TCoffeeAbortedException("You have not provided any method or enough Sequences [FATAL] (no library entry: a method without suitable sequences produced no pair)");

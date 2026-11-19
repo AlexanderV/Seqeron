@@ -48,6 +48,25 @@ public enum TCoffeeDpMode
 
     /// <summary>Any other name: the program refuses it (see <see cref="TCoffeeProgramOptions.DpModeText"/>).</summary>
     Other = 9,
+
+    /// <summary><c>gotoh_pair_wise_lgp</c>: the three-state Gotoh DP with position specific gap opening / closing penalties derived from the gaps of the two profiles (<c>aln2local_penalties</c>).</summary>
+    GotohLgp = 10,
+
+    /// <summary><c>ktup_pair_wise</c> (LOCAL): scores the k-tuple similarity of the two groups and leaves every row as it is (no alignment is produced).</summary>
+    Ktup = 11,
+
+    /// <summary><c>precomputed_pair_wise</c>: the identity of two already aligned groups; the program stops when the first rows of the groups differ in length, otherwise the rows stay as they are.</summary>
+    Precomputed = 12,
+
+    /// <summary><c>gotoh_pair_wise_sw</c> (LOCAL): the Smith-Waterman variant of the Gotoh DP; the rows keep only the columns of the best local alignment.</summary>
+    GotohSw = 13,
+
+    /// <summary>
+    /// <c>test_pair_wise</c> (a debugging routine): no alignment, every row of the first group is followed by <c>l1 - n</c> gaps and every row of the second group by <c>l0 - n</c> gaps with <c>n = l0 / 2</c> (<c>l0 &lt; 5</c>) or 5, so that the two blocks of rows
+    /// lie side by side from column 0 (the groups overlap). The routine writes the longer rows into buffers sized for the longest input sequence (a heap overflow: the program dies on part of the sets, see <see cref="TCoffeeAbortedException.HeapDependent"/>)
+    /// and calls <c>generate_null</c> with a negative size when the second group has fewer than <c>n</c> columns (a null allocation: deterministic segmentation fault).
+    /// </summary>
+    Test = 14,
 }
 
 /// <summary><c>-extend_mode</c> of the program (<c>choose_extension_mode</c>): how the library is used to score a pair of profile columns.</summary>
@@ -528,6 +547,8 @@ public static partial class SequenceAligner
             case TCoffeeDpMode.Gotoh:
             case TCoffeeDpMode.GotohTest:
                 return TcGotohProfile(l1, l2, cost, st.Gop, st.Gep, st.TgMode, st.Mode == TCoffeeDpMode.GotohTest);
+            case TCoffeeDpMode.GotohLgp:
+                return TcGotohLgpMasks(g0, g1, cost, st.Gop, st.Gep);
             case TCoffeeDpMode.MyersMiller:
                 return TcMyersMillerProfile(l1, l2, cost, st.Gop, st.Gep);
             case TCoffeeDpMode.Biphasic:
@@ -585,12 +606,67 @@ public static partial class SequenceAligner
 
         var left = TcAlignNodeDp(node.Left, seqs, ctx);
         var right = TcAlignNodeDp(node.Right!, seqs, ctx);
+        if (ctx.Settings.Mode is TCoffeeDpMode.Ktup or TCoffeeDpMode.Precomputed or TCoffeeDpMode.GotohSw or TCoffeeDpMode.Test) return TcMergeWithoutGlobalAlignment(ctx, left, right);
         var (m0, m1, _) = TcProfileDp(ctx, left, right);
         var merged = new TcGroup();
         merged.Order.AddRange(left.Order);
         merged.Order.AddRange(right.Order);
         TcApply(left, m0, merged);
         TcApply(right, m1, merged);
+        return merged;
+    }
+
+    /// <summary>
+    /// The dynamic programs that do not return a global alignment of the two groups: <c>ktup_pair_wise</c> only computes a k-tuple score (the rows stay as they are, even of unequal length),
+    /// <c>precomputed_pair_wise</c> computes the identity of two aligned groups and stops the program ("improper use of the function precomputed pairwise", exit status 1) when the first rows of the two groups differ in length,
+    /// <c>gotoh_pair_wise_sw</c> keeps only the columns of the best local alignment (the rows of BOTH groups lose everything outside it; no positive cell empties every row, and a group with empty rows leaves the pair untouched: <c>empty_pair_wise</c> of a LOCAL mode).
+    /// </summary>
+    /// <summary>Diagnostics for the tests: when set, every merge of <see cref="TcMergeWithoutGlobalAlignment"/> appends (mode, columns of the first group, columns of the second group, row length written, longest input sequence).</summary>
+    [ThreadStatic]
+    internal static List<(TCoffeeDpMode Mode, int L0, int L1, int Written, int MaxLen)>? TcMergeTrace;
+
+    private static TcGroup TcMergeWithoutGlobalAlignment(TcDpContext ctx, TcGroup left, TcGroup right)
+    {
+        var merged = new TcGroup();
+        merged.Order.AddRange(left.Order);
+        merged.Order.AddRange(right.Order);
+        var mode = ctx.Settings.Mode;
+        if (mode == TCoffeeDpMode.Precomputed && left.Columns != right.Columns)
+            throw new TCoffeeAbortedException("ERROR: improper use of the function precomputed pairwise:[FATAL:T-COFFEE] (precomputed_pair_wise needs two groups whose first rows have the same length)");
+        if (mode == TCoffeeDpMode.Test)
+        {
+            int l0 = left.Columns, l1 = right.Columns;
+            int n = l0 < 5 ? l0 / 2 : 5;
+            if (l1 < n) throw new TCoffeeAbortedException("segmentation fault in test_pair_wise: generate_null (l1 - n) is called with a negative size, vcalloc (size + 1 <= 0) returns NULL and the terminator is written through it (exit status 11)", 11);
+            int pad0 = l1 - n, pad1 = l0 - n;
+            TcMergeTrace?.Add((mode, l0, l1, l0 + pad0, ctx.Index.Len.Max()));
+            foreach (int sq in left.Order) merged.Rows[sq] = left.Rows[sq].Concat(new int[pad0]).ToArray();
+            foreach (int sq in right.Order) merged.Rows[sq] = right.Rows[sq].Concat(new int[pad1]).ToArray();
+            return merged;
+        }
+
+        if (mode == TCoffeeDpMode.GotohSw && left.Columns > 0 && right.Columns > 0)
+        {
+            var sw = TcGotohSwMasks(left.Columns, right.Columns, ctx.ColumnScore(left, right), ctx.Settings.Gop, ctx.Settings.Gep, ctx.NoMatch);
+            TcMergeTrace?.Add((mode, left.Columns, right.Columns, sw?.Al0.Count ?? -1, ctx.Index.Len.Max()));
+            foreach (var (g, which) in new[] { (left, 0), (right, 1) })
+                foreach (int sq in g.Order)
+                {
+                    if (sw is null) { merged.Rows[sq] = Array.Empty<int>(); continue; }
+                    var mask = which == 0 ? sw.Value.Al0 : sw.Value.Al1;
+                    int start = which == 0 ? sw.Value.Start0 : sw.Value.Start1;
+                    var src = g.Rows[sq];
+                    var dst = new int[mask.Count];
+                    int p = start;
+                    for (int c = 0; c < mask.Count; c++) dst[c] = mask[c] ? src[p++] : 0;
+                    merged.Rows[sq] = dst;
+                }
+
+            return merged;
+        }
+
+        foreach (var g in new[] { left, right })
+            foreach (int sq in g.Order) merged.Rows[sq] = g.Rows[sq];
         return merged;
     }
 
@@ -652,7 +728,7 @@ public static partial class SequenceAligner
 
     private static readonly string[] TcDpModesWithoutPort =
     {
-        "gotoh_pair_wise_lgp", "ktup_pair_wise", "viterbi_pair_wise", "viterbiL_pair_wise", "viterbiD_pair_wise", "procoffee_pair_wise", "co_pair_wise", "gotoh_pair_wise_sw",
-        "test_pair_wise", "precomputed_pair_wise", "linked_pair_wise_collapse", "sim_pair_wise_lalign", "gotoh_pair_wise_lgp_sticky",
+        "viterbi_pair_wise", "viterbiL_pair_wise", "viterbiD_pair_wise", "procoffee_pair_wise", "co_pair_wise",
+        "linked_pair_wise_collapse", "sim_pair_wise_lalign",
     };
 }
