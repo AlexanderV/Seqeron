@@ -1,0 +1,3 @@
+1b8_T06	the mapped walk does not check that a child interval is not empty	survived
+1b8_T07	the mapped walk accepts a child as deep as its parent	killed(by the unit tests: 1 failed, first AChildAsDeepAsItsParent_IsRefusedByTheDescent_TheWalkAndTheNavigators)
+1b8_T08	the first l-index at the left bound of an interval is accepted	survived

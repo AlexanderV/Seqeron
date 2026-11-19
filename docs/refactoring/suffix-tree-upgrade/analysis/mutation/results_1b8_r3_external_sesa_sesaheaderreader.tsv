@@ -1,0 +1,1 @@
+1b8_H01	a FILE_SIZE smaller than the file is accepted (trailing bytes)	killed(FAIL corruption akb:b9fb082c5df559c2:17:1:81 HeaderField: akb:b9fb082c5df559c2:17:1:81 n=17 HeaderField (damage seed e6484821d859a560, psi True): flip of header byte 32, header checksum recomputed: this damage must be refused at H)
