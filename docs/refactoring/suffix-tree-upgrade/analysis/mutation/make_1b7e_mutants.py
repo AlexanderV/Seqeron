@@ -37,6 +37,7 @@ FILTERS = {
     'Lcp/LcpBuild.cs': Q('SesaSectionTests', 'ExternalLcpTests', 'LcpChildBuilderTests'),
 }
 exec(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'mutants_1b7e_data.py')).read())
+ONLY = set(open(os.environ['ONLY']).read().split()) if os.environ.get('ONLY') else None  # ids to list (the survivors of a round)
 PARITY = os.environ.get('PARITY', '')  # '0' / '1': only the mutants at even / odd positions of their list (a round of half the list); '' = all
 
 CHUNK = 70
@@ -51,9 +52,13 @@ for f, lst in FILES.items():
             print('PATTERN', f, mm['id'], 'occurs', c)
             bad += 1
         flt = mm.get('filter') or FILTERS.get(f, FILTERS['*'])
-        if os.environ.get('WITH_AUDIT_TESTS') and 'filter' not in mm:
+        if os.environ.get('BROAD'):  # a rerun of the survivors: every test class that can see the new code of the package
+            flt = '(' + '|'.join('FullyQualifiedName~' + c for c in ('SesaBuilderTests', 'SesaFailureTests', 'SesaSectionTests', 'SesaAuditTests', 'Ph6Tests', 'SesaGapTests', 'SesaFormatTests', 'SesaLayoutTests', 'Crc32CTests', 'SuffixOrderTests', 'ExternalLcpTests', 'LcpChildBuilderTests', 'SaBuilderTests', 'MappedOutputFileTests')) + ')'
+        elif os.environ.get('WITH_AUDIT_TESTS') and 'filter' not in mm:
             flt = flt[:-1] + '|FullyQualifiedName~SesaAuditTests)'  # round 2: the tests that closed the gaps of round 1 are part of the filter
         mm = dict(mm, file=SRC + f, filter=flt)
+        if ONLY and mm['id'] not in ONLY:
+            continue
         if not PARITY or pos % 2 == int(PARITY):
             out.append(mm)
     base = f.replace('/', '_').replace('.cs', '').lower()
