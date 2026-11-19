@@ -46,7 +46,8 @@ public unsafe class SesaBuildCostTests
             "separate" => RunSeparate(scale, threads, psi),
             "ph6proto" => RunPh6Proto(),
             "ph6prod" => RunPh6Prod(),
-            _ => throw new InvalidOperationException("G3_VARIANT must be container, separate, ph6proto or ph6prod"),
+            "crc" => RunCrc(),
+            _ => throw new InvalidOperationException("G3_VARIANT must be container, separate, ph6proto, ph6prod or crc"),
         };
         Prod.RssStats s = rss.Stop();
         File.AppendAllText(rows, string.Join('\t', label, variant, row, before, s.MaxRssAnonKb, s.Samples) + "\n");
@@ -64,6 +65,7 @@ public unsafe class SesaBuildCostTests
             IncludePsi = psi,
             Fsync = EnvOr("G3_FSYNC", "1") == "1",
             MeasureRss = EnvOr("G3_SAMPLER", "1") == "1",
+            Files = EnvOr("G3_RESERVATION", "auto") == "sparse" ? new Prod.MappedFileOptions { Reservation = Prod.ReservationMode.Sparse } : null,
         };
         Prod.SesaBuildResult r = Prod.SesaBuilder.Build(input, target, options);
         File.WriteAllText(Env("G3_ROWS") + ".crc." + Env("G3_LABEL"), string.Join('\n', r.CrcRows.Select(c => string.Join('\t', c.Kind, c.Bytes, F(c.Seconds), c.Hardware))) + "\n");
@@ -111,7 +113,31 @@ public unsafe class SesaBuildCostTests
         }
         _ = crc;
         double total = Seconds(t0) + ph0 + saRes.Ph1Seconds + saRes.Ph23Seconds + lcp.Seconds + bwtS + psiS;
-        return string.Join('\t', F(ph0), F(saRes.Ph1Seconds), F(saRes.Ph23Seconds), F(lcp.Seconds), F(bwtS), F(psiS), F(crcS), F(total), counters.ReadBytes, counters.WriteBytes, counters.MappedWriteBytes, counters.ScratchPeakBytes, files.Sum(f => new FileInfo(f).Length));
+        double copyS = 0;
+        long copied = 0;
+        if (EnvOr("G3_COPY", "0") == "1")
+        {
+            // what building into the sections avoids: the finished outputs are copied one after the other into one container-sized file (1 MiB buffers, fsync at the end)
+            string container = Path.Combine(work, "sep.container");
+            t0 = Stopwatch.GetTimestamp();
+            using (var outFile = new FileStream(container, FileMode.Create, FileAccess.Write, FileShare.None, 1 << 20))
+            {
+                var buffer = new byte[1 << 20];
+                foreach (string f in files)
+                {
+                    using var inFile = new FileStream(f, FileMode.Open, FileAccess.Read, FileShare.Read, 1 << 20);
+                    int got;
+                    while ((got = inFile.Read(buffer, 0, buffer.Length)) > 0)
+                    {
+                        outFile.Write(buffer, 0, got);
+                        copied += got;
+                    }
+                }
+                outFile.Flush(true);
+            }
+            copyS = Seconds(t0);
+        }
+        return string.Join('\t', F(ph0), F(saRes.Ph1Seconds), F(saRes.Ph23Seconds), F(lcp.Seconds), F(bwtS), F(psiS), F(crcS), F(total), counters.ReadBytes, counters.WriteBytes, counters.MappedWriteBytes, counters.ScratchPeakBytes, files.Sum(f => new FileInfo(f).Length), F(copyS), copied);
     }
 
     private static string RunPh6Proto()
@@ -160,6 +186,41 @@ public unsafe class SesaBuildCostTests
         }
         double psiS = Seconds(t0);
         return string.Join('\t', F(bwtS), F(psiS), bwtCounters.ReadBytes, bwtCounters.WriteBytes, bwtCounters.MappedWriteBytes, psiCounters.ReadBytes, psiCounters.WriteBytes, psiCounters.MappedWriteBytes, ps.Windows, r.PrimaryRow);
+    }
+
+    /// <summary>G5: the checksum pass over the sections of a finished container (warm cache), the hardware path and the managed table path, per section.</summary>
+    private static string RunCrc()
+    {
+        string path = Env("G3_SESA");
+        using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+        var page = new byte[4096];
+        stream.ReadExactly(page);
+        int count = BitConverter.ToInt32(page, 48);
+        var rows = new List<string>();
+        using var map = System.IO.MemoryMappedFiles.MemoryMappedFile.CreateFromFile(stream, null, 0, System.IO.MemoryMappedFiles.MemoryMappedFileAccess.Read, HandleInheritability.None, leaveOpen: true);
+        for (int i = 0; i < count; i++)
+        {
+            int kind = BitConverter.ToInt32(page, 128 + (64 * i));
+            long offset = BitConverter.ToInt64(page, 128 + (64 * i) + 8), length = BitConverter.ToInt64(page, 128 + (64 * i) + 16);
+            if (length < (1 << 20)) continue; // the small sections are noise
+            foreach (string pass in new[] { "hardware", "table", "hardware" })
+            {
+                uint crc = 0;
+                long t0 = Stopwatch.GetTimestamp();
+                for (long done = 0; done < length; done += 16 << 20)
+                {
+                    long take = Math.Min(16 << 20, length - done);
+                    using System.IO.MemoryMappedFiles.MemoryMappedViewAccessor view = map.CreateViewAccessor(offset + done, take, System.IO.MemoryMappedFiles.MemoryMappedFileAccess.Read);
+                    byte* p = null;
+                    view.SafeMemoryMappedViewHandle.AcquirePointer(ref p);
+                    crc = pass == "table" ? Prod.Crc32C.AppendTable(crc, new ReadOnlySpan<byte>(p + view.PointerOffset, (int)take)) : Prod.Crc32C.Append(crc, p + view.PointerOffset, take);
+                    view.SafeMemoryMappedViewHandle.ReleasePointer();
+                }
+                double s = Seconds(t0);
+                rows.Add(string.Join('\t', "crc", kind, length, pass, F(s), F(length / 1e9 / s), crc.ToString("x8", CultureInfo.InvariantCulture)));
+            }
+        }
+        return string.Join('|', rows);
     }
 
     private static double Seconds(long t0) => (Stopwatch.GetTimestamp() - t0) / (double)Stopwatch.Frequency;
