@@ -61,7 +61,7 @@ internal sealed partial class EsaIndex
             visitor.EnterBranch((uint)p < (uint)n ? text[p] : -1);
             if (a == b)
             {
-                if (seen is not null) MarkLeaf(seen, sa[a]);
+                if (seen is not null) MarkLeaf(seen, sa[a], n);
                 visitor.VisitNode(p, -1, 1, 0, f.Ell);
                 visitor.ExitBranch();
                 continue;
@@ -97,9 +97,10 @@ internal sealed partial class EsaIndex
         if (first <= lb || first > rb) throw DamagedChildTable();
     }
 
-    /// <summary>Records the text position of a leaf; a position that was reported before means that the suffix array of the file is not a permutation.</summary>
-    private static void MarkLeaf(ulong[] seen, int position)
+    /// <summary>Records the text position of a leaf; a position outside the text, or one that was reported before, means that the suffix array of the file is not a permutation.</summary>
+    private static void MarkLeaf(ulong[] seen, int position, int n)
     {
+        if ((uint)position > (uint)n) throw new InvalidDataException("the suffix array holds a position outside the text: the file is damaged");
         ulong bit = 1UL << (position & 63);
         ref ulong word = ref seen[position >> 6];
         if ((word & bit) != 0) throw new InvalidDataException("the suffix array names a text position twice: the file is damaged");

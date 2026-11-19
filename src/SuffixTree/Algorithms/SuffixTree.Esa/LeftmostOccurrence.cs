@@ -41,11 +41,13 @@ internal static class LeftmostOccurrence
             while (sp > 0 && ell[sp - 1] > cur)
             {
                 sp--;
+                if (first[sp] < 0) throw DamagedLcp(); // only an LCP[1] other than 0 leaves the base interval without a first l-index
                 occurrence[first[sp]] = min[sp];
                 carry = min[sp];
                 if (sp > 0 && carry < min[sp - 1]) min[sp - 1] = carry;
             }
             if (i > n) break;
+            if (sp == 0) throw DamagedLcp(); // a negative LCP value popped the base interval
 
             int top = sp - 1;
             if (ell[top] < cur)
@@ -69,4 +71,6 @@ internal static class LeftmostOccurrence
         }
         return occurrence;
     }
+
+    private static InvalidDataException DamagedLcp() => new("the LCP array is inconsistent: the file is damaged");
 }

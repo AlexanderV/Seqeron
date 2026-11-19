@@ -67,6 +67,61 @@ public class SesaTraverseDamageTests
         }
     }
 
+    [TestCase(3, 100)]
+    [TestCase(5, int.MaxValue)]
+    [TestCase(2, -1)]
+    [TestCase(7, int.MinValue)]
+    public void Traverse_OfASuffixArrayWithAnEntryOutsideTheText_IsInvalidData_NeverAnIndexError(int rank, int value)
+    {
+        // found by the corruption fuzz in the first version of the repeated-entry check (an index error of the bitmap): a position that is not in [0, n] is a damaged file as well
+        byte[] image = SesaTestFile.Image(LcpChildCase.Of("abracadabra"));
+        OracleSection sa = SesaTestFile.Section(image, SesaFormat.KindSa);
+        BinaryPrimitives.WriteInt32LittleEndian(image.AsSpan((int)sa.Offset + (4 * rank)), value);
+        SesaTestFile.Reseal(image);
+        using var dir = new TempDir();
+        Open(dir, image, EsaAccessMode.Checked, out EsaSuffixTree tree);
+        using (tree)
+        {
+            Assert.That(() => tree.Traverse(new Counting()), Throws.TypeOf<InvalidDataException>());
+        }
+    }
+
+    [TestCase("a")]
+    [TestCase("aaa")]
+    [TestCase("aaaaaa")]
+    [TestCase("abracadabra")]
+    public void Traverse_OfALcpArrayWithAnyByteAtAnyRank_IsAnAnswerOrInvalidData_NeverAnotherException(string text)
+    {
+        // found by the corruption fuzz (SealedByteFlip and SealedWords of the LCP section): a value that makes the interval stack of LeftmostOccurrence pop its base frame ended in an IndexOutOfRangeException of a managed array
+        using var dir = new TempDir();
+        byte[] clean = SesaTestFile.Image(LcpChildCase.Of(text));
+        OracleSection lcp = SesaTestFile.Section(clean, SesaFormat.KindLcp);
+        var failures = new List<string>();
+        for (int rank = 0; rank < Math.Min(lcp.Length, text.Length + 1); rank++)
+        {
+            for (int value = 0; value < 256; value++)
+            {
+                byte[] image = (byte[])clean.Clone();
+                image[(int)lcp.Offset + rank] = (byte)value;
+                SesaTestFile.Reseal(image);
+                try
+                {
+                    Open(dir, image, EsaAccessMode.Checked, out EsaSuffixTree tree);
+                    using (tree) tree.Traverse(new Counting());
+                }
+                catch (InvalidDataException)
+                {
+                    // allowed
+                }
+                catch (Exception e)
+                {
+                    failures.Add($"byte {value} at rank {rank}: {e.GetType().Name}");
+                }
+            }
+        }
+        Assert.That(failures, Is.Empty);
+    }
+
     [Test]
     public void FindMaximalRepeatedPairs_OfASuffixArrayWithARepeatedEntry_IsInvalidData_NotAnEndlessList()
     {
