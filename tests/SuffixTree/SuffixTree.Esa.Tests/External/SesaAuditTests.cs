@@ -422,6 +422,19 @@ public class SesaAuditTests
         Assert.That(bytes.AsSpan(64 + (4 * (n + 1)), 64).ToArray().All(x => x == 0xA5), Is.True, "nor between the suffix array and PSI");
     }
 
+    [Test]
+    public void TheLatePreflight_RefusesAVolumeWithNoFreeSpaceAtAll_EvenWhenTheFileDoesNotGrow()
+    {
+        string text = StringFamilies.RandomDna(600, 72);
+        string input = SesaRun.WriteInput(_dir, text);
+        string target = _dir.File("full.sesa");
+        var source = new FakeReservationSource { CanPreallocate = true, Free = 1L << 40 };
+        SesaBuildOptions options = SesaRun.Tiny(1) with { Files = new MappedFileOptions { Source = source }, LcpTrace = step => { if (step == "b3") source.Free = 0; } };
+        IOException e = Assert.Throws<IOException>(() => SesaBuilder.Build(input, target, options))!;
+        Assert.That(e.Message, Does.Contain("spill of the scan stack"), "the file does not grow (U8, no escapes), the bound of the spill of the stack alone is more than the nothing that is left");
+        Assert.That(File.Exists(target) || File.Exists(target + ".tmp") || Directory.Exists(target + ".tmp.d"), Is.False);
+    }
+
     // ---- the counted calls of a fixed geometry (the sizes of every stage reach their stage: a size that is dropped or changed on the way changes a count)
 
     private static string Snapshot(IoSnapshot s) => $"{s.ReadBytes}/{s.WriteBytes}/{s.ReadCalls}/{s.WriteCalls}/{s.MappedWriteBytes}/{s.MappedWindows}/{s.MappedMaxWindowBytes}/{s.ScratchPeakBytes}";
