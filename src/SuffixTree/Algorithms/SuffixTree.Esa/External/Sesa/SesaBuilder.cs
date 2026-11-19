@@ -1,3 +1,8 @@
+using System.Diagnostics;
+using System.Globalization;
+using System.Runtime.InteropServices;
+using System.Text;
+
 namespace SuffixTree.Esa.External;
 
 /// <summary>The names of the points at which <see cref="SesaBuildOptions.Hook"/> is called, in the order of the build (tests make the build fail, or wait, at each).</summary>
@@ -249,5 +254,419 @@ internal static class SesaBuilder
     /// <exception cref="NotSupportedException">The text is longer than <see cref="PackedTextFormat.MaxSymbols"/>.</exception>
     /// <exception cref="IOException">A file cannot be created or written (a full disk included); nothing of the build is left.</exception>
     /// <exception cref="InvalidOperationException">The input changed between the two passes.</exception>
-    internal static SesaBuildResult Build(string inputPath, string targetPath, SesaBuildOptions? options = null) => throw new NotImplementedException();
+    internal static SesaBuildResult Build(string inputPath, string targetPath, SesaBuildOptions? options = null)
+    {
+        ArgumentNullException.ThrowIfNull(inputPath);
+        ArgumentNullException.ThrowIfNull(targetPath);
+        options ??= new SesaBuildOptions();
+        ArgumentOutOfRangeException.ThrowIfLessThan(options.Threads, 1);
+        ArgumentOutOfRangeException.ThrowIfNegative(options.ArenaCapBytes);
+        ArgumentOutOfRangeException.ThrowIfNegative(options.ChildArenaCapBytes);
+        ArgumentOutOfRangeException.ThrowIfNegative(options.Ph6CapBytes);
+        ArgumentOutOfRangeException.ThrowIfNegative(options.RssAnonCapMb);
+        if (!BitConverter.IsLittleEndian) throw new PlatformNotSupportedException("the file layouts are little endian");
+        string target = Path.GetFullPath(targetPath);
+        string directory = Path.GetDirectoryName(target) ?? ".";
+        if (!Directory.Exists(directory)) throw new DirectoryNotFoundException($"the directory of {targetPath} does not exist");
+        string tmp = target + ".tmp";
+        string scratch = tmp + ".d";
+        IoCounters counters = options.Counters ?? new IoCounters();
+        IReservationSource source = options.Files?.Source ?? SystemReservationSource.Instance;
+        long tStart = Stopwatch.GetTimestamp();
+        using var whole = options.MeasureRss ? new RssSampler(new RssReader(options.ProcSource), 10) : null;
+        whole?.Start();
+        void Hook(string point) => options.Hook?.Invoke(point);
+        Hook(SesaHooks.Start);
+
+        // ---- PH0: the alphabet, the counts, the hash (pass 1); what the layout needs
+        using var ph0 = new PhaseRss(options);
+        long t = Stopwatch.GetTimestamp();
+        var textOptions = new PackedTextWriterOptions { BlockSymbols = options.TextBlockSymbols, WindowBytes = options.TextWindowBytes, Counters = counters, File = options.Files, Fsync = false };
+        PackedTextInfo info = PackedTextWriter.Scan(inputPath, textOptions);
+        double secScan = Elapsed(t);
+        long n = info.N;
+        Hook(SesaHooks.Scanned);
+        options.BetweenPasses?.Invoke();
+        SesaPlan plan = SesaLayout.Plan(info, options.IncludePsi);
+        long need = plan.ReservedLength + (ScratchBytesPerChar * n);
+        long free = source.AvailableFreeBytes(directory);
+        if (free >= 0 && free < need) throw new IOException($"not enough free space in {directory}: the build needs about {need} bytes (the container {plan.ReservedLength} and {ScratchBytesPerChar} bytes per character of scratch), {free} bytes are available");
+
+        DeleteStale(tmp, scratch);
+        bool published = false;
+        MappedOutputFile? container = null;
+        MappedTextReader? text = null;
+        try
+        {
+            t = Stopwatch.GetTimestamp();
+            Directory.CreateDirectory(scratch);
+            container = MappedOutputFile.Create(tmp, plan.ReservedLength, options.Files);
+            double secCreate = Elapsed(t);
+            ReservationOutcome reservation = container.Outcome;
+            Hook(SesaHooks.Created);
+
+            t = Stopwatch.GetTimestamp();
+            using (MappedWindowWriter w = container.CreateWriter(plan.TextOffset, plan.TextLength, options.TextWindowBytes, counters)) PackedTextWriter.Pack(inputPath, info, w, textOptions);
+            WriteSection(container, plan.AlphabetOffset, [.. info.Letters.Select(l => (ushort)l)], options.TextWindowBytes, counters);
+            WriteSection(container, plan.CountsOffset, [.. info.Counts.Select(c => (ulong)c)], options.TextWindowBytes, counters);
+            double secPack = Elapsed(t);
+            double? rssPh0 = ph0.Stop();
+            Hook(SesaHooks.Packed);
+            text = MappedTextReader.OpenRegion(tmp, plan.TextOffset, plan.TextLength, n, info.Bits);
+
+            // ---- PH1-PH3: the suffix array, straight into its section
+            SaBuildResult sa = SaBuilder.Build(text, container, plan.SaOffset, new SaBuildOptions
+            {
+                ScratchDir = scratch,
+                Threads = options.Threads,
+                Period = options.Period,
+                ExactPeriod = options.ExactPeriod,
+                ScaleN = options.ScaleN,
+                RuleN = options.RuleN,
+                ArenaCapBytes = options.ArenaCapBytes,
+                Tuning = options.SaTuning,
+                Seed = options.Seed,
+                Counters = counters,
+                Files = options.Files,
+                ArenaGuards = options.ArenaGuards,
+                VerifyRanks = options.VerifyRanks,
+                MeasureRss = options.MeasureRss,
+                ProcSource = options.ProcSource,
+                RssAnonCapMb = options.RssAnonCapMb,
+                Trace = options.SaTrace,
+            });
+            Hook(SesaHooks.SaBuilt);
+
+            // ---- PH4-PH5: LCP (placed behind the sections known after PH0, once its width is known), overflow list and child table, straight into their sections
+            SesaTail? tail = null;
+            ReservationOutcome? growth = null;
+            long grown = 0;
+            LcpPlacement Place(LcpPlacementRequest request)
+            {
+                tail = SesaLayout.PlaceTail(plan, request.Kind, request.OverflowCount);
+                long growthBytes = tail.FinalLength - container.Length;
+                long spillBound = SpillBytesPerEntry * (request.MaxLcp + 1);
+                long available = source.AvailableFreeBytes(directory);
+                if (available >= 0 && available < growthBytes + spillBound) throw new IOException($"not enough free space in {directory} for the LCP sections and the spill of the scan stack: {growthBytes} + {spillBound} bytes needed, {available} bytes are available");
+                if (growthBytes > 0)
+                {
+                    growth = container.Grow(tail.FinalLength, options.Files);
+                    grown = growthBytes;
+                }
+                Hook(SesaHooks.LcpPlaced);
+                return new LcpPlacement(container, plan.LcpOffset, tail.OverflowOffset);
+            }
+            LcpChildResult lcp = SectionLcpChildBuilder.Build(tmp, plan.SaOffset, text, container, plan.ChildOffset, Place, new LcpChildOptions
+            {
+                ScratchDir = scratch,
+                Threads = options.Threads,
+                Codec = ChildCodec.Packed,
+                ScaleN = options.ScaleN,
+                RuleN = options.RuleN,
+                ArenaCapBytes = options.ArenaCapBytes,
+                ChildArenaCapBytes = options.ChildArenaCapBytes,
+                Tuning = options.LcpTuning,
+                Counters = counters,
+                Files = options.Files,
+                ArenaGuards = options.ArenaGuards,
+                MeasureRss = options.MeasureRss,
+                ProcSource = options.ProcSource,
+                RssAnonCapMb = options.RssAnonCapMb,
+                Trace = options.LcpTrace,
+            });
+            SesaTail placed = tail ?? throw new InvalidOperationException("PH4 did not ask for the placement of the LCP");
+            Hook(SesaHooks.LcpChildBuilt);
+
+            // ---- PH6 (optional): the BWT as scratch, then PSI by the sigma-way distribution, straight into its section
+            BwtResult? bwt = null;
+            PsiStats? psi = null;
+            double secBwt = 0, secPsi = 0;
+            double? rssPh6 = null;
+            if (options.IncludePsi)
+            {
+                using var ph6 = new PhaseRss(options);
+                (bwt, psi, secBwt, secPsi) = RunPh6(options, counters, scratch, tmp, plan, info, text, container, Hook);
+                rssPh6 = ph6.Stop();
+            }
+
+            // ---- PH7: BUILD_INFO, the checksums, the header page, the atomic publication
+            using var seal = new PhaseRss(options);
+            t = Stopwatch.GetTimestamp();
+            string buildInfo = BuildInfoText(info, placed.Kind, placed.OverflowCount, options.IncludePsi);
+            byte[] infoBytes = Encoding.UTF8.GetBytes(buildInfo);
+            if (infoBytes.Length > plan.BuildInfoCapacity) throw new InvalidOperationException($"BUILD_INFO has {infoBytes.Length} bytes, the reserved room is {plan.BuildInfoCapacity}");
+            WriteSection(container, plan.BuildInfoOffset, infoBytes, options.TextWindowBytes, counters);
+            Hook(SesaHooks.InfoWritten);
+            container.Complete(fsync: false);
+            text.Dispose();
+            text = null;
+            container.Dispose();
+            if (new FileInfo(tmp).Length != placed.FinalLength) throw new InvalidOperationException($"the container has {new FileInfo(tmp).Length} bytes, expected {placed.FinalLength}");
+
+            (int Kind, long Offset, long Length)[] ranges = SectionRanges(plan, placed, infoBytes.Length);
+            (uint Crc, SesaCrcRow Row)[] sums = SesaChecksums.Compute(tmp, ranges);
+            double secCrc = Elapsed(t);
+            Hook(SesaHooks.Checksummed);
+
+            t = Stopwatch.GetTimestamp();
+            SesaSection[] sections = BuildSections(plan, placed, info, bwt?.PrimaryRow ?? -1, buildInfo, infoBytes.Length, sums.Select(s => s.Crc).ToArray(), ranges);
+            var header = new SesaHeader
+            {
+                TextLength = n,
+                NodeCount = lcp.Scan.NodeCount,
+                FileSize = placed.FinalLength,
+                LrsDepth = lcp.Scan.LrsDepth,
+                LrsRank = lcp.Scan.LrsDepth == 0 ? -1 : lcp.Scan.LrsRank,
+                PosWidth = 4,
+                Sigma = info.Sigma,
+                TextSha256 = Convert.FromHexString(info.Sha256),
+            };
+            byte[] page = SesaFormat.EncodeHeaderPage(header, sections, withMagic: false);
+            using (var file = new CountedFile(tmp, FileMode.Open, FileAccess.ReadWrite, counters))
+            {
+                file.WriteAt(page, 0);
+                Hook(SesaHooks.HeaderWritten);
+                if (options.Fsync) file.Flush();
+                Hook(SesaHooks.HeaderSynced);
+                file.WriteAt(SesaFormat.Magic, 0); // the magic is written last: a file without it is not an index
+                if (options.Fsync) file.Flush();
+                Hook(SesaHooks.MagicWritten);
+            }
+            File.Move(tmp, target, overwrite: true);
+            published = true;
+            DeleteDirectoryQuietly(scratch);
+            double secSeal = Elapsed(t);
+            double? rssSeal = seal.Stop();
+
+            RssStats all = whole?.Stop() ?? default;
+            double? anonMb = all.Available ? all.MaxRssAnonKb * 1024.0 / 1e6 : null;
+            RssVerdict verdict = RssVerdict.Unavailable;
+            if (anonMb is { } mb) verdict = mb <= options.RssAnonCapMb ? RssVerdict.Within : RssVerdict.Exceeded;
+            return new SesaBuildResult
+            {
+                TargetPath = target,
+                N = n,
+                Sigma = info.Sigma,
+                Bits = info.Bits,
+                FileSize = placed.FinalLength,
+                Header = header,
+                Sections = sections,
+                LcpKind = placed.Kind,
+                OverflowCount = placed.OverflowCount,
+                NodeCount = lcp.Scan.NodeCount,
+                InternalCount = lcp.Scan.InternalCount,
+                LrsDepth = lcp.Scan.LrsDepth,
+                LrsRank = header.LrsRank,
+                MaxLcp = lcp.Scan.MaxLcp,
+                HasPsi = options.IncludePsi,
+                PrimaryRow = bwt?.PrimaryRow ?? -1,
+                Sa = sa,
+                Lcp = lcp,
+                Psi = psi,
+                Bwt = bwt,
+                Io = counters.Snapshot(),
+                Seconds = new SesaPhaseSeconds
+                {
+                    Scan = secScan,
+                    Create = secCreate,
+                    Pack = secPack,
+                    Ph1 = sa.Ph1Seconds,
+                    Ph23 = sa.Ph23Seconds,
+                    Ph45 = lcp.Seconds,
+                    Bwt = secBwt,
+                    Psi = secPsi,
+                    Crc = secCrc,
+                    Seal = secSeal,
+                    Total = Elapsed(tStart),
+                },
+                Rss = new SesaPhaseRss { Ph0 = rssPh0, Ph1 = sa.Ph1RssAnonPeakMb, Ph23 = sa.Ph23RssAnonPeakMb, Ph45 = lcp.RssAnonPeakMb, Ph6 = rssPh6, Seal = rssSeal },
+                RssAnonPeakMb = anonMb,
+                RssVerdict = verdict,
+                ArenaPeakBytes = Math.Max(Math.Max(sa.Ph1ArenaPeakBytes, sa.Ph23ArenaPeakBytes), Math.Max(lcp.ArenaPeakBytes + lcp.ChildArenaPeakBytes, psi?.MappedBoundBytes ?? 0)),
+                ScratchPeakBytes = counters.ScratchPeakBytes,
+                Reservation = reservation,
+                GrowthReservation = growth,
+                GrownBytes = grown,
+                CrcRows = sums.Select(s => s.Row).ToArray(),
+            };
+        }
+        finally
+        {
+            text?.Dispose();
+            container?.Dispose();
+            if (!published) DeleteQuietly(tmp);
+            DeleteDirectoryQuietly(scratch);
+        }
+    }
+
+    /// <summary>Bytes per character of scratch that the pre-flight reserves: the peak of PH4 in base mode (E4: 12.0 B/char) plus the rank file.</summary>
+    internal const int ScratchBytesPerChar = 12;
+
+    /// <summary>Bytes of one entry of the scan stack of PH5 (the upper bound of its spill is this times the depth).</summary>
+    internal const int SpillBytesPerEntry = 16;
+
+    private static (BwtResult Bwt, PsiStats Psi, double SecBwt, double SecPsi) RunPh6(SesaBuildOptions options, IoCounters counters, string scratch, string tmp, SesaPlan plan, PackedTextInfo info, MappedTextReader text, MappedOutputFile container, Action<string> hook)
+    {
+        long n = info.N;
+        string dir = Path.Combine(scratch, "ph6");
+        Directory.CreateDirectory(dir);
+        string bwtPath = Path.Combine(dir, "bwt.bin");
+        var budget = new ArenaBudget(options.Ph6CapBytes);
+        SesaPh6Tuning tune = options.Ph6Tuning;
+        int window = tune.WindowBytes ?? MappedWindowWriter.DefaultWindowBytes;
+        long t = Stopwatch.GetTimestamp();
+        BwtResult bwt = BwtPass.Build(tmp, plan.SaOffset, text, info.Sigma, bwtPath, new BwtOptions
+        {
+            ReadBytes = tune.ReadBytes ?? 1 << 20,
+            WindowBytes = window,
+            Budget = budget,
+            ArenaGuards = options.ArenaGuards,
+            Counters = counters,
+            Files = options.Files,
+        });
+        double secBwt = Elapsed(t);
+        counters.AddScratch(n + 1); // the BWT file is scratch until PSI is built
+        try
+        {
+            if (!bwt.Counts.AsSpan().SequenceEqual(info.Counts)) throw new InvalidDataException("the symbol counts of the BWT differ from those of the text: the suffix array does not belong to the text");
+            hook(SesaHooks.BwtBuilt);
+            t = Stopwatch.GetTimestamp();
+            PsiStats psi = PsiStream.Build(bwtPath, n, bwt.PrimaryRow, info.Counts, container, plan.PsiOffset, new PsiOptions
+            {
+                WindowBytes = window,
+                SymbolsPerPass = tune.SymbolsPerPass ?? 64,
+                ReadBytes = tune.ReadBytes ?? 1 << 20,
+                WindowCapBytes = options.Ph6CapBytes,
+                Budget = budget,
+                ArenaGuards = options.ArenaGuards,
+                Counters = counters,
+            });
+            double secPsi = Elapsed(t);
+            File.Delete(bwtPath);
+            Directory.Delete(dir);
+            hook(SesaHooks.PsiBuilt);
+            return (bwt, psi, secBwt, secPsi);
+        }
+        finally
+        {
+            counters.RemoveScratch(n + 1);
+            DeleteQuietly(bwtPath);
+        }
+    }
+
+    private static void WriteSection<T>(MappedOutputFile container, long offset, T[] values, int window, IoCounters counters)
+        where T : unmanaged
+        => WriteSection(container, offset, MemoryMarshal.AsBytes(values.AsSpan()), window, counters);
+
+    private static void WriteSection(MappedOutputFile container, long offset, ReadOnlySpan<byte> bytes, int window, IoCounters counters)
+    {
+        using MappedWindowWriter w = container.CreateWriter(offset, bytes.Length, window, counters);
+        w.Append(bytes);
+    }
+
+    /// <summary>The payload ranges of the sections in file order (the order of the table).</summary>
+    private static (int Kind, long Offset, long Length)[] SectionRanges(SesaPlan plan, SesaTail tail, int infoLength)
+    {
+        var list = new List<(int, long, long)>
+        {
+            (SesaFormat.KindText, plan.TextOffset, plan.TextLength),
+            (SesaFormat.KindAlphabet, plan.AlphabetOffset, plan.AlphabetLength),
+            (SesaFormat.KindCounts, plan.CountsOffset, plan.CountsLength),
+            (SesaFormat.KindSa, plan.SaOffset, plan.SaLength),
+            (SesaFormat.KindChild, plan.ChildOffset, plan.ChildLength),
+        };
+        if (plan.Psi) list.Add((SesaFormat.KindPsi, plan.PsiOffset, plan.PsiLength));
+        list.Add((SesaFormat.KindBuildInfo, plan.BuildInfoOffset, infoLength));
+        list.Add((SesaFormat.KindLcp, plan.LcpOffset, tail.LcpLength));
+        if (tail.OverflowCount > 0) list.Add((SesaFormat.KindLcpOverflow, tail.OverflowOffset, tail.OverflowLength));
+        return [.. list];
+    }
+
+    private static SesaSection[] BuildSections(SesaPlan plan, SesaTail tail, PackedTextInfo info, long primaryRow, string buildInfo, int infoLength, uint[] crcs, (int Kind, long Offset, long Length)[] ranges)
+    {
+        long rows = plan.N + 1;
+        const int required = SesaFormat.FlagRequired | SesaFormat.FlagHasCrc;
+        const int optional = SesaFormat.FlagHasCrc;
+        var sections = new SesaSection[ranges.Length];
+        for (int i = 0; i < ranges.Length; i++)
+        {
+            (int kind, long offset, long length) = ranges[i];
+            sections[i] = kind switch
+            {
+                SesaFormat.KindText => new SesaSection(kind, required, offset, length, plan.N, 0, PackedTextFormat.CodecId, info.Bits, 0, crcs[i]),
+                SesaFormat.KindAlphabet => new SesaSection(kind, required, offset, length, info.Sigma, 2, 1, 0, 0, crcs[i]),
+                SesaFormat.KindCounts => new SesaSection(kind, optional, offset, length, info.Sigma, 8, 1, 0, 0, crcs[i]),
+                SesaFormat.KindSa => new SesaSection(kind, required, offset, length, rows, 4, 1, 0, 0, crcs[i]),
+                SesaFormat.KindChild => new SesaSection(kind, required, offset, length, rows, 4, 1, 0, 0, crcs[i]),
+                SesaFormat.KindPsi => new SesaSection(kind, optional, offset, length, rows, 4, 1, primaryRow, 0, crcs[i]),
+                SesaFormat.KindBuildInfo => new SesaSection(kind, optional, offset, length, buildInfo.Count(c => c == '\n'), 0, 1, 0, 0, crcs[i]),
+                SesaFormat.KindLcp => new SesaSection(kind, required, offset, length, rows, tail.LcpWidth, tail.Kind switch { LcpKind.U8 => 1, LcpKind.U16 => 2, _ => 3 }, tail.OverflowCount, 0, crcs[i]),
+                SesaFormat.KindLcpOverflow => new SesaSection(kind, required, offset, length, tail.OverflowCount, 8, 1, 0, 0, crcs[i]),
+                _ => throw new InvalidOperationException($"unknown section kind {kind}"),
+            };
+        }
+        _ = infoLength;
+        return sections;
+    }
+
+    /// <summary>The text of the BUILD_INFO section: everything that is a fact about the output, nothing about the run (no time, no thread count, no sizes), so that the same input gives the same bytes.</summary>
+    internal static string BuildInfoText(PackedTextInfo info, LcpKind kind, long overflowCount, bool psi)
+        => string.Create(CultureInfo.InvariantCulture,
+            $"format=SESA 1.0\nwriter=SuffixTree.Esa.External.SesaBuilder 1\nalgorithm=B-DCS (ADR-004)\nn={info.N}\nsigma={info.Sigma}\ntext=codec 4, {info.Bits} bits per symbol\nlcp={kind}, {overflowCount} overflow entries\nchild=layout A, packed\npsi={(psi ? "yes" : "no")}\n");
+
+    private static double Elapsed(long t0) => (Stopwatch.GetTimestamp() - t0) / (double)Stopwatch.Frequency;
+
+    /// <summary>What a hard kill of an earlier build of this target left: the temporary file and the scratch directory (a file of that name too) are replaced.</summary>
+    private static void DeleteStale(string tmp, string scratch)
+    {
+        if (File.Exists(tmp)) File.Delete(tmp);
+        if (Directory.Exists(scratch)) Directory.Delete(scratch, true);
+        else if (File.Exists(scratch)) File.Delete(scratch);
+    }
+
+    private static void DeleteQuietly(string path)
+    {
+        try
+        {
+            File.Delete(path);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            // the failure of the build is what the caller needs
+        }
+    }
+
+    private static void DeleteDirectoryQuietly(string path)
+    {
+        try
+        {
+            if (Directory.Exists(path)) Directory.Delete(path, true);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            // reported by the files that are left
+        }
+    }
+
+    /// <summary>One RssAnon sampler per phase (a no-op where measuring is off or the platform has no <c>/proc</c>).</summary>
+    private sealed class PhaseRss : IDisposable
+    {
+        private readonly RssSampler? _sampler;
+
+        internal PhaseRss(SesaBuildOptions options)
+        {
+            if (!options.MeasureRss) return;
+            _sampler = new RssSampler(new RssReader(options.ProcSource), 10);
+            _sampler.Start();
+        }
+
+        /// <summary>The peak RssAnon of the process since the start, MB (10^6 bytes), or null.</summary>
+        internal double? Stop()
+        {
+            RssStats stats = _sampler?.Stop() ?? default;
+            return stats.Available ? stats.MaxRssAnonKb * 1024.0 / 1e6 : null;
+        }
+
+        public void Dispose() => _sampler?.Dispose();
+    }
 }

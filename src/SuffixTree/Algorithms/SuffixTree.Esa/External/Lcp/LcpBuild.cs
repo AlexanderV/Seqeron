@@ -45,6 +45,7 @@ internal sealed unsafe class LcpBuild
         ArgumentOutOfRangeException.ThrowIfLessThan(options.ReadBufferBytes, 1);
         ArgumentOutOfRangeException.ThrowIfLessThan(options.TupleBufferBytes, 1);
         ArgumentOutOfRangeException.ThrowIfLessThan(options.WindowBytes, 1);
+        ArgumentOutOfRangeException.ThrowIfNegative(options.SaOffset);
         if (!BitConverter.IsLittleEndian) throw new PlatformNotSupportedException("the file layouts are little endian");
         _saPath = saPath;
         _text = text;
@@ -113,10 +114,12 @@ internal sealed unsafe class LcpBuild
     private void CheckSuffixArrayFile(long n)
     {
         long length = new FileInfo(_saPath).Length;
-        if (length != (n + 1) * 4) throw new InvalidDataException($"the suffix array file needs n + 1 = {n + 1} entries of 4 bytes, it has {length} bytes");
+        long need = (n + 1) * 4;
+        bool fits = _o.SaOffset > 0 ? length >= _o.SaOffset + need : length == need; // a section of a larger file, or a file of its own that is exactly the array
+        if (!fits) throw new InvalidDataException($"the suffix array needs n + 1 = {n + 1} entries of 4 bytes at offset {_o.SaOffset}, the file has {length} bytes");
         Span<uint> first = stackalloc uint[1];
         using var sa = new CountedFile(_saPath, FileMode.Open, FileAccess.Read, _o.Counters);
-        sa.ReadExactAt(MemoryMarshal.AsBytes(first), 0);
+        sa.ReadExactAt(MemoryMarshal.AsBytes(first), _o.SaOffset);
         if (first[0] != n) throw new InvalidDataException($"sa[0] must be n = {n}, the empty suffix, it is {first[0]}");
     }
 
@@ -156,7 +159,7 @@ internal sealed unsafe class LcpBuild
         for (long first = 1; first <= n; first += readEntries)
         {
             int take = (int)Math.Min(readEntries, n + 1 - first);
-            sa.ReadExactAt(MemoryMarshal.AsBytes(read.AsSpan(take)), first * 4);
+            sa.ReadExactAt(MemoryMarshal.AsBytes(read.AsSpan(take)), _o.SaOffset + (first * 4));
             for (int i = 0; i < take; i++)
             {
                 uint s = read[i];
@@ -230,41 +233,83 @@ internal sealed unsafe class LcpBuild
         Buf<RankTuple> read = arena.Allocate<RankTuple>(readEntries, zero: false, "b3.read");
         long baseBytes = (n + 1) * LcpWidth.Bytes(_stats.Kind);
         long overflowBytes = _stats.OverflowCount * 8;
-        using MappedOutputFile baseFile = MappedOutputFile.Create(_basePath, baseBytes, _o.Files);
-        _baseCreated = true;
-        _stats.Reservation = baseFile.Outcome;
-        using MappedOutputFile overflowFile = MappedOutputFile.Create(_overflowPath, overflowBytes, _o.Files);
-        _overflowCreated = true;
-        using (var output = new LcpOutputWriter(arena, _stats.Kind, n, _stats.OverflowCount, baseFile.CreateWriter(_o.WindowBytes, _o.Counters), overflowFile.CreateWriter(_o.WindowBytes, _o.Counters), ReadEntries(sizeof(uint))))
+        MappedOutputFile? baseFile = null, overflowFile = null;
+        try
         {
-            for (long c = 0; c < _g.RankChunks; c++)
+            MappedWindowWriter baseWriter, overflowWriter;
+            if (_o.Place is { } place)
             {
-                int length = (int)_g.RankChunkLength(c);
-                long start = c * _g.R;
-                long expected = c == 0 ? length - 1 : length; // rank 0 is the empty suffix: no tuple
-                using (DistReader<RankTuple> reader = rankSpool.OpenReader(c))
+                // the container: the sections are placed (and the file grown) now that the width is known; the file is the owner's, so nothing is completed, disposed or removed here
+                LcpPlacement placement = place(new LcpPlacementRequest(_stats.Kind, _stats.OverflowCount, _maxPlcp));
+                baseWriter = placement.File.CreateWriter(placement.BaseStart, baseBytes, _o.WindowBytes, _o.Counters);
+                try
                 {
-                    if (reader.Count != expected) throw new InvalidDataException($"rank chunk {c} holds {reader.Count} tuples, expected {expected}: the suffix array is not a permutation");
-                    int got;
-                    while ((got = reader.Read(read.AsSpan(readEntries))) > 0)
+                    overflowWriter = placement.File.CreateWriter(placement.OverflowStart, overflowBytes, _o.WindowBytes, _o.Counters);
+                }
+                catch
+                {
+                    baseWriter.Dispose();
+                    throw;
+                }
+                _stats.Reservation = placement.File.Outcome;
+            }
+            else
+            {
+                baseFile = MappedOutputFile.Create(_basePath, baseBytes, _o.Files);
+                _baseCreated = true;
+                _stats.Reservation = baseFile.Outcome;
+                overflowFile = MappedOutputFile.Create(_overflowPath, overflowBytes, _o.Files);
+                _overflowCreated = true;
+                baseWriter = baseFile.CreateWriter(_o.WindowBytes, _o.Counters);
+                overflowWriter = overflowFile.CreateWriter(_o.WindowBytes, _o.Counters);
+            }
+            LcpOutputWriter output;
+            try
+            {
+                output = new LcpOutputWriter(arena, _stats.Kind, n, _stats.OverflowCount, baseWriter, overflowWriter, ReadEntries(sizeof(uint)));
+            }
+            catch
+            {
+                baseWriter.Dispose();
+                overflowWriter.Dispose();
+                throw;
+            }
+            using (output)
+            {
+                for (long c = 0; c < _g.RankChunks; c++)
+                {
+                    int length = (int)_g.RankChunkLength(c);
+                    long start = c * _g.R;
+                    long expected = c == 0 ? length - 1 : length; // rank 0 is the empty suffix: no tuple
+                    using (DistReader<RankTuple> reader = rankSpool.OpenReader(c))
                     {
-                        for (int i = 0; i < got; i++)
+                        if (reader.Count != expected) throw new InvalidDataException($"rank chunk {c} holds {reader.Count} tuples, expected {expected}: the suffix array is not a permutation");
+                        int got;
+                        while ((got = reader.Read(read.AsSpan(readEntries))) > 0)
                         {
-                            RankTuple t = read[i];
-                            long at = t.Rank - start;
-                            if ((ulong)at >= (ulong)length) throw new InvalidDataException($"rank {t.Rank} does not belong to rank chunk {c}");
-                            dense[(int)at] = t.Value;
+                            for (int i = 0; i < got; i++)
+                            {
+                                RankTuple t = read[i];
+                                long at = t.Rank - start;
+                                if ((ulong)at >= (ulong)length) throw new InvalidDataException($"rank {t.Rank} does not belong to rank chunk {c}");
+                                dense[(int)at] = t.Value;
+                            }
                         }
                     }
+                    if (c == 0) dense[0] = 0; // LCP[0] = 0
+                    Deliver(output, start, dense.AsSpan(length));
+                    rankSpool.Delete(c);
                 }
-                if (c == 0) dense[0] = 0; // LCP[0] = 0
-                Deliver(output, start, dense.AsSpan(length));
-                rankSpool.Delete(c);
+                output.Complete(n);
             }
-            output.Complete(n);
+            baseFile?.Complete(fsync: false);
+            overflowFile?.Complete(fsync: false);
         }
-        baseFile.Complete(fsync: false);
-        overflowFile.Complete(fsync: false);
+        finally
+        {
+            baseFile?.Dispose();
+            overflowFile?.Dispose();
+        }
     }
 
     private void Deliver(LcpOutputWriter output, long firstRank, ReadOnlySpan<uint> dense)

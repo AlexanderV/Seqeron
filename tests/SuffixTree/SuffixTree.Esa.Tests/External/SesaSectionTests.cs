@@ -188,7 +188,7 @@ public sealed class SesaSectionTests
         using (capped)
         {
             using MappedTextReader reader = MappedTextReader.Open(textPath, c.N, c.Bits);
-            Assert.Throws<ArenaBudgetExceededException>(() => SaBuilder.Build(reader, capped, 64, SaTiny.Build(dir.Sub("sc"), 1) with { ArenaCapBytes = 1000 }));
+            Assert.Throws<ArenaBudgetExceededException>(() => SaBuilder.Build(reader, capped, 64, SaTiny.Build(dir.Sub("sc"), 1) with { ArenaCapBytes = 1 }));
             capped.Complete(false);
         }
     }

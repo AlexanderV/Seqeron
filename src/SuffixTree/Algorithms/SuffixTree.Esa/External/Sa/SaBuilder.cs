@@ -330,12 +330,22 @@ internal static class SaBuilder
         ArgumentNullException.ThrowIfNull(text);
         ArgumentNullException.ThrowIfNull(saPath);
         ArgumentNullException.ThrowIfNull(options);
+        return BuildCore(text, saPath, null, 0, options);
+    }
+
+    private static SaBuildResult BuildCore(MappedTextReader text, string? saPath, MappedOutputFile? section, long saOffset, SaBuildOptions options)
+    {
         ArgumentNullException.ThrowIfNull(options.ScratchDir);
         ArgumentOutOfRangeException.ThrowIfNegative(options.ArenaCapBytes);
         ArgumentOutOfRangeException.ThrowIfNegative(options.RssAnonCapMb);
         long n = text.Length;
         if (n > PackedTextFormat.MaxSymbols) throw new NotSupportedException($"{n} symbols: positions are 32-bit, the limit is {PackedTextFormat.MaxSymbols}");
         if (text.Bits > PackedTextFormat.MaxBits) throw new ArgumentException($"a text of {text.Bits} bits per symbol is not a packed text of the file codec", nameof(text));
+        if (section is not null)
+        {
+            ArgumentOutOfRangeException.ThrowIfNegative(saOffset);
+            if (saOffset > section.Length - (4 * (n + 1))) throw new ArgumentOutOfRangeException(nameof(saOffset), saOffset, $"the suffix array of {4 * (n + 1)} bytes does not fit the file of {section.Length} bytes at this offset");
+        }
         SaBuildParameters p = SaBuildRules.Resolve(n, options);
         DifferenceCover cover = DifferenceCover.Create(options.ExactPeriod ? options.Period : DifferenceCover.NearestSingerPeriod(options.Period));
 
@@ -355,8 +365,9 @@ internal static class SaBuilder
             Directory.CreateDirectory(ph1);
             Directory.CreateDirectory(ph3);
             whole?.Start();
-            using var saFile = MappedOutputFile.Create(saPath, 4 * (n + 1), options.Files);
-            saCreated = true;
+            using MappedOutputFile? owned = section is null ? MappedOutputFile.Create(saPath!, 4 * (n + 1), options.Files) : null;
+            saCreated = owned is not null;
+            MappedOutputFile saFile = section ?? owned!;
 
             // ---- PH1
             options.Trace?.Invoke("ph1");
@@ -421,15 +432,18 @@ internal static class SaBuilder
                     ArenaGuards = options.ArenaGuards,
                     Counters = counters,
                     Trace = options.Trace,
-                }, new MappedSaSliceSink(saFile, p.WindowBytes, counters), ranks);
+                }, section is null ? new MappedSaSliceSink(saFile, p.WindowBytes, counters) : new MappedSaSectionSink(saFile, saOffset, 4 * (n + 1), p.WindowBytes, counters), ranks);
             }
             File.Delete(rankPath); // the rank file has served its only consumer
             ledger.Remove(rankBytes);
             double ph23Seconds = Seconds(t0);
             RssStats rssPh3 = rss3?.Stop() ?? default;
             IoSnapshot io2 = counters.Snapshot();
-            saFile.Complete(options.SyncOutput);
-            CheckLength(saPath, n);
+            if (section is null)
+            {
+                saFile.Complete(options.SyncOutput);
+                CheckLength(saPath!, n);
+            }
             RssStats all = whole?.Stop() ?? default;
             double? anonMb = all.Available ? all.MaxRssAnonKb * 1024.0 / 1e6 : null;
             RssVerdict verdict = RssVerdict.Unavailable;
@@ -463,7 +477,7 @@ internal static class SaBuilder
         catch
         {
             ledger.ReleaseAll();
-            if (saCreated) DeleteQuietly(saPath);
+            if (saCreated) DeleteQuietly(saPath!);
             if (rankTouched) DeleteQuietly(rankPath);
             throw;
         }
@@ -479,7 +493,14 @@ internal static class SaBuilder
     /// Builds the suffix array of <paramref name="text"/> into the range <c>[saOffset, saOffset + 4 (n + 1))</c> of <paramref name="file"/> (a section of the container): the file exists at that length already, the stage
     /// writes through windows of it and neither completes nor deletes it (the owner of the file does, also on a failure); everything else is as in <see cref="Build(MappedTextReader, string, SaBuildOptions)"/>.
     /// </summary>
-    internal static SaBuildResult Build(MappedTextReader text, MappedOutputFile file, long saOffset, SaBuildOptions options) => throw new NotImplementedException();
+    /// <exception cref="ArgumentOutOfRangeException">The range does not lie inside the file.</exception>
+    internal static SaBuildResult Build(MappedTextReader text, MappedOutputFile file, long saOffset, SaBuildOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        ArgumentNullException.ThrowIfNull(file);
+        ArgumentNullException.ThrowIfNull(options);
+        return BuildCore(text, null, file, saOffset, options);
+    }
 
     /// <summary>The suffix array has its final length: <c>4 (n + 1)</c> bytes.</summary>
     internal static void CheckLength(string saPath, long n)

@@ -229,8 +229,8 @@ public sealed class SesaFailureTests
         (string Label, Func<SesaBuildOptions, SesaBuildOptions> Make)[] caps =
         [
             ("PH1 and PH3 cap", o => o with { ArenaCapBytes = 1000 }),
-            ("PH5 cap", o => o with { ChildArenaCapBytes = 100 }),
-            ("PH6 cap", o => o with { Ph6CapBytes = 100 }),
+            ("PH5 cap", o => o with { ChildArenaCapBytes = 1 }),
+            ("PH6 cap", o => o with { Ph6CapBytes = 1 }),
         ];
         foreach ((string label, Func<SesaBuildOptions, SesaBuildOptions> make) in caps)
         {
