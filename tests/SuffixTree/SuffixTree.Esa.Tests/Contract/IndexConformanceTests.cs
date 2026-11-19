@@ -10,11 +10,14 @@ namespace SuffixTree.Esa.Tests.Contract;
 [TestFixtureSource(typeof(IndexEngineFactories), nameof(IndexEngineFactories.All))]
 public class IndexConformanceTests(IndexEngineFactory factory)
 {
-    private static readonly string[] SmallTexts =
+    private static readonly string[] AllSmallTexts =
     [
         "", "a", "aa", "ab", "ba", "aba", "banana", "mississippi", "abracadabra", "aaaaaaaa", "abababab", "abaababaabaab",
         "\uD800a\uD800", "\0￿\0", "xyzxyz",
     ];
+
+    /// <summary>The small texts the engine can hold (every text, except for an engine that refuses some: the container holds code units below 256 only).</summary>
+    private IEnumerable<string> SmallTexts => AllSmallTexts.Where(factory.AcceptsText);
 
     private ISuffixIndex Build(string text) => factory.Create(text);
 

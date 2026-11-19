@@ -25,6 +25,7 @@ public sealed partial class EsaSuffixTree : ISuffixTree, ISuffixTreeNavigation, 
     private readonly EsaStatistics _statistics;
     private int _disposed;
     private string? _longestRepeat;
+    private External.SesaFile? _file;
 
     /// <summary>Wraps an index. <paramref name="statistics"/> replaces the header statistics of the index (the tests use it to feed a synthetic node count to the guard).</summary>
     /// <exception cref="ArgumentNullException"><paramref name="index"/> is null.</exception>
@@ -37,6 +38,7 @@ public sealed partial class EsaSuffixTree : ISuffixTree, ISuffixTreeNavigation, 
         _statistics = statistics ?? index.Statistics;
         _text = new StringTextSource(index.Text);
         _contract = new EsaSuffixIndex(index);
+        _file = null;
     }
 
     /// <summary>Builds the tree of <paramref name="text"/> with the default child-table layout.</summary>
@@ -78,6 +80,12 @@ public sealed partial class EsaSuffixTree : ISuffixTree, ISuffixTreeNavigation, 
 
     /// <summary>The wrapped index (tests inspect the navigation pack through it); not guarded by the disposal check.</summary>
     internal EsaIndex Index => _index;
+
+    /// <summary>The tree over an opened container (the tree owns the file and disposes it).</summary>
+    internal static EsaSuffixTree FromFile(External.SesaFile file) => throw new NotImplementedException();
+
+    /// <summary>The container this tree reads in place, or null for a tree built in memory (1b.7f).</summary>
+    internal External.SesaFile? File => _file;
 
     // ------------------------------------------------------------------ lifetime
 

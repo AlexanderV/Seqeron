@@ -41,6 +41,14 @@ public static class EsaSuffixTreeFactory
         return EsaSuffixTree.Build(text is StringTextSource source ? source.Value : Materialize(text));
     }
 
+    /// <summary>Opens a SESA container (and only that: a v6 file is <see cref="SuffixIndexFactory.Open"/>'s business) as a tree that reads the mapped sections in place.</summary>
+    /// <param name="path">The container.</param>
+    /// <param name="options">Validation level and access mode (default <see cref="EsaOpenOptions"/>).</param>
+    /// <returns>The tree; disposing it releases the mapping.</returns>
+    /// <exception cref="InvalidDataException">The file is not a SESA container, or it is corrupt at the requested level.</exception>
+    /// <exception cref="NotSupportedException">A container of a larger major version, or one that needs a feature this reader does not have.</exception>
+    public static EsaSuffixTree Open(string path, EsaOpenOptions? options = null) => throw new NotImplementedException();
+
     /// <summary>Reads a text source into a string in chunks (nothing is preallocated for the whole length, so a source that cannot be read costs nothing).</summary>
     private static string Materialize(ITextSource text)
     {

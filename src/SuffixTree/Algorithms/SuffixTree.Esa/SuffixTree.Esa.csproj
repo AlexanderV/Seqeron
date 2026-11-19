@@ -8,6 +8,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\SuffixTree.Core\SuffixTree.Core.csproj" />
+    <!-- 1b.7f: SuffixIndexFactory.Open tells a SESA container from a v6 persistent tree by its magic and loads the v6 file through PersistentSuffixTreeFactory (the new engine depends on the old format, not the reverse) -->
+    <ProjectReference Include="..\SuffixTree.Persistent\SuffixTree.Persistent.csproj" />
   </ItemGroup>
 
   <PropertyGroup>
