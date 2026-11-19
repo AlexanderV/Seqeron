@@ -203,6 +203,9 @@ public static partial class SequenceAligner
 
     private sealed partial class ClustalWMsaState
     {
+        /// <summary><c>-NEWTREE</c> / <c>-NEWTREE1</c> / <c>-NEWTREE2</c>: the run stops after the guide tree(s) are written.</summary>
+        public bool GuideTreesOnly { get; init; }
+
         private bool _distanceTree = true;   // UserParameters::distanceTree (Tree::readTree sets it, MSA::calcPairwiseForProfileAlign clears it)
         private bool _iterating;             // doRemoveFirstIteration is NONE while removeFirstIterate runs
 
@@ -348,9 +351,29 @@ public static partial class SequenceAligner
             if (_o.Upgma)
                 return GetWeightsForProfileAlignUpgma(aln, distMat);
 
+            // Clustal::profileAlign: a user tree of a profile with fewer than two sequences is ignored
+            bool useTree1 = UserTree1 != null && p1 >= 2;
+            bool useTree2 = UserTree2 != null && numSeqs - p1 >= 2;
+
             // the profile guide trees are written from the distances BEFORE the initial alignment
-            CwRootedTree? tree1 = p1 >= 2 ? ProfileTree(distMat, 1, p1) : null;
-            CwRootedTree? tree2 = numSeqs - p1 >= 2 ? ProfileTree(distMat, p1 + 1, numSeqs - p1) : null;
+            CwRootedTree? tree1 = null, tree2 = null;
+            if (!useTree1 && p1 >= 2)
+            {
+                tree1 = ProfileTree(distMat, 1, p1, out string text1);
+                GuideTree1Text = text1;
+            }
+
+            if (!useTree2 && numSeqs - p1 >= 2)
+            {
+                tree2 = ProfileTree(distMat, p1 + 1, numSeqs - p1, out string text2);
+                GuideTree2Text = text2;
+            }
+
+            if (GuideTreesOnly)
+            {
+                StoppedAfterTrees = true;
+                return ([], []);
+            }
 
             // MSA::calcPairwiseForProfileAlign
             _distanceTree = false;
@@ -375,11 +398,21 @@ public static partial class SequenceAligner
             var prof1 = new int[p1];
             var prof2 = new int[numSeqs];
             if (p1 >= 2)
+            {
                 _distanceTree = true;   // Tree::readTree
+                if (useTree1)
+                    tree1 = ReadUserProfileTree(UserTree1!, 0, p1);
+            }
+
             var w1 = TreeSeqWeights(tree1, p1, p1, duplicateNames);
             Array.Copy(w1, prof1, p1);
             if (numSeqs - p1 >= 2)
+            {
                 _distanceTree = true;
+                if (useTree2)
+                    tree2 = ReadUserProfileTree(UserTree2!, p1, numSeqs - p1);
+            }
+
             var w2 = TreeSeqWeights(tree2, numSeqs - p1, numSeqs, duplicateNames);
             Array.Copy(w2, 0, prof2, p1, numSeqs - p1);
 
@@ -405,10 +438,36 @@ public static partial class SequenceAligner
             int p1 = aln.Profile1NumSeqs;
             var prof1 = new int[p1];
             var prof2 = new int[numSeqs];
-            if (p1 >= 2)
-                Array.Copy(UpgmaProfileWeights(distMat, 1, p1, p1), prof1, p1);
-            if (numSeqs - p1 >= 2)
-                Array.Copy(UpgmaProfileWeights(distMat, p1 + 1, numSeqs - p1, numSeqs), 0, prof2, p1, numSeqs - p1);
+            bool useTree1 = UserTree1 != null && p1 >= 2;
+            bool useTree2 = UserTree2 != null && numSeqs - p1 >= 2;
+            if (useTree1)
+            {
+                // the guide-tree file is read with the NJ reader: Tree::readTree, Tree::calcSeqWeights
+                var tree = ReadUserProfileTree(UserTree1!, 0, p1);
+                Array.Copy(TreeSeqWeights(tree, p1, p1, false), prof1, p1);
+            }
+            else if (p1 >= 2)
+            {
+                Array.Copy(UpgmaProfileWeights(distMat, 1, p1, p1, out string text1), prof1, p1);
+                GuideTree1Text = text1;
+            }
+
+            if (useTree2)
+            {
+                var tree = ReadUserProfileTree(UserTree2!, p1, numSeqs - p1);
+                Array.Copy(TreeSeqWeights(tree, numSeqs - p1, numSeqs, false), 0, prof2, p1, numSeqs - p1);
+            }
+            else if (numSeqs - p1 >= 2)
+            {
+                Array.Copy(UpgmaProfileWeights(distMat, p1 + 1, numSeqs - p1, numSeqs, out string text2), 0, prof2, p1, numSeqs - p1);
+                GuideTree2Text = text2;
+            }
+
+            if (GuideTreesOnly)
+            {
+                StoppedAfterTrees = true;
+                return ([], []);
+            }
 
             _distanceTree = false;
             var group = new int[numSeqs + 1];
@@ -442,9 +501,22 @@ public static partial class SequenceAligner
         }
 
         // RootedGuideTree::calcSeqWeights(firstSeq, lastSeq) of the UPGMA tree of the profile sequences first .. first + count - 1
-        private int[] UpgmaProfileWeights(double[,] distMat, int first, int count, int lastSeq)
+        private int[] UpgmaProfileWeights(double[,] distMat, int first, int count, int lastSeq, out string text)
         {
             var result = new int[count];
+            text = "";
+            if (Names != null)
+            {
+                var block = new double[count, count];
+                for (int i = 0; i < count; i++)
+                {
+                    for (int j = 0; j < count; j++)
+                        block[i, j] = distMat[first + i, first + j];
+                }
+
+                text = ClustalWUpgmaGuideTreeText(block, Names.Skip(first - 1).Take(count).ToList());
+            }
+
             if (count >= 2 && _distanceTree && !_o.NoWeights)
             {
                 var weights = new float[count];
@@ -515,12 +587,19 @@ public static partial class SequenceAligner
         // halved. More: UnRootedClusterTree::treeFromDistMatrix hands the WHOLE matrix to NJTree::generateTree, which reads the entries (1 .. count, 1 .. count) - the distances of the FIRST `count`
         // sequences of the alignment, not those of the profile (a defect of ClustalW 2.1 that only shows for a profile that does not start at sequence 1) - while the leaves are named after the
         // profile's sequences (name index + first - 1); the NJ works in place and leaves its final state in that block of the matrix.
-        private static CwRootedTree ProfileTree(double[,] distMat, int first, int count)
+        private CwRootedTree ProfileTree(double[,] distMat, int first, int count, out string text)
         {
+            text = "";
+            var slice = Names == null ? null : Names.Skip(first - 1).Take(count).ToList();
             if (count == 2)
             {
-                double d = distMat[first, first + 1] / 2.0;
-                float printed = float.Parse(d.ToString("G5", System.Globalization.CultureInfo.InvariantCulture), System.Globalization.CultureInfo.InvariantCulture);
+                if (slice != null)
+                {
+                    string d2 = ClustalWPairTreeDistance(distMat[first, first + 1]).Text;
+                    text = $"({slice[0]}:{d2},{slice[1]}:{d2});\n";
+                }
+
+                float printed = ClustalWPairTreeDistance(distMat[first, first + 1]).ReadBack;
                 var root = new CwNode();
                 var l0 = new CwNode { Leaf = true, LeafIndex = 0, Parent = root, Dist = printed };
                 var l1 = new CwNode { Leaf = true, LeafIndex = 1, Parent = root, Dist = printed };
@@ -544,7 +623,17 @@ public static partial class SequenceAligner
                     distMat[i, j] = finalState[i, j];
             }
 
+            if (slice != null)
+                text = ClustalWNjTreeText(slice, unrooted, 0.0);
             return ClustalWRootNodes(unrooted, count);
+        }
+
+        // Tree::readTree of a user guide tree for the sequences first .. first + count - 1 (0-based) of the alignment
+        private CwRootedTree ReadUserProfileTree(string text, int first, int count)
+        {
+            var user = ClustalWReadTree(text, Names ?? throw new InvalidOperationException("Sequence names are required to read a guide tree."), first, count);
+            _distanceTree = user.DistanceTree;
+            return new CwRootedTree(user.Root, user.Leaves, user.ParsedLeaves);
         }
 
         // Tree::calcSeqWeights(firstSeq, lastSeq) for a group of `count` sequences read back from the tree file (null = no tree); `lastSeq` is the 1-based end of the group in the whole alignment

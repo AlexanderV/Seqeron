@@ -139,6 +139,15 @@
     <!-- ALIGN-MULTI-001 (audit A2-14, B09 F103): ClustalW 2.1 profile alignment commands (-PROFILE1 -PROFILE2 -PROFILE and -SEQUENCES), 1 200 sets (600 DNA, 600 protein);
          scripts/alignment/generate_clustalw_profile_oracle.py. -->
     <EmbeddedResource Include="TestData\Alignment\clustalw_profile_oracle.tsv" />
+    <!-- ALIGN-MULTI-001 (audit A2-14b, B09 F104): ClustalW 2.1 guide-tree files (-NEWTREE, -USETREE, -NEWTREE1/2, -USETREE1/2) and -OUTORDER=ALIGNED|INPUT, 3 300 sets
+         (align / newtree / usetree incl. malformed trees / profile / sequences, DNA and protein); scripts/alignment/generate_clustalw_commands_oracle.py. -->
+    <EmbeddedResource Include="TestData\Alignment\clustalw_commands_oracle.tsv" />
+    <!-- ALIGN-MULTI-001 (audit A2-14d, B09 F105): the seven ClustalW 2.1 alignment file formats (-OUTPUT CLUSTAL / GCG / GDE / PHYLIP / PIR / NEXUS / FASTA with -CASE -SEQNOS -SEQNO_RANGE -RANGE -OUTORDER), 2 310 files
+         compared byte for byte; scripts/alignment/generate_clustalw_output_oracle.py. -->
+    <EmbeddedResource Include="TestData\Alignment\clustalw_output_oracle.tsv" />
+    <!-- ALIGN-MULTI-001 (audit A2-14c, B09 F106): ClustalW 2.1 secondary-structure gap-penalty masks of -PROFILE / -SEQUENCES (CLUSTAL and GDE profile files with !SS_ / !GM_ / "SS_ lines), 1 200 sets, output files compared
+         byte for byte; scripts/alignment/generate_clustalw_structure_oracle.py. -->
+    <EmbeddedResource Include="TestData\Alignment\clustalw_structure_oracle.tsv" />
     <!-- GENOMIC-COMMON-001 (B09 F15-F16): independent Python (DP + suffix automaton + brute-force matching statistics)
          oracle for FindLongestCommonRegion / FindCommonRegions; scripts/analysis/generate_common_region_oracle.py. -->
     <EmbeddedResource Include="TestData\Analysis\common_region_oracle.tsv" />

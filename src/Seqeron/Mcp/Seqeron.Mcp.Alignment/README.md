@@ -24,6 +24,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `assemble_olc` | Assembles input reads into contigs using the overlap–layout–consensus approach: detects pairwise suffix–prefix overlaps above thresholds,… |
 | `assembly_stats` | Computes assembly statistics (N50, longest contig, total length, assembled-reads accounting) for a precomputed list of contigs. |
 | `calculate_coverage` | Maps each read to its best-matching position on the reference (≥ minOverlap matching bases) and returns per-base coverage depth as an int… |
+| `clustalw_command` | ClustalW 2.1 as a command line: alignment, profiles, guide-tree files (-NEWTREE / -USETREE), -OUTORDER, the seven output formats and the secondary-structure gap-penalty masks; verified byte for byte against clustalw 2.1 (B09 A2-14b / c / e). |
 | `clustalw_pairwise_align` | ClustalW 2.1 full pairwise stage (FullPairwiseAlign) for DNA / protein: affine local alignment, percent identity and guide-tree distance; verified against clustalw 2.1 (B09 A2-36). |
 | `clustalw_profile_align` | ClustalW 2.1 profile-profile alignment of two existing alignments (clustalw -PROFILE1 -PROFILE2 -PROFILE); verified on 600 clustalw runs (B09 A2-14). |
 | `clustalw_quick_pairwise_align` | ClustalW 2.1 fast k-tuple pairwise stage (-QUICKTREE): fragment score, percent score and distance (B09 A2-36). |

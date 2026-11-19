@@ -416,6 +416,38 @@ public static partial class SequenceAligner
         private int _printPtr, _lastPrint;
         private readonly List<(int Group, int Entries, int? Score)> _firstPassGroups = new();
 
+        // ---- guide trees and output order of the command-level API (A2-14b) ----
+        /// <summary>Names of the sequences (file order); needed to write guide-tree files and to match the leaves of a user guide tree.</summary>
+        public IReadOnlyList<string>? Names { get; init; }
+
+        /// <summary>Text of a user guide tree (<c>-USETREE</c>) for the whole alignment / the new sequences of <c>-SEQUENCES</c>, null = compute the tree.</summary>
+        public string? UserTree { get; init; }
+
+        /// <summary>User guide trees of profile 1 / profile 2 (<c>-USETREE1</c> / <c>-USETREE2</c>); a tree of a profile with fewer than two sequences is ignored like the program does.</summary>
+        public string? UserTree1 { get; init; }
+
+        /// <summary><see cref="UserTree1"/> for profile 2.</summary>
+        public string? UserTree2 { get; init; }
+
+        /// <summary><see cref="GuideTreesOnly"/> took effect: the run ended after the guide trees and no alignment was made.</summary>
+        public bool StoppedAfterTrees { get; private set; }
+
+        /// <summary>Guide-tree text of the run (<c>-NEWTREE</c>) when the tree was computed.</summary>
+        public string? GuideTreeText { get; private set; }
+
+        /// <summary>Guide-tree text of profile 1 / profile 2 (<c>-NEWTREE1</c> / <c>-NEWTREE2</c>) when it was computed.</summary>
+        public string? GuideTree1Text { get; private set; }
+
+        /// <summary>Text of the guide tree of profile 2 (<c>-NEWTREE2</c>).</summary>
+        public string? GuideTree2Text { get; private set; }
+
+        /// <summary><c>MSA::multiSeqAlign</c>'s output index in <c>-OUTORDER=ALIGNED</c> mode: the (0-based) sequences in the order in which they entered the alignment; identity for the profile commands.</summary>
+        public List<int> AlignedOrder { get; } = [];
+
+        /// <summary>The Alignment's sequence weights (<c>getSeqWeight</c>) at the end of the run (0-based sequence index).</summary>
+        public IReadOnlyList<int> FinalSequenceWeights => _alnWeight;
+
+
         /// <summary>What ClustalW prints per step of the first pass: "Group g: Sequences: n Score: s" (score &gt; 0) or "Group g: Delayed".</summary>
         public IReadOnlyList<(int Group, int Entries, int? Score)> FirstPassGroups => _firstPassGroups;
         private int _uninitialisedUses;   // profiles that used the unassigned gdist so far (ClustalWProteinOptions.UninitialisedGapDistances)
@@ -467,6 +499,11 @@ public static partial class SequenceAligner
 
             var seqWeight = new int[n + 1];
             var steps = BuildWeightsAndSteps(dist, sim, seqWeight);   // fills seqWeight (0-based, n entries) and converts sim to similarities
+            if (GuideTreesOnly)
+            {
+                StoppedAfterTrees = true;
+                return [];
+            }
             _seqWeight = seqWeight;
             _alnWeight = new int[n + 1];
 
@@ -501,12 +538,16 @@ public static partial class SequenceAligner
                 return BuildWeightsAndStepsUpgma(dist, sim, seqWeight);
             CwNode root;
             CwNode[] olptr;
+            if (UserTree != null)
+                return StepsFromUserTree(sim, seqWeight);
+
             if (n == 2)
             {
-                // UnRootedClusterTree::treeFromDistMatrix: "(a:d,b:d);" with d = distMat(1,2) / 2.0 printed with setprecision(5)
+                // UnRootedClusterTree::treeFromDistMatrix: "(a:d,b:d);" with d = (float)(distMat(1,2) / 2.0) printed with setprecision(5)
                 // (general format, 5 significant digits) and read back as float; the tree is already rooted (no reRoot).
-                double d = dist[0, 1] / 2.0;
-                float printed = float.Parse(d.ToString("G5", CultureInfo.InvariantCulture), CultureInfo.InvariantCulture);
+                var (pairText, printed) = ClustalWPairTreeDistance(dist[0, 1]);
+                if (Names != null)
+                    GuideTreeText = $"({Names[0]}:{pairText},{Names[1]}:{pairText});\n";
                 root = new CwNode();
                 var l0 = new CwNode { Leaf = true, LeafIndex = 0, Parent = root, Dist = printed };
                 var l1 = new CwNode { Leaf = true, LeafIndex = 1, Parent = root, Dist = printed };
@@ -517,6 +558,8 @@ public static partial class SequenceAligner
             else
             {
                 var unrooted = ClustalWNeighborJoining(n, dist);
+                if (Names != null)
+                    GuideTreeText = ClustalWNjTreeText(Names, unrooted, 0.0);
                 var rooted = ClustalWRootNodes(unrooted, n);
                 root = rooted.Root;
                 olptr = rooted.Leaves;
@@ -531,7 +574,7 @@ public static partial class SequenceAligner
 
             CalcSeqWeights(olptr, seqWeight);
             CalcSimilarities(olptr, sim);
-            return CreateSets(root, olptr);
+            return ClustalWCreateSets(root, olptr);
         }
 
         // TreeInterface::getWeightsAndStepsFromDistMatUPGMA (-CLUSTERING=UPGMA): RootedClusterTree::treeFromDistMatrix builds no tree and saves NO alignment step for two sequences (the
@@ -540,6 +583,8 @@ public static partial class SequenceAligner
         private List<int[]> BuildWeightsAndStepsUpgma(double[,] dist, double[,] sim, int[] seqWeight)
         {
             int n = _n;
+            if (Names != null)
+                GuideTreeText = ClustalWUpgmaGuideTreeText(dist, Names);
             UpgmaResult? tree = n >= 3 ? ClustalWUpgmaTree(dist, n) : null;
             var steps = tree?.Steps ?? [];
             if (n >= 2 && !_o.NoWeights)
@@ -570,11 +615,36 @@ public static partial class SequenceAligner
             return steps;
         }
 
+        // Clustal::doAlignUseOldTree -> TreeInterface::getWeightsAndStepsFromTreeNJ: no pairwise stage, the tree comes from the file (NJ reading even for -CLUSTERING=UPGMA)
+        private List<int[]> StepsFromUserTree(double[,] sim, int[] seqWeight)
+        {
+            int n = _n;
+            try
+            {
+                var user = ClustalWReadTree(UserTree!, Names ?? throw new InvalidOperationException("Sequence names are required to read a guide tree."), 0, n);
+                _distanceTree = user.DistanceTree;
+                var olptr = user.Leaves;
+                foreach (var leaf in user.ParsedLeaves)   // Tree::orderNodes
+                {
+                    for (var p = leaf; p != null; p = p.Parent)
+                        p.Order++;
+                }
+
+                CalcSeqWeights(olptr, seqWeight);
+                CalcSimilarities(olptr, sim);
+                return ClustalWCreateSets(user.Root, olptr);
+            }
+            catch (Exception e) when (e is IndexOutOfRangeException or NullReferenceException)
+            {
+                throw new ClustalWTreeFileException(ClustalWTreeFileProblem.Undefined, "the program reads outside its arrays on this guide tree (undefined behaviour, it crashes).");
+            }
+        }
+
         // Tree::calcSeqWeights (distanceTree = true)
         private void CalcSeqWeights(CwNode[] olptr, int[] sweight)
         {
             int n = _n;
-            if (n >= 2 && !_o.NoWeights)
+            if (n >= 2 && _distanceTree && !_o.NoWeights)
             {
                 var weight = new int[n];
                 for (int i = 0; i < n; i++)
@@ -682,50 +752,6 @@ public static partial class SequenceAligner
             }
         }
 
-        // Tree::createSets / groupSeqs: one step per internal node in post-order; left subtree = 1, right subtree = 2 (1-based vector)
-        private List<int[]> CreateSets(CwNode root, CwNode[] olptr)
-        {
-            var steps = new List<int[]>();
-            var leafOf = new Dictionary<CwNode, int>();
-            for (int i = 0; i < olptr.Length; i++)
-                leafOf[olptr[i]] = i;
-
-            void Mark(CwNode p, int label, int[] groups)
-            {
-                if (p.Left == null && p.Right == null)
-                {
-                    groups[leafOf[p] + 1] = label;
-                    return;
-                }
-
-                if (p.Left != null)
-                    Mark(p.Left, label, groups);
-                if (p.Right != null)
-                    Mark(p.Right, label, groups);
-            }
-
-            void Visit(CwNode p)
-            {
-                if (p.Left == null && p.Right == null)
-                    return;
-                if (p.Left != null)
-                    Visit(p.Left);
-                if (p.Right != null)
-                    Visit(p.Right);
-                var groups = new int[_n + 1];
-                if (p.Left != null)
-                    Mark(p.Left, 1, groups);
-                if (p.Right != null)
-                {
-                    Mark(p.Right, 2, groups);
-                    steps.Add(groups);
-                }
-            }
-
-            Visit(root);
-            return steps;
-        }
-
         // ------------------------------------------------------------------------------------------------------------
         // MSA.cpp multiSeqAlign
         // ------------------------------------------------------------------------------------------------------------
@@ -762,6 +788,7 @@ public static partial class SequenceAligner
                         if (aligned[i] == 0)
                         {
                             ix++;
+                            AlignedOrder.Add(i - 1);
                             aligned[i] = 1;
                         }
                     }
@@ -800,6 +827,7 @@ public static partial class SequenceAligner
 
                 aligned[iseq0] = 1;
                 ix++;
+                AlignedOrder.Add(iseq0 - 1);
             }
 
             var group = new int[n + 1];
@@ -874,6 +902,7 @@ public static partial class SequenceAligner
                 aligned[iseq] = 1;
                 ProfileAlign(group, aligned);
                 ix++;
+                AlignedOrder.Add(iseq - 1);
             }
         }
 
@@ -970,11 +999,16 @@ public static partial class SequenceAligner
             // profiles: with substitution matrix (profile 1), standard (profile 2)
             var gaps = new int[_prfLength1 + _prfLength2 + 3];   // alnPtr->getMaxAlnLength() + 1
             _profile1 = NewProfile(_prfLength1);
-            CalcGapCoeff(_profile1, seqArray, 0, nseqs1, _prfLength1, gaps, ref gdist1);
+            // the secondary-structure gap penalty masks: profile 1 of the call is the mask of the original profile 1 unless the profiles were switched
+            var maskOfProfile1 = _structPenalties1 != 0 && _useSS1 ? _gapMask1 : null;
+            var maskOfProfile2 = _structPenalties2 != 0 && _useSS2 ? _gapMask2 : null;
+            var mask1 = switchProfiles ? maskOfProfile2 : maskOfProfile1;
+            var mask2 = switchProfiles ? maskOfProfile1 : maskOfProfile2;
+            CalcGapCoeff(_profile1, seqArray, 0, nseqs1, _prfLength1, gaps, ref gdist1, mask1);
             CalcProfileWithSub(_profile1, seqArray, 0, nseqs1, _prfLength1, gaps, weights);
 
             _profile2 = NewProfile(_prfLength2);
-            CalcGapCoeff(_profile2, seqArray, nseqs1, nseqs1 + nseqs2, _prfLength2, gaps, ref gdist2);
+            CalcGapCoeff(_profile2, seqArray, nseqs1, nseqs1 + nseqs2, _prfLength2, gaps, ref gdist2, mask2);
             CalcStandardProfile(_profile2, seqArray, nseqs1, nseqs1 + nseqs2, _prfLength2, weights);
 
             // align the profiles (Myers & Miller)
@@ -1051,6 +1085,16 @@ public static partial class SequenceAligner
 
                 seqArray[j] = ta;
             }
+
+            // the masks follow the alignment: gaps are inserted where the profile got gaps (addGGapsMask)
+            if (_structPenalties1 != 0)
+                AddGapsMask(_gapMask1, alignmentLength, alnPath1, alnPath2, switchProfiles);
+            if (_structPenalties1 == 1)
+                AddGapsMask(_secStruct1, alignmentLength, alnPath1, alnPath2, switchProfiles);
+            if (_structPenalties2 != 0)
+                AddGapsMask(_gapMask2, alignmentLength, alnPath2, alnPath1, switchProfiles);
+            if (_structPenalties2 == 1)
+                AddGapsMask(_secStruct2, alignmentLength, alnPath2, alnPath1, switchProfiles);
 
             // -ITERATION=TREE: the finished profile alignment is iterated before the rows are stored
             if (_o.Iteration == ClustalWIteration.Tree && !_iterating)
@@ -1156,7 +1200,7 @@ public static partial class SequenceAligner
 
         // ProfileBase::calcGapCoeff (no gap-penalty mask: no secondary-structure input). DNA: position-specific gap penalties only; PROTEIN additionally the
         // variable-region, residue-specific (Pascarella & Argos), hydrophilic-run penalties and the gap-separation distance.
-        private void CalcGapCoeff(int[][] profile, int[][] seqArray, int firstSeq, int lastSeq, int prfLength, int[] gaps, ref int gdist)
+        private void CalcGapCoeff(int[][] profile, int[][] seqArray, int firstSeq, int lastSeq, int prfLength, int[] gaps, ref int gdist, List<char>? gapMask = null)
         {
             int numSeq = lastSeq - firstSeq;
             bool protein = _o.Protein;
@@ -1169,7 +1213,13 @@ public static partial class SequenceAligner
 
             // ProfileBase.h members nVarPen / nHydPen / nPrefPen are "this penalty is switched OFF"
             bool nVarPen, nHydPen, nPrefPen;
-            if (_o.VariableRegionGapPenalties && pcid > 60)
+            if (gapMask != null)
+            {
+                // a gap penalty mask (secondary structure of a profile): no variable / hydrophilic / residue-specific penalties, gdist = 0
+                nVarPen = nHydPen = nPrefPen = true;
+                gdist = 0;
+            }
+            else if (_o.VariableRegionGapPenalties && pcid > 60)
             {
                 // gdist is not assigned on this path: the member of the C++ object is uninitialised memory (see ProfileAlign)
                 nHydPen = nPrefPen = true;
@@ -1291,6 +1341,17 @@ public static partial class SequenceAligner
                     float scale = ((float)(numSeq - gaps[j]) / (float)numSeq) * CwReducedGap;
                     profile[j + 1][CwGapCol] = (int)(scale * _gapCoef);
                     profile[j + 1][CwLenCol] = (int)(0.5 * _lenCoef);
+                }
+
+                // apply the gap penalty mask
+                if (gapMask != null)
+                {
+                    int val = (j < gapMask.Count ? gapMask[j] : '\0') - '0';
+                    if (val > 0 && val < 10)
+                    {
+                        profile[j + 1][CwGapCol] *= val;
+                        profile[j + 1][CwLenCol] *= val;
+                    }
                 }
 
                 // make sure no penalty is zero - even for all-gap positions

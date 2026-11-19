@@ -4,7 +4,7 @@
 
 <!-- BEGIN generated: do not edit by hand -->
 
-## Alignment (53 tools)
+## Alignment (54 tools)
 
 | tool | Method ID | doc |
 |------|-----------|-----|
@@ -13,6 +13,7 @@
 | `assemble_olc` | `SequenceAssembler.AssembleOLC` | [doc](../../mcp/tools/alignment/assemble_olc.md) |
 | `assembly_stats` | `SequenceAssembler.CalculateStats` | [doc](../../mcp/tools/alignment/assembly_stats.md) |
 | `calculate_coverage` | `SequenceAssembler.CalculateCoverage` | [doc](../../mcp/tools/alignment/calculate_coverage.md) |
+| `clustalw_command` | `ClustalWProgram.Run` | [doc](../../mcp/tools/alignment/clustalw_command.md) |
 | `clustalw_pairwise_align` | `SequenceAligner.ClustalWPairwiseAlign` | [doc](../../mcp/tools/alignment/clustalw_pairwise_align.md) |
 | `clustalw_profile_align` | `SequenceAligner.AlignClustalWProfiles` | [doc](../../mcp/tools/alignment/clustalw_profile_align.md) |
 | `clustalw_quick_pairwise_align` | `SequenceAligner.ClustalWQuickPairwiseAlign` | [doc](../../mcp/tools/alignment/clustalw_quick_pairwise_align.md) |

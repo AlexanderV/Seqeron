@@ -1886,41 +1886,8 @@ public static class RepeatFinder
         return (int)(scaled / trials);
     }
 
-    /// <summary>
-    /// C <c>printf("%.Nf")</c> of a double: the exact binary value rounded to <paramref name="decimals"/> places,
-    /// ties to even (glibc, default rounding mode). .NET's "F" format rounds ties away from zero instead.
-    /// </summary>
-    internal static string FormatCFixed(double value, int decimals)
-    {
-        bool negative = double.IsNegative(value);
-        long bits = BitConverter.DoubleToInt64Bits(Math.Abs(value));
-        int exponent = (int)((bits >> 52) & 0x7FF);
-        long mantissa = bits & 0xF_FFFF_FFFF_FFFFL;
-        if (exponent == 0)
-            exponent = 1;
-        else
-            mantissa |= 1L << 52;
-        exponent -= 1075; // |value| = mantissa · 2^exponent
-
-        var scaled = mantissa * System.Numerics.BigInteger.Pow(10, decimals);
-        System.Numerics.BigInteger units;
-        if (exponent >= 0)
-        {
-            units = scaled << exponent;
-        }
-        else
-        {
-            var denominator = System.Numerics.BigInteger.One << -exponent;
-            units = System.Numerics.BigInteger.DivRem(scaled, denominator, out var remainder);
-            var twice = remainder * 2;
-            if (twice > denominator || (twice == denominator && !units.IsEven))
-                units += 1;
-        }
-
-        string digits = units.ToString(System.Globalization.CultureInfo.InvariantCulture).PadLeft(decimals + 1, '0');
-        string text = decimals == 0 ? digits : digits[..^decimals] + "." + digits[^decimals..];
-        return negative ? "-" + text : text;
-    }
+    /// <summary>C <c>printf("%.Nf")</c> of a double (exact binary value, ties to even): <see cref="Seqeron.Genomics.Infrastructure.CFormat.Fixed"/>.</summary>
+    internal static string FormatCFixed(double value, int decimals) => Seqeron.Genomics.Infrastructure.CFormat.Fixed(value, decimals);
 
     #endregion
 

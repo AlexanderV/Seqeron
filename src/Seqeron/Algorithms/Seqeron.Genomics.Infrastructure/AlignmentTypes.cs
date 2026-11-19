@@ -1646,3 +1646,246 @@ public sealed record ClustalWPairwiseResult(
     int End1,
     int Start2,
     int End2);
+
+/// <summary>The order in which ClustalW lists the rows of an alignment (<c>-OUTORDER</c>).</summary>
+public enum ClustalWOutputOrder
+{
+    /// <summary><c>ALIGNED</c> (the program's default): the order in which the sequences entered the progressive alignment (<c>MSA::multiSeqAlign</c> / <c>seqsAlignToProfile</c>; the profile commands list profile 1 then profile 2).</summary>
+    Aligned = 0,
+
+    /// <summary><c>INPUT</c>: the order of the input file.</summary>
+    Input = 1,
+}
+
+/// <summary>Why ClustalW refuses a guide-tree file (the program prints "ERROR: ..." and ends the run without an alignment).</summary>
+public enum ClustalWTreeFileProblem
+{
+    /// <summary>The first character of the tree is not '(' ("Wrong format in tree file").</summary>
+    WrongFormat = 0,
+
+    /// <summary>The tree has a different number of leaves than the alignment has sequences ("tree not compatible with alignment").</summary>
+    NotCompatible = 1,
+
+    /// <summary>A sequence name is not a leaf of the tree ("tree not compatible with alignment: name not found"; names are compared case-insensitively, blanks as '_').</summary>
+    NameNotFound = 2,
+
+    /// <summary>The tree is unrooted (three branches at the top) and has no branch lengths ("input tree is unrooted and has no distances. Cannot align sequences").</summary>
+    UnrootedWithoutDistances = 3,
+
+    /// <summary>
+    /// The tree drives the program into undefined behaviour that always ends in a hang or a crash on the oracle sets: the text ends inside a sequence name (the reader then reads past the end of the file for ever),
+    /// the tree has more nodes or leaves than the reader's arrays hold (heap overflow), or two branches share a node (nested trichotomy: the tree is freed twice, or has a cycle).
+    /// This library refuses these trees instead.
+    /// </summary>
+    Undefined = 4,
+}
+
+/// <summary>Raised when ClustalW 2.1 refuses a guide tree given with <c>-USETREE</c> / <c>-USETREE1</c> / <c>-USETREE2</c> (<c>Tree::readTree</c> returns 0).</summary>
+public sealed class ClustalWTreeFileException : InvalidOperationException
+{
+    /// <summary>Creates the exception.</summary>
+    public ClustalWTreeFileException(ClustalWTreeFileProblem problem, string message)
+        : base(message)
+    {
+        Problem = problem;
+    }
+
+    /// <summary>The program's reason for the refusal.</summary>
+    public ClustalWTreeFileProblem Problem { get; }
+}
+
+/// <summary>A named input sequence of a ClustalW run (names are the first word of the FASTA header: no blanks, at most 150 characters, unique).</summary>
+/// <param name="Name">Sequence name.</param>
+/// <param name="Residues">Residues (gaps '-' only for profiles).</param>
+public sealed record ClustalWSequence(string Name, string Residues);
+
+/// <summary>
+/// The command-level parameters of a ClustalW run that are independent of the alignment parameters: the guide-tree files and the row order
+/// (<c>-NEWTREE</c>, <c>-USETREE</c>, <c>-NEWTREE1/2</c>, <c>-USETREE1/2</c>, <c>-OUTORDER</c>).
+/// </summary>
+public sealed record ClustalWRunOptions
+{
+    /// <summary><c>-OUTORDER=ALIGNED | INPUT</c> (default ALIGNED, the program's default).</summary>
+    public ClustalWOutputOrder OutputOrder { get; init; } = ClustalWOutputOrder.Aligned;
+
+    /// <summary>
+    /// <c>-USETREE=file</c>: the text of a guide tree in Newick / PHYLIP format; the alignment follows it instead of a computed tree (<c>Clustal::doAlignUseOldTree</c>; for <c>-SEQUENCES</c> the tree of all
+    /// sequences, <c>getWeightsFromGuideTree</c>). The program reads this tree with its neighbour-joining reader even for <c>-CLUSTERING=UPGMA</c>. Note that <c>-ALIGN -USETREE=x</c> on the command line
+    /// does not use the file (it overwrites it with a new tree); this property is the option of <c>-USETREE</c> alone.
+    /// </summary>
+    public string? UseTree { get; init; }
+
+    /// <summary><c>-USETREE1=file</c> of <c>-PROFILE</c>: the guide tree of profile 1 (ignored for a profile of one sequence, as in the program).</summary>
+    public string? UseTree1 { get; init; }
+
+    /// <summary><c>-USETREE2=file</c> of <c>-PROFILE</c>: the guide tree of profile 2.</summary>
+    public string? UseTree2 { get; init; }
+
+    /// <summary>The secondary-structure information of profile 1 (<c>!SS_</c> / <c>!GM_</c> lines of a CLUSTAL file, <c>"SS_</c> entries of a GDE file); null = none.</summary>
+    public ClustalWProfileStructure? ProfileStructure1 { get; init; }
+
+    /// <summary>The secondary-structure information of profile 2 (or of the sequences of <c>-SEQUENCES</c>).</summary>
+    public ClustalWProfileStructure? ProfileStructure2 { get; init; }
+
+    /// <summary>The alignment output parameters (<c>-OUTPUT</c> ... <c>-RANGE</c>, <c>-SECSTROUT</c>) used by <c>ClustalWAlignmentWriter</c> and the command line.</summary>
+    public ClustalWOutputOptions Output { get; init; } = new();
+
+    /// <summary>The secondary-structure gap-penalty parameters (<c>-HELIXGAP</c> ... <c>-NOSECSTR2</c>).</summary>
+    public ClustalWStructureOptions Structure { get; init; } = new();
+
+    /// <summary>
+    /// <c>-NEWTREE</c> without <c>-ALIGN</c> / <c>-NEWTREE1</c> / <c>-NEWTREE2</c>: only the guide tree(s) are produced and no alignment is made (<c>Clustal::doGuideTreeOnly</c>; with the profile commands
+    /// the program writes both profile trees and stops). When false the guide tree text of an alignment run is returned as well (<c>-ALIGN -NEWTREE=file</c>).
+    /// </summary>
+    public bool GuideTreeOnly { get; init; }
+}
+
+/// <summary>
+/// The secondary-structure information of one profile as ClustalW reads it from the profile file (<c>ClustalFileParser::getSecStructure</c>): the structure line (<c>!SS_name</c>: helix 'A'/'a'/'$', strand 'B'/'b'/'%', anything
+/// else loop) or the gap-penalty-mask line (<c>!GM_name</c>: digits 1-9); the program uses the FIRST of the two it finds. Characters are taken left to right over the alignment columns; blanks are skipped.
+/// </summary>
+/// <param name="Name">The structure name (printed at the beginning of the line in the alignment file).</param>
+/// <param name="SecondaryStructure">The structure line, or null when the profile gives a mask only.</param>
+/// <param name="GapPenaltyMask">The gap-penalty-mask line (used when <paramref name="SecondaryStructure"/> is null).</param>
+public sealed record ClustalWProfileStructure(string Name, string? SecondaryStructure, string? GapPenaltyMask);
+
+/// <summary>The structure information of one profile after the alignment (the masks have got the gaps of the alignment).</summary>
+/// <param name="Name">Structure name.</param>
+/// <param name="HasSecondaryStructure">True when the profile gave a structure line (the gap-penalty mask was computed from it), false when it gave a mask.</param>
+/// <param name="SecondaryStructure">The aligned structure line ('-' for the gaps of the alignment); empty for a mask-only profile.</param>
+/// <param name="GapPenaltyMask">The aligned gap-penalty mask.</param>
+/// <param name="Used">False after <c>-NOSECSTR1</c> / <c>-NOSECSTR2</c> (the mask is not written).</param>
+public sealed record ClustalWAlignmentStructure(string Name, bool HasSecondaryStructure, string SecondaryStructure, string GapPenaltyMask, bool Used);
+
+/// <summary>The alignment ClustalW holds after a run: names, rows in input order, and what its output routines need.</summary>
+/// <param name="Names">Sequence names (input order).</param>
+/// <param name="Rows">Aligned rows (input order; profile commands: profile 1 then profile 2).</param>
+/// <param name="OutputIndex">The (0-based) sequence indices in the order the program lists them (<see cref="ClustalWOutputOrder"/>).</param>
+/// <param name="IsProtein">Residue type of the run (<c>-TYPE</c>).</param>
+/// <param name="SequenceWeights">The sequence weights of the alignment object at the end of the run (<c>Alignment::getSeqWeight</c>; per mille, summing to about 1000).</param>
+public sealed record ClustalWAlignment(
+    IReadOnlyList<string> Names,
+    IReadOnlyList<string> Rows,
+    IReadOnlyList<int> OutputIndex,
+    bool IsProtein,
+    IReadOnlyList<int> SequenceWeights)
+{
+    /// <summary>The structure of profile 1 (profile commands with a structure line or mask in the profile file), else null.</summary>
+    public ClustalWAlignmentStructure? Structure1 { get; init; }
+
+    /// <summary>The structure of profile 2.</summary>
+    public ClustalWAlignmentStructure? Structure2 { get; init; }
+
+    /// <summary>Profile 1 has this many sequences (profile commands; 0 otherwise).</summary>
+    public int Profile1Count { get; init; }
+
+    /// <summary>Names in the order of <see cref="OutputIndex"/>.</summary>
+    public IReadOnlyList<string> GetOutputNames() => OutputIndex.Select(i => Names[i]).ToList();
+
+    /// <summary>Rows in the order of <see cref="OutputIndex"/>.</summary>
+    public IReadOnlyList<string> GetOutputRows() => OutputIndex.Select(i => Rows[i]).ToList();
+}
+
+/// <summary>The outcome of a ClustalW command: the alignment (null when only guide trees were requested) and the guide-tree texts the program writes.</summary>
+/// <param name="Alignment">The alignment, null for <see cref="ClustalWRunOptions.GuideTreeOnly"/>.</param>
+/// <param name="GuideTree">The guide-tree file <c>-NEWTREE</c> would hold (null when a user tree was used or the run has two profiles).</param>
+/// <param name="GuideTree1">Guide-tree file of profile 1 (<c>-NEWTREE1</c>; null when a user tree was given or the profile has one sequence).</param>
+/// <param name="GuideTree2">Guide-tree file of profile 2 (<c>-NEWTREE2</c>).</param>
+public sealed record ClustalWRunResult(ClustalWAlignment? Alignment, string? GuideTree, string? GuideTree1, string? GuideTree2);
+
+/// <summary>The alignment file format of ClustalW (<c>-OUTPUT</c>).</summary>
+public enum ClustalWOutputFormat
+{
+    /// <summary><c>CLUSTAL</c> (default): <c>.aln</c>, blocks of 60 columns with the conservation line.</summary>
+    Clustal = 0,
+
+    /// <summary><c>GCG</c>: MSF file (<c>.msf</c>) with checksums and weights.</summary>
+    Gcg = 1,
+
+    /// <summary><c>GDE</c>: <c>.gde</c>, '#' (DNA) or '%' (protein) headers; the structure and gap-penalty-mask lines of the profiles are written as <c>"SS_</c> / <c>"GM_</c> entries.</summary>
+    Gde = 2,
+
+    /// <summary><c>PHYLIP</c>: interleaved, names cut to 10 characters, blocks of 50 columns.</summary>
+    Phylip = 3,
+
+    /// <summary><c>PIR</c>: NBRF / PIR (<c>&gt;DL;</c> / <c>&gt;P1;</c>).</summary>
+    Pir = 4,
+
+    /// <summary><c>NEXUS</c>: interleaved DATA block.</summary>
+    Nexus = 5,
+
+    /// <summary><c>FASTA</c>: lines of 60 characters.</summary>
+    Fasta = 6,
+}
+
+/// <summary>What ClustalW writes of the secondary-structure information of the profiles (<c>-SECSTROUT</c>).</summary>
+public enum ClustalWStructureOutput
+{
+    /// <summary><c>STRUCTURE</c> (default): the secondary-structure lines (<c>!SS_</c>).</summary>
+    Structure = 0,
+
+    /// <summary><c>MASK</c>: the gap-penalty-mask lines (<c>!GM_</c>).</summary>
+    Mask = 1,
+
+    /// <summary><c>BOTH</c>.</summary>
+    Both = 2,
+
+    /// <summary><c>NONE</c>.</summary>
+    None = 3,
+}
+
+/// <summary>The parameters of the alignment output of ClustalW (<c>-OUTPUT</c>, <c>-CASE</c>, <c>-SEQNOS</c>, <c>-SEQNO_RANGE</c>, <c>-RANGE</c>, <c>-SECSTROUT</c>).</summary>
+public sealed record ClustalWOutputOptions
+{
+    /// <summary><c>-OUTPUT</c> (default CLUSTAL).</summary>
+    public ClustalWOutputFormat Format { get; init; } = ClustalWOutputFormat.Clustal;
+
+    /// <summary><c>-CASE=LOWER | UPPER</c> (GDE output only; default LOWER: the program's default <c>lowercase = true</c>).</summary>
+    public bool Lowercase { get; init; } = true;
+
+    /// <summary><c>-SEQNOS=ON | OFF</c> (CLUSTAL output only; default OFF): the residue count at the end of every line.</summary>
+    public bool SequenceNumbers { get; init; }
+
+    /// <summary><c>-SEQNO_RANGE=ON | OFF</c> (all formats; default OFF): <c>name/start-end</c> instead of the name.</summary>
+    public bool SequenceNumberRange { get; init; }
+
+    /// <summary><c>-RANGE=m,n</c>: the first and the last column written (null = the whole alignment).</summary>
+    public (int From, int To)? Range { get; init; }
+
+    /// <summary><c>-SECSTROUT=STRUCTURE | MASK | BOTH | NONE</c> (default STRUCTURE).</summary>
+    public ClustalWStructureOutput Structure { get; init; } = ClustalWStructureOutput.Structure;
+}
+
+/// <summary>The gap-penalty parameters of the secondary-structure masks (<c>-HELIXGAP</c> ... <c>-STRANDENDOUT</c>, <c>-NOSECSTR1/2</c>).</summary>
+public sealed record ClustalWStructureOptions
+{
+    /// <summary><c>-HELIXGAP=n</c> (1..9, default 4): gap penalty of helix core residues.</summary>
+    public int HelixPenalty { get; init; } = 4;
+
+    /// <summary><c>-STRANDGAP=n</c> (1..9, default 4): gap penalty of strand core residues.</summary>
+    public int StrandPenalty { get; init; } = 4;
+
+    /// <summary><c>-LOOPGAP=n</c> (1..9, default 1): gap penalty of loop regions.</summary>
+    public int LoopPenalty { get; init; } = 1;
+
+    /// <summary><c>-TERMINALGAP=n</c> (1..9, default 2): gap penalty at the ends of helices and strands.</summary>
+    public int TerminalPenalty { get; init; } = 2;
+
+    /// <summary><c>-HELIXENDIN=n</c> (0..3, default 3): residues inside a helix treated as terminal.</summary>
+    public int HelixEndInside { get; init; } = 3;
+
+    /// <summary><c>-HELIXENDOUT=n</c> (0..3, default 0): residues outside a helix treated as terminal.</summary>
+    public int HelixEndOutside { get; init; }
+
+    /// <summary><c>-STRANDENDIN=n</c> (0..3, default 1): residues inside a strand treated as terminal.</summary>
+    public int StrandEndInside { get; init; } = 1;
+
+    /// <summary><c>-STRANDENDOUT=n</c> (0..3, default 1): residues outside a strand treated as terminal.</summary>
+    public int StrandEndOutside { get; init; } = 1;
+
+    /// <summary>Set by <c>-NOSECSTR1</c> to false: the secondary-structure mask of profile 1 is not used.</summary>
+    public bool UseStructure1 { get; init; } = true;
+
+    /// <summary>Set by <c>-NOSECSTR2</c> to false: the secondary-structure mask of profile 2 is not used.</summary>
+    public bool UseStructure2 { get; init; } = true;
+}

@@ -35,6 +35,13 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAssembler.cs#L772"
   },
   {
+    "tool": "clustalw_command",
+    "server": "Alignment",
+    "methodId": "ClustalWProgram.Run",
+    "docPath": "docs/mcp/tools/alignment/clustalw_command.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/ClustalWProgram.cs"
+  },
+  {
     "tool": "clustalw_pairwise_align",
     "server": "Alignment",
     "methodId": "SequenceAligner.ClustalWPairwiseAlign",

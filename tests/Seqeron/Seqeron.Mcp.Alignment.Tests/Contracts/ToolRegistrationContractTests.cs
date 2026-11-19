@@ -21,6 +21,7 @@ public sealed class ToolRegistrationContractTests : ToolRegistrationContractTest
         "assemble_olc",
         "assembly_stats",
         "calculate_coverage",
+        "clustalw_command",
         "clustalw_pairwise_align",
         "clustalw_profile_align",
         "clustalw_quick_pairwise_align",

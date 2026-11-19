@@ -74,27 +74,7 @@ public static partial class SequenceAligner
         using var cancelScope = AlignmentCancellation.Enter(options.CancellationToken);
         var codes = p1.Concat(p2).Select(r => EncodeClustalWDna(r, "profiles", allowGaps: true)).ToArray();
         var state = new ClustalWMsaState(codes, CwConfig.FromDna(options));
-        int longest = codes.Max(c => c.Length);
-        Func<int[], int[], double> pairwise;
-        if (options.PairwiseMode == ClustalWPairwiseMode.Quick)
-        {
-            var quick = options.Quick ?? new ClustalWQuickOptions();
-            pairwise = (a, b) => ClustalWQuickPairwiseAlignCore(a, b, protein: false, quick, longest).Distance;
-        }
-        else
-        {
-            var setup = ClustalWDnaPairwiseSetup(new ClustalWDnaPairwiseOptions
-            {
-                Matrix = options.PairwiseDnaMatrix,
-                UserMatrix = options.PairwiseUserDnaMatrix,
-                UserMatrixUse = options.UserDnaMatrixUse,
-                TransitionWeight = options.TransitionWeight,
-            });
-            float go = (float)options.PairwiseGapOpen, ge = (float)options.PairwiseGapExtend;
-            int gapOpenInt = (int)(2f * go * (float)ClustalWIntScale * setup.GapOpenScale);
-            int gapExtendInt = (int)(ge * (float)ClustalWIntScale * setup.GapExtendScale);
-            pairwise = (a, b) => ClustalWGappedPairwiseDistance(a, b, setup.Matrix, gapOpenInt, gapExtendInt);
-        }
+        var pairwise = ClustalWSequencesPairwise(options, codes);
 
         return BuildClustalWResult(state.RunSequencesToProfile(p1.Count, pairwise), scoring ?? SimpleDna);
     }
@@ -111,32 +91,55 @@ public static partial class SequenceAligner
         var codes = p1.Concat(p2).Select(r => EncodeClustalWProtein(r, "profiles", allowGaps: true)).ToArray();
         string hyd = new string(options.HydrophilicResidues.Take(ClustalWMaxHydrophilicResidues).TakeWhile(char.IsAsciiLetter).Select(char.ToUpperInvariant).ToArray());
         var state = new ClustalWMsaState(codes, CwConfig.FromProtein(options) with { HydrophilicResidues = hyd.Length > 0 ? hyd : "GPSNDQEKR" });
-        int longest = codes.Max(c => c.Length);
-        Func<int[], int[], double> pairwise;
-        if (options.PairwiseMode == ClustalWPairwiseMode.Quick)
-        {
-            pairwise = (a, b) => ClustalWQuickPairwiseAlignCore(a, b, protein: true, options.Pairwise.Quick, longest).Distance;
-        }
-        else
-        {
-            var (matrix, intScale, matAvg) = options.Pairwise.UserMatrix is { } user
-                ? BuildClustalWUserPairwiseMatrix(user)
-                : ClustalWProteinMatrices[(int)options.Pairwise.Matrix].Value;
-            float pwGapOpen = (float)options.Pairwise.GapOpen;
-            float pwGapExtend = (float)options.Pairwise.GapExtend;
-            int gapExtendInt = (int)(pwGapExtend * (float)intScale);
-            pairwise = (a, b) =>
-            {
-                // FullPairwiseAlign: the gap opening depends on the ROW lengths (gaps included)
-                double logMin = Math.Log((double)Math.Min(a.Length, b.Length));
-                int gapOpenInt = matAvg <= 0
-                    ? 2 * (int)(((double)pwGapOpen + logMin) * intScale)
-                    : (int)(2 * matAvg * ((double)pwGapOpen + logMin) * 1.0);
-                return ClustalWGappedPairwiseDistance(a, b, matrix, gapOpenInt, gapExtendInt);
-            };
-        }
+        var pairwise = ClustalWSequencesPairwise(options, codes);
 
         return BuildClustalWProteinResult(state.RunSequencesToProfile(p1.Count, pairwise), scoring);
+    }
+
+    // the pairwise stage of -SEQUENCES between rows with gaps (FullPairwiseAlign / FastPairwiseAlign on the gapped rows)
+    private static Func<int[], int[], double> ClustalWSequencesPairwise(ClustalWOptions options, int[][] codes)
+    {
+        int longest = codes.Max(c => c.Length);
+        if (options.PairwiseMode == ClustalWPairwiseMode.Quick)
+        {
+            var quick = options.Quick ?? new ClustalWQuickOptions();
+            return (a, b) => ClustalWQuickPairwiseAlignCore(a, b, protein: false, quick, longest).Distance;
+        }
+
+        var setup = ClustalWDnaPairwiseSetup(new ClustalWDnaPairwiseOptions
+        {
+            Matrix = options.PairwiseDnaMatrix,
+            UserMatrix = options.PairwiseUserDnaMatrix,
+            UserMatrixUse = options.UserDnaMatrixUse,
+            TransitionWeight = options.TransitionWeight,
+        });
+        float go = (float)options.PairwiseGapOpen, ge = (float)options.PairwiseGapExtend;
+        int gapOpenInt = (int)(2f * go * (float)ClustalWIntScale * setup.GapOpenScale);
+        int gapExtendInt = (int)(ge * (float)ClustalWIntScale * setup.GapExtendScale);
+        return (a, b) => ClustalWGappedPairwiseDistance(a, b, setup.Matrix, gapOpenInt, gapExtendInt);
+    }
+
+    private static Func<int[], int[], double> ClustalWSequencesPairwise(ClustalWProteinOptions options, int[][] codes)
+    {
+        int longest = codes.Max(c => c.Length);
+        if (options.PairwiseMode == ClustalWPairwiseMode.Quick)
+            return (a, b) => ClustalWQuickPairwiseAlignCore(a, b, protein: true, options.Pairwise.Quick, longest).Distance;
+
+        var (matrix, intScale, matAvg) = options.Pairwise.UserMatrix is { } user
+            ? BuildClustalWUserPairwiseMatrix(user)
+            : ClustalWProteinMatrices[(int)options.Pairwise.Matrix].Value;
+        float pwGapOpen = (float)options.Pairwise.GapOpen;
+        float pwGapExtend = (float)options.Pairwise.GapExtend;
+        int gapExtendInt = (int)(pwGapExtend * (float)intScale);
+        return (a, b) =>
+        {
+            // FullPairwiseAlign: the gap opening depends on the ROW lengths (gaps included)
+            double logMin = Math.Log((double)Math.Min(a.Length, b.Length));
+            int gapOpenInt = matAvg <= 0
+                ? 2 * (int)(((double)pwGapOpen + logMin) * intScale)
+                : (int)(2 * matAvg * ((double)pwGapOpen + logMin) * 1.0);
+            return ClustalWGappedPairwiseDistance(a, b, matrix, gapOpenInt, gapExtendInt);
+        };
     }
 
     private static (List<string> P1, List<string> P2) ProfileInputs(IEnumerable<string> profile1, IEnumerable<string> profile2)
@@ -171,6 +174,7 @@ public static partial class SequenceAligner
         public string[] RunProfileAlignment(int profile1NumSeqs)
         {
             int n = _n;
+            InitStructure(profile1NumSeqs, sequencesMode: false);
             var aln = new CwAlignment
             {
                 Rows = [.. _seq.Select(r => (int[])r.Clone())],
@@ -178,15 +182,34 @@ public static partial class SequenceAligner
                 Weights = Enumerable.Repeat(100, n + 1).ToArray(),
                 Profile1NumSeqs = profile1NumSeqs,
             };
+            AlignedOrder.AddRange(Enumerable.Range(0, n));   // MSA::doProfileAlign: the identity
 
             var distMat = new double[n + 1, n + 1];
-            if (profile1NumSeqs >= 2)
-                FillProfileDistances(aln, distMat, 1, profile1NumSeqs);
-            if (n - profile1NumSeqs >= 2)
-                FillProfileDistances(aln, distMat, profile1NumSeqs + 1, n);
+            // Clustal::profileAlign fills the identities inside the profiles only while profile 1 has no user tree (the filling of profile 2 sits inside that branch)
+            bool useTree1 = UserTree1 != null && profile1NumSeqs >= 2;
+            bool useTree2 = UserTree2 != null && n - profile1NumSeqs >= 2;
+            if (!useTree1)
+            {
+                if (profile1NumSeqs >= 2)
+                    FillProfileDistances(aln, distMat, 1, profile1NumSeqs);
+                if (!useTree2 && n - profile1NumSeqs >= 2)
+                    FillProfileDistances(aln, distMat, profile1NumSeqs + 1, n);
+            }
 
-            var (prof1Weight, prof2Weight) = GetWeightsForProfileAlign(aln, distMat, duplicateNames: false);
+            int[] prof1Weight, prof2Weight;
+            try
+            {
+                (prof1Weight, prof2Weight) = GetWeightsForProfileAlign(aln, distMat, duplicateNames: false);
+            }
+            catch (Exception e) when (UserTree1 != null && e is IndexOutOfRangeException or NullReferenceException || UserTree2 != null && e is IndexOutOfRangeException or NullReferenceException)
+            {
+                throw new ClustalWTreeFileException(ClustalWTreeFileProblem.Undefined, "the program reads outside its arrays on this guide tree (undefined behaviour, it crashes).");
+            }
+
+            if (StoppedAfterTrees)
+                return [];
             DoProfileAlign(aln, distMat, prof1Weight, prof2Weight);
+            _alnWeight = aln.Weights;
             return aln.Rows.Select(CodesToRow).ToArray();
         }
 
@@ -195,6 +218,7 @@ public static partial class SequenceAligner
         {
             int n = _n;
             int p1 = profile1NumSeqs;
+            InitStructure(p1, sequencesMode: true);
             var aln = new CwAlignment { Rows = [.. _seq.Select(r => (int[])r.Clone())], Weights = Enumerable.Repeat(100, n + 1).ToArray() };
             var dist = new double[n + 1, n + 1];
             int newSeq = p1 + 1;
@@ -207,8 +231,8 @@ public static partial class SequenceAligner
                 }
             }
 
-            // pairwiseAlign(.., 0, numSeqs, newSeq - 2, numSeqs): every pair (si, sj) with sj in the new sequences
-            for (int si = 0; si < n; si++)
+            // pairwiseAlign(.., 0, numSeqs, newSeq - 2, numSeqs): every pair (si, sj) with sj in the new sequences (not run with a guide tree from a file: useExistingGuideTree)
+            for (int si = 0; si < n && UserTree == null; si++)
             {
                 for (int sj = Math.Max(si + 1, p1); sj < n; sj++)
                 {
@@ -234,10 +258,16 @@ public static partial class SequenceAligner
 
             var seqWeight = new int[n + 1];
             BuildWeightsAndSteps(dist0, sim, seqWeight);
+            if (GuideTreesOnly)
+            {
+                StoppedAfterTrees = true;
+                return [];
+            }
             _seqWeight = seqWeight;
             _alnWeight = Enumerable.Repeat(100, n + 1).ToArray();
             _distMat = sim;
             SeqsAlignToProfile(sim, p1 - 1);
+            RestoreStructureFlags();
             return _seq.Select(CodesToRow).ToArray();
         }
 
@@ -266,6 +296,7 @@ public static partial class SequenceAligner
             {
                 aligned[i] = 1;
                 ix++;
+                AlignedOrder.Add(i - 1);
             }
 
             var group = new int[n + 1];
@@ -333,6 +364,7 @@ public static partial class SequenceAligner
                 Array.Copy(_seqWeight, _alnWeight, n + 1);
                 ProfileAlign(group, aligned);
                 ix++;
+                AlignedOrder.Add(iseq - 1);
             }
         }
 

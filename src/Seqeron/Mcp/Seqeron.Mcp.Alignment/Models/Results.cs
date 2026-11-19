@@ -40,6 +40,11 @@ public record AlignmentStatisticsDto(
 /// <summary>BLAST-style formatted alignment text.</summary>
 public record FormatAlignmentResult(string Formatted);
 
+/// <summary>ClustalW 2.1 command: the files the program wrote (name to text) and what it printed to the error stream while reading the command line.</summary>
+public record ClustalWCommandResultDto(
+    Dictionary<string, string> Files,
+    string[] Messages);
+
 /// <summary>Multiple sequence alignment result.</summary>
 public record MultipleAlignmentResultDto(
     string[] AlignedSequences,

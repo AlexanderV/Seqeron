@@ -324,6 +324,7 @@ public static partial class SequenceAligner
         public bool Leaf;
         public int LeafIndex = -1;
         public int Order;   // number of leaves below (Tree::orderNodes)
+        public string Name = "";   // the leaf name read from a guide-tree file
     }
 
     /// <summary>
@@ -477,6 +478,9 @@ public static partial class SequenceAligner
         {
             if (depth == pathToRoot.Length)
             {
+                // a parent chain longer than the tree has nodes: the guide tree the program read has a cycle (it loops for ever)
+                if (depth > 100000)
+                    throw new ClustalWTreeFileException(ClustalWTreeFileProblem.Undefined, "the guide tree contains a cycle: the program never terminates.");
                 Array.Resize(ref pathToRoot, depth * 2);
                 Array.Resize(ref distToNode, depth * 2);
             }

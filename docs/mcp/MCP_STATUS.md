@@ -20,7 +20,7 @@
 | Core | SuffixTree.Mcp.Core | 18 | 18/18 | 18/18 | 18/18 | ✅ done |
 | Sequence | Seqeron.Mcp.Sequence | 35 | 35/35 | 35/35 | 35/35 | ✅ done |
 | Parsers | Seqeron.Mcp.Parsers | 41 | 41/41 | 41/41 | 41/41 | ✅ done |
-| Alignment | Seqeron.Mcp.Alignment | 53 | 53/53 | 53/53 | 53/53 | ✅ done |
+| Alignment | Seqeron.Mcp.Alignment | 54 | 54/54 | 54/54 | 54/54 | ✅ done |
 | Analysis | Seqeron.Mcp.Analysis | 132 | 132/132 | 132/132 | 132/132 | ✅ done |
 | Annotation | Seqeron.Mcp.Annotation | 97 | 97/97 | 97/97 | 97/97 | ✅ done |
 | Chromosome | Seqeron.Mcp.Chromosome | 32 | 32/32 | 32/32 | 32/32 | ✅ done |
@@ -140,7 +140,7 @@
 | 40 | `vcf_variant_length` | ☑ | ☑ | ☑ |
 | 41 | `vcf_write` | ☑ | ☑ | ☑ |
 
-### Alignment (Seqeron.Mcp.Alignment) — 53 tools
+### Alignment (Seqeron.Mcp.Alignment) — 54 tools
 
 | # | tool | B | T | D |
 |---:|---|:--:|:--:|:--:|
@@ -197,6 +197,7 @@
 | 51 | `sum_of_pairs_score` | ☑ | ☑ | ☑ |
 | 52 | `clustalw_profile_align` | ☑ | ☑ | ☑ |
 | 53 | `clustalw_sequences_to_profile` | ☑ | ☑ | ☑ |
+| 54 | `clustalw_command` | ☑ | ☑ | ☑ |
 
 ### Analysis (Seqeron.Mcp.Analysis) — 132 tools
 
