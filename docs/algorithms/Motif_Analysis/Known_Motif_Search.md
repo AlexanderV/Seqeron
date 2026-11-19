@@ -156,8 +156,10 @@ distance is the Hamming distance to the nearest concrete expansion), implemented
 position). Reverse strand: the IUPAC reverse-complement motif with the same bound; each hit carries its own distance
 (`KnownMotifHit.Mismatches`, = fuzznuc's `*mismatch n` note; a non-palindromic motif can hit on the two strands with
 different distances). A bound ≥ m makes every window a hit (fuzznuc refuses such values); a sequence shorter than the
-motif has no window (fuzznuc reports an overhanging hit there, e.g. `AAA` with `-pmismatch 2` on `AC` — not reproduced,
-not in the oracle). Oracle: fuzznuc 6.6.0 `-pmismatch 1..3 -complement Y` (positions and `*mismatch` counts) = an
+motif has no window and no hit. fuzznuc 6.6.0 does print "hits" there (`AAA` with `-pmismatch 2` on `AC` gives `1..3`, `*mismatch 2`), but they are
+artefacts of its matcher, decided against the binary (audit A2-18, 300 runs on sequences of 1 .. m-1 bases, `fuzznuc_short_sequence_oracle.tsv`): only 49 of the 300 runs print
+anything, 41 of the printed hits end beyond the end of the sequence (GFF `end` > sequence length), 10 reverse-strand lines have `end` < `start` (e.g. `2..-1`), and patterns with IUPAC
+codes print nothing where the same window would be within the bound; Seqeron reports none (`GenomicAnalyzer_KnownMotifs_ShortSequence_Tests`). Oracle: fuzznuc 6.6.0 `-pmismatch 1..3 -complement Y` (positions and `*mismatch` counts) = an
 independent Python Hamming scan on 6576 (sequence, pattern, k) rows (20 patterns, 3932 rows with forward and 3785 with
 reverse hits, 4183 with mismatching hits).
 
@@ -176,8 +178,9 @@ reverse hits, 4183 with mismatching hits).
 
 **Not implemented:**
 
-- Gapped (insertion / deletion) motif search: fuzznuc has none either; edit-distance matching is
-  `ApproximateMatcher.FindWithEdits` (PAT-APPROX-002) and position-weight scanning is `MotifFinder` PWM (PAT-PWM-001).
+- Gapped / length-range patterns of fuzznuc's own pattern language: fuzznuc DOES have them (`AC(2,3)G`, `N(2,4)`: a variable-length gap; verified with the binary: `fuzznuc -pattern 'AC(2,3)G'`
+  reports `ACCCG` and `ACCG`), so the earlier statement "fuzznuc has none either" was wrong; the pattern language is not parsed by `FindKnownMotifHits` (audit item A2-32, B09.md).
+  Edit-distance matching is `ApproximateMatcher.FindWithEdits` (PAT-APPROX-002) and position-weight scanning is `MotifFinder` PWM (PAT-PWM-001).
 - Motif *discovery* and the fixed regulatory-element library: other units (MOTIF-DISCOVER-001, MOTIF-REGULATORY-001).
 
 ### 5.4 Deviations and Assumptions
