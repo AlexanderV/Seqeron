@@ -4,13 +4,15 @@
    for the mutant builds; the memory of a test host is capped (DOTNET_GCHeapHardLimit) because a mutant can make a list grow without end. The source file is restored after every mutant (and at the end, also on an exception).
    The mutants run in a separate git worktree, never in the working checkout. A result line: id, description, outcome, and for a kill the first failure of the harness (the operation: engine, step, member).
    usage: run_1b8_mutants.py <worktree> <1b8_<file>_listed.json> <result.tsv> [<start>:<end> slice]
-   environment: MUTANT_BUILD_LIMIT (s, default 400), MUTANT_TEST_LIMIT (s, default 360), FUZZ_BUDGET_S (default 60), FUZZ_THREADS (default 2), FUZZ_HEAP_LIMIT (default 0xC0000000)."""
+   environment: MUTANT_BUILD_LIMIT (s, default 400), MUTANT_TEST_LIMIT (s, default 360), FUZZ_BUDGET_S (default 60), FUZZ_THREADS (default 2), FUZZ_HEAP_LIMIT (default 0xC0000000),
+   FUZZ_FILTER (a test filter instead of the harness: used to show that the existing unit tests kill a mutant that the harness does not)."""
 import json, os, re, signal, subprocess, sys
 
 ROOT = sys.argv[1]
 BUILD_LIMIT = int(os.environ.get('MUTANT_BUILD_LIMIT', '400'))
 TEST_LIMIT = int(os.environ.get('MUTANT_TEST_LIMIT', '360'))
 BUDGET = os.environ.get('FUZZ_BUDGET_S', '60')
+FILTER = os.environ.get('FUZZ_FILTER', 'FullyQualifiedName~FullDifferentialFuzzTests')
 THREADS = os.environ.get('FUZZ_THREADS', '2')
 env = dict(os.environ, PATH=os.environ['PATH'] + ':/root/.dotnet', DOTNET_ROOT='/root/.dotnet', DOTNET_CLI_TELEMETRY_OPTOUT='1', DOTNET_NOLOGO='1', SEQERON_BENCH_DIR='/tmp/stbench')
 mutants_file, out = sys.argv[2], sys.argv[3]
@@ -53,7 +55,7 @@ def test(mid):
             os.remove(f)
     xenv = {'ESA_FUZZ_BUDGET_S': BUDGET, 'ESA_FUZZ_THREADS': THREADS, 'ESA_FUZZ_MAXFAIL': '1', 'ESA_FUZZ_MINIMIZE_S': '4', 'ESA_FUZZ_HANG_S': '90',
             'DOTNET_GCHeapHardLimit': os.environ.get('FUZZ_HEAP_LIMIT', '0xC0000000'), 'ESA_FUZZ_REPORT': rep}
-    txt, hung = sh(['dotnet', 'test', PROJ, '-c', 'Release', '--nologo', '--no-build', '--filter', 'FullyQualifiedName~FullDifferentialFuzzTests'], TEST_LIMIT, xenv)
+    txt, hung = sh(['dotnet', 'test', PROJ, '-c', 'Release', '--nologo', '--no-build', '--filter', FILTER], TEST_LIMIT, xenv)
     first = ''
     if os.path.exists(rep + '.log'):
         for line in open(rep + '.log'):
@@ -70,6 +72,9 @@ def test(mid):
     if 'Failed!' in txt:
         if first:
             return 'killed(%s)' % first
+        failed = re.findall(r'^\s+Failed (\S+)', txt, re.M)
+        if failed and 'FullDifferentialFuzzTests' not in FILTER:
+            return 'killed(by the unit tests: %d failed, first %s)' % (len(failed), failed[0])
         mm = re.search(r'Error Message:\s*\n\s*(.{0,200})', txt)
         return 'killed(test failed: %s)' % (mm.group(1).strip() if mm else '?')
     if 'Passed!' in txt:

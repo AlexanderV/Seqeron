@@ -1,0 +1,2 @@
+1b8_S03	the edge check of the descent leaves out one symbol	killed(FAIL periodic-noise:8c41c0570b0c9846:12:5:6 op memory-default:digest:search: search[45]: memory-default True/2/2/81f38ef38203e8ab against ukkonen False/0/0/cbf29ce484222325; minimized to 5 unit(s): 0061 0062 0061 0062 0061)
+1b8_S06	the mapped descent accepts a child as deep as its parent	survived

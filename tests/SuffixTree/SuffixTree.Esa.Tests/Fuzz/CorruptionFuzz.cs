@@ -39,7 +39,7 @@ internal enum DamageKind
     /// <summary>One byte of the packed text, the alphabet, the symbol counts or the build information flipped and every checksum recomputed.</summary>
     SealedPayloadFlip,
 
-    /// <summary>One entry of the suffix array, the LCP array or the child table replaced by the entry next to it, by its own index or by the index next to it, sealed: the values that are plausible and wrong (equal depths, a cell that points at itself).</summary>
+    /// <summary>One entry of the suffix array, the LCP array or the child table replaced by the entry next to it, by its own index, by the index next to it or by itself plus or minus one, sealed: the values that are plausible and wrong (equal depths, a cell that points at itself, an off-by-one).</summary>
     SealedNeighbour,
 }
 
@@ -272,8 +272,8 @@ internal static class CorruptionFuzz
                 image[at] ^= (byte)(1 + rng.NextInt(255));
                 int count = BinaryPrimitives.ReadInt32LittleEndian(image.AsSpan(48));
                 if (count is >= 1 and <= SesaFormat.MaxSections) SesaTestFile.ResealHeader(image); // a damaged SECTION_COUNT has no checksum to compute: the stale one refuses the file
-                // the magic and the reserved word are fixed by the format (ADR-003): a change is refused at Header
-                return (image, $"flip of header byte {at}, header checksum recomputed", at < 8 || at is >= 120 and < 124 ? EsaValidationLevel.Header : null);
+                // the magic, the endian probe, the file size (it must be the length of the file) and the reserved word are fixed by the format (ADR-003): a change is refused at Header
+                return (image, $"flip of header byte {at}, header checksum recomputed", at < 8 || at is >= 12 and < 16 || at is >= 32 and < 40 || at is >= 120 and < 124 ? EsaValidationLevel.Header : null);
             }
             case DamageKind.SealedPayloadFlip:
             {
@@ -291,9 +291,17 @@ internal static class CorruptionFuzz
                 int entries = (int)(s.Length / width);
                 if (entries < 3) return (image, "section too short", null);
                 int r = 1 + rng.NextInt(entries - 2);
-                int mode = rng.NextInt(4);
+                int mode = rng.NextInt(6);
                 int at = (int)s.Offset + (r * width);
-                if (mode < 2)
+                if (mode >= 4)
+                {
+                    // the entry itself, one more or one less (an off-by-one: the damage that keeps the structure of the tree and changes a depth or a position)
+                    long current = 0;
+                    for (int b = 0; b < width; b++) current |= (long)image[at + b] << (8 * b);
+                    long changed = mode == 4 ? current + 1 : current - 1;
+                    for (int b = 0; b < width; b++) image[at + b] = (byte)(changed >> (8 * b));
+                }
+                else if (mode < 2)
                 {
                     int from = (int)s.Offset + ((r + (mode == 0 ? -1 : 1)) * width);
                     image.AsSpan(from, width).CopyTo(image.AsSpan(at, width));
@@ -304,7 +312,7 @@ internal static class CorruptionFuzz
                     for (int b = 0; b < width; b++) image[at + b] = (byte)(value >> (8 * b));
                 }
                 SesaTestFile.Reseal(image);
-                return (image, $"entry {r} of section {s.Kind} replaced by {(mode switch { 0 => "the previous entry", 1 => "the next entry", 2 => "its own index", _ => "its index + 1" })}, sealed", null);
+                return (image, $"entry {r} of section {s.Kind} replaced by {(mode switch { 0 => "the previous entry", 1 => "the next entry", 2 => "its own index", 3 => "its index + 1", 4 => "itself + 1", _ => "itself - 1" })}, sealed", null);
             }
             default:
             {

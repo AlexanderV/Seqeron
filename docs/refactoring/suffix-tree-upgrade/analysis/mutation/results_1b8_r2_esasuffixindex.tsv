@@ -1,0 +1,1 @@
+1b8_X07	a locus whose parent is as deep as the locus is accepted	killed(FAIL debruijn:0b6ce2be134daf2a:47:4:0 op memory-default:negative-locus: IsExplicitNode of 1,4,1,2 (a point at the depth of the parent 1,16,1,1 with the interval of the node 1,4,2,2) did not throw; minimized to 2 unit(s): 0061 0061)

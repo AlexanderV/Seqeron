@@ -1,0 +1,2 @@
+1b8_H03	the reserved header word may be anything	killed(FAIL corruption skewed:a8b1106b1d240339:145:26:0 HeaderField: skewed:a8b1106b1d240339:145:26:0 n=145 HeaderField (damage seed 32f734285dd1128c, psi True): flip of header byte 121, header checksum recomputed: this damage must be re)
+1b8_H04	COUNTS may sum to less than the text	killed(FAIL corruption akb:e16b00e392002af4:61:4:65 SealedPayloadFlip: akb:e16b00e392002af4:61:4:65 n=61 SealedPayloadFlip (damage seed 22d070334d7f8885, psi False): sealed flip of byte 4288 of section 13: this damage must be refused at )
