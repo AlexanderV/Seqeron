@@ -1,0 +1,11 @@
+[
+ {
+  "id": "M06",
+  "desc": "the mapped next l-index leaves the cell check out",
+  "old": "if (_checked && (uint)k >= (uint)_count) ThrowOutside(k);",
+  "new": "if (false && (uint)k >= (uint)_count) ThrowOutside(k);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ChildLayouts.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests|FullyQualifiedName~SesaReaderIsolationTests)",
+  "project": "esa"
+ }
+]

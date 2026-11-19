@@ -1,0 +1,146 @@
+[
+ {
+  "id": "W02",
+  "desc": "sections without a CRC are checksummed",
+  "old": "if ((s.Flags & SesaFormat.FlagHasCrc) == 0) continue;",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaVerifier.cs",
+  "filter": "(FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderGapTests|FullyQualifiedName~SesaReaderIsolationTests)",
+  "project": "esa"
+ },
+ {
+  "id": "W07",
+  "desc": "the checksum of a long section is not chained",
+  "old": "crc = hardware ? Crc32C.AppendHardware(crc, span) : Crc32C.AppendTable(crc, span);",
+  "new": "crc = hardware ? Crc32C.AppendHardware(0, span) : Crc32C.AppendTable(0, span);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaVerifier.cs",
+  "filter": "(FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderGapTests|FullyQualifiedName~SesaReaderIsolationTests)",
+  "project": "esa"
+ },
+ {
+  "id": "W11",
+  "desc": "the structure pass of a huge text is not refused",
+  "old": "if (symbols >= int.MaxValue - 1L) throw new NotSupportedException",
+  "new": "if (symbols >= long.MaxValue) throw new NotSupportedException",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaVerifier.cs",
+  "filter": "(FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderGapTests|FullyQualifiedName~SesaReaderIsolationTests)",
+  "project": "esa"
+ },
+ {
+  "id": "W16",
+  "desc": "the empty text is not checked",
+  "old": "CheckEmpty(file);",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaVerifier.cs",
+  "filter": "(FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderGapTests|FullyQualifiedName~SesaReaderIsolationTests)",
+  "project": "esa"
+ },
+ {
+  "id": "W22",
+  "desc": "a letter that does not occur is accepted",
+  "old": "if (seen[s] == 0) throw new InvalidDataException($\"the letter {s} of the alphabet does not occur in the text: the file is damaged\");",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaVerifier.cs",
+  "filter": "(FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderGapTests|FullyQualifiedName~SesaReaderIsolationTests)",
+  "project": "esa"
+ },
+ {
+  "id": "W23",
+  "desc": "the counts are not compared",
+  "old": "if (ps.Counts64 is { } counts && counts[s] != (ulong)seen[s]) throw new InvalidDataException",
+  "new": "if (ps.Counts64 is { } counts && counts[s] != counts[s]) throw new InvalidDataException",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaVerifier.cs",
+  "filter": "(FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderGapTests|FullyQualifiedName~SesaReaderIsolationTests)",
+  "project": "esa"
+ },
+ {
+  "id": "W28",
+  "desc": "BUILD_INFO is not checked for UTF-8",
+  "old": "if (!System.Text.Unicode.Utf8.IsValid(payload)) throw new InvalidDataException(\"BUILD_INFO is not UTF-8: the file is damaged\");",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaVerifier.cs",
+  "filter": "(FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderGapTests|FullyQualifiedName~SesaReaderIsolationTests)",
+  "project": "esa"
+ },
+ {
+  "id": "W29",
+  "desc": "BUILD_INFO lines are not counted",
+  "old": "if (payload.Count((byte)'\\n') != info.Count) throw",
+  "new": "if (false) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaVerifier.cs",
+  "filter": "(FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderGapTests|FullyQualifiedName~SesaReaderIsolationTests)",
+  "project": "esa"
+ },
+ {
+  "id": "W30",
+  "desc": "SA[0] is not compared with n",
+  "old": "if (sa[0] != n) throw new InvalidDataException($\"SA[0] is {sa[0]}, not n = {n}: the suffix array must start with the empty suffix\");",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaVerifier.cs",
+  "filter": "(FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderGapTests|FullyQualifiedName~SesaReaderIsolationTests)",
+  "project": "esa"
+ },
+ {
+  "id": "W31",
+  "desc": "LCP[0] and LCP[1] are not checked",
+  "old": "if (lcp[0] != 0 || lcp[1] != 0) throw",
+  "new": "if (false) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaVerifier.cs",
+  "filter": "(FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderGapTests|FullyQualifiedName~SesaReaderIsolationTests)",
+  "project": "esa"
+ },
+ {
+  "id": "W33",
+  "desc": "a position n at a rank above 0 is accepted",
+  "old": "if ((uint)b >= (uint)n) throw new InvalidDataException($\"SA[{r}] is {b}",
+  "new": "if ((uint)b > (uint)n) throw new InvalidDataException($\"SA[{r}] is {b}",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaVerifier.cs",
+  "filter": "(FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderGapTests|FullyQualifiedName~SesaReaderIsolationTests)",
+  "project": "esa"
+ },
+ {
+  "id": "W34",
+  "desc": "a repeated position is accepted",
+  "old": "if ((word & mask) != 0) throw new InvalidDataException($\"the position {b} occurs twice in the suffix array",
+  "new": "if (false) throw new InvalidDataException($\"the position {b} occurs twice in the suffix array",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaVerifier.cs",
+  "filter": "(FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderGapTests|FullyQualifiedName~SesaReaderIsolationTests)",
+  "project": "esa"
+ },
+ {
+  "id": "W35",
+  "desc": "a position is not marked",
+  "old": "word |= mask;\n            int l = cursor.Get(r);",
+  "new": "int l = cursor.Get(r);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaVerifier.cs",
+  "filter": "(FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderGapTests|FullyQualifiedName~SesaReaderIsolationTests)",
+  "project": "esa"
+ },
+ {
+  "id": "W36",
+  "desc": "the LCP may be longer than the shorter suffix",
+  "old": "if (l < 0 || l > n - (previous == n ? 0 : Math.Max(previous, b))) throw",
+  "new": "if (l < 0) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaVerifier.cs",
+  "filter": "(FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderGapTests|FullyQualifiedName~SesaReaderIsolationTests)",
+  "project": "esa"
+ },
+ {
+  "id": "W38",
+  "desc": "adjacent suffixes need not be in order",
+  "old": "else if (text.CompareSuffixes(previous, b, l, ref steps, out long m) >= 0 || m != l)",
+  "new": "else if ((text.CompareSuffixes(previous, b, l, ref steps, out long m) >= 0 && false) || m != l)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaVerifier.cs",
+  "filter": "(FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderGapTests|FullyQualifiedName~SesaReaderIsolationTests)",
+  "project": "esa"
+ },
+ {
+  "id": "W40",
+  "desc": "the first mismatch need not be at the LCP",
+  "old": "else if (text.CompareSuffixes(previous, b, l, ref steps, out long m) >= 0 || m != l)",
+  "new": "else if (text.CompareSuffixes(previous, b, l, ref steps, out long m) >= 0)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaVerifier.cs",
+  "filter": "(FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderGapTests|FullyQualifiedName~SesaReaderIsolationTests)",
+  "project": "esa"
+ }
+]

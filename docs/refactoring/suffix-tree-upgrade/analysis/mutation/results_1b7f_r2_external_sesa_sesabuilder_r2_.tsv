@@ -1,0 +1,2 @@
+B102	the BWT pass gets no guards (1b.7e gap)	survived
+B118	BUILD_INFO may overrun its room (1b.7e gap)	survived

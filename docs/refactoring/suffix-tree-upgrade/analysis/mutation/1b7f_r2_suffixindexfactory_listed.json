@@ -1,0 +1,11 @@
+[
+ {
+  "id": "Q05",
+  "desc": "a device is no error",
+  "old": "throw new InvalidDataException(\"unknown suffix index kind: the file cannot be read at an offset (not a regular file)\");",
+  "new": "return 0;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/SuffixIndexFactory.cs",
+  "filter": "(FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderIsolationTests)",
+  "project": "esa"
+ }
+]

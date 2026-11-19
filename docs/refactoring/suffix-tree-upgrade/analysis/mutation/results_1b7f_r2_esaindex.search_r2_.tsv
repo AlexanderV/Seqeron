@@ -1,0 +1,5 @@
+D02	the first l-index is not checked in the descent	killed(1)
+D04	an equal child depth is allowed	killed(1)
+D05	a child deeper than the text is allowed	killed(1)
+D10	the edge comparison compares chunks one symbol short	killed(1)
+D16	locate copies from the wrong rank	survived

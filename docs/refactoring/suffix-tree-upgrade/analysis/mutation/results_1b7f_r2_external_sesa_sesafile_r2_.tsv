@@ -1,0 +1,4 @@
+O03	a failed validation leaves the file mapped	killed(1)
+O04	a failed header leaves the view mapped	killed(1)
+O06	Dispose leaves the reader	killed(host crash)
+O09	an unseekable stream is mapped	killed(1)

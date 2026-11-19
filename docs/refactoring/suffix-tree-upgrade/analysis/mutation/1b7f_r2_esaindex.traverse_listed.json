@@ -1,0 +1,38 @@
+[
+ {
+  "id": "R01",
+  "desc": "the first l-index of the root is not checked",
+  "old": "if (mapped) CheckFirst(firstOfRoot, 0, n);",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Traverse.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests|FullyQualifiedName~SesaReaderIsolationTests)",
+  "project": "esa"
+ },
+ {
+  "id": "R04",
+  "desc": "a child as deep as its parent is allowed",
+  "old": "if (mapped && (ell <= f.Ell || ell > n)) throw DamagedChildTable();",
+  "new": "if (mapped && (ell < f.Ell || ell > n)) throw DamagedChildTable();",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Traverse.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests|FullyQualifiedName~SesaReaderIsolationTests)",
+  "project": "esa"
+ },
+ {
+  "id": "R05",
+  "desc": "a child deeper than the text is allowed in the walk",
+  "old": "if (mapped && (ell <= f.Ell || ell > n)) throw DamagedChildTable();",
+  "new": "if (mapped && (ell <= f.Ell)) throw DamagedChildTable();",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Traverse.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests|FullyQualifiedName~SesaReaderIsolationTests)",
+  "project": "esa"
+ },
+ {
+  "id": "R09",
+  "desc": "the first l-index of an internal node is not checked",
+  "old": "int first = Child.FirstLIndex(a, b, lastChild);\n            if (mapped) CheckFirst(first, a, b);",
+  "new": "int first = Child.FirstLIndex(a, b, lastChild);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Traverse.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests|FullyQualifiedName~SesaReaderIsolationTests)",
+  "project": "esa"
+ }
+]

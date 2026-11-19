@@ -432,8 +432,20 @@ public class SesaReaderIsolationTests
         var nav = (ISuffixTreeNavigation)tree;
         Exception? e = WithTimeout(() => Assert.Catch(() => Descend(nav, nav.Root, 0)), 10);
         Assert.That(e, Is.TypeOf<InvalidDataException>(), "the contract's navigation");
-        Exception? printed = WithTimeout(() => Assert.Catch(() => tree.PrintTree()), 10); // the generic navigator (EsaNavigator) makes its own children
-        Assert.That(printed, Is.TypeOf<InvalidDataException>(), "PrintTree");
+        Exception? generic = WithTimeout(() => Assert.Catch(() => WalkChildren(tree.Index.CreateNavigator())), 10); // PrintTree would also meet the repeated position in the inverse; the children alone are the generic navigator's own
+        Assert.That(generic, Is.TypeOf<InvalidDataException>(), "the generic navigator");
+    }
+
+    private static void WalkChildren(EsaNavigator nav)
+    {
+        var stack = new Stack<EsaNode>();
+        stack.Push(nav.Root);
+        for (int steps = 0; stack.Count > 0 && steps < 1_000; steps++)
+        {
+            var children = new List<EsaNode>();
+            nav.GetChildren(stack.Pop(), children);
+            foreach (EsaNode child in children) if (!child.IsLeaf) stack.Push(child);
+        }
     }
 
     private static void Descend(ISuffixTreeNavigation nav, IndexLocus node, int depth)
@@ -513,32 +525,28 @@ public class SesaReaderIsolationTests
     }
 
     [Test]
-    public void Locate_WithASkipAndASmallBuffer_EqualsTheIndexInMemory_OnBothWidthsOfPosition()
+    public void Locate_WithASkipAndASmallBuffer_EqualsTheDefinition_OnBothWidthsOfPosition()
     {
+        // the oracle is the definition: the occurrences of the pattern, in the order of their suffixes (the engine in memory shares the code under test, so it cannot be the oracle)
         string text = StringFamilies.Random(400, 3, 16);
-        using EsaSuffixTree memory = EsaSuffixTree.Build(text);
         using EsaSuffixTree file = SesaTestFile.FileTree(text);
         foreach (string pattern in new[] { "a", "ab", "b", "abc", "ca" })
         {
-            Assert.That(memory.Index.TryMatch(pattern, out int mlo, out int mhi), Is.True);
-            Assert.That(file.Index.TryMatch(pattern, out int flo, out int fhi), Is.True);
-            Assert.That((flo, fhi), Is.EqualTo((mlo, mhi)));
-            int count = mhi - mlo + 1;
+            int[] expected = [.. Enumerable.Range(0, text.Length).Where(i => text.AsSpan(i).StartsWith(pattern, StringComparison.Ordinal)).OrderBy(i => text[i..], StringComparer.Ordinal)];
+            Assert.That(file.Index.TryMatch(pattern, out int lo, out int hi), Is.True);
+            Assert.That(hi - lo + 1, Is.EqualTo(expected.Length));
+            int count = expected.Length;
             foreach (long skip in new long[] { 0, 1, 2, count / 2, Math.Max(0, count - 1), count })
             {
                 foreach (int size in new[] { 1, 3, 7, count + 2 })
                 {
-                    var wantInt = new int[size];
+                    int[] want = [.. expected.Skip((int)skip).Take(size)];
                     var gotInt = new int[size];
-                    int wn = memory.Index.Locate(mlo, mhi, skip, wantInt);
-                    int gn = file.Index.Locate(flo, fhi, skip, gotInt);
-                    Assert.That(gn, Is.EqualTo(wn), $"'{pattern}' skip {skip} size {size}");
-                    Assert.That(gotInt.AsSpan(0, gn).ToArray(), Is.EqualTo(wantInt.AsSpan(0, wn).ToArray()), $"'{pattern}' skip {skip} size {size}");
-                    var wantLong = new long[size];
+                    int gn = file.Index.Locate(lo, hi, skip, gotInt);
+                    Assert.That(gotInt.AsSpan(0, gn).ToArray(), Is.EqualTo(want), $"'{pattern}' skip {skip} size {size}");
                     var gotLong = new long[size];
-                    int wl = memory.Index.Locate(mlo, mhi, skip, wantLong);
-                    int gl = file.Index.Locate(flo, fhi, skip, gotLong);
-                    Assert.That(gotLong.AsSpan(0, gl).ToArray(), Is.EqualTo(wantLong.AsSpan(0, wl).ToArray()), $"'{pattern}' skip {skip} size {size} (64-bit)");
+                    int gl = file.Index.Locate(lo, hi, skip, gotLong);
+                    Assert.That(gotLong.AsSpan(0, gl).ToArray(), Is.EqualTo(want.Select(x => (long)x).ToArray()), $"'{pattern}' skip {skip} size {size} (64-bit)");
                 }
             }
         }

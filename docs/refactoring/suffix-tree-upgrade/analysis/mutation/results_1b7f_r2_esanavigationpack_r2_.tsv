@@ -1,0 +1,3 @@
+N01	the inverse is not tested for repeats	killed(1)
+N02	the inverse accepts a position equal to the count	survived
+N04	the mapped inverse is read at the wrong position	killed(1)

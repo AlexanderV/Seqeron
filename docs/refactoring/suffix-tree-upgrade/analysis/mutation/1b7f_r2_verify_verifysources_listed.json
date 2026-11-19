@@ -1,0 +1,20 @@
+[
+ {
+  "id": "Z10",
+  "desc": "the scratch directory is the current one",
+  "old": "public string DefaultScratchDirectory => Path.GetDirectoryName(Path.GetFullPath(_path))!;",
+  "new": "public string DefaultScratchDirectory => Directory.GetCurrentDirectory();",
+  "file": "apps/SuffixTree.EmProto/Verify/VerifySources.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests|FullyQualifiedName~SesaReaderIsolationTests)",
+  "project": "emproto"
+ },
+ {
+  "id": "Z11",
+  "desc": "the recount skips the last symbols",
+  "old": "int take = (int)Math.Min(block.Length, p.Header.TextLength - at);\n            reader.ReadSymbols(at, block.AsSpan(0, take));\n            for (int k = 0; k < take; k++) if",
+  "new": "int take = (int)Math.Min(block.Length, p.Header.TextLength - at);\n            reader.ReadSymbols(at, block.AsSpan(0, take));\n            for (int k = 0; k < take - 1; k++) if",
+  "file": "apps/SuffixTree.EmProto/Verify/VerifySources.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests|FullyQualifiedName~SesaReaderIsolationTests)",
+  "project": "emproto"
+ }
+]

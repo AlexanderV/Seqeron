@@ -1,0 +1,218 @@
+[
+ {
+  "id": "H17",
+  "desc": "any position width is accepted",
+  "old": "if (posWidth != 4) throw new InvalidDataException($\"POS_WIDTH is {posWidth}: 4 or 8\");",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaHeaderReader.cs",
+  "filter": "(FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaReaderGapTests|FullyQualifiedName~SesaOverflowSectionTests|FullyQualifiedName~SesaReaderIsolationTests)",
+  "project": "esa"
+ },
+ {
+  "id": "H21",
+  "desc": "sigma is not related to the text",
+  "old": "if (sigma < 0 || sigma > (n == 0 ? 0 : Math.Min(n, 65536))) throw",
+  "new": "if (sigma < 0 || sigma > 65536) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaHeaderReader.cs",
+  "filter": "(FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaReaderGapTests|FullyQualifiedName~SesaOverflowSectionTests|FullyQualifiedName~SesaReaderIsolationTests)",
+  "project": "esa"
+ },
+ {
+  "id": "H22",
+  "desc": "the statistics of an empty text are not checked",
+  "old": "if (nodeCount != 1 || lrsDepth != 0 || lrsRank != -1) throw new InvalidDataException(\"the statistics of an empty text are NODE_COUNT 1, LRS_DEPTH 0, LRS_RANK -1\");",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaHeaderReader.cs",
+  "filter": "(FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaReaderGapTests|FullyQualifiedName~SesaOverflowSectionTests|FullyQualifiedName~SesaReaderIsolationTests)",
+  "project": "esa"
+ },
+ {
+  "id": "H24",
+  "desc": "the node count may be above the bound",
+  "old": "if (nodeCount < n + 2 || nodeCount > (2 * n) + 1) throw",
+  "new": "if (nodeCount < n + 2) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaHeaderReader.cs",
+  "filter": "(FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaReaderGapTests|FullyQualifiedName~SesaOverflowSectionTests|FullyQualifiedName~SesaReaderIsolationTests)",
+  "project": "esa"
+ },
+ {
+  "id": "H25",
+  "desc": "the longest repeat may be as long as the text",
+  "old": "if (lrsDepth < 0 || lrsDepth > n - 1) throw",
+  "new": "if (lrsDepth < 0 || lrsDepth > n) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaHeaderReader.cs",
+  "filter": "(FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaReaderGapTests|FullyQualifiedName~SesaOverflowSectionTests|FullyQualifiedName~SesaReaderIsolationTests)",
+  "project": "esa"
+ },
+ {
+  "id": "H27",
+  "desc": "a rank at the text length is accepted",
+  "old": "if (lrsDepth == 0 ? lrsRank != -1 : lrsRank < 0 || lrsRank > n - 1) throw",
+  "new": "if (lrsDepth == 0 ? lrsRank != -1 : lrsRank < 0 || lrsRank > n) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaHeaderReader.cs",
+  "filter": "(FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaReaderGapTests|FullyQualifiedName~SesaOverflowSectionTests|FullyQualifiedName~SesaReaderIsolationTests)",
+  "project": "esa"
+ },
+ {
+  "id": "H28",
+  "desc": "a duplicate section kind is accepted",
+  "old": "if (byKind[s.Kind] is not null) throw new InvalidDataException($\"the section kind {s.Kind} occurs twice\");",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaHeaderReader.cs",
+  "filter": "(FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaReaderGapTests|FullyQualifiedName~SesaOverflowSectionTests|FullyQualifiedName~SesaReaderIsolationTests)",
+  "project": "esa"
+ },
+ {
+  "id": "H33",
+  "desc": "a sigma above 256 is read",
+  "old": "if (sigma > 1 << PackedTextFormat.MaxBits) throw new InvalidDataException",
+  "new": "if (sigma > 1 << (PackedTextFormat.MaxBits + 1)) throw new InvalidDataException",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaHeaderReader.cs",
+  "filter": "(FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaReaderGapTests|FullyQualifiedName~SesaOverflowSectionTests|FullyQualifiedName~SesaReaderIsolationTests)",
+  "project": "esa"
+ },
+ {
+  "id": "H35",
+  "desc": "the TEXT entry count may be wrong",
+  "old": "if (text.Param0 != bits || text.Param1 != 0 || text.ElemWidth != 0 || text.Count != n)",
+  "new": "if (text.Param0 != bits || text.Param1 != 0 || text.ElemWidth != 0)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaHeaderReader.cs",
+  "filter": "(FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaReaderGapTests|FullyQualifiedName~SesaOverflowSectionTests|FullyQualifiedName~SesaReaderIsolationTests)",
+  "project": "esa"
+ },
+ {
+  "id": "H36",
+  "desc": "the TEXT length may be wrong",
+  "old": "if (text.Length != PackedTextFormat.TotalBytes(n, bits)) throw",
+  "new": "if (false) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaHeaderReader.cs",
+  "filter": "(FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaReaderGapTests|FullyQualifiedName~SesaOverflowSectionTests|FullyQualifiedName~SesaReaderIsolationTests)",
+  "project": "esa"
+ },
+ {
+  "id": "H38",
+  "desc": "the ALPHABET may repeat a letter",
+  "old": "if (i > 0 && letterWords[i] <= letterWords[i - 1]) throw",
+  "new": "if (i > 0 && letterWords[i] < letterWords[i - 1]) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaHeaderReader.cs",
+  "filter": "(FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaReaderGapTests|FullyQualifiedName~SesaOverflowSectionTests|FullyQualifiedName~SesaReaderIsolationTests)",
+  "project": "esa"
+ },
+ {
+  "id": "H45",
+  "desc": "more escapes than ranks are accepted",
+  "old": "if (escapes < 0 || escapes > rows || (lcpKind == LcpKind.U32 && escapes != 0)) throw",
+  "new": "if (escapes < 0 || (lcpKind == LcpKind.U32 && escapes != 0)) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaHeaderReader.cs",
+  "filter": "(FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaReaderGapTests|FullyQualifiedName~SesaOverflowSectionTests|FullyQualifiedName~SesaReaderIsolationTests)",
+  "project": "esa"
+ },
+ {
+  "id": "H46",
+  "desc": "a 32-bit LCP may have escapes",
+  "old": "if (escapes < 0 || escapes > rows || (lcpKind == LcpKind.U32 && escapes != 0)) throw",
+  "new": "if (escapes < 0 || escapes > rows) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaHeaderReader.cs",
+  "filter": "(FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaReaderGapTests|FullyQualifiedName~SesaOverflowSectionTests|FullyQualifiedName~SesaReaderIsolationTests)",
+  "project": "esa"
+ },
+ {
+  "id": "H48",
+  "desc": "a list without escapes is accepted",
+  "old": "if ((escapes > 0) != (overflow is not null)) throw new InvalidDataException(escapes > 0 ? \"the LCP has overflow entries but there is no LCP_OVERFLOW section\" : \"there is an LCP_OVERFLOW section but the LCP has no overflow entries\");",
+  "new": "if (escapes > 0 && overflow is null) throw new InvalidDataException(\"the LCP has overflow entries but there is no LCP_OVERFLOW section\");",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaHeaderReader.cs",
+  "filter": "(FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaReaderGapTests|FullyQualifiedName~SesaOverflowSectionTests|FullyQualifiedName~SesaReaderIsolationTests)",
+  "project": "esa"
+ },
+ {
+  "id": "H49",
+  "desc": "the overflow entry is not checked",
+  "old": "CheckArray(overflow, \"LCP_OVERFLOW\", escapes, 2 * posWidth, 1);",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaHeaderReader.cs",
+  "filter": "(FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaReaderGapTests|FullyQualifiedName~SesaOverflowSectionTests|FullyQualifiedName~SesaReaderIsolationTests)",
+  "project": "esa"
+ },
+ {
+  "id": "H51",
+  "desc": "the PSI entry is not checked",
+  "old": "CheckArray(psi, \"PSI\", rows, posWidth, 1);",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaHeaderReader.cs",
+  "filter": "(FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaReaderGapTests|FullyQualifiedName~SesaOverflowSectionTests|FullyQualifiedName~SesaReaderIsolationTests)",
+  "project": "esa"
+ },
+ {
+  "id": "H54",
+  "desc": "the COUNTS entry is not checked",
+  "old": "CheckArray(countsSection, \"COUNTS\", sigma, 8, 1);",
+  "new": "counts = null;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaHeaderReader.cs",
+  "filter": "(FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaReaderGapTests|FullyQualifiedName~SesaOverflowSectionTests|FullyQualifiedName~SesaReaderIsolationTests)",
+  "project": "esa"
+ },
+ {
+  "id": "H55",
+  "desc": "a count of 0 is accepted",
+  "old": "if (c == 0) throw new InvalidDataException(\"COUNTS has a symbol that does not occur: the alphabet lists only the code units of the text\");",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaHeaderReader.cs",
+  "filter": "(FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaReaderGapTests|FullyQualifiedName~SesaOverflowSectionTests|FullyQualifiedName~SesaReaderIsolationTests)",
+  "project": "esa"
+ },
+ {
+  "id": "H56",
+  "desc": "the COUNTS may sum to more than n",
+  "old": "if (c > (ulong)n - sum) throw new InvalidDataException($\"COUNTS sums to more than the {n} symbols of the text\");",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaHeaderReader.cs",
+  "filter": "(FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaReaderGapTests|FullyQualifiedName~SesaOverflowSectionTests|FullyQualifiedName~SesaReaderIsolationTests)",
+  "project": "esa"
+ },
+ {
+  "id": "H57",
+  "desc": "the COUNTS need not sum to n",
+  "old": "if (sum != (ulong)n) throw new InvalidDataException($\"COUNTS sums to {sum}, not to the {n} symbols of the text\");",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaHeaderReader.cs",
+  "filter": "(FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaReaderGapTests|FullyQualifiedName~SesaOverflowSectionTests|FullyQualifiedName~SesaReaderIsolationTests)",
+  "project": "esa"
+ },
+ {
+  "id": "H64",
+  "desc": "a section may end past the file",
+  "old": "if (s.Length < 0 || s.Count < 0 || s.ElemWidth < 0 || s.Length > fileLength || s.Offset > fileLength - s.Length) throw",
+  "new": "if (s.Length < 0 || s.Count < 0 || s.ElemWidth < 0) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaHeaderReader.cs",
+  "filter": "(FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaReaderGapTests|FullyQualifiedName~SesaOverflowSectionTests|FullyQualifiedName~SesaReaderIsolationTests)",
+  "project": "esa"
+ },
+ {
+  "id": "H65",
+  "desc": "a section may end one byte past the file",
+  "old": "if (s.Length < 0 || s.Count < 0 || s.ElemWidth < 0 || s.Length > fileLength || s.Offset > fileLength - s.Length) throw",
+  "new": "if (s.Length < 0 || s.Count < 0 || s.ElemWidth < 0 || s.Length > fileLength || s.Offset > fileLength - s.Length + 1) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaHeaderReader.cs",
+  "filter": "(FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaReaderGapTests|FullyQualifiedName~SesaOverflowSectionTests|FullyQualifiedName~SesaReaderIsolationTests)",
+  "project": "esa"
+ },
+ {
+  "id": "H66",
+  "desc": "a large section needs the small alignment",
+  "old": "long alignment = s.Length >= SesaFormat.LargeSectionBytes ? SesaFormat.LargeAlignment : SesaFormat.SmallAlignment;",
+  "new": "long alignment = SesaFormat.SmallAlignment;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaHeaderReader.cs",
+  "filter": "(FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaReaderGapTests|FullyQualifiedName~SesaOverflowSectionTests|FullyQualifiedName~SesaReaderIsolationTests)",
+  "project": "esa"
+ },
+ {
+  "id": "H71",
+  "desc": "the file may be longer than its last section",
+  "old": "if (end != length) throw new InvalidDataException($\"the last section ends at {end} but the file has {length} bytes: FILE_SIZE must be the end of the last section\");",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaHeaderReader.cs",
+  "filter": "(FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaReaderGapTests|FullyQualifiedName~SesaOverflowSectionTests|FullyQualifiedName~SesaReaderIsolationTests)",
+  "project": "esa"
+ }
+]

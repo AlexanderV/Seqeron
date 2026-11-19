@@ -17,11 +17,16 @@ EQUIVALENT = {
     'W79': 'the LCP value of every rank was checked at 0 .. the length of the shorter suffix by the order check before the child-table scan reads it',
     'R02': 'the checks of the frame (b above the right bound, a next boundary that does not increase or leaves the interval) repeat the checks that CountChildren made on the same chain of links, and CheckFirst on its first element, when the frame was created: with those in place the frame cannot hold such a boundary',
     'R03': 'the same chain of l-indices was walked and bounded by CountChildren before the frame was created (it throws the same exception with the same message for a next boundary that does not increase)',
+    'Y02': 'SesaFile.Open, which the line after it calls, begins with the same ArgumentException.ThrowIfNullOrEmpty(path): the same exception type, the same parameter name',
     'B118': 'BUILD_INFO is a constant text of about 300 bytes with a few numbers: it cannot reach the reserved 4,096 bytes, so the comparison at equality is never evaluated (survivor of the 1b.7e audit)',
 }
 DEFENCE = {
     'R07': 'a first l-index at the left bound of its interval is stopped one line later by the rule on the depth of the child (the lcp at the left bound is not deeper than its parent) and, if the lcp is damaged as well, by the next iteration (b < a): the same exception with the same message; only what the visitor was told before the exception differs',
     'R08': 'a first l-index beyond the right bound is stopped by the rule on the frame (b above the right bound) one iteration later: the same exception with the same message; only the events delivered before it differ',
+    'N02': 'the first test of the scatter (position >= count) is what keeps the read of the inverse inside its buffer: with `>` a position equal to the count reads one entry past the end and is refused only because that entry is not -1, which is whatever lies there (in the checked build, -p:EsaBounds=true, the Buf bound refuses the read with another exception, so the equality is observable there only); no test can choose the byte behind a pinned array',
     'N05': 'a link of a node outside the text is refused one call later by Isa, which has its own bound: the same damaged read, another message',
+    'F02': 'the failure path of FromFile is taken only for a text beyond the 32-bit surface (EnsureTextLength, 2^31 - 2 symbols or more): a container of that size is 20 GB and no test makes one; the disposal that the mutant leaves out is a release of the mapping, which only a mapping count can see',
+    'N07': 'the strict side of the bound (a target whose parent is deeper than itself) is what the hostile rounds exercise; the equality side needs one LCP value set to exactly the depth of the target at a boundary of the target\'s interval and the child table left alone, and no such construction was made for the pyramid\'s Borders',
+    'N08': 'the same for the leaf link: the equality side (the target leaf as deep as the longer of its neighbours) needs a damaged LCP array at one rank; not constructed',
     'B102': 'a guard only poisons the arena of a pass and changes no output of a correct pass; the build tests run with ArenaOptions.Guarded for the whole build, so the poison of every other pass is exercised and the BWT pass\'s is not observable (survivor of the 1b.7e audit)',
 }

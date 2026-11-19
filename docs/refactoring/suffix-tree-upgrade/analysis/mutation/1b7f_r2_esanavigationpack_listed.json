@@ -1,0 +1,29 @@
+[
+ {
+  "id": "N01",
+  "desc": "the inverse is not tested for repeats",
+  "old": "if ((uint)position >= (uint)count || isaBuf[position] != -1)",
+  "new": "if ((uint)position >= (uint)count)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaNavigationPack.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests|FullyQualifiedName~SesaReaderIsolationTests)",
+  "project": "esa"
+ },
+ {
+  "id": "N02",
+  "desc": "the inverse accepts a position equal to the count",
+  "old": "if ((uint)position >= (uint)count || isaBuf[position] != -1)",
+  "new": "if ((uint)position > (uint)count || isaBuf[position] != -1)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaNavigationPack.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests|FullyQualifiedName~SesaReaderIsolationTests)",
+  "project": "esa"
+ },
+ {
+  "id": "N04",
+  "desc": "the mapped inverse is read at the wrong position",
+  "old": "if (_mapped) throw new InvalidDataException($\"the inverse suffix array is read at position {position}, but the text has {_n} symbols: the file is damaged\");",
+  "new": "if (!_mapped) throw new InvalidDataException($\"the inverse suffix array is read at position {position}, but the text has {_n} symbols: the file is damaged\");",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaNavigationPack.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests|FullyQualifiedName~SesaReaderIsolationTests)",
+  "project": "esa"
+ }
+]

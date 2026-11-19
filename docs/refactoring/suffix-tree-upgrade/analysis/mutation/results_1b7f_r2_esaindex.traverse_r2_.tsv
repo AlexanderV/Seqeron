@@ -1,0 +1,4 @@
+R01	the first l-index of the root is not checked	killed(1)
+R04	a child as deep as its parent is allowed	killed(1)
+R05	a child deeper than the text is allowed in the walk	killed(1)
+R09	the first l-index of an internal node is not checked	killed(1)
