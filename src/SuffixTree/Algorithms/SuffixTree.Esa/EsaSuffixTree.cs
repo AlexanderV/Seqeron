@@ -11,8 +11,12 @@ namespace SuffixTree.Esa;
 /// need the inverse suffix array build the navigation pack once, on first use (<see cref="IndexSupport"/> reports <see cref="IndexSupport.Degraded"/> until then).
 /// </summary>
 /// <remarks>
-/// Lifetime is that of <c>PersistentSuffixTree</c>: <see cref="Dispose"/> is idempotent and releases the pins of the navigation pack; every member of a disposed tree throws
-/// <see cref="ObjectDisposedException"/> (before any argument check). Reads are safe for concurrent readers; <see cref="Dispose"/> must not run while another thread is inside a call. The
+/// Lifetime: <see cref="Dispose"/> is idempotent; every member of a disposed tree throws <see cref="ObjectDisposedException"/> (before any argument check). Reads are safe for concurrent readers, and so is
+/// a <see cref="Dispose"/> that arrives while another thread is inside a call (work package 1b.8): every public member counts itself as a reader for the length of the call, <see cref="Dispose"/> takes the
+/// owner's count away and the pins of the navigation pack and the mapped container are released by whoever lowers the count to zero, so a call that was in flight when <see cref="Dispose"/> ran completes with
+/// its answer, and a call that starts afterwards throws <see cref="ObjectDisposedException"/>; nothing reads the mapping after it was unmapped. <see cref="Dispose"/> does not wait for the readers (a
+/// <see cref="Dispose"/> from inside a visitor of <see cref="Traverse"/> cannot deadlock). The results that read the mapping later (<see cref="Text"/>, <c>ISuffixIndex.Text</c>, the sequence of
+/// <see cref="EnumerateSuffixes"/>) of a file-backed tree count themselves as readers at every access. The
 /// results the contract leaves open are those of the other backends' contract: the order of <see cref="FindAllOccurrences(string)"/> is suffix-array order, the representative of
 /// <see cref="LongestRepeatedSubstring"/> on a tie is the lexicographically smallest tied substring, the text position of <see cref="LongestCommonSubstringInfo(string)"/> and of the anchors is the first
 /// occurrence the navigator offers.
@@ -24,8 +28,11 @@ public sealed partial class EsaSuffixTree : ISuffixTree, ISuffixTreeNavigation, 
     private readonly ITextSource _text;
     private readonly EsaStatistics _statistics;
     private int _disposed;
+    private int _readers = 1;
     private string? _longestRepeat;
     private readonly External.SesaFile? _file;
+    private readonly ITextSource? _guardedText;
+    private readonly IIndexText? _guardedIndexText;
 
     /// <summary>Wraps an index. <paramref name="statistics"/> replaces the header statistics of the index (the tests use it to feed a synthetic node count to the guard).</summary>
     /// <exception cref="ArgumentNullException"><paramref name="index"/> is null.</exception>
@@ -39,6 +46,11 @@ public sealed partial class EsaSuffixTree : ISuffixTree, ISuffixTreeNavigation, 
         _text = index.TextView.AsTextSource();
         _contract = new EsaSuffixIndex(index);
         _file = index.File;
+        if (_file is not null)
+        {
+            _guardedText = new GuardedTextSource(this, _text);
+            _guardedIndexText = new GuardedIndexText(this, _contract.Text);
+        }
     }
 
     /// <summary>Builds the tree of <paramref name="text"/> with the default child-table layout.</summary>
@@ -105,15 +117,43 @@ public sealed partial class EsaSuffixTree : ISuffixTree, ISuffixTreeNavigation, 
 
     // ------------------------------------------------------------------ lifetime
 
-    /// <summary>Releases the pins of the navigation pack, if it was built (the disposal never builds it). Idempotent.</summary>
+    /// <summary>
+    /// Ends the life of the tree: new calls throw <see cref="ObjectDisposedException"/>, the calls in flight complete, and the pins of the navigation pack (if it was built; the disposal never builds it) and the
+    /// mapped container are released when the last of them has returned. Idempotent; does not wait.
+    /// </summary>
     public void Dispose()
     {
         if (Interlocked.CompareExchange(ref _disposed, 1, 0) != 0) return;
+        Exit();
+    }
+
+    /// <summary>Counts a call as a reader, or throws <see cref="ObjectDisposedException"/> when the tree is disposed (the count is raised only from a positive value, so it can reach zero once).</summary>
+    private ReadScope Enter()
+    {
+        while (true)
+        {
+            int readers = Volatile.Read(ref _readers);
+            ObjectDisposedException.ThrowIf(readers <= 0 || Volatile.Read(ref _disposed) != 0, this);
+            if (Interlocked.CompareExchange(ref _readers, readers + 1, readers) == readers) return new ReadScope(this);
+        }
+    }
+
+    private void Exit()
+    {
+        if (Interlocked.Decrement(ref _readers) == 0) Release();
+    }
+
+    private void Release()
+    {
         if (_index.NavigationBuilt) _index.Navigation.Dispose();
         _file?.Dispose();
     }
 
-    private void ThrowIfDisposed() => ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
+    /// <summary>The count of one call (a using declaration at the top of every public member).</summary>
+    private readonly struct ReadScope(EsaSuffixTree owner) : IDisposable
+    {
+        public void Dispose() => owner.Exit();
+    }
 
     // ------------------------------------------------------------------ ISuffixTreeSearch
 
@@ -122,8 +162,8 @@ public sealed partial class EsaSuffixTree : ISuffixTree, ISuffixTreeNavigation, 
     {
         get
         {
-            ThrowIfDisposed();
-            return _text;
+            using ReadScope scope = Enter();
+            return _guardedText ?? _text;
         }
     }
 
@@ -133,7 +173,7 @@ public sealed partial class EsaSuffixTree : ISuffixTree, ISuffixTreeNavigation, 
     {
         get
         {
-            ThrowIfDisposed();
+            using ReadScope scope = Enter();
             return CheckedNodeCount(_statistics.NodeCount);
         }
     }
@@ -143,7 +183,7 @@ public sealed partial class EsaSuffixTree : ISuffixTree, ISuffixTreeNavigation, 
     {
         get
         {
-            ThrowIfDisposed();
+            using ReadScope scope = Enter();
             return _statistics.LeafCount;
         }
     }
@@ -153,7 +193,7 @@ public sealed partial class EsaSuffixTree : ISuffixTree, ISuffixTreeNavigation, 
     {
         get
         {
-            ThrowIfDisposed();
+            using ReadScope scope = Enter();
             return _statistics.MaxDepth;
         }
     }
@@ -163,7 +203,7 @@ public sealed partial class EsaSuffixTree : ISuffixTree, ISuffixTreeNavigation, 
     {
         get
         {
-            ThrowIfDisposed();
+            using ReadScope scope = Enter();
             return _index.Length == 0;
         }
     }
@@ -171,7 +211,7 @@ public sealed partial class EsaSuffixTree : ISuffixTree, ISuffixTreeNavigation, 
     /// <inheritdoc />
     public bool Contains(string value)
     {
-        ThrowIfDisposed();
+        using ReadScope scope = Enter();
         SuffixTreeSearchContracts.EnsureNotNull(value, nameof(value));
         return _index.Contains(value.AsSpan());
     }
@@ -179,14 +219,14 @@ public sealed partial class EsaSuffixTree : ISuffixTree, ISuffixTreeNavigation, 
     /// <inheritdoc />
     public bool Contains(ReadOnlySpan<char> value)
     {
-        ThrowIfDisposed();
+        using ReadScope scope = Enter();
         return _index.Contains(value);
     }
 
     /// <inheritdoc />
     public IReadOnlyList<int> FindAllOccurrences(string pattern)
     {
-        ThrowIfDisposed();
+        using ReadScope scope = Enter();
         SuffixTreeSearchContracts.EnsureNotNull(pattern, nameof(pattern));
         return _index.FindAllOccurrences(pattern.AsSpan());
     }
@@ -194,14 +234,14 @@ public sealed partial class EsaSuffixTree : ISuffixTree, ISuffixTreeNavigation, 
     /// <inheritdoc />
     public IReadOnlyList<int> FindAllOccurrences(ReadOnlySpan<char> pattern)
     {
-        ThrowIfDisposed();
+        using ReadScope scope = Enter();
         return _index.FindAllOccurrences(pattern);
     }
 
     /// <inheritdoc />
     public int CountOccurrences(string pattern)
     {
-        ThrowIfDisposed();
+        using ReadScope scope = Enter();
         SuffixTreeSearchContracts.EnsureNotNull(pattern, nameof(pattern));
         return _index.CountOccurrences(pattern.AsSpan());
     }
@@ -209,7 +249,7 @@ public sealed partial class EsaSuffixTree : ISuffixTree, ISuffixTreeNavigation, 
     /// <inheritdoc />
     public int CountOccurrences(ReadOnlySpan<char> pattern)
     {
-        ThrowIfDisposed();
+        using ReadScope scope = Enter();
         return _index.CountOccurrences(pattern);
     }
 
@@ -219,7 +259,7 @@ public sealed partial class EsaSuffixTree : ISuffixTree, ISuffixTreeNavigation, 
     /// <remarks>The string is computed once and kept, as the other backends do (repeated calls return the same instance); concurrent first calls may both compute it, the result is the same string.</remarks>
     public string LongestRepeatedSubstring()
     {
-        ThrowIfDisposed();
+        using ReadScope scope = Enter();
         return Volatile.Read(ref _longestRepeat) ?? PublishLongestRepeat();
     }
 
@@ -232,14 +272,14 @@ public sealed partial class EsaSuffixTree : ISuffixTree, ISuffixTreeNavigation, 
     /// <inheritdoc />
     public ReadOnlyMemory<char> LongestRepeatedSubstringMemory()
     {
-        ThrowIfDisposed();
+        using ReadScope scope = Enter();
         return _index.LongestRepeatedSubstringMemory();
     }
 
     /// <inheritdoc />
     public IReadOnlyList<string> GetAllSuffixes()
     {
-        ThrowIfDisposed();
+        using ReadScope scope = Enter();
         return _index.GetAllSuffixes();
     }
 
@@ -247,28 +287,29 @@ public sealed partial class EsaSuffixTree : ISuffixTree, ISuffixTreeNavigation, 
     /// <remarks>The disposal check is eager, the sequence itself is lazy (as for the persistent tree).</remarks>
     public IEnumerable<string> EnumerateSuffixes()
     {
-        ThrowIfDisposed();
-        return _index.EnumerateSuffixes();
+        using ReadScope scope = Enter();
+        IEnumerable<string> sequence = _index.EnumerateSuffixes();
+        return _file is null ? sequence : new GuardedSequence<string>(this, sequence);
     }
 
     /// <inheritdoc />
     public string LongestCommonSubstring(string other)
     {
-        ThrowIfDisposed();
+        using ReadScope scope = Enter();
         return _index.LongestCommonSubstring(other);
     }
 
     /// <inheritdoc />
     public string LongestCommonSubstring(ReadOnlySpan<char> other)
     {
-        ThrowIfDisposed();
+        using ReadScope scope = Enter();
         return _index.LongestCommonSubstring(other);
     }
 
     /// <inheritdoc />
     public (string Substring, int PositionInText, int PositionInOther) LongestCommonSubstringInfo(string other)
     {
-        ThrowIfDisposed();
+        using ReadScope scope = Enter();
         return _index.LongestCommonSubstringInfo(other);
     }
 
@@ -277,70 +318,152 @@ public sealed partial class EsaSuffixTree : ISuffixTree, ISuffixTreeNavigation, 
     /// <returns>The longest common substring with one position in the text and its first position in <paramref name="other"/>; <c>("", -1, -1)</c> when there is none.</returns>
     public (string Substring, int PositionInText, int PositionInOther) LongestCommonSubstringInfo(ReadOnlySpan<char> other)
     {
-        ThrowIfDisposed();
+        using ReadScope scope = Enter();
         return _index.LongestCommonSubstringInfo(other);
     }
 
     /// <inheritdoc />
     public (string Substring, IReadOnlyList<int> PositionsInText, IReadOnlyList<int> PositionsInOther) FindAllLongestCommonSubstrings(string other)
     {
-        ThrowIfDisposed();
+        using ReadScope scope = Enter();
         return _index.FindAllLongestCommonSubstrings(other);
     }
 
     /// <inheritdoc />
     public IReadOnlyList<(string Substring, IReadOnlyList<int> PositionsInText, IReadOnlyList<int> PositionsInOther)> FindAllDistinctLongestCommonSubstrings(string other)
     {
-        ThrowIfDisposed();
+        using ReadScope scope = Enter();
         return _index.FindAllDistinctLongestCommonSubstrings(other);
     }
 
     /// <inheritdoc />
     public IReadOnlyList<(int PositionInText, int PositionInQuery, int Length)> FindExactMatchAnchors(string query, int minLength)
     {
-        ThrowIfDisposed();
+        using ReadScope scope = Enter();
         return _index.FindExactMatchAnchors(query, minLength);
     }
 
     /// <inheritdoc />
     public IReadOnlyList<(int PositionInText, int PositionInQuery, int Length)> FindMaximalExactMatches(string query, int minLength)
     {
-        ThrowIfDisposed();
+        using ReadScope scope = Enter();
         return _index.FindMaximalExactMatches(query, minLength);
     }
 
     /// <inheritdoc />
     public IReadOnlyList<(int PositionInText, int PositionInQuery, int Length)> FindMaximalUniqueMatches(string query, int minLength, MumUniqueness uniqueness = MumUniqueness.Both)
     {
-        ThrowIfDisposed();
+        using ReadScope scope = Enter();
         return _index.FindMaximalUniqueMatches(query, minLength, uniqueness);
     }
 
     /// <inheritdoc />
     public long[] CountDistinctSubstringsByLength(int maxLength)
     {
-        ThrowIfDisposed();
+        using ReadScope scope = Enter();
         return _index.CountDistinctSubstringsByLength(maxLength);
     }
 
     /// <inheritdoc />
     public long CountDistinctSubstrings()
     {
-        ThrowIfDisposed();
+        using ReadScope scope = Enter();
         return _index.CountDistinctSubstrings();
     }
 
     /// <inheritdoc />
     public IReadOnlyList<(string Substring, IReadOnlyList<int> Positions)> FindAllLongestRepeatedSubstrings()
     {
-        ThrowIfDisposed();
+        using ReadScope scope = Enter();
         return _index.FindAllLongestRepeatedSubstrings();
     }
 
     /// <inheritdoc />
     public IReadOnlyList<(int FirstPosition, int SecondPosition, int Length)> FindMaximalRepeatedPairs(int minLength, Func<char, bool>? isUniqueSymbol = null)
     {
-        ThrowIfDisposed();
+        using ReadScope scope = Enter();
         return SuffixTreeAlgorithms.FindMaximalRepeatedPairs(this, minLength, isUniqueSymbol);
+    }
+
+    // ------------------------------------------------------------------ results that read the mapping after the call has returned
+
+    /// <summary>The text of a file-backed tree: every access is a call of the tree and counts as a reader (a stored copy of the text must not read the mapping after <see cref="Dispose"/>).</summary>
+    private sealed class GuardedTextSource(EsaSuffixTree owner, ITextSource inner) : ITextSource
+    {
+        public int Length => inner.Length;
+
+        public char this[int index]
+        {
+            get
+            {
+                using ReadScope scope = owner.Enter();
+                return inner[index];
+            }
+        }
+
+        public string Substring(int start, int length)
+        {
+            using ReadScope scope = owner.Enter();
+            return inner.Substring(start, length);
+        }
+
+        public ReadOnlySpan<char> Slice(int start, int length)
+        {
+            using ReadScope scope = owner.Enter();
+            return inner.Slice(start, length);
+        }
+
+        public IEnumerator<char> GetEnumerator() => new GuardedEnumerator<char>(owner, inner.GetEnumerator());
+
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
+
+        public override string ToString()
+        {
+            using ReadScope scope = owner.Enter();
+            return inner.ToString() ?? string.Empty;
+        }
+    }
+
+    /// <summary>The <see cref="IIndexText"/> of a file-backed tree, guarded as <see cref="GuardedTextSource"/>.</summary>
+    private sealed class GuardedIndexText(EsaSuffixTree owner, IIndexText inner) : IIndexText
+    {
+        public long Length => inner.Length;
+
+        public int SymbolAt(long position)
+        {
+            using ReadScope scope = owner.Enter();
+            return inner.SymbolAt(position);
+        }
+
+        public int CopyTo(long start, Span<char> destination)
+        {
+            using ReadScope scope = owner.Enter();
+            return inner.CopyTo(start, destination);
+        }
+    }
+
+    private sealed class GuardedSequence<T>(EsaSuffixTree owner, IEnumerable<T> inner) : IEnumerable<T>
+    {
+        public IEnumerator<T> GetEnumerator() => new GuardedEnumerator<T>(owner, inner.GetEnumerator());
+
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
+    }
+
+    /// <summary>An enumerator whose every step is a call of the tree (the lazy walk reads the mapping at each <c>MoveNext</c>).</summary>
+    private sealed class GuardedEnumerator<T>(EsaSuffixTree owner, IEnumerator<T> inner) : IEnumerator<T>
+    {
+        public T Current => inner.Current;
+
+        object? System.Collections.IEnumerator.Current => Current;
+
+        public bool MoveNext()
+        {
+            using ReadScope scope = owner.Enter();
+            return inner.MoveNext();
+        }
+
+        public void Reset() => inner.Reset();
+
+        public void Dispose() => inner.Dispose();
     }
 }

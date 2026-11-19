@@ -200,7 +200,7 @@ public class FacadeDisposeRaceChildTests
             })).ToList();
             foreach (Thread thread in threads) thread.Start();
             start.SignalAndWait();
-            SpinFor(round % 7 * 150);
+            SpinFor(round % 7 * 400);
             tree.Dispose();
             foreach (Thread thread in threads) Assert.That(thread.Join(TimeSpan.FromSeconds(120)), Is.True, "a reader did not finish after Dispose (a hang)");
         }

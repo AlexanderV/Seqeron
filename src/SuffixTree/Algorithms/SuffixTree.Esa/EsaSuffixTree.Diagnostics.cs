@@ -15,7 +15,7 @@ public sealed partial class EsaSuffixTree
     /// </remarks>
     public string PrintTree()
     {
-        ThrowIfDisposed();
+        using ReadScope scope = Enter();
         int n = _index.Length;
         var ci = CultureInfo.InvariantCulture;
         var sb = new StringBuilder(Math.Max(256, Math.Min(n, PrintTreeInitialCapacityLimit) * 100));
@@ -74,7 +74,7 @@ public sealed partial class EsaSuffixTree
     /// <inheritdoc />
     public void Traverse(ISuffixTreeVisitor visitor)
     {
-        ThrowIfDisposed();
+        using ReadScope scope = Enter();
         _index.Traverse(visitor);
     }
 }
