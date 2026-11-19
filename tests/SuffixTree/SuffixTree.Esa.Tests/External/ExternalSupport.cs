@@ -139,6 +139,6 @@ internal static class ProcMaps
         const string maps = "/proc/self/maps";
         if (!OperatingSystem.IsLinux() || !File.Exists(maps)) return null;
         string full = System.IO.Path.GetFullPath(path);
-        return File.ReadLines(maps).Any(l => l.EndsWith(full, StringComparison.Ordinal));
+        return File.ReadLines(maps).Any(l => l.EndsWith(full, StringComparison.Ordinal) || l.EndsWith(full + " (deleted)", StringComparison.Ordinal)); // the kernel appends " (deleted)" to the mapping of a file that was removed while it was mapped
     }
 }
