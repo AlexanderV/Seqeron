@@ -425,8 +425,13 @@ public class SesaReaderIsolationTests
     [Test]
     public void ALeafWhoseSuffixIsNoLongerThanTheDepthOfItsParent_IsRefusedByTheNavigator()
     {
-        // SA[11] = 9 puts the suffix "pi" (a leaf of depth 3 with the terminator) under the node "ssi" of depth 3
-        byte[] image = Sealed(Mississippi, (img, o) => SetI32(img, o.Get(SesaFormat.KindSa).Offset + (4 * 11), 9));
+        // the entries of the ranks 6 and 11 are exchanged: the suffix "pi" (a leaf of depth 3 with the terminator) now stands under the node "ssi" of depth 3, and the array is still a permutation (a repeated position would be refused by the inverse before any child is made)
+        byte[] image = Sealed(Mississippi, (img, o) =>
+        {
+            long sa = o.Get(SesaFormat.KindSa).Offset;
+            SetI32(img, sa + (4 * 6), 2);
+            SetI32(img, sa + (4 * 11), 9);
+        });
         using var dir = new TempDir();
         using EsaSuffixTree tree = SesaTestFile.OpenImage(dir, image);
         var nav = (ISuffixTreeNavigation)tree;

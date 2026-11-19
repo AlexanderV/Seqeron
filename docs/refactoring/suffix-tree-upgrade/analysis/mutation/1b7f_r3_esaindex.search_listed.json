@@ -1,0 +1,11 @@
+[
+ {
+  "id": "D16",
+  "desc": "locate copies from the wrong rank",
+  "old": "Sa.CopyTo((int)(lo + skip), positions[..count]);",
+  "new": "Sa.CopyTo((int)(lo + skip) + 1, positions[..count]);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Search.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests|FullyQualifiedName~SesaReaderIsolationTests)",
+  "project": "esa"
+ }
+]
