@@ -3,6 +3,10 @@
 # fault of the code under test can make observable, or an effect that no assertion of the language runtime can see (a native leak, an fsync): not equivalent, not killed, reported as such. Ids with the prefix d_ are the mutants
 # of the audit of 1b.7d that the tests of 1b.7e were to close (SesaGapTests).
 EQUIVALENT = {
+    'A01': 'a null file falls into the path mode of BuildCore, where MappedOutputFile.Create refuses the null path with the same ArgumentNullException before any output exists; the scratch directories made in between are removed by the failure path',
+    'P38': 'the read buffer of the Psi pass is filled by `ReadExactAt` over its whole length before any byte of it is used (zeroing it first changes no byte that is read)',
+    'P08': 'a negative n gives `rows <= 0`, and the next line refuses a primary row outside [0, rows) with the same exception type before anything is allocated or created',
+    'K49': 'every file under ph4 and ph5 is removed by the component that made it (DistScratch, SpillStack) on success and on failure, so both directories are empty when the stage deletes them; the recursive delete only matters for a file that no component accounts for (the failure test with a hook in B2 and B3 leaves nothing)',
     'B169': 'the discard `_ = infoLength;` only silences an unused parameter; removing it changes nothing at run time',
     'B173': 'the deepest repeated substring has the depth of the largest LCP value (LRS_DEPTH = MAX_LCP): the same number in both fields, 0 for a text without a repeat',
     'B187': 'the rename has moved the temporary file, so the cleanup that follows (File.Delete of a path that is gone) deletes nothing; with or without the flag the final state is the same',
@@ -22,12 +26,14 @@ EQUIVALENT = {
     'C15': 'the refusal fires only on a CPU without the instruction; the machine has it, and the path is reached only through `HardwareAccelerated` (a CPU without it takes the table path): the branch cannot be taken here (listed under "not verified": no other CPU)',
     'K01': 'the same check is made by LcpBuild a line later (`ThrowIfNegative(options.SaOffset)`, mutant V01, killed), with the same exception type and before any file of PH4 exists; the scratch directories made in between are removed by the stage',
     'K03': 'a negative cap: the constructor of ArenaBudget refuses it the line after with the same exception type, before any file is created',
-    'W01': 'a negative offset reaches RandomAccess.Read, which refuses it with the same exception type; the BWT file made before is removed by the failure path (tested: no BWT file after any failure)',
     'K35': 'the tagged codec is refused at the entry of the stage (the container has no id for it), so `options.Codec` is always `Packed` where it is read',
     'K25': 'in container mode PH4 creates no file of its own (the placer gives it the sections), so the file options that it would pass to the creation are not read; its scratch files are made by DistScratch, which does not take them',
     'K29': 'the scratch directories ph4 and ph5 are both created and both removed by the stage; PH5 and PH4 use distinct file names, so a shared directory holds the same files (the mutant of PH4 using ph5, K15, is killed by the state of ph4 at B3)',
 }
 DEFENCE = {
+    'P64': 'a native block of 8 x sigma bytes per pass is not freed: as P63',
+    'B182': 'the first fsync of the publication: as B183',
+    'V11': 'the output writers are created from two ranges of the container and one allocation of the arena that no cap can fail without B2, which holds the peak of PH4, failing first; no other fault is injectable there, so the cleanup of a failed constructor of the output writer is not reached by any test (the cleanup of a failed second writer is, V10)',
     'V15': 'Complete of the base file in path mode only checks that no writer is open (a file is not deleted by Dispose and `fsync: false` flushes nothing): the writers were disposed just before and the owner of the file checks again',
     'W37': 'the same as V15 for the BWT file (the Psi stream opens it by path afterwards and reads it whole)',
     'P63': 'a native block of 8 x sigma bytes per pass is not freed: nothing in the language runtime or in the tests can see a native leak of this size (the arena has guards and counters, these raw blocks do not)',
@@ -37,5 +43,4 @@ DEFENCE = {
     'K23': 'ArenaGuards of PH4: as d_Q76',
     'K37': 'ArenaGuards of PH5: as d_Q76',
     'K33': 'PH5 flushes its windows when it is done (`FlushWindows`): the flush is a msync that no read of the file can tell from the kernel writing the pages back',
-    'B53': 'see the rerun: the seed changes the sampling of the splitters of PH2; if the pinned calls do not see it, the output does not depend on it (tested at five seeds)',
 }

@@ -222,6 +222,26 @@ public class SesaAuditTests
             Assert.Throws<InvalidDataException>(() => BwtPass.Build(container, 128, reader, c.Sigma, bwt), label);
             Assert.That(File.Exists(bwt), Is.False, $"{label}: no BWT file");
         }
+
+        // a negative offset is refused at the entry as well: nothing is reserved, allocated or started
+        var stepsNegative = new List<string>();
+        using (MappedOutputFile file = MappedOutputFile.Create(_dir.File("neg-ch.bin"), 128 + arrayBytes + arrayBytes, sparse))
+        {
+            LcpChildOptions o = LcpChildRun.Options(_dir.Sub("neg-c"), LcpChildRun.TinyTuning(2)) with { Trace = stepsNegative.Add };
+            Assert.Throws<ArgumentOutOfRangeException>(() => SectionLcpChildBuilder.Build(_dir.File("neg-ch.bin"), 128, reader, file, -4, _ => throw new InvalidOperationException("never asked"), o));
+            Assert.Throws<ArgumentOutOfRangeException>(() => SectionLcpChildBuilder.Build(_dir.File("neg-ch.bin"), -4, reader, file, 128, _ => throw new InvalidOperationException("never asked"), o));
+            Assert.That(stepsNegative, Is.Empty, "PH4 never started");
+        }
+        using (MappedOutputFile file = MappedOutputFile.Create(_dir.File("neg-ps.bin"), 32 + arrayBytes, sparse))
+        {
+            var budget = new ArenaBudget(long.MaxValue);
+            Assert.Throws<ArgumentOutOfRangeException>(() => PsiStream.Build(_dir.File("no-bwt.bin"), c.N, 0, [c.N], file, -4, new PsiOptions { Budget = budget }));
+            Assert.That(budget.PeakBytes, Is.Zero, "nothing was reserved for a negative offset");
+        }
+        var bwtBudget = new ArenaBudget(long.MaxValue);
+        File.WriteAllBytes(_dir.File("neg-bw.bin"), new byte[128 + arrayBytes]);
+        Assert.Throws<ArgumentOutOfRangeException>(() => BwtPass.Build(_dir.File("neg-bw.bin"), -4, reader, c.Sigma, _dir.File("neg.bwt"), new BwtOptions { Budget = bwtBudget }));
+        Assert.That(bwtBudget.PeakBytes, Is.Zero, "no buffer was allocated for a negative offset");
     }
 
     [Test]
