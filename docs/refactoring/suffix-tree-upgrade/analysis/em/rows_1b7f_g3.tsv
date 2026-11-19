@@ -1,0 +1,44 @@
+#head	db253e0f0cf896561d05f4e44bf0cc81d23a545a
+#container: label variant scan create pack ph1 ph23 ph45 bwt psi crc seal total read write mapped scratch_peak arena_peak rss_ph0 rss_ph1 rss_ph23 rss_ph45 rss_ph6 rss_seal rss_whole verdict file_size grown reservation overflow lcpkind rss_before_kb rss_max_kb samples
+#open: label level access seconds header_s sections_s structure_s crc sectionbytes bitmapbytes bufferbytes rssanon_before_kb rssanon_max_kb rssanon_after_kb n
+#throughput: label tree count20_per_s locate8_per_s count24absent_per_s childwalk_nodes_per_s repeats
+dna_10m.build	container	0.0310	0.0022	0.0634	0.0814	0.5135	1.3590	0.2077	0.1175	0.0420	0.0083	2.7315	352578065	242582160	138009914	120000000	140616824	20.8	31.4	85.5	115.0	67.2	67.2	115.0	Within	132515457	0	Preallocated	0	U8	13628	112224	274
+#file	/tmp/stbench/g3f/dna_10m.sesa	132515457
+#crcsections	kind bytes seconds ok (the build's own check of every section, from the sidecar of the builder run)
+#crcsection	dna_10m	1	2500064	0.0023	True
+#crcsection	dna_10m	2	8	0.0000	True
+#crcsection	dna_10m	13	32	0.0000	True
+#crcsection	dna_10m	3	40000004	0.0085	True
+#crcsection	dna_10m	6	40000004	0.0116	True
+#crcsection	dna_10m	12	40000004	0.0093	True
+#crcsection	dna_10m	11	196	0.0000	True
+#crcsection	dna_10m	4	10000001	0.0024	True
+open	cold-open.1	Header	Checked	0.00969	0.00611	0	0	hw	0	0	0	26428	26732	26732	10000000
+open-warm	cold-open.1	Header	Checked	0.00012
+open	cold-open.2	Header	Checked	0.00767	0.00503	0	0	hw	0	0	0	26512	26820	26820	10000000
+open-warm	cold-open.2	Header	Checked	0.00006
+open	cold-open.3	Header	Checked	0.0086	0.00551	0	0	hw	0	0	0	26388	26688	26688	10000000
+open-warm	cold-open.3	Header	Checked	0.00008
+open	cold-open.4	Header	Checked	0.00899	0.00577	0	0	hw	0	0	0	26240	26544	26544	10000000
+open-warm	cold-open.4	Header	Checked	0.00008
+open	cold-open.5	Header	Checked	0.00834	0.00541	0	0	hw	0	0	0	26452	26756	26756	10000000
+open-warm	cold-open.5	Header	Checked	0.00008
+open	cold-open.6	Header	Checked	0.00872	0.0057	0	0	hw	0	0	0	26424	26728	26728	10000000
+open-warm	cold-open.6	Header	Checked	0.00008
+open	cold-open.7	Header	Checked	0.00868	0.00562	0	0	hw	0	0	0	26368	26668	26668	10000000
+open-warm	cold-open.7	Header	Checked	0.00008
+open	cold-open.8	Header	Checked	0.00864	0.00587	0	0	hw	0	0	0	26368	26668	26668	10000000
+open-warm	cold-open.8	Header	Checked	0.00007
+open	cold-open.9	Header	Checked	0.01488	0.00983	0	0	hw	0	0	0	26356	26676	26676	10000000
+open-warm	cold-open.9	Header	Checked	0.00013
+open	cold-open.10	Header	Checked	0.01385	0.00667	0	0	hw	0	0	0	26560	26880	26880	10000000
+open-warm	cold-open.10	Header	Checked	0.00008
+open	levels.1	Sections	Checked	0.08558	0.00547	0.07503	0	hw	132500313	0	0	26356	26824	26824	10000000
+open	levels.1	Structure	Checked	1.71311	0.00615	0.06088	1.64188	hw	132500313	1250008	67174640	26352	101572	33584	10000000
+open	levels.2	Sections	Checked	0.07005	0.00469	0.06215	0	hw	132500313	0	0	26244	26688	26688	10000000
+open	levels.2	Structure	Checked	1.70618	0.00471	0.06474	1.63326	hw	132500313	1250008	67174640	26188	101624	33644	10000000
+open	levels.3	Sections	Checked	0.07125	0.00562	0.06192	0	hw	132500313	0	0	26292	26736	26736	10000000
+open	levels.3	Structure	Checked	1.5453	0.00486	0.05856	1.47839	hw	132500313	1250008	67174640	26276	101384	33460	10000000
+throughput	dna_10m	memory	544947.82819	540809.77611	590222.25303	9686042.57598	5
+throughput	dna_10m	checked	575395.15658	638095.31102	571512.20816	8947446.68423	5
+throughput	dna_10m	trusted	574349.99282	633940.54272	567905.39991	9250169.0208	5

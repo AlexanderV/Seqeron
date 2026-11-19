@@ -1,0 +1,101 @@
+[
+ {
+  "id": "Z01",
+  "desc": "the container source says the text is missing",
+  "old": "public bool Exists(string extension) => true;",
+  "new": "public bool Exists(string extension) => extension != \"ovf\";",
+  "file": "apps/SuffixTree.EmProto/Verify/VerifySources.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "emproto"
+ },
+ {
+  "id": "Z02",
+  "desc": "the pk section is the SA",
+  "old": "\"pk\" => _file.Parsed.Text,",
+  "new": "\"pk\" => _file.Parsed.Sa,",
+  "file": "apps/SuffixTree.EmProto/Verify/VerifySources.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "emproto"
+ },
+ {
+  "id": "Z03",
+  "desc": "the overflow section is the child table",
+  "old": "\"ovf\" => _file.Parsed.Overflow,",
+  "new": "\"ovf\" => _file.Parsed.Child,",
+  "file": "apps/SuffixTree.EmProto/Verify/VerifySources.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "emproto"
+ },
+ {
+  "id": "Z04",
+  "desc": "the stats text has the node count as the internal count",
+  "old": "new StatsInfo(h.NodeCount, h.NodeCount - 1 - (n + 1), h.LrsDepth, lrsRank, n, h.Sigma, p.Lcp.ElemWidth, p.Lcp.Param0, h.LrsDepth);",
+  "new": "new StatsInfo(h.NodeCount, h.NodeCount - 1 - n, h.LrsDepth, lrsRank, n, h.Sigma, p.Lcp.ElemWidth, p.Lcp.Param0, h.LrsDepth);",
+  "file": "apps/SuffixTree.EmProto/Verify/VerifySources.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "emproto"
+ },
+ {
+  "id": "Z05",
+  "desc": "the stats text has the rank of the repeat as it is stored",
+  "old": "long lrsRank = h.LrsDepth == 0 ? 0 : h.LrsRank;",
+  "new": "long lrsRank = h.LrsRank;",
+  "file": "apps/SuffixTree.EmProto/Verify/VerifySources.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "emproto"
+ },
+ {
+  "id": "Z06",
+  "desc": "the meta text has the hash of the first 31 bytes",
+  "old": "string sha = Convert.ToHexStringLower(h.TextSha256);",
+  "new": "string sha = Convert.ToHexStringLower(h.TextSha256).Replace(\"0\", \"1\");",
+  "file": "apps/SuffixTree.EmProto/Verify/VerifySources.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "emproto"
+ },
+ {
+  "id": "Z07",
+  "desc": "the meta text has the counts of the text only when it is not recounted",
+  "old": "long[] counts = p.Counts64?.Select(c => (long)c).ToArray() ?? RecountSymbols(p);",
+  "new": "long[] counts = RecountSymbols(p);",
+  "file": "apps/SuffixTree.EmProto/Verify/VerifySources.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "emproto"
+ },
+ {
+  "id": "Z08",
+  "desc": "the SHA-256 of a section is of its first byte",
+  "old": "hash.AppendData(new ReadOnlySpan<byte>(_file.Data + section.Offset + done, (int)Math.Min(piece, section.Length - done)));",
+  "new": "hash.AppendData(new ReadOnlySpan<byte>(_file.Data + section.Offset + done, (int)Math.Min(piece, section.Length - done)).Slice(0, 1));",
+  "file": "apps/SuffixTree.EmProto/Verify/VerifySources.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "emproto"
+ },
+ {
+  "id": "Z09",
+  "desc": "the length of the overflow is its count",
+  "old": "_ => Section(extension)?.Length ?? 0,",
+  "new": "_ => Section(extension)?.Count ?? 0,",
+  "file": "apps/SuffixTree.EmProto/Verify/VerifySources.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "emproto"
+ },
+ {
+  "id": "Z10",
+  "desc": "the scratch directory is the current one",
+  "old": "public string DefaultScratchDirectory => Path.GetDirectoryName(Path.GetFullPath(_path))!;",
+  "new": "public string DefaultScratchDirectory => Directory.GetCurrentDirectory();",
+  "file": "apps/SuffixTree.EmProto/Verify/VerifySources.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "emproto"
+ },
+ {
+  "id": "Z11",
+  "desc": "the recount skips the last symbols",
+  "old": "int take = (int)Math.Min(block.Length, p.Header.TextLength - at);\n            reader.ReadSymbols(at, block.AsSpan(0, take));\n            for (int k = 0; k < take; k++) if",
+  "new": "int take = (int)Math.Min(block.Length, p.Header.TextLength - at);\n            reader.ReadSymbols(at, block.AsSpan(0, take));\n            for (int k = 0; k < take - 1; k++) if",
+  "file": "apps/SuffixTree.EmProto/Verify/VerifySources.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "emproto"
+ }
+]

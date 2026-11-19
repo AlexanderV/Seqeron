@@ -1,0 +1,128 @@
+[
+ {
+  "id": "D01",
+  "desc": "the descent walks past the larger key",
+  "old": "if (key > symbol || boundary < 0)\n                {\n                    lo = 0;\n                    hi = -1;\n                    return false;\n                }\n                a = boundary;\n                boundary = child.NextLIndex(boundary, rb);\n                if (isChecked",
+  "new": "if (key >= symbol || boundary < 0)\n                {\n                    lo = 0;\n                    hi = -1;\n                    return false;\n                }\n                a = boundary;\n                boundary = child.NextLIndex(boundary, rb);\n                if (isChecked",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Search.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ },
+ {
+  "id": "D02",
+  "desc": "the first l-index is not checked in the descent",
+  "old": "int boundary = child.FirstLIndex(lb, rb, isLast);\n            if (isChecked && boundary >= 0 && (boundary <= a || boundary > rb)) ThrowDamagedChildTable();",
+  "new": "int boundary = child.FirstLIndex(lb, rb, isLast);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Search.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ },
+ {
+  "id": "D03",
+  "desc": "the next l-index is not checked in the descent",
+  "old": "boundary = child.NextLIndex(boundary, rb);\n                if (isChecked && boundary >= 0 && (boundary <= a || boundary > rb)) ThrowDamagedChildTable();",
+  "new": "boundary = child.NextLIndex(boundary, rb);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Search.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ },
+ {
+  "id": "D04",
+  "desc": "an equal child depth is allowed",
+  "old": "if (isChecked && (childEll <= ell || childEll > n)) ThrowDamagedChildTable();",
+  "new": "if (isChecked && (childEll < ell || childEll > n)) ThrowDamagedChildTable();",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Search.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ },
+ {
+  "id": "D05",
+  "desc": "a child deeper than the text is allowed",
+  "old": "if (isChecked && (childEll <= ell || childEll > n)) ThrowDamagedChildTable();",
+  "new": "if (isChecked && (childEll <= ell)) ThrowDamagedChildTable();",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Search.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ },
+ {
+  "id": "D06",
+  "desc": "the edge is cut at the longer length",
+  "old": "int limit = Math.Min(childEll, m);\n            int from = sa[a] + c;\n            if (limit > c + 1 && ((uint)from",
+  "new": "int limit = Math.Max(childEll, m);\n            int from = sa[a] + c;\n            if (limit > c + 1 && ((uint)from",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Search.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ },
+ {
+  "id": "D07",
+  "desc": "a leaf compares with the pattern one symbol late",
+  "old": "int start = sa[a] + c;\n                if ((uint)start > (uint)n",
+  "new": "int start = sa[a] + c + 1;\n                if ((uint)start > (uint)n",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Search.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ },
+ {
+  "id": "D08",
+  "desc": "the end of the text is not checked in the leaf",
+  "old": "if ((uint)start > (uint)n || m - c > n - start || !EdgeEquals(text, start, pat.Slice(c), edge))",
+  "new": "if ((uint)start > (uint)n || !EdgeEquals(text, start, pat.Slice(c), edge))",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Search.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ },
+ {
+  "id": "D09",
+  "desc": "the edge comparison accepts a range that ends past the text",
+  "old": "if ((uint)start > (uint)text.Length || expected.Length > text.Length - start) return false;",
+  "new": "if ((uint)start > (uint)text.Length) return false;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Search.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ },
+ {
+  "id": "D10",
+  "desc": "the edge comparison compares chunks one symbol short",
+  "old": "int take = Math.Min(buffer.Length, expected.Length - done);\n            text.ReadSymbols(start + done, buffer[..take]);",
+  "new": "int take = Math.Min(buffer.Length - 1, expected.Length - done);\n            text.ReadSymbols(start + done, buffer[..take]);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Search.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ },
+ {
+  "id": "D11",
+  "desc": "a key beyond the text is the symbol 0",
+  "old": "int key = (uint)p < (uint)n ? (int)text.Symbol(p) : -1;",
+  "new": "int key = (uint)p < (uint)n ? (int)text.Symbol(p) : 0;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Search.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ },
+ {
+  "id": "D14",
+  "desc": "the mapped match is not used",
+  "old": "if (IsMapped) return MatchMapped(pattern, out lo, out hi);",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Search.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ },
+ {
+  "id": "D16",
+  "desc": "locate copies from the wrong rank",
+  "old": "Sa.CopyTo((int)(lo + skip), positions[..count]);",
+  "new": "Sa.CopyTo((int)(lo + skip) + 1, positions[..count]);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Search.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ },
+ {
+  "id": "D17",
+  "desc": "locate (64-bit) copies from the wrong rank",
+  "old": "int start = (int)(lo + skip);\n        SaView sa = Sa;",
+  "new": "int start = (int)(lo + skip) + 1;\n        SaView sa = Sa;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Search.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ }
+]

@@ -42,6 +42,6 @@ public sealed record EsaOpenOptions
     /// <summary>How the reads are checked; the default is <see cref="EsaAccessMode.Checked"/>.</summary>
     public EsaAccessMode Access { get; init; } = EsaAccessMode.Checked;
 
-    /// <summary>At the <see cref="EsaValidationLevel.Structure"/> level also compare <c>TEXT_SHA256</c> with the SHA-256 of the text (a header that records zeros is refused only when this is set and the header says a hash exists). Ignored at the other levels.</summary>
+    /// <summary>At the <see cref="EsaValidationLevel.Structure"/> level also compare <c>TEXT_SHA256</c> with the SHA-256 of the text (32 zero bytes in the header mean that no hash was recorded; nothing is compared then). Ignored at the other levels.</summary>
     public bool VerifyTextSha256 { get; init; }
 }

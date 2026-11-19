@@ -1,0 +1,92 @@
+[
+ {
+  "id": "R01",
+  "desc": "the first l-index of the root is not checked",
+  "old": "if (mapped) CheckFirst(firstOfRoot, 0, n);",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Traverse.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ },
+ {
+  "id": "R02",
+  "desc": "a frame whose end is beyond its interval is allowed",
+  "old": "if (mapped && (b < a || b > f.Rb || (next >= 0 && (next <= f.NextBoundary || next > f.Rb)))) throw DamagedChildTable();",
+  "new": "if (mapped && (b < a || (next >= 0 && (next <= f.NextBoundary || next > f.Rb)))) throw DamagedChildTable();",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Traverse.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ },
+ {
+  "id": "R03",
+  "desc": "a next boundary that does not increase is allowed",
+  "old": "if (mapped && (b < a || b > f.Rb || (next >= 0 && (next <= f.NextBoundary || next > f.Rb)))) throw DamagedChildTable();",
+  "new": "if (mapped && (b < a || b > f.Rb || (next >= 0 && (next < f.NextBoundary || next > f.Rb)))) throw DamagedChildTable();",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Traverse.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ },
+ {
+  "id": "R04",
+  "desc": "a child as deep as its parent is allowed",
+  "old": "if (mapped && (ell <= f.Ell || ell > n)) throw DamagedChildTable();",
+  "new": "if (mapped && (ell < f.Ell || ell > n)) throw DamagedChildTable();",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Traverse.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ },
+ {
+  "id": "R05",
+  "desc": "a child deeper than the text is allowed in the walk",
+  "old": "if (mapped && (ell <= f.Ell || ell > n)) throw DamagedChildTable();",
+  "new": "if (mapped && (ell <= f.Ell)) throw DamagedChildTable();",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Traverse.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ },
+ {
+  "id": "R06",
+  "desc": "the count of the children does not check the chain",
+  "old": "if (IsMapped && next >= 0 && (next <= k || next > rb)) throw DamagedChildTable();",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Traverse.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ },
+ {
+  "id": "R07",
+  "desc": "the first l-index may be at the left bound",
+  "old": "if (first <= lb || first > rb) throw DamagedChildTable();",
+  "new": "if (first < lb || first > rb) throw DamagedChildTable();",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Traverse.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ },
+ {
+  "id": "R08",
+  "desc": "the first l-index may be past the right bound",
+  "old": "if (first <= lb || first > rb) throw DamagedChildTable();",
+  "new": "if (first <= lb) throw DamagedChildTable();",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Traverse.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ },
+ {
+  "id": "R09",
+  "desc": "the first l-index of an internal node is not checked",
+  "old": "int first = Child.FirstLIndex(a, b, lastChild);\n            if (mapped) CheckFirst(first, a, b);",
+  "new": "int first = Child.FirstLIndex(a, b, lastChild);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Traverse.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ },
+ {
+  "id": "R10",
+  "desc": "the edge symbol reads the text of the wrong position",
+  "old": "visitor.EnterBranch((uint)p < (uint)n ? text[p] : -1);",
+  "new": "visitor.EnterBranch((uint)p < (uint)n ? text[p == 0 ? 0 : p - 1] : -1);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Traverse.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ }
+]

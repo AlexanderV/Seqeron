@@ -1,0 +1,83 @@
+[
+ {
+  "id": "N01",
+  "desc": "the inverse is not tested for repeats",
+  "old": "if ((uint)position >= (uint)count || isaBuf[position] != -1)",
+  "new": "if ((uint)position >= (uint)count)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaNavigationPack.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ },
+ {
+  "id": "N02",
+  "desc": "the inverse accepts a position equal to the count",
+  "old": "if ((uint)position >= (uint)count || isaBuf[position] != -1)",
+  "new": "if ((uint)position > (uint)count || isaBuf[position] != -1)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaNavigationPack.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ },
+ {
+  "id": "N03",
+  "desc": "the slots of the inverse start at zero",
+  "old": "isaBuf.Fill(-1, count);",
+  "new": "isaBuf.Fill(0, count);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaNavigationPack.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ },
+ {
+  "id": "N04",
+  "desc": "the mapped inverse is read at the wrong position",
+  "old": "if (_mapped) throw new InvalidDataException($\"the inverse suffix array is read at position {position}, but the text has {_n} symbols: the file is damaged\");",
+  "new": "if (!_mapped) throw new InvalidDataException($\"the inverse suffix array is read at position {position}, but the text has {_n} symbols: the file is damaged\");",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaNavigationPack.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ },
+ {
+  "id": "N05",
+  "desc": "a link of a mapped node is not bounded by its position",
+  "old": "if (_mapped && ((uint)node.Rb > (uint)_n || (uint)(node.Pos + 1) > (uint)_n || (uint)(sa[node.Rb] + 1) > (uint)_n)) throw DamagedNode();",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaNavigationPack.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ },
+ {
+  "id": "N06",
+  "desc": "a link of a mapped node may have endpoints in the wrong order",
+  "old": "if (_mapped && (b < a || (uint)node.Lb > (uint)_n)) throw DamagedNode();",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaNavigationPack.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ },
+ {
+  "id": "N07",
+  "desc": "the target of a link may have a parent as deep as itself",
+  "old": "if (_mapped && (parentDepth >= t || (uint)left > (uint)_n)) throw DamagedNode();",
+  "new": "if (_mapped && (parentDepth > t || (uint)left > (uint)_n)) throw DamagedNode();",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaNavigationPack.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ },
+ {
+  "id": "N08",
+  "desc": "the target of a leaf link may have a parent as deep as itself",
+  "old": "if (_mapped && Math.Max(left, right) >= leaf.Depth - 1) throw DamagedNode();",
+  "new": "if (_mapped && Math.Max(left, right) > leaf.Depth - 1) throw DamagedNode();",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaNavigationPack.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ },
+ {
+  "id": "N10",
+  "desc": "the mapped pack reads the suffix array from the start + 1",
+  "old": "return new EsaNavigationPack(index, null, new Buf<int>(sa.Pointer, count, \"sa\"), isa, pyramid);",
+  "new": "return new EsaNavigationPack(index, null, new Buf<int>(sa.Pointer + 1, count, \"sa\"), isa, pyramid);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaNavigationPack.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ }
+]

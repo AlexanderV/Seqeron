@@ -1,0 +1,46 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Audit harness of work package 1b.7f (outside the shipped code, created by run_1b7f_audit.sh inside the audit worktrees, never committed there): the tests of the reader of SuffixTree.Esa.Tests (External, the contract
+    conformance suite and the facade checks they use) in a project that has the assembly name of the test project so that the internals of SuffixTree.Esa are visible. A mutant build compiles this project and the
+    Esa project only.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>SuffixTree.Esa.Tests</AssemblyName>
+    <RootNamespace>SuffixTree.Esa.Tests</RootNamespace>
+    <LangVersion>latest</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" />
+    <PackageReference Include="CsCheck" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="NUnit" />
+    <PackageReference Include="NUnit3TestAdapter" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="NUnit.Framework" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\SuffixTree.Esa.Tests\External\*.cs" Link="External\%(Filename)%(Extension)" />
+    <Compile Include="..\SuffixTree.Esa.Tests\TestSupport\*.cs" Link="TestSupport\%(Filename)%(Extension)" />
+    <Compile Include="..\SuffixTree.Esa.Tests\Contract\*.cs" Link="Contract\%(Filename)%(Extension)" />
+    <Compile Include="..\SuffixTree.Esa.Tests\Facade\FacadeChecks.cs" Link="Facade\FacadeChecks.cs" />
+    <Compile Include="..\SuffixTree.Esa.Tests\Fuzz\FuzzCase.cs" Link="Fuzz\FuzzCase.cs" />
+    <Compile Include="..\SuffixTree.Esa.Tests\Fuzz\FuzzTexts.cs" Link="Fuzz\FuzzTexts.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\SuffixTree\Algorithms\SuffixTree.Esa\SuffixTree.Esa.csproj" />
+    <ProjectReference Include="..\..\..\src\SuffixTree\Algorithms\SuffixTree\SuffixTree.csproj" />
+    <ProjectReference Include="..\..\..\src\SuffixTree\Algorithms\SuffixTree.Persistent\SuffixTree.Persistent.csproj" />
+  </ItemGroup>
+
+</Project>

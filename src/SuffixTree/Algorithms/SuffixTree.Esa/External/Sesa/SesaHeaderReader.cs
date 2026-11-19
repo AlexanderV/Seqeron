@@ -245,7 +245,8 @@ internal static unsafe class SesaHeaderReader
     /// <summary>The sections do not overlap, and the last one ends at the end of the file.</summary>
     private static void CheckLayout(SesaSection[] sections, long length)
     {
-        SesaSection[] byOffset = [.. sections.OrderBy(s => s.Offset).ThenBy(s => s.Length)];
+        SesaSection[] byOffset = (SesaSection[])sections.Clone();
+        Array.Sort(byOffset, static (a, b) => a.Offset != b.Offset ? a.Offset.CompareTo(b.Offset) : a.Length.CompareTo(b.Length)); // no LINQ here: the first open of a process pays the JIT of everything it touches
         long end = SesaFormat.PageBytes;
         foreach (SesaSection s in byOffset)
         {

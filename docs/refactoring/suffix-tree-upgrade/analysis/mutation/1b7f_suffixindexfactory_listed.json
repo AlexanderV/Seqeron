@@ -1,0 +1,56 @@
+[
+ {
+  "id": "Q01",
+  "desc": "the v6 magic is another number",
+  "old": "private const long V6Magic = 0x5452454558494646;",
+  "new": "private const long V6Magic = 0x5452454558494647;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/SuffixIndexFactory.cs",
+  "filter": "(FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaReaderTests)",
+  "project": "esa"
+ },
+ {
+  "id": "Q02",
+  "desc": "a short read is a kind",
+  "old": "if (read == 8 && magic.SequenceEqual(External.SesaFormat.Magic)) return EsaSuffixTreeFactory.Open(path, options);",
+  "new": "if (read >= 7 && magic[..7].SequenceEqual(External.SesaFormat.Magic[..7])) return EsaSuffixTreeFactory.Open(path, options);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/SuffixIndexFactory.cs",
+  "filter": "(FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaReaderTests)",
+  "project": "esa"
+ },
+ {
+  "id": "Q03",
+  "desc": "the v6 branch ignores the magic",
+  "old": "if (read == 8 && BinaryPrimitives.ReadInt64LittleEndian(magic) == V6Magic) return PersistentSuffixTreeFactory.LoadPersistent(path);",
+  "new": "if (read == 8) return PersistentSuffixTreeFactory.LoadPersistent(path);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/SuffixIndexFactory.cs",
+  "filter": "(FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaReaderTests)",
+  "project": "esa"
+ },
+ {
+  "id": "Q04",
+  "desc": "a file of an unknown kind has another message",
+  "old": "throw new InvalidDataException(\"unknown suffix index kind\");",
+  "new": "throw new InvalidDataException(\"unknown index\");",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/SuffixIndexFactory.cs",
+  "filter": "(FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaReaderTests)",
+  "project": "esa"
+ },
+ {
+  "id": "Q05",
+  "desc": "a device is no error",
+  "old": "throw new InvalidDataException(\"unknown suffix index kind: the file cannot be read at an offset (not a regular file)\");",
+  "new": "return 0;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/SuffixIndexFactory.cs",
+  "filter": "(FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaReaderTests)",
+  "project": "esa"
+ },
+ {
+  "id": "Q06",
+  "desc": "the options are not passed on",
+  "old": "return EsaSuffixTreeFactory.Open(path, options);",
+  "new": "return EsaSuffixTreeFactory.Open(path, null);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/SuffixIndexFactory.cs",
+  "filter": "(FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaReaderTests)",
+  "project": "esa"
+ }
+]

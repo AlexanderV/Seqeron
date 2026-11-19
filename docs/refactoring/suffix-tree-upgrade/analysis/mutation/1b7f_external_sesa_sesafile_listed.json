@@ -1,0 +1,128 @@
+[
+ {
+  "id": "O01",
+  "desc": "the Sections level does not run at Sections",
+  "old": "if (options.Validation >= EsaValidationLevel.Sections) SesaVerifier.CheckSections(file, hardwareCrc);",
+  "new": "if (options.Validation > EsaValidationLevel.Sections) SesaVerifier.CheckSections(file, hardwareCrc);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaFile.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ },
+ {
+  "id": "O02",
+  "desc": "the Structure level does not run at Structure",
+  "old": "if (options.Validation >= EsaValidationLevel.Structure) SesaVerifier.CheckStructure(file);",
+  "new": "if (options.Validation > EsaValidationLevel.Structure) SesaVerifier.CheckStructure(file);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaFile.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ },
+ {
+  "id": "O03",
+  "desc": "a failed validation leaves the file mapped",
+  "old": "if (file is not null)\n            {\n                file.Dispose();\n            }",
+  "new": "if (file is not null)\n            {\n            }",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaFile.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ },
+ {
+  "id": "O04",
+  "desc": "a failed header leaves the view mapped",
+  "old": "if (view is not null)\n                {\n                    view.SafeMemoryMappedViewHandle.ReleasePointer();\n                    view.Dispose();\n                }\n                map?.Dispose();",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaFile.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ },
+ {
+  "id": "O05",
+  "desc": "Dispose is not idempotent",
+  "old": "if (Interlocked.Exchange(ref _disposed, 1) != 0) return;",
+  "new": "if (Interlocked.Exchange(ref _disposed, 1) != 5) return;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaFile.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ },
+ {
+  "id": "O06",
+  "desc": "Dispose leaves the reader",
+  "old": "        _reader.Dispose();\n        if (_view is not null)",
+  "new": "        if (_view is not null)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaFile.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ },
+ {
+  "id": "O07",
+  "desc": "Dispose leaves the pointer acquired",
+  "old": "            _view.SafeMemoryMappedViewHandle.ReleasePointer();\n            _view.Dispose();\n        }\n        _map?.Dispose();",
+  "new": "            _view.Dispose();\n        }\n        _map?.Dispose();",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaFile.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ },
+ {
+  "id": "O08",
+  "desc": "a file of the header page size is too short",
+  "old": "if (length < SesaFormat.PageBytes) throw new InvalidDataException($\"truncated: the file has {length} bytes, shorter than the header page of {SesaFormat.PageBytes}\");\n            map =",
+  "new": "if (length < SesaFormat.PageBytes - 1) throw new InvalidDataException($\"truncated: the file has {length} bytes, shorter than the header page of {SesaFormat.PageBytes}\");\n            map =",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaFile.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ },
+ {
+  "id": "O09",
+  "desc": "an unseekable stream is mapped",
+  "old": "if (!stream.CanSeek) throw new InvalidDataException(\"not a regular file: the stream cannot seek\");",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaFile.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ },
+ {
+  "id": "O10",
+  "desc": "the statistics of a mapped file have a wrong internal count",
+  "old": "(int)(h.NodeCount - 1 - (n + 1L))",
+  "new": "(int)(h.NodeCount - 1 - n)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaFile.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ },
+ {
+  "id": "O11",
+  "desc": "the statistics of a mapped file have a wrong LRS rank",
+  "old": "h.LrsDepth == 0 ? 0 : (int)h.LrsRank, 0);",
+  "new": "h.LrsDepth == 0 ? 0 : (int)h.LrsRank + 1, 0);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaFile.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ },
+ {
+  "id": "O12",
+  "desc": "the PSI pointer is the SA",
+  "old": "internal uint* PsiPointer => _parsed.Psi is { } s ? (uint*)(_data + s.Offset) : null;",
+  "new": "internal uint* PsiPointer => _parsed.Psi is { } s ? (uint*)(_data + _parsed.Sa.Offset) : null;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaFile.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ },
+ {
+  "id": "O15",
+  "desc": "the SA view is one entry short",
+  "old": "_sa = new SaView((int*)(data + parsed.Sa.Offset), (int)(n + 1), isChecked);",
+  "new": "_sa = new SaView((int*)(data + parsed.Sa.Offset), (int)n, isChecked);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaFile.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ },
+ {
+  "id": "O17",
+  "desc": "the access mode is inverted",
+  "old": "bool isChecked = options.Access == EsaAccessMode.Checked;",
+  "new": "bool isChecked = options.Access != EsaAccessMode.Checked;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaFile.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ }
+]

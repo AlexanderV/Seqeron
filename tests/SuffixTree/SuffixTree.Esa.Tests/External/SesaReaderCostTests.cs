@@ -2,6 +2,7 @@ using System.Buffers.Binary;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO.MemoryMappedFiles;
+using Microsoft.Win32.SafeHandles;
 using SuffixTree.Esa.External;
 using SuffixTree.Esa.Tests.TestSupport;
 using SuffixTree.Indexing;
@@ -84,6 +85,13 @@ public class SesaReaderCostTests
         max = Math.Max(max, after);
         SesaOpenReport r = tree.File!.Report;
         Row("open", label, level, access, seconds, r.HeaderSeconds, r.SectionsSeconds, r.StructureSeconds, r.HardwareCrc ? "hw" : "table", r.SectionBytesChecksummed, r.BitmapBytes, r.BufferBytes, before, max, after, tree.File.Header.TextLength);
+        if (EnvOr("SESA_WARM", "0") == "1")
+        {
+            // the same open again in the same process: the page cache is warm and the code is compiled (what the first call paid for the JIT is the difference)
+            long t1 = Stopwatch.GetTimestamp();
+            using EsaSuffixTree again = SesaTestFile.Open(file, level, access, sha);
+            Row("open-warm", label, level, access, (Stopwatch.GetTimestamp() - t1) / (double)Stopwatch.Frequency);
+        }
         Assert.That(tree.File.Header.TextLength, Is.GreaterThan(0));
     }
 
@@ -122,7 +130,10 @@ public class SesaReaderCostTests
                 if (BinaryPrimitives.ReadInt32LittleEndian(e) == 3) saOffset = BinaryPrimitives.ReadInt64LittleEndian(e[8..]);
             }
             _sa = (int*)(_container + saOffset);
-            if (new FileInfo(input).Length != N) throw new InvalidOperationException("the input text and the container differ in length");
+            using (SafeFileHandle h = File.OpenHandle(input))
+            {
+                if (RandomAccess.GetLength(h) != N) throw new InvalidOperationException("the input text and the container differ in length"); // through the handle: the input may be a symbolic link, whose FileInfo length is the link's
+            }
         }
 
         internal long N { get; }
@@ -229,7 +240,11 @@ public class SesaReaderCostTests
             {
                 // a pattern of tens of millions of occurrences: count equal, and the first 1,000 locate results in suffix-array order equal the oracle's slice of the array
                 IndexLocus locus = ((ISuffixIndex)tree).Root;
-                foreach (char c in text) Assert.That(((ISuffixIndex)tree).TryExtendRight(locus, c, out locus), Is.True);
+                foreach (char c in text)
+                {
+                    Assert.That(((ISuffixIndex)tree).TryExtendRight(locus, c, out IndexLocus next), Is.True);
+                    locus = next;
+                }
                 int got = ((ISuffixIndex)tree).Locate(locus, 0, positions);
                 bool same = got == positions.Length;
                 for (int k = 0; same && k < got; k++) same = positions[k] == oracle.Sa(lo + k);

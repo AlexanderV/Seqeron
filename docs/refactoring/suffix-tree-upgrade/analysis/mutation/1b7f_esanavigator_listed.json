@@ -1,0 +1,65 @@
+[
+ {
+  "id": "V01",
+  "desc": "the null node has the length 0",
+  "old": "if (_isMapped && node.Lb < 0) throw new InvalidDataException",
+  "new": "if (_isMapped && node.Lb < -1) throw new InvalidDataException",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaNavigator.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ },
+ {
+  "id": "V02",
+  "desc": "a child as deep as its parent is a node",
+  "old": "if (_isMapped && depth <= parentDepth) ThrowCorruptChildTable();",
+  "new": "if (_isMapped && depth < parentDepth) ThrowCorruptChildTable();",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaNavigator.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ },
+ {
+  "id": "V03",
+  "desc": "a leaf as deep as its parent is a node",
+  "old": "if (_isMapped && _n - saA + 1 <= parentDepth) ThrowCorruptChildTable();",
+  "new": "if (_isMapped && _n - saA + 1 < parentDepth) ThrowCorruptChildTable();",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaNavigator.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ },
+ {
+  "id": "V04",
+  "desc": "the first l-index of a child is not checked",
+  "old": "if (_isMapped && (first <= a || first > b)) ThrowCorruptChildTable();",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaNavigator.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ },
+ {
+  "id": "V05",
+  "desc": "the mapped child table is not used by the child lookup",
+  "old": "if (_isMapped) return TryGetChildCore(_mapped, node, key, out child);",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaNavigator.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ },
+ {
+  "id": "V06",
+  "desc": "the leaves of a node are one short (mapped)",
+  "old": "else results.AddRange(sa.ToArray(from, count));",
+  "new": "else results.AddRange(sa.ToArray(from, count - 1));",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaNavigator.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ },
+ {
+  "id": "V07",
+  "desc": "the children of a mapped node are not listed",
+  "old": "if (_isMapped)\n        {\n            GetChildrenCore(_mapped, node, children);\n            return;\n        }",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaNavigator.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ }
+]

@@ -1,0 +1,20 @@
+[
+ {
+  "id": "F01",
+  "desc": "Dispose leaves the container mapped",
+  "old": "        _file?.Dispose();\n    }",
+  "new": "    }",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixTree.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ },
+ {
+  "id": "F02",
+  "desc": "the facade does not own the file of a failed tree",
+  "old": "catch\n        {\n            file.Dispose();\n            throw;\n        }",
+  "new": "catch\n        {\n            throw;\n        }",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixTree.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ }
+]

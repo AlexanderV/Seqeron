@@ -1,0 +1,74 @@
+[
+ {
+  "id": "L01",
+  "desc": "the binary search goes the wrong way",
+  "old": "if (v < (uint)rank) lo = mid + 1;",
+  "new": "if (v > (uint)rank) lo = mid + 1;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/CompactLcp.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ },
+ {
+  "id": "L02",
+  "desc": "the binary search returns the next pair",
+  "old": "if (v == (uint)rank) return mid;",
+  "new": "if (v == (uint)rank) return mid + 1;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/CompactLcp.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ },
+ {
+  "id": "L04",
+  "desc": "the 16-bit base is read as bytes",
+  "old": "return ((ushort*)_mappedBase)[rank];",
+  "new": "return _mappedBase[rank];",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/CompactLcp.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ },
+ {
+  "id": "L05",
+  "desc": "the 32-bit value is not checked against the text",
+  "old": "if (_mappedChecked && (uint)v > (uint)Length) throw Corrupt($\"the LCP value {(uint)v} at rank {rank} is larger than the text\");",
+  "new": "if (false && (uint)v > (uint)Length) throw Corrupt($\"the LCP value {(uint)v} at rank {rank} is larger than the text\");",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/CompactLcp.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ },
+ {
+  "id": "L06",
+  "desc": "the 32-bit check only in trusted mode",
+  "old": "if (_mappedChecked && (uint)v > (uint)Length) throw Corrupt($\"the LCP value {(uint)v} at rank {rank} is larger than the text\");",
+  "new": "if (!_mappedChecked && (uint)v > (uint)Length) throw Corrupt($\"the LCP value {(uint)v} at rank {rank} is larger than the text\");",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/CompactLcp.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ },
+ {
+  "id": "L07",
+  "desc": "a rank outside the mapped array is read",
+  "old": "if (IsMapped) throw new InvalidDataException($\"the LCP array is read at rank {rank}, but it has {Length} entries: the file is damaged\");\n            throw new ArgumentOutOfRangeException(nameof(rank));",
+  "new": "if (!IsMapped) throw new InvalidDataException($\"the LCP array is read at rank {rank}, but it has {Length} entries: the file is damaged\");\n            throw new ArgumentOutOfRangeException(nameof(rank));",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/CompactLcp.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ },
+ {
+  "id": "L10",
+  "desc": "the overflow arrays of the pack have the values as ranks",
+  "old": "ranks[i] = OverflowRankAt(i);\n                values[i] = OverflowValueAt(i);",
+  "new": "ranks[i] = OverflowValueAt(i);\n                values[i] = OverflowRankAt(i);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/CompactLcp.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ },
+ {
+  "id": "L11",
+  "desc": "the overflow count of a mapped array is the managed one",
+  "old": "internal int OverflowCount => IsMapped ? _mappedPairCount : _overflowRank.Length;",
+  "new": "internal int OverflowCount => IsMapped ? _mappedPairCount + 1 : _overflowRank.Length;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/CompactLcp.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ }
+]

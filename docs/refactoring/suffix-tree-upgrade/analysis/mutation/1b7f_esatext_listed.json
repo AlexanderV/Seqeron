@@ -1,0 +1,47 @@
+[
+ {
+  "id": "T01",
+  "desc": "a read at the length is in the text",
+  "old": "if ((uint)index >= (uint)_length) ThrowOutside(index);\n            return Letter(_reader!.Symbol(index));",
+  "new": "if ((uint)index > (uint)_length) ThrowOutside(index);\n            return Letter(_reader!.Symbol(index));",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaText.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ },
+ {
+  "id": "T02",
+  "desc": "a symbol equal to sigma has a letter",
+  "old": "if (symbol >= (uint)alphabet.Length) throw",
+  "new": "if (symbol > (uint)alphabet.Length) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaText.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ },
+ {
+  "id": "T03",
+  "desc": "a range that ends one past the text is allowed",
+  "old": "if (start < 0 || length < 0 || start > _length - length) ThrowOutside(start);",
+  "new": "if (start < 0 || length < 0 || start > _length - length + 1) ThrowOutside(start);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaText.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ },
+ {
+  "id": "T05",
+  "desc": "the tail of a string starts one late",
+  "old": "return Substring(start, _length - start);",
+  "new": "return Substring(start, _length - start - 1);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaText.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ },
+ {
+  "id": "T08",
+  "desc": "the packed text source slice is the substring one late",
+  "old": "public ReadOnlySpan<char> Slice(int start, int length) => text.Substring(start, length).AsSpan();",
+  "new": "public ReadOnlySpan<char> Slice(int start, int length) => text.Substring(start + 1, length).AsSpan();",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaText.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ }
+]

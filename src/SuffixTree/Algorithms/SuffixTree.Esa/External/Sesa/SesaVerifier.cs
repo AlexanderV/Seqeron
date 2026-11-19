@@ -11,7 +11,10 @@ namespace SuffixTree.Esa.External;
 internal static class SesaVerifierTuning
 {
     /// <summary>Text positions per chunk of the Phi pass: two <c>int</c> arrays of this many entries (8 bytes per position).</summary>
-    internal static int ChunkSymbols { get; set; } = 1 << 23;
+    internal static int ChunkSymbols { get; set; } = DefaultChunkSymbols;
+
+    /// <summary>The default chunk: 4 Mi positions, two 16 MiB arrays.</summary>
+    internal const int DefaultChunkSymbols = 1 << 22;
 
     /// <summary>Open intervals of the child-table scan kept in memory (16 bytes each); the older ones go to the spill file.</summary>
     internal static int StackEntries { get; set; } = 1 << 22;
@@ -22,7 +25,7 @@ internal static class SesaVerifierTuning
     /// <summary>Restores the defaults.</summary>
     internal static void Reset()
     {
-        ChunkSymbols = 1 << 23;
+        ChunkSymbols = DefaultChunkSymbols;
         StackEntries = 1 << 22;
         SpillDirectory = null;
     }

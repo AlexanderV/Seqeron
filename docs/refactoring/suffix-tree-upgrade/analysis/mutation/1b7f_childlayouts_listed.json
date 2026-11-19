@@ -1,0 +1,56 @@
+[
+ {
+  "id": "M01",
+  "desc": "the mapped first l-index reads the wrong end",
+  "old": "int at = lastChild ? lb : rb;\n        if (_checked && (uint)at >= (uint)_count) ThrowOutside(at);",
+  "new": "int at = lastChild ? rb : lb;\n        if (_checked && (uint)at >= (uint)_count) ThrowOutside(at);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ChildLayouts.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ },
+ {
+  "id": "M02",
+  "desc": "the mapped first l-index accepts the count",
+  "old": "if (_checked && (uint)at >= (uint)_count) ThrowOutside(at);",
+  "new": "if (_checked && (uint)at > (uint)_count) ThrowOutside(at);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ChildLayouts.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ },
+ {
+  "id": "M03",
+  "desc": "the mapped next l-index ends at the interval end + 1",
+  "old": "if (k >= rb) return -1;\n        if (_checked && (uint)k >= (uint)_count) ThrowOutside(k);",
+  "new": "if (k > rb) return -1;\n        if (_checked && (uint)k >= (uint)_count) ThrowOutside(k);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ChildLayouts.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ },
+ {
+  "id": "M04",
+  "desc": "the mapped next l-index of a plain run is two on",
+  "old": "if (_checked && (uint)k >= (uint)_count) ThrowOutside(k);\n        int lk = _lcp[k];\n        if (_lcp[k + 1] == lk) return k + 1;",
+  "new": "if (_checked && (uint)k >= (uint)_count) ThrowOutside(k);\n        int lk = _lcp[k];\n        if (_lcp[k + 1] == lk) return k + 2;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ChildLayouts.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ },
+ {
+  "id": "M05",
+  "desc": "the mapped next l-index follows a field of another value",
+  "old": "return _lcp[v] == lk ? v : -1;\n    }\n\n    private void ThrowOutside",
+  "new": "return _lcp[v] != lk ? v : -1;\n    }\n\n    private void ThrowOutside",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ChildLayouts.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ },
+ {
+  "id": "M06",
+  "desc": "the mapped next l-index leaves the cell check out",
+  "old": "if (_checked && (uint)k >= (uint)_count) ThrowOutside(k);",
+  "new": "if (false && (uint)k >= (uint)_count) ThrowOutside(k);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ChildLayouts.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ }
+]

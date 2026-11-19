@@ -1,0 +1,47 @@
+[
+ {
+  "id": "X01",
+  "desc": "a child as deep as its parent is a node (contract)",
+  "old": "if (_isMapped && depth <= parentDepth) ThrowCorruptChildTable();",
+  "new": "if (_isMapped && depth < parentDepth) ThrowCorruptChildTable();",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixIndex.Tree.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ },
+ {
+  "id": "X02",
+  "desc": "a leaf as deep as its parent is a node (contract)",
+  "old": "if (_isMapped && _n - saA + 1 <= parentDepth) ThrowCorruptChildTable();",
+  "new": "if (_isMapped && _n - saA + 1 < parentDepth) ThrowCorruptChildTable();",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixIndex.Tree.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ },
+ {
+  "id": "X03",
+  "desc": "the contract walk of a mapped node uses the packed array layout",
+  "old": "int count = _isMapped ? WalkChildren(_mapped, resolved, default, false) : _kind switch",
+  "new": "int count = false ? WalkChildren(_mapped, resolved, default, false) : _kind switch",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixIndex.Tree.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ },
+ {
+  "id": "X04",
+  "desc": "the contract child lookup of a mapped node uses the default layout",
+  "old": "if (_isMapped) return FindChildCore(_mapped, node, key, out child);",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixIndex.Tree.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ },
+ {
+  "id": "X05",
+  "desc": "the damaged mapped table of the contract is an invalid operation",
+  "old": "new InvalidDataException(\"the child table is inconsistent: the l-indices of an interval must increase and stay inside it: the file is damaged\")",
+  "new": "new InvalidOperationException(\"the child table is inconsistent: the l-indices of an interval must increase and stay inside it: the file is damaged\")",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixIndex.Tree.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ }
+]

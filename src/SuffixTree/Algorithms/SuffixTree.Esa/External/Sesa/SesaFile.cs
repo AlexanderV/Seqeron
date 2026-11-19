@@ -108,8 +108,8 @@ internal sealed unsafe class SesaFile : IDisposable
     private static void CheckOptions(EsaOpenOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
-        if (!Enum.IsDefined(options.Validation)) throw new ArgumentOutOfRangeException(nameof(options), options.Validation, "not a validation level");
-        if (!Enum.IsDefined(options.Access)) throw new ArgumentOutOfRangeException(nameof(options), options.Access, "not an access mode");
+        if (options.Validation is < EsaValidationLevel.Header or > EsaValidationLevel.Structure) throw new ArgumentOutOfRangeException(nameof(options), options.Validation, "not a validation level");
+        if (options.Access is < EsaAccessMode.Checked or > EsaAccessMode.Trusted) throw new ArgumentOutOfRangeException(nameof(options), options.Access, "not an access mode");
     }
 
     private static SesaFile Create(MemoryMappedFile? map, MemoryMappedViewAccessor? view, byte* data, long length, EsaOpenOptions options, bool? hardwareCrc, long t0)

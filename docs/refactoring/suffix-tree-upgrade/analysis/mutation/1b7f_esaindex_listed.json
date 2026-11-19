@@ -1,0 +1,11 @@
+[
+ {
+  "id": "E02",
+  "desc": "a mapped index claims no mapping",
+  "old": "internal bool IsMapped => _file is not null;",
+  "new": "internal bool IsMapped => false;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ }
+]

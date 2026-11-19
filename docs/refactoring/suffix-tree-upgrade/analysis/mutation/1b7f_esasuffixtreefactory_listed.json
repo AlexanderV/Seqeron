@@ -1,0 +1,20 @@
+[
+ {
+  "id": "Y01",
+  "desc": "the options of the open are ignored",
+  "old": "return EsaSuffixTree.FromFile(External.SesaFile.Open(path, options ?? new EsaOpenOptions()));",
+  "new": "return EsaSuffixTree.FromFile(External.SesaFile.Open(path, new EsaOpenOptions()));",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixTreeFactory.cs",
+  "filter": "(FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaReaderTests)",
+  "project": "esa"
+ },
+ {
+  "id": "Y02",
+  "desc": "the open does not check the path",
+  "old": "        ArgumentException.ThrowIfNullOrEmpty(path);\n        return EsaSuffixTree.FromFile",
+  "new": "        return EsaSuffixTree.FromFile",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixTreeFactory.cs",
+  "filter": "(FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaReaderTests)",
+  "project": "esa"
+ }
+]

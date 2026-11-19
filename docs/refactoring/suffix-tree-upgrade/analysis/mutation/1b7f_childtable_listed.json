@@ -1,0 +1,20 @@
+[
+ {
+  "id": "C01",
+  "desc": "the slow first l-index of a mapped table reads the other end",
+  "old": "IsMapped ? Mapped.FirstLIndex(lb, rb, lastChild) : Kind switch",
+  "new": "IsMapped ? Mapped.FirstLIndex(lb, rb, !lastChild) : Kind switch",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ChildTable.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ },
+ {
+  "id": "C02",
+  "desc": "the slow next l-index of a mapped table is the one of the packed layout array",
+  "old": "IsMapped ? Mapped.NextLIndex(k, rb) : Kind switch",
+  "new": "IsMapped ? Mapped.NextLIndex(k, rb + 1) : Kind switch",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ChildTable.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ }
+]

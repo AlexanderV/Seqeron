@@ -1,0 +1,56 @@
+[
+ {
+  "id": "S01",
+  "desc": "a read at the count itself is in the section",
+  "old": "if (_checked && (uint)rank >= (uint)_count) ThrowOutside(rank);",
+  "new": "if (_checked && (uint)rank > (uint)_count) ThrowOutside(rank);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/SaView.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ },
+ {
+  "id": "S02",
+  "desc": "checked mode leaves the check out",
+  "old": "if (_checked && (uint)rank >= (uint)_count) ThrowOutside(rank);",
+  "new": "if (!_checked && (uint)rank >= (uint)_count) ThrowOutside(rank);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/SaView.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ },
+ {
+  "id": "S03",
+  "desc": "the 64-bit read accepts the count",
+  "old": "if ((ulong)rank >= (ulong)_count) ThrowOutside(rank);",
+  "new": "if ((ulong)rank > (ulong)_count) ThrowOutside(rank);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/SaView.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ },
+ {
+  "id": "S04",
+  "desc": "a bulk read may end one entry past the section",
+  "old": "if (start < 0 || destination.Length > _count - start) ThrowOutside(start);",
+  "new": "if (start < 0 || destination.Length > _count - start + 1) ThrowOutside(start);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/SaView.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ },
+ {
+  "id": "S05",
+  "desc": "a bulk read may start below the section",
+  "old": "if (start < 0 || destination.Length > _count - start) ThrowOutside(start);",
+  "new": "if (destination.Length > _count - start) ThrowOutside(start);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/SaView.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ },
+ {
+  "id": "S06",
+  "desc": "the mapped bulk read starts one entry late",
+  "old": "else new ReadOnlySpan<int>(_pointer + start, destination.Length).CopyTo(destination);",
+  "new": "else new ReadOnlySpan<int>(_pointer + start + 1, destination.Length).CopyTo(destination);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/SaView.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ }
+]

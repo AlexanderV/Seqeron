@@ -1,0 +1,29 @@
+[
+ {
+  "id": "P01",
+  "desc": "a damaged overflow list of a mapped array is an invalid operation",
+  "old": "throw new InvalidDataException(e.Message + \": the file is damaged\", e);",
+  "new": "throw;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/LcpPyramid.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ },
+ {
+  "id": "P02",
+  "desc": "the mapped pyramid reads the 16-bit base as bytes",
+  "old": "new Buf<ushort>((ushort*)lcp.MappedBase, _length, \"lcp-u16\")",
+  "new": "new Buf<ushort>((ushort*)(lcp.MappedBase + 1), _length, \"lcp-u16\")",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/LcpPyramid.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ },
+ {
+  "id": "P03",
+  "desc": "the mapped pyramid of 32-bit entries reads from the wrong start",
+  "old": "new Buf<int>((int*)lcp.MappedBase, _length, \"lcp-u32\")",
+  "new": "new Buf<int>((int*)(lcp.MappedBase + 4), _length, \"lcp-u32\")",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/LcpPyramid.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests)",
+  "project": "esa"
+ }
+]
