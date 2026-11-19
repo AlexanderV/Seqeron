@@ -21,7 +21,6 @@ public class SaExhaustiveTests
     public void EveryString_ThroughPh1_IsTheRankFileOfTheDefinition()
     {
         int count = 0;
-        int deepest = 0;
         foreach ((int sigma, int max) in Tiers)
         {
             foreach (string s in ExhaustiveStrings.All(sigma, max))
@@ -31,12 +30,10 @@ public class SaExhaustiveTests
                 using var dir = new TempDir();
                 int v = count++;
                 DifferenceCover cover = DifferenceCover.Create(SaTiny.Periods[v % SaTiny.Periods.Length]);
-                ExtDcsStats stats = ExternalDcsTests.RunAndCompare(dir, c, cover, SaTiny.Dcs(dir.Sub("scratch"), v, 1 + (v % 4)), $"'{s}' variant {v}", out _);
-                deepest = Math.Max(deepest, stats.MaxLevel);
+                ExternalDcsTests.RunAndCompare(dir, c, cover, SaTiny.Dcs(dir.Sub("scratch"), v, 1 + (v % 4)), $"'{s}' variant {v}", out _); // strings of up to 14 symbols do not recurse: the levels are exercised by the families, ExternalDcsTests and SaPinnedTests
             }
         }
-        Assert.That(count, Is.EqualTo(14 + 4094 + 3279 + 1364), "unary 1-14, binary 1-12, ternary 1-7, 4-ary 1-5");
-        Assert.That(deepest, Is.GreaterThanOrEqualTo(2));
+        Assert.That(count, Is.EqualTo(14 + 8190 + 3279 + 1364), "unary 1-14, binary 1-12, ternary 1-7, 4-ary 1-5");
     }
 
     [Test]
@@ -56,7 +53,7 @@ public class SaExhaustiveTests
                 SaRun.Compare(c, o, $"'{s}' variant {v}");
             }
         }
-        Assert.That(count, Is.EqualTo(14 + 4094 + 3279 + 1364));
+        Assert.That(count, Is.EqualTo(14 + 8190 + 3279 + 1364));
     }
 
     [Test]
