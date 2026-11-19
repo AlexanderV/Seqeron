@@ -443,7 +443,7 @@ Sources actually opened in this review (neutral `Seqeron-review/1.0` User-Agent,
 3 600 pairs equal (printed Score, identities, DP score); 140 MSA sets × {progressive, iterative} equal the independent Python; 65/140 progressive results differ from the linear-distance guide tree.
 
 ## Assumptions / not covered
-- Full-DP ("slow") mode only; `-QUICKTREE` fast k-tuple mode and the protein pairwise stage are audit item A1-15b.
+- (State of the first F55 pass; superseded) Full-DP ("slow") mode only. The `-QUICKTREE` fast k-tuple mode and the protein pairwise stages were ported in audit A1-15b (`MsaDistanceMode.ClustalWQuick`, `ClustalWProteinPairwiseOptions`; Multiple_Sequence_Alignment.md §4.2 / §4.6).
 - The guide tree itself stays UPGMA (ClustalW uses NJ: audit A1-12), so a `clustalw -USETREE`-driven comparison of final rows is not claimed.
 
 
@@ -491,7 +491,7 @@ Sources actually opened in this review (neutral `Seqeron-review/1.0` User-Agent,
 420 sets: unrooted tree = `.dnd` (0 mismatches), merge-size sequence = "Group n" lines (0 mismatches; first-index tie order: 21 mismatching sets, tolerance 0 instead of 1e-9 changes nothing on this panel); 400 matrices: NJ = Biopython (≤ 1e-6), UPGMA = scipy average linkage (≤ 1e-6); 900 matrices: UPGMA guide tree = the removed private implementation; chaining: 1 500 random + 400 MEM-like + 12 adversarial + 2 × 3 000-anchor sets equal the O(a²) oracle; 10⁵ anchors in < 1 s.
 
 ## Assumptions / not covered
-- Final MSA rows are not compared with `clustalw -USETREE`: ClustalW's profile stage (sequence weights from the tree, residue-specific and hydrophilic gap penalties, gap-separation distance, end gaps, delayed divergent sequences) is audit item A1-10b, which this tree now unblocks. ClustalW's own UPGMA (`-CLUSTERING=UPGMA`) is a separate implementation with its own tie rules and is not claimed.
+- (State of the F55 pass; superseded) Final MSA rows were not compared with `clustalw -USETREE` then: ClustalW's profile stage (sequence weights from the tree, residue-specific and hydrophilic gap penalties, gap-separation distance, end gaps, delayed divergent sequences) was ported in audit A1-10b (B09 F56; `MultipleAlignClustalW`, rows equal on 1 000 DNA sets and later the protein stage). ClustalW's own UPGMA (`-CLUSTERING=UPGMA`) is a separate implementation with its own tie rules: audit A2-14 (see B09.md).
 
 
 ---

@@ -189,7 +189,7 @@ single-pass "once a gap, always a gap" limitation.
 
 - **Canonical Method:** `SequenceAligner.MultipleAlignIterative(IEnumerable<DnaSequence>, ScoringMatrix?, int maxIterations)`
 - **Type:** Canonical (deep evidence-based testing)
-- **Status:** ☐ Pending re-validation (checklists reset)
+- **Status:** ☑ Validated (the 2026-06 checklist reset is superseded by the audit rounds of this review; see the audit sections of this file)
 - **Canonical test file:** `tests/Seqeron/Seqeron.Genomics.Tests/SequenceAligner_MultipleAlignIterative_Tests.cs`
 
 ## Evidence Sources (addendum)

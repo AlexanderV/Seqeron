@@ -76,7 +76,7 @@ Assertions check exact sourced scores/alignments and statistics (not just "no th
 ## Verdict & follow-ups
 - **Stage A: PASS. Stage B: PASS. State: CLEAN.**
 - No code changes. Full GlobalAlign test class 13/13 green; corroborating property/cancellation tests green.
-- No defects logged. Optional future tidy (non-blocking): make the `DnaSequence` empty overload mirror the string overload's `AlignmentResult.Empty` guard for symmetry.
+- No defects logged by the first pass (its "optional future tidy" about empty inputs was REFUTED by audit A1-1 / F39: see the correction below).
 
 ## 2026-11 audit round 1 correction (A1-1, B09 F39)
 
