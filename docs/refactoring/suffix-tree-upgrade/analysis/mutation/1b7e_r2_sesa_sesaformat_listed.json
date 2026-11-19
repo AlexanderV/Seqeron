@@ -1,0 +1,162 @@
+[
+ {
+  "id": "F02",
+  "desc": "alignments swapped",
+  "old": "? LargeAlignment : SmallAlignment;",
+  "new": "? SmallAlignment : LargeAlignment;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaFormat.cs",
+  "filter": "(FullyQualifiedName~SesaFormatTests|FullyQualifiedName~SesaLayoutTests|FullyQualifiedName~SesaBuilderTests.EverySection_EqualsTheInMemoryIndex_WithAndWithoutPsi_DefaultAndTiny)"
+ },
+ {
+  "id": "F04",
+  "desc": "large from 2 MiB",
+  "old": "internal const long LargeSectionBytes = 1 << 20;",
+  "new": "internal const long LargeSectionBytes = 1 << 21;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaFormat.cs",
+  "filter": "(FullyQualifiedName~SesaFormatTests|FullyQualifiedName~SesaLayoutTests|FullyQualifiedName~SesaBuilderTests.EverySection_EqualsTheInMemoryIndex_WithAndWithoutPsi_DefaultAndTiny)"
+ },
+ {
+  "id": "F06",
+  "desc": "a negative length is accepted",
+  "old": "        ArgumentOutOfRangeException.ThrowIfNegative(length);\n        long a",
+  "new": "        long a",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaFormat.cs",
+  "filter": "(FullyQualifiedName~SesaFormatTests|FullyQualifiedName~SesaLayoutTests|FullyQualifiedName~SesaBuilderTests.EverySection_EqualsTheInMemoryIndex_WithAndWithoutPsi_DefaultAndTiny)"
+ },
+ {
+  "id": "F08",
+  "desc": "a hash of 31 bytes is accepted",
+  "old": "if (header.TextSha256 is not { Length: 32 })",
+  "new": "if (header.TextSha256 is not { Length: 31 })",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaFormat.cs",
+  "filter": "(FullyQualifiedName~SesaFormatTests|FullyQualifiedName~SesaLayoutTests|FullyQualifiedName~SesaBuilderTests.EverySection_EqualsTheInMemoryIndex_WithAndWithoutPsi_DefaultAndTiny)"
+ },
+ {
+  "id": "F10",
+  "desc": "minor version is 1",
+  "old": "internal const int VersionMinor = 0;",
+  "new": "internal const int VersionMinor = 1;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaFormat.cs",
+  "filter": "(FullyQualifiedName~SesaFormatTests|FullyQualifiedName~SesaLayoutTests|FullyQualifiedName~SesaBuilderTests.EverySection_EqualsTheInMemoryIndex_WithAndWithoutPsi_DefaultAndTiny)"
+ },
+ {
+  "id": "F12",
+  "desc": "TEXT_LEN holds the node count",
+  "old": "BinaryPrimitives.WriteInt64LittleEndian(page.AsSpan(16), header.TextLength);",
+  "new": "BinaryPrimitives.WriteInt64LittleEndian(page.AsSpan(16), header.NodeCount);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaFormat.cs",
+  "filter": "(FullyQualifiedName~SesaFormatTests|FullyQualifiedName~SesaLayoutTests|FullyQualifiedName~SesaBuilderTests.EverySection_EqualsTheInMemoryIndex_WithAndWithoutPsi_DefaultAndTiny)"
+ },
+ {
+  "id": "F14",
+  "desc": "FILE_SIZE holds the node count",
+  "old": "BinaryPrimitives.WriteInt64LittleEndian(page.AsSpan(32), header.FileSize);",
+  "new": "BinaryPrimitives.WriteInt64LittleEndian(page.AsSpan(32), header.NodeCount);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaFormat.cs",
+  "filter": "(FullyQualifiedName~SesaFormatTests|FullyQualifiedName~SesaLayoutTests|FullyQualifiedName~SesaBuilderTests.EverySection_EqualsTheInMemoryIndex_WithAndWithoutPsi_DefaultAndTiny)"
+ },
+ {
+  "id": "F16",
+  "desc": "section count 62",
+  "old": "BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(48), sections.Count);",
+  "new": "BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(48), MaxSections);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaFormat.cs",
+  "filter": "(FullyQualifiedName~SesaFormatTests|FullyQualifiedName~SesaLayoutTests|FullyQualifiedName~SesaBuilderTests.EverySection_EqualsTheInMemoryIndex_WithAndWithoutPsi_DefaultAndTiny)"
+ },
+ {
+  "id": "F18",
+  "desc": "LRS_DEPTH holds the rank",
+  "old": "BinaryPrimitives.WriteInt64LittleEndian(page.AsSpan(56), header.LrsDepth);",
+  "new": "BinaryPrimitives.WriteInt64LittleEndian(page.AsSpan(56), header.LrsRank);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaFormat.cs",
+  "filter": "(FullyQualifiedName~SesaFormatTests|FullyQualifiedName~SesaLayoutTests|FullyQualifiedName~SesaBuilderTests.EverySection_EqualsTheInMemoryIndex_WithAndWithoutPsi_DefaultAndTiny)"
+ },
+ {
+  "id": "F20",
+  "desc": "POS_WIDTH at the sigma field",
+  "old": "BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(72), header.PosWidth);",
+  "new": "BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(76), header.PosWidth);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaFormat.cs",
+  "filter": "(FullyQualifiedName~SesaFormatTests|FullyQualifiedName~SesaLayoutTests|FullyQualifiedName~SesaBuilderTests.EverySection_EqualsTheInMemoryIndex_WithAndWithoutPsi_DefaultAndTiny)"
+ },
+ {
+  "id": "F22",
+  "desc": "hash one byte late",
+  "old": "header.TextSha256.CopyTo(page.AsSpan(80));",
+  "new": "header.TextSha256.CopyTo(page.AsSpan(81));",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaFormat.cs",
+  "filter": "(FullyQualifiedName~SesaFormatTests|FullyQualifiedName~SesaLayoutTests|FullyQualifiedName~SesaBuilderTests.EverySection_EqualsTheInMemoryIndex_WithAndWithoutPsi_DefaultAndTiny)"
+ },
+ {
+  "id": "F24",
+  "desc": "second entry overwrites the first",
+  "old": "page.AsSpan(HeaderBytes + (EntryBytes * i), EntryBytes);",
+  "new": "page.AsSpan(HeaderBytes, EntryBytes);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaFormat.cs",
+  "filter": "(FullyQualifiedName~SesaFormatTests|FullyQualifiedName~SesaLayoutTests|FullyQualifiedName~SesaBuilderTests.EverySection_EqualsTheInMemoryIndex_WithAndWithoutPsi_DefaultAndTiny)"
+ },
+ {
+  "id": "F26",
+  "desc": "entry flags hold the kind",
+  "old": "BinaryPrimitives.WriteInt32LittleEndian(e[4..], s.Flags);",
+  "new": "BinaryPrimitives.WriteInt32LittleEndian(e[4..], s.Kind);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaFormat.cs",
+  "filter": "(FullyQualifiedName~SesaFormatTests|FullyQualifiedName~SesaLayoutTests|FullyQualifiedName~SesaBuilderTests.EverySection_EqualsTheInMemoryIndex_WithAndWithoutPsi_DefaultAndTiny)"
+ },
+ {
+  "id": "F28",
+  "desc": "entry length holds the offset",
+  "old": "BinaryPrimitives.WriteInt64LittleEndian(e[16..], s.Length);",
+  "new": "BinaryPrimitives.WriteInt64LittleEndian(e[16..], s.Offset);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaFormat.cs",
+  "filter": "(FullyQualifiedName~SesaFormatTests|FullyQualifiedName~SesaLayoutTests|FullyQualifiedName~SesaBuilderTests.EverySection_EqualsTheInMemoryIndex_WithAndWithoutPsi_DefaultAndTiny)"
+ },
+ {
+  "id": "F30",
+  "desc": "entry width holds the codec",
+  "old": "BinaryPrimitives.WriteInt32LittleEndian(e[32..], s.ElemWidth);",
+  "new": "BinaryPrimitives.WriteInt32LittleEndian(e[32..], s.Codec);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaFormat.cs",
+  "filter": "(FullyQualifiedName~SesaFormatTests|FullyQualifiedName~SesaLayoutTests|FullyQualifiedName~SesaBuilderTests.EverySection_EqualsTheInMemoryIndex_WithAndWithoutPsi_DefaultAndTiny)"
+ },
+ {
+  "id": "F32",
+  "desc": "PARAM0 holds PARAM1",
+  "old": "BinaryPrimitives.WriteInt64LittleEndian(e[40..], s.Param0);",
+  "new": "BinaryPrimitives.WriteInt64LittleEndian(e[40..], s.Param1);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaFormat.cs",
+  "filter": "(FullyQualifiedName~SesaFormatTests|FullyQualifiedName~SesaLayoutTests|FullyQualifiedName~SesaBuilderTests.EverySection_EqualsTheInMemoryIndex_WithAndWithoutPsi_DefaultAndTiny)"
+ },
+ {
+  "id": "F34",
+  "desc": "entry CRC not written",
+  "old": "BinaryPrimitives.WriteUInt32LittleEndian(e[56..], s.Crc);",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaFormat.cs",
+  "filter": "(FullyQualifiedName~SesaFormatTests|FullyQualifiedName~SesaLayoutTests|FullyQualifiedName~SesaBuilderTests.EverySection_EqualsTheInMemoryIndex_WithAndWithoutPsi_DefaultAndTiny)"
+ },
+ {
+  "id": "F36",
+  "desc": "header CRC covers the whole table room",
+  "old": "page.AsSpan(HeaderBytes, EntryBytes * sections.Count))",
+  "new": "page.AsSpan(HeaderBytes, EntryBytes * MaxSections))",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaFormat.cs",
+  "filter": "(FullyQualifiedName~SesaFormatTests|FullyQualifiedName~SesaLayoutTests|FullyQualifiedName~SesaBuilderTests.EverySection_EqualsTheInMemoryIndex_WithAndWithoutPsi_DefaultAndTiny)"
+ },
+ {
+  "id": "F38",
+  "desc": "the magic stays when it is not asked for",
+  "old": "if (!withMagic) page.AsSpan(0, Magic.Length).Clear();",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaFormat.cs",
+  "filter": "(FullyQualifiedName~SesaFormatTests|FullyQualifiedName~SesaLayoutTests|FullyQualifiedName~SesaBuilderTests.EverySection_EqualsTheInMemoryIndex_WithAndWithoutPsi_DefaultAndTiny)"
+ },
+ {
+  "id": "F40",
+  "desc": "CRC stored at 120",
+  "old": "BinaryPrimitives.WriteUInt32LittleEndian(page.AsSpan(CrcOffset), crc);",
+  "new": "BinaryPrimitives.WriteUInt32LittleEndian(page.AsSpan(120), crc);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaFormat.cs",
+  "filter": "(FullyQualifiedName~SesaFormatTests|FullyQualifiedName~SesaLayoutTests|FullyQualifiedName~SesaBuilderTests.EverySection_EqualsTheInMemoryIndex_WithAndWithoutPsi_DefaultAndTiny)"
+ }
+]

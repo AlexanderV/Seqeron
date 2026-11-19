@@ -1,0 +1,26 @@
+[
+ {
+  "id": "T01",
+  "desc": "the section writer starts at 4",
+  "old": "file.CreateWriter(start, length, windowBytes, counters)",
+  "new": "file.CreateWriter(start + 4, length, windowBytes, counters)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SaSink.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests.TheSectionSink|FullyQualifiedName~SesaSectionTests.SaBuilder)"
+ },
+ {
+  "id": "T03",
+  "desc": "the section writer is not counted",
+  "old": "file.CreateWriter(start, length, windowBytes, counters)",
+  "new": "file.CreateWriter(start, length, windowBytes, null)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SaSink.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests.TheSectionSink|FullyQualifiedName~SesaSectionTests.SaBuilder)"
+ },
+ {
+  "id": "T05",
+  "desc": "the entries are written at their offset in entries",
+  "old": "file.CreateWriter(start, length, windowBytes, counters));\n\n    private sealed class Writer(MappedWindowWriter inner) : ISaSliceWriter\n    {\n        public void Write(long entryOffset, ReadOnlySpan<uint> data) => inner.WriteAt(entryOffset * 4, MemoryMarshal.AsBytes(data));",
+  "new": "file.CreateWriter(start, length, windowBytes, counters));\n\n    private sealed class Writer(MappedWindowWriter inner) : ISaSliceWriter\n    {\n        public void Write(long entryOffset, ReadOnlySpan<uint> data) => inner.WriteAt(entryOffset, MemoryMarshal.AsBytes(data));",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SaSink.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests.TheSectionSink|FullyQualifiedName~SesaSectionTests.SaBuilder)"
+ }
+]

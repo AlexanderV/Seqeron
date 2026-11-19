@@ -68,6 +68,8 @@ internal static class Ph6Run
             stats = PsiStream.Build(bwtPath, n, b.PrimaryRow, counts, file, psiOffset, psi);
             file.Complete(false);
         }
+        Assert.That(ProcMaps.Contains(container) ?? false, Is.False, "the container is not mapped any more: every window and writer was released");
+        Assert.That(ProcMaps.Contains(bwtPath) ?? false, Is.False, "the BWT file is not mapped any more");
         byte[] all = File.ReadAllBytes(container);
         uint[] entries = MemoryMarshal.Cast<byte, uint>(all.AsSpan((int)psiOffset, 4 * (n + 1))).ToArray();
         return new Outcome(b, stats, bwtBytes, entries, all, sa, bwtPath, saOffset, psiOffset);
@@ -350,7 +352,8 @@ public sealed class Ph6Tests
         using MappedOutputFile file = Ph6Run.CreateContainer(dir.File("container-ok2.bin"), o.Sa, 64, size);
         Assert.Throws<InvalidDataException>(() => PsiStream.Build(o.BwtPath, n, o.Bwt.PrimaryRow, [counts[0] + 1, counts[1] - 1, counts[2]], file, 192), "a symbol occurs more often than counted");
         Assert.Throws<InvalidDataException>(() => PsiStream.Build(o.BwtPath, n, o.Bwt.PrimaryRow, [counts[0] - 1, counts[1] + 1, counts[2]], file, 192), "a symbol occurs less often than counted");
-        Assert.Throws<ArgumentException>(() => PsiStream.Build(o.BwtPath, n, o.Bwt.PrimaryRow, [counts[0] + 1, counts[1], counts[2]], file, 192), "the counts do not sum to n");
+        Assert.Throws<ArgumentException>(() => PsiStream.Build(o.BwtPath, n, o.Bwt.PrimaryRow, [counts[0] + 1, counts[1], counts[2]], file, 192), "the counts sum to more than n");
+        Assert.Throws<ArgumentException>(() => PsiStream.Build(o.BwtPath, n, o.Bwt.PrimaryRow, [counts[0] - 1, counts[1], counts[2]], file, 192), "the counts sum to less than n");
         Assert.Throws<ArgumentException>(() => PsiStream.Build(o.BwtPath, n, o.Bwt.PrimaryRow, [-1, counts[1] + 1, counts[2] + counts[0]], file, 192), "a negative count");
         Assert.Throws<ArgumentOutOfRangeException>(() => PsiStream.Build(o.BwtPath, n, n + 1, counts, file, 192), "the primary row is outside the rows");
         Assert.Throws<ArgumentOutOfRangeException>(() => PsiStream.Build(o.BwtPath, n, -1, counts, file, 192));

@@ -438,4 +438,140 @@ public sealed class SesaSectionTests
         }
     }
 
+
+    // ------------------------------------------------------------------ the checksum pass
+
+    [Test]
+    public void TheChecksumPass_EqualsTheBitwiseDefinition_AcrossViews_AndRefusesRangesOutsideTheFile()
+    {
+        using var dir = new TempDir();
+        string path = dir.File("sums.bin");
+        var bytes = new byte[5000];
+        new Random(5).NextBytes(bytes);
+        File.WriteAllBytes(path, bytes);
+        (int Kind, long Offset, long Length)[] ranges = [(1, 0, 5000), (2, 10, 0), (3, 4990, 10), (4, 1, 4999), (5, 4999, 1), (6, 5000, 0), (7, 1234, 2000)];
+        foreach (int view in new[] { 1, 7, 64, 4096, 5000, 1 << 24 })
+        {
+            (uint Crc, SesaCrcRow Row)[] got = SesaChecksums.Compute(path, ranges, view);
+            for (int i = 0; i < ranges.Length; i++)
+            {
+                (int kind, long offset, long length) = ranges[i];
+                Assert.That(got[i].Crc, Is.EqualTo(SesaOracle.Crc32cBitwise(bytes.AsSpan((int)offset, (int)length))), $"view {view}, section {kind}");
+                Assert.That((got[i].Row.Kind, got[i].Row.Bytes, got[i].Row.Hardware), Is.EqualTo((kind, length, Crc32C.HardwareAccelerated)), $"view {view}, row {kind}");
+                Assert.That(got[i].Row.Seconds, Is.GreaterThanOrEqualTo(0));
+            }
+        }
+        Assert.Throws<InvalidDataException>(() => SesaChecksums.Compute(path, [(9, 4999, 2)]));
+        Assert.Throws<InvalidDataException>(() => SesaChecksums.Compute(path, [(9, 5001, 0)]));
+        Assert.Throws<InvalidDataException>(() => SesaChecksums.Compute(path, [(9, -1, 2)]));
+        Assert.Throws<InvalidDataException>(() => SesaChecksums.Compute(path, [(9, 0, -1)]));
+        Assert.Throws<ArgumentOutOfRangeException>(() => SesaChecksums.Compute(path, [(1, 0, 1)], 0));
+        Assert.Throws<ArgumentNullException>(() => SesaChecksums.Compute(null!, []));
+        Assert.Throws<ArgumentNullException>(() => SesaChecksums.Compute(path, null!));
+        string empty = dir.File("empty.bin");
+        File.WriteAllBytes(empty, []);
+        Assert.That(SesaChecksums.Compute(empty, [(1, 0, 0)])[0].Crc, Is.Zero);
+        Assert.That(ProcMaps.Contains(path) ?? false, Is.False, "the mapping of the pass is released");
+    }
+
+    // ------------------------------------------------------------------ exact fits and the options of the section stages
+
+    [Test]
+    public void ARangeThatEndsExactlyAtTheEndOfTheFile_IsAccepted_ByEverySectionStage_AndOneByteMoreIsRefused()
+    {
+        using var dir = new TempDir();
+        string text = StringFamilies.RandomDna(700, 3);
+        LcpChildCase c = LcpChildCase.Of(text);
+        string textPath = TextOracle.WriteFile(dir, "t.pk", c.Symbols, c.Bits);
+        using MappedTextReader reader = MappedTextReader.Open(textPath, c.N, c.Bits);
+        long arrayBytes = 4L * (c.N + 1);
+        // the suffix array of the oracle as the last range of a file (PH4 reads it, BWT reads it)
+        string container = dir.File("exact.bin");
+        byte[] bytes = new byte[128 + arrayBytes];
+        MemoryMarshal.AsBytes(c.Sa.AsSpan()).CopyTo(bytes.AsSpan(128));
+        File.WriteAllBytes(container, bytes);
+        ExtLcpStats stats = ExternalLcp.Build(container, reader, dir.File("e.lcp"), dir.File("e.ovf"), new ExtLcpOptions { ScratchDir = dir.Sub("s1"), ChunkPositions = 50, Threads = 1, SaOffset = 128 });
+        Assert.That(stats.N, Is.EqualTo(c.N), "PH4 reads a suffix array that ends at the end of the file");
+        Assert.That(File.ReadAllBytes(dir.File("e.lcp")).AsSpan().SequenceEqual(c.LcpBaseBytes()), Is.True);
+        File.WriteAllBytes(container, bytes[..^4]);
+        Assert.Throws<InvalidDataException>(() => ExternalLcp.Build(container, reader, dir.File("f.lcp"), dir.File("f.ovf"), new ExtLcpOptions { ScratchDir = dir.Sub("s2"), ChunkPositions = 50, Threads = 1, SaOffset = 128 }), "four bytes short");
+        File.WriteAllBytes(container, bytes);
+        Assert.Throws<InvalidDataException>(() => ExternalLcp.Build(container, reader, dir.File("g.lcp"), dir.File("g.ovf"), new ExtLcpOptions { ScratchDir = dir.Sub("s3"), ChunkPositions = 50, Threads = 1, SaOffset = 132 }), "the range starts four bytes late");
+        Assert.Throws<ArgumentOutOfRangeException>(() => ExternalLcp.Build(container, reader, dir.File("h.lcp"), dir.File("h.ovf"), new ExtLcpOptions { ScratchDir = dir.Sub("s4"), SaOffset = -4 }));
+        BwtResult b = BwtPass.Build(container, 128, reader, c.Sigma, dir.File("e.bwt"));
+        Assert.That(b.PrimaryRow, Is.EqualTo(Array.IndexOf(c.Sa, 0)), "BWT reads a suffix array that ends at the end of the file");
+        // the suffix array stage writes a range that ends at the end of the file
+        string target = dir.File("sa-exact.bin");
+        using (MappedOutputFile file = MappedOutputFile.Create(target, 64 + arrayBytes, new MappedFileOptions { Reservation = ReservationMode.Sparse }))
+        {
+            SaCase sc = SaCase.Of(text);
+            string sat = SaRun.WriteText(dir, sc, "-x");
+            using MappedTextReader r2 = MappedTextReader.Open(sat, sc.N, sc.Bits);
+            SaBuilder.Build(r2, file, 64, SaTiny.Build(dir.Sub("s5"), 2));
+            Assert.Throws<ArgumentOutOfRangeException>(() => SaBuilder.Build(r2, file, 65, SaTiny.Build(dir.Sub("s6"), 2)), "one byte too late");
+            file.Complete(false);
+        }
+        Assert.That(MemoryMarshal.Cast<byte, uint>(File.ReadAllBytes(target).AsSpan(64)).ToArray(), Is.EqualTo(SaCase.Of(text).Sa));
+        // PSI into a range that ends at the end of the file
+        string psiFile = dir.File("psi-exact.bin");
+        using (MappedOutputFile file = MappedOutputFile.Create(psiFile, 32 + arrayBytes, new MappedFileOptions { Reservation = ReservationMode.Sparse }))
+        {
+            PsiStream.Build(dir.File("e.bwt"), c.N, b.PrimaryRow, b.Counts, file, 32);
+            Assert.Throws<ArgumentOutOfRangeException>(() => PsiStream.Build(dir.File("e.bwt"), c.N, b.PrimaryRow, b.Counts, file, 33), "one byte too late");
+            file.Complete(false);
+        }
+        Assert.That(MemoryMarshal.Cast<byte, uint>(File.ReadAllBytes(psiFile).AsSpan(32)).ToArray(), Is.EqualTo(SesaRun.NaivePsi(c.Sa)));
+        // the child range of the section stage ends at the end of the file when the placer has not grown it yet
+        long childOffset = 128;
+        using (MappedOutputFile file = MappedOutputFile.Create(dir.File("child-exact.bin"), childOffset + arrayBytes, new MappedFileOptions { Reservation = ReservationMode.Sparse }))
+        {
+            LcpChildOptions o = LcpChildRun.Options(dir.Sub("s7"), LcpChildRun.TinyTuning(2));
+            Func<LcpPlacementRequest, LcpPlacement> place = request =>
+            {
+                long lcp = file.Length;
+                file.Grow(lcp + (LcpWidth.Bytes(request.Kind) * (c.N + 1L)) + 8 + (8 * request.OverflowCount));
+                return new LcpPlacement(file, lcp, lcp + (LcpWidth.Bytes(request.Kind) * (c.N + 1L)) + 8);
+            };
+            LcpChildResult result = SectionLcpChildBuilder.Build(container, 128, reader, file, childOffset, place, o);
+            Assert.That(result.Scan.NodeCount, Is.EqualTo(c.Statistics.NodeCount));
+            file.Complete(false);
+            using MappedOutputFile small = MappedOutputFile.Create(dir.File("child-short.bin"), childOffset + arrayBytes - 1, new MappedFileOptions { Reservation = ReservationMode.Sparse });
+            Assert.Throws<ArgumentOutOfRangeException>(() => SectionLcpChildBuilder.Build(container, 128, reader, small, childOffset, place, o), "the child range is one byte beyond the file");
+            Assert.Throws<ArgumentOutOfRangeException>(() => SectionLcpChildBuilder.Build(container, 128, reader, file, -1, place, o));
+            Assert.Throws<ArgumentException>(() => SectionLcpChildBuilder.Build(container, 128, reader, file, childOffset, place, LcpChildRun.Options(dir.Sub("s8"), LcpChildRun.TinyTuning(2), codec: ChildCodec.Tagged)), "the container has one codec of the child table");
+        }
+    }
+
+    [Test]
+    public void ATextAboveTheLimitOfThePositions_AndAReducedReader_AreRefusedByBwtAndPsi()
+    {
+        using var dir = new TempDir();
+        string sparse = dir.File("huge.pk");
+        long n = PackedTextFormat.MaxSymbols + 1;
+        long total = PackedTextFormat.TotalBytes(n, 2);
+        using (var fs = new FileStream(sparse, FileMode.Create)) fs.SetLength(total);
+        using MappedTextReader huge = MappedTextReader.Open(sparse, n, 2);
+        string sa = dir.File("sa.bin");
+        File.WriteAllBytes(sa, new byte[64]);
+        Assert.Throws<NotSupportedException>(() => BwtPass.Build(sa, 0, huge, 4, dir.File("x.bwt")));
+        using MappedOutputFile file = MappedOutputFile.Create(dir.File("psi.bin"), 64, new MappedFileOptions { Reservation = ReservationMode.Sparse });
+        Assert.Throws<NotSupportedException>(() => PsiStream.Build(dir.File("x.bwt"), n, 0, [n], file, 0));
+        Assert.Throws<ArgumentOutOfRangeException>(() => PsiStream.Build(dir.File("x.bwt"), -1, 0, [], file, 0));
+        string reduced = dir.File("reduced.bin");
+        var words = new byte[(4 * 8) + 64];
+        File.WriteAllBytes(reduced, words);
+        using MappedTextReader r = MappedTextReader.OpenReduced(reduced, 8);
+        Assert.Throws<ArgumentException>(() => BwtPass.Build(sa, 0, r, 4, dir.File("y.bwt")), "a reduced string of 32 bits per symbol is not a text of the file codec");
+        Assert.That(File.Exists(dir.File("x.bwt")) || File.Exists(dir.File("y.bwt")), Is.False);
+    }
+
+    [Test]
+    public void Grow_WithNoRoomAtAll_ReportsADiskThatIsFull()
+    {
+        using var dir = new TempDir();
+        using MappedOutputFile file = MappedOutputFile.Create(dir.File("g.bin"), 100);
+        var full = new FakeReservationSource { CanPreallocate = false, Free = 0 };
+        Assert.Throws<IOException>(() => file.Grow(200, new MappedFileOptions { Source = full }), "zero bytes free is a full disk, not an unknown amount");
+        Assert.That(file.Length, Is.EqualTo(100));
+    }
 }

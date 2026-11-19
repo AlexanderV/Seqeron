@@ -264,4 +264,89 @@ public sealed class SesaBuilderTests
     }
 
     private static ushort[] MemoryMarshal_Cast(byte[] bytes) => System.Runtime.InteropServices.MemoryMarshal.Cast<byte, ushort>(bytes).ToArray();
+
+
+    [Test]
+    public void EveryOption_ReachesItsStage()
+    {
+        using var dir = new TempDir();
+        string text = StringFamilies.RandomDna(4000, 5);
+        // the sizes of the stages
+        SesaRun.Outcome o = SesaRun.Build(dir, text, new SesaBuildOptions
+        {
+            Threads = 3,
+            Fsync = false,
+            Period = 12,
+            ExactPeriod = true,
+            ScaleN = 3_000_000_000,
+            RuleN = 1_500_000_000,
+            SaTuning = new SaBuildTuning { BucketCapacity = 777, DcsBucketCapacity = 555 },
+            LcpTuning = new LcpChildTuning { LcpChunk = 321, WindowBytes = 4096 },
+            Ph6Tuning = new SesaPh6Tuning { SymbolsPerPass = 3, WindowBytes = 40 },
+        }, "-a");
+        SesaBuildResult r = o.Result;
+        Assert.That((r.Sa.Period, r.Sa.CoverKind), Is.EqualTo((12, CoverKind.Pruned)), "ExactPeriod uses the period itself");
+        Assert.That((r.Sa.Parameters.Scaled, r.Sa.Parameters.Factor), Is.EqualTo((true, 0.5)), "ScaleN and RuleN reach PH1-PH3");
+        Assert.That((r.Lcp.Parameters.Scaled, r.Lcp.Parameters.Factor), Is.EqualTo((true, 0.5)), "ScaleN and RuleN reach PH4-PH5");
+        Assert.That((r.Sa.Parameters.BucketCapacity, r.Sa.Parameters.DcsBucketCapacity), Is.EqualTo((777L, 555L)), "the tuning of PH1-PH3");
+        Assert.That((r.Lcp.Parameters.LcpChunk, r.Lcp.Parameters.WindowBytes), Is.EqualTo((321L, 4096)), "the tuning of PH4-PH5");
+        Assert.That(r.Lcp.Parameters.LcpWorkers, Is.EqualTo(2), "three threads, two workers of PH4 under the cap");
+        Assert.That((r.Psi!.Passes, r.Psi.SymbolsPerPass, r.Psi.MappedBoundBytes), Is.EqualTo((2, 3, 3 * 10 * 4L)), "the tuning of PH6");
+        SesaRun.Compare(o, "every option", true);
+        o = SesaRun.Build(dir, text, new SesaBuildOptions { Fsync = false, Period = 12, Threads = 1, SaTuning = new SaBuildTuning { BucketCapacity = 777 } }, "-b");
+        Assert.That((o.Result.Sa.Period, o.Result.Sa.CoverKind), Is.EqualTo((13, CoverKind.Singer)), "without ExactPeriod the nearest Singer period is used");
+        Assert.That(o.Result.Lcp.Parameters.LcpWorkers, Is.EqualTo(1));
+        Assert.That(o.Result.Sa.Parameters.Scaled, Is.False);
+        // the options that only show in what the stages do
+        var steps = new List<string>();
+        SesaRun.Build(dir, text, new SesaBuildOptions { Fsync = false, VerifyRanks = true, SaTrace = steps.Add, LcpTrace = steps.Add }, "-c");
+        Assert.That(steps, Does.Contain("verify").And.Contain("ph1").And.Contain("ph23").And.Contain("b1").And.Contain("b3"), "VerifyRanks and the trace hooks reach their stages");
+        steps.Clear();
+        SesaRun.Build(dir, text, new SesaBuildOptions { Fsync = false, SaTrace = steps.Add }, "-d");
+        Assert.That(steps, Does.Not.Contain("verify"), "the optional check is off by default");
+        // the windows and the blocks of PH0 are the ones asked for
+        var small = new IoCounters();
+        var large = new IoCounters();
+        SesaRun.Build(dir, text, new SesaBuildOptions { Fsync = false, Counters = small, TextBlockSymbols = 8, TextWindowBytes = 16 }, "-e");
+        SesaRun.Build(dir, text, new SesaBuildOptions { Fsync = false, Counters = large }, "-f");
+        Assert.That(small.ReadCalls, Is.GreaterThan(large.ReadCalls + 500), "blocks of 8 symbols read the input in many more calls");
+        Assert.That(small.MappedWindows, Is.GreaterThan(large.MappedWindows + 50), "windows of 16 bytes map many more windows");
+        // the verdicts of the stages are the gate of the owner and the cap that was passed
+        o = SesaRun.Build(dir, text, new SesaBuildOptions { Fsync = false }, "-g");
+        if (OperatingSystem.IsLinux() && File.Exists("/proc/self/status"))
+        {
+            Assert.That((o.Result.Sa.RssVerdict, o.Result.Lcp.RssVerdict), Is.EqualTo((RssVerdict.Within, RssVerdict.Within)));
+            o = SesaRun.Build(dir, text, new SesaBuildOptions { Fsync = false, RssAnonCapMb = 0.001 }, "-h");
+            Assert.That((o.Result.Sa.RssVerdict, o.Result.Lcp.RssVerdict), Is.EqualTo((RssVerdict.Exceeded, RssVerdict.Exceeded)));
+        }
+        o = SesaRun.Build(dir, text, new SesaBuildOptions { Fsync = false, ProcSource = new FakeProcSource() }, "-i");
+        Assert.That((o.Result.Sa.RssVerdict, o.Result.Lcp.RssVerdict), Is.EqualTo((RssVerdict.Unavailable, RssVerdict.Unavailable)));
+        o = SesaRun.Build(dir, text, new SesaBuildOptions { Fsync = false, MeasureRss = false }, "-j");
+        Assert.That((o.Result.Sa.RssVerdict, o.Result.Lcp.RssVerdict), Is.EqualTo((RssVerdict.Unavailable, RssVerdict.Unavailable)));
+        // the largest peak of the native buffers is the largest of the stages (PH4 and PH5 live together)
+        Assert.That(r.ArenaPeakBytes, Is.GreaterThanOrEqualTo(Math.Max(r.Sa.Ph1ArenaPeakBytes, r.Sa.Ph23ArenaPeakBytes)));
+        Assert.That(r.ArenaPeakBytes, Is.GreaterThanOrEqualTo(r.Lcp.ArenaPeakBytes + r.Lcp.ChildArenaPeakBytes));
+        Assert.That(r.ArenaPeakBytes, Is.GreaterThanOrEqualTo(r.Psi.MappedBoundBytes));
+        Assert.That(r.Lcp.Reservation, Is.EqualTo(r.Reservation), "the LCP is placed in the container, whose outcome it reports");
+    }
+
+    [Test]
+    public void OptionsThatCannotBeUsed_AreRefusedBeforeAnythingIsCreated()
+    {
+        using var dir = new TempDir();
+        string input = SesaRun.WriteInput(dir, "mississippi");
+        string target = dir.File("x.sesa");
+        foreach ((string label, SesaBuildOptions options) in new[]
+        {
+            ("no thread", new SesaBuildOptions { Threads = 0 }),
+            ("negative arena cap", new SesaBuildOptions { ArenaCapBytes = -1 }),
+            ("negative child cap", new SesaBuildOptions { ChildArenaCapBytes = -1 }),
+            ("negative PH6 cap", new SesaBuildOptions { Ph6CapBytes = -1 }),
+            ("negative RSS cap", new SesaBuildOptions { RssAnonCapMb = -1 }),
+        })
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(() => SesaBuilder.Build(input, target, options), label);
+            Assert.That(Directory.GetFileSystemEntries(dir.Path).Select(Path.GetFileName), Is.EquivalentTo(new[] { "input.txt" }), $"{label}: something was created");
+        }
+    }
 }

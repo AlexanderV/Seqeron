@@ -1,0 +1,10 @@
+[
+ {
+  "id": "d_F06",
+  "desc": "1b7d gap: Sort: the tie positions are not counted",
+  "old": "                c.TiePositions += e - s;\n",
+  "new": "",
+  "filter": "FullyQualifiedName~SesaGapTests",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/LeafSorter.cs"
+ }
+]

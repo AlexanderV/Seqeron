@@ -1,0 +1,106 @@
+[
+ {
+  "id": "L01",
+  "desc": "arrays of 3 bytes per entry",
+  "old": "long arrayLength = 4 * rows;",
+  "new": "long arrayLength = 3 * rows;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaLayout.cs",
+  "filter": "(FullyQualifiedName~SesaLayoutTests|FullyQualifiedName~SesaBuilderTests.EverySection_EqualsTheInMemoryIndex_WithAndWithoutPsi_DefaultAndTiny|FullyQualifiedName~SesaBuilderTests.TheLcpWidths)"
+ },
+ {
+  "id": "L03",
+  "desc": "counts of 4 bytes",
+  "old": "long countsLength = 8L * info.Sigma;",
+  "new": "long countsLength = 4L * info.Sigma;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaLayout.cs",
+  "filter": "(FullyQualifiedName~SesaLayoutTests|FullyQualifiedName~SesaBuilderTests.EverySection_EqualsTheInMemoryIndex_WithAndWithoutPsi_DefaultAndTiny|FullyQualifiedName~SesaBuilderTests.TheLcpWidths)"
+ },
+ {
+  "id": "L05",
+  "desc": "ALPHABET over the TEXT",
+  "old": "SesaFormat.AlignedOffset(textOffset + textLength, alphabetLength);",
+  "new": "SesaFormat.AlignedOffset(textOffset, alphabetLength);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaLayout.cs",
+  "filter": "(FullyQualifiedName~SesaLayoutTests|FullyQualifiedName~SesaBuilderTests.EverySection_EqualsTheInMemoryIndex_WithAndWithoutPsi_DefaultAndTiny|FullyQualifiedName~SesaBuilderTests.TheLcpWidths)"
+ },
+ {
+  "id": "L07",
+  "desc": "SA over the COUNTS",
+  "old": "SesaFormat.AlignedOffset(countsOffset + countsLength, arrayLength);",
+  "new": "SesaFormat.AlignedOffset(countsOffset, arrayLength);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaLayout.cs",
+  "filter": "(FullyQualifiedName~SesaLayoutTests|FullyQualifiedName~SesaBuilderTests.EverySection_EqualsTheInMemoryIndex_WithAndWithoutPsi_DefaultAndTiny|FullyQualifiedName~SesaBuilderTests.TheLcpWidths)"
+ },
+ {
+  "id": "L09",
+  "desc": "the end counts the offset only",
+  "old": "long end = childOffset + arrayLength;",
+  "new": "long end = childOffset;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaLayout.cs",
+  "filter": "(FullyQualifiedName~SesaLayoutTests|FullyQualifiedName~SesaBuilderTests.EverySection_EqualsTheInMemoryIndex_WithAndWithoutPsi_DefaultAndTiny|FullyQualifiedName~SesaBuilderTests.TheLcpWidths)"
+ },
+ {
+  "id": "L11",
+  "desc": "the end after PSI forgets its length",
+  "old": "end = psiOffset + arrayLength;",
+  "new": "end = psiOffset;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaLayout.cs",
+  "filter": "(FullyQualifiedName~SesaLayoutTests|FullyQualifiedName~SesaBuilderTests.EverySection_EqualsTheInMemoryIndex_WithAndWithoutPsi_DefaultAndTiny|FullyQualifiedName~SesaBuilderTests.TheLcpWidths)"
+ },
+ {
+  "id": "L13",
+  "desc": "LCP inside the BUILD_INFO room",
+  "old": "SesaFormat.AlignedOffset(infoOffset + BuildInfoCapacity, 4 * rows);",
+  "new": "SesaFormat.AlignedOffset(infoOffset, 4 * rows);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaLayout.cs",
+  "filter": "(FullyQualifiedName~SesaLayoutTests|FullyQualifiedName~SesaBuilderTests.EverySection_EqualsTheInMemoryIndex_WithAndWithoutPsi_DefaultAndTiny|FullyQualifiedName~SesaBuilderTests.TheLcpWidths)"
+ },
+ {
+  "id": "L15",
+  "desc": "reserved length of the widest LCP",
+  "old": "ReservedLength = lcpOffset + rows,",
+  "new": "ReservedLength = lcpOffset + (4 * rows),",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaLayout.cs",
+  "filter": "(FullyQualifiedName~SesaLayoutTests|FullyQualifiedName~SesaBuilderTests.EverySection_EqualsTheInMemoryIndex_WithAndWithoutPsi_DefaultAndTiny|FullyQualifiedName~SesaBuilderTests.TheLcpWidths)"
+ },
+ {
+  "id": "L17",
+  "desc": "the plan says PSI when there is none",
+  "old": "Psi = psi,",
+  "new": "Psi = !psi,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaLayout.cs",
+  "filter": "(FullyQualifiedName~SesaLayoutTests|FullyQualifiedName~SesaBuilderTests.EverySection_EqualsTheInMemoryIndex_WithAndWithoutPsi_DefaultAndTiny|FullyQualifiedName~SesaBuilderTests.TheLcpWidths)"
+ },
+ {
+  "id": "L19",
+  "desc": "LCP of n entries",
+  "old": "long lcpLength = (plan.N + 1) * width;",
+  "new": "long lcpLength = plan.N * width;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaLayout.cs",
+  "filter": "(FullyQualifiedName~SesaLayoutTests|FullyQualifiedName~SesaBuilderTests.EverySection_EqualsTheInMemoryIndex_WithAndWithoutPsi_DefaultAndTiny|FullyQualifiedName~SesaBuilderTests.TheLcpWidths)"
+ },
+ {
+  "id": "L21",
+  "desc": "overflow at the start of the LCP",
+  "old": "overflowCount > 0 ? SesaFormat.AlignedOffset(end, overflowLength) : 0",
+  "new": "overflowCount > 0 ? SesaFormat.AlignedOffset(plan.LcpOffset, overflowLength) : 0",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaLayout.cs",
+  "filter": "(FullyQualifiedName~SesaLayoutTests|FullyQualifiedName~SesaBuilderTests.EverySection_EqualsTheInMemoryIndex_WithAndWithoutPsi_DefaultAndTiny|FullyQualifiedName~SesaBuilderTests.TheLcpWidths)"
+ },
+ {
+  "id": "L23",
+  "desc": "a negative number of escapes is accepted",
+  "old": "ArgumentOutOfRangeException.ThrowIfNegative(overflowCount);",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaLayout.cs",
+  "filter": "(FullyQualifiedName~SesaLayoutTests|FullyQualifiedName~SesaBuilderTests.EverySection_EqualsTheInMemoryIndex_WithAndWithoutPsi_DefaultAndTiny|FullyQualifiedName~SesaBuilderTests.TheLcpWidths)"
+ },
+ {
+  "id": "L25",
+  "desc": "the sigma of the plan is the width",
+  "old": "Sigma = info.Sigma,",
+  "new": "Sigma = info.Bits,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaLayout.cs",
+  "filter": "(FullyQualifiedName~SesaLayoutTests|FullyQualifiedName~SesaBuilderTests.EverySection_EqualsTheInMemoryIndex_WithAndWithoutPsi_DefaultAndTiny|FullyQualifiedName~SesaBuilderTests.TheLcpWidths)"
+ }
+]

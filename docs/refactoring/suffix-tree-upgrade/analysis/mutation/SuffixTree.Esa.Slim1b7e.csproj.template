@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Audit harness of work package 1b.7e (outside the shipped code, created by run_1b7e_audit.sh inside the audit worktrees, never committed there): the External tests of SuffixTree.Esa.Tests alone (as in
+    SuffixTree.Esa.Slim.csproj.template, plus the naive suffix array that the tests of PH1 and PH3 use as an oracle), in a project that has the assembly name of the test project so that the internals of SuffixTree.Esa are visible.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>SuffixTree.Esa.Tests</AssemblyName>
+    <RootNamespace>SuffixTree.Esa.Tests</RootNamespace>
+    <LangVersion>latest</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="NUnit" />
+    <PackageReference Include="NUnit3TestAdapter" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="NUnit.Framework" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\SuffixTree.Esa.Tests\External\*.cs" Link="External\%(Filename)%(Extension)" />
+    <Compile Include="..\SuffixTree.Esa.Tests\TestSupport\SplitMix64.cs" Link="TestSupport\SplitMix64.cs" />
+    <Compile Include="..\SuffixTree.Esa.Tests\TestSupport\StringFamilies.cs" Link="TestSupport\StringFamilies.cs" />
+    <Compile Include="..\SuffixTree.Esa.Tests\TestSupport\ExhaustiveStrings.cs" Link="TestSupport\ExhaustiveStrings.cs" />
+    <Compile Include="..\SuffixTree.Esa.Tests\TestSupport\NaiveSuffixArray.cs" Link="TestSupport\NaiveSuffixArray.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\SuffixTree\Algorithms\SuffixTree.Esa\SuffixTree.Esa.csproj" />
+  </ItemGroup>
+
+</Project>

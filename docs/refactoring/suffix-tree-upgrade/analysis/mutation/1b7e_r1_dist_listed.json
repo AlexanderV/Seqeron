@@ -1,0 +1,10 @@
+[
+ {
+  "id": "d_Y02",
+  "desc": "1b7d gap: Scatter: the target is always reserved",
+  "old": "using MappedOutputFile? created = options.Files is null ? null : MappedOutputFile.Create(targetPath, slots * sizeof(TValue), options.Files);",
+  "new": "using MappedOutputFile? created = MappedOutputFile.Create(targetPath, slots * sizeof(TValue), options.Files);",
+  "filter": "FullyQualifiedName~SesaGapTests",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs"
+ }
+]

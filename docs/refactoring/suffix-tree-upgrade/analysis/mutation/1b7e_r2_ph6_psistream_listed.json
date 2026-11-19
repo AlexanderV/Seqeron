@@ -1,0 +1,306 @@
+[
+ {
+  "id": "P02",
+  "desc": "the default is 32 symbols per pass",
+  "old": "internal int SymbolsPerPass { get; init; } = 64;",
+  "new": "internal int SymbolsPerPass { get; init; } = 32;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/PsiStream.cs",
+  "filter": "(FullyQualifiedName~Ph6Tests|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SesaSectionTests.ATextAbove)"
+ },
+ {
+  "id": "P04",
+  "desc": "the default cap is 128 MiB",
+  "old": "internal long WindowCapBytes { get; init; } = 160L << 20;",
+  "new": "internal long WindowCapBytes { get; init; } = 128L << 20;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/PsiStream.cs",
+  "filter": "(FullyQualifiedName~Ph6Tests|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SesaSectionTests.ATextAbove)"
+ },
+ {
+  "id": "P06",
+  "desc": "symbols per pass 0 is accepted",
+  "old": "ThrowIfLessThan(options.SymbolsPerPass, 1);",
+  "new": "ThrowIfLessThan(options.SymbolsPerPass, 0);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/PsiStream.cs",
+  "filter": "(FullyQualifiedName~Ph6Tests|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SesaSectionTests.ATextAbove)"
+ },
+ {
+  "id": "P08",
+  "desc": "a negative n is accepted",
+  "old": "        ArgumentOutOfRangeException.ThrowIfNegative(n);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/PsiStream.cs",
+  "filter": "(FullyQualifiedName~Ph6Tests|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SesaSectionTests.ATextAbove)"
+ },
+ {
+  "id": "P10",
+  "desc": "a primary row of n + 1 is accepted",
+  "old": "if (primaryRow < 0 || primaryRow >= rows) throw",
+  "new": "if (primaryRow < 0 || primaryRow > rows) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/PsiStream.cs",
+  "filter": "(FullyQualifiedName~Ph6Tests|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SesaSectionTests.ATextAbove)"
+ },
+ {
+  "id": "P12",
+  "desc": "the last row is refused as primary",
+  "old": "if (primaryRow < 0 || primaryRow >= rows) throw",
+  "new": "if (primaryRow < 0 || primaryRow >= n) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/PsiStream.cs",
+  "filter": "(FullyQualifiedName~Ph6Tests|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SesaSectionTests.ATextAbove)"
+ },
+ {
+  "id": "P14",
+  "desc": "an alphabet of 257 is accepted",
+  "old": "if (sigma > 256) throw",
+  "new": "if (sigma > 257) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/PsiStream.cs",
+  "filter": "(FullyQualifiedName~Ph6Tests|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SesaSectionTests.ATextAbove)"
+ },
+ {
+  "id": "P16",
+  "desc": "a zero count is refused",
+  "old": "counts.Any(c => c < 0) ||",
+  "new": "counts.Any(c => c <= 0) ||",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/PsiStream.cs",
+  "filter": "(FullyQualifiedName~Ph6Tests|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SesaSectionTests.ATextAbove)"
+ },
+ {
+  "id": "P18",
+  "desc": "a sum below n is accepted",
+  "old": "counts.Sum() != n) throw",
+  "new": "counts.Sum() > n) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/PsiStream.cs",
+  "filter": "(FullyQualifiedName~Ph6Tests|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SesaSectionTests.ATextAbove)"
+ },
+ {
+  "id": "P20",
+  "desc": "the PSI range may end past the file",
+  "old": "if (psiOffset > file.Length - (sizeof(uint) * rows)) throw",
+  "new": "if (psiOffset > file.Length - (sizeof(uint) * n)) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/PsiStream.cs",
+  "filter": "(FullyQualifiedName~Ph6Tests|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SesaSectionTests.ATextAbove)"
+ },
+ {
+  "id": "P22",
+  "desc": "a window of under one entry means no entries",
+  "old": "int entriesPerWindow = Math.Max(1, options.WindowBytes / sizeof(uint));",
+  "new": "int entriesPerWindow = options.WindowBytes / sizeof(uint);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/PsiStream.cs",
+  "filter": "(FullyQualifiedName~Ph6Tests|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SesaSectionTests.ATextAbove)"
+ },
+ {
+  "id": "P24",
+  "desc": "the passes are rounded down",
+  "old": "(sigma + options.SymbolsPerPass - 1) / options.SymbolsPerPass;",
+  "new": "sigma / options.SymbolsPerPass;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/PsiStream.cs",
+  "filter": "(FullyQualifiedName~Ph6Tests|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SesaSectionTests.ATextAbove)"
+ },
+ {
+  "id": "P26",
+  "desc": "the bound is in entries",
+  "old": "long bound = group * (long)entriesPerWindow * sizeof(uint);",
+  "new": "long bound = group * (long)entriesPerWindow;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/PsiStream.cs",
+  "filter": "(FullyQualifiedName~Ph6Tests|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SesaSectionTests.ATextAbove)"
+ },
+ {
+  "id": "P28",
+  "desc": "the shared budget is not charged",
+  "old": "        budget.Reserve(bound, \"psi.windows\");\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/PsiStream.cs",
+  "filter": "(FullyQualifiedName~Ph6Tests|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SesaSectionTests.ATextAbove)"
+ },
+ {
+  "id": "P30",
+  "desc": "a longer BWT file is accepted",
+  "old": "if (bwt.Length != rows) throw",
+  "new": "if (bwt.Length < rows) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/PsiStream.cs",
+  "filter": "(FullyQualifiedName~Ph6Tests|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SesaSectionTests.ATextAbove)"
+ },
+ {
+  "id": "P32",
+  "desc": "the BWT reads are not counted",
+  "old": "new CountedFile(bwtPath, FileMode.Open, FileAccess.Read, options.Counters)",
+  "new": "new CountedFile(bwtPath, FileMode.Open, FileAccess.Read, null)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/PsiStream.cs",
+  "filter": "(FullyQualifiedName~Ph6Tests|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SesaSectionTests.ATextAbove)"
+ },
+ {
+  "id": "P34",
+  "desc": "PSI[0] is not written",
+  "old": "zero.Append(new byte[sizeof(uint)]);",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/PsiStream.cs",
+  "filter": "(FullyQualifiedName~Ph6Tests|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SesaSectionTests.ATextAbove)"
+ },
+ {
+  "id": "P36",
+  "desc": "PSI[0] is written at the second entry",
+  "old": "file.CreateWriter(psiOffset, sizeof(uint), sizeof(uint), options.Counters)",
+  "new": "file.CreateWriter(psiOffset + sizeof(uint), sizeof(uint), sizeof(uint), options.Counters)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/PsiStream.cs",
+  "filter": "(FullyQualifiedName~Ph6Tests|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SesaSectionTests.ATextAbove)"
+ },
+ {
+  "id": "P38",
+  "desc": "the read buffer is zeroed",
+  "old": "readBuf = arena.Allocate<byte>(readLen, zero: false,",
+  "new": "readBuf = arena.Allocate<byte>(readLen, zero: true,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/PsiStream.cs",
+  "filter": "(FullyQualifiedName~Ph6Tests|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SesaSectionTests.ATextAbove)"
+ },
+ {
+  "id": "P40",
+  "desc": "the guards are ignored by the arena",
+  "old": "new BudgetedArena(budget, options.ArenaGuards)",
+  "new": "new BudgetedArena(budget, null)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/PsiStream.cs",
+  "filter": "(FullyQualifiedName~Ph6Tests|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SesaSectionTests.ATextAbove)"
+ },
+ {
+  "id": "P42",
+  "desc": "the last symbol of a pass is off",
+  "old": "int hi = Math.Min(sigma, lo + options.SymbolsPerPass);",
+  "new": "int hi = Math.Min(sigma, lo + options.SymbolsPerPass - 1);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/PsiStream.cs",
+  "filter": "(FullyQualifiedName~Ph6Tests|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SesaSectionTests.ATextAbove)"
+ },
+ {
+  "id": "P44",
+  "desc": "the primary row at a block end is not skipped",
+  "old": "if (skip >= 0 && skip < take)",
+  "new": "if (skip >= 0 && skip < take - 1)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/PsiStream.cs",
+  "filter": "(FullyQualifiedName~Ph6Tests|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SesaSectionTests.ATextAbove)"
+ },
+ {
+  "id": "P46",
+  "desc": "rows after the primary row are numbered from the primary row",
+  "old": "cursors.Scan(b + skip + 1, take - (int)skip - 1, first + skip + 1);",
+  "new": "cursors.Scan(b + skip + 1, take - (int)skip - 1, first + skip);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/PsiStream.cs",
+  "filter": "(FullyQualifiedName~Ph6Tests|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SesaSectionTests.ATextAbove)"
+ },
+ {
+  "id": "P48",
+  "desc": "the counts are not verified at the end of the pass",
+  "old": "                cursors.Finish();\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/PsiStream.cs",
+  "filter": "(FullyQualifiedName~Ph6Tests|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SesaSectionTests.ATextAbove)"
+ },
+ {
+  "id": "P50",
+  "desc": "the BWT bytes read are one pass",
+  "old": "new PsiStats(passes, group, windows, bound, passes * rows, sizeof(uint) * rows)",
+  "new": "new PsiStats(passes, group, windows, bound, rows, sizeof(uint) * rows)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/PsiStream.cs",
+  "filter": "(FullyQualifiedName~Ph6Tests|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SesaSectionTests.ATextAbove)"
+ },
+ {
+  "id": "P52",
+  "desc": "the stats carry the symbols as the group",
+  "old": "new PsiStats(passes, group, windows,",
+  "new": "new PsiStats(passes, sigma, windows,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/PsiStream.cs",
+  "filter": "(FullyQualifiedName~Ph6Tests|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SesaSectionTests.ATextAbove)"
+ },
+ {
+  "id": "P54",
+  "desc": "the first entry of a symbol is off",
+  "old": "_first[s] = _next[s] = start[lo + s];",
+  "new": "_first[s] = _next[s] = start[lo + s] + 1;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/PsiStream.cs",
+  "filter": "(FullyQualifiedName~Ph6Tests|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SesaSectionTests.ATextAbove)"
+ },
+ {
+  "id": "P56",
+  "desc": "the cursor never unregisters as a writer",
+  "old": "            _file.WriterClosed();\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/PsiStream.cs",
+  "filter": "(FullyQualifiedName~Ph6Tests|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SesaSectionTests.ATextAbove)"
+ },
+ {
+  "id": "P58",
+  "desc": "a symbol of the next pass is taken",
+  "old": "if (s >= span) continue;",
+  "new": "if (s > span) continue;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/PsiStream.cs",
+  "filter": "(FullyQualifiedName~Ph6Tests|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SesaSectionTests.ATextAbove)"
+ },
+ {
+  "id": "P60",
+  "desc": "a cursor that stopped short is not noticed in the window",
+  "old": "if (_next[s] != _limit[s] || _cur[s] != _end[s])",
+  "new": "if (_next[s] != _limit[s])",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/PsiStream.cs",
+  "filter": "(FullyQualifiedName~Ph6Tests|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SesaSectionTests.ATextAbove)"
+ },
+ {
+  "id": "P62",
+  "desc": "the views are not released",
+  "old": "            for (int s = 0; s < _views.Length; s++) ReleaseView(s);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/PsiStream.cs",
+  "filter": "(FullyQualifiedName~Ph6Tests|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SesaSectionTests.ATextAbove)"
+ },
+ {
+  "id": "P64",
+  "desc": "the end array is not freed (not observable)",
+  "old": "            NativeMemory.Free(_end);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/PsiStream.cs",
+  "filter": "(FullyQualifiedName~Ph6Tests|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SesaSectionTests.ATextAbove)"
+ },
+ {
+  "id": "P66",
+  "desc": "an excess occurrence at the limit is not refused",
+  "old": "if (remaining <= 0) throw",
+  "new": "if (remaining < 0) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/PsiStream.cs",
+  "filter": "(FullyQualifiedName~Ph6Tests|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SesaSectionTests.ATextAbove)"
+ },
+ {
+  "id": "P68",
+  "desc": "the window starts at the section start",
+  "old": "MemoryMappedViewAccessor view = _file.OpenView(_origin + (_next[s] * sizeof(uint)), bytes);",
+  "new": "MemoryMappedViewAccessor view = _file.OpenView(_next[s] * sizeof(uint), bytes);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/PsiStream.cs",
+  "filter": "(FullyQualifiedName~Ph6Tests|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SesaSectionTests.ATextAbove)"
+ },
+ {
+  "id": "P70",
+  "desc": "the window is not counted as mapped",
+  "old": "            _counters?.AddMappedWrite(bytes);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/PsiStream.cs",
+  "filter": "(FullyQualifiedName~Ph6Tests|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SesaSectionTests.ATextAbove)"
+ },
+ {
+  "id": "P72",
+  "desc": "the windows are not counted",
+  "old": "            Windows++;\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/PsiStream.cs",
+  "filter": "(FullyQualifiedName~Ph6Tests|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SesaSectionTests.ATextAbove)"
+ },
+ {
+  "id": "P74",
+  "desc": "the release does not release the pointer",
+  "old": "            view.SafeMemoryMappedViewHandle.ReleasePointer();\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/PsiStream.cs",
+  "filter": "(FullyQualifiedName~Ph6Tests|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SesaSectionTests.ATextAbove)"
+ },
+ {
+  "id": "P76",
+  "desc": "the released view stays registered",
+  "old": "            _views[s] = null;\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/PsiStream.cs",
+  "filter": "(FullyQualifiedName~Ph6Tests|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SesaSectionTests.ATextAbove)"
+ }
+]

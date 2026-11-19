@@ -145,34 +145,40 @@ public sealed class SesaFailureTests
     }
 
     [Test]
-    public void TheLatePreflight_AfterB2_CountsTheGrowthAndTheSpillBoundOfTheStack()
+    public void TheLatePreflight_AfterB2_CountsTheGrowthAndTheSpillBoundOfTheStack_ExactlyToTheByte()
     {
         using var dir = new TempDir();
         string text = new('a', 2000);
         (string input, string target, string outDir) = Setup(dir, text);
-        var source = new FakeReservationSource { CanPreallocate = true, Free = 1L << 40 };
-        SesaBuildOptions low = SesaRun.Tiny(1) with
+        SesaBuildResult baseline = SesaBuilder.Build(input, target, SesaRun.Tiny(1));
+        File.Delete(target);
+        long need = baseline.GrownBytes + (16L * (baseline.MaxLcp + 1));
+        Assert.That(baseline.GrownBytes, Is.GreaterThan(0), "a^n has an LCP wider than one byte, so the file grows");
+        Assert.That(baseline.MaxLcp, Is.EqualTo(1999));
+        foreach ((long free, bool fits) in new[] { (need - 1, false), (need, true), (need + 1, true) })
         {
-            Files = new MappedFileOptions { Source = source },
-            LcpTrace = name =>
+            var source = new FakeReservationSource { CanPreallocate = true, Free = 1L << 40 };
+            SesaBuildOptions options = SesaRun.Tiny(1) with
             {
-                if (name == "b3") source.Free = 16L * 2000 - 1; // a^n: the stack gets 2,000 entries deep, 16 bytes each
-            },
-        };
-        Exception? e = Run(input, target, low);
-        Assert.That(e, Is.InstanceOf<IOException>(), e?.ToString());
-        Assert.That(e!.Message, Does.Contain("free space"));
-        AssertNothingLeft("late preflight", input, target, outDir, null);
-        source.Free = 1L << 40;
-        SesaBuildOptions ok = SesaRun.Tiny(1) with
-        {
-            Files = new MappedFileOptions { Source = source },
-            LcpTrace = name =>
+                Files = new MappedFileOptions { Source = source },
+                LcpTrace = name =>
+                {
+                    if (name == "b3") source.Free = free; // after B2: the width, the growth and the depth of the stack are known
+                },
+            };
+            Exception? e = Run(input, target, options);
+            if (fits)
             {
-                if (name == "b3") source.Free = (16L * 2000) + 4096 * 100;
-            },
-        };
-        Assert.That(Run(input, target, ok), Is.Null);
+                Assert.That(e, Is.Null, $"free {free} = need {need} + {free - need}: {e}");
+                File.Delete(target);
+            }
+            else
+            {
+                Assert.That(e, Is.InstanceOf<IOException>(), $"free {free}: {e}");
+                Assert.That(e!.Message, Does.Contain("free space"));
+                AssertNothingLeft("late preflight", input, target, outDir, null);
+            }
+        }
     }
 
     [Test]

@@ -1,0 +1,66 @@
+[
+ {
+  "id": "C01",
+  "desc": "polynomial changed",
+  "old": "private const uint Reflected = 0x82F63B78;",
+  "new": "private const uint Reflected = 0x82F63B79;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/Crc32C.cs",
+  "filter": "(FullyQualifiedName~Crc32CTests|FullyQualifiedName~SesaFormatTests)"
+ },
+ {
+  "id": "C03",
+  "desc": "dispatch swapped (both paths give the same value)",
+  "old": "HardwareAccelerated ? Hardware(crc, data, length) : Table(crc, data, length);",
+  "new": "HardwareAccelerated ? Table(crc, data, length) : Hardware(crc, data, length);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/Crc32C.cs",
+  "filter": "(FullyQualifiedName~Crc32CTests|FullyQualifiedName~SesaFormatTests)"
+ },
+ {
+  "id": "C05",
+  "desc": "slice 7 reads table 6",
+  "old": "c = t[(7 * 256) + (lo & 0xFF)]",
+  "new": "c = t[(6 * 256) + (lo & 0xFF)]",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/Crc32C.cs",
+  "filter": "(FullyQualifiedName~Crc32CTests|FullyQualifiedName~SesaFormatTests)"
+ },
+ {
+  "id": "C07",
+  "desc": "tail shifts by 7",
+  "old": "for (; at < length; at++) c = t[(c ^ data[at]) & 0xFF] ^ (c >> 8);",
+  "new": "for (; at < length; at++) c = t[(c ^ data[at]) & 0xFF] ^ (c >> 7);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/Crc32C.cs",
+  "filter": "(FullyQualifiedName~Crc32CTests|FullyQualifiedName~SesaFormatTests)"
+ },
+ {
+  "id": "C09",
+  "desc": "hardware unrolled read at +15",
+  "old": "Sse42.X64.Crc32(c64, BinaryPrimitives.ReadUInt64LittleEndian(new ReadOnlySpan<byte>(data + at + 16, 8)))",
+  "new": "Sse42.X64.Crc32(c64, BinaryPrimitives.ReadUInt64LittleEndian(new ReadOnlySpan<byte>(data + at + 15, 8)))",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/Crc32C.cs",
+  "filter": "(FullyQualifiedName~Crc32CTests|FullyQualifiedName~SesaFormatTests)"
+ },
+ {
+  "id": "C11",
+  "desc": "hardware tail reads byte 0",
+  "old": "for (; at < length; at++) c = Sse42.Crc32(c, data[at]);",
+  "new": "for (; at < length; at++) c = Sse42.Crc32(c, data[0]);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/Crc32C.cs",
+  "filter": "(FullyQualifiedName~Crc32CTests|FullyQualifiedName~SesaFormatTests)"
+ },
+ {
+  "id": "C13",
+  "desc": "table path returns the value uncomplemented",
+  "old": "return ~c;\n    }\n\n    private static uint Hardware",
+  "new": "return c;\n    }\n\n    private static uint Hardware",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/Crc32C.cs",
+  "filter": "(FullyQualifiedName~Crc32CTests|FullyQualifiedName~SesaFormatTests)"
+ },
+ {
+  "id": "C15",
+  "desc": "the hardware path no longer refuses without the CPU",
+  "old": "if (!HardwareAccelerated) throw new PlatformNotSupportedException(\"this CPU has no CRC-32C instruction\");",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/Crc32C.cs",
+  "filter": "(FullyQualifiedName~Crc32CTests|FullyQualifiedName~SesaFormatTests)"
+ }
+]

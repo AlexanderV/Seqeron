@@ -1,0 +1,10 @@
+[
+ {
+  "id": "d_H08",
+  "desc": "1b7d gap: Run: the scratch root is not removed",
+  "old": "if (createdRoot) DeleteEmptyDirectoryQuietly(dir);",
+  "new": "",
+  "filter": "FullyQualifiedName~SesaGapTests",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs"
+ }
+]

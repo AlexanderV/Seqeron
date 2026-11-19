@@ -1,0 +1,202 @@
+[
+ {
+  "id": "K02",
+  "desc": "a negative child offset is accepted",
+  "old": "        ArgumentOutOfRangeException.ThrowIfNegative(childOffset);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SectionLcpChildBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption)"
+ },
+ {
+  "id": "K04",
+  "desc": "a negative PH5 cap is accepted",
+  "old": "        ArgumentOutOfRangeException.ThrowIfNegative(options.ChildArenaCapBytes);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SectionLcpChildBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption)"
+ },
+ {
+  "id": "K06",
+  "desc": "a text at the position limit is refused",
+  "old": "if (n > PackedTextFormat.MaxSymbols) throw",
+  "new": "if (n >= PackedTextFormat.MaxSymbols) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SectionLcpChildBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption)"
+ },
+ {
+  "id": "K08",
+  "desc": "a child range that ends at the end of the file is refused",
+  "old": "if (childOffset > file.Length - (4 * (n + 1))) throw",
+  "new": "if (childOffset >= file.Length - (4 * (n + 1))) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SectionLcpChildBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption)"
+ },
+ {
+  "id": "K10",
+  "desc": "the scratch root is always removed when empty",
+  "old": "bool createdRoot = !Directory.Exists(scratch);",
+  "new": "bool createdRoot = true;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SectionLcpChildBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption)"
+ },
+ {
+  "id": "K12",
+  "desc": "ph4 is left",
+  "old": "            DeleteDirectoryQuietly(ph4);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SectionLcpChildBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption)"
+ },
+ {
+  "id": "K14",
+  "desc": "the sampler is not started",
+  "old": "            sampler?.Start();\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SectionLcpChildBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption)"
+ },
+ {
+  "id": "K16",
+  "desc": "PH4 gets another chunk",
+  "old": "ChunkPositions = p.LcpChunk,",
+  "new": "ChunkPositions = p.LcpChunk + 1,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SectionLcpChildBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption)"
+ },
+ {
+  "id": "K18",
+  "desc": "PH4 gets one worker",
+  "old": "Workers = p.LcpWorkers,",
+  "new": "Workers = 1,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SectionLcpChildBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption)"
+ },
+ {
+  "id": "K20",
+  "desc": "PH4 gets another tuple buffer",
+  "old": "TupleBufferBytes = p.LcpTupleBytes,",
+  "new": "TupleBufferBytes = p.LcpTupleBytes * 2,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SectionLcpChildBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption)"
+ },
+ {
+  "id": "K22",
+  "desc": "PH4 gets no budget",
+  "old": "Budget = lcpBudget,",
+  "new": "Budget = null,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SectionLcpChildBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption)"
+ },
+ {
+  "id": "K24",
+  "desc": "PH4 is not counted",
+  "old": "Counters = counters,\n                Files = options.Files,\n                Trace",
+  "new": "Counters = null,\n                Files = options.Files,\n                Trace",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SectionLcpChildBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption)"
+ },
+ {
+  "id": "K26",
+  "desc": "PH4 gets no trace",
+  "old": "Trace = options.Trace,",
+  "new": "Trace = null,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SectionLcpChildBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption)"
+ },
+ {
+  "id": "K28",
+  "desc": "PH4 gets no placer",
+  "old": "Place = place,",
+  "new": "Place = null,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SectionLcpChildBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption)"
+ },
+ {
+  "id": "K30",
+  "desc": "PH5 gets another block size",
+  "old": "BlockEntries = p.BlockEntries,",
+  "new": "BlockEntries = p.BlockEntries + 1,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SectionLcpChildBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption)"
+ },
+ {
+  "id": "K32",
+  "desc": "PH5 gets one slot",
+  "old": "WindowSlots = p.ChildSlots,",
+  "new": "WindowSlots = 1,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SectionLcpChildBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption)"
+ },
+ {
+  "id": "K34",
+  "desc": "PH5 gets another spill flush size",
+  "old": "SpillFlushBytes = p.SpillFlushBytes,",
+  "new": "SpillFlushBytes = p.SpillFlushBytes * 2,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SectionLcpChildBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption)"
+ },
+ {
+  "id": "K36",
+  "desc": "PH5 gets no budget",
+  "old": "Budget = childBudget,",
+  "new": "Budget = null,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SectionLcpChildBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption)"
+ },
+ {
+  "id": "K38",
+  "desc": "PH5 is not counted",
+  "old": "Counters = counters,\n            };",
+  "new": "Counters = null,\n            };",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SectionLcpChildBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption)"
+ },
+ {
+  "id": "K40",
+  "desc": "a scan that never started is an NRE, not an invalid operation",
+  "old": "(_scan ?? throw new InvalidOperationException(\"PH4 delivered no LCP block\")).Complete()",
+  "new": "_scan!.Complete()",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SectionLcpChildBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption)"
+ },
+ {
+  "id": "K42",
+  "desc": "the figure is in the wrong unit",
+  "old": "rss.MaxRssAnonKb * 1024.0 / 1e6",
+  "new": "rss.MaxRssAnonKb * 1024.0 / 1e9",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SectionLcpChildBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption)"
+ },
+ {
+  "id": "K44",
+  "desc": "the verdict is swapped",
+  "old": "? RssVerdict.Within : RssVerdict.Exceeded;",
+  "new": "? RssVerdict.Exceeded : RssVerdict.Within;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SectionLcpChildBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption)"
+ },
+ {
+  "id": "K46",
+  "desc": "the seconds are not measured",
+  "old": "double seconds = (Stopwatch.GetTimestamp() - t0) / (double)Stopwatch.Frequency;",
+  "new": "double seconds = 0;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SectionLcpChildBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption)"
+ },
+ {
+  "id": "K48",
+  "desc": "the scratch root is not removed when empty",
+  "old": "if (Directory.Exists(path) && !Directory.EnumerateFileSystemEntries(path).Any()) Directory.Delete(path);",
+  "new": "if (Directory.Exists(path) && Directory.EnumerateFileSystemEntries(path).Any()) Directory.Delete(path);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SectionLcpChildBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption)"
+ },
+ {
+  "id": "K50",
+  "desc": "the parameters are not reported",
+  "old": "Parameters = p,",
+  "new": "Parameters = default!,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SectionLcpChildBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption)"
+ }
+]

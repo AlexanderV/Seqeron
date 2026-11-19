@@ -1,0 +1,202 @@
+[
+ {
+  "id": "K01",
+  "desc": "a negative SA offset is accepted",
+  "old": "        ArgumentOutOfRangeException.ThrowIfNegative(saOffset);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SectionLcpChildBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption)"
+ },
+ {
+  "id": "K03",
+  "desc": "a negative PH4 cap is accepted",
+  "old": "        ArgumentOutOfRangeException.ThrowIfNegative(options.ArenaCapBytes);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SectionLcpChildBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption)"
+ },
+ {
+  "id": "K05",
+  "desc": "the tagged codec is accepted",
+  "old": "if (options.Codec != ChildCodec.Packed) throw",
+  "new": "if (false) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SectionLcpChildBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption)"
+ },
+ {
+  "id": "K07",
+  "desc": "the child range may end past the file",
+  "old": "if (childOffset > file.Length - (4 * (n + 1))) throw",
+  "new": "if (childOffset > file.Length - (4 * n)) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SectionLcpChildBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption)"
+ },
+ {
+  "id": "K09",
+  "desc": "the child range is not checked",
+  "old": "if (childOffset > file.Length - (4 * (n + 1))) throw",
+  "new": "if (false) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SectionLcpChildBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption)"
+ },
+ {
+  "id": "K11",
+  "desc": "the scratch root is never removed",
+  "old": "            if (createdRoot) DeleteEmptyDirectoryQuietly(scratch);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SectionLcpChildBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption)"
+ },
+ {
+  "id": "K13",
+  "desc": "ph5 is left",
+  "old": "            DeleteDirectoryQuietly(ph5);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SectionLcpChildBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption)"
+ },
+ {
+  "id": "K15",
+  "desc": "PH4 uses the scratch of PH5",
+  "old": "ScratchDir = ph4,",
+  "new": "ScratchDir = ph5,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SectionLcpChildBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption)"
+ },
+ {
+  "id": "K17",
+  "desc": "PH4 gets one thread",
+  "old": "Threads = options.Threads,\n                Workers = p.LcpWorkers,",
+  "new": "Threads = 1,\n                Workers = p.LcpWorkers,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SectionLcpChildBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption)"
+ },
+ {
+  "id": "K19",
+  "desc": "PH4 gets another read buffer",
+  "old": "ReadBufferBytes = p.LcpReadBytes,",
+  "new": "ReadBufferBytes = p.LcpReadBytes * 2,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SectionLcpChildBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption)"
+ },
+ {
+  "id": "K21",
+  "desc": "PH4 gets the window of PH5",
+  "old": "WindowBytes = p.WindowBytes,",
+  "new": "WindowBytes = p.ChildWindowBytes,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SectionLcpChildBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption)"
+ },
+ {
+  "id": "K23",
+  "desc": "PH4 gets no guards",
+  "old": "ArenaGuards = options.ArenaGuards,\n                Counters = counters,\n                Files = options.Files,\n                Trace",
+  "new": "ArenaGuards = null,\n                Counters = counters,\n                Files = options.Files,\n                Trace",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SectionLcpChildBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption)"
+ },
+ {
+  "id": "K25",
+  "desc": "PH4 gets no file options",
+  "old": "Files = options.Files,\n                Trace = options.Trace,",
+  "new": "Files = null,\n                Trace = options.Trace,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SectionLcpChildBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption)"
+ },
+ {
+  "id": "K27",
+  "desc": "PH4 reads the SA from offset 0",
+  "old": "SaOffset = saOffset,",
+  "new": "SaOffset = 0,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SectionLcpChildBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption)"
+ },
+ {
+  "id": "K29",
+  "desc": "PH5 gets another scratch",
+  "old": "ScratchDir = ph5,",
+  "new": "ScratchDir = ph4,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SectionLcpChildBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption)"
+ },
+ {
+  "id": "K31",
+  "desc": "PH5 gets the window of PH4",
+  "old": "WindowBytes = p.ChildWindowBytes,",
+  "new": "WindowBytes = p.WindowBytes,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SectionLcpChildBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption)"
+ },
+ {
+  "id": "K33",
+  "desc": "PH5 does not flush windows",
+  "old": "FlushWindows = true,",
+  "new": "FlushWindows = false,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SectionLcpChildBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption)"
+ },
+ {
+  "id": "K35",
+  "desc": "PH5 gets the default codec (tagged cannot be passed)",
+  "old": "Codec = options.Codec,",
+  "new": "Codec = ChildCodec.Packed,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SectionLcpChildBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption)"
+ },
+ {
+  "id": "K37",
+  "desc": "PH5 gets no guards",
+  "old": "ArenaGuards = options.ArenaGuards,\n                Counters = counters,\n            };",
+  "new": "ArenaGuards = null,\n                Counters = counters,\n            };",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SectionLcpChildBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption)"
+ },
+ {
+  "id": "K39",
+  "desc": "the scan is created for every block",
+  "old": "_scan ??= ChildScan.Create(n, file, start, options);",
+  "new": "_scan = ChildScan.Create(n, file, start, options);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SectionLcpChildBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption)"
+ },
+ {
+  "id": "K41",
+  "desc": "the scan is not disposed",
+  "old": "public void Dispose() => _scan?.Dispose();",
+  "new": "public void Dispose() { }",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SectionLcpChildBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption)"
+ },
+ {
+  "id": "K43",
+  "desc": "the verdict is strict",
+  "old": "verdict = mb <= options.RssAnonCapMb ?",
+  "new": "verdict = mb < options.RssAnonCapMb ?",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SectionLcpChildBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption)"
+ },
+ {
+  "id": "K45",
+  "desc": "the arena peaks are swapped",
+  "old": "ArenaPeakBytes = lcpBudget.PeakBytes,\n                ChildArenaPeakBytes = childBudget.PeakBytes,",
+  "new": "ArenaPeakBytes = childBudget.PeakBytes,\n                ChildArenaPeakBytes = lcpBudget.PeakBytes,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SectionLcpChildBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption)"
+ },
+ {
+  "id": "K47",
+  "desc": "the reservation outcome is not reported",
+  "old": "Reservation = lcp.Reservation,",
+  "new": "Reservation = default,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SectionLcpChildBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption)"
+ },
+ {
+  "id": "K49",
+  "desc": "the sub-directories are deleted non-recursively",
+  "old": "if (Directory.Exists(path)) Directory.Delete(path, true);",
+  "new": "if (Directory.Exists(path)) Directory.Delete(path, false);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SectionLcpChildBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption)"
+ }
+]

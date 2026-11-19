@@ -1,0 +1,74 @@
+[
+ {
+  "id": "A01",
+  "desc": "a null file is an NRE",
+  "old": "        ArgumentNullException.ThrowIfNull(file);\n        ArgumentNullException.ThrowIfNull(options);\n        return BuildCore(text, null, file",
+  "new": "        ArgumentNullException.ThrowIfNull(options);\n        return BuildCore(text, null, file",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests.SaBuilder|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SaBuilderTests)"
+ },
+ {
+  "id": "A03",
+  "desc": "a null option set is an NRE",
+  "old": "        ArgumentNullException.ThrowIfNull(file);\n        ArgumentNullException.ThrowIfNull(options);\n        return BuildCore",
+  "new": "        ArgumentNullException.ThrowIfNull(file);\n        return BuildCore",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests.SaBuilder|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SaBuilderTests)"
+ },
+ {
+  "id": "A05",
+  "desc": "a negative section offset is accepted",
+  "old": "            ArgumentOutOfRangeException.ThrowIfNegative(saOffset);\n            if (saOffset > section.Length",
+  "new": "            if (saOffset > section.Length",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests.SaBuilder|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SaBuilderTests)"
+ },
+ {
+  "id": "A07",
+  "desc": "a section range that ends at the end is refused",
+  "old": "if (saOffset > section.Length - (4 * (n + 1))) throw",
+  "new": "if (saOffset >= section.Length - (4 * (n + 1))) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests.SaBuilder|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SaBuilderTests)"
+ },
+ {
+  "id": "A09",
+  "desc": "the file choice is the other way round (same in both modes)",
+  "old": "MappedOutputFile saFile = section ?? owned!;",
+  "new": "MappedOutputFile saFile = owned ?? section!;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests.SaBuilder|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SaBuilderTests)"
+ },
+ {
+  "id": "A11",
+  "desc": "the section sink is one entry short",
+  "old": "new MappedSaSectionSink(saFile, saOffset, 4 * (n + 1),",
+  "new": "new MappedSaSectionSink(saFile, saOffset, 4 * n,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests.SaBuilder|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SaBuilderTests)"
+ },
+ {
+  "id": "A13",
+  "desc": "the section sink is not counted",
+  "old": "saOffset, 4 * (n + 1), p.WindowBytes, counters)",
+  "new": "saOffset, 4 * (n + 1), p.WindowBytes, null)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests.SaBuilder|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SaBuilderTests)"
+ },
+ {
+  "id": "A15",
+  "desc": "the path mode does not complete the file",
+  "old": "if (section is null)\n            {\n                saFile.Complete(options.SyncOutput);",
+  "new": "if (section is not null)\n            {\n                saFile.Complete(options.SyncOutput);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests.SaBuilder|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SaBuilderTests)"
+ },
+ {
+  "id": "d_Q76",
+  "desc": "1b7d gap: Build: PH1 arena guards",
+  "old": "ArenaGuards = options.ArenaGuards,\n                Counters = counters,\n                Files",
+  "new": "Counters = counters,\n                Files",
+  "filter": "FullyQualifiedName~SesaGapTests",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs"
+ }
+]

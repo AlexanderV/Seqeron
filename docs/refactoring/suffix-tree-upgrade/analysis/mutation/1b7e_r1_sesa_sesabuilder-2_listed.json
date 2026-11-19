@@ -1,0 +1,482 @@
+[
+ {
+  "id": "B141",
+  "desc": "optional sections are required",
+  "old": "const int optional = SesaFormat.FlagHasCrc;",
+  "new": "const int optional = SesaFormat.FlagHasCrc | SesaFormat.FlagRequired;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B143",
+  "desc": "TEXT forgets the bits in PARAM0",
+  "old": "PackedTextFormat.CodecId, info.Bits, 0, crcs[i])",
+  "new": "PackedTextFormat.CodecId, 0, 0, crcs[i])",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B145",
+  "desc": "ALPHABET has the wrong element width",
+  "old": "KindAlphabet => new SesaSection(kind, required, offset, length, info.Sigma, 2, 1,",
+  "new": "KindAlphabet => new SesaSection(kind, required, offset, length, info.Sigma, 1, 1,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B147",
+  "desc": "ALPHABET has another codec",
+  "old": "info.Sigma, 2, 1, 0, 0, crcs[i])",
+  "new": "info.Sigma, 2, 0, 0, 0, crcs[i])",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B149",
+  "desc": "COUNTS is required",
+  "old": "KindCounts => new SesaSection(kind, optional,",
+  "new": "KindCounts => new SesaSection(kind, required,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B151",
+  "desc": "SA counts n entries",
+  "old": "KindSa => new SesaSection(kind, required, offset, length, rows,",
+  "new": "KindSa => new SesaSection(kind, required, offset, length, plan.N,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B153",
+  "desc": "CHILD is optional",
+  "old": "KindChild => new SesaSection(kind, required,",
+  "new": "KindChild => new SesaSection(kind, optional,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B155",
+  "desc": "PSI is required",
+  "old": "KindPsi => new SesaSection(kind, optional,",
+  "new": "KindPsi => new SesaSection(kind, required,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B157",
+  "desc": "PSI counts n entries",
+  "old": "KindPsi => new SesaSection(kind, optional, offset, length, rows,",
+  "new": "KindPsi => new SesaSection(kind, optional, offset, length, plan.N,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B159",
+  "desc": "BUILD_INFO has an element width",
+  "old": "buildInfo.Count(c => c == '\\n'), 0, 1, 0, 0, crcs[i])",
+  "new": "buildInfo.Count(c => c == '\\n'), 1, 1, 0, 0, crcs[i])",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B161",
+  "desc": "LCP U8 has codec 2",
+  "old": "LcpKind.U8 => 1, LcpKind.U16 => 2, _ => 3 }",
+  "new": "LcpKind.U8 => 2, LcpKind.U16 => 2, _ => 3 }",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B163",
+  "desc": "LCP U32 has codec 2",
+  "old": "LcpKind.U8 => 1, LcpKind.U16 => 2, _ => 3 }",
+  "new": "LcpKind.U8 => 1, LcpKind.U16 => 2, _ => 2 }",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B165",
+  "desc": "LCP is optional",
+  "old": "KindLcp => new SesaSection(kind, required,",
+  "new": "KindLcp => new SesaSection(kind, optional,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B167",
+  "desc": "overflow has the wrong element width",
+  "old": "tail.OverflowCount, 8, 1, 0, 0, crcs[i])",
+  "new": "tail.OverflowCount, 4, 1, 0, 0, crcs[i])",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B169",
+  "desc": "the discarded info length matters (it does not)",
+  "old": "        _ = infoLength;\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B171",
+  "desc": "the header holds the text length plus one",
+  "old": "TextLength = n,",
+  "new": "TextLength = n + 1,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B173",
+  "desc": "the header holds the max LCP as depth",
+  "old": "LrsDepth = lcp.Scan.LrsDepth,\n                LrsRank = lcp.Scan",
+  "new": "LrsDepth = lcp.Scan.MaxLcp,\n                LrsRank = lcp.Scan",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B175",
+  "desc": "the header rank is always -1",
+  "old": "LrsRank = lcp.Scan.LrsDepth == 0 ? -1 : lcp.Scan.LrsRank,",
+  "new": "LrsRank = -1,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B177",
+  "desc": "the header position width is 8",
+  "old": "PosWidth = 4,",
+  "new": "PosWidth = 8,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B179",
+  "desc": "the header hash is zero",
+  "old": "TextSha256 = Convert.FromHexString(info.Sha256),",
+  "new": "TextSha256 = new byte[32],",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B181",
+  "desc": "the header page goes to the wrong place",
+  "old": "file.WriteAt(page, 0);",
+  "new": "file.WriteAt(page, 64);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B183",
+  "desc": "the second sync is skipped",
+  "old": "                if (options.Fsync) file.Flush();\n                Hook(SesaHooks.MagicWritten);",
+  "new": "                Hook(SesaHooks.MagicWritten);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B185",
+  "desc": "the magic is written at the wrong place",
+  "old": "file.WriteAt(SesaFormat.Magic, 0);",
+  "new": "file.WriteAt(SesaFormat.Magic, 8);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B187",
+  "desc": "the published flag is not set",
+  "old": "            published = true;\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B189",
+  "desc": "a published target is deleted by the cleanup",
+  "old": "if (!published) DeleteQuietly(tmp);",
+  "new": "DeleteQuietly(tmp);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B191",
+  "desc": "a failed build keeps its scratch",
+  "old": "            DeleteDirectoryQuietly(scratch);\n        }\n    }\n\n    /// <summary>Bytes per character",
+  "new": "        }\n    }\n\n    /// <summary>Bytes per character",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B193",
+  "desc": "a failed build keeps the text open",
+  "old": "            text?.Dispose();\n            container?.Dispose();",
+  "new": "            container?.Dispose();",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B195",
+  "desc": "the verdict is swapped",
+  "old": "verdict = mb <= options.RssAnonCapMb ? RssVerdict.Within : RssVerdict.Exceeded;\n            return new SesaBuildResult",
+  "new": "verdict = mb <= options.RssAnonCapMb ? RssVerdict.Exceeded : RssVerdict.Within;\n            return new SesaBuildResult",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B197",
+  "desc": "the figure is the peak of RSS pages (unit KiB as MB)",
+  "old": "double? anonMb = all.Available ? all.MaxRssAnonKb * 1024.0 / 1e6 : null;",
+  "new": "double? anonMb = all.Available ? all.MaxRssAnonKb / 1e3 : null;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B199",
+  "desc": "the per-phase figure is in the wrong unit",
+  "old": "return stats.Available ? stats.MaxRssAnonKb * 1024.0 / 1e6 : null;",
+  "new": "return stats.Available ? stats.MaxRssAnonKb * 1024.0 / 1e9 : null;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B201",
+  "desc": "the phase sampler is not started",
+  "old": "            _sampler.Start();\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B203",
+  "desc": "the whole sampler reads the real /proc",
+  "old": "using var whole = options.MeasureRss ? new RssSampler(new RssReader(options.ProcSource), 10) : null;",
+  "new": "using var whole = options.MeasureRss ? new RssSampler(new RssReader(null), 10) : null;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B205",
+  "desc": "the seconds are not scaled",
+  "old": "private static double Elapsed(long t0) => (Stopwatch.GetTimestamp() - t0) / (double)Stopwatch.Frequency;",
+  "new": "private static double Elapsed(long t0) => Stopwatch.GetTimestamp() - t0;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B207",
+  "desc": "the primary row of the result without PSI",
+  "old": "PrimaryRow = bwt?.PrimaryRow ?? -1,",
+  "new": "PrimaryRow = bwt?.PrimaryRow ?? 0,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B209",
+  "desc": "arena peak is the minimum",
+  "old": "ArenaPeakBytes = Math.Max(Math.Max(sa.Ph1ArenaPeakBytes, sa.Ph23ArenaPeakBytes), Math.Max(lcp.ArenaPeakBytes + lcp.ChildArenaPeakBytes, psi?.MappedBoundBytes ?? 0)),",
+  "new": "ArenaPeakBytes = Math.Min(Math.Min(sa.Ph1ArenaPeakBytes, sa.Ph23ArenaPeakBytes), Math.Min(lcp.ArenaPeakBytes + lcp.ChildArenaPeakBytes, psi?.MappedBoundBytes ?? 0)),",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B211",
+  "desc": "arena peak forgets PH6",
+  "old": "Math.Max(lcp.ArenaPeakBytes + lcp.ChildArenaPeakBytes, psi?.MappedBoundBytes ?? 0)",
+  "new": "Math.Max(lcp.ArenaPeakBytes + lcp.ChildArenaPeakBytes, 0)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B213",
+  "desc": "arena peak forgets PH2-3",
+  "old": "Math.Max(sa.Ph1ArenaPeakBytes, sa.Ph23ArenaPeakBytes)",
+  "new": "Math.Max(sa.Ph1ArenaPeakBytes, 0)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B215",
+  "desc": "no scratch peak",
+  "old": "ScratchPeakBytes = counters.ScratchPeakBytes,",
+  "new": "ScratchPeakBytes = 0,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B217",
+  "desc": "the growth outcome is not reported",
+  "old": "GrowthReservation = growth,",
+  "new": "GrowthReservation = null,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B219",
+  "desc": "the crc rows are not reported",
+  "old": "CrcRows = sums.Select(s => s.Row).ToArray(),",
+  "new": "CrcRows = [],",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B221",
+  "desc": "the PH6 figure is not reported",
+  "old": "Ph6 = rssPh6, Seal = rssSeal",
+  "new": "Ph6 = null, Seal = rssSeal",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B223",
+  "desc": "the PH0 figure is not reported",
+  "old": "Ph0 = rssPh0,",
+  "new": "Ph0 = null,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B225",
+  "desc": "the PSI seconds are not reported",
+  "old": "Psi = secPsi,",
+  "new": "Psi = 0,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B227",
+  "desc": "the seal seconds are not reported",
+  "old": "Seal = secSeal,",
+  "new": "Seal = 0,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B229",
+  "desc": "the pack seconds are not reported",
+  "old": "Pack = secPack,",
+  "new": "Pack = 0,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B231",
+  "desc": "the total seconds are not reported",
+  "old": "Total = Elapsed(tStart),",
+  "new": "Total = 0,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B233",
+  "desc": "the PH4-5 seconds are not reported",
+  "old": "Ph45 = lcp.Seconds,",
+  "new": "Ph45 = 0,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B235",
+  "desc": "the PH2-3 seconds are not reported",
+  "old": "Ph23 = sa.Ph23Seconds,",
+  "new": "Ph23 = 0,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B237",
+  "desc": "BUILD_INFO names layout F",
+  "old": "child=layout A, packed",
+  "new": "child=layout F, packed",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B239",
+  "desc": "BUILD_INFO has a build time",
+  "old": "format=SESA 1.0\\n",
+  "new": "format=SESA 1.0\\ntime={DateTime.UtcNow:o}\\n",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B241",
+  "desc": "BUILD_INFO is culture dependent",
+  "old": "string.Create(CultureInfo.InvariantCulture,",
+  "new": "string.Create(CultureInfo.CurrentCulture,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B243",
+  "desc": "BUILD_INFO has the wrong sigma",
+  "old": "\\nsigma={info.Sigma}\\n",
+  "new": "\\nsigma={info.Bits}\\n",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B245",
+  "desc": "the little-endian check is dropped (equivalent on this host)",
+  "old": "if (!BitConverter.IsLittleEndian) throw new PlatformNotSupportedException(\"the file layouts are little endian\");",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B247",
+  "desc": "the 16 B spill constant",
+  "old": "internal const int SpillBytesPerEntry = 16;",
+  "new": "internal const int SpillBytesPerEntry = 15;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B249",
+  "desc": "Fsync defaults to false",
+  "old": "internal bool Fsync { get; init; } = true;",
+  "new": "internal bool Fsync { get; init; } = false;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B251",
+  "desc": "the RssAnon cap defaults to 330",
+  "old": "internal double RssAnonCapMb { get; init; } = 320;",
+  "new": "internal double RssAnonCapMb { get; init; } = 330;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B253",
+  "desc": "the PH5 cap defaults to 128 MiB",
+  "old": "internal long ChildArenaCapBytes { get; init; } = 64L << 20;",
+  "new": "internal long ChildArenaCapBytes { get; init; } = 128L << 20;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B255",
+  "desc": "the text window defaults to 64 KiB",
+  "old": "internal int TextWindowBytes { get; init; } = MappedWindowWriter.DefaultWindowBytes;",
+  "new": "internal int TextWindowBytes { get; init; } = 1 << 16;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B257",
+  "desc": "PSI default window of PH6 is smaller",
+  "old": "int window = tune.WindowBytes ?? MappedWindowWriter.DefaultWindowBytes;",
+  "new": "int window = tune.WindowBytes ?? (1 << 16);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B259",
+  "desc": "PSI default symbols per pass 16",
+  "old": "SymbolsPerPass = tune.SymbolsPerPass ?? 64,",
+  "new": "SymbolsPerPass = tune.SymbolsPerPass ?? 16,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ }
+]

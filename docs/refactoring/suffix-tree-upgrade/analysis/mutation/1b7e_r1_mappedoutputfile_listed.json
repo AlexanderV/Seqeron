@@ -1,0 +1,98 @@
+[
+ {
+  "id": "G01",
+  "desc": "Grow on a disposed file does not refuse",
+  "old": "        ObjectDisposedException.ThrowIf(_disposed, this);\n        ArgumentOutOfRangeException.ThrowIfLessThan(newLength, Length);",
+  "new": "        ArgumentOutOfRangeException.ThrowIfLessThan(newLength, Length);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests.Grow|FullyQualifiedName~MappedOutputFileTests)"
+ },
+ {
+  "id": "G03",
+  "desc": "Grow refuses to stay",
+  "old": "ArgumentOutOfRangeException.ThrowIfLessThan(newLength, Length);",
+  "new": "ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(newLength, Length);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests.Grow|FullyQualifiedName~MappedOutputFileTests)"
+ },
+ {
+  "id": "G05",
+  "desc": "no growth reports a check",
+  "old": "if (newLength == Length) return ReservationOutcome.Sparse;",
+  "new": "if (newLength == Length) return ReservationOutcome.Unchecked;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests.Grow|FullyQualifiedName~MappedOutputFileTests)"
+ },
+ {
+  "id": "G07",
+  "desc": "one open writer is tolerated",
+  "old": "if (open != 0) throw new InvalidOperationException($\"{open} writer(s) of {Path} are still open: dispose every writer before growing",
+  "new": "if (open > 1) throw new InvalidOperationException($\"{open} writer(s) of {Path} are still open: dispose every writer before growing",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests.Grow|FullyQualifiedName~MappedOutputFileTests)"
+ },
+ {
+  "id": "G09",
+  "desc": "the pre-flight refuses at equality",
+  "old": "if (free >= 0 && free < growth) throw",
+  "new": "if (free >= 0 && free <= growth) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests.Grow|FullyQualifiedName~MappedOutputFileTests)"
+ },
+ {
+  "id": "G11",
+  "desc": "the pre-flight is skipped",
+  "old": "if (free >= 0 && free < growth) throw",
+  "new": "if (false) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests.Grow|FullyQualifiedName~MappedOutputFileTests)"
+ },
+ {
+  "id": "G13",
+  "desc": "the file grows by one byte too much",
+  "old": "stream.SetLength(newLength);",
+  "new": "stream.SetLength(newLength + 1);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests.Grow|FullyQualifiedName~MappedOutputFileTests)"
+ },
+ {
+  "id": "G15",
+  "desc": "the stream refuses to share",
+  "old": "using (var stream = new FileStream(Path, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite)) stream.SetLength(newLength);",
+  "new": "using (var stream = new FileStream(Path, FileMode.Open, FileAccess.ReadWrite, FileShare.None)) stream.SetLength(newLength);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests.Grow|FullyQualifiedName~MappedOutputFileTests)"
+ },
+ {
+  "id": "G17",
+  "desc": "the old mapping is kept",
+  "old": "            _map?.Dispose();\n            _map = map;",
+  "new": "            _map = map;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests.Grow|FullyQualifiedName~MappedOutputFileTests)"
+ },
+ {
+  "id": "G19",
+  "desc": "the length is not updated",
+  "old": "            Length = newLength;\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests.Grow|FullyQualifiedName~MappedOutputFileTests)"
+ },
+ {
+  "id": "G21",
+  "desc": "the outcome is never checked",
+  "old": "return free >= 0 ? ReservationOutcome.FreeSpaceChecked : ReservationOutcome.Unchecked;\n    }\n\n    /// <summary>A writer for the bytes",
+  "new": "return ReservationOutcome.Unchecked;\n    }\n\n    /// <summary>A writer for the bytes",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests.Grow|FullyQualifiedName~MappedOutputFileTests)"
+ },
+ {
+  "id": "G23",
+  "desc": "the lock is dropped (single threaded use)",
+  "old": "        lock (_gate)\n        {\n            using (var stream",
+  "new": "        if (true)\n        {\n            using (var stream",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests.Grow|FullyQualifiedName~MappedOutputFileTests)"
+ }
+]

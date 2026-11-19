@@ -1,0 +1,42 @@
+[
+ {
+  "id": "S01",
+  "desc": "views skip a byte",
+  "old": "for (long done = 0; done < length; done += viewBytes)",
+  "new": "for (long done = 0; done < length; done += viewBytes + 1)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaChecksums.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests.TheChecksumPass|FullyQualifiedName~SesaBuilderTests.TheResult|FullyQualifiedName~SesaBuilderTests.EverySection_EqualsTheInMemoryIndex_WithAndWithoutPsi_DefaultAndTiny)"
+ },
+ {
+  "id": "S03",
+  "desc": "a range past the end is accepted",
+  "old": "offset > fileLength - length) throw",
+  "new": "offset > fileLength) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaChecksums.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests.TheChecksumPass|FullyQualifiedName~SesaBuilderTests.TheResult|FullyQualifiedName~SesaBuilderTests.EverySection_EqualsTheInMemoryIndex_WithAndWithoutPsi_DefaultAndTiny)"
+ },
+ {
+  "id": "S05",
+  "desc": "the CRC does not chain across views",
+  "old": "return Crc32C.Append(crc, p + view.PointerOffset, length);",
+  "new": "return Crc32C.Append(0, p + view.PointerOffset, length);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaChecksums.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests.TheChecksumPass|FullyQualifiedName~SesaBuilderTests.TheResult|FullyQualifiedName~SesaBuilderTests.EverySection_EqualsTheInMemoryIndex_WithAndWithoutPsi_DefaultAndTiny)"
+ },
+ {
+  "id": "S07",
+  "desc": "a negative offset is accepted",
+  "old": "if (offset < 0 || length < 0 ||",
+  "new": "if (length < 0 ||",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaChecksums.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests.TheChecksumPass|FullyQualifiedName~SesaBuilderTests.TheResult|FullyQualifiedName~SesaBuilderTests.EverySection_EqualsTheInMemoryIndex_WithAndWithoutPsi_DefaultAndTiny)"
+ },
+ {
+  "id": "S09",
+  "desc": "a view of zero bytes is accepted",
+  "old": "ArgumentOutOfRangeException.ThrowIfLessThan(viewBytes, 1);",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaChecksums.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests.TheChecksumPass|FullyQualifiedName~SesaBuilderTests.TheResult|FullyQualifiedName~SesaBuilderTests.EverySection_EqualsTheInMemoryIndex_WithAndWithoutPsi_DefaultAndTiny)"
+ }
+]

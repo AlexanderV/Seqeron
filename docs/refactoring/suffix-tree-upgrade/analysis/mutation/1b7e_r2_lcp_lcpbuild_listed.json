@@ -1,0 +1,82 @@
+[
+ {
+  "id": "V02",
+  "desc": "a file of its own may be longer than the array",
+  "old": "bool fits = _o.SaOffset > 0 ? length >= _o.SaOffset + need : length == need;",
+  "new": "bool fits = _o.SaOffset > 0 ? length >= _o.SaOffset + need : length >= need;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~ExternalLcpTests|FullyQualifiedName~LcpChildBuilderTests)"
+ },
+ {
+  "id": "V04",
+  "desc": "a section may end past the file",
+  "old": "bool fits = _o.SaOffset > 0 ? length >= _o.SaOffset + need : length == need;",
+  "new": "bool fits = _o.SaOffset > 0 ? length >= need : length == need;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~ExternalLcpTests|FullyQualifiedName~LcpChildBuilderTests)"
+ },
+ {
+  "id": "V06",
+  "desc": "the bulk is read from offset 0",
+  "old": "_o.SaOffset + (first * 4)",
+  "new": "first * 4",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~ExternalLcpTests|FullyQualifiedName~LcpChildBuilderTests)"
+ },
+ {
+  "id": "V08",
+  "desc": "the overflow list goes to the base offset",
+  "old": "placement.File.CreateWriter(placement.OverflowStart, overflowBytes,",
+  "new": "placement.File.CreateWriter(placement.BaseStart, overflowBytes,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~ExternalLcpTests|FullyQualifiedName~LcpChildBuilderTests)"
+ },
+ {
+  "id": "V10",
+  "desc": "a failed overflow writer leaves the base writer open",
+  "old": "                catch\n                {\n                    baseWriter.Dispose();\n                    throw;\n                }",
+  "new": "                catch\n                {\n                    throw;\n                }",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~ExternalLcpTests|FullyQualifiedName~LcpChildBuilderTests)"
+ },
+ {
+  "id": "V12",
+  "desc": "the placer is not used",
+  "old": "if (_o.Place is { } place)",
+  "new": "if (_o.Place is { } place && false)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~ExternalLcpTests|FullyQualifiedName~LcpChildBuilderTests)"
+ },
+ {
+  "id": "V14",
+  "desc": "the placer is told no overflow",
+  "old": "new LcpPlacementRequest(_stats.Kind, _stats.OverflowCount, _maxPlcp)",
+  "new": "new LcpPlacementRequest(_stats.Kind, 0, _maxPlcp)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~ExternalLcpTests|FullyQualifiedName~LcpChildBuilderTests)"
+ },
+ {
+  "id": "V16",
+  "desc": "the path mode does not complete the overflow file",
+  "old": "            overflowFile?.Complete(fsync: false);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~ExternalLcpTests|FullyQualifiedName~LcpChildBuilderTests)"
+ },
+ {
+  "id": "V18",
+  "desc": "the overflow file is not disposed",
+  "old": "            overflowFile?.Dispose();\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~ExternalLcpTests|FullyQualifiedName~LcpChildBuilderTests)"
+ },
+ {
+  "id": "V20",
+  "desc": "the base writer is not counted",
+  "old": "placement.File.CreateWriter(placement.BaseStart, baseBytes, _o.WindowBytes, _o.Counters)",
+  "new": "placement.File.CreateWriter(placement.BaseStart, baseBytes, _o.WindowBytes, null)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~ExternalLcpTests|FullyQualifiedName~LcpChildBuilderTests)"
+ }
+]

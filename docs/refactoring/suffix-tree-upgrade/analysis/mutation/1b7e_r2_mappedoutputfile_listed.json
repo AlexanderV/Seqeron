@@ -1,0 +1,90 @@
+[
+ {
+  "id": "G02",
+  "desc": "Grow may shrink",
+  "old": "        ArgumentOutOfRangeException.ThrowIfLessThan(newLength, Length);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests.Grow|FullyQualifiedName~MappedOutputFileTests)"
+ },
+ {
+  "id": "G04",
+  "desc": "no growth goes through the whole path",
+  "old": "        if (newLength == Length) return ReservationOutcome.Sparse;\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests.Grow|FullyQualifiedName~MappedOutputFileTests)"
+ },
+ {
+  "id": "G06",
+  "desc": "an open writer does not refuse",
+  "old": "if (open != 0) throw new InvalidOperationException($\"{open} writer(s) of {Path} are still open: dispose every writer before growing",
+  "new": "if (open < 0) throw new InvalidOperationException($\"{open} writer(s) of {Path} are still open: dispose every writer before growing",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests.Grow|FullyQualifiedName~MappedOutputFileTests)"
+ },
+ {
+  "id": "G08",
+  "desc": "the pre-flight asks for the whole length",
+  "old": "long growth = newLength - Length;",
+  "new": "long growth = newLength;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests.Grow|FullyQualifiedName~MappedOutputFileTests)"
+ },
+ {
+  "id": "G10",
+  "desc": "the pre-flight skips a source that reports 0",
+  "old": "if (free >= 0 && free < growth) throw",
+  "new": "if (free > 0 && free < growth) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests.Grow|FullyQualifiedName~MappedOutputFileTests)"
+ },
+ {
+  "id": "G12",
+  "desc": "the pre-flight asks about the file, not its directory",
+  "old": "string directory = System.IO.Path.GetDirectoryName(System.IO.Path.GetFullPath(Path)) ?? \".\";\n        long free",
+  "new": "string directory = Path;\n        long free",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests.Grow|FullyQualifiedName~MappedOutputFileTests)"
+ },
+ {
+  "id": "G14",
+  "desc": "the file is not made longer",
+  "old": "stream.SetLength(newLength);",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests.Grow|FullyQualifiedName~MappedOutputFileTests)"
+ },
+ {
+  "id": "G16",
+  "desc": "the failed mapping does not undo the growth",
+  "old": "undo.SetLength(previous);",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests.Grow|FullyQualifiedName~MappedOutputFileTests)"
+ },
+ {
+  "id": "G18",
+  "desc": "the new mapping is not used",
+  "old": "            _map?.Dispose();\n            _map = map;",
+  "new": "            map.Dispose();",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests.Grow|FullyQualifiedName~MappedOutputFileTests)"
+ },
+ {
+  "id": "G20",
+  "desc": "the outcome is always checked",
+  "old": "return free >= 0 ? ReservationOutcome.FreeSpaceChecked : ReservationOutcome.Unchecked;\n    }\n\n    /// <summary>A writer for the bytes",
+  "new": "return ReservationOutcome.FreeSpaceChecked;\n    }\n\n    /// <summary>A writer for the bytes",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests.Grow|FullyQualifiedName~MappedOutputFileTests)"
+ },
+ {
+  "id": "G22",
+  "desc": "the source of the options is ignored",
+  "old": "IReservationSource source = options?.Source ?? SystemReservationSource.Instance;\n        long growth",
+  "new": "IReservationSource source = SystemReservationSource.Instance;\n        long growth",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests.Grow|FullyQualifiedName~MappedOutputFileTests)"
+ }
+]

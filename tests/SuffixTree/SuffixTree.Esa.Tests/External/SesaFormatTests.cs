@@ -151,4 +151,12 @@ public sealed class SesaFormatTests
         Assert.That(SesaFormat.EndianProbe, Is.EqualTo(0x01020304u));
         Assert.That(SesaFormat.CrcOffset, Is.EqualTo(124));
     }
+
+
+    [Test]
+    public void ANegativeOffsetOrLength_IsRefused()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => SesaFormat.AlignedOffset(-1, 0));
+        Assert.Throws<ArgumentOutOfRangeException>(() => SesaFormat.AlignedOffset(0, -1));
+    }
 }

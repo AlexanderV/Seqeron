@@ -1,0 +1,42 @@
+[
+ {
+  "id": "S02",
+  "desc": "view takes the larger part",
+  "old": "long take = Math.Min(viewBytes, length - done);",
+  "new": "long take = Math.Max(viewBytes, length - done);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaChecksums.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests.TheChecksumPass|FullyQualifiedName~SesaBuilderTests.TheResult|FullyQualifiedName~SesaBuilderTests.EverySection_EqualsTheInMemoryIndex_WithAndWithoutPsi_DefaultAndTiny)"
+ },
+ {
+  "id": "S04",
+  "desc": "every view starts at the section start",
+  "old": "crc = ChecksumView(map!, offset + done, take, crc);",
+  "new": "crc = ChecksumView(map!, offset, take, crc);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaChecksums.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests.TheChecksumPass|FullyQualifiedName~SesaBuilderTests.TheResult|FullyQualifiedName~SesaBuilderTests.EverySection_EqualsTheInMemoryIndex_WithAndWithoutPsi_DefaultAndTiny)"
+ },
+ {
+  "id": "S06",
+  "desc": "the row never says hardware",
+  "old": "Crc32C.HardwareAccelerated)",
+  "new": "false)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaChecksums.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests.TheChecksumPass|FullyQualifiedName~SesaBuilderTests.TheResult|FullyQualifiedName~SesaBuilderTests.EverySection_EqualsTheInMemoryIndex_WithAndWithoutPsi_DefaultAndTiny)"
+ },
+ {
+  "id": "S08",
+  "desc": "a negative length is accepted",
+  "old": "if (offset < 0 || length < 0 ||",
+  "new": "if (offset < 0 ||",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaChecksums.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests.TheChecksumPass|FullyQualifiedName~SesaBuilderTests.TheResult|FullyQualifiedName~SesaBuilderTests.EverySection_EqualsTheInMemoryIndex_WithAndWithoutPsi_DefaultAndTiny)"
+ },
+ {
+  "id": "S10",
+  "desc": "the seconds are not measured",
+  "old": "(Stopwatch.GetTimestamp() - t0) / (double)Stopwatch.Frequency, Crc32C",
+  "new": "0, Crc32C",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaChecksums.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests.TheChecksumPass|FullyQualifiedName~SesaBuilderTests.TheResult|FullyQualifiedName~SesaBuilderTests.EverySection_EqualsTheInMemoryIndex_WithAndWithoutPsi_DefaultAndTiny)"
+ }
+]

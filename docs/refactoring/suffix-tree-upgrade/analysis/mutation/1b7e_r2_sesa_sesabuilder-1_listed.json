@@ -1,0 +1,562 @@
+[
+ {
+  "id": "B02",
+  "desc": "negative arena cap accepted",
+  "old": "        ArgumentOutOfRangeException.ThrowIfNegative(options.ArenaCapBytes);\n        ArgumentOutOfRangeException.ThrowIfNegative(options.ChildArenaCapBytes);\n        ArgumentOutOfRangeException.ThrowIfNegative(options.Ph6CapBytes);",
+  "new": "        ArgumentOutOfRangeException.ThrowIfNegative(options.ChildArenaCapBytes);\n        ArgumentOutOfRangeException.ThrowIfNegative(options.Ph6CapBytes);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B04",
+  "desc": "negative PH6 cap accepted",
+  "old": "        ArgumentOutOfRangeException.ThrowIfNegative(options.Ph6CapBytes);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B06",
+  "desc": "missing directory not refused up front",
+  "old": "if (!Directory.Exists(directory)) throw new DirectoryNotFoundException",
+  "new": "if (false) throw new DirectoryNotFoundException",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B08",
+  "desc": "scratch directory named differently",
+  "old": "string scratch = tmp + \".d\";",
+  "new": "string scratch = tmp + \".s\";",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B10",
+  "desc": "pre-flight skips a source that reports 0",
+  "old": "if (free >= 0 && free < need) throw",
+  "new": "if (free > 0 && free < need) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B12",
+  "desc": "pre-flight forgets the container",
+  "old": "long need = plan.ReservedLength + (ScratchBytesPerChar * n);",
+  "new": "long need = ScratchBytesPerChar * n;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B14",
+  "desc": "a stale temporary file is left",
+  "old": "        if (File.Exists(tmp)) File.Delete(tmp);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B16",
+  "desc": "a stale scratch file is left",
+  "old": "        else if (File.Exists(scratch)) File.Delete(scratch);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B18",
+  "desc": "scratch directory not created by the builder",
+  "old": "            Directory.CreateDirectory(scratch);\n            container =",
+  "new": "            container =",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B20",
+  "desc": "the container is created without the file options",
+  "old": "container = MappedOutputFile.Create(tmp, plan.ReservedLength, options.Files);",
+  "new": "container = MappedOutputFile.Create(tmp, plan.ReservedLength, null);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B22",
+  "desc": "no hook at the start",
+  "old": "        Hook(SesaHooks.Start);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B24",
+  "desc": "no hook after the creation",
+  "old": "            Hook(SesaHooks.Created);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B26",
+  "desc": "no hook after the suffix array",
+  "old": "            Hook(SesaHooks.SaBuilt);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B28",
+  "desc": "no hook after LCP and CHILD",
+  "old": "            Hook(SesaHooks.LcpChildBuilt);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B30",
+  "desc": "no hook after PSI",
+  "old": "            hook(SesaHooks.PsiBuilt);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B32",
+  "desc": "no hook after the checksums",
+  "old": "            Hook(SesaHooks.Checksummed);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B34",
+  "desc": "no hook after the first sync",
+  "old": "                Hook(SesaHooks.HeaderSynced);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B36",
+  "desc": "the hook between the passes is not called",
+  "old": "        options.BetweenPasses?.Invoke();\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B38",
+  "desc": "the text block size is not passed on",
+  "old": "BlockSymbols = options.TextBlockSymbols,",
+  "new": "BlockSymbols = 1 << 20,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B40",
+  "desc": "the text writer is not counted",
+  "old": "BlockSymbols = options.TextBlockSymbols, WindowBytes = options.TextWindowBytes, Counters = counters,",
+  "new": "BlockSymbols = options.TextBlockSymbols, WindowBytes = options.TextWindowBytes, Counters = null,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B42",
+  "desc": "the counts are written shifted",
+  "old": "c => (ulong)c)",
+  "new": "c => (ulong)(c + 1))",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B44",
+  "desc": "the packing window of the text section is not the option",
+  "old": "container.CreateWriter(plan.TextOffset, plan.TextLength, options.TextWindowBytes, counters)",
+  "new": "container.CreateWriter(plan.TextOffset, plan.TextLength, options.TextWindowBytes, null)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B46",
+  "desc": "PH1-3 get one thread",
+  "old": "Threads = options.Threads,\n                Period = options.Period,",
+  "new": "Threads = 1,\n                Period = options.Period,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B48",
+  "desc": "PH1-3 get an inexact period",
+  "old": "ExactPeriod = options.ExactPeriod,",
+  "new": "ExactPeriod = false,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B50",
+  "desc": "PH1-3 get no rule n",
+  "old": "ScaleN = options.ScaleN,\n                RuleN = options.RuleN,\n                ArenaCapBytes = options.ArenaCapBytes,\n                Tuning = options.SaTuning,",
+  "new": "ScaleN = options.ScaleN,\n                RuleN = 0,\n                ArenaCapBytes = options.ArenaCapBytes,\n                Tuning = options.SaTuning,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B52",
+  "desc": "PH1-3 get no tuning",
+  "old": "Tuning = options.SaTuning,",
+  "new": "Tuning = new SaBuildTuning(),",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B54",
+  "desc": "PH1-3 get their own counters",
+  "old": "Seed = options.Seed,\n                Counters = counters,",
+  "new": "Seed = options.Seed,\n                Counters = null,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B56",
+  "desc": "PH1-3 get no guards",
+  "old": "ArenaGuards = options.ArenaGuards,\n                VerifyRanks",
+  "new": "ArenaGuards = null,\n                VerifyRanks",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B58",
+  "desc": "PH1-3 are not measured",
+  "old": "MeasureRss = options.MeasureRss,\n                ProcSource = options.ProcSource,\n                RssAnonCapMb = options.RssAnonCapMb,\n                Trace = options.SaTrace,",
+  "new": "MeasureRss = false,\n                ProcSource = options.ProcSource,\n                RssAnonCapMb = options.RssAnonCapMb,\n                Trace = options.SaTrace,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B60",
+  "desc": "PH1-3 get another RssAnon cap",
+  "old": "RssAnonCapMb = options.RssAnonCapMb,\n                Trace = options.SaTrace,",
+  "new": "RssAnonCapMb = 320,\n                Trace = options.SaTrace,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B62",
+  "desc": "PH4-5 get one thread",
+  "old": "Threads = options.Threads,\n                Codec = ChildCodec.Packed,",
+  "new": "Threads = 1,\n                Codec = ChildCodec.Packed,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B64",
+  "desc": "PH4-5 get no rule n",
+  "old": "RuleN = options.RuleN,\n                ArenaCapBytes = options.ArenaCapBytes,\n                ChildArenaCapBytes",
+  "new": "RuleN = 0,\n                ArenaCapBytes = options.ArenaCapBytes,\n                ChildArenaCapBytes",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B66",
+  "desc": "PH5 gets no arena cap",
+  "old": "ChildArenaCapBytes = options.ChildArenaCapBytes,",
+  "new": "ChildArenaCapBytes = long.MaxValue,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B68",
+  "desc": "PH4-5 get their own counters",
+  "old": "Tuning = options.LcpTuning,\n                Counters = counters,",
+  "new": "Tuning = options.LcpTuning,\n                Counters = null,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B70",
+  "desc": "PH4-5 get no guards",
+  "old": "ArenaGuards = options.ArenaGuards,\n                MeasureRss",
+  "new": "ArenaGuards = null,\n                MeasureRss",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B72",
+  "desc": "PH4-5 read another /proc",
+  "old": "ProcSource = options.ProcSource,\n                RssAnonCapMb = options.RssAnonCapMb,\n                Trace = options.LcpTrace,",
+  "new": "ProcSource = null,\n                RssAnonCapMb = options.RssAnonCapMb,\n                Trace = options.LcpTrace,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B74",
+  "desc": "PH4-5 get no trace",
+  "old": "Trace = options.LcpTrace,",
+  "new": "Trace = null,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B76",
+  "desc": "the child table goes to the SA offset",
+  "old": "container, plan.ChildOffset, Place,",
+  "new": "container, plan.SaOffset, Place,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B78",
+  "desc": "the spill bound is one entry short",
+  "old": "long spillBound = SpillBytesPerEntry * (request.MaxLcp + 1);",
+  "new": "long spillBound = SpillBytesPerEntry * request.MaxLcp;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B80",
+  "desc": "the late pre-flight skips a source that reports 0",
+  "old": "if (available >= 0 && available < growthBytes",
+  "new": "if (available > 0 && available < growthBytes",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B82",
+  "desc": "the late pre-flight forgets the growth",
+  "old": "available < growthBytes + spillBound) throw",
+  "new": "available < spillBound) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B84",
+  "desc": "the file never grows",
+  "old": "if (growthBytes > 0)\n",
+  "new": "if (growthBytes > long.MaxValue)\n",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B86",
+  "desc": "the growth outcome is not kept",
+  "old": "growth = container.Grow(tail.FinalLength, options.Files);",
+  "new": "container.Grow(tail.FinalLength, options.Files);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B88",
+  "desc": "the overflow is placed at the LCP",
+  "old": "new LcpPlacement(container, plan.LcpOffset, tail.OverflowOffset)",
+  "new": "new LcpPlacement(container, plan.LcpOffset, plan.LcpOffset)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B90",
+  "desc": "PSI is built without a BWT section (kept: the plan decides)",
+  "old": "if (options.IncludePsi)\n            {\n                using var ph6",
+  "new": "if (options.IncludePsi || options.Threads > 1000)\n            {\n                using var ph6",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B92",
+  "desc": "the BWT scratch is one byte short",
+  "old": "counters.AddScratch(n + 1);",
+  "new": "counters.AddScratch(n);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B94",
+  "desc": "the BWT counts are not checked here",
+  "old": "if (!bwt.Counts.AsSpan().SequenceEqual(info.Counts)) throw",
+  "new": "if (false) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B96",
+  "desc": "the BWT file stays until the scratch goes",
+  "old": "            File.Delete(bwtPath);\n            Directory.Delete(dir);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B98",
+  "desc": "PH6 gets the wrong sigma",
+  "old": "text, info.Sigma, bwtPath,",
+  "new": "text, info.Sigma + 1, bwtPath,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B100",
+  "desc": "the BWT pass gets the default window",
+  "old": "ReadBytes = tune.ReadBytes ?? 1 << 20,\n            WindowBytes = window,",
+  "new": "ReadBytes = tune.ReadBytes ?? 1 << 20,\n            WindowBytes = MappedWindowWriter.DefaultWindowBytes,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B102",
+  "desc": "the BWT pass gets no guards",
+  "old": "ArenaGuards = options.ArenaGuards,\n            Counters = counters,\n            Files = options.Files,",
+  "new": "ArenaGuards = null,\n            Counters = counters,\n            Files = options.Files,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B104",
+  "desc": "the BWT file gets no file options",
+  "old": "Counters = counters,\n            Files = options.Files,\n        });",
+  "new": "Counters = counters,\n            Files = null,\n        });",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B106",
+  "desc": "PSI gets the default symbols per pass",
+  "old": "SymbolsPerPass = tune.SymbolsPerPass ?? 64,",
+  "new": "SymbolsPerPass = 64,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B108",
+  "desc": "PSI gets no window cap",
+  "old": "WindowCapBytes = options.Ph6CapBytes,",
+  "new": "WindowCapBytes = long.MaxValue,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B110",
+  "desc": "PSI gets no guards",
+  "old": "ArenaGuards = options.ArenaGuards,\n                Counters = counters,\n            });",
+  "new": "ArenaGuards = null,\n                Counters = counters,\n            });",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B112",
+  "desc": "PSI goes to the CHILD section",
+  "old": "bwt.PrimaryRow, info.Counts, container, plan.PsiOffset,",
+  "new": "bwt.PrimaryRow, info.Counts, container, plan.ChildOffset,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B114",
+  "desc": "PSI gets a primary row one too high",
+  "old": "PsiStream.Build(bwtPath, n, bwt.PrimaryRow,",
+  "new": "PsiStream.Build(bwtPath, n, bwt.PrimaryRow + 1,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B116",
+  "desc": "BUILD_INFO claims no overflow",
+  "old": "BuildInfoText(info, placed.Kind, placed.OverflowCount, options.IncludePsi)",
+  "new": "BuildInfoText(info, placed.Kind, 0, options.IncludePsi)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B118",
+  "desc": "BUILD_INFO may overrun its room",
+  "old": "if (infoBytes.Length > plan.BuildInfoCapacity) throw",
+  "new": "if (infoBytes.Length > plan.BuildInfoCapacity + 4096) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B120",
+  "desc": "the container is not completed",
+  "old": "            container.Complete(fsync: false);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B122",
+  "desc": "the text reader is disposed but not cleared",
+  "old": "            text.Dispose();\n            text = null;\n",
+  "new": "            text.Dispose();\n",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B124",
+  "desc": "the file length check is a smaller-than check",
+  "old": "if (new FileInfo(tmp).Length != placed.FinalLength) throw",
+  "new": "if (new FileInfo(tmp).Length < placed.FinalLength) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B126",
+  "desc": "the checksum of the text section skips its end",
+  "old": "(SesaFormat.KindText, plan.TextOffset, plan.TextLength),",
+  "new": "(SesaFormat.KindText, plan.TextOffset, plan.TextLength - 1),",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B128",
+  "desc": "the checksum of the counts is short",
+  "old": "(SesaFormat.KindCounts, plan.CountsOffset, plan.CountsLength),",
+  "new": "(SesaFormat.KindCounts, plan.CountsOffset, plan.CountsLength - 1),",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B130",
+  "desc": "the checksum of the CHILD is of the SA",
+  "old": "(SesaFormat.KindChild, plan.ChildOffset, plan.ChildLength),",
+  "new": "(SesaFormat.KindChild, plan.SaOffset, plan.ChildLength),",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B132",
+  "desc": "the checksum of PSI is short",
+  "old": "(SesaFormat.KindPsi, plan.PsiOffset, plan.PsiLength));",
+  "new": "(SesaFormat.KindPsi, plan.PsiOffset, plan.PsiLength - 1));",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B134",
+  "desc": "LCP is listed with one entry short",
+  "old": "list.Add((SesaFormat.KindLcp, plan.LcpOffset, tail.LcpLength));",
+  "new": "list.Add((SesaFormat.KindLcp, plan.LcpOffset, tail.LcpLength - 1));",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B136",
+  "desc": "the overflow is never listed",
+  "old": "if (tail.OverflowCount > 0) list.Add(",
+  "new": "if (tail.OverflowCount < 0) list.Add(",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B138",
+  "desc": "required sections without the checksum flag",
+  "old": "const int required = SesaFormat.FlagRequired | SesaFormat.FlagHasCrc;",
+  "new": "const int required = SesaFormat.FlagRequired;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ },
+ {
+  "id": "B140",
+  "desc": "optional sections without the checksum flag",
+  "old": "const int optional = SesaFormat.FlagHasCrc;",
+  "new": "const int optional = 0;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests)"
+ }
+]

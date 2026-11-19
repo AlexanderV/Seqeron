@@ -1,0 +1,66 @@
+[
+ {
+  "id": "A02",
+  "desc": "a null text is an NRE",
+  "old": "        ArgumentNullException.ThrowIfNull(text);\n        ArgumentNullException.ThrowIfNull(file);",
+  "new": "        ArgumentNullException.ThrowIfNull(file);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests.SaBuilder|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SaBuilderTests)"
+ },
+ {
+  "id": "A04",
+  "desc": "the section range is not checked",
+  "old": "if (section is not null)\n        {\n            ArgumentOutOfRangeException.ThrowIfNegative(saOffset);",
+  "new": "if (section is null)\n        {\n            ArgumentOutOfRangeException.ThrowIfNegative(saOffset);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests.SaBuilder|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SaBuilderTests)"
+ },
+ {
+  "id": "A06",
+  "desc": "the section range may end past the file",
+  "old": "if (saOffset > section.Length - (4 * (n + 1))) throw",
+  "new": "if (saOffset > section.Length - (4 * n)) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests.SaBuilder|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SaBuilderTests)"
+ },
+ {
+  "id": "A08",
+  "desc": "a failure in section mode removes the path (there is none)",
+  "old": "saCreated = owned is not null;",
+  "new": "saCreated = true;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests.SaBuilder|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SaBuilderTests)"
+ },
+ {
+  "id": "A10",
+  "desc": "the section sink starts at 0",
+  "old": "new MappedSaSectionSink(saFile, saOffset, 4 * (n + 1),",
+  "new": "new MappedSaSectionSink(saFile, 0, 4 * (n + 1),",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests.SaBuilder|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SaBuilderTests)"
+ },
+ {
+  "id": "A12",
+  "desc": "the section sink gets another window",
+  "old": "saOffset, 4 * (n + 1), p.WindowBytes, counters)",
+  "new": "saOffset, 4 * (n + 1), MappedWindowWriter.DefaultWindowBytes, counters)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests.SaBuilder|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SaBuilderTests)"
+ },
+ {
+  "id": "A14",
+  "desc": "the section mode completes the file",
+  "old": "if (section is null)\n            {\n                saFile.Complete(options.SyncOutput);",
+  "new": "if (true)\n            {\n                saFile.Complete(options.SyncOutput);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests.SaBuilder|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SaBuilderTests)"
+ },
+ {
+  "id": "d_Q52",
+  "desc": "1b7d gap: Build: PH3 has no cap",
+  "old": "var ph3Budget = new ArenaBudget(options.ArenaCapBytes);",
+  "new": "var ph3Budget = new ArenaBudget(long.MaxValue);",
+  "filter": "FullyQualifiedName~SesaGapTests",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs"
+ }
+]
