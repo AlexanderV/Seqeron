@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using SuffixTree.Indexing;
 
 namespace SuffixTree.Esa;
@@ -12,8 +13,8 @@ namespace SuffixTree.Esa;
 /// </summary>
 /// <remarks>
 /// Lifetime: <see cref="Dispose"/> is idempotent; every member of a disposed tree throws <see cref="ObjectDisposedException"/> (before any argument check). Reads are safe for concurrent readers, and so is
-/// a <see cref="Dispose"/> that arrives while another thread is inside a call (work package 1b.8): every public member counts itself as a reader for the length of the call, <see cref="Dispose"/> takes the
-/// owner's count away and the pins of the navigation pack and the mapped container are released by whoever lowers the count to zero, so a call that was in flight when <see cref="Dispose"/> ran completes with
+/// a <see cref="Dispose"/> that arrives while another thread is inside a call (work package 1b.8): every public member counts itself as a reader for the length of the call (a count per thread stripe), <see cref="Dispose"/>
+/// raises a flag and the pins of the navigation pack and the mapped container are released by whoever finds the tree disposed and no reader inside, so a call that was in flight when <see cref="Dispose"/> ran completes with
 /// its answer, and a call that starts afterwards throws <see cref="ObjectDisposedException"/>; nothing reads the mapping after it was unmapped. <see cref="Dispose"/> does not wait for the readers (a
 /// <see cref="Dispose"/> from inside a visitor of <see cref="Traverse"/> cannot deadlock). The results that read the mapping later (<see cref="Text"/>, <c>ISuffixIndex.Text</c>, the sequence of
 /// <see cref="EnumerateSuffixes"/>) of a file-backed tree count themselves as readers at every access. The
@@ -28,7 +29,8 @@ public sealed partial class EsaSuffixTree : ISuffixTree, ISuffixTreeNavigation, 
     private readonly ITextSource _text;
     private readonly EsaStatistics _statistics;
     private int _disposed;
-    private int _readers = 1;
+    private readonly StripeCount[] _readers = new StripeCount[Stripes];
+    private int _released;
     private string? _longestRepeat;
     private readonly External.SesaFile? _file;
     private readonly ITextSource? _guardedText;
@@ -124,35 +126,56 @@ public sealed partial class EsaSuffixTree : ISuffixTree, ISuffixTreeNavigation, 
     public void Dispose()
     {
         if (Interlocked.CompareExchange(ref _disposed, 1, 0) != 0) return;
-        Exit();
+        ReleaseWhenIdle();
     }
 
-    /// <summary>Counts a call as a reader, or throws <see cref="ObjectDisposedException"/> when the tree is disposed (the count is raised only from a positive value, so it can reach zero once).</summary>
+    /// <summary>
+    /// Counts a call as a reader in the stripe of its thread, or throws <see cref="ObjectDisposedException"/> when the tree is disposed. The count is raised first and the flag read after it, and <see cref="Dispose"/> sets the
+    /// flag first and reads the counts after it (every step is a full fence), so a call is either seen by <see cref="Dispose"/> or sees the flag and goes away before it has touched anything. The count is striped (one cache line per
+    /// stripe) so that readers on different threads do not write one line: the single count of the first version cost about 100 ns per call with four readers on one tree.
+    /// </summary>
     private ReadScope Enter()
     {
-        while (true)
+        int stripe = Environment.CurrentManagedThreadId & (Stripes - 1);
+        Interlocked.Increment(ref _readers[stripe].Count);
+        if (Volatile.Read(ref _disposed) != 0)
         {
-            int readers = Volatile.Read(ref _readers);
-            ObjectDisposedException.ThrowIf(readers <= 0 || Volatile.Read(ref _disposed) != 0, this);
-            if (Interlocked.CompareExchange(ref _readers, readers + 1, readers) == readers) return new ReadScope(this);
+            Leave(stripe);
+            ObjectDisposedException.ThrowIf(true, this);
         }
+        return new ReadScope(this, stripe);
     }
 
-    private void Exit()
+    private void Leave(int stripe)
     {
-        if (Interlocked.Decrement(ref _readers) == 0) Release();
+        Interlocked.Decrement(ref _readers[stripe].Count);
+        if (Volatile.Read(ref _disposed) != 0) ReleaseWhenIdle();
     }
 
-    private void Release()
+    /// <summary>Releases the pack and the container once, when the tree is disposed and no call is inside (called by <see cref="Dispose"/> and by the last call that leaves).</summary>
+    private void ReleaseWhenIdle()
     {
+        for (int i = 0; i < Stripes; i++)
+            if (Volatile.Read(ref _readers[i].Count) != 0) return;
+        if (Interlocked.CompareExchange(ref _released, 1, 0) != 0) return;
         if (_index.NavigationBuilt) _index.Navigation.Dispose();
         _file?.Dispose();
     }
 
-    /// <summary>The count of one call (a using declaration at the top of every public member).</summary>
-    private readonly struct ReadScope(EsaSuffixTree owner) : IDisposable
+    private const int Stripes = 8;
+
+    /// <summary>One reader count on a cache line of its own (the elements of an array of these are 64 bytes apart).</summary>
+    [StructLayout(LayoutKind.Explicit, Size = 64)]
+    private struct StripeCount
     {
-        public void Dispose() => owner.Exit();
+        [FieldOffset(0)]
+        internal int Count;
+    }
+
+    /// <summary>The count of one call (a using declaration at the top of every public member).</summary>
+    private readonly struct ReadScope(EsaSuffixTree owner, int stripe) : IDisposable
+    {
+        public void Dispose() => owner.Leave(stripe);
     }
 
     // ------------------------------------------------------------------ ISuffixTreeSearch
