@@ -541,6 +541,30 @@ public static class SequenceExtensions
     }
 
     /// <summary>
+    /// Validates an IUPAC nucleotide string (A C G T U R Y S W K M B D H V N, ASCII case-insensitive) and returns its upper-case
+    /// DNA spelling (U read as T) — the alphabet of the IUPAC-aware string overloads of <c>Translator.FindOrfs</c> and
+    /// <c>GenomicAnalyzer.FindOpenReadingFrames</c>. Canonical helper behind the validate-and-normalise loops that
+    /// <c>Translator</c> and <c>GenomicAnalyzer</c> used to carry privately (B09 A1-23, "B09 for B01").
+    /// </summary>
+    /// <param name="sequence">Nucleotide string.</param>
+    /// <param name="paramName">Parameter name reported by the exceptions (default <c>sequence</c>).</param>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> is null.</exception>
+    /// <exception cref="ArgumentException">A character is not an IUPAC nucleotide code (the message names the symbol and its 0-based position).</exception>
+    public static string NormalizeIupacDna(string sequence, string paramName = "sequence")
+    {
+        if (sequence is null)
+            throw new ArgumentNullException(paramName);
+        string upper = Infrastructure.SequenceCase.ToUpperDna(sequence);
+        int bad = upper.AsSpan().IndexOfInvalidIupacDna();
+        if (bad >= 0)
+            throw new ArgumentException(
+                $"Invalid nucleotide '{sequence[bad]}' at position {bad}: expected an IUPAC nucleotide code " +
+                "(A, C, G, T, U, R, Y, S, W, K, M, B, D, H, V, N).", paramName);
+
+        return upper;
+    }
+
+    /// <summary>
     /// Validates that a span contains only IUPAC RNA nucleotide codes — A, C, G, U plus
     /// R, Y, S, W, K, M, B, D, H, V, N (ASCII case-insensitive).
     /// </summary>

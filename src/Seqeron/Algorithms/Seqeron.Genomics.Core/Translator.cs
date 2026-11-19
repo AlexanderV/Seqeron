@@ -191,7 +191,7 @@ namespace Seqeron.Genomics.Core
         public static IEnumerable<OrfResult> FindOrfs(string sequence, GeneticCode? geneticCode = null,
             int minLength = 100, bool searchBothStrands = true)
         {
-            string normalized = NormalizeIupacNucleotides(sequence);
+            string normalized = SequenceExtensions.NormalizeIupacDna(sequence);
             var code = RequireOrfGeneticCode(geneticCode);
             return FindOrfsCore(normalized, code, minLength, searchBothStrands);
         }
@@ -220,22 +220,6 @@ namespace Seqeron.Genomics.Core
                     "because its stop codons also code for an amino acid (context-dependent termination).",
                     nameof(geneticCode));
             return code;
-        }
-
-        // Validates an IUPAC nucleotide string (A C G T U R Y S W K M B D H V N, any case) and returns
-        // its upper-case DNA spelling (U → T), the alphabet of the IUPAC-aware string overloads.
-        private static string NormalizeIupacNucleotides(string sequence)
-        {
-            ArgumentNullException.ThrowIfNull(sequence);
-            string upper = Infrastructure.SequenceCase.ToUpperDna(sequence);
-            for (int i = 0; i < upper.Length; i++)
-            {
-                if (!IupacHelper.IsNucleotideCode(upper[i]))
-                    throw new ArgumentException(
-                        $"Invalid nucleotide '{sequence[i]}' at position {i}: expected an IUPAC nucleotide code " +
-                        "(A, C, G, T, U, R, Y, S, W, K, M, B, D, H, V, N).", nameof(sequence));
-            }
-            return upper;
         }
 
         // getorf codon classification (EMBOSS ajTrnCodonstrTypeC): START only when the Starts table marks
@@ -381,7 +365,7 @@ namespace Seqeron.Genomics.Core
             int minSize = GetOrfDefaultMinSize, int maxSize = GetOrfDefaultMaxSize, int flanking = GetOrfDefaultFlanking,
             bool searchBothStrands = true, bool methionine = true, bool circular = false)
         {
-            string normalized = NormalizeIupacNucleotides(sequence);
+            string normalized = SequenceExtensions.NormalizeIupacDna(sequence);
             var settings = CreateGetOrfSettings(mode, geneticCode, minSize, maxSize, flanking, methionine);
             return FindOrfsGetOrfCore(normalized, settings, searchBothStrands, circular);
         }
@@ -695,7 +679,7 @@ namespace Seqeron.Genomics.Core
         public static IReadOnlyDictionary<int, ProteinSequence> TranslateSixFrames(string sequence,
             GeneticCode? geneticCode = null)
         {
-            string forward = NormalizeIupacNucleotides(sequence);
+            string forward = SequenceExtensions.NormalizeIupacDna(sequence);
             return TranslateSixFramesCore(forward, DnaSequence.GetReverseComplementString(forward),
                 geneticCode ?? GeneticCode.Standard);
         }
@@ -744,7 +728,7 @@ namespace Seqeron.Genomics.Core
         public static IReadOnlyDictionary<int, ProteinSequence> TranslateSixFrames(string sequence,
             GeneticCode? geneticCode, SixFrameConvention convention)
         {
-            string forward = NormalizeIupacNucleotides(sequence);
+            string forward = SequenceExtensions.NormalizeIupacDna(sequence);
             return TranslateSixFramesCore(forward, DnaSequence.GetReverseComplementString(forward),
                 geneticCode ?? GeneticCode.Standard, convention);
         }
@@ -810,7 +794,7 @@ namespace Seqeron.Genomics.Core
                 throw new ArgumentException("transeq options require an EMBOSS six-frame convention.",
                     nameof(convention));
 
-            string forward = NormalizeIupacNucleotides(sequence);
+            string forward = SequenceExtensions.NormalizeIupacDna(sequence);
             bool wholeSequence = options.Regions is null || options.Regions.Count == 0;
             if (!wholeSequence)
                 forward = ExtractTranseqRegions(forward, options.Regions!);

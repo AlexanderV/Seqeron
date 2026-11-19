@@ -145,7 +145,7 @@
 - `tests/Seqeron/Seqeron.Genomics.Tests/GenomicAnalyzerTests.cs` contained 3 pre-existing smoke tests under `#region Open Reading Frames` (`FindOpenReadingFrames_SimpleOrf_FindsIt`, `_MultipleFrames_FindsAll`, `_NoOrf_ReturnsEmpty`). These used permissive assertions (`Has.Count.GreaterThanOrEqualTo`, `o => o.Sequence.StartsWith`) and did not pin exact ORFs/positions.
 - ANNOT-ORF-001 (`GenomeAnnotator.FindOrfs`) is the related but separate canonical ORF unit; it classified `GenomicAnalyzer.FindOpenReadingFrames` as an "Alternate (smoke)". GENOMIC-ORF-001 now makes `FindOpenReadingFrames` the canonical method for its own unit with deep evidence-based tests in a dedicated fixture.
 
-### 5.2 Coverage Classification
+### 5.2 Coverage Classification (historical snapshot of the 2026-06 pass, BEFORE the test consolidation; every row is resolved in 5.5 / 5.6 below and the 2026-11 additions are listed in 4.4 / 4.5)
 
 | Area / Test Case ID | Status | Notes |
 |---------------------|--------|-------|
@@ -217,13 +217,13 @@ All in-scope cases ✅ (14 tests).
 
 ## 6. Assumption Register
 
-**Total assumptions:** 3
+**Total assumptions:** 3 (assumption 2 as amended by F23: the stop codon is counted by default; the NCBI / getorf convention is `OrfSearchOptions.MinLengthExcludesStop`)
 
 | # | Assumption | Used In |
 |---|-----------|---------|
 | 1 | ORF `Sequence` includes the terminating stop codon (protein candidate excludes it) | M1, M3, M6b, INV-2/3 |
 | 2 | `minLength` is a nucleotide threshold, inclusive lower bound, counted **with** the stop codon by default (NCBI/getorf count without: option) | M6, M6b, INV-4 |
-| 3 | Standard start codon ATG only (alternative initiation codons out of scope) | all |
+| 3 | Standard start codon ATG only **by default** (the Rosalind / ORFfinder default); the alternative initiation codons of the genetic code and any sense codon are `OrfSearchOptions.StartCodons` (`GeneticCodeStarts`, `AnySenseCodon`), implemented since F25 and measured on the NCBI ORFfinder 0.4.3 binary (F57) - not out of scope | all |
 
 These affect reported span/filtering only, not which start sites are detected; each is backed by an authoritative convention (NCBI nucleotide length filter; Wikipedia "length divisible by three, bounded by stop codons"; NCBI default "ATG only").
 

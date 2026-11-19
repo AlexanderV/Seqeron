@@ -678,15 +678,13 @@ public static partial class RestrictionAnalyzer
         // ASCII-only fold (review 2026-09 B08 F49, superseding F43): ToUpperInvariant would map U+017F 'ſ'
         // onto the IUPAC code 'S', so a non-IUPAC character would match.
         string upper = SequenceExtensions.ToUpperAscii(pattern);
-        for (int i = 0; i < upper.Length; i++)
+        int bad = upper.AsSpan().IndexOfInvalidIupacDna(); // canonical IUPAC DNA predicate (U is rejected: a pattern is DNA)
+        if (bad >= 0)
         {
-            if (!IupacHelper.IsNucleotideCode(upper[i]))
-            {
-                throw new ArgumentException(
-                    $"{what} '{pattern}' contains '{pattern[i]}' at index {i}, which is not one of the " +
-                    "15 IUPAC nucleotide codes (A, C, G, T, N, R, Y, S, W, K, M, B, D, H, V).",
-                    paramName);
-            }
+            throw new ArgumentException(
+                $"{what} '{pattern}' contains '{pattern[bad]}' at index {bad}, which is not one of the " +
+                "15 IUPAC nucleotide codes (A, C, G, T, N, R, Y, S, W, K, M, B, D, H, V).",
+                paramName);
         }
 
         return upper;

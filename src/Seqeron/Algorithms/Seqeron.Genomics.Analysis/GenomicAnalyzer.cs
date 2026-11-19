@@ -1002,21 +1002,7 @@ public static class GenomicAnalyzer
     {
         ArgumentNullException.ThrowIfNull(sequence);
         ArgumentNullException.ThrowIfNull(options);
-        return FindOpenReadingFramesCore(NormalizeIupacNucleotides(sequence), minLength, options);
-    }
-
-    // Upper-case DNA spelling (U -> T) of an IUPAC nucleotide string; any other symbol is rejected (the alphabet of
-    // Translator.FindOrfs(string, ...)).
-    private static string NormalizeIupacNucleotides(string sequence)
-    {
-        string upper = SequenceCase.ToUpperDna(sequence);
-        int bad = upper.AsSpan().IndexOfInvalidIupacDna();
-        if (bad >= 0)
-            throw new ArgumentException(
-                $"Invalid nucleotide '{sequence[bad]}' at position {bad}: expected an IUPAC nucleotide code " +
-                "(A, C, G, T, U, R, Y, S, W, K, M, B, D, H, V, N).", nameof(sequence));
-
-        return upper;
+        return FindOpenReadingFramesCore(SequenceExtensions.NormalizeIupacDna(sequence), minLength, options);
     }
 
     private static IEnumerable<OrfInfo> FindOpenReadingFramesCore(DnaSequence sequence, int minLength, OrfSearchOptions options)
