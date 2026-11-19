@@ -108,7 +108,7 @@ optional) and delegates to this method.
 
 ### 4.1 High-Level Steps
 
-1. Validate; let `K = min(maxUnitLength, n / minRepetitions) − minUnitLength + 1` be the number of admissible unit lengths.
+1. Validate; let `K = min(maxUnitLength, n / minRepetitions) − minUnitLength + 1` be the number of admissible unit lengths. (Since 2026-11-19, QUEUE R15 / B09 F78, steps 2-3 are chosen inside the canonical `RepeatFinder.FindMicrosatellites` itself, so `find_microsatellites` / `GetTandemRepeatSummary` get the same speed-up; `GenomicAnalyzer.FindTandemRepeats` is a pure facade.)
 2. **`K ≤ 256` — per-unit-length scan** (`RepeatFinder.FindMicrosatellites(sequence, minUnitLength, maxUnitLength, minRepetitions)`): for each unit length `p` visit only left-maximal positions (`S[i−1] ≠ S[i−1+p]`), extend to the right-maximal end, report the run once when the unit `S[i..i+p)` is primitive and `⌊len/p⌋ ≥ minRepetitions`. O(n) comparisons per unit length.
 3. **`K > 256` — run enumeration** (`MaximalRepetitions.FindRuns`, internal): all runs of the string via the Lyndon-array algorithm of the runs theorem [4] (§4.2), then keep those with `p` in range and `⌊len/p⌋ ≥ minRepetitions`, sorted by (period, start). The result is identical to step 2 (same set, same order); the cost does not depend on `K`.
 

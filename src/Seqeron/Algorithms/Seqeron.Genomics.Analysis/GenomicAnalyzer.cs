@@ -263,13 +263,8 @@ public static class GenomicAnalyzer
         ArgumentNullException.ThrowIfNull(sequence);
         ValidateTandemParameters(minUnitLength, minRepetitions, maxUnitLength);
 
-        // One linear scan per unit length (RepeatFinder) is the cheaper engine while few unit lengths are
-        // admissible; a wide range (e.g. the default "no upper bound" on a megabase sequence: up to n / minRepetitions
-        // unit lengths, O(n^2 / k) in total) is answered by the run enumeration, whose cost does not depend on it.
-        long lastFitting = Math.Min((long)maxUnitLength, sequence.Length / minRepetitions);
-        if (lastFitting - minUnitLength + 1 > RunsEngineMinUnitLengths)
-            return FindTandemRepeatsByRuns(sequence, minUnitLength, minRepetitions, maxUnitLength);
-
+        // The engine (one linear scan per unit length, or the run enumeration for a wide range such as the default
+        // "no upper bound" on a megabase sequence) is chosen by the canonical RepeatFinder.FindMicrosatellites.
         return RepeatFinder.FindMicrosatellites(sequence, minUnitLength, maxUnitLength, minRepetitions)
             .Select(m => new TandemRepeat(m.RepeatUnit, m.Position, m.RepeatCount));
     }
@@ -314,12 +309,7 @@ public static class GenomicAnalyzer
         ArgumentNullException.ThrowIfNull(sequence);
         ValidateTandemParameters(minUnitLength, minRepetitions, maxUnitLength);
 
-        string seq = sequence.ToUpperInvariant();
-        long lastFitting = Math.Min((long)maxUnitLength, seq.Length / minRepetitions);
-        if (lastFitting - minUnitLength + 1 > RunsEngineMinUnitLengths)
-            return FindTandemRepeatsByRuns(seq, minUnitLength, minRepetitions, maxUnitLength);
-
-        return RepeatFinder.FindMicrosatellites(seq, minUnitLength, maxUnitLength, minRepetitions)
+        return RepeatFinder.FindMicrosatellites(sequence, minUnitLength, maxUnitLength, minRepetitions)
             .Select(m => new TandemRepeat(m.RepeatUnit, m.Position, m.RepeatCount));
     }
 
@@ -334,45 +324,6 @@ public static class GenomicAnalyzer
         if (maxUnitLength < minUnitLength)
             throw new ArgumentOutOfRangeException(nameof(maxUnitLength), maxUnitLength,
                 "Maximum repeat-unit length must be at least minUnitLength.");
-    }
-
-    /// <summary>
-    /// Number of admissible unit lengths above which <see cref="FindTandemRepeats(DnaSequence,int,int,int)"/> switches
-    /// from the per-unit-length scan to the run enumeration (measured break-even, see the GENOMIC-TANDEM-001 evidence).
-    /// </summary>
-    internal const int RunsEngineMinUnitLengths = 256;
-
-    /// <summary>
-    /// Run-enumeration engine: every maximal repetition (Kolpakov–Kucherov run, <see cref="MaximalRepetitions"/>) of the
-    /// sequence whose smallest period lies in the unit-length range and which has at least <paramref name="minRepetitions"/>
-    /// complete copies. A run's unit at its left end is primitive exactly when the run's smallest period is its unit length
-    /// (Fine–Wilf), so the result equals the per-unit-length scan of <see cref="RepeatFinder.FindMicrosatellites(DnaSequence,int,int,int)"/>
-    /// (same set, same order: unit length, then start). Internal so that tests can compare both engines directly.
-    /// </summary>
-    internal static IEnumerable<TandemRepeat> FindTandemRepeatsByRuns(
-        DnaSequence sequence, int minUnitLength, int minRepetitions, int maxUnitLength)
-        => FindTandemRepeatsByRuns(sequence.Sequence, minUnitLength, minRepetitions, maxUnitLength);
-
-    // String form of the run engine (upper-case input): a run's left-end unit made of A/C/G/T only is the
-    // microsatellite criterion of RepeatFinder.FindMicrosatellites(string); a run with such a unit contains no other symbol.
-    internal static IEnumerable<TandemRepeat> FindTandemRepeatsByRuns(
-        string seq, int minUnitLength, int minRepetitions, int maxUnitLength)
-    {
-        return MaximalRepetitions.FindRuns(seq)
-            .Where(r => r.Period >= minUnitLength && r.Period <= maxUnitLength && (r.End - r.Start) / r.Period >= minRepetitions
-                        && IsUnambiguousUnit(seq, r.Start, r.Period))
-            .Select(r => new TandemRepeat(seq.Substring(r.Start, r.Period), r.Start, (r.End - r.Start) / r.Period));
-    }
-
-    private static bool IsUnambiguousUnit(string seq, int start, int length)
-    {
-        for (int i = start; i < start + length; i++)
-        {
-            if (seq[i] is not ('A' or 'C' or 'G' or 'T'))
-                return false;
-        }
-
-        return true;
     }
 
     #endregion

@@ -14,6 +14,14 @@ public static class RepeatFinder
     /// </summary>
     /// <remarks>
     /// <para>
+    /// <b>Engine (R15, B09 for B04).</b> One linear scan per unit length (O(n) each) while at most 256 unit lengths are admissible
+    /// (<c>min(maxUnitLength, n / minRepeats) - minUnitLength + 1</c>); a wider range - e.g. <see cref="int.MaxValue"/> on a
+    /// megabase sequence, 5·10^11 comparisons - is answered by the run enumeration (<see cref="MaximalRepetitions"/>, Bannai et al. 2017,
+    /// O(n log² n), 3 s at 1 Mbp) whose cost does not depend on the range. The result and its order are identical for both engines
+    /// (a maximal repetition whose smallest period is <c>p</c> has a primitive left-end unit of length <c>p</c>, Fine-Wilf);
+    /// in the wide case cancellation is checked before, during and after the run enumeration and progress is reported once, as 1.0.
+    /// </para>
+    /// <para>
     /// For every unit length <c>p</c> in <c>[minUnitLength, maxUnitLength]</c> the detector reports each
     /// <b>maximal perfect run</b> of period <c>p</c> exactly once: a run is the longest interval
     /// <c>S[a..e)</c> with <c>S[x] = S[x+p]</c> for all <c>a ≤ x &lt; e−p</c> that cannot be extended to the
@@ -357,9 +365,22 @@ public static class RepeatFinder
         (int UnitLength, int MinRepeats)[] thresholds,
         CancellationToken cancellationToken,
         IProgress<double>? progress,
-        MicrosatelliteScanMode scanMode = MicrosatelliteScanMode.MaximalRuns)
+        MicrosatelliteScanMode scanMode = MicrosatelliteScanMode.MaximalRuns,
+        MicrosatelliteEngine engine = MicrosatelliteEngine.Auto)
     {
         int n = seq.Length;
+
+        // Wide unit-length range: the run enumeration (cost independent of the range) replaces the per-unit-length scans (R15, B09 for B04).
+        if (scanMode == MicrosatelliteScanMode.MaximalRuns
+            && (engine == MicrosatelliteEngine.Runs || (engine == MicrosatelliteEngine.Auto && thresholds.Length > RunsEngineMinUnitLengths)))
+        {
+            foreach (var hit in FindMicrosatellitesByRuns(seq, thresholds, cancellationToken))
+                yield return hit;
+            cancellationToken.ThrowIfCancellationRequested();
+            progress?.Report(1.0);
+            yield break;
+        }
+
         double totalPositions = Math.Max(1.0, (double)n * thresholds.Length);
         int sinceCheck = 0;
         const int checkInterval = 1000;
@@ -468,6 +489,87 @@ public static class RepeatFinder
 
         cancellationToken.ThrowIfCancellationRequested();
         progress?.Report(1.0);
+    }
+
+    /// <summary>Engine of the <see cref="MicrosatelliteScanMode.MaximalRuns"/> scan (tests force one; production uses <see cref="Auto"/>).</summary>
+    internal enum MicrosatelliteEngine
+    {
+        /// <summary>The run enumeration when more than <see cref="RunsEngineMinUnitLengths"/> unit lengths are admissible, else the per-unit-length scan.</summary>
+        Auto,
+
+        /// <summary>One linear scan per unit length.</summary>
+        Scan,
+
+        /// <summary>Run enumeration (<see cref="MaximalRepetitions"/>).</summary>
+        Runs,
+    }
+
+    /// <summary>
+    /// Number of admissible unit lengths above which the maximal-runs scan switches from one linear scan per unit length
+    /// (O(n) each, O(n·K) in total) to the run enumeration of Bannai et al. 2017 (O(n log² n), independent of K). Measured
+    /// break-even, see the GENOMIC-TANDEM-001 evidence (B09 F36).
+    /// </summary>
+    internal const int RunsEngineMinUnitLengths = 256;
+
+    /// <summary>
+    /// The maximal-runs microsatellite search with an explicit engine (test hook of the engine equivalence): the same
+    /// result and order for every engine.
+    /// </summary>
+    internal static IEnumerable<MicrosatelliteResult> FindMicrosatellitesWithEngine(
+        string sequence, int minUnitLength, int maxUnitLength, int minRepeats, MicrosatelliteEngine engine)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        ValidateMicrosatelliteParameters(minUnitLength, maxUnitLength, minRepeats);
+        return FindMicrosatellitesCore(
+            sequence.ToUpperInvariant(), UniformThresholds(sequence.Length, minUnitLength, maxUnitLength, minRepeats),
+            CancellationToken.None, null, MicrosatelliteScanMode.MaximalRuns, engine);
+    }
+
+    /// <summary>
+    /// Run-enumeration engine (upper-case input): every maximal repetition (Kolpakov-Kucherov run, <see cref="MaximalRepetitions"/>)
+    /// whose smallest period <c>p</c> has a threshold in <paramref name="thresholds"/> and at least that many complete copies, and
+    /// whose left-end unit consists of A/C/G/T only. A run's unit at its left end is primitive exactly when the run's smallest period
+    /// is its unit length (Fine-Wilf), and a maximal period-p repetition whose smallest period is shorter has a non-primitive unit,
+    /// so the result equals the per-unit-length scan (same set, same order: unit length, then start).
+    /// </summary>
+    private static IEnumerable<MicrosatelliteResult> FindMicrosatellitesByRuns(
+        string seq, (int UnitLength, int MinRepeats)[] thresholds, CancellationToken cancellationToken)
+    {
+        if (thresholds.Length == 0)
+            yield break;
+
+        var units = new int[thresholds.Length]; // ascending, distinct
+        for (int k = 0; k < units.Length; k++)
+            units[k] = thresholds[k].UnitLength;
+
+        foreach (var run in MaximalRepetitions.FindRuns(seq, cancellationToken))
+        {
+            int k = Array.BinarySearch(units, run.Period);
+            if (k < 0)
+                continue;
+            int copies = (run.End - run.Start) / run.Period;
+            if (copies < thresholds[k].MinRepeats || !IsUnambiguousUnit(seq, run.Start, run.Period))
+                continue;
+
+            string unit = seq.Substring(run.Start, run.Period);
+            yield return new MicrosatelliteResult(
+                Position: run.Start,
+                RepeatUnit: unit,
+                RepeatCount: copies,
+                TotalLength: copies * run.Period,
+                RepeatType: ClassifyRepeatType(unit));
+        }
+    }
+
+    private static bool IsUnambiguousUnit(string seq, int start, int length)
+    {
+        for (int i = start; i < start + length; i++)
+        {
+            if (AcgtCode(seq[i]) < 0)
+                return false;
+        }
+
+        return true;
     }
 
     /// <summary>

@@ -3,8 +3,8 @@ namespace Seqeron.Genomics.Analysis;
 /// <summary>
 /// All <b>maximal repetitions</b> ("runs") of a string in O(n log² n) time (suffix-array construction dominates; the
 /// scan itself is O(n) longest-common-extension queries), independent of the period range — the engine behind
-/// <see cref="GenomicAnalyzer.FindTandemRepeats(DnaSequence,int,int)"/> when the unit-length range is too wide for one
-/// linear scan per unit length (<see cref="RepeatFinder.FindMicrosatellites(DnaSequence,int,int,int)"/>).
+/// <see cref="RepeatFinder.FindMicrosatellites(DnaSequence,int,int,int)"/> (and so of <see cref="GenomicAnalyzer.FindTandemRepeats(DnaSequence,int,int)"/>)
+/// when the unit-length range is too wide for one linear scan per unit length (more than <c>RepeatFinder.RunsEngineMinUnitLengths</c> admissible unit lengths).
 /// </summary>
 /// <remarks>
 /// <para>
@@ -36,15 +36,19 @@ internal static class MaximalRepetitions
     internal readonly record struct Run(int Start, int End, int Period);
 
     /// <summary>All runs of <paramref name="s"/>, ordered by period, then start (each run once).</summary>
-    internal static List<Run> FindRuns(string s)
+    internal static List<Run> FindRuns(string s, CancellationToken cancellationToken = default)
     {
         int n = s.Length;
         var runs = new List<Run>();
         if (n < 2)
             return runs;
 
+        cancellationToken.ThrowIfCancellationRequested();
+
         var forward = new LceIndex(Encode(s, reverse: false));
+        cancellationToken.ThrowIfCancellationRequested();
         var backward = new LceIndex(Encode(s, reverse: true));
+        cancellationToken.ThrowIfCancellationRequested();
         var seen = new HashSet<(int, int, int)>();
 
         for (int order = 0; order < 2; order++)
@@ -56,6 +60,8 @@ internal static class MaximalRepetitions
             int top = -1;
             for (int i = n - 1; i >= 0; i--)
             {
+                if ((i & 4095) == 0)
+                    cancellationToken.ThrowIfCancellationRequested();
                 while (top >= 0 && !SuffixSmaller(s, forward, stack[top], i, order))
                     top--;
                 nsv[i] = top >= 0 ? stack[top] : noSmaller;
@@ -64,6 +70,8 @@ internal static class MaximalRepetitions
 
             for (int i = 0; i < n; i++)
             {
+                if ((i & 4095) == 0)
+                    cancellationToken.ThrowIfCancellationRequested();
                 int j = nsv[i];
                 int p = j - i;
                 // j == n (order 0: lambda(i) reaches the end of the text) is a valid last root: the run then only extends

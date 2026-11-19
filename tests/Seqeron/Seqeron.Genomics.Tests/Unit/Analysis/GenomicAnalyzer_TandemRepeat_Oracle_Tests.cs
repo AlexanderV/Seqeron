@@ -152,13 +152,24 @@ public class GenomicAnalyzer_TandemRepeat_Oracle_Tests
 
     #region Run-enumeration engine (Lyndon runs, Bannai et al. 2017) vs per-unit-length engine
 
+    // The engine of RepeatFinder.FindMicrosatellites (R15, B09 for B04: the dispatch lives in the canonical class); the tests force each one.
+    private static IEnumerable<TandemRepeat> ByEngine(DnaSequence s, int minUnit, int minReps, int maxUnit, RepeatFinder.MicrosatelliteEngine engine) =>
+        RepeatFinder.FindMicrosatellitesWithEngine(s.Sequence, minUnit, maxUnit, minReps, engine)
+            .Select(m => new TandemRepeat(m.RepeatUnit, m.Position, m.RepeatCount));
+
+    private static IEnumerable<TandemRepeat> ByRuns(DnaSequence s, int minUnit, int minReps, int maxUnit) =>
+        ByEngine(s, minUnit, minReps, maxUnit, RepeatFinder.MicrosatelliteEngine.Runs);
+
+    private static IEnumerable<TandemRepeat> ByScan(DnaSequence s, int minUnit, int minReps, int maxUnit) =>
+        ByEngine(s, minUnit, minReps, maxUnit, RepeatFinder.MicrosatelliteEngine.Scan);
+
     [Test]
     public void RunsEngine_MatchesPythonOracle_AllRows()
     {
         foreach (var row in ReadOracle())
         {
             int max = row.MaxUnit == 0 ? int.MaxValue : row.MaxUnit;
-            var actual = GenomicAnalyzer.FindTandemRepeatsByRuns(new DnaSequence(row.Sequence), row.MinUnit, row.MinReps, max).ToList();
+            var actual = ByRuns(new DnaSequence(row.Sequence), row.MinUnit, row.MinReps, max).ToList();
             Assert.That(Format(actual), Is.EqualTo(row.Hits), $"{row.Sequence} min={row.MinUnit} reps={row.MinReps} max={row.MaxUnit}");
         }
     }
@@ -188,12 +199,12 @@ public class GenomicAnalyzer_TandemRepeat_Oracle_Tests
         foreach (string s in texts)
         {
             var expected = BruteForce(s, 1, 2, int.MaxValue);
-            var actual = GenomicAnalyzer.FindTandemRepeatsByRuns(new DnaSequence(s), 1, 2, int.MaxValue)
+            var actual = ByRuns(new DnaSequence(s), 1, 2, int.MaxValue)
                 .Select(t => (t.Unit, t.Position, t.Repetitions)).ToList();
             Assert.That(actual, Is.EqualTo(expected), s);
 
-            var viaScan = RepeatFinder.FindMicrosatellites(new DnaSequence(s), 1, int.MaxValue, 2)
-                .Select(m => (m.RepeatUnit, m.Position, m.RepeatCount)).ToList();
+            var viaScan = ByScan(new DnaSequence(s), 1, 2, int.MaxValue)
+                .Select(m => (m.Unit, m.Position, m.Repetitions)).ToList();
             Assert.That(actual, Is.EqualTo(viaScan), s);
         }
     }
@@ -250,10 +261,10 @@ public class GenomicAnalyzer_TandemRepeat_Oracle_Tests
 
             var dna = new DnaSequence(sb.ToString());
             int minReps = rnd.Next(2, 4);
-            var viaRuns = GenomicAnalyzer.FindTandemRepeatsByRuns(dna, 1, minReps, int.MaxValue)
+            var viaRuns = ByRuns(dna, 1, minReps, int.MaxValue)
                 .Select(t => (t.Unit, t.Position, t.Repetitions)).ToList();
-            var viaScan = RepeatFinder.FindMicrosatellites(dna, 1, int.MaxValue, minReps)
-                .Select(m => (m.RepeatUnit, m.Position, m.RepeatCount)).ToList();
+            var viaScan = ByScan(dna, 1, minReps, int.MaxValue)
+                .Select(m => (m.Unit, m.Position, m.Repetitions)).ToList();
             Assert.That(viaRuns, Is.EqualTo(viaScan), $"iteration {iter} reps={minReps}");
             Assert.That(viaRuns, Is.Not.Empty);
         }
@@ -266,10 +277,10 @@ public class GenomicAnalyzer_TandemRepeat_Oracle_Tests
         string unit = "ACGTTGCAAGCTTAGG"; // 16 bp
         string seq = RandomDna(200, 5) + string.Concat(Enumerable.Repeat(unit, 6)) + RandomDna(300, 6);
         var dna = new DnaSequence(seq);
-        Assert.That(seq.Length / 2 - 1 + 1, Is.GreaterThan(GenomicAnalyzer.RunsEngineMinUnitLengths));
+        Assert.That(seq.Length / 2 - 1 + 1, Is.GreaterThan(RepeatFinder.RunsEngineMinUnitLengths));
 
         var viaRuns = GenomicAnalyzer.FindTandemRepeats(dna, 1, 2).Select(t => (t.Unit, t.Position, t.Repetitions)).ToList();
-        var viaScan = RepeatFinder.FindMicrosatellites(dna, 1, int.MaxValue, 2).Select(m => (m.RepeatUnit, m.Position, m.RepeatCount)).ToList();
+        var viaScan = ByScan(dna, 1, 2, int.MaxValue).Select(m => (m.Unit, m.Position, m.Repetitions)).ToList();
         Assert.That(viaRuns, Is.EqualTo(viaScan));
         Assert.That(viaRuns, Does.Contain((unit, 200, 6)));
     }

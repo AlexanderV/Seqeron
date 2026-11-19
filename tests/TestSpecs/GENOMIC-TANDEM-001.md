@@ -50,7 +50,7 @@
 | `FindTandemRepeats(sequence, minUnitLength = 2, minRepetitions = 2)` | GenomicAnalyzer | **Canonical** | Facade over `RepeatFinder.FindMicrosatellites` / run enumeration; no upper unit length. |
 | `FindTandemRepeats(sequence, minUnitLength, minRepetitions, maxUnitLength)` | GenomicAnalyzer | **Canonical** | Restricted unit-length range (additive overload). |
 | `FindTandemRepeats(string, min, minReps[, maxUnitLength])` | GenomicAnalyzer | **Canonical** (A1-21) | N/IUPAC-tolerant string overloads: canonical `RepeatFinder.FindMicrosatellites(string)` contract (units over A/C/G/T only, case-insensitive; `null` → `ArgumentNullException`, empty → none) |
-| `FindTandemRepeatsByRuns(...)` | GenomicAnalyzer (internal) | Engine | Run enumeration (`MaximalRepetitions.FindRuns`), compared with the scan in tests. |
+| `RepeatFinder.FindMicrosatellitesWithEngine(..., Auto/Scan/Runs)` | RepeatFinder (internal) | Engine hook | Run enumeration (`MaximalRepetitions.FindRuns`) vs the per-unit-length scan, forced one by one in tests; since 2026-11-19 (R15, F78) the engine choice (> 256 unit lengths -> runs) lives in `RepeatFinder.FindMicrosatellites`, `GenomicAnalyzer.FindTandemRepeats` is a pure facade. |
 | `find_tandem_repeats` | MCP Analysis | Wrapper | Delegates; optional `maxUnitLength`. |
 
 ---
