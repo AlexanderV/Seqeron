@@ -22,6 +22,7 @@ internal sealed unsafe class LcpPyramid : IDisposable
     private const int MaxLevels = 32;
 
     private readonly LcpKind _kind;
+    private readonly bool _mapped;
     private readonly int _length;
     private readonly int _fanout;
     private readonly int _logFanout;
@@ -48,6 +49,7 @@ internal sealed unsafe class LcpPyramid : IDisposable
     private LcpPyramid(CompactLcp lcp, int fanout)
     {
         _kind = lcp.Kind;
+        _mapped = lcp.IsMapped;
         _length = lcp.Length;
         _fanout = fanout;
         _logFanout = int.TrailingZeroCount(fanout);
@@ -370,14 +372,14 @@ internal sealed unsafe class LcpPyramid : IDisposable
             int c = Math.Min(lowest + f - 1, _count[k - 1] - 1);
             while (_levels[off + c] >= bound)
             {
-                if (--c < lowest) throw new InvalidOperationException("the LCP pyramid is inconsistent: no entry below the bound in a block whose minimum is below it");
+                if (--c < lowest) throw Inconsistent();
             }
             b = c;
         }
         int first = b * f;
         for (int position = Math.Min(first + f - 1, _length - 1); position >= first; position--)
             if (reader.Less(position, bound)) return position;
-        throw new InvalidOperationException("the LCP pyramid is inconsistent: no entry below the bound in a block whose minimum is below it");
+        throw Inconsistent();
     }
 
     /// <summary>The leftmost position below <paramref name="bound"/> inside block <paramref name="b"/> of level <paramref name="k"/>, whose minimum is known to be below it.</summary>
@@ -394,14 +396,14 @@ internal sealed unsafe class LcpPyramid : IDisposable
             int last = Math.Min(c + f - 1, _count[k - 1] - 1);
             while (_levels[off + c] >= bound)
             {
-                if (++c > last) throw new InvalidOperationException("the LCP pyramid is inconsistent: no entry below the bound in a block whose minimum is below it");
+                if (++c > last) throw Inconsistent();
             }
             b = c;
         }
         int end = Math.Min((b * f) + f - 1, _length - 1);
         for (int position = b * f; position <= end; position++)
             if (reader.Less(position, bound)) return position;
-        throw new InvalidOperationException("the LCP pyramid is inconsistent: no entry below the bound in a block whose minimum is below it");
+        throw Inconsistent();
     }
 
     /// <summary>Read access to the base entries of one <see cref="LcpKind"/>; a struct, so that each search is specialised per kind.</summary>
@@ -457,6 +459,13 @@ internal sealed unsafe class LcpPyramid : IDisposable
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool Less(int rank, int bound) => entries[rank] < bound;
+    }
+
+    /// <summary>The pyramid and the entries it was built from disagree (a block whose minimum is below the bound holds no entry below it): never for an LCP array in memory, a damaged overflow list for one over a file.</summary>
+    private Exception Inconsistent()
+    {
+        const string message = "the LCP pyramid is inconsistent: no entry below the bound in a block whose minimum is below it";
+        return _mapped ? new InvalidDataException(message + ": the file is damaged") : new InvalidOperationException(message);
     }
 
     private static int Resolve(int[] overflowRanks, int[] overflowValues, int rank)
