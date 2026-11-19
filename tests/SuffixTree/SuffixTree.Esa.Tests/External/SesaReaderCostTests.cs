@@ -365,16 +365,19 @@ public class SesaReaderCostTests
         string file = Env("SESA_FILE"), input = Env("SESA_INPUT"), label = Env("SESA_LABEL");
         int repeats = int.Parse(EnvOr("SESA_REPEATS", "5"), CultureInfo.InvariantCulture);
         string text = File.ReadAllText(input, System.Text.Encoding.Latin1);
-        using EsaSuffixTree memory = EsaSuffixTree.Build(text);
-        using EsaSuffixTree checkedTree = SesaTestFile.Open(file, EsaValidationLevel.Header, EsaAccessMode.Checked);
-        using EsaSuffixTree trusted = SesaTestFile.Open(file, EsaValidationLevel.Header, EsaAccessMode.Trusted);
+        // SESA_TREES selects the trees of a process (memory, checked, trusted; default all three in this order): the protocol of G3 runs one tree per process, in alternating orders, so that the order inside a process is not a bias
+        string[] wanted = EnvOr("SESA_TREES", "memory,checked,trusted").Split(',', StringSplitOptions.RemoveEmptyEntries);
+        using EsaSuffixTree? memory = wanted.Contains("memory") ? EsaSuffixTree.Build(text) : null;
+        using EsaSuffixTree? checkedTree = wanted.Contains("checked") ? SesaTestFile.Open(file, EsaValidationLevel.Header, EsaAccessMode.Checked) : null;
+        using EsaSuffixTree? trusted = wanted.Contains("trusted") ? SesaTestFile.Open(file, EsaValidationLevel.Header, EsaAccessMode.Trusted) : null;
         var rng = new SplitMix64(1234);
         string[] twenty = [.. Enumerable.Range(0, 200_000).Select(_ => text.Substring(rng.NextInt(text.Length - 20), 20))];
         string[] eight = [.. Enumerable.Range(0, 1_000).Select(_ => text.Substring(rng.NextInt(text.Length - 8), 8))];
         string[] absent = [.. Enumerable.Range(0, 100_000).Select(_ => new string(Enumerable.Range(0, 24).Select(_ => "ACGT"[rng.NextInt(4)]).ToArray()))];
-        var trees = new (string Name, EsaSuffixTree Tree)[] { ("memory", memory), ("checked", checkedTree), ("trusted", trusted) };
-        foreach ((string name, EsaSuffixTree tree) in trees)
+        var trees = new (string Name, EsaSuffixTree? Tree)[] { ("memory", memory), ("checked", checkedTree), ("trusted", trusted) };
+        foreach ((string name, EsaSuffixTree? tree) in trees)
         {
+            if (tree is null) continue;
             Warm(tree, twenty, eight, absent);
             var count20 = new List<double>();
             var locate8 = new List<double>();
