@@ -13,7 +13,7 @@ export PATH="$PATH:/root/.dotnet" DOTNET_ROOT=/root/.dotnet DOTNET_CLI_TELEMETRY
 HERE=$(cd "$(dirname "$0")" && pwd)
 ROOT=$(git -C "$HERE" rev-parse --show-toplevel)
 PROJ=$ROOT/tests/SuffixTree/SuffixTree.Esa.Tests/SuffixTree.Esa.Tests.csproj
-W=${FUZZ_WORK:-/tmp/claude-0/fuzz1b8}
+W=${FUZZ_WORK:-/tmp/fuzz1b8}
 mkdir -p "$W"
 rm -f "$W/report.txt" "$W/report.txt.log"
 rm -rf "$W/journal"
