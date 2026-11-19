@@ -167,6 +167,7 @@ public sealed class SesaFailureTests
                 },
             };
             Exception? e = Run(input, target, options);
+            Assert.That(source.Asked, Is.Not.Empty.And.All.EqualTo(Path.GetDirectoryName(Path.GetFullPath(target))), $"free {free}: the free space of the directory of the target is what is asked, early (before the creation), late (before the growth) and by the growth itself");
             if (fits)
             {
                 Assert.That(e, Is.Null, $"free {free} = need {need} + {free - need}: {e}");

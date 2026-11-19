@@ -280,6 +280,81 @@ public class SesaAuditTests
         Assert.Throws<InvalidDataException>(() => PsiStream.Build(bwtPath, s.Length, b.PrimaryRow, b.Counts, file, 0, new PsiOptions { WindowBytes = 1 << 20 }), "and with a window that is not used up");
     }
 
+    [Test]
+    public void ATextAtTheLimitOfThePositions_IsNotRefusedAsTooLong_ByTheBwtPassAndTheSectionStage()
+    {
+        string sparse = _dir.File("limit.pk");
+        long n = PackedTextFormat.MaxSymbols;
+        using (var fs = new FileStream(sparse, FileMode.Create)) fs.SetLength(PackedTextFormat.TotalBytes(n, 2));
+        using MappedTextReader atLimit = MappedTextReader.Open(sparse, n, 2);
+        string sa = _dir.File("sa.bin");
+        File.WriteAllBytes(sa, new byte[64]);
+        Assert.Throws<InvalidDataException>(() => BwtPass.Build(sa, 0, atLimit, 4, _dir.File("x.bwt")), "at the limit the text is allowed; the suffix array of 16 GB is not in a file of 64 bytes");
+        using MappedOutputFile file = MappedOutputFile.Create(_dir.File("c.bin"), 64, new MappedFileOptions { Reservation = ReservationMode.Sparse });
+        Assert.Throws<ArgumentOutOfRangeException>(() => SectionLcpChildBuilder.Build(sa, 0, atLimit, file, 0, _ => throw new InvalidOperationException("never asked"), LcpChildRun.Options(_dir.Sub("scr"), LcpChildRun.TinyTuning(2))), "the child table of 16 GB does not fit a file of 64 bytes");
+        Assert.That(File.Exists(_dir.File("x.bwt")), Is.False);
+    }
+
+    [Test]
+    public void Grow_ReleasesTheOldMapping_SoNoHandleOfTheFileOutlivesTheFile()
+    {
+        string path = _dir.File("grow.bin");
+        using (MappedOutputFile file = MappedOutputFile.Create(path, 4096, new MappedFileOptions { Reservation = ReservationMode.Sparse }))
+        {
+            file.Grow(8192);
+            file.Grow(16384);
+            using (MappedWindowWriter w = file.CreateWriter(8192, 4096, 512)) w.Append(new byte[4096]);
+            file.Complete(false);
+        }
+        ProcFds.AssertClosed("after the file and its growths", [path], []);
+        Assert.That(ProcMaps.Contains(path) ?? false, Is.False, "no mapping of the file is left");
+    }
+
+    [Test]
+    public void TheStateAtTheHookPoints_BwtScratchGoneAfterPsi_NothingMappedWhenTheChecksumsRun_AndTheScratchOfPh4HoldsItsFiles()
+    {
+        string text = StringFamilies.RandomDna(500, 61);
+        string input = SesaRun.WriteInput(_dir, text);
+        string target = _dir.File("hooks.sesa");
+        string tmp = target + ".tmp", scratch = tmp + ".d";
+        bool? bwtDirAtPsi = null, bwtFileAtPsi = null, mappedAtChecksums = null, mappedAtInfo = null;
+        int ph4Files = -1;
+        SesaBuildOptions options = SesaRun.Tiny(3, 1, true) with
+        {
+            Hook = point =>
+            {
+                if (point == SesaHooks.PsiBuilt)
+                {
+                    bwtDirAtPsi = Directory.Exists(Path.Combine(scratch, "ph6"));
+                    bwtFileAtPsi = File.Exists(Path.Combine(scratch, "ph6", "bwt.bin"));
+                }
+                if (point == SesaHooks.InfoWritten) mappedAtInfo = ProcMaps.Contains(tmp);
+                if (point == SesaHooks.Checksummed) mappedAtChecksums = ProcMaps.Contains(tmp);
+            },
+            LcpTrace = step =>
+            {
+                if (step == "b3") ph4Files = Directory.Exists(Path.Combine(scratch, "ph4")) ? Directory.GetFiles(Path.Combine(scratch, "ph4"), "*", SearchOption.AllDirectories).Length : 0;
+            },
+        };
+        SesaBuilder.Build(input, target, options);
+        Assert.That((bwtDirAtPsi, bwtFileAtPsi), Is.EqualTo((false, false)), "the BWT scratch file and its directory are gone when PSI is done");
+        Assert.That(ph4Files, Is.GreaterThan(0), "PH4 keeps its spools under ph4 (not ph5) while B3 starts");
+        if (mappedAtInfo is not null) Assert.That(mappedAtInfo, Is.True, "the container is still mapped when BUILD_INFO is written (control of the probe)");
+        Assert.That(mappedAtChecksums ?? false, Is.False, "the text reader and the container are closed before the checksum pass maps the file again, and its view is gone when it ends");
+    }
+
+    [Test]
+    public void ThePh6Defaults_AreWindowsOfOneMiB_And64SymbolsPerPass_AtTheLevelOfTheBuilder()
+    {
+        string text = string.Concat(Enumerable.Repeat(new string([.. Enumerable.Range(0, 70).Select(i => (char)(48 + i))]), 6));
+        SesaRun.Outcome o = SesaRun.Build(_dir, text, new SesaBuildOptions { Threads = 1, Fsync = false, MeasureRss = false }, "-d");
+        SesaRun.Compare(o, "70 symbols", true);
+        Assert.That(MappedWindowWriter.DefaultWindowBytes, Is.GreaterThanOrEqualTo(1 << 20));
+        PsiStats psi = o.Result.Psi!;
+        Assert.That((psi.Passes, psi.SymbolsPerPass, psi.MappedBoundBytes), Is.EqualTo((2, 64, 64L * MappedWindowWriter.DefaultWindowBytes)), "70 symbols take two passes of at most 64, each window of the default size");
+        Assert.That(o.Result.Bwt!.Counts, Has.Length.EqualTo(70));
+    }
+
     // ---- the counted calls of a fixed geometry (the sizes of every stage reach their stage: a size that is dropped or changed on the way changes a count)
 
     private static string Snapshot(IoSnapshot s) => $"{s.ReadBytes}/{s.WriteBytes}/{s.ReadCalls}/{s.WriteCalls}/{s.MappedWriteBytes}/{s.MappedWindows}/{s.MappedMaxWindowBytes}/{s.ScratchPeakBytes}";
@@ -305,6 +380,16 @@ public class SesaAuditTests
             "v6 total 36264/35012/733/7106/563/64/8400 ph1 0/0/0/0/804/35/55/816 ph23 18012/16860/360/301/2804/122/55/5328 arena 136/216/1868/96/0",
             "v11 total 31434/26800/1000/11008/749/224/8400 ph1 464/464/20/3/1200/150/80/1212 ph23 8512/8184/111/143/2804/351/80/5628 arena 480/1104/4548/96/40",
         }), "the counted I/O of three fixed geometries on a fixed text: a size that is not passed on to its stage changes a count");
+    }
+
+    [Test]
+    public void TheCountedCalls_OfATextWithAnOverflowList_ArePinned()
+    {
+        string text = StringFamilies.RandomDna(2800, 62) + new string('A', 400) + StringFamilies.RandomDna(2800, 63);
+        SesaBuildResult r = SesaRun.Build(_dir, text, SesaRun.Tiny(3, 1, true), "-o").Result;
+        Assert.That(r.OverflowCount, Is.GreaterThan(0), "the text has an overflow list");
+        string seen = $"total {Stable(r.Io)} ph23 {Snapshot(r.Sa.Ph23Io)} arena {r.Sa.Ph1ArenaPeakBytes}/{r.Sa.Ph23ArenaPeakBytes}/{r.Lcp.ArenaPeakBytes}/{r.Lcp.ChildArenaPeakBytes}/{r.Psi?.MappedBoundBytes ?? 0}";
+        Assert.That(seen, Is.EqualTo("total 465185/378236/13778/103892/5566/160/72000 ph23 235340/217740/4950/3698/24004/215/112/50080 arena 1620/144/10060/160/64"), "the overflow list is written through a counted writer, the sizes of every stage reach it");
     }
 
     // ---- the buffers of PH6 and the shared budget

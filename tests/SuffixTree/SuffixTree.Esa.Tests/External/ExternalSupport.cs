@@ -111,6 +111,9 @@ internal sealed class FakeReservationSource : IReservationSource
 
     public string? LastDirectory { get; private set; }
 
+    /// <summary>Every directory that the source was asked about, in order.</summary>
+    public List<string> Asked { get; } = [];
+
     public FileStream CreatePreallocated(string path, long length)
     {
         PreallocateCalls++;
@@ -121,6 +124,7 @@ internal sealed class FakeReservationSource : IReservationSource
     public long AvailableFreeBytes(string directory)
     {
         FreeCalls++;
+        Asked.Add(directory);
         LastDirectory = directory;
         return Free;
     }
