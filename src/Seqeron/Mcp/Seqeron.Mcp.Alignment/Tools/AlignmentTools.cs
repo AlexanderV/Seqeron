@@ -640,12 +640,20 @@ public class AlignmentTools
         [Description(PwMatrixDescription)] string? pwMatrix = null,
         [Description(PwGapOpenDescription)] double? pwGapOpen = null,
         [Description(PwGapExtendDescription)] double? pwGapExtend = null,
+        [Description("T-Coffee Lalign library: the number of non-intersecting (Waterman-Eggert) local alignments per sequence pair that enter the primary library, each weighted by its own percent identity (lalign_id_pair, -lalign_n_top; default 1 = the single best Smith-Waterman alignment of the published formula). Paper engine and TCoffeeLinked engine.")] int primaryLocalAlignments = 1,
+        [Description("Sequence redundancy weights (T-Coffee -seq_weight): 'none' (default) or 'tcoffee' (compute_t_coffee_weight: w = 2 / (1 + sum (10 x identity)^3) rescaled to mean 1; an extended library weight is multiplied by the smaller of the two sequence weights).")] string sequenceWeights = "none",
         CancellationToken cancellationToken = default)
     {
+        var weightMode = (sequenceWeights ?? "none").Trim().ToLowerInvariant() switch
+        {
+            "none" => global::Seqeron.Genomics.Infrastructure.MsaSequenceWeights.None,
+            "tcoffee" or "t_coffee" => global::Seqeron.Genomics.Infrastructure.MsaSequenceWeights.TCoffee,
+            _ => throw new ArgumentException("sequenceWeights must be 'none' or 'tcoffee'.", nameof(sequenceWeights)),
+        };
         using var cancelScope = global::Seqeron.Genomics.Alignment.SequenceAligner.BeginCancellationScope(cancellationToken);
         return RunMsa(sequences, match, mismatch, gapOpen, gapExtend, type, matrix,
-            (seqs, scoring) => global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignConsistency(seqs, scoring, ParseMsaOptions(distance, gapModel, guideTree, ktuple, window, topDiagonals, pairGap, consistencyEngine, pwMatrix, pwGapOpen, pwGapExtend)),
-            (seqs, scoring) => global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignConsistency(seqs, scoring, ParseMsaOptions(distance, gapModel, guideTree, ktuple, window, topDiagonals, pairGap, consistencyEngine, pwMatrix, pwGapOpen, pwGapExtend)));
+            (seqs, scoring) => global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignConsistency(seqs, scoring, ParseMsaOptions(distance, gapModel, guideTree, ktuple, window, topDiagonals, pairGap, consistencyEngine, pwMatrix, pwGapOpen, pwGapExtend) with { PrimaryLocalAlignments = primaryLocalAlignments, SequenceWeights = weightMode }),
+            (seqs, scoring) => global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignConsistency(seqs, scoring, ParseMsaOptions(distance, gapModel, guideTree, ktuple, window, topDiagonals, pairGap, consistencyEngine, pwMatrix, pwGapOpen, pwGapExtend) with { PrimaryLocalAlignments = primaryLocalAlignments, SequenceWeights = weightMode }));
     }
 
     [McpServerTool(Name = "multiple_align_clustalw", Title = "MSA — ClustalW 2.1 Multiple Alignment (exact port)", ReadOnly = true)]

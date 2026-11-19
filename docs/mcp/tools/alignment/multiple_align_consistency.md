@@ -42,6 +42,8 @@ Consistency-based MSA (T-Coffee; Notredame, Higgins & Heringa 2000): a primary l
 | `pwMatrix` | string | No | type='protein' with distance='clustalw': ClustalW's pairwise matrix (clustalw -PWMATRIX): 'gonnet' (default; GONNET250), 'blosum' (BLOSUM30), 'pam' (PAM350) or 'id' (identity). |
 | `pwGapOpen` | number | No | type='protein' with distance='clustalw': ClustalW -PWGAPOPEN (default 10; length-dependent: 2 * matrixAvg * (open + ln min(length)) in matrix units). |
 | `pwGapExtend` | number | No | type='protein' with distance='clustalw': ClustalW -PWGAPEXT (default 0.1). |
+| `primaryLocalAlignments` | integer | No | T-Coffee Lalign library: the number of non-intersecting (Waterman-Eggert) local alignments per sequence pair that enter the primary library, each weighted by its own percent identity (lalign_id_pair, -lalign_n_top; default 1 = the single best Smith-Waterman alignment of the published formula). Paper engine and TCoffeeLinked engine. (default: 1) |
+| `sequenceWeights` | string | No | Sequence redundancy weights (T-Coffee -seq_weight): 'none' (default) or 'tcoffee' (compute_t_coffee_weight: w = 2 / (1 + sum (10 x identity)^3) rescaled to mean 1; an extended library weight is multiplied by the smaller of the two sequence weights). (default: none) |
 
 ## Output Schema
 

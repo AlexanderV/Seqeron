@@ -180,13 +180,24 @@ public static partial class SequenceAligner
     /// guide tree through the program's progressive stage.
     /// </summary>
     private static MultipleAlignmentResult BuildTCoffeeLinkedResult(
-        string[] seqs, Dictionary<ResiduePairKey, double> primary, ProgressiveGuideNode root, PairScoring scoring, MsaGapModel gapModel)
+        string[] seqs, Dictionary<ResiduePairKey, double> primary, ProgressiveGuideNode root, PairScoring scoring, MsaGapModel gapModel, float[]? seqWeights = null)
     {
         var library = new TCoffeeLibrary(seqs.Length);
         foreach (var (key, weight) in primary.OrderBy(p => p.Key.SeqA).ThenBy(p => p.Key.SeqB).ThenBy(p => p.Key.PosA).ThenBy(p => p.Key.PosB))
             library.Add(key.SeqA, key.PosA, key.SeqB, key.PosB, (int)(weight * 10));
 
-        var rows = MultipleAlignTCoffee(seqs, library, ToTCoffeeTree(root));
+        string[] rows;
+        if (seqWeights is null)
+            rows = MultipleAlignTCoffee(seqs, library, ToTCoffeeTree(root));
+        else
+        {
+            // MultipleAlignTCoffee with the program's -seq_weight step (re_weight_constraint_list after the relaxation)
+            var index = new TcIndex(seqs.Select(s => s.Length).ToArray());
+            foreach (var (a, pa, b, pb, w) in library.Pairs)
+                index.Add(a, pa + 1, b, pb + 1, w);
+            rows = TcAlignDetailed(seqs, index, ToTCoffeeTree(root), 1, 0, seqWeights).Rows;
+        }
+
         int maxLen = rows.Max(r => r.Length);
         return new MultipleAlignmentResult(rows, BuildConsensus(rows.ToList(), maxLen, scoring.IsMatrix), ComputeSumOfPairsScore(rows.ToList(), scoring, gapModel));
     }

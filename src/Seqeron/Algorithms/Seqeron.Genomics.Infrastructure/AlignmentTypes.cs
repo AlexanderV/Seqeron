@@ -753,6 +753,19 @@ public sealed record MsaOptions
     public MsaConsistencyEngine ConsistencyEngine { get; init; } = MsaConsistencyEngine.PaperExtension;
 
     /// <summary>
+    /// <c>MultipleAlignConsistency</c> only: the number of non-intersecting local alignments per pair that enter the primary library (default 1 = the single best Smith-Waterman alignment of the
+    /// published formula). With N &gt; 1 the Lalign library of the paper is built as T-Coffee's <c>lalign_id_pair</c> does: the Waterman-Eggert top-N alignments
+    /// (<see cref="SequenceAligner.LocalAlignTopN(string, string, ScoringMatrix?, int, int)"/>, the program's <c>-lalign_n_top</c> default is 10), each weighted by its own percent identity and
+    /// signal-added with the global library.
+    /// </summary>
+    public int PrimaryLocalAlignments { get; init; } = 1;
+
+    /// <summary>
+    /// <c>MultipleAlignConsistency</c> only: redundancy weights of the sequences (T-Coffee <c>-seq_weight</c>; default <see cref="MsaSequenceWeights.None"/>).
+    /// </summary>
+    public MsaSequenceWeights SequenceWeights { get; init; } = MsaSequenceWeights.None;
+
+    /// <summary>
     /// <c>MultipleAlignExact</c> only: complexity guard — the largest number of dynamic-programming values (surviving lattice cells ×
     /// gap-history states) the exact sum-of-pairs program may hold (default 50 000 000 ≈ 200 MB of 4-byte scores); above it the
     /// call throws a clear <see cref="ArgumentException"/> instead of exhausting memory.
@@ -773,6 +786,20 @@ public sealed record MsaOptions
     /// An exception of a pair dynamic program is rethrown with its original type, whatever the thread count.
     /// </summary>
     public int MaxDegreeOfParallelism { get; init; } = -1;
+}
+
+/// <summary>Sequence redundancy weights of the consistency-based aligner (T-Coffee <c>-seq_weight</c>).</summary>
+public enum MsaSequenceWeights
+{
+    /// <summary>No weights (every sequence counts 1).</summary>
+    None = 0,
+
+    /// <summary>
+    /// <c>-seq_weight t_coffee</c> (<c>compute_t_coffee_weight</c>): w = 2 / (1 + sum over the other sequences of (10 x identity)^3), rescaled to a mean of 1; an extended library weight of
+    /// the pair (Si.p, Sj.q) is multiplied by min(w_i, w_j) (<c>re_weight_constraint_list</c>, applied after the extension). The identities are those of the program's default k-tuple
+    /// distance matrix; the residue type is decided by the program's rule (more than 98 % nucleotide letters = DNA).
+    /// </summary>
+    TCoffee = 1,
 }
 
 /// <summary>Progressive stage of the consistency-based (T-Coffee) multiple aligner.</summary>

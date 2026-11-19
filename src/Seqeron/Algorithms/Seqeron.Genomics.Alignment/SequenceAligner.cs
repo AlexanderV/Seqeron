@@ -3433,15 +3433,22 @@ public static partial class SequenceAligner
         int k = rawSeqs.Length;
 
         // Steps 1-2: primary library (global + local, signal-added) then triplet extension.
-        var primaryLibrary = BuildPrimaryLibrary(rawSeqs, effectiveScoring, gapModel);
-        var library = new ExtendedLibrary(primaryLibrary);
+        if (options.PrimaryLocalAlignments < 1)
+            throw new ArgumentOutOfRangeException(nameof(options), options.PrimaryLocalAlignments, "PrimaryLocalAlignments must be at least 1.");
+        if (!Enum.IsDefined(options.SequenceWeights))
+            throw new ArgumentOutOfRangeException(nameof(options), "Unknown sequence weighting.");
+        var primaryLibrary = BuildPrimaryLibrary(rawSeqs, effectiveScoring, gapModel, options.PrimaryLocalAlignments);
+        float[]? seqWeights = options.SequenceWeights == MsaSequenceWeights.TCoffee && k > 1 && rawSeqs.All(r => r.Length > 0)
+            ? TcTCoffeeSequenceWeights(TcDistanceMatrix(rawSeqs, TcKindOf(rawSeqs, null), new TCoffeeProgramOptions(), false).Sim, k)
+            : null;
+        var library = new ExtendedLibrary(primaryLibrary, seqWeights);
 
         // Step 3a: guide tree (UPGMA by default, neighbour-joining on request) over the ClustalW distances (1 - identities / min(len1, len2)), reusing the progressive pipeline.
         var distance = ComputeGuideDistances(rawSeqs, effectiveScoring, options.Distance, gapModel, options.GuideTree, options.QuickPairwise, options.ClustalWProtein);
         ProgressiveGuideNode root = BuildProgressiveGuideTree(k, distance, options.GuideTree);
 
         if (options.ConsistencyEngine == MsaConsistencyEngine.TCoffeeLinked)
-            return BuildTCoffeeLinkedResult(rawSeqs, primaryLibrary, root, effectiveScoring, gapModel);
+            return BuildTCoffeeLinkedResult(rawSeqs, primaryLibrary, root, effectiveScoring, gapModel, seqWeights);
 
         // Step 3b: progressive alignment driven by the EXTENDED-LIBRARY weights.
         ConsistencyProfile aligned = AlignConsistencySubtree(root, rawSeqs, library);
@@ -3487,11 +3494,13 @@ public static partial class SequenceAligner
         private readonly Dictionary<ResiduePairKey, double> _primary;
         private readonly Dictionary<(int Seq, int Pos), Dictionary<(int Seq, int Pos), double>> _neighbours;
         private readonly Dictionary<ResiduePairKey, double> _cache = new();
+        private readonly float[]? _seqWeights;
 
-        public ExtendedLibrary(Dictionary<ResiduePairKey, double> primary)
+        public ExtendedLibrary(Dictionary<ResiduePairKey, double> primary, float[]? seqWeights = null)
         {
             _primary = primary;
             _neighbours = BuildNeighbourIndex(primary);
+            _seqWeights = seqWeights;
         }
 
         /// <summary>
@@ -3554,6 +3563,10 @@ public static partial class SequenceAligner
                 }
             }
 
+            // T-Coffee -seq_weight (re_weight_constraint_list, after the extension): the extended weight is multiplied by the smaller of the two sequence weights
+            if (_seqWeights is not null)
+                total *= Math.Min(_seqWeights[key.SeqA], _seqWeights[key.SeqB]);
+
             _cache[key] = total;
             return total;
         }
@@ -3561,7 +3574,7 @@ public static partial class SequenceAligner
 
     /// <summary>Primary library: global (NW) + local (SW) pairwise alignments of every sequence pair, signal-added.</summary>
     private static Dictionary<ResiduePairKey, double> BuildPrimaryLibrary(
-        string[] seqs, PairScoring scoring, MsaGapModel gapModel = MsaGapModel.Linear)
+        string[] seqs, PairScoring scoring, MsaGapModel gapModel = MsaGapModel.Linear, int localAlignments = 1)
     {
         bool affine = gapModel == MsaGapModel.Affine;
         var primary = new Dictionary<ResiduePairKey, double>();
@@ -3576,8 +3589,17 @@ public static partial class SequenceAligner
 
                 if (seqs[i].Length > 0 && seqs[j].Length > 0)
                 {
-                    var local = affine ? AffineAlignCore(seqs[i], seqs[j], scoring, AlignmentType.Local) : LocalAlignCore(seqs[i], seqs[j], scoring);
-                    AddLocalAlignmentToPrimary(primary, i, j, seqs[i], seqs[j], local);
+                    if (localAlignments > 1)
+                    {
+                        // Lalign library of the paper = lalign_id_pair: the Waterman-Eggert top-N non-intersecting local alignments, each weighted by its own percent identity
+                        foreach (var local in LocalTopNCore(seqs[i], seqs[j], scoring, affine, localAlignments, 0))
+                            AddLocalAlignmentToPrimary(primary, i, j, seqs[i], seqs[j], local);
+                    }
+                    else
+                    {
+                        var local = affine ? AffineAlignCore(seqs[i], seqs[j], scoring, AlignmentType.Local) : LocalAlignCore(seqs[i], seqs[j], scoring);
+                        AddLocalAlignmentToPrimary(primary, i, j, seqs[i], seqs[j], local);
+                    }
                 }
             }
         }
@@ -3847,6 +3869,27 @@ public static partial class SequenceAligner
         var library = new ExtendedLibrary(BuildPrimaryLibrary(seqs, effectiveScoring));
         var key = MakeKey(seqI, posI, seqJ, posJ);
         return (library.Primary(key), library.Extended(key));
+    }
+
+    /// <summary>
+    /// Test/diagnostic accessor (audit A2-16): the primary library of <see cref="MultipleAlignConsistency(IEnumerable{string}, MatrixScoring, MsaOptions?)"/> under <paramref name="options"/>
+    /// (<see cref="MsaOptions.PrimaryLocalAlignments"/>) as (seqA, posA, seqB, posB) -> weight, and the sequence weights of <see cref="MsaOptions.SequenceWeights"/> (null = none).
+    /// </summary>
+    internal static (Dictionary<(int SeqA, int PosA, int SeqB, int PosB), double> Primary, float[]? SeqWeights) GetPrimaryLibrary(string[] seqs, ScoringMatrix? scoring, MsaOptions options)
+    {
+        var lib = BuildPrimaryLibrary(seqs, scoring ?? SimpleDna, ResolveGapModel(options), options.PrimaryLocalAlignments);
+        float[]? w = options.SequenceWeights == MsaSequenceWeights.TCoffee && seqs.Length > 1
+            ? TcTCoffeeSequenceWeights(TcDistanceMatrix(seqs, TcKindOf(seqs, null), new TCoffeeProgramOptions(), false).Sim, seqs.Length)
+            : null;
+        return (lib.ToDictionary(kv => (kv.Key.SeqA, kv.Key.PosA, kv.Key.SeqB, kv.Key.PosB), kv => kv.Value), w);
+    }
+
+    /// <summary>Extended weight of a residue pair under <paramref name="options"/> (diagnostic; see <see cref="GetPrimaryLibrary"/>).</summary>
+    internal static double GetExtendedWeight(string[] seqs, int seqI, int posI, int seqJ, int posJ, ScoringMatrix? scoring, MsaOptions options)
+    {
+        var (_, w) = GetPrimaryLibrary(seqs, scoring, options);
+        var library = new ExtendedLibrary(BuildPrimaryLibrary(seqs, scoring ?? SimpleDna, ResolveGapModel(options), options.PrimaryLocalAlignments), w);
+        return library.Extended(MakeKey(seqI, posI, seqJ, posJ));
     }
 
     #endregion

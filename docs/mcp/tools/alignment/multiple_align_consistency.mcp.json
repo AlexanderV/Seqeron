@@ -90,6 +90,16 @@
       "pwGapExtend": {
         "type": "number",
         "description": "type='protein' with distance='clustalw': ClustalW -PWGAPEXT (default 0.1)."
+      },
+      "primaryLocalAlignments": {
+        "type": "integer",
+        "description": "T-Coffee Lalign library: the number of non-intersecting (Waterman-Eggert) local alignments per sequence pair that enter the primary library, each weighted by its own percent identity (lalign_id_pair, -lalign_n_top; default 1 = the single best Smith-Waterman alignment of the published formula). Paper engine and TCoffeeLinked engine.",
+        "default": 1
+      },
+      "sequenceWeights": {
+        "type": "string",
+        "description": "Sequence redundancy weights (T-Coffee -seq_weight): 'none' (default) or 'tcoffee' (compute_t_coffee_weight: w = 2 / (1 + sum (10 x identity)^3) rescaled to mean 1; an extended library weight is multiplied by the smaller of the two sequence weights).",
+        "default": "none"
       }
     },
     "required": [
