@@ -500,7 +500,7 @@ public class MultipleAlignTests
                 Is.EqualTo(new[] { "ACGTTGCATG-CCGATA-GC", "AC-GTGCATG--CGATAGGC", "AC-TTGCATC--CGATT-GC", "CG-TTGCATGGCCGATA-GC" }));
             Assert.Throws<global::Seqeron.Genomics.Alignment.TCoffeeAbortedException>(() => AlignmentTools.MultipleAlignTCoffee(TCoffeeProgramSet, options: "-dp_mode precomputed_pair_wise"), "unequal first rows: the program stops");
             Assert.Throws<global::Seqeron.Genomics.Alignment.TCoffeeAbortedException>(() => AlignmentTools.MultipleAlignTCoffee(TCoffeeProgramSet, ["fugue_pair"]));
-            Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignTCoffee(TCoffeeProgramSet, ["mafft_pair"]), "no MAFFT port yet (A2-19)");
+            Assert.That(AlignmentTools.MultipleAlignTCoffee(TCoffeeProgramSet, ["mafft_pair"]).AlignedSequences.Select(r => r.Replace("-", "")), Is.EqualTo(TCoffeeProgramSet), "mafft_pair = MAFFT 7.505 (pair stage, A2-19 / F119) on every pair; the 460 oracle sets are compared in the library tests");
             Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignTCoffee(TCoffeeProgramSet, options: "-mode expresso"), "downloads structures: network");
             Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignTCoffee(TCoffeeProgramSet, ["blastp_msa"]), "blastp_msa needs the XML of the BLAST search");
             Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignTCoffee(pair, ["TMalign_pair"], structureTemplates: ["DPYNIVIHMQLAQ"]), "one structure entry per sequence");

@@ -4,7 +4,7 @@
 
 <!-- BEGIN generated: do not edit by hand -->
 
-## Alignment (54 tools)
+## Alignment (57 tools)
 
 | tool | Method ID | doc |
 |------|-----------|-----|
@@ -36,6 +36,7 @@
 | `global_align` | `SequenceAligner.GlobalAlign` | [doc](../../mcp/tools/alignment/global_align.md) |
 | `global_align_affine` | `SequenceAligner.GlobalAlignAffine` | [doc](../../mcp/tools/alignment/global_align_affine.md) |
 | `global_align_co_optimal` | `SequenceAligner.GlobalAlignCoOptimal` | [doc](../../mcp/tools/alignment/global_align_co_optimal.md) |
+| `kalign_command` | `KalignProgram.Run` | [doc](../../mcp/tools/alignment/kalign_command.md) |
 | `local_align` | `SequenceAligner.LocalAlign` | [doc](../../mcp/tools/alignment/local_align.md) |
 | `local_align_affine` | `SequenceAligner.LocalAlignAffine` | [doc](../../mcp/tools/alignment/local_align_affine.md) |
 | `local_align_co_optimal` | `SequenceAligner.LocalAlignCoOptimal` | [doc](../../mcp/tools/alignment/local_align_co_optimal.md) |
@@ -47,6 +48,8 @@
 | `multiple_align_consistency` | `SequenceAligner.MultipleAlignConsistency` | [doc](../../mcp/tools/alignment/multiple_align_consistency.md) |
 | `multiple_align_exact` | `SequenceAligner.MultipleAlignExact` | [doc](../../mcp/tools/alignment/multiple_align_exact.md) |
 | `multiple_align_iterative` | `SequenceAligner.MultipleAlignIterative` | [doc](../../mcp/tools/alignment/multiple_align_iterative.md) |
+| `multiple_align_kalign` | `SequenceAligner.KalignRun` | [doc](../../mcp/tools/alignment/multiple_align_kalign.md) |
+| `multiple_align_mafft` | `SequenceAligner.MultipleAlignMafft` | [doc](../../mcp/tools/alignment/multiple_align_mafft.md) |
 | `multiple_align_muscle` | `SequenceAligner.MultipleAlignMuscle` | [doc](../../mcp/tools/alignment/multiple_align_muscle.md) |
 | `multiple_align_progressive` | `SequenceAligner.MultipleAlignProgressive` | [doc](../../mcp/tools/alignment/multiple_align_progressive.md) |
 | `multiple_align_tcoffee` | `SequenceAligner.MultipleAlignTCoffeeProgram` | [doc](../../mcp/tools/alignment/multiple_align_tcoffee.md) |

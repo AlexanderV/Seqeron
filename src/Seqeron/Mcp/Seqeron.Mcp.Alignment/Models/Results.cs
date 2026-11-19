@@ -45,6 +45,23 @@ public record ClustalWCommandResultDto(
     Dictionary<string, string> Files,
     string[] Messages);
 
+/// <summary>Kalign 3.3.5 alignment: the rows of the sequences that were aligned, which input sequences those are and the alphabet the program detected.</summary>
+public record KalignResultDto(
+    string[] AlignedSequences,
+    string Consensus,
+    int TotalScore,
+    double ExactTotalScore,
+    int[] KeptIndices,
+    string Alphabet,
+    int[][] GuideTree);
+
+/// <summary>Kalign 3.3.5 command: exit code, standard output, the files the program wrote (name to text) and what it printed to the error stream.</summary>
+public record KalignCommandResultDto(
+    int ExitCode,
+    string Stdout,
+    Dictionary<string, string> Files,
+    string[] Messages);
+
 /// <summary>Multiple sequence alignment result.</summary>
 public record MultipleAlignmentResultDto(
     string[] AlignedSequences,

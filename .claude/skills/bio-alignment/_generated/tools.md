@@ -34,6 +34,7 @@
 | `global_align` | Alignment | `SequenceAligner.GlobalAlign` | [doc](../../../../docs/mcp/tools/alignment/global_align.md) |
 | `global_align_affine` | Alignment | `SequenceAligner.GlobalAlignAffine` | [doc](../../../../docs/mcp/tools/alignment/global_align_affine.md) |
 | `global_align_co_optimal` | Alignment | `SequenceAligner.GlobalAlignCoOptimal` | [doc](../../../../docs/mcp/tools/alignment/global_align_co_optimal.md) |
+| `kalign_command` | Alignment | `KalignProgram.Run` | [doc](../../../../docs/mcp/tools/alignment/kalign_command.md) |
 | `local_align` | Alignment | `SequenceAligner.LocalAlign` | [doc](../../../../docs/mcp/tools/alignment/local_align.md) |
 | `local_align_affine` | Alignment | `SequenceAligner.LocalAlignAffine` | [doc](../../../../docs/mcp/tools/alignment/local_align_affine.md) |
 | `local_align_co_optimal` | Alignment | `SequenceAligner.LocalAlignCoOptimal` | [doc](../../../../docs/mcp/tools/alignment/local_align_co_optimal.md) |
@@ -45,6 +46,8 @@
 | `multiple_align_consistency` | Alignment | `SequenceAligner.MultipleAlignConsistency` | [doc](../../../../docs/mcp/tools/alignment/multiple_align_consistency.md) |
 | `multiple_align_exact` | Alignment | `SequenceAligner.MultipleAlignExact` | [doc](../../../../docs/mcp/tools/alignment/multiple_align_exact.md) |
 | `multiple_align_iterative` | Alignment | `SequenceAligner.MultipleAlignIterative` | [doc](../../../../docs/mcp/tools/alignment/multiple_align_iterative.md) |
+| `multiple_align_kalign` | Alignment | `SequenceAligner.KalignRun` | [doc](../../../../docs/mcp/tools/alignment/multiple_align_kalign.md) |
+| `multiple_align_mafft` | Alignment | `SequenceAligner.MultipleAlignMafft` | [doc](../../../../docs/mcp/tools/alignment/multiple_align_mafft.md) |
 | `multiple_align_muscle` | Alignment | `SequenceAligner.MultipleAlignMuscle` | [doc](../../../../docs/mcp/tools/alignment/multiple_align_muscle.md) |
 | `multiple_align_progressive` | Alignment | `SequenceAligner.MultipleAlignProgressive` | [doc](../../../../docs/mcp/tools/alignment/multiple_align_progressive.md) |
 | `multiple_align_tcoffee` | Alignment | `SequenceAligner.MultipleAlignTCoffeeProgram` | [doc](../../../../docs/mcp/tools/alignment/multiple_align_tcoffee.md) |

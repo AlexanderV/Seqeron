@@ -1,0 +1,174 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "multiple_align_mafft",
+  "serverName": "Alignment",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "SequenceAligner.MultipleAlignMafft",
+  "docRef": "Seqeron.Genomics.Alignment/SequenceAligner.Mafft.cs",
+  "description": "MAFFT 7.505's alignment of TWO sequences (Katoh & Standley 2013, MBE 30:772; mafft --anysymbol in.fa), ported step by step from the program's source (stage 1 of the MAFFT port; three or more sequences need the 6-mer distances, the guide tree and the group-group dynamic program and are refused with the pointer B09.md A2-19b): the alphabet is guessed from the letters (nucleotide when more than 75 % of the letters are A, C, G, T, U or N; sequenceType 'nuc' / 'amino' forces it), with anySymbol (default, as T-Coffee's mafft_pair calls it) letters outside the alphabet - digits, '*', '#', B, Z, J, O, U in proteins - are aligned as X (n for nucleotides) and restored in the output, '-' characters of the input are removed; scoring = the BLOSUM matrix (bl 30, 45, 50, 62 = default, 80, 90, 100 or 0) rescaled to 600 / mean diagonal with the offset (ep) subtracted, for nucleotides the 200-PAM Kimura matrix (kappa 2) with IUPAC codes by averaging, the gap opening penalty op (default 1.53, scaled by 0.6, or 1.8 for nucleotides, to an integer), no gap extension penalty and free end gaps (the script passes -O); dynamic program = G__align11 (a gap-open-only affine recurrence over 'best earlier cell' trackers, tie rules >= for the trackers, > for the cells) with the end of the alignment chosen in the last row / column. retree / fft / reorder / thread are accepted (no effect for two sequences). The default FFT-NS-2 strategy gives the same rows as this dynamic program on every committed pair, up to 1 500 residues. VERIFICATION: rows equal the installed Debian mafft 7.505-1 on 884 / 884 committed pairs (protein, DNA / RNA, IUPAC and unusual symbols, op / ep / bl / nuc / amino, the plain command without --anysymbol where nucleotides come back in lower case and amino acids in upper case). T-Coffee's mafft_pair uses this port.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequences": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "Exactly two sequences (letters; with anySymbol any character except blanks and '-' is a residue)."
+      },
+      "sequenceType": {
+        "type": "string",
+        "default": "auto",
+        "description": "'auto' (default: guessed from the letters), 'nuc' (mafft --nuc) or 'amino' (mafft --amino)."
+      },
+      "gapOpen": {
+        "type": "number",
+        "default": 1.53,
+        "description": "mafft --op: gap opening penalty (default 1.53)."
+      },
+      "offset": {
+        "type": "number",
+        "default": 0.0,
+        "description": "mafft --ep: offset (default 0.0)."
+      },
+      "blosum": {
+        "type": "integer",
+        "default": 62,
+        "description": "mafft --bl: BLOSUM matrix: 30, 45, 50, 62 (default), 80, 90, 100 or 0."
+      },
+      "anySymbol": {
+        "type": "boolean",
+        "default": true,
+        "description": "true (default): mafft --anysymbol, the original letters are restored. false: the plain command (letters and '.' only; nucleotides lower case, amino acids upper case)."
+      },
+      "retree": {
+        "type": "integer",
+        "default": 2,
+        "description": "mafft --retree (accepted, no effect for two sequences)."
+      },
+      "fft": {
+        "type": "boolean",
+        "default": true,
+        "description": "mafft --fft / --nofft (accepted, no effect on the committed pairs)."
+      },
+      "threads": {
+        "type": "integer",
+        "default": 1,
+        "description": "mafft --thread (accepted, no effect)."
+      },
+      "reorder": {
+        "type": "boolean",
+        "default": false,
+        "description": "mafft --reorder (accepted, no effect for two sequences)."
+      }
+    },
+    "required": [
+      "sequences"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "alignedSequences": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "The two rows (original letters with --anysymbol, gaps are -)."
+      },
+      "consensus": {
+        "type": "string",
+        "description": "Consensus string of the alignment."
+      },
+      "totalScore": {
+        "type": "integer",
+        "description": "Natural affine sum of pairs (BLOSUM62 10 / 0.2 or EDNAFULL 10 / 0.5), rounded; not the program's own score."
+      },
+      "exactTotalScore": {
+        "type": "number",
+        "description": "The same score unrounded."
+      }
+    },
+    "required": [
+      "alignedSequences",
+      "consensus",
+      "totalScore",
+      "exactTotalScore"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "sequences is null, a sequence has no residues, only one sequence, a character above U+007F, or one of = < > with anySymbol"
+    },
+    {
+      "code": 1002,
+      "message": "sequenceType is not auto / nuc / amino, blosum is not one of 30 45 50 62 80 90 100 0, gapOpen / offset not finite"
+    },
+    {
+      "code": 1003,
+      "message": "NotSupportedException: three or more sequences (the progressive stage is registered as B09.md A2-19b)"
+    }
+  ],
+  "examples": [
+    {
+      "name": "A protein pair with a lower-case sequence (--anysymbol)",
+      "input": {
+        "sequences": [
+          "MKVLAAgIVG-LLLAQ",
+          "mkvlagivallaq"
+        ]
+      },
+      "output": {
+        "alignedSequences": [
+          "MKVLAAgIVGLLLAQ",
+          "mkvl-agiva-llaq"
+        ],
+        "consensus": "MKVLAAgIVGLLLAQ",
+        "totalScore": 33,
+        "exactTotalScore": 33
+      }
+    },
+    {
+      "name": "Nucleotides with IUPAC codes, plain command",
+      "input": {
+        "sequences": [
+          "ACGTACGTTAGCNNRY",
+          "ACGTACGATAGCCC"
+        ],
+        "anySymbol": false
+      },
+      "output": {
+        "alignedSequences": [
+          "acgtacgttagcnnry",
+          "acgtacgatagccc--"
+        ],
+        "consensus": "acgtacgatagcccry",
+        "totalScore": 37,
+        "exactTotalScore": 36.5
+      }
+    },
+    {
+      "name": "BLOSUM80 with a user gap opening penalty and offset",
+      "input": {
+        "sequences": [
+          "MKVLAAGIVGLLLAQWTR",
+          "MKVLAGIVALLAQWTR"
+        ],
+        "blosum": 80,
+        "gapOpen": 2.0,
+        "offset": 0.1
+      },
+      "output": {
+        "alignedSequences": [
+          "MKVLAAGIVGLLLAQWTR",
+          "MKVL-AGIVA-LLAQWTR"
+        ],
+        "consensus": "MKVLAAGIVALLLAQWTR",
+        "totalScore": 54,
+        "exactTotalScore": 54
+      }
+    }
+  ]
+}

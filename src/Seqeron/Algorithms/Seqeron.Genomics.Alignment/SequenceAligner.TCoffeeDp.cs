@@ -204,7 +204,7 @@ public static partial class SequenceAligner
             return (int)score;
         }
 
-        /// <summary>The column score <c>get_dp_cost</c> of the profile columns <paramref name="col1"/> of <paramref name="g1"/> and <paramref name="col2"/> of <paramref name="g2"/> for <c>-extend_mode</c>.</summary>
+        // The column score <c>get_dp_cost</c> of the profile columns <paramref name="col1"/> of <paramref name="g1"/> and <paramref name="col2"/> of <paramref name="g2"/> for <c>-extend_mode</c>.
         /// <summary><c>residue_pair_relative_extended_list</c> (s1 &lt; s2): int arithmetic; the weights of the list of s1 are read at the positions of the list of s2 (a position past the end of the list is the program's undefined read: <see cref="NotSupportedException"/>).</summary>
         public int ResiduePairRelative(int s1, int r1, int s2, int r2)
         {
@@ -880,11 +880,11 @@ public static partial class SequenceAligner
         return merged;
     }
 
-    /// <summary>
-    /// The dynamic programs that do not return a global alignment of the two groups: <c>ktup_pair_wise</c> only computes a k-tuple score (the rows stay as they are, even of unequal length),
-    /// <c>precomputed_pair_wise</c> computes the identity of two aligned groups and stops the program ("improper use of the function precomputed pairwise", exit status 1) when the first rows of the two groups differ in length,
-    /// <c>gotoh_pair_wise_sw</c> keeps only the columns of the best local alignment (the rows of BOTH groups lose everything outside it; no positive cell empties every row, and a group with empty rows leaves the pair untouched: <c>empty_pair_wise</c> of a LOCAL mode).
-    /// </summary>
+    // 
+    // The dynamic programs that do not return a global alignment of the two groups: <c>ktup_pair_wise</c> only computes a k-tuple score (the rows stay as they are, even of unequal length),
+    // <c>precomputed_pair_wise</c> computes the identity of two aligned groups and stops the program ("improper use of the function precomputed pairwise", exit status 1) when the first rows of the two groups differ in length,
+    // <c>gotoh_pair_wise_sw</c> keeps only the columns of the best local alignment (the rows of BOTH groups lose everything outside it; no positive cell empties every row, and a group with empty rows leaves the pair untouched: <c>empty_pair_wise</c> of a LOCAL mode).
+    // 
     /// <summary>Diagnostics for the tests: when set, every merge of <see cref="TcMergeWithoutGlobalAlignment"/> appends (mode, columns of the first group, columns of the second group, row length written, longest input sequence).</summary>
     [ThreadStatic]
     internal static List<(TCoffeeDpMode Mode, int L0, int L1, int Written, int MaxLen)>? TcMergeTrace;

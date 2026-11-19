@@ -223,17 +223,17 @@ public class SequenceAligner_TCoffeeOptions_Tests
     public void ClustalwPair_MixedAlphabets_EveryRowEqualsTheProgram() => AssertFeature("clustalw_mixed", 150);
 
     /// <summary>
-    /// A2-11: <c>-method mafft_pair</c> runs the external MAFFT 7.505 on every pair (the installed program works once <c>$HOME/.t_coffee/plugins/linux</c> holds mafft's helper binaries: the oracle script links them). 460 oracle sets are
-    /// committed for the future MAFFT port (B09.md A2-19); until then the method is reported as not available instead of being approximated.
+    /// A2-11 / A2-19: <c>-method mafft_pair</c> runs the external MAFFT 7.505 (<c>mafft --anysymbol in &gt; out</c>) on every pair (the installed program works once <c>$HOME/.t_coffee/plugins/linux</c> holds mafft's helper binaries:
+    /// the oracle script links them); the pair stage of MAFFT is ported (<see cref="SequenceAligner.MultipleAlignMafft"/>, F119): DNA, protein and mixed alphabets, with a second method, UPGMA and no relaxation.
     /// </summary>
     [Test]
-    public void MafftPair_OracleCommitted_PortWaitsForMafft()
+    public void MafftPair_EveryRowEqualsTheProgram()
     {
         var cases = Oracle().Where(c => c.Feature is "mafft_pair" or "mafft_mixed").ToList();
         Assert.That(cases.Count, Is.GreaterThanOrEqualTo(440), "oracle sets of mafft_pair");
         Assert.That(cases.Count(c => c.Rows.StartsWith("FAIL:", StringComparison.Ordinal)), Is.EqualTo(0), "the program runs mafft_pair on every set");
-        var c0 = cases[0];
-        Assert.Throws<NotSupportedException>(() => SequenceAligner.MultipleAlignTCoffeeProgram(c0.Seqs, TCoffeeProgramOptions.FromCommandLine(c0.Flags)));
+        AssertFeature("mafft_pair", 350);
+        AssertFeature("mafft_mixed", 100);
     }
 
     /// <summary>

@@ -186,7 +186,7 @@ public enum TCoffeePairMethod
     /// <summary>
     /// <c>mafft_pair</c> (audit A2-11): the program runs the external <c>mafft --anysymbol in &gt; out</c> on every pair (2 x 23 - the installed mafft 7.505, FFT-NS-1 progressive alignment of the two sequences). The earlier "rc 1" was not an
     /// impossibility: t_coffee points <c>MAFFT_BINARIES</c> at <c>$HOME/.t_coffee/plugins/linux</c>, which must hold the helper binaries of mafft (<c>/usr/lib/mafft/bin</c> and <c>/usr/lib/mafft/lib/mafft</c>) - 460 oracle sets are
-    /// committed (feature <c>mafft_pair</c> of <c>tcoffee_program_options_oracle.tsv</c>). There is no MAFFT port in this repository yet (B09.md A2-19), so the method raises <see cref="NotSupportedException"/>.
+    /// committed (feature <c>mafft_pair</c> of <c>tcoffee_program_options_oracle.tsv</c>). The pair stage of MAFFT is ported (<see cref="SequenceAligner.MultipleAlignMafft"/>, B09.md A2-19 / F119) and the method uses it; the oracle sets equal the program.
     /// </summary>
     MafftPair = 24,
 

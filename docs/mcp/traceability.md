@@ -371,6 +371,9 @@
 | multiple_align_tcoffee | Alignment | SequenceAligner.MultipleAlignTCoffeeProgram | Alignment/SequenceAligner.TCoffeeLibrary.cs#L446 | 0/0 | – | – | Build-Ready |
 | muscle_msa_command | Alignment | SequenceAligner.MuscleProfileAlign | Alignment/SequenceAligner.MuscleProgram.cs | 0/0 | – | – | Build-Ready |
 | clustalw_command | Alignment | ClustalWProgram.Run | Alignment/ClustalWProgram.cs | 0/0 | – | – | Build-Ready |
+| multiple_align_kalign | Alignment | SequenceAligner.KalignRun | Alignment/SequenceAligner.Kalign.cs | 0/0 | – | – | Build-Ready |
+| kalign_command | Alignment | KalignProgram.Run | Alignment/KalignProgram.cs | 0/0 | – | – | Build-Ready |
+| multiple_align_mafft | Alignment | SequenceAligner.MultipleAlignMafft | Alignment/SequenceAligner.Mafft.cs | 0/0 | – | – | Build-Ready |
 | clustalw_pairwise_align | Alignment | SequenceAligner.ClustalWPairwiseAlign | Alignment/SequenceAligner.ClustalW.cs | 0/0 | – | – | Build-Ready |
 | clustalw_profile_align | Alignment | SequenceAligner.AlignClustalWProfiles | Alignment/SequenceAligner.ClustalWProfile.cs | 0/0 | – | – | Build-Ready |
 | clustalw_quick_pairwise_align | Alignment | SequenceAligner.ClustalWQuickPairwiseAlign | Alignment/SequenceAligner.ClustalWQuick.cs | 0/0 | – | – | Build-Ready |

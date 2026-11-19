@@ -281,7 +281,12 @@ public static partial class SequenceAligner
                 break;
 
             case TCoffeePairMethod.MafftPair:
-                throw new NotSupportedException("mafft_pair runs MAFFT 7.505 on every pair; there is no MAFFT port in this repository yet (B09.md A2-19). 460 oracle sets of the program are committed (feature mafft_pair).");
+                {
+                    // the method file runs `mafft --anysymbol IN > OUT` on the two-sequence file of the pair: the MAFFT 7.505 port of the pair stage (B09.md A2-19, F119)
+                    var mf = MultipleAlignMafft(new[] { seqs[x], seqs[y] }, new MafftOptions { AnySymbol = true });
+                    rows.Add((mf.AlignedSequences[0], mf.AlignedSequences[1]));
+                    break;
+                }
             case TCoffeePairMethod.MusclePair:
                 {
                     var mu = MultipleAlignMuscle(new[] { seqs[x], seqs[y] }, new MuscleOptions { MaxIterations = 8 });
@@ -317,10 +322,10 @@ public static partial class SequenceAligner
         return entries;
     }
 
-    /// <summary>
-    /// What the child process of one METHOD returns (<c>fork_read_n_constraint_list</c> child): its start list (the library merged so far) is cloned, the pair
-    /// jobs run in a grand-child whose tail is merged back, and the whole list is returned when it grew.
-    /// </summary>
+    // 
+    // What the child process of one METHOD returns (<c>fork_read_n_constraint_list</c> child): its start list (the library merged so far) is cloned, the pair
+    // jobs run in a grand-child whose tail is merged back, and the whole list is returned when it grew.
+    // 
     /// <summary>The residue groups of <c>is_in_same_group_aa</c> in the process that runs the pair jobs of one method: built once, by the first call (<c>null</c> = not built yet; true = the 26 single-letter groups of mode "idmat", false = the groups of the matrix idmat).</summary>
     private sealed class TcProcessGroups
     {

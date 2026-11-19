@@ -151,6 +151,15 @@
     <!-- ALIGN-MULTI-001 (audit A2-14c, B09 F106): ClustalW 2.1 secondary-structure gap-penalty masks of -PROFILE / -SEQUENCES (CLUSTAL and GDE profile files with !SS_ / !GM_ / "SS_ lines), 1 200 sets, output files compared
          byte for byte; scripts/alignment/generate_clustalw_structure_oracle.py. -->
     <EmbeddedResource Include="TestData\Alignment\clustalw_structure_oracle.tsv" />
+    <!-- ALIGN-MULTI-001 (audit A2-20, B09 F118): Kalign 3.3.5 (installed Debian kalign 1:3.3.5-1, AVX2 build): rows of every committed run (DNA / RNA / protein, every type and gap-penalty option, 1 / 2 / 4 threads,
+         long sets, >= 100 / 1000 sequences); scripts/alignment/generate_kalign_oracle.py. -->
+    <EmbeddedResource Include="TestData\Alignment\kalign_oracle.tsv" />
+    <!-- ALIGN-MULTI-001 (audit A2-20, B09 F118): whole Kalign 3.3.5 command lines (argument parser quirks, types, gap options, thread counts, formats, input files, refusals) and the text the program writes;
+         scripts/alignment/generate_kalign_command_oracle.py. -->
+    <EmbeddedResource Include="TestData\Alignment\kalign_command_oracle.tsv" />
+    <!-- ALIGN-MULTI-001 (audit A2-19, B09 F119): MAFFT 7.505 (installed Debian mafft 7.505-1) alignments of two sequences (amino acids, DNA / RNA, IUPAC and unusual symbols with the anysymbol option, the options op, ep and bl,
+         nuc, amino and the accepted options, the plain command); scripts/alignment/generate_mafft_pair_oracle.py. -->
+    <EmbeddedResource Include="TestData\Alignment\mafft_pair_oracle.tsv" />
     <!-- GENOMIC-COMMON-001 (B09 F15-F16): independent Python (DP + suffix automaton + brute-force matching statistics)
          oracle for FindLongestCommonRegion / FindCommonRegions; scripts/analysis/generate_common_region_oracle.py. -->
     <EmbeddedResource Include="TestData\Analysis\common_region_oracle.tsv" />

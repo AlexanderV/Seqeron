@@ -196,6 +196,13 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.GlobalCoOptimal.cs"
   },
   {
+    "tool": "kalign_command",
+    "server": "Alignment",
+    "methodId": "KalignProgram.Run",
+    "docPath": "docs/mcp/tools/alignment/kalign_command.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/KalignProgram.cs"
+  },
+  {
     "tool": "local_align",
     "server": "Alignment",
     "methodId": "SequenceAligner.LocalAlign",
@@ -271,6 +278,20 @@
     "methodId": "SequenceAligner.MultipleAlignIterative",
     "docPath": "docs/mcp/tools/alignment/multiple_align_iterative.md",
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.cs#L2684"
+  },
+  {
+    "tool": "multiple_align_kalign",
+    "server": "Alignment",
+    "methodId": "SequenceAligner.KalignRun",
+    "docPath": "docs/mcp/tools/alignment/multiple_align_kalign.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.Kalign.cs"
+  },
+  {
+    "tool": "multiple_align_mafft",
+    "server": "Alignment",
+    "methodId": "SequenceAligner.MultipleAlignMafft",
+    "docPath": "docs/mcp/tools/alignment/multiple_align_mafft.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.Mafft.cs"
   },
   {
     "tool": "multiple_align_muscle",
