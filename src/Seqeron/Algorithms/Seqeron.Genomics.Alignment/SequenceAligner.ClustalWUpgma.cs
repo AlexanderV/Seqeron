@@ -1,3 +1,5 @@
+using System.Globalization;
+
 namespace Seqeron.Genomics.Alignment;
 
 public static partial class SequenceAligner
@@ -174,6 +176,62 @@ public static partial class SequenceAligner
 
         return new UpgmaResult(nodes[0], steps);
     }
+
+    // RootedClusterTree::treeFromDistMatrix + RootedTreeOutput::printPhylipTree: the guide-tree file `-NEWTREE` of `-CLUSTERING=UPGMA`. Two sequences: "(a:d,b:d);" with d = distance / 2 as a float printed with
+    // setprecision(5) (general format); otherwise the rooted tree, "(\n" left ",\n" right "):height" for an internal node, "name:height" for a leaf (heights are doubles in the default stream
+    // format, six significant digits), the outermost ":height" included, then ";\n".
+    internal static string ClustalWUpgmaGuideTreeText(double[,] dist, IReadOnlyList<string> names)
+    {
+        int n = names.Count;
+        var sb = new System.Text.StringBuilder();
+        if (n == 2)
+        {
+            float d = (float)(dist[0, 1] / 2.0);
+            string t = CppGeneral(d, 5);
+            return $"({names[0]}:{t},{names[1]}:{t});\n";
+        }
+
+        var tree = ClustalWUpgmaTree(dist, n);
+        void Write(UpgmaNode t)
+        {
+            if (t.Left == null && t.Right == null)
+            {
+                sb.Append(names[t.SeqNum - 1]).Append(':').Append(CppGeneral(t.Height, 6));
+                return;
+            }
+
+            sb.Append("(\n");
+            Write(t.Left!);
+            sb.Append(",\n");
+            Write(t.Right!);
+            sb.Append("):").Append(CppGeneral(t.Height, 6));
+        }
+
+        Write(tree.Root);
+        return sb.Append(";\n").ToString();
+    }
+
+    // the default (%g-like) formatting of a C++ ostream with the given precision
+    private static string CppGeneral(double v, int precision)
+    {
+        if (v == 0)
+            return "0";
+        string s = v.ToString("G" + precision, CultureInfo.InvariantCulture);
+        int e = s.IndexOf('E');
+        if (e < 0)
+            return s;
+        char sign = s[e + 1];
+        string digits = s[(e + 2)..].TrimStart('0').PadLeft(2, '0');
+        return s[..e] + "e" + sign + digits;
+    }
+
+    /// <summary>The <c>-NEWTREE</c> text of ClustalW's DNA <c>-CLUSTERING=UPGMA</c> run (guide tree of the pairwise-stage distances; sequences are named by <paramref name="names"/>).</summary>
+    internal static string ClustalWUpgmaGuideTreeText(string[] raw, ClustalWOptions options, IReadOnlyList<string> names) =>
+        ClustalWUpgmaGuideTreeText(ClustalWPairwiseDistanceMatrix(raw, options), names);
+
+    /// <summary>The <c>-NEWTREE</c> text of ClustalW's PROTEIN <c>-CLUSTERING=UPGMA</c> run.</summary>
+    internal static string ClustalWUpgmaGuideTreeText(string[] raw, ClustalWProteinOptions options, IReadOnlyList<string> names) =>
+        ClustalWUpgmaGuideTreeText(ClustalWProteinDistanceMatrix(raw.Select(s => s.ToUpperInvariant()).ToArray(), options), names);
 
     // Node::findMinDist: the first entry is the initial minimum even when it is negative; the others replace it when they are non-negative and strictly smaller
     private static void FindMinDist(UpgmaNode node, double[] elements)

@@ -130,6 +130,9 @@
     <EmbeddedResource Include="TestData\Alignment\distmat_oracle.tsv" />
     <!-- ALIGN-MULTI-001 (audit A2-14, B09 F92): ClustalW 2.1 residue-type guess (-TYPE omitted), 500 sets; scripts/alignment/generate_clustalw_type_oracle.py. -->
     <EmbeddedResource Include="TestData\Alignment\clustalw_type_oracle.tsv" />
+    <!-- ALIGN-MULTI-001 (audit A2-14, B09 F101): ClustalW 2.1 `-CLUSTERING=UPGMA -ALIGN` (unmodified Debian source built at -O0 by the user in a docker package; the installed binary and the -O2 build crash on
+         every UPGMA run), 600 sets; scripts/alignment/generate_clustalw_upgma_oracle.py, handoff/A2-14-clustalw-upgma/returned. -->
+    <EmbeddedResource Include="TestData\Alignment\clustalw_upgma_oracle.tsv" />
     <!-- GENOMIC-COMMON-001 (B09 F15-F16): independent Python (DP + suffix automaton + brute-force matching statistics)
          oracle for FindLongestCommonRegion / FindCommonRegions; scripts/analysis/generate_common_region_oracle.py. -->
     <EmbeddedResource Include="TestData\Analysis\common_region_oracle.tsv" />

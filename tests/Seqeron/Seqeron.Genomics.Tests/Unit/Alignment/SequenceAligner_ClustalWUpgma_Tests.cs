@@ -6,9 +6,9 @@ namespace Seqeron.Genomics.Tests.Unit.Alignment;
 
 /// <summary>
 /// ALIGN-MULTI-001 (audit A2-14, B09 F92): ClustalW 2.1 <c>-CLUSTERING=UPGMA</c> (<c>UPGMAAlgorithm</c>, <c>Node</c>, <c>RootedGuideTree</c>, <c>TreeInterface::getWeightsAndStepsFromDistMatUPGMA</c>).
-/// The installed Debian <c>clustalw</c> segmentation-faults on every UPGMA run, so there is no row oracle yet (hand-off package <c>handoff/A2-14-clustalw-upgma</c>, built from the unmodified source
-/// by the user); these tests lock the algorithm to hand-derived values of the source's definitions (average-linkage joins, join heights = distance / 2, the weights of
-/// <c>RootedGuideTree::doWeightCalc</c> in which a node carries the height of its PARENT's join) and to the program's two-sequence behaviour read from the source.
+/// The program's rows and guide trees on 600 sets are locked in <c>SequenceAligner_ClustalWUpgmaOracle_Tests</c> (F101); these tests lock hand-derived values of the source's definitions
+/// (average-linkage joins, join heights = distance / 2, the weights of <c>RootedGuideTree::doWeightCalc</c> in which a node carries the height of its PARENT's join) and the
+/// program's two-sequence behaviour read from the source.
 /// </summary>
 [TestFixture]
 [Category("Alignment")]
