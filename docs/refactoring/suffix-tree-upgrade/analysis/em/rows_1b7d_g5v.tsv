@@ -1,0 +1,50 @@
+#label	variant	ph1_s	ph23_s	total_s	ph1_read	ph1_write	ph1_mapped	ph23_read	ph23_write	ph23_mapped	scratch_peak_ph1	scratch_peak	arena_ph1	arena_ph23	levels	verdict	rssanon_before_kb	rssanon_max_kb	rss_samples
+#head	fa552427f994fa3518f408e3003cc422cbdaea3b
+#setup	dna.A-warm.warm.1	proto	cover	0.2896
+dna.A-warm.warm.1	proto	1.6600	13.9017	15.5642	25780456	25780456	12890228	784815468	784429740	400000004	25780456	430191316	12683400	3199968	0	-	13556	83776	1473
+#ext	dna.A-warm.warm.1	proto	83768	782
+#cmp	dna.A-warm.warm.1	proto	equal-to-reference
+#setup	dna.A-warm.warm.1	prod	setup	0.2836	tail	0.0079
+dna.A-warm.warm.1	prod	1.6885	13.1695	15.1496	25780456	25780456	12890228	784815468	784429740	400000004	25780456	422785164	12683400	3199968	0	Within	13496	83260	1399
+#ext	dna.A-warm.warm.1	prod	83260	752
+#cmp	dna.A-warm.warm.1	prod	equal-to-reference
+#setup	dna.A-warm.warm.2	prod	setup	0.2796	tail	0.0044
+dna.A-warm.warm.2	prod	1.6491	12.9380	14.8711	25780456	25780456	12890228	784815468	784429740	400000004	25780456	423010056	12683400	3199968	0	Within	13584	76372	1376
+#ext	dna.A-warm.warm.2	prod	76372	737
+#cmp	dna.A-warm.warm.2	prod	equal-to-reference
+#setup	dna.A-warm.warm.2	proto	cover	0.2841
+dna.A-warm.warm.2	proto	1.6688	14.1961	15.8665	25780456	25780456	12890228	784815468	784429740	400000004	25780456	432400856	12683400	3199968	0	-	13508	72996	1512
+#ext	dna.A-warm.warm.2	proto	72996	795
+#cmp	dna.A-warm.warm.2	proto	equal-to-reference
+#setup	dna.A-warm.warm.3	proto	cover	0.2762
+dna.A-warm.warm.3	proto	1.6270	13.8119	15.4408	25780456	25780456	12890228	784815468	784429740	400000004	25780456	429214940	12683400	3199968	0	-	13496	98012	1477
+#ext	dna.A-warm.warm.3	proto	98952	775
+#cmp	dna.A-warm.warm.3	proto	equal-to-reference
+#setup	dna.A-warm.warm.3	prod	setup	0.2831	tail	0.0043
+dna.A-warm.warm.3	prod	1.7320	13.8794	15.8987	25780456	25780456	12890228	784815468	784429740	400000004	25780456	426661864	12683400	3199968	0	Within	13496	73628	1484
+#ext	dna.A-warm.warm.3	prod	73824	789
+#cmp	dna.A-warm.warm.3	prod	equal-to-reference
+#setup	dna.G5v-A-warm.warm.1	prod	setup	0.2789	tail	0.0042
+dna.G5v-A-warm.warm.1	prod	1.6880	13.7021	15.6733	25780456	25780456	12890228	784815468	784429740	400000004	25780456	418991868	12683400	3199968	0	Within	13432	70740	1466
+#ext	dna.G5v-A-warm.warm.1	prod	70360	771
+#cmp	dna.G5v-A-warm.warm.1	prod	equal-to-reference
+#setup	dna.G5v-A-warm.warm.1	prodverify	setup	0.2765	tail	0.0051
+dna.G5v-A-warm.warm.1	prodverify	1.7278	14.5779	16.5874	25780456	25780456	12890228	784815468	784429740	400000004	25780456	431918952	12683400	3199968	0	Within	13496	77952	1556
+#ext	dna.G5v-A-warm.warm.1	prodverify	77952	813
+#cmp	dna.G5v-A-warm.warm.1	prodverify	equal-to-reference
+#setup	dna.G5v-A-warm.warm.2	prodverify	setup	0.2833	tail	0.0077
+dna.G5v-A-warm.warm.2	prodverify	1.7709	13.9958	16.0577	25780456	25780456	12890228	784815468	784429740	400000004	25780456	422341488	12683400	3199968	0	Within	13672	74496	1493
+#ext	dna.G5v-A-warm.warm.2	prodverify	74496	791
+#cmp	dna.G5v-A-warm.warm.2	prodverify	equal-to-reference
+#setup	dna.G5v-A-warm.warm.2	prod	setup	0.2839	tail	0.0050
+dna.G5v-A-warm.warm.2	prod	1.8134	14.5545	16.6568	25780456	25780456	12890228	784815468	784429740	400000004	25780456	418988736	12683400	3199968	0	Within	13604	98844	1561
+#ext	dna.G5v-A-warm.warm.2	prod	98960	819
+#cmp	dna.G5v-A-warm.warm.2	prod	equal-to-reference
+#setup	dna.G5v-A-warm.warm.3	prod	setup	0.2830	tail	0.0053
+dna.G5v-A-warm.warm.3	prod	1.7171	14.3039	16.3092	25780456	25780456	12890228	784815468	784429740	400000004	25780456	431867472	12683400	3199968	0	Within	13536	76168	1525
+#ext	dna.G5v-A-warm.warm.3	prod	76168	800
+#cmp	dna.G5v-A-warm.warm.3	prod	equal-to-reference
+#setup	dna.G5v-A-warm.warm.3	prodverify	setup	0.2865	tail	0.0054
+dna.G5v-A-warm.warm.3	prodverify	1.7875	14.0702	16.1496	25780456	25780456	12890228	784815468	784429740	400000004	25780456	433078964	12683400	3199968	0	Within	13584	75364	1494
+#ext	dna.G5v-A-warm.warm.3	prodverify	75364	788
+#cmp	dna.G5v-A-warm.warm.3	prodverify	equal-to-reference
