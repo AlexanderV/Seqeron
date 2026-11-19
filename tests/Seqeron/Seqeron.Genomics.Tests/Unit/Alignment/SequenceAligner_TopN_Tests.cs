@@ -328,10 +328,16 @@ public class SequenceAligner_TopN_Tests
     }
 
     [Test]
-    public void TopN_MemoryGuard_RejectsMatricesAboveTheCellLimit()
+    public void TopN_AboveTheCellLimit_UsesTheLinearSpaceProgram_AndCoOptimalStillRejectsIt()
     {
+        // A1-7c (F77): above TopNMaxCells the top-N alignments are computed in linear space (no longer rejected);
+        // the co-optimal enumerator keeps the matrices and rejects the input with a clear error.
         string big = new('A', 5001);
-        var ex = Assert.Throws<ArgumentException>(() => SequenceAligner.LocalAlignTopN(big, big));
+        var top = SequenceAligner.LocalAlignTopN(big, big, (ScoringMatrix?)null, 2);
+        Assert.That(top, Has.Count.EqualTo(2));
+        Assert.That(top[0].Score, Is.EqualTo(5001));
+        Assert.That(top[1].Score, Is.GreaterThan(0).And.LessThan(5001));
+        var ex = Assert.Throws<ArgumentException>(() => SequenceAligner.LocalAlignCoOptimal(big, big));
         Assert.That(ex!.Message, Does.Contain("25,000,000"));
         Assert.Throws<ArgumentException>(() => SequenceAligner.LocalAlignAffineCoOptimal(big, big));
     }

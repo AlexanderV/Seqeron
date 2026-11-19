@@ -52,6 +52,25 @@ public class TopNAlignTests
     }
 
     [Test]
+    public void TopN_AboveTheCellLimit_RunsInLinearSpace_AndEqualsTheLocalAlignOptimum()
+    {
+        // B09 F77 (A1-7c): 5 100 x 5 100 = 26.0 M cells > 25 M: the declumper runs in linear space instead of rejecting the input.
+        var rng = new Random(11);
+        var a = new char[5100];
+        var b = new char[5100];
+        for (int i = 0; i < a.Length; i++) { a[i] = "ACGT"[rng.Next(4)]; b[i] = "ACGT"[rng.Next(4)]; }
+        int[] starts1 = [100, 1500, 3000], starts2 = [2000, 200, 4000];   // three disjoint exact 300-nt copies
+        for (int s = 0; s < 3; s++)
+            for (int i = 0; i < 300; i++) b[starts2[s] + i] = a[starts1[s] + i];
+        string sa = new(a), sb = new(b);
+        var r = AlignmentTools.LocalAlignTopN(sa, sb, maxAlignments: 3, match: 2, mismatch: -3, gapExtend: -4);
+        Assert.That(r.Count, Is.EqualTo(3));
+        Assert.That(r.Alignments[0], Is.EqualTo(AlignmentTools.LocalAlign(sa, sb, 2, -3, -2, -4)));
+        Assert.That(r.Alignments.Select(x => x.Score), Is.Ordered.Descending);
+        Assert.That(r.Alignments.Take(3).All(x => x.Score >= 600), Is.True, "the three planted 300-nt copies");
+    }
+
+    [Test]
     public void CoOptimal_GapPlacements_AndCap()
     {
         // GAAC vs GAAAC (+5/-3, gap -1): one gap, three placements, 4 x 5 - 1 = 19

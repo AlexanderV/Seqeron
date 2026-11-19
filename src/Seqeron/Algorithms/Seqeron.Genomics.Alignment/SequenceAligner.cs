@@ -350,7 +350,10 @@ public static partial class SequenceAligner
         EndGaps ends,
         CancellationToken cancellationToken = default,
         IProgress<double>? progress = null,
-        bool forceFullMatrix = false)
+        bool forceFullMatrix = false,
+        ForbiddenPairs? forbidden = null,
+        int rowOffset = 0,
+        int colOffset = 0)
     {
         int m = seq1.Length;
         int n = seq2.Length;
@@ -366,7 +369,7 @@ public static partial class SequenceAligner
             return big;
         }
 
-        var score = LinearFillMatrix(seq1, seq2, scoring, ends, cancellationToken, progress);
+        var score = LinearFillMatrix(seq1, seq2, scoring, ends, cancellationToken, progress, forbidden, rowOffset, colOffset);
 
         cancellationToken.ThrowIfCancellationRequested();
         progress?.Report(0.75);
@@ -381,7 +384,7 @@ public static partial class SequenceAligner
                 if (score[ci, cj] > bestValue) { bestValue = score[ci, cj]; endI = ci; endJ = cj; }
         }
 
-        var result = Traceback(seq1, seq2, score, endI, endJ, scoring, ends);
+        var result = Traceback(seq1, seq2, score, endI, endJ, scoring, ends, forbidden, rowOffset, colOffset);
 
         progress?.Report(1.0);
         return result;
@@ -397,7 +400,8 @@ public static partial class SequenceAligner
     /// </summary>
     private static int[,] LinearFillMatrix(
         string seq1, string seq2, PairScoring scoring, EndGaps ends,
-        CancellationToken cancellationToken = default, IProgress<double>? progress = null)
+        CancellationToken cancellationToken = default, IProgress<double>? progress = null,
+        ForbiddenPairs? forbidden = null, int rowOffset = 0, int colOffset = 0)
     {
         int m = seq1.Length;
         int n = seq2.Length;
@@ -418,11 +422,13 @@ public static partial class SequenceAligner
             }
 
             char c1 = seq1[i - 1];
+            var forbiddenRow = new ForbiddenRow(forbidden, rowOffset + i);
             for (int j = 1; j <= n; j++)
             {
                 int matchScore = scoring.Sub(c1, seq2[j - 1]);
 
-                int diag = score[i - 1, j - 1] + matchScore;
+                // A forbidden aligned pair (Waterman-Eggert declumping, linear-space top-N) has no diagonal move.
+                int diag = forbiddenRow.Test(colOffset + j) ? ForbiddenPairs.NoDiagonal : score[i - 1, j - 1] + matchScore;
                 int up = score[i - 1, j] + scoring.GapExtend;
                 int left = score[i, j - 1] + scoring.GapExtend;
 
@@ -558,7 +564,8 @@ public static partial class SequenceAligner
     /// </summary>
     internal static AlignmentResult AffineAlignCore(
         string seq1, string seq2, PairScoring scoring, AlignmentType type, EndGaps ends = EndGaps.None,
-        int startState = StateMatch, int endState = -1, bool forceFullMatrix = false)
+        int startState = StateMatch, int endState = -1, bool forceFullMatrix = false,
+        ForbiddenPairs? forbidden = null, int rowOffset = 0, int colOffset = 0)
     {
         bool local = type == AlignmentType.Local;
         if (local) ends = EndGaps.None;
@@ -571,7 +578,7 @@ public static partial class SequenceAligner
 
         var (mm, xx, yy) = AffineNewMatrices(m, n);
         AffineInitBorders(mm, xx, yy, scoring, local, ends, startState);
-        var (bestLocal, bestI, bestJ) = AffineFill(mm, xx, yy, seq1, seq2, scoring, local);
+        var (bestLocal, bestI, bestJ) = AffineFill(mm, xx, yy, seq1, seq2, scoring, local, forbidden, rowOffset, colOffset);
 
         int best, ci, cj;
         byte state;
@@ -666,7 +673,8 @@ public static partial class SequenceAligner
     /// Smith-Waterman); returns the first (row-major) maximum of M for a local alignment (0, 0, 0 otherwise / when no positive cell).
     /// </summary>
     private static (int Best, int I, int J) AffineFill(
-        int[,] mm, int[,] xx, int[,] yy, string seq1, string seq2, PairScoring scoring, bool local)
+        int[,] mm, int[,] xx, int[,] yy, string seq1, string seq2, PairScoring scoring, bool local,
+        ForbiddenPairs? forbidden = null, int rowOffset = 0, int colOffset = 0)
     {
         int m = seq1.Length;
         int n = seq2.Length;
@@ -677,9 +685,10 @@ public static partial class SequenceAligner
         for (int i = 1; i <= m; i++)
         {
             char c1 = seq1[i - 1];
+            var forbiddenRow = new ForbiddenRow(forbidden, rowOffset + i);
             for (int j = 1; j <= n; j++)
             {
-                AffineCell(mm, xx, yy, i, j, scoring.Sub(c1, seq2[j - 1]), startFloor, e, oe, forbidden: false);
+                AffineCell(mm, xx, yy, i, j, scoring.Sub(c1, seq2[j - 1]), startFloor, e, oe, forbiddenRow.Test(colOffset + j));
 
                 if (local && mm[i, j] > bestLocal)
                 {
@@ -1462,7 +1471,8 @@ public static partial class SequenceAligner
 
     private static AlignmentResult Traceback(
         string seq1, string seq2, int[,] score, int i, int j,
-        PairScoring scoring, EndGaps ends)
+        PairScoring scoring, EndGaps ends,
+        ForbiddenPairs? forbidden = null, int rowOffset = 0, int colOffset = 0)
     {
         // Preserve the traceback origin for correct score retrieval: score[endI, endJ] is the optimum
         // (global: the bottom-right cell; ends-free: the chosen last-row / last-column cell).
@@ -1495,7 +1505,8 @@ public static partial class SequenceAligner
             {
                 int matchScore = scoring.Sub(seq1[i - 1], seq2[j - 1]);
 
-                if (score[i, j] == score[i - 1, j - 1] + matchScore)
+                if (score[i, j] == score[i - 1, j - 1] + matchScore
+                    && (forbidden is null || !forbidden.Contains(rowOffset + i, colOffset + j)))
                 {
                     chars1.Add(seq1[i - 1]);
                     chars2.Add(seq2[j - 1]);

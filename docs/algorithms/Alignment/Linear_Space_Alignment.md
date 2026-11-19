@@ -25,7 +25,7 @@ The full-matrix pairwise aligners (`GlobalAlign`, `GlobalAlignAffine`, `LocalAli
 | Myers-Miller | E. W. Myers, W. Miller, "Optimal alignments in linear space", *CABIOS* 4:11-17 (1988) — Gotoh's three-state affine recurrence under Hirschberg's scheme (EMBOSS `stretcher`) | affine gaps: the split vertex carries its state (M/X/Y), a gap running through the middle row is opened once |
 | Huang-Miller | X. Huang, W. Miller, "A time-efficient, linear-space local similarity algorithm", *Adv. Appl. Math.* 12:337-357 (1991); Huang, Hardison, Miller, *CABIOS* 6:373 (1990) (SIM; EMBOSS `matcher`) | local: locate the optimal interval in `O(n)` memory, then solve it globally |
 
-Sources actually used: WebSearch records of the Myers-Miller (PMID 3382986), Huang-Miller (DOI 10.1016/0196-8858(91)90017-D) and SIM descriptions; the EMBOSS 6.6.0 binaries `stretcher` (Myers-Miller global) and `matcher` (SIM local) run locally as oracles; Biopython 1.88 `PairwiseAligner` and parasail 1.3.4 for scores and co-optimal alignment sets. The papers themselves were not opened.
+Sources actually used: WebSearch records of the Myers-Miller (PMID 3382986), Huang-Miller (DOI 10.1016/0196-8858(91)90017-D) and SIM descriptions; the EMBOSS 6.6.0 binaries `stretcher` (Myers-Miller global) and `matcher` (SIM local) run locally as oracles; Biopython 1.88 `PairwiseAligner` and parasail 1.3.4 for scores and co-optimal alignment sets. On 2026-11-19 Hirschberg 1975 was opened in full (author's page), the Huang-Hardison-Miller 1990 / Huang-Miller 1991 abstracts (Michigan Tech repository: "k best non-intersecting local alignments ... O(M + N + K) space") and Waterman-Eggert 1987 (Waterman's page); the Myers-Miller 1988 paper and the Huang-Miller full texts are unreachable (OUP / Elsevier HTTP 403, no mirror) - see `docs/Evidence/ALIGN-GLOBAL-001-Evidence.md` "Primary sources opened (audit A1-22)".
 
 ### 2.2 The program (two phases)
 
@@ -50,11 +50,22 @@ For the local program the sub-problem starts after the first aligned pair (a loc
 
 The statement is also what the tests check empirically: 6 000+ random, tie-rich (alphabets `A`, `AC`, `ACGT`, zero gap scores) and long-indel pairs with forced recursion down to 1-cell base cases, **all** 16 end-gap policies x linear/affine x local x matrix scoring: 0 differences in score, rows, coordinates or type.
 
+### 2.4 Waterman-Eggert top-N in linear space (A1-7c, B09 F77)
+
+`LocalAlignTopN` / `LocalAlignAffineTopN` (Waterman-Eggert 1987 non-intersecting local alignments, `Local_Alignment_Smith_Waterman.md` §5.5) keep the matrices up to `TopNMaxCells` cells. Above it, and for `LocalAlignTopNLinearSpace` / `LocalAlignAffineTopNLinearSpace` at any size, each round is one run of the local linear-space program of §2.2 on the matrix in which the aligned residue pairs of the earlier rounds are *forbidden* (the diagonal / M-state move into that cell is removed, gap moves are unchanged) - the recomputation scheme of Huang-Miller SIM (EMBOSS `matcher`). The predicate `ForbiddenPairs` (1-based absolute `(row, column)`, sorted columns per row, cursor `ForbiddenRow` so a DP row without forbidden pairs costs one dictionary lookup) is threaded through
+
+* the locate passes `LocateLinearLocal` / `LocateAffine` (a forbidden cell has no diagonal candidate, so the first row-major maximum, its traceback tie order and its first aligned pair are those of the matrix the in-memory declumper holds after the same rounds);
+* the interval solves `LinearSolve` / `AffineSolve`, their midpoint passes `LinearMidpoint` / `AffineMidpoint` and the full-matrix base cases (`LinearAlignCore` / `AffineAlignCore` with `LinearFillMatrix` / `AffineFill` / `Traceback`); sub-problems know their row / column offset so the predicate is always addressed by absolute coordinates.
+
+*Why the rows are identical.* Removing diagonal edges only deletes edges of the DAG of §2.3; the greedy walk of the traceback, the Lemma (tail of the path is optimal for the sub-problem, `D_v ⊆ D`) and the "first tight predecessor" argument do not depend on which edges exist. The sub-problem after the first aligned pair never contains that (non-forbidden) pair, and a forbidden pair has value `-inf` in M, so no tight predecessor edge enters it. Memory is `O(m + n)` per round plus the forbidden pairs (the total length of the reported alignments); time is `(N + 1)` local-program runs for `N` reported alignments (the final run finds no positive alignment, or none >= `minScore`).
+
+Tests (`SequenceAligner_TopNLinearSpace_Tests`): 480 random tie-rich pairs (320 scalar + 160 matrix) (alphabets `AC`/`ACG`/`ACGT`, planted repeats, 5 scalar schemes + BLOSUM62 / EDNAFULL with fractional gaps, k up to 11, minScore; base-case sizes 1, 9, 40, 200 so the divide and conquer recurses on tiny rectangles) forced through the linear path = the in-memory declumper row for row; all 1 350 rows of `TestData/Alignment/topn_oracle.tsv` (independent full-recompute reference, EMBOSS matcher 6.6.0 score lists on 397 rows) through the linear path; large inputs above `TopNMaxCells` (5 300 x 5 300 linear, 5 100 x 5 100 affine, planted similar segments) = the in-memory declumper (forced with `fullMatrixCells = long.MaxValue`), MCP `local_align_top_n` on 5 100 x 5 100.
+
 ## 3. Contract
 
 * Same inputs, validation, case folding, empty-input and `null` contract as the full-matrix aligner of the family (see the Global / Local / Semi-Global documents).
 * `*LinearSpace` with `ScoringMatrix`: `GapOpen`/`GapExtend` as the full-matrix family (linear: only `GapExtend`); `MatrixScoring`: residues validated against the matrix alphabet, fractional gap scores (exact integer model).
-* `Local*LinearSpace` requires non-positive gap scores (`ArgumentException` otherwise). The automatic switch leaves such (meaningless) scorings on the full matrix.
+* `Local*LinearSpace` and `LocalAlign*TopNLinearSpace` require non-positive gap scores (`ArgumentException` otherwise). The automatic switch leaves such (meaningless) scorings on the full matrix.
 * Cancellation: `GlobalAlign(…, CancellationToken, IProgress)` honours the token in the linear-space program too (checked every 64 rows); progress is reported 1.0 at the end.
 * Integer range: unchanged (`PairScoring.Create` validates `max|score| · (m + n) < 2^28` for the matrix aligners; scalar scores are `int`).
 
@@ -63,6 +74,8 @@ The statement is also what the tests check empirically: 6 000+ random, tie-rich 
 | Aligner | Memory | Limit |
 |---------|--------|-------|
 | every linear / affine / local / ends-free aligner | full matrix up to 25 M cells (100 MB / 300 MB), then `O(m + n)` | none beyond the integer score range and the `int` string length (~2^31 residues); time `O(m n)` |
+| `LocalAlignTopN` / `LocalAlignAffineTopN` (all overloads) | in-memory declumper up to `TopNMaxCells` = 25 M cells, then `O(m + n)` per round (§2.4) | none; time `O(m n)` per reported alignment (+1) |
+| `LocalAlignCoOptimal` / `LocalAlignAffineCoOptimal` | `O(m n)` matrices | 25 M cells: `ArgumentException` above (the enumeration is output-exponential, no linear-space form) |
 | `*GeneralGap` (arbitrary `w(k)`, linear/affine `w` are delegated) | `O(m n)`, 33 bytes per cell, time `O(m n (m + n))` | `SequenceAligner.GeneralGapMaxCells` = 4 000 000 cells: larger inputs throw `ArgumentException` (no linear-space variant exists for a non-affine `w`) |
 | progressive / iterative / consistency MSA profile DP | `O(m n)` doubles | `SequenceAligner.ProfileMatrixMaxCells` = 50 000 000 cells: `ArgumentException`; the exact center-star `MultipleAlign` uses the linear-space pairwise stage and has no such matrix |
 

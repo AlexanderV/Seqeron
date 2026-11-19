@@ -32,9 +32,12 @@ public static partial class SequenceAligner
     #region Waterman-Eggert top-N local alignments and co-optimal enumeration
 
     /// <summary>
-    /// Largest number of dynamic-programming cells <c>(m + 1)·(n + 1)</c> the Waterman-Eggert declumper and the co-optimal
-    /// enumerator accept (they keep the matrices, as the original algorithm does: 4 bytes per cell for the linear model, 12
-    /// for the affine one — 25 M cells = 100 MB / 300 MB). Larger inputs throw <see cref="ArgumentException"/>.
+    /// Largest number of dynamic-programming cells <c>(m + 1)·(n + 1)</c> for which the Waterman-Eggert declumper and the co-optimal
+    /// enumerator keep the matrices, as the original algorithm does (4 bytes per cell for the linear model, 12 for the affine
+    /// one — 25 M cells = 100 MB / 300 MB). Above it the top-N alignments (<c>LocalAlignTopN</c> / <c>LocalAlignAffineTopN</c>, all
+    /// overloads) are computed by the exact LINEAR-SPACE program (<see cref="LocalAlignTopNLinearSpace(string, string, ScoringMatrix?, int, int, long)"/>:
+    /// the same alignments in O(m + n) memory per round); the co-optimal enumerator (<c>LocalAlignCoOptimal</c>) still keeps
+    /// the matrices and throws <see cref="ArgumentException"/> above it.
     /// </summary>
     public const long TopNMaxCells = LinearSpaceCellThreshold;
 
@@ -66,11 +69,15 @@ public static partial class SequenceAligner
     /// earlier, other tools (matcher, lalign) may report a different — equally valid — sequence of alignments on tie-rich inputs
     /// (the score of every alignment is always the true maximum of the remaining problem).
     /// </para>
-    /// <para>Memory is O(m·n) (<see cref="TopNMaxCells"/> cells), as in the original algorithm.</para>
+    /// <para>Memory is O(m·n) up to <see cref="TopNMaxCells"/> cells, as in the original algorithm (matrices kept, only the changed cells are recomputed
+    /// after each report). Above it the very same alignments are computed in O(m + n) memory by
+    /// <see cref="LocalAlignTopNLinearSpace(string, string, ScoringMatrix?, int, int, long)"/> (one run of the exact linear-space local program per
+    /// reported alignment, Huang-Miller SIM / EMBOSS matcher scheme; needs non-positive gap scores).</para>
     /// </remarks>
     /// <exception cref="ArgumentNullException">A sequence is null.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxAlignments"/> &lt; 1.</exception>
-    /// <exception cref="ArgumentException">The matrix would exceed <see cref="TopNMaxCells"/> cells.</exception>
+    /// <exception cref="ArgumentException">The matrix would exceed <see cref="TopNMaxCells"/> cells and a gap score is positive
+    /// (the linear-space program needs GapOpen ≤ 0 and GapExtend ≤ 0).</exception>
     public static IReadOnlyList<AlignmentResult> LocalAlignTopN(
         DnaSequence sequence1, DnaSequence sequence2, ScoringMatrix? scoring = null, int maxAlignments = 10, int minScore = 0)
     {
@@ -323,15 +330,20 @@ public static partial class SequenceAligner
                 paramName);
     }
 
+    /// <param name="fullMatrixCells">Inputs of at most this many cells use the in-memory declumper, larger ones the linear-space
+    /// program (tests lower it to force the linear path on small inputs).</param>
+    /// <param name="baseCells">Base-case size of the linear-space program's divide and conquer.</param>
     internal static IReadOnlyList<AlignmentResult> LocalTopNCore(
-        string a, string b, PairScoring scoring, bool affine, int maxAlignments, long minScaled)
+        string a, string b, PairScoring scoring, bool affine, int maxAlignments, long minScaled,
+        long fullMatrixCells = TopNMaxCells, long baseCells = LinearSpaceBaseCells)
     {
         if (maxAlignments < 1)
             throw new ArgumentOutOfRangeException(nameof(maxAlignments), maxAlignments, "maxAlignments must be at least 1.");
         var results = new List<AlignmentResult>();
         if (a.Length == 0 || b.Length == 0)
             return results;
-        RequireTopNFits(a.Length, b.Length, nameof(a));
+        if ((long)(a.Length + 1) * (b.Length + 1) > fullMatrixCells)
+            return LocalTopNLinearSpaceCore(a, b, scoring, affine, maxAlignments, minScaled, baseCells);
 
         var declumper = new LocalDeclumper(a, b, scoring, affine);
         while (results.Count < maxAlignments)

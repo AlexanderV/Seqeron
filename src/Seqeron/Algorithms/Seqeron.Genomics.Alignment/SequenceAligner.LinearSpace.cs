@@ -81,7 +81,7 @@ public static partial class SequenceAligner
     /// are solved by the full-matrix core.</param>
     private static AlignmentResult LinearSpaceAlign(
         string a, string b, PairScoring sc, bool affine, bool local, EndGaps ends, long baseCells,
-        CancellationToken ct)
+        CancellationToken ct, ForbiddenPairs? forbidden = null)
     {
         if (local)
         {
@@ -99,7 +99,7 @@ public static partial class SequenceAligner
         LinearSpacePath path;
         if (local)
         {
-            path = affine ? LocateAffine(a, b, sc, local: true, EndGaps.None, ct) : LocateLinearLocal(a, b, sc, ct);
+            path = affine ? LocateAffine(a, b, sc, local: true, EndGaps.None, ct, forbidden) : LocateLinearLocal(a, b, sc, ct, forbidden);
             if (path.Score <= 0)
                 return EmptyLocalResult();
         }
@@ -109,7 +109,7 @@ public static partial class SequenceAligner
         }
         else
         {
-            path = affine ? LocateAffine(a, b, sc, local: false, ends, ct) : LocateLinearEndsFree(a, b, sc, ends, ct);
+            path = affine ? LocateAffine(a, b, sc, local: false, ends, ct, forbidden) : LocateLinearEndsFree(a, b, sc, ends, ct);
         }
 
         // ---- Phase 2: global alignment of the rectangle [start, end] (Hirschberg / Myers-Miller) ----
@@ -130,8 +130,8 @@ public static partial class SequenceAligner
         }
 
         int score = affine
-            ? AffineSolve(a, startI, path.EndRow, b, startJ, path.EndCol, sc, StateMatch, path.EndState, baseCells, out1, out2, ct)
-            : LinearSolve(a, startI, path.EndRow, b, startJ, path.EndCol, sc, baseCells, out1, out2, ct);
+            ? AffineSolve(a, startI, path.EndRow, b, startJ, path.EndCol, sc, StateMatch, path.EndState, baseCells, out1, out2, ct, forbidden)
+            : LinearSolve(a, startI, path.EndRow, b, startJ, path.EndCol, sc, baseCells, out1, out2, ct, forbidden);
         if (ends != EndGaps.None || local)
             score = path.Score;
 
@@ -160,22 +160,23 @@ public static partial class SequenceAligner
     /// </summary>
     private static int LinearSolve(
         string a, int i0, int i1, string b, int j0, int j1, PairScoring sc, long baseCells,
-        StringBuilder out1, StringBuilder out2, CancellationToken ct)
+        StringBuilder out1, StringBuilder out2, CancellationToken ct, ForbiddenPairs? forbidden = null)
     {
         int m = i1 - i0;
         int n = j1 - j0;
         if (m <= 1 || n <= 1 || (long)(m + 1) * (n + 1) <= baseCells)
         {
-            var r = LinearAlignCore(a.Substring(i0, m), b.Substring(j0, n), sc, EndGaps.None, ct, null, forceFullMatrix: true);
+            var r = LinearAlignCore(a.Substring(i0, m), b.Substring(j0, n), sc, EndGaps.None, ct, null, forceFullMatrix: true,
+                forbidden, i0, j0);
             out1.Append(r.AlignedSequence1);
             out2.Append(r.AlignedSequence2);
             return r.Score;
         }
 
         int mid = m / 2;
-        int cross = LinearMidpoint(a, i0, b, j0, m, n, mid, sc, ct, out int total);
-        LinearSolve(a, i0, i0 + mid, b, j0, j0 + cross, sc, baseCells, out1, out2, ct);
-        LinearSolve(a, i0 + mid, i1, b, j0 + cross, j1, sc, baseCells, out1, out2, ct);
+        int cross = LinearMidpoint(a, i0, b, j0, m, n, mid, sc, ct, out int total, forbidden);
+        LinearSolve(a, i0, i0 + mid, b, j0, j0 + cross, sc, baseCells, out1, out2, ct, forbidden);
+        LinearSolve(a, i0 + mid, i1, b, j0 + cross, j1, sc, baseCells, out1, out2, ct, forbidden);
         return total;
     }
 
@@ -193,7 +194,8 @@ public static partial class SequenceAligner
     /// column for the end cell (m, n); <paramref name="total"/> is the optimal score F(m, n).
     /// </summary>
     private static int LinearMidpoint(
-        string a, int i0, string b, int j0, int m, int n, int mid, PairScoring sc, CancellationToken ct, out int total)
+        string a, int i0, string b, int j0, int m, int n, int mid, PairScoring sc, CancellationToken ct, out int total,
+        ForbiddenPairs? forbidden = null)
     {
         int d = sc.GapExtend;
         var prev = new int[n + 1];
@@ -210,13 +212,14 @@ public static partial class SequenceAligner
 
             char ca = a[i0 + r - 1];
             bool carry = r > mid;
+            var forbiddenRow = new ForbiddenRow(forbidden, i0 + r);
             cur[0] = r * d;
             if (carry)
                 crossCur[0] = crossPrev[0];
 
             for (int j = 1; j <= n; j++)
             {
-                int diag = prev[j - 1] + sc.Sub(ca, b[j0 + j - 1]);
+                int diag = forbiddenRow.Test(j0 + j) ? ForbiddenPairs.NoDiagonal : prev[j - 1] + sc.Sub(ca, b[j0 + j - 1]);
                 int up = prev[j] + d;
                 int left = cur[j - 1] + d;
                 int v = Math.Max(diag, Math.Max(up, left));
@@ -245,7 +248,8 @@ public static partial class SequenceAligner
     /// of the FIRST aligned pair of its traceback (the traceback stops in front of the first predecessor with H = 0).
     /// The end cell is the first row-major maximum, as in <see cref="LocalAlignCore"/>.
     /// </summary>
-    private static LinearSpacePath LocateLinearLocal(string a, string b, PairScoring sc, CancellationToken ct)
+    private static LinearSpacePath LocateLinearLocal(
+        string a, string b, PairScoring sc, CancellationToken ct, ForbiddenPairs? forbidden = null)
     {
         int m = a.Length;
         int n = b.Length;
@@ -263,10 +267,12 @@ public static partial class SequenceAligner
                 ct.ThrowIfCancellationRequested();
 
             char ca = a[i - 1];
+            var forbiddenRow = new ForbiddenRow(forbidden, i);
             hc[0] = 0;
             for (int j = 1; j <= n; j++)
             {
-                int diag = hp[j - 1] + sc.Sub(ca, b[j - 1]);
+                // A forbidden aligned pair has no diagonal move (Waterman-Eggert); the gap moves are unchanged.
+                int diag = forbiddenRow.Test(j) ? ForbiddenPairs.NoDiagonal : hp[j - 1] + sc.Sub(ca, b[j - 1]);
                 int up = hp[j] + d;
                 int left = hc[j - 1] + d;
                 int v = Math.Max(diag, Math.Max(up, left));
@@ -397,14 +403,14 @@ public static partial class SequenceAligner
     /// </summary>
     private static int AffineSolve(
         string a, int i0, int i1, string b, int j0, int j1, PairScoring sc, int startState, int endState, long baseCells,
-        StringBuilder out1, StringBuilder out2, CancellationToken ct)
+        StringBuilder out1, StringBuilder out2, CancellationToken ct, ForbiddenPairs? forbidden = null)
     {
         int m = i1 - i0;
         int n = j1 - j0;
         if (m <= 1 || n <= 1 || (long)(m + 1) * (n + 1) <= baseCells)
         {
             var r = AffineAlignCore(a.Substring(i0, m), b.Substring(j0, n), sc, AlignmentType.Global, EndGaps.None,
-                startState, endState, forceFullMatrix: true);
+                startState, endState, forceFullMatrix: true, forbidden, i0, j0);
             out1.Append(r.AlignedSequence1);
             out2.Append(r.AlignedSequence2);
             return r.Score;
@@ -412,9 +418,9 @@ public static partial class SequenceAligner
 
         int mid = m / 2;
         AffineMidpoint(a, i0, b, j0, m, n, mid, sc, startState, endState, ct,
-            out int crossCol, out int crossState, out int finalState, out int total);
-        AffineSolve(a, i0, i0 + mid, b, j0, j0 + crossCol, sc, startState, crossState, baseCells, out1, out2, ct);
-        AffineSolve(a, i0 + mid, i1, b, j0 + crossCol, j1, sc, crossState, finalState, baseCells, out1, out2, ct);
+            out int crossCol, out int crossState, out int finalState, out int total, forbidden);
+        AffineSolve(a, i0, i0 + mid, b, j0, j0 + crossCol, sc, startState, crossState, baseCells, out1, out2, ct, forbidden);
+        AffineSolve(a, i0 + mid, i1, b, j0 + crossCol, j1, sc, crossState, finalState, baseCells, out1, out2, ct, forbidden);
         return total;
     }
 
@@ -432,7 +438,8 @@ public static partial class SequenceAligner
     /// </summary>
     private static void AffineMidpoint(
         string a, int i0, string b, int j0, int m, int n, int mid, PairScoring sc, int startState, int endState,
-        CancellationToken ct, out int crossCol, out int crossState, out int finalState, out int total)
+        CancellationToken ct, out int crossCol, out int crossState, out int finalState, out int total,
+        ForbiddenPairs? forbidden = null)
     {
         int o = sc.GapOpen;
         int e = sc.GapExtend;
@@ -467,6 +474,7 @@ public static partial class SequenceAligner
 
             char ca = a[i0 + r - 1];
             bool carry = r > mid;
+            var forbiddenRow = new ForbiddenRow(forbidden, i0 + r);
 
             mc[0] = AffineNegInf;
             yc[0] = AffineNegInf;
@@ -484,7 +492,7 @@ public static partial class SequenceAligner
                 int s = sc.Sub(ca, b[j0 + j - 1]);
 
                 int basis = Max3(mp[j - 1], xp[j - 1], yp[j - 1]);
-                mc[j] = Math.Max(AffineNegInf, basis + s);
+                mc[j] = forbiddenRow.Test(j0 + j) ? AffineNegInf : Math.Max(AffineNegInf, basis + s);
                 int xv = Math.Max(AffineNegInf, Max3(mp[j] + oe, xp[j] + e, yp[j] + oe));
                 xc[j] = xv;
                 int yv = Math.Max(AffineNegInf, Max3(mc[j - 1] + oe, yc[j - 1] + e, xc[j - 1] + oe));
@@ -533,7 +541,8 @@ public static partial class SequenceAligner
     /// over the free last row, then the first strictly larger one over the free last column; state tie M &gt; X &gt; Y).
     /// </summary>
     private static LinearSpacePath LocateAffine(
-        string a, string b, PairScoring sc, bool local, EndGaps ends, CancellationToken ct)
+        string a, string b, PairScoring sc, bool local, EndGaps ends, CancellationToken ct,
+        ForbiddenPairs? forbidden = null)
     {
         bool freeStart1 = ends.HasFlag(EndGaps.FreeStart1);
         bool freeStart2 = ends.HasFlag(EndGaps.FreeStart2);
@@ -599,6 +608,7 @@ public static partial class SequenceAligner
                 ct.ThrowIfCancellationRequested();
 
             char ca = a[i - 1];
+            var forbiddenRow = new ForbiddenRow(forbidden, i);
 
             // Column 0.
             mc[0] = freeStart1 ? 0 : AffineNegInf;
@@ -622,7 +632,7 @@ public static partial class SequenceAligner
                 int basis = Max3(mp[j - 1], xp[j - 1], yp[j - 1]);
                 if (local && basis < 0)
                     basis = 0;
-                int mv = Math.Max(AffineNegInf, basis + s);
+                int mv = forbiddenRow.Test(j) ? AffineNegInf : Math.Max(AffineNegInf, basis + s);
                 mc[j] = mv;
                 int xv = Math.Max(AffineNegInf, Max3(mp[j] + oe, xp[j] + e, yp[j] + oe));
                 xc[j] = xv;
