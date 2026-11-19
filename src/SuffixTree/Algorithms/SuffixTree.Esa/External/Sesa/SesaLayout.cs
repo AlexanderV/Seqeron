@@ -78,8 +78,74 @@ internal static class SesaLayout
     internal const int BuildInfoCapacity = 4096;
 
     /// <summary>The plan for a text described by <paramref name="info"/>, with or without the PSI section.</summary>
-    internal static SesaPlan Plan(PackedTextInfo info, bool psi) => throw new NotImplementedException();
+    internal static SesaPlan Plan(PackedTextInfo info, bool psi)
+    {
+        ArgumentNullException.ThrowIfNull(info);
+        long n = info.N;
+        long rows = n + 1;
+        long textLength = info.TotalBytes;
+        long alphabetLength = 2L * info.Sigma;
+        long countsLength = 8L * info.Sigma;
+        long arrayLength = 4 * rows;
+        long textOffset = SesaFormat.AlignedOffset(SesaFormat.PageBytes, textLength);
+        long alphabetOffset = SesaFormat.AlignedOffset(textOffset + textLength, alphabetLength);
+        long countsOffset = SesaFormat.AlignedOffset(alphabetOffset + alphabetLength, countsLength);
+        long saOffset = SesaFormat.AlignedOffset(countsOffset + countsLength, arrayLength);
+        long childOffset = SesaFormat.AlignedOffset(saOffset + arrayLength, arrayLength);
+        long end = childOffset + arrayLength;
+        long psiOffset = 0;
+        if (psi)
+        {
+            psiOffset = SesaFormat.AlignedOffset(end, arrayLength);
+            end = psiOffset + arrayLength;
+        }
+        long infoOffset = SesaFormat.AlignedOffset(end, BuildInfoCapacity);
+        long lcpOffset = SesaFormat.AlignedOffset(infoOffset + BuildInfoCapacity, 4 * rows); // aligned for the widest LCP: its width is not known yet, and a section of 1 MiB or more starts at a multiple of 4096
+        return new SesaPlan
+        {
+            N = n,
+            Bits = info.Bits,
+            Sigma = info.Sigma,
+            Psi = psi,
+            TextOffset = textOffset,
+            TextLength = textLength,
+            AlphabetOffset = alphabetOffset,
+            AlphabetLength = alphabetLength,
+            CountsOffset = countsOffset,
+            CountsLength = countsLength,
+            SaOffset = saOffset,
+            SaLength = arrayLength,
+            ChildOffset = childOffset,
+            ChildLength = arrayLength,
+            PsiOffset = psiOffset,
+            PsiLength = psi ? arrayLength : 0,
+            BuildInfoOffset = infoOffset,
+            BuildInfoCapacity = BuildInfoCapacity,
+            LcpOffset = lcpOffset,
+            ReservedLength = lcpOffset + rows,
+        };
+    }
 
     /// <summary>The LCP and overflow sections once the width and the number of escapes are known.</summary>
-    internal static SesaTail PlaceTail(SesaPlan plan, LcpKind kind, long overflowCount) => throw new NotImplementedException();
+    internal static SesaTail PlaceTail(SesaPlan plan, LcpKind kind, long overflowCount)
+    {
+        ArgumentNullException.ThrowIfNull(plan);
+        ArgumentOutOfRangeException.ThrowIfNegative(overflowCount);
+        if (overflowCount > 0 && kind == LcpKind.U32) throw new ArgumentException("an LCP of 32 bits per entry has no escape value, so no overflow list", nameof(overflowCount));
+        int width = LcpWidth.Bytes(kind);
+        long lcpLength = (plan.N + 1) * width;
+        long end = plan.LcpOffset + lcpLength;
+        long overflowLength = 8 * overflowCount;
+        long overflowOffset = overflowCount > 0 ? SesaFormat.AlignedOffset(end, overflowLength) : 0;
+        return new SesaTail
+        {
+            Kind = kind,
+            LcpWidth = width,
+            LcpLength = lcpLength,
+            OverflowCount = overflowCount,
+            OverflowOffset = overflowOffset,
+            OverflowLength = overflowLength,
+            FinalLength = overflowCount > 0 ? overflowOffset + overflowLength : end,
+        };
+    }
 }

@@ -57,10 +57,10 @@ public sealed class SesaLayoutTests
         }
         Assert.That(p.BuildInfoCapacity, Is.EqualTo(SesaLayout.BuildInfoCapacity));
         Assert.That(p.BuildInfoOffset, Is.EqualTo(Align(end, SesaLayout.BuildInfoCapacity)));
-        Assert.That(p.LcpOffset, Is.EqualTo(Align(p.BuildInfoOffset + p.BuildInfoCapacity, n + 1)));
+        Assert.That(p.LcpOffset, Is.EqualTo(Align(p.BuildInfoOffset + p.BuildInfoCapacity, 4 * (n + 1))), "aligned for the widest LCP, whose width is not known yet");
         Assert.That(p.ReservedLength, Is.EqualTo(p.LcpOffset + n + 1), "the file is created with the LCP at its narrowest width");
         foreach (long offset in new[] { p.TextOffset, p.AlphabetOffset, p.CountsOffset, p.SaOffset, p.ChildOffset, p.BuildInfoOffset, p.LcpOffset }) Assert.That(offset % 64, Is.Zero);
-        foreach ((long offset, long length) in new[] { (p.TextOffset, p.TextLength), (p.SaOffset, p.SaLength), (p.ChildOffset, p.ChildLength), (p.PsiOffset, p.PsiLength), (p.LcpOffset, n + 1) })
+        foreach ((long offset, long length) in new[] { (p.TextOffset, p.TextLength), (p.SaOffset, p.SaLength), (p.ChildOffset, p.ChildLength), (p.PsiOffset, p.PsiLength), (p.LcpOffset, 4 * (n + 1)) })
         {
             if (length >= (1 << 20)) Assert.That(offset % 4096, Is.Zero, $"offset {offset} of a section of {length} bytes");
         }

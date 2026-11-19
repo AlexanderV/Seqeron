@@ -1,3 +1,5 @@
+using System.Buffers.Binary;
+
 namespace SuffixTree.Esa.External;
 
 /// <summary>One entry of the section table (ADR-003 section 3, 64 bytes).</summary>
@@ -89,11 +91,59 @@ internal static class SesaFormat
     internal static ReadOnlySpan<byte> Magic => [0x89, 0x53, 0x45, 0x53, 0x41, 0x0D, 0x0A, 0x1A];
 
     /// <summary>The next offset at or after <paramref name="offset"/> where a section of <paramref name="length"/> bytes may start (64-byte aligned; 4096-byte aligned from 1 MiB).</summary>
-    internal static long AlignedOffset(long offset, long length) => throw new NotImplementedException();
+    internal static long AlignedOffset(long offset, long length)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(offset);
+        ArgumentOutOfRangeException.ThrowIfNegative(length);
+        long a = length >= LargeSectionBytes ? LargeAlignment : SmallAlignment;
+        return (offset + a - 1) / a * a;
+    }
 
     /// <summary>
     /// The header page: the header, the section table in the order given, zero padding to <see cref="PageBytes"/>. The CRC covers the bytes <c>[0, 124)</c> and the table, computed with the magic in place;
     /// with <paramref name="withMagic"/> false the first eight bytes of the returned page are zero (the state in which the page is written first), the CRC is the same.
     /// </summary>
-    internal static byte[] EncodeHeaderPage(SesaHeader header, IReadOnlyList<SesaSection> sections, bool withMagic) => throw new NotImplementedException();
+    internal static byte[] EncodeHeaderPage(SesaHeader header, IReadOnlyList<SesaSection> sections, bool withMagic)
+    {
+        ArgumentNullException.ThrowIfNull(header);
+        ArgumentNullException.ThrowIfNull(sections);
+        if (sections.Count > MaxSections) throw new ArgumentException($"the header page holds {MaxSections} sections, {sections.Count} were given", nameof(sections));
+        if (header.TextSha256 is not { Length: 32 }) throw new ArgumentException("TEXT_SHA256 is 32 bytes", nameof(header));
+        var page = new byte[PageBytes];
+        Magic.CopyTo(page);
+        BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(8), VersionMajor);
+        BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(10), VersionMinor);
+        BinaryPrimitives.WriteUInt32LittleEndian(page.AsSpan(12), EndianProbe);
+        BinaryPrimitives.WriteInt64LittleEndian(page.AsSpan(16), header.TextLength);
+        BinaryPrimitives.WriteInt64LittleEndian(page.AsSpan(24), header.NodeCount);
+        BinaryPrimitives.WriteInt64LittleEndian(page.AsSpan(32), header.FileSize);
+        BinaryPrimitives.WriteInt64LittleEndian(page.AsSpan(40), HeaderBytes);
+        BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(48), sections.Count);
+        BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(52), EntryBytes);
+        BinaryPrimitives.WriteInt64LittleEndian(page.AsSpan(56), header.LrsDepth);
+        BinaryPrimitives.WriteInt64LittleEndian(page.AsSpan(64), header.LrsRank);
+        BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(72), header.PosWidth);
+        BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(76), header.Sigma);
+        header.TextSha256.CopyTo(page.AsSpan(80));
+        BinaryPrimitives.WriteInt64LittleEndian(page.AsSpan(112), header.BuildFlags);
+        for (int i = 0; i < sections.Count; i++)
+        {
+            SesaSection s = sections[i];
+            Span<byte> e = page.AsSpan(HeaderBytes + (EntryBytes * i), EntryBytes);
+            BinaryPrimitives.WriteInt32LittleEndian(e, s.Kind);
+            BinaryPrimitives.WriteInt32LittleEndian(e[4..], s.Flags);
+            BinaryPrimitives.WriteInt64LittleEndian(e[8..], s.Offset);
+            BinaryPrimitives.WriteInt64LittleEndian(e[16..], s.Length);
+            BinaryPrimitives.WriteInt64LittleEndian(e[24..], s.Count);
+            BinaryPrimitives.WriteInt32LittleEndian(e[32..], s.ElemWidth);
+            BinaryPrimitives.WriteInt32LittleEndian(e[36..], s.Codec);
+            BinaryPrimitives.WriteInt64LittleEndian(e[40..], s.Param0);
+            BinaryPrimitives.WriteInt64LittleEndian(e[48..], s.Param1);
+            BinaryPrimitives.WriteUInt32LittleEndian(e[56..], s.Crc);
+        }
+        uint crc = Crc32C.Append(Crc32C.Append(0, page.AsSpan(0, CrcOffset)), page.AsSpan(HeaderBytes, EntryBytes * sections.Count));
+        BinaryPrimitives.WriteUInt32LittleEndian(page.AsSpan(CrcOffset), crc);
+        if (!withMagic) page.AsSpan(0, Magic.Length).Clear();
+        return page;
+    }
 }

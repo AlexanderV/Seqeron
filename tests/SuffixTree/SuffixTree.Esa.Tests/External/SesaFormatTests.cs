@@ -72,7 +72,7 @@ public sealed class SesaFormatTests
         // every single bit of the header or of the table changes the CRC that the text defines
         for (int i = 0; i < 128 + (64 * 4); i++)
         {
-            if (i is >= 124 and < 128) continue;
+            if (i is >= 124 and < 128 or >= 48 and < 52) continue; // the CRC field itself, and the count of the table that the oracle must trust
             byte[] copy = (byte[])page.Clone();
             copy[i] ^= 0x10;
             SesaOracle c = Decode(copy);

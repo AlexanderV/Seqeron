@@ -281,7 +281,7 @@ public sealed class Ph6Tests
         [
             ("SA[0] is not n", sa => sa[0] = 1, false),
             ("an entry above n", sa => sa[3] = n + 1, false),
-            ("the suffix 0 twice", sa => sa[2] = 0, false),
+            ("the suffix 0 twice", sa => sa[Array.IndexOf(sa, 0) == 2 ? 3 : 2] = 0, false),
             ("no suffix 0", sa => sa[Array.IndexOf(sa, 0)] = 3, false),
         ];
         foreach ((string label, Action<int[]> damage, _) in damages)
@@ -294,7 +294,7 @@ public sealed class Ph6Tests
             using MappedTextReader reader = MappedTextReader.Open(textPath, n, 1);
             Assert.Throws<InvalidDataException>(() => BwtPass.Build(container, 64, reader, 2, bwt), label);
             Assert.That(File.Exists(bwt), Is.False, $"{label}: the BWT file is left behind");
-            ProcFds.AssertClosed(label, [container, bwt, textPath], []);
+            ProcFds.AssertClosed(label, [container, bwt], []);
             Assert.That(ProcMaps.Contains(bwt) ?? false, Is.False, $"{label}: the BWT file is still mapped");
         }
     }

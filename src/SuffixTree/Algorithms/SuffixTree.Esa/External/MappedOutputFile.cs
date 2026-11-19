@@ -91,7 +91,7 @@ internal sealed class MappedOutputFile : IDisposable
     /// <summary>What <see cref="ReservationMode.Auto"/> means: the choice measured in work package 1b.7b (ADR-004 section 5a).</summary>
     internal const ReservationMode AutoMode = ReservationMode.Preallocate;
 
-    private readonly MemoryMappedFile? _map;
+    private MemoryMappedFile? _map;
     private readonly object _gate = new();
     private int _writers;
     private bool _disposed;
@@ -143,8 +143,36 @@ internal sealed class MappedOutputFile : IDisposable
     /// <exception cref="InvalidOperationException">A writer is still open.</exception>
     internal ReservationOutcome Grow(long newLength, MappedFileOptions? options = null)
     {
-        if (newLength < Length || (options is null && _disposed)) throw new ArgumentOutOfRangeException(nameof(newLength));
-        throw new NotImplementedException();
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        ArgumentOutOfRangeException.ThrowIfLessThan(newLength, Length);
+        if (newLength == Length) return ReservationOutcome.Sparse;
+        int open = Volatile.Read(ref _writers);
+        if (open != 0) throw new InvalidOperationException($"{open} writer(s) of {Path} are still open: dispose every writer before growing the file");
+        IReservationSource source = options?.Source ?? SystemReservationSource.Instance;
+        long growth = newLength - Length;
+        string directory = System.IO.Path.GetDirectoryName(System.IO.Path.GetFullPath(Path)) ?? ".";
+        long free = source.AvailableFreeBytes(directory);
+        if (free >= 0 && free < growth) throw new IOException($"not enough free space to grow {Path} by {growth} bytes: {free} bytes available");
+        long previous = Length;
+        lock (_gate)
+        {
+            using (var stream = new FileStream(Path, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite)) stream.SetLength(newLength);
+            MemoryMappedFile map;
+            try
+            {
+                map = MemoryMappedFile.CreateFromFile(Path, FileMode.Open, null, 0, MemoryMappedFileAccess.ReadWrite);
+            }
+            catch
+            {
+                using var undo = new FileStream(Path, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite);
+                undo.SetLength(previous);
+                throw;
+            }
+            _map?.Dispose();
+            _map = map;
+            Length = newLength;
+        }
+        return free >= 0 ? ReservationOutcome.FreeSpaceChecked : ReservationOutcome.Unchecked;
     }
 
     /// <summary>A writer for the bytes <c>[start, start + length)</c> of the file; its offsets are relative to <paramref name="start"/>. Ranges of different writers must not overlap (not checked).</summary>
