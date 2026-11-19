@@ -291,14 +291,15 @@ internal static class CorruptionFuzz
                 int entries = (int)(s.Length / width);
                 if (entries < 3) return (image, "section too short", null);
                 int r = 1 + rng.NextInt(entries - 2);
-                int mode = rng.NextInt(6);
+                int mode = rng.NextInt(7);
+                if (mode == 6 && s.Kind == SesaFormat.KindLcp && width <= 2 && PeakOf(image, s, width, entries, rng) is { } peak) r = peak; // an interior peak of the LCP array: one less keeps the shape of the interval tree
                 int at = (int)s.Offset + (r * width);
                 if (mode >= 4)
                 {
                     // the entry itself, one more or one less (an off-by-one: the damage that keeps the structure of the tree and changes a depth or a position)
                     long current = 0;
                     for (int b = 0; b < width; b++) current |= (long)image[at + b] << (8 * b);
-                    long changed = mode == 4 ? current + 1 : current - 1;
+                    long changed = mode == 4 ? current + 1 : current - 1; // 4: plus one; 5 and 6: minus one
                     for (int b = 0; b < width; b++) image[at + b] = (byte)(changed >> (8 * b));
                 }
                 else if (mode < 2)
@@ -324,6 +325,23 @@ internal static class CorruptionFuzz
                 return (image, $"flip of byte {b} of section-table entry {index}, header checksum recomputed", null);
             }
         }
+    }
+
+    /// <summary>A rank whose LCP value stands at least two above both neighbours and below the maximum: decreasing it by one changes no comparison with another value, so the child table, the node count and the longest repeat stay what they are and only the comparison with the text can see it.</summary>
+    private static int? PeakOf(byte[] image, OracleSection s, int width, int entries, SplitMix64 rng)
+    {
+        var value = new int[entries];
+        for (int i = 0; i < entries; i++)
+        {
+            int v = 0;
+            for (int b = 0; b < width; b++) v |= image[(int)s.Offset + (i * width) + b] << (8 * b);
+            value[i] = v;
+        }
+        int max = value.Max();
+        var peaks = new List<int>();
+        for (int i = 2; i < entries - 1; i++)
+            if (value[i] >= Math.Max(value[i - 1], value[i + 1]) + 2 && value[i] < max && value[i] < (1 << (8 * width)) - 1) peaks.Add(i);
+        return peaks.Count == 0 ? null : peaks[rng.NextInt(peaks.Count)];
     }
 
     private static OracleSection Pick(SesaOracle o, SplitMix64 rng, params int[] kinds)
