@@ -1,0 +1,142 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "dual_affine_align",
+  "serverName": "Alignment",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "SequenceAligner.GlobalAlignDualAffine / LocalAlignDualAffine",
+  "docRef": "Seqeron.Genomics.Alignment/SequenceAligner.DualAffine.cs",
+  "description": "Pairwise alignment with the TWO-PIECE (dual) affine gap model of ksw2 / minimap2 (ksw2_extd2): a gap of length k scores max(gapOpen1 + k*gapExtend1, gapOpen2 + k*gapExtend2) (a short-gap and a long-gap regime; all four gap numbers are scores <= 0, ksw2's q + k*e cost is gapOpen = -q, gapExtend = -e; defaults = minimap2 -A 2 -B 4 -O 4,24 -E 2,1), Gotoh's O(m n) program with two gap states per direction, mode 'global' (end to end) or 'local' (Smith-Waterman), optional diagonal band (ksw2 w: only the cells |i - j| <= band; a global alignment needs |m - n| <= band). VERIFICATION: 1 600 committed cases (400 global, 400 local, 400 banded global, 400 banded local; scores equal Biopython 1.88 PairwiseAligner with the callable gap score and an independent Waterman-Smith-Beyer program, every alignment re-scores to its score). Z-drop / end-bonus extension alignment is not included (B09.md A2-29b).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence1": {
+        "type": "string",
+        "description": "First sequence."
+      },
+      "sequence2": {
+        "type": "string",
+        "description": "Second sequence."
+      },
+      "mode": {
+        "type": "string",
+        "default": "global",
+        "description": "'global' or 'local'."
+      },
+      "match": {
+        "type": "integer",
+        "default": 2,
+        "description": "Score of an identical pair."
+      },
+      "mismatch": {
+        "type": "integer",
+        "default": -4,
+        "description": "Score of a different pair."
+      },
+      "gapOpen1": {
+        "type": "integer",
+        "default": -4,
+        "description": "Short regime: gap open score (<= 0)."
+      },
+      "gapExtend1": {
+        "type": "integer",
+        "default": -2,
+        "description": "Short regime: extension score per position (<= 0)."
+      },
+      "gapOpen2": {
+        "type": "integer",
+        "default": -24,
+        "description": "Long regime: gap open score (<= 0)."
+      },
+      "gapExtend2": {
+        "type": "integer",
+        "default": -1,
+        "description": "Long regime: extension score per position (<= 0)."
+      },
+      "band": {
+        "type": "integer",
+        "default": -1,
+        "description": "Band half-width (|i - j| <= band); -1 = full matrix."
+      }
+    },
+    "required": [
+      "sequence1",
+      "sequence2"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "alignedSequence1": {
+        "type": "string",
+        "description": "Row of sequence1."
+      },
+      "alignedSequence2": {
+        "type": "string",
+        "description": "Row of sequence2."
+      },
+      "score": {
+        "type": "integer",
+        "description": "Alignment score."
+      },
+      "alignmentType": {
+        "type": "string",
+        "description": "Global or Local."
+      },
+      "startPosition1": {
+        "type": "integer",
+        "description": "0-based start."
+      },
+      "startPosition2": {
+        "type": "integer",
+        "description": "0-based start."
+      },
+      "endPosition1": {
+        "type": "integer",
+        "description": "End (exclusive)."
+      },
+      "endPosition2": {
+        "type": "integer",
+        "description": "End (exclusive)."
+      },
+      "exactScore": {
+        "type": "number",
+        "description": "Score as a real number."
+      }
+    },
+    "required": [
+      "alignedSequence1"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "sequence is null"
+    },
+    {
+      "code": 1002,
+      "message": "mode is not global / local; a gap score is positive; band < -1; a global band narrower than |m - n|"
+    }
+  ],
+  "examples": [
+    {
+      "name": "Identical sequences, band 0",
+      "input": {
+        "sequence1": "ACGTACGT",
+        "sequence2": "ACGTACGT",
+        "band": 0
+      },
+      "output": {
+        "alignedSequence1": "ACGTACGT",
+        "alignedSequence2": "ACGTACGT",
+        "score": 16,
+        "alignmentType": "Global",
+        "startPosition1": 0,
+        "startPosition2": 0,
+        "endPosition1": 8,
+        "endPosition2": 8,
+        "exactScore": 16.0
+      }
+    }
+  ]
+}

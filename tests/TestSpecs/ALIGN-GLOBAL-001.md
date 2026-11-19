@@ -247,3 +247,7 @@ Scalar `ScoringMatrix` and `MatrixScoring` share ONE contract (`PairScoring`, ch
 | OV-1 | `SequenceAligner_InputContract_Tests.NullScoring_Compiles_AndSelectsTheDefault_OnEveryPairwiseFamily` | `GlobalAlign(a, b, null)`, `LocalAlignTopN(a, b, null, 3, 1)` ... 17 calls (CS0121 before `[OverloadResolutionPriority(1)]`) | same result as the call without the argument | compile-level + value |
 | OV-2 | `NullScoring_TheTypedMatrixOverloadsStillBind`, `EveryScoringMatrixOverloadWithAMatrixScoringTwin_CarriesTheResolutionPriority` | reflection over all public overloads | every `ScoringMatrix?` overload with a `MatrixScoring` twin carries priority >= 1 | contract |
 | MCP-1 | `EmptyInputContractTests` (Mcp.Alignment.Tests) | `global_align("", "ACGT")` ... | the library's all-gap alignment / empty lists; null still rejected | library contract (F39) |
+
+## Audit A2-29 (B09 F123): ksw2-style dual affine gaps
+
+`SequenceAligner_DualAffine_Tests`: 1 600 oracle cases (global / local x full / banded; Biopython callable gap score + independent WSB), re-scoring and coordinates of every alignment, single-regime equality with `GlobalAlignAffine` / `LocalAlignAffine`, long-gap regime, contract; MCP `DualAffineAlign`.

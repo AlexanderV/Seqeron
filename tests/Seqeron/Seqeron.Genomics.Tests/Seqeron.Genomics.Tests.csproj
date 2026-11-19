@@ -170,6 +170,8 @@
     <EmbeddedResource Include="TestData\Alignment\needle_oracle.tsv" />
     <!-- ALIGN-LOCAL-001 (audit A2-28, B09 F122): EMBOSS 6.6.0 water rows / starts / scores; scripts/alignment/generate_water_oracle.py. -->
     <EmbeddedResource Include="TestData\Alignment\water_oracle.tsv" />
+    <!-- ALIGN-GLOBAL-001 / ALIGN-LOCAL-001 (audit A2-29, B09 F123): ksw2-style dual affine gaps (Biopython callable gap score + independent WSB program; banded); scripts/alignment/generate_dual_affine_oracle.py. -->
+    <EmbeddedResource Include="TestData\Alignment\dual_affine_oracle.tsv" />
     <!-- GENOMIC-COMMON-001 (B09 F15-F16): independent Python (DP + suffix automaton + brute-force matching statistics)
          oracle for FindLongestCommonRegion / FindCommonRegions; scripts/analysis/generate_common_region_oracle.py. -->
     <EmbeddedResource Include="TestData\Analysis\common_region_oracle.tsv" />

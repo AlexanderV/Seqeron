@@ -25,6 +25,10 @@ Verification: `emboss_aformat_oracle.tsv` (`scripts/alignment/generate_emboss_af
 
 Both programs are not always optimal: their recurrences forbid some gap-state transitions and mis-initialise the boundary of a one-residue sequence (needle prints score 0), so the plain affine optima (`GlobalAlignAffine`, `SemiGlobalAlignAffine(EndGaps.All)`, `LocalAlignAffine`) are upper bounds that the programs reach on more than 90 % of the committed pairs.
 
-## 4. Remaining (registered in B09.md)
+## 4. ksw2-style dual affine gaps and band (F123)
 
-Biopython `Bio.Align` writers / readers (A2-27b), `needleall`, `supermatcher` seeds (A2-28b / c), est2genome / wordmatch / dotmatcher (A2-28d), the ksw2 variants (A2-29).
+`GlobalAlignDualAffine` / `LocalAlignDualAffine` (`DualAffineScoring`, `SequenceAligner.DualAffine.cs`) score a gap of length k as `max(open1 + k ext1, open2 + k ext2)` (the two-piece model of ksw2 `ksw2_extd2`, minimap2 default `-O 4,24 -E 2,1` = `DualAffineScoring.Minimap2`) with Gotoh's O(m n) recurrence over H, E1, F1, E2, F2 and an optional diagonal band (ksw2 `w`: cells |i - j| <= band). Oracle `dual_affine_oracle.tsv`: 1 600 cases (global / local x full / banded, 400 each), scores equal Biopython 1.88 `PairwiseAligner` with the callable gap score and an independent Waterman-Smith-Beyer program (banded variant), every traceback re-scores to its score and its coordinates are consistent. The original ksw2 sources were not compiled or compared; z-drop, end bonus and extension alignment are registered as A2-29b.
+
+## 5. Remaining (registered in B09.md)
+
+Biopython `Bio.Align` writers / readers (A2-27b), `needleall`, `supermatcher` seeds (A2-28b / c), est2genome / wordmatch / dotmatcher (A2-28d), ksw2 z-drop / end-bonus / extension alignment (A2-29b).

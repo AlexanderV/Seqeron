@@ -69,4 +69,16 @@ public class EmbossFormatTests
         Assert.Throws<ArgumentNullException>(() => AlignmentTools.WriteAlignment(null!, "fasta"));
         Assert.Throws<ArgumentException>(() => AlignmentTools.WriteAlignment(["ACGT"], "score"), "one row: score needs two");
     }
+
+    [Test]
+    public void DualAffineAlign_EqualsTheLibrary_AndValidates()
+    {
+        var tool = AlignmentTools.DualAffineAlign("ACGTACGTAGCTAGCTAGCATCG", "ACGTACGTAGCTAGATAGCATCG", "local");
+        var lib = Seqeron.Genomics.Alignment.SequenceAligner.LocalAlignDualAffine("ACGTACGTAGCTAGCTAGCATCG", "ACGTACGTAGCTAGATAGCATCG", Seqeron.Genomics.Alignment.DualAffineScoring.Minimap2);
+        Assert.That(tool.Score, Is.EqualTo(lib.Score));
+        Assert.That(tool.AlignmentType, Is.EqualTo("Local"));
+        Assert.Throws<ArgumentException>(() => AlignmentTools.DualAffineAlign("ACGT", "ACGT", "semi"));
+        Assert.Throws<ArgumentException>(() => AlignmentTools.DualAffineAlign("ACGT", "ACGT", gapOpen1: 3));
+        Assert.That(AlignmentTools.DualAffineAlign("ACGTACGT", "ACGTACGT", band: 0).Score, Is.EqualTo(16));
+    }
 }

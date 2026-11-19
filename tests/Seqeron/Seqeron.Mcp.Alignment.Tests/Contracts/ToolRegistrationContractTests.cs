@@ -29,6 +29,7 @@ public sealed class ToolRegistrationContractTests : ToolRegistrationContractTest
         "compute_consensus",
         "damerau_alignment",
         "damerau_levenshtein_distance",
+        "dual_affine_align",
         "edit_alignment",
         "error_correct_reads",
         "find_all_overlaps",

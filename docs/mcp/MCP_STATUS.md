@@ -20,7 +20,7 @@
 | Core | SuffixTree.Mcp.Core | 18 | 18/18 | 18/18 | 18/18 | ✅ done |
 | Sequence | Seqeron.Mcp.Sequence | 35 | 35/35 | 35/35 | 35/35 | ✅ done |
 | Parsers | Seqeron.Mcp.Parsers | 41 | 41/41 | 41/41 | 41/41 | ✅ done |
-| Alignment | Seqeron.Mcp.Alignment | 59 | 59/59 | 59/59 | 59/59 | ✅ done |
+| Alignment | Seqeron.Mcp.Alignment | 60 | 60/60 | 60/60 | 60/60 | ✅ done |
 | Analysis | Seqeron.Mcp.Analysis | 132 | 132/132 | 132/132 | 132/132 | ✅ done |
 | Annotation | Seqeron.Mcp.Annotation | 97 | 97/97 | 97/97 | 97/97 | ✅ done |
 | Chromosome | Seqeron.Mcp.Chromosome | 32 | 32/32 | 32/32 | 32/32 | ✅ done |
@@ -140,7 +140,7 @@
 | 40 | `vcf_variant_length` | ☑ | ☑ | ☑ |
 | 41 | `vcf_write` | ☑ | ☑ | ☑ |
 
-### Alignment (Seqeron.Mcp.Alignment) — 59 tools
+### Alignment (Seqeron.Mcp.Alignment) — 60 tools
 
 | # | tool | B | T | D |
 |---:|---|:--:|:--:|:--:|
@@ -203,6 +203,7 @@
 | 57 | `multiple_align_mafft` | ☑ | ☑ | ☑ |
 | 58 | `stretcher_align` | ☑ | ☑ | ☑ |
 | 59 | `write_alignment` | ☑ | ☑ | ☑ |
+| 60 | `dual_affine_align` | ☑ | ☑ | ☑ |
 
 ### Analysis (Seqeron.Mcp.Analysis) — 132 tools
 

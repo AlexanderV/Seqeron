@@ -376,6 +376,7 @@
 | multiple_align_mafft | Alignment | SequenceAligner.MultipleAlignMafft | Alignment/SequenceAligner.Mafft.cs | 0/0 | – | – | Build-Ready |
 | stretcher_align | Alignment | SequenceAligner.StretcherAlign | Alignment/SequenceAligner.Stretcher.cs | 0/0 | – | – | Build-Ready |
 | write_alignment | Alignment | EmbossAlignmentWriter.Format | Alignment/EmbossAlignmentWriter.cs | 0/0 | – | – | Build-Ready |
+| dual_affine_align | Alignment | SequenceAligner.GlobalAlignDualAffine | Alignment/SequenceAligner.DualAffine.cs | 0/0 | – | – | Build-Ready |
 | clustalw_pairwise_align | Alignment | SequenceAligner.ClustalWPairwiseAlign | Alignment/SequenceAligner.ClustalW.cs | 0/0 | – | – | Build-Ready |
 | clustalw_profile_align | Alignment | SequenceAligner.AlignClustalWProfiles | Alignment/SequenceAligner.ClustalWProfile.cs | 0/0 | – | – | Build-Ready |
 | clustalw_quick_pairwise_align | Alignment | SequenceAligner.ClustalWQuickPairwiseAlign | Alignment/SequenceAligner.ClustalWQuick.cs | 0/0 | – | – | Build-Ready |

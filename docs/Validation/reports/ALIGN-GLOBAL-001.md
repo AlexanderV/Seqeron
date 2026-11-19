@@ -105,3 +105,7 @@ Scalar `ScoringMatrix` and `MatrixScoring` now share one contract: gap scores <=
 ## Audit r2 addendum (A2-28, B09 F121 / F122): stretcher and needle options
 
 `SequenceAligner.StretcherAlign` (Myers-Miller as the EMBOSS program, 689 / 689 pairs equal) and `SequenceAligner.NeedleAlign` (the program's single-precision recurrences with `-endweight` / `-endopen` / `-endextend`, 887 / 887 pairs equal); MCP `stretcher_align`.
+
+## Audit r2 addendum (A2-29, B09 F123): dual affine gaps
+
+`GlobalAlignDualAffine` / `LocalAlignDualAffine` (ksw2-style two-piece affine gaps, optional band), MCP `dual_affine_align`; 1 600 oracle cases equal.

@@ -4,7 +4,7 @@
 
 <!-- BEGIN generated: do not edit by hand -->
 
-## Alignment (59 tools)
+## Alignment (60 tools)
 
 | tool | Method ID | doc |
 |------|-----------|-----|
@@ -21,6 +21,7 @@
 | `compute_consensus` | `SequenceAssembler.ComputeConsensus` | [doc](../../mcp/tools/alignment/compute_consensus.md) |
 | `damerau_alignment` | `ApproximateMatcher.GetDamerauLevenshteinAlignment` | [doc](../../mcp/tools/alignment/damerau_alignment.md) |
 | `damerau_levenshtein_distance` | `ApproximateMatcher.DamerauLevenshteinDistance` | [doc](../../mcp/tools/alignment/damerau_levenshtein_distance.md) |
+| `dual_affine_align` | `SequenceAligner.GlobalAlignDualAffine / LocalAlignDualAffine` | [doc](../../mcp/tools/alignment/dual_affine_align.md) |
 | `edit_alignment` | `ApproximateMatcher.GetEditAlignment` | [doc](../../mcp/tools/alignment/edit_alignment.md) |
 | `error_correct_reads` | `SequenceAssembler.ErrorCorrectReads` | [doc](../../mcp/tools/alignment/error_correct_reads.md) |
 | `find_all_overlaps` | `SequenceAssembler.FindAllOverlaps` | [doc](../../mcp/tools/alignment/find_all_overlaps.md) |

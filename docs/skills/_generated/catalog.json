@@ -91,6 +91,13 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/ApproximateMatcher.cs#L1016"
   },
   {
+    "tool": "dual_affine_align",
+    "server": "Alignment",
+    "methodId": "SequenceAligner.GlobalAlignDualAffine / LocalAlignDualAffine",
+    "docPath": "docs/mcp/tools/alignment/dual_affine_align.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.DualAffine.cs"
+  },
+  {
     "tool": "edit_alignment",
     "server": "Alignment",
     "methodId": "ApproximateMatcher.GetEditAlignment",
