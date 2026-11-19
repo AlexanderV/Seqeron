@@ -5,7 +5,6 @@
 EQUIVALENT = {
     'A01': 'a null file falls into the path mode of BuildCore, where MappedOutputFile.Create refuses the null path with the same ArgumentNullException before any output exists; the scratch directories made in between are removed by the failure path',
     'P38': 'the read buffer of the Psi pass is filled by `ReadExactAt` over its whole length before any byte of it is used (zeroing it first changes no byte that is read)',
-    'P08': 'a negative n gives `rows <= 0`, and the next line refuses a primary row outside [0, rows) with the same exception type before anything is allocated or created',
     'K49': 'every file under ph4 and ph5 is removed by the component that made it (DistScratch, SpillStack) on success and on failure, so both directories are empty when the stage deletes them; the recursive delete only matters for a file that no component accounts for (the failure test with a hook in B2 and B3 leaves nothing)',
     'B169': 'the discard `_ = infoLength;` only silences an unused parameter; removing it changes nothing at run time',
     'B173': 'the deepest repeated substring has the depth of the largest LCP value (LRS_DEPTH = MAX_LCP): the same number in both fields, 0 for a text without a repeat',

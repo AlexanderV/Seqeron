@@ -1,4 +1,4 @@
-A01	OPEN	a null file is an NRE
+A01	equivalent	a null file is an NRE
 A03	killed	a null option set is an NRE
 A05	killed	a negative section offset is accepted
 A07	killed	a section range that ends at the end is refused
@@ -29,7 +29,7 @@ B117	equivalent	BUILD_INFO may fill its room
 B119	killed	BUILD_INFO goes to the LCP offset
 B12	killed	pre-flight forgets the container
 B121	killed	the text reader stays open until the end
-B123	OPEN	the container is not closed before the checksums
+B123	killed	the container is not closed before the checksums
 B125	killed	the file length check is off
 B127	killed	the checksum of the alphabet is of the counts
 B129	killed	the checksum of the SA is short
@@ -85,7 +85,7 @@ B179	killed	the header hash is zero
 B18	killed	scratch directory not created by the builder
 B180	killed	the header is written with the magic
 B181	killed	the header page goes to the wrong place
-B182	OPEN	the first sync is skipped
+B182	defence	the first sync is skipped
 B183	defence	the second sync is skipped
 B184	killed	the syncs ignore the option
 B185	killed	the magic is written at the wrong place
@@ -203,7 +203,7 @@ B76	killed	the child table goes to the SA offset
 B77	killed	the growth is the sum
 B78	killed	the spill bound is one entry short
 B79	killed	the late pre-flight refuses at equality
-B80	killed by the watchdog	the late pre-flight skips a source that reports 0
+B80	killed	the late pre-flight skips a source that reports 0
 B81	killed	the late pre-flight forgets the spill
 B82	killed	the late pre-flight forgets the growth
 B83	killed	the file grows also when it need not
@@ -271,7 +271,7 @@ G19	killed	the length is not updated
 G21	killed	the outcome is never checked
 G23	equivalent	the lock is dropped (single threaded use)
 K01	equivalent	a negative SA offset is accepted
-K02	killed by the watchdog	a negative child offset is accepted
+K02	killed	a negative child offset is accepted
 K03	equivalent	a negative PH4 cap is accepted
 K04	killed	a negative PH5 cap is accepted
 K05	killed	the tagged codec is accepted
@@ -318,7 +318,7 @@ K45	killed	the arena peaks are swapped
 K46	killed	the seconds are not measured
 K47	killed	the reservation outcome is not reported
 K48	killed	the scratch root is not removed when empty
-K49	OPEN	the sub-directories are deleted non-recursively
+K49	equivalent	the sub-directories are deleted non-recursively
 K50	killed	the parameters are not reported
 L01	killed	arrays of 3 bytes per entry
 L03	killed	counts of 4 bytes
@@ -351,10 +351,10 @@ P15	killed	a negative count is accepted
 P16	killed	a zero count is refused
 P17	killed	a sum above n is accepted
 P18	killed	a sum below n is accepted
-P19	killed by the watchdog	a negative PSI offset is accepted
+P19	killed	a negative PSI offset is accepted
 P20	killed	the PSI range may end past the file
 P21	killed	a PSI range that ends at the end of the file is refused
-P22	OPEN	a window of under one entry means no entries
+P22	killed	a window of under one entry means no entries
 P23	killed	the group is the larger of the two
 P24	killed	the passes are rounded down
 P25	killed	one pass too many
@@ -366,11 +366,11 @@ P30	killed	a longer BWT file is accepted
 P31	killed	a shorter BWT file is accepted
 P32	killed	the BWT reads are not counted
 P33	killed	the first symbol starts at row 0
-P34	not compiled	PSI[0] is not written
+P34	killed	PSI[0] is not written
 P35	killed	PSI[0] writer is not counted
 P36	killed	PSI[0] is written at the second entry
 P37	killed	the read length is not bounded by the rows
-P38	OPEN	the read buffer is zeroed
+P38	equivalent	the read buffer is zeroed
 P39	killed	the budget is ignored by the arena
 P40	killed	the guards are ignored by the arena
 P41	killed	the first symbol of a pass is off
@@ -396,9 +396,9 @@ P60	killed	a cursor that stopped short is not noticed in the window
 P61	killed	a cursor that has not used its limit is not noticed
 P62	killed	the views are not released
 P63	defence	the cursor array is not freed (not observable)
-P64	OPEN	the end array is not freed (not observable)
+P64	defence	the end array is not freed (not observable)
 P65	killed	the previous window is kept open
-P66	OPEN	an excess occurrence at the limit is not refused
+P66	killed	an excess occurrence at the limit is not refused
 P67	killed	the window ignores the remaining entries
 P68	killed	the window starts at the section start
 P69	killed	the window ignores the pointer offset
@@ -422,13 +422,13 @@ V03	killed	a section that ends at the end of the file is refused
 V05	killed	the first entry is read at offset 0
 V07	killed	the base array goes to the overflow offset
 V09	killed	the reservation outcome of the placement is not kept
-V11	OPEN	a failed output writer leaves the writers open
+V11	defence	a failed output writer leaves the writers open
 V13	killed	the placer is told no maximum
 V15	defence	the path mode does not complete the base file
 V17	killed	the base file is not disposed
 V19	killed	the base writers use the default window
 V21	killed	the overflow writer is not counted
-W01	equivalent	a negative SA offset is accepted
+W01	killed	a negative SA offset is accepted
 W03	killed	sigma 257 is accepted
 W05	killed by the watchdog	a read of under one entry is accepted
 W07	killed	a text at the limit is refused
@@ -451,12 +451,18 @@ W39	killed	the result carries the sentinel row of the file end
 W41	killed	the default read is 1 KiB
 W43	killed	the output is not appended
 d_C01	killed	1b7d comparator: the key skip is one symbol too long
+d_C02	OPEN	1b7d comparator: equal residues take the witness of residue 1
 d_C03	killed	1b7d comparator: a zero extension counts as a full period
+d_C04	killed	1b7d comparator: a call of the LCE is not counted
 d_C05	killed	1b7d comparator: the symbols include those of the key
+d_C06	killed	1b7d comparator: one rank lookup counted
 d_C07	killed	1b7d comparator: a tied call is not counted as tied
+d_C08	OPEN	1b7d comparator: the call is not counted
 d_C09	killed	1b7d comparator: the key skip is applied to untied calls
+d_C10	OPEN	1b7d comparator: the key skip needs a strictly longer suffix
 d_F06	killed	1b7d gap: Sort: the tie positions are not counted
 d_H08	killed	1b7d gap: Run: the scratch root is not removed
+d_Q52	killed	1b7d gap: Build: PH3 has no cap
 d_Q76	defence	1b7d gap: Build: PH1 arena guards
 d_Y02	killed	1b7d gap: Scatter: the target is always reserved
 A02	not run	a null text is an NRE
@@ -592,9 +598,3 @@ W38	not run	a failed pass keeps the BWT file
 W40	not run	the default window is 64 KiB
 W42	not run	the output buffer is one entry short
 W44	not run	the output is appended with the wrong length
-d_C02	not run	1b7d comparator: equal residues take the witness of residue 1
-d_C04	not run	1b7d comparator: a call of the LCE is not counted
-d_C06	not run	1b7d comparator: one rank lookup counted
-d_C08	not run	1b7d comparator: the call is not counted
-d_C10	not run	1b7d comparator: the key skip needs a strictly longer suffix
-d_Q52	not run	1b7d gap: Build: PH3 has no cap

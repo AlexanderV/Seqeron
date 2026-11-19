@@ -1,0 +1,5 @@
+d_C02	1b7d comparator: equal residues take the witness of residue 1	survived	
+d_C04	1b7d comparator: a call of the LCE is not counted	killed(1)	
+d_C06	1b7d comparator: one rank lookup counted	killed(1)	
+d_C08	1b7d comparator: the call is not counted	survived	
+d_C10	1b7d comparator: the key skip needs a strictly longer suffix	survived	

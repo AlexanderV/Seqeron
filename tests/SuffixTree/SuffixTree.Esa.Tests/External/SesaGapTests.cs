@@ -125,15 +125,24 @@ public class SesaGapTests
     [Test]
     public void TheComparator_AccountsTheLceSymbolsTheCallsAndTheRankLookups_OfEveryKindOfPair()
     {
+        AssertComparatorAccounting(_dir, 13);
+        // a cover whose witness for equal residues is not the witness for residues one apart (the first such period from 16 on): the equal residues must take their own
+        int other = Enumerable.Range(16, 100).First(p => DifferenceCover.Create(p).Witness[0] != DifferenceCover.Create(p).Witness[1]);
+        using var second = new TempDir();
+        AssertComparatorAccounting(second, other);
+    }
+
+    private static void AssertComparatorAccounting(TempDir dir, int period)
+    {
         // a text of 130 symbols (8 bits: the key holds 8 symbols) that starts with a long run, so that equal prefixes are as long as the comparator may look
         string text = new string('a', 300) + string.Concat(Enumerable.Range(0x80, 128).Select(k => (char)k)) + "b";
         SaCase c = SaCase.Of(text);
         Assert.That(c.Bits, Is.EqualTo(8));
-        DifferenceCover cover = DifferenceCover.Create(13);
-        string textPath = SaRun.WriteText(_dir, c);
+        DifferenceCover cover = DifferenceCover.Create(period);
+        string textPath = SaRun.WriteText(dir, c);
         using MappedTextReader reader = MappedTextReader.Open(textPath, c.N, c.Bits);
         Assert.That(reader.KeySymbols, Is.EqualTo(8));
-        using RankTable ranks = RankTable.Open(SaInputs.WriteRankFile(_dir, c, cover), cover, c.N);
+        using RankTable ranks = RankTable.Open(SaInputs.WriteRankFile(dir, c, cover), cover, c.N);
         int x = cover.Period;
         int sawBeyondKey = 0, sawZero = 0, sawEqualResidues = 0;
         for (int i = 0; i < 40; i++)
@@ -162,5 +171,38 @@ public class SesaGapTests
             }
         }
         Assert.That(new[] { sawZero, sawBeyondKey, sawEqualResidues }, Is.All.GreaterThan(0), "the pairs cover a zero extension, an extension beyond the key and equal residues");
+
+        // the pairs at the end of the text, where a suffix is as short as the key or shorter: the skip of the key applies only to a suffix that holds all of it
+        int n = c.N;
+        int sawShortAsKey = 0;
+        for (int i = n - 14; i < n; i++)
+        {
+            for (int j = n - 14; j < n; j++)
+            {
+                if (i == j) continue;
+                foreach (bool tied in new[] { false, true })
+                {
+                    int ri = i % x, rj = j % x;
+                    int l = (cover.Witness[(rj - ri + x) % x] - ri + x) % x;
+                    long maxLen = n - Math.Max(i, j);
+                    long skip = tied && reader.KeySymbols <= maxLen ? reader.KeySymbols : 0;
+                    long lim = Math.Min(l, maxLen);
+                    long skipped = Math.Min(skip, lim);
+                    int lcp = 0;
+                    while (lcp < lim - skipped && c.Symbols[i + skipped + lcp] == c.Symbols[j + skipped + lcp]) lcp++;
+                    long matched = skipped + (lim > skipped ? lcp : 0);
+                    var work = new SortWork();
+                    var order = new SuffixOrder(reader, ranks, work);
+                    if (tied) order.CompareTied((uint)i, (uint)j);
+                    else order.Compare((uint)i, (uint)j);
+                    string pair = $"({i}, {j}), tied {tied}, l {l}, {maxLen} symbols in the shorter suffix";
+                    Assert.That(work.LceCalls, Is.EqualTo(lim > skipped ? 1 : 0), $"{pair}: calls");
+                    Assert.That(work.LceSymbols, Is.EqualTo(lim > skipped ? lcp : 0), $"{pair}: symbols");
+                    Assert.That(work.RankLookups, Is.EqualTo(matched >= lim && l <= maxLen ? 2 : 0), $"{pair}: rank lookups");
+                    if (maxLen == reader.KeySymbols) sawShortAsKey++;
+                }
+            }
+        }
+        Assert.That(sawShortAsKey, Is.GreaterThan(0), "a suffix with exactly as many symbols as the key was compared");
     }
 }

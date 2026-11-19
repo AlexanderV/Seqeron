@@ -510,7 +510,7 @@ FILES['Ph6/PsiStream.cs'] = [
     m('P31', 'a shorter BWT file is accepted', 'if (bwt.Length != rows) throw', 'if (bwt.Length > rows) throw'),
     m('P32', 'the BWT reads are not counted', 'new CountedFile(bwtPath, FileMode.Open, FileAccess.Read, options.Counters)', 'new CountedFile(bwtPath, FileMode.Open, FileAccess.Read, null)'),
     m('P33', 'the first symbol starts at row 0', 'start[0] = 1;', 'start[0] = 0;'),
-    m('P34', 'PSI[0] is not written', 'zero.Append(new byte[sizeof(uint)]);', ''),
+    m('P34', 'PSI[0] is not written', 'zero.Append(new byte[sizeof(uint)]);', '{ }'),
     m('P35', 'PSI[0] writer is not counted', 'file.CreateWriter(psiOffset, sizeof(uint), sizeof(uint), options.Counters)', 'file.CreateWriter(psiOffset, sizeof(uint), sizeof(uint), null)'),
     m('P36', 'PSI[0] is written at the second entry', 'file.CreateWriter(psiOffset, sizeof(uint), sizeof(uint), options.Counters)', 'file.CreateWriter(psiOffset + sizeof(uint), sizeof(uint), sizeof(uint), options.Counters)'),
     m('P37', 'the read length is not bounded by the rows', 'int readLen = (int)Math.Min(options.ReadBytes, rows);', 'int readLen = options.ReadBytes;'),
@@ -654,14 +654,14 @@ FILES['Dist.cs'] += [
 
 # the cost-only mutants of the comparator that the audit of 1b.7d could not kill by output (they change only how many symbols or ranks the comparator reads): the counter test of SesaGapTests closes them
 FILES['Sort/SuffixOrder.cs'] = [
-    {'id': 'd_C01', 'desc': '1b7d comparator: the key skip is one symbol too long', 'old': 'long skip = tied && t.KeySymbols <= maxLen ? t.KeySymbols : 0;', 'new': 'long skip = tied && t.KeySymbols <= maxLen ? t.KeySymbols + 1 : 0;', 'filter': 'FullyQualifiedName~SesaGapTests'},
-    {'id': 'd_C02', 'desc': '1b7d comparator: equal residues take the witness of residue 1', 'old': 'int a = d.Cover.Witness[delta];', 'new': 'int a = d.Cover.Witness[delta == 0 ? 1 : delta];', 'filter': 'FullyQualifiedName~SesaGapTests'},
-    {'id': 'd_C03', 'desc': '1b7d comparator: a zero extension counts as a full period', 'old': 'if (l < 0) l += x;', 'new': 'if (l <= 0) l += x;', 'filter': 'FullyQualifiedName~SesaGapTests'},
-    {'id': 'd_C04', 'desc': '1b7d comparator: a call of the LCE is not counted', 'old': '            c.LceCalls++;\n', 'new': '', 'filter': 'FullyQualifiedName~SesaGapTests'},
-    {'id': 'd_C05', 'desc': '1b7d comparator: the symbols include those of the key', 'old': 'c.LceSymbols += matched - s;', 'new': 'c.LceSymbols += matched;', 'filter': 'FullyQualifiedName~SesaGapTests'},
-    {'id': 'd_C06', 'desc': '1b7d comparator: one rank lookup counted', 'old': 'c.RankLookups += 2;', 'new': 'c.RankLookups += 1;', 'filter': 'FullyQualifiedName~SesaGapTests'},
-    {'id': 'd_C07', 'desc': '1b7d comparator: a tied call is not counted as tied', 'old': 'if (tied) c.TiedCompares++;', 'new': '', 'filter': 'FullyQualifiedName~SesaGapTests'},
-    {'id': 'd_C08', 'desc': '1b7d comparator: the call is not counted', 'old': '        c.Compares++;\n        if (tied)', 'new': '        if (tied)', 'filter': 'FullyQualifiedName~SesaGapTests'},
-    {'id': 'd_C09', 'desc': '1b7d comparator: the key skip is applied to untied calls', 'old': 'long skip = tied && t.KeySymbols <= maxLen ? t.KeySymbols : 0;', 'new': 'long skip = t.KeySymbols <= maxLen ? t.KeySymbols : 0;', 'filter': 'FullyQualifiedName~SesaGapTests'},
-    {'id': 'd_C10', 'desc': '1b7d comparator: the key skip needs a strictly longer suffix', 'old': 'long skip = tied && t.KeySymbols <= maxLen ? t.KeySymbols : 0;', 'new': 'long skip = tied && t.KeySymbols < maxLen ? t.KeySymbols : 0;', 'filter': 'FullyQualifiedName~SesaGapTests'},
+    {'id': 'd_C01', 'desc': '1b7d comparator: the key skip is one symbol too long', 'old': 'long skip = tied && t.KeySymbols <= maxLen ? t.KeySymbols : 0;', 'new': 'long skip = tied && t.KeySymbols <= maxLen ? t.KeySymbols + 1 : 0;', 'filter': '(FullyQualifiedName~SesaGapTests|FullyQualifiedName~SuffixOrderTests)'},
+    {'id': 'd_C02', 'desc': '1b7d comparator: equal residues take the witness of residue 1', 'old': 'int a = d.Cover.Witness[delta];', 'new': 'int a = d.Cover.Witness[delta == 0 ? 1 : delta];', 'filter': '(FullyQualifiedName~SesaGapTests|FullyQualifiedName~SuffixOrderTests)'},
+    {'id': 'd_C03', 'desc': '1b7d comparator: a zero extension counts as a full period', 'old': 'if (l < 0) l += x;', 'new': 'if (l <= 0) l += x;', 'filter': '(FullyQualifiedName~SesaGapTests|FullyQualifiedName~SuffixOrderTests)'},
+    {'id': 'd_C04', 'desc': '1b7d comparator: a call of the LCE is not counted', 'old': '            c.LceCalls++;\n', 'new': '', 'filter': '(FullyQualifiedName~SesaGapTests|FullyQualifiedName~SuffixOrderTests)'},
+    {'id': 'd_C05', 'desc': '1b7d comparator: the symbols include those of the key', 'old': 'c.LceSymbols += matched - s;', 'new': 'c.LceSymbols += matched;', 'filter': '(FullyQualifiedName~SesaGapTests|FullyQualifiedName~SuffixOrderTests)'},
+    {'id': 'd_C06', 'desc': '1b7d comparator: one rank lookup counted', 'old': 'c.RankLookups += 2;', 'new': 'c.RankLookups += 1;', 'filter': '(FullyQualifiedName~SesaGapTests|FullyQualifiedName~SuffixOrderTests)'},
+    {'id': 'd_C07', 'desc': '1b7d comparator: a tied call is not counted as tied', 'old': 'if (tied) c.TiedCompares++;', 'new': '', 'filter': '(FullyQualifiedName~SesaGapTests|FullyQualifiedName~SuffixOrderTests)'},
+    {'id': 'd_C08', 'desc': '1b7d comparator: the call is not counted', 'old': '        c.Compares++;\n        if (tied)', 'new': '        if (tied)', 'filter': '(FullyQualifiedName~SesaGapTests|FullyQualifiedName~SuffixOrderTests)'},
+    {'id': 'd_C09', 'desc': '1b7d comparator: the key skip is applied to untied calls', 'old': 'long skip = tied && t.KeySymbols <= maxLen ? t.KeySymbols : 0;', 'new': 'long skip = t.KeySymbols <= maxLen ? t.KeySymbols : 0;', 'filter': '(FullyQualifiedName~SesaGapTests|FullyQualifiedName~SuffixOrderTests)'},
+    {'id': 'd_C10', 'desc': '1b7d comparator: the key skip needs a strictly longer suffix', 'old': 'long skip = tied && t.KeySymbols <= maxLen ? t.KeySymbols : 0;', 'new': 'long skip = tied && t.KeySymbols < maxLen ? t.KeySymbols : 0;', 'filter': '(FullyQualifiedName~SesaGapTests|FullyQualifiedName~SuffixOrderTests)'},
 ]

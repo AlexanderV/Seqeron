@@ -1,0 +1,10 @@
+[
+ {
+  "id": "d_Q52",
+  "desc": "1b7d gap: Build: PH3 has no cap",
+  "old": "var ph3Budget = new ArenaBudget(options.ArenaCapBytes);",
+  "new": "var ph3Budget = new ArenaBudget(long.MaxValue);",
+  "filter": "FullyQualifiedName~SesaGapTests",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs"
+ }
+]

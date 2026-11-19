@@ -1,0 +1,2 @@
+B80	the late pre-flight skips a source that reports 0	survived	
+B123	the container is not closed before the checksums	killed(1)	

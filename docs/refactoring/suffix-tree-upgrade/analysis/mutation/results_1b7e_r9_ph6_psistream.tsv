@@ -1,0 +1,4 @@
+P07	a read of 0 is accepted	killed(hang)	
+P19	a negative PSI offset is accepted	survived	survived
+P22	a window of under one entry means no entries	killed(1)	
+P66	an excess occurrence at the limit is not refused	survived	survived
