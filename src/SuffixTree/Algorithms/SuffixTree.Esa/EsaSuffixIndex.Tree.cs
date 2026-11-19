@@ -8,6 +8,8 @@ internal sealed partial class EsaSuffixIndex
     private readonly TaggedChild _tagged;
     private readonly PackedChild _packed;
     private readonly Reference3Child _reference3;
+    private readonly MappedChild _mapped;
+    private readonly bool _isMapped;
 
     /// <inheritdoc />
     public bool IsExplicitNode(in IndexLocus locus)
@@ -53,14 +55,14 @@ internal sealed partial class EsaSuffixIndex
     {
         EsaNode resolved = ResolveNode(node, nameof(node));
         if (resolved.IsLeaf) return 0;
-        int count = _kind switch
+        int count = _isMapped ? WalkChildren(_mapped, resolved, default, false) : _kind switch
         {
             ChildLayoutKind.Tagged => WalkChildren(_tagged, resolved, default, false),
             ChildLayoutKind.Packed => WalkChildren(_packed, resolved, default, false),
             _ => WalkChildren(_reference3, resolved, default, false),
         };
         if (count > children.Length) return count;
-        _ = _kind switch
+        _ = _isMapped ? WalkChildren(_mapped, resolved, children, true) : _kind switch
         {
             ChildLayoutKind.Tagged => WalkChildren(_tagged, resolved, children, true),
             ChildLayoutKind.Packed => WalkChildren(_packed, resolved, children, true),
@@ -91,7 +93,7 @@ internal sealed partial class EsaSuffixIndex
         ArgumentOutOfRangeException.ThrowIfNegative(offset);
         if (offset >= _n) return -1;
         long index = (long)resolved.Pos + resolved.ParentDepth + offset;
-        return index < _n ? _index.Text[(int)index] : -1;
+        return index < _n ? _index.TextView[(int)index] : -1;
     }
 
     /// <summary>The child of <paramref name="node"/> whose edge starts with <paramref name="key"/> (-1: the terminator).</summary>
@@ -102,6 +104,7 @@ internal sealed partial class EsaSuffixIndex
             child = EsaNode.Null;
             return false;
         }
+        if (_isMapped) return FindChildCore(_mapped, node, key, out child);
         return _kind switch
         {
             ChildLayoutKind.Tagged => FindChildCore(_tagged, node, key, out child),
@@ -113,8 +116,8 @@ internal sealed partial class EsaSuffixIndex
     private bool FindChildCore<TChild>(TChild table, in EsaNode node, int key, out EsaNode child)
         where TChild : struct, IChildTable
     {
-        int[] sa = _index.SuffixArray;
-        string text = _index.Text;
+        SaView sa = _index.Sa;
+        EsaText text = _index.TextView;
         int rb = node.Rb;
         int a = node.Lb;
         int boundary = table.FirstLIndex(node.Lb, rb, node.LastChild);
@@ -145,7 +148,7 @@ internal sealed partial class EsaSuffixIndex
     private int WalkChildren<TChild>(TChild table, in EsaNode node, Span<IndexLocus> destination, bool write)
         where TChild : struct, IChildTable
     {
-        int[] sa = _index.SuffixArray;
+        SaView sa = _index.Sa;
         int rb = node.Rb;
         int a = node.Lb;
         int count = 0;
@@ -170,17 +173,25 @@ internal sealed partial class EsaSuffixIndex
     private EsaNode MakeChild<TChild>(TChild table, int a, int b, int saA, int parentDepth, bool childIsLast)
         where TChild : struct, IChildTable
     {
-        if (a == b) return new EsaNode(a, a, _n - saA + 1, parentDepth, saA, childIsLast);
+        if (a == b)
+        {
+            if (_isMapped && _n - saA + 1 <= parentDepth) ThrowCorruptChildTable();
+            return new EsaNode(a, a, _n - saA + 1, parentDepth, saA, childIsLast);
+        }
         int first = table.FirstLIndex(a, b, childIsLast);
         if (first <= a || first > b) ThrowCorruptChildTable();
-        return new EsaNode(a, b, _index.Lcp[first], parentDepth, saA, childIsLast);
+        int depth = _index.Lcp[first];
+        if (_isMapped && depth <= parentDepth) ThrowCorruptChildTable();
+        return new EsaNode(a, b, depth, parentDepth, saA, childIsLast);
     }
 
-    private static void CheckBoundary(int boundary, int previous, int rb)
+    private void CheckBoundary(int boundary, int previous, int rb)
     {
         if (boundary >= 0 && (boundary <= previous || boundary > rb)) ThrowCorruptChildTable();
     }
 
-    private static void ThrowCorruptChildTable()
-        => throw new InvalidOperationException("the child table is inconsistent: the l-indices of an interval must increase and stay inside it");
+    private void ThrowCorruptChildTable()
+        => throw (_isMapped
+            ? new InvalidDataException("the child table is inconsistent: the l-indices of an interval must increase and stay inside it: the file is damaged")
+            : new InvalidOperationException("the child table is inconsistent: the l-indices of an interval must increase and stay inside it"));
 }

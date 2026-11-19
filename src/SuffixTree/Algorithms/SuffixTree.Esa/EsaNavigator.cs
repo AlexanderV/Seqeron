@@ -13,7 +13,7 @@ namespace SuffixTree.Esa;
 internal readonly struct EsaNavigator : ISuffixTreeNavigator<EsaNode>
 {
     private readonly EsaNavigationPack _pack;
-    private readonly string _text;
+    private readonly EsaText _text;
     private readonly ITextSource _source;
     private readonly int _n;
     private readonly Buf<int> _sa;
@@ -22,14 +22,16 @@ internal readonly struct EsaNavigator : ISuffixTreeNavigator<EsaNode>
     private readonly TaggedChild _tagged;
     private readonly PackedChild _packed;
     private readonly Reference3Child _reference3;
+    private readonly MappedChild _mapped;
+    private readonly bool _isMapped;
 
     /// <summary>Creates the navigator of <paramref name="index"/> (builds the navigation pack on first use).</summary>
     internal EsaNavigator(EsaIndex index)
     {
         ArgumentNullException.ThrowIfNull(index);
         _pack = index.Navigation;
-        _text = index.Text;
-        _source = new StringTextSource(index.Text);
+        _text = index.TextView;
+        _source = index.TextView.AsTextSource();
         _n = index.Length;
         _sa = _pack.Sa;
         _lcp = _pack.Pyramid;
@@ -37,6 +39,8 @@ internal readonly struct EsaNavigator : ISuffixTreeNavigator<EsaNode>
         _tagged = index.Child.Tagged;
         _packed = index.Child.Packed;
         _reference3 = index.Child.Reference3;
+        _mapped = index.Child.Mapped;
+        _isMapped = index.Child.IsMapped;
     }
 
     /// <inheritdoc />
@@ -75,7 +79,12 @@ internal readonly struct EsaNavigator : ISuffixTreeNavigator<EsaNode>
 
     /// <inheritdoc />
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public int LengthOf(EsaNode node) => node.Depth - node.ParentDepth;
+    public int LengthOf(EsaNode node)
+    {
+        // the generic algorithms ask for the length of a child that a lookup returned; a damaged table can make the lookup fail where a valid tree cannot, and the null node must not look like an edge of length 0, or their loops would not advance
+        if (_isMapped && node.Lb < 0) throw new InvalidDataException("the tree of the container has no child where its text and tables say there must be one: the file is damaged");
+        return node.Depth - node.ParentDepth;
+    }
 
     /// <inheritdoc />
     [MethodImpl(MethodImplOptions.AggressiveOptimization)]
@@ -90,6 +99,7 @@ internal readonly struct EsaNavigator : ISuffixTreeNavigator<EsaNode>
             child = EsaNode.Null;
             return false;
         }
+        if (_isMapped) return TryGetChildCore(_mapped, node, key, out child);
         return _kind switch
         {
             ChildLayoutKind.Tagged => TryGetChildCore(_tagged, node, key, out child),
@@ -105,7 +115,10 @@ internal readonly struct EsaNavigator : ISuffixTreeNavigator<EsaNode>
         // rank 0 is the empty suffix: it belongs to the root (and is the root's terminator leaf), and it is no position
         int from = Math.Max(node.Lb, 1);
         int count = node.Rb - from + 1;
-        if (count > 0) results.AddRange(new ReadOnlySpan<int>(_pack.Index.SuffixArray, from, count));
+        if (count <= 0) return;
+        SaView sa = _pack.Index.Sa;
+        if (sa.Array is { } array) results.AddRange(new ReadOnlySpan<int>(array, from, count));
+        else results.AddRange(sa.ToArray(from, count));
     }
 
     /// <inheritdoc />
@@ -122,6 +135,11 @@ internal readonly struct EsaNavigator : ISuffixTreeNavigator<EsaNode>
     {
         children.Clear();
         if (node.Lb == node.Rb) return;
+        if (_isMapped)
+        {
+            GetChildrenCore(_mapped, node, children);
+            return;
+        }
         switch (_kind)
         {
             case ChildLayoutKind.Tagged:
@@ -189,10 +207,21 @@ internal readonly struct EsaNavigator : ISuffixTreeNavigator<EsaNode>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private EsaNode MakeChild<TChild>(TChild table, int a, int b, int saA, int parentDepth, bool childIsLast)
         where TChild : struct, IChildTable
-        => a == b
-            ? new EsaNode(a, a, _n - saA + 1, parentDepth, saA, childIsLast)
-            : new EsaNode(a, b, _lcp.ValueAt(table.FirstLIndex(a, b, childIsLast)), parentDepth, saA, childIsLast);
+    {
+        if (a == b)
+        {
+            if (_isMapped && _n - saA + 1 <= parentDepth) ThrowCorruptChildTable();
+            return new EsaNode(a, a, _n - saA + 1, parentDepth, saA, childIsLast);
+        }
+        int first = table.FirstLIndex(a, b, childIsLast);
+        if (_isMapped && (first <= a || first > b)) ThrowCorruptChildTable();
+        int depth = _lcp.ValueAt(first);
+        if (_isMapped && depth <= parentDepth) ThrowCorruptChildTable(); // every edge of a damaged tree must still have a length, or the walks of the generic algorithms would not advance
+        return new EsaNode(a, b, depth, parentDepth, saA, childIsLast);
+    }
 
-    private static void ThrowCorruptChildTable()
-        => throw new InvalidOperationException("the child table is inconsistent: the l-indices of an interval must increase and stay inside it");
+    private void ThrowCorruptChildTable()
+        => throw (_isMapped
+            ? new InvalidDataException("the child table is inconsistent: the l-indices of an interval must increase and stay inside it: the file is damaged")
+            : new InvalidOperationException("the child table is inconsistent: the l-indices of an interval must increase and stay inside it"));
 }

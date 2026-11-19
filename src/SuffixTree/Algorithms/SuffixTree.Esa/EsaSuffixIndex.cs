@@ -22,7 +22,7 @@ internal sealed partial class EsaSuffixIndex : ISuffixTreeNavigation, ISuffixArr
 
     private readonly EsaIndex _index;
     private readonly int _n;
-    private readonly EsaIndexText _text;
+    private readonly IIndexText _text;
 
     /// <summary>The contract view of <paramref name="index"/> (shared, not copied).</summary>
     /// <exception cref="ArgumentNullException"><paramref name="index"/> is null.</exception>
@@ -31,8 +31,10 @@ internal sealed partial class EsaSuffixIndex : ISuffixTreeNavigation, ISuffixArr
         ArgumentNullException.ThrowIfNull(index);
         _index = index;
         _n = index.Length;
-        _text = new EsaIndexText(index.Text);
+        _text = index.TextView.AsIndexText();
         ChildTable child = index.Child;
+        _mapped = child.Mapped;
+        _isMapped = child.IsMapped;
         _kind = child.Kind;
         _tagged = child.Tagged;
         _packed = child.Packed;
@@ -108,8 +110,8 @@ internal sealed partial class EsaSuffixIndex : ISuffixTreeNavigation, ISuffixArr
         if ((uint)symbol > char.MaxValue) return false;
         if (locus.Length == 0) return TryExtendRight(locus, symbol, out result); // the empty string: a symbol on the left is a symbol on the right
         EsaNavigationPack pack = _index.Navigation;
-        int[] sa = _index.SuffixArray;
-        string text = _index.Text;
+        SaView sa = _index.Sa;
+        EsaText text = _index.TextView;
         int low = int.MaxValue, high = -1;
         for (int rank = (int)locus.Lo, last = (int)locus.Hi; rank <= last; rank++)
         {
@@ -146,7 +148,7 @@ internal sealed partial class EsaSuffixIndex : ISuffixTreeNavigation, ISuffixArr
         EsaNode node = Resolve(locus, nameof(locus));
         result = default;
         long length = locus.Length;
-        string text = _index.Text;
+        EsaText text = _index.TextView;
         foreach (char symbol in pattern)
         {
             if (length < node.Depth)
@@ -197,7 +199,7 @@ internal sealed partial class EsaSuffixIndex : ISuffixTreeNavigation, ISuffixArr
         int right = rb < _n ? lcp[rb + 1] : -1;
         int parentDepth = Math.Max(left, right);
         bool lastChild = left > right;
-        int pos = _index.SuffixArray[lb];
+        int pos = _index.Sa[lb];
         bool valid = parentDepth < locus.Length;
         if (valid)
         {

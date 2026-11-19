@@ -8,7 +8,7 @@ internal sealed partial class EsaSuffixIndex
     public long SuffixAt(long rank)
     {
         CheckRank(rank, nameof(rank));
-        return _index.SuffixArray[(int)rank];
+        return _index.Sa[(int)rank];
     }
 
     /// <summary><c>ISA[position]</c> from the navigation pack (built on first use).</summary>
@@ -30,7 +30,7 @@ internal sealed partial class EsaSuffixIndex
     {
         CheckRank(rankA, nameof(rankA));
         CheckRank(rankB, nameof(rankB));
-        if (rankA == rankB) return _n - _index.SuffixArray[(int)rankA];
+        if (rankA == rankB) return _n - _index.Sa[(int)rankA];
         return _index.Navigation.Pyramid.Min((int)Math.Min(rankA, rankB) + 1, (int)Math.Max(rankA, rankB));
     }
 
@@ -46,7 +46,7 @@ internal sealed partial class EsaSuffixIndex
         if (rankA == rankB)
         {
             int rank = (int)rankA;
-            long depth = _n - _index.SuffixArray[rank] + 1;
+            long depth = _n - _index.Sa[rank] + 1;
             return new IndexLocus(rank, rank, depth, depth);
         }
         int lo = (int)Math.Min(rankA, rankB);

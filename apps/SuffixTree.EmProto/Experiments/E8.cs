@@ -74,7 +74,9 @@ internal static class E8
     /// </summary>
     internal static int Verify(Options o, Report r)
     {
-        string prefix = o.Require("prefix");
+        // the outputs are separate files that carry a prefix (e6) or the sections of a SESA container (work package 1b.7f), read in place from its mapping
+        string? container = o.Get("container");
+        string prefix = container ?? o.Require("prefix");
         string c = o.Str("case", "e8");
         var options = new VerifyOptions
         {
@@ -92,7 +94,19 @@ internal static class E8
         };
         long t0 = Stopwatch.GetTimestamp();
         Action<string>? progress = o.Flag("quiet") ? null : msg => Console.Error.WriteLine($"# verify {(Stopwatch.GetTimestamp() - t0) / (double)Stopwatch.Frequency,8:F1} s  {msg}");
-        VerifyResult res = OutputVerifier.Run(options, progress);
+        ContainerVerifySource? sections;
+        try
+        {
+            sections = container is null ? null : new ContainerVerifySource(container);
+        }
+        catch (Exception ex) when (ex is InvalidDataException or NotSupportedException or FileNotFoundException)
+        {
+            Console.Error.WriteLine($"{container} is not a container that can be verified: {ex.Message}");
+            return 2;
+        }
+        using ContainerVerifySource? owner = sections;
+        IVerifySource source = sections is not null ? sections : new FileVerifySource(prefix);
+        VerifyResult res = OutputVerifier.Run(options, source, progress);
         foreach (CheckResult check in res.Checks)
         {
             string status = check.Status switch { CheckStatus.Pass => "pass", CheckStatus.Fail => "FAIL", _ => "skipped" };
@@ -100,7 +114,7 @@ internal static class E8
             r.Row("E8", c, $"verify_{check.Name}_s", check.Seconds, "s", "wall time of the check (the checks of the rank pass share one pass and show its time)");
         }
         foreach ((string key, string value) in res.Facts) r.Row("E8", c, "verify_fact_" + key, value, "", "number found by the verifier");
-        foreach ((string ext, string sha) in res.Sha256) r.Row("E8", c, "sha256_" + ext.Replace('.', '_'), sha, "", $"SHA-256 of {Path.GetFileName(prefix)}.{ext}");
+        foreach ((string ext, string sha) in res.Sha256) r.Row("E8", c, "sha256_" + ext.Replace('.', '_'), sha, "", $"SHA-256 of {source.Describe(ext)}");
         if (o.Get("sums") is { } sums && res.Sha256.Count > 0) File.WriteAllLines(sums, new[] { "pk", "pk.meta", "sa", "lcp", "ovf", "cld", "stats" }.Where(res.Sha256.ContainsKey).Select(e => $"{e}={res.Sha256[e]}"));
         double wall = (Stopwatch.GetTimestamp() - t0) / (double)Stopwatch.Frequency;
         r.Row("E8", c, "verify_wall_s", wall, "s", $"whole verification, {options.Threads} threads, LCE cap {options.LceCap}");

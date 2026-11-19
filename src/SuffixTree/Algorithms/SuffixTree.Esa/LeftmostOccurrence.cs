@@ -14,6 +14,12 @@ internal static class LeftmostOccurrence
     internal static int[] Compute(int[] sa, CompactLcp lcp)
     {
         ArgumentNullException.ThrowIfNull(sa);
+        return Compute(new SaView(sa), lcp);
+    }
+
+    /// <summary>The same for a suffix array that is a view (an index that reads a container).</summary>
+    internal static int[] Compute(SaView sa, CompactLcp lcp)
+    {
         ArgumentNullException.ThrowIfNull(lcp);
         int n = sa.Length - 1;
         if (lcp.Length != n + 1) throw new ArgumentException("the LCP array and the suffix array differ in length", nameof(lcp));

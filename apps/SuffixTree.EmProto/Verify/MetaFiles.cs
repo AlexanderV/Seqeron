@@ -15,10 +15,13 @@ internal sealed record StatsInfo(long NodeCount, long Internal, long LrsDepth, l
 /// </summary>
 internal static class MetaFiles
 {
-    internal static bool TryParseMeta(string path, out MetaInfo meta, out string error)
+    internal static bool TryParseMeta(string path, out MetaInfo meta, out string error) => TryParseMetaText(ReadText(path), out meta, out error);
+
+    /// <summary>The same for the text of the file (the container adapter has no file).</summary>
+    internal static bool TryParseMetaText(string text, out MetaInfo meta, out string error)
     {
         meta = null!;
-        if (!TryLines(path, ["n", "bits", "sigma", "letters_hex", "counts", "sha256", "name"], out string[] v, out error)) return false;
+        if (!TryLinesOf(text, ["n", "bits", "sigma", "letters_hex", "counts", "sha256", "name"], out string[] v, out error)) return false;
         if (!Num(v[0], out long n) || !Num(v[1], out long bits) || !Num(v[2], out long sigma))
         {
             error = "n, bits or sigma is not a canonical decimal number";
@@ -48,10 +51,13 @@ internal static class MetaFiles
         return true;
     }
 
-    internal static bool TryParseStats(string path, out StatsInfo stats, out string error)
+    internal static bool TryParseStats(string path, out StatsInfo stats, out string error) => TryParseStatsText(ReadText(path), out stats, out error);
+
+    /// <summary>The same for the text of the file (the container adapter has no file).</summary>
+    internal static bool TryParseStatsText(string text, out StatsInfo stats, out string error)
     {
         stats = null!;
-        if (!TryLines(path, ["nodecount", "internal", "lrsdepth", "lrsrank", "n", "sigma", "lcpwidth", "overflow", "maxlcp"], out string[] v, out error)) return false;
+        if (!TryLinesOf(text, ["nodecount", "internal", "lrsdepth", "lrsrank", "n", "sigma", "lcpwidth", "overflow", "maxlcp"], out string[] v, out error)) return false;
         var x = new long[v.Length];
         for (int i = 0; i < v.Length; i++)
         {
@@ -83,11 +89,10 @@ internal static class MetaFiles
         return "no difference";
     }
 
-    private static bool TryLines(string path, string[] keys, out string[] values, out string error)
+    private static bool TryLinesOf(string text, string[] keys, out string[] values, out string error)
     {
         values = new string[keys.Length];
         error = string.Empty;
-        string text = ReadText(path);
         if (!text.EndsWith('\n'))
         {
             error = "the file does not end with a line feed";

@@ -170,3 +170,50 @@ internal readonly struct TaggedChild : IChildTable, IIntervalSink
         return IsNextLink(c) ? ValueOf(c) : -1;
     }
 }
+
+/// <summary>
+/// The child table of a SESA container read in place (work package 1b.7f): the layout of <see cref="PackedChild"/> (the container's CHILD codec 1: one 4-byte entry per rank, the kind of a stored field told apart by comparing
+/// LCP values), over the mapped section instead of an array. The entries are untrusted. With <c>isChecked</c> (the default access mode) a read of a cell outside the section is an <see cref="InvalidDataException"/>;
+/// a value that a read returns is only ever used as a rank, and the readers that follow it (<see cref="CompactLcp"/>, the suffix array view) reject a rank outside their arrays; the walks that call <see cref="NextLIndex"/> check that
+/// the l-indices increase and stay inside the interval, which bounds them.
+/// </summary>
+internal readonly unsafe struct MappedChild : IChildTable
+{
+    private readonly int* _cld;
+    private readonly int _count;
+    private readonly CompactLcp _lcp;
+    private readonly bool _checked;
+
+    internal MappedChild(int* cld, int count, CompactLcp lcp, bool isChecked)
+    {
+        _cld = cld;
+        _count = count;
+        _lcp = lcp;
+        _checked = isChecked;
+    }
+
+    /// <summary>Number of cells (<c>n + 1</c>).</summary>
+    internal int Length => _count;
+
+    /// <summary>Bytes of the section.</summary>
+    internal long PayloadBytes => 4L * _count;
+
+    public int FirstLIndex(int lb, int rb, bool lastChild)
+    {
+        int at = lastChild ? lb : rb;
+        if (_checked && (uint)at >= (uint)_count) ThrowOutside(at);
+        return _cld[at];
+    }
+
+    public int NextLIndex(int k, int rb)
+    {
+        if (k >= rb) return -1;
+        if (_checked && (uint)k >= (uint)_count) ThrowOutside(k);
+        int lk = _lcp[k];
+        if (_lcp[k + 1] == lk) return k + 1;
+        int v = _cld[k];
+        return _lcp[v] == lk ? v : -1;
+    }
+
+    private void ThrowOutside(int cell) => throw new InvalidDataException($"the child table is read at cell {cell}, but it has {_count} cells: the file is damaged");
+}

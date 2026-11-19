@@ -34,9 +34,13 @@ internal static unsafe class OutputVerifier
         public override string ToString() => _text.ToString();
     }
 
-    internal static VerifyResult Run(VerifyOptions o, Action<string>? progress = null)
+    internal static VerifyResult Run(VerifyOptions o, Action<string>? progress = null) => Run(o, new FileVerifySource(o.Prefix), progress);
+
+    /// <summary>The checks on the seven outputs that <paramref name="source"/> serves (files that carry a prefix, or the sections of a container).</summary>
+    internal static VerifyResult Run(VerifyOptions o, IVerifySource source, Action<string>? progress = null)
     {
         ArgumentNullException.ThrowIfNull(o);
+        ArgumentNullException.ThrowIfNull(source);
         var res = new VerifyResult();
         var done = new Dictionary<string, CheckResult>();
         void Log(string s) => progress?.Invoke(s);
@@ -49,7 +53,6 @@ internal static unsafe class OutputVerifier
         {
             if (!done.ContainsKey(name)) Add(name, CheckStatus.Skipped, "not run: " + why, 0);
         }
-        string P(string ext) => o.Prefix + "." + ext;
         var wanted = new HashSet<string>(Names);
         if (o.InputPath is null) wanted.Remove("input");
         if (!o.Child)
@@ -58,13 +61,13 @@ internal static unsafe class OutputVerifier
             wanted.Remove("child");
         }
         if (!o.Hash) wanted.Remove("sha256");
-        string scratchDir = o.ScratchDir ?? Path.GetDirectoryName(Path.GetFullPath(o.Prefix))!;
+        string scratchDir = o.ScratchDir ?? source.DefaultScratchDirectory;
 
         // ---- meta and files
         long t0 = Stopwatch.GetTimestamp();
         MetaInfo? meta = null;
         string metaError = "the metadata file does not exist";
-        bool metaOk = File.Exists(P("pk.meta")) && MetaFiles.TryParseMeta(P("pk.meta"), out meta, out metaError);
+        bool metaOk = source.Exists("pk.meta") && MetaFiles.TryParseMetaText(source.ReadText("pk.meta"), out meta, out metaError);
         if (metaOk) metaError = CheckMeta(meta!);
         Add("meta", metaOk && metaError.Length == 0 ? CheckStatus.Pass : CheckStatus.Fail, metaOk && metaError.Length == 0 ? $"n {meta!.N}, sigma {meta.Sigma}, {meta.Bits} bits" : metaError, Elapsed(t0));
 
@@ -77,12 +80,12 @@ internal static unsafe class OutputVerifier
         long overflow = 0;
         foreach (string e in Extensions)
         {
-            if (!File.Exists(P(e))) filesError.Add($"{e} is missing");
+            if (!source.Exists(e)) filesError.Add($"{e} is missing");
         }
         if (!filesError.Any)
         {
             if (!metaOk || metaError.Length != 0) filesError.Add("the metadata is unusable, the expected file lengths cannot be derived");
-            else if (!MetaFiles.TryParseStats(P("stats"), out stats, out string statsError)) filesError.Add("the statistics file is malformed: " + statsError);
+            else if (!MetaFiles.TryParseStatsText(source.ReadText("stats"), out stats, out string statsError)) filesError.Add("the statistics file is malformed: " + statsError);
             else
             {
                 n = meta!.N;
@@ -96,7 +99,7 @@ internal static unsafe class OutputVerifier
                 {
                     void Length(string ext, long expected)
                     {
-                        long got = new FileInfo(P(ext)).Length;
+                        long got = source.Length(ext);
                         if (got != expected) filesError.Add($"{ext} has {got} bytes, expected {expected}");
                     }
                     Length("pk", PackedText.TotalBytes(n, bits));
@@ -130,7 +133,7 @@ internal static unsafe class OutputVerifier
         {
             try
             {
-                RunChecks(o, res, meta!, stats!, n, bits, width, overflow, scratchDir, wanted, Add, Skip, Log);
+                RunChecks(o, source, res, meta!, stats!, n, bits, width, overflow, scratchDir, wanted, Add, Skip, Log);
             }
             catch (Exception ex) when (ex is IOException or InvalidDataException or UnauthorizedAccessException or ArgumentException or OutOfMemoryException)
             {
@@ -139,7 +142,7 @@ internal static unsafe class OutputVerifier
         }
         foreach (string name in Names.Where(wanted.Contains))
         {
-            if (name == "sha256" && !done.ContainsKey(name) && o.Hash) HashAll(o, res, Add, Log);
+            if (name == "sha256" && !done.ContainsKey(name) && o.Hash) HashAll(o, source, res, Add, Log);
             Skip(name, "the files or the metadata check failed");
         }
         foreach (string name in Names)
@@ -173,11 +176,10 @@ internal static unsafe class OutputVerifier
         return b;
     }
 
-    private static void RunChecks(VerifyOptions o, VerifyResult res, MetaInfo meta, StatsInfo stats, long n, int bits, int width, long overflow, string scratchDir,
+    private static void RunChecks(VerifyOptions o, IVerifySource source, VerifyResult res, MetaInfo meta, StatsInfo stats, long n, int bits, int width, long overflow, string scratchDir,
         HashSet<string> wanted, Action<string, CheckStatus, string, double> add, Action<string, string> skip, Action<string> log)
     {
-        string P(string ext) => o.Prefix + "." + ext;
-        using var mappedText = new MappedFile(P("pk"), writable: false);
+        using IMemoryBlock mappedText = source.Open("pk");
         using var text = new PackedText(mappedText.Pointer, n, bits, mappedText, ownsOwner: false);
         // ---- text
         long t0 = Stopwatch.GetTimestamp();
@@ -193,13 +195,13 @@ internal static unsafe class OutputVerifier
         }
 
         // ---- the rank pass: permutation, order, LCP values
-        using var mappedSa = new MappedFile(P("sa"), writable: false);
-        using var mappedLcp = new MappedFile(P("lcp"), writable: false);
-        MappedFile? mappedOvf = overflow > 0 ? new MappedFile(P("ovf"), writable: false) : null;
+        using IMemoryBlock mappedSa = source.Open("sa");
+        using IMemoryBlock mappedLcp = source.Open("lcp");
+        IMemoryBlock? mappedOvf = overflow > 0 ? source.Open("ovf") : null;
         try
         {
             var lcp = new LcpView(mappedLcp.Pointer, width, mappedOvf is null ? null : (uint*)mappedOvf.Pointer, overflow);
-            string bitmapPath = Path.Combine(scratchDir, Path.GetFileName(o.Prefix) + ".verify.bits");
+            string bitmapPath = Path.Combine(scratchDir, Path.GetFileName(source.Label) + ".verify.bits");
             PassTotals totals;
             t0 = Stopwatch.GetTimestamp();
             try
@@ -243,7 +245,7 @@ internal static unsafe class OutputVerifier
                 }
                 else
                 {
-                    using var mappedCld = new MappedFile(P("cld"), writable: false);
+                    using IMemoryBlock mappedCld = source.Open("cld");
                     t0 = Stopwatch.GetTimestamp();
                     ScanResult scan = Scan(lcp, (uint*)mappedCld.Pointer, n, o.StackCapEntries, o.Threads, o.ScanBlock, log);
                     double scanSeconds = Elapsed(t0);
@@ -259,7 +261,7 @@ internal static unsafe class OutputVerifier
                     {
                         var expected = new StatsInfo(1 + scan.Internal + n + 1, scan.Internal, scan.LrsDepth, scan.LrsRank, n, meta.Sigma, width, overflow, scan.MaxLcp);
                         string expectedText = MetaFiles.StatsText(expected);
-                        string found = MetaFiles.ReadText(P("stats"));
+                        string found = source.ReadText("stats");
                         string statsDetail = "";
                         if (expectedText != found) statsDetail = MetaFiles.FirstDifference(expectedText, found);
                         else if (scan.LrsDepth != scan.MaxLcp || scan.LrsRank != (scan.MaxLcp == 0 ? 0 : scan.FirstMaxRank - 1)) statsDetail = $"the two formulations of LRS disagree (depth {scan.LrsDepth} / max LCP {scan.MaxLcp}, rank {scan.LrsRank} / first max at {scan.FirstMaxRank})";
@@ -283,7 +285,7 @@ internal static unsafe class OutputVerifier
         {
             mappedOvf?.Dispose();
         }
-        if (wanted.Contains("sha256")) HashAll(o, res, add, log);
+        if (wanted.Contains("sha256")) HashAll(o, source, res, add, log);
     }
 
     /// <summary>The width rule of ADR-002 section 4 (U8 plus overflow iff 16 x escapes8 &lt;= n, else U16 plus overflow iff 8 x escapes16 &lt;= n, else U32), as bytes per entry; written here from the ADR, not taken from the product.</summary>
@@ -296,7 +298,7 @@ internal static unsafe class OutputVerifier
 
     // ---------------------------------------------------------------- text
 
-    private static string CheckText(MappedFile file, PackedText text, MetaInfo meta, int threads, long block)
+    private static string CheckText(IMemoryBlock file, PackedText text, MetaInfo meta, int threads, long block)
     {
         long n = text.Length;
         int bits = text.Bits;
@@ -691,7 +693,7 @@ internal static unsafe class OutputVerifier
 
     // ---------------------------------------------------------------- hashes
 
-    private static void HashAll(VerifyOptions o, VerifyResult res, Action<string, CheckStatus, string, double> add, Action<string> log)
+    private static void HashAll(VerifyOptions o, IVerifySource source, VerifyResult res, Action<string, CheckStatus, string, double> add, Action<string> log)
     {
         long t0 = Stopwatch.GetTimestamp();
         var found = new Dictionary<string, string>();
@@ -700,7 +702,7 @@ internal static unsafe class OutputVerifier
         {
             try
             {
-                string sha = HashFile(o.Prefix + "." + e, o.IoBufferBytes);
+                string sha = source.Hash(e, o.IoBufferBytes);
                 lock (found) found[e] = sha;
                 log($"sha256 {e}: {sha[..16]}");
             }

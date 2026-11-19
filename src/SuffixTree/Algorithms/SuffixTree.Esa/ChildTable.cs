@@ -62,13 +62,27 @@ internal struct TeeSink<TA, TB>(TA a, TB b) : IIntervalSink
 /// </summary>
 internal sealed class ChildTable
 {
-    private ChildTable(ChildLayoutKind kind, Reference3Child reference, PackedChild packed, TaggedChild tagged)
+    private ChildTable(ChildLayoutKind kind, Reference3Child reference, PackedChild packed, TaggedChild tagged, MappedChild mapped = default, bool isMapped = false)
     {
         Kind = kind;
         Reference3 = reference;
         Packed = packed;
         Tagged = tagged;
+        Mapped = mapped;
+        IsMapped = isMapped;
     }
+
+    /// <summary>
+    /// The table of a SESA container, read in place (work package 1b.7f). <see cref="Kind"/> is <see cref="ChildLayoutKind.Packed"/> (the container's codec 1 is that layout), <see cref="IsMapped"/> is true and the
+    /// accessors read <see cref="Mapped"/>; <see cref="Packed"/> is the empty default.
+    /// </summary>
+    internal static ChildTable FromMapped(MappedChild mapped) => new(ChildLayoutKind.Packed, default, default, default, mapped, true);
+
+    /// <summary>True when the table is read in place from a container (then <see cref="Mapped"/> is the table and the three array layouts are empty).</summary>
+    internal bool IsMapped { get; }
+
+    /// <summary>The mapped table (default unless <see cref="IsMapped"/>).</summary>
+    internal MappedChild Mapped { get; }
 
     /// <summary>The layout.</summary>
     internal ChildLayoutKind Kind { get; }
@@ -83,7 +97,7 @@ internal sealed class ChildTable
     internal TaggedChild Tagged { get; }
 
     /// <summary>Bytes of the table arrays.</summary>
-    internal long PayloadBytes => Kind switch
+    internal long PayloadBytes => IsMapped ? Mapped.PayloadBytes : Kind switch
     {
         ChildLayoutKind.Reference3 => Reference3.PayloadBytes,
         ChildLayoutKind.Packed => Packed.PayloadBytes,
@@ -91,7 +105,7 @@ internal sealed class ChildTable
     };
 
     /// <summary>See <see cref="IChildTable.FirstLIndex"/>.</summary>
-    internal int FirstLIndex(int lb, int rb, bool lastChild) => Kind switch
+    internal int FirstLIndex(int lb, int rb, bool lastChild) => IsMapped ? Mapped.FirstLIndex(lb, rb, lastChild) : Kind switch
     {
         ChildLayoutKind.Reference3 => Reference3.FirstLIndex(lb, rb, lastChild),
         ChildLayoutKind.Packed => Packed.FirstLIndex(lb, rb, lastChild),
@@ -99,7 +113,7 @@ internal sealed class ChildTable
     };
 
     /// <summary>See <see cref="IChildTable.NextLIndex"/>.</summary>
-    internal int NextLIndex(int k, int rb) => Kind switch
+    internal int NextLIndex(int k, int rb) => IsMapped ? Mapped.NextLIndex(k, rb) : Kind switch
     {
         ChildLayoutKind.Reference3 => Reference3.NextLIndex(k, rb),
         ChildLayoutKind.Packed => Packed.NextLIndex(k, rb),

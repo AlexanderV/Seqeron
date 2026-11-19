@@ -29,8 +29,12 @@ internal sealed partial class EsaIndex
             return;
         }
 
-        int[] occurrence = LeftmostOccurrence.Compute(SuffixArray, Lcp);
+        SaView sa = Sa;
+        EsaText text = TextView;
+        bool mapped = IsMapped;
+        int[] occurrence = LeftmostOccurrence.Compute(sa, Lcp);
         int firstOfRoot = Child.FirstLIndex(0, n, true);
+        if (mapped) CheckFirst(firstOfRoot, 0, n);
         visitor.VisitNode(0, 0, n + 1, CountChildren(firstOfRoot, n), 0);
 
         var frames = new List<TraverseFrame>(64) { new() { A = 0, NextBoundary = firstOfRoot, Rb = n, Ell = 0 } };
@@ -49,10 +53,11 @@ internal sealed partial class EsaIndex
             int a = f.A;
             int b = lastChild ? f.Rb : f.NextBoundary - 1;
             int next = lastChild ? -1 : Child.NextLIndex(f.NextBoundary, f.Rb);
+            if (mapped && (b < a || b > f.Rb || (next >= 0 && (next <= f.NextBoundary || next > f.Rb)))) throw DamagedChildTable();
             frames[top] = new TraverseFrame { A = b + 1, NextBoundary = next, Rb = f.Rb, Ell = f.Ell };
 
-            int p = SuffixArray[a] + f.Ell;
-            visitor.EnterBranch(p < n ? Text[p] : -1);
+            int p = sa[a] + f.Ell;
+            visitor.EnterBranch((uint)p < (uint)n ? text[p] : -1);
             if (a == b)
             {
                 visitor.VisitNode(p, -1, 1, 0, f.Ell);
@@ -61,7 +66,9 @@ internal sealed partial class EsaIndex
             }
 
             int first = Child.FirstLIndex(a, b, lastChild);
+            if (mapped) CheckFirst(first, a, b);
             int ell = Lcp[first];
+            if (mapped && (ell <= f.Ell || ell > n)) throw DamagedChildTable();
             int occ = occurrence[first];
             visitor.VisitNode(occ + f.Ell, occ + ell, b - a + 1, CountChildren(first, b), f.Ell);
             frames.Add(new TraverseFrame { A = a, NextBoundary = first, Rb = b, Ell = ell });
@@ -72,7 +79,21 @@ internal sealed partial class EsaIndex
     private int CountChildren(int first, int rb)
     {
         int count = 1;
-        for (int k = first; k >= 0; k = Child.NextLIndex(k, rb)) count++;
+        for (int k = first; k >= 0;)
+        {
+            count++;
+            int next = Child.NextLIndex(k, rb);
+            if (IsMapped && next >= 0 && (next <= k || next > rb)) throw DamagedChildTable();
+            k = next;
+        }
         return count;
     }
+
+    /// <summary>The first l-index of an interval that spans <c>[lb..rb]</c> must lie in <c>(lb, rb]</c>.</summary>
+    private static void CheckFirst(int first, int lb, int rb)
+    {
+        if (first <= lb || first > rb) throw DamagedChildTable();
+    }
+
+    private static InvalidDataException DamagedChildTable() => new("the child table or the LCP array is inconsistent: the file is damaged");
 }

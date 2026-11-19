@@ -21,11 +21,11 @@ public sealed partial class EsaSuffixTree : ISuffixTree, ISuffixTreeNavigation, 
 {
     private readonly EsaIndex _index;
     private readonly EsaSuffixIndex _contract;
-    private readonly StringTextSource _text;
+    private readonly ITextSource _text;
     private readonly EsaStatistics _statistics;
     private int _disposed;
     private string? _longestRepeat;
-    private External.SesaFile? _file;
+    private readonly External.SesaFile? _file;
 
     /// <summary>Wraps an index. <paramref name="statistics"/> replaces the header statistics of the index (the tests use it to feed a synthetic node count to the guard).</summary>
     /// <exception cref="ArgumentNullException"><paramref name="index"/> is null.</exception>
@@ -36,9 +36,9 @@ public sealed partial class EsaSuffixTree : ISuffixTree, ISuffixTreeNavigation, 
         EnsureTextLength(index.Length);
         _index = index;
         _statistics = statistics ?? index.Statistics;
-        _text = new StringTextSource(index.Text);
+        _text = index.TextView.AsTextSource();
         _contract = new EsaSuffixIndex(index);
-        _file = null;
+        _file = index.File;
     }
 
     /// <summary>Builds the tree of <paramref name="text"/> with the default child-table layout.</summary>
@@ -81,8 +81,24 @@ public sealed partial class EsaSuffixTree : ISuffixTree, ISuffixTreeNavigation, 
     /// <summary>The wrapped index (tests inspect the navigation pack through it); not guarded by the disposal check.</summary>
     internal EsaIndex Index => _index;
 
-    /// <summary>The tree over an opened container (the tree owns the file and disposes it).</summary>
-    internal static EsaSuffixTree FromFile(External.SesaFile file) => throw new NotImplementedException();
+    /// <summary>
+    /// The tree over an opened container, which it owns: <see cref="Dispose"/> releases the mapping. When the tree cannot be made (a text beyond the 32-bit surface) the file is disposed here and the exception propagates.
+    /// </summary>
+    /// <exception cref="NotSupportedException">The text is beyond the 32-bit surface (<see cref="EnsureTextLength"/>).</exception>
+    internal static EsaSuffixTree FromFile(External.SesaFile file)
+    {
+        ArgumentNullException.ThrowIfNull(file);
+        try
+        {
+            EnsureTextLength(file.Header.TextLength);
+            return new EsaSuffixTree(EsaIndex.FromFile(file));
+        }
+        catch
+        {
+            file.Dispose();
+            throw;
+        }
+    }
 
     /// <summary>The container this tree reads in place, or null for a tree built in memory (1b.7f).</summary>
     internal External.SesaFile? File => _file;
@@ -94,6 +110,7 @@ public sealed partial class EsaSuffixTree : ISuffixTree, ISuffixTreeNavigation, 
     {
         if (Interlocked.CompareExchange(ref _disposed, 1, 0) != 0) return;
         if (_index.NavigationBuilt) _index.Navigation.Dispose();
+        _file?.Dispose();
     }
 
     private void ThrowIfDisposed() => ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);

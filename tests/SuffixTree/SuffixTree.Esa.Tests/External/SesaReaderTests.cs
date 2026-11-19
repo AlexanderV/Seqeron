@@ -137,7 +137,7 @@ public class SesaReaderTests
         Assert.That(r.HeaderSeconds, Is.GreaterThanOrEqualTo(0));
         Assert.That(r.SectionBytesChecksummed > 0, Is.EqualTo(sections == 1), "the checksum pass runs from the Sections level");
         Assert.That(r.BitmapBytes > 0, Is.EqualTo(structure == 1), "the permutation bitmap exists at the Structure level only");
-        if (structure == 1) Assert.That(r.BitmapBytes, Is.EqualTo((text.Length + 1 + 7) / 8), "n + 1 bits");
+        if (structure == 1) Assert.That(r.BitmapBytes, Is.EqualTo((text.Length + 1 + 63) / 64 * 8), "n + 1 bits in 64-bit words");
     }
 
     [Test]

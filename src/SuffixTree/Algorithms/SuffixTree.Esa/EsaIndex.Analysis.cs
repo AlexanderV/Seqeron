@@ -14,11 +14,11 @@ internal sealed partial class EsaIndex
     /// the contract leaves the choice open (<c>ISuffixTreeAnalysis.cs:13</c>); the ESA returns the lexicographically smallest of the tied substrings (the deepest interval that
     /// closes first, <see cref="StatisticsSink"/>). <see cref="FindAllLongestRepeatedSubstrings"/> lists every tie.
     /// </summary>
-    internal string LongestRepeatedSubstring() => Statistics.LrsDepth == 0 ? string.Empty : Text.Substring(SuffixArray[Statistics.LrsRank], Statistics.LrsDepth);
+    internal string LongestRepeatedSubstring() => Statistics.LrsDepth == 0 ? string.Empty : TextView.Substring(Sa[Statistics.LrsRank], Statistics.LrsDepth);
 
     /// <summary>The same substring as a slice of the original text: no copy (the index shares the caller's string).</summary>
     internal ReadOnlyMemory<char> LongestRepeatedSubstringMemory() =>
-        Statistics.LrsDepth == 0 ? ReadOnlyMemory<char>.Empty : Text.AsMemory(SuffixArray[Statistics.LrsRank], Statistics.LrsDepth);
+        Statistics.LrsDepth == 0 ? ReadOnlyMemory<char>.Empty : TextView.AsMemory(Sa[Statistics.LrsRank], Statistics.LrsDepth);
 
     /// <summary>
     /// Every distinct longest repeated substring (all length ties), each with all its 0-based start positions ascending (occurrences may overlap), ordered by first occurrence;
@@ -55,9 +55,9 @@ internal sealed partial class EsaIndex
 
     private (string Substring, IReadOnlyList<int> Positions) Tie(int lb, int rb, int length)
     {
-        int[] positions = SuffixArray.AsSpan(lb, rb - lb + 1).ToArray();
+        int[] positions = Sa.ToArray(lb, rb - lb + 1);
         Array.Sort(positions);
-        return (Text.Substring(positions[0], length), positions);
+        return (TextView.Substring(positions[0], length), positions);
     }
 
     /// <summary>
@@ -112,13 +112,15 @@ internal sealed partial class EsaIndex
     internal IReadOnlyList<string> GetAllSuffixes()
     {
         var suffixes = new string[Length];
-        for (int rank = 1; rank <= Length; rank++) suffixes[rank - 1] = Text.Substring(SuffixArray[rank]);
+        SaView sa = Sa;
+        for (int rank = 1; rank <= Length; rank++) suffixes[rank - 1] = TextView.Substring(sa[rank]);
         return suffixes;
     }
 
     /// <summary>The suffixes of <see cref="GetAllSuffixes"/> one at a time, lazily: a walk of the suffix array that materialises one suffix per step (nothing is evaluated before the first <c>MoveNext</c>).</summary>
     internal IEnumerable<string> EnumerateSuffixes()
     {
-        for (int rank = 1; rank <= Length; rank++) yield return Text.Substring(SuffixArray[rank]);
+        SaView sa = Sa;
+        for (int rank = 1; rank <= Length; rank++) yield return TextView.Substring(sa[rank]);
     }
 }

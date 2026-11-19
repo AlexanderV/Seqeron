@@ -47,7 +47,11 @@ public static class EsaSuffixTreeFactory
     /// <returns>The tree; disposing it releases the mapping.</returns>
     /// <exception cref="InvalidDataException">The file is not a SESA container, or it is corrupt at the requested level.</exception>
     /// <exception cref="NotSupportedException">A container of a larger major version, or one that needs a feature this reader does not have.</exception>
-    public static EsaSuffixTree Open(string path, EsaOpenOptions? options = null) => throw new NotImplementedException();
+    public static EsaSuffixTree Open(string path, EsaOpenOptions? options = null)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(path);
+        return EsaSuffixTree.FromFile(External.SesaFile.Open(path, options ?? new EsaOpenOptions()));
+    }
 
     /// <summary>Reads a text source into a string in chunks (nothing is preallocated for the whole length, so a source that cannot be read costs nothing).</summary>
     private static string Materialize(ITextSource text)

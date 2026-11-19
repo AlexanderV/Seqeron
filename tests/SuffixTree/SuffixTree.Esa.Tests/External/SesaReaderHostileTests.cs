@@ -72,6 +72,7 @@ public class SesaReaderHostileTests
         int ok = 0, bad = 0;
         void Step(string what, Action action)
         {
+            if (Environment.GetEnvironmentVariable("ESA_STEP_LOG") is { } logPath) File.AppendAllText(logPath, $"{label}: {what}\n");
             try
             {
                 action();

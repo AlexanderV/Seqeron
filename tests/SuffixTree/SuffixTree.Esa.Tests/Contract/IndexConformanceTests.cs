@@ -193,7 +193,9 @@ public class IndexConformanceTests(IndexEngineFactory factory)
     public void ExtendRight_SymbolsOutsideTheCodeUnitRangeFail()
     {
         // the text holds U+0000 and U+FFFF, the code units that an engine would reach by truncating -1, 65536, int.MinValue or int.MaxValue to 16 bits
-        var index = Build("ab\0\uFFFFab\0\uFFFF");
+        const string text = "ab\0\uFFFFab\0\uFFFF";
+        if (!factory.AcceptsText(text)) Assert.Ignore("the engine does not hold code units above 255");
+        var index = Build(text);
         foreach (int symbol in new[] { -1, -2, 65536, 65537, int.MaxValue, int.MinValue })
         {
             Assert.That(index.TryExtendRight(index.Root, symbol, out var result), Is.False, $"symbol {symbol}");
@@ -349,7 +351,7 @@ public class IndexConformanceTests(IndexEngineFactory factory)
         {
             int n = 1 + rng.NextInt(120);
             ulong seed = rng.Next();
-            foreach (var (name, text) in StringFamilies.Adversarial(n, seed).Where((_, i) => (i + round) % 6 == 0))
+            foreach (var (name, text) in StringFamilies.Adversarial(n, seed).Where((_, i) => (i + round) % 6 == 0).Where(t => factory.AcceptsText(t.Item2)))
             {
                 var index = Build(text);
                 var patterns = AllSubstrings(text, 5).Take(40).Concat(new[] { "zz", text + "a" });

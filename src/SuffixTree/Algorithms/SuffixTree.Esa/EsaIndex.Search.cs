@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using SuffixTree.Esa.External;
 
 namespace SuffixTree.Esa;
 
@@ -9,7 +10,7 @@ internal sealed partial class EsaIndex
     /// <summary><c>_symbolOf[c]</c> is the dense symbol of the code unit <c>c</c>, or -1 when <c>c</c> does not occur in the text (the array ends at the largest code unit of the text).</summary>
     private int[]? _symbolOf;
 
-    private int[] SymbolOf => _symbolOf ??= BuildSymbolMap(Prepared.Alphabet);
+    private int[] SymbolOf => _symbolOf ??= BuildSymbolMap(IsMapped ? TextView.Alphabet : Prepared.Alphabet);
 
     private static int[] BuildSymbolMap(char[] alphabet)
     {
@@ -70,9 +71,7 @@ internal sealed partial class EsaIndex
             return all;
         }
         if (!TryMatch(pattern, out int lo, out int hi)) return Array.Empty<int>();
-        var result = new int[hi - lo + 1];
-        Array.Copy(SuffixArray, lo, result, 0, result.Length);
-        return result;
+        return Sa.ToArray(lo, hi - lo + 1);
     }
 
     /// <summary>
@@ -87,7 +86,7 @@ internal sealed partial class EsaIndex
         long available = (long)hi - lo + 1 - skip;
         if (available <= 0) return 0;
         int count = (int)Math.Min(available, positions.Length);
-        SuffixArray.AsSpan((int)(lo + skip), count).CopyTo(positions);
+        Sa.CopyTo((int)(lo + skip), positions[..count]);
         return count;
     }
 
@@ -100,7 +99,8 @@ internal sealed partial class EsaIndex
         if (available <= 0) return 0;
         int count = (int)Math.Min(available, positions.Length);
         int start = (int)(lo + skip);
-        for (int i = 0; i < count; i++) positions[i] = SuffixArray[start + i];
+        SaView sa = Sa;
+        for (int i = 0; i < count; i++) positions[i] = sa[start + i];
         return count;
     }
 
@@ -114,6 +114,7 @@ internal sealed partial class EsaIndex
         hi = -1;
         if (pattern.IsEmpty) throw new ArgumentException("the empty pattern has no rank interval; handle it before calling", nameof(pattern));
         if (Length == 0) return false;
+        if (IsMapped) return MatchMapped(pattern, out lo, out hi);
         return Prepared.Width == SymbolWidth.Byte
             ? Match<byte>(Prepared.Bytes, pattern, out lo, out hi)
             : Match<ushort>(Prepared.UShorts, pattern, out lo, out hi);
@@ -213,6 +214,115 @@ internal sealed partial class EsaIndex
         hi = rb;
         return true;
     }
+
+    /// <summary>
+    /// <see cref="Match{TSym}"/> for the packed text of a container: the pattern is mapped to dense symbols (a code unit that is not in the alphabet is no match) and the descent reads the text through the packed reader.
+    /// </summary>
+    private bool MatchMapped(ReadOnlySpan<char> pattern, out int lo, out int hi)
+    {
+        lo = 0;
+        hi = -1;
+        int[] map = SymbolOf;
+        Span<byte> pat = pattern.Length <= StackPatternLimit ? stackalloc byte[pattern.Length] : new byte[pattern.Length];
+        for (int i = 0; i < pattern.Length; i++)
+        {
+            char c = pattern[i];
+            int s = c < map.Length ? map[c] : -1;
+            if (s < 0) return false;
+            pat[i] = (byte)s;
+        }
+        return DescendMapped(Child.Mapped, Sa, Lcp, TextView.Reader, pat, _file!.IsChecked, out lo, out hi);
+    }
+
+    /// <summary>
+    /// <see cref="Descend{TChild, TSym}"/> over the sections of a container. The same walk, with the reads of an untrusted file: the suffix array is a <see cref="SaView"/>, the text is the packed reader (a symbol at or beyond the
+    /// end reads as 0, so every comparison is clamped to the suffix as the in-memory one is), and in checked mode the walk is bounded: the l-indices of an interval must increase and stay inside it, and a child's value must be
+    /// larger than its parent's, so that every iteration makes progress and a damaged table ends in an <see cref="InvalidDataException"/> instead of a loop.
+    /// </summary>
+    internal static bool DescendMapped(MappedChild child, SaView sa, CompactLcp lcp, MappedTextReader text, ReadOnlySpan<byte> pat, bool isChecked, out int lo, out int hi)
+    {
+        int n = (int)text.Length;
+        int m = pat.Length;
+        int lb = 0, rb = n, ell = 0, c = 0;
+        bool isLast = true;
+        Span<byte> edge = stackalloc byte[EdgeChunk];
+        while (c < m)
+        {
+            int symbol = pat[c];
+            int a = lb;
+            int boundary = child.FirstLIndex(lb, rb, isLast);
+            if (isChecked && boundary >= 0 && (boundary <= a || boundary > rb)) ThrowDamagedChildTable();
+            int b;
+            while (true)
+            {
+                b = boundary >= 0 ? boundary - 1 : rb;
+                int p = sa[a] + ell;
+                int key = (uint)p < (uint)n ? (int)text.Symbol(p) : -1;
+                if (key == symbol) break;
+                if (key > symbol || boundary < 0)
+                {
+                    lo = 0;
+                    hi = -1;
+                    return false;
+                }
+                a = boundary;
+                boundary = child.NextLIndex(boundary, rb);
+                if (isChecked && boundary >= 0 && (boundary <= a || boundary > rb)) ThrowDamagedChildTable();
+            }
+
+            bool childIsLast = boundary < 0;
+            if (a == b)
+            {
+                // a leaf: the rest of the pattern must be a prefix of the rest of the suffix
+                int start = sa[a] + c;
+                if ((uint)start > (uint)n || m - c > n - start || !EdgeEquals(text, start, pat.Slice(c), edge))
+                {
+                    lo = 0;
+                    hi = -1;
+                    return false;
+                }
+                lo = a;
+                hi = a;
+                return true;
+            }
+
+            int childEll = lcp[child.FirstLIndex(a, b, childIsLast)];
+            if (isChecked && (childEll <= ell || childEll > n)) ThrowDamagedChildTable();
+            int limit = Math.Min(childEll, m);
+            int from = sa[a] + c;
+            if (limit > c + 1 && ((uint)from >= (uint)n || !EdgeEquals(text, from + 1, pat.Slice(c + 1, limit - c - 1), edge)))
+            {
+                lo = 0;
+                hi = -1;
+                return false;
+            }
+            c = limit;
+            lb = a;
+            rb = b;
+            ell = childEll;
+            isLast = childIsLast;
+        }
+        lo = lb;
+        hi = rb;
+        return true;
+    }
+
+    private const int EdgeChunk = 256;
+
+    /// <summary>Whether the symbols of the text from <paramref name="start"/> equal <paramref name="expected"/> (the caller checked that they lie inside the text), compared in chunks through the packed reader.</summary>
+    private static bool EdgeEquals(MappedTextReader text, int start, ReadOnlySpan<byte> expected, Span<byte> buffer)
+    {
+        if ((uint)start > (uint)text.Length || expected.Length > text.Length - start) return false;
+        for (int done = 0; done < expected.Length; done += buffer.Length)
+        {
+            int take = Math.Min(buffer.Length, expected.Length - done);
+            text.ReadSymbols(start + done, buffer[..take]);
+            if (!buffer[..take].SequenceEqual(expected.Slice(done, take))) return false;
+        }
+        return true;
+    }
+
+    private static void ThrowDamagedChildTable() => throw new InvalidDataException("the child table or the LCP array is inconsistent (the l-indices of an interval must increase and stay inside it, and a child must be deeper than its parent): the file is damaged");
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static int ToInt<TSym>(TSym value)

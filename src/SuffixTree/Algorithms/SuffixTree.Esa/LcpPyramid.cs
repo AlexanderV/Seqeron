@@ -73,6 +73,35 @@ internal sealed unsafe class LcpPyramid : IDisposable
         _levelData = PinnedArray<int>.Allocate(checked((int)total), zero: false, "lcp-pyramid");
         _levels = _levelData.Buf;
 
+        if (lcp.IsMapped)
+        {
+            // the LCP array of a container is read where it lies; its overflow list becomes two arrays (built once, with the pack), and a list that does not match the escapes of the base array is a damaged file
+            try
+            {
+                switch (_kind)
+                {
+                    case LcpKind.U8:
+                        _reader8 = new Reader8(new Buf<byte>(lcp.MappedBase, _length, "lcp-u8"), lcp.OverflowRanks, lcp.OverflowValues);
+                        Fill(_reader8);
+                        break;
+                    case LcpKind.U16:
+                        _reader16 = new Reader16(new Buf<ushort>((ushort*)lcp.MappedBase, _length, "lcp-u16"), lcp.OverflowRanks, lcp.OverflowValues);
+                        Fill(_reader16);
+                        break;
+                    default:
+                        _reader32 = new Reader32(new Buf<int>((int*)lcp.MappedBase, _length, "lcp-u32"));
+                        Fill(_reader32);
+                        break;
+                }
+            }
+            catch (InvalidOperationException e)
+            {
+                _levelData.Dispose();
+                throw new InvalidDataException(e.Message + ": the file is damaged", e);
+            }
+            return;
+        }
+
         switch (_kind)
         {
             case LcpKind.U8:
