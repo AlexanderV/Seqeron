@@ -1,0 +1,65 @@
+[
+ {
+  "id": "1b8_T01",
+  "desc": "the root reports n leaves",
+  "old": "visitor.VisitNode(0, 0, n + 1, CountChildren(firstOfRoot, n), 0);",
+  "new": "visitor.VisitNode(0, 0, n, CountChildren(firstOfRoot, n), 0);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Traverse.cs"
+ },
+ {
+  "id": "1b8_T02",
+  "desc": "a leaf reports a wrong parent depth",
+  "old": "visitor.VisitNode(p, -1, 1, 0, f.Ell);",
+  "new": "visitor.VisitNode(p, -1, 1, 0, f.Ell + 1);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Traverse.cs"
+ },
+ {
+  "id": "1b8_T03",
+  "desc": "the terminator edge has the key 0",
+  "old": "visitor.EnterBranch((uint)p < (uint)n ? text[p] : -1);",
+  "new": "visitor.EnterBranch((uint)p < (uint)n ? text[p] : 0);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Traverse.cs"
+ },
+ {
+  "id": "1b8_T04",
+  "desc": "an internal edge records the first suffix instead of the leftmost occurrence",
+  "old": "int occ = occurrence[first];",
+  "new": "int occ = sa[a];",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Traverse.cs"
+ },
+ {
+  "id": "1b8_T05",
+  "desc": "the repeated-leaf check of the file-backed Traverse is removed (reverts the fix of 1b.8)",
+  "old": "                if (seen is not null) MarkLeaf(seen, sa[a], n);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Traverse.cs"
+ },
+ {
+  "id": "1b8_T06",
+  "desc": "the mapped walk does not check that a child interval is not empty",
+  "old": "if (mapped && (b < a || b > f.Rb || (next >= 0 && (next <= f.NextBoundary || next > f.Rb)))) throw DamagedChildTable();",
+  "new": "if (mapped && (b > f.Rb || (next >= 0 && (next <= f.NextBoundary || next > f.Rb)))) throw DamagedChildTable();",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Traverse.cs"
+ },
+ {
+  "id": "1b8_T07",
+  "desc": "the mapped walk accepts a child as deep as its parent",
+  "old": "if (mapped && (ell <= f.Ell || ell > n)) throw DamagedChildTable();",
+  "new": "if (mapped && (ell < f.Ell || ell > n)) throw DamagedChildTable();",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Traverse.cs"
+ },
+ {
+  "id": "1b8_T08",
+  "desc": "the first l-index at the left bound of an interval is accepted",
+  "old": "if (first <= lb || first > rb) throw DamagedChildTable();",
+  "new": "if (first < lb || first > rb) throw DamagedChildTable();",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Traverse.cs"
+ },
+ {
+  "id": "1b8_T09",
+  "desc": "a suffix-array entry below zero reaches the bitmap of the repeated-leaf check",
+  "old": "if ((uint)position > (uint)n) throw new InvalidDataException(\"the suffix array holds a position outside the text",
+  "new": "if (position > n) throw new InvalidDataException(\"the suffix array holds a position outside the text",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Traverse.cs"
+ }
+]

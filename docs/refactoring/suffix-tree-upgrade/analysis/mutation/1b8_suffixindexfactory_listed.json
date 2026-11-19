@@ -1,0 +1,9 @@
+[
+ {
+  "id": "1b8_Y01",
+  "desc": "the dispatcher passes no options to the container reader",
+  "old": "return EsaSuffixTreeFactory.Open(path, options);",
+  "new": "return EsaSuffixTreeFactory.Open(path, null);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/SuffixIndexFactory.cs"
+ }
+]

@@ -1,0 +1,44 @@
+[
+ {
+  "id": "1b8_X02",
+  "desc": "Locate of a locus includes the empty suffix of rank 0",
+  "old": "int from = (int)Math.Max(locus.Lo, 1);",
+  "new": "int from = (int)locus.Lo;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixIndex.cs"
+ },
+ {
+  "id": "1b8_X03",
+  "desc": "the extension of a point inside an edge compares one symbol beyond the text",
+  "old": "if (at >= (uint)_n || text[(int)at] != symbol) return false;",
+  "new": "if (at > (uint)_n || text[(int)at] != symbol) return false;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixIndex.cs"
+ },
+ {
+  "id": "1b8_X04",
+  "desc": "a locus with an aux one beyond the text is refused",
+  "old": "locus.Aux >= locus.Length && locus.Aux <= n + 1;",
+  "new": "locus.Aux >= locus.Length && locus.Aux <= n;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixIndex.cs"
+ },
+ {
+  "id": "1b8_X05",
+  "desc": "the last-child flag of a node takes the equal side",
+  "old": "bool lastChild = left > right;",
+  "new": "bool lastChild = left >= right;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixIndex.cs"
+ },
+ {
+  "id": "1b8_X06",
+  "desc": "the rank n is refused",
+  "old": "if ((ulong)rank > (ulong)_n) throw new ArgumentOutOfRangeException(parameterName, rank,",
+  "new": "if ((ulong)rank >= (ulong)_n) throw new ArgumentOutOfRangeException(parameterName, rank,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixIndex.cs"
+ },
+ {
+  "id": "1b8_X07",
+  "desc": "a locus whose parent is as deep as the locus is accepted",
+  "old": "bool valid = parentDepth < locus.Length;",
+  "new": "bool valid = parentDepth <= locus.Length;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixIndex.cs"
+ }
+]

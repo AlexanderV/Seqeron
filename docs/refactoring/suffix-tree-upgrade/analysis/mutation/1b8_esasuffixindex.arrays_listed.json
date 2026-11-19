@@ -1,0 +1,30 @@
+[
+ {
+  "id": "1b8_X01",
+  "desc": "Lcp of a rank with itself is one too long",
+  "old": "if (rankA == rankB) return _n - _index.Sa[(int)rankA];",
+  "new": "if (rankA == rankB) return _n - _index.Sa[(int)rankA] + 1;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixIndex.Arrays.cs"
+ },
+ {
+  "id": "1b8_X08",
+  "desc": "Lca of two ranks of one text position has the wrong depth",
+  "old": "long depth = _n - _index.Sa[rank] + 1;",
+  "new": "long depth = _n - _index.Sa[rank];",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixIndex.Arrays.cs"
+ },
+ {
+  "id": "1b8_X09",
+  "desc": "Lca does not return the root for an LCP of 0",
+  "old": "        if (value == 0) return Root;\n        return new IndexLocus(pyramid.PrevLess",
+  "new": "        return new IndexLocus(pyramid.PrevLess",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixIndex.Arrays.cs"
+ },
+ {
+  "id": "1b8_X10",
+  "desc": "Lca includes one rank too many on the right",
+  "old": "pyramid.NextLess(hi + 1, value) - 1, value, value);",
+  "new": "pyramid.NextLess(hi + 1, value), value, value);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixIndex.Arrays.cs"
+ }
+]

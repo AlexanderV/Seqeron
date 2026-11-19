@@ -1,0 +1,9 @@
+[
+ {
+  "id": "1b8_V01",
+  "desc": "a copy that ends exactly at the end of the suffix array is refused",
+  "old": "if (start < 0 || destination.Length > _count - start) ThrowOutside(start);",
+  "new": "if (start < 0 || destination.Length >= _count - start) ThrowOutside(start);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/SaView.cs"
+ }
+]

@@ -1,0 +1,30 @@
+[
+ {
+  "id": "1b8_P01",
+  "desc": "the suffix link of a node of depth 2 is the root",
+  "old": "        if (t == 0) return Root;                                  // an internal node of depth 1",
+  "new": "        if (t <= 1) return Root;                                  // an internal node of depth 1",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaNavigationPack.cs"
+ },
+ {
+  "id": "1b8_P02",
+  "desc": "the suffix link reads the inverse suffix array one rank off",
+  "old": "int a = isa[node.Pos + 1];",
+  "new": "int a = isa[node.Pos];",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaNavigationPack.cs"
+ },
+ {
+  "id": "1b8_P03",
+  "desc": "the suffix link flags the last child on a tie",
+  "old": "return new EsaNode(left, right - 1, t, parentDepth, sa[left], leftValue > rightValue);",
+  "new": "return new EsaNode(left, right - 1, t, parentDepth, sa[left], leftValue >= rightValue);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaNavigationPack.cs"
+ },
+ {
+  "id": "1b8_P04",
+  "desc": "the pack does not refuse a suffix array that repeats a position (mapped)",
+  "old": "if ((uint)position >= (uint)count || isaBuf[position] != -1)",
+  "new": "if ((uint)position >= (uint)count)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaNavigationPack.cs"
+ }
+]

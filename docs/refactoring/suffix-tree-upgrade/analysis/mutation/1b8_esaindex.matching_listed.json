@@ -1,0 +1,30 @@
+[
+ {
+  "id": "1b8_M01",
+  "desc": "MEM accepts a minimum length below 1",
+  "old": "        ArgumentNullException.ThrowIfNull(query);\n        ArgumentOutOfRangeException.ThrowIfLessThan(minLength, 1);\n        EsaNavigator nav = CreateNavigator();\n        return SuffixTreeAlgorithms.FindMaximalExactMatches<",
+  "new": "        ArgumentNullException.ThrowIfNull(query);\n        EsaNavigator nav = CreateNavigator();\n        return SuffixTreeAlgorithms.FindMaximalExactMatches<",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Matching.cs"
+ },
+ {
+  "id": "1b8_M02",
+  "desc": "MUM accepts an undefined uniqueness",
+  "old": "        if (uniqueness is not (MumUniqueness.Both or MumUniqueness.Reference))\n            throw new ArgumentOutOfRangeException(nameof(uniqueness), uniqueness, \"Undefined MumUniqueness value.\");\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Matching.cs"
+ },
+ {
+  "id": "1b8_M03",
+  "desc": "the info of no common substring reports position 0",
+  "old": "if (results.PositionsInText.Count == 0) return (string.Empty, -1, -1);",
+  "new": "if (results.PositionsInText.Count == 0) return (string.Empty, 0, 0);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Matching.cs"
+ },
+ {
+  "id": "1b8_M04",
+  "desc": "the anchors accept a null query (the reference check is left out)",
+  "old": "        ArgumentNullException.ThrowIfNull(query);\n        EsaNavigator nav = CreateNavigator();\n        return SuffixTreeAlgorithms.FindExactMatchAnchors<",
+  "new": "        EsaNavigator nav = CreateNavigator();\n        return SuffixTreeAlgorithms.FindExactMatchAnchors<",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Matching.cs"
+ }
+]

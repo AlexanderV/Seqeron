@@ -1,0 +1,16 @@
+[
+ {
+  "id": "1b8_C01",
+  "desc": "the mapped child table: the next l-index is always the stored cell",
+  "old": "        int v = _cld[k];\n        return _lcp[v] == lk ? v : -1;\n    }\n\n    private void ThrowOutside(int cell) => throw new InvalidDataException($\"the child table is read at cell",
+  "new": "        int v = _cld[k];\n        return v;\n    }\n\n    private void ThrowOutside(int cell) => throw new InvalidDataException($\"the child table is read at cell",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ChildLayouts.cs"
+ },
+ {
+  "id": "1b8_C02",
+  "desc": "the mapped child table: the walk continues at the right bound",
+  "old": "        if (k >= rb) return -1;\n        if (_checked && (uint)k >= (uint)_count) ThrowOutside(k);",
+  "new": "        if (k > rb) return -1;\n        if (_checked && (uint)k >= (uint)_count) ThrowOutside(k);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ChildLayouts.cs"
+ }
+]

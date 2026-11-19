@@ -1,0 +1,23 @@
+[
+ {
+  "id": "1b8_O01",
+  "desc": "an LCP[1] other than 0 is not refused (reverts a fix of 1b.8)",
+  "old": "                if (first[sp] < 0) throw DamagedLcp(); // only an LCP[1] other than 0 leaves the base interval without a first l-index\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/LeftmostOccurrence.cs"
+ },
+ {
+  "id": "1b8_O02",
+  "desc": "a negative LCP value is not refused (reverts a fix of 1b.8)",
+  "old": "            if (sp == 0) throw DamagedLcp(); // a negative LCP value popped the base interval\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/LeftmostOccurrence.cs"
+ },
+ {
+  "id": "1b8_O03",
+  "desc": "the occurrence of an interval is the largest position, not the leftmost",
+  "old": "if (sa[i - 1] < min[sp - 1]) min[sp - 1] = sa[i - 1];",
+  "new": "if (sa[i - 1] > min[sp - 1]) min[sp - 1] = sa[i - 1];",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/LeftmostOccurrence.cs"
+ }
+]

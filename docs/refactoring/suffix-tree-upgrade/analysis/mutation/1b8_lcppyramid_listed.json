@@ -1,0 +1,16 @@
+[
+ {
+  "id": "1b8_L01",
+  "desc": "the previous smaller value of position 0 is position 0",
+  "old": "        if (pos < 0) return -1;\n        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(pos, _length);",
+  "new": "        if (pos <= 0) return -1;\n        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(pos, _length);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/LcpPyramid.cs"
+ },
+ {
+  "id": "1b8_L02",
+  "desc": "the next smaller value of a position behind the end is scanned",
+  "old": "        if (pos >= _length) return _length;\n        ArgumentOutOfRangeException.ThrowIfNegative(pos);",
+  "new": "        if (pos > _length) return _length;\n        ArgumentOutOfRangeException.ThrowIfNegative(pos);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/LcpPyramid.cs"
+ }
+]

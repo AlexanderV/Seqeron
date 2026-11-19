@@ -1,0 +1,16 @@
+[
+ {
+  "id": "1b8_F01",
+  "desc": "the Structure level is never checked",
+  "old": "if (options.Validation >= EsaValidationLevel.Structure) SesaVerifier.CheckStructure(file);",
+  "new": "if (options.Validation > EsaValidationLevel.Structure) SesaVerifier.CheckStructure(file);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaFile.cs"
+ },
+ {
+  "id": "1b8_F02",
+  "desc": "the Sections level is never checked at Sections",
+  "old": "if (options.Validation >= EsaValidationLevel.Sections) SesaVerifier.CheckSections(file, hardwareCrc);",
+  "new": "if (options.Validation > EsaValidationLevel.Sections) SesaVerifier.CheckSections(file, hardwareCrc);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaFile.cs"
+ }
+]

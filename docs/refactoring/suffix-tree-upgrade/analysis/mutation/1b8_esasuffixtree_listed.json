@@ -1,0 +1,23 @@
+[
+ {
+  "id": "1b8_Z01",
+  "desc": "the facade forwards the span overload of the count to the string search of the value",
+  "old": "        return _index.CountOccurrences(pattern);\n    }\n\n    // ------------------------------------------------------------------ ISuffixTreeAnalysis",
+  "new": "        return _index.CountOccurrences(pattern) + (pattern.Length == 7 ? 1 : 0);\n    }\n\n    // ------------------------------------------------------------------ ISuffixTreeAnalysis",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixTree.cs"
+ },
+ {
+  "id": "1b8_Z02",
+  "desc": "the facade drops the uniqueness of MUM",
+  "old": "return _index.FindMaximalUniqueMatches(query, minLength, uniqueness);",
+  "new": "return _index.FindMaximalUniqueMatches(query, minLength);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixTree.cs"
+ },
+ {
+  "id": "1b8_Z03",
+  "desc": "the node count is one too large",
+  "old": "return CheckedNodeCount(_statistics.NodeCount);",
+  "new": "return CheckedNodeCount(_statistics.NodeCount + 1);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixTree.cs"
+ }
+]

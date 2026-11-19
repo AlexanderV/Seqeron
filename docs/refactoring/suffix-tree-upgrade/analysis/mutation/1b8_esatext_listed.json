@@ -1,0 +1,9 @@
+[
+ {
+  "id": "1b8_E01",
+  "desc": "a substring that ends exactly at the end of the packed text is refused",
+  "old": "if (start < 0 || length < 0 || start > _length - length) ThrowOutside(start);",
+  "new": "if (start < 0 || length < 0 || start >= _length - length) ThrowOutside(start);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaText.cs"
+ }
+]

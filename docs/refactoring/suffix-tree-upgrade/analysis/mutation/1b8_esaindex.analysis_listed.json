@@ -1,0 +1,65 @@
+[
+ {
+  "id": "1b8_A01",
+  "desc": "a longest repeat that starts at rank 1 is dropped",
+  "old": "        if (runStart >= 0) results.Add(Tie(runStart, Length, length));",
+  "new": "        if (runStart > 0) results.Add(Tie(runStart, Length, length));",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Analysis.cs"
+ },
+ {
+  "id": "1b8_A02",
+  "desc": "the number of distinct substrings is n(n-1)/2 minus the LCP sum",
+  "old": "long total = n * (n + 1) / 2;",
+  "new": "long total = n * (n - 1) / 2;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Analysis.cs"
+ },
+ {
+  "id": "1b8_A03",
+  "desc": "distinct substrings by length skip the LCP value 1",
+  "old": "if (value > 0) counts[Math.Min(value, m)]++;",
+  "new": "if (value > 1) counts[Math.Min(value, m)]++;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Analysis.cs"
+ },
+ {
+  "id": "1b8_A04",
+  "desc": "distinct substrings by length: the count of length i is off by one",
+  "old": "counts[i] = n - i + 1 - atLeast;",
+  "new": "counts[i] = n - i - atLeast;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Analysis.cs"
+ },
+ {
+  "id": "1b8_A05",
+  "desc": "distinct substrings by length: the empty substring is not counted",
+  "old": "        counts[0] = 1;\n        return counts;",
+  "new": "        counts[0] = 0;\n        return counts;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Analysis.cs"
+ },
+ {
+  "id": "1b8_A06",
+  "desc": "GetAllSuffixes leaves the last suffix out",
+  "old": "for (int rank = 1; rank <= Length; rank++) suffixes[rank - 1] = TextView.Substring(sa[rank]);",
+  "new": "for (int rank = 1; rank < Length; rank++) suffixes[rank - 1] = TextView.Substring(sa[rank]);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Analysis.cs"
+ },
+ {
+  "id": "1b8_A07",
+  "desc": "the positions of a longest repeat are not sorted",
+  "old": "        Array.Sort(positions);\n        return (TextView.Substring(positions[0], length), positions);",
+  "new": "        return (TextView.Substring(positions[0], length), positions);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Analysis.cs"
+ },
+ {
+  "id": "1b8_A08",
+  "desc": "the longest repeats are not ordered by first occurrence",
+  "old": "        results.Sort(static (a, b) => a.Positions[0].CompareTo(b.Positions[0]));\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Analysis.cs"
+ },
+ {
+  "id": "1b8_A09",
+  "desc": "EnumerateSuffixes leaves the last suffix out",
+  "old": "for (int rank = 1; rank <= Length; rank++) yield return TextView.Substring(sa[rank]);",
+  "new": "for (int rank = 1; rank < Length; rank++) yield return TextView.Substring(sa[rank]);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Analysis.cs"
+ }
+]

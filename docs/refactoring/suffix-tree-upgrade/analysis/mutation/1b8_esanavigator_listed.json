@@ -1,0 +1,23 @@
+[
+ {
+  "id": "1b8_N01",
+  "desc": "CollectLeaves includes the rank of the empty suffix",
+  "old": "int from = Math.Max(node.Lb, 1);",
+  "new": "int from = node.Lb;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaNavigator.cs"
+ },
+ {
+  "id": "1b8_N02",
+  "desc": "the child lookup does not stop at the end of the keys",
+  "old": "            if (symbol > key || boundary < 0)\n            {\n                child = EsaNode.Null;\n                return false;\n            }\n            a = boundary;\n            boundary = table.NextLIndex(boundary, rb);",
+  "new": "            if (symbol > key)\n            {\n                child = EsaNode.Null;\n                return false;\n            }\n            a = boundary;\n            boundary = table.NextLIndex(boundary, rb);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaNavigator.cs"
+ },
+ {
+  "id": "1b8_N03",
+  "desc": "the edge symbol ignores the parent depth",
+  "old": "uint index = (uint)node.Pos + (uint)node.ParentDepth + (uint)offset;",
+  "new": "uint index = (uint)node.Pos + (uint)offset;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaNavigator.cs"
+ }
+]

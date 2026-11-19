@@ -1,0 +1,30 @@
+[
+ {
+  "id": "1b8_W01",
+  "desc": "an LCP value that is smaller than the true one is accepted",
+  "old": "if (stored != h) throw new InvalidDataException($\"LCP[{r}] is {stored}, but the suffixes",
+  "new": "if (stored > h) throw new InvalidDataException($\"LCP[{r}] is {stored}, but the suffixes",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaVerifier.cs"
+ },
+ {
+  "id": "1b8_W02",
+  "desc": "NODE_COUNT may be larger than the true one",
+  "old": "if (h.NodeCount != nodeCount) throw new InvalidDataException",
+  "new": "if (h.NodeCount < nodeCount) throw new InvalidDataException",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaVerifier.cs"
+ },
+ {
+  "id": "1b8_W03",
+  "desc": "LRS_DEPTH is not compared",
+  "old": "if (h.LrsDepth != sink.LrsDepth) throw new InvalidDataException",
+  "new": "if (h.LrsDepth != sink.LrsDepth && false) throw new InvalidDataException",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaVerifier.cs"
+ },
+ {
+  "id": "1b8_W04",
+  "desc": "the symbols of the text are not compared with SIGMA",
+  "old": "if (s >= sigma) throw new InvalidDataException",
+  "new": "if (s > sigma) throw new InvalidDataException",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaVerifier.cs"
+ }
+]

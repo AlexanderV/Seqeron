@@ -1,0 +1,65 @@
+[
+ {
+  "id": "1b8_S01",
+  "desc": "the long overload of Locate ignores the skip",
+  "old": "        int start = (int)(lo + skip);\n        SaView sa = Sa;",
+  "new": "        int start = lo;\n        SaView sa = Sa;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Search.cs"
+ },
+ {
+  "id": "1b8_S02",
+  "desc": "the descent of the in-memory trees does not stop at the end of the keys of an interval",
+  "old": "int key = p < n ? ToInt(text[p]) : -1;\n                if (key == symbol) break;\n                if (key > symbol || boundary < 0)",
+  "new": "int key = p < n ? ToInt(text[p]) : -1;\n                if (key == symbol) break;\n                if (key > symbol)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Search.cs"
+ },
+ {
+  "id": "1b8_S03",
+  "desc": "the edge check of the descent leaves out one symbol",
+  "old": "if (limit > c + 1 && !text.Slice(from + 1, limit - c - 1).SequenceEqual(pat.Slice(c + 1, limit - c - 1)))",
+  "new": "if (limit > c + 2 && !text.Slice(from + 1, limit - c - 1).SequenceEqual(pat.Slice(c + 1, limit - c - 1)))",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Search.cs"
+ },
+ {
+  "id": "1b8_S04",
+  "desc": "a pattern longer than the rest of the suffix is sliced",
+  "old": "if (m - c > n - start || !text.Slice(start, m - c).SequenceEqual(pat.Slice(c)))",
+  "new": "if (!text.Slice(start, m - c).SequenceEqual(pat.Slice(c)))",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Search.cs"
+ },
+ {
+  "id": "1b8_S05",
+  "desc": "the mapped descent translates the pattern to a wrong symbol",
+  "old": "            pat[i] = (byte)s;",
+  "new": "            pat[i] = (byte)(s ^ 1);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Search.cs"
+ },
+ {
+  "id": "1b8_S06",
+  "desc": "the mapped descent accepts a child as deep as its parent",
+  "old": "if (isChecked && (childEll <= ell || childEll > n)) ThrowDamagedChildTable();",
+  "new": "if (isChecked && (childEll < ell || childEll > n)) ThrowDamagedChildTable();",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Search.cs"
+ },
+ {
+  "id": "1b8_S07",
+  "desc": "TryMatch does not refuse the empty text",
+  "old": "        if (Length == 0) return false;\n        if (IsMapped) return MatchMapped",
+  "new": "        if (IsMapped) return MatchMapped",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Search.cs"
+ },
+ {
+  "id": "1b8_S08",
+  "desc": "an edge that ends exactly at the end of the text is refused (mapped)",
+  "old": "if ((uint)start > (uint)text.Length || expected.Length > text.Length - start) return false;",
+  "new": "if ((uint)start > (uint)text.Length || expected.Length >= text.Length - start) return false;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Search.cs"
+ },
+ {
+  "id": "1b8_S09",
+  "desc": "the mapped descent does not stop at a leaf mismatch of the first symbol",
+  "old": "                if ((uint)start > (uint)n || m - c > n - start || !EdgeEquals(text, start, pat.Slice(c), edge))",
+  "new": "                if ((uint)start > (uint)n || !EdgeEquals(text, start, pat.Slice(c), edge))",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Search.cs"
+ }
+]
