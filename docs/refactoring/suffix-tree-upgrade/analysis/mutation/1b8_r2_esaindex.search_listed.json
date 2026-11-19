@@ -1,0 +1,16 @@
+[
+ {
+  "id": "1b8_S03",
+  "desc": "the edge check of the descent leaves out one symbol",
+  "old": "if (limit > c + 1 && !text.Slice(from + 1, limit - c - 1).SequenceEqual(pat.Slice(c + 1, limit - c - 1)))",
+  "new": "if (limit > c + 2 && !text.Slice(from + 1, limit - c - 1).SequenceEqual(pat.Slice(c + 1, limit - c - 1)))",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Search.cs"
+ },
+ {
+  "id": "1b8_S06",
+  "desc": "the mapped descent accepts a child as deep as its parent",
+  "old": "if (isChecked && (childEll <= ell || childEll > n)) ThrowDamagedChildTable();",
+  "new": "if (isChecked && (childEll < ell || childEll > n)) ThrowDamagedChildTable();",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Search.cs"
+ }
+]

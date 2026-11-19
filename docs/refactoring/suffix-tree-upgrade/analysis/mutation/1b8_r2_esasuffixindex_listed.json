@@ -1,0 +1,9 @@
+[
+ {
+  "id": "1b8_X07",
+  "desc": "a locus whose parent is as deep as the locus is accepted",
+  "old": "bool valid = parentDepth < locus.Length;",
+  "new": "bool valid = parentDepth <= locus.Length;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixIndex.cs"
+ }
+]

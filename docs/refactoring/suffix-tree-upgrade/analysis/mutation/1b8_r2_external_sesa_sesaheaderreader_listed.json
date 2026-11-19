@@ -1,0 +1,16 @@
+[
+ {
+  "id": "1b8_H03",
+  "desc": "the reserved header word may be anything",
+  "old": "if (U32(p, 120) != 0) throw new InvalidDataException(\"the reserved header word is not zero\");\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaHeaderReader.cs"
+ },
+ {
+  "id": "1b8_H04",
+  "desc": "COUNTS may sum to less than the text",
+  "old": "if (sum != (ulong)n) throw new InvalidDataException($\"COUNTS sums to {sum}, not to the {n} symbols of the text\");",
+  "new": "if (sum > (ulong)n) throw new InvalidDataException($\"COUNTS sums to {sum}, not to the {n} symbols of the text\");",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaHeaderReader.cs"
+ }
+]

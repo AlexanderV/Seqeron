@@ -1,0 +1,23 @@
+[
+ {
+  "id": "1b8_T06",
+  "desc": "the mapped walk does not check that a child interval is not empty",
+  "old": "if (mapped && (b < a || b > f.Rb || (next >= 0 && (next <= f.NextBoundary || next > f.Rb)))) throw DamagedChildTable();",
+  "new": "if (mapped && (b > f.Rb || (next >= 0 && (next <= f.NextBoundary || next > f.Rb)))) throw DamagedChildTable();",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Traverse.cs"
+ },
+ {
+  "id": "1b8_T07",
+  "desc": "the mapped walk accepts a child as deep as its parent",
+  "old": "if (mapped && (ell <= f.Ell || ell > n)) throw DamagedChildTable();",
+  "new": "if (mapped && (ell < f.Ell || ell > n)) throw DamagedChildTable();",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Traverse.cs"
+ },
+ {
+  "id": "1b8_T08",
+  "desc": "the first l-index at the left bound of an interval is accepted",
+  "old": "if (first <= lb || first > rb) throw DamagedChildTable();",
+  "new": "if (first < lb || first > rb) throw DamagedChildTable();",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Traverse.cs"
+ }
+]
