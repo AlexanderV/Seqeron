@@ -1,0 +1,600 @@
+A01	OPEN	a null file is an NRE
+A03	killed	a null option set is an NRE
+A05	killed	a negative section offset is accepted
+A07	killed	a section range that ends at the end is refused
+A09	equivalent	the file choice is the other way round (same in both modes)
+A11	killed	the section sink is one entry short
+A13	killed	the section sink is not counted
+A15	killed	the path mode does not complete the file
+B01	killed	Threads below 1 accepted
+B02	killed	negative arena cap accepted
+B03	killed	negative child arena cap accepted
+B04	killed	negative PH6 cap accepted
+B05	killed	negative RssAnon cap accepted
+B06	killed	missing directory not refused up front
+B07	killed	temporary file named differently
+B08	killed	scratch directory named differently
+B09	killed	pre-flight refuses at equality
+B10	killed	pre-flight skips a source that reports 0
+B101	killed	the BWT pass gets no budget
+B103	killed	the BWT pass is not counted
+B105	killed	PSI gets another window
+B107	killed	PSI gets another read size
+B109	equivalent	PSI gets no budget
+B11	killed	pre-flight forgets the scratch per character
+B111	killed	PSI is not counted
+B113	equivalent	PSI gets the counts of the BWT (same values)
+B115	killed	BUILD_INFO claims no PSI
+B117	equivalent	BUILD_INFO may fill its room
+B119	killed	BUILD_INFO goes to the LCP offset
+B12	killed	pre-flight forgets the container
+B121	killed	the text reader stays open until the end
+B123	OPEN	the container is not closed before the checksums
+B125	killed	the file length check is off
+B127	killed	the checksum of the alphabet is of the counts
+B129	killed	the checksum of the SA is short
+B13	killed	pre-flight asks about the target, not the directory
+B131	killed	PSI is listed also when absent
+B133	killed	BUILD_INFO is listed with its room
+B135	killed	the overflow is listed when empty
+B137	killed	the overflow is listed one byte short
+B139	killed	required sections without the required flag
+B14	killed	a stale temporary file is left
+B141	killed	optional sections are required
+B142	killed	TEXT counts one more element
+B143	killed	TEXT forgets the bits in PARAM0
+B144	killed	TEXT is not required
+B145	killed	ALPHABET has the wrong element width
+B146	killed	ALPHABET has the wrong count
+B147	killed	ALPHABET has another codec
+B148	killed	COUNTS has the wrong element width
+B149	killed	COUNTS is required
+B15	killed	a stale scratch directory is left
+B150	killed	SA is optional
+B151	killed	SA counts n entries
+B152	killed	SA has 8-byte elements
+B153	killed	CHILD is optional
+B154	killed	CHILD has the tagged codec id
+B155	killed	PSI is required
+B156	killed	PSI has no primary row
+B157	killed	PSI counts n entries
+B158	killed	BUILD_INFO counts its bytes
+B159	killed	BUILD_INFO has an element width
+B16	killed	a stale scratch file is left
+B160	killed	LCP has the wrong element width
+B161	killed	LCP U8 has codec 2
+B162	killed	LCP U16 has codec 3
+B163	killed	LCP U32 has codec 2
+B164	killed	LCP has no overflow count in PARAM0
+B165	killed	LCP is optional
+B166	killed	overflow counts bytes
+B167	killed	overflow has the wrong element width
+B168	killed	overflow is optional
+B169	equivalent	the discarded info length matters (it does not)
+B17	killed	the build does not call the stale cleanup
+B170	killed	the header holds the internal count
+B171	killed	the header holds the text length plus one
+B172	killed	the header holds the length without the overflow
+B173	equivalent	the header holds the max LCP as depth
+B174	killed	the header rank is kept when there is no repeat
+B175	killed	the header rank is always -1
+B176	killed	the header rank is the depth
+B177	killed	the header position width is 8
+B178	killed	the header sigma is the bits
+B179	killed	the header hash is zero
+B18	killed	scratch directory not created by the builder
+B180	killed	the header is written with the magic
+B181	killed	the header page goes to the wrong place
+B182	OPEN	the first sync is skipped
+B183	defence	the second sync is skipped
+B184	killed	the syncs ignore the option
+B185	killed	the magic is written at the wrong place
+B186	killed	an existing target is not replaced
+B187	equivalent	the published flag is not set
+B188	killed	the scratch is not removed before the end
+B189	equivalent	a published target is deleted by the cleanup
+B19	killed	the container is one byte short
+B190	killed	a failed build keeps its temporary file
+B191	killed	a failed build keeps its scratch
+B192	killed	a failed build keeps the container open
+B193	killed	a failed build keeps the text open
+B194	killed	the verdict is Within at equality only below
+B195	killed	the verdict is swapped
+B196	killed	the figure is in the wrong unit
+B197	killed	the figure is the peak of RSS pages (unit KiB as MB)
+B198	killed	the whole-build sampler is not started
+B199	killed	the per-phase figure is in the wrong unit
+B20	killed	the container is created without the file options
+B200	killed	the phase sampler runs although off
+B201	killed	the phase sampler is not started
+B202	killed	the whole sampler runs although off
+B203	killed	the whole sampler reads the real /proc
+B204	killed	the phase sampler reads the real /proc
+B205	killed	the seconds are not scaled
+B206	killed	PSI flag of the result
+B207	killed	the primary row of the result without PSI
+B208	killed	the sections of the primary row are taken from nothing
+B209	killed	arena peak is the minimum
+B21	killed	the container outcome is not reported
+B210	killed	arena peak forgets PH4 and PH5
+B211	killed	arena peak forgets PH6
+B212	killed	arena peak forgets PH1
+B213	killed	arena peak forgets PH2-3
+B214	killed	arena peak adds PH4 and PH5 as a maximum
+B215	killed	no scratch peak
+B216	killed	the grown bytes are not reported
+B217	killed	the growth outcome is not reported
+B219	killed	the crc rows are not reported
+B22	killed	no hook at the start
+B221	killed	the PH6 figure is not reported
+B223	killed	the PH0 figure is not reported
+B225	killed	the PSI seconds are not reported
+B227	killed	the seal seconds are not reported
+B229	killed	the pack seconds are not reported
+B23	killed	no hook after the scan
+B231	killed	the total seconds are not reported
+B233	killed	the PH4-5 seconds are not reported
+B235	killed	the PH2-3 seconds are not reported
+B237	killed	BUILD_INFO names layout F
+B239	killed	BUILD_INFO has a build time
+B24	killed	no hook after the creation
+B241	equivalent	BUILD_INFO is culture dependent
+B243	killed	BUILD_INFO has the wrong sigma
+B245	equivalent	the little-endian check is dropped (equivalent on this host)
+B247	killed	the 16 B spill constant
+B249	killed	Fsync defaults to false
+B25	killed	no hook after the packing
+B251	killed	the RssAnon cap defaults to 330
+B253	killed	the PH5 cap defaults to 128 MiB
+B255	killed	the text window defaults to 64 KiB
+B257	killed	PSI default window of PH6 is smaller
+B259	killed	PSI default symbols per pass 16
+B26	killed	no hook after the suffix array
+B27	killed	no hook at the placement
+B28	killed	no hook after LCP and CHILD
+B29	killed	no hook after the BWT
+B30	killed	no hook after PSI
+B31	killed	no hook after BUILD_INFO
+B32	killed	no hook after the checksums
+B33	killed	no hook after the header page
+B34	killed	no hook after the first sync
+B35	killed	no hook after the magic
+B36	killed	the hook between the passes is not called
+B37	equivalent	the packing fsyncs (not observable)
+B38	killed	the text block size is not passed on
+B39	equivalent	the text window is not passed on
+B40	killed	the text writer is not counted
+B41	killed	the alphabet is written shifted
+B42	killed	the counts are written shifted
+B43	killed	the alphabet goes to the counts section
+B44	killed	the packing window of the text section is not the option
+B45	killed	the packed text is read over a region one symbol short
+B46	killed	PH1-3 get one thread
+B47	killed	PH1-3 get the default period
+B48	killed	PH1-3 get an inexact period
+B49	killed	PH1-3 get no scale
+B50	killed	PH1-3 get no rule n
+B51	killed	PH1-3 get no arena cap
+B52	killed	PH1-3 get no tuning
+B53	killed	PH1-3 get another seed (output must not depend on it)
+B54	killed	PH1-3 get their own counters
+B55	killed	PH1-3 get no file options
+B56	killed	PH1-3 get no guards
+B57	killed	PH1-3 do not verify the ranks
+B58	killed	PH1-3 are not measured
+B59	killed	PH1-3 read another /proc
+B60	killed	PH1-3 get another RssAnon cap
+B61	killed	PH1-3 get no trace
+B62	killed	PH4-5 get one thread
+B63	killed	PH4-5 get no scale
+B64	killed	PH4-5 get no rule n
+B65	killed	PH4 gets no arena cap
+B66	killed	PH5 gets no arena cap
+B67	killed	PH4-5 get no tuning
+B68	killed	PH4-5 get their own counters
+B69	killed	PH4-5 get no file options
+B70	killed	PH4-5 get no guards
+B71	killed	PH4-5 are not measured
+B72	killed	PH4-5 read another /proc
+B73	killed	PH4-5 get another RssAnon cap
+B74	killed	PH4-5 get no trace
+B75	killed	the LCP is read from the wrong offset
+B76	killed	the child table goes to the SA offset
+B77	killed	the growth is the sum
+B78	killed	the spill bound is one entry short
+B79	killed	the late pre-flight refuses at equality
+B80	killed by the watchdog	the late pre-flight skips a source that reports 0
+B81	killed	the late pre-flight forgets the spill
+B82	killed	the late pre-flight forgets the growth
+B83	killed	the file grows also when it need not
+B84	killed	the file never grows
+B85	killed	the growth is not reported in bytes
+B86	killed	the growth outcome is not kept
+B87	killed	the file grows without the file options
+B88	killed	the overflow is placed at the LCP
+B89	killed	the late pre-flight asks about the target
+B91	killed	the BWT file is not scratch
+B93	killed	the BWT scratch is never released
+B95	killed	the BWT directory stays
+B97	killed	PH6 reads the SA from the wrong offset
+B99	killed	the BWT pass reads one byte per window
+C01	killed	polynomial changed
+C03	equivalent	dispatch swapped (both paths give the same value)
+C05	killed	slice 7 reads table 6
+C07	killed	tail shifts by 7
+C09	killed	hardware unrolled read at +15
+C11	killed	hardware tail reads byte 0
+C13	killed	table path returns the value uncomplemented
+C15	equivalent	the hardware path no longer refuses without the CPU
+F01	killed	a section of exactly 1 MiB is not large
+F02	killed	alignments swapped
+F03	killed	an aligned offset moves on
+F04	killed	large from 2 MiB
+F05	killed	a negative offset is accepted
+F06	killed	a negative length is accepted
+F07	killed	the table takes 61 sections
+F08	killed	a hash of 31 bytes is accepted
+F09	killed	major version written at the minor
+F10	killed	minor version is 1
+F11	killed	endian probe at 16
+F12	killed	TEXT_LEN holds the node count
+F13	killed	NODE_COUNT holds the text length
+F14	killed	FILE_SIZE holds the node count
+F15	killed	table offset 0
+F16	killed	section count 62
+F17	killed	entry size 128
+F18	killed	LRS_DEPTH holds the rank
+F19	killed	LRS_RANK holds the depth
+F20	killed	POS_WIDTH at the sigma field
+F21	killed	SIGMA holds the position width
+F22	killed	hash one byte late
+F23	killed	build flags zero
+F24	killed	second entry overwrites the first
+F25	killed	entry kind holds the flags
+F27	killed	entry offset holds the length
+F29	killed	entry count holds the length
+F31	killed	entry codec holds the width
+F33	killed	PARAM1 holds PARAM0
+F35	killed	header CRC stops one byte short
+F37	killed	the CRC is computed without the magic
+F39	killed	magic ends with 1B
+G01	killed	Grow on a disposed file does not refuse
+G03	killed	Grow refuses to stay
+G05	killed	no growth reports a check
+G07	killed	one open writer is tolerated
+G09	killed	the pre-flight refuses at equality
+G11	killed	the pre-flight is skipped
+G13	killed	the file grows by one byte too much
+G15	killed	the stream refuses to share
+G17	killed	the old mapping is kept
+G19	killed	the length is not updated
+G21	killed	the outcome is never checked
+G23	equivalent	the lock is dropped (single threaded use)
+K01	equivalent	a negative SA offset is accepted
+K02	killed by the watchdog	a negative child offset is accepted
+K03	equivalent	a negative PH4 cap is accepted
+K04	killed	a negative PH5 cap is accepted
+K05	killed	the tagged codec is accepted
+K06	killed	a text at the position limit is refused
+K07	killed	the child range may end past the file
+K08	killed	a child range that ends at the end of the file is refused
+K09	killed	the child range is not checked
+K10	killed	the scratch root is always removed when empty
+K11	killed	the scratch root is never removed
+K12	killed	ph4 is left
+K13	killed	ph5 is left
+K14	killed	the sampler is not started
+K15	killed	PH4 uses the scratch of PH5
+K16	killed	PH4 gets another chunk
+K17	defence	PH4 gets one thread
+K18	killed	PH4 gets one worker
+K19	killed	PH4 gets another read buffer
+K20	killed	PH4 gets another tuple buffer
+K21	killed	PH4 gets the window of PH5
+K22	killed	PH4 gets no budget
+K23	defence	PH4 gets no guards
+K24	killed	PH4 is not counted
+K25	equivalent	PH4 gets no file options
+K26	killed	PH4 gets no trace
+K27	killed	PH4 reads the SA from offset 0
+K28	killed	PH4 gets no placer
+K29	equivalent	PH5 gets another scratch
+K30	killed	PH5 gets another block size
+K31	killed	PH5 gets the window of PH4
+K32	killed	PH5 gets one slot
+K33	defence	PH5 does not flush windows
+K34	killed	PH5 gets another spill flush size
+K35	equivalent	PH5 gets the default codec (tagged cannot be passed)
+K36	killed	PH5 gets no budget
+K37	defence	PH5 gets no guards
+K38	killed	PH5 is not counted
+K39	killed	the scan is created for every block
+K40	killed	a scan that never started is an NRE, not an invalid operation
+K41	killed	the scan is not disposed
+K42	killed	the figure is in the wrong unit
+K43	killed	the verdict is strict
+K44	killed	the verdict is swapped
+K45	killed	the arena peaks are swapped
+K46	killed	the seconds are not measured
+K47	killed	the reservation outcome is not reported
+K48	killed	the scratch root is not removed when empty
+K49	OPEN	the sub-directories are deleted non-recursively
+K50	killed	the parameters are not reported
+L01	killed	arrays of 3 bytes per entry
+L03	killed	counts of 4 bytes
+L05	killed	ALPHABET over the TEXT
+L07	killed	SA over the COUNTS
+L09	killed	the end counts the offset only
+L11	killed	the end after PSI forgets its length
+L13	killed	LCP inside the BUILD_INFO room
+L15	killed	reserved length of the widest LCP
+L17	killed	the plan says PSI when there is none
+L19	killed	LCP of n entries
+L21	killed	overflow at the start of the LCP
+L23	killed	a negative number of escapes is accepted
+L25	killed	the sigma of the plan is the width
+P01	killed	the default window is 64 KiB
+P02	killed	the default is 32 symbols per pass
+P03	killed	the default read is 1 KiB
+P04	killed	the default cap is 128 MiB
+P05	killed	a window of 0 is accepted
+P06	killed	symbols per pass 0 is accepted
+P07	killed by the watchdog	a read of 0 is accepted
+P08	killed	a negative n is accepted
+P09	killed	a text at the limit is refused
+P10	killed	a primary row of n + 1 is accepted
+P11	killed	a primary row of -1 is accepted
+P12	killed	the last row is refused as primary
+P13	killed	an alphabet of 256 is refused
+P14	killed	an alphabet of 257 is accepted
+P15	killed	a negative count is accepted
+P16	killed	a zero count is refused
+P17	killed	a sum above n is accepted
+P18	killed	a sum below n is accepted
+P19	killed by the watchdog	a negative PSI offset is accepted
+P20	killed	the PSI range may end past the file
+P21	killed	a PSI range that ends at the end of the file is refused
+P22	OPEN	a window of under one entry means no entries
+P23	killed	the group is the larger of the two
+P24	killed	the passes are rounded down
+P25	killed	one pass too many
+P26	killed	the bound is in entries
+P27	killed	the cap is not enforced
+P28	killed	the shared budget is not charged
+P29	killed	the shared budget is not released
+P30	killed	a longer BWT file is accepted
+P31	killed	a shorter BWT file is accepted
+P32	killed	the BWT reads are not counted
+P33	killed	the first symbol starts at row 0
+P34	not compiled	PSI[0] is not written
+P35	killed	PSI[0] writer is not counted
+P36	killed	PSI[0] is written at the second entry
+P37	killed	the read length is not bounded by the rows
+P38	OPEN	the read buffer is zeroed
+P39	killed	the budget is ignored by the arena
+P40	killed	the guards are ignored by the arena
+P41	killed	the first symbol of a pass is off
+P42	killed	the last symbol of a pass is off
+P43	killed	the primary row at a block start is not skipped
+P44	killed	the primary row at a block end is not skipped
+P45	equivalent	a primary row at the start of the next block is handled twice
+P46	killed	rows after the primary row are numbered from the primary row
+P47	killed	rows before the primary row are numbered from 0
+P48	killed	the counts are not verified at the end of the pass
+P49	killed	the windows of the passes are not summed
+P50	killed	the BWT bytes read are one pass
+P51	killed	the PSI bytes written are in entries
+P52	killed	the stats carry the symbols as the group
+P53	killed	the limit of a symbol ignores the count
+P54	killed	the first entry of a symbol is off
+P55	killed	the cursor does not register as a writer
+P56	killed	the cursor never unregisters as a writer
+P57	killed	the cursors are not offset by the pass
+P58	killed	a symbol of the next pass is taken
+P59	killed	the row is off by one
+P60	killed	a cursor that stopped short is not noticed in the window
+P61	killed	a cursor that has not used its limit is not noticed
+P62	killed	the views are not released
+P63	defence	the cursor array is not freed (not observable)
+P64	OPEN	the end array is not freed (not observable)
+P65	killed	the previous window is kept open
+P66	OPEN	an excess occurrence at the limit is not refused
+P67	killed	the window ignores the remaining entries
+P68	killed	the window starts at the section start
+P69	killed	the window ignores the pointer offset
+P70	killed	the window is not counted as mapped
+P71	killed	the window is not counted as a window
+P72	killed	the windows are not counted
+P73	killed	the next entry advances by one
+P74	killed	the release does not release the pointer
+P75	killed	the released view is not disposed
+P76	killed	the released view stays registered
+S01	killed	views skip a byte
+S03	killed	a range past the end is accepted
+S05	killed	the CRC does not chain across views
+S07	killed	a negative offset is accepted
+S09	killed by the watchdog	a view of zero bytes is accepted
+T01	killed	the section writer starts at 4
+T03	killed	the section writer is not counted
+T05	killed	the entries are written at their offset in entries
+V01	killed	a negative SA offset is accepted
+V03	killed	a section that ends at the end of the file is refused
+V05	killed	the first entry is read at offset 0
+V07	killed	the base array goes to the overflow offset
+V09	killed	the reservation outcome of the placement is not kept
+V11	OPEN	a failed output writer leaves the writers open
+V13	killed	the placer is told no maximum
+V15	defence	the path mode does not complete the base file
+V17	killed	the base file is not disposed
+V19	killed	the base writers use the default window
+V21	killed	the overflow writer is not counted
+W01	equivalent	a negative SA offset is accepted
+W03	killed	sigma 257 is accepted
+W05	killed by the watchdog	a read of under one entry is accepted
+W07	killed	a text at the limit is refused
+W09	killed	a text at the bit limit is refused
+W11	killed	an SA range that ends at the end of the file is refused
+W13	killed	the read is not bounded by the rows
+W15	killed	the budget is ignored
+W17	killed	the BWT file ignores the file options
+W19	killed	the BWT writer has the default window
+W21	killed	the SA is read from offset 0
+W23	killed	entries are not range checked
+W25	killed	SA[0] is not checked
+W27	equivalent	a second zero is tolerated when later (equivalent for n > 0)
+W29	killed	the primary row is one too high
+W31	killed	the symbol is outside the alphabet at equality
+W33	killed	the symbol is the one after
+W35	killed	the counts are not kept
+W37	defence	the BWT file is not completed
+W39	killed	the result carries the sentinel row of the file end
+W41	killed	the default read is 1 KiB
+W43	killed	the output is not appended
+d_C01	killed	1b7d comparator: the key skip is one symbol too long
+d_C03	killed	1b7d comparator: a zero extension counts as a full period
+d_C05	killed	1b7d comparator: the symbols include those of the key
+d_C07	killed	1b7d comparator: a tied call is not counted as tied
+d_C09	killed	1b7d comparator: the key skip is applied to untied calls
+d_F06	killed	1b7d gap: Sort: the tie positions are not counted
+d_H08	killed	1b7d gap: Run: the scratch root is not removed
+d_Q76	defence	1b7d gap: Build: PH1 arena guards
+d_Y02	killed	1b7d gap: Scatter: the target is always reserved
+A02	not run	a null text is an NRE
+A04	not run	the section range is not checked
+A06	not run	the section range may end past the file
+A08	not run	a failure in section mode removes the path (there is none)
+A10	not run	the section sink starts at 0
+A12	not run	the section sink gets another window
+A14	not run	the section mode completes the file
+B100	not run	the BWT pass gets the default window
+B102	not run	the BWT pass gets no guards
+B104	not run	the BWT file gets no file options
+B106	not run	PSI gets the default symbols per pass
+B108	not run	PSI gets no window cap
+B110	not run	PSI gets no guards
+B112	not run	PSI goes to the CHILD section
+B114	not run	PSI gets a primary row one too high
+B116	not run	BUILD_INFO claims no overflow
+B118	not run	BUILD_INFO may overrun its room
+B120	not run	the container is not completed
+B122	not run	the text reader is disposed but not cleared
+B124	not run	the file length check is a smaller-than check
+B126	not run	the checksum of the text section skips its end
+B128	not run	the checksum of the counts is short
+B130	not run	the checksum of the CHILD is of the SA
+B132	not run	the checksum of PSI is short
+B134	not run	LCP is listed with one entry short
+B136	not run	the overflow is never listed
+B138	not run	required sections without the checksum flag
+B140	not run	optional sections without the checksum flag
+B218	not run	the reservation outcome is not reported
+B220	not run	the file size of the result is the reserved length
+B222	not run	the seal figure is not reported
+B224	not run	the BWT seconds are not reported
+B226	not run	the CRC seconds are not reported
+B228	not run	the create seconds are not reported
+B230	not run	the scan seconds are not reported
+B232	not run	the total seconds start late
+B234	not run	the PH1 seconds are not reported
+B236	not run	BUILD_INFO says PSI yes always
+B238	not run	BUILD_INFO has no trailing newline
+B240	not run	BUILD_INFO has the thread count slot
+B242	not run	BUILD_INFO has the wrong n
+B244	not run	BUILD_INFO has the wrong LCP kind
+B246	not run	the 12 B/char constant
+B248	not run	IncludePsi defaults to false
+B250	not run	Threads defaults to 1
+B252	not run	the PH6 cap defaults to 128 MiB
+B254	not run	the PH1-4 cap defaults to 128 MiB
+B256	not run	the period defaults to 512
+B258	not run	the BWT default read is smaller
+B90	not run	PSI is built without a BWT section (kept: the plan decides)
+B92	not run	the BWT scratch is one byte short
+B94	not run	the BWT counts are not checked here
+B96	not run	the BWT file stays until the scratch goes
+B98	not run	PH6 gets the wrong sigma
+C02	not run	hardware flag needs both CPUs
+C04	not run	table k built from the wrong byte
+C06	not run	slice 3 reads table 2
+C08	not run	table loop leaves the last full word to the tail loop (same value)
+C10	not run	hardware unrolled step of 31
+C12	not run	table path starts from the value, not its complement
+C14	not run	Compute starts from 1
+C16	not run	the arm64 tail reads byte 0
+F26	not run	entry flags hold the kind
+F28	not run	entry length holds the offset
+F30	not run	entry width holds the codec
+F32	not run	PARAM0 holds PARAM1
+F34	not run	entry CRC not written
+F36	not run	header CRC covers the whole table room
+F38	not run	the magic stays when it is not asked for
+F40	not run	CRC stored at 120
+G02	not run	Grow may shrink
+G04	not run	no growth goes through the whole path
+G06	not run	an open writer does not refuse
+G08	not run	the pre-flight asks for the whole length
+G10	not run	the pre-flight skips a source that reports 0
+G12	not run	the pre-flight asks about the file, not its directory
+G14	not run	the file is not made longer
+G16	not run	the failed mapping does not undo the growth
+G18	not run	the new mapping is not used
+G20	not run	the outcome is always checked
+G22	not run	the source of the options is ignored
+L02	not run	alphabet of 1 byte per letter
+L04	not run	TEXT at 0
+L06	not run	COUNTS over the ALPHABET
+L08	not run	CHILD over the SA
+L10	not run	PSI aligned as a small section
+L12	not run	BUILD_INFO aligned as a large section
+L14	not run	LCP aligned for the narrowest width
+L16	not run	PSI length without PSI
+L18	not run	the escape check on U16
+L20	not run	overflow of 4 bytes per entry
+L22	not run	final length without the overflow
+L24	not run	room for BUILD_INFO of 8 KiB (a size constant)
+S02	not run	view takes the larger part
+S04	not run	every view starts at the section start
+S06	not run	the row never says hardware
+S08	not run	a negative length is accepted
+S10	not run	the seconds are not measured
+T02	not run	the section writer is one entry short
+T04	not run	the section writer gets the default window
+T06	not run	the section writer is never disposed
+V02	not run	a file of its own may be longer than the array
+V04	not run	a section may end past the file
+V06	not run	the bulk is read from offset 0
+V08	not run	the overflow list goes to the base offset
+V10	not run	a failed overflow writer leaves the base writer open
+V12	not run	the placer is not used
+V14	not run	the placer is told no overflow
+V16	not run	the path mode does not complete the overflow file
+V18	not run	the overflow file is not disposed
+V20	not run	the base writer is not counted
+W02	not run	a negative sigma is accepted
+W04	not run	sigma 256 is refused
+W06	not run	a window of 0 is accepted
+W08	not run	a text of too many bits is accepted
+W10	not run	the SA range may end past the file
+W12	not run	the SA range is not checked
+W14	not run	the SA buffer is zeroed
+W16	not run	the guards are ignored
+W18	not run	the BWT writer is not counted
+W20	not run	the SA reads are not counted
+W22	not run	an entry n + 1 is accepted
+W24	not run	SA[0] may be any suffix
+W26	not run	row 1 is the one checked for the empty suffix
+W28	not run	a second zero is tolerated
+W30	not run	the primary row has a symbol byte
+W32	not run	a symbol outside the alphabet is accepted
+W34	not run	the counts are doubled
+W36	not run	a missing suffix 0 is not noticed
+W38	not run	a failed pass keeps the BWT file
+W40	not run	the default window is 64 KiB
+W42	not run	the output buffer is one entry short
+W44	not run	the output is appended with the wrong length
+d_C02	not run	1b7d comparator: equal residues take the witness of residue 1
+d_C04	not run	1b7d comparator: a call of the LCE is not counted
+d_C06	not run	1b7d comparator: one rank lookup counted
+d_C08	not run	1b7d comparator: the call is not counted
+d_C10	not run	1b7d comparator: the key skip needs a strictly longer suffix
+d_Q52	not run	1b7d gap: Build: PH3 has no cap

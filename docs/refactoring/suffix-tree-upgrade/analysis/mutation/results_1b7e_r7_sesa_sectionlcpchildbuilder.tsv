@@ -1,0 +1,6 @@
+K07	the child range may end past the file	killed(1)	
+K19	PH4 gets another read buffer	killed(2)	
+K21	PH4 gets the window of PH5	killed(2)	
+K43	the verdict is strict	killed(1)	
+K45	the arena peaks are swapped	killed(2)	
+K49	the sub-directories are deleted non-recursively	survived	

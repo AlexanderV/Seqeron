@@ -1,0 +1,12 @@
+K02	a negative child offset is accepted	survived	
+K06	a text at the position limit is refused	killed(1)	
+K15	PH4 uses the scratch of PH5	killed(1)	
+K28	PH4 gets no placer	killed(16)	
+K31	PH5 gets the window of PH4	killed(7)	
+K32	PH5 gets one slot	killed(1)	
+K34	PH5 gets another spill flush size	killed(1)	
+K40	a scan that never started is an NRE, not an invalid operation	killed(1)	
+K42	the figure is in the wrong unit	killed(3)	
+K44	the verdict is swapped	killed(2)	
+K46	the seconds are not measured	killed(2)	
+K48	the scratch root is not removed when empty	killed(6)	

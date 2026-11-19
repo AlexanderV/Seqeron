@@ -1,0 +1,8 @@
+B82	the late pre-flight forgets the growth	killed(1)	
+B99	the BWT pass reads one byte per window	killed(3)	
+B131	PSI is listed also when absent	killed(18)	
+B142	TEXT counts one more element	killed(28)	
+B144	TEXT is not required	killed(28)	
+B158	BUILD_INFO counts its bytes	killed(28)	
+B214	arena peak adds PH4 and PH5 as a maximum	killed(3)	
+B247	the 16 B spill constant	killed(1)	

@@ -1,0 +1,4 @@
+A01	a null file is an NRE	survived	
+A03	a null option set is an NRE	killed(1)	
+A05	a negative section offset is accepted	killed(1)	
+A13	the section sink is not counted	killed(2)	

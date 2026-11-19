@@ -1,0 +1,5 @@
+P37	the read length is not bounded by the rows	killed(1)	
+P39	the budget is ignored by the arena	killed(1)	
+P49	the windows of the passes are not summed	killed(1)	
+P61	a cursor that has not used its limit is not noticed	killed(1)	
+P71	the window is not counted as a window	killed(3)	

@@ -1,0 +1,4 @@
+V09	the reservation outcome of the placement is not kept	killed(1)	
+V11	a failed output writer leaves the writers open	survived	
+V19	the base writers use the default window	killed(2)	
+V21	the overflow writer is not counted	killed(1)	
