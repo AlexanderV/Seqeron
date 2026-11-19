@@ -581,3 +581,23 @@ Class `SequenceAligner_TCoffeeProgram_Tests` (13 tests), oracle = installed `t_c
 | TP10 | `..._Example_EqualsTheProgram` | 18-nt example, `slow_pair,lalign_id_pair` | the program's four rows | `t_coffee` 13.41 |
 | TP11 | `..._DegenerateInputs`, `..._Contract_Errors` | none / one / two sequences, empty / gapped / RNA input, bad `lalign_n_top` | defined results / exceptions | contract |
 | TP12 | `TCoffeeKtupSimilarity_IdenticalSequencesAre100_DisjointTuplesAre70` | `ktup_dist_mat` formula | 100 / 70 | source |
+
+
+## Addendum (audit A1-13c / A1-13d, B09 F71-F75): command-line options of the T-Coffee 13.41 program
+
+Oracle: `tests/Seqeron/Seqeron.Genomics.Tests/TestData/Alignment/tcoffee_program_options_oracle.tsv` (`scripts/alignment/generate_tcoffee_options_oracle.py`, the installed `t_coffee` 13.41, `-n_core 1 -no_warning`): `feature`, `type`, the flag string, the sequences, the rows (input order; the output-file order for `-outorder aligned`) and the sequence names. `TCoffeeProgramOptions.FromCommandLine(flags)` (+ `Names`) is run on every row of the file.
+
+| ID | Test (`SequenceAligner_TCoffeeOptions_Tests`) | Sets | Expected | Oracle |
+|----|-----------------------------------------------|------|----------|--------|
+| OP01 | `Rna_EveryRowEqualsTheProgram` | 430 RNA sets (U), 5 method mixes | every row equal (A1-13c: RNA pair-HMM, `get_tot_prob`) | `t_coffee` 13.41 |
+| OP02 | `RelaxAndFilterLib_EveryRowEqualsTheProgram` | 500 | `-relax_lib 0 / 2 / 3`, `-filter_lib 20 / 100` | `t_coffee` 13.41 |
+| OP03 | `GapPenaltiesAndNoMatch_EveryRowEqualsTheProgram` | 560 | `-gapopen`, `-gapext`, `-cosmetic_penalty`, `-nomatch`, `-do_normalise` | `t_coffee` 13.41 |
+| OP04 | `TreeModeAndDistanceMatrixMode_EveryRowEqualsTheProgram` | 730 | `-tree_mode upgma`, `-distance_matrix_mode fast / idscore / no`, `-distance_matrix_sim_mode` | `t_coffee` 13.41 |
+| OP05 | `SequenceWeights_EveryRowEqualsTheProgram` | 470 | `-seq_weight t_coffee`, weight files, `-weight no` | `t_coffee` 13.41 |
+| OP06 | `NameOrder_EveryRowEqualsTheProgram` | 560 | `-inorder aligned / input`, `-outorder aligned`, shuffled / prefix / s0..s12 names | `t_coffee` 13.41 |
+| OP07 | `Matrix_EveryRowEqualsTheProgram` | 675 | `-matrix` for DNA / RNA / protein, `proba_pair` and `slow_pair` | `t_coffee` 13.41 |
+| OP08 | `MethodParameterOverrides_EveryRowEqualsTheProgram` | 390 | `slow_pair@EP@GOP@..`, `lalign_id_pair@EP@MATRIX@..`; the 3 sets on which `t_coffee` core-dumps (SIM edit-script overflow, `lalign_id_pair@EP@GOP@-5`) raise `TCoffeeAbortedException` | `t_coffee` 13.41 |
+| OP09 | `ClustalwPair_EveryRowEqualsTheProgram` | 400 | `clustalw_pair` through the ClustalW 2.1 ports | `t_coffee` 13.41 + `clustalw` 2.1 |
+| OP10 | `FromCommandLine_ParsesMethodsAndRejectsUnknownFlags`, `..._MatrixAndMethodParameters` | - | every supported flag parsed; unknown flags / values rejected by name | contract |
+
+Known differences (3 of 4 715 committed sets, listed in `KnownDifferences` of the test and in B09.md F72 / F73 / F75): protein `-nomatch 50 -gapext -1` (1 set), protein `-seq_weight t_coffee -distance_matrix_mode idscore -tree_mode upgma` (1 set), `clustalw_pair` on the protein pair YAGR / NSMYC. Every other set of the file must be reproduced exactly; a new difference fails the test.

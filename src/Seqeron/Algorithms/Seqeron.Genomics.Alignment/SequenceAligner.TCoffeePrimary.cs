@@ -21,6 +21,32 @@ namespace Seqeron.Genomics.Alignment;
 // (weights and CONS counts) with `t_coffee -lib_only -out_lib` (see docs/Evidence/ALIGN-MULTI-001-Evidence.md).
 // =====================================================================================================================
 
+/// <summary>Raised when the T-Coffee 13.41 program itself would abort (core dump) on the input.</summary>
+/// <remarks>
+/// SIM (<c>lalign_id_pair</c>, util_dp_sim.c) keeps the edit script of an alignment in an array <c>S</c> of <c>min(M, N) x 5 / 4 + 1</c> integers. With a small gap open penalty
+/// (e.g. <c>-method lalign_id_pair@EP@GOP@-3</c>) an alignment can need more entries: the write runs past the array. Up to the slack of the heap chunk (glibc rounds a request of R bytes up to
+/// ((R + 8 + 15) / 16 x 16) - 8 usable bytes) the overflow is harmless; beyond it the program core dumps (<c>COREDUMP</c>, exit status 1, no alignment). Measured on 25 sets with a very
+/// small gap open (3 core dumps, all and only the sets with a pair beyond the chunk) and 240 random pairs.
+/// </remarks>
+public sealed class TCoffeeAbortedException : InvalidOperationException
+{
+    /// <summary>Creates the exception.</summary>
+    /// <param name="scriptLength">Entries the edit script needed.</param>
+    /// <param name="usableEntries">Entries the heap chunk of the script array can hold.</param>
+    public TCoffeeAbortedException(int scriptLength, int usableEntries)
+        : base($"t_coffee 13.41 core dumps: SIM's edit script needs {scriptLength} entries but its array holds only {usableEntries} (heap overflow); the program writes no alignment.")
+    {
+        ScriptLength = scriptLength;
+        UsableEntries = usableEntries;
+    }
+
+    /// <summary>Entries the edit script needed.</summary>
+    public int ScriptLength { get; }
+
+    /// <summary>Entries the heap chunk of the script array can hold.</summary>
+    public int UsableEntries { get; }
+}
+
 /// <summary>The pair-wise methods of the T-Coffee program that build the primary library.</summary>
 public enum TCoffeePairMethod
 {
@@ -32,7 +58,22 @@ public enum TCoffeePairMethod
 
     /// <summary><c>proba_pair</c>: ProbCons-style pair-HMM posterior library (the default method of T-Coffee 13.41).</summary>
     ProbaPair = 2,
+
+    /// <summary>
+    /// <c>clustalw_pair</c>: the program runs the external <c>clustalw -INFILE -OUTFILE -OUTORDER=INPUT -align</c> on every pair of sequences and reads the alignment; here the ClustalW 2.1 port of this
+    /// repository (<see cref="SequenceAligner.MultipleAlignClustalW(IEnumerable{string}, ClustalWOptions?, ScoringMatrix?)"/> and its PROTEIN counterpart) is the aligner. Weights = 10 x percent identity as for the other methods.
+    /// </summary>
+    ClustalwPair = 3,
 }
+
+/// <summary>
+/// Per-method overrides of the method-file parameters, the <c>-method slow_pair@EP@GOP@-30@GEP@-3@MATRIX@blosum50mt</c> syntax of the program (each <c>@EP@KEY@value</c> pair appends the line
+/// <c>KEY value</c> to the method file, the last line wins). <c>null</c> = the method's own value.
+/// </summary>
+/// <param name="GapOpen"><c>GOP</c> (negative).</param>
+/// <param name="GapExtend"><c>GEP</c>.</param>
+/// <param name="Matrix"><c>MATRIX</c>: any matrix name of the program.</param>
+public sealed record TCoffeeMethodParameters(int? GapOpen = null, int? GapExtend = null, string? Matrix = null);
 
 /// <summary>Residue pair of a T-Coffee library: 0-based sequence indices and 0-based residue positions, weight and the number of times the pair was added (<c>CONS</c>).</summary>
 public readonly record struct TCoffeeLibraryEntry(int SeqA, int PosA, int SeqB, int PosB, int Weight, int Count);
@@ -101,6 +142,20 @@ public static partial class SequenceAligner
         public int Score(char a, char b) => _m[a - 'A', b - 'A'];
 
         private static TcMatrix? _idmat, _blosum62, _blosum50;
+        private static readonly Dictionary<string, TcMatrix?> ByNameCache = new(StringComparer.Ordinal);
+
+        /// <summary><c>read_matrice(name)</c>: any header matrix of <c>matrices.h</c> (see <see cref="TcMatrixCatalog"/>); <c>null</c> when the program does not know the name.</summary>
+        public static TcMatrix? ByName(string name)
+        {
+            lock (ByNameCache)
+            {
+                if (ByNameCache.TryGetValue(name, out var cached)) return cached;
+                var vector = TcMatrixCatalog.Find(name);
+                var m = vector == null ? null : new TcMatrix(vector);
+                ByNameCache[name] = m;
+                return m;
+            }
+        }
 
         /// <summary><c>idmat</c> = what <c>read_matrice("dna_idmat")</c> returns: +10 on the diagonal, 0 elsewhere.</summary>
         public static TcMatrix IdMat => _idmat ??= new TcMatrix(Enumerable.Range(0, 276).Select(i => IsDiagonal(i) ? 10 : 0).ToArray());
@@ -139,30 +194,61 @@ public static partial class SequenceAligner
 
     private readonly record struct TcPairParams(TcMatrix Matrix, int Gop, int Gep);
 
-    private static TcPairParams TcSlowPairParams(bool protein) =>
-        protein
-            ? new TcPairParams(TcMatrix.Blosum62, (int)(TcMatrix.Blosum62.AverageMismatch() * 10), -1)
-            : new TcPairParams(TcMatrix.IdMat, -10, -1);
+    /// <summary>
+    /// The parameters of <c>slow_pair</c>: DNA / RNA take <c>MATRIX dna_idmat</c>, GOP -10, GEP -1 from the method file (so <c>-matrix</c> does not apply), PROTEIN has no MATRIX line
+    /// and uses <c>-matrix</c> (<paramref name="matrixName"/>, default blosum62mt) with GOP <c>(int)(10 x get_avg_matrix_mm)</c> of that matrix.
+    /// </summary>
+    private static TcPairParams TcSlowPairParams(bool protein, string? matrixName = null, TCoffeeMethodParameters? mp = null)
+    {
+        if (!protein)
+            return new TcPairParams(TcResolveMatrix(mp?.Matrix) ?? TcMatrix.IdMat, mp?.GapOpen ?? -10, mp?.GapExtend ?? -1);
+        var matrix = TcResolveMatrix(mp?.Matrix) ?? TcResolveMatrix(matrixName) ?? TcMatrix.Blosum62;
+        return new TcPairParams(matrix, mp?.GapOpen ?? (int)(matrix.AverageMismatch() * 10), mp?.GapExtend ?? -1);
+    }
 
-    private static TcPairParams TcLalignParams(bool protein) =>
-        protein ? new TcPairParams(TcMatrix.Blosum50, -10, -4) : new TcPairParams(TcMatrix.IdMat, -10, -1);
+    /// <summary>The matrix of <c>-matrix NAME</c> (<c>null</c> / "default" = the method's own); an unknown name is an error as in the program.</summary>
+    internal static TcMatrix? TcResolveMatrix(string? name)
+    {
+        if (string.IsNullOrEmpty(name) || name == "default") return null;
+        return TcMatrix.ByName(name) ?? throw new ArgumentException($"-matrix {name} is not a matrix of the program (read_matrice).");
+    }
+
+    private static TcPairParams TcLalignParams(bool protein, TCoffeeMethodParameters? mp = null)
+    {
+        var d = protein ? new TcPairParams(TcMatrix.Blosum50, -10, -4) : new TcPairParams(TcMatrix.IdMat, -10, -1);
+        return new TcPairParams(TcResolveMatrix(mp?.Matrix) ?? d.Matrix, mp?.GapOpen ?? d.Gop, mp?.GapExtend ?? d.Gep);
+    }
 
     /// <summary>
     /// The program's sequence type decision (<c>get_string_type</c> on the concatenation of all sequences): DNA/RNA when more than 98 % of the residues are letters of
     /// <c>AGCTUNRYMKSWHBVD</c> (either case), protein otherwise. The type selects the matrices, gap penalties and k-tuple alphabet of the methods.
     /// </summary>
-    internal static bool TcIsProtein(IEnumerable<string> sequences)
+    internal static bool TcIsProtein(IEnumerable<string> sequences) => TcSeqType(sequences) == TcSeqKind.Protein;
+
+    /// <summary>The full type decision: <c>RNA</c> when the nucleotide share is above 98 % and at least one residue is U (<c>is_rna</c>), DNA without a U, protein otherwise.</summary>
+    internal static TcSeqKind TcSeqType(IEnumerable<string> sequences)
     {
-        int dna = 0, tot = 0;
+        int dna = 0, tot = 0, rna = 0;
         foreach (var s in sequences)
             foreach (char c in s)
             {
                 if ("-.#*~".Contains(c)) continue;
                 tot++;
                 if ("AGCTUNRYMKSWHBVDagctunrymkswhbvd".Contains(c)) dna++;
+                if (c == 'U' || c == 'u') rna++;
             }
 
-        return tot == 0 || dna * 100 / tot <= 98;
+        if (tot == 0 || dna * 100 / tot <= 98) return TcSeqKind.Protein;
+        return rna > 0 ? TcSeqKind.Rna : TcSeqKind.Dna;
+    }
+
+    /// <summary>The type to use: the caller's choice (<c>protein</c>: true = protein, false = nucleotide, nucleotide = DNA or RNA as the letters say) or the program's decision.</summary>
+    internal static TcSeqKind TcKindOf(IEnumerable<string> sequences, bool? protein)
+    {
+        var decided = TcSeqType(sequences);
+        if (protein == null) return decided;
+        if (protein.Value) return TcSeqKind.Protein;
+        return decided == TcSeqKind.Rna ? TcSeqKind.Rna : TcSeqKind.Dna;
     }
 
     // ----- Myers-Miller (slow_pair) ---------------------------------------------------------------------------------------
@@ -175,12 +261,14 @@ public static partial class SequenceAligner
     /// <param name="sequenceA">First sequence (letters).</param>
     /// <param name="sequenceB">Second sequence.</param>
     /// <param name="protein"><c>true</c> = the program's protein parameters; <c>false</c> = DNA/RNA.</param>
+    /// <param name="matrix"><c>-matrix</c> (protein only; DNA / RNA always use dna_idmat): any matrix name of the program, default blosum62mt.</param>
+    /// <param name="parameters">The <c>@EP@</c> overrides of the method (GOP, GEP, MATRIX; they also apply to DNA / RNA).</param>
     /// <returns>The two aligned rows.</returns>
-    public static (string RowA, string RowB) TCoffeeSlowPairAlign(string sequenceA, string sequenceB, bool protein = false)
+    public static (string RowA, string RowB) TCoffeeSlowPairAlign(string sequenceA, string sequenceB, bool protein = false, string? matrix = null, TCoffeeMethodParameters? parameters = null)
     {
         ArgumentNullException.ThrowIfNull(sequenceA);
         ArgumentNullException.ThrowIfNull(sequenceB);
-        var p = TcSlowPairParams(protein);
+        var p = TcSlowPairParams(protein, matrix, parameters);
         return TcMyersMiller(sequenceA, sequenceB, p.Matrix, p.Gop, p.Gep);
     }
 
@@ -440,18 +528,26 @@ public static partial class SequenceAligner
     /// <param name="sequenceB">Second sequence (must be a different sequence of the set: the self-comparison mode is not used by the program's libraries).</param>
     /// <param name="topAlignments"><c>-lalign_n_top</c> (the program's default is 10).</param>
     /// <param name="protein"><c>true</c> = the program's protein parameters.</param>
+    /// <param name="parameters">The <c>@EP@</c> overrides of the method (GOP, GEP, MATRIX).</param>
     /// <returns>The reported alignments (possibly none).</returns>
-    public static IReadOnlyList<TCoffeeLocalAlignment> TCoffeeLalignTopAlignments(string sequenceA, string sequenceB, int topAlignments = 10, bool protein = false)
+    public static IReadOnlyList<TCoffeeLocalAlignment> TCoffeeLalignTopAlignments(string sequenceA, string sequenceB, int topAlignments = 10, bool protein = false, TCoffeeMethodParameters? parameters = null)
     {
         ArgumentNullException.ThrowIfNull(sequenceA);
         ArgumentNullException.ThrowIfNull(sequenceB);
         ArgumentOutOfRangeException.ThrowIfLessThan(topAlignments, 1);
-        var p = TcLalignParams(protein);
+        var p = TcLalignParams(protein, parameters);
         return new TcSim(sequenceA, sequenceB, p.Matrix, p.Gop, p.Gep).Run(topAlignments);
     }
 
     internal static IReadOnlyList<TCoffeeLocalAlignment> TcSimRun(string a, string b, int gop, int gep, int k) =>
         new TcSim(a, b, TcMatrix.IdMat, gop, gep).Run(k);
+
+    internal static (int MaxScript, int Capacity) TcSimScriptUse(string a, string b, int gop, int gep, int k)
+    {
+        var sim = new TcSim(a, b, TcMatrix.IdMat, gop, gep);
+        sim.Run(k);
+        return (sim.MaxScriptLength, sim.ScriptCapacity);
+    }
 
     private sealed class TcSim
     {
@@ -475,6 +571,15 @@ public static partial class SequenceAligner
 
         // diff_sim state
         private int[] _script = null!;
+        private int _maxScript;
+
+        /// <summary>The longest edit script of any reported alignment (the program's buffer <c>S</c> holds min(M, N) x 5 / 4 + 1 entries).</summary>
+        public int MaxScriptLength => _maxScript;
+
+        public int ScriptCapacity => Math.Min(_m, _n) * 5 / 4 + 1;
+
+        /// <summary>Integers the glibc chunk of the script array holds: a request of R bytes gets ((R + 8 + 15) / 16 x 16) - 8 bytes.</summary>
+        public int ScriptUsableEntries => (((ScriptCapacity * 4 + 8 + 15) / 16 * 16) - 8) / 4;
         private int _scriptLen, _last, _i, _j;
 
         public TcSim(string a, string b, TcMatrix matrix, int gop, int gep)
@@ -554,6 +659,8 @@ public static partial class SequenceAligner
                 _scriptLen = 0;
                 _last = 0;
                 DiffSim(stari - 1, starj - 1, _rl, _cl, _q, _q);
+                _maxScript = Math.Max(_maxScript, _scriptLen);
+                if (_scriptLen > ScriptUsableEntries) throw new TCoffeeAbortedException(_scriptLen, ScriptUsableEntries);
 
                 var script = _script.Take(_scriptLen).ToList();
                 var (ra, rb) = TcScriptToRows(_a, _b, stari - 1, starj - 1, _rl, _cl, script);

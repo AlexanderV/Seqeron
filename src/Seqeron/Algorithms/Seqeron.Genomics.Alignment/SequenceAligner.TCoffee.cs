@@ -139,11 +139,30 @@ public static partial class SequenceAligner
 
     /// <summary>The progressive stage on a prepared library index (relaxation, sparse DP along the tree); rows in input order.</summary>
     private static string[] TcAlignWithIndex(IReadOnlyList<string> sequences, TcIndex index, TCoffeeTreeNode tree, bool relaxLibrary)
+        => TcAlignDetailed(sequences, index, tree, relaxLibrary ? 1 : 0, 0, null).Rows;
+
+    /// <summary>
+    /// The program's order of operations on the library (t_coffee.c L5109-5172): <c>-filter_lib</c> (drop weights &lt;= T), <c>-relax_lib</c> times the relaxation,
+    /// the sequence weights (<c>-seq_weight</c>), then the progressive alignment. Returns the rows in input order and the order of the sequences in the program's
+    /// own alignment (leaf order of the tree walk, the smaller profile first), which <c>-outorder aligned</c> writes.
+    /// </summary>
+    private static (string[] Rows, List<int> AlignedOrder) TcAlignDetailed(
+        IReadOnlyList<string> sequences, TcIndex index, TCoffeeTreeNode tree, int relaxCount, int filterLib, float[]? seqWeights, TcPenalties? pen = null, int doNormalise = 1000)
     {
         int k = sequences.Count;
-        if (relaxLibrary) index.Relax();
+        if (filterLib > 0) index.Filter(filterLib);
+        for (int a = 0; a < relaxCount; a++) index.Relax();
+        // evaluate_constraint_list_reference runs after the relaxation and again after the re-weighting: with -do_normalise (1000) the nomatch penalty is rescaled by the
+        // largest sum of the weights of a residue's entries each time (integer division)
+        var penalties = pen ?? TcPenalties.Default;
+        penalties = penalties with { NoMatch = index.NormaliseNoMatch(penalties.NoMatch, doNormalise) };
+        if (seqWeights != null)
+        {
+            index.Reweight(seqWeights);
+            penalties = penalties with { NoMatch = index.NormaliseNoMatch(penalties.NoMatch, doNormalise) };
+        }
 
-        var groups = TcAlignNode(tree, sequences, index);
+        var groups = TcAlignNode(tree, sequences, index, penalties);
         var rows = new string[k];
         for (int s = 0; s < k; s++)
         {
@@ -153,7 +172,7 @@ public static partial class SequenceAligner
             rows[s] = new string(chars);
         }
 
-        return rows;
+        return (rows, groups.Order);
     }
 
     /// <summary>
@@ -223,6 +242,46 @@ public static partial class SequenceAligner
             return index;
         }
 
+        /// <summary><c>filter_constraint_list(CL, WE, T)</c>: keeps the entries whose weight is greater than T.</summary>
+        public void Filter(int threshold)
+        {
+            for (int s = 0; s < Len.Length; s++)
+                for (int r = 1; r <= Len[s]; r++)
+                    Edges[s][r].RemoveAll(e => e.Weight <= threshold);
+        }
+
+        /// <summary><c>evaluate_constraint_list_reference</c>: max_ext_value = the largest sum of the weights of the entries that end or start at one residue (every directed entry counts for both ends), at least 1;
+        /// <c>nomatch</c> becomes <c>nomatch x normalise / max_ext_value</c> when normalising.</summary>
+        public int NormaliseNoMatch(int noMatch, int normalise)
+        {
+            if (normalise == 0) return noMatch;
+            var sum = new long[Len.Length][];
+            for (int s = 0; s < Len.Length; s++) sum[s] = new long[Len[s] + 1];
+            for (int s = 0; s < Len.Length; s++)
+                for (int r = 1; r <= Len[s]; r++)
+                    foreach (var e in Edges[s][r])
+                    {
+                        sum[s][r] += e.Weight;
+                        sum[e.Seq][e.Res] += e.Weight;
+                    }
+
+            long max = 1;
+            foreach (var row in sum) foreach (long v in row) max = Math.Max(max, v);
+            return (int)((long)noMatch * normalise / max);
+        }
+
+        /// <summary><c>re_weight_constraint_list</c>: every directed entry (s, r) -> (t, r2) is multiplied (float product, truncated to int) by MIN(weight[s], weight[t]).</summary>
+        public void Reweight(float[] weight)
+        {
+            for (int s = 0; s < Len.Length; s++)
+                for (int r = 1; r <= Len[s]; r++)
+                    foreach (var e in Edges[s][r])
+                    {
+                        float m = Math.Min(weight[s], weight[e.Seq]);
+                        e.Weight = (int)((float)e.Weight * m);
+                    }
+        }
+
         /// <summary>fork_relax_constraint_list (normalisation_mode 0) followed by filter_constraint_list(WE, 10).</summary>
         public void Relax()
         {
@@ -285,7 +344,7 @@ public static partial class SequenceAligner
         public int Columns => Rows[Order[0]].Length;
     }
 
-    private static TcGroup TcAlignNode(TCoffeeTreeNode node, IReadOnlyList<string> seqs, TcIndex lib)
+    private static TcGroup TcAlignNode(TCoffeeTreeNode node, IReadOnlyList<string> seqs, TcIndex lib, TcPenalties pen)
     {
         if (node.Left is null)
         {
@@ -295,9 +354,15 @@ public static partial class SequenceAligner
             return g;
         }
 
-        var left = TcAlignNode(node.Left, seqs, lib);
-        var right = TcAlignNode(node.Right!, seqs, lib);
-        return TcMerge(left, right, lib);
+        var left = TcAlignNode(node.Left, seqs, lib, pen);
+        var right = TcAlignNode(node.Right!, seqs, lib, pen);
+        return TcMerge(left, right, lib, pen);
+    }
+
+    /// <summary>The gap model of the sparse DP (<c>CL->gop</c>, <c>CL->gep</c>, <c>CL->nomatch</c>): the program's default is 0 / 0 / 0.</summary>
+    internal readonly record struct TcPenalties(int GapOpen, int GapExtend, int NoMatch)
+    {
+        public static TcPenalties Default => new(0, 0, 0);
     }
 
     private sealed class TcCell
@@ -305,7 +370,7 @@ public static partial class SequenceAligner
         public int I, J, Diag, Score, Flag;
     }
 
-    private static TcGroup TcMerge(TcGroup left, TcGroup right, TcIndex lib)
+    private static TcGroup TcMerge(TcGroup left, TcGroup right, TcIndex lib, TcPenalties pen)
     {
         // linked_pair_wise: the group with the smaller (sequences x columns) is profile 1
         var g0 = left; var g1 = right;
@@ -313,7 +378,7 @@ public static partial class SequenceAligner
         int l1 = g0.Columns, l2 = g1.Columns;
 
         var list = TcPairListExt(g0, g1, l1, l2, lib);
-        var (al0, al1) = TcSparseDp(list, l1, l2);
+        var (al0, al1) = TcSparseDp(list, l1, l2, pen);
 
         var merged = new TcGroup();
         merged.Order.AddRange(g0.Order);
@@ -422,7 +487,7 @@ public static partial class SequenceAligner
         return c != 0 ? c : a.I.CompareTo(b.I);
     }
 
-    private static (List<bool>, List<bool>) TcSparseDp(List<TcCell> pairList, int l1, int l2)
+    private static (List<bool>, List<bool>) TcSparseDp(List<TcCell> pairList, int l1, int l2, TcPenalties pen)
     {
         var cells = pairList;
 
@@ -476,12 +541,13 @@ public static partial class SequenceAligner
         // ---- cl2list_borders -----------------------------------------------------------------------------------
         for (int p1 = 0; p1 <= l1; p1++)
         {
+            // the border cells carry the score gep x SCORE_K x position (addE of cl2list_borders)
             if (p1 == 0 || p1 == l1)
-                for (int p2 = 0; p2 <= l2; p2++) cells.Add(new TcCell { I = p1, J = p2, Diag = l1 - p1 + p2 });
+                for (int p2 = 0; p2 <= l2; p2++) cells.Add(new TcCell { I = p1, J = p2, Diag = l1 - p1 + p2, Score = pen.GapExtend * TcScoreK * p2 });
             else
             {
-                cells.Add(new TcCell { I = p1, J = 0, Diag = l1 - p1 });
-                cells.Add(new TcCell { I = p1, J = l2, Diag = l1 - p1 + l2 });
+                cells.Add(new TcCell { I = p1, J = 0, Diag = l1 - p1, Score = pen.GapExtend * TcScoreK * p1 });
+                cells.Add(new TcCell { I = p1, J = l2, Diag = l1 - p1 + l2, Score = pen.GapExtend * TcScoreK * p1 });
             }
         }
 
@@ -522,8 +588,8 @@ public static partial class SequenceAligner
             else if (i == 0 || j == 0)
             {
                 sc[M][a] = -1000000;
-                if (j == 0) { sc[J][a] = -10000000; sc[I][a] = 0; }
-                else { sc[I][a] = -10000000; sc[J][a] = 0; }
+                if (j == 0) { sc[J][a] = -10000000; sc[I][a] = (long)pen.GapExtend * i; }
+                else { sc[I][a] = -10000000; sc[J][a] = (long)pen.GapExtend * j; }
                 for (int t = 0; t < 3; t++) { prv[t][a] = -1; f2[t][a] = i; f3[t][a] = j; }
                 continue;
             }
@@ -532,18 +598,21 @@ public static partial class SequenceAligner
             int pj = a - 1;
             int ij = dOrder[rankD[a] - 1];
 
-            sc[I][a] = Math.Max(sc[I][pi], sc[M][pi]); // gap open = gap extend = 0
-            prv[I][a] = pi; f2[I][a] = i - list[pi].I; f3[I][a] = 0;
-            typ[I][a] = sc[I][pi] >= sc[M][pi] ? I : M;
+            // a gap that touches the last row or column pays no opening penalty
+            int gop = i == l1 || j == l2 ? 0 : pen.GapOpen;
+            int deltaI = i - list[pi].I, deltaJ = j - list[pj].J;
+            sc[I][a] = Math.Max(sc[I][pi], sc[M][pi] + gop) + (long)deltaI * pen.GapExtend;
+            prv[I][a] = pi; f2[I][a] = deltaI; f3[I][a] = 0;
+            typ[I][a] = sc[I][pi] >= sc[M][pi] + gop ? I : M;
 
-            sc[J][a] = Math.Max(sc[J][pj], sc[M][pj]);
-            prv[J][a] = pj; f2[J][a] = 0; f3[J][a] = j - list[pj].J;
-            typ[J][a] = sc[J][pj] >= sc[M][pj] ? J : M;
+            sc[J][a] = Math.Max(sc[J][pj], sc[M][pj] + gop) + (long)deltaJ * pen.GapExtend;
+            prv[J][a] = pj; f2[J][a] = 0; f3[J][a] = deltaJ;
+            typ[J][a] = sc[J][pj] >= sc[M][pj] + gop ? J : M;
 
             int ls = i - list[ij].I;
             if (a > 1 && ls == j - list[ij].J)
             {
-                sc[M][a] = Math.Max(sc[M][ij], Math.Max(sc[I][ij], sc[J][ij])) + list[a].Score;
+                sc[M][a] = Math.Max(sc[M][ij], Math.Max(sc[I][ij], sc[J][ij])) + list[a].Score - (long)ls * pen.NoMatch;
                 prv[M][a] = ij; f2[M][a] = f3[M][a] = ls;
                 typ[M][a] = TcBestState(sc[M][ij], sc[I][ij], sc[J][ij]);
             }

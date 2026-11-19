@@ -239,7 +239,8 @@ public class SequenceAligner_TCoffeeProgram_Tests
         Assert.Throws<ArgumentException>(() => SequenceAligner.MultipleAlignTCoffeeProgram(new[] { "ACGT", "AC-GT" }));
         Assert.Throws<ArgumentException>(() => SequenceAligner.TCoffeePrimaryLibraryEntries(new[] { "ACGT", "" }, new[] { TCoffeePairMethod.SlowPair }));
         Assert.Throws<ArgumentOutOfRangeException>(() => SequenceAligner.TCoffeeLalignTopAlignments("ACGT", "ACGT", 0));
-        Assert.Throws<NotSupportedException>(() => SequenceAligner.MultipleAlignTCoffeeProgram(new[] { "ACGUACGU", "ACGUUCGU" }));
+        // RNA (a U) is supported since A1-13c: the RNA pair-HMM
+        Assert.That(SequenceAligner.MultipleAlignTCoffeeProgram(new[] { "ACGUACGU", "ACGUUCGU" }).AlignedSequences, Has.Length.EqualTo(2));
     }
 
     [Test]

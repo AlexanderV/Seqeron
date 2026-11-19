@@ -16,6 +16,9 @@ namespace Seqeron.Genomics.Alignment;
 //     pairs with weight (int)((float)v x 1000), the best 4 x min(I, J) of them by weight (qsort ascending then reversed: ties in decreasing (i, j) order).
 // =====================================================================================================================
 
+/// <summary>The sequence type the program decides (<c>get_string_type</c>): selects matrices, gap penalties and the pair-HMM.</summary>
+internal enum TcSeqKind { Dna, Rna, Protein }
+
 public static partial class SequenceAligner
 {
     private const float TcLogZero = -200000004008175468544.0f;
@@ -82,23 +85,50 @@ public static partial class SequenceAligner
         public readonly float[,] InsProb = new float[256, 5];
         public readonly float[,] MatchProb = new float[256, 256];
 
-        private static readonly Lazy<TcProbaModel> DnaModel = new(() => new TcProbaModel(false));
-        private static readonly Lazy<TcProbaModel> ProteinModel = new(() => new TcProbaModel(true));
+        private static readonly Lazy<TcProbaModel> DnaModel = new(() => new TcProbaModel(TcSeqKind.Dna));
+        private static readonly Lazy<TcProbaModel> RnaModel = new(() => new TcProbaModel(TcSeqKind.Rna));
+        private static readonly Lazy<TcProbaModel> ProteinModel = new(() => new TcProbaModel(TcSeqKind.Protein));
 
-        public static TcProbaModel For(bool protein) => protein ? ProteinModel.Value : DnaModel.Value;
+        private static readonly Dictionary<(TcSeqKind, string), TcProbaModel> MatrixModels = new();
 
-        private TcProbaModel(bool protein)
+        public static TcProbaModel For(TcSeqKind kind, string? matrix = null)
         {
-            InsertStates = protein ? 2 : 1;
-            MatrixTypes = protein ? 5 : 3;
+            var m = TcResolveMatrix(matrix);
+            if (m == null) return kind switch { TcSeqKind.Protein => ProteinModel.Value, TcSeqKind.Rna => RnaModel.Value, _ => DnaModel.Value };
+            lock (MatrixModels)
+            {
+                if (!MatrixModels.TryGetValue((kind, matrix!), out var model)) MatrixModels[(kind, matrix!)] = model = new TcProbaModel(kind, m);
+                return model;
+            }
+        }
+
+        private TcProbaModel(TcSeqKind kind, TcMatrix? matrix = null)
+        {
+            // DNA: one insert state pair, 3 matrix types; RNA (`retrieve_seq_type() == "RNA"`: more than 98 % DNA letters and at least one U): bi-phasic like the
+            // protein model (2 / 5) with RNAgapOpen2Default / RNAgapExtend2Default but the six-letter nucleotide emission table and the PROTEIN initial distribution
+            // (the call passes initDistrib2Default, not RNAinitDistrib2Default)
+            bool protein = kind == TcSeqKind.Protein;
+            bool biphasic = kind != TcSeqKind.Dna;
+            InsertStates = biphasic ? 2 : 1;
+            MatrixTypes = biphasic ? 5 : 3;
             int n = 2 * InsertStates + 1;
-            float[] gapOpen = protein ? TcProbaTables.GapOpen2 : TcProbaTables.DnaGapOpen;
-            float[] gapExtend = protein ? TcProbaTables.GapExtend2 : TcProbaTables.DnaGapExtend;
+            float[] gapOpen = TcProbaTables.DnaGapOpen, gapExtend = TcProbaTables.DnaGapExtend;
+            if (protein)
+            {
+                gapOpen = TcProbaTables.GapOpen2;
+                gapExtend = TcProbaTables.GapExtend2;
+            }
+            else if (kind == TcSeqKind.Rna)
+            {
+                gapOpen = TcProbaTables.RnaGapOpen2;
+                gapExtend = TcProbaTables.RnaGapExtend2;
+            }
             float[] initDistrib = TcProbaTables.InitDistrib2; // the DNA model uses the protein one as well (first MatrixTypes values)
             string alphabet = protein ? TcProbaTables.ProteinAlphabet : TcProbaTables.DnaAlphabet;
             float[] single = protein ? TcProbaTables.EmitSingle : TcProbaTables.DnaEmitSingle;
             float[] pairs = protein ? TcProbaTables.EmitPairs : TcProbaTables.DnaEmitPairs;
             int l = alphabet.Length;
+            if (matrix != null) pairs = TcEmitPairsFromMatrix(matrix, alphabet, single);
 
             var emitSingle = new float[256];
             var emitPairs = new float[256, 256];
@@ -152,6 +182,26 @@ public static partial class SequenceAligner
         }
     }
 
+    /// <summary><c>get_emitPairs(mat, alphabet, p, s)</c>: p[a][b] = s[a] s[b] exp(score(a, b) x ln 2 / 2) in single precision, divided by the sum of all entries.</summary>
+    private static float[] TcEmitPairsFromMatrix(TcMatrix matrix, string alphabet, float[] single)
+    {
+        int l = alphabet.Length;
+        float k = (float)(Math.Log(2) / 2);
+        var p = new float[l * l];
+        for (int a = 0; a < l; a++)
+            for (int b = 0; b < l; b++)
+            {
+                float e = single[a] * single[b];
+                int sc = matrix.Score(alphabet[a], alphabet[b]);
+                p[a * l + b] = (float)(e * Math.Exp((double)sc * k));
+            }
+
+        float t = 0;
+        for (int a = 0; a < l * l; a++) t += p[a];
+        for (int a = 0; a < l * l; a++) p[a] /= t;
+        return p;
+    }
+
     // dirichlet_code: a c d e f g h i k l m n p q r s t v w y -> 0..19; every other letter -> -1
     private const string TcDirichletLetters = "acdefghiklmnpqrstvwy";
 
@@ -161,29 +211,44 @@ public static partial class SequenceAligner
     /// <c>proba_pair_wise</c> + <c>ProbaMatrix2CL</c> for one pair: the library pairs (1-based residues of the first and second sequence, weight) with
     /// posterior probability &gt; 0.01 of being aligned, at most 4 x min(length) of them, strongest first.
     /// </summary>
-    internal static List<(int R1, int R2, int Weight)> TcProbaPairEntries(string seq1, string seq2, bool protein)
+    internal static List<(int R1, int R2, int Weight)> TcProbaPairEntries(string seq1, string seq2, TcSeqKind kind, string? matrix = null)
     {
-        var m = TcProbaModel.For(protein);
+        var m = TcProbaModel.For(kind, matrix);
         int nmt = m.MatrixTypes, nis = m.InsertStates;
         int I = seq1.Length, J = seq2.Length;
-        var d1 = seq1.Select(TcDirichletCode).ToArray();
-        var d2 = seq2.Select(TcDirichletCode).ToArray();
-
-        // get_tot_prob2: single sequences have one-hot profiles; a letter outside the 20 has an all-zero profile
         var tIns = new float[2][,];
         tIns[0] = new float[nmt, I + 1];
         tIns[1] = new float[nmt, J + 1];
-        for (int i = 1; i <= I; i++)
-            for (int k = 0; k < nmt; k++)
-                tIns[0][k, i] = d1[i - 1] >= 0 ? m.InsProb[TcDirichletLetters[d1[i - 1]], k] : 0f;
-        for (int j = 1; j <= J; j++)
-            for (int k = 0; k < nmt; k++)
-                tIns[1][k, j] = d2[j - 1] >= 0 ? m.InsProb[TcDirichletLetters[d2[j - 1]], k] : 0f;
-
         var tMatch = new float[(I + 1) * (J + 1)];
-        for (int i = 1; i <= I; i++)
+        if (kind == TcSeqKind.Rna)
+        {
+            // get_tot_prob (RNA): the residue itself indexes the emission tables (case-insensitively, `c1 - 'a'`); any letter without an entry has the default 1e-5 / 1e-10
+            for (int i = 1; i <= I; i++)
+                for (int k = 0; k < nmt; k++)
+                    tIns[0][k, i] = m.InsProb[seq1[i - 1], k];
             for (int j = 1; j <= J; j++)
-                tMatch[i * (J + 1) + j] = d1[i - 1] >= 0 && d2[j - 1] >= 0 ? m.MatchProb[TcDirichletLetters[d1[i - 1]], TcDirichletLetters[d2[j - 1]]] : 0f;
+                for (int k = 0; k < nmt; k++)
+                    tIns[1][k, j] = m.InsProb[seq2[j - 1], k];
+            for (int i = 1; i <= I; i++)
+                for (int j = 1; j <= J; j++)
+                    tMatch[i * (J + 1) + j] = m.MatchProb[char.ToLowerInvariant(seq1[i - 1]), char.ToLowerInvariant(seq2[j - 1])];
+        }
+        else
+        {
+            var d1 = seq1.Select(TcDirichletCode).ToArray();
+            var d2 = seq2.Select(TcDirichletCode).ToArray();
+
+            // get_tot_prob2: single sequences have one-hot profiles; a letter outside the 20 has an all-zero profile
+            for (int i = 1; i <= I; i++)
+                for (int k = 0; k < nmt; k++)
+                    tIns[0][k, i] = d1[i - 1] >= 0 ? m.InsProb[TcDirichletLetters[d1[i - 1]], k] : 0f;
+            for (int j = 1; j <= J; j++)
+                for (int k = 0; k < nmt; k++)
+                    tIns[1][k, j] = d2[j - 1] >= 0 ? m.InsProb[TcDirichletLetters[d2[j - 1]], k] : 0f;
+            for (int i = 1; i <= I; i++)
+                for (int j = 1; j <= J; j++)
+                    tMatch[i * (J + 1) + j] = d1[i - 1] >= 0 && d2[j - 1] >= 0 ? m.MatchProb[TcDirichletLetters[d1[i - 1]], TcDirichletLetters[d2[j - 1]]] : 0f;
+        }
 
         float[] fwd = TcProbaForward(I, J, nmt, nis, m, tMatch, tIns);
         float[] bwd = TcProbaBackward(I, J, nmt, nis, m, tMatch, tIns);

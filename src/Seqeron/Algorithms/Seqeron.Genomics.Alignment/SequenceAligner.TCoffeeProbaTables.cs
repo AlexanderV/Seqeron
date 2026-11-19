@@ -19,6 +19,10 @@ internal static class TcProbaTables
         0.3269913495f, 0.3269913495f,
     };
 
+    // RNAgapOpen2Default / RNAgapExtend2Default (RNA input: bi-phasic model)
+    public static readonly float[] RnaGapOpen2 = { 0.0082473317f, 0.0082473317f, 0.0107844425f, 0.0107844425f };
+    public static readonly float[] RnaGapExtend2 = { 0.3210460842f, 0.3210460842f, 0.3298229277f, 0.3298229277f };
+
     public static readonly float[] DnaEmitSingle =
     {
         0.2270790040f, 0.2422080040f, 0.2839320004f, 0.2464679927f, 0.2464679927f,

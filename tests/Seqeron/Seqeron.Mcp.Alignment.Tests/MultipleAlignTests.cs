@@ -476,7 +476,29 @@ public class MultipleAlignTests
             Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignTCoffee(TCoffeeProgramSet, type: "rna"));
             Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignTCoffee(TCoffeeProgramSet, lalignTopAlignments: 0));
             Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignTCoffee(new[] { "ACGT", "" }));
-            Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignTCoffee(new[] { "ACGUACGU", "ACGUUCGU" }), "proba_pair of RNA is not available");
+            // A1-13c: RNA (a U) uses the RNA pair-HMM; rows written by t_coffee 13.41 for this set
+            Assert.That(AlignmentTools.MultipleAlignTCoffee(new[] { "ACGUACGUUG", "ACGUUCGUUG", "ACGAACGUUUG" }).AlignedSequences, Is.EqualTo(new[] { "ACGUACGU-UG", "ACGUUCGU-UG", "ACGAACGUUUG" }));
+        });
+    }
+
+    // B09 F71-F75 (A1-13c / A1-13d): the 'options' flag string and 'names' of multiple_align_tcoffee (rows written by the installed t_coffee 13.41 for the same flags).
+    [Test]
+    public void MultipleAlignTCoffee_Options_AndNames_EqualTheProgram_AndAreValidated()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(AlignmentTools.MultipleAlignTCoffee(TCoffeeProgramSet, options: "-tree_mode upgma -distance_matrix_mode fast -seq_weight t_coffee").AlignedSequences,
+                Is.EqualTo(new[] { "ACGTTGCATG-CCGATA-GC", "AC-GTGCATG--CGATAGGC", "AC-TTGCATC--CGATT-GC", "CG-TTGCATGGCCGATA-GC" }));
+            Assert.That(AlignmentTools.MultipleAlignTCoffee(TCoffeeProgramSet, options: "-relax_lib 2 -gapext -2 -nomatch 5").AlignedSequences,
+                Is.EqualTo(new[] { "ACGTTGCATG-CCGATA-GC", "AC-GTGCATG--CGATAGGC", "AC-TTGCATC--CGATT-GC", "CG-TTGCATGGCCGATA-GC" }));
+            string[] names = ["zeta", "alpha", "mid", "beta"];
+            Assert.That(AlignmentTools.MultipleAlignTCoffee(TCoffeeProgramSet, options: "-outorder aligned", names: names).AlignedSequences,
+                Is.EqualTo(new[] { "AC-GTGCATG--CGATAGGC", "CG-TTGCATGGCCGATA-GC", "AC-TTGCATC--CGATT-GC", "ACGTTGCATG-CCGATA-GC" }), "the program's internal (sorted-name) order");
+            Assert.That(AlignmentTools.MultipleAlignTCoffee(TCoffeeProgramSet, names: names).AlignedSequences,
+                Is.EqualTo(new[] { "ACGTTGCATG-CCGATA-GC", "AC-GTGCATG--CGATAGGC", "AC-TTGCATC--CGATT-GC", "CG-TTGCATGGCCGATA-GC" }));
+            Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignTCoffee(TCoffeeProgramSet, options: "-no_such_flag 1"));
+            Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignTCoffee(TCoffeeProgramSet, options: "-tree_mode kmeans"));
+            Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignTCoffee(TCoffeeProgramSet, names: ["a", "b"]));
         });
     }
 

@@ -188,20 +188,21 @@ public static partial class SequenceAligner
 
     /// <summary>The entries one pair job (x, y) adds, in the order of <c>aln2constraint_list</c> (alignments of the chain, columns left to right).</summary>
     private static List<(int S1, int R1, int S2, int R2, int W)> TcPairJobEntries(
-        IReadOnlyList<string> seqs, int x, int y, TCoffeePairMethod method, int lalignTop, bool protein)
+        IReadOnlyList<string> seqs, int x, int y, TCoffeePairMethod method, int lalignTop, TcSeqKind kind, string? matrix, TCoffeeMethodParameters? mp)
     {
+        bool protein = kind == TcSeqKind.Protein;
         if (method == TCoffeePairMethod.ProbaPair)
-            return TcProbaPairEntries(seqs[x], seqs[y], protein).Select(e => (x, e.R1, y, e.R2, e.Weight)).ToList();
+            return TcProbaPairEntries(seqs[x], seqs[y], kind, matrix).Select(e => (x, e.R1, y, e.R2, e.Weight)).ToList();
 
         var rows = new List<(string, string)>();
         switch (method)
         {
             case TCoffeePairMethod.SlowPair:
-                rows.Add(TCoffeeSlowPairAlign(seqs[x], seqs[y], protein));
+                rows.Add(TCoffeeSlowPairAlign(seqs[x], seqs[y], protein, matrix, mp));
                 break;
             case TCoffeePairMethod.LalignIdPair:
                 {
-                    var alns = TCoffeeLalignTopAlignments(seqs[x], seqs[y], lalignTop, protein);
+                    var alns = TCoffeeLalignTopAlignments(seqs[x], seqs[y], lalignTop, protein, mp);
                     if (alns.Count == 0)
                     {
                         // sim_pair_wise_lalign found nothing: the program then turns the padded (unaligned) pair into the library
@@ -212,6 +213,15 @@ public static partial class SequenceAligner
                     foreach (var a in alns) rows.Add((a.RowA, a.RowB));
                     break;
                 }
+            case TCoffeePairMethod.ClustalwPair:
+                {
+                    var cw = protein
+                        ? MultipleAlignClustalW(new[] { seqs[x], seqs[y] }, new ClustalWProteinOptions())
+                        : MultipleAlignClustalW(new[] { seqs[x], seqs[y] });
+                    rows.Add((cw.AlignedSequences[0], cw.AlignedSequences[1]));
+                    break;
+                }
+
             default:
                 throw new NotSupportedException($"The {method} library is not available here.");
         }
@@ -242,14 +252,14 @@ public static partial class SequenceAligner
     /// jobs run in a grand-child whose tail is merged back, and the whole list is returned when it grew.
     /// </summary>
     private static List<TcEntry>? TcRunMethod(
-        TcConstraintList start, IReadOnlyList<string> seqs, List<(int X, int Y)> pairs, TCoffeePairMethod method, int lalignTop, bool protein)
+        TcConstraintList start, IReadOnlyList<string> seqs, List<(int X, int Y)> pairs, TCoffeePairMethod method, int lalignTop, TcSeqKind kind, string? matrix, TCoffeeMethodParameters? mp)
     {
         var methodList = start.Clone();
         int before = methodList.EntryCount;
         var child = methodList.Clone();
         var frozen = child.Freeze();
         foreach (var (x, y) in pairs)
-            foreach (var (s1, r1, s2, r2, w) in TcPairJobEntries(seqs, x, y, method, lalignTop, protein))
+            foreach (var (s1, r1, s2, r2, w) in TcPairJobEntries(seqs, x, y, method, lalignTop, kind, matrix, mp))
                 child.AddBoth(s1, r1, s2, r2, w, 1);
         methodList.Undump(child.Dump(frozen));
         return methodList.EntryCount > before ? methodList.Dump(null) : null;
@@ -260,7 +270,7 @@ public static partial class SequenceAligner
     /// (see the file header for the process structure that is reproduced). A method child starts from the list merged so far.
     /// </summary>
     internal static TcConstraintList TcBuildConstraintList(
-        IReadOnlyList<string> seqs, IReadOnlyList<TCoffeePairMethod> methods, int lalignTop, bool protein)
+        IReadOnlyList<string> seqs, IReadOnlyList<TCoffeePairMethod> methods, int lalignTop, TcSeqKind kind, string? matrix = null, IReadOnlyDictionary<TCoffeePairMethod, TCoffeeMethodParameters>? methodParameters = null)
     {
         var lengths = seqs.Select(s => s.Length).ToArray();
         var main = new TcConstraintList(lengths);
@@ -272,7 +282,7 @@ public static partial class SequenceAligner
         // a method named twice is read once
         foreach (var method in methods.Distinct())
         {
-            var dump = TcRunMethod(main, seqs, pairs, method, lalignTop, protein);
+            var dump = TcRunMethod(main, seqs, pairs, method, lalignTop, kind, matrix, methodParameters != null && methodParameters.TryGetValue(method, out var mp) ? mp : null);
             if (dump != null) main.Undump(dump);
         }
 
@@ -293,7 +303,7 @@ public static partial class SequenceAligner
     public static IReadOnlyList<TCoffeeLibraryEntry> TCoffeePrimaryLibraryEntries(
         IReadOnlyList<string> sequences, IEnumerable<TCoffeePairMethod> methods, int lalignTopAlignments = 10, bool? protein = null)
     {
-        var cl = TcBuildChecked(sequences, methods, lalignTopAlignments, protein);
+        var cl = TcBuildChecked(sequences, methods, lalignTopAlignments, TcKindOf(sequences, protein));
         var list = new List<TCoffeeLibraryEntry>();
         for (int s1 = 0; s1 < sequences.Count; s1++)
             for (int r1 = 1; r1 <= cl.Length(s1); r1++)
@@ -303,18 +313,44 @@ public static partial class SequenceAligner
         return list.OrderBy(e => e.SeqA).ThenBy(e => e.SeqB).ThenBy(e => e.PosA).ThenBy(e => e.PosB).ToList();
     }
 
-    private static TcConstraintList TcBuildChecked(IReadOnlyList<string> sequences, IEnumerable<TCoffeePairMethod> methods, int lalignTop, bool? protein)
+    private static TcConstraintList TcBuildChecked(IReadOnlyList<string> sequences, IEnumerable<TCoffeePairMethod> methods, int lalignTop, TcSeqKind kind, string? matrix = null, IReadOnlyDictionary<TCoffeePairMethod, TCoffeeMethodParameters>? methodParameters = null)
     {
         ArgumentNullException.ThrowIfNull(sequences);
         ArgumentNullException.ThrowIfNull(methods);
         foreach (var s in sequences)
             if (string.IsNullOrEmpty(s)) throw new ArgumentException("Empty sequences are not supported.", nameof(sequences));
-        return TcBuildConstraintList(sequences, methods.ToList(), lalignTop, protein ?? TcIsProtein(sequences));
+        return TcBuildConstraintList(sequences, methods.ToList(), lalignTop, kind, matrix, methodParameters);
     }
 }
 
+/// <summary><c>-tree_mode</c> of the program.</summary>
+public enum TCoffeeTreeMode
+{
+    /// <summary>Neighbour joining (ClustalW 1.x routine) with the trichotomy at the root turned into a binary tree; default.</summary>
+    Nj = 0,
+
+    /// <summary>UPGMA (<c>upgma_merge</c>) on the integer distances.</summary>
+    Upgma = 1,
+}
+
+/// <summary><c>-distance_matrix_mode</c> of the program (the pair-wise distances of the guide tree and of the sequence weights).</summary>
+public enum TCoffeeDistanceMode
+{
+    /// <summary><c>ktup</c> (default): k-tuple identity of the reduced alphabet (<c>ktup_dist_mat</c>).</summary>
+    Ktup = 0,
+
+    /// <summary><c>fast</c>: Myers-Miller alignment (identity matrix, DNA -10 / -1; BLOSUM62 protein) and its identity.</summary>
+    Fast = 1,
+
+    /// <summary><c>idscore</c>: the identity of <c>idscore_pairseq</c> (affine DP; note the program does not scale this score by 10 like the others).</summary>
+    Idscore = 2,
+
+    /// <summary><c>no</c>: every pair has identity 100 (all distances 0).</summary>
+    No = 3,
+}
+
 /// <summary>Options of <see cref="SequenceAligner.MultipleAlignTCoffeeProgram"/> = the command line of the program they mirror.</summary>
-public sealed record TCoffeeProgramOptions
+public sealed partial record TCoffeeProgramOptions
 {
     /// <summary><c>-method m1,m2</c>: the primary library methods in command-line order. Default = <c>proba_pair</c>, the program's own default of 13.41 (<c>t_coffee seqs.fa</c>).</summary>
     public IReadOnlyList<TCoffeePairMethod> Methods { get; init; } = new[] { TCoffeePairMethod.ProbaPair };
@@ -322,8 +358,65 @@ public sealed record TCoffeeProgramOptions
     /// <summary><c>-lalign_n_top</c>: alignments reported by <c>lalign_id_pair</c> per pair (default 10).</summary>
     public int LalignTopAlignments { get; init; } = 10;
 
-    /// <summary><c>-relax_lib 1</c> (default) or <c>0</c>.</summary>
+    /// <summary><c>-relax_lib 1</c> (default) or <c>0</c>; <see cref="RelaxLibIterations"/> overrides it.</summary>
     public bool RelaxLibrary { get; init; } = true;
+
+    /// <summary><c>-relax_lib N</c>: the number of times the library is relaxed (<c>null</c> = 1 when <see cref="RelaxLibrary"/>, else 0).</summary>
+    public int? RelaxLibIterations { get; init; }
+
+    /// <summary><c>-filter_lib T</c>: before the relaxation every library entry with a weight of at most T is removed (0 = off).</summary>
+    public int FilterLib { get; init; }
+
+    /// <summary><c>-tree_mode</c>: <see cref="TCoffeeTreeMode.Nj"/> (default) or <see cref="TCoffeeTreeMode.Upgma"/>.</summary>
+    public TCoffeeTreeMode TreeMode { get; init; } = TCoffeeTreeMode.Nj;
+
+    /// <summary><c>-distance_matrix_mode</c> (guide tree and sequence weights): the default is <see cref="TCoffeeDistanceMode.Ktup"/>.</summary>
+    public TCoffeeDistanceMode DistanceMatrixMode { get; init; } = TCoffeeDistanceMode.Ktup;
+
+    /// <summary><c>-distance_matrix_sim_mode</c>: the identity measure of the <c>fast</c> / <c>idscore</c> distances (<c>idmat_sim1</c> default; <c>sim1</c>, <c>sim2</c>, <c>sim3</c>, <c>cov</c>, <c>gap1</c>, <c>logid</c>, optionally with an <c>idmat_</c> prefix).</summary>
+    public string DistanceMatrixSimMode { get; init; } = "idmat_sim1";
+
+    /// <summary>The <c>method@EP@KEY@value</c> overrides (GOP, GEP, MATRIX) of <c>slow_pair</c> / <c>lalign_id_pair</c> by method; the first occurrence of a method counts, as the program reads a method once.</summary>
+    public IReadOnlyDictionary<TCoffeePairMethod, TCoffeeMethodParameters>? MethodParameters { get; init; }
+
+    /// <summary>
+    /// <c>-matrix NAME</c> (any matrix of the program, e.g. blosum50mt, pam250mt): the PROTEIN <c>slow_pair</c> matrix (and its gap open from the matrix) and the emission probabilities of
+    /// <c>proba_pair</c> (<c>get_emitPairs</c>: p[a][b] = s[a] s[b] exp(score x ln2 / 2), normalised); <c>lalign_id_pair</c>, <c>slow_pair</c> of DNA / RNA and the distance modes keep their own matrices. <c>null</c> = default.
+    /// </summary>
+    public string? Matrix { get; init; }
+
+    /// <summary><c>-seq_weight t_coffee</c> weights every sequence by its similarity to the others (the library weights are multiplied by the smaller of the two sequence weights); default none.</summary>
+    public bool TCoffeeSequenceWeights { get; init; }
+
+    /// <summary><c>-seq_weight file</c>: explicit weights per sequence in input order (a file's weights; sequences missing from it have weight 1). Overrides <see cref="TCoffeeSequenceWeights"/>.</summary>
+    public IReadOnlyList<float>? SequenceWeights { get; init; }
+
+    /// <summary><c>-gapopen</c> (default 0): gap opening penalty of the progressive DP, in library weight units (best match 1000; a gap touching the last row or column is free).</summary>
+    public int GapOpen { get; init; }
+
+    /// <summary><c>-gapext</c> (default 0): gap extension penalty per residue of the progressive DP.</summary>
+    public int GapExtend { get; init; }
+
+    /// <summary><c>-cosmetic_penalty</c> (default 0): the gap opening penalty used when neither <c>-gapopen</c> nor <c>-gapext</c> is given.</summary>
+    public int CosmeticPenalty { get; init; }
+
+    /// <summary><c>-nomatch</c> (default 0): penalty per aligned column of the progressive DP (rescaled by <see cref="DoNormalise"/> / the largest residue weight sum).</summary>
+    public int NoMatch { get; init; }
+
+    /// <summary><c>-do_normalise</c> (default 1000): the factor of the <see cref="NoMatch"/> rescaling; 0 = no rescaling.</summary>
+    public int DoNormalise { get; init; } = 1000;
+
+    /// <summary><c>-outorder aligned</c>: the rows come in the program's internal order (the sequences sorted by <see cref="Names"/>, byte order) instead of the input order (default).</summary>
+    public bool OutOrderAligned { get; init; }
+
+    /// <summary>
+    /// The sequence names (in input order). The program (<c>-inorder aligned</c>, its default) sorts the sequences by name (byte order) BEFORE building the library and the tree,
+    /// which changes tie-breaking; with <c>null</c> the names are taken to sort in the input order (as q000, q001, ...). Ignored when <see cref="InOrderInput"/>.
+    /// </summary>
+    public IReadOnlyList<string>? Names { get; init; }
+
+    /// <summary><c>-inorder input</c>: keep the input order instead of sorting the sequences by name.</summary>
+    public bool InOrderInput { get; init; }
 
     /// <summary><c>true</c> = protein parameters, <c>false</c> = DNA/RNA, <c>null</c> = decided from the letters.</summary>
     public bool? Protein { get; init; }
@@ -341,7 +434,8 @@ public static partial class SequenceAligner
     /// <remarks>
     /// The sequence type is decided as the program does (DNA when more than 98 % of the letters are <c>AGCTUNRYMKSWHBVD</c>, otherwise protein) and selects the
     /// matrices, gap penalties, pair-HMM and k-tuple alphabet. Letters are used as given (the program keeps the case of the input in the library; both cases score alike).
-    /// Not available: RNA input (a <c>U</c>) for <see cref="TCoffeePairMethod.ProbaPair"/> (the program uses a different model and <c>get_tot_prob</c> for it).
+    /// RNA input (more than 98 % nucleotide letters and at least one <c>U</c>) uses the program's separate RNA pair-HMM (5 matrix types, 2 insert state pairs,
+    /// <c>get_tot_prob</c> with the residues themselves instead of the 20-letter profile) for <see cref="TCoffeePairMethod.ProbaPair"/>.
     /// The reported <see cref="MultipleAlignmentResult.TotalScore"/> is the natural affine sum of pairs under
     /// <paramref name="scoring"/> (default EDNAFULL 10 / 0.5 for DNA, BLOSUM62 10 / 0.2 for proteins), not the program's objective.
     /// </remarks>
@@ -372,11 +466,46 @@ public static partial class SequenceAligner
         foreach (var s in sequences)
             if (string.IsNullOrEmpty(s) || s.Any(c => !char.IsAsciiLetter(c))) throw new ArgumentException("Sequences must be non-empty strings of letters.", nameof(sequences));
         if (sequences.Count == 1) return new[] { sequences[0] };
-        bool protein = options.Protein ?? TcIsProtein(sequences);
-        if (options.Methods.Contains(TCoffeePairMethod.ProbaPair) && !protein && sequences.Any(s => s.Contains('U') || s.Contains('u')))
-            throw new NotSupportedException("proba_pair of RNA (a sequence containing U) uses the program's separate RNA model and is not available; use DNA letters or another method.");
-        var cl = TcBuildChecked(sequences, options.Methods, options.LalignTopAlignments, protein);
-        var index = TcIndex.FromConstraintList(cl, sequences.Select(s => s.Length).ToArray());
-        return TcAlignWithIndex(sequences, index, TCoffeeGuideTree(sequences, protein), options.RelaxLibrary);
+        int k = sequences.Count;
+
+        // -inorder aligned (the program's default): the sequences are sorted by name (byte order) before anything else is computed
+        var perm = Enumerable.Range(0, k).ToArray();
+        if (!options.InOrderInput && options.Names != null)
+        {
+            if (options.Names.Count != k) throw new ArgumentException("Names must have one entry per sequence.", nameof(options));
+            perm = perm.OrderBy(i => options.Names[i], StringComparer.Ordinal).ToArray();
+        }
+
+        var seqs = perm.Select(i => sequences[i]).ToList();
+        var kind = TcKindOf(seqs, options.Protein);
+        bool matrixGroups = options.Methods.Any(m => m != TCoffeePairMethod.ProbaPair);
+        var cl = TcBuildChecked(seqs, options.Methods, options.LalignTopAlignments, kind, options.Matrix, options.MethodParameters);
+        var index = TcIndex.FromConstraintList(cl, seqs.Select(s => s.Length).ToArray());
+        var tree = options.DistanceMatrixMode == TCoffeeDistanceMode.Ktup && options.TreeMode == TCoffeeTreeMode.Nj
+            ? TCoffeeGuideTree(seqs, kind == TcSeqKind.Protein)
+            : TcGuideTreeFor(seqs, kind, options, matrixGroups);
+
+        float[]? weights = null;
+        if (options.SequenceWeights != null)
+        {
+            if (options.SequenceWeights.Count != k) throw new ArgumentException("SequenceWeights must have one entry per sequence.", nameof(options));
+            weights = perm.Select(i => options.SequenceWeights[i]).ToArray();
+        }
+        else if (options.TCoffeeSequenceWeights)
+        {
+            weights = TcTCoffeeSequenceWeights(TcDistanceMatrix(seqs, kind, options, matrixGroups).Sim, k);
+        }
+
+        // CL->gop / CL->gep: -gapopen / -gapext, or -cosmetic_penalty as the opening penalty when neither is given
+        int gop = options.GapOpen, gep = options.GapExtend;
+        if (gop == 0 && gep == 0) gop = options.CosmeticPenalty;
+        int relax = options.RelaxLibIterations ?? (options.RelaxLibrary ? 1 : 0);
+        var (sortedRows, _) = TcAlignDetailed(seqs, index, tree, relax, options.FilterLib, weights, new TcPenalties(gop, gep, options.NoMatch), options.DoNormalise);
+
+        // -outorder aligned writes the rows in the program's internal order (the names sorted, see Names); the default (input) restores the input order
+        if (options.OutOrderAligned) return sortedRows;
+        var rows = new string[k];
+        for (int i = 0; i < k; i++) rows[perm[i]] = sortedRows[i];
+        return rows;
     }
 }

@@ -996,13 +996,15 @@ public class AlignmentTools
     }
 
     [McpServerTool(Name = "multiple_align_tcoffee", Title = "MSA — T-Coffee 13.41 Program (primary libraries, guide tree, progressive stage)", ReadOnly = true)]
-    [Description("The multiple alignment of the T-Coffee 13.41 program (t_coffee; Notredame, Higgins & Heringa 2000) reproduced end to end: its own primary library built by the program's pair-wise methods - 'proba_pair' (the program's default: ProbCons pair-HMM posteriors > 0.01, at most 4 x min(length) pairs per pair of sequences), 'slow_pair' (Myers-Miller global alignment, dna_idmat 10 / 0 with gap open -10 / extend -1 for DNA, BLOSUM62 for proteins) and 'lalign_id_pair' (Huang-Miller SIM, the lalignTopAlignments best non-intersecting local alignments), several methods merged the way the program's forked library merge does (which is not their union) - then library relaxation, the program's guide tree (k-tuple distances, neighbour joining with the trifurcating root turned into a binary tree; fast neighbour joining from 100 sequences) and the sparse linked-pair-wise progressive stage. Rows equal t_coffee -seq s.fa [-method m1,m2] -output fasta_aln on 1 500+ committed DNA and protein sets (libraries pair by pair on 800+ more), for any -n_core. The type (DNA when more than 98 % of the letters are A G C T U N R Y M K S W H B V D, otherwise protein) selects the matrices, penalties and models. Not available: proba_pair of RNA (a U). totalScore is the natural affine sum of pairs (EDNAFULL / BLOSUM62), not the program's objective. Sequence names are irrelevant here; the program mishandles input names of which one is a prefix of another.")]
+    [Description("The multiple alignment of the T-Coffee 13.41 program (t_coffee; Notredame, Higgins & Heringa 2000) reproduced end to end: its own primary library built by the program's pair-wise methods - 'proba_pair' (the program's default: ProbCons pair-HMM posteriors > 0.01, at most 4 x min(length) pairs per pair of sequences), 'slow_pair' (Myers-Miller global alignment, dna_idmat 10 / 0 with gap open -10 / extend -1 for DNA, BLOSUM62 for proteins) and 'lalign_id_pair' (Huang-Miller SIM, the lalignTopAlignments best non-intersecting local alignments), several methods merged the way the program's forked library merge does (which is not their union) - then library relaxation, the program's guide tree (k-tuple distances, neighbour joining with the trifurcating root turned into a binary tree; fast neighbour joining from 100 sequences) and the sparse linked-pair-wise progressive stage. Rows equal t_coffee -seq s.fa [-method m1,m2] -output fasta_aln on 1 500+ committed DNA and protein sets (libraries pair by pair on 800+ more), for any -n_core. The type (DNA when more than 98 % of the letters are A G C T U N R Y M K S W H B V D, otherwise protein) selects the matrices, penalties and models. RNA input (a U) uses the program's separate RNA pair-HMM (5 matrix types, 2 insert state pairs, get_tot_prob). Further command-line options of the program are accepted in 'options' (a t_coffee flag string, e.g. '-tree_mode upgma -distance_matrix_mode fast -seq_weight t_coffee -relax_lib 2 -filter_lib 20 -gapopen -50 -gapext -2 -nomatch 5 -outorder aligned'): -relax_lib N, -filter_lib T, -tree_mode nj|upgma, -distance_matrix_mode ktup|fast|idscore|no, -distance_matrix_sim_mode (idmat_sim1/2/3, gap1, logid), -seq_weight t_coffee|no|@w1,w2,... (weights in input order), -weight no, -gapopen, -gapext, -cosmetic_penalty, -nomatch, -do_normalise, -inorder aligned|input, -outorder input|aligned, -lalign_n_top, -method; flags without influence on the rows (-extend_mode, -evaluate_mode, -shrink_lib, -tg_mode, -ktuple, -n_core, ...) are accepted and ignored; any other flag is rejected by name. Every option is verified row for row against the installed t_coffee on 150+ committed sets (4 300+ sets in all). 'names' = the sequence names: the program sorts the sequences by name (strcmp order) before building the library and the tree (-inorder aligned, its default) and restores the input order on output, which is the 'name-prefix quirk' (s1 / s10 trees differ); without names the names are taken to sort in input order. -matrix NAME (38 matrices of the program: blosum30..80mt, pam120..350mt, md_*, idmat, est_idmat, ...). A set on which the program itself core-dumps (lalign_id_pair with a very small gap open, e.g. 'lalign_id_pair@EP@GOP@-3': SIM's edit-script array overflows its heap chunk) raises TCoffeeAbortedException. totalScore is the natural affine sum of pairs (EDNAFULL / BLOSUM62), not the program's objective.")]
     public static MultipleAlignmentResultDto MultipleAlignTCoffee(
         [Description("Sequences to align (at least one, none empty): letters only (the program removes gaps; here they are rejected).")] string[] sequences,
-        [Description("Primary-library methods in command-line order (t_coffee -method m1,m2): 'proba_pair' (default; = plain t_coffee seqs.fa), 'slow_pair', 'lalign_id_pair'.")] string[]? methods = null,
+        [Description("Primary-library methods in command-line order (t_coffee -method m1,m2): 'proba_pair' (default; = plain t_coffee seqs.fa), 'slow_pair', 'lalign_id_pair', 'clustalw_pair' (the ClustalW 2.1 pair alignments), each optionally with the program's parameter overrides, e.g. 'slow_pair@EP@GOP@-30@GEP@-3@MATRIX@blosum50mt'.")] string[]? methods = null,
         [Description("t_coffee -lalign_n_top (default 10): alignments reported by lalign_id_pair for every pair of sequences.")] int lalignTopAlignments = 10,
         [Description("t_coffee -relax_lib: true = 1 (default, library relaxation), false = 0.")] bool relaxLibrary = true,
-        [Description("'auto' (default; the program's decision), 'dna' or 'protein' (forces the matrices, penalties and models).")] string type = "auto")
+        [Description("'auto' (default; the program's decision), 'dna' or 'protein' (forces the matrices, penalties and models).")] string type = "auto",
+        [Description("Further t_coffee flags, e.g. '-tree_mode upgma -relax_lib 2 -seq_weight t_coffee -gapext -2' (see the tool description for the supported list); applied after the other parameters.")] string? options = null,
+        [Description("Sequence names (one per sequence, in input order): the program sorts the sequences by name before computing anything (-inorder aligned); omitted = names that sort in input order.")] string[]? names = null)
     {
         if (sequences == null || sequences.Length == 0)
         {
@@ -1010,23 +1012,13 @@ public class AlignmentTools
             return new MultipleAlignmentResultDto(e.AlignedSequences, e.Consensus, e.TotalScore, e.ExactTotalScore);
         }
 
-        var list = new List<global::Seqeron.Genomics.Alignment.TCoffeePairMethod>();
-        foreach (var m in methods is { Length: > 0 } ? methods : new[] { "proba_pair" })
+        if (names != null && names.Length != sequences.Length)
+            throw new ArgumentException("names must have one entry per sequence.", nameof(names));
+        var tcOptions = new global::Seqeron.Genomics.Alignment.TCoffeeProgramOptions
         {
-            list.Add((m ?? "").Trim().ToLowerInvariant() switch
-            {
-                "proba_pair" => global::Seqeron.Genomics.Alignment.TCoffeePairMethod.ProbaPair,
-                "slow_pair" => global::Seqeron.Genomics.Alignment.TCoffeePairMethod.SlowPair,
-                "lalign_id_pair" => global::Seqeron.Genomics.Alignment.TCoffeePairMethod.LalignIdPair,
-                _ => throw new ArgumentException("methods must be 'proba_pair', 'slow_pair' or 'lalign_id_pair'.", nameof(methods)),
-            });
-        }
-
-        var options = new global::Seqeron.Genomics.Alignment.TCoffeeProgramOptions
-        {
-            Methods = list,
             LalignTopAlignments = lalignTopAlignments,
             RelaxLibrary = relaxLibrary,
+            Names = names,
             Protein = (type ?? "auto").Trim().ToLowerInvariant() switch
             {
                 "auto" => null,
@@ -1040,7 +1032,11 @@ public class AlignmentTools
 
         try
         {
-            var m2 = global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignTCoffeeProgram(sequences, options);
+            // methods go through the flag parser: 'proba_pair', 'slow_pair', 'lalign_id_pair', 'clustalw_pair' and the name@EP@GOP@-30@GEP@-3@MATRIX@blosum50mt form
+            var methodList = methods is { Length: > 0 } ? methods.Select(m => (m ?? "").Trim().ToLowerInvariant()).ToArray() : new[] { "proba_pair" };
+            tcOptions = tcOptions.WithCommandLine("-method " + string.Join(",", methodList));
+            if (!string.IsNullOrWhiteSpace(options)) tcOptions = tcOptions.WithCommandLine(options);
+            var m2 = global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignTCoffeeProgram(sequences, tcOptions);
             return new MultipleAlignmentResultDto(m2.AlignedSequences, m2.Consensus, m2.TotalScore, m2.ExactTotalScore);
         }
         catch (NotSupportedException ex)
