@@ -33,7 +33,7 @@ public class SequenceAligner_TCoffeeOptions_Tests
         return list;
     }
 
-    private static bool IsGotohDp(string flags) => System.Text.RegularExpressions.Regex.IsMatch(flags, "-dp_mode (gotoh_pair_wise|gotoh_pair_wise_test|gotoh_pair_wise_lgp|ssec_pair_wise|biphasic_pair_wise|glocal_pair_wise)( |$)");
+    private static bool IsGotohDp(string flags) => System.Text.RegularExpressions.Regex.IsMatch(flags, "-dp_mode (gotoh_pair_wise|gotoh_pair_wise_test|gotoh_pair_wise_lgp|ssec_pair_wise|biphasic_pair_wise|glocal_pair_wise|viterbi_pair_wise)( |$)");
 
     private static bool IsIdscoreFast(string flags) => flags.Contains("-distance_matrix_mode fast", StringComparison.Ordinal) && flags.Contains("idscore", StringComparison.Ordinal);
 
@@ -101,7 +101,7 @@ public class SequenceAligner_TCoffeeOptions_Tests
                     string[] rows = SequenceAligner.MultipleAlignTCoffeeProgram(c.Seqs, options).AlignedSequences.ToArray();
                     // gotoh_pair_wise: the final alignment is 8 (mod 16) columns long in every committed abort; biphasic_pair_wise / glocal_pair_wise write the rows the same way and die on alignments of at least 24 columns (an intermediate merge of
                     // 8 mod 16 columns can lie below the final length)
-                    Assert.That(rows[0].Length, Is.GreaterThanOrEqualTo(24), $"heap-overflow abort of the row writer on '{c.Flags}' {string.Join('|', c.Seqs)}");
+                    Assert.That(rows[0].Length, Is.GreaterThanOrEqualTo(8), $"heap-overflow abort of the row writer on '{c.Flags}' {string.Join('|', c.Seqs)}"); // a merge of 8 (mod 16) columns: 8, 24, 40 ... (valgrind on a 9-column set: "Invalid write of size 1 ... 0 bytes after a block of size 88" at the merge of Len=8)
                     gotohOverflow++;
                     continue;
                 }
@@ -412,6 +412,32 @@ public class SequenceAligner_TCoffeeOptions_Tests
     }
 
     /// <summary>
+    /// A2-5 (WP30): the column scores <c>-extend_mode pc | mixt | g_coffee | g_coffee_quadruplets</c> (<c>slow_get_dp_cost</c> over <c>residue_pair_extended_list_pc</c> / <c>_mixt</c> / <c>_g_coffee</c> / <c>_g_coffee_quadruplet</c>) on
+    /// <c>gotoh_pair_wise</c>, <c>myers_miller_pair_wise</c> and <c>fasta_pair_wise</c>, with gap penalties, nomatch, sequence weights and UPGMA; 760 sets (6 = row-writer overflow of the program).
+    /// </summary>
+    [Test]
+    public void PcMixtAndGCoffeeExtendModes_EveryRowEqualsTheProgram() => AssertFeature("dp_extend2", 700);
+
+    /// <summary>A2-5 (WP30): <c>-dp_mode procoffee_pair_wise</c> = the sparse linked DP over the scored column pairs with the older <c>cl2diag_cap390</c> (cl2list_borders first, borders inside the cap) and the two groups swapped; 460 sets.</summary>
+    [Test]
+    public void ProcoffeeDp_EveryRowEqualsTheProgram() => AssertFeature("dp_procoffee", 450);
+
+    /// <summary>A2-5 (WP30): <c>-dp_mode viterbi_pair_wise</c> = the Viterbi path of the five-state pair-HMM of proba_pair (protein model, whatever the sequence type) between the residue frequency profiles of the two groups; 420 sets.</summary>
+    [Test]
+    public void ViterbiDp_EveryRowEqualsTheProgram() => AssertFeature("dp_viterbi", 400);
+
+    /// <summary>A2-5 (WP30): <c>-extend_mode quadruplet</c> (<c>get_dp_cost_quadruplet</c>: the quadruplet score of every residue pair when a group has one sequence, else the hashes of the partners of the partners of the two columns; nomatch subtracted twice); 360 sets (1 = row-writer overflow).</summary>
+    [Test]
+    public void QuadrupletExtendMode_EveryRowEqualsTheProgram() => AssertFeature("dp_quad", 350);
+
+    /// <summary>
+    /// A2-5 (WP30): <c>-extend_mode test</c> (<c>slow_get_dp_cost_test</c>: the raw sum of the smaller weights x 10 / (ns1 x ns2), no nomatch) and <c>rna</c> / <c>rna1</c> / <c>rna2</c> / <c>rna3</c> / <c>rna4</c> without a contact library (the column score of rna0 = slow_triplet) on
+    /// <c>gotoh_pair_wise</c> / <c>myers_miller_pair_wise</c> / <c>fasta_pair_wise</c>; 470 sets (3 = row-writer overflow of the program).
+    /// </summary>
+    [Test]
+    public void TestAndRnaExtendModes_EveryRowEqualsTheProgram() => AssertFeature("dp_extend3", 450);
+
+    /// <summary>
     /// A2-5: <c>-extend_mode rna0</c> (= slow_triplet), the extend modes without effect on the sparse linked DP, and <c>relative_triplet</c>, whose <c>residue_pair_relative_extended_list</c> reads the weights of the first residue's library list
     /// at the positions of the second residue's (longer) list, past the array: undefined behaviour (the port raises <see cref="NotSupportedException"/> on such a read and equals the program on every set where none happens).
     /// </summary>
@@ -430,7 +456,7 @@ public class SequenceAligner_TCoffeeOptions_Tests
         // one sequence: no pair job - but an unknown extend mode stops choose_extension_mode anyway, ssp / tm / curvature need a pair
         Assert.That(SequenceAligner.MultipleAlignTCoffeeProgram(new[] { "ACGT" }, TCoffeeProgramOptions.FromCommandLine("-dp_mode idscore_pair_wise -extend_mode ssp")).AlignedSequences, Is.EqualTo(new[] { "ACGT" }));
         Assert.Throws<TCoffeeAbortedException>(() => SequenceAligner.MultipleAlignTCoffeeProgram(new[] { "ACGT" }, TCoffeeProgramOptions.FromCommandLine("-extend_mode bogus")));
-        Assert.Throws<NotSupportedException>(() => SequenceAligner.MultipleAlignTCoffeeProgram(new[] { "ACGT", "ACGA" }, TCoffeeProgramOptions.FromCommandLine("-dp_mode viterbi_pair_wise")));
+        Assert.Throws<NotSupportedException>(() => SequenceAligner.MultipleAlignTCoffeeProgram(new[] { "ACGT", "ACGA" }, TCoffeeProgramOptions.FromCommandLine("-dp_mode viterbiL_pair_wise")));
     }
 
     [Test]

@@ -329,7 +329,7 @@ public static partial class SequenceAligner
     private static (string RowA, string RowB, int Score) TcPairRowsOfMainDp(IReadOnlyList<string> seqs, int a, int b, TcRelaxedState st)
     {
         if (st.Dp is null or { Mode: TCoffeeDpMode.Linked }) return TcLinkedPairRows(seqs, a, b, st.Index, st.Penalties);
-        return TcDpPairRows(seqs, a, b, new TcDpContext(st.Index, null, st.Dp, st.Penalties.NoMatch, (int)Math.Min(int.MaxValue, st.Index.MaxExtValue())));
+        return TcDpPairRows(seqs, a, b, new TcDpContext(st.Index, null, st.Dp, st.Penalties.NoMatch, (int)Math.Min(int.MaxValue, st.Index.MaxExtValue()), seqs));
     }
 
     /// <summary>

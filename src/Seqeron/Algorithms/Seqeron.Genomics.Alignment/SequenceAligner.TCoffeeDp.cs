@@ -67,6 +67,12 @@ public enum TCoffeeDpMode
     /// and calls <c>generate_null</c> with a negative size when the second group has fewer than <c>n</c> columns (a null allocation: deterministic segmentation fault).
     /// </summary>
     Test = 14,
+
+    /// <summary><c>procoffee_pair_wise</c>: the sparse linked DP (library column pairs, <c>list2linked_pair_wise</c>) with the older <c>cl2diag_cap390</c> and the two groups swapped (the second group is profile 1).</summary>
+    Procoffee = 15,
+
+    /// <summary><c>viterbi_pair_wise</c>: the pair-HMM of <c>proba_pair</c> (protein model, 5 matrix types) on the residue frequencies of the two profiles: Viterbi path of the five-state model (<c>get_tot_prob2</c> + <c>viterbi_pair_wise</c>, util_dp_suboptimal_nw.c).</summary>
+    Viterbi = 16,
 }
 
 /// <summary><c>-extend_mode</c> of the program (<c>choose_extension_mode</c>): how the library is used to score a pair of profile columns.</summary>
@@ -92,6 +98,24 @@ public enum TCoffeeExtendMode
 
     /// <summary>Any other name: the program refuses or dies (see <see cref="TCoffeeProgramOptions.ExtendModeText"/>); no effect on the default linked DP of the names the program accepts.</summary>
     Other = 5,
+
+    /// <summary><c>pc</c>: <c>residue_pair_extended_list_pc</c> (the sum of the smaller of two normalised weights over the common partners, divided by the smaller list length, x 1000; NOT scaled by SCORE_K) with <c>slow_get_dp_cost</c>.</summary>
+    Pc = 6,
+
+    /// <summary><c>g_coffee</c>: <c>residue_pair_extended_list_g_coffee</c> (the best of the smaller weights over the common partners, x SCORE_K) with <c>slow_get_dp_cost</c>.</summary>
+    GCoffee = 7,
+
+    /// <summary><c>g_coffee_quadruplets</c>: <c>residue_pair_extended_list_g_coffee_quadruplet</c> (the best quadruplet) with <c>slow_get_dp_cost</c>.</summary>
+    GCoffeeQuadruplets = 8,
+
+    /// <summary><c>mixt</c>: <c>residue_pair_extended_list_mixt</c> = (the quadruplet score + the triplet score) x SCORE_K with <c>slow_get_dp_cost</c>.</summary>
+    Mixt = 9,
+
+    /// <summary><c>test</c>: <c>slow_get_dp_cost_test</c> = the raw sum of the smaller weights of the common partners (<c>residue_pair_extended_list_raw</c>, no normalisation) of the residue pairs x 10 divided by the number of pairs of sequences (integer division; no nomatch).</summary>
+    Test = 10,
+
+    /// <summary><c>quadruplet</c>: <c>get_dp_cost_quadruplet</c> = <c>slow_get_dp_cost</c> over <c>residue_pair_extended_list_quadruplet</c> when a group has a single sequence, else <c>fast_get_dp_cost_quadruplet</c> (hashes of the partners of the partners of the two columns); the nomatch penalty is subtracted a second time.</summary>
+    Quadruplet = 11,
 }
 
 public static partial class SequenceAligner
@@ -115,8 +139,12 @@ public static partial class SequenceAligner
         private readonly int[][] _hasch;
         private readonly int[][] _hasch1, _hasch2, _n1, _n2, _in1, _in2;
 
-        public TcDpContext(TcIndex index, int[,]? sim, TcDpSettings settings, int noMatch, int maxExt)
+        /// <summary>The sequences (profile based dynamic programs read the residue letters).</summary>
+        public readonly IReadOnlyList<string> Sequences;
+
+        public TcDpContext(TcIndex index, int[,]? sim, TcDpSettings settings, int noMatch, int maxExt, IReadOnlyList<string>? sequences = null)
         {
+            Sequences = sequences ?? Array.Empty<string>();
             Index = index;
             Sim = sim;
             Settings = settings;
@@ -207,12 +235,153 @@ public static partial class SequenceAligner
             return score * TcScoreK;
         }
 
+        /// <summary><c>residue_pair_extended_list_pc</c> (float arithmetic of the weights / 1000, double sums; the result is not scaled by SCORE_K).</summary>
+        public int ResiduePairPc(int s1, int r1, int s2, int r2)
+        {
+            if (r1 <= 0 || r2 <= 0) return 0;
+            double score = 0;
+            float norm1 = 0, norm2 = 0;
+            var own = Index.Edges[s1][r1];
+            _hasch[s1][r1] = TcForbidden;
+            foreach (var e in own)
+            {
+                _hasch[e.Seq][e.Res] = e.Weight;
+                norm1++;
+            }
+
+            foreach (var x in Index.Edges[s2][r2])
+            {
+                norm2++;
+                int h = _hasch[x.Seq][x.Res];
+                if (h == 0) continue;
+                if (h == TcForbidden) score += (float)x.Weight / TcNormF;
+                else
+                {
+                    float f1 = (float)h / TcNormF, f2 = (float)x.Weight / TcNormF;
+                    double delta = f1 < f2 ? f1 : f2;
+                    score += delta;
+                }
+            }
+
+            foreach (var e in own) _hasch[e.Seq][e.Res] = 0;
+            _hasch[s1][r1] = _hasch[s2][r2] = 0;
+            norm1 = Math.Min(norm1, norm2);
+            score = norm1 != 0 ? score / norm1 : 0;
+            return (int)(score * TcNormF);
+        }
+
+        /// <summary><c>residue_pair_extended_list_g_coffee</c>: the best of the smaller weights over the partners the two residues share, x SCORE_K.</summary>
+        public int ResiduePairGCoffee(int s1, int r1, int s2, int r2)
+        {
+            if (r1 <= 0 || r2 <= 0) return 0;
+            int score = 0;
+            var own = Index.Edges[s1][r1];
+            _hasch[s1][r1] = 100000;
+            foreach (var e in own) _hasch[e.Seq][e.Res] = e.Weight;
+            foreach (var x in Index.Edges[s2][r2])
+                if (_hasch[x.Seq][x.Res] != 0) score = Math.Max(Math.Min(_hasch[x.Seq][x.Res], x.Weight), score);
+            foreach (var e in own) _hasch[e.Seq][e.Res] = 0;
+            _hasch[s1][r1] = _hasch[s2][r2] = 0;
+            return score * TcScoreK;
+        }
+
+        /// <summary><c>residue_pair_extended_list_g_coffee_quadruplet</c> (every sequence takes part: <c>-seq_name_for_quadruplet all</c>; <c>s</c> keeps its last value when a pair is not common, as in the original).</summary>
+        public int ResiduePairGCoffeeQuadruplet(int s1, int r1, int s2, int r2)
+        {
+            if (r1 <= 0 || r2 <= 0) return 0;
+            int score = 0, s = 0;
+            var own = Index.Edges[s1][r1];
+            _hasch[s1][r1] = 100000;
+            foreach (var t in own)
+                foreach (var q in Index.Edges[t.Seq][t.Res])
+                    _hasch[q.Seq][q.Res] = Math.Min(q.Weight, t.Weight);
+            foreach (var t in Index.Edges[s2][r2])
+                foreach (var q in Index.Edges[t.Seq][t.Res])
+                {
+                    if (_hasch[q.Seq][q.Res] != 0) s = Math.Min(_hasch[q.Seq][q.Res], Math.Min(q.Weight, q.Weight));
+                    score = Math.Max(score, s);
+                }
+
+            foreach (var t in own)
+                foreach (var q in Index.Edges[t.Seq][t.Res])
+                    _hasch[q.Seq][q.Res] = 0;
+            return score * TcScoreK;
+        }
+
+        /// <summary><c>residue_pair_extended_list_quadruplet</c>: the sum of the smallest of the three weights of a quadruplet (s1 r1 - t - q - t2 - s2 r2 through a common q), normalised by <c>max_ext_value</c>, x SCORE_K (double arithmetic).</summary>
+        public int ResiduePairQuadruplet(int s1, int r1, int s2, int r2)
+        {
+            if (r1 <= 0 || r2 <= 0) return 0;
+            double score = 0;
+            var own = Index.Edges[s1][r1];
+            _hasch[s1][r1] = 100000;
+            foreach (var t in own)
+                foreach (var q in Index.Edges[t.Seq][t.Res])
+                    _hasch[q.Seq][q.Res] = Math.Min(q.Weight, t.Weight);
+            foreach (var t in Index.Edges[s2][r2])
+                foreach (var q in Index.Edges[t.Seq][t.Res])
+                    if (_hasch[q.Seq][q.Res] != 0) score += Math.Min(_hasch[q.Seq][q.Res], Math.Min(q.Weight, t.Weight));
+            score = Settings.Normalise != 0 ? score * Settings.Normalise / MaxExt : score;
+            foreach (var t in own)
+                foreach (var q in Index.Edges[t.Seq][t.Res])
+                    _hasch[q.Seq][q.Res] = 0;
+            return (int)(score * TcScoreK);
+        }
+
+        /// <summary><c>residue_pair_extended_list_raw</c>: the sum of the smaller weights over the partners the two residues share, as an int.</summary>
+        public int ResiduePairRaw(int s1, int r1, int s2, int r2)
+        {
+            if (r1 <= 0 || r2 <= 0) return 0;
+            double score = 0;
+            var own = Index.Edges[s1][r1];
+            _hasch[s1][r1] = TcForbidden;
+            foreach (var e in own) _hasch[e.Seq][e.Res] = e.Weight;
+            foreach (var x in Index.Edges[s2][r2])
+            {
+                int h = _hasch[x.Seq][x.Res];
+                if (h == 0) continue;
+                score += h == TcForbidden ? x.Weight : Math.Min(h, x.Weight);
+            }
+
+            foreach (var e in own) _hasch[e.Seq][e.Res] = 0;
+            _hasch[s1][r1] = _hasch[s2][r2] = 0;
+            return (int)score;
+        }
+
+        /// <summary><c>slow_get_dp_cost_test</c>: <c>(int)(score x 10) / (ns1 x ns2)</c> over the residue pairs (the divisor counts the gap pairs too; no nomatch is subtracted).</summary>
+        private int SlowCostTest(TcGroup g1, int[] l1, int col1, TcGroup g2, int[] l2, int col2)
+        {
+            double score = 0;
+            foreach (int a in l1)
+                foreach (int b in l2)
+                {
+                    int rs1 = a, rs2 = b, r1 = g1.Rows[a][col1], r2 = g2.Rows[b][col2];
+                    if (rs1 > rs2) { (rs1, rs2) = (rs2, rs1); (r1, r2) = (r2, r1); }
+                    if (r1 > 0 && r2 > 0) score += ResiduePairRaw(rs1, r1, rs2, r2);
+                }
+
+            return (int)(score * 10) / (l1.Length * l2.Length);
+        }
+
         public Func<int, int, int> ColumnScore(TcGroup g1, TcGroup g2)
         {
             var l1 = g1.Order.OrderBy(x => x).ToArray();
             var l2 = g2.Order.OrderBy(x => x).ToArray();
             switch (Settings.Extend)
             {
+                case TCoffeeExtendMode.Quadruplet:
+                    return (c1, c2) => (l1.Length == 1 || l2.Length == 1 ? SlowCost(g1, l1, c1, g2, l2, c2, ResiduePairQuadruplet) : FastCostQuadruplet(g1, l1, c1, g2, l2, c2)) - TcScoreK * NoMatch;
+                case TCoffeeExtendMode.Test:
+                    return (c1, c2) => SlowCostTest(g1, l1, c1, g2, l2, c2);
+                case TCoffeeExtendMode.Pc:
+                    return (c1, c2) => SlowCost(g1, l1, c1, g2, l2, c2, ResiduePairPc);
+                case TCoffeeExtendMode.GCoffee:
+                    return (c1, c2) => SlowCost(g1, l1, c1, g2, l2, c2, ResiduePairGCoffee);
+                case TCoffeeExtendMode.GCoffeeQuadruplets:
+                    return (c1, c2) => SlowCost(g1, l1, c1, g2, l2, c2, ResiduePairGCoffeeQuadruplet);
+                case TCoffeeExtendMode.Mixt:
+                    // residue_pair_extended_list_mixt: both scores are already scaled by SCORE_K and the sum is scaled again
+                    return (c1, c2) => SlowCost(g1, l1, c1, g2, l2, c2, (a, ra, b, rb) => (ResiduePairQuadruplet(a, ra, b, rb) + ResiduePairExtended(a, ra, b, rb)) * TcScoreK);
                 case TCoffeeExtendMode.SlowTriplet:
                     return (c1, c2) => SlowCost(g1, l1, c1, g2, l2, c2);
                 case TCoffeeExtendMode.Triplet:
@@ -232,8 +401,9 @@ public static partial class SequenceAligner
             }
         }
 
-        private int SlowCost(TcGroup g1, int[] l1, int col1, TcGroup g2, int[] l2, int col2)
+        private int SlowCost(TcGroup g1, int[] l1, int col1, TcGroup g2, int[] l2, int col2, Func<int, int, int, int, int>? evaluate = null)
         {
+            evaluate ??= ResiduePairExtended;
             double score = 0;
             int resRes = 0;
             foreach (int a in l1)
@@ -244,7 +414,7 @@ public static partial class SequenceAligner
                     if (r1 > 0 && r2 > 0)
                     {
                         resRes++;
-                        score += ResiduePairExtended(rs1, r1, rs2, r2);
+                        score += evaluate(rs1, r1, rs2, r2);
                     }
                 }
 
@@ -268,6 +438,88 @@ public static partial class SequenceAligner
             }
 
             score = resRes == 0 ? 0 : score / resRes;
+            return (int)(score - TcScoreK * NoMatch);
+        }
+
+        /// <summary>
+        /// <c>fast_get_dp_cost_quadruplet</c> (evaluate.c L5889): like <see cref="FastCost"/> but the hashes hold the partners of the PARTNERS of the residues of the two columns (the smaller of the two weights summed, counted); the group with more
+        /// sequences is the first one (swapped when it is the second); the second pass reads the residues of the second group through <c>pos1</c> (the same position table as <c>pos2</c>).
+        /// </summary>
+        private int FastCostQuadruplet(TcGroup g1, int[] l1, int col1, TcGroup g2, int[] l2, int col2)
+        {
+            if (l2.Length > l1.Length) (g1, l1, col1, g2, l2, col2) = (g2, l2, col2, g1, l1, col1);
+            double score = 0;
+            int nGap1 = 0, nGap2 = 0;
+            foreach (int s in l1)
+            {
+                int r1 = g1.Rows[s][col1];
+                if (r1 <= 0) nGap1++;
+                else
+                {
+                    _in1[s][r1] = 1;
+                    foreach (var t in Index.Edges[s][r1])
+                        foreach (var q in Index.Edges[t.Seq][t.Res])
+                        {
+                            _hasch1[q.Seq][q.Res] += Math.Min(q.Weight, t.Weight);
+                            _n1[q.Seq][q.Res]++;
+                        }
+                }
+            }
+
+            foreach (int s in l2)
+            {
+                int r2 = g2.Rows[s][col2];
+                if (r2 <= 0) nGap2++;
+                else
+                {
+                    _in2[s][r2] = 1;
+                    foreach (var t in Index.Edges[s][r2])
+                        foreach (var q in Index.Edges[t.Seq][t.Res])
+                        {
+                            _hasch2[q.Seq][q.Res] += Math.Min(t.Weight, q.Weight);
+                            _n2[q.Seq][q.Res]++;
+                        }
+                }
+            }
+
+            foreach (int s in l2)
+            {
+                int r2 = g2.Rows[s][col2];
+                if (r2 <= 0) continue;
+                foreach (var t in Index.Edges[s][r2])
+                    foreach (var q in Index.Edges[t.Seq][t.Res])
+                    {
+                        int qs = q.Seq, qr = q.Res;
+                        if (_hasch2[qs][qr] != 0 && _hasch1[qs][qr] != 0 && !(_in1[qs][qr] != 0 || _in2[qs][qr] != 0))
+                            score += Math.Min(_hasch2[qs][qr] * _n1[qs][qr], _hasch1[qs][qr] * _n2[qs][qr]);
+                        else if (_hasch2[qs][qr] != 0 && _in1[qs][qr] != 0)
+                            score += _hasch2[qs][qr] * (_n1[qs][qr] + 1);
+                        else if (_hasch1[qs][qr] != 0 && _in2[qs][qr] != 0)
+                            score += _hasch1[qs][qr] * (_n2[qs][qr] + 1);
+                        _hasch2[qs][qr] = 0;
+                        _n2[qs][qr] = 0;
+                    }
+
+                _hasch2[s][r2] = 0;
+                _in2[s][r2] = 0;
+            }
+
+            foreach (int s in l1)
+            {
+                int r1 = g1.Rows[s][col1];
+                if (r1 <= 0) continue;
+                _in1[s][r1] = 0;
+                _hasch1[s][r1] = 0;
+                foreach (var t in Index.Edges[s][r1])
+                    foreach (var q in Index.Edges[t.Seq][t.Res])
+                    {
+                        _hasch1[q.Seq][q.Res] = 0;
+                        _n1[q.Seq][q.Res] = 0;
+                    }
+            }
+
+            score = score * TcScoreK / ((l1.Length - nGap1) * (l2.Length - nGap2));
+            if (Settings.Normalise != 0) score = score * Settings.Normalise / MaxExt;
             return (int)(score - TcScoreK * NoMatch);
         }
 
@@ -547,6 +799,18 @@ public static partial class SequenceAligner
             case TCoffeeDpMode.Gotoh:
             case TCoffeeDpMode.GotohTest:
                 return TcGotohProfile(l1, l2, cost, st.Gop, st.Gep, st.TgMode, st.Mode == TCoffeeDpMode.GotohTest);
+            case TCoffeeDpMode.Viterbi:
+                return TcViterbiMasks(ctx, g0, g1);
+            case TCoffeeDpMode.Procoffee:
+                {
+                    // procoffee_pair_wise: ns[0] = nsi[1], ls[0] = lsi[1] ...: the SECOND group is profile 1 (no size based swap as in linked_pair_wise)
+                    var pen = new TcPenalties(st.Gop, st.Gep, ctx.NoMatch);
+                    var profile1 = g1;
+                    var profile2 = g0;
+                    var list = TcPairListExt(profile1, profile2, profile1.Columns, profile2.Columns, ctx.Index);
+                    var (m1, m2, score) = TcSparseDp(list, profile1.Columns, profile2.Columns, pen, cap390: true);
+                    return (m2, m1, score);
+                }
             case TCoffeeDpMode.GotohLgp:
                 return TcGotohLgpMasks(g0, g1, cost, st.Gop, st.Gep);
             case TCoffeeDpMode.MyersMiller:
@@ -682,7 +946,7 @@ public static partial class SequenceAligner
 
     // ----- what the program does with the modes that are not ported ------------------------------------------------------------
 
-    private static readonly string[] TcExtendModesWithoutPort = { "pc", "mixt", "quadruplet", "g_coffee", "g_coffee_quadruplets", "rna", "rna1", "rna2", "rna3", "rna4", "test" };
+    private static readonly string[] TcExtendModesWithoutPort = { "rna", "rna1", "rna2", "rna3", "rna4" }; // rna* are mapped to slow_triplet by the caller (no contact library)
 
     /// <summary>
     /// The refusals of <c>choose_extension_mode</c> / <c>initialize_scoring_scheme</c> (an unknown <c>-extend_mode</c> or <c>matrix</c> stops the program for any number of sequences, exit status 1; <c>ssp</c> / <c>tm</c> die in the first evaluation (exit status 11) and
@@ -694,7 +958,7 @@ public static partial class SequenceAligner
         if (o.ExtendMode == TCoffeeExtendMode.Other)
         {
             string m = o.ExtendModeText ?? string.Empty;
-            if (m == "rna0") { /* residue_pair_extended_list + slow_get_dp_cost: handled as slow_triplet by the caller */ }
+            if (m is "rna0" or "rna" or "rna1" or "rna2" or "rna3" or "rna4") { /* residue_pair_extended_list + slow_get_dp_cost: handled as slow_triplet by the caller */ }
             else if (m == "matrix") throw new TCoffeeAbortedException("ERROR: use -in <mat_name> to set the matrix to be used [FATAL] (choose_extension_mode: -extend_mode matrix needs CL->M)");
             else if (m is "ssp" or "tm")
             {
@@ -728,7 +992,7 @@ public static partial class SequenceAligner
 
     private static readonly string[] TcDpModesWithoutPort =
     {
-        "viterbi_pair_wise", "viterbiL_pair_wise", "viterbiD_pair_wise", "procoffee_pair_wise", "co_pair_wise",
+        "viterbiL_pair_wise", "viterbiD_pair_wise", "co_pair_wise",
         "linked_pair_wise_collapse", "sim_pair_wise_lalign",
     };
 }

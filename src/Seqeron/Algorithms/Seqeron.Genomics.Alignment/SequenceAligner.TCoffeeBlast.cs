@@ -88,6 +88,60 @@ public static partial class SequenceAligner
         return entries;
     }
 
+    /// <summary>
+    /// <c>ncbi_tblastx_xml2lib_file</c> (tc_generic_method.pl): per Iteration (query = <c>Iteration_iter-num</c>) and per Hit of a LATER sequence (<c>Hit_accession + 1 &gt; query</c>) the entries of every nucleotide of the query range of every HSP (reverse
+    /// frames: <c>rqe = qlen - qs + 1</c>, <c>rqs = qlen - qe + 1</c>, hits likewise), <c>(e, rhs + d)</c> for <c>e = rqs .. rqe - 1</c>, weight <c>int (identity x 100 / align length)</c>.
+    /// </summary>
+    internal static List<(int S1, int R1, int S2, int R2, int W)> TcTblastxEntries(IReadOnlyList<string> sequences, string xml)
+    {
+        var entries = new List<(int, int, int, int, int)>();
+        foreach (string iteration in TcXmlTagList(xml, "Iteration"))
+        {
+            int qindex = TcPerlInt(TcXmlTagList(iteration, "Iteration_iter-num").FirstOrDefault());
+            int qlen = TcPerlInt(TcXmlTagList(iteration, "Iteration_query-len").FirstOrDefault());
+            foreach (string hit in TcXmlTagList(iteration, "Hit"))
+            {
+                int hindex = TcPerlInt(TcXmlTagList(hit, "Hit_accession").FirstOrDefault()) + 1;
+                if (hindex <= qindex) continue;
+                int hlen = TcPerlInt(TcXmlTagList(hit, "Hit_len").FirstOrDefault());
+                foreach (string hsp in TcXmlTagList(hit, "Hsp"))
+                {
+                    int qs = TcPerlInt(TcXmlTagList(hsp, "Hsp_query-from").FirstOrDefault()), qe = TcPerlInt(TcXmlTagList(hsp, "Hsp_query-to").FirstOrDefault()), qf = TcPerlInt(TcXmlTagList(hsp, "Hsp_query-frame").FirstOrDefault());
+                    int hs = TcPerlInt(TcXmlTagList(hsp, "Hsp_hit-from").FirstOrDefault()), he = TcPerlInt(TcXmlTagList(hsp, "Hsp_hit-to").FirstOrDefault()), hf = TcPerlInt(TcXmlTagList(hsp, "Hsp_hit-frame").FirstOrDefault());
+                    double identical = TcPerlInt(TcXmlTagList(hsp, "Hsp_identity").FirstOrDefault()), alignLen = TcPerlInt(TcXmlTagList(hsp, "Hsp_align-len").FirstOrDefault());
+                    int weight = (int)(identical * 100 / alignLen);
+                    int rqs = qs, rqe = qe, rhs = hs;
+                    if (qf <= 0) { rqe = qlen - qs + 1; rqs = qlen - qe + 1; }
+                    if (hf <= 0) rhs = hlen - he + 1;
+                    for (int d = 0, e = rqs; e < rqe; e++, d++)
+                        if (weight > 0 && e > 0 && rhs + d > 0 && e <= sequences[qindex - 1].Length && rhs + d <= sequences[hindex - 1].Length)
+                            entries.Add((qindex - 1, e, hindex - 1, rhs + d, weight));
+                }
+            }
+        }
+
+        return entries;
+    }
+
+    /// <summary>
+    /// The library <c>t_coffee -method tblastx_msa</c> builds from the XML of the all-against-all <c>tblastx</c> search (A2-9): see <see cref="TCoffeePairMethod.TblastxMsa"/>, printed as <see cref="TCoffeeBlastMsaLibraryEntries"/>.
+    /// </summary>
+    public static IReadOnlyList<TCoffeeLibraryEntry> TCoffeeTblastxLibraryEntries(IReadOnlyList<string> sequences, string blastXml)
+    {
+        ArgumentNullException.ThrowIfNull(sequences);
+        ArgumentNullException.ThrowIfNull(blastXml);
+        foreach (var s in sequences)
+            if (string.IsNullOrEmpty(s)) throw new ArgumentException("Empty sequences are not supported.", nameof(sequences));
+        var cl = new TcConstraintList(sequences.Select(s => s.Length).ToArray());
+        foreach (var (s1, r1, s2, r2, w) in TcTblastxEntries(sequences, blastXml)) cl.AddBoth(s1, r1, s2, r2, w, 0);
+        var list = new List<TCoffeeLibraryEntry>();
+        for (int s = 0; s < sequences.Count; s++)
+            for (int r = 1; r <= cl.Length(s); r++)
+                foreach (var e in cl.Entries(s, r))
+                    if (s < e.Seq2 && e.Res2 > 0) list.Add(new TCoffeeLibraryEntry(s, r - 1, e.Seq2, e.Res2 - 1, e.Weight, e.Count));
+        return list.OrderBy(e => e.SeqA).ThenBy(e => e.SeqB).ThenBy(e => e.PosA).ThenBy(e => e.PosB).ToList();
+    }
+
     /// <summary>What the pair jobs of the BLAST methods need: the sequence names in the program's order and the XML of the search.</summary>
     internal sealed class TcBlastInput
     {

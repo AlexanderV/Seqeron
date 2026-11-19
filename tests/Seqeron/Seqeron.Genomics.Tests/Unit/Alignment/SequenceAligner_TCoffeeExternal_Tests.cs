@@ -179,6 +179,42 @@ public class SequenceAligner_TCoffeeExternal_Tests
         Assert.That(entries, Is.GreaterThan(1000), "library entries compared");
     }
 
+    /// <summary>
+    /// A2-9: <c>-method tblastx_msa</c> (nucleotide sequences, a local database of themselves, <c>blastall -p tblastx -m 7 -S1</c>; every hit of a later sequence gives an entry for each nucleotide of the query range of every HSP, reverse frames
+    /// mirrored with the sequence lengths, weight = truncated HSP percent identity): rows of 101 sets (5 sets without any hit stop the program: empty library) and the libraries of the plain-method sets.
+    /// </summary>
+    [Test]
+    public void TblastxMsa_EveryRowAndLibraryEqualsTheProgram()
+    {
+        var cases = Oracle().Where(c => c.Feature == "tblastx_msa").ToList();
+        Assert.That(cases.Count, Is.GreaterThanOrEqualTo(100), "oracle sets of 'tblastx_msa'");
+        var failures = new List<string>();
+        int libraries = 0, entries = 0;
+        foreach (var c in cases)
+        {
+            var options = TCoffeeProgramOptions.FromCommandLine(c.Flags) with { BlastXml = BlastXml(c) };
+            if (c.Rows.StartsWith("FAIL:", StringComparison.Ordinal))
+            {
+                Assert.Throws<TCoffeeAbortedException>(() => SequenceAligner.MultipleAlignTCoffeeProgram(c.Seqs, options), $"t_coffee aborts on '{c.Flags}' {string.Join('|', c.Seqs)}");
+                continue;
+            }
+
+            string got = string.Join('|', SequenceAligner.MultipleAlignTCoffeeProgram(c.Seqs, options).AlignedSequences);
+            if (got != c.Rows) failures.Add($"'{c.Flags}' {string.Join('|', c.Seqs)}: got {got} expected {c.Rows}");
+            if (!c.Extra.TryGetProperty("lib", out var libProperty)) continue;
+            var lib = SequenceAligner.TCoffeeTblastxLibraryEntries(c.Seqs, BlastXml(c)).Select(e => $"{e.SeqA}:{e.PosA + 1}:{e.SeqB}:{e.PosB + 1}:{e.Weight}:{e.Count}").OrderBy(x => x, StringComparer.Ordinal).ToArray();
+            string text = libProperty.GetString()!;
+            var expected = text.Length == 0 ? Array.Empty<string>() : text.Split(';').OrderBy(x => x, StringComparer.Ordinal).ToArray();
+            if (!lib.SequenceEqual(expected)) failures.Add($"library of {string.Join('|', c.Seqs)}: only ours {string.Join(',', lib.Except(expected).Take(5))}; only the program's {string.Join(',', expected.Except(lib).Take(5))}");
+            libraries++;
+            entries += lib.Length;
+        }
+
+        Assert.That(failures, Is.Empty, $"{failures.Count} of {cases.Count} 'tblastx_msa' sets differ from t_coffee; first: {failures.FirstOrDefault()}");
+        Assert.That(libraries, Is.GreaterThanOrEqualTo(40), "libraries compared");
+        Assert.That(entries, Is.GreaterThan(1000), "library entries compared");
+    }
+
     [Test]
     public void TMalignAlignment_IsTheFirstAndThirdOfTheLastFourLines_EachWithAFinalGap()
     {

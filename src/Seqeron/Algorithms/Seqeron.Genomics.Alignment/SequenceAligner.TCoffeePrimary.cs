@@ -189,6 +189,13 @@ public enum TCoffeePairMethod
     /// committed (feature <c>mafft_pair</c> of <c>tcoffee_program_options_oracle.tsv</c>). There is no MAFFT port in this repository yet (B09.md A2-19), so the method raises <see cref="NotSupportedException"/>.
     /// </summary>
     MafftPair = 24,
+
+    /// <summary>
+    /// <c>tblastx_msa</c> (audit A2-9; ALN_MODE multiple, <c>tc_generic_method.pl -mode=tblastx_msa</c> = <c>seq2tblastx_lib</c>): the nucleotide sequences are formatted as a database (<c>formatdb -p F</c>) and searched against themselves with
+    /// <c>blastall -p tblastx -m 7 -S1</c>; every hit of a LATER sequence gives, for each nucleotide of the query range of every HSP (reverse frames mirrored with the sequence lengths), a library entry with the HSP's integer percent identity
+    /// (<see cref="SequenceAligner.TCoffeeTblastxLibraryEntries"/>); the BLAST search is the external program: its XML is <see cref="TCoffeeProgramOptions.BlastXml"/>.
+    /// </summary>
+    TblastxMsa = 25,
 }
 
 /// <summary>

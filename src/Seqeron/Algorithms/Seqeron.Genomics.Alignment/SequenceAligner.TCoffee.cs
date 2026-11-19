@@ -168,7 +168,7 @@ public static partial class SequenceAligner
         }
 
         var groups = dp is { Mode: not TCoffeeDpMode.Linked }
-            ? TcAlignNodeDp(tree, sequences, new TcDpContext(index, sim, dp, penalties.NoMatch, (int)Math.Min(int.MaxValue, index.MaxExtValue())))
+            ? TcAlignNodeDp(tree, sequences, new TcDpContext(index, sim, dp, penalties.NoMatch, (int)Math.Min(int.MaxValue, index.MaxExtValue()), sequences))
             : TcAlignNode(tree, sequences, index, penalties);
         var rows = new string[k];
         for (int s = 0; s < k; s++)
@@ -526,17 +526,84 @@ public static partial class SequenceAligner
         return c != 0 ? c : a.I.CompareTo(b.I);
     }
 
-    private static (List<bool>, List<bool>, int) TcSparseDp(List<TcCell> pairList, int l1, int l2, TcPenalties pen)
+    /// <summary><c>cl2list_borders</c>: the border cells carry the score gep x SCORE_K x position (addE of cl2list_borders).</summary>
+    private static void TcAddBorders(List<TcCell> cells, int l1, int l2, TcPenalties pen)
     {
-        var cells = pairList;
+        for (int p1 = 0; p1 <= l1; p1++)
+        {
+            if (p1 == 0 || p1 == l1)
+                for (int p2 = 0; p2 <= l2; p2++) cells.Add(new TcCell { I = p1, J = p2, Diag = l1 - p1 + p2, Score = pen.GapExtend * TcScoreK * p2 });
+            else
+            {
+                cells.Add(new TcCell { I = p1, J = 0, Diag = l1 - p1, Score = pen.GapExtend * TcScoreK * p1 });
+                cells.Add(new TcCell { I = p1, J = l2, Diag = l1 - p1 + l2, Score = pen.GapExtend * TcScoreK * p1 });
+            }
+        }
+    }
 
-        // ---- cl2diag_cap -------------------------------------------------------------------------------------
+    /// <summary>
+    /// <c>cl2diag_cap390</c> (util_dp_gotoh_nw.c L2863): the list sorted by (diagonal, row); every scored cell that starts a new diagonal segment gets zero-score cells on its diagonal BEFORE it (<c>delta</c> = the larger of the two
+    /// steps from the previous cell: cells i - x, j - x for x = 1 .. delta, skipped while i - x or j - x is at most 1) and every cell that ends one gets such cells AFTER it (i + x, j + x, skipped from the last row / column); borders are not extended.
+    /// </summary>
+    private static void TcDiagCap390(List<TcCell> cells, int l1, int l2)
+    {
         cells.Sort((a, b) =>
         {
             int c = a.Diag.CompareTo(b.Diag);
             return c != 0 ? c : a.I.CompareTo(b.I);
         });
         int n = cells.Count;
+        var extra = new List<TcCell>();
+        for (int a = 0; a < n; a++)
+        {
+            var e = cells[a];
+            if (e.Score == 0) continue;
+            int i = e.I, j = e.J;
+            int pi = a == 0 ? -10 : cells[a - 1].I, pj = a == 0 ? -10 : cells[a - 1].J;
+            int ni = a == n - 1 ? -10 : cells[a + 1].I, nj = a == n - 1 ? -10 : cells[a + 1].J;
+            if (i != 0 && j != 0 && i != pi && j != pj && (i - pi != 1 || j - pj != 1))
+            {
+                int delta = Math.Max(i - pi, j - pj);
+                for (int x = 1; x <= delta; x++)
+                {
+                    if (i - x <= 1 || j - x <= 1) continue;
+                    extra.Add(new TcCell { I = i - x, J = j - x, Diag = e.Diag, Score = 0 });
+                }
+            }
+
+            if (i != l1 && j != l2 && i != ni && j != nj && (ni - i != 1 || nj - j != 1))
+            {
+                int delta = Math.Max(ni - i, nj - j);
+                for (int x = 1; x <= delta; x++)
+                {
+                    if (i + x >= l1 || j + x >= l2) continue;
+                    extra.Add(new TcCell { I = i + x, J = j + x, Diag = e.Diag, Score = 0 });
+                }
+            }
+        }
+
+        cells.AddRange(extra);
+    }
+
+    private static (List<bool>, List<bool>, int) TcSparseDp(List<TcCell> pairList, int l1, int l2, TcPenalties pen, bool cap390 = false)
+    {
+        var cells = pairList;
+        int n;
+        if (cap390)
+        {
+            // procoffee_pair_wise: cl2list_borders FIRST, then cl2pair_list_ext (already in the list) and the older cl2diag_cap390 over the list WITH the border cells
+            TcAddBorders(cells, l1, l2, pen);
+            TcDiagCap390(cells, l1, l2);
+        }
+        else
+        {
+        // ---- cl2diag_cap -------------------------------------------------------------------------------------
+        cells.Sort((a, b) =>
+        {
+            int c = a.Diag.CompareTo(b.Diag);
+            return c != 0 ? c : a.I.CompareTo(b.I);
+        });
+        n = cells.Count;
         var ll = new List<TcCell>();
         for (int a = 0; a < n; a++)
         {
@@ -578,16 +645,7 @@ public static partial class SequenceAligner
         cells.AddRange(extra);
 
         // ---- cl2list_borders -----------------------------------------------------------------------------------
-        for (int p1 = 0; p1 <= l1; p1++)
-        {
-            // the border cells carry the score gep x SCORE_K x position (addE of cl2list_borders)
-            if (p1 == 0 || p1 == l1)
-                for (int p2 = 0; p2 <= l2; p2++) cells.Add(new TcCell { I = p1, J = p2, Diag = l1 - p1 + p2, Score = pen.GapExtend * TcScoreK * p2 });
-            else
-            {
-                cells.Add(new TcCell { I = p1, J = 0, Diag = l1 - p1, Score = pen.GapExtend * TcScoreK * p1 });
-                cells.Add(new TcCell { I = p1, J = l2, Diag = l1 - p1 + l2, Score = pen.GapExtend * TcScoreK * p1 });
-            }
+        TcAddBorders(cells, l1, l2, pen);
         }
 
         // ---- list2nodup_list ------------------------------------------------------------------------------------

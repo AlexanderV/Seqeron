@@ -374,11 +374,12 @@ public static partial class SequenceAligner
         {
             if (pairs.Count > 0) TcRefuseMethod(method);
             var methodPairs = method == TCoffeePairMethod.LalignRsSPair ? pairsWithSelf : pairs;
-            if (method == TCoffeePairMethod.BlastpMsa)
+            if (method is TCoffeePairMethod.BlastpMsa or TCoffeePairMethod.TblastxMsa)
             {
-                // ALN_MODE multiple: ONE job for all the sequences (seq_msa); the library comes from the HSPs of the search
-                if (blast is null) throw new ArgumentException("blastp_msa needs the XML of the BLAST search (TCoffeeProgramOptions.BlastXml): the search itself is the external program.");
-                var blastDump = TcRunMethod(main, seqs, new List<(int X, int Y)>(), method, lalignTop, kind, matrix, null, templates, structure, TcBlastMsaEntries(blast.Names, seqs, blast.Xml));
+                // ALN_MODE multiple: ONE job for all the sequences (seq_msa / tc_generic_method.pl); the library comes from the HSPs of the search
+                if (blast is null) throw new ArgumentException($"{(method == TCoffeePairMethod.BlastpMsa ? "blastp_msa" : "tblastx_msa")} needs the XML of the BLAST search (TCoffeeProgramOptions.BlastXml): the search itself is the external program.");
+                var blastEntries = method == TCoffeePairMethod.BlastpMsa ? TcBlastMsaEntries(blast.Names, seqs, blast.Xml) : TcTblastxEntries(seqs, blast.Xml);
+                var blastDump = TcRunMethod(main, seqs, new List<(int X, int Y)>(), method, lalignTop, kind, matrix, null, templates, structure, blastEntries);
                 if (blastDump != null) main.Undump(blastDump);
                 continue;
             }
@@ -681,7 +682,9 @@ public static partial class SequenceAligner
         if (sequences.Count == 1) return new[] { sequences[0] };
         int k = sequences.Count;
         // -extend_mode rna0 = residue_pair_extended_list + slow_get_dp_cost (the same column score as slow_triplet)
-        if (options.ExtendMode == TCoffeeExtendMode.Other && options.ExtendModeText == "rna0") options = options with { ExtendMode = TCoffeeExtendMode.SlowTriplet };
+        // rna1-4 / rna read the contact library `-rna_lib` (none given: R is empty and residue_pair_extended_list4rna returns the triplet score of the pair itself); rna4 would run RNAplfold (not installed): the
+        // column score is then that of rna0
+        if (options.ExtendMode == TCoffeeExtendMode.Other && options.ExtendModeText is "rna0" or "rna" or "rna1" or "rna2" or "rna3" or "rna4") options = options with { ExtendMode = TCoffeeExtendMode.SlowTriplet };
 
         // -inorder aligned (the program's default): the sequences are sorted by name (byte order) before anything else is computed
         var perm = Enumerable.Range(0, k).ToArray();

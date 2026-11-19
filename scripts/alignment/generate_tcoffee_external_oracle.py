@@ -186,7 +186,7 @@ def run_plain(flags, seqs):
         except (FileNotFoundError, KeyError): return f'FAIL:{r.returncode}'
 
 
-def run_blast(flags, seqs):
+def run_blast(flags, seqs, program='blastp'):
     names = [f'q{i:03d}' for i in range(len(seqs))]
     with tempfile.TemporaryDirectory() as d:
         setup_plugins(d)
@@ -198,8 +198,8 @@ def run_blast(flags, seqs):
         try: rows = read_fasta_rows(d + '/o.fa', names)
         except (FileNotFoundError, KeyError): rows = f'FAIL:{r.returncode}'
         lib = None
-        if flags == '-method blastp_msa':     # the primary library the program writes (`-lib_only -out_lib`): "a:p:b:q:weight:count;..." (0-based sequences, 1-based residues) as in the library oracle of the program
-            subprocess.run(['t_coffee', '-seq', d + '/s.fa', '-n_core', '1', '-no_warning', '-method', 'blastp_msa', '-lib_only', '-out_lib', d + '/o.lib'], capture_output=True, text=True, encoding='latin-1', cwd=d, env=env)
+        if flags in ('-method blastp_msa', '-method tblastx_msa'):     # the primary library the program writes (`-lib_only -out_lib`): "a:p:b:q:weight:count;..." (0-based sequences, 1-based residues) as in the library oracle of the program
+            subprocess.run(['t_coffee', '-seq', d + '/s.fa', '-n_core', '1', '-no_warning', '-method', flags.split()[-1], '-lib_only', '-out_lib', d + '/o.lib'], capture_output=True, text=True, encoding='latin-1', cwd=d, env=env)
             lib, cur = [], None
             try:
                 for l in open(d + '/o.lib'):
@@ -212,8 +212,12 @@ def run_blast(flags, seqs):
                 lib = None
             lib = ';'.join(lib) if lib is not None else None
         # what the program's glue runs: makeblastdb -dbtype prot on the sequences, blastall -p blastp -m7 of the sequences against them
-        subprocess.run(['makeblastdb', '-in', 's.fa', '-dbtype', 'prot', '-logfile', '/dev/null'], capture_output=True, cwd=d, env=env)
-        x = subprocess.run(['blastall', '-i', 's.fa', '-d', 's.fa', '-m7', '-p', 'blastp'], capture_output=True, text=True, encoding='latin-1', cwd=d, env=env)
+        if program == 'blastp':
+            subprocess.run(['makeblastdb', '-in', 's.fa', '-dbtype', 'prot', '-logfile', '/dev/null'], capture_output=True, cwd=d, env=env)
+            x = subprocess.run(['blastall', '-i', 's.fa', '-d', 's.fa', '-m7', '-p', 'blastp'], capture_output=True, text=True, encoding='latin-1', cwd=d, env=env)
+        else:   # tc_generic_method.pl seq2tblastx_lib: `formatdb -i infile -p F` (nucleotide database), `blastall -p tblastx -i infile -d infile -m 7 -S1`
+            subprocess.run(['makeblastdb', '-in', 's.fa', '-dbtype', 'nucl', '-logfile', '/dev/null'], capture_output=True, cwd=d, env=env)
+            x = subprocess.run(['blastall', '-p', 'tblastx', '-i', 's.fa', '-d', 's.fa', '-m', '7', '-S', '1'], capture_output=True, text=True, encoding='latin-1', cwd=d, env=env)
         extra = {'xmlz': base64.b64encode(zlib.compress(x.stdout.encode('latin-1'), 9)).decode('ascii')}
         if lib is not None: extra['lib'] = lib
         return rows, extra
@@ -230,6 +234,7 @@ PLAN = {
     'sap_3dcoffee': [('-mode 3dcoffee', 8)],
     'dali_pair': [('-method dali_pair', 40), ('-method TMalign_pair,dali_pair', 20)],
     'fugue_pair': [('-method fugue_pair', 40), ('-method mustang_pair,fugue_pair', 20)],
+    'tblastx_msa': [('-method tblastx_msa', 50), ('-method tblastx_msa,slow_pair', 20), ('-method proba_pair,tblastx_msa', 12), ('-method tblastx_msa -relax_lib 0', 12), ('-method tblastx_msa -tree_mode upgma', 12)],
     'blastp_msa': [('-method blastp_msa', 80), ('-method blastp_msa,slow_pair', 30), ('-method proba_pair,blastp_msa', 20), ('-method blastp_msa -relax_lib 0', 20), ('-method blastp_msa -tree_mode upgma', 20)],
 }
 
@@ -237,7 +242,22 @@ PLAN = {
 def job(a):
     feature, flags, idx, seed = a
     rng = random.Random(seed * 1000003 + idx * 7919 + sum(map(ord, feature + flags)) * 104729)
-    if feature == 'blastp_msa':
+    if feature == 'tblastx_msa':
+        base = ''.join(rng.choice('ACGT') for _ in range(rng.randint(60, 150)))
+        seqs = []
+        for _ in range(rng.randint(2, 6)):
+            if rng.random() < 0.75:
+                sq = list(base)
+                for _ in range(rng.randint(0, max(1, len(base) // 8))):
+                    op = rng.choice('ssssid'); p = rng.randrange(len(sq))
+                    if op == 's': sq[p] = rng.choice('ACGT')
+                    elif op == 'i': sq[p:p] = [rng.choice('ACGT') for _ in range(3)]       # codon indels keep the frame
+                    elif len(sq) > 60: del sq[p:p + 3]
+                seqs.append(''.join(sq))
+            else:
+                seqs.append(''.join(rng.choice('ACGT') for _ in range(rng.randint(60, 150))))
+        rows, extra = run_blast(flags, seqs, 'tblastx')
+    elif feature == 'blastp_msa':
         base = ''.join(rng.choice(PROTEIN) for _ in range(rng.randint(30, 70)))
         seqs = []
         for _ in range(rng.randint(2, 8)):
