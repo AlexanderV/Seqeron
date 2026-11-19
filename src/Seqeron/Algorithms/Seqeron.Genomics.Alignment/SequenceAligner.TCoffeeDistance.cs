@@ -22,6 +22,12 @@ public static partial class SequenceAligner
     /// <summary>Number of leading pair alignments of the distance matrix for which a gap in the first row of <c>idscore_pairseq</c> kills the program every time (measured, see <see cref="TCoffeeAbortedException.HeapDependent"/>).</summary>
     private const int TcIdscoreWildPointerCalls = 12;
 
+    /// <summary>
+    /// The state of the program's constraint list when the distance matrix is computed (t_coffee.c L5156-5172): after <c>-filter_lib</c>, the relaxation and the first
+    /// <c>evaluate_constraint_list_reference</c> (so the <c>nomatch</c> penalty is already rescaled), before the sequence weights re-weight the library.
+    /// </summary>
+    private sealed record TcRelaxedState(TcIndex Index, TcPenalties Penalties, int Normalise, int TgMode, TcDpSettings? Dp = null);
+
     private sealed class TcDistances
     {
         public int[,] Sim = new int[0, 0];
@@ -173,7 +179,7 @@ public static partial class SequenceAligner
     }
 
     /// <summary>The distance matrix of the program (<c>seq2distance_matrix</c>) for the chosen <c>-distance_matrix_mode</c>.</summary>
-    private static TcDistances TcDistanceMatrix(IReadOnlyList<string> seqs, TcSeqKind kind, TCoffeeProgramOptions o)
+    private static TcDistances TcDistanceMatrix(IReadOnlyList<string> seqs, TcSeqKind kind, TCoffeeProgramOptions o, TcRelaxedState? relaxed = null)
     {
         switch (o.DistanceMatrixMode)
         {
@@ -183,8 +189,11 @@ public static partial class SequenceAligner
                 throw new TCoffeeAbortedException("ERROR: UNSPECIFIED UNSPECIFIED (-distance_matrix_mode ktup2: seq2distance_matrix aligns with very_fast_aln and calls itself with the mode aln)");
             case TCoffeeDistanceMode.Other:
                 throw new TCoffeeAbortedException($"Error: {o.DistanceModeText} is an unknown distance_matrix_mode [FATAL:T-COFFEE]");
-            case TCoffeeDistanceMode.Slow or TCoffeeDistanceMode.Cscore or TCoffeeDistanceMode.Geometric or TCoffeeDistanceMode.Clustalw:
-                throw new NotSupportedException($"-distance_matrix_mode {o.DistanceMatrixMode.ToString().ToLowerInvariant()} is not ported yet (A2-6: it needs the relaxed library at the distance matrix stage, and geometric the fasta DP).");
+            case TCoffeeDistanceMode.Slow or TCoffeeDistanceMode.Cscore or TCoffeeDistanceMode.Clustalw or TCoffeeDistanceMode.VeryFast:
+                if (relaxed == null) throw new InvalidOperationException($"-distance_matrix_mode {o.DistanceMatrixMode.ToString().ToLowerInvariant()} needs the relaxed library of the progressive stage.");
+                return TcLibraryDistanceMatrix(seqs, kind, o, relaxed);
+            case TCoffeeDistanceMode.Geometric:
+                return TcGeometricDistanceMatrix(seqs);
             case TCoffeeDistanceMode.Random:
                 throw new NotSupportedException("-distance_matrix_mode random uses rand() % 100 and the program's rand is seeded differently on every run: two runs of the same input give different sequence weights, so no result can be locked.");
         }
@@ -243,8 +252,150 @@ public static partial class SequenceAligner
         return dm;
     }
 
+    /// <summary>
+    /// <c>seq2distance_matrix</c> for the modes that use the (relaxed) library: <c>slow</c> (the DP score of the linked pair-wise alignment of every pair divided by its length, rescaled by <c>do_normalise</c>),
+    /// <c>cscore</c> (the same score without the rescaling, float; falls back to <c>idscore</c> on an empty library), <c>clustalw</c> (the DP score itself) and <c>very_fast</c> (<c>very_fast_gotoh_pair_wise</c>:
+    /// the diagonals are scored with the library entries, the 20 best with a shadow of 5, then the banded DP; the identity of the aligned rows).
+    /// </summary>
+    private static TcDistances TcLibraryDistanceMatrix(IReadOnlyList<string> seqs, TcSeqKind kind, TCoffeeProgramOptions o, TcRelaxedState st)
+    {
+        int n = seqs.Count;
+        var mode = o.DistanceMatrixMode;
+        if (mode == TCoffeeDistanceMode.Cscore && st.Index.EdgeCount == 0)
+            return TcDistanceMatrix(seqs, kind, o with { DistanceMatrixMode = TCoffeeDistanceMode.Idscore });
+
+        var dm = new TcDistances { Sim = new int[n, n], Score = new int[n, n] };
+        bool protein = kind == TcSeqKind.Protein;
+        TcMatrix mat = protein ? TcMatrix.Blosum62 : TcMatrix.IdMat;
+        int gop = protein ? (int)(mat.AverageMismatch() * 10) : -10;
+        int call = 0;
+        for (int a = 0; a < n; a++)
+        {
+            dm.Sim[a, a] = TcMaxIdentity;
+            for (int b = a + 1; b < n; b++, call++)
+            {
+                int id, score;
+                switch (mode)
+                {
+                    case TCoffeeDistanceMode.VeryFast:
+                        {
+                            var (ra, rb) = TcVeryFastPairRows(seqs[a], seqs[b], a, b, st, mat, gop);
+                            id = TcSeqSimMeasure(ra, rb, o.DistanceMatrixSimMode, call);
+                            score = id * TcScoreK;
+                            break;
+                        }
+
+                    case TCoffeeDistanceMode.Slow:
+                        {
+                            var (ra, rb, scoreAln) = TcPairRowsOfMainDp(seqs, a, b, st);
+                            id = TcSeqSimMeasure(ra, rb, o.DistanceMatrixSimMode, call);
+                            float s = (int)((float)scoreAln / (ra.Length * TcScoreK));
+                            if (st.Normalise != 0) s = s * TcMaxIdentity / st.Normalise;
+                            if (s > TcMaxIdentity) throw new NotSupportedException("-distance_matrix_mode slow: the pair score exceeds 100 (the program then recomputes it with sub_aln2sub_aln_score).");
+                            score = (int)s;
+                            break;
+                        }
+
+                    case TCoffeeDistanceMode.Cscore:
+                        {
+                            var (ra, _, scoreAln) = TcLinkedPairRows(seqs, a, b, st.Index, st.Penalties);
+                            float s = scoreAln;
+                            s /= ra.Length * TcScoreK;
+                            float fid = s / TcScoreK;
+                            id = (int)fid;
+                            score = (int)s;
+                            break;
+                        }
+
+                    default: // clustalw: id = the DP score of the pair alignment
+                        {
+                            var (_, _, scoreAln) = TcPairRowsOfMainDp(seqs, a, b, st);
+                            float fid = scoreAln;
+                            id = (int)fid;
+                            score = (int)(fid * TcScoreK);
+                            break;
+                        }
+                }
+
+                dm.Sim[a, b] = dm.Sim[b, a] = id;
+                dm.Score[a, b] = dm.Score[b, a] = score;
+            }
+        }
+
+        return dm;
+    }
+
+    /// <summary><c>pair_wise</c> with the main dp mode of the program (<c>-dp_mode</c>, default the linked sparse DP) for the pair (a, b) at the distance matrix stage.</summary>
+    private static (string RowA, string RowB, int Score) TcPairRowsOfMainDp(IReadOnlyList<string> seqs, int a, int b, TcRelaxedState st)
+    {
+        if (st.Dp is null or { Mode: TCoffeeDpMode.Linked }) return TcLinkedPairRows(seqs, a, b, st.Index, st.Penalties);
+        return TcDpPairRows(seqs, a, b, new TcDpContext(st.Index, null, st.Dp, st.Penalties.NoMatch, (int)Math.Min(int.MaxValue, st.Index.MaxExtValue())));
+    }
+
+    /// <summary>
+    /// <c>very_fast_gotoh_pair_wise</c> of the pair (a, b) with the relaxed library: <c>evaluate_diagonals_with_clist</c> (every library entry a -> b adds the matrix cost of its residue pair to its diagonal),
+    /// <c>extract_N_diag(20, window 5)</c>, the banded Gotoh DP with the matrix cost (idmat / blosum62mt x SCORE_K minus SCORE_K x nomatch), GOP / GEP of the distance mode and the terminal gap rule <c>-tg_mode</c>.
+    /// </summary>
+    private static (string, string) TcVeryFastPairRows(string sa, string sb, int a, int b, TcRelaxedState st, TcMatrix mat, int gop)
+    {
+        int l1 = sa.Length, l2 = sb.Length, nDiag = l1 + l2 - 1;
+        Func<int, int, int> cost = (i, j) => mat.Score(sa[i], sb[j]) * TcScoreK - TcScoreK * st.Penalties.NoMatch;
+        var diag = new int[nDiag + 2][];
+        for (int d = 0; d < nDiag + 2; d++) diag[d] = new[] { d, 0, 0 };
+        for (int r1 = 1; r1 <= l1; r1++)
+            foreach (var e in st.Index.Edges[a][r1])
+                if (e.Seq == b)
+                    diag[e.Res - r1 + l1][1] += cost(r1 - 1, e.Res - 1);
+        TcSortDiagonals(diag, nDiag);
+        int[] list = TcExtractNDiagonals(l1, l2, diag, 20, 5);
+        var (m0, m1, _) = TcMakeFastaGotoh(l1, l2, list, cost, gop * TcScoreK, -1 * TcScoreK, st.TgMode);
+        return TcMasksToRows(sa, sb, m0, m1);
+    }
+
+    /// <summary>
+    /// <c>geometric</c>: every sequence is aligned (<c>fasta_pair_wise</c>, pam250mt, gop -10, gep -1, k-tuple 3, terminal gaps free, lower-case letters) with the first three sequences; the identity of those alignments is the
+    /// coordinate vector of the sequence, and the similarity of a pair is <c>100 x (1 - euclidean distance / sqrt(10000 x n_coor))</c> (single precision, as in the program).
+    /// </summary>
+    private static TcDistances TcGeometricDistanceMatrix(IReadOnlyList<string> seqs)
+    {
+        int n = seqs.Count;
+        int nCoor = Math.Min(3, n);
+        var pam = TcMatrix.ByName("pam250mt")!;
+        var g = new float[n, 3];
+        for (int a = 0; a < n; a++)
+            for (int b = 0; b < nCoor; b++)
+            {
+                string s1 = seqs[a].ToLowerInvariant(), s2 = seqs[b].ToLowerInvariant();
+                var (ra, rb) = TcFastaPairRows(s1, s2, pam, -10, -1, 3, 0, 0, 0f, 2);
+                g[a, b] = TcSeqSim(ra, rb);
+            }
+
+        float reference = (float)Math.Sqrt(10000 * nCoor);
+        var dm = new TcDistances { Sim = new int[n, n], Score = new int[n, n] };
+        for (int a = 0; a < n; a++)
+        {
+            dm.Sim[a, a] = TcMaxIdentity;
+            for (int b = a + 1; b < n; b++)
+            {
+                float t = 0;
+                for (int c = 0; c < nCoor; c++)
+                {
+                    float d = g[a, c] - g[b, c];
+                    t += d * d;
+                }
+
+                float distance = (float)Math.Sqrt(t);
+                float id = TcMaxIdentity * (1 - (distance / reference));
+                dm.Sim[a, b] = dm.Sim[b, a] = (int)id;
+                dm.Score[a, b] = dm.Score[b, a] = (int)id * TcScoreK;
+            }
+        }
+
+        return dm;
+    }
+
     /// <summary>make_tree: <c>normalize_array(sim_array2dist_array(score, 1000), 1000, 100)</c> followed by NJ (+ reroot) or UPGMA.</summary>
-    internal static TCoffeeTreeNode TcGuideTreeFor(IReadOnlyList<string> seqs, TcSeqKind kind, TCoffeeProgramOptions o)
+    private static TCoffeeTreeNode TcGuideTreeFor(IReadOnlyList<string> seqs, TcSeqKind kind, TCoffeeProgramOptions o, TcRelaxedState? relaxed = null)
     {
         int k = seqs.Count;
         if (k == 1) return TCoffeeTreeNode.Leaf(0);
@@ -257,7 +408,7 @@ public static partial class SequenceAligner
                 throw new TCoffeeAbortedException("-tree_mode kmeans: seq2km_tree_old builds the k-means tree and the program ends without writing an alignment", 0);
         }
 
-        var dm = TcDistanceMatrix(seqs, kind, o);
+        var dm = TcDistanceMatrix(seqs, kind, o, relaxed);
         var dist = new int[k, k];
         for (int a = 0; a < k; a++)
             for (int b = 0; b < k; b++)

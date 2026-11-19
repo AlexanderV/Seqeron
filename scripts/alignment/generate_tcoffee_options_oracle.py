@@ -88,16 +88,100 @@ PLAN = {
     # A2-6: tree / distance modes the program refuses or dies on (cwph and unknown tree modes: core dump for 3+ sequences; kmeans: no alignment written; aln: segfault; ktup2 / unknown distance mode: exit status 1)
     'treemodes': [(t, f, 30, (2, 6), (4, 24), '') for t in ('dna', 'protein') for f in ('-tree_mode cwph', '-tree_mode kmeans', '-tree_mode bogus')],
     'distrefused': [(t, f, 30, (2, 6), (4, 24), '') for t in ('dna', 'protein') for f in ('-distance_matrix_mode aln', '-distance_matrix_mode ktup2', '-distance_matrix_mode bogus')],
+    # A2-2: fast_pair = fasta_gotoh_pair_wise (k-tuple diagonals, z-score threshold / -ndiag N best diagonals, banded Gotoh DP); longer sequences than the other features so that the band matters
+    'fast_pair': [(t, f, n, (2, 7), lr, '') for t in ('dna', 'protein', 'rna') for lr in ((8, 70),) for f, n in (('-method fast_pair', 50), ('-method fast_pair,slow_pair', 15), ('-method fast_pair@EP@GOP@-20@GEP@-2', 15),
+                                                                                       ('-method fast_pair -ndiag 3', 20), ('-method fast_pair -ndiag 10', 15), ('-method fast_pair -nomatch 5', 15),
+                                                                                       ('-method proba_pair,fast_pair -tree_mode upgma', 10))] +
+                 [(t, '-method fast_pair', 30, (2, 6), (3, 14), '') for t in ('dna', 'protein', 'rna')],
+    # A2-6: distance modes that need the RELAXED library (slow / cscore / clustalw: the linked pair-wise DP of every pair; very_fast / -quicktree: very_fast_gotoh_pair_wise with library-scored diagonals) and geometric (fasta_pair_wise, pam250mt)
+    'dist_slow': [(t, f, n, (2, 8), (6, 40), '') for t in ('dna', 'protein') for f, n in (('-distance_matrix_mode slow', 50), ('-distance_matrix_mode slow -seq_weight t_coffee', 30), ('-distance_matrix_mode slow -tree_mode upgma', 25),
+                                                                                         ('-distance_matrix_mode slow -relax_lib 0', 15), ('-distance_matrix_mode slow -do_normalise 0', 15), ('-distance_matrix_mode slow -do_normalise 0 -tree_mode upgma', 15),
+                                                                                         ('-distance_matrix_mode slow -distance_matrix_sim_mode idmat_sim2', 15), ('-distance_matrix_mode slow -method slow_pair,lalign_id_pair', 20),
+                                                                                         ('-distance_matrix_mode slow -nomatch 20', 15), ('-distance_matrix_mode slow -gapopen -20 -gapext -5', 15))],
+    'dist_cscore': [(t, f, n, (2, 8), (6, 40), '') for t in ('dna', 'protein') for f, n in (('-distance_matrix_mode cscore', 50), ('-distance_matrix_mode cscore -seq_weight t_coffee', 30), ('-distance_matrix_mode cscore -tree_mode upgma', 25),
+                                                                                          ('-distance_matrix_mode cscore -relax_lib 0', 15), ('-distance_matrix_mode cscore -filter_lib 600', 15), ('-distance_matrix_mode cscore -filter_lib 2000', 8),
+                                                                                          ('-distance_matrix_mode cscore -method slow_pair,lalign_id_pair', 20), ('-distance_matrix_mode cscore -nomatch 20', 15))],
+    'dist_clustalw': [(t, f, n, (2, 8), (6, 40), '') for t in ('dna', 'protein') for f, n in (('-distance_matrix_mode clustalw', 50), ('-distance_matrix_mode clustalw -seq_weight t_coffee', 30), ('-distance_matrix_mode clustalw -tree_mode upgma', 25),
+                                                                                            ('-distance_matrix_mode clustalw -relax_lib 0', 15), ('-distance_matrix_mode clustalw -do_normalise 0', 15),
+                                                                                            ('-distance_matrix_mode clustalw -method slow_pair,lalign_id_pair', 20), ('-distance_matrix_mode clustalw -nomatch 20', 15))],
+    'dist_veryfast': [(t, f, n, (2, 8), (6, 50), '') for t in ('dna', 'protein') for f, n in (('-distance_matrix_mode very_fast', 50), ('-quicktree', 40), ('-quicktree -tree_mode upgma', 25), ('-quicktree -seq_weight t_coffee', 30),
+                                                                                             ('-quicktree -relax_lib 0', 15), ('-quicktree -tg_mode 0', 15), ('-quicktree -tg_mode 2', 15), ('-quicktree -nomatch 20', 15),
+                                                                                             ('-distance_matrix_mode very_fast -distance_matrix_sim_mode idmat_sim2', 15), ('-quicktree -method slow_pair,lalign_id_pair', 15))],
+    'dist_geometric': [(t, f, n, (2, 8), (6, 50), '') for t in ('dna', 'protein') for f, n in (('-distance_matrix_mode geometric', 60), ('-distance_matrix_mode geometric -seq_weight t_coffee', 40), ('-distance_matrix_mode geometric -tree_mode upgma', 30),
+                                                                                            ('-distance_matrix_mode geometric -method slow_pair,lalign_id_pair', 15), ('-distance_matrix_mode geometric -relax_lib 0', 10))],
+    # A2-4: exon_pair / exon2_pair / exon3_pair = fast_pair on the genomic (_G_) templates of `-template_file` (matrix exon2mt); `@templates` is replaced by generated templates (recorded as `-template_file @t0,t1,...`)
+    'exon': [(t, f, n, (2, 6), (8, 40), '') for t in ('dna', 'protein') for f, n in (('-method exon_pair -template_file @templates', 40), ('-method exon2_pair -template_file @templates', 50), ('-method exon3_pair -template_file @templates', 50),
+                                                                                     ('-method exon_pair,slow_pair -template_file @templates', 20), ('-method exon2_pair,exon3_pair -template_file @templates', 20),
+                                                                                     ('-method exon2_pair@EP@GOP@-30@GEP@-2 -template_file @templates', 15), ('-method proba_pair,exon3_pair -tree_mode upgma -template_file @templates', 15))],
+    'exon_sparse': [(t, f, n, (3, 7), (8, 40), '') for t in ('dna', 'protein') for f, n in (('-method exon_pair -template_file @templates', 40), ('-method exon3_pair -template_file @templates', 40), ('-method exon_pair,slow_pair -template_file @templates', 30))],
+    # A2-5: -dp_mode of the progressive stage other than linked_pair_wise, with the library column scores of -extend_mode (very_fast_triplet default / slow_triplet / triplet / fast_triplet), -max_n_pair, gap penalties and -tg_mode
+    'dp_gotoh': [(t, f, n, (2, 8), (6, 36), '') for t in ('dna', 'protein') for f, n in (('-dp_mode gotoh_pair_wise', 60), ('-dp_mode ssec_pair_wise', 10), ('-dp_mode gotoh_pair_wise_test', 30), ('-dp_mode gotoh_pair_wise -gapopen -20 -gapext -2', 30),
+                                                                                         ('-dp_mode gotoh_pair_wise -gapopen -50 -gapext -5 -tg_mode 0', 20), ('-dp_mode gotoh_pair_wise -gapext -3 -tg_mode 2', 20), ('-dp_mode gotoh_pair_wise -nomatch 20', 20),
+                                                                                         ('-dp_mode gotoh_pair_wise -extend_mode slow_triplet', 20), ('-dp_mode gotoh_pair_wise -extend_mode triplet -nomatch 10', 20), ('-dp_mode gotoh_pair_wise -extend_mode fast_triplet', 25),
+                                                                                         ('-dp_mode gotoh_pair_wise -max_n_pair 2', 20), ('-dp_mode gotoh_pair_wise -max_n_pair 0', 20), ('-dp_mode gotoh_pair_wise -seq_weight t_coffee', 25),
+                                                                                         ('-dp_mode gotoh_pair_wise -relax_lib 0', 15), ('-dp_mode gotoh_pair_wise -tree_mode upgma -distance_matrix_mode fast', 25), ('-dp_mode gotoh_pair_wise -method slow_pair,lalign_id_pair', 20),
+                                                                                         ('-dp_mode gotoh_pair_wise -do_normalise 0', 10), ('-dp_mode gotoh_pair_wise -outorder aligned', 10))],
+    'dp_mm': [(t, f, n, (2, 8), (6, 36), '') for t in ('dna', 'protein') for f, n in (('-dp_mode myers_miller_pair_wise', 60), ('-dp_mode default', 10), ('-dp_mode myers_miller_pair_wise -gapopen -20 -gapext -2', 30),
+                                                                                    ('-dp_mode myers_miller_pair_wise -gapopen -50 -gapext -5', 20), ('-dp_mode myers_miller_pair_wise -nomatch 20', 20), ('-dp_mode myers_miller_pair_wise -extend_mode slow_triplet', 20),
+                                                                                    ('-dp_mode myers_miller_pair_wise -extend_mode fast_triplet', 20), ('-dp_mode myers_miller_pair_wise -max_n_pair 2 -seq_weight t_coffee', 25),
+                                                                                    ('-dp_mode myers_miller_pair_wise -tree_mode upgma -method slow_pair,lalign_id_pair', 20), ('-dp_mode myers_miller_pair_wise -relax_lib 0', 15))],
+    'dp_fasta': [(t, f, n, (2, 8), (6, 50), '') for t in ('dna', 'protein') for f, n in (('-dp_mode fasta_pair_wise', 60), ('-dp_mode fasta_pair_wise -ndiag 5', 25), ('-dp_mode fasta_pair_wise -ndiag 20', 20), ('-dp_mode fasta_pair_wise -diag_threshold 1', 20),
+                                                                                       ('-dp_mode fasta_pair_wise -gapopen -20 -gapext -2', 25), ('-dp_mode fasta_pair_wise -tg_mode 0 -gapopen -30 -gapext -3', 15), ('-dp_mode fasta_pair_wise -extend_mode slow_triplet', 15),
+                                                                                       ('-dp_mode cfasta_pair_wise', 60), ('-dp_mode cfasta_pair_wise -ndiag 4', 25), ('-dp_mode cfasta_pair_wise -gapopen -20 -gapext -2', 25),
+                                                                                       ('-dp_mode very_fast_pair_wise', 60), ('-dp_mode very_fast_pair_wise -gapopen -20 -gapext -2', 25), ('-dp_mode very_fast_pair_wise -seq_weight t_coffee -tree_mode upgma', 20))],
+    # A2-5: biphasic_pair_wise (two affine gap models) and glocal_pair_wise (match / deletion / insertion / unmatched pair) as the dynamic program of the progressive stage
+    'dp_other': [(t, f, n, (2, 8), (6, 36), '') for t in ('dna', 'protein') for f, n in (('-dp_mode biphasic_pair_wise', 60), ('-dp_mode biphasic_pair_wise -gapopen -20 -gapext -2', 40), ('-dp_mode biphasic_pair_wise -extend_mode slow_triplet -nomatch 10', 25),
+                                                                                       ('-dp_mode glocal_pair_wise', 60), ('-dp_mode glocal_pair_wise -gapopen -20 -gapext -2', 40), ('-dp_mode glocal_pair_wise -extend_mode slow_triplet -seq_weight t_coffee', 25),
+                                                                                       ('-dp_mode glocal_pair_wise -gapext -5 -tree_mode upgma', 25))],
+    # A2-5: -extend_mode relative_triplet (residue_pair_relative_extended_list reads the list of the first residue at the positions of the second residue's list: past the end of the shorter list = heap), rna0 (= slow_triplet) and the modes with no effect on linked_pair_wise
+    'dp_extend': [(t, f, n, (2, 8), (6, 36), '') for t in ('dna', 'protein') for f, n in (('-dp_mode gotoh_pair_wise -extend_mode relative_triplet', 60), ('-dp_mode myers_miller_pair_wise -extend_mode relative_triplet', 30),
+                                                                                       ('-dp_mode gotoh_pair_wise -extend_mode rna0', 30), ('-extend_mode relative_triplet', 20), ('-extend_mode pc', 15), ('-extend_mode mixt -extend_mode very_fast_triplet', 15))],
+    # A2-5: dynamic programs / extend modes the program refuses or dies on (exit statuses 1, 6, 11), measured; unknown names stop every run, ssp / tm / curvature as soon as there are two sequences
+    'dp_refused': [(t, f, 20, (2, 5), (5, 20), '') for t in ('dna', 'protein') for f in ('-dp_mode idscore_pair_wise', '-dp_mode subop1_pair_wise', '-dp_mode subop2_pair_wise', '-dp_mode proba_pair_wise', '-dp_mode pavie_pair_wise',
+                                                                                  '-dp_mode domain_pair_wise', '-dp_mode fasta_cdna_pair_wise', '-dp_mode cfasta_cdna_pair_wise', '-dp_mode gotoh_pair_wise_lalign', '-dp_mode seq_viterbi_pair_wise',
+                                                                                  '-dp_mode hh_pair_wise', '-dp_mode cfasta_sw_pair_wise', '-dp_mode bogus_pair_wise', '-extend_mode bogus', '-extend_mode ssp', '-extend_mode tm',
+                                                                                  '-extend_mode curvature', '-extend_mode matrix')],
     'clustalw_mixed': [('mixed', f, n, (2, 5), (3, 24), '') for f, n in (('-method clustalw_pair', 160), ('-method clustalw_pair,slow_pair', 40), ('-method proba_pair,clustalw_pair', 30))],
     'clustalw': [(t, f, n, (2, 6), (4, 28), '') for t in ('dna', 'protein') for f, n in (('-method clustalw_pair', 100), ('-method clustalw_pair,slow_pair', 40), ('-method proba_pair,clustalw_pair', 30),
                                                                                     ('-method clustalw_pair -tree_mode upgma', 30))],
 }
 
 
-def run_tc(seqs, flags, names, weights):
+def make_templates(rng, seqs, typ, none_prob):
+    """A2-4: a genomic (_G_) template for every sequence: the sequence with substitutions, lower-cased stretches and inserted runs of the exon letters o b j (the program's exon2mt matrix scores them 100 against themselves);
+    sets with several letters of the program's quirky set "subset_objOBJ-" so that exon2_pair / exon3_pair get library entries; a sequence has no template with probability none_prob."""
+    alpha = ALPHA[typ].lower()
+    out = []
+    for s in seqs:
+        if rng.random() < none_prob:
+            out.append('')
+            continue
+        if rng.random() < 0.2:                # a template equal to the sequence: fix_seq_seq needs no reconciling alignment (so no aln2sim call decides the residue groups of the process)
+            out.append(s)
+            continue
+        t = []
+        for ch in s:
+            r = rng.random()
+            if r < 0.12: ch = rng.choice(alpha + 'objsetu')
+            elif r < 0.2: continue
+            if rng.random() < 0.7: ch = ch.lower()
+            t.append(ch)
+            if rng.random() < 0.12: t.extend(rng.choice('objOBJsetu') for _ in range(rng.randint(1, 3)))
+        out.append(''.join(t) or 'o')
+    return out
+
+
+def run_tc(seqs, flags, names, weights, templates=None):
     with tempfile.TemporaryDirectory() as d:
         with open(d + '/s.fa', 'w') as f:
             for n, s in zip(names, seqs): f.write(f'>{n}\n{s}\n')
+        if templates is not None:
+            with open(d + '/tpl.fa', 'w') as f:
+                for i, (n, t) in enumerate(zip(names, templates)):
+                    if not t: continue
+                    with open(d + f'/g{i}.fa', 'w') as g: g.write(f'>{n}\n{t}\n')
+                    f.write(f'>{n} _G_ {d}/g{i}.fa\n')
+            flags = flags.replace('@templates', d + '/tpl.fa')
         if weights is not None:
             with open(d + '/w.txt', 'w') as f:
                 f.write('# SINGLE_SEQ_WEIGHT_FORMAT_01\n' + ''.join(f'{n} {w}\n' for n, w in zip(names, weights)))
@@ -109,7 +193,7 @@ def run_tc(seqs, flags, names, weights):
         try:
             for l in open(d + '/o.fa'):
                 l = l.strip()
-                if l.startswith('>'): cur = l[1:]; rows[cur] = ''
+                if l.startswith('>'): cur = l[1:].split()[0]; rows[cur] = ''
                 elif cur: rows[cur] += l
             if '-outorder aligned' in flags: return '|'.join(rows.values())
             return '|'.join(rows[n] for n in names)
@@ -140,7 +224,11 @@ def job(a):
     names = make_names(rng, len(seqs), nm)
     weights = [round(rng.uniform(0.05, 2.2), 3) for _ in seqs] if '@random' in flags else None
     rec_flags = flags.replace('@random', '@' + ','.join(map(str, weights))) if weights else flags
-    return '\t'.join([feature, typ, rec_flags, '|'.join(seqs), run_tc(seqs, flags, names, weights), '|'.join(names) if nm else ''])
+    templates = None
+    if '@templates' in flags:
+        templates = make_templates(rng, seqs, typ, 0.15 if 'sparse' in feature else 0.0)
+        rec_flags = rec_flags.replace('@templates', '@' + ','.join(templates))
+    return '\t'.join([feature, typ, rec_flags, '|'.join(seqs), run_tc(seqs, flags, names, weights, templates), '|'.join(names) if nm else ''])
 
 
 def main():

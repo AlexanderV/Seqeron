@@ -131,19 +131,22 @@ public partial class AlignmentTools
     }
 
     [McpServerTool(Name = "tcoffee_primary_library", Title = "MSA — T-Coffee Primary Library", ReadOnly = true)]
-    [Description("The primary library the T-Coffee 13.41 program builds for a set of sequences with the given pair-wise methods (t_coffee -seq s.fa -method m1,m2 -lib_only -out_lib x.tc_lib): residue pairs (sequence index of the first smaller than that of the second; 0-based positions) with weight 10 x percent identity of the alignment they come from and the number of times the pair was added. methods in command-line order: 'proba_pair' (default; ProbCons pair-HMM posteriors), 'slow_pair', 'lalign_id_pair', 'clustalw_pair', 'biphasic_pair' (two affine gap models), 'lalign_rs_s_pair' (SIM on every pair including each sequence against itself), 'promo_pair' / 'blastr_pair' (slow_pair on the dinucleotide-extended alphabet); the program refuses 'clean_slow_pair', 'hash_pair', 'subop1_pair', 'subop2_pair', 'cfast_pair' (TCoffeeAbortedException); with two or more methods the program's own merge loses and duplicates entries - the result is what it writes. Verified on 800+ committed libraries (see multiple_align_tcoffee). Entries are ordered by (seqA, seqB, posA, posB).")]
+    [Description("The primary library the T-Coffee 13.41 program builds for a set of sequences with the given pair-wise methods (t_coffee -seq s.fa -method m1,m2 -lib_only -out_lib x.tc_lib): residue pairs (sequence index of the first smaller than that of the second; 0-based positions) with weight 10 x percent identity of the alignment they come from and the number of times the pair was added. methods in command-line order: 'proba_pair' (default; ProbCons pair-HMM posteriors), 'slow_pair', 'lalign_id_pair', 'clustalw_pair', 'biphasic_pair' (two affine gap models), 'lalign_rs_s_pair' (SIM on every pair including each sequence against itself), 'promo_pair' / 'blastr_pair' (slow_pair on the dinucleotide-extended alphabet), 'fast_pair' (FASTA heuristic of util_dp_fasta_nw.c: banded Gotoh DP on the best k-tuple diagonals), 'exon_pair' / 'exon2_pair' / 'exon3_pair' (alignment of the genomic templates given in genomicTemplates, expressed in the residues of the sequences); the program refuses 'clean_slow_pair', 'hash_pair', 'subop1_pair', 'subop2_pair', 'cfast_pair' (TCoffeeAbortedException); with two or more methods the program's own merge loses and duplicates entries - the result is what it writes. Verified on 800+ committed libraries (see multiple_align_tcoffee). Entries are ordered by (seqA, seqB, posA, posB).")]
     public static TCoffeePrimaryLibraryResult TCoffeePrimaryLibrary(
         [Description("Sequences (at least one, none empty; letters only).")] string[] sequences,
-        [Description("Pair-wise methods in command-line order ('proba_pair' (default), 'slow_pair', 'lalign_id_pair', 'clustalw_pair', 'biphasic_pair', 'lalign_rs_s_pair', 'promo_pair', 'blastr_pair').")] string[]? methods = null,
+        [Description("Pair-wise methods in command-line order ('proba_pair' (default), 'slow_pair', 'lalign_id_pair', 'clustalw_pair', 'biphasic_pair', 'lalign_rs_s_pair', 'promo_pair', 'blastr_pair', 'fast_pair', 'exon_pair', 'exon2_pair', 'exon3_pair').")] string[]? methods = null,
         [Description("t_coffee -lalign_n_top (default 10).")] int lalignTopAlignments = 10,
         [Description("true = protein, false = DNA, omitted = decided from the letters as the program does.")] bool? protein = null,
+        [Description("The genomic (_G_) template of every sequence for exon_pair / exon2_pair / exon3_pair (one entry per sequence, null / empty = none).")] string?[]? genomicTemplates = null,
         CancellationToken cancellationToken = default)
     {
         using var cancelScope = global::Seqeron.Genomics.Alignment.SequenceAligner.BeginCancellationScope(cancellationToken);
         if (sequences is null || sequences.Length == 0)
             throw new ArgumentException("sequences must contain at least one sequence.", nameof(sequences));
+        if (genomicTemplates != null && genomicTemplates.Length != sequences.Length)
+            throw new ArgumentException("genomicTemplates must have one entry per sequence.", nameof(genomicTemplates));
         var parsed = (methods is { Length: > 0 } ? methods : ["proba_pair"]).Select(ParseTCoffeePairMethod).ToList();
-        var items = global::Seqeron.Genomics.Alignment.SequenceAligner.TCoffeePrimaryLibraryEntries(sequences, parsed, lalignTopAlignments, protein)
+        var items = global::Seqeron.Genomics.Alignment.SequenceAligner.TCoffeePrimaryLibraryEntries(sequences, parsed, lalignTopAlignments, protein, genomicTemplates?.Select(t => string.IsNullOrEmpty(t) ? null : t).ToArray())
             .Select(e => new TCoffeeLibraryEntryItem(e.SeqA, e.PosA, e.SeqB, e.PosB, e.Weight, e.Count))
             .ToArray();
         return new TCoffeePrimaryLibraryResult(items, items.Length);
@@ -164,7 +167,11 @@ public partial class AlignmentTools
         "subop1_pair" => global::Seqeron.Genomics.Alignment.TCoffeePairMethod.Subop1Pair,
         "subop2_pair" => global::Seqeron.Genomics.Alignment.TCoffeePairMethod.Subop2Pair,
         "cfast_pair" => global::Seqeron.Genomics.Alignment.TCoffeePairMethod.CfastPair,
-        _ => throw new ArgumentException($"Unknown pair-wise method '{name}': expected proba_pair, slow_pair, lalign_id_pair, clustalw_pair, biphasic_pair, lalign_rs_s_pair, promo_pair, blastr_pair (or clean_slow_pair, hash_pair, subop1_pair, subop2_pair, cfast_pair, which the program refuses)."),
+        "fast_pair" => global::Seqeron.Genomics.Alignment.TCoffeePairMethod.FastPair,
+        "exon_pair" => global::Seqeron.Genomics.Alignment.TCoffeePairMethod.ExonPair,
+        "exon2_pair" => global::Seqeron.Genomics.Alignment.TCoffeePairMethod.Exon2Pair,
+        "exon3_pair" => global::Seqeron.Genomics.Alignment.TCoffeePairMethod.Exon3Pair,
+        _ => throw new ArgumentException($"Unknown pair-wise method '{name}': expected proba_pair, slow_pair, lalign_id_pair, clustalw_pair, biphasic_pair, lalign_rs_s_pair, promo_pair, blastr_pair, fast_pair, exon_pair, exon2_pair, exon3_pair (or clean_slow_pair, hash_pair, subop1_pair, subop2_pair, cfast_pair, which the program refuses)."),
     };
 
     [McpServerTool(Name = "tcoffee_guide_tree", Title = "MSA — T-Coffee Guide Tree", ReadOnly = true)]

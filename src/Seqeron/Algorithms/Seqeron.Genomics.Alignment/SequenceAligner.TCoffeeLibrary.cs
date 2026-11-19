@@ -41,22 +41,27 @@ public static partial class SequenceAligner
     }
 
     /// <summary><c>get_seq_sim(s1, s2, "-", NULL)</c>: 100 x identical columns / columns with a residue in both rows (integer division), 0 when there is none.</summary>
-    private static int TcSeqSim(string r1, string r2)
+    private static int TcSeqSim(string r1, string r2, bool singleLetterGroups = false)
     {
         int pos0 = 0, sim = 0;
         for (int a = 0; a < r1.Length; a++)
         {
             if (r1[a] == '-' || r2[a] == '-') continue;
             pos0++;
-            if (TcSameGroup(r1[a], r2[a])) sim++;
+            // singleLetterGroups: the groups of make_group_aa("idmat") (26 groups of one letter: J, O, U and X are equal to themselves, T and U differ) instead of those of the matrix idmat
+            if (singleLetterGroups ? char.ToUpperInvariant(r1[a]) == char.ToUpperInvariant(r2[a]) : TcSameGroup(r1[a], r2[a])) sim++;
         }
 
         return pos0 == 0 ? 0 : sim * 100 / pos0;
     }
 
     /// <summary><c>fix_seq_seq</c> for one sequence: index[r] = coordinate (1-based) in <paramref name="full"/> of the r-th (1-based) residue of <paramref name="segment"/>.</summary>
-    private static int[] TcFixIndex(string segment, string full)
+    private static int[] TcFixIndex(string segment, string full) => TcFixIndex(segment, full, out _);
+
+    /// <summary>As <see cref="TcFixIndex(string, string)"/>; <paramref name="aligned"/> tells that the sequences differ and were reconciled by an alignment (whose <c>aln2sim(B, "idmat")</c> is a call of <c>is_in_same_group_aa</c>).</summary>
+    private static int[] TcFixIndex(string segment, string full, out bool aligned)
     {
+        aligned = false;
         var index = new int[segment.Length + 1];
         if (string.Equals(segment, full, StringComparison.OrdinalIgnoreCase))
         {
@@ -65,6 +70,7 @@ public static partial class SequenceAligner
         }
 
         // align_two_sequences(..., "idmat" | "blosum62mt", -4, -1): the matrix follows the type of the sequences built by aln2seq, which is never set -> idmat
+        aligned = true;
         var (ra, rb) = TcMyersMiller(segment.ToLowerInvariant(), full.ToLowerInvariant(), TcMatrix.IdMat, -4, -1);
         int nr0 = 0, nr1 = 0;
         for (int c = 0; c < ra.Length; c++)
@@ -186,9 +192,12 @@ public static partial class SequenceAligner
         public int Length(int s) => _len[s];
     }
 
+    /// <summary><c>is_in_set(letter, "subset_objOBJ-")</c> of <c>aln2constraint_list</c> for the weight mode "sim_subset_objOBJ-": the program takes the text after the FIRST '_' (so "subset_" belongs to the set), tested case-sensitively.</summary>
+    private static bool TcInExonSubset(char c) => "subset_objOBJ-".Contains(c);
+
     /// <summary>The entries one pair job (x, y) adds, in the order of <c>aln2constraint_list</c> (alignments of the chain, columns left to right).</summary>
     private static List<(int S1, int R1, int S2, int R2, int W)> TcPairJobEntries(
-        IReadOnlyList<string> seqs, int x, int y, TCoffeePairMethod method, int lalignTop, TcSeqKind kind, string? matrix, TCoffeeMethodParameters? mp, string[]? work = null)
+        IReadOnlyList<string> seqs, int x, int y, TCoffeePairMethod method, int lalignTop, TcSeqKind kind, string? matrix, TCoffeeMethodParameters? mp, string[]? work = null, string?[]? templates = null, TcProcessGroups? groups = null)
     {
         bool protein = kind == TcSeqKind.Protein;
         if (method is TCoffeePairMethod.PromoPair or TCoffeePairMethod.BlastrPair)
@@ -197,6 +206,7 @@ public static partial class SequenceAligner
             return TcProbaPairEntries(seqs[x], seqs[y], kind, matrix).Select(e => (x, e.R1, y, e.R2, e.Weight)).ToList();
 
         var rows = new List<(string, string)>();
+        bool subset = false; // exon2 / exon3: only the columns with both letters in "subset_objOBJ-"
         switch (method)
         {
             case TCoffeePairMethod.SlowPair:
@@ -219,6 +229,25 @@ public static partial class SequenceAligner
             case TCoffeePairMethod.BiphasicPair:
                 rows.Add(TCoffeeBiphasicPairAlign(seqs[x], seqs[y], protein, matrix, mp));
                 break;
+            case TCoffeePairMethod.ExonPair:
+            case TCoffeePairMethod.Exon2Pair:
+            case TCoffeePairMethod.Exon3Pair:
+                {
+                    // SEQ_TYPE G: the pair job aligns the genomic templates (the exon methods have their own branch in method2pw_cl: dp mode myers_miller_pair_wise, the x rows of the matrix zeroed);
+                    // MATRIX exon2mt, GOP -10 (exon, exon2) / 0 (exon3), GEP -1
+                    var matrix2 = (TcResolveMatrix(mp?.Matrix) ?? TcMatrix.ByName("exon2mt")!).WithZeroX();
+                    rows.Add(TcMyersMiller(templates![x]!, templates[y]!, matrix2, mp?.GapOpen ?? (method == TCoffeePairMethod.Exon3Pair ? 0 : -10), mp?.GapExtend ?? -1));
+                    subset = method != TCoffeePairMethod.ExonPair;
+                    break;
+                }
+
+            case TCoffeePairMethod.FastPair:
+                {
+                    var p = TcFastPairParams(protein, matrix, mp);
+                    rows.Add(TcFastaPairRows(seqs[x], seqs[y], p.Matrix, p.Gop, p.Gep, protein ? 2 : 5, 0, 0, 0f, 1));
+                    break;
+                }
+
             case TCoffeePairMethod.ClustalwPair:
                 {
                     // the external program decides the residue type of the pair file itself (-TYPE=auto: the SECOND sequence of the pair), not T-Coffee's type of the whole set:
@@ -236,20 +265,23 @@ public static partial class SequenceAligner
         }
 
         var entries = new List<(int, int, int, int, int)>();
+        groups ??= new TcProcessGroups();
         foreach (var (rowA, rowB) in rows)
         {
-            int weight = TcSeqSim(rowA, rowB);
+            // aln2constraint_list_generic: fix_aln_seq_new (fix_seq_seq: a reconciling alignment calls aln2sim(B, "idmat") = is_in_same_group_aa with the mode "idmat") comes BEFORE the weights
+            int[] fa = TcFixIndex(rowA.Replace("-", ""), seqs[x], out bool alignedA);
+            int[] fb = TcFixIndex(rowB.Replace("-", ""), seqs[y], out bool alignedB);
+            if (groups.SingleLetters == null) groups.SingleLetters = alignedA || alignedB; // the process-static groups are built by the FIRST call
+            int weight = TcSeqSim(rowA, rowB, groups.SingleLetters.Value);
             if (weight == 0) weight = 1;
             weight *= 1000 / TcMaxId;
-            int[] fa = TcFixIndex(rowA.Replace("-", ""), seqs[x]);
-            int[] fb = TcFixIndex(rowB.Replace("-", ""), seqs[y]);
             int na = 0, nb = 0;
             for (int c = 0; c < rowA.Length; c++)
             {
                 bool ga = rowA[c] == '-', gb = rowB[c] == '-';
                 if (!ga) na++;
                 if (!gb) nb++;
-                if (!ga && !gb) entries.Add((x, fa[na], y, fb[nb], weight));
+                if (!ga && !gb && (!subset || (TcInExonSubset(rowA[c]) && TcInExonSubset(rowB[c])))) entries.Add((x, fa[na], y, fb[nb], weight));
             }
         }
 
@@ -260,8 +292,14 @@ public static partial class SequenceAligner
     /// What the child process of one METHOD returns (<c>fork_read_n_constraint_list</c> child): its start list (the library merged so far) is cloned, the pair
     /// jobs run in a grand-child whose tail is merged back, and the whole list is returned when it grew.
     /// </summary>
+    /// <summary>The residue groups of <c>is_in_same_group_aa</c> in the process that runs the pair jobs of one method: built once, by the first call (<c>null</c> = not built yet; true = the 26 single-letter groups of mode "idmat", false = the groups of the matrix idmat).</summary>
+    private sealed class TcProcessGroups
+    {
+        public bool? SingleLetters;
+    }
+
     private static List<TcEntry>? TcRunMethod(
-        TcConstraintList start, IReadOnlyList<string> seqs, List<(int X, int Y)> pairs, TCoffeePairMethod method, int lalignTop, TcSeqKind kind, string? matrix, TCoffeeMethodParameters? mp)
+        TcConstraintList start, IReadOnlyList<string> seqs, List<(int X, int Y)> pairs, TCoffeePairMethod method, int lalignTop, TcSeqKind kind, string? matrix, TCoffeeMethodParameters? mp, string?[]? templates = null)
     {
         var methodList = start.Clone();
         int before = methodList.EntryCount;
@@ -269,8 +307,9 @@ public static partial class SequenceAligner
         var frozen = child.Freeze();
         // the jobs of one method run one after the other in one process on the program's shared sequence array (promo_pair / blastr_pair modify it)
         var work = seqs.ToArray();
+        var groups = new TcProcessGroups();
         foreach (var (x, y) in pairs)
-            foreach (var (s1, r1, s2, r2, w) in TcPairJobEntries(seqs, x, y, method, lalignTop, kind, matrix, mp, work))
+            foreach (var (s1, r1, s2, r2, w) in TcPairJobEntries(seqs, x, y, method, lalignTop, kind, matrix, mp, work, templates, groups))
                 child.AddBoth(s1, r1, s2, r2, w, 1);
         methodList.Undump(child.Dump(frozen));
         return methodList.EntryCount > before ? methodList.Dump(null) : null;
@@ -281,7 +320,7 @@ public static partial class SequenceAligner
     /// (see the file header for the process structure that is reproduced). A method child starts from the list merged so far.
     /// </summary>
     internal static TcConstraintList TcBuildConstraintList(
-        IReadOnlyList<string> seqs, IReadOnlyList<TCoffeePairMethod> methods, int lalignTop, TcSeqKind kind, string? matrix = null, IReadOnlyDictionary<TCoffeePairMethod, TCoffeeMethodParameters>? methodParameters = null)
+        IReadOnlyList<string> seqs, IReadOnlyList<TCoffeePairMethod> methods, int lalignTop, TcSeqKind kind, string? matrix = null, IReadOnlyDictionary<TCoffeePairMethod, TCoffeeMethodParameters>? methodParameters = null, string?[]? templates = null)
     {
         var lengths = seqs.Select(s => s.Length).ToArray();
         var main = new TcConstraintList(lengths);
@@ -301,7 +340,10 @@ public static partial class SequenceAligner
         foreach (var method in methods.Distinct())
         {
             if (pairs.Count > 0) TcRefuseMethod(method);
-            var dump = TcRunMethod(main, seqs, method == TCoffeePairMethod.LalignRsSPair ? pairsWithSelf : pairs, method, lalignTop, kind, matrix, methodParameters != null && methodParameters.TryGetValue(method, out var mp) ? mp : null);
+            var methodPairs = method == TCoffeePairMethod.LalignRsSPair ? pairsWithSelf : pairs;
+            if (method is TCoffeePairMethod.ExonPair or TCoffeePairMethod.Exon2Pair or TCoffeePairMethod.Exon3Pair)
+                methodPairs = pairs.Where(p => templates != null && templates[p.X] != null && templates[p.Y] != null).ToList(); // check_seq_type: SEQ_TYPE G needs a _G_ template on both sequences
+            var dump = TcRunMethod(main, seqs, methodPairs, method, lalignTop, kind, matrix, methodParameters != null && methodParameters.TryGetValue(method, out var mp) ? mp : null, templates);
             if (dump != null) main.Undump(dump);
         }
 
@@ -319,10 +361,11 @@ public static partial class SequenceAligner
     /// <param name="methods">The pair-wise methods in command-line order.</param>
     /// <param name="lalignTopAlignments"><c>-lalign_n_top</c> (default 10).</param>
     /// <param name="protein"><c>null</c> = decide from the letters (as the program does for the parameters it selects).</param>
+    /// <param name="genomicTemplates">The <c>_G_</c> template of every sequence for <see cref="TCoffeePairMethod.ExonPair"/> / <see cref="TCoffeePairMethod.Exon2Pair"/> / <see cref="TCoffeePairMethod.Exon3Pair"/> (<c>null</c> entries = no template).</param>
     public static IReadOnlyList<TCoffeeLibraryEntry> TCoffeePrimaryLibraryEntries(
-        IReadOnlyList<string> sequences, IEnumerable<TCoffeePairMethod> methods, int lalignTopAlignments = 10, bool? protein = null)
+        IReadOnlyList<string> sequences, IEnumerable<TCoffeePairMethod> methods, int lalignTopAlignments = 10, bool? protein = null, IReadOnlyList<string?>? genomicTemplates = null)
     {
-        var cl = TcBuildChecked(sequences, methods, lalignTopAlignments, TcKindOf(sequences, protein));
+        var cl = TcBuildChecked(sequences, methods, lalignTopAlignments, TcKindOf(sequences, protein), templates: genomicTemplates?.ToArray());
         var list = new List<TCoffeeLibraryEntry>();
         for (int s1 = 0; s1 < sequences.Count; s1++)
             for (int r1 = 1; r1 <= cl.Length(s1); r1++)
@@ -332,13 +375,13 @@ public static partial class SequenceAligner
         return list.OrderBy(e => e.SeqA).ThenBy(e => e.SeqB).ThenBy(e => e.PosA).ThenBy(e => e.PosB).ToList();
     }
 
-    private static TcConstraintList TcBuildChecked(IReadOnlyList<string> sequences, IEnumerable<TCoffeePairMethod> methods, int lalignTop, TcSeqKind kind, string? matrix = null, IReadOnlyDictionary<TCoffeePairMethod, TCoffeeMethodParameters>? methodParameters = null)
+    private static TcConstraintList TcBuildChecked(IReadOnlyList<string> sequences, IEnumerable<TCoffeePairMethod> methods, int lalignTop, TcSeqKind kind, string? matrix = null, IReadOnlyDictionary<TCoffeePairMethod, TCoffeeMethodParameters>? methodParameters = null, string?[]? templates = null)
     {
         ArgumentNullException.ThrowIfNull(sequences);
         ArgumentNullException.ThrowIfNull(methods);
         foreach (var s in sequences)
             if (string.IsNullOrEmpty(s)) throw new ArgumentException("Empty sequences are not supported.", nameof(sequences));
-        return TcBuildConstraintList(sequences, methods.ToList(), lalignTop, kind, matrix, methodParameters);
+        return TcBuildConstraintList(sequences, methods.ToList(), lalignTop, kind, matrix, methodParameters, templates);
     }
 }
 
@@ -382,20 +425,23 @@ public enum TCoffeeDistanceMode
     /// <summary><c>ktup2</c>: <c>seq2distance_matrix</c> aligns with <c>very_fast_aln</c> and calls itself with the mode <c>aln</c>; the program stops with "ERROR: UNSPECIFIED UNSPECIFIED" (exit status 1). Raises <see cref="TCoffeeAbortedException"/>.</summary>
     Ktup2 = 5,
 
-    /// <summary><c>slow</c>: every pair aligned with the relaxed library (<c>pair_wise</c> with the main dp mode); recognised, not ported yet (<see cref="NotSupportedException"/>).</summary>
+    /// <summary><c>slow</c>: every pair aligned with the relaxed library (<c>pair_wise</c> with the main dp mode): the identity of the alignment is the similarity, the DP score per column (rescaled by <c>-do_normalise</c>) the distance score.</summary>
     Slow = 6,
 
-    /// <summary><c>cscore</c>: the consistency score of the pair alignment (<c>linked_pair_wise</c>); recognised, not ported yet (<see cref="NotSupportedException"/>).</summary>
+    /// <summary><c>cscore</c>: the consistency score of the pair alignment (<c>linked_pair_wise</c> score per column and per SCORE_K, float); falls back to <c>idscore</c> when the library is empty.</summary>
     Cscore = 7,
 
-    /// <summary><c>geometric</c>: Euclidean distance of the FASTA-alignment similarity vectors; recognised, not ported yet (needs <c>fasta_pair_wise</c>; <see cref="NotSupportedException"/>).</summary>
+    /// <summary><c>geometric</c>: Euclidean distance of the vectors of FASTA-alignment (<c>fasta_pair_wise</c>, pam250mt) identities against the first three sequences.</summary>
     Geometric = 8,
 
     /// <summary><c>random</c>: <c>rand() % 100</c> as identity; the program's <c>rand</c> is seeded differently on every run (two runs of the same input give different weights), so the result cannot be reproduced; <see cref="NotSupportedException"/>.</summary>
     Random = 9,
 
-    /// <summary><c>clustalw</c>: the DP score of the pair alignment with the main library as identity; recognised, not ported yet (<see cref="NotSupportedException"/>).</summary>
+    /// <summary><c>clustalw</c>: the DP score of the linked pair-wise alignment of the pair with the relaxed library as identity (the program has no mode of this name: it falls into the generic branch of <c>seq2distance_matrix</c>).</summary>
     Clustalw = 10,
+
+    /// <summary><c>very_fast</c> (also <c>-quicktree</c>): <c>very_fast_gotoh_pair_wise</c> of every pair: the diagonals scored by the relaxed library entries, the 20 best with a shadow of 5, banded Gotoh DP, identity of the aligned rows.</summary>
+    VeryFast = 12,
 
     /// <summary>Any other text: "Error: X is an unknown distance_matrix_mode [FATAL:T-COFFEE]", exit status 1 (<see cref="TCoffeeProgramOptions.DistanceModeText"/>). Raises <see cref="TCoffeeAbortedException"/>.</summary>
     Other = 11,
@@ -413,6 +459,42 @@ public sealed partial record TCoffeeProgramOptions
 
     /// <summary><c>-method m1,m2</c>: the primary library methods in command-line order. Default = <c>proba_pair</c>, the program's own default of 13.41 (<c>t_coffee seqs.fa</c>).</summary>
     public IReadOnlyList<TCoffeePairMethod> Methods { get; init; } = new[] { TCoffeePairMethod.ProbaPair };
+
+    /// <summary>
+    /// <c>-template_file</c> with <c>_G_</c> templates: the genomic template sequence of every input sequence in input order (<c>null</c> = the sequence has none), the input of <see cref="TCoffeePairMethod.ExonPair"/>,
+    /// <see cref="TCoffeePairMethod.Exon2Pair"/> and <see cref="TCoffeePairMethod.Exon3Pair"/>. The command-line form is <c>-template_file @t0,t1,...</c>.
+    /// </summary>
+    public IReadOnlyList<string?>? GenomicTemplates { get; init; }
+
+    /// <summary><c>-dp_mode</c>: the dynamic program of the progressive stage (default the sparse <c>linked_pair_wise</c>).</summary>
+    public TCoffeeDpMode DpMode { get; init; } = TCoffeeDpMode.Linked;
+
+    /// <summary>The text of <c>-dp_mode</c> when <see cref="DpMode"/> is <see cref="TCoffeeDpMode.Other"/>.</summary>
+    public string? DpModeText { get; init; }
+
+    /// <summary><c>-extend_mode</c> (default <c>very_fast_triplet</c>): how the library scores a pair of profile columns in the generic dynamic programs.</summary>
+    public TCoffeeExtendMode ExtendMode { get; init; } = TCoffeeExtendMode.VeryFastTriplet;
+
+    /// <summary>The text of <c>-extend_mode</c> when <see cref="ExtendMode"/> is <see cref="TCoffeeExtendMode.Other"/>.</summary>
+    public string? ExtendModeText { get; init; }
+
+    /// <summary><c>-max_n_pair</c> (default 10): the number of pairs of sequences compared for two profile columns by <c>very_fast_triplet</c> (0 = every pair).</summary>
+    public int MaxNPair { get; init; } = 10;
+
+    /// <summary><c>-diag_threshold</c> (default 0 = the maximum z-score / 25): the z-score above which a diagonal is used by <c>-dp_mode fasta_pair_wise</c>.</summary>
+    public int DiagonalThreshold { get; init; }
+
+    /// <summary><c>-weight no</c>: the sequence weighting stage (and with it the distance matrix of two sequences) is skipped.</summary>
+    public bool WeightNo { get; init; }
+
+    /// <summary><c>-tg_mode</c> (default 1): the terminal gap rule of the heuristic dynamic programs (0 = opening and extension, 1 = extension only, 2 = free); the sparse DP of <c>linked_pair_wise</c> has its own rule.</summary>
+    public int TgMode { get; init; } = 1;
+
+    /// <summary><c>-ndiag</c> (<c>fasta_step</c>, default 0): the number of best diagonals the FASTA heuristics use instead of the z-score threshold (<see cref="TCoffeePairMethod.FastPair"/>, <c>-dp_mode fasta_pair_wise</c>).</summary>
+    public int DiagonalCount { get; init; }
+
+    /// <summary><c>-ktuple</c> (default 1, DNA at least 2): the k-tuple size of the heuristic dynamic programming modes (<c>-dp_mode fasta_pair_wise</c>, <c>cfasta_pair_wise</c>).</summary>
+    public int Ktuple { get; init; } = 1;
 
     /// <summary><c>-lalign_n_top</c>: alignments reported by <c>lalign_id_pair</c> per pair (default 10).</summary>
     public int LalignTopAlignments { get; init; } = 10;
@@ -531,8 +613,11 @@ public static partial class SequenceAligner
         RequireProgramMembers(sequences, "t_coffee", nameof(sequences));
         foreach (var s in sequences)
             if (s.Any(c => !char.IsAsciiLetter(c))) throw new ArgumentException("Sequences must be strings of letters.", nameof(sequences));
+        TcRefuseModes(options, sequences.Count);
         if (sequences.Count == 1) return new[] { sequences[0] };
         int k = sequences.Count;
+        // -extend_mode rna0 = residue_pair_extended_list + slow_get_dp_cost (the same column score as slow_triplet)
+        if (options.ExtendMode == TCoffeeExtendMode.Other && options.ExtendModeText == "rna0") options = options with { ExtendMode = TCoffeeExtendMode.SlowTriplet };
 
         // -inorder aligned (the program's default): the sequences are sorted by name (byte order) before anything else is computed
         var perm = Enumerable.Range(0, k).ToArray();
@@ -544,31 +629,52 @@ public static partial class SequenceAligner
 
         var seqs = perm.Select(i => sequences[i]).ToList();
         var kind = TcKindOf(seqs, options.Protein);
-        var cl = TcBuildChecked(seqs, options.Methods, options.LalignTopAlignments, kind, options.Matrix, options.MethodParameters);
+        if (options.GenomicTemplates != null && options.GenomicTemplates.Count != k) throw new ArgumentException("GenomicTemplates must have one entry per sequence.", nameof(options));
+        string?[]? templates = options.GenomicTemplates == null ? null : perm.Select(i => options.GenomicTemplates[i]).ToArray();
+        var cl = TcBuildChecked(seqs, options.Methods, options.LalignTopAlignments, kind, options.Matrix, options.MethodParameters, templates);
+        // CL->S->nseq > 1 with an empty library: "You have not provided any method or enough Sequences [FATAL]" (t_coffee.c L4999-5010)
+        if (cl.EntryCount == 0)
+            throw new TCoffeeAbortedException("You have not provided any method or enough Sequences [FATAL] (no library entry: a method without suitable sequences produced no pair)");
         var index = TcIndex.FromConstraintList(cl, seqs.Select(s => s.Length).ToArray());
-        var tree = options.DistanceMatrixMode == TCoffeeDistanceMode.Ktup && options.TreeMode == TCoffeeTreeMode.Nj
-            ? TCoffeeGuideTree(seqs, kind == TcSeqKind.Protein)
-            : TcGuideTreeFor(seqs, kind, options);
 
-        // the program computes the distance matrix of two sequences as well (cl2distance_matrix in t_coffee.c); only its side effect matters here: the segmentation fault of 'fast' + an idscore sim mode
-        if (k == 2) _ = TcDistanceMatrix(seqs, kind, options);
-
-        float[]? weights = null;
+        float[]? explicitWeights = null;
         if (options.SequenceWeights != null)
         {
             if (options.SequenceWeights.Count != k) throw new ArgumentException("SequenceWeights must have one entry per sequence.", nameof(options));
-            weights = perm.Select(i => options.SequenceWeights[i]).ToArray();
-        }
-        else if (options.TCoffeeSequenceWeights)
-        {
-            weights = TcTCoffeeSequenceWeights(TcDistanceMatrix(seqs, kind, options).Sim, k);
+            explicitWeights = perm.Select(i => options.SequenceWeights[i]).ToArray();
         }
 
         // CL->gop / CL->gep: -gapopen / -gapext, or -cosmetic_penalty as the opening penalty when neither is given
         int gop = options.GapOpen, gep = options.GapExtend;
         if (gop == 0 && gep == 0) gop = options.CosmeticPenalty;
         int relax = options.RelaxLibIterations ?? (options.RelaxLibrary ? 1 : 0);
-        var (sortedRows, _) = TcAlignDetailed(seqs, index, tree, relax, options.FilterLib, weights, new TcPenalties(gop, gep, options.NoMatch), options.DoNormalise);
+
+        // the distance matrix of the program is computed after the library was relaxed (modes slow / cscore / clustalw / very_fast read it): guide tree and sequence weights come from that stage
+        var dpSettings = new TcDpSettings(options.DpMode, options.ExtendMode, gop, gep, options.TgMode, kind == TcSeqKind.Protein ? options.Ktuple : Math.Max(2, options.Ktuple), options.DiagonalCount, options.DiagonalThreshold, options.MaxNPair, options.DoNormalise);
+        (TCoffeeTreeNode, float[]?, int[,]?) LateStage(TcIndex relaxed, TcPenalties pen)
+        {
+            var state = new TcRelaxedState(relaxed, pen, options.DoNormalise, options.TgMode, dpSettings);
+            var tree = options.DistanceMatrixMode == TCoffeeDistanceMode.Ktup && options.TreeMode == TCoffeeTreeMode.Nj
+                ? TCoffeeGuideTree(seqs, kind == TcSeqKind.Protein)
+                : TcGuideTreeFor(seqs, kind, options, state);
+
+            // the program computes the distance matrix of two sequences as well (cl2distance_matrix in t_coffee.c); only its side effect matters here: the segmentation fault of 'fast' + an idscore sim mode
+            if (k == 2 && !options.WeightNo) _ = TcDistanceMatrix(seqs, kind, options, state);
+
+            // the distance matrix is the program's CL->DM: the generic dynamic programs sort the pairs of sequences of two profile columns by its identities
+            int[,]? sim = null;
+            float[]? weights = explicitWeights;
+            if (options.DpMode != TCoffeeDpMode.Linked || (weights == null && options.TCoffeeSequenceWeights))
+            {
+                var dm = TcDistanceMatrix(seqs, kind, options, state);
+                sim = dm.Sim;
+                if (weights == null && options.TCoffeeSequenceWeights) weights = TcTCoffeeSequenceWeights(dm.Sim, k);
+            }
+
+            return (tree, weights, sim);
+        }
+
+        var (sortedRows, _) = TcAlignDetailed(seqs, index, null, relax, options.FilterLib, null, new TcPenalties(gop, gep, options.NoMatch), options.DoNormalise, LateStage, dpSettings);
 
         // -outorder aligned writes the rows in the program's internal order (the names sorted, see Names); the default (input) restores the input order
         if (options.OutOrderAligned) return sortedRows;

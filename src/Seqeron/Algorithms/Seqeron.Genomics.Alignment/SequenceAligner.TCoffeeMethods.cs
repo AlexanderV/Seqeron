@@ -41,8 +41,14 @@ public static partial class SequenceAligner
 
     private static (string, string) TcBiphasic(string a, string b, TcMatrix matrix, int gopIn, int gepIn)
     {
+        var (ia, ib, _) = TcBiphasicMasks(a.Length, b.Length, (i, j) => matrix.Score(a[i], b[j]) * TcScoreK, gopIn, gepIn);
+        return TcMasksToRows(a, b, ia, ib);
+    }
+
+    /// <summary><c>biphasic_pair_wise</c> on a score function of the two 0-based positions (<c>get_dp_cost</c>): the residue masks of the two rows and the score of the best final state.</summary>
+    private static (List<bool> Present1, List<bool> Present2, int Score) TcBiphasicMasks(int I, int J, Func<int, int, int> cost, int gopIn, int gepIn)
+    {
         const int M1 = 1, D1 = 2, D2 = 3, I1 = 4, I2 = 5, N = 6;
-        int I = a.Length, J = b.Length;
         var m = new int[N][,];
         var t = new int[N][,];
         for (int c = 0; c < N; c++)
@@ -63,7 +69,7 @@ public static partial class SequenceAligner
         for (int i = 1; i <= I; i++)
             for (int j = 1; j <= J; j++)
             {
-                int sub = matrix.Score(a[i - 1], b[j - 1]) * TcScoreK;
+                int sub = cost(i - 1, j - 1);
                 // max_int: the first listed key wins ties (a later value must be strictly greater)
                 int best = m[D1][i - 1, j - 1], key = D1;
                 if (m[I1][i - 1, j - 1] > best) { best = m[I1][i - 1, j - 1]; key = I1; }
@@ -103,15 +109,94 @@ public static partial class SequenceAligner
         }
 
         ia.Reverse(); ib.Reverse();
-        var ra = new System.Text.StringBuilder(); var rb = new System.Text.StringBuilder();
-        int pa = 0, pb = 0;
-        for (int c = 0; c < ia.Count; c++)
+        return (ia, ib, bestFinal);
+    }
+
+    /// <summary>
+    /// <c>glocal_pair_wise</c> (util_dp_gotoh_nw.c L370): four states (M1, D1, I1, M2 = an unmatched pair costing <c>gep</c>, entered with <c>gop</c>) with zero-initialised borders except the listed ones, ties to the first listed key, the traceback
+    /// that starts from the predecessor of the best final state, and a pair in state M2 written as two columns (the first row's residue against a gap, then the gap against the second row's residue).
+    /// </summary>
+    private static (List<bool> Present1, List<bool> Present2, int Score) TcGlocalMasks(int l1, int l2, Func<int, int, int> cost, int gopIn, int gepIn)
+    {
+        const int M1 = 1, D1 = 2, I1 = 3, M2 = 4, N = 5;
+        int gop = gopIn * TcScoreK, gep = gepIn * TcScoreK, tgop = gop, unmatch = gep;
+        var m = new int[N][,]; var t = new int[N][,];
+        for (int c = 0; c < N; c++) { m[c] = new int[l1 + 1, l2 + 1]; t[c] = new int[l1 + 1, l2 + 1]; }
+        for (int j = 1; j <= l2; j++)
         {
-            ra.Append(ia[c] ? a[pa++] : '-');
-            rb.Append(ib[c] ? b[pb++] : '-');
+            m[D1][0, j] = gep * j;
+            m[M1][0, j] = 2 * gep * j;
+            m[M2][0, j] = 4 * gep * j;
         }
 
-        return (ra.ToString(), rb.ToString());
+        for (int i = 1; i <= l1; i++)
+        {
+            m[I1][i, 0] = i * gep;
+            m[M2][i, 0] = 4 * i * gep;
+            m[M1][i, 0] = 2 * i * gep;
+            for (int j = 1; j <= l2; j++)
+            {
+                int sub = cost(i - 1, j - 1);
+                m[M1][i, j] = DpMax(out t[M1][i, j], (M1, m[M1][i - 1, j - 1]), (I1, m[I1][i - 1, j - 1]), (D1, m[D1][i - 1, j - 1]), (M2, m[M2][i - 1, j - 1])) + sub;
+                m[D1][i, j] = DpMax(out t[D1][i, j], (M1, m[M1][i, j - 1] + gop), (D1, m[D1][i, j - 1] + gep), (M2, m[M2][i, j - 1]));
+                m[I1][i, j] = DpMax(out t[I1][i, j], (M1, m[M1][i - 1, j] + gop), (I1, m[I1][i - 1, j] + gep), (M2, m[M2][i - 1, j]));
+                m[M2][i, j] = DpMax(out t[M2][i, j], (M1, m[M1][i - 1, j - 1] + tgop), (I1, m[I1][i - 1, j - 1] + tgop), (D1, m[D1][i - 1, j - 1] + tgop), (M2, m[M2][i - 1, j - 1])) + unmatch;
+            }
+        }
+
+        int score = DpMax(out int trace, (M1, m[M1][l1, l2]), (D1, m[D1][l1, l2]), (I1, m[I1][l1, l2]), (M2, m[M2][l1, l2]));
+        int ii = l1, jj = l2;
+        var al0 = new List<bool>(); var al1 = new List<bool>();
+        trace = t[trace][ii, jj];
+        while (!(ii == 0 && jj == 0))
+        {
+            int next = t[trace][ii, jj];
+            // the borders first (i == 0: deletion, j == 0: insertion), then the state of the trace
+            int action;
+            if (ii == 0) action = D1;
+            else if (jj == 0) action = I1;
+            else action = trace;
+            switch (action)
+            {
+                case M1:
+                    al0.Add(true); al1.Add(true);
+                    ii--; jj--;
+                    break;
+                case M2:
+                    al0.Add(true); al1.Add(false);
+                    al0.Add(false); al1.Add(true);
+                    ii--; jj--;
+                    break;
+                case D1:
+                    al0.Add(false); al1.Add(true);
+                    jj--;
+                    break;
+                case I1:
+                    al0.Add(true); al1.Add(false);
+                    ii--;
+                    break;
+            }
+
+            trace = next;
+        }
+
+        al0.Reverse(); al1.Reverse();
+        return (al0, al1, score);
+    }
+
+    /// <summary><c>dp_max (&amp;trace, n, key, value, ...)</c>: the value of the first key, a later value replaces it only when strictly greater.</summary>
+    private static int DpMax(out int trace, params (int Key, int Value)[] candidates)
+    {
+        int best = candidates[0].Value;
+        trace = candidates[0].Key;
+        for (int a = 1; a < candidates.Length; a++)
+            if (candidates[a].Value > best)
+            {
+                best = candidates[a].Value;
+                trace = candidates[a].Key;
+            }
+
+        return best;
     }
 
     /// <summary>The methods whose use the program refuses (see <see cref="TCoffeePairMethod.CleanSlowPair"/>, <see cref="TCoffeePairMethod.HashPair"/>, <see cref="TCoffeePairMethod.Subop1Pair"/>, <see cref="TCoffeePairMethod.Subop2Pair"/>, <see cref="TCoffeePairMethod.CfastPair"/>).</summary>

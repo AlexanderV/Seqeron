@@ -147,7 +147,8 @@ public static partial class SequenceAligner
     /// own alignment (leaf order of the tree walk, the smaller profile first), which <c>-outorder aligned</c> writes.
     /// </summary>
     private static (string[] Rows, List<int> AlignedOrder) TcAlignDetailed(
-        IReadOnlyList<string> sequences, TcIndex index, TCoffeeTreeNode tree, int relaxCount, int filterLib, float[]? seqWeights, TcPenalties? pen = null, int doNormalise = 1000)
+        IReadOnlyList<string> sequences, TcIndex index, TCoffeeTreeNode? tree, int relaxCount, int filterLib, float[]? seqWeights, TcPenalties? pen = null, int doNormalise = 1000,
+        Func<TcIndex, TcPenalties, (TCoffeeTreeNode Tree, float[]? Weights, int[,]? Sim)>? lateStage = null, TcDpSettings? dp = null)
     {
         int k = sequences.Count;
         if (filterLib > 0) index.Filter(filterLib);
@@ -156,13 +157,19 @@ public static partial class SequenceAligner
         // largest sum of the weights of a residue's entries each time (integer division)
         var penalties = pen ?? TcPenalties.Default;
         penalties = penalties with { NoMatch = index.NormaliseNoMatch(penalties.NoMatch, doNormalise) };
+        // the distance matrix (guide tree and t_coffee sequence weights) is computed here, from the relaxed library, before the library is re-weighted (t_coffee.c L5156-5172)
+        int[,]? sim = null;
+        if (lateStage != null) (tree, seqWeights, sim) = lateStage(index, penalties);
+        if (tree is null) throw new InvalidOperationException("No guide tree.");
         if (seqWeights != null)
         {
             index.Reweight(seqWeights);
             penalties = penalties with { NoMatch = index.NormaliseNoMatch(penalties.NoMatch, doNormalise) };
         }
 
-        var groups = TcAlignNode(tree, sequences, index, penalties);
+        var groups = dp is { Mode: not TCoffeeDpMode.Linked }
+            ? TcAlignNodeDp(tree, sequences, new TcDpContext(index, sim, dp, penalties.NoMatch, (int)Math.Min(int.MaxValue, index.MaxExtValue())))
+            : TcAlignNode(tree, sequences, index, penalties);
         var rows = new string[k];
         for (int s = 0; s < k; s++)
         {
@@ -236,6 +243,18 @@ public static partial class SequenceAligner
             }
         }
 
+        /// <summary>Number of directed entries (<c>CL->ne</c> after a filter / relaxation).</summary>
+        public int EdgeCount
+        {
+            get
+            {
+                int n = 0;
+                for (int s = 0; s < Len.Length; s++)
+                    for (int r = 1; r <= Len[s]; r++) n += Edges[s][r].Count;
+                return n;
+            }
+        }
+
         public void Add(int s1, int r1, int s2, int r2, int w)
         {
             Edges[s1][r1].Add(new TcEdge { Seq = s2, Res = r2, Weight = w });
@@ -266,6 +285,12 @@ public static partial class SequenceAligner
         public int NormaliseNoMatch(int noMatch, int normalise)
         {
             if (normalise == 0) return noMatch;
+            return (int)((long)noMatch * normalise / MaxExtValue());
+        }
+
+        /// <summary><c>CL->max_ext_value</c> of <c>evaluate_constraint_list_reference</c>: the largest sum of the weights of the entries that end or start at one residue (every directed entry counts for both ends), at least 1.</summary>
+        public long MaxExtValue()
+        {
             var sum = new long[Len.Length][];
             for (int s = 0; s < Len.Length; s++) sum[s] = new long[Len[s] + 1];
             for (int s = 0; s < Len.Length; s++)
@@ -278,7 +303,7 @@ public static partial class SequenceAligner
 
             long max = 1;
             foreach (var row in sum) foreach (long v in row) max = Math.Max(max, v);
-            return (int)((long)noMatch * normalise / max);
+            return max;
         }
 
         /// <summary><c>re_weight_constraint_list</c>: every directed entry (s, r) -> (t, r2) is multiplied (float product, truncated to int) by MIN(weight[s], weight[t]).</summary>
@@ -389,7 +414,7 @@ public static partial class SequenceAligner
         int l1 = g0.Columns, l2 = g1.Columns;
 
         var list = TcPairListExt(g0, g1, l1, l2, lib);
-        var (al0, al1) = TcSparseDp(list, l1, l2, pen);
+        var (al0, al1, _) = TcSparseDp(list, l1, l2, pen);
 
         var merged = new TcGroup();
         merged.Order.AddRange(g0.Order);
@@ -501,7 +526,7 @@ public static partial class SequenceAligner
         return c != 0 ? c : a.I.CompareTo(b.I);
     }
 
-    private static (List<bool>, List<bool>) TcSparseDp(List<TcCell> pairList, int l1, int l2, TcPenalties pen)
+    private static (List<bool>, List<bool>, int) TcSparseDp(List<TcCell> pairList, int l1, int l2, TcPenalties pen)
     {
         var cells = pairList;
 
@@ -638,6 +663,7 @@ public static partial class SequenceAligner
 
         // traceback
         int cur = start;
+        int linkedScore = (int)Math.Max(sc[M][cur], Math.Max(sc[I][cur], sc[J][cur])); // list2linked_pair_wise: score = MAX3(MM, MI, MJ) of the end cell (a long returned as int)
         int state = TcBestState(sc[M][cur], sc[I][cur], sc[J][cur]);
         int ri = l1, rj = l2;
         var al0 = new List<bool>(); var al1 = new List<bool>();
@@ -663,6 +689,22 @@ public static partial class SequenceAligner
         }
 
         al0.Reverse(); al1.Reverse();
-        return (al0, al1);
+        return (al0, al1, linkedScore);
+    }
+
+    /// <summary>
+    /// <c>linked_pair_wise</c> of the two single sequences a and b (the distance modes slow / cscore / clustalw): the sparse DP on the library <paramref name="lib"/> (the shorter sequence is profile 1),
+    /// the aligned rows (as residue masks for a and b) and the DP score the program returns.
+    /// </summary>
+    private static (string RowA, string RowB, int Score) TcLinkedPairRows(IReadOnlyList<string> seqs, int a, int b, TcIndex lib, TcPenalties pen)
+    {
+        var ga = new TcGroup(); ga.Order.Add(a); ga.Rows[a] = Enumerable.Range(1, seqs[a].Length).ToArray();
+        var gb = new TcGroup(); gb.Order.Add(b); gb.Rows[b] = Enumerable.Range(1, seqs[b].Length).ToArray();
+        var (g0, g1) = (ga, gb);
+        if (g0.Columns > g1.Columns) (g0, g1) = (g1, g0);
+        var list = TcPairListExt(g0, g1, g0.Columns, g1.Columns, lib);
+        var (al0, al1, score) = TcSparseDp(list, g0.Columns, g1.Columns, pen);
+        var (r0, r1) = TcMasksToRows(seqs[g0.Order[0]], seqs[g1.Order[0]], al0, al1);
+        return g0 == ga ? (r0, r1, score) : (r1, r0, score);
     }
 }

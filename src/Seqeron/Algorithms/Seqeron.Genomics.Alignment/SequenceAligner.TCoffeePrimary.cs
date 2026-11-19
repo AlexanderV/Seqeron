@@ -127,6 +127,24 @@ public enum TCoffeePairMethod
 
     /// <summary><c>cfast_pair</c>: "Mcfast_pair not recognised [FATAL:T-COFFEE]", exit status 1. Raises <see cref="TCoffeeAbortedException"/>.</summary>
     CfastPair = 12,
+
+    /// <summary>
+    /// <c>fast_pair</c>: the FASTA heuristic of the program (<c>fasta_gotoh_pair_wise</c>, util_dp_fasta_nw.c): the DP is restricted to the diagonals with the best k-tuple scores (k-tuple 2 protein / 5 DNA,
+    /// z-score threshold, or the <see cref="TCoffeeProgramOptions.DiagonalCount"/> best diagonals); DNA: matrix dna_idmat, GOP -50, GEP -1; protein: BLOSUM62 with GOP (int)(10 x mean mismatch), GEP -1; terminal gaps pay the extension only.
+    /// </summary>
+    FastPair = 13,
+
+    /// <summary>
+    /// <c>exon_pair</c> (<c>SEQ_TYPE G</c>): the Myers-Miller alignment (as <c>slow_pair</c>) of the GENOMIC templates (<c>_G_</c>, <see cref="TCoffeeProgramOptions.GenomicTemplates"/>) of the two sequences with the matrix exon2mt (BLOSUM62, the diagonal of o / b / j = 100, the x rows zeroed), GOP -10, GEP -1;
+    /// the alignment of the templates is expressed in the residues of the sequences (<c>fix_seq_seq</c>). Only pairs of sequences that both have a template are aligned.
+    /// </summary>
+    ExonPair = 14,
+
+    /// <summary><c>exon2_pair</c>: as <see cref="ExonPair"/>, but only the columns whose two template letters are in the set "subset_objOBJ-" (the program passes the text after the first '_' of the weight mode "sim_subset_objOBJ-", prefix included) enter the library.</summary>
+    Exon2Pair = 15,
+
+    /// <summary><c>exon3_pair</c>: as <see cref="Exon2Pair"/> with GOP 0.</summary>
+    Exon3Pair = 16,
 }
 
 /// <summary>
@@ -165,7 +183,7 @@ public static partial class SequenceAligner
         private const string Alphabet = "abcdefghiklmnpqrstvwxyz";
         private readonly int[,] _m = new int[256, 256];
 
-        private TcMatrix(IReadOnlyList<int> triangle)
+        private TcMatrix(IReadOnlyList<int> triangle, bool exon2 = false)
         {
             int l = Alphabet.Length;
             var raw = new int[l, l];
@@ -181,6 +199,14 @@ public static partial class SequenceAligner
                     Set(char.ToUpperInvariant(x), y, raw[b, c]);
                     Set(x, char.ToUpperInvariant(y), raw[b, c]);
                     Set(x, y, raw[b, c]);
+                }
+
+            // exon2mt: the diagonal of the letters o, b and j is 100 (EXONVALUE_4_TCOFFEE is read with atoi of the variable's NAME, so the environment cannot change it: 100 unless the variable exists, then 0; it does not)
+            if (exon2)
+                foreach (char e in "obj")
+                {
+                    char up = char.ToUpperInvariant(e);
+                    _m[up - 'A', up - 'A'] = _m[e - 'A', up - 'A'] = _m[up - 'A', e - 'A'] = _m[e - 'A', e - 'A'] = 100;
                 }
 
             // "Correct for RNA: Add the U cost"
@@ -199,6 +225,18 @@ public static partial class SequenceAligner
             _m['u' - 'A', 'u' - 'A'] = _m['t' - 'A', 't' - 'A'];
         }
 
+        private TcMatrix(TcMatrix other) => Array.Copy(other._m, _m, other._m.Length);
+
+        /// <summary>A copy whose rows and columns of the letter x (both cases) are 0 (<c>PW_CL->M['x' - 'A'][a] = PW_CL->M[a]['x' - 'A'] = 0</c> for a &lt; 60 in <c>method2pw_cl</c> of the exon methods).</summary>
+        public TcMatrix WithZeroX()
+        {
+            var copy = new TcMatrix(this);
+            for (int a = 0; a < 60; a++)
+                foreach (char x in "xX")
+                    copy._m[x - 'A', a] = copy._m[a, x - 'A'] = 0;
+            return copy;
+        }
+
         private void Set(char x, char y, int v) => _m[x - 'A', y - 'A'] = v;
 
         /// <summary><c>CL->M[a - 'A'][b - 'A']</c> (without the SCORE_K factor).</summary>
@@ -214,7 +252,7 @@ public static partial class SequenceAligner
             {
                 if (ByNameCache.TryGetValue(name, out var cached)) return cached;
                 var vector = TcMatrixCatalog.Find(name);
-                var m = vector == null ? null : new TcMatrix(vector);
+                var m = vector == null ? null : new TcMatrix(vector, name == "exon2mt");
                 ByNameCache[name] = m;
                 return m;
             }
@@ -274,6 +312,15 @@ public static partial class SequenceAligner
     {
         if (string.IsNullOrEmpty(name) || name == "default") return null;
         return TcMatrix.ByName(name) ?? throw new ArgumentException($"-matrix {name} is not a matrix of the program (read_matrice).");
+    }
+
+    /// <summary>The parameters of <c>fast_pair</c>: DNA / RNA <c>MATRIX dna_idmat</c>, GOP -50, GEP -1 (method file); PROTEIN <c>-matrix</c> (default blosum62mt), GOP <c>(int)(10 x get_avg_matrix_mm)</c>, GEP -1.</summary>
+    private static TcPairParams TcFastPairParams(bool protein, string? matrixName = null, TCoffeeMethodParameters? mp = null)
+    {
+        if (!protein)
+            return new TcPairParams(TcResolveMatrix(mp?.Matrix) ?? TcMatrix.IdMat, mp?.GapOpen ?? -50, mp?.GapExtend ?? -1);
+        var matrix = TcResolveMatrix(mp?.Matrix) ?? TcResolveMatrix(matrixName) ?? TcMatrix.Blosum62;
+        return new TcPairParams(matrix, mp?.GapOpen ?? (int)(matrix.AverageMismatch() * 10), mp?.GapExtend ?? -1);
     }
 
     private static TcPairParams TcLalignParams(bool protein, TCoffeeMethodParameters? mp = null)
@@ -337,28 +384,31 @@ public static partial class SequenceAligner
 
     private sealed class MyersMillerState
     {
-        public readonly string A, B;
-        public readonly TcMatrix Matrix;
+        private readonly Func<int, int, int> _cost;
         public readonly int G, H;
         public readonly int[] CC, DD, RR, SS;
         public readonly List<int> Script = new();
         public int Last;
 
-        public MyersMillerState(string a, string b, TcMatrix matrix, int gop, int gep)
+        /// <summary>The Myers-Miller state over a score function of the two 0-based positions (<c>get_dp_cost</c>; profile columns or residues).</summary>
+        public MyersMillerState(int lengthA, int lengthB, Func<int, int, int> cost, int gop, int gep)
         {
-            A = a;
-            B = b;
-            Matrix = matrix;
+            _cost = cost;
             G = gop * TcScoreK;
             H = gep * TcScoreK;
-            int l = a.Length + b.Length + 1;
+            int l = lengthA + lengthB + 1;
             CC = new int[l];
             DD = new int[l];
             RR = new int[l];
             SS = new int[l];
         }
 
-        public int Cost(int i, int j) => Matrix.Score(A[i], B[j]) * TcScoreK;
+        public MyersMillerState(string a, string b, TcMatrix matrix, int gop, int gep)
+            : this(a.Length, b.Length, (i, j) => matrix.Score(a[i], b[j]) * TcScoreK, gop, gep)
+        {
+        }
+
+        public int Cost(int i, int j) => _cost(i, j);
 
         private int Gap(int k) => k <= 0 ? 0 : G + H * k;
 
@@ -397,7 +447,7 @@ public static partial class SequenceAligner
             Last = 0;
         }
 
-        public void Diff(int s1, int M, int s2, int N, int tb, int te)
+        public int Diff(int s1, int M, int s2, int N, int tb, int te)
         {
             int g = G, h = H, m = g + h;
             int c, e, d, s, t;
@@ -405,7 +455,7 @@ public static partial class SequenceAligner
             if (N <= 0)
             {
                 if (M > 0) Del(M);
-                return;
+                return Gap(M);
             }
 
             if (M <= 1)
@@ -413,7 +463,7 @@ public static partial class SequenceAligner
                 if (M <= 0)
                 {
                     Ins(N);
-                    return;
+                    return Gap(N);
                 }
 
                 if (tb > te) tb = te;
@@ -441,7 +491,7 @@ public static partial class SequenceAligner
                     if (midj0 < N) Ins(N - midj0);
                 }
 
-                return;
+                return midc0;
             }
 
             // Divide: find the optimum midpoint (midi, midj) of cost midc
@@ -533,6 +583,8 @@ public static partial class SequenceAligner
                 Del(2);
                 Diff(s1 + midi + 1, M - midi - 1, s2 + midj, N - midj, 0, te);
             }
+
+            return midc;
         }
     }
 

@@ -20,7 +20,7 @@ public sealed partial record TCoffeeProgramOptions
         ArgumentNullException.ThrowIfNull(commandLine);
         var tokens = commandLine.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
         var options = this;
-        bool weightNo = false;
+        bool weightNo = false, quickTree = false;
         int i = 0;
         while (i < tokens.Length)
         {
@@ -29,6 +29,12 @@ public sealed partial record TCoffeeProgramOptions
                 throw new ArgumentException($"Unexpected token '{flag}' in the command line.", nameof(commandLine));
             var values = new List<string>();
             while (i < tokens.Length && !(tokens[i].Length > 1 && tokens[i][0] == '-' && char.IsLetter(tokens[i][1]))) values.Add(tokens[i++]);
+            if (flag == "-quicktree")
+            {
+                quickTree = true; // `-quicktree` replaces the distance mode by very_fast wherever it stands on the command line (t_coffee.c L2103)
+                continue;
+            }
+
             if (flag == "-weight")
             {
                 string w = StringValue(flag, values);
@@ -40,8 +46,10 @@ public sealed partial record TCoffeeProgramOptions
             options = options.Apply(flag, values);
         }
 
+        if (quickTree) options = options with { DistanceMatrixMode = TCoffeeDistanceMode.VeryFast };
+
         // `-weight no` skips the sequence weighting altogether
-        return weightNo ? options with { TCoffeeSequenceWeights = false, SequenceWeights = null } : options;
+        return weightNo ? options with { TCoffeeSequenceWeights = false, SequenceWeights = null, WeightNo = true } : options;
     }
 
     private static int IntValue(string flag, List<string> values)
@@ -105,14 +113,44 @@ public sealed partial record TCoffeeProgramOptions
                     if (methods.Count == 0) throw new ArgumentException("-method needs at least one method.");
                     return this with { Methods = methods, MethodParameters = parameters.Count > 0 ? parameters : null };
                 }
-            case "-extend_mode": // checked: no effect on the default dp_mode linked_pair_wise (relaxation + sparse DP), 0 / 120 sets differ
+            case "-extend_mode": // no effect on the default dp_mode linked_pair_wise (relaxation + sparse DP), 0 / 120 sets differ; it scores the profile columns of the generic dp modes
+                return StringValue(flag, values) switch
+                {
+                    "very_fast_triplet" => this with { ExtendMode = TCoffeeExtendMode.VeryFastTriplet },
+                    "fast_triplet" => this with { ExtendMode = TCoffeeExtendMode.FastTriplet },
+                    "slow_triplet" => this with { ExtendMode = TCoffeeExtendMode.SlowTriplet },
+                    "triplet" => this with { ExtendMode = TCoffeeExtendMode.Triplet },
+                    "relative_triplet" => this with { ExtendMode = TCoffeeExtendMode.RelativeTriplet },
+                    var m => this with { ExtendMode = TCoffeeExtendMode.Other, ExtendModeText = m },
+                };
+            case "-dp_mode":
+                return StringValue(flag, values) switch
+                {
+                    "linked_pair_wise" => this with { DpMode = TCoffeeDpMode.Linked },
+                    "gotoh_pair_wise" or "ssec_pair_wise" => this with { DpMode = TCoffeeDpMode.Gotoh },
+                    "gotoh_pair_wise_test" => this with { DpMode = TCoffeeDpMode.GotohTest },
+                    "myers_miller_pair_wise" or "default" => this with { DpMode = TCoffeeDpMode.MyersMiller },
+                    "fasta_pair_wise" => this with { DpMode = TCoffeeDpMode.Fasta },
+                    "cfasta_pair_wise" => this with { DpMode = TCoffeeDpMode.CFasta },
+                    "very_fast_pair_wise" => this with { DpMode = TCoffeeDpMode.VeryFast },
+                    "biphasic_pair_wise" => this with { DpMode = TCoffeeDpMode.Biphasic },
+                    "glocal_pair_wise" => this with { DpMode = TCoffeeDpMode.Glocal },
+                    var m => this with { DpMode = TCoffeeDpMode.Other, DpModeText = m },
+                };
+            case "-max_n_pair":
+                return this with { MaxNPair = IntValue(flag, values) };
+            case "-diag_threshold":
+                return this with { DiagonalThreshold = IntValue(flag, values) };
             case "-extend":
             case "-evaluate_mode":
             case "-method_evaluate_mode":
             case "-shrink_lib": // only recounts the entries (shrink_constraint_list sets CL->ne), 0 / 120 sets differ
-            case "-tg_mode": // the linked DP has its own gap rule (terminal gaps free of the opening penalty), 0 / 120 sets differ
-            case "-ktuple":
+            case "-tg_mode": // the linked DP has its own gap rule (terminal gaps free of the opening penalty): no effect there (0 / 120 sets differ); it rules the terminal gaps of the heuristic DP modes
+                return this with { TgMode = IntValue(flag, values) };
             case "-ndiag":
+                return this with { DiagonalCount = IntValue(flag, values) };
+            case "-ktuple":
+                return this with { Ktuple = IntValue(flag, values) };
             case "-tree":
             case "-newtree":
             case "-outseqweight":
@@ -126,6 +164,13 @@ public sealed partial record TCoffeeProgramOptions
                     string m = StringValue(flag, values);
                     SequenceAligner.TcResolveMatrix(m); // rejects a name the program does not know
                     return this with { Matrix = m == "default" ? null : m };
+                }
+            case "-template_file":
+                {
+                    // the in-memory form of a template list: @t0,t1,... = the genomic (_G_) template sequence of every input sequence in input order (empty = none)
+                    string v = StringValue(flag, values);
+                    if (!v.StartsWith('@')) throw new ArgumentException("-template_file: only the in-memory form @template0,template1,... (one genomic template per sequence, empty = none) is supported.");
+                    return this with { GenomicTemplates = v[1..].Split(',').Select(t => t.Length == 0 ? null : t).ToArray() };
                 }
             case "-lalign_n_top":
                 return this with { LalignTopAlignments = IntValue(flag, values) };
@@ -160,6 +205,7 @@ public sealed partial record TCoffeeProgramOptions
                     "geometric" => this with { DistanceMatrixMode = TCoffeeDistanceMode.Geometric },
                     "random" => this with { DistanceMatrixMode = TCoffeeDistanceMode.Random },
                     "clustalw" => this with { DistanceMatrixMode = TCoffeeDistanceMode.Clustalw },
+                    "very_fast" => this with { DistanceMatrixMode = TCoffeeDistanceMode.VeryFast },
                     var m => this with { DistanceMatrixMode = TCoffeeDistanceMode.Other, DistanceModeText = m },
                 };
             case "-distance_matrix_sim_mode":
@@ -223,6 +269,10 @@ public sealed partial record TCoffeeProgramOptions
         "subop1_pair" => TCoffeePairMethod.Subop1Pair,
         "subop2_pair" => TCoffeePairMethod.Subop2Pair,
         "cfast_pair" => TCoffeePairMethod.CfastPair,
+        "fast_pair" => TCoffeePairMethod.FastPair,
+        "exon_pair" => TCoffeePairMethod.ExonPair,
+        "exon2_pair" => TCoffeePairMethod.Exon2Pair,
+        "exon3_pair" => TCoffeePairMethod.Exon3Pair,
         _ => throw new ArgumentException($"The t_coffee method {name} is not supported."),
     };
 }

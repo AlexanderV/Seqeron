@@ -33,6 +33,8 @@ public class SequenceAligner_TCoffeeOptions_Tests
         return list;
     }
 
+    private static bool IsGotohDp(string flags) => System.Text.RegularExpressions.Regex.IsMatch(flags, "-dp_mode (gotoh_pair_wise|gotoh_pair_wise_test|ssec_pair_wise|biphasic_pair_wise|glocal_pair_wise)( |$)");
+
     private static bool IsIdscoreFast(string flags) => flags.Contains("-distance_matrix_mode fast", StringComparison.Ordinal) && flags.Contains("idscore", StringComparison.Ordinal);
 
     private static bool HasSecondRowGap(Case c, TCoffeeProgramOptions options)
@@ -54,11 +56,32 @@ public class SequenceAligner_TCoffeeOptions_Tests
         int heapDependent = 0;
         // a set on which the program itself core-dumps (SIM's edit script overflows its heap chunk, `lalign_id_pair@EP@GOP@-5`, F75) is reproduced as TCoffeeAbortedException:
         // the rule is deterministic (script length > the usable bytes of the chunk), so "the program aborts" and "the port throws" must coincide on EVERY committed set
+        int gotohOverflow = 0, relativeUb = 0;
         foreach (var c in cases)
         {
             var options = TCoffeeProgramOptions.FromCommandLine(c.Flags) with { Names = c.Names };
             if (c.Rows.StartsWith("FAIL:", StringComparison.Ordinal))
             {
+                if (c.Flags.Contains("relative_triplet", StringComparison.Ordinal))
+                {
+                    // the program divides by the total weight of an empty / short list (SIGFPE, exit status 8) or dies on the read past the list: the port stops with its UB refusal
+                    Assert.That(() => SequenceAligner.MultipleAlignTCoffeeProgram(c.Seqs, options), NUnit.Framework.Throws.InstanceOf<NotSupportedException>().Or.InstanceOf<TCoffeeAbortedException>());
+                    relativeUb++;
+                    continue;
+                }
+
+                // gotoh_pair_wise(_test) writes the terminator of an alignment row one byte past a heap block when the alignment is 8 (mod 16) columns long (24, 40, 56: the committed aborts of the program, exit status 6, all have
+                // such a length; a 1-byte overflow into the slack of a larger block is harmless, so only some sets of that length die): the port returns the alignment, the abort is checked against that necessary condition
+                if (c.Rows is "FAIL:6" or "FAIL:-6" && IsGotohDp(c.Flags))
+                {
+                    string[] rows = SequenceAligner.MultipleAlignTCoffeeProgram(c.Seqs, options).AlignedSequences.ToArray();
+                    // gotoh_pair_wise: the final alignment is 8 (mod 16) columns long in every committed abort; biphasic_pair_wise / glocal_pair_wise write the rows the same way and die on alignments of at least 24 columns (an intermediate merge of
+                    // 8 mod 16 columns can lie below the final length)
+                    Assert.That(rows[0].Length, Is.GreaterThanOrEqualTo(24), $"heap-overflow abort of the row writer on '{c.Flags}' {string.Join('|', c.Seqs)}");
+                    gotohOverflow++;
+                    continue;
+                }
+
                 Assert.Throws<TCoffeeAbortedException>(() => SequenceAligner.MultipleAlignTCoffeeProgram(c.Seqs, options), $"t_coffee aborts on '{c.Flags}' {string.Join('|', c.Seqs)}");
                 continue;
             }
@@ -70,6 +93,8 @@ public class SequenceAligner_TCoffeeOptions_Tests
                 // idscore_pairseq reads m[s1[i] - 'a'][s2[j] - 'a']: with a gap in the SECOND aligned row that is the heap 208 bytes before a matrix row - 0 in 23 of the 24 committed sets that have such a gap,
                 // some other value in one (undefined behaviour of the program, not reproducible)
                 if (IsIdscoreFast(c.Flags) && HasSecondRowGap(c, options)) heapDependent++;
+                // the same one-byte row overflow can also leave the program's rows without their last column (1 committed biphasic_pair_wise set)
+                else if (IsGotohDp(c.Flags) && c.Rows.Split('|').Zip(got.Split('|'), (e, g) => g.Length == e.Length + 1 && g.StartsWith(e, StringComparison.Ordinal)).All(x => x)) gotohOverflow++;
                 else failures.Add($"{c.Type} '{c.Flags}' {string.Join('|', c.Seqs)}: got {got} expected {c.Rows}");
             }
             catch (TCoffeeAbortedException e) when (e.HeapDependent)
@@ -77,7 +102,15 @@ public class SequenceAligner_TCoffeeOptions_Tests
                 // undefined behaviour of the program (a wild pointer read whose outcome depends on the heap): it may also run through; only such sets may differ this way
                 heapDependent++;
             }
+            catch (NotSupportedException) when (c.Flags.Contains("relative_triplet", StringComparison.Ordinal))
+            {
+                // residue_pair_relative_extended_list reads past the end of a library list (undefined behaviour): not reproducible, the port says so
+                relativeUb++;
+            }
         }
+
+        Assert.That(gotohOverflow, Is.LessThanOrEqualTo(12), "heap-overflow aborts of the row writer of gotoh / biphasic / glocal_pair_wise (8 of 2 600 committed sets)");
+        if (feature == "dp_extend") Assert.That(relativeUb, Is.GreaterThanOrEqualTo(80), "sets on which relative_triplet reads past the end of a list");
 
         Assert.That(failures, Is.Empty, $"{failures.Count} of {cases.Count} '{feature}' sets differ from t_coffee; first: {failures.FirstOrDefault()}");
         Assert.That(heapDependent, Is.LessThanOrEqualTo(6), "sets on which the heap-dependent undefined behaviour of the idscore sim mode gave another result (5 aborts that the program survived + 1 differing set of 540)");
@@ -212,6 +245,102 @@ public class SequenceAligner_TCoffeeOptions_Tests
         var e = Assert.Throws<TCoffeeAbortedException>(() => SequenceAligner.MultipleAlignTCoffeeProgram(new[] { "ACGT", "ACGA", "ACGG" }, TCoffeeProgramOptions.FromCommandLine("-tree_mode kmeans")))!;
         Assert.That(e.ExitStatus, Is.Zero, "the program ends normally without an alignment");
         Assert.Throws<NotSupportedException>(() => SequenceAligner.MultipleAlignTCoffeeProgram(new[] { "ACGT", "ACGA", "ACGG" }, TCoffeeProgramOptions.FromCommandLine("-distance_matrix_mode random")));
+    }
+
+    /// <summary>
+    /// A2-2: <c>fast_pair</c> = <c>fasta_gotoh_pair_wise</c> (util_dp_fasta_nw.c): k-tuple diagonals (2 protein / 5 nucleotide), the z-score threshold with T = max z / 25, the banded Gotoh DP whose arrays hold the program's initial
+    /// gap scores outside the band, terminal gaps paying the extension only. <c>-nomatch</c> and <c>-ndiag</c> are copied into the program's CL AFTER the library methods were configured and therefore do not reach <c>fast_pair</c>
+    /// (the oracle contains both flags: 0 / 510 differences).
+    /// </summary>
+    [Test]
+    public void FastPair_EveryRowEqualsTheProgram() => AssertFeature("fast_pair", 500);
+
+    /// <summary>
+    /// A2-6: the distance modes that need the RELAXED library, computed between the relaxation and the re-weighting as the program does: <c>slow</c> (linked pair-wise DP score per column, rescaled by do_normalise, float),
+    /// <c>cscore</c> (the same score in float without the rescaling), <c>clustalw</c> (the DP score is the identity) and <c>very_fast</c> / <c>-quicktree</c> (<c>very_fast_gotoh_pair_wise</c>: diagonals scored by library entries,
+    /// the 20 best with a shadow of 5, <c>-tg_mode</c>), with t_coffee sequence weights, UPGMA, filtered libraries and several methods.
+    /// </summary>
+    [Test]
+    public void DistanceModesOfTheRelaxedLibrary_EveryRowEqualsTheProgram()
+    {
+        AssertFeature("dist_slow", 400);
+        AssertFeature("dist_cscore", 350);
+        AssertFeature("dist_clustalw", 300);
+        AssertFeature("dist_veryfast", 400);
+    }
+
+    /// <summary>A2-6: <c>-distance_matrix_mode geometric</c>: the identity vectors of the <c>fasta_pair_wise</c> alignments (pam250mt, gap open -10 / extend -1, k-tuple 3, no terminal gap penalty) against the first three sequences.</summary>
+    [Test]
+    public void GeometricDistance_EveryRowEqualsTheProgram() => AssertFeature("dist_geometric", 300);
+
+    /// <summary>
+    /// A2-4: <c>exon_pair</c> / <c>exon2_pair</c> / <c>exon3_pair</c> (<c>SEQ_TYPE G</c>): the Myers-Miller alignment of the genomic (<c>_G_</c>) templates with the matrix exon2mt (o / b / j = 100, x rows zeroed), expressed in the residues of
+    /// the sequences (<c>fix_seq_seq</c>), only pairs whose two sequences have a template; exon2 / exon3 keep the columns whose letters are both in the quirky set "subset_objOBJ-"; a reconciling alignment inside <c>fix_seq_seq</c> calls
+    /// <c>aln2sim(B, "idmat")</c> first and so fixes the process-wide residue groups of the weights to 26 single letters (T and U differ, J / O equal themselves) instead of the groups of the matrix idmat. Rows without any pair raise
+    /// <see cref="TCoffeeAbortedException"/> as the program stops ("You have not provided any method or enough Sequences").
+    /// </summary>
+    [Test]
+    public void ExonPairs_EveryRowEqualsTheProgram()
+    {
+        AssertFeature("exon", 400);
+        AssertFeature("exon_sparse", 200);
+        Assert.That(Oracle().Count(c => c.Feature.StartsWith("exon", StringComparison.Ordinal) && c.Rows.StartsWith("FAIL:", StringComparison.Ordinal)), Is.GreaterThanOrEqualTo(30), "sets on which the program stops");
+        Assert.That(Oracle().Count(c => c.Feature.StartsWith("exon", StringComparison.Ordinal) && c.Flags.Contains("exon3_pair", StringComparison.Ordinal)), Is.GreaterThanOrEqualTo(150));
+        Assert.That(SequenceAligner.TCoffeePrimaryLibraryEntries(new[] { "TATTTGTTATT", "TAGCAGACGCGACCTGTAGGTACCACTTCTTGC" }, new[] { TCoffeePairMethod.ExonPair }, genomicTemplates: new[] { "TAtTtgTtatt", "TtaugAjcgcgCucggtaogtAbctoajtTtg" })
+            .Select(e => (e.PosA + 1, e.PosB + 1, e.Weight)), Is.EqualTo(new[] { (2, 22, 450), (3, 23, 450), (4, 24, 450), (7, 25, 450), (8, 26, 450), (9, 27, 450), (10, 28, 450), (11, 31, 450) }), "library of t_coffee -lib_only -out_lib");
+    }
+
+    /// <summary>
+    /// A2-5: <c>-dp_mode gotoh_pair_wise</c> (+ <c>ssec_pair_wise</c>, <c>gotoh_pair_wise_test</c>), <c>myers_miller_pair_wise</c> (+ <c>default</c>), <c>fasta_pair_wise</c>, <c>cfasta_pair_wise</c>, <c>very_fast_pair_wise</c> on the library column scores
+    /// of <c>-extend_mode</c> (very_fast_triplet: the <c>-max_n_pair</c> most similar pairs of sequences by the identity of the distance matrix; slow_triplet; triplet: nomatch twice; fast_triplet), with gap penalties, <c>-tg_mode</c>,
+    /// <c>-ndiag</c>, <c>-diag_threshold</c>, sequence weights, UPGMA and several methods. 2 070 sets; the two sets on which the program dies with exit status 6 are the heap overflow of gotoh_pair_wise described in
+    /// <see cref="AssertFeature"/>.
+    /// </summary>
+    [Test]
+    public void GenericDpModes_EveryRowEqualsTheProgram()
+    {
+        AssertFeature("dp_gotoh", 700);
+        AssertFeature("dp_mm", 450);
+        AssertFeature("dp_fasta", 700);
+    }
+
+    /// <summary>A2-5: <c>-dp_mode biphasic_pair_wise</c> (two affine gap models) and <c>glocal_pair_wise</c> (match / deletion / insertion / unmatched pair) on the column scores of <c>-extend_mode</c>; 550 sets, 6 of them hit the row-writer heap overflow.</summary>
+    [Test]
+    public void BiphasicAndGlocalDp_EveryRowEqualsTheProgram() => AssertFeature("dp_other", 450);
+
+    /// <summary>
+    /// A2-5: <c>-extend_mode rna0</c> (= slow_triplet), the extend modes without effect on the sparse linked DP, and <c>relative_triplet</c>, whose <c>residue_pair_relative_extended_list</c> reads the weights of the first residue's library list
+    /// at the positions of the second residue's (longer) list, past the array: undefined behaviour (the port raises <see cref="NotSupportedException"/> on such a read and equals the program on every set where none happens).
+    /// </summary>
+    [Test]
+    public void ExtendModes_EveryRowEqualsTheProgram_RelativeTripletIsUndefinedBehaviour() => AssertFeature("dp_extend", 150);
+
+    /// <summary>
+    /// A2-5: the dynamic programs and extend modes the program refuses or dies on, measured on 2-5 DNA / protein sequences: <c>-dp_mode</c> idscore / subop1 / subop2 / proba / pavie / domain / fasta_cdna / cfasta_cdna (exit status 11),
+    /// gotoh_pair_wise_lalign (6), seq_viterbi / hh / cfasta_sw / an unknown name (1); <c>-extend_mode</c> unknown / matrix (1, for any number of sequences), ssp / tm (11) and curvature (1) as soon as there are two sequences.
+    /// </summary>
+    [Test]
+    public void DpAndExtendModesTheProgramRefuses_RaiseTCoffeeAbortedException()
+    {
+        AssertFeature("dp_refused", 600);
+        Assert.That(Oracle().Where(c => c.Feature == "dp_refused").All(c => c.Rows.StartsWith("FAIL:", StringComparison.Ordinal)), Is.True);
+        // one sequence: no pair job - but an unknown extend mode stops choose_extension_mode anyway, ssp / tm / curvature need a pair
+        Assert.That(SequenceAligner.MultipleAlignTCoffeeProgram(new[] { "ACGT" }, TCoffeeProgramOptions.FromCommandLine("-dp_mode idscore_pair_wise -extend_mode ssp")).AlignedSequences, Is.EqualTo(new[] { "ACGT" }));
+        Assert.Throws<TCoffeeAbortedException>(() => SequenceAligner.MultipleAlignTCoffeeProgram(new[] { "ACGT" }, TCoffeeProgramOptions.FromCommandLine("-extend_mode bogus")));
+        Assert.Throws<NotSupportedException>(() => SequenceAligner.MultipleAlignTCoffeeProgram(new[] { "ACGT", "ACGA" }, TCoffeeProgramOptions.FromCommandLine("-dp_mode viterbi_pair_wise")));
+    }
+
+    [Test]
+    public void FromCommandLine_FastaOptionsQuicktreeAndTemplates()
+    {
+        // -quicktree replaces the distance mode wherever it stands on the line
+        Assert.That(TCoffeeProgramOptions.FromCommandLine("-quicktree -distance_matrix_mode ktup").DistanceMatrixMode, Is.EqualTo(TCoffeeDistanceMode.VeryFast));
+        var o = TCoffeeProgramOptions.FromCommandLine("-method exon3_pair,fast_pair -template_file @AC,,GT -ndiag 7 -ktuple 3 -tg_mode 0");
+        Assert.That(o.Methods, Is.EqualTo(new[] { TCoffeePairMethod.Exon3Pair, TCoffeePairMethod.FastPair }));
+        Assert.That(o.GenomicTemplates, Is.EqualTo(new string?[] { "AC", null, "GT" }));
+        Assert.That((o.DiagonalCount, o.Ktuple, o.TgMode), Is.EqualTo((7, 3, 0)));
+        Assert.Throws<ArgumentException>(() => TCoffeeProgramOptions.FromCommandLine("-template_file somefile.fa"));
+        Assert.Throws<ArgumentException>(() => SequenceAligner.MultipleAlignTCoffeeProgram(new[] { "ACGT", "ACGA" }, TCoffeeProgramOptions.FromCommandLine("-method exon_pair -template_file @AC")));
     }
 
     /// <summary><c>extend_seq</c> / <c>unextend_seq</c> of reformat.c on hand-derived values: dinucleotide codes, n / x, u, gaps, the last residue, lossy protein letters.</summary>
