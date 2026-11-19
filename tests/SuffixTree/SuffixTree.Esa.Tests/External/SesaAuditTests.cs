@@ -409,8 +409,8 @@ public class SesaAuditTests
         file.Complete(false);
         BwtResult b = BwtPass.Build(container, 64, reader, 4, bwtPath);
         long[] counts = [.. b.Counts];
-        counts[1] -= 1;
-        counts[3] += 1;
+        counts[3] -= 1; // the last symbol: its surplus occurrence would be written behind the range of PSI
+        counts[1] += 1;
         foreach (int window in new[] { 4, 8, 1 << 20 })
         {
             Assert.Throws<InvalidDataException>(() => PsiStream.Build(bwtPath, n, b.PrimaryRow, counts, file, psiOffset, new PsiOptions { WindowBytes = window }), $"window {window}");
