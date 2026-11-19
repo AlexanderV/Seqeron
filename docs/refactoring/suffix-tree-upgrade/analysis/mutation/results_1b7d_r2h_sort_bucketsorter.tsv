@@ -1,0 +1,9 @@
+H07	Run: no limit on the text length	survived	
+H21	Execute: no extra thread is started	survived	
+H42	Partition: the fan-out ignores the bucket size	survived	
+H54	Partition: a degenerate split is accepted	survived	
+H56	Partition: a retry is not counted	survived	
+H64	Partition: the writers are not disposed	survived	
+H66	Partition: the children of a failed hand-over are not disposed	survived	
+H68	Partition: the attempts have no limit	survived	
+H72	DeleteFiles: a directory that is not there throws	survived	

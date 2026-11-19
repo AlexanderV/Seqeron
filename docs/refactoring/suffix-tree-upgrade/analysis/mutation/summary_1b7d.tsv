@@ -30,7 +30,7 @@ dcs_externaldcs	E01	killed	BuildRankFile: the bucket capacity may be one
 dcs_externaldcs	E03	killed	BuildRankFile: a base case of zero
 dcs_externaldcs	E05	killed	BuildRankFile: chunk slots of zero
 dcs_externaldcs	E07	killed	BuildRankFile: a reservoir of two
-dcs_externaldcs	E09	OPEN	BuildRankFile: a window of zero
+dcs_externaldcs	E09	killed	BuildRankFile: a window of zero
 dcs_externaldcs	E11	killed	BuildRankFile: a sort capacity of one
 dcs_externaldcs	E13	defence	BuildRankFile: no limit on the text length
 dcs_externaldcs	E15	killed	BuildRankFile: the scratch bytes are not given back
@@ -112,7 +112,7 @@ dcs_samplenamer	M47	killed	Cmp: the position tie-break is dropped
 dcs_samplenamer	M49	killed	Split: the replacement index may be the capacity
 dcs_samplenamer	M51	equivalent	Split: a reservoir of two splits
 dcs_samplenamer	M53	killed	Split: the fan-out ignores the cap
-dcs_samplenamer	M55	OPEN	Split: equal splitter indices are kept
+dcs_samplenamer	M55	killed	Split: equal splitter indices are kept
 dcs_samplenamer	M57	killed	Split: the last child has no upper bound of its own
 dcs_samplenamer	M59	killed	Split: the seed ignores the task
 dcs_samplenamer	M61	killed	Execute: the scans are not counted
@@ -209,7 +209,7 @@ sort_bucketsorter	H05	killed	Run: an oversample of zero
 sort_bucketsorter	H07	defence	Run: no limit on the text length
 sort_bucketsorter	H09	killed	Run: the scratch root is always removed
 sort_bucketsorter	H11	killed	Run: the files of a failed sort are found by the wrong prefix
-sort_bucketsorter	H13	OPEN	Run: the ledger of an outer build is released
+sort_bucketsorter	H13	killed	Run: the ledger of an outer build is released
 sort_bucketsorter	H15	killed	Run: the ledger of the caller is ignored
 sort_bucketsorter	H17	killed	Execute: SA[0] is one
 sort_bucketsorter	H19	killed	Execute: the root bucket starts at entry zero
@@ -252,7 +252,7 @@ sort_positionstore	T03	killed	MemoryPositions: Read ignores the start
 sort_positionstore	T05	killed	PositionFiles: the numbering starts at zero
 sort_positionstore	T07	killed	FilePositions: At reads the entry before
 sort_positionstore	T09	killed	FilePositions: Dispose does not give the bytes back
-sort_positionstore	T11	OPEN	FilePositions: a second Dispose gives the bytes back again
+sort_positionstore	T11	killed	FilePositions: a second Dispose gives the bytes back again
 sort_positionstore	T13	killed	PosWriter: the buffer is flushed one entry late
 sort_positionstore	T15	killed	PosWriter: the total is not counted
 sort_positionstore	T17	killed	PosWriter: the rest of a file bucket is not flushed

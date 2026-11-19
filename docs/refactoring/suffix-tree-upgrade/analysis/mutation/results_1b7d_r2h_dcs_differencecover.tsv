@@ -1,0 +1,3 @@
+D03	Verify: a residue outside the period is accepted	survived	
+D05	IsPerfect: counts the zero differences	survived	
+D21	IsPrime: 1 is a prime	survived	

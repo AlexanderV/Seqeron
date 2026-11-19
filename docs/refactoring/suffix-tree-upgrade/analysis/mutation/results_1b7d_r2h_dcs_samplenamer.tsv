@@ -1,0 +1,8 @@
+M05	PrefixOrder: the limit is not clamped to the shorter suffix	survived	
+M09	Run: an empty leaf is kept	survived	
+M15	Run: no worker thread is started	survived	
+M19	Merge: the total check is dropped	survived	
+M21	Merge: an empty sample is merged	survived	
+M31	AssignNames: a leaf with one group is a leaf with two	survived	
+M51	Split: a reservoir of two splits	survived	
+M78	MergeSort: the merge takes the left on a strict order	survived	

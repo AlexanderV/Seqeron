@@ -77,7 +77,7 @@ public unsafe class SaBuildCostTests
         ProtoPipe.EndToEndParameters p = ProtoPipe.ScaleRules.Resolve(n, new ProtoPipe.EndToEndOptions { InputPath = "x", OutPrefix = "x", ScratchDir = "x", Threads = threads, ScaleN = scale });
         long c0 = Stopwatch.GetTimestamp();
         DifferenceCover cover = DifferenceCover.Create(DifferenceCover.NearestSingerPeriod(1024));
-        TestContext.Out.WriteLine("setup-proto-cover-seconds " + F((Stopwatch.GetTimestamp() - c0) / (double)Stopwatch.Frequency)); // the production call has this inside its total, the prototype's timed region has not
+        File.AppendAllText(Env("G3_ROWS"), "#setup\t" + Env("G3_LABEL") + "\tproto\tcover\t" + F((Stopwatch.GetTimestamp() - c0) / (double)Stopwatch.Frequency) + "\n"); // the production call has this inside its total, the prototype's timed region has not
         using var mapped = new MappedFile(pk, writable: false);
         using var packed = new PackedText(mapped.Pointer, n, bits, mapped, ownsOwner: false);
         string dirPh1 = Path.Combine(scratch, "ph1"), dirPh3 = Path.Combine(scratch, "ph3"), ranksPath = Path.Combine(scratch, "ranks.bin");
@@ -149,7 +149,7 @@ public unsafe class SaBuildCostTests
         t0 = Stopwatch.GetTimestamp();
         result = Prod.SaBuilder.Build(text, saPath, options);
         double total = (Stopwatch.GetTimestamp() - t0) / (double)Stopwatch.Frequency;
-        TestContext.Out.WriteLine("setup-prod-seconds " + F(setup) + " tail-seconds " + F(total - setup - result.Ph1Seconds - result.Ph23Seconds)); // before PH1 starts (the cover, the rule, the creation of the suffix array), and after PH3
+        File.AppendAllText(Env("G3_ROWS"), "#setup\t" + Env("G3_LABEL") + "\t" + variant + "\tsetup\t" + F(setup) + "\ttail\t" + F(total - setup - result.Ph1Seconds - result.Ph23Seconds) + "\n"); // before PH1 starts (the cover, the rule, the creation of the suffix array), and after PH3
         string row = string.Join('\t', F(result.Ph1Seconds), F(result.Ph23Seconds), F(total), result.Ph1Io.ReadBytes, result.Ph1Io.WriteBytes, result.Ph1Io.MappedWriteBytes, result.Ph23Io.ReadBytes, result.Ph23Io.WriteBytes, result.Ph23Io.MappedWriteBytes, result.Ph1ScratchPeakBytes, result.Ph23ScratchPeakBytes, result.Ph1ArenaPeakBytes, result.Ph23ArenaPeakBytes, result.RecursionLevels, result.RssVerdict);
         return row;
     }

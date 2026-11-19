@@ -1,0 +1,7 @@
+E13	BuildRankFile: no limit on the text length	survived	
+L01	BuildLevel: the recursion has no end	survived	
+L15	BuildLevel: the sort files carry no tag	survived	
+L17	BuildLevel: the suffix array file is not completed	survived	
+L29	BuildLevel: the touched flag of the rank file is not set	survived	
+A08	BaseCase: the rank file is not marked as touched	survived	
+A10	BaseCase: the chunk slots are not at least one	survived	
