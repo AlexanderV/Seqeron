@@ -50,7 +50,7 @@ public class SesaTraverseDamageTests
     {
         Task<T> task = Task.Run(work);
         Assert.That(task.Wait(TimeSpan.FromSeconds(seconds)), Is.True, "the call does not return (the leaf lists are cyclic)");
-        return task.Result;
+        return task.GetAwaiter().GetResult();
     }
 
     [TestCase("abracadabra", 3, 4)]
