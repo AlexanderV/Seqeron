@@ -31,6 +31,8 @@ fast on megabase sequences. **Approximate (interrupted) repeats** are not covere
 [`find_approximate_tandem_repeats`](find_approximate_tandem_repeats.md) (Tandem Repeats Finder
 model, Benson 1999).
 
+**Canonical rotation (B09 A2-34).** `canonicalRotation: true` reports each unit as its lexicographically least rotation (Booth 1980; the representative of MISA repeat-type classes), so `TGATGATGAT` gives `ATG` x3 at 0 with `originalUnit` `TGA`; `position`, `repetitions` and `totalLength` are unchanged. Verified against a brute-force least rotation on the MUMmer `exact-tandems` oracle (3630 rows).
+
 ## Core Documentation Reference
 
 - Source: [GenomicAnalyzer.cs](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GenomicAnalyzer.cs)
@@ -43,6 +45,7 @@ model, Benson 1999).
 | `minUnitLength` | integer | No | Minimum repeat-unit length (default 2, ≥ 1) |
 | `minRepetitions` | integer | No | Minimum complete consecutive copies (default 2, ≥ 2) |
 | `maxUnitLength` | integer | No | Maximum repeat-unit length (≥ `minUnitLength`); omit for no upper bound |
+| `canonicalRotation` | boolean | No | Report each unit as its lexicographically least rotation (Booth 1980) instead of the spelling at the run's left end; originalUnit then holds the actual spelling. Default false. |
 
 ## Output Schema
 

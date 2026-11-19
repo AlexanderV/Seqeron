@@ -1,58 +1,143 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "toolName": "find_tandem_repeats",
-  "serverName": "Analysis",
-  "version": "1.0.0",
-  "stability": "stable",
-  "methodId": "GenomicAnalyzer.FindTandemRepeats",
-  "docRef": "Seqeron.Genomics.Analysis/GenomicAnalyzer.cs",
-  "description": "Exact tandem repeats (e.g. ATGATGATG): every maximal run of a primitive unit of length minUnitLength..maxUnitLength with >= minRepetitions complete copies, reported once at its left end (ATATATAT = AT x4 at 0, not also ATAT x2); ordered by unit length then start; 0-based. Approximate repeats: find_approximate_tandem_repeats.",
-  "inputSchema": {
-    "type": "object",
-    "properties": {
-      "sequence": { "type": "string", "description": "Nucleotide sequence: A/C/G/T plus IUPAC codes such as N (case-insensitive); a repeat unit must be A/C/G/T only, so windows with N never form a repeat", "minLength": 1 },
-      "minUnitLength": { "type": "integer", "description": "Minimum repeat-unit length (default 2)", "minimum": 1, "default": 2 },
-      "minRepetitions": { "type": "integer", "description": "Minimum complete consecutive copies (default 2)", "minimum": 2, "default": 2 },
-      "maxUnitLength": { "type": "integer", "description": "Maximum repeat-unit length (>= minUnitLength); omit for no upper bound", "minimum": 1 }
-    },
-    "required": ["sequence"]
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "toolName": "find_tandem_repeats",
+ "serverName": "Analysis",
+ "version": "1.0.0",
+ "stability": "stable",
+ "methodId": "GenomicAnalyzer.FindTandemRepeats",
+ "docRef": "Seqeron.Genomics.Analysis/GenomicAnalyzer.cs",
+ "description": "Exact tandem repeats (e.g. ATGATGATG): every maximal run of a primitive unit of length minUnitLength..maxUnitLength with >= minRepetitions complete copies, reported once at its left end (ATATATAT = AT x4 at 0, not also ATAT x2); ordered by unit length then start; 0-based. Facade over RepeatFinder.FindMicrosatellites (Kolpakov-Kucherov maximal repetitions). IUPAC input (e.g. N runs of an assembly) is accepted: only units made of A/C/G/T repeat, a window containing N or another ambiguity code never forms a repeat. canonicalRotation=true reports the lexicographically least rotation of each unit (Booth 1980; groups ATG / TGA / GAT) as unit and the unit as spelled in the sequence as originalUnit; position and repetitions are unchanged. Approximate (interrupted) repeats: find_approximate_tandem_repeats (TRF).",
+ "inputSchema": {
+  "type": "object",
+  "properties": {
+   "sequence": {
+    "type": "string",
+    "description": "Nucleotide sequence: A/C/G/T plus IUPAC codes such as N (case-insensitive). A repeat unit must be spelled with A/C/G/T only, so windows with N never form a repeat.",
+    "minLength": 1
+   },
+   "minUnitLength": {
+    "type": "integer",
+    "description": "Minimum repeat-unit length (default 2, >= 1).",
+    "minimum": 1,
+    "default": 2
+   },
+   "minRepetitions": {
+    "type": "integer",
+    "description": "Minimum number of complete repetitions (default 2, >= 2).",
+    "minimum": 2,
+    "default": 2
+   },
+   "maxUnitLength": {
+    "type": "integer",
+    "description": "Optional maximum repeat-unit length (>= minUnitLength); omit for no upper bound (a unit longer than length / minRepetitions can never repeat).",
+    "minimum": 1
+   },
+   "canonicalRotation": {
+    "type": "boolean",
+    "description": "Report each unit as its lexicographically least rotation (Booth 1980) instead of the spelling at the run's left end; originalUnit then holds the actual spelling. Default false.",
+    "default": false
+   }
   },
-  "outputSchema": {
-    "type": "object",
-    "properties": {
-      "items": {
-        "type": "array",
-        "items": {
-          "type": "object",
-          "properties": {
-            "unit": { "type": "string" },
-            "position": { "type": "integer" },
-            "repetitions": { "type": "integer" },
-            "totalLength": { "type": "integer" }
-          },
-          "required": ["unit", "position", "repetitions", "totalLength"]
-        }
-      }
-    },
-    "required": ["items"]
-  },
-  "errors": [
-    { "code": 1001, "message": "Sequence cannot be null or empty" },
-    { "code": 1001, "message": "Invalid DNA sequence (A/C/G/T and IUPAC codes only)" },
-    { "code": 1002, "message": "Minimum repeat-unit length must be at least 1" },
-    { "code": 1002, "message": "minRepetitions must be >= 2" },
-    { "code": 1002, "message": "Maximum repeat-unit length must be at least minUnitLength" }
-  ],
-  "examples": [
-    {
-      "name": "Trinucleotide tandem ATGx3",
-      "input": { "sequence": "ATGATGATG", "minUnitLength": 3, "minRepetitions": 2 },
-      "output": { "items": [ { "unit": "ATG", "position": 0, "repetitions": 3, "totalLength": 9 } ] }
-    },
-    {
-      "name": "Mononucleotide run AAAAA (unit 1) — A x5 only (AA x2 is a non-primitive tiling of the same run)",
-      "input": { "sequence": "AAAAA", "minUnitLength": 1, "minRepetitions": 2 },
-      "output": { "items": [ { "unit": "A", "position": 0, "repetitions": 5, "totalLength": 5 } ] }
-    }
+  "required": [
+   "sequence"
   ]
+ },
+ "outputSchema": {
+  "type": "object",
+  "properties": {
+   "items": {
+    "type": "array",
+    "items": {
+     "type": "object",
+     "properties": {
+      "unit": {
+       "type": "string"
+      },
+      "position": {
+       "type": "integer"
+      },
+      "repetitions": {
+       "type": "integer"
+      },
+      "totalLength": {
+       "type": "integer"
+      },
+      "originalUnit": {
+       "type": "string",
+       "description": "canonicalRotation only: the unit as spelled in the sequence at position"
+      }
+     },
+     "required": [
+      "unit",
+      "position",
+      "repetitions",
+      "totalLength"
+     ]
+    }
+   }
+  },
+  "required": [
+   "items"
+  ]
+ },
+ "errors": [
+  {
+   "code": 1001,
+   "message": "Sequence cannot be null or empty"
+  },
+  {
+   "code": 1001,
+   "message": "Invalid DNA sequence (A/C/G/T and IUPAC codes only)"
+  },
+  {
+   "code": 1002,
+   "message": "Minimum repeat-unit length must be at least 1"
+  },
+  {
+   "code": 1002,
+   "message": "minRepetitions must be >= 2"
+  },
+  {
+   "code": 1002,
+   "message": "Maximum repeat-unit length must be at least minUnitLength"
+  }
+ ],
+ "examples": [
+  {
+   "name": "Trinucleotide tandem ATGx3",
+   "input": {
+    "sequence": "ATGATGATG",
+    "minUnitLength": 3,
+    "minRepetitions": 2
+   },
+   "output": {
+    "items": [
+     {
+      "unit": "ATG",
+      "position": 0,
+      "repetitions": 3,
+      "totalLength": 9
+     }
+    ]
+   }
+  },
+  {
+   "name": "Mononucleotide run AAAAA (unit 1) — A x5 only (AA x2 is a non-primitive tiling of the same run)",
+   "input": {
+    "sequence": "AAAAA",
+    "minUnitLength": 1,
+    "minRepetitions": 2
+   },
+   "output": {
+    "items": [
+     {
+      "unit": "A",
+      "position": 0,
+      "repetitions": 5,
+      "totalLength": 5
+     }
+    ]
+   }
+  }
+ ]
 }

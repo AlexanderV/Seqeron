@@ -11,6 +11,8 @@
 | `assemble_olc` | Alignment | `SequenceAssembler.AssembleOLC` | [doc](../../../../docs/mcp/tools/alignment/assemble_olc.md) |
 | `assembly_stats` | Alignment | `SequenceAssembler.CalculateStats` | [doc](../../../../docs/mcp/tools/alignment/assembly_stats.md) |
 | `calculate_coverage` | Alignment | `SequenceAssembler.CalculateCoverage` | [doc](../../../../docs/mcp/tools/alignment/calculate_coverage.md) |
+| `clustalw_pairwise_align` | Alignment | `SequenceAligner.ClustalWPairwiseAlign` | [doc](../../../../docs/mcp/tools/alignment/clustalw_pairwise_align.md) |
+| `clustalw_quick_pairwise_align` | Alignment | `SequenceAligner.ClustalWQuickPairwiseAlign` | [doc](../../../../docs/mcp/tools/alignment/clustalw_quick_pairwise_align.md) |
 | `compute_consensus` | Alignment | `SequenceAssembler.ComputeConsensus` | [doc](../../../../docs/mcp/tools/alignment/compute_consensus.md) |
 | `damerau_alignment` | Alignment | `ApproximateMatcher.GetDamerauLevenshteinAlignment` | [doc](../../../../docs/mcp/tools/alignment/damerau_alignment.md) |
 | `damerau_levenshtein_distance` | Alignment | `ApproximateMatcher.DamerauLevenshteinDistance` | [doc](../../../../docs/mcp/tools/alignment/damerau_levenshtein_distance.md) |
@@ -49,6 +51,12 @@
 | `semi_global_align` | Alignment | `SequenceAligner.SemiGlobalAlign` | [doc](../../../../docs/mcp/tools/alignment/semi_global_align.md) |
 | `semi_global_align_affine` | Alignment | `SequenceAligner.SemiGlobalAlignAffine` | [doc](../../../../docs/mcp/tools/alignment/semi_global_align_affine.md) |
 | `sequence_identity` | Alignment | `SequenceAssembler.CalculateIdentity` | [doc](../../../../docs/mcp/tools/alignment/sequence_identity.md) |
+| `sum_of_pairs_score` | Alignment | `SequenceAligner.SumOfPairsScore` | [doc](../../../../docs/mcp/tools/alignment/sum_of_pairs_score.md) |
+| `tcoffee_guide_tree` | Alignment | `SequenceAligner.TCoffeeGuideTree` | [doc](../../../../docs/mcp/tools/alignment/tcoffee_guide_tree.md) |
+| `tcoffee_ktup_similarity` | Alignment | `SequenceAligner.TCoffeeKtupSimilarity` | [doc](../../../../docs/mcp/tools/alignment/tcoffee_ktup_similarity.md) |
+| `tcoffee_lalign_top_alignments` | Alignment | `SequenceAligner.TCoffeeLalignTopAlignments` | [doc](../../../../docs/mcp/tools/alignment/tcoffee_lalign_top_alignments.md) |
+| `tcoffee_primary_library` | Alignment | `SequenceAligner.TCoffeePrimaryLibraryEntries` | [doc](../../../../docs/mcp/tools/alignment/tcoffee_primary_library.md) |
+| `tcoffee_slow_pair_align` | Alignment | `SequenceAligner.TCoffeeSlowPairAlign` | [doc](../../../../docs/mcp/tools/alignment/tcoffee_slow_pair_align.md) |
 | `calculate_similarity` | Core | `GenomicAnalyzer.CalculateSimilarity` | [doc](../../../../docs/mcp/tools/core/calculate_similarity.md) |
 | `count_approximate_occurrences` | Core | `ApproximateMatcher.CountApproximateOccurrences` | [doc](../../../../docs/mcp/tools/core/count_approximate_occurrences.md) |
 | `edit_distance` | Core | `ApproximateMatcher.EditDistance` | [doc](../../../../docs/mcp/tools/core/edit_distance.md) |

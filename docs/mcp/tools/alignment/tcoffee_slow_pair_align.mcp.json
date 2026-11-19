@@ -1,0 +1,78 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "toolName": "tcoffee_slow_pair_align",
+ "serverName": "Alignment",
+ "version": "1.0.0",
+ "stability": "stable",
+ "methodId": "SequenceAligner.TCoffeeSlowPairAlign",
+ "docRef": "Seqeron.Genomics.Alignment/SequenceAligner.TCoffeePrimary.cs",
+ "description": "The 'slow_pair' pair-wise method of T-Coffee 13.41 (the global alignment behind its primary libraries): Myers-Miller linear-space global alignment with the program's matrices and penalties - DNA: dna_idmat (10 / 0), gap open -10, extend -1; protein: BLOSUM62. gapOpen / gapExtend / matrix are the method's own overrides (t_coffee -method slow_pair@EP@GOP@-30@GEP@-3@MATRIX@blosum50mt); matrix names are the T-Coffee matrix names (blosum62mt, blosum50mt, pam250mt, dna_idmat, ...). Returns the two aligned rows. Verified against the program's slow_pair libraries (see multiple_align_tcoffee).",
+ "inputSchema": {
+  "type": "object",
+  "properties": {
+   "sequenceA": {
+    "type": "string",
+    "description": "First sequence (letters; gaps rejected)."
+   },
+   "sequenceB": {
+    "type": "string",
+    "description": "Second sequence."
+   },
+   "protein": {
+    "type": "boolean",
+    "description": "true = protein matrices / penalties, false (default) = DNA.",
+    "default": false
+   },
+   "matrix": {
+    "type": "string",
+    "description": "The method's MATRIX override (T-Coffee matrix name); default per type."
+   },
+   "gapOpen": {
+    "type": "integer",
+    "description": "The method's GOP override (gap open, an integer score, negative = penalty)."
+   },
+   "gapExtend": {
+    "type": "integer",
+    "description": "The method's GEP override (gap extend, an integer score, negative = penalty)."
+   }
+  },
+  "required": [
+   "sequenceA",
+   "sequenceB"
+  ]
+ },
+ "outputSchema": {
+  "type": "object",
+  "properties": {
+   "rowA": {
+    "type": "string"
+   },
+   "rowB": {
+    "type": "string"
+   }
+  },
+  "required": [
+   "rowA",
+   "rowB"
+  ]
+ },
+ "errors": [
+  {
+   "code": 1001,
+   "message": "Sequence is required"
+  }
+ ],
+ "examples": [
+  {
+   "name": "Gap placed inside",
+   "input": {
+    "sequenceA": "TTTCAACTC",
+    "sequenceB": "TTTTCAACTC"
+   },
+   "output": {
+    "rowA": "T-TTCAACTC",
+    "rowB": "TTTTCAACTC"
+   }
+  }
+ ]
+}

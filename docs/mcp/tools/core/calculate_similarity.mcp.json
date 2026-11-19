@@ -1,38 +1,131 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "toolName": "calculate_similarity",
-  "serverName": "Core",
-  "version": "1.0.0",
-  "stability": "stable",
-  "methodId": "GenomicAnalyzer.CalculateSimilarity",
-  "docRef": "Seqeron.Genomics/GenomicAnalyzer.cs#L707",
-  "description": "Calculate similarity between two DNA sequences using the exact k-mer Jaccard index of the distinct k-mer sets, as a percentage (0-100 scale). canonical=true uses Mash/sourmash canonical k-mers min(w, reverse complement).",
-  "inputSchema": {
-    "type": "object",
-    "properties": {
-      "sequence1": { "type": "string", "minLength": 1 },
-      "sequence2": { "type": "string", "minLength": 1 },
-      "kmerSize": { "type": "integer", "default": 5, "minimum": 1 },
-      "canonical": { "type": "boolean", "default": false }
-    },
-    "required": ["sequence1", "sequence2"]
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "toolName": "calculate_similarity",
+ "serverName": "Core",
+ "version": "1.0.0",
+ "stability": "stable",
+ "methodId": "GenomicAnalyzer.CalculateSimilarity",
+ "docRef": "Seqeron.Genomics/GenomicAnalyzer.cs#L707",
+ "description": "Calculate similarity between two DNA sequences using the k-mer Jaccard index |A∩B|/|A∪B| of the distinct k-mer sets, as a percentage (0-100 scale; 0 when both sets are empty). Default: the exact index; compares literal (strand-specific) k-mers like a Python set / scipy jaccard; canonical=true uses min(k-mer, reverse complement) as Mash and sourmash do, so a sequence and its reverse complement score 100. sketchSize = s estimates it from a Mash bottom-s MinHash sketch (MurmurHash3-x64-128 seed 42, as 'mash dist'; k <= 32; canonical k-mers are Mash's default); scaled = S from a sourmash FracMinHash sketch (also gives the containment indices and containment ANI). The result always adds jaccardDistance (1 - J), mashDistance (-ln(2J/(1+J))/k) and jaccardAni = (2J/(1+J))^(1/k); the exact and FracMinHash estimators add containmentAInB / containmentBInA / maxContainment and containmentAniAInB / containmentAniBInA (C^(1/k), sourmash containment ANI point estimate); sketches add sharedHashes / denominatorHashes (and mashPValue for a bottom-s sketch). Plain A/C/G/T input only (sequences with N: the Analysis server accepts IUPAC input). Verified against sourmash 4.9.4.",
+ "inputSchema": {
+  "type": "object",
+  "properties": {
+   "sequence1": {
+    "type": "string",
+    "minLength": 1,
+    "description": "The first DNA sequence"
+   },
+   "sequence2": {
+    "type": "string",
+    "minLength": 1,
+    "description": "The second DNA sequence"
+   },
+   "kmerSize": {
+    "type": "integer",
+    "default": 5,
+    "minimum": 1,
+    "description": "K-mer size (default: 5)"
+   },
+   "canonical": {
+    "type": "boolean",
+    "default": false,
+    "description": "Use canonical (strand-agnostic) k-mers min(w, reverse complement) as Mash/sourmash (default: false)"
+   },
+   "sketchSize": {
+    "type": "integer",
+    "description": "Estimate the index from a Mash bottom-s MinHash sketch of this size (>= 1; k <= 32). Cannot be combined with scaled."
+   },
+   "scaled": {
+    "type": "integer",
+    "description": "Estimate from a sourmash FracMinHash sketch with this scaled factor (1..4294967295). Cannot be combined with sketchSize."
+   }
   },
-  "outputSchema": {
-    "type": "object",
-    "properties": {
-      "similarity": { "type": "number", "minimum": 0, "maximum": 100 }
-    },
-    "required": ["similarity"]
-  },
-  "errors": [
-    { "code": 1001, "message": "Sequence1 cannot be null or empty" },
-    { "code": 1003, "message": "Sequence2 cannot be null or empty" }
-  ],
-  "examples": [
-    {
-      "name": "Calculate similarity",
-      "input": { "sequence1": "ATGCATGC", "sequence2": "ATGCATGC" },
-      "output": { "similarity": 100.0 }
-    }
+  "required": [
+   "sequence1",
+   "sequence2"
   ]
+ },
+ "outputSchema": {
+  "type": "object",
+  "properties": {
+   "similarity": {
+    "type": "number",
+    "minimum": 0,
+    "maximum": 100
+   },
+   "estimator": {
+    "type": "string",
+    "description": "Exact | MashBottomSketch | FracMinHash"
+   },
+   "jaccardDistance": {
+    "type": "number",
+    "description": "1 - J (fraction)"
+   },
+   "mashDistance": {
+    "type": "number",
+    "description": "-ln(2J/(1+J))/k"
+   },
+   "jaccardAni": {
+    "type": "number",
+    "description": "(2J/(1+J))^(1/k)"
+   },
+   "containmentAInB": {
+    "type": "number",
+    "description": "C(A,B) (exact and FracMinHash estimators)"
+   },
+   "containmentBInA": {
+    "type": "number",
+    "description": "C(B,A)"
+   },
+   "maxContainment": {
+    "type": "number",
+    "description": "max of the two containments"
+   },
+   "containmentAniAInB": {
+    "type": "number",
+    "description": "C(A,B)^(1/k)"
+   },
+   "containmentAniBInA": {
+    "type": "number",
+    "description": "C(B,A)^(1/k)"
+   },
+   "sharedHashes": {
+    "type": "integer",
+    "description": "sketch estimators only"
+   },
+   "denominatorHashes": {
+    "type": "integer",
+    "description": "sketch estimators only"
+   },
+   "mashPValue": {
+    "type": "number",
+    "description": "bottom-s sketch only"
+   }
+  },
+  "required": [
+   "similarity"
+  ]
+ },
+ "errors": [
+  {
+   "code": 1001,
+   "message": "Sequence1 cannot be null or empty"
+  },
+  {
+   "code": 1003,
+   "message": "Sequence2 cannot be null or empty"
+  }
+ ],
+ "examples": [
+  {
+   "name": "Calculate similarity",
+   "input": {
+    "sequence1": "ATGCATGC",
+    "sequence2": "ATGCATGC"
+   },
+   "output": {
+    "similarity": 100.0
+   }
+  }
+ ]
 }

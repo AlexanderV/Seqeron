@@ -35,6 +35,20 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAssembler.cs#L772"
   },
   {
+    "tool": "clustalw_pairwise_align",
+    "server": "Alignment",
+    "methodId": "SequenceAligner.ClustalWPairwiseAlign",
+    "docPath": "docs/mcp/tools/alignment/clustalw_pairwise_align.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.ClustalW.cs"
+  },
+  {
+    "tool": "clustalw_quick_pairwise_align",
+    "server": "Alignment",
+    "methodId": "SequenceAligner.ClustalWQuickPairwiseAlign",
+    "docPath": "docs/mcp/tools/alignment/clustalw_quick_pairwise_align.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.ClustalWQuick.cs"
+  },
+  {
     "tool": "compute_consensus",
     "server": "Alignment",
     "methodId": "SequenceAssembler.ComputeConsensus",
@@ -301,6 +315,48 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAssembler.cs#L247"
   },
   {
+    "tool": "sum_of_pairs_score",
+    "server": "Alignment",
+    "methodId": "SequenceAligner.SumOfPairsScore",
+    "docPath": "docs/mcp/tools/alignment/sum_of_pairs_score.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.MultipleAffine.cs"
+  },
+  {
+    "tool": "tcoffee_guide_tree",
+    "server": "Alignment",
+    "methodId": "SequenceAligner.TCoffeeGuideTree",
+    "docPath": "docs/mcp/tools/alignment/tcoffee_guide_tree.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.TCoffeeTree.cs"
+  },
+  {
+    "tool": "tcoffee_ktup_similarity",
+    "server": "Alignment",
+    "methodId": "SequenceAligner.TCoffeeKtupSimilarity",
+    "docPath": "docs/mcp/tools/alignment/tcoffee_ktup_similarity.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.TCoffeeTree.cs"
+  },
+  {
+    "tool": "tcoffee_lalign_top_alignments",
+    "server": "Alignment",
+    "methodId": "SequenceAligner.TCoffeeLalignTopAlignments",
+    "docPath": "docs/mcp/tools/alignment/tcoffee_lalign_top_alignments.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.TCoffeePrimary.cs"
+  },
+  {
+    "tool": "tcoffee_primary_library",
+    "server": "Alignment",
+    "methodId": "SequenceAligner.TCoffeePrimaryLibraryEntries",
+    "docPath": "docs/mcp/tools/alignment/tcoffee_primary_library.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.TCoffeeLibrary.cs"
+  },
+  {
+    "tool": "tcoffee_slow_pair_align",
+    "server": "Alignment",
+    "methodId": "SequenceAligner.TCoffeeSlowPairAlign",
+    "docPath": "docs/mcp/tools/alignment/tcoffee_slow_pair_align.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.TCoffeePrimary.cs"
+  },
+  {
     "tool": "alignment_distance_matrix",
     "server": "Analysis",
     "methodId": "MultipleAlignmentStatistics.CalculateDistanceMatrix",
@@ -504,6 +560,13 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L2667"
   },
   {
+    "tool": "find_all_longest_repeats",
+    "server": "Analysis",
+    "methodId": "GenomicAnalyzer.FindAllLongestRepeats",
+    "docPath": "docs/mcp/tools/analysis/find_all_longest_repeats.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GenomicAnalyzer.cs"
+  },
+  {
     "tool": "find_approximate_direct_repeats",
     "server": "Analysis",
     "methodId": "RepeatFinder.FindApproximateDirectRepeats",
@@ -602,6 +665,13 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L1336"
   },
   {
+    "tool": "find_longest_common_region_mismatches",
+    "server": "Analysis",
+    "methodId": "GenomicAnalyzer.FindLongestCommonRegionWithMismatches",
+    "docPath": "docs/mcp/tools/analysis/find_longest_common_region_mismatches.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GenomicAnalyzer.CommonRegions.cs"
+  },
+  {
     "tool": "find_low_complexity_intervals",
     "server": "Analysis",
     "methodId": "SequenceComplexity.FindLowComplexityIntervals",
@@ -663,6 +733,13 @@
     "methodId": "RepeatFinder.FindPalindromes",
     "docPath": "docs/mcp/tools/analysis/find_palindromes.md",
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs#L5826"
+  },
+  {
+    "tool": "find_pattern_hits",
+    "server": "Analysis",
+    "methodId": "GenomicAnalyzer.FindPatternHits",
+    "docPath": "docs/mcp/tools/analysis/find_pattern_hits.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GenomicAnalyzer.PatternHits.cs"
   },
   {
     "tool": "find_promoter_elements_by_matrix",

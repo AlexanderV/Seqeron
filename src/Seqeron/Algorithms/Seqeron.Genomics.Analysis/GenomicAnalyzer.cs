@@ -115,13 +115,16 @@ public static partial class GenomicAnalyzer
     private static IEnumerable<RepeatInfo> EnumerateRepeats(DnaSequence sequence, int minLength, bool maximalOnly, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(sequence);
-        return EnumerateRepeatsCore(sequence, minLength, maximalOnly, cancellationToken);
+        return EnumerateRepeatsCore(sequence.SuffixTree, minLength, maximalOnly, cancellationToken);
     }
 
-    private static IEnumerable<RepeatInfo> EnumerateRepeatsCore(DnaSequence sequence, int minLength, bool maximalOnly, CancellationToken cancellationToken)
+    // The engine behind every repeat enumeration: it works on any suffix tree whose text holds upper-case letters
+    // (A-Z) and, optionally, separator characters above 'Z' (see MaskedText). A separator is never part of a repeat and
+    // always ends one: a node whose path label starts with a separator is skipped (it can only be a run of the same
+    // separator), and a separator before a suffix counts as a left context different from every other.
+    private static IEnumerable<RepeatInfo> EnumerateRepeatsCore(global::SuffixTree.SuffixTree tree, int minLength, bool maximalOnly, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var tree = sequence.SuffixTree;
 
         // A repeat is a NON-EMPTY substring occurring >=2 times (the path label of an internal
         // node, never the root). The empty string is not a repeat, so the effective minimum is
@@ -195,14 +198,14 @@ public static partial class GenomicAnalyzer
                 if (maximalOnly)
                 {
                     int p = startIndex - depth;
-                    _frames.Push((p == 0 ? 1 : 1 << (text[p - 1] & 31), -1));
+                    _frames.Push((p == 0 ? 1 : LeftContextBit(text[p - 1]), -1));
                 }
                 return;
             }
 
             int stringDepth = depth + (endIndex - startIndex);
             int index = -1;
-            if (stringDepth >= minLength)
+            if (stringDepth >= minLength && text[endIndex - stringDepth] <= 'Z')
             {
                 index = _nodes.Count;
                 _nodes.Add((endIndex, depth, stringDepth));
@@ -211,6 +214,10 @@ public static partial class GenomicAnalyzer
             if (maximalOnly)
                 _frames.Push((0, index));
         }
+
+        // A letter A-Z & 31 is 1..26 (all distinct; bit 0 = start of text); a separator is its own left context, so it
+        // sets two bits at once (any set containing it is already left-diverse).
+        private static int LeftContextBit(char c) => c is >= 'A' and <= 'Z' ? 1 << (c & 31) : unchecked((int)0xC0000000);
 
         public void EnterBranch(int key) { }
 
@@ -613,15 +620,19 @@ public static partial class GenomicAnalyzer
     // Mismatch-tolerant route: one canonical ApproximateMatcher Hamming scan per (motif, strand).
     private static Dictionary<string, IReadOnlyList<KnownMotifHit>> FindKnownMotifHitsApproximate(
         DnaSequence sequence, IEnumerable<string> motifs, bool bothStrands, bool allowIupac, int maxMismatches, CancellationToken cancellationToken)
+        => FindKnownMotifHitsApproximate(sequence.Sequence, motifs, bothStrands, allowIupac, maxMismatches, cancellationToken);
+
+    private static Dictionary<string, IReadOnlyList<KnownMotifHit>> FindKnownMotifHitsApproximate(
+        string text, IEnumerable<string> motifs, bool bothStrands, bool allowIupac, int maxMismatches, CancellationToken cancellationToken)
     {
         var result = new Dictionary<string, IReadOnlyList<KnownMotifHit>>();
         foreach (string key in NormalizeMotifs(motifs))
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var forward = ApproximateMatcher.FindWithMismatches(sequence.Sequence, key, maxMismatches, allowIupac, cancellationToken)
+            var forward = ApproximateMatcher.FindWithMismatches(text, key, maxMismatches, allowIupac, cancellationToken)
                 .Select(m => new KnownMotifHit(m.Position, IsReverseStrand: false, m.Distance)).ToList();
             var reverse = bothStrands
-                ? ApproximateMatcher.FindWithMismatches(sequence.Sequence, DnaSequence.GetReverseComplementString(key), maxMismatches, allowIupac, cancellationToken)
+                ? ApproximateMatcher.FindWithMismatches(text, DnaSequence.GetReverseComplementString(key), maxMismatches, allowIupac, cancellationToken)
                     .Select(m => new KnownMotifHit(m.Position, IsReverseStrand: true, m.Distance)).ToList()
                 : new List<KnownMotifHit>();
             if (forward.Count > 0 || reverse.Count > 0)
@@ -650,19 +661,24 @@ public static partial class GenomicAnalyzer
 
     private static Dictionary<string, (List<int> Forward, List<int> Reverse)> SearchKnownMotifs(
         DnaSequence sequence, IEnumerable<string> motifs, bool bothStrands, bool allowIupac, CancellationToken cancellationToken = default)
+        => SearchKnownMotifs(sequence.Sequence, sequence, motifs, bothStrands, allowIupac, cancellationToken);
+
+    // `indexed` is the sequence whose cached suffix tree serves the many-motif route; null for a plain string (linear scans only).
+    private static Dictionary<string, (List<int> Forward, List<int> Reverse)> SearchKnownMotifs(
+        string text, DnaSequence? indexed, IEnumerable<string> motifs, bool bothStrands, bool allowIupac, CancellationToken cancellationToken = default)
     {
         // The empty string is not a motif (an exact search for "" would match every position).
         // Skip empty/whitespace motifs, consistent with FindMotif's empty-pattern guard.
         var keys = NormalizeMotifs(motifs);
 
-        bool useIndex = !allowIupac && keys.Count * (bothStrands ? 2L : 1L) >= IndexedSearchMinQueries;
+        bool useIndex = indexed is not null && !allowIupac && keys.Count * (bothStrands ? 2L : 1L) >= IndexedSearchMinQueries;
         var result = new Dictionary<string, (List<int>, List<int>)>(keys.Count);
         foreach (string key in keys)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var forward = FindMotifPositions(sequence, key, allowIupac, useIndex);
+            var forward = FindMotifPositions(text, indexed, key, allowIupac, useIndex, cancellationToken);
             var reverse = bothStrands
-                ? FindMotifPositions(sequence, DnaSequence.GetReverseComplementString(key), allowIupac, useIndex)
+                ? FindMotifPositions(text, indexed, DnaSequence.GetReverseComplementString(key), allowIupac, useIndex, cancellationToken)
                 : new List<int>();
             if (forward.Count > 0 || reverse.Count > 0)
                 result[key] = (forward, reverse);
@@ -671,24 +687,27 @@ public static partial class GenomicAnalyzer
         return result;
     }
 
-    private static List<int> FindMotifPositions(DnaSequence sequence, string motif, bool allowIupac, bool useIndex)
+    private static List<int> FindMotifPositions(string text, DnaSequence? indexed, string motif, bool allowIupac, bool useIndex, CancellationToken cancellationToken)
     {
         if (allowIupac)
         {
             // MotifFinder scans left to right: ascending, overlapping.
-            return MotifFinder.FindDegenerateMotif(sequence, motif).Select(m => m.Position).ToList();
+            var matches = indexed is not null
+                ? MotifFinder.FindDegenerateMotif(indexed, motif) // validates the motif even for an empty sequence
+                : MotifFinder.FindDegenerateMotif(text, motif, cancellationToken);
+            return matches.Select(m => m.Position).ToList();
         }
 
         if (useIndex)
         {
             // Suffix-tree occurrence enumeration is DFS-order (not sorted).
-            var positions = sequence.SuffixTree.FindAllOccurrences(motif);
+            var positions = indexed!.SuffixTree.FindAllOccurrences(motif);
             var sorted = new List<int>(positions);
             sorted.Sort();
             return sorted;
         }
 
-        return KmerAnalyzer.FindKmerPositions(sequence.Sequence, motif).ToList();
+        return KmerAnalyzer.FindKmerPositions(text, motif).ToList();
     }
 
     private static List<KnownMotifHit> MergeStrandHits(List<int> forward, List<int> reverse)
@@ -1403,16 +1422,29 @@ public readonly struct CommonRegion
 {
     public static readonly CommonRegion None = new(string.Empty, -1, -1);
 
-    public CommonRegion(string sequence, int positionInFirst, int positionInSecond)
+    public CommonRegion(string sequence, int positionInFirst, int positionInSecond, bool isReverseComplement = false)
     {
         Sequence = sequence;
         PositionInFirst = positionInFirst;
         PositionInSecond = positionInSecond;
+        IsReverseComplement = isReverseComplement;
     }
 
+    /// <summary>The common string as it reads in the first sequence.</summary>
     public string Sequence { get; }
+
+    /// <summary>0-based start in the first sequence.</summary>
     public int PositionInFirst { get; }
+
+    /// <summary>
+    /// 0-based start in the second sequence on the <b>forward</b> strand: for a reverse-complement region
+    /// (<see cref="IsReverseComplement"/>) the window of the second sequence that spells the reverse complement of <see cref="Sequence"/>
+    /// (MUMmer <c>-c</c> convention: positions of reverse matches refer to the original query strand).
+    /// </summary>
     public int PositionInSecond { get; }
+
+    /// <summary>True when the region is shared with the reverse complement of the second sequence (<c>mummer -r / -b</c>).</summary>
+    public bool IsReverseComplement { get; }
     public int Length => Sequence.Length;
     public bool IsEmpty => string.IsNullOrEmpty(Sequence);
 }

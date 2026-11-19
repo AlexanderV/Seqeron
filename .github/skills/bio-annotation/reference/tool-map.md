@@ -88,6 +88,7 @@ Servers: `A` = Annotation, `X` = Analysis. `⚠` = guarded / documented-limited 
 | `find_motif` | X | Exact motif occurrences | `GenomicAnalyzer.FindMotif` |
 | `find_degenerate_motif` | X | IUPAC-degenerate matches | `MotifFinder.FindDegenerateMotif` |
 | `find_known_motifs` | X | Search a set of known motifs at once | `GenomicAnalyzer.FindKnownMotifs` |
+| `find_pattern_hits` | X | EMBOSS fuzznuc pattern language (classes, exclusions, repeats, ranges, anchors; mismatches; both strands) | `GenomicAnalyzer.FindPatternHits` |
 | `find_shared_motifs` | X | k-mers shared across sequences | `MotifFinder.FindSharedMotifs` |
 | `shared_motifs_significance` | X | Shared k-mers with RSAT ms_P/ms_E/ms_sig significance; degenerate words (-oneN/-onedeg) | `MotifFinder.FindSharedMotifs` (RSAT overloads) |
 | `find_regulatory_elements` | X | Built-in regulatory motif scan | `MotifFinder.FindRegulatoryElements` |
@@ -126,6 +127,7 @@ Servers: `A` = Annotation, `X` = Analysis. `⚠` = guarded / documented-limited 
 | `find_inverted_repeats` | X | Inverted repeats / hairpins (DNA) | `RepeatFinder.FindInvertedRepeats` |
 | `find_palindromes` | X | DNA palindromes (restriction sites) | `RepeatFinder.FindPalindromes` |
 | `find_repeats` | X | All repeats ≥ minLength | `GenomicAnalyzer.FindRepeats` |
+| `find_all_longest_repeats` | X | Every longest repeated substring (all ties; both strands optional) | `GenomicAnalyzer.FindAllLongestRepeats` |
 | `find_rna_inverted_repeats` | X | RNA hairpin stems | `RnaSecondaryStructure.FindInvertedRepeats` |
 | `find_inverted_repeats_scored` | X | Gapped, mismatch-tolerant inverted repeats scored like EMBOSS einverted | `RepeatFinder.FindInvertedRepeatsScored` |
 | `find_reverse_complement_repeats` | X | Maximal exact reverse-complement repeat pairs (repeat-match / Vmatch -p) | `RepeatFinder.FindReverseComplementRepeats` |
@@ -178,6 +180,7 @@ Servers: `A` = Annotation, `X` = Analysis. `⚠` = guarded / documented-limited 
 | `dinucleotide_frequencies` | X | Adjacent dinucleotide frequencies | `SequenceStatistics.CalculateDinucleotideFrequencies` |
 | `dinucleotide_ratios` | X | Observed/expected dinucleotide odds | `SequenceStatistics.CalculateDinucleotideRatios` |
 | `find_common_regions` | X | Common substrings of two DNA seqs | `GenomicAnalyzer.FindCommonRegions` |
+| `find_longest_common_region_mismatches` | X | Longest common substring with ≤ k mismatches (k-mismatch LCS) | `GenomicAnalyzer.FindLongestCommonRegionWithMismatches` |
 
 ## 8. Splicing
 

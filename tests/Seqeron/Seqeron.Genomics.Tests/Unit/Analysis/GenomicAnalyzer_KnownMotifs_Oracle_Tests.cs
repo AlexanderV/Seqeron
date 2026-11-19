@@ -173,9 +173,9 @@ public class GenomicAnalyzer_KnownMotifs_Oracle_Tests
         Assert.That(GenomicAnalyzer.FindMotif(dna, null!), Is.Empty);
         Assert.That(GenomicAnalyzer.FindMotif(dna, "AAAAAA"), Is.Empty);
         Assert.That(GenomicAnalyzer.FindMotif(dna, "N"), Is.Empty, "IUPAC symbols are literal in the exact search");
-        Assert.That(() => GenomicAnalyzer.FindMotif(null!, "A"), NUnit.Framework.Throws.ArgumentNullException);
-        Assert.That(() => GenomicAnalyzer.FindKnownMotifs(null!, new[] { "A" }), NUnit.Framework.Throws.ArgumentNullException);
-        Assert.That(() => GenomicAnalyzer.FindKnownMotifHits(null!, new[] { "A" }), NUnit.Framework.Throws.ArgumentNullException);
+        Assert.That(() => GenomicAnalyzer.FindMotif((DnaSequence)null!, "A"), NUnit.Framework.Throws.ArgumentNullException);
+        Assert.That(() => GenomicAnalyzer.FindKnownMotifs((DnaSequence)null!, new[] { "A" }), NUnit.Framework.Throws.ArgumentNullException);
+        Assert.That(() => GenomicAnalyzer.FindKnownMotifHits((DnaSequence)null!, new[] { "A" }), NUnit.Framework.Throws.ArgumentNullException);
         Assert.That(() => GenomicAnalyzer.FindKnownMotifHits(dna, null!), NUnit.Framework.Throws.ArgumentNullException);
     }
 

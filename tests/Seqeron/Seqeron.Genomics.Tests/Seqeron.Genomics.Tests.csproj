@@ -133,6 +133,11 @@
     <!-- GENOMIC-COMMON-001 (B09 F15-F16): independent Python (DP + suffix automaton + brute-force matching statistics)
          oracle for FindLongestCommonRegion / FindCommonRegions; scripts/analysis/generate_common_region_oracle.py. -->
     <EmbeddedResource Include="TestData\Analysis\common_region_oracle.tsv" />
+    <!-- GENOMIC-COMMON-001 (B09 A2-30): MUMmer 3.23 mummer -maxmatch / -mumreference / -mum -b (== brute force) 4716 rows; k-mismatch LCS 1680 rows and
+         N-sequence LCS 694 rows (brute force); scripts/analysis/generate_common_region_strand_oracle.py. -->
+    <EmbeddedResource Include="TestData\Analysis\common_region_mum_oracle.tsv" />
+    <EmbeddedResource Include="TestData\Analysis\common_region_kmismatch_oracle.tsv" />
+    <EmbeddedResource Include="TestData\Analysis\common_region_multi_oracle.tsv" />
     <!-- GENOMIC-MOTIFS-001 (B09 F18-F20): EMBOSS fuzznuc 6.6.0 (== independent Python regex) forward / reverse-strand,
          exact and IUPAC known-motif hits for 2448 (sequence, pattern) pairs; scripts/analysis/generate_known_motif_oracle.py. -->
     <EmbeddedResource Include="TestData\Analysis\known_motif_oracle.tsv" />
@@ -142,10 +147,16 @@
     <!-- GENOMIC-MOTIFS-001 (B09 A2-18, F91): fuzznuc 6.6.0 -pmismatch k on sequences SHORTER than the pattern (300 runs): the 'overhanging hit' artefacts;
          scripts/analysis/generate_fuzznuc_short_sequence_oracle.py. -->
     <EmbeddedResource Include="TestData\Analysis\fuzznuc_short_sequence_oracle.tsv" />
+    <!-- GENOMIC-MOTIFS-001 (B09 A2-32): the fuzznuc pattern language (classes, exclusions, repeats, ranges, anchors, mismatches, both strands): EMBOSS fuzznuc 6.6.0 == independent
+         Python reference on 3300 random syntax-tree rows; scripts/analysis/generate_fuzznuc_pattern_oracle.py. -->
+    <EmbeddedResource Include="TestData\Analysis\fuzznuc_pattern_oracle.tsv" />
     <!-- GENOMIC-SIMILARITY-001 (B09 F32-F34): exact k-mer Jaccard (percent), literal == Python set == scipy jaccard on presence
          vectors, canonical == Python set over min(w, revcomp w) == sourmash 4.9.4 MinHash(scaled=1); 2086 rows;
          scripts/analysis/generate_similarity_oracle.py. -->
     <EmbeddedResource Include="TestData\Analysis\similarity_oracle.tsv" />
+    <!-- GENOMIC-SIMILARITY-001 (B09 A2-31): exact canonical sets (== sourmash scaled=1), sourmash 4.9.4 FracMinHash (scaled 2..10) and bottom-s MinHash (num), containment ANI /
+         Jaccard ANI (sourmash distance_utils), 4290 rows; scripts/analysis/generate_similarity_sketch_oracle.py. -->
+    <EmbeddedResource Include="TestData\Analysis\similarity_sketch_oracle.tsv" />
     <!-- GENOMIC-REPEAT-001 (B09 F28-F30): independent Python (brute force + suffix array/Kasai LCP) oracle for repeated
          substrings, Gusfield maximal repeats and all longest repeats; scripts/analysis/generate_repeat_oracle.py. -->
     <EmbeddedResource Include="TestData\Analysis\repeat_oracle.tsv" />
@@ -156,6 +167,9 @@
     <!-- GENOMIC-TANDEM-001 (B09 A2-34): MUMmer 3.23 exact-tandems (repeat-match -t + tandem-repeat.awk), 3630 (sequence, L) rows with the
          brute-force least rotation of each unit; scripts/analysis/generate_exact_tandems_oracle.py. -->
     <EmbeddedResource Include="TestData\Analysis\exact_tandems_oracle.tsv" />
+    <!-- GENOMIC-REPEAT-001 (B09 A2-33 / A2-35): MUMmer 3.23 repeat-match (both strands and -f) pairs + brute-force both-strand repeat classes over S # revcomp(S),
+         1900 (sequence, L) rows incl. N runs; scripts/analysis/generate_strand_repeat_oracle.py. -->
+    <EmbeddedResource Include="TestData\Analysis\strand_repeat_oracle.tsv" />
     <!-- GENOMIC-REPEAT-001 (B09 F27): Biopython reverse-complement palindrome windows (Rosalind REVP definition);
          scripts/analysis/generate_palindrome_oracle.py. -->
     <EmbeddedResource Include="TestData\Analysis\palindrome_oracle.tsv" />

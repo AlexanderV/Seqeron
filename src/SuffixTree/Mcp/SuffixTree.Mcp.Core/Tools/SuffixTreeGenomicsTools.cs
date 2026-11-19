@@ -54,23 +54,25 @@ public class SuffixTreeGenomicsTools
     /// Calculate similarity between two DNA sequences using k-mer Jaccard index.
     /// </summary>
     [McpServerTool(Name = "calculate_similarity", Title = "Genomics — Sequence Similarity", ReadOnly = true)]
-    [Description("Calculate similarity between two DNA sequences using the exact k-mer Jaccard index |A∩B|/|A∪B| of the distinct k-mer sets, as a percentage (0-100 scale; 0 when both sets are empty). Default compares literal (strand-specific) k-mers like a Python set / scipy jaccard; canonical=true uses min(k-mer, reverse complement) as Mash and sourmash do, so a sequence and its reverse complement score 100.")]
+    [Description("Calculate similarity between two DNA sequences using the k-mer Jaccard index |A∩B|/|A∪B| of the distinct k-mer sets, as a percentage (0-100 scale; 0 when both sets are empty). Default: the exact index; compares literal (strand-specific) k-mers like a Python set / scipy jaccard; canonical=true uses min(k-mer, reverse complement) as Mash and sourmash do, so a sequence and its reverse complement score 100. sketchSize = s estimates it from a Mash bottom-s MinHash sketch (MurmurHash3-x64-128 seed 42, as 'mash dist'; k <= 32; canonical k-mers are Mash's default); scaled = S from a sourmash FracMinHash sketch (also gives the containment indices and containment ANI). The result always adds jaccardDistance (1 - J), mashDistance (-ln(2J/(1+J))/k) and jaccardAni = (2J/(1+J))^(1/k); the exact and FracMinHash estimators add containmentAInB / containmentBInA / maxContainment and containmentAniAInB / containmentAniBInA (C^(1/k), sourmash containment ANI point estimate); sketches add sharedHashes / denominatorHashes (and mashPValue for a bottom-s sketch). Plain A/C/G/T input only (sequences with N: the Analysis server accepts IUPAC input). Verified against sourmash 4.9.4.")]
     public static CalculateSimilarityResult CalculateSimilarity(
         [Description("The first DNA sequence")] string sequence1,
         [Description("The second DNA sequence")] string sequence2,
         [Description("K-mer size (default: 5)")] int kmerSize = 5,
-        [Description("Use canonical (strand-agnostic) k-mers min(w, reverse complement) as Mash/sourmash (default: false)")] bool canonical = false)
+        [Description("Use canonical (strand-agnostic) k-mers min(w, reverse complement) as Mash/sourmash (default: false)")] bool canonical = false,
+        [Description("Estimate the index from a Mash bottom-s MinHash sketch of this size (>= 1; k <= 32). Cannot be combined with scaled.")] int? sketchSize = null,
+        [Description("Estimate from a sourmash FracMinHash sketch with this scaled factor (1..4294967295). Cannot be combined with sketchSize.")] long? scaled = null)
     {
         if (string.IsNullOrEmpty(sequence1))
             throw new ArgumentException("Sequence1 cannot be null or empty", nameof(sequence1));
         if (string.IsNullOrEmpty(sequence2))
             throw new ArgumentException("Sequence2 cannot be null or empty", nameof(sequence2));
-
         var dna1 = new global::Seqeron.Genomics.Core.DnaSequence(sequence1);
         var dna2 = new global::Seqeron.Genomics.Core.DnaSequence(sequence2);
-        var similarity = GenomicAnalyzer.CalculateSimilarity(dna1, dna2, kmerSize, canonical);
-
-        return new CalculateSimilarityResult(similarity);
+        var e = GenomicAnalyzer.CompareSimilarity(dna1, dna2, kmerSize, canonical, sketchSize, scaled);
+        return new CalculateSimilarityResult(
+            e.Jaccard * 100.0, e.Estimator.ToString(), e.JaccardDistance, e.MashDistance, e.JaccardAni, e.ContainmentAInB, e.ContainmentBInA, e.MaxContainment,
+            e.ContainmentAniAInB, e.ContainmentAniBInA, e.SharedHashes, e.DenominatorHashes, e.MashPValue);
     }
 
     /// <summary>

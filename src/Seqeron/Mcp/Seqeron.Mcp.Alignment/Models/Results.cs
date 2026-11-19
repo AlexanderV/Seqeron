@@ -190,3 +190,40 @@ public record ContigLinkInput(int Contig1, int Contig2, int GapSize);
 
 /// <summary>Read with sequence and matching Phred+33 quality string.</summary>
 public record QualityReadInput(string Sequence, string Quality);
+
+
+// ================================
+// Ported program stages (ClustalW 2.1 pairwise, T-Coffee 13.41 library / tree, sum of pairs)
+// ================================
+
+/// <summary>ClustalW 2.1 pairwise stage: the local alignment, ClustalW's percent identity and guide-tree distance.</summary>
+public record ClustalWPairwiseAlignResult(
+    int Score, int Identities, double PercentIdentity, double Distance, int ClustalWScore,
+    string AlignedSequence1, string AlignedSequence2, int Start1, int End1, int Start2, int End2);
+
+/// <summary>ClustalW 2.1 fast (k-tuple, -QUICKTREE) pairwise stage.</summary>
+public record ClustalWQuickPairwiseAlignResult(int FragmentScore, double Score, double Distance, bool Aligned, bool PartialAlignment);
+
+/// <summary>A pair of aligned rows.</summary>
+public record AlignedPairResult(string RowA, string RowB);
+
+/// <summary>One local alignment of the T-Coffee lalign stage (rows, 0-based starts, score).</summary>
+public record TCoffeeLocalAlignmentItem(string RowA, string RowB, int StartA, int StartB, int Score);
+
+/// <summary>Result of <c>tcoffee_lalign_top_alignments</c>.</summary>
+public record TCoffeeLocalAlignmentsResult(TCoffeeLocalAlignmentItem[] Alignments, int Count);
+
+/// <summary>One primary-library entry: residue PosA of sequence SeqA with residue PosB of sequence SeqB (0-based), weight 10 x percent identity, times added.</summary>
+public record TCoffeeLibraryEntryItem(int SeqA, int PosA, int SeqB, int PosB, int Weight, int Count);
+
+/// <summary>Result of <c>tcoffee_primary_library</c>.</summary>
+public record TCoffeePrimaryLibraryResult(TCoffeeLibraryEntryItem[] Entries, int Count);
+
+/// <summary>Guide tree of T-Coffee: Newick text (leaf labels = names or s0, s1, ...) and the leaf indices left to right (the merge order is the post-order of the tree).</summary>
+public record TCoffeeGuideTreeResult(string Newick, int[] LeafOrder);
+
+/// <summary>Pairwise k-tuple similarity matrix of T-Coffee's guide-tree stage (percent x 100 as the program stores it).</summary>
+public record TCoffeeKtupSimilarityResult(int[][] Similarity);
+
+/// <summary>Sum-of-pairs score of a multiple alignment.</summary>
+public record SumOfPairsScoreResult(double Score, string GapModel, string Scoring);

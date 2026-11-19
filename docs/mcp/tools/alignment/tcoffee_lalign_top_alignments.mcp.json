@@ -1,0 +1,126 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "toolName": "tcoffee_lalign_top_alignments",
+ "serverName": "Alignment",
+ "version": "1.0.0",
+ "stability": "stable",
+ "methodId": "SequenceAligner.TCoffeeLalignTopAlignments",
+ "docRef": "Seqeron.Genomics.Alignment/SequenceAligner.TCoffeePrimary.cs",
+ "description": "The 'lalign_id_pair' pair-wise method of T-Coffee 13.41: the topAlignments (t_coffee -lalign_n_top, default 10) best NON-INTERSECTING local alignments of two sequences by Huang & Miller's SIM algorithm, with the program's scoring (DNA: match 10 / mismatch 0 style identity matrix, gaps -10 / -1; protein: BLOSUM62), best first. Each alignment has its two aligned rows, 0-based starts and score. Verified against the program's lalign libraries (see multiple_align_tcoffee).",
+ "inputSchema": {
+  "type": "object",
+  "properties": {
+   "sequenceA": {
+    "type": "string",
+    "description": "First sequence (letters; gaps rejected)."
+   },
+   "sequenceB": {
+    "type": "string",
+    "description": "Second sequence."
+   },
+   "topAlignments": {
+    "type": "integer",
+    "description": "t_coffee -lalign_n_top: number of alignments to report (>= 1; default 10).",
+    "default": 10
+   },
+   "protein": {
+    "type": "boolean",
+    "description": "true = protein scoring, false (default) = DNA.",
+    "default": false
+   },
+   "gapOpen": {
+    "type": "integer",
+    "description": "Method GOP override (gap open score, negative)."
+   },
+   "gapExtend": {
+    "type": "integer",
+    "description": "Method GEP override (gap extend score, negative)."
+   }
+  },
+  "required": [
+   "sequenceA",
+   "sequenceB"
+  ]
+ },
+ "outputSchema": {
+  "type": "object",
+  "properties": {
+   "alignments": {
+    "type": "array",
+    "items": {
+     "type": "object",
+     "properties": {
+      "rowA": {
+       "type": "string"
+      },
+      "rowB": {
+       "type": "string"
+      },
+      "startA": {
+       "type": "integer"
+      },
+      "startB": {
+       "type": "integer"
+      },
+      "score": {
+       "type": "integer"
+      }
+     },
+     "required": [
+      "rowA",
+      "rowB",
+      "startA",
+      "startB",
+      "score"
+     ]
+    }
+   },
+   "count": {
+    "type": "integer"
+   }
+  },
+  "required": [
+   "alignments",
+   "count"
+  ]
+ },
+ "errors": [
+  {
+   "code": 1001,
+   "message": "Sequence is required"
+  },
+  {
+   "code": 1002,
+   "message": "topAlignments must be at least 1"
+  }
+ ],
+ "examples": [
+  {
+   "name": "Top 2",
+   "input": {
+    "sequenceA": "TTTTCGAACTTC",
+    "sequenceB": "TTTTCAACTC",
+    "topAlignments": 2
+   },
+   "output": {
+    "alignments": [
+     {
+      "rowA": "TTTTCGAACT",
+      "rowB": "TTTTC-AACT",
+      "startA": 0,
+      "startB": 0,
+      "score": 790
+     },
+     {
+      "rowA": "TTCGAACTTC",
+      "rowB": "TTTTCAACTC",
+      "startA": 2,
+      "startB": 0,
+      "score": 500
+     }
+    ],
+    "count": 2
+   }
+  }
+ ]
+}

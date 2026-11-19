@@ -172,14 +172,23 @@ reverse hits, 4183 with mismatching hits).
 - Multi-motif set: each motif mapped to its own occurrence set [2].
 - Upper-cased processing of DNA / motifs [2].
 
+**The fuzznuc pattern language (A2-32).** `FuzznucPattern.Parse` reads EMBOSS 6.6.0's `-pattern` syntax (`fuzznuc -help`): IUPAC letters, classes `[ACG]`, exclusions `{AG}`, repeats `N(3)`, ranges `A(2,4)` (n may be 0), optional `-` separators, `<` (start of the sequence), `>` (end) and a final `.`;
+`[CG](5)TG{A}N(1,5)C` is the help's own example. Classes and exclusions list plain bases (the binary rejects `[RT]`, `{N}`); `{ACGT}` matches nothing; malformed spellings that the binary accepts in unspecified ways (`A<C`, `{}`, `A(0,0)`) are rejected with an `ArgumentException`. Every
+non-empty base set is exactly one of the 15 IUPAC codes, so a pattern expands to a finite set of fixed-length IUPAC strings (`Expand()`: `AC(2,3)G` → `ACCG`, `ACCCG`) that the canonical `ApproximateMatcher` Hamming scan (IUPAC pattern codes) runs over; hits are united per window
+(`FindPatternHits(sequence, pattern, maxMismatches, bothStrands)` → `PatternHit(Position, Length, IsReverseStrand, Mismatches)`; a range reports every matching length; the reverse strand is the reversed, complemented pattern with swapped anchors; `FuzznucPattern.ParsePatternFile` and the
+named-pattern overload cover `-pattern @file`: one pattern per line or FASTA `>name`). No new scanning loop exists. The binary's own search classes are reproduced exactly (EMBOSS `embpat.c`, read on raw.githubusercontent.com, and confirmed on 3300 runs): with mismatches a range pattern is searched by the
+recursive `patOUBrute`, which tolerates mismatches only in the mandatory part (the first n repeats of `X(n,m)` and the fixed elements — the extra repeats must match) and fails when pattern elements remain at the end of the scanned strand (a path whose last element is an empty optional element
+never ends on the last base); an exact range pattern starting with `<` is searched by a regex that returns only the longest match at the anchor. A sequence symbol other than A/C/G/T matches nothing (the B05 contract, also for the string overloads of `FindMotif` / `FindKnownMotifs` / `FindKnownMotifHits`);
+the binary reads a sequence ambiguity code as a base set and lets a pattern `N` match it — not reproduced. Oracle: `scripts/analysis/generate_fuzznuc_pattern_oracle.py` → `fuzznuc_pattern_oracle.tsv`, 3300 random syntax-tree (sequence, pattern, k) rows, fuzznuc 6.6.0 `-pmismatch k -complement Y` == an independent Python reference, 0 disagreements
+(`GenomicAnalyzer_PatternHits_Oracle_Tests`).
+
 **Intentionally simplified:**
 
 - (none)
 
 **Not implemented:**
 
-- Gapped / length-range patterns of fuzznuc's own pattern language: fuzznuc DOES have them (`AC(2,3)G`, `N(2,4)`: a variable-length gap; verified with the binary: `fuzznuc -pattern 'AC(2,3)G'`
-  reports `ACCCG` and `ACCG`), so the earlier statement "fuzznuc has none either" was wrong; the pattern language is not parsed by `FindKnownMotifHits` (audit item A2-32, B09.md).
+- (Implemented by audit A2-32: the fuzznuc pattern language is parsed by `FuzznucPattern` and searched by `GenomicAnalyzer.FindPatternHits`; see "The fuzznuc pattern language" below.)
   Edit-distance matching is `ApproximateMatcher.FindWithEdits` (PAT-APPROX-002) and position-weight scanning is `MotifFinder` PWM (PAT-PWM-001).
 - Motif *discovery* and the fixed regulatory-element library: other units (MOTIF-DISCOVER-001, MOTIF-REGULATORY-001).
 

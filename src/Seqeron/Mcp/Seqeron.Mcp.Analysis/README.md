@@ -15,7 +15,7 @@ dotnet run --project Seqeron.Mcp.Analysis
 
 Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run","--project","Seqeron.Mcp.Analysis"]`). New to MCP? The [hub guide](../../../../docs/mcp/README.md) lists all 11 servers and how to wire them up.
 
-## Tools (129)
+## Tools (132)
 
 | Tool | Description |
 |------|-------------|
@@ -48,11 +48,12 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `dust_score` | DUST low-complexity score (BLAST-style, triplet-based) for a DNA sequence. |
 | `dyad_analysis` | RSAT dyad-analysis: over-represented spaced dyads M1 n{s} M2 (any / dr / ir / rep) with monad-based expected frequencies, z-scores and binomial occ_P / occ_E / occ_sig… |
 | `entropy_profile` | Shannon entropy in sliding windows along the sequence; optional k-mer (block) entropy (`k`) and trailing partial windows (`includePartialWindow`). |
+| `find_all_longest_repeats` | Every longest repeated substring of a DNA sequence (all length ties) with all positions; `bothStrands` gives the longest repeat classes over both strands (MUMmer repeat-match); IUPAC input accepted (B09 A2-36 / A2-33). |
 | `find_approximate_direct_repeats` | Finds **all maximal k-mismatch (Hamming) direct repeats** (Kurtz et al. 2000 REPuter; Vmatch -h k): two copies of equal length length at 0-… |
 | `find_approximate_tandem_repeats` | Finds approximate (imperfect / interrupted) tandem repeats with the **Tandem Repeats Finder** model (Benson 1999; TRF 4.10.0 trf File Match… |
 | `find_clump_windows` | (L, t)-clump k-mers with the maximal runs of window starts in which they form clumps (same k-mer set as `find_clumps`). |
 | `find_clumps` | Finds k-mers that occur at least minOccurrences times within any sliding window of size windowSize. |
-| `find_common_regions` | Right-maximal common regions of two DNA sequences: for each start in sequence2 the single longest substring (length >= minLength) that also occurs in sequence1, distinct strings once, with the first occurrence in sequence1. Not every common substring. |
+| `find_common_regions` | Right-maximal common regions of two DNA sequences: for each start in sequence2 the single longest substring (length >= minLength) that also occurs in sequence1, distinct strings once, with the first occurrence in sequence1. Not every common substring. `mode` (RightMaximal / MaximalExactMatches / MaximalUniqueReference / MaximalUnique = mummer -maxmatch / -mumreference / -mum) and `strands` (mummer -r / -b) (B09 A2-30); IUPAC input accepted. |
 | `find_conserved_clusters` | Gene clusters preserved across multiple genomes. |
 | `find_degenerate_motif` | Motif search with IUPAC ambiguity codes (N, R, Y, S, W, K, M, B, D, H, V). |
 | `find_degenerate_repeats` | Finds **all maximal degenerate repeats** with at most maxDifferences differences (Kurtz et al. 2000 REPuter; Vmatch -e k / -h k, -p, -allma… |
@@ -60,17 +61,19 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `find_exact_motif` | Exact-match motif positions in a DNA sequence via suffix tree. |
 | `find_inverted_repeats` | Sequences whose two arms are reverse-complement of each other (hairpin candidates). |
 | `find_inverted_repeats_scored` | Finds inverted repeats with EMBOSS einverted (Durbin & Thierry-Mieg 1993; EMBOSS 6.6.0): a local alignment of the sequence against its reve… |
-| `find_known_motifs` | Search for a user-provided set of motifs simultaneously (exact by default; optional IUPAC codes, reverse strand and a mismatch budget). Only motifs with at least one hit are returned; positions ascending, 0-based, forward-strand window starts. mismatches = k > 0 allows up to k substituted positions per window (Hamming distance, EMBOSS fuzznuc -pmismatch; no gaps) and adds matchMismatches / reverseMismatches (the distance of each reported hit, parallel to the position arrays). |
+| `find_known_motifs` | Search for a user-provided set of motifs simultaneously (exact by default; optional IUPAC codes, reverse strand and a mismatch budget). Only motifs with at least one hit are returned; positions ascending, 0-based, forward-strand window starts. mismatches = k > 0 allows up to k substituted positions per window (Hamming distance, EMBOSS fuzznuc -pmismatch; no gaps) and adds matchMismatches / reverseMismatches (the distance of each reported hit, parallel to the position arrays). IUPAC sequences accepted (B09 A2-35). |
 | `find_longdust_regions` | Finds low-complexity regions with **longdust** (Li & Li 2025; port of lh3/longdust 1.4-r97 ld_dust1/ld_dust2, MIT) — the k-mer generalisati… |
+| `find_longest_common_region_mismatches` | Longest common substring with at most k mismatches (k-mismatch LCS) of two DNA sequences, optionally against the reverse complement (B09 A2-30). |
 | `find_low_complexity_intervals` | Returns the **SDUST** low-complexity intervals (Morgulis et al. 2006; symmetric DUST) as 0-based half-open [start, end) pairs in ascending… |
 | `find_low_complexity_regions` | Entropy-thresholded contiguous low-complexity DNA regions. |
 | `find_microsatellites` | Short Tandem Repeats (STRs): 1-6 bp motif units repeated consecutively. |
-| `find_motif` | All exact occurrences of a motif (case-insensitive, overlapping, ascending 0-based positions, forward strand) in a DNA sequence. |
+| `find_motif` | All exact occurrences of a motif (case-insensitive, overlapping, ascending 0-based positions, forward strand) in a DNA sequence. IUPAC sequences accepted (non-A/C/G/T never matches) (B09 A2-35). |
 | `find_motif_by_pattern` | Find all (overlapping) regex pattern matches in a protein sequence. |
 | `find_motif_by_prosite` | Convert a PROSITE pattern to regex internally, then scan a protein sequence. |
 | `find_open_reading_frames` | ORFs in all 6 frames (3 forward + 3 reverse-complement) from a start codon (default ATG) to the first in-frame stop of the chosen genetic code (default Standard TAA/TAG/TGA); nested ORFs, optional alternative starts / partial ORFs / NCBI ORFfinder 0.4.3 options measured on the binary (`ignoreNested` -n, `regionStart/End` -b/-e, `strand`, `orfFinderMinLength` -ml, tables 27/28/31) and length convention; coordinates in the scanned strand and on the input; IUPAC input (N runs) accepted — an ambiguous codon is a stop only when every concrete codon is, never a start. |
 | `find_orthologs` | Best-hit ortholog pairs between two genomes by k-mer similarity (one-directional). |
 | `find_palindromes` | Sequences identical to their reverse complement (restriction-site candidates); only A/C/G/T pair, windows with N / IUPAC codes are never reported. |
+| `find_pattern_hits` | EMBOSS fuzznuc pattern language: IUPAC letters, classes `[ACG]`, exclusions `{AG}`, repeats `N(3)`, ranges `A(2,4)`, anchors `<` `>`; `maxMismatches` (-pmismatch), `bothStrands` (-complement), one pattern or a pattern file; verified against fuzznuc 6.6.0 on 3300 random patterns (B09 A2-32). |
 | `find_promoter_elements_by_matrix` | Scan a DNA sequence with the Bucher (1990) promoter weight matrices from JASPAR POLII (TATA box POL012.1, cap/Inr POL002.1, CCAAT box POL00… |
 | `find_protein_domains` | Detect common protein domains with EXACT PROSITE patterns: zinc finger C2H2 (PS00028), WD-repeats (PS00678), kinase ATP-binding / Walker… |
 | `find_protein_low_complexity_regions` | Low-complexity regions in a protein via the SEG algorithm (Wootton & Federhen 1993): sliding-window Shannon entropy in bits/residue, two-… |
@@ -78,7 +81,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `find_reciprocal_best_hits` | Reciprocal best hits (RBH) for stricter ortholog identification. |
 | `find_regulatory_elements` | Scan for built-in regulatory motifs (TATA, CAAT, GC-box, Kozak, Shine-Dalgarno, poly(A), E-box, AP-1, NF-κB, CREB). |
 | `find_regulatory_elements_both_strands` | Strand-annotated scan of the built-in regulatory library: every element on the given strand, plus the orientation-independent elements (CAA… |
-| `find_repeats` | Repeated substrings of a DNA sequence with all 0-based positions (overlaps counted): every distinct substring of length >= minLength occurring at least twice (default), or only Gusfield maximal repeats (`maximalOnly`). |
+| `find_repeats` | Repeated substrings of a DNA sequence with all 0-based positions (overlaps counted): every distinct substring of length >= minLength occurring at least twice (default), or only Gusfield maximal repeats (`maximalOnly`). `bothStrands` reports repeat classes over both strands (B09 A2-33); IUPAC input accepted (B09 A2-35). |
 | `find_reverse_complement_repeats` | Finds **maximal exact reverse-complement repeat pairs**: copy 1 at firstPosition and copy 2 at secondPosition (both 0-based, firstPosition… |
 | `find_rna_inverted_repeats` | Finds antiparallel complementary regions (potential RNA hairpin stems). |
 | `find_shared_motifs` | k-mers present in at least minSequences of the input DNA sequences. |
@@ -86,7 +89,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `find_stem_loops` | Enumerates hairpin stem-loop candidates with stem, loop, and Turner 2004 free energy. |
 | `find_supermaximal_repeats` | Finds **supermaximal repeats** (Gusfield 1997 §7.12.1; Vmatch -supermax): maximal repeats that never occur as a substring of another maxima… |
 | `find_syntenic_blocks` | Collinear runs of orthologous genes between two genomes. |
-| `find_tandem_repeats` | Exact tandem repeats (e.g., ATGATGATG): maximal runs of a primitive unit (minUnitLength..maxUnitLength) repeated >= minRepetitions times; IUPAC input accepted (units must be A/C/G/T only); approximate repeats: `find_approximate_tandem_repeats`. |
+| `find_tandem_repeats` | Exact tandem repeats (e.g., ATGATGATG): maximal runs of a primitive unit (minUnitLength..maxUnitLength) repeated >= minRepetitions times; IUPAC input accepted (units must be A/C/G/T only); approximate repeats: `find_approximate_tandem_repeats`. `canonicalRotation` reports the least rotation of each unit (B09 A2-34). |
 | `flush_coaxial_stacking` | Coaxial stacking energy for two RNA helices with no intervening unpaired bases. |
 | `gc_content_profile` | GC content in sliding windows along the sequence (`fraction=true` for [0,1]; `ambiguityMode=remove\|ignore\|weighted` for Biopython gc_fraction; `includePartialWindow`). |
 | `gc_skew` | Whole-sequence GC skew = (G - C) / (G + C). |

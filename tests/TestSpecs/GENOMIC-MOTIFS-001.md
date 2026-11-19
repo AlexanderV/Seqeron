@@ -197,3 +197,12 @@
 ## 2026-11 audit round 2 (A2-40, B09 F86): cancellation
 
 `FindKnownMotifHits(..., maxMismatches, CancellationToken)` polls before every (motif, strand) search and inside the Hamming scan; same tests as GENOMIC-COMMON-001.
+
+## Round 2 additions (audit A2-32 / A2-35, F96 / F99)
+
+| Id | Test | Requirement |
+|----|------|-------------|
+| M-A2-32a | `FindPatternHits_BothStrands_MatchesFuzznuc_AllRows`, `FindPatternHits_ForwardOnly_AndDnaSequenceOverload` | 3300 fuzznuc rows (classes, exclusions, repeats, ranges, anchors, mismatches, both strands) |
+| M-A2-32b | `Range_ReportsEveryMatchingWindow`, `RangeWithMismatches_ExtraRepeatsMustMatchExactly`, `Anchors_FollowTheStrand`, `StartAnchoredExactRange_ReturnsOnlyTheLongestMatchAtTheAnchor`, `ClassesExclusionsAndRepeats` | values run on the binary by hand |
+| S-A2-32 | `Parse_AcceptsTheDocumentedLanguage`, `Parse_RejectsWhatTheLanguageDoesNotDefine`, `Parse_NormalisesAndExpands`, `ReverseComplement_ReversesElementsComplementsSetsAndSwapsAnchors`, `ParsePatternFile_PlainAndFasta`, `NamedPatterns_AndValidation` | grammar, expansion, strands, pattern files |
+| M-A2-35 | `FindKnownMotifHits_String_MatchesBruteForce_OnNSequences`, `FindMotifAndKnownMotifs_String_AreTheDnaSequenceResults_OnAcgt_AndSkipNWindows`, `StringSequences_WithN_NeverMatchNonAcgt` | string overloads: N never matches, costs a mismatch |

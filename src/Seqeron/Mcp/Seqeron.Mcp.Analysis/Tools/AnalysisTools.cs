@@ -648,75 +648,105 @@ public class AnalysisTools
     #region GenomicAnalyzer
 
     [McpServerTool(Name = "find_repeats", Title = "Genome — Repeated Substrings", ReadOnly = true)]
-    [Description("Repeated substrings of a DNA sequence with all 0-based positions (overlapping occurrences counted, ascending). Default: every distinct substring of length >= minLength occurring at least twice, including all prefixes/suffixes of longer repeats, ordered by the smallest suffix starting with the repeat then by length. maximalOnly=true: only Gusfield maximal repeats (left- and right-diverse: cannot be extended on either side without losing an occurrence; text ends count as distinct), the strings behind REPuter/MUMmer self matches.")]
+    [Description("Repeated substrings of a DNA sequence with all 0-based positions (overlapping occurrences counted, ascending). Default: every distinct substring of length >= minLength occurring at least twice, including all prefixes/suffixes of longer repeats, ordered by the smallest suffix starting with the repeat then by length. maximalOnly=true: only Gusfield maximal repeats (left- and right-diverse: cannot be extended on either side without losing an occurrence; text ends count as distinct), the strings behind REPuter/MUMmer self matches. bothStrands=true: repeat CLASSES over both strands as MUMmer repeat-match / Vmatch -p (a string and its reverse complement are one class, reported as the smaller of the two; positions = forward starts, reversePositions = forward-strand starts of the windows that spell its reverse complement; a palindrome such as GAATTC is a repeat at a single site); the classes are ordered by string. IUPAC input (e.g. N runs of an assembly) is accepted: only A/C/G/T can repeat, a window containing N or another ambiguity code never repeats and an N next to a repeat makes it non-extendable.")]
     public static FindRepeatsResult FindRepeats(
-        [Description("DNA sequence.")] string sequence,
+        [Description("Nucleotide sequence: A/C/G/T plus IUPAC codes such as N (case-insensitive); non-A/C/G/T symbols never repeat.")] string sequence,
         [Description("Minimum repeat length (>= 1).")] int minLength,
         [Description("Report only maximal repeats (Gusfield 1997 sec. 7.12; default false = every repeated substring).")] bool maximalOnly = false,
+        [Description("Search both strands: classes of a string and its reverse complement (MUMmer repeat-match default). Default false = forward strand only.")] bool bothStrands = false,
         CancellationToken cancellationToken = default)
     {
-        var dna = RequireDna(sequence, nameof(sequence));
+        var nucleotides = RequireIupacDna(sequence, nameof(sequence));
         if (minLength < 1)
             throw new ArgumentOutOfRangeException(nameof(minLength), "Minimum repeat length must be at least 1");
 
+        if (bothStrands)
+        {
+            var classes = GenomicAnalyzer.FindRepeatsBothStrands(nucleotides, minLength, maximalOnly, cancellationToken)
+                .Select(r => new RepeatItem(r.Sequence, r.Positions.ToArray(), r.Length, r.Count, r.ReversePositions.ToArray()))
+                .ToArray();
+            return new FindRepeatsResult(classes);
+        }
+
         var repeats = maximalOnly
-            ? GenomicAnalyzer.FindMaximalRepeats(dna, minLength, cancellationToken)
-            : GenomicAnalyzer.FindRepeats(dna, minLength, cancellationToken);
+            ? GenomicAnalyzer.FindMaximalRepeats(nucleotides, minLength, cancellationToken)
+            : GenomicAnalyzer.FindRepeats(nucleotides, minLength, cancellationToken);
         var items = repeats
             .Select(r => new RepeatItem(r.Sequence, r.Positions.ToArray(), r.Length, r.Count))
             .ToArray();
         return new FindRepeatsResult(items);
     }
 
+    [McpServerTool(Name = "find_all_longest_repeats", Title = "Genome — All Longest Repeats", ReadOnly = true)]
+    [Description("EVERY longest repeated substring of a DNA sequence (all length ties; find_longest_repeat returns the leftmost one) with all its 0-based positions (overlapping occurrences counted, ascending), the deepest internal nodes of the suffix tree (Gusfield 1997 sec. 7.1); ordered by first occurrence. bothStrands=true: the longest repeat classes over both strands (a string and its reverse complement are one class, the smaller string is reported; reversePositions = forward-strand starts of the windows that spell its reverse complement), ordered by string. IUPAC input is accepted: only A/C/G/T can repeat, an N run is never a repeat. Items is empty (length 0) when nothing repeats.")]
+    public static FindAllLongestRepeatsResult FindAllLongestRepeats(
+        [Description("Nucleotide sequence: A/C/G/T plus IUPAC codes such as N (case-insensitive); non-A/C/G/T symbols never repeat.")] string sequence,
+        [Description("Search both strands (default false).")] bool bothStrands = false,
+        CancellationToken cancellationToken = default)
+    {
+        var nucleotides = RequireIupacDna(sequence, nameof(sequence));
+        RepeatItem[] items = bothStrands
+            ? GenomicAnalyzer.FindAllLongestRepeatsBothStrands(nucleotides, cancellationToken)
+                .Select(r => new RepeatItem(r.Sequence, r.Positions.ToArray(), r.Length, r.Count, r.ReversePositions.ToArray())).ToArray()
+            : GenomicAnalyzer.FindAllLongestRepeats(nucleotides)
+                .Select(r => new RepeatItem(r.Sequence, r.Positions.ToArray(), r.Length, r.Count)).ToArray();
+        return new FindAllLongestRepeatsResult(items, items.Length == 0 ? 0 : items[0].Length);
+    }
+
     [McpServerTool(Name = "find_tandem_repeats", Title = "Genome — Tandem Repeats", ReadOnly = true)]
-    [Description("Exact tandem repeats (e.g. ATGATGATG): every maximal run of a primitive unit of length minUnitLength..maxUnitLength with >= minRepetitions complete copies, reported once at its left end (ATATATAT = AT x4 at 0, not also ATAT x2); ordered by unit length then start; 0-based. Facade over RepeatFinder.FindMicrosatellites (Kolpakov-Kucherov maximal repetitions). IUPAC input (e.g. N runs of an assembly) is accepted: only units made of A/C/G/T repeat, a window containing N or another ambiguity code never forms a repeat. Approximate (interrupted) repeats: find_approximate_tandem_repeats (TRF).")]
+    [Description("Exact tandem repeats (e.g. ATGATGATG): every maximal run of a primitive unit of length minUnitLength..maxUnitLength with >= minRepetitions complete copies, reported once at its left end (ATATATAT = AT x4 at 0, not also ATAT x2); ordered by unit length then start; 0-based. Facade over RepeatFinder.FindMicrosatellites (Kolpakov-Kucherov maximal repetitions). IUPAC input (e.g. N runs of an assembly) is accepted: only units made of A/C/G/T repeat, a window containing N or another ambiguity code never forms a repeat. canonicalRotation=true reports the lexicographically least rotation of each unit (Booth 1980; groups ATG / TGA / GAT) as unit and the unit as spelled in the sequence as originalUnit; position and repetitions are unchanged. Approximate (interrupted) repeats: find_approximate_tandem_repeats (TRF).")]
     public static FindTandemRepeatsResult FindTandemRepeats(
         [Description("Nucleotide sequence: A/C/G/T plus IUPAC codes such as N (case-insensitive). A repeat unit must be spelled with A/C/G/T only, so windows with N never form a repeat.")] string sequence,
         [Description("Minimum repeat-unit length (default 2, >= 1).")] int minUnitLength = 2,
         [Description("Minimum number of complete repetitions (default 2, >= 2).")] int minRepetitions = 2,
-        [Description("Optional maximum repeat-unit length (>= minUnitLength); omit for no upper bound (a unit longer than length / minRepetitions can never repeat).")] int? maxUnitLength = null)
+        [Description("Optional maximum repeat-unit length (>= minUnitLength); omit for no upper bound (a unit longer than length / minRepetitions can never repeat).")] int? maxUnitLength = null,
+        [Description("Report each unit as its lexicographically least rotation (Booth 1980) instead of the spelling at the run's left end; originalUnit then holds the actual spelling. Default false.")] bool canonicalRotation = false)
     {
         var nucleotides = RequireIupacDna(sequence, nameof(sequence));
-        var found = maxUnitLength is { } max
-            ? GenomicAnalyzer.FindTandemRepeats(nucleotides, minUnitLength, minRepetitions, max)
-            : GenomicAnalyzer.FindTandemRepeats(nucleotides, minUnitLength, minRepetitions);
+        IEnumerable<TandemRepeat> found;
+        if (canonicalRotation)
+            found = GenomicAnalyzer.FindTandemRepeats(nucleotides, minUnitLength, minRepetitions, maxUnitLength ?? int.MaxValue, canonicalRotation: true);
+        else if (maxUnitLength is { } max)
+            found = GenomicAnalyzer.FindTandemRepeats(nucleotides, minUnitLength, minRepetitions, max);
+        else
+            found = GenomicAnalyzer.FindTandemRepeats(nucleotides, minUnitLength, minRepetitions);
         var items = found
-            .Select(t => new TandemRepeatItem(t.Unit, t.Position, t.Repetitions, t.TotalLength))
+            .Select(t => new TandemRepeatItem(t.Unit, t.Position, t.Repetitions, t.TotalLength, canonicalRotation ? t.OriginalUnit : null))
             .ToArray();
         return new FindTandemRepeatsResult(items);
     }
 
     [McpServerTool(Name = "find_motif", Title = "Genome — Find Motif (Exact)", ReadOnly = true)]
-    [Description("All exact occurrences of a motif (case-insensitive, overlapping, ascending 0-based positions, forward strand) in a DNA sequence.")]
+    [Description("All exact occurrences of a motif (case-insensitive, overlapping, ascending 0-based positions, forward strand) in a DNA sequence. IUPAC input (e.g. N runs) is accepted: a symbol other than A/C/G/T never matches, so no window containing one is an occurrence.")]
     public static MotifPositionsResult FindMotif(
-        [Description("DNA sequence.")] string sequence,
+        [Description("Nucleotide sequence: A/C/G/T plus IUPAC codes such as N (case-insensitive); non-A/C/G/T symbols match nothing.")] string sequence,
         [Description("Motif to locate.")] string motif)
     {
-        var dna = RequireDna(sequence, nameof(sequence));
+        var nucleotides = RequireIupacDna(sequence, nameof(sequence));
         if (string.IsNullOrEmpty(motif))
             throw new ArgumentException("Motif cannot be null or empty", nameof(motif));
 
-        var positions = GenomicAnalyzer.FindMotif(dna, motif);
+        var positions = GenomicAnalyzer.FindMotif(nucleotides, motif);
         return new MotifPositionsResult(positions.ToArray());
     }
 
     [McpServerTool(Name = "find_known_motifs", Title = "Genome — Search Known Motif Set", ReadOnly = true)]
     [Description("Search for a user-provided set of motifs simultaneously (exact by default; optional IUPAC codes, reverse strand and a mismatch budget). Only motifs with at least one hit are returned; positions ascending, 0-based, forward-strand window starts. mismatches = k > 0 allows up to k substituted positions per window (Hamming distance, EMBOSS fuzznuc -pmismatch; no gaps) and adds matchMismatches / reverseMismatches (the distance of each reported hit, parallel to the position arrays).")]
     public static FindKnownMotifsResult FindKnownMotifs(
-        [Description("DNA sequence.")] string sequence,
+        [Description("Nucleotide sequence: A/C/G/T plus IUPAC codes such as N (case-insensitive); a symbol other than A/C/G/T matches no motif symbol (not even N) and costs a mismatch when mismatches > 0.")] string sequence,
         [Description("Set of motifs to search.")] string[] motifs,
         [Description("Also search the reverse strand: reverseMatches lists the windows matching the reverse complement of each motif (default false).")] bool bothStrands = false,
         [Description("Interpret IUPAC ambiguity codes in the motifs, e.g. TATAWAW (default false: codes are literal; without mismatches they match nothing, with mismatches each costs one).")] bool iupac = false,
         [Description("Maximum number of mismatching positions per hit (default 0 = exact; fuzznuc -pmismatch). A bound >= the motif length makes every window a hit.")] int mismatches = 0,
         CancellationToken cancellationToken = default)
     {
-        var dna = RequireDna(sequence, nameof(sequence));
+        var nucleotides = RequireIupacDna(sequence, nameof(sequence));
         if (motifs is null)
             throw new ArgumentException("Motifs cannot be null", nameof(motifs));
         if (mismatches < 0)
             throw new ArgumentOutOfRangeException(nameof(mismatches), "Mismatches cannot be negative");
 
-        var hits = GenomicAnalyzer.FindKnownMotifHits(dna, motifs, bothStrands, iupac, mismatches, cancellationToken);
+        var hits = GenomicAnalyzer.FindKnownMotifHits(nucleotides, motifs, bothStrands, iupac, mismatches, cancellationToken);
         var matches = new Dictionary<string, int[]>(hits.Count);
         var reverse = new Dictionary<string, int[]>();
         var matchMismatches = mismatches > 0 ? new Dictionary<string, int[]>(hits.Count) : null;
@@ -743,20 +773,67 @@ public class AnalysisTools
         return new FindKnownMotifsResult(matches, reverse, matchMismatches, reverseMismatches);
     }
 
-    [McpServerTool(Name = "find_common_regions", Title = "Genome — Common Regions", ReadOnly = true)]
-    [Description("Right-maximal common regions of two DNA sequences: for each start in sequence2 the single longest substring (length >= minLength) that also occurs in sequence1, distinct strings once, with the first occurrence in sequence1. Not every common substring.")]
-    public static FindCommonRegionsResult FindCommonRegions(
-        [Description("First DNA sequence.")] string sequence1,
-        [Description("Second DNA sequence.")] string sequence2,
-        [Description("Minimum common-region length.")] int minLength,
+    [McpServerTool(Name = "find_pattern_hits", Title = "Genome — fuzznuc Pattern Search", ReadOnly = true)]
+    [Description("Search a DNA sequence with an EMBOSS fuzznuc pattern (the -pattern language): IUPAC letters, classes [ACG], exclusions {AG}, repeats N(3), length ranges A(2,4) (every matching window length is reported), '-' separators, the anchors '<' (start of the sequence) and '>' (end), a terminating '.'; e.g. [CG](5)TG{A}N(1,5)C. maxMismatches = fuzznuc -pmismatch (Hamming, substitutions only; with a range the extra repeats beyond n of X(n,m) must match exactly, as in fuzznuc); bothStrands = -complement (the reverse-strand pattern is the reversed, complemented one with swapped anchors; positions are forward-strand starts). Give one pattern, or patternFile = the text of a fuzznuc pattern file (one pattern per line, or FASTA '>name' + pattern) for several named patterns. Verified against EMBOSS fuzznuc 6.6.0 on 3300 random patterns. A symbol other than A/C/G/T in the sequence matches nothing and costs a mismatch. Positions 0-based; hits ordered by position, length, forward before reverse.")]
+    public static FindPatternHitsResult FindPatternHits(
+        [Description("Nucleotide sequence: A/C/G/T plus IUPAC codes such as N (case-insensitive).")] string sequence,
+        [Description("One fuzznuc pattern (omit when patternFile is given).")] string? pattern = null,
+        [Description("Text of a fuzznuc pattern file: one pattern per line, or FASTA style (>name then the pattern); several patterns are reported under their names (unnamed: pattern1, pattern2, ...).")] string? patternFile = null,
+        [Description("Maximum substitutions per hit (fuzznuc -pmismatch, default 0).")] int maxMismatches = 0,
+        [Description("Also search the reverse-complement strand (fuzznuc -complement, default false).")] bool bothStrands = false,
         CancellationToken cancellationToken = default)
     {
-        var dna1 = RequireDna(sequence1, nameof(sequence1));
-        var dna2 = RequireDna(sequence2, nameof(sequence2));
-        var items = GenomicAnalyzer.FindCommonRegions(dna1, dna2, minLength, cancellationToken)
-            .Select(r => new CommonRegionItem(r.Sequence, r.PositionInFirst, r.PositionInSecond, r.Length))
+        var nucleotides = RequireIupacDna(sequence, nameof(sequence));
+        if (maxMismatches < 0)
+            throw new ArgumentOutOfRangeException(nameof(maxMismatches), "maxMismatches cannot be negative");
+        if (string.IsNullOrWhiteSpace(pattern) == string.IsNullOrWhiteSpace(patternFile))
+            throw new ArgumentException("Give exactly one of pattern and patternFile", nameof(pattern));
+
+        var patterns = string.IsNullOrWhiteSpace(patternFile)
+            ? new[] { new NamedPattern("pattern1", FuzznucPattern.Parse(pattern!)) }
+            : FuzznucPattern.ParsePatternFile(patternFile).ToArray();
+        var hits = GenomicAnalyzer.FindPatternHits(nucleotides, patterns, maxMismatches, bothStrands, cancellationToken);
+        var items = hits
+            .SelectMany(kv => kv.Value.Select(h => new PatternHitItem(kv.Key, h.Position, h.Length, h.IsReverseStrand ? "reverse" : "forward", h.Mismatches)))
+            .ToArray();
+        return new FindPatternHitsResult(patterns.ToDictionary(p => p.Name, p => p.Pattern.ToString()), items);
+    }
+
+    [McpServerTool(Name = "find_common_regions", Title = "Genome — Common Regions", ReadOnly = true)]
+    [Description("Common regions of two DNA sequences. mode RightMaximal (default): for each start in sequence2 the single longest substring (length >= minLength) that also occurs in sequence1, distinct strings once, with the first occurrence in sequence1 - not every common substring. mode MaximalExactMatches / MaximalUniqueReference / MaximalUnique = MUMmer -maxmatch / -mumreference / -mum: every maximal exact match (one entry per pair of occurrences), those whose string is unique in sequence1, those unique in both. strands Forward (default) | ReverseComplement | Both (mummer -r / -b): a reverse region is a substring of sequence1 whose reverse complement occurs in sequence2; positionInSecond is then the forward-strand start of that window (mummer -c convention) and isReverseComplement is true; reverse regions follow the forward ones in the order of the reverse-complemented query. IUPAC input (e.g. N runs of an assembly) is accepted: only A/C/G/T match, an N ends every region. Verified against mummer 3.23 (4716 mode x strand cases).")]
+    public static FindCommonRegionsResult FindCommonRegions(
+        [Description("First nucleotide sequence (the reference): A/C/G/T plus IUPAC codes such as N (case-insensitive).")] string sequence1,
+        [Description("Second nucleotide sequence (the query).")] string sequence2,
+        [Description("Minimum common-region length (mummer -l); values below 1 are treated as 1.")] int minLength,
+        [Description("Which regions (case-insensitive): RightMaximal (default) | MaximalExactMatches | MaximalUniqueReference | MaximalUnique.")] string mode = "RightMaximal",
+        [Description("Which strands of sequence2 (case-insensitive): Forward (default) | ReverseComplement | Both.")] string strands = "Forward",
+        CancellationToken cancellationToken = default)
+    {
+        var s1 = RequireIupacDna(sequence1, nameof(sequence1));
+        var s2 = RequireIupacDna(sequence2, nameof(sequence2));
+        var regionMode = ParseExactEnumName<CommonRegionMode>(mode, nameof(mode));
+        var strandSelection = ParseExactEnumName<StrandSelection>(strands, nameof(strands));
+        var items = GenomicAnalyzer.FindCommonRegions(s1, s2, minLength, regionMode, strandSelection, cancellationToken)
+            .Select(r => new CommonRegionItem(r.Sequence, r.PositionInFirst, r.PositionInSecond, r.Length, r.IsReverseComplement))
             .ToArray();
         return new FindCommonRegionsResult(items);
+    }
+
+    [McpServerTool(Name = "find_longest_common_region_mismatches", Title = "Genome — Longest Common Region with Mismatches", ReadOnly = true)]
+    [Description("Longest common substring with at most k mismatches (k-mismatch LCS, Flouri et al. 2015; Thankachan et al. 2016): the longest pair of equal-length windows, one of each sequence, that differ in at most maxMismatches positions (Hamming, no gaps); the window may start or end on a mismatch. Ties: smallest start in sequence2, then smallest in sequence1; with maxMismatches = 0 this is find_longest_common_region. strands Forward (default) | ReverseComplement | Both compares sequence1 with the reverse complement of sequence2 (positionInSecond is the forward-strand start; sequence2 is the window of the reverse-complemented sequence2); Both prefers the forward strand on a tie. A symbol other than A/C/G/T (N included) is a mismatch against everything. O(n*m) time. Length 0 and empty strings when no window exists.")]
+    public static LongestCommonRegionMismatchesResult FindLongestCommonRegionMismatches(
+        [Description("First nucleotide sequence: A/C/G/T plus IUPAC codes such as N (case-insensitive).")] string sequence1,
+        [Description("Second nucleotide sequence.")] string sequence2,
+        [Description("Largest number of mismatching positions in the window pair (>= 0).")] int maxMismatches,
+        [Description("Which strands of sequence2 (case-insensitive): Forward (default) | ReverseComplement | Both.")] string strands = "Forward")
+    {
+        var s1 = RequireIupacDna(sequence1, nameof(sequence1));
+        var s2 = RequireIupacDna(sequence2, nameof(sequence2));
+        if (maxMismatches < 0)
+            throw new ArgumentOutOfRangeException(nameof(maxMismatches), "maxMismatches cannot be negative");
+        var strandSelection = ParseExactEnumName<StrandSelection>(strands, nameof(strands));
+        var r = GenomicAnalyzer.FindLongestCommonRegionWithMismatches(s1, s2, maxMismatches, strandSelection);
+        return new LongestCommonRegionMismatchesResult(r.Sequence1, r.Sequence2, r.PositionInFirst, r.PositionInSecond, r.Length, r.Mismatches, r.IsReverseComplement);
     }
 
     [McpServerTool(Name = "find_open_reading_frames", Title = "Genome — Open Reading Frames", ReadOnly = true)]

@@ -15,7 +15,7 @@ dotnet run --project Seqeron.Mcp.Alignment
 
 Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run","--project","Seqeron.Mcp.Alignment"]`). New to MCP? The [hub guide](../../../../docs/mcp/README.md) lists all 11 servers and how to wire them up.
 
-## Tools (35)
+## Tools (51)
 
 | Tool | Description |
 |------|-------------|
@@ -24,6 +24,8 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `assemble_olc` | Assembles input reads into contigs using the overlap–layout–consensus approach: detects pairwise suffix–prefix overlaps above thresholds,… |
 | `assembly_stats` | Computes assembly statistics (N50, longest contig, total length, assembled-reads accounting) for a precomputed list of contigs. |
 | `calculate_coverage` | Maps each read to its best-matching position on the reference (≥ minOverlap matching bases) and returns per-base coverage depth as an int… |
+| `clustalw_pairwise_align` | ClustalW 2.1 full pairwise stage (FullPairwiseAlign) for DNA / protein: affine local alignment, percent identity and guide-tree distance; verified against clustalw 2.1 (B09 A2-36). |
+| `clustalw_quick_pairwise_align` | ClustalW 2.1 fast k-tuple pairwise stage (-QUICKTREE): fragment score, percent score and distance (B09 A2-36). |
 | `compute_consensus` | Builds a consensus sequence from a list of pre-aligned reads (same length, '-' / 'N' ignored) by majority vote per column. |
 | `damerau_alignment` | Optimal transposition-aware edit script turning sequence1 into sequence2 (Lowrance & Wagner 1975 trace). |
 | `damerau_levenshtein_distance` | Edit distance with adjacent transpositions. |
@@ -62,6 +64,12 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `semi_global_align` | Semi-global (fitting) pairwise alignment with free end gaps in sequence2. Linear gap model: every gap position scores gapExtend; gapOpen is… |
 | `semi_global_align_affine` | Semi-global (fitting) pairwise alignment with affine gap costs: sequence1 is aligned end to end inside sequence2 (free leading/trailing seq… |
 | `sequence_identity` | Computes percent-identity (fraction in [0,1]) between two equal-length sequences via case-insensitive position-by-position comparison. |
+| `sum_of_pairs_score` | Sum-of-pairs score of a multiple alignment: linear or affine (Altschul 1989) gaps, simple scores or an EMBOSS substitution matrix (B09 A2-36). |
+| `tcoffee_guide_tree` | The T-Coffee 13.41 guide tree (k-tuple distances, neighbour joining, binary rooting) as Newick (B09 A2-36). |
+| `tcoffee_ktup_similarity` | The pairwise k-tuple similarity matrix of the T-Coffee 13.41 guide-tree stage (B09 A2-36). |
+| `tcoffee_lalign_top_alignments` | T-Coffee 13.41 `lalign_id_pair`: the top-N non-intersecting local alignments by Huang-Miller SIM (B09 A2-36). |
+| `tcoffee_primary_library` | The primary library T-Coffee 13.41 builds for sequences and pair-wise methods (residue pairs with weights) (B09 A2-36). |
+| `tcoffee_slow_pair_align` | T-Coffee 13.41 `slow_pair` method: Myers-Miller global alignment with the program's matrices and penalties (B09 A2-36). |
 
 **Protein / matrix multiple alignment (B09 F61, audit A1-14).** Every `multiple_align*` tool except `multiple_align_clustalw` takes `type = dna | protein` and `matrix = BLOSUM62 | PAM250 | EDNAFULL` (additive; `type=protein` defaults to BLOSUM62, EDNAFULL gives IUPAC DNA) and then scores residue pairs with the published substitution table and real-valued (fractional, EMBOSS-style 0.5) gap scores, linear or affine (`gapModel`); `gapOpen` / `gapExtend` are numbers (integers unless a matrix is used). The protein path is the same code as the DNA path (the string / `ProteinSequence` overloads of `SequenceAligner.MultipleAlign*` with `MatrixScoring`); results carry `exactTotalScore` (the real sum of pairs; `totalScore` is it rounded half away from zero) and, for `multiple_align_exact`, `scoreScale`. Verified against independent Python implementations of every method (238 protein / IUPAC-DNA sets, rows equal), Biopython 1.88 pairwise optima, exhaustive enumeration of tiny sets and the `t_coffee` program (160 protein sets for the progressive stage).
 

@@ -1,0 +1,128 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "toolName": "sum_of_pairs_score",
+ "serverName": "Alignment",
+ "version": "1.0.0",
+ "stability": "stable",
+ "methodId": "SequenceAligner.SumOfPairsScore",
+ "docRef": "Seqeron.Genomics.Alignment/SequenceAligner.MultipleAffine.cs",
+ "description": "Sum-of-pairs score of a multiple alignment (equal-length rows, '-' = gap). gapModel 'linear' (default): column sum of pairs - residue pairs match / mismatch, residue against gap gapExtend, gap against gap 0 (the totalScore of the linear aligners); 'affine': the natural affine objective (Altschul 1989) - for every pair of rows the gap-gap columns are removed and every maximal gap run costs gapOpen + length x gapExtend. Scores: match / mismatch / gapOpen / gapExtend (integers; negative = penalty); with matrix (BLOSUM62, PAM250, EDNAFULL or any EMBOSS matrix) the residue pairs are scored by that table (protein / IUPAC rows, residues case-insensitive) and the gap scores may be fractional - the score is then a real number. This is the objective the exact (Carrillo-Lipman) and affine aligners optimise; MUSCLE's own SP score is muscle_msa_command mode 'spscore'.",
+ "inputSchema": {
+  "type": "object",
+  "properties": {
+   "alignedRows": {
+    "type": "array",
+    "items": {
+     "type": "string"
+    },
+    "description": "Equal-length aligned rows, '-' = gap."
+   },
+   "match": {
+    "type": "integer",
+    "description": "Score for a matching residue pair (ignored with matrix).",
+    "default": 1
+   },
+   "mismatch": {
+    "type": "integer",
+    "description": "Score for a mismatching residue pair (ignored with matrix).",
+    "default": -1
+   },
+   "gapOpen": {
+    "type": "number",
+    "description": "Gap-open score added once per gap run (affine model only; negative = penalty; integer unless matrix is given).",
+    "default": -2
+   },
+   "gapExtend": {
+    "type": "number",
+    "description": "Gap score per gap position (negative = penalty; integer unless matrix is given).",
+    "default": -1
+   },
+   "gapModel": {
+    "type": "string",
+    "description": "Gap model: 'linear' (default) or 'affine'.",
+    "default": "linear"
+   }
+  },
+  "required": [
+   "alignedRows"
+  ]
+ },
+ "outputSchema": {
+  "type": "object",
+  "properties": {
+   "score": {
+    "type": "number"
+   },
+   "gapModel": {
+    "type": "string"
+   },
+   "scoring": {
+    "type": "string"
+   }
+  },
+  "required": [
+   "score",
+   "gapModel",
+   "scoring"
+  ]
+ },
+ "errors": [
+  {
+   "code": 1001,
+   "message": "alignedRows must contain at least one row"
+  },
+  {
+   "code": 1001,
+   "message": "All aligned rows must have the same length"
+  },
+  {
+   "code": 1001,
+   "message": "gapModel must be linear or affine"
+  },
+  {
+   "code": 1001,
+   "message": "gapOpen / gapExtend is not an integer (fractional gap scores need a matrix)"
+  }
+ ],
+ "examples": [
+  {
+   "name": "Linear",
+   "input": {
+    "alignedRows": [
+     "AC-",
+     "AC-",
+     "ACA"
+    ],
+    "match": 2,
+    "mismatch": -1,
+    "gapOpen": -3,
+    "gapExtend": -2
+   },
+   "output": {
+    "score": 8,
+    "gapModel": "Linear",
+    "scoring": "match 2 mismatch -1"
+   }
+  },
+  {
+   "name": "Affine",
+   "input": {
+    "alignedRows": [
+     "AC-",
+     "AC-",
+     "ACA"
+    ],
+    "match": 2,
+    "mismatch": -1,
+    "gapOpen": -3,
+    "gapExtend": -2,
+    "gapModel": "affine"
+   },
+   "output": {
+    "score": 2,
+    "gapModel": "Affine",
+    "scoring": "match 2 mismatch -1"
+   }
+  }
+ ]
+}

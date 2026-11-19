@@ -8,7 +8,7 @@ namespace Seqeron.Mcp.Alignment.Tools;
 /// genome assembly operations.
 /// </summary>
 [McpServerToolType]
-public class AlignmentTools
+public partial class AlignmentTools
 {
     // Utility holder for static MCP tools; never instantiated (S1118).
     private AlignmentTools() { }

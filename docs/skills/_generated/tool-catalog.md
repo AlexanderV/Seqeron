@@ -4,7 +4,7 @@
 
 <!-- BEGIN generated: do not edit by hand -->
 
-## Alignment (43 tools)
+## Alignment (51 tools)
 
 | tool | Method ID | doc |
 |------|-----------|-----|
@@ -13,6 +13,8 @@
 | `assemble_olc` | `SequenceAssembler.AssembleOLC` | [doc](../../mcp/tools/alignment/assemble_olc.md) |
 | `assembly_stats` | `SequenceAssembler.CalculateStats` | [doc](../../mcp/tools/alignment/assembly_stats.md) |
 | `calculate_coverage` | `SequenceAssembler.CalculateCoverage` | [doc](../../mcp/tools/alignment/calculate_coverage.md) |
+| `clustalw_pairwise_align` | `SequenceAligner.ClustalWPairwiseAlign` | [doc](../../mcp/tools/alignment/clustalw_pairwise_align.md) |
+| `clustalw_quick_pairwise_align` | `SequenceAligner.ClustalWQuickPairwiseAlign` | [doc](../../mcp/tools/alignment/clustalw_quick_pairwise_align.md) |
 | `compute_consensus` | `SequenceAssembler.ComputeConsensus` | [doc](../../mcp/tools/alignment/compute_consensus.md) |
 | `damerau_alignment` | `ApproximateMatcher.GetDamerauLevenshteinAlignment` | [doc](../../mcp/tools/alignment/damerau_alignment.md) |
 | `damerau_levenshtein_distance` | `ApproximateMatcher.DamerauLevenshteinDistance` | [doc](../../mcp/tools/alignment/damerau_levenshtein_distance.md) |
@@ -51,8 +53,14 @@
 | `semi_global_align` | `SequenceAligner.SemiGlobalAlign` | [doc](../../mcp/tools/alignment/semi_global_align.md) |
 | `semi_global_align_affine` | `SequenceAligner.SemiGlobalAlignAffine` | [doc](../../mcp/tools/alignment/semi_global_align_affine.md) |
 | `sequence_identity` | `SequenceAssembler.CalculateIdentity` | [doc](../../mcp/tools/alignment/sequence_identity.md) |
+| `sum_of_pairs_score` | `SequenceAligner.SumOfPairsScore` | [doc](../../mcp/tools/alignment/sum_of_pairs_score.md) |
+| `tcoffee_guide_tree` | `SequenceAligner.TCoffeeGuideTree` | [doc](../../mcp/tools/alignment/tcoffee_guide_tree.md) |
+| `tcoffee_ktup_similarity` | `SequenceAligner.TCoffeeKtupSimilarity` | [doc](../../mcp/tools/alignment/tcoffee_ktup_similarity.md) |
+| `tcoffee_lalign_top_alignments` | `SequenceAligner.TCoffeeLalignTopAlignments` | [doc](../../mcp/tools/alignment/tcoffee_lalign_top_alignments.md) |
+| `tcoffee_primary_library` | `SequenceAligner.TCoffeePrimaryLibraryEntries` | [doc](../../mcp/tools/alignment/tcoffee_primary_library.md) |
+| `tcoffee_slow_pair_align` | `SequenceAligner.TCoffeeSlowPairAlign` | [doc](../../mcp/tools/alignment/tcoffee_slow_pair_align.md) |
 
-## Analysis (129 tools)
+## Analysis (132 tools)
 
 | tool | Method ID | doc |
 |------|-----------|-----|
@@ -85,6 +93,7 @@
 | `dust_score` | `SequenceComplexity.CalculateDustScore` | [doc](../../mcp/tools/analysis/dust_score.md) |
 | `dyad_analysis` | `MotifFinder.AnalyzeDyads` | [doc](../../mcp/tools/analysis/dyad_analysis.md) |
 | `entropy_profile` | `SequenceStatistics.CalculateEntropyProfile` | [doc](../../mcp/tools/analysis/entropy_profile.md) |
+| `find_all_longest_repeats` | `GenomicAnalyzer.FindAllLongestRepeats` | [doc](../../mcp/tools/analysis/find_all_longest_repeats.md) |
 | `find_approximate_direct_repeats` | `RepeatFinder.FindApproximateDirectRepeats` | [doc](../../mcp/tools/analysis/find_approximate_direct_repeats.md) |
 | `find_approximate_tandem_repeats` | `RepeatFinder.FindApproximateTandemRepeats` | [doc](../../mcp/tools/analysis/find_approximate_tandem_repeats.md) |
 | `find_clump_windows` | `KmerAnalyzer.FindClumpWindows` | [doc](../../mcp/tools/analysis/find_clump_windows.md) |
@@ -99,6 +108,7 @@
 | `find_inverted_repeats_scored` | `RepeatFinder.FindInvertedRepeatsScored` | [doc](../../mcp/tools/analysis/find_inverted_repeats_scored.md) |
 | `find_known_motifs` | `GenomicAnalyzer.FindKnownMotifs` | [doc](../../mcp/tools/analysis/find_known_motifs.md) |
 | `find_longdust_regions` | `SequenceComplexity.FindLongdustRegions` | [doc](../../mcp/tools/analysis/find_longdust_regions.md) |
+| `find_longest_common_region_mismatches` | `GenomicAnalyzer.FindLongestCommonRegionWithMismatches` | [doc](../../mcp/tools/analysis/find_longest_common_region_mismatches.md) |
 | `find_low_complexity_intervals` | `SequenceComplexity.FindLowComplexityIntervals` | [doc](../../mcp/tools/analysis/find_low_complexity_intervals.md) |
 | `find_low_complexity_regions` | `SequenceComplexity.FindLowComplexityRegions` | [doc](../../mcp/tools/analysis/find_low_complexity_regions.md) |
 | `find_microsatellites` | `RepeatFinder.FindMicrosatellites` | [doc](../../mcp/tools/analysis/find_microsatellites.md) |
@@ -108,6 +118,7 @@
 | `find_open_reading_frames` | `GenomicAnalyzer.FindOpenReadingFrames` | [doc](../../mcp/tools/analysis/find_open_reading_frames.md) |
 | `find_orthologs` | `ComparativeGenomics.FindOrthologs` | [doc](../../mcp/tools/analysis/find_orthologs.md) |
 | `find_palindromes` | `RepeatFinder.FindPalindromes` | [doc](../../mcp/tools/analysis/find_palindromes.md) |
+| `find_pattern_hits` | `GenomicAnalyzer.FindPatternHits` | [doc](../../mcp/tools/analysis/find_pattern_hits.md) |
 | `find_promoter_elements_by_matrix` | `MotifFinder.FindPromoterElementsByMatrix` | [doc](../../mcp/tools/analysis/find_promoter_elements_by_matrix.md) |
 | `find_protein_domains` | `ProteinMotifFinder.FindDomains` | [doc](../../mcp/tools/analysis/find_protein_domains.md) |
 | `find_protein_low_complexity_regions` | `ProteinMotifFinder.FindLowComplexityRegions` | [doc](../../mcp/tools/analysis/find_protein_low_complexity_regions.md) |

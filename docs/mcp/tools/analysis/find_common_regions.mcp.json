@@ -1,58 +1,135 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "toolName": "find_common_regions",
-  "serverName": "Analysis",
-  "version": "1.0.0",
-  "stability": "stable",
-  "methodId": "GenomicAnalyzer.FindCommonRegions",
-  "docRef": "Seqeron.Genomics.Analysis/GenomicAnalyzer.cs#L306",
-  "description": "For each start in sequence2, the single longest substring (>= minLength) also occurring in sequence1, found via the suffix tree of sequence1 (matching statistics); distinct matches reported once, position1 = first occurrence in sequence1.",
-  "inputSchema": {
-    "type": "object",
-    "properties": {
-      "sequence1": { "type": "string", "description": "First DNA sequence", "minLength": 1 },
-      "sequence2": { "type": "string", "description": "Second DNA sequence", "minLength": 1 },
-      "minLength": { "type": "integer", "description": "Minimum common-region length" }
-    },
-    "required": ["sequence1", "sequence2", "minLength"]
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "toolName": "find_common_regions",
+ "serverName": "Analysis",
+ "version": "1.0.0",
+ "stability": "stable",
+ "methodId": "GenomicAnalyzer.FindCommonRegions",
+ "docRef": "Seqeron.Genomics.Analysis/GenomicAnalyzer.cs#L306",
+ "description": "Common regions of two DNA sequences. mode RightMaximal (default): for each start in sequence2 the single longest substring (length >= minLength) that also occurs in sequence1, distinct strings once, with the first occurrence in sequence1 - not every common substring. mode MaximalExactMatches / MaximalUniqueReference / MaximalUnique = MUMmer -maxmatch / -mumreference / -mum: every maximal exact match (one entry per pair of occurrences), those whose string is unique in sequence1, those unique in both. strands Forward (default) | ReverseComplement | Both (mummer -r / -b): a reverse region is a substring of sequence1 whose reverse complement occurs in sequence2; positionInSecond is then the forward-strand start of that window (mummer -c convention) and isReverseComplement is true; reverse regions follow the forward ones in the order of the reverse-complemented query. IUPAC input (e.g. N runs of an assembly) is accepted: only A/C/G/T match, an N ends every region. Verified against mummer 3.23 (4716 mode x strand cases).",
+ "inputSchema": {
+  "type": "object",
+  "properties": {
+   "sequence1": {
+    "type": "string",
+    "description": "First nucleotide sequence (the reference): A/C/G/T plus IUPAC codes such as N (case-insensitive).",
+    "minLength": 1
+   },
+   "sequence2": {
+    "type": "string",
+    "description": "Second nucleotide sequence (the query).",
+    "minLength": 1
+   },
+   "minLength": {
+    "type": "integer",
+    "description": "Minimum common-region length (mummer -l); values below 1 are treated as 1."
+   },
+   "mode": {
+    "type": "string",
+    "description": "Which regions (case-insensitive): RightMaximal (default) | MaximalExactMatches | MaximalUniqueReference | MaximalUnique.",
+    "default": "RightMaximal"
+   },
+   "strands": {
+    "type": "string",
+    "description": "Which strands of sequence2 (case-insensitive): Forward (default) | ReverseComplement | Both.",
+    "default": "Forward"
+   }
   },
-  "outputSchema": {
-    "type": "object",
-    "properties": {
-      "items": {
-        "type": "array",
-        "items": {
-          "type": "object",
-          "properties": {
-            "sequence": { "type": "string" },
-            "positionInFirst": { "type": "integer" },
-            "positionInSecond": { "type": "integer" },
-            "length": { "type": "integer" }
-          },
-          "required": ["sequence", "positionInFirst", "positionInSecond", "length"]
-        }
-      }
-    },
-    "required": ["items"]
-  },
-  "errors": [
-    { "code": 1001, "message": "Sequence cannot be null or empty" },
-    { "code": 1001, "message": "Invalid DNA sequence" }
-  ],
-  "examples": [
-    {
-      "name": "Identical sequences",
-      "input": { "sequence1": "ACGT", "sequence2": "ACGT", "minLength": 2 },
-      "output": { "items": [
-        { "sequence": "ACGT", "positionInFirst": 0, "positionInSecond": 0, "length": 4 },
-        { "sequence": "CGT", "positionInFirst": 1, "positionInSecond": 1, "length": 3 },
-        { "sequence": "GT", "positionInFirst": 2, "positionInSecond": 2, "length": 2 }
-      ] }
-    },
-    {
-      "name": "No common region",
-      "input": { "sequence1": "AAAA", "sequence2": "CCCC", "minLength": 2 },
-      "output": { "items": [] }
-    }
+  "required": [
+   "sequence1",
+   "sequence2",
+   "minLength"
   ]
+ },
+ "outputSchema": {
+  "type": "object",
+  "properties": {
+   "items": {
+    "type": "array",
+    "items": {
+     "type": "object",
+     "properties": {
+      "sequence": {
+       "type": "string"
+      },
+      "positionInFirst": {
+       "type": "integer"
+      },
+      "positionInSecond": {
+       "type": "integer"
+      },
+      "length": {
+       "type": "integer"
+      },
+      "isReverseComplement": {
+       "type": "boolean",
+       "description": "true for a region shared with the reverse complement of sequence2 (positionInSecond = forward-strand start of that window); omitted when false"
+      }
+     },
+     "required": [
+      "sequence",
+      "positionInFirst",
+      "positionInSecond",
+      "length"
+     ]
+    }
+   }
+  },
+  "required": [
+   "items"
+  ]
+ },
+ "errors": [
+  {
+   "code": 1001,
+   "message": "Sequence cannot be null or empty"
+  },
+  {
+   "code": 1001,
+   "message": "Invalid DNA sequence"
+  }
+ ],
+ "examples": [
+  {
+   "name": "Identical sequences",
+   "input": {
+    "sequence1": "ACGT",
+    "sequence2": "ACGT",
+    "minLength": 2
+   },
+   "output": {
+    "items": [
+     {
+      "sequence": "ACGT",
+      "positionInFirst": 0,
+      "positionInSecond": 0,
+      "length": 4
+     },
+     {
+      "sequence": "CGT",
+      "positionInFirst": 1,
+      "positionInSecond": 1,
+      "length": 3
+     },
+     {
+      "sequence": "GT",
+      "positionInFirst": 2,
+      "positionInSecond": 2,
+      "length": 2
+     }
+    ]
+   }
+  },
+  {
+   "name": "No common region",
+   "input": {
+    "sequence1": "AAAA",
+    "sequence2": "CCCC",
+    "minLength": 2
+   },
+   "output": {
+    "items": []
+   }
+  }
+ ]
 }

@@ -236,3 +236,12 @@ Assumption register: assumption 1 (tie-break unspecified) is **retired** — the
 ## 2026-11 audit round 2 (A2-40, B09 F86): cancellation
 
 `FindRepeats` / `FindMaximalRepeats` have a `CancellationToken` overload (polled every 4096 suffix-tree nodes and between repeats); tests `SequenceAligner_Cancellation_Tests.PreCancelled_GenomicAnalyzerScans_Throw`, `UncancelledToken_*`.
+
+## Round 2 additions (audit A2-33 / A2-35, F97 / F99)
+
+| Id | Test | Requirement |
+|----|------|-------------|
+| M-A2-33a | `FindRepeatsBothStrands_Maximal_MatchesOracle_AllRows`, `FindRepeatsBothStrands_AllSubstrings_MatchesOracle`, `DnaSequenceOverload_EqualsStringOverload_OnAcgtRows` | 1900 rows: both-strand repeat classes (brute force over `S # revcomp(S)`) |
+| M-A2-33b | `FindRepeatPairs_MatchesRepeatMatch_BothStrandsAndForwardOnly`, `MaximalClasses_AreTheStringsOfTheRepeatMatchPairs` | `repeat-match` 3.23 pairs and their string classes |
+| M-A2-33c | `FindAllLongestRepeatsBothStrands_AreTheLongestMaximalClasses`, `Palindrome_OneSite_IsARepeatOnBothStrands`, `ReverseComplementCopy_IsFoundWithBothPositionLists` | longest classes, palindromic site, reverse-complement copy |
+| M-A2-35 | `StringOverloads_MatchBruteForce_WithAmbiguitySymbols`, `StringOverloads_EqualDnaSequenceOverloads_OnAcgt`, `NRun_IsNeverARepeat_AndAnAdjacentRepeatIsUnchanged`, `StringOverloads_Validation` | N / IUPAC input never repeats (brute force, 600 strings), protein alphabet |

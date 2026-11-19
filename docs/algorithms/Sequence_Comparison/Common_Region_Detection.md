@@ -104,9 +104,18 @@ Inputs are `DnaSequence` (case-normalized to upper, alphabet A/C/G/T enforced at
 
 - `FindCommonRegions` reports only the longest match per start position in `sequence2` (right-maximal), deduplicated — **not** every common substring. For example, for `ACGTACGT` vs `TTACGTGG` with minLength 3 it returns `{TACGT, ACGT, CGT}`; the prefixes `TAC`, `TACG`, `ACG` (which are also common substrings of length ≥ 3) are intentionally omitted. This keeps the output to a useful set of anchor regions instead of the O(n²) set of all substrings; **consequence:** callers needing the exhaustive set must expand each region's prefixes themselves.
 
+**Variants (audit A2-30 / A2-35; the former "not implemented" list):**
+
+- **Modes** (`FindCommonRegions(seq1, seq2, minLength, CommonRegionMode, StrandSelection)`): `RightMaximal` (the default above), `MaximalExactMatches` (every maximal exact match, one entry per pair of occurrences; `mummer -maxmatch`, canonical `SuffixTree.FindMaximalExactMatches`), `MaximalUniqueReference` (string unique in `sequence1`; `-mumreference`) and `MaximalUnique` (unique in both; `-mum`, Delcher et al. 1999) — the B05 suffix-tree engines, not re-implemented.
+- **Strands** (`StrandSelection.ReverseComplement` / `Both`; `mummer -r` / `-b`): the second sequence is reverse-complemented and the same engine run; a reverse region has `IsReverseComplement = true` and `PositionInSecond` is the **forward-strand** start of the window that spells the reverse complement of `Sequence` (the `-c` convention). `FindLongestCommonRegion(seq1, seq2, strands)` returns the longer strand (tie: forward).
+- **k mismatches** (`FindLongestCommonRegionWithMismatches(seq1, seq2, k, strands)`): the longest pair of equal-length windows with Hamming distance ≤ k (Flouri et al. 2015; Thankachan et al. 2016), by a two-pointer scan of every diagonal, O(n·m). Ties: smallest start in `sequence2`, then in `sequence1`; k = 0 is `FindLongestCommonRegion`. A symbol other than A/C/G/T is a mismatch against everything.
+- **N sequences** (`FindLongestCommonRegion(IReadOnlyList<…> sequences, minSupport)`): the longest substring shared by ≥ `minSupport` (2 … N, default N) sequences, every tie, with its first occurrence in each sequence (−1 where absent) — the canonical generalized suffix tree `SuffixTree.FindLongestCommonSubstrings` (Gusfield 1997 §7.6; Rosalind LCSM).
+- **String / IUPAC input** (`FindLongestCommonRegion(string, string)`, `FindCommonRegions(string, string, …)`, …): only A/C/G/T match; every maximal run of another symbol (N, IUPAC, U, gap) becomes a unique separator of the suffix tree (query side: a symbol that equals nothing), so no region contains it and an ordinary region next to an N run is unchanged. On an A/C/G/T string the result equals the `DnaSequence` overload.
+- Verification: `mummer -maxmatch / -mumreference / -mum -b -l L` 3.23 on 4716 (reference, query, L, mode) rows == an independent Python brute force (all ACGT rows; the `-c` position convention asserted), the k-mismatch LCS on 1680 brute-force rows, the N-sequence LCS on 694 brute-force rows (`scripts/analysis/generate_common_region_strand_oracle.py`, `GenomicAnalyzer_CommonRegionStrands_Oracle_Tests`).
+
 **Not implemented:**
 
-- Approximate / mismatch-tolerant common regions; **users should rely on:** the alignment algorithms in `Seqeron.Genomics.Alignment` for gapped/scored similarity.
+- Gapped / scored common regions (indels); **users should rely on:** the alignment algorithms in `Seqeron.Genomics.Alignment` (`LocalAlign`, `nucmer`-style anchoring in `AnchorBasedAligner`).
 
 ## 6. Edge Cases and Limitations
 

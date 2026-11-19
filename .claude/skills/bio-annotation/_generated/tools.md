@@ -35,6 +35,7 @@
 | `dust_score` | Analysis | `SequenceComplexity.CalculateDustScore` | [doc](../../../../docs/mcp/tools/analysis/dust_score.md) |
 | `dyad_analysis` | Analysis | `MotifFinder.AnalyzeDyads` | [doc](../../../../docs/mcp/tools/analysis/dyad_analysis.md) |
 | `entropy_profile` | Analysis | `SequenceStatistics.CalculateEntropyProfile` | [doc](../../../../docs/mcp/tools/analysis/entropy_profile.md) |
+| `find_all_longest_repeats` | Analysis | `GenomicAnalyzer.FindAllLongestRepeats` | [doc](../../../../docs/mcp/tools/analysis/find_all_longest_repeats.md) |
 | `find_approximate_direct_repeats` | Analysis | `RepeatFinder.FindApproximateDirectRepeats` | [doc](../../../../docs/mcp/tools/analysis/find_approximate_direct_repeats.md) |
 | `find_approximate_tandem_repeats` | Analysis | `RepeatFinder.FindApproximateTandemRepeats` | [doc](../../../../docs/mcp/tools/analysis/find_approximate_tandem_repeats.md) |
 | `find_clump_windows` | Analysis | `KmerAnalyzer.FindClumpWindows` | [doc](../../../../docs/mcp/tools/analysis/find_clump_windows.md) |
@@ -49,6 +50,7 @@
 | `find_inverted_repeats_scored` | Analysis | `RepeatFinder.FindInvertedRepeatsScored` | [doc](../../../../docs/mcp/tools/analysis/find_inverted_repeats_scored.md) |
 | `find_known_motifs` | Analysis | `GenomicAnalyzer.FindKnownMotifs` | [doc](../../../../docs/mcp/tools/analysis/find_known_motifs.md) |
 | `find_longdust_regions` | Analysis | `SequenceComplexity.FindLongdustRegions` | [doc](../../../../docs/mcp/tools/analysis/find_longdust_regions.md) |
+| `find_longest_common_region_mismatches` | Analysis | `GenomicAnalyzer.FindLongestCommonRegionWithMismatches` | [doc](../../../../docs/mcp/tools/analysis/find_longest_common_region_mismatches.md) |
 | `find_low_complexity_intervals` | Analysis | `SequenceComplexity.FindLowComplexityIntervals` | [doc](../../../../docs/mcp/tools/analysis/find_low_complexity_intervals.md) |
 | `find_low_complexity_regions` | Analysis | `SequenceComplexity.FindLowComplexityRegions` | [doc](../../../../docs/mcp/tools/analysis/find_low_complexity_regions.md) |
 | `find_microsatellites` | Analysis | `RepeatFinder.FindMicrosatellites` | [doc](../../../../docs/mcp/tools/analysis/find_microsatellites.md) |
@@ -58,6 +60,7 @@
 | `find_open_reading_frames` | Analysis | `GenomicAnalyzer.FindOpenReadingFrames` | [doc](../../../../docs/mcp/tools/analysis/find_open_reading_frames.md) |
 | `find_orthologs` | Analysis | `ComparativeGenomics.FindOrthologs` | [doc](../../../../docs/mcp/tools/analysis/find_orthologs.md) |
 | `find_palindromes` | Analysis | `RepeatFinder.FindPalindromes` | [doc](../../../../docs/mcp/tools/analysis/find_palindromes.md) |
+| `find_pattern_hits` | Analysis | `GenomicAnalyzer.FindPatternHits` | [doc](../../../../docs/mcp/tools/analysis/find_pattern_hits.md) |
 | `find_promoter_elements_by_matrix` | Analysis | `MotifFinder.FindPromoterElementsByMatrix` | [doc](../../../../docs/mcp/tools/analysis/find_promoter_elements_by_matrix.md) |
 | `find_protein_domains` | Analysis | `ProteinMotifFinder.FindDomains` | [doc](../../../../docs/mcp/tools/analysis/find_protein_domains.md) |
 | `find_protein_low_complexity_regions` | Analysis | `ProteinMotifFinder.FindLowComplexityRegions` | [doc](../../../../docs/mcp/tools/analysis/find_protein_low_complexity_regions.md) |

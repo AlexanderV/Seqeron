@@ -109,7 +109,28 @@ public record FindLongestCommonRegionResult(string Region, int Position1, int Po
 /// <summary>
 /// Result of calculate_similarity operation.
 /// </summary>
-public record CalculateSimilarityResult(double Similarity);
+public record CalculateSimilarityResult(
+    double Similarity,
+    string? Estimator = null,
+    double? JaccardDistance = null,
+    double? MashDistance = null,
+    double? JaccardAni = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    double? ContainmentAInB = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    double? ContainmentBInA = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    double? MaxContainment = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    double? ContainmentAniAInB = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    double? ContainmentAniBInA = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    int? SharedHashes = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    int? DenominatorHashes = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    double? MashPValue = null);
 
 /// <summary>
 /// Result of hamming_distance operation.

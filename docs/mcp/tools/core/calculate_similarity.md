@@ -17,15 +17,17 @@ Calculates the exact k-mer Jaccard index J = |A∩B| / |A∪B| of the two sequen
 
 By default the literal (strand-specific) k-mers are compared (Python `set`, `scipy.spatial.distance.jaccard` on presence vectors). With `canonical: true` each k-mer is replaced by min(k-mer, reverse complement) as in Mash and sourmash (exact, unsketched), so a sequence and its reverse complement score 100.
 
+**Estimators, distances, ANI (B09 A2-31).** `sketchSize` estimates the Jaccard index from a Mash bottom-s MinHash sketch (as `mash dist`), `scaled` from a sourmash FracMinHash sketch; the result also carries `jaccardDistance` (1 - J), `mashDistance`, `jaccardAni` and - for the exact and FracMinHash estimators - the containment indices and containment ANI (`C^(1/k)`), verified against sourmash 4.9.4 on 4290 rows. Output fields: `estimator`, `jaccardDistance`, `mashDistance`, `jaccardAni`, `containmentAInB`, `containmentBInA`, `maxContainment`, `containmentAniAInB`, `containmentAniBInA`, `sharedHashes`, `denominatorHashes`, `mashPValue` (the last six are absent when not applicable).
+
 ## Core Documentation Reference
 
 - Source: [GenomicAnalyzer.cs#L707](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GenomicAnalyzer.cs#L699)
 
 ## Input/Output
 
-**Input:** `{ sequence1: string, sequence2: string, kmerSize?: integer (default 5, >= 1), canonical?: boolean (default false) }`
+**Input:** `{ sequence1: string, sequence2: string, kmerSize?: integer (default 5, >= 1), canonical?: boolean (default false), sketchSize?: integer (Mash bottom-s sketch), scaled?: integer (sourmash FracMinHash) }`
 
-**Output:** `{ similarity: number }` (0-100 percentage scale)
+**Output:** `{ similarity: number (0-100 percentage scale), estimator, jaccardDistance, mashDistance, jaccardAni, containmentAInB?, containmentBInA?, maxContainment?, containmentAniAInB?, containmentAniBInA?, sharedHashes?, denominatorHashes?, mashPValue? }`
 
 ## Example
 

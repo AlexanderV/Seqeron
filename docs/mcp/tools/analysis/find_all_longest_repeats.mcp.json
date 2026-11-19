@@ -1,0 +1,129 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "toolName": "find_all_longest_repeats",
+ "serverName": "Analysis",
+ "version": "1.0.0",
+ "stability": "stable",
+ "methodId": "GenomicAnalyzer.FindAllLongestRepeats",
+ "docRef": "Seqeron.Genomics.Analysis/GenomicAnalyzer.cs",
+ "description": "EVERY longest repeated substring of a DNA sequence (all length ties; find_longest_repeat returns the leftmost one) with all its 0-based positions (overlapping occurrences counted, ascending), the deepest internal nodes of the suffix tree (Gusfield 1997 sec. 7.1); ordered by first occurrence. bothStrands=true: the longest repeat classes over both strands (a string and its reverse complement are one class, the smaller string is reported; reversePositions = forward-strand starts of the windows that spell its reverse complement), ordered by string. IUPAC input is accepted: only A/C/G/T can repeat, an N run is never a repeat. Items is empty (length 0) when nothing repeats.",
+ "inputSchema": {
+  "type": "object",
+  "properties": {
+   "sequence": {
+    "type": "string",
+    "description": "Nucleotide sequence: A/C/G/T plus IUPAC codes such as N (case-insensitive); non-A/C/G/T symbols never repeat."
+   },
+   "bothStrands": {
+    "type": "boolean",
+    "description": "Search both strands (default false).",
+    "default": false
+   }
+  },
+  "required": [
+   "sequence"
+  ]
+ },
+ "outputSchema": {
+  "type": "object",
+  "properties": {
+   "items": {
+    "type": "array",
+    "items": {
+     "type": "object",
+     "properties": {
+      "sequence": {
+       "type": "string"
+      },
+      "positions": {
+       "type": "array",
+       "items": {
+        "type": "integer"
+       }
+      },
+      "length": {
+       "type": "integer"
+      },
+      "count": {
+       "type": "integer"
+      },
+      "reversePositions": {
+       "type": "array",
+       "items": {
+        "type": "integer"
+       }
+      }
+     },
+     "required": [
+      "sequence",
+      "positions",
+      "length",
+      "count"
+     ]
+    }
+   },
+   "length": {
+    "type": "integer"
+   }
+  },
+  "required": [
+   "items",
+   "length"
+  ]
+ },
+ "errors": [
+  {
+   "code": 1001,
+   "message": "Sequence cannot be null or empty"
+  },
+  {
+   "code": 1001,
+   "message": "Invalid DNA sequence (A/C/G/T and IUPAC codes only)"
+  }
+ ],
+ "examples": [
+  {
+   "name": "Tandem ATGATG",
+   "input": {
+    "sequence": "ATGATG"
+   },
+   "output": {
+    "items": [
+     {
+      "sequence": "ATG",
+      "positions": [
+       0,
+       3
+      ],
+      "length": 3,
+      "count": 2
+     }
+    ],
+    "length": 3
+   }
+  },
+  {
+   "name": "Both strands",
+   "input": {
+    "sequence": "ACGGTTCAAAAGAACCGT",
+    "bothStrands": true
+   },
+   "output": {
+    "items": [
+     {
+      "sequence": "ACGGTTC",
+      "positions": [
+       0
+      ],
+      "length": 7,
+      "count": 2,
+      "reversePositions": [
+       11
+      ]
+     }
+    ],
+    "length": 7
+   }
+  }
+ ]
+}

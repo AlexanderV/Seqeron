@@ -203,7 +203,7 @@ public class GenomicAnalyzer_KnownMotifMismatch_Tests
         var dna = new DnaSequence("ACGTACGT");
         Assert.That(() => GenomicAnalyzer.FindKnownMotifHits(dna, new[] { "ACG" }, maxMismatches: -1),
             NUnit.Framework.Throws.InstanceOf<ArgumentOutOfRangeException>());
-        Assert.That(() => GenomicAnalyzer.FindKnownMotifHits(null!, new[] { "A" }, maxMismatches: 1), NUnit.Framework.Throws.ArgumentNullException);
+        Assert.That(() => GenomicAnalyzer.FindKnownMotifHits((DnaSequence)null!, new[] { "A" }, maxMismatches: 1), NUnit.Framework.Throws.ArgumentNullException);
         Assert.That(() => GenomicAnalyzer.FindKnownMotifHits(dna, null!, maxMismatches: 1), NUnit.Framework.Throws.ArgumentNullException);
         Assert.That(() => GenomicAnalyzer.FindKnownMotifHits(dna, new[] { "ACX" }, allowIupac: true, maxMismatches: 1),
             NUnit.Framework.Throws.ArgumentException);

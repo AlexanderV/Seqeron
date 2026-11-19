@@ -126,10 +126,13 @@ This method reports `J × 100` as a percentage.
 
 - Percentage reporting: result is `J × 100` rather than the raw [0,1] coefficient; **consequence:** values are 0–100, not 0–1. Relative ordering is unchanged.
 
-**Not implemented:**
+**Added by audit A2-31 / A2-35 (formerly "not implemented"):**
 
-- MinHash sketching / approximate Jaccard estimation (Mash's `j(A_s,B_s)=|A_s∩B_s|/s`); **users should rely on:** this method computes the exact Jaccard over full k-mer sets, so no sketch approximation is needed for the supported sequence sizes [2].
-- Jaccard distance `1 − J`; **users should rely on:** derive it as `1 − result/100` if needed.
+- **MinHash / FracMinHash estimators.** `CalculateSimilarity(a, b, k, canonical, sketchSize)` and `CompareSimilarity(a, b, k, canonical, sketchSize | scaled)` estimate J from a Mash bottom-s sketch (MurmurHash3-x64-128, seed 42, `mash dist`'s x/s over the smallest s hashes of the union; k ≤ 32) or a sourmash FracMinHash sketch (`scaled = S`); the sketches and comparisons are the canonical `KmerAnalyzer.CreateMinHashSketch` / `CompareMinHashSketches` / `CreateFracMinHashSketch` / `CompareFracMinHashSketches` (B06). A sketch at least as large as the union reproduces the exact index.
+- **Distances and ANI** (`SimilarityEstimate`): Jaccard distance `1 − J` (`CalculateJaccardDistance`), Mash distance `−ln(2J/(1+J))/k` (`KmerAnalyzer.MashDistance` / `MashDistanceFromJaccard`), the sourmash Jaccard ANI `(2J/(1+J))^(1/k)`, the containment indices `C(A,B) = |A∩B|/|A|`, `C(B,A)`, max-containment, and the containment ANI `C^(1/k)` (sourmash `containment_to_distance` point estimate; Hera et al. 2023).
+- **String input**: a k-mer window with a symbol other than A/C/G/T is skipped (Mash `-n` / Jellyfish rule), so N runs are allowed; an A/C/G/T string equals the `DnaSequence` overload.
+- Verification: 4290 oracle rows — exact canonical sets (Python) == sourmash `MinHash(scaled=1)`, sourmash 4.9.4 FracMinHash (scaled 2 … 10: jaccard, contained_by both ways, max_containment) and bottom-s MinHash (`num` 5 … 500, k = 17 … 31, where Mash and sourmash hash identically; Mash truncates the hash to 32 bits for k ≤ 16), `containment_to_distance` / `jaccard_to_distance` point estimates (`scripts/analysis/generate_similarity_sketch_oracle.py`, `GenomicAnalyzer_SimilaritySketch_Oracle_Tests`).
+- Not provided: confidence intervals of the ANI estimates (sourmash `estimate_ci`), `mash dist` p-value beyond `MashPValue`.
 
 ### 5.4 Deviations and Assumptions
 

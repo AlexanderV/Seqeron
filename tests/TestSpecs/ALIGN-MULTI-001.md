@@ -622,3 +622,7 @@ Known differences (3 of 4 715 committed sets, listed in `KnownDifferences` of th
 | CN-1 | `SequenceAligner_Cancellation_Tests.PreCancelled_*` | pre-cancelled token on star / anchored / progressive / iterative / consistency / exact, ClustalW (DNA, protein), MUSCLE, T-Coffee program, `WithCancellation` over top-N / co-optimal / affine / general-gap, the four `GenomicAnalyzer` scans | `OperationCanceledException`, no result | contract |
 | CN-2 | `CancelledWhileRunning_*` | 100 ms token on calls that run for seconds-minutes (5 x 6 kb star affine, 2 x 30 kb ClustalW, 2 x 20 kb MUSCLE, 2 x 2.5 kb protein T-Coffee proba, 4 kb top-N / affine, 1.2 kb general gap, 3 Mb ORFs) | `OperationCanceledException` within 15 s | row-boundary polls |
 | CN-3 | `UncancelledToken_GivesTheSameResultAsNoToken_AndTheScopeDoesNotLeak` | live token; then a cancelled call; then the plain call | identical rows / score; the scope is restored | contract |
+
+## Round 2 additions (audit A2-36, F100)
+
+MCP `PortStageToolsTests` (Seqeron.Mcp.Alignment.Tests): `ClustalWPairwiseAlign_Protein_ReproducesTheClustalWScores`, `ClustalWPairwiseAlign_Dna_DelegatesToTheLibrary`, `ClustalWQuickPairwiseAlign_ReproducesTheHandRun`, `TCoffeeSlowPairAlign_PlacesTheGapInside_WorkedExample`, `TCoffeeLalignTopAlignments_ScoresInOrder`, `TCoffeeKtupSimilarity_And_GuideTree`, `TCoffeePrimaryLibrary_DelegatesAndOrdersEntries`, `SumOfPairsScore_LinearAffineAndMatrix`.

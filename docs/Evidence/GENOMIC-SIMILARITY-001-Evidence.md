@@ -139,3 +139,10 @@ complement CCCGGGTT, k = 3: literal 50.0, canonical 100.0.
 
 Empty-union conventions of the references: scipy `jaccard([], [])` = 0.0 (distance, i.e. J = 1), sourmash `jaccard` of two empty
 sketches = 0.0, Mash `shared == union` -> distance 0 (J = 1). No source fixes J for an empty union; the library keeps 0 (ASM-1).
+
+## 2026-11-19 audit round 2 (A2-31 / A2-35, B09 F95): sketch estimators, containment, Jaccard distance, ANI
+
+- **Source definitions.** Ondov et al. 2016 (Mash, Genome Biol 17:132): bottom-s MinHash, J estimate x/s, `D = -ln(2J/(1+J))/k`; Irber et al. 2022 / Pierce et al. 2019 (sourmash FracMinHash `scaled`) and Koslicki & Zabeti 2019 (containment index); Hera, Pierce, Koslicki et al. 2023 (Genome Res, "Debiasing FracMinHash and deriving confidence intervals for mutation rates...") for the containment / Jaccard ANI point estimates `C^(1/k)` and `(2J/(1+J))^(1/k)` as implemented by sourmash 4.9.4 `distance_utils.containment_to_distance` / `jaccard_to_distance` (the installed source was read: `point_estimate = 1 - containment ** (1/ksize)`; 0 -> distance 1, 1 -> distance 0).
+- **Oracle numbers.** `scripts/analysis/generate_similarity_sketch_oracle.py`: 4290 rows — 990 exact (Python sets of canonical k-mers, asserted equal to sourmash `MinHash(scaled=1)` Jaccard and both containments; `containment_to_distance` ANI both directions; Jaccard ANI formula asserted against `jaccard_to_distance`), 1980 FracMinHash (scaled 2/3/5/10, sourmash's own jaccard / contained_by / max_containment, k = 3 … 31), 1320 bottom-s (`MinHash(n=5..500)`, k = 17 … 31; Mash hashes 64 bits there, 32 bits for k <= 16 where only the Mash definition applies and the canonical `KmerAnalyzer` sketch is the reference). All equal within 1e-12.
+- **Implementation.** `GenomicAnalyzer.Similarity.cs` selects the estimator and converts; sketches and distances are `KmerAnalyzer` (B06) calls (no copy of the hash, sketch or Mash formula); only the two one-line ANI conversions are new.
+- **Tests.** `GenomicAnalyzer_SimilaritySketch_Oracle_Tests` (6), MCP `calculate_similarity` (`sketchSize`, `scaled`, the added fields; SuffixTree.Mcp.Core tests).

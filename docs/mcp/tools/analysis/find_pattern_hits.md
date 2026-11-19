@@ -1,0 +1,104 @@
+# find_pattern_hits
+
+EMBOSS fuzznuc pattern search (classes, exclusions, repeats, ranges, anchors, mismatches, both strands).
+
+## Overview
+
+| Property | Value |
+|----------|-------|
+| **Server** | Analysis |
+| **Tool Name** | `find_pattern_hits` |
+| **Method ID** | `GenomicAnalyzer.FindPatternHits` |
+| **Version** | 1.0.0 |
+| **Stability** | Stable |
+
+## Description
+
+Search a DNA sequence with an EMBOSS fuzznuc pattern (the -pattern language): IUPAC letters, classes [ACG], exclusions {AG}, repeats N(3), length ranges A(2,4) (every matching window length is reported), '-' separators, the anchors '<' (start of the sequence) and '>' (end), a terminating '.'; e.g. [CG](5)TG{A}N(1,5)C. maxMismatches = fuzznuc -pmismatch (Hamming, substitutions only; with a range the extra repeats beyond n of X(n,m) must match exactly, as in fuzznuc); bothStrands = -complement (the reverse-strand pattern is the reversed, complemented one with swapped anchors; positions are forward-strand starts). Give one pattern, or patternFile = the text of a fuzznuc pattern file (one pattern per line, or FASTA '>name' + pattern) for several named patterns. Verified against EMBOSS fuzznuc 6.6.0 on 3300 random patterns. A symbol other than A/C/G/T in the sequence matches nothing and costs a mismatch. Positions 0-based; hits ordered by position, length, forward before reverse.
+
+## Core Documentation Reference
+
+- Source: [Seqeron.Genomics.Analysis/GenomicAnalyzer.PatternHits.cs](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GenomicAnalyzer.PatternHits.cs)
+- Algorithm doc: [Known_Motif_Search.md](../../../algorithms/Motif_Analysis/Known_Motif_Search.md)
+
+## Input Schema
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `sequence` | string | Yes | Nucleotide sequence: A/C/G/T plus IUPAC codes such as N (case-insensitive). |
+| `pattern` | string | No | One fuzznuc pattern (omit when patternFile is given). |
+| `patternFile` | string | No | Text of a fuzznuc pattern file: one pattern per line, or FASTA style (>name then the pattern); several patterns are reported under their names (unnamed: pattern1, pattern2, ...). |
+| `maxMismatches` | integer | No | Maximum substitutions per hit (fuzznuc -pmismatch, default 0). |
+| `bothStrands` | boolean | No | Also search the reverse-complement strand (fuzznuc -complement, default false). |
+
+## Output Schema
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `patterns` | object | Pattern name -> normalised pattern text |
+| `hits` | array | Hits `{ pattern, position, length, strand ("forward"/"reverse"), mismatches }`, 0-based forward-strand starts, ordered by position, length, forward before reverse |
+
+## Errors
+
+| Code | Message |
+|------|---------|
+| 1001 | Sequence cannot be null or empty |
+| 1001 | Invalid DNA sequence (A/C/G/T and IUPAC codes only) |
+| 1001 | Give exactly one of pattern and patternFile |
+| 1001 | Illegal pattern ... |
+| 1002 | maxMismatches cannot be negative |
+
+## Examples
+
+### Example 1: Length range
+
+**User Prompt:**
+> Find A(1,3)C in AAAACAAAAT.
+
+**Expected Tool Call:**
+```json
+{"tool": "find_pattern_hits", "arguments": {"sequence": "AAAACAAAAT", "pattern": "A(1,3)C"}}
+```
+
+**Response:**
+```json
+{"patterns": {"pattern1": "A(1,3)C"}, "hits": [{"pattern": "pattern1", "position": 1, "length": 4, "strand": "forward", "mismatches": 0}, {"pattern": "pattern1", "position": 2, "length": 3, "strand": "forward", "mismatches": 0}, {"pattern": "pattern1", "position": 3, "length": 2, "strand": "forward", "mismatches": 0}]}
+```
+
+fuzznuc reports every window length: 1-based 4..5, 3..5, 2..5.
+
+### Example 2: Anchored pattern on the reverse strand
+
+**User Prompt:**
+> Find <ACG on both strands of AAACGT.
+
+**Expected Tool Call:**
+```json
+{"tool": "find_pattern_hits", "arguments": {"sequence": "AAACGT", "pattern": "<ACG", "bothStrands": true}}
+```
+
+**Response:**
+```json
+{"patterns": {"pattern1": "<ACG"}, "hits": [{"pattern": "pattern1", "position": 3, "length": 3, "strand": "reverse", "mismatches": 0}]}
+```
+
+On the reverse strand the anchor swaps: the hit is the reverse complement CGT at the end of the sequence.
+
+### Example 3: Pattern file
+
+**User Prompt:**
+> Search ACGT and TTGA (named p1, p2).
+
+**Expected Tool Call:**
+```json
+{"tool": "find_pattern_hits", "arguments": {"sequence": "ACGTACGTTTGAACC", "patternFile": ">p1\nACGT\n>p2\nTTGA\n"}}
+```
+
+**Response:**
+```json
+{"patterns": {"p1": "ACGT", "p2": "TTGA"}, "hits": [{"pattern": "p1", "position": 0, "length": 4, "strand": "forward", "mismatches": 0}, {"pattern": "p1", "position": 4, "length": 4, "strand": "forward", "mismatches": 0}, {"pattern": "p2", "position": 8, "length": 4, "strand": "forward", "mismatches": 0}]}
+```
+
+## See Also
+
+- [find_known_motifs](find_known_motifs.md) - motif sets (IUPAC, mismatches, strands)

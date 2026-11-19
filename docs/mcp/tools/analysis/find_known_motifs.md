@@ -34,6 +34,8 @@ searched with the reverse-complement motif and the same bound. The result then a
 makes every window a hit. Verified against fuzznuc 6.6.0 `-pmismatch 1..3` (positions and `*mismatch` counts) on 6576
 sequence/pattern/k rows.
 
+**IUPAC input (B09 A2-35).** The sequence may contain IUPAC codes (N): such a symbol matches no motif symbol (not even N) and costs a mismatch when `mismatches` > 0.
+
 ## Core Documentation Reference
 
 - Source: [GenomicAnalyzer.cs#L257](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GenomicAnalyzer.cs#L257)

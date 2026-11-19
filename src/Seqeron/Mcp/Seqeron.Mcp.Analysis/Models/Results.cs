@@ -132,13 +132,25 @@ public record ChouFasmanAssignResult(string Assignment);
 // ================================
 
 /// <summary>A repeated region with all its occurrence positions.</summary>
-public record RepeatItem(string Sequence, int[] Positions, int Length, int Count);
+public record RepeatItem(
+    string Sequence,
+    int[] Positions,
+    int Length,
+    int Count,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    int[]? ReversePositions = null);
 
 /// <summary>Result of <c>find_repeats</c>.</summary>
 public record FindRepeatsResult(RepeatItem[] Items);
 
 /// <summary>A consecutive tandem repeat.</summary>
-public record TandemRepeatItem(string Unit, int Position, int Repetitions, int TotalLength);
+public record TandemRepeatItem(
+    string Unit,
+    int Position,
+    int Repetitions,
+    int TotalLength,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    string? OriginalUnit = null);
 
 /// <summary>Result of <c>find_tandem_repeats</c>.</summary>
 public record FindTandemRepeatsResult(TandemRepeatItem[] Items);
@@ -161,10 +173,29 @@ public record FindKnownMotifsResult(
     Dictionary<string, int[]>? ReverseMismatches = null);
 
 /// <summary>A common region between two sequences.</summary>
-public record CommonRegionItem(string Sequence, int PositionInFirst, int PositionInSecond, int Length);
+public record CommonRegionItem(
+    string Sequence,
+    int PositionInFirst,
+    int PositionInSecond,
+    int Length,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+    bool IsReverseComplement = false);
 
 /// <summary>Result of <c>find_common_regions</c>.</summary>
 public record FindCommonRegionsResult(CommonRegionItem[] Items);
+
+/// <summary>Result of <c>find_all_longest_repeats</c>: every longest repeat with all its positions.</summary>
+public record FindAllLongestRepeatsResult(RepeatItem[] Items, int Length);
+
+/// <summary>A hit of <c>find_pattern_hits</c>: the pattern that matched (its name), the 0-based forward-strand start, the length, the strand and the mismatch count.</summary>
+public record PatternHitItem(string Pattern, int Position, int Length, string Strand, int Mismatches);
+
+/// <summary>Result of <c>find_pattern_hits</c>: the parsed patterns (normalised text per name) and every hit.</summary>
+public record FindPatternHitsResult(Dictionary<string, string> Patterns, PatternHitItem[] Hits);
+
+/// <summary>Result of <c>find_longest_common_region_mismatches</c>: the longest pair of equal-length windows with at most k mismatches (empty strings and length 0 when none).</summary>
+public record LongestCommonRegionMismatchesResult(
+    string Sequence1, string Sequence2, int PositionInFirst, int PositionInSecond, int Length, int Mismatches, bool IsReverseComplement);
 
 /// <summary>An open reading frame. <c>Position</c> is the 0-based start in the scanned strand (input or its reverse complement);
 /// <c>Start</c>/<c>End</c> are the 0-based inclusive input-strand coordinates of the same span (stop codon included). <c>IsStartPartial</c>:

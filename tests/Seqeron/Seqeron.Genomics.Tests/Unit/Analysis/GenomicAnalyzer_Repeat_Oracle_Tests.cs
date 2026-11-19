@@ -206,10 +206,10 @@ public class GenomicAnalyzer_Repeat_Oracle_Tests
     [Test]
     public void NullSequence_ThrowsArgumentNullException_AtTheCall()
     {
-        Assert.Throws<ArgumentNullException>(() => GenomicAnalyzer.FindRepeats(null!, 3));
-        Assert.Throws<ArgumentNullException>(() => GenomicAnalyzer.FindMaximalRepeats(null!, 3));
-        Assert.Throws<ArgumentNullException>(() => GenomicAnalyzer.FindLongestRepeat(null!));
-        Assert.Throws<ArgumentNullException>(() => GenomicAnalyzer.FindAllLongestRepeats(null!));
+        Assert.Throws<ArgumentNullException>(() => GenomicAnalyzer.FindRepeats((DnaSequence)null!, 3));
+        Assert.Throws<ArgumentNullException>(() => GenomicAnalyzer.FindMaximalRepeats((DnaSequence)null!, 3));
+        Assert.Throws<ArgumentNullException>(() => GenomicAnalyzer.FindLongestRepeat((DnaSequence)null!));
+        Assert.Throws<ArgumentNullException>(() => GenomicAnalyzer.FindAllLongestRepeats((DnaSequence)null!));
     }
 
     [Test]

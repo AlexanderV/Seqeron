@@ -198,3 +198,14 @@
 ## 2026-11 audit round 2 (A2-40, B09 F86): cancellation
 
 `FindCommonRegions(s1, s2, minLength, CancellationToken)` polls the matching-statistics scan (every 1024 positions) and the region enumeration; tests in `SequenceAligner_Cancellation_Tests` (`PreCancelled_GenomicAnalyzerScans_Throw`, `CancelledWhileRunning_GenomicAnalyzerScans_StopPromptly`).
+
+## Round 2 additions (audit A2-30 / A2-35, F94)
+
+| Id | Test | Requirement |
+|----|------|-------------|
+| M-A2-30a | `FindCommonRegions_ByMode_BothStrands_MatchesMummerAndBruteForce` | 4716 rows: `CommonRegionMode` x `StrandSelection.Both` equals mummer 3.23 `-maxmatch / -mumreference / -mum -b` (== brute force; N rows brute force) |
+| M-A2-30b | `FindCommonRegions_StrandSelection_AndDnaSequenceOverload`, `RightMaximalMode_ForwardEqualsTheExistingMethod_AndReverseIsTheSameEngineOnTheReverseComplement` | strand selection, `DnaSequence` overload, reverse positions are forward-strand windows of revcomp(Sequence) |
+| M-A2-30c | `FindLongestCommonRegion_Strands_AgreeWithTheMaxmatchOracle` | longest region per strand / both (tie -> forward) |
+| M-A2-30d | `LongestCommonRegionWithMismatches_MatchesBruteForce_AllRows`, `..._ZeroMismatches_IsTheExactMethod`, `..._ReverseStrand` | k-mismatch LCS (1680 rows), k = 0 equals the exact method, reverse strand |
+| M-A2-30e | `FindLongestCommonRegion_SeveralSequences_MatchesBruteForce_AllRows` | N-sequence LCS with support q (694 rows) |
+| S-A2-35 | `StringOverloads_WithN_ReportAnOrdinaryRegionNextToAnNRunUnchanged`, `..._Validation` | string / IUPAC input: N never matches |

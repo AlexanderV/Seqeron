@@ -223,3 +223,12 @@ validate (null, k >= 1) and return `KmerAnalyzer.JaccardSimilarity(a.Sequence, b
 | O4 | reverse complement: literal 50, canonical 100 | Mash definition |
 | O5 | lower-case input; k > both (also `int.MaxValue`); canonical overload validation; 300 kbp linear-time smoke | edge cases |
 | O6 | MCP `calculate_similarity` `canonical` parameter delegates | wrapper |
+
+## Round 2 additions (audit A2-31 / A2-35, F95)
+
+| Id | Test | Requirement |
+|----|------|-------------|
+| M-A2-31a | `Exact_MatchesPythonSetsAndSourmashScaled1` | 990 rows: exact Jaccard, containments, Mash / Jaccard / containment ANI |
+| M-A2-31b | `FracMinHash_MatchesSourmashScaled` | 1980 rows: sourmash 4.9.4 scaled sketches |
+| M-A2-31c | `BottomSketch_MatchesSourmashNumSketch` | 1320 rows: bottom-s sketch (k >= 17) |
+| S-A2-31 | `CalculateSimilarity_Sketch_IsThePercentOfTheEstimate`, `JaccardDistance_IsOneMinusTheIndex_AndStringOverloadsSkipAmbiguousWindows`, `CompareSimilarity_Boundaries_AndValidation` | percent facade, `1 - J`, N windows skipped, J = 0 / 1 boundaries, argument checks |

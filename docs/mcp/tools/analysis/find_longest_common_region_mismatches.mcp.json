@@ -1,0 +1,105 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "toolName": "find_longest_common_region_mismatches",
+ "serverName": "Analysis",
+ "version": "1.0.0",
+ "stability": "stable",
+ "methodId": "GenomicAnalyzer.FindLongestCommonRegionWithMismatches",
+ "docRef": "Seqeron.Genomics.Analysis/GenomicAnalyzer.CommonRegions.cs",
+ "description": "Longest common substring with at most k mismatches (k-mismatch LCS, Flouri et al. 2015; Thankachan et al. 2016): the longest pair of equal-length windows, one of each sequence, that differ in at most maxMismatches positions (Hamming, no gaps); the window may start or end on a mismatch. Ties: smallest start in sequence2, then smallest in sequence1; with maxMismatches = 0 this is find_longest_common_region. strands Forward (default) | ReverseComplement | Both compares sequence1 with the reverse complement of sequence2 (positionInSecond is the forward-strand start; sequence2 is the window of the reverse-complemented sequence2); Both prefers the forward strand on a tie. A symbol other than A/C/G/T (N included) is a mismatch against everything. O(n*m) time. Length 0 and empty strings when no window exists.",
+ "inputSchema": {
+  "type": "object",
+  "properties": {
+   "sequence1": {
+    "type": "string",
+    "description": "First nucleotide sequence: A/C/G/T plus IUPAC codes such as N (case-insensitive)."
+   },
+   "sequence2": {
+    "type": "string",
+    "description": "Second nucleotide sequence."
+   },
+   "maxMismatches": {
+    "type": "integer",
+    "description": "Largest number of mismatching positions in the window pair (>= 0)."
+   },
+   "strands": {
+    "type": "string",
+    "description": "Which strands of sequence2 (case-insensitive): Forward (default) | ReverseComplement | Both.",
+    "default": "Forward"
+   }
+  },
+  "required": [
+   "sequence1",
+   "sequence2",
+   "maxMismatches"
+  ]
+ },
+ "outputSchema": {
+  "type": "object",
+  "properties": {
+   "sequence1": {
+    "type": "string"
+   },
+   "sequence2": {
+    "type": "string"
+   },
+   "positionInFirst": {
+    "type": "integer"
+   },
+   "positionInSecond": {
+    "type": "integer"
+   },
+   "length": {
+    "type": "integer"
+   },
+   "mismatches": {
+    "type": "integer"
+   },
+   "isReverseComplement": {
+    "type": "boolean"
+   }
+  },
+  "required": [
+   "sequence1",
+   "sequence2",
+   "positionInFirst",
+   "positionInSecond",
+   "length",
+   "mismatches",
+   "isReverseComplement"
+  ]
+ },
+ "errors": [
+  {
+   "code": 1001,
+   "message": "Sequence cannot be null or empty"
+  },
+  {
+   "code": 1001,
+   "message": "Invalid DNA sequence (A/C/G/T and IUPAC codes only)"
+  },
+  {
+   "code": 1002,
+   "message": "maxMismatches cannot be negative"
+  }
+ ],
+ "examples": [
+  {
+   "name": "One mismatch",
+   "input": {
+    "sequence1": "CACAAAAC",
+    "sequence2": "AACCCCAACAGCAC",
+    "maxMismatches": 1
+   },
+   "output": {
+    "sequence1": "CACAA",
+    "sequence2": "CCCAA",
+    "positionInFirst": 0,
+    "positionInSecond": 3,
+    "length": 5,
+    "mismatches": 1,
+    "isReverseComplement": false
+   }
+  }
+ ]
+}

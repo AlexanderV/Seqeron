@@ -1,0 +1,318 @@
+using Seqeron.Genomics.Alignment;
+
+namespace Seqeron.Genomics.Analysis;
+
+// B09 A2-32 / A2-35: the fuzznuc pattern language (FuzznucPattern) on a sequence, and the string overloads of the motif finders.
+// The scan itself is the canonical ApproximateMatcher (Hamming, IUPAC pattern codes) run on every fixed-length expansion of the pattern.
+public static partial class GenomicAnalyzer
+{
+    #region Pattern hits (fuzznuc -pattern language)
+
+    /// <summary>
+    /// Every hit of an EMBOSS <c>fuzznuc</c> pattern (<see cref="FuzznucPattern"/>: IUPAC letters, <c>[ACG]</c> classes, <c>{AG}</c> exclusions, <c>N(3)</c> repeats,
+    /// <c>A(2,4)</c> length ranges, <c>&lt;</c> / <c>&gt;</c> anchors) in a DNA sequence, on the forward strand and optionally on the reverse-complement strand
+    /// (<c>fuzznuc -complement</c>), with at most <paramref name="maxMismatches"/> substituted positions per hit (<c>-pmismatch</c>).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A hit is a window <c>S[p..p+L)</c>: some fixed-length expansion of the pattern (<see cref="FuzznucPattern.Expand"/>) of length L agrees with it at all but at most
+    /// k positions (a base agrees when it is in the base set of the expansion's IUPAC letter; Hamming distance, substitutions only, no gaps). Like the binary, a range reports
+    /// <b>every</b> window length that matches (<c>A(2,3)</c> on <c>AAAA</c> gives 2-mers at 0, 1, 2 and 3-mers at 0, 1), overlapping hits included; the same window reached through
+    /// several expansions is one hit with the smallest mismatch count (the binary's <c>*mismatch</c> note). A reverse hit is a window that matches the
+    /// <see cref="FuzznucPattern.ReverseComplement"/> of the pattern; its <see cref="PatternHit.Position"/> is the forward-strand start (fuzznuc / GFF convention) and the anchors swap
+    /// (<c>&lt;ACG</c> on the reverse strand must end at the last base of the sequence). <c>&lt;</c> requires <c>Position = 0</c>, <c>&gt;</c> requires <c>Position + Length = n</c>.
+    /// Hits are ordered by position, then length, forward before reverse.
+    /// </para>
+    /// <para>
+    /// Two fuzznuc search classes are reproduced exactly (EMBOSS <c>embpat.c</c>, read and checked on the binary): with <paramref name="maxMismatches"/> &gt; 0 a pattern that has
+    /// a range <c>X(n,m)</c> is searched by a recursive matcher (<c>patOUBrute</c>) that tolerates mismatches only in the mandatory part — the fixed elements and the first n
+    /// repeats of each range; the extra repeats beyond n must match exactly (<see cref="FuzznucPattern.ExpandWithExtras"/>) — and that matcher fails when pattern elements are
+    /// left over at the end of the scanned strand, so a hit whose last element is an empty optional element never ends on the last base; and an exact (k = 0) range pattern that
+    /// starts with <c>&lt;</c> is searched by a regular expression that returns only the longest match at the anchor (on the reverse strand: only the longest
+    /// window that ends at the last base). Fixed-length patterns, and every other combination, report all windows.
+    /// </para>
+    /// <para>
+    /// The scan is the canonical <see cref="ApproximateMatcher"/> Hamming matcher over each expansion (O(n·m) per expansion, no index). Verified against EMBOSS fuzznuc 6.6.0 on
+    /// 3 000+ random syntax-tree patterns (positions, ends, strands and mismatch notes), see docs/Evidence/GENOMIC-MOTIFS-001-Evidence.md.
+    /// </para>
+    /// </remarks>
+    /// <param name="sequence">Subject sequence.</param>
+    /// <param name="pattern">The pattern text.</param>
+    /// <param name="maxMismatches">Maximum substitutions per hit (default 0 = exact).</param>
+    /// <param name="bothStrands">Also search the reverse-complement strand.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> or <paramref name="pattern"/> is null.</exception>
+    /// <exception cref="ArgumentException">The pattern is invalid (see <see cref="FuzznucPattern.Parse"/>).</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxMismatches"/> is negative.</exception>
+    public static IReadOnlyList<PatternHit> FindPatternHits(
+        DnaSequence sequence, string pattern, int maxMismatches = 0, bool bothStrands = false, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        return FindPatternHits(sequence, FuzznucPattern.Parse(pattern), maxMismatches, bothStrands, cancellationToken);
+    }
+
+    /// <summary>
+    /// <see cref="FindPatternHits(DnaSequence, string, int, bool, CancellationToken)"/> with an already parsed pattern.
+    /// </summary>
+    /// <param name="sequence">Subject sequence.</param>
+    /// <param name="pattern">The parsed pattern.</param>
+    /// <param name="maxMismatches">Maximum substitutions per hit.</param>
+    /// <param name="bothStrands">Also search the reverse-complement strand.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <exception cref="ArgumentNullException">An argument is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxMismatches"/> is negative.</exception>
+    public static IReadOnlyList<PatternHit> FindPatternHits(
+        DnaSequence sequence, FuzznucPattern pattern, int maxMismatches = 0, bool bothStrands = false, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        return PatternHitsCore(sequence.Sequence, pattern, maxMismatches, bothStrands, cancellationToken);
+    }
+
+    /// <summary>
+    /// <see cref="FindPatternHits(DnaSequence, string, int, bool, CancellationToken)"/> on a nucleotide <b>string</b> (N runs, IUPAC codes, lower case): the sequence side is literal
+    /// as in the canonical motif finders — a symbol other than A/C/G/T matches no pattern symbol (not even <c>N</c>) and counts as a mismatch. (The fuzznuc binary reads a sequence
+    /// ambiguity code as the set of bases it stands for and lets an <c>N</c> in the pattern match it; that is not reproduced, the contract follows
+    /// <see cref="MotifFinder.FindDegenerateMotif(string, string, CancellationToken)"/>.)
+    /// </summary>
+    /// <param name="sequence">Subject nucleotide string.</param>
+    /// <param name="pattern">The pattern text.</param>
+    /// <param name="maxMismatches">Maximum substitutions per hit.</param>
+    /// <param name="bothStrands">Also search the reverse-complement strand.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <exception cref="ArgumentNullException">An argument is null.</exception>
+    /// <exception cref="ArgumentException">The pattern is invalid.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxMismatches"/> is negative.</exception>
+    public static IReadOnlyList<PatternHit> FindPatternHits(
+        string sequence, string pattern, int maxMismatches = 0, bool bothStrands = false, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        return FindPatternHits(sequence, FuzznucPattern.Parse(pattern), maxMismatches, bothStrands, cancellationToken);
+    }
+
+    /// <summary><see cref="FindPatternHits(string, string, int, bool, CancellationToken)"/> with an already parsed pattern.</summary>
+    /// <param name="sequence">Subject nucleotide string.</param>
+    /// <param name="pattern">The parsed pattern.</param>
+    /// <param name="maxMismatches">Maximum substitutions per hit.</param>
+    /// <param name="bothStrands">Also search the reverse-complement strand.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <exception cref="ArgumentNullException">An argument is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxMismatches"/> is negative.</exception>
+    public static IReadOnlyList<PatternHit> FindPatternHits(
+        string sequence, FuzznucPattern pattern, int maxMismatches = 0, bool bothStrands = false, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        return PatternHitsCore(QueryText(sequence.ToUpperInvariant()), pattern, maxMismatches, bothStrands, cancellationToken);
+    }
+
+    /// <summary>
+    /// Several named patterns at once (<c>fuzznuc -pattern @file</c>; see <see cref="FuzznucPattern.ParsePatternFile"/>): the hits of each pattern, keyed by its name, in the order
+    /// of <paramref name="patterns"/>; a pattern without a hit is present with an empty list. <paramref name="maxMismatches"/> applies to every pattern (<c>-pmismatch</c>).
+    /// </summary>
+    /// <param name="sequence">Subject sequence.</param>
+    /// <param name="patterns">The named patterns; names must be distinct.</param>
+    /// <param name="maxMismatches">Maximum substitutions per hit.</param>
+    /// <param name="bothStrands">Also search the reverse-complement strand.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <exception cref="ArgumentNullException">An argument is null.</exception>
+    /// <exception cref="ArgumentException">Two patterns have the same name.</exception>
+    public static IReadOnlyDictionary<string, IReadOnlyList<PatternHit>> FindPatternHits(
+        DnaSequence sequence, IEnumerable<NamedPattern> patterns, int maxMismatches = 0, bool bothStrands = false, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        ArgumentNullException.ThrowIfNull(patterns);
+        return NamedPatternHits(sequence.Sequence, patterns, maxMismatches, bothStrands, cancellationToken);
+    }
+
+    /// <summary><see cref="FindPatternHits(DnaSequence, IEnumerable{NamedPattern}, int, bool, CancellationToken)"/> on a nucleotide string (non-A/C/G/T symbols match nothing).</summary>
+    /// <param name="sequence">Subject nucleotide string.</param>
+    /// <param name="patterns">The named patterns.</param>
+    /// <param name="maxMismatches">Maximum substitutions per hit.</param>
+    /// <param name="bothStrands">Also search the reverse-complement strand.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <exception cref="ArgumentNullException">An argument is null.</exception>
+    /// <exception cref="ArgumentException">Two patterns have the same name.</exception>
+    public static IReadOnlyDictionary<string, IReadOnlyList<PatternHit>> FindPatternHits(
+        string sequence, IEnumerable<NamedPattern> patterns, int maxMismatches = 0, bool bothStrands = false, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        ArgumentNullException.ThrowIfNull(patterns);
+        return NamedPatternHits(QueryText(sequence.ToUpperInvariant()), patterns, maxMismatches, bothStrands, cancellationToken);
+    }
+
+    private static Dictionary<string, IReadOnlyList<PatternHit>> NamedPatternHits(
+        string text, IEnumerable<NamedPattern> patterns, int maxMismatches, bool bothStrands, CancellationToken cancellationToken)
+    {
+        var result = new Dictionary<string, IReadOnlyList<PatternHit>>(StringComparer.Ordinal);
+        foreach (var (name, pattern) in patterns)
+        {
+            if (result.ContainsKey(name))
+                throw new ArgumentException($"Two patterns are named '{name}'.", nameof(patterns));
+            result[name] = PatternHitsCore(text, pattern, maxMismatches, bothStrands, cancellationToken);
+        }
+
+        return result;
+    }
+
+    // `text` is upper case; every symbol other than A/C/G/T is already QueryBreak (matches nothing).
+    private static List<PatternHit> PatternHitsCore(string text, FuzznucPattern pattern, int maxMismatches, bool bothStrands, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(pattern);
+        ArgumentOutOfRangeException.ThrowIfNegative(maxMismatches);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var best = new Dictionary<(int Position, int Length, bool Reverse), int>();
+        var expansions = pattern.ExpandWithExtras();
+        bool hasRange = pattern.Elements.Any(e => e.IsRange);
+        // fuzznuc picks its search class from the pattern (embPatGetTypeII): a range pattern is searched by the recursive matcher
+        // patOUBrute when mismatches are allowed, otherwise by a regular expression (every other pattern reports all windows).
+        bool recursiveMatcher = hasRange && maxMismatches > 0;
+        bool regexClass = hasRange && !recursiveMatcher;
+
+        Scan(expansions, pattern.AnchoredAtStart, pattern.AnchoredAtEnd, reverse: false);
+        if (bothStrands)
+        {
+            // fuzznuc reverse-complements the sequence and runs the same pattern on it: mirror each expansion (and its extra positions) instead.
+            var mirrored = expansions.Select(e => new PatternExpansion(
+                DnaSequence.GetReverseComplementString(e.Iupac), e.ExtraPositions.Select(x => e.Iupac.Length - 1 - x).ToArray(), e.EndsWithEmptyElement)).ToList();
+            Scan(mirrored, pattern.AnchoredAtEnd, pattern.AnchoredAtStart, reverse: true);
+        }
+
+        return best
+            .OrderBy(kv => kv.Key.Position).ThenBy(kv => kv.Key.Length).ThenBy(kv => kv.Key.Reverse)
+            .Select(kv => new PatternHit(kv.Key.Position, kv.Key.Length, kv.Key.Reverse, kv.Value))
+            .ToList();
+
+        // anchoredStart / anchoredEnd are in forward coordinates of the scanned strand's expansion (swapped for the reverse strand)
+        void Scan(IReadOnlyList<PatternExpansion> list, bool anchoredStart, bool anchoredEnd, bool reverse)
+        {
+            var strandHits = new Dictionary<(int Position, int Length), int>();
+            foreach (var expansion in list)
+            {
+                int length = expansion.Iupac.Length;
+                foreach (var match in ApproximateMatcher.FindWithMismatches(text, expansion.Iupac, maxMismatches, iupacPattern: true, cancellationToken))
+                {
+                    if (anchoredStart && match.Position != 0)
+                        continue;
+                    if (anchoredEnd && match.Position + length != text.Length)
+                        continue;
+                    if (recursiveMatcher)
+                    {
+                        // patOUBrute: the extra repeats of a range must match exactly ...
+                        if (expansion.ExtraPositions.Count > 0 && match.MismatchPositions.Any(m => expansion.ExtraPositions.Contains(m)))
+                            continue;
+                        // ... and a pattern with elements left over when the scanned sequence has ended fails, so a path whose last element is empty
+                        // cannot end on the last base of the scanned strand (forward: position n, reverse: forward position 0).
+                        if (expansion.EndsWithEmptyElement && (reverse ? match.Position == 0 : match.Position + length == text.Length))
+                            continue;
+                    }
+
+                    var key = (Position: match.Position, Length: length);
+                    if (!strandHits.TryGetValue(key, out int known) || match.Distance < known)
+                        strandHits[key] = match.Distance;
+                }
+            }
+
+            // regex class (embPatMatchFindAll with nterm): a start-anchored (<) pattern returns only the longest match at the anchor
+            if (regexClass && pattern.AnchoredAtStart && strandHits.Count > 1)
+            {
+                int longest = strandHits.Keys.Max(k => k.Length);
+                foreach (var key in strandHits.Keys.Where(k => k.Length != longest).ToList())
+                    strandHits.Remove(key);
+            }
+
+            foreach (var (key, mismatches) in strandHits)
+                best[(key.Position, key.Length, reverse)] = mismatches;
+        }
+    }
+
+    #endregion
+
+    #region String overloads of the motif finders (A2-35)
+
+    /// <summary>
+    /// <see cref="FindMotif(DnaSequence, string)"/> on a nucleotide <b>string</b> (N runs, IUPAC codes, lower case). Case-insensitive; a symbol other than A/C/G/T in the
+    /// sequence matches nothing, so no window containing one is an occurrence (and a motif that contains one has none, as on a <see cref="DnaSequence"/>). For an A/C/G/T string
+    /// the result equals the <see cref="DnaSequence"/> overload.
+    /// </summary>
+    /// <param name="sequence">Subject nucleotide string. Must not be <c>null</c>.</param>
+    /// <param name="motif">Exact motif; a null or empty motif yields an empty list.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> is <c>null</c>.</exception>
+    public static IReadOnlyList<int> FindMotif(string sequence, string motif)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        if (string.IsNullOrEmpty(motif))
+            return Array.Empty<int>();
+        return KmerAnalyzer.FindKmerPositions(QueryText(sequence.ToUpperInvariant()), motif).ToList();
+    }
+
+    /// <summary>
+    /// <see cref="FindKnownMotifs(DnaSequence, IEnumerable{string})"/> on a nucleotide <b>string</b>; the rule of <see cref="FindMotif(string, string)"/> (non-A/C/G/T never match).
+    /// Many-motif sets use one linear scan per motif (the suffix-tree route needs a <see cref="DnaSequence"/>).
+    /// </summary>
+    /// <param name="sequence">Subject nucleotide string. Must not be <c>null</c>.</param>
+    /// <param name="motifs">Motifs to search.</param>
+    /// <exception cref="ArgumentNullException">An argument is <c>null</c>.</exception>
+    public static Dictionary<string, IReadOnlyList<int>> FindKnownMotifs(string sequence, IEnumerable<string> motifs)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        ArgumentNullException.ThrowIfNull(motifs);
+        var found = SearchKnownMotifs(QueryText(sequence.ToUpperInvariant()), null, motifs, bothStrands: false, allowIupac: false);
+        var result = new Dictionary<string, IReadOnlyList<int>>(found.Count);
+        foreach (var (key, (forward, _)) in found)
+            result[key] = forward;
+        return result;
+    }
+
+    /// <summary>
+    /// <see cref="FindKnownMotifHits(DnaSequence, IEnumerable{string}, bool, bool, int, CancellationToken)"/> on a nucleotide <b>string</b>: strands, IUPAC motifs and the mismatch budget
+    /// work as there, but a sequence symbol other than A/C/G/T matches no motif symbol (not even <c>N</c> with <paramref name="allowIupac"/>) and costs a mismatch when
+    /// <paramref name="maxMismatches"/> &gt; 0 — the sequence side is literal, as in the canonical motif finders.
+    /// </summary>
+    /// <param name="sequence">Subject nucleotide string. Must not be <c>null</c>.</param>
+    /// <param name="motifs">Motifs to search.</param>
+    /// <param name="bothStrands">Also report occurrences on the reverse strand.</param>
+    /// <param name="allowIupac">Interpret IUPAC ambiguity codes in the motifs.</param>
+    /// <param name="maxMismatches">Maximum number of mismatching positions per hit.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <exception cref="ArgumentNullException">An argument is <c>null</c>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxMismatches"/> is negative.</exception>
+    public static Dictionary<string, IReadOnlyList<KnownMotifHit>> FindKnownMotifHits(
+        string sequence,
+        IEnumerable<string> motifs,
+        bool bothStrands = false,
+        bool allowIupac = false,
+        int maxMismatches = 0,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        ArgumentNullException.ThrowIfNull(motifs);
+        ArgumentOutOfRangeException.ThrowIfNegative(maxMismatches);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        string text = QueryText(sequence.ToUpperInvariant());
+        if (maxMismatches > 0)
+            return FindKnownMotifHitsApproximate(text, motifs, bothStrands, allowIupac, maxMismatches, cancellationToken);
+
+        var found = SearchKnownMotifs(text, null, motifs, bothStrands, allowIupac, cancellationToken);
+        var result = new Dictionary<string, IReadOnlyList<KnownMotifHit>>(found.Count);
+        foreach (var (key, (forward, reverse)) in found)
+            result[key] = MergeStrandHits(forward, reverse);
+        return result;
+    }
+
+    #endregion
+}
+
+/// <summary>
+/// A hit of <see cref="GenomicAnalyzer.FindPatternHits(DnaSequence, string, int, bool, CancellationToken)"/>: the 0-based forward-strand start and the length of the matching window,
+/// the strand it matched on and its Hamming distance to the pattern (fuzznuc's <c>*mismatch</c> note, 0 for an exact hit).
+/// </summary>
+/// <param name="Position">0-based start of the window on the forward strand.</param>
+/// <param name="Length">Window length (a range such as <c>A(2,4)</c> yields hits of several lengths).</param>
+/// <param name="IsReverseStrand">The window matches the reverse complement of the pattern.</param>
+/// <param name="Mismatches">Substituted positions, ≤ the allowed maximum.</param>
+public readonly record struct PatternHit(int Position, int Length, bool IsReverseStrand, int Mismatches = 0)
+{
+    /// <summary>Exclusive end of the window (0-based).</summary>
+    public int End => Position + Length;
+}

@@ -235,6 +235,9 @@
 | find_clump_windows | Analysis | KmerAnalyzer.FindClumpWindows | KmerAnalyzer.cs#L2832 | 2/2 | ✓ | ✓ | Ready |
 | find_clumps | Analysis | KmerAnalyzer.FindClumps | KmerAnalyzer.cs#L2791 | 0/0 | – | – | Build-Ready |
 | find_common_regions | Analysis | GenomicAnalyzer.FindCommonRegions | GenomicAnalyzer.cs#L189 | 0/0 | – | – | Build-Ready |
+| find_all_longest_repeats | Analysis | GenomicAnalyzer.FindAllLongestRepeats | GenomicAnalyzer.cs | 0/0 | – | – | Build-Ready |
+| find_longest_common_region_mismatches | Analysis | GenomicAnalyzer.FindLongestCommonRegionWithMismatches | GenomicAnalyzer.CommonRegions.cs | 0/0 | – | – | Build-Ready |
+| find_pattern_hits | Analysis | GenomicAnalyzer.FindPatternHits | GenomicAnalyzer.PatternHits.cs | 0/0 | – | – | Build-Ready |
 | find_conserved_clusters | Analysis | ComparativeGenomics.FindConservedClusters | ComparativeGenomics.cs#L460 | 0/0 | – | – | Build-Ready |
 | find_degenerate_motif | Analysis | MotifFinder.FindDegenerateMotif | MotifFinder.cs#L88 | 0/0 | – | – | Build-Ready |
 | find_degenerate_repeats | Analysis | RepeatFinder.FindDegenerateRepeats | RepeatFinder.cs#L5117 | 2/2 | ✓ | ✓ | Ready |
@@ -367,6 +370,14 @@
 | multiple_align_progressive | Alignment | SequenceAligner.MultipleAlignProgressive | Alignment/SequenceAligner.cs#L1676 | 0/0 | – | – | Build-Ready |
 | multiple_align_tcoffee | Alignment | SequenceAligner.MultipleAlignTCoffeeProgram | Alignment/SequenceAligner.TCoffeeLibrary.cs#L446 | 0/0 | – | – | Build-Ready |
 | muscle_msa_command | Alignment | SequenceAligner.MuscleProfileAlign | Alignment/SequenceAligner.MuscleProgram.cs | 0/0 | – | – | Build-Ready |
+| clustalw_pairwise_align | Alignment | SequenceAligner.ClustalWPairwiseAlign | Alignment/SequenceAligner.ClustalW.cs | 0/0 | – | – | Build-Ready |
+| clustalw_quick_pairwise_align | Alignment | SequenceAligner.ClustalWQuickPairwiseAlign | Alignment/SequenceAligner.ClustalWQuick.cs | 0/0 | – | – | Build-Ready |
+| sum_of_pairs_score | Alignment | SequenceAligner.SumOfPairsScore | Alignment/SequenceAligner.MultipleAffine.cs | 0/0 | – | – | Build-Ready |
+| tcoffee_guide_tree | Alignment | SequenceAligner.TCoffeeGuideTree | Alignment/SequenceAligner.TCoffeeTree.cs | 0/0 | – | – | Build-Ready |
+| tcoffee_ktup_similarity | Alignment | SequenceAligner.TCoffeeKtupSimilarity | Alignment/SequenceAligner.TCoffeeTree.cs | 0/0 | – | – | Build-Ready |
+| tcoffee_lalign_top_alignments | Alignment | SequenceAligner.TCoffeeLalignTopAlignments | Alignment/SequenceAligner.TCoffeePrimary.cs | 0/0 | – | – | Build-Ready |
+| tcoffee_primary_library | Alignment | SequenceAligner.TCoffeePrimaryLibraryEntries | Alignment/SequenceAligner.TCoffeeLibrary.cs | 0/0 | – | – | Build-Ready |
+| tcoffee_slow_pair_align | Alignment | SequenceAligner.TCoffeeSlowPairAlign | Alignment/SequenceAligner.TCoffeePrimary.cs | 0/0 | – | – | Build-Ready |
 | quality_trim_reads | Alignment | SequenceAssembler.QualityTrimReads | Alignment/SequenceAssembler.cs#L600 | 0/0 | – | – | Build-Ready |
 | scaffold_contigs | Alignment | SequenceAssembler.Scaffold | Alignment/SequenceAssembler.cs#L461 | 0/0 | – | – | Build-Ready |
 | semi_global_align | Alignment | SequenceAligner.SemiGlobalAlign | Alignment/SequenceAligner.cs#L873 | 0/0 | – | – | Build-Ready |

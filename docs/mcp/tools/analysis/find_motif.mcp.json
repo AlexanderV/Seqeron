@@ -1,46 +1,87 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "toolName": "find_motif",
-  "serverName": "Analysis",
-  "version": "1.0.0",
-  "stability": "stable",
-  "methodId": "GenomicAnalyzer.FindMotif",
-  "docRef": "Seqeron.Genomics.Analysis/GenomicAnalyzer.cs#L195",
-  "description": "All exact (overlapping, case-insensitive) occurrence start positions of a motif in a DNA sequence, ascending, forward strand.",
-  "inputSchema": {
-    "type": "object",
-    "properties": {
-      "sequence": { "type": "string", "description": "DNA sequence", "minLength": 1 },
-      "motif": { "type": "string", "description": "Motif to locate", "minLength": 1 }
-    },
-    "required": ["sequence", "motif"]
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "toolName": "find_motif",
+ "serverName": "Analysis",
+ "version": "1.0.0",
+ "stability": "stable",
+ "methodId": "GenomicAnalyzer.FindMotif",
+ "docRef": "Seqeron.Genomics.Analysis/GenomicAnalyzer.cs#L195",
+ "description": "All exact occurrences of a motif (case-insensitive, overlapping, ascending 0-based positions, forward strand) in a DNA sequence. IUPAC input (e.g. N runs) is accepted: a symbol other than A/C/G/T never matches, so no window containing one is an occurrence.",
+ "inputSchema": {
+  "type": "object",
+  "properties": {
+   "sequence": {
+    "type": "string",
+    "description": "Nucleotide sequence: A/C/G/T plus IUPAC codes such as N (case-insensitive); non-A/C/G/T symbols match nothing.",
+    "minLength": 1
+   },
+   "motif": {
+    "type": "string",
+    "description": "Motif to locate.",
+    "minLength": 1
+   }
   },
-  "outputSchema": {
-    "type": "object",
-    "properties": {
-      "positions": {
-        "type": "array",
-        "description": "Ascending 0-based start positions of every occurrence",
-        "items": { "type": "integer" }
-      }
-    },
-    "required": ["positions"]
-  },
-  "errors": [
-    { "code": 1001, "message": "Sequence cannot be null or empty" },
-    { "code": 1001, "message": "Invalid DNA sequence" },
-    { "code": 1001, "message": "Motif cannot be null or empty" }
-  ],
-  "examples": [
-    {
-      "name": "Repeated motif ATG in ATGATG",
-      "input": { "sequence": "ATGATG", "motif": "ATG" },
-      "output": { "positions": [0, 3] }
-    },
-    {
-      "name": "Overlapping AA in AAAA",
-      "input": { "sequence": "AAAA", "motif": "AA" },
-      "output": { "positions": [0, 1, 2] }
-    }
+  "required": [
+   "sequence",
+   "motif"
   ]
+ },
+ "outputSchema": {
+  "type": "object",
+  "properties": {
+   "positions": {
+    "type": "array",
+    "description": "Ascending 0-based start positions of every occurrence",
+    "items": {
+     "type": "integer"
+    }
+   }
+  },
+  "required": [
+   "positions"
+  ]
+ },
+ "errors": [
+  {
+   "code": 1001,
+   "message": "Sequence cannot be null or empty"
+  },
+  {
+   "code": 1001,
+   "message": "Invalid DNA sequence"
+  },
+  {
+   "code": 1001,
+   "message": "Motif cannot be null or empty"
+  }
+ ],
+ "examples": [
+  {
+   "name": "Repeated motif ATG in ATGATG",
+   "input": {
+    "sequence": "ATGATG",
+    "motif": "ATG"
+   },
+   "output": {
+    "positions": [
+     0,
+     3
+    ]
+   }
+  },
+  {
+   "name": "Overlapping AA in AAAA",
+   "input": {
+    "sequence": "AAAA",
+    "motif": "AA"
+   },
+   "output": {
+    "positions": [
+     0,
+     1,
+     2
+    ]
+   }
+  }
+ ]
 }

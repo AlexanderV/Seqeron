@@ -1,0 +1,202 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "toolName": "find_pattern_hits",
+ "serverName": "Analysis",
+ "version": "1.0.0",
+ "stability": "stable",
+ "methodId": "GenomicAnalyzer.FindPatternHits",
+ "docRef": "Seqeron.Genomics.Analysis/GenomicAnalyzer.PatternHits.cs",
+ "description": "Search a DNA sequence with an EMBOSS fuzznuc pattern (the -pattern language): IUPAC letters, classes [ACG], exclusions {AG}, repeats N(3), length ranges A(2,4) (every matching window length is reported), '-' separators, the anchors '<' (start of the sequence) and '>' (end), a terminating '.'; e.g. [CG](5)TG{A}N(1,5)C. maxMismatches = fuzznuc -pmismatch (Hamming, substitutions only; with a range the extra repeats beyond n of X(n,m) must match exactly, as in fuzznuc); bothStrands = -complement (the reverse-strand pattern is the reversed, complemented one with swapped anchors; positions are forward-strand starts). Give one pattern, or patternFile = the text of a fuzznuc pattern file (one pattern per line, or FASTA '>name' + pattern) for several named patterns. Verified against EMBOSS fuzznuc 6.6.0 on 3300 random patterns. A symbol other than A/C/G/T in the sequence matches nothing and costs a mismatch. Positions 0-based; hits ordered by position, length, forward before reverse.",
+ "inputSchema": {
+  "type": "object",
+  "properties": {
+   "sequence": {
+    "type": "string",
+    "description": "Nucleotide sequence: A/C/G/T plus IUPAC codes such as N (case-insensitive)."
+   },
+   "pattern": {
+    "type": "string",
+    "description": "One fuzznuc pattern (omit when patternFile is given)."
+   },
+   "patternFile": {
+    "type": "string",
+    "description": "Text of a fuzznuc pattern file: one pattern per line, or FASTA style (>name then the pattern); several patterns are reported under their names (unnamed: pattern1, pattern2, ...)."
+   },
+   "maxMismatches": {
+    "type": "integer",
+    "description": "Maximum substitutions per hit (fuzznuc -pmismatch, default 0).",
+    "default": 0
+   },
+   "bothStrands": {
+    "type": "boolean",
+    "description": "Also search the reverse-complement strand (fuzznuc -complement, default false).",
+    "default": false
+   }
+  },
+  "required": [
+   "sequence"
+  ]
+ },
+ "outputSchema": {
+  "type": "object",
+  "properties": {
+   "patterns": {
+    "type": "object",
+    "additionalProperties": {
+     "type": "string"
+    }
+   },
+   "hits": {
+    "type": "array",
+    "items": {
+     "type": "object",
+     "properties": {
+      "pattern": {
+       "type": "string"
+      },
+      "position": {
+       "type": "integer"
+      },
+      "length": {
+       "type": "integer"
+      },
+      "strand": {
+       "type": "string"
+      },
+      "mismatches": {
+       "type": "integer"
+      }
+     },
+     "required": [
+      "pattern",
+      "position",
+      "length",
+      "strand",
+      "mismatches"
+     ]
+    }
+   }
+  },
+  "required": [
+   "patterns",
+   "hits"
+  ]
+ },
+ "errors": [
+  {
+   "code": 1001,
+   "message": "Sequence cannot be null or empty"
+  },
+  {
+   "code": 1001,
+   "message": "Invalid DNA sequence (A/C/G/T and IUPAC codes only)"
+  },
+  {
+   "code": 1001,
+   "message": "Give exactly one of pattern and patternFile"
+  },
+  {
+   "code": 1001,
+   "message": "Illegal pattern ..."
+  },
+  {
+   "code": 1002,
+   "message": "maxMismatches cannot be negative"
+  }
+ ],
+ "examples": [
+  {
+   "name": "Length range",
+   "input": {
+    "sequence": "AAAACAAAAT",
+    "pattern": "A(1,3)C"
+   },
+   "output": {
+    "patterns": {
+     "pattern1": "A(1,3)C"
+    },
+    "hits": [
+     {
+      "pattern": "pattern1",
+      "position": 1,
+      "length": 4,
+      "strand": "forward",
+      "mismatches": 0
+     },
+     {
+      "pattern": "pattern1",
+      "position": 2,
+      "length": 3,
+      "strand": "forward",
+      "mismatches": 0
+     },
+     {
+      "pattern": "pattern1",
+      "position": 3,
+      "length": 2,
+      "strand": "forward",
+      "mismatches": 0
+     }
+    ]
+   }
+  },
+  {
+   "name": "Anchored pattern on the reverse strand",
+   "input": {
+    "sequence": "AAACGT",
+    "pattern": "<ACG",
+    "bothStrands": true
+   },
+   "output": {
+    "patterns": {
+     "pattern1": "<ACG"
+    },
+    "hits": [
+     {
+      "pattern": "pattern1",
+      "position": 3,
+      "length": 3,
+      "strand": "reverse",
+      "mismatches": 0
+     }
+    ]
+   }
+  },
+  {
+   "name": "Pattern file",
+   "input": {
+    "sequence": "ACGTACGTTTGAACC",
+    "patternFile": ">p1\nACGT\n>p2\nTTGA\n"
+   },
+   "output": {
+    "patterns": {
+     "p1": "ACGT",
+     "p2": "TTGA"
+    },
+    "hits": [
+     {
+      "pattern": "p1",
+      "position": 0,
+      "length": 4,
+      "strand": "forward",
+      "mismatches": 0
+     },
+     {
+      "pattern": "p1",
+      "position": 4,
+      "length": 4,
+      "strand": "forward",
+      "mismatches": 0
+     },
+     {
+      "pattern": "p2",
+      "position": 8,
+      "length": 4,
+      "strand": "forward",
+      "mismatches": 0
+     }
+    ]
+   }
+  }
+ ]
+}
