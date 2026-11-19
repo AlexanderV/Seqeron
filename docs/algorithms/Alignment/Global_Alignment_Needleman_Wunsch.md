@@ -5,8 +5,8 @@
 | Algorithm Group | Alignment |
 | Test Unit ID | ALIGN-GLOBAL-001 |
 | Related Projects | Seqeron.Genomics |
-| Implementation Status | Reference |
-| Last Reviewed | 2026-04-30 |
+| Implementation Status | Production (linear + affine, matrix scoring, ends-free policies via `SemiGlobalAlign`, linear-space, co-optimal enumeration) |
+| Last Reviewed | 2026-11-19 |
 
 ## 1. Overview
 

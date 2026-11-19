@@ -8,14 +8,22 @@
 - **End-state:** CLEAN (fixed)
 - **Relationship:** the 2026-06 session classified this unit a "duplicate of REP-TANDEM-001, resolved by consolidation". The shared method was nevertheless a stand-alone implementation that disagreed with the canonical `RepeatFinder.FindMicrosatellites` (B04 request, DUP_MAP §17); REP-TANDEM-001 keeps the summary helpers, this unit owns the `FindTandemRepeats` contract.
 
+## B09 current state (2026-11-19) - supersedes the original verdict lines above and below
+
+- **Stage A:** PASS-WITH-NOTES. **Stage B:** FAIL -> PASS. **State:** FIXED.
+- **Fixes (B09.md, F-numbers):** F35 facade over `RepeatFinder.FindMicrosatellites` (non-primitive units no longer reported), F36 `maxUnitLength` overload + run-enumeration engine (Bannai et al. Lyndon runs, `MaximalRepetitions`), F37 documentation, F38 independent oracle, F50 N / IUPAC strings, F78 (R15, 'B09 for B04') the engine choice moved into the canonical `RepeatFinder.FindMicrosatellites`; `GenomicAnalyzer.FindTandemRepeats` is a pure facade.
+- **Oracle numbers:** three-method Python oracle 1 156 rows + 62 000 exhaustive strings; 1 Mbp unbounded ~ 3 s.
+- **Open items:** registered (B11, not finished): `GenomeAnnotator.cs:979` private tandem scan -> `GenomicAnalyzer.FindTandemRepeats(seq, 1, minCopies, 60)` (QUEUE R16).
+- The unit's TestSpec (`tests/TestSpecs/GENOMIC-TANDEM-001.md`), Evidence (`docs/Evidence/GENOMIC-TANDEM-001-Evidence.md`) and algorithm document carry the same state; where the original text below says CLEAN / no defects / no code changes, that was the state of the first pass only.
+
 ## Stage A — Description
 
 ### Sources opened (2026-11-18)
 
 1. **Bannai, I, Inenaga, Nakashima, Takeda, Tsuruta, "The 'Runs' Theorem"** — https://arxiv.org/abs/1406.0263, abstract + full PDF. Definition 1 (run: smallest period p, length ≥ 2p, not extendable left/right), Lemma 3/6/7/8, Theorem 9 (ρ(n) < n), §4.1–4.2 (stack computation of the longest Lyndon words; candidate extension by LCE on w and its reverse; "$ ≺0 a (and thus a ≺1 $)").
 2. **MISA `misa.pl`** (mirror https://raw.githubusercontent.com/cfljam/SSR_marker_design/master/misa.pl) line 110: "reject false type motifs [e.g. (TT)6 or (ACAC)5]".
-3. **Kolpakov & Kucherov, FOCS 1999** — search snippets only (maximal repetitions, linear number of runs).
-4. **Benson 1999** — publisher pages 403; definition confirmed by search snippets ("two or more contiguous, approximate copies of a pattern of nucleotides"). Wikipedia "Tandem repeat" (2026-06 fetch): worked example `ATTCG ATTCG ATTCG`.
+3. **Kolpakov & Kucherov, FOCS 1999** — full paper opened 2026-11-19 (`monge.univ-eiffel.fr/~koutcher/PAPERS/KolpakovKucherovFOCS99.pdf`): period = smallest period, repetition = exponent >= 2, maximal repetition = extension by one letter in either direction gives a bigger period; linear number of runs. (Earlier: search snippets only.)
+4. **Benson 1999** — the paper's pages stay unreachable (PMC reCAPTCHA, OUP 403, Europe PMC 403); the TRF author's site `tandem.bu.edu/trf` was opened 2026-11-19 and states the definition ("two or more adjacent, approximate copies of a pattern of nucleotides"; pattern size 1-2000); see GENOMIC-TANDEM-001-Evidence.md "Primary sources opened". Earlier: search snippets ("two or more contiguous, approximate copies of a pattern of nucleotides"). Wikipedia "Tandem repeat" (2026-06 fetch): worked example `ATTCG ATTCG ATTCG`.
 5. EMBOSS `etandem` 6.6.0 run for information only (its scoring model is not an exact-run enumerator; see the Evidence file).
 
 ### Formula / model check

@@ -7,6 +7,14 @@
 - **End-state:** ✅ CLEAN after the 2026-11 fixes
 - **Duplicate?** Three ORF engines existed (DUP_MAP §3). After the review `GenomicAnalyzer.FindOpenReadingFrames` and `Translator.FindOrfs` share one scanning core (`OrfScanner`, Core); `GenomeAnnotator.FindOrfs` (B11, prokaryotic ATG/GTG/TTG set, forward half-open coordinates) keeps its own loop (cross-batch request recorded in B09.md). All three agree under matching options (differential tests).
 
+## B09 current state (2026-11-19) - supersedes the original verdict lines above and below
+
+- **Stage A:** PASS-WITH-NOTES (the NCBI ORFfinder length-filter claim was refuted by the NCBI `COrf` source). **Stage B:** PASS-WITH-NOTES. **State:** FIXED.
+- **Fixes (B09.md, F-numbers):** F21 stops from `GeneticCode`, F22 single-pass O(n) scan, F23 `minLength` convention (stop counted by default; NCBI / getorf convention as `MinLengthExcludesStop`), F24 input-strand coordinates, F25 `OrfSearchOptions` + the shared `OrfScanner` core (`Translator.FindOrfs` rebuilt on it), F26 independent oracle, F50 N / IUPAC strings, F57 NCBI ORFfinder 0.4.3 binary oracle (`-n`, `-b/-e`, `-ml`, strands, partial flags, tables 27/28/31; `-c` is a no-op in the binary).
+- **Oracle numbers:** orf_oracle.tsv 1 746 rows = Biopython definition = NCBI `COrf` port = getorf 6.6.0 (377 rows); ORFfinder 0.4.3 user-run Docker 1 750 runs = 54 820 results equal; ambiguous-code oracle 2 844 rows.
+- **Open items:** none in B09's files. Open for B11 (QUEUE R16 and B09.md Cross-batch dedup requests): `GenomeAnnotator.FindStartToStopOrfsInFrame` (GenomeAnnotator.cs:157) -> `OrfScanner.FindRegions`.
+- The unit's TestSpec (`tests/TestSpecs/GENOMIC-ORF-001.md`), Evidence (`docs/Evidence/GENOMIC-ORF-001-Evidence.md`) and algorithm document carry the same state; where the original text below says CLEAN / no defects / no code changes, that was the state of the first pass only.
+
 ## Stage A — Description
 
 ### Sources opened this session (retrieved, not trusted by label)

@@ -5,6 +5,14 @@
 - **Stage A verdict:** PASS
 - **Stage B verdict:** PASS
 
+## B09 current state (2026-11-19) - supersedes the original verdict lines above and below
+
+- **Stage A:** PASS-WITH-NOTES. **Stage B:** PASS-WITH-NOTES. **State:** FIXED (not 'no defect found': the 2026-06 verdict below is superseded).
+- **Fixes (B09.md, F-numbers):** F18 `FindMotif` ascending order and delegation to `MotifFinder.FindExactMotif`, F19 IUPAC-degenerate motifs and the reverse strand (`FindKnownMotifHits`), F20 KMP scans below 128 queries / suffix tree from 128, F49 mismatch-tolerant search (`maxMismatches`), F50 N / IUPAC subjects (string overloads).
+- **Oracle numbers:** EMBOSS fuzznuc 6.6.0 = Python `re` on 2 448 pairs; F49 fuzznuc `-pmismatch` oracle (see the Evidence file).
+- **Open items:** registered, not doable here: `MotifFinder.FindExactMotif` first-query suffix-tree policy (23 s / 1.7 GB at 10 Mbp; needs a 'tree built?' accessor on `DnaSequence`, QUEUE R19). The statement 'a non-ACGT motif character simply does not match - documented limitation' in the original pass is superseded by F19 / F49 / F50.
+- The unit's TestSpec (`tests/TestSpecs/GENOMIC-MOTIFS-001.md`), Evidence (`docs/Evidence/GENOMIC-MOTIFS-001-Evidence.md`) and algorithm document carry the same state; where the original text below says CLEAN / no defects / no code changes, that was the state of the first pass only.
+
 ## Summary
 
 GENOMIC-MOTIFS-001 ("Known Motif Search") is the classical **exact set-matching** problem:
@@ -118,9 +126,9 @@ shared `SuffixTree` used across the library. Consistent.
 ### Numerical robustness
 
 Integer positions only; no floating point, overflow, or div-by-zero. Empty subject → empty suffix
-tree → no occurrences → empty result. Non-ACGT motif characters: blocked upstream because the test
-inputs are ACGT; a motif with a non-ACGT char would simply not match (returns no positions), per
-documented limitation. Robust on the stated domain.
+tree → no occurrences → empty result. Non-ACGT motif characters (2026-06 text: "would simply not match,
+documented limitation" - superseded 2026-11: IUPAC-degenerate motifs, both strands, mismatches and N / IUPAC subjects
+are implemented, B09 F19 / F49 / F50). Robust on the stated domain.
 
 ### Test quality audit (HARD gate)
 

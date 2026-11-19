@@ -5,6 +5,14 @@
 - **Stage A verdict:** PASS
 - **Stage B verdict:** FAIL → FIXED (defect found in `FindRepeats`, fully corrected this session)
 
+## B09 current state (2026-11-19) - supersedes the original verdict lines above and below
+
+- **Stage A:** PASS-WITH-NOTES (maximal-repeat definition restated from Gusfield §7.12 via lecture slides; the unit contract 'every repeated substring' kept and documented). **Stage B:** PASS-WITH-NOTES (FAIL -> FIXED in 2026-06). **State:** FIXED.
+- **Fixes (B09.md, F-numbers):** F27 `FindPalindromes` = facade over `RepeatFinder.FindPalindromes` (was an unvalidated O(n·L²) copy), F28 `FindRepeats` review + independent oracle, F29 deterministic `FindLongestRepeat` tie-break (+ `FindAllLongestRepeats`), F30 `FindMaximalRepeats` (Gusfield left-diverse), F31 MCP documentation, F50 N / IUPAC.
+- **Oracle numbers:** 628-row Python oracle (brute force = SA + LCP), 480 brute-force strings, 1 Mbp ~ 4.7 s.
+- **Open items:** registered, not doable here: a public left-diverse (maximal-repeat) visitor in `src/SuffixTree` (B05, QUEUE R18) would replace the private `RepeatLocusCollector`; the present implementation is exact and linear.
+- The unit's TestSpec (`tests/TestSpecs/GENOMIC-REPEAT-001.md`), Evidence (`docs/Evidence/GENOMIC-REPEAT-001-Evidence.md`) and algorithm document carry the same state; where the original text below says CLEAN / no defects / no code changes, that was the state of the first pass only.
+
 ## Stage A — Description
 
 ### Sources opened & what they confirm

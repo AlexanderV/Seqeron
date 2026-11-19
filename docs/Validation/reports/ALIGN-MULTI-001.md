@@ -19,6 +19,14 @@ probe (since removed), not read out of the repo's own assertions.
 
 ---
 
+## B09 current state (2026-11-19) - supersedes the original verdict lines above and below
+
+- **Stage A:** PASS-WITH-NOTES. **Stage B:** PASS-WITH-NOTES. **State:** FIXED, with DOABLE items still open (see Open items); not CLEAN.
+- **Fixes (B09.md, F-numbers):** F4-F10 (first pass: exact k = 2 star, anchored aligner, T-Coffee extension, ClustalW distance, MCP tools), F48, F51-F56, F58, F60-F76 (audit round 1: exact ClustalW 2.1 pairwise / multiple / protein stages, MUSCLE 3.8.1551, T-Coffee 13.41, affine MSA, NJ guide tree, exact sum-of-pairs MSA, protein / matrix MSA).
+- **Oracle numbers:** ClustalW 2.1: 3 600 pairs (full DP), 8 257 pairs (quick), 1 000 DNA sets, protein pair stages 4 204 + 3 774, 240 + 800 matrix-file sets, 340 sets x 4 end-gap modes, 360 matrix sets; T-Coffee 13.41: 800 progressive sets, 820 libraries + 1 480 trees, 430 RNA sets, 4 715 option sets (4 712 equal); MUSCLE 3.8.1551 (user-run Docker): round 1 420 / 420 sets, round 2 630 / 630 recorded sets; exact MSA = two independent Python programs + exhaustive enumeration.
+- **Open items:** A1-10c (a3): the 8 `-matrix blosum62nostar` sets of round 2 and 52 further sets await the user's run of `handoff/A1-10c-muscle-r3` (DOABLE); A1-13d (rest): fasta heuristics / `fast_pair` / `-quicktree` ports (DOABLE); A1-13d BLOCKED methods needing external programs / databases (blast, 3D-coffee, sap) - proof in B09.md. The two 2026-06 'CLEAN' statements below describe the first pass only.
+- The unit's TestSpec (`tests/TestSpecs/ALIGN-MULTI-001.md`), Evidence (`docs/Evidence/ALIGN-MULTI-001-Evidence.md`) and algorithm document carry the same state; where the original text below says CLEAN / no defects / no code changes, that was the state of the first pass only.
+
 ## Stage A — Description
 
 ### Sources opened this session (URLs recorded)

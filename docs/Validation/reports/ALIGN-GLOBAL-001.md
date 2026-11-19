@@ -5,6 +5,14 @@
 - **Stage A verdict:** PASS
 - **Stage B verdict:** PASS
 
+## B09 current state (2026-11-19) - supersedes the original verdict lines above and below
+
+- **Stage A:** PASS-WITH-NOTES. **Stage B:** PASS-WITH-NOTES. **State:** FIXED (not CLEAN: the 2026-06 verdict below is superseded).
+- **Fixes (B09.md, F-numbers):** F1 `GlobalAlignAffine` (Gotoh + Flouri et al. 2015 border initialisation; the unit had no affine model and `GapOpen` was ignored), F39 one empty/null contract for every overload (empty input = all-gap NW alignment; the 2026-06 'optional tidy' became the contract), F41 `MatrixScoring` (BLOSUM62 / PAM250 / EDNAFULL, fractional gaps), F44 ends-free policies via `EndGaps`, F45 arbitrary gap-cost functions (Waterman-Smith-Beyer), F46 exact linear-space alignment (automatic above 25 M cells), F59 co-optimal global / ends-free enumeration.
+- **Oracle numbers:** independent re-verification 3 x 3 936 rows vs Biopython 1.88 `PairwiseAligner` / parasail 1.3.4 (0 mismatches); F41 Biopython 1 986 / 1 986, parasail 616 / 616, EMBOSS needle / water 1 103 / 1 121 (end-gap quirk of the program); F46 4 750 forced-recursion cases identical to the full matrix; F59 Biopython `align()` sets 1 859 / 1 859 comparable rows + exhaustive enumeration.
+- **Open items:** none doable. The class test count of the 2026-06 pass (13/13) is obsolete: see TestSpec ALIGN-GLOBAL-001 and B09.md for the current tests (`SequenceAligner_GlobalAlign_Tests`, `_MatrixScoring_Tests`, `_LinearSpace_Tests`, `_EndGaps_Tests`, `_GlobalCoOptimal_Tests`, `_GeneralGap_Tests`).
+- The unit's TestSpec (`tests/TestSpecs/ALIGN-GLOBAL-001.md`), Evidence (`docs/Evidence/ALIGN-GLOBAL-001-Evidence.md`) and algorithm document carry the same state; where the original text below says CLEAN / no defects / no code changes, that was the state of the first pass only.
+
 ## Stage A — Description
 
 ### Sources opened & what they confirm

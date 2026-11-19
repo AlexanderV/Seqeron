@@ -10,6 +10,14 @@ This is a re-validation in fresh context. The source file was last functionally 
 
 ---
 
+## B09 current state (2026-11-19) - supersedes the original verdict lines above and below
+
+- **Stage A:** PASS-WITH-NOTES. **Stage B:** PASS-WITH-NOTES. **State:** FIXED (not CLEAN: the 2026-06 verdict below is superseded).
+- **Fixes (B09.md, F-numbers):** F2 `LocalAlignAffine` (Smith-Waterman-Gotoh; `GapOpen` was ignored), F39 empty input = tagged-Local empty result on every overload, F41 `MatrixScoring`, F45 general gap costs, F46 exact linear-space local alignment (locate interval + global solve, SIM / EMBOSS matcher scheme), F47 Waterman-Eggert non-intersecting top-N alignments + capped co-optimal enumeration, F77 top-N in exact linear space above 25 M cells.
+- **Oracle numbers:** F2 3 192 cases vs Biopython / parasail; F41 as GLOBAL; F46 forced recursion identical on 4 750 cases; F47 topn oracle 1 350 rows (independent full-recompute Waterman-Eggert, exhaustive enumeration of tiny pairs, EMBOSS matcher 6.6.0 on 397 rows / 1 695 alignments: score lists equal on 390, Biopython co-optimal sets on 1 345 rows); F77 480 random pairs + all 1 350 oracle rows forced through the linear path and two 5 kb pairs above the limit = the in-memory declumper.
+- **Open items:** none doable. `LocalAlignCoOptimal` keeps the O(m·n) matrices (rejects > 25 M cells): an enumeration whose output can be exponential in the input has no linear-space form. The 2026-06 '7/7 tests' count is obsolete; see the TestSpec and `docs/Evidence/ALIGN-LOCAL-001-Evidence.md`.
+- The unit's TestSpec (`tests/TestSpecs/ALIGN-LOCAL-001.md`), Evidence (`docs/Evidence/ALIGN-LOCAL-001-Evidence.md`) and algorithm document carry the same state; where the original text below says CLEAN / no defects / no code changes, that was the state of the first pass only.
+
 ## Stage A — Description
 
 ### Sources opened & what they confirm
@@ -121,3 +129,7 @@ Exact linear-space alignment (Hirschberg 1975 / Myers-Miller 1988 / Huang-Miller
 ## 2026-11 audit round 1 (A1-7, B09 F47)
 
 The "one optimal alignment only" limitation is lifted: Waterman-Eggert non-intersecting top-N (`LocalAlignTopN` / `LocalAlignAffineTopN`, the definition of EMBOSS `matcher -alternatives` / `lalign`, verified against matcher's source and 1 695 of its alignments) and the capped co-optimal enumeration (`LocalAlignCoOptimal`, Biopython `alignments` set) are implemented on the existing local cores (`Local_Alignment_Smith_Waterman.md` §5.5; MCP `local_align_top_n`, `local_align_co_optimal`).
+
+## 2026-11 audit round 1 (A1-7c, B09 F77)
+
+The O(m·n) memory limit of the top-N declumper is lifted: above 25 000 000 cells `LocalAlignTopN` / `LocalAlignAffineTopN` run the exact linear-space program (the aligned pairs of the earlier alignments are forbidden in the locate passes and interval solves of F46; SIM / EMBOSS `matcher` scheme), with identical alignments (480 random pairs, 1 350 oracle rows, two 5 kb pairs; 40-46 MB peak at 5-20 kb). `LocalAlignCoOptimal` keeps the matrices. Evidence file `docs/Evidence/ALIGN-LOCAL-001-Evidence.md` created (A1-8).

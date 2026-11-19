@@ -5,6 +5,14 @@
 - **Stage A verdict:** PASS
 - **Stage B verdict:** PASS
 
+## B09 current state (2026-11-19) - supersedes the original verdict lines above and below
+
+- **Stage A:** PASS-WITH-NOTES. **Stage B:** PASS. **State:** FIXED (not CLEAN: the 2026-06 verdict below is superseded).
+- **Fixes (B09.md, F-numbers):** F3 `SemiGlobalAlignAffine` (the unit had no affine model; TestSpec NEG / INV-4 corrected), F39 contract of the string overload, F40 `Start/EndPosition2` = the fitted interval (were the full-input bounds), F41 `MatrixScoring`, F44 overlap and the 16 ends-free policies (`EndGaps`), F45 general gap costs, F46 exact linear-space fitting / ends-free.
+- **Oracle numbers:** Biopython 1.88 `align().score` 3 590 / 3 590 for the 16 policies, co-optimal membership 2 050 / 2 050, parasail exact variants equal (end-flag variants lower on 23 rows: parasail skips border end cells), needle default `-endweight N` 277 / 287 (never above), F40 823 / 823 enumerated Biopython sets contain the fitted interval + brute-force oracle on 600 pairs.
+- **Open items:** none doable. 'No code changed' of the 2026-06 pass is obsolete.
+- The unit's TestSpec (`tests/TestSpecs/ALIGN-SEMI-001.md`), Evidence (`docs/Evidence/ALIGN-SEMI-001-Evidence.md`) and algorithm document carry the same state; where the original text below says CLEAN / no defects / no code changes, that was the state of the first pass only.
+
 ## Stage A — Description
 
 ### Sources opened & what they confirm

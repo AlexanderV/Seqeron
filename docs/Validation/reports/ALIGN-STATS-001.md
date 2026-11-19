@@ -5,6 +5,14 @@
 - **Stage A verdict (B09 re-validation):** PASS-WITH-NOTES (2026-06 pass accepted a wrong markup claim — see below)
 - **Stage B verdict (B09 re-validation):** PASS-WITH-NOTES → FIXED (F11–F14)
 
+## B09 current state (2026-11-19) - supersedes the original verdict lines above and below
+
+- **Stage A:** PASS-WITH-NOTES (the 2026-06 markup claim was refuted by needle / water 6.6.0 and `ajalign.c`). **Stage B:** PASS-WITH-NOTES. **State:** FIXED (not CLEAN; the 2026-06 'CLEAN' below is superseded).
+- **Fixes (B09.md, F-numbers):** F11 case-insensitive residues, F12 unequal rows rejected, F13 gap-opening count + positives, F14 residue-pair similarity and the exact EMBOSS markup, F42 BLAST integer percentages / positives, F43 statistics of > 2 sequences (`MultipleAlignmentStatistics`).
+- **Oracle numbers:** needle / water 301 alignments (12 439 columns): Length / Identity / Similarity / Gaps, mismatches, open gaps and the markup line equal; BLAST+ 2.12.0 320 / 320; infoalign 3 268 / 3 268; distmat 600 / 600; ClustalW 151 / 151; Biopython identity 77 / 77; matrices 576 / 576 / 256 cells equal the EMBOSS data files.
+- **Open items:** none. NOTE-1 of the original pass ('`:` for any positive score, `.` unreachable') and 'M7 follows the simplification' are REFUTED and no longer true: the code and M7 follow the EMBOSS rule exactly.
+- The unit's TestSpec (`tests/TestSpecs/ALIGN-STATS-001.md`), Evidence (`docs/Evidence/ALIGN-STATS-001-Evidence.md`) and algorithm document carry the same state; where the original text below says CLEAN / no defects / no code changes, that was the state of the first pass only.
+
 ## B09 re-validation (2026-11-18) — summary
 
 Stage A. Sources actually opened: EMBOSS 6.6 `ajax/core/ajalign.c` (raw.githubusercontent.com; `alignConsStats`, `alignSim`), the local needle/water 6.6.0 binaries and EMBOSS data files (`EBLOSUM62`, `EPAM250`, `EDNAFULL`), Biopython 1.88 (`Alignment.counts`, `substitution_matrices`). The 2026-06 pass relied on the AlignFormats web page (`:` > 1.0, `.` small positive, space mismatch) and on the claim that `.` is unreachable; the binary and the source refute both: needle writes `.` for every aligned non-similar column and space only for gap columns, for identical pairs whose own score is not positive, and (an EMBOSS quirk) for first-row ambiguity residues. The Similarity header counts `M(x,y) > 0 ∧ (M(x,x) > 0 ∨ M(y,y) > 0)`. Denominator = alignment length including gap columns (confirmed on 301 alignments).
@@ -57,7 +65,7 @@ Hand-alignment `ACGT-ACGT` / `ACCTAAC-T` re-classified in Python: 6 match, 1 mis
 Empty → `AlignmentStatistics.Empty` / `""`; null → `ArgumentNullException`; `lineWidth ≤ 0` → `ArgumentOutOfRangeException`; all-gap → Gaps==L, Identity 0%; perfect identity → 100/100/0. All defined and consistent with EMBOSS conventions (denominator undefined for L=0).
 
 ### Findings / divergences (Stage A)
-- **NOTE-1 (markup threshold, documented):** EMBOSS marks `:` for substitution score **> 1.0** and `.` for small positive scores (0 < score ≤ 1.0). The description (algorithm doc §4.2/§5.3, TestSpec Assumption #1) declares the `.` tier "unreachable" for the scalar integer `Match`/`Mismatch` model and renders any positive non-identical column as `:`. This is a rendering-only simplification, explicitly disclosed, with no effect on the counted statistics. Honest scoping → PASS-WITH-NOTES, not FAIL. The description's claim "positive substitution score ⇒ similar" for the **counted** statistics is fully correct (EMBOSS/BLAST positives definition is "scores ≥/> 0" for the count; the >1.0 threshold is a *display* nuance specific to the srspair markup glyph).
+- **NOTE-1 (REFUTED 2026-11-18 - see the B09 re-validation above; kept as history):** EMBOSS marks `:` for substitution score **> 1.0** and `.` for small positive scores (0 < score ≤ 1.0). The description (algorithm doc §4.2/§5.3, TestSpec Assumption #1) declares the `.` tier "unreachable" for the scalar integer `Match`/`Mismatch` model and renders any positive non-identical column as `:`. This is a rendering-only simplification, explicitly disclosed, with no effect on the counted statistics. Honest scoping → PASS-WITH-NOTES, not FAIL. The description's claim "positive substitution score ⇒ similar" for the **counted** statistics is fully correct (EMBOSS/BLAST positives definition is "scores ≥/> 0" for the count; the >1.0 threshold is a *display* nuance specific to the srspair markup glyph).
 
 ## Stage B — Implementation
 
@@ -86,15 +94,15 @@ Yes. Single O(L) pass classifies each column: gap if either char is `-`; else id
 - **Sourced, not code-echoes:** M1 reproduces the published 43.6/60.4 (counts 65/149, 90/149) — a deliberately-wrong denominator or similarity rule fails it. M3 locks 75%→100% (positive-score similarity). M5 locks exact 6/9 and 2/9. FormatAlignment markup strings are the literal srspair glyphs. The `Similarity Is.EqualTo(Identity)` assertions in M2/M2b/M5 are **anchored** by independent exact-value Identity asserts in the same test, so they are not tautologies.
 - **No green-washing:** exact `.Within(1e-10)` / `1e-3` tolerances throughout; the only ranged asserts (M1 `.Within(0.05)` "rounds to 43.6") sit alongside the exact `65.0/149.0*100 .Within(1e-3)` assert and mirror the published 1-dp rounding — not a weakening. No skip/ignore.
 - **Coverage:** all 7 MUST (M1–M7), all 6 SHOULD (S1–S6), both COULD (C1–C2) present; both public methods, default + explicit scoring, null/empty/boundary (lineWidth 0 and −1), all-gap, perfect-identity, line-wrap blocks, and INV-1/2/3 all exercised.
-- **Result: PASS.** No green-washing, no weakened assertion, no skip. Note: M7 follows the documented `:`-for-any-positive simplification rather than strict EMBOSS `.`-for-score-1.0 — this is the disclosed rendering assumption, not a test defect.
+- **Result: PASS.** No green-washing, no weakened assertion, no skip. Note (2026-06, REFUTED 2026-11-18): M7 was written to the `:`-for-any-positive simplification; the 2026-11 re-validation replaced that rule by the exact EMBOSS markup (needle / water 6.6.0 + `ajalign.c`) and M7 now follows it.
 
 ### Findings / defects (Stage B)
 - No algorithm defect. No code or test change required.
-- **NOTE-1 (carry-through):** the srspair `:`/`.` threshold simplification (Stage A NOTE-1) is realised in `FormatAlignment` (`score.Mismatch > 0 ⇒ ':'`). Rendering-only; counted statistics unaffected. Documented in algorithm doc §5.3 and TestSpec Assumption #1.
+- **NOTE-1 (carry-through, REFUTED 2026-11-18; `FormatAlignment` now implements the exact EMBOSS rule, F14):** the srspair `:`/`.` threshold simplification (Stage A NOTE-1) is realised in `FormatAlignment` (`score.Mismatch > 0 ⇒ ':'`). Rendering-only; counted statistics unaffected. Documented in algorithm doc §5.3 and TestSpec Assumption #1.
 
 ## Verdict & follow-ups
-- **Stage A:** PASS-WITH-NOTES (markup `:`/`.` threshold simplification, documented).
-- **Stage B:** PASS-WITH-NOTES (same display nuance; statistics exact and sourced).
+- **Stage A (2026-06):** PASS-WITH-NOTES (markup `:`/`.` threshold simplification - refuted 2026-11-18).
+- **Stage B (2026-06):** PASS-WITH-NOTES (same display nuance; statistics exact and sourced) - the markup was fixed in F14.
 - **End-state (2026-06):** CLEAN at the time; superseded by the B09 re-validation above (F11–F14 fixed; fast tier see B09.md).
 - **Test-quality gate:** PASS.
 - No logged defects (BY-DESIGN note recorded in FINDINGS_REGISTER §D).

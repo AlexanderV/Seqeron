@@ -5,6 +5,14 @@
 - **Stage A verdict:** PASS
 - **Stage B verdict:** PASS
 
+## B09 current state (2026-11-19) - supersedes the original verdict lines above and below
+
+- **Stage A:** PASS-WITH-NOTES. **Stage B:** PASS-WITH-NOTES. **State:** FIXED (not 'no defect found': the 2026-06 verdict below is superseded).
+- **Fixes (B09.md, F-numbers):** F32 `CalculateSimilarity` = `KmerAnalyzer.JaccardSimilarity` x 100 (private `GetKmers` removed), F33 strand-agnostic (Mash / sourmash canonical) k-mers, F34 MCP / skill documentation (scale is percent, not 0-1).
+- **Oracle numbers:** 2 086-row oracle: Python set = scipy `jaccard`, canonical = sourmash exact.
+- **Open items:** none.
+- The unit's TestSpec (`tests/TestSpecs/GENOMIC-SIMILARITY-001.md`), Evidence (`docs/Evidence/GENOMIC-SIMILARITY-001-Evidence.md`) and algorithm document carry the same state; where the original text below says CLEAN / no defects / no code changes, that was the state of the first pass only.
+
 ## Stage A — Description
 
 ### Sources opened & what they confirm (retrieved this session)

@@ -127,8 +127,8 @@ The `SequenceAligner.MultipleAlign()` method implements the **center-star alignm
 1. **Error propagation:** Early alignment errors propagate through progressive alignment (Wikipedia MSA)
 2. **Center dependence:** Result depends on which sequence is chosen as center (star alignment property)
 3. **Distantly related sequences:** Performance degrades with evolutionary distance (Wikipedia MSA)
-4. **Suboptimality:** Heuristic methods do not guarantee optimal solution (Wikipedia MSA: NP-complete)
-5. **No guide tree:** Simplified star alignment lacks the phylogenetic guide tree used by ClustalW (Wikipedia Clustal)
+4. **Suboptimality:** Heuristic methods do not guarantee optimal solution (Wikipedia MSA: NP-complete). Since 2026-11 (F60) the exact sum-of-pairs optimum is available for small inputs (`MultipleAlignExact`: k = 2, k = 3, k >= 4 by Carrillo-Lipman up to 8 linear / 6 affine sequences); beyond that the NP-completeness (Wang & Jiang 1994) stays.
+5. **Guide tree (2026-06 text: 'no guide tree: simplified star' - superseded 2026-11):** the star methods build no tree by design (Gusfield center-star, exact for k = 2); the progressive / iterative / consistency family uses the canonical `PhylogeneticAnalyzer` UPGMA or neighbour-joining tree (`MsaOptions.GuideTree`, F53), and `MultipleAlignClustalW` / `MultipleAlignTCoffeeProgram` / `MultipleAlignMuscle` reproduce the guide trees of ClustalW 2.1, T-Coffee 13.41 and MUSCLE 3.8.1551 (F56, F66, F65).
 
 ---
 

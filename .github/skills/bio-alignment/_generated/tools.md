@@ -40,7 +40,10 @@
 | `multiple_align_consistency` | Alignment | `SequenceAligner.MultipleAlignConsistency` | [doc](../../../../docs/mcp/tools/alignment/multiple_align_consistency.md) |
 | `multiple_align_exact` | Alignment | `SequenceAligner.MultipleAlignExact` | [doc](../../../../docs/mcp/tools/alignment/multiple_align_exact.md) |
 | `multiple_align_iterative` | Alignment | `SequenceAligner.MultipleAlignIterative` | [doc](../../../../docs/mcp/tools/alignment/multiple_align_iterative.md) |
+| `multiple_align_muscle` | Alignment | `SequenceAligner.MultipleAlignMuscle` | [doc](../../../../docs/mcp/tools/alignment/multiple_align_muscle.md) |
 | `multiple_align_progressive` | Alignment | `SequenceAligner.MultipleAlignProgressive` | [doc](../../../../docs/mcp/tools/alignment/multiple_align_progressive.md) |
+| `multiple_align_tcoffee` | Alignment | `SequenceAligner.MultipleAlignTCoffeeProgram` | [doc](../../../../docs/mcp/tools/alignment/multiple_align_tcoffee.md) |
+| `muscle_msa_command` | Alignment | `SequenceAligner.MuscleProfileAlign` | [doc](../../../../docs/mcp/tools/alignment/muscle_msa_command.md) |
 | `quality_trim_reads` | Alignment | `SequenceAssembler.QualityTrimReads` | [doc](../../../../docs/mcp/tools/alignment/quality_trim_reads.md) |
 | `scaffold_contigs` | Alignment | `SequenceAssembler.Scaffold` | [doc](../../../../docs/mcp/tools/alignment/scaffold_contigs.md) |
 | `semi_global_align` | Alignment | `SequenceAligner.SemiGlobalAlign` | [doc](../../../../docs/mcp/tools/alignment/semi_global_align.md) |

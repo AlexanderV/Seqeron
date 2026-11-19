@@ -6,6 +6,14 @@
 - **Stage B verdict:** PASS-WITH-NOTES
 - **End-state:** CLEAN (defect found and completely fixed this session)
 
+## B09 current state (2026-11-19) - supersedes the original verdict lines above and below
+
+- **Stage A:** PASS-WITH-NOTES. **Stage B:** PASS-WITH-NOTES. **State:** FIXED.
+- **Fixes (B09.md, F-numbers):** F15 `PositionInFirst` = first (lowest) occurrence, F16 `FindCommonRegions` quadratic -> matching statistics (Chang & Lawler; 1 Mbp pair ~ 4 s), F17 MCP / doc claims.
+- **Oracle numbers:** 283-pair independent oracle (O(nm) DP + suffix automaton + brute-force matching statistics): every LCS and region equal after F15.
+- **Open items:** registered, not doable here: a public per-position matching-statistics API on `ISuffixTreeAnalysis` (B05, QUEUE R17) would replace `GenomicAnalyzer.MatchingStatistics`; the present implementation is exact and non-quadratic.
+- The unit's TestSpec (`tests/TestSpecs/GENOMIC-COMMON-001.md`), Evidence (`docs/Evidence/GENOMIC-COMMON-001-Evidence.md`) and algorithm document carry the same state; where the original text below says CLEAN / no defects / no code changes, that was the state of the first pass only.
+
 ## Stage A — Description
 
 ### Sources opened & what they confirm (retrieved 2026-06-15)

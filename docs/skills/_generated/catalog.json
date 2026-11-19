@@ -259,6 +259,13 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.TCoffeeLibrary.cs#L446"
   },
   {
+    "tool": "muscle_msa_command",
+    "server": "Alignment",
+    "methodId": "SequenceAligner.MuscleProfileAlign",
+    "docPath": "docs/mcp/tools/alignment/muscle_msa_command.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.MuscleProgram.cs"
+  },
+  {
     "tool": "quality_trim_reads",
     "server": "Alignment",
     "methodId": "SequenceAssembler.QualityTrimReads",
@@ -2433,7 +2440,7 @@
     "server": "MolTools",
     "methodId": "RestrictionAnalyzer.FindCompatibleEnzymes",
     "docPath": "docs/mcp/tools/moltools/compatible_enzymes.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1835"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1877"
   },
   {
     "tool": "count_codons",
@@ -2524,7 +2531,7 @@
     "server": "MolTools",
     "methodId": "RestrictionAnalyzer.GetDigestSummary",
     "docPath": "docs/mcp/tools/moltools/digest_summary.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1498"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1496"
   },
   {
     "tool": "effective_number_of_codons",
@@ -2545,7 +2552,7 @@
     "server": "MolTools",
     "methodId": "RestrictionAnalyzer.AreCompatible",
     "docPath": "docs/mcp/tools/moltools/enzymes_compatible.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1898"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1896"
   },
   {
     "tool": "evaluate_guide_rna",
@@ -2727,7 +2734,7 @@
     "server": "MolTools",
     "methodId": "RestrictionAnalyzer.Digest",
     "docPath": "docs/mcp/tools/moltools/restriction_digest.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1170"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1168"
   },
   {
     "tool": "restriction_digest_custom_enzyme",
@@ -2741,7 +2748,7 @@
     "server": "MolTools",
     "methodId": "RestrictionAnalyzer.CreateMap",
     "docPath": "docs/mcp/tools/moltools/restriction_map.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1602"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1600"
   },
   {
     "tool": "rscu",
