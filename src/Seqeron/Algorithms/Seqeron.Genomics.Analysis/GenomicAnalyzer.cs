@@ -6,7 +6,7 @@ namespace Seqeron.Genomics.Analysis;
 /// Genomic analysis algorithms based on suffix trees.
 /// Provides efficient solutions for common bioinformatics problems.
 /// </summary>
-public static class GenomicAnalyzer
+public static partial class GenomicAnalyzer
 {
     #region Repeat Finding
 
@@ -294,6 +294,61 @@ public static class GenomicAnalyzer
         // "no upper bound" on a megabase sequence) is chosen by the canonical RepeatFinder.FindMicrosatellites.
         return RepeatFinder.FindMicrosatellites(sequence, minUnitLength, maxUnitLength, minRepetitions)
             .Select(m => new TandemRepeat(m.RepeatUnit, m.Position, m.RepeatCount));
+    }
+
+    /// <summary>
+    /// <see cref="FindTandemRepeats(DnaSequence,int,int,int)"/> with an optional <b>canonical rotation</b> of the reported unit.
+    /// </summary>
+    /// <remarks>
+    /// A run of period p has p equivalent spellings of its unit (<c>ATG</c>, <c>TGA</c>, <c>GAT</c> for the same run);
+    /// the detector reports the spelling that starts at the run's left end. With <paramref name="canonicalRotation"/> the
+    /// reported <see cref="TandemRepeat.Unit"/> is instead the <b>lexicographically least rotation</b> of that unit (ordinal
+    /// A &lt; C &lt; G &lt; T; Booth 1980, "Lexicographically least circular substrings"; the representative used by MISA's
+    /// repeat-type classes, <see cref="RepeatFinder.GetCanonicalMotifClass(string)"/>), so that rotations of one motif group
+    /// together. The run itself is unchanged: <see cref="TandemRepeat.Position"/> is still the left end of the run and
+    /// <see cref="TandemRepeat.Repetitions"/> the number of complete copies, <see cref="TandemRepeat.Rotation"/> says how far
+    /// the unit was rotated and <see cref="TandemRepeat.OriginalUnit"/> / <see cref="TandemRepeat.FullSequence"/> still spell the
+    /// actual bases of the sequence. Units are primitive, so the least rotation is unique. With
+    /// <c>canonicalRotation = false</c> the result is that of the 4-argument overload.
+    /// </remarks>
+    /// <param name="sequence">DNA sequence to analyze. Must not be <c>null</c>.</param>
+    /// <param name="minUnitLength">Minimum unit length, &gt;= 1.</param>
+    /// <param name="minRepetitions">Minimum number of complete copies, &gt;= 2.</param>
+    /// <param name="maxUnitLength">Maximum unit length, &gt;= <paramref name="minUnitLength"/>.</param>
+    /// <param name="canonicalRotation">Report the least rotation of each unit.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> is <c>null</c>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Invalid unit / copy bounds (see the 4-argument overload).</exception>
+    public static IEnumerable<TandemRepeat> FindTandemRepeats(
+        DnaSequence sequence, int minUnitLength, int minRepetitions, int maxUnitLength, bool canonicalRotation)
+    {
+        var repeats = FindTandemRepeats(sequence, minUnitLength, minRepetitions, maxUnitLength);
+        return canonicalRotation ? repeats.Select(CanonicalizeRotation) : repeats;
+    }
+
+    /// <summary>
+    /// <see cref="FindTandemRepeats(string,int,int,int)"/> with the canonical-rotation option of
+    /// <see cref="FindTandemRepeats(DnaSequence,int,int,int,bool)"/>.
+    /// </summary>
+    /// <param name="sequence">Nucleotide string to analyze. Must not be <c>null</c>.</param>
+    /// <param name="minUnitLength">Minimum unit length, &gt;= 1.</param>
+    /// <param name="minRepetitions">Minimum number of complete copies, &gt;= 2.</param>
+    /// <param name="maxUnitLength">Maximum unit length, &gt;= <paramref name="minUnitLength"/>.</param>
+    /// <param name="canonicalRotation">Report the least rotation of each unit.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> is <c>null</c>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Invalid unit / copy bounds.</exception>
+    public static IEnumerable<TandemRepeat> FindTandemRepeats(
+        string sequence, int minUnitLength, int minRepetitions, int maxUnitLength, bool canonicalRotation)
+    {
+        var repeats = FindTandemRepeats(sequence, minUnitLength, minRepetitions, maxUnitLength);
+        return canonicalRotation ? repeats.Select(CanonicalizeRotation) : repeats;
+    }
+
+    // The unit of a run is primitive, so its least rotation is unique and sits at a single offset of unit+unit.
+    private static TandemRepeat CanonicalizeRotation(TandemRepeat repeat)
+    {
+        string canonical = RepeatFinder.GetMinimalRotation(repeat.Unit);
+        int rotation = (repeat.Unit + repeat.Unit).IndexOf(canonical, StringComparison.Ordinal);
+        return new TandemRepeat(canonical, repeat.Position, repeat.Repetitions, rotation);
     }
 
     /// <summary>
@@ -1297,18 +1352,32 @@ public readonly struct RepeatInfo
 /// </summary>
 public readonly struct TandemRepeat
 {
-    public TandemRepeat(string unit, int position, int repetitions)
+    public TandemRepeat(string unit, int position, int repetitions, int rotation = 0)
     {
         Unit = unit;
         Position = position;
         Repetitions = repetitions;
+        Rotation = rotation;
     }
 
+    /// <summary>The unit: the bases at <see cref="Position"/> (or, with canonical rotation, their least rotation).</summary>
     public string Unit { get; }
     public int Position { get; }
     public int Repetitions { get; }
+
+    /// <summary>
+    /// 0 unless the unit was canonicalised: <c>Unit</c> is then the actual unit rotated left by this many bases
+    /// (<c>Unit = OriginalUnit[Rotation..] + OriginalUnit[..Rotation]</c>).
+    /// </summary>
+    public int Rotation { get; }
+
+    /// <summary>The unit exactly as it is spelled in the sequence starting at <see cref="Position"/>.</summary>
+    public string OriginalUnit => Rotation == 0 ? Unit : string.Concat(Unit.AsSpan(Unit.Length - Rotation), Unit.AsSpan(0, Unit.Length - Rotation));
+
     public int TotalLength => Unit.Length * Repetitions;
-    public string FullSequence => string.Concat(Enumerable.Repeat(Unit, Repetitions));
+
+    /// <summary>The bases of the repeat as they occur in the sequence (complete copies only).</summary>
+    public string FullSequence => string.Concat(Enumerable.Repeat(OriginalUnit, Repetitions));
 }
 
 /// <summary>

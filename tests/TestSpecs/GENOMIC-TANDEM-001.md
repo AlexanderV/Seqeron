@@ -110,6 +110,7 @@
 
 - `tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/GenomicAnalyzer_TandemRepeat_Tests.cs` — canonical sourced fixture (27 tests: worked examples, thresholds, invariants); expectations unchanged by the contract fix (every expected hit is a primitive maximal run).
 - `tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/GenomicAnalyzer_TandemRepeat_Oracle_Tests.cs` — new (B09 F35–F38): Python oracle (M6), brute force, both engines (M7), contract S3–S7, complexity C2.
+- `tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/GenomicAnalyzer_ExactTandems_Oracle_Tests.cs` — new (B09 A2-34): MUMmer `exact-tandems` oracle (3630 rows, per-start smallest-unit mapping) and the canonical-rotation option (least rotation == brute force on every oracle hit; `OriginalUnit` / `FullSequence` unchanged; string overload with N).
 - `Fuzzing/GenomicTandemFuzzTests.cs`, `Fuzzing/RepeatsFuzzTests.cs` (row 14) — the fuzz oracle was the old greedy scan (non-primitive units) → replaced by the maximal-run definition; seeded-tandem test now seeds primitive roots.
 - `tests/Seqeron/Seqeron.Mcp.Analysis.Tests/FindTandemRepeatsTests.cs` — `AAAAA` no longer reports the `AA`×2 tiling; `maxUnitLength` binding added.
 
@@ -125,7 +126,7 @@ All M/S/C items ✅ covered (see §4); no ❌/⚠ remain.
 
 | # | Assumption | Used In |
 |---|-----------|---------|
-| 1 | The reported unit is the motif phase at the run's left end (rotations are not canonicalised) — MISA/pytrf convention (REP-STR-001). | §1.3, algorithm doc §5.4 |
+| 1 | By default the reported unit is the motif phase at the run's left end (MISA/pytrf convention, REP-STR-001); `canonicalRotation: true` (A2-34) reports its least rotation (Booth 1980). | §1.3, algorithm doc §5.4 |
 
 ---
 

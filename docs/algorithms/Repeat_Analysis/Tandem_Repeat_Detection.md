@@ -144,6 +144,7 @@ The canonical detector searches candidate unit lengths and starting positions, c
 | No repeats found | Empty tandem-repeat enumerable or zero-count summary. | No candidate unit reaches the repetition threshold. |
 | Entire sequence is one tandem block | One result spanning the full repeated region. | The maximal run is the whole sequence. |
 | Overlapping tandem patterns | A run is reported once per unit length (rotations are not repeated); runs of different unit lengths may overlap and are each reported. Multiples of the primitive unit are not reported (`ATATATAT`: `AT×4` only). | Maximal-run + primitive-unit rule (Kolpakov & Kucherov 1999; MISA). |
+| Rotations of one motif (`ATG`, `TGA`, `GAT`) | By default the unit is the spelling at the run's left end. `FindTandemRepeats(…, maxUnitLength, canonicalRotation: true)` reports the least rotation (ordinal A<C<G<T; `RepeatFinder.GetMinimalRotation`, Booth 1980) as `Unit` and keeps `Position` / `Repetitions`; `Rotation`, `OriginalUnit` and `FullSequence` still describe the actual bases. | Groups rotations of a motif (MISA repeat-type classes); verified against a brute-force least rotation on the MUMmer `exact-tandems` oracle (3630 rows). |
 | `unitLength > sequence.Length / minRepetitions` | No result for that unit size. | `minRepetitions` copies cannot fit. |
 
 ### 6.2 Limitations

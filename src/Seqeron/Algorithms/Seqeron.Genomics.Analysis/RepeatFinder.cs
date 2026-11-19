@@ -890,6 +890,16 @@ public static class RepeatFinder
     }
 
     /// <summary>
+    /// Lexicographically (ordinal) smallest rotation of a repeat unit — the representative of the unit's rotation class
+    /// (Booth 1980, "Lexicographically least circular substrings", Inf. Process. Lett. 10:240-242; the X and Y halves of
+    /// <see cref="GetCanonicalMotifClass(string)"/>). <c>TGA</c>, <c>GAT</c> and <c>ATG</c> all give <c>ATG</c>.
+    /// </summary>
+    /// <param name="motif">Repeat unit of A/C/G/T (case-insensitive).</param>
+    /// <exception cref="ArgumentException"><paramref name="motif"/> is null/empty or contains a non-ACGT symbol.</exception>
+    public static string GetMinimalRotation(string motif)
+        => MinimalRotation(NormalizeMotif(motif), string.CompareOrdinal);
+
+    /// <summary>
     /// Krait standard motif (Du et al. 2018, lmdu/krait <c>motif.py</c> <c>StandardMotif.standard</c>): the smallest
     /// member of the motif's equivalence set under Krait's base order A &lt; T &lt; C &lt; G. Level 0 = the motif
     /// itself; 1 = its rotations ("similar motifs"); 2 = + rotations of the reverse complement; 3 = + rotations of

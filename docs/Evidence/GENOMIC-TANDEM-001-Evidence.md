@@ -72,6 +72,12 @@ The publisher pages (academic.oup.com, doi.org) return HTTP 403 for scripted cli
 
 Numbers: both C# engines (per-unit-length scan = `RepeatFinder.FindMicrosatellites`, run enumeration) match all 1156 rows. The **pre-fix** O(n²·m) scan (Python port) differed on **276 / 1156 rows** (487 extra hits, every one a non-primitive unit; none missing, none non-maximal); on 20 000 further random strings it produced 26 747 extra non-primitive hits and 0 missing / non-maximal ones. Worked cases: `ATATATAT`, minUnit 1, minReps 2 → oracle `AT:0:4`; old code `AT:0:4;ATAT:0:2`. `AAAAA` (1,2) → `A:0:5` (old: also `AA:0:2`). `ACGACGACGACGTGTTAGCTTAGCTTAGC` (1,2) → `T:14:2;T:19:2;T:24:2;GT:11:2;ACG:0:4;TTAGC:14:3`; (1,2,max 3) → same without `TTAGC`; (5,2,5) → `TTAGC:14:3`. `GCAGCAGCAGCAGG` (3,2) → `GCA:0:4` (left-end phase), `TCAGCAGCAGCAGT` → `CAG:1:4`.
 
+### MUMmer `exact-tandems` oracle and canonical rotation (audit A2-34, 2026-11-19)
+
+`exact-tandems <file> <min-len>` (MUMmer 3.23, installed) is a second, independent exact-tandem implementation (maximal repeated pairs of `repeat-match -t -n L`, then `tandem-repeat.awk`: per start the pair with the smallest unit whose match is as long as the unit). The Debian wrapper `/usr/bin/exact-tandems` is broken (a stray line break in `awk -f $scriptdir/...`), so `scripts/analysis/generate_exact_tandems_oracle.py` runs the same two stages (`repeat-match -t -n L | tail -n +3 | sort -k1n -k2n | awk -f /usr/lib/mummer/tandem-repeat.awk`) and writes `exact_tandems_oracle.tsv`: **3630 (sequence, L = 1/2/4) rows** over random ACGT / AC / A / AT strings with planted (and mutated) tandem runs, 3521 non-empty; each hit `start:unit:extent:least-rotation` (the rotation computed by brute force in Python).
+Mapping: exact-tandems lists, per start, the run with the SMALLEST unit among those with extent − unit ≥ L (so >= 2 complete copies and a match of at least L); `FindTandemRepeats(minUnit 1, minReps 2)` lists every maximal primitive run. Keeping per start the smallest-unit run with extent − unit ≥ L reproduces **3630 / 3630 rows exactly** (start, unit length, extent); the 5 000+ least rotations equal the brute-force ones (`GenomicAnalyzer_ExactTandems_Oracle_Tests`). Everything exact-tandems omits is a larger unit at a start that already has a smaller one (`AAAGAAAG`: A×3 at 0 is listed, AAAG×2 at 0 is not) — a reporting rule of the tool, not a disagreement.
+Canonical rotation: the least rotation under ordinal A < C < G < T (Booth 1980, "Lexicographically least circular substrings", Inf. Process. Lett. 10:240-242; MISA `.statistics` repeat-type classes use the same representative); it is applied to the unit only — Position, copies, `OriginalUnit`, `FullSequence` keep describing the sequence. The helper is the canonical `RepeatFinder.GetMinimalRotation` (the existing private rotation scan behind `GetCanonicalMotifClass`, made public; B09 for B04).
+
 EMBOSS `etandem` 6.6.0 (installed) was run on 400 random cases (`-minrepeat = -maxrepeat = p`, `-threshold = (k−1)·p`) as an informational check: 297 agreed on (start, primitive consensus); the 103 differences are etandem's own diagonal-scoring model (threshold is a score over matching diagonal positions, not a copy count; different rotation phase; non-contiguous diagonals), so etandem is not an exact-run oracle for this contract. A `pip install pytrf` attempt was declined by the sandbox; the pytrf/MISA comparison of the canonical scan (3099/3132 and 2752/3132 with every difference one of two documented conventions) is B04 F5.
 
 ---
@@ -118,7 +124,7 @@ EMBOSS `etandem` 6.6.0 (installed) was run on 400 random cases (`-minrepeat = -m
 ## Assumptions
 
 1. **Scope: exact copies** — the detector reports only exact contiguous copies; Benson's approximate copies are `RepeatFinder.FindApproximateTandemRepeats`. Over exact repeats the output matches the run definition, so no correctness-affecting parameter is invented.
-2. **Convention: left-end phase** — the unit is the motif at the run's left end (MISA/pytrf), rotations are not canonicalised.
+2. **Convention: left-end phase** — by default the unit is the motif at the run's left end (MISA/pytrf); `canonicalRotation: true` (A2-34) reports its least rotation instead (see "MUMmer exact-tandems oracle and canonical rotation").
 
 ---
 
@@ -145,6 +151,7 @@ EMBOSS `etandem` 6.6.0 (installed) was run on 400 random cases (`-minrepeat = -m
 
 ## Change History
 
+- **2026-11-19 (B09 A2-34)**: MUMmer `exact-tandems` oracle (3630 rows, exact); `canonicalRotation` option (least rotation, `TandemRepeat.Rotation` / `OriginalUnit`).
 - **2026-11-18 (B09 A1-21)**: string overloads `FindTandemRepeats(string, …)` for N/IUPAC input (canonical `RepeatFinder.FindMicrosatellites(string)` contract: units over A/C/G/T only, MISA `[acgt]` / pytrf skips N); oracle = the three-method generator in `--ambiguous` mode (892 rows), differential run engine vs per-unit scan on N/IUPAC strings; MCP `find_tandem_repeats` accepts IUPAC input.
 - **2026-11-18**: B09 review (F35–F38): the "duplicate of REP-TANDEM-001" resolution hid a contract defect (non-primitive units, O(n²·m) scan, no unit-length bound); definition re-sourced (Kolpakov–Kucherov runs, Bannai et al. Definition 1, MISA), three-method Python oracle added, approximate repeats pointed to `RepeatFinder.FindApproximateTandemRepeats`.
 - **2026-06-14**: Initial documentation. Sources re-retrieved this session to verify the existing `GenomicAnalyzer.FindTandemRepeats` implementation; unit resolved as a duplicate of REP-TANDEM-001 by consolidation.
