@@ -110,12 +110,14 @@ public static partial class SequenceAligner
     /// ID: the identity matrix. <c>-NEGATIVE</c> selects BLOSUM40 / PAM120 / GONNET250 for every pair of profiles.
     /// </summary>
     private static (SubstitutionMatrix Table, int Multiplier, int IntScale, float Scale) ClustalWSelectProfileMatrix(
-        ClustalWProfileMatrix matrix, bool negative, double pcid, int minLen)
+        ClustalWProfileMatrix matrix, bool negative, double pcid, int minLen, bool distanceTree = true)
     {
+        // SubMatrix::getProfileAlignMatrix: `_negMatrix || userParameters->getDistanceTree() == false` selects the single matrix (a profile alignment run while the guide tree has no distances)
+        bool single = negative || !distanceTree;
         switch (matrix)
         {
             case ClustalWProfileMatrix.Blosum:
-                if (negative)
+                if (single)
                     return (SubstitutionMatrix.ClustalWBlosum40, 1, 100, 0.75f);
                 if (pcid > 80.0)
                     return (SubstitutionMatrix.ClustalWBlosum80, 1, 100, 0.75f);
@@ -129,7 +131,7 @@ public static partial class SequenceAligner
                     return (SubstitutionMatrix.ClustalWBlosum45, 1, 100, 0.6f);
                 return (SubstitutionMatrix.ClustalWBlosum30, 1, 100, 0.6f);
             case ClustalWProfileMatrix.Pam:
-                if (negative)
+                if (single)
                     return (SubstitutionMatrix.ClustalWPam120, 1, 100, 0.75f);
                 if (pcid > 80.0)
                     return (SubstitutionMatrix.ClustalWPam20, 1, 100, 0.75f);
@@ -139,7 +141,7 @@ public static partial class SequenceAligner
                     return (SubstitutionMatrix.ClustalWPam120, 1, 100, 0.75f);
                 return (SubstitutionMatrix.ClustalWPam350, 1, 100, 0.75f);
             case ClustalWProfileMatrix.Gonnet:
-                if (negative)
+                if (single)
                     return (SubstitutionMatrix.ClustalWGonnet250, 1, 10, 0.375f);
                 if (pcid > 35.0)
                     return (SubstitutionMatrix.ClustalWGonnet80, 1, 10, 0.1875f);
@@ -160,7 +162,7 @@ public static partial class SequenceAligner
     /// <c>0.5 + (pcid - llimit) / ((ulimit - llimit) * 2.0)</c> (stored in a float: 0.5 at the lower, 1.0 at the upper limit).
     /// </summary>
     private static (IEnumerable<(int Row, int Column, short Value)> Cells, IReadOnlyList<int> Cross, int IntScale, float Scale) ClustalWChooseProfileMatrix(
-        ClustalWProfileMatrix matrix, bool negative, ClustalWUserMatrix? userMatrix, IReadOnlyList<ClustalWMatrixSeriesEntry>? userSeries, double pcid, int minLen)
+        ClustalWProfileMatrix matrix, bool negative, ClustalWUserMatrix? userMatrix, IReadOnlyList<ClustalWMatrixSeriesEntry>? userSeries, double pcid, int minLen, bool distanceTree = true)
     {
         if (userSeries is { Count: > 0 })
         {
@@ -182,7 +184,7 @@ public static partial class SequenceAligner
         if (userMatrix is not null)
             return (userMatrix.Cells(), userMatrix.Cross, 100, 0.75f);
 
-        var (table, multiplier, intScale, builtinScale) = ClustalWSelectProfileMatrix(matrix, negative, pcid, minLen);
+        var (table, multiplier, intScale, builtinScale) = ClustalWSelectProfileMatrix(matrix, negative, pcid, minLen, distanceTree);
         return (ClustalWTableCells(table, multiplier), ClustalWDefaultAAXref, intScale, builtinScale);
     }
 

@@ -108,7 +108,7 @@ public static partial class SequenceAligner
     /// scores, duplicate sequences) need this arithmetic to reproduce ClustalW's topology. Branch lengths smaller than 1e-4 in
     /// magnitude are set to 0 (as ClustalW does before printing).
     /// </summary>
-    internal static PhylogeneticAnalyzer.PhyloNode ClustalWNeighborJoining(int k, double[,] distance)
+    internal static PhylogeneticAnalyzer.PhyloNode ClustalWNeighborJoining(int k, double[,] distance, double[,]? finalMatrix = null)
     {
         if (k < 2)
             throw new ArgumentOutOfRangeException(nameof(k), k, "ClustalW's NJ needs at least two sequences.");
@@ -287,6 +287,10 @@ public static partial class SequenceAligner
             node[mini] = joined;
         }
 
+        // NJTree::generateTree works IN PLACE on the distance matrix it is given: callers that go on using the matrix (the profile guide trees) see this state (1-based, k + 1 square)
+        if (finalMatrix != null)
+            Array.Copy(d, finalMatrix, d.Length);
+
         // last cycle: three nodes left, joined by a trichotomy
         int l1 = valid[0], l2 = valid[1], l3 = valid[2];
         double b1 = (d[l1, l2] + d[l1, l3] - d[l2, l3]) * 0.5;
@@ -364,7 +368,7 @@ public static partial class SequenceAligner
     }
 
     /// <summary>The re-rooted ClustalW tree (<c>Tree::readTree</c>): root node and the leaf node of every input sequence (<c>olptr</c>).</summary>
-    private sealed record CwRootedTree(CwNode Root, CwNode[] Leaves);
+    private sealed record CwRootedTree(CwNode Root, CwNode[] Leaves, IReadOnlyList<CwNode> ParsedLeaves);
 
     /// <summary>
     /// <c>Tree::readTree</c> of the NJ tree ClustalW just wrote, for k &gt;= 3 sequences; see <see cref="ClustalWRoot"/>.
@@ -412,7 +416,7 @@ public static partial class SequenceAligner
         var leaves = new CwNode[k];
         foreach (var leaf in lptr)
             leaves[leaf.LeafIndex] = leaf;
-        return new CwRootedTree(root, leaves);
+        return new CwRootedTree(root, leaves, lptr);
     }
 
     private static ProgressiveGuideNode ToGuideNode(CwNode p)

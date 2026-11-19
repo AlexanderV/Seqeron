@@ -925,6 +925,19 @@ public sealed record ClustalWQuickPairwiseResult(
     bool Aligned,
     bool PartialAlignment);
 
+/// <summary>ClustalW's iterative refinement of the multiple alignment (<c>-ITERATION=</c>; <c>Iteration.cpp</c>).</summary>
+public enum ClustalWIteration
+{
+    /// <summary><c>none</c> (default): no iteration.</summary>
+    None = 0,
+
+    /// <summary><c>tree</c>: after every profile-profile step of the progressive alignment, each sequence of the step is removed and re-aligned to the others (<c>Iteration::iterationOnTreeNode</c>).</summary>
+    Tree = 1,
+
+    /// <summary><c>alignment</c>: the same "remove first" re-alignment once on the finished alignment (<c>Iteration::removeFirstIterate</c>).</summary>
+    Alignment = 2,
+}
+
 /// <summary>Pairwise stage that produces the distance matrix of the ClustalW multiple alignment (<see cref="ClustalWOptions.PairwiseMode"/>).</summary>
 public enum ClustalWPairwiseMode
 {
@@ -980,6 +993,15 @@ public sealed record ClustalWOptions
 
     /// <summary><c>-CLUSTERING=NJ | UPGMA</c> of the multiple alignment (default neighbour joining); see <see cref="ClustalWClustering"/>.</summary>
     public ClustalWClustering Clustering { get; init; } = ClustalWClustering.NeighborJoining;
+
+    /// <summary>
+    /// <c>-ITERATION=TREE | ALIGNMENT | NONE</c> (default none): iterative refinement of the alignment (<see cref="ClustalWIteration"/>). Note: the program only recognises the lower-case
+    /// words <c>tree</c> / <c>alignment</c> / <c>none</c> on its command line (upper case prints "Unknown option for iteration. Setting to NONE").
+    /// </summary>
+    public ClustalWIteration Iteration { get; init; } = ClustalWIteration.None;
+
+    /// <summary><c>-NUMITER=n</c> (default 3; the program refuses n &lt;= 0): the maximum number of iterations of <see cref="Iteration"/>. The program keeps the best re-alignment of the first iteration, so a larger value changes nothing once an iteration finds no improvement.</summary>
+    public int NumIterations { get; init; } = 3;
 
     /// <summary><c>-NOWEIGHTS</c>: no sequence weights from the guide tree (all sequences weigh the same).</summary>
     public bool NoWeights { get; init; }
@@ -1150,6 +1172,15 @@ public sealed record ClustalWProteinOptions
 
     /// <summary><c>-CLUSTERING=NJ | UPGMA</c> of the multiple alignment (default neighbour joining); see <see cref="ClustalWClustering"/>.</summary>
     public ClustalWClustering Clustering { get; init; } = ClustalWClustering.NeighborJoining;
+
+    /// <summary>
+    /// <c>-ITERATION=TREE | ALIGNMENT | NONE</c> (default none): iterative refinement of the alignment (<see cref="ClustalWIteration"/>). Note: the program only recognises the lower-case
+    /// words <c>tree</c> / <c>alignment</c> / <c>none</c> on its command line (upper case prints "Unknown option for iteration. Setting to NONE").
+    /// </summary>
+    public ClustalWIteration Iteration { get; init; } = ClustalWIteration.None;
+
+    /// <summary><c>-NUMITER=n</c> (default 3; the program refuses n &lt;= 0): the maximum number of iterations of <see cref="Iteration"/>. The program keeps the best re-alignment of the first iteration, so a larger value changes nothing once an iteration finds no improvement.</summary>
+    public int NumIterations { get; init; } = 3;
 
     /// <summary><c>-NOWEIGHTS</c>: no sequence weights from the guide tree.</summary>
     public bool NoWeights { get; init; }

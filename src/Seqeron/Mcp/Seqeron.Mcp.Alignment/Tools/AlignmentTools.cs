@@ -696,10 +696,19 @@ public partial class AlignmentTools
         [Description("type='dna': ClustalW -DNAMATRIX=file, the TEXT of a nucleotide matrix file for the profile stage (same layout as matrixFile, a single matrix; the transition weights of getProfileAlignMatrix index the matrix with the header letters at positions 0, 2, 4, 11 and 12 - give at least 13 letters). How it is used: see userDnaMatrixUse.")] string? dnaMatrixFile = null,
         [Description("type='dna': ClustalW -PWDNAMATRIX=file, the TEXT of a nucleotide matrix file for the full pairwise stage (a single matrix, x100, never shifted). See userDnaMatrixUse.")] string? pwDnaMatrixFile = null,
         [Description("type='dna', with dnaMatrixFile / pwDnaMatrixFile: 'applied' (default; what ClustalW's interactive menu does - the matrix is used) or 'commandline' (what clustalw -DNAMATRIX=file -PWDNAMATRIX=file does: the file is read and validated but registered under the PROTEIN slot - a defect of CommandLineParser - so the DNA stages keep the IUB / built-in matrix).")] string userDnaMatrixUse = "applied",
-        [Description("ClustalW -CLUSTERING: 'nj' (default; neighbour joining) or 'upgma' (the program's own rooted UPGMA tree: node-height weights and join order; source port, the installed Debian clustalw 2.1 crashes on every UPGMA run so the rows are not yet oracle-verified; two sequences come out unaligned as in the source).")] string clustering = "nj",
+        [Description("ClustalW -CLUSTERING: 'nj' (default; neighbour joining) or 'upgma' (the program's own rooted UPGMA tree: node-height weights and join order; verified on 600 / 600 sets (rows and guide-tree text) of the unmodified Debian source built at -O0 - the installed Debian clustalw 2.1 and an -O2 build of the same source segmentation-fault on every UPGMA run, undefined behaviour of the program).")] string clustering = "nj",
+        [Description("ClustalW -ITERATION: 'none' (default), 'tree' (every profile-profile step of the progressive alignment is followed by the 'remove first' realignment of its sequences) or 'alignment' (the same realignment once on the finished alignment): each sequence in turn is cut out, the others' all-gap columns are removed, the sequence is re-aligned to the profile of the rest with tree-derived weights, and the best realignment by the program's ObjectiveScore (BLOSUM45 x 100 pair sums + gap penalties, kept when LOWER) replaces the alignment. Verified on 700 clustalw runs (rows and the printed 'FINAL score'); with clustering='upgma' the profile trees of getWeightsForProfileAlignUPGMA are ported from the source but not yet verified against a binary.")] string iteration = "none",
+        [Description("ClustalW -NUMITER (default 3; positive): the maximum number of iterations of 'iteration'. The program keeps the best realignment of the first pass, so more iterations change nothing once one finds no improvement.")] int numIterations = 3,
         CancellationToken cancellationToken = default)
     {
         using var cancelScope = global::Seqeron.Genomics.Alignment.SequenceAligner.BeginCancellationScope(cancellationToken);
+        var iterationMode = (iteration ?? "none").Trim().ToLowerInvariant() switch
+        {
+            "none" => global::Seqeron.Genomics.Infrastructure.ClustalWIteration.None,
+            "tree" => global::Seqeron.Genomics.Infrastructure.ClustalWIteration.Tree,
+            "alignment" => global::Seqeron.Genomics.Infrastructure.ClustalWIteration.Alignment,
+            _ => throw new ArgumentException("iteration must be 'none', 'tree' or 'alignment'.", nameof(iteration)),
+        };
         var mode = (distance ?? "clustalw").Trim().ToLowerInvariant() switch
         {
             "clustalw" or "clustalw_affine" or "clustalwaffine" or "full" => global::Seqeron.Genomics.Infrastructure.ClustalWPairwiseMode.Full,
@@ -736,6 +745,8 @@ public partial class AlignmentTools
                 Pairwise = ParseMsaOptions(null, null, null, ktuple, window, topDiagonals, pairGap, null, pwMatrix, pwGapOpen, pwGapExtend).ClustalWProtein,
                 DivergenceCutoff = maxDiv,
                 Clustering = clusteringMode,
+                Iteration = iterationMode,
+                NumIterations = numIterations,
                 NoWeights = noWeights,
                 NegativeMatrix = negative,
                 NoPreferredGapPenalties = noPreferredGaps,
@@ -790,6 +801,8 @@ public partial class AlignmentTools
             TransitionWeight = transitionWeight,
             DivergenceCutoff = maxDiv,
             Clustering = clusteringMode,
+            Iteration = iterationMode,
+            NumIterations = numIterations,
             NoWeights = noWeights,
             NegativeMatrix = negative,
             UseEndGaps = useEndGaps,

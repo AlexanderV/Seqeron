@@ -190,10 +190,19 @@ public static partial class SequenceAligner
         return state.Run(ClustalWProteinDistanceMatrix(upper, options));
     }
 
+    private static void ValidateClustalWIteration(ClustalWIteration iteration, int numIterations, ClustalWClustering clustering)
+    {
+        if (!Enum.IsDefined(iteration))
+            throw new ArgumentOutOfRangeException(nameof(iteration), iteration, "Unknown ClustalW iteration mode.");
+        if (numIterations <= 0)
+            throw new ArgumentException("ClustalW: 'Cannot use a negative value for number of iterations.' (-NUMITER must be positive).", nameof(numIterations));
+    }
+
     private static void ValidateClustalWProteinMultipleOptions(ClustalWProteinOptions o)
     {
         if (o.GapOpen < 0 || o.GapExtend < 0 || double.IsNaN(o.GapOpen) || double.IsNaN(o.GapExtend))
             throw new ArgumentException("ClustalW gap penalties are non-negative numbers.", nameof(o));
+        ValidateClustalWIteration(o.Iteration, o.NumIterations, o.Clustering);
         if (!Enum.IsDefined(o.Matrix))
             throw new ArgumentOutOfRangeException(nameof(o), o.Matrix, "Unknown profile matrix series.");
         if (!Enum.IsDefined(o.PairwiseMode))
@@ -283,12 +292,40 @@ public static partial class SequenceAligner
         return (rows, state.FirstPassGroups);
     }
 
+    /// <summary>The rows of the DNA stage together with the "FINAL score: n" lines <c>clustalw</c> prints for <c>-ITERATION</c> (one per <c>removeFirstIterate</c> call: one for <c>alignment</c>, one per profile step of more than two sequences for <c>tree</c>).</summary>
+    internal static (string[] Rows, IReadOnlyList<long> FinalScores) MultipleAlignClustalWWithIterationScores(string[] raw, ClustalWOptions options)
+    {
+        ValidateClustalWOptions(options);
+        var codes = raw.Select(r => EncodeClustalWDna(r, "sequences")).ToArray();
+        if (raw.Length < 2 || codes.Any(c => c.Length == 0))
+            throw new ArgumentException("At least two non-empty sequences are required.", nameof(raw));
+
+        var state = new ClustalWMsaState(codes, CwConfig.FromDna(options));
+        string[] rows = state.Run(ClustalWPairwiseDistanceMatrix(raw, options));
+        return (rows, state.IterationFinalScores);
+    }
+
+    /// <summary>The PROTEIN counterpart of <see cref="MultipleAlignClustalWWithIterationScores(string[], ClustalWOptions)"/>.</summary>
+    internal static (string[] Rows, IReadOnlyList<long> FinalScores) MultipleAlignClustalWWithIterationScores(string[] raw, ClustalWProteinOptions options)
+    {
+        ValidateClustalWProteinMultipleOptions(options);
+        var codes = raw.Select(r => EncodeClustalWProtein(r, "sequences")).ToArray();
+        if (raw.Length < 2 || codes.Any(c => c.Length == 0))
+            throw new ArgumentException("At least two non-empty sequences are required.", nameof(raw));
+
+        string hyd = new string(options.HydrophilicResidues.Take(ClustalWMaxHydrophilicResidues).TakeWhile(char.IsAsciiLetter).Select(char.ToUpperInvariant).ToArray());
+        var state = new ClustalWMsaState(codes, CwConfig.FromProtein(options) with { HydrophilicResidues = hyd.Length > 0 ? hyd : "GPSNDQEKR" });
+        string[] rows = state.Run(ClustalWProteinDistanceMatrix(raw.Select(r => r.ToUpperInvariant()).ToArray(), options));
+        return (rows, state.IterationFinalScores);
+    }
+
     private static void ValidateClustalWOptions(ClustalWOptions o)
     {
         if (o.GapOpen < 0 || o.GapExtend < 0 || double.IsNaN(o.GapOpen) || double.IsNaN(o.GapExtend))
             throw new ArgumentException("ClustalW gap penalties are non-negative numbers.", nameof(o));
         if (o.PairwiseGapOpen < 0 || o.PairwiseGapExtend < 0 || double.IsNaN(o.PairwiseGapOpen) || double.IsNaN(o.PairwiseGapExtend))
             throw new ArgumentException("ClustalW pairwise gap penalties are non-negative numbers.", nameof(o));
+        ValidateClustalWIteration(o.Iteration, o.NumIterations, o.Clustering);
         if (float.IsNaN(o.TransitionWeight) || o.TransitionWeight < 0)
             throw new ArgumentException("TransitionWeight must be a non-negative number.", nameof(o));
         if (!Enum.IsDefined(o.PairwiseMode))
@@ -348,25 +385,27 @@ public static partial class SequenceAligner
         IReadOnlyList<ClustalWMatrixSeriesEntry>? UserMatrixSeries = null,
         ClustalWDnaMatrix DnaMatrix = ClustalWDnaMatrix.Iub,
         ClustalWUserMatrix? UserDnaMatrix = null,
-        bool Upgma = false)
+        bool Upgma = false,
+        ClustalWIteration Iteration = ClustalWIteration.None,
+        int NumIterations = 3)
     {
         public static CwConfig FromDna(ClustalWOptions o) => new(
             false, o.GapOpen, o.GapExtend, o.DivergenceCutoff, o.NoWeights, o.NegativeMatrix, o.TransitionWeight,
             ClustalWProfileMatrix.Gonnet, false, false, false, 4, "GPSNDQEKR", o.UseEndGaps, o.EndGapPenalties,
-            DnaMatrix: o.DnaMatrix, UserDnaMatrix: o.UserDnaMatrixUse == ClustalWUserDnaMatrixUse.Applied ? o.UserDnaMatrix : null, Upgma: o.Clustering == ClustalWClustering.Upgma);
+            DnaMatrix: o.DnaMatrix, UserDnaMatrix: o.UserDnaMatrixUse == ClustalWUserDnaMatrixUse.Applied ? o.UserDnaMatrix : null, Upgma: o.Clustering == ClustalWClustering.Upgma, Iteration: o.Iteration, NumIterations: o.NumIterations);
 
         public static CwConfig FromProtein(ClustalWProteinOptions o) => new(
             true, o.GapOpen, o.GapExtend, o.DivergenceCutoff, o.NoWeights, o.NegativeMatrix, 0.5f,
             o.Matrix, o.NoPreferredGapPenalties, o.NoHydrophilicGapPenalties, o.VariableRegionGapPenalties,
-            o.GapSeparationDistance, o.HydrophilicResidues, o.UseEndGaps, o.EndGapPenalties, o.UninitialisedGapDistances, o.UserMatrix, o.UserMatrixSeries, Upgma: o.Clustering == ClustalWClustering.Upgma);
+            o.GapSeparationDistance, o.HydrophilicResidues, o.UseEndGaps, o.EndGapPenalties, o.UninitialisedGapDistances, o.UserMatrix, o.UserMatrixSeries, Upgma: o.Clustering == ClustalWClustering.Upgma, Iteration: o.Iteration, NumIterations: o.NumIterations);
     }
 
     /// <summary>Single-run state of the ClustalW multiple alignment (the members of Clustal / MSA / MyersMillerProfileAlign it needs).</summary>
-    private sealed class ClustalWMsaState
+    private sealed partial class ClustalWMsaState
     {
-        private readonly int _n;
+        private int _n;
         private readonly CwConfig _o;
-        private readonly int[][] _seq;          // residue codes of sequence i (0-based; replaced by the aligned row after a profile step)
+        private int[][] _seq;          // residue codes of sequence i (0-based; replaced by the aligned row after a profile step)
         private int[,] _matrix = new int[CwNumRes, CwNumRes];
         private int _gapCoef;                   // DNA: fixed; PROTEIN: recomputed by every profileAlign (matrix average, profile lengths)
         private int _lenCoef;
@@ -440,6 +479,8 @@ public static partial class SequenceAligner
             // ---- STEP 3: MSA::multiSeqAlign
             _distMat = sim;
             MultiSeqAlign(sim, steps);
+            if (_o.Iteration == ClustalWIteration.Alignment)
+                RunAlignmentIteration();
 
             var rows = new string[n];
             for (int i = 0; i < n; i++)
@@ -868,6 +909,7 @@ public static partial class SequenceAligner
             if (nseqs1 == 0 || nseqs2 == 0)
                 return 0;
 
+            int numSeqsProf1 = nseqs1, numSeqsProf2 = nseqs2;   // counted before the profiles are switched (Iteration::iterationOnTreeNode)
             bool switchProfiles = nseqs2 > nseqs1;
             if (switchProfiles)
             {
@@ -929,7 +971,7 @@ public static partial class SequenceAligner
 
             // The two profile objects (ProfileWithSub, ProfileStandard) are heap-allocated per call and freed at its end: their member gdist, which ProfileBase never
             // initialises, keeps the value the previous occupant of the chunk left (the allocator hands out the most recently freed chunk first).
-            int gdist1 = _freedGapDistances.Pop(), gdist2 = _freedGapDistances.Pop();
+            int gdist1 = _freedGapDistances.Count > 0 ? _freedGapDistances.Pop() : 0, gdist2 = _freedGapDistances.Count > 0 ? _freedGapDistances.Pop() : 0;   // an iteration inside a profile step allocates fresh chunks (0)
 
             // profiles: with substitution matrix (profile 1), standard (profile 2)
             var gaps = new int[_prfLength1 + _prfLength2 + 3];   // alnPtr->getMaxAlnLength() + 1
@@ -1016,6 +1058,10 @@ public static partial class SequenceAligner
                 seqArray[j] = ta;
             }
 
+            // -ITERATION=TREE: the finished profile alignment is iterated before the rows are stored
+            if (_o.Iteration == ClustalWIteration.Tree && !_iterating)
+                IterationOnTreeNode(numSeqsProf1, numSeqsProf2, seqArray);
+
             // store the new rows: group 1 members first, then group 2 (profileAlign's final loops)
             int seqNum = 0;
             for (int k = 0; k < nseqs1; k++)
@@ -1045,7 +1091,7 @@ public static partial class SequenceAligner
             len2 = (int)(len2 / (float)nseqs2);
 
             int minLen = Math.Min(len1, len2);
-            var (cells, cross, intScale, scale) = ClustalWChooseProfileMatrix(_o.Matrix, _o.NegativeMatrix, _o.UserMatrix, _o.UserMatrixSeries, pcid, minLen);
+            var (cells, cross, intScale, scale) = ClustalWChooseProfileMatrix(_o.Matrix, _o.NegativeMatrix, _o.UserMatrix, _o.UserMatrixSeries, pcid, minLen, _distanceTree);
             var (matrix, matAvgScore) = BuildClustalWProfileMatrix(cells, cross, intScale, _o.NegativeMatrix);
             _matrix = matrix;
 
