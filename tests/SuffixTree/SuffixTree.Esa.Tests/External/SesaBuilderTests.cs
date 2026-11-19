@@ -336,6 +336,7 @@ public sealed class SesaBuilderTests
         using var dir = new TempDir();
         string input = SesaRun.WriteInput(dir, "mississippi");
         string target = dir.File("x.sesa");
+        var calls = new List<string>();
         foreach ((string label, SesaBuildOptions options) in new[]
         {
             ("no thread", new SesaBuildOptions { Threads = 0 }),
@@ -345,7 +346,9 @@ public sealed class SesaBuilderTests
             ("negative RSS cap", new SesaBuildOptions { RssAnonCapMb = -1 }),
         })
         {
-            Assert.Throws<ArgumentOutOfRangeException>(() => SesaBuilder.Build(input, target, options), label);
+            SesaBuildOptions hooked = options with { Hook = calls.Add };
+            Assert.Throws<ArgumentOutOfRangeException>(() => SesaBuilder.Build(input, target, hooked), label);
+            Assert.That(calls, Is.Empty, $"{label}: the build had started (a hook point was reached) before the option was refused");
             Assert.That(Directory.GetFileSystemEntries(dir.Path).Select(Path.GetFileName), Is.EquivalentTo(new[] { "input.txt" }), $"{label}: something was created");
         }
     }

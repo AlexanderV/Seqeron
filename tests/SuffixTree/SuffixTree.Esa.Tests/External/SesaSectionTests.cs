@@ -370,6 +370,28 @@ public sealed class SesaSectionTests
     }
 
     [Test]
+    public void AFailureInsideTheStage_RemovesItsScratchSubdirectories_AlsoWhenTheyHoldFiles_AndLeavesAScratchRootThatExisted()
+    {
+        using var dir = new TempDir();
+        string text = StringFamilies.RandomDna(900, 12);
+        foreach (string at in new[] { "b2", "b3" })
+        {
+            foreach (bool rootExists in new[] { false, true })
+            {
+                string scratch = dir.Sub("scr");
+                if (rootExists) Directory.CreateDirectory(scratch);
+                else if (Directory.Exists(scratch)) Directory.Delete(scratch, true);
+                LcpChildOptions options = LcpChildRun.Options(scratch, LcpChildRun.TinyTuning(3)) with { Trace = step => { if (step == at) throw new FormatException("injected"); } };
+                Assert.Throws<FormatException>(() => RunSections(dir, text, options, "-fail"), at);
+                string label = $"failure at {at}, root {(rootExists ? "existed" : "did not exist")}";
+                Assert.That(Directory.Exists(scratch), Is.EqualTo(rootExists), $"{label}: the scratch root is the stage's to remove only when the stage made it");
+                if (rootExists) Assert.That(Directory.GetFileSystemEntries(scratch), Is.Empty, $"{label}: ph4 and ph5 (with their files) are removed");
+                ProcFds.AssertClosed(label, [dir.File("c-fail.bin")], [scratch]);
+            }
+        }
+    }
+
+    [Test]
     public void ASuffixArrayInTheWrongOrderThatIsStillAPermutation_IsNotDetectedByTheStages_AKnownBoundary()
     {
         // The builder trusts the order of the suffix array that PH3 writes: PH4 refuses only what is not a permutation (1b.7c). The verifier's sa_order check (e8-verify) and the Structure level of the reader (1b.7f) catch this.
