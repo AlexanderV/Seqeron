@@ -224,7 +224,7 @@ public static partial class SequenceAligner
         }
 
         // fastdistkbit.cpp DistKbit20_3 ("kbit20_3"): bit vectors of the 3-mers, every second residue is skipped (the program's loop increments the position twice), the "common" count of the
-        // program counts the bits set in either vector (b & 0x101)
+        // program counts the bits set in either vector plus those of the second vector again (b & 0x101, see CommonBitCount below)
         internal float[,] DistKbit20_3()
         {
             int n = _n;
@@ -242,7 +242,11 @@ public static partial class SequenceAligner
                 {
                     int count = 0;
                     for (int b = 0; b < 1000; b++)
-                        count += System.Numerics.BitOperations.PopCount((uint)(bits[s1][b] | bits[s2][b]));
+                    {
+                        // CommonBitCount: b = *p1 | (*p2 << 8); while (b) { if (b & 0x101) ++count; b >>= 1; }: the shifts 0..7 count the bit positions set in either byte,
+                        // the shifts 8..15 find the bits of *p2 again at position 0 (position 8 is empty by then) - a set bit of the second sequence is counted twice
+                        count += System.Numerics.BitOperations.PopCount((uint)(bits[s1][b] | bits[s2][b])) + System.Numerics.BitOperations.PopCount((uint)bits[s2][b]);
+                    }
                     float dist = (float)count / (uint)Math.Min(_seq[s1].Length, _seq[s2].Length);
                     d[s1, s2] = d[s2, s1] = dist;
                 }

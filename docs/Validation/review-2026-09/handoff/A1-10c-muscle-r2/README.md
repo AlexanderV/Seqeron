@@ -1,4 +1,6 @@
-# TEMPORARY hand-off package A1-10c-muscle-r2 - ROUND 2 of the MUSCLE 3.8.1551 oracle (Docker, for the user's Mac)
+# INTEGRATED (2026-11-19, B09 WP21, F76): returned archive `returned/A1-10c-muscle-r2-out.zip` (MUSCLE v3.8.1551, x86_64) -> `TestData/Alignment/muscle3_r2_oracle.tsv` (630 sets) + `SequenceAligner_MuscleOracleRound2_Tests`: 630 / 630 equal after the fixes of F76; 8 `-matrix blosum62nostar` sets (harness decoding error) are re-run in `../A1-10c-muscle-r3`.
+
+# (was) TEMPORARY hand-off package A1-10c-muscle-r2 - ROUND 2 of the MUSCLE 3.8.1551 oracle (Docker, for the user's Mac)
 
 **Why.** Round 1 (`../A1-10c-muscle`, 420 sets) is returned and **equal**: `SequenceAligner.MultipleAlignMuscle` gives the rows and the output order of the unmodified MUSCLE v3.8.1551 on 420 / 420 sets
 for `-maxiters 1|2` with `-le/-sp/-sv`, `-gapopen/-gapextend/-center`, `-distance1 kmer6_6`, `-cluster1/-cluster2`, `-sueff`, `-maxtrees 0`. Everything else the 3.8 command line offers for the alignment

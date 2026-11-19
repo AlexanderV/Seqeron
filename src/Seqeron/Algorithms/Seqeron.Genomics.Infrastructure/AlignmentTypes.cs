@@ -1428,6 +1428,9 @@ public sealed record MuscleOptions
     /// <summary>The FASTA labels of the sequences (default <c>s0</c>, <c>s1</c>, ...): the leaf names of <see cref="UserTree"/> and of the trees written by the program.</summary>
     public IReadOnlyList<string>? SequenceNames { get; init; }
 
+    /// <summary><c>-stable</c> (output in input order): the 3.8.1551 program refuses it ("-stable not supported in this version of muscle"), so does the port (<see cref="NotSupportedException"/>); the library already returns the input order by default (<see cref="TreeOrder"/> = false).</summary>
+    public bool Stable { get; init; }
+
     /// <summary><c>-clusteronly</c> (with <c>-tree1</c>): stop after the first guide tree, no alignment is computed.</summary>
     public bool ClusterOnly { get; init; }
 

@@ -380,6 +380,14 @@ public class MultipleAlignTests
         });
     }
 
+    // B09 F76 (A1-10c a2): -stable is refused by the program ("not supported in this version of muscle"); the tool rejects it as well.
+    [Test]
+    public void MultipleAlignMuscle_Stable_IsRejectedLikeTheProgram()
+    {
+        Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignMuscle(MuscleSet, "protein", stable: true));
+        Assert.That(AlignmentTools.MultipleAlignMuscle(MuscleSet, "protein", stable: false).AlignedSequences, Has.Length.EqualTo(MuscleSet.Length));
+    }
+
     // B09 F70 (A1-10c a2): the options of MUSCLE 3.8 beyond the first Docker round are parsed and delegated to SequenceAligner.MuscleRun / the MSA command lines.
     [Test]
     public void MultipleAlignMuscle_NewOptions_AreParsedAndDelegated()
@@ -440,6 +448,7 @@ public class MultipleAlignTests
             Assert.That(AlignmentTools.MuscleMsaCommand("sw", ["ACGTACGTACGTTTGACCA"], ["GGGGTACGTACGTAAAA"], "dna").AlignedSequences, Has.Length.EqualTo(2));
             Assert.That(AlignmentTools.MuscleMsaCommand("refinew", dna, type: "dna", refineWindow: 8).AlignedSequences, Has.Length.EqualTo(2));
             Assert.Throws<ArgumentException>(() => AlignmentTools.MuscleMsaCommand("ppscore", aligned, aligned, "protein"), "the program crashes: no protein score matrix in this mode");
+            Assert.Throws<ArgumentException>(() => AlignmentTools.MuscleMsaCommand("profdb", aligned, aligned, "protein"), "the program crashes in -profdb: the alphabet is never initialised");
             Assert.Throws<ArgumentException>(() => AlignmentTools.MuscleMsaCommand("bogus", aligned));
             Assert.Throws<ArgumentException>(() => AlignmentTools.MuscleMsaCommand("profile", aligned));
             Assert.Throws<ArgumentException>(() => AlignmentTools.MuscleMsaCommand("refine", Array.Empty<string>()));

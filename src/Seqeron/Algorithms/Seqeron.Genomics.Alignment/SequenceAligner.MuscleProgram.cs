@@ -120,6 +120,18 @@ public static partial class SequenceAligner
         return MuscleEngine.ForMsa(o, alignment1).LocalAlignMode(alignment1, alignment2);
     }
 
+    /// <summary>
+    /// <c>muscle -profdb -in1 a.afa -in2 db.fa</c> (profdb.cpp: align every sequence of a database to the profile one by one). The program of 3.8.1551 never initialises the residue alphabet in
+    /// this mode and crashes (segmentation fault) on every input - protein, DNA and RNA alike (5 / 5 runs of the oracle) - so the port refuses it instead of inventing an unverified behaviour.
+    /// </summary>
+    /// <exception cref="NotSupportedException">Always.</exception>
+    public static string[] MuscleProfileDatabase(IReadOnlyList<string> alignment, IReadOnlyList<string> database, MuscleOptions? options = null)
+    {
+        ArgumentNullException.ThrowIfNull(alignment);
+        ArgumentNullException.ThrowIfNull(database);
+        throw new NotSupportedException("muscle -profdb: MUSCLE 3.8.1551 never initialises the residue alphabet in this mode and crashes on every input.");
+    }
+
     internal sealed partial class MuscleEngine
     {
         // ---------------------------------------------------------------------------------------------------------------------------------
@@ -136,6 +148,8 @@ public static partial class SequenceAligner
         {
             _o = options;
             _n = n;
+            if (options.Stable)
+                throw new NotSupportedException("-stable not supported in this version of muscle (MUSCLE 3.8.1551 refuses it).");
             if (options.MaxIterations < 1)
                 throw new ArgumentException("MaxIterations must be at least 1.", nameof(options));
             if (options.MaxTrees < 0)
@@ -275,7 +289,14 @@ public static partial class SequenceAligner
         public string[] LocalAlignMode(IReadOnlyList<string> rows1, IReadOnlyList<string> rows2)
         {
             if (!_nuc)
+            {
+                // local.cpp: SetPPScore is only called for nucleotides, so -distance1 is not parsed (it stays kmer6_6, the global default) and the score matrix is never set. A profile of two or more
+                // sequences stops in TreeFromMSA with "DistCalcMSA: Invalid DISTANCE_1" (exit status 2, oracle R610); with one-sequence profiles the program reaches the profile score and crashes (R611, R612).
+                if (rows1.Count > 1 || rows2.Count > 1)
+                    throw new ArgumentException("DistCalcMSA: Invalid DISTANCE_1 - muscle -sw on proteins does not parse -distance1 (kmer6_6 is not a distance of an aligned pair).");
                 throw new NotSupportedException("muscle -sw on proteins: MUSCLE 3.8.1551 never initialises the score matrix in this mode (SetPPScore is only called for nucleotides) and crashes.");
+            }
+
             _curWeight = _o.Weight1;
             var m1 = PrepareMsa(rows1);
             var m2 = PrepareMsa(rows2);
@@ -537,7 +558,8 @@ public static partial class SequenceAligner
         {
             _curWeight = _o.Weight1;
             var msa = PrepareMsa(rows);
-            return TreeToFile(TreeFromMsaRows(msa.Ids, msa.Rows));
+            // maketree.cpp never calls SetPPScore, so the command-line -distance2 is never parsed in this mode: the global default PctIdKimura is always used (oracle: R547 / R551 / R554)
+            return TreeToFile(TreeFromMsaRows(msa.Ids, msa.Rows, _o.Cluster2, MuscleDistance.PctIdKimura, _o.Root2, out _));
         }
 
         public string[] RefineWindowsMode(IReadOnlyList<string> rows)
@@ -658,7 +680,7 @@ public static partial class SequenceAligner
         internal static string FormatG(double v, int precision)
         {
             if (v == 0)
-                return "0";
+                return double.IsNegative(v) ? "-0" : "0";   // printf("%g", -0.0) = "-0" (the oracle's "s2:-0")
             string s = v.ToString("G" + precision, CultureInfo.InvariantCulture);
             if (s.Contains('E'))
             {

@@ -269,14 +269,18 @@ public class SequenceAligner_MuscleOptions_Tests
         Assert.That(d[2, 0], Is.EqualTo(1f));
     }
 
-    /// <summary>The k-bit distance counts the bits set in either vector (b &amp; 0x101 of the program) per minimum length; identical sequences give the number of their 3-mers (every second residue is skipped).</summary>
+    /// <summary>
+    /// The k-bit "common" count of the program (<c>CommonBitCount</c>: <c>b = *p1 | (*p2 &lt;&lt; 8)</c>, <c>b &amp; 0x101</c> per shift) is the number of bit positions set in either vector (shifts 0-7) PLUS the bits of the second
+    /// vector again (shifts 8-15), per minimum length (oracle: round 2, R167 / R179 / R188); identical sequences with 4 bits give (4 + 4) / 9 (every second residue is skipped).
+    /// </summary>
     [Test]
-    public void DistKbit20_3_CountsTheUnionOfTheBitVectors()
+    public void DistKbit20_3_CountsTheUnionOfTheBitVectorsPlusTheSecondVector()
     {
         var d = Engine(new MuscleOptions { SequenceType = MuscleSequenceType.Protein, Distance1 = MuscleDistance.Kbit20_3 }, "ACDEFGHIK", "ACDEFGHIK", "WWWWWWWWW").UnalignedDistances();
-        // ACDEFGHIK: bits of the 3-mers ACD (22), then F-H step ... : 4 set bits (traced from the loop of SetKmerBitVector); identical sequences: 4 / 9; WWWWWWWWW has 1 3-mer: union 5 / 9
-        Assert.That(d[1, 0], Is.EqualTo(4f / 9f).Within(1e-6f));
-        Assert.That(d[2, 0], Is.EqualTo(5f / 9f).Within(1e-6f));
+        // ACDEFGHIK: bits of the 3-mers ACD, then F-H step ... : 4 set bits (traced from the loop of SetKmerBitVector); identical: union 4 + second vector 4 = 8 / 9;
+        // WWWWWWWWW has 1 3-mer: union 5 + the 4 bits of the second vector (sequence 0) = 9 / 9
+        Assert.That(d[1, 0], Is.EqualTo(8f / 9f).Within(1e-6f));
+        Assert.That(d[2, 0], Is.EqualTo(9f / 9f).Within(1e-6f));
     }
 
     [Test]

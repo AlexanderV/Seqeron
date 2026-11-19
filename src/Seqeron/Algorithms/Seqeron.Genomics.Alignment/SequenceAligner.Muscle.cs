@@ -185,6 +185,8 @@ public static partial class SequenceAligner
         {
             _o = options;
             _n = sequences.Count;
+            if (options.Stable)
+                throw new NotSupportedException("-stable not supported in this version of muscle (MUSCLE 3.8.1551 refuses it).");
             if (options.MaxIterations < 1)
                 throw new ArgumentException("MaxIterations must be at least 1.", nameof(options));
             if (options.MaxTrees < 0)
@@ -678,7 +680,13 @@ public static partial class SequenceAligner
         internal MuscleTree TreeFromDistances(float[,] dist, int[] ids, MuscleClusterMethod method, MuscleRoot root)
         {
             var t = method == MuscleClusterMethod.NeighborJoining ? NeighborJoiningTree(dist, ids) : Upgma(dist, method, ids);
-            return ids.Length == 1 ? t : FixRoot(t, root);   // (a tree of one leaf has nothing to re-root)
+            if (ids.Length != 1)
+                return FixRoot(t, root);
+            // a tree of one leaf (a one-sequence profile): the pseudo-root is kept; any other rooting calls Tree::UnrootByDeletingRoot, which writes through GetLeft(root) = NULL_NEIGHBOR (4294967295)
+            // and kills the program with a segmentation fault (oracle R462, R484: exit status 139)
+            if (root != MuscleRoot.Pseudo)
+                throw new NotSupportedException("MUSCLE 3.8.1551 crashes (segmentation fault in Tree::UnrootByDeletingRoot) when a one-sequence profile is re-rooted with -root1 / -root2 midlongestspan or minavgleafdist.");
+            return t;
         }
 
         internal MuscleTree Upgma(float[,] dist, MuscleClusterMethod method, int[] ids)
@@ -908,7 +916,7 @@ public static partial class SequenceAligner
                 if (tree.IsLeaf(node))
                 {
                     int id = tree.LeafId[node];
-                    float w = weights[node];   // Weights[] of CalcClustalWWeights is indexed by leaf node; the leaf id equals the node index of the first tree
+                    float w = weights[id];   // progalign.cpp: Node.m_Weight = Weights[uId] - CalcClustalWWeights fills Weights[] by leaf INDEX, the program looks it up by sequence ID (the two differ for a user tree, oracle R361 ... R383)
                     var n = new MuscleNode { Ids = [id], Rows = [(char[])_seq[id].Clone()], Length = _seq[id].Length, Weight = w };
                     // SetClustalWWeightsMuscle: the (single) sequence weight is normalised to 1 (f = 1 / w; w * f)
                     float wn = NormalizedSingleWeight(w);
@@ -1631,9 +1639,19 @@ public static partial class SequenceAligner
             }
 
             var root = newNodes[tree2.Root]!;
-            var (ids, rows) = ReorderToDepthFirst(root, tree2, nodeCount);
-            msaIds = ids;
-            msaRows = rows;
+            if (_o.Brenner)
+            {
+                // realigndiffse.cpp RealignDiffsE: with -brenner the root MSA is again made by MakeRootMSABrenner, whose rows are the sequences in input order (oracle R308 ... R326)
+                msaIds = Enumerable.Range(0, _n).ToArray();
+                msaRows = BrennerRootRows(root);
+            }
+            else
+            {
+                var (ids, rows) = ReorderToDepthFirst(root, tree2, nodeCount);
+                msaIds = ids;
+                msaRows = rows;
+            }
+
             tree = tree2;
         }
 

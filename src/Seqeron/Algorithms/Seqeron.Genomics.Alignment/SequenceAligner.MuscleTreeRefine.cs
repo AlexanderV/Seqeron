@@ -35,6 +35,9 @@ public static partial class SequenceAligner
                         case MuscleDistance.ScoreDist:
                             v = (float)ScoreDist(rows[i], rows[j]);
                             break;
+                        case MuscleDistance.Edit:
+                            // msadist.h MSADist::ComputeDist (neighbour joining) has no case for DISTANCE_Edit: Quit("MSADist::ComputeDist, invalid DISTANCE_%u") (oracle R193)
+                            throw new ArgumentException("edit is not defined for neighbour joining (MSADist::ComputeDist: invalid DISTANCE_Edit); use -distance2 pctid_kimura, pctid_log or scoredist, or another -cluster2.");
                         default:
                             throw new ArgumentException($"{distance} is not a distance of an aligned pair (use pctid_kimura, pctid_log, edit or scoredist for -distance2).");
                     }

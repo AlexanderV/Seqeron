@@ -118,6 +118,9 @@
     <!-- ALIGN-MULTI-001 (audit A1-10c, B09 F65 / F69): MUSCLE v3.8.1551 (unmodified Debian muscle3 3.8.1551-2 source, user-run Docker package handoff/A1-10c-muscle): 420 sets
          (270 protein, 110 DNA, 40 RNA) - rows in input order + the order MUSCLE wrote them; scripts/alignment/generate_muscle3_oracle.py. -->
     <EmbeddedResource Include="TestData\Alignment\muscle3_oracle.tsv" />
+    <!-- ALIGN-MULTI-001 (audit A1-10c a2, B09 F76): MUSCLE v3.8.1551 round 2 (638 sets: every option and command line; Docker package handoff/A1-10c-muscle-r2, user-run);
+         scripts/alignment/generate_muscle3_r2_oracle.py. -->
+    <EmbeddedResource Include="TestData\Alignment\muscle3_r2_oracle.tsv" />
     <!-- GENOMIC-COMMON-001 (B09 F15-F16): independent Python (DP + suffix automaton + brute-force matching statistics)
          oracle for FindLongestCommonRegion / FindCommonRegions; scripts/analysis/generate_common_region_oracle.py. -->
     <EmbeddedResource Include="TestData\Analysis\common_region_oracle.tsv" />
