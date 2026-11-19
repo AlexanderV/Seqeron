@@ -49,7 +49,7 @@ public class SesaTraverseDamageTests
     private static T WithTimeout<T>(Func<T> work, int seconds = 20)
     {
         Task<T> task = Task.Run(work);
-        Assert.That(task.Wait(TimeSpan.FromSeconds(seconds)), Is.True, "the call does not return (the leaf lists are cyclic)");
+        Assert.That(Task.WaitAny([task], TimeSpan.FromSeconds(seconds)), Is.Zero, "the call does not return (the leaf lists are cyclic)");
         return task.GetAwaiter().GetResult();
     }
 
