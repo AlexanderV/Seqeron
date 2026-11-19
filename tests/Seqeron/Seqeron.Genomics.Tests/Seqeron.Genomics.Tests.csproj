@@ -128,6 +128,8 @@
     <EmbeddedResource Include="TestData\Alignment\emboss_matrices_oracle.tsv" />
     <!-- ALIGN-STATS-001 (audit A2-15, B09 F90): EMBOSS 6.6.0 distmat, every correction and option (1 100 sets); scripts/alignment/generate_distmat_oracle.py. -->
     <EmbeddedResource Include="TestData\Alignment\distmat_oracle.tsv" />
+    <!-- ALIGN-MULTI-001 (audit A2-14, B09 F92): ClustalW 2.1 residue-type guess (-TYPE omitted), 500 sets; scripts/alignment/generate_clustalw_type_oracle.py. -->
+    <EmbeddedResource Include="TestData\Alignment\clustalw_type_oracle.tsv" />
     <!-- GENOMIC-COMMON-001 (B09 F15-F16): independent Python (DP + suffix automaton + brute-force matching statistics)
          oracle for FindLongestCommonRegion / FindCommonRegions; scripts/analysis/generate_common_region_oracle.py. -->
     <EmbeddedResource Include="TestData\Analysis\common_region_oracle.tsv" />

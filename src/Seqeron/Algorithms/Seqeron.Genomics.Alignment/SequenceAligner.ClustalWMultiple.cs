@@ -115,6 +115,33 @@ public static partial class SequenceAligner
         return MultipleAlignClustalW(seqList.Select(s => s.Sequence), options ?? new ClustalWProteinOptions(), scoring);
     }
 
+    /// <summary>
+    /// ClustalW 2.1's residue-type guess when <c>-TYPE</c> is not given (<c>FileReader::readFile</c> + <c>Sequence::checkDNAFlag</c>): the type is decided by the <b>second</b> sequence of the
+    /// input only (the flag is set when the loop reaches index 1; with a single sequence it keeps its default, protein): DNA when at least 85 % of that sequence's non-gap characters
+    /// (everything except '-') are one of A C G T U N, else protein; a sequence without residues, or with none of those letters, is protein. Equal to the printed unit (<c>bp</c> / <c>aa</c>) of the installed program on
+    /// 500 random sets (<c>clustalw_type_oracle.tsv</c>).
+    /// </summary>
+    /// <param name="sequences">The input sequences in file order (gaps are written as '-').</param>
+    public static ClustalWSequenceType GuessClustalWSequenceType(IEnumerable<string> sequences)
+    {
+        var list = ToListNoNull(sequences, nameof(sequences));
+        if (list.Count < 2)
+            return ClustalWSequenceType.Protein;
+        int residues = 0, bases = 0;
+        foreach (char c in list[1])
+        {
+            if (c == '-')
+                continue;
+            residues++;
+            if ("ACGTUN".Contains(char.ToUpperInvariant(c)))
+                bases++;
+        }
+
+        if (bases == 0 || residues == 0)
+            return ClustalWSequenceType.Protein;
+        return (float)bases / (float)residues >= 0.85f ? ClustalWSequenceType.Dna : ClustalWSequenceType.Protein;
+    }
+
     /// <summary><see cref="MultipleAlignClustalW(IEnumerable{ProteinSequence}, ClustalWProteinOptions?, MatrixScoring?)"/> for strings (letters A-Z except J).</summary>
     public static MultipleAlignmentResult MultipleAlignClustalW(
         IEnumerable<string> sequences, ClustalWProteinOptions options, MatrixScoring? scoring = null)
@@ -320,17 +347,18 @@ public static partial class SequenceAligner
         ClustalWUserMatrix? UserMatrix = null,
         IReadOnlyList<ClustalWMatrixSeriesEntry>? UserMatrixSeries = null,
         ClustalWDnaMatrix DnaMatrix = ClustalWDnaMatrix.Iub,
-        ClustalWUserMatrix? UserDnaMatrix = null)
+        ClustalWUserMatrix? UserDnaMatrix = null,
+        bool Upgma = false)
     {
         public static CwConfig FromDna(ClustalWOptions o) => new(
             false, o.GapOpen, o.GapExtend, o.DivergenceCutoff, o.NoWeights, o.NegativeMatrix, o.TransitionWeight,
             ClustalWProfileMatrix.Gonnet, false, false, false, 4, "GPSNDQEKR", o.UseEndGaps, o.EndGapPenalties,
-            DnaMatrix: o.DnaMatrix, UserDnaMatrix: o.UserDnaMatrixUse == ClustalWUserDnaMatrixUse.Applied ? o.UserDnaMatrix : null);
+            DnaMatrix: o.DnaMatrix, UserDnaMatrix: o.UserDnaMatrixUse == ClustalWUserDnaMatrixUse.Applied ? o.UserDnaMatrix : null, Upgma: o.Clustering == ClustalWClustering.Upgma);
 
         public static CwConfig FromProtein(ClustalWProteinOptions o) => new(
             true, o.GapOpen, o.GapExtend, o.DivergenceCutoff, o.NoWeights, o.NegativeMatrix, 0.5f,
             o.Matrix, o.NoPreferredGapPenalties, o.NoHydrophilicGapPenalties, o.VariableRegionGapPenalties,
-            o.GapSeparationDistance, o.HydrophilicResidues, o.UseEndGaps, o.EndGapPenalties, o.UninitialisedGapDistances, o.UserMatrix, o.UserMatrixSeries);
+            o.GapSeparationDistance, o.HydrophilicResidues, o.UseEndGaps, o.EndGapPenalties, o.UninitialisedGapDistances, o.UserMatrix, o.UserMatrixSeries, Upgma: o.Clustering == ClustalWClustering.Upgma);
     }
 
     /// <summary>Single-run state of the ClustalW multiple alignment (the members of Clustal / MSA / MyersMillerProfileAlign it needs).</summary>
@@ -434,6 +462,8 @@ public static partial class SequenceAligner
         private List<int[]> BuildWeightsAndSteps(double[,] dist, double[,] sim, int[] seqWeight)
         {
             int n = _n;
+            if (_o.Upgma)
+                return BuildWeightsAndStepsUpgma(dist, sim, seqWeight);
             CwNode root;
             CwNode[] olptr;
             if (n == 2)
@@ -467,6 +497,42 @@ public static partial class SequenceAligner
             CalcSeqWeights(olptr, seqWeight);
             CalcSimilarities(olptr, sim);
             return CreateSets(root, olptr);
+        }
+
+        // TreeInterface::getWeightsAndStepsFromDistMatUPGMA (-CLUSTERING=UPGMA): RootedClusterTree::treeFromDistMatrix builds no tree and saves NO alignment step for two sequences (the
+        // `groups` vector of that branch is never stored), so the multiple alignment has nothing to do; the weights of a missing tree are all 0, i.e. equal; the distances become
+        // similarities 100 - 100 d without the clamping of the NJ path (DistMatrix::makeSimilarityMatrix)
+        private List<int[]> BuildWeightsAndStepsUpgma(double[,] dist, double[,] sim, int[] seqWeight)
+        {
+            int n = _n;
+            UpgmaResult? tree = n >= 3 ? ClustalWUpgmaTree(dist, n) : null;
+            var steps = tree?.Steps ?? [];
+            if (n >= 2 && !_o.NoWeights)
+            {
+                var w = ClustalWUpgmaSeqWeights(tree?.Root, n);
+                Array.Copy(w, seqWeight, n);
+            }
+            else
+            {
+                int temp = CwIntScaleFactor / n;
+                if (temp < 1)
+                    temp = 1;
+                for (int i = 0; i < n; i++)
+                    seqWeight[i] = temp;
+            }
+
+            for (int i = 0; i < n; i++)
+            {
+                sim[i + 1, i + 1] = 0.0;
+                for (int j = 0; j < i; j++)
+                {
+                    double value = 100.0 - dist[i, j] * 100.0;
+                    sim[i + 1, j + 1] = value;
+                    sim[j + 1, i + 1] = value;
+                }
+            }
+
+            return steps;
         }
 
         // Tree::calcSeqWeights (distanceTree = true)

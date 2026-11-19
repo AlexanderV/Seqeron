@@ -669,7 +669,7 @@ public class AlignmentTools
         [Description("Score for mismatching base in the reported totalScore only (DNA).")] int mismatch = -1,
         [Description("Gap-open score of the reported totalScore only (negative = penalty; default -2 for DNA, -9.8 for protein).")] double? scoreGapOpen = null,
         [Description("Gap-extend score of the reported totalScore only (negative = penalty; default -1 for DNA, -0.2 for protein).")] double? scoreGapExtend = null,
-        [Description("'dna' (default) or 'protein' (ClustalW -TYPE).")] string type = "dna",
+        [Description("'dna' (default), 'protein' (ClustalW -TYPE) or 'auto' (ClustalW's guess when -TYPE is omitted: decided by the SECOND sequence only, DNA when >= 85 % of its non-gap characters are A C G T U N; a single sequence is protein).")] string type = "dna",
         [Description("type='protein': ClustalW -MATRIX, the matrix series of the profile alignment: 'gonnet' (default), 'blosum', 'pam' or 'id'.")] string? matrix = null,
         [Description("type='protein': ClustalW -PWMATRIX, the pairwise matrix: 'gonnet' (default; GONNET250), 'blosum' (BLOSUM30), 'pam' (PAM350) or 'id'.")] string? pwMatrix = null,
         [Description("type='protein': ClustalW -NOPGAP: switch off the residue-specific (Pascarella & Argos) gap penalties.")] bool noPreferredGaps = false,
@@ -688,6 +688,7 @@ public class AlignmentTools
         [Description("type='dna': ClustalW -DNAMATRIX=file, the TEXT of a nucleotide matrix file for the profile stage (same layout as matrixFile, a single matrix; the transition weights of getProfileAlignMatrix index the matrix with the header letters at positions 0, 2, 4, 11 and 12 - give at least 13 letters). How it is used: see userDnaMatrixUse.")] string? dnaMatrixFile = null,
         [Description("type='dna': ClustalW -PWDNAMATRIX=file, the TEXT of a nucleotide matrix file for the full pairwise stage (a single matrix, x100, never shifted). See userDnaMatrixUse.")] string? pwDnaMatrixFile = null,
         [Description("type='dna', with dnaMatrixFile / pwDnaMatrixFile: 'applied' (default; what ClustalW's interactive menu does - the matrix is used) or 'commandline' (what clustalw -DNAMATRIX=file -PWDNAMATRIX=file does: the file is read and validated but registered under the PROTEIN slot - a defect of CommandLineParser - so the DNA stages keep the IUB / built-in matrix).")] string userDnaMatrixUse = "applied",
+        [Description("ClustalW -CLUSTERING: 'nj' (default; neighbour joining) or 'upgma' (the program's own rooted UPGMA tree: node-height weights and join order; source port, the installed Debian clustalw 2.1 crashes on every UPGMA run so the rows are not yet oracle-verified; two sequences come out unaligned as in the source).")] string clustering = "nj",
         CancellationToken cancellationToken = default)
     {
         using var cancelScope = global::Seqeron.Genomics.Alignment.SequenceAligner.BeginCancellationScope(cancellationToken);
@@ -697,9 +698,17 @@ public class AlignmentTools
             "clustalw-quick" or "clustalw_quick" or "clustalwquick" or "quick" => global::Seqeron.Genomics.Infrastructure.ClustalWPairwiseMode.Quick,
             _ => throw new ArgumentException("distance must be 'clustalw' or 'clustalw-quick'.", nameof(distance)),
         };
+        var clusteringMode = (clustering ?? "nj").Trim().ToLowerInvariant() switch
+        {
+            "nj" or "neighborjoining" or "neighbor-joining" => global::Seqeron.Genomics.Infrastructure.ClustalWClustering.NeighborJoining,
+            "upgma" => global::Seqeron.Genomics.Infrastructure.ClustalWClustering.Upgma,
+            _ => throw new ArgumentException("clustering must be 'nj' or 'upgma'.", nameof(clustering)),
+        };
         var kind = (type ?? "dna").Trim().ToLowerInvariant();
-        if (kind is not ("dna" or "protein"))
-            throw new ArgumentException("type must be 'dna' or 'protein'.", nameof(type));
+        if (kind is not ("dna" or "protein" or "auto"))
+            throw new ArgumentException("type must be 'dna', 'protein' or 'auto'.", nameof(type));
+        if (kind == "auto")
+            kind = global::Seqeron.Genomics.Alignment.SequenceAligner.GuessClustalWSequenceType(sequences) == global::Seqeron.Genomics.Infrastructure.ClustalWSequenceType.Dna ? "dna" : "protein";
 
         if (kind == "protein")
         {
@@ -718,6 +727,7 @@ public class AlignmentTools
                 PairwiseMode = mode,
                 Pairwise = ParseMsaOptions(null, null, null, ktuple, window, topDiagonals, pairGap, null, pwMatrix, pwGapOpen, pwGapExtend).ClustalWProtein,
                 DivergenceCutoff = maxDiv,
+                Clustering = clusteringMode,
                 NoWeights = noWeights,
                 NegativeMatrix = negative,
                 NoPreferredGapPenalties = noPreferredGaps,
@@ -771,6 +781,7 @@ public class AlignmentTools
             PairwiseGapExtend = pwGapExtend ?? 6.66,
             TransitionWeight = transitionWeight,
             DivergenceCutoff = maxDiv,
+            Clustering = clusteringMode,
             NoWeights = noWeights,
             NegativeMatrix = negative,
             UseEndGaps = useEndGaps,

@@ -814,6 +814,19 @@ public sealed record ClustalWQuickOptions
     public bool Percent { get; init; } = true;
 }
 
+/// <summary>ClustalW's guide-tree clustering algorithm for the multiple alignment (<c>-CLUSTERING=NJ | UPGMA</c>).</summary>
+public enum ClustalWClustering
+{
+    /// <summary>Neighbour joining (default).</summary>
+    NeighborJoining = 0,
+
+    /// <summary>
+    /// UPGMA (<c>-CLUSTERING=UPGMA</c>, <c>UPGMAAlgorithm</c>): ClustalW's own rooted average-linkage tree; its node heights give the sequence weights and its joins the order of the profile steps.
+    /// With two sequences the program saves no alignment step (the sequences come out unaligned).
+    /// </summary>
+    Upgma = 1,
+}
+
 /// <summary>Residue type of ClustalW's pairwise stages (<c>-TYPE=DNA | PROTEIN</c>).</summary>
 public enum ClustalWSequenceType
 {
@@ -937,6 +950,9 @@ public sealed record ClustalWOptions
     /// tree) is at most this value is delayed and added after the rest has been aligned (delayed divergent sequences).
     /// </summary>
     public int DivergenceCutoff { get; init; } = 30;
+
+    /// <summary><c>-CLUSTERING=NJ | UPGMA</c> of the multiple alignment (default neighbour joining); see <see cref="ClustalWClustering"/>.</summary>
+    public ClustalWClustering Clustering { get; init; } = ClustalWClustering.NeighborJoining;
 
     /// <summary><c>-NOWEIGHTS</c>: no sequence weights from the guide tree (all sequences weigh the same).</summary>
     public bool NoWeights { get; init; }
@@ -1104,6 +1120,9 @@ public sealed record ClustalWProteinOptions
 
     /// <summary><c>-MAXDIV</c> (default 30): see <see cref="ClustalWOptions.DivergenceCutoff"/>.</summary>
     public int DivergenceCutoff { get; init; } = 30;
+
+    /// <summary><c>-CLUSTERING=NJ | UPGMA</c> of the multiple alignment (default neighbour joining); see <see cref="ClustalWClustering"/>.</summary>
+    public ClustalWClustering Clustering { get; init; } = ClustalWClustering.NeighborJoining;
 
     /// <summary><c>-NOWEIGHTS</c>: no sequence weights from the guide tree.</summary>
     public bool NoWeights { get; init; }

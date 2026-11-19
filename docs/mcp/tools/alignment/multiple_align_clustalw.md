@@ -33,6 +33,7 @@ ClustalW 2.1's multiple alignment of DNA (clustalw -TYPE=DNA -ALIGN) or PROTEIN 
 | `pwGapExtend` | number | No | ClustalW -PWGAPEXT: pairwise gap-extension penalty of the full pairwise stage (default 6.66 for DNA, 0.1 for protein). |
 | `transitionWeight` | number | No | DNA only, ClustalW -TRANSWEIGHT: weight of transitions (A-G, C-T/U) in the profile matrix (default 0.5; 0 = as mismatches, 1 = as matches). (default: 0.5) |
 | `maxDiv` | integer | No | ClustalW -MAXDIV (default 30): a sequence whose highest percent identity to any other sequence is at most this value is delayed (aligned last, after the rest). (default: 30) |
+| `clustering` | string | No | ClustalW -CLUSTERING: 'nj' (default; neighbour joining) or 'upgma' (the program's own rooted UPGMA tree: node-height weights and join order; source port, the installed Debian clustalw 2.1 crashes on every UPGMA run so the rows are not yet oracle-verified; two sequences come out unaligned as in the source). (default: nj) |
 | `noWeights` | boolean | No | ClustalW -NOWEIGHTS: no tree-derived sequence weights. (default: false) |
 | `negative` | boolean | No | ClustalW -NEGATIVE: keep the substitution matrix signed instead of shifting it to non-negative scores (protein: one matrix BLOSUM40 / PAM120 / GONNET250 instead of the series). (default: false) |
 | `ktuple` | integer | No | distance='clustalw-quick' only: k-tuple (word) size, 1-4 for DNA (clustalw -KTUPLE, default 2), 1-2 for protein (default 1). |
@@ -43,7 +44,7 @@ ClustalW 2.1's multiple alignment of DNA (clustalw -TYPE=DNA -ALIGN) or PROTEIN 
 | `mismatch` | integer | No | Score for mismatching base in the reported totalScore only (DNA). (default: -1) |
 | `scoreGapOpen` | number | No | Gap-open score of the reported totalScore only (negative = penalty; default -2 for DNA, -9.8 for protein). |
 | `scoreGapExtend` | number | No | Gap-extend score of the reported totalScore only (negative = penalty; default -1 for DNA, -0.2 for protein). |
-| `type` | string | No | 'dna' (default) or 'protein' (ClustalW -TYPE). (default: dna) |
+| `type` | string | No | 'dna' (default), 'protein' (ClustalW -TYPE) or 'auto' (ClustalW's guess when -TYPE is omitted: decided by the SECOND sequence only, DNA when >= 85 % of its non-gap characters are A C G T U N; a single sequence is protein). (default: dna) |
 | `matrix` | string | No | type='protein': ClustalW -MATRIX, the matrix series of the profile alignment: 'gonnet' (default), 'blosum', 'pam' or 'id'. |
 | `pwMatrix` | string | No | type='protein': ClustalW -PWMATRIX, the pairwise matrix: 'gonnet' (default; GONNET250), 'blosum' (BLOSUM30), 'pam' (PAM350) or 'id'. |
 | `noPreferredGaps` | boolean | No | type='protein': ClustalW -NOPGAP: switch off the residue-specific (Pascarella & Argos) gap penalties. (default: false) |

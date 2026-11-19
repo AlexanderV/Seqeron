@@ -45,6 +45,11 @@
     "description": "ClustalW -MAXDIV (default 30): a sequence whose highest percent identity to any other sequence is at most this value is delayed (aligned last, after the rest).",
     "default": 30
    },
+   "clustering": {
+    "type": "string",
+    "description": "ClustalW -CLUSTERING: 'nj' (default; neighbour joining) or 'upgma' (the program's own rooted UPGMA tree: node-height weights and join order; source port, the installed Debian clustalw 2.1 crashes on every UPGMA run so the rows are not yet oracle-verified; two sequences come out unaligned as in the source).",
+    "default": "nj"
+   },
    "noWeights": {
     "type": "boolean",
     "description": "ClustalW -NOWEIGHTS: no tree-derived sequence weights.",
@@ -91,7 +96,7 @@
    },
    "type": {
     "type": "string",
-    "description": "'dna' (default) or 'protein' (ClustalW -TYPE).",
+    "description": "'dna' (default), 'protein' (ClustalW -TYPE) or 'auto' (ClustalW's guess when -TYPE is omitted: decided by the SECOND sequence only, DNA when >= 85 % of its non-gap characters are A C G T U N; a single sequence is protein).",
     "default": "dna"
    },
    "matrix": {
