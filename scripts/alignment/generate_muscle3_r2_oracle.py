@@ -47,7 +47,7 @@ for line in lines[1:]:
     assert (k, t, o) == (kind, typ, opts), sid
     if f[4] == 'RUNNER_ERROR':
         # the Docker harness could not decode the program's console output (the "Matrix is not symmetrical" warning of a matrix file without the '*' column prints the byte 0xff): the run itself
-        # is not recorded. These 8 sets (-matrix blosum62nostar) are re-run in the round-3 package (handoff/A1-10c-muscle-r3) with the same ids and merged by generate_muscle3_r3_oracle.py.
+        # is not recorded. These 8 sets (-matrix blosum62nostar) are re-run in the round-3 package (handoff/A1-10c-muscle-r3) with the same ids and recorded by generate_muscle3_r3_oracle.py (muscle3_r3_oracle.tsv, run locally with the Debian muscle3 package).
         excluded.append(sid)
         continue
     mtext = ''

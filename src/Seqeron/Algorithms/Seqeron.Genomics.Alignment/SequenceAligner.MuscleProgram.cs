@@ -48,6 +48,7 @@ public static partial class SequenceAligner
             DistanceMatrix1 = engine.Dist1Text,
             DistanceMatrix2 = engine.Dist2Text,
             WeightsFile = engine.WeightsText,
+            ReferenceBehaviourUndefined = engine.ReadsUninitialisedMemory,
         };
     }
 
@@ -159,6 +160,7 @@ public static partial class SequenceAligner
                 type = GuessAlphabetMsa(msaRows);
             _nuc = type != MuscleSequenceType.Protein;
             _rna = type == MuscleSequenceType.Rna;
+            _gNuc = _nuc;
             _alphaSize = _nuc ? 4 : 20;
             _wildcardChars = _nuc ? "MRWSYKVHDBXN" : "BXZ";
             _wildcardLetterBase = _nuc ? 4 : 20;
@@ -669,9 +671,7 @@ public static partial class SequenceAligner
                 sb.Append('\n');
             }
 
-            if (t.LeafCount == 1)
-                return _names[t.LeafId[0]] + ";\n";
-            Node(t.Root);
+            Node(t.Root);   // a one-leaf tree: the leaf is the root, so it is written as a group "(\ns0)\n;\n" (oracle R651)
             sb.Append(";\n");
             return sb.ToString();
         }

@@ -847,7 +847,7 @@ public class AlignmentTools
         [Description("MUSCLE -gapambig (no effect).")] double? gapAmbig = null,
         [Description("MUSCLE -maxmb (no effect on the result).")] int? maxMb = null,
         [Description("MUSCLE -maxhours (no effect on the result).")] double? maxHours = null,
-        [Description("MUSCLE -matrix: the text of a score matrix file (NCBI format) replacing the matrix of the SP score; proteins only.")] string? matrix = null,
+        [Description("MUSCLE -matrix: the text of a score matrix file (NCBI format) replacing the matrix of the SP score. For DNA/RNA the program reads the file under the nucleotide alphabet (the A/C/G/T entries of the matrix) and then runs with the amino-acid SP score.")] string? matrix = null,
         [Description("MUSCLE -usetree: a rooted binary Newick tree with edge lengths, leaf labels = names; skips the first tree and the tree refinement.")] string? useTree = null,
         [Description("FASTA labels of the sequences (default s0, s1, ...): the leaf names of useTree and of the returned trees.")] string[]? names = null,
         [Description("MUSCLE -clusteronly with -tree1: return only the first guide tree (tree1), no alignment.")] bool clusterOnly = false,
@@ -885,7 +885,7 @@ public class AlignmentTools
             return new MuscleRunResultDto([], "", 0, 0, [], [], null, null, null, null, null);
         var r = WrapNotSupported(() => global::Seqeron.Genomics.Alignment.SequenceAligner.MuscleRun(sequences, options));
         var a = r.Alignment;
-        return new MuscleRunResultDto(a.AlignedSequences, a.Consensus, a.TotalScore, a.ExactTotalScore, r.Names.ToArray(), r.OutputOrder.ToArray(), r.Tree1, r.Tree2, r.DistanceMatrix1, r.DistanceMatrix2, r.WeightsFile);
+        return new MuscleRunResultDto(a.AlignedSequences, a.Consensus, a.TotalScore, a.ExactTotalScore, r.Names.ToArray(), r.OutputOrder.ToArray(), r.Tree1, r.Tree2, r.DistanceMatrix1, r.DistanceMatrix2, r.WeightsFile, r.ReferenceBehaviourUndefined);
     }
 
     [McpServerTool(Name = "muscle_msa_command", Title = "MSA — MUSCLE 3.8 command lines on alignments (-profile, -refine, -spscore, -ppscore, -maketree, -refinew, -sw)", ReadOnly = true)]

@@ -538,7 +538,19 @@ public class SequenceAligner_MuscleOptions_Tests
         var sp = SequenceAligner.MuscleRun(Family, o with { ScoreModel = MuscleScoreModel.SumOfPairs });
         AssertValidAlignment(Family, withMatrix.Alignment.AlignedSequences.ToArray(), "matrix");
         AssertValidAlignment(Family, sp.Alignment.AlignedSequences.ToArray(), "sp");
-        Assert.Throws<ArgumentException>(() => SequenceAligner.MuscleRun(Dna, new MuscleOptions { SequenceType = MuscleSequenceType.Dna, UserMatrix = Blosum62Text }));
+    }
+
+    [Test]
+    public void MuscleRun_UserMatrix_OnNucleotides_ReadsTheFileUnderTheNucleotideAlphabetThenRunsTheAminoAcidSpScore()
+    {
+        // domuscle.cpp: ReadMx under the DNA tables (only the rows / columns A C G T/U are read), then g_Alpha = amino acid and the SP score: the alignment must be valid, with the SP defaults
+        // (kmer6_6, gap open -1439) rather than the SPN ones, so it differs in general from the run without -matrix; the full oracle is SequenceAligner_MuscleOracleRound3_Tests (R638 ... R645).
+        var o = new MuscleOptions { SequenceType = MuscleSequenceType.Dna, MaxIterations = 2, UserMatrix = Blosum62Text };
+        var res = SequenceAligner.MuscleRun(Dna, o);
+        AssertValidAlignment(Dna, res.Alignment.AlignedSequences.ToArray(), "dna -matrix");
+        Assert.That(SequenceAligner.MuscleRun(Dna, o with { UserMatrix = null }).Alignment.AlignedSequences, Has.Length.EqualTo(Dna.Length));
+        var rna = SequenceAligner.MuscleRun(Dna.Select(d => d.Replace('T', 'U')), o with { SequenceType = MuscleSequenceType.Rna });
+        Assert.That(rna.Alignment.AlignedSequences, Is.EqualTo(res.Alignment.AlignedSequences.Select(r => r.Replace('T', 'U'))), "RNA reads U as T (SetAlpha falls through)");
     }
 
     // ---- options that the 3.8.1551 binary ignores (compiled out) -------------------------------------------------------------------------------------------------------------------

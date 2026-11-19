@@ -11,7 +11,7 @@ namespace Seqeron.Genomics.Tests.Unit.Alignment;
 /// <see cref="SequenceAligner.MuscleProfileScore"/>, <see cref="SequenceAligner.MuscleGuideTree"/>, <see cref="SequenceAligner.MuscleRefineWindows"/> and <see cref="SequenceAligner.MuscleLocalAlign"/>
 /// against MUSCLE v3.8.1551 (the unmodified Debian muscle3 3.8.1551-2 source, x86_64, Debian 12; the Docker package docs/Validation/review-2026-09/handoff/A1-10c-muscle-r2 run by the user,
 /// archive returned/A1-10c-muscle-r2-out.zip, converted by scripts/alignment/generate_muscle3_r2_oracle.py). 630 of the 638 sets (the 8 sets of -matrix blosum62nostar, whose console output the
-/// harness could not decode, are re-run in round 3): every option of the algorithm (iterations 3-16 and the default 8, anchors,
+/// harness could not decode, are in the round-3 oracle, SequenceAligner_MuscleOracleRound3_Tests): every option of the algorithm (iterations 3-16 and the default 8, anchors,
 /// objective scores, the six weightings, distances, clusterings, roots, -brenner, -matrix, -usetree, the tree / distance / weight files, -clusteronly, the compiled-out options) and the
 /// command lines -profile, -refine, -spscore, -maketree, -ppscore, -refinew, -sw, -profdb. Every set must give MUSCLE's rows in MUSCLE's written order, MUSCLE's files, MUSCLE's printed score
 /// - or, where the program refuses (31 runs: error exit, crash), the matching refusal of the port.
@@ -28,12 +28,20 @@ public class SequenceAligner_MuscleOracleRound2_Tests
         ? System.Text.RegularExpressions.Regex.Replace(s, @"\\(.)", m => m.Groups[1].Value switch { "t" => "\t", "n" => "\n", var c => c })
         : s;
 
-    internal static readonly Lazy<List<Row>> Oracle = new(() =>
+    internal static readonly Lazy<List<Row>> Oracle = new(() => Load("muscle3_r2_oracle.tsv"));
+
+    /// <summary>Reads an embedded round oracle (<c>muscle3_r2_oracle.tsv</c> / <c>muscle3_r3_oracle.tsv</c>, same columns).</summary>
+    internal static List<Row> Load(string file)
     {
-        const string name = "Seqeron.Genomics.Tests.TestData.Alignment.muscle3_r2_oracle.tsv";
+        string name = "Seqeron.Genomics.Tests.TestData.Alignment." + file;
         using var stream = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream(name)
             ?? throw new InvalidOperationException($"Embedded oracle '{name}' not found.");
         using var reader = new StreamReader(stream);
+        return ReadRows(reader);
+    }
+
+    internal static List<Row> ReadRows(TextReader reader)
+    {
         reader.ReadLine();
         var list = new List<Row>();
         string? line;
@@ -47,7 +55,7 @@ public class SequenceAligner_MuscleOracleRound2_Tests
         }
 
         return list;
-    });
+    }
 
     public static IEnumerable<TestCaseData> Sets(params string[] kinds) =>
         Oracle.Value.Where(r => kinds.Contains(r.Kind)).Select(r => new TestCaseData(r.Id).SetArgDisplayNames(r.Id));
@@ -176,23 +184,23 @@ public class SequenceAligner_MuscleOracleRound2_Tests
         return o;
     }
 
-    private static string[] Split(string s) => s.Length == 0 ? [] : s.Split(';');
+    internal static string[] Split(string s) => s.Length == 0 ? [] : s.Split(';');
 
     /// <summary>
-    /// The 8 sets of the package that are NOT in the oracle: <c>-matrix blosum62nostar</c> (R330, R335, R336, R342, R344, R347, R348, R350), whose console output the harness could not decode
-    /// (RUNNER_ERROR); they are re-run in round 3 (A2-1, handoff/A1-10c-muscle-r3). Naming them makes a row dropped silently anywhere else (or a regenerated TSV with another gap) fail this test;
-    /// when round 3 returns, this list becomes empty and the count 638.
+    /// The 8 sets of the package that are NOT in this oracle: <c>-matrix blosum62nostar</c> (R330, R335, R336, R342, R344, R347, R348, R350), whose console output the round-2 harness could not decode
+    /// (RUNNER_ERROR); they are recorded in round 3 (muscle3_r3_oracle.tsv, <see cref="SequenceAligner_MuscleOracleRound3_Tests"/>, A2-1). Naming them makes a row dropped silently anywhere else
+    /// (or a regenerated TSV with another gap) fail this test.
     /// </summary>
     private static readonly string[] MissingUntilRound3 = ["R330", "R335", "R336", "R342", "R344", "R347", "R348", "R350"];
 
     [Test]
     public void OracleHas630Sets_TheEightMissingIdsAreExactlyTheBlosum62NoStarOnes()
     {
-        // the package has the 638 sets R0 ... R637; the oracle has every one of them except the eight round-3 sets
+        // the package has the 638 sets R0 ... R637; the oracle has every one of them except the eight sets recorded in round 3
         var expected = Enumerable.Range(0, 638).Select(i => "R" + i).Except(MissingUntilRound3).ToHashSet();
         var oracleIds = Oracle.Value.Select(r => r.Id).ToHashSet();
         Assert.That(expected.Except(oracleIds), Is.Empty, "a set of the package is missing from the oracle although it is not one of the 8 round-3 sets");
-        Assert.That(oracleIds.Except(expected), Is.Empty, "the oracle has a row that is not a set of the package (or one of the 8 round-3 sets came back: empty MissingUntilRound3)");
+        Assert.That(oracleIds.Except(expected), Is.Empty, "the oracle has a row that is not a set of the package");
     }
 
     [Test]
@@ -216,26 +224,38 @@ public class SequenceAligner_MuscleOracleRound2_Tests
     /// <summary>
     /// The refusal of the port that models a failed run of the program: a crash (segmentation fault, exit status 139 = -11) and "-stable not supported" -> <see cref="NotSupportedException"/>;
     /// an invalid distance for the stage ("Invalid DISTANCE_n") -> <see cref="ArgumentException"/>; the other messages of the program's own Quit() ("Clust::SetLeafCount(1)", "g_MuscleWeights = 0")
-    /// -> <see cref="InvalidOperationException"/>.
+    /// -> <see cref="InvalidOperationException"/>. Option values the program rejects at run time ("DistUnaligned, unsupported distance method" for the pctid_* distances of unaligned sequences,
+    /// "DistKmer4_6 requires nucleo alphabet") -> <see cref="ArgumentException"/>.
     /// </summary>
-    private static void AssertRefused(Row r, TestDelegate run)
+    internal static void AssertRefused(Row r, TestDelegate run)
     {
         string why = $"{r.Id} {r.Kind} {r.Type} {r.Options}: oracle rc={r.Rc} {r.Stdout}";
         if (r.Rc == "FAILED-11" || r.Stdout.Contains("not supported in this version"))
             Assert.Throws<NotSupportedException>(run, why);
-        else if (r.Stdout.Contains("nvalid DISTANCE"))
+        else if (r.Stdout.Contains("nvalid DISTANCE") || r.Stdout.Contains("unsupported distance method") || r.Stdout.Contains("requires nucleo alphabet"))
             Assert.Throws<ArgumentException>(run, why);
         else
             Assert.Throws<InvalidOperationException>(run, why);
     }
 
     [TestCaseSource(nameof(AlignSets))]
-    public void Align_RowsWrittenOrderAndFiles_EqualMuscle3(string id)
+    public void Align_RowsWrittenOrderAndFiles_EqualMuscle3(string id) => CheckAlign(Oracle.Value.First(x => x.Id == id));
+
+    /// <summary>One <c>align</c> set: the port's rows, written order and files equal the program's, or the port refuses where the program does.</summary>
+    internal static void CheckAlign(Row r)
     {
-        var r = Oracle.Value.First(x => x.Id == id);
+        string id = r.Id;
         var seqs = Split(r.Data);
         var names = Enumerable.Range(0, seqs.Length).Select(i => "s" + i).ToArray();
         var o = Parse(r, names);
+        if (r.Rc == "FAILED-11" && r.Type != "protein" && r.Options.Contains("matrix="))
+        {
+            // -matrix on DNA / RNA: the program reads the never-written m_uSortOrder[4] of a profile column with all four nucleotides (undefined behaviour; the Debian build segfaults). The port must
+            // recognise exactly this situation (and returns the zero-memory alignment): a segmentation fault without the flag would be an unexplained difference.
+            Assert.That(SequenceAligner.MuscleRun(seqs, o).ReferenceBehaviourUndefined, Is.True, $"{id} {r.Type} {r.Options}: the program crashed but the port saw no uninitialised read");
+            return;
+        }
+
         if (r.Rc != "0")
         {
             AssertRefused(r, () => SequenceAligner.MuscleRun(seqs, o));
@@ -261,12 +281,15 @@ public class SequenceAligner_MuscleOracleRound2_Tests
     }
 
     /// <summary>The names the program uses in the profile modes: 'a0..' / 'b0..' (FASTA labels of the two input files).</summary>
-    private static string[] Labelled(string prefix, int n) => Enumerable.Range(0, n).Select(i => prefix + i).ToArray();
+    internal static string[] Labelled(string prefix, int n) => Enumerable.Range(0, n).Select(i => prefix + i).ToArray();
 
     [TestCaseSource(nameof(ModeSets))]
-    public void CommandLine_EqualsMuscle3(string id)
+    public void CommandLine_EqualsMuscle3(string id) => CheckCommandLine(Oracle.Value.First(x => x.Id == id));
+
+    /// <summary>One profile / refine / spscore / maketree / ppscore / refinew / sw / profdb set.</summary>
+    internal static void CheckCommandLine(Row r)
     {
-        var r = Oracle.Value.First(x => x.Id == id);
+        string id = r.Id;
         var parts = r.Data.Split('|');
         var a = Split(parts[0]);
         var b = parts.Length > 1 ? Split(parts[1]) : [];
@@ -321,9 +344,9 @@ public class SequenceAligner_MuscleOracleRound2_Tests
     }
 
     /// <summary>"%.4g" of the program.</summary>
-    private static string Printed(double v) => SequenceAligner.MuscleEngine.FormatG(v, 4);
+    internal static string Printed(double v) => SequenceAligner.MuscleEngine.FormatG(v, 4);
 
-    private static string PrintedOf(string stdout, string key)
+    internal static string PrintedOf(string stdout, string key)
     {
         int i = stdout.IndexOf(key, StringComparison.Ordinal);
         Assert.That(i, Is.GreaterThanOrEqualTo(0), "no " + key + " in the program output: " + stdout);

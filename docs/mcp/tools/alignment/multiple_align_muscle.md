@@ -65,7 +65,7 @@ MUSCLE 3.8.1551's multiple alignment (Edgar 2004, NAR 32:1792; muscle -in x.fa -
 | `gapAmbig` | number | No | MUSCLE -gapambig (no effect). |
 | `maxMb` | integer | No | MUSCLE -maxmb (no effect on the result). |
 | `maxHours` | number | No | MUSCLE -maxhours (no effect on the result). |
-| `matrix` | string | No | MUSCLE -matrix: the text of a score matrix file (NCBI format) replacing the matrix of the SP score; proteins only. |
+| `matrix` | string | No | MUSCLE -matrix: the text of a score matrix file (NCBI format) replacing the matrix of the SP score. For DNA/RNA the program reads the file under the nucleotide alphabet (the A/C/G/T entries of the matrix) and then runs with the amino-acid SP score. |
 | `useTree` | string | No | MUSCLE -usetree: a rooted binary Newick tree with edge lengths, leaf labels = names; skips the first tree and the tree refinement. |
 | `names` | array<string> | No | FASTA labels of the sequences (default s0, s1, ...): the leaf names of useTree and of the returned trees. |
 | `clusterOnly` | boolean | No | MUSCLE -clusteronly with -tree1: return only the first guide tree (tree1), no alignment. (default: false) |
@@ -87,6 +87,7 @@ MUSCLE 3.8.1551's multiple alignment (Edgar 2004, NAR 32:1792; muscle -in x.fa -
 | `distanceMatrix1` | string | The first distance matrix (-distmx1), or null. |
 | `distanceMatrix2` | string | The second distance matrix (-distmx2), or null. |
 | `weightsFile` | string | The sequence weights (-computeweights), or null. |
+| `referenceBehaviourUndefined` | boolean | True when MUSCLE 3.8.1551's own behaviour on this input is undefined (-matrix with DNA/RNA reads never-written profile memory; the reference may crash); the alignment is the zero-memory result. |
 
 ## Errors
 

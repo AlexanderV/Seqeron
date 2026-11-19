@@ -155,7 +155,12 @@ public static partial class SequenceAligner
     {
         private readonly MuscleOptions _o;
         private readonly int _n;
-        private readonly bool _nuc;
+        private readonly bool _nuc;       // the alphabet of the character tables / g_AlphaSize (SetAlpha: DNA / RNA vs amino acid)
+        /// <summary>
+        /// <c>g_Alpha</c> as the pipeline reads it: nucleotide, except in <c>domuscle.cpp</c> with <c>-matrix</c>, which reads the matrix file under the nucleotide tables and then sets
+        /// <c>g_Alpha = ALPHA_Amino</c> (and the SP score) - the sequences keep the nucleotide letters, but the score parameters, the default distance, the methionine hack and the wildcard counts are the amino-acid ones.
+        /// </summary>
+        private readonly bool _gNuc;
         private readonly bool _rna;
         private readonly int _alphaSize;
         private readonly int _wildcardLetterBase;
@@ -183,6 +188,9 @@ public static partial class SequenceAligner
         public string? Dist2Text { get; private set; }
         public string? WeightsText { get; private set; }
         public bool Stopped { get; private set; }
+
+        /// <summary>The reference program would have read uninitialised profile memory in this run (see <see cref="ScoreProfPos2"/>): its behaviour is undefined, the port computes the zero-memory result.</summary>
+        public bool ReadsUninitialisedMemory { get; private set; }
         public IReadOnlyList<string> Names => _names;
         private string[] _names = Array.Empty<string>();
 
@@ -221,6 +229,7 @@ public static partial class SequenceAligner
                 type = GuessAlphabet(cleaned);
             _nuc = type != MuscleSequenceType.Protein;
             _rna = type == MuscleSequenceType.Rna;
+            _gNuc = _nuc && options.UserMatrix is null;
             _alphaSize = _nuc ? 4 : 20;
             _wildcardChars = _nuc ? "MRWSYKVHDBXN" : "BXZ";
             _wildcardLetterBase = _nuc ? 4 : 20;
@@ -239,9 +248,10 @@ public static partial class SequenceAligner
                 _seq[i] = s;
             }
 
-            // MHackStart: the leading M of a protein (when there are at least two sequences) is aligned as X
+            // MHackStart: the leading M of a protein (when there are at least two sequences) is aligned as X (mhack.cpp tests g_Alpha: with -matrix on nucleotides the wildcard M of the nucleotide
+            // alphabet is treated like this as well)
             _mHack = new bool[_n];
-            if (!_nuc && _n > 1)
+            if (!_gNuc && _n > 1)
             {
                 for (int i = 0; i < _n; i++)
                 {
@@ -331,17 +341,16 @@ public static partial class SequenceAligner
             var model = _o.ScoreModel;
             if (model == MuscleScoreModel.Default)
             {
+                // domuscle.cpp: -matrix sets g_PPScore = SP (and g_Alpha = amino acid, see _gNuc)
                 model = _o.UserMatrix is not null ? MuscleScoreModel.SumOfPairs : MuscleScoreModel.LogExpectation;
-                if (_nuc)
+                if (_gNuc)
                     model = MuscleScoreModel.SumOfPairsNucleotide;
             }
 
-            if (_o.UserMatrix is not null && _nuc)
-                throw new ArgumentException("A user score matrix (-matrix) is only defined for protein sequences.");
-            // params.cpp SetPPScore: a protein score is replaced by SPN for nucleotides, SPN by LE for proteins
-            if (_nuc && model != MuscleScoreModel.SumOfPairsNucleotide)
+            // params.cpp SetPPScore: a protein score is replaced by SPN for nucleotides, SPN by LE for proteins (g_Alpha)
+            if (_gNuc && model != MuscleScoreModel.SumOfPairsNucleotide)
                 model = MuscleScoreModel.SumOfPairsNucleotide;
-            else if (!_nuc && model == MuscleScoreModel.SumOfPairsNucleotide)
+            else if (!_gNuc && model == MuscleScoreModel.SumOfPairsNucleotide)
                 model = MuscleScoreModel.LogExpectation;
             _pp = model;
 
@@ -390,8 +399,8 @@ public static partial class SequenceAligner
 
             _distance1 = _o.Distance1;
             if (_distance1 == MuscleDistance.Default)
-                _distance1 = _nuc ? MuscleDistance.Kmer4_6 : MuscleDistance.Kmer6_6;
-            if (_distance1 == MuscleDistance.Kmer4_6 && !_nuc)
+                _distance1 = _gNuc ? MuscleDistance.Kmer4_6 : MuscleDistance.Kmer6_6;   // SetDefaultsSPN_* set kmer4_6, the other scores kmer6_6
+            if (_distance1 == MuscleDistance.Kmer4_6 && !_gNuc)
                 throw new ArgumentException("kmer4_6 requires a nucleotide alphabet.");
         }
 
@@ -1029,7 +1038,7 @@ public static partial class SequenceAligner
                     if (_isWildcard[c])
                     {
                         int letter = _charToLetterEx[c];
-                        if (!_nuc)
+                        if (!_gNuc)
                         {
                             switch (letter)
                             {
@@ -1348,6 +1357,11 @@ public static partial class SequenceAligner
                 float fc = ppa.Counts[letter];
                 if (fc == 0)
                     break;
+                // scorepp.cpp loops over 20 sorted letters, but SortCounts only orders g_AlphaSize = 4 of them with -matrix on nucleotides: when all four counts are positive the loop reads
+                // m_uSortOrder[4], which the program never writes (heap garbage in the reference, zero here). Debian's build segfaults on such runs about one time in eight; the other runs equal the
+                // zero model (oracle R638 ... R645 and 50 fresh sets).
+                if (n >= _alphaSize)
+                    ReadsUninitialisedMemory = true;
                 score += fc * ppb.AaScores[letter];
             }
 

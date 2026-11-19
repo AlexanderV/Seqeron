@@ -199,7 +199,7 @@
       },
       "matrix": {
         "type": "string",
-        "description": "MUSCLE -matrix: the text of a score matrix file (NCBI format) replacing the matrix of the SP score; proteins only."
+        "description": "MUSCLE -matrix: the text of a score matrix file (NCBI format) replacing the matrix of the SP score. For DNA/RNA the program reads the file under the nucleotide alphabet (the A/C/G/T entries of the matrix) and then runs with the amino-acid SP score."
       },
       "useTree": {
         "type": "string",
@@ -275,6 +275,10 @@
       "weightsFile": {
         "type": "string",
         "description": "The sequence weights (-computeweights), or null."
+      },
+      "referenceBehaviourUndefined": {
+        "type": "boolean",
+        "description": "True when MUSCLE 3.8.1551's own behaviour on this input is undefined (-matrix with DNA/RNA reads never-written profile memory; the reference may crash); the alignment is the zero-memory result."
       }
     },
     "required": [

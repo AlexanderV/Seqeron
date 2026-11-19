@@ -1464,7 +1464,9 @@ public sealed record MuscleOptions
 
     /// <summary>
     /// <c>-matrix</c>: the text of a user score matrix file (NCBI / BLAST style: '#' comment lines, a heading line starting with a space, one row per residue; read by <c>readmx.cpp</c>,
-    /// including its quirk that the last column of a file without a trailing '*' column is not read). It replaces the score matrix of the profile score after the SP defaults are set; proteins only.
+    /// including its quirk that the last column of a file without a trailing '*' column is not read). It replaces the score matrix of the profile score after the SP defaults are set.
+    /// For DNA / RNA the program reads the file under the nucleotide alphabet (only the rows and columns A, C, G, T/U of the amino-acid matrix are read, into the 4 x 4 corner), then switches to the amino-acid
+    /// alphabet and the SP score (gap open -1439, kmer6_6 distance, the methionine hack on a leading M, amino-acid wildcard counts), which this option reproduces (oracle R638 ... R645).
     /// </summary>
     public string? UserMatrix { get; init; }
 
@@ -1529,6 +1531,13 @@ public sealed record MuscleRunResult
 
     /// <summary>The <c>-computeweights</c> file: one "name TAB weight(%.3g)" line per row of the progressive alignment.</summary>
     public string? WeightsFile { get; init; }
+
+    /// <summary>
+    /// True when the reference program's behaviour on this input is undefined: with <c>-matrix</c> on DNA / RNA the profile score loop of <c>scorepp.cpp</c> reads the never-written
+    /// <c>m_uSortOrder[4]</c> of every profile column that contains all four nucleotides (a debug-built or Debian MUSCLE 3.8.1551 may crash, 8 of 60 sampled runs did). The alignment returned is the
+    /// result with that memory zero (equal to the reference on every sampled run that did not crash).
+    /// </summary>
+    public bool ReferenceBehaviourUndefined { get; init; }
 }
 
 /// <summary>

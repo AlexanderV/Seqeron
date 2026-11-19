@@ -1,4 +1,6 @@
-# TEMPORARY hand-off package A1-10c-muscle-r3 - ROUND 3 of the MUSCLE 3.8.1551 oracle (Docker, for the user's Mac)
+# INTEGRATED (not needed from the user: run locally with the Debian `muscle3` package, audit A2-1 / B09 F89) - hand-off package A1-10c-muscle-r3 - ROUND 3 of the MUSCLE 3.8.1551 oracle (Docker, for the user's Mac)
+
+> **STATUS (2026-11-19): INTEGRATED / NOT NEEDED.** `apt-get install muscle3` (Debian 3.8.1551-3) works in the sandbox; `python3 scripts/alignment/generate_muscle3_r3_oracle.py` ran the 60 sets with this package's harness `run_sets.py` and wrote `tests/.../TestData/Alignment/muscle3_r3_oracle.tsv` (`returned/ENV-local.txt`); `SequenceAligner_MuscleOracleRound3_Tests` asserts 60 / 60. The Docker run below is no longer required; if a returned `returned/A1-10c-muscle-r3-out.zip` is ever added, the generator prefers it. This package stays as provenance (inputs + harness).
 
 **Why.** Round 2 (`../A1-10c-muscle-r2`, 638 sets) is returned and integrated: `SequenceAligner.Muscle*` equals the unmodified MUSCLE v3.8.1551 on **630 / 630** recorded sets (after the fixes it found: the k-mer
 bit count, `-brenner` in iteration 2, the leaf-index / sequence-id weight lookup of `-usetree`, negative zero in the files, `-maketree` ignoring `-distance2`, the refusals). Eight sets could not be recorded

@@ -54,7 +54,7 @@ public static partial class SequenceAligner
 
         internal double ScoreDist(char[] a, char[] b)
         {
-            if (_nuc)
+            if (_gNuc)
                 throw new InvalidOperationException("Scoredist is only for amino acid sequences");
             double score = Sigma(a, b, out uint length);
             double sN = score - length * Blosum62Expected;

@@ -59,7 +59,8 @@ public record MuscleRunResultDto(
     string? Tree2,
     string? DistanceMatrix1,
     string? DistanceMatrix2,
-    string? WeightsFile);
+    string? WeightsFile,
+    bool ReferenceBehaviourUndefined = false);
 
 /// <summary>Result of a MUSCLE 3.8 command line on alignments: rows (profile, refine, refinew, sw), a score (spscore, ppscore) or a tree (maketree).</summary>
 public record MuscleCommandResultDto(
