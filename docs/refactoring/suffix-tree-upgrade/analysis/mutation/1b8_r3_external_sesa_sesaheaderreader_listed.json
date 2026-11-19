@@ -1,0 +1,9 @@
+[
+ {
+  "id": "1b8_H01",
+  "desc": "a FILE_SIZE smaller than the file is accepted (trailing bytes)",
+  "old": "if (fileSize != length) throw new InvalidDataException",
+  "new": "if (fileSize > length) throw new InvalidDataException",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaHeaderReader.cs"
+ }
+]

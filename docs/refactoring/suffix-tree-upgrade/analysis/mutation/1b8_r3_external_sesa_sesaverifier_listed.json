@@ -1,0 +1,9 @@
+[
+ {
+  "id": "1b8_W01",
+  "desc": "an LCP value that is smaller than the true one is accepted",
+  "old": "if (stored != h) throw new InvalidDataException($\"LCP[{r}] is {stored}, but the suffixes",
+  "new": "if (stored > h) throw new InvalidDataException($\"LCP[{r}] is {stored}, but the suffixes",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaVerifier.cs"
+ }
+]

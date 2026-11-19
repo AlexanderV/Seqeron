@@ -1,0 +1,9 @@
+[
+ {
+  "id": "1b8_S06",
+  "desc": "the mapped descent accepts a child as deep as its parent",
+  "old": "if (isChecked && (childEll <= ell || childEll > n)) ThrowDamagedChildTable();",
+  "new": "if (isChecked && (childEll < ell || childEll > n)) ThrowDamagedChildTable();",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Search.cs"
+ }
+]
