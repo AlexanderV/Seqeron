@@ -25,7 +25,9 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `assembly_stats` | Computes assembly statistics (N50, longest contig, total length, assembled-reads accounting) for a precomputed list of contigs. |
 | `calculate_coverage` | Maps each read to its best-matching position on the reference (≥ minOverlap matching bases) and returns per-base coverage depth as an int… |
 | `clustalw_pairwise_align` | ClustalW 2.1 full pairwise stage (FullPairwiseAlign) for DNA / protein: affine local alignment, percent identity and guide-tree distance; verified against clustalw 2.1 (B09 A2-36). |
+| `clustalw_profile_align` | ClustalW 2.1 profile-profile alignment of two existing alignments (clustalw -PROFILE1 -PROFILE2 -PROFILE); verified on 600 clustalw runs (B09 A2-14). |
 | `clustalw_quick_pairwise_align` | ClustalW 2.1 fast k-tuple pairwise stage (-QUICKTREE): fragment score, percent score and distance (B09 A2-36). |
+| `clustalw_sequences_to_profile` | ClustalW 2.1 alignment of sequences to an existing profile (clustalw -SEQUENCES); verified on 600 clustalw runs (B09 A2-14). |
 | `compute_consensus` | Builds a consensus sequence from a list of pre-aligned reads (same length, '-' / 'N' ignored) by majority vote per column. |
 | `damerau_alignment` | Optimal transposition-aware edit script turning sequence1 into sequence2 (Lowrance & Wagner 1975 trace). |
 | `damerau_levenshtein_distance` | Edit distance with adjacent transpositions. |

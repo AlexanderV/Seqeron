@@ -151,13 +151,7 @@ public static partial class SequenceAligner
         if (seqList.Count == 0)
             return MultipleAlignmentResult.Empty;
 
-        string[] rows = MultipleAlignClustalWProteinCore(seqList.ToArray(), options);
-        var list = rows.ToList();
-        string consensus = BuildConsensus(list, list.Max(r => r.Length), anySymbol: true);
-        var sp = scoring ?? MatrixScoring.Emboss(SubstitutionMatrix.Blosum62, 10, 0.2);
-        string[] scored = scoring is null ? rows.Select(r => r.Replace('O', 'X').Replace('U', 'X')).ToArray() : rows;
-        double exact = rows.Length == 1 ? 0.0 : MatrixSumOfPairsScore(scored, sp, MsaGapModel.Affine);
-        return new MultipleAlignmentResult(rows, consensus, (int)Math.Round(exact, MidpointRounding.AwayFromZero)) { ExactTotalScore = exact };
+        return BuildClustalWProteinResult(MultipleAlignClustalWProteinCore(seqList.ToArray(), options), scoring);
     }
 
     private static string[] MultipleAlignClustalWProteinCore(string[] raw, ClustalWProteinOptions options)

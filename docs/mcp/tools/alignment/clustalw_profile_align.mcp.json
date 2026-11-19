@@ -1,0 +1,158 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "toolName": "clustalw_profile_align",
+ "serverName": "Alignment",
+ "version": "1.0.0",
+ "stability": "stable",
+ "methodId": "SequenceAligner.AlignClustalWProfiles",
+ "docRef": "Seqeron.Genomics.Alignment/SequenceAligner.ClustalWProfile.cs",
+ "description": "ClustalW 2.1's profile-profile alignment of two existing alignments (clustalw -PROFILE1=a -PROFILE2=b -PROFILE, Clustal::profileAlign), ported step by step and verified row-for-row against the installed clustalw 2.1 on 600 DNA and protein sets (profiles produced by clustalw itself, option variants included): the rows of both profiles are kept (gaps '-' allowed; a profile may be one sequence), the identities inside each profile weight its sequences by the neighbour-joining tree of the profile (or UPGMA, clustering='upgma'), an initial alignment with equal weights measures the identities between the profiles, and the two profiles are aligned by Myers-Miller profile-profile alignment with position-specific gap penalties (weights = identity to the other profile x tree weight). Reproduced defects of the program: the tree of a profile 2 that does not start at sequence 1 is built from the identities of the FIRST sequences of the alignment, and the identities inside the profiles are truncated to integers. Parameters as multiple_align_clustalw (type 'dna' or 'protein'; gapOpen / gapExtend, transitionWeight, noWeights, negative; protein: matrix, noPreferredGaps, noHydrophilicGaps, variableRegionGaps, gapDist, hydrophilicResidues). Rows are returned: profile 1, then profile 2, in input order.",
+ "inputSchema": {
+  "type": "object",
+  "properties": {
+   "profile1": {
+    "type": "array",
+    "description": "Rows of the first alignment (at least one; letters and '-').",
+    "items": {
+     "type": "string"
+    }
+   },
+   "profile2": {
+    "type": "array",
+    "description": "Rows of the second alignment (at least one; letters and '-').",
+    "items": {
+     "type": "string"
+    }
+   },
+   "type": {
+    "type": "string",
+    "description": "'dna' (default) or 'protein' (ClustalW -TYPE).",
+    "default": "dna"
+   },
+   "gapOpen": {
+    "type": "number",
+    "description": "ClustalW -GAPOPEN (default 15 for DNA, 10 for protein)."
+   },
+   "gapExtend": {
+    "type": "number",
+    "description": "ClustalW -GAPEXT (default 6.66 for DNA, 0.2 for protein)."
+   },
+   "transitionWeight": {
+    "type": "number",
+    "description": "DNA only, ClustalW -TRANSWEIGHT (default 0.5).",
+    "default": 0.5
+   },
+   "noWeights": {
+    "type": "boolean",
+    "description": "ClustalW -NOWEIGHTS: no tree-derived sequence weights.",
+    "default": false
+   },
+   "negative": {
+    "type": "boolean",
+    "description": "ClustalW -NEGATIVE: keep the matrix signed (protein: BLOSUM40 / PAM120 / GONNET250 instead of the series).",
+    "default": false
+   },
+   "matrix": {
+    "type": "string",
+    "description": "type='protein': ClustalW -MATRIX, 'gonnet' (default), 'blosum', 'pam' or 'id'."
+   },
+   "noPreferredGaps": {
+    "type": "boolean",
+    "description": "type='protein': ClustalW -NOPGAP.",
+    "default": false
+   },
+   "noHydrophilicGaps": {
+    "type": "boolean",
+    "description": "type='protein': ClustalW -NOHGAP.",
+    "default": false
+   },
+   "variableRegionGaps": {
+    "type": "boolean",
+    "description": "type='protein': ClustalW -NOVGAP (sic: switches the variable-region penalties ON).",
+    "default": false
+   },
+   "gapDist": {
+    "type": "integer",
+    "description": "type='protein': ClustalW -GAPDIST (default 4; 0 = off).",
+    "default": 4
+   },
+   "hydrophilicResidues": {
+    "type": "string",
+    "description": "type='protein': ClustalW -HGAPRESIDUES (default GPSNDQEKR).",
+    "default": "GPSNDQEKR"
+   },
+   "clustering": {
+    "type": "string",
+    "description": "ClustalW -CLUSTERING of the profile trees: 'nj' (default) or 'upgma'.",
+    "default": "nj"
+   }
+  },
+  "required": [
+   "profile1",
+   "profile2"
+  ]
+ },
+ "outputSchema": {
+  "type": "object",
+  "properties": {
+   "alignedSequences": {
+    "type": "array",
+    "description": "The aligned rows of the MSA (input order)."
+   },
+   "consensus": {
+    "type": "string",
+    "description": "Majority-vote consensus of the aligned rows (gaps vote; a nucleotide beats a gap on ties)."
+   },
+   "totalScore": {
+    "type": "integer",
+    "description": "Natural affine sum-of-pairs score of the alignment under match / mismatch / scoreGapOpen / scoreGapExtend (ClustalW itself reports no such score)."
+   }
+  },
+  "required": [
+   "alignedSequences",
+   "consensus",
+   "totalScore"
+  ]
+ },
+ "errors": [
+  {
+   "code": 1001,
+   "message": "Both inputs must contain at least one sequence"
+  },
+  {
+   "code": 1010,
+   "message": "Invalid DNA (type=dna) or protein (type=protein) residue in a row; letters and '-' only"
+  },
+  {
+   "code": 1002,
+   "message": "type must be dna or protein; distance must be clustalw or clustalw-quick; clustering must be nj or upgma; matrix / pwMatrix must be gonnet, blosum, pam or id"
+  }
+ ],
+ "examples": [
+  {
+   "name": "Two profiles: three related 30-mers (one with a gap) and two shorter sequences",
+   "input": {
+    "profile1": [
+     "ACGTACGTTTGACCAGTAGGCATCGATGGA",
+     "ACGTACGATTGACCAGTAGCCATCGATGGA",
+     "ACGTAGGATTGACCGTAGCC-ATCGATGGA"
+    ],
+    "profile2": [
+     "TTGACCAGTAGGCATCGATCCCAAGT",
+     "GGGTTTACCAGTAGGCATCGATGGAAACCT"
+    ]
+   },
+   "output": {
+    "alignedSequences": [
+     "ACGTACGTTTGACCAGTAGGCATCGATGGA-----",
+     "ACGTACGATTGACCAGTAGCCATCGATGGA-----",
+     "ACGTAGGATTGACCGTAGCC-ATCGATGGA-----",
+     "-----TTGACCAGTAGGCATCGATCCCAAGT----",
+     "-----GGGTTTACCAGTAGGCATCGATGGAAACCT"
+    ],
+    "consensus": "ACGTACGATTGACCAGTAGCCATCGATGGA-----",
+    "totalScore": -62
+   }
+  }
+ ]
+}

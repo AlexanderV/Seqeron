@@ -230,12 +230,18 @@ public static partial class SequenceAligner
     }
 
     /// <summary>ClustalW residue codes of a protein sequence; a symbol ClustalW does not read (J, '*', non-letters) is rejected (the program silently drops it).</summary>
-    private static int[] EncodeClustalWProtein(string sequence, string paramName)
+    private static int[] EncodeClustalWProtein(string sequence, string paramName, bool allowGaps = false)
     {
         var codes = new int[sequence.Length];
         for (int i = 0; i < sequence.Length; i++)
         {
             char c = char.ToUpperInvariant(sequence[i]);
+            if (allowGaps && c == '-')
+            {
+                codes[i] = CwGapPos2;   // a gap already in the alignment (gapPos2)
+                continue;
+            }
+
             int code = c is >= 'A' and <= 'Z' && c != 'J' ? ClustalWResidueCodes.IndexOf(c) : -1;
             if (code < 0)
                 throw new ArgumentException($"'{sequence[i]}' at position {i} is not a residue code known to ClustalW's protein stage (A-Z except J).", paramName);

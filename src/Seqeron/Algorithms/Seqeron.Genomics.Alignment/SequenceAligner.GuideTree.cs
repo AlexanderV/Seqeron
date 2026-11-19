@@ -674,5 +674,29 @@ public static partial class SequenceAligner
         return (100.0f - mm) / 100.0f;
     }
 
+    /// <summary>
+    /// The guide-tree distance of FullPairwiseAlign::pairwiseAlign for two rows that may contain gaps (the rows of a profile): lengths are the row lengths (gaps included), the percent identity is
+    /// normalised by the number of residues of the shorter row, <c>d = (100f - 100f * count / MIN(len1, len2)) / 100f</c> in single precision (1 when a row is empty).
+    /// </summary>
+    internal static double ClustalWGappedPairwiseDistance(int[] a, int[] b, int[,] matrix, int gapOpenInt, int gapExtendInt)
+    {
+        if (a.Length == 0 || b.Length == 0)
+            return 1.0;
+        int len1 = a.Count(c => c != CwGapPos1 && c != CwGapPos2);
+        int len2 = b.Count(c => c != CwGapPos1 && c != CwGapPos2);
+        var state = new ClustalWPairState(a, b, matrix, gapOpenInt, gapExtendInt);
+        state.ForwardPass();
+        state.ReversePass();
+        state.PrintPtr = 1;
+        state.LastPrint = 0;
+        state.Diff(state.Sb1 - 1, state.Sb2 - 1, state.Se1 - state.Sb1 + 1, state.Se2 - state.Sb2 + 1, 0, 0);
+        float mm = 100.0f * state.CountIdentitiesGapAware();
+        if (len1 == 0 || len2 == 0)
+            mm = 0f;
+        else
+            mm /= (float)Math.Min(len1, len2);
+        return (100.0f - mm) / 100.0f;
+    }
+
     #endregion
 }

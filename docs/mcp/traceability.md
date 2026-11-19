@@ -371,7 +371,9 @@
 | multiple_align_tcoffee | Alignment | SequenceAligner.MultipleAlignTCoffeeProgram | Alignment/SequenceAligner.TCoffeeLibrary.cs#L446 | 0/0 | – | – | Build-Ready |
 | muscle_msa_command | Alignment | SequenceAligner.MuscleProfileAlign | Alignment/SequenceAligner.MuscleProgram.cs | 0/0 | – | – | Build-Ready |
 | clustalw_pairwise_align | Alignment | SequenceAligner.ClustalWPairwiseAlign | Alignment/SequenceAligner.ClustalW.cs | 0/0 | – | – | Build-Ready |
+| clustalw_profile_align | Alignment | SequenceAligner.AlignClustalWProfiles | Alignment/SequenceAligner.ClustalWProfile.cs | 0/0 | – | – | Build-Ready |
 | clustalw_quick_pairwise_align | Alignment | SequenceAligner.ClustalWQuickPairwiseAlign | Alignment/SequenceAligner.ClustalWQuick.cs | 0/0 | – | – | Build-Ready |
+| clustalw_sequences_to_profile | Alignment | SequenceAligner.AlignClustalWSequencesToProfile | Alignment/SequenceAligner.ClustalWProfile.cs | 0/0 | – | – | Build-Ready |
 | sum_of_pairs_score | Alignment | SequenceAligner.SumOfPairsScore | Alignment/SequenceAligner.MultipleAffine.cs | 0/0 | – | – | Build-Ready |
 | tcoffee_guide_tree | Alignment | SequenceAligner.TCoffeeGuideTree | Alignment/SequenceAligner.TCoffeeTree.cs | 0/0 | – | – | Build-Ready |
 | tcoffee_ktup_similarity | Alignment | SequenceAligner.TCoffeeKtupSimilarity | Alignment/SequenceAligner.TCoffeeTree.cs | 0/0 | – | – | Build-Ready |

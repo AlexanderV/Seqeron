@@ -42,11 +42,25 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.ClustalW.cs"
   },
   {
+    "tool": "clustalw_profile_align",
+    "server": "Alignment",
+    "methodId": "SequenceAligner.AlignClustalWProfiles",
+    "docPath": "docs/mcp/tools/alignment/clustalw_profile_align.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.ClustalWProfile.cs"
+  },
+  {
     "tool": "clustalw_quick_pairwise_align",
     "server": "Alignment",
     "methodId": "SequenceAligner.ClustalWQuickPairwiseAlign",
     "docPath": "docs/mcp/tools/alignment/clustalw_quick_pairwise_align.md",
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.ClustalWQuick.cs"
+  },
+  {
+    "tool": "clustalw_sequences_to_profile",
+    "server": "Alignment",
+    "methodId": "SequenceAligner.AlignClustalWSequencesToProfile",
+    "docPath": "docs/mcp/tools/alignment/clustalw_sequences_to_profile.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.ClustalWProfile.cs"
   },
   {
     "tool": "compute_consensus",

@@ -12,7 +12,9 @@
 | `assembly_stats` | Alignment | `SequenceAssembler.CalculateStats` | [doc](../../../../docs/mcp/tools/alignment/assembly_stats.md) |
 | `calculate_coverage` | Alignment | `SequenceAssembler.CalculateCoverage` | [doc](../../../../docs/mcp/tools/alignment/calculate_coverage.md) |
 | `clustalw_pairwise_align` | Alignment | `SequenceAligner.ClustalWPairwiseAlign` | [doc](../../../../docs/mcp/tools/alignment/clustalw_pairwise_align.md) |
+| `clustalw_profile_align` | Alignment | `SequenceAligner.AlignClustalWProfiles` | [doc](../../../../docs/mcp/tools/alignment/clustalw_profile_align.md) |
 | `clustalw_quick_pairwise_align` | Alignment | `SequenceAligner.ClustalWQuickPairwiseAlign` | [doc](../../../../docs/mcp/tools/alignment/clustalw_quick_pairwise_align.md) |
+| `clustalw_sequences_to_profile` | Alignment | `SequenceAligner.AlignClustalWSequencesToProfile` | [doc](../../../../docs/mcp/tools/alignment/clustalw_sequences_to_profile.md) |
 | `compute_consensus` | Alignment | `SequenceAssembler.ComputeConsensus` | [doc](../../../../docs/mcp/tools/alignment/compute_consensus.md) |
 | `damerau_alignment` | Alignment | `ApproximateMatcher.GetDamerauLevenshteinAlignment` | [doc](../../../../docs/mcp/tools/alignment/damerau_alignment.md) |
 | `damerau_levenshtein_distance` | Alignment | `ApproximateMatcher.DamerauLevenshteinDistance` | [doc](../../../../docs/mcp/tools/alignment/damerau_levenshtein_distance.md) |

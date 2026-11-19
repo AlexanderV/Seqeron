@@ -295,12 +295,18 @@ public static partial class SequenceAligner
     /// <summary>ClustalW's guide-tree distance of two sequences (1 when one is empty), see <see cref="MsaDistanceMode.ClustalWAffine"/>.</summary>
     private static double ClustalWPairwiseDistance(string a, string b) => ClustalWPairwiseAlign(a, b).Distance;
 
-    private static int[] EncodeClustalWDna(string sequence, string paramName)
+    private static int[] EncodeClustalWDna(string sequence, string paramName, bool allowGaps = false)
     {
         var codes = new int[sequence.Length];
         for (int i = 0; i < sequence.Length; i++)
         {
             char c = char.ToUpperInvariant(sequence[i]);
+            if (allowGaps && c == '-')
+            {
+                codes[i] = CwGapPos2;   // a gap already in the alignment (gapPos2)
+                continue;
+            }
+
             int code = ClustalWNucleicOrder.Contains(c) ? ClustalWResidueCodes.IndexOf(c) : -1;
             if (code < 0)
                 throw new ArgumentException($"'{sequence[i]}' at position {i} is not an IUB nucleotide code known to the ClustalW DNA matrix.", paramName);
@@ -622,6 +628,36 @@ public static partial class SequenceAligner
         /// <c>tracePath</c>: walks the edit script from (Sb1, Sb2), counts identical aligned code pairs and renders the
         /// two aligned rows of the local region.
         /// </summary>
+        /// <summary>FullPairwiseAlign::tracePath's count on rows that already contain gaps: a column counts when both residues are equal, the first is not gapPos1 and the second is not gapPos2.</summary>
+        public int CountIdentitiesGapAware()
+        {
+            int toDo = PrintPtr - 1;
+            int i1 = Sb1, i2 = Sb2;
+            int count = 0;
+            for (int i = 1; i <= toDo; i++)
+            {
+                int d = _displ[i];
+                if (d == 0)
+                {
+                    int res1 = _a[i1], res2 = _b[i2];
+                    if (res1 != CwGapPos1 && res2 != CwGapPos2 && res1 == res2)
+                        count++;
+                    i1++;
+                    i2++;
+                }
+                else if (d > 0)
+                {
+                    i2 += d;
+                }
+                else
+                {
+                    i1 -= d;
+                }
+            }
+
+            return count;
+        }
+
         public (string Row1, string Row2, int Identities) TracePath(string original1, string original2)
         {
             int toDo = PrintPtr - 1;
