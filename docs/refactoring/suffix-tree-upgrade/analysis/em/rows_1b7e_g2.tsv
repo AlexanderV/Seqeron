@@ -1,0 +1,122 @@
+#head	f3533a1bdd39c1c37d939a0a1e676077ac2d0840
+#label	variant	scan_s	create_s	pack_s	ph1_s	ph23_s	ph45_s	bwt_s	psi_s	crc_s	seal_s	total_s	read_bytes	write_bytes	mapped_bytes	scratch_peak	arena_peak	rss_ph0_mb	rss_ph1_mb	rss_ph23_mb	rss_ph45_mb	rss_ph6_mb	rss_seal_mb	rss_whole_mb	verdict	file_size	grown	reservation	overflow	lcpkind	rssanon_before_kb	rssanon_max_kb	rss_samples
+dna_100m.g2	container	0.1526	0.0018	0.3832	1.7868	12.7537	6.5586	1.3693	0.9782	0.3316	0.0062	24.6910	3910595933	2810214300	1378758919	1200000000	39395096	21.6	39.9	76.3	109.9	84.5	84.5	109.9	Within	1325019393	0	Preallocated	0	U8	13464	107296	2344
+#ext	dna_100m.g2	container	107280	1216
+#crc	dna_100m	sections-with-crc-ok	8
+#crc	dna_100m	sections-with-crc-mismatch	0
+#sha	dna_100m	TEXT	equal	ee5c49d158efaeb97151d9604659cc36847cc2ddfc4382dc2b1999b23f9bbdcf
+#sha	dna_100m	SA	equal	b5a8b0d5a2a31a59106b2f36988f3b16a4e0074ce7eb77bd35599d1514d93e06
+#sha	dna_100m	LCP	equal	87604912a8b8b55ee26658f27973594899bc96f6ae0efcd5789cef5d8f1cb145
+#sha	dna_100m	CHILD	equal	a37bf6e22bff36134d2db12de5ac8ec76874fde77da3f03545eb46f0fc0e8f51
+#sha	dna_100m	LCP_OVERFLOW	equal	e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+#sha	dna_100m	PSI	equal	d6f9f05ebf6471addb62eda85f86549a2596116e97e7288f3d491b53d96bc079	e9-reference
+#sha	dna_100m	stats	equal-to-e6-stats	
+R	E8	dna_100m.g2	verify_files	pass		all seven files exist with the lengths of n, bits, lcpwidth and overflow
+R	E8	dna_100m.g2	verify_files_s	0.001057	s	wall time of the check (the checks of the rank pass share one pass and show its time)
+R	E8	dna_100m.g2	verify_meta	pass		n 100000000, sigma 4, 2 bits
+R	E8	dna_100m.g2	verify_meta_s	0.00631	s	wall time of the check (the checks of the rank pass share one pass and show its time)
+R	E8	dna_100m.g2	verify_text	pass		symbol counts equal the metadata, symbols below sigma, padding and the unused bits of the last byte are zero
+R	E8	dna_100m.g2	verify_text_s	0.081897	s	wall time of the check (the checks of the rank pass share one pass and show its time)
+R	E8	dna_100m.g2	verify_input	pass		the packed text equals the input symbol by symbol and its SHA-256 equals the metadata's
+R	E8	dna_100m.g2	verify_input_s	0.271762	s	wall time of the check (the checks of the rank pass share one pass and show its time)
+R	E8	dna_100m.g2	verify_sa_permutation	pass		SA[0] = n and the 100000001 entries are distinct and at most n
+R	E8	dna_100m.g2	verify_sa_permutation_s	2.026793	s	wall time of the check (the checks of the rank pass share one pass and show its time)
+R	E8	dna_100m.g2	verify_sa_order	pass		all 100000000 adjacent pairs of suffixes are in strict order (0 long pairs checked at their ends and by probes)
+R	E8	dna_100m.g2	verify_sa_order_s	2.026793	s	wall time of the check (the checks of the rank pass share one pass and show its time)
+R	E8	dna_100m.g2	verify_lcp_values	pass		every stored LCP equals the common prefix of its adjacent pair (0 long pairs above the cap 65536), the overflow list matches the escapes
+R	E8	dna_100m.g2	verify_lcp_values_s	2.026793	s	wall time of the check (the checks of the rank pass share one pass and show its time)
+R	E8	dna_100m.g2	verify_lcp_width	pass		width 1 is the rule's choice (values >= 255: 0, >= 65535: 0)
+R	E8	dna_100m.g2	verify_lcp_width_s	0	s	wall time of the check (the checks of the rank pass share one pass and show its time)
+R	E8	dna_100m.g2	verify_stats	pass		NODE_COUNT 162149501, internal 62149499, LRS 25 at rank 14863022, max LCP 25: recomputed from the LCP, the file is byte-identical to it
+R	E8	dna_100m.g2	verify_stats_s	1.753084	s	wall time of the check (the checks of the rank pass share one pass and show its time)
+R	E8	dna_100m.g2	verify_child	pass		all 85217095 written cells equal the lcp-interval definition (next links, up and down fields) and no other cell is set; stack peak 18
+R	E8	dna_100m.g2	verify_child_s	1.753084	s	wall time of the check (the checks of the rank pass share one pass and show its time)
+R	E8	dna_100m.g2	verify_sha256	pass		SHA-256 of all seven files recorded
+R	E8	dna_100m.g2	verify_sha256_s	0.270956	s	wall time of the check (the checks of the rank pass share one pass and show its time)
+R	E8	dna_100m.g2	verify_fact_n	100000000		number found by the verifier
+R	E8	dna_100m.g2	verify_fact_bits	2		number found by the verifier
+R	E8	dna_100m.g2	verify_fact_sigma	4		number found by the verifier
+R	E8	dna_100m.g2	verify_fact_lcpwidth	1		number found by the verifier
+R	E8	dna_100m.g2	verify_fact_overflow	0		number found by the verifier
+R	E8	dna_100m.g2	verify_fact_lce_cap	65536		number found by the verifier
+R	E8	dna_100m.g2	verify_fact_stack_cap	67108864		number found by the verifier
+R	E8	dna_100m.g2	verify_fact_probes	16		number found by the verifier
+R	E8	dna_100m.g2	verify_fact_long_pairs	0		number found by the verifier
+R	E8	dna_100m.g2	verify_fact_lce_steps	99999999		number found by the verifier
+R	E8	dna_100m.g2	verify_fact_escapes8	0		number found by the verifier
+R	E8	dna_100m.g2	verify_fact_escapes16	0		number found by the verifier
+R	E8	dna_100m.g2	verify_fact_stack_peak	18		number found by the verifier
+R	E8	dna_100m.g2	verify_fact_internal	62149499		number found by the verifier
+R	E8	dna_100m.g2	verify_fact_maxlcp	25		number found by the verifier
+R	E8	dna_100m.g2	verify_fact_lrsdepth	25		number found by the verifier
+R	E8	dna_100m.g2	verify_fact_lrsrank	14863022		number found by the verifier
+R	E8	dna_100m.g2	sha256_pk	ee5c49d158efaeb97151d9604659cc36847cc2ddfc4382dc2b1999b23f9bbdcf		SHA-256 of x.pk
+R	E8	dna_100m.g2	sha256_pk_meta	96e7b2225b41ae8214e4b00717546747eda2073826c748c4b5fcc31d87575dce		SHA-256 of x.pk.meta
+R	E8	dna_100m.g2	sha256_sa	b5a8b0d5a2a31a59106b2f36988f3b16a4e0074ce7eb77bd35599d1514d93e06		SHA-256 of x.sa
+R	E8	dna_100m.g2	sha256_lcp	87604912a8b8b55ee26658f27973594899bc96f6ae0efcd5789cef5d8f1cb145		SHA-256 of x.lcp
+R	E8	dna_100m.g2	sha256_ovf	e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855		SHA-256 of x.ovf
+R	E8	dna_100m.g2	sha256_cld	a37bf6e22bff36134d2db12de5ac8ec76874fde77da3f03545eb46f0fc0e8f51		SHA-256 of x.cld
+R	E8	dna_100m.g2	sha256_stats	cad991d214b2258947b5469c7c68524fc9b26552d22a7b1cb9987b20b07727cf		SHA-256 of x.stats
+R	E8	dna_100m.g2	verify_wall_s	4.430086	s	whole verification, 4 threads, LCE cap 65536
+R	E8	dna_100m.g2	verify_all	pass		11 of 11 checks passed; --no-child / --no-hash omit checks (a run for the gate G1 uses neither)
+#verify	dna_100m	exit=0	pass	11 of 11 checks passed; --no-child / --no-hash omit checks (a run for the gate G1 uses neither)
+genome_100m.g2	container	0.1570	0.0021	0.3801	2.1128	12.9520	6.7431	1.6178	0.9743	0.2848	0.0051	25.5938	3965635349	2865241040	1421805795	1200000000	39395096	21.6	50.2	77.5	112.6	98.1	98.1	112.6	Within	1348644448	11124063	Preallocated	1390028	U8	13564	109916	2442
+#ext	genome_100m.g2	container	109916	1262
+#crc	genome_100m	sections-with-crc-ok	9
+#crc	genome_100m	sections-with-crc-mismatch	0
+#sha	genome_100m	TEXT	equal	e6529cf88727f7e8583324dda381ae143a0f8b8b0ef44ddbe8db866c1627c890
+#sha	genome_100m	SA	equal	c3ef43bf7a2ac15f1687e53e718bf57fd47a2017dd1cda39ff544a2266bc3f2e
+#sha	genome_100m	LCP	equal	354dcc404bb628f859253139dda869475f671ae78b4ccecda06827e07fdba400
+#sha	genome_100m	CHILD	equal	dcd64e1a05c2c52f35827e3529b58940c639622f3ed4dbdef9de4480221e55ff
+#sha	genome_100m	LCP_OVERFLOW	equal	7af599c106df45ea23978a400c37c316436dc73d7bbf90f255a5f9a2c252374e
+#sha	genome_100m	PSI	equal	2a47de429ae41f393060d0ba1e4bfef0b672bab0977f717992d5947ebc135b2d	derived-with-the-e9-prototype
+#sha	genome_100m	stats	equal-to-e6-stats	
+R	E8	genome_100m.g2	verify_files	pass		all seven files exist with the lengths of n, bits, lcpwidth and overflow
+R	E8	genome_100m.g2	verify_files_s	0.001289	s	wall time of the check (the checks of the rank pass share one pass and show its time)
+R	E8	genome_100m.g2	verify_meta	pass		n 100000000, sigma 5, 3 bits
+R	E8	genome_100m.g2	verify_meta_s	0.007097	s	wall time of the check (the checks of the rank pass share one pass and show its time)
+R	E8	genome_100m.g2	verify_text	pass		symbol counts equal the metadata, symbols below sigma, padding and the unused bits of the last byte are zero
+R	E8	genome_100m.g2	verify_text_s	0.049041	s	wall time of the check (the checks of the rank pass share one pass and show its time)
+R	E8	genome_100m.g2	verify_input	pass		the packed text equals the input symbol by symbol and its SHA-256 equals the metadata's
+R	E8	genome_100m.g2	verify_input_s	0.296986	s	wall time of the check (the checks of the rank pass share one pass and show its time)
+R	E8	genome_100m.g2	verify_sa_permutation	pass		SA[0] = n and the 100000001 entries are distinct and at most n
+R	E8	genome_100m.g2	verify_sa_permutation_s	3.109418	s	wall time of the check (the checks of the rank pass share one pass and show its time)
+R	E8	genome_100m.g2	verify_sa_order	pass		all 100000000 adjacent pairs of suffixes are in strict order (503398 long pairs checked at their ends and by probes)
+R	E8	genome_100m.g2	verify_sa_order_s	3.109418	s	wall time of the check (the checks of the rank pass share one pass and show its time)
+R	E8	genome_100m.g2	verify_lcp_values	pass		every stored LCP equals the common prefix of its adjacent pair (503398 long pairs above the cap 65536), the overflow list matches the escapes
+R	E8	genome_100m.g2	verify_lcp_values_s	3.109418	s	wall time of the check (the checks of the rank pass share one pass and show its time)
+R	E8	genome_100m.g2	verify_lcp_width	pass		width 1 is the rule's choice (values >= 255: 1390028, >= 65535: 503401)
+R	E8	genome_100m.g2	verify_lcp_width_s	0	s	wall time of the check (the checks of the rank pass share one pass and show its time)
+R	E8	genome_100m.g2	verify_stats	pass		NODE_COUNT 166050648, internal 66050646, LRS 499999 at rank 75208039, max LCP 499999: recomputed from the LCP, the file is byte-identical to it
+R	E8	genome_100m.g2	verify_stats_s	1.727291	s	wall time of the check (the checks of the rank pass share one pass and show its time)
+R	E8	genome_100m.g2	verify_child	pass		all 86747310 written cells equal the lcp-interval definition (next links, up and down fields) and no other cell is set; stack peak 500000
+R	E8	genome_100m.g2	verify_child_s	1.727291	s	wall time of the check (the checks of the rank pass share one pass and show its time)
+R	E8	genome_100m.g2	verify_sha256	pass		SHA-256 of all seven files recorded
+R	E8	genome_100m.g2	verify_sha256_s	0.319222	s	wall time of the check (the checks of the rank pass share one pass and show its time)
+R	E8	genome_100m.g2	verify_fact_n	100000000		number found by the verifier
+R	E8	genome_100m.g2	verify_fact_bits	3		number found by the verifier
+R	E8	genome_100m.g2	verify_fact_sigma	5		number found by the verifier
+R	E8	genome_100m.g2	verify_fact_lcpwidth	1		number found by the verifier
+R	E8	genome_100m.g2	verify_fact_overflow	1390028		number found by the verifier
+R	E8	genome_100m.g2	verify_fact_lce_cap	65536		number found by the verifier
+R	E8	genome_100m.g2	verify_fact_stack_cap	67108864		number found by the verifier
+R	E8	genome_100m.g2	verify_fact_probes	16		number found by the verifier
+R	E8	genome_100m.g2	verify_fact_long_pairs	503398		number found by the verifier
+R	E8	genome_100m.g2	verify_fact_lce_steps	612107790		number found by the verifier
+R	E8	genome_100m.g2	verify_fact_escapes8	1390028		number found by the verifier
+R	E8	genome_100m.g2	verify_fact_escapes16	503401		number found by the verifier
+R	E8	genome_100m.g2	verify_fact_stack_peak	500000		number found by the verifier
+R	E8	genome_100m.g2	verify_fact_internal	66050646		number found by the verifier
+R	E8	genome_100m.g2	verify_fact_maxlcp	499999		number found by the verifier
+R	E8	genome_100m.g2	verify_fact_lrsdepth	499999		number found by the verifier
+R	E8	genome_100m.g2	verify_fact_lrsrank	75208039		number found by the verifier
+R	E8	genome_100m.g2	sha256_pk	e6529cf88727f7e8583324dda381ae143a0f8b8b0ef44ddbe8db866c1627c890		SHA-256 of x.pk
+R	E8	genome_100m.g2	sha256_pk_meta	eeba6f72058872bfe983bedb5d7cc93fc9252f0d0962ee315de4515af75af47e		SHA-256 of x.pk.meta
+R	E8	genome_100m.g2	sha256_sa	c3ef43bf7a2ac15f1687e53e718bf57fd47a2017dd1cda39ff544a2266bc3f2e		SHA-256 of x.sa
+R	E8	genome_100m.g2	sha256_lcp	354dcc404bb628f859253139dda869475f671ae78b4ccecda06827e07fdba400		SHA-256 of x.lcp
+R	E8	genome_100m.g2	sha256_ovf	7af599c106df45ea23978a400c37c316436dc73d7bbf90f255a5f9a2c252374e		SHA-256 of x.ovf
+R	E8	genome_100m.g2	sha256_cld	dcd64e1a05c2c52f35827e3529b58940c639622f3ed4dbdef9de4480221e55ff		SHA-256 of x.cld
+R	E8	genome_100m.g2	sha256_stats	ac81ab800c34d5b3012e2927cb3a25ba21fba20ad4cc7c7d335fa6551b760236		SHA-256 of x.stats
+R	E8	genome_100m.g2	verify_wall_s	5.529757	s	whole verification, 4 threads, LCE cap 65536
+R	E8	genome_100m.g2	verify_all	pass		11 of 11 checks passed; --no-child / --no-hash omit checks (a run for the gate G1 uses neither)
+#verify	genome_100m	exit=0	pass	11 of 11 checks passed; --no-child / --no-hash omit checks (a run for the gate G1 uses neither)
