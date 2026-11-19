@@ -51,6 +51,8 @@ for f, lst in FILES.items():
             print('PATTERN', f, mm['id'], 'occurs', c)
             bad += 1
         flt = mm.get('filter') or FILTERS.get(f, FILTERS['*'])
+        if os.environ.get('WITH_AUDIT_TESTS') and 'filter' not in mm:
+            flt = flt[:-1] + '|FullyQualifiedName~SesaAuditTests)'  # round 2: the tests that closed the gaps of round 1 are part of the filter
         mm = dict(mm, file=SRC + f, filter=flt)
         if not PARITY or pos % 2 == int(PARITY):
             out.append(mm)

@@ -174,6 +174,112 @@ public class SesaAuditTests
         Assert.That(hooks, Does.Contain(SesaHooks.LcpChildBuilt).And.Not.Contain(SesaHooks.BwtBuilt), "PH6 failed under its own cap after PH4 / PH5 had run");
     }
 
+    // ---- the ranges of the stages: refused at the entry, to the byte, before any work is done
+
+    [Test]
+    public void ARangeThatDoesNotFitTheFile_ByOneToFourBytes_IsRefusedAtTheEntryOfEveryStage_BeforeAnyWorkIsDone()
+    {
+        string text = StringFamilies.RandomDna(300, 51);
+        LcpChildCase c = LcpChildCase.Of(text);
+        SaCase sc = SaCase.Of(text);
+        long arrayBytes = 4L * (c.N + 1);
+        string textPath = TextOracle.WriteFile(_dir, "t.pk", c.Symbols, c.Bits);
+        using MappedTextReader reader = MappedTextReader.Open(textPath, c.N, c.Bits);
+        string satPath = SaRun.WriteText(_dir, sc, "-r");
+        using MappedTextReader satReader = MappedTextReader.Open(satPath, sc.N, sc.Bits);
+        var sparse = new MappedFileOptions { Reservation = ReservationMode.Sparse };
+        for (int late = 1; late <= 4; late++)
+        {
+            string label = $"{late} byte(s) too late";
+            // the suffix array stage writes a range of the container
+            var steps = new List<string>();
+            using (MappedOutputFile file = MappedOutputFile.Create(_dir.File($"sa{late}.bin"), 64 + arrayBytes, sparse))
+            {
+                Assert.Throws<ArgumentOutOfRangeException>(() => SaBuilder.Build(satReader, file, 64 + late, SaTiny.Build(_dir.Sub($"s{late}"), 2) with { Trace = steps.Add }), label);
+                Assert.That(steps, Is.Empty, $"{label}: PH1 never started");
+                Assert.That(Directory.Exists(_dir.Sub($"s{late}")), Is.False.Or.Property("Length").Zero, $"{label}: no scratch");
+            }
+            // the child range of the section stage
+            steps.Clear();
+            using (MappedOutputFile file = MappedOutputFile.Create(_dir.File($"ch{late}.bin"), 128 + arrayBytes + arrayBytes, sparse))
+            {
+                LcpChildOptions o = LcpChildRun.Options(_dir.Sub($"c{late}"), LcpChildRun.TinyTuning(2)) with { Trace = steps.Add };
+                Assert.Throws<ArgumentOutOfRangeException>(() => SectionLcpChildBuilder.Build(_dir.File($"ch{late}.bin"), 128, reader, file, 128 + arrayBytes + late, _ => throw new InvalidOperationException("never asked"), o), label);
+                Assert.That(steps, Is.Empty, $"{label}: PH4 never started");
+                Assert.That(Directory.Exists(_dir.Sub($"c{late}")), Is.False, $"{label}: no scratch directory was made");
+            }
+            // PSI
+            using (MappedOutputFile file = MappedOutputFile.Create(_dir.File($"ps{late}.bin"), 32 + arrayBytes, sparse))
+            {
+                var budget = new ArenaBudget(long.MaxValue);
+                Assert.Throws<ArgumentOutOfRangeException>(() => PsiStream.Build(_dir.File("no-bwt.bin"), c.N, 0, [c.N], file, 32 + late, new PsiOptions { Budget = budget }), label);
+                Assert.That(budget.PeakBytes, Is.Zero, $"{label}: nothing was reserved");
+            }
+            // the BWT pass reads a suffix array range that ends past the end of the file
+            string container = _dir.File($"bw{late}.bin");
+            File.WriteAllBytes(container, new byte[128 + arrayBytes - late]);
+            string bwt = _dir.File($"bw{late}.bwt");
+            Assert.Throws<InvalidDataException>(() => BwtPass.Build(container, 128, reader, c.Sigma, bwt), label);
+            Assert.That(File.Exists(bwt), Is.False, $"{label}: no BWT file");
+        }
+    }
+
+    [Test]
+    public void ANullArgument_IsAnArgumentNullException_AndANegativeOffset_IsRefusedBeforePh1()
+    {
+        string text = StringFamilies.RandomDna(100, 52);
+        SaCase sc = SaCase.Of(text);
+        string satPath = SaRun.WriteText(_dir, sc, "-n");
+        using MappedTextReader reader = MappedTextReader.Open(satPath, sc.N, sc.Bits);
+        using MappedOutputFile file = MappedOutputFile.Create(_dir.File("n.bin"), 64 + (4L * (sc.N + 1)), new MappedFileOptions { Reservation = ReservationMode.Sparse });
+        SaBuildOptions options = SaTiny.Build(_dir.Sub("sn"), 2);
+        Assert.Throws<ArgumentNullException>(() => SaBuilder.Build(null!, file, 64, options));
+        Assert.Throws<ArgumentNullException>(() => SaBuilder.Build(reader, null!, 64, options));
+        Assert.Throws<ArgumentNullException>(() => SaBuilder.Build(reader, file, 64, null!));
+        var steps = new List<string>();
+        Assert.Throws<ArgumentOutOfRangeException>(() => SaBuilder.Build(reader, file, -4, options with { Trace = steps.Add }));
+        Assert.That(steps, Is.Empty, "a negative offset is refused before PH1");
+    }
+
+    [Test]
+    public void ThePsiStats_CountTheWindowsOfEveryPass_AndTheCountersSeeThem()
+    {
+        byte[] s = [.. StringFamilies.RandomDna(500, 53).Select(ch => (byte)"ACGT".IndexOf(ch))];
+        var counters = new IoCounters();
+        // 12-byte windows = 3 entries, 2 symbols per pass: 2 passes over 4 symbols
+        Ph6Run.Outcome o = Ph6Run.Run(_dir, s, 4, null, new PsiOptions { WindowBytes = 12, SymbolsPerPass = 2, Counters = counters });
+        Ph6Run.Compare(s, 4, o, "two passes");
+        long expected = o.Bwt.Counts.Sum(count => (count + 2) / 3);
+        Assert.That(o.Psi.Passes, Is.EqualTo(2));
+        Assert.That(o.Psi.Windows, Is.EqualTo(expected), "every symbol opens ceil(count / 3) windows, summed over the passes");
+        Assert.That(counters.MappedWindows, Is.EqualTo(expected + 1), "the counters saw the windows of the cursors and the one of PSI[0]");
+        Assert.That(counters.MappedWriteBytes, Is.EqualTo((4L * (s.Length + 1)) - 4 + 4 + 0), "every byte of Psi is a mapped write, once");
+    }
+
+    [Test]
+    public void ASymbolThatOccursLessOftenThanCounted_IsFound_AlsoWhenItsLastWindowIsUsedUp()
+    {
+        byte[] s = [.. StringFamilies.RandomDna(200, 54).Select(ch => (byte)"ACGT".IndexOf(ch))];
+        string dir = _dir.Sub("p");
+        Directory.CreateDirectory(dir);
+        int[] sa = Ph6Run.Sa(s);
+        string container = Ph6Run.WriteContainer(_dir, sa, 64, 64 + (4L * (s.Length + 1)) + 4 + 64 + (4L * (s.Length + 1)));
+        string textPath = TextOracle.WriteFile(_dir, "tt.pk", s, 2);
+        using MappedTextReader reader = MappedTextReader.Open(textPath, s.Length, 2);
+        string bwtPath = _dir.File("w.bwt");
+        BwtResult b = BwtPass.Build(container, 64, reader, 4, bwtPath);
+        using MappedOutputFile file = MappedOutputFile.Create(_dir.File("psi.bin"), 4L * (s.Length + 1) + 64, new MappedFileOptions { Reservation = ReservationMode.Sparse });
+        // a byte of the BWT that is no symbol of the alphabet is skipped by the pass, so the symbol it replaced is one short of its count; with windows of one entry the cursor of that symbol is
+        // always at the end of its window when the BWT runs out, and only the comparison of the entries written with the count finds it
+        byte[] bwtBytes = File.ReadAllBytes(bwtPath);
+        int at = Array.IndexOf(bwtBytes, (byte)1, (int)b.PrimaryRow + 1);
+        bwtBytes[at] = 9;
+        File.WriteAllBytes(bwtPath, bwtBytes);
+        Assert.Throws<InvalidDataException>(() => PsiStream.Build(bwtPath, s.Length, b.PrimaryRow, b.Counts, file, 0, new PsiOptions { WindowBytes = 4 }));
+        Assert.Throws<InvalidDataException>(() => PsiStream.Build(bwtPath, s.Length, b.PrimaryRow, b.Counts, file, 0, new PsiOptions { WindowBytes = 4, SymbolsPerPass = 1 }));
+        Assert.Throws<InvalidDataException>(() => PsiStream.Build(bwtPath, s.Length, b.PrimaryRow, b.Counts, file, 0, new PsiOptions { WindowBytes = 1 << 20 }), "and with a window that is not used up");
+    }
+
     // ---- the counted calls of a fixed geometry (the sizes of every stage reach their stage: a size that is dropped or changed on the way changes a count)
 
     private static string Snapshot(IoSnapshot s) => $"{s.ReadBytes}/{s.WriteBytes}/{s.ReadCalls}/{s.WriteCalls}/{s.MappedWriteBytes}/{s.MappedWindows}/{s.MappedMaxWindowBytes}/{s.ScratchPeakBytes}";

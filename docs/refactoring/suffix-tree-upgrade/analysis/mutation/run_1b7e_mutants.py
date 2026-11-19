@@ -82,7 +82,7 @@ try:
                 open(out, 'w').write('\n'.join('\t'.join(map(str, r)) for r in results) + '\n')
                 continue
             r1 = test(proj1, m.get('filter', stage1_default) + FILTER_AND)
-        if '2' in STAGES and (r1 == 'survived' or STAGES == '2'):
+        if '2' in STAGES and (r1 == 'survived' or STAGES == '2') and ('/Ph6/' in m['file'] or os.environ.get('MUTANT_STAGE2_ALL')):  # the differential tests of EmProto exercise PH6 only
             b2 = build(proj2)
             r2 = b2 if b2 else test(proj2, stage2)
         results.append((m['id'], m['desc'], r1 or '-', r2))
