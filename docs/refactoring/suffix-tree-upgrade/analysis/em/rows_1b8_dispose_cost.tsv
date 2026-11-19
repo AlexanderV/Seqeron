@@ -1,0 +1,149 @@
+# 1b.8 Dispose race, cost of the reader count (G4). Rows as taken on the 4-vCPU machine, one process per row, warm trees of 10 Mbp (dna_10m), nothing else running.
+# Sections: throughput (the protocol of the brief: one tree per process, 7 rounds in alternating order, median of 5 repeats inside a process; before = the head of 1b.7f, 31bc0646, without the reader count; after = the FIRST version of the reader count, one shared count, taken before the count was striped; the guard sections below measure all three versions);
+# guard (the in-process instrument of FacadeGuardCostTests: alternating batches of the facade call and the call of the index behind it, medians of 15 batches, 5 processes per version; the guard column is IsEmpty minus the read of the length of the index);
+# refbuild (the build time and the heap of the three reference engines of the harness, ReferenceBuildCostTests).
+# The versions of the guard: single1 = one shared count (first measurement, no four-thread columns), single2 = the same with four-thread columns, striped = the final version (eight counts on cache lines of their own, the shipped one); in every guard section label before.kN is the head of 1b.7f, after.kN the version named in the first column.
+#throughput: label tree count20_per_s locate8_per_s count24absent_per_s childwalk_nodes_per_s repeats
+throughput	before.r1	memory	536629.06866	544788.71459	603549.63474	9263898.85644	5
+throughput	after.r1	memory	768358.54339	769416.61294	807929.17854	12467453.12533	5
+throughput	before.r1	checked	472440.48769	530483.71627	456102.84466	8582919.97109	5
+throughput	after.r1	checked	612442.44564	678450.44632	631232.36226	7647891.95917	5
+throughput	before.r1	trusted	429036.05132	478748.36029	432676.61547	7729107.31966	5
+throughput	after.r1	trusted	530336.98171	587025.67592	527744.83081	8498856.26734	5
+throughput	after.r2	trusted	606824.47671	633752.92002	581745.87779	9192059.72706	5
+throughput	before.r2	trusted	444691.77213	581885.89218	418036.82067	8169489.26423	5
+throughput	after.r2	checked	465493.51501	464014.51437	454192.92857	6437854.00839	5
+throughput	before.r2	checked	424507.28888	487414.23337	416675.35088	6583850.94572	5
+throughput	after.r2	memory	541331.22502	543701.06011	558231.12633	9189364.95072	5
+throughput	before.r2	memory	513480.54071	540154.54902	567206.96988	9736262.64104	5
+throughput	before.r3	checked	424052.34843	491802.6337	453983.97336	7184632.7535	5
+throughput	after.r3	checked	658137.31673	647968.4569	614939.36523	7604129.12561	5
+throughput	before.r3	memory	837578.99333	815439.19963	847753.47871	12281199.82151	5
+throughput	after.r3	memory	511486.71809	540242.38515	714569.27068	9719066.76783	5
+throughput	before.r3	trusted	637919.08549	708275.49083	619391.55656	9840506.39754	5
+throughput	after.r3	trusted	638504.54268	635463.70422	602840.54244	7217167.11768	5
+throughput	after.r4	memory	646877.55455	642098.68672	672506.62905	11023507.02146	5
+throughput	before.r4	memory	568239.05374	516387.29253	540962.74003	9519115.4658	5
+throughput	after.r4	trusted	635351.48391	623503.59138	636914.37912	7191529.49447	5
+throughput	before.r4	trusted	534567.10995	685670.71624	593219.85888	9332949.65602	5
+throughput	after.r4	checked	553158.50617	568410.7973	535043.71829	8160350.15446	5
+throughput	before.r4	checked	503356.40695	560562.31127	507882.31061	8040546.72976	5
+throughput	before.r5	trusted	615574.73327	644689.21145	625648.37114	8844643.37628	5
+throughput	after.r5	trusted	643441.35084	709732.27479	643518.38374	8708380.76074	5
+throughput	before.r5	memory	596893.45666	553750.32948	654338.58742	10504620.84727	5
+throughput	after.r5	memory	704449.53077	671548.37566	728991.24859	11566406.32264	5
+throughput	before.r5	checked	604583.64669	670037.85044	589778.12942	9564048.49833	5
+throughput	after.r5	checked	629375.89324	661014.98851	624645.92336	9172578.24911	5
+throughput	after.r6	checked	513856.54116	544618.70428	507631.47009	6241148.29672	5
+throughput	before.r6	checked	423500.51717	484124.35218	418699.91357	7310108.49509	5
+throughput	after.r6	trusted	441525.19758	491276.64623	441792.99531	7400445.00825	5
+throughput	before.r6	trusted	443948.71257	514505.71693	436358.42228	6766389.48075	5
+throughput	after.r6	memory	655011.81224	593286.60608	659136.88464	11269158.4463	5
+throughput	before.r6	memory	848914.73891	874921.25709	856785.57511	13129772.90783	5
+throughput	before.r7	memory	729343.08032	848011.70935	802302.94964	13051676.0624	5
+throughput	after.r7	memory	761895.9123	750592.96845	765095.05966	11655454.39879	5
+throughput	before.r7	checked	617743.89717	714884.17447	636911.28801	8898126.31325	5
+throughput	after.r7	checked	452501.65472	491176.98777	485568.60487	7077925.48222	5
+throughput	before.r7	trusted	653584.75602	688870.33531	675457.63521	10037185.95135	5
+throughput	after.r7	trusted	604001.62675	622481.67258	597005.05608	7281509.00355	5
+#guard: version label tree count20_facade_ns count20_index_ns count20_facade_minus_index_ns count20_overhead_pct locate8_facade_ns locate8_index_ns locate8_facade_minus_index_ns locate8_overhead_pct isempty_ns indexlength_ns guard_ns count20_4threads_facade_ns count20_4threads_index_ns count20_4threads_diff_ns count20_4threads_overhead_pct
+guard	single1	before.k1	memory	1780.6	1728.2	52.5	2.95	1487.6	1523.4	-35.8	-2.41	0.40	0.26	0.13		
+guard	single1	before.k1	checked	2557.8	2529.6	28.3	1.10	2188.0	2173.7	14.3	0.65	0.39	0.26	0.13		
+guard	single1	before.k1	trusted	2238.5	2199.4	39.1	1.75	2029.2	1934.3	95.0	4.68	0.39	0.26	0.13		
+guard	single1	after.k1	memory	1990.7	1874.6	116.1	5.83	1800.9	1661.6	139.3	7.73	17.09	0.26	16.83		
+guard	single1	after.k1	checked	2050.6	2091.2	-40.6	-1.98	1977.1	1897.1	80.0	4.04	17.07	0.26	16.81		
+guard	single1	after.k1	trusted	2031.7	2169.6	-137.8	-6.78	1919.2	1921.5	-2.3	-0.12	17.08	0.26	16.81		
+guard	single1	after.k2	memory	1760.7	1761.9	-1.1	-0.06	1539.5	1542.5	-3.0	-0.20	17.17	0.26	16.91		
+guard	single1	after.k2	checked	2532.1	2498.3	33.8	1.33	2183.1	2176.8	6.3	0.29	17.09	0.26	16.82		
+guard	single1	after.k2	trusted	2172.1	1996.5	175.6	8.08	1935.9	1836.7	99.2	5.12	17.09	0.26	16.83		
+guard	single1	before.k2	memory	1291.6	1295.3	-3.7	-0.29	1058.5	1084.0	-25.5	-2.41	0.39	0.26	0.13		
+guard	single1	before.k2	checked	2304.4	2110.8	193.6	8.40	2001.6	2007.3	-5.7	-0.28	0.39	0.26	0.13		
+guard	single1	before.k2	trusted	1934.9	2032.3	-97.4	-5.03	1802.2	1719.6	82.6	4.58	0.39	0.26	0.13		
+guard	single1	before.k3	memory	1282.8	1273.5	9.3	0.72	1023.9	1095.2	-71.3	-6.96	0.39	0.26	0.13		
+guard	single1	before.k3	checked	1661.0	1643.8	17.1	1.03	1499.4	1514.1	-14.8	-0.98	0.39	0.26	0.13		
+guard	single1	before.k3	trusted	1743.0	1771.7	-28.7	-1.65	1630.8	1688.6	-57.8	-3.54	0.39	0.26	0.13		
+guard	single1	after.k3	memory	1364.2	1384.5	-20.4	-1.49	1173.6	1120.0	53.6	4.57	17.07	0.26	16.80		
+guard	single1	after.k3	checked	1679.3	1684.4	-5.1	-0.30	1541.2	1596.4	-55.2	-3.58	17.07	0.26	16.81		
+guard	single1	after.k3	trusted	1820.9	1828.2	-7.3	-0.40	1665.9	1726.3	-60.5	-3.63	17.01	0.26	16.75		
+guard	single1	after.k4	memory	1691.8	1642.4	49.3	2.92	1514.6	1469.3	45.3	2.99	17.11	0.26	16.85		
+guard	single1	after.k4	checked	2194.8	2045.7	149.1	6.79	1952.2	2032.0	-79.8	-4.09	17.02	0.26	16.76		
+guard	single1	after.k4	trusted	1844.4	1774.3	70.0	3.80	1668.9	1718.8	-49.8	-2.99	17.05	0.26	16.79		
+guard	single1	before.k4	memory	1238.7	1243.3	-4.6	-0.37	1052.6	1059.7	-7.1	-0.67	0.39	0.26	0.13		
+guard	single1	before.k4	checked	1758.6	1803.5	-45.0	-2.56	1679.5	1608.2	71.3	4.24	0.40	0.26	0.13		
+guard	single1	before.k4	trusted	2777.3	2731.7	45.6	1.64	2349.9	2325.8	24.1	1.03	0.40	0.26	0.13		
+guard	single1	before.k5	memory	1989.0	2096.6	-107.6	-5.41	1741.9	1751.6	-9.7	-0.56	0.39	0.26	0.13		
+guard	single1	before.k5	checked	2573.5	2534.7	38.9	1.51	2221.5	2198.1	23.4	1.05	0.39	0.26	0.13		
+guard	single1	before.k5	trusted	1911.7	1919.7	-8.0	-0.42	1773.3	1779.6	-6.3	-0.36	0.39	0.26	0.13		
+guard	single1	after.k5	memory	1274.4	1276.8	-2.4	-0.19	1088.5	1073.5	15.0	1.38	17.04	0.26	16.78		
+guard	single1	after.k5	checked	2141.1	2187.5	-46.5	-2.17	2076.9	2002.6	74.2	3.57	17.03	0.26	16.77		
+guard	single1	after.k5	trusted	2779.1	2734.9	44.2	1.59	2391.6	2294.2	97.4	4.07	17.06	0.26	16.80		
+guard	single2	before.k1	memory	1647.6	1659.8	-12.2	-0.74	1421.7	1473.3	-51.6	-3.63	0.45	0.30	0.15	1484.5	1500.8	-16.3	-1.10
+guard	single2	before.k1	checked	1677.4	1588.0	89.4	5.33	1507.7	1472.7	35.0	2.32	0.47	0.29	0.18	2077.3	2105.2	-28.0	-1.35
+guard	single2	before.k1	trusted	1641.7	1618.0	23.7	1.45	1524.5	1508.0	16.5	1.08	0.45	0.29	0.16	2109.8	2120.9	-11.1	-0.53
+guard	single2	after.k1	memory	1208.3	1202.2	6.1	0.50	988.8	987.9	0.9	0.09	17.15	0.33	16.82	1615.6	1487.0	128.6	7.96
+guard	single2	after.k1	checked	1633.1	1640.2	-7.2	-0.44	1541.3	1497.3	44.0	2.86	17.14	0.33	16.81	2218.0	2317.5	-99.5	-4.49
+guard	single2	after.k1	trusted	1651.0	1654.1	-3.1	-0.19	1542.1	1555.5	-13.4	-0.87	17.12	0.33	16.79	2239.0	2304.8	-65.8	-2.94
+guard	single2	after.k2	memory	1172.1	1146.4	25.7	2.20	1032.9	1094.3	-61.4	-5.94	17.11	0.33	16.78	1737.7	1554.9	182.8	10.52
+guard	single2	after.k2	checked	2331.2	2292.3	38.9	1.67	2036.7	2066.4	-29.7	-1.46	17.13	0.33	16.80	2149.6	1971.0	178.6	8.31
+guard	single2	after.k2	trusted	1646.7	1743.4	-96.7	-5.87	1597.8	1664.7	-66.9	-4.19	17.13	0.33	16.80	1460.3	1357.9	102.5	7.02
+guard	single2	before.k2	memory	1381.1	1263.5	117.7	8.52	1235.9	1205.7	30.2	2.45	0.45	0.28	0.17	876.4	892.2	-15.8	-1.80
+guard	single2	before.k2	checked	2435.7	2381.1	54.6	2.24	2083.8	2107.8	-24.0	-1.15	0.45	0.30	0.15	2089.2	2034.1	55.1	2.64
+guard	single2	before.k2	trusted	2308.3	2288.4	20.0	0.86	2054.6	2052.3	2.3	0.11	0.45	0.30	0.15	1693.1	1523.3	169.8	10.03
+guard	single2	before.k3	memory	1315.8	1296.1	19.7	1.50	1297.2	1321.5	-24.2	-1.87	0.45	0.29	0.16	1261.3	1255.7	5.6	0.44
+guard	single2	before.k3	checked	1659.1	1670.2	-11.1	-0.67	1519.6	1527.4	-7.8	-0.51	0.46	0.30	0.16	1528.5	1487.5	41.0	2.68
+guard	single2	before.k3	trusted	1634.3	1627.5	6.8	0.42	1504.1	1510.0	-5.9	-0.39	0.45	0.29	0.16	1993.3	2169.4	-176.1	-8.83
+guard	single2	after.k3	memory	1337.6	1302.6	35.0	2.62	1077.6	1112.9	-35.3	-3.28	17.12	0.33	16.80	1689.3	1659.1	30.2	1.78
+guard	single2	after.k3	checked	2033.3	2049.5	-16.2	-0.80	1904.8	1898.3	6.4	0.34	17.24	0.33	16.92	2397.8	2169.5	228.3	9.52
+guard	single2	after.k3	trusted	1832.8	1818.5	14.2	0.78	1691.4	1635.6	55.8	3.30	17.13	0.33	16.80	1632.8	1523.0	109.8	6.73
+guard	single2	after.k4	memory	1207.5	1208.3	-0.8	-0.06	983.6	1004.8	-21.2	-2.16	17.11	0.33	16.78	964.1	849.9	114.2	11.84
+guard	single2	after.k4	checked	1393.4	1424.3	-30.9	-2.21	1350.7	1341.3	9.4	0.70	17.14	0.33	16.82	1972.1	1917.7	54.4	2.76
+guard	single2	after.k4	trusted	1804.2	2109.9	-305.7	-16.94	1833.8	1942.8	-108.9	-5.94	17.22	0.33	16.89	2048.7	1970.7	78.0	3.81
+guard	single2	before.k4	memory	1284.8	1380.0	-95.2	-7.41	1228.1	1170.7	57.4	4.68	0.45	0.30	0.15	1452.6	1479.8	-27.2	-1.88
+guard	single2	before.k4	checked	1958.8	1756.9	201.9	10.31	1898.6	1655.4	243.2	12.81	0.45	0.29	0.16	1356.8	1261.9	94.9	7.00
+guard	single2	before.k4	trusted	1633.7	1630.4	3.3	0.20	1462.5	1557.9	-95.3	-6.52	0.46	0.32	0.14	1903.9	1796.2	107.7	5.66
+guard	single2	before.k5	memory	973.9	994.7	-20.8	-2.13	871.0	872.1	-1.1	-0.13	0.45	0.26	0.19	878.9	877.0	1.9	0.22
+guard	single2	before.k5	checked	1440.2	1440.4	-0.2	-0.01	1381.5	1389.8	-8.3	-0.60	0.45	0.26	0.19	1484.8	1469.4	15.4	1.04
+guard	single2	before.k5	trusted	2068.2	2054.1	14.0	0.68	1892.1	1935.1	-43.0	-2.27	0.46	0.26	0.20	1362.9	1540.5	-177.6	-13.03
+guard	single2	after.k5	memory	1287.5	1276.0	11.5	0.89	1184.5	1167.6	16.9	1.42	17.11	0.33	16.78	1339.1	1216.1	123.0	9.19
+guard	single2	after.k5	checked	1468.4	1450.4	18.0	1.23	1405.6	1382.2	23.4	1.67	17.11	0.33	16.79	1886.9	1862.4	24.5	1.30
+guard	single2	after.k5	trusted	1926.2	1896.8	29.4	1.53	1840.5	1864.4	-23.9	-1.30	17.06	0.33	16.73	1625.7	1508.9	116.8	7.18
+guard	striped	before.k1	memory	1332.8	1319.6	13.2	0.99	1119.5	1131.5	-12.0	-1.07	0.45	0.26	0.19	1546.5	1586.5	-40.0	-2.59
+guard	striped	before.k1	checked	1609.7	1650.1	-40.3	-2.51	1470.2	1603.5	-133.3	-9.07	0.45	0.26	0.19	1904.6	1953.7	-49.1	-2.58
+guard	striped	before.k1	trusted	1742.3	2039.2	-297.0	-17.05	1872.9	1931.7	-58.9	-3.14	0.47	0.26	0.20	1950.7	2074.1	-123.4	-6.33
+guard	striped	after.k1	memory	1687.6	1664.6	23.0	1.36	1482.7	1468.8	13.9	0.94	12.94	0.38	12.55	1621.0	1550.2	70.8	4.37
+guard	striped	after.k1	checked	1561.6	1593.9	-32.4	-2.07	1484.5	1477.8	6.7	0.45	12.89	0.36	12.53	1982.0	1854.9	127.1	6.41
+guard	striped	after.k1	trusted	1584.9	1575.9	8.9	0.56	1484.2	1459.5	24.7	1.66	13.04	0.38	12.67	1909.9	2158.1	-248.2	-12.99
+guard	striped	after.k2	memory	1383.0	1337.9	45.1	3.26	1200.9	1180.1	20.8	1.73	12.95	0.33	12.62	1652.7	1559.4	93.2	5.64
+guard	striped	after.k2	checked	1612.5	1687.3	-74.8	-4.64	1562.2	1583.5	-21.3	-1.36	13.00	0.33	12.66	2165.4	2224.0	-58.6	-2.71
+guard	striped	after.k2	trusted	1821.2	1777.3	44.0	2.41	1657.9	1678.8	-20.8	-1.25	12.92	0.33	12.59	2165.2	2079.7	85.6	3.95
+guard	striped	before.k2	memory	1627.6	1644.5	-16.9	-1.04	1435.2	1347.9	87.3	6.09	0.45	0.26	0.19	1606.5	1592.3	14.2	0.88
+guard	striped	before.k2	checked	2259.6	2303.4	-43.8	-1.94	1955.5	2003.7	-48.2	-2.47	0.45	0.26	0.19	1702.0	1550.6	151.3	8.89
+guard	striped	before.k2	trusted	1704.5	1728.5	-24.0	-1.41	1574.4	1588.3	-13.9	-0.88	0.45	0.26	0.19	1559.1	1535.6	23.6	1.51
+guard	striped	before.k3	memory	1309.0	1298.2	10.8	0.82	1105.1	1105.4	-0.3	-0.03	0.45	0.30	0.15	1645.0	1589.0	56.0	3.40
+guard	striped	before.k3	checked	1729.4	1733.9	-4.4	-0.26	1610.4	1629.9	-19.5	-1.21	0.45	0.30	0.15	1990.3	2038.8	-48.6	-2.44
+guard	striped	before.k3	trusted	1681.3	1699.9	-18.6	-1.11	1538.5	1600.3	-61.8	-4.02	0.45	0.30	0.15	1929.5	1522.6	407.0	21.09
+guard	striped	after.k3	memory	1928.6	1818.1	110.5	5.73	1588.6	1617.5	-29.0	-1.82	13.04	0.34	12.71	1684.9	1505.4	179.5	10.66
+guard	striped	after.k3	checked	1815.5	1778.3	37.2	2.05	1653.9	1640.2	13.7	0.83	12.99	0.34	12.65	2129.4	1923.5	205.9	9.67
+guard	striped	after.k3	trusted	2588.2	2539.8	48.4	1.87	2198.0	2220.0	-22.0	-1.00	13.03	0.35	12.68	2391.5	2059.3	332.2	13.89
+guard	striped	after.k4	memory	1803.0	1765.1	37.9	2.10	1568.9	1556.8	12.0	0.77	13.33	0.33	12.99	1717.1	1583.2	133.8	7.79
+guard	striped	after.k4	checked	2603.9	2589.9	14.0	0.54	2311.1	2242.0	69.1	2.99	13.02	0.33	12.69	2225.6	2050.6	175.1	7.87
+guard	striped	after.k4	trusted	2516.3	2497.8	18.4	0.73	2246.7	2274.4	-27.7	-1.23	13.99	0.33	13.65	2103.7	2150.9	-47.2	-2.24
+guard	striped	before.k4	memory	1309.3	1298.8	10.5	0.80	1375.6	1389.3	-13.7	-0.99	0.45	0.27	0.18	1510.7	1513.9	-3.2	-0.21
+guard	striped	before.k4	checked	1752.9	1759.8	-6.9	-0.39	1599.8	1596.4	3.4	0.21	0.45	0.27	0.19	1738.1	1558.6	179.5	10.33
+guard	striped	before.k4	trusted	1710.6	1707.5	3.1	0.18	1584.9	1596.3	-11.3	-0.72	0.45	0.31	0.14	1993.0	1842.3	150.7	7.56
+guard	striped	before.k5	memory	1736.2	1765.4	-29.2	-1.68	1550.5	1521.7	28.8	1.86	0.45	0.26	0.19	1647.9	1660.5	-12.5	-0.76
+guard	striped	before.k5	checked	1737.0	1748.6	-11.6	-0.67	1638.0	2018.9	-381.0	-23.26	0.45	0.26	0.19	1516.3	2008.4	-492.1	-32.45
+guard	striped	before.k5	trusted	1689.9	1683.7	6.2	0.37	1586.8	1571.3	15.5	0.98	0.45	0.26	0.19	1987.6	2074.2	-86.6	-4.36
+guard	striped	after.k5	memory	1790.0	1692.4	97.6	5.45	1543.1	1465.8	77.3	5.01	12.99	0.37	12.62	1331.9	1238.5	93.4	7.01
+guard	striped	after.k5	checked	1723.3	1716.7	6.5	0.38	1590.1	1570.6	19.5	1.22	13.67	0.39	13.28	3173.3	3240.3	-67.0	-2.11
+guard	striped	after.k5	trusted	1716.8	1678.3	38.6	2.25	1524.5	1553.7	-29.2	-1.92	12.92	0.36	12.56	2266.7	2197.2	69.5	3.06
+#refbuild: n engine build_s heap_mb_after_build note
+refbuild	1000000	v6-heap	1.28	69	ok
+refbuild	1000000	ukkonen	0.74	161	ok
+refbuild	1000000	esa-memory	0.10	10	ok
+refbuild	4000000	v6-heap	6.15	275	ok
+refbuild	4000000	ukkonen	4.69	483	ok
+refbuild	4000000	esa-memory	0.32	38	ok
+refbuild	10000000	v6-heap	14.94	687	ok
+refbuild	10000000	ukkonen	12.38	966	ok
+refbuild	10000000	esa-memory	1.01	95	ok
