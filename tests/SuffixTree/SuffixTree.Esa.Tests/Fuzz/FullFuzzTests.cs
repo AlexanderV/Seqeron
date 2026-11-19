@@ -89,6 +89,16 @@ public class FullFuzzHarnessTests
 
     private static readonly Lazy<FullFuzzSummary> SmokeRun = new(() => Smoke());
 
+    /// <summary>The corruption lane alone with enough cases (the draw of a kind is a pure function of the master seed and the index; about 40 % of the texts have a code unit above 255 and are skipped) that every kind of damage is drawn.</summary>
+    private static readonly Lazy<FullFuzzSummary> CorruptionRun = new(() => FullFuzzRunner.Run(new FullFuzzOptions
+    {
+        MasterSeed = 1,
+        Budget = TimeSpan.FromMinutes(10),
+        Threads = 2,
+        Lanes = [new FullFuzzLane("corruption", 1)],
+        MaxCasesPerLane = 400,
+    }));
+
     [Test]
     public void TheSmokeSlice_HasNoFailure_AndRunsEveryLane()
     {
@@ -127,9 +137,11 @@ public class FullFuzzHarnessTests
     [Test]
     public void EveryKindOfDamage_IsDrawn_AndEveryOutcomeWasAllowed()
     {
-        CorruptionStats stats = SmokeRun.Value.Corruption;
+        FullFuzzSummary run = CorruptionRun.Value;
+        CorruptionStats stats = run.Corruption;
         Assert.Multiple(() =>
         {
+            Assert.That(run.Failures.Select(f => $"{f.Case.Id} {f.Op}: {f.Detail}"), Is.Empty);
             foreach (DamageKind kind in Enum.GetValues<DamageKind>()) Assert.That(stats.Total(kind), Is.GreaterThan(0), $"{kind} was drawn");
             Assert.That(stats.BatteryRuns, Is.GreaterThan(0), "a damaged file that passed the Header level was read");
             Assert.That(stats.BatteryOk, Is.GreaterThan(0));

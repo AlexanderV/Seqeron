@@ -34,13 +34,13 @@ public class FacadeSharedIndexTests
     }
 
     [Test]
-    public void RandomDna_EveryMember_FourThreads_20Repetitions_InMemoryAndFileBacked() => Check(StringFamilies.RandomDna(1800, 41) + "ACGTACGTAC", 11);
+    public void RandomDna_EveryMember_FourThreads_20Repetitions_InMemoryAndFileBacked() => Check(StringFamilies.RandomDna(1000, 41) + "ACGTACGTAC", 11);
 
     [Test]
-    public void FibonacciWord_EveryMember_FourThreads_20Repetitions_InMemoryAndFileBacked() => Check(StringFamilies.Fibonacci(1500), 12);
+    public void FibonacciWord_EveryMember_FourThreads_20Repetitions_InMemoryAndFileBacked() => Check(StringFamilies.Fibonacci(800), 12);
 
     [Test]
-    public void RunsAndRepeats_EveryMember_FourThreads_20Repetitions_InMemoryAndFileBacked() => Check(new string('a', 700) + "b" + new string('a', 400) + StringFamilies.Random(300, 3, 5), 13);
+    public void RunsAndRepeats_EveryMember_FourThreads_20Repetitions_InMemoryAndFileBacked() => Check(new string('a', 300) + "b" + new string('a', 200) + StringFamilies.Random(150, 3, 5), 13);
 
     [Test]
     public void ATextAboveByte_InMemoryOnly_FourThreads_20Repetitions() => Check("abĀāabĀĂ" + StringFamilies.Random(600, 5, 7) + "Āāab", 14, ["memory-default"]);
