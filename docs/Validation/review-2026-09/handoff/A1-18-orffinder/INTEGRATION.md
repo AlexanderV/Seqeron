@@ -2,6 +2,8 @@
 
 > **DONE (B09 WP10, F57)** - integrated as described in README.md; deviations from this plan: the converter is `scripts/analysis/generate_orffinder_oracle.py` (compact result-table TSV `orffinder_cli_oracle.tsv`), `OrfSearchOptions` members are `IgnoreNestedOrfs`, `OrfFinderMinimumLength`, `DualCodingStopsTerminate`, `Strands`, `RegionStart/RegionEnd`, profile `OrfFinderCompatible` (no `Circular`: the binary ignores `-c`).
 
+> **Archive retention (B09 audit A2-45 c, 2026-11-19):** `returned/A1-18-orffinder-out.zip` (17.7 MB, sha256 `0a5cf9ce8759c44f1a6f9d23b04713e05500c04cadc6c016ca112fcd08fab09b`) is KEPT in the tree as provenance: `scripts/analysis/generate_orffinder_oracle.py` reads it by default and it is the only record of the raw output of the real NCBI `ORFfinder` 0.4.3 (not runnable in the review sandbox); the committed `orffinder_cli_oracle.tsv` is derived from it. It is reproducible from this package (`./run.sh` on a machine with Docker, `--platform linux/amd64` on Apple Silicon). The package is not "TEMPORARY" any more; do not delete the archive without first changing the generator to read a different source.
+
 Written before the output exists. Every "decided by the oracle" item below is a question the 1750 runs answer; the plan fixes the
 code shape, so the integrating session only fills in the measured rule. No rule is implemented before it is observed in `out/`.
 
