@@ -179,6 +179,8 @@ Scripts: `analysis/bench/handoff_package.tar.gz`; results must not be merged int
 
 ## 7. Decisions needed from the owner
 
+**Update 2026-11-19:** the owner approved S0 and S1 (S1b: yes on 2026-11-09) and, on 2026-11-19, the continuation through **all of S2-S8, S7 included**, with the defaults listed in PROGRESS-S1.md 'Owner decisions 2026-11-19' for items 2-4 below (additive `long` overloads, hand-off runs as a package for the owner's Mac, S7 in scope). The status line at the top of this file is the state of 2026-11-03.
+
 1. Approve S0 and S1 (and thereby the go/no-go gate), or decline.
 2. API policy for 64-bit positions (S2): additive `long` overloads (recommended) or breaking change.
 3. Whether S7 (largest cost, needed only for the +0.4 margin) is in scope.
