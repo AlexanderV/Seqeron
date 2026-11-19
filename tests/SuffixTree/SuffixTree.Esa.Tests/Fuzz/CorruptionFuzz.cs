@@ -32,6 +32,12 @@ internal enum DamageKind
 
     /// <summary>One byte of a section-table entry flipped, the header checksum recomputed.</summary>
     TableField,
+
+    /// <summary>One byte of the header fields (the magic, the sizes, the statistics, the hash of the text) flipped and the header checksum recomputed: what the checksum no longer guards.</summary>
+    HeaderField,
+
+    /// <summary>One byte of the packed text, the alphabet, the symbol counts or the build information flipped and every checksum recomputed.</summary>
+    SealedPayloadFlip,
 }
 
 /// <summary>Counts of the corruption lane, per kind of damage and outcome, thread safe.</summary>
@@ -137,11 +143,12 @@ internal static class CorruptionFuzz
         File.WriteAllBytes(path, image);
 
         EsaValidationLevel? refusedAt = null;
+        bool dispatcher = (damageSeed & 2) != 0; // half of the cases are opened through SuffixIndexFactory.Open, the others through EsaSuffixTreeFactory.Open
         foreach (EsaValidationLevel level in Levels)
         {
             try
             {
-                using EsaSuffixTree tree = SesaTestFile.Open(path, level, EsaAccessMode.Checked, sha: level == EsaValidationLevel.Structure);
+                using EsaSuffixTree tree = OpenAt(path, level, EsaAccessMode.Checked, level == EsaValidationLevel.Structure, dispatcher);
                 if (refusedAt is { } earlier) return $"{where}: refused at {earlier} but opened at {level}";
             }
             catch (Exception e) when (e is InvalidDataException or NotSupportedException)
@@ -176,7 +183,7 @@ internal static class CorruptionFuzz
 
         if (refusedAt is null)
         {
-            string? different = CompareWithTheTrueText(path, text, damageSeed);
+            string? different = CompareWithTheTrueText(path, text, damageSeed, dispatcher);
             if (different is not null) return $"{where}: every level accepted the file, but {different}";
             ctx.Stats.Count(kind, "opened-equal");
             return null;
@@ -186,14 +193,18 @@ internal static class CorruptionFuzz
         return Battery(image, text, damageSeed, where, ctx);
     }
 
-    private static string? CompareWithTheTrueText(string path, string text, ulong seed)
+    private static EsaSuffixTree OpenAt(string path, EsaValidationLevel level, EsaAccessMode access, bool sha, bool dispatcher) => dispatcher
+        ? (EsaSuffixTree)SuffixIndexFactory.Open(path, new EsaOpenOptions { Validation = level, Access = access, VerifyTextSha256 = sha })
+        : SesaTestFile.Open(path, level, access, sha);
+
+    private static string? CompareWithTheTrueText(string path, string text, ulong seed, bool dispatcher)
     {
         FuzzScript script = FuzzScript.Create(text, seed);
         using EsaSuffixTree memory = EsaSuffixTree.Build(text);
         List<string> expected = FuzzDigest.Compute(memory, text, script, DigestLimits.Default);
         foreach (EsaAccessMode access in new[] { EsaAccessMode.Checked, EsaAccessMode.Trusted })
         {
-            using EsaSuffixTree tree = SesaTestFile.Open(path, EsaValidationLevel.Structure, access);
+            using EsaSuffixTree tree = OpenAt(path, EsaValidationLevel.Structure, access, sha: true, dispatcher);
             if (FuzzDigest.Diff(FuzzDigest.Compute(tree, text, script, DigestLimits.Default), expected, $"the file ({access})", "the in-memory tree") is { } diff) return diff;
         }
         return null;
@@ -268,6 +279,22 @@ internal static class CorruptionFuzz
                 image.CopyTo(longer, 0);
                 for (int i = image.Length; i < longer.Length; i++) longer[i] = (byte)rng.NextInt(256);
                 return (longer, $"{extra} bytes appended");
+            }
+            case DamageKind.HeaderField:
+            {
+                int at = rng.NextInt(124);
+                image[at] ^= (byte)(1 + rng.NextInt(255));
+                int count = BinaryPrimitives.ReadInt32LittleEndian(image.AsSpan(48));
+                if (count is >= 1 and <= SesaFormat.MaxSections) SesaTestFile.ResealHeader(image); // a damaged SECTION_COUNT has no checksum to compute: the stale one refuses the file
+                return (image, $"flip of header byte {at}, header checksum recomputed");
+            }
+            case DamageKind.SealedPayloadFlip:
+            {
+                OracleSection s = Pick(o, rng, SesaFormat.KindText, SesaFormat.KindAlphabet, SesaFormat.KindCounts, SesaFormat.KindBuildInfo);
+                int at = (int)s.Offset + rng.NextInt((int)s.Length);
+                image[at] ^= (byte)(1 + rng.NextInt(255));
+                SesaTestFile.Reseal(image);
+                return (image, $"sealed flip of byte {at} of section {s.Kind}");
             }
             default:
             {

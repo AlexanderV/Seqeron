@@ -243,12 +243,56 @@ internal static class FuzzDigest
         for (int j = 0; j < script.Queries.Count; j++)
             AddMatching(tree, text, script, script.Queries[j], j, Add);
 
+        AddErrors(tree, script, Add);
+
         // diagnostics
         var visitor = new HashingVisitor();
         tree.Traverse(visitor);
         Add("traverse", $"{visitor.Nodes}/{Hex(visitor.Hash)}");
         if (n <= limits.PrintUpTo) Add("print-tree", Hex(Fnv(Basis, FacadeChecks.StripLinkMarks(tree.PrintTree()))));
         return lines;
+    }
+
+    /// <summary>The exceptions of the argument checks: a null argument, a minimum length below 1, an undefined uniqueness, a length of zero; the type and the parameter name must be those of the other backends.</summary>
+    private static void AddErrors(ISuffixTree tree, FuzzScript script, Action<string, string> add)
+    {
+        string q = script.Queries.Count > 2 ? script.Queries[2] : "ab";
+        void Probe(string label, Action call)
+        {
+            string outcome;
+            try
+            {
+                call();
+                outcome = "no exception";
+            }
+            catch (ArgumentException e)
+            {
+                outcome = $"{e.GetType().Name}({e.ParamName})";
+            }
+            catch (Exception e)
+            {
+                outcome = e.GetType().Name;
+            }
+            add($"error[{label}]", outcome);
+        }
+
+        Probe("Contains(null)", () => tree.Contains((string)null!));
+        Probe("FindAllOccurrences(null)", () => tree.FindAllOccurrences((string)null!));
+        Probe("CountOccurrences(null)", () => tree.CountOccurrences((string)null!));
+        Probe("LongestCommonSubstring(null)", () => tree.LongestCommonSubstring((string)null!));
+        Probe("LongestCommonSubstringInfo(null)", () => tree.LongestCommonSubstringInfo(null!));
+        Probe("FindAllLongestCommonSubstrings(null)", () => tree.FindAllLongestCommonSubstrings(null!));
+        Probe("FindAllDistinctLongestCommonSubstrings(null)", () => tree.FindAllDistinctLongestCommonSubstrings(null!));
+        Probe("FindExactMatchAnchors(null)", () => tree.FindExactMatchAnchors(null!, 3));
+        Probe("FindMaximalExactMatches(null)", () => tree.FindMaximalExactMatches(null!, 3));
+        Probe("FindMaximalUniqueMatches(null)", () => tree.FindMaximalUniqueMatches(null!, 3));
+        Probe("FindMaximalExactMatches(minLength 0)", () => tree.FindMaximalExactMatches(q, 0));
+        Probe("FindMaximalExactMatches(minLength -1)", () => tree.FindMaximalExactMatches(q, -1));
+        Probe("FindMaximalUniqueMatches(minLength 0)", () => tree.FindMaximalUniqueMatches(q, 0));
+        Probe("FindMaximalUniqueMatches(undefined uniqueness)", () => tree.FindMaximalUniqueMatches(q, 3, (MumUniqueness)99));
+        Probe("CountDistinctSubstringsByLength(0)", () => tree.CountDistinctSubstringsByLength(0));
+        Probe("CountDistinctSubstringsByLength(-1)", () => tree.CountDistinctSubstringsByLength(-1));
+        Probe("Traverse(null)", () => tree.Traverse(null!));
     }
 
     private static void AddTextAccess(ISuffixTree tree, string text, Action<string, string> add)

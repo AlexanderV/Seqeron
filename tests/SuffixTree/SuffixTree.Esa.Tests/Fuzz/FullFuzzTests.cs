@@ -7,8 +7,8 @@ namespace SuffixTree.Esa.Tests.Fuzz;
 /// <summary>
 /// The budgeted run of the full differential fuzz (work package 1b.8, gate G2): the whole matrix (the families x alphabets x size bands over the in-memory and the file-backed engines, the container corruption fuzz, the
 /// shared-index test) for a time budget from the environment. Category <c>Fuzz</c>, <c>[Explicit]</c>. Environment: <c>ESA_FUZZ_SEED</c> (master seed, default 1), <c>ESA_FUZZ_BUDGET_S</c> (seconds, default 60),
-/// <c>ESA_FUZZ_THREADS</c> (workers per lane, default the number of cores), <c>ESA_FUZZ_LANES</c> (a comma separated subset of tiny, small, large, corruption, concurrency; default all with the shares of
-/// <see cref="FullFuzzOptions.DefaultLanes"/>), <c>ESA_FUZZ_REPORT</c> (a file for the report), <c>ESA_FUZZ_JOURNAL</c> (a directory for the journal of the case each worker is in), <c>ESA_FUZZ_HANG_S</c> (seconds a worker may stay in one case, default 300).
+/// <c>ESA_FUZZ_THREADS</c> (workers per lane, default the number of cores), <c>ESA_FUZZ_LANES</c> (a comma separated subset of tiny, small, large, xl, corruption, concurrency; default all with the shares of
+/// <see cref="FullFuzzOptions.DefaultLanes"/>), <c>ESA_FUZZ_REPORT</c> (a file for the report), <c>ESA_FUZZ_JOURNAL</c> (a directory for the journal of the case each worker is in), <c>ESA_FUZZ_HANG_S</c> (seconds a worker may stay in one case, default 300), <c>ESA_FUZZ_MAXFAIL</c> (stop after this many failures, default 3), <c>ESA_FUZZ_MINIMIZE_S</c> (seconds for the minimizer per failure, default 30).
 /// A failure prints <c>family:seed:n:sigma:param</c>, the failed operation and the minimized text, writes the regression lines to <c>fuzz-failures.txt</c> in the test work directory, and the lines are appended to
 /// <c>Fuzz/regressions.txt</c> once the defect is fixed. <c>analysis/em/run_1b8_fuzz.sh</c> drives the run.
 /// </summary>
@@ -28,6 +28,8 @@ public class FullDifferentialFuzzTests
         double hang = double.Parse(Env("ESA_FUZZ_HANG_S") ?? "300", CultureInfo.InvariantCulture);
         string[]? names = Env("ESA_FUZZ_LANES")?.Split(',', StringSplitOptions.RemoveEmptyEntries);
         FullFuzzLane[] lanes = names is null ? [.. FullFuzzOptions.DefaultLanes] : [.. FullFuzzOptions.DefaultLanes.Where(l => names.Contains(l.Name))];
+        int maxFailures = int.Parse(Env("ESA_FUZZ_MAXFAIL") ?? "3", CultureInfo.InvariantCulture);
+        double minimize = double.Parse(Env("ESA_FUZZ_MINIMIZE_S") ?? "30", CultureInfo.InvariantCulture);
         string? journal = Env("ESA_FUZZ_JOURNAL");
         if (journal is not null) Directory.CreateDirectory(journal);
         string? reportFile = Env("ESA_FUZZ_REPORT");
@@ -44,6 +46,8 @@ public class FullDifferentialFuzzTests
             Threads = threads,
             Lanes = lanes,
             HangLimit = TimeSpan.FromSeconds(hang),
+            MaxFailures = maxFailures,
+            MinimizeLimit = TimeSpan.FromSeconds(minimize),
             JournalDirectory = journal,
             Log = Log,
         });

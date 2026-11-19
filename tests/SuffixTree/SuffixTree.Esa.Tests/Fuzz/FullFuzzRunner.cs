@@ -14,8 +14,11 @@ internal sealed class FullFuzzOptions
     /// <summary>The lanes of the matrix with the shares of the time budget: the three size bands of the differential fuzz over every engine, the container corruption fuzz and the shared-index test.</summary>
     internal static readonly FullFuzzLane[] DefaultLanes =
     [
-        new("tiny", 0.26), new("small", 0.26), new("large", 0.18), new("corruption", 0.18), new("concurrency", 0.12),
+        new("tiny", 0.24), new("small", 0.24), new("large", 0.16), new("xl", 0.06), new("corruption", 0.18), new("concurrency", 0.12),
     ];
+
+    /// <summary>The largest band of the differential fuzz: 10^5 to 5 x 10^5 symbols (a case costs seconds, almost all of it in the references: the v6 tree builds in about 1.5 s per 10^6 symbols, the digest of the Ukkonen and the v6 tree is the slow part).</summary>
+    internal static readonly FuzzTier XlTier = new("n<=5e5", 100_001, 500_000, true, 0, 6);
 
     /// <summary>The size band of the concurrency lane (its texts are short: every case runs 3 kinds x repetitions x threads).</summary>
     internal static readonly FuzzTier ConcurrencyTier = new("n<=1500", 20, 1500, true, 0, 4);
@@ -165,12 +168,13 @@ internal static class FullFuzzRunner
                 case "tiny": Differential(o, FuzzTier.Tiny, result, summary, budget, watchdog, stop); break;
                 case "small": Differential(o, FuzzTier.Small, result, summary, budget, watchdog, stop); break;
                 case "large": Differential(o, FuzzTier.Large, result, summary, budget, watchdog, stop); break;
+                case "xl": Differential(o, FullFuzzOptions.XlTier, result, summary, budget, watchdog, stop); break;
                 case "corruption": Corruption(o, result, summary, budget, watchdog, stop); break;
                 case "concurrency": Concurrency(o, result, summary, budget, watchdog, stop); break;
                 default: throw new ArgumentException($"unknown lane '{lane.Name}'", nameof(o));
             }
             result.Elapsed = Stopwatch.GetElapsedTime(laneStart);
-            summary.SkippedForFile += result.Name is "tiny" or "small" or "large" ? result.Skipped : 0;
+            summary.SkippedForFile += result.Name is "tiny" or "small" or "large" or "xl" ? result.Skipped : 0;
             o.Log?.Invoke($"lane {lane.Name} done: {result.Cases} cases in {result.Elapsed.TotalSeconds:F1} s, {result.Failures.Count} failure(s)");
         }
         summary.Elapsed = Stopwatch.GetElapsedTime(start);
@@ -224,6 +228,7 @@ internal static class FullFuzzRunner
     private static void Differential(FullFuzzOptions o, FuzzTier tier, FullFuzzLaneResult result, FullFuzzSummary summary, TimeSpan budget, Watchdog watchdog, StopFlag stop)
     {
         long next = -1;
+        long ticksPerCase = 0;
         long deadline = Stopwatch.GetTimestamp() + (long)(budget.TotalSeconds * Stopwatch.Frequency);
         long maxCases = o.MaxCasesPerLane ?? long.MaxValue;
         RunWorkers(o.Threads, w =>
@@ -234,14 +239,16 @@ internal static class FullFuzzRunner
                 var ctx = new FullFuzzContext { Counters = summary.Counters, WorkDir = workDir, Stats = summary.Stats, CountFault = o.CountFault };
                 while (stop.Value == 0)
                 {
+                    if (!MayStart(result, deadline, ticksPerCase, o.Threads)) break;
                     long i = Interlocked.Increment(ref next);
-                    if (i >= maxCases || Stopwatch.GetTimestamp() >= deadline) break;
+                    if (i >= maxCases) break;
                     FuzzCase c = FuzzRunner.CaseAt(o.MasterSeed, tier, i);
                     string text = c.Text();
                     if (i == 0) result.FirstCaseId = c.Id;
                     result.LastCaseId = c.Id;
                     Journal(o, tier.Name, w, c.Id);
                     watchdog.Enter(w, $"{tier.Name} {c.Id}");
+                    long caseStart = Stopwatch.GetTimestamp();
                     long before = Interlocked.Read(ref ctx.SkippedForFile);
                     FuzzMismatch? mismatch;
                     try
@@ -253,6 +260,7 @@ internal static class FullFuzzRunner
                         mismatch = new FuzzMismatch("harness:" + e.GetType().Name, e.ToString());
                     }
                     watchdog.Leave(w);
+                    Interlocked.Add(ref ticksPerCase, Stopwatch.GetTimestamp() - caseStart);
                     Interlocked.Increment(ref result.Cases);
                     Interlocked.Add(ref result.Units, text.Length);
                     if (Interlocked.Read(ref ctx.SkippedForFile) > before) Interlocked.Increment(ref result.Skipped);
@@ -265,6 +273,17 @@ internal static class FullFuzzRunner
                 Directory.Delete(workDir, true);
             }
         });
+    }
+
+    /// <summary>A worker starts a case only if the lane's time is not up and the case, at the mean cost of the cases so far, is likely to end before it (a lane of long cases does not run past its budget by a whole case).</summary>
+    private static bool MayStart(FullFuzzLaneResult result, long deadline, long totalTicks, int workers)
+    {
+        long now = Stopwatch.GetTimestamp();
+        if (now >= deadline) return false;
+        long cases = Interlocked.Read(ref result.Cases);
+        if (cases < workers) return true;
+        long mean = totalTicks / cases;
+        return now + (mean * 7 / 10) < deadline;
     }
 
     internal sealed class StopFlag(int initial)
@@ -288,6 +307,19 @@ internal static class FullFuzzRunner
         result.Failures.Add(failure);
         o.Log?.Invoke($"FAIL {c.Id} op {m.Op}: {Short(m.Detail)}; minimized to {minimized.Length} unit(s): {FuzzRegressions.EncodeUnits(minimized)}");
         if (result.Failures.Count >= o.MaxFailures) stop.Set();
+    }
+
+    /// <summary>True when the corruption case still fails on the shrunk text; an exception of the harness itself on a shrunk text is not the failure that is being minimized.</summary>
+    private static bool FailsToo(Func<string?> run)
+    {
+        try
+        {
+            return run() is not null;
+        }
+        catch (Exception)
+        {
+            return false;
+        }
     }
 
     private static string Short(string s) => s.Length <= 400 ? s : s[..400] + "...";
@@ -332,7 +364,7 @@ internal static class FullFuzzRunner
                         var scratch = new CorruptionContext { Counters = new MemberCounters(FuzzSubjects.EngineNames), WorkDir = workDir };
                         string minimized = FuzzMinimizer.Minimize(
                             text,
-                            t => Stopwatch.GetElapsedTime(t0) < o.MinimizeLimit && CorruptionFuzz.Run(c.Id, t, kind, damageSeed, scratch) is not null,
+                            t => Stopwatch.GetElapsedTime(t0) < o.MinimizeLimit && FailsToo(() => CorruptionFuzz.Run(c.Id, t, kind, damageSeed, scratch)),
                             maxChecks: 2_000);
                         result.Failures.Add(new FuzzFailure(c, CorruptionFuzz.Op(kind, damageSeed), failure, minimized));
                         o.Log?.Invoke($"FAIL corruption {c.Id} {kind}: {Short(failure)}; minimized to {minimized.Length} unit(s): {FuzzRegressions.EncodeUnits(minimized)}");

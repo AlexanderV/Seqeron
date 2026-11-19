@@ -229,7 +229,7 @@ internal sealed class CountingTree : ISuffixTree, ISuffixTreeNavigation, ISuffix
     public void Traverse(ISuffixTreeVisitor visitor)
     {
         Hit("ISuffixTreeDiagnostics.Traverse(ISuffixTreeVisitor)");
-        _inner.Traverse(new CountingVisitor(this, visitor));
+        _inner.Traverse(visitor is null ? null! : new CountingVisitor(this, visitor)); // a null visitor reaches the tree itself, which must refuse it
     }
 
     // ---------------------------------------------------------------- ISuffixIndex
