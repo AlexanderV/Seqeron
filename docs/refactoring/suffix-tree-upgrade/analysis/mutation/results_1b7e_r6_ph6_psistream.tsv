@@ -1,0 +1,12 @@
+P08	a negative n is accepted	killed(1)	
+P22	a window of under one entry means no entries	survived	survived
+P28	the shared budget is not charged	killed(1)	
+P38	the read buffer is zeroed	survived	survived
+P40	the guards are ignored by the arena	killed(1)	
+P50	the BWT bytes read are one pass	killed(1)	
+P53	the limit of a symbol ignores the count	killed(1)	
+P58	a symbol of the next pass is taken	killed(1)	
+P64	the end array is not freed (not observable)	survived	survived
+P66	an excess occurrence at the limit is not refused	survived	survived
+P67	the window ignores the remaining entries	killed(1)	
+P75	the released view is not disposed	killed(1)	

@@ -1,0 +1,10 @@
+[
+ {
+  "id": "A15",
+  "desc": "the path mode does not complete the file",
+  "old": "if (section is null)\n            {\n                saFile.Complete(options.SyncOutput);",
+  "new": "if (section is not null)\n            {\n                saFile.Complete(options.SyncOutput);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests.SaBuilder|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SaBuilderTests|FullyQualifiedName~SesaAuditTests)"
+ }
+]

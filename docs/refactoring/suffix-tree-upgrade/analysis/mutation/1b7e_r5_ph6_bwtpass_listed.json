@@ -1,0 +1,18 @@
+[
+ {
+  "id": "W07",
+  "desc": "a text at the limit is refused",
+  "old": "if (n > PackedTextFormat.MaxSymbols) throw",
+  "new": "if (n >= PackedTextFormat.MaxSymbols) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/BwtPass.cs",
+  "filter": "(FullyQualifiedName~SesaAuditTests|FullyQualifiedName~SesaBuilderTests.OptionsThatCannotBeUsed|FullyQualifiedName~SesaBuilderTests.EveryOption|FullyQualifiedName~SesaFailureTests.TheLatePreflight|FullyQualifiedName~SesaSectionTests.AFailureInsideTheStage|FullyQualifiedName~SuffixOrderTests|FullyQualifiedName~SesaGapTests)"
+ },
+ {
+  "id": "W13",
+  "desc": "the read is not bounded by the rows",
+  "old": "int readEntries = (int)Math.Min(options.ReadBytes / sizeof(uint), rows);",
+  "new": "int readEntries = options.ReadBytes / sizeof(uint);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/BwtPass.cs",
+  "filter": "(FullyQualifiedName~SesaAuditTests|FullyQualifiedName~SesaBuilderTests.OptionsThatCannotBeUsed|FullyQualifiedName~SesaBuilderTests.EveryOption|FullyQualifiedName~SesaFailureTests.TheLatePreflight|FullyQualifiedName~SesaSectionTests.AFailureInsideTheStage|FullyQualifiedName~SuffixOrderTests|FullyQualifiedName~SesaGapTests)"
+ }
+]

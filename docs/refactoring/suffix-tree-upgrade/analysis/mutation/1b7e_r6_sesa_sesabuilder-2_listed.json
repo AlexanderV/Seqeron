@@ -1,0 +1,98 @@
+[
+ {
+  "id": "B158",
+  "desc": "BUILD_INFO counts its bytes",
+  "old": "buildInfo.Count(c => c == '\\n')",
+  "new": "buildInfo.Length",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests|FullyQualifiedName~SesaAuditTests)"
+ },
+ {
+  "id": "B160",
+  "desc": "LCP has the wrong element width",
+  "old": "rows, tail.LcpWidth, tail.Kind switch",
+  "new": "rows, 4, tail.Kind switch",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests|FullyQualifiedName~SesaAuditTests)"
+ },
+ {
+  "id": "B178",
+  "desc": "the header sigma is the bits",
+  "old": "Sigma = info.Sigma,\n                TextSha256",
+  "new": "Sigma = info.Bits,\n                TextSha256",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests|FullyQualifiedName~SesaAuditTests)"
+ },
+ {
+  "id": "B182",
+  "desc": "the first sync is skipped",
+  "old": "                if (options.Fsync) file.Flush();\n                Hook(SesaHooks.HeaderSynced);",
+  "new": "                Hook(SesaHooks.HeaderSynced);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests|FullyQualifiedName~SesaAuditTests)"
+ },
+ {
+  "id": "B192",
+  "desc": "a failed build keeps the container open",
+  "old": "            container?.Dispose();\n            if (!published)",
+  "new": "            if (!published)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests|FullyQualifiedName~SesaAuditTests)"
+ },
+ {
+  "id": "B196",
+  "desc": "the figure is in the wrong unit",
+  "old": "double? anonMb = all.Available ? all.MaxRssAnonKb * 1024.0 / 1e6 : null;",
+  "new": "double? anonMb = all.Available ? all.MaxRssAnonKb * 1024.0 / 1e9 : null;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests|FullyQualifiedName~SesaAuditTests)"
+ },
+ {
+  "id": "B204",
+  "desc": "the phase sampler reads the real /proc",
+  "old": "_sampler = new RssSampler(new RssReader(options.ProcSource), 10);",
+  "new": "_sampler = new RssSampler(new RssReader(null), 10);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests|FullyQualifiedName~SesaAuditTests)"
+ },
+ {
+  "id": "B206",
+  "desc": "PSI flag of the result",
+  "old": "HasPsi = options.IncludePsi,",
+  "new": "HasPsi = true,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests|FullyQualifiedName~SesaAuditTests)"
+ },
+ {
+  "id": "B208",
+  "desc": "the sections of the primary row are taken from nothing",
+  "old": "BuildSections(plan, placed, info, bwt?.PrimaryRow ?? -1,",
+  "new": "BuildSections(plan, placed, info, bwt?.PrimaryRow ?? 0,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests|FullyQualifiedName~SesaAuditTests)"
+ },
+ {
+  "id": "B212",
+  "desc": "arena peak forgets PH1",
+  "old": "Math.Max(sa.Ph1ArenaPeakBytes, sa.Ph23ArenaPeakBytes)",
+  "new": "Math.Max(0, sa.Ph23ArenaPeakBytes)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests|FullyQualifiedName~SesaAuditTests)"
+ },
+ {
+  "id": "B214",
+  "desc": "arena peak adds PH4 and PH5 as a maximum",
+  "old": "lcp.ArenaPeakBytes + lcp.ChildArenaPeakBytes",
+  "new": "Math.Max(lcp.ArenaPeakBytes, lcp.ChildArenaPeakBytes)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests|FullyQualifiedName~SesaAuditTests)"
+ },
+ {
+  "id": "B247",
+  "desc": "the 16 B spill constant",
+  "old": "internal const int SpillBytesPerEntry = 16;",
+  "new": "internal const int SpillBytesPerEntry = 15;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests|FullyQualifiedName~SesaAuditTests)"
+ }
+]

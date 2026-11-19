@@ -317,7 +317,7 @@ public class SesaAuditTests
         string input = SesaRun.WriteInput(_dir, text);
         string target = _dir.File("hooks.sesa");
         string tmp = target + ".tmp", scratch = tmp + ".d";
-        bool? bwtDirAtPsi = null, bwtFileAtPsi = null, mappedAtChecksums = null, mappedAtInfo = null;
+        bool? bwtDirAtPsi = null, bwtFileAtPsi = null, mappedAtChecksums = null, mappedAtInfo = null, fdAtInfo = null, fdAtChecksums = null;
         int ph4Files = -1;
         SesaBuildOptions options = SesaRun.Tiny(3, 1, true) with
         {
@@ -328,8 +328,16 @@ public class SesaAuditTests
                     bwtDirAtPsi = Directory.Exists(Path.Combine(scratch, "ph6"));
                     bwtFileAtPsi = File.Exists(Path.Combine(scratch, "ph6", "bwt.bin"));
                 }
-                if (point == SesaHooks.InfoWritten) mappedAtInfo = ProcMaps.Contains(tmp);
-                if (point == SesaHooks.Checksummed) mappedAtChecksums = ProcMaps.Contains(tmp);
+                if (point == SesaHooks.InfoWritten)
+                {
+                    mappedAtInfo = ProcMaps.Contains(tmp);
+                    fdAtInfo = ProcFds.Open()?.Contains(Path.GetFullPath(tmp));
+                }
+                if (point == SesaHooks.Checksummed)
+                {
+                    mappedAtChecksums = ProcMaps.Contains(tmp);
+                    fdAtChecksums = ProcFds.Open()?.Contains(Path.GetFullPath(tmp));
+                }
             },
             LcpTrace = step =>
             {
@@ -340,7 +348,9 @@ public class SesaAuditTests
         Assert.That((bwtDirAtPsi, bwtFileAtPsi), Is.EqualTo((false, false)), "the BWT scratch file and its directory are gone when PSI is done");
         Assert.That(ph4Files, Is.GreaterThan(0), "PH4 keeps its spools under ph4 (not ph5) while B3 starts");
         if (mappedAtInfo is not null) Assert.That(mappedAtInfo, Is.True, "the container is still mapped when BUILD_INFO is written (control of the probe)");
-        Assert.That(mappedAtChecksums ?? false, Is.False, "the text reader and the container are closed before the checksum pass maps the file again, and its view is gone when it ends");
+        Assert.That(mappedAtChecksums ?? false, Is.False, "the text reader is closed before the checksum pass maps the file again, and its view is gone when it ends");
+        if (fdAtInfo is not null) Assert.That(fdAtInfo, Is.True, "the container is open when BUILD_INFO is written (control of the probe)");
+        Assert.That(fdAtChecksums ?? false, Is.False, "the container is closed (no descriptor of the file) when the checksum pass has run");
     }
 
     [Test]
@@ -353,6 +363,43 @@ public class SesaAuditTests
         PsiStats psi = o.Result.Psi!;
         Assert.That((psi.Passes, psi.SymbolsPerPass, psi.MappedBoundBytes), Is.EqualTo((2, 64, 64L * MappedWindowWriter.DefaultWindowBytes)), "70 symbols take two passes of at most 64, each window of the default size");
         Assert.That(o.Result.Bwt!.Counts, Has.Length.EqualTo(70));
+    }
+
+    [Test]
+    public void ThePsiWindowIsAtLeastOneEntry_AndASymbolThatOccursMoreOftenThanCounted_IsRefusedBeforeItWritesPastItsRange()
+    {
+        byte[] s = [.. StringFamilies.RandomDna(150, 55).Select(ch => (byte)"ACGT".IndexOf(ch))];
+        int n = s.Length;
+        foreach (int window in new[] { 1, 2, 3 })
+        {
+            using var dir = new TempDir();
+            Ph6Run.Outcome o = Ph6Run.Run(dir, s, 4, null, new PsiOptions { WindowBytes = window, SymbolsPerPass = 3 });
+            Ph6Run.Compare(s, 4, o, $"windows of {window} byte(s) are one entry");
+            Assert.That(o.Psi.MappedBoundBytes, Is.EqualTo(3L * 4), "three cursors of one entry each");
+        }
+        // one symbol occurs once more than its count says; the first entry that does not belong to it is the one that must be refused, not written into the next range (the bytes around the range stay as they were)
+        int[] sa = Ph6Run.Sa(s);
+        long psiOffset = 64 + (4L * (n + 1)) + 64;
+        long size = psiOffset + (4L * (n + 1)) + 256;
+        string container = _dir.File("over.bin");
+        string bwtPath = _dir.File("over.bwt");
+        string textPath = TextOracle.WriteFile(_dir, "over.pk", s, 2);
+        using MappedTextReader reader = MappedTextReader.Open(textPath, n, 2);
+        using MappedOutputFile file = Ph6Run.CreateContainer(container, sa, 64, size);
+        file.Complete(false);
+        BwtResult b = BwtPass.Build(container, 64, reader, 4, bwtPath);
+        long[] counts = [.. b.Counts];
+        counts[1] -= 1;
+        counts[3] += 1;
+        foreach (int window in new[] { 4, 8, 1 << 20 })
+        {
+            Assert.Throws<InvalidDataException>(() => PsiStream.Build(bwtPath, n, b.PrimaryRow, counts, file, psiOffset, new PsiOptions { WindowBytes = window }), $"window {window}");
+        }
+        file.Complete(false);
+        byte[] bytes = File.ReadAllBytes(container);
+        long end = psiOffset + (4L * (n + 1));
+        Assert.That(bytes.AsSpan((int)end).ToArray().All(x => x == 0xA5), Is.True, "nothing was written behind the range of PSI");
+        Assert.That(bytes.AsSpan(64 + (4 * (n + 1)), 64).ToArray().All(x => x == 0xA5), Is.True, "nor between the suffix array and PSI");
     }
 
     // ---- the counted calls of a fixed geometry (the sizes of every stage reach their stage: a size that is dropped or changed on the way changes a count)

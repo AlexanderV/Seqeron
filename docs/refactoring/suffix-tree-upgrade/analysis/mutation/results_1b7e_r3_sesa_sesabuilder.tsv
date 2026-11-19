@@ -1,0 +1,7 @@
+B01	Threads below 1 accepted	killed(1)	
+B03	negative child arena cap accepted	killed(1)	
+B05	negative RssAnon cap accepted	killed(1)	
+B29	no hook after the BWT	killed(1)	
+B43	the alphabet goes to the counts section	killed(1)	
+B51	PH1-3 get no arena cap	killed(1)	
+B53	PH1-3 get another seed (output must not depend on it)	killed(1)	

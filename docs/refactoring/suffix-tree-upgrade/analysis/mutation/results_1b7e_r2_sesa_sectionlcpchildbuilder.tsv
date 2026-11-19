@@ -1,0 +1,25 @@
+K02	a negative child offset is accepted	survived	
+K04	a negative PH5 cap is accepted	survived	
+K06	a text at the position limit is refused	survived	
+K08	a child range that ends at the end of the file is refused	killed(1)	
+K10	the scratch root is always removed when empty	killed(1)	
+K12	ph4 is left	killed(1)	
+K14	the sampler is not started	killed(1)	
+K16	PH4 gets another chunk	killed(1)	
+K18	PH4 gets one worker	killed(1)	
+K20	PH4 gets another tuple buffer	killed(1)	
+K22	PH4 gets no budget	killed(1)	
+K24	PH4 is not counted	killed(1)	
+K26	PH4 gets no trace	killed(1)	
+K28	PH4 gets no placer	killed(hang)	
+K30	PH5 gets another block size	killed(1)	
+K32	PH5 gets one slot	killed(hang)	
+K34	PH5 gets another spill flush size	survived	
+K36	PH5 gets no budget	killed(1)	
+K38	PH5 is not counted	killed(1)	
+K40	a scan that never started is an NRE, not an invalid operation	survived	
+K42	the figure is in the wrong unit	killed(hang)	
+K44	the verdict is swapped	killed(hang)	
+K46	the seconds are not measured	killed(hang)	
+K48	the scratch root is not removed when empty	killed(hang)	
+K50	the parameters are not reported	killed(1)	

@@ -1,0 +1,12 @@
+G01	Grow on a disposed file does not refuse	killed(1)	
+G03	Grow refuses to stay	killed(hang)	
+G05	no growth reports a check	killed(1)	
+G07	one open writer is tolerated	killed(1)	
+G09	the pre-flight refuses at equality	killed(1)	
+G11	the pre-flight is skipped	killed(1)	
+G13	the file grows by one byte too much	killed(1)	
+G15	the stream refuses to share	killed(1)	
+G17	the old mapping is kept	survived	
+G19	the length is not updated	killed(1)	
+G21	the outcome is never checked	killed(1)	
+G23	the lock is dropped (single threaded use)	survived	

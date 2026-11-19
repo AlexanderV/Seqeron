@@ -1,0 +1,2 @@
+K02	a negative child offset is accepted	killed(hang)	
+K04	a negative PH5 cap is accepted	killed(1)	

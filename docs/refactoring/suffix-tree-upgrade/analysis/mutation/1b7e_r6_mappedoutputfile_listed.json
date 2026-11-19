@@ -1,0 +1,10 @@
+[
+ {
+  "id": "G03",
+  "desc": "Grow refuses to stay",
+  "old": "ArgumentOutOfRangeException.ThrowIfLessThan(newLength, Length);",
+  "new": "ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(newLength, Length);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests.Grow|FullyQualifiedName~MappedOutputFileTests|FullyQualifiedName~SesaAuditTests)"
+ }
+]

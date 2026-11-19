@@ -1,0 +1,34 @@
+[
+ {
+  "id": "A01",
+  "desc": "a null file is an NRE",
+  "old": "        ArgumentNullException.ThrowIfNull(file);\n        ArgumentNullException.ThrowIfNull(options);\n        return BuildCore(text, null, file",
+  "new": "        ArgumentNullException.ThrowIfNull(options);\n        return BuildCore(text, null, file",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaAuditTests|FullyQualifiedName~SesaBuilderTests.OptionsThatCannotBeUsed|FullyQualifiedName~SesaBuilderTests.EveryOption|FullyQualifiedName~SesaFailureTests.TheLatePreflight|FullyQualifiedName~SesaSectionTests.AFailureInsideTheStage|FullyQualifiedName~SuffixOrderTests|FullyQualifiedName~SesaGapTests)"
+ },
+ {
+  "id": "A03",
+  "desc": "a null option set is an NRE",
+  "old": "        ArgumentNullException.ThrowIfNull(file);\n        ArgumentNullException.ThrowIfNull(options);\n        return BuildCore",
+  "new": "        ArgumentNullException.ThrowIfNull(file);\n        return BuildCore",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaAuditTests|FullyQualifiedName~SesaBuilderTests.OptionsThatCannotBeUsed|FullyQualifiedName~SesaBuilderTests.EveryOption|FullyQualifiedName~SesaFailureTests.TheLatePreflight|FullyQualifiedName~SesaSectionTests.AFailureInsideTheStage|FullyQualifiedName~SuffixOrderTests|FullyQualifiedName~SesaGapTests)"
+ },
+ {
+  "id": "A05",
+  "desc": "a negative section offset is accepted",
+  "old": "            ArgumentOutOfRangeException.ThrowIfNegative(saOffset);\n            if (saOffset > section.Length",
+  "new": "            if (saOffset > section.Length",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaAuditTests|FullyQualifiedName~SesaBuilderTests.OptionsThatCannotBeUsed|FullyQualifiedName~SesaBuilderTests.EveryOption|FullyQualifiedName~SesaFailureTests.TheLatePreflight|FullyQualifiedName~SesaSectionTests.AFailureInsideTheStage|FullyQualifiedName~SuffixOrderTests|FullyQualifiedName~SesaGapTests)"
+ },
+ {
+  "id": "A13",
+  "desc": "the section sink is not counted",
+  "old": "saOffset, 4 * (n + 1), p.WindowBytes, counters)",
+  "new": "saOffset, 4 * (n + 1), p.WindowBytes, null)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaAuditTests|FullyQualifiedName~SesaBuilderTests.OptionsThatCannotBeUsed|FullyQualifiedName~SesaBuilderTests.EveryOption|FullyQualifiedName~SesaFailureTests.TheLatePreflight|FullyQualifiedName~SesaSectionTests.AFailureInsideTheStage|FullyQualifiedName~SuffixOrderTests|FullyQualifiedName~SesaGapTests)"
+ }
+]

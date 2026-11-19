@@ -1,0 +1,11 @@
+B30	no hook after PSI	killed(1)	
+B44	the packing window of the text section is not the option	killed(1)	
+B46	PH1-3 get one thread	killed(1)	
+B50	PH1-3 get no rule n	killed(1)	
+B56	PH1-3 get no guards	killed(1)	
+B58	PH1-3 are not measured	killed(1)	
+B65	PH4 gets no arena cap	killed(1)	
+B69	PH4-5 get no file options	killed(1)	
+B80	the late pre-flight skips a source that reports 0	survived	
+B82	the late pre-flight forgets the growth	killed(hang)	
+B86	the growth outcome is not kept	killed(1)	

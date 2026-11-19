@@ -1,0 +1,38 @@
+P02	the default is 32 symbols per pass	killed(1)	
+P04	the default cap is 128 MiB	killed(1)	
+P06	symbols per pass 0 is accepted	killed(1)	
+P08	a negative n is accepted	survived	survived
+P10	a primary row of n + 1 is accepted	killed(1)	
+P12	the last row is refused as primary	killed(1)	
+P14	an alphabet of 257 is accepted	killed(1)	
+P16	a zero count is refused	killed(1)	
+P18	a sum below n is accepted	killed(1)	
+P20	the PSI range may end past the file	killed(1)	
+P22	a window of under one entry means no entries	survived	survived
+P24	the passes are rounded down	killed(1)	
+P26	the bound is in entries	killed(1)	
+P28	the shared budget is not charged	killed(hang)	
+P30	a longer BWT file is accepted	killed(1)	
+P32	the BWT reads are not counted	killed(1)	
+P34	PSI[0] is not written	BUILD-ERROR CS1023	
+P36	PSI[0] is written at the second entry	killed(1)	
+P38	the read buffer is zeroed	survived	survived
+P40	the guards are ignored by the arena	survived	survived
+P42	the last symbol of a pass is off	killed(1)	
+P44	the primary row at a block end is not skipped	killed(1)	
+P46	rows after the primary row are numbered from the primary row	killed(1)	
+P48	the counts are not verified at the end of the pass	killed(1)	
+P50	the BWT bytes read are one pass	killed(hang)	
+P52	the stats carry the symbols as the group	killed(1)	
+P54	the first entry of a symbol is off	killed(1)	
+P56	the cursor never unregisters as a writer	killed(1)	
+P58	a symbol of the next pass is taken	killed(hang)	
+P60	a cursor that stopped short is not noticed in the window	killed(1)	
+P62	the views are not released	killed(1)	
+P64	the end array is not freed (not observable)	survived	survived
+P66	an excess occurrence at the limit is not refused	survived	survived
+P68	the window starts at the section start	killed(1)	
+P70	the window is not counted as mapped	killed(1)	
+P72	the windows are not counted	killed(1)	
+P74	the release does not release the pointer	killed(1)	
+P76	the released view stays registered	killed(1)	

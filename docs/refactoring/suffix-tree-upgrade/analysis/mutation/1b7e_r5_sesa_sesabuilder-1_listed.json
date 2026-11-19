@@ -1,0 +1,114 @@
+[
+ {
+  "id": "B89",
+  "desc": "the late pre-flight asks about the target",
+  "old": "long available = source.AvailableFreeBytes(directory);",
+  "new": "long available = source.AvailableFreeBytes(tmp);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaAuditTests|FullyQualifiedName~SesaBuilderTests.OptionsThatCannotBeUsed|FullyQualifiedName~SesaBuilderTests.EveryOption|FullyQualifiedName~SesaFailureTests.TheLatePreflight|FullyQualifiedName~SesaSectionTests.AFailureInsideTheStage|FullyQualifiedName~SuffixOrderTests|FullyQualifiedName~SesaGapTests)"
+ },
+ {
+  "id": "B101",
+  "desc": "the BWT pass gets no budget",
+  "old": "Budget = budget,\n            ArenaGuards = options.ArenaGuards,\n            Counters = counters,\n            Files = options.Files,",
+  "new": "Budget = null,\n            ArenaGuards = options.ArenaGuards,\n            Counters = counters,\n            Files = options.Files,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaAuditTests|FullyQualifiedName~SesaBuilderTests.OptionsThatCannotBeUsed|FullyQualifiedName~SesaBuilderTests.EveryOption|FullyQualifiedName~SesaFailureTests.TheLatePreflight|FullyQualifiedName~SesaSectionTests.AFailureInsideTheStage|FullyQualifiedName~SuffixOrderTests|FullyQualifiedName~SesaGapTests)"
+ },
+ {
+  "id": "B107",
+  "desc": "PSI gets another read size",
+  "old": "ReadBytes = tune.ReadBytes ?? 1 << 20,\n                WindowCapBytes",
+  "new": "ReadBytes = 1 << 20,\n                WindowCapBytes",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaAuditTests|FullyQualifiedName~SesaBuilderTests.OptionsThatCannotBeUsed|FullyQualifiedName~SesaBuilderTests.EveryOption|FullyQualifiedName~SesaFailureTests.TheLatePreflight|FullyQualifiedName~SesaSectionTests.AFailureInsideTheStage|FullyQualifiedName~SuffixOrderTests|FullyQualifiedName~SesaGapTests)"
+ },
+ {
+  "id": "B111",
+  "desc": "PSI is not counted",
+  "old": "Counters = counters,\n            });\n            double secPsi",
+  "new": "Counters = null,\n            });\n            double secPsi",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaAuditTests|FullyQualifiedName~SesaBuilderTests.OptionsThatCannotBeUsed|FullyQualifiedName~SesaBuilderTests.EveryOption|FullyQualifiedName~SesaFailureTests.TheLatePreflight|FullyQualifiedName~SesaSectionTests.AFailureInsideTheStage|FullyQualifiedName~SuffixOrderTests|FullyQualifiedName~SesaGapTests)"
+ },
+ {
+  "id": "B121",
+  "desc": "the text reader stays open until the end",
+  "old": "            text.Dispose();\n            text = null;\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaAuditTests|FullyQualifiedName~SesaBuilderTests.OptionsThatCannotBeUsed|FullyQualifiedName~SesaBuilderTests.EveryOption|FullyQualifiedName~SesaFailureTests.TheLatePreflight|FullyQualifiedName~SesaSectionTests.AFailureInsideTheStage|FullyQualifiedName~SuffixOrderTests|FullyQualifiedName~SesaGapTests)"
+ },
+ {
+  "id": "B123",
+  "desc": "the container is not closed before the checksums",
+  "old": "            text = null;\n            container.Dispose();\n",
+  "new": "            text = null;\n",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaAuditTests|FullyQualifiedName~SesaBuilderTests.OptionsThatCannotBeUsed|FullyQualifiedName~SesaBuilderTests.EveryOption|FullyQualifiedName~SesaFailureTests.TheLatePreflight|FullyQualifiedName~SesaSectionTests.AFailureInsideTheStage|FullyQualifiedName~SuffixOrderTests|FullyQualifiedName~SesaGapTests)"
+ },
+ {
+  "id": "B147",
+  "desc": "ALPHABET has another codec",
+  "old": "info.Sigma, 2, 1, 0, 0, crcs[i])",
+  "new": "info.Sigma, 2, 0, 0, 0, crcs[i])",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaAuditTests|FullyQualifiedName~SesaBuilderTests.OptionsThatCannotBeUsed|FullyQualifiedName~SesaBuilderTests.EveryOption|FullyQualifiedName~SesaFailureTests.TheLatePreflight|FullyQualifiedName~SesaSectionTests.AFailureInsideTheStage|FullyQualifiedName~SuffixOrderTests|FullyQualifiedName~SesaGapTests)"
+ },
+ {
+  "id": "B163",
+  "desc": "LCP U32 has codec 2",
+  "old": "LcpKind.U8 => 1, LcpKind.U16 => 2, _ => 3 }",
+  "new": "LcpKind.U8 => 1, LcpKind.U16 => 2, _ => 2 }",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaAuditTests|FullyQualifiedName~SesaBuilderTests.OptionsThatCannotBeUsed|FullyQualifiedName~SesaBuilderTests.EveryOption|FullyQualifiedName~SesaFailureTests.TheLatePreflight|FullyQualifiedName~SesaSectionTests.AFailureInsideTheStage|FullyQualifiedName~SuffixOrderTests|FullyQualifiedName~SesaGapTests)"
+ },
+ {
+  "id": "B199",
+  "desc": "the per-phase figure is in the wrong unit",
+  "old": "return stats.Available ? stats.MaxRssAnonKb * 1024.0 / 1e6 : null;",
+  "new": "return stats.Available ? stats.MaxRssAnonKb * 1024.0 / 1e9 : null;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaAuditTests|FullyQualifiedName~SesaBuilderTests.OptionsThatCannotBeUsed|FullyQualifiedName~SesaBuilderTests.EveryOption|FullyQualifiedName~SesaFailureTests.TheLatePreflight|FullyQualifiedName~SesaSectionTests.AFailureInsideTheStage|FullyQualifiedName~SuffixOrderTests|FullyQualifiedName~SesaGapTests)"
+ },
+ {
+  "id": "B205",
+  "desc": "the seconds are not scaled",
+  "old": "private static double Elapsed(long t0) => (Stopwatch.GetTimestamp() - t0) / (double)Stopwatch.Frequency;",
+  "new": "private static double Elapsed(long t0) => Stopwatch.GetTimestamp() - t0;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaAuditTests|FullyQualifiedName~SesaBuilderTests.OptionsThatCannotBeUsed|FullyQualifiedName~SesaBuilderTests.EveryOption|FullyQualifiedName~SesaFailureTests.TheLatePreflight|FullyQualifiedName~SesaSectionTests.AFailureInsideTheStage|FullyQualifiedName~SuffixOrderTests|FullyQualifiedName~SesaGapTests)"
+ },
+ {
+  "id": "B207",
+  "desc": "the primary row of the result without PSI",
+  "old": "PrimaryRow = bwt?.PrimaryRow ?? -1,",
+  "new": "PrimaryRow = bwt?.PrimaryRow ?? 0,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaAuditTests|FullyQualifiedName~SesaBuilderTests.OptionsThatCannotBeUsed|FullyQualifiedName~SesaBuilderTests.EveryOption|FullyQualifiedName~SesaFailureTests.TheLatePreflight|FullyQualifiedName~SesaSectionTests.AFailureInsideTheStage|FullyQualifiedName~SuffixOrderTests|FullyQualifiedName~SesaGapTests)"
+ },
+ {
+  "id": "B211",
+  "desc": "arena peak forgets PH6",
+  "old": "Math.Max(lcp.ArenaPeakBytes + lcp.ChildArenaPeakBytes, psi?.MappedBoundBytes ?? 0)",
+  "new": "Math.Max(lcp.ArenaPeakBytes + lcp.ChildArenaPeakBytes, 0)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaAuditTests|FullyQualifiedName~SesaBuilderTests.OptionsThatCannotBeUsed|FullyQualifiedName~SesaBuilderTests.EveryOption|FullyQualifiedName~SesaFailureTests.TheLatePreflight|FullyQualifiedName~SesaSectionTests.AFailureInsideTheStage|FullyQualifiedName~SuffixOrderTests|FullyQualifiedName~SesaGapTests)"
+ },
+ {
+  "id": "B213",
+  "desc": "arena peak forgets PH2-3",
+  "old": "Math.Max(sa.Ph1ArenaPeakBytes, sa.Ph23ArenaPeakBytes)",
+  "new": "Math.Max(sa.Ph1ArenaPeakBytes, 0)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaAuditTests|FullyQualifiedName~SesaBuilderTests.OptionsThatCannotBeUsed|FullyQualifiedName~SesaBuilderTests.EveryOption|FullyQualifiedName~SesaFailureTests.TheLatePreflight|FullyQualifiedName~SesaSectionTests.AFailureInsideTheStage|FullyQualifiedName~SuffixOrderTests|FullyQualifiedName~SesaGapTests)"
+ },
+ {
+  "id": "B225",
+  "desc": "the PSI seconds are not reported",
+  "old": "Psi = secPsi,",
+  "new": "Psi = 0,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaAuditTests|FullyQualifiedName~SesaBuilderTests.OptionsThatCannotBeUsed|FullyQualifiedName~SesaBuilderTests.EveryOption|FullyQualifiedName~SesaFailureTests.TheLatePreflight|FullyQualifiedName~SesaSectionTests.AFailureInsideTheStage|FullyQualifiedName~SuffixOrderTests|FullyQualifiedName~SesaGapTests)"
+ }
+]

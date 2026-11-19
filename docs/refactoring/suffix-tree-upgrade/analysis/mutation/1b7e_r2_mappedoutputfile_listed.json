@@ -5,7 +5,7 @@
   "old": "        ArgumentOutOfRangeException.ThrowIfLessThan(newLength, Length);\n",
   "new": "",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
-  "filter": "(FullyQualifiedName~SesaSectionTests.Grow|FullyQualifiedName~MappedOutputFileTests)"
+  "filter": "(FullyQualifiedName~SesaSectionTests.Grow|FullyQualifiedName~MappedOutputFileTests|FullyQualifiedName~SesaAuditTests)"
  },
  {
   "id": "G04",
@@ -13,7 +13,7 @@
   "old": "        if (newLength == Length) return ReservationOutcome.Sparse;\n",
   "new": "",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
-  "filter": "(FullyQualifiedName~SesaSectionTests.Grow|FullyQualifiedName~MappedOutputFileTests)"
+  "filter": "(FullyQualifiedName~SesaSectionTests.Grow|FullyQualifiedName~MappedOutputFileTests|FullyQualifiedName~SesaAuditTests)"
  },
  {
   "id": "G06",
@@ -21,7 +21,7 @@
   "old": "if (open != 0) throw new InvalidOperationException($\"{open} writer(s) of {Path} are still open: dispose every writer before growing",
   "new": "if (open < 0) throw new InvalidOperationException($\"{open} writer(s) of {Path} are still open: dispose every writer before growing",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
-  "filter": "(FullyQualifiedName~SesaSectionTests.Grow|FullyQualifiedName~MappedOutputFileTests)"
+  "filter": "(FullyQualifiedName~SesaSectionTests.Grow|FullyQualifiedName~MappedOutputFileTests|FullyQualifiedName~SesaAuditTests)"
  },
  {
   "id": "G08",
@@ -29,7 +29,7 @@
   "old": "long growth = newLength - Length;",
   "new": "long growth = newLength;",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
-  "filter": "(FullyQualifiedName~SesaSectionTests.Grow|FullyQualifiedName~MappedOutputFileTests)"
+  "filter": "(FullyQualifiedName~SesaSectionTests.Grow|FullyQualifiedName~MappedOutputFileTests|FullyQualifiedName~SesaAuditTests)"
  },
  {
   "id": "G10",
@@ -37,7 +37,7 @@
   "old": "if (free >= 0 && free < growth) throw",
   "new": "if (free > 0 && free < growth) throw",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
-  "filter": "(FullyQualifiedName~SesaSectionTests.Grow|FullyQualifiedName~MappedOutputFileTests)"
+  "filter": "(FullyQualifiedName~SesaSectionTests.Grow|FullyQualifiedName~MappedOutputFileTests|FullyQualifiedName~SesaAuditTests)"
  },
  {
   "id": "G12",
@@ -45,7 +45,7 @@
   "old": "string directory = System.IO.Path.GetDirectoryName(System.IO.Path.GetFullPath(Path)) ?? \".\";\n        long free",
   "new": "string directory = Path;\n        long free",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
-  "filter": "(FullyQualifiedName~SesaSectionTests.Grow|FullyQualifiedName~MappedOutputFileTests)"
+  "filter": "(FullyQualifiedName~SesaSectionTests.Grow|FullyQualifiedName~MappedOutputFileTests|FullyQualifiedName~SesaAuditTests)"
  },
  {
   "id": "G14",
@@ -53,7 +53,7 @@
   "old": "stream.SetLength(newLength);",
   "new": "",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
-  "filter": "(FullyQualifiedName~SesaSectionTests.Grow|FullyQualifiedName~MappedOutputFileTests)"
+  "filter": "(FullyQualifiedName~SesaSectionTests.Grow|FullyQualifiedName~MappedOutputFileTests|FullyQualifiedName~SesaAuditTests)"
  },
  {
   "id": "G16",
@@ -61,7 +61,7 @@
   "old": "undo.SetLength(previous);",
   "new": "",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
-  "filter": "(FullyQualifiedName~SesaSectionTests.Grow|FullyQualifiedName~MappedOutputFileTests)"
+  "filter": "(FullyQualifiedName~SesaSectionTests.Grow|FullyQualifiedName~MappedOutputFileTests|FullyQualifiedName~SesaAuditTests)"
  },
  {
   "id": "G18",
@@ -69,7 +69,7 @@
   "old": "            _map?.Dispose();\n            _map = map;",
   "new": "            map.Dispose();",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
-  "filter": "(FullyQualifiedName~SesaSectionTests.Grow|FullyQualifiedName~MappedOutputFileTests)"
+  "filter": "(FullyQualifiedName~SesaSectionTests.Grow|FullyQualifiedName~MappedOutputFileTests|FullyQualifiedName~SesaAuditTests)"
  },
  {
   "id": "G20",
@@ -77,7 +77,7 @@
   "old": "return free >= 0 ? ReservationOutcome.FreeSpaceChecked : ReservationOutcome.Unchecked;\n    }\n\n    /// <summary>A writer for the bytes",
   "new": "return ReservationOutcome.FreeSpaceChecked;\n    }\n\n    /// <summary>A writer for the bytes",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
-  "filter": "(FullyQualifiedName~SesaSectionTests.Grow|FullyQualifiedName~MappedOutputFileTests)"
+  "filter": "(FullyQualifiedName~SesaSectionTests.Grow|FullyQualifiedName~MappedOutputFileTests|FullyQualifiedName~SesaAuditTests)"
  },
  {
   "id": "G22",
@@ -85,6 +85,6 @@
   "old": "IReservationSource source = options?.Source ?? SystemReservationSource.Instance;\n        long growth",
   "new": "IReservationSource source = SystemReservationSource.Instance;\n        long growth",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
-  "filter": "(FullyQualifiedName~SesaSectionTests.Grow|FullyQualifiedName~MappedOutputFileTests)"
+  "filter": "(FullyQualifiedName~SesaSectionTests.Grow|FullyQualifiedName~MappedOutputFileTests|FullyQualifiedName~SesaAuditTests)"
  }
 ]

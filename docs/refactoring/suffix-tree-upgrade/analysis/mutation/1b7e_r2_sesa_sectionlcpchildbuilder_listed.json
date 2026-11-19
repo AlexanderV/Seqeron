@@ -5,7 +5,7 @@
   "old": "        ArgumentOutOfRangeException.ThrowIfNegative(childOffset);\n",
   "new": "",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SectionLcpChildBuilder.cs",
-  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption)"
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption|FullyQualifiedName~SesaAuditTests)"
  },
  {
   "id": "K04",
@@ -13,7 +13,7 @@
   "old": "        ArgumentOutOfRangeException.ThrowIfNegative(options.ChildArenaCapBytes);\n",
   "new": "",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SectionLcpChildBuilder.cs",
-  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption)"
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption|FullyQualifiedName~SesaAuditTests)"
  },
  {
   "id": "K06",
@@ -21,7 +21,7 @@
   "old": "if (n > PackedTextFormat.MaxSymbols) throw",
   "new": "if (n >= PackedTextFormat.MaxSymbols) throw",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SectionLcpChildBuilder.cs",
-  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption)"
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption|FullyQualifiedName~SesaAuditTests)"
  },
  {
   "id": "K08",
@@ -29,7 +29,7 @@
   "old": "if (childOffset > file.Length - (4 * (n + 1))) throw",
   "new": "if (childOffset >= file.Length - (4 * (n + 1))) throw",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SectionLcpChildBuilder.cs",
-  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption)"
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption|FullyQualifiedName~SesaAuditTests)"
  },
  {
   "id": "K10",
@@ -37,7 +37,7 @@
   "old": "bool createdRoot = !Directory.Exists(scratch);",
   "new": "bool createdRoot = true;",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SectionLcpChildBuilder.cs",
-  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption)"
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption|FullyQualifiedName~SesaAuditTests)"
  },
  {
   "id": "K12",
@@ -45,7 +45,7 @@
   "old": "            DeleteDirectoryQuietly(ph4);\n",
   "new": "",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SectionLcpChildBuilder.cs",
-  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption)"
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption|FullyQualifiedName~SesaAuditTests)"
  },
  {
   "id": "K14",
@@ -53,7 +53,7 @@
   "old": "            sampler?.Start();\n",
   "new": "",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SectionLcpChildBuilder.cs",
-  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption)"
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption|FullyQualifiedName~SesaAuditTests)"
  },
  {
   "id": "K16",
@@ -61,7 +61,7 @@
   "old": "ChunkPositions = p.LcpChunk,",
   "new": "ChunkPositions = p.LcpChunk + 1,",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SectionLcpChildBuilder.cs",
-  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption)"
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption|FullyQualifiedName~SesaAuditTests)"
  },
  {
   "id": "K18",
@@ -69,7 +69,7 @@
   "old": "Workers = p.LcpWorkers,",
   "new": "Workers = 1,",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SectionLcpChildBuilder.cs",
-  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption)"
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption|FullyQualifiedName~SesaAuditTests)"
  },
  {
   "id": "K20",
@@ -77,7 +77,7 @@
   "old": "TupleBufferBytes = p.LcpTupleBytes,",
   "new": "TupleBufferBytes = p.LcpTupleBytes * 2,",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SectionLcpChildBuilder.cs",
-  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption)"
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption|FullyQualifiedName~SesaAuditTests)"
  },
  {
   "id": "K22",
@@ -85,7 +85,7 @@
   "old": "Budget = lcpBudget,",
   "new": "Budget = null,",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SectionLcpChildBuilder.cs",
-  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption)"
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption|FullyQualifiedName~SesaAuditTests)"
  },
  {
   "id": "K24",
@@ -93,7 +93,7 @@
   "old": "Counters = counters,\n                Files = options.Files,\n                Trace",
   "new": "Counters = null,\n                Files = options.Files,\n                Trace",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SectionLcpChildBuilder.cs",
-  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption)"
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption|FullyQualifiedName~SesaAuditTests)"
  },
  {
   "id": "K26",
@@ -101,7 +101,7 @@
   "old": "Trace = options.Trace,",
   "new": "Trace = null,",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SectionLcpChildBuilder.cs",
-  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption)"
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption|FullyQualifiedName~SesaAuditTests)"
  },
  {
   "id": "K28",
@@ -109,7 +109,7 @@
   "old": "Place = place,",
   "new": "Place = null,",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SectionLcpChildBuilder.cs",
-  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption)"
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption|FullyQualifiedName~SesaAuditTests)"
  },
  {
   "id": "K30",
@@ -117,7 +117,7 @@
   "old": "BlockEntries = p.BlockEntries,",
   "new": "BlockEntries = p.BlockEntries + 1,",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SectionLcpChildBuilder.cs",
-  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption)"
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption|FullyQualifiedName~SesaAuditTests)"
  },
  {
   "id": "K32",
@@ -125,7 +125,7 @@
   "old": "WindowSlots = p.ChildSlots,",
   "new": "WindowSlots = 1,",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SectionLcpChildBuilder.cs",
-  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption)"
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption|FullyQualifiedName~SesaAuditTests)"
  },
  {
   "id": "K34",
@@ -133,7 +133,7 @@
   "old": "SpillFlushBytes = p.SpillFlushBytes,",
   "new": "SpillFlushBytes = p.SpillFlushBytes * 2,",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SectionLcpChildBuilder.cs",
-  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption)"
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption|FullyQualifiedName~SesaAuditTests)"
  },
  {
   "id": "K36",
@@ -141,7 +141,7 @@
   "old": "Budget = childBudget,",
   "new": "Budget = null,",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SectionLcpChildBuilder.cs",
-  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption)"
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption|FullyQualifiedName~SesaAuditTests)"
  },
  {
   "id": "K38",
@@ -149,7 +149,7 @@
   "old": "Counters = counters,\n            };",
   "new": "Counters = null,\n            };",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SectionLcpChildBuilder.cs",
-  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption)"
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption|FullyQualifiedName~SesaAuditTests)"
  },
  {
   "id": "K40",
@@ -157,7 +157,7 @@
   "old": "(_scan ?? throw new InvalidOperationException(\"PH4 delivered no LCP block\")).Complete()",
   "new": "_scan!.Complete()",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SectionLcpChildBuilder.cs",
-  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption)"
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption|FullyQualifiedName~SesaAuditTests)"
  },
  {
   "id": "K42",
@@ -165,7 +165,7 @@
   "old": "rss.MaxRssAnonKb * 1024.0 / 1e6",
   "new": "rss.MaxRssAnonKb * 1024.0 / 1e9",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SectionLcpChildBuilder.cs",
-  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption)"
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption|FullyQualifiedName~SesaAuditTests)"
  },
  {
   "id": "K44",
@@ -173,7 +173,7 @@
   "old": "? RssVerdict.Within : RssVerdict.Exceeded;",
   "new": "? RssVerdict.Exceeded : RssVerdict.Within;",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SectionLcpChildBuilder.cs",
-  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption)"
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption|FullyQualifiedName~SesaAuditTests)"
  },
  {
   "id": "K46",
@@ -181,7 +181,7 @@
   "old": "double seconds = (Stopwatch.GetTimestamp() - t0) / (double)Stopwatch.Frequency;",
   "new": "double seconds = 0;",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SectionLcpChildBuilder.cs",
-  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption)"
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption|FullyQualifiedName~SesaAuditTests)"
  },
  {
   "id": "K48",
@@ -189,7 +189,7 @@
   "old": "if (Directory.Exists(path) && !Directory.EnumerateFileSystemEntries(path).Any()) Directory.Delete(path);",
   "new": "if (Directory.Exists(path) && Directory.EnumerateFileSystemEntries(path).Any()) Directory.Delete(path);",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SectionLcpChildBuilder.cs",
-  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption)"
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption|FullyQualifiedName~SesaAuditTests)"
  },
  {
   "id": "K50",
@@ -197,6 +197,6 @@
   "old": "Parameters = p,",
   "new": "Parameters = default!,",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SectionLcpChildBuilder.cs",
-  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption)"
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~SesaBuilderTests.EveryOption|FullyQualifiedName~SesaAuditTests)"
  }
 ]

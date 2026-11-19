@@ -1,0 +1,2 @@
+B95	the BWT directory stays	killed(1)	
+B99	the BWT pass reads one byte per window	killed(hang)	

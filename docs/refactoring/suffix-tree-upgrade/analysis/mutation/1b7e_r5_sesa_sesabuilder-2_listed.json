@@ -1,0 +1,34 @@
+[
+ {
+  "id": "B227",
+  "desc": "the seal seconds are not reported",
+  "old": "Seal = secSeal,",
+  "new": "Seal = 0,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaAuditTests|FullyQualifiedName~SesaBuilderTests.OptionsThatCannotBeUsed|FullyQualifiedName~SesaBuilderTests.EveryOption|FullyQualifiedName~SesaFailureTests.TheLatePreflight|FullyQualifiedName~SesaSectionTests.AFailureInsideTheStage|FullyQualifiedName~SuffixOrderTests|FullyQualifiedName~SesaGapTests)"
+ },
+ {
+  "id": "B233",
+  "desc": "the PH4-5 seconds are not reported",
+  "old": "Ph45 = lcp.Seconds,",
+  "new": "Ph45 = 0,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaAuditTests|FullyQualifiedName~SesaBuilderTests.OptionsThatCannotBeUsed|FullyQualifiedName~SesaBuilderTests.EveryOption|FullyQualifiedName~SesaFailureTests.TheLatePreflight|FullyQualifiedName~SesaSectionTests.AFailureInsideTheStage|FullyQualifiedName~SuffixOrderTests|FullyQualifiedName~SesaGapTests)"
+ },
+ {
+  "id": "B257",
+  "desc": "PSI default window of PH6 is smaller",
+  "old": "int window = tune.WindowBytes ?? MappedWindowWriter.DefaultWindowBytes;",
+  "new": "int window = tune.WindowBytes ?? (1 << 16);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaAuditTests|FullyQualifiedName~SesaBuilderTests.OptionsThatCannotBeUsed|FullyQualifiedName~SesaBuilderTests.EveryOption|FullyQualifiedName~SesaFailureTests.TheLatePreflight|FullyQualifiedName~SesaSectionTests.AFailureInsideTheStage|FullyQualifiedName~SuffixOrderTests|FullyQualifiedName~SesaGapTests)"
+ },
+ {
+  "id": "B259",
+  "desc": "PSI default symbols per pass 16",
+  "old": "SymbolsPerPass = tune.SymbolsPerPass ?? 64,",
+  "new": "SymbolsPerPass = tune.SymbolsPerPass ?? 16,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "filter": "(FullyQualifiedName~SesaAuditTests|FullyQualifiedName~SesaBuilderTests.OptionsThatCannotBeUsed|FullyQualifiedName~SesaBuilderTests.EveryOption|FullyQualifiedName~SesaFailureTests.TheLatePreflight|FullyQualifiedName~SesaSectionTests.AFailureInsideTheStage|FullyQualifiedName~SuffixOrderTests|FullyQualifiedName~SesaGapTests)"
+ }
+]

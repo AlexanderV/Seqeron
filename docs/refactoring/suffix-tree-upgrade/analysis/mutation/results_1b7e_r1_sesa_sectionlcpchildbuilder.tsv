@@ -1,0 +1,25 @@
+K01	a negative SA offset is accepted	survived	
+K03	a negative PH4 cap is accepted	survived	
+K05	the tagged codec is accepted	killed(1)	
+K07	the child range may end past the file	survived	
+K09	the child range is not checked	killed(1)	
+K11	the scratch root is never removed	killed(1)	
+K13	ph5 is left	killed(1)	
+K15	PH4 uses the scratch of PH5	survived	
+K17	PH4 gets one thread	survived	
+K19	PH4 gets another read buffer	survived	
+K21	PH4 gets the window of PH5	survived	
+K23	PH4 gets no guards	survived	
+K25	PH4 gets no file options	survived	
+K27	PH4 reads the SA from offset 0	killed(1)	
+K29	PH5 gets another scratch	survived	
+K31	PH5 gets the window of PH4	killed(hang)	
+K33	PH5 does not flush windows	survived	
+K35	PH5 gets the default codec (tagged cannot be passed)	survived	
+K37	PH5 gets no guards	survived	
+K39	the scan is created for every block	killed(1)	
+K41	the scan is not disposed	killed(1)	
+K43	the verdict is strict	survived	
+K45	the arena peaks are swapped	survived	
+K47	the reservation outcome is not reported	killed(1)	
+K49	the sub-directories are deleted non-recursively	survived	

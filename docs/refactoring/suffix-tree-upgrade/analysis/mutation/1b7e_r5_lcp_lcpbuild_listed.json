@@ -1,0 +1,34 @@
+[
+ {
+  "id": "V09",
+  "desc": "the reservation outcome of the placement is not kept",
+  "old": "                _stats.Reservation = placement.File.Outcome;\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs",
+  "filter": "(FullyQualifiedName~SesaAuditTests|FullyQualifiedName~SesaBuilderTests.OptionsThatCannotBeUsed|FullyQualifiedName~SesaBuilderTests.EveryOption|FullyQualifiedName~SesaFailureTests.TheLatePreflight|FullyQualifiedName~SesaSectionTests.AFailureInsideTheStage|FullyQualifiedName~SuffixOrderTests|FullyQualifiedName~SesaGapTests)"
+ },
+ {
+  "id": "V11",
+  "desc": "a failed output writer leaves the writers open",
+  "old": "                baseWriter.Dispose();\n                overflowWriter.Dispose();\n                throw;",
+  "new": "                throw;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs",
+  "filter": "(FullyQualifiedName~SesaAuditTests|FullyQualifiedName~SesaBuilderTests.OptionsThatCannotBeUsed|FullyQualifiedName~SesaBuilderTests.EveryOption|FullyQualifiedName~SesaFailureTests.TheLatePreflight|FullyQualifiedName~SesaSectionTests.AFailureInsideTheStage|FullyQualifiedName~SuffixOrderTests|FullyQualifiedName~SesaGapTests)"
+ },
+ {
+  "id": "V19",
+  "desc": "the base writers use the default window",
+  "old": "placement.File.CreateWriter(placement.BaseStart, baseBytes, _o.WindowBytes, _o.Counters)",
+  "new": "placement.File.CreateWriter(placement.BaseStart, baseBytes, MappedWindowWriter.DefaultWindowBytes, _o.Counters)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs",
+  "filter": "(FullyQualifiedName~SesaAuditTests|FullyQualifiedName~SesaBuilderTests.OptionsThatCannotBeUsed|FullyQualifiedName~SesaBuilderTests.EveryOption|FullyQualifiedName~SesaFailureTests.TheLatePreflight|FullyQualifiedName~SesaSectionTests.AFailureInsideTheStage|FullyQualifiedName~SuffixOrderTests|FullyQualifiedName~SesaGapTests)"
+ },
+ {
+  "id": "V21",
+  "desc": "the overflow writer is not counted",
+  "old": "placement.File.CreateWriter(placement.OverflowStart, overflowBytes, _o.WindowBytes, _o.Counters)",
+  "new": "placement.File.CreateWriter(placement.OverflowStart, overflowBytes, _o.WindowBytes, null)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs",
+  "filter": "(FullyQualifiedName~SesaAuditTests|FullyQualifiedName~SesaBuilderTests.OptionsThatCannotBeUsed|FullyQualifiedName~SesaBuilderTests.EveryOption|FullyQualifiedName~SesaFailureTests.TheLatePreflight|FullyQualifiedName~SesaSectionTests.AFailureInsideTheStage|FullyQualifiedName~SuffixOrderTests|FullyQualifiedName~SesaGapTests)"
+ }
+]

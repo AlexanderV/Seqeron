@@ -5,7 +5,7 @@
   "old": "file.CreateWriter(start, length, windowBytes, counters)",
   "new": "file.CreateWriter(start, length - 4, windowBytes, counters)",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SaSink.cs",
-  "filter": "(FullyQualifiedName~SesaSectionTests.TheSectionSink|FullyQualifiedName~SesaSectionTests.SaBuilder)"
+  "filter": "(FullyQualifiedName~SesaSectionTests.TheSectionSink|FullyQualifiedName~SesaSectionTests.SaBuilder|FullyQualifiedName~SesaAuditTests)"
  },
  {
   "id": "T04",
@@ -13,7 +13,7 @@
   "old": "file.CreateWriter(start, length, windowBytes, counters)",
   "new": "file.CreateWriter(start, length, MappedWindowWriter.DefaultWindowBytes, counters)",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SaSink.cs",
-  "filter": "(FullyQualifiedName~SesaSectionTests.TheSectionSink|FullyQualifiedName~SesaSectionTests.SaBuilder)"
+  "filter": "(FullyQualifiedName~SesaSectionTests.TheSectionSink|FullyQualifiedName~SesaSectionTests.SaBuilder|FullyQualifiedName~SesaAuditTests)"
  },
  {
   "id": "T06",
@@ -21,6 +21,6 @@
   "old": "file.CreateWriter(start, length, windowBytes, counters));\n\n    private sealed class Writer(MappedWindowWriter inner) : ISaSliceWriter\n    {\n        public void Write(long entryOffset, ReadOnlySpan<uint> data) => inner.WriteAt(entryOffset * 4, MemoryMarshal.AsBytes(data));\n\n        public void Dispose() => inner.Dispose();",
   "new": "file.CreateWriter(start, length, windowBytes, counters));\n\n    private sealed class Writer(MappedWindowWriter inner) : ISaSliceWriter\n    {\n        public void Write(long entryOffset, ReadOnlySpan<uint> data) => inner.WriteAt(entryOffset * 4, MemoryMarshal.AsBytes(data));\n\n        public void Dispose() { }",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SaSink.cs",
-  "filter": "(FullyQualifiedName~SesaSectionTests.TheSectionSink|FullyQualifiedName~SesaSectionTests.SaBuilder)"
+  "filter": "(FullyQualifiedName~SesaSectionTests.TheSectionSink|FullyQualifiedName~SesaSectionTests.SaBuilder|FullyQualifiedName~SesaAuditTests)"
  }
 ]

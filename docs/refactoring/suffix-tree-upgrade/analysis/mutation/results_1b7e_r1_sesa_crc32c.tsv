@@ -1,0 +1,8 @@
+C01	polynomial changed	killed(1)	
+C03	dispatch swapped (both paths give the same value)	survived	
+C05	slice 7 reads table 6	killed(1)	
+C07	tail shifts by 7	killed(1)	
+C09	hardware unrolled read at +15	killed(1)	
+C11	hardware tail reads byte 0	killed(1)	
+C13	table path returns the value uncomplemented	killed(1)	
+C15	the hardware path no longer refuses without the CPU	survived	

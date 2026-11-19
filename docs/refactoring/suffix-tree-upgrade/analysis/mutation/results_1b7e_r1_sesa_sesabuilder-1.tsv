@@ -1,0 +1,70 @@
+B01	Threads below 1 accepted	survived	survived
+B03	negative child arena cap accepted	survived	survived
+B05	negative RssAnon cap accepted	survived	survived
+B07	temporary file named differently	killed(1)	
+B09	pre-flight refuses at equality	killed(1)	
+B11	pre-flight forgets the scratch per character	killed(1)	
+B13	pre-flight asks about the target, not the directory	killed(1)	
+B15	a stale scratch directory is left	killed(1)	
+B17	the build does not call the stale cleanup	killed(1)	
+B19	the container is one byte short	killed(1)	
+B21	the container outcome is not reported	killed(1)	
+B23	no hook after the scan	killed(1)	
+B25	no hook after the packing	killed(1)	
+B27	no hook at the placement	killed(1)	
+B29	no hook after the BWT	killed(hang)	
+B31	no hook after BUILD_INFO	killed(1)	
+B33	no hook after the header page	killed(1)	
+B35	no hook after the magic	killed(1)	
+B37	the packing fsyncs (not observable)	survived	survived
+B39	the text window is not passed on	survived	survived
+B41	the alphabet is written shifted	killed(1)	
+B43	the alphabet goes to the counts section	killed(hang)	
+B45	the packed text is read over a region one symbol short	killed(1)	
+B47	PH1-3 get the default period	killed(1)	
+B49	PH1-3 get no scale	killed(1)	
+B51	PH1-3 get no arena cap	survived	survived
+B53	PH1-3 get another seed (output must not depend on it)	survived	survived
+B55	PH1-3 get no file options	killed(1)	
+B57	PH1-3 do not verify the ranks	killed(1)	
+B59	PH1-3 read another /proc	killed(1)	
+B61	PH1-3 get no trace	killed(1)	
+B63	PH4-5 get no scale	killed(1)	
+B65	PH4 gets no arena cap	killed(hang)	
+B67	PH4-5 get no tuning	killed(1)	
+B69	PH4-5 get no file options	killed(hang)	
+B71	PH4-5 are not measured	killed(1)	
+B73	PH4-5 get another RssAnon cap	killed(1)	
+B75	the LCP is read from the wrong offset	killed(1)	
+B77	the growth is the sum	killed(1)	
+B79	the late pre-flight refuses at equality	killed(1)	
+B81	the late pre-flight forgets the spill	killed(1)	
+B83	the file grows also when it need not	killed(1)	
+B85	the growth is not reported in bytes	killed(1)	
+B87	the file grows without the file options	killed(1)	
+B89	the late pre-flight asks about the target	survived	survived
+B91	the BWT file is not scratch	killed(1)	
+B93	the BWT scratch is never released	killed(1)	
+B95	the BWT directory stays	survived	survived
+B97	PH6 reads the SA from the wrong offset	killed(1)	
+B99	the BWT pass reads one byte per window	survived	survived
+B101	the BWT pass gets no budget	survived	survived
+B103	the BWT pass is not counted	killed(1)	
+B105	PSI gets another window	killed(1)	
+B107	PSI gets another read size	survived	survived
+B109	PSI gets no budget	survived	survived
+B111	PSI is not counted	survived	survived
+B113	PSI gets the counts of the BWT (same values)	survived	survived
+B115	BUILD_INFO claims no PSI	killed(1)	
+B117	BUILD_INFO may fill its room	survived	survived
+B119	BUILD_INFO goes to the LCP offset	killed(1)	
+B121	the text reader stays open until the end	survived	survived
+B123	the container is not closed before the checksums	survived	survived
+B125	the file length check is off	killed(1)	
+B127	the checksum of the alphabet is of the counts	killed(1)	
+B129	the checksum of the SA is short	killed(1)	
+B131	PSI is listed also when absent	killed(hang)	
+B133	BUILD_INFO is listed with its room	killed(1)	
+B135	the overflow is listed when empty	killed(1)	
+B137	the overflow is listed one byte short	killed(1)	
+B139	required sections without the required flag	killed(1)	

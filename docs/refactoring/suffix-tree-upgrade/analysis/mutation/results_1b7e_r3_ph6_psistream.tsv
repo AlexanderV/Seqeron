@@ -1,0 +1,6 @@
+P07	a read of 0 is accepted	killed(hang)	
+P09	a text at the limit is refused	killed(1)	
+P17	a sum above n is accepted	killed(1)	
+P19	a negative PSI offset is accepted	killed(hang)	
+P25	one pass too many	killed(1)	
+P29	the shared budget is not released	killed(1)	

@@ -1,0 +1,3 @@
+T01	the section writer starts at 4	killed(hang)	
+T03	the section writer is not counted	killed(1)	
+T05	the entries are written at their offset in entries	killed(1)	

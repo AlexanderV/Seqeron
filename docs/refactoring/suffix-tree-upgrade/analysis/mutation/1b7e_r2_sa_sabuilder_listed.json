@@ -5,7 +5,7 @@
   "old": "        ArgumentNullException.ThrowIfNull(text);\n        ArgumentNullException.ThrowIfNull(file);",
   "new": "        ArgumentNullException.ThrowIfNull(file);",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
-  "filter": "(FullyQualifiedName~SesaSectionTests.SaBuilder|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SaBuilderTests)"
+  "filter": "(FullyQualifiedName~SesaSectionTests.SaBuilder|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SaBuilderTests|FullyQualifiedName~SesaAuditTests)"
  },
  {
   "id": "A04",
@@ -13,7 +13,7 @@
   "old": "if (section is not null)\n        {\n            ArgumentOutOfRangeException.ThrowIfNegative(saOffset);",
   "new": "if (section is null)\n        {\n            ArgumentOutOfRangeException.ThrowIfNegative(saOffset);",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
-  "filter": "(FullyQualifiedName~SesaSectionTests.SaBuilder|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SaBuilderTests)"
+  "filter": "(FullyQualifiedName~SesaSectionTests.SaBuilder|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SaBuilderTests|FullyQualifiedName~SesaAuditTests)"
  },
  {
   "id": "A06",
@@ -21,7 +21,7 @@
   "old": "if (saOffset > section.Length - (4 * (n + 1))) throw",
   "new": "if (saOffset > section.Length - (4 * n)) throw",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
-  "filter": "(FullyQualifiedName~SesaSectionTests.SaBuilder|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SaBuilderTests)"
+  "filter": "(FullyQualifiedName~SesaSectionTests.SaBuilder|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SaBuilderTests|FullyQualifiedName~SesaAuditTests)"
  },
  {
   "id": "A08",
@@ -29,7 +29,7 @@
   "old": "saCreated = owned is not null;",
   "new": "saCreated = true;",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
-  "filter": "(FullyQualifiedName~SesaSectionTests.SaBuilder|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SaBuilderTests)"
+  "filter": "(FullyQualifiedName~SesaSectionTests.SaBuilder|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SaBuilderTests|FullyQualifiedName~SesaAuditTests)"
  },
  {
   "id": "A10",
@@ -37,7 +37,7 @@
   "old": "new MappedSaSectionSink(saFile, saOffset, 4 * (n + 1),",
   "new": "new MappedSaSectionSink(saFile, 0, 4 * (n + 1),",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
-  "filter": "(FullyQualifiedName~SesaSectionTests.SaBuilder|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SaBuilderTests)"
+  "filter": "(FullyQualifiedName~SesaSectionTests.SaBuilder|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SaBuilderTests|FullyQualifiedName~SesaAuditTests)"
  },
  {
   "id": "A12",
@@ -45,7 +45,7 @@
   "old": "saOffset, 4 * (n + 1), p.WindowBytes, counters)",
   "new": "saOffset, 4 * (n + 1), MappedWindowWriter.DefaultWindowBytes, counters)",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
-  "filter": "(FullyQualifiedName~SesaSectionTests.SaBuilder|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SaBuilderTests)"
+  "filter": "(FullyQualifiedName~SesaSectionTests.SaBuilder|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SaBuilderTests|FullyQualifiedName~SesaAuditTests)"
  },
  {
   "id": "A14",
@@ -53,7 +53,7 @@
   "old": "if (section is null)\n            {\n                saFile.Complete(options.SyncOutput);",
   "new": "if (true)\n            {\n                saFile.Complete(options.SyncOutput);",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
-  "filter": "(FullyQualifiedName~SesaSectionTests.SaBuilder|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SaBuilderTests)"
+  "filter": "(FullyQualifiedName~SesaSectionTests.SaBuilder|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SaBuilderTests|FullyQualifiedName~SesaAuditTests)"
  },
  {
   "id": "d_Q52",

@@ -155,7 +155,7 @@ public sealed class SesaFailureTests
         long need = baseline.GrownBytes + (16L * (baseline.MaxLcp + 1));
         Assert.That(baseline.GrownBytes, Is.GreaterThan(0), "a^n has an LCP wider than one byte, so the file grows");
         Assert.That(baseline.MaxLcp, Is.EqualTo(1999));
-        foreach ((long free, bool fits) in new[] { (need - 1, false), (need, true), (need + 1, true) })
+        foreach ((long free, bool fits) in new[] { (need - 1, false), (need, true), (need + 1, true), (0L, false) })
         {
             var source = new FakeReservationSource { CanPreallocate = true, Free = 1L << 40 };
             SesaBuildOptions options = SesaRun.Tiny(1) with

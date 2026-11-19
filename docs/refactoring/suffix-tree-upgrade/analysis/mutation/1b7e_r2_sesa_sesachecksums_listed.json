@@ -5,7 +5,7 @@
   "old": "long take = Math.Min(viewBytes, length - done);",
   "new": "long take = Math.Max(viewBytes, length - done);",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaChecksums.cs",
-  "filter": "(FullyQualifiedName~SesaSectionTests.TheChecksumPass|FullyQualifiedName~SesaBuilderTests.TheResult|FullyQualifiedName~SesaBuilderTests.EverySection_EqualsTheInMemoryIndex_WithAndWithoutPsi_DefaultAndTiny)"
+  "filter": "(FullyQualifiedName~SesaSectionTests.TheChecksumPass|FullyQualifiedName~SesaBuilderTests.TheResult|FullyQualifiedName~SesaBuilderTests.EverySection_EqualsTheInMemoryIndex_WithAndWithoutPsi_DefaultAndTiny|FullyQualifiedName~SesaAuditTests)"
  },
  {
   "id": "S04",
@@ -13,7 +13,7 @@
   "old": "crc = ChecksumView(map!, offset + done, take, crc);",
   "new": "crc = ChecksumView(map!, offset, take, crc);",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaChecksums.cs",
-  "filter": "(FullyQualifiedName~SesaSectionTests.TheChecksumPass|FullyQualifiedName~SesaBuilderTests.TheResult|FullyQualifiedName~SesaBuilderTests.EverySection_EqualsTheInMemoryIndex_WithAndWithoutPsi_DefaultAndTiny)"
+  "filter": "(FullyQualifiedName~SesaSectionTests.TheChecksumPass|FullyQualifiedName~SesaBuilderTests.TheResult|FullyQualifiedName~SesaBuilderTests.EverySection_EqualsTheInMemoryIndex_WithAndWithoutPsi_DefaultAndTiny|FullyQualifiedName~SesaAuditTests)"
  },
  {
   "id": "S06",
@@ -21,7 +21,7 @@
   "old": "Crc32C.HardwareAccelerated)",
   "new": "false)",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaChecksums.cs",
-  "filter": "(FullyQualifiedName~SesaSectionTests.TheChecksumPass|FullyQualifiedName~SesaBuilderTests.TheResult|FullyQualifiedName~SesaBuilderTests.EverySection_EqualsTheInMemoryIndex_WithAndWithoutPsi_DefaultAndTiny)"
+  "filter": "(FullyQualifiedName~SesaSectionTests.TheChecksumPass|FullyQualifiedName~SesaBuilderTests.TheResult|FullyQualifiedName~SesaBuilderTests.EverySection_EqualsTheInMemoryIndex_WithAndWithoutPsi_DefaultAndTiny|FullyQualifiedName~SesaAuditTests)"
  },
  {
   "id": "S08",
@@ -29,7 +29,7 @@
   "old": "if (offset < 0 || length < 0 ||",
   "new": "if (offset < 0 ||",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaChecksums.cs",
-  "filter": "(FullyQualifiedName~SesaSectionTests.TheChecksumPass|FullyQualifiedName~SesaBuilderTests.TheResult|FullyQualifiedName~SesaBuilderTests.EverySection_EqualsTheInMemoryIndex_WithAndWithoutPsi_DefaultAndTiny)"
+  "filter": "(FullyQualifiedName~SesaSectionTests.TheChecksumPass|FullyQualifiedName~SesaBuilderTests.TheResult|FullyQualifiedName~SesaBuilderTests.EverySection_EqualsTheInMemoryIndex_WithAndWithoutPsi_DefaultAndTiny|FullyQualifiedName~SesaAuditTests)"
  },
  {
   "id": "S10",
@@ -37,6 +37,6 @@
   "old": "(Stopwatch.GetTimestamp() - t0) / (double)Stopwatch.Frequency, Crc32C",
   "new": "0, Crc32C",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaChecksums.cs",
-  "filter": "(FullyQualifiedName~SesaSectionTests.TheChecksumPass|FullyQualifiedName~SesaBuilderTests.TheResult|FullyQualifiedName~SesaBuilderTests.EverySection_EqualsTheInMemoryIndex_WithAndWithoutPsi_DefaultAndTiny)"
+  "filter": "(FullyQualifiedName~SesaSectionTests.TheChecksumPass|FullyQualifiedName~SesaBuilderTests.TheResult|FullyQualifiedName~SesaBuilderTests.EverySection_EqualsTheInMemoryIndex_WithAndWithoutPsi_DefaultAndTiny|FullyQualifiedName~SesaAuditTests)"
  }
 ]

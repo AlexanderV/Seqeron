@@ -1,0 +1,2 @@
+B10	pre-flight skips a source that reports 0	killed(1)	
+B14	a stale temporary file is left	killed(1)	

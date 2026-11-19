@@ -1,0 +1,9 @@
+A01	a null file is an NRE	survived	
+A03	a null option set is an NRE	survived	
+A05	a negative section offset is accepted	survived	
+A07	a section range that ends at the end is refused	killed(1)	
+A09	the file choice is the other way round (same in both modes)	survived	
+A11	the section sink is one entry short	killed(1)	
+A13	the section sink is not counted	survived	
+A15	the path mode does not complete the file	killed(hang)	
+d_Q76	1b7d gap: Build: PH1 arena guards	survived	

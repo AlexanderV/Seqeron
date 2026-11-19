@@ -1,0 +1,42 @@
+[
+ {
+  "id": "W05",
+  "desc": "a read of under one entry is accepted",
+  "old": "ThrowIfLessThan(options.ReadBytes, sizeof(uint));",
+  "new": "ThrowIfLessThan(options.ReadBytes, 1);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/BwtPass.cs",
+  "filter": "(FullyQualifiedName~Ph6Tests|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SesaSectionTests.ATextAbove|FullyQualifiedName~SesaAuditTests)"
+ },
+ {
+  "id": "W09",
+  "desc": "a text at the bit limit is refused",
+  "old": "if (text.Bits > PackedTextFormat.MaxBits) throw",
+  "new": "if (text.Bits >= PackedTextFormat.MaxBits) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/BwtPass.cs",
+  "filter": "(FullyQualifiedName~Ph6Tests|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SesaSectionTests.ATextAbove|FullyQualifiedName~SesaAuditTests)"
+ },
+ {
+  "id": "W17",
+  "desc": "the BWT file ignores the file options",
+  "old": "MappedOutputFile.Create(bwtPath, rows, options.Files)",
+  "new": "MappedOutputFile.Create(bwtPath, rows, null)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/BwtPass.cs",
+  "filter": "(FullyQualifiedName~Ph6Tests|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SesaSectionTests.ATextAbove|FullyQualifiedName~SesaAuditTests)"
+ },
+ {
+  "id": "W33",
+  "desc": "the symbol is the one after",
+  "old": "uint s = text.Symbol(p - 1);",
+  "new": "uint s = text.Symbol(p);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/BwtPass.cs",
+  "filter": "(FullyQualifiedName~Ph6Tests|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SesaSectionTests.ATextAbove|FullyQualifiedName~SesaAuditTests)"
+ },
+ {
+  "id": "W41",
+  "desc": "the default read is 1 KiB",
+  "old": "internal int ReadBytes { get; init; } = 1 << 20;",
+  "new": "internal int ReadBytes { get; init; } = 1 << 10;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/BwtPass.cs",
+  "filter": "(FullyQualifiedName~Ph6Tests|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SesaSectionTests.ATextAbove|FullyQualifiedName~SesaAuditTests)"
+ }
+]

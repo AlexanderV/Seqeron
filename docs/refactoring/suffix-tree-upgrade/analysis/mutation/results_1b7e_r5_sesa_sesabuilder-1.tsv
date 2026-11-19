@@ -1,0 +1,8 @@
+B89	the late pre-flight asks about the target	killed(1)	
+B101	the BWT pass gets no budget	killed(1)	
+B107	PSI gets another read size	killed(1)	
+B111	PSI is not counted	killed(hang)	
+B121	the text reader stays open until the end	killed(1)	
+B123	the container is not closed before the checksums	survived	
+B147	ALPHABET has another codec	killed(1)	
+B163	LCP U32 has codec 2	killed(1)	

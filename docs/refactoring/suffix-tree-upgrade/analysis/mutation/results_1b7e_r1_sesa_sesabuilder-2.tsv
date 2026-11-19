@@ -1,0 +1,60 @@
+B141	optional sections are required	killed(1)	
+B143	TEXT forgets the bits in PARAM0	killed(1)	
+B145	ALPHABET has the wrong element width	killed(1)	
+B147	ALPHABET has another codec	survived	survived
+B149	COUNTS is required	killed(1)	
+B151	SA counts n entries	killed(1)	
+B153	CHILD is optional	killed(1)	
+B155	PSI is required	killed(1)	
+B157	PSI counts n entries	killed(1)	
+B159	BUILD_INFO has an element width	killed(1)	
+B161	LCP U8 has codec 2	killed(1)	
+B163	LCP U32 has codec 2	survived	survived
+B165	LCP is optional	killed(1)	
+B167	overflow has the wrong element width	killed(1)	
+B169	the discarded info length matters (it does not)	survived	survived
+B171	the header holds the text length plus one	killed(1)	
+B173	the header holds the max LCP as depth	survived	survived
+B175	the header rank is always -1	killed(1)	
+B177	the header position width is 8	killed(1)	
+B179	the header hash is zero	killed(1)	
+B181	the header page goes to the wrong place	killed(1)	
+B183	the second sync is skipped	survived	survived
+B185	the magic is written at the wrong place	killed(1)	
+B187	the published flag is not set	survived	survived
+B189	a published target is deleted by the cleanup	survived	survived
+B191	a failed build keeps its scratch	killed(1)	
+B193	a failed build keeps the text open	killed(1)	
+B195	the verdict is swapped	killed(1)	
+B197	the figure is the peak of RSS pages (unit KiB as MB)	killed(1)	
+B199	the per-phase figure is in the wrong unit	survived	survived
+B201	the phase sampler is not started	killed(1)	
+B203	the whole sampler reads the real /proc	killed(1)	
+B205	the seconds are not scaled	survived	survived
+B207	the primary row of the result without PSI	survived	survived
+B209	arena peak is the minimum	killed(1)	
+B211	arena peak forgets PH6	survived	survived
+B213	arena peak forgets PH2-3	survived	survived
+B215	no scratch peak	killed(1)	
+B217	the growth outcome is not reported	killed(1)	
+B219	the crc rows are not reported	killed(1)	
+B221	the PH6 figure is not reported	killed(1)	
+B223	the PH0 figure is not reported	killed(1)	
+B225	the PSI seconds are not reported	survived	survived
+B227	the seal seconds are not reported	survived	survived
+B229	the pack seconds are not reported	killed(1)	
+B231	the total seconds are not reported	killed(1)	
+B233	the PH4-5 seconds are not reported	survived	survived
+B235	the PH2-3 seconds are not reported	killed(1)	
+B237	BUILD_INFO names layout F	killed(1)	
+B239	BUILD_INFO has a build time	killed(1)	
+B241	BUILD_INFO is culture dependent	survived	survived
+B243	BUILD_INFO has the wrong sigma	killed(1)	
+B245	the little-endian check is dropped (equivalent on this host)	survived	survived
+B247	the 16 B spill constant	killed(hang)	
+B249	Fsync defaults to false	killed(1)	
+B251	the RssAnon cap defaults to 330	killed(1)	
+B253	the PH5 cap defaults to 128 MiB	killed(1)	
+B255	the text window defaults to 64 KiB	killed(1)	
+B257	PSI default window of PH6 is smaller	survived	survived
+B259	PSI default symbols per pass 16	survived	survived

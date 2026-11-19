@@ -5,7 +5,7 @@
   "old": "bool fits = _o.SaOffset > 0 ? length >= _o.SaOffset + need : length == need;",
   "new": "bool fits = _o.SaOffset > 0 ? length >= _o.SaOffset + need : length >= need;",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs",
-  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~ExternalLcpTests|FullyQualifiedName~LcpChildBuilderTests)"
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~ExternalLcpTests|FullyQualifiedName~LcpChildBuilderTests|FullyQualifiedName~SesaAuditTests)"
  },
  {
   "id": "V04",
@@ -13,7 +13,7 @@
   "old": "bool fits = _o.SaOffset > 0 ? length >= _o.SaOffset + need : length == need;",
   "new": "bool fits = _o.SaOffset > 0 ? length >= need : length == need;",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs",
-  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~ExternalLcpTests|FullyQualifiedName~LcpChildBuilderTests)"
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~ExternalLcpTests|FullyQualifiedName~LcpChildBuilderTests|FullyQualifiedName~SesaAuditTests)"
  },
  {
   "id": "V06",
@@ -21,7 +21,7 @@
   "old": "_o.SaOffset + (first * 4)",
   "new": "first * 4",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs",
-  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~ExternalLcpTests|FullyQualifiedName~LcpChildBuilderTests)"
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~ExternalLcpTests|FullyQualifiedName~LcpChildBuilderTests|FullyQualifiedName~SesaAuditTests)"
  },
  {
   "id": "V08",
@@ -29,7 +29,7 @@
   "old": "placement.File.CreateWriter(placement.OverflowStart, overflowBytes,",
   "new": "placement.File.CreateWriter(placement.BaseStart, overflowBytes,",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs",
-  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~ExternalLcpTests|FullyQualifiedName~LcpChildBuilderTests)"
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~ExternalLcpTests|FullyQualifiedName~LcpChildBuilderTests|FullyQualifiedName~SesaAuditTests)"
  },
  {
   "id": "V10",
@@ -37,7 +37,7 @@
   "old": "                catch\n                {\n                    baseWriter.Dispose();\n                    throw;\n                }",
   "new": "                catch\n                {\n                    throw;\n                }",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs",
-  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~ExternalLcpTests|FullyQualifiedName~LcpChildBuilderTests)"
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~ExternalLcpTests|FullyQualifiedName~LcpChildBuilderTests|FullyQualifiedName~SesaAuditTests)"
  },
  {
   "id": "V12",
@@ -45,7 +45,7 @@
   "old": "if (_o.Place is { } place)",
   "new": "if (_o.Place is { } place && false)",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs",
-  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~ExternalLcpTests|FullyQualifiedName~LcpChildBuilderTests)"
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~ExternalLcpTests|FullyQualifiedName~LcpChildBuilderTests|FullyQualifiedName~SesaAuditTests)"
  },
  {
   "id": "V14",
@@ -53,7 +53,7 @@
   "old": "new LcpPlacementRequest(_stats.Kind, _stats.OverflowCount, _maxPlcp)",
   "new": "new LcpPlacementRequest(_stats.Kind, 0, _maxPlcp)",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs",
-  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~ExternalLcpTests|FullyQualifiedName~LcpChildBuilderTests)"
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~ExternalLcpTests|FullyQualifiedName~LcpChildBuilderTests|FullyQualifiedName~SesaAuditTests)"
  },
  {
   "id": "V16",
@@ -61,7 +61,7 @@
   "old": "            overflowFile?.Complete(fsync: false);\n",
   "new": "",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs",
-  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~ExternalLcpTests|FullyQualifiedName~LcpChildBuilderTests)"
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~ExternalLcpTests|FullyQualifiedName~LcpChildBuilderTests|FullyQualifiedName~SesaAuditTests)"
  },
  {
   "id": "V18",
@@ -69,7 +69,7 @@
   "old": "            overflowFile?.Dispose();\n",
   "new": "",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs",
-  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~ExternalLcpTests|FullyQualifiedName~LcpChildBuilderTests)"
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~ExternalLcpTests|FullyQualifiedName~LcpChildBuilderTests|FullyQualifiedName~SesaAuditTests)"
  },
  {
   "id": "V20",
@@ -77,6 +77,6 @@
   "old": "placement.File.CreateWriter(placement.BaseStart, baseBytes, _o.WindowBytes, _o.Counters)",
   "new": "placement.File.CreateWriter(placement.BaseStart, baseBytes, _o.WindowBytes, null)",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs",
-  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~ExternalLcpTests|FullyQualifiedName~LcpChildBuilderTests)"
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~ExternalLcpTests|FullyQualifiedName~LcpChildBuilderTests|FullyQualifiedName~SesaAuditTests)"
  }
 ]

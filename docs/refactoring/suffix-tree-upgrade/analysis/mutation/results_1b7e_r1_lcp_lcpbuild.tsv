@@ -1,0 +1,11 @@
+V01	a negative SA offset is accepted	killed(1)	
+V03	a section that ends at the end of the file is refused	killed(1)	
+V05	the first entry is read at offset 0	killed(1)	
+V07	the base array goes to the overflow offset	killed(1)	
+V09	the reservation outcome of the placement is not kept	survived	
+V11	a failed output writer leaves the writers open	survived	
+V13	the placer is told no maximum	killed(1)	
+V15	the path mode does not complete the base file	survived	
+V17	the base file is not disposed	killed(1)	
+V19	the base writers use the default window	survived	
+V21	the overflow writer is not counted	survived	

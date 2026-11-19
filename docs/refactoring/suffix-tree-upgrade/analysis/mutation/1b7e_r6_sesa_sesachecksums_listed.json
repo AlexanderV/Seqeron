@@ -1,0 +1,10 @@
+[
+ {
+  "id": "S09",
+  "desc": "a view of zero bytes is accepted",
+  "old": "ArgumentOutOfRangeException.ThrowIfLessThan(viewBytes, 1);",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaChecksums.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests.TheChecksumPass|FullyQualifiedName~SesaBuilderTests.TheResult|FullyQualifiedName~SesaBuilderTests.EverySection_EqualsTheInMemoryIndex_WithAndWithoutPsi_DefaultAndTiny|FullyQualifiedName~SesaAuditTests)"
+ }
+]

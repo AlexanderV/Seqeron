@@ -1,0 +1,38 @@
+P01	the default window is 64 KiB	killed(1)	
+P03	the default read is 1 KiB	killed(1)	
+P05	a window of 0 is accepted	killed(1)	
+P07	a read of 0 is accepted	killed(hang)	
+P09	a text at the limit is refused	survived	survived
+P11	a primary row of -1 is accepted	killed(1)	
+P13	an alphabet of 256 is refused	killed(1)	
+P15	a negative count is accepted	killed(1)	
+P17	a sum above n is accepted	killed(hang)	
+P19	a negative PSI offset is accepted	survived	survived
+P21	a PSI range that ends at the end of the file is refused	killed(1)	
+P23	the group is the larger of the two	killed(1)	
+P25	one pass too many	killed(hang)	
+P27	the cap is not enforced	killed(1)	
+P29	the shared budget is not released	killed(hang)	
+P31	a shorter BWT file is accepted	killed(1)	
+P33	the first symbol starts at row 0	killed(1)	
+P35	PSI[0] writer is not counted	killed(1)	
+P37	the read length is not bounded by the rows	survived	survived
+P39	the budget is ignored by the arena	survived	survived
+P41	the first symbol of a pass is off	killed(1)	
+P43	the primary row at a block start is not skipped	killed(1)	
+P45	a primary row at the start of the next block is handled twice	survived	survived
+P47	rows before the primary row are numbered from 0	killed(1)	
+P49	the windows of the passes are not summed	survived	killed(1)
+P51	the PSI bytes written are in entries	killed(1)	
+P53	the limit of a symbol ignores the count	killed(hang)	
+P55	the cursor does not register as a writer	killed(1)	
+P57	the cursors are not offset by the pass	killed(1)	
+P59	the row is off by one	killed(1)	
+P61	a cursor that has not used its limit is not noticed	survived	survived
+P63	the cursor array is not freed (not observable)	survived	survived
+P65	the previous window is kept open	killed(1)	
+P67	the window ignores the remaining entries	killed(hang)	
+P69	the window ignores the pointer offset	killed(1)	
+P71	the window is not counted as a window	survived	survived
+P73	the next entry advances by one	killed(1)	
+P75	the released view is not disposed	killed(hang)	

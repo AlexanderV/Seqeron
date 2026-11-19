@@ -1,0 +1,22 @@
+W01	a negative SA offset is accepted	survived	survived
+W03	sigma 257 is accepted	killed(1)	
+W05	a read of under one entry is accepted	killed(hang)	
+W07	a text at the limit is refused	survived	survived
+W09	a text at the bit limit is refused	killed(hang)	
+W11	an SA range that ends at the end of the file is refused	killed(1)	
+W13	the read is not bounded by the rows	survived	survived
+W15	the budget is ignored	killed(1)	
+W17	the BWT file ignores the file options	killed(hang)	
+W19	the BWT writer has the default window	killed(1)	
+W21	the SA is read from offset 0	killed(1)	
+W23	entries are not range checked	killed(1)	
+W25	SA[0] is not checked	killed(1)	
+W27	a second zero is tolerated when later (equivalent for n > 0)	survived	survived
+W29	the primary row is one too high	killed(1)	
+W31	the symbol is outside the alphabet at equality	killed(1)	
+W33	the symbol is the one after	killed(hang)	
+W35	the counts are not kept	killed(1)	
+W37	the BWT file is not completed	survived	survived
+W39	the result carries the sentinel row of the file end	killed(1)	
+W41	the default read is 1 KiB	killed(hang)	
+W43	the output is not appended	killed(1)	

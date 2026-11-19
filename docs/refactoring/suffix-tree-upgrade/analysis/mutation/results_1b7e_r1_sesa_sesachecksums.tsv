@@ -1,0 +1,5 @@
+S01	views skip a byte	killed(1)	
+S03	a range past the end is accepted	killed(1)	
+S05	the CRC does not chain across views	killed(1)	
+S07	a negative offset is accepted	killed(1)	
+S09	a view of zero bytes is accepted	killed(hang)	

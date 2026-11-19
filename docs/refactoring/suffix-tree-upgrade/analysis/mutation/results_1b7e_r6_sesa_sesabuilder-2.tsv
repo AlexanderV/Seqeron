@@ -1,0 +1,10 @@
+B158	BUILD_INFO counts its bytes	killed(hang)	
+B160	LCP has the wrong element width	killed(1)	
+B178	the header sigma is the bits	killed(1)	
+B182	the first sync is skipped	survived	
+B192	a failed build keeps the container open	killed(1)	
+B196	the figure is in the wrong unit	killed(1)	
+B204	the phase sampler reads the real /proc	killed(1)	
+B206	PSI flag of the result	killed(1)	
+B208	the sections of the primary row are taken from nothing	killed(1)	
+B212	arena peak forgets PH1	killed(1)	
