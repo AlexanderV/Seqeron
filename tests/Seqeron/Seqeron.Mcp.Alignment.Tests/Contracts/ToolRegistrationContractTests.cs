@@ -67,11 +67,13 @@ public sealed class ToolRegistrationContractTests : ToolRegistrationContractTest
         "semi_global_align",
         "semi_global_align_affine",
         "sequence_identity",
+        "stretcher_align",
         "sum_of_pairs_score",
         "tcoffee_guide_tree",
         "tcoffee_ktup_similarity",
         "tcoffee_lalign_top_alignments",
         "tcoffee_primary_library",
         "tcoffee_slow_pair_align",
+        "write_alignment",
     };
 }

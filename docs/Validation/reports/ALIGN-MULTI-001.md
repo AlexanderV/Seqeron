@@ -291,3 +291,7 @@ One input contract for every multiple-alignment entry point: null element -> `Ar
 ## Audit r2 addendum (A2-19, B09 F119, WP31): MAFFT 7.505, stage 1
 
 `SequenceAligner.MultipleAlignMafft` / `MafftOptions` and MCP `multiple_align_mafft` port the alignment of two sequences of MAFFT 7.505 (front end `replaceu` / `getnumlen`, the BLOSUM / Kimura scoring matrices and integer penalties of `constants.c`, `G__align11` with free end gaps); T-Coffee `mafft_pair` is wired to it. Rows equal the installed `mafft` on 884 / 884 pairs and the program's `mafft_pair` library on 460 / 460 T-Coffee sets. Registered DOABLE: three or more sequences and the progressive strategies (A2-19b), iterative refinement and the pair-library strategies (A2-19c).
+
+## Audit r2 addendum (A2-27, B09 F120): EMBOSS alignment output formats
+
+`EmbossAlignmentWriter` writes the 29 EMBOSS `-aformat` formats byte for byte (pairwise layouts with the program header and statistics, sequence-set layouts of any number of rows); MCP `write_alignment`. See `docs/algorithms/Alignment/Pairwise_Output_Formats_And_EMBOSS_Programs.md`.

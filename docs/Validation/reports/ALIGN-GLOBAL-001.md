@@ -101,3 +101,7 @@ The "one optimal alignment only" limitation of the global problem is lifted: `Gl
 ## Audit r2 addendum (A2-37, A2-43, B09 F80 / F85): one scoring contract, `null` scoring overloads
 
 Scalar `ScoringMatrix` and `MatrixScoring` now share one contract: gap scores <= 0 (and > `int.MinValue`), path score below 2^28 (`ArgumentException` instead of a silently wrapped score; e.g. `GlobalAlign("A"x50, "A"x50, new ScoringMatrix(1e9, -1, -2, -1))` returned 1 999 999 904 for the true 5e10); sum-of-pairs totals accumulate in 64 bits. `null` for the scoring argument compiles on every overload pair (`[OverloadResolutionPriority(1)]`). The MCP pairwise tools delegate empty input to the library (all-gap alignment). Tests: `SequenceAligner_ScoringContract_Tests`, `SequenceAligner_InputContract_Tests`, MCP `EmptyInputContractTests`.
+
+## Audit r2 addendum (A2-28, B09 F121 / F122): stretcher and needle options
+
+`SequenceAligner.StretcherAlign` (Myers-Miller as the EMBOSS program, 689 / 689 pairs equal) and `SequenceAligner.NeedleAlign` (the program's single-precision recurrences with `-endweight` / `-endopen` / `-endextend`, 887 / 887 pairs equal); MCP `stretcher_align`.

@@ -357,6 +357,13 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAssembler.cs#L247"
   },
   {
+    "tool": "stretcher_align",
+    "server": "Alignment",
+    "methodId": "SequenceAligner.StretcherAlign",
+    "docPath": "docs/mcp/tools/alignment/stretcher_align.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.Stretcher.cs"
+  },
+  {
     "tool": "sum_of_pairs_score",
     "server": "Alignment",
     "methodId": "SequenceAligner.SumOfPairsScore",
@@ -397,6 +404,13 @@
     "methodId": "SequenceAligner.TCoffeeSlowPairAlign",
     "docPath": "docs/mcp/tools/alignment/tcoffee_slow_pair_align.md",
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.TCoffeePrimary.cs"
+  },
+  {
+    "tool": "write_alignment",
+    "server": "Alignment",
+    "methodId": "EmbossAlignmentWriter.Format",
+    "docPath": "docs/mcp/tools/alignment/write_alignment.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/EmbossAlignmentWriter.cs"
   },
   {
     "tool": "alignment_distance_matrix",

@@ -133,3 +133,7 @@ The "one optimal alignment only" limitation is lifted: Waterman-Eggert non-inter
 ## 2026-11 audit round 1 (A1-7c, B09 F77)
 
 The O(m·n) memory limit of the top-N declumper is lifted: above 25 000 000 cells `LocalAlignTopN` / `LocalAlignAffineTopN` run the exact linear-space program (the aligned pairs of the earlier alignments are forbidden in the locate passes and interval solves of F46; SIM / EMBOSS `matcher` scheme), with identical alignments (480 random pairs, 1 350 oracle rows, two 5 kb pairs; 40-46 MB peak at 5-20 kb). `LocalAlignCoOptimal` keeps the matrices. Evidence file `docs/Evidence/ALIGN-LOCAL-001-Evidence.md` created (A1-8).
+
+## Audit r2 addendum (A2-28, B09 F122): water
+
+`SequenceAligner.WaterAlign` ports EMBOSS water (rows, starts and scores equal on 860 / 860 pairs).

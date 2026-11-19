@@ -678,3 +678,11 @@ Tests (`Seqeron.Genomics.Tests`, all against the installed Debian `kalign` 1:3.3
 ## Audit A2-19 (B09 F119): MAFFT 7.505, stage 1 (two sequences)
 
 Tests (`Seqeron.Genomics.Tests`, against the installed Debian `mafft` 7.505-1): `SequenceAligner_MafftPair_Tests` x886 (`mafft_pair_oracle.tsv`: 884 runs - 220 protein and 200 nucleotide pairs, 160 with IUPAC codes / unusual symbols (digits, `*`, `#`, `.`, B Z J O U) under `--anysymbol`, mixed alphabets, `-` in the input, `--op`, `--ep`, `--bl` 30 ... 0, `--nuc` / `--amino`, `--retree`, `--fft`, `--nofft`, `--reorder`, 60 plain-command pairs, 47 pairs of 400 - 1 500 residues: rows equal; the plain command returns nucleotides in lower case), `SequenceAligner_Mafft_Tests` x6 (the scoring matrices and integer penalties against the matrices `disttbfast -d` prints: BLOSUM62 default, BLOSUM80 with `--op 2 --ep 0.1`, the Kimura matrix; hand runs of the program; free end gaps; contracts), T-Coffee `MafftPair_EveryRowEqualsTheProgram` (the 460 `mafft_pair` / `mafft_mixed` sets of the program, replaces the OP30 "port waits" test). MCP `MafftTests` x2.
+
+## Audit A2-27 (B09 F120): EMBOSS `-aformat` writers
+
+Tests (`Seqeron.Genomics.Tests`, against the installed EMBOSS 6.6.0): `SequenceAligner_EmbossFormats_Tests` - `emboss_aformat_oracle.tsv` (needle / water / stretcher x 29 formats x 114 alignment sets, 3 303 files byte for byte, faked run dates), `emboss_seqout_oracle.tsv` (`seqret`, 11 sequence-set formats, 1 309 files), >= 100 cases per format, format-name parsing, a hand-written `pair` layout, argument contracts. MCP `EmbossFormatTests` (`write_alignment`, `stretcher_align`).
+
+## Audit A2-28 (B09 F121 / F122): stretcher, needle options, water
+
+`SequenceAligner_Stretcher_Tests` (689 oracle pairs: rows and score, optimum bound, defaults, contract), `SequenceAligner_Needle_Tests` (887 pairs incl. `-endweight` / `-endopen` / `-endextend`, `ajRoundFloat`, bound against the affine optima), `SequenceAligner_Water_Tests` (860 pairs: rows, starts, scores).

@@ -1826,6 +1826,21 @@ public static partial class SequenceAligner
         return FormatAlignmentCore(alignment, lineWidth, MatrixClassifier(matrix));
     }
 
+    /// <summary>The EMBOSS <c>alignSim</c> pair markup of two aligned rows (<c>|</c> identity, <c>:</c> similar, <c>.</c> mismatch, blank), the line the EMBOSS <c>pair</c> / <c>simple</c> / <c>srspair</c> formats print between the rows.</summary>
+    internal static string EmbossColumnMarks(string row1, string row2, SubstitutionMatrix matrix)
+    {
+        var classify = MatrixClassifier(matrix);
+        var sb = new StringBuilder(row1.Length);
+        for (int i = 0; i < row1.Length; i++)
+        {
+            char c1 = row1[i];
+            char c2 = row2[i];
+            sb.Append(c1 == GapChar || c2 == GapChar ? GapMark : classify(char.ToUpperInvariant(c1), char.ToUpperInvariant(c2)).Mark);
+        }
+
+        return sb.ToString();
+    }
+
     private static string FormatAlignmentCore(
         AlignmentResult alignment,
         int lineWidth,

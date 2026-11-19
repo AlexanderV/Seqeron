@@ -57,12 +57,14 @@
 | `semi_global_align` | Alignment | `SequenceAligner.SemiGlobalAlign` | [doc](../../../../docs/mcp/tools/alignment/semi_global_align.md) |
 | `semi_global_align_affine` | Alignment | `SequenceAligner.SemiGlobalAlignAffine` | [doc](../../../../docs/mcp/tools/alignment/semi_global_align_affine.md) |
 | `sequence_identity` | Alignment | `SequenceAssembler.CalculateIdentity` | [doc](../../../../docs/mcp/tools/alignment/sequence_identity.md) |
+| `stretcher_align` | Alignment | `SequenceAligner.StretcherAlign` | [doc](../../../../docs/mcp/tools/alignment/stretcher_align.md) |
 | `sum_of_pairs_score` | Alignment | `SequenceAligner.SumOfPairsScore` | [doc](../../../../docs/mcp/tools/alignment/sum_of_pairs_score.md) |
 | `tcoffee_guide_tree` | Alignment | `SequenceAligner.TCoffeeGuideTree` | [doc](../../../../docs/mcp/tools/alignment/tcoffee_guide_tree.md) |
 | `tcoffee_ktup_similarity` | Alignment | `SequenceAligner.TCoffeeKtupSimilarity` | [doc](../../../../docs/mcp/tools/alignment/tcoffee_ktup_similarity.md) |
 | `tcoffee_lalign_top_alignments` | Alignment | `SequenceAligner.TCoffeeLalignTopAlignments` | [doc](../../../../docs/mcp/tools/alignment/tcoffee_lalign_top_alignments.md) |
 | `tcoffee_primary_library` | Alignment | `SequenceAligner.TCoffeePrimaryLibraryEntries` | [doc](../../../../docs/mcp/tools/alignment/tcoffee_primary_library.md) |
 | `tcoffee_slow_pair_align` | Alignment | `SequenceAligner.TCoffeeSlowPairAlign` | [doc](../../../../docs/mcp/tools/alignment/tcoffee_slow_pair_align.md) |
+| `write_alignment` | Alignment | `EmbossAlignmentWriter.Format` | [doc](../../../../docs/mcp/tools/alignment/write_alignment.md) |
 | `calculate_similarity` | Core | `GenomicAnalyzer.CalculateSimilarity` | [doc](../../../../docs/mcp/tools/core/calculate_similarity.md) |
 | `count_approximate_occurrences` | Core | `ApproximateMatcher.CountApproximateOccurrences` | [doc](../../../../docs/mcp/tools/core/count_approximate_occurrences.md) |
 | `edit_distance` | Core | `ApproximateMatcher.EditDistance` | [doc](../../../../docs/mcp/tools/core/edit_distance.md) |

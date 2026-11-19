@@ -160,6 +160,16 @@
     <!-- ALIGN-MULTI-001 (audit A2-19, B09 F119): MAFFT 7.505 (installed Debian mafft 7.505-1) alignments of two sequences (amino acids, DNA / RNA, IUPAC and unusual symbols with the anysymbol option, the options op, ep and bl,
          nuc, amino and the accepted options, the plain command); scripts/alignment/generate_mafft_pair_oracle.py. -->
     <EmbeddedResource Include="TestData\Alignment\mafft_pair_oracle.tsv" />
+    <!-- ALIGN-MULTI-001 (audit A2-27, B09 F120): EMBOSS 6.6.0 -aformat output formats (needle / water) and the sequence-set formats (seqret), byte for byte;
+         scripts/alignment/generate_emboss_aformat_oracle.py, scripts/alignment/generate_emboss_seqout_oracle.py (faked run dates: scripts/alignment/faketime.c). -->
+    <EmbeddedResource Include="TestData\Alignment\emboss_aformat_oracle.tsv" />
+    <EmbeddedResource Include="TestData\Alignment\emboss_seqout_oracle.tsv" />
+    <!-- ALIGN-GLOBAL-001 (audit A2-28, B09 F121): EMBOSS 6.6.0 stretcher rows and scores; scripts/alignment/generate_stretcher_oracle.py. -->
+    <EmbeddedResource Include="TestData\Alignment\stretcher_oracle.tsv" />
+    <!-- ALIGN-GLOBAL-001 (audit A2-28, B09 F122): EMBOSS 6.6.0 needle with -endweight / -endopen / -endextend; scripts/alignment/generate_needle_oracle.py. -->
+    <EmbeddedResource Include="TestData\Alignment\needle_oracle.tsv" />
+    <!-- ALIGN-LOCAL-001 (audit A2-28, B09 F122): EMBOSS 6.6.0 water rows / starts / scores; scripts/alignment/generate_water_oracle.py. -->
+    <EmbeddedResource Include="TestData\Alignment\water_oracle.tsv" />
     <!-- GENOMIC-COMMON-001 (B09 F15-F16): independent Python (DP + suffix automaton + brute-force matching statistics)
          oracle for FindLongestCommonRegion / FindCommonRegions; scripts/analysis/generate_common_region_oracle.py. -->
     <EmbeddedResource Include="TestData\Analysis\common_region_oracle.tsv" />

@@ -1,0 +1,159 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "write_alignment",
+  "serverName": "Alignment",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "EmbossAlignmentWriter.Format",
+  "docRef": "Seqeron.Genomics.Alignment/EmbossAlignmentWriter.cs",
+  "description": "Writes an alignment (gapped rows) in an EMBOSS 6.6.0 -aformat output format, byte for byte as the installed programs print it: PAIRWISE formats (two rows; header with program, run date, command line, matrix, gap penalties and Length / Identity / Similarity / Gaps / Score): pair, simple, srspair, srs, markx0, markx1, markx2, markx3, markx10, match, score, sam, tcoffee, unknown, multiple; SEQUENCE-SET formats (any number of rows): fasta, a2m, msf, clustal, mega, meganon, nexus, paup, nexusnon, paupnon, phylip, phylipnon, selex, treecon. VERIFICATION: 3 303 needle / water / stretcher files (29 formats x 114 alignment sets, faked run dates) and 1 309 seqret files (11 sequence-set formats, 1-9 rows) identical to the installed EMBOSS 6.6.0.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "alignedSequences": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "Aligned rows ('-' = gap): two for the pairwise formats, one or more for the sequence-set formats."
+      },
+      "format": {
+        "type": "string",
+        "default": "srspair",
+        "description": "EMBOSS -aformat name."
+      },
+      "names": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "Sequence names; default seq1, seq2, ..."
+      },
+      "descriptions": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "Descriptions (FASTA writer, showDescription)."
+      },
+      "offsets": {
+        "type": "array",
+        "items": {
+          "type": "integer"
+        },
+        "description": "Residues of each original sequence before the aligned part."
+      },
+      "offends": {
+        "type": "array",
+        "items": {
+          "type": "integer"
+        },
+        "description": "Residues of each original sequence after the aligned part."
+      },
+      "score": {
+        "type": "number",
+        "default": 0,
+        "description": "Alignment score (pairwise formats)."
+      },
+      "matrix": {
+        "type": "string",
+        "description": "Matrix deciding the similarity marks (EMBOSS / NCBI name); default by sequence type."
+      },
+      "gapOpen": {
+        "type": "number",
+        "description": "Gap_penalty printed in the header."
+      },
+      "gapExtend": {
+        "type": "number",
+        "description": "Extend_penalty printed in the header."
+      },
+      "program": {
+        "type": "string",
+        "default": "needle",
+        "description": "needle, water, stretcher, matcher, supermatcher."
+      },
+      "width": {
+        "type": "integer",
+        "default": 0,
+        "description": "-awidth (0 = 50)."
+      },
+      "runDate": {
+        "type": "string",
+        "description": "ISO 8601 run date; default now (UTC)."
+      },
+      "commandLine": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "Command-line arguments printed in the header."
+      },
+      "showAccession": {
+        "type": "boolean",
+        "default": false,
+        "description": "-aaccshow."
+      },
+      "showDescription": {
+        "type": "boolean",
+        "default": false,
+        "description": "-adesshow."
+      }
+    },
+    "required": [
+      "alignedSequences"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "text": {
+        "type": "string",
+        "description": "The alignment file."
+      },
+      "format": {
+        "type": "string",
+        "description": "The EMBOSS format name written."
+      },
+      "dialect": {
+        "type": "string",
+        "description": "emboss."
+      }
+    },
+    "required": [
+      "text"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "alignedSequences is null or empty, a pairwise format without exactly two rows"
+    },
+    {
+      "code": 1002,
+      "message": "unknown format, matrix or malformed runDate"
+    }
+  ],
+  "examples": [
+    {
+      "name": "Three rows in FASTA",
+      "input": {
+        "alignedSequences": [
+          "ACGT-ACGTA",
+          "AC-TTACG-A",
+          "ACGTTAC--A"
+        ],
+        "format": "fasta",
+        "names": [
+          "s1",
+          "s2",
+          "s3"
+        ]
+      },
+      "output": {
+        "text": ">s1\nACGT-ACGTA\n>s2\nAC-TTACG-A\n>s3\nACGTTAC--A\n",
+        "format": "fasta",
+        "dialect": "emboss"
+      }
+    }
+  ]
+}

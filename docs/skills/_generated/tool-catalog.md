@@ -4,7 +4,7 @@
 
 <!-- BEGIN generated: do not edit by hand -->
 
-## Alignment (57 tools)
+## Alignment (59 tools)
 
 | tool | Method ID | doc |
 |------|-----------|-----|
@@ -59,12 +59,14 @@
 | `semi_global_align` | `SequenceAligner.SemiGlobalAlign` | [doc](../../mcp/tools/alignment/semi_global_align.md) |
 | `semi_global_align_affine` | `SequenceAligner.SemiGlobalAlignAffine` | [doc](../../mcp/tools/alignment/semi_global_align_affine.md) |
 | `sequence_identity` | `SequenceAssembler.CalculateIdentity` | [doc](../../mcp/tools/alignment/sequence_identity.md) |
+| `stretcher_align` | `SequenceAligner.StretcherAlign` | [doc](../../mcp/tools/alignment/stretcher_align.md) |
 | `sum_of_pairs_score` | `SequenceAligner.SumOfPairsScore` | [doc](../../mcp/tools/alignment/sum_of_pairs_score.md) |
 | `tcoffee_guide_tree` | `SequenceAligner.TCoffeeGuideTree` | [doc](../../mcp/tools/alignment/tcoffee_guide_tree.md) |
 | `tcoffee_ktup_similarity` | `SequenceAligner.TCoffeeKtupSimilarity` | [doc](../../mcp/tools/alignment/tcoffee_ktup_similarity.md) |
 | `tcoffee_lalign_top_alignments` | `SequenceAligner.TCoffeeLalignTopAlignments` | [doc](../../mcp/tools/alignment/tcoffee_lalign_top_alignments.md) |
 | `tcoffee_primary_library` | `SequenceAligner.TCoffeePrimaryLibraryEntries` | [doc](../../mcp/tools/alignment/tcoffee_primary_library.md) |
 | `tcoffee_slow_pair_align` | `SequenceAligner.TCoffeeSlowPairAlign` | [doc](../../mcp/tools/alignment/tcoffee_slow_pair_align.md) |
+| `write_alignment` | `EmbossAlignmentWriter.Format` | [doc](../../mcp/tools/alignment/write_alignment.md) |
 
 ## Analysis (132 tools)
 
