@@ -142,7 +142,9 @@ public sealed partial record TCoffeeProgramOptions
                 {
                     "nj" => this with { TreeMode = TCoffeeTreeMode.Nj },
                     "upgma" => this with { TreeMode = TCoffeeTreeMode.Upgma },
-                    var m => throw new ArgumentException($"-tree_mode {m} is not supported (nj, upgma)."),
+                    "cwph" => this with { TreeMode = TCoffeeTreeMode.Cwph },
+                    "kmeans" => this with { TreeMode = TCoffeeTreeMode.Kmeans },
+                    var m => this with { TreeMode = TCoffeeTreeMode.Other, TreeModeText = m },
                 };
             case "-distance_matrix_mode":
                 return StringValue(flag, values) switch
@@ -151,7 +153,14 @@ public sealed partial record TCoffeeProgramOptions
                     "fast" => this with { DistanceMatrixMode = TCoffeeDistanceMode.Fast },
                     "idscore" => this with { DistanceMatrixMode = TCoffeeDistanceMode.Idscore },
                     "no" => this with { DistanceMatrixMode = TCoffeeDistanceMode.No },
-                    var m => throw new ArgumentException($"-distance_matrix_mode {m} is not supported."),
+                    "aln" => this with { DistanceMatrixMode = TCoffeeDistanceMode.Aln },
+                    "ktup2" => this with { DistanceMatrixMode = TCoffeeDistanceMode.Ktup2 },
+                    "slow" => this with { DistanceMatrixMode = TCoffeeDistanceMode.Slow },
+                    "cscore" => this with { DistanceMatrixMode = TCoffeeDistanceMode.Cscore },
+                    "geometric" => this with { DistanceMatrixMode = TCoffeeDistanceMode.Geometric },
+                    "random" => this with { DistanceMatrixMode = TCoffeeDistanceMode.Random },
+                    "clustalw" => this with { DistanceMatrixMode = TCoffeeDistanceMode.Clustalw },
+                    var m => this with { DistanceMatrixMode = TCoffeeDistanceMode.Other, DistanceModeText = m },
                 };
             case "-distance_matrix_sim_mode":
                 return this with { DistanceMatrixSimMode = StringValue(flag, values) };
@@ -205,6 +214,15 @@ public sealed partial record TCoffeeProgramOptions
         "lalign_id_pair" => TCoffeePairMethod.LalignIdPair,
         "proba_pair" => TCoffeePairMethod.ProbaPair,
         "clustalw_pair" => TCoffeePairMethod.ClustalwPair,
+        "biphasic_pair" => TCoffeePairMethod.BiphasicPair,
+        "lalign_rs_s_pair" => TCoffeePairMethod.LalignRsSPair,
+        "promo_pair" => TCoffeePairMethod.PromoPair,
+        "blastr_pair" => TCoffeePairMethod.BlastrPair,
+        "clean_slow_pair" => TCoffeePairMethod.CleanSlowPair,
+        "hash_pair" => TCoffeePairMethod.HashPair,
+        "subop1_pair" => TCoffeePairMethod.Subop1Pair,
+        "subop2_pair" => TCoffeePairMethod.Subop2Pair,
+        "cfast_pair" => TCoffeePairMethod.CfastPair,
         _ => throw new ArgumentException($"The t_coffee method {name} is not supported."),
     };
 }

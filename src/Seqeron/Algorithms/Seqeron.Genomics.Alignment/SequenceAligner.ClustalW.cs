@@ -295,6 +295,18 @@ public static partial class SequenceAligner
     /// <summary>ClustalW's guide-tree distance of two sequences (1 when one is empty), see <see cref="MsaDistanceMode.ClustalWAffine"/>.</summary>
     private static double ClustalWPairwiseDistance(string a, string b) => ClustalWPairwiseAlign(a, b).Distance;
 
+    [ThreadStatic]
+    private static bool s_clustalWLenientLetters;
+
+    /// <summary>Runs <paramref name="run"/> with the DNA encoder accepting every letter of the program's alphabet (matrix entries 0 outside the IUB codes), as clustalw does after guessing DNA from the second sequence.</summary>
+    internal static T WithClustalWLenientLetters<T>(Func<T> run)
+    {
+        bool previous = s_clustalWLenientLetters;
+        s_clustalWLenientLetters = true;
+        try { return run(); }
+        finally { s_clustalWLenientLetters = previous; }
+    }
+
     private static int[] EncodeClustalWDna(string sequence, string paramName, bool allowGaps = false)
     {
         var codes = new int[sequence.Length];
@@ -307,7 +319,9 @@ public static partial class SequenceAligner
                 continue;
             }
 
-            int code = ClustalWNucleicOrder.Contains(c) ? ClustalWResidueCodes.IndexOf(c) : -1;
+            // inside T-Coffee's clustalw_pair the external program decides the type of the pair file itself and meets protein letters in DNA mode: they are residues of its alphabet whose
+            // DNA matrix entries are 0 (see TcPairJobEntries); the public DNA entry points stay strict
+            int code = ClustalWNucleicOrder.Contains(c) || (s_clustalWLenientLetters && c != '-') ? ClustalWResidueCodes.IndexOf(c) : -1;
             if (code < 0)
                 throw new ArgumentException($"'{sequence[i]}' at position {i} is not an IUB nucleotide code known to the ClustalW DNA matrix.", paramName);
             codes[i] = code;
@@ -624,10 +638,6 @@ public static partial class SequenceAligner
             }
         }
 
-        /// <summary>
-        /// <c>tracePath</c>: walks the edit script from (Sb1, Sb2), counts identical aligned code pairs and renders the
-        /// two aligned rows of the local region.
-        /// </summary>
         /// <summary>FullPairwiseAlign::tracePath's count on rows that already contain gaps: a column counts when both residues are equal, the first is not gapPos1 and the second is not gapPos2.</summary>
         public int CountIdentitiesGapAware()
         {
@@ -658,6 +668,10 @@ public static partial class SequenceAligner
             return count;
         }
 
+        /// <summary>
+        /// <c>tracePath</c>: walks the edit script from (Sb1, Sb2), counts identical aligned code pairs and renders the
+        /// two aligned rows of the local region.
+        /// </summary>
         public (string Row1, string Row2, int Identities) TracePath(string original1, string original2)
         {
             int toDo = PrintPtr - 1;

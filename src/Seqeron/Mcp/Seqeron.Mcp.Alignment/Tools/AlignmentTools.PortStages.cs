@@ -131,10 +131,10 @@ public partial class AlignmentTools
     }
 
     [McpServerTool(Name = "tcoffee_primary_library", Title = "MSA — T-Coffee Primary Library", ReadOnly = true)]
-    [Description("The primary library the T-Coffee 13.41 program builds for a set of sequences with the given pair-wise methods (t_coffee -seq s.fa -method m1,m2 -lib_only -out_lib x.tc_lib): residue pairs (sequence index of the first smaller than that of the second; 0-based positions) with weight 10 x percent identity of the alignment they come from and the number of times the pair was added. methods in command-line order: 'proba_pair' (default; ProbCons pair-HMM posteriors), 'slow_pair', 'lalign_id_pair', 'clustalw_pair'; with two or more methods the program's own merge loses and duplicates entries - the result is what it writes. Verified on 800+ committed libraries (see multiple_align_tcoffee). Entries are ordered by (seqA, seqB, posA, posB).")]
+    [Description("The primary library the T-Coffee 13.41 program builds for a set of sequences with the given pair-wise methods (t_coffee -seq s.fa -method m1,m2 -lib_only -out_lib x.tc_lib): residue pairs (sequence index of the first smaller than that of the second; 0-based positions) with weight 10 x percent identity of the alignment they come from and the number of times the pair was added. methods in command-line order: 'proba_pair' (default; ProbCons pair-HMM posteriors), 'slow_pair', 'lalign_id_pair', 'clustalw_pair', 'biphasic_pair' (two affine gap models), 'lalign_rs_s_pair' (SIM on every pair including each sequence against itself), 'promo_pair' / 'blastr_pair' (slow_pair on the dinucleotide-extended alphabet); the program refuses 'clean_slow_pair', 'hash_pair', 'subop1_pair', 'subop2_pair', 'cfast_pair' (TCoffeeAbortedException); with two or more methods the program's own merge loses and duplicates entries - the result is what it writes. Verified on 800+ committed libraries (see multiple_align_tcoffee). Entries are ordered by (seqA, seqB, posA, posB).")]
     public static TCoffeePrimaryLibraryResult TCoffeePrimaryLibrary(
         [Description("Sequences (at least one, none empty; letters only).")] string[] sequences,
-        [Description("Pair-wise methods in command-line order ('proba_pair' (default), 'slow_pair', 'lalign_id_pair', 'clustalw_pair').")] string[]? methods = null,
+        [Description("Pair-wise methods in command-line order ('proba_pair' (default), 'slow_pair', 'lalign_id_pair', 'clustalw_pair', 'biphasic_pair', 'lalign_rs_s_pair', 'promo_pair', 'blastr_pair').")] string[]? methods = null,
         [Description("t_coffee -lalign_n_top (default 10).")] int lalignTopAlignments = 10,
         [Description("true = protein, false = DNA, omitted = decided from the letters as the program does.")] bool? protein = null,
         CancellationToken cancellationToken = default)
@@ -155,7 +155,16 @@ public partial class AlignmentTools
         "lalign_id_pair" => global::Seqeron.Genomics.Alignment.TCoffeePairMethod.LalignIdPair,
         "proba_pair" => global::Seqeron.Genomics.Alignment.TCoffeePairMethod.ProbaPair,
         "clustalw_pair" => global::Seqeron.Genomics.Alignment.TCoffeePairMethod.ClustalwPair,
-        _ => throw new ArgumentException($"Unknown pair-wise method '{name}': expected proba_pair, slow_pair, lalign_id_pair or clustalw_pair."),
+        "biphasic_pair" => global::Seqeron.Genomics.Alignment.TCoffeePairMethod.BiphasicPair,
+        "lalign_rs_s_pair" => global::Seqeron.Genomics.Alignment.TCoffeePairMethod.LalignRsSPair,
+        "promo_pair" => global::Seqeron.Genomics.Alignment.TCoffeePairMethod.PromoPair,
+        "blastr_pair" => global::Seqeron.Genomics.Alignment.TCoffeePairMethod.BlastrPair,
+        "clean_slow_pair" => global::Seqeron.Genomics.Alignment.TCoffeePairMethod.CleanSlowPair,
+        "hash_pair" => global::Seqeron.Genomics.Alignment.TCoffeePairMethod.HashPair,
+        "subop1_pair" => global::Seqeron.Genomics.Alignment.TCoffeePairMethod.Subop1Pair,
+        "subop2_pair" => global::Seqeron.Genomics.Alignment.TCoffeePairMethod.Subop2Pair,
+        "cfast_pair" => global::Seqeron.Genomics.Alignment.TCoffeePairMethod.CfastPair,
+        _ => throw new ArgumentException($"Unknown pair-wise method '{name}': expected proba_pair, slow_pair, lalign_id_pair, clustalw_pair, biphasic_pair, lalign_rs_s_pair, promo_pair, blastr_pair (or clean_slow_pair, hash_pair, subop1_pair, subop2_pair, cfast_pair, which the program refuses)."),
     };
 
     [McpServerTool(Name = "tcoffee_guide_tree", Title = "MSA — T-Coffee Guide Tree", ReadOnly = true)]

@@ -188,9 +188,11 @@ public static partial class SequenceAligner
 
     /// <summary>The entries one pair job (x, y) adds, in the order of <c>aln2constraint_list</c> (alignments of the chain, columns left to right).</summary>
     private static List<(int S1, int R1, int S2, int R2, int W)> TcPairJobEntries(
-        IReadOnlyList<string> seqs, int x, int y, TCoffeePairMethod method, int lalignTop, TcSeqKind kind, string? matrix, TCoffeeMethodParameters? mp)
+        IReadOnlyList<string> seqs, int x, int y, TCoffeePairMethod method, int lalignTop, TcSeqKind kind, string? matrix, TCoffeeMethodParameters? mp, string[]? work = null)
     {
         bool protein = kind == TcSeqKind.Protein;
+        if (method is TCoffeePairMethod.PromoPair or TCoffeePairMethod.BlastrPair)
+            return TcExtendedPairEntries(work ?? seqs.ToArray(), x, y, method, mp);
         if (method == TCoffeePairMethod.ProbaPair)
             return TcProbaPairEntries(seqs[x], seqs[y], kind, matrix).Select(e => (x, e.R1, y, e.R2, e.Weight)).ToList();
 
@@ -201,6 +203,7 @@ public static partial class SequenceAligner
                 rows.Add(TCoffeeSlowPairAlign(seqs[x], seqs[y], protein, matrix, mp));
                 break;
             case TCoffeePairMethod.LalignIdPair:
+            case TCoffeePairMethod.LalignRsSPair:
                 {
                     var alns = TCoffeeLalignTopAlignments(seqs[x], seqs[y], lalignTop, protein, mp);
                     if (alns.Count == 0)
@@ -213,11 +216,17 @@ public static partial class SequenceAligner
                     foreach (var a in alns) rows.Add((a.RowA, a.RowB));
                     break;
                 }
+            case TCoffeePairMethod.BiphasicPair:
+                rows.Add(TCoffeeBiphasicPairAlign(seqs[x], seqs[y], protein, matrix, mp));
+                break;
             case TCoffeePairMethod.ClustalwPair:
                 {
-                    var cw = protein
-                        ? MultipleAlignClustalW(new[] { seqs[x], seqs[y] }, new ClustalWProteinOptions())
-                        : MultipleAlignClustalW(new[] { seqs[x], seqs[y] });
+                    // the external program decides the residue type of the pair file itself (-TYPE=auto: the SECOND sequence of the pair), not T-Coffee's type of the whole set:
+                    // the pair YAGR / NSMYC consists of nucleotide letters only for T-Coffee (AGCTUNRYMKSWHBVD) but is protein for clustalw
+                    var pair = new[] { seqs[x], seqs[y] };
+                    var cw = GuessClustalWSequenceType(pair) == ClustalWSequenceType.Dna
+                        ? WithClustalWLenientLetters(() => MultipleAlignClustalW(pair))
+                        : MultipleAlignClustalW(pair, new ClustalWProteinOptions());
                     rows.Add((cw.AlignedSequences[0], cw.AlignedSequences[1]));
                     break;
                 }
@@ -258,8 +267,10 @@ public static partial class SequenceAligner
         int before = methodList.EntryCount;
         var child = methodList.Clone();
         var frozen = child.Freeze();
+        // the jobs of one method run one after the other in one process on the program's shared sequence array (promo_pair / blastr_pair modify it)
+        var work = seqs.ToArray();
         foreach (var (x, y) in pairs)
-            foreach (var (s1, r1, s2, r2, w) in TcPairJobEntries(seqs, x, y, method, lalignTop, kind, matrix, mp))
+            foreach (var (s1, r1, s2, r2, w) in TcPairJobEntries(seqs, x, y, method, lalignTop, kind, matrix, mp, work))
                 child.AddBoth(s1, r1, s2, r2, w, 1);
         methodList.Undump(child.Dump(frozen));
         return methodList.EntryCount > before ? methodList.Dump(null) : null;
@@ -275,14 +286,22 @@ public static partial class SequenceAligner
         var lengths = seqs.Select(s => s.Length).ToArray();
         var main = new TcConstraintList(lengths);
         var pairs = new List<(int X, int Y)>();
+        var pairsWithSelf = new List<(int X, int Y)>(); // ALN_MODE s_pairwise: row-major (x, y >= x), the self pair first in every row
         for (int x = 0; x < seqs.Count; x++)
+        {
+            pairsWithSelf.Add((x, x));
             for (int y = x + 1; y < seqs.Count; y++)
+            {
                 pairs.Add((x, y));
+                pairsWithSelf.Add((x, y));
+            }
+        }
 
         // a method named twice is read once
         foreach (var method in methods.Distinct())
         {
-            var dump = TcRunMethod(main, seqs, pairs, method, lalignTop, kind, matrix, methodParameters != null && methodParameters.TryGetValue(method, out var mp) ? mp : null);
+            if (pairs.Count > 0) TcRefuseMethod(method);
+            var dump = TcRunMethod(main, seqs, method == TCoffeePairMethod.LalignRsSPair ? pairsWithSelf : pairs, method, lalignTop, kind, matrix, methodParameters != null && methodParameters.TryGetValue(method, out var mp) ? mp : null);
             if (dump != null) main.Undump(dump);
         }
 
@@ -331,6 +350,15 @@ public enum TCoffeeTreeMode
 
     /// <summary>UPGMA (<c>upgma_merge</c>) on the integer distances.</summary>
     Upgma = 1,
+
+    /// <summary><c>cwph</c> (listed in the option's documentation): <c>make_tree</c> has no such mode; for three or more sequences the program core dumps (exit status 11); two sequences use a dummy tree and ignore the mode. Raises <see cref="TCoffeeAbortedException"/>.</summary>
+    Cwph = 2,
+
+    /// <summary><c>kmeans</c>: <c>seq2km_tree_old</c> builds a bootstrapped k-means tree ("Resolve Node" lines) and the program ends with exit status 0 WITHOUT writing an alignment (three or more sequences). Raises <see cref="TCoffeeAbortedException"/> with exit status 0.</summary>
+    Kmeans = 3,
+
+    /// <summary>Any other text: <c>make_tree</c> reports "unknown tree computation mode" and the program core dumps (exit status 11) for three or more sequences; the text is <see cref="TCoffeeProgramOptions.TreeModeText"/>.</summary>
+    Other = 4,
 }
 
 /// <summary><c>-distance_matrix_mode</c> of the program (the pair-wise distances of the guide tree and of the sequence weights).</summary>
@@ -347,6 +375,30 @@ public enum TCoffeeDistanceMode
 
     /// <summary><c>no</c>: every pair has identity 100 (all distances 0).</summary>
     No = 3,
+
+    /// <summary><c>aln</c>: <c>aln2sim_mat</c> of the alignment that <c>cl2distance_matrix</c> never gets (<c>NOALN</c>): the program segfaults (exit status 11). Raises <see cref="TCoffeeAbortedException"/>.</summary>
+    Aln = 4,
+
+    /// <summary><c>ktup2</c>: <c>seq2distance_matrix</c> aligns with <c>very_fast_aln</c> and calls itself with the mode <c>aln</c>; the program stops with "ERROR: UNSPECIFIED UNSPECIFIED" (exit status 1). Raises <see cref="TCoffeeAbortedException"/>.</summary>
+    Ktup2 = 5,
+
+    /// <summary><c>slow</c>: every pair aligned with the relaxed library (<c>pair_wise</c> with the main dp mode); recognised, not ported yet (<see cref="NotSupportedException"/>).</summary>
+    Slow = 6,
+
+    /// <summary><c>cscore</c>: the consistency score of the pair alignment (<c>linked_pair_wise</c>); recognised, not ported yet (<see cref="NotSupportedException"/>).</summary>
+    Cscore = 7,
+
+    /// <summary><c>geometric</c>: Euclidean distance of the FASTA-alignment similarity vectors; recognised, not ported yet (needs <c>fasta_pair_wise</c>; <see cref="NotSupportedException"/>).</summary>
+    Geometric = 8,
+
+    /// <summary><c>random</c>: <c>rand() % 100</c> as identity; the program's <c>rand</c> is seeded differently on every run (two runs of the same input give different weights), so the result cannot be reproduced; <see cref="NotSupportedException"/>.</summary>
+    Random = 9,
+
+    /// <summary><c>clustalw</c>: the DP score of the pair alignment with the main library as identity; recognised, not ported yet (<see cref="NotSupportedException"/>).</summary>
+    Clustalw = 10,
+
+    /// <summary>Any other text: "Error: X is an unknown distance_matrix_mode [FATAL:T-COFFEE]", exit status 1 (<see cref="TCoffeeProgramOptions.DistanceModeText"/>). Raises <see cref="TCoffeeAbortedException"/>.</summary>
+    Other = 11,
 }
 
 /// <summary>Options of <see cref="SequenceAligner.MultipleAlignTCoffeeProgram"/> = the command line of the program they mirror.</summary>
@@ -379,6 +431,12 @@ public sealed partial record TCoffeeProgramOptions
 
     /// <summary><c>-distance_matrix_mode</c> (guide tree and sequence weights): the default is <see cref="TCoffeeDistanceMode.Ktup"/>.</summary>
     public TCoffeeDistanceMode DistanceMatrixMode { get; init; } = TCoffeeDistanceMode.Ktup;
+
+    /// <summary>The text of <c>-tree_mode</c> when <see cref="TreeMode"/> is <see cref="TCoffeeTreeMode.Other"/>.</summary>
+    public string? TreeModeText { get; init; }
+
+    /// <summary>The text of <c>-distance_matrix_mode</c> when <see cref="DistanceMatrixMode"/> is <see cref="TCoffeeDistanceMode.Other"/>.</summary>
+    public string? DistanceModeText { get; init; }
 
     /// <summary><c>-distance_matrix_sim_mode</c>: the identity measure of the <c>fast</c> / <c>idscore</c> distances (<c>idmat_sim1</c> default; <c>sim1</c>, <c>sim2</c>, <c>sim3</c>, <c>cov</c>, <c>gap1</c>, <c>logid</c>, optionally with an <c>idmat_</c> prefix).</summary>
     public string DistanceMatrixSimMode { get; init; } = "idmat_sim1";
@@ -486,12 +544,14 @@ public static partial class SequenceAligner
 
         var seqs = perm.Select(i => sequences[i]).ToList();
         var kind = TcKindOf(seqs, options.Protein);
-        bool matrixGroups = options.Methods.Any(m => m != TCoffeePairMethod.ProbaPair);
         var cl = TcBuildChecked(seqs, options.Methods, options.LalignTopAlignments, kind, options.Matrix, options.MethodParameters);
         var index = TcIndex.FromConstraintList(cl, seqs.Select(s => s.Length).ToArray());
         var tree = options.DistanceMatrixMode == TCoffeeDistanceMode.Ktup && options.TreeMode == TCoffeeTreeMode.Nj
             ? TCoffeeGuideTree(seqs, kind == TcSeqKind.Protein)
-            : TcGuideTreeFor(seqs, kind, options, matrixGroups);
+            : TcGuideTreeFor(seqs, kind, options);
+
+        // the program computes the distance matrix of two sequences as well (cl2distance_matrix in t_coffee.c); only its side effect matters here: the segmentation fault of 'fast' + an idscore sim mode
+        if (k == 2) _ = TcDistanceMatrix(seqs, kind, options);
 
         float[]? weights = null;
         if (options.SequenceWeights != null)
@@ -501,7 +561,7 @@ public static partial class SequenceAligner
         }
         else if (options.TCoffeeSequenceWeights)
         {
-            weights = TcTCoffeeSequenceWeights(TcDistanceMatrix(seqs, kind, options, matrixGroups).Sim, k);
+            weights = TcTCoffeeSequenceWeights(TcDistanceMatrix(seqs, kind, options).Sim, k);
         }
 
         // CL->gop / CL->gep: -gapopen / -gapext, or -cosmetic_penalty as the opening penalty when neither is given

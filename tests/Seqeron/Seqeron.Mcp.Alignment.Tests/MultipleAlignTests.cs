@@ -458,6 +458,26 @@ public class MultipleAlignTests
     // B09 F66 (A1-13b): multiple_align_tcoffee delegates to SequenceAligner.MultipleAlignTCoffeeProgram (the T-Coffee 13.41 program: its own libraries, guide tree, progressive stage).
     private static readonly string[] TCoffeeProgramSet = ["ACGTTGCATGCCGATAGC", "ACGTGCATGCGATAGGC", "ACTTGCATCCGATTGC", "CGTTGCATGGCCGATAGC"];
 
+    // B09 F107 (A2-3 / A2-4): the further pair-wise methods of the program through the tool; rows written by t_coffee -seq s.fa -method M -output fasta_aln (installed 13.41); the refused methods raise TCoffeeAbortedException.
+    [Test]
+    public void MultipleAlignTCoffee_FurtherPairMethods_EqualTheProgram_AndRefusedMethodsAbort()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(AlignmentTools.MultipleAlignTCoffee(TCoffeeProgramSet, ["biphasic_pair"]).AlignedSequences,
+                Is.EqualTo(new[] { "ACGTTGCATG-CCGATA-GC", "ACG-TGCATG--CGATAGGC", "ACT-TGCATC--CGATT-GC", "-CGTTGCATGGCCGATA-GC" }));
+            Assert.That(AlignmentTools.MultipleAlignTCoffee(TCoffeeProgramSet, ["lalign_rs_s_pair"]).AlignedSequences,
+                Is.EqualTo(new[] { "ACGTTGCATG-CCGATA-GC", "ACGT-GCATG-C-GATAGGC", "ACTT-GCATC-C-GATT-GC", "-CGTTGCATGGCCGATA-GC" }));
+            Assert.That(AlignmentTools.MultipleAlignTCoffee(TCoffeeProgramSet, ["promo_pair"]).AlignedSequences,
+                Is.EqualTo(new[] { "ACGTTGCATGCCGATAGC-", "-ACGTGCATGCGATAGGC-", "-ACTTGCATCCGATTGC--", "-CGTTGCATGGCCGATAGC" }));
+            Assert.That(AlignmentTools.MultipleAlignTCoffee(TCoffeeProgramSet, ["blastr_pair"]).AlignedSequences,
+                Is.EqualTo(new[] { "ACGTTGCAT-GCCGATAGC-", "-ACGTGCAT-G-CGATAGGC", "-ACTTGCAT-C-CGATTGC-", "-CGTTGCATGGCCGATAGC-" }));
+            var aborted = Assert.Throws<global::Seqeron.Genomics.Alignment.TCoffeeAbortedException>(() => AlignmentTools.MultipleAlignTCoffee(TCoffeeProgramSet, ["hash_pair"]));
+            Assert.That(aborted!.ExitStatus, Is.EqualTo(1));
+            Assert.Throws<global::Seqeron.Genomics.Alignment.TCoffeeAbortedException>(() => AlignmentTools.MultipleAlignTCoffee(TCoffeeProgramSet, ["clean_slow_pair"]));
+        });
+    }
+
     [Test]
     public void MultipleAlignTCoffee_DelegatesToTheProgramPort_ParsesEveryOption_AndValidates()
     {
@@ -506,7 +526,8 @@ public class MultipleAlignTests
             Assert.That(AlignmentTools.MultipleAlignTCoffee(TCoffeeProgramSet, names: names).AlignedSequences,
                 Is.EqualTo(new[] { "ACGTTGCATG-CCGATA-GC", "AC-GTGCATG--CGATAGGC", "AC-TTGCATC--CGATT-GC", "CG-TTGCATGGCCGATA-GC" }));
             Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignTCoffee(TCoffeeProgramSet, options: "-no_such_flag 1"));
-            Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignTCoffee(TCoffeeProgramSet, options: "-tree_mode kmeans"));
+            // -tree_mode kmeans is accepted by the program, which then ends WITHOUT writing an alignment (exit status 0): TCoffeeAbortedException (A2-6)
+            Assert.That(Assert.Throws<global::Seqeron.Genomics.Alignment.TCoffeeAbortedException>(() => AlignmentTools.MultipleAlignTCoffee(TCoffeeProgramSet, options: "-tree_mode kmeans"))!.ExitStatus, Is.Zero);
             Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignTCoffee(TCoffeeProgramSet, names: ["a", "b"]));
         });
     }

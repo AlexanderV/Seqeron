@@ -19,21 +19,53 @@ public static partial class SequenceAligner
 {
     private const int TcMaxIdentity = 100;
 
+    /// <summary>Number of leading pair alignments of the distance matrix for which a gap in the first row of <c>idscore_pairseq</c> kills the program every time (measured, see <see cref="TCoffeeAbortedException.HeapDependent"/>).</summary>
+    private const int TcIdscoreWildPointerCalls = 12;
+
     private sealed class TcDistances
     {
         public int[,] Sim = new int[0, 0];
         public int[,] Score = new int[0, 0];
     }
 
-    /// <summary><c>is_in_same_group_aa(r1, r2, 0, NULL, mode)</c> of the distance measure: with groups made from the matrix <c>idmat</c> (a library method ran first) or one group per letter.</summary>
-    private static bool TcSameGroupMode(char a, char b, bool matrixGroups)
+    /// <summary>
+    /// <c>make_group_aa(&amp;n, mode)</c> for the first token of <c>-distance_matrix_sim_mode</c> (the text before its first '_'): the residue groups <c>is_in_same_group_aa</c> tests
+    /// (two residues are similar when they share a group; case-insensitive, groups may overlap). The groups are built ONCE per process, by the first call, which is why the caller passes the program's
+    /// first mode. <c>null</c> = no group at all (a mode the function does not know: nothing is similar, not even identical letters).
+    /// </summary>
+    internal static IReadOnlyList<string>? TcGroupsOfMode(string mode)
     {
-        if (matrixGroups) return TcSameGroup(a, b);
-        return char.IsAsciiLetter(a) && char.IsAsciiLetter(b) && char.ToUpperInvariant(a) == char.ToUpperInvariant(b);
+        if (mode.Length == 0) return null; // handled by the caller: the groups of the matrix idmat
+        if (mode.Contains("sim", StringComparison.Ordinal) || mode == "idmat")
+            return Enumerable.Range('a', 26).Select(c => $"{(char)c}{char.ToUpperInvariant((char)c)}").ToArray();
+        return mode switch
+        {
+            "simple" => new[] { "avilmAVILM", "dekrDEKR", "stcnqhSTCNQH", "wfyWFY", "gG", "pP" },
+            "mafft" => new[] { "agjopstAGJOPST", "ilmvILMV", "bdenqzBDENQZ", "hkrHKR", "fwyFWY", "cC" },
+            "clustalw" => new[] { "astaASTA", "bneqkBNEQK", "cnhqkCNHQK", "dndeqDNDEQ", "eqhrkEQHRK", "fmilvFMILV", "gmilfGMILF", "hhyHHY", "ifywIFYW", "jcJC", "kpKP" },
+            "polarity" => new[] { "eqrsdnkhtEQRSDNKHT", "pP", "gG", "cC", "fywFYW", "iavlmIAVLM" },
+            "vasiliky" => new[] { "rkRK", "deDE", "qhQH", "vilmVILM", "fyFY", "sS", "wW", "aA", "cC", "gG", "nN", "pP", "tT" },
+            "make_all" => new[] { "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz" },
+            _ => Array.Empty<string>(),
+        };
+    }
+
+    /// <summary>
+    /// <c>is_in_same_group_aa(r1, r2, 0, NULL, mode)</c> of the distance measure. The pair jobs run in forked children, so the first call in the main process (which builds the process-static groups) is the distance matrix
+    /// itself: the groups are those of the sim mode (an empty mode = the groups of the matrix <c>idmat</c>, T and U together, J / O never equal). A1-13d had assumed that a library method makes the first call and fixes the
+    /// groups of <c>idmat</c>; sets built from T and U show it does not (the sim mode <c>idmat_sim1</c> = one group per letter).
+    /// </summary>
+    private static bool TcSameGroupMode(char a, char b, IReadOnlyList<string>? modeGroups)
+    {
+        if (modeGroups == null) return TcSameGroup(a, b);
+        char ua = char.ToUpperInvariant(a), ub = char.ToUpperInvariant(b);
+        foreach (string g in modeGroups)
+            if (g.Contains(ua) && g.Contains(ub)) return true; // is_in_set: both letter cases are in every group string
+        return false;
     }
 
     /// <summary><c>get_seq_sim(row1, row2, "-", "idmat_sim1" | ...)</c> for the measures of <c>-distance_matrix_sim_mode</c>.</summary>
-    private static int TcSeqSimMeasure(string r1, string r2, string simMode, bool matrixGroups)
+    private static int TcSeqSimMeasure(string r1, string r2, string simMode, int callIndex = 0)
     {
         string mode = simMode.TrimStart('_');
         string measure = "";
@@ -47,10 +79,17 @@ public static partial class SequenceAligner
         }
 
         if (mode.Contains("idscore", StringComparison.Ordinal))
-            throw new NotSupportedException("A distance_matrix_sim_mode containing 'idscore' is not supported.");
-        if (mode != "idmat" && !mode.Contains("sim", StringComparison.Ordinal))
-            throw new NotSupportedException($"distance_matrix_sim_mode '{simMode}' is not supported (the residue groups of other matrices are not ported); use idmat_sim1/sim2/sim3/gap1/logid.");
+        {
+            // get_seq_sim hands the ALIGNED rows to idscore_pairseq(s1, s2, -12, -1, blosum62mt, mode), which reads m[s1[i] - 'a'][s2[j] - 'a']: a gap in the first row indexes 52 rows before the
+            // matrix (a wild pointer: the program dies with a segmentation fault, exit status 11), a gap in the second row reads a zero. The measure after '_' is not passed on (the comp mode is the part before it).
+            // measured on 220 committed sets with such a gap: the program died in all 208 whose first gap lies in one of the first 12 pair alignments (a < b order); later (calls 12-22) it died in 7 of 12 sets: the memory
+            // before the matrix then holds heap data that is a valid pointer in some runs
+            if (r1.Contains('-'))
+                throw new TCoffeeAbortedException("segmentation fault in idscore_pairseq: -distance_matrix_sim_mode '" + simMode + "' scores the aligned rows of -distance_matrix_mode fast, and a gap '-' in the first row indexes the matrix at 'a' - 45 (get_seq_sim, aln_convertion_util.c)", 11, callIndex >= TcIdscoreWildPointerCalls);
+            return TcIdscorePair(r1, r2, -12, -1, TcMatrix.Blosum62, mode);
+        }
 
+        var modeGroups = TcGroupsOfMode(mode);
         int pos0 = 0, pos1 = 0, pos2 = 0, sim = 0, gap = 0;
         for (int a = 0; a < r1.Length; a++)
         {
@@ -60,7 +99,7 @@ public static partial class SequenceAligner
             if (p1 && p2)
             {
                 pos0++;
-                if (TcSameGroupMode(r1[a], r2[a], matrixGroups)) sim++;
+                if (TcSameGroupMode(r1[a], r2[a], modeGroups)) sim++;
             }
             else if (p1 != p2) gap++;
         }
@@ -100,7 +139,8 @@ public static partial class SequenceAligner
             M[1][0] = 2 * i * gep;
             for (int j = 1; j <= l2; j++)
             {
-                int score = matrix.Score(char.ToUpperInvariant(s1[i - 1]), char.ToUpperInvariant(s2[j - 1]));
+                // m[s1[i] - 'a'][s2[j] - 'a']: a gap '-' in the SECOND string indexes 52 entries before the row, which holds 0 (a gap in the first string is a wild pointer: see TcSeqSimMeasure)
+                int score = char.IsAsciiLetter(s1[i - 1]) && char.IsAsciiLetter(s2[j - 1]) ? matrix.Score(char.ToUpperInvariant(s1[i - 1]), char.ToUpperInvariant(s2[j - 1])) : 0;
                 int id = s1[i - 1] == s2[j - 1] ? 1 : 0;
                 int igop = i == l1 || j == l2 ? 0 : gop;
 
@@ -133,8 +173,22 @@ public static partial class SequenceAligner
     }
 
     /// <summary>The distance matrix of the program (<c>seq2distance_matrix</c>) for the chosen <c>-distance_matrix_mode</c>.</summary>
-    private static TcDistances TcDistanceMatrix(IReadOnlyList<string> seqs, TcSeqKind kind, TCoffeeProgramOptions o, bool matrixGroups)
+    private static TcDistances TcDistanceMatrix(IReadOnlyList<string> seqs, TcSeqKind kind, TCoffeeProgramOptions o)
     {
+        switch (o.DistanceMatrixMode)
+        {
+            case TCoffeeDistanceMode.Aln:
+                throw new TCoffeeAbortedException("segmentation fault in aln2sim_mat: -distance_matrix_mode aln needs the alignment that cl2distance_matrix is called without (NOALN)", 11);
+            case TCoffeeDistanceMode.Ktup2:
+                throw new TCoffeeAbortedException("ERROR: UNSPECIFIED UNSPECIFIED (-distance_matrix_mode ktup2: seq2distance_matrix aligns with very_fast_aln and calls itself with the mode aln)");
+            case TCoffeeDistanceMode.Other:
+                throw new TCoffeeAbortedException($"Error: {o.DistanceModeText} is an unknown distance_matrix_mode [FATAL:T-COFFEE]");
+            case TCoffeeDistanceMode.Slow or TCoffeeDistanceMode.Cscore or TCoffeeDistanceMode.Geometric or TCoffeeDistanceMode.Clustalw:
+                throw new NotSupportedException($"-distance_matrix_mode {o.DistanceMatrixMode.ToString().ToLowerInvariant()} is not ported yet (A2-6: it needs the relaxed library at the distance matrix stage, and geometric the fasta DP).");
+            case TCoffeeDistanceMode.Random:
+                throw new NotSupportedException("-distance_matrix_mode random uses rand() % 100 and the program's rand is seeded differently on every run: two runs of the same input give different sequence weights, so no result can be locked.");
+        }
+
         int n = seqs.Count;
         var dm = new TcDistances { Sim = new int[n, n], Score = new int[n, n] };
         bool protein = kind == TcSeqKind.Protein;
@@ -153,10 +207,11 @@ public static partial class SequenceAligner
 
         TcMatrix mat = protein ? TcMatrix.Blosum62 : TcMatrix.IdMat;
         int gop = protein ? (int)(mat.AverageMismatch() * 10) : -10;
+        int call = 0;
         for (int a = 0; a < n; a++)
         {
             dm.Sim[a, a] = TcMaxIdentity;
-            for (int b = a + 1; b < n; b++)
+            for (int b = a + 1; b < n; b++, call++)
             {
                 int id, score;
                 switch (o.DistanceMatrixMode)
@@ -164,7 +219,7 @@ public static partial class SequenceAligner
                     case TCoffeeDistanceMode.Fast:
                         {
                             var (ra, rb) = TCoffeeSlowPairAlign(seqs[a], seqs[b], protein);
-                            id = TcSeqSimMeasure(ra, rb, o.DistanceMatrixSimMode, matrixGroups);
+                            id = TcSeqSimMeasure(ra, rb, o.DistanceMatrixSimMode, call);
                             score = id * TcScoreK;
                             break;
                         }
@@ -189,12 +244,20 @@ public static partial class SequenceAligner
     }
 
     /// <summary>make_tree: <c>normalize_array(sim_array2dist_array(score, 1000), 1000, 100)</c> followed by NJ (+ reroot) or UPGMA.</summary>
-    internal static TCoffeeTreeNode TcGuideTreeFor(IReadOnlyList<string> seqs, TcSeqKind kind, TCoffeeProgramOptions o, bool matrixGroups)
+    internal static TCoffeeTreeNode TcGuideTreeFor(IReadOnlyList<string> seqs, TcSeqKind kind, TCoffeeProgramOptions o)
     {
         int k = seqs.Count;
         if (k == 1) return TCoffeeTreeNode.Leaf(0);
         if (k == 2) return TCoffeeTreeNode.Join(TCoffeeTreeNode.Leaf(0), TCoffeeTreeNode.Leaf(1));
-        var dm = TcDistanceMatrix(seqs, kind, o, matrixGroups);
+        switch (o.TreeMode)
+        {
+            case TCoffeeTreeMode.Cwph or TCoffeeTreeMode.Other:
+                throw new TCoffeeAbortedException($"COREDUMP in make_tree: ERROR: {(o.TreeMode == TCoffeeTreeMode.Cwph ? "cwph" : o.TreeModeText)} is an unknown tree computation mode [FATAL:T-COFFEE] (the dispatcher knows only nj and upgma)", 11);
+            case TCoffeeTreeMode.Kmeans:
+                throw new TCoffeeAbortedException("-tree_mode kmeans: seq2km_tree_old builds the k-means tree and the program ends without writing an alignment", 0);
+        }
+
+        var dm = TcDistanceMatrix(seqs, kind, o);
         var dist = new int[k, k];
         for (int a = 0; a < k; a++)
             for (int b = 0; b < k; b++)

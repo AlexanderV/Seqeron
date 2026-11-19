@@ -30,6 +30,30 @@ namespace Seqeron.Genomics.Alignment;
 /// </remarks>
 public sealed class TCoffeeAbortedException : InvalidOperationException
 {
+    /// <summary>Creates the exception for a deterministic refusal / core dump of the program that is not SIM's script overflow (an unknown method, an unknown weight mode, a missing dispatcher branch, an empty library).</summary>
+    /// <param name="reason">What the program reports (or, for a silent core dump, why it dies).</param>
+    /// <param name="exitStatus">The exit status of the program (1 for every case reproduced).</param>
+    /// <param name="heapDependent">The program reads memory that is not part of any object (undefined behaviour); whether it then dies depends on the heap contents, so a set may also run to the end (see <see cref="HeapDependent"/>).</param>
+    public TCoffeeAbortedException(string reason, int exitStatus = 1, bool heapDependent = false)
+        : base($"t_coffee 13.41 stops with exit status {exitStatus}: {reason}" + (heapDependent ? " (heap dependent: the program may also run through)" : string.Empty))
+    {
+        Reason = reason;
+        ExitStatus = exitStatus;
+        HeapDependent = heapDependent;
+    }
+
+    /// <summary>
+    /// <c>false</c> = the program stops on this input every time (a refusal, a missing branch, SIM's script overflow, a wild pointer read in the first calls); <c>true</c> = undefined behaviour whose outcome depends on the
+    /// heap contents: the committed oracle sets with such an input crash in most but not all runs (see <c>-distance_matrix_sim_mode idscore</c> of <c>-distance_matrix_mode fast</c>).
+    /// </summary>
+    public bool HeapDependent { get; }
+
+    /// <summary>What the program reports; empty for the SIM script overflow.</summary>
+    public string Reason { get; } = string.Empty;
+
+    /// <summary>The exit status of the program.</summary>
+    public int ExitStatus { get; } = 1;
+
     /// <summary>Creates the exception.</summary>
     /// <param name="scriptLength">Entries the edit script needed.</param>
     /// <param name="usableEntries">Entries the heap chunk of the script array can hold.</param>
@@ -64,6 +88,45 @@ public enum TCoffeePairMethod
     /// repository (<see cref="SequenceAligner.MultipleAlignClustalW(IEnumerable{string}, ClustalWOptions?, ScoringMatrix?)"/> and its PROTEIN counterpart) is the aligner. Weights = 10 x percent identity as for the other methods.
     /// </summary>
     ClustalwPair = 3,
+
+    /// <summary><c>biphasic_pair</c>: global alignment with two affine gap models at once (opening x 2 / extension / 2 and opening / 2 / extension x 2; <c>biphasic_pair_wise</c>, util_dp_suboptimal_nw.c).</summary>
+    BiphasicPair = 4,
+
+    /// <summary>
+    /// <c>lalign_rs_s_pair</c> ("for Mocca"): <c>lalign_id_pair</c> with <c>ALN_MODE s_pairwise</c> - the pair jobs also contain every sequence against ITSELF. <c>fast_pair</c> always gives the two alignment rows the
+    /// indices 0 and 1, so SIM sees two sequences (<c>nseq == 2</c>) and the main diagonal is an ordinary candidate: the library gets entries between residues of one sequence (the identity alignment first).
+    /// </summary>
+    LalignRsSPair = 5,
+
+    /// <summary>
+    /// <c>promo_pair</c>: <c>slow_pair</c> on the dinucleotide-extended alphabet (<c>EXTEND_SEQ 1</c>, matrix promoter_tf1, GOP -60, GEP -1, <c>WEIGHT extend_sim</c>); the shared sequence array is extended and
+    /// unextended around every job, which is lossy for letters other than a c g t u n x.
+    /// </summary>
+    PromoPair = 6,
+
+    /// <summary><c>blastr_pair</c>: as <see cref="PromoPair"/> with the matrix blosumR, GOP -20, GEP 0.</summary>
+    BlastrPair = 7,
+
+    /// <summary>
+    /// <c>clean_slow_pair</c>: the method file asks for <c>WEIGHT clean</c>, which <c>seqpair2weight</c> does not know: every pair job dies with "Weight Mode clean is unknown [FATAL:T-COFFEE]" and a core dump (exit
+    /// status 1) as soon as there are two sequences. Raises <see cref="TCoffeeAbortedException"/>.
+    /// </summary>
+    CleanSlowPair = 8,
+
+    /// <summary>
+    /// <c>hash_pair</c>: <c>method_file2... "EXECUTABLE hash_pair"</c> has no branch in the pair-job dispatcher (<c>THE FUNCTION hash_pair DOES NOT EXIST</c>, written to the suppressed local stderr): core dump, exit status 1,
+    /// as soon as there are two sequences. Raises <see cref="TCoffeeAbortedException"/>.
+    /// </summary>
+    HashPair = 9,
+
+    /// <summary><c>subop1_pair</c>: the dispatcher knows the function but the method list of the program has no such method: "Msubop1_pair not recognised [FATAL:T-COFFEE]", exit status 1. Raises <see cref="TCoffeeAbortedException"/>.</summary>
+    Subop1Pair = 10,
+
+    /// <summary><c>subop2_pair</c>: as <see cref="Subop1Pair"/>.</summary>
+    Subop2Pair = 11,
+
+    /// <summary><c>cfast_pair</c>: "Mcfast_pair not recognised [FATAL:T-COFFEE]", exit status 1. Raises <see cref="TCoffeeAbortedException"/>.</summary>
+    CfastPair = 12,
 }
 
 /// <summary>

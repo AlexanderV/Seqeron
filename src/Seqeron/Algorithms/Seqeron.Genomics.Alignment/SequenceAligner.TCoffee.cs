@@ -423,6 +423,9 @@ public static partial class SequenceAligner
             for (int c = 0; c < row.Length; c++) if (row[c] > 0) inv[(s, row[c])] = c + 1;
         }
 
+        // profile_pair_wise walks the group's lseq of the tree node: recode_tree fills it with the sequence indices in ASCENDING order (not the order of the tree walk), and the
+        // float sums of the pair list depend on that order (cell (14, 20) of the oracle set of F-A2-7: 21.999998 against 22.000002)
+        var sortedG0 = g0.Order.OrderBy(x => x).ToArray();
         var norm = new float[l1 + 1];
         var usedScore = new float[l2 + 1];
         var usedCount = new int[l2 + 1];
@@ -434,7 +437,7 @@ public static partial class SequenceAligner
         {
             float tot = 0;
             usedList.Clear();
-            foreach (var s in g0.Order)
+            foreach (var s in sortedG0)
             {
                 int r = g0.Rows[s][p1 - 1];
                 if (r <= 0) continue;

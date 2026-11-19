@@ -3439,7 +3439,7 @@ public static partial class SequenceAligner
             throw new ArgumentOutOfRangeException(nameof(options), "Unknown sequence weighting.");
         var primaryLibrary = BuildPrimaryLibrary(rawSeqs, effectiveScoring, gapModel, options.PrimaryLocalAlignments);
         float[]? seqWeights = options.SequenceWeights == MsaSequenceWeights.TCoffee && k > 1 && rawSeqs.All(r => r.Length > 0)
-            ? TcTCoffeeSequenceWeights(TcDistanceMatrix(rawSeqs, TcKindOf(rawSeqs, null), new TCoffeeProgramOptions(), false).Sim, k)
+            ? TcTCoffeeSequenceWeights(TcDistanceMatrix(rawSeqs, TcKindOf(rawSeqs, null), new TCoffeeProgramOptions()).Sim, k)
             : null;
         var library = new ExtendedLibrary(primaryLibrary, seqWeights);
 
@@ -3879,7 +3879,7 @@ public static partial class SequenceAligner
     {
         var lib = BuildPrimaryLibrary(seqs, scoring ?? SimpleDna, ResolveGapModel(options), options.PrimaryLocalAlignments);
         float[]? w = options.SequenceWeights == MsaSequenceWeights.TCoffee && seqs.Length > 1
-            ? TcTCoffeeSequenceWeights(TcDistanceMatrix(seqs, TcKindOf(seqs, null), new TCoffeeProgramOptions(), false).Sim, seqs.Length)
+            ? TcTCoffeeSequenceWeights(TcDistanceMatrix(seqs, TcKindOf(seqs, null), new TCoffeeProgramOptions()).Sim, seqs.Length)
             : null;
         return (lib.ToDictionary(kv => (kv.Key.SeqA, kv.Key.PosA, kv.Key.SeqB, kv.Key.PosB), kv => kv.Value), w);
     }
