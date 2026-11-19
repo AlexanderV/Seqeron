@@ -16,6 +16,15 @@ namespace Seqeron.Genomics.Infrastructure;
 /// representable with integers).
 /// </para>
 /// <para>
+/// Contract (identical to <see cref="MatrixScoring"/>; the record itself validates nothing, the aligners do): <see cref="GapOpen"/> and
+/// <see cref="GapExtend"/> are penalties, i.e. at most 0 (a positive gap score is rejected with <see cref="ArgumentException"/>) and greater than
+/// <c>int.MinValue</c>; the scores must fit the integer dynamic programs: the score of any path through sequences of m and n residues,
+/// <c>max(|Match|, |Mismatch|, |GapOpen| + |GapExtend|) · (m + n + 2)</c>, must stay below 2^28, otherwise the aligner throws
+/// <see cref="ArgumentException"/> "Score range too large for the integer dynamic program" instead of returning a silently wrapped score
+/// (the reported <see cref="AlignmentResult.Score"/> is a 32-bit integer). The multiple-alignment sum-of-pairs totals are accumulated in 64 bits
+/// and refused when they do not fit the reported 32-bit total.
+/// </para>
+/// <para>
 /// The presets live on <c>SequenceAligner</c> (<c>SimpleDna</c>, <c>BlastDna</c>, <c>HighIdentityDna</c>). For
 /// residue-pair specific scores (IUPAC DNA, protein) use <see cref="SubstitutionMatrix"/>.
 /// </para>
@@ -710,6 +719,13 @@ public enum MsaGapModel
 /// </summary>
 public sealed record MsaOptions
 {
+    /// <summary>
+    /// Cancels the alignment (the same convention as <see cref="System.Threading.Tasks.ParallelOptions.CancellationToken"/>): the dynamic programs poll it at their
+    /// row / iteration boundaries and the call throws <see cref="OperationCanceledException"/> without a partial result. Default: never cancelled.
+    /// It does not take part in the semantics of the options (two option sets that differ only in the token align identically).
+    /// </summary>
+    public CancellationToken CancellationToken { get; init; }
+
     /// <summary>Pairwise distance used for the guide tree of the progressive family (default <see cref="MsaDistanceMode.Linear"/>).</summary>
     public MsaDistanceMode Distance { get; init; } = MsaDistanceMode.Linear;
 
@@ -748,6 +764,15 @@ public sealed record MsaOptions
     /// the result is identical, only the number of cells changes). <c>false</c> evaluates the whole lattice.
     /// </summary>
     public bool ExactCarrilloLipman { get; init; } = true;
+
+    /// <summary>
+    /// Upper bound of the worker threads of the parallel pairwise stages (the center selection of the star aligners
+    /// and the alignment of every sequence to the center, which run the independent pair dynamic programs in parallel):
+    /// -1 (default) = the runtime's choice, 1 = sequential, n = at most n threads. 0 and values below -1 are rejected
+    /// with an <see cref="ArgumentOutOfRangeException"/>. The result never depends on it (every slot is independent and written once).
+    /// An exception of a pair dynamic program is rethrown with its original type, whatever the thread count.
+    /// </summary>
+    public int MaxDegreeOfParallelism { get; init; } = -1;
 }
 
 /// <summary>Progressive stage of the consistency-based (T-Coffee) multiple aligner.</summary>
@@ -876,6 +901,13 @@ public enum ClustalWPairwiseMode
 /// </summary>
 public sealed record ClustalWOptions
 {
+    /// <summary>
+    /// Cancels the alignment (the same convention as <see cref="System.Threading.Tasks.ParallelOptions.CancellationToken"/>): the dynamic programs poll it at their
+    /// row / iteration boundaries and the call throws <see cref="OperationCanceledException"/> without a partial result. Default: never cancelled.
+    /// It does not take part in the semantics of the options (two option sets that differ only in the token align identically).
+    /// </summary>
+    public CancellationToken CancellationToken { get; init; }
+
     /// <summary>Gap-opening penalty of the profile alignment (<c>-GAPOPEN</c>, DNA default 15.0; stored in single precision like ClustalW).</summary>
     public double GapOpen { get; init; } = 15.0;
 
@@ -1048,6 +1080,13 @@ public enum ClustalWProfileMatrix
 /// </summary>
 public sealed record ClustalWProteinOptions
 {
+    /// <summary>
+    /// Cancels the alignment (the same convention as <see cref="System.Threading.Tasks.ParallelOptions.CancellationToken"/>): the dynamic programs poll it at their
+    /// row / iteration boundaries and the call throws <see cref="OperationCanceledException"/> without a partial result. Default: never cancelled.
+    /// It does not take part in the semantics of the options (two option sets that differ only in the token align identically).
+    /// </summary>
+    public CancellationToken CancellationToken { get; init; }
+
     /// <summary>Matrix series of the profile alignment (<c>-MATRIX</c>, default <see cref="ClustalWProfileMatrix.Gonnet"/>).</summary>
     public ClustalWProfileMatrix Matrix { get; init; } = ClustalWProfileMatrix.Gonnet;
 
@@ -1292,6 +1331,13 @@ public enum MuscleRoot
 /// </summary>
 public sealed record MuscleOptions
 {
+    /// <summary>
+    /// Cancels the alignment (the same convention as <see cref="System.Threading.Tasks.ParallelOptions.CancellationToken"/>): the dynamic programs poll it at their
+    /// row / iteration boundaries and the call throws <see cref="OperationCanceledException"/> without a partial result. Default: never cancelled.
+    /// It does not take part in the semantics of the options (two option sets that differ only in the token align identically).
+    /// </summary>
+    public CancellationToken CancellationToken { get; init; }
+
     /// <summary>Residue alphabet (default <see cref="MuscleSequenceType.Auto"/>; the DNA / protein overloads of the method set it).</summary>
     public MuscleSequenceType SequenceType { get; init; } = MuscleSequenceType.Auto;
 

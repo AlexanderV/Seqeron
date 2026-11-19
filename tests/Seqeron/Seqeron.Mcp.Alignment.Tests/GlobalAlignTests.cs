@@ -10,7 +10,6 @@ public class GlobalAlignTests
     public void GlobalAlign_Schema_ValidatesCorrectly()
     {
         Assert.DoesNotThrow(() => AlignmentTools.GlobalAlign("ACGT", "ACGT"));
-        Assert.Throws<ArgumentException>(() => AlignmentTools.GlobalAlign("", "ACGT"));
         Assert.Throws<ArgumentException>(() => AlignmentTools.GlobalAlign("ACGT", null!));
     }
 

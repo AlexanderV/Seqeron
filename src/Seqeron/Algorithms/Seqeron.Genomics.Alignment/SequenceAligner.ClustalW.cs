@@ -390,6 +390,7 @@ public static partial class SequenceAligner
 
             for (int i = 1; i <= _n; i++)
             {
+                AlignmentCancellation.ThrowIfRequested();
                 int hh = 0, p = 0;
                 int f = -_gapOpen;
                 for (int j = 1; j <= _m; j++)
@@ -432,6 +433,7 @@ public static partial class SequenceAligner
 
             for (int i = Se1; i > 0; i--)
             {
+                AlignmentCancellation.ThrowIfRequested();
                 int hh = -1, f = -1;
                 int p = i == Se1 ? 0 : -1;
                 for (int j = Se2; j > 0; j--)
@@ -523,6 +525,7 @@ public static partial class SequenceAligner
             tt = -tb;
             for (int i = 1; i <= midi; i++)
             {
+                AlignmentCancellation.ThrowIfRequested();
                 int s = _hh[0];
                 int hh;
                 _hh[0] = hh = tt = tt - _gapExtend;
@@ -555,6 +558,7 @@ public static partial class SequenceAligner
             tt = -te;
             for (int i = m - 1; i >= midi; i--)
             {
+                AlignmentCancellation.ThrowIfRequested();
                 int s = _rr[n];
                 int hh;
                 _rr[n] = hh = tt = tt - _gapExtend;

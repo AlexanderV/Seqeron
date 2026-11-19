@@ -1,7 +1,7 @@
 namespace Seqeron.Genomics.Alignment;
 
 /// <summary>
-/// Exact sum-of-pairs multiple alignment (<see cref="SequenceAligner.MultipleAlignExactWithStatistics"/>) with the size of the problem
+/// Exact sum-of-pairs multiple alignment (<see cref="SequenceAligner.MultipleAlignExactWithStatistics(IEnumerable{DnaSequence}, ScoringMatrix?, MsaOptions?)"/>) with the size of the problem
 /// that was actually solved.
 /// </summary>
 /// <param name="Alignment">The optimal alignment (rows in input order, majority consensus, optimal sum-of-pairs score).</param>
@@ -71,7 +71,7 @@ public static partial class SequenceAligner
     /// <see cref="SumOfPairsScore(IReadOnlyList{string}, ScoringMatrix?, MsaGapModel)"/> under the chosen gap model
     /// (<see cref="MsaOptions.GapModel"/>: linear = column sum of pairs, affine = Altschul's natural affine sum of pairs).
     /// k = 2 is <see cref="GlobalAlign(DnaSequence, DnaSequence, ScoringMatrix?)"/> / <see cref="GlobalAlignAffine(DnaSequence, DnaSequence, ScoringMatrix?)"/>;
-    /// k ≥ 3 is the k-dimensional dynamic program with the Carrillo–Lipman (1988) bound, see <see cref="MultipleAlignExactWithStatistics"/>.
+    /// k ≥ 3 is the k-dimensional dynamic program with the Carrillo–Lipman (1988) bound, see <see cref="MultipleAlignExactWithStatistics(IEnumerable{DnaSequence}, ScoringMatrix?, MsaOptions?)"/>.
     /// </summary>
     /// <remarks>Optimal alignments are not unique; the returned one is deterministic. The general problem is NP-complete: the cost grows with
     /// the product of the sequence lengths unless the sequences are similar (the bound prunes the lattice); exceeding
@@ -81,13 +81,15 @@ public static partial class SequenceAligner
     /// <param name="options">Options: <see cref="MsaOptions.GapModel"/>, <see cref="MsaOptions.ExactMaxStateCells"/>, <see cref="MsaOptions.ExactCarrilloLipman"/>.</param>
     /// <exception cref="ArgumentNullException"><paramref name="sequences"/> is null.</exception>
     /// <exception cref="ArgumentException">Too many sequences, or the dynamic program would exceed <see cref="MsaOptions.ExactMaxStateCells"/>.</exception>
+    [System.Runtime.CompilerServices.OverloadResolutionPriority(1)]
     public static MultipleAlignmentResult MultipleAlignExact(
         IEnumerable<DnaSequence> sequences, ScoringMatrix? scoring = null, MsaOptions? options = null) =>
         MultipleAlignExactWithStatistics(sequences, scoring, options).Alignment;
 
     /// <summary>
-    /// <see cref="MultipleAlignExact"/> together with the lower bound used and the number of lattice cells evaluated.
+    /// <see cref="MultipleAlignExact(IEnumerable{DnaSequence}, ScoringMatrix?, MsaOptions?)"/> together with the lower bound used and the number of lattice cells evaluated.
     /// </summary>
+    [System.Runtime.CompilerServices.OverloadResolutionPriority(1)]
     public static ExactMsaResult MultipleAlignExactWithStatistics(
         IEnumerable<DnaSequence> sequences, ScoringMatrix? scoring = null, MsaOptions? options = null)
     {
@@ -132,6 +134,7 @@ public static partial class SequenceAligner
 
     private static ExactMsaResult ExactAlignCore(string[] raw, PairScoring sc, MsaOptions? options)
     {
+        using var cancelScope = AlignmentCancellation.Enter(options?.CancellationToken ?? default);
         var gapModel = ResolveGapModel(options);
         var trivial = TrivialMultipleAlignment(raw);
         if (trivial != null)

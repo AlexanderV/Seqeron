@@ -25,8 +25,25 @@ internal readonly struct PairScoring
     private readonly sbyte[]? _index;
     private readonly int _dim;
 
+    /// <summary>Largest |score| of one step (a substitution or the gap open + extend of one gap position) in the integer units of this model.</summary>
+    private readonly long _maxAbs;
+
+    /// <summary>
+    /// The scalar match / mismatch model. The gap scores follow the contract of <see cref="MatrixScoring"/>: <b>finite scores at most 0</b>
+    /// (a penalty; a positive gap score is rejected exactly like in the matrix model), and the whole model must fit the integer dynamic
+    /// program: a path of length L may not reach <c>2^28</c> in absolute value (see <see cref="EnsureRange(long, long)"/>, called by every
+    /// aligner with the real sequence lengths), so no score can silently wrap around <c>int</c>.
+    /// </summary>
+    /// <exception cref="ArgumentException">A gap score is positive or <c>int.MinValue</c>.</exception>
     public PairScoring(ScoringMatrix scoring)
     {
+        ArgumentNullException.ThrowIfNull(scoring);
+        if (scoring.GapOpen > 0 || scoring.GapOpen == int.MinValue)
+            throw new ArgumentException($"{nameof(ScoringMatrix.GapOpen)} must be a finite score <= 0 (a penalty) and greater than int.MinValue, got {scoring.GapOpen}.", nameof(scoring));
+        if (scoring.GapExtend > 0 || scoring.GapExtend == int.MinValue)
+            throw new ArgumentException($"{nameof(ScoringMatrix.GapExtend)} must be a finite score <= 0 (a penalty) and greater than int.MinValue, got {scoring.GapExtend}.", nameof(scoring));
+        _maxAbs = Math.Max(Math.Max(Math.Abs((long)scoring.Match), Math.Abs((long)scoring.Mismatch)),
+            Math.Abs((long)scoring.GapOpen) + Math.Abs((long)scoring.GapExtend));
         Match = scoring.Match;
         Mismatch = scoring.Mismatch;
         GapOpen = scoring.GapOpen;
@@ -37,8 +54,9 @@ internal readonly struct PairScoring
         _dim = 0;
     }
 
-    private PairScoring(int gapOpen, int gapExtend, int scale, int[] table, sbyte[] index, int dim, bool protein)
+    private PairScoring(int gapOpen, int gapExtend, int scale, int[] table, sbyte[] index, int dim, bool protein, long maxAbs)
     {
+        _maxAbs = maxAbs;
         Protein = protein;
         Match = 0;
         Mismatch = 0;
@@ -123,9 +141,7 @@ internal readonly struct PairScoring
 
         long maxAbs = Math.Max((long)matrix.MaxAbsScore * scale, Math.Abs(gapOpen) + Math.Abs(gapExtend));
         if (maxAbs * pathLength * pairs >= MaxPathScore)
-            throw new ArgumentException(
-                $"Score range too large for the integer dynamic program (scale {scale}, {sizeText}); use coarser gap scores or shorter sequences.",
-                nameof(scoring));
+            throw RangeError(scale, sizeText, nameof(scoring));
 
         int dim = matrix.Alphabet.Length;
         var index = new sbyte[128];
@@ -138,7 +154,24 @@ internal readonly struct PairScoring
             for (int j = 0; j < dim; j++)
                 table[i * dim + j] = checked((int)(matrix.ScoreAt(i, j) * scale));
 
-        return new PairScoring((int)gapOpen, (int)gapExtend, (int)scale, table, index, dim, !IsNucleotideAlphabet(matrix.Alphabet));
+        return new PairScoring((int)gapOpen, (int)gapExtend, (int)scale, table, index, dim, !IsNucleotideAlphabet(matrix.Alphabet), maxAbs);
+    }
+
+    private static ArgumentException RangeError(long scale, string sizeText, string paramName) =>
+        new($"Score range too large for the integer dynamic program (scale {scale}, {sizeText}); use coarser gap scores or shorter sequences.", paramName);
+
+    /// <summary>
+    /// The one integer-range check of every dynamic program (scalar and matrix model alike): the score of any path through sequences of
+    /// <paramref name="length1"/> and <paramref name="length2"/> residues, <c>max|step| · (length1 + length2 + 2)</c>, must stay below
+    /// 2^28 (the affine −∞ sentinel is <c>int.MinValue / 4</c>), otherwise the DP would silently wrap around. The matrix model has been
+    /// checked for the same bound (and the whole set of pairs) by <see cref="Create(MatrixScoring, string, string)"/>; this call repeats the pairwise
+    /// part at the point where the DP is about to run, so the scalar <see cref="ScoringMatrix"/> is guarded identically.
+    /// </summary>
+    /// <exception cref="ArgumentException">"Score range too large for the integer dynamic program ...".</exception>
+    internal void EnsureRange(long length1, long length2)
+    {
+        if (_maxAbs * (length1 + length2 + 2) >= MaxPathScore)
+            throw RangeError(Scale, $"sequence lengths {length1} and {length2}", "scoring");
     }
 
     private static bool IsNucleotideAlphabet(string alphabet)
@@ -242,6 +275,7 @@ public static partial class SequenceAligner
     /// <param name="sequence2">Second DNA sequence.</param>
     /// <param name="scoring">Scoring matrix (default: SimpleDna).</param>
     /// <returns>Alignment result with aligned sequences and score.</returns>
+    [System.Runtime.CompilerServices.OverloadResolutionPriority(1)]
     public static AlignmentResult GlobalAlign(
         DnaSequence sequence1,
         DnaSequence sequence2,
@@ -256,6 +290,7 @@ public static partial class SequenceAligner
     /// <summary>
     /// Performs global alignment on raw sequence strings.
     /// </summary>
+    [System.Runtime.CompilerServices.OverloadResolutionPriority(1)]
     public static AlignmentResult GlobalAlign(
         string sequence1,
         string sequence2,
@@ -357,12 +392,13 @@ public static partial class SequenceAligner
     {
         int m = seq1.Length;
         int n = seq2.Length;
+        scoring.EnsureRange(m, n);
 
-        cancellationToken.ThrowIfCancellationRequested();
+        AlignmentCancellation.Poll(cancellationToken);
 
         // Above LinearSpaceCellThreshold cells the O(m·n) matrix is replaced by the exact linear-space program
         // (same rows, same score; see the Linear-space region).
-        if (!forceFullMatrix && LinearSpaceApplies(m, n, scoring, local: false))
+        if (!forceFullMatrix && ExceedsFullMatrixLimit(m, n))
         {
             var big = LinearSpaceAlign(seq1, seq2, scoring, affine: false, local: false, ends, LinearSpaceBaseCells, cancellationToken);
             progress?.Report(1.0);
@@ -371,7 +407,7 @@ public static partial class SequenceAligner
 
         var score = LinearFillMatrix(seq1, seq2, scoring, ends, cancellationToken, progress, forbidden, rowOffset, colOffset);
 
-        cancellationToken.ThrowIfCancellationRequested();
+        AlignmentCancellation.Poll(cancellationToken);
         progress?.Report(0.75);
 
         // End cell: (m, n) for a global alignment; with free trailing residues the first (smallest j / smallest i)
@@ -417,7 +453,7 @@ public static partial class SequenceAligner
         {
             if (i % 100 == 0)
             {
-                cancellationToken.ThrowIfCancellationRequested();
+                AlignmentCancellation.Poll(cancellationToken);
                 progress?.Report((double)i / m * 0.5); // First half is matrix fill
             }
 
@@ -508,6 +544,7 @@ public static partial class SequenceAligner
     /// (2015) bioRxiv 10.1101/031500; cross-checked against Biopython 1.88 PairwiseAligner and
     /// parasail 1.3.4 nw.</para>
     /// </remarks>
+    [System.Runtime.CompilerServices.OverloadResolutionPriority(1)]
     public static AlignmentResult GlobalAlignAffine(
         DnaSequence sequence1,
         DnaSequence sequence2,
@@ -523,6 +560,7 @@ public static partial class SequenceAligner
     /// Affine-gap global alignment (Gotoh) on raw sequence strings (uppercased internally).
     /// See <see cref="GlobalAlignAffine(DnaSequence, DnaSequence, ScoringMatrix?)"/> for the model.
     /// </summary>
+    [System.Runtime.CompilerServices.OverloadResolutionPriority(1)]
     public static AlignmentResult GlobalAlignAffine(
         string sequence1,
         string sequence2,
@@ -569,7 +607,8 @@ public static partial class SequenceAligner
     {
         bool local = type == AlignmentType.Local;
         if (local) ends = EndGaps.None;
-        if (!forceFullMatrix && LinearSpaceApplies(seq1.Length, seq2.Length, scoring, local))
+        scoring.EnsureRange(seq1.Length, seq2.Length);
+        if (!forceFullMatrix && ExceedsFullMatrixLimit(seq1.Length, seq2.Length))
             return LinearSpaceAlign(seq1, seq2, scoring, affine: true, local, ends, LinearSpaceBaseCells, default);
         bool freeEnd1 = ends.HasFlag(EndGaps.FreeEnd1);
         bool freeEnd2 = ends.HasFlag(EndGaps.FreeEnd2);
@@ -684,6 +723,7 @@ public static partial class SequenceAligner
         int bestLocal = 0, bestI = 0, bestJ = 0;
         for (int i = 1; i <= m; i++)
         {
+            AlignmentCancellation.ThrowIfRequested();
             char c1 = seq1[i - 1];
             var forbiddenRow = new ForbiddenRow(forbidden, rowOffset + i);
             for (int j = 1; j <= n; j++)
@@ -850,6 +890,7 @@ public static partial class SequenceAligner
     /// <param name="sequence2">Second DNA sequence.</param>
     /// <param name="scoring">Scoring matrix (default: SimpleDna).</param>
     /// <returns>Alignment result with aligned subsequences and score.</returns>
+    [System.Runtime.CompilerServices.OverloadResolutionPriority(1)]
     public static AlignmentResult LocalAlign(
         DnaSequence sequence1,
         DnaSequence sequence2,
@@ -864,6 +905,7 @@ public static partial class SequenceAligner
     /// <summary>
     /// Performs local alignment on raw sequence strings.
     /// </summary>
+    [System.Runtime.CompilerServices.OverloadResolutionPriority(1)]
     public static AlignmentResult LocalAlign(
         string sequence1,
         string sequence2,
@@ -882,8 +924,9 @@ public static partial class SequenceAligner
     {
         int m = seq1.Length;
         int n = seq2.Length;
+        scoring.EnsureRange(m, n);
 
-        if (!forceFullMatrix && LinearSpaceApplies(m, n, scoring, local: true))
+        if (!forceFullMatrix && ExceedsFullMatrixLimit(m, n))
             return LinearSpaceAlign(seq1, seq2, scoring, affine: false, local: true, EndGaps.None, LinearSpaceBaseCells, default);
 
         var score = new int[m + 1, n + 1];
@@ -893,6 +936,7 @@ public static partial class SequenceAligner
         // Fill the matrix (with zero floor for local alignment)
         for (int i = 1; i <= m; i++)
         {
+            AlignmentCancellation.ThrowIfRequested();
             for (int j = 1; j <= n; j++)
             {
                 score[i, j] = LocalLinearCell(score, i, j, scoring.Sub(seq1[i - 1], seq2[j - 1]), scoring.GapExtend, forbidden: false);
@@ -993,8 +1037,9 @@ public static partial class SequenceAligner
     /// <c>PairwiseAligner(mode='local', open_gap_score = GapOpen + GapExtend, extend_gap_score = GapExtend)</c>;
     /// parasail <c>sw(open = -(GapOpen + GapExtend), extend = -GapExtend)</c>; BLAST+
     /// <c>-gapopen -GapOpen -gapextend -GapExtend</c>. With <c>GapOpen = 0</c> the score equals the
-    /// linear-gap <see cref="LocalAlign(DnaSequence, DnaSequence, ScoringMatrix?)"/>. Gap scores are
-    /// expected to be non-positive (GapOpen ≤ 0, GapExtend ≤ 0), as in every standard scheme.
+    /// linear-gap <see cref="LocalAlign(DnaSequence, DnaSequence, ScoringMatrix?)"/>. Gap scores must be
+    /// non-positive (GapOpen ≤ 0, GapExtend ≤ 0 and greater than int.MinValue, as in every standard scheme and in <see cref="MatrixScoring"/>); a positive
+    /// gap score is an <see cref="ArgumentException"/>.
     /// </para>
     /// <para>
     /// Recurrences (o = GapOpen, e = GapExtend):
@@ -1015,6 +1060,7 @@ public static partial class SequenceAligner
     /// <para>Sources: Smith TF, Waterman MS (1981) J Mol Biol 147:195-197; Gotoh O (1982) J Mol Biol
     /// 162:705-708; cross-checked against Biopython 1.88 PairwiseAligner (local) and parasail 1.3.4 sw_trace.</para>
     /// </remarks>
+    [System.Runtime.CompilerServices.OverloadResolutionPriority(1)]
     public static AlignmentResult LocalAlignAffine(
         DnaSequence sequence1,
         DnaSequence sequence2,
@@ -1030,6 +1076,7 @@ public static partial class SequenceAligner
     /// Affine-gap local alignment (Smith-Waterman-Gotoh) on raw sequence strings (uppercased internally).
     /// See <see cref="LocalAlignAffine(DnaSequence, DnaSequence, ScoringMatrix?)"/> for the model.
     /// </summary>
+    [System.Runtime.CompilerServices.OverloadResolutionPriority(1)]
     public static AlignmentResult LocalAlignAffine(
         string sequence1,
         string sequence2,
@@ -1084,6 +1131,7 @@ public static partial class SequenceAligner
     /// parasail <c>end_ref</c>. The interval is that of the returned alignment; co-optimal alignments may fit other intervals.
     /// </para>
     /// </remarks>
+    [System.Runtime.CompilerServices.OverloadResolutionPriority(1)]
     public static AlignmentResult SemiGlobalAlign(
         DnaSequence sequence1,
         DnaSequence sequence2,
@@ -1100,6 +1148,7 @@ public static partial class SequenceAligner
     /// <see cref="ArgumentNullException"/>, an empty side is not special-cased). See
     /// <see cref="SemiGlobalAlign(DnaSequence, DnaSequence, ScoringMatrix?)"/> for the model and coordinates.
     /// </summary>
+    [System.Runtime.CompilerServices.OverloadResolutionPriority(1)]
     public static AlignmentResult SemiGlobalAlign(
         string sequence1,
         string sequence2,
@@ -1142,6 +1191,7 @@ public static partial class SequenceAligner
     /// <para>Sources: Gotoh O (1982) J Mol Biol 162:705-708; Flouri et al. (2015) bioRxiv 10.1101/031500;
     /// cross-checked against Biopython 1.88 PairwiseAligner and parasail 1.3.4 sg_dx_trace.</para>
     /// </remarks>
+    [System.Runtime.CompilerServices.OverloadResolutionPriority(1)]
     public static AlignmentResult SemiGlobalAlignAffine(
         DnaSequence sequence1,
         DnaSequence sequence2,
@@ -1157,6 +1207,7 @@ public static partial class SequenceAligner
     /// Affine-gap semi-global (fitting) alignment on raw sequence strings (uppercased internally).
     /// See <see cref="SemiGlobalAlignAffine(DnaSequence, DnaSequence, ScoringMatrix?)"/> for the model.
     /// </summary>
+    [System.Runtime.CompilerServices.OverloadResolutionPriority(1)]
     public static AlignmentResult SemiGlobalAlignAffine(
         string sequence1,
         string sequence2,
@@ -1211,6 +1262,7 @@ public static partial class SequenceAligner
     /// <para>Sources: Biopython 1.88 <c>PairwiseAligner</c> (<c>left/right_insertion/deletion_score</c>), parasail 1.3.4 <c>sg_*</c>, EMBOSS needle
     /// <c>-endweight</c>; Durbin et al. 1998 §2.3 (overlap/fitting/free end-gap variants), Gusfield 1997 §11.6.4.</para>
     /// </remarks>
+    [System.Runtime.CompilerServices.OverloadResolutionPriority(1)]
     public static AlignmentResult SemiGlobalAlign(
         string sequence1,
         string sequence2,
@@ -1228,6 +1280,7 @@ public static partial class SequenceAligner
     }
 
     /// <summary><see cref="SemiGlobalAlign(string, string, ScoringMatrix?, EndGaps)"/> for DNA sequences.</summary>
+    [System.Runtime.CompilerServices.OverloadResolutionPriority(1)]
     public static AlignmentResult SemiGlobalAlign(
         DnaSequence sequence1,
         DnaSequence sequence2,
@@ -1252,6 +1305,7 @@ public static partial class SequenceAligner
     /// GapExtend</c>, <c>extend_gap_score = GapExtend</c> and <c>left/right_insertion/deletion_score = 0</c> for the free ends
     /// (<see cref="EndGaps"/>); parasail <c>sg_*</c> with <c>open = -(GapOpen + GapExtend)</c>, <c>extend = -GapExtend</c>.
     /// </remarks>
+    [System.Runtime.CompilerServices.OverloadResolutionPriority(1)]
     public static AlignmentResult SemiGlobalAlignAffine(
         string sequence1,
         string sequence2,
@@ -1270,6 +1324,7 @@ public static partial class SequenceAligner
     }
 
     /// <summary><see cref="SemiGlobalAlignAffine(string, string, ScoringMatrix?, EndGaps)"/> for DNA sequences.</summary>
+    [System.Runtime.CompilerServices.OverloadResolutionPriority(1)]
     public static AlignmentResult SemiGlobalAlignAffine(
         DnaSequence sequence1,
         DnaSequence sequence2,
@@ -1431,6 +1486,11 @@ public static partial class SequenceAligner
         return AlignWithMatrix(sequence1.Sequence, sequence2.Sequence, scoring, type, affine, ends, linearSpaceBaseCells);
     }
 
+    /// <param name="sequence1">First sequence.</param>
+    /// <param name="sequence2">Second sequence.</param>
+    /// <param name="scoring">Substitution matrix and gap scores.</param>
+    /// <param name="type">Global, local or semi-global.</param>
+    /// <param name="affine">Affine (Gotoh) instead of linear gaps.</param>
     /// <param name="ends">End-gap policy, used only by <see cref="AlignmentType.SemiGlobal"/> (Global = none, Local = n/a).</param>
     /// <param name="linearSpaceBaseCells">0: the usual full-matrix core (automatic linear-space switch above
     /// <see cref="LinearSpaceCellThreshold"/>); &gt; 0: always the linear-space program with that base-case size.</param>
@@ -1879,6 +1939,7 @@ public static partial class SequenceAligner
     /// <param name="sequences">Collection of sequences to align.</param>
     /// <param name="scoring">Scoring matrix (default: SimpleDna).</param>
     /// <param name="options">Options; <c>null</c> = defaults (linear gaps).</param>
+    [System.Runtime.CompilerServices.OverloadResolutionPriority(1)]
     public static MultipleAlignmentResult MultipleAlign(
         IEnumerable<DnaSequence> sequences,
         ScoringMatrix? scoring,
@@ -1927,6 +1988,7 @@ public static partial class SequenceAligner
 
     private static MultipleAlignmentResult StarAlignCore(string[] rawSeqs, PairScoring effectiveScoring, MsaOptions? options)
     {
+        using var cancelScope = AlignmentCancellation.Enter(options?.CancellationToken ?? default);
         var gapModel = ResolveGapModel(options);
 
         var trivial = TrivialMultipleAlignment(rawSeqs);
@@ -1934,17 +1996,18 @@ public static partial class SequenceAligner
             return trivial;
 
         bool affine = gapModel == MsaGapModel.Affine;
+        int dop = options?.MaxDegreeOfParallelism ?? -1;
         int centerIdx = SelectCenterByPairwiseScore(rawSeqs, affine
-            ? (a, b) => LinearSpaceAlign(a, b, effectiveScoring, true, false, EndGaps.None, StarFullMatrixCells, default).Score
-            : (a, b) => LinearScoreOnly(a, b, effectiveScoring));
+            ? (a, b) => LinearSpaceAlign(a, b, effectiveScoring, true, false, EndGaps.None, StarFullMatrixCells, AlignmentCancellation.Token).Score
+            : (a, b) => LinearScoreOnly(a, b, effectiveScoring), dop);
         string centerStr = rawSeqs[centerIdx];
 
         var pairwise = AlignAllToCenter(rawSeqs.Length, centerIdx,
-            i => LinearSpaceAlign(centerStr, rawSeqs[i], effectiveScoring, affine, false, EndGaps.None, StarFullMatrixCells, default));
+            i => LinearSpaceAlign(centerStr, rawSeqs[i], effectiveScoring, affine, false, EndGaps.None, StarFullMatrixCells, AlignmentCancellation.Token), dop);
         return FinishStarAlignment(MergeCenterAlignments(centerStr, pairwise, centerIdx), effectiveScoring, gapModel);
     }
 
-    private static string[] DnaRows(IEnumerable<DnaSequence> sequences) => sequences.Select(s => s.Sequence).ToArray();
+    private static string[] DnaRows(IEnumerable<DnaSequence> sequences) => DnaStringsNoNull(sequences, nameof(sequences)).ToArray();
 
     /// <summary>Upper-cased rows and the exact integer model of a <see cref="MatrixScoring"/> for a whole set of sequences (validates residues, gaps, range).</summary>
     private static (string[] Rows, PairScoring Scoring) PrepareMatrixMsa(IEnumerable<string> sequences, MatrixScoring scoring)
@@ -2017,6 +2080,7 @@ public static partial class SequenceAligner
     /// <param name="sequences">Collection of sequences to align.</param>
     /// <param name="scoring">Scoring matrix (default: SimpleDna).</param>
     /// <param name="options">Options; <c>null</c> = defaults (linear gaps).</param>
+    [System.Runtime.CompilerServices.OverloadResolutionPriority(1)]
     public static MultipleAlignmentResult MultipleAlignAnchored(
         IEnumerable<DnaSequence> sequences,
         ScoringMatrix? scoring,
@@ -2053,6 +2117,7 @@ public static partial class SequenceAligner
 
     private static MultipleAlignmentResult AnchoredStarAlignCore(string[] rawSeqs, PairScoring effectiveScoring, MsaOptions? options)
     {
+        using var cancelScope = AlignmentCancellation.Enter(options?.CancellationToken ?? default);
         var gapModel = ResolveGapModel(options);
 
         var trivial = TrivialMultipleAlignment(rawSeqs);
@@ -2065,7 +2130,7 @@ public static partial class SequenceAligner
 
         var pairwise = AlignAllToCenter(rawSeqs.Length, centerIdx,
             i => AnchorBasedAligner.AlignWithAnchors(centerStr, centerTree, rawSeqs[i], effectiveScoring,
-                affineGaps: gapModel == MsaGapModel.Affine));
+                affineGaps: gapModel == MsaGapModel.Affine), options?.MaxDegreeOfParallelism ?? -1);
         var merged = MergeCenterAlignments(centerStr, pairwise, centerIdx);
 
         // An empty input yields an empty anchored result: pad to the common length.
@@ -2111,17 +2176,17 @@ public static partial class SequenceAligner
     /// Runs <paramref name="alignToCenter"/> for every non-center sequence (in parallel for k ≥ 4;
     /// each slot is independent and written once, so the result does not depend on scheduling).
     /// </summary>
-    private static AlignmentResult[] AlignAllToCenter(int k, int centerIdx, Func<int, AlignmentResult> alignToCenter)
+    private static AlignmentResult[] AlignAllToCenter(int k, int centerIdx, Func<int, AlignmentResult> alignToCenter, int maxDegreeOfParallelism = -1)
     {
         var results = new AlignmentResult[k];
 
         if (k >= 4)
         {
-            Parallel.For(0, k, i =>
+            ParallelFor(0, k, i =>
             {
                 if (i != centerIdx)
                     results[i] = alignToCenter(i);
-            });
+            }, maxDegreeOfParallelism);
         }
         else
         {
@@ -2134,13 +2199,12 @@ public static partial class SequenceAligner
     }
 
     /// <summary>
-    /// Gusfield (1993) center: the sequence maximising the total optimal Needleman-Wunsch score to the
-    /// other sequences (pair scores = last cell of the linear-space NW pass, identical to the
-    /// canonical <see cref="GlobalAlignCore"/> score).
-    /// Ties go to the lowest index.
+    /// Gusfield (1993) center: the sequence maximising the total optimal pair score to the other sequences. The pair score is
+    /// <paramref name="optimalPairScore"/>: the last cell of the linear-space Needleman-Wunsch pass (identical to the canonical
+    /// <see cref="GlobalAlignCore"/> score) or the exact affine (Gotoh) optimum. The C(k, 2) pair dynamic programs run in parallel
+    /// (<paramref name="maxDegreeOfParallelism"/>; an exception of a pair is rethrown with its original type). Ties go to the lowest index.
     /// </summary>
-    /// <summary>Gusfield center for an arbitrary optimal pair score (linear NW or exact affine); ties go to the lowest index.</summary>
-    private static int SelectCenterByPairwiseScore(string[] seqs, Func<string, string, int> optimalPairScore)
+    private static int SelectCenterByPairwiseScore(string[] seqs, Func<string, string, int> optimalPairScore, int maxDegreeOfParallelism = -1)
     {
         int k = seqs.Length;
         var pairScore = new int[k, k];
@@ -2150,13 +2214,14 @@ public static partial class SequenceAligner
             for (int j = i + 1; j < k; j++)
                 pairs.Add((i, j));
 
-        Parallel.ForEach(pairs, pair =>
+        ParallelFor(0, pairs.Count, p =>
         {
             // Optimal pair score (linear NW: last row of the NW matrix in O(n) memory, equals GlobalAlignCore(..).Score).
+            var pair = pairs[p];
             int s = optimalPairScore(seqs[pair.I], seqs[pair.J]);
             pairScore[pair.I, pair.J] = s;
             pairScore[pair.J, pair.I] = s;
-        });
+        }, maxDegreeOfParallelism);
 
         long bestTotal = long.MinValue;
         int bestIdx = 0;
@@ -2399,15 +2464,26 @@ public static partial class SequenceAligner
     /// Scores all C(k,2) sequence pairs using column-based scoring:
     /// match/mismatch from scoring matrix, gap-nucleotide penalty per position, gap-gap = 0.
     /// </summary>
-    private static int ComputeSumOfPairsScore(IReadOnlyList<string> aligned, PairScoring scoring, MsaGapModel gapModel) =>
-        gapModel == MsaGapModel.Affine ? AffineSumOfPairsScoreCore(aligned, scoring) : ComputeSumOfPairsScore(aligned, scoring);
+    private static int ComputeSumOfPairsScore(IReadOnlyList<string> aligned, PairScoring scoring, MsaGapModel gapModel)
+    {
+        long total = SumOfPairsScoreLong(aligned, scoring, gapModel);
+        if (total > int.MaxValue || total < int.MinValue)
+            throw new ArgumentException(
+                $"The sum-of-pairs score {total} of {aligned.Count} rows exceeds the 32-bit integer range of the reported score; use fewer / shorter sequences or smaller scores.",
+                "scoring");
+        return (int)total;
+    }
 
-    private static int ComputeSumOfPairsScore(IReadOnlyList<string> aligned, PairScoring scoring)
+    /// <summary>The sum-of-pairs score accumulated in 64 bits (the exact value; the reported <c>int</c> scores are range-checked from it).</summary>
+    private static long SumOfPairsScoreLong(IReadOnlyList<string> aligned, PairScoring scoring, MsaGapModel gapModel) =>
+        gapModel == MsaGapModel.Affine ? AffineSumOfPairsScoreCore(aligned, scoring) : LinearSumOfPairsScoreCore(aligned, scoring);
+
+    private static long LinearSumOfPairsScoreCore(IReadOnlyList<string> aligned, PairScoring scoring)
     {
         if (aligned.Count < 2) return 0;
 
         int length = aligned[0].Length;
-        int totalScore = 0;
+        long totalScore = 0;
 
         for (int pos = 0; pos < length; pos++)
         {
@@ -2513,6 +2589,7 @@ public static partial class SequenceAligner
     /// <param name="sequences">Collection of sequences to align.</param>
     /// <param name="scoring">Scoring matrix (default: <see cref="SimpleDna"/>).</param>
     /// <param name="options">Options; <c>null</c> = defaults.</param>
+    [System.Runtime.CompilerServices.OverloadResolutionPriority(1)]
     public static MultipleAlignmentResult MultipleAlignProgressive(
         IEnumerable<DnaSequence> sequences,
         ScoringMatrix? scoring,
@@ -2550,6 +2627,7 @@ public static partial class SequenceAligner
 
     private static MultipleAlignmentResult ProgressiveAlignCore(string[] rawSeqs, PairScoring effectiveScoring, MsaOptions? options)
     {
+        using var cancelScope = AlignmentCancellation.Enter(options?.CancellationToken ?? default);
         options ??= new MsaOptions();
         var gapModel = ResolveGapModel(options);
 
@@ -2698,7 +2776,7 @@ public static partial class SequenceAligner
 
     /// <summary>
     /// Largest profile-vs-profile dynamic-programming matrix (<c>(m + 1)·(n + 1)</c> doubles, 8 bytes per cell = 400 MB) of the
-    /// progressive / iterative / consistency multiple aligners. The exact center-star <see cref="MultipleAlign"/> needs no such
+    /// progressive / iterative / consistency multiple aligners. The exact center-star <see cref="MultipleAlign(IEnumerable{DnaSequence}, ScoringMatrix?, MsaOptions?)"/> needs no such
     /// matrix (its pairwise stage is linear-space); a profile-profile DP has no published linear-space variant that keeps the
     /// column-pair scores of these methods, so longer inputs get a clear error instead of an <see cref="OutOfMemoryException"/>.
     /// </summary>
@@ -2735,6 +2813,7 @@ public static partial class SequenceAligner
 
         for (int i = 1; i <= m; i++)
         {
+            AlignmentCancellation.ThrowIfRequested();
             for (int j = 1; j <= n; j++)
             {
                 double diag = f[i - 1, j - 1] + ProfileColumnScore(p1, i - 1, p2, j - 1, scoring);
@@ -2954,6 +3033,7 @@ public static partial class SequenceAligner
     /// <param name="scoring">Scoring matrix (default: <see cref="SimpleDna"/>).</param>
     /// <param name="options">Options; <c>null</c> = defaults.</param>
     /// <param name="maxIterations">Upper bound on full refinement passes (&gt;= 1).</param>
+    [System.Runtime.CompilerServices.OverloadResolutionPriority(1)]
     public static MultipleAlignmentResult MultipleAlignIterative(
         IEnumerable<DnaSequence> sequences,
         ScoringMatrix? scoring,
@@ -2996,6 +3076,7 @@ public static partial class SequenceAligner
 
     private static MultipleAlignmentResult IterativeAlignCore(string[] rawSeqs, PairScoring effectiveScoring, MsaOptions? options, int maxIterations)
     {
+        using var cancelScope = AlignmentCancellation.Enter(options?.CancellationToken ?? default);
         options ??= new MsaOptions();
         var gapModel = ResolveGapModel(options);
 
@@ -3303,6 +3384,7 @@ public static partial class SequenceAligner
     /// <param name="sequences">Collection of sequences to align.</param>
     /// <param name="scoring">Scoring matrix seeding the pairwise library (default: <see cref="SimpleDna"/>).</param>
     /// <param name="options">Options; <c>null</c> = defaults.</param>
+    [System.Runtime.CompilerServices.OverloadResolutionPriority(1)]
     public static MultipleAlignmentResult MultipleAlignConsistency(
         IEnumerable<DnaSequence> sequences,
         ScoringMatrix? scoring,
@@ -3340,6 +3422,7 @@ public static partial class SequenceAligner
 
     private static MultipleAlignmentResult ConsistencyAlignCore(string[] rawSeqs, PairScoring effectiveScoring, MsaOptions? options)
     {
+        using var cancelScope = AlignmentCancellation.Enter(options?.CancellationToken ?? default);
         options ??= new MsaOptions();
         var gapModel = ResolveGapModel(options);
 
@@ -3645,6 +3728,7 @@ public static partial class SequenceAligner
 
         for (int i = 1; i <= m; i++)
         {
+            AlignmentCancellation.ThrowIfRequested();
             for (int j = 1; j <= n; j++)
             {
                 double diag = f[i - 1, j - 1] + ColumnLibraryScore(p1, i - 1, p2, j - 1, library);

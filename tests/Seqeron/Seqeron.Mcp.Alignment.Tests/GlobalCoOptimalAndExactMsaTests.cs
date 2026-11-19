@@ -47,7 +47,6 @@ public class GlobalCoOptimalAndExactMsaTests
     [Test]
     public void GlobalCoOptimal_Validation()
     {
-        Assert.Throws<ArgumentException>(() => AlignmentTools.GlobalAlignCoOptimal("", "ACGT"));
         Assert.Throws<ArgumentOutOfRangeException>(() => AlignmentTools.GlobalAlignCoOptimal("ACGT", "ACGT", maxAlignments: 0));
         Assert.Throws<ArgumentException>(() => AlignmentTools.GlobalAlignCoOptimal("ACGT", "ACGT", endGaps: "Sideways"));
         Assert.Throws<ArgumentException>(() => AlignmentTools.GlobalAlignCoOptimal("ACGT", "ACGT", gapExtend: -0.5));   // fractional gap without a matrix

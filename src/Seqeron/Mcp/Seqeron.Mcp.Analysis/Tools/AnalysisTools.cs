@@ -652,15 +652,16 @@ public class AnalysisTools
     public static FindRepeatsResult FindRepeats(
         [Description("DNA sequence.")] string sequence,
         [Description("Minimum repeat length (>= 1).")] int minLength,
-        [Description("Report only maximal repeats (Gusfield 1997 sec. 7.12; default false = every repeated substring).")] bool maximalOnly = false)
+        [Description("Report only maximal repeats (Gusfield 1997 sec. 7.12; default false = every repeated substring).")] bool maximalOnly = false,
+        CancellationToken cancellationToken = default)
     {
         var dna = RequireDna(sequence, nameof(sequence));
         if (minLength < 1)
             throw new ArgumentOutOfRangeException(nameof(minLength), "Minimum repeat length must be at least 1");
 
         var repeats = maximalOnly
-            ? GenomicAnalyzer.FindMaximalRepeats(dna, minLength)
-            : GenomicAnalyzer.FindRepeats(dna, minLength);
+            ? GenomicAnalyzer.FindMaximalRepeats(dna, minLength, cancellationToken)
+            : GenomicAnalyzer.FindRepeats(dna, minLength, cancellationToken);
         var items = repeats
             .Select(r => new RepeatItem(r.Sequence, r.Positions.ToArray(), r.Length, r.Count))
             .ToArray();
@@ -706,7 +707,8 @@ public class AnalysisTools
         [Description("Set of motifs to search.")] string[] motifs,
         [Description("Also search the reverse strand: reverseMatches lists the windows matching the reverse complement of each motif (default false).")] bool bothStrands = false,
         [Description("Interpret IUPAC ambiguity codes in the motifs, e.g. TATAWAW (default false: codes are literal; without mismatches they match nothing, with mismatches each costs one).")] bool iupac = false,
-        [Description("Maximum number of mismatching positions per hit (default 0 = exact; fuzznuc -pmismatch). A bound >= the motif length makes every window a hit.")] int mismatches = 0)
+        [Description("Maximum number of mismatching positions per hit (default 0 = exact; fuzznuc -pmismatch). A bound >= the motif length makes every window a hit.")] int mismatches = 0,
+        CancellationToken cancellationToken = default)
     {
         var dna = RequireDna(sequence, nameof(sequence));
         if (motifs is null)
@@ -714,7 +716,7 @@ public class AnalysisTools
         if (mismatches < 0)
             throw new ArgumentOutOfRangeException(nameof(mismatches), "Mismatches cannot be negative");
 
-        var hits = GenomicAnalyzer.FindKnownMotifHits(dna, motifs, bothStrands, iupac, mismatches);
+        var hits = GenomicAnalyzer.FindKnownMotifHits(dna, motifs, bothStrands, iupac, mismatches, cancellationToken);
         var matches = new Dictionary<string, int[]>(hits.Count);
         var reverse = new Dictionary<string, int[]>();
         var matchMismatches = mismatches > 0 ? new Dictionary<string, int[]>(hits.Count) : null;
@@ -746,11 +748,12 @@ public class AnalysisTools
     public static FindCommonRegionsResult FindCommonRegions(
         [Description("First DNA sequence.")] string sequence1,
         [Description("Second DNA sequence.")] string sequence2,
-        [Description("Minimum common-region length.")] int minLength)
+        [Description("Minimum common-region length.")] int minLength,
+        CancellationToken cancellationToken = default)
     {
         var dna1 = RequireDna(sequence1, nameof(sequence1));
         var dna2 = RequireDna(sequence2, nameof(sequence2));
-        var items = GenomicAnalyzer.FindCommonRegions(dna1, dna2, minLength)
+        var items = GenomicAnalyzer.FindCommonRegions(dna1, dna2, minLength, cancellationToken)
             .Select(r => new CommonRegionItem(r.Sequence, r.PositionInFirst, r.PositionInSecond, r.Length))
             .ToArray();
         return new FindCommonRegionsResult(items);
@@ -772,7 +775,8 @@ public class AnalysisTools
         [Description("NCBI ORFfinder -b: 1-based first nucleotide of the searched region (default 1; 0 is read as 1). The region is cut out and scanned as a sequence of its own.")] int regionStart = 1,
         [Description("NCBI ORFfinder -e: 1-based last nucleotide (inclusive) of the region; 0 (default) or beyond the sequence = to the end. An end below the start is an error.")] int regionEnd = 0,
         [Description("NCBI ORFfinder -ml rule: minLength below 30 is changed to 30 and used in whole codons (rounded down to a multiple of 3; also lifts the minLength >= 1 check). Default false.")] bool orfFinderMinLength = false,
-        [Description("true: genetic_code 27, 28 and 31 are accepted and the codons the table lists as stops end ORFs (what NCBI ORFfinder -g 27/28/31 does). Default false (rejected).")] bool allowDualCodingStopTables = false)
+        [Description("true: genetic_code 27, 28 and 31 are accepted and the codons the table lists as stops end ORFs (what NCBI ORFfinder -g 27/28/31 does). Default false (rejected).")] bool allowDualCodingStopTables = false,
+        CancellationToken cancellationToken = default)
     {
         var nucleotides = RequireIupacDna(sequence, nameof(sequence));
         if (minLength < 1 && !orfFinderMinLength)
@@ -807,7 +811,7 @@ public class AnalysisTools
             DualCodingStopsTerminate = allowDualCodingStopTables,
         };
 
-        var items = GenomicAnalyzer.FindOpenReadingFrames(nucleotides, minLength, options)
+        var items = GenomicAnalyzer.FindOpenReadingFrames(nucleotides, minLength, options, cancellationToken)
             .Select(o =>
             {
                 var (start, end) = o.GetForwardStrandRange(nucleotides.Length);

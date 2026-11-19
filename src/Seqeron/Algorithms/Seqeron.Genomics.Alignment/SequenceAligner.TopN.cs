@@ -76,8 +76,9 @@ public static partial class SequenceAligner
     /// </remarks>
     /// <exception cref="ArgumentNullException">A sequence is null.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxAlignments"/> &lt; 1.</exception>
-    /// <exception cref="ArgumentException">The matrix would exceed <see cref="TopNMaxCells"/> cells and a gap score is positive
-    /// (the linear-space program needs GapOpen ≤ 0 and GapExtend ≤ 0).</exception>
+    /// <exception cref="ArgumentException">A gap score is positive or int.MinValue, or the integer score range is exceeded
+    /// (see <see cref="ScoringMatrix"/>).</exception>
+    [System.Runtime.CompilerServices.OverloadResolutionPriority(1)]
     public static IReadOnlyList<AlignmentResult> LocalAlignTopN(
         DnaSequence sequence1, DnaSequence sequence2, ScoringMatrix? scoring = null, int maxAlignments = 10, int minScore = 0)
     {
@@ -87,6 +88,7 @@ public static partial class SequenceAligner
     }
 
     /// <summary><see cref="LocalAlignTopN(DnaSequence, DnaSequence, ScoringMatrix?, int, int)"/> on raw strings (upper-cased internally).</summary>
+    [System.Runtime.CompilerServices.OverloadResolutionPriority(1)]
     public static IReadOnlyList<AlignmentResult> LocalAlignTopN(
         string sequence1, string sequence2, ScoringMatrix? scoring = null, int maxAlignments = 10, int minScore = 0)
     {
@@ -102,6 +104,7 @@ public static partial class SequenceAligner
     /// <see cref="LocalAlignTopN(DnaSequence, DnaSequence, ScoringMatrix?, int, int)"/> (EMBOSS <c>matcher</c> with
     /// <c>-gapopen G -gapextend E</c> = GapOpen −(G − E), GapExtend −E).
     /// </summary>
+    [System.Runtime.CompilerServices.OverloadResolutionPriority(1)]
     public static IReadOnlyList<AlignmentResult> LocalAlignAffineTopN(
         DnaSequence sequence1, DnaSequence sequence2, ScoringMatrix? scoring = null, int maxAlignments = 10, int minScore = 0)
     {
@@ -111,6 +114,7 @@ public static partial class SequenceAligner
     }
 
     /// <summary><see cref="LocalAlignAffineTopN(DnaSequence, DnaSequence, ScoringMatrix?, int, int)"/> on raw strings.</summary>
+    [System.Runtime.CompilerServices.OverloadResolutionPriority(1)]
     public static IReadOnlyList<AlignmentResult> LocalAlignAffineTopN(
         string sequence1, string sequence2, ScoringMatrix? scoring = null, int maxAlignments = 10, int minScore = 0)
     {
@@ -189,6 +193,7 @@ public static partial class SequenceAligner
     /// <see cref="LocalAlign(DnaSequence, DnaSequence, ScoringMatrix?)"/>'s result. Empty list when no pair scores &gt; 0.
     /// Same memory bound as <see cref="LocalAlignTopN(DnaSequence, DnaSequence, ScoringMatrix?, int, int)"/>.
     /// </remarks>
+    [System.Runtime.CompilerServices.OverloadResolutionPriority(1)]
     public static IReadOnlyList<AlignmentResult> LocalAlignCoOptimal(
         DnaSequence sequence1, DnaSequence sequence2, ScoringMatrix? scoring = null, int maxAlignments = 1000)
     {
@@ -198,6 +203,7 @@ public static partial class SequenceAligner
     }
 
     /// <summary><see cref="LocalAlignCoOptimal(DnaSequence, DnaSequence, ScoringMatrix?, int)"/> on raw strings.</summary>
+    [System.Runtime.CompilerServices.OverloadResolutionPriority(1)]
     public static IReadOnlyList<AlignmentResult> LocalAlignCoOptimal(
         string sequence1, string sequence2, ScoringMatrix? scoring = null, int maxAlignments = 1000)
     {
@@ -209,6 +215,7 @@ public static partial class SequenceAligner
     /// <summary>All co-optimal local alignments under the <b>affine</b> gap model (GapOpen + k·GapExtend; Biopython
     /// <c>mode='local'</c> with open = GapOpen + GapExtend, extend = GapExtend), capped; see
     /// <see cref="LocalAlignCoOptimal(DnaSequence, DnaSequence, ScoringMatrix?, int)"/>.</summary>
+    [System.Runtime.CompilerServices.OverloadResolutionPriority(1)]
     public static IReadOnlyList<AlignmentResult> LocalAlignAffineCoOptimal(
         DnaSequence sequence1, DnaSequence sequence2, ScoringMatrix? scoring = null, int maxAlignments = 1000)
     {
@@ -218,6 +225,7 @@ public static partial class SequenceAligner
     }
 
     /// <summary><see cref="LocalAlignAffineCoOptimal(DnaSequence, DnaSequence, ScoringMatrix?, int)"/> on raw strings.</summary>
+    [System.Runtime.CompilerServices.OverloadResolutionPriority(1)]
     public static IReadOnlyList<AlignmentResult> LocalAlignAffineCoOptimal(
         string sequence1, string sequence2, ScoringMatrix? scoring = null, int maxAlignments = 1000)
     {
@@ -330,6 +338,12 @@ public static partial class SequenceAligner
                 paramName);
     }
 
+    /// <param name="a">First sequence (upper-case).</param>
+    /// <param name="b">Second sequence (upper-case).</param>
+    /// <param name="scoring">Exact integer scoring model.</param>
+    /// <param name="affine">Affine (Gotoh) instead of linear gaps.</param>
+    /// <param name="maxAlignments">At most this many alignments (&gt;= 1).</param>
+    /// <param name="minScaled">Smallest accepted score in the integer units of <paramref name="scoring"/>.</param>
     /// <param name="fullMatrixCells">Inputs of at most this many cells use the in-memory declumper, larger ones the linear-space
     /// program (tests lower it to force the linear path on small inputs).</param>
     /// <param name="baseCells">Base-case size of the linear-space program's divide and conquer.</param>
@@ -342,6 +356,7 @@ public static partial class SequenceAligner
         var results = new List<AlignmentResult>();
         if (a.Length == 0 || b.Length == 0)
             return results;
+        scoring.EnsureRange(a.Length, b.Length);
         if ((long)(a.Length + 1) * (b.Length + 1) > fullMatrixCells)
             return LocalTopNLinearSpaceCore(a, b, scoring, affine, maxAlignments, minScaled, baseCells);
 
@@ -365,6 +380,7 @@ public static partial class SequenceAligner
         if (a.Length == 0 || b.Length == 0)
             return results;
         RequireTopNFits(a.Length, b.Length, nameof(a));
+        scoring.EnsureRange(a.Length, b.Length);
 
         var matrices = new LocalDeclumper(a, b, scoring, affine);
         matrices.EnumerateCoOptimal(maxAlignments, results);
@@ -416,6 +432,7 @@ public static partial class SequenceAligner
 
             for (int i = 1; i <= _m; i++)
             {
+                AlignmentCancellation.ThrowIfRequested();
                 for (int j = 1; j <= _n; j++)
                     ComputeCell(i, j);
                 ScanRow(i);
@@ -498,6 +515,7 @@ public static partial class SequenceAligner
 
             for (int i = firstRow; i <= _m; i++)
             {
+                AlignmentCancellation.ThrowIfRequested();
                 byRow.TryGetValue(i, out var freshCols);
                 if (freshCols is null && prevLast == 0)
                 {
@@ -561,6 +579,7 @@ public static partial class SequenceAligner
             var steps = new List<byte>(); // columns from the end backwards: 0 = pair, 1 = a_i vs gap, 2 = gap vs b_j
             for (int ei = 1; ei <= _m && output.Count < cap; ei++)
             {
+                AlignmentCancellation.ThrowIfRequested();
                 if (_rowBest[ei] != best)
                     continue;
                 for (int ej = 1; ej <= _n && output.Count < cap; ej++)

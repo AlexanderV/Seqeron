@@ -47,9 +47,9 @@ Waterman–Eggert (1987, J Mol Biol 197:723) declumping: the best local alignmen
 
 | Code | Message |
 |------|---------|
-| 1001 | Sequence cannot be null or empty |
+| 1001 | Sequence is required (null). An empty string is accepted: the library aligns it to all gaps (the local tools return no alignment: score 0 / empty list) |
 | 1002 | maxAlignments must be at least 1 |
-| 1003 | Linear-space Waterman-Eggert declumping needs non-positive gap scores (GapOpen <= 0 and GapExtend <= 0); with positive gap scores the matrices are kept and the input must not exceed 25,000,000 cells. |
+| 1003 | A gap score is positive (GapOpen and GapExtend must be <= 0 in every scoring model) or the integer score range of the dynamic program is exceeded (max|step| x (len1 + len2 + 2) must stay below 2^28) |
 
 ## Examples
 

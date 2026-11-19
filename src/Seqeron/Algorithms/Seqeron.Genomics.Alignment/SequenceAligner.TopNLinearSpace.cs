@@ -108,16 +108,12 @@ public static partial class SequenceAligner
         var results = new List<AlignmentResult>();
         if (a.Length == 0 || b.Length == 0)
             return results;
-        if (scoring.GapOpen > 0 || scoring.GapExtend > 0)
-            throw new ArgumentException(
-                "Linear-space Waterman-Eggert declumping needs non-positive gap scores (GapOpen <= 0 and GapExtend <= 0); with positive gap scores the matrices are kept and the input must not exceed "
-                + TopNMaxCells.ToString("N0", System.Globalization.CultureInfo.InvariantCulture) + " cells.",
-                nameof(scoring));
+        scoring.EnsureRange(a.Length, b.Length);
 
         var forbidden = new ForbiddenPairs();
         while (results.Count < maxAlignments)
         {
-            ct.ThrowIfCancellationRequested();
+            AlignmentCancellation.Poll(ct);
             var next = LinearSpaceAlign(a, b, scoring, affine, local: true, EndGaps.None, baseCells, ct, forbidden);
             if (next.Score <= 0 || next.Score < minScaled)
                 break;
@@ -162,9 +158,15 @@ public static partial class SequenceAligner
     /// <see cref="TopNMaxCells"/> cells; call this method to force it for any size. Cost: one run of the linear-space local
     /// program per reported alignment (plus the final empty round).
     /// </summary>
+    /// <param name="sequence1">First sequence (upper-cased internally).</param>
+    /// <param name="sequence2">Second sequence.</param>
+    /// <param name="scoring">Scoring (default <see cref="SimpleDna"/>).</param>
+    /// <param name="maxAlignments">At most this many alignments (&gt;= 1).</param>
+    /// <param name="minScore">Smallest accepted score (alignments scoring &lt;= 0 are never reported).</param>
     /// <param name="maxFullMatrixCells">Sub-problems of at most this many cells are solved with the full-matrix core
     /// (clamped to <see cref="LinearSpaceCellThreshold"/>); smaller values recurse deeper.</param>
-    /// <exception cref="ArgumentException">A gap score is positive (the interval-then-global scheme needs GapOpen ≤ 0 and GapExtend ≤ 0).</exception>
+    /// <exception cref="ArgumentException">A gap score is positive (rejected by every scoring model), or the integer score range is exceeded.</exception>
+    [System.Runtime.CompilerServices.OverloadResolutionPriority(1)]
     public static IReadOnlyList<AlignmentResult> LocalAlignTopNLinearSpace(
         string sequence1, string sequence2, ScoringMatrix? scoring = null, int maxAlignments = 10, int minScore = 0,
         long maxFullMatrixCells = LinearSpaceBaseCells)
@@ -175,6 +177,7 @@ public static partial class SequenceAligner
     }
 
     /// <summary><see cref="LocalAlignTopNLinearSpace(string, string, ScoringMatrix?, int, int, long)"/> for DNA sequences.</summary>
+    [System.Runtime.CompilerServices.OverloadResolutionPriority(1)]
     public static IReadOnlyList<AlignmentResult> LocalAlignTopNLinearSpace(
         DnaSequence sequence1, DnaSequence sequence2, ScoringMatrix? scoring = null, int maxAlignments = 10, int minScore = 0,
         long maxFullMatrixCells = LinearSpaceBaseCells)
@@ -214,6 +217,7 @@ public static partial class SequenceAligner
     /// <summary>Waterman-Eggert top-N local alignments with <b>affine</b> gaps in exact linear space; the same alignments as
     /// <see cref="LocalAlignAffineTopN(string, string, ScoringMatrix?, int, int)"/> (which switches to this program above
     /// <see cref="TopNMaxCells"/> cells); see <see cref="LocalAlignTopNLinearSpace(string, string, ScoringMatrix?, int, int, long)"/>.</summary>
+    [System.Runtime.CompilerServices.OverloadResolutionPriority(1)]
     public static IReadOnlyList<AlignmentResult> LocalAlignAffineTopNLinearSpace(
         string sequence1, string sequence2, ScoringMatrix? scoring = null, int maxAlignments = 10, int minScore = 0,
         long maxFullMatrixCells = LinearSpaceBaseCells)
@@ -224,6 +228,7 @@ public static partial class SequenceAligner
     }
 
     /// <summary><see cref="LocalAlignAffineTopNLinearSpace(string, string, ScoringMatrix?, int, int, long)"/> for DNA sequences.</summary>
+    [System.Runtime.CompilerServices.OverloadResolutionPriority(1)]
     public static IReadOnlyList<AlignmentResult> LocalAlignAffineTopNLinearSpace(
         DnaSequence sequence1, DnaSequence sequence2, ScoringMatrix? scoring = null, int maxAlignments = 10, int minScore = 0,
         long maxFullMatrixCells = LinearSpaceBaseCells)

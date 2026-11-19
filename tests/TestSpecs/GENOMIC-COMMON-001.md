@@ -192,3 +192,9 @@
 ## 7. Open Questions / Decisions
 
 1. The repository method `FindLongestCommonRegion` computes the longest common **substring** (contiguous) but its XML doc previously said "subsequence". Corrected in Phase 5; behavior unchanged (the SuffixTree call already computed substring).
+
+---
+
+## 2026-11 audit round 2 (A2-40, B09 F86): cancellation
+
+`FindCommonRegions(s1, s2, minLength, CancellationToken)` polls the matching-statistics scan (every 1024 positions) and the region enumeration; tests in `SequenceAligner_Cancellation_Tests` (`PreCancelled_GenomicAnalyzerScans_Throw`, `CancelledWhileRunning_GenomicAnalyzerScans_StopPromptly`).

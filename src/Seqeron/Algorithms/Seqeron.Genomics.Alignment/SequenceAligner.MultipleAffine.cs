@@ -98,17 +98,17 @@ public static partial class SequenceAligner
         }
 
         var ps = PairScoring.Create(scoring, rows.Select(r => r.Replace("-", "")).ToArray());
-        return (double)ComputeSumOfPairsScore(rows, ps, gapModel) / ps.Scale;
+        return (double)SumOfPairsScoreLong(rows, ps, gapModel) / ps.Scale;
     }
 
-    private static int AffineSumOfPairsScoreCore(IReadOnlyList<string> rows, PairScoring scoring)
+    private static long AffineSumOfPairsScoreCore(IReadOnlyList<string> rows, PairScoring scoring)
     {
         long total = 0;
         for (int i = 0; i < rows.Count; i++)
             for (int j = i + 1; j < rows.Count; j++)
                 total += NaturalAffinePairScore(rows[i], rows[j], scoring);
 
-        return checked((int)total);
+        return total;
     }
 
     /// <summary>Natural affine score of the projection of two rows (gap–gap columns skipped, one opening per maximal run).</summary>
@@ -220,6 +220,7 @@ public static partial class SequenceAligner
 
         for (int i = 0; i <= m; i++)
         {
+            AlignmentCancellation.ThrowIfRequested();
             for (int j = 0; j <= n; j++)
             {
                 if (i == 0 && j == 0)

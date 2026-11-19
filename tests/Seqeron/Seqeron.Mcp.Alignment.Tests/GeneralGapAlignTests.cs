@@ -63,7 +63,6 @@ public class GeneralGapAlignTests
         Assert.Throws<ArgumentException>(() => AlignmentTools.GeneralGapAlign("ACGT", "ACGT", Table(k => -k, 4), "sideways"));
         Assert.Throws<ArgumentException>(() => AlignmentTools.GeneralGapAlign("ACGT", "ACGT", new[] { -1.0, double.NaN, -3.0, -4.0 }));
         Assert.Throws<ArgumentException>(() => AlignmentTools.GeneralGapAlign("ACXT", "ACGT", Table(k => -k, 4)));
-        Assert.Throws<ArgumentException>(() => AlignmentTools.GeneralGapAlign("", "ACGT", Table(k => -k, 4)));
         Assert.Throws<ArgumentException>(() => AlignmentTools.GeneralGapAlign("ACGT", "ACGT", Table(k => -k, 4), "semi_global", endGaps: "Nope"));
     }
 }

@@ -233,3 +233,9 @@ These affect reported span/filtering only, not which start sites are detected; e
 
 1. Relationship to ANNOT-ORF-001: kept as a separate canonical unit (`GenomicAnalyzer.FindOpenReadingFrames`). The pre-existing greedy implementation was a defect (missed nested ORFs) and was corrected to the canonical every-ATG-to-first-in-frame-stop definition. Not consolidated away because the Registry lists it as its own unit with a distinct struct/API (`OrfInfo`).
 2. Suffix tree: not applicable — this is a fixed-stride six-frame codon scan (O(n)), not query-occurrence enumeration. Decision recorded in algorithm doc §5.2.
+
+---
+
+## 2026-11 audit round 2 (A2-40, B09 F86): cancellation
+
+`FindOpenReadingFrames(DnaSequence | string, minLength, options, CancellationToken)` and `OrfScanner.FindRegions(..., cancellationToken)` poll every 65 536 codons and between ORFs; same tests as GENOMIC-COMMON-001.

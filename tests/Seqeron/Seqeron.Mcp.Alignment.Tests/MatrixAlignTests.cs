@@ -87,7 +87,6 @@ public class MatrixAlignTests
     {
         Assert.Throws<ArgumentException>(() => AlignmentTools.GlobalAlign("ACGT", "ACGT", matrix: "BLOSUM45"));
         Assert.Throws<ArgumentException>(() => AlignmentTools.GlobalAlign("AC1T", "ACGT", matrix: "BLOSUM62"));
-        Assert.Throws<ArgumentException>(() => AlignmentTools.GlobalAlignAffine("", "ACGT", matrix: "BLOSUM62"));
     }
 
     /// <summary>BLAST+ report values of alignment_statistics (B09 F42): integer percentages (NCBI GetPercentMatch), positives, pident.</summary>

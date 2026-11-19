@@ -46,7 +46,7 @@ Enumerates ALL distinct local alignments whose score equals the Smith–Waterman
 
 | Code | Message |
 |------|---------|
-| 1001 | Sequence cannot be null or empty |
+| 1001 | Sequence is required (null). An empty string is accepted: the library aligns it to all gaps (the local tools return no alignment: score 0 / empty list) |
 | 1002 | maxAlignments must be at least 1 |
 | 1003 | Waterman-Eggert declumping and co-optimal enumeration keep the O(m*n) matrices: (len1 + 1) x (len2 + 1) cells exceed the limit of 25,000,000 cells. |
 

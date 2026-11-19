@@ -228,3 +228,22 @@ Tests: `SequenceAligner_LinearSpace_Tests` (20) and `Seqeron.Mcp.Alignment.Tests
 | GC-7 | `StringDnaProteinAndMatrixOverloads_ReturnTheSameAlignments`, `EndGapsNone_IsTheGlobalProblem_AndDefaultPolicyOfTheGlobalNames`, `EmptySide_HasTheSingleAllGapAlignment`, `ZeroGapCosts_FreeFlankIsListedOnce` | overload equivalence, `None` = global, empty side, zero costs | equal / single alignment | contract |
 | GC-8 | `Validation_NullCapEndGapsAndMemoryGuard`, `ManyTies_CapStopsTheEnumeration_Quickly` | null, cap < 1, bad `EndGaps`, > 25 M cells, 60 x 60 all-ties | exceptions; cap honoured quickly | contract |
 | GC-9 (MCP) | `GlobalCoOptimalAndExactMsaTests.GlobalCoOptimal_*` | gap placements, affine, `endGaps`, BLOSUM62 fractional, validation | delegates to the core; first = `global_align` | library call |
+
+---
+
+## 2026-11 audit round 2 (A2-37, A2-43; B09 F80, F85): one scoring contract and `null` for the scoring argument
+
+Scalar `ScoringMatrix` and `MatrixScoring` share ONE contract (`PairScoring`, checked by every aligner): `GapOpen` and `GapExtend` are penalties (<= 0, greater than `int.MinValue`; a positive gap score is an `ArgumentException` "must be a finite score <= 0", previously silently accepted by the scalar path: `GlobalAlign("ACGT","AC", new ScoringMatrix(1,-1,5,5))` = 30), and the score of any path, `max(|Match|, |Mismatch|, |GapOpen| + |GapExtend|) * (m + n + 2)`, must stay below 2^28 (`ArgumentException` "Score range too large for the integer dynamic program"; previously a silently wrapped `Score`: `GlobalAlign("A"x50, "A"x50, new ScoringMatrix(1e9,-1,-2,-1))` = 1 999 999 904 for the true 5e10). The multiple-alignment sum-of-pairs totals accumulate in 64 bits and are refused when they do not fit the reported 32-bit total.
+
+| ID | Test (`SequenceAligner_ScoringContract_Tests`) | Input | Expected | Source |
+|----|------|-------|----------|--------|
+| SC-1 | `ScalarOverflow_IsRejectedByEveryScalarAligner_NotWrapped` | the 5e10 repro (match 1e9) through 14 aligners (global / local / semi-global, linear / affine, linear space, top-N, co-optimal) | `ArgumentException` "Score range too large" | exact integer arithmetic (50 x 1e9) |
+| SC-2 | `ScalarLargeScores_BelowTheBound_AreExact` | match 1e6, 50 identities | 50 000 000 for global / local / affine / semi-global | closed form n x match |
+| SC-3 | `ScalarRangeBound_IsTheSameAsTheMatrixPathBound` | match 1e6: m = n = 133 accepted, 134 rejected | the 2^28 bound | definition |
+| SC-4 | `IntMinValueGaps_AreRejected_WithArgumentException_NotIndexOutOfRange` | gap = int.MinValue (negation overflow) | `ArgumentException` | contract |
+| SC-5 | `PositiveGapScore_IsRejected_ByScalarAndMatrixModelAlike` | scalar (5,5), (0,1), (1,0), (-1,2) and `MatrixScoring` (1,-1) | same message; zero gaps stay valid | contract |
+| SC-6 | `IntMinValueGaps_ThroughMultipleAlign_SurfaceAsArgumentException_ForEveryK` | k = 2, 3, 5, affine | `ArgumentException` (was `AggregateException` for k = 3, 5) | A2-42 |
+| SC-7 | `SumOfPairs_Accumulates64Bit_AndRefusesATotalBeyondInt` | 3 rows x 2 columns, match 2e9 (total 1.2e10) | `ArgumentException`; `MatrixSumOfPairsScore` = 24.0 (BLOSUM62 A/A = 4 x 6) | exact arithmetic, BLOSUM62 |
+| OV-1 | `SequenceAligner_InputContract_Tests.NullScoring_Compiles_AndSelectsTheDefault_OnEveryPairwiseFamily` | `GlobalAlign(a, b, null)`, `LocalAlignTopN(a, b, null, 3, 1)` ... 17 calls (CS0121 before `[OverloadResolutionPriority(1)]`) | same result as the call without the argument | compile-level + value |
+| OV-2 | `NullScoring_TheTypedMatrixOverloadsStillBind`, `EveryScoringMatrixOverloadWithAMatrixScoringTwin_CarriesTheResolutionPriority` | reflection over all public overloads | every `ScoringMatrix?` overload with a `MatrixScoring` twin carries priority >= 1 | contract |
+| MCP-1 | `EmptyInputContractTests` (Mcp.Alignment.Tests) | `global_align("", "ACGT")` ... | the library's all-gap alignment / empty lists; null still rejected | library contract (F39) |

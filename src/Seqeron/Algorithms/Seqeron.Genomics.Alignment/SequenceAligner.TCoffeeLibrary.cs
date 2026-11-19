@@ -352,6 +352,13 @@ public enum TCoffeeDistanceMode
 /// <summary>Options of <see cref="SequenceAligner.MultipleAlignTCoffeeProgram"/> = the command line of the program they mirror.</summary>
 public sealed partial record TCoffeeProgramOptions
 {
+    /// <summary>
+    /// Cancels the alignment (the same convention as <see cref="System.Threading.Tasks.ParallelOptions.CancellationToken"/>): the dynamic programs poll it at their
+    /// row / iteration boundaries and the call throws <see cref="OperationCanceledException"/> without a partial result. Default: never cancelled.
+    /// It does not take part in the semantics of the options (two option sets that differ only in the token align identically).
+    /// </summary>
+    public CancellationToken CancellationToken { get; init; }
+
     /// <summary><c>-method m1,m2</c>: the primary library methods in command-line order. Default = <c>proba_pair</c>, the program's own default of 13.41 (<c>t_coffee seqs.fa</c>).</summary>
     public IReadOnlyList<TCoffeePairMethod> Methods { get; init; } = new[] { TCoffeePairMethod.ProbaPair };
 
@@ -445,9 +452,9 @@ public static partial class SequenceAligner
     /// <returns>Aligned rows in input order, consensus, total score.</returns>
     public static MultipleAlignmentResult MultipleAlignTCoffeeProgram(IEnumerable<string> sequences, TCoffeeProgramOptions? options = null, MatrixScoring? scoring = null)
     {
-        ArgumentNullException.ThrowIfNull(sequences);
-        var list = sequences.ToList();
+        var list = ToListNoNull(sequences, nameof(sequences));
         if (list.Count == 0) return MultipleAlignmentResult.Empty;
+        using var cancelScope = AlignmentCancellation.Enter(options?.CancellationToken ?? default);
         var rows = TCoffeeProgramRows(list, options);
         bool protein = (options ?? new TCoffeeProgramOptions()).Protein ?? TcIsProtein(list);
         var sp = scoring ?? (protein ? MatrixScoring.Emboss(SubstitutionMatrix.Blosum62, 10, 0.2) : MatrixScoring.Emboss(SubstitutionMatrix.EdnaFull, 10, 0.5));
@@ -463,8 +470,9 @@ public static partial class SequenceAligner
         options ??= new TCoffeeProgramOptions();
         ArgumentNullException.ThrowIfNull(sequences);
         if (sequences.Count == 0) return Array.Empty<string>();
+        RequireProgramMembers(sequences, "t_coffee", nameof(sequences));
         foreach (var s in sequences)
-            if (string.IsNullOrEmpty(s) || s.Any(c => !char.IsAsciiLetter(c))) throw new ArgumentException("Sequences must be non-empty strings of letters.", nameof(sequences));
+            if (s.Any(c => !char.IsAsciiLetter(c))) throw new ArgumentException("Sequences must be strings of letters.", nameof(sequences));
         if (sequences.Count == 1) return new[] { sequences[0] };
         int k = sequences.Count;
 

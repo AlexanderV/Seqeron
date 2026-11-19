@@ -70,6 +70,8 @@ namespace Seqeron.Genomics.Core
         /// <param name="allowDualCodingStops">false (default): a genetic code whose stop codons also code for an amino acid
         /// (NCBI tables 27, 28, 31) is rejected. true: the codons the table lists as stops (<see cref="GeneticCode.StopCodons"/>)
         /// end ORFs regardless (NCBI ORFfinder 0.4.3 behaviour, measured on the binary for <c>-g 27/28/31</c>).</param>
+        /// <param name="cancellationToken">Polled while the (lazy) scan advances, every 65 536 codons; a cancelled token throws
+        /// <see cref="OperationCanceledException"/> from the enumeration.</param>
         /// <returns>The ORFs, frame offset 0 first, each frame in ascending start order.</returns>
         /// <exception cref="ArgumentNullException"><paramref name="strand"/> is null.</exception>
         /// <exception cref="ArgumentException">The genetic code has dual-coding stop codons (NCBI tables 27, 28, 31) and
@@ -77,7 +79,7 @@ namespace Seqeron.Genomics.Core
         /// <see cref="Translator.FindOrfs(DnaSequence, GeneticCode?, int, bool)"/>).</exception>
         public static IEnumerable<OrfRegion> FindRegions(string strand, GeneticCode? geneticCode = null,
             Func<string, bool>? isStartCodon = null, bool nestedStarts = true, bool includeOpenEnded = false,
-            bool allowDualCodingStops = false)
+            bool allowDualCodingStops = false, CancellationToken cancellationToken = default)
         {
             ArgumentNullException.ThrowIfNull(strand);
             var code = geneticCode ?? GeneticCode.Standard;
@@ -90,7 +92,7 @@ namespace Seqeron.Genomics.Core
             }
 
             var (stopTable, startTable) = BuildCodonTables(code, isStartCodon);
-            return Scan(strand, code, stopTable, startTable, nestedStarts, includeOpenEnded);
+            return Scan(strand, code, stopTable, startTable, nestedStarts, includeOpenEnded, cancellationToken);
         }
 
         /// <summary>
@@ -166,15 +168,21 @@ namespace Seqeron.Genomics.Core
         }
 
         private static IEnumerable<OrfRegion> Scan(string seq, GeneticCode code, bool[] stopTable, bool[] startTable,
-            bool nestedStarts, bool includeOpenEnded)
+            bool nestedStarts, bool includeOpenEnded, CancellationToken cancellationToken)
         {
             var pending = new List<int>();
+            int polled = 0;
             for (int frame = 0; frame < FramesPerStrand; frame++)
             {
                 pending.Clear();
                 int i = frame;
                 for (; i + CodonLength <= seq.Length; i += CodonLength)
                 {
+                    if ((++polled & 0xFFFF) == 0)
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+                    }
+
                     int index = CodonIndex(seq, i);
                     bool isStop = index >= 0 ? stopTable[index] : IsAmbiguousStop(code, seq, i);
                     if (isStop)

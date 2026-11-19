@@ -24,12 +24,12 @@ public class AlignmentTools
         [Description("Score for mismatching base.")] int mismatch = -1,
         [Description("Gap-open score (ignored by this linear-gap tool; kept for schema compatibility). May be fractional when matrix is given.")] double gapOpen = -2,
         [Description("Gap score charged per gap position (<= 0). May be fractional (e.g. -0.5) when matrix is given.")] double gapExtend = -1,
-        [Description(MatrixParamDescription)] string? matrix = null)
+        [Description(MatrixParamDescription)] string? matrix = null,
+        CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrEmpty(sequence1))
-            throw new ArgumentException("Sequence cannot be null or empty.", nameof(sequence1));
-        if (string.IsNullOrEmpty(sequence2))
-            throw new ArgumentException("Sequence cannot be null or empty.", nameof(sequence2));
+        using var cancelScope = global::Seqeron.Genomics.Alignment.SequenceAligner.BeginCancellationScope(cancellationToken);
+        RequireSequence(sequence1, nameof(sequence1));
+        RequireSequence(sequence2, nameof(sequence2));
 
         var sub = ResolveMatrix(matrix);
         if (sub is not null)
@@ -49,12 +49,12 @@ public class AlignmentTools
         [Description("Score for mismatching base.")] int mismatch = -1,
         [Description("Gap-open score (ignored by this linear-gap tool; kept for schema compatibility). May be fractional when matrix is given.")] double gapOpen = -2,
         [Description("Gap score charged per gap position (<= 0). May be fractional (e.g. -0.5) when matrix is given.")] double gapExtend = -1,
-        [Description(MatrixParamDescription)] string? matrix = null)
+        [Description(MatrixParamDescription)] string? matrix = null,
+        CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrEmpty(sequence1))
-            throw new ArgumentException("Sequence cannot be null or empty.", nameof(sequence1));
-        if (string.IsNullOrEmpty(sequence2))
-            throw new ArgumentException("Sequence cannot be null or empty.", nameof(sequence2));
+        using var cancelScope = global::Seqeron.Genomics.Alignment.SequenceAligner.BeginCancellationScope(cancellationToken);
+        RequireSequence(sequence1, nameof(sequence1));
+        RequireSequence(sequence2, nameof(sequence2));
 
         var sub = ResolveMatrix(matrix);
         if (sub is not null)
@@ -75,8 +75,10 @@ public class AlignmentTools
         [Description("Gap-open score (ignored by this linear-gap tool; kept for schema compatibility). May be fractional when matrix is given.")] double gapOpen = -2,
         [Description("Gap score charged per gap position (<= 0). May be fractional (e.g. -0.5) when matrix is given.")] double gapExtend = -1,
         [Description(MatrixParamDescription)] string? matrix = null,
-        [Description(EndGapsParamDescription)] string? endGaps = null)
+        [Description(EndGapsParamDescription)] string? endGaps = null,
+        CancellationToken cancellationToken = default)
     {
+        using var cancelScope = global::Seqeron.Genomics.Alignment.SequenceAligner.BeginCancellationScope(cancellationToken);
         var ends = ResolveEndGaps(endGaps);
         var sub = ResolveMatrix(matrix);
         if (sub is not null)
@@ -159,8 +161,12 @@ public class AlignmentTools
     private const string MatrixParamDescription =
         "Optional substitution matrix: BLOSUM62, PAM250 (protein) or EDNAFULL (IUPAC DNA). When given, match/mismatch are ignored, residues are scored by the published table (any protein or IUPAC symbol of the matrix; case-insensitive) and gapOpen/gapExtend may be fractional (the EMBOSS needle/water models: gapOpen = -(G - E), gapExtend = -E for -gapopen G -gapextend E). The result then also carries the real-valued exactScore.";
 
+    /// <summary>
+    /// The pairwise tools DELEGATE to the library, whose contract (F39) accepts an empty sequence (the all-gap alignment of the other sequence;
+    /// no top-N / empty co-optimal alignments for the local tools) - the tool only refuses a missing (null) value.
+    /// </summary>
     private static string RequireSequence(string sequence, string name) =>
-        string.IsNullOrEmpty(sequence) ? throw new ArgumentException("Sequence cannot be null or empty.", name) : sequence;
+        sequence ?? throw new ArgumentException("Sequence is required (null); an empty string is accepted and aligns to all gaps.", name);
 
     private static int RequireInteger(double value, string name) =>
         value == Math.Round(value) && Math.Abs(value) <= int.MaxValue
@@ -207,12 +213,12 @@ public class AlignmentTools
         [Description("Score for mismatching base.")] int mismatch = -1,
         [Description("Gap-open score added once per gap run (negative = penalty). May be fractional when matrix is given; EMBOSS gapopen G / gapextend E = gapOpen -(G - E), gapExtend -E.")] double gapOpen = -2,
         [Description("Gap score per gap position, in addition to gapOpen for the first one. May be fractional (e.g. -0.5) when matrix is given.")] double gapExtend = -1,
-        [Description(MatrixParamDescription)] string? matrix = null)
+        [Description(MatrixParamDescription)] string? matrix = null,
+        CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrEmpty(sequence1))
-            throw new ArgumentException("Sequence cannot be null or empty.", nameof(sequence1));
-        if (string.IsNullOrEmpty(sequence2))
-            throw new ArgumentException("Sequence cannot be null or empty.", nameof(sequence2));
+        using var cancelScope = global::Seqeron.Genomics.Alignment.SequenceAligner.BeginCancellationScope(cancellationToken);
+        RequireSequence(sequence1, nameof(sequence1));
+        RequireSequence(sequence2, nameof(sequence2));
 
         var sub = ResolveMatrix(matrix);
         if (sub is not null)
@@ -232,12 +238,12 @@ public class AlignmentTools
         [Description("Score for mismatching base.")] int mismatch = -1,
         [Description("Gap-open score added once per gap run (negative = penalty). May be fractional when matrix is given; EMBOSS gapopen G / gapextend E = gapOpen -(G - E), gapExtend -E.")] double gapOpen = -2,
         [Description("Gap score per gap position, in addition to gapOpen for the first one. May be fractional (e.g. -0.5) when matrix is given.")] double gapExtend = -1,
-        [Description(MatrixParamDescription)] string? matrix = null)
+        [Description(MatrixParamDescription)] string? matrix = null,
+        CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrEmpty(sequence1))
-            throw new ArgumentException("Sequence cannot be null or empty.", nameof(sequence1));
-        if (string.IsNullOrEmpty(sequence2))
-            throw new ArgumentException("Sequence cannot be null or empty.", nameof(sequence2));
+        using var cancelScope = global::Seqeron.Genomics.Alignment.SequenceAligner.BeginCancellationScope(cancellationToken);
+        RequireSequence(sequence1, nameof(sequence1));
+        RequireSequence(sequence2, nameof(sequence2));
 
         var sub = ResolveMatrix(matrix);
         if (sub is not null)
@@ -260,8 +266,10 @@ public class AlignmentTools
         [Description("Score for mismatching base (ignored with matrix).")] int mismatch = -1,
         [Description("Gap-open score (affine = true only; ignored by the linear model). May be fractional when matrix is given.")] double gapOpen = -2,
         [Description("Gap score charged per gap position (<= 0). May be fractional when matrix is given.")] double gapExtend = -1,
-        [Description(MatrixParamDescription)] string? matrix = null)
+        [Description(MatrixParamDescription)] string? matrix = null,
+        CancellationToken cancellationToken = default)
     {
+        using var cancelScope = global::Seqeron.Genomics.Alignment.SequenceAligner.BeginCancellationScope(cancellationToken);
         RequireSequence(sequence1, nameof(sequence1));
         RequireSequence(sequence2, nameof(sequence2));
         var sub = ResolveMatrix(matrix);
@@ -291,8 +299,10 @@ public class AlignmentTools
         [Description("Score for mismatching base (ignored with matrix).")] int mismatch = -1,
         [Description("Gap-open score (affine = true only; ignored by the linear model). May be fractional when matrix is given.")] double gapOpen = -2,
         [Description("Gap score charged per gap position (<= 0). May be fractional when matrix is given.")] double gapExtend = -1,
-        [Description(MatrixParamDescription)] string? matrix = null)
+        [Description(MatrixParamDescription)] string? matrix = null,
+        CancellationToken cancellationToken = default)
     {
+        using var cancelScope = global::Seqeron.Genomics.Alignment.SequenceAligner.BeginCancellationScope(cancellationToken);
         RequireSequence(sequence1, nameof(sequence1));
         RequireSequence(sequence2, nameof(sequence2));
         var sub = ResolveMatrix(matrix);
@@ -322,8 +332,10 @@ public class AlignmentTools
         [Description("Gap-open score (affine = true only; ignored by the linear model). May be fractional when matrix is given.")] double gapOpen = -2,
         [Description("Gap score charged per gap position (<= 0). May be fractional when matrix is given.")] double gapExtend = -1,
         [Description(MatrixParamDescription)] string? matrix = null,
-        [Description("Which end gaps are free; default 'None' = global (all end gaps penalised). " + EndGapsParamDescription)] string? endGaps = null)
+        [Description("Which end gaps are free; default 'None' = global (all end gaps penalised). " + EndGapsParamDescription)] string? endGaps = null,
+        CancellationToken cancellationToken = default)
     {
+        using var cancelScope = global::Seqeron.Genomics.Alignment.SequenceAligner.BeginCancellationScope(cancellationToken);
         RequireSequence(sequence1, nameof(sequence1));
         RequireSequence(sequence2, nameof(sequence2));
         var ends = string.IsNullOrWhiteSpace(endGaps) ? global::Seqeron.Genomics.Infrastructure.EndGaps.None : ResolveEndGaps(endGaps);
@@ -352,8 +364,10 @@ public class AlignmentTools
         [Description("Gap-open score added once per gap run (negative = penalty). May be fractional when matrix is given; EMBOSS gapopen G / gapextend E = gapOpen -(G - E), gapExtend -E.")] double gapOpen = -2,
         [Description("Gap score per gap position, in addition to gapOpen for the first one. May be fractional (e.g. -0.5) when matrix is given.")] double gapExtend = -1,
         [Description(MatrixParamDescription)] string? matrix = null,
-        [Description(EndGapsParamDescription)] string? endGaps = null)
+        [Description(EndGapsParamDescription)] string? endGaps = null,
+        CancellationToken cancellationToken = default)
     {
+        using var cancelScope = global::Seqeron.Genomics.Alignment.SequenceAligner.BeginCancellationScope(cancellationToken);
         var ends = ResolveEndGaps(endGaps);
         var sub = ResolveMatrix(matrix);
         if (sub is not null)
@@ -380,8 +394,10 @@ public class AlignmentTools
         [Description("Score for matching base (ignored with matrix).")] int match = 1,
         [Description("Score for mismatching base (ignored with matrix).")] int mismatch = -1,
         [Description(MatrixParamDescription)] string? matrix = null,
-        [Description("semi_global only: which end gaps are free, see semi_global_align (default 'Fitting').")] string? endGaps = null)
+        [Description("semi_global only: which end gaps are free, see semi_global_align (default 'Fitting').")] string? endGaps = null,
+        CancellationToken cancellationToken = default)
     {
+        using var cancelScope = global::Seqeron.Genomics.Alignment.SequenceAligner.BeginCancellationScope(cancellationToken);
         ArgumentNullException.ThrowIfNull(gapScores);
         RequireSequence(sequence1, nameof(sequence1));
         RequireSequence(sequence2, nameof(sequence2));
@@ -473,10 +489,14 @@ public class AlignmentTools
         [Description(GapExtendDescription)] double gapExtend = -1,
         [Description(GapModelDescription)] string gapModel = "linear",
         [Description(MsaTypeDescription)] string type = "dna",
-        [Description(MsaMatrixDescription)] string? matrix = null) =>
-        RunMsa(sequences, match, mismatch, gapOpen, gapExtend, type, matrix,
+        [Description(MsaMatrixDescription)] string? matrix = null,
+        CancellationToken cancellationToken = default)
+    {
+        using var cancelScope = global::Seqeron.Genomics.Alignment.SequenceAligner.BeginCancellationScope(cancellationToken);
+        return RunMsa(sequences, match, mismatch, gapOpen, gapExtend, type, matrix,
             (seqs, scoring) => global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlign(seqs, scoring, ParseMsaOptions(null, gapModel)),
             (seqs, scoring) => global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlign(seqs, scoring, ParseMsaOptions(null, gapModel)));
+    }
 
     [McpServerTool(Name = "multiple_align_anchored", Title = "MSA — Anchored Center-Star (approximate, suffix-tree seeds)", ReadOnly = true)]
     [Description("Approximate, faster center-star MSA: picks the center by 4-mer count cosine similarity, builds a suffix tree on it and aligns every other sequence with exact-match anchors (MUMmer-style seed, weighted colinear chain, Needleman–Wunsch — or Gotoh affine with gapModel='affine' — on the gaps between anchors). The pairwise alignments are NOT guaranteed optimal, so the sum-of-pairs score can be lower than multiple_align's. Default linear gap model (gapOpen ignored); gapModel='affine' charges gapOpen + k·gapExtend per gap run and reports the natural affine sum-of-pairs score. PROTEIN / MATRIX: type='protein' (or matrix) scores anchors as the sum of matrix(c, c) and fills the gaps between anchors with the matrix aligner (any alphabet); rows equal an independent Python implementation (anchors = suffix-tree matching statistics, colinear chain, Needleman-Wunsch / Gotoh between anchors).")]
@@ -488,10 +508,14 @@ public class AlignmentTools
         [Description(GapExtendDescription)] double gapExtend = -1,
         [Description(GapModelDescription)] string gapModel = "linear",
         [Description(MsaTypeDescription)] string type = "dna",
-        [Description(MsaMatrixDescription)] string? matrix = null) =>
-        RunMsa(sequences, match, mismatch, gapOpen, gapExtend, type, matrix,
+        [Description(MsaMatrixDescription)] string? matrix = null,
+        CancellationToken cancellationToken = default)
+    {
+        using var cancelScope = global::Seqeron.Genomics.Alignment.SequenceAligner.BeginCancellationScope(cancellationToken);
+        return RunMsa(sequences, match, mismatch, gapOpen, gapExtend, type, matrix,
             (seqs, scoring) => global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignAnchored(seqs, scoring, ParseMsaOptions(null, gapModel)),
             (seqs, scoring) => global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignAnchored(seqs, scoring, ParseMsaOptions(null, gapModel)));
+    }
 
     [McpServerTool(Name = "multiple_align_progressive", Title = "MSA — Progressive Guide-Tree Alignment (Clustal-style)", ReadOnly = true)]
     [Description("Guide-tree progressive MSA (Feng & Doolittle 1987 / Clustal-style): the ClustalW pairwise distance of every pairwise alignment, d = 1 − (identical aligned residue pairs) / (length of the shorter sequence) (Thompson, Higgins & Gibson 1994; pairalign.c tmat = (100 − 100·count/MIN(len1, len2)) / 100), gives the distance matrix, a guide tree (UPGMA by default, guideTree='nj' = ClustalW's neighbour-joining tree) orders the merges, and profiles are aligned by profile–profile dynamic programming with sum-of-pairs column scores (once a gap, always a gap). Default linear gap model (gapOpen ignored); gapModel='affine' uses a Gotoh three-state profile DP (occupancy-scaled gapOpen/gapExtend, ClustalW/MUSCLE style) and reports the natural affine sum-of-pairs score. distance='clustalw' takes the guide-tree distances from ClustalW 2.1's own affine pairwise stage instead (percent identity of clustalw -ALIGN). Returns rows, majority consensus and sum-of-pairs score. PROTEIN / MATRIX: type='protein' (or matrix) uses the substitution matrix for the pairwise alignments, the profile column scores and the sum-of-pairs objective (fractional gaps allowed); rows equal an independent Python implementation on 238 sets. With type='protein', distance='clustalw' / 'clustalw-quick' use ClustalW 2.1's PROTEIN pairwise stages (GONNET250 / BLOSUM30 / PAM350 / identity matrix via pwMatrix, gap 10 / 0.1, k-tuple 1; exact ports verified on 4 204 + 3 774 pairs of clustalw -TYPE=PROTEIN -ALIGN / -QUICKTREE).")]
@@ -512,10 +536,14 @@ public class AlignmentTools
         [Description(MsaMatrixDescription)] string? matrix = null,
         [Description(PwMatrixDescription)] string? pwMatrix = null,
         [Description(PwGapOpenDescription)] double? pwGapOpen = null,
-        [Description(PwGapExtendDescription)] double? pwGapExtend = null) =>
-        RunMsa(sequences, match, mismatch, gapOpen, gapExtend, type, matrix,
+        [Description(PwGapExtendDescription)] double? pwGapExtend = null,
+        CancellationToken cancellationToken = default)
+    {
+        using var cancelScope = global::Seqeron.Genomics.Alignment.SequenceAligner.BeginCancellationScope(cancellationToken);
+        return RunMsa(sequences, match, mismatch, gapOpen, gapExtend, type, matrix,
             (seqs, scoring) => global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignProgressive(seqs, scoring, ParseMsaOptions(distance, gapModel, guideTree, ktuple, window, topDiagonals, pairGap, null, pwMatrix, pwGapOpen, pwGapExtend)),
             (seqs, scoring) => global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignProgressive(seqs, scoring, ParseMsaOptions(distance, gapModel, guideTree, ktuple, window, topDiagonals, pairGap, null, pwMatrix, pwGapOpen, pwGapExtend)));
+    }
 
     [McpServerTool(Name = "multiple_align_iterative", Title = "MSA — Progressive + Iterative Refinement (MUSCLE-style)", ReadOnly = true)]
     [Description("Progressive MSA followed by MUSCLE-style tree-dependent restricted-partitioning refinement (Edgar 2004, stage 3): each guide-tree edge splits the alignment into two profiles that are re-aligned and kept only if the sum-of-pairs score strictly improves; repeated until convergence or maxIterations passes. The result's sum-of-pairs score is never below multiple_align_progressive's. Default linear gap model (gapOpen ignored); gapModel='affine' refines under the natural affine sum-of-pairs objective with the affine profile DP. distance='clustalw' selects ClustalW 2.1's pairwise stage for the guide tree and guideTree='nj' neighbour-joining (see multiple_align_progressive); the refinement partitions are the edges of that tree. PROTEIN / MATRIX: type='protein' (or matrix) refines under the matrix sum-of-pairs objective (see multiple_align_progressive); rows equal an independent Python implementation. With type='protein', distance='clustalw' / 'clustalw-quick' use ClustalW 2.1's PROTEIN pairwise stages (GONNET250 / BLOSUM30 / PAM350 / identity matrix via pwMatrix, gap 10 / 0.1, k-tuple 1; exact ports verified on 4 204 + 3 774 pairs of clustalw -TYPE=PROTEIN -ALIGN / -QUICKTREE).")]
@@ -537,8 +565,10 @@ public class AlignmentTools
         [Description(MsaMatrixDescription)] string? matrix = null,
         [Description(PwMatrixDescription)] string? pwMatrix = null,
         [Description(PwGapOpenDescription)] double? pwGapOpen = null,
-        [Description(PwGapExtendDescription)] double? pwGapExtend = null)
+        [Description(PwGapExtendDescription)] double? pwGapExtend = null,
+        CancellationToken cancellationToken = default)
     {
+        using var cancelScope = global::Seqeron.Genomics.Alignment.SequenceAligner.BeginCancellationScope(cancellationToken);
         if (maxIterations < 1)
             throw new ArgumentOutOfRangeException(nameof(maxIterations), "maxIterations must be >= 1.");
 
@@ -566,8 +596,10 @@ public class AlignmentTools
         [Description("true (default): prune the dynamic-programming lattice with the Carrillo-Lipman bound; false: evaluate every cell (same result, exponentially slower).")] bool carrilloLipman = true,
         [Description("Complexity guard: largest number of dynamic-programming values (surviving cells x gap states) the exact program may hold; above it the call fails with a clear error instead of exhausting memory.")] long maxStateCells = 50_000_000,
         [Description(MsaTypeDescription)] string type = "dna",
-        [Description(MsaMatrixDescription)] string? matrix = null)
+        [Description(MsaMatrixDescription)] string? matrix = null,
+        CancellationToken cancellationToken = default)
     {
+        using var cancelScope = global::Seqeron.Genomics.Alignment.SequenceAligner.BeginCancellationScope(cancellationToken);
         var (sub, _) = ResolveMsaMatrix(type, matrix);
         var options = ParseMsaOptions(null, gapModel) with { ExactCarrilloLipman = carrilloLipman, ExactMaxStateCells = maxStateCells };
         if (sequences == null || sequences.Length == 0)
@@ -611,10 +643,14 @@ public class AlignmentTools
         [Description(MsaMatrixDescription)] string? matrix = null,
         [Description(PwMatrixDescription)] string? pwMatrix = null,
         [Description(PwGapOpenDescription)] double? pwGapOpen = null,
-        [Description(PwGapExtendDescription)] double? pwGapExtend = null) =>
-        RunMsa(sequences, match, mismatch, gapOpen, gapExtend, type, matrix,
+        [Description(PwGapExtendDescription)] double? pwGapExtend = null,
+        CancellationToken cancellationToken = default)
+    {
+        using var cancelScope = global::Seqeron.Genomics.Alignment.SequenceAligner.BeginCancellationScope(cancellationToken);
+        return RunMsa(sequences, match, mismatch, gapOpen, gapExtend, type, matrix,
             (seqs, scoring) => global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignConsistency(seqs, scoring, ParseMsaOptions(distance, gapModel, guideTree, ktuple, window, topDiagonals, pairGap, consistencyEngine, pwMatrix, pwGapOpen, pwGapExtend)),
             (seqs, scoring) => global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignConsistency(seqs, scoring, ParseMsaOptions(distance, gapModel, guideTree, ktuple, window, topDiagonals, pairGap, consistencyEngine, pwMatrix, pwGapOpen, pwGapExtend)));
+    }
 
     [McpServerTool(Name = "multiple_align_clustalw", Title = "MSA — ClustalW 2.1 Multiple Alignment (exact port)", ReadOnly = true)]
     [Description("ClustalW 2.1's multiple alignment of DNA (clustalw -TYPE=DNA -ALIGN) or PROTEIN (type='protein', clustalw -TYPE=PROTEIN -ALIGN), ported step by step and verified row-for-row against the installed clustalw 2.1 (1 000 DNA sets and 1 000 protein sets, option variants included): pairwise distances (distance='clustalw' = the full affine Smith-Waterman-Gotoh stage, 'clustalw-quick' = the fast k-tuple stage of -QUICKTREE with ktuple / window / topDiagonals / pairGap), ClustalW's neighbour-joining guide tree (rooted by Tree::reRoot), sequence weights derived from the tree branch lengths (Thompson, Higgins & Gibson 1994; noWeights = equal weights), delayed divergent sequences (maxDiv, default 30: sequences with at most that percent identity to every other sequence are aligned last), and profile-profile alignment with position-specific gap penalties (positions that already hold gaps get a reduced opening penalty and half the extension penalty, end gaps are free) and Myers-Miller linear-space alignment. DNA: the IUB weight matrix shifted to non-negative scores (negative = keep it signed) with transitions weighted by transitionWeight (clustalw -TRANSWEIGHT, default 0.5); gapOpen / gapExtend = -GAPOPEN 15 / -GAPEXT 6.66. PROTEIN: the matrix series of ClustalW's profile stage (matrix = -MATRIX gonnet (default) / blosum / pam / id; the table of the series is chosen per profile pair by its percent identity, e.g. GONNET80 / 250 / 120 / 350 / 160, BLOSUM80 / 62 / 45 / 30, PAM20 / 60 / 120 / 350), a gap opening scaled by the matrix average score and the logarithm of the profile lengths (gapOpen / gapExtend = -GAPOPEN 10 / -GAPEXT 0.2), the residue-specific gap penalties of Pascarella & Argos 1992 (noPreferredGaps = -NOPGAP), the hydrophilic-run penalties (noHydrophilicGaps = -NOHGAP; hydrophilicResidues = -HGAPRESIDUES, default GPSNDQEKR, at most 9 letters), the variable-region penalties (variableRegionGaps = clustalw's -NOVGAP, sic: it switches them ON), the gap-separation distance (gapDist = -GAPDIST, default 4; 0 = off) and the pairwise stage of F62 (pwMatrix = -PWMATRIX gonnet / blosum / pam / id, pwGapOpen 10 / pwGapExtend 0.1, ktuple 1-2). User matrices (type='protein'): matrixFile = clustalw -MATRIX=file (one matrix file, or a CLUSTAL_SERIES file whose entries 'MATRIX llimit ulimit file' are looked up in matrixFiles; the entry whose percent-identity range contains the profile pair's identity is used, with the gap-penalty scale 0.5 + (pcid - llimit) / ((ulimit - llimit) * 2)) and pwMatrixFile = clustalw -PWMATRIX=file (verified on 240 + 800 clustalw -MATRIX / -PWMATRIX runs with floating-point / integer / unlabelled / tab-separated / header-subset files; only 2 sets, both -NOVGAP, hit the gdist residual below). Known residual: with variableRegionGaps and a two-sequence profile of more than 60 % identity ClustalW reads an uninitialised C++ member (gdist), so on ~0.2 % of such runs the heap decides; the port emulates the usual value. END-GAP OPTIONS (both types): useEndGaps = UserParameters::useEndGaps and endGapPenalties = UserParameters::endGapPenalties (reachable in clustalw only through its interactive menu / a patched build; verified on 340 sets x 4 modes of the patched clustalw 2.1 binary): with endGapPenalties ClustalW 2.1 writes NO output (exit status 0) when the score of a first-pass profile alignment is negative - this tool then fails with an explicit 'abandons the alignment' error. NUCLEOTIDE MATRICES (type='dna'): dnaMatrix / pwDnaMatrix = -DNAMATRIX / -PWDNAMATRIX IUB (default) or CLUSTALW; dnaMatrixFile / pwDnaMatrixFile = -DNAMATRIX=file / -PWDNAMATRIX=file (text of a matrix file; verified on 360 sets of the installed clustalw: the command line reads and validates the file but never uses it for DNA - a defect of CommandLineParser, userDnaMatrixUse='commandline' - while the interactive menu uses it, userDnaMatrixUse='applied', the default); transitionWeight = -TRANSWEIGHT also rewrites the cells of the user matrix at the letters of header positions 0 / 4, 2 / 11 and 2 / 12. Rows are returned in input order. match / mismatch / scoreGapOpen / scoreGapExtend (DNA) or scoreMatrix / scoreGapOpen / scoreGapExtend (protein; default BLOSUM62, open -9.8, extend -0.2) define only the reported totalScore (natural affine sum of pairs, Altschul 1989).")]
@@ -655,8 +691,10 @@ public class AlignmentTools
         [Description("type='dna': ClustalW -PWDNAMATRIX built-in for the pairwise stage: 'iub' (default) or 'clustalw' (opening x 0.6667, extension x 0.751). Ignored when pwDnaMatrixFile is given.")] string? pwDnaMatrix = null,
         [Description("type='dna': ClustalW -DNAMATRIX=file, the TEXT of a nucleotide matrix file for the profile stage (same layout as matrixFile, a single matrix; the transition weights of getProfileAlignMatrix index the matrix with the header letters at positions 0, 2, 4, 11 and 12 - give at least 13 letters). How it is used: see userDnaMatrixUse.")] string? dnaMatrixFile = null,
         [Description("type='dna': ClustalW -PWDNAMATRIX=file, the TEXT of a nucleotide matrix file for the full pairwise stage (a single matrix, x100, never shifted). See userDnaMatrixUse.")] string? pwDnaMatrixFile = null,
-        [Description("type='dna', with dnaMatrixFile / pwDnaMatrixFile: 'applied' (default; what ClustalW's interactive menu does - the matrix is used) or 'commandline' (what clustalw -DNAMATRIX=file -PWDNAMATRIX=file does: the file is read and validated but registered under the PROTEIN slot - a defect of CommandLineParser - so the DNA stages keep the IUB / built-in matrix).")] string userDnaMatrixUse = "applied")
+        [Description("type='dna', with dnaMatrixFile / pwDnaMatrixFile: 'applied' (default; what ClustalW's interactive menu does - the matrix is used) or 'commandline' (what clustalw -DNAMATRIX=file -PWDNAMATRIX=file does: the file is read and validated but registered under the PROTEIN slot - a defect of CommandLineParser - so the DNA stages keep the IUB / built-in matrix).")] string userDnaMatrixUse = "applied",
+        CancellationToken cancellationToken = default)
     {
+        using var cancelScope = global::Seqeron.Genomics.Alignment.SequenceAligner.BeginCancellationScope(cancellationToken);
         var mode = (distance ?? "clustalw").Trim().ToLowerInvariant() switch
         {
             "clustalw" or "clustalw_affine" or "clustalwaffine" or "full" => global::Seqeron.Genomics.Infrastructure.ClustalWPairwiseMode.Full,
@@ -814,8 +852,10 @@ public class AlignmentTools
         [Description("FASTA labels of the sequences (default s0, s1, ...): the leaf names of useTree and of the returned trees.")] string[]? names = null,
         [Description("MUSCLE -clusteronly with -tree1: return only the first guide tree (tree1), no alignment.")] bool clusterOnly = false,
         [Description("MUSCLE -computeweights: stop after the progressive alignment and return the weights file instead of an alignment.")] bool computeWeights = false,
-        [Description("MUSCLE -stable: the 3.8.1551 program refuses it (\"-stable not supported in this version of muscle\"), so true is rejected; treeOrder = false (default) already returns the rows in input order.")] bool stable = false)
+        [Description("MUSCLE -stable: the 3.8.1551 program refuses it (\"-stable not supported in this version of muscle\"), so true is rejected; treeOrder = false (default) already returns the rows in input order.")] bool stable = false,
+        CancellationToken cancellationToken = default)
     {
+        using var cancelScope = global::Seqeron.Genomics.Alignment.SequenceAligner.BeginCancellationScope(cancellationToken);
         var options = BuildMuscleOptions(type, maxIters, scoreModel, gapOpen, gapExtend, center, distance1, distance2, cluster1, cluster2, root1, root2, sueff, maxTrees, weight1, weight2, objScore, termGaps,
             anchors, anchorSpacing, smoothWindow, smoothScoreCeil, minBestColScore, minSmoothScore) with
         {
@@ -875,8 +915,10 @@ public class AlignmentTools
         [Description("MUSCLE -fromwindow (refinew).")] int fromWindow = 0,
         [Description("MUSCLE -towindow (refinew; 0 = the last window).")] int toWindow = 0,
         [Description("MUSCLE -windowoffset (refinew).")] int windowOffset = 0,
-        [Description("FASTA labels of the rows (default s0, s1, ...), the leaf names of the maketree tree.")] string[]? names = null)
+        [Description("FASTA labels of the rows (default s0, s1, ...), the leaf names of the maketree tree.")] string[]? names = null,
+        CancellationToken cancellationToken = default)
     {
+        using var cancelScope = global::Seqeron.Genomics.Alignment.SequenceAligner.BeginCancellationScope(cancellationToken);
         var options = BuildMuscleOptions(type, maxIters, scoreModel, gapOpen, gapExtend, center, distance1, distance2, cluster1, cluster2, root1, root2, 0.1f, 1, weight1, weight2, objScore, termGaps,
             anchors, 32, 7, null, null, null) with
         {
@@ -1008,8 +1050,10 @@ public class AlignmentTools
         [Description("t_coffee -relax_lib: true = 1 (default, library relaxation), false = 0.")] bool relaxLibrary = true,
         [Description("'auto' (default; the program's decision), 'dna' or 'protein' (forces the matrices, penalties and models).")] string type = "auto",
         [Description("Further t_coffee flags, e.g. '-tree_mode upgma -relax_lib 2 -seq_weight t_coffee -gapext -2' (see the tool description for the supported list); applied after the other parameters.")] string? options = null,
-        [Description("Sequence names (one per sequence, in input order): the program sorts the sequences by name before computing anything (-inorder aligned); omitted = names that sort in input order.")] string[]? names = null)
+        [Description("Sequence names (one per sequence, in input order): the program sorts the sequences by name before computing anything (-inorder aligned); omitted = names that sort in input order.")] string[]? names = null,
+        CancellationToken cancellationToken = default)
     {
+        using var cancelScope = global::Seqeron.Genomics.Alignment.SequenceAligner.BeginCancellationScope(cancellationToken);
         if (sequences == null || sequences.Length == 0)
         {
             var e = global::Seqeron.Genomics.Infrastructure.MultipleAlignmentResult.Empty;

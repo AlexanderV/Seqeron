@@ -816,7 +816,11 @@ public static partial class SequenceAligner
                     if (k3 != 's')
                         throw new ArgumentException("Tree: expected an edge length.");
                     if (node != 0)
-                        length[node] = double.Parse(len!, CultureInfo.InvariantCulture);
+                    {
+                        if (!double.TryParse(len, NumberStyles.Float, CultureInfo.InvariantCulture, out double parsed))
+                            throw new ArgumentException($"Tree: '{len}' is not a valid edge length.");
+                        length[node] = parsed;
+                    }
                 }
             }
 

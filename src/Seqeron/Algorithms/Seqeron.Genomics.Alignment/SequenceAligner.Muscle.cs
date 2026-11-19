@@ -24,6 +24,13 @@ public static partial class SequenceAligner
     // their code out (VER_3_52 = 0, HYDRO undefined, DOUBLE_AFFINE = 0), so they have no effect (confirmation by the binary: second Docker round).
     // All arithmetic that is single precision in the C++ (SCORE / FCOUNT / WEIGHT = float, dist_t = float) is single precision here; the double expressions of the C++ stay double.
 
+    /// <summary>
+    /// Largest profile-profile dynamic program of the MUSCLE port: <c>(columns1 + 1)·(columns2 + 1)</c> cells, one traceback byte each (about 1 GB; two 30 kb
+    /// sequences = 954 MB measured). The program (3.8.1551 <c>nwsmall.cpp</c>: <c>char **TB</c>, one byte per cell) has no limit of its own and aborts with an
+    /// out-of-memory error beyond the machine's RAM; longer inputs get a clear <see cref="ArgumentException"/> here instead of an <see cref="OutOfMemoryException"/>.
+    /// </summary>
+    public const long MuscleProfileMatrixMaxCells = 1_000_000_000;
+
     private const float MuscleMinusInfinity = -1e37f;
     private const byte MuscleBitDm = 0x01, MuscleBitIm = 0x02, MuscleBitXm = 0x03, MuscleBitMd = 0x04, MuscleBitXd = 0x04, MuscleBitMi = 0x08, MuscleBitXi = 0x08;
     private const uint MuscleNodeChanged = uint.MaxValue;
@@ -33,8 +40,7 @@ public static partial class SequenceAligner
     /// </summary>
     public static MultipleAlignmentResult MultipleAlignMuscle(IEnumerable<DnaSequence> sequences, MuscleOptions? options = null, MatrixScoring? scoring = null)
     {
-        ArgumentNullException.ThrowIfNull(sequences);
-        var list = sequences.ToList();
+        var list = ToListNoNull(sequences, nameof(sequences));
         if (list.Count == 0)
             return MultipleAlignmentResult.Empty;
         var o = (options ?? new MuscleOptions()) with { SequenceType = options?.SequenceType is MuscleSequenceType.Rna ? MuscleSequenceType.Rna : MuscleSequenceType.Dna };
@@ -44,8 +50,7 @@ public static partial class SequenceAligner
     /// <summary>MUSCLE 3.8.1551's multiple alignment of protein sequences (<c>muscle -seqtype protein -maxiters 1|2</c>), see <see cref="MultipleAlignMuscle(IEnumerable{string}, MuscleOptions?, MatrixScoring?)"/>.</summary>
     public static MultipleAlignmentResult MultipleAlignMuscle(IEnumerable<ProteinSequence> sequences, MuscleOptions? options = null, MatrixScoring? scoring = null)
     {
-        ArgumentNullException.ThrowIfNull(sequences);
-        var list = sequences.ToList();
+        var list = ToListNoNull(sequences, nameof(sequences));
         if (list.Count == 0)
             return MultipleAlignmentResult.Empty;
         return MultipleAlignMuscle(list.Select(s => s.Sequence), (options ?? new MuscleOptions()) with { SequenceType = MuscleSequenceType.Protein }, scoring);
@@ -70,11 +75,11 @@ public static partial class SequenceAligner
     /// <exception cref="ArgumentException">An empty sequence, a non-letter character or an unusable parameter.</exception>
     public static MultipleAlignmentResult MultipleAlignMuscle(IEnumerable<string> sequences, MuscleOptions? options = null, MatrixScoring? scoring = null)
     {
-        ArgumentNullException.ThrowIfNull(sequences);
         var o = options ?? new MuscleOptions();
-        var list = sequences.ToList();
+        var list = ToListNoNull(sequences, nameof(sequences));
         if (list.Count == 0)
             return MultipleAlignmentResult.Empty;
+        using var cancelScope = AlignmentCancellation.Enter(o.CancellationToken);
 
         var engine = new MuscleEngine(o, list);
         var (rows, nucleotide) = engine.Run();
@@ -208,7 +213,7 @@ public static partial class SequenceAligner
             for (int i = 0; i < cleaned.Length; i++)
             {
                 if (cleaned[i].Length == 0)
-                    throw new ArgumentException($"Sequence {i} is empty (MUSCLE ignores empty FASTA records; pass only non-empty sequences).", nameof(sequences));
+                    throw new ArgumentException(EmptyMemberMessage("MUSCLE", i), nameof(sequences));
             }
 
             var type = options.SequenceType;
@@ -1395,6 +1400,7 @@ public static partial class SequenceAligner
             SetTermGaps(pb, lengthB);
 
             int prefixCountA = lengthA + 1, prefixCountB = lengthB + 1;
+            RequireMuscleProfileMatrixFits(lengthA, lengthB);
             float e = _gapExtend;
             var mCurr = new float[prefixCountB + 1];
             var mNext = new float[prefixCountB + 1];
@@ -1423,6 +1429,7 @@ public static partial class SequenceAligner
             float iij;
             for (int i = 1; i < lengthA; i++)
             {
+                AlignmentCancellation.ThrowIfRequested();
                 var tbRow = tb[i];
                 iij = MuscleMinusInfinity;
                 dRow[0] = pa[0].GapOpen + (i - 1) * e;
@@ -1491,6 +1498,16 @@ public static partial class SequenceAligner
         }
 
         private static void ResetFirst(float[] row) => row[0] = MuscleMinusInfinity;
+
+        internal static void RequireMuscleProfileMatrixFits(int lengthA, int lengthB)
+        {
+            long cells = ((long)lengthA + 1) * ((long)lengthB + 1);
+            if (cells > MuscleProfileMatrixMaxCells)
+                throw new ArgumentException(
+                    $"MUSCLE's profile-profile dynamic program (NWSmall) keeps one traceback byte per cell: {lengthA} x {lengthB} alignment columns = {cells:N0} cells exceeds the limit of " +
+                    $"{MuscleProfileMatrixMaxCells:N0} (SequenceAligner.MuscleProfileMatrixMaxCells, about 1 GB). The program itself has no limit and aborts with an out-of-memory error; " +
+                    "use a smaller input or MultipleAlignClustalW (linear-space profile alignment) for sequences of this length.");
+        }
 
         private static void RecurseD(MuscleProfPos[] pa, int i, int j, float[] dRow, float[] mPrev, byte[] tbRow, float e)
         {

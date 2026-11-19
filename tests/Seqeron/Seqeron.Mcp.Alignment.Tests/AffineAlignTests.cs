@@ -16,7 +16,6 @@ public class AffineAlignTests
     public void GlobalAlignAffine_Schema_ValidatesCorrectly()
     {
         Assert.DoesNotThrow(() => AlignmentTools.GlobalAlignAffine("ACGT", "ACGT"));
-        Assert.Throws<ArgumentException>(() => AlignmentTools.GlobalAlignAffine("", "ACGT"));
         Assert.Throws<ArgumentException>(() => AlignmentTools.GlobalAlignAffine("ACGT", null!));
     }
 
@@ -42,7 +41,6 @@ public class AffineAlignTests
     public void LocalAlignAffine_Schema_ValidatesCorrectly()
     {
         Assert.DoesNotThrow(() => AlignmentTools.LocalAlignAffine("ACGT", "ACGT"));
-        Assert.Throws<ArgumentException>(() => AlignmentTools.LocalAlignAffine("ACGT", ""));
     }
 
     [Test]

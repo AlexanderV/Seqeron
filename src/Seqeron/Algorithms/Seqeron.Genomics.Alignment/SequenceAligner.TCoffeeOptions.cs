@@ -51,6 +51,13 @@ public sealed partial record TCoffeeProgramOptions
         return v;
     }
 
+    private static int MethodInt(string spec, string key, string text)
+    {
+        if (!int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out int v))
+            throw new ArgumentException($"-method {spec}: {key} needs an integer value, got '{text}'.");
+        return v;
+    }
+
     private static string StringValue(string flag, List<string> values)
     {
         if (values.Count != 1) throw new ArgumentException($"The flag {flag} needs one value.");
@@ -86,8 +93,8 @@ public sealed partial record TCoffeeProgramOptions
                             for (int a = 2; a < parts.Length; a += 2)
                                 mp = parts[a] switch
                                 {
-                                    "GOP" => mp with { GapOpen = int.Parse(parts[a + 1], CultureInfo.InvariantCulture) },
-                                    "GEP" => mp with { GapExtend = int.Parse(parts[a + 1], CultureInfo.InvariantCulture) },
+                                    "GOP" => mp with { GapOpen = MethodInt(spec, "GOP", parts[a + 1]) },
+                                    "GEP" => mp with { GapExtend = MethodInt(spec, "GEP", parts[a + 1]) },
                                     "MATRIX" => mp with { Matrix = SequenceAligner.TcResolveMatrix(parts[a + 1]) is null ? null : parts[a + 1] },
                                     _ => throw new ArgumentException($"-method {spec}: the method parameter {parts[a]} is not supported (GOP, GEP, MATRIX)."),
                                 };
@@ -155,7 +162,9 @@ public sealed partial record TCoffeeProgramOptions
                     if (v.StartsWith('@'))
                     {
                         // the in-memory form of a weight file: @w1,w2,... in input order
-                        var w = v[1..].Split(',').Select(x => float.Parse(x, NumberStyles.Float, CultureInfo.InvariantCulture)).ToArray();
+                        var w = v[1..].Split(',').Select(x => float.TryParse(x, NumberStyles.Float, CultureInfo.InvariantCulture, out float f)
+                            ? f
+                            : throw new ArgumentException($"-seq_weight: '{x}' is not a number.")).ToArray();
                         return this with { SequenceWeights = w };
                     }
 

@@ -256,7 +256,7 @@ public static partial class SequenceAligner
         string sequence1, string sequence2, Func<int, double> gapScore, ScoringMatrix scoring, AlignmentType type, EndGaps ends) =>
         AlignGeneralGap(sequence1, sequence2, gapScore, ScalarSubstitution(scoring), type, ends, allowFastPath: false);
 
-    /// <summary>Same as <see cref="AlignGeneralGapGeneric"/> for a substitution matrix.</summary>
+    /// <summary>Same as <see cref="AlignGeneralGapGeneric(string, string, Func{int, double}, ScoringMatrix, AlignmentType, EndGaps)"/> for a substitution matrix.</summary>
     internal static AlignmentResult AlignGeneralGapGeneric(
         string sequence1, string sequence2, Func<int, double> gapScore, SubstitutionMatrix matrix, AlignmentType type, EndGaps ends) =>
         AlignGeneralGap(sequence1, sequence2, gapScore, MatrixSubstitution(matrix), type, ends, allowFastPath: false);
@@ -294,8 +294,18 @@ public static partial class SequenceAligner
         {
             if (open != Math.Round(open) || e != Math.Round(e))
                 return false; // the scalar scoring model is integral
-            var scoring = new ScoringMatrix(sc.Match, sc.Mismatch, (int)open, (int)e);
-            var ps = new PairScoring(scoring);
+            if (Math.Abs(open) >= int.MaxValue || Math.Abs(e) >= int.MaxValue)
+                return false; // beyond the integer model: the general program handles it in doubles
+            PairScoring ps;
+            try
+            {
+                ps = new PairScoring(new ScoringMatrix(sc.Match, sc.Mismatch, (int)open, (int)e));
+                ps.EnsureRange(a.Length, b.Length);
+            }
+            catch (ArgumentException)
+            {
+                return false; // integer range: the general program handles it in doubles
+            }
             AlignmentResult r = RunDelegated(a, b, ps, open == 0, type, ends);
             result = r with { ExactScore = r.Score };
             return true;
@@ -373,6 +383,7 @@ public static partial class SequenceAligner
         int bestI = 0, bestJ = 0;
         for (int i = 1; i <= m; i++)
         {
+            AlignmentCancellation.ThrowIfRequested();
             for (int j = 1; j <= n; j++)
             {
                 double s = sub(seq1[i - 1], seq2[j - 1]);

@@ -47,7 +47,7 @@ Enumerates ALL distinct co-optimal GLOBAL (Needleman–Wunsch / Gotoh) alignment
 
 | Code | Message |
 |------|---------|
-| 1001 | Sequence cannot be null or empty |
+| 1001 | Sequence is required (null). An empty string is accepted: the library aligns it to all gaps (the local tools return no alignment: score 0 / empty list) |
 | 1002 | maxAlignments must be at least 1 |
 | 1003 | Unknown endGaps |
 | 1004 | Co-optimal enumeration keeps the O(m*n) matrices: (len1 + 1) x (len2 + 1) cells exceed the limit of 25,000,000 cells. |

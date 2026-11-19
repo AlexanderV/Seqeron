@@ -46,9 +46,7 @@ public class TopNAlignTests
     public void TopN_NoPositivePair_EmptyList_AndValidation()
     {
         Assert.That(AlignmentTools.LocalAlignTopN("AAAA", "CCCC").Count, Is.EqualTo(0));
-        Assert.Throws<ArgumentException>(() => AlignmentTools.LocalAlignTopN("", "ACGT"));
         Assert.Throws<ArgumentOutOfRangeException>(() => AlignmentTools.LocalAlignTopN("ACGT", "ACGT", maxAlignments: 0));
-        Assert.Throws<ArgumentException>(() => AlignmentTools.LocalAlignCoOptimal("ACGT", ""));
     }
 
     [Test]

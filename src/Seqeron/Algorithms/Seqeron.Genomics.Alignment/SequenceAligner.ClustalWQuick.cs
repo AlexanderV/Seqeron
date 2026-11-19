@@ -215,6 +215,7 @@ public static partial class SequenceAligner
 
         for (int i = 1; i <= l1 - ktup + 1; i++)
         {
+            if ((i & 255) == 0) AlignmentCancellation.ThrowIfRequested();
             int encrypt = 0;
             bool skip = false;
             pot2 = 1;

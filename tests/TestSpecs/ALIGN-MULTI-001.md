@@ -603,3 +603,19 @@ Oracle: `tests/Seqeron/Seqeron.Genomics.Tests/TestData/Alignment/tcoffee_program
 | OP10 | `FromCommandLine_ParsesMethodsAndRejectsUnknownFlags`, `..._MatrixAndMethodParameters` | - | every supported flag parsed; unknown flags / values rejected by name | contract |
 
 Known differences (3 of 4 715 committed sets, listed in `KnownDifferences` of the test and in B09.md F72 / F73 / F75): protein `-nomatch 50 -gapext -1` (1 set), protein `-seq_weight t_coffee -distance_matrix_mode idscore -tree_mode upgma` (1 set), `clustalw_pair` on the protein pair YAGR / NSMYC. Every other set of the file must be reproduced exactly; a new difference fails the test.
+
+---
+
+## 2026-11 audit round 2 (A2-38, A2-39, A2-40, A2-41, A2-42; B09 F81-F86): input contract, size guards, parallel exceptions, cancellation
+
+| ID | Test | Input | Expected | Source |
+|----|------|-------|----------|--------|
+| IC-1 | `SequenceAligner_InputContract_Tests.NullElement_*` | null element on every ClustalW (4), MUSCLE (3), T-Coffee program and Seqeron aligner overload; null collection | `ArgumentNullException` naming the index (was `NullReferenceException` on the ClustalW / MUSCLE DNA overloads and `DnaRows`) | contract |
+| IC-2 | `MalformedUserTreeBranchLength_*`, `MalformedTCoffeeMethodAndWeightValues_*`, `ClustalWUserMatrixParse_StaysFormatException_ByDocumentedDesign` | `UserTree = "(0:abc,1:1,2:1);"`, `-method slow_pair@EP@GOP@abc`, `-seq_weight @1,x,3` | `ArgumentException` (was `FormatException`); `ClustalWUserMatrix.Parse` keeps `FormatException` (documented) | contract |
+| IC-3 | `EmptyMember_ThreeProgramPorts_ShareOneMessage`, `EmptyMember_SeqeronAligners_ReturnAnAllGapRow` | one empty member | ClustalW / MUSCLE / T-Coffee: one message naming the program and the aligners that accept empty members; star / progressive / iterative / consistency: an all-gap row | the programs refuse empty input (ClustalW cannot read it, MUSCLE ignores empty FASTA records) |
+| SG-1 | `TCoffeeProba_RefusesAnOversizedPair_BeforeAllocating`, `MuscleProfileDp_RefusesAnOversizedProfilePair_WithAClearArgumentException` | 9 000 x 9 000 protein (405 M floats > 2^28); 40 000 x 40 000 profile columns (> 1e9 cells) | `ArgumentException`; `TCoffeeProbaMaxMatrixFloats` = 2^28, `MuscleProfileMatrixMaxCells` = 1e9; 30 000 x 30 000 still accepted | t_coffee `util_dp_suboptimal_nw.c` (32-bit `l = (len1 + 1)(len2 + 1) NumMatrixTypes`), MUSCLE 3.8.1551 `nwsmall.cpp` (one byte per cell) |
+| PX-1 | `ExceptionInTheParallelPairStage_KeepsItsType_ForEveryK` | k = 2, 3, 5, linear + affine; the range guard fires inside a worker | `ArgumentException` (never `AggregateException`) | `ExceptionDispatchInfo`, lowest failing index |
+| PX-2 | `MaxDegreeOfParallelism_ChangesNothing_AndIsValidated` | 1, 2, 8, -1; 0 and -2 | identical rows / score; `ArgumentOutOfRangeException` | contract |
+| CN-1 | `SequenceAligner_Cancellation_Tests.PreCancelled_*` | pre-cancelled token on star / anchored / progressive / iterative / consistency / exact, ClustalW (DNA, protein), MUSCLE, T-Coffee program, `WithCancellation` over top-N / co-optimal / affine / general-gap, the four `GenomicAnalyzer` scans | `OperationCanceledException`, no result | contract |
+| CN-2 | `CancelledWhileRunning_*` | 100 ms token on calls that run for seconds-minutes (5 x 6 kb star affine, 2 x 30 kb ClustalW, 2 x 20 kb MUSCLE, 2 x 2.5 kb protein T-Coffee proba, 4 kb top-N / affine, 1.2 kb general gap, 3 Mb ORFs) | `OperationCanceledException` within 15 s | row-boundary polls |
+| CN-3 | `UncancelledToken_GivesTheSameResultAsNoToken_AndTheScopeDoesNotLeak` | live token; then a cancelled call; then the plain call | identical rows / score; the scope is restored | contract |

@@ -202,6 +202,26 @@ public static partial class SequenceAligner
         return p;
     }
 
+    /// <summary>
+    /// Largest forward / backward matrix of the pair-HMM (<c>proba_pair</c>): <c>(len1 + 1)·(len2 + 1)·matrixTypes</c> floats (1 GiB each at the limit, forward and
+    /// backward are both held: about 2.2 GB with the match table). The real <c>t_coffee</c> 13.41 has no limit of its own: <c>forward_proba_pair_wise</c>
+    /// (<c>util_dp_suboptimal_nw.c</c>) computes <c>l = (len1 + 1)·(len2 + 1)·NumMatrixTypes</c> in 32-bit <c>int</c> (it wraps at 2^31 floats, about 27 000 x 27 000
+    /// protein / 36 000 x 36 000 DNA residues) and <c>vcalloc</c>s it (it dies with an out-of-memory failure well before). Longer pairs get a clear
+    /// <see cref="ArgumentException"/> here; use the <c>slow_pair</c> / <c>lalign_id_pair</c> primary libraries (linear-space Myers-Miller / Gotoh) for them.
+    /// </summary>
+    public const long TCoffeeProbaMaxMatrixFloats = 1L << 28;
+
+    private static void RequireTcProbaFits(int length1, int length2, int matrixTypes)
+    {
+        long cells = ((long)length1 + 1) * ((long)length2 + 1);
+        long floats = cells * matrixTypes;
+        if (floats > TCoffeeProbaMaxMatrixFloats)
+            throw new ArgumentException(
+                $"The T-Coffee proba_pair pair-HMM keeps a forward and a backward matrix of (len1 + 1) x (len2 + 1) x {matrixTypes} floats: {length1} x {length2} residues = {floats:N0} floats " +
+                $"exceeds the limit of {TCoffeeProbaMaxMatrixFloats:N0} ({TCoffeeProbaMaxMatrixFloats * 4L / (1L << 30)} GiB per matrix; t_coffee itself overflows its 32-bit index at 2^31 floats and fails to allocate before). " +
+                "Use the slow_pair or lalign_id_pair primary library for sequences of this length.");
+    }
+
     // dirichlet_code: a c d e f g h i k l m n p q r s t v w y -> 0..19; every other letter -> -1
     private const string TcDirichletLetters = "acdefghiklmnpqrstvwy";
 
@@ -216,6 +236,7 @@ public static partial class SequenceAligner
         var m = TcProbaModel.For(kind, matrix);
         int nmt = m.MatrixTypes, nis = m.InsertStates;
         int I = seq1.Length, J = seq2.Length;
+        RequireTcProbaFits(I, J, nmt);
         var tIns = new float[2][,];
         tIns[0] = new float[nmt, I + 1];
         tIns[1] = new float[nmt, J + 1];
@@ -260,6 +281,7 @@ public static partial class SequenceAligner
         for (int i = 0; i <= I; i++)
             for (int j = 0; j <= J; j++, ij += nmt)
             {
+                if (j == 0) AlignmentCancellation.ThrowIfRequested();
                 float arg = fwd[ij] + bwd[ij] - totalProb;
                 double v = TcExp(arg < 0f ? arg : 0f);
                 if (v > thr) list.Add((i, j, (int)((float)v * 1000f)));
@@ -296,7 +318,7 @@ public static partial class SequenceAligner
 
     private static float[] TcProbaForward(int I, int J, int nmt, int nis, TcProbaModel m, float[] matchProb, float[][,] insProb)
     {
-        int l = (I + 1) * (J + 1) * nmt;
+        int l = checked((int)(((long)I + 1) * (J + 1) * nmt));
         var forward = new float[l];
         Array.Fill(forward, TcLogZero);
         var transProb = m.TransProb;
@@ -318,6 +340,7 @@ public static partial class SequenceAligner
         for (int i = 0; i <= I; i++)
             for (int j = 0; j <= J; j++, mIdx++)
             {
+                if (j == 0) AlignmentCancellation.ThrowIfRequested();
                 if (i > 1 || j > 1)
                 {
                     if (i > 0 && j > 0)
@@ -348,7 +371,7 @@ public static partial class SequenceAligner
 
     private static float[] TcProbaBackward(int I, int J, int nmt, int nis, TcProbaModel m, float[] matchProb, float[][,] insProb)
     {
-        int l = (I + 1) * (J + 1) * nmt;
+        int l = checked((int)(((long)I + 1) * (J + 1) * nmt));
         var backward = new float[l];
         Array.Fill(backward, TcLogZero);
         var transProb = m.TransProb;
@@ -370,6 +393,7 @@ public static partial class SequenceAligner
         for (int i = I; i >= 0; i--)
             for (int j = J; j >= 0; j--)
             {
+                if (j == J) AlignmentCancellation.ThrowIfRequested();
                 if (i < I && j < J)
                 {
                     int mm = ((i + 1) * (J + 1)) + j + 1;

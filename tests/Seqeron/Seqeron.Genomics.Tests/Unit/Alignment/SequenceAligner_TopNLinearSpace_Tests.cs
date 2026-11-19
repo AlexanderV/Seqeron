@@ -170,12 +170,13 @@ public class SequenceAligner_TopNLinearSpace_Tests
     }
 
     [Test]
-    public void LinearSpace_PositiveGapScore_IsRejectedAboveTheLimitWithAClearError()
+    public void LinearSpace_PositiveGapScore_IsRejectedByEveryScoringModel_WithAClearError()
     {
-        var ps = new PairScoring(new ScoringMatrix(2, -3, 1, 1));
-        var ex = Assert.Throws<ArgumentException>(() => SequenceAligner.LocalTopNCore("ACGTACGT", "ACGTACGT", ps, affine: true, 3, 0, fullMatrixCells: 10));
-        Assert.That(ex!.Message, Does.Contain("non-positive gap scores"));
-        Assert.That(SequenceAligner.LocalAlignAffineTopN("ACGTACGT", "ACGTACGT", new ScoringMatrix(2, -3, 1, 1), 3), Is.Not.Empty);
+        // audit A2-37: a positive gap score is rejected when the scoring model is built (scalar and matrix alike), below and above the full-matrix limit
+        var ex = Assert.Throws<ArgumentException>(() => new PairScoring(new ScoringMatrix(2, -3, 1, 1)));
+        Assert.That(ex!.Message, Does.Contain("must be a finite score <= 0"));
+        Assert.Throws<ArgumentException>(() => SequenceAligner.LocalAlignAffineTopN("ACGTACGT", "ACGTACGT", new ScoringMatrix(2, -3, 1, 1), 3));
+        Assert.Throws<ArgumentException>(() => SequenceAligner.LocalAlignAffineTopNLinearSpace("ACGTACGT", "ACGTACGT", new ScoringMatrix(2, -3, 1, 1), 3));
     }
 
     [Test]

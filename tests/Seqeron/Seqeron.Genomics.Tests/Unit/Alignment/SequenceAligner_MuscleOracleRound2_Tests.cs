@@ -178,6 +178,23 @@ public class SequenceAligner_MuscleOracleRound2_Tests
 
     private static string[] Split(string s) => s.Length == 0 ? [] : s.Split(';');
 
+    /// <summary>
+    /// The 8 sets of the package that are NOT in the oracle: <c>-matrix blosum62nostar</c> (R330, R335, R336, R342, R344, R347, R348, R350), whose console output the harness could not decode
+    /// (RUNNER_ERROR); they are re-run in round 3 (A2-1, handoff/A1-10c-muscle-r3). Naming them makes a row dropped silently anywhere else (or a regenerated TSV with another gap) fail this test;
+    /// when round 3 returns, this list becomes empty and the count 638.
+    /// </summary>
+    private static readonly string[] MissingUntilRound3 = ["R330", "R335", "R336", "R342", "R344", "R347", "R348", "R350"];
+
+    [Test]
+    public void OracleHas630Sets_TheEightMissingIdsAreExactlyTheBlosum62NoStarOnes()
+    {
+        // the package has the 638 sets R0 ... R637; the oracle has every one of them except the eight round-3 sets
+        var expected = Enumerable.Range(0, 638).Select(i => "R" + i).Except(MissingUntilRound3).ToHashSet();
+        var oracleIds = Oracle.Value.Select(r => r.Id).ToHashSet();
+        Assert.That(expected.Except(oracleIds), Is.Empty, "a set of the package is missing from the oracle although it is not one of the 8 round-3 sets");
+        Assert.That(oracleIds.Except(expected), Is.Empty, "the oracle has a row that is not a set of the package (or one of the 8 round-3 sets came back: empty MissingUntilRound3)");
+    }
+
     [Test]
     public void OracleHas630Sets_AllKindsPresent()
     {

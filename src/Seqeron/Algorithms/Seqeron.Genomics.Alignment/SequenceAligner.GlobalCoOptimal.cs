@@ -62,6 +62,7 @@ public static partial class SequenceAligner
     /// <exception cref="ArgumentNullException">A sequence or <paramref name="scoring"/> is null.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxAlignments"/> &lt; 1.</exception>
     /// <exception cref="ArgumentException">The matrix would exceed <see cref="TopNMaxCells"/> cells.</exception>
+    [System.Runtime.CompilerServices.OverloadResolutionPriority(1)]
     public static IReadOnlyList<AlignmentResult> GlobalAlignCoOptimal(
         DnaSequence sequence1, DnaSequence sequence2, ScoringMatrix? scoring = null, int maxAlignments = 1000)
     {
@@ -71,6 +72,7 @@ public static partial class SequenceAligner
     }
 
     /// <summary><see cref="GlobalAlignCoOptimal(DnaSequence, DnaSequence, ScoringMatrix?, int)"/> on raw strings (upper-cased internally).</summary>
+    [System.Runtime.CompilerServices.OverloadResolutionPriority(1)]
     public static IReadOnlyList<AlignmentResult> GlobalAlignCoOptimal(
         string sequence1, string sequence2, ScoringMatrix? scoring = null, int maxAlignments = 1000)
     {
@@ -86,6 +88,7 @@ public static partial class SequenceAligner
     /// <see cref="GlobalAlignAffine(DnaSequence, DnaSequence, ScoringMatrix?)"/>'s result; see
     /// <see cref="GlobalAlignCoOptimal(DnaSequence, DnaSequence, ScoringMatrix?, int)"/>.
     /// </summary>
+    [System.Runtime.CompilerServices.OverloadResolutionPriority(1)]
     public static IReadOnlyList<AlignmentResult> GlobalAlignAffineCoOptimal(
         DnaSequence sequence1, DnaSequence sequence2, ScoringMatrix? scoring = null, int maxAlignments = 1000)
     {
@@ -95,6 +98,7 @@ public static partial class SequenceAligner
     }
 
     /// <summary><see cref="GlobalAlignAffineCoOptimal(DnaSequence, DnaSequence, ScoringMatrix?, int)"/> on raw strings.</summary>
+    [System.Runtime.CompilerServices.OverloadResolutionPriority(1)]
     public static IReadOnlyList<AlignmentResult> GlobalAlignAffineCoOptimal(
         string sequence1, string sequence2, ScoringMatrix? scoring = null, int maxAlignments = 1000)
     {
@@ -160,6 +164,7 @@ public static partial class SequenceAligner
     /// </summary>
     /// <remarks>An alignment that merely re-labels a free flank (same rows) is listed once; see
     /// <see cref="GlobalAlignCoOptimal(DnaSequence, DnaSequence, ScoringMatrix?, int)"/> for the model, cap and memory bound.</remarks>
+    [System.Runtime.CompilerServices.OverloadResolutionPriority(1)]
     public static IReadOnlyList<AlignmentResult> SemiGlobalAlignCoOptimal(
         DnaSequence sequence1, DnaSequence sequence2, ScoringMatrix? scoring, EndGaps endGaps, int maxAlignments = 1000)
     {
@@ -169,6 +174,7 @@ public static partial class SequenceAligner
     }
 
     /// <summary><see cref="SemiGlobalAlignCoOptimal(DnaSequence, DnaSequence, ScoringMatrix?, EndGaps, int)"/> on raw strings.</summary>
+    [System.Runtime.CompilerServices.OverloadResolutionPriority(1)]
     public static IReadOnlyList<AlignmentResult> SemiGlobalAlignCoOptimal(
         string sequence1, string sequence2, ScoringMatrix? scoring, EndGaps endGaps, int maxAlignments = 1000)
     {
@@ -179,6 +185,7 @@ public static partial class SequenceAligner
 
     /// <summary>All co-optimal ends-free alignments with <b>affine</b> gaps (GapOpen + k·GapExtend; first element =
     /// <see cref="SemiGlobalAlignAffine(string, string, ScoringMatrix?, EndGaps)"/>).</summary>
+    [System.Runtime.CompilerServices.OverloadResolutionPriority(1)]
     public static IReadOnlyList<AlignmentResult> SemiGlobalAlignAffineCoOptimal(
         DnaSequence sequence1, DnaSequence sequence2, ScoringMatrix? scoring, EndGaps endGaps, int maxAlignments = 1000)
     {
@@ -188,6 +195,7 @@ public static partial class SequenceAligner
     }
 
     /// <summary><see cref="SemiGlobalAlignAffineCoOptimal(DnaSequence, DnaSequence, ScoringMatrix?, EndGaps, int)"/> on raw strings.</summary>
+    [System.Runtime.CompilerServices.OverloadResolutionPriority(1)]
     public static IReadOnlyList<AlignmentResult> SemiGlobalAlignAffineCoOptimal(
         string sequence1, string sequence2, ScoringMatrix? scoring, EndGaps endGaps, int maxAlignments = 1000)
     {
@@ -274,6 +282,7 @@ public static partial class SequenceAligner
         if ((ends & ~EndGaps.All) != 0)
             throw new ArgumentOutOfRangeException(nameof(ends), ends, "Unknown end-gap policy.");
         RequireTopNFits(a.Length, b.Length, nameof(a));
+        scoring.EnsureRange(a.Length, b.Length);
 
         // An empty side has exactly one alignment (everything against gaps): the single aligner's result.
         if (a.Length == 0 || b.Length == 0)
@@ -392,8 +401,11 @@ public static partial class SequenceAligner
             steps.Clear();
             var stack = new Stack<(int I, int J, byte State, int Next)>();
             stack.Push((endI, endJ, endState, 0));
+            int visited = 0;
             while (stack.Count > 0 && output.Count < cap)
             {
+                if ((++visited & 0x3FF) == 0)
+                    AlignmentCancellation.ThrowIfRequested();
                 var (i, j, state, next) = stack.Pop();
                 if (IsStart(i, j))
                 {

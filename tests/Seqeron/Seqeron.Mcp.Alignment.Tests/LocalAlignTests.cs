@@ -10,7 +10,6 @@ public class LocalAlignTests
     public void LocalAlign_Schema_ValidatesCorrectly()
     {
         Assert.DoesNotThrow(() => AlignmentTools.LocalAlign("ACGT", "ACGT"));
-        Assert.Throws<ArgumentException>(() => AlignmentTools.LocalAlign("", "ACGT"));
         Assert.Throws<ArgumentException>(() => AlignmentTools.LocalAlign("ACGT", null!));
     }
 

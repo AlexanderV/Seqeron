@@ -191,3 +191,9 @@
 
 1. Existing `FindKnownMotifs` returned suffix-tree DFS-order (unsorted) positions and did not skip empty motifs — corrected to sorted ascending + empty-motif skip to satisfy INV-3 and the empty-motif policy. Decision recorded in algorithm doc §5.2.
 2. (B09 review 2026-11-18) The unit has no built-in motif catalogue (TATA box, Kozak, … live in `MotifFinder.FindRegulatoryElements`, MOTIF-REGULATORY-001); the motif set is caller-supplied. `GenomicAnalyzer.FindMotif` duplicated `MotifFinder.FindExactMotif` and returned suffix-tree (DFS) order — now delegates (ascending). Degenerate (IUPAC) motifs and reverse-strand search, previously "not implemented", are provided by `FindKnownMotifHits` (fuzznuc-equivalent); mismatch-tolerant search was added by A1-20 (`maxMismatches`, canonical `ApproximateMatcher`).
+
+---
+
+## 2026-11 audit round 2 (A2-40, B09 F86): cancellation
+
+`FindKnownMotifHits(..., maxMismatches, CancellationToken)` polls before every (motif, strand) search and inside the Hamming scan; same tests as GENOMIC-COMMON-001.

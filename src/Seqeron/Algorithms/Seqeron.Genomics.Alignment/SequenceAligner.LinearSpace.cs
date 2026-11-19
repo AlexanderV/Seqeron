@@ -53,15 +53,12 @@ public static partial class SequenceAligner
     /// </summary>
     public const long LinearSpaceBaseCells = 1L << 22;
 
-    private static bool ExceedsFullMatrixLimit(int m, int n) => (long)(m + 1) * (n + 1) > LinearSpaceCellThreshold;
-
     /// <summary>
-    /// True when the automatic switch applies. The local program additionally needs non-positive gap scores (a local
-    /// alignment never starts with a gap, which the interval-then-global scheme relies on); with a positive gap score
-    /// (meaningless for alignment) the full matrix is used as before.
+    /// True when the automatic switch to the linear-space program applies: the matrix exceeds <see cref="LinearSpaceCellThreshold"/> cells. Every
+    /// scoring model has non-positive gap scores (<see cref="PairScoring"/> rejects a positive gap score, scalar and matrix alike), which the local
+    /// interval-then-global scheme relies on (a local alignment never starts with a gap).
     /// </summary>
-    private static bool LinearSpaceApplies(int m, int n, PairScoring scoring, bool local) =>
-        ExceedsFullMatrixLimit(m, n) && (!local || (scoring.GapOpen <= 0 && scoring.GapExtend <= 0));
+    private static bool ExceedsFullMatrixLimit(int m, int n) => (long)(m + 1) * (n + 1) > LinearSpaceCellThreshold;
 
     private static long PackCell(int i, int j) => ((long)i << 32) | (uint)j;
 
@@ -77,23 +74,28 @@ public static partial class SequenceAligner
     /// (<paramref name="affine"/>: Gotoh three states, otherwise linear gaps; <paramref name="local"/>; end-gap policy
     /// <paramref name="ends"/>), O(m + n) working memory plus the O(m + n) output.
     /// </summary>
+    /// <param name="a">First sequence (upper-case).</param>
+    /// <param name="b">Second sequence (upper-case).</param>
+    /// <param name="sc">Exact integer scoring model.</param>
+    /// <param name="affine">Gotoh three-state gaps instead of linear gaps.</param>
+    /// <param name="local">Smith-Waterman local alignment (the end-gap policy is then ignored).</param>
+    /// <param name="ends">End-gap policy of a global / semi-global alignment.</param>
     /// <param name="baseCells">Sub-problems of at most this many cells (clamped to <see cref="LinearSpaceCellThreshold"/>)
     /// are solved by the full-matrix core.</param>
+    /// <param name="ct">Cancellation token, polled at the row boundaries of every sub-problem.</param>
+    /// <param name="forbidden">Aligned pairs a local alignment may not use (Waterman-Eggert declumping); <c>null</c> = none.</param>
     private static AlignmentResult LinearSpaceAlign(
         string a, string b, PairScoring sc, bool affine, bool local, EndGaps ends, long baseCells,
         CancellationToken ct, ForbiddenPairs? forbidden = null)
     {
         if (local)
-        {
-            if (sc.GapOpen > 0 || sc.GapExtend > 0)
-                throw new ArgumentException("Linear-space local alignment needs non-positive gap scores (GapOpen <= 0 and GapExtend <= 0).", nameof(sc));
             ends = EndGaps.None;
-        }
+        sc.EnsureRange(a.Length, b.Length);
         baseCells = Math.Clamp(baseCells, 1, LinearSpaceCellThreshold);
         int m = a.Length;
         int n = b.Length;
         var type = ResultType(local, ends);
-        ct.ThrowIfCancellationRequested();
+        AlignmentCancellation.Poll(ct);
 
         // ---- Phase 1: locate the aligned interval (start vertex, end cell, optimal score) ----
         LinearSpacePath path;
@@ -184,6 +186,7 @@ public static partial class SequenceAligner
     /// equals <c>GlobalAlignCore(..).Score</c>).</summary>
     private static int LinearScoreOnly(string a, string b, PairScoring sc)
     {
+        sc.EnsureRange(a.Length, b.Length);
         LinearMidpoint(a, 0, b, 0, a.Length, b.Length, a.Length, sc, default, out int total);
         return total;
     }
@@ -208,7 +211,7 @@ public static partial class SequenceAligner
         for (int r = 1; r <= m; r++)
         {
             if ((r & 63) == 0)
-                ct.ThrowIfCancellationRequested();
+                AlignmentCancellation.Poll(ct);
 
             char ca = a[i0 + r - 1];
             bool carry = r > mid;
@@ -264,7 +267,7 @@ public static partial class SequenceAligner
         for (int i = 1; i <= m; i++)
         {
             if ((i & 63) == 0)
-                ct.ThrowIfCancellationRequested();
+                AlignmentCancellation.Poll(ct);
 
             char ca = a[i - 1];
             var forbiddenRow = new ForbiddenRow(forbidden, i);
@@ -344,7 +347,7 @@ public static partial class SequenceAligner
         for (int i = 1; i <= m; i++)
         {
             if ((i & 63) == 0)
-                ct.ThrowIfCancellationRequested();
+                AlignmentCancellation.Poll(ct);
 
             char ca = a[i - 1];
             fc[0] = freeStart1 ? 0 : i * d;
@@ -470,7 +473,7 @@ public static partial class SequenceAligner
         for (int r = 1; r <= m; r++)
         {
             if ((r & 63) == 0)
-                ct.ThrowIfCancellationRequested();
+                AlignmentCancellation.Poll(ct);
 
             char ca = a[i0 + r - 1];
             bool carry = r > mid;
@@ -605,7 +608,7 @@ public static partial class SequenceAligner
         for (int i = 1; i <= m; i++)
         {
             if ((i & 63) == 0)
-                ct.ThrowIfCancellationRequested();
+                AlignmentCancellation.Poll(ct);
 
             char ca = a[i - 1];
             var forbiddenRow = new ForbiddenRow(forbidden, i);
@@ -754,11 +757,13 @@ public static partial class SequenceAligner
     /// <param name="scoring">Scoring (default <see cref="SimpleDna"/>).</param>
     /// <param name="maxFullMatrixCells">Sub-problems of at most this many cells are solved with the full-matrix core (clamped to
     /// <see cref="LinearSpaceCellThreshold"/>); smaller values recurse deeper.</param>
+    [System.Runtime.CompilerServices.OverloadResolutionPriority(1)]
     public static AlignmentResult GlobalAlignLinearSpace(
         string sequence1, string sequence2, ScoringMatrix? scoring = null, long maxFullMatrixCells = LinearSpaceBaseCells) =>
         ScalarLinearSpace(sequence1, sequence2, scoring, affine: false, local: false, EndGaps.None, maxFullMatrixCells);
 
     /// <summary><see cref="GlobalAlignLinearSpace(string, string, ScoringMatrix?, long)"/> for DNA sequences.</summary>
+    [System.Runtime.CompilerServices.OverloadResolutionPriority(1)]
     public static AlignmentResult GlobalAlignLinearSpace(
         DnaSequence sequence1, DnaSequence sequence2, ScoringMatrix? scoring = null, long maxFullMatrixCells = LinearSpaceBaseCells)
     {
@@ -794,11 +799,13 @@ public static partial class SequenceAligner
     /// <param name="scoring">Scoring (default <see cref="SimpleDna"/>).</param>
     /// <param name="maxFullMatrixCells">Sub-problems of at most this many cells are solved with the full-matrix core (clamped to
     /// <see cref="LinearSpaceCellThreshold"/>); smaller values recurse deeper.</param>
+    [System.Runtime.CompilerServices.OverloadResolutionPriority(1)]
     public static AlignmentResult GlobalAlignAffineLinearSpace(
         string sequence1, string sequence2, ScoringMatrix? scoring = null, long maxFullMatrixCells = LinearSpaceBaseCells) =>
         ScalarLinearSpace(sequence1, sequence2, scoring, affine: true, local: false, EndGaps.None, maxFullMatrixCells);
 
     /// <summary><see cref="GlobalAlignAffineLinearSpace(string, string, ScoringMatrix?, long)"/> for DNA sequences.</summary>
+    [System.Runtime.CompilerServices.OverloadResolutionPriority(1)]
     public static AlignmentResult GlobalAlignAffineLinearSpace(
         DnaSequence sequence1, DnaSequence sequence2, ScoringMatrix? scoring = null, long maxFullMatrixCells = LinearSpaceBaseCells)
     {
@@ -834,11 +841,13 @@ public static partial class SequenceAligner
     /// <param name="scoring">Scoring (default <see cref="SimpleDna"/>).</param>
     /// <param name="maxFullMatrixCells">Sub-problems of at most this many cells are solved with the full-matrix core (clamped to
     /// <see cref="LinearSpaceCellThreshold"/>); smaller values recurse deeper.</param>
+    [System.Runtime.CompilerServices.OverloadResolutionPriority(1)]
     public static AlignmentResult LocalAlignLinearSpace(
         string sequence1, string sequence2, ScoringMatrix? scoring = null, long maxFullMatrixCells = LinearSpaceBaseCells) =>
         ScalarLinearSpace(sequence1, sequence2, scoring, affine: false, local: true, EndGaps.None, maxFullMatrixCells);
 
     /// <summary><see cref="LocalAlignLinearSpace(string, string, ScoringMatrix?, long)"/> for DNA sequences.</summary>
+    [System.Runtime.CompilerServices.OverloadResolutionPriority(1)]
     public static AlignmentResult LocalAlignLinearSpace(
         DnaSequence sequence1, DnaSequence sequence2, ScoringMatrix? scoring = null, long maxFullMatrixCells = LinearSpaceBaseCells)
     {
@@ -874,11 +883,13 @@ public static partial class SequenceAligner
     /// <param name="scoring">Scoring (default <see cref="SimpleDna"/>).</param>
     /// <param name="maxFullMatrixCells">Sub-problems of at most this many cells are solved with the full-matrix core (clamped to
     /// <see cref="LinearSpaceCellThreshold"/>); smaller values recurse deeper.</param>
+    [System.Runtime.CompilerServices.OverloadResolutionPriority(1)]
     public static AlignmentResult LocalAlignAffineLinearSpace(
         string sequence1, string sequence2, ScoringMatrix? scoring = null, long maxFullMatrixCells = LinearSpaceBaseCells) =>
         ScalarLinearSpace(sequence1, sequence2, scoring, affine: true, local: true, EndGaps.None, maxFullMatrixCells);
 
     /// <summary><see cref="LocalAlignAffineLinearSpace(string, string, ScoringMatrix?, long)"/> for DNA sequences.</summary>
+    [System.Runtime.CompilerServices.OverloadResolutionPriority(1)]
     public static AlignmentResult LocalAlignAffineLinearSpace(
         DnaSequence sequence1, DnaSequence sequence2, ScoringMatrix? scoring = null, long maxFullMatrixCells = LinearSpaceBaseCells)
     {
@@ -915,11 +926,13 @@ public static partial class SequenceAligner
     /// <param name="endGaps">Which end gaps are free (default <see cref="EndGaps.Fitting"/>); every one of the 16 policies is supported.</param>
     /// <param name="maxFullMatrixCells">Sub-problems of at most this many cells are solved with the full-matrix core (clamped to
     /// <see cref="LinearSpaceCellThreshold"/>); smaller values recurse deeper.</param>
+    [System.Runtime.CompilerServices.OverloadResolutionPriority(1)]
     public static AlignmentResult SemiGlobalAlignLinearSpace(
         string sequence1, string sequence2, ScoringMatrix? scoring = null, EndGaps endGaps = EndGaps.Fitting, long maxFullMatrixCells = LinearSpaceBaseCells) =>
         ScalarLinearSpace(sequence1, sequence2, scoring, affine: false, local: false, endGaps, maxFullMatrixCells);
 
     /// <summary><see cref="SemiGlobalAlignLinearSpace(string, string, ScoringMatrix?, EndGaps, long)"/> for DNA sequences.</summary>
+    [System.Runtime.CompilerServices.OverloadResolutionPriority(1)]
     public static AlignmentResult SemiGlobalAlignLinearSpace(
         DnaSequence sequence1, DnaSequence sequence2, ScoringMatrix? scoring = null, EndGaps endGaps = EndGaps.Fitting, long maxFullMatrixCells = LinearSpaceBaseCells)
     {
@@ -956,11 +969,13 @@ public static partial class SequenceAligner
     /// <param name="endGaps">Which end gaps are free (default <see cref="EndGaps.Fitting"/>); every one of the 16 policies is supported.</param>
     /// <param name="maxFullMatrixCells">Sub-problems of at most this many cells are solved with the full-matrix core (clamped to
     /// <see cref="LinearSpaceCellThreshold"/>); smaller values recurse deeper.</param>
+    [System.Runtime.CompilerServices.OverloadResolutionPriority(1)]
     public static AlignmentResult SemiGlobalAlignAffineLinearSpace(
         string sequence1, string sequence2, ScoringMatrix? scoring = null, EndGaps endGaps = EndGaps.Fitting, long maxFullMatrixCells = LinearSpaceBaseCells) =>
         ScalarLinearSpace(sequence1, sequence2, scoring, affine: true, local: false, endGaps, maxFullMatrixCells);
 
     /// <summary><see cref="SemiGlobalAlignAffineLinearSpace(string, string, ScoringMatrix?, EndGaps, long)"/> for DNA sequences.</summary>
+    [System.Runtime.CompilerServices.OverloadResolutionPriority(1)]
     public static AlignmentResult SemiGlobalAlignAffineLinearSpace(
         DnaSequence sequence1, DnaSequence sequence2, ScoringMatrix? scoring = null, EndGaps endGaps = EndGaps.Fitting, long maxFullMatrixCells = LinearSpaceBaseCells)
     {

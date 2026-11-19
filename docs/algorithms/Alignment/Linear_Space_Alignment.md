@@ -46,7 +46,7 @@ The traceback of every full-matrix aligner is a deterministic walk from the end 
 
 *Lemma.* Let `v` be a vertex of `P` and `D_v` the DAG of optimal edges of the sub-problem "start at `v`, end at the original end". Then (i) every edge of `P` after `v` is in `D_v` (the tail of `P` is optimal for the sub-problem: a better tail would beat the optimum), and (ii) `D_v ⊆ D` (an optimal sub-path prefixed by an optimal path to `v` is an optimal path). Greedy-first among a subset that contains the greedy choice of the superset is the same choice, so the greedy walk of the sub-problem is the tail of `P`. The same holds for the head (same DP values). Therefore splitting at any vertex of `P` and solving the halves with the same tie rules reproduces `P`; the carried payload is exactly that vertex (the first vertex of `P` on row `mid` seen from the end).
 
-For the local program the sub-problem starts after the first aligned pair (a local alignment never starts with a gap when gaps score ≤ 0; with a positive gap score the explicit API throws and the automatic switch keeps the full matrix). For the ends-free programs the start vertex is the traceback's stop vertex, and the free leading/trailing overhangs are emitted against gaps exactly like the full-matrix traceback.
+For the local program the sub-problem starts after the first aligned pair (a local alignment never starts with a gap when gaps score ≤ 0; every scoring model - scalar and matrix - rejects a positive gap score with an `ArgumentException` since audit A2-37, so the premise always holds). For the ends-free programs the start vertex is the traceback's stop vertex, and the free leading/trailing overhangs are emitted against gaps exactly like the full-matrix traceback.
 
 The statement is also what the tests check empirically: 6 000+ random, tie-rich (alphabets `A`, `AC`, `ACGT`, zero gap scores) and long-indel pairs with forced recursion down to 1-cell base cases, **all** 16 end-gap policies x linear/affine x local x matrix scoring: 0 differences in score, rows, coordinates or type.
 
@@ -65,9 +65,9 @@ Tests (`SequenceAligner_TopNLinearSpace_Tests`): 480 random tie-rich pairs (320 
 
 * Same inputs, validation, case folding, empty-input and `null` contract as the full-matrix aligner of the family (see the Global / Local / Semi-Global documents).
 * `*LinearSpace` with `ScoringMatrix`: `GapOpen`/`GapExtend` as the full-matrix family (linear: only `GapExtend`); `MatrixScoring`: residues validated against the matrix alphabet, fractional gap scores (exact integer model).
-* `Local*LinearSpace` and `LocalAlign*TopNLinearSpace` require non-positive gap scores (`ArgumentException` otherwise). The automatic switch leaves such (meaningless) scorings on the full matrix.
+* Every aligner requires non-positive gap scores (`ArgumentException` otherwise, scalar `ScoringMatrix` and `MatrixScoring` alike; audit A2-37), which the local linear-space program relies on.
 * Cancellation: `GlobalAlign(…, CancellationToken, IProgress)` honours the token in the linear-space program too (checked every 64 rows); progress is reported 1.0 at the end.
-* Integer range: unchanged (`PairScoring.Create` validates `max|score| · (m + n) < 2^28` for the matrix aligners; scalar scores are `int`).
+* Integer range: one check for both models (`PairScoring.EnsureRange`: `max|step| · (m + n + 2) < 2^28`, `ArgumentException` "Score range too large for the integer dynamic program"; the scalar model used to wrap around silently, audit A2-37).
 
 ## 4. Limits and memory guard
 

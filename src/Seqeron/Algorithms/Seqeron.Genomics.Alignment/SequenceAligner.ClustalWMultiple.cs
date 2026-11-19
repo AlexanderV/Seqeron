@@ -66,24 +66,24 @@ public static partial class SequenceAligner
     /// <param name="sequences">DNA sequences (output rows keep the input order).</param>
     /// <param name="options">ClustalW parameters (default: ClustalW's DNA defaults).</param>
     /// <param name="scoring">Scoring used for the reported total score only (default <see cref="SimpleDna"/>, affine).</param>
+    [System.Runtime.CompilerServices.OverloadResolutionPriority(1)]
     public static MultipleAlignmentResult MultipleAlignClustalW(
         IEnumerable<DnaSequence> sequences, ClustalWOptions? options = null, ScoringMatrix? scoring = null)
     {
-        ArgumentNullException.ThrowIfNull(sequences);
-        var seqList = sequences.ToList();
+        var seqList = DnaStringsNoNull(sequences, nameof(sequences));
         if (seqList.Count == 0)
             return MultipleAlignmentResult.Empty;
 
-        var rows = MultipleAlignClustalWCore(seqList.Select(s => s.Sequence).ToArray(), options ?? new ClustalWOptions());
+        var rows = MultipleAlignClustalWCore(seqList.ToArray(), options ?? new ClustalWOptions());
         return BuildClustalWResult(rows, scoring ?? SimpleDna);
     }
 
     /// <summary><see cref="MultipleAlignClustalW(IEnumerable{DnaSequence}, ClustalWOptions?, ScoringMatrix?)"/> for strings (A, C, G, T/U and the IUB ambiguity codes).</summary>
+    [System.Runtime.CompilerServices.OverloadResolutionPriority(1)]
     public static MultipleAlignmentResult MultipleAlignClustalW(
         IEnumerable<string> sequences, ClustalWOptions? options = null, ScoringMatrix? scoring = null)
     {
-        ArgumentNullException.ThrowIfNull(sequences);
-        var seqList = sequences.ToList();
+        var seqList = ToListNoNull(sequences, nameof(sequences));
         if (seqList.Count == 0)
             return MultipleAlignmentResult.Empty;
 
@@ -108,8 +108,7 @@ public static partial class SequenceAligner
     public static MultipleAlignmentResult MultipleAlignClustalW(
         IEnumerable<ProteinSequence> sequences, ClustalWProteinOptions? options = null, MatrixScoring? scoring = null)
     {
-        ArgumentNullException.ThrowIfNull(sequences);
-        var seqList = sequences.ToList();
+        var seqList = ToListNoNull(sequences, nameof(sequences));
         if (seqList.Count == 0)
             return MultipleAlignmentResult.Empty;
 
@@ -120,9 +119,8 @@ public static partial class SequenceAligner
     public static MultipleAlignmentResult MultipleAlignClustalW(
         IEnumerable<string> sequences, ClustalWProteinOptions options, MatrixScoring? scoring = null)
     {
-        ArgumentNullException.ThrowIfNull(sequences);
         ArgumentNullException.ThrowIfNull(options);
-        var seqList = sequences.ToList();
+        var seqList = ToListNoNull(sequences, nameof(sequences));
         if (seqList.Count == 0)
             return MultipleAlignmentResult.Empty;
 
@@ -137,6 +135,7 @@ public static partial class SequenceAligner
 
     private static string[] MultipleAlignClustalWProteinCore(string[] raw, ClustalWProteinOptions options)
     {
+        using var cancelScope = AlignmentCancellation.Enter(options.CancellationToken);
         ValidateClustalWProteinMultipleOptions(options);
         int n = raw.Length;
         var codes = new int[n][];
@@ -154,7 +153,7 @@ public static partial class SequenceAligner
         for (int i = 0; i < n; i++)
         {
             if (codes[i].Length == 0)
-                throw new ArgumentException("ClustalW cannot align an empty sequence.", nameof(raw));
+                throw new ArgumentException(EmptyMemberMessage("ClustalW", i), nameof(raw));
         }
 
         // UserParameters::setHydResidues: at most MAXHYDRESIDUES (9) leading letters, upper-cased; an empty result keeps the default
@@ -190,6 +189,7 @@ public static partial class SequenceAligner
         {
             for (int j = i + 1; j < n; j++)
             {
+                AlignmentCancellation.ThrowIfRequested();
                 double v = options.PairwiseMode == ClustalWPairwiseMode.Quick
                     ? ClustalWQuickPairwiseAlign(upper[i], upper[j], ClustalWSequenceType.Protein, options.Pairwise.Quick, longest).Distance
                     : ClustalWProteinSinglePrecisionDistance(upper[i], upper[j], options.Pairwise);
@@ -215,6 +215,7 @@ public static partial class SequenceAligner
     /// </summary>
     private static string[] MultipleAlignClustalWCore(string[] raw, ClustalWOptions options)
     {
+        using var cancelScope = AlignmentCancellation.Enter(options.CancellationToken);
         ValidateClustalWOptions(options);
         int n = raw.Length;
         var codes = new int[n][];
@@ -228,7 +229,7 @@ public static partial class SequenceAligner
         for (int i = 0; i < n; i++)
         {
             if (codes[i].Length == 0)
-                throw new ArgumentException("ClustalW cannot align an empty sequence.", nameof(raw));
+                throw new ArgumentException(EmptyMemberMessage("ClustalW", i), nameof(raw));
         }
 
         var state = new ClustalWMsaState(codes, CwConfig.FromDna(options));
@@ -286,6 +287,7 @@ public static partial class SequenceAligner
         {
             for (int j = i + 1; j < n; j++)
             {
+                AlignmentCancellation.ThrowIfRequested();
                 double v = options.PairwiseMode == ClustalWPairwiseMode.Quick
                     ? ClustalWQuickPairwiseDistance(raw[i], raw[j], quick, longest)
                     : ClustalWSinglePrecisionDistance(raw[i], raw[j], options.PairwiseGapOpen, options.PairwiseGapExtend, options.TransitionWeight, pairwiseMatrix);
@@ -780,6 +782,7 @@ public static partial class SequenceAligner
 
         private int ProfileAlign(int[] group, int[] aligned)
         {
+            AlignmentCancellation.ThrowIfRequested();
             int numSeq = _n;
             for (int i = 0; i < numSeq; i++)
             {
@@ -1561,6 +1564,7 @@ public static partial class SequenceAligner
             int midi, midj, type;
             int midh;
             int t, tl, g, h, hh, f, e, s;
+            AlignmentCancellation.ThrowIfRequested();
 
             if (N <= 0)
             {
@@ -1631,6 +1635,7 @@ public static partial class SequenceAligner
             tl = -ExtPenalty2(A + 1, B);
             for (int i = 1; i <= midi; i++)
             {
+                AlignmentCancellation.ThrowIfRequested();
                 s = _hh[0];
                 t += tl;
                 _hh[0] = hh = t;
@@ -1679,6 +1684,7 @@ public static partial class SequenceAligner
             tl = 0;
             for (int i = M - 1; i >= midi; i--)
             {
+                AlignmentCancellation.ThrowIfRequested();
                 s = _rr[N];
                 if (go2 == 0)
                     g = 0;

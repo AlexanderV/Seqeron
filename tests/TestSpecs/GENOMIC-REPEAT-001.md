@@ -230,3 +230,9 @@ The Gusfield book text itself was not retrievable; the definitions were taken fr
 
 Assumption register: assumption 1 (tie-break unspecified) is **retired** — the tie-break is now specified (leftmost first occurrence).
 
+
+---
+
+## 2026-11 audit round 2 (A2-40, B09 F86): cancellation
+
+`FindRepeats` / `FindMaximalRepeats` have a `CancellationToken` overload (polled every 4096 suffix-tree nodes and between repeats); tests `SequenceAligner_Cancellation_Tests.PreCancelled_GenomicAnalyzerScans_Throw`, `UncancelledToken_*`.

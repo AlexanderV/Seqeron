@@ -65,7 +65,7 @@ public static class GenomicAnalyzer
     /// See docs/algorithms/Repeat_Analysis/Repeat_Detection.md.
     /// </summary>
     public static IEnumerable<RepeatInfo> FindRepeats(DnaSequence sequence, int minLength)
-        => EnumerateRepeats(sequence, minLength, maximalOnly: false);
+        => EnumerateRepeats(sequence, minLength, maximalOnly: false, default);
 
     /// <summary>
     /// Finds every <b>maximal repeat</b> of length ≥ <paramref name="minLength"/>: a substring α that occurs at
@@ -75,10 +75,10 @@ public static class GenomicAnalyzer
     /// strings behind REPuter / MUMmer <c>-maxmatch</c> self matches. Equivalently: the internal nodes of the
     /// suffix tree whose occurrence set is left-diverse (every internal node is right-diverse because of the
     /// terminator), so there are at most n of them. Each result carries every occurrence (overlaps allowed,
-    /// positions ascending); results are in the same order as <see cref="FindRepeats"/> (smallest suffix that
-    /// starts with the repeat). This is the subset of <see cref="FindRepeats"/> that cannot be extended on
+    /// positions ascending); results are in the same order as <see cref="FindRepeats(DnaSequence, int)"/> (smallest suffix that
+    /// starts with the repeat). This is the subset of <see cref="FindRepeats(DnaSequence, int)"/> that cannot be extended on
     /// either side without losing an occurrence; <c>ACGTACGT</c> has the single maximal repeat <c>ACGT</c> @ {0,4}
-    /// whereas <see cref="FindRepeats"/> also lists its prefixes and suffixes. Left-diversity is computed
+    /// whereas <see cref="FindRepeats(DnaSequence, int)"/> also lists its prefixes and suffixes. Left-diversity is computed
     /// bottom-up in one linear traversal (a bit set of preceding characters per node), so the cost is
     /// O(n) plus the size of the output. For maximal repeated <i>pairs</i> (each pair of occurrences, REPuter /
     /// <c>repeat-match</c>) use <see cref="RepeatFinder.FindDirectRepeats(DnaSequence,int,int,int)"/>; for
@@ -88,16 +88,39 @@ public static class GenomicAnalyzer
     /// <param name="minLength">Minimum repeat length; values ≤ 0 are treated as 1 (the empty string is not a repeat).</param>
     /// <exception cref="ArgumentNullException"><paramref name="sequence"/> is <c>null</c>.</exception>
     public static IEnumerable<RepeatInfo> FindMaximalRepeats(DnaSequence sequence, int minLength)
-        => EnumerateRepeats(sequence, minLength, maximalOnly: true);
+        => EnumerateRepeats(sequence, minLength, maximalOnly: true, default);
 
-    private static IEnumerable<RepeatInfo> EnumerateRepeats(DnaSequence sequence, int minLength, bool maximalOnly)
+    /// <summary>
+    /// <see cref="FindMaximalRepeats(DnaSequence, int)"/> that observes <paramref name="cancellationToken"/>: it is polled while the suffix tree is
+    /// traversed (every 4096 nodes) and between the reported repeats; a cancelled token throws <see cref="OperationCanceledException"/> from the enumeration.
+    /// </summary>
+    /// <param name="sequence">DNA sequence to analyze. Must not be <c>null</c>.</param>
+    /// <param name="minLength">Minimum repeat length; values ≤ 0 are treated as 1.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> is <c>null</c>.</exception>
+    public static IEnumerable<RepeatInfo> FindMaximalRepeats(DnaSequence sequence, int minLength, CancellationToken cancellationToken)
+        => EnumerateRepeats(sequence, minLength, maximalOnly: true, cancellationToken);
+
+    /// <summary>
+    /// <see cref="FindRepeats(DnaSequence, int)"/> that observes <paramref name="cancellationToken"/> (see
+    /// <see cref="FindMaximalRepeats(DnaSequence, int, CancellationToken)"/>).
+    /// </summary>
+    /// <param name="sequence">DNA sequence to analyze. Must not be <c>null</c>.</param>
+    /// <param name="minLength">Minimum repeat length; values ≤ 0 are treated as 1.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> is <c>null</c>.</exception>
+    public static IEnumerable<RepeatInfo> FindRepeats(DnaSequence sequence, int minLength, CancellationToken cancellationToken)
+        => EnumerateRepeats(sequence, minLength, maximalOnly: false, cancellationToken);
+
+    private static IEnumerable<RepeatInfo> EnumerateRepeats(DnaSequence sequence, int minLength, bool maximalOnly, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(sequence);
-        return EnumerateRepeatsCore(sequence, minLength, maximalOnly);
+        return EnumerateRepeatsCore(sequence, minLength, maximalOnly, cancellationToken);
     }
 
-    private static IEnumerable<RepeatInfo> EnumerateRepeatsCore(DnaSequence sequence, int minLength, bool maximalOnly)
+    private static IEnumerable<RepeatInfo> EnumerateRepeatsCore(DnaSequence sequence, int minLength, bool maximalOnly, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var tree = sequence.SuffixTree;
 
         // A repeat is a NON-EMPTY substring occurring >=2 times (the path label of an internal
@@ -108,11 +131,12 @@ public static class GenomicAnalyzer
         // Pre-order traversal with children in ascending key order (the terminator, a leaf, sorts first):
         // internal nodes come out in the order of their lexicographically smallest suffix, and a node
         // always precedes the internal nodes below it.
-        var loci = new RepeatLocusCollector(effectiveMinLength, maximalOnly, tree.Text);
+        var loci = new RepeatLocusCollector(effectiveMinLength, maximalOnly, tree.Text, cancellationToken);
         tree.Traverse(loci);
 
         foreach (var (edgeEnd, parentDepth, depth) in loci.Nodes)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             // Path label of the node: the `depth` characters of the text ending at the end of its incoming edge
             // (an internal node's edge never contains the terminator).
             string label = tree.Text.Substring(edgeEnd - depth, depth);
@@ -141,9 +165,10 @@ public static class GenomicAnalyzer
     /// character before its suffix (a sentinel bit for suffix 0), a node's set is the union over its subtree, and
     /// the node qualifies when that set has ≥ 2 members (Gusfield 1997 §7.12.1).
     /// </summary>
-    private sealed class RepeatLocusCollector(int minLength, bool maximalOnly, global::SuffixTree.ITextSource text) : global::SuffixTree.ISuffixTreeVisitor
+    private sealed class RepeatLocusCollector(int minLength, bool maximalOnly, global::SuffixTree.ITextSource text, CancellationToken cancellationToken = default) : global::SuffixTree.ISuffixTreeVisitor
     {
         private bool _rootSeen;
+        private int _visited;
         private readonly List<(int EdgeEnd, int ParentDepth, int Depth)> _nodes = new();
         private readonly List<bool> _leftDiverse = new();
         private readonly Stack<(int Mask, int Index)> _frames = new();
@@ -153,6 +178,8 @@ public static class GenomicAnalyzer
 
         public void VisitNode(int startIndex, int endIndex, int leafCount, int childCount, int depth)
         {
+            if ((++_visited & 0xFFF) == 0)
+                cancellationToken.ThrowIfCancellationRequested();
             if (!_rootSeen)
             {
                 _rootSeen = true; // the root has no incoming edge and is not a repeat
@@ -335,7 +362,7 @@ public static class GenomicAnalyzer
     /// window <c>S[i..i+m-1]</c> equal to the motif, overlapping occurrences included, in
     /// <b>ascending</b> order. Matching is case-insensitive and exact: an IUPAC ambiguity code in the
     /// motif is a literal symbol (a DNA sequence never contains one, so it matches nothing) and only
-    /// the forward strand is searched. Use <see cref="FindKnownMotifHits"/> for degenerate (IUPAC)
+    /// the forward strand is searched. Use <see cref="FindKnownMotifHits(DnaSequence, IEnumerable{string}, bool, bool, int)"/> for degenerate (IUPAC)
     /// motifs and both-strand searches. A null or empty motif yields an empty list (the empty string
     /// is not a motif); a null sequence throws <see cref="ArgumentNullException"/>.
     /// <para>
@@ -422,7 +449,7 @@ public static class GenomicAnalyzer
     /// motifs are skipped (the empty string is not a motif; mirrors <see cref="FindMotif"/>), and a
     /// motif with no occurrence is omitted from the result. Positions for each motif are returned
     /// <b>sorted ascending</b>. Duplicate motifs that normalize to the same upper-cased key collapse to
-    /// a single entry. Forward strand only, IUPAC symbols literal (see <see cref="FindKnownMotifHits"/>
+    /// a single entry. Forward strand only, IUPAC symbols literal (see <see cref="FindKnownMotifHits(DnaSequence, IEnumerable{string}, bool, bool, int)"/>
     /// for degenerate motifs and both strands).
     /// <para>
     /// Complexity: with fewer than 128 distinct motifs each one is a linear KMP scan of the text
@@ -491,15 +518,37 @@ public static class GenomicAnalyzer
         bool bothStrands = false,
         bool allowIupac = false,
         int maxMismatches = 0)
+        => FindKnownMotifHits(sequence, motifs, bothStrands, allowIupac, maxMismatches, CancellationToken.None);
+
+    /// <summary>
+    /// <see cref="FindKnownMotifHits(DnaSequence, IEnumerable{string}, bool, bool, int)"/> that observes <paramref name="cancellationToken"/>: it is polled
+    /// before every (motif, strand) search and inside the mismatch-tolerant Hamming scan; a cancelled token throws <see cref="OperationCanceledException"/>
+    /// and no partial dictionary is returned.
+    /// </summary>
+    /// <param name="sequence">Subject sequence.</param>
+    /// <param name="motifs">Motifs to search.</param>
+    /// <param name="bothStrands">Also report occurrences on the reverse strand.</param>
+    /// <param name="allowIupac">Interpret IUPAC ambiguity codes in the motifs.</param>
+    /// <param name="maxMismatches">Maximum number of mismatching positions per hit.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxMismatches"/> is negative.</exception>
+    public static Dictionary<string, IReadOnlyList<KnownMotifHit>> FindKnownMotifHits(
+        DnaSequence sequence,
+        IEnumerable<string> motifs,
+        bool bothStrands,
+        bool allowIupac,
+        int maxMismatches,
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(sequence);
         ArgumentNullException.ThrowIfNull(motifs);
         ArgumentOutOfRangeException.ThrowIfNegative(maxMismatches);
+        cancellationToken.ThrowIfCancellationRequested();
 
         if (maxMismatches > 0)
-            return FindKnownMotifHitsApproximate(sequence, motifs, bothStrands, allowIupac, maxMismatches);
+            return FindKnownMotifHitsApproximate(sequence, motifs, bothStrands, allowIupac, maxMismatches, cancellationToken);
 
-        var found = SearchKnownMotifs(sequence, motifs, bothStrands, allowIupac);
+        var found = SearchKnownMotifs(sequence, motifs, bothStrands, allowIupac, cancellationToken);
         var result = new Dictionary<string, IReadOnlyList<KnownMotifHit>>(found.Count);
         foreach (var (key, (forward, reverse)) in found)
             result[key] = MergeStrandHits(forward, reverse);
@@ -508,15 +557,16 @@ public static class GenomicAnalyzer
 
     // Mismatch-tolerant route: one canonical ApproximateMatcher Hamming scan per (motif, strand).
     private static Dictionary<string, IReadOnlyList<KnownMotifHit>> FindKnownMotifHitsApproximate(
-        DnaSequence sequence, IEnumerable<string> motifs, bool bothStrands, bool allowIupac, int maxMismatches)
+        DnaSequence sequence, IEnumerable<string> motifs, bool bothStrands, bool allowIupac, int maxMismatches, CancellationToken cancellationToken)
     {
         var result = new Dictionary<string, IReadOnlyList<KnownMotifHit>>();
         foreach (string key in NormalizeMotifs(motifs))
         {
-            var forward = ApproximateMatcher.FindWithMismatches(sequence.Sequence, key, maxMismatches, allowIupac)
+            cancellationToken.ThrowIfCancellationRequested();
+            var forward = ApproximateMatcher.FindWithMismatches(sequence.Sequence, key, maxMismatches, allowIupac, cancellationToken)
                 .Select(m => new KnownMotifHit(m.Position, IsReverseStrand: false, m.Distance)).ToList();
             var reverse = bothStrands
-                ? ApproximateMatcher.FindWithMismatches(sequence.Sequence, DnaSequence.GetReverseComplementString(key), maxMismatches, allowIupac)
+                ? ApproximateMatcher.FindWithMismatches(sequence.Sequence, DnaSequence.GetReverseComplementString(key), maxMismatches, allowIupac, cancellationToken)
                     .Select(m => new KnownMotifHit(m.Position, IsReverseStrand: true, m.Distance)).ToList()
                 : new List<KnownMotifHit>();
             if (forward.Count > 0 || reverse.Count > 0)
@@ -544,7 +594,7 @@ public static class GenomicAnalyzer
     }
 
     private static Dictionary<string, (List<int> Forward, List<int> Reverse)> SearchKnownMotifs(
-        DnaSequence sequence, IEnumerable<string> motifs, bool bothStrands, bool allowIupac)
+        DnaSequence sequence, IEnumerable<string> motifs, bool bothStrands, bool allowIupac, CancellationToken cancellationToken = default)
     {
         // The empty string is not a motif (an exact search for "" would match every position).
         // Skip empty/whitespace motifs, consistent with FindMotif's empty-pattern guard.
@@ -554,6 +604,7 @@ public static class GenomicAnalyzer
         var result = new Dictionary<string, (List<int>, List<int>)>(keys.Count);
         foreach (string key in keys)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var forward = FindMotifPositions(sequence, key, allowIupac, useIndex);
             var reverse = bothStrands
                 ? FindMotifPositions(sequence, DnaSequence.GetReverseComplementString(key), allowIupac, useIndex)
@@ -685,25 +736,45 @@ public static class GenomicAnalyzer
         DnaSequence sequence1,
         DnaSequence sequence2,
         int minLength)
+        => FindCommonRegions(sequence1, sequence2, minLength, CancellationToken.None);
+
+    /// <summary>
+    /// <see cref="FindCommonRegions(DnaSequence, DnaSequence, int)"/> that observes <paramref name="cancellationToken"/>: it is polled every 1024 positions of the
+    /// matching-statistics scan (which runs eagerly, before the first region is returned) and between the reported regions; a cancelled token throws
+    /// <see cref="OperationCanceledException"/>.
+    /// </summary>
+    /// <param name="sequence1">Text sequence (indexed by its suffix tree).</param>
+    /// <param name="sequence2">Query sequence.</param>
+    /// <param name="minLength">Minimum region length; values below 1 are treated as 1.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence1"/> or <paramref name="sequence2"/> is null.</exception>
+    public static IEnumerable<CommonRegion> FindCommonRegions(
+        DnaSequence sequence1,
+        DnaSequence sequence2,
+        int minLength,
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(sequence1);
         ArgumentNullException.ThrowIfNull(sequence2);
+        cancellationToken.ThrowIfCancellationRequested();
 
         // A common region is a NON-EMPTY contiguous substring; the empty string is not a region,
         // so the effective minimum length is at least 1 (Wikipedia "Longest common substring").
         int effectiveMinLength = Math.Max(1, minLength);
-        int[] matchLengths = MatchingStatistics(sequence1.SuffixTree, sequence2.Sequence, sequence1.Length, effectiveMinLength);
-        return EnumerateCommonRegions(sequence1.SuffixTree, sequence2.Sequence, matchLengths, effectiveMinLength);
+        int[] matchLengths = MatchingStatistics(sequence1.SuffixTree, sequence2.Sequence, sequence1.Length, effectiveMinLength, cancellationToken);
+        return EnumerateCommonRegions(sequence1.SuffixTree, sequence2.Sequence, matchLengths, effectiveMinLength, cancellationToken);
     }
 
     private static IEnumerable<CommonRegion> EnumerateCommonRegions(
-        global::SuffixTree.SuffixTree tree, string seq2, int[] matchLengths, int effectiveMinLength)
+        global::SuffixTree.SuffixTree tree, string seq2, int[] matchLengths, int effectiveMinLength, CancellationToken cancellationToken)
     {
         var found = new HashSet<string>(StringComparer.Ordinal);
         var foundLookup = found.GetAlternateLookup<ReadOnlySpan<char>>();
 
         for (int i = 0; i < matchLengths.Length; i++)
         {
+            if ((i & 0x3FF) == 0)
+                cancellationToken.ThrowIfCancellationRequested();
             int length = matchLengths[i];
             if (length < effectiveMinLength)
             {
@@ -736,7 +807,7 @@ public static class GenomicAnalyzer
     /// entry i is ms(i) = the length of the longest prefix of query[i..] occurring in the text — exact
     /// wherever it is ≥ <paramref name="minLength"/>, and a value &lt; <paramref name="minLength"/> elsewhere.
     /// </summary>
-    private static int[] MatchingStatistics(global::SuffixTree.SuffixTree tree, string query, int textLength, int minLength)
+    private static int[] MatchingStatistics(global::SuffixTree.SuffixTree tree, string query, int textLength, int minLength, CancellationToken cancellationToken = default)
     {
         int m = query.Length;
         var ms = new int[m];
@@ -758,6 +829,8 @@ public static class GenomicAnalyzer
             int length = 0;
             for (int i = 0; i < m; i++)
             {
+                if ((i & 0x3FF) == 0)
+                    cancellationToken.ThrowIfCancellationRequested();
                 if (length > 0)
                 {
                     length--;
@@ -784,6 +857,8 @@ public static class GenomicAnalyzer
         int maxEnd = 0;
         for (int i = 0; i < m; i++)
         {
+            if ((i & 0x3FF) == 0)
+                cancellationToken.ThrowIfCancellationRequested();
             while (next < mems.Count && mems[next].PositionInQuery <= i)
             {
                 maxEnd = Math.Max(maxEnd, mems[next].PositionInQuery + mems[next].Length);
@@ -935,7 +1010,7 @@ public static class GenomicAnalyzer
     public static IEnumerable<OrfInfo> FindOpenReadingFrames(DnaSequence sequence, int minLength = 100)
     {
         ArgumentNullException.ThrowIfNull(sequence);
-        return FindOpenReadingFramesCore(sequence, minLength, OrfSearchOptions.Default);
+        return FindOpenReadingFramesCore(sequence, minLength, OrfSearchOptions.Default, CancellationToken.None);
     }
 
     /// <summary>
@@ -958,7 +1033,25 @@ public static class GenomicAnalyzer
     {
         ArgumentNullException.ThrowIfNull(sequence);
         ArgumentNullException.ThrowIfNull(options);
-        return FindOpenReadingFramesCore(sequence, minLength, options);
+        return FindOpenReadingFramesCore(sequence, minLength, options, CancellationToken.None);
+    }
+
+    /// <summary>
+    /// <see cref="FindOpenReadingFrames(DnaSequence, int, OrfSearchOptions)"/> that observes <paramref name="cancellationToken"/>: it is polled while the
+    /// (lazy) frame scan advances (every 65 536 codons) and between the reported ORFs; a cancelled token throws <see cref="OperationCanceledException"/>
+    /// from the enumeration.
+    /// </summary>
+    /// <param name="sequence">The DNA sequence to scan.</param>
+    /// <param name="minLength">Minimum ORF length in nucleotides.</param>
+    /// <param name="options">The search options.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> or <paramref name="options"/> is null.</exception>
+    public static IEnumerable<OrfInfo> FindOpenReadingFrames(DnaSequence sequence, int minLength, OrfSearchOptions options, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        ArgumentNullException.ThrowIfNull(options);
+        cancellationToken.ThrowIfCancellationRequested();
+        return FindOpenReadingFramesCore(sequence, minLength, options, cancellationToken);
     }
 
     /// <summary>
@@ -1002,13 +1095,31 @@ public static class GenomicAnalyzer
     {
         ArgumentNullException.ThrowIfNull(sequence);
         ArgumentNullException.ThrowIfNull(options);
-        return FindOpenReadingFramesCore(SequenceExtensions.NormalizeIupacDna(sequence), minLength, options);
+        return FindOpenReadingFramesCore(SequenceExtensions.NormalizeIupacDna(sequence), minLength, options, CancellationToken.None);
     }
 
-    private static IEnumerable<OrfInfo> FindOpenReadingFramesCore(DnaSequence sequence, int minLength, OrfSearchOptions options)
-        => FindOpenReadingFramesCore(sequence.Sequence, minLength, options);
+    /// <summary>
+    /// <see cref="FindOpenReadingFrames(string, int, OrfSearchOptions)"/> that observes <paramref name="cancellationToken"/> (see
+    /// <see cref="FindOpenReadingFrames(DnaSequence, int, OrfSearchOptions, CancellationToken)"/>).
+    /// </summary>
+    /// <param name="sequence">IUPAC nucleotide string (DNA or RNA, case-insensitive).</param>
+    /// <param name="minLength">Minimum ORF length in nucleotides.</param>
+    /// <param name="options">The search options.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> or <paramref name="options"/> is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="sequence"/> contains a symbol that is not an IUPAC nucleotide code.</exception>
+    public static IEnumerable<OrfInfo> FindOpenReadingFrames(string sequence, int minLength, OrfSearchOptions options, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        ArgumentNullException.ThrowIfNull(options);
+        cancellationToken.ThrowIfCancellationRequested();
+        return FindOpenReadingFramesCore(SequenceExtensions.NormalizeIupacDna(sequence), minLength, options, cancellationToken);
+    }
 
-    private static IEnumerable<OrfInfo> FindOpenReadingFramesCore(string forward, int minLength, OrfSearchOptions options)
+    private static IEnumerable<OrfInfo> FindOpenReadingFramesCore(DnaSequence sequence, int minLength, OrfSearchOptions options, CancellationToken cancellationToken)
+        => FindOpenReadingFramesCore(sequence.Sequence, minLength, options, cancellationToken);
+
+    private static IEnumerable<OrfInfo> FindOpenReadingFramesCore(string forward, int minLength, OrfSearchOptions options, CancellationToken cancellationToken)
     {
         var code = options.GeneticCode ?? GeneticCode.Standard;
         Func<string, bool>? isStart = options.StartCodons switch
@@ -1030,12 +1141,12 @@ public static class GenomicAnalyzer
         bool plus = options.Strands != OrfStrands.Minus;
         bool minus = options.Strands != OrfStrands.Plus;
         var forwardRegions = OrfScanner.FindRegions(scanned, code, isStart, options.NestedOrfs, options.IncludeOpenEnded,
-            options.DualCodingStopsTerminate);
+            options.DualCodingStopsTerminate, cancellationToken);
         string? reverse = minus ? DnaSequence.GetReverseComplementString(scanned) : null;
         var reverseRegions = reverse is null
             ? null
             : OrfScanner.FindRegions(reverse, code, isStart, options.NestedOrfs, options.IncludeOpenEnded,
-                options.DualCodingStopsTerminate);
+                options.DualCodingStopsTerminate, cancellationToken);
 
         int effectiveMinLength = EffectiveMinimumLength(minLength, options);
         var orfs = EnumerateOrfs(scanned, plus ? forwardRegions : null, reverse, reverseRegions, effectiveMinLength,
@@ -1154,7 +1265,7 @@ public static class GenomicAnalyzer
 #region Result Types
 
 /// <summary>
-/// A known-motif hit (<see cref="GenomicAnalyzer.FindKnownMotifHits"/>): the 0-based start of the matching
+/// A known-motif hit (<see cref="GenomicAnalyzer.FindKnownMotifHits(DnaSequence, IEnumerable{string}, bool, bool, int)"/>): the 0-based start of the matching
 /// window on the forward strand and whether the motif was found on the reverse strand (the window matches
 /// the motif's reverse complement). <c>Mismatches</c> is the Hamming distance of the window to the motif (or to its
 /// reverse complement): always 0 for an exact search, ≤ <c>maxMismatches</c> otherwise (EMBOSS fuzznuc <c>*mismatch</c> note).

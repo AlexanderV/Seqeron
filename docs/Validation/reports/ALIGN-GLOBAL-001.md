@@ -97,3 +97,7 @@ Exact linear-space alignment (Hirschberg 1975 / Myers-Miller 1988 / Huang-Miller
 ## 2026-11 audit round 1 (A1-7b, B09 F59)
 
 The "one optimal alignment only" limitation of the global problem is lifted: `GlobalAlignCoOptimal` / `GlobalAlignAffineCoOptimal` / `SemiGlobalAlign*CoOptimal` (+ MCP `global_align_co_optimal`) enumerate every co-optimal alignment (capped) from the shared fill / border helpers of the single aligners - Biopython 1.88 set equal on 1 859 / 1 859 comparable oracle rows (all 16 end-gap policies, linear/affine, scalar and BLOSUM62), exhaustive enumeration equal on tiny pairs. See the algorithm doc §5.6.
+
+## Audit r2 addendum (A2-37, A2-43, B09 F80 / F85): one scoring contract, `null` scoring overloads
+
+Scalar `ScoringMatrix` and `MatrixScoring` now share one contract: gap scores <= 0 (and > `int.MinValue`), path score below 2^28 (`ArgumentException` instead of a silently wrapped score; e.g. `GlobalAlign("A"x50, "A"x50, new ScoringMatrix(1e9, -1, -2, -1))` returned 1 999 999 904 for the true 5e10); sum-of-pairs totals accumulate in 64 bits. `null` for the scoring argument compiles on every overload pair (`[OverloadResolutionPriority(1)]`). The MCP pairwise tools delegate empty input to the library (all-gap alignment). Tests: `SequenceAligner_ScoringContract_Tests`, `SequenceAligner_InputContract_Tests`, MCP `EmptyInputContractTests`.
