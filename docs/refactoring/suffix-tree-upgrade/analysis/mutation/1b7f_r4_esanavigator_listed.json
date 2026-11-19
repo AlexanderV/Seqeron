@@ -1,0 +1,11 @@
+[
+ {
+  "id": "V03",
+  "desc": "a leaf as deep as its parent is a node",
+  "old": "if (_isMapped && _n - saA + 1 <= parentDepth) ThrowCorruptChildTable();",
+  "new": "if (_isMapped && _n - saA + 1 < parentDepth) ThrowCorruptChildTable();",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaNavigator.cs",
+  "filter": "(FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SuffixIndexFactoryTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~IndexConformanceTests|FullyQualifiedName~SesaReaderGapTests|FullyQualifiedName~SesaReaderIsolationTests)",
+  "project": "esa"
+ }
+]
