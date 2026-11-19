@@ -43,5 +43,10 @@ Status labels:
 | Serialization/hash contracts | `Serialization/*` | Strong | Logical hash parity, truncation guards, import/export contracts. |
 | Storage lifecycle/safety | `Safety/*` | Strong | Dispose behavior, concurrency, read-only provider, overflow/guard checks. |
 
+## ESA backend (`SuffixTree.Esa.Tests`)
+Every member of `ISuffixTreeSearch`, `ISuffixTreeAnalysis`, `ISuffixTreeDiagnostics`, `ISuffixTree` and of the index contract (`ISuffixIndex`, `ISuffixTreeNavigation`, `ISuffixArrayAccess`, `IIndexText`) is called by the full differential
+fuzz of work package 1b.8 on the in-memory tree and on the file-backed tree (Header and Structure level, Checked and Trusted mode) and compared with the definitions, the Ukkonen tree and the v6 tree; the member-by-member list is
+`docs/refactoring/suffix-tree-upgrade/analysis/s1b/harness_member_coverage.tsv` (kept complete by a reflection test). The hand-written classes of `Facade/` run the derived copies of the Ukkonen and v6 assertions against the ESA.
+
 ## Residual Risk
 - `PrintTree()` still intentionally avoids full golden-snapshot locking to keep formatter evolution low-friction; structure and invariants are now asserted directly.

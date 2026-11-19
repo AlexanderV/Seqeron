@@ -1,0 +1,3 @@
+1b8_N01	CollectLeaves includes the rank of the empty suffix	survived
+1b8_N02	the child lookup does not stop at the end of the keys	killed(FAIL debruijn:0b6ce2be134daf2a:47:4:0 op memory-default:CheckEverything:exception:IndexOutOfRangeException: Index was outside the bounds of the array.; minimized to 1 unit(s): 0061)
+1b8_N03	the edge symbol ignores the parent depth	killed(FAIL periodic-noise:8c41c0570b0c9846:12:5:6 op memory-default:CheckEverything:assert: [memory-default] n=12 text 'bdcdebbdcdeb' query 'bdcdebbdcdeb': distinct entry 0 'cdebbd' differs from the definition 'bdcdebbdcdeb'; minimized )

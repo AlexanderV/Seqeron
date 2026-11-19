@@ -1,0 +1,2 @@
+1b8_F01	the Structure level is never checked	killed(FAIL corruption periodic-noise:6ad7860132aad399:145:4:20 SealedSwap: periodic-noise:6ad7860132aad399:145:4:20 n=145 SealedSwap (damage seed 5eeb138f7318a8fe, psi False): entries 119 and 120 of the suffix array exchanged, sealed: a)
+1b8_F02	the Sections level is never checked at Sections	killed(FAIL corruption fibonacci:541fbe09a317b15b:32:2:2362 BodyFlip: fibonacci:541fbe09a317b15b:32:2:2362 n=32 BodyFlip (damage seed 83c9bc047bf83e31, psi False): flip of body byte 6244: a flip of the body must be refused at Sections at)

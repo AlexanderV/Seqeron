@@ -1,0 +1,4 @@
+1b8_W01	an LCP value that is smaller than the true one is accepted	survived
+1b8_W02	NODE_COUNT may be larger than the true one	killed(FAIL corruption block-copy:55400936b041c085:547:20:260 HeaderField: block-copy:55400936b041c085:547:20:260 n=547 HeaderField (damage seed a5bc7b8e1ba2b7e0, psi True): flip of header byte 24, header checksum recomputed: every level)
+1b8_W03	LRS_DEPTH is not compared	killed(FAIL corruption runs:aafeefc68e356877:299:2:2 HeaderField: runs:aafeefc68e356877:299:2:2 n=299 HeaderField (damage seed 63994a9d2d847fef, psi False): flip of header byte 56, header checksum recomputed: every level accepted the fil)
+1b8_W04	the symbols of the text are not compared with SIGMA	killed(FAIL corruption block-copy:b10fa58abfa9010b:37:5:4 SealedPayloadFlip: block-copy:b10fa58abfa9010b:37:5:4 n=37 SealedPayloadFlip (damage seed ef7f2f5126ee2871, psi True): sealed flip of byte 4104 of section 1: the open at Structure)

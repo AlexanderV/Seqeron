@@ -1,0 +1,9 @@
+1b8_S01	the long overload of Locate ignores the skip	killed(FAIL permutation:0f8467f02c7d3b65:58:58:0 op memory-default:CheckAll:assert: [memory-default] n=58 node "" Locate pages of 1: got [38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,)
+1b8_S02	the descent of the in-memory trees does not stop at the end of the keys of an interval	killed(FAIL debruijn:0b6ce2be134daf2a:47:4:0 op memory-default:CheckEverything:exception:IndexOutOfRangeException: Index was outside the bounds of the array.; minimized to 5 unit(s): 0062 0062 0061 0062 0062)
+1b8_S03	the edge check of the descent leaves out one symbol	survived
+1b8_S04	a pattern longer than the rest of the suffix is sliced	killed(FAIL debruijn:0b6ce2be134daf2a:47:4:0 op memory-default:CheckEverything:exception:ArgumentOutOfRangeException: Specified argument was out of the range of valid values.; minimized to 1 unit(s): 0061)
+1b8_S05	the mapped descent translates the pattern to a wrong symbol	killed(FAIL debruijn:0b6ce2be134daf2a:47:4:0 op file-header-checked:CheckEverything:CountOccurrences: [file-header-checked] n=47 text 'aaabaacaadabbabcabdacbaccacdadbadcaddbbb...(47)': pattern 'a': CountOccurrences 13 against 16; minimiz)
+1b8_S06	the mapped descent accepts a child as deep as its parent	survived
+1b8_S07	TryMatch does not refuse the empty text	survived
+1b8_S08	an edge that ends exactly at the end of the text is refused (mapped)	killed(FAIL debruijn:0b6ce2be134daf2a:47:4:0 op file-header-checked:CheckEverything:Contains: [file-header-checked] n=47 text 'aaabaacaadabbabcabdacbaccacdadbadcaddbbb...(47)': pattern 'dbcc': Contains; minimized to 1 unit(s): 0061)
+1b8_S09	the mapped descent does not stop at a leaf mismatch of the first symbol	survived

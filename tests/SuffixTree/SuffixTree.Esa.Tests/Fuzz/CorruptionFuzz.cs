@@ -38,6 +38,9 @@ internal enum DamageKind
 
     /// <summary>One byte of the packed text, the alphabet, the symbol counts or the build information flipped and every checksum recomputed.</summary>
     SealedPayloadFlip,
+
+    /// <summary>One entry of the suffix array, the LCP array or the child table replaced by the entry next to it, by its own index or by the index next to it, sealed: the values that are plausible and wrong (equal depths, a cell that points at itself).</summary>
+    SealedNeighbour,
 }
 
 /// <summary>Counts of the corruption lane, per kind of damage and outcome, thread safe.</summary>
@@ -136,7 +139,7 @@ internal static class CorruptionFuzz
         var rng = new SplitMix64(damageSeed);
         bool psi = rng.NextInt(4) != 0;
         byte[] clean = SesaTestFile.Image(LcpChildCase.Of(text), psi);
-        (byte[] image, string what) = Damage(clean, kind, rng);
+        (byte[] image, string what, EsaValidationLevel? must) = Damage(clean, kind, rng);
         bool noop = image.AsSpan().SequenceEqual(clean);
         string where = $"{label} n={text.Length} {kind} (damage seed {damageSeed:x16}, psi {psi}): {what}";
         string path = Path.Combine(ctx.WorkDir, "d.sesa");
@@ -161,25 +164,8 @@ internal static class CorruptionFuzz
             }
         }
 
-        string? strict = null;
-        if (!noop)
-        {
-            switch (kind)
-            {
-                case DamageKind.HeaderFlip or DamageKind.Truncation or DamageKind.TrailingBytes when refusedAt != EsaValidationLevel.Header:
-                    strict = $"a damage of the {kind} kind must be refused at Header, the file was {(refusedAt is null ? "accepted" : "refused only at " + refusedAt)}";
-                    break;
-                case DamageKind.BodyFlip when refusedAt is null or EsaValidationLevel.Structure:
-                    strict = $"a flip of the body must be refused at Sections at the latest, the file was {(refusedAt is null ? "accepted" : "refused only at Structure")}";
-                    break;
-                case DamageKind.SealedByteFlip or DamageKind.SealedSwap when refusedAt is null:
-                    strict = "a sealed flip or swap of the suffix array, the LCP array, the child table or the PSI section must be refused at Structure";
-                    break;
-                default:
-                    break;
-            }
-        }
-        if (strict is not null) return $"{where}: {strict}";
+        if (!noop && must is { } mustLevel && (refusedAt is null || refusedAt > mustLevel))
+            return $"{where}: this damage must be refused at {mustLevel} at the latest, the file was {(refusedAt is null ? "accepted" : "refused only at " + refusedAt)}";
 
         if (refusedAt is null)
         {
@@ -210,7 +196,7 @@ internal static class CorruptionFuzz
         return null;
     }
 
-    private static (byte[] Image, string What) Damage(byte[] clean, DamageKind kind, SplitMix64 rng)
+    private static (byte[] Image, string What, EsaValidationLevel? Must) Damage(byte[] clean, DamageKind kind, SplitMix64 rng)
     {
         byte[] image = (byte[])clean.Clone();
         SesaOracle o = SesaOracle.FromBytes(image);
@@ -220,13 +206,13 @@ internal static class CorruptionFuzz
             {
                 int at = rng.NextInt(SesaFormat.PageBytes);
                 image[at] ^= (byte)(1 + rng.NextInt(255));
-                return (image, $"flip of page byte {at}");
+                return (image, $"flip of page byte {at}", EsaValidationLevel.Header);
             }
             case DamageKind.BodyFlip:
             {
                 int at = SesaFormat.PageBytes + rng.NextInt(image.Length - SesaFormat.PageBytes);
                 image[at] ^= (byte)(1 + rng.NextInt(255));
-                return (image, $"flip of body byte {at}");
+                return (image, $"flip of body byte {at}", EsaValidationLevel.Sections);
             }
             case DamageKind.SealedByteFlip:
             {
@@ -234,18 +220,18 @@ internal static class CorruptionFuzz
                 int at = (int)s.Offset + rng.NextInt((int)s.Length);
                 image[at] ^= (byte)(1 + rng.NextInt(255));
                 SesaTestFile.Reseal(image);
-                return (image, $"sealed flip of byte {at} of section {s.Kind}");
+                return (image, $"sealed flip of byte {at} of section {s.Kind}", EsaValidationLevel.Structure);
             }
             case DamageKind.Truncation:
             {
                 int length = rng.NextInt(image.Length);
-                return (image[..length], $"truncation to {length}");
+                return (image[..length], $"truncation to {length}", EsaValidationLevel.Header);
             }
             case DamageKind.SealedWords:
             {
                 OracleSection s = Pick(o, rng, SesaFormat.KindSa, SesaFormat.KindChild, SesaFormat.KindLcp, SesaFormat.KindPsi, SesaFormat.KindLcpOverflow);
                 int words = (int)(s.Length / 4);
-                if (words == 0) return (image, "no words");
+                if (words == 0) return (image, "no words", null);
                 long n = o.TextLen;
                 uint[] extreme = [0, 1, (uint)n, (uint)n + 1, (uint)n + 2, 0x7FFFFFFF, 0x80000000, 0xFFFFFFFF, 0xFFFFFFFE, 0x40000000, 0x3FFFFFFF, 0xC0000001];
                 int hits = 1 + rng.NextInt(Math.Max(1, words / 5));
@@ -256,13 +242,13 @@ internal static class CorruptionFuzz
                     BinaryPrimitives.WriteUInt32LittleEndian(image.AsSpan((int)s.Offset + (4 * w)), v);
                 }
                 SesaTestFile.Reseal(image);
-                return (image, $"{hits} word(s) of section {s.Kind} replaced, sealed");
+                return (image, $"{hits} word(s) of section {s.Kind} replaced, sealed", null);
             }
             case DamageKind.SealedSwap:
             {
                 OracleSection s = o.Get(SesaFormat.KindSa);
                 long n = o.TextLen;
-                if (n < 2) return (image, "text too short for a swap");
+                if (n < 2) return (image, "text too short for a swap", null);
                 int r = 1 + rng.NextInt((int)n - 1);
                 int at = (int)s.Offset + (4 * r);
                 int a = BinaryPrimitives.ReadInt32LittleEndian(image.AsSpan(at));
@@ -270,7 +256,7 @@ internal static class CorruptionFuzz
                 BinaryPrimitives.WriteInt32LittleEndian(image.AsSpan(at), b);
                 BinaryPrimitives.WriteInt32LittleEndian(image.AsSpan(at + 4), a);
                 SesaTestFile.Reseal(image);
-                return (image, $"entries {r} and {r + 1} of the suffix array exchanged, sealed");
+                return (image, $"entries {r} and {r + 1} of the suffix array exchanged, sealed", EsaValidationLevel.Structure);
             }
             case DamageKind.TrailingBytes:
             {
@@ -278,7 +264,7 @@ internal static class CorruptionFuzz
                 var longer = new byte[image.Length + extra];
                 image.CopyTo(longer, 0);
                 for (int i = image.Length; i < longer.Length; i++) longer[i] = (byte)rng.NextInt(256);
-                return (longer, $"{extra} bytes appended");
+                return (longer, $"{extra} bytes appended", EsaValidationLevel.Header);
             }
             case DamageKind.HeaderField:
             {
@@ -286,7 +272,8 @@ internal static class CorruptionFuzz
                 image[at] ^= (byte)(1 + rng.NextInt(255));
                 int count = BinaryPrimitives.ReadInt32LittleEndian(image.AsSpan(48));
                 if (count is >= 1 and <= SesaFormat.MaxSections) SesaTestFile.ResealHeader(image); // a damaged SECTION_COUNT has no checksum to compute: the stale one refuses the file
-                return (image, $"flip of header byte {at}, header checksum recomputed");
+                // the magic and the reserved word are fixed by the format (ADR-003): a change is refused at Header
+                return (image, $"flip of header byte {at}, header checksum recomputed", at < 8 || at is >= 120 and < 124 ? EsaValidationLevel.Header : null);
             }
             case DamageKind.SealedPayloadFlip:
             {
@@ -294,7 +281,30 @@ internal static class CorruptionFuzz
                 int at = (int)s.Offset + rng.NextInt((int)s.Length);
                 image[at] ^= (byte)(1 + rng.NextInt(255));
                 SesaTestFile.Reseal(image);
-                return (image, $"sealed flip of byte {at} of section {s.Kind}");
+                // the symbol counts must sum to the length of the text: any single changed byte breaks the sum
+                return (image, $"sealed flip of byte {at} of section {s.Kind}", s.Kind == SesaFormat.KindCounts ? EsaValidationLevel.Header : null);
+            }
+            case DamageKind.SealedNeighbour:
+            {
+                OracleSection s = Pick(o, rng, SesaFormat.KindSa, SesaFormat.KindLcp, SesaFormat.KindChild);
+                int width = s.Kind == SesaFormat.KindLcp ? Math.Max(1, s.ElemWidth) : 4;
+                int entries = (int)(s.Length / width);
+                if (entries < 3) return (image, "section too short", null);
+                int r = 1 + rng.NextInt(entries - 2);
+                int mode = rng.NextInt(4);
+                int at = (int)s.Offset + (r * width);
+                if (mode < 2)
+                {
+                    int from = (int)s.Offset + ((r + (mode == 0 ? -1 : 1)) * width);
+                    image.AsSpan(from, width).CopyTo(image.AsSpan(at, width));
+                }
+                else
+                {
+                    long value = mode == 2 ? r : r + 1;
+                    for (int b = 0; b < width; b++) image[at + b] = (byte)(value >> (8 * b));
+                }
+                SesaTestFile.Reseal(image);
+                return (image, $"entry {r} of section {s.Kind} replaced by {(mode switch { 0 => "the previous entry", 1 => "the next entry", 2 => "its own index", _ => "its index + 1" })}, sealed", null);
             }
             default:
             {
@@ -303,7 +313,7 @@ internal static class CorruptionFuzz
                 int at = 128 + (64 * index) + b;
                 image[at] ^= (byte)(1 + rng.NextInt(255));
                 SesaTestFile.ResealHeader(image);
-                return (image, $"flip of byte {b} of section-table entry {index}, header checksum recomputed");
+                return (image, $"flip of byte {b} of section-table entry {index}, header checksum recomputed", null);
             }
         }
     }

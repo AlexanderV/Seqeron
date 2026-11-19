@@ -1,0 +1,4 @@
+1b8_H01	a FILE_SIZE smaller than the file is accepted (trailing bytes)	survived
+1b8_H02	the header checksum is not compared	killed(FAIL corruption debruijn:24d5388c121ab901:41:1:0 HeaderFlip: debruijn:24d5388c121ab901:41:1:0 n=41 HeaderFlip (damage seed dfdeea82034221d5, psi True): flip of page byte 232: a damage of the HeaderFlip kind must be refused at Head)
+1b8_H03	the reserved header word may be anything	survived
+1b8_H04	COUNTS may sum to less than the text	survived

@@ -33,6 +33,17 @@ Keep tests discoverable, non-duplicated, and contract-driven across all suffix-t
 - `Algorithms/`
   - Algorithm-level fuzzing on persistent backend.
 
+### `tests/SuffixTree/SuffixTree.Esa.Tests` (ESA backend: in-memory `EsaSuffixTree` and the file-backed tree of `SuffixIndexFactory.Open`)
+- `Facade/`
+  - The `ISuffixTree`-level assertions of the other two projects re-run through a backend factory (`Ported/`), `FacadeChecks` (every member against the definitions, the Ukkonen tree and the v6 tree), the shared-index tests
+    (`FacadeConcurrencyTests`, `FacadeSharedIndexTests`: four threads, 20 repetitions, checksums equal to the single-thread run, once-only build of the navigation pack) and the Dispose race (`FacadeDisposeRaceTests`, a child process).
+- `Contract/`, `External/`
+  - The index contract (ADR-001) and its conformance suite over the in-memory and the file-backed factories; the container (SESA) builder, the reader, the validation levels and the damaged-file tests.
+- `Fuzz/` (category `Fuzz`, `[Explicit]`, time budget from the environment; the S8 CI job runs the same code)
+  - The 1a.7 harness (seeded generator families x alphabet sizes x size bands, minimizer, regression corpus `regressions.txt`) and the full differential fuzz of 1b.8 (`FullFuzzRunner`: every engine, every member of the
+    interfaces, the container corruption fuzz, the shared-index test; `FullDifferentialFuzzTests` is the budgeted run). The operation coverage list is `docs/refactoring/suffix-tree-upgrade/analysis/s1b/harness_member_coverage.tsv`
+    (one row per interface member; a reflection test in the default run fails when a member has no row).
+
 ### `tests/SuffixTree/SuffixTree.Mcp.Core.Tests` (MCP tools)
 - `Core/`
   - Suffix-tree MCP tools behavior + cross-tool consistency/oracle checks.

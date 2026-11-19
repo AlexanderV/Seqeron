@@ -1,0 +1,1 @@
+1b8_V01	a copy that ends exactly at the end of the suffix array is refused	killed(FAIL debruijn:0b6ce2be134daf2a:47:4:0 op memory-default:CheckEverything:exception:InvalidDataException: the suffix array is read at rank 40, but the section has 48 entries: the file is damaged; minimized to 1 unit(s): 0061)

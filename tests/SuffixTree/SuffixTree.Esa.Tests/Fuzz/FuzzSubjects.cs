@@ -66,8 +66,11 @@ internal sealed class FuzzSubjects : IDisposable
     /// <summary>True when the text has a code unit above 255 and the file-backed engines were left out.</summary>
     internal bool FileSkipped { get; }
 
-    /// <summary>Ticks spent building the references.</summary>
+    /// <summary>Ticks spent building the Ukkonen tree.</summary>
     internal long ReferenceBuildTicks { get; private set; }
+
+    /// <summary>Ticks spent building the v6 tree.</summary>
+    internal long V6BuildTicks { get; private set; }
 
     /// <summary>The options of the container builder for a text of <paramref name="n"/> symbols.</summary>
     internal static SesaBuildOptions ContainerOptions(int n, FullFuzzConfig cfg) => n <= TinyBuilderUpTo
@@ -89,8 +92,9 @@ internal sealed class FuzzSubjects : IDisposable
         int n = text.Length;
         long t0 = Stopwatch.GetTimestamp();
         UkkonenTree ukkonen = UkkonenTree.Build(text);
+        long t1 = Stopwatch.GetTimestamp();
         PersistentSuffixTree? v6 = n <= v6UpTo ? PersistentSuffixTreeFactory.CreatePersistent(new StringTextSource(text)) : null;
-        var set = new FuzzSubjects(ukkonen, v6, text.Any(c => c > 255)) { ReferenceBuildTicks = Stopwatch.GetTimestamp() - t0 };
+        var set = new FuzzSubjects(ukkonen, v6, text.Any(c => c > 255)) { ReferenceBuildTicks = t1 - t0, V6BuildTicks = Stopwatch.GetTimestamp() - t1 };
         try
         {
             FuzzSteps.Run(FuzzSteps.Open, () => set.BuildMemory(text, cfg, counters));

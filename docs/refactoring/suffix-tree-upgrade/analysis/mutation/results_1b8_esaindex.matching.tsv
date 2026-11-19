@@ -1,0 +1,4 @@
+1b8_M01	MEM accepts a minimum length below 1	survived
+1b8_M02	MUM accepts an undefined uniqueness	survived
+1b8_M03	the info of no common substring reports position 0	killed(FAIL permutation:0f8467f02c7d3b65:58:58:0 op memory-default:CheckEverything:info: [memory-default] n=58 text '3! )&$26   %-)
+1b8_M04	the anchors accept a null query (the reference check is left out)	survived

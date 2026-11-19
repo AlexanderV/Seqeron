@@ -74,6 +74,9 @@ internal static class FullFuzzCheck
     /// <summary>Texts up to this length are checked against the definitions with <see cref="FacadeChecks.CheckEverything"/>.</summary>
     internal const int DefinitionsUpTo = 120;
 
+    /// <summary>Texts up to this length also have three queries checked against the ByDefinition implementations of MEM, MUM and the longest common substrings.</summary>
+    internal const int MatchingDefinitionsUpTo = 1000;
+
     /// <summary>Texts up to this length are checked by the contract checker.</summary>
     internal const int ContractUpTo = 150;
 
@@ -131,6 +134,7 @@ internal static class FullFuzzCheck
         {
             if (set.FileSkipped) Interlocked.Increment(ref ctx.SkippedForFile);
             ctx.Stats.AddBuild("ukkonen", set.ReferenceBuildTicks);
+            ctx.Stats.AddBuild("v6", set.V6BuildTicks);
             FuzzScript script = FuzzScript.Create(text, cfg.Seed);
             DigestLimits limits = DigestLimits.Default;
             List<string> ukkonenDigest;
@@ -190,6 +194,12 @@ internal static class FullFuzzCheck
                 FuzzSteps.Run(FuzzSteps.Definitions, () => FacadeChecks.CheckEverything(view, set.Ukkonen, set.V6, text, cfg.Seed, where, maxPatternLength: 4, printTree: n <= 64));
             else
                 FuzzSteps.Run(FuzzSteps.Search, () => FacadeChecks.CheckSearch(view, text, script.Patterns, where));
+            if (n > DefinitionsUpTo && n <= MatchingDefinitionsUpTo)
+            {
+                // the matching members against the definition-level implementations (ByDefinition) on three queries of the script, where the definitions are still affordable
+                foreach (string query in script.Queries.Where(q => q.Length > 0).Take(3))
+                    FuzzSteps.Run(FuzzSteps.Definitions, () => FacadeChecks.CheckMatching(view, set.Ukkonen, text, query, [1, 3, 8], where));
+            }
 
             List<string> digest = FuzzSteps.Run(FuzzSteps.Digest, () => FuzzDigest.Compute(view, text, script, limits));
             if (FuzzDigest.Diff(digest, ukkonenDigest, engine, "ukkonen") is { } d1) return new FuzzMismatch($"{engine}:{DigestOp(d1)}", d1);
@@ -202,6 +212,7 @@ internal static class FullFuzzCheck
             if (!ReferenceEquals(firstContract, contract) && FuzzDigest.Diff(contract, firstContract, engine, "the first in-memory tree") is { } d3)
                 return new FuzzMismatch($"{engine}:contract-digest:{FuzzDigest.LabelOf(contract[0])}", d3);
 
+            if (FuzzSteps.Run(FuzzSteps.ContractDigest, () => FuzzContractDigest.NegativeLoci(subject.Tree, text)) is { } negative) return new FuzzMismatch($"{engine}:negative-locus", negative);
             string? arrays = FuzzSteps.Run(FuzzSteps.Arrays, () => SuffixArrayLevel(subject.Tree, text, oracles));
             if (arrays is not null) return new FuzzMismatch($"{engine}:arrays", arrays);
             return null;

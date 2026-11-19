@@ -1,0 +1,88 @@
+full differential fuzz: master seed 1, 5.2 s, 9 cases, 2 failure(s)
+lane tiny: budget 14 s, ran 5.2 s, 9 cases (347 code units), 0 skipped, 2 failure(s); first debruijn:0b6ce2be134daf2a:47:4:0, last runs:d0a659f4c6c7fb7b:44:5:2
+families of lane tiny: akb=1, debruijn=1, periodic-noise=1, permutation=4, runs=2
+texts with a code unit above 255 (no file-backed engines): 0
+engine	checks	check_s	checks_per_s	build_s	member_calls
+memory-default	9	0.5	17.1	0.0	307510
+memory-packed	7	0.5	13.9	0.0	306117
+memory-reference3	7	0.4	19.3	0.0	306117
+file-header-checked	7	0.4	18.9	0.3	306144
+file-header-trusted	7	0.4	17.9	0.3	306144
+file-structure-checked	7	0.3	26.0	0.4	306148
+file-structure-trusted	7	0.3	21.3	0.5	306148
+ukkonen	9	0.1	74.1	0.1	0
+v6	9	0.1	75.4	0.0	0
+corruption: 0 cases (0 skipped), batteries 0 (0 between guard pages, 0 operations answered, 0 refused as InvalidDataException); HeaderFlip: 0 (refused@Header 0, refused@Sections 0, refused@Structure 0, opened-equal 0); BodyFlip: 0 (refused@Header 0, refused@Sections 0, refused@Structure 0, opened-equal 0); SealedByteFlip: 0 (refused@Header 0, refused@Sections 0, refused@Structure 0, opened-equal 0); Truncation: 0 (refused@Header 0, refused@Sections 0, refused@Structure 0, opened-equal 0); SealedWords: 0 (refused@Header 0, refused@Sections 0, refused@Structure 0, opened-equal 0); SealedSwap: 0 (refused@Header 0, refused@Sections 0, refused@Structure 0, opened-equal 0); TrailingBytes: 0 (refused@Header 0, refused@Sections 0, refused@Structure 0, opened-equal 0); TableField: 0 (refused@Header 0, refused@Sections 0, refused@Structure 0, opened-equal 0); HeaderField: 0 (refused@Header 0, refused@Sections 0, refused@Structure 0, opened-equal 0); SealedPayloadFlip: 0 (refused@Header 0, refused@Sections 0, refused@Structure 0, opened-equal 0)
+concurrency: 0 repetitions, 0 thread runs, 0 checksums equal to the single-thread run, 0 repetitions with the once-only pack build checked
+member	memory-default	memory-packed	memory-reference3	file-header-checked	file-header-trusted	file-structure-checked	file-structure-trusted	total	steps
+EsaOpenOptions.Access	0	0	0	9	9	9	9	36	FuzzSubjects.Build
+EsaOpenOptions.Validation	0	0	0	9	9	9	9	36	FuzzSubjects.Build
+EsaOpenOptions.VerifyTextSha256	0	0	0	0	0	4	4	8	FuzzSubjects.Build
+EsaSuffixTreeFactory.Create(ITextSource)	1	0	0	0	0	0	0	1	FuzzSubjects.Build
+EsaSuffixTreeFactory.Create(String)	3	0	0	0	0	0	0	3	FuzzSubjects.Build
+EsaSuffixTreeFactory.CreateEsa(ITextSource)	2	0	0	0	0	0	0	2	FuzzSubjects.Build
+EsaSuffixTreeFactory.CreateEsa(String)	3	0	0	0	0	0	0	3	FuzzSubjects.Build
+EsaSuffixTreeFactory.Open(String,EsaOpenOptions)	0	0	0	4	0	0	0	4	FuzzSubjects.Build
+IDisposable.Dispose()	9	9	9	9	9	9	9	63	FuzzSubjects.Build
+IIndexText.CopyTo(Int64,Span<Char>)	7	7	7	7	7	7	7	49	FuzzContractDigest.Compute
+IIndexText.Length	14	14	14	14	14	14	14	98	EsaContractChecker.CheckAll;FuzzContractDigest.Compute
+IIndexText.SymbolAt(Int64)	298	298	298	298	298	298	298	2086	EsaContractChecker.CheckAll;FuzzContractDigest.Compute
+ISuffixArrayAccess.Lca(Int64,Int64)	7698	7698	7698	7698	7698	7698	7698	53886	EsaContractChecker.CheckAll;FuzzContractDigest.Compute
+ISuffixArrayAccess.Lcp(Int64,Int64)	7698	7698	7698	7698	7698	7698	7698	53886	EsaContractChecker.CheckAll;FuzzContractDigest.Compute
+ISuffixArrayAccess.LcpAt(Int64)	603	603	603	603	603	603	603	4221	EsaContractChecker.CheckAll;FuzzContractDigest.Compute;FullFuzzCheck.SuffixArrayLevel
+ISuffixArrayAccess.RankOf(Int64)	603	603	603	603	603	603	603	4221	EsaContractChecker.CheckAll;FuzzContractDigest.Compute;FullFuzzCheck.SuffixArrayLevel
+ISuffixArrayAccess.SuffixAt(Int64)	603	603	603	603	603	603	603	4221	EsaContractChecker.CheckAll;FuzzContractDigest.Compute;FullFuzzCheck.SuffixArrayLevel
+ISuffixIndex.Count(IndexLocus)	2195	2195	2195	2195	2195	2195	2195	15365	EsaContractChecker.CheckAll;FuzzContractDigest.Compute
+ISuffixIndex.Engine	14	14	14	14	14	14	14	98	EsaContractChecker.CheckAll;FuzzContractDigest.Compute
+ISuffixIndex.Locate(IndexLocus,Int64,Span<Int64>)	13335	13335	13335	13335	13335	13335	13335	93345	EsaContractChecker.CheckAll;FuzzContractDigest.Compute
+ISuffixIndex.Root	49	49	49	49	49	49	49	343	EsaContractChecker.CheckAll;FuzzContractDigest.Compute
+ISuffixIndex.Support(IndexOperation)	98	98	98	98	98	98	98	686	FuzzContractDigest.Compute
+ISuffixIndex.SupportNote(IndexOperation)	98	98	98	98	98	98	98	686	FuzzContractDigest.Compute
+ISuffixIndex.Text	277	277	277	277	277	277	277	1939	EsaContractChecker.CheckAll;FuzzContractDigest.Compute
+ISuffixIndex.TextLength	14	14	14	14	14	14	14	98	EsaContractChecker.CheckAll;FuzzContractDigest.Compute
+ISuffixIndex.TryExtendLeft(IndexLocus,Int32,IndexLocus)	78673	78673	78673	78673	78673	78673	78673	550711	EsaContractChecker.CheckAll;FuzzContractDigest.Compute
+ISuffixIndex.TryExtendRight(IndexLocus,Int32,IndexLocus)	79764	79764	79764	79764	79764	79764	79764	558348	EsaContractChecker.CheckAll;FuzzContractDigest.Compute
+ISuffixIndex.TryExtendRight(IndexLocus,ReadOnlySpan<Char>,IndexLocus)	70098	70098	70098	70098	70098	70098	70098	490686	EsaContractChecker.CheckAll
+ISuffixTree.CountDistinctSubstrings()	14	14	14	14	14	14	14	98	FacadeChecks.CheckEverything;FuzzDigest.Compute
+ISuffixTree.CountDistinctSubstringsByLength(Int32)	119	119	119	119	119	119	119	833	FacadeChecks.CheckEverything;FuzzDigest.Compute
+ISuffixTree.FindAllLongestRepeatedSubstrings()	16	14	14	14	14	14	14	100	FacadeChecks.CheckEverything;FuzzDigest.Compute
+ISuffixTree.FindMaximalRepeatedPairs(Int32,Func<Char,Boolean>)	112	112	112	112	112	112	112	784	FacadeChecks.CheckEverything;FuzzDigest.Compute
+ISuffixTreeAnalysis.EnumerateSuffixes()	14	14	14	14	14	14	14	98	FacadeChecks.CheckEverything;FuzzDigest.Compute
+ISuffixTreeAnalysis.FindAllDistinctLongestCommonSubstrings(String)	147	147	147	147	147	147	147	1029	FacadeChecks.CheckEverything;FuzzDigest.Compute
+ISuffixTreeAnalysis.FindAllLongestCommonSubstrings(String)	147	147	147	147	147	147	147	1029	FacadeChecks.CheckEverything;FuzzDigest.Compute
+ISuffixTreeAnalysis.FindExactMatchAnchors(String,Int32)	777	777	777	777	777	777	777	5439	FacadeChecks.CheckEverything;FuzzDigest.Compute
+ISuffixTreeAnalysis.FindMaximalExactMatches(String,Int32)	651	651	651	651	651	651	651	4557	FacadeChecks.CheckEverything;FuzzDigest.Compute
+ISuffixTreeAnalysis.FindMaximalUniqueMatches(String,Int32,MumUniqueness)	2191	2191	2191	2191	2191	2191	2191	15337	FacadeChecks.CheckEverything;FuzzDigest.Compute
+ISuffixTreeAnalysis.GetAllSuffixes()	14	14	14	14	14	14	14	98	FacadeChecks.CheckEverything;FuzzDigest.Compute
+ISuffixTreeAnalysis.LongestCommonSubstring(ReadOnlySpan<Char>)	140	140	140	140	140	140	140	980	FacadeChecks.CheckEverything;FuzzDigest.Compute
+ISuffixTreeAnalysis.LongestCommonSubstring(String)	147	147	147	147	147	147	147	1029	FacadeChecks.CheckEverything;FuzzDigest.Compute
+ISuffixTreeAnalysis.LongestCommonSubstringInfo(String)	147	147	147	147	147	147	147	1029	FacadeChecks.CheckEverything;FuzzDigest.Compute
+ISuffixTreeAnalysis.LongestRepeatedSubstring()	23	21	21	21	21	21	21	149	FacadeChecks.CheckEverything;FuzzDigest.Compute
+ISuffixTreeAnalysis.LongestRepeatedSubstringMemory()	16	14	14	14	14	14	14	100	FacadeChecks.CheckEverything;FuzzDigest.Compute
+ISuffixTreeDiagnostics.PrintTree()	21	21	21	21	21	21	21	147	FacadeChecks.CheckEverything;FuzzDigest.Compute
+ISuffixTreeDiagnostics.Traverse(ISuffixTreeVisitor)	28	28	28	28	28	28	28	196	FacadeChecks.CheckEverything;FuzzDigest.Compute
+ISuffixTreeNavigation.EdgeSymbol(IndexLocus,Int64)	7801	7801	7801	7801	7801	7801	7801	54607	EsaContractChecker.CheckAll;FuzzContractDigest.Compute
+ISuffixTreeNavigation.GetChildren(IndexLocus,Span<IndexLocus>)	1668	1668	1668	1668	1668	1668	1668	11676	EsaContractChecker.CheckAll;FuzzContractDigest.Compute
+ISuffixTreeNavigation.IsExplicitNode(IndexLocus)	2181	2181	2181	2181	2181	2181	2181	15267	EsaContractChecker.CheckAll;FuzzContractDigest.Compute
+ISuffixTreeNavigation.TryChild(IndexLocus,Int32,IndexLocus)	11361	11361	11361	11361	11361	11361	11361	79527	EsaContractChecker.CheckAll;FuzzContractDigest.Compute
+ISuffixTreeNavigation.TryParent(IndexLocus,IndexLocus)	2181	2181	2181	2181	2181	2181	2181	15267	EsaContractChecker.CheckAll;FuzzContractDigest.Compute
+ISuffixTreeNavigation.TrySuffixLink(IndexLocus,IndexLocus)	551	551	551	551	551	551	551	3857	EsaContractChecker.CheckAll;FuzzContractDigest.Compute
+ISuffixTreeSearch.Contains(ReadOnlySpan<Char>)	1934	1707	1707	1707	1707	1707	1707	12176	FacadeChecks.CheckEverything;FuzzDigest.Compute
+ISuffixTreeSearch.Contains(String)	1941	1714	1714	1714	1714	1714	1714	12225	FacadeChecks.CheckEverything;FuzzDigest.Compute
+ISuffixTreeSearch.CountOccurrences(ReadOnlySpan<Char>)	1934	1707	1707	1707	1707	1707	1707	12176	FacadeChecks.CheckEverything;FuzzDigest.Compute
+ISuffixTreeSearch.CountOccurrences(String)	1941	1714	1714	1714	1714	1714	1714	12225	FacadeChecks.CheckEverything;FuzzDigest.Compute
+ISuffixTreeSearch.FindAllOccurrences(ReadOnlySpan<Char>)	1934	1707	1707	1707	1707	1707	1707	12176	FacadeChecks.CheckEverything;FuzzDigest.Compute
+ISuffixTreeSearch.FindAllOccurrences(String)	1941	1714	1714	1714	1714	1714	1714	12225	FacadeChecks.CheckEverything;FuzzDigest.Compute
+ISuffixTreeSearch.IsEmpty	16	14	14	14	14	14	14	100	FacadeChecks.CheckEverything;FuzzDigest.Compute
+ISuffixTreeSearch.LeafCount	30	28	28	28	28	28	28	198	FacadeChecks.CheckEverything;FuzzDigest.Compute
+ISuffixTreeSearch.MaxDepth	30	28	28	28	28	28	28	198	FacadeChecks.CheckEverything;FuzzDigest.Compute
+ISuffixTreeSearch.NodeCount	39	35	35	35	35	35	35	249	FacadeChecks.CheckEverything;FuzzDigest.Compute
+ISuffixTreeSearch.Text	32	28	28	28	28	28	28	200	FacadeChecks.CheckEverything;FuzzDigest.Compute
+ISuffixTreeVisitor.EnterBranch(Int32)	1014	1014	1014	1014	1014	1014	1014	7098	FacadeChecks.CheckEverything;FuzzDigest.Compute
+ISuffixTreeVisitor.ExitBranch()	1014	1014	1014	1014	1014	1014	1014	7098	FacadeChecks.CheckEverything;FuzzDigest.Compute
+ISuffixTreeVisitor.VisitNode(Int32,Int32,Int32,Int32,Int32)	1035	1035	1035	1035	1035	1035	1035	7245	FacadeChecks.CheckEverything;FuzzDigest.Compute
+ITextSource.Item[Int32]	21	21	21	21	21	21	21	147	FuzzDigest.Compute
+ITextSource.Length	16	14	14	14	14	14	14	100	FacadeChecks.CheckEverything;FuzzDigest.Compute
+ITextSource.Slice(Int32,Int32)	7	7	7	7	7	7	7	49	FuzzDigest.Compute
+ITextSource.Substring(Int32,Int32)	7	7	7	7	7	7	7	49	FuzzDigest.Compute
+SuffixIndexFactory.Open(String,EsaOpenOptions)	0	0	0	5	9	9	9	32	FuzzSubjects.Build

@@ -67,6 +67,18 @@ internal sealed class FuzzScript
             }
         }
 
+        // patterns that deviate from a present pattern at one position (the first mismatch inside an edge, not at a key): the absent patterns that a descent must refuse after having matched a prefix
+        char[] alphabet = [.. text.Take(2000).Distinct().Append('q').Append('\u0001')];
+        int present = patterns.Count;
+        for (int k = 0; k < 14 && present > 0; k++)
+        {
+            string basis = patterns[rng.NextInt(present)];
+            if (basis.Length < 2) continue;
+            int at = rng.NextInt(basis.Length);
+            char symbol = alphabet[rng.NextInt(alphabet.Length)];
+            if (symbol != basis[at]) patterns.Add(string.Concat(basis.AsSpan(0, at), symbol.ToString(), basis.AsSpan(at + 1)));
+        }
+
         var queries = new List<string>();
         if (n <= ExhaustivePatternsUpTo)
         {
@@ -491,6 +503,44 @@ internal static class FuzzContractDigest
             Add($"{at}.absent", $"{tree.TryExtendRight(node, 0xFFFF, out _)}/{tree.TryChild(node, 0x0100, out _)}/{LeftOf(tree, node, 'z')}");
         }
         return lines;
+    }
+
+    /// <summary>
+    /// Loci that are not loci, with the answer fixed by the contract (not compared with another engine, which shares the code): a point at the depth of the parent of a node but with the interval of the node lies on the parent, not
+    /// inside the edge of the node, and is an <see cref="ArgumentException"/>; so is a locus with an interval that is not a node of its depth. Null when every probe was refused.
+    /// </summary>
+    internal static string? NegativeLoci<T>(T tree, string text, int nodeBudget = 60)
+        where T : ISuffixTreeNavigation
+    {
+        var queue = new Queue<IndexLocus>();
+        queue.Enqueue(tree.Root);
+        int visited = 0;
+        while (queue.Count > 0 && visited < nodeBudget)
+        {
+            IndexLocus node = queue.Dequeue();
+            visited++;
+            if (node.Length > 0 && tree.TryParent(node, out IndexLocus parent) && parent.Length > 0 && parent.Length < node.Length)
+            {
+                var onTheParent = new IndexLocus(node.Lo, node.Hi, parent.Length, node.Aux);
+                foreach ((string what, Action call) in new (string, Action)[] { ("IsExplicitNode", () => tree.IsExplicitNode(onTheParent)), ("TryParent", () => tree.TryParent(onTheParent, out _)) })
+                {
+                    try
+                    {
+                        call();
+                        return $"{what} of {Render(onTheParent)} (a point at the depth of the parent {Render(parent)} with the interval of the node {Render(node)}) did not throw";
+                    }
+                    catch (ArgumentException)
+                    {
+                        // refused, as the contract says
+                    }
+                }
+            }
+            int count = tree.GetChildren(node, []);
+            var children = new IndexLocus[Math.Min(count, 1_000_000)];
+            if (count > 0 && tree.GetChildren(node, children) != count) return $"GetChildren of {Render(node)} returned another count at the second call";
+            for (int i = 0; i < Math.Min(count, 4); i++) queue.Enqueue(children[i]);
+        }
+        return null;
     }
 
     private static string LeftOf<T>(T tree, IndexLocus node, int symbol)
