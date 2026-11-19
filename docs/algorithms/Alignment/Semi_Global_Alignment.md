@@ -134,6 +134,8 @@ The repository implementation uses `scoring.GapExtend` as the linear gap penalty
 - `SequenceAligner.LinearAlignCore(string, string, PairScoring, EndGaps, …)`: linear-gap DP shared with `GlobalAlign`; the end-gap flags zero the first row/column and choose the end cell (last row and/or column maximum).
 - `SequenceAligner.Traceback(...)`: shared traceback routine used for both global and ends-free alignment; `AffineAlignCore(…, EndGaps)` is its Gotoh counterpart.
 
+- **Further entry points (partial files of `SequenceAligner`):** `SemiGlobalAlign(…, EndGaps)` / `SemiGlobalAlignAffine(…, EndGaps)` (all 16 end-gap policies, §5.4), `SemiGlobalAlignLinearSpace` / `SemiGlobalAlignAffineLinearSpace` (`SequenceAligner.LinearSpace.cs`), `SemiGlobalAlignCoOptimal` / `SemiGlobalAlignAffineCoOptimal` (`SequenceAligner.GlobalCoOptimal.cs`), `SemiGlobalAlignGeneralGap` (`SequenceAligner.GeneralGap.cs`), the substitution-matrix overloads (Global page §5.4).
+
 **Supporting types:** [AlignmentTypes.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Infrastructure/AlignmentTypes.cs), [DnaSequence.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Core/DnaSequence.cs)
 
 ### 5.2 Current Behavior

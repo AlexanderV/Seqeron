@@ -10,6 +10,7 @@
 
 - **Stage A:** PASS-WITH-NOTES. **Stage B:** PASS-WITH-NOTES. **State:** FIXED.
 - **Fixes (B09.md, F-numbers):** F15 `PositionInFirst` = first (lowest) occurrence, F16 `FindCommonRegions` quadratic -> matching statistics (Chang & Lawler; 1 Mbp pair ~ 4 s), F17 MCP / doc claims.
+- **Audit round 2 (A2-30 / A2-35, F94 / F99):** `CommonRegionMode` (right-maximal, MEM, MUM-reference, MUM), strands (`mummer -r` / `-b`), `FindLongestCommonRegionWithMismatches` (k-mismatch LCS), N-sequence LCS, string / IUPAC overloads; oracles: `mummer` 3.23 on 4 716 (reference, query, L, mode) rows, 1 680 k-mismatch and 694 N-sequence brute-force rows (`scripts/analysis/generate_common_region_strand_oracle.py`); MCP `find_common_regions` (mode / strands), `find_longest_common_region_mismatches`.
 - **Oracle numbers:** 283-pair independent oracle (O(nm) DP + suffix automaton + brute-force matching statistics): every LCS and region equal after F15.
 - **Open items:** registered, not doable here: a public per-position matching-statistics API on `ISuffixTreeAnalysis` (B05, QUEUE R17) would replace `GenomicAnalyzer.MatchingStatistics`; the present implementation is exact and non-quadratic.
 - The unit's TestSpec (`tests/TestSpecs/GENOMIC-COMMON-001.md`), Evidence (`docs/Evidence/GENOMIC-COMMON-001-Evidence.md`) and algorithm document carry the same state; where the original text below says CLEAN / no defects / no code changes, that was the state of the first pass only.

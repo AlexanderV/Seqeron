@@ -6,7 +6,7 @@
 | Test Unit ID | GENOMIC-COMMON-001 |
 | Related Projects | Seqeron.Genomics.Analysis, SuffixTree |
 | Implementation Status | Production |
-| Last Reviewed | 2026-11-18 (B09 review) |
+| Last Reviewed | 2026-11-19 (B09 review, audit round 1: line-by-line pass WP26) |
 
 ## 1. Overview
 
@@ -42,9 +42,13 @@ When several distinct substrings share the maximal length, multiple answers exis
 
 | Name | Type | Default | Description | Constraints |
 |------|------|---------|-------------|-------------|
-| sequence1 | DnaSequence | required | first sequence (suffix tree built over it) | alphabet A/C/G/T (DnaSequence-validated), 0-based |
-| sequence2 | DnaSequence | required | second sequence | alphabet A/C/G/T, 0-based |
-| minLength | int | required (`FindCommonRegions` only) | minimum region length | values < 1 treated as 1 |
+| sequence1 | `DnaSequence` or `string` | required | first (reference) sequence (suffix tree built over it) | `DnaSequence`: alphabet A/C/G/T (validated); `string`: any text, only A/C/G/T match (N / IUPAC / U / gap never match); 0-based |
+| sequence2 | `DnaSequence` or `string` | required | second (query) sequence | as `sequence1` |
+| minLength | int | required (`FindCommonRegions` only) | minimum region length (`mummer -l`) | values < 1 treated as 1 |
+| mode | `CommonRegionMode` | `RightMaximal` | which regions `FindCommonRegions` reports: `RightMaximal`, `MaximalExactMatches` (`mummer -maxmatch`), `MaximalUniqueReference` (`-mumreference`), `MaximalUnique` (`-mum`) | A2-30 |
+| strands | `StrandSelection` | `Forward` | `Forward`, `ReverseComplement` (`mummer -r`), `Both` (`-b`) | A2-30 |
+| k | int | required (`FindLongestCommonRegionWithMismatches`) | maximal Hamming distance of the two windows | `k >= 0`; `k = 0` is the exact LCS |
+| sequences, minSupport | `IReadOnlyList<DnaSequence \| string>`, `int?` | required, `N` | N-sequence LCS: the substring shared by at least `minSupport` (2 … N) sequences | A2-30 |
 
 ### 3.2 Output / Return Value
 
@@ -55,10 +59,13 @@ When several distinct substrings share the maximal length, multiple answers exis
 | `CommonRegion.PositionInSecond` | int | 0-based start in `sequence2` (−1 when none) |
 | `CommonRegion.Length` | int | substring length |
 | `CommonRegion.IsEmpty` | bool | true when no shared substring |
+| `CommonRegion.IsReverseComplement` | bool | the region is shared with the reverse complement of `sequence2` (strand modes); `PositionInSecond` is then the forward-strand start of the window that spells the reverse complement of `Sequence` (MUMmer `-c`) |
+| `ApproximateCommonRegion` | record | `Sequence1`, `Sequence2` (the two windows), `PositionInFirst`, `PositionInSecond`, `Length`, `Mismatches`, `IsReverseComplement`, `IsEmpty` (k-mismatch LCS) |
+| `MultiCommonRegion` | record | `Sequence`, `Positions` (first occurrence in each input sequence, −1 where absent), `Length`, `Support` (N-sequence LCS) |
 
 ### 3.3 Preconditions and Validation
 
-Inputs are `DnaSequence` (case-normalized to upper, alphabet A/C/G/T enforced at construction). Coordinates are 0-based. Empty sequences are accepted and yield `CommonRegion.None` (for `FindLongestCommonRegion`) or an empty enumeration (`FindCommonRegions`). `null` arguments throw `ArgumentNullException` eagerly (also for the lazily enumerated `FindCommonRegions`). Lower-case input is folded to upper case by `DnaSequence` (matching is case-insensitive); IUPAC ambiguity codes (`N`, …), `U` and any other non-ACGT symbol are rejected by the `DnaSequence` constructor and never reach the algorithm.
+`DnaSequence` inputs are case-normalized to upper case and restricted to A/C/G/T at construction; the `string` overloads (audit A2-35) accept any text, are case-insensitive, and let only A/C/G/T match - every maximal run of another symbol (`N`, IUPAC codes, `U`, a gap) becomes a unique separator, so no reported region contains it and a region next to such a run is unchanged. Coordinates are 0-based. Empty sequences are accepted and yield `CommonRegion.None` / `ApproximateCommonRegion.None` or an empty result. `null` arguments throw `ArgumentNullException` eagerly (also for the lazily enumerated `FindCommonRegions(DnaSequence, DnaSequence, int)`; the mode / strand overloads return a list). An undefined `CommonRegionMode` / `StrandSelection` value or a negative `k` is refused (`ArgumentOutOfRangeException` / `ArgumentException`); `minSupport` outside 2 … N is refused.
 
 ## 4. Algorithm
 
@@ -84,9 +91,14 @@ Inputs are `DnaSequence` (case-normalized to upper, alphabet A/C/G/T enforced at
 
 **Implementation location:** [GenomicAnalyzer.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GenomicAnalyzer.cs)
 
-- `GenomicAnalyzer.FindLongestCommonRegion(seq1, seq2)`: longest common substring with positions.
-- `GenomicAnalyzer.FindCommonRegions(seq1, seq2, minLength)`: for each start position in `sequence2`, the single longest common substring of length ≥ max(1, minLength) (right-maximal matches keyed by start position, deduplicated) — **not** every common substring (a shorter prefix sharing a start position with a longer match is omitted).
-- Underlying LCS: [SuffixTree.Algorithms.cs](../../../src/SuffixTree/Algorithms/SuffixTree/SuffixTree.Algorithms.cs) `LongestCommonSubstringInfo`.
+**Partial files:** [GenomicAnalyzer.CommonRegions.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GenomicAnalyzer.CommonRegions.cs) (strand / mode / k-mismatch / N-sequence variants, A2-30 / A2-35) and the result types in `GenomicAnalyzer.cs` (`CommonRegion`) / `GenomicAnalyzer.CommonRegions.cs` (`ApproximateCommonRegion`, `MultiCommonRegion`, `CommonRegionMode`).
+
+- `GenomicAnalyzer.FindLongestCommonRegion(seq1, seq2)` (`DnaSequence` or `string`; optional `StrandSelection strands`): longest common substring with positions; with strands the longer of the forward / reverse results (tie: forward).
+- `GenomicAnalyzer.FindCommonRegions(seq1, seq2, minLength)`: for each start position in `sequence2`, the single longest common substring of length ≥ max(1, minLength) (right-maximal matches keyed by start position, deduplicated) — **not** every common substring (a shorter prefix sharing a start position with a longer match is omitted). `FindCommonRegions(seq1, seq2, minLength, CommonRegionMode, StrandSelection, CancellationToken)` (`DnaSequence` or `string`) selects the notion (right-maximal, MEM, MUM-reference, MUM) and the strands.
+- `GenomicAnalyzer.FindLongestCommonRegionWithMismatches(seq1, seq2, k, strands)`: longest windows with Hamming distance ≤ k.
+- `GenomicAnalyzer.FindLongestCommonRegion(IReadOnlyList<DnaSequence | string> sequences, int? minSupport)`: N-sequence LCS (every tie).
+- MCP: `find_common_regions` (sequence1 / sequence2 / minLength / mode / strands; IUPAC input accepted) and `find_longest_common_region_mismatches` (maxMismatches / strands) (audit A2-36); the N-sequence LCS has no tool.
+- Underlying engines: [SuffixTree.Algorithms.cs](../../../src/SuffixTree/Algorithms/SuffixTree/SuffixTree.Algorithms.cs) `LongestCommonSubstringInfo`, `FindMaximalExactMatches`, `FindMaximalUniqueMatches(Reference)`, `FindLongestCommonSubstrings`.
 
 ### 5.2 Current Behavior
 
@@ -128,10 +140,14 @@ Inputs are `DnaSequence` (case-normalized to upper, alphabet A/C/G/T enforced at
 | Identical sequences | whole sequence, positions 0/0 | a string is a substring of itself [3] |
 | Length tie (e.g. two distinct len-3 substrings) | first-in-`sequence2` representative | documented tie-break [7] |
 | minLength < 1 | treated as 1 | a region is non-empty [3] |
+| N / IUPAC / `U` / gap in a `string` input | never matches; ends the region it touches (a unique separator); the rest of the sequence is unchanged | `mummer -n` convention, A2-35 |
+| Palindromic site on `Both` strands | reported on both strands at the same position | the reverse complement of the window equals the window |
+| `k = 0` in `FindLongestCommonRegionWithMismatches` | equals `FindLongestCommonRegion` (windows, positions, tie rules) | the exact special case |
+| `minSupport` = 2 … N | every longest string shared by at least that many sequences; positions −1 where absent | Gusfield 1997 §7.6 |
 
 ### 6.2 Limitations
 
-Exact matching only — no mismatches, gaps, or scoring. Operates on the DNA alphabet enforced by `DnaSequence`. `FindCommonRegions` reports the longest substring per start position in `sequence2`; shorter substrings nested inside a longer reported one are not separately reported unless they begin at a different `sequence2` position.
+Exact matching by default; the only tolerant variant is the Hamming-distance LCS (`FindLongestCommonRegionWithMismatches`, O(n·m), no gaps / indels). No gapped or scored regions (use the alignment methods). The DNA alphabet is A/C/G/T: `DnaSequence` enforces it, the `string` overloads let any other symbol separate regions rather than match. In the default mode `FindCommonRegions` reports the longest substring per start position in `sequence2`; shorter substrings nested inside a longer reported one are not separately reported unless they begin at a different `sequence2` position (use `MaximalExactMatches` for the MUMmer set of maximal pairs). Strand modes search the reverse complement of `sequence2`; uniqueness on the reverse strand is measured against the reverse-complemented query, as in MUMmer.
 
 ## 7. Examples and Related Material
 
@@ -150,7 +166,7 @@ CommonRegion r = GenomicAnalyzer.FindLongestCommonRegion(a, b);
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [GenomicAnalyzer_FindCommonRegion_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/GenomicAnalyzer_FindCommonRegion_Tests.cs) — covers INV-01..INV-05
+- Tests: [GenomicAnalyzer_FindCommonRegion_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/GenomicAnalyzer_FindCommonRegion_Tests.cs) — covers INV-01..INV-05; the mode / strand / k-mismatch / N-sequence variants and the `mummer` 3.23 oracle (4716 rows) and the brute-force oracles `common_region_mum_oracle.tsv`, `common_region_kmismatch_oracle.tsv`, `common_region_multi_oracle.tsv` (`scripts/analysis/generate_common_region_strand_oracle.py`): `GenomicAnalyzer_CommonRegionStrands_Oracle_Tests`
 - Evidence: [GENOMIC-COMMON-001-Evidence.md](../../../docs/Evidence/GENOMIC-COMMON-001-Evidence.md)
 - Oracle: [generate_common_region_oracle.py](../../../scripts/analysis/generate_common_region_oracle.py) (independent DP + suffix automaton + brute-force matching statistics; 283 pairs)
 - Related algorithms: [Repeat_Detection](../Repeat_Analysis/Repeat_Detection.md)

@@ -114,6 +114,8 @@ The repository implementation uses `scoring.GapExtend` as a linear gap penalty i
 - `SequenceAligner.LocalAlignAffine(DnaSequence|string, DnaSequence|string, ScoringMatrix?)`: Smith-Waterman-Gotoh affine-gap local alignment; shares the three-state core `AffineAlignCore` with `GlobalAlignAffine`.
 - `SequenceAligner.LocalAlignTopN` / `LocalAlignAffineTopN(seq1, seq2, scoring, maxAlignments, minScore)` ([SequenceAligner.TopN.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.TopN.cs)): Waterman-Eggert non-intersecting local alignments; `LocalAlignCoOptimal` / `LocalAlignAffineCoOptimal(seq1, seq2, scoring, maxAlignments)`: all co-optimal local alignments (capped); `AlignedPairs(alignment)`: the forbidden pairs. See §5.5.
 
+- **Further entry points (partial files of `SequenceAligner`):** `LocalAlignAffine` (Smith-Waterman-Gotoh, shared affine core with the global aligner), the substitution-matrix overloads with `MatrixScoring` (Global page §5.4), `LocalAlignTopN` / the Waterman-Eggert declumped alignments including the exact linear-space variant above 25 M cells (`SequenceAligner.TopN.cs`, `SequenceAligner.TopNLinearSpace.cs`; audit A1-7 / F77), co-optimal local alignments (`LocalAlignCoOptimal`, `LocalAlignAffineCoOptimal`; `SequenceAligner.TopN.cs`), `SequenceAligner.Cancellation.cs` (cancellable overloads, audit A2-40).
+
 **Supporting types:** [AlignmentTypes.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Infrastructure/AlignmentTypes.cs), [DnaSequence.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Core/DnaSequence.cs)
 
 ### 5.2 Current Behavior

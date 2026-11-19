@@ -849,7 +849,8 @@ public enum ClustalWClustering
 
     /// <summary>
     /// UPGMA (<c>-CLUSTERING=UPGMA</c>, <c>UPGMAAlgorithm</c>): ClustalW's own rooted average-linkage tree; its node heights give the sequence weights and its joins the order of the profile steps.
-    /// With two sequences the program saves no alignment step (the sequences come out unaligned).
+    /// With two sequences the tree step stores no alignment step, but the second pass of the program's progressive stage aligns the pair, as for neighbour joining.
+    /// Verified against the program (built at -O0; the installed binary crashes on UPGMA) on 600 sets, F101.
     /// </summary>
     Upgma = 1,
 }

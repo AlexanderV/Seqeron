@@ -6,11 +6,11 @@
 | Test Unit ID | GENOMIC-REPEAT-001 |
 | Related Projects | Seqeron.Genomics.Analysis, SuffixTree |
 | Implementation Status | Production |
-| Last Reviewed | 2026-11-18 (B09 review) |
+| Last Reviewed | 2026-11-19 (B09 review, audit round 1: line-by-line pass WP26) |
 
 ## 1. Overview
 
-Repeat detection finds substrings that recur within a single DNA sequence — the building blocks of tandem repeats, transposable elements, and other repetitive genomic structures. This unit covers four exact operations: `FindLongestRepeat` / `FindAllLongestRepeats`, which return the longest substring(s) occurring at least twice (the Longest Repeated Substring, LRS), `FindRepeats`, which enumerates every distinct substring occurring at least twice with length ≥ a given minimum, and `FindMaximalRepeats`, the subset of those that are *maximal* (left- and right-diverse, Gusfield §7.12 [5]). All are exact (not heuristic): they realise the classical suffix-tree characterisation of repeats [1][2][5]. Occurrences may overlap. `GenomicAnalyzer.FindPalindromes` (reverse-complement palindromes) is a thin facade over `RepeatFinder.FindPalindromes` and is documented in [Palindrome_Detection.md](Palindrome_Detection.md); its contract is summarised in §5.5.
+Repeat detection finds substrings that recur within a single DNA sequence — the building blocks of tandem repeats, transposable elements, and other repetitive genomic structures. This unit covers four exact operations: `FindLongestRepeat` / `FindAllLongestRepeats`, which return the longest substring(s) occurring at least twice (the Longest Repeated Substring, LRS), `FindRepeats`, which enumerates every distinct substring occurring at least twice with length ≥ a given minimum, and `FindMaximalRepeats`, the subset of those that are *maximal* (left- and right-diverse, Gusfield §7.12 [5]). All are exact (not heuristic): they realise the classical suffix-tree characterisation of repeats [1][2][5]. Occurrences may overlap. `GenomicAnalyzer.FindPalindromes` (reverse-complement palindromes) is a thin facade over `RepeatFinder.FindPalindromes` and is documented in [Palindrome_Detection.md](Palindrome_Detection.md); its contract is summarised in §5.5. Since audit A2-33 / A2-35 the same engine also searches both strands (`FindRepeatsBothStrands`, `FindRepeatPairs`; a string and its reverse complement form one class) and accepts nucleotide / protein strings with N / IUPAC symbols (`FindRepeats(string, …)`, …).
 
 ## 2. Scientific / Formal Basis
 
@@ -26,7 +26,7 @@ A substring that appears two or more times in a sequence is a *repeat*. In a suf
 
 **Maximal repeats (Gusfield §7.12 [5]).** A substring α is a *maximal repeat* if it occurs at least twice and no occurrence can be extended on both sides in the same way: α is *left-diverse* (the characters immediately before its occurrences are not all equal; the start of the text counts as a distinct symbol) and *right-diverse* (likewise after; the end of the text is a distinct symbol). In the suffix tree of `T$` every internal node is right-diverse (its children start with different characters, `$` being one of them), so the maximal repeats are exactly the internal nodes whose leaf set is left-diverse, and there are at most n of them. Left-diversity is propagated bottom-up as a bit set of preceding characters (leaf = character before its suffix; node = union over its subtree), which is linear. Every longest repeated substring is maximal; maximal ⊂ all repeated substrings; a *supermaximal* repeat (`RepeatFinder.FindSupermaximalRepeats`) is a maximal repeat that is not a substring of another maximal repeat.
 
-**What is a "repeat" here (semantic decision record).** `FindRepeats` deliberately reports *every* distinct repeated substring (not only maximal ones): all lengths on the edge into an internal node, overlapping occurrences counted, no minimum count other than 2, no non-overlap requirement, case-insensitive through `DnaSequence` (upper-cased, ACGT only). It therefore lists every prefix and suffix of a longer repeat (`ACGTACGT` → `A, AC, ACG, ACGT, C, CG, CGT, G, GT, T`); use `FindMaximalRepeats` for the non-redundant representation. It is *not* the same as `RepeatFinder.FindDirectRepeats` (maximal repeated **pairs**: one result per pair of occurrences, with spacing and length-cap options) nor `SuffixTree.FindMaximalRepeatedPairs` (the same pairs from the tree): a call-through was evaluated and rejected because the result shape differs (strings with occurrence sets vs. pairs) and the sets differ (pairs enumerate prefixes/suffixes only as part of maximal pairs). The relation is exact and tested: the strings of `FindMaximalRepeats` = the distinct substrings of the maximal pairs of `FindDirectRepeats` without spacing/length limits.
+**What is a "repeat" here (semantic decision record).** `FindRepeats` deliberately reports *every* distinct repeated substring (not only maximal ones): all lengths on the edge into an internal node, overlapping occurrences counted, no minimum count other than 2, no non-overlap requirement, case-insensitive through `DnaSequence` (upper-cased, ACGT only; the string overloads, §5.3, accept any alphabet). It therefore lists every prefix and suffix of a longer repeat (`ACGTACGT` → `A, AC, ACG, ACGT, C, CG, CGT, G, GT, T`); use `FindMaximalRepeats` for the non-redundant representation. It is *not* the same as `RepeatFinder.FindDirectRepeats` (maximal repeated **pairs**: one result per pair of occurrences, with spacing and length-cap options) nor `SuffixTree.FindMaximalRepeatedPairs` (the same pairs from the tree): a call-through was evaluated and rejected because the result shape differs (strings with occurrence sets vs. pairs) and the sets differ (pairs enumerate prefixes/suffixes only as part of maximal pairs). The relation is exact and tested: the strings of `FindMaximalRepeats` = the distinct substrings of the maximal pairs of `FindDirectRepeats` without spacing/length limits.
 
 ### 2.4 Properties and Invariants
 
@@ -55,7 +55,9 @@ A substring that appears two or more times in a sequence is a *repeat*. In a suf
 
 | Name | Type | Default | Description | Constraints |
 |------|------|---------|-------------|-------------|
-| `sequence` | `DnaSequence` | required | Sequence to search. | Alphabet A/C/G/T (uppercased & validated by `DnaSequence`); empty allowed. |
+| `sequence` | `DnaSequence` or `string` | required | Sequence to search. | `DnaSequence`: alphabet A/C/G/T (uppercased & validated); `string` overloads (A2-35): case-insensitive, only the alphabet's symbols repeat (default A/C/G/T; optional `alphabet` for proteins), any other symbol is a unique separator; empty allowed. |
+| `maximalOnly` | `bool` | `false` | `FindRepeatsBothStrands`: keep only the classes left- and right-diverse over both strands. | |
+| `strands` | `StrandSelection` | `Both` | `FindRepeatPairs`: `Forward` (`repeat-match -f`), `ReverseComplement`, `Both`. | |
 | `minLength` | `int` | required | Minimum repeat length for `FindRepeats` / `FindMaximalRepeats`. | Repeats with `Length ≥ minLength` returned; values ≤ 0 still yield only substrings occurring ≥ 2× (no zero-length results). |
 
 ### 3.2 Output / Return Value
@@ -68,7 +70,7 @@ A substring that appears two or more times in a sequence is a *repeat*. In a suf
 | `RepeatInfo.Count` | `int` | `Positions.Count` (≥ 2 for any non-`None` result). |
 | `RepeatInfo.IsEmpty` | `bool` | True when no repeat (the `None` value). |
 
-`FindLongestRepeat` returns one `RepeatInfo` (or `RepeatInfo.None`); `FindAllLongestRepeats` an `IReadOnlyList<RepeatInfo>` of all length ties; `FindRepeats` and `FindMaximalRepeats` return an `IEnumerable<RepeatInfo>` in suffix order.
+`FindLongestRepeat` returns one `RepeatInfo` (or `RepeatInfo.None`); `FindAllLongestRepeats` an `IReadOnlyList<RepeatInfo>` of all length ties; `FindRepeats` and `FindMaximalRepeats` return an `IEnumerable<RepeatInfo>` in suffix order. The both-strand methods return `StrandedRepeatInfo` (`Sequence` = the ordinal-smaller of the string and its reverse complement, `Positions` = forward starts of the string, `ReversePositions` = forward starts of the windows that spell its reverse complement) and `RepeatPair(FirstPosition, SecondPosition, Length, IsReverseComplement)`.
 
 ### 3.3 Preconditions and Validation
 
@@ -108,6 +110,9 @@ Indexing is 0-based. `DnaSequence` normalises to uppercase and rejects non-ACGT 
 - `GenomicAnalyzer.FindRepeats(DnaSequence, int minLength)`: enumerates all repeats ≥ minLength.
 - `GenomicAnalyzer.FindMaximalRepeats(DnaSequence, int minLength)`: the maximal (left- and right-diverse) repeats.
 - `GenomicAnalyzer.FindPalindromes(DnaSequence, int, int)`: facade over `RepeatFinder.FindPalindromes` (§5.5).
+- Both strands (A2-33; [GenomicAnalyzer.Repeats.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GenomicAnalyzer.Repeats.cs)): `FindRepeatsBothStrands(DnaSequence | string, minLength, maximalOnly)`, `FindAllLongestRepeatsBothStrands(DnaSequence | string)`, `FindLongestRepeatBothStrands(DnaSequence)`, `FindRepeatPairs(DnaSequence | string, minLength = 5, StrandSelection = Both)`.
+- String / IUPAC overloads (A2-35): `FindLongestRepeat(string, alphabet?)`, `FindAllLongestRepeats(string, …)`, `FindRepeats(string, minLength, …)`, `FindMaximalRepeats(string, minLength, …)`.
+- MCP: `find_repeats` (strand / maximalOnly / IUPAC input), `find_all_longest_repeats` (A2-33 / A2-36).
 - Backing structure: [SuffixTree.LongestRepeatedSubstring / FindAllOccurrences / GetAllSuffixes](../../../src/SuffixTree/Algorithms/SuffixTree/SuffixTree.Algorithms.cs).
 
 ### 5.2 Current Behavior
@@ -166,7 +171,7 @@ Formerly a verbatim copy of `RepeatFinder.FindPalindromesCore` without its valid
 
 ### 6.2 Limitations
 
-Does not search the reverse complement (dispersed inverted repeats); restricted to the ACGT alphabet enforced by `DnaSequence`. `FindRepeats` is linear in the input plus the size of its output; the output itself can be quadratic (a homopolymer of length n has n − 1 repeats with up to n positions each), and the in-memory suffix tree needs about 170 bytes per input character, so whole-genome-scale inputs still need the persistent tree or a size limit.
+The forward-strand methods do not search the reverse complement; the both-strand methods (§5.3) do (the doubled text `S # revcomp(S)` costs about twice the tree memory). `DnaSequence` input is restricted to ACGT; the string overloads treat every other symbol as a unique separator (at most 55 000 separate non-matching runs per call). `FindRepeats` is linear in the input plus the size of its output; the output itself can be quadratic (a homopolymer of length n has n − 1 repeats with up to n positions each), and the in-memory suffix tree needs about 170 bytes per input character, so whole-genome-scale inputs still need the persistent tree or a size limit.
 
 ## 7. Examples and Related Material
 
@@ -191,6 +196,7 @@ foreach (var r in GenomicAnalyzer.FindRepeats(new DnaSequence("ACGTACGTTTTTACGT"
 
 ### 7.3 Related Tests, Evidence, or Documents
 
+- Both strands / string input: [GenomicAnalyzer_StrandRepeats_Oracle_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/GenomicAnalyzer_StrandRepeats_Oracle_Tests.cs) (`repeat-match` 3.23, 1900 rows)
 - Tests: [GenomicAnalyzer_FindRepeats_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/GenomicAnalyzer_FindRepeats_Tests.cs) — `INV-01`..`INV-06`; [GenomicAnalyzer_Repeat_Oracle_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/GenomicAnalyzer_Repeat_Oracle_Tests.cs) — Python oracle, brute force, `INV-07`/`INV-08`; [GenomicAnalyzer_FindPalindromes_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/GenomicAnalyzer_FindPalindromes_Tests.cs); [GenomicAnalyzerFindRepeatsOracleTests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Differential/GenomicAnalyzerFindRepeatsOracleTests.cs) — the pre-WP-0.4 implementation as differential oracle
 - Evidence: [GENOMIC-REPEAT-001-Evidence.md](../../../docs/Evidence/GENOMIC-REPEAT-001-Evidence.md)
 

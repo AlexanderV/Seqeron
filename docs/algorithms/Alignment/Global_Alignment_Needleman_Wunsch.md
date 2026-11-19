@@ -105,6 +105,8 @@ The recurrence uses one substitution score per aligned character pair and one li
 - `SequenceAligner.GlobalAlignCore(string, string, ScoringMatrix)`: pooled-array implementation of the core dynamic program.
 - `SequenceAligner.Traceback(...)`: reconstructs the final aligned strings from the score matrix.
 
+- **Further entry points (partial files of `SequenceAligner`):** `GlobalAlignAffine` (Gotoh; `SequenceAligner.cs`), the substitution-matrix overloads with `MatrixScoring` (§5.4), `GlobalAlignLinearSpace` / `GlobalAlignAffineLinearSpace` (exact Hirschberg / Myers-Miller, `SequenceAligner.LinearSpace.cs`, [Linear_Space_Alignment.md](Linear_Space_Alignment.md); used automatically above 25 000 000 cells), `GlobalAlignCoOptimal` / `GlobalAlignAffineCoOptimal` (`SequenceAligner.GlobalCoOptimal.cs`, §5.6), `GlobalAlignGeneralGap` (arbitrary gap-cost functions, `SequenceAligner.GeneralGap.cs`, §5.5), ends-free variants through `SemiGlobalAlign(…, EndGaps)`. §5.1 above lists the linear-gap scalar overloads only; the cancellation / progress overloads and `SequenceAligner.Cancellation.cs` (`WithCancellation`, `BeginCancellationScope`) apply to all of them (audit A2-40). MCP: `global_align`, `global_align_affine`, `global_align_co_optimal`, `general_gap_align` (see the tool docs).
+
 **Supporting types:** [AlignmentTypes.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Infrastructure/AlignmentTypes.cs), [DnaSequence.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Core/DnaSequence.cs)
 
 ### 5.2 Current Behavior

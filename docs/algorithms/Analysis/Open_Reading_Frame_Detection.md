@@ -6,7 +6,7 @@
 | Test Unit ID | GENOMIC-ORF-001 |
 | Related Projects | Seqeron.Genomics.Analysis, Seqeron.Genomics.Core (`OrfScanner`) |
 | Implementation Status | Production |
-| Last Reviewed | 2026-11-18 (B09 review: F21–F26; A1-18/A1-19: NCBI ORFfinder 0.4.3 measured, F57) |
+| Last Reviewed | 2026-11-19 (B09 review: F21–F26; A1-18/A1-19: NCBI ORFfinder 0.4.3 measured, F57; audit round 1 line-by-line pass WP26) |
 
 ## 1. Overview
 
@@ -60,7 +60,7 @@ stop codons also code an amino acid, are rejected as in `Translator.FindOrfs`.
 
 | Name | Type | Default | Description | Constraints |
 |------|------|---------|-------------|-------------|
-| `sequence` | `DnaSequence` | required | DNA to scan | non-null; case normalized by `DnaSequence`, A/C/G/T only |
+| `sequence` | `DnaSequence` or `string` | required | DNA to scan | non-null; `DnaSequence`: case normalized, A/C/G/T only; `string` overloads (A1-21): any IUPAC nucleotide string (DNA or RNA, `U` read as `T`), case-insensitive |
 | `minLength` | `int` | 100 | minimum ORF length in nucleotides, **stop codon included** (inclusive lower bound) | any int (≤ 0 admits every ORF) |
 | `options` | `OrfSearchOptions` | `Default` | see below (overload `FindOpenReadingFrames(sequence, minLength, options)`) | non-null |
 
@@ -141,7 +141,7 @@ opens nor ends one; the reverse strand is the canonical IUPAC reverse complement
 
 **Implementation location:** [GenomicAnalyzer.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GenomicAnalyzer.cs)
 
-- `GenomicAnalyzer.FindOpenReadingFrames(DnaSequence, int)` and `(DnaSequence, int, OrfSearchOptions)`: six-frame ORF enumeration.
+- `GenomicAnalyzer.FindOpenReadingFrames(DnaSequence, int)` and `(DnaSequence, int, OrfSearchOptions)`: six-frame ORF enumeration; `FindOpenReadingFrames(string, int[, OrfSearchOptions])`: the same over an IUPAC nucleotide string (§3.3).
 - `OrfScanner.FindRegions` ([OrfScanner.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Core/OrfScanner.cs)): the shared single-strand scanning core
   (start predicate, nested/open-ended policies); `Translator.FindOrfs` (getorf `-find 1` model) is built on it too.
 - MCP `find_open_reading_frames` delegates to the overload and adds the input-strand `start`/`end` columns.
@@ -185,7 +185,7 @@ correct structure here.
 **Not implemented (scope, not defects):**
 
 - ORFfinder's circular option `-c` (wrap-around ORFs): the real binary ignores it (§5.5, measured); there is nothing to implement.
-- Ambiguity codes in the input are handled by the string overloads (see §6.1 contract paragraph; oracle `orf_ambiguous_oracle.tsv`, 2844 rows: Biopython definition for all, EMBOSS getorf 6.6.0 for the 184 A/C/G/T/N rows it resolves exactly — getorf mis-resolves OR-ed IUPAC codons such as `TRA`, a documented difference of `Translator.FindOrfs(string)`).
+- (Implemented, kept here as a pointer:) ambiguity codes in the input are handled by the string overloads (§3.3 contract paragraph; oracle `orf_ambiguous_oracle.tsv`, 2844 rows: Biopython definition for all, EMBOSS getorf 6.6.0 for the 184 A/C/G/T/N rows it resolves exactly — getorf mis-resolves OR-ed IUPAC codons such as `TRA`, a documented difference of `Translator.FindOrfs(string)`).
 
 ### 5.4 Deviations and Assumptions
 

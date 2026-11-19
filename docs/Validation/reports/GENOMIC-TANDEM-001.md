@@ -12,6 +12,7 @@
 
 - **Stage A:** PASS-WITH-NOTES. **Stage B:** FAIL -> PASS. **State:** FIXED.
 - **Fixes (B09.md, F-numbers):** F35 facade over `RepeatFinder.FindMicrosatellites` (non-primitive units no longer reported), F36 `maxUnitLength` overload + run-enumeration engine (Bannai et al. Lyndon runs, `MaximalRepetitions`), F37 documentation, F38 independent oracle, F50 N / IUPAC strings, F78 (R15, 'B09 for B04') the engine choice moved into the canonical `RepeatFinder.FindMicrosatellites`; `GenomicAnalyzer.FindTandemRepeats` is a pure facade.
+- **Audit round 2 (A2-34 / A2-35, F98 / F99):** MUMmer `exact-tandems` oracle (3 630 rows) and the `canonicalRotation` option (least rotation, Booth 1980); string overloads of `FindTandemRepeats` with a rotation option.
 - **Oracle numbers:** three-method Python oracle 1 156 rows + 62 000 exhaustive strings; 1 Mbp unbounded ~ 3 s.
 - **Open items:** registered (B11, not finished): `GenomeAnnotator.cs:979` private tandem scan -> `GenomicAnalyzer.FindTandemRepeats(seq, 1, minCopies, 60)` (QUEUE R16).
 - The unit's TestSpec (`tests/TestSpecs/GENOMIC-TANDEM-001.md`), Evidence (`docs/Evidence/GENOMIC-TANDEM-001-Evidence.md`) and algorithm document carry the same state; where the original text below says CLEAN / no defects / no code changes, that was the state of the first pass only.

@@ -9,8 +9,9 @@
 
 - **Stage A:** PASS-WITH-NOTES. **Stage B:** PASS-WITH-NOTES. **State:** FIXED (not 'no defect found': the 2026-06 verdict below is superseded).
 - **Fixes (B09.md, F-numbers):** F32 `CalculateSimilarity` = `KmerAnalyzer.JaccardSimilarity` x 100 (private `GetKmers` removed), F33 strand-agnostic (Mash / sourmash canonical) k-mers, F34 MCP / skill documentation (scale is percent, not 0-1).
+- **Audit round 2 (A2-31 / A2-35, F95 / F99):** Mash bottom-s and sourmash FracMinHash estimators (`CalculateSimilarity(…, sketchSize)`, `CompareSimilarity`), Jaccard / Mash distance, Jaccard ANI, containment indices and containment ANI, string overloads; oracle: 4 290 rows vs sourmash 4.9.4 / Mash (`scripts/analysis/generate_similarity_sketch_oracle.py`); open item (not doable): confidence intervals of the ANI estimates (`estimate_ci`) are not provided.
 - **Oracle numbers:** 2 086-row oracle: Python set = scipy `jaccard`, canonical = sourmash exact.
-- **Open items:** none.
+- **Open items:** none doable (see the audit round 2 line: ANI confidence intervals not provided).
 - The unit's TestSpec (`tests/TestSpecs/GENOMIC-SIMILARITY-001.md`), Evidence (`docs/Evidence/GENOMIC-SIMILARITY-001-Evidence.md`) and algorithm document carry the same state; where the original text below says CLEAN / no defects / no code changes, that was the state of the first pass only.
 
 ## Stage A — Description

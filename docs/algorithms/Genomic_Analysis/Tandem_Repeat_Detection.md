@@ -6,7 +6,7 @@
 | Test Unit ID | GENOMIC-TANDEM-001 |
 | Related Projects | Seqeron.Genomics.Analysis |
 | Implementation Status | Production (exact tandem repeats = maximal runs with a primitive unit; approximate repeats are `RepeatFinder.FindApproximateTandemRepeats`, TRF model) |
-| Last Reviewed | 2026-11-18 (B09 review campaign, F35–F38) |
+| Last Reviewed | 2026-11-19 (B09 review campaign, F35–F38, F98; audit round 1 line-by-line pass WP26) |
 
 ## 1. Overview
 
@@ -133,6 +133,7 @@ For each of the two alphabet orders $\prec_0$ (natural) and $\prec_1$ (reversed)
 - `GenomicAnalyzer.FindTandemRepeats(DnaSequence, int minUnitLength = 2, int minRepetitions = 2)`: exact detector, no upper unit length.
 - `GenomicAnalyzer.FindTandemRepeats(DnaSequence, int, int, int maxUnitLength)`: restricted unit-length range.
 - `GenomicAnalyzer.FindTandemRepeats(string, int minUnitLength = 2, int minRepetitions = 2)` and `(string, int, int, int maxUnitLength)`: N/IUPAC-tolerant string overloads (§6.2).
+- `GenomicAnalyzer.FindTandemRepeats(DnaSequence | string, int minUnitLength, int minRepetitions, int maxUnitLength, bool canonicalRotation)` (audit A2-34, F98): `canonicalRotation = true` reports the least rotation of each unit (`RepeatFinder.GetMinimalRotation`, Booth 1980) as `Unit`; `TandemRepeat.Rotation`, `OriginalUnit` and `FullSequence` still describe the actual bases.
 - MCP: `find_tandem_repeats` (Analysis server), parameters `sequence`, `minUnitLength`, `minRepetitions`, optional `maxUnitLength`.
 
 ### 5.2 Current Behavior
@@ -164,7 +165,7 @@ the primitive hits: they were already maximal runs.
 | # | Item | Type | Impact | Status | Notes |
 |---|------|------|--------|--------|-------|
 | 1 | Exact copies only (Benson's TRF copies are approximate). | Scope | Repeats with substitutions/indels are not reported here. | by design | Use `FindApproximateTandemRepeats`. |
-| 2 | The reported unit is the motif phase at the run's left end (e.g. `GCAGCAGCAGCAGG` → `GCA`×4@0, not `CAG`×4@1). | Convention | Rotation is not canonicalised. | by design | MISA / pytrf convention [5]; rotations of one run are never reported twice. |
+| 2 | By default the reported unit is the motif phase at the run's left end (e.g. `GCAGCAGCAGCAGG` → `GCA`×4@0, not `CAG`×4@1). | Convention | The rotation is not canonicalised unless `canonicalRotation: true` (A2-34): then the least rotation of the unit (ordinal A<C<G<T; `GCA` → `AGC`) is reported as `Unit` and `Rotation` / `OriginalUnit` give the actual spelling. | by design, option | MISA / pytrf convention [5]; rotations of one run are never reported twice. |
 | 3 | Unit lengths ≤ 256 distinct values use the per-unit-length scan, wider ranges the run enumeration. | Implementation | Same results (differential-tested), different cost. | by design | Threshold = measured break-even. |
 
 ## 6. Edge Cases and Limitations
@@ -197,6 +198,7 @@ run-enumeration regime (O(n) memory).
 
 ### 6.3 Oracles
 
+* **MUMmer `exact-tandems` (audit A2-34, F98)**: `exact_tandems_oracle.tsv` (3630 (sequence, L) rows; `repeat-match -t -n L | tandem-repeat.awk`, which lists per start the tandem repeat with the smallest unit whose maximal match is at least L; the `FindTandemRepeats` runs agree after keeping that run per start; the least rotation of each unit is computed by brute force in the generator `scripts/analysis/generate_exact_tandems_oracle.py`): `GenomicAnalyzer_ExactTandems_Oracle_Tests`.
 * **Python, three independent methods asserted equal** (`scripts/analysis/generate_tandem_oracle.py`): (A) brute-force Kolpakov–Kucherov runs (every interval, its smallest period by definition, maximality by extension), (B) boolean-array maximal runs of `S[x] = S[x+p]` + primitivity test, (C) regex `(?=((.{p})\2{k-1,}))` at left-maximal starts + primitivity; 1156 `(sequence, minUnit, minReps, maxUnit)` rows → `TestData/Analysis/tandem_oracle.tsv`. Both C# engines match all rows.
 * **In-test brute force** (C#, every interval's smallest period): 1500 random strings × bounded/unbounded, plus 62 000 exhaustive strings (all `{A,C}` ≤ 14, all `{A,C,G}` ≤ 9) for the run enumeration, plus 60 long (2.5 kb) low-entropy strings engine-vs-engine.
 * EMBOSS `etandem` 6.6.0 was run as an informational third reference: it scores diagonals with its own threshold model (score = matches, `-threshold` global across sizes), reports consensus rotations differently and is not an exact-run enumerator (agreement 297/400 random cases at fixed `-minrepeat = -maxrepeat`, differences all in rotation phase / sub-threshold diagonals), so it is not used as an oracle.

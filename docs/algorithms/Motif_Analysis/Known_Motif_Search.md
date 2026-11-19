@@ -6,7 +6,7 @@
 | Test Unit ID | GENOMIC-MOTIFS-001 |
 | Related Projects | Seqeron.Genomics.Analysis, SuffixTree |
 | Implementation Status | Production |
-| Last Reviewed | 2026-11-18 (B09 review) |
+| Last Reviewed | 2026-11-19 (B09 review, audit round 1: line-by-line pass WP26) |
 
 ## 1. Overview
 
@@ -15,8 +15,9 @@ interest, e.g. restriction sites or transcription-factor binding consensus) with
 sequence, returning for each motif the start positions of **all** of its occurrences. It is the
 classical exact set-matching problem — "find all occurrences of each pattern P in text T" [1] —
 and is exact (not heuristic): a position is reported iff the motif matches the subject there.
-Overlapping occurrences are all reported [1][2]. Optional extensions, both verified against EMBOSS
-`fuzznuc` [4]: IUPAC-degenerate motifs (`TATAWAW`) and the reverse strand. The motif set is supplied
+Overlapping occurrences are all reported [1][2]. Optional extensions, all verified against EMBOSS
+`fuzznuc` [4]: IUPAC-degenerate motifs (`TATAWAW`), the reverse strand, a Hamming-distance bound (`-pmismatch`) and the
+fuzznuc pattern language (classes, exclusions, repeats, ranges, anchors; §5.3). The motif set is supplied
 by the caller; there is no built-in catalogue here (the fixed regulatory-element library — TATA box,
 Kozak, CAAT, GC box, … — is `MotifFinder.FindRegulatoryElements`, unit MOTIF-REGULATORY-001).
 
@@ -59,17 +60,20 @@ subs in self and yield[s] the index and substring found" for multiple queries [2
 
 | Name | Type | Default | Description | Constraints |
 |------|------|---------|-------------|-------------|
-| `sequence` | `DnaSequence` | required | Subject sequence (text T) | Upper-cased ACGT (validated by `DnaSequence`); empty allowed |
+| `sequence` | `DnaSequence` or `string` | required | Subject sequence (text T) | `DnaSequence`: upper-cased ACGT (validated); `string` overloads (A2-35): case-insensitive, any symbol other than A/C/G/T matches nothing; empty allowed |
 | `motifs` | `IEnumerable<string>` | required | Set of query motifs | Non-null; individual motifs upper-cased; empty/whitespace motifs skipped |
-| `bothStrands` | `bool` | `false` | `FindKnownMotifHits` only: also report reverse-strand hits | |
+| `bothStrands` | `bool` | `false` | `FindKnownMotifHits` / `FindPatternHits`: also report reverse-strand hits | |
 | `allowIupac` | `bool` | `false` | `FindKnownMotifHits` only: IUPAC codes in the motifs | Non-IUPAC symbols → `ArgumentException` |
+| `maxMismatches` | `int` | `0` | `FindKnownMotifHits` / `FindPatternHits`: substitutions allowed per hit (fuzznuc `-pmismatch`) | ≥ 0 |
+| `pattern` | `string`, `FuzznucPattern`, `NamedPattern` list | required (`FindPatternHits`) | a fuzznuc pattern (§5.3) | `FuzznucPattern.Parse` rules; `ArgumentException` when invalid |
 
 ### 3.2 Output / Return Value
 
 | Field | Type | Description |
 |-------|------|-------------|
 | (return) | `Dictionary<string, IReadOnlyList<int>>` | Map from upper-cased motif → ascending list of 0-based start positions of all its occurrences. Motifs with no occurrence are absent. |
-| (return, `FindKnownMotifHits`) | `Dictionary<string, IReadOnlyList<KnownMotifHit>>` | Same keys; `KnownMotifHit(Position, IsReverseStrand)` sorted by position (forward before reverse at a tie). `Position` is always the forward-strand window start. |
+| (return, `FindKnownMotifHits`) | `Dictionary<string, IReadOnlyList<KnownMotifHit>>` | Same keys; `KnownMotifHit(Position, IsReverseStrand, Mismatches)` sorted by position (forward before reverse at a tie). `Position` is always the forward-strand window start; `Mismatches` = fuzznuc's `*mismatch n`. |
+| (return, `FindPatternHits`) | `IReadOnlyList<PatternHit>` (named patterns: a dictionary of lists) | `PatternHit(Position, Length, IsReverseStrand, Mismatches)` (`End = Position + Length`); a range pattern reports every matching length. |
 
 ### 3.3 Preconditions and Validation
 
@@ -128,6 +132,10 @@ The query threshold 128 distinct queries sits at the measured break-even; both e
 - `GenomicAnalyzer.FindKnownMotifs(DnaSequence, IEnumerable<string>)`: multi-motif exact search returning per-motif sorted 0-based position lists (forward strand, exact).
 - `GenomicAnalyzer.FindKnownMotifHits(DnaSequence, IEnumerable<string>, bool bothStrands = false, bool allowIupac = false)`: the strand-aware / IUPAC generalisation returning `KnownMotifHit(Position, IsReverseStrand)`.
 - `GenomicAnalyzer.FindMotif(DnaSequence, string)`: single exact motif, ascending; delegates to `MotifFinder.FindExactMotif` (B05/B06 dedup, F18).
+- `FindKnownMotifHits(…, int maxMismatches)` (A1-20): the Hamming-distance generalisation (§5.2); `KnownMotifHit.Mismatches`.
+- `GenomicAnalyzer.FindPatternHits(DnaSequence | string, string | FuzznucPattern | IEnumerable<NamedPattern>, maxMismatches, bothStrands, cancellationToken)` ([GenomicAnalyzer.PatternHits.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GenomicAnalyzer.PatternHits.cs)) and `FuzznucPattern.Parse / ParsePatternFile / Expand` ([FuzznucPattern.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/FuzznucPattern.cs); A2-32): the fuzznuc pattern language (§5.3).
+- String overloads (A2-35): `FindMotif(string, string)`, `FindKnownMotifs(string, …)`, `FindKnownMotifHits(string, …)`: the subject may hold N / IUPAC symbols, which match nothing.
+- MCP: `find_motif`, `find_known_motifs` (IUPAC subject accepted), `find_pattern_hits` (A2-32 / A2-36).
 
 ### 5.2 Current Behavior
 
@@ -188,8 +196,7 @@ the binary reads a sequence ambiguity code as a base set and lets a pattern `N` 
 
 **Not implemented:**
 
-- (Implemented by audit A2-32: the fuzznuc pattern language is parsed by `FuzznucPattern` and searched by `GenomicAnalyzer.FindPatternHits`; see "The fuzznuc pattern language" below.)
-  Edit-distance matching is `ApproximateMatcher.FindWithEdits` (PAT-APPROX-002) and position-weight scanning is `MotifFinder` PWM (PAT-PWM-001).
+- Gapped (indel) matching and position-weight scanning are other units: edit-distance matching is `ApproximateMatcher.FindWithEdits` (PAT-APPROX-002), PWM scanning is `MotifFinder` (PAT-PWM-001). fuzznuc's reading of an ambiguity code IN THE SEQUENCE as a base set is not reproduced (a symbol other than A/C/G/T matches nothing).
 - Motif *discovery* and the fixed regulatory-element library: other units (MOTIF-DISCOVER-001, MOTIF-REGULATORY-001).
 
 ### 5.4 Deviations and Assumptions
@@ -217,8 +224,9 @@ the binary reads a sequence ambiguity code as a base set and lets a pattern `N` 
 Exact matching by default; `FindKnownMotifHits(maxMismatches)` adds substitution-tolerant matching (no gaps, O(n·m) per motif and strand, no index). `FindKnownMotifs` / `FindMotif` search the forward strand and treat
 IUPAC symbols as literals (they match nothing in a DNA sequence); use `FindKnownMotifHits` for degenerate motifs
 and the reverse strand. In exact mode non-ACGT characters in a motif simply fail to match (no positions) rather
-than raising; in IUPAC mode a non-IUPAC symbol throws `ArgumentException`. The subject is a `DnaSequence`
-(ACGT only), so an ambiguity symbol in the *sequence* cannot occur.
+than raising; in IUPAC mode a non-IUPAC symbol throws `ArgumentException`. A `DnaSequence` subject is ACGT only; in the
+`string` overloads an ambiguity symbol in the *sequence* (N, IUPAC) matches nothing, where fuzznuc reads it as a base set
+(not reproduced).
 
 ## 7. Examples and Related Material
 
@@ -245,7 +253,7 @@ Result: positions {0, 1, 2}, three overlapping occurrences [1].
 ### 7.3 Related Tests, Evidence, or Documents
 
 - Oracle: `scripts/analysis/generate_known_motif_oracle.py` → `TestData/Analysis/known_motif_oracle.tsv` (EMBOSS fuzznuc 6.6.0 == Python `re`, 2448 pairs; 816 with forward hits, 776 with reverse hits), tests in [GenomicAnalyzer_KnownMotifs_Oracle_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/GenomicAnalyzer_KnownMotifs_Oracle_Tests.cs)
-- Tests: [GenomicAnalyzer_FindKnownMotifs_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/GenomicAnalyzer_FindKnownMotifs_Tests.cs) — covers INV-01..INV-05
+- Tests: [GenomicAnalyzer_FindKnownMotifs_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/GenomicAnalyzer_FindKnownMotifs_Tests.cs) — covers INV-01..INV-05; mismatches: `GenomicAnalyzer_KnownMotifMismatch_Tests` (6576 fuzznuc rows); short subjects: `GenomicAnalyzer_KnownMotifs_ShortSequence_Tests` (300 runs); pattern language: `GenomicAnalyzer_PatternHits_Oracle_Tests` (`fuzznuc_pattern_oracle.tsv`, 3300 rows)
 - Evidence: [GENOMIC-MOTIFS-001-Evidence.md](../../../docs/Evidence/GENOMIC-MOTIFS-001-Evidence.md)
 - Related algorithms: [Repeat_Detection](../Repeat_Analysis/Repeat_Detection.md)
 

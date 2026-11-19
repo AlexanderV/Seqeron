@@ -6,16 +6,19 @@
 | Test Unit ID | GENOMIC-SIMILARITY-001 |
 | Related Projects | Seqeron.Genomics.Analysis, Seqeron.Genomics.Core |
 | Implementation Status | Production |
-| Last Reviewed | 2026-11-18 |
+| Last Reviewed | 2026-11-19 (audit round 1: line-by-line pass WP26) |
 
 ## 1. Overview
 
 `GenomicAnalyzer.CalculateSimilarity` measures the similarity of two DNA sequences using the
 **Jaccard index of their k-mer sets**. Each sequence is reduced to the set of its distinct
 length-k substrings (k-mers); the Jaccard index is the fraction of k-mers shared between the
-two sets out of all distinct k-mers in either set [1][2]. The result is exact (not heuristic or
-probabilistic — there is no MinHash sketching here) and is reported as a percentage in [0, 100].
-It is an alignment-free comparison suitable for quick resemblance estimates between sequences.
+two sets out of all distinct k-mers in either set [1][2]. By default the result is exact (the distinct k-mer
+sets, not heuristic or probabilistic) and is reported as a percentage in [0, 100]. Optionally the index is
+estimated from a MinHash sketch (Mash bottom-s, `sketchSize`; sourmash FracMinHash, `scaled`) and
+`CompareSimilarity` returns the full set of derived quantities (Jaccard distance, Mash distance, Jaccard ANI,
+containment indices and containment ANI; audit A2-31). It is an alignment-free comparison suitable for quick
+resemblance estimates between sequences.
 
 ## 2. Scientific / Formal Basis
 
@@ -55,7 +58,7 @@ This method reports `J × 100` as a percentage.
 | Basis | set resemblance of k-mer composition | residue-by-residue over an alignment |
 | Cost | O(n+m) | O(n·m) (dynamic programming) |
 | Sensitivity to order | low (composition only) | high (positional) |
-| Sketching | none here (exact sets); Mash adds MinHash [2] | n/a |
+| Sketching | none by default (exact sets); optional Mash bottom-s / sourmash FracMinHash estimators [2] | n/a |
 
 ## 3. Contract
 
@@ -63,38 +66,45 @@ This method reports `J × 100` as a percentage.
 
 | Name | Type | Default | Description | Constraints |
 |------|------|---------|-------------|-------------|
-| sequence1 | DnaSequence | required | first sequence | non-null; alphabet A/C/G/T (enforced by DnaSequence) |
-| sequence2 | DnaSequence | required | second sequence | non-null; alphabet A/C/G/T |
-| kmerSize | int | 5 | k-mer length | ≥ 1 |
-| canonical | bool | false | compare canonical k-mers min(w, revcomp w) (Mash/sourmash) instead of literal k-mers; only in the 4-argument overload | — |
+| sequence1 | `DnaSequence` or `string` | required | first sequence | non-null; `DnaSequence`: alphabet A/C/G/T (enforced); `string`: a k-mer window with any other symbol (N, IUPAC, gap) is skipped (Mash `-n` / Jellyfish rule) |
+| sequence2 | `DnaSequence` or `string` | required | second sequence | as `sequence1` |
+| kmerSize | int | 5 | k-mer length | ≥ 1 (≤ 32 with a sketch) |
+| canonical | bool | false | compare canonical k-mers min(w, revcomp w) (Mash/sourmash) instead of literal k-mers; not in the 3-argument `DnaSequence` overload | — |
+| sketchSize | int | none | Mash bottom-s sketch size s (`CalculateSimilarity(…, canonical, sketchSize)`, `CompareSimilarity`) | ≥ 1; not with `scaled` |
+| scaled | long | none | sourmash FracMinHash scaled factor S (`CompareSimilarity` only) | 1 … 4294967295; not with `sketchSize` |
 
 ### 3.2 Output / Return Value
 
 | Field | Type | Description |
 |-------|------|-------------|
-| (return) | double | k-mer Jaccard index ×100, a percentage in [0, 100] |
+| (return of `CalculateSimilarity`) | double | k-mer Jaccard index ×100 (exact or sketch estimate), a percentage in [0, 100] |
+| (return of `CalculateJaccardDistance`) | double | `1 − J` in [0, 1] |
+| (return of `CompareSimilarity`) | `SimilarityEstimate` | `Estimator` (Exact / MashBottomSketch / FracMinHash), `KmerSize`, `Canonical`, `Jaccard`, `JaccardDistance`, `MashDistance`, `JaccardAni`, `ContainmentAInB`, `ContainmentBInA`, `MaxContainment`, `ContainmentAniAInB`, `ContainmentAniBInA`, `SharedHashes`, `DenominatorHashes`, `MashPValue` (all fractions in [0, 1]; containment is null for bottom-s sketches) |
 
 ### 3.3 Preconditions and Validation
 
 - `sequence1` / `sequence2` null → `ArgumentNullException`.
-- `kmerSize < 1` → `ArgumentOutOfRangeException`.
-- Sequences are uppercase A/C/G/T (normalized and validated by `DnaSequence`); comparison is therefore case-insensitive at the `DnaSequence` boundary.
+- `kmerSize < 1` → `ArgumentOutOfRangeException`; an invalid `sketchSize` / `scaled` (or both given) → `ArgumentOutOfRangeException` / `ArgumentException`.
+- `DnaSequence` inputs are upper-case A/C/G/T (normalized and validated); `string` inputs are case-insensitive and may contain other symbols (windows containing one are skipped).
 - Empty sequences (or sequences shorter than k) produce empty k-mer sets; if both are empty the union is empty and the method returns `0.0` (see §5.4).
 
 ## 4. Algorithm
 
 ### 4.1 High-Level Steps
 
-1. Validate arguments (non-null sequences; `kmerSize ≥ 1`).
-2. Build the distinct-k-mer set of each sequence (sliding window, `HashSet<string>`).
+1. Validate arguments (non-null sequences; `kmerSize ≥ 1`; sketch parameters).
+2. Build the distinct-k-mer set of each sequence (sliding window, `HashSet<string>`; canonical: min(w, revcomp w)).
 3. Compute `|A ∩ B|` (count of A's k-mers present in B) and `|A ∪ B| = |A| + |B| − |A ∩ B|`.
 4. Return `0` if the union is empty; otherwise `|A∩B| / |A∪B| × 100`.
+
+With `sketchSize` / `scaled` steps 2-3 are replaced by the canonical sketch builders (§5.3): the Mash bottom-s estimate is x/s over the s smallest hashes of the union, the FracMinHash estimate is the shared fraction of the hashes below 2^64 / S.
 
 ### 4.3 Complexity
 
 | Operation | Time | Space | Notes |
 |-----------|------|-------|-------|
-| CalculateSimilarity | O(n + m) | O(n + m) | n,m = sequence lengths; k-mer extraction + hash-set intersection, each k-mer O(k) treated as O(1) for fixed k |
+| CalculateSimilarity (exact) | O(n + m) | O(n + m) | n,m = sequence lengths; k-mer extraction + hash-set intersection, each k-mer O(k) treated as O(1) for fixed k |
+| CalculateSimilarity / CompareSimilarity (sketch) | O(n + m) hashing + the sketch comparison | O(s) bottom-s hashes, or the hashes kept by the scaled filter | MurmurHash3-x64-128 of every k-mer (canonical: of the smaller strand), then the sketch comparison |
 
 ## 5. Implementation Notes
 
@@ -104,8 +114,9 @@ This method reports `J × 100` as a percentage.
 
 - `GenomicAnalyzer.CalculateSimilarity(DnaSequence, DnaSequence, int)`: literal k-mer Jaccard index ×100.
 - `GenomicAnalyzer.CalculateSimilarity(DnaSequence, DnaSequence, int, bool canonical)`: same, optionally over canonical k-mers.
-- Both are facades: validation, then `KmerAnalyzer.JaccardSimilarity(a.Sequence, b.Sequence, k, new KmerCountingOptions(Canonical: canonical)) * 100` (the canonical k-mer Jaccard, DUP_MAP §16). The former private `GetKmers` duplicate was removed (B09 F32).
-- MCP `calculate_similarity` delegates to the 4-argument overload (`canonical` optional).
+- `GenomicAnalyzer.CalculateSimilarity(…, int, bool, int sketchSize)`, `CalculateJaccardDistance(…)`, `CompareSimilarity(…, int?, long?)` (`DnaSequence` and `string` overloads; [GenomicAnalyzer.Similarity.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GenomicAnalyzer.Similarity.cs), audit A2-31 / A2-35): the sketch estimators and the derived distances / ANI.
+- The exact overloads are facades: validation, then `KmerAnalyzer.JaccardSimilarity(a.Sequence, b.Sequence, k, new KmerCountingOptions(Canonical: canonical)) * 100` (the canonical k-mer Jaccard, DUP_MAP §16). The former private `GetKmers` duplicate was removed (B09 F32).
+- MCP `calculate_similarity` delegates to these overloads (`canonical`, `sketchSize`, `scaled`, estimates; IUPAC strings accepted).
 
 ### 5.2 Current Behavior
 
@@ -160,7 +171,7 @@ This method reports `J × 100` as a percentage.
 ### 6.2 Limitations
 
 - Composition-only: insensitive to k-mer order/position, so two sequences with the same k-mer composition but different arrangement score identically. For positional/edit comparison use alignment.
-- Exact-match k-mers only — no mismatch tolerance; a single substitution alters up to k k-mers.
+- Exact-match k-mers only — no mismatch tolerance; a single substitution alters up to k k-mers. The sketch estimators are estimates (the error shrinks with a larger s / a smaller S); the Mash sketch needs k ≤ 32 and there is no confidence interval or p-value beyond Mash's `MashPValue`.
 - Default is strand-specific: a sequence and its reverse complement are generally dissimilar; pass `canonical: true` for strand-agnostic comparison.
 - Choice of k (default 5) controls resolution: larger k is more specific but more sensitive to errors; the formula is unchanged.
 
@@ -186,7 +197,7 @@ double pct = GenomicAnalyzer.CalculateSimilarity(a, b, kmerSize: 3); // 80.0
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [GenomicAnalyzer_CalculateSimilarity_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/GenomicAnalyzer_CalculateSimilarity_Tests.cs) — covers INV-01..INV-05
+- Tests: [GenomicAnalyzer_CalculateSimilarity_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/GenomicAnalyzer_CalculateSimilarity_Tests.cs) — covers INV-01..INV-05; the sketch estimators, distances and ANI: `GenomicAnalyzer_SimilaritySketch_Oracle_Tests` (4290 sourmash / Mash rows, `scripts/analysis/generate_similarity_sketch_oracle.py`)
 - Evidence: [GENOMIC-SIMILARITY-001-Evidence.md](../../../docs/Evidence/GENOMIC-SIMILARITY-001-Evidence.md)
 
 ## 8. References
