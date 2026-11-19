@@ -199,10 +199,10 @@ public class MultipleAlignmentStatistics_Tests
             Assert.That(s.Columns[4].MostCommonResidue, Is.EqualTo('T'));
             Assert.That(s.GapPercent, Is.EqualTo(100.0 * 4 / 44).Within(1e-12));
             Assert.That(s.GapFreeColumns, Is.EqualTo(8));
-            // distmat 6.6.0 uncorrected (x100): s1/s2 0.00, s1/s3 10.00, s1/s4 22.22, s2/s3 11.11, s2/s4 22.22, s3/s4 22.22
+            // distmat 6.6.0 uncorrected (x100, printed with two decimals; the program computes in single precision): s1/s2 0.00, s1/s3 10.00, s1/s4 22.22, s2/s3 11.11, s2/s4 22.22, s3/s4 22.22
             var d = MultipleAlignmentStatistics.CalculateDistanceMatrix(rows);
             Assert.That(d[0, 1] * 100, Is.EqualTo(0).Within(1e-9));
-            Assert.That(d[0, 2] * 100, Is.EqualTo(10.0).Within(1e-9));
+            Assert.That(d[0, 2] * 100, Is.EqualTo(10.0).Within(0.005));
             Assert.That(d[1, 2] * 100, Is.EqualTo(11.11).Within(0.005));
             Assert.That(d[2, 3] * 100, Is.EqualTo(22.22).Within(0.005));
             Assert.That(s.PairwiseIdentity[0, 2], Is.EqualTo(90.0).Within(1e-9));

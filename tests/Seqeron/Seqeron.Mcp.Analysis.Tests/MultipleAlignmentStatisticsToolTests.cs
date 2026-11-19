@@ -53,11 +53,31 @@ public class MultipleAlignmentStatisticsToolTests
         Assert.Multiple(() =>
         {
             Assert.That(u.Method, Is.EqualTo("uncorrected"));
-            Assert.That(u.Matrix[0][2]!.Value * 100, Is.EqualTo(10.0).Within(1e-9));
+            Assert.That(u.Matrix[0][2]!.Value * 100, Is.EqualTo(10.0).Within(0.005), "distmat prints 10.00 (single precision)");
             Assert.That(u.Matrix[1][2]!.Value * 100, Is.EqualTo(11.11).Within(0.005));
-            Assert.That(jc.Matrix[0][2]!.Value, Is.EqualTo(-0.75 * Math.Log(1 - 0.1 / 0.75)).Within(1e-9));
+            Assert.That(jc.Matrix[0][2]!.Value, Is.EqualTo(-0.75 * Math.Log(1 - 0.1 / 0.75)).Within(1e-5), "distmat computes in single precision");
             Assert.That(u.Matrix[3][3], Is.EqualTo(0.0));
         });
+    }
+
+    [Test]
+    public void AlignmentDistanceMatrix_AllDistmatCorrections_PrintedValuesOfEmboss6_6_0()
+    {
+        // distmat 6.6.0 -nucmethod 1..5 on the same alignment, matrix[0][2] and matrix[0][3] x100 (two decimals)
+        var expected = new (string Method, double D02, double D03)[]
+        {
+            ("jukes-cantor", 10.73, 26.35), ("kimura", 10.85, 27.26), ("tamura", 10.85, 27.34), ("tajima-nei", 11.36, 29.26), ("jin-nei", 11.81, 34.29),
+        };
+        foreach (var (method, d02, d03) in expected)
+        {
+            var r = AnalysisTools.AlignmentDistanceMatrix(Dna, method);
+            Assert.That(r.Method, Is.EqualTo(method));
+            Assert.That(r.Matrix[0][2]!.Value * 100, Is.EqualTo(d02).Within(0.0051), method);
+            Assert.That(r.Matrix[0][3]!.Value * 100, Is.EqualTo(d03).Within(0.0051), method);
+        }
+
+        Assert.That(AnalysisTools.AlignmentDistanceMatrix(Dna, "tajima-nei").Matrix[0][1], Is.Null, "distmat prints nan");
+        Assert.Throws<NotSupportedException>(() => AnalysisTools.AlignmentDistanceMatrix(Dna, "tajima-nei", position: 12));
     }
 
     [Test]
@@ -68,7 +88,8 @@ public class MultipleAlignmentStatisticsToolTests
         Assert.Throws<ArgumentException>(() => AnalysisTools.MultipleAlignmentStatistics(Dna, "rna"));
         Assert.Throws<ArgumentOutOfRangeException>(() => AnalysisTools.MultipleAlignmentStatistics(Dna, referenceSequence: 5));
         Assert.Throws<ArgumentException>(() => AnalysisTools.MultipleAlignmentStatistics(new[] { "ACG", "AC" }));
-        Assert.Throws<ArgumentException>(() => AnalysisTools.AlignmentDistanceMatrix(Dna, "kimura"));
+        Assert.Throws<ArgumentException>(() => AnalysisTools.AlignmentDistanceMatrix(Dna, "nope"));
+        Assert.Throws<ArgumentException>(() => AnalysisTools.AlignmentDistanceMatrix(Dna, "tamura", "protein"), "nucleotide-only method on protein");
         Assert.Throws<ArgumentException>(() => AnalysisTools.AlignmentDistanceMatrix(new[] { "ACGT" }));
     }
 }

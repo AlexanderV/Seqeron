@@ -71,6 +71,18 @@ public enum MsaDistanceMethod
 
     /// <summary>EMBOSS distmat Jukes-Cantor: −b·ln(1 − D/b), b = 3/4 (nucleotides) or 19/20 (proteins).</summary>
     JukesCantor,
+
+    /// <summary>EMBOSS distmat <c>-nucmethod 2</c> Kimura 2-parameter (M Kimura 1980, J Mol Evol 16:111) for nucleotides, <c>-protmethod 2</c> "Kimura Protein" (D' = -ln(1 - D - 0.2 D²)) for proteins.</summary>
+    Kimura,
+
+    /// <summary>EMBOSS distmat <c>-nucmethod 3</c> Tamura (K Tamura 1992, Mol Biol Evol 9:678); nucleotides only.</summary>
+    Tamura,
+
+    /// <summary>EMBOSS distmat <c>-nucmethod 4</c> Tajima-Nei (Tajima &amp; Nei 1984, Mol Biol Evol 1:269); nucleotides only.</summary>
+    TajimaNei,
+
+    /// <summary>EMBOSS distmat <c>-nucmethod 5</c> Jin-Nei Gamma distance (Jin &amp; Nei 1990, Mol Biol Evol 7:82); nucleotides only.</summary>
+    JinNei,
 }
 
 /// <summary>
@@ -85,7 +97,7 @@ public enum MsaDistanceMethod
 /// <see cref="MotifFinder.GenerateEmbossConsensus(IEnumerable{string}, ConsensusResidueType, float?, int, float?, IReadOnlyList{float}?)"/>
 /// — called, not re-implemented.
 /// </remarks>
-public static class MultipleAlignmentStatistics
+public static partial class MultipleAlignmentStatistics
 {
     private const char Gap = '-';
 
@@ -207,7 +219,7 @@ public static class MultipleAlignmentStatistics
     }
 
     /// <summary>
-    /// Pairwise distance matrix of aligned rows as EMBOSS <c>distmat</c> (no ambiguity option, all codon positions): matches =
+    /// Pairwise distance matrix of aligned rows as EMBOSS <c>distmat</c> (uncorrected and Jukes-Cantor; no ambiguity option, all codon positions - the full option set is <see cref="CalculateDistanceMatrix(IReadOnlyList{string}, MsaDistanceOptions)"/>): matches =
     /// columns where both rows carry the same non-gap symbol; g = columns where either row has a gap;
     /// <see cref="MsaDistanceMethod.Uncorrected"/> D = 1 − matches/(L − g + g·<paramref name="gapWeight"/>);
     /// <see cref="MsaDistanceMethod.JukesCantor"/> D' = −b·ln(1 − D/b). A pair with a zero denominator is NaN
@@ -221,36 +233,7 @@ public static class MultipleAlignmentStatistics
         IReadOnlyList<string> alignedRows, MsaDistanceMethod method = MsaDistanceMethod.Uncorrected,
         ConsensusResidueType residueType = ConsensusResidueType.Auto, double gapWeight = 0)
     {
-        var rows = Normalize(alignedRows);
-        bool nucleotide = IsNucleotide(rows, residueType);
-        if (rows.Length < 2)
-            throw new ArgumentException($"Insufficient sequences ({rows.Length}) to create a matrix; EMBOSS distmat requires at least 2.", nameof(alignedRows));
-        if (double.IsNaN(gapWeight) || double.IsInfinity(gapWeight))
-            throw new ArgumentOutOfRangeException(nameof(gapWeight));
-
-        int n = rows.Length, len = rows[0].Length;
-        double b = nucleotide ? 0.75 : 19.0 / 20.0;
-        var d = new double[n, n];
-        for (int i = 0; i < n; i++)
-        {
-            for (int j = i + 1; j < n; j++)
-            {
-                int matches = 0, gaps = 0;
-                for (int k = 0; k < len; k++)
-                {
-                    char x = rows[i][k], y = rows[j][k];
-                    if (x == y && x != Gap) matches++;
-                    if (x == Gap || y == Gap) gaps++;
-                }
-                double denominator = len - gaps + gaps * gapWeight;
-                double dist = 1 - matches / denominator;
-                if (method == MsaDistanceMethod.JukesCantor)
-                    dist = -b * Math.Log(1.0 - dist / b);
-                d[i, j] = dist;
-                d[j, i] = dist;
-            }
-        }
-        return d;
+        return CalculateDistanceMatrix(alignedRows, new MsaDistanceOptions { Method = method, ResidueType = residueType, GapWeight = gapWeight });
     }
 
     /// <summary>

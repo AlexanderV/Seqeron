@@ -129,7 +129,7 @@
    },
    "scoreMatrix": {
     "type": "string",
-    "description": "type='protein': substitution matrix of the reported totalScore only: BLOSUM62 (default) or PAM250."
+    "description": "type='protein': substitution matrix of the reported totalScore only: BLOSUM62 (default), PAM250 or any EMBOSS protein matrix (EBLOSUM45, EPAM120, ...)."
    },
    "matrixFile": {
     "type": "string",

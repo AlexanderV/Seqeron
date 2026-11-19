@@ -27,7 +27,7 @@ Render a pairwise alignment as three-line blocks in the EMBOSS needle/water (srs
 | `alignedSequence1` | string | Yes | Aligned representation of sequence1. |
 | `alignedSequence2` | string | Yes | Aligned representation of sequence2. |
 | `lineWidth` | integer | No | Maximum characters per line (>= 1). (default: 60) |
-| `matrix` | string | No | Optional substitution matrix deciding which non-gap columns are similar: BLOSUM62, PAM250 (protein) or EDNAFULL (IUPAC DNA). Omit to use match/mismatch. |
+| `matrix` | string | No | Optional substitution matrix deciding which non-gap columns are similar: any built-in matrix by EMBOSS or NCBI name - BLOSUM62, PAM250, EBLOSUM30 ... EBLOSUM90, EPAM10 ... EPAM500 (protein) or EDNAFULL, EDNAMAT, EDNASIMPLE, ENUC.4.4 (IUPAC DNA). Omit to use match/mismatch. |
 | `match` | integer | No | Scalar model (used when matrix is omitted): score of an identical pair. (default: 1) |
 | `mismatch` | integer | No | Scalar model (used when matrix is omitted): score of a non-identical pair; > 0 marks mismatches ':' (similar). (default: -1) |
 

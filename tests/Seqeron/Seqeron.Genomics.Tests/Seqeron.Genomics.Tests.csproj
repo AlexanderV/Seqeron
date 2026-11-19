@@ -124,6 +124,10 @@
     <!-- ALIGN-MULTI-001 (audit A2-1 / A1-10c a3, B09 F89): MUSCLE v3.8.1551 round 3 (60 sets: -matrix blosum62nostar x8, -matrix on nucleotides x8, one-/two-sequence corners, -le/-sp/-sv/-spn);
          run locally with the Debian muscle3 package through handoff/A1-10c-muscle-r3/run_sets.py; scripts/alignment/generate_muscle3_r3_oracle.py. -->
     <EmbeddedResource Include="TestData\Alignment\muscle3_r3_oracle.tsv" />
+    <!-- ALIGN-STATS-001 (audit A2-15, B09 F90): the EMBOSS 6.6.0 data-directory matrices (70); scripts/alignment/generate_emboss_matrices.py. -->
+    <EmbeddedResource Include="TestData\Alignment\emboss_matrices_oracle.tsv" />
+    <!-- ALIGN-STATS-001 (audit A2-15, B09 F90): EMBOSS 6.6.0 distmat, every correction and option (1 100 sets); scripts/alignment/generate_distmat_oracle.py. -->
+    <EmbeddedResource Include="TestData\Alignment\distmat_oracle.tsv" />
     <!-- GENOMIC-COMMON-001 (B09 F15-F16): independent Python (DP + suffix automaton + brute-force matching statistics)
          oracle for FindLongestCommonRegion / FindCommonRegions; scripts/analysis/generate_common_region_oracle.py. -->
     <EmbeddedResource Include="TestData\Analysis\common_region_oracle.tsv" />

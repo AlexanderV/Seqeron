@@ -6,7 +6,7 @@
   "stability": "stable",
   "methodId": "MultipleAlignmentStatistics.CalculateDistanceMatrix",
   "docRef": "Seqeron.Genomics.Analysis/MultipleAlignmentStatistics.cs#L220",
-  "description": "Pairwise distance matrix of a multiple alignment as EMBOSS 6.6.0 distmat: matches = columns where both rows carry the same non-gap symbol, g = columns where either row has a gap; 'uncorrected' D = 1 - matches/(L - g + g*gapWeight); 'jukes-cantor' -b*ln(1 - D/b) with b = 3/4 (nucleotide) or 19/20 (protein). Fractions, not percent; entries with a zero denominator or a saturated logarithm are null.",
+  "description": "Pairwise distance matrix of a multiple alignment as EMBOSS 6.6.0 distmat (every correction and option, verified on 1 100 + 600 runs of the installed program, single-precision arithmetic as in distmat.c): matches = columns where both rows carry the same non-gap symbol, g = columns where either row has a gap; 'uncorrected' D = 1 - matches/(L - g + g*gapWeight); 'jukes-cantor' -b*ln(1 - D/b) with b = 3/4 (nucleotide) or 19/20 (protein); 'kimura' = Kimura 2-parameter (nucleotides) / Kimura protein -ln(1 - D - 0.2 D^2) (proteins); 'tamura', 'tajima-nei' and 'jin-nei' (Gamma distance; calculateA / parameterA) are nucleotide methods. ambiguous counts ambiguity codes (proteins: B/Z/J/X weights; nucleotides: distmat's ajBaseAlphacharCompare with its own defects, and a gap in the first sequence of a pair makes the program loop forever = tool error). position = 123 (all codon bases, default), 12, or 1 / 2 / 3 (nucleotides); tajima-nei and protein kimura with a position other than 123 read beyond the program's buffers (undefined) = tool error. Fractions, not percent; entries with a zero denominator or a saturated logarithm are null.",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -20,18 +20,38 @@
       },
       "method": {
         "type": "string",
-        "description": "'uncorrected' (default) or 'jukes-cantor'.",
+        "description": "'uncorrected' (default), 'jukes-cantor', 'kimura', 'tamura', 'tajima-nei' or 'jin-nei'.",
         "default": "uncorrected"
       },
       "residueType": {
         "type": "string",
-        "description": "'auto' (default), 'nucleotide' or 'protein' (selects the Jukes-Cantor constant b).",
+        "description": "'auto' (default; EMBOSS decides from the first row), 'nucleotide' or 'protein'.",
         "default": "auto"
       },
       "gapWeight": {
         "type": "number",
-        "description": "distmat -gapweight (default 0).",
+        "description": "distmat -gapweight (default 0; uncorrected and jukes-cantor).",
         "default": 0
+      },
+      "ambiguous": {
+        "type": "boolean",
+        "description": "distmat -ambiguous (default false).",
+        "default": false
+      },
+      "position": {
+        "type": "integer",
+        "description": "distmat -position: 123 (default), 12, or for nucleotides 1, 2, 3.",
+        "default": 123
+      },
+      "calculateA": {
+        "type": "boolean",
+        "description": "distmat -calculatea: calculate the Jin-Nei parameter a instead of using parameterA (default false).",
+        "default": false
+      },
+      "parameterA": {
+        "type": "number",
+        "description": "distmat -parametera: the Jin-Nei Gamma parameter a (default 1.0).",
+        "default": 1
       }
     },
     "required": [
@@ -71,7 +91,7 @@
     },
     {
       "code": 1002,
-      "message": "method must be 'uncorrected' or 'jukes-cantor'"
+      "message": "method must be 'uncorrected', 'jukes-cantor', 'kimura', 'tamura', 'tajima-nei' or 'jin-nei'"
     }
   ],
   "examples": [

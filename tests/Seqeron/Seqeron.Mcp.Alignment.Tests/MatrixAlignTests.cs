@@ -85,8 +85,19 @@ public class MatrixAlignTests
     [Test]
     public void UnknownMatrix_Rejected_UnknownResidue_Rejected()
     {
-        Assert.Throws<ArgumentException>(() => AlignmentTools.GlobalAlign("ACGT", "ACGT", matrix: "BLOSUM45"));
+        Assert.Throws<ArgumentException>(() => AlignmentTools.GlobalAlign("ACGT", "ACGT", matrix: "BLOSUM999"));
         Assert.Throws<ArgumentException>(() => AlignmentTools.GlobalAlign("AC1T", "ACGT", matrix: "BLOSUM62"));
+    }
+
+    /// <summary>The EMBOSS data matrices are all available by EMBOSS or NCBI name (audit A2-15, F90).</summary>
+    [Test]
+    public void NamedBuiltInMatrices_AreAccepted_EmbossAndNcbiNames()
+    {
+        // BLOSUM45 W/W = 15, BLOSUM80 C/C = 13, PAM30 W/W = 13 (EMBOSS data files = Biopython 1.88)
+        Assert.That(AlignmentTools.GlobalAlign("W", "W", matrix: "BLOSUM45").Score, Is.EqualTo(15));
+        Assert.That(AlignmentTools.GlobalAlign("C", "C", matrix: "ebloSUM80").Score, Is.EqualTo(13));
+        Assert.That(AlignmentTools.GlobalAlign("W", "W", matrix: "PAM30").Score, Is.EqualTo(13));
+        Assert.That(AlignmentTools.GlobalAlign("A", "A", matrix: "EDNAMAT").Score, Is.EqualTo(5));
     }
 
     /// <summary>BLAST+ report values of alignment_statistics (B09 F42): integer percentages (NCBI GetPercentMatch), positives, pident.</summary>

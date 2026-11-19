@@ -100,7 +100,7 @@ public class AlignmentTools
     public static AlignmentStatisticsDto AlignmentStatistics(
         [Description("Aligned representation of sequence1 (with '-' gaps).")] string alignedSequence1,
         [Description("Aligned representation of sequence2 (with '-' gaps).")] string alignedSequence2,
-        [Description("Optional substitution matrix deciding which non-gap columns are similar: BLOSUM62, PAM250 (protein) or EDNAFULL (IUPAC DNA). Omit to use match/mismatch.")] string? matrix = null,
+        [Description("Optional substitution matrix deciding which non-gap columns are similar: any built-in matrix by EMBOSS or NCBI name - BLOSUM62, PAM250, EBLOSUM30 ... EBLOSUM90, EPAM10 ... EPAM500 (protein) or EDNAFULL, EDNAMAT, EDNASIMPLE, ENUC.4.4 (IUPAC DNA). Omit to use match/mismatch.")] string? matrix = null,
         [Description("Scalar model (used when matrix is omitted): score of an identical pair; the pair is 'similar' iff this is > 0.")] int match = 1,
         [Description("Scalar model (used when matrix is omitted): score of a non-identical pair; the pair is 'similar' iff this is > 0.")] int mismatch = -1)
     {
@@ -114,7 +114,7 @@ public class AlignmentTools
             s.Matches, s.Mismatches, s.Gaps, s.AlignmentLength,
             s.Identity, s.Similarity, s.GapPercent, s.Positives, s.GapOpens,
             s.BlastPositives, s.BlastPercentIdentity, s.BlastPercentPositives, s.BlastPercentGaps,
-            s.BlastTabularPidentText, s.ToBlastString(protein: sub is not null && !ReferenceEquals(sub, global::Seqeron.Genomics.Infrastructure.SubstitutionMatrix.EdnaFull)));
+            s.BlastTabularPidentText, s.ToBlastString(protein: sub is not null && !sub.IsNucleotide));
     }
 
     [McpServerTool(Name = "format_alignment", Title = "Alignment — Pretty Format", ReadOnly = true)]
@@ -123,7 +123,7 @@ public class AlignmentTools
         [Description("Aligned representation of sequence1.")] string alignedSequence1,
         [Description("Aligned representation of sequence2.")] string alignedSequence2,
         [Description("Maximum characters per line in the formatted output (>= 1).")] int lineWidth = 60,
-        [Description("Optional substitution matrix deciding which non-gap columns are similar: BLOSUM62, PAM250 or EDNAFULL. Omit to use match/mismatch.")] string? matrix = null,
+        [Description("Optional substitution matrix deciding which non-gap columns are similar: any built-in matrix by EMBOSS or NCBI name (BLOSUM62, PAM250, EBLOSUM45, EPAM120, EDNAFULL, ...). Omit to use match/mismatch.")] string? matrix = null,
         [Description("Scalar model (used when matrix is omitted): score of an identical pair.")] int match = 1,
         [Description("Scalar model (used when matrix is omitted): score of a non-identical pair; > 0 marks mismatches ':' (similar).")] int mismatch = -1)
     {
@@ -159,7 +159,7 @@ public class AlignmentTools
     }
 
     private const string MatrixParamDescription =
-        "Optional substitution matrix: BLOSUM62, PAM250 (protein) or EDNAFULL (IUPAC DNA). When given, match/mismatch are ignored, residues are scored by the published table (any protein or IUPAC symbol of the matrix; case-insensitive) and gapOpen/gapExtend may be fractional (the EMBOSS needle/water models: gapOpen = -(G - E), gapExtend = -E for -gapopen G -gapextend E). The result then also carries the real-valued exactScore.";
+        "Optional substitution matrix: any built-in matrix by EMBOSS or NCBI name - BLOSUM62, PAM250, EBLOSUM30 ... EBLOSUM90, EPAM10 ... EPAM500 (protein) or EDNAFULL, EDNAMAT, EDNASIMPLE, ENUC.4.4 (IUPAC DNA). When given, match/mismatch are ignored, residues are scored by the published table (any protein or IUPAC symbol of the matrix; case-insensitive) and gapOpen/gapExtend may be fractional (the EMBOSS needle/water models: gapOpen = -(G - E), gapExtend = -E for -gapopen G -gapextend E). The result then also carries the real-valued exactScore.";
 
     /// <summary>
     /// The pairwise tools DELEGATE to the library, whose contract (F39) accepts an empty sequence (the all-gap alignment of the other sequence;
@@ -195,13 +195,9 @@ public class AlignmentTools
     {
         if (string.IsNullOrWhiteSpace(name))
             return null;
-        return name.Trim().ToUpperInvariant() switch
-        {
-            "BLOSUM62" or "EBLOSUM62" => global::Seqeron.Genomics.Infrastructure.SubstitutionMatrix.Blosum62,
-            "PAM250" or "EPAM250" => global::Seqeron.Genomics.Infrastructure.SubstitutionMatrix.Pam250,
-            "EDNAFULL" or "NUC.4.4" or "NUC44" => global::Seqeron.Genomics.Infrastructure.SubstitutionMatrix.EdnaFull,
-            _ => throw new ArgumentException($"Unknown matrix '{name}'. Supported: BLOSUM62, PAM250, EDNAFULL.", nameof(name))
-        };
+        return global::Seqeron.Genomics.Infrastructure.SubstitutionMatrix.TryGet(name, out var m)
+            ? m
+            : throw new ArgumentException($"Unknown matrix '{name}'. Supported: the EMBOSS data matrices (EBLOSUM30 ... EBLOSUM90, EBLOSUM62-12, EBLOSUMN, EPAM10 ... EPAM500, EDNAFULL, EDNAMAT, EDNASIMPLE, ENUC.4.4) and their NCBI names (BLOSUM62, PAM250, BLOSUM45, PAM30, NUC.4.4, ...).", nameof(name));
     }
 
     [McpServerTool(Name = "global_align_affine", Title = "Pairwise — Global Alignment, Affine Gaps (Gotoh)", ReadOnly = true)]
@@ -448,7 +444,7 @@ public class AlignmentTools
         "The protein path shares the dynamic programs, merge, profile and objective code of the DNA path (no second implementation).";
 
     private const string MsaMatrixDescription =
-        "Optional substitution matrix: BLOSUM62 or PAM250 (type='protein'), EDNAFULL (IUPAC DNA, type='dna'). When given (or type='protein'), match/mismatch are ignored, residues are scored by the published table " +
+        "Optional substitution matrix: any built-in protein matrix by EMBOSS or NCBI name (BLOSUM62, PAM250, EBLOSUM45, EPAM120, ...) for type='protein', a nucleotide matrix (EDNAFULL, EDNAMAT, EDNASIMPLE, ENUC.4.4) for type='dna'. When given (or type='protein'), match/mismatch are ignored, residues are scored by the published table " +
         "(case-insensitive, any symbol of the matrix), gapOpen/gapExtend may be fractional (EMBOSS needle numbers gapopen G / gapextend E = gapOpen -(G - E), gapExtend -E) and the result also carries the real-valued exactTotalScore " +
         "(totalScore = rounded). Verified against independent Python implementations of every method, Biopython 1.88 pairwise optima and exhaustive enumeration of tiny sets.";
 
@@ -681,7 +677,7 @@ public class AlignmentTools
         [Description("type='protein': ClustalW -NOVGAP (sic): switch the variable-region gap penalties on (clustalw's default is off).")] bool variableRegionGaps = false,
         [Description("type='protein': ClustalW -GAPDIST: gap separation distance (default 4; 0 = off): columns this close to an existing gap get a higher opening penalty.")] int gapDist = 4,
         [Description("type='protein': ClustalW -HGAPRESIDUES: residues of a hydrophilic stretch (default GPSNDQEKR; at most the first 9 letters are used).")] string hydrophilicResidues = "GPSNDQEKR",
-        [Description("type='protein': substitution matrix of the reported totalScore only: BLOSUM62 (default) or PAM250.")] string? scoreMatrix = null,
+        [Description("type='protein': substitution matrix of the reported totalScore only: BLOSUM62 (default), PAM250 or any EMBOSS protein matrix (EBLOSUM45, EPAM120, ...).")] string? scoreMatrix = null,
         [Description("type='protein': ClustalW -MATRIX=file, the TEXT of a user matrix file for the profile alignment (NCBI / EMBOSS layout: '#' comments, a header line of residue letters, one row per residue with an optional leading label, one extra '*' row, integer or floating-point values (a row whose first value contains '.' is scaled by 10); only the lower triangle is read) or of a CLUSTAL_SERIES file (lines 'MATRIX llimit ulimit file', file names resolved through matrixFiles). Replaces 'matrix'.")] string? matrixFile = null,
         [Description("type='protein': the matrix files named by a CLUSTAL_SERIES matrixFile: file name -> text of the matrix file.")] Dictionary<string, string>? matrixFiles = null,
         [Description("type='protein': ClustalW -PWMATRIX=file, the TEXT of a user matrix file for the pairwise (distance) stage (same layout as matrixFile, a single matrix). Replaces 'pwMatrix'.")] string? pwMatrixFile = null,
@@ -752,12 +748,9 @@ public class AlignmentTools
 
                 protein = protein with { UserMatrix = parsed.Matrix, UserMatrixSeries = parsed.Series };
             }
-            var scoreSub = (scoreMatrix ?? "BLOSUM62").Trim().ToUpperInvariant() switch
-            {
-                "BLOSUM62" => global::Seqeron.Genomics.Infrastructure.SubstitutionMatrix.Blosum62,
-                "PAM250" => global::Seqeron.Genomics.Infrastructure.SubstitutionMatrix.Pam250,
-                _ => throw new ArgumentException("scoreMatrix must be 'BLOSUM62' or 'PAM250'.", nameof(scoreMatrix)),
-            };
+            var scoreSub = global::Seqeron.Genomics.Infrastructure.SubstitutionMatrix.TryGet(scoreMatrix ?? "BLOSUM62", out var scoreFound) && !scoreFound.IsNucleotide
+                ? scoreFound
+                : throw new ArgumentException("scoreMatrix must be a protein matrix name: BLOSUM62 (default), PAM250 or any other EMBOSS protein matrix (EBLOSUM45, EPAM120, ...).", nameof(scoreMatrix));
             if (sequences == null || sequences.Length == 0)
             {
                 var e = global::Seqeron.Genomics.Infrastructure.MultipleAlignmentResult.Empty;
@@ -1197,16 +1190,16 @@ public class AlignmentTools
             throw new ArgumentException("type must be 'dna' or 'protein'.", nameof(type));
 
         var sub = ResolveMatrix(matrix);
-        bool edna = ReferenceEquals(sub, global::Seqeron.Genomics.Infrastructure.SubstitutionMatrix.EdnaFull);
+        bool edna = sub is not null && sub.IsNucleotide;
         if (kind == "protein")
         {
             if (edna)
-                throw new ArgumentException("matrix EDNAFULL is a nucleotide matrix; use type='dna' with it, or BLOSUM62 / PAM250 for type='protein'.", nameof(matrix));
+                throw new ArgumentException("matrix " + sub!.Name + " is a nucleotide matrix; use type='dna' with it, or a protein matrix (BLOSUM62, PAM250, ...) for type='protein'.", nameof(matrix));
             return (sub ?? global::Seqeron.Genomics.Infrastructure.SubstitutionMatrix.Blosum62, true);
         }
 
         if (sub is not null && !edna)
-            throw new ArgumentException("type='dna' accepts only matrix EDNAFULL; use type='protein' for BLOSUM62 / PAM250.", nameof(matrix));
+            throw new ArgumentException("type='dna' accepts only a nucleotide matrix (EDNAFULL, EDNAMAT, EDNASIMPLE, ENUC.4.4); use type='protein' for a protein matrix (BLOSUM62, PAM250, ...).", nameof(matrix));
         return (sub, false);
     }
 
