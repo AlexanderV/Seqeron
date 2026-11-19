@@ -5,20 +5,24 @@ namespace Seqeron.Genomics.Alignment;
 
 public static partial class SequenceAligner
 {
-    #region MUSCLE 3.8.1551 progressive alignment (maxiters 1 and 2)
+    #region MUSCLE 3.8.1551 (progressive alignment, tree refinement, restricted-partition refinement)
 
     // Step-by-step port of MUSCLE 3.8.1551 (Edgar 2004, NAR 32:1792; muscle3.8.1551_src, Debian 3.8.1551-2 source tree) for the command line
-    //   muscle -in x.fa -out y.fa -maxiters 1|2 [-seqtype ...] [-le|-sp|-sv|-spn] [-gapopen -gapextend -center] [-distance1 -cluster1 -cluster2 -sueff -maxtrees]
-    // i.e. domuscle.cpp::DoMuscle with the default g_bLow pipeline:
+    //   muscle -in x.fa -out y.fa [-maxiters n] [-seqtype ...] [-le|-sp|-sv|-spn] [-gapopen -gapextend -center] [-distance1 -distance2 -cluster1 -cluster2 -root1 -root2 -sueff -maxtrees]
+    //          [-weight1 -weight2 -objscore -termgaps -anchors|-noanchors ...] [-matrix -usetree -brenner -tree1 -tree2 -distmx1 -distmx2 -clusteronly -computeweights]
+    // i.e. domuscle.cpp::DoMuscle:
     //   1. seq.cpp / fasta2.cpp / alpha.cpp: letters upper-cased, gaps and white space dropped, letters outside the alphabet replaced by the wildcard (X protein, N nucleotide);
     //      mhack.cpp: a leading M of a protein is treated as X during the whole alignment and restored at the end;
-    //   2. fastdistmafft.cpp / fastdistnuc.cpp: k-mer distance (DistKmer6_6 protein / DistKmer4_6 nucleotide), fastclust.cpp + upgma2.cpp: UPGMB guide tree (pseudo root);
-    //   3. progressivealign (ProgressiveAlignE): clwwt.cpp ClustalW tree weights, profilefrommsa.cpp leaf profiles, aligntwoprofs.cpp: nwsmall.cpp (affine DP with position-specific
-    //      gap open / close, scorepp.cpp LE / SP / SPN score, termgaps.cpp half terminal gaps) + aligngivenpath.cpp (profile of the merged node from the frequencies), makerootmsa.cpp;
-    //   4. maxiters 2: refinetreee.cpp: distance = Kimura of the draft MSA (msadistkimura.cpp), UPGMB, difftreese.cpp (nodes whose leaf set is unchanged are kept), realigndiffse.cpp.
+    //   2. distfunc.cpp DistUnaligned (SequenceAligner.MuscleTrees.cs) + clustering: UPGMA2 / UPGMB (upgma2.cpp) or neighbour joining (clust.cpp), rooted by FixRoot (phy3.cpp);
+    //   3. progressive alignment: with the ClustalW weights (g_bLow) ProgressiveAlignE (clwwt.cpp weights, profilefrommsa.cpp leaf profiles, aligntwoprofs.cpp: nwsmall.cpp affine DP with
+    //      position-specific gap open / close, scorepp.cpp LE / SP / SPN score, termgaps.cpp, aligngivenpath.cpp, makerootmsa.cpp / makerootmsab.cpp), otherwise ProgressiveAlign on MSAs;
+    //   4. iteration 2: refinetreee.cpp / difftreese.cpp / realigndiffse.cpp (or refinetree.cpp / difftrees.cpp / realigndiffs.cpp without the ClustalW weights): the tree of the draft
+    //      (msadistkimura.cpp ...), the nodes whose leaf set is unchanged are kept, the others realigned;
+    //   5. iterations 3 and above: refinevert.cpp / refinehoriz.cpp with the objective scores of objscore.cpp / objscore2.cpp / spfast.cpp and the anchors of anchors.cpp
+    //      (SequenceAligner.MuscleRefine.cs).
+    // The other command lines of the program are in SequenceAligner.MuscleProgram.cs. -diags*, -hydro*, -gapopen2 / -gapextend2 / -gapambig are accepted and recorded; the 3.8.1551 source compiles
+    // their code out (VER_3_52 = 0, HYDRO undefined, DOUBLE_AFFINE = 0), so they have no effect (confirmation by the binary: second Docker round).
     // All arithmetic that is single precision in the C++ (SCORE / FCOUNT / WEIGHT = float, dist_t = float) is single precision here; the double expressions of the C++ stay double.
-    // Not ported: -diags / -diags1 / -diags2 and -anchors (finddiags.cpp, anchors.cpp), the restricted-partition refinement of iterations >= 3 (refinevert.cpp / refinehoriz.cpp with the
-    // objective score of objscore2.cpp), -weight / -distance2 / -root variants, -usetree, -matrix (user matrices).
 
     private const float MuscleMinusInfinity = -1e37f;
     private const byte MuscleBitDm = 0x01, MuscleBitIm = 0x02, MuscleBitXm = 0x03, MuscleBitMd = 0x04, MuscleBitXd = 0x04, MuscleBitMi = 0x08, MuscleBitXi = 0x08;
@@ -48,22 +52,22 @@ public static partial class SequenceAligner
     }
 
     /// <summary>
-    /// MUSCLE 3.8.1551's multiple alignment (Edgar 2004, NAR 32:1792), a step-by-step port of the program's default pipeline for <c>-maxiters 1</c> (the progressive draft: k-mer distance,
-    /// UPGMB guide tree, ClustalW weights, profile-profile alignment with the log-expectation / sum-of-pairs score and position-specific gap penalties) and <c>-maxiters 2</c> (plus the
-    /// tree-dependent refinement: rebuild the tree from the Kimura distances of the draft, realign only the changed subtrees).
+    /// MUSCLE 3.8.1551's multiple alignment (Edgar 2004, NAR 32:1792), a step-by-step port of the program: <c>-maxiters 1</c> (the progressive draft: k-mer distance,
+    /// UPGMB guide tree, ClustalW weights, profile-profile alignment with the log-expectation / sum-of-pairs score and position-specific gap penalties), <c>-maxiters 2</c> (plus the
+    /// tree-dependent refinement: rebuild the tree from the Kimura distances of the draft, realign only the changed subtrees) and <c>-maxiters 3</c> and above (restricted-partition refinement).
     /// </summary>
     /// <remarks>
     /// Rows are returned in input order (<see cref="MuscleOptions.TreeOrder"/> = the order <c>muscle</c> writes). Letters are upper-cased, gaps ('-', '.') and white space are dropped,
     /// letters outside the alphabet are replaced by the wildcard (protein X, nucleotide N; MUSCLE warns "invalid letters found"), and MUSCLE's methionine hack applies (a leading M of a protein is aligned as X and
     /// restored in the output). The reported <see cref="MultipleAlignmentResult.TotalScore"/> is the natural affine sum of pairs under <paramref name="scoring"/> (default: BLOSUM62, open 10 / extend 0.2 for
-    /// proteins; EDNAFULL, 10 / 0.5 for nucleotides), not MUSCLE's objective. Parameters not ported are listed in the region comment of the source file.
-    /// The oracle of this port is the MUSCLE 3.8.1551 binary built from the same source (docs/Validation/review-2026-09/handoff/A1-10c-muscle); the installed <c>muscle</c> 5.x is a different program.
+    /// proteins; EDNAFULL, 10 / 0.5 for nucleotides), not MUSCLE's objective. See <see cref="MuscleOptions"/> for the options of the program (<see cref="MuscleRun"/> returns the files
+    /// it can write as well). The oracle is the MUSCLE 3.8.1551 binary built from the same source (Docker packages docs/Validation/review-2026-09/handoff/A1-10c-muscle: rows and output order equal on 420 / 420
+    /// user-run sets for <c>-maxiters 1 / 2</c>; A1-10c-muscle-r2: the rest, awaiting); the installed <c>muscle</c> 5.x is a different program.
     /// </remarks>
     /// <param name="sequences">Sequences (letters; at least one, none empty).</param>
-    /// <param name="options">MUSCLE parameters (default: the defaults of MUSCLE 3.8, <see cref="MuscleOptions.MaxIterations"/> 2).</param>
+    /// <param name="options">MUSCLE parameters (default: the defaults of MUSCLE 3.8 except <see cref="MuscleOptions.MaxIterations"/> 2, the program's default is 8).</param>
     /// <param name="scoring">Scoring of the reported total score only.</param>
     /// <exception cref="ArgumentException">An empty sequence, a non-letter character or an unusable parameter.</exception>
-    /// <exception cref="NotSupportedException"><see cref="MuscleOptions.MaxIterations"/> above 2.</exception>
     public static MultipleAlignmentResult MultipleAlignMuscle(IEnumerable<string> sequences, MuscleOptions? options = null, MatrixScoring? scoring = null)
     {
         ArgumentNullException.ThrowIfNull(sequences);
@@ -96,6 +100,7 @@ public static partial class SequenceAligner
         public readonly float[] Counts = new float[20];
         public readonly float[] AaScores = new float[20];
         public float LL, LG, GL, GG, Occ, GapOpen, GapClose;
+        public bool AllGaps;
     }
 
     internal sealed class MuscleNode
@@ -141,7 +146,7 @@ public static partial class SequenceAligner
         }
     }
 
-    internal sealed class MuscleEngine
+    internal sealed partial class MuscleEngine
     {
         private readonly MuscleOptions _o;
         private readonly int _n;
@@ -167,6 +172,14 @@ public static partial class SequenceAligner
         public string[] DraftRowsInputOrder { get; private set; } = Array.Empty<string>();
         public int[] FinalTreeOrder { get; private set; } = Array.Empty<int>();
         public string GuideTreeNewick { get; private set; } = "";
+        public string? Tree1Text { get; private set; }
+        public string? Tree2Text { get; private set; }
+        public string? Dist1Text { get; private set; }
+        public string? Dist2Text { get; private set; }
+        public string? WeightsText { get; private set; }
+        public bool Stopped { get; private set; }
+        public IReadOnlyList<string> Names => _names;
+        private string[] _names = Array.Empty<string>();
 
         public MuscleEngine(MuscleOptions options, IReadOnlyList<string> sequences)
         {
@@ -174,13 +187,14 @@ public static partial class SequenceAligner
             _n = sequences.Count;
             if (options.MaxIterations < 1)
                 throw new ArgumentException("MaxIterations must be at least 1.", nameof(options));
-            if (options.MaxIterations > 2)
-                throw new NotSupportedException("MUSCLE's iterations 3 and above (restricted-partition refinement, refinevert.cpp / refinehoriz.cpp) are not ported; use MaxIterations 1 or 2.");
             if (options.MaxTrees < 0)
                 throw new ArgumentException("MaxTrees must be non-negative.", nameof(options));
             if (!Enum.IsDefined(options.SequenceType) || !Enum.IsDefined(options.ScoreModel) || !Enum.IsDefined(options.Distance1) || !Enum.IsDefined(options.Cluster1) || !Enum.IsDefined(options.Cluster2))
                 throw new ArgumentOutOfRangeException(nameof(options), "Unknown MUSCLE option value.");
 
+            _names = options.SequenceNames is { } nm ? nm.ToArray() : Enumerable.Range(0, _n).Select(i => "s" + i).ToArray();
+            if (_names.Length != _n)
+                throw new ArgumentException("SequenceNames must have one name per sequence.", nameof(options));
             var cleaned = new string[_n];
             for (int i = 0; i < _n; i++)
             {
@@ -309,11 +323,19 @@ public static partial class SequenceAligner
         {
             var model = _o.ScoreModel;
             if (model == MuscleScoreModel.Default)
-                model = _nuc ? MuscleScoreModel.SumOfPairsNucleotide : MuscleScoreModel.LogExpectation;
+            {
+                model = _o.UserMatrix is not null ? MuscleScoreModel.SumOfPairs : MuscleScoreModel.LogExpectation;
+                if (_nuc)
+                    model = MuscleScoreModel.SumOfPairsNucleotide;
+            }
+
+            if (_o.UserMatrix is not null && _nuc)
+                throw new ArgumentException("A user score matrix (-matrix) is only defined for protein sequences.");
+            // params.cpp SetPPScore: a protein score is replaced by SPN for nucleotides, SPN by LE for proteins
             if (_nuc && model != MuscleScoreModel.SumOfPairsNucleotide)
-                throw new ArgumentException("Nucleotide sequences are aligned with the SPN score (MUSCLE switches the protein scores to SPN).");
-            if (!_nuc && model == MuscleScoreModel.SumOfPairsNucleotide)
-                throw new ArgumentException("The SPN score needs a nucleotide alphabet.");
+                model = MuscleScoreModel.SumOfPairsNucleotide;
+            else if (!_nuc && model == MuscleScoreModel.SumOfPairsNucleotide)
+                model = MuscleScoreModel.LogExpectation;
             _pp = model;
 
             switch (model)
@@ -323,28 +345,39 @@ public static partial class SequenceAligner
                     _gapOpen = -2.9f;
                     _center = -0.52f;
                     _normalizeCounts = true;
+                    (_smoothScoreCeil, _minBestColScore, _minSmoothScore) = (3.0f, 2.0f, 1.0f);
                     break;
                 case MuscleScoreModel.SumOfPairs:
                     Load(MusclePam200, 20f, 20);
                     _gapOpen = -1439f;
                     _center = 0f;
+                    (_smoothScoreCeil, _minBestColScore, _minSmoothScore) = (200.0f, 300.0f, 125.0f);
                     break;
                 case MuscleScoreModel.SumOfPairsVtml:
                     Load(MuscleVtmlSp, 22f, 20, addInDouble: true);
                     _gapOpen = -300f;
                     _center = 0f;
+                    (_smoothScoreCeil, _minBestColScore, _minSmoothScore) = (90.0f, 130.0f, 40.0f);
                     break;
                 default:
                     Load(MuscleNucSp, 60f, 4);
                     _gapOpen = _rna ? -420f : -400f;
                     _center = _rna ? -300f : 0f;
+                    (_smoothScoreCeil, _minBestColScore, _minSmoothScore) = (999.0f, 90.0f, 90.0f);
                     break;
             }
+
+            if (_o.UserMatrix is not null)
+                _matrix = ReadMatrixFile(_o.UserMatrix);   // domuscle.cpp: the user matrix replaces the score matrix after SetPPScore (the defaults of the SP score, unless -le / -sv is given)
 
             _gapExtend = 0f;
             if (_o.GapOpen is { } go) _gapOpen = (float)go;
             if (_o.GapExtend is { } ge) _gapExtend = (float)ge;
             if (_o.Center is { } c) _center = (float)c;
+            if (_o.SmoothScoreCeil is { } sc) _smoothScoreCeil = (float)sc;
+            if (_o.MinBestColScore is { } mb) _minBestColScore = (float)mb;
+            if (_o.MinSmoothScore is { } ms) _minSmoothScore = (float)ms;
+            _termGaps = _o.TermGaps;
             if (float.IsNaN(_gapOpen) || float.IsNaN(_gapExtend) || float.IsNaN(_center))
                 throw new ArgumentException("MUSCLE gap / center parameters must be numbers.");
 
@@ -384,22 +417,94 @@ public static partial class SequenceAligner
                 return (_mHack[0] ? [RestoreM(one[0])] : one, _nuc);
             }
 
-            var dist = ComputeKmerDistances();
-            var tree = Upgma(dist, _o.Cluster1, Enumerable.Range(0, _n).ToArray());
+            // domuscle.cpp DoMuscle
+            _curWeight = _o.Weight1;
+            bool low = _o.Weight1 == MuscleSeqWeight.ClustalW && (_o.MaxIterations == 1 || _o.Weight2 == MuscleSeqWeight.ClustalW);   // CanDoLowComplexity
+            var tree = BuildFirstTree();
             GuideTreeNewick = Newick(tree);
-
-            var weights = CalcClustalWWeights(tree);
-            var nodes = new MuscleNode[tree.NodeCount];
-            ProgressiveAlign(tree, weights, nodes);
-            var root = nodes[tree.Root];
-            var rows = ReorderToDepthFirst(root, tree, nodes.Length);
-            DraftRowsInputOrder = ToInputOrder(rows.ids, rows.rows);
-
-            var msaIds = rows.ids;
-            var msaRows = rows.rows;
-            if (_o.MaxIterations >= 2 && _n > 2 && _o.MaxTrees != 0)
+            Tree1Text = TreeToFile(tree);
+            if (_o.ClusterOnly)
             {
-                RefineTree(ref msaIds, ref msaRows, ref tree, nodes);
+                Stopped = true;
+                return ([], _nuc);
+            }
+
+            SetMuscleTree(tree);
+
+            int[] msaIds;
+            string[] msaRows;
+            MuscleNode[]? nodes = null;
+            MuscleMsa? msa = null;
+            if (low)
+            {
+                var weights = CalcClustalWWeights(tree);
+                nodes = new MuscleNode[tree.NodeCount];
+                ProgressiveAlign(tree, weights, nodes);
+                var root = nodes[tree.Root];
+                if (_o.Brenner)
+                {
+                    msaIds = Enumerable.Range(0, _n).ToArray();
+                    msaRows = BrennerRootRows(root);
+                }
+                else
+                {
+                    var rows = ReorderToDepthFirst(root, tree, nodes.Length);
+                    msaIds = rows.ids;
+                    msaRows = rows.rows;
+                }
+            }
+            else
+            {
+                msa = ProgressiveAlignMsa(tree);
+                msaIds = msa.Ids;
+                msaRows = msa.Rows.Select(r => new string(r)).ToArray();
+            }
+
+            DraftRowsInputOrder = ToInputOrder(msaIds, msaRows);
+
+            if (_o.ComputeWeights)
+            {
+                var wm = new MuscleMsa(msaIds, msaRows.Select(r => r.ToCharArray()).ToArray());
+                SetMsaWeights(wm);
+                var sb = new System.Text.StringBuilder();
+                for (int i = 0; i < wm.SeqCount; i++)
+                    sb.Append(_names[wm.Ids[i]]).Append('\t').Append(FormatG((double)wm.Weights[i], 3)).Append('\n');
+                WeightsText = sb.ToString();
+                Stopped = true;
+                return ([], _nuc);
+            }
+
+            if (_o.MaxIterations >= 2 && _n > 2)
+            {
+                // iteration 2 (the tree-dependent refinement, not with a user tree) and iterations 3 and above (restricted partitions)
+                if (_o.UserTree is null)
+                {
+                    if (low)
+                    {
+                        if (_o.MaxTrees != 0)
+                            RefineTree(ref msaIds, ref msaRows, ref tree, nodes!);
+                    }
+                    else
+                    {
+                        msa = new MuscleMsa(msaIds, msaRows.Select(r => r.ToCharArray()).ToArray());
+                        RefineTreeMsa(msa, ref tree);
+                        msaIds = msa.Ids;
+                        msaRows = msa.Rows.Select(r => new string(r)).ToArray();
+                    }
+
+                    Tree2Text = TreeToFile(tree);
+                }
+
+                _curWeight = _o.Weight2;
+                SetMuscleTree(tree);
+                msa = new MuscleMsa(msaIds, msaRows.Select(r => r.ToCharArray()).ToArray());
+                long refineIters = _o.MaxIterations - 2;
+                if (_o.Anchors)
+                    RefineVert(msa, tree, refineIters);
+                else
+                    RefineHoriz(msa, tree, refineIters, false, false);
+                msaIds = msa.Ids;
+                msaRows = msa.Rows.Select(r => new string(r)).ToArray();
             }
 
             FinalTreeOrder = msaIds;
@@ -410,6 +515,39 @@ public static partial class SequenceAligner
             if (_o.TreeOrder)
                 return (msaIds.Select(id => result[id]).ToArray(), _nuc);
             return (result, _nuc);
+        }
+
+        // TreeFromSeqVect (fastclust.cpp): distance, clustering, rooting
+        private MuscleTree BuildFirstTree()
+        {
+            var ids = Enumerable.Range(0, _n).ToArray();
+            if (_o.UserTree is not null)
+                return ParseUserTree(_o.UserTree);
+            var dist = UnalignedDistances();
+            Dist1Text = DistanceMatrixText(dist, _n);
+            return TreeFromDistances(dist, ids, _o.Cluster1, _o.Root1);
+        }
+
+        // progressivealign.cpp ProgressiveAlign (the pipeline of a weighting other than ClustalW): the profiles are rebuilt from the MSA of every node
+        private MuscleMsa ProgressiveAlignMsa(MuscleTree tree)
+        {
+            var nodes = new MuscleMsa?[tree.NodeCount];
+            foreach (int node in tree.PostOrder())
+            {
+                if (tree.IsLeaf(node))
+                {
+                    int id = tree.LeafId[node];
+                    nodes[node] = new MuscleMsa([id], [(char[])_seq[id].Clone()]);
+                }
+                else
+                {
+                    nodes[node] = AlignTwoMsas(nodes[tree.Left[node]]!, nodes[tree.Right[node]]!, false, false).Merged;
+                    nodes[tree.Left[node]] = null;
+                    nodes[tree.Right[node]] = null;
+                }
+            }
+
+            return nodes[tree.Root]!;
         }
 
         // MHackEnd: the first residue of the row becomes M again
@@ -536,10 +674,19 @@ public static partial class SequenceAligner
         // ---------------------------------------------------------------------------------------------------------------------------------
         // upgma2.cpp UPGMA2 (O(N^2), ties: lowest row)
 
+        // clustering of a distance matrix followed by the rooting of the tree (TreeFromMSA / TreeFromSeqVect: UPGMA2 or the neighbour-joining clustering, then FixRoot)
+        internal MuscleTree TreeFromDistances(float[,] dist, int[] ids, MuscleClusterMethod method, MuscleRoot root)
+        {
+            var t = method == MuscleClusterMethod.NeighborJoining ? NeighborJoiningTree(dist, ids) : Upgma(dist, method, ids);
+            return ids.Length == 1 ? t : FixRoot(t, root);   // (a tree of one leaf has nothing to re-root)
+        }
+
         internal MuscleTree Upgma(float[,] dist, MuscleClusterMethod method, int[] ids)
         {
             const float bigDist = 1e29f;
             int n = ids.Length;
+            if (n == 1)
+                return new MuscleTree { LeafCount = 1, Root = 0, Left = [-1], Right = [-1], Parent = [-1], EdgeLength = [0.0], LeafId = [ids[0]] };
             int triangle = n * (n - 1) / 2;
             var g = new float[triangle];
             var nodeIndex = new int[n];
@@ -693,6 +840,8 @@ public static partial class SequenceAligner
         {
             int leafCount = tree.LeafCount;
             var w = new float[leafCount];
+            if (tree.EdgeLength.Any(double.IsNaN) && leafCount > 2)
+                throw new InvalidOperationException("Missing edge length in tree (the ClustalW weights need the edge lengths of the guide tree).");
             if (leafCount == 1)
             {
                 w[0] = 1f;
@@ -795,9 +944,11 @@ public static partial class SequenceAligner
             return parent;
         }
 
-        private static char[][] RowsFromPath(List<(char Type, int A, int B)> path, MuscleNode a, MuscleNode b)
+        private static char[][] RowsFromPath(List<(char Type, int A, int B)> path, MuscleNode a, MuscleNode b) => RowsFromPath(path, a.Rows, b.Rows);
+
+        private static char[][] RowsFromPath(List<(char Type, int A, int B)> path, char[][] aRows, char[][] bRows)
         {
-            int ra = a.Rows.Length, rb = b.Rows.Length;
+            int ra = aRows.Length, rb = bRows.Length;
             var rows = new char[ra + rb][];
             for (int r = 0; r < rows.Length; r++)
                 rows[r] = new char[path.Count];
@@ -807,19 +958,19 @@ public static partial class SequenceAligner
                 switch (path[e].Type)
                 {
                     case 'M':
-                        for (int r = 0; r < ra; r++) rows[r][e] = a.Rows[r][colA];
-                        for (int r = 0; r < rb; r++) rows[ra + r][e] = b.Rows[r][colB];
+                        for (int r = 0; r < ra; r++) rows[r][e] = aRows[r][colA];
+                        for (int r = 0; r < rb; r++) rows[ra + r][e] = bRows[r][colB];
                         colA++;
                         colB++;
                         break;
                     case 'D':
-                        for (int r = 0; r < ra; r++) rows[r][e] = a.Rows[r][colA];
+                        for (int r = 0; r < ra; r++) rows[r][e] = aRows[r][colA];
                         for (int r = 0; r < rb; r++) rows[ra + r][e] = '-';
                         colA++;
                         break;
                     default:
                         for (int r = 0; r < ra; r++) rows[r][e] = '-';
-                        for (int r = 0; r < rb; r++) rows[ra + r][e] = b.Rows[r][colB];
+                        for (int r = 0; r < rb; r++) rows[ra + r][e] = bRows[r][colB];
                         colB++;
                         break;
                 }
@@ -1195,21 +1346,33 @@ public static partial class SequenceAligner
             return (logScore - _center) * (ppa.Occ * ppb.Occ);
         }
 
-        private static void SetTermGaps(MuscleProfPos[] prof, int length)
+        // termgaps.cpp SetTermGaps (TERMGAPS_Half falls through into the sign flip of TERMGAPS_Ext, TERMGAPS_Full does nothing)
+        private void SetTermGaps(MuscleProfPos[] prof, int length)
         {
             if (length == 0)
                 return;
             var first = prof[0];
             var last = prof[length - 1];
-            // TERMGAPS_Half: the terminal open / close penalties are zero (then multiplied by -1, which leaves a signed zero), unless they are -infinity
-            if (first.GapOpen != MuscleMinusInfinity)
-                first.GapOpen = 0;
-            if (length > 1 && last.GapClose != MuscleMinusInfinity)
-                last.GapClose = 0;
-            if (first.GapOpen != MuscleMinusInfinity)
-                first.GapOpen *= -1;
-            if (length > 1 && last.GapClose != MuscleMinusInfinity)
-                last.GapClose *= -1;
+            switch (_termGaps)
+            {
+                case MuscleTermGaps.Full:
+                    break;
+                default:
+                    // TERMGAPS_Half zeroes the terminal open / close scores first, then (like TERMGAPS_Ext) flips their sign
+                    if (_termGaps == MuscleTermGaps.Half)
+                    {
+                        if (first.GapOpen != MuscleMinusInfinity)
+                            first.GapOpen = 0;
+                        if (length > 1 && last.GapClose != MuscleMinusInfinity)
+                            last.GapClose = 0;
+                    }
+
+                    if (first.GapOpen != MuscleMinusInfinity)
+                        first.GapOpen *= -1;
+                    if (length > 1 && last.GapClose != MuscleMinusInfinity)
+                        last.GapClose *= -1;
+                    break;
+            }
         }
 
         // ---------------------------------------------------------------------------------------------------------------------------------
@@ -1420,18 +1583,8 @@ public static partial class SequenceAligner
 
         private void RefineTree(ref int[] msaIds, ref string[] msaRows, ref MuscleTree tree, MuscleNode[] oldNodes)
         {
-            int rowCount = msaIds.Length;
-            // TreeFromMSA(msa, Tree2, Cluster2, DISTANCE_PctIdKimura): UPGMA2 over the rows in MSA order, leaf ids = the sequence ids
-            var dist = new float[rowCount, rowCount];
-            for (int i = 1; i < rowCount; i++)
-                for (int j = 0; j < i; j++)
-                {
-                    float pctId = (float)PctIdentityPair(msaRows[i], msaRows[j]);
-                    dist[i, j] = (float)KimuraDist(pctId);
-                    dist[j, i] = dist[i, j];
-                }
-
-            var tree2 = Upgma(dist, _o.Cluster2, msaIds);
+            // TreeFromMSA(msa, Tree2, Cluster2, Distance2, Root2): the leaves are the rows in MSA order, the leaf ids the sequence ids
+            var tree2 = TreeFromMsaRows(msaIds, msaRows.Select(r => r.ToCharArray()).ToArray());
 
             // DiffTreesE(Tree2, tree)
             int nodeCount = tree2.NodeCount;
@@ -1485,7 +1638,7 @@ public static partial class SequenceAligner
         }
 
         // cons.cpp MSA::GetPctIdentityPair (characters compared as they are, gaps skipped)
-        private static double PctIdentityPair(string a, string b)
+        private static double PctIdentityPair(char[] a, char[] b)
         {
             int pos = 0, same = 0;
             for (int i = 0; i < a.Length; i++)

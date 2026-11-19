@@ -1156,7 +1156,7 @@ public enum MuscleScoreModel
     SumOfPairsNucleotide = 4,
 }
 
-/// <summary>Clustering method of MUSCLE's guide trees (<c>-cluster1</c> / <c>-cluster2</c>).</summary>
+/// <summary>Clustering method of MUSCLE's guide trees (<c>-cluster1</c> / <c>-cluster2</c>, also <c>-cluster</c>).</summary>
 public enum MuscleClusterMethod
 {
     /// <summary>UPGMB (default): UPGMA with the "biased" linkage 0.1 x average + 0.9 x minimum.</summary>
@@ -1170,12 +1170,15 @@ public enum MuscleClusterMethod
 
     /// <summary>Complete linkage (maximum).</summary>
     UpgmaMax = 3,
+
+    /// <summary>Neighbour joining (<c>-cluster neighborjoining</c>): the unrooted tree is rooted by <see cref="MuscleRoot"/> (default: the root of the last join, "pseudo").</summary>
+    NeighborJoining = 4,
 }
 
-/// <summary>Distance of MUSCLE's first (unaligned) guide tree (<c>-distance1</c>).</summary>
+/// <summary>Distance of MUSCLE's guide trees (<c>-distance1</c> for the unaligned sequences, <c>-distance2</c> for the draft alignment; <c>-distance</c> sets both).</summary>
 public enum MuscleDistance
 {
-    /// <summary>MUSCLE's default for the alphabet: <c>kmer6_6</c> for proteins, <c>kmer4_6</c> for nucleotides.</summary>
+    /// <summary>MUSCLE's default: <c>kmer6_6</c> (proteins) / <c>kmer4_6</c> (nucleotides) for the first tree, <c>pctid_kimura</c> for the second.</summary>
     Default = 0,
 
     /// <summary>6-mers of the 6-group compressed amino-acid alphabet (A G P S T / I L M V / N D Q E B Z / R H K / F W Y / C), MAFFT's sextet5 distance.</summary>
@@ -1183,12 +1186,109 @@ public enum MuscleDistance
 
     /// <summary>6-mers of the nucleotide alphabet (A, C, G, T/U, other); nucleotides only.</summary>
     Kmer4_6 = 2,
+
+    /// <summary>3-mers of the 20-letter amino-acid alphabet, <c>fastdistkmer.cpp</c> (<c>DistKmer20_3</c>, "kmer20_3").</summary>
+    Kmer20_3 = 3,
+
+    /// <summary>4-mers of the 20-letter amino-acid alphabet, <c>fastdist.cpp</c> / <c>fastdistjones.cpp</c> (<c>FastDistKmer</c>, "kmer20_4": Jones-Taylor-Thornton style compressed 4-mers).</summary>
+    Kmer20_4 = 4,
+
+    /// <summary>3-mers of the 20-letter alphabet as bit vectors, <c>fastdistkbit.cpp</c> (<c>DistKbit20_3</c>, "kbit20_3").</summary>
+    Kbit20_3 = 5,
+
+    /// <summary>Kimura distance of the percent identity of the aligned pair (draft alignments only, "pctid_kimura").</summary>
+    PctIdKimura = 6,
+
+    /// <summary><c>-ln(max(pct identity, 0.05))</c> of the aligned pair (draft alignments only, "pctid_log").</summary>
+    PctIdLog = 7,
+
+    /// <summary>Kimura distance of the identity of a pairwise profile alignment of each pair (<c>distpwkimura.cpp</c>, "pwkimura", unaligned sequences only).</summary>
+    PwKimura = 8,
+
+    /// <summary>"pwscoredist" (<c>scoredist.cpp</c>): see the source; unaligned sequences only.</summary>
+    PwScoreDist = 9,
+
+    /// <summary>"scoredist" (<c>scoredist.cpp</c>): aligned pairs only.</summary>
+    ScoreDist = 10,
+
+    /// <summary>"edit": 1 - percent identity of the aligned pair.</summary>
+    Edit = 11,
+}
+
+/// <summary>Weighting of the sequences of a profile (<c>-weight1</c> for the progressive stage, <c>-weight2</c> for the refinement; <c>-weight</c> sets both).</summary>
+public enum MuscleSeqWeight
+{
+    /// <summary>ClustalW weights from the guide tree (default).</summary>
+    ClustalW = 0,
+
+    /// <summary>Uniform 1/n (<c>-weight none</c>).</summary>
+    None = 1,
+
+    /// <summary>Henikoff and Henikoff 1994 position-based weights (<c>-weight henikoff</c>).</summary>
+    Henikoff = 2,
+
+    /// <summary>The PSI-BLAST variant of the Henikoff weights (<c>-weight henikoffpb</c>).</summary>
+    HenikoffPb = 3,
+
+    /// <summary>Gerstein / Sonnhammer / Chothia weights (<c>-weight gsc</c>, HMMer's algorithm).</summary>
+    Gsc = 4,
+
+    /// <summary>Gotoh's three-way tree weights (<c>-weight threeway</c>).</summary>
+    ThreeWay = 5,
+}
+
+/// <summary>Objective score maximised by the refinement iterations (<c>-objscore</c>).</summary>
+public enum MuscleObjectiveScore
+{
+    /// <summary>MUSCLE's default (<c>spm</c>): XP for up to 100 sequences, SPF above.</summary>
+    Spm = 0,
+
+    /// <summary>Sum of pairs of sequences (<c>sp</c>).</summary>
+    Sp = 1,
+
+    /// <summary>Dynamic-programming score of the two profiles (<c>dp</c>).</summary>
+    Dp = 2,
+
+    /// <summary>Cross pairs, the sum of the pair scores between the two profiles (<c>xp</c>).</summary>
+    Xp = 3,
+
+    /// <summary>Sum of profile-sequence scores (<c>ps</c>, LE profile score only).</summary>
+    Ps = 4,
+
+    /// <summary>Fast approximation of the sum of pairs (<c>spf</c>).</summary>
+    Spf = 5,
+}
+
+/// <summary>Treatment of terminal gaps (<c>-termgaps</c>).</summary>
+public enum MuscleTermGaps
+{
+    /// <summary>Half the gap open penalty is charged for a terminal gap (default <c>half</c>).</summary>
+    Half = 0,
+
+    /// <summary>Terminal gaps are charged as internal gaps (<c>full</c>).</summary>
+    Full = 1,
+
+    /// <summary>Terminal gaps are charged the extension score (<c>ext</c>).</summary>
+    Ext = 2,
+}
+
+/// <summary>Rooting of a neighbour-joining guide tree (<c>-root1</c> / <c>-root2</c>).</summary>
+public enum MuscleRoot
+{
+    /// <summary>The root assigned by the clustering (default <c>pseudo</c>).</summary>
+    Pseudo = 0,
+
+    /// <summary>The unrooted tree is rooted at the middle of its longest leaf-to-leaf span (<c>midlongestspan</c>).</summary>
+    MidLongestSpan = 1,
+
+    /// <summary>The root edge minimising the average leaf distance (<c>minavgleafdist</c>).</summary>
+    MinAvgLeafDist = 2,
 }
 
 /// <summary>
-/// Parameters of <c>SequenceAligner.MultipleAlignMuscle</c>, the port of MUSCLE 3.8.1551's progressive alignment (Edgar 2004, NAR 32:1792): k-mer distance, UPGMB guide tree, ClustalW
-/// tree weights, profile-profile dynamic programming with the log-expectation (protein) / sum-of-pairs (nucleotide) score, and the tree-dependent refinement of iteration 2.
-/// Defaults are MUSCLE's.
+/// Parameters of <c>SequenceAligner.MultipleAlignMuscle</c>, the port of MUSCLE 3.8.1551 (Edgar 2004, NAR 32:1792): k-mer distance, UPGMB guide tree, ClustalW
+/// tree weights, profile-profile dynamic programming with the log-expectation (protein) / sum-of-pairs (nucleotide) score, the tree-dependent refinement of iteration 2 and the
+/// restricted-partition refinement of iterations 3 and above. The defaults are MUSCLE's, except <see cref="MaxIterations"/> (2 here, 8 in the program).
 /// </summary>
 public sealed record MuscleOptions
 {
@@ -1196,8 +1296,9 @@ public sealed record MuscleOptions
     public MuscleSequenceType SequenceType { get; init; } = MuscleSequenceType.Auto;
 
     /// <summary>
-    /// <c>-maxiters</c>: 1 = the progressive draft only (<c>muscle -maxiters 1</c>), 2 = plus the tree-dependent refinement of iteration 2 (the guide tree is rebuilt from the Kimura distances of the draft and only the
-    /// changed subtrees are realigned; <c>muscle -maxiters 2</c>). Default 2. MUSCLE's iterations 3 and above (restricted-partition refinement with the objective score) are not implemented: a larger value throws <see cref="NotSupportedException"/>.
+    /// <c>-maxiters</c>: 1 = the progressive draft only, 2 = plus the tree-dependent refinement of iteration 2 (the guide tree is rebuilt from the Kimura distances of the draft and only the
+    /// changed subtrees are realigned), 3 and above = plus <c>MaxIterations - 2</c> rounds of refinement by dividing the tree into two (restricted partitions: <see cref="Anchors"/> /
+    /// <see cref="ObjectiveScore"/>). Default 2 (the program's default is 8: pass 8 for <c>muscle</c>'s default behaviour).
     /// </summary>
     public int MaxIterations { get; init; } = 2;
 
@@ -1213,25 +1314,172 @@ public sealed record MuscleOptions
     /// <summary><c>-center</c> (default -0.52 LE, 0 otherwise, -300 RNA): the offset subtracted from the profile-position score.</summary>
     public double? Center { get; init; }
 
-    /// <summary>Distance of the first guide tree (<c>-distance1</c>).</summary>
+    /// <summary>Distance of the first guide tree (<c>-distance1</c>; <c>-distance</c> sets this and <see cref="Distance2"/>).</summary>
     public MuscleDistance Distance1 { get; init; } = MuscleDistance.Default;
+
+    /// <summary>Distance of the second guide tree (<c>-distance2</c>, default <see cref="MuscleDistance.PctIdKimura"/>); only the distances of aligned pairs are defined.</summary>
+    public MuscleDistance Distance2 { get; init; } = MuscleDistance.Default;
 
     /// <summary>Clustering of the first guide tree (<c>-cluster1</c>, default UPGMB).</summary>
     public MuscleClusterMethod Cluster1 { get; init; } = MuscleClusterMethod.Upgmb;
 
-    /// <summary>Clustering of the second guide tree of iteration 2 (<c>-cluster2</c>, default UPGMB; its distance is the Kimura distance of the draft alignment).</summary>
+    /// <summary>Clustering of the second guide tree of iteration 2 (<c>-cluster2</c>, default UPGMB; its distance is <see cref="Distance2"/>).</summary>
     public MuscleClusterMethod Cluster2 { get; init; } = MuscleClusterMethod.Upgmb;
+
+    /// <summary>Rooting of the first tree (<c>-root1</c>; only changes neighbour-joining trees and the other clusterings when not <see cref="MuscleRoot.Pseudo"/>).</summary>
+    public MuscleRoot Root1 { get; init; } = MuscleRoot.Pseudo;
+
+    /// <summary>Rooting of the second tree (<c>-root2</c>).</summary>
+    public MuscleRoot Root2 { get; init; } = MuscleRoot.Pseudo;
 
     /// <summary><c>-sueff</c> (default 0.1): the weight of the average linkage in UPGMB.</summary>
     public float Sueff { get; init; } = 0.1f;
 
-    /// <summary><c>-maxtrees</c> (default 1): 0 switches the tree refinement of iteration 2 off.</summary>
+    /// <summary>
+    /// <c>-maxtrees</c> (default 1): the number of tree refinements of iteration 2 (0 switches iteration 2 off; values above 1 repeat the tree refinement only in the program's
+    /// non-"low-complexity" mode, i.e. when a sequence weighting other than ClustalW is selected).
+    /// </summary>
     public int MaxTrees { get; init; } = 1;
+
+    /// <summary>Sequence weighting of the progressive stage and of iteration 2 (<c>-weight1</c>, default ClustalW).</summary>
+    public MuscleSeqWeight Weight1 { get; init; } = MuscleSeqWeight.ClustalW;
+
+    /// <summary>Sequence weighting of the refinement iterations (<c>-weight2</c>, default ClustalW).</summary>
+    public MuscleSeqWeight Weight2 { get; init; } = MuscleSeqWeight.ClustalW;
+
+    /// <summary>Objective score of the refinement iterations (<c>-objscore</c>, default <see cref="MuscleObjectiveScore.Spm"/>).</summary>
+    public MuscleObjectiveScore ObjectiveScore { get; init; } = MuscleObjectiveScore.Spm;
+
+    /// <summary>Terminal gap treatment (<c>-termgaps</c>, default half).</summary>
+    public MuscleTermGaps TermGaps { get; init; } = MuscleTermGaps.Half;
+
+    /// <summary>Use anchor columns to cut the alignment into blocks before the refinement of iterations 3+ (<c>-anchors</c>, default; <c>-noanchors</c> = false).</summary>
+    public bool Anchors { get; init; } = true;
+
+    /// <summary><c>-anchorspacing</c> (default 32): minimum spacing of the anchor columns.</summary>
+    public int AnchorSpacing { get; init; } = 32;
+
+    /// <summary><c>-smoothwindow</c> (default 7, odd): the window of the anchor score smoothing.</summary>
+    public int SmoothWindow { get; init; } = 7;
+
+    /// <summary><c>-smoothscoreceil</c> (default 3 LE, 200 SP, 90 SV, 999 SPN).</summary>
+    public double? SmoothScoreCeil { get; init; }
+
+    /// <summary><c>-minbestcolscore</c> (default 2 LE, 300 SP, 130 SV, 90 SPN): the minimum column score of an anchor column.</summary>
+    public double? MinBestColScore { get; init; }
+
+    /// <summary><c>-minsmoothscore</c> (default 1 LE, 125 SP, 40 SV, 90 SPN): the minimum smoothed score of an anchor column.</summary>
+    public double? MinSmoothScore { get; init; }
+
+    /// <summary><c>-brenner</c>: assemble the root alignment of the progressive stage from the guide tree the way <c>makerootmsab.cpp</c> does (Brenner's method).</summary>
+    public bool Brenner { get; init; }
+
+    /// <summary>
+    /// <c>-diags1</c>, <c>-diags2</c>, <c>-diags</c> (diagonal optimisation) and the parameters <c>-diaglength</c> (24), <c>-diagbreak</c> (1), <c>-diagmargin</c> (5): accepted and recorded, no effect -
+    /// the 3.8.1551 source compiles the diagonal dynamic program out (<c>#define VER_3_52 0</c>: <c>GlobalAlign</c> is always <c>NWSmall</c>).
+    /// </summary>
+    public bool Diags1 { get; init; }
+
+    /// <inheritdoc cref="Diags1"/>
+    public bool Diags2 { get; init; }
+
+    /// <inheritdoc cref="Diags1"/>
+    public int DiagLength { get; init; } = 24;
+
+    /// <inheritdoc cref="Diags1"/>
+    public int DiagBreak { get; init; } = 1;
+
+    /// <inheritdoc cref="Diags1"/>
+    public int DiagMargin { get; init; } = 5;
+
+    /// <summary><c>-hydro</c> (5), <c>-hydrofactor</c> (1.2) and <c>-tomhydro</c>: accepted and recorded, no effect - the hydrophobicity gap modification is compiled out of 3.8.1551 (<c>#if HYDRO</c>, HYDRO is not defined).</summary>
+    public int Hydro { get; init; } = 5;
+
+    /// <inheritdoc cref="Hydro"/>
+    public double HydroFactor { get; init; } = 1.2;
+
+    /// <inheritdoc cref="Hydro"/>
+    public bool TomHydro { get; init; }
+
+    /// <summary><c>-gapopen2</c> / <c>-gapextend2</c> (double-affine scores) and <c>-gapambig</c>: accepted and recorded, no effect - <c>DOUBLE_AFFINE</c> is 0 in 3.8.1551.</summary>
+    public double? GapOpen2 { get; init; }
+
+    /// <inheritdoc cref="GapOpen2"/>
+    public double? GapExtend2 { get; init; }
+
+    /// <inheritdoc cref="GapOpen2"/>
+    public double? GapAmbig { get; init; }
+
+    /// <summary><c>-maxmb</c> and <c>-maxhours</c>: accepted, no effect on the result (memory / time budget of the program; the library does not interrupt the refinement).</summary>
+    public int? MaxMb { get; init; }
+
+    /// <inheritdoc cref="MaxMb"/>
+    public double? MaxHours { get; init; }
+
+    /// <summary>
+    /// <c>-matrix</c>: the text of a user score matrix file (NCBI / BLAST style: '#' comment lines, a heading line starting with a space, one row per residue; read by <c>readmx.cpp</c>,
+    /// including its quirk that the last column of a file without a trailing '*' column is not read). It replaces the score matrix of the profile score after the SP defaults are set; proteins only.
+    /// </summary>
+    public string? UserMatrix { get; init; }
+
+    /// <summary><c>-usetree</c> / <c>-usetree_nowarn</c>: the text of a rooted binary Newick guide tree whose leaf labels are the <see cref="SequenceNames"/>; the first tree is not computed and the tree refinement of iteration 2 is skipped.</summary>
+    public string? UserTree { get; init; }
+
+    /// <summary>The FASTA labels of the sequences (default <c>s0</c>, <c>s1</c>, ...): the leaf names of <see cref="UserTree"/> and of the trees written by the program.</summary>
+    public IReadOnlyList<string>? SequenceNames { get; init; }
+
+    /// <summary><c>-clusteronly</c> (with <c>-tree1</c>): stop after the first guide tree, no alignment is computed.</summary>
+    public bool ClusterOnly { get; init; }
+
+    /// <summary><c>-computeweights</c>: stop after the progressive alignment and report the sequence weights of its rows instead of an alignment.</summary>
+    public bool ComputeWeights { get; init; }
+
+    /// <summary>
+    /// <c>-refinewindow</c> (default 200), <c>-fromwindow</c> (0), <c>-towindow</c> (0 = last), <c>-windowoffset</c> (0): the windows of <c>-refinew</c> (<see cref="SequenceAligner.MuscleRefineWindows"/>).
+    /// </summary>
+    public int RefineWindow { get; init; } = 200;
+
+    /// <inheritdoc cref="RefineWindow"/>
+    public int FromWindow { get; init; }
+
+    /// <inheritdoc cref="RefineWindow"/>
+    public int ToWindow { get; init; }
+
+    /// <inheritdoc cref="RefineWindow"/>
+    public int WindowOffset { get; init; }
 
     /// <summary>
     /// Return the rows in the order MUSCLE writes them (the depth-first leaf order of the final guide tree, <c>-group</c>) instead of the input order (default).
     /// </summary>
     public bool TreeOrder { get; init; }
+}
+
+/// <summary>Everything one run of <c>muscle</c> writes: the alignment and the optional files (<c>-tree1</c>, <c>-tree2</c>, <c>-distmx1</c>, <c>-distmx2</c>, <c>-computeweights</c>).</summary>
+public sealed record MuscleRunResult
+{
+    /// <summary>The alignment (rows in input order, or in output order when <see cref="MuscleOptions.TreeOrder"/> is set); empty when the run stopped early (<c>-clusteronly</c>, <c>-computeweights</c>).</summary>
+    public MultipleAlignmentResult Alignment { get; init; } = MultipleAlignmentResult.Empty;
+
+    /// <summary>The sequence names (labels) used.</summary>
+    public IReadOnlyList<string> Names { get; init; } = Array.Empty<string>();
+
+    /// <summary>The sequence ids (0-based input indexes) in the order the program writes the rows.</summary>
+    public IReadOnlyList<int> OutputOrder { get; init; } = Array.Empty<int>();
+
+    /// <summary>The first guide tree in the format of the <c>-tree1</c> file (rooted Newick with <c>%g</c> edge lengths).</summary>
+    public string? Tree1 { get; init; }
+
+    /// <summary>The guide tree after the tree refinement of iteration 2, format of <c>-tree2</c>; null when iteration 2 did not run.</summary>
+    public string? Tree2 { get; init; }
+
+    /// <summary>The distance matrix of the first tree in the format of <c>-distmx1</c>.</summary>
+    public string? DistanceMatrix1 { get; init; }
+
+    /// <summary>The distance matrix of the second tree (from the draft alignment) in the format of <c>-distmx2</c>; null when iteration 2 did not run.</summary>
+    public string? DistanceMatrix2 { get; init; }
+
+    /// <summary>The <c>-computeweights</c> file: one "name TAB weight(%.3g)" line per row of the progressive alignment.</summary>
+    public string? WeightsFile { get; init; }
 }
 
 /// <summary>

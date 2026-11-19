@@ -47,6 +47,26 @@ public record MultipleAlignmentResultDto(
     int TotalScore,
     double ExactTotalScore = 0);
 
+/// <summary>MUSCLE 3.8 run: the alignment and the files the program can write (-tree1, -tree2, -distmx1, -distmx2, -computeweights).</summary>
+public record MuscleRunResultDto(
+    string[] AlignedSequences,
+    string Consensus,
+    int TotalScore,
+    double ExactTotalScore,
+    string[] Names,
+    int[] OutputOrder,
+    string? Tree1,
+    string? Tree2,
+    string? DistanceMatrix1,
+    string? DistanceMatrix2,
+    string? WeightsFile);
+
+/// <summary>Result of a MUSCLE 3.8 command line on alignments: rows (profile, refine, refinew, sw), a score (spscore, ppscore) or a tree (maketree).</summary>
+public record MuscleCommandResultDto(
+    string[] AlignedSequences,
+    double? Score,
+    string? Tree);
+
 /// <summary>Exact sum-of-pairs multiple alignment with the size of the problem solved (heuristic seed bound, lattice and visited cells).</summary>
 public record ExactMultipleAlignmentResultDto(
     string[] AlignedSequences,

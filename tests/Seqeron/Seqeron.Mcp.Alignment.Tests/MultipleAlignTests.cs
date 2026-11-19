@@ -369,13 +369,80 @@ public class MultipleAlignTests
             Assert.That(AlignmentTools.MultipleAlignMuscle(new[] { "ACGTACGTTAGCTAGC", "ACGTACGTAGCTAGC", "ACGTTCGTTAGCTAGC" }).AlignedSequences.Select(r => r.Replace("-", "")),
                 Is.EqualTo(new[] { "ACGTACGTTAGCTAGC", "ACGTACGTAGCTAGC", "ACGTTCGTTAGCTAGC" }), "type auto: nucleotides");
             Assert.That(AlignmentTools.MultipleAlignMuscle(Array.Empty<string>()).AlignedSequences, Is.Empty);
-            Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignMuscle(MuscleSet, maxIters: 3), "iterations >= 3 are not ported");
+            Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignMuscle(MuscleSet, maxIters: 0), "at least one iteration");
+            Assert.That(AlignmentTools.MultipleAlignMuscle(MuscleSet, "protein", 4).AlignedSequences.Select(r => r.Replace("-", "")), Is.EqualTo(MuscleSet), "iterations >= 3");
             Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignMuscle(MuscleSet, "rna2"));
             Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignMuscle(MuscleSet, scoreModel: "bogus"));
             Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignMuscle(MuscleSet, distance1: "bogus"));
             Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignMuscle(MuscleSet, cluster1: "bogus"));
             Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignMuscle(MuscleSet, cluster2: "nj"));
             Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignMuscle(new[] { "ACD", "" }));
+        });
+    }
+
+    // B09 F70 (A1-10c a2): the options of MUSCLE 3.8 beyond the first Docker round are parsed and delegated to SequenceAligner.MuscleRun / the MSA command lines.
+    [Test]
+    public void MultipleAlignMuscle_NewOptions_AreParsedAndDelegated()
+    {
+        var viaTool = AlignmentTools.MultipleAlignMuscle(MuscleSet, "protein", 5, distance1: "kmer20_4", cluster1: "neighborjoining", root1: "midlongestspan", distance2: "pctidlog", weight1: "henikoff", weight2: "gsc",
+            objScore: "sp", termGaps: "ext", anchors: false, brenner: true, diags1: true, hydro: 9, names: ["a", "b", "c", "d", "e"], cluster2: "upgma");
+        var opt = new global::Seqeron.Genomics.Infrastructure.MuscleOptions
+        {
+            SequenceType = global::Seqeron.Genomics.Infrastructure.MuscleSequenceType.Protein,
+            MaxIterations = 5,
+            Distance1 = global::Seqeron.Genomics.Infrastructure.MuscleDistance.Kmer20_4,
+            Cluster1 = global::Seqeron.Genomics.Infrastructure.MuscleClusterMethod.NeighborJoining,
+            Root1 = global::Seqeron.Genomics.Infrastructure.MuscleRoot.MidLongestSpan,
+            Distance2 = global::Seqeron.Genomics.Infrastructure.MuscleDistance.PctIdLog,
+            Cluster2 = global::Seqeron.Genomics.Infrastructure.MuscleClusterMethod.Upgma,
+            Weight1 = global::Seqeron.Genomics.Infrastructure.MuscleSeqWeight.Henikoff,
+            Weight2 = global::Seqeron.Genomics.Infrastructure.MuscleSeqWeight.Gsc,
+            ObjectiveScore = global::Seqeron.Genomics.Infrastructure.MuscleObjectiveScore.Sp,
+            TermGaps = global::Seqeron.Genomics.Infrastructure.MuscleTermGaps.Ext,
+            Anchors = false,
+            Brenner = true,
+            Diags1 = true,
+            Hydro = 9,
+            SequenceNames = ["a", "b", "c", "d", "e"],
+        };
+        var viaApi = global::Seqeron.Genomics.Alignment.SequenceAligner.MuscleRun(MuscleSet, opt);
+        var trees = AlignmentTools.MultipleAlignMuscle(MuscleSet, "protein", 3, names: ["a", "b", "c", "d", "e"]);
+        Assert.Multiple(() =>
+        {
+            Assert.That(viaTool.AlignedSequences, Is.EqualTo(viaApi.Alignment.AlignedSequences));
+            Assert.That(viaTool.Tree1, Is.EqualTo(viaApi.Tree1));
+            Assert.That(viaTool.AlignedSequences.Select(r => r.Replace("-", "")), Is.EqualTo(MuscleSet));
+            Assert.That(trees.Tree1, Does.Contain("a:").And.StartWith("(\n"));
+            Assert.That(trees.Tree2, Is.Not.Null);
+            Assert.That(trees.DistanceMatrix1, Does.StartWith("5\n"));
+            Assert.That(AlignmentTools.MultipleAlignMuscle(MuscleSet, "protein", computeWeights: true).WeightsFile, Is.Not.Null);
+            Assert.That(AlignmentTools.MultipleAlignMuscle(MuscleSet, "protein", clusterOnly: true).AlignedSequences, Is.Empty);
+            Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignMuscle(MuscleSet, weight1: "bogus"));
+            Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignMuscle(MuscleSet, objScore: "bogus"));
+            Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignMuscle(MuscleSet, root1: "bogus"));
+            Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignMuscle(MuscleSet, termGaps: "bogus"));
+        });
+    }
+
+    [Test]
+    public void MuscleMsaCommand_RunsEveryMode_AndRejectsProteinsWhereTheProgramCrashes()
+    {
+        var aligned = AlignmentTools.MultipleAlignMuscle(MuscleSet, "protein").AlignedSequences;
+        string[] dna = ["ACGTACGTAGCTAGCT", "ACGTACGAAGCTAGCT"], dna2 = ["ACGTACGTAGCTAGCT", "ACGAACGTAGCTAGCT"];
+        Assert.Multiple(() =>
+        {
+            var profile = AlignmentTools.MuscleMsaCommand("profile", aligned.Take(3).ToArray(), aligned.Skip(3).ToArray(), "protein");
+            Assert.That(profile.AlignedSequences, Has.Length.EqualTo(5));
+            Assert.That(AlignmentTools.MuscleMsaCommand("refine", aligned, type: "protein").AlignedSequences, Has.Length.EqualTo(5));
+            Assert.That(AlignmentTools.MuscleMsaCommand("spscore", aligned, type: "protein").Score, Is.Not.Null);
+            Assert.That(AlignmentTools.MuscleMsaCommand("maketree", aligned, type: "protein").Tree, Does.StartWith("(\n"));
+            Assert.That(AlignmentTools.MuscleMsaCommand("ppscore", dna, dna2, "dna").Score, Is.Not.Null);
+            Assert.That(AlignmentTools.MuscleMsaCommand("sw", ["ACGTACGTACGTTTGACCA"], ["GGGGTACGTACGTAAAA"], "dna").AlignedSequences, Has.Length.EqualTo(2));
+            Assert.That(AlignmentTools.MuscleMsaCommand("refinew", dna, type: "dna", refineWindow: 8).AlignedSequences, Has.Length.EqualTo(2));
+            Assert.Throws<ArgumentException>(() => AlignmentTools.MuscleMsaCommand("ppscore", aligned, aligned, "protein"), "the program crashes: no protein score matrix in this mode");
+            Assert.Throws<ArgumentException>(() => AlignmentTools.MuscleMsaCommand("bogus", aligned));
+            Assert.Throws<ArgumentException>(() => AlignmentTools.MuscleMsaCommand("profile", aligned));
+            Assert.Throws<ArgumentException>(() => AlignmentTools.MuscleMsaCommand("refine", Array.Empty<string>()));
         });
     }
 

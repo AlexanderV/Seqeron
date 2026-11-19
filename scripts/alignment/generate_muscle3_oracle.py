@@ -3,7 +3,6 @@
 
 Inputs : docs/Validation/review-2026-09/handoff/A1-10c-muscle/inputs/sets.tsv                     (id, type, seqs, options; round 1, 420 sets)
          docs/Validation/review-2026-09/handoff/A1-10c-muscle/returned/A1-10c-muscle-out.zip       (out/muscle3_oracle.tsv: id, type, options, order, rows; out/ENV.txt; out/run.log)
-         [round 2, when present] docs/Validation/review-2026-09/handoff/A1-10c-muscle-r2/ (same layout; its zip is A1-10c-muscle-r2-out.zip)
 Output : id <TAB> type <TAB> options <TAB> seqs <TAB> order <TAB> rows
          (seqs = ';'-joined input sequences, order = the ids of the rows in the order MUSCLE wrote them, rows = ';'-joined aligned rows in INPUT order)
 The files are parsed as data only (never executed); the binary is MUSCLE v3.8.1551 built unmodified from the Debian muscle3 3.8.1551-2 source (ENV.txt).
@@ -14,7 +13,7 @@ root = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..')
 base = os.path.join(root, 'docs', 'Validation', 'review-2026-09', 'handoff')
 out_path = os.path.join(root, 'tests', 'Seqeron', 'Seqeron.Genomics.Tests', 'TestData', 'Alignment', 'muscle3_oracle.tsv')
 
-PACKAGES = [('A1-10c-muscle', 'A1-10c-muscle-out.zip', 'M'), ('A1-10c-muscle-r2', 'A1-10c-muscle-r2-out.zip', 'R')]
+PACKAGES = [('A1-10c-muscle', 'A1-10c-muscle-out.zip', 'M')]
 rows_out = []
 for pkg, zipname, _ in PACKAGES:
     zpath = os.path.join(base, pkg, 'returned', zipname)

@@ -23,6 +23,8 @@ namespace Seqeron.Mcp.Alignment;
 [JsonSerializable(typeof(AlignmentStatisticsDto))]
 [JsonSerializable(typeof(FormatAlignmentResult))]
 [JsonSerializable(typeof(MultipleAlignmentResultDto))]
+[JsonSerializable(typeof(MuscleRunResultDto))]
+[JsonSerializable(typeof(MuscleCommandResultDto))]
 [JsonSerializable(typeof(ExactMultipleAlignmentResultDto))]
 // ApproximateMatcher outputs
 [JsonSerializable(typeof(ApproximateMatchDto))]

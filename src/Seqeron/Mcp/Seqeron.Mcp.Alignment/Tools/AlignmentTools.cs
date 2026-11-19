@@ -766,83 +766,233 @@ public class AlignmentTools
             (seqs, scoring) => global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignClustalW(seqs, options, scoring));
     }
 
-    [McpServerTool(Name = "multiple_align_muscle", Title = "MSA — MUSCLE 3.8 Progressive Alignment (port)", ReadOnly = true)]
-    [Description("MUSCLE 3.8.1551's multiple alignment (Edgar 2004, NAR 32:1792), ported step by step from the program's source for muscle -maxiters 1 (the progressive draft) and -maxiters 2 (plus the tree-dependent refinement): letters upper-cased, gaps / white space dropped, letters outside the alphabet replaced by the wildcard (X protein, N nucleotide), a leading M of a protein aligned as X and restored (methionine hack); k-mer distance (kmer6_6 over the six MAFFT residue groups for proteins, kmer4_6 for nucleotides), UPGMB guide tree (0.1 x average + 0.9 x minimum linkage), ClustalW tree weights, profile-profile dynamic programming with position-specific gap open / close penalties and half-open terminal gaps, the log-expectation score (VTML200 likelihood ratios, center -0.52, gap open -2.9) for proteins or MUSCLE's nucleotide sum-of-pairs score (BLASTZ matrix, gap open -400) for DNA / RNA (scoreModel sp = PAM200, sv = VTML240 for proteins); maxIters 2 rebuilds the tree from the Kimura distances of the draft and realigns only the subtrees whose leaf sets changed. Rows are returned in input order (treeOrder = the order muscle writes). totalScore is the natural affine sum of pairs (BLOSUM62 10 / 0.2 for proteins, EDNAFULL 10 / 0.5 for nucleotides), not MUSCLE's objective. NOT ported: iterations 3 and above (restricted-partition refinement; maxIters > 2 is an error), -diags / -anchors, -weight / -distance2 / -root / -usetree / -matrix variants. VERIFICATION STATUS: the installed muscle is 5.x (a different program); the row-for-row oracle is the MUSCLE 3.8.1551 binary of the Docker hand-off package docs/Validation/review-2026-09/handoff/A1-10c-muscle and is awaiting its run - until it is integrated the alignments are NOT verified against muscle 3.8 (the score formulas, weights, tree, k-mer distance, Kimura table and the DP optimality are tested against the published definitions and the source).")]
-    public static MultipleAlignmentResultDto MultipleAlignMuscle(
+    [McpServerTool(Name = "multiple_align_muscle", Title = "MSA — MUSCLE 3.8 (port of the program)", ReadOnly = true)]
+    [Description("MUSCLE 3.8.1551's multiple alignment (Edgar 2004, NAR 32:1792; muscle -in x.fa -out y.fa), ported step by step from the program's source: letters upper-cased, gaps / white space dropped, letters outside the alphabet replaced by the wildcard (X protein, N nucleotide), a leading M of a protein aligned as X and restored (methionine hack); first guide tree from a k-mer distance (distance1: kmer6_6 over the six MAFFT residue groups for proteins, kmer4_6 for nucleotides, kmer20_3, kmer20_4, kbit20_3, pwkimura, pwscoredist) clustered by UPGMB (0.1 x average + 0.9 x minimum linkage; cluster1: upgma, upgmamin, upgmamax, neighborjoining) and rooted (root1 pseudo / midlongestspan / minavgleafdist), ClustalW tree weights (weight1: none, henikoff, henikoffpb, gsc, clustalw, threeway), profile-profile dynamic programming with position-specific gap open / close penalties and half-open terminal gaps (termGaps half / full / ext), the log-expectation score (VTML200 likelihood ratios, center -0.52, gap open -2.9) for proteins or MUSCLE's nucleotide sum-of-pairs score (BLASTZ matrix, gap open -400) for DNA / RNA (scoreModel sp = PAM200, sv = VTML240 for proteins, a matrix file replaces the matrix of the SP score); maxIters >= 2 rebuilds the tree from the distances of the draft (distance2 pctidkimura / pctidlog / edit / scoredist, cluster2, root2) and realigns only the subtrees whose leaf sets changed (maxTrees); maxIters >= 3 adds maxIters - 2 rounds of restricted-partition refinement (every guide-tree edge splits the sequences in two, the two profiles are re-aligned and kept when the objective score objScore sp / dp / xp / ps / spf / spm improves, inside the blocks between anchor columns unless anchors = false). The program's own default is maxIters 8; the default here is 2. Options accepted but without effect, because the 3.8.1551 source compiles them out: diags / diags1 / diags2 / diagLength / diagBreak / diagMargin, hydro / hydroFactor / tomHydro, gapOpen2 / gapExtend2 / gapAmbig; maxMb / maxHours (resource limits). useTree = a rooted binary Newick tree with edge lengths whose labels are the names (skips the tree refinement); clusterOnly / computeWeights stop early. Rows are returned in input order (treeOrder = the order muscle writes) with the files the program can write (tree1, tree2, distance matrices, weights). totalScore is the natural affine sum of pairs (BLOSUM62 10 / 0.2 for proteins, EDNAFULL 10 / 0.5 for nucleotides), not MUSCLE's objective. VERIFICATION: maxIters 1 and 2 with the option set of the first Docker round (le / sp / sv, gapOpen / gapExtend / center, distance1 kmer6_6, cluster1 / cluster2 upgma*, sueff, maxTrees 0) equal the MUSCLE 3.8.1551 binary built from the same source on 420 / 420 user-run sets (rows and output order). Everything else (maxIters >= 3, objScore, weights, the other distances, neighborjoining and roots, anchors, termGaps, brenner, matrix, useTree) is implemented from the source and awaits the second Docker round (docs/Validation/review-2026-09/handoff/A1-10c-muscle-r2): it is tested against the published definitions and hand traces of the source only.")]
+    public static MuscleRunResultDto MultipleAlignMuscle(
         [Description("Sequences to align (at least one, none empty): letters, '-', '.' and white space only.")] string[] sequences,
         [Description("'auto' (default; MUSCLE's guess: nucleotide when >= 95 % of the first 100 residues are A, C, G, T, U or N), 'protein', 'dna' or 'rna' (MUSCLE -seqtype).")] string type = "auto",
-        [Description("MUSCLE -maxiters: 1 = progressive draft, 2 (default) = plus tree refinement; larger values are not implemented.")] int maxIters = 2,
-        [Description("Profile-profile score (-le / -sp / -sv / -spn): 'default' (LE for proteins, SPN for nucleotides), 'le', 'sp' (PAM200), 'sv' (VTML240), 'spn'.")] string scoreModel = "default",
+        [Description("MUSCLE -maxiters (at least 1): 1 = progressive draft, 2 (default) = plus tree refinement, 3 and above = plus restricted-partition refinement iterations (the program's default is 8).")] int maxIters = 2,
+        [Description("Profile-profile score (-le / -sp / -sv / -spn): 'default' (LE for proteins, SPN for nucleotides), 'le', 'sp' (PAM200), 'sv' (VTML240), 'spn'. A score of the wrong alphabet is replaced like the program does (SPN for nucleotides, LE for proteins).")] string scoreModel = "default",
         [Description("MUSCLE -gapopen (a negative score; default -2.9 LE, -1439 SP, -300 SV, -400 SPN DNA, -420 RNA).")] double? gapOpen = null,
         [Description("MUSCLE -gapextend (default 0).")] double? gapExtend = null,
         [Description("MUSCLE -center (default -0.52 LE, 0 otherwise, -300 RNA).")] double? center = null,
-        [Description("MUSCLE -distance1: 'default' (kmer6_6 protein, kmer4_6 nucleotide), 'kmer6_6' or 'kmer4_6' (nucleotides only).")] string distance1 = "default",
-        [Description("MUSCLE -cluster1 (first guide tree): 'upgmb' (default), 'upgma', 'upgmamin' or 'upgmamax'.")] string cluster1 = "upgmb",
-        [Description("MUSCLE -cluster2 (tree of iteration 2): 'upgmb' (default), 'upgma', 'upgmamin' or 'upgmamax'.")] string cluster2 = "upgmb",
+        [Description("MUSCLE -distance1: 'default' (kmer6_6 protein, kmer4_6 nucleotide), 'kmer6_6', 'kmer4_6' (nucleotides only), 'kmer20_3', 'kmer20_4', 'kbit20_3', 'pwkimura', 'pwscoredist' (protein only). kmer20_3 / kmer20_4 / kbit20_3 need sequences of at least 4 residues (the program reads outside its buffer for shorter ones).")] string distance1 = "default",
+        [Description("MUSCLE -cluster1 (first guide tree): 'upgmb' (default), 'upgma', 'upgmamin', 'upgmamax' or 'neighborjoining'.")] string cluster1 = "upgmb",
+        [Description("MUSCLE -cluster2 (tree of iteration 2): 'upgmb' (default), 'upgma', 'upgmamin', 'upgmamax' or 'neighborjoining'.")] string cluster2 = "upgmb",
         [Description("MUSCLE -sueff (default 0.1): weight of the average linkage in UPGMB.")] float sueff = 0.1f,
-        [Description("MUSCLE -maxtrees (default 1): 0 switches the tree refinement of iteration 2 off.")] int maxTrees = 1,
-        [Description("true: rows in the order muscle writes them (depth-first leaf order of the final guide tree, -group) instead of the input order.")] bool treeOrder = false)
+        [Description("MUSCLE -maxtrees (default 1): 0 switches the tree refinement of iteration 2 off; more than 1 repeats it only for a weighting other than ClustalW.")] int maxTrees = 1,
+        [Description("true: rows in the order muscle writes them (depth-first leaf order of the final guide tree, -group) instead of the input order.")] bool treeOrder = false,
+        [Description("MUSCLE -distance2 (distance of the aligned pairs of iteration 2): 'default' (pctidkimura), 'pctidkimura', 'pctidlog', 'edit', 'scoredist' (protein only).")] string distance2 = "default",
+        [Description("MUSCLE -root1: 'pseudo' (default: the root of the clustering), 'midlongestspan' or 'minavgleafdist'.")] string root1 = "pseudo",
+        [Description("MUSCLE -root2 (tree of iteration 2): 'pseudo', 'midlongestspan' or 'minavgleafdist'.")] string root2 = "pseudo",
+        [Description("MUSCLE -weight1 (sequence weights of the progressive stage): 'clustalw' (default), 'none', 'henikoff', 'henikoffpb', 'gsc', 'threeway'.")] string weight1 = "clustalw",
+        [Description("MUSCLE -weight2 (sequence weights of the refinement): same values as weight1.")] string weight2 = "clustalw",
+        [Description("MUSCLE -objscore (refinement objective): 'spm' (default: xp up to 100 sequences, spf above), 'sp', 'dp', 'xp', 'ps' (LE score only), 'spf'.")] string objScore = "spm",
+        [Description("MUSCLE -termgaps: 'half' (default), 'full', 'ext'.")] string termGaps = "half",
+        [Description("MUSCLE -anchors (true, default) / -noanchors (false): refine inside the blocks between anchor columns.")] bool anchors = true,
+        [Description("MUSCLE -anchorspacing (default 32).")] int anchorSpacing = 32,
+        [Description("MUSCLE -smoothwindow (odd, default 7).")] int smoothWindow = 7,
+        [Description("MUSCLE -smoothscoreceil (default 3 LE, 200 SP, 90 SV, 999 SPN).")] double? smoothScoreCeil = null,
+        [Description("MUSCLE -minbestcolscore (default 2 LE, 300 SP, 130 SV, 90 SPN).")] double? minBestColScore = null,
+        [Description("MUSCLE -minsmoothscore (default 1 LE, 125 SP, 40 SV, 90 SPN).")] double? minSmoothScore = null,
+        [Description("MUSCLE -brenner: build the root alignment by aligning every sequence to the root profile.")] bool brenner = false,
+        [Description("MUSCLE -diags1 (no effect: compiled out of 3.8.1551; -diags sets diags1 and diags2).")] bool diags1 = false,
+        [Description("MUSCLE -diags2 (no effect).")] bool diags2 = false,
+        [Description("MUSCLE -diaglength (default 24; no effect).")] int diagLength = 24,
+        [Description("MUSCLE -diagbreak (default 1; no effect).")] int diagBreak = 1,
+        [Description("MUSCLE -diagmargin (default 5; no effect).")] int diagMargin = 5,
+        [Description("MUSCLE -hydro (default 5; no effect).")] int hydro = 5,
+        [Description("MUSCLE -hydrofactor (default 1.2; no effect).")] double hydroFactor = 1.2,
+        [Description("MUSCLE -tomhydro (no effect).")] bool tomHydro = false,
+        [Description("MUSCLE -gapopen2 (no effect).")] double? gapOpen2 = null,
+        [Description("MUSCLE -gapextend2 (no effect).")] double? gapExtend2 = null,
+        [Description("MUSCLE -gapambig (no effect).")] double? gapAmbig = null,
+        [Description("MUSCLE -maxmb (no effect on the result).")] int? maxMb = null,
+        [Description("MUSCLE -maxhours (no effect on the result).")] double? maxHours = null,
+        [Description("MUSCLE -matrix: the text of a score matrix file (NCBI format) replacing the matrix of the SP score; proteins only.")] string? matrix = null,
+        [Description("MUSCLE -usetree: a rooted binary Newick tree with edge lengths, leaf labels = names; skips the first tree and the tree refinement.")] string? useTree = null,
+        [Description("FASTA labels of the sequences (default s0, s1, ...): the leaf names of useTree and of the returned trees.")] string[]? names = null,
+        [Description("MUSCLE -clusteronly with -tree1: return only the first guide tree (tree1), no alignment.")] bool clusterOnly = false,
+        [Description("MUSCLE -computeweights: stop after the progressive alignment and return the weights file instead of an alignment.")] bool computeWeights = false)
     {
-        static global::Seqeron.Genomics.Infrastructure.MuscleClusterMethod Cluster(string? v, string name) => (v ?? "upgmb").Trim().ToLowerInvariant() switch
+        var options = BuildMuscleOptions(type, maxIters, scoreModel, gapOpen, gapExtend, center, distance1, distance2, cluster1, cluster2, root1, root2, sueff, maxTrees, weight1, weight2, objScore, termGaps,
+            anchors, anchorSpacing, smoothWindow, smoothScoreCeil, minBestColScore, minSmoothScore) with
         {
-            "upgmb" => global::Seqeron.Genomics.Infrastructure.MuscleClusterMethod.Upgmb,
-            "upgma" => global::Seqeron.Genomics.Infrastructure.MuscleClusterMethod.Upgma,
-            "upgmamin" => global::Seqeron.Genomics.Infrastructure.MuscleClusterMethod.UpgmaMin,
-            "upgmamax" => global::Seqeron.Genomics.Infrastructure.MuscleClusterMethod.UpgmaMax,
-            _ => throw new ArgumentException("must be 'upgmb', 'upgma', 'upgmamin' or 'upgmamax'.", name),
-        };
-
-        var options = new global::Seqeron.Genomics.Infrastructure.MuscleOptions
-        {
-            SequenceType = (type ?? "auto").Trim().ToLowerInvariant() switch
-            {
-                "auto" => global::Seqeron.Genomics.Infrastructure.MuscleSequenceType.Auto,
-                "protein" => global::Seqeron.Genomics.Infrastructure.MuscleSequenceType.Protein,
-                "dna" => global::Seqeron.Genomics.Infrastructure.MuscleSequenceType.Dna,
-                "rna" => global::Seqeron.Genomics.Infrastructure.MuscleSequenceType.Rna,
-                _ => throw new ArgumentException("type must be 'auto', 'protein', 'dna' or 'rna'.", nameof(type)),
-            },
-            MaxIterations = maxIters,
-            ScoreModel = (scoreModel ?? "default").Trim().ToLowerInvariant() switch
-            {
-                "default" => global::Seqeron.Genomics.Infrastructure.MuscleScoreModel.Default,
-                "le" => global::Seqeron.Genomics.Infrastructure.MuscleScoreModel.LogExpectation,
-                "sp" => global::Seqeron.Genomics.Infrastructure.MuscleScoreModel.SumOfPairs,
-                "sv" => global::Seqeron.Genomics.Infrastructure.MuscleScoreModel.SumOfPairsVtml,
-                "spn" => global::Seqeron.Genomics.Infrastructure.MuscleScoreModel.SumOfPairsNucleotide,
-                _ => throw new ArgumentException("scoreModel must be 'default', 'le', 'sp', 'sv' or 'spn'.", nameof(scoreModel)),
-            },
-            GapOpen = gapOpen,
-            GapExtend = gapExtend,
-            Center = center,
-            Distance1 = (distance1 ?? "default").Trim().ToLowerInvariant() switch
-            {
-                "default" => global::Seqeron.Genomics.Infrastructure.MuscleDistance.Default,
-                "kmer6_6" => global::Seqeron.Genomics.Infrastructure.MuscleDistance.Kmer6_6,
-                "kmer4_6" => global::Seqeron.Genomics.Infrastructure.MuscleDistance.Kmer4_6,
-                _ => throw new ArgumentException("distance1 must be 'default', 'kmer6_6' or 'kmer4_6'.", nameof(distance1)),
-            },
-            Cluster1 = Cluster(cluster1, nameof(cluster1)),
-            Cluster2 = Cluster(cluster2, nameof(cluster2)),
-            Sueff = sueff,
-            MaxTrees = maxTrees,
             TreeOrder = treeOrder,
+            Brenner = brenner,
+            Diags1 = diags1,
+            Diags2 = diags2,
+            DiagLength = diagLength,
+            DiagBreak = diagBreak,
+            DiagMargin = diagMargin,
+            Hydro = hydro,
+            HydroFactor = hydroFactor,
+            TomHydro = tomHydro,
+            GapOpen2 = gapOpen2,
+            GapExtend2 = gapExtend2,
+            GapAmbig = gapAmbig,
+            MaxMb = maxMb,
+            MaxHours = maxHours,
+            UserMatrix = matrix,
+            UserTree = useTree,
+            SequenceNames = names,
+            ClusterOnly = clusterOnly,
+            ComputeWeights = computeWeights,
         };
         if (sequences == null || sequences.Length == 0)
-        {
-            var e = global::Seqeron.Genomics.Infrastructure.MultipleAlignmentResult.Empty;
-            return new MultipleAlignmentResultDto(e.AlignedSequences, e.Consensus, e.TotalScore, e.ExactTotalScore);
-        }
+            return new MuscleRunResultDto([], "", 0, 0, [], [], null, null, null, null, null);
+        var r = global::Seqeron.Genomics.Alignment.SequenceAligner.MuscleRun(sequences, options);
+        var a = r.Alignment;
+        return new MuscleRunResultDto(a.AlignedSequences, a.Consensus, a.TotalScore, a.ExactTotalScore, r.Names.ToArray(), r.OutputOrder.ToArray(), r.Tree1, r.Tree2, r.DistanceMatrix1, r.DistanceMatrix2, r.WeightsFile);
+    }
 
+    [McpServerTool(Name = "muscle_msa_command", Title = "MSA — MUSCLE 3.8 command lines on alignments (-profile, -refine, -spscore, -ppscore, -maketree, -refinew, -sw)", ReadOnly = true)]
+    [Description("The other command lines of MUSCLE 3.8.1551 that work on existing alignments, ported from the source: mode 'profile' (muscle -profile -in1 a -in2 b: profile-profile alignment of two alignments, rows of alignment followed by those of alignment2), 'refine' (-refine: maxIters rounds of restricted-partition refinement of an alignment, the program's default is 8), 'spscore' (-spscore: the sum-of-pairs objective score of an alignment, 'SP=%.4g'), 'ppscore' (-ppscore: the profile-profile score of two alignments of equal length; nucleotides only), 'maketree' (-maketree: the guide tree of an alignment as a Newick file text), 'refinew' (-refinew: every window of refineWindow columns re-aligned from scratch with the full pipeline; nucleotides only), 'sw' (-sw: the local Smith-Waterman alignment of two profiles, residues outside the local alignment in lower case and padded with '.'; nucleotides only; needs distance1 pctidkimura when a profile has two or more sequences). For proteins the program never initialises the score matrix in ppscore / refinew / sw and crashes, so those modes are rejected for proteins. The sequence weights are weight1 (default ClustalW weights of a guide tree built from the alignment with cluster2 / distance2 / root1 or root2). VERIFICATION STATUS: implemented from the program's source and tested against definitions and hand traces only; the comparison with the MUSCLE 3.8.1551 binary is the second Docker round (docs/Validation/review-2026-09/handoff/A1-10c-muscle-r2), awaiting the user's run.")]
+    public static MuscleCommandResultDto MuscleMsaCommand(
+        [Description("Mode: 'profile', 'refine', 'spscore', 'ppscore', 'maketree', 'refinew' or 'sw'.")] string mode,
+        [Description("The (first) alignment: equal-length rows, '-' = gap.")] string[] alignment,
+        [Description("The second alignment (profile, ppscore, sw).")] string[]? alignment2 = null,
+        [Description("'auto' (MUSCLE's guess from the alignment), 'protein', 'dna' or 'rna'.")] string type = "auto",
+        [Description("MUSCLE -maxiters for refine / refinew (default 8, the program's).")] int maxIters = 8,
+        [Description("'default', 'le', 'sp', 'sv', 'spn' (profile-profile score).")] string scoreModel = "default",
+        [Description("MUSCLE -gapopen.")] double? gapOpen = null,
+        [Description("MUSCLE -gapextend.")] double? gapExtend = null,
+        [Description("MUSCLE -center.")] double? center = null,
+        [Description("MUSCLE -distance1 (tree of the sw profiles; also the first tree of refinew).")] string distance1 = "default",
+        [Description("MUSCLE -distance2 (guide tree of an alignment): 'default' (pctidkimura), 'pctidlog', 'edit', 'scoredist'.")] string distance2 = "default",
+        [Description("MUSCLE -cluster1.")] string cluster1 = "upgmb",
+        [Description("MUSCLE -cluster2 (guide tree of an alignment): 'upgmb', 'upgma', 'upgmamin', 'upgmamax', 'neighborjoining'.")] string cluster2 = "upgmb",
+        [Description("MUSCLE -root1 (profile / ppscore / sw trees).")] string root1 = "pseudo",
+        [Description("MUSCLE -root2 (refine / spscore / maketree tree).")] string root2 = "pseudo",
+        [Description("MUSCLE -weight1 (sequence weights): 'clustalw' (default), 'none', 'henikoff', 'henikoffpb', 'gsc', 'threeway'.")] string weight1 = "clustalw",
+        [Description("MUSCLE -weight2.")] string weight2 = "clustalw",
+        [Description("MUSCLE -objscore (refinement objective).")] string objScore = "spm",
+        [Description("MUSCLE -termgaps.")] string termGaps = "half",
+        [Description("MUSCLE -anchors (true) / -noanchors (false).")] bool anchors = true,
+        [Description("MUSCLE -refinewindow (refinew, default 200).")] int refineWindow = 200,
+        [Description("MUSCLE -fromwindow (refinew).")] int fromWindow = 0,
+        [Description("MUSCLE -towindow (refinew; 0 = the last window).")] int toWindow = 0,
+        [Description("MUSCLE -windowoffset (refinew).")] int windowOffset = 0,
+        [Description("FASTA labels of the rows (default s0, s1, ...), the leaf names of the maketree tree.")] string[]? names = null)
+    {
+        var options = BuildMuscleOptions(type, maxIters, scoreModel, gapOpen, gapExtend, center, distance1, distance2, cluster1, cluster2, root1, root2, 0.1f, 1, weight1, weight2, objScore, termGaps,
+            anchors, 32, 7, null, null, null) with
+        {
+            RefineWindow = refineWindow,
+            FromWindow = fromWindow,
+            ToWindow = toWindow,
+            WindowOffset = windowOffset,
+            SequenceNames = names,
+        };
+        if (alignment == null || alignment.Length == 0)
+            throw new ArgumentException("alignment must contain at least one row.", nameof(alignment));
+        string[] Second() => alignment2 is { Length: > 0 } ? alignment2 : throw new ArgumentException("alignment2 is required for this mode.");
+        switch ((mode ?? "").Trim().ToLowerInvariant())
+        {
+            case "profile":
+                return new MuscleCommandResultDto(global::Seqeron.Genomics.Alignment.SequenceAligner.MuscleProfileAlign(alignment, Second(), options), null, null);
+            case "refine":
+                return new MuscleCommandResultDto(global::Seqeron.Genomics.Alignment.SequenceAligner.MuscleRefine(alignment, options), null, null);
+            case "spscore":
+                return new MuscleCommandResultDto([], global::Seqeron.Genomics.Alignment.SequenceAligner.MuscleScoreAlignment(alignment, options), null);
+            case "ppscore":
+                return new MuscleCommandResultDto([], WrapNotSupported(() => global::Seqeron.Genomics.Alignment.SequenceAligner.MuscleProfileScore(alignment, Second(), options)), null);
+            case "maketree":
+                return new MuscleCommandResultDto([], null, global::Seqeron.Genomics.Alignment.SequenceAligner.MuscleGuideTree(alignment, options));
+            case "refinew":
+                return new MuscleCommandResultDto(WrapNotSupported(() => global::Seqeron.Genomics.Alignment.SequenceAligner.MuscleRefineWindows(alignment, options)), null, null);
+            case "sw":
+                return new MuscleCommandResultDto(WrapNotSupported(() => global::Seqeron.Genomics.Alignment.SequenceAligner.MuscleLocalAlign(alignment, Second(), options)), null, null);
+            default:
+                throw new ArgumentException("mode must be 'profile', 'refine', 'spscore', 'ppscore', 'maketree', 'refinew' or 'sw'.", nameof(mode));
+        }
+    }
+
+    private static T WrapNotSupported<T>(Func<T> run)
+    {
         try
         {
-            var m = global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignMuscle(sequences, options);
-            return new MultipleAlignmentResultDto(m.AlignedSequences, m.Consensus, m.TotalScore, m.ExactTotalScore);
+            return run();
         }
         catch (NotSupportedException ex)
         {
-            throw new ArgumentException(ex.Message, nameof(maxIters), ex);
+            throw new ArgumentException(ex.Message, ex);
         }
+    }
+
+    private static global::Seqeron.Genomics.Infrastructure.MuscleOptions BuildMuscleOptions(string? type, int maxIters, string? scoreModel, double? gapOpen, double? gapExtend, double? center,
+        string? distance1, string? distance2, string? cluster1, string? cluster2, string? root1, string? root2, float sueff, int maxTrees, string? weight1, string? weight2, string? objScore,
+        string? termGaps, bool anchors, int anchorSpacing, int smoothWindow, double? smoothScoreCeil, double? minBestColScore, double? minSmoothScore)
+    {
+        static T Pick<T>(string? v, string name, string dflt, params (string Key, T Value)[] map)
+        {
+            string key = (v ?? dflt).Trim().ToLowerInvariant();
+            foreach (var (k, value) in map)
+                if (k == key)
+                    return value;
+            throw new ArgumentException($"must be one of: {string.Join(", ", map.Select(m => m.Key))}.", name);
+        }
+
+        var cl = new (string, global::Seqeron.Genomics.Infrastructure.MuscleClusterMethod)[]
+        {
+            ("upgmb", global::Seqeron.Genomics.Infrastructure.MuscleClusterMethod.Upgmb), ("upgma", global::Seqeron.Genomics.Infrastructure.MuscleClusterMethod.Upgma),
+            ("upgmamin", global::Seqeron.Genomics.Infrastructure.MuscleClusterMethod.UpgmaMin), ("upgmamax", global::Seqeron.Genomics.Infrastructure.MuscleClusterMethod.UpgmaMax),
+            ("neighborjoining", global::Seqeron.Genomics.Infrastructure.MuscleClusterMethod.NeighborJoining),
+        };
+        var roots = new (string, global::Seqeron.Genomics.Infrastructure.MuscleRoot)[]
+        {
+            ("pseudo", global::Seqeron.Genomics.Infrastructure.MuscleRoot.Pseudo), ("midlongestspan", global::Seqeron.Genomics.Infrastructure.MuscleRoot.MidLongestSpan),
+            ("minavgleafdist", global::Seqeron.Genomics.Infrastructure.MuscleRoot.MinAvgLeafDist),
+        };
+        var weights = new (string, global::Seqeron.Genomics.Infrastructure.MuscleSeqWeight)[]
+        {
+            ("clustalw", global::Seqeron.Genomics.Infrastructure.MuscleSeqWeight.ClustalW), ("none", global::Seqeron.Genomics.Infrastructure.MuscleSeqWeight.None),
+            ("henikoff", global::Seqeron.Genomics.Infrastructure.MuscleSeqWeight.Henikoff), ("henikoffpb", global::Seqeron.Genomics.Infrastructure.MuscleSeqWeight.HenikoffPb),
+            ("gsc", global::Seqeron.Genomics.Infrastructure.MuscleSeqWeight.Gsc), ("threeway", global::Seqeron.Genomics.Infrastructure.MuscleSeqWeight.ThreeWay),
+        };
+        var distances = new (string, global::Seqeron.Genomics.Infrastructure.MuscleDistance)[]
+        {
+            ("default", global::Seqeron.Genomics.Infrastructure.MuscleDistance.Default), ("kmer6_6", global::Seqeron.Genomics.Infrastructure.MuscleDistance.Kmer6_6),
+            ("kmer4_6", global::Seqeron.Genomics.Infrastructure.MuscleDistance.Kmer4_6), ("kmer20_3", global::Seqeron.Genomics.Infrastructure.MuscleDistance.Kmer20_3),
+            ("kmer20_4", global::Seqeron.Genomics.Infrastructure.MuscleDistance.Kmer20_4), ("kbit20_3", global::Seqeron.Genomics.Infrastructure.MuscleDistance.Kbit20_3),
+            ("pctidkimura", global::Seqeron.Genomics.Infrastructure.MuscleDistance.PctIdKimura), ("pctid_kimura", global::Seqeron.Genomics.Infrastructure.MuscleDistance.PctIdKimura),
+            ("pctidlog", global::Seqeron.Genomics.Infrastructure.MuscleDistance.PctIdLog), ("pctid_log", global::Seqeron.Genomics.Infrastructure.MuscleDistance.PctIdLog),
+            ("pwkimura", global::Seqeron.Genomics.Infrastructure.MuscleDistance.PwKimura), ("pwscoredist", global::Seqeron.Genomics.Infrastructure.MuscleDistance.PwScoreDist),
+            ("scoredist", global::Seqeron.Genomics.Infrastructure.MuscleDistance.ScoreDist), ("edit", global::Seqeron.Genomics.Infrastructure.MuscleDistance.Edit),
+        };
+        return new global::Seqeron.Genomics.Infrastructure.MuscleOptions
+        {
+            SequenceType = Pick(type, nameof(type), "auto", ("auto", global::Seqeron.Genomics.Infrastructure.MuscleSequenceType.Auto), ("protein", global::Seqeron.Genomics.Infrastructure.MuscleSequenceType.Protein),
+                ("dna", global::Seqeron.Genomics.Infrastructure.MuscleSequenceType.Dna), ("rna", global::Seqeron.Genomics.Infrastructure.MuscleSequenceType.Rna)),
+            MaxIterations = maxIters,
+            ScoreModel = Pick(scoreModel, nameof(scoreModel), "default", ("default", global::Seqeron.Genomics.Infrastructure.MuscleScoreModel.Default), ("le", global::Seqeron.Genomics.Infrastructure.MuscleScoreModel.LogExpectation),
+                ("sp", global::Seqeron.Genomics.Infrastructure.MuscleScoreModel.SumOfPairs), ("sv", global::Seqeron.Genomics.Infrastructure.MuscleScoreModel.SumOfPairsVtml),
+                ("spn", global::Seqeron.Genomics.Infrastructure.MuscleScoreModel.SumOfPairsNucleotide)),
+            GapOpen = gapOpen,
+            GapExtend = gapExtend,
+            Center = center,
+            Distance1 = Pick(distance1, nameof(distance1), "default", distances),
+            Distance2 = Pick(distance2, nameof(distance2), "default", distances),
+            Cluster1 = Pick(cluster1, nameof(cluster1), "upgmb", cl),
+            Cluster2 = Pick(cluster2, nameof(cluster2), "upgmb", cl),
+            Root1 = Pick(root1, nameof(root1), "pseudo", roots),
+            Root2 = Pick(root2, nameof(root2), "pseudo", roots),
+            Sueff = sueff,
+            MaxTrees = maxTrees,
+            Weight1 = Pick(weight1, nameof(weight1), "clustalw", weights),
+            Weight2 = Pick(weight2, nameof(weight2), "clustalw", weights),
+            ObjectiveScore = Pick(objScore, nameof(objScore), "spm", ("spm", global::Seqeron.Genomics.Infrastructure.MuscleObjectiveScore.Spm), ("sp", global::Seqeron.Genomics.Infrastructure.MuscleObjectiveScore.Sp),
+                ("dp", global::Seqeron.Genomics.Infrastructure.MuscleObjectiveScore.Dp), ("xp", global::Seqeron.Genomics.Infrastructure.MuscleObjectiveScore.Xp), ("ps", global::Seqeron.Genomics.Infrastructure.MuscleObjectiveScore.Ps),
+                ("spf", global::Seqeron.Genomics.Infrastructure.MuscleObjectiveScore.Spf)),
+            TermGaps = Pick(termGaps, nameof(termGaps), "half", ("half", global::Seqeron.Genomics.Infrastructure.MuscleTermGaps.Half), ("full", global::Seqeron.Genomics.Infrastructure.MuscleTermGaps.Full),
+                ("ext", global::Seqeron.Genomics.Infrastructure.MuscleTermGaps.Ext)),
+            Anchors = anchors,
+            AnchorSpacing = anchorSpacing,
+            SmoothWindow = smoothWindow,
+            SmoothScoreCeil = smoothScoreCeil,
+            MinBestColScore = minBestColScore,
+            MinSmoothScore = minSmoothScore,
+        };
     }
 
     [McpServerTool(Name = "multiple_align_tcoffee", Title = "MSA — T-Coffee 13.41 Program (primary libraries, guide tree, progressive stage)", ReadOnly = true)]

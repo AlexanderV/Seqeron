@@ -1,5 +1,9 @@
 # TEMPORARY hand-off package A1-10c-muscle - the MUSCLE 3.8.1551 oracle (Docker, for the user's Mac)
 
+**STATUS: RETURNED AND INTEGRATED (2026-11-19).** The user-run archive `returned/A1-10c-muscle-out.zip` (MUSCLE v3.8.1551, x86_64, Debian 12, 420 sets, 0 failures) is converted by
+`scripts/alignment/generate_muscle3_oracle.py` into `TestData/Alignment/muscle3_oracle.tsv`; `SequenceAligner_MuscleOracle_Tests` asserts rows and output order equal on **420 / 420 sets**
+(841 test cases). Round 2 (all other options and command lines): `../A1-10c-muscle-r2`.
+
 **Why.** B09 item A1-10c part (a): `SequenceAligner.MultipleAlignMuscle` is a step-by-step port of MUSCLE **3.8.1551** (Edgar 2004, NAR 32:1792; the final v3.8 release; source =
 Debian package `muscle3` 3.8.1551-2, `sources.debian.org`) for `-maxiters 1` (progressive draft) and `-maxiters 2` (plus the tree-dependent refinement of iteration 2).
 The installed `muscle` of the audit machine is **5.1** - a different program (PPP / probcons-like pipeline) - so it cannot be the oracle, and the sandbox refuses to run a

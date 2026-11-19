@@ -53,6 +53,7 @@ public sealed class ToolRegistrationContractTests : ToolRegistrationContractTest
         "multiple_align_muscle",
         "multiple_align_progressive",
         "multiple_align_tcoffee",
+        "muscle_msa_command",
         "quality_trim_reads",
         "scaffold_contigs",
         "semi_global_align",

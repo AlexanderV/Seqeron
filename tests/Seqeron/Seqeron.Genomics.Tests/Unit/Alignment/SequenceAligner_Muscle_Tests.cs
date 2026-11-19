@@ -8,7 +8,7 @@ namespace Seqeron.Genomics.Tests.Unit.Alignment;
 /// <summary>
 /// ALIGN-MULTI-001 (audit A1-10c part a, B09 F65): <see cref="SequenceAligner.MultipleAlignMuscle(IEnumerable{string}, MuscleOptions?, MatrixScoring?)"/>, the port of MUSCLE 3.8.1551's
 /// progressive alignment (Edgar 2004, NAR 32:1792) for -maxiters 1 and 2. The installed muscle is 5.1 (a different program), so the row-for-row oracle is the MUSCLE 3.8.1551 binary of the
-/// Docker hand-off package docs/Validation/review-2026-09/handoff/A1-10c-muscle (420 sets) - AWAITING ITS RETURN. What is locked here is everything that can be derived from the published
+/// Docker hand-off package docs/Validation/review-2026-09/handoff/A1-10c-muscle (420 sets, user-run, rows and output order equal on all: SequenceAligner_MuscleOracle_Tests). What is locked here is everything that can be derived from the published
 /// definitions and the program's own source without running it: the log-expectation score formula and its parameters (VTML200 table, center -0.52), the SPN nucleotide score, the
 /// ClustalW weights worked example of clwwt.cpp, the UPGMA test matrix of upgma2.cpp, the Kimura / Dayhoff-table distance (the 75 %/250 PAM comment of msadistkimura.cpp), the k-mer
 /// distance definition, and the optimality of the profile-profile dynamic program against an exhaustive enumeration of all alignments under the same position-specific gap model.
@@ -426,13 +426,25 @@ public class SequenceAligner_Muscle_Tests
     {
         Assert.Multiple(() =>
         {
-            Assert.Throws<NotSupportedException>(() => Align(Family, new MuscleOptions { SequenceType = MuscleSequenceType.Protein, MaxIterations = 3 }));
             Assert.Throws<ArgumentException>(() => Align(Family, new MuscleOptions { SequenceType = MuscleSequenceType.Protein, MaxIterations = 0 }));
-            Assert.Throws<ArgumentException>(() => Align(Family, new MuscleOptions { SequenceType = MuscleSequenceType.Protein, ScoreModel = MuscleScoreModel.SumOfPairsNucleotide }));
             Assert.Throws<ArgumentException>(() => Align(Family, new MuscleOptions { SequenceType = MuscleSequenceType.Protein, Distance1 = MuscleDistance.Kmer4_6 }));
-            Assert.Throws<ArgumentException>(() => Align(["ACGTACGT", "ACGTACGA"], new MuscleOptions { SequenceType = MuscleSequenceType.Dna, ScoreModel = MuscleScoreModel.LogExpectation }));
+            Assert.Throws<ArgumentException>(() => Align(Family, new MuscleOptions { SequenceType = MuscleSequenceType.Protein, Distance1 = MuscleDistance.PctIdKimura }));
+            Assert.DoesNotThrow(() => Align(Family, new MuscleOptions { SequenceType = MuscleSequenceType.Protein, MaxIterations = 3 }));
             Assert.Throws<ArgumentException>(() => Align(["ACD", ""]));
             Assert.Throws<ArgumentException>(() => Align(["ACD", "AC1D"]));
+        });
+    }
+
+    /// <summary>params.cpp SetPPScore: a protein score on nucleotides is replaced by SPN and SPN on proteins by LE (the program does not stop), so the alignments equal the defaults.</summary>
+    [Test]
+    public void MultipleAlignMuscle_ScoreModelOfTheWrongAlphabet_IsReplacedLikeTheProgram()
+    {
+        string[] dna = ["ACGTACGTAGCTAGCTAGGA", "ACGTACGAGCTAGCTAGGA", "ACGTCGTAGCTAGCTAGGA"];
+        var o = new MuscleOptions { SequenceType = MuscleSequenceType.Dna };
+        Assert.Multiple(() =>
+        {
+            Assert.That(Align(dna, o with { ScoreModel = MuscleScoreModel.LogExpectation }), Is.EqualTo(Align(dna, o)));
+            Assert.That(Align(Family, new MuscleOptions { SequenceType = MuscleSequenceType.Protein, ScoreModel = MuscleScoreModel.SumOfPairsNucleotide }), Is.EqualTo(Align(Family, new MuscleOptions { SequenceType = MuscleSequenceType.Protein })));
         });
     }
 

@@ -536,7 +536,7 @@ Tests added (all lock oracle values: Biopython 1.88 pair optima and independent 
 
 ## 2026-11 audit round 1 (A1-10c part a, B09 F65): MUSCLE 3.8.1551 progressive alignment
 
-`MultipleAlignMuscle(...)` (`-maxiters 1 | 2`) with `MuscleOptions`; test class `SequenceAligner_Muscle_Tests` (18 tests). **The row-for-row oracle (the MUSCLE 3.8.1551 binary) is awaiting the Docker hand-off package `handoff/A1-10c-muscle`; its rows become `SequenceAligner_MuscleOracle_Tests` after the return.** Locked now:
+`MultipleAlignMuscle(...)` (`-maxiters 1 | 2`) with `MuscleOptions`; test class `SequenceAligner_Muscle_Tests` (20 tests). **The row-for-row oracle (the MUSCLE 3.8.1551 binary, user-run Docker package `handoff/A1-10c-muscle`) was returned and is equal on 420 / 420 sets: `SequenceAligner_MuscleOracle_Tests` (below).** Locked besides it:
 
 | ID | Test | Expected | Source |
 |----|------|----------|--------|
@@ -546,6 +546,22 @@ Tests added (all lock oracle values: Biopython 1.88 pair optima and independent 
 | MU4 | `NwSmall_FindsAnOptimalPath_ComparedWithExhaustiveEnumeration`, `NwSmall_AlignsIdenticalProfilesWithoutGaps_AndPlacesASingleDeletionAsOneGapRun` | the DP path is a best alignment under the position-specific open / close / extension model on 480 random profile pairs (enumeration of all paths) | `nwsmall.cpp` semantics |
 | MU5 | `MultipleAlignMuscle_Rows_SpellTheInputs_HaveEqualLength_AndAreDeterministic`, `..._ProteinAndDnaOverloads_EqualTheStringOverload`, `..._TwoSequences_Stop...`, `..._MethionineHack_LetterRules_AndTreeOrder`, `..._Iteration2_RealignsOnlyChangedSubtrees_ButKeepsEveryRowValid`, `..._Options_AreValidated`, `..._ScoreModels_AndGapParameters_ProduceValidAlignments` | invariants, overloads, two sequences, M hack, letter rules, iteration 2 changes some drafts and `MaxTrees 0` = draft, option validation (`MaxIterations 3` -> `NotSupportedException`), LE / SP / SV / RNA sets | API contract |
 | MU6 (MCP) | `MultipleAlignTests.MultipleAlignMuscle_DelegatesToThePort_ParsesEveryOption_AndValidates` | tool = library for every option, `auto` type, errors | library call |
+
+### Addendum (audit A1-10c a + a2, B09 F69 / F70)
+
+| ID | Test | Expected | Source |
+|----|------|----------|--------|
+| MO1 | `SequenceAligner_MuscleOracle_Tests.OracleHas420Sets_AllRun`, `Rows_EqualMuscle3` x420, `OutputOrder_EqualsMuscle3` x420 | rows (input order) and the order MUSCLE writes equal the MUSCLE v3.8.1551 binary on 420 sets (270 protein / 110 DNA / 40 RNA; `-maxiters 1|2`, `-le/-sp/-sv`, gap / center parameters, `-distance1`, `-cluster1/-cluster2`, `-sueff`, `-maxtrees 0`) | user-run Docker oracle `muscle3_oracle.tsv` |
+| MO2 | `SequenceAligner_MuscleOptions_Tests`: `HenikoffWeights_...`, `HenikoffPbWeights_...`, `NoneWeights_...`, `GscWeights_...`, `ThreeWayWeights_...` | weights 0.375 / 0.25 / 0.375 (Henikoff, Henikoff-PB), uniform, GSC 0.25 / 0.25 / 0.5, three-way 0.2 / 0.2 / 0.6 (hand traces of `henikoffweight*.cpp`, `setgscweights.cpp`, `threewaywt.cpp`) | source (awaiting oracle round 2) |
+| MO3 | `ObjScoreSp_...`, `ObjScoreSp_TerminalGaps_...`, `ObjScore_XpSpfAndSp_AreConsistent`, `FindAnchorCols_...` | SP objective 3.25 / 0.75, `-termgaps half / full / ext`, XP / SPF = SP, anchors 4 / 12 / 20 / 28 / 36 | `objscore2.cpp`, `spfast.cpp`, `anchors.cpp` |
+| MO4 | `DistKmer20_4_...`, `DistKmer20_3_...`, `DistKbit20_3_...`, `ScoreDist_...` | 0.25 / 0.99, 0.8 / 1, 4/9 / 5/9, 0 for identical | `fastdistkmer.cpp`, `fastdistjones.cpp`, `fastdistkbit.cpp`, `scoredist.cpp` |
+| MO5 | `NeighborJoining_ReproducesAnAdditiveMatrix`, `FixRoot_PreservesPathLengths_AndRootsAsDocumented`, `DiffTrees_FindsTheMarriedSubtreesOfTheSourceExample` | path lengths = input matrix; root at the midpoint of the longest span; the program's min-average relation; diffs k, C, D | `clust.cpp`, `phy3.cpp`, `difftrees.cpp` |
+| MO6 | `FormatG_...`, `MuscleRun_WritesTheTreeAndDistanceFilesInTheProgramFormat`, `MuscleRun_ComputeWeights_...`, `ParseUserTree_...`, `MuscleRun_UserTree_...`, `ReadMatrixFile_...`, `MuscleRun_UserMatrix_...` | `%g`, file formats, node numbering of the Newick reader, `-usetree` skips iteration 2, `-matrix` incl. the lost last column | `phytofile.cpp`, `phyfromfile.cpp`, `readmx.cpp` |
+| MO7 | `Diags_Hydro_DoubleAffine_AndResourceOptions_HaveNoEffect`, `Iterations3AndAbove_*`, `ClusteringDistanceAndRootOptions_*`, `DistanceOfTheWrongKind_*`, `Brenner_*` | rows unchanged by the compiled-out options; valid alignments for 72 objective x weighting x anchors and 17 clustering / distance / root combinations | `muscle.h` (`VER_3_52 = 0`), `refinehoriz.cpp` |
+| MO8 | `ProfileAlign_*`, `Refine_*`, `ScoreAlignment_*`, `NucleotideOnlyModes_*`, `LocalAlign_*`, `RefineWindows_*` | the MSA command lines; protein `-ppscore/-sw/-refinew` rejected (the program crashes) | `profile.cpp`, `refine.cpp`, `dosp.cpp`, `ppscore.cpp`, `local.cpp`, `refinew.cpp` |
+| MO9 (MCP) | `MultipleAlignTests.MultipleAlignMuscle_NewOptions_AreParsedAndDelegated`, `MuscleMsaCommand_RunsEveryMode_...` | tool = library, every option parsed, errors | library call |
+
+**The binary comparison of MO2-MO8 is round 2 (`handoff/A1-10c-muscle-r2`, 638 sets), awaiting the user's run; until then these options are "implemented from the source, awaiting oracle".**
 
 ## Addendum (audit A1-13b, B09 F66): T-Coffee 13.41 program pipeline
 
