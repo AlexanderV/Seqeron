@@ -31,6 +31,9 @@
     <!-- ALIGN-LOCAL-001 (audit A1-7, B09 F47): Waterman-Eggert non-intersecting local alignments + co-optimal local alignments; independent full-recompute Waterman-Eggert reference,
          exhaustive brute force on tiny inputs, EMBOSS matcher 6.6.0 (verified round by round against the definition), Biopython 1.88 co-optimal set; scripts/alignment/generate_topn_oracle.py. -->
     <EmbeddedResource Include="TestData\Alignment\topn_oracle.tsv" />
+    <!-- ALIGN-MULTI-001 (audit A3-9a, B09 F150): MUMmer 3.23 mgaps clusters of 758 match lists (mummer -maxmatch output of related pairs and synthetic lists);
+         scripts/alignment/generate_mgaps_oracle.py. -->
+    <EmbeddedResource Include="TestData\Alignment\mgaps_oracle.tsv" />
     <!-- ALIGN-LOCAL-001 (audit A2-28d, B09 F145): EMBOSS matcher 6.6.0 (Huang-Miller SIM) alignment lists in the program's own tie order; scripts/alignment/generate_matcher_sim_oracle.py. -->
     <EmbeddedResource Include="TestData\Alignment\matcher_sim_oracle.tsv" />
     <!-- ALIGN-MULTI-001 (audit A1-13, B09 F58): T-Coffee 13.41 progressive stage (library relaxation + sparse linked-pair-wise DP) for an explicit library and guide tree;
@@ -220,6 +223,9 @@
     <!-- GENOMIC-COMMON-001 (audit A3-13b, B09 F149): EMBOSS megamerger 6.6.0 merged sequence + report of 600 related / unrelated DNA pairs (JSON lines);
          scripts/analysis/generate_megamerger_oracle.py. -->
     <EmbeddedResource Include="TestData\Analysis\megamerger_oracle.jsonl" />
+    <!-- ALIGN-MULTI-001 (audit A3-9a, B09 F150): the mummer | mgaps pipeline of nucmer 3.23 on 700 related pairs (-mum / -mumreference / -maxmatch, both strands);
+         scripts/alignment/generate_nucmer_clusters_oracle.py. -->
+    <EmbeddedResource Include="TestData\Analysis\nucmer_clusters_oracle.tsv" />
     <!-- GENOMIC-TANDEM-001 (B09 A3-8): EMBOSS etandem / equicktandem 6.6.0 original-format output on random and planted sequences (1700 + 1300 rows);
          scripts/analysis/generate_emboss_tandem_oracle.py. -->
     <EmbeddedResource Include="TestData\Analysis\emboss_tandem_oracle.tsv" />

@@ -1,0 +1,120 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "toolName": "nucmer_clusters",
+ "serverName": "Analysis",
+ "version": "1.0.0",
+ "stability": "stable",
+ "methodId": "GenomicAnalyzer.FindNucmerClusters",
+ "docRef": "Seqeron.Genomics.Analysis/GenomicAnalyzer.NucmerClusters.cs",
+ "description": "The anchor-clustering stage of MUMmer 3.23 nucmer = `mummer -mum|-mumreference|-maxmatch -b -l L -n | mgaps -l c -s g -d D -f F` (700 related pairs, both strands, all three match modes equal; 758 further mgaps inputs equal): the exact matches (mode 'mum' = maximal unique matches in both sequences, 'mumreference' = unique in the reference, 'maxmatch' = all maximal matches; minMatchLength = -l; only A/C/G/T match) are clustered: matches are sorted by their start in the query, matches inside a repeat are removed and overlapping matches of one diagonal merged, neighbours whose diagonals differ by at most max(diagonalDifference, diagonalFraction * separation) within maxSeparation are joined, and each component is cut into chains of maximum score (match length - overlap - diagonal difference); a chain is reported when its length (sum of the match lengths, or the extent with useExtent) reaches minClusterLength. Coordinates are 1-based as printed by mummer / mgaps; on the reverse strand the query start is a position in the reverse-complemented query; a match's overlap is the number of bases cut off its start because it overlaps the previous match. This is the stage that decides which anchors belong together; the banded extension (postnuc) and delta-filter are not part of this tool.",
+ "inputSchema": {
+  "type": "object",
+  "properties": {
+   "reference": {
+    "type": "string",
+    "description": "Reference DNA sequence."
+   },
+   "query": {
+    "type": "string",
+    "description": "Query DNA sequence."
+   },
+   "minMatchLength": {
+    "type": "integer",
+    "description": "Minimum exact match length (nucmer -l, default 20).",
+    "default": 20
+   },
+   "mode": {
+    "type": "string",
+    "description": "Match mode: 'mum' (default), 'mumreference' or 'maxmatch'.",
+    "default": "mum"
+   },
+   "bothStrands": {
+    "type": "boolean",
+    "description": "Also cluster the reverse-complement strand of the query (nucmer default true).",
+    "default": true
+   },
+   "maxSeparation": {
+    "type": "integer",
+    "description": "Largest separation between matches of a cluster (nucmer -g, default 90).",
+    "default": 90
+   },
+   "minClusterLength": {
+    "type": "integer",
+    "description": "Smallest reported cluster length (nucmer -c, default 65).",
+    "default": 65
+   },
+   "diagonalDifference": {
+    "type": "integer",
+    "description": "Fixed diagonal difference that joins matches (nucmer -D, default 5).",
+    "default": 5
+   },
+   "diagonalFraction": {
+    "type": "number",
+    "description": "Fraction of the separation added to the allowed diagonal difference (nucmer -d, default 0.12).",
+    "default": 0.12
+   },
+   "useExtent": {
+    "type": "boolean",
+    "description": "Cluster length = extent in the reference instead of the sum of the match lengths (mgaps -e, default false).",
+    "default": false
+   }
+  },
+  "required": [
+   "reference",
+   "query"
+  ]
+ },
+ "outputSchema": {
+  "type": "object",
+  "properties": {
+   "clusters": {
+    "type": "array",
+    "description": "Clusters `{ strand (forward|reverse), matches: [{ start1, start2, length, overlap }] }`, forward strand first, in the order mgaps prints them."
+   }
+  },
+  "required": [
+   "clusters"
+  ]
+ },
+ "errors": [
+  {
+   "code": 1001,
+   "message": "Sequence cannot be null or empty"
+  },
+  {
+   "code": 1001,
+   "message": "mode must be 'mum', 'mumreference' or 'maxmatch'"
+  }
+ ],
+ "examples": [
+  {
+   "name": "Two segments split by a 4 base substitution block",
+   "input": {
+    "reference": "GCTAAAGACAATTACATAACATACACGTCAGCACGAAACTTGTTGGCCCAGTGTGAATCGCTTAAGGGTTAAGTAAGTGTGATGCATACGCCTTTACTTGCTGTGTCCACCCCATCGGACTGGCATTTTTATTACACTCA",
+    "query": "AGACAATTACATAACATACACGTCAGCACGAAACTTGTTGGCCCAGTGTGAATCGCTTAAGGGTTGGGGAAGTGTGATGCATACGCCTTTACTTGCTGTGTCCACCCCATCGGACTGGCATTTTTATTACACTCA",
+    "minMatchLength": 15
+   },
+   "output": {
+    "clusters": [
+     {
+      "strand": "forward",
+      "matches": [
+       {
+        "start1": 6,
+        "start2": 1,
+        "length": 65,
+        "overlap": 0
+       },
+       {
+        "start1": 75,
+        "start2": 70,
+        "length": 66,
+        "overlap": 0
+       }
+      ]
+     }
+    ]
+   }
+  }
+ ]
+}

@@ -122,6 +122,7 @@ public sealed class ToolRegistrationContractTests : ToolRegistrationContractTest
         "most_frequent_kmers",
         "multibranch_loop_energy",
         "multiple_alignment_statistics",
+        "nucmer_clusters",
         "oligo_analysis",
         "parse_dot_bracket",
         "predict_chou_fasman",

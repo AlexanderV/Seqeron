@@ -339,6 +339,7 @@
 | consambig | Analysis | MotifFinder.GenerateEmbossAmbiguousConsensus | MotifFinder.AmbiguousConsensus.cs | 0/0 | – | – | Build-Ready |
 | showalign | Analysis | MultipleAlignmentDisplay.ShowAlign | MultipleAlignmentDisplay.cs | 0/0 | – | – | Build-Ready |
 | megamerger | Analysis | GenomicAnalyzer.MegaMerge | GenomicAnalyzer.MegaMerger.cs | 0/0 | – | – | Build-Ready |
+| nucmer_clusters | Analysis | GenomicAnalyzer.FindNucmerClusters | GenomicAnalyzer.NucmerClusters.cs | 0/0 | – | – | Build-Ready |
 | alignment_statistics | Alignment | SequenceAligner.CalculateStatistics | Alignment/SequenceAligner.cs#L1064 | 0/0 | – | – | Build-Ready |
 | assemble_de_bruijn | Alignment | SequenceAssembler.AssembleDeBruijn | Alignment/SequenceAssembler.cs#L75 | 0/0 | – | – | Build-Ready |
 | assemble_olc | Alignment | SequenceAssembler.AssembleOLC | Alignment/SequenceAssembler.cs#L48 | 0/0 | – | – | Build-Ready |

@@ -49,6 +49,21 @@ public class EmbossProgramToolsTests
     }
 
     [Test]
+    public void NucmerClusters_ClusterTheMummerMatchesLikeMgaps()
+    {
+        // mummer -mum -b -l 15 | mgaps -l 65 -s 90 -d 5 -f 0.12: "6 1 65 none - -" and "75 70 66 none 4 4" (B09 A3-9a, F150)
+        const string reference = "GCTAAAGACAATTACATAACATACACGTCAGCACGAAACTTGTTGGCCCAGTGTGAATCGCTTAAGGGTTAAGTAAGTGTGATGCATACGCCTTTACTTGCTGTGTCCACCCCATCGGACTGGCATTTTTATTACACTCA";
+        const string query = "AGACAATTACATAACATACACGTCAGCACGAAACTTGTTGGCCCAGTGTGAATCGCTTAAGGGTTGGGGAAGTGTGATGCATACGCCTTTACTTGCTGTGTCCACCCCATCGGACTGGCATTTTTATTACACTCA";
+        var r = AnalysisTools.NucmerClusters(reference, query, 15);
+        var cluster = r.Clusters.Single();
+        Assert.That(cluster.Strand, Is.EqualTo("forward"));
+        Assert.That(cluster.Matches, Is.EqualTo(new[] { new NucmerClusterMatchItem(6, 1, 65, 0), new NucmerClusterMatchItem(75, 70, 66, 0) }));
+        Assert.That(AnalysisTools.NucmerClusters(reference, query, 15, minClusterLength: 200).Clusters, Is.Empty);
+        Assert.Throws<ArgumentException>(() => AnalysisTools.NucmerClusters(reference, query, mode: "x"));
+        Assert.Throws<ArgumentException>(() => AnalysisTools.NucmerClusters("", query));
+    }
+
+    [Test]
     public void FindTandemRepeatsEmboss_Etandem_ReportsScoreIdentityAndConsensus()
     {
         // etandem -minrepeat 2 -maxrepeat 8 -threshold 10: "33 61 96 3 12 100.0 cag" and "26 137 172 6 6 94.4 acgtta"

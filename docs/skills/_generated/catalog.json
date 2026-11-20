@@ -1260,6 +1260,13 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MultipleAlignmentStatistics.cs#L110"
   },
   {
+    "tool": "nucmer_clusters",
+    "server": "Analysis",
+    "methodId": "GenomicAnalyzer.FindNucmerClusters",
+    "docPath": "docs/mcp/tools/analysis/nucmer_clusters.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GenomicAnalyzer.NucmerClusters.cs"
+  },
+  {
     "tool": "oligo_analysis",
     "server": "Analysis",
     "methodId": "MotifFinder.DiscoverMotifs",

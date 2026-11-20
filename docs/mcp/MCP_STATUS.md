@@ -21,7 +21,7 @@
 | Sequence | Seqeron.Mcp.Sequence | 35 | 35/35 | 35/35 | 35/35 | ✅ done |
 | Parsers | Seqeron.Mcp.Parsers | 41 | 41/41 | 41/41 | 41/41 | ✅ done |
 | Alignment | Seqeron.Mcp.Alignment | 74 | 74/74 | 74/74 | 74/74 | ✅ done |
-| Analysis | Seqeron.Mcp.Analysis | 139 | 139/139 | 139/139 | 139/139 | ✅ done |
+| Analysis | Seqeron.Mcp.Analysis | 140 | 140/140 | 140/140 | 140/140 | ✅ done |
 | Annotation | Seqeron.Mcp.Annotation | 97 | 97/97 | 97/97 | 97/97 | ✅ done |
 | Chromosome | Seqeron.Mcp.Chromosome | 32 | 32/32 | 32/32 | 32/32 | ✅ done |
 | Metagenomics | Seqeron.Mcp.Metagenomics | 19 | 19/19 | 19/19 | 19/19 | ✅ done |
@@ -219,7 +219,7 @@
 | 73 | `tcoffee_blast_msa_library` | ☑ | ☑ | ☑ |
 | 74 | `tcoffee_tblastx_library` | ☑ | ☑ | ☑ |
 
-### Analysis (Seqeron.Mcp.Analysis) — 139 tools
+### Analysis (Seqeron.Mcp.Analysis) — 140 tools
 
 | # | tool | B | T | D |
 |---:|---|:--:|:--:|:--:|
@@ -362,6 +362,7 @@
 | 137 | `consambig` | ☑ | ☑ | ☑ |
 | 138 | `showalign` | ☑ | ☑ | ☑ |
 | 139 | `megamerger` | ☑ | ☑ | ☑ |
+| 140 | `nucmer_clusters` | ☑ | ☑ | ☑ |
 ### Annotation (Seqeron.Mcp.Annotation) — 97 tools
 
 | # | tool | B | T | D |

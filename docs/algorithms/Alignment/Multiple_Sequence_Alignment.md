@@ -453,6 +453,10 @@ The star result depends on the chosen center and is not SP-optimal (Gusfield's 2
 - Evidence: [ALIGN-MULTI-001-Evidence.md](../../../docs/Evidence/ALIGN-MULTI-001-Evidence.md)
 - TestSpec: [ALIGN-MULTI-001.md](../../../tests/TestSpecs/ALIGN-MULTI-001.md)
 
+### 7.x nucmer anchor clustering vs the anchored aligner (A3-9a, B09 F150)
+
+`NucmerClusters.Cluster` / `GenomicAnalyzer.FindNucmerClusters` / MCP `nucmer_clusters` are the clustering stage of MUMmer 3 `nucmer` (`mummer | mgaps`): unique (or maximal) exact matches are joined when their diagonals differ by at most `max(D, d * separation)` within the largest separation `g`, cut into chains of maximum score, and reported when they reach the minimum cluster length `c` (758 / 758 `mgaps` inputs and 700 / 700 `mummer | mgaps` pipelines equal the installed 3.23). `AnchorBasedAligner` differs on purpose: it keeps one MEM per matching diagonal run, chains by maximum weight with no distance or diagonal limit and then aligns EVERY gap with Needleman-Wunsch, whereas nucmer clusters near-diagonal neighbours only, drops short clusters and extends with banded Smith-Waterman until the score drops (`postnuc`, not ported: A3-9b). The anchors of the anchored aligner are a subset of the `mummer -maxmatch` matches (A2-30); no defect of `AnchorBasedAligner` was found.
+
 ## 8. References
 
 1. [Multiple sequence alignment](https://en.wikipedia.org/wiki/Multiple_sequence_alignment)

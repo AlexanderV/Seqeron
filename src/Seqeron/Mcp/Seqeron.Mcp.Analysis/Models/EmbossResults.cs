@@ -43,3 +43,12 @@ public record ShowAlignResult(string Text);
 
 /// <summary>Result of <c>megamerger</c>: the merged sequence, the program's report and the minimal set of anchoring matches (0-based starts; empty merge = nothing to merge).</summary>
 public record MegaMergerResult(string MergedSequence, string Report, WordMatchItem[] Matches);
+
+/// <summary>A match of a <c>nucmer_clusters</c> cluster: 1-based starts (the second one in the reverse-complemented query on the reverse strand), the length left after the overlap cut and the overlap.</summary>
+public record NucmerClusterMatchItem(long Start1, long Start2, long Length, long Overlap);
+
+/// <summary>A cluster of <c>nucmer_clusters</c>: its strand and matches.</summary>
+public record NucmerClusterItem(string Strand, NucmerClusterMatchItem[] Matches);
+
+/// <summary>Result of <c>nucmer_clusters</c>: the clusters of the forward strand, then of the reverse-complement strand.</summary>
+public record NucmerClustersResult(NucmerClusterItem[] Clusters);

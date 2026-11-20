@@ -180,6 +180,10 @@ CommonRegion r = GenomicAnalyzer.FindLongestCommonRegion(a, b);
 
 `GenomicAnalyzer.MegaMerge(sequence1, sequence2, wordSize = 20, preferFirst, name1, name2)` / MCP `megamerger` merges two large overlapping DNA sequences through word-match anchors: the exact word matches (the maximal matches of `SeqMatchAll`) are ordered longest first and reduced to the minimal non-overlapping set (`embWordMatchMin`: keep the longest, drop the matches in its dead zone, truncate those crossing it), and the merged sequence is built from the part before the first match, the matches (lower case), the mismatch regions between matches (the sequence whose mismatch is farther from its ends; upper case) and the part after the last match; the report text of the program is returned as well. 600 / 600 random pairs equal `megamerger` 6.6.0 (merged sequence and report). The dynamic-programming overlap merge of two short sequences is `SequenceAligner.Merger` (EMBOSS `merger`).
 
+### 7.y MUMmer `nucmer` anchor clusters (A3-9a, B09 F150)
+
+`GenomicAnalyzer.FindNucmerClusters(reference, query, minMatchLength = 20, mode = MaximalUnique, options, strands = Both)` clusters the exact matches of `FindCommonRegions` the way `nucmer` does (the `mgaps` stage, `NucmerClusters`; defaults `-g 90 -c 65 -D 5 -d 0.12`); coordinates are 1-based as printed by `mummer` / `mgaps`, reverse-strand query starts refer to the reverse-complemented query. 700 / 700 related pairs equal the real `mummer | mgaps` pipeline (the gapped common regions of §5.3 are the clusters; their base-level alignment is `postnuc`, A3-9b).
+
 ## 8. References
 
 1. Gusfield, Dan. 1997. Algorithms on Strings, Trees and Sequences: Computer Science and Computational Biology. Cambridge University Press. ISBN 0-521-58519-8. (citation retrieved from https://en.wikipedia.org/wiki/Longest_common_substring on 2026-06-13)

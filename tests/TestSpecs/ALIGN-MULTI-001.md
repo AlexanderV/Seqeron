@@ -711,3 +711,10 @@ Tests (`Seqeron.Genomics.Tests`, against the installed Debian `poa` 2.0+20060928
 | A3-5 | `SequenceAligner_Cancellation_Tests` (+10: pre-cancelled for 12 entry points, mid-run for needle / water, stretcher, supermatcher, needleall, ksw2 x4 + dual affine, T-Coffee Myers-Miller, `TcGotohProfile`, MUSCLE refinement, anchors, distmat; every mid-run test asserts the poll frame in the stack trace), MCP `CancellationTokenTests` (2) | the ambient token is polled at row / iteration boundaries of every ported program and the MCP wrappers pass it |
 | A3-6 | `SequenceAligner_TCoffeeOptions_Tests.RandomDistance_EveryRowEqualsTheProgram_WithDebugSrand` (310 sets of `tcoffee_program_options_oracle.tsv`, feature `dist_random`), `RandomDistance_SeedIsAnOption_...` | `-distance_matrix_mode random` = glibc `rand() % 100` per pair, seed 10 (`DEBUG_SRAND`), `TCoffeeProgramOptions.RandomSeed` |
 | A3-7 | `SequenceAligner_MuscleDefaultIterations_Tests` (`muscle3_default_iters_oracle.tsv`) | the program default of `-maxiters` is 8 (not the stale `-help` 16, not the options default 2): `MuscleOptions.ProgramDefaults` |
+
+## Audit A3-9a (B09 F150): nucmer clustering
+
+| ID | Test | Oracle / what | Verdict |
+|---|---|---|---|
+| A3-9a | `NucmerClusters_Tests.Cluster_EqualsMgaps_AllRows`, `WorkedValues_RunOnTheBinary`, `Validation` | 758 mgaps 3.23 runs (`mgaps_oracle.tsv`) | as specified |
+| A3-9a | `GenomicAnalyzer_NucmerClusters_Tests.FindNucmerClusters_EqualsMummerPipedIntoMgaps_AllRows`, `ForwardOnly_AndDefaults` | 700 `mummer | mgaps` pipelines (`nucmer_clusters_oracle.tsv`), three match modes, both strands | as specified |
