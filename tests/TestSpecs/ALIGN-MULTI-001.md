@@ -718,3 +718,11 @@ Tests (`Seqeron.Genomics.Tests`, against the installed Debian `poa` 2.0+20060928
 |---|---|---|---|
 | A3-9a | `NucmerClusters_Tests.Cluster_EqualsMgaps_AllRows`, `WorkedValues_RunOnTheBinary`, `Validation` | 758 mgaps 3.23 runs (`mgaps_oracle.tsv`) | as specified |
 | A3-9a | `GenomicAnalyzer_NucmerClusters_Tests.FindNucmerClusters_EqualsMummerPipedIntoMgaps_AllRows`, `ForwardOnly_AndDefaults` | 700 `mummer | mgaps` pipelines (`nucmer_clusters_oracle.tsv`), three match modes, both strands | as specified |
+
+## Audit A3-9c (B09 F151): minimap2 chaining
+
+| ID | Test | Oracle / what | Verdict |
+|---|---|---|---|
+| A3-9c | `Chain_EqualsMinimap2_AllCases` | 450 minimap2 2.26 runs (`minimap2_chain_oracle.jsonl`): chains from minimap2's own anchors, PAF `cm` / `s1` | as specified |
+| A3-9c | `CollectAnchors_EqualsTheSeedArrayOfMinimap2_AllCases`, `MapChains_EqualsTheChainsOfMinimap2_FromTheSequences` | the same runs from the sequences: anchor arrays (order included) and chains | as specified |
+| A3-9c | `SmallChain_ScoreIsTheSumOfAnchorSpansMinusGapPenalties`, `CollectAnchors_FrequentMinimizers_AreNotPorted_AndValidation`, `Validation_AndSorting` | hand values, the documented limitation, guards | as specified |

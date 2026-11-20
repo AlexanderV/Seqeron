@@ -45,6 +45,7 @@
 | `local_align_top_n` | Alignment | `SequenceAligner.LocalAlignTopN` | [doc](../../../../docs/mcp/tools/alignment/local_align_top_n.md) |
 | `merge_contigs` | Alignment | `SequenceAssembler.MergeContigs` | [doc](../../../../docs/mcp/tools/alignment/merge_contigs.md) |
 | `merger` | Alignment | `SequenceAligner.Merger` | [doc](../../../../docs/mcp/tools/alignment/merger.md) |
+| `minimap2_chains` | Alignment | `Minimap2Chaining.MapChains` | [doc](../../../../docs/mcp/tools/alignment/minimap2_chains.md) |
 | `multiple_align` | Alignment | `SequenceAligner.MultipleAlign` | [doc](../../../../docs/mcp/tools/alignment/multiple_align.md) |
 | `multiple_align_anchored` | Alignment | `SequenceAligner.MultipleAlignAnchored` | [doc](../../../../docs/mcp/tools/alignment/multiple_align_anchored.md) |
 | `multiple_align_clustalw` | Alignment | `SequenceAligner.MultipleAlignClustalW` | [doc](../../../../docs/mcp/tools/alignment/multiple_align_clustalw.md) |

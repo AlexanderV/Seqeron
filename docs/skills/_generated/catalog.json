@@ -273,6 +273,13 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.Merger.cs"
   },
   {
+    "tool": "minimap2_chains",
+    "server": "Alignment",
+    "methodId": "Minimap2Chaining.MapChains",
+    "docPath": "docs/mcp/tools/alignment/minimap2_chains.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/Minimap2Chaining.cs"
+  },
+  {
     "tool": "multiple_align",
     "server": "Alignment",
     "methodId": "SequenceAligner.MultipleAlign",

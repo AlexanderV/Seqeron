@@ -311,3 +311,12 @@ public record MergerConflictDto(int PositionA, string BaseA, int PositionB, stri
 /// <summary>Result of <c>merger</c>: the merged sequence, the score, the unaligned head lengths, the aligned region and the conflicts.</summary>
 public record MergerResultDto(
     string MergedSequence, double Score, int StartA, int StartB, string AlignedA, string AlignedB, MergerConflictDto[] Conflicts, string[] Warnings);
+
+/// <summary>An anchor of <c>minimap2_chains</c>: the target, the strand, the 0-based positions of the last base of the seed on the target and on the query (reverse strand: on the reverse-complemented query) and the seed length.</summary>
+public record Minimap2AnchorDto(int Target, string Strand, int TargetEnd, int QueryEnd, int Span);
+
+/// <summary>A chain of <c>minimap2_chains</c>: its score, target, strand and anchors.</summary>
+public record Minimap2ChainDto(int Score, int Target, string Strand, Minimap2AnchorDto[] Anchors);
+
+/// <summary>Result of <c>minimap2_chains</c>: the chains ordered by the position of their first anchor and the number of seed hits they were built from.</summary>
+public record Minimap2ChainsResult(Minimap2ChainDto[] Chains, int SeedCount);

@@ -20,7 +20,7 @@
 | Core | SuffixTree.Mcp.Core | 18 | 18/18 | 18/18 | 18/18 | ✅ done |
 | Sequence | Seqeron.Mcp.Sequence | 35 | 35/35 | 35/35 | 35/35 | ✅ done |
 | Parsers | Seqeron.Mcp.Parsers | 41 | 41/41 | 41/41 | 41/41 | ✅ done |
-| Alignment | Seqeron.Mcp.Alignment | 74 | 74/74 | 74/74 | 74/74 | ✅ done |
+| Alignment | Seqeron.Mcp.Alignment | 75 | 75/75 | 75/75 | 75/75 | ✅ done |
 | Analysis | Seqeron.Mcp.Analysis | 140 | 140/140 | 140/140 | 140/140 | ✅ done |
 | Annotation | Seqeron.Mcp.Annotation | 97 | 97/97 | 97/97 | 97/97 | ✅ done |
 | Chromosome | Seqeron.Mcp.Chromosome | 32 | 32/32 | 32/32 | 32/32 | ✅ done |
@@ -140,7 +140,7 @@
 | 40 | `vcf_variant_length` | ☑ | ☑ | ☑ |
 | 41 | `vcf_write` | ☑ | ☑ | ☑ |
 
-### Alignment (Seqeron.Mcp.Alignment) — 74 tools
+### Alignment (Seqeron.Mcp.Alignment) — 75 tools
 
 | # | tool | B | T | D |
 |---:|---|:--:|:--:|:--:|
@@ -218,6 +218,7 @@
 | 72 | `clustalw_guide_tree` | ☑ | ☑ | ☑ |
 | 73 | `tcoffee_blast_msa_library` | ☑ | ☑ | ☑ |
 | 74 | `tcoffee_tblastx_library` | ☑ | ☑ | ☑ |
+| 75 | `minimap2_chains` | ☑ | ☑ | ☑ |
 
 ### Analysis (Seqeron.Mcp.Analysis) — 140 tools
 

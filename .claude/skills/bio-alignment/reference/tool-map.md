@@ -131,5 +131,6 @@ These live on the Alignment server but belong to the assembly workflow; listed f
 | [`poa_command`](../../../../docs/mcp/tools/alignment/poa_command.md) | `PoaProgram.Run` | POA 2.0 as a command line (`-read_fasta -do_global -do_progressive -read_pairscores -fuse_all -hb -hbmin -best -preserve_seqorder -tolower -toupper -pir -clustal -po -printmatrix -v MATRIX`, files as text); equal to the program on 359 / 359 command lines. |
 | [`align_gap_profile`](../../../../docs/mcp/tools/alignment/align_gap_profile.md) | `SequenceAligner.GlobalAlignAffine(GapScoreProfile)` | Biopython per-direction / per-end gap scores (left / right / internal x insertion / deletion, open / extend) |
 | [`merger`](../../../../docs/mcp/tools/alignment/merger.md) | `SequenceAligner.Merger` | EMBOSS merger (merge two overlapping sequences) |
+| [`minimap2_chains`](../../../../docs/mcp/tools/alignment/minimap2_chains.md) | `Minimap2Chaining.MapChains` | minimap2 2.26 seeding and chaining (minimizer anchors, mg_lchain_dp) |
 
 > For k-mer/assembly workflows use **`bio-assembly`**; this skill owns the alignment/similarity subset above.
