@@ -1,0 +1,47 @@
+[
+ {
+  "id": "T04",
+  "desc": "MemoryPositions: the array is not returned",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/PositionStore.cs",
+  "old": "        if (d is not null) ArrayPool<uint>.Shared.Return(d);",
+  "new": "        _ = d;",
+  "filter": "",
+  "closed_by": "SaPositionGap1b9cTests.TheMemorySource_GivesItsArrayBackToThePool_OnceWhateverTheNumberOfDisposals"
+ },
+ {
+  "id": "T14",
+  "desc": "PosWriter: the buffer is flushed instead of grown",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/PositionStore.cs",
+  "old": "if (_buffer.Length < _capacity) Grow();",
+  "new": "if (_buffer.Length < 0) Grow();",
+  "filter": "",
+  "closed_by": "SaPositionGap1b9cTests.ABucketThatFitsTheCapacity_StaysInMemory_WhateverTheSizeOfItsFirstBuffer"
+ },
+ {
+  "id": "T18",
+  "desc": "PosWriter: the file bucket buffer is not returned",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/PositionStore.cs",
+  "old": "        _file = null;\n        ArrayPool<uint>.Shared.Return(_buffer);\n        _buffer = [];\n        return new FilePositions",
+  "new": "        _file = null;\n        _buffer = [];\n        return new FilePositions",
+  "filter": "",
+  "closed_by": "SaPositionGap1b9cTests.ThePosWriter_GivesItsBufferBackToThePool_WhenItHandsOverABucketInAFile_AndWhenItIsDisposedUncompleted"
+ },
+ {
+  "id": "T22",
+  "desc": "PosWriter: Dispose does not close the file",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/PositionStore.cs",
+  "old": "        _completed = true;\n        _file?.Dispose();\n        _file = null;\n        if (_path is not null)",
+  "new": "        _completed = true;\n        _file = null;\n        if (_path is not null)",
+  "filter": "",
+  "closed_by": "SaPositionGap1b9cTests.AWriterThatIsDisposedUncompleted_ClosesItsFile"
+ },
+ {
+  "id": "T28",
+  "desc": "PosWriter: the file is opened for append",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/PositionStore.cs",
+  "old": "FileMode.Create, FileAccess.ReadWrite);",
+  "new": "FileMode.OpenOrCreate, FileAccess.ReadWrite);",
+  "filter": "",
+  "closed_by": "SaPositionGap1b9cTests.ThePosWriter_CreatesItsFileAnew_AndKeepsNothingThatWasInItsPlace"
+ }
+]

@@ -1,0 +1,11 @@
+[
+ {
+  "id": "C16",
+  "desc": "the arm64 tail reads byte 0",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/Crc32C.cs",
+  "old": "for (; at < length; at++) c = ops.Step8(c, data[at]);",
+  "new": "for (; at < length; at++) c = ops.Step8(c, data[0]);",
+  "filter": "",
+  "closed_by": "SesaGap1b9cTests.TheLoopsOfTheArm64PathOfTheCrc_GiveTheValueOfTheTablePath_ForEveryLengthAndStartingValue"
+ }
+]

@@ -1,0 +1,26 @@
+[
+ {
+  "id": "W08",
+  "desc": "a text of too many bits is accepted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/BwtPass.cs",
+  "old": "if (text.Bits > PackedTextFormat.MaxBits) throw",
+  "new": "if (text.Bits > PackedTextFormat.MaxBits + 1) throw",
+  "filter": ""
+ },
+ {
+  "id": "W14",
+  "desc": "the SA buffer is zeroed",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/BwtPass.cs",
+  "old": "saBuf = arena.Allocate<uint>(readEntries, zero: false,",
+  "new": "saBuf = arena.Allocate<uint>(readEntries, zero: true,",
+  "filter": ""
+ },
+ {
+  "id": "W37",
+  "desc": "the BWT file is not completed",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/BwtPass.cs",
+  "old": "                file.Complete(fsync: false);\n",
+  "new": "",
+  "filter": ""
+ }
+]

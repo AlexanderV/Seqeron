@@ -1,0 +1,26 @@
+[
+ {
+  "id": "A01",
+  "desc": "BaseCase: the inverse permutation skips the first rank",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
+  "old": "for (int k = 1; k <= n; k++) rank[saSpan[k]] = k;",
+  "new": "for (int k = 0; k <= n; k++) rank[saSpan[k] % n] = k;",
+  "filter": ""
+ },
+ {
+  "id": "L16",
+  "desc": "BuildLevel: the sort shares no ledger",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
+  "old": "                    Ledger = c.Ledger,\n",
+  "new": "",
+  "filter": ""
+ },
+ {
+  "id": "L17",
+  "desc": "BuildLevel: the suffix array file is not completed",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
+  "old": "saFile.Complete(fsync: false);",
+  "new": "",
+  "filter": ""
+ }
+]

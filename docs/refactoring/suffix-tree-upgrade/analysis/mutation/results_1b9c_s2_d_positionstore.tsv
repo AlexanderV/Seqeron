@@ -1,0 +1,5 @@
+T02	RangePositions: At is shifted	survived	killed(11 failed: TheBuild_HasThePinnedShape_AndCounts(0),TheBuild_HasThePinnedShape_AndCounts(1),TheBuild_HasThePinnedShape_AndCounts(2))		264
+T04	MemoryPositions: the array is not returned	-	survived		276
+T06	FilePositions: Read ignores the start	-	killed(1 failed: ThePositionSources_ReadAtEveryOffset_AndAtAnyIndex_InMemoryA)		269
+T12	PosWriter: the capacity has no floor	-	survived		290
+T20	PosWriter: Dispose does not give the bytes back	-	killed(1 failed: AWriterThatIsDisposedUncompleted_DeletesItsFile_AndGivesTheB)		261

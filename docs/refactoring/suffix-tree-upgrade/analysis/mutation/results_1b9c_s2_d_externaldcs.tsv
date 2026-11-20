@@ -1,0 +1,4 @@
+L28	BuildLevel: the naming statistics are not timed	-	killed(2 failed: ScratchIsReleasedChunkByChunk_WhilePassTwoRuns_NotAtTheEnd,TheSystemSource_OnLinux_ReservesTheBlocks_AndTheSparseFileDo)		301
+A01	BaseCase: the inverse permutation skips the first rank	-	survived		306
+A05	BaseCase: the chunk is not bounded by the slots	-	survived		297
+A07	BaseCase: the reservation is not recorded	-	survived		283

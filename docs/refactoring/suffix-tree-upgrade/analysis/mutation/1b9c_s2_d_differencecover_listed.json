@@ -1,59 +1,5 @@
 [
  {
-  "id": "D04",
-  "desc": "Verify: the difference is taken the other way",
-  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs",
-  "old": "foreach (int b in Residues) covered[(b - a + Period) % Period] = true;",
-  "new": "foreach (int b in Residues) covered[(a - b + Period) % Period] = true;",
-  "filter": "(FullyQualifiedName~DifferenceCoverTests|FullyQualifiedName~SampleGeometryTests|FullyQualifiedName~ExternalDcsTests)",
-  "orig": "d_D04"
- },
- {
-  "id": "D10",
-  "desc": "NearestSingerPeriod keeps the first on a tie of ratios (strict becomes non-strict)",
-  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs",
-  "old": "if (ratio < bestRatio)",
-  "new": "if (ratio <= bestRatio)",
-  "filter": "(FullyQualifiedName~DifferenceCoverTests|FullyQualifiedName~SampleGeometryTests|FullyQualifiedName~ExternalDcsTests)",
-  "orig": "d_D10"
- },
- {
-  "id": "D14",
-  "desc": "Pruned: the large periods get more rounds",
-  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs",
-  "old": "else if (x <= 1024) rounds = 12;",
-  "new": "else if (x <= 1024) rounds = 13;",
-  "filter": "(FullyQualifiedName~DifferenceCoverTests|FullyQualifiedName~SampleGeometryTests|FullyQualifiedName~ExternalDcsTests)",
-  "orig": "d_D14"
- },
- {
-  "id": "D16",
-  "desc": "Pruned: the multiples start at zero",
-  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs",
-  "old": "for (int k = 1; k <= m; k++) start.Add(m * k % x);",
-  "new": "for (int k = 0; k <= m; k++) start.Add(m * k % x);",
-  "filter": "(FullyQualifiedName~DifferenceCoverTests|FullyQualifiedName~SampleGeometryTests|FullyQualifiedName~ExternalDcsTests)",
-  "orig": "d_D16"
- },
- {
-  "id": "D18",
-  "desc": "Pruned: the best round is the largest",
-  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs",
-  "old": "if (d.Count < best.Count) best = d;",
-  "new": "if (d.Count > best.Count) best = d;",
-  "filter": "(FullyQualifiedName~DifferenceCoverTests|FullyQualifiedName~SampleGeometryTests|FullyQualifiedName~ExternalDcsTests)",
-  "orig": "d_D18"
- },
- {
-  "id": "D20",
-  "desc": "Singer: a zero residue is taken at the end of the range",
-  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs",
-  "old": "if (k < n && a0 == 0) zero.Add((int)k);",
-  "new": "if (k <= n && a0 == 0) zero.Add((int)k);",
-  "filter": "(FullyQualifiedName~DifferenceCoverTests|FullyQualifiedName~SampleGeometryTests|FullyQualifiedName~ExternalDcsTests)",
-  "orig": "d_D20"
- },
- {
   "id": "D22",
   "desc": "Witness: the last witness wins",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs",

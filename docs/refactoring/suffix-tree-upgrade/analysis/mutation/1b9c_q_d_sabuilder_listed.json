@@ -1,0 +1,26 @@
+[
+ {
+  "id": "Q18",
+  "desc": "Resolve: the scale is applied when not scaled",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "old": "long Scale(long reference, long floor) => scaled ? Math.Max(floor, (long)Math.Round(reference * f)) : reference;",
+  "new": "long Scale(long reference, long floor) => Math.Max(floor, (long)Math.Round(reference * f));",
+  "filter": ""
+ },
+ {
+  "id": "Q20",
+  "desc": "Resolve: the scale floors are ignored",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "old": "scaled ? Math.Max(floor, (long)Math.Round(reference * f)) : reference",
+  "new": "scaled ? (long)Math.Round(reference * f) : reference",
+  "filter": ""
+ },
+ {
+  "id": "Q90",
+  "desc": "Build: PH3 ledger",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "old": "                    Ledger = ledger,\n",
+  "new": "",
+  "filter": ""
+ }
+]

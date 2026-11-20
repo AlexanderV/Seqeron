@@ -1,0 +1,3 @@
+B90	PSI is built without a BWT section (kept: the plan decides)	-	survived		274
+B94	the BWT counts are not checked here	-	survived		268
+B104	the BWT file gets no file options	-	survived		289

@@ -1,0 +1,50 @@
+[
+ {
+  "id": "F39",
+  "desc": "the floor of the capacity of a bucket buffer is 17 positions",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/PositionStore.cs",
+  "old": "_capacity = Math.Max(spillBytes / 4, 16);",
+  "new": "_capacity = Math.Max(spillBytes / 4, 17);",
+  "filter": "(FullyQualifiedName~Gap1b9cTests)"
+ },
+ {
+  "id": "F40",
+  "desc": "a bucket in a file is handed over with its file open",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/PositionStore.cs",
+  "old": "        Flush();\n        _file.Dispose();\n        _file = null;",
+  "new": "        Flush();\n        _file = null;",
+  "filter": "(FullyQualifiedName~Gap1b9cTests)"
+ },
+ {
+  "id": "F41",
+  "desc": "a position file gives one entry less back to the ledger",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/PositionStore.cs",
+  "old": "        files.Ledger.Remove(count * 4);",
+  "new": "        files.Ledger.Remove((count - 1) * 4);",
+  "filter": "(FullyQualifiedName~Gap1b9cTests)"
+ },
+ {
+  "id": "F42",
+  "desc": "a writer that is disposed uncompleted keeps its buffer",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/PositionStore.cs",
+  "old": "        if (_buffer.Length > 0) ArrayPool<uint>.Shared.Return(_buffer);\n",
+  "new": "",
+  "filter": "(FullyQualifiedName~Gap1b9cTests)"
+ },
+ {
+  "id": "F43",
+  "desc": "a memory source can give its array back twice",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/PositionStore.cs",
+  "old": "uint[]? d = Interlocked.Exchange(ref _data, null);",
+  "new": "uint[]? d = _data;",
+  "filter": "(FullyQualifiedName~Gap1b9cTests)"
+ },
+ {
+  "id": "F44",
+  "desc": "the second half of a flushed buffer is written at the wrong offset",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/PositionStore.cs",
+  "old": "(_total - _filled) * 4);",
+  "new": "(_total - _filled) * 2);",
+  "filter": "(FullyQualifiedName~Gap1b9cTests)"
+ }
+]

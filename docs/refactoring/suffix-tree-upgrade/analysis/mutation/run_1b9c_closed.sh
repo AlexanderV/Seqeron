@@ -9,6 +9,6 @@ export PATH="$PATH:/root/.dotnet" DOTNET_ROOT=/root/.dotnet DOTNET_CLI_TELEMETRY
 unset DOTNET_GCHeapHardLimit
 for L in "$HERE"/1b9c_c_*_listed.json; do
   NAME=$(basename "$L" _listed.json)
-  MUTANT_FILTER_ONLY='FullyQualifiedName~SaGap1b9cTests|FullyQualifiedName~SesaGap1b9cTests' MUTANT_TMPDIR=/dev/shm/1b9c-tc python3 -I "$HERE/run_1b9c_mutants.py" "$W" "$L" "$HERE/results_$NAME.tsv"
+  MUTANT_FILTER_ONLY='FullyQualifiedName~Gap1b9cTests' MUTANT_TMPDIR=/dev/shm/1b9c-tc python3 -I "$HERE/run_1b9c_mutants.py" "$W" "$L" "$HERE/results_$NAME.tsv"
 done
 echo "closed-done" > "$HERE/1b9c_closed.done"

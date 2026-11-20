@@ -5,6 +5,6 @@
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/NameSinks.cs",
   "old": "        _writer.Dispose();\n        _file.Dispose();",
   "new": "        _writer.Dispose();",
-  "filter": "(FullyQualifiedName~SaGap1b9cTests|FullyQualifiedName~SesaGap1b9cTests)"
+  "filter": "(FullyQualifiedName~Gap1b9cTests)"
  }
 ]

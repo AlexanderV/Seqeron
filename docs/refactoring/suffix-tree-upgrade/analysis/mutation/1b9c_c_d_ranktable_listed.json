@@ -1,0 +1,11 @@
+[
+ {
+  "id": "R18",
+  "desc": "Open: the view is not read-only sized",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankTable.cs",
+  "old": "view = map.CreateViewAccessor(0, bytes, MemoryMappedFileAccess.Read);",
+  "new": "view = map.CreateViewAccessor(0, bytes - 4, MemoryMappedFileAccess.Read);",
+  "filter": "",
+  "closed_by": "SaDcsGap1b9cTests.TheRankTable_MapsEveryByteOfItsFile_EvenTheLastFourThatReachIntoAPageOfTheirOwn"
+ }
+]

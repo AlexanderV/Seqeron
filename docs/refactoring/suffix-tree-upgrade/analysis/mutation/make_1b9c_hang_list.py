@@ -35,7 +35,7 @@ for (kind, i), base in sorted(found.items()):
     out.append(m)
 n_earlier = len(out)
 # the kills of this package's own runs (results_1b9c_<d|e>_<file>.tsv, stage 1) that only a watchdog or a crash counted
-for f in sorted(glob.glob(os.path.join(HERE, '1b9c_[de]_*_listed.json'))):
+for f in sorted(glob.glob(os.path.join(HERE, '1b9c_[de]_*_listed.json'))) + sorted(glob.glob(os.path.join(HERE, '1b9c_s2_[de]_*_listed.json'))):  # stage 1 and stage 2
     name = os.path.basename(f)[len('1b9c_'):-len('_listed.json')]
     res = os.path.join(HERE, 'results_1b9c_%s.tsv' % name)
     if not os.path.exists(res):
@@ -48,7 +48,8 @@ for f in sorted(glob.glob(os.path.join(HERE, '1b9c_[de]_*_listed.json'))):
     for m in json.load(open(f)):
         if m['id'] in hung:
             m = dict(m)
-            m['package'] = name[0]
-            out.append(m)
+            m['package'] = name[-0:][0] if not name.startswith('s2_') else name[3]
+            if not any(o['package'] == m['package'] and o['id'] == m['id'] for o in out):
+                out.append(m)
 json.dump(out, open(os.path.join(HERE, '1b9c_h_all_listed.json'), 'w'), indent=1)
 print(len(out), 'mutants:', n_earlier, 'of the earlier audits and', len(out) - n_earlier, 'of this package:', [(m['package'], m['id']) for m in out])

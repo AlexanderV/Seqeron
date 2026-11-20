@@ -1,0 +1,11 @@
+[
+ {
+  "id": "W06",
+  "desc": "a window of 0 is accepted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/BwtPass.cs",
+  "old": "ThrowIfLessThan(options.WindowBytes, 1);",
+  "new": "ThrowIfLessThan(options.WindowBytes, 0);",
+  "filter": "",
+  "closed_by": "SesaGap1b9cTests.TheBwtPass_RefusesAWindowOfZeroBytes_BeforeItOpensTheSuffixArray"
+ }
+]

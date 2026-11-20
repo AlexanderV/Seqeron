@@ -7,7 +7,7 @@ ROOT = os.path.abspath(os.path.join(HERE, '../../../../..'))
 # Stage 1 of the audit ran at the head of the package until the first gap tests were committed and at that commit (the head plus the first batch of gap tests and the seams) after it, so a kill whose failing tests are ALL
 # tests of this package may be a mutant that the tests of the head do not kill: it goes to stage 2 (at the head) like a survivor.
 NEW = []
-for f in ('SaGap1b9cTests.cs', 'SesaGap1b9cTests.cs'):
+for f in ('SaGap1b9cTests.cs', 'SesaGap1b9cTests.cs'):  # the tests of the first batches: the ones that the stage 1 runs could include
     NEW += re.findall(r'public void (\w+)', open(os.path.join(ROOT, 'tests/SuffixTree/SuffixTree.Esa.Tests/External', f)).read())
 
 
@@ -16,6 +16,12 @@ def only_new(verdict):
     return bool(m) and int(m.group(1)) <= 3 and all(any(n.startswith(x) or x.startswith(n) for n in NEW) for x in m.group(2).split(','))
 
 
+# the mutants that need no default-set verdict: a new test closes them (1b9c_closed.py: the kill is shown against the final tests) or an argument is written for them (1b7d_equivalent.py, 1b7e_equivalent.py)
+exec(open(os.path.join(HERE, '1b9c_closed.py')).read())
+ns = {'d': {}, 'e': {}}
+exec(open(os.path.join(HERE, '1b7d_equivalent.py')).read(), ns['d'])
+exec(open(os.path.join(HERE, '1b7e_equivalent.py')).read(), ns['e'])
+DECIDED = {k: set(ns[k]['EQUIVALENT']) | set(ns[k]['EQUIVALENT_1B9C']) | {i for (kk, i) in CLOSED if kk == k} for k in 'de'}
 n = 0
 for f in sorted(glob.glob(os.path.join(HERE, '1b9c_[de]_*_listed.json'))):
     name = os.path.basename(f)[len('1b9c_'):-len('_listed.json')]
@@ -27,7 +33,7 @@ for f in sorted(glob.glob(os.path.join(HERE, '1b9c_[de]_*_listed.json'))):
         p = line.rstrip('\n').split('\t')
         if len(p) >= 3 and (p[2] == 'survived' or p[2].startswith('NO-RESULT') or only_new(p[2])):
             surv.add(p[0])
-    out = [m for m in json.load(open(f)) if m['id'] in surv]
+    out = [m for m in json.load(open(f)) if m['id'] in surv and m['id'] not in DECIDED[name[0]]]
     if out:
         json.dump(out, open(os.path.join(HERE, '1b9c_s2_%s_listed.json' % name), 'w'), indent=1)
         n += len(out)

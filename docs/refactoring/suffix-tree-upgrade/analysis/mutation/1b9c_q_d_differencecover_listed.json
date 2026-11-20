@@ -1,0 +1,34 @@
+[
+ {
+  "id": "D04",
+  "desc": "Verify: the difference is taken the other way",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs",
+  "old": "foreach (int b in Residues) covered[(b - a + Period) % Period] = true;",
+  "new": "foreach (int b in Residues) covered[(a - b + Period) % Period] = true;",
+  "filter": ""
+ },
+ {
+  "id": "D10",
+  "desc": "NearestSingerPeriod keeps the first on a tie of ratios (strict becomes non-strict)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs",
+  "old": "if (ratio < bestRatio)",
+  "new": "if (ratio <= bestRatio)",
+  "filter": ""
+ },
+ {
+  "id": "D16",
+  "desc": "Pruned: the multiples start at zero",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs",
+  "old": "for (int k = 1; k <= m; k++) start.Add(m * k % x);",
+  "new": "for (int k = 0; k <= m; k++) start.Add(m * k % x);",
+  "filter": ""
+ },
+ {
+  "id": "D20",
+  "desc": "Singer: a zero residue is taken at the end of the range",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs",
+  "old": "if (k < n && a0 == 0) zero.Add((int)k);",
+  "new": "if (k <= n && a0 == 0) zero.Add((int)k);",
+  "filter": ""
+ }
+]

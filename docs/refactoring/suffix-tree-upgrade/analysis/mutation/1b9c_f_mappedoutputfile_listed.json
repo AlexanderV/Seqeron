@@ -1,0 +1,26 @@
+[
+ {
+  "id": "F50",
+  "desc": "the fsync of a file is not counted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "        counters?.AddFlush();\n",
+  "new": "",
+  "filter": "(FullyQualifiedName~Gap1b9cTests)"
+ },
+ {
+  "id": "F51",
+  "desc": "a failed mapping sets the length again to the new length",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "undo.SetLength(previous);",
+  "new": "undo.SetLength(newLength);",
+  "filter": "(FullyQualifiedName~Gap1b9cTests)"
+ },
+ {
+  "id": "F52",
+  "desc": "the mapping hook of Grow is ignored",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "map = options?.Mapper is { } mapper ? mapper(Path) : MemoryMappedFile.CreateFromFile(Path, FileMode.Open, null, 0, MemoryMappedFileAccess.ReadWrite);",
+  "new": "map = MemoryMappedFile.CreateFromFile(Path, FileMode.Open, null, 0, MemoryMappedFileAccess.ReadWrite);",
+  "filter": "(FullyQualifiedName~Gap1b9cTests)"
+ }
+]

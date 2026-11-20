@@ -1,0 +1,34 @@
+[
+ {
+  "id": "F53",
+  "desc": "the 40 rounds of the small periods end one period earlier",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs",
+  "old": "if (x <= 256) rounds = 40;",
+  "new": "if (x <= 255) rounds = 40;",
+  "filter": "(FullyQualifiedName~Gap1b9cTests)"
+ },
+ {
+  "id": "F54",
+  "desc": "the large periods get 7 rounds",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs",
+  "old": "int rounds = 6;",
+  "new": "int rounds = 7;",
+  "filter": "(FullyQualifiedName~Gap1b9cTests)"
+ },
+ {
+  "id": "F55",
+  "desc": "the run of the start set is one short",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs",
+  "old": "for (int j = 0; j < m; j++) start.Add(j % x);",
+  "new": "for (int j = 0; j < m - 1; j++) start.Add(j % x);",
+  "filter": "(FullyQualifiedName~Gap1b9cTests)"
+ },
+ {
+  "id": "F56",
+  "desc": "a later round of the same size replaces the best",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs",
+  "old": "if (d.Count < best.Count) best = d;",
+  "new": "if (d.Count <= best.Count) best = d;",
+  "filter": "(FullyQualifiedName~Gap1b9cTests)"
+ }
+]

@@ -25,18 +25,37 @@ def short(text, n=170):
 
 
 if what == 'hang':
-    print('| mutant | what it does | the earlier audit | re-run alone | the test that failed or the last one running | wall s |')
-    print('|---|---|---|---|---|---|')
+    lst = json.load(open(os.path.join(HERE, '1b9c_h_all_listed.json')))
+    earlier = {m['package'] + ':' + m['id'] for m in lst[:17]}
+    checked = {}
+    cf = os.path.join(HERE, 'results_1b9c_hang_checked.tsv')
+    if os.path.exists(cf):
+        for line in open(cf):
+            p = line.rstrip('\n').split('\t')
+            if len(p) >= 7:
+                checked[p[0]] = p
+    print('| mutant | what it does | counted as killed by | re-run alone, production build | the test that failed, or the last one running | wall s | checked build (`EsaBounds`) |')
+    print('|---|---|---|---|---|---|---|')
     for line in open(os.path.join(HERE, 'results_1b9c_hang.tsv')):
         p = line.rstrip('\n').split('\t')
         if len(p) >= 7:
-            print('| `%s` | %s | %s | **%s** | %s | %s |' % (p[0], short(p[1], 80), '', p[2], short(p[3] or p[5], 110), p[6]))
+            c = checked.get(p[0])
+            ctext = '' if c is None else '**%s**: %s' % (c[2], short(c[3] or c[5], 70))
+            print('| `%s` | %s | %s | **%s** %s | %s | %s | %s |' % (p[0], short(p[1], 80), 'a watchdog or a crash (1b.7%s)' % p[0][0] if p[0] in earlier else 'a watchdog or a crash (stage 1 of this package)', p[2], short(p[4], 60), short(p[3] or p[5], 110), p[6], ctext))
 elif what == 'closed':
     print('| list | mutant | what it does | the test (SaGap1b9cTests / SesaGap1b9cTests) |')
     print('|---|---|---|---|')
     for (k, i), t in sorted(CLOSED.items()):
         m = pool[(k, i)]
         print('| %s | `%s` | %s | `%s` |' % ('1b.7d' if k == 'd' else '1b.7e', i, short(m['desc'], 90), t.split('.')[-1]))
+elif what == 'closed-by-test':
+    by_test = collections.OrderedDict()
+    for (k, i), t in sorted(CLOSED.items(), key=lambda kv: (kv[1], kv[0])):
+        by_test.setdefault(t, []).append(('' if k == 'd' else 'e:') + i)
+    print('| test | mutants it kills (1b.7d ids; `e:` = 1b.7e) |')
+    print('|---|---|')
+    for t, ids in by_test.items():
+        print('| `%s` | %s |' % (t, ', '.join('`%s`' % x for x in ids)))
 elif what == 'equivalent':
     print('| list | mutant | what it does | argument |')
     print('|---|---|---|---|')
@@ -52,5 +71,19 @@ elif what == 'fresh':
     for p in rows:
         print('| `%s` | %s | %s | %s |' % (p[0], short(p[1], 80), short(' '.join(x for x in p[2:5] if x), 110), p[5]))
 else:
-    arith = json.load(open(os.path.join(HERE, '1b9c_arith.json')))
-    print(json.dumps(arith, indent=1)[:200])
+    # the arithmetic per file: summary_1b9c_files.tsv (summarize_1b9c.py)
+    rows = [l.rstrip('\n').split('\t') for l in open(os.path.join(HERE, 'summary_1b9c_files.tsv'))]
+    head = rows[0]
+    print('| file | listed | run by the earlier audit | not run | killed by an assertion (earlier audit) | killed (stage 1) | killed (stage 2) | watchdog / crash kill: failing assertion on its own | watchdog / crash kill: hang or crash | closed by a test | equivalent (argued) | open |')
+    print('|---|---|---|---|---|---|---|---|---|---|---|---|')
+    sub = {'1b7d': [0] * 11, '1b7e': [0] * 11}
+    for r in rows[1:]:
+        if r[0] == 'TOTAL':
+            continue
+        for i in range(11):
+            sub[r[0].split('/')[0]][i] += int(r[1 + i])
+        print('| %s | %s |' % (r[0], ' | '.join(r[1:])))
+    for k in ('1b7d', '1b7e'):
+        print('| **%s total** | %s |' % (k, ' | '.join('**%d**' % v for v in sub[k])))
+    t = rows[-1]
+    print('| **both** | %s |' % ' | '.join('**%s**' % v for v in t[1:]))

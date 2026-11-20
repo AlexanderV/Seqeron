@@ -5,7 +5,7 @@
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
   "old": "                if (options.Fsync) file.Flush();\n                Hook(SesaHooks.HeaderSynced);",
   "new": "                if (!options.Fsync) file.Flush();\n                Hook(SesaHooks.HeaderSynced);",
-  "filter": "(FullyQualifiedName~SaGap1b9cTests|FullyQualifiedName~SesaGap1b9cTests)"
+  "filter": "(FullyQualifiedName~Gap1b9cTests)"
  },
  {
   "id": "F20",
@@ -13,7 +13,7 @@
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
   "old": "                if (options.Fsync) file.Flush();\n                Hook(SesaHooks.MagicWritten);",
   "new": "                if (!options.Fsync) file.Flush();\n                Hook(SesaHooks.MagicWritten);",
-  "filter": "(FullyQualifiedName~SaGap1b9cTests|FullyQualifiedName~SesaGap1b9cTests)"
+  "filter": "(FullyQualifiedName~Gap1b9cTests)"
  },
  {
   "id": "F21",
@@ -21,7 +21,7 @@
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
   "old": "if (!bwt.Counts.AsSpan().SequenceEqual(info.Counts)) throw",
   "new": "if (!bwt.Counts.AsSpan().SequenceEqual(bwt.Counts)) throw",
-  "filter": "(FullyQualifiedName~SaGap1b9cTests|FullyQualifiedName~SesaGap1b9cTests)"
+  "filter": "(FullyQualifiedName~Gap1b9cTests)"
  },
  {
   "id": "F22",
@@ -29,7 +29,7 @@
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
   "old": "if (actual != planned) throw new InvalidOperationException($\"the container has",
   "new": "if (actual > planned) throw new InvalidOperationException($\"the container has",
-  "filter": "(FullyQualifiedName~SaGap1b9cTests|FullyQualifiedName~SesaGap1b9cTests)"
+  "filter": "(FullyQualifiedName~Gap1b9cTests)"
  },
  {
   "id": "F23",
@@ -37,7 +37,7 @@
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
   "old": "the container has {actual} bytes, expected {planned}",
   "new": "the container has {planned} bytes, expected {planned}",
-  "filter": "(FullyQualifiedName~SaGap1b9cTests|FullyQualifiedName~SesaGap1b9cTests)"
+  "filter": "(FullyQualifiedName~Gap1b9cTests)"
  },
  {
   "id": "F24",
@@ -45,7 +45,7 @@
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
   "old": "if (length > capacity) throw new InvalidOperationException($\"BUILD_INFO has",
   "new": "if (length > 2 * capacity) throw new InvalidOperationException($\"BUILD_INFO has",
-  "filter": "(FullyQualifiedName~SaGap1b9cTests|FullyQualifiedName~SesaGap1b9cTests)"
+  "filter": "(FullyQualifiedName~Gap1b9cTests)"
  },
  {
   "id": "F35",
@@ -53,7 +53,7 @@
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
   "old": "            if (options.IncludePsi)\n            {\n                using var ph6",
   "new": "            if (options.IncludePsi && options.Threads <= 1000)\n            {\n                using var ph6",
-  "filter": "(FullyQualifiedName~SaGap1b9cTests|FullyQualifiedName~SesaGap1b9cTests)"
+  "filter": "(FullyQualifiedName~Gap1b9cTests)"
  },
  {
   "id": "F36",
@@ -61,6 +61,14 @@
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
   "old": "Counters = counters,\n            Files = options.Files,\n        });\n        double secBwt",
   "new": "Counters = counters,\n        });\n        double secBwt",
-  "filter": "(FullyQualifiedName~SaGap1b9cTests|FullyQualifiedName~SesaGap1b9cTests)"
+  "filter": "(FullyQualifiedName~Gap1b9cTests)"
+ },
+ {
+  "id": "F59",
+  "desc": "the BWT default read is two mebibytes",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "old": "ReadBytes = tune.ReadBytes ?? 1 << 20,\n            WindowBytes = window,",
+  "new": "ReadBytes = tune.ReadBytes ?? 1 << 21,\n            WindowBytes = window,",
+  "filter": "(FullyQualifiedName~Gap1b9cTests)"
  }
 ]

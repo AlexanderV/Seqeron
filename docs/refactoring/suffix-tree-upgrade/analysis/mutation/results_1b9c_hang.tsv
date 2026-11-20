@@ -1,0 +1,31 @@
+d:C19	CompareCore: the offset is the sum of the residues	assertion	AHookThatThrows_AtALeafOrAPartition_ReachesTheCaller_NotWrapped,AnArenaBudgetThatIsTooSmall_EndsWithTheBudgetException_AndGivesEveryth,APartitionSpillThatFails_IsAnIoException_AndNoPositionFileIsLeft,ARepetitiveText_WithATinyK_IsSplitIntoEqualBuckets_BecauseTheSplitters,ASinkThatThrows_EndsTheBuild_WithItsOwnException_AndEveryWriterIsDispo,EveryString_OverSigma1To3_OfTheDefaultTier_IsTheSuffixArray			6
+d:C21	CompareCore: the witness is the difference	crash		Fatal error.	SuffixTree.Esa.Tests.External.BucketSorterTests.ASinkThatThrows_EndsTheBuild_WithItsOwnException_AndEveryWrite	3
+d:C23	CompareCore: the offset is the witness	crash		Fatal error.	SuffixTree.Esa.Tests.External.BucketSorterTests.EveryString_OverSigma1To3_OfTheDefaultTier_IsTheSuffixArray	3
+d:C37	CompareCore: the second rank is at the wrong offset	crash		Fatal error.	SuffixTree.Esa.Tests.External.BucketSorterTests.ARepetitiveText_WithATinyK_IsSplitIntoEqualBuckets_BecauseTheS	3
+d:D19	SingerPrime: any q below the period counts	crash		Fatal error.		3
+d:M45	InRange: the lower key is inclusive of smaller keys	crash	AFullDisk_AtTheCreationOfTheRankFile_OrOfAScratchFileOfALevel_IsAnIoEx,ALeafThatOutgrowsItsCapacity_IsSplitAgain_AndTheRanksAreStillRight,ARankFileOfTheBuild_IsAValidTable_AndTheTableVerifiesIt,ARepetitiveText_WithASmallBaseCase_RecursesSeveralLevels_EachShorterTh,AScratchDirectoryThatExists_IsKept_WithItsForeignFile_WhenTheBuildEnds,EveryString_OverSigma1To3_OfTheDefaultTier_IsTheOracle	Aborted.	SuffixTree.Esa.Tests.External.ExternalDcsTests.TwoRuns_GiveTheSameBytes_AndTheSplitsAreMade	24
+d:M47	Cmp: the position tie-break is dropped	crash		Aborted.	SuffixTree.Esa.Tests.External.ExternalDcsTests.AFullDisk_AtTheCreationOfTheRankFile_OrOfAScratchFileOfALevel_I	65
+d:M57	Split: the last child has no upper bound of its own	crash		Aborted.	SuffixTree.Esa.Tests.External.ExternalDcsTests.AFullDisk_AtTheCreationOfTheRankFile_OrOfAScratchFileOfALevel_I	44
+d:M63	Execute: a leaf is split and a split is collected	crash		Aborted.	SuffixTree.Esa.Tests.External.ExternalDcsTests.AFullDisk_AtTheCreationOfTheRankFile_OrOfAScratchFileOfALevel_I	64
+d:N19	ReducedFileSink: the buffers are one name short	none				11
+d:P03	WorkPool: a finished task is counted twice	crash		Aborted.	SuffixTree.Esa.Tests.External.ExternalDcsTests.AFullDisk_AtTheCreationOfTheRankFile_OrOfAScratchFileOfALevel_I	76
+d:P05	WorkPool: first in first out	crash		Aborted.	SuffixTree.Esa.Tests.External.ExternalDcsTests.AFullDisk_AtTheCreationOfTheRankFile_OrOfAScratchFileOfALevel_I	76
+d:R17	Verify after Dispose does not throw	crash		Fatal error.	SuffixTree.Esa.Tests.External.RankTableTests.ADisposedTable_ReleasesItsMapping	22
+d:S09	TrySlotOfRed: the search does not advance	crash		Aborted.	SuffixTree.Esa.Tests.External.ExternalDcsTests.AFullDisk_AtTheCreationOfTheRankFile_OrOfAScratchFileOfALevel_I	76
+e:P07	a read of 0 is accepted	crash		Aborted.	SuffixTree.Esa.Tests.External.Ph6Tests.ABwtThatDoesNotMatchTheCounts_ALengthThatIsWrong_AndBadArguments_AreRef	63
+e:S09	a view of zero bytes is accepted	crash		Aborted.	SuffixTree.Esa.Tests.External.SesaSectionTests.TheChecksumPass_EqualsTheBitwiseDefinition_AcrossViews_AndRefus	89
+e:W05	a read of under one entry is accepted	crash		Aborted.	SuffixTree.Esa.Tests.External.Ph6Tests.ASuffixArrayRangeThatDoesNotFitTheFile_AndASymbolOutsideTheAlphabet_Are	63
+d:B20	RunReader: a used-up run is read again	crash	ARunReader_ScattersTheRecordsBelowTheLimit_WithTheOffset_FromMemoryAnd	System.IndexOutOfRangeException : Index was outside the bounds of the array.	SuffixTree.Esa.Tests.External.ExternalDcsTests.AFullDisk_AtTheCreationOfTheRankFile_OrOfAScratchFileOfALevel_I	76
+d:H02	Run: no upper bound on K	crash		Aborted.	SuffixTree.Esa.Tests.External.BucketSorterTests.TheOptions_AreChecked	9
+d:D24	Witness: the table is filled with 0	crash		Fatal error.	SuffixTree.Esa.Tests.External.BucketSorterTests.EveryString_OverSigma1To3_OfTheDefaultTier_IsTheSuffixArray	4
+d:L10	BuildLevel: the level below gets the same level number	crash	AFullDisk_AtTheCreationOfTheRankFile_OrOfAScratchFileOfALevel_IsAnIoEx,ALeafThatOutgrowsItsCapacity_IsSplitAgain_AndTheRanksAreStillRight	Fatal error.	SuffixTree.Esa.Tests.External.ExternalDcsTests.ARepetitiveText_WithASmallBaseCase_RecursesSeveralLevels_EachSh	18
+d:R02	FastMod32: Mod is the division	crash		Fatal error.		3
+d:M46	InRange: the upper key bound	crash	AFullDisk_AtTheCreationOfTheRankFile_OrOfAScratchFileOfALevel_IsAnIoEx,ALeafThatOutgrowsItsCapacity_IsSplitAgain_AndTheRanksAreStillRight	Aborted.	SuffixTree.Esa.Tests.External.ExternalDcsTests.ARankFileOfTheBuild_IsAValidTable_AndTheTableVerifiesIt	64
+d:M50	Split: all of the reservoir is used though it is not full	crash		Aborted.	SuffixTree.Esa.Tests.External.ExternalDcsTests.ARankFileOfTheBuild_IsAValidTable_AndTheTableVerifiesIt	64
+d:M54	Split: the splitters are the first quantile	crash		Aborted.	SuffixTree.Esa.Tests.External.ExternalDcsTests.ALeafThatOutgrowsItsCapacity_IsSplitAgain_AndTheRanksAreStillRi	63
+d:M58	Split: the first child has no lower bound of its own	crash		Aborted.	SuffixTree.Esa.Tests.External.ExternalDcsTests.AFullDisk_AtTheCreationOfTheRankFile_OrOfAScratchFileOfALevel_I	49
+d:P06	WorkPool: a task is not counted as active when taken	crash		Aborted.	SuffixTree.Esa.Tests.External.ExternalDcsTests.AFullDisk_AtTheCreationOfTheRankFile_OrOfAScratchFileOfALevel_I	76
+d:C22	CompareCore: the offset is not made positive	crash		Fatal error.	SuffixTree.Esa.Tests.External.BucketSorterTests.AHookThatThrows_AtALeafOrAPartition_ReachesTheCaller_NotWrappe	3
+d:C24	CompareCore: the offset is the residue difference the other way	crash		Fatal error.	SuffixTree.Esa.Tests.External.BucketSorterTests.EveryString_OverSigma1To3_OfTheDefaultTier_IsTheSuffixArray	3
+e:W42	the output buffer is one entry short	crash		Aborted.	SuffixTree.Esa.Tests.External.Ph6Tests.TheFamilies_GiveTheDefinitionsBwtAndPsi_WithDefaultAndWithTinyOptions	5
+d:M81	MergeSort: binary insertion up to seven	none				21

@@ -1,0 +1,18 @@
+[
+ {
+  "id": "V15",
+  "desc": "the path mode does not complete the base file",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs",
+  "old": "            baseFile?.Complete(fsync: false);\n",
+  "new": "",
+  "filter": ""
+ },
+ {
+  "id": "V16",
+  "desc": "the path mode does not complete the overflow file",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs",
+  "old": "            overflowFile?.Complete(fsync: false);\n",
+  "new": "",
+  "filter": ""
+ }
+]

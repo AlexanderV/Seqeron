@@ -5,7 +5,7 @@
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs",
   "old": "                    _o.Trace?.Invoke(\"scan\"); // a point at which a test fails the partition after some of the writers hold files\n",
   "new": "",
-  "filter": "(FullyQualifiedName~SaGap1b9cTests|FullyQualifiedName~SesaGap1b9cTests)"
+  "filter": "(FullyQualifiedName~Gap1b9cTests)"
  },
  {
   "id": "F09",
@@ -13,7 +13,7 @@
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs",
   "old": "                        _o.Trace?.Invoke(\"handover\"); // a point at which a test fails the hand-over after some children exist\n",
   "new": "",
-  "filter": "(FullyQualifiedName~SaGap1b9cTests|FullyQualifiedName~SesaGap1b9cTests)"
+  "filter": "(FullyQualifiedName~Gap1b9cTests)"
  },
  {
   "id": "F10",
@@ -21,7 +21,7 @@
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs",
   "old": "if (!handedOver) foreach (BuildTask child in children) child.Bucket.Dispose();",
   "new": "if (handedOver) foreach (BuildTask child in children) child.Bucket.Dispose();",
-  "filter": "(FullyQualifiedName~SaGap1b9cTests|FullyQualifiedName~SesaGap1b9cTests)"
+  "filter": "(FullyQualifiedName~Gap1b9cTests)"
  },
  {
   "id": "F11",
@@ -29,7 +29,7 @@
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs",
   "old": "if (text.Length > PackedTextFormat.MaxSymbols) throw new NotSupportedException($\"{text.Length} symbols: positions are 32-bit, the limit is {PackedTextFormat.MaxSymbols}\");\n        string dir",
   "new": "if (text.Length >= PackedTextFormat.MaxSymbols) throw new NotSupportedException($\"{text.Length} symbols: positions are 32-bit, the limit is {PackedTextFormat.MaxSymbols}\");\n        string dir",
-  "filter": "(FullyQualifiedName~SaGap1b9cTests|FullyQualifiedName~SesaGap1b9cTests)"
+  "filter": "(FullyQualifiedName~Gap1b9cTests)"
  },
  {
   "id": "F34",
@@ -37,6 +37,22 @@
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs",
   "old": "ArgumentOutOfRangeException.ThrowIfGreaterThan(options.LeafCapacity, int.MaxValue / 2);",
   "new": "ArgumentOutOfRangeException.ThrowIfGreaterThan(options.LeafCapacity, int.MaxValue / 4);",
-  "filter": "(FullyQualifiedName~SaGap1b9cTests|FullyQualifiedName~SesaGap1b9cTests)"
+  "filter": "(FullyQualifiedName~Gap1b9cTests)"
+ },
+ {
+  "id": "F60",
+  "desc": "the positions of the scans of the partitions are not counted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs",
+  "old": "                work.ScanPositions += m;\n",
+  "new": "",
+  "filter": "(FullyQualifiedName~Gap1b9cTests)"
+ },
+ {
+  "id": "F61",
+  "desc": "the chunk of the partition is rented one bit short",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs",
+  "old": "chunk = ArrayPool<uint>.Shared.Rent(1 << 14);",
+  "new": "chunk = ArrayPool<uint>.Shared.Rent(1 << 13);",
+  "filter": "(FullyQualifiedName~Gap1b9cTests)"
  }
 ]

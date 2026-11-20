@@ -1,0 +1,18 @@
+[
+ {
+  "id": "T12",
+  "desc": "PosWriter: the capacity has no floor",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/PositionStore.cs",
+  "old": "_capacity = Math.Max(spillBytes / 4, 16);",
+  "new": "_capacity = Math.Max(spillBytes / 4, 1);",
+  "filter": ""
+ },
+ {
+  "id": "T16",
+  "desc": "PosWriter: a bucket in a file is handed over as memory",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/PositionStore.cs",
+  "old": "if (_file is null)\n        {\n            var source = new MemoryPositions(_buffer, _filled);",
+  "new": "if (_file is null || _filled == _total)\n        {\n            var source = new MemoryPositions(_buffer, _filled);",
+  "filter": ""
+ }
+]

@@ -1,0 +1,18 @@
+[
+ {
+  "id": "F57",
+  "desc": "a window of one byte is refused by the BWT pass",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/BwtPass.cs",
+  "old": "ArgumentOutOfRangeException.ThrowIfLessThan(options.WindowBytes, 1);",
+  "new": "ArgumentOutOfRangeException.ThrowIfLessThan(options.WindowBytes, 2);",
+  "filter": "(FullyQualifiedName~Gap1b9cTests)"
+ },
+ {
+  "id": "F58",
+  "desc": "a read of exactly four bytes is refused by the BWT pass",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/BwtPass.cs",
+  "old": "ArgumentOutOfRangeException.ThrowIfLessThan(options.ReadBytes, sizeof(uint));",
+  "new": "ArgumentOutOfRangeException.ThrowIfLessThan(options.ReadBytes, sizeof(uint) + 1);",
+  "filter": "(FullyQualifiedName~Gap1b9cTests)"
+ }
+]

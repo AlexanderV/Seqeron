@@ -5,7 +5,7 @@
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaChecksums.cs",
   "old": "(Stopwatch.GetTimestamp() - t0) / (double)Stopwatch.Frequency, Crc32C.HardwareAccelerated",
   "new": "(t0 - Stopwatch.GetTimestamp()) / (double)Stopwatch.Frequency, Crc32C.HardwareAccelerated",
-  "filter": "(FullyQualifiedName~SaGap1b9cTests|FullyQualifiedName~SesaGap1b9cTests)"
+  "filter": "(FullyQualifiedName~Gap1b9cTests)"
  },
  {
   "id": "F26",
@@ -13,7 +13,7 @@
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaChecksums.cs",
   "old": "(Stopwatch.GetTimestamp() - t0) / (double)Stopwatch.Frequency, Crc32C.HardwareAccelerated",
   "new": "(Stopwatch.GetTimestamp() - t0), Crc32C.HardwareAccelerated",
-  "filter": "(FullyQualifiedName~SaGap1b9cTests|FullyQualifiedName~SesaGap1b9cTests)"
+  "filter": "(FullyQualifiedName~Gap1b9cTests)"
  },
  {
   "id": "F27",
@@ -21,7 +21,7 @@
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaChecksums.cs",
   "old": "Crc32C.HardwareAccelerated));",
   "new": "!Crc32C.HardwareAccelerated));",
-  "filter": "(FullyQualifiedName~SaGap1b9cTests|FullyQualifiedName~SesaGap1b9cTests)"
+  "filter": "(FullyQualifiedName~Gap1b9cTests)"
  },
  {
   "id": "F28",
@@ -29,6 +29,6 @@
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaChecksums.cs",
   "old": "new SesaCrcRow(kind, length,",
   "new": "new SesaCrcRow(kind, length - 1,",
-  "filter": "(FullyQualifiedName~SaGap1b9cTests|FullyQualifiedName~SesaGap1b9cTests)"
+  "filter": "(FullyQualifiedName~Gap1b9cTests)"
  }
 ]

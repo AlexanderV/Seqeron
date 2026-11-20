@@ -5,7 +5,7 @@
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs",
   "old": "                baseWriter.Dispose();\n                overflowWriter.Dispose();\n                throw;",
   "new": "                baseWriter.Dispose();\n                throw;",
-  "filter": "(FullyQualifiedName~SaGap1b9cTests|FullyQualifiedName~SesaGap1b9cTests)"
+  "filter": "(FullyQualifiedName~Gap1b9cTests)"
  },
  {
   "id": "F30",
@@ -13,6 +13,6 @@
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs",
   "old": "                baseWriter.Dispose();\n                overflowWriter.Dispose();\n                throw;",
   "new": "                overflowWriter.Dispose();\n                throw;",
-  "filter": "(FullyQualifiedName~SaGap1b9cTests|FullyQualifiedName~SesaGap1b9cTests)"
+  "filter": "(FullyQualifiedName~Gap1b9cTests)"
  }
 ]

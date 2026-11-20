@@ -1,0 +1,2 @@
+W08	a text of too many bits is accepted	-	survived		303
+W16	the guards are ignored	-	killed(1 failed: TheGuardOption_ReachesThePassOfTheSuffixArray_TheLcpAndChild)		258

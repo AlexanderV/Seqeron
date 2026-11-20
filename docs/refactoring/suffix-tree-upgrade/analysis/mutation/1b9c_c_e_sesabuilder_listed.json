@@ -36,6 +36,15 @@
   "closed_by": "SesaGap1b9cTests.ThePublication_SyncsOnceAfterTheHeaderAndOnceAfterTheMagic_AndNotAtAllWithoutTheOption"
  },
  {
+  "id": "B258",
+  "desc": "the BWT default read is smaller",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "old": "ReadBytes = tune.ReadBytes ?? 1 << 20,\n            WindowBytes = window,",
+  "new": "ReadBytes = tune.ReadBytes ?? 1 << 16,\n            WindowBytes = window,",
+  "filter": "",
+  "closed_by": "SesaGap1b9cTests.TheBwtPass_ReadsTheSuffixArrayInOneMebibyteStepsByDefault_AndInTheStepOfTheTuningWhenThereIsOne"
+ },
+ {
   "id": "B90",
   "desc": "PSI is built without a BWT section (kept: the plan decides)",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",

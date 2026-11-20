@@ -142,7 +142,9 @@ def main():
                         break
                     if r != 'survived':  # NO-RESULT: the filter matched no test or the run did not report; the next set decides
                         r1 = 'NO-RESULT[%s]' % name
-                open_ = r1 == 'survived' or r1.startswith('NO-RESULT')
+                if '1' not in STAGES and not FILTER_ONLY:
+                    r1 = '-'  # stage 1 was run before
+                open_ = r1 in ('survived', '-') or r1.startswith('NO-RESULT')
                 if open_ and '2' in STAGES and not FILTER_ONLY:
                     r2 = test(PROJ_ESA, '')  # the whole default set of SuffixTree.Esa.Tests (every test that is not [Explicit]), the sets of the stages before included
                     open_ = r2 == 'survived'

@@ -1,41 +1,5 @@
 [
  {
-  "id": "E14",
-  "desc": "BuildRankFile: the failed rank file is left",
-  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
-  "old": "if (context.RankTouched) RunStore.DeleteQuietly(rankPath);",
-  "new": "",
-  "filter": "(FullyQualifiedName~ExternalDcsTests)",
-  "orig": "d_E14"
- },
- {
-  "id": "L14",
-  "desc": "BuildLevel: the sort spill has no floor",
-  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
-  "old": "SpillBytes = Math.Max(64, o.IoBufferBytes),",
-  "new": "SpillBytes = o.IoBufferBytes,",
-  "filter": "(FullyQualifiedName~ExternalDcsTests)",
-  "orig": "d_L14"
- },
- {
-  "id": "L16",
-  "desc": "BuildLevel: the sort shares no ledger",
-  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
-  "old": "                    Ledger = c.Ledger,\n",
-  "new": "",
-  "filter": "(FullyQualifiedName~ExternalDcsTests)",
-  "orig": "d_L16"
- },
- {
-  "id": "L24",
-  "desc": "BuildLevel: the inversion has no reservation options",
-  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
-  "old": "Files = o.Files ?? new MappedFileOptions(),",
-  "new": "Files = null,",
-  "filter": "(FullyQualifiedName~ExternalDcsTests)",
-  "orig": "d_L24"
- },
- {
   "id": "L28",
   "desc": "BuildLevel: the naming statistics are not timed",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",

@@ -1,0 +1,20 @@
+[
+ {
+  "id": "D14",
+  "desc": "Pruned: the large periods get more rounds",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs",
+  "old": "else if (x <= 1024) rounds = 12;",
+  "new": "else if (x <= 1024) rounds = 13;",
+  "filter": "",
+  "closed_by": "SaCoverGap1b9cTests.ThePrunedCover_IsThePrototypesCover_OfTheSameSizeAndTheSameResidues"
+ },
+ {
+  "id": "D18",
+  "desc": "Pruned: the best round is the largest",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs",
+  "old": "if (d.Count < best.Count) best = d;",
+  "new": "if (d.Count > best.Count) best = d;",
+  "filter": "",
+  "closed_by": "SaCoverGap1b9cTests.ThePrunedCover_IsThePrototypesCover_OfTheSameSizeAndTheSameResidues"
+ }
+]

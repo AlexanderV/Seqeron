@@ -1,0 +1,4 @@
+M70	Finish: a bucket of one group has no first length	-	survived		301
+M56	Split: the children are pushed first to last	-	survived		297
+M76	MergeSort: equal prefixes are reordered	-	survived		226
+M81	MergeSort: binary insertion up to seven	-	survived		230

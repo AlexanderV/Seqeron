@@ -7,5 +7,14 @@
   "new": "        _file.Dispose();",
   "filter": "",
   "closed_by": "SaGap1b9cTests.ThePlainRankFileSink_ReleasesItsWindowAndItsFile_WhenTheBuildIsDone"
+ },
+ {
+  "id": "N19",
+  "desc": "ReducedFileSink: the buffers are one name short",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/NameSinks.cs",
+  "old": "_buffers = arena.Allocate<byte>(_bufEntries * 4 * geometry.Classes, zero: false, \"reduced.cursors\");",
+  "new": "_buffers = arena.Allocate<byte>((_bufEntries - 1) * 4 * geometry.Classes + 4, zero: false, \"reduced.cursors\");",
+  "filter": "",
+  "closed_by": "SaNamesGap1b9cTests.TheReducedFileSink_HoldsOneBufferOfTheFullSizePerClass_AndWritesTheNamesClassMajor"
  }
 ]

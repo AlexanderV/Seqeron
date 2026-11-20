@@ -1,0 +1,1161 @@
+d	B01	killed (earlier audit)	RunStore: a run of exactly the spill size goes to a file
+d	B02	killed (stage 1)	RunStore: the bytes are not accounted
+d	B03	killed (earlier audit)	RunStore: the failed write does not give the bytes back
+d	B04	OPEN	RunStore: the failed write leaves its file
+d	B05	killed (earlier audit)	RunStore: the numbering starts at zero
+d	B06	killed (stage 1)	RunStore: the tag is not in the name
+d	B07	killed (earlier audit)	RunStore: the file is written at offset 8
+d	B08	killed (stage 1)	ReadAt: reads the buffer length whatever is left
+d	B09	killed (earlier audit)	ReadAt: the offset is in records
+d	B10	killed (stage 1)	BucketRun: Dispose does nothing the first time
+d	B11	killed (earlier audit)	BucketRun: Dispose gives back half the bytes
+d	B12	killed (stage 1)	BucketRun: Dispose leaves the file
+d	B13	equivalent	BucketRun: an empty path run is not a file run
+d	B14	killed (stage 1)	Ledger: Remove adds
+d	B15	killed (earlier audit)	Ledger: the counters are not told of an addition
+d	B16	killed (stage 1)	Ledger: ReleaseAll gives back nothing
+d	B17	killed (earlier audit)	RunReader: a record at the limit is scattered
+d	B18	killed (stage 1)	RunReader: the offset is not added
+d	B19	killed (earlier audit)	RunReader: the window start is not subtracted
+d	B20	killed, hang / crash	RunReader: a used-up run is read again
+d	B21	killed (earlier audit)	RunReader: the scattered count is not kept
+d	B22	killed (stage 1)	RunReader: the drained count is one more
+d	D01	killed (earlier audit)	Density is the inverse ratio
+d	D02	killed (stage 1)	PeriodBits takes the log of the period
+d	D03	equivalent	Verify: a residue outside the period is accepted
+d	D04	equivalent	Verify: the difference is taken the other way
+d	D05	equivalent	IsPerfect: counts the zero differences
+d	D06	killed (stage 1)	IsPerfect: a difference may occur more than once
+d	D07	killed (earlier audit)	Create accepts the period 1
+d	D08	killed (stage 1)	NearestSingerPeriod stops at q = 40
+d	D09	killed (earlier audit)	NearestSingerPeriod takes the smaller ratio the other way
+d	D10	equivalent	NearestSingerPeriod keeps the first on a tie of ratios (strict becomes non-strict)
+d	D11	killed (earlier audit)	SampleCount: residue equal to the rest is not counted
+d	D12	killed (stage 1)	SampleCount: the full blocks are one short
+d	D13	killed (earlier audit)	Pruned: the small periods get fewer rounds
+d	D14	OPEN	Pruned: the large periods get more rounds
+d	D15	killed (earlier audit)	Pruned: the start set lacks the last of the first run
+d	D16	equivalent	Pruned: the multiples start at zero
+d	D17	killed (earlier audit)	Pruned: a removal is kept when the count is still zero
+d	D18	OPEN	Pruned: the best round is the largest
+d	D19	killed, hang / crash	SingerPrime: any q below the period counts
+d	D20	equivalent	Singer: a zero residue is taken at the end of the range
+d	D21	equivalent	IsPrime: 1 is a prime
+d	D22	killed (stage 2)	Witness: the last witness wins
+d	D23	killed (earlier audit)	IndexOf: the table is filled with 0
+d	D24	killed, hang / crash	Witness: the table is filled with 0
+d	E01	killed (earlier audit)	BuildRankFile: the bucket capacity may be one
+d	E02	killed (stage 1)	BuildRankFile: no upper bound on the bucket capacity
+d	E03	killed (earlier audit)	BuildRankFile: a base case of zero
+d	E04	killed (stage 1)	BuildRankFile: zero threads
+d	E05	killed (earlier audit)	BuildRankFile: chunk slots of zero
+d	E06	killed (stage 1)	BuildRankFile: a fan-out of one
+d	E07	killed (earlier audit)	BuildRankFile: a reservoir of two
+d	E08	killed (stage 1)	BuildRankFile: an I/O buffer of eight bytes
+d	E09	killed (earlier audit)	BuildRankFile: a window of zero
+d	E10	killed (stage 1)	BuildRankFile: a merge budget of four
+d	E11	killed (earlier audit)	BuildRankFile: a sort capacity of one
+d	E12	killed (stage 1)	BuildRankFile: a negative run spill
+d	E13	closed by a test	BuildRankFile: no limit on the text length
+d	E14	OPEN	BuildRankFile: the failed rank file is left
+d	E15	killed (earlier audit)	BuildRankFile: the scratch bytes are not given back
+d	E16	killed (stage 1)	BuildRankFile: the tagged files of a failed build are left
+d	E17	killed (earlier audit)	BuildRankFile: the scratch root is always removed
+d	E18	killed (stage 1)	BuildRankFile: the scratch root is never removed
+d	E19	killed (earlier audit)	BuildRankFile: the tag is the same for every build
+d	E20	killed (stage 1)	BuildRankFile: the budget is private to the call
+d	L01	equivalent	BuildLevel: the recursion has no end
+d	L02	killed (stage 1)	BuildLevel: the names are unique when they are shared
+d	L03	killed (earlier audit)	BuildLevel: the reservation outcome is not recorded
+d	L04	killed (stage 1)	BuildLevel: the rank file of a level below is not scratch
+d	L05	killed (earlier audit)	BuildLevel: the base case is taken one symbol late
+d	L06	killed (stage 1)	BuildLevel: a reduced string as long as the text recurses
+d	L07	killed (earlier audit)	BuildLevel: the base case is not recorded
+d	L08	killed (stage 1)	BuildLevel: the base case sigma is the distinct count
+d	L09	killed (earlier audit)	BuildLevel: the reduced file is not completed
+d	L10	killed, hang / crash	BuildLevel: the level below gets the same level number
+d	L11	killed (earlier audit)	BuildLevel: the child rank file is not scratch output
+d	L12	killed (stage 1)	BuildLevel: the sort seed ignores the level
+d	L13	killed (earlier audit)	BuildLevel: the sort fan-out is the options fan-out
+d	L14	OPEN	BuildLevel: the sort spill has no floor
+d	L15	closed by a test	BuildLevel: the sort files carry no tag
+d	L16	equivalent	BuildLevel: the sort shares no ledger
+d	L17	equivalent	BuildLevel: the suffix array file is not completed
+d	L18	killed (stage 1)	BuildLevel: the suffix array file has no empty suffix entry
+d	L19	killed (earlier audit)	BuildLevel: the child rank file is not deleted
+d	L20	killed (stage 1)	BuildLevel: the child rank file bytes are not given back
+d	L21	killed (earlier audit)	BuildLevel: the reduced file is not deleted
+d	L22	killed (stage 1)	BuildLevel: the suffix array file is not deleted
+d	L23	killed (earlier audit)	BuildLevel: the suffix array bytes are not given back
+d	L24	closed by a test	BuildLevel: the inversion has no reservation options
+d	L25	killed (earlier audit)	BuildLevel: the inversion read buffer is one entry
+d	L26	killed (stage 1)	BuildLevel: the inversion chunk is the window
+d	L27	killed (earlier audit)	BuildLevel: the inversion has no budget
+d	L28	OPEN	BuildLevel: the naming statistics are not timed
+d	L29	closed by a test	BuildLevel: the touched flag of the rank file is not set
+d	A01	equivalent	BaseCase: the inverse permutation skips the first rank
+d	A02	killed (earlier audit)	BaseCase: the rank starts at zero
+d	A03	killed (stage 1)	BaseCase: an unused slot gets a rank
+d	A04	killed (earlier audit)	BaseCase: the slot is not mapped to the reduced index
+d	A05	OPEN	BaseCase: the chunk is not bounded by the slots
+d	A06	killed (earlier audit)	BaseCase: the rank file is not scratch output
+d	A07	OPEN	BaseCase: the reservation is not recorded
+d	A08	closed by a test	BaseCase: the rank file is not marked as touched
+d	A09	killed (stage 1)	BaseCase: a window of the wrong size
+d	A10	equivalent	BaseCase: the chunk slots are not at least one
+d	N01	killed (earlier audit)	RankFileSink: the file is half the length
+d	N02	killed (stage 1)	RankFileSink: the slot is the byte offset
+d	N03	killed (earlier audit)	RankFileSink: the window is not the given one
+d	N04	closed by a test	RankFileSink: the writer is not disposed
+d	N05	killed (earlier audit)	ReducedFileSink: the length lacks the padding
+d	N06	killed (stage 1)	ReducedFileSink: little endian
+d	N07	killed (earlier audit)	ReducedFileSink: the cursor is flushed one entry late
+d	N08	killed (stage 1)	ReducedFileSink: the flush offset ignores what was flushed
+d	N09	killed (earlier audit)	ReducedFileSink: the flushed count is not advanced
+d	N10	killed (stage 1)	ReducedFileSink: the cursor is not emptied
+d	N11	killed (earlier audit)	ReducedFileSink: Complete skips the last cursor
+d	N12	killed (stage 1)	ReducedFileSink: Complete flushes only a cursor with two names
+d	N13	killed (earlier audit)	ReducedFileSink: the first slot class is the first
+d	N14	killed (stage 1)	ReducedFileSink: the scratch bytes are not accounted
+d	N15	killed (earlier audit)	ReducedRamSink: the block does not advance
+d	N16	killed (stage 1)	ReducedRamSink: the first block is the slot
+d	N17	killed (earlier audit)	ReducedRamSink: the string is not zeroed
+d	N18	killed (stage 1)	ReducedRamSink: the separator is written over the class
+d	N19	OPEN	ReducedFileSink: the buffers are one name short
+d	I01	killed (earlier audit)	the empty suffix is not skipped
+d	I02	killed (stage 1)	a reduced position at the length is accepted
+d	I03	killed (earlier audit)	a separator is ranked
+d	I04	killed (stage 1)	key and value swapped
+d	I05	killed (earlier audit)	the rank is counted from zero
+d	I06	killed (stage 1)	nothing is counted
+d	I07	killed (earlier audit)	the count check is dropped
+d	I08	killed (stage 1)	every slot must be written exactly once
+d	I09	killed (earlier audit)	the source has one entry too few
+d	I10	killed (stage 1)	the target is one slot short
+d	R01	killed (earlier audit)	FastMod32: the multiplier is one too small
+d	R02	killed, hang / crash	FastMod32: Mod is the division
+d	R03	killed (earlier audit)	FastMod32: a divisor of one is accepted
+d	R04	killed (stage 1)	Open: a longer file is accepted
+d	R05	killed (earlier audit)	Open: a shorter file is accepted
+d	R06	killed (stage 1)	Open: one block too few
+d	R07	killed (earlier audit)	Rank: the class index is dropped
+d	R08	killed (stage 1)	Rank: the block is not multiplied by the classes
+d	R09	killed (earlier audit)	Verify: the first unused slot is checked as a real one
+d	R10	killed (stage 1)	Verify: a zero rank is accepted
+d	R11	killed (earlier audit)	Verify: the largest rank is refused
+d	R12	killed (stage 1)	Verify: a repeated rank is accepted
+d	R13	killed (earlier audit)	Verify: the range is the sample only
+d	R14	killed (stage 1)	Verify: a non-zero unused slot is accepted
+d	R15	killed (earlier audit)	Dispose: the pointer is not released
+d	R16	killed (stage 1)	Dispose: the map is not disposed
+d	R17	killed, hang / crash	Verify after Dispose does not throw
+d	R18	OPEN	Open: the view is not read-only sized
+d	S01	killed (earlier audit)	Slots forgets the last block
+d	S02	killed (stage 1)	ClassCount: a residue equal to n is not a member
+d	S03	killed (earlier audit)	ClassCount: one member too few
+d	S04	killed (stage 1)	RedStart: no separator
+d	S05	killed (earlier audit)	SlotOf: the class index is dropped
+d	S06	killed (stage 1)	PositionOfSlot: the residue is the wrong class
+d	S07	killed (earlier audit)	RedIndexOfSlot: the offset in the class is one more
+d	S08	killed (stage 1)	TrySlotOfRed: the separator is a member
+d	S09	killed, hang / crash	TrySlotOfRed: the search does not advance
+d	S10	killed (stage 1)	TrySlotOfRed: a class that starts at q is not taken
+d	S11	killed (earlier audit)	TrySlotOfRed: the class index is dropped from the slot
+d	S12	killed (stage 1)	Samples is not the cover count
+d	S13	killed (earlier audit)	a negative length is accepted
+d	M01	killed (earlier audit)	PrefixOrder: equal positions are not equal
+d	M02	killed (stage 1)	PrefixOrder: a common prefix of more than X is needed
+d	M03	killed (earlier audit)	PrefixOrder: the shorter suffix is the larger
+d	M04	killed (stage 1)	PrefixOrder: the symbols compare the other way
+d	M05	equivalent	PrefixOrder: the limit is not clamped to the shorter suffix
+d	M06	closed by a test	Run: the root is a leaf one record early
+d	M07	killed (earlier audit)	Run: the error is swallowed
+d	M08	killed (stage 1)	Run: the leaves are walked last to first
+d	M09	equivalent	Run: an empty leaf is kept
+d	M10	killed (stage 1)	Run: the statistics lose the leaves
+d	M11	killed (earlier audit)	Run: the statistics lose the splits
+d	M12	killed (stage 1)	Run: the statistics lose the file runs
+d	M13	killed (earlier audit)	Run: the statistics lose the scans
+d	M14	killed (stage 1)	Run: the non-unique count is dropped
+d	M15	equivalent	Run: no worker thread is started
+d	M16	killed (stage 1)	Merge: a window is one slot short
+d	M17	killed (earlier audit)	Merge: the merge budget is not shared among the file runs
+d	M18	closed by a test	Merge: a short count of records is accepted
+d	M19	equivalent	Merge: the total check is dropped
+d	M20	killed (stage 1)	Merge: the sink gets the window from its own start
+d	M21	equivalent	Merge: an empty sample is merged
+d	M22	killed (stage 1)	Merge: the trace is not called
+d	M23	killed (earlier audit)	AssignNames: a group that continues does not continue
+d	M24	killed (stage 1)	AssignNames: the continuation ignores the key
+d	M25	killed (earlier audit)	AssignNames: the continuation ignores the prefix
+d	M26	killed (stage 1)	AssignNames: the offset of a continued group
+d	M27	killed (earlier audit)	AssignNames: the new names of a continued group
+d	M28	killed (stage 1)	AssignNames: the offset of a new group
+d	M29	killed (earlier audit)	AssignNames: the first group of a leaf with two is not subtracted
+d	M30	killed (stage 1)	AssignNames: the last group of a leaf with two is not subtracted
+d	M31	equivalent	AssignNames: a leaf with one group is a leaf with two
+d	M32	killed (stage 1)	AssignNames: the open group of a continued single is not extended
+d	M33	killed (earlier audit)	AssignNames: a closed single group is not counted
+d	M34	killed (stage 1)	AssignNames: the first group of a new leaf is not counted
+d	M35	killed (earlier audit)	AssignNames: the last open group is not counted
+d	M36	killed (stage 1)	AssignNames: the shared count is the unique count
+d	M37	killed (earlier audit)	Worker: the statistics of a worker are lost
+d	M38	killed (stage 1)	Collect: the capacity is exceeded by one before the overflow
+d	M39	killed (earlier audit)	Collect: the capacity is not bounded by the sample
+d	M40	killed (stage 1)	Collect: the scan stops at the last block
+d	M41	killed (earlier audit)	Collect: a position beyond n is taken
+d	M42	killed (stage 1)	Collect: the overflow is not queued again
+d	M43	killed (earlier audit)	InRange: the lower bound is exclusive
+d	M44	killed (stage 1)	InRange: the upper bound is inclusive
+d	M45	killed, hang / crash	InRange: the lower key is inclusive of smaller keys
+d	M46	killed, hang / crash	InRange: the upper key bound
+d	M47	killed, hang / crash	Cmp: the position tie-break is dropped
+d	M48	killed (stage 1)	Split: the reservoir does not keep the first records
+d	M49	killed (earlier audit)	Split: the replacement index may be the capacity
+d	M50	killed, hang / crash	Split: all of the reservoir is used though it is not full
+d	M51	equivalent	Split: a reservoir of two splits
+d	M52	closed by a test	Split: the fan-out is the cap only
+d	M53	killed (earlier audit)	Split: the fan-out ignores the cap
+d	M54	killed, hang / crash	Split: the splitters are the first quantile
+d	M55	killed (earlier audit)	Split: equal splitter indices are kept
+d	M56	equivalent	Split: the children are pushed first to last
+d	M57	killed, hang / crash	Split: the last child has no upper bound of its own
+d	M58	killed, hang / crash	Split: the first child has no lower bound of its own
+d	M59	killed (earlier audit)	Split: the seed ignores the task
+d	M60	killed (stage 1)	Split: the scans are not counted
+d	M61	killed (earlier audit)	Execute: the scans are not counted
+d	M62	killed (stage 1)	Execute: the trace is not called
+d	M63	killed, hang / crash	Execute: a leaf is split and a split is collected
+d	M64	killed (stage 1)	Finish: key ties of two are not ordered
+d	M65	killed (earlier audit)	Finish: the name is not the distinct count
+d	M66	killed (stage 1)	Finish: a group is new only when the key differs
+d	M67	killed (earlier audit)	Finish: a group of size one is not counted in the middle
+d	M68	killed (stage 1)	Finish: the first group length is taken at the second group
+d	M69	killed (earlier audit)	Finish: the last group of size one is not counted
+d	M70	equivalent	Finish: a bucket of one group has no first length
+d	M71	killed (earlier audit)	Finish: the last position is the first
+d	M72	killed (stage 1)	Finish: the values are not sorted by slot
+d	M73	killed (earlier audit)	Finish: an empty bucket has a run
+d	M74	killed (stage 1)	Finish: the file runs are not counted
+d	M75	killed (earlier audit)	Finish: a short bucket is insertion sorted up to 25
+d	M76	equivalent	MergeSort: equal prefixes are reordered
+d	M78	equivalent	MergeSort: the merge takes the left on a strict order
+d	M79	killed (stage 1)	MergeSort: the left half is not copied
+d	M80	killed (earlier audit)	MergeSort: the rest of the left half is dropped
+d	M81	equivalent	MergeSort: binary insertion up to seven
+d	K01	killed (earlier audit)	InsertionSort: unstable
+d	K02	killed (stage 1)	InsertionSort: the positions do not move
+d	K03	killed (earlier audit)	RadixSort: the digit skip is wrong
+d	K04	killed (stage 1)	RadixSort: the sorted pairs are left in the second blocks
+d	K05	killed (earlier audit)	RadixSort: the top digit is not counted
+d	K06	killed (stage 1)	RadixSort: the third digit is the second
+d	Y01	killed (earlier audit)	Scatter: the target is always created sparse
+d	Y02	killed (stage 1)	Scatter: the target is always reserved
+d	Y03	killed (earlier audit)	Scatter: the reserved target has the default window
+d	Y04	killed (stage 1)	Scatter: the reserved target is not counted
+d	Y05	killed (earlier audit)	Scatter: the reserved target is half the length
+d	X01	killed (earlier audit)	OpenReduced: the reduced flag is not set
+d	X02	killed (stage 1)	OpenReduced: 16 bits
+d	X03	killed (earlier audit)	FromMemoryReduced: the layout is not checked
+d	X04	closed by a test	FromMemoryReduced: the shape is not checked
+d	X05	killed (earlier audit)	FromMemoryReduced: 8 bits
+d	X06	killed (stage 1)	CheckShape: the file codec accepts 32 bits
+d	X07	equivalent	CheckShape: the reduced reader accepts any width
+d	X08	killed (stage 1)	ReadSymbols: a wide reader is unpacked
+d	X09	killed (earlier audit)	ReducedBits is 16
+d	Q01	killed (earlier audit)	Resolve: the unscaled K_s is the scaled one
+d	Q02	killed (stage 1)	Resolve: the N_base floor
+d	Q03	killed (earlier audit)	Resolve: the chunk floor
+d	Q04	killed (stage 1)	Resolve: the sort floor
+d	Q05	killed (earlier audit)	Resolve: the run spill is not scaled
+d	Q06	killed (stage 1)	Resolve: the fan-out of PH1
+d	Q07	killed (earlier audit)	Resolve: the reservoir
+d	Q08	killed (stage 1)	Resolve: the PH1 buffers
+d	Q09	killed (earlier audit)	Resolve: the merge budget
+d	Q10	killed (stage 1)	Resolve: K is n / 3000 rounded up
+d	Q11	killed (earlier audit)	Resolve: K floor
+d	Q12	killed (stage 1)	Resolve: the PH3 fan-out
+d	Q13	killed (earlier audit)	Resolve: the oversample
+d	Q14	killed (stage 1)	Resolve: the position spill
+d	Q15	killed (earlier audit)	Resolve: the window
+d	Q16	killed (stage 1)	Resolve: the rule is evaluated at the text length when RuleN is set
+d	Q17	killed (earlier audit)	Resolve: the factor is one when scaled
+d	Q18	equivalent	Resolve: the scale is applied when not scaled
+d	Q19	killed (earlier audit)	Resolve: the scale rounds down
+d	Q20	equivalent	Resolve: the scale floors are ignored
+d	Q21	killed (earlier audit)	Resolve: a negative rule is accepted
+d	Q22	killed (stage 1)	Resolve: a negative scale is accepted
+d	Q23	killed (earlier audit)	Resolve: zero threads are accepted
+d	Q24	killed (stage 1)	Resolve: an explicit K_s of one is accepted
+d	Q25	killed (earlier audit)	Resolve: an explicit K_s above the limit is accepted
+d	Q26	killed (stage 1)	Resolve: an explicit N_base of zero is accepted
+d	Q27	killed (earlier audit)	Resolve: explicit chunk slots of zero are accepted
+d	Q28	killed (stage 1)	Resolve: an explicit sort capacity of one is accepted
+d	Q29	killed (earlier audit)	Resolve: a negative run spill is accepted
+d	Q30	killed (stage 1)	Resolve: a PH1 fan-out of one is accepted
+d	Q31	killed (earlier audit)	Resolve: a reservoir of two is accepted
+d	Q32	killed (stage 1)	Resolve: an I/O buffer of 15 is accepted
+d	Q33	killed (earlier audit)	Resolve: a merge budget of seven is accepted
+d	Q34	killed (stage 1)	Resolve: a K of one is accepted
+d	Q35	killed (earlier audit)	Resolve: a K above the limit is accepted
+d	Q36	killed (stage 1)	Resolve: a fan-out of one is accepted
+d	Q37	killed (earlier audit)	Resolve: an oversample of zero is accepted
+d	Q38	killed (stage 1)	Resolve: a spill of zero is accepted
+d	Q39	killed (earlier audit)	Resolve: a window of zero is accepted
+d	Q40	killed (stage 1)	Resolve: the factor is not recorded
+d	Q41	killed (earlier audit)	Resolve: the scaled flag is not recorded
+d	Q42	killed (stage 1)	Build: a disposed reader is not noticed before files exist
+d	Q43	equivalent	Build: a negative arena cap is accepted
+d	Q44	killed (stage 1)	Build: no limit on the text length
+d	Q45	killed (earlier audit)	Build: a wide reader is accepted
+d	Q46	killed (stage 1)	Build: the nominal period is used as given
+d	Q47	killed (earlier audit)	Build: the exact period is replaced by the Singer one
+d	Q48	killed (stage 1)	Build: the rank file is not in the scratch directory by default
+d	Q49	killed (earlier audit)	Build: the counters are private
+d	Q50	killed (stage 1)	Build: the two phases share one budget
+d	Q51	killed (earlier audit)	Build: PH1 has no cap
+d	Q52	killed (stage 1)	Build: PH3 has no cap
+d	Q53	killed (earlier audit)	Build: the RSS sampler is not started
+d	Q54	killed (stage 1)	Build: the suffix array has no empty suffix entry
+d	Q55	killed (earlier audit)	Build: the suffix array is created after PH1
+d	Q56	killed (stage 1)	Build: the created flag of the suffix array is not set
+d	Q57	killed (earlier audit)	Build: the ph1 trace is not called
+d	Q58	killed (stage 1)	Build: the ph23 trace is not called
+d	Q59	killed (earlier audit)	Build: the verify trace is not called
+d	Q60	killed (stage 1)	Build: the rank file is marked as touched too late
+d	Q61	killed (earlier audit)	Build: PH1 gets the PH3 budget
+d	Q62	killed (stage 1)	Build: PH1 has no counters
+d	Q63	killed (earlier audit)	Build: PH1 has no reservation options
+d	Q64	closed by a test	Build: PH1 threads
+d	Q65	killed (earlier audit)	Build: PH1 seed
+d	Q66	killed (stage 1)	Build: PH1 base case
+d	Q67	killed (earlier audit)	Build: PH1 K_s
+d	Q68	killed (stage 1)	Build: PH1 chunk slots
+d	Q69	killed (earlier audit)	Build: PH1 sort capacity
+d	Q70	killed (stage 1)	Build: PH1 run spill
+d	Q71	killed (earlier audit)	Build: PH1 I/O buffers
+d	Q72	killed (stage 1)	Build: PH1 merge budget
+d	Q73	killed (earlier audit)	Build: PH1 reservoir
+d	Q74	killed (stage 1)	Build: PH1 fan-out
+d	Q75	killed (earlier audit)	Build: PH1 window
+d	Q76	closed by a test	Build: PH1 arena guards
+d	Q77	killed (earlier audit)	Build: the rank file bytes are not added to the ledger
+d	Q78	killed (stage 1)	Build: the rank file bytes are not given back
+d	Q79	killed (earlier audit)	Build: the rank file is not deleted
+d	Q80	killed (stage 1)	Build: the PH1 scratch peak is taken after the rank file
+d	Q81	killed (earlier audit)	Build: the rank file is verified when not asked for
+d	Q82	closed by a test	Build: the verification reads another length
+d	Q83	killed (earlier audit)	Build: PH3 leaf capacity
+d	Q84	killed (stage 1)	Build: PH3 fan-out
+d	Q85	killed (earlier audit)	Build: PH3 oversample
+d	Q86	closed by a test	Build: PH3 threads
+d	Q87	killed (earlier audit)	Build: PH3 seed
+d	Q88	OPEN	Build: PH3 scratch directory
+d	Q89	killed (earlier audit)	Build: PH3 spill
+d	Q90	equivalent	Build: PH3 ledger
+d	Q91	killed (earlier audit)	Build: PH3 budget
+d	Q92	OPEN	Build: PH3 arena guards
+d	Q93	killed (earlier audit)	Build: PH3 counters
+d	Q94	OPEN	Build: PH3 trace
+d	Q95	killed (earlier audit)	Build: the sink has the PH1 window
+d	Q96	killed (stage 1)	Build: the sink has no counters
+d	Q97	OPEN	Build: the output is not completed
+d	Q98	OPEN	Build: the output is always synced
+d	Q99	equivalent	Build: the output is never synced
+d	Q100	OPEN	Build: the final length is not checked
+d	Q101	equivalent	CheckLength: any length is accepted
+d	Q102	OPEN	Build: the verdict is Within when above the cap
+d	Q103	killed (earlier audit)	Build: the verdict is swapped
+d	Q104	OPEN	Build: the RSS figure is in KiB
+d	Q105	killed (earlier audit)	Build: the PH1 RSS figure is in KiB
+d	Q106	OPEN	Build: the PH3 RSS figure is from PH1
+d	Q107	killed (earlier audit)	Build: without RSS sampling the whole sampler runs
+d	Q108	killed (stage 1)	Build: the phase sampler ignores the proc source
+d	Q109	killed (earlier audit)	Build: the PH1 I/O is the whole
+d	Q110	killed (stage 1)	Build: the PH23 I/O is the whole
+d	Q111	killed (earlier audit)	Build: the total I/O is the PH3 difference
+d	Q112	OPEN	Build: the PH1 time includes PH3
+d	Q113	killed (earlier audit)	Build: the reservation is the rank file one
+d	Q114	killed (stage 1)	Build: the failed suffix array is left
+d	Q115	killed (earlier audit)	Build: the failed rank file is left
+d	Q116	OPEN	Build: the scratch bytes of a failed build are not given back
+d	Q117	killed (earlier audit)	Build: the PH1 directory is not removed
+d	Q118	killed (stage 1)	Build: the PH3 directory is not removed
+d	Q119	killed (earlier audit)	Build: the scratch root is always removed
+d	Q120	killed (stage 1)	Build: the scratch root is never removed
+d	Q121	equivalent	Build: the scratch directories are not created
+d	Q122	killed (stage 1)	Build: the arena peaks are swapped
+d	Q123	killed (earlier audit)	Build: the scratch peak of PH3 is the PH1 one
+d	Q124	killed (stage 1)	Build: the rank file bytes are the suffix array ones
+d	Q125	killed (earlier audit)	Build: the cover kind is not reported
+d	Q126	OPEN	Build: the period is the nominal one
+d	W01	killed (earlier audit)	SplitMix: the increment
+d	W02	killed (stage 1)	SplitMix: the first shift
+d	W03	killed (earlier audit)	SplitMix: the second multiplier
+d	W04	killed (stage 1)	SplitMix: the last shift
+d	W05	killed (earlier audit)	NextInt: the quotient instead of the remainder
+d	W06	killed (stage 1)	NextInt: a bound of zero reaches the division
+d	P01	killed (earlier audit)	WorkPool: a failed pool still hands out tasks
+d	P02	killed (stage 1)	WorkPool: a failure does not end the wait
+d	P03	killed, hang / crash	WorkPool: a finished task is counted twice
+d	P04	killed (stage 1)	WorkPool: the last error wins
+d	P05	killed, hang / crash	WorkPool: first in first out
+d	P06	killed, hang / crash	WorkPool: a task is not counted as active when taken
+d	P07	killed (earlier audit)	WorkPool: Fail does not wake the waiters
+d	H01	killed (earlier audit)	Run: a leaf of one is accepted
+d	H02	killed, hang / crash	Run: no upper bound on K
+d	H03	killed (earlier audit)	Run: a fan-out of one
+d	H04	killed (stage 1)	Run: zero threads
+d	H05	killed (earlier audit)	Run: an oversample of zero
+d	H06	killed (stage 1)	Run: a spill of zero
+d	H07	closed by a test	Run: no limit on the text length
+d	H08	killed (stage 1)	Run: the scratch root is not removed
+d	H09	killed (earlier audit)	Run: the scratch root is always removed
+d	H10	killed (stage 1)	Run: the files of a failed sort are left
+d	H11	killed (earlier audit)	Run: the files of a failed sort are found by the wrong prefix
+d	H12	killed (stage 1)	Run: the ledger of a private sort is not released
+d	H13	killed (earlier audit)	Run: the ledger of an outer build is released
+d	H14	killed (stage 1)	Run: the budget is private
+d	H15	killed (earlier audit)	Run: the ledger of the caller is ignored
+d	H16	killed (stage 1)	Execute: SA[0] is not written
+d	H17	killed (earlier audit)	Execute: SA[0] is one
+d	H18	killed (stage 1)	Execute: the empty text goes on
+d	H19	killed (earlier audit)	Execute: the root bucket starts at entry zero
+d	H20	killed (stage 1)	Execute: the root has one position too many
+d	H21	equivalent	Execute: no extra thread is started
+d	H22	killed (stage 1)	Execute: the error is swallowed
+d	H23	killed (earlier audit)	Worker: the writer of a thread is not disposed
+d	H25	killed (stage 1)	RunTasks: a leaf is a bucket of exactly K
+d	H26	killed (earlier audit)	RunTasks: the leaf trace is not called
+d	H27	killed (stage 1)	RunTasks: the partition trace is not called
+d	H28	killed (earlier audit)	RunTasks: the leaf sorter is made for every leaf
+d	H29	killed (stage 1)	RunTasks: a leaf bucket is not disposed
+d	H30	killed (earlier audit)	RunTasks: a failed bucket is not disposed
+d	H31	killed (stage 1)	RunTasks: the leaves are not counted
+d	H32	killed (earlier audit)	RunTasks: the partitions are not counted
+d	H33	equivalent	RunTasks: the retries are not counted
+d	H34	killed (earlier audit)	RunTasks: the depth is not tracked
+d	H35	killed (stage 1)	RunTasks: the buckets are not counted
+d	H36	killed (earlier audit)	RunTasks: the largest leaf is not tracked
+d	H37	closed by a test	RunTasks: the leaf time is not summed
+d	H38	killed (earlier audit)	RunTasks: the partition time is not summed
+d	H39	killed (stage 1)	RunTasks: the work counters are not merged
+d	H40	killed (earlier audit)	RunTasks: the buckets are not merged
+d	H41	equivalent	RunTasks: the arena is not checked
+d	H42	equivalent	Partition: the fan-out ignores the bucket size
+d	H43	killed (stage 1)	Partition: the fan-out ignores the cap
+d	H44	killed (earlier audit)	Partition: one child of the quotient
+d	H45	killed (stage 1)	Partition: the sample is smaller
+d	H46	killed (earlier audit)	Partition: the sample is not stratified
+d	H47	killed (stage 1)	Partition: the sample is sorted the other way
+d	H48	killed (earlier audit)	Partition: the splitter is the lower quantile
+d	H49	killed (stage 1)	Partition: the splitter key is the position
+d	H50	killed (earlier audit)	Partition: a position goes left of an equal splitter
+d	H51	killed (stage 1)	Partition: the key tie is not resolved
+d	H52	killed (earlier audit)	Partition: the search ignores the key
+d	H53	killed (stage 1)	Partition: the scan positions are not counted
+d	H54	equivalent	Partition: a degenerate split is accepted
+d	H55	equivalent	Partition: a retry does not double the oversample
+d	H56	equivalent	Partition: a retry is not counted
+d	H57	killed (stage 1)	Partition: the children start at entry zero
+d	H58	killed (earlier audit)	Partition: the child offset does not advance
+d	H59	equivalent	Partition: an empty child is kept
+d	H60	killed (earlier audit)	Partition: the child ids repeat
+d	H61	killed (stage 1)	Partition: the child depth does not advance
+d	H62	killed (earlier audit)	Partition: the source bucket is not disposed
+d	H63	killed (stage 1)	Partition: the children are pushed first to last
+d	H64	closed by a test	Partition: the writers are not disposed
+d	H65	OPEN	Partition: the chunk is not returned
+d	H66	closed by a test	Partition: the children of a failed hand-over are not disposed
+d	H67	killed (stage 1)	Partition: the scan reads one chunk short
+d	H68	equivalent	Partition: the attempts have no limit
+d	H69	equivalent	Partition: the seed ignores the attempt
+d	H70	killed (earlier audit)	Partition: the seed ignores the task
+d	H71	equivalent	Partition: the writers expect the whole bucket
+d	H72	equivalent	DeleteFiles: a directory that is not there throws
+d	F01	killed (earlier audit)	Sort: a leaf above the capacity is accepted
+d	F02	killed (stage 1)	Sort: the keys are not taken from the positions
+d	F03	equivalent	Sort: a bucket of 25 is insertion sorted
+d	F04	killed (stage 1)	Sort: the leaf positions are not counted
+d	F05	killed (earlier audit)	Sort: a run of two keys is not ordered
+d	F06	killed (stage 2)	Sort: the tie positions are not counted
+d	F07	killed (earlier audit)	Sort: a pair is swapped when it is in order
+d	F08	killed (stage 1)	Sort: a run of three is not merge sorted
+d	F09	killed (earlier audit)	Sort: the slice is written at offset zero
+d	F10	killed (stage 1)	Sort: the keys of the first block are the second
+d	F11	equivalent	MergeSort: the order of equal elements
+d	F12	equivalent	MergeSort: the merged halves are not compared
+d	F13	equivalent	MergeSort: the merge takes the right on a tie
+d	F14	killed (stage 1)	MergeSort: the left half is dropped
+d	F15	killed (earlier audit)	MergeSort: the split is not in the middle
+d	T01	killed (earlier audit)	RangePositions: the positions start at one
+d	T02	killed (stage 2)	RangePositions: At is shifted
+d	T03	killed (earlier audit)	MemoryPositions: Read ignores the start
+d	T04	OPEN	MemoryPositions: the array is not returned
+d	T05	killed (earlier audit)	PositionFiles: the numbering starts at zero
+d	T06	killed (stage 2)	FilePositions: Read ignores the start
+d	T07	killed (earlier audit)	FilePositions: At reads the entry before
+d	T08	killed (stage 1)	FilePositions: Dispose does not close the file
+d	T09	killed (earlier audit)	FilePositions: Dispose does not give the bytes back
+d	T10	killed (stage 1)	FilePositions: Dispose does not delete the file
+d	T11	killed (earlier audit)	FilePositions: a second Dispose gives the bytes back again
+d	T12	equivalent	PosWriter: the capacity has no floor
+d	T13	killed (earlier audit)	PosWriter: the buffer is flushed one entry late
+d	T14	OPEN	PosWriter: the buffer is flushed instead of grown
+d	T15	killed (earlier audit)	PosWriter: the total is not counted
+d	T16	equivalent	PosWriter: a bucket in a file is handed over as memory
+d	T17	killed (earlier audit)	PosWriter: the rest of a file bucket is not flushed
+d	T18	OPEN	PosWriter: the file bucket buffer is not returned
+d	T19	killed (earlier audit)	PosWriter: Dispose of a completed writer deletes
+d	T20	killed (stage 2)	PosWriter: Dispose does not give the bytes back
+d	T21	killed (earlier audit)	PosWriter: Dispose does not delete the file
+d	T22	OPEN	PosWriter: Dispose does not close the file
+d	T23	killed (earlier audit)	PosWriter: Grow keeps the buffer size
+d	T24	killed (stage 1)	PosWriter: Grow loses the entries
+d	T25	killed (earlier audit)	PosWriter: the flush offset is the start
+d	T26	killed (stage 1)	PosWriter: the flushed bytes are not accounted
+d	T27	killed (earlier audit)	PosWriter: the written count is not kept
+d	T28	OPEN	PosWriter: the file is opened for append
+d	Z01	killed (earlier audit)	the writer covers a window of its own size
+d	Z02	killed (stage 1)	the writer is not counted
+d	Z03	killed (earlier audit)	Write: the entry offset is the byte offset
+d	Z04	killed (stage 1)	Write: the entries are not bytes
+d	Z05	killed (earlier audit)	Dispose: the writer stays open
+d	C01	killed (earlier audit)	Add: the compares are not summed
+d	C02	killed (stage 1)	Add: the rank lookups are not summed
+d	C03	killed (earlier audit)	Add: the LCE calls are not summed
+d	C04	killed (stage 1)	Add: the leaf positions are not summed
+d	C05	killed (earlier audit)	Add: the scan positions are not summed
+d	C06	killed (stage 2)	Add: the tie positions are not summed
+d	C07	killed (earlier audit)	Add: the tied compares are not summed
+d	C08	killed (stage 1)	Add: the LCE steps are not summed
+d	C09	killed (earlier audit)	Add: the LCE symbols are not summed
+d	C10	killed (stage 1)	CompareCore: the calls are not counted
+d	C11	killed (earlier audit)	CompareCore: the tied calls are not counted
+d	C12	killed (stage 1)	CompareCore: the same position is not equal
+d	C13	killed (earlier audit)	CompareCore: the key is skipped for an untied call
+d	C14	killed (stage 2)	CompareCore: the key is skipped for a short suffix
+d	C15	killed (earlier audit)	CompareCore: the key is not skipped
+d	C16	killed (stage 2)	CompareCore: the key is skipped one symbol short
+d	C17	killed (earlier audit)	CompareCore: the key is skipped one symbol too far
+d	C18	killed (stage 1)	CompareCore: the shorter suffix ignores the difference of positions
+d	C19	killed, assertion (re-run)	CompareCore: the offset is the sum of the residues
+d	C20	killed (stage 1)	CompareCore: the difference is not made positive
+d	C21	killed, hang / crash	CompareCore: the witness is the difference
+d	C22	killed, hang / crash	CompareCore: the offset is not made positive
+d	C23	killed, hang / crash	CompareCore: the offset is the witness
+d	C24	killed, hang / crash	CompareCore: the offset is the residue difference the other way
+d	C25	killed (earlier audit)	CompareCore: the limit ignores the shorter suffix
+d	C26	equivalent	CompareCore: the skip ignores the limit
+d	C27	killed (earlier audit)	CompareCore: the symbols are compared from the key end only
+d	C28	killed (stage 2)	CompareCore: the LCE is not counted
+d	C29	killed (earlier audit)	CompareCore: the LCE ignores the skip
+d	C30	killed (stage 2)	CompareCore: the LCE limit ignores the skip
+d	C31	killed (earlier audit)	CompareCore: the difference decides the other way
+d	C32	killed (stage 1)	CompareCore: a difference at the limit decides
+d	C33	killed (earlier audit)	CompareCore: the shorter suffix is the larger
+d	C34	killed (stage 2)	CompareCore: a suffix of exactly l symbols is the short one
+d	C35	killed (earlier audit)	CompareCore: the rank lookups are not counted
+d	C36	killed (stage 1)	CompareCore: the ranks compare the other way
+d	C37	killed, hang / crash	CompareCore: the second rank is at the wrong offset
+d	C38	OPEN	TiedComparer is the full comparison
+e	d_Y02	killed (earlier audit)	1b7d gap: Scatter: the target is always reserved
+e	V01	killed (earlier audit)	a negative SA offset is accepted
+e	V03	killed (earlier audit)	a section that ends at the end of the file is refused
+e	V05	killed (earlier audit)	the first entry is read at offset 0
+e	V07	killed (earlier audit)	the base array goes to the overflow offset
+e	V09	killed (earlier audit)	the reservation outcome of the placement is not kept
+e	V11	closed by a test	a failed output writer leaves the writers open
+e	V13	killed (earlier audit)	the placer is told no maximum
+e	V15	equivalent	the path mode does not complete the base file
+e	V17	killed (earlier audit)	the base file is not disposed
+e	V19	killed (earlier audit)	the base writers use the default window
+e	V21	killed (earlier audit)	the overflow writer is not counted
+e	V02	killed (stage 1)	a file of its own may be longer than the array
+e	V04	killed (stage 1)	a section may end past the file
+e	V06	killed (stage 1)	the bulk is read from offset 0
+e	V08	killed (stage 1)	the overflow list goes to the base offset
+e	V10	OPEN	a failed overflow writer leaves the base writer open
+e	V12	killed (stage 1)	the placer is not used
+e	V14	killed (stage 1)	the placer is told no overflow
+e	V16	equivalent	the path mode does not complete the overflow file
+e	V18	killed (stage 1)	the overflow file is not disposed
+e	V20	killed (stage 1)	the base writer is not counted
+e	G01	killed (earlier audit)	Grow on a disposed file does not refuse
+e	G03	killed (earlier audit)	Grow refuses to stay
+e	G05	killed (earlier audit)	no growth reports a check
+e	G07	killed (earlier audit)	one open writer is tolerated
+e	G09	killed (earlier audit)	the pre-flight refuses at equality
+e	G11	killed (earlier audit)	the pre-flight is skipped
+e	G13	killed (earlier audit)	the file grows by one byte too much
+e	G15	killed (earlier audit)	the stream refuses to share
+e	G17	killed (earlier audit)	the old mapping is kept
+e	G19	killed (earlier audit)	the length is not updated
+e	G21	killed (earlier audit)	the outcome is never checked
+e	G23	equivalent	the lock is dropped (single threaded use)
+e	G02	killed (stage 1)	Grow may shrink
+e	G04	killed (stage 1)	no growth goes through the whole path
+e	G06	killed (stage 1)	an open writer does not refuse
+e	G08	killed (stage 1)	the pre-flight asks for the whole length
+e	G10	killed (stage 1)	the pre-flight skips a source that reports 0
+e	G12	killed (stage 1)	the pre-flight asks about the file, not its directory
+e	G14	killed (stage 1)	the file is not made longer
+e	G16	OPEN	the failed mapping does not undo the growth
+e	G18	killed (stage 1)	the new mapping is not used
+e	G20	killed (stage 1)	the outcome is always checked
+e	G22	killed (stage 1)	the source of the options is ignored
+e	W01	killed (earlier audit)	a negative SA offset is accepted
+e	W03	killed (earlier audit)	sigma 257 is accepted
+e	W05	killed, hang / crash	a read of under one entry is accepted
+e	W07	killed (earlier audit)	a text at the limit is refused
+e	W09	killed (earlier audit)	a text at the bit limit is refused
+e	W11	killed (earlier audit)	an SA range that ends at the end of the file is refused
+e	W13	killed (earlier audit)	the read is not bounded by the rows
+e	W15	killed (earlier audit)	the budget is ignored
+e	W17	killed (earlier audit)	the BWT file ignores the file options
+e	W19	killed (earlier audit)	the BWT writer has the default window
+e	W21	killed (earlier audit)	the SA is read from offset 0
+e	W23	killed (earlier audit)	entries are not range checked
+e	W25	killed (earlier audit)	SA[0] is not checked
+e	W27	equivalent	a second zero is tolerated when later (equivalent for n > 0)
+e	W29	killed (earlier audit)	the primary row is one too high
+e	W31	killed (earlier audit)	the symbol is outside the alphabet at equality
+e	W33	killed (earlier audit)	the symbol is the one after
+e	W35	killed (earlier audit)	the counts are not kept
+e	W37	equivalent	the BWT file is not completed
+e	W39	killed (earlier audit)	the result carries the sentinel row of the file end
+e	W41	killed (earlier audit)	the default read is 1 KiB
+e	W43	killed (earlier audit)	the output is not appended
+e	W02	killed (stage 1)	a negative sigma is accepted
+e	W04	killed (stage 1)	sigma 256 is refused
+e	W06	OPEN	a window of 0 is accepted
+e	W08	equivalent	a text of too many bits is accepted
+e	W10	killed (stage 1)	the SA range may end past the file
+e	W12	killed (stage 1)	the SA range is not checked
+e	W14	equivalent	the SA buffer is zeroed
+e	W16	killed (stage 2)	the guards are ignored
+e	W18	killed (stage 1)	the BWT writer is not counted
+e	W20	killed (stage 1)	the SA reads are not counted
+e	W22	killed (stage 1)	an entry n + 1 is accepted
+e	W24	killed (stage 1)	SA[0] may be any suffix
+e	W26	killed (stage 1)	row 1 is the one checked for the empty suffix
+e	W28	killed (stage 1)	a second zero is tolerated
+e	W30	killed (stage 1)	the primary row has a symbol byte
+e	W32	killed (stage 1)	a symbol outside the alphabet is accepted
+e	W34	killed (stage 1)	the counts are doubled
+e	W36	killed (stage 1)	a missing suffix 0 is not noticed
+e	W38	killed (stage 1)	a failed pass keeps the BWT file
+e	W40	killed (stage 1)	the default window is 64 KiB
+e	W42	killed, hang / crash	the output buffer is one entry short
+e	W44	killed (stage 1)	the output is appended with the wrong length
+e	P01	killed (earlier audit)	the default window is 64 KiB
+e	P03	killed (earlier audit)	the default read is 1 KiB
+e	P05	killed (earlier audit)	a window of 0 is accepted
+e	P07	killed, hang / crash	a read of 0 is accepted
+e	P09	killed (earlier audit)	a text at the limit is refused
+e	P11	killed (earlier audit)	a primary row of -1 is accepted
+e	P13	killed (earlier audit)	an alphabet of 256 is refused
+e	P15	killed (earlier audit)	a negative count is accepted
+e	P17	killed (earlier audit)	a sum above n is accepted
+e	P19	killed (earlier audit)	a negative PSI offset is accepted
+e	P21	killed (earlier audit)	a PSI range that ends at the end of the file is refused
+e	P23	killed (earlier audit)	the group is the larger of the two
+e	P25	killed (earlier audit)	one pass too many
+e	P27	killed (earlier audit)	the cap is not enforced
+e	P29	killed (earlier audit)	the shared budget is not released
+e	P31	killed (earlier audit)	a shorter BWT file is accepted
+e	P33	killed (earlier audit)	the first symbol starts at row 0
+e	P35	killed (earlier audit)	PSI[0] writer is not counted
+e	P37	killed (earlier audit)	the read length is not bounded by the rows
+e	P39	killed (earlier audit)	the budget is ignored by the arena
+e	P41	killed (earlier audit)	the first symbol of a pass is off
+e	P43	killed (earlier audit)	the primary row at a block start is not skipped
+e	P45	equivalent	a primary row at the start of the next block is handled twice
+e	P47	killed (earlier audit)	rows before the primary row are numbered from 0
+e	P49	killed (earlier audit)	the windows of the passes are not summed
+e	P51	killed (earlier audit)	the PSI bytes written are in entries
+e	P53	killed (earlier audit)	the limit of a symbol ignores the count
+e	P55	killed (earlier audit)	the cursor does not register as a writer
+e	P57	killed (earlier audit)	the cursors are not offset by the pass
+e	P59	killed (earlier audit)	the row is off by one
+e	P61	killed (earlier audit)	a cursor that has not used its limit is not noticed
+e	P63	closed by a test	the cursor array is not freed (not observable)
+e	P65	killed (earlier audit)	the previous window is kept open
+e	P67	killed (earlier audit)	the window ignores the remaining entries
+e	P69	killed (earlier audit)	the window ignores the pointer offset
+e	P71	killed (earlier audit)	the window is not counted as a window
+e	P73	killed (earlier audit)	the next entry advances by one
+e	P75	killed (earlier audit)	the released view is not disposed
+e	P02	killed (earlier audit)	the default is 32 symbols per pass
+e	P04	killed (earlier audit)	the default cap is 128 MiB
+e	P06	killed (earlier audit)	symbols per pass 0 is accepted
+e	P08	killed (earlier audit)	a negative n is accepted
+e	P10	killed (earlier audit)	a primary row of n + 1 is accepted
+e	P12	killed (earlier audit)	the last row is refused as primary
+e	P14	killed (earlier audit)	an alphabet of 257 is accepted
+e	P16	killed (earlier audit)	a zero count is refused
+e	P18	killed (earlier audit)	a sum below n is accepted
+e	P20	killed (earlier audit)	the PSI range may end past the file
+e	P22	killed (earlier audit)	a window of under one entry means no entries
+e	P24	killed (earlier audit)	the passes are rounded down
+e	P26	killed (earlier audit)	the bound is in entries
+e	P28	killed (earlier audit)	the shared budget is not charged
+e	P30	killed (earlier audit)	a longer BWT file is accepted
+e	P32	killed (earlier audit)	the BWT reads are not counted
+e	P34	killed (earlier audit)	PSI[0] is not written
+e	P36	killed (earlier audit)	PSI[0] is written at the second entry
+e	P38	equivalent	the read buffer is zeroed
+e	P40	killed (earlier audit)	the guards are ignored by the arena
+e	P42	killed (earlier audit)	the last symbol of a pass is off
+e	P44	killed (earlier audit)	the primary row at a block end is not skipped
+e	P46	killed (earlier audit)	rows after the primary row are numbered from the primary row
+e	P48	killed (earlier audit)	the counts are not verified at the end of the pass
+e	P50	killed (earlier audit)	the BWT bytes read are one pass
+e	P52	killed (earlier audit)	the stats carry the symbols as the group
+e	P54	killed (earlier audit)	the first entry of a symbol is off
+e	P56	killed (earlier audit)	the cursor never unregisters as a writer
+e	P58	killed (earlier audit)	a symbol of the next pass is taken
+e	P60	killed (earlier audit)	a cursor that stopped short is not noticed in the window
+e	P62	killed (earlier audit)	the views are not released
+e	P64	closed by a test	the end array is not freed (not observable)
+e	P66	killed (earlier audit)	an excess occurrence at the limit is not refused
+e	P68	killed (earlier audit)	the window starts at the section start
+e	P70	killed (earlier audit)	the window is not counted as mapped
+e	P72	killed (earlier audit)	the windows are not counted
+e	P74	killed (earlier audit)	the release does not release the pointer
+e	P76	killed (earlier audit)	the released view stays registered
+e	A01	equivalent	a null file is an NRE
+e	A03	killed (earlier audit)	a null option set is an NRE
+e	A05	killed (earlier audit)	a negative section offset is accepted
+e	A07	killed (earlier audit)	a section range that ends at the end is refused
+e	A09	equivalent	the file choice is the other way round (same in both modes)
+e	A11	killed (earlier audit)	the section sink is one entry short
+e	A13	killed (earlier audit)	the section sink is not counted
+e	A15	killed (earlier audit)	the path mode does not complete the file
+e	d_Q76	closed by a test	1b7d gap: Build: PH1 arena guards
+e	A02	killed (stage 1)	a null text is an NRE
+e	A04	killed (stage 1)	the section range is not checked
+e	A06	killed (stage 1)	the section range may end past the file
+e	A08	killed (stage 1)	a failure in section mode removes the path (there is none)
+e	A10	killed (stage 1)	the section sink starts at 0
+e	A12	killed (stage 1)	the section sink gets another window
+e	A14	killed (stage 1)	the section mode completes the file
+e	d_Q52	killed (earlier audit)	1b7d gap: Build: PH3 has no cap
+e	C01	killed (earlier audit)	polynomial changed
+e	C03	equivalent	dispatch swapped (both paths give the same value)
+e	C05	killed (earlier audit)	slice 7 reads table 6
+e	C07	killed (earlier audit)	tail shifts by 7
+e	C09	killed (earlier audit)	hardware unrolled read at +15
+e	C11	killed (earlier audit)	hardware tail reads byte 0
+e	C13	killed (earlier audit)	table path returns the value uncomplemented
+e	C15	equivalent	the hardware path no longer refuses without the CPU
+e	C02	killed (stage 1)	hardware flag needs both CPUs
+e	C04	killed (stage 1)	table k built from the wrong byte
+e	C06	killed (stage 1)	slice 3 reads table 2
+e	C08	equivalent	table loop leaves the last full word to the tail loop (same value)
+e	C10	killed (stage 1)	hardware unrolled step of 31
+e	C12	killed (stage 1)	table path starts from the value, not its complement
+e	C14	killed (stage 1)	Compute starts from 1
+e	C16	OPEN	the arm64 tail reads byte 0
+e	K01	equivalent	a negative SA offset is accepted
+e	K03	equivalent	a negative PH4 cap is accepted
+e	K05	killed (earlier audit)	the tagged codec is accepted
+e	K07	killed (earlier audit)	the child range may end past the file
+e	K09	killed (earlier audit)	the child range is not checked
+e	K11	killed (earlier audit)	the scratch root is never removed
+e	K13	killed (earlier audit)	ph5 is left
+e	K15	killed (earlier audit)	PH4 uses the scratch of PH5
+e	K17	equivalent	PH4 gets one thread
+e	K19	killed (earlier audit)	PH4 gets another read buffer
+e	K21	killed (earlier audit)	PH4 gets the window of PH5
+e	K23	closed by a test	PH4 gets no guards
+e	K25	equivalent	PH4 gets no file options
+e	K27	killed (earlier audit)	PH4 reads the SA from offset 0
+e	K29	equivalent	PH5 gets another scratch
+e	K31	killed (earlier audit)	PH5 gets the window of PH4
+e	K33	closed by a test	PH5 does not flush windows
+e	K35	equivalent	PH5 gets the default codec (tagged cannot be passed)
+e	K37	closed by a test	PH5 gets no guards
+e	K39	killed (earlier audit)	the scan is created for every block
+e	K41	killed (earlier audit)	the scan is not disposed
+e	K43	killed (earlier audit)	the verdict is strict
+e	K45	killed (earlier audit)	the arena peaks are swapped
+e	K47	killed (earlier audit)	the reservation outcome is not reported
+e	K49	equivalent	the sub-directories are deleted non-recursively
+e	K02	killed (earlier audit)	a negative child offset is accepted
+e	K04	killed (earlier audit)	a negative PH5 cap is accepted
+e	K06	killed (earlier audit)	a text at the position limit is refused
+e	K08	killed (earlier audit)	a child range that ends at the end of the file is refused
+e	K10	killed (earlier audit)	the scratch root is always removed when empty
+e	K12	killed (earlier audit)	ph4 is left
+e	K14	killed (earlier audit)	the sampler is not started
+e	K16	killed (earlier audit)	PH4 gets another chunk
+e	K18	killed (earlier audit)	PH4 gets one worker
+e	K20	killed (earlier audit)	PH4 gets another tuple buffer
+e	K22	killed (earlier audit)	PH4 gets no budget
+e	K24	killed (earlier audit)	PH4 is not counted
+e	K26	killed (earlier audit)	PH4 gets no trace
+e	K28	killed (earlier audit)	PH4 gets no placer
+e	K30	killed (earlier audit)	PH5 gets another block size
+e	K32	killed (earlier audit)	PH5 gets one slot
+e	K34	killed (earlier audit)	PH5 gets another spill flush size
+e	K36	killed (earlier audit)	PH5 gets no budget
+e	K38	killed (earlier audit)	PH5 is not counted
+e	K40	killed (earlier audit)	a scan that never started is an NRE, not an invalid operation
+e	K42	killed (earlier audit)	the figure is in the wrong unit
+e	K44	killed (earlier audit)	the verdict is swapped
+e	K46	killed (earlier audit)	the seconds are not measured
+e	K48	killed (earlier audit)	the scratch root is not removed when empty
+e	K50	killed (earlier audit)	the parameters are not reported
+e	B01	killed (earlier audit)	Threads below 1 accepted
+e	B03	killed (earlier audit)	negative child arena cap accepted
+e	B05	killed (earlier audit)	negative RssAnon cap accepted
+e	B07	killed (earlier audit)	temporary file named differently
+e	B09	killed (earlier audit)	pre-flight refuses at equality
+e	B11	killed (earlier audit)	pre-flight forgets the scratch per character
+e	B13	killed (earlier audit)	pre-flight asks about the target, not the directory
+e	B15	killed (earlier audit)	a stale scratch directory is left
+e	B17	killed (earlier audit)	the build does not call the stale cleanup
+e	B19	killed (earlier audit)	the container is one byte short
+e	B21	killed (earlier audit)	the container outcome is not reported
+e	B23	killed (earlier audit)	no hook after the scan
+e	B25	killed (earlier audit)	no hook after the packing
+e	B27	killed (earlier audit)	no hook at the placement
+e	B29	killed (earlier audit)	no hook after the BWT
+e	B31	killed (earlier audit)	no hook after BUILD_INFO
+e	B33	killed (earlier audit)	no hook after the header page
+e	B35	killed (earlier audit)	no hook after the magic
+e	B37	equivalent	the packing fsyncs (not observable)
+e	B39	equivalent	the text window is not passed on
+e	B41	killed (earlier audit)	the alphabet is written shifted
+e	B43	killed (earlier audit)	the alphabet goes to the counts section
+e	B45	killed (earlier audit)	the packed text is read over a region one symbol short
+e	B47	killed (earlier audit)	PH1-3 get the default period
+e	B49	killed (earlier audit)	PH1-3 get no scale
+e	B51	killed (earlier audit)	PH1-3 get no arena cap
+e	B53	killed (earlier audit)	PH1-3 get another seed (output must not depend on it)
+e	B55	killed (earlier audit)	PH1-3 get no file options
+e	B57	killed (earlier audit)	PH1-3 do not verify the ranks
+e	B59	killed (earlier audit)	PH1-3 read another /proc
+e	B61	killed (earlier audit)	PH1-3 get no trace
+e	B63	killed (earlier audit)	PH4-5 get no scale
+e	B65	killed (earlier audit)	PH4 gets no arena cap
+e	B67	killed (earlier audit)	PH4-5 get no tuning
+e	B69	killed (earlier audit)	PH4-5 get no file options
+e	B71	killed (earlier audit)	PH4-5 are not measured
+e	B73	killed (earlier audit)	PH4-5 get another RssAnon cap
+e	B75	killed (earlier audit)	the LCP is read from the wrong offset
+e	B77	killed (earlier audit)	the growth is the sum
+e	B79	killed (earlier audit)	the late pre-flight refuses at equality
+e	B81	killed (earlier audit)	the late pre-flight forgets the spill
+e	B83	killed (earlier audit)	the file grows also when it need not
+e	B85	killed (earlier audit)	the growth is not reported in bytes
+e	B87	killed (earlier audit)	the file grows without the file options
+e	B89	killed (earlier audit)	the late pre-flight asks about the target
+e	B91	killed (earlier audit)	the BWT file is not scratch
+e	B93	killed (earlier audit)	the BWT scratch is never released
+e	B95	killed (earlier audit)	the BWT directory stays
+e	B97	killed (earlier audit)	PH6 reads the SA from the wrong offset
+e	B99	killed (earlier audit)	the BWT pass reads one byte per window
+e	B101	killed (earlier audit)	the BWT pass gets no budget
+e	B103	killed (earlier audit)	the BWT pass is not counted
+e	B105	killed (earlier audit)	PSI gets another window
+e	B107	killed (earlier audit)	PSI gets another read size
+e	B109	equivalent	PSI gets no budget
+e	B111	killed (earlier audit)	PSI is not counted
+e	B113	equivalent	PSI gets the counts of the BWT (same values)
+e	B115	killed (earlier audit)	BUILD_INFO claims no PSI
+e	B117	equivalent	BUILD_INFO may fill its room
+e	B119	killed (earlier audit)	BUILD_INFO goes to the LCP offset
+e	B121	killed (earlier audit)	the text reader stays open until the end
+e	B123	killed (earlier audit)	the container is not closed before the checksums
+e	B125	killed (earlier audit)	the file length check is off
+e	B127	killed (earlier audit)	the checksum of the alphabet is of the counts
+e	B129	killed (earlier audit)	the checksum of the SA is short
+e	B131	killed (earlier audit)	PSI is listed also when absent
+e	B133	killed (earlier audit)	BUILD_INFO is listed with its room
+e	B135	killed (earlier audit)	the overflow is listed when empty
+e	B137	killed (earlier audit)	the overflow is listed one byte short
+e	B139	killed (earlier audit)	required sections without the required flag
+e	B141	killed (earlier audit)	optional sections are required
+e	B143	killed (earlier audit)	TEXT forgets the bits in PARAM0
+e	B145	killed (earlier audit)	ALPHABET has the wrong element width
+e	B147	killed (earlier audit)	ALPHABET has another codec
+e	B149	killed (earlier audit)	COUNTS is required
+e	B151	killed (earlier audit)	SA counts n entries
+e	B153	killed (earlier audit)	CHILD is optional
+e	B155	killed (earlier audit)	PSI is required
+e	B157	killed (earlier audit)	PSI counts n entries
+e	B159	killed (earlier audit)	BUILD_INFO has an element width
+e	B161	killed (earlier audit)	LCP U8 has codec 2
+e	B163	killed (earlier audit)	LCP U32 has codec 2
+e	B165	killed (earlier audit)	LCP is optional
+e	B167	killed (earlier audit)	overflow has the wrong element width
+e	B169	equivalent	the discarded info length matters (it does not)
+e	B171	killed (earlier audit)	the header holds the text length plus one
+e	B173	equivalent	the header holds the max LCP as depth
+e	B175	killed (earlier audit)	the header rank is always -1
+e	B177	killed (earlier audit)	the header position width is 8
+e	B179	killed (earlier audit)	the header hash is zero
+e	B181	killed (earlier audit)	the header page goes to the wrong place
+e	B183	closed by a test	the second sync is skipped
+e	B185	killed (earlier audit)	the magic is written at the wrong place
+e	B187	equivalent	the published flag is not set
+e	B189	equivalent	a published target is deleted by the cleanup
+e	B191	killed (earlier audit)	a failed build keeps its scratch
+e	B193	killed (earlier audit)	a failed build keeps the text open
+e	B195	killed (earlier audit)	the verdict is swapped
+e	B197	killed (earlier audit)	the figure is the peak of RSS pages (unit KiB as MB)
+e	B199	killed (earlier audit)	the per-phase figure is in the wrong unit
+e	B201	killed (earlier audit)	the phase sampler is not started
+e	B203	killed (earlier audit)	the whole sampler reads the real /proc
+e	B205	killed (earlier audit)	the seconds are not scaled
+e	B207	killed (earlier audit)	the primary row of the result without PSI
+e	B209	killed (earlier audit)	arena peak is the minimum
+e	B211	killed (earlier audit)	arena peak forgets PH6
+e	B213	killed (earlier audit)	arena peak forgets PH2-3
+e	B215	killed (earlier audit)	no scratch peak
+e	B217	killed (earlier audit)	the growth outcome is not reported
+e	B219	killed (earlier audit)	the crc rows are not reported
+e	B221	killed (earlier audit)	the PH6 figure is not reported
+e	B223	killed (earlier audit)	the PH0 figure is not reported
+e	B225	killed (earlier audit)	the PSI seconds are not reported
+e	B227	killed (earlier audit)	the seal seconds are not reported
+e	B229	killed (earlier audit)	the pack seconds are not reported
+e	B231	killed (earlier audit)	the total seconds are not reported
+e	B233	killed (earlier audit)	the PH4-5 seconds are not reported
+e	B235	killed (earlier audit)	the PH2-3 seconds are not reported
+e	B237	killed (earlier audit)	BUILD_INFO names layout F
+e	B239	killed (earlier audit)	BUILD_INFO has a build time
+e	B241	equivalent	BUILD_INFO is culture dependent
+e	B243	killed (earlier audit)	BUILD_INFO has the wrong sigma
+e	B245	equivalent	the little-endian check is dropped (equivalent on this host)
+e	B247	killed (earlier audit)	the 16 B spill constant
+e	B249	killed (earlier audit)	Fsync defaults to false
+e	B251	killed (earlier audit)	the RssAnon cap defaults to 330
+e	B253	killed (earlier audit)	the PH5 cap defaults to 128 MiB
+e	B255	killed (earlier audit)	the text window defaults to 64 KiB
+e	B257	killed (earlier audit)	PSI default window of PH6 is smaller
+e	B259	killed (earlier audit)	PSI default symbols per pass 16
+e	B02	killed (earlier audit)	negative arena cap accepted
+e	B04	killed (earlier audit)	negative PH6 cap accepted
+e	B06	killed (earlier audit)	missing directory not refused up front
+e	B08	killed (earlier audit)	scratch directory named differently
+e	B10	killed (earlier audit)	pre-flight skips a source that reports 0
+e	B12	killed (earlier audit)	pre-flight forgets the container
+e	B14	killed (earlier audit)	a stale temporary file is left
+e	B16	killed (earlier audit)	a stale scratch file is left
+e	B18	killed (earlier audit)	scratch directory not created by the builder
+e	B20	killed (earlier audit)	the container is created without the file options
+e	B22	killed (earlier audit)	no hook at the start
+e	B24	killed (earlier audit)	no hook after the creation
+e	B26	killed (earlier audit)	no hook after the suffix array
+e	B28	killed (earlier audit)	no hook after LCP and CHILD
+e	B30	killed (earlier audit)	no hook after PSI
+e	B32	killed (earlier audit)	no hook after the checksums
+e	B34	killed (earlier audit)	no hook after the first sync
+e	B36	killed (earlier audit)	the hook between the passes is not called
+e	B38	killed (earlier audit)	the text block size is not passed on
+e	B40	killed (earlier audit)	the text writer is not counted
+e	B42	killed (earlier audit)	the counts are written shifted
+e	B44	killed (earlier audit)	the packing window of the text section is not the option
+e	B46	killed (earlier audit)	PH1-3 get one thread
+e	B48	killed (earlier audit)	PH1-3 get an inexact period
+e	B50	killed (earlier audit)	PH1-3 get no rule n
+e	B52	killed (earlier audit)	PH1-3 get no tuning
+e	B54	killed (earlier audit)	PH1-3 get their own counters
+e	B56	killed (earlier audit)	PH1-3 get no guards
+e	B58	killed (earlier audit)	PH1-3 are not measured
+e	B60	killed (earlier audit)	PH1-3 get another RssAnon cap
+e	B62	killed (earlier audit)	PH4-5 get one thread
+e	B64	killed (earlier audit)	PH4-5 get no rule n
+e	B66	killed (earlier audit)	PH5 gets no arena cap
+e	B68	killed (earlier audit)	PH4-5 get their own counters
+e	B70	killed (earlier audit)	PH4-5 get no guards
+e	B72	killed (earlier audit)	PH4-5 read another /proc
+e	B74	killed (earlier audit)	PH4-5 get no trace
+e	B76	killed (earlier audit)	the child table goes to the SA offset
+e	B78	killed (earlier audit)	the spill bound is one entry short
+e	B80	killed (earlier audit)	the late pre-flight skips a source that reports 0
+e	B82	killed (earlier audit)	the late pre-flight forgets the growth
+e	B84	killed (earlier audit)	the file never grows
+e	B86	killed (earlier audit)	the growth outcome is not kept
+e	B88	killed (earlier audit)	the overflow is placed at the LCP
+e	B90	closed by a test	PSI is built without a BWT section (kept: the plan decides)
+e	B92	killed (stage 1)	the BWT scratch is one byte short
+e	B94	closed by a test	the BWT counts are not checked here
+e	B96	killed (stage 1)	the BWT file stays until the scratch goes
+e	B98	killed (stage 1)	PH6 gets the wrong sigma
+e	B100	killed (stage 1)	the BWT pass gets the default window
+e	B102	killed (stage 1)	the BWT pass gets no guards
+e	B104	closed by a test	the BWT file gets no file options
+e	B106	killed (stage 1)	PSI gets the default symbols per pass
+e	B108	equivalent	PSI gets no window cap
+e	B110	killed (stage 1)	PSI gets no guards
+e	B112	killed (stage 1)	PSI goes to the CHILD section
+e	B114	killed (stage 1)	PSI gets a primary row one too high
+e	B116	killed (stage 1)	BUILD_INFO claims no overflow
+e	B118	killed (stage 1)	BUILD_INFO may overrun its room
+e	B120	equivalent	the container is not completed
+e	B122	equivalent	the text reader is disposed but not cleared
+e	B124	closed by a test	the file length check is a smaller-than check
+e	B126	killed (stage 1)	the checksum of the text section skips its end
+e	B128	killed (stage 1)	the checksum of the counts is short
+e	B130	killed (stage 1)	the checksum of the CHILD is of the SA
+e	B132	killed (stage 1)	the checksum of PSI is short
+e	B134	killed (stage 1)	LCP is listed with one entry short
+e	B136	killed (stage 1)	the overflow is never listed
+e	B138	killed (stage 1)	required sections without the checksum flag
+e	B140	killed (stage 1)	optional sections without the checksum flag
+e	B142	killed (earlier audit)	TEXT counts one more element
+e	B144	killed (earlier audit)	TEXT is not required
+e	B146	killed (earlier audit)	ALPHABET has the wrong count
+e	B148	killed (earlier audit)	COUNTS has the wrong element width
+e	B150	killed (earlier audit)	SA is optional
+e	B152	killed (earlier audit)	SA has 8-byte elements
+e	B154	killed (earlier audit)	CHILD has the tagged codec id
+e	B156	killed (earlier audit)	PSI has no primary row
+e	B158	killed (earlier audit)	BUILD_INFO counts its bytes
+e	B160	killed (earlier audit)	LCP has the wrong element width
+e	B162	killed (earlier audit)	LCP U16 has codec 3
+e	B164	killed (earlier audit)	LCP has no overflow count in PARAM0
+e	B166	killed (earlier audit)	overflow counts bytes
+e	B168	killed (earlier audit)	overflow is optional
+e	B170	killed (earlier audit)	the header holds the internal count
+e	B172	killed (earlier audit)	the header holds the length without the overflow
+e	B174	killed (earlier audit)	the header rank is kept when there is no repeat
+e	B176	killed (earlier audit)	the header rank is the depth
+e	B178	killed (earlier audit)	the header sigma is the bits
+e	B180	killed (earlier audit)	the header is written with the magic
+e	B182	closed by a test	the first sync is skipped
+e	B184	killed (earlier audit)	the syncs ignore the option
+e	B186	killed (earlier audit)	an existing target is not replaced
+e	B188	killed (earlier audit)	the scratch is not removed before the end
+e	B190	killed (earlier audit)	a failed build keeps its temporary file
+e	B192	killed (earlier audit)	a failed build keeps the container open
+e	B194	killed (earlier audit)	the verdict is Within at equality only below
+e	B196	killed (earlier audit)	the figure is in the wrong unit
+e	B198	killed (earlier audit)	the whole-build sampler is not started
+e	B200	killed (earlier audit)	the phase sampler runs although off
+e	B202	killed (earlier audit)	the whole sampler runs although off
+e	B204	killed (earlier audit)	the phase sampler reads the real /proc
+e	B206	killed (earlier audit)	PSI flag of the result
+e	B208	killed (earlier audit)	the sections of the primary row are taken from nothing
+e	B210	killed (earlier audit)	arena peak forgets PH4 and PH5
+e	B212	killed (earlier audit)	arena peak forgets PH1
+e	B214	killed (earlier audit)	arena peak adds PH4 and PH5 as a maximum
+e	B216	killed (earlier audit)	the grown bytes are not reported
+e	B218	killed (stage 1)	the reservation outcome is not reported
+e	B220	killed (stage 1)	the file size of the result is the reserved length
+e	B222	killed (stage 1)	the seal figure is not reported
+e	B224	killed (stage 1)	the BWT seconds are not reported
+e	B226	killed (stage 1)	the CRC seconds are not reported
+e	B228	killed (stage 1)	the create seconds are not reported
+e	B230	killed (stage 1)	the scan seconds are not reported
+e	B232	killed (stage 1)	the total seconds start late
+e	B234	killed (stage 1)	the PH1 seconds are not reported
+e	B236	killed (stage 1)	BUILD_INFO says PSI yes always
+e	B238	killed (stage 1)	BUILD_INFO has no trailing newline
+e	B240	killed (stage 1)	BUILD_INFO has the thread count slot
+e	B242	killed (stage 1)	BUILD_INFO has the wrong n
+e	B244	killed (stage 1)	BUILD_INFO has the wrong LCP kind
+e	B246	killed (stage 1)	the 12 B/char constant
+e	B248	killed (stage 1)	IncludePsi defaults to false
+e	B250	killed (stage 1)	Threads defaults to 1
+e	B252	killed (stage 1)	the PH6 cap defaults to 128 MiB
+e	B254	killed (stage 1)	the PH1-4 cap defaults to 128 MiB
+e	B256	killed (stage 1)	the period defaults to 512
+e	B258	OPEN	the BWT default read is smaller
+e	S01	killed (earlier audit)	views skip a byte
+e	S03	killed (earlier audit)	a range past the end is accepted
+e	S05	killed (earlier audit)	the CRC does not chain across views
+e	S07	killed (earlier audit)	a negative offset is accepted
+e	S09	killed, hang / crash	a view of zero bytes is accepted
+e	S02	killed (stage 1)	view takes the larger part
+e	S04	killed (stage 1)	every view starts at the section start
+e	S06	killed (stage 1)	the row never says hardware
+e	S08	killed (stage 1)	a negative length is accepted
+e	S10	closed by a test	the seconds are not measured
+e	F01	killed (earlier audit)	a section of exactly 1 MiB is not large
+e	F03	killed (earlier audit)	an aligned offset moves on
+e	F05	killed (earlier audit)	a negative offset is accepted
+e	F07	killed (earlier audit)	the table takes 61 sections
+e	F09	killed (earlier audit)	major version written at the minor
+e	F11	killed (earlier audit)	endian probe at 16
+e	F13	killed (earlier audit)	NODE_COUNT holds the text length
+e	F15	killed (earlier audit)	table offset 0
+e	F17	killed (earlier audit)	entry size 128
+e	F19	killed (earlier audit)	LRS_RANK holds the depth
+e	F21	killed (earlier audit)	SIGMA holds the position width
+e	F23	killed (earlier audit)	build flags zero
+e	F25	killed (earlier audit)	entry kind holds the flags
+e	F27	killed (earlier audit)	entry offset holds the length
+e	F29	killed (earlier audit)	entry count holds the length
+e	F31	killed (earlier audit)	entry codec holds the width
+e	F33	killed (earlier audit)	PARAM1 holds PARAM0
+e	F35	killed (earlier audit)	header CRC stops one byte short
+e	F37	killed (earlier audit)	the CRC is computed without the magic
+e	F39	killed (earlier audit)	magic ends with 1B
+e	F02	killed (earlier audit)	alignments swapped
+e	F04	killed (earlier audit)	large from 2 MiB
+e	F06	killed (earlier audit)	a negative length is accepted
+e	F08	killed (earlier audit)	a hash of 31 bytes is accepted
+e	F10	killed (earlier audit)	minor version is 1
+e	F12	killed (earlier audit)	TEXT_LEN holds the node count
+e	F14	killed (earlier audit)	FILE_SIZE holds the node count
+e	F16	killed (earlier audit)	section count 62
+e	F18	killed (earlier audit)	LRS_DEPTH holds the rank
+e	F20	killed (earlier audit)	POS_WIDTH at the sigma field
+e	F22	killed (earlier audit)	hash one byte late
+e	F24	killed (earlier audit)	second entry overwrites the first
+e	F26	killed (stage 1)	entry flags hold the kind
+e	F28	killed (stage 1)	entry length holds the offset
+e	F30	killed (stage 1)	entry width holds the codec
+e	F32	killed (stage 1)	PARAM0 holds PARAM1
+e	F34	killed (stage 1)	entry CRC not written
+e	F36	killed (stage 1)	header CRC covers the whole table room
+e	F38	killed (stage 1)	the magic stays when it is not asked for
+e	F40	killed (stage 1)	CRC stored at 120
+e	L01	killed (earlier audit)	arrays of 3 bytes per entry
+e	L03	killed (earlier audit)	counts of 4 bytes
+e	L05	killed (earlier audit)	ALPHABET over the TEXT
+e	L07	killed (earlier audit)	SA over the COUNTS
+e	L09	killed (earlier audit)	the end counts the offset only
+e	L11	killed (earlier audit)	the end after PSI forgets its length
+e	L13	killed (earlier audit)	LCP inside the BUILD_INFO room
+e	L15	killed (earlier audit)	reserved length of the widest LCP
+e	L17	killed (earlier audit)	the plan says PSI when there is none
+e	L19	killed (earlier audit)	LCP of n entries
+e	L21	killed (earlier audit)	overflow at the start of the LCP
+e	L23	killed (earlier audit)	a negative number of escapes is accepted
+e	L25	killed (earlier audit)	the sigma of the plan is the width
+e	L02	killed (stage 1)	alphabet of 1 byte per letter
+e	L04	killed (stage 1)	TEXT at 0
+e	L06	killed (stage 1)	COUNTS over the ALPHABET
+e	L08	killed (stage 1)	CHILD over the SA
+e	L10	killed (stage 1)	PSI aligned as a small section
+e	L12	killed (stage 1)	BUILD_INFO aligned as a large section
+e	L14	killed (stage 1)	LCP aligned for the narrowest width
+e	L16	killed (stage 1)	PSI length without PSI
+e	L18	killed (stage 1)	the escape check on U16
+e	L20	killed (stage 1)	overflow of 4 bytes per entry
+e	L22	killed (stage 1)	final length without the overflow
+e	L24	killed (stage 1)	room for BUILD_INFO of 8 KiB (a size constant)
+e	d_H08	killed (earlier audit)	1b7d gap: Run: the scratch root is not removed
+e	d_F06	killed (earlier audit)	1b7d gap: Sort: the tie positions are not counted
+e	T01	killed (earlier audit)	the section writer starts at 4
+e	T03	killed (earlier audit)	the section writer is not counted
+e	T05	killed (earlier audit)	the entries are written at their offset in entries
+e	T02	killed (stage 1)	the section writer is one entry short
+e	T04	killed (stage 1)	the section writer gets the default window
+e	T06	killed (stage 1)	the section writer is never disposed
+e	d_C01	killed (earlier audit)	1b7d comparator: the key skip is one symbol too long
+e	d_C03	killed (earlier audit)	1b7d comparator: a zero extension counts as a full period
+e	d_C05	killed (earlier audit)	1b7d comparator: the symbols include those of the key
+e	d_C07	killed (earlier audit)	1b7d comparator: a tied call is not counted as tied
+e	d_C09	killed (earlier audit)	1b7d comparator: the key skip is applied to untied calls
+e	d_C02	killed (earlier audit)	1b7d comparator: equal residues take the witness of residue 1
+e	d_C04	killed (earlier audit)	1b7d comparator: a call of the LCE is not counted
+e	d_C06	killed (earlier audit)	1b7d comparator: one rank lookup counted
+e	d_C08	killed (earlier audit)	1b7d comparator: the call is not counted
+e	d_C10	killed (earlier audit)	1b7d comparator: the key skip needs a strictly longer suffix

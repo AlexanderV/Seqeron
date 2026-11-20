@@ -1,0 +1,8 @@
+C06	Add: the tie positions are not summed	-	killed(9 failed: NoAllocationProportionalToTheTextForTheTotal_AndOnlyTheResul,TheBuild_HasThePinnedShape_AndCounts(0),TheBuild_HasThePinnedShape_AndCounts(2))		307
+C14	CompareCore: the key is skipped for a short suffix	-	killed(4 failed: TheBuild_HasThePinnedShape_AndCounts(2),TheBuild_HasThePinnedShape_AndCounts(3),TheSort_HasThePinnedShape_AndCounts(1))		304
+C16	CompareCore: the key is skipped one symbol short	-	killed(3 failed: ScratchIsReleasedChunkByChunk_WhilePassTwoRuns_NotAtTheEnd,TheSystemSource_OnLinux_ReservesTheBlocks_AndTheSparseFileDo,TheComparator_AccountsTheLceSymbolsTheCallsAndTheRankLookups)		298
+C28	CompareCore: the LCE is not counted	-	killed(11 failed: ScratchIsReleasedChunkByChunk_WhilePassTwoRuns_NotAtTheEnd,TheBuild_HasThePinnedShape_AndCounts(0),TheBuild_HasThePinnedShape_AndCounts(1))		298
+C30	CompareCore: the LCE limit ignores the skip	-	killed(2 failed: ScratchIsReleasedChunkByChunk_WhilePassTwoRuns_NotAtTheEnd,TheComparator_AccountsTheLceSymbolsTheCallsAndTheRankLookups)		284
+C34	CompareCore: a suffix of exactly l symbols is the short one	-	killed(5 failed: TheBuild_HasThePinnedShape_AndCounts(0),TheBuild_HasThePinnedShape_AndCounts(3),TheBuild_HasThePinnedShape_AndCounts(4))		260
+C38	TiedComparer is the full comparison	-	survived		259
+C26	CompareCore: the skip ignores the limit	-	survived		222

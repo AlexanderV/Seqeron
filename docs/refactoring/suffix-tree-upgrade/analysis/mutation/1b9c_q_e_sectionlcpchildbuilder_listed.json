@@ -1,0 +1,10 @@
+[
+ {
+  "id": "K17",
+  "desc": "PH4 gets one thread",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SectionLcpChildBuilder.cs",
+  "old": "Threads = options.Threads,\n                Workers = p.LcpWorkers,",
+  "new": "Threads = 1,\n                Workers = p.LcpWorkers,",
+  "filter": ""
+ }
+]

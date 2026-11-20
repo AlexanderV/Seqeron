@@ -1,32 +1,5 @@
 [
  {
-  "id": "W06",
-  "desc": "a window of 0 is accepted",
-  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/BwtPass.cs",
-  "old": "ThrowIfLessThan(options.WindowBytes, 1);",
-  "new": "ThrowIfLessThan(options.WindowBytes, 0);",
-  "filter": "(FullyQualifiedName~Ph6Tests|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SesaSectionTests.ATextAbove|FullyQualifiedName~SesaAuditTests)",
-  "orig": "e_W06"
- },
- {
-  "id": "W08",
-  "desc": "a text of too many bits is accepted",
-  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/BwtPass.cs",
-  "old": "if (text.Bits > PackedTextFormat.MaxBits) throw",
-  "new": "if (text.Bits > PackedTextFormat.MaxBits + 1) throw",
-  "filter": "(FullyQualifiedName~Ph6Tests|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SesaSectionTests.ATextAbove|FullyQualifiedName~SesaAuditTests)",
-  "orig": "e_W08"
- },
- {
-  "id": "W14",
-  "desc": "the SA buffer is zeroed",
-  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/BwtPass.cs",
-  "old": "saBuf = arena.Allocate<uint>(readEntries, zero: false,",
-  "new": "saBuf = arena.Allocate<uint>(readEntries, zero: true,",
-  "filter": "(FullyQualifiedName~Ph6Tests|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SesaSectionTests.ATextAbove|FullyQualifiedName~SesaAuditTests)",
-  "orig": "e_W14"
- },
- {
   "id": "W16",
   "desc": "the guards are ignored",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/BwtPass.cs",

@@ -5,17 +5,7 @@
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs",
   "old": "retries += Partition(task, order, work);",
   "new": "Partition(task, order, work);",
-  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests)",
-  "orig": "d_H33"
- },
- {
-  "id": "H37",
-  "desc": "RunTasks: the leaf time is not summed",
-  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs",
-  "old": "                    leafTicks += Stopwatch.GetTimestamp() - t0;\n",
-  "new": "",
-  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests)",
-  "orig": "d_H37"
+  "filter": ""
  },
  {
   "id": "H41",
@@ -23,8 +13,7 @@
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs",
   "old": "        arena.VerifyCanaries();\n        lock (_statsGate)",
   "new": "        lock (_statsGate)",
-  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests)",
-  "orig": "d_H41"
+  "filter": ""
  },
  {
   "id": "H55",
@@ -32,8 +21,7 @@
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs",
   "old": "                    oversample *= 2;\n",
   "new": "",
-  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests)",
-  "orig": "d_H55"
+  "filter": ""
  },
  {
   "id": "H59",
@@ -41,17 +29,7 @@
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs",
   "old": "if (count == 0)\n                        {\n                            child.Dispose();\n                            continue;\n                        }",
   "new": "if (count < 0)\n                        {\n                            child.Dispose();\n                            continue;\n                        }",
-  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests)",
-  "orig": "d_H59"
- },
- {
-  "id": "H65",
-  "desc": "Partition: the chunk is not returned",
-  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs",
-  "old": "                if (chunk is not null) ArrayPool<uint>.Shared.Return(chunk);",
-  "new": "",
-  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests)",
-  "orig": "d_H65"
+  "filter": ""
  },
  {
   "id": "H69",
@@ -59,8 +37,7 @@
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs",
   "old": "^ ((ulong)attempt * 0xD1B54A32D192ED03UL));",
   "new": ");",
-  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests)",
-  "orig": "d_H69"
+  "filter": ""
  },
  {
   "id": "H71",
@@ -68,7 +45,6 @@
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs",
   "old": "(int)Math.Min((m / fan) + 16, 1 << 16)",
   "new": "(int)Math.Min(m + 16, 1 << 16)",
-  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests)",
-  "orig": "d_H71"
+  "filter": ""
  }
 ]

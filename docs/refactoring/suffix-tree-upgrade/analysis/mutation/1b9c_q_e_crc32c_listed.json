@@ -1,0 +1,10 @@
+[
+ {
+  "id": "C08",
+  "desc": "table loop leaves the last full word to the tail loop (same value)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/Crc32C.cs",
+  "old": "for (; at + 8 <= length; at += 8)\n        {\n            uint lo",
+  "new": "for (; at + 8 < length; at += 8)\n        {\n            uint lo",
+  "filter": ""
+ }
+]

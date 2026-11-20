@@ -6,7 +6,7 @@ import json, os
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, '../../../../..'))
 E = 'src/SuffixTree/Algorithms/SuffixTree.Esa/External/'
-NEW = 'FullyQualifiedName~SaGap1b9cTests|FullyQualifiedName~SesaGap1b9cTests'
+NEW = 'FullyQualifiedName~Gap1b9cTests'
 M = [
     # file, id, description, old, new
     ('Ph6/PsiStream.cs', 'F01', 'the live-block counter is not raised at an allocation', '            Interlocked.Increment(ref s_liveBlocks);\n', ''),
@@ -47,6 +47,31 @@ M = [
     ('Sesa/SesaBuilder.cs', 'F36', 'the BWT scratch file is not given the file options of the build', 'Counters = counters,\n            Files = options.Files,\n        });\n        double secBwt', 'Counters = counters,\n        });\n        double secBwt'),
     ('Sesa/SectionLcpChildBuilder.cs', 'F37', 'PH5 flushes only the last window', 'FlushWindows = true,', 'FlushWindows = options.Threads > 100,'),
     ('Sesa/SectionLcpChildBuilder.cs', 'F38', 'PH4 gets the guards of PH5 only', 'ArenaGuards = options.ArenaGuards,\n                Counters = counters,\n                Files = options.Files,\n                Trace', 'ArenaGuards = options.ArenaGuards is null ? null : null,\n                Counters = counters,\n                Files = options.Files,\n                Trace'),
+    # the second batch: the code of the tests written after the first batch (the position store, the report of the suffix array build, the fsync and the growth of a file, the pruned covers, the BWT pass)
+    ('Sort/PositionStore.cs', 'F39', 'the floor of the capacity of a bucket buffer is 17 positions', '_capacity = Math.Max(spillBytes / 4, 16);', '_capacity = Math.Max(spillBytes / 4, 17);'),
+    ('Sort/PositionStore.cs', 'F40', 'a bucket in a file is handed over with its file open', '        Flush();\n        _file.Dispose();\n        _file = null;', '        Flush();\n        _file = null;'),
+    ('Sort/PositionStore.cs', 'F41', 'a position file gives one entry less back to the ledger', '        files.Ledger.Remove(count * 4);', '        files.Ledger.Remove((count - 1) * 4);'),
+    ('Sort/PositionStore.cs', 'F42', 'a writer that is disposed uncompleted keeps its buffer', '        if (_buffer.Length > 0) ArrayPool<uint>.Shared.Return(_buffer);\n', ''),
+    ('Sort/PositionStore.cs', 'F43', 'a memory source can give its array back twice', 'uint[]? d = Interlocked.Exchange(ref _data, null);', 'uint[]? d = _data;'),
+    ('Sort/PositionStore.cs', 'F44', 'the second half of a flushed buffer is written at the wrong offset', '(_total - _filled) * 4);', '(_total - _filled) * 2);'),
+    ('Sa/SaBuilder.cs', 'F45', 'PH1 time is the time of PH3', 'Ph1Seconds = ph1Seconds,', 'Ph1Seconds = ph23Seconds,'),
+    ('Sa/SaBuilder.cs', 'F46', 'the entry limit of the build is at the limit', 'if (n > PackedTextFormat.MaxSymbols) throw new NotSupportedException($"{n} symbols: positions are 32-bit', 'if (n >= PackedTextFormat.MaxSymbols) throw new NotSupportedException($"{n} symbols: positions are 32-bit'),
+    ('Sa/SaBuilder.cs', 'F47', 'the whole-run RssAnon figure is in 1000 byte units', 'double? anonMb = all.Available ? all.MaxRssAnonKb * 1024.0 / 1e6 : null;', 'double? anonMb = all.Available ? all.MaxRssAnonKb * 1000.0 / 1e6 : null;'),
+    ('Sa/SaBuilder.cs', 'F48', 'the fsync of the output is not counted', 'saFile.Complete(options.SyncOutput, counters);', 'saFile.Complete(options.SyncOutput, null);'),
+    ('Sa/SaBuilder.cs', 'F49', 'the rank file is not booked in the ledger', '            ledger.Add(rankBytes); // the rank file is scratch of the pipeline from here on\n', ''),
+    ('MappedOutputFile.cs', 'F50', 'the fsync of a file is not counted', '        counters?.AddFlush();\n', ''),
+    ('MappedOutputFile.cs', 'F51', 'a failed mapping sets the length again to the new length', 'undo.SetLength(previous);', 'undo.SetLength(newLength);'),
+    ('MappedOutputFile.cs', 'F52', 'the mapping hook of Grow is ignored', 'map = options?.Mapper is { } mapper ? mapper(Path) : MemoryMappedFile.CreateFromFile(Path, FileMode.Open, null, 0, MemoryMappedFileAccess.ReadWrite);', 'map = MemoryMappedFile.CreateFromFile(Path, FileMode.Open, null, 0, MemoryMappedFileAccess.ReadWrite);'),
+    ('Dcs/DifferenceCover.cs', 'F53', 'the 40 rounds of the small periods end one period earlier', 'if (x <= 256) rounds = 40;', 'if (x <= 255) rounds = 40;'),
+    ('Dcs/DifferenceCover.cs', 'F54', 'the large periods get 7 rounds', 'int rounds = 6;', 'int rounds = 7;'),
+    ('Dcs/DifferenceCover.cs', 'F55', 'the run of the start set is one short', 'for (int j = 0; j < m; j++) start.Add(j % x);', 'for (int j = 0; j < m - 1; j++) start.Add(j % x);'),
+    ('Dcs/DifferenceCover.cs', 'F56', 'a later round of the same size replaces the best', 'if (d.Count < best.Count) best = d;', 'if (d.Count <= best.Count) best = d;'),
+    ('Ph6/BwtPass.cs', 'F57', 'a window of one byte is refused by the BWT pass', 'ArgumentOutOfRangeException.ThrowIfLessThan(options.WindowBytes, 1);', 'ArgumentOutOfRangeException.ThrowIfLessThan(options.WindowBytes, 2);'),
+    ('Ph6/BwtPass.cs', 'F58', 'a read of exactly four bytes is refused by the BWT pass', 'ArgumentOutOfRangeException.ThrowIfLessThan(options.ReadBytes, sizeof(uint));', 'ArgumentOutOfRangeException.ThrowIfLessThan(options.ReadBytes, sizeof(uint) + 1);'),
+    ('Sesa/SesaBuilder.cs', 'F59', 'the BWT default read is two mebibytes', 'ReadBytes = tune.ReadBytes ?? 1 << 20,\n            WindowBytes = window,', 'ReadBytes = tune.ReadBytes ?? 1 << 21,\n            WindowBytes = window,'),
+    ('Sort/BucketSorter.cs', 'F60', 'the positions of the scans of the partitions are not counted', '                work.ScanPositions += m;\n', ''),
+    ('Sort/BucketSorter.cs', 'F61', 'the chunk of the partition is rented one bit short', 'chunk = ArrayPool<uint>.Shared.Rent(1 << 14);', 'chunk = ArrayPool<uint>.Shared.Rent(1 << 13);'),
+    ('Sa/SaBuilder.cs', 'F62', 'the PH3 figure of the scratch peak is that of PH1', 'Ph23ScratchPeakBytes = io2.ScratchPeakBytes,', 'Ph23ScratchPeakBytes = ph1ScratchPeak,'),
 ]
 by_file = {}
 bad = 0

@@ -27,6 +27,15 @@
   "closed_by": "SaGap1b9cTests.AFailureInTheMiddleOfTheScanOfAPartition_ClosesEveryWriterThatHoldsAFile"
  },
  {
+  "id": "H65",
+  "desc": "Partition: the chunk is not returned",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs",
+  "old": "                if (chunk is not null) ArrayPool<uint>.Shared.Return(chunk);",
+  "new": "",
+  "filter": "",
+  "closed_by": "SaPositionGap1b9cTests.ThePartition_GivesItsReadChunkBackToThePool_WhenItEnds"
+ },
+ {
   "id": "H66",
   "desc": "Partition: the children of a failed hand-over are not disposed",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs",

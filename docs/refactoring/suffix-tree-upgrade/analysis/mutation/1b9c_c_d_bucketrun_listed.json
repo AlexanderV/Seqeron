@@ -5,7 +5,7 @@
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/BucketRun.cs",
   "old": "            Ledger.Remove(bytes);\n            DeleteQuietly(path);\n            throw;",
   "new": "            Ledger.Remove(bytes);\n            throw;",
-  "filter": "(FullyQualifiedName~BucketRunTests|FullyQualifiedName~ExternalDcsTests)",
-  "orig": "d_B04"
+  "filter": "",
+  "closed_by": "SaGap1b9cTests.AWriteOfARun_ThatFailsWithADiskFull_GivesTheBytesBack_AndLeavesNoFile"
  }
 ]

@@ -1,0 +1,11 @@
+[
+ {
+  "id": "C38",
+  "desc": "TiedComparer is the full comparison",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs",
+  "old": "public int Compare(uint x, uint y) => order.CompareTied(x, y);",
+  "new": "public int Compare(uint x, uint y) => order.Compare(x, y);",
+  "filter": "",
+  "closed_by": "SaSortStatsGap1b9cTests.ALeafOfEqualKeys_IsSortedByTheTiedComparison_AndTheSortCountsEveryOneOfThem"
+ }
+]

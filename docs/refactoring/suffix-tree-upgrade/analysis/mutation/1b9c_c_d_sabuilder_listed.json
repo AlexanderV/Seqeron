@@ -1,5 +1,68 @@
 [
  {
+  "id": "Q100",
+  "desc": "Build: the final length is not checked",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "old": "                CheckLength(saPath!, n);\n",
+  "new": "",
+  "filter": "",
+  "closed_by": "SaBuildGap1b9cTests.AnOutputThatChangedItsLengthDuringTheBuild_IsRefused_AndRemoved"
+ },
+ {
+  "id": "Q102",
+  "desc": "Build: the verdict is Within when above the cap",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "old": "verdict = mb <= options.RssAnonCapMb ? RssVerdict.Within : RssVerdict.Exceeded;",
+  "new": "verdict = mb < options.RssAnonCapMb ? RssVerdict.Within : RssVerdict.Exceeded;",
+  "filter": "",
+  "closed_by": "SaBuildGap1b9cTests.TheRssAnonFigures_AreInMegabytesOfTenToTheSixth_AndTheVerdictIsWithinAtTheCapItself"
+ },
+ {
+  "id": "Q104",
+  "desc": "Build: the RSS figure is in KiB",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "old": "double? anonMb = all.Available ? all.MaxRssAnonKb * 1024.0 / 1e6 : null;",
+  "new": "double? anonMb = all.Available ? all.MaxRssAnonKb : null;",
+  "filter": "",
+  "closed_by": "SaBuildGap1b9cTests.TheRssAnonFigures_AreInMegabytesOfTenToTheSixth_AndTheVerdictIsWithinAtTheCapItself"
+ },
+ {
+  "id": "Q106",
+  "desc": "Build: the PH3 RSS figure is from PH1",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "old": "Ph23RssAnonPeakMb = rssPh3.Available ? rssPh3.MaxRssAnonKb * 1024.0 / 1e6 : null,",
+  "new": "Ph23RssAnonPeakMb = rssPh1.Available ? rssPh1.MaxRssAnonKb * 1024.0 / 1e6 : null,",
+  "filter": "",
+  "closed_by": "SaBuildGap1b9cTests.TheRssAnonFigureOfPh3_IsThatOfPh3_NotThatOfPh1"
+ },
+ {
+  "id": "Q112",
+  "desc": "Build: the PH1 time includes PH3",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "old": "double ph1Seconds = Seconds(t0);",
+  "new": "double ph1Seconds = Seconds(t0) + 1;",
+  "filter": "",
+  "closed_by": "SaBuildGap1b9cTests.TheSecondsOfThePhases_AreMeasuredWithinTheBuild_AndAddUpToNoMoreThanItsWallTime"
+ },
+ {
+  "id": "Q116",
+  "desc": "Build: the scratch bytes of a failed build are not given back",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "old": "            ledger.ReleaseAll();\n            if (saCreated)",
+  "new": "            if (saCreated)",
+  "filter": "",
+  "closed_by": "SaBuildGap1b9cTests.ABuildThatFailsAfterTheRankFile_GivesItsScratchBytesBack_AtThePointWhereThePhaseBegins_AndInTheMiddleOfPh3"
+ },
+ {
+  "id": "Q126",
+  "desc": "Build: the period is the nominal one",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "old": "Period = cover.Period,",
+  "new": "Period = options.Period,",
+  "filter": "",
+  "closed_by": "SaBuildGap1b9cTests.TheResultNamesThePeriodOfTheCoverThatWasUsed_NotTheOneThatWasAskedFor"
+ },
+ {
   "id": "Q64",
   "desc": "Build: PH1 threads",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
@@ -34,5 +97,59 @@
   "new": "                    Oversample = p.Oversample,\n                    Threads = 1,",
   "filter": "",
   "closed_by": "SaGap1b9cTests.TheThreadCountOfTheBuild_ReachesPh1AndPh3_TwoTasksOfEachRunAtTheSameTime"
+ },
+ {
+  "id": "Q88",
+  "desc": "Build: PH3 scratch directory",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "old": "ScratchDir = ph3,\n                    SpillBytes",
+  "new": "ScratchDir = ph1,\n                    SpillBytes",
+  "filter": "",
+  "closed_by": "SaBuildGap1b9cTests.ThePositionFilesOfPh3_AreInTheDirectoryOfPh3_AndThePhaseSeesTheHookOfTheBuild"
+ },
+ {
+  "id": "Q92",
+  "desc": "Build: PH3 arena guards",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "old": "                    ArenaGuards = options.ArenaGuards,\n                    Counters = counters,\n                    Trace",
+  "new": "                    Counters = counters,\n                    Trace",
+  "filter": "",
+  "closed_by": "SaGap1b9cTests.TheGuardOption_ReachesPh1_AndPh3_EachOnItsOwn"
+ },
+ {
+  "id": "Q94",
+  "desc": "Build: PH3 trace",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "old": "                    Trace = options.Trace,\n                }, section is null ?",
+  "new": "                }, section is null ?",
+  "filter": "",
+  "closed_by": "SaBuildGap1b9cTests.ThePositionFilesOfPh3_AreInTheDirectoryOfPh3_AndThePhaseSeesTheHookOfTheBuild"
+ },
+ {
+  "id": "Q97",
+  "desc": "Build: the output is not completed",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "old": "            saFile.Complete(options.SyncOutput, counters);\n",
+  "new": "",
+  "filter": "",
+  "closed_by": "SaBuildGap1b9cTests.TheOutputIsSyncedOnce_WithTheOption_AndNeverWithout"
+ },
+ {
+  "id": "Q98",
+  "desc": "Build: the output is always synced",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "old": "saFile.Complete(options.SyncOutput, counters);",
+  "new": "saFile.Complete(true, counters);",
+  "filter": "",
+  "closed_by": "SaBuildGap1b9cTests.TheOutputIsSyncedOnce_WithTheOption_AndNeverWithout"
+ },
+ {
+  "id": "Q99",
+  "desc": "Build: the output is never synced",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "old": "saFile.Complete(options.SyncOutput, counters);",
+  "new": "saFile.Complete(false, counters);",
+  "filter": "",
+  "closed_by": "SaBuildGap1b9cTests.TheOutputIsSyncedOnce_WithTheOption_AndNeverWithout"
  }
 ]

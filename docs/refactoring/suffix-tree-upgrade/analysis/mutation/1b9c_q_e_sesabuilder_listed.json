@@ -1,0 +1,26 @@
+[
+ {
+  "id": "B108",
+  "desc": "PSI gets no window cap",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "old": "WindowCapBytes = options.Ph6CapBytes,",
+  "new": "WindowCapBytes = long.MaxValue,",
+  "filter": ""
+ },
+ {
+  "id": "B120",
+  "desc": "the container is not completed",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "old": "            container.Complete(fsync: false);\n",
+  "new": "",
+  "filter": ""
+ },
+ {
+  "id": "B122",
+  "desc": "the text reader is disposed but not cleared",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "old": "            text.Dispose();\n            text = null;\n",
+  "new": "            text.Dispose();\n",
+  "filter": ""
+ }
+]

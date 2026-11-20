@@ -5,7 +5,7 @@
    The line written is the classification: assertion (a test fails on its own, the run ends), crash (the host dies: the exception and the last test that was running), hang (a test does not end: the last test running), none
    (nothing failed: the mutant survived this time, so the earlier kill was the environment), with the names of all failing tests.
    usage: rerun_1b9c_hang.py <worktree> <list.json> <result.tsv> [A]   (the list holds the mutants: id, desc, file, old, new, filter)
-   environment: HANG_TEST_S (seconds per test before the host is killed, default 150), RUN_LIMIT_S (default 1800), MUTANT_TMPDIR"""
+   environment: HANG_TEST_S (seconds per test before the host is killed, default 150), RUN_LIMIT_S (default 1800), MUTANT_TMPDIR, CHECKED=1 (the checked build and ESA_EXPECT_BOUNDS=true: the second pass over the crashes and hangs of the first)"""
 import glob, json, os, re, signal, subprocess, sys, time, xml.etree.ElementTree as ET
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from mutlib_1b9c import seeing_classes
@@ -24,6 +24,9 @@ PROJ = ROOT + '/tests/SuffixTree/SuffixTree.Esa.Tests/SuffixTree.Esa.Tests.cspro
 RESULTS = '/dev/shm/1b9c-blame'
 NOT_HEAVY = 'TestCategory!=Exhaustive&TestCategory!=Fuzz&TestCategory!=Cost'
 FLAGS = ['-p:RunAnalyzers=false', '-p:EnforceCodeStyleInBuild=false', '-p:TreatWarningsAsErrors=false']
+if os.environ.get('CHECKED') == '1':  # the checked build (-p:EsaBounds=true, ESA_EXPECT_BOUNDS=true): the reads of the text and of the tables are bounds-checked, so a wrong cursor is an exception where the production build reads outside its mapping
+    FLAGS += ['-p:EsaBounds=true']
+    env['ESA_EXPECT_BOUNDS'] = 'true'
 
 
 def sh(args, limit):
@@ -53,13 +56,13 @@ def last_running(dirpath):
 def classify(txt, hung):
     failed = re.findall(r'^\s+Failed (\S+)', txt, re.M)
     crashed = 'Test host process crashed' in txt or 'test run was aborted' in txt.lower() or 'aborted' in txt.lower() and 'Failed!' not in txt and 'Passed!' not in txt
-    mm = re.search(r'(Stack overflow|Fatal error[^\n]*|System\.\w+Exception[^\n]{0,80}|OutOfMemory[^\n]{0,60}|Segmentation fault[^\n]*|Aborted[^\n]*)', txt)
+    mm = re.search(r'(Stack overflow|Fatal error\.?[^\n]*\n[^\n]{0,160}|Fatal error[^\n]*|System\.\w+Exception[^\n]{0,80}|OutOfMemory[^\n]{0,60}|Segmentation fault[^\n]*|Aborted[^\n]*)', txt)
     if hung:
-        return 'run-limit', failed, mm.group(1) if mm else ''
+        return 'run-limit', failed, mm.group(1).replace(chr(10), ' ').replace(chr(9), ' ') if mm else ''
     if 'hang' in txt.lower() and 'blame' in txt.lower() and 'testhost' in txt.lower() and ('was killed' in txt.lower() or 'timeout' in txt.lower() and 'hang' in txt.lower()):
         return 'hang', failed, ''
     if crashed:
-        return 'crash', failed, mm.group(1) if mm else ''
+        return 'crash', failed, mm.group(1).replace(chr(10), ' ').replace(chr(9), ' ') if mm else ''
     if 'Failed!' in txt:
         return 'assertion', failed, ''
     if 'Passed!' in txt:
@@ -96,7 +99,7 @@ for m in mutants:
                 txt, hung = sh(args, RUN_LIMIT)
                 kind, failed, why = classify(txt, hung)
                 where = last_running(shutil_dir) if kind in ('crash', 'hang', 'run-limit') else ''
-                line = [kid, m['desc'], kind, ','.join(x.split('.')[-1][:70] for x in failed[:6]), why[:90], where[:110], '%d' % (time.time() - t0)]
+                line = [kid, m['desc'], kind, ','.join(x.split('.')[-1][:70] for x in failed[:6]), why[:220], where[:110], '%d' % (time.time() - t0)]
     finally:
         open(path, 'w').write(orig)
         subprocess.run(['git', '-C', ROOT, 'checkout', '--', m['file']], env=env)

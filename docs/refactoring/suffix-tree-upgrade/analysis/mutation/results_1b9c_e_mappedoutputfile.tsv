@@ -8,3 +8,4 @@ G16	the failed mapping does not undo the growth	survived			9
 G18	the new mapping is not used	killed(6 failed: EveryEntryOfTheTable_IsAsChosen_ForEveryWidthOfTheLcp,Grow_ReleasesTheOldMapping_SoNoHandleOfTheFileOutlivesTheFil,TheCountedCalls_OfATextWithAnOverflowList_ArePinned)[listed]			7
 G20	the outcome is always checked	killed(1 failed: Grow_ChecksTheFreeSpaceOfTheVolume_AndAFailureLeavesTheFileU)[listed]			9
 G22	the source of the options is ignored	killed(2 failed: Grow_ChecksTheFreeSpaceOfTheVolume_AndAFailureLeavesTheFileU,Grow_WithNoRoomAtAll_ReportsADiskThatIsFull)[listed]			9
+G14	the file is not made longer	killed(6 failed: EveryEntryOfTheTable_IsAsChosen_ForEveryWidthOfTheLcp,Grow_ReleasesTheOldMapping_SoNoHandleOfTheFileOutlivesTheFil,TheCountedCalls_OfATextWithAnOverflowList_ArePinned)[listed]			10

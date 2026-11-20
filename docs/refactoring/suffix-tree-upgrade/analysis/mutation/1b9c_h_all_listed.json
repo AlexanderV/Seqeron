@@ -153,6 +153,16 @@
   "package": "e"
  },
  {
+  "id": "B20",
+  "desc": "RunReader: a used-up run is read again",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/BucketRun.cs",
+  "old": "if (_consumed >= run.Count) return false;",
+  "new": "if (_consumed > run.Count) return false;",
+  "filter": "(FullyQualifiedName~BucketRunTests|FullyQualifiedName~ExternalDcsTests)",
+  "orig": "d_B20",
+  "package": "d"
+ },
+ {
   "id": "H02",
   "desc": "Run: no upper bound on K",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs",
@@ -160,6 +170,16 @@
   "new": "",
   "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests)",
   "orig": "d_H02",
+  "package": "d"
+ },
+ {
+  "id": "D24",
+  "desc": "Witness: the table is filled with 0",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs",
+  "old": "Array.Fill(Witness, -1);",
+  "new": "Array.Fill(Witness, 0);",
+  "filter": "(FullyQualifiedName~DifferenceCoverTests|FullyQualifiedName~SampleGeometryTests|FullyQualifiedName~ExternalDcsTests)",
+  "orig": "d_D24",
   "package": "d"
  },
  {
@@ -203,6 +223,26 @@
   "package": "d"
  },
  {
+  "id": "M54",
+  "desc": "Split: the splitters are the first quantile",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "old": "int i = (int)((long)t * size / fan);",
+  "new": "int i = (int)((long)(t - 1) * size / fan);",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)",
+  "orig": "d_M54",
+  "package": "d"
+ },
+ {
+  "id": "M58",
+  "desc": "Split: the first child has no lower bound of its own",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "old": "NamingBound? prev = task.Lo;",
+  "new": "NamingBound? prev = null;",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)",
+  "orig": "d_M58",
+  "package": "d"
+ },
+ {
   "id": "P06",
   "desc": "WorkPool: a task is not counted as active when taken",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/SeededRandom.cs",
@@ -210,6 +250,46 @@
   "new": "                    return true;",
   "filter": "(FullyQualifiedName~SaPlumbingTests|FullyQualifiedName~ExternalDcsTests)",
   "orig": "d_P06",
+  "package": "d"
+ },
+ {
+  "id": "C22",
+  "desc": "CompareCore: the offset is not made positive",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs",
+  "old": "        if (l < 0) l += x;\n",
+  "new": "",
+  "filter": "(FullyQualifiedName~SuffixOrderTests|FullyQualifiedName~BucketSorterTests)",
+  "orig": "d_C22",
+  "package": "d"
+ },
+ {
+  "id": "C24",
+  "desc": "CompareCore: the offset is the residue difference the other way",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs",
+  "old": "int l = a - (int)ri;",
+  "new": "int l = (int)ri - a;",
+  "filter": "(FullyQualifiedName~SuffixOrderTests|FullyQualifiedName~BucketSorterTests)",
+  "orig": "d_C24",
+  "package": "d"
+ },
+ {
+  "id": "W42",
+  "desc": "the output buffer is one entry short",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/BwtPass.cs",
+  "old": "Buf<byte> outBuf = arena.Allocate<byte>(readEntries,",
+  "new": "Buf<byte> outBuf = arena.Allocate<byte>(Math.Max(1, readEntries - 1),",
+  "filter": "(FullyQualifiedName~Ph6Tests|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SesaSectionTests.ATextAbove|FullyQualifiedName~SesaAuditTests)",
+  "orig": "e_W42",
+  "package": "e"
+ },
+ {
+  "id": "M81",
+  "desc": "MergeSort: binary insertion up to seven",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "old": "if (n <= 6)\n            {\n                for (int i = 1; i < n; i++)\n                {\n                    uint v = a[i];",
+  "new": "if (n <= 7)\n            {\n                for (int i = 1; i < n; i++)\n                {\n                    uint v = a[i];",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)",
+  "orig": "d_M81",
   "package": "d"
  }
 ]

@@ -5,7 +5,7 @@
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
   "old": "            ls.MergeSeconds = Seconds(t0);\n            o.Trace?.Invoke(\"rank-written\");\n            return;",
   "new": "            ls.MergeSeconds = Seconds(t0);\n            return;",
-  "filter": "(FullyQualifiedName~SaGap1b9cTests|FullyQualifiedName~SesaGap1b9cTests)"
+  "filter": "(FullyQualifiedName~Gap1b9cTests)"
  },
  {
   "id": "F13",
@@ -13,7 +13,7 @@
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
   "old": "            ls.BelowSeconds = Seconds(t0);\n            o.Trace?.Invoke(\"rank-written\");\n            return;",
   "new": "            ls.BelowSeconds = Seconds(t0);\n            return;",
-  "filter": "(FullyQualifiedName~SaGap1b9cTests|FullyQualifiedName~SesaGap1b9cTests)"
+  "filter": "(FullyQualifiedName~Gap1b9cTests)"
  },
  {
   "id": "F14",
@@ -21,7 +21,7 @@
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
   "old": "        ls.BelowSeconds = Seconds(t0);\n        o.Trace?.Invoke(\"rank-written\");\n    }",
   "new": "        ls.BelowSeconds = Seconds(t0);\n    }",
-  "filter": "(FullyQualifiedName~SaGap1b9cTests|FullyQualifiedName~SesaGap1b9cTests)"
+  "filter": "(FullyQualifiedName~Gap1b9cTests)"
  },
  {
   "id": "F15",
@@ -29,6 +29,6 @@
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
   "old": "if (text.Length > PackedTextFormat.MaxSymbols) throw new NotSupportedException",
   "new": "if (text.Length >= PackedTextFormat.MaxSymbols) throw new NotSupportedException",
-  "filter": "(FullyQualifiedName~SaGap1b9cTests|FullyQualifiedName~SesaGap1b9cTests)"
+  "filter": "(FullyQualifiedName~Gap1b9cTests)"
  }
 ]

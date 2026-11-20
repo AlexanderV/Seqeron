@@ -1,32 +1,5 @@
 [
  {
-  "id": "M06",
-  "desc": "Run: the root is a leaf one record early",
-  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
-  "old": "_g.Samples > _o.BucketCapacity, 1)",
-  "new": "_g.Samples >= _o.BucketCapacity, 1)",
-  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)",
-  "orig": "d_M06"
- },
- {
-  "id": "M18",
-  "desc": "Merge: a short count of records is accepted",
-  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
-  "old": "if (got != end - start) throw",
-  "new": "if (got > end - start) throw",
-  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)",
-  "orig": "d_M18"
- },
- {
-  "id": "M52",
-  "desc": "Split: the fan-out is the cap only",
-  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
-  "old": "int fan = (int)Math.Min(Math.Max(2, ((2 * count) + bucket - 1) / bucket), Math.Max(2, owner._o.FanOut));",
-  "new": "int fan = Math.Max(2, owner._o.FanOut);",
-  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)",
-  "orig": "d_M52"
- },
- {
   "id": "M56",
   "desc": "Split: the children are pushed first to last",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",

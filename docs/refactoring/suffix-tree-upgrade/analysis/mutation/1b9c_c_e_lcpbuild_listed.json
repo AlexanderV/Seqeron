@@ -1,5 +1,14 @@
 [
  {
+  "id": "V10",
+  "desc": "a failed overflow writer leaves the base writer open",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs",
+  "old": "                catch\n                {\n                    baseWriter.Dispose();\n                    throw;\n                }",
+  "new": "                catch\n                {\n                    throw;\n                }",
+  "filter": "",
+  "closed_by": "SesaGap1b9cTests.AnOverflowRangeThatLiesOutsideTheContainer_LeavesNoWriterOpenOnTheFile"
+ },
+ {
   "id": "V11",
   "desc": "a failed output writer leaves the writers open",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs",

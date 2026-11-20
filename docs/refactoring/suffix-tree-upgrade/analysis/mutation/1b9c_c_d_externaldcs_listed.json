@@ -1,5 +1,23 @@
 [
  {
+  "id": "A05",
+  "desc": "BaseCase: the chunk is not bounded by the slots",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
+  "old": "Buf<uint> chunk = arena.Allocate<uint>((int)Math.Min(chunkSlots, slots), zero: false, \"base.chunk\");",
+  "new": "Buf<uint> chunk = arena.Allocate<uint>((int)chunkSlots, zero: false, \"base.chunk\");",
+  "filter": "",
+  "closed_by": "SaDcsGap1b9cTests.TheBaseCase_AllocatesNoMoreThanTheSlotsOfTheRankFile_WhenAChunkIsLarger"
+ },
+ {
+  "id": "A07",
+  "desc": "BaseCase: the reservation is not recorded",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
+  "old": "if (level == 0) c.Stats.Reservation = file.Outcome;",
+  "new": "",
+  "filter": "",
+  "closed_by": "SaDcsGap1b9cTests.TheBaseCaseOfLevelZero_ReportsWhatTheCreationOfTheRankFileDidAboutTheDiskSpace"
+ },
+ {
   "id": "A08",
   "desc": "BaseCase: the rank file is not marked as touched",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
@@ -18,13 +36,22 @@
   "closed_by": "SaGap1b9cTests.ATextAboveTheLimitOfThePositions_IsRefusedAtTheEntryOfPh1AndPh3_BeforeTheScratchIsTouched"
  },
  {
+  "id": "E14",
+  "desc": "BuildRankFile: the failed rank file is left",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
+  "old": "if (context.RankTouched) RunStore.DeleteQuietly(rankPath);",
+  "new": "",
+  "filter": "",
+  "closed_by": "SaGap1b9cTests.AFailureAfterTheRankFileOfLevelZeroWasWritten_RemovesTheFile_InEveryWayThatLevelZeroEnds"
+ },
+ {
   "id": "L14",
   "desc": "BuildLevel: the sort spill has no floor",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
   "old": "SpillBytes = Math.Max(64, o.IoBufferBytes),",
   "new": "SpillBytes = o.IoBufferBytes,",
   "filter": "",
-  "closed_by": "SaGap1b9cTests.ThePositionFilesOfTheSortOfALevel_CarryTheTagOfTheBuild_AtEveryPointOfTheBuild"
+  "closed_by": "SaGap1b9cTests.TheSortOfALevel_SpillsAtLeast64BytesWhateverTheIoBufferIs_SoTinyBuffersAndTheFloorGiveTheSameFiles"
  },
  {
   "id": "L15",
@@ -43,6 +70,15 @@
   "new": "Files = null,",
   "filter": "",
   "closed_by": "SaGap1b9cTests.TheFileOptions_ReachTheRankFileAndTheSuffixArrayFileOfTheLevelBelow"
+ },
+ {
+  "id": "L28",
+  "desc": "BuildLevel: the naming statistics are not timed",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
+  "old": "ls.NamingSeconds = Seconds(t0);",
+  "new": "",
+  "filter": "",
+  "closed_by": "SaDcsGap1b9cTests.EveryLevel_CountsTheSecondsOfItsNamingAndOfItsMerge_AndEveryLevelBelowItsOwnWork"
  },
  {
   "id": "L29",
