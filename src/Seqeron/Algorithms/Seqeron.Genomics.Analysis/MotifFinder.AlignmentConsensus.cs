@@ -158,11 +158,25 @@ public static partial class MotifFinder
             rows = MaterializeAligned(alignedSequences, nameof(alignedSequences));
         }
 
-        int nseqs = rows.Count;
-        if (nseqs < 2)
+        if (rows.Count < 2)
             throw new ArgumentException(
-                $"Insufficient sequences ({nseqs}) to create a consensus; EMBOSS cons requires at least 2.",
+                $"Insufficient sequences ({rows.Count}) to create a consensus; EMBOSS cons requires at least 2.",
                 nameof(alignedSequences));
+        return EmbossConsensusCore(rows, residueType, plurality, identity, setcase, weights, gaps: false, keepCase: false, writeAsNucleotide: true, null, nameof(alignedSequences));
+    }
+
+    /// <summary>
+    /// The EMBOSS <c>embConsCalc</c> consensus (<c>nucleus/embcons.c</c>) of already materialised rows, shared by <c>cons</c> and <c>showalign</c>.
+    /// </summary>
+    /// <param name="gaps"><c>embConsCalc</c>'s <c>gaps</c>: gap characters count as a residue (code 0) in the identical / matching weights, so a column can come out as a gap (showalign <c>-gaps</c>, default true there; <c>cons</c> passes false).</param>
+    /// <param name="keepCase">Keep the case of the input letters (showalign does not upper-case the set; <c>cons</c> does): the consensus letter is the letter of the winning row.</param>
+    /// <param name="writeAsNucleotide"><c>cons</c> writes the consensus through <c>ajSeqSetNuc</c>, which exchanges <c>x</c> for <c>n</c>; showalign shows the raw string.</param>
+    /// <param name="matrixOverride">Scoring matrix (showalign <c>-matrix</c>); null = EDNAFULL for a nucleotide set, EBLOSUM62 otherwise.</param>
+    internal static string EmbossConsensusCore(
+        List<string> rows, ConsensusResidueType residueType, float? plurality, int identity, float? setcase, IReadOnlyList<float>? weights,
+        bool gaps, bool keepCase, bool writeAsNucleotide, SubstitutionMatrix? matrixOverride, string paramName)
+    {
+        int nseqs = rows.Count;
 
         var w = new float[nseqs];
         if (weights is null)
@@ -192,7 +206,7 @@ public static partial class MotifFinder
         bool nucleotide = residueType == ConsensusResidueType.Auto
             ? IsEmbossNucleotideSequence(rows[0])
             : residueType == ConsensusResidueType.Nucleotide;
-        var table = nucleotide ? SubstitutionMatrix.EdnaFull : SubstitutionMatrix.Blosum62;
+        var table = matrixOverride ?? (nucleotide ? SubstitutionMatrix.EdnaFull : SubstitutionMatrix.Blosum62);
         string labels = table.Alphabet;
         var matrix = new int[labels.Length, labels.Length];
         for (int a = 0; a < labels.Length; a++)
@@ -203,10 +217,14 @@ public static partial class MotifFinder
         // ajSeqcvtNewStr: label i → code i + 1 (both cases); every other character → 0.
         var codeOf = new int[128];
         for (int i = 0; i < labels.Length; i++)
-            codeOf[labels[i]] = i + 1;
+        {
+            codeOf[char.ToUpperInvariant(labels[i])] = i + 1;
+            codeOf[char.ToLowerInvariant(labels[i])] = i + 1;
+        }
+
         int matsize = labels.Length + 1;
 
-        var chars = NormalizedAlignmentChars(rows, residueType, nucleotide, nameof(alignedSequences));
+        var chars = NormalizedAlignmentChars(rows, residueType, nucleotide, paramName, keepCase);
         int mlen = rows[0].Length;
         var codes = new int[nseqs][];
         for (int s = 0; s < nseqs; s++)
@@ -228,11 +246,11 @@ public static partial class MotifFinder
             Array.Clear(matching);
             Array.Clear(score);
 
-            // Column scores (gaps = false in cons: code 0 contributes nothing).
+            // Column scores (gaps = false in cons: code 0 contributes nothing; embConsCalc with gaps counts the gap code too).
             for (int i = 0; i < nseqs; i++)
             {
                 int m1 = codes[i][k];
-                if (m1 != 0)
+                if (m1 != 0 || gaps)
                     identical[m1] += w[i];
 
                 for (int j = i + 1; j < nseqs; j++)
@@ -271,6 +289,8 @@ public static partial class MotifFinder
                     int m2 = codes[j][k];
                     if (m1 != 0 && m2 != 0 && matrix[m1 - 1, m2 - 1] > 0)
                         matching[m1] += w[j];
+                    if (gaps && m1 == 0 && m2 == 0)
+                        matching[m1] += w[j];
                 }
             }
 
@@ -306,7 +326,7 @@ public static partial class MotifFinder
             // cons.c writes the consensus as a nucleotide sequence when ajSeqsetIsNuc, and
             // ajSeqSetNuc exchanges x/X for n/N: an unscored X (from '?' under -snucleotide, or
             // from a protein-looking row under Auto) emitted with plurality <= 0 is written as N.
-            if (nucleotide && res is 'X' or 'x')
+            if (writeAsNucleotide && nucleotide && res is 'X' or 'x')
                 res = res == 'X' ? 'N' : 'n';
 
             consensus.Append(res);
@@ -319,7 +339,7 @@ public static partial class MotifFinder
     /// The alignment as the EMBOSS sequence reader hands it to <c>cons</c> / <c>consambig</c>: upper case, gaps <c>.</c> <c>~</c> → <c>-</c>, <c>?</c> → <c>X</c> (<c>N</c> in a nucleotide-typed row), <c>X</c> → <c>N</c> in a nucleotide row.
     /// Auto: every row is typed on its own (ajSeqType); an explicit type applies to all rows.
     /// </summary>
-    private static char[][] NormalizedAlignmentChars(List<string> rows, ConsensusResidueType residueType, bool nucleotide, string paramName)
+    internal static char[][] NormalizedAlignmentChars(List<string> rows, ConsensusResidueType residueType, bool nucleotide, string paramName, bool keepCase = false)
     {
         int mlen = rows[0].Length;
         var chars = new char[rows.Count][];
@@ -332,7 +352,7 @@ public static partial class MotifFinder
                 ? IsEmbossNucleotideSequence(rows[s])
                 : nucleotide;
             for (int k = 0; k < mlen; k++)
-                chars[s][k] = NormalizeEmbossResidue(rows[s][k], rowNucleotide, residueType == ConsensusResidueType.Auto, s, k, paramName);
+                chars[s][k] = NormalizeEmbossResidue(rows[s][k], rowNucleotide, residueType == ConsensusResidueType.Auto, s, k, paramName, keepCase);
         }
 
         return chars;
@@ -370,7 +390,8 @@ public static partial class MotifFinder
     /// <param name="row">Row index (error message).</param>
     /// <param name="column">Column index (error message).</param>
     /// <param name="paramName">Parameter name (error message).</param>
-    private static char NormalizeEmbossResidue(char c, bool nucleotide, bool typedOnRead, int row, int column, string paramName)
+    /// <param name="keepCase">Keep a lower-case letter lower case (showalign does not upper-case the alignment).</param>
+    private static char NormalizeEmbossResidue(char c, bool nucleotide, bool typedOnRead, int row, int column, string paramName, bool keepCase = false)
     {
         if (c is '-' or '.' or '~')
             return '-';
@@ -378,10 +399,14 @@ public static partial class MotifFinder
             return '*';
         if (c == '?')
             return nucleotide && typedOnRead ? 'N' : 'X';
-        if (c is >= 'a' and <= 'z')
+        bool lower = c is >= 'a' and <= 'z';
+        if (lower)
             c = (char)(c - 'a' + 'A');
         if (c is >= 'A' and <= 'Z')
-            return nucleotide && c == 'X' ? 'N' : c;
+        {
+            char letter = nucleotide && c == 'X' ? 'N' : c;
+            return lower && keepCase ? char.ToLowerInvariant(letter) : letter;
+        }
         throw new ArgumentException(
             $"Invalid alignment character '{c}' at position {column} in sequence {row}.",
             paramName);

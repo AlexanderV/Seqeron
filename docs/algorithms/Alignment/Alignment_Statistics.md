@@ -214,6 +214,10 @@ EMBOSS HBA vs HBB [2] (reproduced with the real BLOSUM62 table): L = 149, M = 65
 - Evidence: [ALIGN-STATS-001-Evidence.md](../../../docs/Evidence/ALIGN-STATS-001-Evidence.md)
 - Related algorithms: [Global_Alignment_Needleman_Wunsch](../Alignment/Global_Alignment_Needleman_Wunsch.md)
 
+### 7.x EMBOSS `showalign` (A3-13c, B09 F148)
+
+`MultipleAlignmentDisplay.ShowAlign(names, rows, ShowAlignOptions)` / MCP `showalign` renders an alignment as the program does: blocks of `width` columns with the position-number line (every 10th column; relative to the reference residues with `-n` / `+n` flanks when a row is the reference), the tick ruler (`|` every 10th, `:` every 5th, `.` at reference gaps, `V` / `v` flank ticks), the reference row, the other rows converted against the reference (`show` N / I / S / D / A with the case-encodes-similarity rule, `.` for suppressed residues) in `order` I / A / S, and the consensus (the `cons` algorithm with the gap option, case kept) at the bottom or top. 600 / 600 random cases equal `showalign` 6.6.0. Not ported: `-html`, `-highlight`.
+
 ## 8. References
 
 1. Rice P, Longden I, Bleasby A. 2000. EMBOSS: The European Molecular Biology Open Software Suite. *Trends in Genetics* 16(6):276–277. https://doi.org/10.1016/S0168-9525(00)02024-2

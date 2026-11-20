@@ -1407,6 +1407,13 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MotifFinder.OligoAnalysis.cs#L140"
   },
   {
+    "tool": "showalign",
+    "server": "Analysis",
+    "methodId": "MultipleAlignmentDisplay.ShowAlign",
+    "docPath": "docs/mcp/tools/analysis/showalign.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MultipleAlignmentDisplay.cs"
+  },
+  {
     "tool": "spaced_word_distance",
     "server": "Analysis",
     "methodId": "KmerAnalyzer.SpacedWordDistance",

@@ -83,7 +83,7 @@
 | `water_align` | `SequenceAligner.WaterAlign` | [doc](../../mcp/tools/alignment/water_align.md) |
 | `write_alignment` | `EmbossAlignmentWriter.Format` | [doc](../../mcp/tools/alignment/write_alignment.md) |
 
-## Analysis (137 tools)
+## Analysis (138 tools)
 
 | tool | Method ID | doc |
 |------|-----------|-----|
@@ -214,6 +214,7 @@
 | `scan_with_pwm_both_strands` | `MotifFinder.ScanWithPwmBothStrands` | [doc](../../mcp/tools/analysis/scan_with_pwm_both_strands.md) |
 | `seqmatchall` | `GenomicAnalyzer.SeqMatchAll` | [doc](../../mcp/tools/analysis/seqmatchall.md) |
 | `shared_motifs_significance` | `MotifFinder.FindSharedMotifs` | [doc](../../mcp/tools/analysis/shared_motifs_significance.md) |
+| `showalign` | `MultipleAlignmentDisplay.ShowAlign` | [doc](../../mcp/tools/analysis/showalign.md) |
 | `spaced_word_distance` | `KmerAnalyzer.SpacedWordDistance` | [doc](../../mcp/tools/analysis/spaced_word_distance.md) |
 | `standardize_repeat_motif` | `RepeatFinder.GetStandardMotif` | [doc](../../mcp/tools/analysis/standardize_repeat_motif.md) |
 | `stem_energy` | `RnaSecondaryStructure.CalculateStemEnergy` | [doc](../../mcp/tools/analysis/stem_energy.md) |

@@ -110,3 +110,5 @@ Yes. Single O(L) pass classifies each column: gap if either char is `-`; else id
 ## 2026-11 audit round 1 (A1-9, B09 F42/F43)
 
 BLAST+ integer percentages / `BlastPositives` / `pident` text / report line on `AlignmentStatistics` and `MultipleAlignmentStatistics` (infoalign, distmat, ClustalW conservation, pairwise identity) with MCP `multiple_alignment_statistics`, `alignment_distance_matrix` and the BLAST fields of `alignment_statistics`; oracle BLAST+ 2.12.0 (320 HSPs), infoalign/distmat 6.6.0, ClustalW 2.1, Biopython 1.88. Details: B09.md F42/F43, algorithm doc §5.5-5.6.
+
+- **Audit r3 (A3-13c, F148):** EMBOSS `showalign` ported (`MultipleAlignmentDisplay.ShowAlign`, MCP `showalign`): 600 / 600 texts equal; the consensus core of `cons` shared (gap option, case kept).

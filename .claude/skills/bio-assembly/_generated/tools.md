@@ -133,6 +133,7 @@
 | `scan_with_pwm_both_strands` | Analysis | `MotifFinder.ScanWithPwmBothStrands` | [doc](../../../../docs/mcp/tools/analysis/scan_with_pwm_both_strands.md) |
 | `seqmatchall` | Analysis | `GenomicAnalyzer.SeqMatchAll` | [doc](../../../../docs/mcp/tools/analysis/seqmatchall.md) |
 | `shared_motifs_significance` | Analysis | `MotifFinder.FindSharedMotifs` | [doc](../../../../docs/mcp/tools/analysis/shared_motifs_significance.md) |
+| `showalign` | Analysis | `MultipleAlignmentDisplay.ShowAlign` | [doc](../../../../docs/mcp/tools/analysis/showalign.md) |
 | `spaced_word_distance` | Analysis | `KmerAnalyzer.SpacedWordDistance` | [doc](../../../../docs/mcp/tools/analysis/spaced_word_distance.md) |
 | `standardize_repeat_motif` | Analysis | `RepeatFinder.GetStandardMotif` | [doc](../../../../docs/mcp/tools/analysis/standardize_repeat_motif.md) |
 | `stem_energy` | Analysis | `RnaSecondaryStructure.CalculateStemEnergy` | [doc](../../../../docs/mcp/tools/analysis/stem_energy.md) |

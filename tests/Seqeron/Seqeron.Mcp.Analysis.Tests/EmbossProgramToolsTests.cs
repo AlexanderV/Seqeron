@@ -24,6 +24,18 @@ public class EmbossProgramToolsTests
     }
 
     [Test]
+    public void ShowAlign_RendersTheAlignmentAsShowalign()
+    {
+        // showalign 6.6.0 on s1 acgtac-gtaGT / s2 acgtaccgtaGA / s3 acctaccgtTGA (default options) and with -show I -refseq 2 (B09 A3-13c, F148)
+        var r = AnalysisTools.ShowAlign(["s1", "s2", "s3"], ["acgtac-gtaGT", "acgtaccgtaGA", "acctaccgtTGA"]);
+        Assert.That(r.Text, Is.EqualTo("                  10  \n          ----:----|--\ns1        ......-....T\ns2        ............\ns3        ..C......T..\nConsensus acgtaccgtaGA\n\n"));
+        var identities = AnalysisTools.ShowAlign(["s1", "s2", "s3"], ["acgtac-gtaGT", "acgtaccgtaGA", "acctaccgtTGA"], refseq: "2", show: "I");
+        Assert.That(identities.Text, Does.Contain("s1        acgtac-gtaG.\ns3        ac.taccgt.GA\nConsensus acgtaccgtaGA\n"));
+        Assert.Throws<ArgumentException>(() => AnalysisTools.ShowAlign(["a", "b"], ["AC", "AC"], show: "Z"));
+        Assert.Throws<ArgumentException>(() => AnalysisTools.ShowAlign(["a", "b"], ["AC", "AC"], uppercase: "x-y"));
+    }
+
+    [Test]
     public void FindTandemRepeatsEmboss_Etandem_ReportsScoreIdentityAndConsensus()
     {
         // etandem -minrepeat 2 -maxrepeat 8 -threshold 10: "33 61 96 3 12 100.0 cag" and "26 137 172 6 6 94.4 acgtta"

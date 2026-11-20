@@ -91,4 +91,68 @@ public partial class AnalysisTools
             .Select(h => new TranslatedPatternHitItem(h.Frame, h.ProteinStart, h.ProteinEnd, h.Translation, h.Position, h.Length, h.EmbossStart, h.EmbossEnd)).ToArray();
         return new FuzztranResult(parsed.ToString(), hits);
     }
+
+    [McpServerTool(Name = "showalign", Title = "Alignment — EMBOSS showalign display", ReadOnly = true)]
+    [Description("EMBOSS 6.6.0 showalign: the pretty text display of a multiple alignment, identical to the program (600 random alignments with random options equal). Every row except the reference is converted against the reference (the consensus unless refseq names a row or a 1-based number): show N (default) non-identities, I identities, S similarities (matrix score > 0), D dissimilarities, A all; '.' marks suppressed residues; similarCase (default true) encodes similarity in the case (non-identity / similarity / all as in the program); order I (input), A (names), S (decreasing similarity to the reference). Per block of width columns (default 60): the position numbers (every 10th, relative to the reference residues when a row is the reference, with -n / +n flanks), the tick ruler, the reference first when it is a row, the rows, the consensus (consensus = false hides it; bottom = false puts it first when it is the reference). The consensus is the EMBOSS cons algorithm (plurality in percent, setCase, identity in percent, gaps: a gap can be the consensus) on the alignment as given (case kept); a lower-case letter of the input is kept lower case. margin = width of the name column (0 = no names, -1 = longest name + 1); uppercase = 1-based column ranges put in upper case, e.g. '3-10,20-25'. The set type is that of the first row (nucleotide: A/C/G/T/U + IUPAC letters); matrix defaults to EDNAFULL / EBLOSUM62; shorter rows are padded with trailing gaps. HTML output and highlight are not provided.")]
+    public static ShowAlignResult ShowAlign(
+        [Description("Sequence names (one per row; the first word is used).")] string[] names,
+        [Description("The aligned sequences (DNA or protein; gaps '-', '.', '~'; case is kept).")] string[] sequences,
+        [Description("Reference: '0' = the consensus (default), a 1-based row number or a sequence name.")] string refseq = "0",
+        [Description("What to show: N non-identities (default), I identities, S similarities, D dissimilarities, A all.")] string show = "N",
+        [Description("Output order of the rows: I input (default), A alphabetical names, S similarity to the reference.")] string order = "I",
+        [Description("Scoring matrix name (EBLOSUM62, EDNAFULL, EPAM250, ...); default by sequence type.")] string? matrix = null,
+        [Description("Case encodes similarity (default true).")] bool similarCase = true,
+        [Description("Show the consensus line (default true).")] bool consensus = true,
+        [Description("Consensus at the bottom (default true) instead of the top.")] bool bottom = true,
+        [Description("Position number line (default true).")] bool number = true,
+        [Description("Tick ruler line (default true).")] bool ruler = true,
+        [Description("Columns per block (default 60).")] int width = 60,
+        [Description("Name column width: -1 = longest name + 1 (default), 0 = no names.")] int margin = -1,
+        [Description("1-based inclusive column ranges to put in upper case, e.g. '3-10,20-25'.")] string? uppercase = null,
+        [Description("Consensus plurality in percent of the total weight (default 50).")] double plurality = 50,
+        [Description("Consensus: weight at or below which the letter is lower case (default half the number of sequences).")] double? setCase = null,
+        [Description("Consensus: percent of identities required at a position (default 0).")] double identity = 0,
+        [Description("A gap character can be the consensus (default true).")] bool gaps = true)
+    {
+        if (names is null || sequences is null || sequences.Length == 0)
+            throw new ArgumentException("Names and sequences are required", nameof(sequences));
+        if (names.Length != sequences.Length)
+            throw new ArgumentException("One name per sequence is required", nameof(names));
+        var ranges = new List<(int, int)>();
+        foreach (var part in (uppercase ?? string.Empty).Split([',', ';', ' '], StringSplitOptions.RemoveEmptyEntries))
+        {
+            var ends = part.Split(['-', ':', '='], StringSplitOptions.RemoveEmptyEntries);
+            if (ends.Length is < 1 or > 2 || !int.TryParse(ends[0], out int a) || !int.TryParse(ends[^1], out int b) || a < 1 || b < a)
+                throw new ArgumentException($"Invalid uppercase range '{part}' (use 3-10)", nameof(uppercase));
+            ranges.Add((a, b));
+        }
+
+        if (show is not { Length: 1 } || "AINSD".IndexOf(char.ToUpperInvariant(show[0])) < 0)
+            throw new ArgumentException("show must be A, I, N, S or D", nameof(show));
+        if (order is not { Length: 1 } || "IAS".IndexOf(char.ToUpperInvariant(order[0])) < 0)
+            throw new ArgumentException("order must be I, A or S", nameof(order));
+        Seqeron.Genomics.Infrastructure.SubstitutionMatrix? sub = null;
+        if (!string.IsNullOrWhiteSpace(matrix) && !Seqeron.Genomics.Infrastructure.SubstitutionMatrix.TryGet(matrix, out sub))
+            throw new ArgumentException($"Unknown matrix '{matrix}'", nameof(matrix));
+        var options = new ShowAlignOptions
+        {
+            Matrix = sub,
+            RefSeq = refseq,
+            Show = (ShowAlignContent)char.ToUpperInvariant(show[0]),
+            Order = (ShowAlignOrder)char.ToUpperInvariant(order[0]),
+            SimilarCase = similarCase,
+            Consensus = consensus,
+            Bottom = bottom,
+            Number = number,
+            Ruler = ruler,
+            Width = width,
+            Margin = margin,
+            Uppercase = ranges,
+            Plurality = (float)plurality,
+            SetCase = (float?)setCase,
+            Identity = (float)identity,
+            Gaps = gaps,
+        };
+        return new ShowAlignResult(MultipleAlignmentDisplay.ShowAlign(names, sequences, options));
+    }
 }

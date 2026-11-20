@@ -146,6 +146,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `scan_with_pwm` | Scan a DNA sequence with a 4×L Position Weight Matrix; |
 | `scan_with_pwm_both_strands` | Scan both strands of a DNA sequence with a 4×L PWM (rows A,C,G,T), as Biopython pssm.search(both=True): minus strand scored with the revers… |
 | `shared_motifs_significance` | RSAT oligo-analysis matching-sequence statistics: k-mers (or reverse-complement pairs) present in at least minSequences of the input DNA se… |
+| `showalign` | EMBOSS showalign: pretty text display of an alignment against the consensus or a reference row (-show A/I/N/S/D, -order, -similarcase, -refseq, width / margin / numbers / ruler / uppercase ranges); 600 random cases equal showalign 6.6.0 (B09 A3-13c). |
 | `spaced_word_distance` | Multiple-pattern spaced-word distance (Leimeister et al. 2014): mean over equal-weight patterns of the per-pattern word-vector distance (euclidean, jensen_shannon, euclidean_counts, …), or `ev` = spaced -d EV evolutionary distance (Morgenstern et al. 2015). Optional `acgtOnly` (spaced's reader and N-word rule; non-letters deleted) and `bothStrands` (spaced default reverse-complement mode). |
 | `standardize_repeat_motif` | Standardizes a repeat unit two ways. canonicalClass — the MISA repeat-type class "considering sequence complementary" (misa.pl .statistics,… |
 | `stem_energy` | Free energy of an RNA stem (Turner 2004 nearest-neighbor stacking + AU/GU terminal penalties). |

@@ -37,3 +37,6 @@ public record TranslatedPatternHitItem(
 
 /// <summary>Result of <c>fuzztran</c>: the normalised pattern and the hits per frame.</summary>
 public record FuzztranResult(string Pattern, TranslatedPatternHitItem[] Hits);
+
+/// <summary>Result of <c>showalign</c>: the text the program writes (blocks of number line, ruler, reference, rows and consensus).</summary>
+public record ShowAlignResult(string Text);

@@ -58,6 +58,7 @@ per-tool doc for the full I/O schema — do not guess parameters. Servers: **Ali
 | [`tcoffee_ktup_similarity`](../../../../docs/mcp/tools/alignment/tcoffee_ktup_similarity.md) | `SequenceAligner.TCoffeeKtupSimilarity` | T-Coffee k-tuple similarity matrix. |
 | [`sum_of_pairs_score`](../../../../docs/mcp/tools/alignment/sum_of_pairs_score.md) | `SequenceAligner.SumOfPairsScore` | Sum-of-pairs score of an alignment (linear / affine, matrix). |
 | [`multiple_alignment_statistics`](../../../../docs/mcp/tools/analysis/multiple_alignment_statistics.md) | `MultipleAlignmentStatistics.Calculate` | Analysis server: per-sequence infoalign stats vs reference/consensus, per-column counts/gaps/ClustalW conservation, pairwise identity matrix |
+| [`showalign`](../../../../docs/mcp/tools/analysis/showalign.md) | `MultipleAlignmentDisplay.ShowAlign` | Analysis server: EMBOSS showalign pretty display of an alignment against the consensus or a reference row (-show / -order / -similarcase / numbers / ruler) |
 | [`alignment_distance_matrix`](../../../../docs/mcp/tools/analysis/alignment_distance_matrix.md) | `MultipleAlignmentStatistics.CalculateDistanceMatrix` | Analysis server: EMBOSS distmat uncorrected / Jukes-Cantor distance matrix of an MSA |
 | [`compute_consensus`](../../../../docs/mcp/tools/alignment/compute_consensus.md) | `SequenceAssembler.ComputeConsensus` | Majority-vote consensus from pre-aligned equal-length reads (ties → `N`). |
 
