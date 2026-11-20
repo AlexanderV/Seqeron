@@ -20,7 +20,7 @@ namespace Seqeron.Genomics.Analysis;
 /// <para>
 /// <b>Compilation.</b> A pattern is a sequence of elements, each a set of allowed bases (a 4-bit mask over A, C, G, T) repeated between <see cref="PatternElement.MinRepeat"/> and
 /// <see cref="PatternElement.MaxRepeat"/> times. Every non-empty base set is exactly one of the 15 IUPAC codes, so a pattern expands (<see cref="Expand"/>) into a finite set of
-/// fixed-length IUPAC strings — one per choice of the repeat counts — which the canonical matchers (<see cref="ApproximateMatcher"/> /
+/// fixed-length IUPAC strings — one per choice of the repeat counts — which the canonical matchers (<see cref="Seqeron.Genomics.Alignment.ApproximateMatcher"/> /
 /// <see cref="MotifFinder.FindDegenerateMotif(string, string, CancellationToken)"/>) scan; <see cref="GenomicAnalyzer.FindPatternHits(DnaSequence, string, int, bool, CancellationToken)"/>
 /// unites their hits. Nothing here scans a sequence.
 /// </para>

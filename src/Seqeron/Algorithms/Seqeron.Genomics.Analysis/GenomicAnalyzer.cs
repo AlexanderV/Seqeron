@@ -20,7 +20,7 @@ public static partial class GenomicAnalyzer
     /// <para>
     /// Several different substrings can tie for the maximum length; the sources require only "a" longest
     /// one. This method is deterministic: it returns the tied substring whose first occurrence is
-    /// leftmost (the first entry of <see cref="FindAllLongestRepeats"/>), independent of the tree's
+    /// leftmost (the first entry of <see cref="FindAllLongestRepeats(DnaSequence)"/>), independent of the tree's
     /// internal child order.
     /// </para>
     /// Time complexity: O(n) suffix-tree construction (Ukkonen, cached on the sequence) plus one O(n)
@@ -508,7 +508,7 @@ public static partial class GenomicAnalyzer
     /// </para>
     /// Motifs are upper-cased before searching (DNA is processed upper-cased, per Biopython
     /// <c>Bio.Seq</c>); the result is keyed by the upper-cased motif. Empty or whitespace-only
-    /// motifs are skipped (the empty string is not a motif; mirrors <see cref="FindMotif"/>), and a
+    /// motifs are skipped (the empty string is not a motif; mirrors <see cref="FindMotif(DnaSequence, string)"/>), and a
     /// motif with no occurrence is omitted from the result. Positions for each motif are returned
     /// <b>sorted ascending</b>. Duplicate motifs that normalize to the same upper-cased key collapse to
     /// a single entry. Forward strand only, IUPAC symbols literal (see <see cref="FindKnownMotifHits(DnaSequence, IEnumerable{string}, bool, bool, int)"/>
@@ -1351,18 +1351,27 @@ public readonly record struct KnownMotifHit(int Position, bool IsReverseStrand, 
 /// </summary>
 public readonly struct RepeatInfo
 {
+    /// <summary>The empty result: no repeated substring.</summary>
     public static readonly RepeatInfo None = new(string.Empty, Array.Empty<int>());
 
+    /// <summary>Creates a repeat record.</summary>
+    /// <param name="sequence">The repeated substring.</param>
+    /// <param name="positions">The 0-based start positions of its occurrences.</param>
     public RepeatInfo(string sequence, IReadOnlyList<int> positions)
     {
         Sequence = sequence;
         Positions = positions;
     }
 
+    /// <summary>The repeated substring.</summary>
     public string Sequence { get; }
+    /// <summary>The 0-based start positions of its occurrences.</summary>
     public IReadOnlyList<int> Positions { get; }
+    /// <summary>Length of the repeated substring.</summary>
     public int Length => Sequence.Length;
+    /// <summary>Number of occurrences.</summary>
     public int Count => Positions.Count;
+    /// <summary>True for <see cref="None"/> (no repeated substring).</summary>
     public bool IsEmpty => string.IsNullOrEmpty(Sequence);
 }
 
@@ -1371,6 +1380,11 @@ public readonly struct RepeatInfo
 /// </summary>
 public readonly struct TandemRepeat
 {
+    /// <summary>Creates a tandem-repeat record.</summary>
+    /// <param name="unit">The repeat unit (the least rotation when canonicalised).</param>
+    /// <param name="position">0-based start of the array.</param>
+    /// <param name="repetitions">Number of complete copies of the unit.</param>
+    /// <param name="rotation">Left rotation (in bases) from the spelled unit to <paramref name="unit"/>; 0 when not canonicalised.</param>
     public TandemRepeat(string unit, int position, int repetitions, int rotation = 0)
     {
         Unit = unit;
@@ -1381,7 +1395,9 @@ public readonly struct TandemRepeat
 
     /// <summary>The unit: the bases at <see cref="Position"/> (or, with canonical rotation, their least rotation).</summary>
     public string Unit { get; }
+    /// <summary>0-based start of the array in the sequence.</summary>
     public int Position { get; }
+    /// <summary>Number of complete copies of the unit.</summary>
     public int Repetitions { get; }
 
     /// <summary>
@@ -1393,6 +1409,7 @@ public readonly struct TandemRepeat
     /// <summary>The unit exactly as it is spelled in the sequence starting at <see cref="Position"/>.</summary>
     public string OriginalUnit => Rotation == 0 ? Unit : string.Concat(Unit.AsSpan(Unit.Length - Rotation), Unit.AsSpan(0, Unit.Length - Rotation));
 
+    /// <summary>Length of the array in bases (unit length times repetitions).</summary>
     public int TotalLength => Unit.Length * Repetitions;
 
     /// <summary>The bases of the repeat as they occur in the sequence (complete copies only).</summary>
@@ -1404,14 +1421,20 @@ public readonly struct TandemRepeat
 /// </summary>
 public readonly struct PalindromeInfo
 {
+    /// <summary>Creates a palindrome record.</summary>
+    /// <param name="sequence">The palindromic substring.</param>
+    /// <param name="position">Its 0-based start position.</param>
     public PalindromeInfo(string sequence, int position)
     {
         Sequence = sequence;
         Position = position;
     }
 
+    /// <summary>The palindromic substring.</summary>
     public string Sequence { get; }
+    /// <summary>0-based start position.</summary>
     public int Position { get; }
+    /// <summary>Length of the palindrome.</summary>
     public int Length => Sequence.Length;
 }
 
@@ -1420,8 +1443,14 @@ public readonly struct PalindromeInfo
 /// </summary>
 public readonly struct CommonRegion
 {
+    /// <summary>The empty result: no common region (positions -1).</summary>
     public static readonly CommonRegion None = new(string.Empty, -1, -1);
 
+    /// <summary>Creates a common-region record.</summary>
+    /// <param name="sequence">The common string as it reads in the first sequence.</param>
+    /// <param name="positionInFirst">0-based start in the first sequence.</param>
+    /// <param name="positionInSecond">0-based forward-strand start in the second sequence.</param>
+    /// <param name="isReverseComplement">True when the region is shared with the reverse complement of the second sequence.</param>
     public CommonRegion(string sequence, int positionInFirst, int positionInSecond, bool isReverseComplement = false)
     {
         Sequence = sequence;
@@ -1445,7 +1474,9 @@ public readonly struct CommonRegion
 
     /// <summary>True when the region is shared with the reverse complement of the second sequence (<c>mummer -r / -b</c>).</summary>
     public bool IsReverseComplement { get; }
+    /// <summary>Length of the common region.</summary>
     public int Length => Sequence.Length;
+    /// <summary>True for <see cref="None"/> (no common region).</summary>
     public bool IsEmpty => string.IsNullOrEmpty(Sequence);
 }
 
@@ -1454,6 +1485,14 @@ public readonly struct CommonRegion
 /// </summary>
 public readonly struct OrfInfo
 {
+    /// <summary>Creates an ORF record.</summary>
+    /// <param name="sequence">The ORF's nucleotides on the scanned strand.</param>
+    /// <param name="position">0-based start in the scanned strand.</param>
+    /// <param name="frame">Reading frame 1-3.</param>
+    /// <param name="isReverseComplement">True when found on the reverse complement.</param>
+    /// <param name="isTerminated">True when the ORF ends with a stop codon.</param>
+    /// <param name="regionStart">0-based offset of the searched region in the input.</param>
+    /// <param name="regionLength">Length of the searched region; -1 when unknown.</param>
     public OrfInfo(string sequence, int position, int frame, bool isReverseComplement, bool isTerminated = true,
         int regionStart = 0, int regionLength = -1)
     {
@@ -1501,7 +1540,9 @@ public readonly struct OrfInfo
 
     private const int CodonNucleotides = 3;
 
+    /// <summary>Length of the ORF in nucleotides (stop codon included).</summary>
     public int Length => Sequence.Length;
+    /// <summary>Number of complete codons (stop codon included).</summary>
     public int CodonCount => Sequence.Length / 3;
 
     /// <summary>

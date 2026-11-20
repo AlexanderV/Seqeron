@@ -80,8 +80,11 @@ public sealed record MatrixScoring(SubstitutionMatrix Matrix, double GapOpen, do
 /// </summary>
 public enum AlignmentType
 {
+    /// <summary>Global (Needleman-Wunsch) alignment: both sequences end to end.</summary>
     Global,
+    /// <summary>Local (Smith-Waterman) alignment: the best-scoring pair of subsequences.</summary>
     Local,
+    /// <summary>Semi-global (ends-free, fitting / overlap) alignment: end gaps are not penalised.</summary>
     SemiGlobal
 }
 
@@ -310,6 +313,7 @@ public sealed record AlignmentResult(
         init => _exactScore = value;
     }
 
+    /// <summary>The empty global alignment (no columns, score 0).</summary>
     public static AlignmentResult Empty => new("", "", 0, AlignmentType.Global, 0, 0, 0, 0);
 }
 
@@ -344,6 +348,7 @@ public readonly record struct AlignmentStatistics(
     int GapOpens = 0,
     int BlastPositives = 0)
 {
+    /// <summary>All-zero statistics (an alignment of nothing).</summary>
     public static AlignmentStatistics Empty => new(0, 0, 0, 0, 0, 0, 0);
 
     /// <summary>
@@ -767,6 +772,7 @@ public sealed record MultipleAlignmentResult(
         init => _exactTotalScore = value;
     }
 
+    /// <summary>The empty multiple alignment (no sequences, empty consensus, score 0).</summary>
     public static MultipleAlignmentResult Empty => new(Array.Empty<string>(), "", 0);
 }
 
@@ -882,7 +888,7 @@ public sealed record MsaOptions
     /// <summary>
     /// <c>MultipleAlignConsistency</c> only: the number of non-intersecting local alignments per pair that enter the primary library (default 1 = the single best Smith-Waterman alignment of the
     /// published formula). With N &gt; 1 the Lalign library of the paper is built as T-Coffee's <c>lalign_id_pair</c> does: the Waterman-Eggert top-N alignments
-    /// (<see cref="SequenceAligner.LocalAlignTopN(string, string, ScoringMatrix?, int, int)"/>, the program's <c>-lalign_n_top</c> default is 10), each weighted by its own percent identity and
+    /// (<c>SequenceAligner.LocalAlignTopN</c>, the program's <c>-lalign_n_top</c> default is 10), each weighted by its own percent identity and
     /// signal-added with the global library.
     /// </summary>
     public int PrimaryLocalAlignments { get; init; } = 1;
@@ -1698,7 +1704,7 @@ public sealed record MuscleOptions
     public bool ComputeWeights { get; init; }
 
     /// <summary>
-    /// <c>-refinewindow</c> (default 200), <c>-fromwindow</c> (0), <c>-towindow</c> (0 = last), <c>-windowoffset</c> (0): the windows of <c>-refinew</c> (<see cref="SequenceAligner.MuscleRefineWindows"/>).
+    /// <c>-refinewindow</c> (default 200), <c>-fromwindow</c> (0), <c>-towindow</c> (0 = last), <c>-windowoffset</c> (0): the windows of <c>-refinew</c> (<c>SequenceAligner.MuscleRefineWindows</c>).
     /// </summary>
     public int RefineWindow { get; init; } = 200;
 

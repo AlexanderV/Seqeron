@@ -16,7 +16,7 @@ namespace Seqeron.Genomics.Analysis;
 /// pattern. Malformed spellings that the binary accepts in unspecified ways (<c>[]</c>, <c>{}</c> matching everything, <c>A&lt;</c> reading as <c>A</c>) are rejected.
 /// </para>
 /// <para>
-/// A pattern expands into a finite set of fixed-length element-set sequences, one per choice of the repeat counts; <see cref="GenomicAnalyzer.FindProteinPatternHits(string, string)"/>
+/// A pattern expands into a finite set of fixed-length element-set sequences, one per choice of the repeat counts; <see cref="GenomicAnalyzer.FindProteinPatternHits(string, string, CancellationToken)"/>
 /// scans a sequence with each and unites the windows, which is what the binary reports (every matching window length of a range, overlapping hits included; a start-anchored range
 /// pattern reports only its longest match, the regular-expression class of <c>embpat.c</c>, exactly as <see cref="FuzznucPattern"/>).
 /// </para>

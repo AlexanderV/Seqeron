@@ -259,7 +259,7 @@ internal readonly struct PairScoring
     /// The one integer-range check of every dynamic program (scalar and matrix model alike): the score of any path through sequences of
     /// <paramref name="length1"/> and <paramref name="length2"/> residues, <c>max|step| · (length1 + length2 + 2)</c>, must stay below
     /// 2^28 (the affine −∞ sentinel is <c>int.MinValue / 4</c>), otherwise the DP would silently wrap around. The matrix model has been
-    /// checked for the same bound (and the whole set of pairs) by <see cref="Create(MatrixScoring, string, string)"/>; this call repeats the pairwise
+    /// checked for the same bound (and the whole set of pairs) by <see cref="PairScoring.Create(MatrixScoring, string, string, GapScoreProfile?)"/>; this call repeats the pairwise
     /// part at the point where the DP is about to run, so the scalar <see cref="ScoringMatrix"/> is guarded identically.
     /// </summary>
     /// <exception cref="ArgumentException">"Score range too large for the integer dynamic program ...".</exception>
@@ -835,7 +835,7 @@ public static partial class SequenceAligner
     }
 
     /// <summary>
-    /// Fills the interior of the three Gotoh matrices row by row with <see cref="AffineCell"/> (local: the zero floor of
+    /// Fills the interior of the three Gotoh matrices row by row with <see cref="AffineCell(int[,], int[,], int[,], int, int, int, int, int, int, bool)"/> (local: the zero floor of
     /// Smith-Waterman); returns the first (row-major) maximum of M for a local alignment (0, 0, 0 otherwise / when no positive cell).
     /// </summary>
     private static (int Best, int I, int J) AffineFill(

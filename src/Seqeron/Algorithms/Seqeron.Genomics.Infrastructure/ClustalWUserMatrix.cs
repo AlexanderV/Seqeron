@@ -17,6 +17,7 @@ namespace Seqeron.Genomics.Infrastructure;
 //     otherwise the values are truncated integers (the scale is decided per row);
 //   * a letter that is not one of "ABCDEFGHIKLMNOPQRSTUVWXYZ" (ClustalW's residue codes: no J, upper case only) gets no code ("residue ... not recognised", only a warning
 //     in ClustalW): its row is skipped when the matrix is built, so the stored values are then read in a shifted order - reproduced here (Cross = -1, Cells()).
+/// <summary>A user-defined ClustalW 2.1 substitution matrix (<c>-MATRIX=file</c> / <c>-PWMATRIX=file</c> / <c>-DNAMATRIX</c> / <c>-PWDNAMATRIX</c>, or one entry of a CLUSTAL_SERIES file), read exactly as ClustalW's <c>SubMatrix::readUserMatrix</c> does (quirks included, see the notes above).</summary>
 public sealed class ClustalWUserMatrix
 {
     /// <summary><c>UserParameters::aminoAcidCodes</c>: ClustalW's residue codes (the gap '-' last). Letters outside it (J, lower case) are not residues.</summary>

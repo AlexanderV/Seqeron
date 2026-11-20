@@ -3,7 +3,7 @@ using Seqeron.Genomics.Infrastructure;
 
 namespace Seqeron.Genomics.Analysis;
 
-/// <summary>Residue type of an alignment passed to <see cref="MotifFinder.GenerateEmbossConsensus"/>.</summary>
+/// <summary>Residue type of an alignment passed to <see cref="MotifFinder.GenerateEmbossConsensus(IEnumerable{string}, ConsensusResidueType, float?, int, float?, IReadOnlyList{float}?)"/>.</summary>
 public enum ConsensusResidueType
 {
     /// <summary>Nucleotides: EMBOSS <c>EDNAFULL</c> matrix, no-consensus symbol <c>N</c>.</summary>

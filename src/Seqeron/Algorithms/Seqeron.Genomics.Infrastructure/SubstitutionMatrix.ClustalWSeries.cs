@@ -33,7 +33,7 @@ public sealed partial class SubstitutionMatrix
     public static SubstitutionMatrix ClustalWPam120 => LazyClustalWPam120.Value;
     private static readonly Lazy<SubstitutionMatrix> LazyClustalWPam120 = new(() => BuildTriangle("CLUSTALW-PAM120", ClustalWPam120Triangle()));
 
-    /// <summary>ClustalW 2.1 <c>gon40mt</c> (GONNET40; profile-stage matrix series): ClustalW 2.1 matrices.h only (Gonnet, Cohen & Benner 1992 at 40 PAM, tenth-bits; no local reference carries it). Alphabet <c>ABCDEFGHIKLMNPQRSTVWXYZ</c> (<see cref="ClustalWAminoAcidOrder"/>).</summary>
+    /// <summary>ClustalW 2.1 <c>gon40mt</c> (GONNET40; profile-stage matrix series): ClustalW 2.1 matrices.h only (Gonnet, Cohen &amp; Benner 1992 at 40 PAM, tenth-bits; no local reference carries it). Alphabet <c>ABCDEFGHIKLMNPQRSTVWXYZ</c> (<see cref="ClustalWAminoAcidOrder"/>).</summary>
     public static SubstitutionMatrix ClustalWGonnet40 => LazyClustalWGonnet40.Value;
     private static readonly Lazy<SubstitutionMatrix> LazyClustalWGonnet40 = new(() => BuildTriangle("CLUSTALW-GONNET40", ClustalWGonnet40Triangle()));
 

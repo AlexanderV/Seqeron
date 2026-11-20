@@ -76,7 +76,7 @@ public static partial class GenomicAnalyzer
     /// Sketches are built by <see cref="KmerAnalyzer.CreateMinHashSketch(string, int, int, bool, uint)"/> and compared by
     /// <see cref="KmerAnalyzer.CompareMinHashSketches"/> (canonical k-mers by default, as <c>mash sketch</c>; windows with a non-ACGT base are skipped). When
     /// <paramref name="sketchSize"/> is at least the number of distinct k-mers of the union the estimate is the exact Jaccard index. For k ≥ 17 the hashes equal
-    /// sourmash <c>MinHash(n=s)</c>; for k ≤ 16 Mash keeps only 32 bits of each hash. Use <see cref="CompareSimilarity(DnaSequence, DnaSequence, int, bool, int?, long?)"/>
+    /// sourmash <c>MinHash(n=s)</c>; for k ≤ 16 Mash keeps only 32 bits of each hash. Use <see cref="CompareSimilarity(DnaSequence, DnaSequence, int, bool, int?, long?, AniOptions?)"/>
     /// for the Mash distance and p-value of the same comparison.
     /// </remarks>
     /// <param name="sequence1">First DNA sequence.</param>
@@ -135,6 +135,7 @@ public static partial class GenomicAnalyzer
     /// <param name="canonical">Canonical (strand-agnostic) k-mers. Default false for the exact estimator, as <see cref="CalculateSimilarity(DnaSequence, DnaSequence, int)"/>.</param>
     /// <param name="sketchSize">Mash bottom-s sketch size s ≥ 1; null = no Mash sketch. Cannot be combined with <paramref name="scaled"/>.</param>
     /// <param name="scaled">sourmash scaled factor 1…4294967295; null = no FracMinHash. Cannot be combined with <paramref name="sketchSize"/>.</param>
+    /// <param name="aniOptions">Options of the sourmash ANI estimates (confidence interval, thresholds); null = the defaults of <see cref="AniOptions"/> (no confidence interval).</param>
     /// <exception cref="ArgumentNullException">A sequence is null.</exception>
     /// <exception cref="ArgumentException">Both <paramref name="sketchSize"/> and <paramref name="scaled"/> are given.</exception>
     /// <exception cref="ArgumentOutOfRangeException">Invalid k, sketch size or scaled.</exception>
@@ -147,7 +148,7 @@ public static partial class GenomicAnalyzer
     }
 
     /// <summary>
-    /// <see cref="CompareSimilarity(DnaSequence, DnaSequence, int, bool, int?, long?)"/> on nucleotide <b>strings</b>: k-mer windows with a symbol other than A/C/G/T are skipped.
+    /// <see cref="CompareSimilarity(DnaSequence, DnaSequence, int, bool, int?, long?, AniOptions?)"/> on nucleotide <b>strings</b>: k-mer windows with a symbol other than A/C/G/T are skipped.
     /// </summary>
     /// <param name="sequence1">First nucleotide string.</param>
     /// <param name="sequence2">Second nucleotide string.</param>
@@ -155,6 +156,7 @@ public static partial class GenomicAnalyzer
     /// <param name="canonical">Canonical k-mers.</param>
     /// <param name="sketchSize">Mash bottom-s sketch size; null = none.</param>
     /// <param name="scaled">sourmash scaled factor; null = none.</param>
+    /// <param name="aniOptions">Options of the sourmash ANI estimates (confidence interval, thresholds); null = the defaults of <see cref="AniOptions"/> (no confidence interval).</param>
     /// <exception cref="ArgumentNullException">A sequence is null.</exception>
     /// <exception cref="ArgumentException">Both <paramref name="sketchSize"/> and <paramref name="scaled"/> are given.</exception>
     /// <exception cref="ArgumentOutOfRangeException">Invalid k, sketch size or scaled.</exception>
@@ -257,7 +259,7 @@ public enum SimilarityEstimator
 }
 
 /// <summary>
-/// Set-similarity of two sequences' k-mers (<see cref="GenomicAnalyzer.CompareSimilarity(DnaSequence, DnaSequence, int, bool, int?, long?)"/>).
+/// Set-similarity of two sequences' k-mers (<see cref="GenomicAnalyzer.CompareSimilarity(DnaSequence, DnaSequence, int, bool, int?, long?, AniOptions?)"/>).
 /// All fractions are in [0, 1].
 /// </summary>
 /// <param name="Estimator">The estimator behind the numbers.</param>

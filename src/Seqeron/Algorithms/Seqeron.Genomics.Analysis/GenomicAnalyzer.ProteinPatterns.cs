@@ -2,7 +2,7 @@ using Seqeron.Genomics.Core;
 
 namespace Seqeron.Genomics.Analysis;
 
-/// <summary>A hit of <see cref="GenomicAnalyzer.FindProteinPatternHits(string, string)"/>: the 0-based start and the length of the matching window.</summary>
+/// <summary>A hit of <see cref="GenomicAnalyzer.FindProteinPatternHits(string, string, CancellationToken)"/>: the 0-based start and the length of the matching window.</summary>
 /// <param name="Position">0-based start (EMBOSS <c>fuzzpro</c> prints Position + 1).</param>
 /// <param name="Length">Window length (a range such as <c>x(2,4)</c> yields hits of several lengths).</param>
 public readonly record struct ProteinPatternHit(int Position, int Length)
