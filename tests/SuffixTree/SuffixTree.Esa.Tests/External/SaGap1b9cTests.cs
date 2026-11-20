@@ -24,6 +24,29 @@ public class SaGap1b9cTests
         public ISaSliceWriter CreateWriter() => throw new InvalidOperationException("the stage went on after the entry checks");
     }
 
+    // ---------------------------------------------------------------- B04: a write of a run that fails after its file was opened
+
+    [Test]
+    public void AWriteOfARun_ThatFailsWithADiskFull_GivesTheBytesBack_AndLeavesNoFile()
+    {
+        // B04 (RunStore: the failed write leaves its file): the path of the run is a link to /dev/full, which opens and then refuses every write with "no space left on device", so the file of the run exists when the write fails
+        // and the failure path must remove it (File.Delete removes the link, never the device)
+        if (!OperatingSystem.IsLinux() || !File.Exists("/dev/full")) Assert.Ignore("there is no /dev/full");
+        string dir = _dir.Sub("runs");
+        Directory.CreateDirectory(dir);
+        var counters = new IoCounters();
+        var ledger = new ScratchLedger(counters);
+        var store = new RunStore(dir, "t", 0, ledger, counters);
+        string path = Path.Combine(dir, "t-run-00000001.bin");
+        File.CreateSymbolicLink(path, "/dev/full");
+        Assert.That(Directory.GetFileSystemEntries(dir), Is.EqualTo(new[] { path }), "the file of the run exists before the write");
+        Assert.Throws(Is.InstanceOf<IOException>(), () => store.Create([(1UL << 32) | 1, (2UL << 32) | 2]));
+        Assert.That(Directory.GetFileSystemEntries(dir), Is.Empty, "the file of the failed run is removed");
+        Assert.That(ledger.Live, Is.Zero, "the bytes are given back");
+        Assert.That(counters.ScratchLiveBytes, Is.Zero);
+        Assert.That(File.Exists("/dev/full"), Is.True, "the device is still there");
+    }
+
     // ---------------------------------------------------------------- H64, H66: a failure in the middle of a partition and in the hand-over of its children
 
     private void SortWithFailureAt(string point, int occurrence, ScratchLedger ledger, string scratch)
