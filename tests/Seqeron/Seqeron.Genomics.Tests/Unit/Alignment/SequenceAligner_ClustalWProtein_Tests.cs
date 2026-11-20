@@ -80,6 +80,10 @@ public class SequenceAligner_ClustalWProtein_Tests
     /// scores below the forward optimum on unrelated pairs; the printed identity score — which is what ClustalW reports and what the oracle fixes — is
     /// reproduced regardless, see <see cref="FullStage_PrintedScoreIdentitiesAndDpScore_MatchClustalW21Oracle"/>.)
     /// </summary>
+    private const int CheckedRowsOfTheRescoreSample = 1375;
+    private const int SimpleRowsOfTheRescoreSample = 1156;
+    private static readonly int[] PathsBelowTheDpOptimum = [633];
+
     [Test]
     public void FullStage_AlignedRows_RescoreBelowOrToTheDpScore()
     {
@@ -91,8 +95,10 @@ public class SequenceAligner_ClustalWProtein_Tests
             ["ID"] = (SubstitutionMatrix.ClustalWIdentity, 100),
         };
         int checkedRows = 0, equalRows = 0, simple = 0, simpleEqual = 0;
-        foreach (var f in FullRows.Value.Where((_, i) => i % 3 == 0))
+        var belowDp = new List<int>();
+        for (int rowIndex = 0; rowIndex < FullRows.Value.Count; rowIndex += 3)
         {
+            var f = FullRows.Value[rowIndex];
             var r = SequenceAligner.ClustalWPairwiseAlign(f[3], f[4], FullOptions(f));
             if (r.Score == 0)
                 continue;
@@ -127,6 +133,7 @@ public class SequenceAligner_ClustalWProtein_Tests
             Assert.That(score, Is.LessThanOrEqualTo(r.Score), $"{f[0]} {f[3]} / {f[4]}");
             checkedRows++;
             if (score == r.Score) equalRows++;
+            else belowDp.Add(rowIndex);
             if (runs <= 1)
             {
                 simple++;
@@ -135,10 +142,10 @@ public class SequenceAligner_ClustalWProtein_Tests
             }
         }
 
-        Assert.That(checkedRows, Is.GreaterThan(1000));
-        Assert.That(simple, Is.GreaterThan(500), "gap-free / one-gap paths are the common case");
+        Assert.That(checkedRows, Is.EqualTo(CheckedRowsOfTheRescoreSample));
+        Assert.That(simple, Is.EqualTo(SimpleRowsOfTheRescoreSample), "gap-free / one-gap paths are the common case");
         Assert.That(simpleEqual, Is.EqualTo(simple));
-        Assert.That(equalRows, Is.GreaterThanOrEqualTo(simple));
+        Assert.That(belowDp, Is.EqualTo(PathsBelowTheDpOptimum), "the rows (0-based index in the oracle, every third) whose path re-scores below the DP optimum: exactly these; observed: " + string.Join(", ", belowDp));
     }
 
     [Test]

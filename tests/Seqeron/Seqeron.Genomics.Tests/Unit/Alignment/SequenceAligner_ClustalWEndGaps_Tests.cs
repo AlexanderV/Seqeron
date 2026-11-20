@@ -193,11 +193,17 @@ public class SequenceAligner_ClustalWEndGaps_Tests
         }
     }
 
-    /// <summary>The profile-alignment score is truncated toward zero after the division by 100: scores in (-100, 0) do not abort (checked on the abort cases: |score| >= 1).</summary>
+    /// <summary>
+    /// The profile-alignment score is truncated toward zero after the division by 100: scores in (-100, 0) do not abort. Why a relation and not an equality: when the program aborts it writes NO output and prints NO score
+    /// (the stdout of an aborting run ends at "Aligning..." - hand-off A1-10d, <c>out/debug</c>), so the oracle records only ABORT; the only thing the program fixes is the rule itself (<c>MSA::multiSeqAlign</c>:
+    /// a first-pass score below zero returns -1), which is "the truncated score is at most -1". It is asserted on EVERY one of the 34 aborting sets (not a sample), together with the exact abort set.
+    /// </summary>
     [Test]
     public void Abort_ScoresOfAbortingSetsAreNegativeIntegers()
     {
-        foreach (var r in Oracle.Value.Where(r => r.Mode == "both" && r.Rows is null).Take(12))
+        var aborting = Oracle.Value.Where(r => r.Mode == "both" && r.Rows is null).ToList();
+        Assert.That(aborting, Has.Count.EqualTo(34));
+        foreach (var r in aborting)
         {
             var ex = Assert.Throws<ClustalWAbortedException>(() => AlignOrThrow(r, true, true), r.Id)!;
             Assert.That(ex.Score, Is.LessThanOrEqualTo(-1), r.Id);

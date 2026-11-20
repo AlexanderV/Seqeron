@@ -54,4 +54,25 @@ public class SequenceAligner_MuscleOracleRound3_Tests
 
     [TestCaseSource(nameof(ModeSets))]
     public void CommandLine_EqualsMuscle3(string id) => R2.CheckCommandLine(Oracle.Value.First(x => x.Id == id));
+
+    /// <summary>
+    /// <c>-matrix</c> on a nucleotide alphabet (R638 ... R645): the program reads the never-written <c>m_uSortOrder[4]</c> of a profile column that holds all four nucleotides (uninitialised memory; the Debian build of the
+    /// first user-run Docker round crashed on it, the locally installed muscle3 3.8.1551-3 returned the rows). Proof (valgrind 3.22.0 on the installed binary, Evidence F143): all eight runs report "Conditional jump or move depends
+    /// on uninitialised value(s)" (12 / 23 / 25 / 25 / 12 / 23 / 217 / 25 reports), seven control DNA alignments without <c>-matrix</c> report none. The port's emulation (the unwritten slots read as zero memory) is consulted in exactly
+    /// ONE of the eight (R644: <see cref="MuscleRunResult.ReferenceBehaviourUndefined"/>, over every align set of the three oracles); the rows of all eight equal the program's (<see cref="Align_RowsWrittenOrderAndFiles_EqualMuscle3"/>).
+    /// </summary>
+    [Test]
+    public void ReferenceBehaviourUndefined_IsRaisedExactlyOnTheOneRunThatConsultsTheUnwrittenSlot()
+    {
+        var flagged = new List<string>();
+        foreach (var r in R2.Oracle.Value.Concat(Oracle.Value).Where(x => x.Kind == "align" && x.Rc == "0"))
+        {
+            var seqs = R2.Split(r.Data);
+            var names = Enumerable.Range(0, seqs.Length).Select(i => "s" + i).ToArray();
+            if (SequenceAligner.MuscleRun(seqs, R2.Parse(r, names)).ReferenceBehaviourUndefined)
+                flagged.Add(r.Id);
+        }
+
+        Assert.That(flagged, Is.EqualTo(new[] { "R644" }), "the one run of the eight whose rows consult the unwritten slot");
+    }
 }

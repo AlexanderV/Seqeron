@@ -108,6 +108,10 @@ public class SequenceAligner_ClustalWDnaMatrix_Tests
     /// 13 residues leaves some of them -1 and ClustalW writes outside its <c>matrix[NUMRES][NUMRES]</c> array: undefined behaviour (8 of the 37 such menu runs of the generator crashed with
     /// SIGSEGV and are not in the oracle; the port drops the writes). Applies only when the user matrix is used for the profile stage.
     /// </summary>
+    private static readonly string[] UndefinedBehaviourIds = ["0", "6", "8", "18", "26", "40", "74", "154", "172", "181", "189", "194", "202", "219", "224", "228", "229", "230", "232", "285", "289", "303", "304", "314", "326", "343", "349", "356", "358"];
+
+    private static readonly string[] UndefinedBehaviourDifferingIds = ["303"];
+
     private static bool IsUndefinedBehaviour(Row r)
     {
         var o = ParseOptions(r);
@@ -122,16 +126,17 @@ public class SequenceAligner_ClustalWDnaMatrix_Tests
         var rows = Oracle.Value.Where(r => r.Rows is not null).ToList();
         Assert.That(rows.Count, Is.GreaterThanOrEqualTo(150));
         var bad = new List<string>();
-        int undefined = 0, undefinedEqual = 0;
+        var undefinedIds = new List<string>();
+        var undefinedDiffer = new List<string>();
         foreach (var r in rows)
         {
             string[] got = SequenceAligner.MultipleAlignClustalW(r.Seqs, ParseOptions(r)).AlignedSequences.ToArray();
             bool equal = got.SequenceEqual(r.Rows!);
             if (IsUndefinedBehaviour(r))
             {
-                undefined++;
-                if (equal)
-                    undefinedEqual++;
+                undefinedIds.Add(r.Id);
+                if (!equal)
+                    undefinedDiffer.Add(r.Id);
             }
             else if (!equal)
             {
@@ -142,9 +147,9 @@ public class SequenceAligner_ClustalWDnaMatrix_Tests
         Assert.Multiple(() =>
         {
             Assert.That(bad, Is.Empty);
-            // undefined behaviour of the C++ (writes outside the matrix array): the port - which drops those writes - equals the binary on nearly all of the runs that did not crash
-            Assert.That(undefined, Is.GreaterThanOrEqualTo(20));
-            Assert.That(undefinedEqual, Is.GreaterThanOrEqualTo(undefined - 2));
+            // undefined behaviour of the C++ (writes outside the matrix array): the port - which drops those writes - is checked on exactly these recorded runs, and differs from the binary on exactly these
+            Assert.That(undefinedIds, Is.EqualTo(UndefinedBehaviourIds), "the recorded runs whose user matrix header leaves an Xref index at -1; observed: " + string.Join(", ", undefinedIds.Select(x => "\"" + x + "\"")));
+            Assert.That(undefinedDiffer, Is.EqualTo(UndefinedBehaviourDifferingIds), "of those, the runs on which the dropped writes change the binary's rows; observed: " + string.Join(", ", undefinedDiffer.Select(x => "\"" + x + "\"")));
         });
     }
 
