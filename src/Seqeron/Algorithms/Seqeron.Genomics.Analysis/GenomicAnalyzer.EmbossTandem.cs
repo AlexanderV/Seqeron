@@ -57,6 +57,7 @@ public static partial class GenomicAnalyzer
     /// <exception cref="ArgumentNullException"><paramref name="sequence"/> is null.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="minRepeat"/> &lt; 2 or <paramref name="maxRepeat"/> &lt; <paramref name="minRepeat"/>, or the
     /// work (sequence length × unit sizes) is beyond the supported limit.</exception>
+    /// <exception cref="InvalidOperationException"><paramref name="threshold"/> is <see cref="int.MinValue"/> and a repeat qualifies: the program divides by zero (SIGFPE) there (see the remarks).</exception>
     public static IReadOnlyList<EmbossTandemRepeat> FindTandemRepeatsEtandem(
         string sequence, int minRepeat, int maxRepeat, int threshold = 20, bool mismatch = false, bool uniform = false, CancellationToken cancellationToken = default)
     {
@@ -73,7 +74,7 @@ public static partial class GenomicAnalyzer
         var codes = new int[nbase];
         for (int i = 0; i < nbase; i++) codes[i] = EtandemBaseCode(sequence[i]);
 
-        var reportRoot = new EtandemCons(0) { BestScore = threshold - 1 };
+        var reportRoot = new EtandemCons(0) { BestScore = unchecked(threshold - 1) };       // etandem.c: reportRoot->bestScore = thresh - 1 (a 32-bit wrap for int.MinValue)
         var ring = new int[Math.Max(nbase, 1)];
 
         for (int n = minRepeat; n <= maxRepeat; n++)
@@ -142,7 +143,11 @@ public static partial class GenomicAnalyzer
             }
         }
 
-        // etandem_finalReport: highest score first (ties: smaller unit size), drop every overlapping entry including the reported one
+        // etandem_finalReport: highest score first (ties: smaller unit size), drop every overlapping entry including the reported one.
+        // The program starts its search for the top entry at the report root, whose best score is threshold - 1; for threshold = int.MinValue that wraps to int.MaxValue, nothing beats it, the root is reported
+        // as the top entry and its repeat size 0 divides (measured on 6.6.0: "Floating point exception", SIGFPE, exit status 136, whenever one repeat qualifies; a sequence without a qualifying repeat prints nothing).
+        if (reportRoot.Next is not null && reportRoot.BestScore == int.MaxValue)
+            throw new InvalidOperationException("etandem -threshold -2147483648 wraps the report root's best score threshold - 1 to 2147483647: the program reports its empty root and divides by the repeat size 0 (SIGFPE, \"Floating point exception\") as soon as one repeat qualifies; use a threshold above -2147483648.");
         var result = new List<EmbossTandemRepeat>();
         while (reportRoot.Next is not null)
         {

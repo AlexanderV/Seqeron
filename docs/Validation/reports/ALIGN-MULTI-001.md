@@ -315,3 +315,5 @@ Input contract: ProbCons drops gap characters like the program's reader, POA rea
 
 - **Audit r3 (A3-9a, F150):** nucmer's `mgaps` clustering ported (`NucmerClusters.Cluster`, `GenomicAnalyzer.FindNucmerClusters`, MCP `nucmer_clusters`): 758 / 758 mgaps inputs and 700 / 700 `mummer | mgaps` pipelines equal; semantic differences to `AnchorBasedAligner` documented; postnuc / delta-filter / show-aligns (A3-9b) and the minimap2 chaining (A3-9c) registered.
 - **Audit r3 (A3-9c, F151):** minimap2 2.26 seeding and chaining ported (`Minimap2Chaining`, MCP `minimap2_chains`): 450 / 450 chain sets, anchor arrays and PAF chain scores equal; the klib in-place radix sort (unstable) ported; base-level `-c` alignment registered.
+
+- **Audit A4-4 (F156):** option boundaries measured on the programs: `OptionBoundaries_Oracle_Tests` (`option_boundary_oracle.json`, `generate_option_boundary_oracle.py`); the programs accept almost every value the audit listed (only k <= 0 / k > 28 rejected; etandem -threshold int.MinValue is a SIGFPE of the program, not "0 hits").

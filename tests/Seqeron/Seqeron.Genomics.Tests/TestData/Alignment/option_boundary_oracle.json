@@ -1,0 +1,1414 @@
+{
+ "minimap2": {
+  "reference": "AGACTTTCAAAGATATGCTGGGTAGAGGTCGAGGTTATTATTTGTTACCAATTCTCATTGTGTTTCGGAACTTGCGTTTTAGGTATGTCTTAGTGACTCTAAATACCAAGGCAGTCCTCGATCCGTTCCTAATAAGGAATGGTGATTCCCTGTCATACCAATCTACCCCCTGTTATGCGCGTTTGTCGTTAGACCAATGTCAGCGCAGCGGCAGATCAAGCAGGAGGCGGAATGTAAACAGAAGGTATGCTTAGGTGGATAGGGAGTGAGCAACAAACGGATCGTTTCTCCCATGCCAAGTTGGCACAGGGAACTACCTGCGGCGGTTTGCCTCTAGTACAGGGCAACGATTCAACTGGGACCGGGGCTCATTGCACGCCAAAGAGGCCCCAGTAATGGAGTTACGTGAAATGGCCGTGGTTGCCTCGGTTCCTCTGGAGGTGCGCGCAGGTTTAGTGATCTGGATCAGGCGTTTGAACAGGACTGGACAACGCTCCGATCAAGTACCTGGGGTGTGGATCATGGTCGGTGCATAGTAGTGGGCACGTACATCCTCCGTCGGTCCCCCAAGGCCGGCTCCACCTTAGCGATTCGCATAAAGGGACCATTCCCCTCGCTTTGCGTTACCAAGCACCTCTACGGGTATTGGTCACCGTTAGGATTGAGGAAAATATTTACGCAATACGAAAAGCGTCGTCTCGTATCCTCATTTATCTATCGCGGTAGCAGCACTTAATTACCAGCGGAGCACATAGTACTAGACAGCAGATGACCTAGCTTACAATTATCCCCCGTGCTAAGACCTCGCTACATATTGGAAGCATCGCGAAGCTACTCTAACAGCTGATGCTATAACGTATGTTGGTTTGGCAACCGTCGCACTCGTCGTGGTCCGACGCTCTTTAGAGGTCGGGTCATTTGCTGAACCCTTTCTCGAAAACTATGATCGGAAAGCTTAACTGCAAGCCTTATCAATTATTATTGAATCTAGCTAGCACGGTACGATAGGTGCCTGAGTGTGCTCGGGGACACGGAGTTTTAGTTGTGAGTGGTAGTTAAGAAGTGTGGACCAACCAGTAAGCATCAAAATACTAGTGTCATGCGCTAATTTTCAGACTCGTCCGCGAACTTAGTAAGAGCCGGAGAACTGCCCCGATGTGCCCGTACGAGCGTAGCGTTACGAGTATGGGCAAGTACCAAGCAGAGTTGCAGTTTAGGCGGTAATTAATCTTAGAGACTCCGCTAAATGCTCCGCGTGTTTCATTGCTGGCGACGCATCCCGTTTAGGAAGTGATTGTAAGAACCGGCGGAGCGTGTACGGTACTAGTAAAAAAGCAATAAATACCTCCAGTACAGTTATTAAGTCGAAACACCAAGACAAGCTCTATTAGGCCAACTTAACTTAGTCCCACCTACTATAGACAGTATTGGGGATTCGATTTCGTCGACGATCTGCTTCCACACGCCAGCTCCTAGATAATAGAGATAACCCGCTGTCTCTTACATACACGTATAACCCTTGCGCCTGTGGAACGAAATCTATAACGCCGATGGATAAGGCATAACACCGACAGCAGAAGCGACGAACCTACGCACCCCTCTTTTAGAGGCGTGGCGCTTGACTGGTTTAGTACCTAGGAGTGTATAGTGCCCTCTTTAATGGGTGACTCAGTCCTTATGTTGATGATCACTCCATTGCTAAAATTAACCCATAATCGGCTCATCGGCATTGTTGCCCATTTTCAGAGCGGTTTCGCAACCCACTTTCCTACCACGTAGACGCCATGCGTGTCTATTCGG",
+  "query": "AATACCAAGGCAGTCCTCGATCCGTCCCTAATAAGGAATGGTGATTCCCTGTCATACCAATCTACCCCCTGTTATGCGCGTTTGTCGTTAGACCAATGTCAGCGCAGCGGCAGGTCAAGCAGGAGGCGGAATGTAAACAGAGGGTATGCTTAGGTGGATAGGGAGTGAGCAACAAACGGATCGCTTCTCCCATGCCAAGTTGGCACAGGGAACTACCTGCGGCGGTTTGCCTCAAGTACAGGGCAACGATTCAACTGGGACCGGGGCTCATTGCACGCCAAAGAGGCCCCAGTAATGGAGTTACGTGAAATGGCCGTGGTTGCCTCGGTTCCTCTGGAGGTGCGCGCAGGTTTAGTGATCTGGATCAGGCGTTTGACAGGACTGGTCAACGCTCCGATCAAGTACCTGGGGTGTGGATCATGGTCGGTGCATAGTAGTGGGCAGTACATCCTCCGTCGCTCCCCCAAGGCCGGCTCCACATTAGCGATTCGATAAATAATTTTGGTTCTTATTTACGCCTGTTACTCTGGTGAGGTGTACAATCGCTTCCTAAACGGGATGGTCGCCAGTAATGAAACACGCGGAGCATTTAGCGGAGTCTCTAAGATTAATTACCGCCTAAACTGCAGCTCTGCTTGGTACTGCCCATACTCGTAACGCTACGCTCGTACGGGCACATCGGGGCAGTTCTCCGCTCTTACTAAGTCGCGGACGAGTCTGAAAATTTGCGCATGACACTATATTTTTATGCTTACTGGTTGGTCCACACCTCTTAACTACCACTCACAACTAAAACTCCGTGTCCCCGAGCACACTCAGGCACCTTCGTACCGTGCTCGCTAGATTCAATAATAATTGATAAGGCTTGCAGTTAAGCTTTCCGATCATAGTTTTCGAGAAAGGGTTCAGCAAATGACCCGACCTCTAAAGCTGTCAAAAATGCATAAAGCTAAATCTATCACTTAGTCCCACCTCCTTAGACAGTATTGGGGATTCGATTTCGTCGACGATCTGCTCCACACGCCAGATCCTAGATAATAGAGATAACCCGCTGTCTCTTACATACACGTATAACCCTTGCGCCTGTGGAACGAAATCTTAACGCCGATGGATAAGGCATAACACCGACAGCAGAAGCGCCGAACCTACGCACCCCTCTTTTAGAGGCGTGGCGCTTGACTGGTTTAGTACCTAGGAGTGTATAGTGCCCTCTTTAATGCGTTACTCAGTCATTATGTTGATGATCACTCCATTGCT",
+  "rows": [
+   {
+    "property": "Bandwidth",
+    "value": "500",
+    "rc": 0,
+    "chains": [
+     [
+      562,
+      90
+     ],
+     [
+      259,
+      36
+     ]
+    ]
+   },
+   {
+    "property": "Bandwidth",
+    "value": "-5",
+    "rc": 0,
+    "chains": []
+   },
+   {
+    "property": "Bandwidth",
+    "value": "0",
+    "rc": 0,
+    "chains": [
+     [
+      323,
+      52
+     ],
+     [
+      127,
+      18
+     ],
+     [
+      85,
+      11
+     ],
+     [
+      70,
+      10
+     ],
+     [
+      63,
+      8
+     ],
+     [
+      49,
+      7
+     ],
+     [
+      47,
+      7
+     ]
+    ]
+   },
+   {
+    "property": "Bandwidth",
+    "value": "100",
+    "rc": 0,
+    "chains": [
+     [
+      387,
+      60
+     ],
+     [
+      259,
+      36
+     ],
+     [
+      219,
+      30
+     ]
+    ]
+   },
+   {
+    "property": "MaxTargetGap",
+    "value": "-1",
+    "rc": 0,
+    "chains": [
+     [
+      387,
+      60
+     ],
+     [
+      259,
+      36
+     ],
+     [
+      219,
+      30
+     ]
+    ]
+   },
+   {
+    "property": "MaxTargetGap",
+    "value": "0",
+    "rc": 0,
+    "chains": [
+     [
+      387,
+      60
+     ],
+     [
+      259,
+      36
+     ],
+     [
+      219,
+      30
+     ]
+    ]
+   },
+   {
+    "property": "MaxTargetGap",
+    "value": "100",
+    "rc": 0,
+    "chains": [
+     [
+      387,
+      60
+     ],
+     [
+      259,
+      36
+     ],
+     [
+      219,
+      30
+     ]
+    ]
+   },
+   {
+    "property": "MinCount",
+    "value": "0",
+    "rc": 0,
+    "chains": [
+     [
+      562,
+      90
+     ],
+     [
+      259,
+      36
+     ]
+    ]
+   },
+   {
+    "property": "MinCount",
+    "value": "-1",
+    "rc": 0,
+    "chains": [
+     [
+      562,
+      90
+     ],
+     [
+      259,
+      36
+     ]
+    ]
+   },
+   {
+    "property": "MinCount",
+    "value": "10",
+    "rc": 0,
+    "chains": [
+     [
+      562,
+      90
+     ],
+     [
+      259,
+      36
+     ]
+    ]
+   },
+   {
+    "property": "MinScore",
+    "value": "-5",
+    "rc": 0,
+    "chains": [
+     [
+      562,
+      90
+     ],
+     [
+      259,
+      36
+     ]
+    ]
+   },
+   {
+    "property": "MinScore",
+    "value": "0",
+    "rc": 0,
+    "chains": [
+     [
+      562,
+      90
+     ],
+     [
+      259,
+      36
+     ]
+    ]
+   },
+   {
+    "property": "MinScore",
+    "value": "100",
+    "rc": 0,
+    "chains": [
+     [
+      562,
+      90
+     ],
+     [
+      259,
+      36
+     ]
+    ]
+   },
+   {
+    "property": "ChainGapScale",
+    "value": "-1",
+    "rc": 0,
+    "chains": [
+     [
+      652,
+      90
+     ],
+     [
+      260,
+      36
+     ]
+    ]
+   },
+   {
+    "property": "ChainGapScale",
+    "value": "0",
+    "rc": 0,
+    "chains": [
+     [
+      602,
+      90
+     ],
+     [
+      260,
+      36
+     ]
+    ]
+   },
+   {
+    "property": "ChainGapScale",
+    "value": "3",
+    "rc": 0,
+    "chains": [
+     [
+      450,
+      90
+     ],
+     [
+      259,
+      36
+     ]
+    ]
+   },
+   {
+    "property": "ChainGapScale",
+    "value": "NaN",
+    "rc": 0,
+    "chains": [
+     [
+      140,
+      22
+     ],
+     [
+      85,
+      11
+     ],
+     [
+      80,
+      16
+     ],
+     [
+      76,
+      13
+     ],
+     [
+      63,
+      8
+     ],
+     [
+      55,
+      9
+     ],
+     [
+      49,
+      7
+     ],
+     [
+      47,
+      7
+     ],
+     [
+      41,
+      7
+     ]
+    ]
+   },
+   {
+    "property": "ChainGapScale",
+    "value": "Infinity",
+    "rc": 0,
+    "chains": [
+     [
+      140,
+      22
+     ],
+     [
+      85,
+      11
+     ],
+     [
+      80,
+      16
+     ],
+     [
+      76,
+      13
+     ],
+     [
+      63,
+      8
+     ],
+     [
+      55,
+      9
+     ],
+     [
+      49,
+      7
+     ],
+     [
+      47,
+      7
+     ],
+     [
+      41,
+      7
+     ]
+    ]
+   },
+   {
+    "property": "ChainGapScale",
+    "value": "-Infinity",
+    "rc": 0,
+    "chains": [
+     [
+      140,
+      22
+     ],
+     [
+      85,
+      11
+     ],
+     [
+      80,
+      16
+     ],
+     [
+      76,
+      13
+     ],
+     [
+      63,
+      8
+     ],
+     [
+      55,
+      9
+     ],
+     [
+      49,
+      7
+     ],
+     [
+      47,
+      7
+     ],
+     [
+      41,
+      7
+     ]
+    ]
+   },
+   {
+    "property": "ChainGapScale",
+    "value": "1e30",
+    "rc": 0,
+    "chains": [
+     [
+      323,
+      52
+     ],
+     [
+      127,
+      18
+     ],
+     [
+      85,
+      11
+     ],
+     [
+      70,
+      10
+     ],
+     [
+      63,
+      8
+     ],
+     [
+      49,
+      7
+     ],
+     [
+      47,
+      7
+     ]
+    ]
+   },
+   {
+    "property": "ChainGapScale",
+    "value": "1e9",
+    "rc": 0,
+    "chains": [
+     [
+      323,
+      52
+     ],
+     [
+      127,
+      18
+     ],
+     [
+      85,
+      11
+     ],
+     [
+      70,
+      10
+     ],
+     [
+      63,
+      8
+     ],
+     [
+      49,
+      7
+     ],
+     [
+      47,
+      7
+     ]
+    ]
+   },
+   {
+    "property": "ChainSkipScale",
+    "value": "1",
+    "rc": 0,
+    "chains": [
+     [
+      442,
+      90
+     ],
+     [
+      235,
+      36
+     ]
+    ]
+   },
+   {
+    "property": "ChainSkipScale",
+    "value": "NaN",
+    "rc": 0,
+    "chains": [
+     [
+      140,
+      22
+     ],
+     [
+      85,
+      11
+     ],
+     [
+      80,
+      16
+     ],
+     [
+      76,
+      13
+     ],
+     [
+      63,
+      8
+     ],
+     [
+      55,
+      9
+     ],
+     [
+      49,
+      7
+     ],
+     [
+      47,
+      7
+     ],
+     [
+      41,
+      7
+     ]
+    ]
+   },
+   {
+    "property": "ChainSkipScale",
+    "value": "Infinity",
+    "rc": 0,
+    "chains": [
+     [
+      140,
+      22
+     ],
+     [
+      85,
+      11
+     ],
+     [
+      80,
+      16
+     ],
+     [
+      76,
+      13
+     ],
+     [
+      63,
+      8
+     ],
+     [
+      55,
+      9
+     ],
+     [
+      49,
+      7
+     ],
+     [
+      47,
+      7
+     ],
+     [
+      41,
+      7
+     ]
+    ]
+   },
+   {
+    "property": "MaxChainSkip",
+    "value": "-1",
+    "rc": 0,
+    "chains": [
+     [
+      562,
+      90
+     ],
+     [
+      259,
+      36
+     ]
+    ]
+   },
+   {
+    "property": "MaxChainSkip",
+    "value": "0",
+    "rc": 0,
+    "chains": [
+     [
+      562,
+      90
+     ],
+     [
+      259,
+      36
+     ]
+    ]
+   },
+   {
+    "property": "MaxChainSkip",
+    "value": "3",
+    "rc": 0,
+    "chains": [
+     [
+      562,
+      90
+     ],
+     [
+      259,
+      36
+     ]
+    ]
+   },
+   {
+    "property": "MaxChainIterations",
+    "value": "0",
+    "rc": 0,
+    "chains": [
+     [
+      338,
+      30
+     ],
+     [
+      204,
+      18
+     ]
+    ]
+   },
+   {
+    "property": "MaxChainIterations",
+    "value": "-1",
+    "rc": 0,
+    "chains": [
+     [
+      338,
+      30
+     ],
+     [
+      204,
+      18
+     ]
+    ]
+   },
+   {
+    "property": "MaxChainIterations",
+    "value": "3",
+    "rc": 0,
+    "chains": [
+     [
+      562,
+      90
+     ],
+     [
+      259,
+      36
+     ]
+    ]
+   }
+  ]
+ },
+ "mgaps": {
+  "matches": [
+   [
+    1,
+    1,
+    20
+   ],
+   [
+    31,
+    31,
+    20
+   ],
+   [
+    61,
+    70,
+    20
+   ],
+   [
+    130,
+    130,
+    25
+   ],
+   [
+    400,
+    410,
+    30
+   ]
+  ],
+  "rows": [
+   {
+    "property": "MaxSeparation",
+    "value": "-1",
+    "rc": 0,
+    "clusters": [
+     [
+      [
+       1,
+       1,
+       20
+      ]
+     ],
+     [
+      [
+       31,
+       31,
+       20
+      ]
+     ],
+     [
+      [
+       61,
+       70,
+       20
+      ]
+     ],
+     [
+      [
+       130,
+       130,
+       25
+      ]
+     ],
+     [
+      [
+       400,
+       410,
+       30
+      ]
+     ]
+    ]
+   },
+   {
+    "property": "MaxSeparation",
+    "value": "0",
+    "rc": 0,
+    "clusters": [
+     [
+      [
+       1,
+       1,
+       20
+      ]
+     ],
+     [
+      [
+       31,
+       31,
+       20
+      ]
+     ],
+     [
+      [
+       61,
+       70,
+       20
+      ]
+     ],
+     [
+      [
+       130,
+       130,
+       25
+      ]
+     ],
+     [
+      [
+       400,
+       410,
+       30
+      ]
+     ]
+    ]
+   },
+   {
+    "property": "MaxSeparation",
+    "value": "10",
+    "rc": 0,
+    "clusters": [
+     [
+      [
+       1,
+       1,
+       20
+      ],
+      [
+       31,
+       31,
+       20
+      ]
+     ],
+     [
+      [
+       61,
+       70,
+       20
+      ]
+     ],
+     [
+      [
+       130,
+       130,
+       25
+      ]
+     ],
+     [
+      [
+       400,
+       410,
+       30
+      ]
+     ]
+    ]
+   },
+   {
+    "property": "MinClusterLength",
+    "value": "-1",
+    "rc": 0,
+    "clusters": [
+     [
+      [
+       1,
+       1,
+       20
+      ],
+      [
+       31,
+       31,
+       20
+      ],
+      [
+       130,
+       130,
+       25
+      ]
+     ],
+     [
+      [
+       61,
+       70,
+       20
+      ]
+     ],
+     [
+      [
+       400,
+       410,
+       30
+      ]
+     ]
+    ]
+   },
+   {
+    "property": "MinClusterLength",
+    "value": "0",
+    "rc": 0,
+    "clusters": [
+     [
+      [
+       1,
+       1,
+       20
+      ],
+      [
+       31,
+       31,
+       20
+      ],
+      [
+       130,
+       130,
+       25
+      ]
+     ],
+     [
+      [
+       61,
+       70,
+       20
+      ]
+     ],
+     [
+      [
+       400,
+       410,
+       30
+      ]
+     ]
+    ]
+   },
+   {
+    "property": "MinClusterLength",
+    "value": "1000",
+    "rc": 0,
+    "clusters": []
+   },
+   {
+    "property": "DiagonalDifference",
+    "value": "-1",
+    "rc": 0,
+    "clusters": [
+     [
+      [
+       1,
+       1,
+       20
+      ],
+      [
+       31,
+       31,
+       20
+      ],
+      [
+       130,
+       130,
+       25
+      ]
+     ],
+     [
+      [
+       61,
+       70,
+       20
+      ]
+     ],
+     [
+      [
+       400,
+       410,
+       30
+      ]
+     ]
+    ]
+   },
+   {
+    "property": "DiagonalDifference",
+    "value": "0",
+    "rc": 0,
+    "clusters": [
+     [
+      [
+       1,
+       1,
+       20
+      ],
+      [
+       31,
+       31,
+       20
+      ],
+      [
+       130,
+       130,
+       25
+      ]
+     ],
+     [
+      [
+       61,
+       70,
+       20
+      ]
+     ],
+     [
+      [
+       400,
+       410,
+       30
+      ]
+     ]
+    ]
+   },
+   {
+    "property": "DiagonalFraction",
+    "value": "-1",
+    "rc": 0,
+    "clusters": [
+     [
+      [
+       1,
+       1,
+       20
+      ],
+      [
+       31,
+       31,
+       20
+      ],
+      [
+       130,
+       130,
+       25
+      ]
+     ],
+     [
+      [
+       61,
+       70,
+       20
+      ]
+     ],
+     [
+      [
+       400,
+       410,
+       30
+      ]
+     ]
+    ]
+   },
+   {
+    "property": "DiagonalFraction",
+    "value": "0",
+    "rc": 0,
+    "clusters": [
+     [
+      [
+       1,
+       1,
+       20
+      ],
+      [
+       31,
+       31,
+       20
+      ],
+      [
+       130,
+       130,
+       25
+      ]
+     ],
+     [
+      [
+       61,
+       70,
+       20
+      ]
+     ],
+     [
+      [
+       400,
+       410,
+       30
+      ]
+     ]
+    ]
+   },
+   {
+    "property": "DiagonalFraction",
+    "value": "2",
+    "rc": 0,
+    "clusters": [
+     [
+      [
+       1,
+       1,
+       20
+      ],
+      [
+       31,
+       31,
+       20
+      ],
+      [
+       61,
+       70,
+       20
+      ],
+      [
+       130,
+       130,
+       25
+      ]
+     ],
+     [
+      [
+       400,
+       410,
+       30
+      ]
+     ]
+    ]
+   },
+   {
+    "property": "DiagonalFraction",
+    "value": "NaN",
+    "rc": 0,
+    "clusters": [
+     [
+      [
+       1,
+       1,
+       20
+      ],
+      [
+       31,
+       31,
+       20
+      ],
+      [
+       130,
+       130,
+       25
+      ]
+     ],
+     [
+      [
+       61,
+       70,
+       20
+      ]
+     ],
+     [
+      [
+       400,
+       410,
+       30
+      ]
+     ]
+    ]
+   },
+   {
+    "property": "DiagonalFraction",
+    "value": "Infinity",
+    "rc": 0,
+    "clusters": [
+     [
+      [
+       1,
+       1,
+       20
+      ],
+      [
+       31,
+       31,
+       20
+      ],
+      [
+       130,
+       130,
+       25
+      ]
+     ],
+     [
+      [
+       61,
+       70,
+       20
+      ]
+     ],
+     [
+      [
+       400,
+       410,
+       30
+      ]
+     ]
+    ]
+   },
+   {
+    "property": "DiagonalFraction",
+    "value": "1e10",
+    "rc": 0,
+    "clusters": [
+     [
+      [
+       1,
+       1,
+       20
+      ],
+      [
+       31,
+       31,
+       20
+      ],
+      [
+       61,
+       70,
+       20
+      ],
+      [
+       130,
+       130,
+       25
+      ]
+     ],
+     [
+      [
+       400,
+       410,
+       30
+      ]
+     ]
+    ]
+   },
+   {
+    "property": "DiagonalFraction",
+    "value": "1e30",
+    "rc": 0,
+    "clusters": [
+     [
+      [
+       1,
+       1,
+       20
+      ],
+      [
+       31,
+       31,
+       20
+      ],
+      [
+       130,
+       130,
+       25
+      ]
+     ],
+     [
+      [
+       61,
+       70,
+       20
+      ]
+     ],
+     [
+      [
+       400,
+       410,
+       30
+      ]
+     ]
+    ]
+   },
+   {
+    "property": "DiagonalFraction",
+    "value": "-1e10",
+    "rc": 0,
+    "clusters": [
+     [
+      [
+       1,
+       1,
+       20
+      ],
+      [
+       31,
+       31,
+       20
+      ],
+      [
+       130,
+       130,
+       25
+      ]
+     ],
+     [
+      [
+       61,
+       70,
+       20
+      ]
+     ],
+     [
+      [
+       400,
+       410,
+       30
+      ]
+     ]
+    ]
+   },
+   {
+    "property": "UseExtent",
+    "value": "true",
+    "rc": 0,
+    "clusters": [
+     [
+      [
+       1,
+       1,
+       20
+      ],
+      [
+       31,
+       31,
+       20
+      ],
+      [
+       130,
+       130,
+       25
+      ]
+     ],
+     [
+      [
+       61,
+       70,
+       20
+      ]
+     ],
+     [
+      [
+       400,
+       410,
+       30
+      ]
+     ]
+    ]
+   }
+  ]
+ },
+ "etandem": [
+  {
+   "sequence": "ACACACACACACGTGTGTGTGTGTAAA",
+   "minRepeat": 2,
+   "maxRepeat": 4,
+   "threshold": -2147483648,
+   "rc": -8,
+   "rows": null
+  },
+  {
+   "sequence": "ACACACACACACGTGTGTGTGTGTAAA",
+   "minRepeat": 2,
+   "maxRepeat": 4,
+   "threshold": -2147483647,
+   "rc": 0,
+   "rows": "10,13,24,2,6,100.0,gt|10,1,12,2,6,100.0,ac"
+  },
+  {
+   "sequence": "ACACACACACACGTGTGTGTGTGTAAA",
+   "minRepeat": 2,
+   "maxRepeat": 4,
+   "threshold": -2147483646,
+   "rc": 0,
+   "rows": "10,13,24,2,6,100.0,gt|10,1,12,2,6,100.0,ac"
+  },
+  {
+   "sequence": "ACACACACACACGTGTGTGTGTGTAAA",
+   "minRepeat": 2,
+   "maxRepeat": 4,
+   "threshold": -100,
+   "rc": 0,
+   "rows": "10,13,24,2,6,100.0,gt|10,1,12,2,6,100.0,ac"
+  },
+  {
+   "sequence": "ACACACACACACGTGTGTGTGTGTAAA",
+   "minRepeat": 2,
+   "maxRepeat": 4,
+   "threshold": -1,
+   "rc": 0,
+   "rows": "10,13,24,2,6,100.0,gt|10,1,12,2,6,100.0,ac"
+  },
+  {
+   "sequence": "ACACACACACACGTGTGTGTGTGTAAA",
+   "minRepeat": 2,
+   "maxRepeat": 4,
+   "threshold": 0,
+   "rc": 0,
+   "rows": "10,13,24,2,6,100.0,gt|10,1,12,2,6,100.0,ac"
+  },
+  {
+   "sequence": "ACGT",
+   "minRepeat": 2,
+   "maxRepeat": 4,
+   "threshold": -2147483648,
+   "rc": -8,
+   "rows": null
+  },
+  {
+   "sequence": "AAAAAAAA",
+   "minRepeat": 2,
+   "maxRepeat": 4,
+   "threshold": -2147483648,
+   "rc": 0,
+   "rows": ""
+  },
+  {
+   "sequence": "ACGTACGTAC",
+   "minRepeat": 2,
+   "maxRepeat": 4,
+   "threshold": -2147483648,
+   "rc": -8,
+   "rows": null
+  },
+  {
+   "sequence": "A",
+   "minRepeat": 2,
+   "maxRepeat": 4,
+   "threshold": -2147483648,
+   "rc": 0,
+   "rows": ""
+  },
+  {
+   "sequence": "ACACAC",
+   "minRepeat": 2,
+   "maxRepeat": 4,
+   "threshold": -2147483648,
+   "rc": -8,
+   "rows": null
+  },
+  {
+   "sequence": "GGGGCCCCGGGGCCCC",
+   "minRepeat": 2,
+   "maxRepeat": 4,
+   "threshold": -2147483648,
+   "rc": -8,
+   "rows": null
+  }
+ ]
+}

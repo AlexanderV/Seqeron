@@ -140,3 +140,7 @@ All M/S/C items ✅ covered (see §4); no ❌/⚠ remain.
 ## Audit A4-3 (B09 F153): EMBOSS reader - gap characters and other non-letters
 
 `EmbossGapCharacters_Oracle_Tests` (`emboss_gap_oracle.tsv`, `generate_emboss_gap_oracle.py`): etandem (240) and equicktandem (240) - the installed EMBOSS 6.6.0 `etandem, equicktandem` on inputs that contain `- . ~ ? # + _`, digits, blanks, punctuation, `*` and non-ASCII letters equal `FindTandemRepeatsEtandem`, `FindTandemRepeatsEquicktandem` on every row, and the result of the cleaned input equals the result of the input. The reader rule (one shared `EmbossSequenceReader.Clean` / `CleanGapped`, Infrastructure): only `A-Z a-z *` survive in a plain sequence (`ajseqread.c seqAppend` + `ajseqtype.c ajSeqTypeCheckIn` + `ajstr.c ajStrRemoveGap`); coordinates and lengths count the cleaned sequence. Also `Clean_KeepsLettersAndStar_AndDropsEveryOtherCharacter` (all 256 code points) and `IsNucleotide_IsTheAjSeqIsNucRule_OfEveryPort`.
+
+## Audit A4-4 (B09 F156): option boundaries
+
+`OptionBoundaries_Oracle_Tests.Etandem_ThresholdIntMinValue_...` (12 etandem rows): `-threshold -2147483648` dies in the program with SIGFPE (the report root's best score `thresh - 1` wraps to INT_MAX and the root, repeat size 0, is divided by) whenever a repeat qualifies - `InvalidOperationException` here - and prints nothing otherwise; `-2147483647` and above are exact.

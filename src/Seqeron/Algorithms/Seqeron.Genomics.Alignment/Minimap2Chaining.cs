@@ -15,7 +15,16 @@ public readonly record struct MinimapAnchor(int TargetId, bool Reverse, int Targ
     internal ulong Y => ((ulong)(uint)Span << 32) | (uint)QueryEnd;
 }
 
-/// <summary>Chaining parameters of minimap2 (defaults of <c>mm_mapopt_init</c> 2.26 for DNA-vs-DNA mapping; <c>-k -g -r -z -n -m</c> and the chain scales).</summary>
+/// <summary>
+/// Chaining parameters of minimap2 (defaults of <c>mm_mapopt_init</c> 2.26 for DNA-vs-DNA mapping; <c>-k -g -r -z -n -m</c> and the chain scales).
+/// </summary>
+/// <remarks>
+/// Validation follows the program (A4-4, measured on the installed 2.26): <c>mm_check_opt</c> refuses only a non-positive k ("-k and -w must be positive") - and <c>mm_sketch</c> asserts k &lt;= 28 -, so
+/// <see cref="KmerSize"/> outside 1 - 28 is an <see cref="ArgumentOutOfRangeException"/>. Every other value is ACCEPTED by the program and by this port with the program's arithmetic: a negative or zero bandwidth
+/// (<c>-r -5</c>: no anchor pair is within the bandwidth, no chain), a negative gap limit (<c>-g -1</c>: the bandwidth is the limit), <c>-n 0</c> / <c>-n -1</c>, <c>-m -5</c>, a zero or negative number of predecessors
+/// (<c>--max-chain-iter 0</c>: every anchor starts its own chain), negative scales, and a NaN / infinite / huge scale, where the C float-to-int conversion of the penalty gives <c>INT_MIN</c> (x86-64
+/// <c>cvttss2si</c>), reproduced by the port (the chain scores equal the installed program's, see <c>minimap2_option_boundary_oracle.json</c>).
+/// </remarks>
 public sealed record MinimapChainOptions
 {
     /// <summary>k-mer size of the index (<c>-k</c>, 15): scales the gap penalties.</summary>
@@ -71,6 +80,16 @@ public static class Minimap2Chaining
 {
     private const int MinInt = int.MinValue;
 
+    // mm_check_opt: "-k and -w must be positive"; mm_sketch: assert(k > 0 && k <= 28). Everything else is accepted by the program (see MinimapChainOptions).
+    private static void ValidateOptions(MinimapChainOptions o, string paramName)
+    {
+        if (o.KmerSize < 1 || o.KmerSize > 28)
+            throw new ArgumentOutOfRangeException(paramName, o.KmerSize, "KmerSize must be 1 - 28: minimap2 stops with \"-k and -w must be positive\" (mm_check_opt) for k <= 0 and fails the assertion k <= 28 of mm_sketch above 28.");
+    }
+
+    // (int)f in the C program on x86-64 (cvttss2si): NaN and every value outside the int range give INT_MIN (0x80000000); .NET gives 0 / saturates
+    private static int CInt(float f) => float.IsNaN(f) || f >= 2147483648f || f < -2147483648f ? int.MinValue : (int)f;
+
     /// <summary>
     /// Chains the anchors. The anchors must be sorted as minimap2 sorts them (by <c>rev | target id | target position</c>, the order of <c>--print-seeds</c>; <see cref="SortAnchors"/>).
     /// </summary>
@@ -83,6 +102,7 @@ public static class Minimap2Chaining
     {
         ArgumentNullException.ThrowIfNull(anchors);
         var o = options ?? new MinimapChainOptions();
+        ValidateOptions(o, nameof(options));
         int n = anchors.Count;
         if (n == 0)
             return [];
@@ -292,7 +312,7 @@ public static class Minimap2Chaining
         {
             float linPen = penGap * dd + penSkip * dg;
             float logPen = dd >= 1 ? Log2(dd + 1) : 0.0f;
-            sc -= (int)(linPen + .5f * logPen);
+            sc = unchecked(sc - CInt(linPen + .5f * logPen));
         }
 
         return sc;
@@ -398,7 +418,8 @@ public static class Minimap2Chaining
     /// <param name="query">The query sequence.</param>
     /// <param name="k">k-mer size (1-28, <c>-k</c>).</param>
     /// <param name="w">Window size (1-255, <c>-w</c>).</param>
-    /// <param name="queryOccurrenceFraction">Query minimizers that occur more than <c>mid_occ</c> times and in more than this fraction of the query's minimizers are dropped (<c>q_occ_frac</c>, 0.01).</param>
+    /// <param name="queryOccurrenceFraction">Query minimizers that occur more than <c>mid_occ</c> times and in more than this fraction of the query's minimizers are dropped (<c>q_occ_frac</c>, 0.01). As in the program every
+    /// value is accepted: a zero, negative or NaN fraction switches the filter off (<c>q_occ_frac &gt; 0</c> is false), an infinite one drops nothing (measured: <c>--q-occ-frac nan / -1 / inf</c> give the chains of the default).</param>
     /// <returns>The anchors, sorted by (reverse, target id, target position).</returns>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="k"/> or <paramref name="w"/> is out of range.</exception>

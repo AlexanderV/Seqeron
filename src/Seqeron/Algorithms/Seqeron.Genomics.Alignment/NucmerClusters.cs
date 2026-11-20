@@ -12,7 +12,11 @@ public sealed record NucmerClusterOptions
     /// <summary>Fixed diagonal difference that joins two matches (<c>mgaps -d</c> / <c>nucmer -D</c>, default 5).</summary>
     public int DiagonalDifference { get; init; } = 5;
 
-    /// <summary>Fraction of the separation that is added to the allowed diagonal difference (<c>mgaps -f</c> / <c>nucmer -d</c>, default 0.12).</summary>
+    /// <summary>
+    /// Fraction of the separation that is added to the allowed diagonal difference (<c>mgaps -f</c> / <c>nucmer -d</c>, default 0.12). Every value is accepted, as <c>mgaps</c> accepts every value of
+    /// <c>-l -s -d -f</c> (measured on the installed 3.23: negative, zero, NaN, infinite or huge values run; a NaN, infinite or beyond-64-bit product <c>f x separation</c> becomes the C conversion
+    /// <c>(long)</c> = LONG_MIN on x86-64, so no fraction is added, reproduced here; the oracle is <c>minimap2_option_boundary_oracle.json</c>).
+    /// </summary>
     public double DiagonalFraction { get; init; } = 0.12;
 
     /// <summary>Cluster length = last end - first start in the first sequence instead of the sum of the match lengths (<c>mgaps -e</c>).</summary>
@@ -136,7 +140,7 @@ public static class NucmerClusters
                 if (sep > o.MaxSeparation)
                     break;
                 long diagDiff = Math.Abs(a[j].Start2 - a[j].Start1 - iDiag);
-                if (diagDiff <= Math.Max(o.DiagonalDifference, (int)(o.DiagonalFraction * sep)))
+                if (diagDiff <= Math.Max(o.DiagonalDifference, CLong(o.DiagonalFraction * sep)))
                     uf.Union(uf.Find(i), uf.Find(j));
             }
         }
@@ -160,6 +164,9 @@ public static class NucmerClusters
 
         return clusters;
     }
+
+    // (long)x in the C program on x86-64 (cvttsd2si): NaN and every value outside the 64-bit range give LONG_MIN (0x8000000000000000); .NET gives 0 / saturates
+    private static long CLong(double x) => double.IsNaN(x) || x >= 9223372036854775808.0 || x < -9223372036854775808.0 ? long.MinValue : (long)x;
 
     private static int ByStart2(MatchT x, MatchT y) => x.Start2 != y.Start2 ? x.Start2.CompareTo(y.Start2) : x.Start1.CompareTo(y.Start1);
 

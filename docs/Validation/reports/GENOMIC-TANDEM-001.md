@@ -79,3 +79,5 @@ Fuzz oracle (`GenomicTandemFuzzTests.Oracle`) replayed the old greedy scan → r
 - **Audit r3 (A3-8):** exact ports of EMBOSS `etandem` / `equicktandem` (`GenomicAnalyzer.FindTandemRepeatsEtandem` / `FindTandemRepeatsEquicktandem`, MCP `find_tandem_repeats_emboss`); 3000 / 3000 oracle rows equal (B09.md F136).
 
 - **Audit A4-3 (F153):** the EMBOSS reader drops gap characters and every other non-letter (except `*`) from plain input sequences; one shared `EmbossSequenceReader` (Infrastructure) serves etandem, equicktandem: 240 oracle rows each equal (`emboss_gap_oracle.tsv`).
+
+- **Audit A4-4 (F156):** option boundaries measured on the programs: `OptionBoundaries_Oracle_Tests.Etandem_ThresholdIntMinValue_...` (12 etandem rows); the programs accept almost every value the audit listed (only k <= 0 / k > 28 rejected; etandem -threshold int.MinValue is a SIGFPE of the program, not "0 hits").

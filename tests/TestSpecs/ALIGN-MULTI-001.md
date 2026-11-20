@@ -726,3 +726,7 @@ Tests (`Seqeron.Genomics.Tests`, against the installed Debian `poa` 2.0+20060928
 | A3-9c | `Chain_EqualsMinimap2_AllCases` | 450 minimap2 2.26 runs (`minimap2_chain_oracle.jsonl`): chains from minimap2's own anchors, PAF `cm` / `s1` | as specified |
 | A3-9c | `CollectAnchors_EqualsTheSeedArrayOfMinimap2_AllCases`, `MapChains_EqualsTheChainsOfMinimap2_FromTheSequences` | the same runs from the sequences: anchor arrays (order included) and chains | as specified |
 | A3-9c | `SmallChain_ScoreIsTheSumOfAnchorSpansMinusGapPenalties`, `CollectAnchors_FrequentMinimizers_AreNotPorted_AndValidation`, `Validation_AndSorting` | hand values, the documented limitation, guards | as specified |
+
+## Audit A4-4 (B09 F156): option boundaries
+
+`OptionBoundaries_Oracle_Tests` (`option_boundary_oracle.json`, `generate_option_boundary_oracle.py`): 30 minimap2 2.26 option values (`MinimapChainOptions`: chain score + anchors equal to the program's PAF `s1` / `cm`, NaN / infinite / huge scales through the C float-to-int conversion), `KmerSize` outside 1 - 28 refused (`mm_check_opt`, `mm_sketch` assertion), `q_occ_frac` NaN / -1 / inf = filter off, 17 mgaps 3.23 option values (`NucmerClusterOptions`: negative / zero / NaN / infinite / huge values accepted, the C `(long)` conversion = LONG_MIN reproduced).
