@@ -195,6 +195,9 @@ internal readonly unsafe struct MappedChild : IChildTable
     /// <summary>Number of cells (<c>n + 1</c>).</summary>
     internal int Length => _count;
 
+    /// <summary>The first cell (the pattern descent of <see cref="MappedSearch"/> reads the section through the pointer).</summary>
+    internal int* Pointer => _cld;
+
     /// <summary>Bytes of the section.</summary>
     internal long PayloadBytes => 4L * _count;
 

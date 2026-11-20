@@ -216,7 +216,7 @@ internal sealed partial class EsaIndex
     }
 
     /// <summary>
-    /// <see cref="Match{TSym}"/> for the packed text of a container: the pattern is mapped to dense symbols (a code unit that is not in the alphabet is no match) and the descent reads the text through the packed reader.
+    /// <see cref="Match{TSym}"/> for the packed text of a container: the pattern is mapped to dense symbols (a code unit that is not in the alphabet is no match) and the descent of <see cref="MappedSearch"/> runs over the mapped sections.
     /// </summary>
     private bool MatchMapped(ReadOnlySpan<char> pattern, out int lo, out int hi)
     {
@@ -231,11 +231,12 @@ internal sealed partial class EsaIndex
             if (s < 0) return false;
             pat[i] = (byte)s;
         }
-        return DescendMapped(Child.Mapped, Sa, Lcp, TextView.Reader, pat, _file!.IsChecked, out lo, out hi);
+        return _mappedSearch!.TryMatch(pat, out lo, out hi);
     }
 
     /// <summary>
-    /// <see cref="Descend{TChild, TSym}"/> over the sections of a container. The same walk, with the reads of an untrusted file: the suffix array is a <see cref="SaView"/>, the text is the packed reader (a symbol at or beyond the
+    /// The readable reference of <see cref="MappedSearch"/> (work package 1b.9a replaced it on the hot path): <see cref="Descend{TChild, TSym}"/> over the sections of a container through the typed views (<see cref="SaView"/>, <see cref="CompactLcp"/>,
+    /// <see cref="MappedChild"/>, <see cref="MappedTextReader"/>). The tests compare the two on valid and on damaged files. The same walk, with the reads of an untrusted file: the suffix array is a <see cref="SaView"/>, the text is the packed reader (a symbol at or beyond the
     /// end reads as 0, so every comparison is clamped to the suffix as the in-memory one is), and in checked mode the walk is bounded: the l-indices of an interval must increase and stay inside it, and a child's value must be
     /// larger than its parent's, so that every iteration makes progress and a damaged table ends in an <see cref="InvalidDataException"/> instead of a loop.
     /// </summary>

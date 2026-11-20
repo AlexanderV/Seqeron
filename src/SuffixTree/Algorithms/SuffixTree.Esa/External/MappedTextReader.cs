@@ -60,6 +60,9 @@ internal sealed unsafe class MappedTextReader : IDisposable
     /// <summary>Bits per symbol b (1..8).</summary>
     internal int Bits => _bits;
 
+    /// <summary>The first byte of the packed payload (the pattern descent of <see cref="MappedSearch"/> reads 64-bit windows through it; the 64 bytes of padding make a window at any symbol of the text safe).</summary>
+    internal byte* Pointer => _p;
+
     /// <summary>Symbols in a 64-bit key: <c>64 / b</c>.</summary>
     internal int KeySymbols => _keySymbols;
 

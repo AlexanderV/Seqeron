@@ -16,6 +16,7 @@ internal sealed partial class EsaIndex
     private readonly PreparedText? _prepared;
     private readonly SaView _sa;
     private readonly SesaFile? _file;
+    private readonly MappedSearch? _mappedSearch;
     private readonly int _length;
 
     /// <summary>
@@ -46,6 +47,8 @@ internal sealed partial class EsaIndex
         Lcp = lcp;
         Child = child;
         Statistics = statistics;
+        // a container of 2^31 - 1 symbols or more can be opened (its header read) but has no tree here: no child table, nothing to search
+        _mappedSearch = file.Header.TextLength < int.MaxValue ? new MappedSearch(file) : null;
     }
 
     /// <summary>
