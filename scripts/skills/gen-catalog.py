@@ -209,6 +209,49 @@ def crosscheck_counts(per_server):
         warn("=" * 60)
     return total
 
+def check_documented_counts(per_server):
+    """A4-11: the tool counts quoted in prose must equal the tool-doc counts (they went stale twice).
+
+    Compares docs/mcp/MCP_STATUS.md (header sentence, the three roll-up rows, every row of the per-server table)
+    and the "Exposes **N tools**" sentence of every server README with the number of docs/mcp/tools/<server>/*.md.
+    Returns the list of problems (empty = consistent)."""
+    problems = []
+    total = sum(per_server.values())
+    status = os.path.join(REPO_ROOT, "docs", "mcp", "MCP_STATUS.md")
+    if os.path.isfile(status):
+        text = open(status, encoding="utf-8").read()
+        m = re.search(r"ledger of the (\d+) MCP tools", text)
+        if not m or int(m.group(1)) != total:
+            problems.append("MCP_STATUS.md header says %s tools, the tool docs hold %d" % (m.group(1) if m else "?", total))
+        for label in ("Gold-standard binding", "Schema+Binding tests", "Docs (.md + .mcp.json)"):
+            m = re.search(r"\|\s*" + re.escape(label) + r"\s*\|\s*(\d+)\s*\|\s*(\d+)\s*\|", text)
+            if not m or int(m.group(1)) != total or int(m.group(2)) != total:
+                problems.append("MCP_STATUS.md roll-up '%s' is %s / %s, the tool docs hold %d" % (label, m.group(1) if m else "?", m.group(2) if m else "?", total))
+        table_sum = 0
+        for m in re.finditer(r"^\|\s*([A-Za-z]+)\s*\|\s*((?:Seqeron|SuffixTree)\.Mcp\.[A-Za-z]+)\s*\|\s*(\d+)\s*\|", text, re.M):
+            server, n = m.group(1).lower(), int(m.group(3))
+            table_sum += n
+            if per_server.get(server) != n:
+                problems.append("MCP_STATUS.md per-server table: %s = %d, the tool docs hold %s" % (server, n, per_server.get(server)))
+        if table_sum != total:
+            problems.append("MCP_STATUS.md per-server table sums to %d, the tool docs hold %d" % (table_sum, total))
+    for root in (os.path.join(REPO_ROOT, "src", "Seqeron", "Mcp"), os.path.join(REPO_ROOT, "src", "SuffixTree", "Mcp")):
+        if not os.path.isdir(root):
+            continue
+        for project in sorted(os.listdir(root)):
+            readme = os.path.join(root, project, "README.md")
+            if not os.path.isfile(readme):
+                continue
+            server = project.split(".")[-1].lower()
+            text = open(readme, encoding="utf-8").read()
+            m = re.search(r"Exposes \*\*(\d+) tools\*\*", text)
+            if m and per_server.get(server) is not None and int(m.group(1)) != per_server[server]:
+                problems.append("%s/README.md says %s tools, the tool docs hold %d" % (project, m.group(1), per_server[server]))
+            m = re.search(r"\(all (\d+)\)", text)
+            if m and per_server.get(server) is not None and int(m.group(1)) != per_server[server]:
+                problems.append("%s/README.md says 'all %s', the tool docs hold %d" % (project, m.group(1), per_server[server]))
+    return problems
+
 # ---------------------------------------------------------------------------
 # Rendering
 # ---------------------------------------------------------------------------
@@ -426,9 +469,13 @@ def main(argv):
     records, per_server = collect_tools()
     total = crosscheck_counts(per_server)
     plan, skipped = build_plan(records)
+    count_problems = check_documented_counts(per_server)
+    for problem in count_problems:
+        warn("stale documented tool count: " + problem)
 
     if args.check:
-        return check_plan(plan, skipped, total)
+        status = check_plan(plan, skipped, total)
+        return status or (1 if count_problems else 0)
     write_plan(plan, skipped, total)
     return 0
 
