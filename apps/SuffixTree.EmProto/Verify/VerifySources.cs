@@ -36,6 +36,9 @@ internal interface IVerifySource
 
     /// <summary>What the SHA-256 of the extension is the hash of, for the message of the row.</summary>
     string Describe(string extension);
+
+    /// <summary>Whether the child table holds tagged cells (CHILD codec 2) when the source knows it (a container does); null = the option of the run decides. STUB of the red commit of work package 1b.9a.</summary>
+    bool? ChildTagged => null;
 }
 
 /// <summary>The files <c>&lt;prefix&gt;.pk</c>, <c>.pk.meta</c>, <c>.sa</c>, <c>.lcp</c>, <c>.ovf</c>, <c>.cld</c>, <c>.stats</c> of an <c>e6</c> run.</summary>

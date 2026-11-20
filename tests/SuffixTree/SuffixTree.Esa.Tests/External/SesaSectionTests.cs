@@ -560,7 +560,7 @@ public sealed class SesaSectionTests
             using MappedOutputFile small = MappedOutputFile.Create(dir.File("child-short.bin"), childOffset + arrayBytes - 1, new MappedFileOptions { Reservation = ReservationMode.Sparse });
             Assert.Throws<ArgumentOutOfRangeException>(() => SectionLcpChildBuilder.Build(container, 128, reader, small, childOffset, place, o), "the child range is one byte beyond the file");
             Assert.Throws<ArgumentOutOfRangeException>(() => SectionLcpChildBuilder.Build(container, 128, reader, file, -1, place, o));
-            Assert.Throws<ArgumentException>(() => SectionLcpChildBuilder.Build(container, 128, reader, file, childOffset, place, LcpChildRun.Options(dir.Sub("s8"), LcpChildRun.TinyTuning(2), codec: ChildCodec.Tagged)), "the container has one codec of the child table");
+            Assert.Throws<ArgumentException>(() => SectionLcpChildBuilder.Build(container, 128, reader, file, childOffset, place, LcpChildRun.Options(dir.Sub("s8"), LcpChildRun.TinyTuning(2), codec: (ChildCodec)99)), "the container has the codecs 1 and 2 of the child table, nothing else");
         }
     }
 

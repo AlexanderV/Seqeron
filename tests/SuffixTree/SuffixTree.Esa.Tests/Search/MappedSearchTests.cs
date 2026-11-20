@@ -64,23 +64,30 @@ public class MappedSearchTests
 
     private static string Show(string s) => s.Length <= 60 ? s : s[..60] + "...";
 
+    private static readonly ChildCodec[] Codecs = [ChildCodec.Packed, ChildCodec.Tagged];
+
     private static void CompareAll(string text, string label, IEnumerable<string> patterns)
     {
         EsaIndex memory = EsaIndex.Build(text);
-        byte[] image = SesaTestFile.Image(LcpChildCase.Of(text));
-        foreach (EsaAccessMode mode in Modes)
+        LcpChildCase c = LcpChildCase.Of(text);
+        string[] list = [.. patterns];
+        foreach (ChildCodec codec in Codecs)
         {
-            string path = Path.Combine(Path.GetTempPath(), "esa-ms-" + Guid.NewGuid().ToString("N") + ".sesa");
-            File.WriteAllBytes(path, image);
-            try
+            byte[] image = SesaTestFile.Image(c, codec: codec);
+            foreach (EsaAccessMode mode in Modes)
             {
-                using SesaFile file = SesaFile.Open(path, new EsaOpenOptions { Access = mode });
-                var search = new MappedSearch(file);
-                foreach (string p in patterns) Compare(memory, file, search, p, $"{label} {mode}");
-            }
-            finally
-            {
-                File.Delete(path);
+                string path = Path.Combine(Path.GetTempPath(), "esa-ms-" + Guid.NewGuid().ToString("N") + ".sesa");
+                File.WriteAllBytes(path, image);
+                try
+                {
+                    using SesaFile file = SesaFile.Open(path, new EsaOpenOptions { Access = mode });
+                    var search = new MappedSearch(file);
+                    foreach (string p in list) Compare(memory, file, search, p, $"{label} {codec} {mode}");
+                }
+                finally
+                {
+                    File.Delete(path);
+                }
             }
         }
     }
@@ -238,13 +245,14 @@ public class MappedSearchTests
         Assume.That(OperatingSystem.IsLinux(), "the guard pages need mmap and mprotect");
         var rng = new SplitMix64(0xDA6A6E);
         string text = RandomText(rng, 700, 4) + new string('A', 300) + RandomText(rng, 400, 4);
-        byte[] clean = SesaTestFile.Image(LcpChildCase.Of(text));
+        LcpChildCase c = LcpChildCase.Of(text);
+        byte[][] cleans = [SesaTestFile.Image(c, codec: ChildCodec.Packed), SesaTestFile.Image(c, codec: ChildCodec.Tagged)];
         int[] kinds = [SesaFormat.KindSa, SesaFormat.KindChild, SesaFormat.KindLcp];
         var options = new EsaOpenOptions { Access = EsaAccessMode.Checked };
         int refused = 0, answered = 0;
-        for (int round = 0; round < 400; round++)
+        for (int round = 0; round < 600; round++)
         {
-            byte[] image = (byte[])clean.Clone();
+            byte[] image = (byte[])cleans[round % 2].Clone();
             int damaged = 1 + rng.NextInt(2);
             for (int d = 0; d < damaged; d++) Damage(image, rng, kinds[rng.NextInt(kinds.Length)]);
             using var guarded = new SesaReaderHostileTests.Guarded(image, flush: round % 2 == 0);
@@ -280,20 +288,21 @@ public class MappedSearchTests
         Assert.That(answered, Is.GreaterThan(0));
     }
 
-    [Test]
-    public void ATableThatSendsTheWalkBackwardsOrOutsideItsInterval_InCheckedMode_IsInvalidData()
+    [TestCase(false)]
+    [TestCase(true)]
+    public void ATableThatSendsTheWalkBackwardsOrOutsideItsInterval_InCheckedMode_IsInvalidData(bool tagged)
     {
+        ChildCodec codec = tagged ? ChildCodec.Tagged : ChildCodec.Packed;
         string text = "mississippimississippi";
-        byte[] clean = SesaTestFile.Image(LcpChildCase.Of(text));
-        SesaOracle oracle = SesaOracle.FromBytes(clean);
-        OracleSection child = oracle.Get(SesaFormat.KindChild);
+        byte[] clean = SesaTestFile.Image(LcpChildCase.Of(text), codec: codec);
+        OracleSection child = SesaOracle.FromBytes(clean).Get(SesaFormat.KindChild);
         int cells = (int)child.Count;
         var options = new EsaOpenOptions { Access = EsaAccessMode.Checked };
         int refused = 0;
-        // every cell of the child table set in turn to a value outside its interval, to itself and to the end of the text: no outcome but a plain answer or InvalidDataException, and the first kind at least once
+        // every cell of the child table set in turn to a value outside its interval, to itself, to the end of the text and to tagged values: no outcome but the one of the reference (a plain answer or InvalidDataException), and the second at least once
         for (int cell = 0; cell < cells; cell++)
         {
-            foreach (int value in new[] { 0, cell, cells - 1, cells, cells + 5, int.MaxValue, -1 })
+            foreach (int value in new[] { 0, cell, cells - 1, cells, cells + 5, int.MaxValue, -1, (1 << 30) | 3, (2 << 30) | cell, (3 << 30) | (cells - 1) })
             {
                 byte[] image = (byte[])clean.Clone();
                 BitConverter.TryWriteBytes(image.AsSpan((int)child.Offset + (4 * cell)), value);
@@ -307,7 +316,7 @@ public class MappedSearchTests
                         byte[] dense = Dense(file.TextView.Alphabet, pattern);
                         string expected = Outcome(() => (EsaIndex.DescendMapped(file.Child.Mapped, file.Sa, file.Lcp, file.TextReader, dense, true, out int lo, out int hi), lo, hi));
                         string actual = Outcome(() => (search.TryMatch(dense, out int lo, out int hi), lo, hi));
-                        Assert.That(actual, Is.EqualTo(expected), $"cell {cell} = {value}, pattern '{pattern}'");
+                        Assert.That(actual, Is.EqualTo(expected), $"{codec} cell {cell} = {value}, pattern '{pattern}'");
                         if (actual == "InvalidDataException") refused++;
                     }
                 }
@@ -316,13 +325,15 @@ public class MappedSearchTests
         Assert.That(refused, Is.GreaterThan(0));
     }
 
-    [Test]
-    public void ALongerPatternThanTheSuffixOfAChild_IsAnAbsentPattern_NotAReadPastTheText()
+    [TestCase(false)]
+    [TestCase(true)]
+    public void ALongerPatternThanTheSuffixOfAChild_IsAnAbsentPattern_NotAReadPastTheText(bool tagged)
     {
+        ChildCodec codec = tagged ? ChildCodec.Tagged : ChildCodec.Packed;
         Assume.That(OperatingSystem.IsLinux(), "the guard pages need mmap and mprotect");
         // a text whose last suffixes are shorter than the patterns that start like them: the stretch to compare would run past the end of the text
         string text = "abababababababababab";
-        byte[] image = SesaTestFile.Image(LcpChildCase.Of(text));
+        byte[] image = SesaTestFile.Image(LcpChildCase.Of(text), codec: codec);
         foreach (bool flush in new[] { true, false })
         {
             foreach (EsaAccessMode mode in Modes)
@@ -334,10 +345,10 @@ public class MappedSearchTests
                     var search = new MappedSearch(file);
                     for (int len = 1; len <= 40; len++)
                     {
-                        string pattern = string.Concat(Enumerable.Repeat("ab", len / 2 + 1))[..len] + "b";
+                        string pattern = string.Concat(Enumerable.Repeat("ab", (len / 2) + 1))[..len] + "b";
                         byte[] dense = Dense(file.TextView.Alphabet, pattern);
                         bool found = search.TryMatch(dense, out _, out _);
-                        Assert.That(found, Is.EqualTo(text.Contains(pattern, StringComparison.Ordinal)), $"{mode} flush {flush} '{pattern}'");
+                        Assert.That(found, Is.EqualTo(text.Contains(pattern, StringComparison.Ordinal)), $"{codec} {mode} flush {flush} '{pattern}'");
                     }
                 }
             }

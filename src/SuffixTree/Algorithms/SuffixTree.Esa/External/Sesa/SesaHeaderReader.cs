@@ -47,6 +47,13 @@ internal static unsafe class SesaHeaderReader
     private const long MaxTextLength = uint.MaxValue - 3L;
     private const long MaxBuildInfoBytes = 1 << 20;
 
+    /// <summary>
+    /// The CHILD codec against the length of the text (work package 1b.9a): codec 1 (packed) and codec 2 (tagged, ranks in 30 bits) exist. STUB of the red commit.
+    /// </summary>
+    /// <exception cref="NotSupportedException">Another codec.</exception>
+    /// <exception cref="InvalidDataException">Codec 2 for a text whose ranks do not fit 30 bits.</exception>
+    internal static void CheckChildCodec(int codec, long textLength) => throw new NotImplementedException($"1b.9a: not written yet ({codec}, {textLength})");
+
     /// <summary>Parses and validates the header page at <paramref name="p"/> of a file of <paramref name="length"/> bytes.</summary>
     internal static SesaParsed Parse(byte* p, long length)
     {

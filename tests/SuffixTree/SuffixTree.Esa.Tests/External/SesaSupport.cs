@@ -127,7 +127,7 @@ internal sealed class SesaOracle
     private static bool IsArray(OracleSection s) => !(s.Kind == 1 && s.Codec == 4) && s.Kind != 11;
 
     /// <summary>Everything that ADR-003 sections 3, 4 and 6 (level <c>Header</c> plus the CRCs of level <c>Sections</c>) say about a file, checked from the bytes; the first violation fails the test.</summary>
-    internal void AssertConforms(string label, bool psiExpected)
+    internal void AssertConforms(string label, bool psiExpected, int childCodec = SesaFormat.ChildCodecTagged)
     {
         Assert.That(File.Length, Is.GreaterThanOrEqualTo(4096), $"{label}: file shorter than the header page");
         Assert.That(Magic, Is.EqualTo(new byte[] { 0x89, 0x53, 0x45, 0x53, 0x41, 0x0D, 0x0A, 0x1A }), $"{label}: magic");
@@ -182,7 +182,7 @@ internal sealed class SesaOracle
         Assert.That((counts.Count, counts.ElemWidth), Is.EqualTo(((long)Sigma, 8)), $"{label}: COUNTS entry");
         Assert.That(MemoryMarshal.Cast<byte, ulong>(Payload(counts)).ToArray().Aggregate(0UL, (a, c) => a + c), Is.EqualTo((ulong)TextLen), $"{label}: COUNTS sum to n");
         Assert.That((sa.Count, sa.ElemWidth, sa.Codec), Is.EqualTo((TextLen + 1, 4, 1)), $"{label}: SA entry");
-        Assert.That((child.Count, child.ElemWidth, child.Codec), Is.EqualTo((TextLen + 1, 4, 1)), $"{label}: CHILD entry (layout A, packed)");
+        Assert.That((child.Count, child.ElemWidth, child.Codec), Is.EqualTo((TextLen + 1, 4, childCodec)), $"{label}: CHILD entry (layout A, codec {childCodec})");
         Assert.That(lcp.Count, Is.EqualTo(TextLen + 1), $"{label}: LCP COUNT");
         Assert.That(lcp.Codec, Is.InRange(1, 3), $"{label}: LCP codec");
         Assert.That(lcp.ElemWidth, Is.EqualTo(lcp.Codec switch { 1 => 1, 2 => 2, _ => 4 }), $"{label}: LCP width");
@@ -260,11 +260,11 @@ internal static class SesaRun
     internal static int PrimaryRow(ReadOnlySpan<int> sa) => sa.IndexOf(0);
 
     /// <summary>Compares every section of the file with what the in-RAM index of the text holds, and the header with its statistics.</summary>
-    internal static void Compare(Outcome o, string label, bool psi)
+    internal static void Compare(Outcome o, string label, bool psi, ChildCodec codec = ChildCodec.Tagged)
     {
         LcpChildCase c = o.Case;
         SesaOracle f = o.Oracle;
-        f.AssertConforms(label, psi);
+        f.AssertConforms(label, psi, codec == ChildCodec.Tagged ? SesaFormat.ChildCodecTagged : SesaFormat.ChildCodecPacked);
         int n = c.N;
         Assert.That(f.TextLen, Is.EqualTo(n), $"{label}: TEXT_LEN");
         Assert.That(f.Sigma, Is.EqualTo(c.Sigma), $"{label}: SIGMA");
@@ -286,7 +286,7 @@ internal static class SesaRun
         Assert.That(lcp.Param0, Is.EqualTo(c.Lcp.OverflowCount), $"{label}: LCP PARAM0 (overflow entries)");
         Assert.That(f.Payload(4).AsSpan().SequenceEqual(c.LcpBaseBytes()), Is.True, $"{label}: LCP base array ({c.Lcp.Kind})");
         if (c.Lcp.OverflowCount > 0) Assert.That(f.Payload(5).AsSpan().SequenceEqual(c.OverflowBytes()), Is.True, $"{label}: LCP_OVERFLOW");
-        Assert.That(MemoryMarshal.Cast<byte, uint>(f.Payload(6)).ToArray(), Is.EqualTo(c.Packed), $"{label}: CHILD");
+        Assert.That(MemoryMarshal.Cast<byte, uint>(f.Payload(6)).ToArray(), Is.EqualTo(c.Child(codec)), $"{label}: CHILD ({codec})");
         if (psi)
         {
             OracleSection p = f.Get(12);

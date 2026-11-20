@@ -38,7 +38,7 @@ public class SesaReaderFuzzTests
             FuzzCase c = FuzzTexts.Pick(rng, n);
             string text = c.Text();
             if (text.Any(ch => ch > 255) || text.Length == 0) continue;
-            byte[] clean = SesaTestFile.Image(LcpChildCase.Of(text), psi: rng.NextInt(4) != 0);
+            byte[] clean = SesaTestFile.Image(LcpChildCase.Of(text), psi: rng.NextInt(4) != 0, codec: (i & 1) == 0 ? ChildCodec.Packed : ChildCodec.Tagged);
             byte[] image = (byte[])clean.Clone();
             int kind = rng.NextInt(4);
             string what;

@@ -13,7 +13,7 @@ namespace SuffixTree.Esa.Tests.External;
 internal static class SesaTestFile
 {
     /// <summary>The bytes of the container of the text (a text of code units below 256): the layout of <see cref="SesaLayout"/>, the table in file order, the flags of the builder.</summary>
-    internal static byte[] Image(LcpChildCase c, bool psi = true, bool counts = true, bool buildInfo = true)
+    internal static byte[] Image(LcpChildCase c, bool psi = true, bool counts = true, bool buildInfo = true, ChildCodec codec = ChildCodec.Packed)
     {
         PackedTextInfo info = TextOracle.Info(c.Symbols, c.Bits, c.Sigma);
         SesaPlan plan = SesaLayout.Plan(info, psi);
@@ -30,10 +30,11 @@ internal static class SesaTestFile
         Put(plan.AlphabetOffset, MemoryMarshal.AsBytes(letters.AsSpan()));
         if (counts) Put(plan.CountsOffset, MemoryMarshal.AsBytes(symbolCounts.AsSpan()));
         Put(plan.SaOffset, MemoryMarshal.AsBytes(sa.AsSpan()));
-        Put(plan.ChildOffset, MemoryMarshal.AsBytes(c.Packed.AsSpan()));
+        uint[] child = c.Child(codec);
+        Put(plan.ChildOffset, MemoryMarshal.AsBytes(child.AsSpan()));
         uint[] psiArray = SesaRun.NaivePsi(sa);
         if (psi) Put(plan.PsiOffset, MemoryMarshal.AsBytes(psiArray.AsSpan()));
-        string infoText = SesaBuilder.BuildInfoText(info, c.Lcp.Kind, c.Lcp.OverflowCount, psi);
+        string infoText = SesaBuilder.BuildInfoText(info, c.Lcp.Kind, c.Lcp.OverflowCount, psi, codec);
         byte[] infoBytes = Encoding.UTF8.GetBytes(infoText);
         if (buildInfo) Put(plan.BuildInfoOffset, infoBytes);
         byte[] lcpBase = c.LcpBaseBytes();
@@ -51,7 +52,7 @@ internal static class SesaTestFile
         };
         if (counts) sections.Add(new SesaSection(SesaFormat.KindCounts, optional, plan.CountsOffset, plan.CountsLength, c.Sigma, 8, 1, 0, 0, Crc32C.Compute(MemoryMarshal.AsBytes(symbolCounts.AsSpan()))));
         sections.Add(new SesaSection(SesaFormat.KindSa, required, plan.SaOffset, plan.SaLength, rows, 4, 1, 0, 0, Crc32C.Compute(MemoryMarshal.AsBytes(sa.AsSpan()))));
-        sections.Add(new SesaSection(SesaFormat.KindChild, required, plan.ChildOffset, plan.ChildLength, rows, 4, 1, 0, 0, Crc32C.Compute(MemoryMarshal.AsBytes(c.Packed.AsSpan()))));
+        sections.Add(new SesaSection(SesaFormat.KindChild, required, plan.ChildOffset, plan.ChildLength, rows, 4, codec == ChildCodec.Tagged ? SesaFormat.ChildCodecTagged : SesaFormat.ChildCodecPacked, 0, 0, Crc32C.Compute(MemoryMarshal.AsBytes(child.AsSpan()))));
         if (psi) sections.Add(new SesaSection(SesaFormat.KindPsi, optional, plan.PsiOffset, plan.PsiLength, rows, 4, 1, SesaRun.PrimaryRow(sa), 0, Crc32C.Compute(MemoryMarshal.AsBytes(psiArray.AsSpan()))));
         if (buildInfo) sections.Add(new SesaSection(SesaFormat.KindBuildInfo, optional, plan.BuildInfoOffset, infoBytes.Length, infoText.Count(ch => ch == '\n'), 0, 1, 0, 0, Crc32C.Compute(infoBytes)));
         sections.Add(new SesaSection(SesaFormat.KindLcp, required, plan.LcpOffset, tail.LcpLength, rows, tail.LcpWidth, c.Lcp.Kind switch { LcpKind.U8 => 1, LcpKind.U16 => 2, _ => 3 }, c.Lcp.OverflowCount, 0, Crc32C.Compute(lcpBase)));
@@ -73,10 +74,10 @@ internal static class SesaTestFile
     }
 
     /// <summary>Writes the container of <paramref name="text"/> and returns its path.</summary>
-    internal static string Write(TempDir dir, string text, string name = "t.sesa", bool psi = true)
+    internal static string Write(TempDir dir, string text, string name = "t.sesa", bool psi = true, ChildCodec codec = ChildCodec.Packed)
     {
         string path = dir.File(name);
-        File.WriteAllBytes(path, Image(LcpChildCase.Of(text), psi));
+        File.WriteAllBytes(path, Image(LcpChildCase.Of(text), psi, codec: codec));
         return path;
     }
 
@@ -116,10 +117,10 @@ internal static class SesaTestFile
     }
 
     /// <summary>The tree of a text through the file: written, opened (mapped), and the path removed at once (a mapping outlives the name on Linux), so that thousands of trees leave nothing behind.</summary>
-    internal static EsaSuffixTree FileTree(string text, bool psi = true, EsaAccessMode access = EsaAccessMode.Checked, EsaValidationLevel level = EsaValidationLevel.Header)
+    internal static EsaSuffixTree FileTree(string text, bool psi = true, EsaAccessMode access = EsaAccessMode.Checked, EsaValidationLevel level = EsaValidationLevel.Header, ChildCodec codec = ChildCodec.Packed)
     {
         string path = Path.Combine(Path.GetTempPath(), "esa-rd-" + Guid.NewGuid().ToString("N") + ".sesa");
-        File.WriteAllBytes(path, Image(LcpChildCase.Of(text), psi));
+        File.WriteAllBytes(path, Image(LcpChildCase.Of(text), psi, codec: codec));
         try
         {
             return Open(path, level, access);

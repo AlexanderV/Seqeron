@@ -46,6 +46,9 @@ internal sealed record SesaBuildOptions
     /// <summary>Worker threads of the bucket tasks of PH1 and PH3 and of the B2 tasks of PH4.</summary>
     internal int Threads { get; init; } = 4;
 
+    /// <summary>The codec of the CHILD section (work package 1b.9a): null = by the length of the text (<see cref="SesaBuilder.ChildCodecFor"/>: tagged up to 2^30 - 1 symbols, else packed).</summary>
+    internal ChildCodec? ChildCodec { get; init; }
+
     /// <summary>Write the optional PSI section (kind 12, <c>REQUIRED</c> clear). The cost is one more pass over the suffix array and the text, a scratch BWT of 1 B/char and 4 B/char in the file.</summary>
     internal bool IncludePsi { get; init; } = true;
 
@@ -249,6 +252,13 @@ internal sealed class SesaBuildResult
 /// </summary>
 internal static class SesaBuilder
 {
+    /// <summary>
+    /// The codec of the CHILD section for a text of <paramref name="n"/> symbols: <paramref name="requested"/> when it is given, else the tagged codec up to <see cref="TaggedChild.MaxLength"/> symbols and the packed one above it.
+    /// STUB of the red commit of work package 1b.9a.
+    /// </summary>
+    /// <exception cref="NotSupportedException">The tagged codec is requested for a text whose ranks do not fit 30 bits.</exception>
+    internal static ChildCodec ChildCodecFor(long n, ChildCodec? requested) => throw new NotImplementedException($"1b.9a: not written yet ({n}, {requested})");
+
     /// <summary>Builds the container of the text in the file <paramref name="inputPath"/> (one byte per code unit) at <paramref name="targetPath"/>.</summary>
     /// <exception cref="DirectoryNotFoundException">The directory of the target does not exist.</exception>
     /// <exception cref="NotSupportedException">The text is longer than <see cref="PackedTextFormat.MaxSymbols"/>.</exception>
@@ -392,7 +402,7 @@ internal static class SesaBuilder
             // ---- PH7: BUILD_INFO, the checksums, the header page, the atomic publication
             using var seal = new PhaseRss(options);
             t = Stopwatch.GetTimestamp();
-            string buildInfo = BuildInfoText(info, placed.Kind, placed.OverflowCount, options.IncludePsi);
+            string buildInfo = BuildInfoText(info, placed.Kind, placed.OverflowCount, options.IncludePsi, ChildCodec.Packed);
             byte[] infoBytes = Encoding.UTF8.GetBytes(buildInfo);
             if (infoBytes.Length > plan.BuildInfoCapacity) throw new InvalidOperationException($"BUILD_INFO has {infoBytes.Length} bytes, the reserved room is {plan.BuildInfoCapacity}");
             WriteSection(container, plan.BuildInfoOffset, infoBytes, options.TextWindowBytes, counters);
@@ -610,9 +620,9 @@ internal static class SesaBuilder
     }
 
     /// <summary>The text of the BUILD_INFO section: everything that is a fact about the output, nothing about the run (no time, no thread count, no sizes), so that the same input gives the same bytes.</summary>
-    internal static string BuildInfoText(PackedTextInfo info, LcpKind kind, long overflowCount, bool psi)
+    internal static string BuildInfoText(PackedTextInfo info, LcpKind kind, long overflowCount, bool psi, ChildCodec childCodec)
         => string.Create(CultureInfo.InvariantCulture,
-            $"format=SESA 1.0\nwriter=SuffixTree.Esa.External.SesaBuilder 1\nalgorithm=B-DCS (ADR-004)\nn={info.N}\nsigma={info.Sigma}\ntext=codec 4, {info.Bits} bits per symbol\nlcp={kind}, {overflowCount} overflow entries\nchild=layout A, packed\npsi={(psi ? "yes" : "no")}\n");
+            $"format=SESA 1.0\nwriter=SuffixTree.Esa.External.SesaBuilder 1\nalgorithm=B-DCS (ADR-004)\nn={info.N}\nsigma={info.Sigma}\ntext=codec 4, {info.Bits} bits per symbol\nlcp={kind}, {overflowCount} overflow entries\nchild=layout A, {(childCodec == ChildCodec.Tagged ? "tagged" : "packed")}\npsi={(psi ? "yes" : "no")}\n");
 
     private static double Elapsed(long t0) => (Stopwatch.GetTimestamp() - t0) / (double)Stopwatch.Frequency;
 

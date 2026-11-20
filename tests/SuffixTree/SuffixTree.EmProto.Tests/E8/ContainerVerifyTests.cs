@@ -17,13 +17,13 @@ public class ContainerVerifyTests : TempDirFixture
     private static readonly string[] Small = ["a", "ab", "banana", "mississippi", "abracadabra", "aaaaaaaaab", "abababababab", "acgtacgtnnnnacgtacgt", "GATTACAGATTACAGGTAGATTACA"];
 
     /// <summary>Builds the container of the text with the end-to-end builder; the input text is <c>in.txt</c> next to it.</summary>
-    private string Build(string text, string name, bool psi = true)
+    private string Build(string text, string name, bool psi = true, ChildCodec? codec = null)
     {
         string dir = Run(name);
         string input = Path.Combine(dir, "in.txt");
         File.WriteAllBytes(input, PipelineChecks.Latin1(text));
         string target = Path.Combine(dir, "out.sesa");
-        SesaBuilder.Build(input, target, new SesaBuildOptions { Threads = 2, Fsync = false, MeasureRss = false, IncludePsi = psi });
+        SesaBuilder.Build(input, target, new SesaBuildOptions { Threads = 2, Fsync = false, MeasureRss = false, IncludePsi = psi, ChildCodec = codec });
         return target;
     }
 
@@ -140,9 +140,9 @@ public class ContainerVerifyTests : TempDirFixture
         BinaryPrimitives.WriteUInt32LittleEndian(image.AsSpan(124), crc);
     }
 
-    private VerifyResult Damaged(string text, string name, Action<byte[], SesaOracleLike> damage, bool input = true)
+    private VerifyResult Damaged(string text, string name, Action<byte[], SesaOracleLike> damage, bool input = true, ChildCodec? codec = null)
     {
-        string container = Build(text, name);
+        string container = Build(text, name, codec: codec);
         (byte[] image, SesaOracleLike o) = Image(container);
         damage(image, o);
         File.WriteAllBytes(container, image);
@@ -183,9 +183,28 @@ public class ContainerVerifyTests : TempDirFixture
     }
 
     [Test]
-    public void AWrongChildCell_IsFoundByTheChildCheck()
+    public void ABuiltContainer_OfEitherChildCodec_PassesAllElevenChecks_AndTheContainerSaysWhichCodecItHolds()
     {
-        VerifyResult r = Damaged("GATTACAGATTACAGGTAGATTACA", "child", (img, o) =>
+        int v = 0;
+        foreach (ChildCodec codec in new[] { ChildCodec.Packed, ChildCodec.Tagged })
+        {
+            foreach (string s in Small)
+            {
+                string container = Build(s, $"k{codec}{v++}", codec: codec);
+                VerifyResult r = Check(container);
+                Assert.That(r.AllPassed, Is.True, $"'{s}' {codec}: {Describe(r)}");
+                using var source = new ContainerVerifySource(container);
+                Assert.That(((IVerifySource)source).ChildTagged, Is.EqualTo(codec == ChildCodec.Tagged), $"'{s}' {codec}");
+            }
+        }
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void AWrongChildCell_IsFoundByTheChildCheck(bool tagged)
+    {
+        ChildCodec codec = tagged ? ChildCodec.Tagged : ChildCodec.Packed;
+        VerifyResult r = Damaged("GATTACAGATTACAGGTAGATTACA", $"child{codec}", (img, o) =>
         {
             long cells = o.Sections[SesaFormat.KindChild].Length / 4;
             long at = o.Sections[SesaFormat.KindChild].Offset;
@@ -198,7 +217,7 @@ public class ContainerVerifyTests : TempDirFixture
                     return;
                 }
             }
-        });
+        }, codec: codec);
         Assert.That(r.Failed("child"), Is.True, Describe(r));
     }
 

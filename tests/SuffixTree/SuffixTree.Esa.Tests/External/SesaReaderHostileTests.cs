@@ -188,14 +188,15 @@ public class SesaReaderHostileTests
         string text = StringFamilies.Random(150, 3, 5) + "abababababababababababab" + new string('a', 60);
         text = new string(text.Select(c => (char)('a' + ((c - 'a') % 3))).ToArray());
         LcpChildCase c = LcpChildCase.Of(text);
-        byte[] clean = SesaTestFile.Image(c);
+        // the two codecs of the CHILD section (1b.9a): the rounds go through both, in turn by pairs of rounds
+        byte[][] cleans = [SesaTestFile.Image(c), SesaTestFile.Image(c, codec: ChildCodec.Tagged)];
         var rng = new SplitMix64(0xBADC0DE);
         int[] kinds = [SesaFormat.KindSa, SesaFormat.KindChild, SesaFormat.KindLcp, SesaFormat.KindPsi];
         var options = new EsaOpenOptions { Validation = EsaValidationLevel.Header, Access = EsaAccessMode.Checked };
-        for (int round = 0; round < 240; round++)
+        for (int round = 0; round < 480; round++)
         {
             int kind = kinds[round % kinds.Length];
-            byte[] image = Hostile(clean, rng, kind);
+            byte[] image = Hostile(cleans[(round / 2) % 2], rng, kind);
             using var guarded = new Guarded(image, flush: round % 2 == 0);
             int r = round;
             RunWithWatchdog(() =>
@@ -243,11 +244,10 @@ public class SesaReaderHostileTests
         if (!OperatingSystem.IsLinux()) Assert.Ignore("the guard pages need Linux mmap / mprotect");
         string text = StringFamilies.Random(500, 4, 11);
         LcpChildCase c = LcpChildCase.Of(text);
-        byte[] image = SesaTestFile.Image(c);
         using EsaSuffixTree memory = EsaSuffixTree.Build(text);
-        foreach (bool flush in new[] { true, false })
+        foreach ((bool flush, ChildCodec codec) in new[] { (true, ChildCodec.Packed), (false, ChildCodec.Packed), (true, ChildCodec.Tagged), (false, ChildCodec.Tagged) })
         {
-            using var guarded = new Guarded(image, flush);
+            using var guarded = new Guarded(SesaTestFile.Image(c, codec: codec), flush);
             unsafe
             {
                 using SesaFile file = SesaFile.FromMemory(guarded.Data, guarded.Length, new EsaOpenOptions { Validation = EsaValidationLevel.Structure });
@@ -263,13 +263,15 @@ public class SesaReaderHostileTests
         }
     }
 
-    [Test]
-    public void AChildTableThatLoops_InCheckedMode_IsBounded()
+    [TestCase(false)]
+    [TestCase(true)]
+    public void AChildTableThatLoops_InCheckedMode_IsBounded(bool tagged)
     {
+        ChildCodec codec = tagged ? ChildCodec.Tagged : ChildCodec.Packed;
         // every l-index chain of the root points back at itself: the walk must end with InvalidData, not loop
         string text = "abcabcabcabcabcabcabc";
         LcpChildCase c = LcpChildCase.Of(text);
-        byte[] image = SesaTestFile.Image(c);
+        byte[] image = SesaTestFile.Image(c, codec: codec);
         SesaOracle o = SesaOracle.FromBytes(image);
         OracleSection child = o.Get(SesaFormat.KindChild);
         for (int cell = 0; cell <= c.N; cell++)

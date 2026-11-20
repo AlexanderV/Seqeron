@@ -138,7 +138,7 @@ internal static class CorruptionFuzz
         }
         var rng = new SplitMix64(damageSeed);
         bool psi = rng.NextInt(4) != 0;
-        byte[] clean = SesaTestFile.Image(LcpChildCase.Of(text), psi);
+        byte[] clean = SesaTestFile.Image(LcpChildCase.Of(text), psi, codec: (damageSeed & 4) != 0 ? ChildCodec.Tagged : ChildCodec.Packed); // the CHILD codec of the clean file: a bit of the seed that the draws below do not use
         (byte[] image, string what, EsaValidationLevel? must) = Damage(clean, kind, rng);
         bool noop = image.AsSpan().SequenceEqual(clean);
         string where = $"{label} n={text.Length} {kind} (damage seed {damageSeed:x16}, psi {psi}): {what}";

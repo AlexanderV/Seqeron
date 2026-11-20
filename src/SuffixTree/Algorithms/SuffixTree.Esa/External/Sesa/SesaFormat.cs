@@ -77,6 +77,12 @@ internal static class SesaFormat
     internal const int KindLcp = 4;
     internal const int KindLcpOverflow = 5;
     internal const int KindChild = 6;
+
+    /// <summary>CHILD codec 1: layout A with the raw value in a cell (the kind of a field told apart by comparing LCP values; the codec of format 1.0 as written by 1b.7e).</summary>
+    internal const int ChildCodecPacked = 1;
+
+    /// <summary>CHILD codec 2 (ADR-003 amendment of 2026-11-19): layout A with the kind of a field in bits 30-31 (0 empty, 1 next, 2 up, 3 down) and the rank in bits 0-29; for a text of at most 2^30 - 1 symbols.</summary>
+    internal const int ChildCodecTagged = 2;
     internal const int KindBuildInfo = 11;
     internal const int KindPsi = 12;
     internal const int KindCounts = 13;
