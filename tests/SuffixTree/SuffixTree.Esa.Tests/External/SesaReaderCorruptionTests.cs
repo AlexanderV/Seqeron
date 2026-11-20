@@ -471,7 +471,7 @@ public class SesaReaderCorruptionTests
     {
         LcpChildCase c = LcpChildCase.Of("banana");
         using var dir = new TempDir();
-        foreach ((string label, int kind, int codec) in new[] { ("TEXT codec 1", SesaFormat.KindText, 1), ("TEXT codec 3", SesaFormat.KindText, 3), ("CHILD tagged", SesaFormat.KindChild, 2), ("LCP codec 4", SesaFormat.KindLcp, 4), ("SA codec 2", SesaFormat.KindSa, 2) })
+        foreach ((string label, int kind, int codec) in new[] { ("TEXT codec 1", SesaFormat.KindText, 1), ("TEXT codec 3", SesaFormat.KindText, 3), ("CHILD codec 3", SesaFormat.KindChild, 3), ("LCP codec 4", SesaFormat.KindLcp, 4), ("SA codec 2", SesaFormat.KindSa, 2) })
         {
             byte[] image = SesaTestFile.Image(c);
             Patch(image, i => BinaryPrimitives.WriteInt32LittleEndian(i.AsSpan(128 + (64 * SesaOracle.FromBytes(i).Get(kind).Index) + 36), codec));

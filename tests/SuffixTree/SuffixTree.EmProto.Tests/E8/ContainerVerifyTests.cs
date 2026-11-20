@@ -79,8 +79,10 @@ public class ContainerVerifyTests : TempDirFixture
         // the same seven outputs as files, written from the sections: pk, sa, lcp, ovf, cld verbatim, pk.meta and stats as the adapter derives them
         string dir = Run("extracted");
         string prefix = Path.Combine(dir, "out");
+        bool tagged;
         using (var source = new ContainerVerifySource(container))
         {
+            tagged = ((IVerifySource)source).ChildTagged == true;
             foreach (string e in new[] { "pk", "sa", "lcp", "ovf", "cld" })
             {
                 using var block = source.Open(e);
@@ -95,8 +97,11 @@ public class ContainerVerifyTests : TempDirFixture
             File.WriteAllText(prefix + ".stats", source.ReadText("stats"));
         }
         File.Copy(Path.Combine(Path.GetDirectoryName(container)!, "in.txt"), Path.Combine(dir, "in.txt"));
-        VerifyResult files = CheckFiles(prefix);
+        Assert.That(tagged, Is.True, "the end-to-end builder writes the tagged child table by default");
+        VerifyResult files = CheckFiles(prefix, tagged);
         Assert.That(files.AllPassed, Is.True, Describe(files));
+        Assert.That(CheckFiles(prefix, tagged: false).Failed("child"), Is.True, "the prefix mode reads the packed layout unless it is told the codec");
+        Assert.That(Cli.Run(["e8-verify", "--prefix", prefix, "--child-codec", "tagged", "--quiet", "--threads", "2"]), Is.EqualTo(0));
         Assert.That(inPlace.Checks.Select(c => (c.Name, c.Status)), Is.EqualTo(files.Checks.Select(c => (c.Name, c.Status))));
         Assert.That(inPlace.Facts, Is.EqualTo(files.Facts));
         Assert.That(inPlace.Sha256, Is.EqualTo(files.Sha256), "the SHA-256 of every section equals that of the extracted file");
@@ -334,5 +339,5 @@ public class ContainerVerifyTests : TempDirFixture
         Assert.That(Cli.Run(["e8-verify", "--prefix", prefix, "--quiet", "--threads", "2"]), Is.EqualTo(0));
     }
 
-    private static VerifyResult CheckFiles(string prefix) => OutputVerifier.Run(VerifierHarness.Options(prefix));
+    private static VerifyResult CheckFiles(string prefix, bool tagged = false) => OutputVerifier.Run(VerifierHarness.Options(prefix) with { ChildTagged = tagged });
 }

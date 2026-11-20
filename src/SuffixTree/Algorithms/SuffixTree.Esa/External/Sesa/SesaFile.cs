@@ -55,7 +55,7 @@ internal sealed unsafe class SesaFile : IDisposable
             _sa = new SaView((int*)(data + parsed.Sa.Offset), (int)(n + 1), isChecked);
             uint* pairs = parsed.Overflow is { } o ? (uint*)(data + o.Offset) : null;
             _lcp = CompactLcp.FromMapped(parsed.LcpKind, (int)(n + 1), data + parsed.Lcp.Offset, pairs, (int)parsed.Lcp.Param0, isChecked);
-            _child = ChildTable.FromMapped(new MappedChild((int*)(data + parsed.Child.Offset), (int)(n + 1), _lcp, isChecked));
+            _child = ChildTable.FromMapped(new MappedChild((int*)(data + parsed.Child.Offset), (int)(n + 1), _lcp, isChecked, parsed.Child.Codec == SesaFormat.ChildCodecTagged));
         }
         else
         {
@@ -180,7 +180,7 @@ internal sealed unsafe class SesaFile : IDisposable
     /// <summary>The LCP array.</summary>
     internal CompactLcp Lcp => _lcp;
 
-    /// <summary>The child table (codec 1, layout A).</summary>
+    /// <summary>The child table (layout A; codec 1 packed, codec 2 tagged).</summary>
     internal ChildTable Child => _child;
 
     /// <summary>The header statistics in the form of the in-memory index (LRS_RANK is 0 when there is no repeat).</summary>

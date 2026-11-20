@@ -300,7 +300,7 @@ internal static unsafe class SesaVerifier
     {
         SesaParsed ps = file.Parsed;
         int* cld = (int*)(file.Data + ps.Child.Offset);
-        var sink = new ChildCompareSink(cld, n, written);
+        var sink = new ChildCompareSink(cld, n, written, ps.Child.Codec == SesaFormat.ChildCodecTagged);
         long stackBytes;
         using (var stack = new FrameStack(Math.Max(2, SesaVerifierTuning.StackEntries), SesaVerifierTuning.SpillDirectory))
         {
@@ -380,32 +380,41 @@ internal static unsafe class SesaVerifier
         internal int Last = last;
     }
 
-    /// <summary>The expected writes of the packed layout, compared with the cells of the section.</summary>
+    /// <summary>The expected writes of the layout of the section's codec (packed: the raw value, a next link only when it is not <c>k + 1</c>; tagged: the kind in bits 30-31, a next link for every l-index that has a successor), compared with the cells of the section.</summary>
     private struct ChildCompareSink : IIntervalSink
     {
+        private const int NextKind = 1 << 30;
+        private const int UpKind = 2 << 30;
+        private const int DownKind = 3 << 30;
+
         private readonly int* _cells;
         private readonly int _n;
         private readonly ulong[] _seen;
+        private readonly bool _tagged;
         internal long Writes;
         internal long Internal;
         internal int LrsDepth;
         internal int LrsRank;
 
-        internal ChildCompareSink(int* cells, int n, ulong[] seen)
+        internal ChildCompareSink(int* cells, int n, ulong[] seen, bool tagged)
         {
             _cells = cells;
             _n = n;
             _seen = seen;
+            _tagged = tagged;
         }
 
         public void LIndex(int previous, int k)
         {
-            if (previous >= 0 && k != previous + 1) Expect(previous, k);
+            if (previous < 0) return;
+            if (_tagged) Expect(previous, NextKind | k);
+            else if (k != previous + 1) Expect(previous, k);
         }
 
         public void Close(int ell, int lb, int rb, int first, bool lastChild)
         {
-            Expect(lastChild ? lb : rb, first);
+            int kind = lastChild ? DownKind : UpKind;
+            Expect(lastChild ? lb : rb, _tagged ? kind | first : first);
             if (ell <= 0) return;
             Internal++;
             if (ell > LrsDepth)

@@ -9,7 +9,7 @@ namespace SuffixTree.Esa.External;
 /// <param name="Alphabet">ALPHABET.</param>
 /// <param name="Sa">SA.</param>
 /// <param name="Lcp">LCP.</param>
-/// <param name="Child">CHILD (codec 1, layout A packed).</param>
+/// <param name="Child">CHILD (layout A; codec 1 packed, codec 2 tagged).</param>
 /// <param name="Overflow">LCP_OVERFLOW when the LCP has escapes.</param>
 /// <param name="Psi">PSI when present.</param>
 /// <param name="Counts">COUNTS when present.</param>
@@ -48,11 +48,15 @@ internal static unsafe class SesaHeaderReader
     private const long MaxBuildInfoBytes = 1 << 20;
 
     /// <summary>
-    /// The CHILD codec against the length of the text (work package 1b.9a): codec 1 (packed) and codec 2 (tagged, ranks in 30 bits) exist. STUB of the red commit.
+    /// The CHILD codec against the length of the text (work package 1b.9a, ADR-003 amendment of 2026-11-19): codec 1 (packed) and codec 2 (tagged, the kind of a field in bits 30-31 and ranks in 30 bits) exist.
     /// </summary>
-    /// <exception cref="NotSupportedException">Another codec.</exception>
+    /// <exception cref="NotSupportedException">Another codec (the section is required).</exception>
     /// <exception cref="InvalidDataException">Codec 2 for a text whose ranks do not fit 30 bits.</exception>
-    internal static void CheckChildCodec(int codec, long textLength) => throw new NotImplementedException($"1b.9a: not written yet ({codec}, {textLength})");
+    internal static void CheckChildCodec(int codec, long textLength)
+    {
+        if (codec is not (SesaFormat.ChildCodecPacked or SesaFormat.ChildCodecTagged)) throw new NotSupportedException($"the CHILD codec is {codec}; this reader reads codec {SesaFormat.ChildCodecPacked} (packed) and codec {SesaFormat.ChildCodecTagged} (tagged)");
+        if (codec == SesaFormat.ChildCodecTagged && textLength > TaggedChild.MaxLength) throw new InvalidDataException($"CHILD codec 2 holds ranks in 30 bits, but the text has {textLength} symbols (at most {TaggedChild.MaxLength}): the file is damaged");
+    }
 
     /// <summary>Parses and validates the header page at <paramref name="p"/> of a file of <paramref name="length"/> bytes.</summary>
     internal static SesaParsed Parse(byte* p, long length)
@@ -145,7 +149,8 @@ internal static unsafe class SesaHeaderReader
         }
 
         CheckArray(sa, "SA", rows, 4, 1);
-        CheckArray(child, "CHILD", rows, 4, 1);
+        CheckChildCodec(child.Codec, n);
+        CheckArray(child, "CHILD", rows, 4, child.Codec);
         CheckRequired(sa, "SA");
         CheckRequired(child, "CHILD");
         CheckRequired(text, "TEXT");

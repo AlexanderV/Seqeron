@@ -73,10 +73,10 @@ internal sealed class ChildTable
     }
 
     /// <summary>
-    /// The table of a SESA container, read in place (work package 1b.7f). <see cref="Kind"/> is <see cref="ChildLayoutKind.Packed"/> (the container's codec 1 is that layout), <see cref="IsMapped"/> is true and the
-    /// accessors read <see cref="Mapped"/>; <see cref="Packed"/> is the empty default.
+    /// The table of a SESA container, read in place (work package 1b.7f). <see cref="Kind"/> is <see cref="ChildLayoutKind.Packed"/> for the container's codec 1 and <see cref="ChildLayoutKind.Tagged"/> for codec 2 (1b.9a),
+    /// <see cref="IsMapped"/> is true and the accessors read <see cref="Mapped"/>; the array layouts are the empty default.
     /// </summary>
-    internal static ChildTable FromMapped(MappedChild mapped) => new(ChildLayoutKind.Packed, default, default, default, mapped, true);
+    internal static ChildTable FromMapped(MappedChild mapped) => new(mapped.IsTagged ? ChildLayoutKind.Tagged : ChildLayoutKind.Packed, default, default, default, mapped, true);
 
     /// <summary>True when the table is read in place from a container (then <see cref="Mapped"/> is the table and the three array layouts are empty).</summary>
     internal bool IsMapped { get; }

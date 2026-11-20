@@ -73,10 +73,58 @@ internal readonly unsafe struct Lcp32Reader<TAccess>(int* values, int length) : 
     }
 }
 
+/// <summary>The cells of the child table of a container as the descent reads them: the first l-index of an interval and the l-index after one.</summary>
+internal interface IMappedCells
+{
+    /// <summary>The first l-index of the interval <c>[lb..rb]</c> (<paramref name="lastChild"/>: the cell is at its left bound, else at its right bound).</summary>
+    int First(int lb, int rb, bool lastChild);
+
+    /// <summary>The l-index after <paramref name="k"/> in the interval that ends at <paramref name="rb"/>, or -1.</summary>
+    int Next(int k, int rb);
+}
+
+/// <summary>CHILD codec 1 (layout of <see cref="PackedChild"/>): the kind of a field is told by comparing LCP values, so a step to the next l-index reads the LCP array.</summary>
+internal readonly unsafe struct PackedCells<TAccess, TLcp>(int* cld, TLcp lcp, int n) : IMappedCells
+    where TAccess : struct, IAccessChecks
+    where TLcp : struct, IMappedLcp
+{
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public int First(int lb, int rb, bool lastChild) => cld[lastChild ? lb : rb];
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public int Next(int k, int rb)
+    {
+        if (k >= rb) return -1;
+        int lk = lcp[k];
+        if (lcp[k + 1] == lk) return k + 1;
+        int v = cld[k];
+        if (TAccess.IsChecked && (uint)v > (uint)n) MappedSearch.ThrowDamaged();
+        return lcp[v] == lk ? v : -1;
+    }
+}
+
+/// <summary>CHILD codec 2 (layout of <see cref="TaggedChild"/>): the kind of a field is in bits 30-31, no LCP read.</summary>
+internal readonly unsafe struct TaggedCells(uint* cld) : IMappedCells
+{
+    private const uint ValueMask = (1u << 30) - 1;
+    private const uint KindMask = 3u << 30;
+    private const uint NextKind = 1u << 30;
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public int First(int lb, int rb, bool lastChild) => (int)(cld[lastChild ? lb : rb] & ValueMask);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public int Next(int k, int rb)
+    {
+        uint cell = cld[k];
+        return (cell & KindMask) == NextKind ? (int)(cell & ValueMask) : -1;
+    }
+}
+
 /// <summary>
-/// The pattern descent over the sections of a container (work package 1b.9a): <see cref="EsaIndex.Descend{TChild, TSym}"/> for the packed child table (CHILD codec 1), the suffix array, the LCP array and the packed text (TEXT codec 4) read in place,
-/// written as one loop over raw pointers. The arrays are fetched once, at the construction; the access mode, the LCP width and the layout of the text are fixed at compile time (a struct type argument each), so that the JIT
-/// emits a loop of its own for each of the six combinations that a file can need and none of them tests a field that is the same for the whole file. The text is compared in 64-bit windows against the pattern packed the same way
+/// The pattern descent over the sections of a container (work package 1b.9a): <see cref="EsaIndex.Descend{TChild, TSym}"/> for the child table (CHILD codec 1 or 2), the suffix array, the LCP array and the packed text (TEXT codec 4)
+/// read in place, written as one loop over raw pointers. The arrays are fetched once, at the construction; the access mode, the LCP width and the codec of the child table are fixed at compile time (a struct type argument each), so
+/// that the JIT emits a loop of its own for each of the twelve combinations that a file can need and none of them tests a field that is the same for the whole file. The text is compared in 64-bit windows against the pattern packed the same way
 /// (a stretch of up to <c>64 / b</c> symbols per step), and the packed pattern is only built when the first stretch has to be compared.
 /// <para>
 /// The reads are those of the readable reference <see cref="EsaIndex.DescendMapped"/> with the same checks, and the checks are the same: in <see cref="EsaAccessMode.Checked"/> mode every rank that the walk takes from the child table
@@ -106,7 +154,7 @@ internal sealed unsafe class MappedSearch
         _n = (int)file.TextReader.Length;
         _lcp = file.Lcp;
         int kind = _lcp.Kind switch { LcpKind.U8 => 0, LcpKind.U16 => 1, _ => 2 };
-        _variant = (file.IsChecked ? 0 : 3) + kind;
+        _variant = (file.IsChecked ? 0 : 6) + (2 * kind) + (file.Child.Mapped.IsTagged ? 1 : 0);
     }
 
     /// <summary>
@@ -119,22 +167,28 @@ internal sealed unsafe class MappedSearch
         Span<ulong> packed = words <= 128 ? stackalloc ulong[words] : new ulong[words];
         switch (_variant)
         {
-            case 0: return Run<CheckedAccess, Lcp8Reader>(new Lcp8Reader(_lcp.MappedBase, _lcp), pattern, packed, out lo, out hi);
-            case 1: return Run<CheckedAccess, Lcp16Reader>(new Lcp16Reader((ushort*)_lcp.MappedBase, _lcp), pattern, packed, out lo, out hi);
-            case 2: return Run<CheckedAccess, Lcp32Reader<CheckedAccess>>(new Lcp32Reader<CheckedAccess>((int*)_lcp.MappedBase, _lcp.Length), pattern, packed, out lo, out hi);
-            case 3: return Run<TrustedAccess, Lcp8Reader>(new Lcp8Reader(_lcp.MappedBase, _lcp), pattern, packed, out lo, out hi);
-            case 4: return Run<TrustedAccess, Lcp16Reader>(new Lcp16Reader((ushort*)_lcp.MappedBase, _lcp), pattern, packed, out lo, out hi);
-            default: return Run<TrustedAccess, Lcp32Reader<TrustedAccess>>(new Lcp32Reader<TrustedAccess>((int*)_lcp.MappedBase, _lcp.Length), pattern, packed, out lo, out hi);
+            case 0: { var lcp = new Lcp8Reader(_lcp.MappedBase, _lcp); return Run<CheckedAccess, Lcp8Reader, PackedCells<CheckedAccess, Lcp8Reader>>(new PackedCells<CheckedAccess, Lcp8Reader>(_child, lcp, _n), lcp, pattern, packed, out lo, out hi); }
+            case 1: { var lcp = new Lcp8Reader(_lcp.MappedBase, _lcp); return Run<CheckedAccess, Lcp8Reader, TaggedCells>(new TaggedCells((uint*)_child), lcp, pattern, packed, out lo, out hi); }
+            case 2: { var lcp = new Lcp16Reader((ushort*)_lcp.MappedBase, _lcp); return Run<CheckedAccess, Lcp16Reader, PackedCells<CheckedAccess, Lcp16Reader>>(new PackedCells<CheckedAccess, Lcp16Reader>(_child, lcp, _n), lcp, pattern, packed, out lo, out hi); }
+            case 3: { var lcp = new Lcp16Reader((ushort*)_lcp.MappedBase, _lcp); return Run<CheckedAccess, Lcp16Reader, TaggedCells>(new TaggedCells((uint*)_child), lcp, pattern, packed, out lo, out hi); }
+            case 4: { var lcp = new Lcp32Reader<CheckedAccess>((int*)_lcp.MappedBase, _lcp.Length); return Run<CheckedAccess, Lcp32Reader<CheckedAccess>, PackedCells<CheckedAccess, Lcp32Reader<CheckedAccess>>>(new PackedCells<CheckedAccess, Lcp32Reader<CheckedAccess>>(_child, lcp, _n), lcp, pattern, packed, out lo, out hi); }
+            case 5: { var lcp = new Lcp32Reader<CheckedAccess>((int*)_lcp.MappedBase, _lcp.Length); return Run<CheckedAccess, Lcp32Reader<CheckedAccess>, TaggedCells>(new TaggedCells((uint*)_child), lcp, pattern, packed, out lo, out hi); }
+            case 6: { var lcp = new Lcp8Reader(_lcp.MappedBase, _lcp); return Run<TrustedAccess, Lcp8Reader, PackedCells<TrustedAccess, Lcp8Reader>>(new PackedCells<TrustedAccess, Lcp8Reader>(_child, lcp, _n), lcp, pattern, packed, out lo, out hi); }
+            case 7: { var lcp = new Lcp8Reader(_lcp.MappedBase, _lcp); return Run<TrustedAccess, Lcp8Reader, TaggedCells>(new TaggedCells((uint*)_child), lcp, pattern, packed, out lo, out hi); }
+            case 8: { var lcp = new Lcp16Reader((ushort*)_lcp.MappedBase, _lcp); return Run<TrustedAccess, Lcp16Reader, PackedCells<TrustedAccess, Lcp16Reader>>(new PackedCells<TrustedAccess, Lcp16Reader>(_child, lcp, _n), lcp, pattern, packed, out lo, out hi); }
+            case 9: { var lcp = new Lcp16Reader((ushort*)_lcp.MappedBase, _lcp); return Run<TrustedAccess, Lcp16Reader, TaggedCells>(new TaggedCells((uint*)_child), lcp, pattern, packed, out lo, out hi); }
+            case 10: { var lcp = new Lcp32Reader<TrustedAccess>((int*)_lcp.MappedBase, _lcp.Length); return Run<TrustedAccess, Lcp32Reader<TrustedAccess>, PackedCells<TrustedAccess, Lcp32Reader<TrustedAccess>>>(new PackedCells<TrustedAccess, Lcp32Reader<TrustedAccess>>(_child, lcp, _n), lcp, pattern, packed, out lo, out hi); }
+            default: { var lcp = new Lcp32Reader<TrustedAccess>((int*)_lcp.MappedBase, _lcp.Length); return Run<TrustedAccess, Lcp32Reader<TrustedAccess>, TaggedCells>(new TaggedCells((uint*)_child), lcp, pattern, packed, out lo, out hi); }
         }
     }
 
     [MethodImpl(MethodImplOptions.AggressiveOptimization)]
-    private bool Run<TAccess, TLcp>(TLcp lcp, ReadOnlySpan<byte> pat, Span<ulong> packed, out int lo, out int hi)
+    private bool Run<TAccess, TLcp, TCells>(TCells cells, TLcp lcp, ReadOnlySpan<byte> pat, Span<ulong> packed, out int lo, out int hi)
         where TAccess : struct, IAccessChecks
         where TLcp : struct, IMappedLcp
+        where TCells : struct, IMappedCells
     {
         int* sa = _sa;
-        int* cld = _child;
         byte* text = _text;
         int bits = _bits;
         int n = _n;
@@ -146,7 +200,7 @@ internal sealed unsafe class MappedSearch
         {
             int symbol = pat[c];
             int a = lb;
-            int boundary = cld[isLast ? lb : rb];
+            int boundary = cells.First(lb, rb, isLast);
             if (TAccess.IsChecked && boundary >= 0 && (boundary <= a || boundary > rb)) ThrowDamaged();
             int b;
             while (true)
@@ -162,7 +216,7 @@ internal sealed unsafe class MappedSearch
                     return false;
                 }
                 a = boundary;
-                boundary = NextLIndex<TAccess, TLcp>(cld, lcp, n, a, rb);
+                boundary = cells.Next(a, rb);
                 if (TAccess.IsChecked && boundary >= 0 && (boundary <= a || boundary > rb)) ThrowDamaged();
             }
 
@@ -182,7 +236,7 @@ internal sealed unsafe class MappedSearch
                 return true;
             }
 
-            int first = cld[childIsLast ? a : b];
+            int first = cells.First(a, b, childIsLast);
             if (TAccess.IsChecked && (uint)first > (uint)n) ThrowDamaged();
             int childEll = lcp[first];
             if (TAccess.IsChecked && (childEll <= ell || childEll > n)) ThrowDamaged();
@@ -203,20 +257,6 @@ internal sealed unsafe class MappedSearch
         lo = lb;
         hi = rb;
         return true;
-    }
-
-    /// <summary>The l-index after <paramref name="k"/> in the interval that ends at <paramref name="rb"/> (the layout of <see cref="PackedChild"/>), or -1.</summary>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static int NextLIndex<TAccess, TLcp>(int* cld, TLcp lcp, int n, int k, int rb)
-        where TAccess : struct, IAccessChecks
-        where TLcp : struct, IMappedLcp
-    {
-        if (k >= rb) return -1;
-        int lk = lcp[k];
-        if (lcp[k + 1] == lk) return k + 1;
-        int v = cld[k];
-        if (TAccess.IsChecked && (uint)v > (uint)n) ThrowDamaged();
-        return lcp[v] == lk ? v : -1;
     }
 
     /// <summary>The 64 stream bits of the packed text that start at symbol <paramref name="i"/> (inside the text), the first symbol in the top bits.</summary>

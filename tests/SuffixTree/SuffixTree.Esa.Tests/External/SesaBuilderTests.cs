@@ -97,10 +97,12 @@ public sealed class SesaBuilderTests
     {
         using var dir = new TempDir();
         SesaRun.Outcome o = SesaRun.Build(dir, "mississippi", new SesaBuildOptions { Fsync = false });
-        string expected = "format=SESA 1.0\nwriter=SuffixTree.Esa.External.SesaBuilder 1\nalgorithm=B-DCS (ADR-004)\nn=11\nsigma=4\ntext=codec 4, 2 bits per symbol\nlcp=U8, 0 overflow entries\nchild=layout A, packed\npsi=yes\n";
+        string expected = "format=SESA 1.0\nwriter=SuffixTree.Esa.External.SesaBuilder 1\nalgorithm=B-DCS (ADR-004)\nn=11\nsigma=4\ntext=codec 4, 2 bits per symbol\nlcp=U8, 0 overflow entries\nchild=layout A, tagged\npsi=yes\n";
         Assert.That(Encoding.UTF8.GetString(o.Oracle.Payload(11)), Is.EqualTo(expected));
         o = SesaRun.Build(dir, "mississippi", SesaRun.Tiny(3, 3, false), "-2");
         Assert.That(Encoding.UTF8.GetString(o.Oracle.Payload(11)), Is.EqualTo(expected.Replace("psi=yes", "psi=no", StringComparison.Ordinal)), "the threads, the sizes and the seed are not recorded");
+        o = SesaRun.Build(dir, "mississippi", new SesaBuildOptions { Fsync = false, ChildCodec = ChildCodec.Packed }, "-3");
+        Assert.That(Encoding.UTF8.GetString(o.Oracle.Payload(11)), Is.EqualTo(expected.Replace("tagged", "packed", StringComparison.Ordinal)), "the layout of the child table is a fact about the output");
     }
 
     [Test]

@@ -253,11 +253,16 @@ internal sealed class SesaBuildResult
 internal static class SesaBuilder
 {
     /// <summary>
-    /// The codec of the CHILD section for a text of <paramref name="n"/> symbols: <paramref name="requested"/> when it is given, else the tagged codec up to <see cref="TaggedChild.MaxLength"/> symbols and the packed one above it.
-    /// STUB of the red commit of work package 1b.9a.
+    /// The codec of the CHILD section for a text of <paramref name="n"/> symbols (work package 1b.9a): <paramref name="requested"/> when it is given, else the tagged codec up to <see cref="TaggedChild.MaxLength"/> symbols (the file form
+    /// of the layout that the in-memory tree uses, and the one whose descent touches fewer cache lines) and the packed one above it.
     /// </summary>
     /// <exception cref="NotSupportedException">The tagged codec is requested for a text whose ranks do not fit 30 bits.</exception>
-    internal static ChildCodec ChildCodecFor(long n, ChildCodec? requested) => throw new NotImplementedException($"1b.9a: not written yet ({n}, {requested})");
+    internal static ChildCodec ChildCodecFor(long n, ChildCodec? requested)
+    {
+        ChildCodec codec = requested ?? (n <= TaggedChild.MaxLength ? ChildCodec.Tagged : ChildCodec.Packed);
+        if (codec == ChildCodec.Tagged && n > TaggedChild.MaxLength) throw new NotSupportedException($"the tagged child table holds ranks in 30 bits (CHILD codec 2); a text of {n} symbols needs the packed codec (CHILD codec 1)");
+        return codec;
+    }
 
     /// <summary>Builds the container of the text in the file <paramref name="inputPath"/> (one byte per code unit) at <paramref name="targetPath"/>.</summary>
     /// <exception cref="DirectoryNotFoundException">The directory of the target does not exist.</exception>
@@ -297,6 +302,7 @@ internal static class SesaBuilder
         long n = info.N;
         Hook(SesaHooks.Scanned);
         options.BetweenPasses?.Invoke();
+        ChildCodec childCodec = ChildCodecFor(n, options.ChildCodec);
         SesaPlan plan = SesaLayout.Plan(info, options.IncludePsi);
         long need = plan.ReservedLength + (ScratchBytesPerChar * n);
         long free = source.AvailableFreeBytes(directory);
@@ -370,7 +376,7 @@ internal static class SesaBuilder
             {
                 ScratchDir = scratch,
                 Threads = options.Threads,
-                Codec = ChildCodec.Packed,
+                Codec = childCodec,
                 ScaleN = options.ScaleN,
                 RuleN = options.RuleN,
                 ArenaCapBytes = options.ArenaCapBytes,
@@ -402,7 +408,7 @@ internal static class SesaBuilder
             // ---- PH7: BUILD_INFO, the checksums, the header page, the atomic publication
             using var seal = new PhaseRss(options);
             t = Stopwatch.GetTimestamp();
-            string buildInfo = BuildInfoText(info, placed.Kind, placed.OverflowCount, options.IncludePsi, ChildCodec.Packed);
+            string buildInfo = BuildInfoText(info, placed.Kind, placed.OverflowCount, options.IncludePsi, childCodec);
             byte[] infoBytes = Encoding.UTF8.GetBytes(buildInfo);
             if (infoBytes.Length > plan.BuildInfoCapacity) throw new InvalidOperationException($"BUILD_INFO has {infoBytes.Length} bytes, the reserved room is {plan.BuildInfoCapacity}");
             WriteSection(container, plan.BuildInfoOffset, infoBytes, options.TextWindowBytes, counters);
@@ -419,7 +425,7 @@ internal static class SesaBuilder
             Hook(SesaHooks.Checksummed);
 
             t = Stopwatch.GetTimestamp();
-            SesaSection[] sections = BuildSections(plan, placed, info, bwt?.PrimaryRow ?? -1, buildInfo, infoBytes.Length, sums.Select(s => s.Crc).ToArray(), ranges);
+            SesaSection[] sections = BuildSections(plan, placed, info, bwt?.PrimaryRow ?? -1, buildInfo, infoBytes.Length, sums.Select(s => s.Crc).ToArray(), ranges, childCodec);
             var header = new SesaHeader
             {
                 TextLength = n,
@@ -592,7 +598,7 @@ internal static class SesaBuilder
         return [.. list];
     }
 
-    private static SesaSection[] BuildSections(SesaPlan plan, SesaTail tail, PackedTextInfo info, long primaryRow, string buildInfo, int infoLength, uint[] crcs, (int Kind, long Offset, long Length)[] ranges)
+    private static SesaSection[] BuildSections(SesaPlan plan, SesaTail tail, PackedTextInfo info, long primaryRow, string buildInfo, int infoLength, uint[] crcs, (int Kind, long Offset, long Length)[] ranges, ChildCodec childCodec)
     {
         long rows = plan.N + 1;
         const int required = SesaFormat.FlagRequired | SesaFormat.FlagHasCrc;
@@ -607,7 +613,7 @@ internal static class SesaBuilder
                 SesaFormat.KindAlphabet => new SesaSection(kind, required, offset, length, info.Sigma, 2, 1, 0, 0, crcs[i]),
                 SesaFormat.KindCounts => new SesaSection(kind, optional, offset, length, info.Sigma, 8, 1, 0, 0, crcs[i]),
                 SesaFormat.KindSa => new SesaSection(kind, required, offset, length, rows, 4, 1, 0, 0, crcs[i]),
-                SesaFormat.KindChild => new SesaSection(kind, required, offset, length, rows, 4, 1, 0, 0, crcs[i]),
+                SesaFormat.KindChild => new SesaSection(kind, required, offset, length, rows, 4, childCodec == ChildCodec.Tagged ? SesaFormat.ChildCodecTagged : SesaFormat.ChildCodecPacked, 0, 0, crcs[i]),
                 SesaFormat.KindPsi => new SesaSection(kind, optional, offset, length, rows, 4, 1, primaryRow, 0, crcs[i]),
                 SesaFormat.KindBuildInfo => new SesaSection(kind, optional, offset, length, buildInfo.Count(c => c == '\n'), 0, 1, 0, 0, crcs[i]),
                 SesaFormat.KindLcp => new SesaSection(kind, required, offset, length, rows, tail.LcpWidth, tail.Kind switch { LcpKind.U8 => 1, LcpKind.U16 => 2, _ => 3 }, tail.OverflowCount, 0, crcs[i]),

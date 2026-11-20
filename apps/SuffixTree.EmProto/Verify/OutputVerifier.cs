@@ -247,7 +247,7 @@ internal static unsafe class OutputVerifier
                 {
                     using IMemoryBlock mappedCld = source.Open("cld");
                     t0 = Stopwatch.GetTimestamp();
-                    ScanResult scan = Scan(lcp, (uint*)mappedCld.Pointer, n, o.StackCapEntries, o.Threads, o.ScanBlock, log);
+                    ScanResult scan = Scan(lcp, (uint*)mappedCld.Pointer, n, o.StackCapEntries, o.Threads, o.ScanBlock, log, source.ChildTagged ?? o.ChildTagged);
                     double scanSeconds = Elapsed(t0);
                     res.Facts["stack_peak"] = scan.StackPeak.ToString(CultureInfo.InvariantCulture);
                     res.Facts["internal"] = scan.Internal.ToString(CultureInfo.InvariantCulture);
@@ -572,8 +572,9 @@ internal static unsafe class OutputVerifier
     /// (the next l-index link of an l-index whose successor is not the next rank, the first l-index at the right boundary of a child that is not the last, at the left boundary of the last child) compares the cell of the file with it.
     /// Afterwards the non-zero cells of the file are counted: they must be exactly the expected ones.
     /// </summary>
-    private static ScanResult Scan(LcpView lcp, uint* cld, long n, long stackCap, int threads, long block, Action<string> log)
+    private static ScanResult Scan(LcpView lcp, uint* cld, long n, long stackCap, int threads, long block, Action<string> log, bool tagged)
     {
+        const uint NextTag = 1u << 30, UpTag = 2u << 30, DownTag = 3u << 30;
         var r = new ScanResult();
         var stack = new IntervalStack(stackCap);
         const uint None = IntervalStack.None;
@@ -601,7 +602,9 @@ internal static unsafe class OutputVerifier
                     r.LrsRank = lb;
                 }
             }
-            Expect(lastChild ? lb : rb, first);
+            // codec 2 (work package 1b.9a): the kind of a field in bits 30-31, 2 = up (a child that is not the last: the cell at its right boundary), 3 = down (the last child: the cell at its left boundary)
+            uint kind = lastChild ? DownTag : UpTag;
+            Expect(lastChild ? lb : rb, tagged ? kind | first : first);
         }
         for (long i = 0; i <= n; i++)
         {
@@ -657,7 +660,8 @@ internal static unsafe class OutputVerifier
             }
             else
             {
-                if (i != top.Last + 1L) Expect(top.Last, (uint)i);
+                if (tagged) Expect(top.Last, NextTag | (uint)i);
+                else if (i != top.Last + 1L) Expect(top.Last, (uint)i);
                 top.Last = (uint)i;
             }
             if (i % step == 0) log($"child scan: {100.0 * i / (n + 1):F0} % of the ranks");

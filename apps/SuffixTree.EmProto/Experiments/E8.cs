@@ -69,7 +69,7 @@ internal static class E8
     }
 
     /// <summary>
-    /// <c>e8-verify --prefix &lt;e6 prefix&gt; [--input text] [--threads 4] [--lce-cap 65536] [--stack-cap-m 64 | --stack-cap entries] [--scratch dir] [--no-hash] [--no-child] [--sums file] [--quiet]</c>: one row per check, the facts, the hashes;
+    /// <c>e8-verify --prefix &lt;e6 prefix&gt; [--input text] [--threads 4] [--lce-cap 65536] [--stack-cap-m 64 | --stack-cap entries] [--scratch dir] [--no-hash] [--no-child] [--child-codec packed|tagged (a prefix run only: a container says its own codec)] [--sums file] [--quiet]</c>: one row per check, the facts, the hashes;
     /// exit code 0 only when every listed check passed.
     /// </summary>
     internal static int Verify(Options o, Report r)
@@ -88,6 +88,7 @@ internal static class E8
             StackCapEntries = o.Get("stack-cap") is { } entries ? long.Parse(entries, CultureInfo.InvariantCulture) : o.Long("stack-cap-m", 64) << 20,
             Hash = !o.Flag("no-hash"),
             Child = !o.Flag("no-child"),
+            ChildTagged = o.Str("child-codec", "packed") == "tagged",
             BlockRanks = o.Int("block-ranks", 1 << 20),
             Probes = o.Int("probes", 16),
             IoBufferBytes = o.Int("io-kb", 4096) * 1024,

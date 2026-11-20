@@ -39,6 +39,9 @@ internal sealed record VerifyOptions
     /// <summary>The scan of the LCP stream: statistics and the child table cell by cell.</summary>
     internal bool Child { get; init; } = true;
 
+    /// <summary>The cells of the child table of a prefix run (<c>.cld</c>) hold the kind of a field in bits 30-31 (the tagged codec of E5 / E6); a container says it itself (CHILD codec 2).</summary>
+    internal bool ChildTagged { get; init; }
+
     /// <summary>Ranks per unit of work of the parallel pass (tests use a few to cross block boundaries).</summary>
     internal int BlockRanks { get; init; } = 1 << 20;
 

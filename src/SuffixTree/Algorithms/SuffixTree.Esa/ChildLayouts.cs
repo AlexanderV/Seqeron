@@ -172,31 +172,38 @@ internal readonly struct TaggedChild : IChildTable, IIntervalSink
 }
 
 /// <summary>
-/// The child table of a SESA container read in place (work package 1b.7f): the layout of <see cref="PackedChild"/> (the container's CHILD codec 1: one 4-byte entry per rank, the kind of a stored field told apart by comparing
-/// LCP values), over the mapped section instead of an array. The entries are untrusted. With <c>isChecked</c> (the default access mode) a read of a cell outside the section is an <see cref="InvalidDataException"/>;
-/// a value that a read returns is only ever used as a rank, and the readers that follow it (<see cref="CompactLcp"/>, the suffix array view) reject a rank outside their arrays; the walks that call <see cref="NextLIndex"/> check that
-/// the l-indices increase and stay inside the interval, which bounds them.
+/// The child table of a SESA container read in place (work package 1b.7f; the tagged codec: 1b.9a): CHILD codec 1 is the layout of <see cref="PackedChild"/> (one 4-byte entry per rank, the kind of a stored field told apart by comparing
+/// LCP values), codec 2 is the layout of <see cref="TaggedChild"/> (the kind in bits 30-31, no LCP read), over the mapped section instead of an array. The entries are untrusted. With <c>isChecked</c> (the default access mode) a read of a
+/// cell outside the section is an <see cref="InvalidDataException"/>; a value that a read returns is only ever used as a rank, and the readers that follow it (<see cref="CompactLcp"/>, the suffix array view) reject a rank outside
+/// their arrays; the walks that call <see cref="NextLIndex"/> check that the l-indices increase and stay inside the interval, which bounds them. The pattern descent has a loop of its own for each codec (<see cref="MappedSearch"/>);
+/// this struct serves the navigator, the traversal and the contract members.
 /// </summary>
 internal readonly unsafe struct MappedChild : IChildTable
 {
+    private const int TaggedValueMask = (1 << 30) - 1;
+    private const uint TaggedKindMask = 3u << 30;
+    private const uint TaggedNext = 1u << 30;
+
     private readonly int* _cld;
     private readonly int _count;
     private readonly CompactLcp _lcp;
     private readonly bool _checked;
+    private readonly bool _tagged;
 
-    internal MappedChild(int* cld, int count, CompactLcp lcp, bool isChecked)
+    internal MappedChild(int* cld, int count, CompactLcp lcp, bool isChecked, bool tagged = false)
     {
         _cld = cld;
         _count = count;
         _lcp = lcp;
         _checked = isChecked;
+        _tagged = tagged;
     }
 
     /// <summary>Number of cells (<c>n + 1</c>).</summary>
     internal int Length => _count;
 
-    /// <summary>True for CHILD codec 2 (the kind of a field in bits 30-31). STUB of the red commit of work package 1b.9a: the reader does not know the codec yet.</summary>
-    internal bool IsTagged => _count < 0;
+    /// <summary>True for CHILD codec 2 (the kind of a field in bits 30-31).</summary>
+    internal bool IsTagged => _tagged;
 
     /// <summary>The first cell (the pattern descent of <see cref="MappedSearch"/> reads the section through the pointer).</summary>
     internal int* Pointer => _cld;
@@ -208,11 +215,18 @@ internal readonly unsafe struct MappedChild : IChildTable
     {
         int at = lastChild ? lb : rb;
         if (_checked && (uint)at >= (uint)_count) ThrowOutside(at);
-        return _cld[at];
+        int cell = _cld[at];
+        return _tagged ? cell & TaggedValueMask : cell;
     }
 
     public int NextLIndex(int k, int rb)
     {
+        if (_tagged)
+        {
+            if (_checked && (uint)k >= (uint)_count) ThrowOutside(k);
+            uint cell = (uint)_cld[k];
+            return (cell & TaggedKindMask) == TaggedNext ? (int)(cell & TaggedValueMask) : -1;
+        }
         if (k >= rb) return -1;
         if (_checked && (uint)k >= (uint)_count) ThrowOutside(k);
         int lk = _lcp[k];

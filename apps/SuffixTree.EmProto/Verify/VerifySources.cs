@@ -37,7 +37,7 @@ internal interface IVerifySource
     /// <summary>What the SHA-256 of the extension is the hash of, for the message of the row.</summary>
     string Describe(string extension);
 
-    /// <summary>Whether the child table holds tagged cells (CHILD codec 2) when the source knows it (a container does); null = the option of the run decides. STUB of the red commit of work package 1b.9a.</summary>
+    /// <summary>Whether the child table holds tagged cells (CHILD codec 2) when the source knows it (a container does); null = the option of the run decides.</summary>
     bool? ChildTagged => null;
 }
 
@@ -88,6 +88,8 @@ internal sealed unsafe class ContainerVerifySource : IVerifySource, IDisposable
     public string DefaultScratchDirectory => Path.GetDirectoryName(Path.GetFullPath(_path))!;
 
     public bool Exists(string extension) => true;
+
+    public bool? ChildTagged => _file.Parsed.Child.Codec == SesaFormat.ChildCodecTagged;
 
     private SesaSection? Section(string extension) => extension switch
     {

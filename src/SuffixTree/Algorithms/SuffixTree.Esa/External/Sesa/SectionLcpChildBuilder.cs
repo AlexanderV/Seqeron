@@ -26,9 +26,10 @@ internal static class SectionLcpChildBuilder
         ArgumentOutOfRangeException.ThrowIfNegative(childOffset);
         ArgumentOutOfRangeException.ThrowIfNegative(options.ArenaCapBytes);
         ArgumentOutOfRangeException.ThrowIfNegative(options.ChildArenaCapBytes);
-        if (options.Codec != ChildCodec.Packed) throw new ArgumentException("the container holds the packed child table (CHILD codec 1); the tagged codec has no codec id", nameof(options));
+        if (options.Codec is not (ChildCodec.Packed or ChildCodec.Tagged)) throw new ArgumentException("the container holds the child table in CHILD codec 1 (packed) or codec 2 (tagged), nothing else", nameof(options));
         long n = text.Length;
         if (n > PackedTextFormat.MaxSymbols) throw new NotSupportedException($"{n} symbols: positions are 32-bit, the limit is {PackedTextFormat.MaxSymbols}");
+        if (options.Codec == ChildCodec.Tagged && n > TaggedChild.MaxLength) throw new NotSupportedException($"the tagged child table holds ranks in 30 bits (CHILD codec 2); a text of {n} symbols needs the packed codec (CHILD codec 1)");
         if (childOffset > file.Length - (4 * (n + 1))) throw new ArgumentOutOfRangeException(nameof(childOffset), childOffset, $"the child table of {4 * (n + 1)} bytes does not fit the file of {file.Length} bytes at this offset");
         LcpChildParameters p = LcpChildRules.Resolve(n, options);
 
