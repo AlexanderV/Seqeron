@@ -1,0 +1,26 @@
+[
+ {
+  "id": "F16",
+  "desc": "the rank file is checked when it is not asked for",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "old": "            if (options.VerifyRanks)",
+  "new": "            if (!options.VerifyRanks)",
+  "filter": "(FullyQualifiedName~SaGap1b9cTests|FullyQualifiedName~SesaGap1b9cTests)"
+ },
+ {
+  "id": "F17",
+  "desc": "the length of the suffix array file is checked with a smaller-than",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "old": "if (got != 4 * (n + 1)) throw",
+  "new": "if (got < 4 * (n + 1)) throw",
+  "filter": "(FullyQualifiedName~SaGap1b9cTests|FullyQualifiedName~SesaGap1b9cTests)"
+ },
+ {
+  "id": "F18",
+  "desc": "PH1 gets no trace",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "old": "                Files = options.Files,\n                Trace = options.Trace,\n            });\n            long rankBytes",
+  "new": "                Files = options.Files,\n            });\n            long rankBytes",
+  "filter": "(FullyQualifiedName~SaGap1b9cTests|FullyQualifiedName~SesaGap1b9cTests)"
+ }
+]

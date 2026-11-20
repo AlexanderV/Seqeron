@@ -1,0 +1,42 @@
+[
+ {
+  "id": "F08",
+  "desc": "no scan point in the partition",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs",
+  "old": "                    _o.Trace?.Invoke(\"scan\"); // a point at which a test fails the partition after some of the writers hold files\n",
+  "new": "",
+  "filter": "(FullyQualifiedName~SaGap1b9cTests|FullyQualifiedName~SesaGap1b9cTests)"
+ },
+ {
+  "id": "F09",
+  "desc": "no hand-over point in the partition",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs",
+  "old": "                        _o.Trace?.Invoke(\"handover\"); // a point at which a test fails the hand-over after some children exist\n",
+  "new": "",
+  "filter": "(FullyQualifiedName~SaGap1b9cTests|FullyQualifiedName~SesaGap1b9cTests)"
+ },
+ {
+  "id": "F10",
+  "desc": "the children are disposed after a hand-over that succeeded",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs",
+  "old": "if (!handedOver) foreach (BuildTask child in children) child.Bucket.Dispose();",
+  "new": "if (handedOver) foreach (BuildTask child in children) child.Bucket.Dispose();",
+  "filter": "(FullyQualifiedName~SaGap1b9cTests|FullyQualifiedName~SesaGap1b9cTests)"
+ },
+ {
+  "id": "F11",
+  "desc": "the entry limit of the sort is at the limit",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs",
+  "old": "if (text.Length > PackedTextFormat.MaxSymbols) throw new NotSupportedException($\"{text.Length} symbols: positions are 32-bit, the limit is {PackedTextFormat.MaxSymbols}\");\n        string dir",
+  "new": "if (text.Length >= PackedTextFormat.MaxSymbols) throw new NotSupportedException($\"{text.Length} symbols: positions are 32-bit, the limit is {PackedTextFormat.MaxSymbols}\");\n        string dir",
+  "filter": "(FullyQualifiedName~SaGap1b9cTests|FullyQualifiedName~SesaGap1b9cTests)"
+ },
+ {
+  "id": "F34",
+  "desc": "the bound of the leaf capacity is half of it",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs",
+  "old": "ArgumentOutOfRangeException.ThrowIfGreaterThan(options.LeafCapacity, int.MaxValue / 2);",
+  "new": "ArgumentOutOfRangeException.ThrowIfGreaterThan(options.LeafCapacity, int.MaxValue / 4);",
+  "filter": "(FullyQualifiedName~SaGap1b9cTests|FullyQualifiedName~SesaGap1b9cTests)"
+ }
+]

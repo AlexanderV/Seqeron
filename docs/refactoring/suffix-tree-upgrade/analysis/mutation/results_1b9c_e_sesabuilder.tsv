@@ -1,0 +1,47 @@
+B90	PSI is built without a BWT section (kept: the plan decides)	survived			112
+B92	the BWT scratch is one byte short	killed(3 failed: TheResult_CarriesTheCountersThePhasesAndThePeaks,AFailureAtEveryHookPoint_LeavesNothing_AndKeepsTheTypeOfTheE,TheDisposalOfEveryResource_HoldsAfterASuccess_Too)[listed]			39
+B94	the BWT counts are not checked here	survived			124
+B96	the BWT file stays until the scratch goes	killed(1 failed: TheStateAtTheHookPoints_BwtScratchGoneAfterPsi_NothingMapped)[listed]			44
+B98	PH6 gets the wrong sigma	killed(48 failed: EveryEntryOfTheTable_IsAsChosen_ForEveryWidthOfTheLcp,TheArenaPeak_IsTheLargestPeakOfAnyStage_WhicheverStageThatIs,TheCountedCalls_OfATextWithAnOverflowList_ArePinned)[listed]			13
+B100	the BWT pass gets the default window	killed(2 failed: TheCountedCalls_OfATextWithAnOverflowList_ArePinned,TheCountedCalls_OfTwoTinyGeometries_ArePinned)[listed]			50
+B102	the BWT pass gets no guards	killed(1 failed: TheGuardOption_ReachesThePassOfTheSuffixArray_TheLcpAndChild)[seen]			142
+B104	the BWT file gets no file options	survived			131
+B106	PSI gets the default symbols per pass	killed(2 failed: TheCountedCalls_OfTwoTinyGeometries_ArePinned,EveryOption_ReachesItsStage)[listed]			40
+B108	PSI gets no window cap	survived			115
+B110	PSI gets no guards	killed(1 failed: TheGuardOption_ReachesThePassOfTheSuffixArray_TheLcpAndChild)[seen]			118
+B112	PSI goes to the CHILD section	killed(22 failed: EveryEntryOfTheTable_IsAsChosen_ForEveryWidthOfTheLcp,ThePh6Defaults_AreWindowsOfOneMiB_And64SymbolsPerPass_AtTheL,AnOverflowList_GrowsTheFileBehindTheReservedLength_AndTheRes)[listed]			22
+B114	PSI gets a primary row one too high	killed(45 failed: EveryEntryOfTheTable_IsAsChosen_ForEveryWidthOfTheLcp,TheArenaPeak_IsTheLargestPeakOfAnyStage_WhicheverStageThatIs,TheCountedCalls_OfATextWithAnOverflowList_ArePinned)[listed]			13
+B116	BUILD_INFO claims no overflow	killed(1 failed: TheCountedCalls_OfATextWithAnOverflowList_ArePinned)[listed]			42
+B118	BUILD_INFO may overrun its room	killed(1 failed: ABuildInfoThatWouldOverrunItsRoom_IsRefused_OneByteOverTheCa)[seen]			142
+B120	the container is not completed	survived			145
+B122	the text reader is disposed but not cleared	survived			141
+B124	the file length check is a smaller-than check	survived			145
+B126	the checksum of the text section skips its end	killed(28 failed: EveryEntryOfTheTable_IsAsChosen_ForEveryWidthOfTheLcp,ThePh6Defaults_AreWindowsOfOneMiB_And64SymbolsPerPass_AtTheL,AnOverflowList_GrowsTheFileBehindTheReservedLength_AndTheRes)[listed]			28
+B128	the checksum of the counts is short	killed(28 failed: EveryEntryOfTheTable_IsAsChosen_ForEveryWidthOfTheLcp,ThePh6Defaults_AreWindowsOfOneMiB_And64SymbolsPerPass_AtTheL,AnOverflowList_GrowsTheFileBehindTheReservedLength_AndTheRes)[listed]			32
+B130	the checksum of the CHILD is of the SA	killed(28 failed: EveryEntryOfTheTable_IsAsChosen_ForEveryWidthOfTheLcp,ThePh6Defaults_AreWindowsOfOneMiB_And64SymbolsPerPass_AtTheL,AnOverflowList_GrowsTheFileBehindTheReservedLength_AndTheRes)[listed]			34
+B132	the checksum of PSI is short	killed(28 failed: EveryEntryOfTheTable_IsAsChosen_ForEveryWidthOfTheLcp,ThePh6Defaults_AreWindowsOfOneMiB_And64SymbolsPerPass_AtTheL,AnOverflowList_GrowsTheFileBehindTheReservedLength_AndTheRes)[listed]			31
+B134	LCP is listed with one entry short	killed(28 failed: EveryEntryOfTheTable_IsAsChosen_ForEveryWidthOfTheLcp,ThePh6Defaults_AreWindowsOfOneMiB_And64SymbolsPerPass_AtTheL,AnOverflowList_GrowsTheFileBehindTheReservedLength_AndTheRes)[listed]			31
+B136	the overflow is never listed	killed(7 failed: EveryEntryOfTheTable_IsAsChosen_ForEveryWidthOfTheLcp,AnOverflowList_GrowsTheFileBehindTheReservedLength_AndTheRes,TheFamilies_GiveTheInMemoryIndex_AtTheDefaultAndATinyGeometr)[listed]			45
+B138	required sections without the checksum flag	killed(28 failed: EveryEntryOfTheTable_IsAsChosen_ForEveryWidthOfTheLcp,ThePh6Defaults_AreWindowsOfOneMiB_And64SymbolsPerPass_AtTheL,AnOverflowList_GrowsTheFileBehindTheReservedLength_AndTheRes)[listed]			29
+B140	optional sections without the checksum flag	killed(28 failed: EveryEntryOfTheTable_IsAsChosen_ForEveryWidthOfTheLcp,ThePh6Defaults_AreWindowsOfOneMiB_And64SymbolsPerPass_AtTheL,AnOverflowList_GrowsTheFileBehindTheReservedLength_AndTheRes)[listed]			25
+B218	the reservation outcome is not reported	killed(4 failed: TheResultFigures_AreInTheirUnits_AndEverySecondIsMeasured,EveryOption_ReachesItsStage,OnAPlatformWithoutProcAndWithoutFallocate_TheBuildRuns_TheFi)[listed]			48
+B220	the file size of the result is the reserved length	killed(5 failed: EveryEntryOfTheTable_IsAsChosen_ForEveryWidthOfTheLcp,ThePh6Defaults_AreWindowsOfOneMiB_And64SymbolsPerPass_AtTheL,AnOverflowList_GrowsTheFileBehindTheReservedLength_AndTheRes)[listed]			40
+B222	the seal figure is not reported	killed(3 failed: TheResultFigures_AreInTheirUnits_AndEverySecondIsMeasured,TheVerdicts_AreWithinAtTheCapExactly_AndExceededJustAbove_At,OnLinux_EveryPhaseHasAFigure_AndTheVerdictFollowsTheFigure)[listed]			44
+B224	the BWT seconds are not reported	killed(1 failed: TheResultFigures_AreInTheirUnits_AndEverySecondIsMeasured)[listed]			47
+B226	the CRC seconds are not reported	killed(1 failed: TheResultFigures_AreInTheirUnits_AndEverySecondIsMeasured)[listed]			51
+B228	the create seconds are not reported	killed(1 failed: TheResultFigures_AreInTheirUnits_AndEverySecondIsMeasured)[listed]			45
+B230	the scan seconds are not reported	killed(1 failed: TheResultFigures_AreInTheirUnits_AndEverySecondIsMeasured)[listed]			47
+B232	the total seconds start late	killed(2 failed: TheResultFigures_AreInTheirUnits_AndEverySecondIsMeasured,TheResult_CarriesTheCountersThePhasesAndThePeaks)[listed]			42
+B234	the PH1 seconds are not reported	killed(1 failed: TheResultFigures_AreInTheirUnits_AndEverySecondIsMeasured)[listed]			41
+B236	BUILD_INFO says PSI yes always	killed(3 failed: TheCountedCalls_OfATextWithAnOverflowList_ArePinned,TheCountedCalls_OfTwoTinyGeometries_ArePinned,TheBuildInfo_IsTheFixedTextOfTheOutput_WithNoTimestampAndNoP)[listed]			41
+B238	BUILD_INFO has no trailing newline	killed(31 failed: EveryEntryOfTheTable_IsAsChosen_ForEveryWidthOfTheLcp,TheCountedCalls_OfATextWithAnOverflowList_ArePinned,TheCountedCalls_OfTwoTinyGeometries_ArePinned)[listed]			24
+B240	BUILD_INFO has the thread count slot	killed(3 failed: TheCountedCalls_OfATextWithAnOverflowList_ArePinned,TheCountedCalls_OfTwoTinyGeometries_ArePinned,TheBuildInfo_IsTheFixedTextOfTheOutput_WithNoTimestampAndNoP)[listed]			40
+B242	BUILD_INFO has the wrong n	killed(1 failed: TheBuildInfo_IsTheFixedTextOfTheOutput_WithNoTimestampAndNoP)[listed]			42
+B244	BUILD_INFO has the wrong LCP kind	killed(3 failed: TheCountedCalls_OfATextWithAnOverflowList_ArePinned,TheCountedCalls_OfTwoTinyGeometries_ArePinned,TheBuildInfo_IsTheFixedTextOfTheOutput_WithNoTimestampAndNoP)[listed]			41
+B246	the 12 B/char constant	killed(1 failed: ThePreflight_RefusesATextWhoseScratchDoesNotFit_BeforeAnythi)[listed]			44
+B248	IncludePsi defaults to false	killed(11 failed: AnArenaCapOfOneByte_StopsTheBuildInPh1_BeforePh4Starts_AndAn,TheArenaPeak_IsTheLargestPeakOfAnyStage_WhicheverStageThatIs,ThePh6Defaults_AreWindowsOfOneMiB_And64SymbolsPerPass_AtTheL)[listed]			31
+B250	Threads defaults to 1	killed(1 failed: TheDefaults_AreTheDecisionsOfTheOwner)[listed]			44
+B252	the PH6 cap defaults to 128 MiB	killed(2 failed: TheArenaPeak_IsTheLargestPeakOfAnyStage_WhicheverStageThatIs,TheDefaults_AreTheDecisionsOfTheOwner)[listed]			43
+B254	the PH1-4 cap defaults to 128 MiB	killed(2 failed: EveryOption_ReachesItsStage,TheDefaults_AreTheDecisionsOfTheOwner)[listed]			35
+B256	the period defaults to 512	killed(1 failed: TheDefaults_AreTheDecisionsOfTheOwner)[listed]			16
+B258	the BWT default read is smaller	survived			39

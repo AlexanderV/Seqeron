@@ -1,0 +1,10 @@
+[
+ {
+  "id": "F31",
+  "desc": "a length of -1 is a length of a text",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs",
+  "old": "if (n < 0 || n > long.MaxValue / PackedTextFormat.MaxBits - PackedTextFormat.PadBytes) throw new InvalidDataException($\"{n} symbols: not a length of a text\");",
+  "new": "if (n < -1 || n > long.MaxValue / PackedTextFormat.MaxBits - PackedTextFormat.PadBytes) throw new InvalidDataException($\"{n} symbols: not a length of a text\");",
+  "filter": "(FullyQualifiedName~SaGap1b9cTests|FullyQualifiedName~SesaGap1b9cTests)"
+ }
+]

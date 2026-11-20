@@ -1,0 +1,83 @@
+[
+ {
+  "id": "R02",
+  "desc": "FastMod32: Mod is the division",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankTable.cs",
+  "old": "internal uint Mod(uint a) => (uint)Math.BigMul(_m * a, _d, out _);",
+  "new": "internal uint Mod(uint a) => (uint)Math.BigMul(_m, a, out _);",
+  "filter": "(FullyQualifiedName~RankTableTests|FullyQualifiedName~SuffixOrderTests)",
+  "orig": "d_R02"
+ },
+ {
+  "id": "R04",
+  "desc": "Open: a longer file is accepted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankTable.cs",
+  "old": "if (stream.Length != bytes) throw",
+  "new": "if (stream.Length < bytes) throw",
+  "filter": "(FullyQualifiedName~RankTableTests|FullyQualifiedName~SuffixOrderTests)",
+  "orig": "d_R04"
+ },
+ {
+  "id": "R06",
+  "desc": "Open: one block too few",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankTable.cs",
+  "old": "long slots = ((n / cover.Period) + 1) * cover.Residues.Length;",
+  "new": "long slots = (n / cover.Period) * cover.Residues.Length;",
+  "filter": "(FullyQualifiedName~RankTableTests|FullyQualifiedName~SuffixOrderTests)",
+  "orig": "d_R06"
+ },
+ {
+  "id": "R08",
+  "desc": "Rank: the block is not multiplied by the classes",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankTable.cs",
+  "old": "return _ranks[((long)block * _classes) + _indexOf[r]];",
+  "new": "return _ranks[block + _indexOf[r]];",
+  "filter": "(FullyQualifiedName~RankTableTests|FullyQualifiedName~SuffixOrderTests)",
+  "orig": "d_R08"
+ },
+ {
+  "id": "R10",
+  "desc": "Verify: a zero rank is accepted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankTable.cs",
+  "old": "if (v == 0 || v > top)",
+  "new": "if (v > top)",
+  "filter": "(FullyQualifiedName~RankTableTests|FullyQualifiedName~SuffixOrderTests)",
+  "orig": "d_R10"
+ },
+ {
+  "id": "R12",
+  "desc": "Verify: a repeated rank is accepted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankTable.cs",
+  "old": "if ((seen[v >> 6] & bit) != 0) throw",
+  "new": "if ((seen[v >> 6] & bit) == 5) throw",
+  "filter": "(FullyQualifiedName~RankTableTests|FullyQualifiedName~SuffixOrderTests)",
+  "orig": "d_R12"
+ },
+ {
+  "id": "R14",
+  "desc": "Verify: a non-zero unused slot is accepted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankTable.cs",
+  "old": "if (v != 0) throw new InvalidDataException($\"the unused slot",
+  "new": "if (v > 1000000000) throw new InvalidDataException($\"the unused slot",
+  "filter": "(FullyQualifiedName~RankTableTests|FullyQualifiedName~SuffixOrderTests)",
+  "orig": "d_R14"
+ },
+ {
+  "id": "R16",
+  "desc": "Dispose: the map is not disposed",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankTable.cs",
+  "old": "        map?.Dispose();\n    }\n}",
+  "new": "    }\n}",
+  "filter": "(FullyQualifiedName~RankTableTests|FullyQualifiedName~SuffixOrderTests)",
+  "orig": "d_R16"
+ },
+ {
+  "id": "R18",
+  "desc": "Open: the view is not read-only sized",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankTable.cs",
+  "old": "view = map.CreateViewAccessor(0, bytes, MemoryMappedFileAccess.Read);",
+  "new": "view = map.CreateViewAccessor(0, bytes - 4, MemoryMappedFileAccess.Read);",
+  "filter": "(FullyQualifiedName~RankTableTests|FullyQualifiedName~SuffixOrderTests)",
+  "orig": "d_R18"
+ }
+]

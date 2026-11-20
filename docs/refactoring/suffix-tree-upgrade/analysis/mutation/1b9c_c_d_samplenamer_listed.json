@@ -1,0 +1,29 @@
+[
+ {
+  "id": "M06",
+  "desc": "Run: the root is a leaf one record early",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "old": "_g.Samples > _o.BucketCapacity, 1)",
+  "new": "_g.Samples >= _o.BucketCapacity, 1)",
+  "filter": "",
+  "closed_by": "SaGap1b9cTests.ASampleThatExactlyFitsTheBucketCapacity_IsOneLeaf_AndOneMoreRecordIsSplit"
+ },
+ {
+  "id": "M18",
+  "desc": "Merge: a short count of records is accepted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "old": "if (received != end - start) throw new InvalidDataException",
+  "new": "if (received > end - start) throw new InvalidDataException",
+  "filter": "",
+  "closed_by": "SaGap1b9cTests.TheMergeWindowCheck_RefusesFewerAndMoreRecordsThanSlots_AndAcceptsExactlyTheNumberOfSlots"
+ },
+ {
+  "id": "M52",
+  "desc": "Split: the fan-out is the cap only",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "old": "int fan = (int)Math.Min(Math.Max(2, ((2 * count) + bucket - 1) / bucket), Math.Max(2, owner._o.FanOut));",
+  "new": "int fan = Math.Max(2, owner._o.FanOut);",
+  "filter": "",
+  "closed_by": "SaGap1b9cTests.TheFanOutCapOfTheNaming_DoesNotChangeTheShapeWhenFewerBucketsAreNeeded"
+ }
+]

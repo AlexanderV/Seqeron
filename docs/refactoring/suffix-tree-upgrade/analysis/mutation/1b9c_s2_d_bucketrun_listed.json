@@ -1,0 +1,11 @@
+[
+ {
+  "id": "B04",
+  "desc": "RunStore: the failed write leaves its file",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/BucketRun.cs",
+  "old": "            Ledger.Remove(bytes);\n            DeleteQuietly(path);\n            throw;",
+  "new": "            Ledger.Remove(bytes);\n            throw;",
+  "filter": "(FullyQualifiedName~BucketRunTests|FullyQualifiedName~ExternalDcsTests)",
+  "orig": "d_B04"
+ }
+]

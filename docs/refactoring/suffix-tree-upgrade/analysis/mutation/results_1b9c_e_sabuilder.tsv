@@ -1,0 +1,7 @@
+A02	a null text is an NRE	killed(1 failed: ANullArgument_IsAnArgumentNullException_AndANegativeOffset_I)[listed]			21
+A04	the section range is not checked	killed(34 failed: ADisposedReader_IsAnObjectDisposedException_AndNothingIsLeft,AFullDisk_AtTheCreationOfAnyFile_IsAnIoException_AndNothingI,AHookThatThrows_ReachesTheCallerWithItsOwnType_AtEveryHookPo)[listed]			15
+A06	the section range may end past the file	killed(1 failed: ARangeThatDoesNotFitTheFile_ByOneToFourBytes_IsRefusedAtTheE)[listed]			30
+A08	a failure in section mode removes the path (there is none)	killed(2 failed: AnArenaCapOfOneByte_StopsTheBuildInPh1_BeforePh4Starts_AndAn,SaBuilder_IntoASection_OnAFailure_LeavesTheFileToItsOwner_An)[listed]			27
+A10	the section sink starts at 0	killed(12 failed: AnArenaCapOfOneByte_StopsTheBuildInPh1_BeforePh4Starts_AndAn,EveryEntryOfTheTable_IsAsChosen_ForEveryWidthOfTheLcp,TheArenaPeak_IsTheLargestPeakOfAnyStage_WhicheverStageThatIs)[listed]			15
+A12	the section sink gets another window	killed(2 failed: TheCountedCalls_OfATextWithAnOverflowList_ArePinned,TheCountedCalls_OfTwoTinyGeometries_ArePinned)[listed]			23
+A14	the section mode completes the file	killed(13 failed: AnArenaCapOfOneByte_StopsTheBuildInPh1_BeforePh4Starts_AndAn,EveryEntryOfTheTable_IsAsChosen_ForEveryWidthOfTheLcp,TheArenaPeak_IsTheLargestPeakOfAnyStage_WhicheverStageThatIs)[listed]			24

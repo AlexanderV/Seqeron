@@ -1,0 +1,5 @@
+I02	a reduced position at the length is accepted	killed(1 failed: TheMapper_SkipsTheEmptySuffixAndTheSeparators_AndCountsWhatI)[listed]			12
+I04	key and value swapped	killed(12 failed: AFullDisk_AtTheCreationOfTheRankFile_OrOfAScratchFileOfALeve,ALeafThatOutgrowsItsCapacity_IsSplitAgain_AndTheRanksAreStil,ARankFileOfTheBuild_IsAValidTable_AndTheTableVerifiesIt)[listed]			7
+I06	nothing is counted	killed(12 failed: AFullDisk_AtTheCreationOfTheRankFile_OrOfAScratchFileOfALeve,ALeafThatOutgrowsItsCapacity_IsSplitAgain_AndTheRanksAreStil,ARankFileOfTheBuild_IsAValidTable_AndTheTableVerifiesIt)[listed]			7
+I08	every slot must be written exactly once	killed(10 failed: AFullDisk_AtTheCreationOfTheRankFile_OrOfAScratchFileOfALeve,ARankFileOfTheBuild_IsAValidTable_AndTheTableVerifiesIt,ARepetitiveText_WithASmallBaseCase_RecursesSeveralLevels_Eac)[listed]			9
+I10	the target is one slot short	killed(11 failed: AFullDisk_AtTheCreationOfTheRankFile_OrOfAScratchFileOfALeve,ALeafThatOutgrowsItsCapacity_IsSplitAgain_AndTheRanksAreStil,ARankFileOfTheBuild_IsAValidTable_AndTheTableVerifiesIt)[listed]			12

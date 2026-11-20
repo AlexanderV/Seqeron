@@ -1,0 +1,389 @@
+[
+ {
+  "id": "M02",
+  "desc": "PrefixOrder: a common prefix of more than X is needed",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "old": "if (l >= x) return 0;",
+  "new": "if (l > x) return 0;",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)",
+  "orig": "d_M02"
+ },
+ {
+  "id": "M04",
+  "desc": "PrefixOrder: the symbols compare the other way",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "old": "return text.Symbol(pa + l) < text.Symbol(pb + l) ? -1 : 1;\n    }\n}",
+  "new": "return text.Symbol(pa + l) > text.Symbol(pb + l) ? -1 : 1;\n    }\n}",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)",
+  "orig": "d_M04"
+ },
+ {
+  "id": "M06",
+  "desc": "Run: the root is a leaf one record early",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "old": "_g.Samples > _o.BucketCapacity, 1)",
+  "new": "_g.Samples >= _o.BucketCapacity, 1)",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)",
+  "orig": "d_M06"
+ },
+ {
+  "id": "M08",
+  "desc": "Run: the leaves are walked last to first",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "old": "for (int i = kids.Count - 1; i >= 0; i--) stack.Push(kids[i]);",
+  "new": "for (int i = 0; i < kids.Count; i++) stack.Push(kids[i]);",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)",
+  "orig": "d_M08"
+ },
+ {
+  "id": "M10",
+  "desc": "Run: the statistics lose the leaves",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "old": "        _stats.Leaves = _leaves;\n",
+  "new": "",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)",
+  "orig": "d_M10"
+ },
+ {
+  "id": "M12",
+  "desc": "Run: the statistics lose the file runs",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "old": "        _stats.FileRuns = _fileRuns;\n",
+  "new": "",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)",
+  "orig": "d_M12"
+ },
+ {
+  "id": "M14",
+  "desc": "Run: the non-unique count is dropped",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "old": "        _stats.NonUniqueRecords = result.NonUnique;\n",
+  "new": "",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)",
+  "orig": "d_M14"
+ },
+ {
+  "id": "M16",
+  "desc": "Merge: a window is one slot short",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "old": "long end = Math.Min(s, start + windowSlots);",
+  "new": "long end = Math.Min(s, start + windowSlots - 1);",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)",
+  "orig": "d_M16"
+ },
+ {
+  "id": "M18",
+  "desc": "Merge: a short count of records is accepted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "old": "if (got != end - start) throw",
+  "new": "if (got > end - start) throw",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)",
+  "orig": "d_M18"
+ },
+ {
+  "id": "M20",
+  "desc": "Merge: the sink gets the window from its own start",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "old": "sink.Accept(start, span);",
+  "new": "sink.Accept(0, span);",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)",
+  "orig": "d_M20"
+ },
+ {
+  "id": "M22",
+  "desc": "Merge: the trace is not called",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "old": "        _o.Trace?.Invoke(\"merge\");\n",
+  "new": "",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)",
+  "orig": "d_M22"
+ },
+ {
+  "id": "M24",
+  "desc": "AssignNames: the continuation ignores the key",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "old": "_text.Key(prev.LastPos) == _text.Key(leaf.FirstPos) && _prefix",
+  "new": "true && _prefix",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)",
+  "orig": "d_M24"
+ },
+ {
+  "id": "M26",
+  "desc": "AssignNames: the offset of a continued group",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "old": "leaf.Offset = (uint)(names - 1);",
+  "new": "leaf.Offset = (uint)names;",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)",
+  "orig": "d_M26"
+ },
+ {
+  "id": "M28",
+  "desc": "AssignNames: the offset of a new group",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "old": "leaf.Offset = (uint)names;\n                names += leaf.Distinct;",
+  "new": "leaf.Offset = (uint)names + 1;\n                names += leaf.Distinct;",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)",
+  "orig": "d_M28"
+ },
+ {
+  "id": "M30",
+  "desc": "AssignNames: the last group of a leaf with two is not subtracted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "old": "if (leaf.LastLen == 1) inner--;",
+  "new": "",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)",
+  "orig": "d_M30"
+ },
+ {
+  "id": "M32",
+  "desc": "AssignNames: the open group of a continued single is not extended",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "old": "                    openSize += leaf.Count;",
+  "new": "                    openSize = leaf.Count;",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)",
+  "orig": "d_M32"
+ },
+ {
+  "id": "M34",
+  "desc": "AssignNames: the first group of a new leaf is not counted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "old": "                    if (leaf.FirstLen == 1) singles++;\n                    singles += inner;",
+  "new": "                    singles += inner;",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)",
+  "orig": "d_M34"
+ },
+ {
+  "id": "M36",
+  "desc": "AssignNames: the shared count is the unique count",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "old": "r.NonUnique = _g.Samples - singles;",
+  "new": "r.NonUnique = singles;",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)",
+  "orig": "d_M36"
+ },
+ {
+  "id": "M38",
+  "desc": "Collect: the capacity is exceeded by one before the overflow",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "old": "if (stored == cap)\n                    {\n                        overflow = true;",
+  "new": "if (stored > cap)\n                    {\n                        overflow = true;",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)",
+  "orig": "d_M38"
+ },
+ {
+  "id": "M40",
+  "desc": "Collect: the scan stops at the last block",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "old": "for (long block = 0, blocks = n / x; block <= blocks && !overflow; block++)",
+  "new": "for (long block = 0, blocks = n / x; block < blocks && !overflow; block++)",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)",
+  "orig": "d_M40"
+ },
+ {
+  "id": "M42",
+  "desc": "Collect: the overflow is not queued again",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "old": "owner._pool.Push(task with { Sample = true });\n                return;",
+  "new": "return;",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)",
+  "orig": "d_M42"
+ },
+ {
+  "id": "M44",
+  "desc": "InRange: the upper bound is inclusive",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "old": "if (key == hi.Key && Cmp(p, hi.Pos) >= 0) return false;",
+  "new": "if (key == hi.Key && Cmp(p, hi.Pos) > 0) return false;",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)",
+  "orig": "d_M44"
+ },
+ {
+  "id": "M46",
+  "desc": "InRange: the upper key bound",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "old": "if (key > hi.Key) return false;",
+  "new": "if (key > hi.Key + 1) return false;",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)",
+  "orig": "d_M46"
+ },
+ {
+  "id": "M48",
+  "desc": "Split: the reservoir does not keep the first records",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "old": "if (count <= cap)\n                    {\n                        reservoir[count - 1] = (uint)p;",
+  "new": "if (count < cap)\n                    {\n                        reservoir[count - 1] = (uint)p;",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)",
+  "orig": "d_M48"
+ },
+ {
+  "id": "M50",
+  "desc": "Split: all of the reservoir is used though it is not full",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "old": "int size = (int)Math.Min(count, cap);",
+  "new": "int size = cap;",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)",
+  "orig": "d_M50"
+ },
+ {
+  "id": "M52",
+  "desc": "Split: the fan-out is the cap only",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "old": "int fan = (int)Math.Min(Math.Max(2, ((2 * count) + bucket - 1) / bucket), Math.Max(2, owner._o.FanOut));",
+  "new": "int fan = Math.Max(2, owner._o.FanOut);",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)",
+  "orig": "d_M52"
+ },
+ {
+  "id": "M54",
+  "desc": "Split: the splitters are the first quantile",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "old": "int i = (int)((long)t * size / fan);",
+  "new": "int i = (int)((long)(t - 1) * size / fan);",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)",
+  "orig": "d_M54"
+ },
+ {
+  "id": "M56",
+  "desc": "Split: the children are pushed first to last",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "old": "for (int i = tasks.Count - 1; i >= 0; i--) owner._pool.Push(tasks[i]);",
+  "new": "for (int i = 0; i < tasks.Count; i++) owner._pool.Push(tasks[i]);",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)",
+  "orig": "d_M56"
+ },
+ {
+  "id": "M58",
+  "desc": "Split: the first child has no lower bound of its own",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "old": "NamingBound? prev = task.Lo;",
+  "new": "NamingBound? prev = null;",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)",
+  "orig": "d_M58"
+ },
+ {
+  "id": "M60",
+  "desc": "Split: the scans are not counted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "old": "            SplitScans++;\n",
+  "new": "",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)",
+  "orig": "d_M60"
+ },
+ {
+  "id": "M62",
+  "desc": "Execute: the trace is not called",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "old": "            owner._o.Trace?.Invoke(\"naming\");\n",
+  "new": "",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)",
+  "orig": "d_M62"
+ },
+ {
+  "id": "M64",
+  "desc": "Finish: key ties of two are not ordered",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "old": "if (e - s >= 2) MergeSort(pos.Slice(s, e - s), _pos2.AsSpan(e - s));",
+  "new": "if (e - s > 2) MergeSort(pos.Slice(s, e - s), _pos2.AsSpan(e - s));",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)",
+  "orig": "d_M64"
+ },
+ {
+  "id": "M66",
+  "desc": "Finish: a group is new only when the key differs",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "old": "if (i == 0 || keys[i] != keys[i - 1] || owner._prefix.Compare(pos[i - 1], pos[i]) != 0)",
+  "new": "if (i == 0 || keys[i] != keys[i - 1])",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)",
+  "orig": "d_M66"
+ },
+ {
+  "id": "M68",
+  "desc": "Finish: the first group length is taken at the second group",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "old": "if (distinct == 1) firstLen = size;",
+  "new": "if (distinct == 2) firstLen = size;",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)",
+  "orig": "d_M68"
+ },
+ {
+  "id": "M70",
+  "desc": "Finish: a bucket of one group has no first length",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "old": "            if (distinct == 1) firstLen = lastLen;\n            uint firstPos",
+  "new": "            uint firstPos",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)",
+  "orig": "d_M70"
+ },
+ {
+  "id": "M72",
+  "desc": "Finish: the values are not sorted by slot",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "old": "            values.Sort();\n",
+  "new": "",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)",
+  "orig": "d_M72"
+ },
+ {
+  "id": "M74",
+  "desc": "Finish: the file runs are not counted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "old": "if (!run.InMemory) FileRuns++;",
+  "new": "",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)",
+  "orig": "d_M74"
+ },
+ {
+  "id": "M76",
+  "desc": "MergeSort: equal prefixes are reordered",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "old": "if (prefix.Compare(a[mid], v) <= 0) lo = mid + 1;",
+  "new": "if (prefix.Compare(a[mid], v) < 0) lo = mid + 1;",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)",
+  "orig": "d_M76"
+ },
+ {
+  "id": "M79",
+  "desc": "MergeSort: the left half is not copied",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "old": "            a[..half].CopyTo(tmp);\n            int p = 0, q = half, k = 0;",
+  "new": "            int p = 0, q = half, k = 0;",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)",
+  "orig": "d_M79"
+ },
+ {
+  "id": "M81",
+  "desc": "MergeSort: binary insertion up to seven",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "old": "if (n <= 6)\n            {\n                for (int i = 1; i < n; i++)\n                {\n                    uint v = a[i];",
+  "new": "if (n <= 7)\n            {\n                for (int i = 1; i < n; i++)\n                {\n                    uint v = a[i];",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)",
+  "orig": "d_M81"
+ },
+ {
+  "id": "K02",
+  "desc": "InsertionSort: the positions do not move",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "old": "                pos[j + 1] = pos[j];\n                j--;",
+  "new": "                j--;",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)",
+  "orig": "d_K02"
+ },
+ {
+  "id": "K04",
+  "desc": "RadixSort: the sorted pairs are left in the second blocks",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "old": "        if (swapped)\n        {\n            k2.CopyTo(k1);\n            p2.CopyTo(p1);\n        }",
+  "new": "        if (swapped)\n        {\n            k2.CopyTo(k1);\n        }",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)",
+  "orig": "d_K04"
+ },
+ {
+  "id": "K06",
+  "desc": "RadixSort: the third digit is the second",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "old": "hist[512 + (int)((k >> 16) & 0xFF)]++;",
+  "new": "hist[512 + (int)((k >> 8) & 0xFF)]++;",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)",
+  "orig": "d_K06"
+ }
+]

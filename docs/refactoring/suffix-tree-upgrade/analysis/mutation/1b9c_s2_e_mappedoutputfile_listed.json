@@ -1,0 +1,11 @@
+[
+ {
+  "id": "G16",
+  "desc": "the failed mapping does not undo the growth",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "undo.SetLength(previous);",
+  "new": "",
+  "filter": "(FullyQualifiedName~SesaSectionTests.Grow|FullyQualifiedName~MappedOutputFileTests|FullyQualifiedName~SesaAuditTests)",
+  "orig": "e_G16"
+ }
+]

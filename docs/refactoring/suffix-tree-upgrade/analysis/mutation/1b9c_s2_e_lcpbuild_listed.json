@@ -1,0 +1,20 @@
+[
+ {
+  "id": "V10",
+  "desc": "a failed overflow writer leaves the base writer open",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs",
+  "old": "                catch\n                {\n                    baseWriter.Dispose();\n                    throw;\n                }",
+  "new": "                catch\n                {\n                    throw;\n                }",
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~ExternalLcpTests|FullyQualifiedName~LcpChildBuilderTests|FullyQualifiedName~SesaAuditTests)",
+  "orig": "e_V10"
+ },
+ {
+  "id": "V16",
+  "desc": "the path mode does not complete the overflow file",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs",
+  "old": "            overflowFile?.Complete(fsync: false);\n",
+  "new": "",
+  "filter": "(FullyQualifiedName~SesaSectionTests|FullyQualifiedName~ExternalLcpTests|FullyQualifiedName~LcpChildBuilderTests|FullyQualifiedName~SesaAuditTests)",
+  "orig": "e_V16"
+ }
+]

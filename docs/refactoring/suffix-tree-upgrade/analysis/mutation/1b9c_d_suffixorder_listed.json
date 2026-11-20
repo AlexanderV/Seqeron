@@ -1,0 +1,173 @@
+[
+ {
+  "id": "C02",
+  "desc": "Add: the rank lookups are not summed",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs",
+  "old": "        RankLookups += o.RankLookups;\n",
+  "new": "",
+  "filter": "(FullyQualifiedName~SuffixOrderTests|FullyQualifiedName~BucketSorterTests)",
+  "orig": "d_C02"
+ },
+ {
+  "id": "C04",
+  "desc": "Add: the leaf positions are not summed",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs",
+  "old": "        LeafPositions += o.LeafPositions;\n",
+  "new": "",
+  "filter": "(FullyQualifiedName~SuffixOrderTests|FullyQualifiedName~BucketSorterTests)",
+  "orig": "d_C04"
+ },
+ {
+  "id": "C06",
+  "desc": "Add: the tie positions are not summed",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs",
+  "old": "        TiePositions += o.TiePositions;\n",
+  "new": "",
+  "filter": "(FullyQualifiedName~SuffixOrderTests|FullyQualifiedName~BucketSorterTests)",
+  "orig": "d_C06"
+ },
+ {
+  "id": "C08",
+  "desc": "Add: the LCE steps are not summed",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs",
+  "old": "        LceSteps += o.LceSteps;\n",
+  "new": "",
+  "filter": "(FullyQualifiedName~SuffixOrderTests|FullyQualifiedName~BucketSorterTests)",
+  "orig": "d_C08"
+ },
+ {
+  "id": "C10",
+  "desc": "CompareCore: the calls are not counted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs",
+  "old": "        c.Compares++;\n",
+  "new": "",
+  "filter": "(FullyQualifiedName~SuffixOrderTests|FullyQualifiedName~BucketSorterTests)",
+  "orig": "d_C10"
+ },
+ {
+  "id": "C12",
+  "desc": "CompareCore: the same position is not equal",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs",
+  "old": "        if (i == j) return 0;",
+  "new": "        if (i == j + 1000000) return 0;",
+  "filter": "(FullyQualifiedName~SuffixOrderTests|FullyQualifiedName~BucketSorterTests)",
+  "orig": "d_C12"
+ },
+ {
+  "id": "C14",
+  "desc": "CompareCore: the key is skipped for a short suffix",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs",
+  "old": "long skip = tied && t.KeySymbols <= maxLen ? t.KeySymbols : 0;",
+  "new": "long skip = tied ? t.KeySymbols : 0;",
+  "filter": "(FullyQualifiedName~SuffixOrderTests|FullyQualifiedName~BucketSorterTests)",
+  "orig": "d_C14"
+ },
+ {
+  "id": "C16",
+  "desc": "CompareCore: the key is skipped one symbol short",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs",
+  "old": "long skip = tied && t.KeySymbols <= maxLen ? t.KeySymbols : 0;",
+  "new": "long skip = tied && t.KeySymbols <= maxLen ? t.KeySymbols - 1 : 0;",
+  "filter": "(FullyQualifiedName~SuffixOrderTests|FullyQualifiedName~BucketSorterTests)",
+  "orig": "d_C16"
+ },
+ {
+  "id": "C18",
+  "desc": "CompareCore: the shorter suffix ignores the difference of positions",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs",
+  "old": "long maxLen = t.Length - Math.Max(i, j);",
+  "new": "long maxLen = t.Length - Math.Min(i, j);",
+  "filter": "(FullyQualifiedName~SuffixOrderTests|FullyQualifiedName~BucketSorterTests)",
+  "orig": "d_C18"
+ },
+ {
+  "id": "C20",
+  "desc": "CompareCore: the difference is not made positive",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs",
+  "old": "        if (delta < 0) delta += x;\n",
+  "new": "",
+  "filter": "(FullyQualifiedName~SuffixOrderTests|FullyQualifiedName~BucketSorterTests)",
+  "orig": "d_C20"
+ },
+ {
+  "id": "C22",
+  "desc": "CompareCore: the offset is not made positive",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs",
+  "old": "        if (l < 0) l += x;\n",
+  "new": "",
+  "filter": "(FullyQualifiedName~SuffixOrderTests|FullyQualifiedName~BucketSorterTests)",
+  "orig": "d_C22"
+ },
+ {
+  "id": "C24",
+  "desc": "CompareCore: the offset is the residue difference the other way",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs",
+  "old": "int l = a - (int)ri;",
+  "new": "int l = (int)ri - a;",
+  "filter": "(FullyQualifiedName~SuffixOrderTests|FullyQualifiedName~BucketSorterTests)",
+  "orig": "d_C24"
+ },
+ {
+  "id": "C26",
+  "desc": "CompareCore: the skip ignores the limit",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs",
+  "old": "long s = Math.Min(skip, lim);",
+  "new": "long s = skip;",
+  "filter": "(FullyQualifiedName~SuffixOrderTests|FullyQualifiedName~BucketSorterTests)",
+  "orig": "d_C26"
+ },
+ {
+  "id": "C28",
+  "desc": "CompareCore: the LCE is not counted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs",
+  "old": "            c.LceCalls++;\n",
+  "new": "",
+  "filter": "(FullyQualifiedName~SuffixOrderTests|FullyQualifiedName~BucketSorterTests)",
+  "orig": "d_C28"
+ },
+ {
+  "id": "C30",
+  "desc": "CompareCore: the LCE limit ignores the skip",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs",
+  "old": "matched = s + t.Lce(i + s, j + s, lim - s, ref c.LceSteps);",
+  "new": "matched = s + t.Lce(i + s, j + s, lim, ref c.LceSteps);",
+  "filter": "(FullyQualifiedName~SuffixOrderTests|FullyQualifiedName~BucketSorterTests)",
+  "orig": "d_C30"
+ },
+ {
+  "id": "C32",
+  "desc": "CompareCore: a difference at the limit decides",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs",
+  "old": "if (matched < lim) return",
+  "new": "if (matched <= lim) return",
+  "filter": "(FullyQualifiedName~SuffixOrderTests|FullyQualifiedName~BucketSorterTests)",
+  "orig": "d_C32"
+ },
+ {
+  "id": "C34",
+  "desc": "CompareCore: a suffix of exactly l symbols is the short one",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs",
+  "old": "if (l > maxLen) return",
+  "new": "if (l >= maxLen) return",
+  "filter": "(FullyQualifiedName~SuffixOrderTests|FullyQualifiedName~BucketSorterTests)",
+  "orig": "d_C34"
+ },
+ {
+  "id": "C36",
+  "desc": "CompareCore: the ranks compare the other way",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs",
+  "old": "return d.Rank(i + l) < d.Rank(j + l) ? -1 : 1;",
+  "new": "return d.Rank(i + l) > d.Rank(j + l) ? -1 : 1;",
+  "filter": "(FullyQualifiedName~SuffixOrderTests|FullyQualifiedName~BucketSorterTests)",
+  "orig": "d_C36"
+ },
+ {
+  "id": "C38",
+  "desc": "TiedComparer is the full comparison",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs",
+  "old": "public int Compare(uint x, uint y) => order.CompareTied(x, y);",
+  "new": "public int Compare(uint x, uint y) => order.Compare(x, y);",
+  "filter": "(FullyQualifiedName~SuffixOrderTests|FullyQualifiedName~BucketSorterTests)",
+  "orig": "d_C38"
+ }
+]

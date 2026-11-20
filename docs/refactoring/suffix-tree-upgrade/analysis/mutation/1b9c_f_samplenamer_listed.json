@@ -1,0 +1,10 @@
+[
+ {
+  "id": "F32",
+  "desc": "a sample one record above the capacity is a leaf",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "old": "_g.Samples > _o.BucketCapacity, 1)",
+  "new": "_g.Samples > _o.BucketCapacity + 1, 1)",
+  "filter": "(FullyQualifiedName~SaGap1b9cTests|FullyQualifiedName~SesaGap1b9cTests)"
+ }
+]

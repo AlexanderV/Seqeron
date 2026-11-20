@@ -1,0 +1,66 @@
+[
+ {
+  "id": "F19",
+  "desc": "the first sync only when it is not asked for",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "old": "                if (options.Fsync) file.Flush();\n                Hook(SesaHooks.HeaderSynced);",
+  "new": "                if (!options.Fsync) file.Flush();\n                Hook(SesaHooks.HeaderSynced);",
+  "filter": "(FullyQualifiedName~SaGap1b9cTests|FullyQualifiedName~SesaGap1b9cTests)"
+ },
+ {
+  "id": "F20",
+  "desc": "the second sync only when it is not asked for",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "old": "                if (options.Fsync) file.Flush();\n                Hook(SesaHooks.MagicWritten);",
+  "new": "                if (!options.Fsync) file.Flush();\n                Hook(SesaHooks.MagicWritten);",
+  "filter": "(FullyQualifiedName~SaGap1b9cTests|FullyQualifiedName~SesaGap1b9cTests)"
+ },
+ {
+  "id": "F21",
+  "desc": "the counts of the BWT are compared with themselves",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "old": "if (!bwt.Counts.AsSpan().SequenceEqual(info.Counts)) throw",
+  "new": "if (!bwt.Counts.AsSpan().SequenceEqual(bwt.Counts)) throw",
+  "filter": "(FullyQualifiedName~SaGap1b9cTests|FullyQualifiedName~SesaGap1b9cTests)"
+ },
+ {
+  "id": "F22",
+  "desc": "a container that is shorter than planned is accepted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "old": "if (actual != planned) throw new InvalidOperationException($\"the container has",
+  "new": "if (actual > planned) throw new InvalidOperationException($\"the container has",
+  "filter": "(FullyQualifiedName~SaGap1b9cTests|FullyQualifiedName~SesaGap1b9cTests)"
+ },
+ {
+  "id": "F23",
+  "desc": "the message of the length check names the planned length twice",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "old": "the container has {actual} bytes, expected {planned}",
+  "new": "the container has {planned} bytes, expected {planned}",
+  "filter": "(FullyQualifiedName~SaGap1b9cTests|FullyQualifiedName~SesaGap1b9cTests)"
+ },
+ {
+  "id": "F24",
+  "desc": "BUILD_INFO is refused only above twice its room",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "old": "if (length > capacity) throw new InvalidOperationException($\"BUILD_INFO has",
+  "new": "if (length > 2 * capacity) throw new InvalidOperationException($\"BUILD_INFO has",
+  "filter": "(FullyQualifiedName~SaGap1b9cTests|FullyQualifiedName~SesaGap1b9cTests)"
+ },
+ {
+  "id": "F35",
+  "desc": "PH6 is run for a build with threads above 1000 only",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "old": "            if (options.IncludePsi)\n            {\n                using var ph6",
+  "new": "            if (options.IncludePsi && options.Threads <= 1000)\n            {\n                using var ph6",
+  "filter": "(FullyQualifiedName~SaGap1b9cTests|FullyQualifiedName~SesaGap1b9cTests)"
+ },
+ {
+  "id": "F36",
+  "desc": "the BWT scratch file is not given the file options of the build",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "old": "Counters = counters,\n            Files = options.Files,\n        });\n        double secBwt",
+  "new": "Counters = counters,\n        });\n        double secBwt",
+  "filter": "(FullyQualifiedName~SaGap1b9cTests|FullyQualifiedName~SesaGap1b9cTests)"
+ }
+]

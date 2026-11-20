@@ -1,0 +1,19 @@
+C02	Add: the rank lookups are not summed	killed(1 failed: TheCounters_CountTheCallsTheLceAndTheRankLookups_AndAddUp)[listed]			6
+C04	Add: the leaf positions are not summed	killed(1 failed: TheCounters_CountThePartitionScansAndTheLeafPositions)[listed]			5
+C06	Add: the tie positions are not summed	survived			5
+C08	Add: the LCE steps are not summed	killed(1 failed: TheCounters_CountTheCallsTheLceAndTheRankLookups_AndAddUp)[listed]			5
+C10	CompareCore: the calls are not counted	killed(2 failed: Compare_IsTheDefinition_ForEveryPairOfPositions_EveryPeriod_,TheCounters_CountTheCallsTheLceAndTheRankLookups_AndAddUp)[listed]			5
+C12	CompareCore: the same position is not equal	killed(5 failed: ThePartition_NeverNeedsTheRetry_BecauseTheSplittersAreDistin,Compare_IsTheDefinition_ForEveryPairOfPositions_EveryPeriod_,CompareTied_IsTheDefinition_ForPositionsWhoseKeysAreEqual)[listed]			5
+C14	CompareCore: the key is skipped for a short suffix	survived			5
+C16	CompareCore: the key is skipped one symbol short	survived			5
+C18	CompareCore: the shorter suffix ignores the difference of positions	killed(8 failed: ARepetitiveText_WithATinyK_IsSplitIntoEqualBuckets_BecauseTh,EveryString_OverSigma1To3_OfTheDefaultTier_IsTheSuffixArray,Families_AreTheSuffixArray_AtEveryTinyVariant_AndThePartitio)[listed]			3
+C20	CompareCore: the difference is not made positive	killed(16 failed: AHookThatThrows_AtALeafOrAPartition_ReachesTheCaller_NotWrap,AnArenaBudgetThatIsTooSmall_EndsWithTheBudgetException_AndGi,APartitionSpillThatFails_IsAnIoException_AndNoPositionFileIs)[listed]			3
+C22	CompareCore: the offset is not made positive	killed(host crash: Fatal error.)[listed]			3
+C24	CompareCore: the offset is the residue difference the other way	killed(host crash: Fatal error.)[listed]			3
+C26	CompareCore: the skip ignores the limit	survived			5
+C28	CompareCore: the LCE is not counted	survived			5
+C30	CompareCore: the LCE limit ignores the skip	survived			5
+C32	CompareCore: a difference at the limit decides	killed(12 failed: ARepetitiveText_WithATinyK_IsSplitIntoEqualBuckets_BecauseTh,EveryString_OverSigma1To3_OfTheDefaultTier_IsTheSuffixArray,Families_AreTheSuffixArray_AtEveryTinyVariant_AndThePartitio)[listed]			5
+C34	CompareCore: a suffix of exactly l symbols is the short one	survived			5
+C36	CompareCore: the ranks compare the other way	killed(11 failed: ARepetitiveText_WithATinyK_IsSplitIntoEqualBuckets_BecauseTh,EveryString_OverSigma1To3_OfTheDefaultTier_IsTheSuffixArray,Families_AreTheSuffixArray_AtEveryTinyVariant_AndThePartitio)[listed]			3
+C38	TiedComparer is the full comparison	survived			4

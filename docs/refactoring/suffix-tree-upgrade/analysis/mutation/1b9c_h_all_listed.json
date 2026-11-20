@@ -1,0 +1,215 @@
+[
+ {
+  "id": "C19",
+  "desc": "CompareCore: the offset is the sum of the residues",
+  "old": "int delta = (int)rj - (int)ri;",
+  "new": "int delta = (int)rj + (int)ri;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs",
+  "filter": "(FullyQualifiedName~SuffixOrderTests|FullyQualifiedName~BucketSorterTests)",
+  "package": "d"
+ },
+ {
+  "id": "C21",
+  "desc": "CompareCore: the witness is the difference",
+  "old": "int a = d.Cover.Witness[delta];",
+  "new": "int a = delta;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs",
+  "filter": "(FullyQualifiedName~SuffixOrderTests|FullyQualifiedName~BucketSorterTests)",
+  "package": "d"
+ },
+ {
+  "id": "C23",
+  "desc": "CompareCore: the offset is the witness",
+  "old": "int l = a - (int)ri;",
+  "new": "int l = a;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs",
+  "filter": "(FullyQualifiedName~SuffixOrderTests|FullyQualifiedName~BucketSorterTests)",
+  "package": "d"
+ },
+ {
+  "id": "C37",
+  "desc": "CompareCore: the second rank is at the wrong offset",
+  "old": "return d.Rank(i + l) < d.Rank(j + l) ? -1 : 1;",
+  "new": "return d.Rank(i + l) < d.Rank(j) ? -1 : 1;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs",
+  "filter": "(FullyQualifiedName~SuffixOrderTests|FullyQualifiedName~BucketSorterTests)",
+  "package": "d"
+ },
+ {
+  "id": "D19",
+  "desc": "SingerPrime: any q below the period counts",
+  "old": "if (IsPrime(q) && (q * q) + q + 1 == period) return q;",
+  "new": "if (IsPrime(q) && (q * q) + q + 1 <= period) return q;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs",
+  "filter": "(FullyQualifiedName~DifferenceCoverTests|FullyQualifiedName~SampleGeometryTests|FullyQualifiedName~ExternalDcsTests)",
+  "package": "d"
+ },
+ {
+  "id": "M45",
+  "desc": "InRange: the lower key is inclusive of smaller keys",
+  "old": "if (key < lo.Key) return false;",
+  "new": "if (key < lo.Key - 1) return false;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)",
+  "package": "d"
+ },
+ {
+  "id": "M47",
+  "desc": "Cmp: the position tie-break is dropped",
+  "old": "return c != 0 ? c : a.CompareTo(b);\n        }\n\n        /// <summary>One scan that stores",
+  "new": "return c;\n        }\n\n        /// <summary>One scan that stores",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)",
+  "package": "d"
+ },
+ {
+  "id": "M57",
+  "desc": "Split: the last child has no upper bound of its own",
+  "old": "tasks.Add(new NamingTask(prev, task.Hi, lastNode, false, id + (ulong)kids.Count));",
+  "new": "tasks.Add(new NamingTask(prev, null, lastNode, false, id + (ulong)kids.Count));",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)",
+  "package": "d"
+ },
+ {
+  "id": "M63",
+  "desc": "Execute: a leaf is split and a split is collected",
+  "old": "if (task.Sample) Split(task);\n            else Collect(task);",
+  "new": "if (!task.Sample) Split(task);\n            else Collect(task);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)",
+  "package": "d"
+ },
+ {
+  "id": "N19",
+  "desc": "ReducedFileSink: the buffers are one name short",
+  "old": "_buffers = arena.Allocate<byte>(_bufEntries * 4 * geometry.Classes, zero: false, \"reduced.cursors\");",
+  "new": "_buffers = arena.Allocate<byte>((_bufEntries - 1) * 4 * geometry.Classes + 4, zero: false, \"reduced.cursors\");",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/NameSinks.cs",
+  "filter": "(FullyQualifiedName~ExternalDcsTests)",
+  "package": "d"
+ },
+ {
+  "id": "P03",
+  "desc": "WorkPool: a finished task is counted twice",
+  "old": "            _active--;\n            Monitor.PulseAll(_stack);\n        }\n    }\n\n    internal void Fail",
+  "new": "            _active -= 2;\n            Monitor.PulseAll(_stack);\n        }\n    }\n\n    internal void Fail",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/SeededRandom.cs",
+  "filter": "(FullyQualifiedName~SaPlumbingTests|FullyQualifiedName~ExternalDcsTests)",
+  "package": "d"
+ },
+ {
+  "id": "P05",
+  "desc": "WorkPool: first in first out",
+  "old": "task = _stack.Pop();",
+  "new": "task = _stack.ToArray()[^1];",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/SeededRandom.cs",
+  "filter": "(FullyQualifiedName~SaPlumbingTests|FullyQualifiedName~ExternalDcsTests)",
+  "package": "d"
+ },
+ {
+  "id": "R17",
+  "desc": "Verify after Dispose does not throw",
+  "old": "ObjectDisposedException.ThrowIf(_view is null, this);",
+  "new": "ObjectDisposedException.ThrowIf(false, this);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankTable.cs",
+  "filter": "(FullyQualifiedName~RankTableTests|FullyQualifiedName~SuffixOrderTests)",
+  "package": "d"
+ },
+ {
+  "id": "S09",
+  "desc": "TrySlotOfRed: the search does not advance",
+  "old": "int mid = (lo + hi + 1) >> 1;",
+  "new": "int mid = (lo + hi) >> 1;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleGeometry.cs",
+  "filter": "(FullyQualifiedName~SampleGeometryTests|FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~RankInverterTests)",
+  "package": "d"
+ },
+ {
+  "id": "P07",
+  "desc": "a read of 0 is accepted",
+  "old": "ThrowIfLessThan(options.ReadBytes, 1);",
+  "new": "ThrowIfLessThan(options.ReadBytes, 0);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/PsiStream.cs",
+  "filter": "(FullyQualifiedName~Ph6Tests|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SesaSectionTests.ATextAbove)",
+  "package": "e"
+ },
+ {
+  "id": "S09",
+  "desc": "a view of zero bytes is accepted",
+  "old": "ArgumentOutOfRangeException.ThrowIfLessThan(viewBytes, 1);",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaChecksums.cs",
+  "filter": "(FullyQualifiedName~SesaSectionTests.TheChecksumPass|FullyQualifiedName~SesaBuilderTests.TheResult|FullyQualifiedName~SesaBuilderTests.EverySection_EqualsTheInMemoryIndex_WithAndWithoutPsi_DefaultAndTiny)",
+  "package": "e"
+ },
+ {
+  "id": "W05",
+  "desc": "a read of under one entry is accepted",
+  "old": "ThrowIfLessThan(options.ReadBytes, sizeof(uint));",
+  "new": "ThrowIfLessThan(options.ReadBytes, 1);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/BwtPass.cs",
+  "filter": "(FullyQualifiedName~Ph6Tests|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SesaSectionTests.ATextAbove)",
+  "package": "e"
+ },
+ {
+  "id": "H02",
+  "desc": "Run: no upper bound on K",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs",
+  "old": "ArgumentOutOfRangeException.ThrowIfGreaterThan(options.LeafCapacity, int.MaxValue / 2);",
+  "new": "",
+  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests)",
+  "orig": "d_H02",
+  "package": "d"
+ },
+ {
+  "id": "L10",
+  "desc": "BuildLevel: the level below gets the same level number",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
+  "old": "BuildLevel(red, cover, level + 1, childRank, true, c);",
+  "new": "BuildLevel(red, cover, level, childRank, true, c);",
+  "filter": "(FullyQualifiedName~ExternalDcsTests)",
+  "orig": "d_L10",
+  "package": "d"
+ },
+ {
+  "id": "R02",
+  "desc": "FastMod32: Mod is the division",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankTable.cs",
+  "old": "internal uint Mod(uint a) => (uint)Math.BigMul(_m * a, _d, out _);",
+  "new": "internal uint Mod(uint a) => (uint)Math.BigMul(_m, a, out _);",
+  "filter": "(FullyQualifiedName~RankTableTests|FullyQualifiedName~SuffixOrderTests)",
+  "orig": "d_R02",
+  "package": "d"
+ },
+ {
+  "id": "M46",
+  "desc": "InRange: the upper key bound",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "old": "if (key > hi.Key) return false;",
+  "new": "if (key > hi.Key + 1) return false;",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)",
+  "orig": "d_M46",
+  "package": "d"
+ },
+ {
+  "id": "M50",
+  "desc": "Split: all of the reservoir is used though it is not full",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "old": "int size = (int)Math.Min(count, cap);",
+  "new": "int size = cap;",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)",
+  "orig": "d_M50",
+  "package": "d"
+ },
+ {
+  "id": "P06",
+  "desc": "WorkPool: a task is not counted as active when taken",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/SeededRandom.cs",
+  "old": "                    _active++;\n                    return true;",
+  "new": "                    return true;",
+  "filter": "(FullyQualifiedName~SaPlumbingTests|FullyQualifiedName~ExternalDcsTests)",
+  "orig": "d_P06",
+  "package": "d"
+ }
+]

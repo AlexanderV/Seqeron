@@ -1,0 +1,263 @@
+[
+ {
+  "id": "E02",
+  "desc": "BuildRankFile: no upper bound on the bucket capacity",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
+  "old": "ArgumentOutOfRangeException.ThrowIfGreaterThan(options.BucketCapacity, int.MaxValue / 2);",
+  "new": "",
+  "filter": "(FullyQualifiedName~ExternalDcsTests)",
+  "orig": "d_E02"
+ },
+ {
+  "id": "E04",
+  "desc": "BuildRankFile: zero threads",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
+  "old": "ArgumentOutOfRangeException.ThrowIfLessThan(options.Threads, 1);",
+  "new": "ArgumentOutOfRangeException.ThrowIfLessThan(options.Threads, 0);",
+  "filter": "(FullyQualifiedName~ExternalDcsTests)",
+  "orig": "d_E04"
+ },
+ {
+  "id": "E06",
+  "desc": "BuildRankFile: a fan-out of one",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
+  "old": "ArgumentOutOfRangeException.ThrowIfLessThan(options.FanOut, 2);",
+  "new": "ArgumentOutOfRangeException.ThrowIfLessThan(options.FanOut, 1);",
+  "filter": "(FullyQualifiedName~ExternalDcsTests)",
+  "orig": "d_E06"
+ },
+ {
+  "id": "E08",
+  "desc": "BuildRankFile: an I/O buffer of eight bytes",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
+  "old": "ArgumentOutOfRangeException.ThrowIfLessThan(options.IoBufferBytes, 16);",
+  "new": "ArgumentOutOfRangeException.ThrowIfLessThan(options.IoBufferBytes, 8);",
+  "filter": "(FullyQualifiedName~ExternalDcsTests)",
+  "orig": "d_E08"
+ },
+ {
+  "id": "E10",
+  "desc": "BuildRankFile: a merge budget of four",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
+  "old": "ArgumentOutOfRangeException.ThrowIfLessThan(options.MergeBufferBudget, 8);",
+  "new": "ArgumentOutOfRangeException.ThrowIfLessThan(options.MergeBufferBudget, 4);",
+  "filter": "(FullyQualifiedName~ExternalDcsTests)",
+  "orig": "d_E10"
+ },
+ {
+  "id": "E12",
+  "desc": "BuildRankFile: a negative run spill",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
+  "old": "ArgumentOutOfRangeException.ThrowIfNegative(options.RunSpillBytes);",
+  "new": "",
+  "filter": "(FullyQualifiedName~ExternalDcsTests)",
+  "orig": "d_E12"
+ },
+ {
+  "id": "E14",
+  "desc": "BuildRankFile: the failed rank file is left",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
+  "old": "if (context.RankTouched) RunStore.DeleteQuietly(rankPath);",
+  "new": "",
+  "filter": "(FullyQualifiedName~ExternalDcsTests)",
+  "orig": "d_E14"
+ },
+ {
+  "id": "E16",
+  "desc": "BuildRankFile: the tagged files of a failed build are left",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
+  "old": "foreach (string file in Directory.GetFiles(scratch, context.Tag + \"*\")) RunStore.DeleteQuietly(file);",
+  "new": "",
+  "filter": "(FullyQualifiedName~ExternalDcsTests)",
+  "orig": "d_E16"
+ },
+ {
+  "id": "E18",
+  "desc": "BuildRankFile: the scratch root is never removed",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
+  "old": "if (createdRoot) DeleteEmptyDirectoryQuietly(scratch);\n        }\n        return context.Stats;",
+  "new": "        }\n        return context.Stats;",
+  "filter": "(FullyQualifiedName~ExternalDcsTests)",
+  "orig": "d_E18"
+ },
+ {
+  "id": "E20",
+  "desc": "BuildRankFile: the budget is private to the call",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
+  "old": "options.Budget ?? new ArenaBudget(long.MaxValue)",
+  "new": "new ArenaBudget(long.MaxValue)",
+  "filter": "(FullyQualifiedName~ExternalDcsTests)",
+  "orig": "d_E20"
+ },
+ {
+  "id": "L02",
+  "desc": "BuildLevel: the names are unique when they are shared",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
+  "old": "if (ls.NamesUnique)\n        {\n            if (level == 0) c.RankTouched = true;",
+  "new": "if (ls.DistinctNames * 2 > ls.SampleSize)\n        {\n            if (level == 0) c.RankTouched = true;",
+  "filter": "(FullyQualifiedName~ExternalDcsTests)",
+  "orig": "d_L02"
+ },
+ {
+  "id": "L04",
+  "desc": "BuildLevel: the rank file of a level below is not scratch",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
+  "old": "            if (scratchOutput) c.Ledger.Add(g.Slots * 4);\n            namer.Merge(naming, sink);",
+  "new": "            namer.Merge(naming, sink);",
+  "filter": "(FullyQualifiedName~ExternalDcsTests)",
+  "orig": "d_L04"
+ },
+ {
+  "id": "L06",
+  "desc": "BuildLevel: a reduced string as long as the text recurses",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
+  "old": "if (reduced <= o.BaseCase || reduced >= text.Length)",
+  "new": "if (reduced <= o.BaseCase)",
+  "filter": "(FullyQualifiedName~ExternalDcsTests)",
+  "orig": "d_L06"
+ },
+ {
+  "id": "L08",
+  "desc": "BuildLevel: the base case sigma is the distinct count",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
+  "old": "BaseCase(sink.Red, g, ls.DistinctNames + 1, rankPath",
+  "new": "BaseCase(sink.Red, g, ls.DistinctNames, rankPath",
+  "filter": "(FullyQualifiedName~ExternalDcsTests)",
+  "orig": "d_L08"
+ },
+ {
+  "id": "L10",
+  "desc": "BuildLevel: the level below gets the same level number",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
+  "old": "BuildLevel(red, cover, level + 1, childRank, true, c);",
+  "new": "BuildLevel(red, cover, level, childRank, true, c);",
+  "filter": "(FullyQualifiedName~ExternalDcsTests)",
+  "orig": "d_L10"
+ },
+ {
+  "id": "L12",
+  "desc": "BuildLevel: the sort seed ignores the level",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
+  "old": "Seed = o.Seed + (ulong)level + 1,",
+  "new": "Seed = o.Seed,",
+  "filter": "(FullyQualifiedName~ExternalDcsTests)",
+  "orig": "d_L12"
+ },
+ {
+  "id": "L14",
+  "desc": "BuildLevel: the sort spill has no floor",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
+  "old": "SpillBytes = Math.Max(64, o.IoBufferBytes),",
+  "new": "SpillBytes = o.IoBufferBytes,",
+  "filter": "(FullyQualifiedName~ExternalDcsTests)",
+  "orig": "d_L14"
+ },
+ {
+  "id": "L16",
+  "desc": "BuildLevel: the sort shares no ledger",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
+  "old": "                    Ledger = c.Ledger,\n",
+  "new": "",
+  "filter": "(FullyQualifiedName~ExternalDcsTests)",
+  "orig": "d_L16"
+ },
+ {
+  "id": "L18",
+  "desc": "BuildLevel: the suffix array file has no empty suffix entry",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
+  "old": "MappedOutputFile.Create(saPath, 4 * (reduced + 1), o.Files);",
+  "new": "MappedOutputFile.Create(saPath, 4 * reduced, o.Files);",
+  "filter": "(FullyQualifiedName~ExternalDcsTests)",
+  "orig": "d_L18"
+ },
+ {
+  "id": "L20",
+  "desc": "BuildLevel: the child rank file bytes are not given back",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
+  "old": "            c.Ledger.Remove(childSlots * 4);\n",
+  "new": "",
+  "filter": "(FullyQualifiedName~ExternalDcsTests)",
+  "orig": "d_L20"
+ },
+ {
+  "id": "L22",
+  "desc": "BuildLevel: the suffix array file is not deleted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
+  "old": "        File.Delete(saPath);\n",
+  "new": "",
+  "filter": "(FullyQualifiedName~ExternalDcsTests)",
+  "orig": "d_L22"
+ },
+ {
+  "id": "L24",
+  "desc": "BuildLevel: the inversion has no reservation options",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
+  "old": "Files = o.Files ?? new MappedFileOptions(),",
+  "new": "Files = null,",
+  "filter": "(FullyQualifiedName~ExternalDcsTests)",
+  "orig": "d_L24"
+ },
+ {
+  "id": "L26",
+  "desc": "BuildLevel: the inversion chunk is the window",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
+  "old": "ChunkEntries = o.ChunkSlots,",
+  "new": "ChunkEntries = o.WindowBytes,",
+  "filter": "(FullyQualifiedName~ExternalDcsTests)",
+  "orig": "d_L26"
+ },
+ {
+  "id": "L28",
+  "desc": "BuildLevel: the naming statistics are not timed",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
+  "old": "ls.NamingSeconds = Seconds(t0);",
+  "new": "",
+  "filter": "(FullyQualifiedName~ExternalDcsTests)",
+  "orig": "d_L28"
+ },
+ {
+  "id": "A01",
+  "desc": "BaseCase: the inverse permutation skips the first rank",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
+  "old": "for (int k = 1; k <= n; k++) rank[saSpan[k]] = k;",
+  "new": "for (int k = 0; k <= n; k++) rank[saSpan[k] % n] = k;",
+  "filter": "(FullyQualifiedName~ExternalDcsTests)",
+  "orig": "d_A01"
+ },
+ {
+  "id": "A03",
+  "desc": "BaseCase: an unused slot gets a rank",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
+  "old": "window[i] = slot < g.Samples ? (uint)rank[(int)g.RedIndexOfSlot(slot)] : 0;",
+  "new": "window[i] = (uint)rank[(int)g.RedIndexOfSlot(slot % g.Samples)];",
+  "filter": "(FullyQualifiedName~ExternalDcsTests)",
+  "orig": "d_A03"
+ },
+ {
+  "id": "A05",
+  "desc": "BaseCase: the chunk is not bounded by the slots",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
+  "old": "Buf<uint> chunk = arena.Allocate<uint>((int)Math.Min(chunkSlots, slots), zero: false, \"base.chunk\");",
+  "new": "Buf<uint> chunk = arena.Allocate<uint>((int)chunkSlots, zero: false, \"base.chunk\");",
+  "filter": "(FullyQualifiedName~ExternalDcsTests)",
+  "orig": "d_A05"
+ },
+ {
+  "id": "A07",
+  "desc": "BaseCase: the reservation is not recorded",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
+  "old": "if (level == 0) c.Stats.Reservation = file.Outcome;",
+  "new": "",
+  "filter": "(FullyQualifiedName~ExternalDcsTests)",
+  "orig": "d_A07"
+ },
+ {
+  "id": "A09",
+  "desc": "BaseCase: a window of the wrong size",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
+  "old": "using MappedWindowWriter writer = file.CreateWriter(o.WindowBytes, o.Counters);",
+  "new": "using MappedWindowWriter writer = file.CreateWriter(MappedWindowWriter.DefaultWindowBytes, o.Counters);",
+  "filter": "(FullyQualifiedName~ExternalDcsTests)",
+  "orig": "d_A09"
+ }
+]

@@ -1,0 +1,3 @@
+T02	the section writer is one entry short	killed(13 failed: AnArenaCapOfOneByte_StopsTheBuildInPh1_BeforePh4Starts_AndAn,EveryEntryOfTheTable_IsAsChosen_ForEveryWidthOfTheLcp,TheArenaPeak_IsTheLargestPeakOfAnyStage_WhicheverStageThatIs)[listed]			5
+T04	the section writer gets the default window	killed(2 failed: TheCountedCalls_OfATextWithAnOverflowList_ArePinned,TheCountedCalls_OfTwoTinyGeometries_ArePinned)[listed]			10
+T06	the section writer is never disposed	killed(10 failed: EveryEntryOfTheTable_IsAsChosen_ForEveryWidthOfTheLcp,TheArenaPeak_IsTheLargestPeakOfAnyStage_WhicheverStageThatIs,TheCountedCalls_OfATextWithAnOverflowList_ArePinned)[listed]			6

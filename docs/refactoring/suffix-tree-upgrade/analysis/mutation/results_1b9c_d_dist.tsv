@@ -1,0 +1,2 @@
+Y02	Scatter: the target is always reserved	killed(1 failed: Y02_TheTargetOfScatterWithoutFiles_IsCreatedSparse_NotReserv)[seen]			42
+Y04	Scatter: the reserved target is not counted	killed(1 failed: WithFiles_TheTargetIsCreatedThroughTheReservation_AndHasTheS)[listed]			11

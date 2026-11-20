@@ -1,0 +1,35 @@
+H02	Run: no upper bound on K	killed(host crash: ?)[listed]			28
+H04	Run: zero threads	killed(1 failed: TheOptions_AreChecked)[listed]			18
+H06	Run: a spill of zero	killed(1 failed: TheOptions_AreChecked)[listed]			17
+H08	Run: the scratch root is not removed	killed(3 failed: AFailureInTheHandOverOfTheChildrenOfAPartition_DisposesTheCh,AFailureInTheMiddleOfTheScanOfAPartition_ClosesEveryWriterTh,H08_TheBucketSortRemovesItsScratchRoot_OnlyWhenItMadeIt)[seen]			121
+H10	Run: the files of a failed sort are left	killed(2 failed: AHookThatThrows_AtALeafOrAPartition_ReachesTheCaller_NotWrap,ASinkThatThrows_EndsTheBuild_WithItsOwnException_AndEveryWri)[listed]			17
+H12	Run: the ledger of a private sort is not released	killed(1 failed: ASinkThatThrows_EndsTheBuild_WithItsOwnException_AndEveryWri)[listed]			16
+H14	Run: the budget is private	killed(4 failed: AnArenaBudgetThatIsTooSmall_EndsWithTheBudgetException_AndGi,TheLeafBuffers_AreFourBlocksOfK_AndTheArenaPeakIsWhatTheBudg,EveryParameter_ReachesItsStage)[listed]			19
+H16	Execute: SA[0] is not written	killed(28 failed: ARepetitiveText_WithATinyK_IsSplitIntoEqualBuckets_BecauseTh,EveryString_OverSigma1To3_OfTheDefaultTier_IsTheSuffixArray,Families_AreTheSuffixArray_AtEveryTinyVariant_AndThePartitio)[listed]			8
+H18	Execute: the empty text goes on	killed(1 failed: TheEmptyText_HasOnlyTheEmptySuffix)[listed]			25
+H20	Execute: the root has one position too many	killed(37 failed: ARepetitiveText_WithATinyK_IsSplitIntoEqualBuckets_BecauseTh,EveryString_OverSigma1To3_OfTheDefaultTier_IsTheSuffixArray,Families_AreTheSuffixArray_AtEveryTinyVariant_AndThePartitio)[listed]			5
+H22	Execute: the error is swallowed	killed(5 failed: AHookThatThrows_AtALeafOrAPartition_ReachesTheCaller_NotWrap,AnArenaBudgetThatIsTooSmall_EndsWithTheBudgetException_AndGi,APartitionSpillThatFails_IsAnIoException_AndNoPositionFileIs)[listed]			17
+H25	RunTasks: a leaf is a bucket of exactly K	killed(9 failed: TheBuild_HasThePinnedShape_AndCounts(0),TheBuild_HasThePinnedShape_AndCounts(1),TheBuild_HasThePinnedShape_AndCounts(2))[seen]			113
+H27	RunTasks: the partition trace is not called	killed(4 failed: AHookThatThrows_AtALeafOrAPartition_ReachesTheCaller_NotWrap,APartitionSpillThatFails_IsAnIoException_AndNoPositionFileIs,AHookThatThrows_ReachesTheCallerWithItsOwnType_AtEveryHookPo)[listed]			15
+H29	RunTasks: a leaf bucket is not disposed	killed(17 failed: ARepetitiveText_WithATinyK_IsSplitIntoEqualBuckets_BecauseTh,ASinkThatThrows_EndsTheBuild_WithItsOwnException_AndEveryWri,Families_AreTheSuffixArray_AtEveryTinyVariant_AndThePartitio)[listed]			15
+H31	RunTasks: the leaves are not counted	killed(4 failed: ARepetitiveText_WithATinyK_IsSplitIntoEqualBuckets_BecauseTh,Families_AreTheSuffixArray_AtEveryTinyVariant_AndThePartitio,TheSlices_AreWrittenAtTheirFinalOffsets_ByWritersOfTheWorker)[listed]			16
+H33	RunTasks: the retries are not counted	survived			106
+H35	RunTasks: the buckets are not counted	killed(1 failed: Families_AreTheSuffixArray_AtEveryTinyVariant_AndThePartitio)[listed]			15
+H37	RunTasks: the leaf time is not summed	survived			105
+H39	RunTasks: the work counters are not merged	killed(1 failed: TheCounters_CountThePartitionScansAndTheLeafPositions)[listed]			15
+H41	RunTasks: the arena is not checked	survived			101
+H43	Partition: the fan-out ignores the cap	killed(1 failed: TheCounters_CountThePartitionScansAndTheLeafPositions)[listed]			16
+H45	Partition: the sample is smaller	killed(9 failed: TheBuild_HasThePinnedShape_AndCounts(0),TheBuild_HasThePinnedShape_AndCounts(2),TheBuild_HasThePinnedShape_AndCounts(3))[seen]			104
+H47	Partition: the sample is sorted the other way	killed(1 failed: ThePartition_NeverNeedsTheRetry_BecauseTheSplittersAreDistin)[listed]			16
+H49	Partition: the splitter key is the position	killed(37 failed: AnArenaBudgetThatIsTooSmall_EndsWithTheBudgetException_AndGi,ARepetitiveText_WithATinyK_IsSplitIntoEqualBuckets_BecauseTh,ASinkThatThrows_EndsTheBuild_WithItsOwnException_AndEveryWri)[listed]			38
+H51	Partition: the key tie is not resolved	killed(20 failed: ARepetitiveText_WithATinyK_IsSplitIntoEqualBuckets_BecauseTh,Families_AreTheSuffixArray_AtEveryTinyVariant_AndThePartitio,SmallTexts_AreTheSuffixArray_WithRotatingTinyParameters)[listed]			8
+H53	Partition: the scan positions are not counted	killed(1 failed: TheCounters_CountThePartitionScansAndTheLeafPositions)[listed]			19
+H55	Partition: a retry does not double the oversample	survived			120
+H57	Partition: the children start at entry zero	killed(28 failed: ARepetitiveText_WithATinyK_IsSplitIntoEqualBuckets_BecauseTh,EveryString_OverSigma1To3_OfTheDefaultTier_IsTheSuffixArray,Families_AreTheSuffixArray_AtEveryTinyVariant_AndThePartitio)[listed]			7
+H59	Partition: an empty child is kept	survived			122
+H61	Partition: the child depth does not advance	killed(1 failed: Families_AreTheSuffixArray_AtEveryTinyVariant_AndThePartitio)[listed]			21
+H63	Partition: the children are pushed first to last	killed(8 failed: TheBuild_HasThePinnedShape_AndCounts(0),TheBuild_HasThePinnedShape_AndCounts(1),TheBuild_HasThePinnedShape_AndCounts(2))[seen]			144
+H65	Partition: the chunk is not returned	survived			133
+H67	Partition: the scan reads one chunk short	killed(2 failed: Families_WithTheDefaultParameters_AndWithTheScaledGeometry_A,TheMappedWindows_AreAtLeastOneMebibyte_WithTheDefaultParamet)[listed]			13
+H69	Partition: the seed ignores the attempt	survived			128
+H71	Partition: the writers expect the whole bucket	survived			133

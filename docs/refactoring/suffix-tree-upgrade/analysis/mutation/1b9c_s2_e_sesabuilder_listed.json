@@ -1,0 +1,74 @@
+[
+ {
+  "id": "B90",
+  "desc": "PSI is built without a BWT section (kept: the plan decides)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "old": "if (options.IncludePsi)\n            {\n                using var ph6",
+  "new": "if (options.IncludePsi || options.Threads > 1000)\n            {\n                using var ph6",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests|FullyQualifiedName~SesaAuditTests)",
+  "orig": "e_B90"
+ },
+ {
+  "id": "B94",
+  "desc": "the BWT counts are not checked here",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "old": "if (!bwt.Counts.AsSpan().SequenceEqual(info.Counts)) throw",
+  "new": "if (false) throw",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests|FullyQualifiedName~SesaAuditTests)",
+  "orig": "e_B94"
+ },
+ {
+  "id": "B104",
+  "desc": "the BWT file gets no file options",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "old": "Counters = counters,\n            Files = options.Files,\n        });",
+  "new": "Counters = counters,\n            Files = null,\n        });",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests|FullyQualifiedName~SesaAuditTests)",
+  "orig": "e_B104"
+ },
+ {
+  "id": "B108",
+  "desc": "PSI gets no window cap",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "old": "WindowCapBytes = options.Ph6CapBytes,",
+  "new": "WindowCapBytes = long.MaxValue,",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests|FullyQualifiedName~SesaAuditTests)",
+  "orig": "e_B108"
+ },
+ {
+  "id": "B120",
+  "desc": "the container is not completed",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "old": "            container.Complete(fsync: false);\n",
+  "new": "",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests|FullyQualifiedName~SesaAuditTests)",
+  "orig": "e_B120"
+ },
+ {
+  "id": "B122",
+  "desc": "the text reader is disposed but not cleared",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "old": "            text.Dispose();\n            text = null;\n",
+  "new": "            text.Dispose();\n",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests|FullyQualifiedName~SesaAuditTests)",
+  "orig": "e_B122"
+ },
+ {
+  "id": "B124",
+  "desc": "the file length check is a smaller-than check",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "old": "if (new FileInfo(tmp).Length != placed.FinalLength) throw",
+  "new": "if (new FileInfo(tmp).Length < placed.FinalLength) throw",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests|FullyQualifiedName~SesaAuditTests)",
+  "orig": "e_B124"
+ },
+ {
+  "id": "B258",
+  "desc": "the BWT default read is smaller",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "old": "ReadBytes = tune.ReadBytes ?? 1 << 20,\n            WindowBytes = window,",
+  "new": "ReadBytes = tune.ReadBytes ?? 1 << 16,\n            WindowBytes = window,",
+  "filter": "(FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaFailureTests|FullyQualifiedName~SesaAuditTests)",
+  "orig": "e_B258"
+ }
+]

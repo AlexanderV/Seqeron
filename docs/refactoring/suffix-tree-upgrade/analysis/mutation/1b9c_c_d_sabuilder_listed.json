@@ -1,0 +1,38 @@
+[
+ {
+  "id": "Q64",
+  "desc": "Build: PH1 threads",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "old": "                Threads = options.Threads,\n                Seed = options.Seed,\n                FanOut = p.DcsFanOut,",
+  "new": "                Threads = 1,\n                Seed = options.Seed,\n                FanOut = p.DcsFanOut,",
+  "filter": "",
+  "closed_by": "SaGap1b9cTests.TheThreadCountOfTheBuild_ReachesPh1AndPh3_TwoTasksOfEachRunAtTheSameTime"
+ },
+ {
+  "id": "Q76",
+  "desc": "Build: PH1 arena guards",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "old": "ArenaGuards = options.ArenaGuards,\n                Counters = counters,\n                Files",
+  "new": "Counters = counters,\n                Files",
+  "filter": "",
+  "closed_by": "SaGap1b9cTests.TheGuardOption_ReachesPh1_AndPh3_EachOnItsOwn"
+ },
+ {
+  "id": "Q82",
+  "desc": "Build: the verification reads another length",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "old": "using RankTable table = RankTable.Open(rankPath, cover, n);\n                table.Verify();",
+  "new": "using RankTable table = RankTable.Open(rankPath, cover, n);\n                _ = table.Slots;",
+  "filter": "",
+  "closed_by": "SaGap1b9cTests.WithVerifyRanks_ASlotOfTheRankFileThatWasDamagedAfterPh1_IsRefusedBeforePh3"
+ },
+ {
+  "id": "Q86",
+  "desc": "Build: PH3 threads",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "old": "                    Oversample = p.Oversample,\n                    Threads = options.Threads,",
+  "new": "                    Oversample = p.Oversample,\n                    Threads = 1,",
+  "filter": "",
+  "closed_by": "SaGap1b9cTests.TheThreadCountOfTheBuild_ReachesPh1AndPh3_TwoTasksOfEachRunAtTheSameTime"
+ }
+]

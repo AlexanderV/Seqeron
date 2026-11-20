@@ -1,0 +1,74 @@
+[
+ {
+  "id": "E14",
+  "desc": "BuildRankFile: the failed rank file is left",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
+  "old": "if (context.RankTouched) RunStore.DeleteQuietly(rankPath);",
+  "new": "",
+  "filter": "(FullyQualifiedName~ExternalDcsTests)",
+  "orig": "d_E14"
+ },
+ {
+  "id": "L14",
+  "desc": "BuildLevel: the sort spill has no floor",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
+  "old": "SpillBytes = Math.Max(64, o.IoBufferBytes),",
+  "new": "SpillBytes = o.IoBufferBytes,",
+  "filter": "(FullyQualifiedName~ExternalDcsTests)",
+  "orig": "d_L14"
+ },
+ {
+  "id": "L16",
+  "desc": "BuildLevel: the sort shares no ledger",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
+  "old": "                    Ledger = c.Ledger,\n",
+  "new": "",
+  "filter": "(FullyQualifiedName~ExternalDcsTests)",
+  "orig": "d_L16"
+ },
+ {
+  "id": "L24",
+  "desc": "BuildLevel: the inversion has no reservation options",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
+  "old": "Files = o.Files ?? new MappedFileOptions(),",
+  "new": "Files = null,",
+  "filter": "(FullyQualifiedName~ExternalDcsTests)",
+  "orig": "d_L24"
+ },
+ {
+  "id": "L28",
+  "desc": "BuildLevel: the naming statistics are not timed",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
+  "old": "ls.NamingSeconds = Seconds(t0);",
+  "new": "",
+  "filter": "(FullyQualifiedName~ExternalDcsTests)",
+  "orig": "d_L28"
+ },
+ {
+  "id": "A01",
+  "desc": "BaseCase: the inverse permutation skips the first rank",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
+  "old": "for (int k = 1; k <= n; k++) rank[saSpan[k]] = k;",
+  "new": "for (int k = 0; k <= n; k++) rank[saSpan[k] % n] = k;",
+  "filter": "(FullyQualifiedName~ExternalDcsTests)",
+  "orig": "d_A01"
+ },
+ {
+  "id": "A05",
+  "desc": "BaseCase: the chunk is not bounded by the slots",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
+  "old": "Buf<uint> chunk = arena.Allocate<uint>((int)Math.Min(chunkSlots, slots), zero: false, \"base.chunk\");",
+  "new": "Buf<uint> chunk = arena.Allocate<uint>((int)chunkSlots, zero: false, \"base.chunk\");",
+  "filter": "(FullyQualifiedName~ExternalDcsTests)",
+  "orig": "d_A05"
+ },
+ {
+  "id": "A07",
+  "desc": "BaseCase: the reservation is not recorded",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
+  "old": "if (level == 0) c.Stats.Reservation = file.Outcome;",
+  "new": "",
+  "filter": "(FullyQualifiedName~ExternalDcsTests)",
+  "orig": "d_A07"
+ }
+]

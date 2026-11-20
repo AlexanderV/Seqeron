@@ -1,0 +1,4 @@
+X02	OpenReduced: 16 bits	killed(15 failed: AFullDisk_AtTheCreationOfTheRankFile_OrOfAScratchFileOfALeve,ALeafThatOutgrowsItsCapacity_IsSplitAgain_AndTheRanksAreStil,ARankFileOfTheBuild_IsAValidTable_AndTheTableVerifiesIt)[listed]			10
+X04	FromMemoryReduced: the shape is not checked	survived			129
+X06	CheckShape: the file codec accepts 32 bits	killed(2 failed: DamagedFiles_AreRefusedWithAClearException_NeverReadOutOfThe,TheByteReader_StillRefusesAWideSymbol_AndAWideReaderCannotUn)[listed]			14
+X08	ReadSymbols: a wide reader is unpacked	killed(1 failed: TheByteReader_StillRefusesAWideSymbol_AndAWideReaderCannotUn)[listed]			19

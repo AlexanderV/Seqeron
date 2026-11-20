@@ -1,0 +1,26 @@
+[
+ {
+  "id": "F04",
+  "desc": "a flush is counted twice",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/IoCounters.cs",
+  "old": "internal void AddFlush() => Interlocked.Increment(ref _flushes);",
+  "new": "internal void AddFlush() => Interlocked.Add(ref _flushes, 2);",
+  "filter": "(FullyQualifiedName~SaGap1b9cTests|FullyQualifiedName~SesaGap1b9cTests)"
+ },
+ {
+  "id": "F05",
+  "desc": "Reset keeps the flushes",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/IoCounters.cs",
+  "old": "        Interlocked.Exchange(ref _flushes, 0);\n",
+  "new": "",
+  "filter": "(FullyQualifiedName~SaGap1b9cTests|FullyQualifiedName~SesaGap1b9cTests)"
+ },
+ {
+  "id": "F06",
+  "desc": "Flushes reads the counter of the write calls",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/IoCounters.cs",
+  "old": "internal long Flushes => Interlocked.Read(ref _flushes);",
+  "new": "internal long Flushes => Interlocked.Read(ref _writeCalls);",
+  "filter": "(FullyQualifiedName~SaGap1b9cTests|FullyQualifiedName~SesaGap1b9cTests)"
+ }
+]

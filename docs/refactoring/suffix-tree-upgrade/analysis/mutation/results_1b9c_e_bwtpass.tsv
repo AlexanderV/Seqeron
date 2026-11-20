@@ -1,0 +1,22 @@
+W02	a negative sigma is accepted	killed(1 failed: ASuffixArrayRangeThatDoesNotFitTheFile_AndASymbolOutsideTheA)[listed]			14
+W04	sigma 256 is refused	killed(1 failed: ABytesAlphabetOf256Symbols_IsHandled)[listed]			12
+W06	a window of 0 is accepted	survived			13
+W08	a text of too many bits is accepted	survived			13
+W10	the SA range may end past the file	killed(2 failed: ASuffixArrayRangeThatDoesNotFitTheFile_AndASymbolOutsideTheA,ARangeThatDoesNotFitTheFile_ByOneToFourBytes_IsRefusedAtTheE)[listed]			12
+W12	the SA range is not checked	killed(3 failed: ASuffixArrayRangeThatDoesNotFitTheFile_AndASymbolOutsideTheA,ARangeThatDoesNotFitTheFile_ByOneToFourBytes_IsRefusedAtTheE,ATextAtTheLimitOfThePositions_IsNotRefusedAsTooLong_ByTheBwt)[listed]			13
+W14	the SA buffer is zeroed	survived			12
+W16	the guards are ignored	survived			12
+W18	the BWT writer is not counted	killed(3 failed: TheCountedIo_IsOneReadOfTheSuffixArray_OneWriteOfTheBwt_OneR,TheCountedCalls_OfATextWithAnOverflowList_ArePinned,TheCountedCalls_OfTwoTinyGeometries_ArePinned)[listed]			12
+W20	the SA reads are not counted	killed(3 failed: TheCountedIo_IsOneReadOfTheSuffixArray_OneWriteOfTheBwt_OneR,TheCountedCalls_OfATextWithAnOverflowList_ArePinned,TheCountedCalls_OfTwoTinyGeometries_ArePinned)[listed]			12
+W22	an entry n + 1 is accepted	killed(1 failed: ABwtFileThatIsNotWritten_IsRemovedWhenTheSuffixArrayIsDamage)[listed]			12
+W24	SA[0] may be any suffix	killed(1 failed: ABwtFileThatIsNotWritten_IsRemovedWhenTheSuffixArrayIsDamage)[listed]			12
+W26	row 1 is the one checked for the empty suffix	killed(25 failed: ABwtThatDoesNotMatchTheCounts_ALengthThatIsWrong_AndBadArgum,ABytesAlphabetOf256Symbols_IsHandled,APsiRangeIsFullyWritten_EvenWhereTheFileHeldSomethingElse)[listed]			7
+W28	a second zero is tolerated	killed(1 failed: ABwtFileThatIsNotWritten_IsRemovedWhenTheSuffixArrayIsDamage)[listed]			13
+W30	the primary row has a symbol byte	killed(8 failed: ABytesAlphabetOf256Symbols_IsHandled,ARandomTextOver200Symbols_TakesFourPassesAtSixtyFour_AndGive,EveryStringOfSmallAlphabets_GivesTheDefinitionsBwtAndPsi)[listed]			11
+W32	a symbol outside the alphabet is accepted	killed(1 failed: ASuffixArrayRangeThatDoesNotFitTheFile_AndASymbolOutsideTheA)[listed]			12
+W34	the counts are doubled	killed(25 failed: ABwtThatDoesNotMatchTheCounts_ALengthThatIsWrong_AndBadArgum,ABytesAlphabetOf256Symbols_IsHandled,APsiRangeIsFullyWritten_EvenWhereTheFileHeldSomethingElse)[listed]			6
+W36	a missing suffix 0 is not noticed	killed(1 failed: ABwtFileThatIsNotWritten_IsRemovedWhenTheSuffixArrayIsDamage)[listed]			12
+W38	a failed pass keeps the BWT file	killed(2 failed: ABwtFileThatIsNotWritten_IsRemovedWhenTheSuffixArrayIsDamage,ASuffixArrayRangeThatDoesNotFitTheFile_AndASymbolOutsideTheA)[listed]			13
+W40	the default window is 64 KiB	killed(1 failed: TheDefaults_AreWindowsOfAtLeastOneMiB_AndTheCapsOfTheOwner)[listed]			12
+W42	the output buffer is one entry short	killed(host crash: ?)[listed]			5
+W44	the output is appended with the wrong length	killed(18 failed: ABytesAlphabetOf256Symbols_IsHandled,ARandomTextOver200Symbols_TakesFourPassesAtSixtyFour_AndGive,EveryStringOfSmallAlphabets_GivesTheDefinitionsBwtAndPsi)[listed]			6

@@ -1,0 +1,34 @@
+[
+ {
+  "id": "F25",
+  "desc": "the seconds of a section are negative",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaChecksums.cs",
+  "old": "(Stopwatch.GetTimestamp() - t0) / (double)Stopwatch.Frequency, Crc32C.HardwareAccelerated",
+  "new": "(t0 - Stopwatch.GetTimestamp()) / (double)Stopwatch.Frequency, Crc32C.HardwareAccelerated",
+  "filter": "(FullyQualifiedName~SaGap1b9cTests|FullyQualifiedName~SesaGap1b9cTests)"
+ },
+ {
+  "id": "F26",
+  "desc": "the seconds of a section are in ticks",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaChecksums.cs",
+  "old": "(Stopwatch.GetTimestamp() - t0) / (double)Stopwatch.Frequency, Crc32C.HardwareAccelerated",
+  "new": "(Stopwatch.GetTimestamp() - t0), Crc32C.HardwareAccelerated",
+  "filter": "(FullyQualifiedName~SaGap1b9cTests|FullyQualifiedName~SesaGap1b9cTests)"
+ },
+ {
+  "id": "F27",
+  "desc": "the row says the hardware path was not used",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaChecksums.cs",
+  "old": "Crc32C.HardwareAccelerated));",
+  "new": "!Crc32C.HardwareAccelerated));",
+  "filter": "(FullyQualifiedName~SaGap1b9cTests|FullyQualifiedName~SesaGap1b9cTests)"
+ },
+ {
+  "id": "F28",
+  "desc": "the bytes of a row are one short",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaChecksums.cs",
+  "old": "new SesaCrcRow(kind, length,",
+  "new": "new SesaCrcRow(kind, length - 1,",
+  "filter": "(FullyQualifiedName~SaGap1b9cTests|FullyQualifiedName~SesaGap1b9cTests)"
+ }
+]

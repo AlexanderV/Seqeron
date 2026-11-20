@@ -1,0 +1,12 @@
+D02	PeriodBits takes the log of the period	killed(1 failed: PeriodBits_IsLog2OfThePeriodRoundedUp)[listed]			25
+D04	Verify: the difference is taken the other way	survived			22
+D06	IsPerfect: a difference may occur more than once	killed(1 failed: AnImperfectCover_IsNotPerfect_AndAPrunedOneIsKnownAsSuch)[listed]			22
+D08	NearestSingerPeriod stops at q = 40	killed(1 failed: TheNominalPeriodsOfTheAdr_MapToTheNearestSingerPeriod)[listed]			22
+D10	NearestSingerPeriod keeps the first on a tie of ratios (strict becomes non-strict)	survived			22
+D12	SampleCount: the full blocks are one short	killed(12 failed: SampleCount_IsTheNumberOfPositionsUpToN_WithAResidueInD,AFullDisk_AtTheCreationOfTheRankFile_OrOfAScratchFileOfALeve,ARepetitiveText_WithASmallBaseCase_RecursesSeveralLevels_Eac)[listed]			21
+D14	Pruned: the large periods get more rounds	survived			23
+D16	Pruned: the multiples start at zero	survived			23
+D18	Pruned: the best round is the largest	survived			23
+D20	Singer: a zero residue is taken at the end of the range	survived			22
+D22	Witness: the last witness wins	survived			22
+D24	Witness: the table is filled with 0	killed(host crash: Fatal error.)[listed]			16

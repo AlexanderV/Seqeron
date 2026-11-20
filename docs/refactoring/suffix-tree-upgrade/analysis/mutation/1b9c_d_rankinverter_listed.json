@@ -1,0 +1,47 @@
+[
+ {
+  "id": "I02",
+  "desc": "a reduced position at the length is accepted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankInverter.cs",
+  "old": "if (sourceValue >= geometry.RedLength) throw",
+  "new": "if (sourceValue > geometry.RedLength) throw",
+  "filter": "(FullyQualifiedName~RankInverterTests|FullyQualifiedName~ExternalDcsTests)",
+  "orig": "d_I02"
+ },
+ {
+  "id": "I04",
+  "desc": "key and value swapped",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankInverter.cs",
+  "old": "key = (uint)slot;\n        value = (uint)index;",
+  "new": "key = (uint)index;\n        value = (uint)slot;",
+  "filter": "(FullyQualifiedName~RankInverterTests|FullyQualifiedName~ExternalDcsTests)",
+  "orig": "d_I04"
+ },
+ {
+  "id": "I06",
+  "desc": "nothing is counted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankInverter.cs",
+  "old": "        Emitted++;\n",
+  "new": "",
+  "filter": "(FullyQualifiedName~RankInverterTests|FullyQualifiedName~ExternalDcsTests)",
+  "orig": "d_I06"
+ },
+ {
+  "id": "I08",
+  "desc": "every slot must be written exactly once",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankInverter.cs",
+  "old": "new DistTarget<uint>(g.Slots, 0, false)",
+  "new": "new DistTarget<uint>(g.Slots, 0, true)",
+  "filter": "(FullyQualifiedName~RankInverterTests|FullyQualifiedName~ExternalDcsTests)",
+  "orig": "d_I08"
+ },
+ {
+  "id": "I10",
+  "desc": "the target is one slot short",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankInverter.cs",
+  "old": "new DistTarget<uint>(g.Slots, 0, false)",
+  "new": "new DistTarget<uint>(g.Slots - 1, 0, false)",
+  "filter": "(FullyQualifiedName~RankInverterTests|FullyQualifiedName~ExternalDcsTests)",
+  "orig": "d_I10"
+ }
+]

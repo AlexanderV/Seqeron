@@ -1,0 +1,29 @@
+[
+ {
+  "id": "T02",
+  "desc": "the section writer is one entry short",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SaSink.cs",
+  "old": "file.CreateWriter(start, length, windowBytes, counters)",
+  "new": "file.CreateWriter(start, length - 4, windowBytes, counters)",
+  "filter": "(FullyQualifiedName~SesaSectionTests.TheSectionSink|FullyQualifiedName~SesaSectionTests.SaBuilder|FullyQualifiedName~SesaAuditTests)",
+  "orig": "e_T02"
+ },
+ {
+  "id": "T04",
+  "desc": "the section writer gets the default window",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SaSink.cs",
+  "old": "file.CreateWriter(start, length, windowBytes, counters)",
+  "new": "file.CreateWriter(start, length, MappedWindowWriter.DefaultWindowBytes, counters)",
+  "filter": "(FullyQualifiedName~SesaSectionTests.TheSectionSink|FullyQualifiedName~SesaSectionTests.SaBuilder|FullyQualifiedName~SesaAuditTests)",
+  "orig": "e_T04"
+ },
+ {
+  "id": "T06",
+  "desc": "the section writer is never disposed",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SaSink.cs",
+  "old": "file.CreateWriter(start, length, windowBytes, counters));\n\n    private sealed class Writer(MappedWindowWriter inner) : ISaSliceWriter\n    {\n        public void Write(long entryOffset, ReadOnlySpan<uint> data) => inner.WriteAt(entryOffset * 4, MemoryMarshal.AsBytes(data));\n\n        public void Dispose() => inner.Dispose();",
+  "new": "file.CreateWriter(start, length, windowBytes, counters));\n\n    private sealed class Writer(MappedWindowWriter inner) : ISaSliceWriter\n    {\n        public void Write(long entryOffset, ReadOnlySpan<uint> data) => inner.WriteAt(entryOffset * 4, MemoryMarshal.AsBytes(data));\n\n        public void Dispose() { }",
+  "filter": "(FullyQualifiedName~SesaSectionTests.TheSectionSink|FullyQualifiedName~SesaSectionTests.SaBuilder|FullyQualifiedName~SesaAuditTests)",
+  "orig": "e_T06"
+ }
+]

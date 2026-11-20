@@ -1,0 +1,29 @@
+E02	BuildRankFile: no upper bound on the bucket capacity	killed(1 failed: TheOptions_AreChecked)[listed]			28
+E04	BuildRankFile: zero threads	killed(1 failed: TheOptions_AreChecked)[listed]			12
+E06	BuildRankFile: a fan-out of one	killed(1 failed: TheOptions_AreChecked)[listed]			10
+E08	BuildRankFile: an I/O buffer of eight bytes	killed(1 failed: TheOptions_AreChecked)[listed]			11
+E10	BuildRankFile: a merge budget of four	killed(1 failed: TheOptions_AreChecked)[listed]			10
+E12	BuildRankFile: a negative run spill	killed(1 failed: TheOptions_AreChecked)[listed]			10
+E14	BuildRankFile: the failed rank file is left	killed(1 failed: AFailureAfterTheRankFileOfLevelZeroWasWritten_RemovesTheFile)[seen]			121
+E16	BuildRankFile: the tagged files of a failed build are left	killed(1 failed: AFullDisk_AtTheCreationOfTheRankFile_OrOfAScratchFileOfALeve)[listed]			9
+E18	BuildRankFile: the scratch root is never removed	killed(5 failed: AFullDisk_AtTheCreationOfTheRankFile_OrOfAScratchFileOfALeve,AHookThatThrowsInAWorker_ReachesTheCallerWithItsOwnType,AnArenaBudgetThatIsTooSmall_EndsWithTheBudgetException_AtEve)[listed]			9
+E20	BuildRankFile: the budget is private to the call	killed(1 failed: AnArenaBudgetThatIsTooSmall_EndsWithTheBudgetException_AtEve)[listed]			13
+L02	BuildLevel: the names are unique when they are shared	killed(11 failed: AFullDisk_AtTheCreationOfTheRankFile_OrOfAScratchFileOfALeve,ALeafThatOutgrowsItsCapacity_IsSplitAgain_AndTheRanksAreStil,ARankFileOfTheBuild_IsAValidTable_AndTheTableVerifiesIt)[listed]			9
+L04	BuildLevel: the rank file of a level below is not scratch	killed(2 failed: RunsGoToScratchFiles_WhenTheSpillSizeIsZero_AndStayInMemoryW,TheCounters_OfARecursiveRun_CountTheScratchAndGiveItBack)[listed]			16
+L06	BuildLevel: a reduced string as long as the text recurses	killed(2 failed: Families_AtEveryTinyVariant_AreTheOracle_AndTheRecursionReac,ThePeriodTwo_MakesTheReducedStringLongerThanTheText_AndTheBa)[listed]			11
+L08	BuildLevel: the base case sigma is the distinct count	killed(4 failed: EveryString_OverSigma1To3_OfTheDefaultTier_IsTheOracle,Families_AtEveryTinyVariant_AreTheOracle_AndTheRecursionReac,SmallTexts_AreTheOracle_WithRotatingTinyParameters_BothTheUn)[listed]			9
+L10	BuildLevel: the level below gets the same level number	killed(host crash: Fatal error.)[listed]			3
+L12	BuildLevel: the sort seed ignores the level	killed(2 failed: TheBuild_HasThePinnedShape_AndCounts(0),TheBuild_HasThePinnedShape_AndCounts(4))[seen]			110
+L14	BuildLevel: the sort spill has no floor	survived			107
+L16	BuildLevel: the sort shares no ledger	survived			104
+L18	BuildLevel: the suffix array file has no empty suffix entry	killed(10 failed: AFullDisk_AtTheCreationOfTheRankFile_OrOfAScratchFileOfALeve,ALeafThatOutgrowsItsCapacity_IsSplitAgain_AndTheRanksAreStil,ARankFileOfTheBuild_IsAValidTable_AndTheTableVerifiesIt)[listed]			6
+L20	BuildLevel: the child rank file bytes are not given back	killed(2 failed: RunsGoToScratchFiles_WhenTheSpillSizeIsZero_AndStayInMemoryW,TheCounters_OfARecursiveRun_CountTheScratchAndGiveItBack)[listed]			9
+L22	BuildLevel: the suffix array file is not deleted	killed(1 failed: AScratchDirectoryThatExists_IsKept_WithItsForeignFile_WhenTh)[listed]			9
+L24	BuildLevel: the inversion has no reservation options	survived			105
+L26	BuildLevel: the inversion chunk is the window	killed(5 failed: TheBuild_HasThePinnedShape_AndCounts(0),TheBuild_HasThePinnedShape_AndCounts(2),TheBuild_HasThePinnedShape_AndCounts(3))[seen]			106
+L28	BuildLevel: the naming statistics are not timed	survived			104
+A01	BaseCase: the inverse permutation skips the first rank	survived			118
+A03	BaseCase: an unused slot gets a rank	killed(4 failed: EveryString_OverSigma1To3_OfTheDefaultTier_IsTheOracle,Families_AtEveryTinyVariant_AreTheOracle_AndTheRecursionReac,SmallTexts_AreTheOracle_WithRotatingTinyParameters_BothTheUn)[listed]			8
+A05	BaseCase: the chunk is not bounded by the slots	survived			121
+A07	BaseCase: the reservation is not recorded	survived			124
+A09	BaseCase: a window of the wrong size	killed(1 failed: TheBuild_HasThePinnedShape_AndCounts(4))[seen]			147

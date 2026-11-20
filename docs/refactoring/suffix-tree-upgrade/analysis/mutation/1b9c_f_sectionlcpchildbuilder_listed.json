@@ -1,0 +1,18 @@
+[
+ {
+  "id": "F37",
+  "desc": "PH5 flushes only the last window",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SectionLcpChildBuilder.cs",
+  "old": "FlushWindows = true,",
+  "new": "FlushWindows = options.Threads > 100,",
+  "filter": "(FullyQualifiedName~SaGap1b9cTests|FullyQualifiedName~SesaGap1b9cTests)"
+ },
+ {
+  "id": "F38",
+  "desc": "PH4 gets the guards of PH5 only",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SectionLcpChildBuilder.cs",
+  "old": "ArenaGuards = options.ArenaGuards,\n                Counters = counters,\n                Files = options.Files,\n                Trace",
+  "new": "ArenaGuards = options.ArenaGuards is null ? null : null,\n                Counters = counters,\n                Files = options.Files,\n                Trace",
+  "filter": "(FullyQualifiedName~SaGap1b9cTests|FullyQualifiedName~SesaGap1b9cTests)"
+ }
+]

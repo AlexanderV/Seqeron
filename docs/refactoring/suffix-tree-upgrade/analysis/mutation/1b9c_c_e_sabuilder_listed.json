@@ -1,0 +1,11 @@
+[
+ {
+  "id": "d_Q76",
+  "desc": "1b7d gap: Build: PH1 arena guards",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "old": "ArenaGuards = options.ArenaGuards,\n                Counters = counters,\n                Files",
+  "new": "Counters = counters,\n                Files",
+  "filter": "",
+  "closed_by": "SaGap1b9cTests.TheGuardOption_ReachesPh1_AndPh3_EachOnItsOwn"
+ }
+]

@@ -1,0 +1,10 @@
+[
+ {
+  "id": "F33",
+  "desc": "the file of the rank sink is not disposed",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/NameSinks.cs",
+  "old": "        _writer.Dispose();\n        _file.Dispose();",
+  "new": "        _writer.Dispose();",
+  "filter": "(FullyQualifiedName~SaGap1b9cTests|FullyQualifiedName~SesaGap1b9cTests)"
+ }
+]

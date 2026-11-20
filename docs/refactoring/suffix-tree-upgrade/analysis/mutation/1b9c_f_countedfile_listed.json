@@ -1,0 +1,10 @@
+[
+ {
+  "id": "F07",
+  "desc": "a flush is not counted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/CountedFile.cs",
+  "old": "        _counters?.AddFlush();\n",
+  "new": "",
+  "filter": "(FullyQualifiedName~SaGap1b9cTests|FullyQualifiedName~SesaGap1b9cTests)"
+ }
+]

@@ -1,0 +1,29 @@
+[
+ {
+  "id": "K23",
+  "desc": "PH4 gets no guards",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SectionLcpChildBuilder.cs",
+  "old": "ArenaGuards = options.ArenaGuards,\n                Counters = counters,\n                Files = options.Files,\n                Trace",
+  "new": "ArenaGuards = null,\n                Counters = counters,\n                Files = options.Files,\n                Trace",
+  "filter": "",
+  "closed_by": "SesaGap1b9cTests.TheGuardOption_ReachesTheB1B2AndB3PassesOfPh4_AndThePassOfPh5_EachOnItsOwn"
+ },
+ {
+  "id": "K33",
+  "desc": "PH5 does not flush windows",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SectionLcpChildBuilder.cs",
+  "old": "FlushWindows = true,",
+  "new": "FlushWindows = false,",
+  "filter": "",
+  "closed_by": "SesaGap1b9cTests.TheChildTableWindows_AreFlushedWhenTheyAreReleased"
+ },
+ {
+  "id": "K37",
+  "desc": "PH5 gets no guards",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SectionLcpChildBuilder.cs",
+  "old": "ArenaGuards = options.ArenaGuards,\n                Counters = counters,\n            };",
+  "new": "ArenaGuards = null,\n                Counters = counters,\n            };",
+  "filter": "",
+  "closed_by": "SesaGap1b9cTests.TheGuardOption_ReachesTheB1B2AndB3PassesOfPh4_AndThePassOfPh5_EachOnItsOwn"
+ }
+]

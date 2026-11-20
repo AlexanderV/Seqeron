@@ -1,0 +1,74 @@
+[
+ {
+  "id": "F26",
+  "desc": "entry flags hold the kind",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaFormat.cs",
+  "old": "BinaryPrimitives.WriteInt32LittleEndian(e[4..], s.Flags);",
+  "new": "BinaryPrimitives.WriteInt32LittleEndian(e[4..], s.Kind);",
+  "filter": "(FullyQualifiedName~SesaFormatTests|FullyQualifiedName~SesaLayoutTests|FullyQualifiedName~SesaBuilderTests.EverySection_EqualsTheInMemoryIndex_WithAndWithoutPsi_DefaultAndTiny|FullyQualifiedName~SesaAuditTests)",
+  "orig": "e_F26"
+ },
+ {
+  "id": "F28",
+  "desc": "entry length holds the offset",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaFormat.cs",
+  "old": "BinaryPrimitives.WriteInt64LittleEndian(e[16..], s.Length);",
+  "new": "BinaryPrimitives.WriteInt64LittleEndian(e[16..], s.Offset);",
+  "filter": "(FullyQualifiedName~SesaFormatTests|FullyQualifiedName~SesaLayoutTests|FullyQualifiedName~SesaBuilderTests.EverySection_EqualsTheInMemoryIndex_WithAndWithoutPsi_DefaultAndTiny|FullyQualifiedName~SesaAuditTests)",
+  "orig": "e_F28"
+ },
+ {
+  "id": "F30",
+  "desc": "entry width holds the codec",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaFormat.cs",
+  "old": "BinaryPrimitives.WriteInt32LittleEndian(e[32..], s.ElemWidth);",
+  "new": "BinaryPrimitives.WriteInt32LittleEndian(e[32..], s.Codec);",
+  "filter": "(FullyQualifiedName~SesaFormatTests|FullyQualifiedName~SesaLayoutTests|FullyQualifiedName~SesaBuilderTests.EverySection_EqualsTheInMemoryIndex_WithAndWithoutPsi_DefaultAndTiny|FullyQualifiedName~SesaAuditTests)",
+  "orig": "e_F30"
+ },
+ {
+  "id": "F32",
+  "desc": "PARAM0 holds PARAM1",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaFormat.cs",
+  "old": "BinaryPrimitives.WriteInt64LittleEndian(e[40..], s.Param0);",
+  "new": "BinaryPrimitives.WriteInt64LittleEndian(e[40..], s.Param1);",
+  "filter": "(FullyQualifiedName~SesaFormatTests|FullyQualifiedName~SesaLayoutTests|FullyQualifiedName~SesaBuilderTests.EverySection_EqualsTheInMemoryIndex_WithAndWithoutPsi_DefaultAndTiny|FullyQualifiedName~SesaAuditTests)",
+  "orig": "e_F32"
+ },
+ {
+  "id": "F34",
+  "desc": "entry CRC not written",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaFormat.cs",
+  "old": "BinaryPrimitives.WriteUInt32LittleEndian(e[56..], s.Crc);",
+  "new": "",
+  "filter": "(FullyQualifiedName~SesaFormatTests|FullyQualifiedName~SesaLayoutTests|FullyQualifiedName~SesaBuilderTests.EverySection_EqualsTheInMemoryIndex_WithAndWithoutPsi_DefaultAndTiny|FullyQualifiedName~SesaAuditTests)",
+  "orig": "e_F34"
+ },
+ {
+  "id": "F36",
+  "desc": "header CRC covers the whole table room",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaFormat.cs",
+  "old": "page.AsSpan(HeaderBytes, EntryBytes * sections.Count))",
+  "new": "page.AsSpan(HeaderBytes, EntryBytes * MaxSections))",
+  "filter": "(FullyQualifiedName~SesaFormatTests|FullyQualifiedName~SesaLayoutTests|FullyQualifiedName~SesaBuilderTests.EverySection_EqualsTheInMemoryIndex_WithAndWithoutPsi_DefaultAndTiny|FullyQualifiedName~SesaAuditTests)",
+  "orig": "e_F36"
+ },
+ {
+  "id": "F38",
+  "desc": "the magic stays when it is not asked for",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaFormat.cs",
+  "old": "if (!withMagic) page.AsSpan(0, Magic.Length).Clear();",
+  "new": "",
+  "filter": "(FullyQualifiedName~SesaFormatTests|FullyQualifiedName~SesaLayoutTests|FullyQualifiedName~SesaBuilderTests.EverySection_EqualsTheInMemoryIndex_WithAndWithoutPsi_DefaultAndTiny|FullyQualifiedName~SesaAuditTests)",
+  "orig": "e_F38"
+ },
+ {
+  "id": "F40",
+  "desc": "CRC stored at 120",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaFormat.cs",
+  "old": "BinaryPrimitives.WriteUInt32LittleEndian(page.AsSpan(CrcOffset), crc);",
+  "new": "BinaryPrimitives.WriteUInt32LittleEndian(page.AsSpan(120), crc);",
+  "filter": "(FullyQualifiedName~SesaFormatTests|FullyQualifiedName~SesaLayoutTests|FullyQualifiedName~SesaBuilderTests.EverySection_EqualsTheInMemoryIndex_WithAndWithoutPsi_DefaultAndTiny|FullyQualifiedName~SesaAuditTests)",
+  "orig": "e_F40"
+ }
+]

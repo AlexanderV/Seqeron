@@ -1,0 +1,63 @@
+Q02	Resolve: the N_base floor	killed(1 failed: TheFloors_KeepATinyTextUsable)[listed]			4
+Q04	Resolve: the sort floor	killed(1 failed: TheFloors_KeepATinyTextUsable)[listed]			3
+Q06	Resolve: the fan-out of PH1	killed(1 failed: Unscaled_EveryStageHasItsReferenceValue)[listed]			4
+Q08	Resolve: the PH1 buffers	killed(1 failed: Unscaled_EveryStageHasItsReferenceValue)[listed]			4
+Q10	Resolve: K is n / 3000 rounded up	killed(1 failed: Scaled_At100Mbp_IsTheGeometryOfThreeTimesTenToTheNinth)[listed]			4
+Q12	Resolve: the PH3 fan-out	killed(2 failed: Scaled_At100Mbp_IsTheGeometryOfThreeTimesTenToTheNinth,Unscaled_EveryStageHasItsReferenceValue)[listed]			3
+Q14	Resolve: the position spill	killed(2 failed: Scaled_At100Mbp_IsTheGeometryOfThreeTimesTenToTheNinth,Unscaled_EveryStageHasItsReferenceValue)[listed]			3
+Q16	Resolve: the rule is evaluated at the text length when RuleN is set	killed(1 failed: TheRuleN_FixesTheGeometry_WhateverTheTextLength)[listed]			3
+Q18	Resolve: the scale is applied when not scaled	survived			101
+Q20	Resolve: the scale floors are ignored	survived			112
+Q22	Resolve: a negative scale is accepted	killed(1 failed: BadValues_AreRefused_WithTheirName)[listed]			3
+Q24	Resolve: an explicit K_s of one is accepted	killed(1 failed: BadValues_AreRefused_WithTheirName)[listed]			3
+Q26	Resolve: an explicit N_base of zero is accepted	killed(1 failed: BadValues_AreRefused_WithTheirName)[listed]			3
+Q28	Resolve: an explicit sort capacity of one is accepted	killed(1 failed: BadValues_AreRefused_WithTheirName)[listed]			3
+Q30	Resolve: a PH1 fan-out of one is accepted	killed(1 failed: BadValues_AreRefused_WithTheirName)[listed]			3
+Q32	Resolve: an I/O buffer of 15 is accepted	killed(1 failed: BadValues_AreRefused_WithTheirName)[listed]			3
+Q34	Resolve: a K of one is accepted	killed(1 failed: BadValues_AreRefused_WithTheirName)[listed]			3
+Q36	Resolve: a fan-out of one is accepted	killed(1 failed: BadValues_AreRefused_WithTheirName)[listed]			4
+Q38	Resolve: a spill of zero is accepted	killed(1 failed: BadValues_AreRefused_WithTheirName)[listed]			4
+Q40	Resolve: the factor is not recorded	killed(2 failed: Scaled_At100Mbp_IsTheGeometryOfThreeTimesTenToTheNinth,Unscaled_EveryStageHasItsReferenceValue)[listed]			4
+Q42	Build: a disposed reader is not noticed before files exist	killed(1 failed: TheOptionsAndTheArguments_AreChecked)[listed]			16
+Q44	Build: no limit on the text length	killed(1 failed: ATextAboveTheDesignLimit_IsRefused_BeforeAnythingIsCreated)[listed]			17
+Q46	Build: the nominal period is used as given	killed(1 failed: EveryOption_ReachesItsStage)[seen]			81
+Q48	Build: the rank file is not in the scratch directory by default	killed(1 failed: TheRankFile_IsDeletedWhenPh3IsDone_AndLivesInTheScratchDirec)[listed]			17
+Q50	Build: the two phases share one budget	killed(1 failed: TheResult_CarriesTheParameters_TheStats_AndThePeaks)[listed]			14
+Q52	Build: PH3 has no cap	killed(1 failed: Q52_ThePh3Cap_IsEnforcedOnItsOwn_WhenPh1Fits)[seen]			120
+Q54	Build: the suffix array has no empty suffix entry	killed(26 failed: AFullDisk_AtTheCreationOfAnyFile_IsAnIoException_AndNothingI,AHostileProcSource_IsUnavailable_NotAnException,AStaleOutput_IsReplaced_AndAForeignScratchFile_AndTheScratch)[listed]			7
+Q56	Build: the created flag of the suffix array is not set	killed(5 failed: ADisposedReader_IsAnObjectDisposedException_AndNothingIsLeft,AFullDisk_AtTheCreationOfAnyFile_IsAnIoException_AndNothingI,AHookThatThrows_ReachesTheCallerWithItsOwnType_AtEveryHookPo)[listed]			22
+Q58	Build: the ph23 trace is not called	killed(3 failed: AHookThatThrows_ReachesTheCallerWithItsOwnType_AtEveryHookPo,TheRankFile_IsDeletedWhenPh3IsDone_AndLivesInTheScratchDirec,TheRankFileCheck_IsAnOption_AndRunsBetweenTheTwoPhases)[listed]			15
+Q60	Build: the rank file is marked as touched too late	killed(1 failed: AHookThatThrows_ReachesTheCallerWithItsOwnType_AtEveryHookPo)[listed]			19
+Q62	Build: PH1 has no counters	killed(1 failed: TheCounters_AreTheOutputsTheSpillAndTheRankFile_AndThePhases)[listed]			15
+Q64	Build: PH1 threads	survived			110
+Q66	Build: PH1 base case	killed(2 failed: AFullDisk_AtTheCreationOfAnyFile_IsAnIoException_AndNothingI,EveryParameter_ReachesItsStage)[listed]			14
+Q68	Build: PH1 chunk slots	killed(8 failed: TheBuild_HasThePinnedShape_AndCounts(0),TheBuild_HasThePinnedShape_AndCounts(1),TheBuild_HasThePinnedShape_AndCounts(2))[seen]			111
+Q70	Build: PH1 run spill	killed(1 failed: EveryParameter_ReachesItsStage)[listed]			12
+Q72	Build: PH1 merge budget	killed(4 failed: TheBuild_HasThePinnedShape_AndCounts(1),TheBuild_HasThePinnedShape_AndCounts(3),TheBuild_HasThePinnedShape_AndCounts(5))[seen]			111
+Q74	Build: PH1 fan-out	killed(5 failed: TheBuild_HasThePinnedShape_AndCounts(0),TheBuild_HasThePinnedShape_AndCounts(1),TheBuild_HasThePinnedShape_AndCounts(2))[seen]			113
+Q76	Build: PH1 arena guards	survived			119
+Q78	Build: the rank file bytes are not given back	killed(1 failed: TheCounters_AreTheOutputsTheSpillAndTheRankFile_AndThePhases)[listed]			15
+Q80	Build: the PH1 scratch peak is taken after the rank file	killed(2 failed: TheBuild_HasThePinnedShape_AndCounts(1),TheBuild_HasThePinnedShape_AndCounts(5))[seen]			126
+Q82	Build: the verification reads another length	survived			123
+Q84	Build: PH3 fan-out	killed(8 failed: TheBuild_HasThePinnedShape_AndCounts(0),TheBuild_HasThePinnedShape_AndCounts(1),TheBuild_HasThePinnedShape_AndCounts(2))[seen]			125
+Q86	Build: PH3 threads	survived			140
+Q88	Build: PH3 scratch directory	survived			19
+Q90	Build: PH3 ledger	survived			17
+Q92	Build: PH3 arena guards	survived			13
+Q94	Build: PH3 trace	survived			18
+Q96	Build: the sink has no counters	killed(2 failed: TheCounters_AreTheOutputsTheSpillAndTheRankFile_AndThePhases,TheMappedWindows_AreAtLeastOneMebibyte_WithTheDefaultParamet)[listed]			16
+Q98	Build: the output is always synced	survived			16
+Q100	Build: the final length is not checked	survived			17
+Q102	Build: the verdict is Within when above the cap	survived			15
+Q104	Build: the RSS figure is in KiB	survived			17
+Q106	Build: the PH3 RSS figure is from PH1	survived			15
+Q108	Build: the phase sampler ignores the proc source	killed(1 failed: WithoutProc_TheBuildStillWorks_AndSaysTheRssFigureIsUnavaila)[listed]			15
+Q110	Build: the PH23 I/O is the whole	killed(2 failed: OneSharedCounter_ServesSeveralBuilds_AndEachResultIsItsOwnDi,TheCounters_AreTheOutputsTheSpillAndTheRankFile_AndThePhases)[listed]			17
+Q112	Build: the PH1 time includes PH3	survived			17
+Q114	Build: the failed suffix array is left	killed(5 failed: ADisposedReader_IsAnObjectDisposedException_AndNothingIsLeft,AFullDisk_AtTheCreationOfAnyFile_IsAnIoException_AndNothingI,AHookThatThrows_ReachesTheCallerWithItsOwnType_AtEveryHookPo)[listed]			16
+Q116	Build: the scratch bytes of a failed build are not given back	survived			18
+Q118	Build: the PH3 directory is not removed	killed(21 failed: ADisposedReader_IsAnObjectDisposedException_AndNothingIsLeft,AFullDisk_AtTheCreationOfAnyFile_IsAnIoException_AndNothingI,AHookThatThrows_ReachesTheCallerWithItsOwnType_AtEveryHookPo)[listed]			7
+Q120	Build: the scratch root is never removed	killed(21 failed: ADisposedReader_IsAnObjectDisposedException_AndNothingIsLeft,AFullDisk_AtTheCreationOfAnyFile_IsAnIoException_AndNothingI,AHookThatThrows_ReachesTheCallerWithItsOwnType_AtEveryHookPo)[listed]			7
+Q122	Build: the arena peaks are swapped	killed(2 failed: EveryParameter_ReachesItsStage,TheResult_CarriesTheParameters_TheStats_AndThePeaks)[listed]			16
+Q124	Build: the rank file bytes are the suffix array ones	killed(3 failed: TheCounters_AreTheOutputsTheSpillAndTheRankFile_AndThePhases,TheRankFile_IsDeletedWhenPh3IsDone_AndLivesInTheScratchDirec,TheResult_CarriesTheParameters_TheStats_AndThePeaks)[listed]			17
+Q126	Build: the period is the nominal one	survived			16

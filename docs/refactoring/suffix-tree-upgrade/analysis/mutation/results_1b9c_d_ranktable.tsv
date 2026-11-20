@@ -1,0 +1,9 @@
+R02	FastMod32: Mod is the division	killed(host crash: Fatal error.)[listed]			5
+R04	Open: a longer file is accepted	killed(1 failed: ARankFileOfAnotherLength_IsInvalidData)[listed]			8
+R06	Open: one block too few	killed(8 failed: ADisposedTable_ReleasesItsMapping,ARankFileOfAnotherLength_IsInvalidData,Rank_IsTheValueOfTheSlotOfThePosition_AtEverySamplePosition)[listed]			6
+R08	Rank: the block is not multiplied by the classes	killed(3 failed: Rank_IsTheValueOfTheSlotOfThePosition_AtEverySamplePosition,Compare_IsTheDefinition_ForEveryPairOfPositions_EveryPeriod_,CompareTied_IsTheDefinition_ForPositionsWhoseKeysAreEqual)[listed]			8
+R10	Verify: a zero rank is accepted	killed(1 failed: Verify_FindsARepeatedRank_AZeroRank_AndAnUsedUnusedSlot)[listed]			7
+R12	Verify: a repeated rank is accepted	killed(1 failed: Verify_FindsARepeatedRank_AZeroRank_AndAnUsedUnusedSlot)[listed]			6
+R14	Verify: a non-zero unused slot is accepted	killed(1 failed: Verify_FindsARepeatedRank_AZeroRank_AndAnUsedUnusedSlot)[listed]			6
+R16	Dispose: the map is not disposed	killed(8 failed: AFullDisk_AtTheCreationOfTheRankFile_OrOfAScratchFileOfALeve,TheArenaCap_IsOneBudgetPerPhase_PH1IsCappedBeforePh23IsReach,TheBuild_HasThePinnedShape_AndCounts(0))[seen]			38
+R18	Open: the view is not read-only sized	survived			4

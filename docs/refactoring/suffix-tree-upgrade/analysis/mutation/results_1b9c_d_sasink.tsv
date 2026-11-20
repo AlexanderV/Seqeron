@@ -1,0 +1,2 @@
+Z02	the writer is not counted	killed(1 failed: TheMappedSink_WritesEverySliceAtItsOffset_ThroughWindowsOfIt)[listed]			14
+Z04	Write: the entries are not bytes	killed(1 failed: TheMappedSink_WritesEverySliceAtItsOffset_ThroughWindowsOfIt)[listed]			6

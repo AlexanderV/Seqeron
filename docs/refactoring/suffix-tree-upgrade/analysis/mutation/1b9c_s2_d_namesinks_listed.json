@@ -1,0 +1,11 @@
+[
+ {
+  "id": "N04",
+  "desc": "RankFileSink: the writer is not disposed",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/NameSinks.cs",
+  "old": "        _writer.Dispose();\n        _file.Dispose();",
+  "new": "        _file.Dispose();",
+  "filter": "(FullyQualifiedName~ExternalDcsTests)",
+  "orig": "d_N04"
+ }
+]

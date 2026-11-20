@@ -1,0 +1,11 @@
+[
+ {
+  "id": "V11",
+  "desc": "a failed output writer leaves the writers open",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs",
+  "old": "                baseWriter.Dispose();\n                overflowWriter.Dispose();\n                throw;",
+  "new": "                throw;",
+  "filter": "",
+  "closed_by": "SesaGap1b9cTests.AFailureInTheConstructionOfTheOutputWriterOfB3_LeavesNoWriterOpenOnTheContainer"
+ }
+]

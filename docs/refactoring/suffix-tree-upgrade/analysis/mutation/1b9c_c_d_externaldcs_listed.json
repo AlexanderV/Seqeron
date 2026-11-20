@@ -1,0 +1,56 @@
+[
+ {
+  "id": "A08",
+  "desc": "BaseCase: the rank file is not marked as touched",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
+  "old": "        if (level == 0) c.RankTouched = true;\n        using MappedOutputFile file",
+  "new": "        using MappedOutputFile file",
+  "filter": "",
+  "closed_by": "SaGap1b9cTests.AFailureAfterTheRankFileOfLevelZeroWasWritten_RemovesTheFile_InEveryWayThatLevelZeroEnds"
+ },
+ {
+  "id": "E13",
+  "desc": "BuildRankFile: no limit on the text length",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
+  "old": "if (text.Length > PackedTextFormat.MaxSymbols) throw new NotSupportedException",
+  "new": "if (text.Length > PackedTextFormat.MaxSymbols * 2) throw new NotSupportedException",
+  "filter": "",
+  "closed_by": "SaGap1b9cTests.ATextAboveTheLimitOfThePositions_IsRefusedAtTheEntryOfPh1AndPh3_BeforeTheScratchIsTouched"
+ },
+ {
+  "id": "L14",
+  "desc": "BuildLevel: the sort spill has no floor",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
+  "old": "SpillBytes = Math.Max(64, o.IoBufferBytes),",
+  "new": "SpillBytes = o.IoBufferBytes,",
+  "filter": "",
+  "closed_by": "SaGap1b9cTests.ThePositionFilesOfTheSortOfALevel_CarryTheTagOfTheBuild_AtEveryPointOfTheBuild"
+ },
+ {
+  "id": "L15",
+  "desc": "BuildLevel: the sort files carry no tag",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
+  "old": "FilePrefix = $\"{c.Tag}-L{level + 1}-pos\",",
+  "new": "FilePrefix = \"pos\",",
+  "filter": "",
+  "closed_by": "SaGap1b9cTests.ThePositionFilesOfTheSortOfALevel_CarryTheTagOfTheBuild_AtEveryPointOfTheBuild"
+ },
+ {
+  "id": "L24",
+  "desc": "BuildLevel: the inversion has no reservation options",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
+  "old": "Files = o.Files ?? new MappedFileOptions(),",
+  "new": "Files = null,",
+  "filter": "",
+  "closed_by": "SaGap1b9cTests.TheFileOptions_ReachTheRankFileAndTheSuffixArrayFileOfTheLevelBelow"
+ },
+ {
+  "id": "L29",
+  "desc": "BuildLevel: the touched flag of the rank file is not set",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
+  "old": "        if (level == 0) c.RankTouched = true;\n        if (scratchOutput) c.Ledger.Add(g.Slots * 4);\n        var dist",
+  "new": "        if (scratchOutput) c.Ledger.Add(g.Slots * 4);\n        var dist",
+  "filter": "",
+  "closed_by": "SaGap1b9cTests.AFailureAfterTheRankFileOfLevelZeroWasWritten_RemovesTheFile_InEveryWayThatLevelZeroEnds"
+ }
+]

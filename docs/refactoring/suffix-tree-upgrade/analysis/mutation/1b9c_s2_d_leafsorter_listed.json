@@ -1,0 +1,20 @@
+[
+ {
+  "id": "F06",
+  "desc": "Sort: the tie positions are not counted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/LeafSorter.cs",
+  "old": "                c.TiePositions += e - s;\n",
+  "new": "",
+  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)",
+  "orig": "d_F06"
+ },
+ {
+  "id": "F12",
+  "desc": "MergeSort: the merged halves are not compared",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/LeafSorter.cs",
+  "old": "if (order.CompareTied(a[half - 1], a[half]) <= 0) return;",
+  "new": "if (order.CompareTied(a[half - 1], a[half]) < 0) return;",
+  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)",
+  "orig": "d_F12"
+ }
+]

@@ -1,0 +1,38 @@
+[
+ {
+  "id": "X02",
+  "desc": "OpenReduced: 16 bits",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs",
+  "old": "internal static MappedTextReader OpenReduced(string path, long n) => OpenCore(path, 0, null, n, ReducedBits, reduced: true);",
+  "new": "internal static MappedTextReader OpenReduced(string path, long n) => OpenCore(path, 0, null, n, 16, reduced: true);",
+  "filter": "(FullyQualifiedName~ReducedTextReaderTests|FullyQualifiedName~MappedTextReaderTests|FullyQualifiedName~ExternalDcsTests)",
+  "orig": "d_X02"
+ },
+ {
+  "id": "X04",
+  "desc": "FromMemoryReduced: the shape is not checked",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs",
+  "old": "        CheckShape(n, ReducedBits, reduced: true);\n        CheckLayout(data, length, n, ReducedBits);",
+  "new": "        CheckLayout(data, length, n, ReducedBits);",
+  "filter": "(FullyQualifiedName~ReducedTextReaderTests|FullyQualifiedName~MappedTextReaderTests|FullyQualifiedName~ExternalDcsTests)",
+  "orig": "d_X04"
+ },
+ {
+  "id": "X06",
+  "desc": "CheckShape: the file codec accepts 32 bits",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs",
+  "old": "if (reduced ? bits != ReducedBits : bits < PackedTextFormat.MinBits || bits > PackedTextFormat.MaxBits) throw",
+  "new": "if (reduced ? bits != ReducedBits : bits < PackedTextFormat.MinBits || bits > ReducedBits) throw",
+  "filter": "(FullyQualifiedName~ReducedTextReaderTests|FullyQualifiedName~MappedTextReaderTests|FullyQualifiedName~ExternalDcsTests)",
+  "orig": "d_X06"
+ },
+ {
+  "id": "X08",
+  "desc": "ReadSymbols: a wide reader is unpacked",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs",
+  "old": "if (_bits > PackedTextFormat.MaxBits) throw new NotSupportedException",
+  "new": "if (_bits > 64) throw new NotSupportedException",
+  "filter": "(FullyQualifiedName~ReducedTextReaderTests|FullyQualifiedName~MappedTextReaderTests|FullyQualifiedName~ExternalDcsTests)",
+  "orig": "d_X08"
+ }
+]

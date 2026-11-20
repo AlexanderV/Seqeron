@@ -1,0 +1,200 @@
+[
+ {
+  "id": "W02",
+  "desc": "a negative sigma is accepted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/BwtPass.cs",
+  "old": "        ArgumentOutOfRangeException.ThrowIfNegative(sigma);\n",
+  "new": "",
+  "filter": "(FullyQualifiedName~Ph6Tests|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SesaSectionTests.ATextAbove|FullyQualifiedName~SesaAuditTests)",
+  "orig": "e_W02"
+ },
+ {
+  "id": "W04",
+  "desc": "sigma 256 is refused",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/BwtPass.cs",
+  "old": "ThrowIfGreaterThan(sigma, 256);",
+  "new": "ThrowIfGreaterThan(sigma, 255);",
+  "filter": "(FullyQualifiedName~Ph6Tests|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SesaSectionTests.ATextAbove|FullyQualifiedName~SesaAuditTests)",
+  "orig": "e_W04"
+ },
+ {
+  "id": "W06",
+  "desc": "a window of 0 is accepted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/BwtPass.cs",
+  "old": "ThrowIfLessThan(options.WindowBytes, 1);",
+  "new": "ThrowIfLessThan(options.WindowBytes, 0);",
+  "filter": "(FullyQualifiedName~Ph6Tests|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SesaSectionTests.ATextAbove|FullyQualifiedName~SesaAuditTests)",
+  "orig": "e_W06"
+ },
+ {
+  "id": "W08",
+  "desc": "a text of too many bits is accepted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/BwtPass.cs",
+  "old": "if (text.Bits > PackedTextFormat.MaxBits) throw",
+  "new": "if (text.Bits > PackedTextFormat.MaxBits + 1) throw",
+  "filter": "(FullyQualifiedName~Ph6Tests|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SesaSectionTests.ATextAbove|FullyQualifiedName~SesaAuditTests)",
+  "orig": "e_W08"
+ },
+ {
+  "id": "W10",
+  "desc": "the SA range may end past the file",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/BwtPass.cs",
+  "old": "if (saOffset > sa.Length - (sizeof(uint) * rows)) throw",
+  "new": "if (saOffset > sa.Length - (sizeof(uint) * n)) throw",
+  "filter": "(FullyQualifiedName~Ph6Tests|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SesaSectionTests.ATextAbove|FullyQualifiedName~SesaAuditTests)",
+  "orig": "e_W10"
+ },
+ {
+  "id": "W12",
+  "desc": "the SA range is not checked",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/BwtPass.cs",
+  "old": "if (saOffset > sa.Length - (sizeof(uint) * rows)) throw",
+  "new": "if (false) throw",
+  "filter": "(FullyQualifiedName~Ph6Tests|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SesaSectionTests.ATextAbove|FullyQualifiedName~SesaAuditTests)",
+  "orig": "e_W12"
+ },
+ {
+  "id": "W14",
+  "desc": "the SA buffer is zeroed",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/BwtPass.cs",
+  "old": "saBuf = arena.Allocate<uint>(readEntries, zero: false,",
+  "new": "saBuf = arena.Allocate<uint>(readEntries, zero: true,",
+  "filter": "(FullyQualifiedName~Ph6Tests|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SesaSectionTests.ATextAbove|FullyQualifiedName~SesaAuditTests)",
+  "orig": "e_W14"
+ },
+ {
+  "id": "W16",
+  "desc": "the guards are ignored",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/BwtPass.cs",
+  "old": "new BudgetedArena(options.Budget ?? new ArenaBudget(long.MaxValue), options.ArenaGuards)",
+  "new": "new BudgetedArena(options.Budget ?? new ArenaBudget(long.MaxValue), null)",
+  "filter": "(FullyQualifiedName~Ph6Tests|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SesaSectionTests.ATextAbove|FullyQualifiedName~SesaAuditTests)",
+  "orig": "e_W16"
+ },
+ {
+  "id": "W18",
+  "desc": "the BWT writer is not counted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/BwtPass.cs",
+  "old": "file.CreateWriter(options.WindowBytes, options.Counters)",
+  "new": "file.CreateWriter(options.WindowBytes, null)",
+  "filter": "(FullyQualifiedName~Ph6Tests|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SesaSectionTests.ATextAbove|FullyQualifiedName~SesaAuditTests)",
+  "orig": "e_W18"
+ },
+ {
+  "id": "W20",
+  "desc": "the SA reads are not counted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/BwtPass.cs",
+  "old": "new CountedFile(saPath, FileMode.Open, FileAccess.Read, options.Counters)",
+  "new": "new CountedFile(saPath, FileMode.Open, FileAccess.Read, null)",
+  "filter": "(FullyQualifiedName~Ph6Tests|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SesaSectionTests.ATextAbove|FullyQualifiedName~SesaAuditTests)",
+  "orig": "e_W20"
+ },
+ {
+  "id": "W22",
+  "desc": "an entry n + 1 is accepted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/BwtPass.cs",
+  "old": "if (p > n) throw",
+  "new": "if (p > n + 1) throw",
+  "filter": "(FullyQualifiedName~Ph6Tests|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SesaSectionTests.ATextAbove|FullyQualifiedName~SesaAuditTests)",
+  "orig": "e_W22"
+ },
+ {
+  "id": "W24",
+  "desc": "SA[0] may be any suffix",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/BwtPass.cs",
+  "old": "if (first + i == 0 && p != n) throw",
+  "new": "if (first + i == 0 && p > n) throw",
+  "filter": "(FullyQualifiedName~Ph6Tests|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SesaSectionTests.ATextAbove|FullyQualifiedName~SesaAuditTests)",
+  "orig": "e_W24"
+ },
+ {
+  "id": "W26",
+  "desc": "row 1 is the one checked for the empty suffix",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/BwtPass.cs",
+  "old": "if (first + i == 0 && p != n) throw",
+  "new": "if (first + i == 1 && p != n) throw",
+  "filter": "(FullyQualifiedName~Ph6Tests|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SesaSectionTests.ATextAbove|FullyQualifiedName~SesaAuditTests)",
+  "orig": "e_W26"
+ },
+ {
+  "id": "W28",
+  "desc": "a second zero is tolerated",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/BwtPass.cs",
+  "old": "if (primary >= 0) throw",
+  "new": "if (false) throw",
+  "filter": "(FullyQualifiedName~Ph6Tests|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SesaSectionTests.ATextAbove|FullyQualifiedName~SesaAuditTests)",
+  "orig": "e_W28"
+ },
+ {
+  "id": "W30",
+  "desc": "the primary row has a symbol byte",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/BwtPass.cs",
+  "old": "output[i] = 0;\n                                continue;",
+  "new": "output[i] = 1;\n                                continue;",
+  "filter": "(FullyQualifiedName~Ph6Tests|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SesaSectionTests.ATextAbove|FullyQualifiedName~SesaAuditTests)",
+  "orig": "e_W30"
+ },
+ {
+  "id": "W32",
+  "desc": "a symbol outside the alphabet is accepted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/BwtPass.cs",
+  "old": "if (s >= sigma) throw",
+  "new": "if (false) throw",
+  "filter": "(FullyQualifiedName~Ph6Tests|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SesaSectionTests.ATextAbove|FullyQualifiedName~SesaAuditTests)",
+  "orig": "e_W32"
+ },
+ {
+  "id": "W34",
+  "desc": "the counts are doubled",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/BwtPass.cs",
+  "old": "counts[s]++;",
+  "new": "counts[s] += 2;",
+  "filter": "(FullyQualifiedName~Ph6Tests|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SesaSectionTests.ATextAbove|FullyQualifiedName~SesaAuditTests)",
+  "orig": "e_W34"
+ },
+ {
+  "id": "W36",
+  "desc": "a missing suffix 0 is not noticed",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/BwtPass.cs",
+  "old": "if (primary < 0) throw new InvalidDataException(\"no row holds the suffix 0\");",
+  "new": "",
+  "filter": "(FullyQualifiedName~Ph6Tests|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SesaSectionTests.ATextAbove|FullyQualifiedName~SesaAuditTests)",
+  "orig": "e_W36"
+ },
+ {
+  "id": "W38",
+  "desc": "a failed pass keeps the BWT file",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/BwtPass.cs",
+  "old": "            DeleteQuietly(bwtPath);\n            throw;",
+  "new": "            throw;",
+  "filter": "(FullyQualifiedName~Ph6Tests|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SesaSectionTests.ATextAbove|FullyQualifiedName~SesaAuditTests)",
+  "orig": "e_W38"
+ },
+ {
+  "id": "W40",
+  "desc": "the default window is 64 KiB",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/BwtPass.cs",
+  "old": "internal int WindowBytes { get; init; } = MappedWindowWriter.DefaultWindowBytes;",
+  "new": "internal int WindowBytes { get; init; } = 1 << 16;",
+  "filter": "(FullyQualifiedName~Ph6Tests|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SesaSectionTests.ATextAbove|FullyQualifiedName~SesaAuditTests)",
+  "orig": "e_W40"
+ },
+ {
+  "id": "W42",
+  "desc": "the output buffer is one entry short",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/BwtPass.cs",
+  "old": "Buf<byte> outBuf = arena.Allocate<byte>(readEntries,",
+  "new": "Buf<byte> outBuf = arena.Allocate<byte>(Math.Max(1, readEntries - 1),",
+  "filter": "(FullyQualifiedName~Ph6Tests|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SesaSectionTests.ATextAbove|FullyQualifiedName~SesaAuditTests)",
+  "orig": "e_W42"
+ },
+ {
+  "id": "W44",
+  "desc": "the output is appended with the wrong length",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/BwtPass.cs",
+  "old": "writer.Append(output);",
+  "new": "writer.Append(output[..Math.Max(0, take - 1)]);",
+  "filter": "(FullyQualifiedName~Ph6Tests|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SesaSectionTests.ATextAbove|FullyQualifiedName~SesaAuditTests)",
+  "orig": "e_W44"
+ }
+]

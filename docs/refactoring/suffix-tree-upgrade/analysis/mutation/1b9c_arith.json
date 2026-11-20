@@ -1,0 +1,189 @@
+{
+ "1b7d/dcs_bucketrun": {
+  "listed": 22,
+  "killed": 10,
+  "unrun": 11,
+  "equivalent": 1
+ },
+ "1b7d/dcs_differencecover": {
+  "listed": 24,
+  "killed": 9,
+  "unrun": 12,
+  "equivalent": 3
+ },
+ "1b7d/dcs_externaldcs": {
+  "listed": 59,
+  "killed": 23,
+  "unrun": 29,
+  "defence": 5,
+  "equivalent": 2
+ },
+ "1b7d/dcs_namesinks": {
+  "listed": 19,
+  "killed": 10,
+  "unrun": 9
+ },
+ "1b7d/dcs_rankinverter": {
+  "listed": 10,
+  "killed": 5,
+  "unrun": 5
+ },
+ "1b7d/dcs_ranktable": {
+  "listed": 18,
+  "killed": 9,
+  "unrun": 9
+ },
+ "1b7d/dcs_samplegeometry": {
+  "listed": 13,
+  "killed": 7,
+  "unrun": 6
+ },
+ "1b7d/dcs_samplenamer": {
+  "listed": 86,
+  "killed": 35,
+  "unrun": 43,
+  "equivalent": 7,
+  "defence": 1
+ },
+ "1b7d/dist": {
+  "listed": 5,
+  "killed": 3,
+  "unrun": 2
+ },
+ "1b7d/mappedtextreader": {
+  "listed": 9,
+  "killed": 4,
+  "unrun": 4,
+  "equivalent": 1
+ },
+ "1b7d/sa_sabuilder": {
+  "listed": 126,
+  "killed": 58,
+  "unrun": 63,
+  "equivalent": 4,
+  "defence": 1
+ },
+ "1b7d/seededrandom": {
+  "listed": 13,
+  "killed": 7,
+  "unrun": 6
+ },
+ "1b7d/sort_bucketsorter": {
+  "listed": 71,
+  "killed": 27,
+  "unrun": 35,
+  "defence": 3,
+  "equivalent": 6
+ },
+ "1b7d/sort_leafsorter": {
+  "listed": 15,
+  "killed": 5,
+  "unrun": 7,
+  "equivalent": 3
+ },
+ "1b7d/sort_positionstore": {
+  "listed": 28,
+  "killed": 14,
+  "unrun": 14
+ },
+ "1b7d/sort_sasink": {
+  "listed": 5,
+  "killed": 3,
+  "unrun": 2
+ },
+ "1b7d/sort_suffixorder": {
+  "listed": 38,
+  "killed": 19,
+  "unrun": 19
+ },
+ "1b7e/Dist.cs": {
+  "listed": 1,
+  "killed": 1
+ },
+ "1b7e/LcpBuild.cs": {
+  "listed": 21,
+  "killed": 9,
+  "defence": 2,
+  "unrun": 10
+ },
+ "1b7e/MappedOutputFile.cs": {
+  "listed": 23,
+  "killed": 11,
+  "equivalent": 1,
+  "unrun": 11
+ },
+ "1b7e/BwtPass.cs": {
+  "listed": 44,
+  "killed": 19,
+  "killed by the watchdog": 1,
+  "equivalent": 1,
+  "defence": 1,
+  "unrun": 22
+ },
+ "1b7e/PsiStream.cs": {
+  "listed": 76,
+  "killed": 71,
+  "killed by the watchdog": 1,
+  "equivalent": 2,
+  "defence": 2
+ },
+ "1b7e/SaBuilder.cs": {
+  "listed": 17,
+  "equivalent": 2,
+  "killed": 7,
+  "defence": 1,
+  "unrun": 7
+ },
+ "1b7e/Crc32C.cs": {
+  "listed": 16,
+  "killed": 6,
+  "equivalent": 2,
+  "unrun": 8
+ },
+ "1b7e/SectionLcpChildBuilder.cs": {
+  "listed": 50,
+  "equivalent": 6,
+  "killed": 40,
+  "defence": 4
+ },
+ "1b7e/SesaBuilder.cs": {
+  "listed": 259,
+  "killed": 199,
+  "equivalent": 11,
+  "defence": 2,
+  "unrun": 47
+ },
+ "1b7e/SesaChecksums.cs": {
+  "listed": 10,
+  "killed": 4,
+  "killed by the watchdog": 1,
+  "unrun": 5
+ },
+ "1b7e/SesaFormat.cs": {
+  "listed": 40,
+  "killed": 32,
+  "unrun": 8
+ },
+ "1b7e/SesaLayout.cs": {
+  "listed": 25,
+  "killed": 13,
+  "unrun": 12
+ },
+ "1b7e/BucketSorter.cs": {
+  "listed": 1,
+  "killed": 1
+ },
+ "1b7e/LeafSorter.cs": {
+  "listed": 1,
+  "killed": 1
+ },
+ "1b7e/SaSink.cs": {
+  "listed": 6,
+  "killed": 3,
+  "unrun": 3
+ },
+ "1b7e/SuffixOrder.cs": {
+  "listed": 10,
+  "killed": 10
+ }
+}

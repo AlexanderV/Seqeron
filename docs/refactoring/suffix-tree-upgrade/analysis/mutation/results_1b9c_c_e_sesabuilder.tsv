@@ -1,0 +1,6 @@
+B104	the BWT file gets no file options	killed(1 failed: TheFileOptions_ReachTheBwtFile_AndEveryOtherFileOfTheBuildTh)[only]			24
+B124	the file length check is a smaller-than check	killed(2 failed: AContainerThatIsLongerThanThePlan_IsRefusedBeforeTheChecksum,TheLengthOfTheClosedContainer_IsCheckedAgainstThePlan_InBoth)[only]			11
+B182	the first sync is skipped	killed(1 failed: ThePublication_SyncsOnceAfterTheHeaderAndOnceAfterTheMagic_A)[only]			11
+B183	the second sync is skipped	killed(1 failed: ThePublication_SyncsOnceAfterTheHeaderAndOnceAfterTheMagic_A)[only]			12
+B90	PSI is built without a BWT section (kept: the plan decides)	killed(1 failed: WithoutIncludePsi_NoPsiSectionIsWritten_AtAnyThreadCount_And)[only]			8
+B94	the BWT counts are not checked here	killed(1 failed: ASuffixArrayThatDoesNotBelongToTheText_IsRefusedByPh6_Before)[only]			10

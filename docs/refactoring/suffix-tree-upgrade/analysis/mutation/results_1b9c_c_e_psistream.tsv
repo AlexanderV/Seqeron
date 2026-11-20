@@ -1,0 +1,2 @@
+P63	the cursor array is not freed (not observable)	killed(1 failed: ThePsiStream_GivesItsNativeBlocksBack_AfterEveryPass_AndAfte)[only]			14
+P64	the end array is not freed (not observable)	killed(1 failed: ThePsiStream_GivesItsNativeBlocksBack_AfterEveryPass_AndAfte)[only]			16

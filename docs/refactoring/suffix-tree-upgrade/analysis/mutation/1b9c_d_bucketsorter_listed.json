@@ -1,0 +1,317 @@
+[
+ {
+  "id": "H02",
+  "desc": "Run: no upper bound on K",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs",
+  "old": "ArgumentOutOfRangeException.ThrowIfGreaterThan(options.LeafCapacity, int.MaxValue / 2);",
+  "new": "",
+  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests)",
+  "orig": "d_H02"
+ },
+ {
+  "id": "H04",
+  "desc": "Run: zero threads",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs",
+  "old": "ArgumentOutOfRangeException.ThrowIfLessThan(options.Threads, 1);",
+  "new": "ArgumentOutOfRangeException.ThrowIfLessThan(options.Threads, 0);",
+  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests)",
+  "orig": "d_H04"
+ },
+ {
+  "id": "H06",
+  "desc": "Run: a spill of zero",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs",
+  "old": "ArgumentOutOfRangeException.ThrowIfLessThan(options.SpillBytes, 1);",
+  "new": "ArgumentOutOfRangeException.ThrowIfLessThan(options.SpillBytes, 0);",
+  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests)",
+  "orig": "d_H06"
+ },
+ {
+  "id": "H08",
+  "desc": "Run: the scratch root is not removed",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs",
+  "old": "if (createdRoot) DeleteEmptyDirectoryQuietly(dir);",
+  "new": "",
+  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests)",
+  "orig": "d_H08"
+ },
+ {
+  "id": "H10",
+  "desc": "Run: the files of a failed sort are left",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs",
+  "old": "            DeleteFilesQuietly(dir, options.FilePrefix + \"-*\");",
+  "new": "",
+  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests)",
+  "orig": "d_H10"
+ },
+ {
+  "id": "H12",
+  "desc": "Run: the ledger of a private sort is not released",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs",
+  "old": "if (options.Ledger is null) ledger.ReleaseAll();",
+  "new": "",
+  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests)",
+  "orig": "d_H12"
+ },
+ {
+  "id": "H14",
+  "desc": "Run: the budget is private",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs",
+  "old": "options.Budget ?? new ArenaBudget(long.MaxValue)",
+  "new": "new ArenaBudget(long.MaxValue)",
+  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests)",
+  "orig": "d_H14"
+ },
+ {
+  "id": "H16",
+  "desc": "Execute: SA[0] is not written",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs",
+  "old": "        main.Write(0, [(uint)n]);\n",
+  "new": "",
+  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests)",
+  "orig": "d_H16"
+ },
+ {
+  "id": "H18",
+  "desc": "Execute: the empty text goes on",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs",
+  "old": "        if (n == 0) return _stats;\n",
+  "new": "",
+  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests)",
+  "orig": "d_H18"
+ },
+ {
+  "id": "H20",
+  "desc": "Execute: the root has one position too many",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs",
+  "old": "new BuildTask(new RangePositions(n), 1, 1UL, 0)",
+  "new": "new BuildTask(new RangePositions(n + 1), 1, 1UL, 0)",
+  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests)",
+  "orig": "d_H20"
+ },
+ {
+  "id": "H22",
+  "desc": "Execute: the error is swallowed",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs",
+  "old": "if (_pool.Error is { } error) ExceptionDispatchInfo.Capture(error).Throw();\n        return _stats;",
+  "new": "return _stats;",
+  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests)",
+  "orig": "d_H22"
+ },
+ {
+  "id": "H25",
+  "desc": "RunTasks: a leaf is a bucket of exactly K",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs",
+  "old": "if (task.Bucket.Count <= _o.LeafCapacity)",
+  "new": "if (task.Bucket.Count < _o.LeafCapacity)",
+  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests)",
+  "orig": "d_H25"
+ },
+ {
+  "id": "H27",
+  "desc": "RunTasks: the partition trace is not called",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs",
+  "old": "                    _o.Trace?.Invoke(\"partition\");\n",
+  "new": "",
+  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests)",
+  "orig": "d_H27"
+ },
+ {
+  "id": "H29",
+  "desc": "RunTasks: a leaf bucket is not disposed",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs",
+  "old": "                    leaf.Sort(task.Bucket, task.SaOffset, order, writer);\n                    task.Bucket.Dispose();",
+  "new": "                    leaf.Sort(task.Bucket, task.SaOffset, order, writer);",
+  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests)",
+  "orig": "d_H29"
+ },
+ {
+  "id": "H31",
+  "desc": "RunTasks: the leaves are not counted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs",
+  "old": "                    leaves++;\n",
+  "new": "",
+  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests)",
+  "orig": "d_H31"
+ },
+ {
+  "id": "H33",
+  "desc": "RunTasks: the retries are not counted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs",
+  "old": "retries += Partition(task, order, work);",
+  "new": "Partition(task, order, work);",
+  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests)",
+  "orig": "d_H33"
+ },
+ {
+  "id": "H35",
+  "desc": "RunTasks: the buckets are not counted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs",
+  "old": "                buckets++;\n",
+  "new": "",
+  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests)",
+  "orig": "d_H35"
+ },
+ {
+  "id": "H37",
+  "desc": "RunTasks: the leaf time is not summed",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs",
+  "old": "                    leafTicks += Stopwatch.GetTimestamp() - t0;\n",
+  "new": "",
+  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests)",
+  "orig": "d_H37"
+ },
+ {
+  "id": "H39",
+  "desc": "RunTasks: the work counters are not merged",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs",
+  "old": "            _stats.Work.Add(work);\n",
+  "new": "",
+  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests)",
+  "orig": "d_H39"
+ },
+ {
+  "id": "H41",
+  "desc": "RunTasks: the arena is not checked",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs",
+  "old": "        arena.VerifyCanaries();\n        lock (_statsGate)",
+  "new": "        lock (_statsGate)",
+  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests)",
+  "orig": "d_H41"
+ },
+ {
+  "id": "H43",
+  "desc": "Partition: the fan-out ignores the cap",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs",
+  "old": "int fan = (int)Math.Min(Math.Min(_o.FanOut, m), Math.Max(2, ((2 * m) + _o.LeafCapacity - 1) / _o.LeafCapacity));",
+  "new": "int fan = (int)Math.Min(m, Math.Max(2, ((2 * m) + _o.LeafCapacity - 1) / _o.LeafCapacity));",
+  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests)",
+  "orig": "d_H43"
+ },
+ {
+  "id": "H45",
+  "desc": "Partition: the sample is smaller",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs",
+  "old": "int sampleCount = (int)Math.Min(m, (long)fan * oversample);",
+  "new": "int sampleCount = (int)Math.Min(m, (long)fan);",
+  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests)",
+  "orig": "d_H45"
+ },
+ {
+  "id": "H47",
+  "desc": "Partition: the sample is sorted the other way",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs",
+  "old": "sample.AsSpan().Sort(new FullComparer(order));",
+  "new": "sample.AsSpan().Sort(new FullComparer(order));\n            sample.AsSpan().Reverse();",
+  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests)",
+  "orig": "d_H47"
+ },
+ {
+  "id": "H49",
+  "desc": "Partition: the splitter key is the position",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs",
+  "old": "splKey[t - 1] = _text.Key(splPos[t - 1]);",
+  "new": "splKey[t - 1] = splPos[t - 1];",
+  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests)",
+  "orig": "d_H49"
+ },
+ {
+  "id": "H51",
+  "desc": "Partition: the key tie is not resolved",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs",
+  "old": "if (ks < kx || (ks == kx && order.CompareTied(splPos[mid], x) <= 0)) lo = mid + 1;",
+  "new": "if (ks <= kx) lo = mid + 1;",
+  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests)",
+  "orig": "d_H51"
+ },
+ {
+  "id": "H53",
+  "desc": "Partition: the scan positions are not counted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs",
+  "old": "            work.ScanPositions += m;\n",
+  "new": "",
+  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests)",
+  "orig": "d_H53"
+ },
+ {
+  "id": "H55",
+  "desc": "Partition: a retry does not double the oversample",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs",
+  "old": "                    oversample *= 2;\n",
+  "new": "",
+  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests)",
+  "orig": "d_H55"
+ },
+ {
+  "id": "H57",
+  "desc": "Partition: the children start at entry zero",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs",
+  "old": "long offset = task.SaOffset;",
+  "new": "long offset = 0;",
+  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests)",
+  "orig": "d_H57"
+ },
+ {
+  "id": "H59",
+  "desc": "Partition: an empty child is kept",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs",
+  "old": "if (count == 0)\n                        {\n                            child.Dispose();\n                            continue;\n                        }",
+  "new": "if (count < 0)\n                        {\n                            child.Dispose();\n                            continue;\n                        }",
+  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests)",
+  "orig": "d_H59"
+ },
+ {
+  "id": "H61",
+  "desc": "Partition: the child depth does not advance",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs",
+  "old": "task.Depth + 1));",
+  "new": "task.Depth));",
+  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests)",
+  "orig": "d_H61"
+ },
+ {
+  "id": "H63",
+  "desc": "Partition: the children are pushed first to last",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs",
+  "old": "for (int b = children.Count - 1; b >= 0; b--) _pool.Push(children[b]);",
+  "new": "for (int b = 0; b < children.Count; b++) _pool.Push(children[b]);",
+  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests)",
+  "orig": "d_H63"
+ },
+ {
+  "id": "H65",
+  "desc": "Partition: the chunk is not returned",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs",
+  "old": "                if (chunk is not null) ArrayPool<uint>.Shared.Return(chunk);",
+  "new": "",
+  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests)",
+  "orig": "d_H65"
+ },
+ {
+  "id": "H67",
+  "desc": "Partition: the scan reads one chunk short",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs",
+  "old": "int take = (int)Math.Min(1 << 14, m - start);",
+  "new": "int take = (int)Math.Min((1 << 14) - 1, m - start);",
+  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests)",
+  "orig": "d_H67"
+ },
+ {
+  "id": "H69",
+  "desc": "Partition: the seed ignores the attempt",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs",
+  "old": "^ ((ulong)attempt * 0xD1B54A32D192ED03UL));",
+  "new": ");",
+  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests)",
+  "orig": "d_H69"
+ },
+ {
+  "id": "H71",
+  "desc": "Partition: the writers expect the whole bucket",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs",
+  "old": "(int)Math.Min((m / fan) + 16, 1 << 16)",
+  "new": "(int)Math.Min(m + 16, 1 << 16)",
+  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests)",
+  "orig": "d_H71"
+ }
+]

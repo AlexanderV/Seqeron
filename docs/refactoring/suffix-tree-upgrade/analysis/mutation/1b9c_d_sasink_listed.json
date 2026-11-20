@@ -1,0 +1,20 @@
+[
+ {
+  "id": "Z02",
+  "desc": "the writer is not counted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SaSink.cs",
+  "old": "public ISaSliceWriter CreateWriter() => new Writer(file.CreateWriter(windowBytes, counters));",
+  "new": "public ISaSliceWriter CreateWriter() => new Writer(file.CreateWriter(windowBytes, null));",
+  "filter": "(FullyQualifiedName~BucketSorterTests)",
+  "orig": "d_Z02"
+ },
+ {
+  "id": "Z04",
+  "desc": "Write: the entries are not bytes",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SaSink.cs",
+  "old": "MemoryMarshal.AsBytes(data));\n\n        public void Dispose() => inner.Dispose();\n    }\n}\n\n/// <summary>The suffix array as a section of a larger file",
+  "new": "MemoryMarshal.AsBytes(data)[..(data.Length * 2)]);\n\n        public void Dispose() => inner.Dispose();\n    }\n}\n\n/// <summary>The suffix array as a section of a larger file",
+  "filter": "(FullyQualifiedName~BucketSorterTests)",
+  "orig": "d_Z04"
+ }
+]

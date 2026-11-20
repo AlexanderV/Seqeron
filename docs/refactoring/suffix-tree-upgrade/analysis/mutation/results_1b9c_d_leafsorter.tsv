@@ -1,0 +1,7 @@
+F02	Sort: the keys are not taken from the positions	killed(9 failed: EveryString_OverSigma1To3_OfTheDefaultTier_IsTheSuffixArray,Families_AreTheSuffixArray_AtEveryTinyVariant_AndThePartitio,SmallTexts_AreTheSuffixArray_WithRotatingTinyParameters)[listed]			5
+F04	Sort: the leaf positions are not counted	killed(1 failed: TheCounters_CountThePartitionScansAndTheLeafPositions)[listed]			14
+F06	Sort: the tie positions are not counted	survived			15
+F08	Sort: a run of three is not merge sorted	killed(5 failed: EveryString_OverSigma1To3_OfTheDefaultTier_IsTheSuffixArray,Families_AreTheSuffixArray_AtEveryTinyVariant_AndThePartitio,TheOutput_IsIdenticalForEveryThreadCount_LeafCapacity_FanOut)[listed]			5
+F10	Sort: the keys of the first block are the second	killed(7 failed: AnArenaBudgetThatIsTooSmall_EndsWithTheBudgetException_AndGi,ASinkThatThrows_EndsTheBuild_WithItsOwnException_AndEveryWri,Families_AreTheSuffixArray_AtEveryTinyVariant_AndThePartitio)[listed]			6
+F12	MergeSort: the merged halves are not compared	survived			13
+F14	MergeSort: the left half is dropped	killed(7 failed: ARepetitiveText_WithATinyK_IsSplitIntoEqualBuckets_BecauseTh,EveryString_OverSigma1To3_OfTheDefaultTier_IsTheSuffixArray,Families_AreTheSuffixArray_AtEveryTinyVariant_AndThePartitio)[listed]			4

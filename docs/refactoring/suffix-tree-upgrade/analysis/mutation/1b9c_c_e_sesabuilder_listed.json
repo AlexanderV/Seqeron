@@ -1,0 +1,56 @@
+[
+ {
+  "id": "B104",
+  "desc": "the BWT file gets no file options",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "old": "Counters = counters,\n            Files = options.Files,\n        });",
+  "new": "Counters = counters,\n            Files = null,\n        });",
+  "filter": "",
+  "closed_by": "SesaGap1b9cTests.TheFileOptions_ReachTheBwtFile_AndEveryOtherFileOfTheBuildThatIsReserved"
+ },
+ {
+  "id": "B124",
+  "desc": "the file length check is a smaller-than check",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "old": "if (actual != planned) throw",
+  "new": "if (actual < planned) throw",
+  "filter": "",
+  "closed_by": "SesaGap1b9cTests.AContainerThatIsLongerThanThePlan_IsRefusedBeforeTheChecksums"
+ },
+ {
+  "id": "B182",
+  "desc": "the first sync is skipped",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "old": "                if (options.Fsync) file.Flush();\n                Hook(SesaHooks.HeaderSynced);",
+  "new": "                Hook(SesaHooks.HeaderSynced);",
+  "filter": "",
+  "closed_by": "SesaGap1b9cTests.ThePublication_SyncsOnceAfterTheHeaderAndOnceAfterTheMagic_AndNotAtAllWithoutTheOption"
+ },
+ {
+  "id": "B183",
+  "desc": "the second sync is skipped",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "old": "                if (options.Fsync) file.Flush();\n                Hook(SesaHooks.MagicWritten);",
+  "new": "                Hook(SesaHooks.MagicWritten);",
+  "filter": "",
+  "closed_by": "SesaGap1b9cTests.ThePublication_SyncsOnceAfterTheHeaderAndOnceAfterTheMagic_AndNotAtAllWithoutTheOption"
+ },
+ {
+  "id": "B90",
+  "desc": "PSI is built without a BWT section (kept: the plan decides)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "old": "if (options.IncludePsi)\n            {\n                using var ph6",
+  "new": "if (options.IncludePsi || options.Threads > 1000)\n            {\n                using var ph6",
+  "filter": "",
+  "closed_by": "SesaGap1b9cTests.WithoutIncludePsi_NoPsiSectionIsWritten_AtAnyThreadCount_AndWithItTheSectionIsThere"
+ },
+ {
+  "id": "B94",
+  "desc": "the BWT counts are not checked here",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "old": "if (!bwt.Counts.AsSpan().SequenceEqual(info.Counts)) throw",
+  "new": "if (false) throw",
+  "filter": "",
+  "closed_by": "SesaGap1b9cTests.ASuffixArrayThatDoesNotBelongToTheText_IsRefusedByPh6_BeforePsiIsBuilt"
+ }
+]

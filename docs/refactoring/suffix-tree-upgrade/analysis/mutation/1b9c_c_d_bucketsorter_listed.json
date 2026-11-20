@@ -1,0 +1,38 @@
+[
+ {
+  "id": "H07",
+  "desc": "Run: no limit on the text length",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs",
+  "old": "if (text.Length > PackedTextFormat.MaxSymbols) throw",
+  "new": "if (text.Length > PackedTextFormat.MaxSymbols * 2) throw",
+  "filter": "",
+  "closed_by": "SaGap1b9cTests.ATextAboveTheLimitOfThePositions_IsRefusedAtTheEntryOfPh1AndPh3_BeforeTheScratchIsTouched"
+ },
+ {
+  "id": "H37",
+  "desc": "RunTasks: the leaf time is not summed",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs",
+  "old": "                    leafTicks += Stopwatch.GetTimestamp() - t0;\n",
+  "new": "",
+  "filter": "",
+  "closed_by": "SaGap1b9cTests.TheSortCountsTheSecondsOfItsLeavesAndOfItsPartitions"
+ },
+ {
+  "id": "H64",
+  "desc": "Partition: the writers are not disposed",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs",
+  "old": "                foreach (PosWriter? w in writers) w?.Dispose();\n",
+  "new": "",
+  "filter": "",
+  "closed_by": "SaGap1b9cTests.AFailureInTheMiddleOfTheScanOfAPartition_ClosesEveryWriterThatHoldsAFile"
+ },
+ {
+  "id": "H66",
+  "desc": "Partition: the children of a failed hand-over are not disposed",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs",
+  "old": "                    if (!handedOver) foreach (BuildTask child in children) child.Bucket.Dispose();",
+  "new": "",
+  "filter": "",
+  "closed_by": "SaGap1b9cTests.AFailureInTheHandOverOfTheChildrenOfAPartition_DisposesTheChildrenThatWereCompleted"
+ }
+]

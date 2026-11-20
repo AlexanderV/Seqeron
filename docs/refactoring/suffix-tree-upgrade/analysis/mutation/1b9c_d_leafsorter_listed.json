@@ -1,0 +1,65 @@
+[
+ {
+  "id": "F02",
+  "desc": "Sort: the keys are not taken from the positions",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/LeafSorter.cs",
+  "old": "for (int i = 0; i < m; i++) keys[i] = text.Key(pos[i]);",
+  "new": "for (int i = 0; i < m; i++) keys[i] = text.Key(i);",
+  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)",
+  "orig": "d_F02"
+ },
+ {
+  "id": "F04",
+  "desc": "Sort: the leaf positions are not counted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/LeafSorter.cs",
+  "old": "        c.LeafPositions += m;\n",
+  "new": "",
+  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)",
+  "orig": "d_F04"
+ },
+ {
+  "id": "F06",
+  "desc": "Sort: the tie positions are not counted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/LeafSorter.cs",
+  "old": "                c.TiePositions += e - s;\n",
+  "new": "",
+  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)",
+  "orig": "d_F06"
+ },
+ {
+  "id": "F08",
+  "desc": "Sort: a run of three is not merge sorted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/LeafSorter.cs",
+  "old": "                else\n                {\n                    MergeSort(pos.Slice(s, e - s), _pos2.AsSpan(e - s), order);",
+  "new": "                else if (e - s > 3)\n                {\n                    MergeSort(pos.Slice(s, e - s), _pos2.AsSpan(e - s), order);",
+  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)",
+  "orig": "d_F08"
+ },
+ {
+  "id": "F10",
+  "desc": "Sort: the keys of the first block are the second",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/LeafSorter.cs",
+  "old": "_keys2 = arena.Allocate<ulong>(capacity, zero: false, \"leaf.keys2\");",
+  "new": "_keys2 = _keys;",
+  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)",
+  "orig": "d_F10"
+ },
+ {
+  "id": "F12",
+  "desc": "MergeSort: the merged halves are not compared",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/LeafSorter.cs",
+  "old": "if (order.CompareTied(a[half - 1], a[half]) <= 0) return;",
+  "new": "if (order.CompareTied(a[half - 1], a[half]) < 0) return;",
+  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)",
+  "orig": "d_F12"
+ },
+ {
+  "id": "F14",
+  "desc": "MergeSort: the left half is dropped",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/LeafSorter.cs",
+  "old": "while (p < half) a[k++] = tmp[p++];\n    }\n}",
+  "new": "    }\n}",
+  "filter": "(FullyQualifiedName~BucketSorterTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)",
+  "orig": "d_F14"
+ }
+]

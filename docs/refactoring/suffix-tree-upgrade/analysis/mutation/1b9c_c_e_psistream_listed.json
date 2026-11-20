@@ -1,0 +1,20 @@
+[
+ {
+  "id": "P63",
+  "desc": "the cursor array is not freed (not observable)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/PsiStream.cs",
+  "old": "FreeBlock(_cur);\n",
+  "new": "",
+  "filter": "",
+  "closed_by": "SesaGap1b9cTests.ThePsiStream_GivesItsNativeBlocksBack_AfterEveryPass_AndAfterAFailureInThePass"
+ },
+ {
+  "id": "P64",
+  "desc": "the end array is not freed (not observable)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/PsiStream.cs",
+  "old": "FreeBlock(_end);\n",
+  "new": "",
+  "filter": "",
+  "closed_by": "SesaGap1b9cTests.ThePsiStream_GivesItsNativeBlocksBack_AfterEveryPass_AndAfterAFailureInThePass"
+ }
+]

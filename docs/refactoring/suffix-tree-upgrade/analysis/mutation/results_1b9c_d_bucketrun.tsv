@@ -1,0 +1,11 @@
+B02	RunStore: the bytes are not accounted	killed(5 failed: AFailedWrite_GivesTheBytesBack_AndLeavesNoFile,ARunOfAtMostTheSpillSize_StaysInMemory_AndALargerOneGoesToAF,RunsGoToScratchFiles_WhenTheSpillSizeIsZero_AndStayInMemoryW)[listed]			13
+B04	RunStore: the failed write leaves its file	survived			9
+B06	RunStore: the tag is not in the name	killed(2 failed: ARunOfAtMostTheSpillSize_StaysInMemory_AndALargerOneGoesToAF,TheFilesOfOneStore_AreNumberedFromOne_AndTwoStoresNeverShare)[listed]			10
+B08	ReadAt: reads the buffer length whatever is left	killed(6 failed: ReadAt_ReadsTheRecordsFromTheIndex_NeverBeyondTheEnd_AndCoun,EveryString_OverSigma1To3_OfTheDefaultTier_IsTheOracle,Families_AtEveryTinyVariant_AreTheOracle_AndTheRecursionReac)[listed]			7
+B10	BucketRun: Dispose does nothing the first time	killed(5 failed: AScratchDirectoryThatExists_IsKept_WithItsForeignFile_WhenTh,RunsGoToScratchFiles_WhenTheSpillSizeIsZero_AndStayInMemoryW,SmallTexts_AreTheOracle_WithRotatingTinyParameters_BothTheUn)[listed]			10
+B12	BucketRun: Dispose leaves the file	killed(3 failed: ARunOfAtMostTheSpillSize_StaysInMemory_AndALargerOneGoesToAF,AScratchDirectoryThatExists_IsKept_WithItsForeignFile_WhenTh,SmallTexts_AreTheOracle_WithRotatingTinyParameters_BothTheUn)[listed]			9
+B14	Ledger: Remove adds	killed(3 failed: AFailedWrite_GivesTheBytesBack_AndLeavesNoFile,ARunOfAtMostTheSpillSize_StaysInMemory_AndALargerOneGoesToAF,TheLedger_KnowsWhatItTook_AndGivesAllOfItBack)[listed]			10
+B16	Ledger: ReleaseAll gives back nothing	killed(1 failed: TheLedger_KnowsWhatItTook_AndGivesAllOfItBack)[listed]			10
+B18	RunReader: the offset is not added	killed(18 failed: ARunReader_ScattersTheRecordsBelowTheLimit_WithTheOffset_Fro,AFullDisk_AtTheCreationOfTheRankFile_OrOfAScratchFileOfALeve,ALeafThatOutgrowsItsCapacity_IsSplitAgain_AndTheRanksAreStil)[listed]			6
+B20	RunReader: a used-up run is read again	killed(hang)[listed]			363
+B22	RunReader: the drained count is one more	killed(21 failed: ARunReader_ScattersTheRecordsBelowTheLimit_WithTheOffset_Fro,AFullDisk_AtTheCreationOfTheRankFile_OrOfAScratchFileOfALeve,ALeafThatOutgrowsItsCapacity_IsSplitAgain_AndTheRanksAreStil)[listed]			4

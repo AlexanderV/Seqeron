@@ -1,0 +1,65 @@
+[
+ {
+  "id": "M06",
+  "desc": "Run: the root is a leaf one record early",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "old": "_g.Samples > _o.BucketCapacity, 1)",
+  "new": "_g.Samples >= _o.BucketCapacity, 1)",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)",
+  "orig": "d_M06"
+ },
+ {
+  "id": "M18",
+  "desc": "Merge: a short count of records is accepted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "old": "if (got != end - start) throw",
+  "new": "if (got > end - start) throw",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)",
+  "orig": "d_M18"
+ },
+ {
+  "id": "M52",
+  "desc": "Split: the fan-out is the cap only",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "old": "int fan = (int)Math.Min(Math.Max(2, ((2 * count) + bucket - 1) / bucket), Math.Max(2, owner._o.FanOut));",
+  "new": "int fan = Math.Max(2, owner._o.FanOut);",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)",
+  "orig": "d_M52"
+ },
+ {
+  "id": "M56",
+  "desc": "Split: the children are pushed first to last",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "old": "for (int i = tasks.Count - 1; i >= 0; i--) owner._pool.Push(tasks[i]);",
+  "new": "for (int i = 0; i < tasks.Count; i++) owner._pool.Push(tasks[i]);",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)",
+  "orig": "d_M56"
+ },
+ {
+  "id": "M70",
+  "desc": "Finish: a bucket of one group has no first length",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "old": "            if (distinct == 1) firstLen = lastLen;\n            uint firstPos",
+  "new": "            uint firstPos",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)",
+  "orig": "d_M70"
+ },
+ {
+  "id": "M76",
+  "desc": "MergeSort: equal prefixes are reordered",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "old": "if (prefix.Compare(a[mid], v) <= 0) lo = mid + 1;",
+  "new": "if (prefix.Compare(a[mid], v) < 0) lo = mid + 1;",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)",
+  "orig": "d_M76"
+ },
+ {
+  "id": "M81",
+  "desc": "MergeSort: binary insertion up to seven",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
+  "old": "if (n <= 6)\n            {\n                for (int i = 1; i < n; i++)\n                {\n                    uint v = a[i];",
+  "new": "if (n <= 7)\n            {\n                for (int i = 1; i < n; i++)\n                {\n                    uint v = a[i];",
+  "filter": "(FullyQualifiedName~ExternalDcsTests|FullyQualifiedName~SaBuilderTests.Families_WithTheDefaultParameters)",
+  "orig": "d_M81"
+ }
+]

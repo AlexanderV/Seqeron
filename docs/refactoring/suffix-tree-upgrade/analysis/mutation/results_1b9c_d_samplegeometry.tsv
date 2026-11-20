@@ -1,0 +1,6 @@
+S02	ClassCount: a residue equal to n is not a member	killed(2 failed: TheRankOfASamplePosition_IsItsIndexInTheSuffixArray_AndTheUn,SlotsAndReducedIndices_AreBijections_ForEveryNUpTo130_AndSev)[listed]			14
+S04	RedStart: no separator	killed(16 failed: AFullDisk_AtTheCreationOfTheRankFile_OrOfAScratchFileOfALeve,ALeafThatOutgrowsItsCapacity_IsSplitAgain_AndTheRanksAreStil,ARankFileOfTheBuild_IsAValidTable_AndTheTableVerifiesIt)[listed]			9
+S06	PositionOfSlot: the residue is the wrong class	killed(1 failed: SlotsAndReducedIndices_AreBijections_ForEveryNUpTo130_AndSev)[listed]			11
+S08	TrySlotOfRed: the separator is a member	killed(14 failed: AFullDisk_AtTheCreationOfTheRankFile_OrOfAScratchFileOfALeve,ALeafThatOutgrowsItsCapacity_IsSplitAgain_AndTheRanksAreStil,ARankFileOfTheBuild_IsAValidTable_AndTheTableVerifiesIt)[listed]			7
+S10	TrySlotOfRed: a class that starts at q is not taken	killed(12 failed: AFullDisk_AtTheCreationOfTheRankFile_OrOfAScratchFileOfALeve,ALeafThatOutgrowsItsCapacity_IsSplitAgain_AndTheRanksAreStil,ARankFileOfTheBuild_IsAValidTable_AndTheTableVerifiesIt)[listed]			11
+S12	Samples is not the cover count	killed(23 failed: AFullDisk_AtTheCreationOfTheRankFile_OrOfAScratchFileOfALeve,ALeafThatOutgrowsItsCapacity_IsSplitAgain_AndTheRanksAreStil,ARankFileOfTheBuild_IsAValidTable_AndTheTableVerifiesIt)[listed]			6

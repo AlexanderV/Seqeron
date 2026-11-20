@@ -1,0 +1,43 @@
+M02	PrefixOrder: a common prefix of more than X is needed	killed(14 failed: AFullDisk_AtTheCreationOfTheRankFile_OrOfAScratchFileOfALeve,ALeafThatOutgrowsItsCapacity_IsSplitAgain_AndTheRanksAreStil,ARankFileOfTheBuild_IsAValidTable_AndTheTableVerifiesIt)[listed]			21
+M04	PrefixOrder: the symbols compare the other way	killed(11 failed: AFullDisk_AtTheCreationOfTheRankFile_OrOfAScratchFileOfALeve,ALeafThatOutgrowsItsCapacity_IsSplitAgain_AndTheRanksAreStil,ARankFileOfTheBuild_IsAValidTable_AndTheTableVerifiesIt)[listed]			12
+M06	Run: the root is a leaf one record early	survived			18
+M08	Run: the leaves are walked last to first	killed(18 failed: AFullDisk_AtTheCreationOfTheRankFile_OrOfAScratchFileOfALeve,ALeafThatOutgrowsItsCapacity_IsSplitAgain_AndTheRanksAreStil,ARankFileOfTheBuild_IsAValidTable_AndTheTableVerifiesIt)[listed]			7
+M10	Run: the statistics lose the leaves	killed(1 failed: RunsGoToScratchFiles_WhenTheSpillSizeIsZero_AndStayInMemoryW)[listed]			15
+M12	Run: the statistics lose the file runs	killed(1 failed: RunsGoToScratchFiles_WhenTheSpillSizeIsZero_AndStayInMemoryW)[listed]			15
+M14	Run: the non-unique count is dropped	killed(13 failed: AFullDisk_AtTheCreationOfTheRankFile_OrOfAScratchFileOfALeve,ALeafThatOutgrowsItsCapacity_IsSplitAgain_AndTheRanksAreStil,ARankFileOfTheBuild_IsAValidTable_AndTheTableVerifiesIt)[listed]			11
+M16	Merge: a window is one slot short	killed(21 failed: AFullDisk_AtTheCreationOfTheRankFile_OrOfAScratchFileOfALeve,ALeafThatOutgrowsItsCapacity_IsSplitAgain_AndTheRanksAreStil,ARankFileOfTheBuild_IsAValidTable_AndTheTableVerifiesIt)[listed]			4
+M18	Merge: a short count of records is accepted	survived			21
+M20	Merge: the sink gets the window from its own start	killed(15 failed: AFullDisk_AtTheCreationOfTheRankFile_OrOfAScratchFileOfALeve,ALeafThatOutgrowsItsCapacity_IsSplitAgain_AndTheRanksAreStil,ARankFileOfTheBuild_IsAValidTable_AndTheTableVerifiesIt)[listed]			9
+M22	Merge: the trace is not called	killed(1 failed: ASpillThatFails_IsAnIoException_NotWrapped_AndNothingIsLeft)[listed]			15
+M24	AssignNames: the continuation ignores the key	killed(9 failed: ALeafThatOutgrowsItsCapacity_IsSplitAgain_AndTheRanksAreStil,ARankFileOfTheBuild_IsAValidTable_AndTheTableVerifiesIt,AScratchDirectoryThatExists_IsKept_WithItsForeignFile_WhenTh)[listed]			12
+M26	AssignNames: the offset of a continued group	killed(14 failed: AFullDisk_AtTheCreationOfTheRankFile_OrOfAScratchFileOfALeve,ALeafThatOutgrowsItsCapacity_IsSplitAgain_AndTheRanksAreStil,ARankFileOfTheBuild_IsAValidTable_AndTheTableVerifiesIt)[listed]			9
+M28	AssignNames: the offset of a new group	killed(21 failed: AFullDisk_AtTheCreationOfTheRankFile_OrOfAScratchFileOfALeve,ALeafThatOutgrowsItsCapacity_IsSplitAgain_AndTheRanksAreStil,ARankFileOfTheBuild_IsAValidTable_AndTheTableVerifiesIt)[listed]			8
+M30	AssignNames: the last group of a leaf with two is not subtracted	killed(17 failed: ALeafThatOutgrowsItsCapacity_IsSplitAgain_AndTheRanksAreStil,ARankFileOfTheBuild_IsAValidTable_AndTheTableVerifiesIt,AScratchDirectoryThatExists_IsKept_WithItsForeignFile_WhenTh)[listed]			12
+M32	AssignNames: the open group of a continued single is not extended	killed(3 failed: ALeafThatOutgrowsItsCapacity_IsSplitAgain_AndTheRanksAreStil,Families_AtEveryTinyVariant_AreTheOracle_AndTheRecursionReac,TheOutput_IsIdentical_ForEveryThreadCount_BucketCapacity_And)[listed]			13
+M34	AssignNames: the first group of a new leaf is not counted	killed(20 failed: AFullDisk_AtTheCreationOfTheRankFile_OrOfAScratchFileOfALeve,ALeafThatOutgrowsItsCapacity_IsSplitAgain_AndTheRanksAreStil,ARankFileOfTheBuild_IsAValidTable_AndTheTableVerifiesIt)[listed]			10
+M36	AssignNames: the shared count is the unique count	killed(20 failed: AFullDisk_AtTheCreationOfTheRankFile_OrOfAScratchFileOfALeve,ALeafThatOutgrowsItsCapacity_IsSplitAgain_AndTheRanksAreStil,ARankFileOfTheBuild_IsAValidTable_AndTheTableVerifiesIt)[listed]			10
+M38	Collect: the capacity is exceeded by one before the overflow	killed(19 failed: AFullDisk_AtTheCreationOfTheRankFile_OrOfAScratchFileOfALeve,AHookThatThrowsInAWorker_ReachesTheCallerWithItsOwnType,ALeafThatOutgrowsItsCapacity_IsSplitAgain_AndTheRanksAreStil)[listed]			15
+M40	Collect: the scan stops at the last block	killed(21 failed: AFullDisk_AtTheCreationOfTheRankFile_OrOfAScratchFileOfALeve,ALeafThatOutgrowsItsCapacity_IsSplitAgain_AndTheRanksAreStil,ARankFileOfTheBuild_IsAValidTable_AndTheTableVerifiesIt)[listed]			7
+M42	Collect: the overflow is not queued again	killed(18 failed: AFullDisk_AtTheCreationOfTheRankFile_OrOfAScratchFileOfALeve,ALeafThatOutgrowsItsCapacity_IsSplitAgain_AndTheRanksAreStil,ARankFileOfTheBuild_IsAValidTable_AndTheTableVerifiesIt)[listed]			14
+M44	InRange: the upper bound is inclusive	killed(18 failed: AFullDisk_AtTheCreationOfTheRankFile_OrOfAScratchFileOfALeve,ALeafThatOutgrowsItsCapacity_IsSplitAgain_AndTheRanksAreStil,ARankFileOfTheBuild_IsAValidTable_AndTheTableVerifiesIt)[listed]			7
+M46	InRange: the upper key bound	killed(host crash: ?)[listed]			160
+M48	Split: the reservoir does not keep the first records	killed(2 failed: Families_AtEveryTinyVariant_AreTheOracle_AndTheRecursionReac,TwoRuns_GiveTheSameBytes_AndTheSplitsAreMade)[listed]			15
+M50	Split: all of the reservoir is used though it is not full	killed(host crash: ?)[listed]			338
+M52	Split: the fan-out is the cap only	survived			17
+M54	Split: the splitters are the first quantile	killed(hang)[listed]			362
+M56	Split: the children are pushed first to last	survived			20
+M58	Split: the first child has no lower bound of its own	killed(host crash: ?)[listed]			46
+M60	Split: the scans are not counted	killed(1 failed: TwoRuns_GiveTheSameBytes_AndTheSplitsAreMade)[listed]			20
+M62	Execute: the trace is not called	killed(2 failed: AHookThatThrowsInAWorker_ReachesTheCallerWithItsOwnType,ASpillThatFails_IsAnIoException_NotWrapped_AndNothingIsLeft)[listed]			17
+M64	Finish: key ties of two are not ordered	killed(10 failed: AFullDisk_AtTheCreationOfTheRankFile_OrOfAScratchFileOfALeve,ALeafThatOutgrowsItsCapacity_IsSplitAgain_AndTheRanksAreStil,ARankFileOfTheBuild_IsAValidTable_AndTheTableVerifiesIt)[listed]			6
+M66	Finish: a group is new only when the key differs	killed(15 failed: AFullDisk_AtTheCreationOfTheRankFile_OrOfAScratchFileOfALeve,ALeafThatOutgrowsItsCapacity_IsSplitAgain_AndTheRanksAreStil,ARankFileOfTheBuild_IsAValidTable_AndTheTableVerifiesIt)[listed]			5
+M68	Finish: the first group length is taken at the second group	killed(7 failed: ALeafThatOutgrowsItsCapacity_IsSplitAgain_AndTheRanksAreStil,ARankFileOfTheBuild_IsAValidTable_AndTheTableVerifiesIt,AScratchDirectoryThatExists_IsKept_WithItsForeignFile_WhenTh)[listed]			16
+M70	Finish: a bucket of one group has no first length	survived			22
+M72	Finish: the values are not sorted by slot	killed(16 failed: AFullDisk_AtTheCreationOfTheRankFile_OrOfAScratchFileOfALeve,ALeafThatOutgrowsItsCapacity_IsSplitAgain_AndTheRanksAreStil,ARankFileOfTheBuild_IsAValidTable_AndTheTableVerifiesIt)[listed]			13
+M74	Finish: the file runs are not counted	killed(1 failed: RunsGoToScratchFiles_WhenTheSpillSizeIsZero_AndStayInMemoryW)[listed]			22
+M76	MergeSort: equal prefixes are reordered	survived			26
+M79	MergeSort: the left half is not copied	killed(10 failed: AFullDisk_AtTheCreationOfTheRankFile_OrOfAScratchFileOfALeve,ARepetitiveText_WithASmallBaseCase_RecursesSeveralLevels_Eac,EveryString_OverSigma1To3_OfTheDefaultTier_IsTheOracle)[listed]			10
+M81	MergeSort: binary insertion up to seven	survived			23
+K02	InsertionSort: the positions do not move	killed(19 failed: AFullDisk_AtTheCreationOfTheRankFile_OrOfAScratchFileOfALeve,ALeafThatOutgrowsItsCapacity_IsSplitAgain_AndTheRanksAreStil,ARankFileOfTheBuild_IsAValidTable_AndTheTableVerifiesIt)[listed]			9
+K04	RadixSort: the sorted pairs are left in the second blocks	killed(1 failed: TheOutput_IsIdentical_ForEveryThreadCount_BucketCapacity_And)[listed]			25
+K06	RadixSort: the third digit is the second	killed(3 failed: TheLeafBuffers_AreNoLargerThanTheSample_WhateverK_sIs,TheOutput_IsIdentical_ForEveryThreadCount_BucketCapacity_And,Families_WithTheDefaultParameters_AndWithTheScaledGeometry_A)[listed]			13

@@ -1,0 +1,10 @@
+V02	a file of its own may be longer than the array	killed(2 failed: ACorruptSuffixArray_EndsWithAnException_NeverAHang_AnyChunkS,ACorruptSuffixArray_EndsWithAnException_AndLeavesNothing)[listed]			11
+V04	a section may end past the file	killed(1 failed: ARangeThatEndsExactlyAtTheEndOfTheFile_IsAccepted_ByEverySec)[listed]			12
+V06	the bulk is read from offset 0	killed(17 failed: AnArenaCapOfOneByte_StopsTheBuildInPh1_BeforePh4Starts_AndAn,EveryEntryOfTheTable_IsAsChosen_ForEveryWidthOfTheLcp,TheArenaPeak_IsTheLargestPeakOfAnyStage_WhicheverStageThatIs)[listed]			7
+V08	the overflow list goes to the base offset	killed(2 failed: EveryEntryOfTheTable_IsAsChosen_ForEveryWidthOfTheLcp,TheSectionStage_WritesLcpOverflowAndChildAsTheOracleHasThem_)[listed]			10
+V10	a failed overflow writer leaves the base writer open	survived			11
+V12	the placer is not used	killed(16 failed: AnArenaCapOfOneByte_StopsTheBuildInPh1_BeforePh4Starts_AndAn,EveryEntryOfTheTable_IsAsChosen_ForEveryWidthOfTheLcp,TheArenaPeak_IsTheLargestPeakOfAnyStage_WhicheverStageThatIs)[listed]			7
+V14	the placer is told no overflow	killed(3 failed: EveryEntryOfTheTable_IsAsChosen_ForEveryWidthOfTheLcp,TheCountedCalls_OfATextWithAnOverflowList_ArePinned,TheSectionStage_WritesLcpOverflowAndChildAsTheOracleHasThem_)[listed]			10
+V16	the path mode does not complete the overflow file	survived			12
+V18	the overflow file is not disposed	killed(3 failed: EveryWidth_IsMet_WithItsOverflow_AndTheChildTableOfTheSameTe,Families_AtEveryTinyVariant_EqualTheInRamStructures,Families_WithTheDefaultParameters_EqualTheInRamStructures)[listed]			12
+V20	the base writer is not counted	killed(2 failed: TheCountedCalls_OfATextWithAnOverflowList_ArePinned,TheCountedCalls_OfTwoTinyGeometries_ArePinned)[listed]			12

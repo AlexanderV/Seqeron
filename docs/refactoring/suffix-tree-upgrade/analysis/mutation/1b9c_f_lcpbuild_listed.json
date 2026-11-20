@@ -1,0 +1,18 @@
+[
+ {
+  "id": "F29",
+  "desc": "the overflow writer is not disposed after a failed output writer",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs",
+  "old": "                baseWriter.Dispose();\n                overflowWriter.Dispose();\n                throw;",
+  "new": "                baseWriter.Dispose();\n                throw;",
+  "filter": "(FullyQualifiedName~SaGap1b9cTests|FullyQualifiedName~SesaGap1b9cTests)"
+ },
+ {
+  "id": "F30",
+  "desc": "the base writer is not disposed after a failed output writer",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs",
+  "old": "                baseWriter.Dispose();\n                overflowWriter.Dispose();\n                throw;",
+  "new": "                overflowWriter.Dispose();\n                throw;",
+  "filter": "(FullyQualifiedName~SaGap1b9cTests|FullyQualifiedName~SesaGap1b9cTests)"
+ }
+]

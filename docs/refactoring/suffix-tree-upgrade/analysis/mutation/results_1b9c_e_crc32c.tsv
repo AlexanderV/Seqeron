@@ -1,0 +1,8 @@
+C02	hardware flag needs both CPUs	killed(1 failed: TheHardwareFlag_AgreesWithTheCpu_AndTheHardwarePathRefusesWi)[listed]			11
+C04	table k built from the wrong byte	killed(4 failed: ABigRandomBuffer_GivesTheSameValueOnBothPaths_AndThroughAPoi,ChunkedAppends_EqualTheOneShotValue_ForEverySplit,EveryLength_AtEveryAlignment_EqualsTheBitwiseDefinition_OnBo)[listed]			11
+C06	slice 3 reads table 2	killed(4 failed: ABigRandomBuffer_GivesTheSameValueOnBothPaths_AndThroughAPoi,ChunkedAppends_EqualTheOneShotValue_ForEverySplit,EveryLength_AtEveryAlignment_EqualsTheBitwiseDefinition_OnBo)[listed]			11
+C08	table loop leaves the last full word to the tail loop (same value)	survived			72
+C10	hardware unrolled step of 31	killed(8 failed: ABigRandomBuffer_GivesTheSameValueOnBothPaths_AndThroughAPoi,ALongSequenceOfWordsAsSpans_MatchesMemoryMarshalViews,ChunkedAppends_EqualTheOneShotValue_ForEverySplit)[listed]			7
+C12	table path starts from the value, not its complement	killed(5 failed: ABigRandomBuffer_GivesTheSameValueOnBothPaths_AndThroughAPoi,ChunkedAppends_EqualTheOneShotValue_ForEverySplit,EveryLength_AtEveryAlignment_EqualsTheBitwiseDefinition_OnBo)[listed]			11
+C14	Compute starts from 1	killed(4 failed: ALongSequenceOfWordsAsSpans_MatchesMemoryMarshalViews,TheCheckValueOfTheCatalogue_IsE3069283,TheEmptyInput_HasCrcZero_AndAppendingNothingKeepsTheValue)[listed]			14
+C16	the arm64 tail reads byte 0	survived			89

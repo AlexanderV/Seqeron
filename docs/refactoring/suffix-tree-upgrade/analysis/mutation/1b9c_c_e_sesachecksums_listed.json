@@ -1,0 +1,11 @@
+[
+ {
+  "id": "S10",
+  "desc": "the seconds are not measured",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaChecksums.cs",
+  "old": "(Stopwatch.GetTimestamp() - t0) / (double)Stopwatch.Frequency, Crc32C",
+  "new": "0, Crc32C",
+  "filter": "",
+  "closed_by": "SesaGap1b9cTests.TheChecksumPass_MeasuresTheSecondsOfEverySection_AndKeepsItsBytesAndKind"
+ }
+]

@@ -43,3 +43,15 @@ DEFENCE = {
     'K37': 'ArenaGuards of PH5: as d_Q76',
     'K33': 'PH5 flushes its windows when it is done (`FlushWindows`): the flush is a msync that no read of the file can tell from the kernel writing the pages back',
 }
+
+# Work package 1b.9c (2026-11-20): the mutants of the lists that the audit did not run, and the "second line of defence" mutants above, closed by an argued equivalence (a reviewer can check each argument against the code at the
+# head named in it). The mutants of the second group that a new test kills are in 1b9c_closed.py; summarize_1b9c.py reads both. Every one of these survived the whole default set of SuffixTree.Esa.Tests (stage 2 of the runner).
+EQUIVALENT_1B9C = {
+    'B108': 'SesaBuilder.RunPh6: PsiOptions.WindowCapBytes and PsiOptions.Budget carry the same cap (Ph6CapBytes) and PsiStream charges the same bound to both; the shared budget holds nothing at that point (the BWT pass has disposed its arena), so both refuse exactly the same states; the option itself is tested at the stage (Ph6Tests.TheWindowsOfThePsiStream_AreChargedToTheCap_AndGivenBack)',
+    'B120': 'SesaBuilder.BuildCore: Complete(fsync: false) of the container only asserts that no writer is open (every writer of PH0-PH6 was disposed by its using before) and that the file is not disposed; it is tested in isolation (MappedOutputFileTests.Complete_NeedsEveryWriterToBeDisposed_AndMayBeRepeated_AndSyncsOrNot); the container is closed, checksummed and renamed right after, so any writer left open would show there',
+    'B122': 'SesaBuilder.BuildCore: `text = null` only keeps the `finally` from disposing the reader a second time, and MappedTextReader.Dispose is idempotent (MappedTextReaderTests.AfterDispose_EveryReadThrowsObjectDisposed_NothingIsRead_AndDisposeIsIdempotent)',
+    'C08': 'Crc32C.Compute (table path): a text of a multiple of 8 bytes leaves its last 8 bytes to the byte-wise tail loop instead of the word loop; the tail loop is the definition of the recurrence, so the value is the same (the comment of the mutant says it: "same value"); only the speed of 8 bytes differs',
+    'K17': 'SectionLcpChildBuilder: LcpBuild reads ExtLcpOptions.Threads only when Workers is 0 (LcpBuild.RunWorkers), and the section builder always passes Workers = p.LcpWorkers, which LcpChildRules.Resolve refuses below 1 (LcpChildBuilder.cs, ThrowIfLessThan(p.LcpWorkers, 1)); the thread count reaches PH4 through p.LcpWorkers, which is clamped to options.Threads and is tested (K18, PH4 gets one worker, is killed)',
+    'V15': 'LcpBuild.EmitRankChunks (path mode): Complete(fsync: false) of the base file only asserts that no writer is open, and the writers were disposed by the using of the output writer before; the assertion is tested in isolation (MappedOutputFileTests.Complete_NeedsEveryWriterToBeDisposed_AndMayBeRepeated_AndSyncsOrNot)',
+    'W37': 'BwtPass.Build: the same as V15 for the BWT file (the writers are disposed before, and the Psi stream opens the file by path and reads it whole, so a writer left open would not matter to it either)',
+}

@@ -1,0 +1,14 @@
+T02	RangePositions: At is shifted	survived			12
+T04	MemoryPositions: the array is not returned	survived			11
+T06	FilePositions: Read ignores the start	survived			12
+T08	FilePositions: Dispose does not close the file	killed(1 failed: ASinkThatThrows_EndsTheBuild_WithItsOwnException_AndEveryWri)[listed]			12
+T10	FilePositions: Dispose does not delete the file	killed(8 failed: ARepetitiveText_WithATinyK_IsSplitIntoEqualBuckets_BecauseTh,Families_AreTheSuffixArray_AtEveryTinyVariant_AndThePartitio,SmallTexts_AreTheSuffixArray_WithRotatingTinyParameters)[listed]			11
+T12	PosWriter: the capacity has no floor	survived			11
+T14	PosWriter: the buffer is flushed instead of grown	survived			11
+T16	PosWriter: a bucket in a file is handed over as memory	survived			11
+T18	PosWriter: the file bucket buffer is not returned	survived			11
+T20	PosWriter: Dispose does not give the bytes back	survived			11
+T22	PosWriter: Dispose does not close the file	survived			11
+T24	PosWriter: Grow loses the entries	killed(1 failed: Families_WithTheDefaultParameters_AndWithTheScaledGeometry_A)[listed]			7
+T26	PosWriter: the flushed bytes are not accounted	killed(1 failed: TheCounters_CountThePartitionScansAndTheLeafPositions)[listed]			12
+T28	PosWriter: the file is opened for append	survived			16

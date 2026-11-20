@@ -1,0 +1,4 @@
+Q64	Build: PH1 threads	killed(1 failed: TheThreadCountOfTheBuild_ReachesPh1AndPh3_TwoTasksOfEachRunA)[only]			27
+Q76	Build: PH1 arena guards	killed(1 failed: TheGuardOption_ReachesPh1_AndPh3_EachOnItsOwn)[only]			9
+Q82	Build: the verification reads another length	killed(1 failed: WithVerifyRanks_ASlotOfTheRankFileThatWasDamagedAfterPh1_IsR)[only]			12
+Q86	Build: PH3 threads	killed(1 failed: TheThreadCountOfTheBuild_ReachesPh1AndPh3_TwoTasksOfEachRunA)[only]			29

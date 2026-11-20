@@ -1,0 +1,6 @@
+W02	SplitMix: the first shift	killed(1 failed: SeededRandom_IsTheSplitMix64Sequence_AndNextIntIsTheModuloRu)[listed]			13
+W04	SplitMix: the last shift	killed(1 failed: SeededRandom_IsTheSplitMix64Sequence_AndNextIntIsTheModuloRu)[listed]			12
+W06	NextInt: a bound of zero reaches the division	killed(1 failed: SeededRandom_IsTheSplitMix64Sequence_AndNextIntIsTheModuloRu)[listed]			11
+P02	WorkPool: a failure does not end the wait	killed(1 failed: WorkPool_ABlockedTake_IsWokenByAFailure)[listed]			22
+P04	WorkPool: the last error wins	killed(1 failed: WorkPool_AFailureEndsEveryTake_KeepsTheFirstError_AndDropsTh)[listed]			13
+P06	WorkPool: a task is not counted as active when taken	killed(hang)[listed]			362

@@ -1,0 +1,65 @@
+[
+ {
+  "id": "A02",
+  "desc": "a null text is an NRE",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "old": "        ArgumentNullException.ThrowIfNull(text);\n        ArgumentNullException.ThrowIfNull(file);",
+  "new": "        ArgumentNullException.ThrowIfNull(file);",
+  "filter": "(FullyQualifiedName~SesaSectionTests.SaBuilder|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SaBuilderTests|FullyQualifiedName~SesaAuditTests)",
+  "orig": "e_A02"
+ },
+ {
+  "id": "A04",
+  "desc": "the section range is not checked",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "old": "if (section is not null)\n        {\n            ArgumentOutOfRangeException.ThrowIfNegative(saOffset);",
+  "new": "if (section is null)\n        {\n            ArgumentOutOfRangeException.ThrowIfNegative(saOffset);",
+  "filter": "(FullyQualifiedName~SesaSectionTests.SaBuilder|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SaBuilderTests|FullyQualifiedName~SesaAuditTests)",
+  "orig": "e_A04"
+ },
+ {
+  "id": "A06",
+  "desc": "the section range may end past the file",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "old": "if (saOffset > section.Length - (4 * (n + 1))) throw",
+  "new": "if (saOffset > section.Length - (4 * n)) throw",
+  "filter": "(FullyQualifiedName~SesaSectionTests.SaBuilder|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SaBuilderTests|FullyQualifiedName~SesaAuditTests)",
+  "orig": "e_A06"
+ },
+ {
+  "id": "A08",
+  "desc": "a failure in section mode removes the path (there is none)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "old": "saCreated = owned is not null;",
+  "new": "saCreated = true;",
+  "filter": "(FullyQualifiedName~SesaSectionTests.SaBuilder|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SaBuilderTests|FullyQualifiedName~SesaAuditTests)",
+  "orig": "e_A08"
+ },
+ {
+  "id": "A10",
+  "desc": "the section sink starts at 0",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "old": "new MappedSaSectionSink(saFile, saOffset, 4 * (n + 1),",
+  "new": "new MappedSaSectionSink(saFile, 0, 4 * (n + 1),",
+  "filter": "(FullyQualifiedName~SesaSectionTests.SaBuilder|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SaBuilderTests|FullyQualifiedName~SesaAuditTests)",
+  "orig": "e_A10"
+ },
+ {
+  "id": "A12",
+  "desc": "the section sink gets another window",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "old": "saOffset, 4 * (n + 1), p.WindowBytes, counters)",
+  "new": "saOffset, 4 * (n + 1), MappedWindowWriter.DefaultWindowBytes, counters)",
+  "filter": "(FullyQualifiedName~SesaSectionTests.SaBuilder|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SaBuilderTests|FullyQualifiedName~SesaAuditTests)",
+  "orig": "e_A12"
+ },
+ {
+  "id": "A14",
+  "desc": "the section mode completes the file",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "old": "if (section is null)\n            {\n                saFile.Complete(options.SyncOutput);",
+  "new": "if (true)\n            {\n                saFile.Complete(options.SyncOutput);",
+  "filter": "(FullyQualifiedName~SesaSectionTests.SaBuilder|FullyQualifiedName~SesaSectionTests.ARangeThatEnds|FullyQualifiedName~SaBuilderTests|FullyQualifiedName~SesaAuditTests)",
+  "orig": "e_A14"
+ }
+]
