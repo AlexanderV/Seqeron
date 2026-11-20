@@ -349,10 +349,10 @@ public class SesaGap1b9cTests
     [Test]
     public void TheBwtPass_ReadsTheSuffixArrayInOneMebibyteStepsByDefault_AndInTheStepOfTheTuningWhenThereIsOne()
     {
-        // B258 (the default read of the BWT pass is smaller): 40,000 symbols, a suffix array of 160,004 bytes: one read of it with the default, 20 reads of 8 KiB with the tuning; the reads of the pass are those between the hooks
-        // "lcp-child-built" and "bwt-built" (the pass opens the file of the suffix array once and reads nothing else through the counters)
-        string text = StringFamilies.RandomDna(40_000, 3);
-        foreach ((int? readBytes, long reads) in new[] { ((int?)null, 1L), (8192, 20L) })
+        // B258 (the default read of the BWT pass is smaller): 300,000 symbols, a suffix array of 1,200,004 bytes: two reads of it with the default of 2^20 bytes (262,144 entries), 147 reads of 2,048 entries with a tuning of 8 KiB; the reads
+        // of the pass are those between the hooks "lcp-child-built" and "bwt-built" (the pass opens the file of the suffix array once and reads nothing else through the counters)
+        string text = StringFamilies.RandomDna(300_000, 3);
+        foreach ((int? readBytes, long reads) in new[] { ((int?)null, 2L), (8192, 147L) })
         {
             using var dir = new TempDir();
             var counters = new IoCounters();
