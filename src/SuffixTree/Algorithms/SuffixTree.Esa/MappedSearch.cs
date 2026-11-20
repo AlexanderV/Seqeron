@@ -271,9 +271,17 @@ internal sealed unsafe class MappedSearch
         return (w << s) | ((ulong)q[8] >> (8 - s));
     }
 
-    /// <summary>The dense symbol at <paramref name="i"/> (inside the text).</summary>
+    /// <summary>
+    /// The dense symbol at <paramref name="i"/> (inside the text). A symbol has at most 8 bits, so it lies inside two consecutive bytes: one 16-bit load and two shifts, not the 64-bit window of <see cref="Window"/> (whose second
+    /// load and wider shifts cost 1-3 points on a text of 5-bit symbols, work package 1b.9a; the sections end with at least 64 bytes of padding, so the second byte exists for the last symbol).
+    /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static int Symbol(byte* text, int bits, long i) => (int)(Window(text, bits, i) >> (64 - bits));
+    private static int Symbol(byte* text, int bits, long i)
+    {
+        long bit = i * bits;
+        uint w = BinaryPrimitives.ReverseEndianness(Unsafe.ReadUnaligned<ushort>(text + (bit >> 3)));
+        return (int)(((w << (int)(bit & 7)) & 0xFFFF) >> (16 - bits));
+    }
 
     /// <summary>
     /// Whether the text symbols <c>[start, start + length)</c> (inside the text) equal the pattern symbols <c>[from, from + length)</c>, a stretch of <c>64 / bits</c> symbols per step, the pattern packed on the first use.

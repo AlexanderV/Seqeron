@@ -49,6 +49,10 @@ FILES = {
     SRC + 'MappedSearch.cs': [
         m('S01', 'S03: a 32-bit LCP value up to length + 5 is accepted', "if (TAccess.IsChecked && (uint)v > (uint)length) MappedSearch.ThrowDamaged();", "if (TAccess.IsChecked && (uint)v > (uint)length + 5) MappedSearch.ThrowDamaged();"),
         m('S02', 'a 32-bit LCP value equal to the length is refused', "if (TAccess.IsChecked && (uint)v > (uint)length) MappedSearch.ThrowDamaged();", "if (TAccess.IsChecked && (uint)v >= (uint)length) MappedSearch.ThrowDamaged();"),
+        m('S04', 'the symbol read keeps the bits that the shift moved out of the 16', "return (int)(((w << (int)(bit & 7)) & 0xFFFF) >> (16 - bits));", "return (int)((w << (int)(bit & 7)) >> (16 - bits));"),
+        m('S05', 'the symbol read takes one bit too many', "return (int)(((w << (int)(bit & 7)) & 0xFFFF) >> (16 - bits));", "return (int)(((w << (int)(bit & 7)) & 0xFFFF) >> (15 - bits));"),
+        m('S06', 'the symbol read starts at the bit offset modulo 4', "return (int)(((w << (int)(bit & 7)) & 0xFFFF) >> (16 - bits));", "return (int)(((w << (int)(bit & 3)) & 0xFFFF) >> (16 - bits));"),
+        m('S07', 'the symbol read does not turn the big-endian stream around', "uint w = BinaryPrimitives.ReverseEndianness(Unsafe.ReadUnaligned<ushort>(text + (bit >> 3)));", "uint w = Unsafe.ReadUnaligned<ushort>(text + (bit >> 3));"),
         m('S03', 'a 32-bit LCP value is never checked', "if (TAccess.IsChecked && (uint)v > (uint)length) MappedSearch.ThrowDamaged();", "if (TAccess.IsChecked && false) MappedSearch.ThrowDamaged();"),
     ],
     SRC + 'EsaNavigator.cs': [
@@ -56,6 +60,21 @@ FILES = {
     ],
     SRC + 'EsaSuffixIndex.Tree.cs': [
         m('T01', 'the contract tree accepts a leaf as deep as its parent', "if (_isMapped && _n - saA + 1 <= parentDepth) ThrowCorruptChildTable();", "if (_isMapped && _n - saA + 1 < parentDepth) ThrowCorruptChildTable();"),
+    ],
+    SRC + 'EsaSuffixTree.cs': [
+        m('F01', 'an in-memory call does not look at the disposed flag', "ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);\n            return new ReadScope(this, -1);", "_ = Volatile.Read(ref _disposed);\n            return new ReadScope(this, -1);"),
+        m('F02', 'an in-memory call throws for a tree that is not disposed (the flag test is inverted)', "ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);\n            return new ReadScope(this, -1);", "ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) == 0, this);\n            return new ReadScope(this, -1);"),
+        m('F03', 'a tree over a container takes the in-memory path of Enter (no reader count)', "        if (_file is null)\n        {\n            // an in-memory tree takes no count", "        if (_file is not null)\n        {\n            // an in-memory tree takes no count"),
+        m('F04', 'the scope of an in-memory call leaves stripe 0 (a count that was never raised)', "return new ReadScope(this, -1);", "return new ReadScope(this, 0);"),
+        m('F05', 'a scope that holds stripe 0 does not leave it (the count of that stripe never falls)', "if (stripe >= 0) owner.Leave(stripe);", "if (stripe > 0) owner.Leave(stripe);"),
+        m('F06', 'Dispose of an in-memory tree releases the pack at once (the behaviour of e4a0b2da)', "if (_file is not null) ReleaseWhenIdle();", "ReleaseWhenIdle();"),
+        m('F07', 'Dispose of a tree over a container releases nothing', "if (_file is not null) ReleaseWhenIdle();", "if (_file is null) ReleaseWhenIdle();"),
+    ],
+    SRC + 'CompactLcp.cs': [
+        m('K01', 'an escaped LCP entry is read as the escape value (the test of the indexer is inverted)', "return b != EscapeValue ? b : EscapedValue(rank);", "return b == EscapeValue ? b : EscapedValue(rank);"),
+        m('K02', 'a rank at the length is read (the range test of the base value)', "if ((uint)rank >= (uint)Length) ThrowRankOutside(rank);", "if ((uint)rank > (uint)Length) ThrowRankOutside(rank);"),
+        m('K03', 'a rank outside a mapped LCP array is an argument error, outside a managed one invalid data', "        if (IsMapped) throw new InvalidDataException($\"the LCP array is read at rank", "        if (!IsMapped) throw new InvalidDataException($\"the LCP array is read at rank"),
+        m('K04', 'an escaped entry whose overflow pair is at index 0 is reported missing', "if (k < 0) throw Corrupt($\"overflow entry for rank {rank} is missing\");\n        return OverflowValueAt(k);", "if (k <= 0) throw Corrupt($\"overflow entry for rank {rank} is missing\");\n        return OverflowValueAt(k);"),
     ],
     SRC + 'ChildTable.cs': [
         m('L01', 'the in-memory scan keeps the last deepest interval on a tie', "        if (ell > LrsDepth)", "        if (ell >= LrsDepth)"),

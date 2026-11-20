@@ -10,6 +10,7 @@
 #     cross  <text>...     the cross-process instrument on these texts (dna sigma5 protu protr text90 bytes256), rows to <work>/rows/cross_<text>.tsv
 #     inproc <text>...     the in-process instrument on these texts, rows to <work>/rows/inproc_<text>.tsv
 #     report               the table of both instruments over every rows file of <work>/rows
+#     m100                 DNA at 100 Mbp (DNA_100M, default /tmp/stbench/e6/dna_100m.txt): the container with the scaled geometry of the builder (G3_SCALE 3000000000), the cross-process instrument (ROUNDS_100 rounds, default 7) and the in-process instrument (IP100 processes, default 4, 5 passes); the container is removed unless KEEP100 is set
 #   isolated experiments (1b.9b; each needs the harness built with -p:Experiments=true into <work>/bin/headx for the ones marked X):
 #     null <text>...       the null experiment of the cross-process instrument: the in-memory tree against itself (a copy of the harness directory, <work>/bin/head2): the ratio of the medians of two identical variants is the noise floor
 #     jit <text>...        the cross-process in-memory and file-backed trees under three JIT settings (default, TieredPGO=0, TieredCompilation=0): is the spread between processes the tiering?
@@ -62,18 +63,18 @@ while [ $# -gt 0 ]; do
       ls -l "$W"/*.sesa ;;
     cross|inproc)
       names=()
-      while [ $# -gt 0 ]; do case $1 in harness|texts|containers|cross|inproc|report|null|jit|abl|old|threads) break;; *) names+=("$1"); shift;; esac; done
+      while [ $# -gt 0 ]; do case $1 in harness|texts|containers|cross|inproc|report|null|jit|abl|old|threads|m100) break;; *) names+=("$1"); shift;; esac; done
       run_texts "$STEP" "${names[@]}" ;;
     null)
       names=()
-      while [ $# -gt 0 ]; do case $1 in harness|texts|containers|cross|inproc|report|null|jit|abl|old|threads) break;; *) names+=("$1"); shift;; esac; done
+      while [ $# -gt 0 ]; do case $1 in harness|texts|containers|cross|inproc|report|null|jit|abl|old|threads|m100) break;; *) names+=("$1"); shift;; esac; done
       [ -d "$W/bin/head2" ] || cp -r "$W/bin/head" "$W/bin/head2"
       for t in "${names[@]}"; do
         "$HERE/run_1b9a_matrix.sh" "$W/rows/null_${t}${TAG}.tsv" "$ROUNDS" "memory memory@$W/bin/head2" "$BIN" "$W/${t}_10m.sesa" "$(text_file $t)" "$(text_alpha $t)"
       done ;;
     jit)
       names=()
-      while [ $# -gt 0 ]; do case $1 in harness|texts|containers|cross|inproc|report|null|jit|abl|old|threads) break;; *) names+=("$1"); shift;; esac; done
+      while [ $# -gt 0 ]; do case $1 in harness|texts|containers|cross|inproc|report|null|jit|abl|old|threads|m100) break;; *) names+=("$1"); shift;; esac; done
       for t in "${names[@]}"; do
         for setting in default DOTNET_TieredPGO:0 DOTNET_TieredCompilation:0; do
           env_spec=""; [ "$setting" = default ] || env_spec="=$setting"
@@ -82,25 +83,32 @@ while [ $# -gt 0 ]; do
       done ;;
     abl)
       names=()
-      while [ $# -gt 0 ]; do case $1 in harness|texts|containers|cross|inproc|report|null|jit|abl|old|threads) break;; *) names+=("$1"); shift;; esac; done
+      while [ $# -gt 0 ]; do case $1 in harness|texts|containers|cross|inproc|report|null|jit|abl|old|threads|m100) break;; *) names+=("$1"); shift;; esac; done
       for t in "${names[@]}"; do
         rows="$W/rows/abl_${t}${TAG}.tsv"; : > "$rows"
         for p in $(seq 1 "$PROCS"); do sync; dotnet "$W/bin/headx/SuffixTree.Esa.Bench.dll" "${ABL_VARIANTS:-memory+ix-memory+ix-mem-b+ix-mem-p}" "$W/${t}_10m.sesa" "$(text_file $t)" "$PASSES" "ab$p" "$(text_alpha $t)" >> "$rows"; done
       done ;;
     old)
       names=()
-      while [ $# -gt 0 ]; do case $1 in harness|texts|containers|cross|inproc|report|null|jit|abl|old|threads) break;; *) names+=("$1"); shift;; esac; done
+      while [ $# -gt 0 ]; do case $1 in harness|texts|containers|cross|inproc|report|null|jit|abl|old|threads|m100) break;; *) names+=("$1"); shift;; esac; done
       for t in "${names[@]}"; do
         rows="$W/rows/old_${t}${TAG}.tsv"; : > "$rows"
         for p in $(seq 1 "$PROCS"); do sync; dotnet "$BIN/SuffixTree.Esa.Bench.dll" "alc=${OLD_DLL:?OLD_DLL}+memory+alc=${PRE_DLL:?PRE_DLL}" "$W/${t}_10m.sesa" "$(text_file $t)" "$PASSES" "o$p" "$(text_alpha $t)" >> "$rows"; done
       done ;;
     threads)
       names=()
-      while [ $# -gt 0 ]; do case $1 in harness|texts|containers|cross|inproc|report|null|jit|abl|old|threads) break;; *) names+=("$1"); shift;; esac; done
+      while [ $# -gt 0 ]; do case $1 in harness|texts|containers|cross|inproc|report|null|jit|abl|old|threads|m100) break;; *) names+=("$1"); shift;; esac; done
       for t in "${names[@]}"; do
         rows="$W/rows/threads_${t}${TAG}.tsv"; : > "$rows"
         for p in $(seq 1 "${TPROCS:-3}"); do sync; dotnet "$W/bin/headx/SuffixTree.Esa.Bench.dll" "mt:${MT_VARIANTS:-memory+ix-memory+checked+ix-file}" "$W/${t}_10m.sesa" "$(text_file $t)" "$ROUNDS" "mt$p" "$(text_alpha $t)" >> "$rows"; done
       done ;;
+    m100)
+      DNA_100M=${DNA_100M:-/tmp/stbench/e6/dna_100m.txt}
+      build_container "$DNA_100M" "$W/dna_100m.sesa" 3000000000
+      "$HERE/run_1b9a_matrix.sh" "$W/rows/cross_dna100${TAG}.tsv" "${ROUNDS_100:-7}" "memory checked" "$BIN" "$W/dna_100m.sesa" "$DNA_100M" ACGT
+      : > "$W/rows/inproc_dna100${TAG}.tsv"
+      for p in $(seq 1 "${IP100:-4}"); do sync; dotnet "$BIN/SuffixTree.Esa.Bench.dll" memory+checked+trusted "$W/dna_100m.sesa" "$DNA_100M" 5 "ip$p" ACGT >> "$W/rows/inproc_dna100${TAG}.tsv"; done
+      [ -n "${KEEP100:-}" ] || rm -f "$W/dna_100m.sesa" ;;
     report) python3 "$HERE/summarize_1b9b.py" "$W/rows" ;;
     *) echo "unknown step $STEP"; exit 2 ;;
   esac
