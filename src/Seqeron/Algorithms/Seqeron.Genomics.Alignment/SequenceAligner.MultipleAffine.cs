@@ -146,7 +146,7 @@ public static partial class SequenceAligner
         long cells = (long)(m + 1) * (n + 1);
         if (cells > AffineProfileMatrixMaxCells)
             throw new ArgumentException(
-                $"The affine profile-profile dynamic program needs one traceback byte per cell: {m} x {n} alignment columns = {cells:N0} cells exceeds the limit of {AffineProfileMatrixMaxCells:N0}. " +
+                string.Create(System.Globalization.CultureInfo.InvariantCulture, $"The affine profile-profile dynamic program needs one traceback byte per cell: {m} x {n} alignment columns = {cells:N0} cells exceeds the limit of {AffineProfileMatrixMaxCells:N0}. ") +
                 "Use MultipleAlign (exact center-star, linear-space pairwise stage) for long sequences.");
     }
 

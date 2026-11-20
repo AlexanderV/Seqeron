@@ -479,8 +479,8 @@ public static partial class SequenceAligner
 
             if ((long)(_count + 1) * _states > _limit)
                 throw new ArgumentException(
-                    $"Exact multiple alignment exceeds the complexity limit: more than {_limit:N0} dynamic-program values " +
-                    $"({_count:N0} cells x {_states} gap states; lattice {LatticeCells:N0} cells). Raise MsaOptions.ExactMaxStateCells, use more similar / shorter sequences, " +
+                    string.Create(System.Globalization.CultureInfo.InvariantCulture, $"Exact multiple alignment exceeds the complexity limit: more than {_limit:N0} dynamic-program values ") +
+                    string.Create(System.Globalization.CultureInfo.InvariantCulture, $"({_count:N0} cells x {_states} gap states; lattice {LatticeCells:N0} cells). Raise MsaOptions.ExactMaxStateCells, use more similar / shorter sequences, ") +
                     "or use a heuristic aligner (MultipleAlign / MultipleAlignProgressive / MultipleAlignIterative).");
             id = _count++;
             if (id / ChunkCells >= _chunks.Count)

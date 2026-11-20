@@ -237,7 +237,7 @@ public static partial class SequenceAligner
         long cells = (long)(a.Length + 1) * (b.Length + 1);
         if (cells > GeneralGapMaxCells)
             throw new ArgumentException(
-                $"A general gap-cost function needs O(m·n) memory (33 bytes per cell) and O(m·n·(m+n)) time: {a.Length} x {b.Length} = {cells:N0} cells exceeds the limit of {GeneralGapMaxCells:N0}. " +
+                string.Create(System.Globalization.CultureInfo.InvariantCulture, $"A general gap-cost function needs O(m·n) memory (33 bytes per cell) and O(m·n·(m+n)) time: {a.Length} x {b.Length} = {cells:N0} cells exceeds the limit of {GeneralGapMaxCells:N0}. ") +
                 "Use an affine or linear gap model (GlobalAlignAffine / LocalAlignAffine / SemiGlobalAlignAffine run in linear space for any length).");
 
         return GeneralGapCore(a, b, w, substitution.Score, type, ends);

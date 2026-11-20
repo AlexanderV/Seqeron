@@ -261,7 +261,7 @@ public sealed class ProteinPattern
         foreach (var e in _elements)
             combinations *= e.MaxRepeat - e.MinRepeat + 1;
         if (combinations > MaxCombinations)
-            throw new ArgumentException($"The pattern '{Source}' has {combinations:N0} repeat combinations (limit {MaxCombinations:N0}); narrow its ranges.");
+            throw new ArgumentException(string.Create(System.Globalization.CultureInfo.InvariantCulture, $"The pattern '{Source}' has {combinations:N0} repeat combinations (limit {MaxCombinations:N0}); narrow its ranges."));
 
         var results = new Dictionary<string, uint[]>(StringComparer.Ordinal);
         Recurse(0, new List<uint>());

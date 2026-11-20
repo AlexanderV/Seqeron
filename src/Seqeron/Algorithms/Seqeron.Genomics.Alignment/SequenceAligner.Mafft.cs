@@ -486,7 +486,7 @@ public static partial class SequenceAligner
             double fpenalty = sc.Penalty, fpenaltyEx = sc.PenaltyEx;
             const double termGapFac = 0.0, termGapFacEx = 0.0;
             RequireCells(((long)lgth1 + 1) * ((long)lgth2 + 1), MafftMaxPairCells, nameof(MafftMaxPairCells), "MAFFT", "keeps an int trace-back matrix ijp[len1 + 1][len2 + 1] (G__align11)",
-                $"{lgth1:N0} x {lgth2:N0} residues = {((long)lgth1 + 1) * ((long)lgth2 + 1):N0} cells", "The program has no limit and is killed when the allocation (4 bytes per cell plus the row arrays) fails", "use the progressive / FFT variants of MAFFT (not ported) or Kalign for sequences of this length");
+                string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{lgth1:N0} x {lgth2:N0} residues = {((long)lgth1 + 1) * ((long)lgth2 + 1):N0} cells"), "The program has no limit and is killed when the allocation (4 bytes per cell plus the row arrays) fails", "use the progressive / FFT variants of MAFFT (not ported) or Kalign for sequences of this length");
             var m = new double[lgth2 + 2];
             var mp = new int[lgth2 + 2];
             var w1 = new double[lgth2 + 2];

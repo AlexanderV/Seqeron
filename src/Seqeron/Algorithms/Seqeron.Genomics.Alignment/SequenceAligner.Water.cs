@@ -40,7 +40,7 @@ public static partial class SequenceAligner
     {
         int lena = s1.Length;
         int lenb = s2.Length;
-        RequireCells((long)lena * lenb, WaterMaxCells, nameof(WaterMaxCells), "EMBOSS water", "keeps a float path matrix and an int compass matrix (8 bytes per cell)", $"{lena:N0} x {lenb:N0} residues = {(long)lena * lenb:N0} cells",
+        RequireCells((long)lena * lenb, WaterMaxCells, nameof(WaterMaxCells), "EMBOSS water", "keeps a float path matrix and an int compass matrix (8 bytes per cell)", string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{lena:N0} x {lenb:N0} residues = {(long)lena * lenb:N0} cells"),
             "The program has no fixed limit: it dies with \"Sequences too big. Try 'matcher' or 'supermatcher'\" when the allocation fails", "use LocalAlignLinearSpace / Supermatcher for sequences of this length");
         var table = new EmbossScoreTable(matrix);
         int[] ca = table.Codes(s1);

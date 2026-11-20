@@ -1461,7 +1461,7 @@ public static partial class SequenceAligner
         {
             int l1 = a1[0].Len, l2 = a2[0].Len;
             RequireCells(((long)l1 + 1) * ((long)l2 + 1), ProbConsProfileMaxCells, nameof(ProbConsProfileMaxCells), "ProbCons", "keeps a posterior matrix of (columns1 + 1) x (columns2 + 1) floats and the profile-alignment dynamic program",
-                $"{l1:N0} x {l2:N0} alignment columns = {((long)l1 + 1) * ((long)l2 + 1):N0} cells", "The program computes the product in a 32-bit int and dies with an out-of-memory failure", "use MultipleAlignKalign or MultipleAlignMafft for sequences of this length");
+                string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{l1:N0} x {l2:N0} alignment columns = {((long)l1 + 1) * ((long)l2 + 1):N0} cells"), "The program computes the product in a 32-bit int and dies with an out-of-memory failure", "use MultipleAlignKalign or MultipleAlignMafft for sequences of this length");
             var posterior = new float[(l1 + 1) * (l2 + 1)];
             foreach (var s1 in a1)
             {

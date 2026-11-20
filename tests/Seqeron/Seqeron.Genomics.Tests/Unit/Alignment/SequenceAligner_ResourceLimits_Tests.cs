@@ -46,6 +46,31 @@ public class SequenceAligner_ResourceLimits_Tests
         Assert.That(SequenceAligner.NeedleMaxCells, Is.EqualTo(134_217_728L));
     }
 
+    /// <summary>A4-15: the guard messages format numbers with the invariant culture (thousands separator "," whatever the current culture: here "." as in de-DE).</summary>
+    [Test]
+    public void LimitMessages_AreCultureInvariant()
+    {
+        var odd = (System.Globalization.CultureInfo)System.Globalization.CultureInfo.InvariantCulture.Clone();
+        odd.NumberFormat.NumberGroupSeparator = ".";
+        odd.NumberFormat.NumberDecimalSeparator = ",";
+        var saved = System.Globalization.CultureInfo.CurrentCulture;
+        string needle, merger, poa;
+        try
+        {
+            System.Globalization.CultureInfo.CurrentCulture = odd;
+            Assert.That(144000000L.ToString("N0"), Is.EqualTo("144.000.000"), "the test culture really differs");
+            string a = Dna(12_000, 1), b = Dna(12_000, 2);
+            needle = Refused<ArgumentException>(() => SequenceAligner.NeedleAlign(a, b)).Message;
+            merger = Refused<ArgumentException>(() => SequenceAligner.Merger(a, b)).Message;
+            string pa = new('A', 12_000), pb = new('C', 12_000);
+            poa = Refused<ArgumentException>(() => SequenceAligner.MultipleAlignPoa([pa, pb])).Message;
+        }
+        finally { System.Globalization.CultureInfo.CurrentCulture = saved; }
+        Assert.That(needle, Does.Contain("144,000,000 cells").And.Not.Contain("144.000.000"));
+        Assert.That(merger, Does.Contain("12,000 x 12,000 residues").And.Not.Contain("12.000"));
+        Assert.That(poa, Does.Contain("12,000 graph nodes").And.Not.Contain("12.000"));
+    }
+
     [Test]
     public void Water_Above2Pow28Cells_IsRefusedWithoutAllocating()
     {

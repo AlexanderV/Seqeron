@@ -47,7 +47,7 @@ public static partial class SequenceAligner
     /// The one exception of a resource limit: "&lt;program&gt; &lt;what it keeps&gt;: &lt;size&gt; exceeds the limit of &lt;limit&gt; (&lt;constant&gt;). &lt;what the program itself does&gt;; &lt;what to use instead&gt;."
     /// </summary>
     internal static ArgumentException ResourceLimit(string program, string keeps, string size, long limit, string constant, string programNote, string alternative, string? paramName = null) =>
-        new($"{program} {keeps}: {size} exceeds the limit of {limit:N0} ({constant}). {programNote}; {alternative}.", paramName);
+        new(string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{program} {keeps}: {size} exceeds the limit of {limit:N0} ({constant}). {programNote}; {alternative}."), paramName);
 
     private static void RequireCells(long cells, long limit, string constant, string program, string keeps, string size, string programNote, string alternative)
     {

@@ -2954,7 +2954,7 @@ public static partial class SequenceAligner
         long cells = (long)(m + 1) * (n + 1);
         if (cells > ProfileMatrixMaxCells)
             throw new ArgumentException(
-                $"The profile-profile dynamic program needs O(m·n) memory: {m} x {n} alignment columns = {cells:N0} cells exceeds the limit of {ProfileMatrixMaxCells:N0}. " +
+                string.Create(System.Globalization.CultureInfo.InvariantCulture, $"The profile-profile dynamic program needs O(m·n) memory: {m} x {n} alignment columns = {cells:N0} cells exceeds the limit of {ProfileMatrixMaxCells:N0}. ") +
                 "Use MultipleAlign (exact center-star, linear-space pairwise stage) for long sequences.");
     }
 

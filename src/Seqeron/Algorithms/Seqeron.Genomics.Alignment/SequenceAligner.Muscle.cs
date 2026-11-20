@@ -1515,8 +1515,8 @@ public static partial class SequenceAligner
             long cells = ((long)lengthA + 1) * ((long)lengthB + 1);
             if (cells > MuscleProfileMatrixMaxCells)
                 throw new ArgumentException(
-                    $"MUSCLE's profile-profile dynamic program (NWSmall) keeps one traceback byte per cell: {lengthA} x {lengthB} alignment columns = {cells:N0} cells exceeds the limit of " +
-                    $"{MuscleProfileMatrixMaxCells:N0} (SequenceAligner.MuscleProfileMatrixMaxCells, about 1 GB). The program itself has no limit and aborts with an out-of-memory error; " +
+                    string.Create(System.Globalization.CultureInfo.InvariantCulture, $"MUSCLE's profile-profile dynamic program (NWSmall) keeps one traceback byte per cell: {lengthA} x {lengthB} alignment columns = {cells:N0} cells exceeds the limit of ") +
+                    string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{MuscleProfileMatrixMaxCells:N0} (SequenceAligner.MuscleProfileMatrixMaxCells, about 1 GB). The program itself has no limit and aborts with an out-of-memory error; ") +
                     "use a smaller input or MultipleAlignClustalW (linear-space profile alignment) for sequences of this length.");
         }
 

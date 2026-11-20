@@ -96,7 +96,7 @@ public static partial class SequenceAligner
                 string b = query.Residues.Substring(querystart, lenb);
                 int pathwidth = width;
                 RequireCells(((long)lena + 1) * pathwidth, SupermatcherMaxPathCells, nameof(SupermatcherMaxPathCells), "EMBOSS supermatcher", "keeps a banded float path matrix and an int compass matrix (8 bytes per cell)",
-                    $"{lena:N0} target residues x width {pathwidth:N0} = {((long)lena + 1) * pathwidth:N0} cells", "The program has no fixed limit and dies when the allocation fails", "use a smaller -width");
+                    string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{lena:N0} target residues x width {pathwidth:N0} = {((long)lena + 1) * pathwidth:N0} cells"), "The program has no fixed limit and dies when the allocation fails", "use a smaller -width");
                 var path = new float[((long)lena + 1) * pathwidth];
                 var compass = new int[path.Length];
                 float score = SwPathCalcFast(a, b, lena, lenb, 0, pathwidth, gapopen, gapextend, path, compass, table);

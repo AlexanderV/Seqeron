@@ -249,7 +249,7 @@ public static partial class Ksw2Aligner
     internal static void RequireTraceback(string function, long bytes)
     {
         if (bytes > MaxTracebackBytes)
-            throw SequenceAligner.ResourceLimit($"ksw2 {function}", "keeps a traceback matrix for the CIGAR", $"{bytes:N0} bytes", MaxTracebackBytes, nameof(Ksw2Aligner) + "." + nameof(MaxTracebackBytes),
+            throw SequenceAligner.ResourceLimit($"ksw2 {function}", "keeps a traceback matrix for the CIGAR", string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{bytes:N0} bytes"), MaxTracebackBytes, nameof(Ksw2Aligner) + "." + nameof(MaxTracebackBytes),
                 "ksw2 itself has no limit and aborts with an out-of-memory error", "use the ScoreOnly flag, a band (w) or the linear-space aligners");
     }
 

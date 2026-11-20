@@ -239,7 +239,7 @@ public static partial class SequenceAligner
         string alternative = program == "ProbCons"
             ? "use MultipleAlignKalign or MultipleAlignMafft for sequences of this length"
             : "use the slow_pair or lalign_id_pair primary library for sequences of this length";
-        throw ResourceLimit($"The {program} pair-HMM", $"keeps a forward and a backward matrix of (len1 + 1) x (len2 + 1) x {matrixTypes} floats", $"{length1} x {length2} residues = {floats:N0} floats", TCoffeeProbaMaxMatrixFloats,
+        throw ResourceLimit($"The {program} pair-HMM", $"keeps a forward and a backward matrix of (len1 + 1) x (len2 + 1) x {matrixTypes} floats", string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{length1} x {length2} residues = {floats:N0} floats"), TCoffeeProbaMaxMatrixFloats,
             $"SequenceAligner.{nameof(TCoffeeProbaMaxMatrixFloats)}, {TCoffeeProbaMaxMatrixFloats * 4L / (1L << 30)} GiB per matrix", programNote, alternative);
     }
 

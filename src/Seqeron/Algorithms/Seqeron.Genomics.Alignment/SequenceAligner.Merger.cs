@@ -71,7 +71,7 @@ public static partial class SequenceAligner
         string b = sequenceB.ToLowerInvariant();
         matrix ??= SubstitutionMatrix.EdnaFull;
         RequireCells((long)a.Length * b.Length, NeedleMaxCells, nameof(NeedleMaxCells), "EMBOSS merger", "keeps a float path matrix and an int compass matrix (8 bytes per cell)",
-            $"{a.Length:N0} x {b.Length:N0} residues", "The program dies with \"Sequences too big\" when the allocation fails", "use megamerger-style word matching for sequences of this length");
+            string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{a.Length:N0} x {b.Length:N0} residues"), "The program dies with \"Sequences too big\" when the allocation fails", "use megamerger-style word matching for sequences of this length");
 
         float go = RoundFloat((float)gapOpen, 8), ge = RoundFloat((float)gapExtend, 8);
         var (path, compass, score) = MergerPathCalc(a, b, go, ge, matrix);

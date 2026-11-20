@@ -73,7 +73,7 @@ public static partial class SequenceAligner
     {
         int lena = s1.Length;
         int lenb = s2.Length;
-        RequireCells((long)lena * lenb, NeedleMaxCells, nameof(NeedleMaxCells), "EMBOSS needle", "keeps three float matrices and an int compass matrix (16 bytes per cell)", $"{lena:N0} x {lenb:N0} residues = {(long)lena * lenb:N0} cells",
+        RequireCells((long)lena * lenb, NeedleMaxCells, nameof(NeedleMaxCells), "EMBOSS needle", "keeps three float matrices and an int compass matrix (16 bytes per cell)", string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{lena:N0} x {lenb:N0} residues = {(long)lena * lenb:N0} cells"),
             "The program has no fixed limit: it dies with \"Sequences too big. Try 'stretcher'\" when the allocation fails", "use StretcherAlign (linear space) for sequences of this length");
         var table = new EmbossScoreTable(matrix);
         int[] ca = table.Codes(s1);
