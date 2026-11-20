@@ -47,7 +47,10 @@ public class SequenceAligner_ClustalWProteinMultiple_Tests
     /// identity (undefined behaviour of the C++: the recycled heap chunk of the profile object still holds whatever was in it - found to be 0, the user's -GAPDIST, or a
     /// stale residue code such as 5 or 20). <see cref="ClustalWProteinOptions.UninitialisedGapDistances"/> emulates the common outcome; these are the sets of the oracle
     /// (id -> gdist of the 1st, 2nd, ... such profile) where the binary's heap held something else. The values were found by scanning gdist per profile against the
-    /// binary's <c>-DEBUG=5</c> profile dumps (opening / extension penalties and every profile column); with them the rows equal the binary on every row.
+    /// binary's <c>-DEBUG=5</c> profile dumps (opening / extension penalties and every profile column); with them the rows equal the binary on every row. Proof of the undefined behaviour (valgrind 3.22.0 on the
+    /// installed clustalw 2.1+lgpl-7, Evidence F143): 87 of the 189 <c>-NOVGAP</c> sets of the oracle report "Conditional jump or move depends on uninitialised value(s)", created by a heap allocation (operator new);
+    /// 40 sets without <c>-NOVGAP</c> report none. The common outcome (0) is emulated by default; these two sets are the exact list of those where the recycled chunk held something else
+    /// (<see cref="MultipleAlignClustalW_Protein_UninitialisedGdist_OnlyTheDocumentedSetsNeedAnOverride"/> asserts that exactly these two differ without the override).
     /// </summary>
     private static readonly Dictionary<string, int[]> KnownUninitialisedGapDistanceSets = new()
     {

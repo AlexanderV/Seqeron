@@ -104,7 +104,7 @@ Scalar `ScoringMatrix` and `MatrixScoring` now share one contract: gap scores <=
 
 ## Audit r2 addendum (A2-28, B09 F121 / F122): stretcher and needle options
 
-`SequenceAligner.StretcherAlign` (Myers-Miller as the EMBOSS program, 689 / 689 pairs equal) and `SequenceAligner.NeedleAlign` (the program's single-precision recurrences with `-endweight` / `-endopen` / `-endextend`, 887 / 887 pairs equal); MCP `stretcher_align`.
+`SequenceAligner.StretcherAlign` (Myers-Miller as the EMBOSS program, 689 / 689 pairs equal) and `SequenceAligner.NeedleAlign` (the program's single-precision recurrences with `-endweight` / `-endopen` / `-endextend`, 887 / 887 pairs equal); MCP `stretcher_align`, `needle_align` (audit A3-17, B09 F141). Audit A3-14b (F143): the "at least 90 % reaches the plain optimum" tolerance is replaced by an independent score-only program of the needle recurrence (492 / 492 dyadic rows; the one sampled row below the plain optimum is id 234) and stretcher equals the plain optimum on 300 / 300.
 
 ## Audit r2 addendum (A2-29, B09 F123): dual affine gaps
 

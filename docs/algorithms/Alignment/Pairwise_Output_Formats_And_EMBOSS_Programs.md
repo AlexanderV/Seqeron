@@ -2,7 +2,7 @@
 
 **Units:** ALIGN-GLOBAL-001, ALIGN-LOCAL-001, ALIGN-MULTI-001 (audit A2-27 / A2-28 / A2-29, B09 F120 - F126).
 **Code:** `EmbossAlignmentWriter`, `EmbossAlignFormat`, `EmbossAlignOptions`, `EmbossPairAlignment`, `EmbossAlignedSequence` (`EmbossAlignmentTypes.cs`), `SequenceAligner.StretcherAlign`, `SequenceAligner.NeedleAlign`, `SequenceAligner.WaterAlign`.
-**MCP:** `write_alignment`, `stretcher_align`, `supermatcher_align`, `needleall_align`, `ksw2_extend`, and the `format` / `names` parameters of the pairwise and multiple-alignment tools.
+**MCP:** `write_alignment`, `needle_align`, `water_align`, `stretcher_align`, `supermatcher_align`, `needleall_align`, `ksw2_extend`, and the `format` / `names` parameters of the pairwise and multiple-alignment tools.
 
 ## 1. EMBOSS `-aformat` writers (F120)
 
