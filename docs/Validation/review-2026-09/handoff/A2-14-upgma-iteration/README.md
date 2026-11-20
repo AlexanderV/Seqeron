@@ -1,3 +1,5 @@
+**STATUS: AWAITING-USER (since 2026-11-19).** Integration target: `TestData/Alignment/clustalw_upgma_iteration_oracle.tsv` (audit item A2-14d); nothing has been returned yet (`returned/` is empty).
+
 # TEMPORARY hand-off package A2-14-upgma-iteration - oracle for ClustalW 2.1 `-CLUSTERING=UPGMA` with `-ITERATION` and the profile commands (Docker, for the user's Mac)
 
 **Why.** `handoff/A2-14-clustalw-upgma` (returned 2026-11-19) verified `-CLUSTERING=UPGMA -ALIGN` on 600 / 600 sets with the unmodified Debian source built at `-O0` (the installed binary and an `-O2` build of the same source

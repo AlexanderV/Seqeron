@@ -1,3 +1,5 @@
+**STATUS: AWAITING-USER (since 2026-11-19).** Integration target: the SAP / DaliLite oracle rows of item A2-12 (`sap_pair`, `dali_pair`).
+
 # TEMPORARY hand-off package A2-12 - the real SAP 1.1.3 and DaliLite v5 next to t_coffee 13.41 (Docker, for the user's Mac)
 
 **STATUS: AWAITING THE USER'S RUN (2026-11-19).** Item A2-12 of `B09.md` (`sap_pair`, `fugue_pair`, `dali_pair`).

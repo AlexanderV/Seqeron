@@ -1,3 +1,5 @@
+**STATUS: AWAITING-USER (since 2026-11-19).** Integration target: `TestData/Alignment/ksw2_oracle.tsv` (audit item A2-29b: Z-drop, end bonus, approximate flags of the SIMD code); nothing has been returned yet (no `returned/` directory).
+
 # A2-29b: the real ksw2 / minimap2 functions as the oracle (Docker package)
 
 **Why.** `Ksw2Aligner` (`src/.../Seqeron.Genomics.Alignment/Ksw2Aligner*.cs`) ports `ksw_extz`, `ksw_extz2_sse`, `ksw_extd`, `ksw_extd2_sse` (lh3/ksw2, minimap2 v2.26). The exact cases (no Z-drop, no approximate flags) are

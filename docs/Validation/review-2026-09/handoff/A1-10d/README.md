@@ -1,3 +1,5 @@
+**STATUS: INTEGRATED (2026-11-18, B09 F67, `returned/A1-10d-out.zip`).**
+
 # TEMPORARY hand-off package A1-10d - ClustalW 2.1 end-gap options (Docker, for the user's Mac)
 
 > **STATUS (2026-11-18): INTEGRATED (B09 F67).** The user ran the package; the returned archive is `returned/A1-10d-out.zip` (control rows equal the installed binary on 340 / 340 sets; 34 sets abort in the modes `endgappen` / `both`). It became `tests/Seqeron/Seqeron.Genomics.Tests/TestData/Alignment/clustalw_end_gaps_oracle.tsv` (`scripts/alignment/build_clustalw_end_gaps_oracle.py`), the options `UseEndGaps` / `EndGapPenalties` of `ClustalWOptions` / `ClustalWProteinOptions`, the explicit `ClustalWAbortedException` and the MCP parameters `useEndGaps` / `endGapPenalties`; test class `SequenceAligner_ClustalWEndGaps_Tests`. Nothing more is to be run.

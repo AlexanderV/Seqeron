@@ -1,3 +1,5 @@
+**STATUS: INTEGRATED (2026-11-19, `returned/A1-10c-muscle-out.zip` -> `muscle3_oracle.tsv`).**
+
 # TEMPORARY hand-off package A1-10c-muscle - the MUSCLE 3.8.1551 oracle (Docker, for the user's Mac)
 
 **STATUS: RETURNED AND INTEGRATED (2026-11-19).** The user-run archive `returned/A1-10c-muscle-out.zip` (MUSCLE v3.8.1551, x86_64, Debian 12, 420 sets, 0 failures) is converted by

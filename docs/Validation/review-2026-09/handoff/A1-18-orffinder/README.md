@@ -1,3 +1,5 @@
+**STATUS: INTEGRATED (2026-11-18, B09 WP10, F57, `returned/A1-18-orffinder-out.zip`).**
+
 # TEMPORARY hand-off package A1-18 / A1-19 - NCBI ORFfinder 0.4.3 oracle (Docker, for the user's Mac)
 
 > **STATUS: DONE (2026-11-18, B09 WP10, F57).** The user ran the package (1750 runs; `ORFfinder -version` 0.4.3, x86_64, Debian 12, ORFfinder.gz sha256

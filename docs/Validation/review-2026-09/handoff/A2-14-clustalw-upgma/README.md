@@ -1,3 +1,5 @@
+**STATUS: INTEGRATED (2026-11-19, B09 F101, `returned/A2-14-clustalw-upgma-out.zip` -> `clustalw_upgma_oracle.tsv`).**
+
 # TEMPORARY hand-off package A2-14-clustalw-upgma - oracle for ClustalW 2.1 `-CLUSTERING=UPGMA -ALIGN` (Docker, for the user's Mac)
 
 **Why.** B09 audit item A2-14 asks for ClustalW's `-CLUSTERING=UPGMA`. The port is written (`SequenceAligner.ClustalWUpgma.cs`: `UPGMAAlgorithm` / `Node` / `RootedGuideTree` of `src/tree/UPGMA`, wired into
