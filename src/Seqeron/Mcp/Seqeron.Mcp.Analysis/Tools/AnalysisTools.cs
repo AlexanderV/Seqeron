@@ -774,13 +774,14 @@ public partial class AnalysisTools
     }
 
     [McpServerTool(Name = "find_pattern_hits", Title = "Genome — fuzznuc Pattern Search", ReadOnly = true)]
-    [Description("Search a DNA sequence with an EMBOSS fuzznuc pattern (the -pattern language): IUPAC letters, classes [ACG], exclusions {AG}, repeats N(3), length ranges A(2,4) (every matching window length is reported), '-' separators, the anchors '<' (start of the sequence) and '>' (end), a terminating '.'; e.g. [CG](5)TG{A}N(1,5)C. maxMismatches = fuzznuc -pmismatch (Hamming, substitutions only; with a range the extra repeats beyond n of X(n,m) must match exactly, as in fuzznuc); bothStrands = -complement (the reverse-strand pattern is the reversed, complemented one with swapped anchors; positions are forward-strand starts). Give one pattern, or patternFile = the text of a fuzznuc pattern file (one pattern per line, or FASTA '>name' + pattern) for several named patterns. Verified against EMBOSS fuzznuc 6.6.0 on 3300 random patterns. A symbol other than A/C/G/T in the sequence matches nothing and costs a mismatch. Positions 0-based; hits ordered by position, length, forward before reverse.")]
+    [Description("Search a DNA sequence with an EMBOSS fuzznuc pattern (the -pattern language): IUPAC letters, classes [ACG], exclusions {AG}, repeats N(3), length ranges A(2,4) (every matching window length is reported), '-' separators, the anchors '<' (start of the sequence) and '>' (end), a terminating '.'; e.g. [CG](5)TG{A}N(1,5)C. maxMismatches = fuzznuc -pmismatch (Hamming, substitutions only; with a range the extra repeats beyond n of X(n,m) must match exactly, as in fuzznuc); bothStrands = -complement (the reverse-strand pattern is the reversed, complemented one with swapped anchors; positions are forward-strand starts). Give one pattern, or patternFile = the text of a fuzznuc pattern file (one pattern per line, or FASTA '>name' + pattern) for several named patterns. Verified against EMBOSS fuzznuc 6.6.0 on 3300 random patterns. By default a symbol other than A/C/G/T in the sequence matches nothing and costs a mismatch; with sequenceAmbiguity = true the sequence is read as the fuzznuc binary reads it (1350 more oracle rows with ambiguity codes in the sequence): a pattern IUPAC letter matches every sequence symbol whose base set lies within the letter's (pattern R matches A, G, R; sequence R matches pattern R, V, D, N but not A, M, Y), N matches every symbol, a class [ACG] matches its plain bases only, an exclusion {AG} matches every symbol not listed (ambiguity codes included), U reads as T, and the reverse strand is the IUPAC reverse complement of the sequence (the reported patterns are the plain-base normal form). Positions 0-based; hits ordered by position, length, forward before reverse.")]
     public static FindPatternHitsResult FindPatternHits(
         [Description("Nucleotide sequence: A/C/G/T plus IUPAC codes such as N (case-insensitive).")] string sequence,
         [Description("One fuzznuc pattern (omit when patternFile is given).")] string? pattern = null,
         [Description("Text of a fuzznuc pattern file: one pattern per line, or FASTA style (>name then the pattern); several patterns are reported under their names (unnamed: pattern1, pattern2, ...).")] string? patternFile = null,
         [Description("Maximum substitutions per hit (fuzznuc -pmismatch, default 0).")] int maxMismatches = 0,
         [Description("Also search the reverse-complement strand (fuzznuc -complement, default false).")] bool bothStrands = false,
+        [Description("Read IUPAC ambiguity codes in the SEQUENCE as the fuzznuc binary does (default false: they match nothing).")] bool sequenceAmbiguity = false,
         CancellationToken cancellationToken = default)
     {
         var nucleotides = RequireIupacDna(sequence, nameof(sequence));
@@ -792,7 +793,7 @@ public partial class AnalysisTools
         var patterns = string.IsNullOrWhiteSpace(patternFile)
             ? new[] { new NamedPattern("pattern1", FuzznucPattern.Parse(pattern!)) }
             : FuzznucPattern.ParsePatternFile(patternFile).ToArray();
-        var hits = GenomicAnalyzer.FindPatternHits(nucleotides, patterns, maxMismatches, bothStrands, cancellationToken);
+        var hits = GenomicAnalyzer.FindPatternHits(nucleotides, patterns, maxMismatches, bothStrands, cancellationToken, sequenceAmbiguity);
         var items = hits
             .SelectMany(kv => kv.Value.Select(h => new PatternHitItem(kv.Key, h.Position, h.Length, h.IsReverseStrand ? "reverse" : "forward", h.Mismatches)))
             .ToArray();

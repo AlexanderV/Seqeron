@@ -148,6 +148,7 @@ public sealed class FuzznucPattern
             }
 
             int mask;
+            var kind = PatternElementKind.Letter;
             if (c is '[' or '{')
             {
                 char close = c == '[' ? ']' : '}';
@@ -178,6 +179,7 @@ public sealed class FuzznucPattern
                 }
 
                 mask = c == '[' ? listed : 0xF & ~listed;
+                kind = c == '[' ? PatternElementKind.Class : PatternElementKind.Exclusion;
                 i = closeAt + 1;
             }
             else if (IupacByPreference.Contains(char.ToUpperInvariant(c)))
@@ -228,7 +230,7 @@ public sealed class FuzznucPattern
                 i = closeAt + 1;
             }
 
-            elements.Add(new PatternElement(mask, min, max, isRange));
+            elements.Add(new PatternElement(mask, min, max, isRange, kind));
         }
 
         if (elements.Count == 0)
@@ -293,37 +295,98 @@ public sealed class FuzznucPattern
     /// <exception cref="ArgumentException">The repeat ranges allow more than <see cref="MaxCombinations"/> combinations.</exception>
     public IReadOnlyList<PatternExpansion> ExpandWithExtras()
     {
+        var results = new Dictionary<string, PatternExpansion>(StringComparer.Ordinal);
+        foreach (var path in ExpandPaths())
+        {
+            // an element with no allowed base cannot be repeated into a hit
+            if (path.Elements.Any(index => _elements[index].BaseSet == 0))
+                continue;
+            string iupac = string.Concat(path.Elements.Select(index => CodeOf(_elements[index].BaseSet)));
+            results.TryAdd(iupac + "|" + string.Join(',', path.ExtraPositions) + "|" + path.EndsWithEmptyElement,
+                new PatternExpansion(iupac, path.ExtraPositions, path.EndsWithEmptyElement));
+        }
+
+        return results.Values.OrderBy(e => e.Iupac.Length).ThenBy(e => e.Iupac, StringComparer.Ordinal)
+            .ThenBy(e => string.Join(',', e.ExtraPositions), StringComparer.Ordinal).ThenBy(e => e.EndsWithEmptyElement).ToList();
+    }
+
+    /// <summary>
+    /// Every way the pattern can be unrolled into a fixed-length hit, one entry per choice of the repeat counts, as the <b>element</b> (index into <see cref="Elements"/>) that stands at each
+    /// position — unlike <see cref="ExpandWithExtras"/> this keeps the kind of the element (letter, class, exclusion), which the literal sequence reading
+    /// (<see cref="Matches(int, char)"/>) needs. Paths without a base are omitted; an element with an empty base set (<c>{ACGT}</c>) can still stand in a path.
+    /// </summary>
+    /// <exception cref="ArgumentException">The repeat ranges allow more than <see cref="MaxCombinations"/> combinations.</exception>
+    public IReadOnlyList<PatternPath> ExpandPaths()
+    {
         double combinations = 1;
         foreach (var e in _elements)
             combinations *= e.MaxRepeat - e.MinRepeat + 1;
         if (combinations > MaxCombinations)
             throw new ArgumentException($"The pattern '{Source}' has {combinations:N0} repeat combinations (limit {MaxCombinations:N0}); narrow its ranges.");
 
-        var results = new Dictionary<string, PatternExpansion>(StringComparer.Ordinal);
-        Recurse(0, string.Empty, [], false);
-        return results.Values.OrderBy(e => e.Iupac.Length).ThenBy(e => e.Iupac, StringComparer.Ordinal)
-            .ThenBy(e => string.Join(',', e.ExtraPositions), StringComparer.Ordinal).ThenBy(e => e.EndsWithEmptyElement).ToList();
+        var paths = new List<PatternPath>();
+        Recurse(0, [], [], false);
+        return paths;
 
-        void Recurse(int index, string prefix, List<int> extras, bool lastEmpty)
+        void Recurse(int index, List<int> positions, List<int> extras, bool lastEmpty)
         {
             if (index == _elements.Length)
             {
-                if (prefix.Length > 0)
-                    results.TryAdd(prefix + "|" + string.Join(',', extras) + "|" + lastEmpty, new PatternExpansion(prefix, extras.ToArray(), lastEmpty));
+                if (positions.Count > 0)
+                    paths.Add(new PatternPath(positions.ToArray(), extras.ToArray(), lastEmpty));
                 return;
             }
 
             var element = _elements[index];
-            char code = CodeOf(element.BaseSet);
             for (int count = element.MinRepeat; count <= element.MaxRepeat; count++)
             {
-                if (count > 0 && code == '\0')
-                    break; // an element with no allowed base cannot be repeated into a hit
-                var next = new List<int>(extras);
-                for (int extra = element.MinRepeat; extra < count; extra++)
-                    next.Add(prefix.Length + extra);
-                Recurse(index + 1, code == '\0' ? prefix : prefix + new string(code, count), next, count == 0);
+                var nextPositions = new List<int>(positions);
+                var nextExtras = new List<int>(extras);
+                for (int copy = 0; copy < count; copy++)
+                {
+                    if (copy >= element.MinRepeat)
+                        nextExtras.Add(nextPositions.Count);
+                    nextPositions.Add(index);
+                }
+
+                Recurse(index + 1, nextPositions, nextExtras, count == 0);
             }
+        }
+    }
+
+    /// <summary>
+    /// Literal reading of a sequence symbol by element <paramref name="elementIndex"/> (<c>fuzznuc</c> with an ambiguity code in the SEQUENCE, measured on 6.6.0, 1 350 oracle rows):
+    /// <list type="bullet">
+    /// <item>a pattern IUPAC <b>letter</b> matches a symbol whose base set lies within the letter's own set (R matches A, G and R; the sequence's R does not match the letters A, M or Y; <c>N</c> matches every symbol, X included);</item>
+    /// <item>a <b>class</b> <c>[ACG]</c> matches the plain bases listed (a sequence ambiguity code never matches a class);</item>
+    /// <item>an <b>exclusion</b> <c>{AG}</c> matches every symbol not listed (an ambiguity code and X included; <c>{ACGT}</c> matches exactly the non-A/C/G/T symbols).</item>
+    /// </list>
+    /// U reads as T; a symbol that is not an IUPAC letter (X) matches only <c>N</c> and an exclusion.
+    /// </summary>
+    /// <param name="elementIndex">Index into <see cref="Elements"/>.</param>
+    /// <param name="symbol">The sequence symbol (any case).</param>
+    public bool Matches(int elementIndex, char symbol)
+    {
+        var e = _elements[elementIndex];
+        char upper = char.ToUpperInvariant(symbol);
+        if (upper == 'U')
+            upper = 'T';
+        bool iupac = IupacByPreference.Contains(upper);
+        int bits = iupac ? MaskOf(upper) : 0;
+        switch (e.Kind)
+        {
+            case PatternElementKind.Class:
+                return Bases.Contains(upper) && (bits & e.BaseSet) != 0;
+            case PatternElementKind.Exclusion:
+                {
+                    bool plain = Bases.Contains(upper);
+                    int listed = 0xF & ~e.BaseSet;
+                    return !(plain && (bits & listed) != 0);
+                }
+            default:
+                if (CodeOf(e.BaseSet) == 'N')
+                    return true;
+                return bits != 0 && (bits & ~e.BaseSet) == 0;
         }
     }
 
@@ -410,7 +473,9 @@ public sealed class FuzznucPattern
 /// <param name="MinRepeat">Fewest repeats (0 makes the element optional).</param>
 /// <param name="MaxRepeat">Most repeats.</param>
 /// <param name="IsRange">Written as a range <c>(n,m)</c> (even when n = m) — fuzznuc treats every pattern with such an element as a "range pattern" (regex / brute-force search).</param>
-public readonly record struct PatternElement(int BaseSet, int MinRepeat, int MaxRepeat, bool IsRange = false)
+/// <param name="Kind">How the element was written: an IUPAC letter, a class <c>[..]</c> or an exclusion <c>{..}</c> (the three read an ambiguity code in the SEQUENCE differently, see <see cref="FuzznucPattern.Matches(int, char)"/>; for a plain A/C/G/T sequence they are the same set).
+/// For an exclusion <paramref name="BaseSet"/> holds the bases that are allowed (the complement of the listed ones).</param>
+public readonly record struct PatternElement(int BaseSet, int MinRepeat, int MaxRepeat, bool IsRange = false, PatternElementKind Kind = PatternElementKind.Letter)
 {
     /// <summary>The allowed bases in A, C, G, T order.</summary>
     public string Bases
@@ -425,6 +490,25 @@ public readonly record struct PatternElement(int BaseSet, int MinRepeat, int Max
     /// <summary>The IUPAC code with exactly this base set, or '\0' for the empty set.</summary>
     public char IupacCode => FuzznucPattern.CodeOf(BaseSet);
 }
+
+/// <summary>How a <see cref="PatternElement"/> was written in the pattern.</summary>
+public enum PatternElementKind
+{
+    /// <summary>An IUPAC nucleotide letter (<c>A</c>, <c>R</c>, <c>N</c>, ...).</summary>
+    Letter = 0,
+
+    /// <summary>A class <c>[ACG]</c> of plain bases.</summary>
+    Class = 1,
+
+    /// <summary>An exclusion <c>{AG}</c> of plain bases.</summary>
+    Exclusion = 2,
+}
+
+/// <summary>One unrolling of a <see cref="FuzznucPattern"/> (<see cref="FuzznucPattern.ExpandPaths"/>): the element that stands at each position, the positions that are extra repeats, and whether the last element chose zero repeats.</summary>
+/// <param name="Elements">Index into <see cref="FuzznucPattern.Elements"/> for every position of the hit.</param>
+/// <param name="ExtraPositions">0-based positions that are extra repeats of a range (see <see cref="FuzznucPattern.ExpandWithExtras"/>).</param>
+/// <param name="EndsWithEmptyElement">The last pattern element contributes no base.</param>
+public readonly record struct PatternPath(IReadOnlyList<int> Elements, IReadOnlyList<int> ExtraPositions, bool EndsWithEmptyElement);
 
 /// <summary>A fixed-length expansion of a <see cref="FuzznucPattern"/>: its IUPAC string and the positions of the extra repeats (see <see cref="FuzznucPattern.ExpandWithExtras"/>).</summary>
 /// <param name="Iupac">The expansion as IUPAC letters.</param>

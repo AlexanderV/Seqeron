@@ -63,6 +63,16 @@ public class StrandPatternAndRepeatToolsTests
     }
 
     [Test]
+    public void FindPatternHits_SequenceAmbiguity_ReadsAmbiguityCodesAsFuzznucDoes()
+    {
+        // fuzznuc 6.6.0 on ARGRYN: pattern R -> bases 1-4 (+) and 5 (-); the default reading matches only the plain A and G (A3-12a, F146)
+        var r = AnalysisTools.FindPatternHits("ARGRYN", "R", bothStrands: true, sequenceAmbiguity: true);
+        Assert.That(r.Hits.Select(h => (h.Position, h.Strand)), Is.EquivalentTo(new[] { (0, "forward"), (1, "forward"), (2, "forward"), (3, "forward"), (4, "reverse") }));
+        var plain = AnalysisTools.FindPatternHits("ARGRYN", "R");
+        Assert.That(plain.Hits.Select(h => h.Position), Is.EqualTo(new[] { 0, 2 }));
+    }
+
+    [Test]
     public void FindPatternHits_FuzznucPatterns()
     {
         // fuzznuc -pattern "A(1,3)C" on AAAACAAAAT -> 1-based 4..5, 3..5, 2..5

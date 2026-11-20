@@ -208,6 +208,9 @@
     <!-- GENOMIC-MOTIFS-001 (B09 A2-32): the fuzznuc pattern language (classes, exclusions, repeats, ranges, anchors, mismatches, both strands): EMBOSS fuzznuc 6.6.0 == independent
          Python reference on 3300 random syntax-tree rows; scripts/analysis/generate_fuzznuc_pattern_oracle.py. -->
     <EmbeddedResource Include="TestData\Analysis\fuzznuc_pattern_oracle.tsv" />
+    <!-- GENOMIC-MOTIFS-001 (audit A3-12a, B09 F146): fuzznuc 6.6.0 with IUPAC ambiguity codes (and U, X) in the SEQUENCE == independent Python reference of the measured rules (1350 rows);
+         scripts/analysis/generate_fuzznuc_iupac_sequence_oracle.py. -->
+    <EmbeddedResource Include="TestData\Analysis\fuzznuc_iupac_sequence_oracle.tsv" />
     <!-- GENOMIC-TANDEM-001 (B09 A3-8): EMBOSS etandem / equicktandem 6.6.0 original-format output on random and planted sequences (1700 + 1300 rows);
          scripts/analysis/generate_emboss_tandem_oracle.py. -->
     <EmbeddedResource Include="TestData\Analysis\emboss_tandem_oracle.tsv" />
