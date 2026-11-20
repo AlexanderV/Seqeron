@@ -495,8 +495,9 @@ public static partial class SequenceComplexity
         int[] undefinedPrefix = UndefinedBasePrefixCounts(seq);
         int m = Math.Min(lcMaxWordLength, windowSize);
 
-        for (int i = 0; i + windowSize <= seq.Length; i += stepSize)
+        for (long start = 0; start + windowSize <= seq.Length; start += stepSize)      // long: stepSize = int.MaxValue overflowed i (IndexOutOfRangeException)
         {
+            int i = (int)start;
             if (undefinedPrefix[i + windowSize] != undefinedPrefix[i]) continue; // BBDuk: only windows with ns() < 1
 
             string window = seq.Substring(i, windowSize);
@@ -1111,7 +1112,8 @@ public static partial class SequenceComplexity
     {
         var res = new List<(int Start, int End)>();
         var perfect = new List<SdustPerfectInterval>(); // descending start, then ascending finish
-        var window = new SdustWindow(windowSize - DustWordSize + 1);
+        // the window holds at most one triplet code per sequence position, so a larger capacity never changes a result (windowSize = int.MaxValue was an OutOfMemoryException)
+        var window = new SdustWindow(Math.Min(windowSize - DustWordSize + 1, Math.Max(seq.Length, 1)));
         var cw = new int[DustTripletCodes];
         var cv = new int[DustTripletCodes];
         var scratch = new int[DustTripletCodes];

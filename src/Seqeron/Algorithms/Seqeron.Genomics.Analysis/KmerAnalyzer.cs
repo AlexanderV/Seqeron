@@ -1060,6 +1060,10 @@ public static class KmerAnalyzer
     public static double[] MarkovOrderBics(string sequence, int maxOrder)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(maxOrder);
+        ArgumentNullException.ThrowIfNull(sequence);
+        // an order r needs an (r + 1)-mer window: beyond the sequence length no order can be fitted (the loop below would throw this after allocating maxOrder + 1 values; int.MaxValue overflowed)
+        if (maxOrder >= sequence.Length)
+            throw new ArgumentException("Sequence has no (order+1)-mer window over A/C/G/T.", nameof(sequence));
         var bics = new double[maxOrder + 1];
         for (int r = 0; r <= maxOrder; r++)
             bics[r] = MarkovOrderBic(sequence, r);
@@ -2681,11 +2685,13 @@ public static class KmerAnalyzer
     /// <param name="k">The k-mer length. Must be positive.</param>
     /// <param name="alphabet">The ordered alphabet to use (default: DNA = "ACGT"). Must be non-empty.</param>
     /// <returns>All <c>alphabet.Length^k</c> k-mers (distinct when the alphabet symbols are distinct).</returns>
-    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="k"/> is not positive.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="k"/> is not positive or exceeds the maximum string length (0x3FFFFFDF).</exception>
     /// <exception cref="ArgumentException">Thrown when <paramref name="alphabet"/> is null or empty.</exception>
     public static IEnumerable<string> GenerateAllKmers(int k, string alphabet = "ACGT")
     {
         ThrowIfKNotPositive(k);
+        if (k > MaxKmerStringLength)
+            throw new ArgumentOutOfRangeException(nameof(k), k, $"A k-mer is a string: k cannot exceed the maximum string length {MaxKmerStringLength}.");
 
         if (string.IsNullOrEmpty(alphabet))
             throw new ArgumentException("Alphabet cannot be empty.", nameof(alphabet));
@@ -2698,6 +2704,8 @@ public static class KmerAnalyzer
     /// indices[i] is the alphabet position at k-mer position i; the rightmost index is
     /// advanced on every step and carries leftwards on wrap-around.
     /// </summary>
+    private const int MaxKmerStringLength = 0x3FFFFFDF;      // string.MaxLength of .NET
+
     private static IEnumerable<string> EnumerateCartesianProduct(int k, string alphabet)
     {
         int n = alphabet.Length;

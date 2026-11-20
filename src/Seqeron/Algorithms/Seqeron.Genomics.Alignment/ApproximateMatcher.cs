@@ -167,6 +167,7 @@ namespace Seqeron.Genomics.Alignment
         public static IEnumerable<ApproximateMatchResult> FindWithMismatches(
             DnaSequence sequence, string pattern, int maxMismatches)
         {
+            ArgumentNullException.ThrowIfNull(sequence);
             return FindWithMismatches(sequence.Sequence, pattern, maxMismatches);
         }
 
@@ -179,6 +180,7 @@ namespace Seqeron.Genomics.Alignment
             int maxMismatches,
             CancellationToken cancellationToken)
         {
+            ArgumentNullException.ThrowIfNull(sequence);
             return FindWithMismatches(sequence.Sequence, pattern, maxMismatches, cancellationToken);
         }
 
@@ -435,6 +437,7 @@ namespace Seqeron.Genomics.Alignment
         public static IEnumerable<ApproximateMatchResult> FindWithEdits(
             DnaSequence sequence, string pattern, int maxEdits)
         {
+            ArgumentNullException.ThrowIfNull(sequence);
             return FindWithEdits(sequence.Sequence, pattern, maxEdits);
         }
 
@@ -1269,6 +1272,9 @@ namespace Seqeron.Genomics.Alignment
             var counts = new Dictionary<string, int>();
             if (string.IsNullOrEmpty(sequence))
                 return counts;
+
+            if (k > sequence.Length)
+                return counts;                  // no length-k window exists: nothing to tally (and no k-sized scratch buffer: k = int.MaxValue was an OutOfMemoryException)
 
             var windowCounts = sequence.AsSpan().CountKmersSpan(k);
             var buffer = new char[k];
